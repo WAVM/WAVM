@@ -1,0 +1,5 @@
+External
+VS/**
+!VS/WAVM.sln
+!VS/WAVM.vcxproj
+!VS/WAVM.vcxproj.filters
