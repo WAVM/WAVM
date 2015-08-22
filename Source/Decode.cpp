@@ -264,6 +264,7 @@ namespace Decode
 		llvm::Type* llvmI8Type;
 		llvm::Type* llvmI16Type;
 		llvm::Type* llvmI32Type;
+		llvm::Type* llvmI64Type;
 		llvm::Type* llvmF32Type;
 		llvm::Type* llvmF64Type;
 
@@ -313,6 +314,7 @@ namespace Decode
 			llvmI8Type = llvm::Type::getInt8Ty(llvmContext);
 			llvmI16Type = llvm::Type::getInt16Ty(llvmContext);
 			llvmI32Type = llvm::Type::getInt32Ty(llvmContext);
+			llvmI64Type = llvm::Type::getInt64Ty(llvmContext);
 			llvmF32Type = llvm::Type::getFloatTy(llvmContext);
 			llvmF64Type = llvm::Type::getDoubleTy(llvmContext);
 
@@ -505,6 +507,10 @@ namespace Decode
 			{
 				byteIndex = llvmIRBuilder.CreateAdd(byteIndex,getLLVMConstantInt32(offset));
 			}
+
+			// This zext is crucial for security, as LLVM will otherwise sext it to 64-bits. That would allow negative offsets, and access
+			// to memory outside the VM's address space.
+			byteIndex = llvmIRBuilder.CreateZExt(byteIndex,llvmI64Type);
 
 			return llvmIRBuilder.CreateGEP(llvmIRBuilder.CreateLoad(module.llvmVirtualAddressBase),byteIndex);
 		}
