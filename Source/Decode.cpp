@@ -725,9 +725,32 @@ namespace Decode
 		llvm::Value* cond()
 		{
 			auto condition = decodeExpression<ReturnType::I32>();
+
+			auto trueBlock = llvm::BasicBlock::Create(llvmContext,"condTrue",llvmCurrentFunction);
+			auto falseBlock = llvm::BasicBlock::Create(llvmContext,"condFalse",llvmCurrentFunction);
+			auto successorBlock = llvm::BasicBlock::Create(llvmContext,"condSucc",llvmCurrentFunction);
+
+			if(llvmIRBuilder.GetInsertBlock())
+			{
+				llvmIRBuilder.CreateCondBr(castI32ToBool(condition),trueBlock,falseBlock);
+			}
+
+			llvmIRBuilder.SetInsertPoint(trueBlock);
 			auto trueValue = decodeExpression<T>();
+			auto trueExitBlock = llvmIRBuilder.GetInsertBlock();
+			createBranch(successorBlock);
+
+			llvmIRBuilder.SetInsertPoint(falseBlock);
 			auto falseValue = decodeExpression<T>();
-			return llvmIRBuilder.CreateSelect(castI32ToBool(condition),trueValue,falseValue);
+			auto falseExitBlock = llvmIRBuilder.GetInsertBlock();
+			createBranch(successorBlock);
+
+			llvmIRBuilder.SetInsertPoint(successorBlock);
+			auto phi = llvmIRBuilder.CreatePHI(trueValue->getType(),2);
+			phi->addIncoming(trueValue,trueExitBlock);
+			phi->addIncoming(falseValue,falseExitBlock);			
+
+			return phi;
 		}
 
 		// Calls a function.
