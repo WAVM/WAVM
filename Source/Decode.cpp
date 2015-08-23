@@ -780,7 +780,8 @@ namespace Decode
 		// Calls a function by index into the module's import table.
 		llvm::Value* callImport(uint32_t functionImportIndex)
 		{
-			const WAVM::FunctionImport& functionImport = module.functionImports[functionImportIndex];
+			WAVM::FunctionImport& functionImport = module.functionImports[functionImportIndex];
+			functionImport.isReferenced = true;
 			return call(llvmIRBuilder.CreateLoad(functionImport.llvmVariable),functionImport.type.args);
 		}
 		llvm::Value* callImport(ReturnType returnType,uint32_t functionImportIndex)
@@ -1529,7 +1530,8 @@ namespace Decode
 					module.functionImports.push_back({
 						functionType,
 						importName,
-						new llvm::GlobalVariable(*module.llvmModule,toLLVMType(functionType)->getPointerTo(),true,llvm::GlobalValue::PrivateLinkage,nullptr,importName)
+						new llvm::GlobalVariable(*module.llvmModule,toLLVMType(functionType)->getPointerTo(),true,llvm::GlobalValue::PrivateLinkage,nullptr,importName),
+						false
 						});
 				}
 			}

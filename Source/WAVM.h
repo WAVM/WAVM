@@ -72,6 +72,7 @@ namespace WAVM
 		FunctionType type;
 		std::string name;
 		llvm::GlobalVariable* llvmVariable;
+		bool isReferenced;
 	};
 
 	// Information about a global variable imported into a WASM module.
