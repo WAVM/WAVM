@@ -268,6 +268,17 @@ namespace WASM
 		F64
 	};
 
+	inline const char* getTypeName(Type type)
+	{
+		switch(type)
+		{
+		case Type::I32: return "I32";
+		case Type::F32: return "F32";
+		case Type::F64: return "F64";
+		default: return "invalid";
+		}
+	}
+
 	enum class VaReturnTypes : uint8_t
 	{
 		I32 = 0x1,
@@ -293,6 +304,18 @@ namespace WASM
 		F64 = uint8_t(Type::F64),
 		Void
 	};
+
+	inline const char* getTypeName(ReturnType type)
+	{
+		switch(type)
+		{
+		case ReturnType::I32: return "I32";
+		case ReturnType::F32: return "F32";
+		case ReturnType::F64: return "F64";
+		case ReturnType::Void: return "void";
+		default: return "invalid";
+		}
+	}
 
 	inline ReturnType to_ReturnType(Type t)
 	{

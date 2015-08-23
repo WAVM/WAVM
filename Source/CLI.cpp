@@ -151,14 +151,27 @@ int main(int argc,char** argv) try
 		));
 
 	// Look up intrinsic functions that match the name+type of functions imported by the module, and bind them to the global variable used by the module to access the import.
+	bool missingImport = false;
 	for(auto importIt = module.functionImports.begin();importIt != module.functionImports.end();++importIt)
 	{
 		const IntrinsicFunction* intrinsicFunction = findIntrinsicFunction(importIt->name.c_str());
 		void* functionPointer = intrinsicFunction && intrinsicFunction->type == importIt->type ? intrinsicFunction->value : nullptr;
 		if(!functionPointer)
 		{
-			cerr << "Missing intrinsic function " << importIt->name << endl;
-			return -1;
+			if(importIt->isReferenced)
+			{
+				cerr << "Missing intrinsic function " << importIt->name << " : (";
+				for(auto argIt = importIt->type.args.begin();argIt != importIt->type.args.end();++argIt)
+				{
+					if(argIt != importIt->type.args.begin())
+					{
+						cerr << ",";
+					}
+					cerr << WASM::getTypeName(*argIt);
+				}
+				cerr << ") -> " << WASM::getTypeName(importIt->type.ret) << endl;
+				missingImport = true;
+			}
 		}
 		importIt->llvmVariable->setInitializer(llvm::Constant::getIntegerValue(
 			importIt->llvmVariable->getType()->getElementType(),
@@ -167,6 +180,7 @@ int main(int argc,char** argv) try
 	}
 
 	// Look up intrinsic values that match the name+type of values imported by the module, and bind them to the global variable used by the module to access the import.
+	bool missingIntrinsicValue = false;
 	for(auto importIt = module.valueImports.begin();importIt != module.valueImports.end();++importIt)
 	{
 		const IntrinsicValue* intrinsicValue = findIntrinsicValue(importIt->name.c_str());
@@ -176,8 +190,8 @@ int main(int argc,char** argv) try
 		}
 		if(!intrinsicValue)
 		{
-			cerr << "Missing intrinsic value " << importIt->name << endl;
-			return -1;
+			cerr << "Missing intrinsic value " << importIt->name << " : " << WASM::getTypeName(importIt->type) << endl;
+			missingImport = true;
 		}
 		switch(importIt->type)
 		{
@@ -187,24 +201,30 @@ int main(int argc,char** argv) try
 		};
 	}
 
+	if(missingImport)
+	{
+		return -1;
+	}
+
+	// Generate machine code for the module.
 	auto jitStartTime = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 	cout << "Decoded in " << (jitStartTime - decodeStartTime) << "us" << endl;
-
 	jitCompileModule(module);
-
 	auto jitEndTime = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 	cout << "JITted in " << (jitEndTime - jitStartTime) << "us" << endl;
 
+	// Look up the function specified on the command line in the module.
 	auto foundFunction = module.exports.find(argv[3]);
 	if(foundFunction != module.exports.end())
 	{
 		const FunctionExport& function = foundFunction->second;
-		void* functionPtr = getJITFunctionPointer(function.llvmFunction);
-		assert(functionPtr);
-
 		assert(function.type.args.size() == 0);
 		assert(function.type.ret == WASM::ReturnType::I32);
 
+		void* functionPtr = getJITFunctionPointer(function.llvmFunction);
+		assert(functionPtr);
+
+		// Call the generate machine code for the function.
 		auto evalStartTime = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 		try
 		{
