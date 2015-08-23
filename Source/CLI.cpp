@@ -137,7 +137,7 @@ int main(int argc,char** argv) try
 
 	// Unpack .wasm file into a LLVM module.
 	Module module;
-	auto decodeStartTime = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+	auto decodeStartTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 	if(!decodeWASM(wasmBytes.data(),module))
 	{
 		cerr << wasmFileName << " isn't a binary WASM file" << endl;
@@ -207,11 +207,11 @@ int main(int argc,char** argv) try
 	}
 
 	// Generate machine code for the module.
-	auto jitStartTime = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-	cout << "Decoded in " << (jitStartTime - decodeStartTime) << "us" << endl;
+	auto jitStartTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+	cout << "Decoded in " << (jitStartTime - decodeStartTime) << "ms" << endl;
 	jitCompileModule(module);
-	auto jitEndTime = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-	cout << "JITted in " << (jitEndTime - jitStartTime) << "us" << endl;
+	auto jitEndTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+	cout << "JITted in " << (jitEndTime - jitStartTime) << "ms" << endl;
 
 	// Look up the function specified on the command line in the module.
 	auto foundFunction = module.exports.find(argv[3]);
@@ -225,7 +225,7 @@ int main(int argc,char** argv) try
 		assert(functionPtr);
 
 		// Call the generate machine code for the function.
-		auto evalStartTime = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+		auto evalStartTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 		try
 		{
 			uint32_t result = ((uint32_t(__cdecl*)())functionPtr)();
@@ -235,8 +235,8 @@ int main(int argc,char** argv) try
 		{
 			cout << "Program threw exception." << endl;
 		}
-		auto evalEndTime = std::chrono::time_point_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-		cout << "Evaluated in " << (evalEndTime - evalStartTime) << "us" << endl;
+		auto evalEndTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+		cout << "Evaluated in " << (evalEndTime - evalStartTime) << "ms" << endl;
 	}
 
 	// Free the virtual and physical memory used by the WebAssembly module.
