@@ -9,92 +9,10 @@
 using namespace std;
 using namespace WAVM;
 
-// The base of the 4GB virtual address space allocated for the VM.
-static uint8_t* vmVirtualAddressBase = nullptr;
-static size_t numCommittedVirtualPages = 0;
-static uint32_t numAllocatedBytes = 0;
-
-DEFINE_INTRINSIC_FUNCTION0(_abort,Void)
+namespace WAVM
 {
-	throw;
+	uint8_t* vmVirtualAddressBase = nullptr;
 }
-
-DEFINE_INTRINSIC_FUNCTION1(abort,Void,I32,a)
-{
-	throw;
-}
-
-DEFINE_INTRINSIC_FUNCTION3(___cxa_throw,Void,I32,a,I32,b,I32,c)
-{
-	throw;
-}
-
-
-
-DEFINE_INTRINSIC_FUNCTION1(_sbrk,I32,I32,numBytes)
-{
-	const uint32_t existingNumBytes = numAllocatedBytes;
-	if(numBytes > 0)
-	{
-		if(uint64_t(existingNumBytes) + numBytes > (1ull<<32))
-		{
-			return -1;
-		}
-		
-		const uint32_t pageSizeLog2 = getPreferredVirtualPageSizeLog2();
-		const uint32_t pageSize = 1ull << pageSizeLog2;
-		const uint32_t numDesiredPages = (numAllocatedBytes + numBytes + pageSize - 1) >> pageSizeLog2;
-		const uint32_t numNewPages = numDesiredPages - numCommittedVirtualPages;
-		if(numNewPages > 0)
-		{
-			bool successfullyCommittedPhysicalMemory = commitVirtualPages(vmVirtualAddressBase + (numCommittedVirtualPages << pageSizeLog2),numNewPages);
-			if(!successfullyCommittedPhysicalMemory)
-			{
-				return -1;
-			}
-			numAllocatedBytes += numBytes;
-			numCommittedVirtualPages += numNewPages;
-		}
-	}
-	else if(numBytes < 0)
-	{
-		numAllocatedBytes -= numBytes;
-	}
-	return (int32_t)existingNumBytes;
-}
-
-DEFINE_INTRINSIC_FUNCTION1(_time,I32,I32,vmAddress)
-{
-	time_t t = time(nullptr);
-	if(vmAddress)
-	{
-		int32_t* address = (int32_t*)(vmVirtualAddressBase + vmAddress);
-		*address = t;
-	}
-	return t;
-}
-
-DEFINE_INTRINSIC_FUNCTION0(___errno_location,I32)
-{
-	return 0;
-}
-
-DEFINE_INTRINSIC_FUNCTION1(_sysconf,I32,I32,a)
-{
-	enum { _SC_PAGE_SIZE = 30 };
-	switch(a)
-	{
-	case _SC_PAGE_SIZE: return 1 << getPreferredVirtualPageSizeLog2();
-	default: throw;
-	}
-}
-
-DEFINE_INTRINSIC_FUNCTION1(___cxa_allocate_exception,I32,I32,size)
-{
-	return _sbrkIntrinsicFunc(size);
-}
-
-DEFINE_INTRINSIC_VALUE(STACKTOP,I32,);
 
 int main(int argc,char** argv) try
 {
@@ -116,24 +34,22 @@ int main(int argc,char** argv) try
 	wasmStream.read((char*)wasmBytes.data(),wasmBytes.size());
 	wasmStream.close();
 
-	// For memory protection, allocate a full 32-bit address space of virtual pages, but only commit 1MB to start (enough for the static data segment and the stack).
+	// For memory protection, allocate a full 32-bit address space of virtual pages.
 	const size_t numAllocatedVirtualPages = 1ull << (32 - getPreferredVirtualPageSizeLog2());
 	vmVirtualAddressBase = allocateVirtualPages(numAllocatedVirtualPages);
 	assert(vmVirtualAddressBase);
-	auto sbrkResult = _sbrkIntrinsicFunc(5*1024*1024);
-	assert(sbrkResult != -1);
 
 	// Read the static memory file into the VM's memory at offset 8 (taken from the one Emscripten program I tested this on).
 	ifstream staticMemoryStream(staticMemoryFileName,ios::binary | ios::ate);
 	staticMemoryStream.exceptions(ios::failbit | ios::badbit);
 	const uint32_t numStaticMemoryBytes = staticMemoryStream.tellg();
+	vmSbrk(numStaticMemoryBytes + 8);
 	staticMemoryStream.seekg(0);
 	staticMemoryStream.read((char*)vmVirtualAddressBase + 8,numStaticMemoryBytes);
 	staticMemoryStream.close();
 
-	// Put the stack at 512KB, which allows up to 512KB-8 of static data.
-	assert(numStaticMemoryBytes <= 512*1024-8);
-	STACKTOPValue = 512*1024;
+	// Initialize the Emscripten intrinsics.
+	initEmscriptenIntrinsics();
 
 	// Unpack .wasm file into a LLVM module.
 	Module module;
@@ -228,8 +144,21 @@ int main(int argc,char** argv) try
 		auto evalStartTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 		try
 		{
-			uint32_t result = ((uint32_t(__cdecl*)())functionPtr)();
-			cout << "Program result: " << result << endl;
+			// Look up the iostream initialization function.
+			auto iostreamInitFunction = module.exports.find("__GLOBAL__sub_I_iostream_cpp");
+			if(iostreamInitFunction != module.exports.end())
+			{
+				assert(iostreamInitFunction->second.type.args.size() == 0);
+				assert(iostreamInitFunction->second.type.ret == WASM::ReturnType::Void);
+
+				void* iostreamInitFunctionPtr = getJITFunctionPointer(iostreamInitFunction->second.llvmFunction);
+				assert(iostreamInitFunctionPtr);
+
+				((void(__cdecl*)())iostreamInitFunctionPtr)();
+			}
+
+			uint32_t returnCode = ((uint32_t(__cdecl*)())functionPtr)();
+			cout << "Program returned: " << returnCode << endl;
 		}
 		catch(...)
 		{
@@ -238,10 +167,6 @@ int main(int argc,char** argv) try
 		auto evalEndTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
 		cout << "Evaluated in " << (evalEndTime - evalStartTime) << "ms" << endl;
 	}
-
-	// Free the virtual and physical memory used by the WebAssembly module.
-	decommitVirtualPages(vmVirtualAddressBase,numCommittedVirtualPages);
-	freeVirtualPages(vmVirtualAddressBase,numAllocatedVirtualPages);
 
 	return 0;
 }

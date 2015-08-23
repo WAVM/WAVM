@@ -57,6 +57,16 @@ namespace WAVM
 	static WAVM::IntrinsicFunction name##Function(#name,WAVM::FunctionType(WASM::ReturnType::returnType,{WASM::Type::arg0Type,WASM::Type::arg1Type,WASM::Type::arg2Type}),(void*)&name##IntrinsicFunc); \
 	WAVM::IntrinsicTypeDefs::returnType __cdecl name##IntrinsicFunc(WAVM::IntrinsicTypeDefs::arg0Type arg0Name,WAVM::IntrinsicTypeDefs::arg1Type arg1Name,WAVM::IntrinsicTypeDefs::arg2Type arg2Name)
 
+#define DEFINE_INTRINSIC_FUNCTION4(name,returnType,arg0Type,arg0Name,arg1Type,arg1Name,arg2Type,arg2Name,arg3Type,arg3Name) \
+	WAVM::IntrinsicTypeDefs::returnType __cdecl name##IntrinsicFunc(WAVM::IntrinsicTypeDefs::arg0Type,WAVM::IntrinsicTypeDefs::arg1Type,WAVM::IntrinsicTypeDefs::arg2Type,WAVM::IntrinsicTypeDefs::arg3Type); \
+	static WAVM::IntrinsicFunction name##Function(#name,WAVM::FunctionType(WASM::ReturnType::returnType,{WASM::Type::arg0Type,WASM::Type::arg1Type,WASM::Type::arg2Type,WASM::Type::arg3Type}),(void*)&name##IntrinsicFunc); \
+	WAVM::IntrinsicTypeDefs::returnType __cdecl name##IntrinsicFunc(WAVM::IntrinsicTypeDefs::arg0Type arg0Name,WAVM::IntrinsicTypeDefs::arg1Type arg1Name,WAVM::IntrinsicTypeDefs::arg2Type arg2Name,WAVM::IntrinsicTypeDefs::arg3Type arg3Name)
+
+#define DEFINE_INTRINSIC_FUNCTION5(name,returnType,arg0Type,arg0Name,arg1Type,arg1Name,arg2Type,arg2Name,arg3Type,arg3Name,arg4Type,arg4Name) \
+	WAVM::IntrinsicTypeDefs::returnType __cdecl name##IntrinsicFunc(WAVM::IntrinsicTypeDefs::arg0Type,WAVM::IntrinsicTypeDefs::arg1Type,WAVM::IntrinsicTypeDefs::arg2Type,WAVM::IntrinsicTypeDefs::arg3Type,WAVM::IntrinsicTypeDefs::arg4Type); \
+	static WAVM::IntrinsicFunction name##Function(#name,WAVM::FunctionType(WASM::ReturnType::returnType,{WASM::Type::arg0Type,WASM::Type::arg1Type,WASM::Type::arg2Type,WASM::Type::arg3Type,WASM::Type::arg4Type}),(void*)&name##IntrinsicFunc); \
+	WAVM::IntrinsicTypeDefs::returnType __cdecl name##IntrinsicFunc(WAVM::IntrinsicTypeDefs::arg0Type arg0Name,WAVM::IntrinsicTypeDefs::arg1Type arg1Name,WAVM::IntrinsicTypeDefs::arg2Type arg2Name,WAVM::IntrinsicTypeDefs::arg3Type arg3Name,WAVM::IntrinsicTypeDefs::arg4Type arg4Name)
+
 #define DEFINE_INTRINSIC_VALUE(name,type,initializer) \
 	WAVM::IntrinsicTypeDefs::type name##Value initializer; \
 	static WAVM::IntrinsicValue name##IntrinsicValue(#name,WASM::Type::type,(void*)&name##Value);

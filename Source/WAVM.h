@@ -101,6 +101,12 @@ namespace WAVM
 		llvm::GlobalVariable* llvmVirtualAddressBase;
 	};
 
+	// The base of the 4GB virtual address space allocated for the VM.
+	extern uint8_t* vmVirtualAddressBase;
+
+	// Commits or decommits memory in the VM virtual address space.
+	extern uint32_t vmSbrk(int32_t numBytes);
+
 	// Decodes a buffer containing the WASM module into a WAVM Module object.
 	bool decodeWASM(const uint8_t* packed,Module& outModule);
 
@@ -130,4 +136,7 @@ namespace WAVM
 	// Frees virtual addresses. Any physical memory committed to the addresses must have already been decommitted.
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	void freeVirtualPages(uint8_t* baseVirtualAddress,size_t numPages);
+
+	// Initializes intrinsic values used by WASM from Emscripten.
+	void initEmscriptenIntrinsics();
 }
