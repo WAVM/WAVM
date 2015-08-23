@@ -912,20 +912,19 @@ namespace Decode
 
 		void decodeWhile()
 		{
-			auto condition = decodeExpression<ReturnType::I32>();
-
+			auto conditionBlock = llvm::BasicBlock::Create(llvmContext,"whileCondition",llvmCurrentFunction);
 			auto loopBlock = llvm::BasicBlock::Create(llvmContext,"whileLoop",llvmCurrentFunction);
 			auto successorBlock = llvm::BasicBlock::Create(llvmContext,"whileSucc",llvmCurrentFunction);
 
-			if(llvmIRBuilder.GetInsertBlock())
-			{
-				llvmIRBuilder.CreateCondBr(castI32ToBool(condition),loopBlock,successorBlock);
-			}
-			implicitLabels.push_back({successorBlock,loopBlock});
+			createBranch(conditionBlock);
+			llvmIRBuilder.SetInsertPoint(conditionBlock);
+			auto condition = decodeExpression<ReturnType::I32>();
+			llvmIRBuilder.CreateCondBr(castI32ToBool(condition),loopBlock,successorBlock);
+			implicitLabels.push_back({successorBlock,conditionBlock});
 
 			llvmIRBuilder.SetInsertPoint(loopBlock);
 			decodeStatement();
-			createBranch(loopBlock);
+			createBranch(conditionBlock);
 
 			implicitLabels.pop_back();
 			llvmIRBuilder.SetInsertPoint(successorBlock);
