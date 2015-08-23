@@ -100,7 +100,7 @@ int main(int argc,char** argv) try
 {
 	if(argc != 4)
 	{
-		cerr <<  "Usage: WAVM in.wasm functionname" << endl;
+		cerr <<  "Usage: WAVM in.wasm in.js.mem functionname" << endl;
 		return -1;
 	}
 
