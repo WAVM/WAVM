@@ -97,7 +97,7 @@ namespace JIT
 		// See if an existing instance of MCJIT has this function.
 		for(auto engineIt = engines.begin();engineIt != engines.end();++engineIt)
 		{
-			void *P = (*engineIt)->getPointerToFunction(function);
+			void *P = (void*)(*engineIt)->getFunctionAddress(function->getName());
 			if(P)
 				return P;
 		}

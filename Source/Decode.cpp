@@ -1489,6 +1489,7 @@ namespace Decode
 			// Mark all the exported functions as having external linkage to ensure they aren't optimized away.
 			for(auto exportIt = module.exports.begin();exportIt != module.exports.end();++exportIt)
 			{
+				exportIt->second.llvmFunction->setName(exportIt->first);
 				exportIt->second.llvmFunction->setLinkage(llvm::GlobalValue::ExternalLinkage);
 			}
 		}
