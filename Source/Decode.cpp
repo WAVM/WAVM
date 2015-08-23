@@ -790,7 +790,7 @@ namespace Decode
 			auto tableSize = functionPointerTableSizes[tableIndex];
 			auto functionType = functionPointerTableTypes[tableIndex];
 			auto elementIndex = decodeExpression<ReturnType::I32>();
-			auto maskedElementIndex = llvmIRBuilder.CreateAnd(elementIndex,getLLVMConstantInt32(tableSize));
+			auto maskedElementIndex = llvmIRBuilder.CreateAnd(elementIndex,getLLVMConstantInt32(tableSize-1));
 			auto function = llvmIRBuilder.CreateLoad(llvmIRBuilder.CreateGEP(functionPointerTable,std::vector<llvm::Value*>({getLLVMConstantInt32(0),maskedElementIndex})));
 			return call(function,functionType.args);
 		}
