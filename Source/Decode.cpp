@@ -508,7 +508,7 @@ namespace Decode
 			// to memory outside the VM's address space.
 			byteIndex = llvmIRBuilder.CreateZExt(byteIndex,llvmI64Type);
 
-			return llvmIRBuilder.CreateGEP(llvmIRBuilder.CreateLoad(module.llvmVirtualAddressBase),byteIndex);
+			return llvmIRBuilder.CreateInBoundsGEP(llvmIRBuilder.CreateLoad(module.llvmVirtualAddressBase),byteIndex);
 		}
 
 		// Loads an I8, I16, or I32 into an I32 intermediate. I8 and I16 is either zero or sign extended to 32-bit depending on isSigned.
