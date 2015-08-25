@@ -611,12 +611,12 @@ namespace Decode
 			case FloatUnaryOp::Sqrt: return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmSqrtF32Intrinsic : llvmSqrtF64Intrinsic,operand);
 			case FloatUnaryOp::Cos: return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmCosF32Intrinsic : llvmCosF64Intrinsic,operand);
 			case FloatUnaryOp::Sin: return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmSinF32Intrinsic : llvmSinF64Intrinsic,operand);
-			case FloatUnaryOp::Tan: /*HACK*/return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmLogF32Intrinsic : llvmLogF64Intrinsic,operand);
+			case FloatUnaryOp::Tan: throw;
 			case FloatUnaryOp::Exp: return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmExpF32Intrinsic : llvmExpF64Intrinsic,operand);
 			case FloatUnaryOp::Log: return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmLogF32Intrinsic : llvmLogF64Intrinsic,operand);
-			case FloatUnaryOp::ACos: /*HACK*/return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmLogF32Intrinsic : llvmLogF64Intrinsic,operand);
-			case FloatUnaryOp::ASin: /*HACK*/return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmLogF32Intrinsic : llvmLogF64Intrinsic,operand);
-			case FloatUnaryOp::ATan: /*HACK*/return llvmIRBuilder.CreateCall(operandType == ReturnType::F32 ? llvmLogF32Intrinsic : llvmLogF64Intrinsic,operand);
+			case FloatUnaryOp::ACos: throw;
+			case FloatUnaryOp::ASin: throw;
+			case FloatUnaryOp::ATan: throw;
 			default: return unreachable<llvm::Value*>();
 			}
 		}
@@ -659,8 +659,8 @@ namespace Decode
 			case FloatBinaryOp::Mul: return llvmIRBuilder.CreateFMul(leftOperand,rightOperand);
 			case FloatBinaryOp::Div: return llvmIRBuilder.CreateFDiv(leftOperand,rightOperand);
 			case FloatBinaryOp::Rem: return llvmIRBuilder.CreateFRem(leftOperand,rightOperand);
-			case FloatBinaryOp::ATan2: /*HACK*/return llvmIRBuilder.CreateFRem(leftOperand,rightOperand);
-			case FloatBinaryOp::Pow: /*HACK*/return llvmIRBuilder.CreateFRem(leftOperand,rightOperand);
+			case FloatBinaryOp::ATan2: throw;
+			case FloatBinaryOp::Pow: throw;
 			default: return unreachable<llvm::Value*>();
 			}
 		}
