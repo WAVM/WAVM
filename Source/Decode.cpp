@@ -220,12 +220,6 @@ namespace Decode
 		}
 	}
 
-	struct Label
-	{
-		llvm::BasicBlock* breakToBlock;
-		llvm::BasicBlock* continueToBlock;
-	};
-
 	struct State
 	{
 		In read;
@@ -248,8 +242,10 @@ namespace Decode
 		vector<llvm::Value*> globalVariableAddresses;
 
 		// Information about the current operation being decoded.
-		vector<Label> explicitLabels;
-		vector<Label> implicitLabels;
+		vector<llvm::BasicBlock*> explicitBreakLabels;
+		vector<llvm::BasicBlock*> implicitBreakLabels;
+		vector<llvm::BasicBlock*> explicitContinueLabels;
+		vector<llvm::BasicBlock*> implicitContinueLabels;
 		llvm::Function* llvmCurrentFunction;
 		ReturnType currentReturnType;
 		vector<Type> localVariableTypes;
@@ -920,13 +916,15 @@ namespace Decode
 			llvmIRBuilder.SetInsertPoint(conditionBlock);
 			auto condition = decodeExpression<ReturnType::I32>();
 			llvmIRBuilder.CreateCondBr(castI32ToBool(condition),loopBlock,successorBlock);
-			implicitLabels.push_back({successorBlock,conditionBlock});
+			implicitBreakLabels.push_back(successorBlock);
+			implicitContinueLabels.push_back(conditionBlock);
 
 			llvmIRBuilder.SetInsertPoint(loopBlock);
 			decodeStatement();
 			createBranch(conditionBlock);
 
-			implicitLabels.pop_back();
+			implicitBreakLabels.pop_back();
+			implicitContinueLabels.pop_back();
 			llvmIRBuilder.SetInsertPoint(successorBlock);
 		}
 
@@ -936,7 +934,8 @@ namespace Decode
 			auto successorBlock = llvm::BasicBlock::Create(llvmContext,"doSucc",llvmCurrentFunction);
 
 			createBranch(loopBlock);
-			implicitLabels.push_back({successorBlock,loopBlock});
+			implicitBreakLabels.push_back(successorBlock);
+			implicitContinueLabels.push_back(loopBlock);
 
 			llvmIRBuilder.SetInsertPoint(loopBlock);
 			decodeStatement();
@@ -946,7 +945,8 @@ namespace Decode
 				llvmIRBuilder.CreateCondBr(castI32ToBool(condition),loopBlock,successorBlock);
 			}
 
-			implicitLabels.pop_back();
+			implicitBreakLabels.pop_back();
+			implicitContinueLabels.pop_back();
 			llvmIRBuilder.SetInsertPoint(successorBlock);
 		}
 
@@ -958,9 +958,11 @@ namespace Decode
 			createBranch(continueBlock);
 			llvmIRBuilder.SetInsertPoint(continueBlock);
 
-			explicitLabels.push_back({breakBlock,continueBlock});
+			explicitBreakLabels.push_back(breakBlock);
+			explicitContinueLabels.push_back(continueBlock);
 			decodeStatement();
-			explicitLabels.pop_back();
+			explicitBreakLabels.pop_back();
+			explicitContinueLabels.pop_back();
 
 			llvmIRBuilder.CreateBr(breakBlock);
 			llvmIRBuilder.SetInsertPoint(breakBlock);
@@ -968,9 +970,9 @@ namespace Decode
 
 		void decodeBreak()
 		{
-			assert(implicitLabels.size());
-			const uint32_t labelIndex = implicitLabels.size() - 1;
-			createBranch(implicitLabels[labelIndex].breakToBlock);
+			assert(implicitBreakLabels.size());
+			const uint32_t labelIndex = implicitBreakLabels.size() - 1;
+			createBranch(implicitBreakLabels[labelIndex]);
 
 			// Clear the insert point for the unreachable code that may follow the break.
 			llvmIRBuilder.ClearInsertionPoint();
@@ -978,9 +980,9 @@ namespace Decode
 
 		void decodeContinue()
 		{
-			assert(implicitLabels.size());
-			const uint32_t labelIndex = implicitLabels.size() - 1;
-			createBranch(implicitLabels[labelIndex].continueToBlock);
+			assert(implicitContinueLabels.size());
+			const uint32_t labelIndex = implicitContinueLabels.size() - 1;
+			createBranch(implicitContinueLabels[labelIndex]);
 
 			// Clear the insert point for the unreachable code that may follow the continue.
 			llvmIRBuilder.ClearInsertionPoint();
@@ -988,8 +990,8 @@ namespace Decode
 
 		void decodeBreakLabel(uint32_t labelIndex)
 		{
-			assert(labelIndex < explicitLabels.size());
-			createBranch(explicitLabels[labelIndex].breakToBlock);
+			assert(labelIndex < explicitBreakLabels.size());
+			createBranch(explicitBreakLabels[labelIndex]);
 
 			// Clear the insert point for the unreachable code that may follow the break.
 			llvmIRBuilder.ClearInsertionPoint();
@@ -997,8 +999,8 @@ namespace Decode
 
 		void decodeContinueLabel(uint32_t labelIndex)
 		{
-			assert(labelIndex < explicitLabels.size());
-			createBranch(explicitLabels[labelIndex].continueToBlock);
+			assert(labelIndex < explicitContinueLabels.size());
+			createBranch(explicitContinueLabels[labelIndex]);
 
 			// Clear the insert point for the unreachable code that may follow the continue.
 			llvmIRBuilder.ClearInsertionPoint();
@@ -1011,7 +1013,7 @@ namespace Decode
 			auto defaultBlock = llvm::BasicBlock::Create(llvmContext,"switchDefault",llvmCurrentFunction);
 			auto successorBlock = llvm::BasicBlock::Create(llvmContext,"switchSucc",llvmCurrentFunction);
 			
-			implicitLabels.push_back({successorBlock,nullptr});
+			implicitBreakLabels.push_back(successorBlock);
 
 			auto switchInstruction = llvmIRBuilder.CreateSwitch(value,defaultBlock,numCases);
 			vector<llvm::BasicBlock*> caseEntryBasicBlocks(numCases + 1);
@@ -1062,7 +1064,7 @@ namespace Decode
 			}
 			caseEntryBasicBlocks[numCases] = successorBlock;
 
-			implicitLabels.pop_back();
+			implicitBreakLabels.pop_back();
 
 			for(uint32_t caseIndex = 0;caseIndex < numCases;++caseIndex)
 			{
