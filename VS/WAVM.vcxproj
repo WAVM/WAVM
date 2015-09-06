@@ -10,6 +10,43 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Source\AST\AST.cpp" />
+    <ClCompile Include="..\Source\CLI.cpp" />
+    <ClCompile Include="..\Source\Memory.cpp" />
+    <ClCompile Include="..\Source\Runtime\EmscriptenIntrinsics.cpp" />
+    <ClCompile Include="..\Source\Runtime\Intrinsics.cpp" />
+    <ClCompile Include="..\Source\Runtime\LLVMJIT.cpp" />
+    <ClCompile Include="..\Source\SExpressions.cpp" />
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyBinary.cpp" />
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextSymbols.cpp" />
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyText.cpp" />
+    <ClCompile Include="..\Source\Windows.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Source\AST\AST.h" />
+    <ClInclude Include="..\Source\AST\ASTDispatch.h" />
+    <ClInclude Include="..\Source\AST\ASTExpressions.h" />
+    <ClInclude Include="..\Source\AST\ASTOpcodes.h" />
+    <ClInclude Include="..\Source\AST\ASTTypes.h" />
+    <ClInclude Include="..\Source\Memory.h" />
+    <ClInclude Include="..\Source\Runtime\Intrinsics.h" />
+    <ClInclude Include="..\Source\Runtime\LLVMJIT.h" />
+    <ClInclude Include="..\Source\SExpressions.h" />
+    <ClInclude Include="..\Source\WAVM.h" />
+    <ClInclude Include="..\Source\WebAssembly\WebAssemblyTextSymbols.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md" />
+    <None Include="..\Test\WAST\exports.wasm" />
+    <None Include="..\Test\WAST\fac.wasm" />
+    <None Include="..\Test\WAST\float32.wasm" />
+    <None Include="..\Test\WAST\forward.wasm" />
+    <None Include="..\Test\WAST\memory.wasm" />
+    <None Include="..\Test\WAST\multivalue.wasm" />
+    <None Include="..\Test\WAST\switch.wasm" />
+    <None Include="..\Test\WAST\unsigned.wasm" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{77F09395-7509-453E-AF69-877EBC7053BD}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
@@ -52,7 +89,8 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;_SCL_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_WARNINGS;__STDC_CONSTANT_MACROS;__STDC_FORMAT_MACROS;__STDC_LIMIT_MACROS;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../External/llvm/include;../External/llvm.build/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../External/llvm/include;../External/llvm.build/include;../Source</AdditionalIncludeDirectories>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -70,7 +108,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;_SCL_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_WARNINGS;__STDC_CONSTANT_MACROS;__STDC_FORMAT_MACROS;__STDC_LIMIT_MACROS;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../External/llvm/include;../External/llvm.build/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../External/llvm/include;../External/llvm.build/include;../Source</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -81,18 +119,6 @@
       <AdditionalLibraryDirectories>../External/llvm.build/$(Configuration)/lib</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="..\Source\Intrinsics.h" />
-    <ClInclude Include="..\Source\WASM.h" />
-    <ClInclude Include="..\Source\WAVM.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\Source\CLI.cpp" />
-    <ClCompile Include="..\Source\Decode.cpp" />
-    <ClCompile Include="..\Source\Intrinsics.cpp" />
-    <ClCompile Include="..\Source\JIT.cpp" />
-    <ClCompile Include="..\Source\Windows.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

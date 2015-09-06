@@ -1,0 +1,152 @@
+#pragma once
+
+#include <cstdint>
+#include <memory>
+#include <assert.h>
+
+namespace Memory
+{
+	class Arena
+	{
+		struct Segment;
+	public:
+
+		struct Mark
+		{
+			Mark(Arena& inArena);
+		
+			void restore();
+
+		private:
+			Arena* arena;
+			Segment* savedSegment;
+			size_t savedSegmentAllocatedBytes;
+			size_t savedTotalAllocatedBytes;
+		};
+
+		Arena(size_t inDefaultSegmentBytes = 8192)
+		: defaultSegmentBytes(inDefaultSegmentBytes), currentSegment(nullptr), currentSegmentAllocatedBytes(0), totalAllocatedBytes(0) {}
+		~Arena();
+	
+		void* allocate(size_t numBytes);
+		void* reallocateRaw(void* oldAllocation,size_t previousNumBytes,size_t newNumBytes);
+
+		template<typename T> T* allocate(size_t numT) { return (T*)allocate(sizeof(T) * numT); }
+		template<typename T> T* reallocate(T* oldAllocation,size_t oldNumT,size_t newNumT)
+		{ return (T*)reallocateRaw(oldAllocation,sizeof(T) * oldNumT,sizeof(T) * newNumT); }
+
+		template<typename T> T* copyToArena(const T* source,size_t count) { auto dest = allocate<T>(count); std::copy(source,source+count,dest); return dest; }
+
+		size_t getTotalAllocatedBytes() const { return totalAllocatedBytes; }
+
+	private:
+
+		struct Segment
+		{
+			Segment* previousSegment;
+
+			size_t totalBytes;
+
+			uint8_t memory[1];
+		};
+
+		size_t defaultSegmentBytes;
+		Segment* currentSegment;
+		size_t currentSegmentAllocatedBytes;
+		size_t totalAllocatedBytes;
+
+		void revert(Segment* newSegment,size_t newSegmentAllocatedBytes,size_t newTotalAllocatedBytes);
+	};
+
+	// Encapsulates an arena used to allocate memory that is freed when the ScopedArena goes out of scope.
+	// Implemented using a thread-local Arena.
+	struct ScopedArena : private Arena::Mark
+	{
+		ScopedArena();
+		~ScopedArena();
+
+		Arena& getArena() const;
+		operator Arena&() const { return getArena(); }
+	};
+	
+	// Encapsulates an array allocated from a memory arena. Doesn't call constructors/destructors.
+	template<typename Element>
+	struct ArenaArray
+	{
+		ArenaArray(): elements(nullptr), numElements(0) {}
+		ArenaArray(const ArenaArray&) = delete;
+		ArenaArray(ArenaArray&& inMove): elements(inMove.elements), numElements(inMove.numElements)
+		{ inMove.elements = nullptr; inMove.numElements = 0; }
+		
+		void reset(Arena& arena) { elements = arena.reallocate(elements,numElements,0); numElements = 0; }
+		void resize(Arena& arena,size_t newNumElements)
+		{
+			elements = arena.reallocate(elements,numElements,newNumElements);
+			numElements = newNumElements;
+		}
+
+		friend bool operator==(const ArenaArray<Element>& left,const ArenaArray<Element>& right)
+		{
+			if(left.size() != right.size()) { return false; }
+			for(uintptr_t elementIndex = 0;elementIndex < left.size();++elementIndex)
+			{ if(left[elementIndex] != right[elementIndex]) { return false; } }
+			return true;
+		}
+
+		const Element* data() const { return elements; }
+		Element* data() { return elements; }
+		const Element& operator[](uintptr_t index) const { assert(index < numElements); return elements[index]; }
+		Element& operator[](uintptr_t index) { assert(index < numElements); return elements[index]; }
+		size_t size() const { return numElements; }
+	private:
+		Element* elements;
+		size_t numElements;
+	};
+
+	// Encapsulates a string allocated from a memory arena.
+	struct ArenaString
+	{
+		void reset(Arena& arena) { characters.reset(arena); }
+		void append(Arena& arena,const char c)
+		{
+			size_t newLength = length() + 1;
+			characters.resize(arena,newLength + 1);
+			characters[characters.size() - 2] = c;
+			characters[characters.size() - 1] = 0;
+		}
+
+		const char* c_str() const { if(characters.size()) { return characters.data(); } else { return ""; } }
+		const char operator[](uintptr_t index) const { assert(index < length()); return characters[index]; }
+		char& operator[](uintptr_t index) { assert(index < length()); return characters[index]; }
+		size_t length() const { return characters.size() ? characters.size() - 1 : 0; }
+	private:
+		ArenaArray<char> characters;
+	};
+
+	// Returns the base 2 logarithm of the preferred virtual page size.
+	uint32_t getPreferredVirtualPageSizeLog2();
+
+	// Allocates virtual addresses without commiting physical pages to them.
+	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual address space has been exhausted.
+	uint8_t* allocateVirtualPages(size_t numPages);
+
+	// Commits physical memory to the specified virtual pages.
+	// baseVirtualAddress must be a multiple of the preferred page size.
+	// Return true if successful, or false if physical memory has been exhausted.
+	bool commitVirtualPages(uint8_t* baseVirtualAddress,size_t numPages);
+
+	// Decommits the physical memory that was committed to the specified virtual pages.
+	// baseVirtualAddress must be a multiple of the preferred page size.
+	void decommitVirtualPages(uint8_t* baseVirtualAddress,size_t numPages);
+
+	// Frees virtual addresses. Any physical memory committed to the addresses must have already been decommitted.
+	// baseVirtualAddress must be a multiple of the preferred page size.
+	void freeVirtualPages(uint8_t* baseVirtualAddress,size_t numPages);
+}
+
+inline void* operator new(size_t numBytes,Memory::Arena& arena)
+{
+	return arena.allocate(numBytes);
+}
+
+void operator delete(void*,size_t,Memory::Arena&) = delete;

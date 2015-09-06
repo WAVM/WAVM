@@ -1,41 +1,100 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <ClCompile Include="..\Source\CLI.cpp" />
+    <ClCompile Include="..\Source\SExpressions.cpp" />
+    <ClCompile Include="..\Source\Windows.cpp" />
+    <ClCompile Include="..\Source\AST\AST.cpp">
+      <Filter>AST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyBinary.cpp">
+      <Filter>WebAssembly</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\Memory.cpp" />
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyText.cpp">
+      <Filter>WebAssembly</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextSymbols.cpp">
+      <Filter>WebAssembly</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\Runtime\LLVMJIT.cpp">
+      <Filter>Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\Runtime\EmscriptenIntrinsics.cpp">
+      <Filter>Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\Runtime\Intrinsics.cpp">
+      <Filter>Runtime</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Source\SExpressions.h" />
+    <ClInclude Include="..\Source\WAVM.h" />
+    <ClInclude Include="..\Source\AST\AST.h">
+      <Filter>AST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\AST\ASTDispatch.h">
+      <Filter>AST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\AST\ASTExpressions.h">
+      <Filter>AST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\AST\ASTOpcodes.h">
+      <Filter>AST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\AST\ASTTypes.h">
+      <Filter>AST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\Memory.h" />
+    <ClInclude Include="..\Source\WebAssembly\WebAssemblyTextSymbols.h">
+      <Filter>WebAssembly</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\Runtime\Intrinsics.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\Runtime\LLVMJIT.h">
+      <Filter>Runtime</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="AST">
+      <UniqueIdentifier>{1cdc2c66-a891-46b8-9ccb-260ff453969b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    <Filter Include="WebAssembly">
+      <UniqueIdentifier>{beaaeba1-6465-4f69-b9c6-1ab8ed33d5b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tests">
+      <UniqueIdentifier>{b918ff5f-9187-4349-b245-a36ef908c91f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Runtime">
+      <UniqueIdentifier>{d4eb13fa-1329-4bdb-b523-fbfa14f6d0ce}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Source\WASM.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Source\WAVM.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Source\Intrinsics.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\Source\CLI.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source\Decode.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source\Intrinsics.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source\Windows.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Source\JIT.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <None Include="..\Test\WAST\fac.wasm">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="..\Test\WAST\float32.wasm">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="..\Test\WAST\forward.wasm">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="..\Test\WAST\memory.wasm">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="..\Test\WAST\multivalue.wasm">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="..\Test\WAST\switch.wasm">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="..\Test\WAST\unsigned.wasm">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="..\Test\WAST\exports.wasm">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="..\README.md" />
   </ItemGroup>
 </Project>

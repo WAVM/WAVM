@@ -1,12 +1,12 @@
 #include "WAVM.h"
-#include "Intrinsics.h"
+#include "Memory.h"
+#include "AST/AST.h"
+#include "Runtime/LLVMJIT.h"
 
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
-#include <chrono>
 
-using namespace std;
 using namespace WAVM;
 
 namespace WAVM
@@ -16,167 +16,133 @@ namespace WAVM
 
 int main(int argc,char** argv) try
 {
-	if(argc != 4)
+	AST::Module* module = nullptr;
+	const char* functionName;
+	if(!stricmp(argv[1],"-text") && argc == 4)
 	{
-		cerr <<  "Usage: WAVM in.wasm in.js.mem functionname" << endl;
+		functionName = argv[3];
+		// Load the module from a text WebAssembly file.
+		std::ifstream wastStream(argv[2]);
+		auto wastString = std::string(std::istreambuf_iterator<char>(wastStream),std::istreambuf_iterator<char>());
+		Timer loadTimer;
+		WebAssemblyText::File wastFile;
+		if(!WebAssemblyText::parse(wastString.c_str(),wastFile))
+		{
+			// Print any parse errors;
+			std::cerr << "Error parsing WebAssembly text file:" << std::endl;
+			for(auto error : wastFile.errors) { std::cerr << error->message.c_str() << std::endl; }
+			return -1;
+		}
+		if(!wastFile.modules.size())
+		{
+			std::cerr << "WebAssembly text file didn't contain any modules!" << std::endl;
+			return -1;
+		}
+		module = wastFile.modules[0];
+		std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	}
+	else if(!stricmp(argv[1],"-binary") && argc == 5)
+	{
+		functionName = argv[4];
+		// Read in packed .wasm file bytes.
+		std::vector<uint8_t> wasmBytes;
+		std::ifstream wasmStream(argv[2],std::ios::binary | std::ios::ate);
+		wasmStream.exceptions(std::ios::failbit | std::ios::badbit);
+		wasmBytes.resize((unsigned int)wasmStream.tellg());
+		wasmStream.seekg(0);
+		wasmStream.read((char*)wasmBytes.data(),wasmBytes.size());
+		wasmStream.close();
+
+		// Load the module from a binary WebAssembly file.
+		Timer loadTimer;
+		std::vector<AST::ErrorRecord*> errors;
+		if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),module,errors))
+		{
+			std::cerr << "Error parsing WebAssembly binary file:" << std::endl;
+			for(auto error : errors) { std::cerr << error->message.c_str() << std::endl; }
+			return -1;
+		}
+		std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+
+		// Load the static data from the .mem file on the commandline.
+		const char* staticMemoryFileName = argv[3];
+		std::ifstream staticMemoryStream(staticMemoryFileName,std::ios::binary | std::ios::ate);
+		staticMemoryStream.exceptions(std::ios::failbit | std::ios::badbit);
+		const uint32_t numStaticMemoryBytes = staticMemoryStream.tellg();
+		auto segmentMemory = module->arena.allocate<uint8_t>(numStaticMemoryBytes);
+		staticMemoryStream.seekg(0);
+		staticMemoryStream.read((char*)segmentMemory,numStaticMemoryBytes);
+		staticMemoryStream.close();
+
+		module->dataSegments.push_back({8,numStaticMemoryBytes,segmentMemory});
+		module->initialNumBytesMemory = numStaticMemoryBytes + 8;
+		module->maxNumBytesMemory = 1ull << 32;
+	}
+	else
+	{
+		std::cerr <<  "Usage: WAVM -binary in.wasm in.js.mem functionname" << std::endl;
+		std::cerr <<  "       WAVM -text in.wast functionname" << std::endl;
 		return -1;
 	}
 
-	const char* wasmFileName = argv[1];
-	const char* staticMemoryFileName = argv[2];
+	std::cout << "Loaded module uses " << (module->arena.getTotalAllocatedBytes() / 1024) << "KB" << std::endl;
 
-	// Read in packed .wasm file bytes.
-	vector<uint8_t> wasmBytes;
-	ifstream wasmStream(wasmFileName,ios::binary | ios::ate);
-	wasmStream.exceptions(ios::failbit | ios::badbit);
-	wasmBytes.resize((unsigned int)wasmStream.tellg());
-	wasmStream.seekg(0);
-	wasmStream.read((char*)wasmBytes.data(),wasmBytes.size());
-	wasmStream.close();
-
-	// For memory protection, allocate a full 32-bit address space of virtual pages.
-	const size_t numAllocatedVirtualPages = 1ull << (32 - getPreferredVirtualPageSizeLog2());
-	vmVirtualAddressBase = allocateVirtualPages(numAllocatedVirtualPages);
-	assert(vmVirtualAddressBase);
-
-	// Read the static memory file into the VM's memory at offset 8 (taken from the one Emscripten program I tested this on).
-	ifstream staticMemoryStream(staticMemoryFileName,ios::binary | ios::ate);
-	staticMemoryStream.exceptions(ios::failbit | ios::badbit);
-	const uint32_t numStaticMemoryBytes = staticMemoryStream.tellg();
-	vmSbrk(numStaticMemoryBytes + 8);
-	staticMemoryStream.seekg(0);
-	staticMemoryStream.read((char*)vmVirtualAddressBase + 8,numStaticMemoryBytes);
-	staticMemoryStream.close();
-
-	// Initialize the Emscripten intrinsics.
-	initEmscriptenIntrinsics();
-
-	// Unpack .wasm file into a LLVM module.
-	Module module;
-	auto decodeStartTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-	if(!decodeWASM(wasmBytes.data(),module))
+	// Look up the function specified on the command line in the module.
+	auto exportIt = module->exportNameToFunctionIndexMap.find(functionName);
+	if(exportIt == module->exportNameToFunctionIndexMap.end())
 	{
-		cerr << wasmFileName << " isn't a binary WASM file" << endl;
+		std::cerr << "module doesn't contain named export" << std::endl;
 		return -1;
 	}
-
-	// Bind the memory buffer to the global variable used by the module as the base address for memory accesses.
-	module.llvmVirtualAddressBase->setInitializer(llvm::Constant::getIntegerValue(
-		llvm::Type::getInt8PtrTy(llvm::getGlobalContext()),
-		llvm::APInt(64,*(uint64_t*)&vmVirtualAddressBase)
-		));
-
-	// Look up intrinsic functions that match the name+type of functions imported by the module, and bind them to the global variable used by the module to access the import.
-	bool missingImport = false;
-	for(auto importIt = module.functionImports.begin();importIt != module.functionImports.end();++importIt)
+	
+	auto function = module->functions[exportIt->second];
+	if(function->type.parameters.size() != 1 || function->type.returnType != AST::TypeId::I64)
 	{
-		const IntrinsicFunction* intrinsicFunction = findIntrinsicFunction(importIt->name.c_str());
-		void* functionPointer = intrinsicFunction && intrinsicFunction->type == importIt->type ? intrinsicFunction->value : nullptr;
-		if(!functionPointer)
-		{
-			if(importIt->isReferenced)
-			{
-				cerr << "Missing intrinsic function " << importIt->name << " : (";
-				for(auto argIt = importIt->type.args.begin();argIt != importIt->type.args.end();++argIt)
-				{
-					if(argIt != importIt->type.args.begin())
-					{
-						cerr << ",";
-					}
-					cerr << WASM::getTypeName(*argIt);
-				}
-				cerr << ") -> " << WASM::getTypeName(importIt->type.ret) << endl;
-				missingImport = true;
-			}
-		}
-		importIt->llvmVariable->setInitializer(llvm::Constant::getIntegerValue(
-			importIt->llvmVariable->getType()->getElementType(),
-			llvm::APInt(64,*(uint64_t*)&functionPointer)
-			));
-	}
-
-	// Look up intrinsic values that match the name+type of values imported by the module, and bind them to the global variable used by the module to access the import.
-	bool missingIntrinsicValue = false;
-	for(auto importIt = module.valueImports.begin();importIt != module.valueImports.end();++importIt)
-	{
-		const IntrinsicValue* intrinsicValue = findIntrinsicValue(importIt->name.c_str());
-		if(intrinsicValue && importIt->type != intrinsicValue->type)
-		{
-			intrinsicValue = NULL;
-		}
-		if(!intrinsicValue)
-		{
-			cerr << "Missing intrinsic value " << importIt->name << " : " << WASM::getTypeName(importIt->type) << endl;
-			missingImport = true;
-		}
-		switch(importIt->type)
-		{
-		case WASM::Type::I32: importIt->llvmVariable->setInitializer(llvm::Constant::getIntegerValue(llvm::Type::getInt32Ty(llvm::getGlobalContext()),llvm::APInt(32,intrinsicValue ? *(uint32_t*)intrinsicValue->value : 0))); break;
-		case WASM::Type::F32: importIt->llvmVariable->setInitializer(llvm::ConstantFP::get(llvm::getGlobalContext(),llvm::APFloat(intrinsicValue ? *(float*)intrinsicValue->value : 0.0f))); break;
-		case WASM::Type::F64: importIt->llvmVariable->setInitializer(llvm::ConstantFP::get(llvm::getGlobalContext(),llvm::APFloat(intrinsicValue ? *(double*)intrinsicValue->value : 0.0))); break;
-		};
-	}
-
-	if(missingImport)
-	{
+		std::cerr << "exported function isn't expected type" << std::endl;
 		return -1;
 	}
 
 	// Generate machine code for the module.
-	auto jitStartTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-	cout << "Decoded in " << (jitStartTime - decodeStartTime) << "ms" << endl;
-	jitCompileModule(module);
-	auto jitEndTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-	cout << "JITted in " << (jitEndTime - jitStartTime) << "ms" << endl;
+	LLVMJIT::compileModule(module);
 
-	// Look up the function specified on the command line in the module.
-	auto foundFunction = module.exports.find(argv[3]);
-	if(foundFunction != module.exports.end())
+	void* functionPtr = LLVMJIT::getFunctionPointer(module,exportIt->second);
+	assert(functionPtr);
+
+	// Call the generated machine code for the function.
+	try
 	{
-		const FunctionExport& function = foundFunction->second;
-		assert(function.type.args.size() == 0);
-		assert(function.type.ret == WASM::ReturnType::I32);
-
-		void* functionPtr = getJITFunctionPointer(function.llvmFunction);
-		assert(functionPtr);
-
-		// Call the generate machine code for the function.
-		auto evalStartTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-		try
+		// Look up the iostream initialization function.
+		auto iostreamInitExport = module->exportNameToFunctionIndexMap.find("__GLOBAL__sub_I_iostream_cpp");
+		if(iostreamInitExport != module->exportNameToFunctionIndexMap.end())
 		{
-			// Look up the iostream initialization function.
-			auto iostreamInitFunction = module.exports.find("__GLOBAL__sub_I_iostream_cpp");
-			if(iostreamInitFunction != module.exports.end())
-			{
-				assert(iostreamInitFunction->second.type.args.size() == 0);
-				assert(iostreamInitFunction->second.type.ret == WASM::ReturnType::Void);
+			auto iostreamInitFunction = module->functions[iostreamInitExport->second];
+			assert(iostreamInitFunction->type.parameters.size() == 0);
+			assert(iostreamInitFunction->type.returnType == AST::TypeId::Void);
 
-				void* iostreamInitFunctionPtr = getJITFunctionPointer(iostreamInitFunction->second.llvmFunction);
-				assert(iostreamInitFunctionPtr);
+			void* iostreamInitFunctionPtr = LLVMJIT::getFunctionPointer(module,iostreamInitExport->second);
+			assert(iostreamInitFunctionPtr);
 
-				((void(__cdecl*)())iostreamInitFunctionPtr)();
-			}
-
-			uint32_t returnCode = ((uint32_t(__cdecl*)())functionPtr)();
-			cout << "Program returned: " << returnCode << endl;
+			((void(__cdecl*)())iostreamInitFunctionPtr)();
 		}
-		catch(...)
-		{
-			cout << "Program threw exception." << endl;
-		}
-		auto evalEndTime = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
-		cout << "Evaluated in " << (evalEndTime - evalStartTime) << "ms" << endl;
+
+		// Call the function specified on the command-line.
+		uint64_t returnCode = ((uint64_t(__cdecl*)(uint64_t))functionPtr)(25);
+		std::cout << "Program returned: " << returnCode << std::endl;
+	}
+	catch(...)
+	{
+		std::cout << "Program threw exception." << std::endl;
 	}
 
 	return 0;
 }
-catch(const ios::failure& err)
+catch(const std::ios::failure& err)
 {
-	cerr << "Failed with iostream error: " << err.what() << endl;
+	std::cerr << "Failed with iostream error: " << err.what() << std::endl;
 	return -1;
 }
-catch(const runtime_error& err)
+catch(const std::runtime_error& err)
 {
-	cerr << "Failed with runtime error: " << err.what() << endl;
+	std::cerr << "Failed with runtime error: " << err.what() << std::endl;
 	return -1;
 }

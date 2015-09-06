@@ -24,7 +24,10 @@ namespace WAVM
 	{
 		LeaveCriticalSection((CRITICAL_SECTION*)handle);
 	}
+}
 
+namespace Memory
+{
 	size_t internalGetPreferredVirtualPageSizeLog2()
 	{
 		SYSTEM_INFO systemInfo;

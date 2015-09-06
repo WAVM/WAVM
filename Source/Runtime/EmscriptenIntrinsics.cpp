@@ -1,5 +1,6 @@
 #include "WAVM.h"
 #include "Intrinsics.h"
+#include "Memory.h"
 #include <time.h>
 #include <stdio.h>
 #include <iostream>
@@ -34,13 +35,13 @@ namespace WAVM
 				return -1;
 			}
 
-			const uint32_t pageSizeLog2 = getPreferredVirtualPageSizeLog2();
+			const uint32_t pageSizeLog2 = Memory::getPreferredVirtualPageSizeLog2();
 			const uint32_t pageSize = 1ull << pageSizeLog2;
 			const uint32_t numDesiredPages = (numAllocatedBytes + numBytes + pageSize - 1) >> pageSizeLog2;
 			const uint32_t numNewPages = numDesiredPages - numCommittedVirtualPages;
 			if(numNewPages > 0)
 			{
-				bool successfullyCommittedPhysicalMemory = commitVirtualPages(vmVirtualAddressBase + (numCommittedVirtualPages << pageSizeLog2),numNewPages);
+				bool successfullyCommittedPhysicalMemory = Memory::commitVirtualPages(vmVirtualAddressBase + (numCommittedVirtualPages << pageSizeLog2),numNewPages);
 				if(!successfullyCommittedPhysicalMemory)
 				{
 					return -1;
@@ -81,7 +82,7 @@ namespace WAVM
 		enum { _SC_PAGE_SIZE = 30 };
 		switch(a)
 		{
-		case _SC_PAGE_SIZE: return 1 << getPreferredVirtualPageSizeLog2();
+		case _SC_PAGE_SIZE: return 1 << Memory::getPreferredVirtualPageSizeLog2();
 		default: throw;
 		}
 	}

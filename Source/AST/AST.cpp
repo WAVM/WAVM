@@ -1,0 +1,69 @@
+#include "AST.h"
+
+namespace AST
+{
+	// Define the TypeClass::id.
+	#define AST_TYPECLASS(className) \
+		TypeClassId className##Class::id = TypeClassId::className;
+	ENUM_AST_TYPECLASSES()
+	#undef AST_TYPECLASS
+
+	// Define Type::id, Type::classId, and Type::name.
+	#define AST_TYPE(typeName,className,...) \
+		TypeId typeName##Type::id = TypeId::typeName; \
+		TypeClassId typeName##Type::classId = TypeClassId::className; \
+		const char* typeName##Type::name = #typeName;
+	ENUM_AST_TYPES(AST_TYPE)
+	#undef AST_TYPE
+
+	bool isTypeClass(TypeId type,TypeClassId typeClass)
+	{
+		if(typeClass == TypeClassId::Any) { return true; }
+		else
+		{
+			switch(type)
+			{
+			case TypeId::I8: return typeClass == TypeClassId::Int;
+			case TypeId::I16: return typeClass == TypeClassId::Int;
+			case TypeId::I32: return typeClass == TypeClassId::Int;
+			case TypeId::I64: return typeClass == TypeClassId::Int;
+			case TypeId::F32: return typeClass == TypeClassId::Float;
+			case TypeId::F64: return typeClass == TypeClassId::Float;
+			case TypeId::Bool: return typeClass == TypeClassId::Bool;
+			case TypeId::Void: return typeClass == TypeClassId::Void;
+			default: throw;
+			}
+		}
+	}
+
+	template<typename Type> struct NameVisitor { static const char* visit() { return Type::name; } };
+	const char* getTypeName(TypeId type) { return dispatchByType<const char*,NameVisitor>(type,"invalid"); }
+
+	size_t getTypeBitWidth(TypeId type)
+	{
+		switch(type)
+		{
+		case TypeId::I8: return 8;
+		case TypeId::I16: return 16;
+		case TypeId::I32: return 32;
+		case TypeId::I64: return 64;
+		case TypeId::F32: return 32;
+		case TypeId::F64: return 64;
+		case TypeId::Bool: return 1;
+		case TypeId::Void: return 0;
+		default: throw;
+		}
+	}
+	
+	#define AST_OP(op) #op,
+	#define AST_TYPECLASS(className) \
+		static const char* nameStrings##className##Ops[] = { ENUM_AST_OPS_##className() }; \
+		const char* getOpName(className##Op op) \
+		{ \
+			assert((uintptr_t)op < (sizeof(nameStrings##className##Ops) / sizeof(const char*))); \
+			return nameStrings##className##Ops[(uintptr_t)op]; \
+		}
+	ENUM_AST_TYPECLASSES()
+	#undef AST_OP
+	#undef AST_TYPECLASS
+}
