@@ -509,7 +509,7 @@ namespace LLVMJIT
 		DispatchResult compileIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand,llvm::Value* secondOperand)
 		{
 			auto intrinsic = getLLVMIntrinsic({firstOperand->getType(),secondOperand->getType()},intrinsicId);
-			return irBuilder.CreateCall2(intrinsic,firstOperand,secondOperand);
+			return irBuilder.CreateCall(intrinsic,llvm::ArrayRef<llvm::Value*>({firstOperand,secondOperand}));
 		}
 		
 		llvm::Value* compileIntAbs(llvm::Value* operand)
@@ -553,8 +553,8 @@ namespace LLVMJIT
 		IMPLEMENT_UNARY_OP(IntClass,neg,irBuilder.CreateNeg(operand))
 		IMPLEMENT_UNARY_OP(IntClass,abs,compileIntAbs(operand))
 		IMPLEMENT_UNARY_OP(IntClass,not,irBuilder.CreateNot(operand))
-		IMPLEMENT_UNARY_OP(IntClass,clz,irBuilder.CreateCall2(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctlz),operand,compileLiteral(false)))
-		IMPLEMENT_UNARY_OP(IntClass,ctz,irBuilder.CreateCall2(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::cttz),operand,compileLiteral(false)))
+		IMPLEMENT_UNARY_OP(IntClass,clz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctlz),llvm::ArrayRef<llvm::Value*>({operand,compileLiteral(false)})))
+		IMPLEMENT_UNARY_OP(IntClass,ctz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::cttz),llvm::ArrayRef<llvm::Value*>({operand,compileLiteral(false)})))
 		IMPLEMENT_UNARY_OP(IntClass,popcnt,compileIntrinsic(llvm::Intrinsic::ctpop,operand))
 		IMPLEMENT_BINARY_OP(IntClass,add,irBuilder.CreateAdd(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,sub,irBuilder.CreateSub(left,right))
@@ -894,7 +894,7 @@ namespace LLVMJIT
 		// Run some optimization on the module's functions.		
 		WAVM::Timer optimizationTimer;
 		auto fpm = new llvm::legacy::FunctionPassManager(jitModule->llvmModule);
-		jitModule->llvmModule->setDataLayout(jitModule->executionEngine->getDataLayout());
+		jitModule->llvmModule->setDataLayout(*jitModule->executionEngine->getDataLayout());
 		fpm->add(llvm::createPromoteMemoryToRegisterPass());
 		fpm->add(llvm::createBasicAliasAnalysisPass());
 		fpm->add(llvm::createInstructionCombiningPass());

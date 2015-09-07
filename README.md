@@ -6,7 +6,7 @@ This is a prototype VM for WebAssembly. It can load two forms of WebAssembly cod
 
 # Building and running it
 
-To build it, you'll need [LLVM 3.6](https://github.com/llvm-mirror/llvm/tree/release_36). The VC project expects it in WAVM/External/llvm and WAVM/External/LLVM.build, but it's probably easiest to point it to wherever your copy is.
+To build it, you'll need [LLVM 3.7 built from source](http://llvm.org/releases/download.html#3.7.0). The VC project expects it in WAVM/External/llvm and WAVM/External/LLVM.build, but it's probably easiest to point it to wherever your copy is.
 
 I've only tried building it with VS2013 so far, and there are a few Windows-specific bits of code related to virtual memory management. However, it should all be in Windows.cpp, and easily ported to Linux or MacOS. There are also no makefiles yet. TODO...
 
