@@ -9,12 +9,10 @@
 #include <string>
 #include <assert.h>
 
-#pragma warning (disable:4267)
-#pragma warning (disable:4800)
-#pragma warning (disable:4291)
-#pragma warning (disable:4244)
-#pragma warning (disable:4351)
-#pragma warning (disable:4065)
+#pragma warning (disable:4127)	// conditional expression is constant
+#pragma warning (disable:4100)	// unreferenced formal parameter
+#pragma warning (disable:4512)	// assignment operator could not be generated
+
 
 namespace WAVM
 {

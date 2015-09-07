@@ -104,7 +104,7 @@ namespace SExp
 
 		GenericNode<Symbol>* operator->() const { return node; }
 		operator GenericNode<Symbol>*() const { return node; }
-		operator bool() const { return node; }
+		operator bool() const { return node != nullptr; }
 	};
 
 	// Parses a S-expression tree from a string, allocating nodes from arena, and using symbolIndexMap to map symbols to indices.

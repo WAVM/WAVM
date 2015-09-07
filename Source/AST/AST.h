@@ -102,7 +102,7 @@ namespace AST
 	{
 		const char* name;
 		std::vector<Variable> locals;
-		std::vector<uint32_t> parameterLocalIndices;
+		std::vector<uintptr_t> parameterLocalIndices;
 		FunctionType type;
 		UntypedExpression* expression;
 

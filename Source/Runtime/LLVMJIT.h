@@ -10,5 +10,5 @@ namespace LLVMJIT
 
 	// Gets a pointer to the native code for the given function of a module.
 	// If the module hasn't yet been passed to jitCompileModule, will return nullptr.
-	void* getFunctionPointer(const AST::Module* module,uint32_t functionIndex);
+	void* getFunctionPointer(const AST::Module* module,uintptr_t functionIndex);
 }

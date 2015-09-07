@@ -149,4 +149,4 @@ inline void* operator new(size_t numBytes,Memory::Arena& arena)
 	return arena.allocate(numBytes);
 }
 
-void operator delete(void*,size_t,Memory::Arena&) = delete;
+inline void operator delete(void*,Memory::Arena&) {}

@@ -23,8 +23,8 @@ namespace AST
 	template<typename Class>
 	struct LoadVariable : public Expression<Class>
 	{
-		uint32_t variableIndex;
-		LoadVariable(typename Class::Op inOp,uint32_t inVariableIndex) : Expression(inOp), variableIndex(inVariableIndex) {}
+		uintptr_t variableIndex;
+		LoadVariable(typename Class::Op inOp,uintptr_t inVariableIndex) : Expression(inOp), variableIndex(inVariableIndex) {}
 	};
 	
 	template<typename Class>
@@ -83,9 +83,9 @@ namespace AST
 	{
 		typedef typename Expression<Class>::Op Op;
 
-		uint32_t functionIndex;
+		uintptr_t functionIndex;
 		UntypedExpression** parameters;
-		Call(Op op,uint32_t inFunctionIndex,UntypedExpression** inParameters)
+		Call(Op op,uintptr_t inFunctionIndex,UntypedExpression** inParameters)
 		: Expression(op), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
@@ -94,10 +94,10 @@ namespace AST
 	{
 		typedef typename Expression<Class>::Op Op;
 
-		uint32_t tableIndex;
+		uintptr_t tableIndex;
 		Expression<IntClass>* functionIndex; // must be I32
 		UntypedExpression** parameters;
-		CallIndirect(Op op,uint32_t inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
+		CallIndirect(Op op,uintptr_t inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
 		: Expression(op), tableIndex(inTableIndex), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
@@ -132,11 +132,11 @@ namespace AST
 	{
 		TypedExpression key;
 		uintptr_t defaultArmIndex;
-		uintptr_t numArms;
+		size_t numArms;
 		SwitchArm* arms;
 		BranchTarget* endTarget;
 
-		Switch(TypedExpression inKey,uintptr_t inDefaultArmIndex,uint32_t inNumArms,SwitchArm* inArms,BranchTarget* inEndTarget)
+		Switch(TypedExpression inKey,uintptr_t inDefaultArmIndex,size_t inNumArms,SwitchArm* inArms,BranchTarget* inEndTarget)
 		: Expression(Op::switch_), key(inKey), defaultArmIndex(inDefaultArmIndex), numArms(inNumArms), arms(inArms), endTarget(inEndTarget) {}
 	};
 	
@@ -216,8 +216,8 @@ namespace AST
 	struct StoreVariable : public Expression<VoidClass>
 	{
 		TypedExpression value;
-		uint32_t variableIndex;
-		StoreVariable(Op op,TypedExpression inValue,uint32_t inVariableIndex)
+		uintptr_t variableIndex;
+		StoreVariable(Op op,TypedExpression inValue,uintptr_t inVariableIndex)
 		: Expression(op), value(inValue), variableIndex(inVariableIndex) {}
 	};
 

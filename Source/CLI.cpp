@@ -68,7 +68,7 @@ int main(int argc,char** argv) try
 		const char* staticMemoryFileName = argv[3];
 		std::ifstream staticMemoryStream(staticMemoryFileName,std::ios::binary | std::ios::ate);
 		staticMemoryStream.exceptions(std::ios::failbit | std::ios::badbit);
-		const uint32_t numStaticMemoryBytes = staticMemoryStream.tellg();
+		const size_t numStaticMemoryBytes = staticMemoryStream.tellg();
 		auto segmentMemory = module->arena.allocate<uint8_t>(numStaticMemoryBytes);
 		staticMemoryStream.seekg(0);
 		staticMemoryStream.read((char*)segmentMemory,numStaticMemoryBytes);
@@ -116,8 +116,8 @@ int main(int argc,char** argv) try
 		if(iostreamInitExport != module->exportNameToFunctionIndexMap.end())
 		{
 			auto iostreamInitFunction = module->functions[iostreamInitExport->second];
-			assert(iostreamInitFunction->type.parameters.size() == 0);
-			assert(iostreamInitFunction->type.returnType == AST::TypeId::Void);
+			if(iostreamInitFunction->type.parameters.size() != 0) { throw; }
+			if(iostreamInitFunction->type.returnType != AST::TypeId::Void) { throw; }
 
 			void* iostreamInitFunctionPtr = LLVMJIT::getFunctionPointer(module,iostreamInitExport->second);
 			assert(iostreamInitFunctionPtr);

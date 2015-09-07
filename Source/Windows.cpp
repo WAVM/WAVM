@@ -40,7 +40,7 @@ namespace Memory
 	uint32_t getPreferredVirtualPageSizeLog2()
 	{
 		static size_t preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
-		return preferredVirtualPageSizeLog2;
+		return (uint32_t)preferredVirtualPageSizeLog2;
 	}
 
 	bool isPageAligned(uint8_t* address)
@@ -64,13 +64,13 @@ namespace Memory
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,numPages << getPreferredVirtualPageSizeLog2(),MEM_DECOMMIT);
-		assert(result);
+		if(!result) { throw; }
 	}
 
 	void freeVirtualPages(uint8_t* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,0/*numPages << getPreferredVirtualPageSizeLog2()*/,MEM_RELEASE);
-		assert(result);
+		if(!result) { throw; }
 	}
 }

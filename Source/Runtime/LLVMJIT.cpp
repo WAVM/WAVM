@@ -5,6 +5,16 @@
 #include "Intrinsics.h"
 #include "Memory.h"
 
+#pragma warning(push)
+#pragma warning (disable:4267)
+#pragma warning (disable:4800)
+#pragma warning (disable:4291)
+#pragma warning (disable:4244)
+#pragma warning (disable:4351)
+#pragma warning (disable:4065)
+#pragma warning (disable:4624)
+#pragma warning (disable:4245)	// conversion from 'int' to 'unsigned int', signed/unsigned mismatch
+
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
@@ -24,6 +34,8 @@
 #include <string>
 #include <vector>
 #include <iostream>
+
+#pragma warning(pop)
 
 namespace LLVMJIT
 {
@@ -269,7 +281,7 @@ namespace LLVMJIT
 			assert(switchExpression->numArms > 0);
 			assert(switchExpression->defaultArmIndex < switchExpression->numArms);
 			auto defaultBlock = armEntryBlocks[switchExpression->defaultArmIndex];
-			auto switchInstruction = irBuilder.CreateSwitch(value,defaultBlock,switchExpression->numArms);
+			auto switchInstruction = irBuilder.CreateSwitch(value,defaultBlock,(uint32_t)switchExpression->numArms);
 			for(uint32_t armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
 			{
 				const SwitchArm& arm = switchExpression->arms[armIndex];
@@ -311,7 +323,7 @@ namespace LLVMJIT
 			else
 			{
 				// Create a phi node that merges the results from all the branches out of the switch.
-				auto phi = irBuilder.CreatePHI(asLLVMType(type),switchExpression->numArms);
+				auto phi = irBuilder.CreatePHI(asLLVMType(type),(uint32_t)switchExpression->numArms);
 				for(auto result = endBranchContext.results;result;result = result->next) { phi->addIncoming(result->value,result->incomingBlock); }
 				return phi;
 			}
@@ -668,7 +680,6 @@ namespace LLVMJIT
 		uintptr_t parameterIndex = 0;
 		for(auto llvmArgIt = llvmFunction->arg_begin();llvmArgIt != llvmFunction->arg_end();++parameterIndex,++llvmArgIt)
 		{
-			auto type = astFunction->type.parameters[parameterIndex];
 			auto localIndex = astFunction->parameterLocalIndices[parameterIndex];
 			irBuilder.CreateStore(llvmArgIt,localVariablePointers[localIndex]);
 		}
@@ -869,7 +880,8 @@ namespace LLVMJIT
 		if(missingImport) { return false; }
 
 		// Copy the module's data segments into VM memory.
-		WAVM::vmSbrk(astModule->initialNumBytesMemory);
+		if(astModule->initialNumBytesMemory >= (1ull<<32)) { throw; }
+		WAVM::vmSbrk((int32_t)astModule->initialNumBytesMemory);
 		for(auto dataSegment : astModule->dataSegments)
 		{
 			assert(dataSegment.baseAddress + dataSegment.numBytes <= astModule->initialNumBytesMemory);
@@ -903,7 +915,7 @@ namespace LLVMJIT
 		return true;
 	}
 
-	void* getFunctionPointer(const Module* module,uint32_t functionIndex)
+	void* getFunctionPointer(const Module* module,uintptr_t functionIndex)
 	{
 		for(auto jitModule : jitModules)
 		{

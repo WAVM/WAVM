@@ -139,7 +139,6 @@ namespace SExp
 		state.advance();
 
 		Memory::ArenaString string;
-		size_t stringLength = 1;
 		while(true)
 		{
 			const char nextChar = state.get();

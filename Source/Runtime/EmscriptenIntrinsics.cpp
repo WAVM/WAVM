@@ -32,19 +32,19 @@ namespace WAVM
 		{
 			if(uint64_t(existingNumBytes) + numBytes > (1ull<<32))
 			{
-				return -1;
+				return (uint32_t)-1;
 			}
 
 			const uint32_t pageSizeLog2 = Memory::getPreferredVirtualPageSizeLog2();
 			const uint32_t pageSize = 1ull << pageSizeLog2;
-			const uint32_t numDesiredPages = (numAllocatedBytes + numBytes + pageSize - 1) >> pageSizeLog2;
-			const uint32_t numNewPages = numDesiredPages - numCommittedVirtualPages;
+			const size_t numDesiredPages = (numAllocatedBytes + numBytes + pageSize - 1) >> pageSizeLog2;
+			const size_t numNewPages = numDesiredPages - numCommittedVirtualPages;
 			if(numNewPages > 0)
 			{
 				bool successfullyCommittedPhysicalMemory = Memory::commitVirtualPages(vmVirtualAddressBase + (numCommittedVirtualPages << pageSizeLog2),numNewPages);
 				if(!successfullyCommittedPhysicalMemory)
 				{
-					return -1;
+					return (uint32_t)-1;
 				}
 				numAllocatedBytes += numBytes;
 				numCommittedVirtualPages += numNewPages;
@@ -67,9 +67,9 @@ namespace WAVM
 		time_t t = time(nullptr);
 		if(address)
 		{
-			vmMemoryRef<int32_t>(address) = t;
+			vmMemoryRef<int32_t>(address) = (int32_t)t;
 		}
-		return t;
+		return (int32_t)t;
 	}
 
 	DEFINE_INTRINSIC_FUNCTION0(___errno_location,I32)
@@ -132,9 +132,6 @@ namespace WAVM
 	DEFINE_INTRINSIC_FUNCTION4(___assert_fail,Void,I32,condition,I32,filename,I32,line,I32,function)
 	{
 		ABORTValue = 1;
-		const char* conditionChars = &vmMemoryRef<char>(condition);
-		const char* filenameChars = &vmMemoryRef<char>(filename);
-		const char* functionChars = &vmMemoryRef<char>(function);
 		throw;
 	}
 
@@ -203,7 +200,7 @@ namespace WAVM
 	DEFINE_INTRINSIC_FUNCTION5(_strftime_l,I32,I32,a,I32,b,I32,c,I32,d,I32,e) { throw "_strftime_l"; }
 	DEFINE_INTRINSIC_FUNCTION1(_strerror,I32,I32,a) { throw "_strerror"; }
 
-	DEFINE_INTRINSIC_FUNCTION2(_catopen,I32,I32,a,I32,b) { return -1; }
+	DEFINE_INTRINSIC_FUNCTION2(_catopen,I32,I32,a,I32,b) { return (uint32_t)-1; }
 	DEFINE_INTRINSIC_FUNCTION4(_catgets,I32,I32,catd,I32,set_id,I32,msg_id,I32,s) { return s; }
 	DEFINE_INTRINSIC_FUNCTION1(_catclose,I32,I32,a) { return 0; }
 
@@ -246,7 +243,7 @@ namespace WAVM
 		}
 		else
 		{
-			return fwrite(&vmMemoryRef<uint8_t>(pointer),size,count,vmFile(file));
+			return (int32_t)fwrite(&vmMemoryRef<uint8_t>(pointer),size,count,vmFile(file));
 		}
 	}
 	DEFINE_INTRINSIC_FUNCTION2(_fputc,I32,I32,character,I32,file)
