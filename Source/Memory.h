@@ -76,16 +76,30 @@ namespace Memory
 	template<typename Element>
 	struct ArenaArray
 	{
-		ArenaArray(): elements(nullptr), numElements(0) {}
+		ArenaArray(): elements(nullptr), numElements(0), numReservedElements(0) {}
 		ArenaArray(const ArenaArray&) = delete;
-		ArenaArray(ArenaArray&& inMove): elements(inMove.elements), numElements(inMove.numElements)
-		{ inMove.elements = nullptr; inMove.numElements = 0; }
+		ArenaArray(ArenaArray&& inMove)
+		: elements(inMove.elements), numElements(inMove.numElements), numReservedElements(inMove.numReservedElements)
+		{ inMove.elements = nullptr; inMove.numElements = 0; inMove.numReservedElements = 0; }
 		
-		void reset(Arena& arena) { elements = arena.reallocate(elements,numElements,0); numElements = 0; }
+		void reset(Arena& arena) { elements = arena.reallocate(elements,numElements,0); numElements = 0; numReservedElements = 0; }
 		void resize(Arena& arena,size_t newNumElements)
 		{
-			elements = arena.reallocate(elements,numElements,newNumElements);
 			numElements = newNumElements;
+			if(numElements > numReservedElements)
+			{
+				auto newNumReservedElements = numElements * 2;
+				elements = arena.reallocate(elements,numReservedElements,newNumReservedElements);
+				numReservedElements = newNumReservedElements;
+			}
+		}
+		void shrink(Arena& arena)
+		{
+			if(numReservedElements != numElements)
+			{
+				elements = arena.reallocate(elements,numReservedElements,numElements);
+				numReservedElements = numElements;
+			}
 		}
 
 		friend bool operator==(const ArenaArray<Element>& left,const ArenaArray<Element>& right)
@@ -104,6 +118,7 @@ namespace Memory
 	private:
 		Element* elements;
 		size_t numElements;
+		size_t numReservedElements;
 	};
 
 	// Encapsulates a string allocated from a memory arena.
@@ -117,6 +132,7 @@ namespace Memory
 			characters[characters.size() - 2] = c;
 			characters[characters.size() - 1] = 0;
 		}
+		void shrink(Arena& arena) { characters.shrink(arena); }
 
 		const char* c_str() const { if(characters.size()) { return characters.data(); } else { return ""; } }
 		const char operator[](uintptr_t index) const { assert(index < length()); return characters[index]; }
