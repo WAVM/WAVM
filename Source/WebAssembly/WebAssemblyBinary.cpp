@@ -1192,7 +1192,7 @@ namespace WebAssemblyBinary
 				case F64OpEncoding::Comma:    return comma<F64Type>();
 				case F64OpEncoding::FromS32:  return castI32ToFloat(FloatOp::convertSignedInt);
 				case F64OpEncoding::FromU32:  return castI32ToFloat(FloatOp::convertUnsignedInt);
-				case F64OpEncoding::FromF32:  return new(arena) Cast<FloatClass>(FloatOp::promote,TypedExpression(decodeExpression<F64Type>(),TypeId::F64));
+				case F64OpEncoding::FromF32:  return new(arena) Cast<FloatClass>(FloatOp::promote,TypedExpression(decodeExpression<F32Type>(),TypeId::F32));
 				case F64OpEncoding::Neg:      return decodeUnary<F64Type>(FloatOp::neg);
 				case F64OpEncoding::Add:      return decodeBinary<F64Type>(FloatOp::add);
 				case F64OpEncoding::Sub:      return decodeBinary<F64Type>(FloatOp::sub);
