@@ -486,6 +486,7 @@ namespace WebAssemblyBinary
 		std::vector<float> f32Constants;
 		std::vector<double> f64Constants;
 		std::vector<FunctionType> functionTypes;
+		std::map<std::string,uintptr_t> intrinsicNameToFunctionImportIndex;
 
 		// Information about the current operation being decoded.
 		std::vector<BranchTarget*> explicitBreakTargets;
@@ -792,7 +793,7 @@ namespace WebAssemblyBinary
 
 		// Calls a function by index into the module's import table.
 		template<typename Class>
-		typename Class::Expression* callImport(TypeId returnType,uint32_t functionImportIndex)
+		typename Class::Expression* callImport(TypeId returnType,uintptr_t functionImportIndex)
 		{
 			if(functionImportIndex >= module.functionImports.size()) { throw new FatalDecodeException("callimport: invalid import index"); }
 			const FunctionImport& functionImport = module.functionImports[functionImportIndex];
@@ -801,7 +802,7 @@ namespace WebAssemblyBinary
 				? as<Class>(new(arena) Call<Class>(Class::Op::callImport,functionImportIndex,parameters))
 				: recordError<Class>("callimport: incorrect type");
 		}
-		VoidExpression* callImportStatement(uint32_t functionImportIndex)
+		VoidExpression* callImportStatement(uintptr_t functionImportIndex)
 		{
 			if(functionImportIndex >= module.functionImports.size()) { throw new FatalDecodeException("callimport: invalid import index"); }
 			const FunctionImport& functionImport = module.functionImports[functionImportIndex];
@@ -814,6 +815,25 @@ namespace WebAssemblyBinary
 			case TypeId::Void: return callImport<VoidClass>(TypeId::Void,functionImportIndex);
 			default: throw;
 			};
+		}
+		template<typename Class>
+		typename Class::Expression* decodeIntrinsic(FunctionType intrinsicType,const char* intrinsicName)
+		{
+			// Add one import for every unique intrinsic name used.
+			auto intrinsicIt = intrinsicNameToFunctionImportIndex.find(intrinsicName);
+			uintptr_t functionImportIndex;
+			if(intrinsicIt != intrinsicNameToFunctionImportIndex.end())
+			{
+				assert(module.functionImports[intrinsicIt->second].type == intrinsicType);
+				functionImportIndex = intrinsicIt->second;
+			}
+			else
+			{
+				functionImportIndex = module.functionImports.size();
+				module.functionImports.push_back({intrinsicType,intrinsicName});
+				intrinsicNameToFunctionImportIndex[intrinsicName] = functionImportIndex;
+			}
+			return callImport<Class>(intrinsicType.returnType,functionImportIndex);
 		}
 
 		// Computes the minimum or maximum of a set of F64s.
@@ -1207,11 +1227,11 @@ namespace WebAssemblyBinary
 				case F64OpEncoding::Sqrt:     return decodeUnary<F64Type>(FloatOp::sqrt);
 				case F64OpEncoding::Cos:     return decodeUnary<F64Type>(FloatOp::cos);
 				case F64OpEncoding::Sin:      return decodeUnary<F64Type>(FloatOp::sin);
-				case F64OpEncoding::Tan:      decodeExpression<F64Type>(); return recordError<FloatClass>("unsupported opcode tan");
-				case F64OpEncoding::ACos:     decodeExpression<F64Type>(); return recordError<FloatClass>("unsupported opcode acos");
-				case F64OpEncoding::ASin:     decodeExpression<F64Type>(); return recordError<FloatClass>("unsupported opcode asin");
-				case F64OpEncoding::ATan:     decodeExpression<F64Type>(); return recordError<FloatClass>("unsupported opcode atan");
-				case F64OpEncoding::ATan2:    decodeExpression<F64Type>(); decodeExpression<F64Type>(); return recordError<FloatClass>("unsupported opcode atan2");
+				case F64OpEncoding::Tan:      return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"tan");
+				case F64OpEncoding::ACos:     return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"acos");
+				case F64OpEncoding::ASin:     return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"asin");
+				case F64OpEncoding::ATan:     return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"atan");
+				case F64OpEncoding::ATan2:    return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64,TypeId::F64}),"atam2");
 				case F64OpEncoding::Exp:      return decodeUnary<F64Type>(FloatOp::exp);
 				case F64OpEncoding::Ln:       return decodeUnary<F64Type>(FloatOp::log);
 				case F64OpEncoding::Pow:      return decodeBinary<F64Type>(FloatOp::pow);
