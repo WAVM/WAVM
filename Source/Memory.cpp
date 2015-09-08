@@ -42,6 +42,16 @@ namespace Memory
 			totalAllocatedBytes = totalAllocatedBytes - previousNumBytes + newNumBytes;
 			return oldAllocation;
 		}
+		else if(currentSegment
+			&& bytePointer + previousNumBytes == currentSegment->memory + currentSegmentAllocatedBytes
+			&& bytePointer == currentSegment->memory)
+		{
+			// If this is the only thing in the current segment, but it has outgrown the segment, just resize the segment.
+			currentSegment = (Segment*)realloc(currentSegment,sizeof(Segment) - 1 + newNumBytes);
+			currentSegmentAllocatedBytes = currentSegmentAllocatedBytes - previousNumBytes + newNumBytes;
+			currentSegment->totalBytes = newNumBytes;
+			return currentSegment->memory;
+		}
 		else if(newNumBytes < previousNumBytes)
 		{
 			// Even if we can't free some memory, never make a new allocation to shrink an old one.
