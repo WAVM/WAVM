@@ -9,10 +9,18 @@ namespace AST
 	#undef AST_TYPECLASS
 
 	// Define Type::id, Type::classId, and Type::name.
+	#define I8LowerCaseString "i8"
+	#define I16LowerCaseString "i16"
+	#define I32LowerCaseString "i32"
+	#define I64LowerCaseString "i64"
+	#define F32LowerCaseString "f32"
+	#define F64LowerCaseString "f64"
+	#define BoolLowerCaseString "bool"
+	#define VoidLowerCaseString "void"
 	#define AST_TYPE(typeName,className,...) \
 		TypeId typeName##Type::id = TypeId::typeName; \
 		TypeClassId typeName##Type::classId = TypeClassId::className; \
-		const char* typeName##Type::name = #typeName;
+		const char* typeName##Type::name = typeName##LowerCaseString;
 	ENUM_AST_TYPES(AST_TYPE)
 	#undef AST_TYPE
 
