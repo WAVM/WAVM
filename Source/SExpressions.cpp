@@ -175,6 +175,7 @@ namespace SExp
 			}
 		}
 
+		string.shrink(arena);
 		node->string = string.c_str();
 		node->stringLength = string.length();
 		node->endLocus = state.getLocus();
@@ -197,6 +198,7 @@ namespace SExp
 		node->endLocus = state.getLocus();
 
 		// Look up the symbol string in the index map.
+		string.shrink(arena);
 		auto symbolIndexIt = symbolIndexMap.find(string.c_str());
 		if(symbolIndexIt == symbolIndexMap.end())
 		{
