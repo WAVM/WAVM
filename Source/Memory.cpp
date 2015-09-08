@@ -6,7 +6,7 @@ namespace Memory
 {
 	Arena::~Arena()
 	{
-		revert(nullptr,0,0);
+		revert(nullptr,0,0,0);
 	}
 
 	void* Arena::allocate(size_t numBytes)
@@ -14,6 +14,8 @@ namespace Memory
 		// If the current segment doesn't have enough space for this allocation, allocate a new segment.
 		if(!currentSegment || currentSegmentAllocatedBytes + numBytes > currentSegment->totalBytes)
 		{
+			if(currentSegment) { totalWastedBytes += currentSegment->totalBytes - currentSegmentAllocatedBytes; }
+
 			size_t segmentBytes = numBytes > defaultSegmentBytes ? numBytes : defaultSegmentBytes;
 			uint8_t* newSegmentMemory = (uint8_t*)malloc(sizeof(Segment) - 1 + segmentBytes);
 			Segment* newSegment = (Segment*)newSegmentMemory;
@@ -55,6 +57,7 @@ namespace Memory
 		else if(newNumBytes < previousNumBytes)
 		{
 			// Even if we can't free some memory, never make a new allocation to shrink an old one.
+			totalWastedBytes += previousNumBytes - newNumBytes;
 			return oldAllocation;
 		}
 		else if(newNumBytes)
@@ -63,6 +66,7 @@ namespace Memory
 			void* newAllocation = allocate(newNumBytes);
 			if(previousNumBytes)
 			{
+				totalWastedBytes += previousNumBytes;
 				memcpy(newAllocation,oldAllocation,previousNumBytes);
 			}
 			return newAllocation;
@@ -74,10 +78,11 @@ namespace Memory
 		}
 	}
 
-	void Arena::revert(Segment* newSegment,size_t newSegmentAllocatedBytes,size_t newTotalAllocatedBytes)
+	void Arena::revert(Segment* newSegment,size_t newSegmentAllocatedBytes,size_t newTotalAllocatedBytes,size_t newTotalWastedBytes)
 	{
 		currentSegmentAllocatedBytes = newSegmentAllocatedBytes;
 		totalAllocatedBytes = newTotalAllocatedBytes;
+		totalWastedBytes = newTotalWastedBytes;
 
 		// Traverse the segment chain and free segments allocated since the specified segment.
 		while(currentSegment != newSegment)
@@ -93,12 +98,13 @@ namespace Memory
 	,	savedSegment(inArena.currentSegment)
 	,	savedSegmentAllocatedBytes(inArena.currentSegmentAllocatedBytes)
 	,	savedTotalAllocatedBytes(inArena.totalAllocatedBytes)
+	,	savedTotalWastedBytes(inArena.totalWastedBytes)
 	{}
 
 	void Arena::Mark::restore()
 	{
 		assert(arena);
-		arena->revert(savedSegment,savedSegmentAllocatedBytes,savedTotalAllocatedBytes);
+		arena->revert(savedSegment,savedSegmentAllocatedBytes,savedTotalAllocatedBytes,savedTotalWastedBytes);
 		arena = nullptr;
 	}
 

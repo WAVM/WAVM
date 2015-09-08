@@ -22,10 +22,11 @@ namespace Memory
 			Segment* savedSegment;
 			size_t savedSegmentAllocatedBytes;
 			size_t savedTotalAllocatedBytes;
+			size_t savedTotalWastedBytes;
 		};
 
 		Arena(size_t inDefaultSegmentBytes = 8192)
-		: defaultSegmentBytes(inDefaultSegmentBytes), currentSegment(nullptr), currentSegmentAllocatedBytes(0), totalAllocatedBytes(0) {}
+		: defaultSegmentBytes(inDefaultSegmentBytes), currentSegment(nullptr), currentSegmentAllocatedBytes(0), totalAllocatedBytes(0), totalWastedBytes(0) {}
 		~Arena();
 	
 		void* allocate(size_t numBytes);
@@ -38,6 +39,7 @@ namespace Memory
 		template<typename T> T* copyToArena(const T* source,size_t count) { auto dest = allocate<T>(count); std::copy(source,source+count,dest); return dest; }
 
 		size_t getTotalAllocatedBytes() const { return totalAllocatedBytes; }
+		size_t getTotalWastedBytes() const { return totalWastedBytes; }
 
 	private:
 
@@ -54,8 +56,9 @@ namespace Memory
 		Segment* currentSegment;
 		size_t currentSegmentAllocatedBytes;
 		size_t totalAllocatedBytes;
+		size_t totalWastedBytes;
 
-		void revert(Segment* newSegment,size_t newSegmentAllocatedBytes,size_t newTotalAllocatedBytes);
+		void revert(Segment* newSegment,size_t newSegmentAllocatedBytes,size_t newTotalAllocatedBytes,size_t newTotalWastedBytes);
 	};
 
 	// Encapsulates an arena used to allocate memory that is freed when the ScopedArena goes out of scope.
