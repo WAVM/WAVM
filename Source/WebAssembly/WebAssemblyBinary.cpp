@@ -1387,6 +1387,9 @@ namespace WebAssemblyBinary
 
 					auto functionIndex = in.boundedImmU32("export function index",module.functions.size());
 					module.exportNameToFunctionIndexMap[exportName.c_str()] = functionIndex;
+
+					// Also set the export name on the function.
+					module.functions[functionIndex]->name = exportName.c_str();
 				}
 				break;
 			}
