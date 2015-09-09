@@ -608,9 +608,8 @@ namespace LLVMJIT
 		IMPLEMENT_CAST_OP(FloatClass,reinterpretInt,irBuilder.CreateBitCast(source,destType))
 
 		IMPLEMENT_UNARY_OP(BoolClass,not,irBuilder.CreateNot(operand))
-		IMPLEMENT_BINARY_OP(BoolClass,or,irBuilder.CreateOr(left,right))
 		IMPLEMENT_BINARY_OP(BoolClass,and,irBuilder.CreateAnd(left,right))
-		IMPLEMENT_BINARY_OP(BoolClass,xor,irBuilder.CreateXor(left,right))
+		IMPLEMENT_BINARY_OP(BoolClass,or,irBuilder.CreateOr(left,right))
 
 		IMPLEMENT_COMPARE_OP(eq,isTypeClass(compare->operandType,TypeClassId::Float) ? irBuilder.CreateFCmpUEQ(left,right) : irBuilder.CreateICmpEQ(left,right))
 		IMPLEMENT_COMPARE_OP(neq,isTypeClass(compare->operandType,TypeClassId::Float) ? irBuilder.CreateFCmpUNE(left,right) : irBuilder.CreateICmpNE(left,right))

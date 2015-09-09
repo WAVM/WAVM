@@ -100,9 +100,8 @@ namespace AST
 		AST_OP(not)
 
 	#define ENUM_AST_BINARY_OPS_Bool() \
-		AST_OP(or) \
 		AST_OP(and) \
-		AST_OP(xor)
+		AST_OP(or)
 
 	#define ENUM_AST_COMPARISON_OPS() \
 		AST_OP(eq) AST_OP(neq) \
@@ -115,7 +114,8 @@ namespace AST
 		ENUM_AST_OPS_Any() \
 		ENUM_AST_UNARY_OPS_Bool() \
 		ENUM_AST_BINARY_OPS_Bool() \
-		ENUM_AST_COMPARISON_OPS()
+		ENUM_AST_COMPARISON_OPS() \
+		AST_OP(lit)
 
 	#define ENUM_AST_OPS_Void() \
 		ENUM_AST_OPS_Any() \
