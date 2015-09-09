@@ -29,6 +29,71 @@ namespace WebAssemblyText
 		return stream;
 	}
 
+	// An AST visitor that lowers certain operations that aren't supported by the WebAssembly text format:
+	//	- I8 and I16 operations (todo)
+	//	- boolean operations (todo)
+	//	- Switches with default case in the middle.
+	struct LoweringVisitor : MapChildrenVisitor<LoweringVisitor&>
+	{
+		LoweringVisitor(Memory::Arena& inArena,const Module* inModule,Function* inFunction)
+		: MapChildrenVisitor(inArena,inModule,inFunction,*this) {}
+
+		TypedExpression operator()(TypedExpression child)
+		{
+			return dispatch(*this,child);
+		}
+
+		template<typename Class>
+		DispatchResult visitSwitch(TypeId type,const Switch<Class>* switch_)
+		{
+			// Convert switches so the default arm is always last.
+			if(switch_->defaultArmIndex == switch_->numArms - 1) { return MapChildrenVisitor::visitSwitch(type,switch_); }
+			else
+			{
+				auto key = visitChild(switch_->key);
+
+				// Create a switch that just maps each case of the original switch to the arm index that handles it.
+				Switch<IntClass>* armIndexSwitch;
+				{
+					auto switchEndTarget = new(arena) BranchTarget(TypeId::I64);
+					auto switchArms = new(arena) SwitchArm[switch_->numArms];
+					SwitchArm* switchArm = switchArms;
+					for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
+					{
+						if(armIndex != switch_->defaultArmIndex)
+						{
+							switchArm->key = switch_->arms[armIndex].key;
+							switchArm->value = new(arena) Branch<IntClass>(switchEndTarget,new(arena) Literal<I64Type>(armIndex));
+							++switchArm;
+						}
+					}
+					switchArm->key = 0;
+					switchArm->value = new(arena) Literal<I64Type>(switch_->defaultArmIndex);
+					armIndexSwitch = new(arena) Switch<IntClass>(key,switch_->numArms - 1,switch_->numArms,switchArms,switchEndTarget);
+				}
+
+				// Create a switch that maps the arm index to the appropriate expression from the original switch.
+				auto cfgEndTarget = new(arena) BranchTarget(type);
+				branchTargetRemap[switch_->endTarget] = cfgEndTarget;
+
+				auto cfgArms = new(arena) SwitchArm[switch_->numArms];
+				for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
+				{
+					auto armType = armIndex + 1 == switch_->numArms ? type : TypeId::Void;
+					cfgArms[armIndex].key = armIndex;
+					cfgArms[armIndex].value = visitChild(TypedExpression(switch_->arms[armIndex].value,armType)).expression;
+				}
+				return TypedExpression(new(arena) Switch<Class>(
+					TypedExpression(armIndexSwitch,TypeId::I64),
+					switch_->numArms - 1,
+					switch_->numArms,
+					cfgArms,
+					cfgEndTarget
+					),type);
+			}
+		}
+	};
+
 	struct ModulePrintContext
 	{
 		Memory::Arena& arena;
@@ -169,18 +234,17 @@ namespace WebAssemblyText
 		template<typename Class>
 		DispatchResult visitSwitch(TypeId type,const Switch<Class>* switch_)
 		{
+			// The lowering pass should only give us switches with the default arm as the final arm.
+			assert(switch_->defaultArmIndex == switch_->numArms - 1);
 			auto switchStream = createTypedTaggedSubtree(switch_->key.type,Symbol::_switch) << dispatch(*this,switch_->key);
-			for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
+			for(uintptr_t armIndex = 0;armIndex < switch_->numArms - 1;++armIndex)
 			{
 				auto caseSubstream = createTaggedSubtree(Symbol::_case) << switch_->arms[armIndex].key;
-				bool isLastArm = armIndex + 1 == switch_->numArms;
-				if(switch_->arms[armIndex].value)
-				{
-					caseSubstream << dispatch(*this,switch_->arms[armIndex].value,isLastArm ? type : TypeId::Void);
-				}
-				if(!isLastArm) { caseSubstream << Symbol::_fallthrough; }
+				caseSubstream << dispatch(*this,switch_->arms[armIndex].value,TypeId::Void);
+				caseSubstream << Symbol::_fallthrough;
 				switchStream << caseSubstream;
 			}
+			switchStream << dispatch(*this,switch_->arms[switch_->numArms - 1].value,type);
 			
 			// Wrap the switch in a label for the switch end branch target.
 			auto labelStream = createTaggedSubtree(Symbol::_label) << getLabelName(switch_->endTarget);
@@ -284,18 +348,21 @@ namespace WebAssemblyText
 
 	SNodeOutputStream ModulePrintContext::printFunction(uintptr_t functionIndex)
 	{
-		auto function = module->functions[functionIndex];
-		FunctionPrintContext functionContext(arena,module,function);
-			
+		// Before printing, lower the function's expressions into those supported by WAST.
+		Function loweredFunction = *module->functions[functionIndex];
+		LoweringVisitor loweringVisitor(arena,module,&loweredFunction);
+		loweredFunction.expression = loweringVisitor(TypedExpression(loweredFunction.expression,loweredFunction.type.returnType)).expression;
+		
+		FunctionPrintContext functionContext(arena,module,&loweredFunction);
 		auto functionStream = createTaggedSubtree(Symbol::_func);
 
 		// Print the function name.
 		functionStream << functionContext.getFunctionName(functionIndex);
 
 		// Print the function parameters.
-		for(auto parameterLocalIndex : function->parameterLocalIndices)
+		for(auto parameterLocalIndex : loweredFunction.parameterLocalIndices)
 		{
-			auto parameter = function->locals[parameterLocalIndex];
+			auto parameter = loweredFunction.locals[parameterLocalIndex];
 			auto paramStream = createTaggedSubtree(Symbol::_param);
 			paramStream << functionContext.getLocalName(parameterLocalIndex);
 			paramStream << parameter.type;
@@ -303,18 +370,18 @@ namespace WebAssemblyText
 		}
 
 		// Print the function return type.
-		if(function->type.returnType != TypeId::Void)
+		if(loweredFunction.type.returnType != TypeId::Void)
 		{
 			auto resultStream = createTaggedSubtree(Symbol::_result);
-			resultStream << function->type.returnType;
+			resultStream << loweredFunction.type.returnType;
 			functionStream << resultStream;
 		}
 
 		// Print the function's locals.
-		for(uintptr_t localIndex = 0;localIndex < function->locals.size();++localIndex)
+		for(uintptr_t localIndex = 0;localIndex < loweredFunction.locals.size();++localIndex)
 		{
 			bool isParameter = false;
-			for(auto parameterLocalIndex : function->parameterLocalIndices)
+			for(auto parameterLocalIndex : loweredFunction.parameterLocalIndices)
 			{
 				if(parameterLocalIndex == localIndex) { isParameter = true; break; }
 			}
@@ -323,13 +390,13 @@ namespace WebAssemblyText
 			{
 				auto localStream = createTaggedSubtree(Symbol::_local);
 				localStream << functionContext.getLocalName(localIndex);
-				localStream << function->locals[localIndex].type;
+				localStream << loweredFunction.locals[localIndex].type;
 				functionStream << localStream;
 			}
 		}
 
 		// Print the function's expression.
-		functionStream << dispatch(functionContext,function->expression,function->type.returnType);
+		functionStream << dispatch(functionContext,loweredFunction.expression,loweredFunction.type.returnType);
 
 		return functionStream;
 	}
