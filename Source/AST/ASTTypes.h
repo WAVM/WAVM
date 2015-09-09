@@ -59,7 +59,7 @@ namespace AST
 	// Define the TypeId enum: TypeId::I8, TypeId::I16, etc.
 	enum class TypeId : uint8_t
 	{
-		Invalid = 0,
+		None = 0,
 		#define AST_TYPE(typeName,className,...) typeName,
 		ENUM_AST_TYPES(AST_TYPE)
 		#undef AST_TYPE

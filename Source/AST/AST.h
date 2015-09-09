@@ -64,7 +64,7 @@ namespace AST
 		TypeId type;
 
 		TypedExpression(UntypedExpression* inExpression,TypeId inType): expression(inExpression), type(inType) {}
-		TypedExpression(): type(TypeId::Invalid), expression(nullptr) {}
+		TypedExpression(): type(TypeId::None), expression(nullptr) {}
 		operator bool() const { return expression != nullptr; }
 		
 		template<typename AsClass> friend typename AsClass::Expression* as(const TypedExpression& expression)

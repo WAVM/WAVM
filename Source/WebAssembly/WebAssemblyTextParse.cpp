@@ -234,7 +234,7 @@ namespace WebAssemblyText
 				{
 				default: return TypedExpression();
 				#define DEFINE_UNTYPED_OP(symbol) \
-					throw; case Symbol::_##symbol: opType = TypeId::Invalid; opType2 = TypeId::Invalid;
+					throw; case Symbol::_##symbol: opType = TypeId::None; opType2 = TypeId::None;
 				#define DISPATCH_TYPED_OP(opTypeName,opClassName,symbol) \
 					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
 				#define DEFINE_TYPED_OP(opClass,symbol) \
@@ -298,6 +298,10 @@ namespace WebAssemblyText
 
 				DEFINE_INT_MEMORY_OP(load_s,store_s,sext)
 				DEFINE_INT_MEMORY_OP(load_u,store_u,zext)
+				DEFINE_MEMORY_OP(Int,I8,I8,load,store,wrap,wrap)
+				DEFINE_MEMORY_OP(Int,I16,I16,load,store,wrap,wrap)
+				DEFINE_MEMORY_OP(Int,I32,I32,load,store,wrap,wrap)
+				DEFINE_MEMORY_OP(Int,I64,I64,load,store,wrap,wrap)
 
 				DEFINE_MEMORY_OP(Float,F32,F32,load,store,promote,promote)
 				DEFINE_MEMORY_OP(Float,F64,F64,load,store,promote,promote)
@@ -453,7 +457,7 @@ namespace WebAssemblyText
 				{
 				default: return nullptr;
 				#define DEFINE_PARAMETRIC_UNTYPED_OP(symbol) \
-					throw; case Symbol::_##symbol: opType = TypeId::Invalid;
+					throw; case Symbol::_##symbol: opType = TypeId::None;
 				#define DISPATCH_PARAMETRIC_TYPED_OP(opTypeName,opClassName,symbol) \
 					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
 				#define DEFINE_PARAMETRIC_TYPED_OP(opClass,symbol) \

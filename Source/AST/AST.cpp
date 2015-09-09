@@ -31,6 +31,7 @@ namespace AST
 		{
 			switch(type)
 			{
+			case TypeId::None: return true;
 			case TypeId::I8: return typeClass == TypeClassId::Int;
 			case TypeId::I16: return typeClass == TypeClassId::Int;
 			case TypeId::I32: return typeClass == TypeClassId::Int;

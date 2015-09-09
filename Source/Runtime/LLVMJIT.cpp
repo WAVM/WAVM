@@ -701,7 +701,7 @@ namespace LLVMJIT
 		llvm::InitializeNativeTargetAsmPrinter();
 		llvm::InitializeNativeTargetAsmParser();
 
-		llvmTypesByTypeId[(size_t)TypeId::Invalid] = nullptr;
+		llvmTypesByTypeId[(size_t)TypeId::None] = nullptr;
 		llvmTypesByTypeId[(size_t)TypeId::I8] = llvm::Type::getInt8Ty(context);
 		llvmTypesByTypeId[(size_t)TypeId::I16] = llvm::Type::getInt16Ty(context);
 		llvmTypesByTypeId[(size_t)TypeId::I32] = llvm::Type::getInt32Ty(context);
