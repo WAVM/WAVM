@@ -360,8 +360,8 @@ namespace LLVMJIT
 		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)
 		{
-			auto labelBlock = llvm::BasicBlock::Create(context,"labelContinue",llvmFunction);
-			auto successorBlock = llvm::BasicBlock::Create(context,"labelBreak",llvmFunction);
+			auto labelBlock = llvm::BasicBlock::Create(context,"label",llvmFunction);
+			auto successorBlock = llvm::BasicBlock::Create(context,"labelSucc",llvmFunction);
 			
 			compileBranch(labelBlock);
 			irBuilder.SetInsertPoint(labelBlock);
