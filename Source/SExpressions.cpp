@@ -214,38 +214,37 @@ namespace SExp
 	Node* parseNumber(StreamState& state,Memory::Arena& arena)
 	{
 		auto startLocus = state.getLocus();
-		uint64_t accumulator = 0;
-		uint64_t denominator = 1;
-		bool hasDecimalPoint = false;
 
-		bool negative = false;
+		bool isNegative = false;
 		if(state.get() == '+' || state.get() == '-')
 		{
-			negative = state.get() == '-';
+			isNegative = state.get() == '-';
 			state.advance();
 		}
 
+		// First parse the digits and decimal point.
+		Memory::ArenaString digits;
+		uintptr_t numIntegerDigits = 0;
+		uintptr_t base = 10;
+		bool hasDecimalPoint = false;
 		while(true)
 		{
 			auto nextChar = state.get();
 			if(isDigit(nextChar))
 			{
-				if(accumulator * 10 / 10 != accumulator) { throw; }
-				accumulator *= 10;
-				accumulator += nextChar - '0';
-				if(hasDecimalPoint)
-				{
-					denominator *= 10;
-				}
+				digits.append(arena,nextChar - '0');
 			}
 			else if(nextChar == '.')
 			{
 				if(hasDecimalPoint)
 				{
-					throw;
+					auto node = new(arena) Node(state.getLocus(),NodeType::Error);
+					node->error = "number must have no more than one decimal point";
+					return node;
 				}
 				else
 				{
+					numIntegerDigits = digits.length();
 					hasDecimalPoint = true;
 				}
 			}
@@ -255,21 +254,60 @@ namespace SExp
 			}
 			state.advance();
 		}
-
+		
 		if(hasDecimalPoint)
 		{
+			// If the number has a decimal point, decode its digits into a float64.
+			double accumulator = 0.0;
+			double digitFactor = isNegative ? -1.0 : 1.0;
+			for(uintptr_t digitIndex = 0;digitIndex < digits.length();++digitIndex)
+			{
+				if(digitIndex < numIntegerDigits)
+				{
+					// Detect if the double is about to overflow its maximum value.
+					if(std::abs(accumulator) > std::numeric_limits<double>::max() / base) 
+					{
+						auto node = new(arena) Node(state.getLocus(),NodeType::Error);
+						node->error = "number is too large to represent as a 64-bit float";
+						return node;
+					}
+					accumulator *= base;
+				}
+				else { digitFactor /= base; }
+				accumulator += digitFactor * digits[digitIndex];
+			}
+			digits.reset(arena);
+
 			auto node = new(arena)Node(startLocus,NodeType::Decimal);
-			node->decimal = (double)accumulator / denominator;
-			node->endLocus = state.getLocus();
+			node->decimal = accumulator;
 			return node;
 		}
 		else
 		{
-			auto node = new(arena)Node(startLocus,NodeType::Int);
-			if(negative && -(-(int64_t)accumulator) != (int64_t)accumulator) { throw; }
-			node->integer = negative ? -(int64_t)accumulator : +accumulator;
-			node->endLocus = state.getLocus();
-			return node;
+			// If the number doesn't have a decimal point, decode its digits into an int64.
+			uint64_t accumulator = 0;
+			bool notEnoughBits = false;
+			for(uintptr_t digitIndex = 0;digitIndex < digits.length();++digitIndex)
+			{
+				// Detect if the uint64_t is about to overflow.
+				if(accumulator * base / base != accumulator) { notEnoughBits = true; }
+				accumulator *= base;
+				accumulator += digits[digitIndex];
+			}
+			digits.reset(arena);
+			if(isNegative && -(-(int64_t)accumulator) != (int64_t)accumulator) { notEnoughBits = true; }			
+			if(notEnoughBits)
+			{
+				auto node = new(arena) Node(state.getLocus(),NodeType::Error);
+				node->error = "number is too large to represent as a 64-bit integer";
+				return node;
+			}
+			else
+			{
+				auto node = new(arena)Node(startLocus,NodeType::Int);
+				node->integer = isNegative ? -(int64_t)accumulator : +accumulator;
+				return node;
+			}
 		}
 	}
 
@@ -343,8 +381,9 @@ namespace SExp
 				*nextNodePtr = parseQuotedString(state,arena);
 				nextNodePtr = &(*nextNodePtr)->nextSibling;
 			}
-			else if(isDigit(nextChar) || nextChar == '+' || nextChar == '-')
+			else if(isDigit(nextChar) || nextChar == '+' || nextChar == '-' || nextChar == '.')
 			{
+				// Parse a number.
 				*nextNodePtr = parseNumber(state,arena);
 				nextNodePtr = &(*nextNodePtr)->nextSibling;
 			}
