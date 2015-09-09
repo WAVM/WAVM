@@ -550,19 +550,29 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(break)
 				{
 					// Parse the name or index of the target label.
-					uintptr_t labelIndex;
-					if(!parseNameOrIndex(nodeIt,labelToIndexMap,scopedBranchTargets.size(),labelIndex))
+					const char* name;
+					int64_t parsedInt;
+					BranchTarget* branchTarget = nullptr;
+					if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr_t)parsedInt < scopedBranchTargets.size())
+					{
+						branchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr_t)parsedInt];
+					}
+					else if(parseName(nodeIt,name))
+					{
+						auto it = labelToIndexMap.find(name);
+						if(it != labelToIndexMap.end()) { branchTarget = scopedBranchTargets[it->second]; }
+					}
+					if(!branchTarget)
 					{
 						return recordError<Error<Class>>(outErrors,nodeIt,"break: expected label name or index");
 					}
-					auto scopedBranchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - labelIndex];
 
 					// If the branch target's type isn't void, parse an expression for the branch's value.
-					auto value = scopedBranchTarget->type == TypeId::Void ? nullptr
-						: parseTypedExpression(scopedBranchTarget->type,nodeIt,"break value");
+					auto value = branchTarget->type == TypeId::Void ? nullptr
+						: parseTypedExpression(branchTarget->type,nodeIt,"break value");
 
 					// Create the Branch node.
-					return requireFullMatch(nodeIt,"break",new(arena)Branch<Class>(scopedBranchTarget,value));
+					return requireFullMatch(nodeIt,"break",new(arena)Branch<Class>(branchTarget,value));
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(return)
 				{
