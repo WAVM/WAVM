@@ -575,17 +575,17 @@ namespace WebAssemblyBinary
 			auto value = decodeExpression<Type>();
 			if(localIndex >= currentFunction->locals.size()) { return recordError<Type::Class>("setlocal: invalid local index"); }
 			if(currentFunction->locals[localIndex].type != Type::id) { return recordError<Type::Class>("setlocal: incorrect type"); }
-			auto store = new(arena) StoreVariable(VoidOp::setLocal,TypedExpression(value,Type::id),localIndex);
-			auto load = new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,localIndex);
-			auto voidExpressions = new(arena) Expression<VoidClass>*[1] {store};
-			return new(arena) Block<typename Type::Class>(voidExpressions,1,load);
+			return new(arena) Sequence<typename Type::Class>(
+				new(arena) StoreVariable(VoidOp::setLocal,value,localIndex),
+				new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,localIndex)
+				);
 		}
 		VoidExpression* setLocal(uint32_t localIndex)
 		{
 			if(localIndex >= currentFunction->locals.size()) { throw new FatalDecodeException("setlocal: invalid local index"); }
 			auto type = currentFunction->locals[localIndex].type;
 			auto value = decodeExpression(type);
-			return new(arena) StoreVariable(VoidOp::setLocal,TypedExpression(value,type),localIndex);
+			return new(arena) StoreVariable(VoidOp::setLocal,value,localIndex);
 		}
 		
 		// Loads a value from a global variable.
@@ -604,17 +604,17 @@ namespace WebAssemblyBinary
 			auto value = decodeExpression<Type>();
 			if(globalIndex >= module.globals.size()) { return recordError<Type::Class>("setglobal: invalid global index"); }
 			if(module.globals[globalIndex].type != Type::id) { return recordError<Type::Class>("setglobal: incorrect type"); }
-			auto store = new(arena) StoreVariable(VoidOp::storeGlobal,TypedExpression(value,Type::id),globalIndex);
-			auto load = new(arena) LoadVariable<Type::Class>(Type::Op::loadGlobal,globalIndex);
-			auto voidExpressions = new(arena) Expression<VoidClass>*[1] {store};
-			return new(arena) Block<typename Type::Class>(voidExpressions,1,load);
+			return new(arena) Sequence<typename Type::Class>(
+				new(arena) StoreVariable(VoidOp::storeGlobal,value,globalIndex),
+				new(arena) LoadVariable<Type::Class>(Type::Op::loadGlobal,globalIndex)
+				);
 		}
 		VoidExpression* setGlobal(uint32_t globalIndex)
 		{
 			if(globalIndex >= module.globals.size()) { throw new FatalDecodeException("setglobal: invalid global index"); }
 			auto type = module.globals[globalIndex].type;
 			auto value = decodeExpression(type);
-			return new(arena) StoreVariable(VoidOp::storeGlobal,TypedExpression(value,type),globalIndex);
+			return new(arena) StoreVariable(VoidOp::storeGlobal,value,globalIndex);
 		}
 
 		// Decodes an address in the form of an offset into the module's linear memory.
@@ -644,14 +644,16 @@ namespace WebAssemblyBinary
 		{
 			auto value = decodeExpression<Type>();
 			auto tempLocalIndex = getTempLocalIndex<Type>();
-			auto tempStore = new(arena) StoreVariable(VoidOp::setLocal,TypedExpression(value,Type::id),tempLocalIndex);
 			auto tempLoad1 = new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,tempLocalIndex);
 			auto castedValue = memoryType == Type::id ? as<Type::Class>(tempLoad1)
 				: new(arena) Cast<Type::Class>(castOp,TypedExpression(tempLoad1,Type::id));
-			auto store = new(arena) StoreMemory(false,true,address,TypedExpression(castedValue,memoryType));
-			auto voidExpressions = new(arena) Expression<VoidClass>*[2] {tempStore,store};
-			auto tempLoad2 = new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,tempLocalIndex);
-			return new(arena) Block<typename Type::Class>(voidExpressions,2,tempLoad2);
+			return new(arena) Sequence<typename Type::Class>(
+				new(arena) Sequence<VoidClass>(
+					new(arena) StoreVariable(VoidOp::setLocal,value,tempLocalIndex),
+					new(arena) StoreMemory(false,true,address,TypedExpression(castedValue,memoryType))
+					),
+				new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,tempLocalIndex)
+				);
 		}
 		template<typename Type>
 		VoidExpression* storeMemory(TypeId memoryType,typename Type::Op castOp,IntExpression* address)
@@ -698,17 +700,17 @@ namespace WebAssemblyBinary
 		template<typename Type>
 		typename Type::Expression* comma()
 		{
-			auto voidExpression = new(arena) Expression<VoidClass>*[1];
+			VoidExpression* voidExpression;
 			switch(in.returnType())
 			{
-			case TypeId::I32: *voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<I32Type>(),TypeId::I32)); break;
-			case TypeId::F32: *voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<F32Type>(),TypeId::F32)); break;
-			case TypeId::F64: *voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<F64Type>(),TypeId::F64)); break;
-			case TypeId::Void: *voidExpression = decodeExpression<VoidType>(); break;
+			case TypeId::I32: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<I32Type>(),TypeId::I32)); break;
+			case TypeId::F32: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<F32Type>(),TypeId::F32)); break;
+			case TypeId::F64: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<F64Type>(),TypeId::F64)); break;
+			case TypeId::Void: voidExpression = decodeExpression<VoidType>(); break;
 			default: throw;
 			}
 			auto value = decodeExpression<Type>();
-			return new(arena) Block<typename Type::Class>(voidExpression,1,value);
+			return new(arena) Sequence<typename Type::Class>(voidExpression,value);
 		}
 
 		BoolExpression* decodeExpressionI32AsBool()
@@ -773,7 +775,7 @@ namespace WebAssemblyBinary
 			auto functionIndex = decodeExpression<I32Type>();
 			auto parameters = decodeParameters(functionTable.type.parameters);
 			return functionTable.type.returnType == returnType
-				? as<Class>(new(arena) CallIndirect<Class>(Class::Op::callIndirect,tableIndex,functionIndex,parameters))
+				? as<Class>(new(arena) CallIndirect<Class>(tableIndex,functionIndex,parameters))
 				: recordError<Class>("callindirect: incorrect type");
 		}
 		VoidExpression* callIndirectStatement(uint32_t tableIndex)
@@ -904,9 +906,8 @@ namespace WebAssemblyBinary
 			implicitBreakTargets.pop_back();
 			implicitContinueTargets.pop_back();
 			if(isEnclosedByLabel) { explicitContinueTargets.pop_back(); }
-			auto loopBody = new(arena) Block<VoidClass>(
-				new(arena) Expression<VoidClass>*[1] {loopExpression},
-				1,
+			auto loopBody = new(arena) Sequence<VoidClass>(
+				loopExpression,
 				new(arena) IfElse<VoidClass>(
 					condition,
 					new(arena) Nop(),
@@ -987,7 +988,7 @@ namespace WebAssemblyBinary
 				{
 				case SwitchCase::Case0:
 				case SwitchCase::Default0:
-					caseValue = nullptr;
+					caseValue = new(arena) Nop();
 					break;
 				case SwitchCase::Case1:
 				case SwitchCase::Default1:
@@ -1321,11 +1322,12 @@ namespace WebAssemblyBinary
 			if(numStatements == 0) { return new(arena) Nop(); }
 			else
 			{
-				auto voidExpressions = new(arena) VoidExpression*[numStatements - 1];
-				for(uint32_t statementIndex = 0;statementIndex < numStatements - 1;++statementIndex)
-				{ voidExpressions[statementIndex] = decodeStatement(); }
-				VoidExpression* resultExpression = decodeStatement();
-				return new(arena) Block<VoidClass>(voidExpressions,numStatements-1,resultExpression);
+				VoidExpression* result = decodeStatement();
+				for(uint32_t statementIndex = 1;statementIndex < numStatements;++statementIndex)
+				{
+					result = new(arena) Sequence<VoidClass>(result,decodeStatement());
+				}
+				return result;
 			}
 		}
 
@@ -1376,9 +1378,9 @@ namespace WebAssemblyBinary
 				auto voidExpression = decodeStatementList();
 				switch(currentFunction->type.returnType)
 				{
-				case TypeId::I32: currentFunction->expression = new(arena) Block<IntClass>(new(arena) VoidExpression*[1]{voidExpression},1,new(arena) Literal<I32Type>(0)); break;
-				case TypeId::F32: currentFunction->expression = new(arena) Block<FloatClass>(new(arena) VoidExpression*[1]{voidExpression},1,new(arena) Literal<F32Type>(0.0f)); break;
-				case TypeId::F64: currentFunction->expression = new(arena) Block<FloatClass>(new(arena) VoidExpression*[1]{voidExpression},1,new(arena) Literal<F64Type>(0.0)); break;
+				case TypeId::I32: currentFunction->expression = new(arena) Sequence<IntClass>(voidExpression,new(arena) Literal<I32Type>(0)); break;
+				case TypeId::F32: currentFunction->expression = new(arena) Sequence<FloatClass>(voidExpression,new(arena) Literal<F32Type>(0.0f)); break;
+				case TypeId::F64: currentFunction->expression = new(arena) Sequence<FloatClass>(voidExpression,new(arena) Literal<F64Type>(0.0)); break;
 				case TypeId::Void: currentFunction->expression = voidExpression; break;
 				default: throw;
 				}

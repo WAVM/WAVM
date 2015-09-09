@@ -541,11 +541,14 @@ namespace WebAssemblyText
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(loop)
 				{
+					auto breakTarget = new(arena) BranchTarget(resultType);
+					auto continueTarget = new(arena) BranchTarget(TypeId::Void);
+
 					// Parse the loop body.
 					auto expression = parseExpressionSequence<VoidClass>(TypeId::Void,nodeIt,"loop body");
 
 					// Create the Loop node.
-					return new(arena)Loop<Class>(expression,nullptr,nullptr);
+					return new(arena)Loop<Class>(expression,breakTarget,continueTarget);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(break)
 				{
@@ -659,7 +662,7 @@ namespace WebAssemblyText
 					}
 
 					// Create the CallIndirect node.
-					auto call = new(arena)CallIndirect<Class>(Class::Op::callIndirect,tableIndex,functionIndex,parameters);
+					auto call = new(arena)CallIndirect<Class>(tableIndex,functionIndex,parameters);
 					
 					// Validate the function return type against the result type of this call.
 					auto result = coerceExpression<Class>(resultType,TypedExpression(call,functionTable.type.returnType),parentNodeIt,"call_indirect return value");
@@ -850,15 +853,23 @@ namespace WebAssemblyText
 		template<typename Class>
 		typename Class::Expression* parseExpressionSequence(TypeId type,SNodeIt nodeIt,const char* errorContext,size_t numOps)
 		{
-			if(numOps == 0) { return nullptr; }
+			if(numOps == 0) { return as<Class>(new(arena) Nop()); }
 			else if(numOps == 1) { return parseTypedExpression<Class>(type,nodeIt,errorContext); }
 			else
 			{
-				auto voidExpressions = arena.allocate<Expression<VoidClass>*>(numOps - 1);
+				// Parse the void expressions.
+				VoidExpression* result = nullptr;
 				for(uintptr_t expressionIndex = 0;expressionIndex < numOps - 1;++expressionIndex)
-				{ voidExpressions[expressionIndex] = parseTypedExpression<VoidClass>(TypeId::Void,nodeIt,errorContext); }
-				auto value = parseTypedExpression<Class>(type,nodeIt,errorContext);
-				return new(arena) Block<Class>(voidExpressions,numOps - 1,value);
+				{
+					auto expression = parseTypedExpression<VoidClass>(TypeId::Void,nodeIt,errorContext);
+					if(result) { result = new(arena) Sequence<VoidClass>(result,expression); }
+					else { result = expression; }
+				}
+				// Parse the result expression.
+				return new(arena) Sequence<Class>(
+					result,
+					parseTypedExpression<Class>(type,nodeIt,errorContext)
+					);
 			}
 		}
 
@@ -978,7 +989,7 @@ namespace WebAssemblyText
 			}
 			auto variableType = variables[variableIndex].type;
 			auto valueExpression = parseTypedExpression(variableType,nodeIt,"store value");
-			auto result = new(arena) StoreVariable(op,TypedExpression(valueExpression,variableType),variableIndex);
+			auto result = new(arena) StoreVariable(op,valueExpression,variableIndex);
 			return TypedExpression(requireFullMatch(nodeIt,getOpName(op),result),TypeId::Void);
 		}
 	};

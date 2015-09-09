@@ -30,7 +30,7 @@ namespace AST
 		case AnyOp::callIndirect: return visitor.visitCallIndirect(type,(CallIndirect<Class>*)expression);
 		case AnyOp::getLocal: return visitor.visitLoadVariable(type,(LoadVariable<Class>*)expression,OpTypes<Class>::getLocal());
 		case AnyOp::loadGlobal: return visitor.visitLoadVariable(type,(LoadVariable<Class>*)expression,OpTypes<Class>::loadGlobal());
-		case AnyOp::block: return visitor.visitBlock(type,(Block<Class>*)expression);
+		case AnyOp::sequence: return visitor.visitSequence(type,(Sequence<Class>*)expression);
 		case AnyOp::loop: return visitor.visitLoop(type,(Loop<Class>*)expression);
 		case AnyOp::switch_: return visitor.visitSwitch(type,(Switch<Class>*)expression);
 		case AnyOp::ifElse: return visitor.visitIfElse(type,(IfElse<Class>*)expression);

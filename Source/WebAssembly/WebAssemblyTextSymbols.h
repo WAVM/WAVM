@@ -193,7 +193,6 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(switch_,switch)
 		MAP_OP_SYMBOL(ifElse,if)
 		MAP_OP_SYMBOL(label,label)
-		MAP_OP_SYMBOL(block,block)
 		MAP_OP_SYMBOL(branch,break)
 		MAP_OP_SYMBOL(ret,return)
 		#undef MAP_OP_SYMBOL

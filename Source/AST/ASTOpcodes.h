@@ -10,7 +10,7 @@ namespace AST
 		AST_OP(error) \
 		AST_OP(getLocal) AST_OP(loadGlobal) \
 		AST_OP(callDirect) AST_OP(callImport) AST_OP(callIndirect) \
-		AST_OP(loop) AST_OP(switch_) AST_OP(ifElse) AST_OP(label) AST_OP(block) \
+		AST_OP(loop) AST_OP(switch_) AST_OP(ifElse) AST_OP(label) AST_OP(sequence) \
 		AST_OP(branch) AST_OP(ret)
 
 	#define ENUM_AST_UNARY_OPS_Int() \

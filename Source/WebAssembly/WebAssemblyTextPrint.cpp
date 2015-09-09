@@ -202,14 +202,21 @@ namespace WebAssemblyText
 			return createTaggedSubtree(Symbol::_label) << getLabelName(label->endTarget) << dispatch(*this,label->expression,type);
 		}
 		template<typename Class>
-		DispatchResult visitBlock(TypeId type,const Block<Class>* block)
+		void visitSequenceRecursive(SNodeOutputStream& outputStream,TypeId type,const Sequence<Class>* seq)
+		{
+			if(seq->voidExpression->op() != VoidOp::sequence) { outputStream << dispatch(*this,seq->voidExpression); }
+			else
+			{
+				// If the void expression is another sequence, recurse on it.
+				visitSequenceRecursive<VoidClass>(outputStream,TypeId::Void,(Sequence<VoidClass>*)seq->voidExpression);
+			}
+			outputStream << dispatch(*this,seq->resultExpression,type);
+		}
+		template<typename Class>
+		DispatchResult visitSequence(TypeId type,const Sequence<Class>* seq)
 		{
 			auto subtreeStream = createTaggedSubtree(Symbol::_block);
-			for(uintptr_t expressionIndex = 0;expressionIndex < block->numVoidExpressions;++expressionIndex)
-			{
-				subtreeStream << dispatch(*this,block->voidExpressions[expressionIndex]);
-			}
-			subtreeStream << dispatch(*this,block->resultExpression,type);
+			visitSequenceRecursive(subtreeStream,type,seq);
 			return subtreeStream;
 		}
 		template<typename Class>
@@ -255,12 +262,17 @@ namespace WebAssemblyText
 			return dispatch(*this,discardResult->expression);
 		}
 		
-		template<typename OpAsType>
-		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpAsType)
+		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpTypes<VoidClass>::setLocal)
 		{
-			return createTaggedSubtree(getOpSymbol(storeVariable->op()))
-				<< (storeVariable->op() == VoidOp::setLocal ? getLocalName(storeVariable->variableIndex) : getGlobalName(storeVariable->variableIndex))
-				<< dispatch(*this,storeVariable->value);
+			return createTaggedSubtree(Symbol::_set_local)
+				<< getLocalName(storeVariable->variableIndex)
+				<< dispatch(*this,storeVariable->value,function->locals[storeVariable->variableIndex].type);
+		}
+		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpTypes<VoidClass>::storeGlobal)
+		{
+			return createTaggedSubtree(Symbol::_store_global)
+				<< getGlobalName(storeVariable->variableIndex)
+				<< dispatch(*this,storeVariable->value,module->globals[storeVariable->variableIndex].type);
 		}
 		DispatchResult visitStoreMemory(const StoreMemory* store)
 		{

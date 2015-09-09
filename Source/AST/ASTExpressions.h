@@ -97,8 +97,8 @@ namespace AST
 		uintptr_t tableIndex;
 		Expression<IntClass>* functionIndex; // must be I32
 		UntypedExpression** parameters;
-		CallIndirect(Op op,uintptr_t inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
-		: Expression(op), tableIndex(inTableIndex), functionIndex(inFunctionIndex), parameters(inParameters) {}
+		CallIndirect(uintptr_t inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
+		: Expression(Class::Op::callIndirect), tableIndex(inTableIndex), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
 	// Used to coerce an expression result to void.
@@ -198,26 +198,23 @@ namespace AST
 	};
 
 	template<typename Class>
-	struct Block : public Expression<Class>
+	struct Sequence : public Expression<Class>
 	{
-		Expression<VoidClass>** voidExpressions;
-		size_t numVoidExpressions;
-
+		Expression<VoidClass>* voidExpression;
 		Expression<Class>* resultExpression;
 
-		Block(Expression<VoidClass>** inVoidExpressions,size_t inNumVoidExpressions,Expression<Class>* inResultExpression)
-		:	Expression(Op::block)
-		,	voidExpressions(inVoidExpressions)
-		,	numVoidExpressions(inNumVoidExpressions)
+		Sequence(Expression<VoidClass>* inVoidExpression,Expression<Class>* inResultExpression)
+		:	Expression(Op::sequence)
+		,	voidExpression(inVoidExpression)
 		,	resultExpression(inResultExpression)
 		{}
 	};
 	
 	struct StoreVariable : public Expression<VoidClass>
 	{
-		TypedExpression value;
+		UntypedExpression* value;
 		uintptr_t variableIndex;
-		StoreVariable(Op op,TypedExpression inValue,uintptr_t inVariableIndex)
+		StoreVariable(Op op,UntypedExpression* inValue,uintptr_t inVariableIndex)
 		: Expression(op), value(inValue), variableIndex(inVariableIndex) {}
 	};
 

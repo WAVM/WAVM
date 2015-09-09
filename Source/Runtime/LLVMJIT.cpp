@@ -296,10 +296,10 @@ namespace LLVMJIT
 				}
 				switchInstruction->addCase(armKey,armEntryBlocks[armIndex]);
 				irBuilder.SetInsertPoint(armEntryBlocks[armIndex]);
+				assert(arm.value);
 				if(armIndex + 1 == switchExpression->numArms && type != TypeId::Void)
 				{
 					// The final arm is an expression of the same type as the switch.
-					assert(arm.value);
 					auto value = dispatch(*this,arm.value,type);
 					auto exitBlock = compileBranch(successorBlock);
 					assert(value);
@@ -309,7 +309,7 @@ namespace LLVMJIT
 				else
 				{
 					// The other arms yield void.
-					if(arm.value) { dispatch(*this,arm.value,TypeId::Void); }
+					dispatch(*this,arm.value,TypeId::Void);
 					compileBranch(armEntryBlocks[armIndex + 1]);
 				}
 			}
@@ -393,11 +393,10 @@ namespace LLVMJIT
 			}
 		}
 		template<typename Class>
-		DispatchResult visitBlock(TypeId type,const Block<Class>* block)
+		DispatchResult visitSequence(TypeId type,const Sequence<Class>* seq)
 		{
-			for(uintptr_t expressionIndex = 0;expressionIndex < block->numVoidExpressions;++expressionIndex)
-				{ dispatch(*this,block->voidExpressions[expressionIndex]); }
-			return dispatch(*this,block->resultExpression,type);
+			dispatch(*this,seq->voidExpression);
+			return dispatch(*this,seq->resultExpression,type);
 		}
 		template<typename Class>
 		DispatchResult visitReturn(const Return<Class>* ret)
@@ -477,13 +476,13 @@ namespace LLVMJIT
 		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpTypes<VoidClass>::setLocal)
 		{
 			assert(storeVariable->variableIndex < astFunction->locals.size());
-			auto value = dispatch(*this,storeVariable->value);
+			auto value = dispatch(*this,storeVariable->value,astFunction->locals[storeVariable->variableIndex].type);
 			return irBuilder.CreateStore(value,localVariablePointers[storeVariable->variableIndex]);
 		}
 		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpTypes<VoidClass>::storeGlobal)
 		{
 			assert(storeVariable->variableIndex < jitModule.globalVariablePointers.size());
-			auto value = dispatch(*this,storeVariable->value);
+			auto value = dispatch(*this,storeVariable->value,astModule->globals[storeVariable->variableIndex].type);
 			return irBuilder.CreateStore(value,jitModule.globalVariablePointers[storeVariable->variableIndex]);
 		}
 		DispatchResult visitStoreMemory(const StoreMemory* storeMemory)
