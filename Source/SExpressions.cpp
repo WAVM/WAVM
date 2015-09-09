@@ -2,9 +2,18 @@
 #include "SExpressions.h"
 #include <initializer_list>
 #include <fstream>
+#include <limits>
 
 namespace SExp
 {
+	struct FatalParseException
+	{
+		TextFileLocus locus;
+		std::string message;
+		FatalParseException(const TextFileLocus& inLocus,std::string&& inMessage)
+		: locus(inLocus), message(std::move(inMessage)) {}
+	};
+
 	struct StreamState
 	{
 		StreamState(const char* inString)
@@ -15,7 +24,7 @@ namespace SExp
 		{
 			switch(*next)
 			{
-			case 0: throw;
+			case 0: throw new FatalParseException(locus,"unexpected end of file");
 			case '\n': locus.newlines++; locus.tabs = 0; locus.characters = 0; break;
 			case '\t': locus.tabs++; break;
 			default: locus.characters++; break;
@@ -327,14 +336,13 @@ namespace SExp
 			}
 			else if(nextChar == ';')
 			{
+				// Parse a line comment.
 				state.advance();
 				if(state.get() != ';')
 				{
-					throw;
+					throw new(arena) FatalParseException(state.getLocus(),std::string("expected ';' following ';' but found '") + nextChar + "'");
 				}
-				state.advance();
 
-				// Skip line comments.
 				while(state.get() != '\n' && state.get() != 0) state.advance();
 			}
 			else if(nextChar == '(')
@@ -343,13 +351,14 @@ namespace SExp
 
 				if(state.get() == ';')
 				{
+					// Parse a block comment.
 					do
 					{
 						state.skipToNext(';');
 						state.advance();
 						if(state.get() == 0)
 						{
-							throw;
+							throw new(arena) FatalParseException(state.getLocus(),"reached end of file while parsing block comment");
 						}
 					}
 					while(state.get() != ')');
@@ -362,10 +371,9 @@ namespace SExp
 					parseRecursive(state,arena,symbolIndexMap,&newNode->children);
 					if(state.get() != ')')
 					{
-						throw;
+						throw new(arena) FatalParseException(state.getLocus(),std::string("expected ')' following S-expression child nodes but found '") + nextChar + "'");
 					}
 					state.advance();
-					newNode->endLocus = state.getLocus();
 					*nextNodePtr = newNode;
 					nextNodePtr = &newNode->nextSibling;
 				}
@@ -387,49 +395,98 @@ namespace SExp
 				*nextNodePtr = parseNumber(state,arena);
 				nextNodePtr = &(*nextNodePtr)->nextSibling;
 			}
-			else if(isSymbolCharacter(nextChar))
-			{
-				*nextNodePtr = parseSymbol(state,arena,symbolIndexMap);
-				nextNodePtr = &(*nextNodePtr)->nextSibling;
-			}
 			else
 			{
-				throw;
+				// Parse a symbol.
+				assert(isSymbolCharacter(nextChar));
+				*nextNodePtr = parseSymbol(state,arena,symbolIndexMap);
+				nextNodePtr = &(*nextNodePtr)->nextSibling;
 			}
 		}
 	}
 
 	Node* parse(const char* string,Memory::Arena& arena,const SymbolIndexMap& symbolIndexMap)
 	{
-		StreamState state(string);
-		Node* firstRootNode = nullptr;
-		parseRecursive(state,arena,symbolIndexMap,&firstRootNode);
-		return firstRootNode;
+		try
+		{
+			StreamState state(string);
+			Node* firstRootNode = nullptr;
+			parseRecursive(state,arena,symbolIndexMap,&firstRootNode);
+			return firstRootNode;
+		}
+		catch(FatalParseException* exception)
+		{
+			auto errorNode = new(arena) Node(exception->locus,NodeType::Error);
+			errorNode->error = arena.copyToArena(exception->message.c_str(),exception->message.length() + 1);
+			delete exception;
+			return errorNode;
+		}
 	}
 
-	void printRecursive(SExp::Node* node,const char* symbolStrings[],std::string& outString,const char* newline)
+	char nibbleToHex(uint8_t value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
+
+	std::string escapeString(const char* string,size_t numChars)
 	{
+		std::string result;
+		for(uintptr_t charIndex = 0;charIndex < numChars;++charIndex)
+		{
+			auto c = string[charIndex];
+			if(c == '\\') { result += "\\\\"; }
+			else if(c == '\"') { result += "\\\""; }
+			else if(c == '\n') { result += "\\n"; }
+			else if(c < 0x20 || c > 0x7e)
+			{
+				result += '\\';
+				result += nibbleToHex((c & 0xf0) >> 4);
+				result += nibbleToHex((c & 0x0f) >> 0);
+			}
+			else { result += c; }
+		}
+		return result;
+	}
+
+	bool printRecursive(SExp::Node* initialNode,const char* symbolStrings[],std::string& outString,const std::string& newline)
+	{
+		SExp::Node* node = initialNode;
+		std::vector<std::string> childStrings;
+		bool hasMultiLineSubtree = false;
 		do
 		{
 			switch(node->type)
 			{
 			case NodeType::Tree:
-				outString += "(";
-				printRecursive(node->children,symbolStrings,outString,(std::string(newline) + "\t").c_str());
-				outString += ")";
+			{
+				std::string subtreeString;
+				subtreeString += "(";
+				bool isSubtreeMultiLine = printRecursive(node->children,symbolStrings,subtreeString,newline + '\t');
+				if(isSubtreeMultiLine) { subtreeString += newline; hasMultiLineSubtree = true; }
+				subtreeString += ")";
+				childStrings.push_back(std::move(subtreeString));
 				break;
-			case NodeType::Symbol: outString += symbolStrings[node->symbol]; break;
-			case NodeType::UnindexedSymbol: outString += node->string; break;
-			case NodeType::String: outString += '\"'; outString += node->string; outString += '\"'; break;
-			case NodeType::Error: outString += node->error; break;
-			case NodeType::Int: outString += std::to_string(node->integer); break;
-			case NodeType::Decimal: outString += std::to_string(node->decimal); break;
+			}
+			case NodeType::Symbol: childStrings.emplace_back(symbolStrings[node->symbol]); break;
+			case NodeType::UnindexedSymbol: childStrings.emplace_back(node->string); break;
+			case NodeType::String: childStrings.emplace_back(std::move(std::string() + '\"' + escapeString(node->string,node->stringLength) + '\"')); break;
+			case NodeType::Error: childStrings.emplace_back(node->error); break;
+			case NodeType::Int: childStrings.emplace_back(std::move(std::to_string(node->integer))); break;
+			case NodeType::Decimal: childStrings.emplace_back(std::move(std::to_string(node->decimal))); break;
 			default: throw;
 			};
-			outString += newline;
 			node = node->nextSibling;
 		}
 		while(node);
+		
+		size_t totalChildLength = 0;
+		for(auto string : childStrings) { totalChildLength += string.length(); }
+		auto isMultiLine = hasMultiLineSubtree || totalChildLength > 100;
+
+		for(uintptr_t childIndex = 0;childIndex < childStrings.size();++childIndex)
+		{
+			outString += childStrings[childIndex];
+			if(childIndex + 1 < childStrings.size()) { outString += isMultiLine ? newline : " "; }
+		}
+
+		return isMultiLine;
 	}
 
 	std::string print(SExp::Node* rootNode,const char* symbolStrings[])

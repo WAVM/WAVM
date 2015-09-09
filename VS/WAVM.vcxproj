@@ -19,8 +19,9 @@
     <ClCompile Include="..\Source\Runtime\LLVMJIT.cpp" />
     <ClCompile Include="..\Source\SExpressions.cpp" />
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyBinary.cpp" />
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextParse.cpp" />
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextPrint.cpp" />
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextSymbols.cpp" />
-    <ClCompile Include="..\Source\WebAssembly\WebAssemblyText.cpp" />
     <ClCompile Include="..\Source\Windows.cpp" />
   </ItemGroup>
   <ItemGroup>

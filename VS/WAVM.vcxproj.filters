@@ -11,9 +11,6 @@
       <Filter>WebAssembly</Filter>
     </ClCompile>
     <ClCompile Include="..\Source\Memory.cpp" />
-    <ClCompile Include="..\Source\WebAssembly\WebAssemblyText.cpp">
-      <Filter>WebAssembly</Filter>
-    </ClCompile>
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextSymbols.cpp">
       <Filter>WebAssembly</Filter>
     </ClCompile>
@@ -25,6 +22,12 @@
     </ClCompile>
     <ClCompile Include="..\Source\Runtime\Intrinsics.cpp">
       <Filter>Runtime</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextParse.cpp">
+      <Filter>WebAssembly</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextPrint.cpp">
+      <Filter>WebAssembly</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

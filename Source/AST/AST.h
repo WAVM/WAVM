@@ -173,6 +173,7 @@ namespace WebAssemblyText
 	};
 
 	bool parse(const char* string,File& outFile);
+	std::string print(const AST::Module* module);
 }
 
 namespace WebAssemblyBinary

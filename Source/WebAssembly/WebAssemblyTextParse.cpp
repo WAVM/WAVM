@@ -7,7 +7,6 @@
 #include "WebAssemblyTextSymbols.h"
 
 #include <map>
-#include <iostream>
 
 using namespace AST;
 
@@ -15,14 +14,34 @@ using namespace AST;
 
 namespace WebAssemblyText
 {
-	typedef SExp::GenericNode<Symbol> SNode;
-	typedef SExp::NodeIt<Symbol> SNodeIt;
+	typedef SExp::Node SNode;
+	typedef SExp::NodeIt SNodeIt;
 	
+	// Describes a S-expression node briefly for parsing error messages.
+	std::string describeSNode(SNode* node)
+	{
+		if(!node) { return "null"; }
+		else
+		{
+			switch(node->type)
+			{
+			case SExp::NodeType::Tree: return "(" + describeSNode(node->children) + ")";
+			case SExp::NodeType::Symbol: return wastSymbols[node->symbol];
+			case SExp::NodeType::Int: return std::to_string(node->integer);
+			case SExp::NodeType::Decimal: return std::to_string(node->decimal);
+			case SExp::NodeType::Error: return node->error;
+			case SExp::NodeType::String: return node->string;
+			case SExp::NodeType::UnindexedSymbol: return node->string;
+			default: throw;
+			}
+		}
+	}
+
 	// Creates and records an error with the given message and location (taken from nodeIt).
 	template<typename Error> Error* recordError(std::vector<ErrorRecord*>& outErrors,SNodeIt nodeIt,std::string&& message)
 	{
 		auto locus = nodeIt.node ? nodeIt.node->startLocus : nodeIt.previousLocus;
-		auto error = new Error(locus.describe() + ": " + message);
+		auto error = new Error(locus.describe() + ": " + message + " (S-expression node is " + describeSNode(nodeIt) + ")");
 		outErrors.push_back(error);
 		return error;
 	}
@@ -30,9 +49,12 @@ namespace WebAssemblyText
 	// Parse a type from a S-expression symbol.
 	bool parseType(SNodeIt& nodeIt,TypeId& outType)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::Symbol && nodeIt->symbol > Symbols::_typeBase && nodeIt->symbol <= (Symbols::_typeBase + (uintptr_t)TypeId::max))
+		if(nodeIt
+			&& nodeIt->type == SExp::NodeType::Symbol
+			&& nodeIt->symbol > (uintptr_t)Symbol::_typeBase
+			&& nodeIt->symbol <= ((uintptr_t)Symbol::_typeBase + (uintptr_t)TypeId::max))
 		{
-			outType = (TypeId)(nodeIt->symbol - Symbols::_typeBase);
+			outType = (TypeId)(nodeIt->symbol - (uintptr_t)Symbol::_typeBase);
 			++nodeIt;
 			return true;
 		}
@@ -77,7 +99,7 @@ namespace WebAssemblyText
 	// Parse a S-expression symbol node. Upon success, outSymbol is set to the parsed symbol.
 	bool parseSymbol(SNodeIt& nodeIt,Symbol& outSymbol)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::Symbol) { outSymbol = nodeIt->symbol; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::Symbol) { outSymbol = (Symbol)nodeIt->symbol; ++nodeIt; return true; }
 		else { return false; }
 	}
 
@@ -169,6 +191,7 @@ namespace WebAssemblyText
 		std::map<std::string,uintptr_t> functionNameToIndexMap;
 		std::map<std::string,uintptr_t> globalNameToIndexMap;
 		std::map<std::string,uintptr_t> functionTableNameToIndexMap;
+		std::map<std::string,uintptr_t> functionImportNameToIndexMap;
 		std::vector<ErrorRecord*>& outErrors;
 
 		ModuleContext(std::vector<ErrorRecord*>& inOutErrors): module(new Module), outErrors(inOutErrors) {}
@@ -211,14 +234,14 @@ namespace WebAssemblyText
 				{
 				default: return TypedExpression();
 				#define DEFINE_UNTYPED_OP(symbol) \
-					throw; case Symbols::_##symbol: opType = TypeId::Invalid; opType2 = TypeId::Invalid;
+					throw; case Symbol::_##symbol: opType = TypeId::Invalid; opType2 = TypeId::Invalid;
 				#define DISPATCH_TYPED_OP(opTypeName,opClassName,symbol) \
-					throw; case Symbols::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
+					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
 				#define DEFINE_TYPED_OP(opClass,symbol) \
 					ENUM_AST_TYPES_##opClass(DISPATCH_TYPED_OP,symbol) \
 					throw; symbol##opClass##Label:
 				#define DEFINE_BITYPED_OP(leftTypeName,rightTypeName,symbol) \
-					throw; case Symbols::_##symbol##_##leftTypeName##_##rightTypeName: \
+					throw; case Symbol::_##symbol##_##leftTypeName##_##rightTypeName: \
 
 				#define DEFINE_UNARY_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseUnaryExpression<class##Class>(opType,class##Op::opcode,nodeIt); }
 				#define DEFINE_BINARY_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseBinaryExpression<class##Class>(opType,class##Op::opcode,nodeIt); }
@@ -226,9 +249,9 @@ namespace WebAssemblyText
 				#define DEFINE_CAST_OP(destType,sourceType,symbol,opcode) DEFINE_BITYPED_OP(destType,sourceType,symbol) \
 					{ return parseCastExpression<destType##Type::Class>(destType##Type::Op::opcode,TypeId::sourceType,TypeId::destType,nodeIt); }
 
-				DEFINE_UNTYPED_OP(set_local)					{ return parseStoreVariable(VoidOp::setLocal,localNameToIndexMap,function->locals,nodeIt); }
-				DEFINE_UNTYPED_OP(store_global)				{ return parseStoreVariable(VoidOp::storeGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
-				DEFINE_UNTYPED_OP(nop)						{ return TypedExpression(new(arena)Nop(),TypeId::Void); }
+				DEFINE_UNTYPED_OP(set_local)		{ return parseStoreVariable(VoidOp::setLocal,localNameToIndexMap,function->locals,nodeIt); }
+				DEFINE_UNTYPED_OP(store_global)	{ return parseStoreVariable(VoidOp::storeGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
+				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(new(arena)Nop(),TypeId::Void); }
 
 				DEFINE_TYPED_OP(Int,const)
 				{
@@ -261,15 +284,17 @@ namespace WebAssemblyText
 					DEFINE_BITYPED_OP(valueType,memoryType,storeSymbol)	\
 						{ return parseStoreMemoryExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::storeConvertOp,false,true,nodeIt); }
 
+				#define DEFINE_INT_MEMORY_OP_2(resultType,loadSymbol,storeSymbol,i8LoadOp,i16LoadOp,i32LoadOp,i64LoadOp,i8StoreOp,i16StoreOp,i32StoreOp,i64StoreOp) \
+					DEFINE_MEMORY_OP(Int,resultType,I8,loadSymbol,storeSymbol,i8LoadOp,i8StoreOp) \
+					DEFINE_MEMORY_OP(Int,resultType,I16,loadSymbol,storeSymbol,i16LoadOp,i16StoreOp) \
+					DEFINE_MEMORY_OP(Int,resultType,I32,loadSymbol,storeSymbol,i32LoadOp,i32StoreOp) \
+					DEFINE_MEMORY_OP(Int,resultType,I64,loadSymbol,storeSymbol,i64LoadOp,i64StoreOp)
+
 				#define DEFINE_INT_MEMORY_OP(loadSymbol,storeSymbol,extendOp) \
-					DEFINE_MEMORY_OP(Int,I32,I8,loadSymbol,storeSymbol,extendOp,wrap) \
-					DEFINE_MEMORY_OP(Int,I32,I16,loadSymbol,storeSymbol,extendOp,wrap) \
-					DEFINE_MEMORY_OP(Int,I32,I32,loadSymbol,storeSymbol,extendOp,wrap) \
-					DEFINE_MEMORY_OP(Int,I32,I64,loadSymbol,storeSymbol,wrap,extendOp) \
-					DEFINE_MEMORY_OP(Int,I64,I8,loadSymbol,storeSymbol,extendOp,wrap) \
-					DEFINE_MEMORY_OP(Int,I64,I16,loadSymbol,storeSymbol,extendOp,wrap) \
-					DEFINE_MEMORY_OP(Int,I64,I32,loadSymbol,storeSymbol,extendOp,wrap) \
-					DEFINE_MEMORY_OP(Int,I64,I64,loadSymbol,storeSymbol,extendOp,wrap)
+					DEFINE_INT_MEMORY_OP_2(I8,loadSymbol,storeSymbol,	wrap,wrap,wrap,wrap,extendOp,extendOp,extendOp,extendOp) \
+					DEFINE_INT_MEMORY_OP_2(I16,loadSymbol,storeSymbol,	extendOp,wrap,wrap,wrap,wrap,extendOp,extendOp,extendOp) \
+					DEFINE_INT_MEMORY_OP_2(I32,loadSymbol,storeSymbol,	extendOp,extendOp,wrap,wrap,wrap,wrap,extendOp,extendOp) \
+					DEFINE_INT_MEMORY_OP_2(I64,loadSymbol,storeSymbol,	extendOp,extendOp,extendOp,wrap,wrap,wrap,wrap,extendOp)
 
 				DEFINE_INT_MEMORY_OP(load_s,store_s,sext)
 				DEFINE_INT_MEMORY_OP(load_u,store_u,zext)
@@ -312,6 +337,18 @@ namespace WebAssemblyText
 				DEFINE_BINARY_OP(Float,min,min)
 				DEFINE_BINARY_OP(Float,max,max)
 
+				// These are not official
+				DEFINE_UNARY_OP(Float,cos,cos)
+				DEFINE_UNARY_OP(Float,sin,sin)
+				DEFINE_UNARY_OP(Float,sqrt,sqrt)
+				DEFINE_UNARY_OP(Float,exp,exp)
+				DEFINE_UNARY_OP(Float,log,log)
+				DEFINE_BINARY_OP(Float,pow,pow)
+
+				DEFINE_UNARY_OP(Bool,not,not)
+				DEFINE_BINARY_OP(Bool,and,and)
+				DEFINE_BINARY_OP(Bool,or,or)
+
 				DEFINE_COMPARE_OP(Int,eq,eq) DEFINE_COMPARE_OP(Int,neq,neq)
 				DEFINE_COMPARE_OP(Float,eq,eq) DEFINE_COMPARE_OP(Float,neq,neq)
 				DEFINE_COMPARE_OP(Bool,eq,eq) DEFINE_COMPARE_OP(Bool,neq,neq)
@@ -327,10 +364,28 @@ namespace WebAssemblyText
 				DEFINE_COMPARE_OP(Float,le,le)
 				DEFINE_COMPARE_OP(Float,gt,gt)
 				DEFINE_COMPARE_OP(Float,ge,ge)
-
+				
+				DEFINE_CAST_OP(I8,I16,wrap,wrap)
+				DEFINE_CAST_OP(I8,I32,wrap,wrap)
+				DEFINE_CAST_OP(I8,I64,wrap,wrap)
+				DEFINE_CAST_OP(I16,I32,wrap,wrap)
+				DEFINE_CAST_OP(I16,I64,wrap,wrap)
 				DEFINE_CAST_OP(I32,I64,wrap,wrap)
+
+				DEFINE_CAST_OP(I64,I8,extend_s,sext)
+				DEFINE_CAST_OP(I64,I16,extend_s,sext)
 				DEFINE_CAST_OP(I64,I32,extend_s,sext)
+				DEFINE_CAST_OP(I32,I8,extend_s,sext)
+				DEFINE_CAST_OP(I32,I16,extend_s,sext)
+				DEFINE_CAST_OP(I16,I8,extend_s,sext)
+
+				DEFINE_CAST_OP(I64,I8,extend_u,zext)
+				DEFINE_CAST_OP(I64,I16,extend_u,zext)
 				DEFINE_CAST_OP(I64,I32,extend_u,zext)
+				DEFINE_CAST_OP(I32,I8,extend_u,zext)
+				DEFINE_CAST_OP(I32,I16,extend_u,zext)
+				DEFINE_CAST_OP(I16,I8,extend_u,zext)
+
 				DEFINE_CAST_OP(I32,F64,trunc_s,truncSignedFloat)
 				DEFINE_CAST_OP(I32,F64,trunc_u,truncUnsignedFloat)
 				DEFINE_CAST_OP(I32,F32,trunc_s,truncSignedFloat)
@@ -339,10 +394,39 @@ namespace WebAssemblyText
 				DEFINE_CAST_OP(I64,F64,trunc_u,truncUnsignedFloat)
 				DEFINE_CAST_OP(I64,F32,trunc_s,truncSignedFloat)
 				DEFINE_CAST_OP(I64,F32,trunc_u,truncUnsignedFloat)
+
+				DEFINE_CAST_OP(F64,I8,convert_s,convertSignedInt)
+				DEFINE_CAST_OP(F64,I16,convert_s,convertSignedInt)
+				DEFINE_CAST_OP(F64,I32,convert_s,convertSignedInt)
+				DEFINE_CAST_OP(F64,I64,convert_s,convertSignedInt)
+
+				DEFINE_CAST_OP(F32,I8,convert_s,convertSignedInt)
+				DEFINE_CAST_OP(F32,I16,convert_s,convertSignedInt)
+				DEFINE_CAST_OP(F32,I32,convert_s,convertSignedInt)
+				DEFINE_CAST_OP(F32,I64,convert_s,convertSignedInt)
+
+				DEFINE_CAST_OP(F64,I8,convert_u,convertUnsignedInt)
+				DEFINE_CAST_OP(F64,I16,convert_u,convertUnsignedInt)
+				DEFINE_CAST_OP(F64,I32,convert_u,convertUnsignedInt)
+				DEFINE_CAST_OP(F64,I64,convert_u,convertUnsignedInt)
+
+				DEFINE_CAST_OP(F32,I8,convert_u,convertUnsignedInt)
+				DEFINE_CAST_OP(F32,I16,convert_u,convertUnsignedInt)
+				DEFINE_CAST_OP(F32,I32,convert_u,convertUnsignedInt)
+				DEFINE_CAST_OP(F32,I64,convert_u,convertUnsignedInt)
+
+				DEFINE_CAST_OP(F32,F64,demote,demote)
+				DEFINE_CAST_OP(F64,F32,promote,promote)
+
 				DEFINE_CAST_OP(F64,I64,reinterpret,reinterpretInt)
 				DEFINE_CAST_OP(F32,I32,reinterpret,reinterpretInt)
 				DEFINE_CAST_OP(I64,F64,reinterpret,reinterpretFloat)
 				DEFINE_CAST_OP(I32,F32,reinterpret,reinterpretFloat)
+
+				DEFINE_CAST_OP(I8,Bool,reinterpret,reinterpretBool)
+				DEFINE_CAST_OP(I16,Bool,reinterpret,reinterpretBool)
+				DEFINE_CAST_OP(I32,Bool,reinterpret,reinterpretBool)
+				DEFINE_CAST_OP(I64,Bool,reinterpret,reinterpretBool)
 
 				#undef DEFINE_UNTYPED_OP
 				#undef DISPATCH_TYPED_OP
@@ -369,9 +453,9 @@ namespace WebAssemblyText
 				{
 				default: return nullptr;
 				#define DEFINE_PARAMETRIC_UNTYPED_OP(symbol) \
-					throw; case Symbols::_##symbol: opType = TypeId::Invalid;
+					throw; case Symbol::_##symbol: opType = TypeId::Invalid;
 				#define DISPATCH_PARAMETRIC_TYPED_OP(opTypeName,opClassName,symbol) \
-					throw; case Symbols::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
+					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
 				#define DEFINE_PARAMETRIC_TYPED_OP(opClass,symbol) \
 					ENUM_AST_TYPES_##opClass(DISPATCH_PARAMETRIC_TYPED_OP,symbol) \
 					throw; symbol##opClass##Label:
@@ -386,7 +470,7 @@ namespace WebAssemblyText
 					for(auto caseCountIt = nodeIt;caseCountIt;++caseCountIt)
 					{
 						SNodeIt childNodeIt;
-						if(parseTaggedNode(caseCountIt,Symbols::_case,childNodeIt)) { ++numArms; }
+						if(parseTaggedNode(caseCountIt,Symbol::_case,childNodeIt)) { ++numArms; }
 						else { break; }
 					}
 
@@ -397,7 +481,7 @@ namespace WebAssemblyText
 					for(;nodeIt;++nodeIt)
 					{
 						SNodeIt childNodeIt;
-						if(parseTaggedNode(nodeIt,Symbols::_case,childNodeIt))
+						if(parseTaggedNode(nodeIt,Symbol::_case,childNodeIt))
 						{
 							// Parse the key for this case.
 							int64_t key;
@@ -410,7 +494,7 @@ namespace WebAssemblyText
 							bool shouldFallthrough = true;
 							for(auto fallthroughNodeIt = childNodeIt;fallthroughNodeIt;++fallthroughNodeIt)
 							{
-								if(fallthroughNodeIt->type == SExp::NodeType::Symbol && fallthroughNodeIt->symbol == Symbols::_fallthrough)
+								if(fallthroughNodeIt->type == SExp::NodeType::Symbol && fallthroughNodeIt->symbol == (uintptr_t)Symbol::_fallthrough)
 								{
 									shouldFallthrough = true;
 									// The fallthrough symbol should be the last sibling.
@@ -467,7 +551,10 @@ namespace WebAssemblyText
 				{
 					// Parse the name or index of the target label.
 					uintptr_t labelIndex;
-					parseNameOrIndex(nodeIt,labelToIndexMap,scopedBranchTargets.size(),labelIndex);
+					if(!parseNameOrIndex(nodeIt,labelToIndexMap,scopedBranchTargets.size(),labelIndex))
+					{
+						return recordError<Error<Class>>(outErrors,nodeIt,"break: expected label name or index");
+					}
 					auto scopedBranchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - labelIndex];
 
 					// If the branch target's type isn't void, parse an expression for the branch's value.
@@ -496,14 +583,8 @@ namespace WebAssemblyText
 						return recordError<Error<Class>>(outErrors,nodeIt,"call: expected function name or index");
 					}
 
-					// Validate the function return type against the result type of this call.
-					auto function = moduleContext.module->functions[functionIndex];
-					if(function->type.returnType != resultType)
-					{
-						return recordError<Error<Class>>(outErrors,nodeIt,"call: incorrect function return type");
-					}
-
 					// Parse the call's parameters.
+					auto function = moduleContext.module->functions[functionIndex];
 					auto parameters = new(arena)UntypedExpression*[function->type.parameters.size()];
 					for(uintptr_t parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
 					{
@@ -513,7 +594,36 @@ namespace WebAssemblyText
 					}
 
 					// Create the Call node.
-					auto result = new(arena)Call<Class>(Class::Op::callDirect,functionIndex,parameters);
+					auto call = new(arena)Call<Class>(Class::Op::callDirect,functionIndex,parameters);
+					
+					// Validate the function return type against the result type of this call.
+					auto result = coerceExpression<Class>(resultType,TypedExpression(call,function->type.returnType),parentNodeIt,"call return value");
+					return requireFullMatch(nodeIt,"call",result);
+				}
+				DEFINE_PARAMETRIC_UNTYPED_OP(call_import)
+				{
+					// Parse the import name or index to call.
+					uintptr_t importIndex;
+					if(!parseNameOrIndex(nodeIt,moduleContext.functionImportNameToIndexMap,moduleContext.module->functionImports.size(),importIndex))
+					{
+						return recordError<Error<Class>>(outErrors,nodeIt,"call_import: expected function import name or index");
+					}
+
+					// Parse the call's parameters.
+					auto functionImport = moduleContext.module->functionImports[importIndex];
+					auto parameters = new(arena)UntypedExpression*[functionImport.type.parameters.size()];
+					for(uintptr_t parameterIndex = 0;parameterIndex < functionImport.type.parameters.size();++parameterIndex)
+					{
+						auto parameterType = functionImport.type.parameters[parameterIndex];
+						auto parameterValue = parseTypedExpression(parameterType,nodeIt,"call_import parameter");
+						parameters[parameterIndex] = parameterValue;
+					}
+
+					// Create the Call node.
+					auto call = new(arena)Call<Class>(Class::Op::callImport,importIndex,parameters);
+					
+					// Validate the function return type against the result type of this call.
+					auto result = coerceExpression<Class>(resultType,TypedExpression(call,functionImport.type.returnType),parentNodeIt,"call_import return value");
 					return requireFullMatch(nodeIt,"call",result);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(call_indirect)
@@ -525,17 +635,11 @@ namespace WebAssemblyText
 						return recordError<Error<Class>>(outErrors,nodeIt,"call_indirect: expected function table index");
 					}
 
-					// Validate the function table return type against the result type of this call.
-					auto functionTable = moduleContext.module->functionTables[tableIndex];
-					if(functionTable.type.returnType != resultType)
-					{
-						return recordError<Error<Class>>(outErrors,nodeIt,"call_indirect: incorrect function return type");
-					}
-
 					// Parse the function index.
 					auto functionIndex = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"call_indirect function");
 
 					// Parse the call's parameters.
+					auto functionTable = moduleContext.module->functionTables[tableIndex];
 					auto parameters = arena.allocate<UntypedExpression*>(functionTable.type.parameters.size());
 					for(uintptr_t parameterIndex = 0;parameterIndex < functionTable.type.parameters.size();++parameterIndex)
 					{
@@ -545,7 +649,10 @@ namespace WebAssemblyText
 					}
 
 					// Create the CallIndirect node.
-					auto result = new(arena)CallIndirect<Class>(Class::Op::callIndirect,tableIndex,functionIndex,parameters);
+					auto call = new(arena)CallIndirect<Class>(Class::Op::callIndirect,tableIndex,functionIndex,parameters);
+					
+					// Validate the function return type against the result type of this call.
+					auto result = coerceExpression<Class>(resultType,TypedExpression(call,functionTable.type.returnType),parentNodeIt,"call_indirect return value");
 					return requireFullMatch(nodeIt,"call_indirect",result);
 				}
 
@@ -579,7 +686,7 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(get_local)
 				{ return parseLoadVariable<Class>(resultType,Class::Op::getLocal,localNameToIndexMap,function->locals,nodeIt); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(load_global)
-				{ return parseLoadVariable<Class>(resultType,Class::Op::loadGlobal,moduleContext.globalNameToIndexMap,function->locals,nodeIt); }
+				{ return parseLoadVariable<Class>(resultType,Class::Op::loadGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
 
 				#undef DEFINE_PARAMETRIC_UNTYPED_OP
 				#undef DISPATCH_PARAMETRIC_TYPED_OP
@@ -596,8 +703,8 @@ namespace WebAssemblyText
 		{
 			auto message =
 				std::string("type error: expecting a ") + getTypeName(type)
-				+ " expression for " + errorContext
-				+ " but found a " + getTypeName(typedExpression.type) + " expression";
+				+ " " + errorContext
+				+ " but found " + getTypeName(typedExpression.type);
 			return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
 		}
 
@@ -605,7 +712,8 @@ namespace WebAssemblyText
 		template<typename Class>
 		typename Class::Expression* coerceExpression(TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
-			return typeError<Class>(resultType,typedExpression,nodeIt,errorContext);
+			if(resultType == typedExpression.type) { return as<Class>(typedExpression.expression); }
+			else { return typeError<Class>(resultType,typedExpression,nodeIt,errorContext); }
 		}
 
 		// coerceExpression for BoolClass will try to coerce integers.
@@ -613,7 +721,8 @@ namespace WebAssemblyText
 		typename BoolClass::Expression* coerceExpression<BoolClass>(TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
 			assert(resultType == TypeId::Bool);
-			if(isTypeClass(typedExpression.type,TypeClassId::Int))
+			if(resultType == typedExpression.type) { return as<BoolClass>(typedExpression); }
+			else if(isTypeClass(typedExpression.type,TypeClassId::Int))
 			{
 				// Create a literal zero of the appropriate type.
 				IntExpression* zero;
@@ -635,8 +744,12 @@ namespace WebAssemblyText
 		template<>
 		typename VoidClass::Expression* coerceExpression<VoidClass>(TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
-			assert(resultType != TypeId::Void);
-			return new(arena) DiscardResult(typedExpression);
+			if(resultType == typedExpression.type) { return as<VoidClass>(typedExpression); }
+			else
+			{
+				assert(typedExpression.type != TypeId::Void);
+				return new(arena) DiscardResult(typedExpression);
+			}
 		}
 		
 		// coerceExpression for IntClass will try to coerce bools.
@@ -644,7 +757,8 @@ namespace WebAssemblyText
 		typename IntClass::Expression* coerceExpression<IntClass>(TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
 			assert(isTypeClass(resultType,TypeClassId::Int));
-			if(isTypeClass(typedExpression.type,TypeClassId::Bool))
+			if(resultType == typedExpression.type) { return as<IntClass>(typedExpression); }
+			else if(isTypeClass(typedExpression.type,TypeClassId::Bool))
 			{
 				// Reinterpret the bool as an integer.
 				return new(arena) Cast<IntClass>(IntOp::reinterpretBool,typedExpression);
@@ -671,19 +785,26 @@ namespace WebAssemblyText
 				if(nonParametricExpression)
 				{
 					// If successful, then advance to the next node, and coerce the expression to the expected type.
+					auto result = coerceExpression<Class>(type,nonParametricExpression,nodeIt,errorContext);
 					++nodeIt;
-					if(nonParametricExpression.type == type) { return as<Class>(nonParametricExpression.expression); }
-					else { return coerceExpression<Class>(type,nonParametricExpression,nodeIt,errorContext); }
+					return result;
 				}
 				else 
 				{
 					// Try to parse a parametric expression.
 					auto parametricExpression = parseParametricExpression<Class>(type,nodeIt);
+					
 					if(parametricExpression) { ++nodeIt; return parametricExpression; }
 					else
 					{
 						// Failed to parse an expression.
-						return recordError<Error<Class>>(outErrors,nodeIt,"expected expression");
+						auto error = recordError<Error<Class>>(outErrors,nodeIt,std::move(std::string("expected ")
+							+ getTypeName(type)
+							+ " expression for "
+							+ errorContext
+							));
+						++nodeIt;
+						return error;
 					}
 				}
 			}
@@ -787,7 +908,7 @@ namespace WebAssemblyText
 		template<typename Class>
 		TypedExpression parseLoadMemoryExpression(TypeId resultType,TypeId memoryType,typename Class::Op castOp,bool isFarAddress,bool isAligned,SNodeIt nodeIt)
 		{
-			if(isTypeClass(memoryType,Class::id))
+			if(!isTypeClass(memoryType,Class::id))
 				{ return TypedExpression(recordError<Error<Class>>(outErrors,nodeIt,"load: memory type must be same type class as result"),resultType); }
 			
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"load address");
@@ -801,7 +922,7 @@ namespace WebAssemblyText
 		template<typename OperandClass>
 		TypedExpression parseStoreMemoryExpression(TypeId valueType,TypeId memoryType,typename OperandClass::Op castOp,bool isFarAddress,bool isAligned,SNodeIt nodeIt)
 		{
-			if(isTypeClass(memoryType,OperandClass::id))
+			if(!isTypeClass(memoryType,OperandClass::id))
 				{ return TypedExpression(recordError<Error<VoidClass>>(outErrors,nodeIt,"store: memory type must be same type class as result"),TypeId::Void); }
 			
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"store address");
@@ -831,14 +952,8 @@ namespace WebAssemblyText
 				auto message = op == Class::Op::getLocal ? "get_local: expected local name or index" : "load_global: expected global name or index";
 				return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
 			}
-			if(variables[variableIndex].type != resultType)
-			{
-				auto message = std::string(op == Class::Op::getLocal ? "get_local" : "load_global") + ": expected "
-					+ getTypeName(resultType) + " variable but found "
-					+ getTypeName(variables[variableIndex].type) + " variable";
-				return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
-			}
-			auto result = new(arena) LoadVariable<Class>(op,variableIndex);
+			auto load = new(arena) LoadVariable<Class>(op,variableIndex);
+			auto result = coerceExpression<Class>(resultType,TypedExpression(load,variables[variableIndex].type),nodeIt,"variable");
 			return requireFullMatch(nodeIt,getOpName(op),result);
 		}
 
@@ -867,9 +982,9 @@ namespace WebAssemblyText
 		for(;nodeIt;++nodeIt)
 		{
 			SNodeIt childNode;
-			if(	!parseTaggedNode(nodeIt,Symbols::_local,childNode)
-			&&	!parseTaggedNode(nodeIt,Symbols::_param,childNode)
-			&&	!parseTaggedNode(nodeIt,Symbols::_result,childNode))
+			if(	!parseTaggedNode(nodeIt,Symbol::_local,childNode)
+			&&	!parseTaggedNode(nodeIt,Symbol::_param,childNode)
+			&&	!parseTaggedNode(nodeIt,Symbol::_result,childNode))
 			{ break; }
 		};
 
@@ -887,7 +1002,7 @@ namespace WebAssemblyText
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
 			SNodeIt childNodeIt;
-			if(parseTaggedNode(nodeIt,Symbols::_func,childNodeIt))
+			if(parseTaggedNode(nodeIt,Symbol::_func,childNodeIt))
 			{
 				auto function = new(module->arena) Function();
 				auto functionIndex = module->functions.size();
@@ -898,14 +1013,15 @@ namespace WebAssemblyText
 				if(parseName(childNodeIt,functionName))
 				{
 					function->name = module->arena.copyToArena(functionName,strlen(functionName)+1);
-					functionNameToIndexMap[functionName] = functionIndex;
+					if(functionNameToIndexMap.count(functionName)) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate function name"); }
+					else { functionNameToIndexMap[functionName] = functionIndex; }
 				}
 
 				bool hasResult = false;
 				for(;childNodeIt;++childNodeIt)
 				{
 					SNodeIt innerChildNodeIt;
-					if(parseTaggedNode(childNodeIt,Symbols::_result,innerChildNodeIt))
+					if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
 					{
 						// Parse a result declaration.
 						if(hasResult) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate result declaration"); continue; }
@@ -913,7 +1029,7 @@ namespace WebAssemblyText
 						hasResult = true;
 						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following result declaration"); continue; }
 					}
-					else if(parseTaggedNode(childNodeIt,Symbols::_param,innerChildNodeIt))
+					else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
 					{
 						// Parse a parameter declaration.
 						const uintptr_t baseLocalIndex = function->locals.size();
@@ -925,7 +1041,7 @@ namespace WebAssemblyText
 						}
 						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following parameter declaration"); continue; }
 					}
-					else if(parseTaggedNode(childNodeIt,Symbols::_local,innerChildNodeIt))
+					else if(parseTaggedNode(childNodeIt,Symbol::_local,innerChildNodeIt))
 					{
 						// Parse a local declaration.
 						parseVariables(innerChildNodeIt,function->locals,outErrors,module->arena);
@@ -933,15 +1049,66 @@ namespace WebAssemblyText
 					}
 					else { break; } // Stop parsing when we reach the first func child that isn't a param, result, or local.
 				}
-
 			}
-			else if(parseTaggedNode(nodeIt,Symbols::_global,childNodeIt))
+			else if(parseTaggedNode(nodeIt,Symbol::_import,childNodeIt))
+			{
+				auto importIndex = module->functionImports.size();
+
+				// Parse an optional import name used within the module.
+				const char* importInternalName;
+				if(parseName(childNodeIt,importInternalName))
+				{
+					if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),"duplicate variable name"); }
+					else { functionImportNameToIndexMap[importInternalName] = importIndex; }
+				}
+
+				// Parse a mandatory import string.
+				const char* importExternalName;
+				size_t importExternalNameLength;
+				if(!parseString(childNodeIt,importExternalName,importExternalNameLength,module->arena))
+				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import name string"); continue; }
+				
+				// Parse the import's parameter and result declarations.
+				std::vector<Variable> parameters;
+				TypeId returnType = TypeId::Void;
+				bool hasResult = false;
+				for(;childNodeIt;++childNodeIt)
+				{
+					SNodeIt innerChildNodeIt;
+					if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
+					{
+						// Parse a result declaration.
+						if(hasResult) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate result declaration"); continue; }
+						if(!parseType(innerChildNodeIt,returnType)) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected type"); continue; }
+						hasResult = true;
+						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following result declaration"); continue; }
+					}
+					else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
+					{
+						// Parse a parameter declaration.
+						parseVariables(innerChildNodeIt,parameters,outErrors,module->arena);
+						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following parameter declaration"); continue; }
+					}
+					else
+					{
+						recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected param or result declaration");
+					}
+				}
+				
+				// Create the import.
+				std::vector<TypeId> parameterTypes;
+				for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
+				module->functionImports.push_back({FunctionType(returnType,parameterTypes),importExternalName});
+				
+				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following import declaration"); continue; }
+			}
+			else if(parseTaggedNode(nodeIt,Symbol::_global,childNodeIt))
 			{
 				// Parse a global declaration.
 				parseVariables(childNodeIt,module->globals,outErrors,module->arena);
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following global declaration"); continue; }
 			}
-			else if(parseTaggedNode(nodeIt,Symbols::_memory,childNodeIt))
+			else if(parseTaggedNode(nodeIt,Symbol::_memory,childNodeIt))
 			{
 				// Parse a memory declaration.
 				if(hasMemoryNode) { recordError<ErrorRecord>(outErrors,nodeIt,"duplicate memory declaration"); continue; }
@@ -969,7 +1136,7 @@ namespace WebAssemblyText
 					int64_t baseAddress;
 					const char* dataString;
 					size_t dataLength;
-					if(!parseTaggedNode(childNodeIt,Symbols::_segment,segmentChildNodeIt))
+					if(!parseTaggedNode(childNodeIt,Symbol::_segment,segmentChildNodeIt))
 						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment declaration"); continue; }
 					if(!parseInt(segmentChildNodeIt,baseAddress))
 						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment base address integer"); continue; }
@@ -983,14 +1150,14 @@ namespace WebAssemblyText
 
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following memory declaration"); continue; }
 			}
-			else if(!parseTaggedNode(nodeIt,Symbols::_export,childNodeIt) && !parseTaggedNode(nodeIt,Symbols::_table,childNodeIt))
+			else if(!parseTaggedNode(nodeIt,Symbol::_export,childNodeIt) && !parseTaggedNode(nodeIt,Symbol::_table,childNodeIt))
 				{ recordError<ErrorRecord>(outErrors,nodeIt,"unrecognized declaration"); continue; }
 		}
 
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
 			SNodeIt childNodeIt;
-			if(parseTaggedNode(nodeIt,Symbols::_table,childNodeIt))
+			if(parseTaggedNode(nodeIt,Symbol::_table,childNodeIt))
 			{
 				// Count the number of functions in the table.
 				size_t numFunctions = 0;
@@ -1033,12 +1200,12 @@ namespace WebAssemblyText
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
 			SNodeIt childNodeIt;
-			if(parseTaggedNode(nodeIt,Symbols::_func,childNodeIt))
+			if(parseTaggedNode(nodeIt,Symbol::_func,childNodeIt))
 			{
 				// Parse a function definition.
 				FunctionContext(*this,module->functions[currentFunctionIndex++]).parse(childNodeIt);
 			}
-			else if(parseTaggedNode(nodeIt,Symbols::_export,childNodeIt))
+			else if(parseTaggedNode(nodeIt,Symbol::_export,childNodeIt))
 			{
 				// Parse an export definition.
 				const char* exportName;
@@ -1052,7 +1219,7 @@ namespace WebAssemblyText
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following export declaration"); continue; }
 			}
 		}
-
+		
 		return module;
 	}
 
@@ -1063,18 +1230,18 @@ namespace WebAssemblyText
 		
 		// Parse S-expressions from the string.
 		Memory::ScopedArena scopedArena;
-		auto rootNode = SExp::parse<Symbol>(string,scopedArena,symbolIndexMap);
+		auto rootNode = SExp::parse(string,scopedArena,symbolIndexMap);
 		
 		for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
 		{
 			SNodeIt childNodeIt;
-			if(parseTaggedNode(rootNodeIt,Symbols::_module,childNodeIt))
+			if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 			{
 				// Parse a module definition.
 				outFile.modules.push_back(ModuleContext(outFile.errors).parse(childNodeIt));
 			}
 		}
-			
+
 		return !outFile.errors.size();
 	}
 }

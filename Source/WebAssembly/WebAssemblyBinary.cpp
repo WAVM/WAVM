@@ -908,9 +908,9 @@ namespace WebAssemblyBinary
 				new(arena) Expression<VoidClass>*[1] {loopExpression},
 				1,
 				new(arena) IfElse<VoidClass>(
-					new(arena) Unary<BoolClass>(BoolOp::not,condition),
-					new(arena) Branch<VoidClass>(breakBranchTarget,nullptr),
-					new(arena) Nop()
+					condition,
+					new(arena) Nop(),
+					new(arena) Branch<VoidClass>(breakBranchTarget,nullptr)
 					)
 				);
 			return new(arena) Loop<VoidClass>(loopBody,breakBranchTarget,continueBranchTarget);

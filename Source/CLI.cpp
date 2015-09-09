@@ -14,77 +14,80 @@ namespace WAVM
 	uint8_t* vmVirtualAddressBase = nullptr;
 }
 
-int main(int argc,char** argv) try
+std::vector<uint8_t> loadFile(const char* filename)
 {
-	AST::Module* module = nullptr;
-	const char* functionName;
-	if(!stricmp(argv[1],"-text") && argc == 4)
+	std::ifstream stream(filename,std::ios::binary | std::ios::ate);
+	if(!stream.is_open())
 	{
-		functionName = argv[3];
-		// Load the module from a text WebAssembly file.
-		std::ifstream wastStream(argv[2]);
-		auto wastString = std::string(std::istreambuf_iterator<char>(wastStream),std::istreambuf_iterator<char>());
-		Timer loadTimer;
-		WebAssemblyText::File wastFile;
-		if(!WebAssemblyText::parse(wastString.c_str(),wastFile))
-		{
-			// Print any parse errors;
-			std::cerr << "Error parsing WebAssembly text file:" << std::endl;
-			for(auto error : wastFile.errors) { std::cerr << error->message.c_str() << std::endl; }
-			return -1;
-		}
-		if(!wastFile.modules.size())
-		{
-			std::cerr << "WebAssembly text file didn't contain any modules!" << std::endl;
-			return -1;
-		}
-		module = wastFile.modules[0];
-		std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+		std::cerr << "Failed to open " << filename << std::endl;
+		return std::vector<uint8_t>();
 	}
-	else if(!stricmp(argv[1],"-binary") && argc == 5)
+	std::vector<uint8_t> data;
+	data.resize((unsigned int)stream.tellg());
+	stream.seekg(0);
+	stream.read((char*)data.data(),data.size());
+	stream.close();
+	return data;
+}
+
+AST::Module* loadTextModule(const char* filename)
+{
+	// Read the file into a string.
+	auto wastBytes = loadFile(filename);
+	if(!wastBytes.size()) { return nullptr; }
+	auto wastString = std::string((const char*)wastBytes.data(),wastBytes.size());
+	wastBytes.clear();
+
+	Timer loadTimer;
+	WebAssemblyText::File wastFile;
+	if(!WebAssemblyText::parse(wastString.c_str(),wastFile))
 	{
-		functionName = argv[4];
-		// Read in packed .wasm file bytes.
-		std::vector<uint8_t> wasmBytes;
-		std::ifstream wasmStream(argv[2],std::ios::binary | std::ios::ate);
-		wasmStream.exceptions(std::ios::failbit | std::ios::badbit);
-		wasmBytes.resize((unsigned int)wasmStream.tellg());
-		wasmStream.seekg(0);
-		wasmStream.read((char*)wasmBytes.data(),wasmBytes.size());
-		wasmStream.close();
-
-		// Load the module from a binary WebAssembly file.
-		Timer loadTimer;
-		std::vector<AST::ErrorRecord*> errors;
-		if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),module,errors))
-		{
-			std::cerr << "Error parsing WebAssembly binary file:" << std::endl;
-			for(auto error : errors) { std::cerr << error->message.c_str() << std::endl; }
-			return -1;
-		}
-		std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
-
-		// Load the static data from the .mem file on the commandline.
-		const char* staticMemoryFileName = argv[3];
-		std::ifstream staticMemoryStream(staticMemoryFileName,std::ios::binary | std::ios::ate);
-		staticMemoryStream.exceptions(std::ios::failbit | std::ios::badbit);
-		const size_t numStaticMemoryBytes = staticMemoryStream.tellg();
-		auto segmentMemory = module->arena.allocate<uint8_t>(numStaticMemoryBytes);
-		staticMemoryStream.seekg(0);
-		staticMemoryStream.read((char*)segmentMemory,numStaticMemoryBytes);
-		staticMemoryStream.close();
-
-		module->dataSegments.push_back({8,numStaticMemoryBytes,segmentMemory});
-		module->initialNumBytesMemory = numStaticMemoryBytes + 8;
-		module->maxNumBytesMemory = 1ull << 32;
+		// Print any parse errors;
+		std::cerr << "Error parsing WebAssembly text file:" << std::endl;
+		for(auto error : wastFile.errors) { std::cerr << error->message.c_str() << std::endl; }
+		return nullptr;
 	}
-	else
+	if(!wastFile.modules.size())
 	{
-		std::cerr <<  "Usage: WAVM -binary in.wasm in.js.mem functionname" << std::endl;
-		std::cerr <<  "       WAVM -text in.wast functionname" << std::endl;
-		return -1;
+		std::cerr << "WebAssembly text file didn't contain any modules!" << std::endl;
+		return nullptr;
 	}
+	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	return wastFile.modules[0];
+}
 
+AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFilename)
+{
+	// Read in packed .wasm file bytes.
+	auto wasmBytes = loadFile(wasmFilename);
+	if(!wasmBytes.size()) { return nullptr; }
+
+	// Load the module from a binary WebAssembly file.
+	Timer loadTimer;
+	std::vector<AST::ErrorRecord*> errors;
+	AST::Module* module;
+	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),module,errors))
+	{
+		std::cerr << "Error parsing WebAssembly binary file:" << std::endl;
+		for(auto error : errors) { std::cerr << error->message.c_str() << std::endl; }
+		return nullptr;
+	}
+	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+
+	// Load the static data from the .mem file on the commandline.
+	auto staticMemoryData = loadFile(memFilename);
+	if(!staticMemoryData.size()) { return nullptr; }
+	auto segmentArenaData = module->arena.copyToArena(staticMemoryData.data(),staticMemoryData.size());
+
+	module->dataSegments.push_back({8,staticMemoryData.size(),segmentArenaData});
+	module->initialNumBytesMemory = staticMemoryData.size() + 8;
+	module->maxNumBytesMemory = 1ull << 32;
+
+	return module;
+}
+
+bool callModuleFunction(const AST::Module* module,const char* functionName)
+{
 	std::cout << "Loaded module uses " << (module->arena.getTotalAllocatedBytes() / 1024) << "KB" << std::endl;
 
 	// Look up the function specified on the command line in the module.
@@ -92,14 +95,14 @@ int main(int argc,char** argv) try
 	if(exportIt == module->exportNameToFunctionIndexMap.end())
 	{
 		std::cerr << "module doesn't contain named export" << std::endl;
-		return -1;
+		return false;
 	}
 	
 	auto function = module->functions[exportIt->second];
 	if(function->type.parameters.size() != 1 || function->type.returnType != AST::TypeId::I64)
 	{
 		std::cerr << "exported function isn't expected type" << std::endl;
-		return -1;
+		return false;
 	}
 
 	// Generate machine code for the module.
@@ -128,21 +131,53 @@ int main(int argc,char** argv) try
 		// Call the function specified on the command-line.
 		uint64_t returnCode = ((uint64_t(__cdecl*)(uint64_t))functionPtr)(25);
 		std::cout << "Program returned: " << returnCode << std::endl;
+		return true;
 	}
 	catch(...)
 	{
 		std::cout << "Program threw exception." << std::endl;
+		return false;
+	}
+}
+
+int main(int argc,char** argv)
+{
+	if(!stricmp(argv[1],"runText") && argc == 4)
+	{
+		// Run a function in a text module.
+		auto module = loadTextModule(argv[2]);
+		if(!module) { return -1; }
+		if(!callModuleFunction(module,argv[3])) { return -1; }
+	}
+	else if(!stricmp(argv[1],"runBinary") && argc == 5)
+	{
+		// Run a function in a binary module.
+		auto module = loadBinaryModule(argv[2],argv[3]);
+		if(!module) { return -1; }
+		if(!callModuleFunction(module,argv[4])) { return -1; }
+	}
+	else if(!stricmp(argv[1],"binaryToText") && argc == 5)
+	{
+		// Load a binary module and dump it to a text file.
+		auto module = loadBinaryModule(argv[2],argv[3]);
+		if(!module) { return -1; }
+		
+		std::ofstream outputStream(argv[4]);
+		if(!outputStream.is_open())
+		{
+			std::cerr << "Failed to open " << argv[4] << std::endl;
+			return -1;
+		}
+		outputStream << WebAssemblyText::print(module);
+		outputStream.close();
+	}
+	else
+	{
+		std::cerr <<  "Usage: WAVM runBinary in.wasm in.js.mem functionname" << std::endl;
+		std::cerr <<  "       WAVM runText in.wast functionname" << std::endl;
+		std::cerr <<  "       WAVM binaryToText in.wasm in.js.mem out.wast" << std::endl;
+		return -1;
 	}
 
 	return 0;
-}
-catch(const std::ios::failure& err)
-{
-	std::cerr << "Failed with iostream error: " << err.what() << std::endl;
-	return -1;
-}
-catch(const std::runtime_error& err)
-{
-	std::cerr << "Failed with runtime error: " << err.what() << std::endl;
-	return -1;
 }
