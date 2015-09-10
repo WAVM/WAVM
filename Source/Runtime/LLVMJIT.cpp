@@ -406,8 +406,8 @@ namespace LLVMJIT
 		template<typename Class>
 		DispatchResult visitLoop(TypeId type,const Loop<Class>* loop)
 		{
-			auto loopBlock = llvm::BasicBlock::Create(context,"doLoop",llvmFunction);
-			auto successorBlock = llvm::BasicBlock::Create(context,"doSucc",llvmFunction);
+			auto loopBlock = llvm::BasicBlock::Create(context,"loop",llvmFunction);
+			auto successorBlock = llvm::BasicBlock::Create(context,"succ",llvmFunction);
 			
 			// Create and link the contexts for this label's branch targets into the list of in-scope contexts.
 			auto outerBranchContext = branchContext;
