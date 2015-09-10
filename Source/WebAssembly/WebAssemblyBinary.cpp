@@ -883,12 +883,16 @@ namespace WebAssemblyBinary
 			auto continueBranchTarget = new(arena) BranchTarget(TypeId::Void);
 			implicitBreakTargets.push_back(breakBranchTarget);
 			implicitContinueTargets.push_back(continueBranchTarget);
-			// If the loop is immediately inside a label node, then it needs to create an explicit continue target.
-			if(isEnclosedByLabel) { explicitContinueTargets.push_back(continueBranchTarget); }
+			// If the loop is immediately inside a label node, then it needs to create explicit break/continue targets.
+			if(isEnclosedByLabel)
+			{
+				// The label already pushed an explicit break target, so just replace it with the loop's break target.
+				explicitBreakTargets.back() = breakBranchTarget;
+				explicitContinueTargets.back() = continueBranchTarget;
+			}
 			auto loopExpression = decodeStatement();
 			implicitBreakTargets.pop_back();
 			implicitContinueTargets.pop_back();
-			if(isEnclosedByLabel) { explicitContinueTargets.pop_back(); }
 			auto loopBody = new(arena) IfElse<VoidClass>(condition,loopExpression,new(arena) Branch<VoidClass>(breakBranchTarget,nullptr));
 			return new(arena) Loop<VoidClass>(loopBody,breakBranchTarget,continueBranchTarget);
 		}
@@ -899,13 +903,17 @@ namespace WebAssemblyBinary
 			auto continueBranchTarget = new(arena) BranchTarget(TypeId::Void);
 			implicitBreakTargets.push_back(breakBranchTarget);
 			implicitContinueTargets.push_back(continueBranchTarget);
-			// If the loop is immediately inside a label node, then it needs to create an explicit continue target.
-			if(isEnclosedByLabel) { explicitContinueTargets.push_back(continueBranchTarget); }
+			// If the loop is immediately inside a label node, then it needs to create explicit break/continue targets.
+			if(isEnclosedByLabel)
+			{
+				// The label already pushed an explicit break target, so just replace it with the loop's break target.
+				explicitBreakTargets.back() = breakBranchTarget;
+				explicitContinueTargets.back() = continueBranchTarget;
+			}
 			auto loopExpression = decodeStatement();
 			auto condition = decodeExpressionI32AsBool();
 			implicitBreakTargets.pop_back();
 			implicitContinueTargets.pop_back();
-			if(isEnclosedByLabel) { explicitContinueTargets.pop_back(); }
 			auto loopBody = new(arena) Sequence<VoidClass>(
 				loopExpression,
 				new(arena) IfElse<VoidClass>(
@@ -921,9 +929,16 @@ namespace WebAssemblyBinary
 		{
 			auto breakBranchTarget = new(arena) BranchTarget(TypeId::Void);
 			explicitBreakTargets.push_back(breakBranchTarget);
+			explicitContinueTargets.push_back(nullptr);
+
 			auto expression = decodeStatement(true);
+
+			// If the explicit break target was replaced by the inner expression, then omit the label.
+			auto innerExplicitBreakTarget = explicitBreakTargets.back();
 			explicitBreakTargets.pop_back();
-			return new(arena) Label<VoidClass>(breakBranchTarget,expression);
+			explicitContinueTargets.pop_back();
+			if(innerExplicitBreakTarget == breakBranchTarget) { return new(arena) Label<VoidClass>(breakBranchTarget,expression); }
+			else { return expression; }
 		}
 
 		VoidExpression* decodeBreak()
@@ -946,17 +961,20 @@ namespace WebAssemblyBinary
 
 		VoidExpression* decodeContinueLabel(uint32_t labelIndex)
 		{
-			if(labelIndex >= explicitContinueTargets.size()) { return recordError<VoidClass>("continue: invalid label index"); }
+			if(labelIndex >= explicitContinueTargets.size() || !explicitContinueTargets[labelIndex]) { return recordError<VoidClass>("continue: invalid label index"); }
 			return new(arena) Branch<VoidClass>(explicitContinueTargets[labelIndex],nullptr);
 		}
 
-		VoidExpression* decodeSwitch()
+		VoidExpression* decodeSwitch(bool isEnclosedByLabel)
 		{
 			uint32_t numCases = in.immU32();
 			auto value = decodeExpression<I32Type>();
 			
 			auto breakBranchTarget = new(arena) BranchTarget(TypeId::Void);
 			implicitBreakTargets.push_back(breakBranchTarget);
+
+			// If the switch is immediately inside a label node, replace the label's explicit break target with our own.
+			if(isEnclosedByLabel) { explicitBreakTargets.back() = breakBranchTarget; }
 
 			SwitchArm* arms = new(arena) SwitchArm[numCases];
 			uint32_t defaultCaseIndex = numCases;
@@ -1301,7 +1319,7 @@ namespace WebAssemblyBinary
 				case StmtOpEncoding::Continue: return decodeContinue();
 				case StmtOpEncoding::BreakLabel: return decodeBreakLabel(in.immU32());
 				case StmtOpEncoding::ContinueLabel: return decodeContinueLabel(in.immU32());
-				case StmtOpEncoding::Switch: return decodeSwitch();
+				case StmtOpEncoding::Switch: return decodeSwitch(isEnclosedByLabel);
 				default: throw new FatalDecodeException("invalid statement opcode");
 				}
 			}
