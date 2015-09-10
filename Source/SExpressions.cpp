@@ -207,15 +207,20 @@ namespace SExp
 		node->endLocus = state.getLocus();
 
 		// Look up the symbol string in the index map.
-		string.shrink(arena);
 		auto symbolIndexIt = symbolIndexMap.find(string.c_str());
 		if(symbolIndexIt == symbolIndexMap.end())
 		{
+			string.shrink(arena);
 			node->type = NodeType::UnindexedSymbol;
 			node->string = string.c_str();
 			node->stringLength = string.length();
 		}
-		else { node->symbol = symbolIndexIt->second; }
+		else
+		{
+			// If the symbol was in the index map, discard the memory for the string and just store it as an index.
+			string.reset(arena);
+			node->symbol = symbolIndexIt->second;
+		}
 
 		return node;
 	}

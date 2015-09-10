@@ -145,10 +145,11 @@ namespace SExp
 		// Append an unindexed symbol.
 		NodeOutputStream& operator<<(const char* string)
 		{
+			auto stringLength = strlen(string);
 			auto symbolNode = new(arena) Node();
 			symbolNode->type = SExp::NodeType::UnindexedSymbol;
-			symbolNode->string = arena.copyToArena(string,strlen(string) + 1);;
-			symbolNode->stringLength = strlen(string);
+			symbolNode->string = arena.copyToArena(string,stringLength + 1);;
+			symbolNode->stringLength = stringLength;
 			append(symbolNode);
 			return *this;
 		}
@@ -161,10 +162,10 @@ namespace SExp
 		NodeOutputStream& operator<<(intptr_t i) { appendInt(i); return *this; }
 		NodeOutputStream& operator<<(double d)
 		{
-			auto intNode = new(arena) Node();
-			intNode->type = SExp::NodeType::Decimal;
-			intNode->decimal = d;
-			append(intNode);
+			auto decimalNode = new(arena) Node();
+			decimalNode->type = SExp::NodeType::Decimal;
+			decimalNode->decimal = d;
+			append(decimalNode);
 			return *this;
 		}
 		

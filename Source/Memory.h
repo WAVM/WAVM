@@ -82,7 +82,7 @@ namespace Memory
 		: elements(inMove.elements), numElements(inMove.numElements), numReservedElements(inMove.numReservedElements)
 		{ inMove.elements = nullptr; inMove.numElements = 0; inMove.numReservedElements = 0; }
 		
-		void reset(Arena& arena) { elements = arena.reallocate(elements,numElements,0); numElements = 0; numReservedElements = 0; }
+		void reset(Arena& arena) { elements = arena.reallocate(elements,numReservedElements,0); numElements = 0; numReservedElements = 0; }
 		void resize(Arena& arena,size_t newNumElements)
 		{
 			numElements = newNumElements;
