@@ -565,7 +565,7 @@ namespace WebAssemblyBinary
 		{
 			if(localIndex >= currentFunction->locals.size()) { return recordError<Type::Class>("getlocal: invalid local index"); }
 			if(currentFunction->locals[localIndex].type != Type::id) { return recordError<Type::Class>("getlocal: incorrect type"); }
-			return new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,localIndex);
+			return as<Type::Class>(new(arena) LoadVariable(AnyOp::getLocal,Type::Class::id,localIndex));
 		}
 
 		// Stores a value to a local variable.
@@ -577,7 +577,7 @@ namespace WebAssemblyBinary
 			if(currentFunction->locals[localIndex].type != Type::id) { return recordError<Type::Class>("setlocal: incorrect type"); }
 			return new(arena) Sequence<typename Type::Class>(
 				new(arena) StoreVariable(VoidOp::setLocal,value,localIndex),
-				new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,localIndex)
+				as<Type::Class>(new(arena) LoadVariable(AnyOp::getLocal,Type::Class::id,localIndex))
 				);
 		}
 		VoidExpression* setLocal(uint32_t localIndex)
@@ -594,7 +594,7 @@ namespace WebAssemblyBinary
 		{
 			if(globalIndex >= module.globals.size()) { return recordError<Type::Class>("getglobal: invalid global index"); }
 			if(module.globals[globalIndex].type != Type::id) { return recordError<Type::Class>("getglobal: incorrect type"); }
-			return new(arena) LoadVariable<Type::Class>(Type::Op::loadGlobal,globalIndex);
+			return as<Type::Class>(new(arena) LoadVariable(AnyOp::loadGlobal,Type::Class::id,globalIndex));
 		}
 
 		// Stores a value to a global variable.
@@ -606,7 +606,7 @@ namespace WebAssemblyBinary
 			if(module.globals[globalIndex].type != Type::id) { return recordError<Type::Class>("setglobal: incorrect type"); }
 			return new(arena) Sequence<typename Type::Class>(
 				new(arena) StoreVariable(VoidOp::storeGlobal,value,globalIndex),
-				new(arena) LoadVariable<Type::Class>(Type::Op::loadGlobal,globalIndex)
+				as<Type::Class>(new(arena) LoadVariable(AnyOp::loadGlobal,Type::Class::id,globalIndex))
 				);
 		}
 		VoidExpression* setGlobal(uint32_t globalIndex)
@@ -644,15 +644,15 @@ namespace WebAssemblyBinary
 		{
 			auto value = decodeExpression<Type>();
 			auto tempLocalIndex = getTempLocalIndex<Type>();
-			auto tempLoad1 = new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,tempLocalIndex);
-			auto castedValue = memoryType == Type::id ? as<Type::Class>(tempLoad1)
+			auto tempLoad1 = as<Type::Class>(new(arena) LoadVariable(AnyOp::getLocal,Type::Class::id,tempLocalIndex));
+			auto castedValue = memoryType == Type::id ? tempLoad1
 				: new(arena) Cast<Type::Class>(castOp,TypedExpression(tempLoad1,Type::id));
 			return new(arena) Sequence<typename Type::Class>(
 				new(arena) Sequence<VoidClass>(
 					new(arena) StoreVariable(VoidOp::setLocal,value,tempLocalIndex),
 					new(arena) StoreMemory(false,true,address,TypedExpression(castedValue,memoryType))
 					),
-				new(arena) LoadVariable<Type::Class>(Type::Op::getLocal,tempLocalIndex)
+				as<Type::Class>(new(arena) LoadVariable(AnyOp::getLocal,Type::Class::id,tempLocalIndex))
 				);
 		}
 		template<typename Type>
@@ -748,7 +748,7 @@ namespace WebAssemblyBinary
 			auto function = module.functions[functionIndex];
 			auto parameters = decodeParameters(function->type.parameters);
 			return function->type.returnType == returnType
-				? as<Class>(new(arena) Call<Class>(Class::Op::callDirect,functionIndex,parameters))
+				? as<Class>(new(arena) Call(AnyOp::callDirect,Class::id,functionIndex,parameters))
 				: recordError<Class>("callinternal: incorrect type");
 		}
 		VoidExpression* callInternalStatement(uint32_t functionIndex)
@@ -775,7 +775,7 @@ namespace WebAssemblyBinary
 			auto functionIndex = decodeExpression<I32Type>();
 			auto parameters = decodeParameters(functionTable.type.parameters);
 			return functionTable.type.returnType == returnType
-				? as<Class>(new(arena) CallIndirect<Class>(tableIndex,functionIndex,parameters))
+				? as<Class>(new(arena) CallIndirect(Class::id,tableIndex,functionIndex,parameters))
 				: recordError<Class>("callindirect: incorrect type");
 		}
 		VoidExpression* callIndirectStatement(uint32_t tableIndex)
@@ -801,7 +801,7 @@ namespace WebAssemblyBinary
 			const FunctionImport& functionImport = module.functionImports[functionImportIndex];
 			UntypedExpression** parameters = decodeParameters(functionImport.type.parameters);
 			return functionImport.type.returnType == returnType
-				? as<Class>(new(arena) Call<Class>(Class::Op::callImport,functionImportIndex,parameters))
+				? as<Class>(new(arena) Call(AnyOp::callImport,Class::id,functionImportIndex,parameters))
 				: recordError<Class>("callimport: incorrect type");
 		}
 		VoidExpression* callImportStatement(uintptr_t functionImportIndex)

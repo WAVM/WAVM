@@ -20,11 +20,10 @@ namespace AST
 		{}
 	};
 
-	template<typename Class>
-	struct LoadVariable : public Expression<Class>
+	struct LoadVariable : public Expression<AnyClass>
 	{
 		uintptr_t variableIndex;
-		LoadVariable(typename Class::Op inOp,uintptr_t inVariableIndex) : Expression(inOp), variableIndex(inVariableIndex) {}
+		LoadVariable(AnyOp inOp,TypeClassId inTypeClass,uintptr_t inVariableIndex) : Expression(inOp,inTypeClass), variableIndex(inVariableIndex) {}
 	};
 	
 	template<typename Class>
@@ -78,27 +77,21 @@ namespace AST
 		: Expression(op), source(inSource) {}
 	};
 	
-	template<typename Class>
-	struct Call : public Expression<Class>
+	struct Call : public Expression<AnyClass>
 	{
-		typedef typename Expression<Class>::Op Op;
-
 		uintptr_t functionIndex;
 		UntypedExpression** parameters;
-		Call(Op op,uintptr_t inFunctionIndex,UntypedExpression** inParameters)
-		: Expression(op), functionIndex(inFunctionIndex), parameters(inParameters) {}
+		Call(AnyOp op,TypeClassId inTypeClass,uintptr_t inFunctionIndex,UntypedExpression** inParameters)
+		: Expression(op,inTypeClass), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
-	template<typename Class>
-	struct CallIndirect : public Expression<Class>
+	struct CallIndirect : public Expression<AnyClass>
 	{
-		typedef typename Expression<Class>::Op Op;
-
 		uintptr_t tableIndex;
 		Expression<IntClass>* functionIndex; // must be I32
 		UntypedExpression** parameters;
-		CallIndirect(uintptr_t inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
-		: Expression(Class::Op::callIndirect), tableIndex(inTableIndex), functionIndex(inFunctionIndex), parameters(inParameters) {}
+		CallIndirect(TypeClassId inTypeClass,uintptr_t inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
+		: Expression(AnyOp::callIndirect,inTypeClass), tableIndex(inTableIndex), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
 	// Used to coerce an expression result to void.

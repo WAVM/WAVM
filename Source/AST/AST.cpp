@@ -45,6 +45,22 @@ namespace AST
 		}
 	}
 
+	TypeClassId getPrimaryTypeClass(TypeId type)
+	{
+		switch(type)
+		{
+		case TypeId::I8: return TypeClassId::Int;
+		case TypeId::I16: return TypeClassId::Int;
+		case TypeId::I32: return TypeClassId::Int;
+		case TypeId::I64: return TypeClassId::Int;
+		case TypeId::F32: return TypeClassId::Float;
+		case TypeId::F64: return TypeClassId::Float;
+		case TypeId::Bool: return TypeClassId::Bool;
+		case TypeId::Void: return TypeClassId::Void;
+		default: throw;
+		}
+	}
+
 	template<typename Type> struct NameVisitor { static const char* visit() { return Type::name; } };
 	const char* getTypeName(TypeId type) { return dispatchByType<const char*,NameVisitor>(type,"invalid"); }
 

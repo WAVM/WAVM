@@ -200,14 +200,12 @@ namespace LLVMJIT
 			throw;
 		}
 
-		template<typename Class>
-		DispatchResult visitLoadVariable(TypeId type,const LoadVariable<Class>* loadVariable,typename OpTypes<Class>::getLocal)
+		DispatchResult visitLoadVariable(TypeId type,const LoadVariable* loadVariable,OpTypes<AnyClass>::getLocal)
 		{
 			assert(loadVariable->variableIndex < astFunction->locals.size());
 			return irBuilder.CreateLoad(localVariablePointers[loadVariable->variableIndex]);
 		}
-		template<typename Class>
-		DispatchResult visitLoadVariable(TypeId type,const LoadVariable<Class>* loadVariable,typename OpTypes<Class>::loadGlobal)
+		DispatchResult visitLoadVariable(TypeId type,const LoadVariable* loadVariable,OpTypes<AnyClass>::loadGlobal)
 		{
 			assert(loadVariable->variableIndex < jitModule.globalVariablePointers.size());
 			return irBuilder.CreateLoad(jitModule.globalVariablePointers[loadVariable->variableIndex]);
@@ -222,24 +220,20 @@ namespace LLVMJIT
 			auto typedPointer = irBuilder.CreatePointerCast(bytePointer,asLLVMType(type)->getPointerTo());
 			return irBuilder.CreateLoad(typedPointer);
 		}
-
-		template<typename Class>
-		DispatchResult visitCall(TypeId type,const Call<Class>* call,typename OpTypes<Class>::callDirect)
+		DispatchResult visitCall(TypeId type,const Call* call,OpTypes<AnyClass>::callDirect)
 		{
 			auto astFunction = astModule->functions[call->functionIndex];
 			assert(astFunction->type.returnType == type);
 			return compileCall(astFunction->type,jitModule.functions[call->functionIndex],call->parameters);
 		}
-		template<typename Class>
-		DispatchResult visitCall(TypeId type,const Call<Class>* call,typename OpTypes<Class>::callImport)
+		DispatchResult visitCall(TypeId type,const Call* call,OpTypes<AnyClass>::callImport)
 		{
 			auto astFunctionImport = astModule->functionImports[call->functionIndex];
 			assert(astFunctionImport.type.returnType == type);
 			auto function = jitModule.functionImportPointers[call->functionIndex];
 			return compileCall(astFunctionImport.type,function,call->parameters);
 		}
-		template<typename Class>
-		DispatchResult visitCallIndirect(TypeId type,const CallIndirect<Class>* callIndirect)
+		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
 			assert(callIndirect->tableIndex < astModule->functionTables.size());
 			auto functionTablePointer = jitModule.functionTablePointers[callIndirect->tableIndex];

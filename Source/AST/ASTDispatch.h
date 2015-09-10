@@ -25,11 +25,11 @@ namespace AST
 		switch((AnyOp)expression->op())
 		{
 		case AnyOp::error: return visitor.visitError(type,(Error<Class>*)expression);
-		case AnyOp::callDirect: return visitor.visitCall(type,(Call<Class>*)expression,OpTypes<Class>::callDirect());
-		case AnyOp::callImport: return visitor.visitCall(type,(Call<Class>*)expression,OpTypes<Class>::callImport());
-		case AnyOp::callIndirect: return visitor.visitCallIndirect(type,(CallIndirect<Class>*)expression);
-		case AnyOp::getLocal: return visitor.visitLoadVariable(type,(LoadVariable<Class>*)expression,OpTypes<Class>::getLocal());
-		case AnyOp::loadGlobal: return visitor.visitLoadVariable(type,(LoadVariable<Class>*)expression,OpTypes<Class>::loadGlobal());
+		case AnyOp::callDirect: return visitor.visitCall(type,(Call*)expression,OpTypes<AnyClass>::callDirect());
+		case AnyOp::callImport: return visitor.visitCall(type,(Call*)expression,OpTypes<AnyClass>::callImport());
+		case AnyOp::callIndirect: return visitor.visitCallIndirect(type,(CallIndirect*)expression);
+		case AnyOp::getLocal: return visitor.visitLoadVariable(type,(LoadVariable*)expression,OpTypes<AnyClass>::getLocal());
+		case AnyOp::loadGlobal: return visitor.visitLoadVariable(type,(LoadVariable*)expression,OpTypes<AnyClass>::loadGlobal());
 		case AnyOp::sequence: return visitor.visitSequence(type,(Sequence<Class>*)expression);
 		case AnyOp::loop: return visitor.visitLoop(type,(Loop<Class>*)expression);
 		case AnyOp::switch_: return visitor.visitSwitch(type,(Switch<Class>*)expression);
@@ -174,10 +174,10 @@ namespace AST
 			return TypedExpression(new(arena) Error<Class>(std::move(message)),type);
 		}
 		
-		template<typename Class,typename OpAsType>
-		DispatchResult visitLoadVariable(TypeId type,const LoadVariable<Class>* loadVariable,OpAsType)
+		template<typename OpAsType>
+		DispatchResult visitLoadVariable(TypeId type,const LoadVariable* loadVariable,OpAsType)
 		{
-			return TypedExpression(new(arena) LoadVariable<Class>(loadVariable->op(),loadVariable->variableIndex),type);
+			return TypedExpression(new(arena) LoadVariable(loadVariable->op(),getPrimaryTypeClass(type),loadVariable->variableIndex),type);
 		}
 		template<typename Class>
 		DispatchResult visitLoadMemory(TypeId type,const LoadMemory<Class>* loadMemory)
@@ -207,14 +207,14 @@ namespace AST
 			return TypedExpression(new(arena) Cast<Class>(cast->op(),source),type);
 		}
 		
-		template<typename Class,typename OpAsType>
-		DispatchResult visitCall(TypeId type,const Call<Class>* call,OpAsType)
+		template<typename OpAsType>
+		DispatchResult visitCall(TypeId type,const Call* call,OpAsType)
 		{
 			const FunctionType* functionType;
 			switch(call->op())
 			{
-			case Class::Op::callDirect: functionType = &module->functions[call->functionIndex]->type; break;
-			case Class::Op::callImport: functionType = &module->functionImports[call->functionIndex].type; break;
+			case AnyOp::callDirect: functionType = &module->functions[call->functionIndex]->type; break;
+			case AnyOp::callImport: functionType = &module->functionImports[call->functionIndex].type; break;
 			default: throw;
 			}
 
@@ -225,10 +225,9 @@ namespace AST
 				parameters[parameterIndex] = visitChild(TypedExpression(call->parameters[parameterIndex],parameterType)).expression;
 			}
 
-			return TypedExpression(new(arena) Call<Class>(call->op(),call->functionIndex,parameters),type);
+			return TypedExpression(new(arena) Call(call->op(),getPrimaryTypeClass(type),call->functionIndex,parameters),type);
 		}
-		template<typename Class>
-		DispatchResult visitCallIndirect(TypeId type,const CallIndirect<Class>* callIndirect)
+		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
 			const FunctionType& functionType = module->functionTables[callIndirect->tableIndex].type;
 
@@ -240,7 +239,7 @@ namespace AST
 			}
 
 			auto functionIndex = as<IntClass>(visitChild(TypedExpression(callIndirect->functionIndex,TypeId::I32)));
-			return TypedExpression(new(arena) CallIndirect<Class>(callIndirect->tableIndex,functionIndex,parameters),type);
+			return TypedExpression(new(arena) CallIndirect(getPrimaryTypeClass(type),callIndirect->tableIndex,functionIndex,parameters),type);
 		}
 		template<typename Class>
 		DispatchResult visitSwitch(TypeId type,const Switch<Class>* switch_)

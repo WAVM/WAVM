@@ -23,6 +23,11 @@ namespace AST
 		#endif
 		ENUM_AST_TYPECLASSES()
 		#undef AST_TYPECLASS
+		UntypedExpression(AnyOp inOp,TypeClassId inTypeClass): opAny(inOp)
+		#ifdef _DEBUG
+			, typeClass(inTypeClass)
+		#endif
+		{}
 			
 		template<typename Class> friend typename Class::Expression* as(const UntypedExpression* expression)
 		{
@@ -54,8 +59,16 @@ namespace AST
 			Op op() const { return op##className; } \
 		}; \
 		typedef Expression<className##Class> className##Expression;
-	ENUM_AST_TYPECLASSES()
+	ENUM_AST_TYPECLASSES_WITHOUT_ANY()
 	#undef AST_TYPECLASS
+
+	template<> struct Expression<AnyClass> : public UntypedExpression
+	{
+		typedef AnyOp Op;
+		Expression(AnyOp inOp,TypeClassId inTypeClass): UntypedExpression(inOp,inTypeClass) {}
+		Op op() const { return opAny; }
+	};
+	typedef Expression<AnyClass> AnyExpression;
 
 	// A reference to an expression with an explicit type. Used only when the type isn't defined by the context.
 	struct TypedExpression

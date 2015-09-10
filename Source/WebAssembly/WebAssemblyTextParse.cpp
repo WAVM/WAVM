@@ -611,8 +611,8 @@ namespace WebAssemblyText
 					}
 
 					// Create the Call node.
-					auto call = new(arena)Call<Class>(Class::Op::callDirect,functionIndex,parameters);
-					
+					auto call = new(arena)Call(AnyOp::callDirect,getPrimaryTypeClass(function->type.returnType),functionIndex,parameters);
+
 					// Validate the function return type against the result type of this call.
 					auto result = coerceExpression<Class>(resultType,TypedExpression(call,function->type.returnType),parentNodeIt,"call return value");
 					return requireFullMatch(nodeIt,"call",result);
@@ -637,7 +637,7 @@ namespace WebAssemblyText
 					}
 
 					// Create the Call node.
-					auto call = new(arena)Call<Class>(Class::Op::callImport,importIndex,parameters);
+					auto call = new(arena)Call(AnyOp::callImport,getPrimaryTypeClass(functionImport.type.returnType),importIndex,parameters);
 					
 					// Validate the function return type against the result type of this call.
 					auto result = coerceExpression<Class>(resultType,TypedExpression(call,functionImport.type.returnType),parentNodeIt,"call_import return value");
@@ -666,7 +666,7 @@ namespace WebAssemblyText
 					}
 
 					// Create the CallIndirect node.
-					auto call = new(arena)CallIndirect<Class>(tableIndex,functionIndex,parameters);
+					auto call = new(arena)CallIndirect(getPrimaryTypeClass(functionTable.type.returnType),tableIndex,functionIndex,parameters);
 					
 					// Validate the function return type against the result type of this call.
 					auto result = coerceExpression<Class>(resultType,TypedExpression(call,functionTable.type.returnType),parentNodeIt,"call_indirect return value");
@@ -701,9 +701,9 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(block)
 				{ return parseExpressionSequence<Class>(resultType,nodeIt,"block body"); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(get_local)
-				{ return parseLoadVariable<Class>(resultType,Class::Op::getLocal,localNameToIndexMap,function->locals,nodeIt); }
+				{ return parseLoadVariable<Class>(resultType,AnyOp::getLocal,localNameToIndexMap,function->locals,nodeIt); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(load_global)
-				{ return parseLoadVariable<Class>(resultType,Class::Op::loadGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
+				{ return parseLoadVariable<Class>(resultType,AnyOp::loadGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
 
 				#undef DEFINE_PARAMETRIC_UNTYPED_OP
 				#undef DISPATCH_PARAMETRIC_TYPED_OP
@@ -969,16 +969,17 @@ namespace WebAssemblyText
 		
 		// Parses a load from a local or global variable.
 		template<typename Class>
-		typename Class::Expression* parseLoadVariable(TypeId resultType,typename Class::Op op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::Expression* parseLoadVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr_t variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
-				auto message = op == Class::Op::getLocal ? "get_local: expected local name or index" : "load_global: expected global name or index";
+				auto message = op == AnyOp::getLocal ? "get_local: expected local name or index" : "load_global: expected global name or index";
 				return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
 			}
-			auto load = new(arena) LoadVariable<Class>(op,variableIndex);
-			auto result = coerceExpression<Class>(resultType,TypedExpression(load,variables[variableIndex].type),nodeIt,"variable");
+			auto variableType = variables[variableIndex].type;
+			auto load = new(arena) LoadVariable(op,getPrimaryTypeClass(variableType),variableIndex);
+			auto result = coerceExpression<Class>(resultType,TypedExpression(load,variableType),nodeIt,"variable");
 			return requireFullMatch(nodeIt,getOpName(op),result);
 		}
 

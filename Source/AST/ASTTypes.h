@@ -112,6 +112,9 @@ namespace AST
 	
 	// Returns whether a type is part of a type class.
 	bool isTypeClass(TypeId type,TypeClassId typeClass);
+
+	// Returns the primary class for a type: Int, Float, Bool, Void.
+	TypeClassId getPrimaryTypeClass(TypeId type);
 	
 	// Returns a string with the name of a type.
 	const char* getTypeName(TypeId type);

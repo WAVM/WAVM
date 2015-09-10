@@ -174,11 +174,11 @@ namespace WebAssemblyText
 			return createSubtree() << "error" << error->message;
 		}
 		
-		template<typename Class,typename OpAsType>
-		DispatchResult visitLoadVariable(TypeId type,const LoadVariable<Class>* loadVariable,OpAsType)
+		template<typename OpAsType>
+		DispatchResult visitLoadVariable(TypeId type,const LoadVariable* loadVariable,OpAsType)
 		{
-			return createTaggedSubtree(getOpSymbol(loadVariable->op()))
-				<< (loadVariable->op() == Class::Op::getLocal ? getLocalName(loadVariable->variableIndex) : getGlobalName(loadVariable->variableIndex));
+			return createTaggedSubtree(getAnyOpSymbol<AnyClass>(loadVariable->op()))
+				<< (loadVariable->op() == AnyOp::getLocal ? getLocalName(loadVariable->variableIndex) : getGlobalName(loadVariable->variableIndex));
 		}
 		template<typename Class>
 		DispatchResult visitLoadMemory(TypeId type,const LoadMemory<Class>* loadMemory)
@@ -204,12 +204,12 @@ namespace WebAssemblyText
 			return createBitypedTaggedSubtree(type,getOpSymbol(cast->op()),cast->source.type) << dispatch(*this,cast->source);
 		}
 		
-		template<typename Class,typename OpAsType>
-		DispatchResult visitCall(TypeId type,const Call<Class>* call,OpAsType)
+		template<typename OpAsType>
+		DispatchResult visitCall(TypeId type,const Call* call,OpAsType)
 		{
-			auto subtreeStream = createTaggedSubtree(getOpSymbol(call->op()));
-			auto functionName = call->op() == Class::Op::callDirect ? getFunctionName(call->functionIndex) : getFunctionImportName(call->functionIndex);
-			auto functionType = call->op() == Class::Op::callDirect ? module->functions[call->functionIndex]->type : module->functionImports[call->functionIndex].type;
+			auto subtreeStream = createTaggedSubtree(getAnyOpSymbol<AnyClass>(call->op()));
+			auto functionName = call->op() == AnyOp::callDirect ? getFunctionName(call->functionIndex) : getFunctionImportName(call->functionIndex);
+			auto functionType = call->op() == AnyOp::callDirect ? module->functions[call->functionIndex]->type : module->functionImports[call->functionIndex].type;
 			subtreeStream << functionName;
 			for(uintptr_t parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
 			{
@@ -217,10 +217,9 @@ namespace WebAssemblyText
 			}
 			return subtreeStream;
 		}
-		template<typename Class>
-		DispatchResult visitCallIndirect(TypeId type,const CallIndirect<Class>* callIndirect)
+		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
-			auto subtreeStream = createTaggedSubtree(getOpSymbol(callIndirect->op()))
+			auto subtreeStream = createTaggedSubtree(Symbol::_call_indirect)
 				<< getFunctionTableName(callIndirect->tableIndex)
 				<< dispatch(*this,callIndirect->functionIndex,TypeId::I32);
 			auto functionType = module->functionTables[callIndirect->tableIndex].type;
