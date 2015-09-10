@@ -167,6 +167,30 @@ namespace WebAssemblyText
 		{
 			return createTypedTaggedSubtree(Type::id,Symbol::_const) << literal->value;
 		}
+		
+		template<>
+		DispatchResult visitLiteral<F32Type>(const Literal<F32Type>* literal)
+		{
+			// Just output floats as reinterpreted ints for now.
+			//if(std::isnan(literal->value) || std::isinf(literal->value))
+			{
+				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I32,Symbol::_const) << *(uint32_t*)&literal->value;
+				return createBitypedTaggedSubtree(TypeId::F32,Symbol::_reinterpret,TypeId::I32) << bitsStream;
+			}
+			//else { return createTypedTaggedSubtree(TypeId::F32,Symbol::_const) << literal->value; }
+		}
+		
+		template<>
+		DispatchResult visitLiteral<F64Type>(const Literal<F64Type>* literal)
+		{
+			// Just output floats as reinterpreted ints for now.
+			//if(std::isnan(literal->value) || std::isinf(literal->value))
+			{
+				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I64,Symbol::_const) << *(uint64_t*)&literal->value;
+				return createBitypedTaggedSubtree(TypeId::F64,Symbol::_reinterpret,TypeId::I64) << bitsStream;
+			}
+			//else { return createTypedTaggedSubtree(TypeId::F64,Symbol::_const) << literal->value; }
+		}
 
 		template<typename Class>
 		DispatchResult visitError(TypeId type,const Error<Class>* error)
