@@ -259,7 +259,9 @@ namespace WebAssemblyText
 		{
 			// The lowering pass should only give us switches with the default arm as the final arm.
 			assert(switch_->defaultArmIndex == switch_->numArms - 1);
-			auto switchStream = createTypedTaggedSubtree(switch_->key.type,Symbol::_switch) << dispatch(*this,switch_->key);
+			auto switchStream = createTypedTaggedSubtree(switch_->key.type,Symbol::_switch);
+			switchStream << getLabelName(switch_->endTarget);
+			switchStream << dispatch(*this,switch_->key);
 			for(uintptr_t armIndex = 0;armIndex < switch_->numArms - 1;++armIndex)
 			{
 				auto caseSubstream = createTaggedSubtree(Symbol::_case) << switch_->arms[armIndex].key;
@@ -269,11 +271,7 @@ namespace WebAssemblyText
 			}
 			switchStream << dispatch(*this,switch_->arms[switch_->numArms - 1].value,type);
 			
-			// Wrap the switch in a label for the switch end branch target.
-			auto labelStream = createTaggedSubtree(Symbol::_label) << getLabelName(switch_->endTarget);
-			labelStream << switchStream;
-
-			return labelStream;
+			return switchStream;
 		}
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
@@ -317,13 +315,11 @@ namespace WebAssemblyText
 		DispatchResult visitLoop(TypeId type,const Loop<Class>* loop)
 		{
 			// Simulate the loop break/continue labels with two label nodes.
-			auto innerLabelStream = createTaggedSubtree(Symbol::_label) << getLabelName(loop->continueTarget);
-			auto outerLabelStream = createTaggedSubtree(Symbol::_label) << getLabelName(loop->breakTarget);
 			auto loopStream = createTaggedSubtree(Symbol::_loop);
-			innerLabelStream << dispatch(*this,loop->expression);
-			loopStream << innerLabelStream;
-			outerLabelStream << loopStream;
-			return outerLabelStream;
+			loopStream << getLabelName(loop->breakTarget) << getLabelName(loop->continueTarget);
+			auto bodyStream = dispatch(*this,loop->expression);
+			loopStream << bodyStream;
+			return loopStream;
 		}
 		template<typename Class>
 		DispatchResult visitBranch(const Branch<Class>* branch)

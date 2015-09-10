@@ -217,7 +217,7 @@ namespace WebAssemblyText
 		ModuleContext& moduleContext;
 		Function* function;
 		std::map<std::string,uintptr_t> localNameToIndexMap;
-		std::map<std::string,uintptr_t> labelToIndexMap;
+		std::map<std::string,BranchTarget*> labelToBranchTargetMap;
 
 		std::vector<BranchTarget*> scopedBranchTargets;
 	
@@ -466,9 +466,19 @@ namespace WebAssemblyText
 
 				DEFINE_PARAMETRIC_TYPED_OP(Int,switch)
 				{
+					// Parse an optional label name for the switch end branch target.
+					const char* labelName;
+					bool hasEndLabel = parseName(nodeIt,labelName);
+					auto endTarget = new(arena)BranchTarget(resultType);
+					if(hasEndLabel && labelToBranchTargetMap.count(labelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"switch: break label name shadows outer label"); }
+					
+					// Parse the switch key.
 					auto keyType = opType;
 					auto key = parseTypedExpression<IntClass>(keyType,nodeIt,"switch key");
 
+					// Add the switch's label to the in-scope labels.
+					if(hasEndLabel) { labelToBranchTargetMap[labelName] = endTarget; }
+					
 					// Count the number of switch cases.
 					size_t numArms = 0;
 					for(auto caseCountIt = nodeIt;caseCountIt;++caseCountIt)
@@ -479,7 +489,6 @@ namespace WebAssemblyText
 					}
 
 					// Parse the switch cases.
-					auto endTarget = new(arena)BranchTarget(resultType);
 					SwitchArm* arms = new(arena)SwitchArm[numArms + 1];
 					uintptr_t armIndex = 0;
 					for(;nodeIt;++nodeIt)
@@ -522,6 +531,9 @@ namespace WebAssemblyText
 					// Parse the default expression.
 					arms[numArms].key = 0;
 					arms[numArms].value = parseTypedExpression<Class>(resultType,nodeIt,"switch default value");
+					
+					// Remove the switch end target from the in-scope branch targets.
+					if(hasEndLabel) { labelToBranchTargetMap.erase(labelName); }
 
 					// Create the Switch node.
 					auto result = new(arena)Switch<Class>(TypedExpression(key,keyType),numArms,numArms+1,arms,endTarget);
@@ -547,9 +559,28 @@ namespace WebAssemblyText
 				{
 					auto breakTarget = new(arena) BranchTarget(resultType);
 					auto continueTarget = new(arena) BranchTarget(TypeId::Void);
+					
+					// Parse a label names for the break and continue branch targets.
+					const char* breakLabelName;
+					const char* continueLabelName;
+					bool hasBreakLabel = parseName(nodeIt,breakLabelName);
+					bool hasContinueLabel = parseName(nodeIt,continueLabelName);
+					if(hasBreakLabel)
+					{
+						if(labelToBranchTargetMap.count(breakLabelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"loop: break label name shadows outer label"); }
+						labelToBranchTargetMap[breakLabelName] = breakTarget;
+					}
+					if(hasContinueLabel)
+					{
+						if(labelToBranchTargetMap.count(continueLabelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"loop: continue label name shadows outer label"); }
+						labelToBranchTargetMap[continueLabelName] = continueTarget;
+					}
 
 					// Parse the loop body.
 					auto expression = parseExpressionSequence<VoidClass>(TypeId::Void,nodeIt,"loop body");
+					
+					if(hasBreakLabel) { labelToBranchTargetMap.erase(breakLabelName); }
+					if(hasContinueLabel) { labelToBranchTargetMap.erase(continueLabelName); }
 
 					// Create the Loop node.
 					return new(arena)Loop<Class>(expression,breakTarget,continueTarget);
@@ -566,8 +597,8 @@ namespace WebAssemblyText
 					}
 					else if(parseName(nodeIt,name))
 					{
-						auto it = labelToIndexMap.find(name);
-						if(it != labelToIndexMap.end()) { branchTarget = scopedBranchTargets[it->second]; }
+						auto it = labelToBranchTargetMap.find(name);
+						if(it != labelToBranchTargetMap.end()) { branchTarget = it->second; }
 					}
 					if(!branchTarget)
 					{
@@ -678,13 +709,13 @@ namespace WebAssemblyText
 					// Parse an optional name for the label.
 					const char* labelName;
 					bool hasName = parseName(nodeIt,labelName);
-					if(hasName && labelToIndexMap.count(labelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"label: name shadows outer label"); }
+					if(hasName && labelToBranchTargetMap.count(labelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"label: name shadows outer label"); }
 
 					// Create a branch target for the label.
 					auto branchTarget = new(arena)BranchTarget(resultType);
 
 					// Add the target to the in-scope branch targets.
-					if(hasName) { labelToIndexMap[labelName] = scopedBranchTargets.size(); }
+					if(hasName) { labelToBranchTargetMap[labelName] = branchTarget; }
 					scopedBranchTargets.push_back(branchTarget);
 
 					// Parse the label body.
@@ -692,8 +723,8 @@ namespace WebAssemblyText
 
 					// Remove the target from the in-scope branch targets.
 					scopedBranchTargets.pop_back();
-					if(hasName) { labelToIndexMap.erase(labelName); }
-
+					if(hasName) { labelToBranchTargetMap.erase(labelName); }
+					
 					// Create the Label node.
 					return new(arena)Label<Class>(branchTarget,expression);
 				}
