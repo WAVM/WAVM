@@ -457,9 +457,19 @@ namespace WebAssemblyText
 			}
 			moduleStream << importStream;
 		}
+		std::map<uintptr_t,uintptr_t> globalIndexToImportMap;
 		for(uintptr_t importVariableIndex = 0;importVariableIndex < module->variableImports.size();++importVariableIndex)
 		{
-			// TODO
+			auto import = module->variableImports[importVariableIndex];
+			auto importStream = createTaggedSubtree(Symbol::_import);
+			importStream << getGlobalName(import.globalIndex);
+			
+			importStream << SNodeOutputStream::StringAtom(import.name,strlen(import.name));
+			importStream << import.type;
+
+			moduleStream << importStream;
+
+			globalIndexToImportMap[import.globalIndex] = importVariableIndex;
 		}
 
 		// Print the module function tables.
@@ -488,11 +498,15 @@ namespace WebAssemblyText
 		// Print the module globals.
 		for(uintptr_t globalIndex = 0;globalIndex < module->globals.size();++globalIndex)
 		{
-			auto global = module->globals[globalIndex];
-			auto globalStream = createTaggedSubtree(Symbol::_global);
-			globalStream << getGlobalName(globalIndex);
-			globalStream << global.type;
-			moduleStream << globalStream;
+			// Don't export imported globals.
+			if(!globalIndexToImportMap.count(globalIndex))
+			{
+				auto global = module->globals[globalIndex];
+				auto globalStream = createTaggedSubtree(Symbol::_global);
+				globalStream << getGlobalName(globalIndex);
+				globalStream << global.type;
+				moduleStream << globalStream;
+			}
 		}
 
 		// Print the module functions.
