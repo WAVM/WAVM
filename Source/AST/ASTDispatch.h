@@ -252,7 +252,7 @@ namespace AST
 			for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
 			{
 				auto armType = armIndex + 1 == switch_->numArms ? type : TypeId::Void;
-				switchArms[armIndex].key = armIndex;
+				switchArms[armIndex].key = switch_->arms[armIndex].key;
 				switchArms[armIndex].value = visitChild(TypedExpression(switch_->arms[armIndex].value,armType)).expression;
 			}
 			return TypedExpression(new(arena) Switch<Class>(key,switch_->numArms - 1,switch_->numArms,switchArms,endTarget),type);
