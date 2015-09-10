@@ -52,6 +52,7 @@ namespace Memory
 			currentSegment = (Segment*)realloc(currentSegment,sizeof(Segment) - 1 + newNumBytes);
 			currentSegmentAllocatedBytes = currentSegmentAllocatedBytes - previousNumBytes + newNumBytes;
 			currentSegment->totalBytes = newNumBytes;
+			totalAllocatedBytes = totalAllocatedBytes - previousNumBytes + newNumBytes;
 			return currentSegment->memory;
 		}
 		else if(newNumBytes < previousNumBytes)
