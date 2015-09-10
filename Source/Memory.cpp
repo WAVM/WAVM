@@ -11,6 +11,9 @@ namespace Memory
 
 	void* Arena::allocate(size_t numBytes)
 	{
+		// Align the allocation size to the pointer size.
+		numBytes = (numBytes + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1);
+
 		// If the current segment doesn't have enough space for this allocation, allocate a new segment.
 		if(!currentSegment || currentSegmentAllocatedBytes + numBytes > currentSegment->totalBytes)
 		{
@@ -33,6 +36,10 @@ namespace Memory
 
 	void* Arena::reallocateRaw(void* oldAllocation,size_t previousNumBytes,size_t newNumBytes)
 	{
+		// Align the allocation size to the pointer size.
+		previousNumBytes = (previousNumBytes + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1);
+		newNumBytes = (newNumBytes + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1);
+
 		auto bytePointer = (uint8_t*)oldAllocation;
 
 		if(currentSegment
