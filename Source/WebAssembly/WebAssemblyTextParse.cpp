@@ -1084,6 +1084,7 @@ namespace WebAssemblyText
 				const char* importInternalName;
 				if(parseName(childNodeIt,importInternalName))
 				{
+					importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
 					if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),"duplicate variable name"); }
 					else { functionImportNameToIndexMap[importInternalName] = importIndex; }
 				}
@@ -1094,38 +1095,50 @@ namespace WebAssemblyText
 				if(!parseString(childNodeIt,importExternalName,importExternalNameLength,module->arena))
 				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import name string"); continue; }
 				
-				// Parse the import's parameter and result declarations.
-				std::vector<Variable> parameters;
-				TypeId returnType = TypeId::Void;
-				bool hasResult = false;
-				for(;childNodeIt;++childNodeIt)
+				// If there's a non-function type following the import string, it's a variable import.
+				TypeId variableType;
+				if(parseType(childNodeIt,variableType))
 				{
-					SNodeIt innerChildNodeIt;
-					if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
-					{
-						// Parse a result declaration.
-						if(hasResult) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate result declaration"); continue; }
-						if(!parseType(innerChildNodeIt,returnType)) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected type"); continue; }
-						hasResult = true;
-						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following result declaration"); continue; }
-					}
-					else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
-					{
-						// Parse a parameter declaration.
-						parseVariables(innerChildNodeIt,parameters,outErrors,module->arena);
-						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following parameter declaration"); continue; }
-					}
-					else
-					{
-						recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected param or result declaration");
-					}
+					// Create the import.
+					auto globalIndex = module->globals.size();
+					module->globals.push_back({variableType,importInternalName});
+					module->variableImports.push_back({variableType,importExternalName,globalIndex});
 				}
+				else
+				{
+					// Parse the import's parameter and result declarations.
+					std::vector<Variable> parameters;
+					TypeId returnType = TypeId::Void;
+					bool hasResult = false;
+					for(;childNodeIt;++childNodeIt)
+					{
+						SNodeIt innerChildNodeIt;
+						if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
+						{
+							// Parse a result declaration.
+							if(hasResult) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate result declaration"); continue; }
+							if(!parseType(innerChildNodeIt,returnType)) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected type"); continue; }
+							hasResult = true;
+							if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following result declaration"); continue; }
+						}
+						else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
+						{
+							// Parse a parameter declaration.
+							parseVariables(innerChildNodeIt,parameters,outErrors,module->arena);
+							if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following parameter declaration"); continue; }
+						}
+						else
+						{
+							recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected param or result declaration");
+						}
+					}
 				
-				// Create the import.
-				std::vector<TypeId> parameterTypes;
-				for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
-				module->functionImports.push_back({FunctionType(returnType,parameterTypes),importExternalName});
-				
+					// Create the import.
+					std::vector<TypeId> parameterTypes;
+					for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
+					module->functionImports.push_back({FunctionType(returnType,parameterTypes),importExternalName});
+				}
+
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following import declaration"); continue; }
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_global,childNodeIt))
