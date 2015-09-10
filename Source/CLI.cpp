@@ -90,6 +90,9 @@ bool callModuleFunction(const AST::Module* module,const char* functionName)
 {
 	std::cout << "Loaded module uses " << (module->arena.getTotalAllocatedBytes() / 1024) << "KB" << std::endl;
 
+	// Generate machine code for the module.
+	LLVMJIT::compileModule(module);
+	
 	// Look up the function specified on the command line in the module.
 	auto exportIt = module->exportNameToFunctionIndexMap.find(functionName);
 	if(exportIt == module->exportNameToFunctionIndexMap.end())
@@ -104,9 +107,6 @@ bool callModuleFunction(const AST::Module* module,const char* functionName)
 		std::cerr << "exported function isn't expected type" << std::endl;
 		return false;
 	}
-
-	// Generate machine code for the module.
-	LLVMJIT::compileModule(module);
 
 	void* functionPtr = LLVMJIT::getFunctionPointer(module,exportIt->second);
 	assert(functionPtr);
