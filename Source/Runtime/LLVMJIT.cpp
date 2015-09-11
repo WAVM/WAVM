@@ -275,20 +275,24 @@ namespace LLVMJIT
 			assert(switchExpression->numArms > 0);
 			assert(switchExpression->defaultArmIndex < switchExpression->numArms);
 			auto defaultBlock = armEntryBlocks[switchExpression->defaultArmIndex];
-			auto switchInstruction = irBuilder.CreateSwitch(value,defaultBlock,(uint32_t)switchExpression->numArms);
+			auto switchInstruction = irBuilder.CreateSwitch(value,defaultBlock,(uint32_t)switchExpression->numArms - 1);
 			for(uint32_t armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
 			{
 				const SwitchArm& arm = switchExpression->arms[armIndex];
-				llvm::ConstantInt* armKey;
-				switch(switchExpression->key.type)
+				if(armIndex != switchExpression->defaultArmIndex)
 				{
-				case TypeId::I8: armKey = compileLiteral((uint8_t)arm.key); break;
-				case TypeId::I16: armKey = compileLiteral((uint16_t)arm.key); break;
-				case TypeId::I32: armKey = compileLiteral((uint32_t)arm.key); break;
-				case TypeId::I64: armKey = compileLiteral((uint64_t)arm.key); break;
-				default: throw;
+					llvm::ConstantInt* armKey;
+					switch(switchExpression->key.type)
+					{
+					case TypeId::I8: armKey = compileLiteral((uint8_t)arm.key); break;
+					case TypeId::I16: armKey = compileLiteral((uint16_t)arm.key); break;
+					case TypeId::I32: armKey = compileLiteral((uint32_t)arm.key); break;
+					case TypeId::I64: armKey = compileLiteral((uint64_t)arm.key); break;
+					default: throw;
+					}
+					switchInstruction->addCase(armKey,armEntryBlocks[armIndex]);
 				}
-				switchInstruction->addCase(armKey,armEntryBlocks[armIndex]);
+
 				irBuilder.SetInsertPoint(armEntryBlocks[armIndex]);
 				assert(arm.value);
 				if(armIndex + 1 == switchExpression->numArms && type != TypeId::Void)
