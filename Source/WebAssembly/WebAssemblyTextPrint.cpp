@@ -7,7 +7,6 @@
 #include "WebAssemblyTextSymbols.h"
 
 #include <map>
-#include <iostream>
 
 using namespace AST;
 
@@ -204,11 +203,31 @@ namespace WebAssemblyText
 			return createTaggedSubtree(getAnyOpSymbol<AnyClass>(getVariable->op()))
 				<< (getVariable->op() == AnyOp::getLocal ? getLocalName(getVariable->variableIndex) : getGlobalName(getVariable->variableIndex));
 		}
+		
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setLocal)
+		{
+			return createTaggedSubtree(Symbol::_set_local)
+				<< getLocalName(setVariable->variableIndex)
+				<< dispatch(*this,setVariable->value,function->locals[setVariable->variableIndex].type);
+		}
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setGlobal)
+		{
+			return createTaggedSubtree(Symbol::_store_global)
+				<< getGlobalName(setVariable->variableIndex)
+				<< dispatch(*this,setVariable->value,module->globals[setVariable->variableIndex].type);
+		}
 		template<typename Class,typename OpAsType>
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
 		{
 			return createBitypedTaggedSubtree(type,getOpSymbol(load->op()),load->memoryType)
 				<< dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
+		}
+		template<typename Class>
+		DispatchResult visitStore(const Store<Class>* store)
+		{
+			return createBitypedTaggedSubtree(store->value.type,getOpSymbol(store->op()),store->memoryType)
+				<< dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)
+				<< dispatch(*this,store->value);
 		}
 
 		template<typename Class,typename OpAsType>
@@ -343,25 +362,6 @@ namespace WebAssemblyText
 		DispatchResult visitDiscardResult(const DiscardResult* discardResult)
 		{
 			return dispatch(*this,discardResult->expression);
-		}
-		
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<VoidClass>::setLocal)
-		{
-			return createTaggedSubtree(Symbol::_set_local)
-				<< getLocalName(setVariable->variableIndex)
-				<< dispatch(*this,setVariable->value,function->locals[setVariable->variableIndex].type);
-		}
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<VoidClass>::setGlobal)
-		{
-			return createTaggedSubtree(Symbol::_store_global)
-				<< getGlobalName(setVariable->variableIndex)
-				<< dispatch(*this,setVariable->value,module->globals[setVariable->variableIndex].type);
-		}
-		DispatchResult visitStore(const Store* store)
-		{
-			return createBitypedTaggedSubtree(store->value.type,getOpSymbol(store->op()),store->memoryType)
-				<< dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)
-				<< dispatch(*this,store->value);
 		}
 	};
 

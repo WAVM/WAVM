@@ -250,8 +250,6 @@ namespace WebAssemblyText
 				#define DEFINE_CAST_OP(destType,sourceType,symbol,opcode) DEFINE_BITYPED_OP(destType,sourceType,symbol) \
 					{ return parseCastExpression<destType##Type::Class>(destType##Type::Op::opcode,TypeId::sourceType,TypeId::destType,nodeIt); }
 
-				DEFINE_UNTYPED_OP(set_local)		{ return parseSetVariable(VoidOp::setLocal,localNameToIndexMap,function->locals,nodeIt); }
-				DEFINE_UNTYPED_OP(store_global)	{ return parseSetVariable(VoidOp::setGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
 				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(new(arena)Nop(),TypeId::Void); }
 
 				DEFINE_TYPED_OP(Int,const)
@@ -733,6 +731,10 @@ namespace WebAssemblyText
 				{ return parseGetVariable<Class>(resultType,AnyOp::getLocal,localNameToIndexMap,function->locals,nodeIt); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(load_global)
 				{ return parseGetVariable<Class>(resultType,AnyOp::getGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
+				DEFINE_PARAMETRIC_UNTYPED_OP(set_local)
+				{ return parseSetVariable<Class>(resultType,AnyOp::setLocal,localNameToIndexMap,function->locals,nodeIt); }
+				DEFINE_PARAMETRIC_UNTYPED_OP(store_global)
+				{ return parseSetVariable<Class>(resultType,AnyOp::setGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
 
 				#undef DEFINE_PARAMETRIC_UNTYPED_OP
 				#undef DISPATCH_PARAMETRIC_TYPED_OP
@@ -980,8 +982,8 @@ namespace WebAssemblyText
 			
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"store address");
 			auto value = parseTypedExpression<OperandClass>(valueType,nodeIt,"store value");
-			auto result = new(arena) Store(isFarAddress,isAligned,address,TypedExpression(value,valueType),memoryType);
-			return TypedExpression(requireFullMatch(nodeIt,"store",result),TypeId::Void);
+			auto result = new(arena) Store<OperandClass>(isFarAddress,isAligned,address,TypedExpression(value,valueType),memoryType);
+			return TypedExpression(requireFullMatch(nodeIt,"store",result),valueType);
 		}
 		
 		// Parse a cast operation.
@@ -1010,18 +1012,20 @@ namespace WebAssemblyText
 		}
 
 		// Parses a store to a local or global variable.
-		TypedExpression parseSetVariable(VoidOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		template<typename Class>
+		typename Class::Expression* parseSetVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr_t variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
-				auto message = op == VoidOp::setLocal ? "set_local: expected local name or index" : "store_global: expected global name or index";
-				return TypedExpression(recordError<Error<VoidClass>>(outErrors,nodeIt,message),TypeId::Void);
+				auto message = op == AnyOp::setLocal ? "set_local: expected local name or index" : "store_global: expected global name or index";
+				return recordError<Error<Class>>(outErrors,nodeIt,message);
 			}
 			auto variableType = variables[variableIndex].type;
 			auto valueExpression = parseTypedExpression(variableType,nodeIt,"store value");
-			auto result = new(arena) SetVariable(op,valueExpression,variableIndex);
-			return TypedExpression(requireFullMatch(nodeIt,getOpName(op),result),TypeId::Void);
+			auto store = new(arena) SetVariable(op,getPrimaryTypeClass(variableType),valueExpression,variableIndex);
+			auto result = coerceExpression<Class>(resultType,TypedExpression(store,variableType),nodeIt,"variable");
+			return requireFullMatch(nodeIt,getOpName(op),result);
 		}
 	};
 

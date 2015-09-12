@@ -30,6 +30,10 @@ namespace AST
 		case AnyOp::callIndirect: return visitor.visitCallIndirect(type,(CallIndirect*)expression);
 		case AnyOp::getLocal: return visitor.visitGetVariable(type,(GetVariable*)expression,OpTypes<AnyClass>::getLocal());
 		case AnyOp::getGlobal: return visitor.visitGetVariable(type,(GetVariable*)expression,OpTypes<AnyClass>::getGlobal());
+		case AnyOp::setLocal: return visitor.visitSetVariable((SetVariable*)expression,OpTypes<AnyClass>::setLocal());
+		case AnyOp::setGlobal: return visitor.visitSetVariable((SetVariable*)expression,OpTypes<AnyClass>::setGlobal());
+		case AnyOp::load: return visitor.visitLoad(type,(Load<Class>*)expression,OpTypes<AnyClass>::load());
+		case AnyOp::store: return visitor.visitStore((Store<Class>*)expression);
 		case AnyOp::sequence: return visitor.visitSequence(type,(Sequence<Class>*)expression);
 		case AnyOp::loop: return visitor.visitLoop(type,(Loop<Class>*)expression);
 		case AnyOp::switch_: return visitor.visitSwitch(type,(Switch<Class>*)expression);
@@ -60,7 +64,6 @@ namespace AST
 		#undef AST_OP
 		
 		case IntOp::lit: return dispatchLiteral(visitor,expression,type);
-		case IntOp::load: return visitor.visitLoad(type,(Load<IntClass>*)expression,OpTypes<IntClass>::load());
 		case IntOp::loadZExt: return visitor.visitLoad(type,(Load<IntClass>*)expression,OpTypes<IntClass>::loadZExt());
 		case IntOp::loadSExt: return visitor.visitLoad(type,(Load<IntClass>*)expression,OpTypes<IntClass>::loadSExt());
 		default: return dispatchAny(visitor,expression,type);
@@ -86,7 +89,6 @@ namespace AST
 		#undef AST_OP
 		
 		case FloatOp::lit: return dispatchLiteral(visitor,expression,type);
-		case FloatOp::load: return visitor.visitLoad(type,(Load<FloatClass>*)expression,OpTypes<FloatClass>::load());
 		default: return dispatchAny(visitor,expression,type);
 		}
 	}
@@ -119,9 +121,6 @@ namespace AST
 	{
 		switch(expression->op())
 		{
-		case VoidOp::setLocal: return visitor.visitSetVariable((SetVariable*)expression,OpTypes<VoidClass>::setLocal());
-		case VoidOp::setGlobal: return visitor.visitSetVariable((SetVariable*)expression,OpTypes<VoidClass>::setGlobal());
-		case VoidOp::store: return visitor.visitStore((Store*)expression);
 		case VoidOp::nop: return visitor.visitNop((Nop*)expression);
 		case VoidOp::discardResult: return visitor.visitDiscardResult((DiscardResult*)expression);
 		default: return dispatchAny(visitor,expression,type);
@@ -181,11 +180,31 @@ namespace AST
 		{
 			return TypedExpression(new(arena) GetVariable(getVariable->op(),getPrimaryTypeClass(type),getVariable->variableIndex),type);
 		}
+		template<typename OpAsType>
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpAsType)
+		{
+			TypeId variableType;
+			switch(setVariable->op())
+			{
+			case AnyOp::setLocal: variableType = function->locals[setVariable->variableIndex].type; break;
+			case AnyOp::setGlobal: variableType = module->globals[setVariable->variableIndex].type; break;
+			default: throw;
+			}
+			auto value = visitChild(TypedExpression(setVariable->value,variableType));
+			return TypedExpression(new(arena) SetVariable(setVariable->op(),getPrimaryTypeClass(variableType),value.expression,setVariable->variableIndex),value.type);
+		}
 		template<typename Class,typename OpAsType>
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
 		{
 			auto address = as<IntClass>(visitChild(TypedExpression(load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32)));
 			return TypedExpression(new(arena) Load<Class>(load->op(),load->isFarAddress,load->isAligned,address,load->memoryType),type);
+		}
+		template<typename Class>
+		DispatchResult visitStore(const Store<Class>* store)
+		{
+			auto address = as<IntClass>(visitChild(TypedExpression(store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)));
+			auto value = visitChild(store->value);
+			return TypedExpression(new(arena) Store<Class>(store->isFarAddress,store->isAligned,address,value,store->memoryType),value.type);
 		}
 
 		template<typename Class,typename OpAsType>
@@ -325,26 +344,6 @@ namespace AST
 		{
 			auto expression = visitChild(discardResult->expression);
 			return TypedExpression(new(arena) DiscardResult(expression),TypeId::Void);
-		}
-		
-		template<typename OpAsType>
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpAsType)
-		{
-			TypeId variableType;
-			switch(setVariable->op())
-			{
-			case VoidOp::setLocal: variableType = function->locals[setVariable->variableIndex].type; break;
-			case VoidOp::setGlobal: variableType = module->globals[setVariable->variableIndex].type; break;
-			default: throw;
-			}
-			auto value = visitChild(TypedExpression(setVariable->value,variableType)).expression;
-			return TypedExpression(new(arena) SetVariable(setVariable->op(),value,setVariable->variableIndex),TypeId::Void);
-		}
-		DispatchResult visitStore(const Store* store)
-		{
-			auto address = as<IntClass>(visitChild(TypedExpression(store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)));
-			auto value = visitChild(store->value);
-			return TypedExpression(new(arena) Store(store->isFarAddress,store->isAligned,address,value,store->memoryType),TypeId::Void);
 		}
 	};
 }

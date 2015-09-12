@@ -26,6 +26,14 @@ namespace AST
 		GetVariable(AnyOp inOp,TypeClassId inTypeClass,uintptr_t inVariableIndex) : Expression(inOp,inTypeClass), variableIndex(inVariableIndex) {}
 	};
 	
+	struct SetVariable : public Expression<AnyClass>
+	{
+		UntypedExpression* value;
+		uintptr_t variableIndex;
+		SetVariable(Op op,TypeClassId inTypeClass,UntypedExpression* inValue,uintptr_t inVariableIndex)
+		: Expression(op,inTypeClass), value(inValue), variableIndex(inVariableIndex) {}
+	};
+
 	template<typename Class>
 	struct Load : public Expression<Class>
 	{
@@ -44,6 +52,19 @@ namespace AST
 		Expression<Class>* operand;
 		Unary(typename Class::Op op,Expression<Class>* inOperand): Expression(op), operand(inOperand)
 		{}
+	};
+	
+	template<typename Class>
+	struct Store : public Expression<Class>
+	{
+		bool isFarAddress;
+		bool isAligned;
+		Expression<IntClass>* address;
+		TypedExpression value;
+		TypeId memoryType;
+
+		Store(bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypedExpression inValue,TypeId inMemoryType)
+		: Expression(Class::Op::store), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), value(inValue), memoryType(inMemoryType) {}
 	};
 
 	template<typename Class>
@@ -202,25 +223,5 @@ namespace AST
 		,	voidExpression(inVoidExpression)
 		,	resultExpression(inResultExpression)
 		{}
-	};
-	
-	struct SetVariable : public Expression<VoidClass>
-	{
-		UntypedExpression* value;
-		uintptr_t variableIndex;
-		SetVariable(Op op,UntypedExpression* inValue,uintptr_t inVariableIndex)
-		: Expression(op), value(inValue), variableIndex(inVariableIndex) {}
-	};
-
-	struct Store : public Expression<VoidClass>
-	{
-		bool isFarAddress;
-		bool isAligned;
-		Expression<IntClass>* address;
-		TypedExpression value;
-		TypeId memoryType;
-
-		Store(bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypedExpression inValue,TypeId inMemoryType)
-		: Expression(VoidOp::store), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), value(inValue), memoryType(inMemoryType) {}
 	};
 }

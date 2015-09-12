@@ -184,6 +184,10 @@ namespace WebAssemblyText
 		#define MAP_OP_SYMBOL(op,symbol) case Class::Op::op: return Symbol::_##symbol;
 		MAP_OP_SYMBOL(getLocal,get_local)
 		MAP_OP_SYMBOL(getGlobal,load_global)
+		MAP_OP_SYMBOL(setLocal,set_local)
+		MAP_OP_SYMBOL(setGlobal,store_global)
+		MAP_OP_SYMBOL(load,load)
+		MAP_OP_SYMBOL(store,store)
 		MAP_OP_SYMBOL(callDirect,call)
 		MAP_OP_SYMBOL(callImport,call_import)
 		MAP_OP_SYMBOL(callIndirect,call_indirect)
@@ -230,7 +234,6 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(reinterpretFloat,reinterpret)
 		MAP_OP_SYMBOL(reinterpretBool,reinterpret)
 		MAP_OP_SYMBOL(lit,const)
-		MAP_OP_SYMBOL(load,load)
 		MAP_OP_SYMBOL(loadZExt,load_u)
 		MAP_OP_SYMBOL(loadSExt,load_s)
 		#undef MAP_OP_SYMBOL
@@ -263,7 +266,6 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(demote,demote)
 		MAP_OP_SYMBOL(reinterpretInt,reinterpret)
 		MAP_OP_SYMBOL(lit,const)
-		MAP_OP_SYMBOL(load,load)
 		MAP_OP_SYMBOL(cos,cos)
 		MAP_OP_SYMBOL(sin,sin)
 		MAP_OP_SYMBOL(sqrt,sqrt)
@@ -307,9 +309,6 @@ namespace WebAssemblyText
 		switch(op)
 		{
 		#define MAP_OP_SYMBOL(op,symbol) case VoidOp::op: return Symbol::_##symbol;
-		MAP_OP_SYMBOL(setLocal,set_local)
-		MAP_OP_SYMBOL(setGlobal,store_global)
-		MAP_OP_SYMBOL(store,store)
 		MAP_OP_SYMBOL(nop,nop)
 		#undef MAP_OP_SYMBOL
 		default: return getAnyOpSymbol<VoidClass>(op);

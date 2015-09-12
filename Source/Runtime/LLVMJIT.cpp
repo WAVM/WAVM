@@ -213,6 +213,7 @@ namespace LLVMJIT
 			throw;
 		}
 
+		// Local/global get/set
 		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpTypes<AnyClass>::getLocal)
 		{
 			assert(getVariable->variableIndex < astFunction->locals.size());
@@ -223,14 +224,30 @@ namespace LLVMJIT
 			assert(getVariable->variableIndex < jitModule.globalVariablePointers.size());
 			return irBuilder.CreateLoad(jitModule.globalVariablePointers[getVariable->variableIndex]);
 		}
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setLocal)
+		{
+			assert(setVariable->variableIndex < astFunction->locals.size());
+			auto value = dispatch(*this,setVariable->value,astFunction->locals[setVariable->variableIndex].type);
+			irBuilder.CreateStore(value,localVariablePointers[setVariable->variableIndex]);
+			return value;
+		}
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setGlobal)
+		{
+			assert(setVariable->variableIndex < jitModule.globalVariablePointers.size());
+			auto value = dispatch(*this,setVariable->value,astModule->globals[setVariable->variableIndex].type);
+			irBuilder.CreateStore(value,jitModule.globalVariablePointers[setVariable->variableIndex]);
+			return value;
+		}
+
+		// Memory load/store
 		template<typename Class>
-		DispatchResult visitLoad(TypeId type,const Load<Class>* load,typename OpTypes<Class>::load)
+		DispatchResult visitLoad(TypeId type,const Load<Class>* load,typename OpTypes<AnyClass>::load)
 		{
 			assert(type == load->memoryType);
 			return irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
 		}
 		template<>
-		DispatchResult visitLoad<IntClass>(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::load)
+		DispatchResult visitLoad<IntClass>(TypeId type,const Load<IntClass>* load,OpTypes<AnyClass>::load)
 		{
 			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
 			assert(isTypeClass(load->memoryType,TypeClassId::Int));
@@ -247,6 +264,27 @@ namespace LLVMJIT
 			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
 			return irBuilder.CreateSExt(memoryValue,asLLVMType(type));
 		}
+		template<typename Class>
+		DispatchResult visitStore(const Store<Class>* store)
+		{
+			auto value = dispatch(*this,store->value);
+			irBuilder.CreateStore(value,compileAddress(store->address,store->isFarAddress,store->memoryType));
+			return value;
+		}
+		template<>
+		DispatchResult visitStore<IntClass>(const Store<IntClass>* store)
+		{
+			auto value = dispatch(*this,store->value);
+			llvm::Value* memoryValue = value;
+			if(store->value.type != store->memoryType)
+			{
+				assert(isTypeClass(store->memoryType,TypeClassId::Int));
+				memoryValue = irBuilder.CreateTrunc(value,asLLVMType(store->memoryType));
+			}
+			irBuilder.CreateStore(memoryValue,compileAddress(store->address,store->isFarAddress,store->memoryType));
+			return value;
+		}
+
 		DispatchResult visitCall(TypeId type,const Call* call,OpTypes<AnyClass>::callDirect)
 		{
 			auto astFunction = astModule->functions[call->functionIndex];
@@ -496,31 +534,6 @@ namespace LLVMJIT
 		{
 			dispatch(*this,discardResult->expression);
 			return nullptr;
-		}
-		
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<VoidClass>::setLocal)
-		{
-			assert(setVariable->variableIndex < astFunction->locals.size());
-			auto value = dispatch(*this,setVariable->value,astFunction->locals[setVariable->variableIndex].type);
-			return irBuilder.CreateStore(value,localVariablePointers[setVariable->variableIndex]);
-		}
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<VoidClass>::setGlobal)
-		{
-			assert(setVariable->variableIndex < jitModule.globalVariablePointers.size());
-			auto value = dispatch(*this,setVariable->value,astModule->globals[setVariable->variableIndex].type);
-			return irBuilder.CreateStore(value,jitModule.globalVariablePointers[setVariable->variableIndex]);
-		}
-		DispatchResult visitStore(const Store* store)
-		{
-			auto value = dispatch(*this,store->value);
-			llvm::Value* memoryValue = value;
-			if(store->value.type != store->memoryType)
-			{
-				assert(isTypeClass(store->memoryType,TypeClassId::Int));
-				assert(isTypeClass(store->value.type,TypeClassId::Int));
-				memoryValue = irBuilder.CreateTrunc(value,asLLVMType(store->memoryType));
-			}
-			return irBuilder.CreateStore(memoryValue,compileAddress(store->address,store->isFarAddress,store->memoryType));
 		}
 		
 		DispatchResult compileIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand)

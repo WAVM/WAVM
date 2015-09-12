@@ -569,23 +569,17 @@ namespace WebAssemblyBinary
 		}
 
 		// Stores a value to a local variable.
-		template<typename Type>
-		typename Type::Expression* setLocalExpression(uint32_t localIndex)
-		{
-			auto value = decodeExpression<Type>();
-			if(localIndex >= currentFunction->locals.size()) { return recordError<Type::Class>("setlocal: invalid local index"); }
-			if(currentFunction->locals[localIndex].type != Type::id) { return recordError<Type::Class>("setlocal: incorrect type"); }
-			return new(arena) Sequence<typename Type::Class>(
-				new(arena) SetVariable(VoidOp::setLocal,value,localIndex),
-				as<Type::Class>(new(arena) GetVariable(AnyOp::getLocal,Type::Class::id,localIndex))
-				);
-		}
-		VoidExpression* setLocal(uint32_t localIndex)
+		TypedExpression setLocal(uint32_t localIndex)
 		{
 			if(localIndex >= currentFunction->locals.size()) { throw new FatalDecodeException("setlocal: invalid local index"); }
 			auto type = currentFunction->locals[localIndex].type;
 			auto value = decodeExpression(type);
-			return new(arena) SetVariable(VoidOp::setLocal,value,localIndex);
+			return TypedExpression(new(arena) SetVariable(AnyOp::setLocal,getPrimaryTypeClass(type),value,localIndex),type);
+		}
+		template<typename Type>
+		typename Type::Expression* setLocalExpression(uint32_t globalIndex)
+		{
+			return as<Type::Class>(setLocal(globalIndex));
 		}
 		
 		// Loads a value from a global variable.
@@ -598,23 +592,17 @@ namespace WebAssemblyBinary
 		}
 
 		// Stores a value to a global variable.
-		template<typename Type>
-		typename Type::Expression* setGlobalExpression(uint32_t globalIndex)
-		{
-			auto value = decodeExpression<Type>();
-			if(globalIndex >= module.globals.size()) { return recordError<Type::Class>("setglobal: invalid global index"); }
-			if(module.globals[globalIndex].type != Type::id) { return recordError<Type::Class>("setglobal: incorrect type"); }
-			return new(arena) Sequence<typename Type::Class>(
-				new(arena) SetVariable(VoidOp::setGlobal,value,globalIndex),
-				as<Type::Class>(new(arena) GetVariable(AnyOp::getGlobal,Type::Class::id,globalIndex))
-				);
-		}
-		VoidExpression* setGlobal(uint32_t globalIndex)
+		TypedExpression setGlobal(uint32_t globalIndex)
 		{
 			if(globalIndex >= module.globals.size()) { throw new FatalDecodeException("setglobal: invalid global index"); }
 			auto type = module.globals[globalIndex].type;
 			auto value = decodeExpression(type);
-			return new(arena) SetVariable(VoidOp::setGlobal,value,globalIndex);
+			return TypedExpression(new(arena) SetVariable(AnyOp::setGlobal,getPrimaryTypeClass(type),value,globalIndex),type);
+		}
+		template<typename Type>
+		typename Type::Expression* setGlobalExpression(uint32_t globalIndex)
+		{
+			return as<Type::Class>(setGlobal(globalIndex));
 		}
 
 		// Decodes an address in the form of an offset into the module's linear memory.
@@ -629,7 +617,7 @@ namespace WebAssemblyBinary
 			return byteIndex;
 		}
 
-		// Loads an I8, I16, or I32 into an I32 intermediate. I8 and I16 is either zero or sign extended to 32-bit depending on isSigned.
+		// Loads an I8, I16, or I32 into an I32 intermediate. I8 and I16 is either zero or sign extended to 32-bit depending on the loadOp.
 		template<typename Type>
 		typename Type::Expression* load(TypeId memoryType,typename Type::Op loadOp,IntExpression* address)
 		{
@@ -638,24 +626,10 @@ namespace WebAssemblyBinary
 
 		// Stores a value to memory.
 		template<typename Type>
-		typename Type::Expression* storeExpression(TypeId memoryType,IntExpression* address)
+		typename Type::Expression* store(TypeId memoryType,IntExpression* address)
 		{
 			auto value = decodeExpression<Type>();
-			auto tempLocalIndex = getTempLocalIndex<Type>();
-			auto tempLoad1 = as<Type::Class>(new(arena) GetVariable(AnyOp::getLocal,Type::Class::id,tempLocalIndex));
-			return new(arena) Sequence<typename Type::Class>(
-				new(arena) Sequence<VoidClass>(
-					new(arena) SetVariable(VoidOp::setLocal,value,tempLocalIndex),
-					new(arena) Store(false,true,address,TypedExpression(tempLoad1,Type::id),memoryType)
-					),
-				as<Type::Class>(new(arena) GetVariable(AnyOp::getLocal,Type::Class::id,tempLocalIndex))
-				);
-		}
-		template<typename Type>
-		VoidExpression* store(TypeId memoryType,IntExpression* address)
-		{
-			auto value = decodeExpression<Type>();
-			return new(arena) Store(false,true,address,TypedExpression(value,Type::id),memoryType);
+			return new(arena) Store<Type::Class>(false,true,address,TypedExpression(value,Type::id),memoryType);
 		}
 
 		// Converts a signed or unsigned 32-bit integer to a float.
@@ -1068,12 +1042,12 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::ULoadOff16: return load<I32Type>(TypeId::I16,IntOp::loadZExt,decodeAddress(in.immU32()));
 				case I32OpEncoding::Load32:     return load<I32Type>(TypeId::I32,IntOp::load,decodeAddress(0));
 				case I32OpEncoding::LoadOff32:  return load<I32Type>(TypeId::I32,IntOp::load,decodeAddress(in.immU32()));
-				case I32OpEncoding::Store8:     return storeExpression<I32Type>(TypeId::I8,decodeAddress(0));
-				case I32OpEncoding::StoreOff8:  return storeExpression<I32Type>(TypeId::I8,decodeAddress(in.immU32()));
-				case I32OpEncoding::Store16:    return storeExpression<I32Type>(TypeId::I16,decodeAddress(0));
-				case I32OpEncoding::StoreOff16: return storeExpression<I32Type>(TypeId::I16,decodeAddress(in.immU32()));
-				case I32OpEncoding::Store32:    return storeExpression<I32Type>(TypeId::I32,decodeAddress(0));
-				case I32OpEncoding::StoreOff32: return storeExpression<I32Type>(TypeId::I32,decodeAddress(in.immU32()));
+				case I32OpEncoding::Store8:     return store<I32Type>(TypeId::I8,decodeAddress(0));
+				case I32OpEncoding::StoreOff8:  return store<I32Type>(TypeId::I8,decodeAddress(in.immU32()));
+				case I32OpEncoding::Store16:    return store<I32Type>(TypeId::I16,decodeAddress(0));
+				case I32OpEncoding::StoreOff16: return store<I32Type>(TypeId::I16,decodeAddress(in.immU32()));
+				case I32OpEncoding::Store32:    return store<I32Type>(TypeId::I32,decodeAddress(0));
+				case I32OpEncoding::StoreOff32: return store<I32Type>(TypeId::I32,decodeAddress(in.immU32()));
 				case I32OpEncoding::CallInt:    return callInternal<IntClass>(TypeId::I32,in.immU32());
 				case I32OpEncoding::CallInd:    return callIndirect<IntClass>(TypeId::I32,in.immU32());
 				case I32OpEncoding::CallImp:    return callImport<IntClass>(TypeId::I32,in.immU32());
@@ -1164,8 +1138,8 @@ namespace WebAssemblyBinary
 				case F32OpEncoding::SetGlo:   return setGlobalExpression<F32Type>(in.immU32());
 				case F32OpEncoding::Load:     return load<F32Type>(TypeId::F32,FloatOp::load,decodeAddress(0));
 				case F32OpEncoding::LoadOff:  return load<F32Type>(TypeId::F32,FloatOp::load,decodeAddress(in.immU32()));
-				case F32OpEncoding::Store:    return storeExpression<F32Type>(TypeId::F32,decodeAddress(0));
-				case F32OpEncoding::StoreOff: return storeExpression<F32Type>(TypeId::F32,decodeAddress(in.immU32()));
+				case F32OpEncoding::Store:    return store<F32Type>(TypeId::F32,decodeAddress(0));
+				case F32OpEncoding::StoreOff: return store<F32Type>(TypeId::F32,decodeAddress(in.immU32()));
 				case F32OpEncoding::CallInt:  return callInternal<FloatClass>(TypeId::F32,in.immU32());
 				case F32OpEncoding::CallInd:  return callIndirect<FloatClass>(TypeId::F32,in.immU32());
 				case F32OpEncoding::Cond:     return cond<F32Type>();
@@ -1216,8 +1190,8 @@ namespace WebAssemblyBinary
 				case F64OpEncoding::SetGlo:   return setGlobalExpression<F64Type>(in.immU32());
 				case F64OpEncoding::Load:     return load<F64Type>(TypeId::F64,FloatOp::load,decodeAddress(0));
 				case F64OpEncoding::LoadOff:  return load<F64Type>(TypeId::F64,FloatOp::load,decodeAddress(in.immU32()));
-				case F64OpEncoding::Store:    return storeExpression<F64Type>(TypeId::F64,decodeAddress(0));
-				case F64OpEncoding::StoreOff: return storeExpression<F64Type>(TypeId::F64,decodeAddress(in.immU32()));
+				case F64OpEncoding::Store:    return store<F64Type>(TypeId::F64,decodeAddress(0));
+				case F64OpEncoding::StoreOff: return store<F64Type>(TypeId::F64,decodeAddress(in.immU32()));
 				case F64OpEncoding::CallInt:  return callInternal<FloatClass>(TypeId::F64,in.immU32());
 				case F64OpEncoding::CallInd:  return callIndirect<FloatClass>(TypeId::F64,in.immU32());
 				case F64OpEncoding::CallImp:  return callImport<FloatClass>(TypeId::F64,in.immU32());
@@ -1287,18 +1261,18 @@ namespace WebAssemblyBinary
 			{
 				switch(statement)
 				{
-				case StmtOpEncoding::SetLoc: return setLocal(in.immU32());
-				case StmtOpEncoding::SetGlo: return setGlobal(in.immU32());
-				case StmtOpEncoding::I32Store8: return store<I32Type>(TypeId::I8,decodeAddress(0));
-				case StmtOpEncoding::I32StoreOff8: return store<I32Type>(TypeId::I8,decodeAddress(in.immU32()));
-				case StmtOpEncoding::I32Store16: return store<I32Type>(TypeId::I16,decodeAddress(0));
-				case StmtOpEncoding::I32StoreOff16: return store<I32Type>(TypeId::I16,decodeAddress(in.immU32()));
-				case StmtOpEncoding::I32Store32: return store<I32Type>(TypeId::I32,decodeAddress(0));
-				case StmtOpEncoding::I32StoreOff32: return store<I32Type>(TypeId::I32,decodeAddress(in.immU32()));
-				case StmtOpEncoding::F32Store: return store<F32Type>(TypeId::F32,decodeAddress(0));
-				case StmtOpEncoding::F32StoreOff: return store<F32Type>(TypeId::F32,decodeAddress(in.immU32()));
-				case StmtOpEncoding::F64Store: return store<F64Type>(TypeId::F64,decodeAddress(0));
-				case StmtOpEncoding::F64StoreOff: return store<F64Type>(TypeId::F64,decodeAddress(in.immU32()));
+				case StmtOpEncoding::SetLoc: return new(arena) DiscardResult(setLocal(in.immU32()));
+				case StmtOpEncoding::SetGlo: return new(arena) DiscardResult(setGlobal(in.immU32()));
+				case StmtOpEncoding::I32Store8:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I8,decodeAddress(0)),TypeId::I32));
+				case StmtOpEncoding::I32StoreOff8:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I8,decodeAddress(in.immU32())),TypeId::I32));
+				case StmtOpEncoding::I32Store16:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I16,decodeAddress(0)),TypeId::I32));
+				case StmtOpEncoding::I32StoreOff16:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I16,decodeAddress(in.immU32())),TypeId::I32));
+				case StmtOpEncoding::I32Store32:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I32,decodeAddress(0)),TypeId::I32));
+				case StmtOpEncoding::I32StoreOff32:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I32,decodeAddress(in.immU32())),TypeId::I32));
+				case StmtOpEncoding::F32Store:		return new(arena) DiscardResult(TypedExpression(store<F32Type>(TypeId::F32,decodeAddress(0)),TypeId::F32));
+				case StmtOpEncoding::F32StoreOff:	return new(arena) DiscardResult(TypedExpression(store<F32Type>(TypeId::F32,decodeAddress(in.immU32())),TypeId::F32));
+				case StmtOpEncoding::F64Store:		return new(arena) DiscardResult(TypedExpression(store<F64Type>(TypeId::F64,decodeAddress(0)),TypeId::F64));
+				case StmtOpEncoding::F64StoreOff:	return new(arena) DiscardResult(TypedExpression(store<F64Type>(TypeId::F64,decodeAddress(in.immU32())),TypeId::F64));
 				case StmtOpEncoding::CallInt: return callInternalStatement(in.immU32());
 				case StmtOpEncoding::CallInd: return callIndirectStatement(in.immU32());
 				case StmtOpEncoding::CallImp: return callImportStatement(in.immU32());
@@ -1321,8 +1295,8 @@ namespace WebAssemblyBinary
 			{
 				switch(statementWithImm)
 				{
-				case StmtOpEncodingWithImm::SetLoc: return setLocal(imm);
-				case StmtOpEncodingWithImm::SetGlo: return setGlobal(imm);
+				case StmtOpEncodingWithImm::SetLoc: return new(arena) DiscardResult(setLocal(imm));
+				case StmtOpEncodingWithImm::SetGlo: return new(arena) DiscardResult(setGlobal(imm));
 				default: throw new FatalDecodeException("invalid statement opcode");
 				}
 			}

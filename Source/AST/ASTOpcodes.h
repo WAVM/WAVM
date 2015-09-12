@@ -9,6 +9,8 @@ namespace AST
 	#define ENUM_AST_OPS_Any() \
 		AST_OP(error) \
 		AST_OP(getLocal) AST_OP(getGlobal) \
+		AST_OP(setLocal) AST_OP(setGlobal) \
+		AST_OP(load) AST_OP(store) \
 		AST_OP(callDirect) AST_OP(callImport) AST_OP(callIndirect) \
 		AST_OP(loop) AST_OP(switch_) AST_OP(ifElse) AST_OP(label) AST_OP(sequence) \
 		AST_OP(branch) AST_OP(ret)
@@ -56,8 +58,7 @@ namespace AST
 		ENUM_AST_CAST_OPS_Int() \
 		AST_OP(lit) \
 		AST_OP(loadZExt) \
-		AST_OP(loadSExt) \
-		AST_OP(load)
+		AST_OP(loadSExt)
 
 	#define ENUM_AST_UNARY_OPS_Float() \
 		AST_OP(neg) \
@@ -95,8 +96,7 @@ namespace AST
 		ENUM_AST_UNARY_OPS_Float() \
 		ENUM_AST_BINARY_OPS_Float() \
 		ENUM_AST_CAST_OPS_Float() \
-		AST_OP(lit) \
-		AST_OP(load)
+		AST_OP(lit)
 
 	#define ENUM_AST_UNARY_OPS_Bool() \
 		AST_OP(not)
@@ -121,8 +121,6 @@ namespace AST
 
 	#define ENUM_AST_OPS_Void() \
 		ENUM_AST_OPS_Any() \
-		AST_OP(setLocal) AST_OP(setGlobal) \
-		AST_OP(store) \
 		AST_OP(discardResult) AST_OP(nop)
 
 	// Define the ClassOp enums: AnyOp, IntOp, etc.
