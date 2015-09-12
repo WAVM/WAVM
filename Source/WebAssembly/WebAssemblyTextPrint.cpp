@@ -199,16 +199,16 @@ namespace WebAssemblyText
 		}
 		
 		template<typename OpAsType>
-		DispatchResult visitLoadVariable(TypeId type,const LoadVariable* loadVariable,OpAsType)
+		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpAsType)
 		{
-			return createTaggedSubtree(getAnyOpSymbol<AnyClass>(loadVariable->op()))
-				<< (loadVariable->op() == AnyOp::getLocal ? getLocalName(loadVariable->variableIndex) : getGlobalName(loadVariable->variableIndex));
+			return createTaggedSubtree(getAnyOpSymbol<AnyClass>(getVariable->op()))
+				<< (getVariable->op() == AnyOp::getLocal ? getLocalName(getVariable->variableIndex) : getGlobalName(getVariable->variableIndex));
 		}
-		template<typename Class>
-		DispatchResult visitLoadMemory(TypeId type,const LoadMemory<Class>* loadMemory)
+		template<typename Class,typename OpAsType>
+		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
 		{
-			return createBitypedTaggedSubtree(type,isTypeClass(type,TypeClassId::Int) ? Symbol::_load_u : Symbol::_load,type)
-				<< dispatch(*this,loadMemory->address,loadMemory->isFarAddress ? TypeId::I64 : TypeId::I32);
+			return createBitypedTaggedSubtree(type,getOpSymbol(load->op()),load->memoryType)
+				<< dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
 		}
 
 		template<typename Class,typename OpAsType>
@@ -345,21 +345,21 @@ namespace WebAssemblyText
 			return dispatch(*this,discardResult->expression);
 		}
 		
-		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpTypes<VoidClass>::setLocal)
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<VoidClass>::setLocal)
 		{
 			return createTaggedSubtree(Symbol::_set_local)
-				<< getLocalName(storeVariable->variableIndex)
-				<< dispatch(*this,storeVariable->value,function->locals[storeVariable->variableIndex].type);
+				<< getLocalName(setVariable->variableIndex)
+				<< dispatch(*this,setVariable->value,function->locals[setVariable->variableIndex].type);
 		}
-		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpTypes<VoidClass>::storeGlobal)
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<VoidClass>::setGlobal)
 		{
 			return createTaggedSubtree(Symbol::_store_global)
-				<< getGlobalName(storeVariable->variableIndex)
-				<< dispatch(*this,storeVariable->value,module->globals[storeVariable->variableIndex].type);
+				<< getGlobalName(setVariable->variableIndex)
+				<< dispatch(*this,setVariable->value,module->globals[setVariable->variableIndex].type);
 		}
-		DispatchResult visitStoreMemory(const StoreMemory* store)
+		DispatchResult visitStore(const Store* store)
 		{
-			return createBitypedTaggedSubtree(store->value.type,isTypeClass(store->value.type,TypeClassId::Int) ? Symbol::_store_u : Symbol::_store,store->value.type)
+			return createBitypedTaggedSubtree(store->value.type,getOpSymbol(store->op()),store->memoryType)
 				<< dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)
 				<< dispatch(*this,store->value);
 		}

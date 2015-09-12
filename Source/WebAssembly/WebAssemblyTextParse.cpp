@@ -249,8 +249,8 @@ namespace WebAssemblyText
 				#define DEFINE_CAST_OP(destType,sourceType,symbol,opcode) DEFINE_BITYPED_OP(destType,sourceType,symbol) \
 					{ return parseCastExpression<destType##Type::Class>(destType##Type::Op::opcode,TypeId::sourceType,TypeId::destType,nodeIt); }
 
-				DEFINE_UNTYPED_OP(set_local)		{ return parseStoreVariable(VoidOp::setLocal,localNameToIndexMap,function->locals,nodeIt); }
-				DEFINE_UNTYPED_OP(store_global)	{ return parseStoreVariable(VoidOp::storeGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
+				DEFINE_UNTYPED_OP(set_local)		{ return parseSetVariable(VoidOp::setLocal,localNameToIndexMap,function->locals,nodeIt); }
+				DEFINE_UNTYPED_OP(store_global)	{ return parseSetVariable(VoidOp::setGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
 				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(new(arena)Nop(),TypeId::Void); }
 
 				DEFINE_TYPED_OP(Int,const)
@@ -277,34 +277,31 @@ namespace WebAssemblyText
 					default: throw;
 					}
 				}
+				
+				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_BITYPED_OP(valueType,memoryType,loadSymbol)	\
+					{ return parseLoadExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadOp,false,true,nodeIt); }
+				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_BITYPED_OP(valueType,memoryType,storeSymbol) \
+					{ return parseStoreExpression<class##Class>(TypeId::valueType,TypeId::memoryType,false,true,nodeIt); }
+				#define DEFINE_MEMORY_OP(class,valueType,memoryType,loadSymbol,storeSymbol,loadOp) \
+					DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) \
+					DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol)
+					
+				DEFINE_LOAD_OP(Int,I32,I8,load_s,loadSExt)
+				DEFINE_LOAD_OP(Int,I32,I8,load_u,loadZExt)
+				DEFINE_LOAD_OP(Int,I32,I16,load_s,loadSExt)
+				DEFINE_LOAD_OP(Int,I32,I16,load_u,loadZExt)
+				DEFINE_STORE_OP(Int,I32,I8,store)
+				DEFINE_STORE_OP(Int,I32,I16,store)
+				DEFINE_MEMORY_OP(Int,I32,I32,load,store,load)
+				DEFINE_MEMORY_OP(Int,I64,I64,load,store,load)
+				DEFINE_MEMORY_OP(Float,F32,F32,load,store,load)
+				DEFINE_MEMORY_OP(Float,F64,F64,load,store,load)
 
-				#define DEFINE_MEMORY_OP(class,valueType,memoryType,loadSymbol,storeSymbol,loadConvertOp,storeConvertOp) \
-					DEFINE_BITYPED_OP(valueType,memoryType,loadSymbol)	\
-						{ return parseLoadMemoryExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadConvertOp,false,true,nodeIt); } \
-					DEFINE_BITYPED_OP(valueType,memoryType,storeSymbol)	\
-						{ return parseStoreMemoryExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::storeConvertOp,false,true,nodeIt); }
-
-				#define DEFINE_INT_MEMORY_OP_2(resultType,loadSymbol,storeSymbol,i8LoadOp,i16LoadOp,i32LoadOp,i64LoadOp,i8StoreOp,i16StoreOp,i32StoreOp,i64StoreOp) \
-					DEFINE_MEMORY_OP(Int,resultType,I8,loadSymbol,storeSymbol,i8LoadOp,i8StoreOp) \
-					DEFINE_MEMORY_OP(Int,resultType,I16,loadSymbol,storeSymbol,i16LoadOp,i16StoreOp) \
-					DEFINE_MEMORY_OP(Int,resultType,I32,loadSymbol,storeSymbol,i32LoadOp,i32StoreOp) \
-					DEFINE_MEMORY_OP(Int,resultType,I64,loadSymbol,storeSymbol,i64LoadOp,i64StoreOp)
-
-				#define DEFINE_INT_MEMORY_OP(loadSymbol,storeSymbol,extendOp) \
-					DEFINE_INT_MEMORY_OP_2(I8,loadSymbol,storeSymbol,	wrap,wrap,wrap,wrap,extendOp,extendOp,extendOp,extendOp) \
-					DEFINE_INT_MEMORY_OP_2(I16,loadSymbol,storeSymbol,	extendOp,wrap,wrap,wrap,wrap,extendOp,extendOp,extendOp) \
-					DEFINE_INT_MEMORY_OP_2(I32,loadSymbol,storeSymbol,	extendOp,extendOp,wrap,wrap,wrap,wrap,extendOp,extendOp) \
-					DEFINE_INT_MEMORY_OP_2(I64,loadSymbol,storeSymbol,	extendOp,extendOp,extendOp,wrap,wrap,wrap,wrap,extendOp)
-
-				DEFINE_INT_MEMORY_OP(load_s,store_s,sext)
-				DEFINE_INT_MEMORY_OP(load_u,store_u,zext)
-				DEFINE_MEMORY_OP(Int,I8,I8,load,store,wrap,wrap)
-				DEFINE_MEMORY_OP(Int,I16,I16,load,store,wrap,wrap)
-				DEFINE_MEMORY_OP(Int,I32,I32,load,store,wrap,wrap)
-				DEFINE_MEMORY_OP(Int,I64,I64,load,store,wrap,wrap)
-
-				DEFINE_MEMORY_OP(Float,F32,F32,load,store,promote,promote)
-				DEFINE_MEMORY_OP(Float,F64,F64,load,store,promote,promote)
+				// Legacy, these memory ops will eventually be removed.
+				DEFINE_LOAD_OP(Int,I32,I32,load_u,load)
+				DEFINE_LOAD_OP(Int,I32,I32,load_s,load)
+				DEFINE_LOAD_OP(Int,I64,I64,load_u,load)
+				DEFINE_LOAD_OP(Int,I64,I64,load_s,load)
 
 				DEFINE_UNARY_OP(Int,neg,neg)
 				DEFINE_UNARY_OP(Int,abs,abs)
@@ -732,9 +729,9 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(block)
 				{ return parseExpressionSequence<Class>(resultType,nodeIt,"block body"); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(get_local)
-				{ return parseLoadVariable<Class>(resultType,AnyOp::getLocal,localNameToIndexMap,function->locals,nodeIt); }
+				{ return parseGetVariable<Class>(resultType,AnyOp::getLocal,localNameToIndexMap,function->locals,nodeIt); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(load_global)
-				{ return parseLoadVariable<Class>(resultType,AnyOp::loadGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
+				{ return parseGetVariable<Class>(resultType,AnyOp::getGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
 
 				#undef DEFINE_PARAMETRIC_UNTYPED_OP
 				#undef DISPATCH_PARAMETRIC_TYPED_OP
@@ -962,30 +959,27 @@ namespace WebAssemblyText
 
 		// Parse a memory load operation.
 		template<typename Class>
-		TypedExpression parseLoadMemoryExpression(TypeId resultType,TypeId memoryType,typename Class::Op castOp,bool isFarAddress,bool isAligned,SNodeIt nodeIt)
+		TypedExpression parseLoadExpression(TypeId resultType,TypeId memoryType,typename Class::Op loadOp,bool isFarAddress,bool isAligned,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,Class::id))
 				{ return TypedExpression(recordError<Error<Class>>(outErrors,nodeIt,"load: memory type must be same type class as result"),resultType); }
 			
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"load address");
 
-			auto load = new(arena) LoadMemory<Class>(isFarAddress,isAligned,address);
-			auto result = memoryType == resultType ? as<Class>(load) : new(arena) Cast<Class>(castOp,TypedExpression(load,memoryType));
+			auto result = new(arena) Load<Class>(loadOp,isFarAddress,isAligned,address,memoryType);
 			return TypedExpression(requireFullMatch(nodeIt,"load",result),resultType);
 		}
 
 		// Parse a memory store operation.
 		template<typename OperandClass>
-		TypedExpression parseStoreMemoryExpression(TypeId valueType,TypeId memoryType,typename OperandClass::Op castOp,bool isFarAddress,bool isAligned,SNodeIt nodeIt)
+		TypedExpression parseStoreExpression(TypeId valueType,TypeId memoryType,bool isFarAddress,bool isAligned,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,OperandClass::id))
 				{ return TypedExpression(recordError<Error<VoidClass>>(outErrors,nodeIt,"store: memory type must be same type class as result"),TypeId::Void); }
 			
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"store address");
-
-			auto value = parseTypedExpression<OperandClass>(valueType,nodeIt,"store value"); \
-			auto memoryValue = memoryType == valueType ? value : new(arena) Cast<OperandClass>(castOp,TypedExpression(value,valueType));
-			auto result = new(arena) StoreMemory(isFarAddress,isAligned,address,TypedExpression(memoryValue,memoryType));
+			auto value = parseTypedExpression<OperandClass>(valueType,nodeIt,"store value");
+			auto result = new(arena) Store(isFarAddress,isAligned,address,TypedExpression(value,valueType),memoryType);
 			return TypedExpression(requireFullMatch(nodeIt,"store",result),TypeId::Void);
 		}
 		
@@ -1000,7 +994,7 @@ namespace WebAssemblyText
 		
 		// Parses a load from a local or global variable.
 		template<typename Class>
-		typename Class::Expression* parseLoadVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::Expression* parseGetVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr_t variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
@@ -1009,13 +1003,13 @@ namespace WebAssemblyText
 				return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
 			}
 			auto variableType = variables[variableIndex].type;
-			auto load = new(arena) LoadVariable(op,getPrimaryTypeClass(variableType),variableIndex);
+			auto load = new(arena) GetVariable(op,getPrimaryTypeClass(variableType),variableIndex);
 			auto result = coerceExpression<Class>(resultType,TypedExpression(load,variableType),nodeIt,"variable");
 			return requireFullMatch(nodeIt,getOpName(op),result);
 		}
 
 		// Parses a store to a local or global variable.
-		TypedExpression parseStoreVariable(VoidOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		TypedExpression parseSetVariable(VoidOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr_t variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
@@ -1025,7 +1019,7 @@ namespace WebAssemblyText
 			}
 			auto variableType = variables[variableIndex].type;
 			auto valueExpression = parseTypedExpression(variableType,nodeIt,"store value");
-			auto result = new(arena) StoreVariable(op,valueExpression,variableIndex);
+			auto result = new(arena) SetVariable(op,valueExpression,variableIndex);
 			return TypedExpression(requireFullMatch(nodeIt,getOpName(op),result),TypeId::Void);
 		}
 	};

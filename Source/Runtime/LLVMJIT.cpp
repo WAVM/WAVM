@@ -172,20 +172,25 @@ namespace LLVMJIT
 			return llvm::Intrinsic::getDeclaration(jitModule.llvmModule,id,llvm::ArrayRef<llvm::Type*>(argTypes.begin(),argTypes.end()));
 		}
 
-		DispatchResult compileAddress(Expression<IntClass>* address,bool isFarAddress)
+		DispatchResult compileAddress(Expression<IntClass>* address,bool isFarAddress,TypeId memoryType)
 		{
+			llvm::Value* byteIndex;
 			if(isFarAddress)
 			{
 				// Until we reserve more than 4GB of virtual address space, mask a 64-bit address to just the lower 32-bits.
-				return irBuilder.CreateAnd(dispatch(*this,address,TypeId::I64),compileLiteral((uint64_t)0xffffffff));
+				byteIndex = irBuilder.CreateAnd(dispatch(*this,address,TypeId::I64),compileLiteral((uint64_t)0xffffffff));
 			}
 			else
 			{
 				// If the address is 32-bits, zext it to 64-bits.
 				// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
 				// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
-				return irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context));
+				byteIndex = irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context));
 			}
+			
+			auto bytePointer = irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(jitModule.virtualAddressBase),byteIndex);
+			// Cast the pointer to the appropriate type.
+			return irBuilder.CreatePointerCast(bytePointer,asLLVMType(memoryType)->getPointerTo());
 		}
 
 		DispatchResult compileCall(const FunctionType& functionType,llvm::Value* function,UntypedExpression** args)
@@ -208,25 +213,39 @@ namespace LLVMJIT
 			throw;
 		}
 
-		DispatchResult visitLoadVariable(TypeId type,const LoadVariable* loadVariable,OpTypes<AnyClass>::getLocal)
+		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpTypes<AnyClass>::getLocal)
 		{
-			assert(loadVariable->variableIndex < astFunction->locals.size());
-			return irBuilder.CreateLoad(localVariablePointers[loadVariable->variableIndex]);
+			assert(getVariable->variableIndex < astFunction->locals.size());
+			return irBuilder.CreateLoad(localVariablePointers[getVariable->variableIndex]);
 		}
-		DispatchResult visitLoadVariable(TypeId type,const LoadVariable* loadVariable,OpTypes<AnyClass>::loadGlobal)
+		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpTypes<AnyClass>::getGlobal)
 		{
-			assert(loadVariable->variableIndex < jitModule.globalVariablePointers.size());
-			return irBuilder.CreateLoad(jitModule.globalVariablePointers[loadVariable->variableIndex]);
+			assert(getVariable->variableIndex < jitModule.globalVariablePointers.size());
+			return irBuilder.CreateLoad(jitModule.globalVariablePointers[getVariable->variableIndex]);
 		}
 		template<typename Class>
-		DispatchResult visitLoadMemory(TypeId type,const LoadMemory<Class>* getMemory)
+		DispatchResult visitLoad(TypeId type,const Load<Class>* load,typename OpTypes<Class>::load)
 		{
-			// Compile the address as a byte index, get a pointer to that byte index relative to the virtualAddressBase.
-			auto byteIndex = compileAddress(getMemory->address,getMemory->isFarAddress);
-			auto bytePointer = irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(jitModule.virtualAddressBase),byteIndex);
-			// Cast the pointer to the appopriate type and load it.
-			auto typedPointer = irBuilder.CreatePointerCast(bytePointer,asLLVMType(type)->getPointerTo());
-			return irBuilder.CreateLoad(typedPointer);
+			assert(type == load->memoryType);
+			return irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+		}
+		template<>
+		DispatchResult visitLoad<IntClass>(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::load)
+		{
+			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+			assert(isTypeClass(load->memoryType,TypeClassId::Int));
+			return type == load->memoryType ? memoryValue
+				: irBuilder.CreateTrunc(memoryValue,asLLVMType(type));
+		}
+		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::loadZExt)
+		{
+			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+			return irBuilder.CreateZExt(memoryValue,asLLVMType(type));
+		}
+		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::loadSExt)
+		{
+			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+			return irBuilder.CreateSExt(memoryValue,asLLVMType(type));
 		}
 		DispatchResult visitCall(TypeId type,const Call* call,OpTypes<AnyClass>::callDirect)
 		{
@@ -479,30 +498,29 @@ namespace LLVMJIT
 			return nullptr;
 		}
 		
-		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpTypes<VoidClass>::setLocal)
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<VoidClass>::setLocal)
 		{
-			assert(storeVariable->variableIndex < astFunction->locals.size());
-			auto value = dispatch(*this,storeVariable->value,astFunction->locals[storeVariable->variableIndex].type);
-			return irBuilder.CreateStore(value,localVariablePointers[storeVariable->variableIndex]);
+			assert(setVariable->variableIndex < astFunction->locals.size());
+			auto value = dispatch(*this,setVariable->value,astFunction->locals[setVariable->variableIndex].type);
+			return irBuilder.CreateStore(value,localVariablePointers[setVariable->variableIndex]);
 		}
-		DispatchResult visitStoreVariable(const StoreVariable* storeVariable,OpTypes<VoidClass>::storeGlobal)
+		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<VoidClass>::setGlobal)
 		{
-			assert(storeVariable->variableIndex < jitModule.globalVariablePointers.size());
-			auto value = dispatch(*this,storeVariable->value,astModule->globals[storeVariable->variableIndex].type);
-			return irBuilder.CreateStore(value,jitModule.globalVariablePointers[storeVariable->variableIndex]);
+			assert(setVariable->variableIndex < jitModule.globalVariablePointers.size());
+			auto value = dispatch(*this,setVariable->value,astModule->globals[setVariable->variableIndex].type);
+			return irBuilder.CreateStore(value,jitModule.globalVariablePointers[setVariable->variableIndex]);
 		}
-		DispatchResult visitStoreMemory(const StoreMemory* storeMemory)
+		DispatchResult visitStore(const Store* store)
 		{
-			// Compile the value.
-			auto value = dispatch(*this,storeMemory->value);
-			
-			// Compile the address as a byte index, get a pointer to that byte index relative to the virtualAddressBase.
-			auto byteIndex = compileAddress(storeMemory->address,storeMemory->isFarAddress);
-			auto bytePointer = irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(jitModule.virtualAddressBase),byteIndex);
-
-			// Cast the pointer to the appopriate type and store the value to it.
-			auto typedPointer = irBuilder.CreatePointerCast(bytePointer,asLLVMType(storeMemory->value.type)->getPointerTo());
-			return irBuilder.CreateStore(value,typedPointer);
+			auto value = dispatch(*this,store->value);
+			llvm::Value* memoryValue = value;
+			if(store->value.type != store->memoryType)
+			{
+				assert(isTypeClass(store->memoryType,TypeClassId::Int));
+				assert(isTypeClass(store->value.type,TypeClassId::Int));
+				memoryValue = irBuilder.CreateTrunc(value,asLLVMType(store->memoryType));
+			}
+			return irBuilder.CreateStore(memoryValue,compileAddress(store->address,store->isFarAddress,store->memoryType));
 		}
 		
 		DispatchResult compileIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand)

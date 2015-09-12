@@ -20,28 +20,29 @@ namespace AST
 		{}
 	};
 
-	struct LoadVariable : public Expression<AnyClass>
+	struct GetVariable : public Expression<AnyClass>
 	{
 		uintptr_t variableIndex;
-		LoadVariable(AnyOp inOp,TypeClassId inTypeClass,uintptr_t inVariableIndex) : Expression(inOp,inTypeClass), variableIndex(inVariableIndex) {}
+		GetVariable(AnyOp inOp,TypeClassId inTypeClass,uintptr_t inVariableIndex) : Expression(inOp,inTypeClass), variableIndex(inVariableIndex) {}
 	};
 	
 	template<typename Class>
-	struct LoadMemory : public Expression<Class>
+	struct Load : public Expression<Class>
 	{
 		bool isFarAddress;
 		bool isAligned;
 		Expression<IntClass>* address;
+		TypeId memoryType;
 
-		LoadMemory(bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress)
-		: Expression(Op::loadMemory), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress) {}
+		Load(typename Class::Op op,bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypeId inMemoryType)
+		: Expression(op), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), memoryType(inMemoryType) {}
 	};
 	
 	template<typename Class>
 	struct Unary : public Expression<Class>
 	{
 		Expression<Class>* operand;
-		Unary(typename Expression<Class>::Op op,Expression<Class>* inOperand): Expression(op), operand(inOperand)
+		Unary(typename Class::Op op,Expression<Class>* inOperand): Expression(op), operand(inOperand)
 		{}
 	};
 
@@ -51,7 +52,7 @@ namespace AST
 		Expression<Class>* left;
 		Expression<Class>* right;
 
-		Binary(typename Expression<Class>::Op op,Expression<Class>* inLeft,Expression<Class>* inRight)
+		Binary(typename Class::Op op,Expression<Class>* inLeft,Expression<Class>* inRight)
 		: Expression(op), left(inLeft), right(inRight)
 		{}
 	};
@@ -69,7 +70,7 @@ namespace AST
 	template<typename Class>
 	struct Cast : public Expression<Class>
 	{
-		typedef typename Expression<Class>::Op Op;
+		typedef typename Class::Op Op;
 
 		TypedExpression source;
 
@@ -203,22 +204,23 @@ namespace AST
 		{}
 	};
 	
-	struct StoreVariable : public Expression<VoidClass>
+	struct SetVariable : public Expression<VoidClass>
 	{
 		UntypedExpression* value;
 		uintptr_t variableIndex;
-		StoreVariable(Op op,UntypedExpression* inValue,uintptr_t inVariableIndex)
+		SetVariable(Op op,UntypedExpression* inValue,uintptr_t inVariableIndex)
 		: Expression(op), value(inValue), variableIndex(inVariableIndex) {}
 	};
 
-	struct StoreMemory : public Expression<VoidClass>
+	struct Store : public Expression<VoidClass>
 	{
 		bool isFarAddress;
 		bool isAligned;
 		Expression<IntClass>* address;
 		TypedExpression value;
+		TypeId memoryType;
 
-		StoreMemory(bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypedExpression inValue)
-		: Expression(Op::storeMemory), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), value(inValue) {}
+		Store(bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypedExpression inValue,TypeId inMemoryType)
+		: Expression(VoidOp::store), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), value(inValue), memoryType(inMemoryType) {}
 	};
 }
