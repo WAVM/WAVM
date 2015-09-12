@@ -5,6 +5,15 @@ VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WAVM", "WAVM.vcxproj", "{77F09395-7509-453E-AF69-877EBC7053BD}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PrintWAST", "PrintWAST.vcxproj", "{B8674220-1EF7-4860-B0A5-C396ED88B55E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Run", "Run.vcxproj", "{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E3C38885-4D2B-4315-B873-574E23FB7FC5}"
+	ProjectSection(SolutionItems) = preProject
+		..\README.md = ..\README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +24,14 @@ Global
 		{77F09395-7509-453E-AF69-877EBC7053BD}.Debug|x64.Build.0 = Debug|x64
 		{77F09395-7509-453E-AF69-877EBC7053BD}.Release|x64.ActiveCfg = Release|x64
 		{77F09395-7509-453E-AF69-877EBC7053BD}.Release|x64.Build.0 = Release|x64
+		{B8674220-1EF7-4860-B0A5-C396ED88B55E}.Debug|x64.ActiveCfg = Debug|x64
+		{B8674220-1EF7-4860-B0A5-C396ED88B55E}.Debug|x64.Build.0 = Debug|x64
+		{B8674220-1EF7-4860-B0A5-C396ED88B55E}.Release|x64.ActiveCfg = Release|x64
+		{B8674220-1EF7-4860-B0A5-C396ED88B55E}.Release|x64.Build.0 = Release|x64
+		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}.Debug|x64.ActiveCfg = Debug|x64
+		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}.Debug|x64.Build.0 = Debug|x64
+		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}.Release|x64.ActiveCfg = Release|x64
+		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

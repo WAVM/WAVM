@@ -1,4 +1,4 @@
-#include "WAVM.h"
+#include "Common/WAVM.h"
 #include "Intrinsics.h"
 #include "Memory.h"
 #include <time.h>

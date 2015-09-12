@@ -1,16 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="..\Source\CLI.cpp" />
-    <ClCompile Include="..\Source\SExpressions.cpp" />
-    <ClCompile Include="..\Source\Windows.cpp" />
     <ClCompile Include="..\Source\AST\AST.cpp">
       <Filter>AST</Filter>
     </ClCompile>
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyBinary.cpp">
       <Filter>WebAssembly</Filter>
     </ClCompile>
-    <ClCompile Include="..\Source\Memory.cpp" />
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextSymbols.cpp">
       <Filter>WebAssembly</Filter>
     </ClCompile>
@@ -29,10 +25,20 @@
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextPrint.cpp">
       <Filter>WebAssembly</Filter>
     </ClCompile>
+    <ClCompile Include="..\Source\Common\SExpressions.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\Common\Windows.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Source\Common\Memory.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Test\Benchmark\Benchmark.cpp">
+      <Filter>Tests</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Source\SExpressions.h" />
-    <ClInclude Include="..\Source\WAVM.h" />
     <ClInclude Include="..\Source\AST\AST.h">
       <Filter>AST</Filter>
     </ClInclude>
@@ -48,7 +54,6 @@
     <ClInclude Include="..\Source\AST\ASTTypes.h">
       <Filter>AST</Filter>
     </ClInclude>
-    <ClInclude Include="..\Source\Memory.h" />
     <ClInclude Include="..\Source\WebAssembly\WebAssemblyTextSymbols.h">
       <Filter>WebAssembly</Filter>
     </ClInclude>
@@ -57,6 +62,18 @@
     </ClInclude>
     <ClInclude Include="..\Source\Runtime\LLVMJIT.h">
       <Filter>Runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\Common\SExpressions.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\Common\WAVM.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\Common\Memory.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Source\Common\CLI.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -71,6 +88,9 @@
     </Filter>
     <Filter Include="Runtime">
       <UniqueIdentifier>{d4eb13fa-1329-4bdb-b523-fbfa14f6d0ce}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{6e5c9d93-13a1-4d35-b6aa-4f1122e1dd95}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -98,6 +118,8 @@
     <None Include="..\Test\WAST\exports.wasm">
       <Filter>Tests</Filter>
     </None>
-    <None Include="..\README.md" />
+    <None Include="..\Test\Benchmark\a.out.wast">
+      <Filter>Tests</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "WAVM.h"
+#include "Common/WAVM.h"
 #include "AST/AST.h"
 
 namespace LLVMJIT

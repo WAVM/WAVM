@@ -2,7 +2,7 @@
 
 #include "AST/ASTTypes.h"
 #include "AST/ASTOpcodes.h"
-#include "SExpressions.h"
+#include "Common/SExpressions.h"
 
 #include <cstdint>
 

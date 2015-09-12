@@ -1,4 +1,4 @@
-#include "WAVM.h"
+#include "Common/WAVM.h"
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
 #include "AST/ASTDispatch.h"
@@ -36,6 +36,11 @@
 #include <iostream>
 
 #pragma warning(pop)
+
+namespace WAVM
+{
+	uint8_t* vmVirtualAddressBase = nullptr;
+}
 
 namespace LLVMJIT
 {

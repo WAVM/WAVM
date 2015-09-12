@@ -1,7 +1,7 @@
 #pragma once
 
-#include "WAVM.h"
-#include "Memory.h"
+#include "Common/WAVM.h"
+#include "Common/Memory.h"
 
 #include <cstdint>
 #include <vector>

@@ -12,17 +12,17 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Source\AST\AST.cpp" />
-    <ClCompile Include="..\Source\CLI.cpp" />
-    <ClCompile Include="..\Source\Memory.cpp" />
+    <ClCompile Include="..\Source\Common\Memory.cpp" />
+    <ClCompile Include="..\Source\Common\SExpressions.cpp" />
+    <ClCompile Include="..\Source\Common\Windows.cpp" />
     <ClCompile Include="..\Source\Runtime\EmscriptenIntrinsics.cpp" />
     <ClCompile Include="..\Source\Runtime\Intrinsics.cpp" />
     <ClCompile Include="..\Source\Runtime\LLVMJIT.cpp" />
-    <ClCompile Include="..\Source\SExpressions.cpp" />
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyBinary.cpp" />
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextParse.cpp" />
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextPrint.cpp" />
     <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextSymbols.cpp" />
-    <ClCompile Include="..\Source\Windows.cpp" />
+    <ClCompile Include="..\Test\Benchmark\Benchmark.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Source\AST\AST.h" />
@@ -30,15 +30,16 @@
     <ClInclude Include="..\Source\AST\ASTExpressions.h" />
     <ClInclude Include="..\Source\AST\ASTOpcodes.h" />
     <ClInclude Include="..\Source\AST\ASTTypes.h" />
-    <ClInclude Include="..\Source\Memory.h" />
+    <ClInclude Include="..\Source\Common\CLI.h" />
+    <ClInclude Include="..\Source\Common\Memory.h" />
+    <ClInclude Include="..\Source\Common\SExpressions.h" />
+    <ClInclude Include="..\Source\Common\WAVM.h" />
     <ClInclude Include="..\Source\Runtime\Intrinsics.h" />
     <ClInclude Include="..\Source\Runtime\LLVMJIT.h" />
-    <ClInclude Include="..\Source\SExpressions.h" />
-    <ClInclude Include="..\Source\WAVM.h" />
     <ClInclude Include="..\Source\WebAssembly\WebAssemblyTextSymbols.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\README.md" />
+    <None Include="..\Test\Benchmark\a.out.wast" />
     <None Include="..\Test\WAST\exports.wasm" />
     <None Include="..\Test\WAST\fac.wasm" />
     <None Include="..\Test\WAST\float32.wasm" />
@@ -55,13 +56,13 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -79,9 +80,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <IntDir>$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -97,9 +100,15 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>LLVMX86Disassembler.lib;LLVMX86AsmParser.lib;LLVMX86CodeGen.lib;LLVMSelectionDAG.lib;LLVMAsmPrinter.lib;LLVMCodeGen.lib;LLVMScalarOpts.lib;LLVMProfileData.lib;LLVMInstCombine.lib;LLVMTransformUtils.lib;LLVMipa.lib;LLVMAnalysis.lib;LLVMX86Desc.lib;LLVMMCDisassembler.lib;LLVMX86Info.lib;LLVMX86AsmPrinter.lib;LLVMX86Utils.lib;LLVMMCJIT.lib;LLVMTarget.lib;LLVMExecutionEngine.lib;LLVMRuntimeDyld.lib;LLVMObject.lib;LLVMMCParser.lib;LLVMBitReader.lib;LLVMMC.lib;LLVMCore.lib;LLVMSupport.lib;LLVMInstrumentation.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>LLVMvectorize.lib;LLVMipo.lib;LLVMX86Disassembler.lib;LLVMX86AsmParser.lib;LLVMX86CodeGen.lib;LLVMSelectionDAG.lib;LLVMAsmPrinter.lib;LLVMCodeGen.lib;LLVMScalarOpts.lib;LLVMProfileData.lib;LLVMInstCombine.lib;LLVMTransformUtils.lib;LLVMipa.lib;LLVMAnalysis.lib;LLVMX86Desc.lib;LLVMMCDisassembler.lib;LLVMX86Info.lib;LLVMX86AsmPrinter.lib;LLVMX86Utils.lib;LLVMMCJIT.lib;LLVMTarget.lib;LLVMExecutionEngine.lib;LLVMRuntimeDyld.lib;LLVMObject.lib;LLVMMCParser.lib;LLVMBitReader.lib;LLVMMC.lib;LLVMCore.lib;LLVMSupport.lib;LLVMInstrumentation.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../External/llvm.build/$(Configuration)/lib</AdditionalLibraryDirectories>
     </Link>
+    <Lib>
+      <AdditionalDependencies>LLVMvectorize.lib;LLVMipo.lib;LLVMX86Disassembler.lib;LLVMX86AsmParser.lib;LLVMX86CodeGen.lib;LLVMSelectionDAG.lib;LLVMAsmPrinter.lib;LLVMCodeGen.lib;LLVMScalarOpts.lib;LLVMProfileData.lib;LLVMInstCombine.lib;LLVMTransformUtils.lib;LLVMipa.lib;LLVMAnalysis.lib;LLVMX86Desc.lib;LLVMMCDisassembler.lib;LLVMX86Info.lib;LLVMX86AsmPrinter.lib;LLVMX86Utils.lib;LLVMMCJIT.lib;LLVMTarget.lib;LLVMExecutionEngine.lib;LLVMRuntimeDyld.lib;LLVMObject.lib;LLVMMCParser.lib;LLVMBitReader.lib;LLVMMC.lib;LLVMCore.lib;LLVMSupport.lib;LLVMInstrumentation.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>..\External\llvm.build\$(Configuration)\lib</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -118,9 +127,15 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>LLVMX86Disassembler.lib;LLVMX86AsmParser.lib;LLVMX86CodeGen.lib;LLVMSelectionDAG.lib;LLVMAsmPrinter.lib;LLVMCodeGen.lib;LLVMScalarOpts.lib;LLVMProfileData.lib;LLVMInstCombine.lib;LLVMTransformUtils.lib;LLVMipa.lib;LLVMAnalysis.lib;LLVMX86Desc.lib;LLVMMCDisassembler.lib;LLVMX86Info.lib;LLVMX86AsmPrinter.lib;LLVMX86Utils.lib;LLVMMCJIT.lib;LLVMTarget.lib;LLVMExecutionEngine.lib;LLVMRuntimeDyld.lib;LLVMObject.lib;LLVMMCParser.lib;LLVMBitReader.lib;LLVMMC.lib;LLVMCore.lib;LLVMSupport.lib;LLVMInstrumentation.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>LLVMvectorize.lib;LLVMipo.lib;LLVMX86Disassembler.lib;LLVMX86AsmParser.lib;LLVMX86CodeGen.lib;LLVMSelectionDAG.lib;LLVMAsmPrinter.lib;LLVMCodeGen.lib;LLVMScalarOpts.lib;LLVMProfileData.lib;LLVMInstCombine.lib;LLVMTransformUtils.lib;LLVMipa.lib;LLVMAnalysis.lib;LLVMX86Desc.lib;LLVMMCDisassembler.lib;LLVMX86Info.lib;LLVMX86AsmPrinter.lib;LLVMX86Utils.lib;LLVMMCJIT.lib;LLVMTarget.lib;LLVMExecutionEngine.lib;LLVMRuntimeDyld.lib;LLVMObject.lib;LLVMMCParser.lib;LLVMBitReader.lib;LLVMMC.lib;LLVMCore.lib;LLVMSupport.lib;LLVMInstrumentation.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../External/llvm.build/$(Configuration)/lib</AdditionalLibraryDirectories>
     </Link>
+    <Lib>
+      <AdditionalDependencies>LLVMvectorize.lib;LLVMipo.lib;LLVMX86Disassembler.lib;LLVMX86AsmParser.lib;LLVMX86CodeGen.lib;LLVMSelectionDAG.lib;LLVMAsmPrinter.lib;LLVMCodeGen.lib;LLVMScalarOpts.lib;LLVMProfileData.lib;LLVMInstCombine.lib;LLVMTransformUtils.lib;LLVMipa.lib;LLVMAnalysis.lib;LLVMX86Desc.lib;LLVMMCDisassembler.lib;LLVMX86Info.lib;LLVMX86AsmPrinter.lib;LLVMX86Utils.lib;LLVMMCJIT.lib;LLVMTarget.lib;LLVMExecutionEngine.lib;LLVMRuntimeDyld.lib;LLVMObject.lib;LLVMMCParser.lib;LLVMBitReader.lib;LLVMMC.lib;LLVMCore.lib;LLVMSupport.lib;LLVMInstrumentation.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>..\External\llvm.build\$(Configuration)\lib</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

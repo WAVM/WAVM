@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Common/WAVM.h"
+
 #include <cstdint>
 #include <memory>
 #include <assert.h>
