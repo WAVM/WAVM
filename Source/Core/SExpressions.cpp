@@ -483,7 +483,7 @@ namespace SExp
 		
 		size_t totalChildLength = 0;
 		for(auto string : childStrings) { totalChildLength += string.length(); }
-		auto isMultiLine = hasMultiLineSubtree || totalChildLength > 100;
+		auto isMultiLine = hasMultiLineSubtree || totalChildLength > 120;
 
 		for(uintptr_t childIndex = 0;childIndex < childStrings.size();++childIndex)
 		{

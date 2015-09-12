@@ -429,10 +429,18 @@ namespace WebAssemblyText
 		memoryStream << module->initialNumBytesMemory << module->maxNumBytesMemory;
 		for(auto dataSegment : module->dataSegments)
 		{
-			auto segmentStream = createTaggedSubtree(Symbol::_segment);
-			segmentStream << dataSegment.baseAddress;
-			segmentStream << SNodeOutputStream::StringAtom((const char*)dataSegment.data,dataSegment.numBytes);
-			memoryStream << segmentStream;
+			// Split the data segments up into 32 byte chunks so the S-expression pretty printer uses one line/segment.
+			enum { maxDataSegmentSize = 32 };
+			for(uintptr_t offset = 0;offset < dataSegment.numBytes;offset += maxDataSegmentSize)
+			{
+				auto segmentStream = createTaggedSubtree(Symbol::_segment);
+				segmentStream << (dataSegment.baseAddress + offset);
+				segmentStream << SNodeOutputStream::StringAtom(
+					(const char*)dataSegment.data + offset,
+					std::min<uintptr_t>(maxDataSegmentSize,dataSegment.numBytes - offset)
+					);
+				memoryStream << segmentStream;
+			}
 		}
 		moduleStream << memoryStream;
 
