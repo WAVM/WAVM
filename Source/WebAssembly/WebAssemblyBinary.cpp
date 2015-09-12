@@ -1,4 +1,4 @@
-#include "Common/WAVM.h"
+#include "Core/Core.h"
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
 

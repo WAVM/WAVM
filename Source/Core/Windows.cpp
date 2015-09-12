@@ -1,8 +1,8 @@
-#include "WAVM.h"
+#include "Core.h"
 #include <Windows.h>
 #include <intrin.h>
 
-namespace WAVM
+namespace Core
 {
 	Mutex::Mutex()
 	{

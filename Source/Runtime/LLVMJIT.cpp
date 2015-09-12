@@ -1,4 +1,4 @@
-#include "Common/WAVM.h"
+#include "Core/Core.h"
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
 #include "AST/ASTDispatch.h"
@@ -40,7 +40,7 @@
 
 #pragma warning(pop)
 
-namespace WAVM
+namespace Core
 {
 	uint8_t* vmVirtualAddressBase = nullptr;
 }
@@ -737,8 +737,8 @@ namespace LLVMJIT
 		
 		// For memory protection, allocate a full 32-bit address space of virtual pages.
 		const size_t numAllocatedVirtualPages = 1ull << (32 - Memory::getPreferredVirtualPageSizeLog2());
-		WAVM::vmVirtualAddressBase = Memory::allocateVirtualPages(numAllocatedVirtualPages);
-		assert(WAVM::vmVirtualAddressBase);
+		Core::vmVirtualAddressBase = Memory::allocateVirtualPages(numAllocatedVirtualPages);
+		assert(Core::vmVirtualAddressBase);
 	}
 
 	bool compileModule(const Module* astModule)
@@ -749,14 +749,14 @@ namespace LLVMJIT
 		}
 
 		// Create a JIT module.
-		WAVM::Timer llvmGenTimer;
+		Core::Timer llvmGenTimer;
 		JITModule* jitModule = new JITModule(astModule);
 		jitModules.push_back(jitModule);
 	
 		// Bind the memory buffer to the global variable used by the module as the base address for memory accesses.
 		auto virtualAddressBaseValue = llvm::Constant::getIntegerValue(
 			llvm::Type::getInt8PtrTy(context),
-			llvm::APInt(64,*(uint64_t*)&WAVM::vmVirtualAddressBase)
+			llvm::APInt(64,*(uint64_t*)&Core::vmVirtualAddressBase)
 			);
 		jitModule->virtualAddressBase = new llvm::GlobalVariable(*jitModule->llvmModule,llvm::Type::getInt8PtrTy(context),true,llvm::GlobalVariable::PrivateLinkage,virtualAddressBaseValue,"virtualAddressBase");
 
@@ -904,15 +904,15 @@ namespace LLVMJIT
 
 		// Copy the module's data segments into VM memory.
 		if(astModule->initialNumBytesMemory >= (1ull<<32)) { throw; }
-		WAVM::vmSbrk((int32_t)astModule->initialNumBytesMemory);
+		Core::vmSbrk((int32_t)astModule->initialNumBytesMemory);
 		for(auto dataSegment : astModule->dataSegments)
 		{
 			assert(dataSegment.baseAddress + dataSegment.numBytes <= astModule->initialNumBytesMemory);
-			memcpy(WAVM::vmVirtualAddressBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
+			memcpy(Core::vmVirtualAddressBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
 		}
 
 		// Initialize the Emscripten intrinsics.
-		WAVM::initEmscriptenIntrinsics();
+		Core::initEmscriptenIntrinsics();
 		
 		// Verify the module.
 		#ifdef _DEBUG
@@ -929,7 +929,7 @@ namespace LLVMJIT
 		#endif
 
 		// Run some optimization on the module's functions.		
-		WAVM::Timer optimizationTimer;
+		Core::Timer optimizationTimer;
 		llvm::legacy::PassManager passManager;
 		passManager.add(llvm::createFunctionInliningPass(2,0));
 		//passManager.add(llvm::createPartialInliningPass());
@@ -969,7 +969,7 @@ namespace LLVMJIT
 		std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
 
 		// Generate native machine code.
-		WAVM::Timer machineCodeTimer;
+		Core::Timer machineCodeTimer;
 		jitModule->executionEngine->finalizeObject();
 		std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
 

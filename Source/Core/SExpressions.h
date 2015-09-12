@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Common/WAVM.h"
-#include "Common/Memory.h"
+#include "Core/Core.h"
+#include "Core/Memory.h"
 
 #include <cstdint>
 #include <string>

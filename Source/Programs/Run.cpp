@@ -1,6 +1,6 @@
-#include "Common/WAVM.h"
-#include "Common/Memory.h"
-#include "Common/CLI.h"
+#include "Core/Core.h"
+#include "Core/Memory.h"
+#include "Core/CLI.h"
 #include "AST/AST.h"
 #include "Runtime/LLVMJIT.h"
 
@@ -110,7 +110,7 @@ int main(int argc,char** argv)
 	if(!initModuleRuntime(module)) { return -1; }
 
 	uint32_t returnCode;
-	WAVM::Timer executionTime;
+	Core::Timer executionTime;
 	if(!callModuleFunction(module,argv[3],returnCode)) { return -1; }
 	executionTime.stop();
 

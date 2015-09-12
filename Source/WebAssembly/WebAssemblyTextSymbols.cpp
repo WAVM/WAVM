@@ -1,5 +1,5 @@
 #include "WebAssemblyTextSymbols.h"
-#include "Common/SExpressions.h"
+#include "Core/SExpressions.h"
 
 namespace WebAssemblyText
 {

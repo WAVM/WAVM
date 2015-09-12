@@ -11,48 +11,26 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Source\AST\AST.cpp" />
-    <ClCompile Include="..\Source\Common\Memory.cpp" />
-    <ClCompile Include="..\Source\Common\SExpressions.cpp" />
-    <ClCompile Include="..\Source\Common\Windows.cpp" />
+    <ClInclude Include="..\Source\Runtime\Intrinsics.h" />
+    <ClInclude Include="..\Source\Runtime\LLVMJIT.h" />
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="..\Source\Runtime\EmscriptenIntrinsics.cpp" />
     <ClCompile Include="..\Source\Runtime\Intrinsics.cpp" />
     <ClCompile Include="..\Source\Runtime\LLVMJIT.cpp" />
-    <ClCompile Include="..\Source\WebAssembly\WebAssemblyBinary.cpp" />
-    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextParse.cpp" />
-    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextPrint.cpp" />
-    <ClCompile Include="..\Source\WebAssembly\WebAssemblyTextSymbols.cpp" />
-    <ClCompile Include="..\Test\Benchmark\Benchmark.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Source\AST\AST.h" />
-    <ClInclude Include="..\Source\AST\ASTDispatch.h" />
-    <ClInclude Include="..\Source\AST\ASTExpressions.h" />
-    <ClInclude Include="..\Source\AST\ASTOpcodes.h" />
-    <ClInclude Include="..\Source\AST\ASTTypes.h" />
-    <ClInclude Include="..\Source\Common\CLI.h" />
-    <ClInclude Include="..\Source\Common\Memory.h" />
-    <ClInclude Include="..\Source\Common\SExpressions.h" />
-    <ClInclude Include="..\Source\Common\WAVM.h" />
-    <ClInclude Include="..\Source\Runtime\Intrinsics.h" />
-    <ClInclude Include="..\Source\Runtime\LLVMJIT.h" />
-    <ClInclude Include="..\Source\WebAssembly\WebAssemblyTextSymbols.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\Test\Benchmark\a.out.wast" />
-    <None Include="..\Test\WAST\exports.wasm" />
-    <None Include="..\Test\WAST\fac.wasm" />
-    <None Include="..\Test\WAST\float32.wasm" />
-    <None Include="..\Test\WAST\forward.wasm" />
-    <None Include="..\Test\WAST\memory.wasm" />
-    <None Include="..\Test\WAST\multivalue.wasm" />
-    <None Include="..\Test\WAST\switch.wasm" />
-    <None Include="..\Test\WAST\unsigned.wasm" />
+    <ProjectReference Include="AST.vcxproj">
+      <Project>{4068acb1-73db-4fd1-95e5-5894906baa2b}</Project>
+    </ProjectReference>
+    <ProjectReference Include="Core.vcxproj">
+      <Project>{d88e1a3c-1d80-49a4-b837-e39bd17dd4db}</Project>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{77F09395-7509-453E-AF69-877EBC7053BD}</ProjectGuid>
+    <ProjectGuid>{7724F4EC-DA25-4853-8836-52F1E334C5C9}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>WAVM</RootNamespace>
+    <RootNamespace>Runtime</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">

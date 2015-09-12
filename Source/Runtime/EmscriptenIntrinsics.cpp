@@ -1,11 +1,11 @@
-#include "Common/WAVM.h"
+#include "Core/Core.h"
 #include "Intrinsics.h"
 #include "Memory.h"
 #include <time.h>
 #include <stdio.h>
 #include <iostream>
 
-namespace WAVM
+namespace Core
 {
 	static size_t numCommittedVirtualPages = 0;
 	static uint32_t numAllocatedBytes = 0;

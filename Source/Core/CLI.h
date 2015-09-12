@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Common/WAVM.h"
+#include "Core/Core.h"
 #include "AST/AST.h"
+#include "WebAssembly/WebAssembly.h"
 
 #include <iostream>
 #include <fstream>
@@ -30,7 +31,7 @@ inline AST::Module* loadTextModule(const char* filename)
 	auto wastString = std::string((const char*)wastBytes.data(),wastBytes.size());
 	wastBytes.clear();
 
-	WAVM::Timer loadTimer;
+	Core::Timer loadTimer;
 	WebAssemblyText::File wastFile;
 	if(!WebAssemblyText::parse(wastString.c_str(),wastFile))
 	{
@@ -55,7 +56,7 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 	if(!wasmBytes.size()) { return nullptr; }
 
 	// Load the module from a binary WebAssembly file.
-	WAVM::Timer loadTimer;
+	Core::Timer loadTimer;
 	std::vector<AST::ErrorRecord*> errors;
 	AST::Module* module;
 	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),module,errors))

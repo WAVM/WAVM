@@ -1,4 +1,4 @@
-#include "WAVM.h"
+#include "Core.h"
 #include "SExpressions.h"
 #include <initializer_list>
 #include <fstream>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/WAVM.h"
+#include "Core/Core.h"
 #include "AST/AST.h"
 
 namespace Intrinsics

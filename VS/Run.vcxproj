@@ -14,8 +14,17 @@
     <ClCompile Include="..\Source\Programs\Run.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="WAVM.vcxproj">
-      <Project>{77f09395-7509-453e-af69-877ebc7053bd}</Project>
+    <ProjectReference Include="AST.vcxproj">
+      <Project>{4068acb1-73db-4fd1-95e5-5894906baa2b}</Project>
+    </ProjectReference>
+    <ProjectReference Include="Core.vcxproj">
+      <Project>{d88e1a3c-1d80-49a4-b837-e39bd17dd4db}</Project>
+    </ProjectReference>
+    <ProjectReference Include="Runtime.vcxproj">
+      <Project>{7724f4ec-da25-4853-8836-52f1e334c5c9}</Project>
+    </ProjectReference>
+    <ProjectReference Include="WebAssembly.vcxproj">
+      <Project>{31a94fc5-bcc8-43d2-9173-21fe6190096c}</Project>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -62,7 +71,7 @@
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;_SCL_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_WARNINGS;__STDC_CONSTANT_MACROS;__STDC_FORMAT_MACROS;__STDC_LIMIT_MACROS;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../External/llvm/include;../External/llvm.build/include;../Source</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../Source</AdditionalIncludeDirectories>
       <MinimalRebuild>false</MinimalRebuild>
       <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
@@ -83,7 +92,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_CRT_NONSTDC_NO_WARNINGS;_SCL_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_WARNINGS;__STDC_CONSTANT_MACROS;__STDC_FORMAT_MACROS;__STDC_LIMIT_MACROS;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>../External/llvm/include;../External/llvm.build/include;../Source</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../Source</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>

@@ -13,7 +13,7 @@
 #pragma warning (disable:4100)	// unreferenced formal parameter
 #pragma warning (disable:4512)	// assignment operator could not be generated
 
-namespace WAVM
+namespace Core
 {
 	// A platform-independent mutex. Allows calling the constructor during static initialization, unlike std::mutex.
 	struct Mutex

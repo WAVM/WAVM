@@ -3,16 +3,33 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WAVM", "WAVM.vcxproj", "{77F09395-7509-453E-AF69-877EBC7053BD}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PrintWAST", "PrintWAST.vcxproj", "{B8674220-1EF7-4860-B0A5-C396ED88B55E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Run", "Run.vcxproj", "{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E3C38885-4D2B-4315-B873-574E23FB7FC5}"
 	ProjectSection(SolutionItems) = preProject
+		..\Test\Benchmark\a.out.wast = ..\Test\Benchmark\a.out.wast
+		..\Test\WAST\exports.wasm = ..\Test\WAST\exports.wasm
+		..\Test\WAST\fac.wasm = ..\Test\WAST\fac.wasm
+		..\Test\WAST\float32.wasm = ..\Test\WAST\float32.wasm
+		..\Test\WAST\forward.wasm = ..\Test\WAST\forward.wasm
+		..\Test\WAST\memory.wasm = ..\Test\WAST\memory.wasm
+		..\Test\WAST\multivalue.wasm = ..\Test\WAST\multivalue.wasm
 		..\README.md = ..\README.md
+		..\Test\WAST\switch.wasm = ..\Test\WAST\switch.wasm
+		..\Test\WAST\unsigned.wasm = ..\Test\WAST\unsigned.wasm
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Core", "Core.vcxproj", "{D88E1A3C-1D80-49A4-B837-E39BD17DD4DB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AST", "AST.vcxproj", "{4068ACB1-73DB-4FD1-95E5-5894906BAA2B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Runtime", "Runtime.vcxproj", "{7724F4EC-DA25-4853-8836-52F1E334C5C9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WebAssembly", "WebAssembly.vcxproj", "{31A94FC5-BCC8-43D2-9173-21FE6190096C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Programs", "Programs", "{504CE4C8-7DCC-4F5B-B113-4213D37CE8C3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,10 +37,6 @@ Global
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{77F09395-7509-453E-AF69-877EBC7053BD}.Debug|x64.ActiveCfg = Debug|x64
-		{77F09395-7509-453E-AF69-877EBC7053BD}.Debug|x64.Build.0 = Debug|x64
-		{77F09395-7509-453E-AF69-877EBC7053BD}.Release|x64.ActiveCfg = Release|x64
-		{77F09395-7509-453E-AF69-877EBC7053BD}.Release|x64.Build.0 = Release|x64
 		{B8674220-1EF7-4860-B0A5-C396ED88B55E}.Debug|x64.ActiveCfg = Debug|x64
 		{B8674220-1EF7-4860-B0A5-C396ED88B55E}.Debug|x64.Build.0 = Debug|x64
 		{B8674220-1EF7-4860-B0A5-C396ED88B55E}.Release|x64.ActiveCfg = Release|x64
@@ -32,8 +45,28 @@ Global
 		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}.Debug|x64.Build.0 = Debug|x64
 		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}.Release|x64.ActiveCfg = Release|x64
 		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09}.Release|x64.Build.0 = Release|x64
+		{D88E1A3C-1D80-49A4-B837-E39BD17DD4DB}.Debug|x64.ActiveCfg = Debug|x64
+		{D88E1A3C-1D80-49A4-B837-E39BD17DD4DB}.Debug|x64.Build.0 = Debug|x64
+		{D88E1A3C-1D80-49A4-B837-E39BD17DD4DB}.Release|x64.ActiveCfg = Release|x64
+		{D88E1A3C-1D80-49A4-B837-E39BD17DD4DB}.Release|x64.Build.0 = Release|x64
+		{4068ACB1-73DB-4FD1-95E5-5894906BAA2B}.Debug|x64.ActiveCfg = Debug|x64
+		{4068ACB1-73DB-4FD1-95E5-5894906BAA2B}.Debug|x64.Build.0 = Debug|x64
+		{4068ACB1-73DB-4FD1-95E5-5894906BAA2B}.Release|x64.ActiveCfg = Release|x64
+		{4068ACB1-73DB-4FD1-95E5-5894906BAA2B}.Release|x64.Build.0 = Release|x64
+		{7724F4EC-DA25-4853-8836-52F1E334C5C9}.Debug|x64.ActiveCfg = Debug|x64
+		{7724F4EC-DA25-4853-8836-52F1E334C5C9}.Debug|x64.Build.0 = Debug|x64
+		{7724F4EC-DA25-4853-8836-52F1E334C5C9}.Release|x64.ActiveCfg = Release|x64
+		{7724F4EC-DA25-4853-8836-52F1E334C5C9}.Release|x64.Build.0 = Release|x64
+		{31A94FC5-BCC8-43D2-9173-21FE6190096C}.Debug|x64.ActiveCfg = Debug|x64
+		{31A94FC5-BCC8-43D2-9173-21FE6190096C}.Debug|x64.Build.0 = Debug|x64
+		{31A94FC5-BCC8-43D2-9173-21FE6190096C}.Release|x64.ActiveCfg = Release|x64
+		{31A94FC5-BCC8-43D2-9173-21FE6190096C}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B8674220-1EF7-4860-B0A5-C396ED88B55E} = {504CE4C8-7DCC-4F5B-B113-4213D37CE8C3}
+		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09} = {504CE4C8-7DCC-4F5B-B113-4213D37CE8C3}
 	EndGlobalSection
 EndGlobal

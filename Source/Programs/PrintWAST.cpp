@@ -1,6 +1,7 @@
-#include "Common/WAVM.h"
-#include "Common/CLI.h"
+#include "Core/Core.h"
+#include "Core/CLI.h"
 #include "AST/AST.h"
+#include "WebAssembly/WebAssembly.h"
 
 int main(int argc,char** argv)
 {
