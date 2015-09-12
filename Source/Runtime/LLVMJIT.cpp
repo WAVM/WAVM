@@ -26,9 +26,12 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Vectorize.h"
 #include <cctype>
 #include <cstdio>
 #include <string>
@@ -841,6 +844,7 @@ namespace LLVMJIT
 			std::cerr << "Could not create ExecutionEngine: " << errStr << std::endl;
 			return false;
 		}
+		jitModule->llvmModule->setDataLayout(*jitModule->executionEngine->getDataLayout());
 
 		// Look up intrinsic functions that match the name+type of functions imported by the module, and bind them to the global variable used by the module to access the import.
 		bool missingImport = false;
@@ -891,21 +895,59 @@ namespace LLVMJIT
 
 		// Initialize the Emscripten intrinsics.
 		WAVM::initEmscriptenIntrinsics();
+		
+		// Verify the module.
+		#ifdef _DEBUG
+			std::string verifyOutputString;
+			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
+			if(llvm::verifyModule(*jitModule->llvmModule,&verifyOutputStream))
+			{
+				std::error_code errorCode;
+				llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("d:/dropbox/temp/llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
+				jitModule->llvmModule->print(dumpFileStream,nullptr);
+				std::cerr << "LLVM verification errors:\n" << verifyOutputStream.str() << std::endl;
+				return false;
+			}
+		#endif
 
 		// Run some optimization on the module's functions.		
 		WAVM::Timer optimizationTimer;
+		llvm::legacy::PassManager passManager;
+		passManager.add(llvm::createFunctionInliningPass(2,0));
+		//passManager.add(llvm::createPartialInliningPass());
+		passManager.run(*jitModule->llvmModule);
+
 		auto fpm = new llvm::legacy::FunctionPassManager(jitModule->llvmModule);
-		jitModule->llvmModule->setDataLayout(*jitModule->executionEngine->getDataLayout());
 		fpm->add(llvm::createPromoteMemoryToRegisterPass());
 		fpm->add(llvm::createBasicAliasAnalysisPass());
 		fpm->add(llvm::createInstructionCombiningPass());
 		fpm->add(llvm::createReassociatePass());
-		//fpm->add(llvm::createGVNPass()); - doesn't improve the generated code enough to justify the cost
+		fpm->add(llvm::createGVNPass());
+		fpm->add(llvm::createLICMPass());
+		fpm->add(llvm::createLoopVectorizePass());
+		fpm->add(llvm::createSLPVectorizerPass());
+		fpm->add(llvm::createBBVectorizePass());
+		fpm->add(llvm::createLoopUnrollPass());
 		fpm->add(llvm::createCFGSimplificationPass());
+		fpm->add(llvm::createConstantPropagationPass());
+		fpm->add(llvm::createDeadInstEliminationPass());
+		fpm->add(llvm::createDeadCodeEliminationPass());
+		fpm->add(llvm::createDeadStoreEliminationPass());
+		fpm->add(llvm::createAggressiveDCEPass());
+		fpm->add(llvm::createBitTrackingDCEPass());
+		fpm->add(llvm::createInductiveRangeCheckEliminationPass());
+		fpm->add(llvm::createIndVarSimplifyPass());
+		fpm->add(llvm::createLoopStrengthReducePass());
+		fpm->add(llvm::createLoopRotatePass());
+		fpm->add(llvm::createLoopIdiomPass());
+		fpm->add(llvm::createJumpThreadingPass());
+		fpm->add(llvm::createMemCpyOptPass());
+		fpm->add(llvm::createConstantHoistingPass());
 		fpm->doInitialization();
 		for(auto functionIt = jitModule->llvmModule->begin();functionIt != jitModule->llvmModule->end();++functionIt)
 		{ fpm->run(*functionIt); }
 		delete fpm;
+
 		std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
 
 		// Generate native machine code.
