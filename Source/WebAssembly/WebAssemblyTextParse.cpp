@@ -117,7 +117,7 @@ namespace WebAssemblyText
 	{
 		if(nodeIt && nodeIt->type == SExp::NodeType::UnindexedSymbol && nodeIt->string[0] == '$')
 		{
-			outString = nodeIt->string;
+			outString = nodeIt->string + 1;
 			++nodeIt;
 			return true;
 		}
