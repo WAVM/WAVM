@@ -895,7 +895,6 @@ namespace LLVMJIT
 				std::cerr << ") -> " << getTypeName(functionImport.type.returnType) << std::endl;
 				missingImport = true;
 			}
-			else { jitModule->executionEngine->addGlobalMapping(jitModule->functionImportPointers[functionImportIndex],functionPointer); }
 		}
 
 		// Look up intrinsic values that match the name+type of values imported by the module, and bind them to the global variable used by the module to access the import.
