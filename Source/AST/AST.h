@@ -82,7 +82,7 @@ namespace AST
 		
 		template<typename AsClass> friend typename AsClass::Expression* as(const TypedExpression& expression)
 		{
-			assert(isTypeClass(expression.type,AsClass::id));
+			assert(expression.expression && isTypeClass(expression.type,AsClass::id));
 			return (AsClass::Expression*)expression.expression;
 		}
 	};
