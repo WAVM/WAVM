@@ -32,7 +32,7 @@ namespace WebAssemblyText
 	//	- I8 and I16 operations (todo)
 	//	- boolean operations (todo)
 	//	- Switches with default case in the middle.
-	struct LoweringVisitor : MapChildrenVisitor<LoweringVisitor&>
+	struct LoweringVisitor : MapChildrenVisitor<LoweringVisitor&,TypedExpression>
 	{
 		LoweringVisitor(Memory::Arena& inArena,const Module* inModule,Function* inFunction)
 		: MapChildrenVisitor(inArena,inModule,inFunction,*this) {}

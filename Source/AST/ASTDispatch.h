@@ -147,11 +147,11 @@ namespace AST
 
 	// A visitor that recursively visits each child of a node with the provided child visitor,
 	// and recreates the node using the results on the given arena.
-	template<typename VisitChild>
+	template<typename VisitChild,typename DispatchResult>
 	struct MapChildrenVisitor
 	{
-		typedef TypedExpression DispatchResult;
-		
+		typedef DispatchResult DispatchResult;
+
 		const Module* module;
 		Function* function;
 		Memory::Arena& arena;

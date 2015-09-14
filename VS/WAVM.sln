@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E3C38885-4D2B-4315-B873-574E23FB7FC5}"
 	ProjectSection(SolutionItems) = preProject
 		..\Test\Benchmark\a.out.wast = ..\Test\Benchmark\a.out.wast
+		..\Test\WAST\conversions.wasm = ..\Test\WAST\conversions.wasm
 		..\Test\WAST\exports.wasm = ..\Test\WAST\exports.wasm
 		..\Test\WAST\fac.wasm = ..\Test\WAST\fac.wasm
 		..\Test\WAST\float32.wasm = ..\Test\WAST\float32.wasm
@@ -30,6 +31,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WebAssembly", "WebAssembly.vcxproj", "{31A94FC5-BCC8-43D2-9173-21FE6190096C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Programs", "Programs", "{504CE4C8-7DCC-4F5B-B113-4213D37CE8C3}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ASMJS", "ASMJS.vcxproj", "{CC2D6764-6BD0-4CCD-9DC2-015681B296F0}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PrintASMJS", "PrintASMJS.vcxproj", "{044847DC-3B1A-4D1E-A388-3BCF6FB54428}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -61,6 +66,14 @@ Global
 		{31A94FC5-BCC8-43D2-9173-21FE6190096C}.Debug|x64.Build.0 = Debug|x64
 		{31A94FC5-BCC8-43D2-9173-21FE6190096C}.Release|x64.ActiveCfg = Release|x64
 		{31A94FC5-BCC8-43D2-9173-21FE6190096C}.Release|x64.Build.0 = Release|x64
+		{CC2D6764-6BD0-4CCD-9DC2-015681B296F0}.Debug|x64.ActiveCfg = Debug|x64
+		{CC2D6764-6BD0-4CCD-9DC2-015681B296F0}.Debug|x64.Build.0 = Debug|x64
+		{CC2D6764-6BD0-4CCD-9DC2-015681B296F0}.Release|x64.ActiveCfg = Release|x64
+		{CC2D6764-6BD0-4CCD-9DC2-015681B296F0}.Release|x64.Build.0 = Release|x64
+		{044847DC-3B1A-4D1E-A388-3BCF6FB54428}.Debug|x64.ActiveCfg = Debug|x64
+		{044847DC-3B1A-4D1E-A388-3BCF6FB54428}.Debug|x64.Build.0 = Debug|x64
+		{044847DC-3B1A-4D1E-A388-3BCF6FB54428}.Release|x64.ActiveCfg = Release|x64
+		{044847DC-3B1A-4D1E-A388-3BCF6FB54428}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -68,5 +81,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{B8674220-1EF7-4860-B0A5-C396ED88B55E} = {504CE4C8-7DCC-4F5B-B113-4213D37CE8C3}
 		{F0044741-0C4F-4B9E-AA71-6A6E3BD9AE09} = {504CE4C8-7DCC-4F5B-B113-4213D37CE8C3}
+		{044847DC-3B1A-4D1E-A388-3BCF6FB54428} = {504CE4C8-7DCC-4F5B-B113-4213D37CE8C3}
 	EndGlobalSection
 EndGlobal
