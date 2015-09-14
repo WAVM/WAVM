@@ -596,6 +596,11 @@ namespace WebAssemblyText
 						auto it = labelToBranchTargetMap.find(name);
 						if(it != labelToBranchTargetMap.end()) { branchTarget = it->second; }
 					}
+					else
+					{
+						// If no name or index, use the top of the target stack.
+						branchTarget = scopedBranchTargets.back();
+					}
 					if(!branchTarget)
 					{
 						return recordError<Error<Class>>(outErrors,nodeIt,"break: expected label name or index");
