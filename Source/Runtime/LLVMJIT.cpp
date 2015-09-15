@@ -1,9 +1,11 @@
 #include "Core/Core.h"
+#include "Core/Platform.h"
+#include "Runtime.h"
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
 #include "AST/ASTDispatch.h"
 #include "Intrinsics.h"
-#include "Memory.h"
+#include "Core/MemoryArena.h"
 
 #pragma warning(push)
 #pragma warning (disable:4267)
@@ -39,11 +41,6 @@
 #include <iostream>
 
 #pragma warning(pop)
-
-namespace Core
-{
-	uint8* vmVirtualAddressBase = nullptr;
-}
 
 namespace LLVMJIT
 {
@@ -174,22 +171,17 @@ namespace LLVMJIT
 
 		DispatchResult compileAddress(Expression<IntClass>* address,bool isFarAddress,TypeId memoryType)
 		{
-			llvm::Value* byteIndex;
-			if(isFarAddress)
-			{
-				// Until we reserve more than 4GB of virtual address space, mask a 64-bit address to just the lower 32-bits.
-				byteIndex = irBuilder.CreateAnd(dispatch(*this,address,TypeId::I64),compileLiteral((uint64)0xffffffff));
-			}
-			else
-			{
-				// If the address is 32-bits, zext it to 64-bits.
-				// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
-				// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
-				byteIndex = irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context));
-			}
-			
-			auto bytePointer = irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(jitModule.virtualAddressBase),byteIndex);
+			// If the address is 32-bits, zext it to 64-bits.
+			// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
+			// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
+			auto byteIndex = isFarAddress ? dispatch(*this,address,TypeId::I64)
+				: irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context));
+
+			// Mask the index to the address-space size.
+			auto maskedByteIndex = irBuilder.CreateAnd(byteIndex,compileLiteral(Runtime::instanceAddressSpaceMaxBytes - 1));
+
 			// Cast the pointer to the appropriate type.
+			auto bytePointer = irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(jitModule.virtualAddressBase),maskedByteIndex);
 			return irBuilder.CreatePointerCast(bytePointer,asLLVMType(memoryType)->getPointerTo());
 		}
 
@@ -738,11 +730,6 @@ namespace LLVMJIT
 		llvmTypesByTypeId[(size_t)TypeId::F64] = llvm::Type::getDoubleTy(context);
 		llvmTypesByTypeId[(size_t)TypeId::Bool] = llvm::Type::getInt1Ty(context);
 		llvmTypesByTypeId[(size_t)TypeId::Void] = llvm::Type::getVoidTy(context);
-		
-		// For memory protection, allocate a full 32-bit address space of virtual pages.
-		const size_t numAllocatedVirtualPages = 1ull << (32 - Memory::getPreferredVirtualPageSizeLog2());
-		Core::vmVirtualAddressBase = Memory::allocateVirtualPages(numAllocatedVirtualPages);
-		assert(Core::vmVirtualAddressBase);
 	}
 
 	bool compileModule(const Module* astModule)
@@ -760,7 +747,7 @@ namespace LLVMJIT
 		// Bind the memory buffer to the global variable used by the module as the base address for memory accesses.
 		auto virtualAddressBaseValue = llvm::Constant::getIntegerValue(
 			llvm::Type::getInt8PtrTy(context),
-			llvm::APInt(64,*(uint64*)&Core::vmVirtualAddressBase)
+			llvm::APInt(64,*(uint64*)&Runtime::instanceMemoryBase)
 			);
 		jitModule->virtualAddressBase = new llvm::GlobalVariable(*jitModule->llvmModule,llvm::Type::getInt8PtrTy(context),true,llvm::GlobalVariable::PrivateLinkage,virtualAddressBaseValue,"virtualAddressBase");
 
@@ -907,15 +894,15 @@ namespace LLVMJIT
 
 		// Copy the module's data segments into VM memory.
 		if(astModule->initialNumBytesMemory >= (1ull<<32)) { throw; }
-		Core::vmSbrk((int32)astModule->initialNumBytesMemory);
+		Runtime::vmSbrk((int32)astModule->initialNumBytesMemory);
 		for(auto dataSegment : astModule->dataSegments)
 		{
 			assert(dataSegment.baseAddress + dataSegment.numBytes <= astModule->initialNumBytesMemory);
-			memcpy(Core::vmVirtualAddressBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
+			memcpy(Runtime::instanceMemoryBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
 		}
 
 		// Initialize the Emscripten intrinsics.
-		Core::initEmscriptenIntrinsics();
+		Runtime::initEmscriptenIntrinsics();
 		
 		// Verify the module.
 		#ifdef _DEBUG

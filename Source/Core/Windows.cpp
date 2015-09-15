@@ -1,8 +1,9 @@
 #include "Core.h"
+#include "Platform.h"
 #include <Windows.h>
 #include <intrin.h>
 
-namespace Core
+namespace Platform
 {
 	Mutex::Mutex()
 	{
@@ -24,10 +25,7 @@ namespace Core
 	{
 		LeaveCriticalSection((CRITICAL_SECTION*)handle);
 	}
-}
 
-namespace Memory
-{
 	size_t internalGetPreferredVirtualPageSizeLog2()
 	{
 		SYSTEM_INFO systemInfo;

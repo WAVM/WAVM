@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Core/Core.h"
-#include "Core/Memory.h"
+#include "Core/MemoryArena.h"
 
 #include <cstdint>
 #include <vector>

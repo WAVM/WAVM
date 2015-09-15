@@ -1,8 +1,9 @@
 #include "Core/Core.h"
-#include "Core/Memory.h"
+#include "Core/MemoryArena.h"
 #include "Core/CLI.h"
 #include "AST/AST.h"
 #include "Runtime/LLVMJIT.h"
+#include "Runtime/Runtime.h"
 
 struct Void {};
 
@@ -71,6 +72,12 @@ bool callModuleFunction(const AST::Module* module,const char* functionName,Retur
 bool initModuleRuntime(const AST::Module* module)
 {
 	std::cout << "Loaded module uses " << (module->arena.getTotalAllocatedBytes() / 1024) << "KB" << std::endl;
+
+	if(!Runtime::initInstanceMemory(module->maxNumBytesMemory))
+	{
+		std::cerr << "Couldn't initialize address-space for module instance (" << module->maxNumBytesMemory/1024 << "KB requested)" << std::endl;
+		return false;
+	}
 
 	// Generate machine code for the module.
 	if(!LLVMJIT::compileModule(module))

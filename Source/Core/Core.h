@@ -26,38 +26,6 @@ typedef double float64;
 
 namespace Core
 {
-	// A platform-independent mutex. Allows calling the constructor during static initialization, unlike std::mutex.
-	struct Mutex
-	{
-		Mutex();
-		~Mutex();
-
-		void Lock();
-		void Unlock();
-
-	private:
-		void* handle;
-	};
-
-	// RAII-style lock for Mutex.
-	struct Lock
-	{
-		Lock(Mutex& inMutex) : mutex(&inMutex) { mutex->Lock(); }
-		~Lock() { Release(); }
-
-		void Release()
-		{
-			if(mutex)
-			{
-				mutex->Unlock();
-			}
-			mutex = NULL;
-		}
-
-	private:
-		Mutex* mutex;
-	};
-
 	struct Timer
 	{
 		Timer(): startTime(std::chrono::high_resolution_clock::now()), isStopped(false) {}
@@ -74,13 +42,4 @@ namespace Core
 		std::chrono::system_clock::time_point endTime;
 		bool isStopped;
 	};
-
-	// The base of the 4GB virtual address space allocated for the VM.
-	extern uint8* vmVirtualAddressBase;
-
-	// Commits or decommits memory in the VM virtual address space.
-	extern uint32 vmSbrk(int32 numBytes);
-
-	// Initializes intrinsic values used by WASM from Emscripten.
-	void initEmscriptenIntrinsics();
 }

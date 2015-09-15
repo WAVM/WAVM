@@ -13,11 +13,12 @@
   <ItemGroup>
     <ClInclude Include="..\Source\Core\CLI.h" />
     <ClInclude Include="..\Source\Core\Core.h" />
-    <ClInclude Include="..\Source\Core\Memory.h" />
+    <ClInclude Include="..\Source\Core\MemoryArena.h" />
+    <ClInclude Include="..\Source\Core\Platform.h" />
     <ClInclude Include="..\Source\Core\SExpressions.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Source\Core\Memory.cpp" />
+    <ClCompile Include="..\Source\Core\MemoryArena.cpp" />
     <ClCompile Include="..\Source\Core\SExpressions.cpp" />
     <ClCompile Include="..\Source\Core\Windows.cpp" />
   </ItemGroup>

@@ -1,5 +1,5 @@
 #include "Core/Core.h"
-#include "Core/Memory.h"
+#include "Core/MemoryArena.h"
 #include "Core/SExpressions.h"
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"

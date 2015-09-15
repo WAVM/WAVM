@@ -13,11 +13,13 @@
   <ItemGroup>
     <ClInclude Include="..\Source\Runtime\Intrinsics.h" />
     <ClInclude Include="..\Source\Runtime\LLVMJIT.h" />
+    <ClInclude Include="..\Source\Runtime\Runtime.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Source\Runtime\EmscriptenIntrinsics.cpp" />
     <ClCompile Include="..\Source\Runtime\Intrinsics.cpp" />
     <ClCompile Include="..\Source\Runtime\LLVMJIT.cpp" />
+    <ClCompile Include="..\Source\Runtime\Memory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="AST.vcxproj">

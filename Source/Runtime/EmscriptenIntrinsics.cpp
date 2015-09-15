@@ -1,15 +1,13 @@
 #include "Core/Core.h"
 #include "Intrinsics.h"
-#include "Memory.h"
+#include "Runtime.h"
+#include "Core/Platform.h"
 #include <time.h>
 #include <stdio.h>
 #include <iostream>
 
-namespace Core
+namespace Runtime
 {
-	static size_t numCommittedVirtualPages = 0;
-	static uint32 numAllocatedBytes = 0;
-
 	DEFINE_INTRINSIC_VALUE(STACKTOP,I32,=512*1024);
 	DEFINE_INTRINSIC_VALUE(STACK_MAX,I32,=5*1024*1024);
 	DEFINE_INTRINSIC_VALUE(tempDoublePtr,I32,=0);
@@ -19,43 +17,6 @@ namespace Core
 	DEFINE_INTRINSIC_VALUE(_stderr,I32,);
 	DEFINE_INTRINSIC_VALUE(_stdin,I32,);
 	DEFINE_INTRINSIC_VALUE(_stdout,I32,);
-
-	template<typename memoryType> memoryType& vmMemoryRef(uint32 address)
-	{
-		return *(memoryType*)(vmVirtualAddressBase + address);
-	}
-
-	uint32 vmSbrk(int32 numBytes)
-	{
-		const uint32 existingNumBytes = numAllocatedBytes;
-		if(numBytes > 0)
-		{
-			if(uint64(existingNumBytes) + numBytes > (1ull<<32))
-			{
-				return (uint32)-1;
-			}
-
-			const uint32 pageSizeLog2 = Memory::getPreferredVirtualPageSizeLog2();
-			const uint32 pageSize = 1ull << pageSizeLog2;
-			const size_t numDesiredPages = (numAllocatedBytes + numBytes + pageSize - 1) >> pageSizeLog2;
-			const size_t numNewPages = numDesiredPages - numCommittedVirtualPages;
-			if(numNewPages > 0)
-			{
-				bool successfullyCommittedPhysicalMemory = Memory::commitVirtualPages(vmVirtualAddressBase + (numCommittedVirtualPages << pageSizeLog2),numNewPages);
-				if(!successfullyCommittedPhysicalMemory)
-				{
-					return (uint32)-1;
-				}
-				numAllocatedBytes += numBytes;
-				numCommittedVirtualPages += numNewPages;
-			}
-		}
-		else if(numBytes < 0)
-		{
-			numAllocatedBytes -= numBytes;
-		}
-		return (int32)existingNumBytes;
-	}
 
 	DEFINE_INTRINSIC_FUNCTION1(_sbrk,I32,I32,numBytes)
 	{
@@ -67,7 +28,7 @@ namespace Core
 		time_t t = time(nullptr);
 		if(address)
 		{
-			vmMemoryRef<int32>(address) = (int32)t;
+			instanceMemoryRef<int32>(address) = (int32)t;
 		}
 		return (int32)t;
 	}
@@ -82,7 +43,7 @@ namespace Core
 		enum { _SC_PAGE_SIZE = 30 };
 		switch(a)
 		{
-		case _SC_PAGE_SIZE: return 1 << Memory::getPreferredVirtualPageSizeLog2();
+		case _SC_PAGE_SIZE: return 1 << Platform::getPreferredVirtualPageSizeLog2();
 		default: throw;
 		}
 	}
@@ -103,7 +64,7 @@ namespace Core
 		if(vmAddress == 0)
 		{
 			vmAddress = vmSbrk(sizeof(data));
-			memcpy(&vmMemoryRef<short>(vmAddress),data,sizeof(data));
+			memcpy(&instanceMemoryRef<short>(vmAddress),data,sizeof(data));
 		}
 		return vmAddress + sizeof(short)*128;
 	}
@@ -114,7 +75,7 @@ namespace Core
 		if(vmAddress == 0)
 		{
 			vmAddress = vmSbrk(sizeof(data));
-			memcpy(&vmMemoryRef<int32>(vmAddress),data,sizeof(data));
+			memcpy(&instanceMemoryRef<int32>(vmAddress),data,sizeof(data));
 		}
 		return vmAddress + sizeof(int32)*128;
 	}
@@ -125,7 +86,7 @@ namespace Core
 		if(vmAddress == 0)
 		{
 			vmAddress = vmSbrk(sizeof(data));
-			memcpy(&vmMemoryRef<int32>(vmAddress),data,sizeof(data));
+			memcpy(&instanceMemoryRef<int32>(vmAddress),data,sizeof(data));
 		}
 		return vmAddress + sizeof(int32)*128;
 	}
@@ -141,9 +102,9 @@ namespace Core
 	}
 	DEFINE_INTRINSIC_FUNCTION1(___cxa_guard_acquire,I32,I32,address)
 	{
-		if(!vmMemoryRef<uint8>(address))
+		if(!instanceMemoryRef<uint8>(address))
 		{
-			vmMemoryRef<uint8>(address) = 1;
+			instanceMemoryRef<uint8>(address) = 1;
 			return 1;
 		}
 		else
@@ -163,7 +124,7 @@ namespace Core
 	}
 	DEFINE_INTRINSIC_FUNCTION1(___cxa_allocate_exception,I32,I32,size)
 	{
-		return _sbrkIntrinsicFunc(size);
+		return vmSbrk(size);
 	}
 	DEFINE_INTRINSIC_FUNCTION0(__ZSt18uncaught_exceptionv,I32)
 	{
@@ -243,7 +204,7 @@ namespace Core
 		}
 		else
 		{
-			return (int32)fwrite(&vmMemoryRef<uint8>(pointer),size,count,vmFile(file));
+			return (int32)fwrite(&instanceMemoryRef<uint8>(pointer),size,count,vmFile(file));
 		}
 	}
 	DEFINE_INTRINSIC_FUNCTION2(_fputc,I32,I32,character,I32,file)
@@ -258,15 +219,15 @@ namespace Core
 	void initEmscriptenIntrinsics()
 	{
 		// Allocate a 5MB stack.
-		STACKTOPValue = _sbrkIntrinsicFunc(5*1024*1024);
-		STACK_MAXValue = _sbrkIntrinsicFunc(0);
+		STACKTOPValue = vmSbrk(5*1024*1024);
+		STACK_MAXValue = vmSbrk(0);
 
 		// Setup IO stream handles.
-		_stderrValue = _sbrkIntrinsicFunc(sizeof(uint32));
-		_stdinValue = _sbrkIntrinsicFunc(sizeof(uint32));
-		_stdoutValue = _sbrkIntrinsicFunc(sizeof(uint32));
-		vmMemoryRef<uint32>(_stderrValue) = (uint32)ioStreamVMHandle::StdErr;
-		vmMemoryRef<uint32>(_stdinValue) = (uint32)ioStreamVMHandle::StdIn;
-		vmMemoryRef<uint32>(_stdoutValue) = (uint32)ioStreamVMHandle::StdOut;
+		_stderrValue = vmSbrk(sizeof(uint32));
+		_stdinValue = vmSbrk(sizeof(uint32));
+		_stdoutValue = vmSbrk(sizeof(uint32));
+		instanceMemoryRef<uint32>(_stderrValue) = (uint32)ioStreamVMHandle::StdErr;
+		instanceMemoryRef<uint32>(_stdinValue) = (uint32)ioStreamVMHandle::StdIn;
+		instanceMemoryRef<uint32>(_stdoutValue) = (uint32)ioStreamVMHandle::StdOut;
 	}
 }
