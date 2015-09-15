@@ -230,24 +230,32 @@ namespace SExp
 		auto startLocus = state.getLocus();
 
 		bool isNegative = false;
+		uint8 base = 10;
 		if(state.get() == '+' || state.get() == '-')
 		{
 			isNegative = state.get() == '-';
 			state.advance();
 		}
+		else if(state.get() == '0')
+		{
+			state.advance();
+			if(state.get() == 'x')
+			{
+				base = 16;
+				state.advance();
+			}
+		}
 
 		// First parse the digits and decimal point.
 		Memory::ArenaString digits;
 		uintptr_t numIntegerDigits = 0;
-		uintptr_t base = 10;
 		bool hasDecimalPoint = false;
 		while(true)
 		{
 			auto nextChar = state.get();
-			if(isDigit(nextChar))
-			{
-				digits.append(arena,nextChar - '0');
-			}
+			char hexDigit;
+			if(base == 10 && isDigit(nextChar)) { digits.append(arena,nextChar - '0'); }
+			else if(base == 16 && parseHexDigit(nextChar,hexDigit)) { digits.append(arena,hexDigit); }
 			else if(nextChar == '.')
 			{
 				if(hasDecimalPoint)
@@ -428,7 +436,7 @@ namespace SExp
 		}
 	}
 
-	char nibbleToHex(uint8 value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
+	char nibbleToHexChar(uint8 value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
 
 	std::string escapeString(const char* string,size_t numChars)
 	{
@@ -442,8 +450,8 @@ namespace SExp
 			else if(c < 0x20 || c > 0x7e)
 			{
 				result += '\\';
-				result += nibbleToHex((c & 0xf0) >> 4);
-				result += nibbleToHex((c & 0x0f) >> 0);
+				result += nibbleToHexChar((c & 0xf0) >> 4);
+				result += nibbleToHexChar((c & 0x0f) >> 0);
 			}
 			else { result += c; }
 		}
