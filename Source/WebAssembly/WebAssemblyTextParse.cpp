@@ -319,8 +319,8 @@ namespace WebAssemblyText
 				DEFINE_BINARY_OP(Int,or,or)
 				DEFINE_BINARY_OP(Int,xor,xor)
 				DEFINE_BINARY_OP(Int,shl,shl)
-				DEFINE_BINARY_OP(Int,shr,shr)
-				DEFINE_BINARY_OP(Int,sar,sar)
+				DEFINE_BINARY_OP(Int,shr_s,shrSExt)
+				DEFINE_BINARY_OP(Int,shr_u,shrZExt)
 
 				DEFINE_UNARY_OP(Float,neg,neg)
 				DEFINE_UNARY_OP(Float,abs,abs)
@@ -336,14 +336,7 @@ namespace WebAssemblyText
 				DEFINE_BINARY_OP(Float,copysign,copySign)
 				DEFINE_BINARY_OP(Float,min,min)
 				DEFINE_BINARY_OP(Float,max,max)
-
-				// These are not official
-				DEFINE_UNARY_OP(Float,cos,cos)
-				DEFINE_UNARY_OP(Float,sin,sin)
 				DEFINE_UNARY_OP(Float,sqrt,sqrt)
-				DEFINE_UNARY_OP(Float,exp,exp)
-				DEFINE_UNARY_OP(Float,log,log)
-				DEFINE_BINARY_OP(Float,pow,pow)
 
 				DEFINE_UNARY_OP(Bool,not,not)
 				DEFINE_BINARY_OP(Bool,and,and)

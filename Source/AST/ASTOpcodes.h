@@ -31,16 +31,12 @@ namespace AST
 		AST_OP(divu) \
 		AST_OP(rems) \
 		AST_OP(remu) \
-		AST_OP(mins) \
-		AST_OP(minu) \
-		AST_OP(maxs) \
-		AST_OP(maxu) \
 		AST_OP(and) \
 		AST_OP(or) \
 		AST_OP(xor) \
 		AST_OP(shl) \
-		AST_OP(shr) \
-		AST_OP(sar)
+		AST_OP(shrSExt) \
+		AST_OP(shrZExt)
 
 	#define ENUM_AST_CAST_OPS_Int() \
 		AST_OP(wrap) \
@@ -67,14 +63,9 @@ namespace AST
 		AST_OP(floor) \
 		AST_OP(trunc) \
 		AST_OP(nearestInt) \
-		AST_OP(cos) \
-		AST_OP(sin) \
-		AST_OP(sqrt) \
-		AST_OP(exp) \
-		AST_OP(log)
+		AST_OP(sqrt)
 
 	#define ENUM_AST_BINARY_OPS_Float() \
-		AST_OP(pow) \
 		AST_OP(add) \
 		AST_OP(sub) \
 		AST_OP(mul) \

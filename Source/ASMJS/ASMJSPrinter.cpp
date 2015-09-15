@@ -400,8 +400,8 @@ namespace ASMJS
 	{
 		switch(type)
 		{
-		case TypeId::Bool: break;
-		case TypeId::I32: break;
+		case TypeId::Bool: 
+		case TypeId::I32: out << '('; break;
 		case TypeId::F32: out << "f32("; break;
 		case TypeId::F64: out << '+';
 		case TypeId::Void: break;
@@ -412,8 +412,8 @@ namespace ASMJS
 	{
 		switch(type)
 		{
-		case TypeId::Bool: break;
-		case TypeId::I32: out << "|0"; break;
+		case TypeId::Bool:
+		case TypeId::I32: out << "|0)"; break;
 		case TypeId::F32: out << ')'; break;
 		case TypeId::F64: break;
 		case TypeId::Void: break;
@@ -455,68 +455,80 @@ namespace ASMJS
 		}
 	}
 	
-	const char* getOperatorSymbol(IntClass::Op op)
+	const char* getOperatorPrefix(IntClass::Op op)
 	{
 		switch(op)
 		{
 		case IntOp::neg: return "-";
-		case IntOp::abs: return "abs ";
+		case IntOp::abs: return "abs";
 		case IntOp::not: return "~";
-		case IntOp::clz: return "clz ";
-		case IntOp::ctz: return "ctz ";
-		case IntOp::popcnt: return "popcnt ";
+		case IntOp::clz: return "clz";
+		case IntOp::ctz: return "ctz";
+		case IntOp::popcnt: return "popcnt";
+		case IntOp::mul: return "i32Mul";
+		default: return "";
+		}
+	}
+	const char* getOperatorSeparator(IntClass::Op op)
+	{
+		switch(op)
+		{
 		case IntOp::add: return "+";
 		case IntOp::sub: return "-";
-		case IntOp::mul: return "*";
 		case IntOp::divs: return "/";
 		case IntOp::divu: return "/";
 		case IntOp::rems: return "%";
 		case IntOp::remu: return "%";
-		case IntOp::mins: throw;
-		case IntOp::minu: throw;
-		case IntOp::maxs: throw;
-		case IntOp::maxu: throw;
 		case IntOp::and: return "&";
 		case IntOp::or: return "|";
 		case IntOp::xor: return "^";
 		case IntOp::shl: return "<<";
-		case IntOp::shr: return ">>";
-		case IntOp::sar: return ">>";
-		default: throw;
+		case IntOp::shrSExt: return ">>";
+		case IntOp::shrZExt: return ">>>";
+		default: return ",";
 		}
 	}
-	const char* getOperatorSymbol(FloatOp op)
+	const char* getOperatorPrefix(FloatOp op)
 	{
 		switch(op)
 		{
 		case FloatOp::neg: return "-";
-		case FloatOp::abs: return "abs ";
-		case FloatOp::ceil: return "ceil ";
-		case FloatOp::floor: return "floor ";
-		case FloatOp::trunc: return "trunc ";
-		case FloatOp::nearestInt: return "nearest ";
-		case FloatOp::cos: return "cos ";
-		case FloatOp::sin: return "sin ";
-		case FloatOp::sqrt: return "sqrt ";
-		case FloatOp::exp: return "exp ";
-		case FloatOp::log: return "log ";
-		case FloatOp::pow: return "pow ";
+		case FloatOp::abs: return "abs";
+		case FloatOp::ceil: return "ceil";
+		case FloatOp::floor: return "floor";
+		case FloatOp::trunc: return "trunc";
+		case FloatOp::nearestInt: return "nearest";
+		case FloatOp::sqrt: return "sqrt";
+		case FloatOp::min: return "min";
+		case FloatOp::max: return "max";
+		case FloatOp::copySign: return "copySign";
+		default: return "";
+		}
+	}
+	const char* getOperatorSeparator(FloatOp op)
+	{
+		switch(op)
+		{
 		case FloatOp::add: return "+";
 		case FloatOp::sub: return "-";
 		case FloatOp::mul: return "*";
 		case FloatOp::div: return "/";
 		case FloatOp::rem: return "%";
-		case FloatOp::min: return "min ";
-		case FloatOp::max: return "max ";
-		case FloatOp::copySign: throw;
-		default: throw;
+		default: return ",";
 		}
 	}
-	const char* getOperatorSymbol(BoolOp op)
+	const char* getOperatorPrefix(BoolOp op)
 	{
 		switch(op)
 		{
 		case BoolOp::not: return "!";
+		default: return "";
+		}
+	}
+	const char* getOperatorSeparator(BoolOp op)
+	{
+		switch(op)
+		{
 		case BoolOp::and: return "&";
 		case BoolOp::or: return "|";
 		case BoolOp::eq: return "==";
@@ -525,7 +537,7 @@ namespace ASMJS
 		case BoolOp::les: case BoolOp::leu: case BoolOp::le: return "<=";
 		case BoolOp::gts: case BoolOp::gtu: case BoolOp::gt: return ">";
 		case BoolOp::ges: case BoolOp::geu: case BoolOp::ge: return "<";
-		default: throw;
+		default: return ",";
 		}
 	}
 	
@@ -629,22 +641,28 @@ namespace ASMJS
 		template<typename Class,typename OpAsType>
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
 		{
-			out << getHeapName(load->memoryType,false) << "[(";
+			printCoercePrefix(out,type);
+			out << getHeapName(load->memoryType,false) << "[";
 			dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
-			return out << ")>>" << getAddressShift(load->memoryType) << ']';
+			out << ">>" << getAddressShift(load->memoryType) << ']';
+			printCoerceSuffix(out,type);
+			return out;
 		}
 		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::loadSExt)
 		{
-			out << getHeapName(load->memoryType,true) << "[(";
+			printCoercePrefix(out,type);
+			out << getHeapName(load->memoryType,true) << "[";
 			dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
-			return out << ")>>" << getAddressShift(load->memoryType) << ']';
+			out << ">>" << getAddressShift(load->memoryType) << ']';
+			printCoerceSuffix(out,type);
+			return out;
 		}
 		template<typename Class>
 		DispatchResult visitStore(const Store<Class>* store)
 		{
-			out << getHeapName(store->memoryType,false) << "[(";
+			out << getHeapName(store->memoryType,false) << "[";
 			dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32);
-			out << ")>>" << std::to_string(getAddressShift(store->memoryType)) << "]=";
+			out << ">>" << std::to_string(getAddressShift(store->memoryType)) << "]=";
 			dispatch(*this,store->value);
 			return out;
 		}
@@ -652,18 +670,16 @@ namespace ASMJS
 		template<typename Class,typename OpAsType>
 		DispatchResult visitUnary(TypeId type,const Unary<Class>* unary,OpAsType)
 		{
-			const char* operatorSymbol = getOperatorSymbol(unary->op());
-			out << operatorSymbol << '(';
+			out << getOperatorPrefix(unary->op()) << '(';
 			dispatch(*this,unary->operand,type);
 			return out << ')';
 		}
 		template<typename Class,typename OpAsType>
 		DispatchResult visitBinary(TypeId type,const Binary<Class>* binary,OpAsType)
 		{
-			const char* operatorSymbol = getOperatorSymbol(binary->op());
-			out << '(';
+			out << getOperatorPrefix(binary->op()) << '(';
 			dispatch(*this,binary->left,type);
-			out << operatorSymbol;
+			out << getOperatorSeparator(binary->op());
 			dispatch(*this,binary->right,type);
 			return out << ')';
 		}
@@ -671,8 +687,16 @@ namespace ASMJS
 		template<typename Class,typename OpAsType>
 		DispatchResult visitCast(TypeId type,const Cast<Class>* cast,OpAsType)
 		{
-			// todo
-			return dispatch(*this,cast->source);
+			printCoercePrefix(out,type);
+			dispatch(*this,cast->source);
+			printCoerceSuffix(out,type);
+			return out;
+		}
+		DispatchResult visitCast(TypeId type,const Cast<IntClass>* cast,OpTypes<IntClass>::truncSignedFloat)
+		{
+			out << "~~";
+			dispatch(*this,cast->source);
+			return out;
 		}
 		
 		void compileCallParameters(const std::vector<TypeId>& parameterTypes,UntypedExpression** parameters)
@@ -792,10 +816,9 @@ namespace ASMJS
 		template<typename OpAsType>
 		DispatchResult visitComparison(const Comparison* compare,OpAsType)
 		{
-			const char* operatorSymbol = getOperatorSymbol(compare->op());
-			out << '(';
+			out << getOperatorPrefix(compare->op()) << '(';
 			dispatch(*this,compare->left,compare->operandType);
-			out << operatorSymbol;
+			out << getOperatorSeparator(compare->op());
 			dispatch(*this,compare->right,compare->operandType);
 			return out << ')';
 		}
@@ -885,6 +908,7 @@ namespace ASMJS
 		
 		// Print the module imports.
 		out << "var f32=global.Math.fround;\n";
+		out << "var i32Mul=global.Math.imul;\n";
 		for(uintptr_t importFunctionIndex = 0;importFunctionIndex < module->functionImports.size();++importFunctionIndex)
 		{
 			auto import = module->functionImports[importFunctionIndex];

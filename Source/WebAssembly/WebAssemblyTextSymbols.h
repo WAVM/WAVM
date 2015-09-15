@@ -72,8 +72,8 @@ namespace WebAssemblyText
 		TYPED_WAST_SYMBOL(or) \
 		TYPED_WAST_SYMBOL(xor) \
 		TYPED_WAST_SYMBOL(shl) \
-		TYPED_WAST_SYMBOL(shr) \
-		TYPED_WAST_SYMBOL(sar)
+		TYPED_WAST_SYMBOL(shr_s) \
+		TYPED_WAST_SYMBOL(shr_u)
 
 	#define ENUM_WAST_FLOAT_OPCODE_SYMBOLS() \
 		BITYPED_WAST_SYMBOL(load) \
@@ -90,13 +90,7 @@ namespace WebAssemblyText
 		BITYPED_WAST_SYMBOL(demote) \
 		BITYPED_WAST_SYMBOL(convert_s) \
 		BITYPED_WAST_SYMBOL(convert_u) \
-		/* These are wishful thinking..*/ \
-		TYPED_WAST_SYMBOL(cos) \
-		TYPED_WAST_SYMBOL(sin) \
-		TYPED_WAST_SYMBOL(sqrt) \
-		TYPED_WAST_SYMBOL(exp) \
-		TYPED_WAST_SYMBOL(log) \
-		TYPED_WAST_SYMBOL(pow)
+		TYPED_WAST_SYMBOL(sqrt)
 
 	#define ENUM_WAST_BOOL_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(eq) \
@@ -224,8 +218,8 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(or,or)
 		MAP_OP_SYMBOL(xor,xor)
 		MAP_OP_SYMBOL(shl,shl)
-		MAP_OP_SYMBOL(shr,shr)
-		MAP_OP_SYMBOL(sar,sar)
+		MAP_OP_SYMBOL(shrSExt,shr_s)
+		MAP_OP_SYMBOL(shrZExt,shr_u)
 		MAP_OP_SYMBOL(wrap,wrap)
 		MAP_OP_SYMBOL(truncSignedFloat,trunc_s)
 		MAP_OP_SYMBOL(truncUnsignedFloat,trunc_u)
@@ -266,12 +260,7 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(demote,demote)
 		MAP_OP_SYMBOL(reinterpretInt,reinterpret)
 		MAP_OP_SYMBOL(lit,const)
-		MAP_OP_SYMBOL(cos,cos)
-		MAP_OP_SYMBOL(sin,sin)
 		MAP_OP_SYMBOL(sqrt,sqrt)
-		MAP_OP_SYMBOL(exp,exp)
-		MAP_OP_SYMBOL(log,log)
-		MAP_OP_SYMBOL(pow,pow)
 		#undef MAP_OP_SYMBOL
 		default: return getAnyOpSymbol<FloatClass>(op);
 		}

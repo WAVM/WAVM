@@ -786,41 +786,53 @@ namespace WebAssemblyBinary
 			default: throw;
 			};
 		}
-		template<typename Class>
-		typename Class::Expression* decodeIntrinsic(FunctionType intrinsicType,const char* intrinsicName)
+		uintptr_t getIntrinsicFunctionImport(const FunctionType& intrinsicType,const char* intrinsicName)
 		{
 			// Add one import for every unique intrinsic name used.
 			auto intrinsicIt = intrinsicNameToFunctionImportIndex.find(intrinsicName);
-			uintptr_t functionImportIndex;
 			if(intrinsicIt != intrinsicNameToFunctionImportIndex.end())
 			{
 				assert(module.functionImports[intrinsicIt->second].type == intrinsicType);
-				functionImportIndex = intrinsicIt->second;
+				return intrinsicIt->second;
 			}
 			else
 			{
-				functionImportIndex = module.functionImports.size();
+				auto functionImportIndex = module.functionImports.size();
 				module.functionImports.push_back({intrinsicType,intrinsicName});
 				intrinsicNameToFunctionImportIndex[intrinsicName] = functionImportIndex;
+				return functionImportIndex;
 			}
-			return callImport<Class>(intrinsicType.returnType,functionImportIndex);
+		}
+		template<typename Class>
+		typename Class::Expression* decodeIntrinsic(const FunctionType& intrinsicType,const char* intrinsicName)
+		{
+			return callImport<Class>(intrinsicType.returnType,getIntrinsicFunctionImport(intrinsicType,intrinsicName));
 		}
 
-		// Computes the minimum or maximum of a set of F64s.
+		// Computes the minimum or maximum of a set.
 		template<typename Type>
 		typename Type::Expression* minMax(typename Type::Op op)
 		{
 			auto numParameters = in.immU32();
 			if(numParameters == 0) { return recordError<Type::Class>("minmax: must receive >0 parameters"); }
-
-			Memory::ScopedArena scopedArena;
-			Type::Expression** parameters = new(scopedArena) Type::Expression*[numParameters];
-			for(uint32 parameterIndex = 0;parameterIndex < numParameters;++parameterIndex)
-			{ parameters[parameterIndex] = decodeExpression<Type>(); }
-
-			typename Type::Expression* result = parameters[0];
+			typename Type::Expression* result = decodeExpression<Type>();
 			for(uint32 parameterIndex = 1;parameterIndex < numParameters;++parameterIndex)
-			{ result = new(arena) Binary<Type::Class>(op,result,parameters[parameterIndex]); }
+			{ result = new(arena) Binary<Type::Class>(op,result,decodeExpression<Type>()); }
+			return result;
+		}
+		template<typename Type>
+		typename Type::Expression* minMaxIntrinsic(const char* intrinsicName)
+		{
+			auto numParameters = in.immU32();
+			if(numParameters == 0) { return recordError<Type::Class>("minmax: must receive >0 parameters"); }
+			auto intrinsicImportIndex = getIntrinsicFunctionImport(FunctionType(Type::id,{Type::id,Type::id}),intrinsicName);
+			typename Type::Expression* result = decodeExpression<Type>();
+			for(uint32 parameterIndex = 1;parameterIndex < numParameters;++parameterIndex)
+			{
+				auto nextParameter = decodeExpression<Type>();
+				auto parameterPair = new(arena) UntypedExpression*[2] {result,nextParameter};
+				result = as<Type::Class>(new(arena) Call(AnyOp::callImport,Type::Class::id,intrinsicImportIndex,parameterPair));
+			}
 			return result;
 		}
 
@@ -1068,8 +1080,8 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::BitAnd:     return decodeBinary<I32Type>(IntOp::and);
 				case I32OpEncoding::BitXor:     return decodeBinary<I32Type>(IntOp::xor);
 				case I32OpEncoding::Lsh:        return decodeBinary<I32Type>(IntOp::shl);
-				case I32OpEncoding::ArithRsh:   return decodeBinary<I32Type>(IntOp::sar);
-				case I32OpEncoding::LogicRsh:   return decodeBinary<I32Type>(IntOp::shr);
+				case I32OpEncoding::ArithRsh:   return decodeBinary<I32Type>(IntOp::shrSExt);
+				case I32OpEncoding::LogicRsh:   return decodeBinary<I32Type>(IntOp::shrZExt);
 				case I32OpEncoding::Clz:        return decodeUnary<I32Type>(IntOp::clz);
 				case I32OpEncoding::LogicNot: 
 				{
@@ -1098,10 +1110,10 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::UGrEqI32:   return decodeCompare<I32Type>(BoolOp::geu);
 				case I32OpEncoding::GrEqF32:    return decodeCompare<F32Type>(BoolOp::ge);
 				case I32OpEncoding::GrEqF64:    return decodeCompare<F64Type>(BoolOp::ge);
-				case I32OpEncoding::SMin:       return minMax<I32Type>(IntOp::mins);
-				case I32OpEncoding::UMin:       return minMax<I32Type>(IntOp::minu);
-				case I32OpEncoding::SMax:       return minMax<I32Type>(IntOp::maxs);
-				case I32OpEncoding::UMax:       return minMax<I32Type>(IntOp::maxu);
+				case I32OpEncoding::SMin:       return minMaxIntrinsic<I32Type>("min_s");
+				case I32OpEncoding::UMin:       return minMaxIntrinsic<I32Type>("max_u");
+				case I32OpEncoding::SMax:       return minMaxIntrinsic<I32Type>("max_s");
+				case I32OpEncoding::UMax:       return minMaxIntrinsic<I32Type>("max_u");
 				case I32OpEncoding::Abs:        return decodeUnary<I32Type>(IntOp::abs);
 				default: throw new FatalDecodeException("invalid I32 opcode");
 				}
@@ -1212,16 +1224,16 @@ namespace WebAssemblyBinary
 				case F64OpEncoding::Ceil:     return decodeUnary<F64Type>(FloatOp::ceil);
 				case F64OpEncoding::Floor:    return decodeUnary<F64Type>(FloatOp::floor);
 				case F64OpEncoding::Sqrt:     return decodeUnary<F64Type>(FloatOp::sqrt);
-				case F64OpEncoding::Cos:     return decodeUnary<F64Type>(FloatOp::cos);
-				case F64OpEncoding::Sin:      return decodeUnary<F64Type>(FloatOp::sin);
+				case F64OpEncoding::Cos:     return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"cos");
+				case F64OpEncoding::Sin:      return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"sin");
 				case F64OpEncoding::Tan:      return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"tan");
 				case F64OpEncoding::ACos:     return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"acos");
 				case F64OpEncoding::ASin:     return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"asin");
 				case F64OpEncoding::ATan:     return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"atan");
-				case F64OpEncoding::ATan2:    return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64,TypeId::F64}),"atam2");
-				case F64OpEncoding::Exp:      return decodeUnary<F64Type>(FloatOp::exp);
-				case F64OpEncoding::Ln:       return decodeUnary<F64Type>(FloatOp::log);
-				case F64OpEncoding::Pow:      return decodeBinary<F64Type>(FloatOp::pow);
+				case F64OpEncoding::ATan2:    return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64,TypeId::F64}),"atan2");
+				case F64OpEncoding::Exp:      return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"exp");
+				case F64OpEncoding::Ln:       return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64}),"log");
+				case F64OpEncoding::Pow:      return decodeIntrinsic<FloatClass>(FunctionType(TypeId::F64,{TypeId::F64,TypeId::F64}),"pow");
 				default: throw new FatalDecodeException("invalid F64 opcode");
 				}
 			}
