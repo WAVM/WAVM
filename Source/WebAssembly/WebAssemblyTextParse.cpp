@@ -241,8 +241,10 @@ namespace WebAssemblyText
 				#define DEFINE_TYPED_OP(opClass,symbol) \
 					ENUM_AST_TYPES_##opClass(DISPATCH_TYPED_OP,symbol) \
 					throw; symbol##opClass##Label:
+				#define DEFINE_TYPED_OP_FOR_TYPE(opTypeName,symbol) \
+					throw; case Symbol::_##symbol##_##opTypeName:
 				#define DEFINE_BITYPED_OP(leftTypeName,rightTypeName,symbol) \
-					throw; case Symbol::_##symbol##_##leftTypeName##_##rightTypeName: \
+					throw; case Symbol::_##symbol##_##leftTypeName##_##rightTypeName:
 
 				#define DEFINE_UNARY_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseUnaryExpression<class##Class>(opType,class##Op::opcode,nodeIt); }
 				#define DEFINE_BINARY_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseBinaryExpression<class##Class>(opType,class##Op::opcode,nodeIt); }
@@ -277,30 +279,24 @@ namespace WebAssemblyText
 					}
 				}
 				
-				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_BITYPED_OP(valueType,memoryType,loadSymbol)	\
+				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_TYPED_OP_FOR_TYPE(valueType,loadSymbol)	\
 					{ return parseLoadExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadOp,false,true,nodeIt); }
-				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_BITYPED_OP(valueType,memoryType,storeSymbol) \
+				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_TYPED_OP_FOR_TYPE(valueType,storeSymbol) \
 					{ return parseStoreExpression<class##Class>(TypeId::valueType,TypeId::memoryType,false,true,nodeIt); }
 				#define DEFINE_MEMORY_OP(class,valueType,memoryType,loadSymbol,storeSymbol,loadOp) \
 					DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) \
 					DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol)
 					
-				DEFINE_LOAD_OP(Int,I32,I8,load_s,loadSExt)
-				DEFINE_LOAD_OP(Int,I32,I8,load_u,loadZExt)
-				DEFINE_LOAD_OP(Int,I32,I16,load_s,loadSExt)
-				DEFINE_LOAD_OP(Int,I32,I16,load_u,loadZExt)
-				DEFINE_STORE_OP(Int,I32,I8,store)
-				DEFINE_STORE_OP(Int,I32,I16,store)
+				DEFINE_LOAD_OP(Int,I32,I8,load8_s,loadSExt)
+				DEFINE_LOAD_OP(Int,I32,I8,load8_u,loadZExt)
+				DEFINE_LOAD_OP(Int,I32,I16,load16_s,loadSExt)
+				DEFINE_LOAD_OP(Int,I32,I16,load16_u,loadZExt)
+				DEFINE_STORE_OP(Int,I32,I8,store8)
+				DEFINE_STORE_OP(Int,I32,I16,store16)
 				DEFINE_MEMORY_OP(Int,I32,I32,load,store,load)
 				DEFINE_MEMORY_OP(Int,I64,I64,load,store,load)
 				DEFINE_MEMORY_OP(Float,F32,F32,load,store,load)
 				DEFINE_MEMORY_OP(Float,F64,F64,load,store,load)
-
-				// Legacy, these memory ops will eventually be removed.
-				DEFINE_LOAD_OP(Int,I32,I32,load_u,load)
-				DEFINE_LOAD_OP(Int,I32,I32,load_s,load)
-				DEFINE_LOAD_OP(Int,I64,I64,load_u,load)
-				DEFINE_LOAD_OP(Int,I64,I64,load_s,load)
 
 				DEFINE_UNARY_OP(Int,neg,neg)
 				DEFINE_UNARY_OP(Int,abs,abs)

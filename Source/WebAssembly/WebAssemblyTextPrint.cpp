@@ -157,7 +157,7 @@ namespace WebAssemblyText
 		}
 		std::string getLocalName(uintptr_t variableIndex) const\
 		{
-			if(function->locals[variableIndex].name) { return function->locals[variableIndex].name; }
+			if(function->locals[variableIndex].name) { return std::string("$_") + function->locals[variableIndex].name; }
 			else { return "$local" + std::to_string(variableIndex); }
 		}
 
@@ -219,13 +219,39 @@ namespace WebAssemblyText
 		template<typename Class,typename OpAsType>
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
 		{
-			return createBitypedTaggedSubtree(type,getOpSymbol(load->op()),load->memoryType)
+			assert(load->memoryType == type);
+			return createTypedTaggedSubtree(type,getOpSymbol(load->op()))
+				<< dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
+		}
+		template<typename OpAsType>
+		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpAsType)
+		{
+			Symbol symbol = Symbol::_load;
+			switch(load->memoryType)
+			{
+			case TypeId::I8:  symbol = load->op() == IntOp::loadSExt ? Symbol::_load8_s  : Symbol::_load8_u; break;
+			case TypeId::I16: symbol = load->op() == IntOp::loadSExt ? Symbol::_load16_s : Symbol::_load16_u; break;
+			}
+			return createTypedTaggedSubtree(type,symbol)
 				<< dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
 		}
 		template<typename Class>
 		DispatchResult visitStore(const Store<Class>* store)
 		{
-			return createBitypedTaggedSubtree(store->value.type,getOpSymbol(store->op()),store->memoryType)
+			assert(store->memoryType == store->value.type);
+			return createTypedTaggedSubtree(store->value.type,getOpSymbol(store->op()))
+				<< dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)
+				<< dispatch(*this,store->value);
+		}
+		DispatchResult visitStore(const Store<IntClass>* store)
+		{
+			Symbol symbol = Symbol::_store;
+			switch(store->memoryType)
+			{
+			case TypeId::I8: symbol = Symbol::_store8; break;
+			case TypeId::I16: symbol = Symbol::_store16; break;
+			}
+			return createTypedTaggedSubtree(store->value.type,symbol)
 				<< dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)
 				<< dispatch(*this,store->value);
 		}

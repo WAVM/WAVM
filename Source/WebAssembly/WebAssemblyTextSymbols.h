@@ -42,6 +42,10 @@ namespace WebAssemblyText
 		WAST_SYMBOL(nop) \
 		WAST_SYMBOL(get_local) \
 		WAST_SYMBOL(load_global) \
+		WAST_SYMBOL(set_local) \
+		WAST_SYMBOL(store_global) \
+		TYPED_WAST_SYMBOL(load) \
+		TYPED_WAST_SYMBOL(store)
 
 	#define ENUM_WAST_NUMERIC_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(const) \
@@ -58,8 +62,12 @@ namespace WebAssemblyText
 		BITYPED_WAST_SYMBOL(reinterpret)
 
 	#define ENUM_WAST_INT_OPCODE_SYMBOLS() \
-		BITYPED_WAST_SYMBOL(load_s) \
-		BITYPED_WAST_SYMBOL(load_u) \
+		TYPED_WAST_SYMBOL(load8_s) \
+		TYPED_WAST_SYMBOL(load8_u) \
+		TYPED_WAST_SYMBOL(load16_s) \
+		TYPED_WAST_SYMBOL(load16_u) \
+		TYPED_WAST_SYMBOL(store8) \
+		TYPED_WAST_SYMBOL(store16) \
 		TYPED_WAST_SYMBOL(not) \
 		TYPED_WAST_SYMBOL(clz) \
 		TYPED_WAST_SYMBOL(ctz) \
@@ -76,7 +84,6 @@ namespace WebAssemblyText
 		TYPED_WAST_SYMBOL(shr_u)
 
 	#define ENUM_WAST_FLOAT_OPCODE_SYMBOLS() \
-		BITYPED_WAST_SYMBOL(load) \
 		TYPED_WAST_SYMBOL(ceil) \
 		TYPED_WAST_SYMBOL(floor) \
 		TYPED_WAST_SYMBOL(trunc) \
@@ -107,11 +114,6 @@ namespace WebAssemblyText
 		TYPED_WAST_SYMBOL(le) \
 		TYPED_WAST_SYMBOL(gt) \
 		TYPED_WAST_SYMBOL(ge)
-	
-	#define ENUM_WAST_VOID_OPCODE_SYMBOLS() \
-		WAST_SYMBOL(set_local) \
-		WAST_SYMBOL(store_global) \
-		BITYPED_WAST_SYMBOL(store)
 
 	#define ENUM_WAST_TYPE_SYMBOLS() \
 		WAST_SYMBOL(typeBase) \
@@ -131,7 +133,6 @@ namespace WebAssemblyText
 		ENUM_WAST_INT_OPCODE_SYMBOLS() \
 		ENUM_WAST_FLOAT_OPCODE_SYMBOLS() \
 		ENUM_WAST_BOOL_OPCODE_SYMBOLS() \
-		ENUM_WAST_VOID_OPCODE_SYMBOLS() \
 		ENUM_WAST_TYPE_SYMBOLS()
 
 	// Declare an enum with all the symbols used by WAST.
@@ -228,8 +229,6 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(reinterpretFloat,reinterpret)
 		MAP_OP_SYMBOL(reinterpretBool,reinterpret)
 		MAP_OP_SYMBOL(lit,const)
-		MAP_OP_SYMBOL(loadZExt,load_u)
-		MAP_OP_SYMBOL(loadSExt,load_s)
 		#undef MAP_OP_SYMBOL
 		default: return getAnyOpSymbol<IntClass>(op);
 		}
