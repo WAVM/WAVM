@@ -7,15 +7,15 @@
 #include <iostream>
 #include <fstream>
 
-inline std::vector<uint8_t> loadFile(const char* filename)
+inline std::vector<uint8> loadFile(const char* filename)
 {
 	std::ifstream stream(filename,std::ios::binary | std::ios::ate);
 	if(!stream.is_open())
 	{
 		std::cerr << "Failed to open " << filename << std::endl;
-		return std::vector<uint8_t>();
+		return std::vector<uint8>();
 	}
-	std::vector<uint8_t> data;
+	std::vector<uint8> data;
 	data.resize((unsigned int)stream.tellg());
 	stream.seekg(0);
 	stream.read((char*)data.data(),data.size());

@@ -138,7 +138,7 @@ namespace AST
 
 	struct SwitchArm
 	{
-		uint64_t key;
+		uint64 key;
 		UntypedExpression* value; // The type of the switch for the final arm, void for all others.
 	};
 

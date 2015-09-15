@@ -173,7 +173,7 @@ namespace WebAssemblyText
 			// Just output floats as reinterpreted ints for now.
 			//if(std::isnan(literal->value) || std::isinf(literal->value))
 			{
-				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I32,Symbol::_const) << *(uint32_t*)&literal->value;
+				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I32,Symbol::_const) << *(uint32*)&literal->value;
 				return createBitypedTaggedSubtree(TypeId::F32,Symbol::_reinterpret,TypeId::I32) << bitsStream;
 			}
 			//else { return createTypedTaggedSubtree(TypeId::F32,Symbol::_const) << literal->value; }
@@ -185,7 +185,7 @@ namespace WebAssemblyText
 			// Just output floats as reinterpreted ints for now.
 			//if(std::isnan(literal->value) || std::isinf(literal->value))
 			{
-				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I64,Symbol::_const) << *(uint64_t*)&literal->value;
+				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I64,Symbol::_const) << *(uint64*)&literal->value;
 				return createBitypedTaggedSubtree(TypeId::F64,Symbol::_reinterpret,TypeId::I64) << bitsStream;
 			}
 			//else { return createTypedTaggedSubtree(TypeId::F64,Symbol::_const) << literal->value; }

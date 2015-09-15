@@ -443,7 +443,7 @@ namespace ASMJS
 		default: throw;
 		};
 	}
-	uint32_t getAddressShift(TypeId type)
+	uint32 getAddressShift(TypeId type)
 	{
 		switch(getTypeBitWidth(type))
 		{

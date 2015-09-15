@@ -42,7 +42,7 @@ namespace SExp
 		// a closing parenthesis that doesn't match a skipped opening parenthesis.
 		bool skipToNext(char c)
 		{
-			uint32_t parenthesesDepth = 0;
+			uint32 parenthesesDepth = 0;
 			while(true)
 			{
 				auto nextChar = get();
@@ -272,14 +272,14 @@ namespace SExp
 		if(hasDecimalPoint)
 		{
 			// If the number has a decimal point, decode its digits into a float64.
-			double accumulator = 0.0;
-			double digitFactor = isNegative ? -1.0 : 1.0;
+			float64 accumulator = 0.0;
+			float64 digitFactor = isNegative ? -1.0 : 1.0;
 			for(uintptr_t digitIndex = 0;digitIndex < digits.length();++digitIndex)
 			{
 				if(digitIndex < numIntegerDigits)
 				{
-					// Detect if the double is about to overflow its maximum value.
-					if(std::abs(accumulator) > std::numeric_limits<double>::max() / base) 
+					// Detect if the float64 is about to overflow its maximum value.
+					if(std::abs(accumulator) > std::numeric_limits<float64>::max() / base) 
 					{
 						auto node = new(arena) Node(state.getLocus(),NodeType::Error);
 						node->error = "number is too large to represent as a 64-bit float";
@@ -299,17 +299,17 @@ namespace SExp
 		else
 		{
 			// If the number doesn't have a decimal point, decode its digits into an int64.
-			uint64_t accumulator = 0;
+			uint64 accumulator = 0;
 			bool notEnoughBits = false;
 			for(uintptr_t digitIndex = 0;digitIndex < digits.length();++digitIndex)
 			{
-				// Detect if the uint64_t is about to overflow.
-				if(accumulator * base / base != accumulator) { notEnoughBits = true; }
+				// Detect if the uint64 is about to overflow.
+				if(accumulator > std::numeric_limits<uint64>::max() / base) { notEnoughBits = true; }
 				accumulator *= base;
 				accumulator += digits[digitIndex];
 			}
 			digits.reset(arena);
-			if(isNegative && -(-(int64_t)accumulator) != (int64_t)accumulator) { notEnoughBits = true; }			
+			if(isNegative && -(-(int64)accumulator) != (int64)accumulator) { notEnoughBits = true; }			
 			if(notEnoughBits)
 			{
 				auto node = new(arena) Node(state.getLocus(),NodeType::Error);
@@ -319,7 +319,7 @@ namespace SExp
 			else
 			{
 				auto node = new(arena)Node(startLocus,NodeType::Int);
-				node->integer = isNegative ? -(int64_t)accumulator : +accumulator;
+				node->integer = isNegative ? -(int64)accumulator : +accumulator;
 				return node;
 			}
 		}
@@ -428,7 +428,7 @@ namespace SExp
 		}
 	}
 
-	char nibbleToHex(uint8_t value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
+	char nibbleToHex(uint8 value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
 
 	std::string escapeString(const char* string,size_t numChars)
 	{

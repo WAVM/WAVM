@@ -7,16 +7,16 @@
 struct Void {};
 
 template<typename NativeValue> struct NativeToASTType;
-template<> struct NativeToASTType<uint8_t> { typedef AST::I8Type ASTType; };
-template<> struct NativeToASTType<int8_t> { typedef AST::I8Type ASTType; };
-template<> struct NativeToASTType<uint16_t> { typedef AST::I16Type ASTType; };
-template<> struct NativeToASTType<int16_t> { typedef AST::I16Type ASTType; };
-template<> struct NativeToASTType<uint32_t> { typedef AST::I32Type ASTType; };
-template<> struct NativeToASTType<int32_t> { typedef AST::I32Type ASTType; };
-template<> struct NativeToASTType<uint64_t> { typedef AST::I64Type ASTType; };
-template<> struct NativeToASTType<int64_t> { typedef AST::I64Type ASTType; };
-template<> struct NativeToASTType<float> { typedef AST::F32Type ASTType; };
-template<> struct NativeToASTType<double> { typedef AST::F64Type ASTType; };
+template<> struct NativeToASTType<uint8> { typedef AST::I8Type ASTType; };
+template<> struct NativeToASTType<int8> { typedef AST::I8Type ASTType; };
+template<> struct NativeToASTType<uint16> { typedef AST::I16Type ASTType; };
+template<> struct NativeToASTType<int16> { typedef AST::I16Type ASTType; };
+template<> struct NativeToASTType<uint32> { typedef AST::I32Type ASTType; };
+template<> struct NativeToASTType<int32> { typedef AST::I32Type ASTType; };
+template<> struct NativeToASTType<uint64> { typedef AST::I64Type ASTType; };
+template<> struct NativeToASTType<int64> { typedef AST::I64Type ASTType; };
+template<> struct NativeToASTType<float32> { typedef AST::F32Type ASTType; };
+template<> struct NativeToASTType<float64> { typedef AST::F64Type ASTType; };
 template<> struct NativeToASTType<bool> { typedef AST::BoolType ASTType; };
 template<> struct NativeToASTType<Void> { typedef AST::VoidType ASTType; };
 
@@ -109,7 +109,7 @@ int main(int argc,char** argv)
 
 	if(!initModuleRuntime(module)) { return -1; }
 
-	uint32_t returnCode;
+	uint32 returnCode;
 	Core::Timer executionTime;
 	if(!callModuleFunction(module,argv[3],returnCode)) { return -1; }
 	executionTime.stop();

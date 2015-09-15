@@ -125,11 +125,11 @@ namespace AST
 
 	// Define the ClassOp enums: AnyOp, IntOp, etc.
 	#define AST_OP(op) op,
-	enum class AnyOp : uint8_t		{ ENUM_AST_OPS_Any() };
-	enum class IntOp : uint8_t		{ ENUM_AST_OPS_Int() };
-	enum class FloatOp : uint8_t	{ ENUM_AST_OPS_Float() };
-	enum class BoolOp : uint8_t	{ ENUM_AST_OPS_Bool() };
-	enum class VoidOp : uint8_t	{ ENUM_AST_OPS_Void() };
+	enum class AnyOp : uint8		{ ENUM_AST_OPS_Any() };
+	enum class IntOp : uint8		{ ENUM_AST_OPS_Int() };
+	enum class FloatOp : uint8	{ ENUM_AST_OPS_Float() };
+	enum class BoolOp : uint8	{ ENUM_AST_OPS_Bool() };
+	enum class VoidOp : uint8	{ ENUM_AST_OPS_Void() };
 	#undef AST_OP
 	
 	// Used to represent an opcode as a type for compile-time specialization.

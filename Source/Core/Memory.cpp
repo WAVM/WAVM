@@ -20,7 +20,7 @@ namespace Memory
 			if(currentSegment) { totalWastedBytes += currentSegment->totalBytes - currentSegmentAllocatedBytes; }
 
 			size_t segmentBytes = numBytes > defaultSegmentBytes ? numBytes : defaultSegmentBytes;
-			uint8_t* newSegmentMemory = (uint8_t*)malloc(sizeof(Segment) - 1 + segmentBytes);
+			uint8* newSegmentMemory = (uint8*)malloc(sizeof(Segment) - 1 + segmentBytes);
 			Segment* newSegment = (Segment*)newSegmentMemory;
 			newSegment->previousSegment = currentSegment;
 			newSegment->totalBytes = segmentBytes;
@@ -40,7 +40,7 @@ namespace Memory
 		previousNumBytes = (previousNumBytes + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1);
 		newNumBytes = (newNumBytes + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1);
 
-		auto bytePointer = (uint8_t*)oldAllocation;
+		auto bytePointer = (uint8*)oldAllocation;
 
 		if(currentSegment
 			&& bytePointer + previousNumBytes == currentSegment->memory + currentSegmentAllocatedBytes

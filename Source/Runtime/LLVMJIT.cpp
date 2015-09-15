@@ -42,7 +42,7 @@
 
 namespace Core
 {
-	uint8_t* vmVirtualAddressBase = nullptr;
+	uint8* vmVirtualAddressBase = nullptr;
 }
 
 namespace LLVMJIT
@@ -77,12 +77,12 @@ namespace LLVMJIT
 	llvm::Twine getLLVMName(const char* nullableName) { return nullableName ? (llvm::Twine('_') + llvm::Twine(nullableName)) : ""; }
 
 	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
-	llvm::ConstantInt* compileLiteral(uint8_t value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I8),llvm::APInt(8,(uint64_t)value,false)); }
-	llvm::ConstantInt* compileLiteral(uint16_t value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I16),llvm::APInt(16,(uint64_t)value,false)); }
-	llvm::ConstantInt* compileLiteral(uint32_t value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I32),llvm::APInt(32,(uint64_t)value,false)); }
-	llvm::ConstantInt* compileLiteral(uint64_t value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I64),llvm::APInt(64,(uint64_t)value,false)); }
-	llvm::Constant* compileLiteral(float value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
-	llvm::Constant* compileLiteral(double value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	llvm::ConstantInt* compileLiteral(uint8 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I8),llvm::APInt(8,(uint64)value,false)); }
+	llvm::ConstantInt* compileLiteral(uint16 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I16),llvm::APInt(16,(uint64)value,false)); }
+	llvm::ConstantInt* compileLiteral(uint32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I32),llvm::APInt(32,(uint64)value,false)); }
+	llvm::ConstantInt* compileLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I64),llvm::APInt(64,(uint64)value,false)); }
+	llvm::Constant* compileLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	llvm::Constant* compileLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(asLLVMType(TypeId::Bool),llvm::APInt(1,value ? 1 : 0,false)); }
 	
 	// Information about a JITed module.
@@ -178,7 +178,7 @@ namespace LLVMJIT
 			if(isFarAddress)
 			{
 				// Until we reserve more than 4GB of virtual address space, mask a 64-bit address to just the lower 32-bits.
-				byteIndex = irBuilder.CreateAnd(dispatch(*this,address,TypeId::I64),compileLiteral((uint64_t)0xffffffff));
+				byteIndex = irBuilder.CreateAnd(dispatch(*this,address,TypeId::I64),compileLiteral((uint64)0xffffffff));
 			}
 			else
 			{
@@ -308,11 +308,11 @@ namespace LLVMJIT
 
 			// Compile the function index and mask it to be within the function table's bounds (which are already verified to be 2^N).
 			auto functionIndex = dispatch(*this,callIndirect->functionIndex,TypeId::I32);
-			auto functionIndexMask = compileLiteral((uint32_t)astFunctionTable.numFunctions-1);
+			auto functionIndexMask = compileLiteral((uint32)astFunctionTable.numFunctions-1);
 			auto maskedFunctionIndex = irBuilder.CreateAnd(functionIndex,functionIndexMask);
 
 			// Get a pointer to the function pointer in the function table using the masked function index.
-			llvm::Value* gepIndices[2] = {compileLiteral((uint32_t)0),maskedFunctionIndex};
+			llvm::Value* gepIndices[2] = {compileLiteral((uint32)0),maskedFunctionIndex};
 
 			// Load the function pointer from the table and call it.
 			auto function = irBuilder.CreateLoad(irBuilder.CreateInBoundsGEP(functionTablePointer,gepIndices));
@@ -326,7 +326,7 @@ namespace LLVMJIT
 
 			// Create the basic blocks for each arm of the switch so they can be forward referenced by fallthrough branches.
 			auto armEntryBlocks = new(scopedArena) llvm::BasicBlock*[switchExpression->numArms + 1];
-			for(uint32_t armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
+			for(uint32 armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
 			{ armEntryBlocks[armIndex] = llvm::BasicBlock::Create(context,"switchArm",llvmFunction); }
 
 			// Create and link the context for this switch's branch target into the list of in-scope contexts.
@@ -340,8 +340,8 @@ namespace LLVMJIT
 			assert(switchExpression->numArms > 0);
 			assert(switchExpression->defaultArmIndex < switchExpression->numArms);
 			auto defaultBlock = armEntryBlocks[switchExpression->defaultArmIndex];
-			auto switchInstruction = irBuilder.CreateSwitch(value,defaultBlock,(uint32_t)switchExpression->numArms - 1);
-			for(uint32_t armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
+			auto switchInstruction = irBuilder.CreateSwitch(value,defaultBlock,(uint32)switchExpression->numArms - 1);
+			for(uint32 armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
 			{
 				const SwitchArm& arm = switchExpression->arms[armIndex];
 				if(armIndex != switchExpression->defaultArmIndex)
@@ -349,10 +349,10 @@ namespace LLVMJIT
 					llvm::ConstantInt* armKey;
 					switch(switchExpression->key.type)
 					{
-					case TypeId::I8: armKey = compileLiteral((uint8_t)arm.key); break;
-					case TypeId::I16: armKey = compileLiteral((uint16_t)arm.key); break;
-					case TypeId::I32: armKey = compileLiteral((uint32_t)arm.key); break;
-					case TypeId::I64: armKey = compileLiteral((uint64_t)arm.key); break;
+					case TypeId::I8: armKey = compileLiteral((uint8)arm.key); break;
+					case TypeId::I16: armKey = compileLiteral((uint16)arm.key); break;
+					case TypeId::I32: armKey = compileLiteral((uint32)arm.key); break;
+					case TypeId::I64: armKey = compileLiteral((uint64)arm.key); break;
 					default: throw;
 					}
 					switchInstruction->addCase(armKey,armEntryBlocks[armIndex]);
@@ -386,7 +386,7 @@ namespace LLVMJIT
 			else
 			{
 				// Create a phi node that merges the results from all the branches out of the switch.
-				auto phi = irBuilder.CreatePHI(asLLVMType(type),(uint32_t)switchExpression->numArms);
+				auto phi = irBuilder.CreatePHI(asLLVMType(type),(uint32)switchExpression->numArms);
 				for(auto result = endBranchContext.results;result;result = result->next) { phi->addIncoming(result->value,result->incomingBlock); }
 				return phi;
 			}
@@ -672,14 +672,14 @@ namespace LLVMJIT
 	struct MCJITMemoryManager : public llvm::SectionMemoryManager
 	{
 		// Called by MCJIT to resolve symbols by name.
-		virtual uint64_t getSymbolAddress(const std::string& name)
+		virtual uint64 getSymbolAddress(const std::string& name)
 		{
 			// We assume JITModule::finalize has validated the types of any imports against the intrinsic functions available.
 			const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
-			if(intrinsicFunction) { return *(uint64_t*)&intrinsicFunction->value; }
+			if(intrinsicFunction) { return *(uint64*)&intrinsicFunction->value; }
 			
 			const Intrinsics::Value* intrinsicValue = Intrinsics::findValue(name.c_str());
-			if(intrinsicValue) { return *(uint64_t*)&intrinsicValue->value; }
+			if(intrinsicValue) { return *(uint64*)&intrinsicValue->value; }
 
 			std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
 			throw;
@@ -700,12 +700,12 @@ namespace LLVMJIT
 			localVariablePointers[localIndex] = irBuilder.CreateAlloca(asLLVMType(localVariable.type),nullptr,getLLVMName(localVariable.name));
 			switch(localVariable.type)
 			{
-			case TypeId::I8: irBuilder.CreateStore(compileLiteral((uint8_t)0),localVariablePointers[localIndex]); break;
-			case TypeId::I16: irBuilder.CreateStore(compileLiteral((uint16_t)0),localVariablePointers[localIndex]); break;
-			case TypeId::I32: irBuilder.CreateStore(compileLiteral((uint32_t)0),localVariablePointers[localIndex]); break;
-			case TypeId::I64: irBuilder.CreateStore(compileLiteral((uint64_t)0),localVariablePointers[localIndex]); break;
-			case TypeId::F32: irBuilder.CreateStore(compileLiteral((float)0.0f),localVariablePointers[localIndex]); break;
-			case TypeId::F64: irBuilder.CreateStore(compileLiteral((double)0.0),localVariablePointers[localIndex]); break;
+			case TypeId::I8: irBuilder.CreateStore(compileLiteral((uint8)0),localVariablePointers[localIndex]); break;
+			case TypeId::I16: irBuilder.CreateStore(compileLiteral((uint16)0),localVariablePointers[localIndex]); break;
+			case TypeId::I32: irBuilder.CreateStore(compileLiteral((uint32)0),localVariablePointers[localIndex]); break;
+			case TypeId::I64: irBuilder.CreateStore(compileLiteral((uint64)0),localVariablePointers[localIndex]); break;
+			case TypeId::F32: irBuilder.CreateStore(compileLiteral((float32)0.0f),localVariablePointers[localIndex]); break;
+			case TypeId::F64: irBuilder.CreateStore(compileLiteral((float64)0.0),localVariablePointers[localIndex]); break;
 			case TypeId::Bool: irBuilder.CreateStore(compileLiteral((bool)false),localVariablePointers[localIndex]); break;
 			default: throw;
 			}
@@ -769,7 +769,7 @@ namespace LLVMJIT
 		// Bind the memory buffer to the global variable used by the module as the base address for memory accesses.
 		auto virtualAddressBaseValue = llvm::Constant::getIntegerValue(
 			llvm::Type::getInt8PtrTy(context),
-			llvm::APInt(64,*(uint64_t*)&Core::vmVirtualAddressBase)
+			llvm::APInt(64,*(uint64*)&Core::vmVirtualAddressBase)
 			);
 		jitModule->virtualAddressBase = new llvm::GlobalVariable(*jitModule->llvmModule,llvm::Type::getInt8PtrTy(context),true,llvm::GlobalVariable::PrivateLinkage,virtualAddressBaseValue,"virtualAddressBase");
 
@@ -798,12 +798,12 @@ namespace LLVMJIT
 			llvm::Constant* initializer;
 			switch(globalVariable.type)
 			{
-			case TypeId::I8: initializer = compileLiteral((uint8_t)0); break;
-			case TypeId::I16: initializer = compileLiteral((uint16_t)0); break;
-			case TypeId::I32: initializer = compileLiteral((uint32_t)0); break;
-			case TypeId::I64: initializer = compileLiteral((uint64_t)0); break;
-			case TypeId::F32: initializer = compileLiteral((float)0.0f); break;
-			case TypeId::F64: initializer = compileLiteral((double)0.0); break;
+			case TypeId::I8: initializer = compileLiteral((uint8)0); break;
+			case TypeId::I16: initializer = compileLiteral((uint16)0); break;
+			case TypeId::I32: initializer = compileLiteral((uint32)0); break;
+			case TypeId::I64: initializer = compileLiteral((uint64)0); break;
+			case TypeId::F32: initializer = compileLiteral((float32)0.0f); break;
+			case TypeId::F64: initializer = compileLiteral((float64)0.0); break;
 			case TypeId::Bool: initializer = compileLiteral(false); break;
 			default: throw;
 			}
@@ -834,7 +834,7 @@ namespace LLVMJIT
 			auto astFunctionTable = astModule->functionTables[tableIndex];
 			std::vector<llvm::Constant*> llvmFunctionTableElements;
 			llvmFunctionTableElements.resize(astFunctionTable.numFunctions);
-			for(uint32_t functionIndex = 0;functionIndex < astFunctionTable.numFunctions;++functionIndex)
+			for(uint32 functionIndex = 0;functionIndex < astFunctionTable.numFunctions;++functionIndex)
 			{
 				assert(astFunctionTable.functionIndices[functionIndex] < jitModule->functions.size());
 				llvmFunctionTableElements[functionIndex] = jitModule->functions[astFunctionTable.functionIndices[functionIndex]];
@@ -916,7 +916,7 @@ namespace LLVMJIT
 
 		// Copy the module's data segments into VM memory.
 		if(astModule->initialNumBytesMemory >= (1ull<<32)) { throw; }
-		Core::vmSbrk((int32_t)astModule->initialNumBytesMemory);
+		Core::vmSbrk((int32)astModule->initialNumBytesMemory);
 		for(auto dataSegment : astModule->dataSegments)
 		{
 			assert(dataSegment.baseAddress + dataSegment.numBytes <= astModule->initialNumBytesMemory);

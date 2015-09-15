@@ -12,7 +12,7 @@
 namespace SExp
 {
 	// The type of a S-expression node.
-	enum class NodeType : uint8_t
+	enum class NodeType : uint8
 	{
 		Symbol,
 		String,
@@ -26,13 +26,13 @@ namespace SExp
 	// A location in a text file.
 	struct TextFileLocus
 	{
-		uint32_t newlines;
-		uint16_t tabs;
-		uint16_t characters;
+		uint32 newlines;
+		uint16 tabs;
+		uint16 characters;
 
 		TextFileLocus(): newlines(0), tabs(0), characters(0) {}
 
-		std::string describe(uint32_t spacesPerTab = 4) const
+		std::string describe(uint32 spacesPerTab = 4) const
 		{
 			return "(" + std::to_string(newlines + 1) + ":" + std::to_string(tabs * spacesPerTab + characters + 1) + ")";
 		}
@@ -48,8 +48,8 @@ namespace SExp
 			const char* error;
 			uintptr_t symbol;
 			const char* string;
-			int64_t integer;
-			double decimal;
+			int64 integer;
+			float64 decimal;
 			Node* children;
 		};
 		// If type==NodeType::String, contains the length of the string.
@@ -156,12 +156,12 @@ namespace SExp
 		}
 		NodeOutputStream& operator<<(const std::string& string) { return *this << string.c_str(); }
 		NodeOutputStream& operator<<(bool b) { appendInt(b ? 1 : 0); return *this; }
-		NodeOutputStream& operator<<(uint8_t i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(uint16_t i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(uint32_t i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(uint64_t i) { appendInt(i); return *this; }
+		NodeOutputStream& operator<<(uint8 i) { appendInt(i); return *this; }
+		NodeOutputStream& operator<<(uint16 i) { appendInt(i); return *this; }
+		NodeOutputStream& operator<<(uint32 i) { appendInt(i); return *this; }
+		NodeOutputStream& operator<<(uint64 i) { appendInt(i); return *this; }
 		NodeOutputStream& operator<<(intptr_t i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(double d)
+		NodeOutputStream& operator<<(float64 d)
 		{
 			auto decimalNode = new(arena) Node();
 			decimalNode->type = SExp::NodeType::Decimal;

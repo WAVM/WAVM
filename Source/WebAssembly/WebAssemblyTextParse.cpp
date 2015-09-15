@@ -63,17 +63,17 @@ namespace WebAssemblyText
 	}
 
 	// Parse an integer from a S-expression node.
-	bool parseInt(SNodeIt& nodeIt,int64_t& outInt)
+	bool parseInt(SNodeIt& nodeIt,int64& outInt)
 	{
 		if(nodeIt && nodeIt->type == SExp::NodeType::Int) { outInt = nodeIt->integer; ++nodeIt; return true; }
 		else { return false; }
 	}
 
-	// Parse a 64-bit float from a S-expression node.
-	bool parseFloat64(SNodeIt& nodeIt,double& outDouble)
+	// Parse a 64-bit float32 from a S-expression node.
+	bool parseFloat64(SNodeIt& nodeIt,float64& outDouble)
 	{
 		if(nodeIt && nodeIt->type == SExp::NodeType::Decimal) { outDouble = nodeIt->decimal; ++nodeIt; return true; }
-		else if(nodeIt && nodeIt->type == SExp::NodeType::Int) { outDouble = (double)nodeIt->integer; ++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SExp::NodeType::Int) { outDouble = (float64)nodeIt->integer; ++nodeIt; return true; }
 		else { return false; }
 	}
 
@@ -160,7 +160,7 @@ namespace WebAssemblyText
 	bool parseNameOrIndex(SNodeIt& nodeIt,const std::map<std::string,uintptr_t>& nameToIndex,size_t numValidIndices,uintptr_t& outIndex)
 	{
 		const char* name;
-		int64_t parsedInt;
+		int64 parsedInt;
 		if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr_t)parsedInt < numValidIndices) { outIndex = (uintptr_t)parsedInt; return true; }
 		else if(parseName(nodeIt,name))
 		{
@@ -254,24 +254,24 @@ namespace WebAssemblyText
 
 				DEFINE_TYPED_OP(Int,const)
 				{
-					int64_t integer;
+					int64 integer;
 					if(!parseInt(nodeIt,integer)) { return TypedExpression(recordError<Error<IntClass>>(outErrors,nodeIt,"const: expected integer"),opType); }
 					switch(opType)
 					{
-					case TypeId::I8: return TypedExpression(requireFullMatch(nodeIt,"const.i8",new(arena)Literal<I8Type>((uint8_t)integer)),TypeId::I8);
-					case TypeId::I16: return TypedExpression(requireFullMatch(nodeIt,"const.i16",new(arena)Literal<I16Type>((uint16_t)integer)),TypeId::I16);
-					case TypeId::I32: return TypedExpression(requireFullMatch(nodeIt,"const.i32",new(arena)Literal<I32Type>((uint32_t)integer)),TypeId::I32);
-					case TypeId::I64: return TypedExpression(requireFullMatch(nodeIt,"const.i64",new(arena)Literal<I64Type>((uint64_t)integer)),TypeId::I64);
+					case TypeId::I8: return TypedExpression(requireFullMatch(nodeIt,"const.i8",new(arena)Literal<I8Type>((uint8)integer)),TypeId::I8);
+					case TypeId::I16: return TypedExpression(requireFullMatch(nodeIt,"const.i16",new(arena)Literal<I16Type>((uint16)integer)),TypeId::I16);
+					case TypeId::I32: return TypedExpression(requireFullMatch(nodeIt,"const.i32",new(arena)Literal<I32Type>((uint32)integer)),TypeId::I32);
+					case TypeId::I64: return TypedExpression(requireFullMatch(nodeIt,"const.i64",new(arena)Literal<I64Type>((uint64)integer)),TypeId::I64);
 					default: throw;
 					}
 				}
 				DEFINE_TYPED_OP(Float,const)
 				{
-					double doubleValue;
+					float64 doubleValue;
 					if(!parseFloat64(nodeIt,doubleValue)) { return TypedExpression(recordError<Error<FloatClass>>(outErrors,nodeIt,"const: expected decimal"),opType); }
 					switch(opType)
 					{
-					case TypeId::F32: return TypedExpression(requireFullMatch(nodeIt,"const.f32",new(arena)Literal<F32Type>((float)doubleValue)),TypeId::F32);
+					case TypeId::F32: return TypedExpression(requireFullMatch(nodeIt,"const.f32",new(arena)Literal<F32Type>((float32)doubleValue)),TypeId::F32);
 					case TypeId::F64: return TypedExpression(requireFullMatch(nodeIt,"const.f64",new(arena)Literal<F64Type>(doubleValue)),TypeId::F64);
 					default: throw;
 					}
@@ -493,9 +493,9 @@ namespace WebAssemblyText
 						if(parseTaggedNode(nodeIt,Symbol::_case,childNodeIt))
 						{
 							// Parse the key for this case.
-							int64_t key;
+							int64 key;
 							if(!parseInt(childNodeIt,key)) { return recordError<Error<Class>>(outErrors,childNodeIt,"switch: missing integer case key"); }
-							arms[armIndex].key = (uint64_t)key;
+							arms[armIndex].key = (uint64)key;
 
 							// Count the number of operations in the case, and whether it ends with a fallthrough symbol.
 							// If there are no operations or a fallthrough symbol, it should fallthrough to the next case.
@@ -585,7 +585,7 @@ namespace WebAssemblyText
 				{
 					// Parse the name or index of the target label.
 					const char* name;
-					int64_t parsedInt;
+					int64 parsedInt;
 					BranchTarget* branchTarget = nullptr;
 					if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr_t)parsedInt < scopedBranchTargets.size())
 					{
@@ -1190,8 +1190,8 @@ namespace WebAssemblyText
 
 				// Parse the initial and maximum number of bytes.
 				// If one number is found, it is taken to be both the initial and max.
-				int64_t initialNumBytes;
-				int64_t maxNumBytes;
+				int64 initialNumBytes;
+				int64 maxNumBytes;
 				if(!parseInt(childNodeIt,initialNumBytes))
 					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected initial memory size integer"); continue; }
 				if(!parseInt(childNodeIt,maxNumBytes))
@@ -1200,14 +1200,14 @@ namespace WebAssemblyText
 					{ recordError<ErrorRecord>(outErrors,childNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
 				if(module->initialNumBytesMemory > module->maxNumBytesMemory)
 					{ recordError<ErrorRecord>(outErrors,childNodeIt,"initial memory size must be <= maximum memory size"); continue; }
-				module->initialNumBytesMemory = (uint64_t) initialNumBytes;
-				module->maxNumBytesMemory = (uint64_t) maxNumBytes;
+				module->initialNumBytesMemory = (uint64) initialNumBytes;
+				module->maxNumBytesMemory = (uint64) maxNumBytes;
 				
 				// Parse the memory segments.
 				for(;childNodeIt;++childNodeIt)
 				{
 					SNodeIt segmentChildNodeIt;
-					int64_t baseAddress;
+					int64 baseAddress;
 					const char* dataString;
 					size_t dataLength;
 					if(!parseTaggedNode(childNodeIt,Symbol::_segment,segmentChildNodeIt))
@@ -1216,10 +1216,10 @@ namespace WebAssemblyText
 						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment base address integer"); continue; }
 					if(!parseString(segmentChildNodeIt,dataString,dataLength,module->arena))
 						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment data string"); continue; }
-					if(	(uint64_t)baseAddress + dataLength < (uint64_t)baseAddress // Check for integer overflow in baseAddress+dataLength.
-					||	(uint64_t)baseAddress + dataLength > module->initialNumBytesMemory)
+					if(	(uint64)baseAddress + dataLength < (uint64)baseAddress // Check for integer overflow in baseAddress+dataLength.
+					||	(uint64)baseAddress + dataLength > module->initialNumBytesMemory)
 						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"data segment bounds aren't contained by initial memory size"); continue; }
-					module->dataSegments.push_back({(uint64_t)baseAddress,dataLength,(uint8_t*)dataString});
+					module->dataSegments.push_back({(uint64)baseAddress,dataLength,(uint8*)dataString});
 				}
 
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following memory declaration"); continue; }

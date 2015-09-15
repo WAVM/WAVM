@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint>
+#include "Core/Core.h"
 
 namespace AST
 {
@@ -41,8 +41,8 @@ namespace AST
 		typedef uint16_t I16;
 		typedef uint32_t I32;
 		typedef uint64_t I64;
-		typedef float F32;
-		typedef double F64;
+		typedef float32 F32;
+		typedef float64 F64;
 		typedef bool Bool;
 		typedef void Void;
 	};

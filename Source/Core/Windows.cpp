@@ -37,37 +37,37 @@ namespace Memory
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return __lzcnt64(preferredVirtualPageSize);
 	}
-	uint32_t getPreferredVirtualPageSizeLog2()
+	uint32 getPreferredVirtualPageSizeLog2()
 	{
 		static size_t preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
-		return (uint32_t)preferredVirtualPageSizeLog2;
+		return (uint32)preferredVirtualPageSizeLog2;
 	}
 
-	bool isPageAligned(uint8_t* address)
+	bool isPageAligned(uint8* address)
 	{
-		const uint64_t addressBits = *(uint64_t*)&address;
+		const uint64 addressBits = *(uint64*)&address;
 		return (addressBits & ((1ull << getPreferredVirtualPageSizeLog2()) - 1)) == 0;
 	}
 
-	uint8_t* allocateVirtualPages(size_t numPages)
+	uint8* allocateVirtualPages(size_t numPages)
 	{
-		return (uint8_t*)VirtualAlloc(nullptr,numPages << getPreferredVirtualPageSizeLog2(),MEM_RESERVE,PAGE_READWRITE);
+		return (uint8*)VirtualAlloc(nullptr,numPages << getPreferredVirtualPageSizeLog2(),MEM_RESERVE,PAGE_READWRITE);
 	}
 
-	bool commitVirtualPages(uint8_t* baseVirtualAddress,size_t numPages)
+	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		return baseVirtualAddress == VirtualAlloc(baseVirtualAddress,numPages << getPreferredVirtualPageSizeLog2(),MEM_COMMIT,PAGE_READWRITE);
 	}
 	
-	void decommitVirtualPages(uint8_t* baseVirtualAddress,size_t numPages)
+	void decommitVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,numPages << getPreferredVirtualPageSizeLog2(),MEM_DECOMMIT);
 		if(!result) { throw; }
 	}
 
-	void freeVirtualPages(uint8_t* baseVirtualAddress,size_t numPages)
+	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,0/*numPages << getPreferredVirtualPageSizeLog2()*/,MEM_RELEASE);

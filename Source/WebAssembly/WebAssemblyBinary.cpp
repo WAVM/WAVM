@@ -16,9 +16,9 @@ namespace WebAssemblyBinary
 	// =================================================================================================
 	// Magic serialization constants
 
-	static const uint32_t MagicNumber = 0x6d736177;
+	static const uint32 MagicNumber = 0x6d736177;
 
-	enum class StmtOpEncoding : uint8_t
+	enum class StmtOpEncoding : uint8
 	{
 		SetLoc,
 		SetGlo,
@@ -51,7 +51,7 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class StmtOpEncodingWithImm : uint8_t
+	enum class StmtOpEncodingWithImm : uint8
 	{
 		SetLoc,
 		SetGlo,
@@ -61,7 +61,7 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class SwitchCase : uint8_t
+	enum class SwitchCase : uint8
 	{
 		Case0,
 		Case1,
@@ -71,7 +71,7 @@ namespace WebAssemblyBinary
 		DefaultN
 	};
 
-	enum class I32OpEncoding : uint8_t
+	enum class I32OpEncoding : uint8
 	{
 		LitPool,
 		LitImm,
@@ -150,7 +150,7 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class I32OpEncodingWithImm : uint8_t
+	enum class I32OpEncodingWithImm : uint8
 	{
 		LitPool,
 		LitImm,
@@ -160,7 +160,7 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class F32OpEncoding : uint8_t
+	enum class F32OpEncoding : uint8
 	{
 		LitPool,
 		LitImm,
@@ -192,7 +192,7 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class F32OpEncodingWithImm : uint8_t
+	enum class F32OpEncodingWithImm : uint8
 	{
 		LitPool,
 		GetLoc,
@@ -202,7 +202,7 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class F64OpEncoding : uint8_t
+	enum class F64OpEncoding : uint8
 	{
 		LitPool,
 		LitImm,
@@ -248,7 +248,7 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class F64OpEncodingWithImm : uint8_t
+	enum class F64OpEncodingWithImm : uint8
 	{
 		LitPool,
 		GetLoc,
@@ -258,7 +258,7 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class VoidOpEncoding : uint8_t
+	enum class VoidOpEncoding : uint8
 	{
 		CallInt,
 		CallInd,
@@ -267,24 +267,24 @@ namespace WebAssemblyBinary
 		Bad
 	};
 
-	enum class Type : uint8_t
+	enum class Type : uint8
 	{
 		I32,
 		F32,
 		F64
 	};
 
-	enum class VaReturnTypes : uint8_t
+	enum class VaReturnTypes : uint8
 	{
 		I32 = 0x1,
 		F32 = 0x2,
 		F64 = 0x4,
 	};
 
-	inline VaReturnTypes operator|(VaReturnTypes lhs,VaReturnTypes rhs) { return VaReturnTypes(uint8_t(lhs) | uint8_t(rhs)); }
-	inline bool operator&(VaReturnTypes lhs,VaReturnTypes rhs) { return bool((uint8_t(lhs) & uint8_t(rhs)) != 0); }
+	inline VaReturnTypes operator|(VaReturnTypes lhs,VaReturnTypes rhs) { return VaReturnTypes(uint8(lhs) | uint8(rhs)); }
+	inline bool operator&(VaReturnTypes lhs,VaReturnTypes rhs) { return bool((uint8(lhs) & uint8(rhs)) != 0); }
 
-	enum class VaReturnTypesWithImm : uint8_t
+	enum class VaReturnTypesWithImm : uint8
 	{
 		OnlyI32,
 		Reserved0,
@@ -292,45 +292,45 @@ namespace WebAssemblyBinary
 		Reserved2
 	};
 
-	enum class ReturnType : uint8_t
+	enum class ReturnType : uint8
 	{
-		I32 = uint8_t(Type::I32),
-		F32 = uint8_t(Type::F32),
-		F64 = uint8_t(Type::F64),
+		I32 = uint8(Type::I32),
+		F32 = uint8(Type::F32),
+		F64 = uint8(Type::F64),
 		Void
 	};
 
-	static const uint8_t HasImmFlag = 0x80;
-	static_assert(uint8_t(I32OpEncoding::Bad) <= HasImmFlag,"MSB reserved to distinguish I32 from I32WithImm");
-	static_assert(uint8_t(F32OpEncoding::Bad) <= HasImmFlag,"MSB reserved to distinguish F32 from F32WithImm");
-	static_assert(uint8_t(F64OpEncoding::Bad) <= HasImmFlag,"MSB reserved to distinguish F64 from F64WithImm");
+	static const uint8 HasImmFlag = 0x80;
+	static_assert(uint8(I32OpEncoding::Bad) <= HasImmFlag,"MSB reserved to distinguish I32 from I32WithImm");
+	static_assert(uint8(F32OpEncoding::Bad) <= HasImmFlag,"MSB reserved to distinguish F32 from F32WithImm");
+	static_assert(uint8(F64OpEncoding::Bad) <= HasImmFlag,"MSB reserved to distinguish F64 from F64WithImm");
 
 	static const unsigned OpWithImmBits = 2;
-	static const uint32_t OpWithImmLimit = 1 << OpWithImmBits;
-	static_assert(uint8_t(I32OpEncodingWithImm::Bad) <= OpWithImmLimit,"I32WithImm op fits");
-	static_assert(uint8_t(F32OpEncodingWithImm::Bad) <= OpWithImmLimit,"F32WithImm op fits");
-	static_assert(uint8_t(F64OpEncodingWithImm::Bad) <= OpWithImmLimit,"F64WithImm op fits");
+	static const uint32 OpWithImmLimit = 1 << OpWithImmBits;
+	static_assert(uint8(I32OpEncodingWithImm::Bad) <= OpWithImmLimit,"I32WithImm op fits");
+	static_assert(uint8(F32OpEncodingWithImm::Bad) <= OpWithImmLimit,"F32WithImm op fits");
+	static_assert(uint8(F64OpEncodingWithImm::Bad) <= OpWithImmLimit,"F64WithImm op fits");
 
 	static const unsigned ImmBits = 5;
-	static const uint32_t ImmLimit = 1 << ImmBits;
+	static const uint32 ImmLimit = 1 << ImmBits;
 	static_assert(1 + OpWithImmBits + ImmBits == 8,"Bits of immediate op should add up to a byte");
 
-	static inline uint8_t PackOpWithImm(uint8_t op,uint8_t imm)
+	static inline uint8 PackOpWithImm(uint8 op,uint8 imm)
 	{
 		assert(op < OpWithImmLimit);
 		assert(imm < ImmLimit);
-		return HasImmFlag | (uint8_t(op) << ImmBits) | imm;
+		return HasImmFlag | (uint8(op) << ImmBits) | imm;
 	}
 
 	template <class TWithImm>
-	static inline void UnpackOpWithImm(uint8_t byte,TWithImm* op,uint8_t *imm)
+	static inline void UnpackOpWithImm(uint8 byte,TWithImm* op,uint8 *imm)
 	{
 		assert(byte & HasImmFlag);
 		*op = TWithImm((byte >> ImmBits) & (OpWithImmLimit - 1));
 		*imm = byte & (ImmLimit - 1);
 	}
 
-	enum class ExportFormat : uint8_t
+	enum class ExportFormat : uint8
 	{
 		Default,
 		Record
@@ -343,37 +343,37 @@ namespace WebAssemblyBinary
 
 	struct InputStream
 	{
-		InputStream(const uint8_t* inStart,const uint8_t* inEnd) : cur(inStart), end(inEnd) {}
+		InputStream(const uint8* inStart,const uint8* inEnd) : cur(inStart), end(inEnd) {}
 
-		uint32_t u32()
+		uint32 u32()
 		{
-			uint32_t u32 = cur[0] | cur[1] << 8 | cur[2] << 16 | cur[3] << 24;
+			uint32 u32 = cur[0] | cur[1] << 8 | cur[2] << 16 | cur[3] << 24;
 			cur += 4;
 			return u32;
 		}
-		float f32()
+		float32 f32()
 		{
 			union
 			{
-				uint8_t arr[4];
-				float f;
+				uint8 arr[4];
+				float32 f;
 			} u ={{cur[0],cur[1],cur[2],cur[3]}};
 			cur += 4;
 			return u.f;
 		}
-		double f64()
+		float64 f64()
 		{
 			union
 			{
-				uint8_t arr[8];
-				double d;
+				uint8 arr[8];
+				float64 d;
 			} u ={{cur[0],cur[1],cur[2],cur[3],cur[4],cur[5],cur[6],cur[7]}};
 			cur += 8;
 			return u.d;
 		}
 		StmtOpEncoding stmt() { return u8<StmtOpEncoding>(); }
 		SwitchCase switch_case() { return u8<SwitchCase>(); }
-		template<class T,class TWithImm> inline bool code(T*,TWithImm*,uint8_t*);
+		template<class T,class TWithImm> inline bool code(T*,TWithImm*,uint8*);
 		VoidOpEncoding void_expr() { return u8<VoidOpEncoding>(); }
 		ExportFormat export_format() { return u8<ExportFormat>(); }
 		TypeId type()
@@ -398,19 +398,19 @@ namespace WebAssemblyBinary
 			default: throw new FatalDecodeException("invalid return type");
 			}
 		}
-		inline uint32_t immU32();
-		inline uint32_t boundedImmU32(const char* context,size_t maxValue)
+		inline uint32 immU32();
+		inline uint32 boundedImmU32(const char* context,size_t maxValue)
 		{
 			auto result = immU32();
 			if(result >= maxValue) { throw new FatalDecodeException(std::string("invalid ") + context); }
 			return result;
 		}
-		inline int32_t immS32();
+		inline int32 immS32();
 		char single_char() { return *cur++; }
 		bool complete() const { return cur == end; }
 	private:
-		const uint8_t* cur;
-		const uint8_t* end;
+		const uint8* cur;
+		const uint8* end;
 
 		template <class T> T u8()
 		{
@@ -420,9 +420,9 @@ namespace WebAssemblyBinary
 	};
 
 	template <class T,class TWithImm>
-	bool InputStream::code(T* t,TWithImm* tWithImm,uint8_t* imm)
+	bool InputStream::code(T* t,TWithImm* tWithImm,uint8* imm)
 	{
-		uint8_t byte = *cur++;
+		uint8 byte = *cur++;
 		if(!(byte & HasImmFlag))
 		{
 			*t = T(byte);
@@ -433,9 +433,9 @@ namespace WebAssemblyBinary
 		return false;
 	}
 
-	uint32_t inline InputStream::immU32()
+	uint32 inline InputStream::immU32()
 	{
-		uint32_t u32 = *cur++;
+		uint32 u32 = *cur++;
 		if(u32 < 0x80)
 			return u32;
 
@@ -443,31 +443,31 @@ namespace WebAssemblyBinary
 
 		for(unsigned shift = 7; true; shift += 7)
 		{
-			uint32_t b = *cur++;
+			uint32 b = *cur++;
 			if(b < 0x80)
 				return u32 | (b << shift);
 			u32 |= (b & 0x7f) << shift;
 		}
 	}
 
-	int32_t inline InputStream::immS32()
+	int32 inline InputStream::immS32()
 	{
-		uint32_t u32 = *cur++;
+		uint32 u32 = *cur++;
 		if(u32 < 0x80)
-			return int32_t(u32) << (32-7) >> (32-7);
+			return int32(u32) << (32-7) >> (32-7);
 
 		u32 &= 0x7f;
 
 		for(unsigned shift = 7; true; shift += 7)
 		{
-			uint32_t b = *cur++;
+			uint32 b = *cur++;
 			if(b < 0x80)
 			{
 				u32 |= b << shift;
 				int sign_extend = (32-7) - shift;
 				if(sign_extend > 0)
-					return int32_t(u32) << sign_extend >> sign_extend;
-				return int32_t(u32);
+					return int32(u32) << sign_extend >> sign_extend;
+				return int32(u32);
 			}
 			u32 |= (b & 0x7f) << shift;
 		}
@@ -482,9 +482,9 @@ namespace WebAssemblyBinary
 		std::vector<ErrorRecord*>& outErrors;
 		Memory::Arena& arena;
 
-		std::vector<uint32_t> i32Constants;
-		std::vector<float> f32Constants;
-		std::vector<double> f64Constants;
+		std::vector<uint32> i32Constants;
+		std::vector<float32> f32Constants;
+		std::vector<float64> f64Constants;
 		std::vector<FunctionType> functionTypes;
 		std::map<std::string,uintptr_t> intrinsicNameToFunctionImportIndex;
 
@@ -561,7 +561,7 @@ namespace WebAssemblyBinary
 		
 		// Loads a value from a local variable.
 		template<typename Type>
-		typename Type::Expression* getLocal(uint32_t localIndex)
+		typename Type::Expression* getLocal(uint32 localIndex)
 		{
 			if(localIndex >= currentFunction->locals.size()) { return recordError<Type::Class>("getlocal: invalid local index"); }
 			if(currentFunction->locals[localIndex].type != Type::id) { return recordError<Type::Class>("getlocal: incorrect type"); }
@@ -569,7 +569,7 @@ namespace WebAssemblyBinary
 		}
 
 		// Stores a value to a local variable.
-		TypedExpression setLocal(uint32_t localIndex)
+		TypedExpression setLocal(uint32 localIndex)
 		{
 			if(localIndex >= currentFunction->locals.size()) { throw new FatalDecodeException("setlocal: invalid local index"); }
 			auto type = currentFunction->locals[localIndex].type;
@@ -577,14 +577,14 @@ namespace WebAssemblyBinary
 			return TypedExpression(new(arena) SetVariable(AnyOp::setLocal,getPrimaryTypeClass(type),value,localIndex),type);
 		}
 		template<typename Type>
-		typename Type::Expression* setLocalExpression(uint32_t globalIndex)
+		typename Type::Expression* setLocalExpression(uint32 globalIndex)
 		{
 			return as<Type::Class>(setLocal(globalIndex));
 		}
 		
 		// Loads a value from a global variable.
 		template<typename Type>
-		typename Type::Expression* getGlobal(uint32_t globalIndex)
+		typename Type::Expression* getGlobal(uint32 globalIndex)
 		{
 			if(globalIndex >= module.globals.size()) { return recordError<Type::Class>("getglobal: invalid global index"); }
 			if(module.globals[globalIndex].type != Type::id) { return recordError<Type::Class>("getglobal: incorrect type"); }
@@ -592,7 +592,7 @@ namespace WebAssemblyBinary
 		}
 
 		// Stores a value to a global variable.
-		TypedExpression setGlobal(uint32_t globalIndex)
+		TypedExpression setGlobal(uint32 globalIndex)
 		{
 			if(globalIndex >= module.globals.size()) { throw new FatalDecodeException("setglobal: invalid global index"); }
 			auto type = module.globals[globalIndex].type;
@@ -600,13 +600,13 @@ namespace WebAssemblyBinary
 			return TypedExpression(new(arena) SetVariable(AnyOp::setGlobal,getPrimaryTypeClass(type),value,globalIndex),type);
 		}
 		template<typename Type>
-		typename Type::Expression* setGlobalExpression(uint32_t globalIndex)
+		typename Type::Expression* setGlobalExpression(uint32 globalIndex)
 		{
 			return as<Type::Class>(setGlobal(globalIndex));
 		}
 
 		// Decodes an address in the form of an offset into the module's linear memory.
-		IntExpression* decodeAddress(uint32_t offset)
+		IntExpression* decodeAddress(uint32 offset)
 		{
 			IntExpression* byteIndex = decodeExpression<I32Type>();
 
@@ -632,7 +632,7 @@ namespace WebAssemblyBinary
 			return new(arena) Store<Type::Class>(false,true,address,TypedExpression(value,Type::id),memoryType);
 		}
 
-		// Converts a signed or unsigned 32-bit integer to a float.
+		// Converts a signed or unsigned 32-bit integer to a float32.
 		FloatExpression* castI32ToFloat(FloatOp op)
 		{
 			return new(arena) Cast<FloatClass>(op,TypedExpression(decodeExpression<I32Type>(),TypeId::I32));
@@ -710,7 +710,7 @@ namespace WebAssemblyBinary
 
 		// Calls a function by a direct pointer.
 		template<typename Class>
-		typename Class::Expression* callInternal(TypeId returnType,uint32_t functionIndex)
+		typename Class::Expression* callInternal(TypeId returnType,uint32 functionIndex)
 		{
 			if(functionIndex >= module.functions.size()) { throw new FatalDecodeException("callinternal: invalid function index"); }
 			auto function = module.functions[functionIndex];
@@ -719,7 +719,7 @@ namespace WebAssemblyBinary
 				? as<Class>(new(arena) Call(AnyOp::callDirect,Class::id,functionIndex,parameters))
 				: recordError<Class>("callinternal: incorrect type");
 		}
-		VoidExpression* callInternalStatement(uint32_t functionIndex)
+		VoidExpression* callInternalStatement(uint32 functionIndex)
 		{
 			if(functionIndex >= module.functions.size()) { throw new FatalDecodeException("callinternal: invalid function index"); }
 			auto function = module.functions[functionIndex];
@@ -736,7 +736,7 @@ namespace WebAssemblyBinary
 
 		// Calls a function by index into a function pointer table.
 		template<typename Class>
-		typename Class::Expression* callIndirect(TypeId returnType,uint32_t tableIndex)
+		typename Class::Expression* callIndirect(TypeId returnType,uint32 tableIndex)
 		{
 			if(tableIndex >= module.functions.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
 			const FunctionTable& functionTable = module.functionTables[tableIndex];
@@ -746,7 +746,7 @@ namespace WebAssemblyBinary
 				? as<Class>(new(arena) CallIndirect(Class::id,tableIndex,functionIndex,parameters))
 				: recordError<Class>("callindirect: incorrect type");
 		}
-		VoidExpression* callIndirectStatement(uint32_t tableIndex)
+		VoidExpression* callIndirectStatement(uint32 tableIndex)
 		{
 			if(tableIndex >= module.functions.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
 			const FunctionTable& functionTable = module.functionTables[tableIndex];
@@ -815,11 +815,11 @@ namespace WebAssemblyBinary
 
 			Memory::ScopedArena scopedArena;
 			Type::Expression** parameters = new(scopedArena) Type::Expression*[numParameters];
-			for(uint32_t parameterIndex = 0;parameterIndex < numParameters;++parameterIndex)
+			for(uint32 parameterIndex = 0;parameterIndex < numParameters;++parameterIndex)
 			{ parameters[parameterIndex] = decodeExpression<Type>(); }
 
 			typename Type::Expression* result = parameters[0];
-			for(uint32_t parameterIndex = 1;parameterIndex < numParameters;++parameterIndex)
+			for(uint32 parameterIndex = 1;parameterIndex < numParameters;++parameterIndex)
 			{ result = new(arena) Binary<Type::Class>(op,result,parameters[parameterIndex]); }
 			return result;
 		}
@@ -921,13 +921,13 @@ namespace WebAssemblyBinary
 			return new(arena) Branch<VoidClass>(implicitContinueTargets[implicitContinueTargets.size() - 1],nullptr);
 		}
 
-		VoidExpression* decodeBreakLabel(uint32_t labelIndex)
+		VoidExpression* decodeBreakLabel(uint32 labelIndex)
 		{
 			if(labelIndex >= explicitBreakTargets.size()) { return recordError<VoidClass>("break: invalid label index"); }
 			return new(arena) Branch<VoidClass>(explicitBreakTargets[labelIndex],nullptr);
 		}
 
-		VoidExpression* decodeContinueLabel(uint32_t labelIndex)
+		VoidExpression* decodeContinueLabel(uint32 labelIndex)
 		{
 			if(labelIndex >= explicitContinueTargets.size() || !explicitContinueTargets[labelIndex]) { return recordError<VoidClass>("continue: invalid label index"); }
 			return new(arena) Branch<VoidClass>(explicitContinueTargets[labelIndex],nullptr);
@@ -935,7 +935,7 @@ namespace WebAssemblyBinary
 
 		VoidExpression* decodeSwitch(bool isEnclosedByLabel)
 		{
-			uint32_t numCases = in.immU32();
+			uint32 numCases = in.immU32();
 			auto value = decodeExpression<I32Type>();
 			
 			auto breakBranchTarget = new(arena) BranchTarget(TypeId::Void);
@@ -945,9 +945,9 @@ namespace WebAssemblyBinary
 			if(isEnclosedByLabel) { explicitBreakTargets.back() = breakBranchTarget; }
 
 			SwitchArm* arms = new(arena) SwitchArm[numCases];
-			uint32_t defaultCaseIndex = numCases;
+			uint32 defaultCaseIndex = numCases;
 			size_t numDefaultCases = 0;
-			for(uint32_t caseIndex = 0;caseIndex < numCases;++caseIndex)
+			for(uint32 caseIndex = 0;caseIndex < numCases;++caseIndex)
 			{
 				auto caseType = in.switch_case();
 				switch(caseType)
@@ -1021,7 +1021,7 @@ namespace WebAssemblyBinary
 		{
 			I32OpEncoding i32;
 			I32OpEncodingWithImm i32WithImm;
-			uint8_t imm;
+			uint8 imm;
 			if(in.code(&i32,&i32WithImm,&imm))
 			{
 				switch(i32)
@@ -1125,7 +1125,7 @@ namespace WebAssemblyBinary
 		{
 			F32OpEncoding f32;
 			F32OpEncodingWithImm f32WithImm;
-			uint8_t imm;
+			uint8 imm;
 			if(in.code(&f32,&f32WithImm,&imm))
 			{
 				switch(f32)
@@ -1177,7 +1177,7 @@ namespace WebAssemblyBinary
 		{
 			F64OpEncoding f64;
 			F64OpEncodingWithImm f64WithImm;
-			uint8_t imm;
+			uint8 imm;
 			if(in.code(&f64,&f64WithImm,&imm))
 			{
 				switch(f64)
@@ -1256,7 +1256,7 @@ namespace WebAssemblyBinary
 		{
 			StmtOpEncoding statement;
 			StmtOpEncodingWithImm statementWithImm;
-			uint8_t imm;
+			uint8 imm;
 			if(in.code(&statement,&statementWithImm,&imm))
 			{
 				switch(statement)
@@ -1304,12 +1304,12 @@ namespace WebAssemblyBinary
 
 		VoidExpression* decodeStatementList()
 		{
-			uint32_t numStatements = in.immU32();
+			uint32 numStatements = in.immU32();
 			if(numStatements == 0) { return new(arena) Nop(); }
 			else
 			{
 				VoidExpression* result = decodeStatement();
-				for(uint32_t statementIndex = 1;statementIndex < numStatements;++statementIndex)
+				for(uint32 statementIndex = 1;statementIndex < numStatements;++statementIndex)
 				{
 					result = new(arena) Sequence<VoidClass>(result,decodeStatement());
 				}
@@ -1324,12 +1324,12 @@ namespace WebAssemblyBinary
 				currentFunction = module.functions[functionIndex];
 
 				// Decode the number of local variables used by the function.
-				uint32_t numLocalI32s = 0;
-				uint32_t numLocalF32s = 0;
-				uint32_t numLocalF64s = 0;
+				uint32 numLocalI32s = 0;
+				uint32 numLocalF32s = 0;
+				uint32 numLocalF64s = 0;
 				VaReturnTypes varTypes;
 				VaReturnTypesWithImm varTypesWithImm;
-				uint8_t imm;
+				uint8 imm;
 				if(in.code(&varTypes,&varTypesWithImm,&imm))
 				{
 					if(varTypes & VaReturnTypes::I32) numLocalI32s = in.immU32();
@@ -1387,8 +1387,8 @@ namespace WebAssemblyBinary
 			case ExportFormat::Record:
 			{
 				// The module has multiple exports. Each associates an externally exported name with a function index in the module.
-				uint32_t numExports = in.immU32();
-				for(uint32_t exportIndex = 0;exportIndex < numExports;++exportIndex)
+				uint32 numExports = in.immU32();
+				for(uint32 exportIndex = 0;exportIndex < numExports;++exportIndex)
 				{
 					Memory::ArenaString exportName;
 					while(char c = in.single_char()) { exportName.append(arena,c); };
@@ -1408,14 +1408,14 @@ namespace WebAssemblyBinary
 		// Decode the table of function types used in the module.
 		void decodeFunctionTypes()
 		{
-			uint32_t numTypes = in.immU32();
+			uint32 numTypes = in.immU32();
 			functionTypes.resize(numTypes);
-			for(uint32_t typeIndex = 0;typeIndex < numTypes;++typeIndex)
+			for(uint32 typeIndex = 0;typeIndex < numTypes;++typeIndex)
 			{
 				functionTypes[typeIndex].returnType = in.returnType();
-				uint32_t numParameters = in.immU32();
+				uint32 numParameters = in.immU32();
 				functionTypes[typeIndex].parameters.resize(numParameters);
-				for(uint32_t parameterIndex = 0; parameterIndex < numParameters; parameterIndex++)
+				for(uint32 parameterIndex = 0; parameterIndex < numParameters; parameterIndex++)
 				{ functionTypes[typeIndex].parameters[parameterIndex] = in.type(); }
 			}
 		}
@@ -1423,18 +1423,18 @@ namespace WebAssemblyBinary
 		// Decode the table of function imports used in the module.
 		void decodeFunctionImports()
 		{
-			uint32_t numFunctionImports = in.immU32();
-			uint32_t numFunctionImportTypes = in.immU32();
+			uint32 numFunctionImports = in.immU32();
+			uint32 numFunctionImportTypes = in.immU32();
 
 			module.functionImports.resize(0);
 			module.functionImports.reserve(numFunctionImportTypes);
-			for(uint32_t functionImportIndex = 0; functionImportIndex < numFunctionImports; functionImportIndex++)
+			for(uint32 functionImportIndex = 0; functionImportIndex < numFunctionImports; functionImportIndex++)
 			{
 				Memory::ArenaString importName;
 				while(char c = in.single_char()) { importName.append(arena,c); };
 
 				auto numTypes = in.immU32();
-				for(uint32_t typeIndex = 0;typeIndex < numTypes;++typeIndex)
+				for(uint32 typeIndex = 0;typeIndex < numTypes;++typeIndex)
 				{ module.functionImports.push_back({functionTypes[in.boundedImmU32("function type index",functionTypes.size())],importName.c_str()}); }
 			}
 		}
@@ -1442,34 +1442,34 @@ namespace WebAssemblyBinary
 		// Decodes the module's global variables.
 		void decodeGlobals()
 		{
-			uint32_t numGlobalsI32 = in.immU32();
-			uint32_t numGlobalsF32 = in.immU32();
-			uint32_t numGlobalsF64 = in.immU32();
-			uint32_t numImportsI32 = in.immU32();
-			uint32_t numImportsF32 = in.immU32();
-			uint32_t numImportsF64 = in.immU32();
+			uint32 numGlobalsI32 = in.immU32();
+			uint32 numGlobalsF32 = in.immU32();
+			uint32 numGlobalsF64 = in.immU32();
+			uint32 numImportsI32 = in.immU32();
+			uint32 numImportsF32 = in.immU32();
+			uint32 numImportsF64 = in.immU32();
 
 			module.globals.reserve(numGlobalsI32 + numGlobalsF32 + numGlobalsF64 + numImportsI32 + numImportsF32 + numImportsF64);
 
-			for(uint32_t variableIndex = 0;variableIndex < numGlobalsI32;++variableIndex) { module.globals.push_back({TypeId::I32,nullptr}); }
-			for(uint32_t variableIndex = 0;variableIndex < numGlobalsF32;++variableIndex) { module.globals.push_back({TypeId::F32,nullptr}); }
-			for(uint32_t variableIndex = 0;variableIndex < numGlobalsF64;++variableIndex) { module.globals.push_back({TypeId::F64,nullptr}); }
+			for(uint32 variableIndex = 0;variableIndex < numGlobalsI32;++variableIndex) { module.globals.push_back({TypeId::I32,nullptr}); }
+			for(uint32 variableIndex = 0;variableIndex < numGlobalsF32;++variableIndex) { module.globals.push_back({TypeId::F32,nullptr}); }
+			for(uint32 variableIndex = 0;variableIndex < numGlobalsF64;++variableIndex) { module.globals.push_back({TypeId::F64,nullptr}); }
 
-			for(uint32_t variableIndex = 0;variableIndex < numImportsI32;++variableIndex)
+			for(uint32 variableIndex = 0;variableIndex < numImportsI32;++variableIndex)
 			{
 				Memory::ArenaString importName;
 				while(char c = in.single_char()) { importName.append(arena,c); };
 				module.variableImports.push_back({TypeId::I32,importName.c_str(),module.globals.size()});
 				module.globals.push_back({TypeId::I32,importName.c_str()});
 			}
-			for(uint32_t i = 0; i < numImportsF32; ++i)
+			for(uint32 i = 0; i < numImportsF32; ++i)
 			{
 				Memory::ArenaString importName;
 				while(char c = in.single_char()) { importName.append(arena,c); };
 				module.variableImports.push_back({TypeId::F32,importName.c_str(),module.globals.size()});
 				module.globals.push_back({TypeId::F32,importName.c_str()});
 			}
-			for(uint32_t i = 0; i < numImportsF64; ++i)
+			for(uint32 i = 0; i < numImportsF64; ++i)
 			{
 				Memory::ArenaString importName;
 				while(char c = in.single_char()) { importName.append(arena,c); };
@@ -1481,25 +1481,25 @@ namespace WebAssemblyBinary
 		// Decodes the constant table: constants that may be used by index throughout the module.
 		void decodeConstantPool()
 		{
-			uint32_t numI32s = in.immU32();
-			uint32_t numF32s = in.immU32();
-			uint32_t numF64s = in.immU32();
+			uint32 numI32s = in.immU32();
+			uint32 numF32s = in.immU32();
+			uint32 numF64s = in.immU32();
 
 			i32Constants.resize(numI32s);
 			f32Constants.resize(numF32s);
 			f64Constants.resize(numF64s);
 
-			for(uint32_t i = 0; i < numI32s; ++i) { i32Constants[i] = in.immU32(); }
-			for(uint32_t i = 0; i < numF32s; ++i) { f32Constants[i] = in.f32(); }
-			for(uint32_t i = 0; i < numF64s; ++i) { f64Constants[i] = in.f64(); }
+			for(uint32 i = 0; i < numI32s; ++i) { i32Constants[i] = in.immU32(); }
+			for(uint32 i = 0; i < numF32s; ++i) { f32Constants[i] = in.f32(); }
+			for(uint32 i = 0; i < numF64s; ++i) { f64Constants[i] = in.f64(); }
 		}
 
 		// Decodes the types of the functions defined in the module.
 		void decodeFunctionDeclarations()
 		{
-			const uint32_t numFunctions = in.immU32();
+			const uint32 numFunctions = in.immU32();
 			module.functions.resize(numFunctions);
-			for(uint32_t functionIndex = 0;functionIndex < numFunctions;++functionIndex)
+			for(uint32 functionIndex = 0;functionIndex < numFunctions;++functionIndex)
 			{
 				auto function = new(arena) Function;
 				module.functions[functionIndex] = function;
@@ -1510,9 +1510,9 @@ namespace WebAssemblyBinary
 		// Decode the function pointer tables: groups of functions that may be called indirectly, grouped by type.
 		void decodeFunctionPointerTables()
 		{
-			const uint32_t numFunctionPointerTables = in.immU32();
+			const uint32 numFunctionPointerTables = in.immU32();
 			module.functionTables.resize(numFunctionPointerTables);
-			for(uint32_t tableIndex = 0;tableIndex < numFunctionPointerTables;++tableIndex)
+			for(uint32 tableIndex = 0;tableIndex < numFunctionPointerTables;++tableIndex)
 			{
 				auto& table = module.functionTables[tableIndex];
 				table.type = functionTypes[in.boundedImmU32("function type index",functionTypes.size())];
@@ -1520,7 +1520,7 @@ namespace WebAssemblyBinary
 				// Decode the function table elements.
 				table.numFunctions = in.immU32();
 				table.functionIndices = new(arena) uintptr_t[table.numFunctions];
-				for(uint32_t functionIndex = 0;functionIndex < table.numFunctions;++functionIndex)
+				for(uint32 functionIndex = 0;functionIndex < table.numFunctions;++functionIndex)
 				{
 					table.functionIndices[functionIndex] = in.boundedImmU32("function index",module.functions.size());
 					if(table.functionIndices[functionIndex] >= module.functions.size()) { throw new FatalDecodeException("invalid function index"); }
@@ -1551,7 +1551,7 @@ namespace WebAssemblyBinary
 		}
 	};
 
-	bool decode(const uint8_t* packed,size_t numBytes,Module*& outModule,std::vector<AST::ErrorRecord*>& outErrors)
+	bool decode(const uint8* packed,size_t numBytes,Module*& outModule,std::vector<AST::ErrorRecord*>& outErrors)
 	{
 		outModule = new Module;
 		try
