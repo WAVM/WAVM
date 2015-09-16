@@ -482,9 +482,9 @@ namespace WebAssemblyText
 						if(parseTaggedNode(nodeIt,Symbol::_case,childNodeIt))
 						{
 							// Parse the key for this case.
-							int64 key;
-							if(!parseInt(childNodeIt,key)) { return recordError<Error<Class>>(outErrors,childNodeIt,"switch: missing integer case key"); }
-							arms[armIndex].key = (uint64)key;
+							int64 keyValue;
+							if(!parseInt(childNodeIt,keyValue)) { return recordError<Error<Class>>(outErrors,childNodeIt,"switch: missing integer case key"); }
+							arms[armIndex].key = (uint64)keyValue;
 
 							// Count the number of operations in the case, and whether it ends with a fallthrough symbol.
 							// If there are no operations or a fallthrough symbol, it should fallthrough to the next case.
@@ -622,20 +622,20 @@ namespace WebAssemblyText
 					}
 
 					// Parse the call's parameters.
-					auto function = moduleContext.module->functions[functionIndex];
-					auto parameters = new(arena)UntypedExpression*[function->type.parameters.size()];
-					for(uintptr_t parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
+					auto callFunction = moduleContext.module->functions[functionIndex];
+					auto parameters = new(arena)UntypedExpression*[callFunction->type.parameters.size()];
+					for(uintptr_t parameterIndex = 0;parameterIndex < callFunction->type.parameters.size();++parameterIndex)
 					{
-						auto parameterType = function->type.parameters[parameterIndex];
+						auto parameterType = callFunction->type.parameters[parameterIndex];
 						auto parameterValue = parseTypedExpression(parameterType,nodeIt,"call parameter");
 						parameters[parameterIndex] = parameterValue;
 					}
 
 					// Create the Call node.
-					auto call = new(arena)Call(AnyOp::callDirect,getPrimaryTypeClass(function->type.returnType),functionIndex,parameters);
+					auto call = new(arena)Call(AnyOp::callDirect,getPrimaryTypeClass(callFunction->type.returnType),functionIndex,parameters);
 
 					// Validate the function return type against the result type of this call.
-					auto result = coerceExpression<Class>(resultType,TypedExpression(call,function->type.returnType),parentNodeIt,"call return value");
+					auto result = coerceExpression<Class>(resultType,TypedExpression(call,callFunction->type.returnType),parentNodeIt,"call return value");
 					return requireFullMatch(nodeIt,"call",result);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(call_import)
