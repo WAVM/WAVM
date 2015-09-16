@@ -308,13 +308,6 @@ namespace WebAssemblyBinary
 	static const uint32 ImmLimit = 1 << ImmBits;
 	static_assert(1 + OpWithImmBits + ImmBits == 8,"Bits of immediate op should add up to a byte");
 
-	static inline uint8 PackOpWithImm(uint8 op,uint8 imm)
-	{
-		assert(op < OpWithImmLimit);
-		assert(imm < ImmLimit);
-		return HasImmFlag | (uint8(op) << ImmBits) | imm;
-	}
-
 	template <class TWithImm>
 	static inline void UnpackOpWithImm(uint8 byte,TWithImm* op,uint8 *imm)
 	{

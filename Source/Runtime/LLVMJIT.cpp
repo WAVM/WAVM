@@ -82,6 +82,7 @@ namespace LLVMJIT
 	llvm::ConstantInt* compileLiteral(uint16 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I16),llvm::APInt(16,(uint64)value,false)); }
 	llvm::ConstantInt* compileLiteral(uint32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I32),llvm::APInt(32,(uint64)value,false)); }
 	llvm::ConstantInt* compileLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I64),llvm::APInt(64,(uint64)value,false)); }
+    llvm::ConstantInt* compileLiteral(uintptr_t value) { return sizeof(value) == 8 ? compileLiteral((uint64)value) : compileLiteral((uint32)value); }
 	llvm::Constant* compileLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	llvm::Constant* compileLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(asLLVMType(TypeId::Bool),llvm::APInt(1,value ? 1 : 0,false)); }
@@ -840,9 +841,8 @@ namespace LLVMJIT
 		std::cout << "Generated LLVM code for module in " << llvmGenTimer.getMilliseconds() << "ms" << std::endl;
 		
 		// Work around a problem with LLVM generating a COFF file that MCJIT can't parse. Adding -elf to the target triple forces it to use ELF instead of COFF.
-		#if WIN32
-			jitModule->llvmModule->setTargetTriple(llvm::sys::getProcessTriple() + "-elf");
-		#endif
+		// This also works around a _ being prepended to the symbol before getSymbolAddress is called on MacOS.
+        jitModule->llvmModule->setTargetTriple(llvm::sys::getProcessTriple() + "-elf");
 
 		// Create the MCJIT execution engine for this module.
 		std::string errStr;

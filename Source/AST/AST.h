@@ -29,13 +29,8 @@ namespace AST
 		#endif
 		{}
 			
-		template<typename Class> friend typename Class::ClassExpression* as(const UntypedExpression* expression)
-		{
-			#ifdef _DEBUG
-				assert(Class::id == TypeClassId::Any || expression->typeClass == Class::id);
-			#endif
-			return (Expression<Class>*)expression;
-		}
+		template<typename Class>
+        friend typename Class::ClassExpression* as(const UntypedExpression*);
 
 		AnyOp op() const { return opAny; }
 
@@ -51,6 +46,15 @@ namespace AST
 			#undef AST_TYPECLASS
 		};
 	};
+    
+    template<typename Class>
+    typename Class::ClassExpression* as(const UntypedExpression* expression)
+    {
+#ifdef _DEBUG
+        assert(Class::id == TypeClassId::Any || expression->typeClass == Class::id);
+#endif
+        return (Expression<Class>*)expression;
+    }
 
 	// Define Expression<...Class> classes which represent expressions that yield a specific type class.
 	#define AST_TYPECLASS(className) \

@@ -7,12 +7,12 @@ int main(int argc,char** argv)
 {
 	AST::Module* module;
 	const char* outputFilename;
-	if(!strcmp(argv[1],"-text") && argc == 4)
+	if(argc == 4 && !strcmp(argv[1],"-text"))
 	{
 		module = loadTextModule(argv[2]);
 		outputFilename = argv[3];
 	}
-	else if(!strcmp(argv[1],"-binary") && argc == 5)
+	else if(argc == 5 && !strcmp(argv[1],"-binary"))
 	{
 		module = loadBinaryModule(argv[2],argv[3]);
 		outputFilename = argv[4];

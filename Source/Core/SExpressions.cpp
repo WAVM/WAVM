@@ -2,6 +2,7 @@
 #include "Core/SExpressions.h"
 #include <initializer_list>
 #include <limits>
+#include <cmath>
 
 namespace SExp
 {
@@ -286,7 +287,7 @@ namespace SExp
 				if(digitIndex < numIntegerDigits)
 				{
 					// Detect if the float64 is about to overflow its maximum value.
-					if(std::abs(accumulator) > std::numeric_limits<float64>::max() / base) 
+					if(std::abs(accumulator) > std::numeric_limits<float64>::max() / base)
 					{
 						auto node = new(arena) Node(state.getLocus(),NodeType::Error);
 						node->error = "number is too large to represent as a 64-bit float";

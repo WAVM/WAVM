@@ -10,6 +10,10 @@
 #include <iostream>
 #include <errno.h>
 
+#ifdef __APPLE__
+    #define MAP_ANONYMOUS MAP_ANON
+#endif
+
 namespace Platform
 {
 	Mutex::Mutex()

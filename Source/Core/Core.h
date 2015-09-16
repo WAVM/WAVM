@@ -36,8 +36,8 @@ namespace Core
 		float64 getMilliseconds() { return getMicroseconds() / 1000.0; }
 		float64 getSeconds() { return getMicroseconds() / 1000000.0; }
 	private:
-		std::chrono::system_clock::time_point startTime;
-		std::chrono::system_clock::time_point endTime;
+		std::chrono::high_resolution_clock::time_point startTime;
+		std::chrono::high_resolution_clock::time_point endTime;
 		bool isStopped;
 	};
 }
