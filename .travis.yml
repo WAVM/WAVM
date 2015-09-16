@@ -2,7 +2,9 @@ sudo: false
 language: c++
 compiler: gcc
 
-#install: ./travis/install-llvm.sh
+install:
+ - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+# - ./travis/install-llvm.sh
 
 script: ./travis/script.sh
 
