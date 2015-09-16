@@ -10,7 +10,7 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
 
 # Include the LLVM headers
-target_include_directories(Runtime PRIVATE ${LLVM_INCLUDE_DIRS})
+include_directories(Runtime PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(Runtime PRIVATE ${LLVM_DEFINITIONS})
 
 # Link against the LLVM libraries
