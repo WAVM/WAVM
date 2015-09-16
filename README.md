@@ -26,7 +26,7 @@ That will load a text or binary WebAssembly file, and call the named exported fu
 
 # Design
 
-Parsing the WebAssembly text format goes through a [generic S-expression parser](Source/SExpressions.cpp) that creates a tree of nodes, symbols, integers, etc. The symbols are statically defined strings, and are represented in the tree by an index. After creating that tree, it is transformed into a WebAssembly-like AST by [WebAssemblyText.cpp](Source/WebAssembly/WebAssemblyText.cpp).
+Parsing the WebAssembly text format goes through a [generic S-expression parser](Source/Core/SExpressions.cpp) that creates a tree of nodes, symbols, integers, etc. The symbols are statically defined strings, and are represented in the tree by an index. After creating that tree, it is transformed into a WebAssembly-like AST by [WebAssemblyTextParse.cpp](Source/WebAssembly/WebAssemblyTextParse.cpp).
 
 Decoding the polyfill binary format also produces the same AST, so while it sticks pretty closely to the syntax of the text format, there are a few differences to accomodate the polyfill format:
 * WebAssembly only supports I32 and I64 integer value types, with loads and stores supporting explicitly converting to and from I8s or I16s in memory. The WAVM AST just supports general I8 and I16 values.
