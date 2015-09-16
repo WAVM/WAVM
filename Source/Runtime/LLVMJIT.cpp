@@ -82,7 +82,6 @@ namespace LLVMJIT
 	llvm::ConstantInt* compileLiteral(uint16 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I16),llvm::APInt(16,(uint64)value,false)); }
 	llvm::ConstantInt* compileLiteral(uint32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I32),llvm::APInt(32,(uint64)value,false)); }
 	llvm::ConstantInt* compileLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I64),llvm::APInt(64,(uint64)value,false)); }
-    llvm::ConstantInt* compileLiteral(uintptr_t value) { return sizeof(value) == 8 ? compileLiteral((uint64)value) : compileLiteral((uint32)value); }
 	llvm::Constant* compileLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	llvm::Constant* compileLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(asLLVMType(TypeId::Bool),llvm::APInt(1,value ? 1 : 0,false)); }
@@ -96,7 +95,8 @@ namespace LLVMJIT
 		std::vector<llvm::GlobalVariable*> globalVariablePointers;
 		std::vector<llvm::GlobalVariable*> functionImportPointers;
 		std::vector<llvm::GlobalVariable*> functionTablePointers;
-		llvm::GlobalVariable* virtualAddressBase;
+		llvm::Value* instanceMemoryBase;
+		llvm::Value* instanceMemoryAddressMask;
 		llvm::ExecutionEngine* executionEngine;
 
 		JITModule(const Module* inASTModule)
@@ -184,10 +184,10 @@ namespace LLVMJIT
 				: irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context));
 
 			// Mask the index to the address-space size.
-			auto maskedByteIndex = irBuilder.CreateAnd(byteIndex,compileLiteral(Runtime::instanceAddressSpaceMaxBytes - 1));
+			auto maskedByteIndex = irBuilder.CreateAnd(byteIndex,jitModule.instanceMemoryAddressMask);
 
 			// Cast the pointer to the appropriate type.
-			auto bytePointer = irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(jitModule.virtualAddressBase),maskedByteIndex);
+			auto bytePointer = irBuilder.CreateInBoundsGEP(jitModule.instanceMemoryBase,maskedByteIndex);
 			return irBuilder.CreatePointerCast(bytePointer,asLLVMType(memoryType)->getPointerTo());
 		}
 
@@ -747,13 +747,11 @@ namespace LLVMJIT
 		Core::Timer llvmGenTimer;
 		JITModule* jitModule = new JITModule(astModule);
 		jitModules.push_back(jitModule);
-	
-		// Bind the memory buffer to the global variable used by the module as the base address for memory accesses.
-		auto virtualAddressBaseValue = llvm::Constant::getIntegerValue(
-			llvm::Type::getInt8PtrTy(context),
-			llvm::APInt(64,reinterpret_cast<uint64>(Runtime::instanceMemoryBase))
-			);
-		jitModule->virtualAddressBase = new llvm::GlobalVariable(*jitModule->llvmModule,llvm::Type::getInt8PtrTy(context),true,llvm::GlobalVariable::PrivateLinkage,virtualAddressBaseValue,"virtualAddressBase");
+
+		// Create literals for the virtual memory base and mask.
+		jitModule->instanceMemoryBase = llvm::Constant::getIntegerValue(llvm::Type::getInt8PtrTy(context),llvm::APInt(64,reinterpret_cast<uintptr_t>(Runtime::instanceMemoryBase)));
+		auto instanceMemoryAddressMask = Runtime::instanceAddressSpaceMaxBytes - 1;
+		jitModule->instanceMemoryAddressMask = sizeof(uintptr_t) == 8 ? compileLiteral((uint64)instanceMemoryAddressMask) : compileLiteral((uint32)instanceMemoryAddressMask);
 
 		// Create the LLVM functions.
 		jitModule->functions.resize(astModule->functions.size());
