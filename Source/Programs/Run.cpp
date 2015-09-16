@@ -118,7 +118,7 @@ int main(int argc,char** argv)
 
 	uint32 returnCode;
 	Core::Timer executionTime;
-	if(!callModuleFunction(module,argv[3],returnCode)) { return -1; }
+	if(!callModuleFunction(module,functionName,returnCode)) { return -1; }
 	executionTime.stop();
 
 	std::cout << "Program returned: " << returnCode << std::endl;
