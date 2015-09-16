@@ -1,7 +1,6 @@
-#include "Core.h"
-#include "SExpressions.h"
+#include "Core/Core.h"
+#include "Core/SExpressions.h"
 #include <initializer_list>
-#include <fstream>
 #include <limits>
 
 namespace SExp

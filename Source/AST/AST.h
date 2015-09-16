@@ -29,9 +29,11 @@ namespace AST
 		#endif
 		{}
 			
-		template<typename Class> friend typename Class::Expression* as(const UntypedExpression* expression)
+		template<typename Class> friend typename Class::ClassExpression* as(const UntypedExpression* expression)
 		{
-			assert(Class::id == TypeClassId::Any || expression->typeClass == Class::id);
+			#ifdef _DEBUG
+				assert(Class::id == TypeClassId::Any || expression->typeClass == Class::id);
+			#endif
 			return (Expression<Class>*)expression;
 		}
 
@@ -77,13 +79,13 @@ namespace AST
 		TypeId type;
 
 		TypedExpression(UntypedExpression* inExpression,TypeId inType): expression(inExpression), type(inType) {}
-		TypedExpression(): type(TypeId::None), expression(nullptr) {}
+		TypedExpression(): expression(nullptr), type(TypeId::None) {}
 		operator bool() const { return expression != nullptr; }
 		
-		template<typename AsClass> friend typename AsClass::Expression* as(const TypedExpression& expression)
+		template<typename AsClass> friend typename AsClass::ClassExpression* as(const TypedExpression& expression)
 		{
 			assert(expression.expression && isTypeClass(expression.type,AsClass::id));
-			return (AsClass::Expression*)expression.expression;
+			return (typename AsClass::ClassExpression*)expression.expression;
 		}
 	};
 
@@ -99,7 +101,7 @@ namespace AST
 		TypeId returnType;
 
 		FunctionType(TypeId inReturnType = TypeId::Void,const std::vector<TypeId>& inParameters = {})
-		: returnType(inReturnType), parameters(inParameters) {}
+		: parameters(inParameters), returnType(inReturnType) {}
 		
 		friend bool operator==(const FunctionType& left,const FunctionType& right)
 		{
@@ -155,7 +157,7 @@ namespace AST
 		ErrorRecord(std::string&& inMessage) : message(std::move(inMessage)) {}
 	};
 
-	struct CaseInsensitiveStringCompareFunctor { bool operator()(const char* left,const char* right) { return strcmp(left,right) < 0; } };
+	struct CaseInsensitiveStringCompareFunctor { bool operator()(const char* left,const char* right) const { return strcmp(left,right) < 0; } };
 	typedef std::map<const char*,uintptr_t,CaseInsensitiveStringCompareFunctor> ExportNameToFunctionIndexMap;
 
 	struct Module

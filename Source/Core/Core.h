@@ -7,6 +7,8 @@
 #include <chrono>
 #include <algorithm>
 #include <string>
+#include <cstring>
+#include <string.h>
 #include <assert.h>
 
 #pragma warning (disable:4127)	// conditional expression is constant

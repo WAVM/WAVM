@@ -3,10 +3,6 @@
 #include "Core/Core.h"
 #include "Core/MemoryArena.h"
 
-#include <cstdint>
-#include <string>
-#include <map>
-
 #pragma warning (disable:4512)	// assignment operator could not be generated
 
 namespace SExp
@@ -205,7 +201,7 @@ namespace SExp
 	};
 
 	// Parses a S-expression tree from a string, allocating nodes from arena, and using symbolIndexMap to map symbols to indices.
-	struct StringCompareFunctor { bool operator()(const char* left,const char* right) { return strcmp(left,right) < 0; } };
+	struct StringCompareFunctor { bool operator()(const char* left,const char* right) const { return strcmp(left,right) < 0; } };
 	typedef std::map<const char*,uintptr_t,StringCompareFunctor> SymbolIndexMap;
 	Node* parse(const char* string,Memory::Arena& arena,const SymbolIndexMap& symbolIndexMap);
 

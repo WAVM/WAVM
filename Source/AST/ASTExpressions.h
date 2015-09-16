@@ -5,18 +5,18 @@
 namespace AST
 {
 	template<typename Type>
-	struct Literal : public Type::Expression
+	struct Literal : public Type::TypeExpression
 	{
 		typedef typename Type::NativeType NativeType;
 		NativeType value;
-		Literal(NativeType inValue) : Expression(Op::lit), value(inValue) {}
+		Literal(NativeType inValue) : Type::TypeExpression(Type::Op::lit), value(inValue) {}
 	};
 
 	template<typename Class>
 	struct Error : public Expression<Class>, public ErrorRecord
 	{
 		Error(std::string&& inMessage)
-		: Expression(Op::error), ErrorRecord(std::move(inMessage))
+		: Expression<Class>(Class::Op::error), ErrorRecord(std::move(inMessage))
 		{}
 	};
 
@@ -43,15 +43,14 @@ namespace AST
 		TypeId memoryType;
 
 		Load(typename Class::Op op,bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypeId inMemoryType)
-		: Expression(op), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), memoryType(inMemoryType) {}
+		: Expression<Class>(op), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), memoryType(inMemoryType) {}
 	};
 	
 	template<typename Class>
 	struct Unary : public Expression<Class>
 	{
 		Expression<Class>* operand;
-		Unary(typename Class::Op op,Expression<Class>* inOperand): Expression(op), operand(inOperand)
-		{}
+		Unary(typename Class::Op op,Expression<Class>* inOperand): Expression<Class>(op), operand(inOperand) {}
 	};
 	
 	template<typename Class>
@@ -64,7 +63,7 @@ namespace AST
 		TypeId memoryType;
 
 		Store(bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypedExpression inValue,TypeId inMemoryType)
-		: Expression(Class::Op::store), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), value(inValue), memoryType(inMemoryType) {}
+		: Expression<Class>(Class::Op::store), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), value(inValue), memoryType(inMemoryType) {}
 	};
 
 	template<typename Class>
@@ -74,7 +73,7 @@ namespace AST
 		Expression<Class>* right;
 
 		Binary(typename Class::Op op,Expression<Class>* inLeft,Expression<Class>* inRight)
-		: Expression(op), left(inLeft), right(inRight)
+		: Expression<Class>(op), left(inLeft), right(inRight)
 		{}
 	};
 
@@ -96,7 +95,7 @@ namespace AST
 		TypedExpression source;
 
 		Cast(Op op,TypedExpression inSource)
-		: Expression(op), source(inSource) {}
+		: Expression<Class>(op), source(inSource) {}
 	};
 	
 	struct Call : public Expression<AnyClass>
@@ -152,7 +151,7 @@ namespace AST
 		BranchTarget* endTarget;
 
 		Switch(TypedExpression inKey,uintptr_t inDefaultArmIndex,size_t inNumArms,SwitchArm* inArms,BranchTarget* inEndTarget)
-		: Expression(Op::switch_), key(inKey), defaultArmIndex(inDefaultArmIndex), numArms(inNumArms), arms(inArms), endTarget(inEndTarget) {}
+		: Expression<Class>(Class::Op::switch_), key(inKey), defaultArmIndex(inDefaultArmIndex), numArms(inNumArms), arms(inArms), endTarget(inEndTarget) {}
 	};
 	
 	template<typename Class>
@@ -163,7 +162,7 @@ namespace AST
 		Expression<Class>* elseExpression;
 
 		IfElse(Expression<BoolClass>* inCondition,Expression<Class>* inThenExpression,Expression<Class>* inElseExpression)
-		:	Expression(Op::ifElse)
+		:	Expression<Class>(Class::Op::ifElse)
 		,	condition(inCondition)
 		,	thenExpression(inThenExpression)
 		,	elseExpression(inElseExpression)
@@ -177,7 +176,7 @@ namespace AST
 		Expression<Class>* expression;
 
 		Label(BranchTarget* inEndTarget,Expression<Class>* inExpression)
-		: Expression(Op::label), endTarget(inEndTarget), expression(inExpression) {}
+		: Expression<Class>(Class::Op::label), endTarget(inEndTarget), expression(inExpression) {}
 	};
 
 	template<typename Class>
@@ -189,7 +188,7 @@ namespace AST
 		BranchTarget* continueTarget;
 
 		Loop(Expression<VoidClass>* inExpression,BranchTarget* inBreakTarget,BranchTarget* inContinueTarget)
-		: Expression(Op::loop), expression(inExpression), breakTarget(inBreakTarget), continueTarget(inContinueTarget) {}
+		: Expression<Class>(Class::Op::loop), expression(inExpression), breakTarget(inBreakTarget), continueTarget(inContinueTarget) {}
 	};
 
 	template<typename Class>
@@ -199,7 +198,7 @@ namespace AST
 		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it may be null.
 
 		Branch(BranchTarget* inBranchTarget,UntypedExpression* inValue)
-		: Expression(Op::branch), branchTarget(inBranchTarget), value(inValue) {}
+		: Expression<Class>(Class::Op::branch), branchTarget(inBranchTarget), value(inValue) {}
 	};
 
 	template<typename Class>
@@ -209,7 +208,7 @@ namespace AST
 		// If the return type is Void, then it will be null.
 		UntypedExpression* value;
 
-		Return(UntypedExpression* inValue): Expression(Op::ret), value(inValue) {}
+		Return(UntypedExpression* inValue): Expression<Class>(Class::Op::ret), value(inValue) {}
 	};
 
 	template<typename Class>
@@ -219,7 +218,7 @@ namespace AST
 		Expression<Class>* resultExpression;
 
 		Sequence(Expression<VoidClass>* inVoidExpression,Expression<Class>* inResultExpression)
-		:	Expression(Op::sequence)
+		:	Expression<Class>(Class::Op::sequence)
 		,	voidExpression(inVoidExpression)
 		,	resultExpression(inResultExpression)
 		{}

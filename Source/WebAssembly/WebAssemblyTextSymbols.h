@@ -153,7 +153,7 @@ namespace WebAssemblyText
 	};
 
 	// Declare an array, indexed by the symbol enum, containing the symbol string.
-	extern const char* wastSymbols[Symbol::num];
+	extern const char* wastSymbols[(size_t)Symbol::num];
 	
 	// Encapsulates static initialization of the WAST symbol index map.
 	const SExp::SymbolIndexMap& getWASTSymbolIndexMap();

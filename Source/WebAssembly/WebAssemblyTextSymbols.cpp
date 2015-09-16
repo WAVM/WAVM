@@ -13,7 +13,7 @@ namespace WebAssemblyText
 	#define VoidLowerCaseString "void"
 
 	// Declare an array, indexed by the symbol enum, containing the symbol string.
-	const char* wastSymbols[Symbol::num] =
+	const char* wastSymbols[(size_t)Symbol::num] =
 	{
 		#define AST_TYPE(typeName,className,symbol) typeName##LowerCaseString "." #symbol,
 		#define AST_TYPE_PAIR(typeName1,typeName2,symbol) typeName1##LowerCaseString "." #symbol "/" typeName2##LowerCaseString,

@@ -167,25 +167,27 @@ namespace WebAssemblyText
 			return createTypedTaggedSubtree(Type::id,Symbol::_const) << literal->value;
 		}
 		
-		template<>
-		DispatchResult visitLiteral<F32Type>(const Literal<F32Type>* literal)
+		DispatchResult visitLiteral(const Literal<F32Type>* literal)
 		{
 			// Just output floats as reinterpreted ints for now.
 			//if(std::isnan(literal->value) || std::isinf(literal->value))
 			{
-				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I32,Symbol::_const) << *(uint32*)&literal->value;
+				union { float32 floatLiteral; uint32 reinterpretedAsInt; };
+				floatLiteral = literal->value;
+				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I32,Symbol::_const) << reinterpretedAsInt;
 				return createBitypedTaggedSubtree(TypeId::F32,Symbol::_reinterpret,TypeId::I32) << bitsStream;
 			}
 			//else { return createTypedTaggedSubtree(TypeId::F32,Symbol::_const) << literal->value; }
 		}
 		
-		template<>
-		DispatchResult visitLiteral<F64Type>(const Literal<F64Type>* literal)
+		DispatchResult visitLiteral(const Literal<F64Type>* literal)
 		{
 			// Just output floats as reinterpreted ints for now.
 			//if(std::isnan(literal->value) || std::isinf(literal->value))
 			{
-				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I64,Symbol::_const) << *(uint64*)&literal->value;
+				union { float64 floatLiteral; uint64 reinterpretedAsInt; };
+				floatLiteral = literal->value;
+				SNodeOutputStream bitsStream = createTypedTaggedSubtree(TypeId::I64,Symbol::_const) << reinterpretedAsInt;
 				return createBitypedTaggedSubtree(TypeId::F64,Symbol::_reinterpret,TypeId::I64) << bitsStream;
 			}
 			//else { return createTypedTaggedSubtree(TypeId::F64,Symbol::_const) << literal->value; }
@@ -231,6 +233,7 @@ namespace WebAssemblyText
 			{
 			case TypeId::I8:  symbol = load->op() == IntOp::loadSExt ? Symbol::_load8_s  : Symbol::_load8_u; break;
 			case TypeId::I16: symbol = load->op() == IntOp::loadSExt ? Symbol::_load16_s : Symbol::_load16_u; break;
+			default:;
 			}
 			return createTypedTaggedSubtree(type,symbol)
 				<< dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
@@ -250,6 +253,7 @@ namespace WebAssemblyText
 			{
 			case TypeId::I8: symbol = Symbol::_store8; break;
 			case TypeId::I16: symbol = Symbol::_store16; break;
+			default:;
 			}
 			return createTypedTaggedSubtree(store->value.type,symbol)
 				<< dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)

@@ -140,8 +140,9 @@ namespace LLVMJIT
 		, astModule(inJITModule.astModule)
 		, astFunction(astModule->functions[functionIndex])
 		, llvmFunction(jitModule.functions[functionIndex])
-		, branchContext(nullptr)
 		, irBuilder(context)
+		, localVariablePointers(nullptr)
+		, branchContext(nullptr)
 		{}
 
 		void compile();
@@ -238,8 +239,7 @@ namespace LLVMJIT
 			assert(type == load->memoryType);
 			return irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
 		}
-		template<>
-		DispatchResult visitLoad<IntClass>(TypeId type,const Load<IntClass>* load,OpTypes<AnyClass>::load)
+		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<AnyClass>::load)
 		{
 			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
 			assert(isTypeClass(load->memoryType,TypeClassId::Int));
@@ -263,8 +263,7 @@ namespace LLVMJIT
 			irBuilder.CreateStore(value,compileAddress(store->address,store->isFarAddress,store->memoryType));
 			return value;
 		}
-		template<>
-		DispatchResult visitStore<IntClass>(const Store<IntClass>* store)
+		DispatchResult visitStore(const Store<IntClass>* store)
 		{
 			auto value = dispatch(*this,store->value);
 			llvm::Value* memoryValue = value;
@@ -551,13 +550,13 @@ namespace LLVMJIT
 		template<typename Class,typename OpAsType> DispatchResult visitCast(TypeId type,const Cast<Class>* cast,OpAsType);
 
 		#define IMPLEMENT_UNARY_OP(class,op,llvmOp) \
-			template<> DispatchResult visitUnary(TypeId type,const Unary<class>* unary,OpTypes<class>::op) \
+			DispatchResult visitUnary(TypeId type,const Unary<class>* unary,OpTypes<class>::op) \
 			{ \
 				auto operand = dispatch(*this,unary->operand,type); \
 				return llvmOp; \
 			}
 		#define IMPLEMENT_BINARY_OP(class,op,llvmOp) \
-			template<> DispatchResult visitBinary(TypeId type,const Binary<class>* binary,OpTypes<class>::op) \
+			DispatchResult visitBinary(TypeId type,const Binary<class>* binary,OpTypes<class>::op) \
 			{ \
 				auto left = dispatch(*this,binary->left,type); \
 				auto right = dispatch(*this,binary->right,type); \
@@ -659,10 +658,10 @@ namespace LLVMJIT
 		{
 			// We assume JITModule::finalize has validated the types of any imports against the intrinsic functions available.
 			const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
-			if(intrinsicFunction) { return *(uint64*)&intrinsicFunction->value; }
+			if(intrinsicFunction) { return reinterpret_cast<uint64>(intrinsicFunction->value); }
 			
 			const Intrinsics::Value* intrinsicValue = Intrinsics::findValue(name.c_str());
-			if(intrinsicValue) { return *(uint64*)&intrinsicValue->value; }
+			if(intrinsicValue) { return reinterpret_cast<uint64>(intrinsicValue->value); }
 
 			std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
 			throw;
@@ -747,7 +746,7 @@ namespace LLVMJIT
 		// Bind the memory buffer to the global variable used by the module as the base address for memory accesses.
 		auto virtualAddressBaseValue = llvm::Constant::getIntegerValue(
 			llvm::Type::getInt8PtrTy(context),
-			llvm::APInt(64,*(uint64*)&Runtime::instanceMemoryBase)
+			llvm::APInt(64,reinterpret_cast<uint64>(Runtime::instanceMemoryBase))
 			);
 		jitModule->virtualAddressBase = new llvm::GlobalVariable(*jitModule->llvmModule,llvm::Type::getInt8PtrTy(context),true,llvm::GlobalVariable::PrivateLinkage,virtualAddressBaseValue,"virtualAddressBase");
 

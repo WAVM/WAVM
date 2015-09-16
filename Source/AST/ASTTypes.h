@@ -74,7 +74,7 @@ namespace AST
 		{ \
 			static TypeClassId id; \
 			typedef className##Op Op; \
-			typedef Expression<className##Class> Expression; \
+			typedef Expression<className##Class> ClassExpression; \
 		}; \
 		template<> struct TypeClass<TypeClassId::className> : public className##Class {};
 	ENUM_AST_TYPECLASSES()
@@ -90,7 +90,7 @@ namespace AST
 			static const char* name; \
 			typedef className##Op Op; \
 			typedef className##Class Class; \
-			typedef Expression<Class> Expression; \
+			typedef Expression<Class> TypeExpression; \
 			typedef NativeTypes::typeName NativeType; \
 		}; \
 		template<> struct Type<TypeId::typeName> : public typeName##Type {};

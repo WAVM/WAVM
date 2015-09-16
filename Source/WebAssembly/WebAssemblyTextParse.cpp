@@ -11,7 +11,9 @@
 
 using namespace AST;
 
-#pragma warning(disable:4702) // unreachable code
+#ifdef _WIN32
+	#pragma warning(disable:4702) // unreachable code
+#endif
 
 namespace WebAssemblyText
 {
@@ -230,12 +232,11 @@ namespace WebAssemblyText
 			if(parseTreeNode(parentNodeIt,nodeIt) && parseSymbol(nodeIt,tag))
 			{
 				TypeId opType;
-				TypeId opType2;
 				switch(tag)
 				{
 				default: return TypedExpression();
 				#define DEFINE_UNTYPED_OP(symbol) \
-					throw; case Symbol::_##symbol: opType = TypeId::None; opType2 = TypeId::None;
+					throw; case Symbol::_##symbol: opType = TypeId::None;
 				#define DISPATCH_TYPED_OP(opTypeName,opClassName,symbol) \
 					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
 				#define DEFINE_TYPED_OP(opClass,symbol) \
@@ -431,7 +432,7 @@ namespace WebAssemblyText
 		// Parse a parametric expression of a specific type.
 		// These are different from the non-parametric expressions because the opcodes are valid in any type context,
 		// so it needs to know the context to construct the correct class of expression.
-		template<typename Class> typename Class::Expression* parseParametricExpression(TypeId resultType,SNodeIt parentNodeIt)
+		template<typename Class> typename Class::ClassExpression* parseParametricExpression(TypeId resultType,SNodeIt parentNodeIt)
 		{
 			SNodeIt nodeIt;
 			Symbol tag;
@@ -635,7 +636,7 @@ namespace WebAssemblyText
 					auto call = new(arena)Call(AnyOp::callDirect,getPrimaryTypeClass(callFunction->type.returnType),functionIndex,parameters);
 
 					// Validate the function return type against the result type of this call.
-					auto result = coerceExpression<Class>(resultType,TypedExpression(call,callFunction->type.returnType),parentNodeIt,"call return value");
+					auto result = coerceExpression(Class(),resultType,TypedExpression(call,callFunction->type.returnType),parentNodeIt,"call return value");
 					return requireFullMatch(nodeIt,"call",result);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(call_import)
@@ -661,7 +662,7 @@ namespace WebAssemblyText
 					auto call = new(arena)Call(AnyOp::callImport,getPrimaryTypeClass(functionImport.type.returnType),importIndex,parameters);
 					
 					// Validate the function return type against the result type of this call.
-					auto result = coerceExpression<Class>(resultType,TypedExpression(call,functionImport.type.returnType),parentNodeIt,"call_import return value");
+					auto result = coerceExpression(Class(),resultType,TypedExpression(call,functionImport.type.returnType),parentNodeIt,"call_import return value");
 					return requireFullMatch(nodeIt,"call",result);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(call_indirect)
@@ -690,7 +691,7 @@ namespace WebAssemblyText
 					auto call = new(arena)CallIndirect(getPrimaryTypeClass(functionTable.type.returnType),tableIndex,functionIndex,parameters);
 					
 					// Validate the function return type against the result type of this call.
-					auto result = coerceExpression<Class>(resultType,TypedExpression(call,functionTable.type.returnType),parentNodeIt,"call_indirect return value");
+					auto result = coerceExpression(Class(),resultType,TypedExpression(call,functionTable.type.returnType),parentNodeIt,"call_indirect return value");
 					return requireFullMatch(nodeIt,"call_indirect",result);
 				}
 
@@ -752,15 +753,14 @@ namespace WebAssemblyText
 
 		// By default coerceExpression results in a type error, but is overloaded below for specific classes.
 		template<typename Class>
-		typename Class::Expression* coerceExpression(TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
+		typename Class::ClassExpression* coerceExpression(Class,TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
 			if(resultType == typedExpression.type) { return as<Class>(typedExpression.expression); }
 			else { return typeError<Class>(resultType,typedExpression,nodeIt,errorContext); }
 		}
 
 		// coerceExpression for BoolClass will try to coerce integers.
-		template<>
-		typename BoolClass::Expression* coerceExpression<BoolClass>(TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
+		BoolClass::ClassExpression* coerceExpression(BoolClass,TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
 			assert(resultType == TypeId::Bool);
 			if(resultType == typedExpression.type) { return as<BoolClass>(typedExpression); }
@@ -783,8 +783,7 @@ namespace WebAssemblyText
 		}
 
 		// coerceExpression for VoidClass will wrap any other typed expression in a DiscardResult node.
-		template<>
-		typename VoidClass::Expression* coerceExpression<VoidClass>(TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
+		VoidClass::ClassExpression* coerceExpression(VoidClass,TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
 			if(resultType == typedExpression.type) { return as<VoidClass>(typedExpression); }
 			else
@@ -795,8 +794,7 @@ namespace WebAssemblyText
 		}
 		
 		// coerceExpression for IntClass will try to coerce bools.
-		template<>
-		typename IntClass::Expression* coerceExpression<IntClass>(TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
+		IntClass::ClassExpression* coerceExpression(IntClass,TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
 			assert(isTypeClass(resultType,TypeClassId::Int));
 			if(resultType == typedExpression.type) { return as<IntClass>(typedExpression); }
@@ -810,7 +808,7 @@ namespace WebAssemblyText
 
 		// Parses expressions of a specific type.
 		template<typename Class>
-		typename Class::Expression* parseTypedExpression(TypeId type,SNodeIt& nodeIt,const char* errorContext)
+		typename Class::ClassExpression* parseTypedExpression(TypeId type,SNodeIt& nodeIt,const char* errorContext)
 		{
 			// If the node is a S-expression error node, translate it to an AST error node.
 			if(nodeIt && nodeIt->type == SExp::NodeType::Error)
@@ -827,7 +825,7 @@ namespace WebAssemblyText
 				if(nonParametricExpression)
 				{
 					// If successful, then advance to the next node, and coerce the expression to the expected type.
-					auto result = coerceExpression<Class>(type,nonParametricExpression,nodeIt,errorContext);
+					auto result = coerceExpression(Class(),type,nonParametricExpression,nodeIt,errorContext);
 					++nodeIt;
 					return result;
 				}
@@ -880,7 +878,7 @@ namespace WebAssemblyText
 		// Parse an expression from a sequence of S-expression children. A specified number of siblings following nodeIt are used.
 		// Multiple children are turned into a block node, with all but the last expression yielding a void type.
 		template<typename Class>
-		typename Class::Expression* parseExpressionSequence(TypeId type,SNodeIt nodeIt,const char* errorContext,size_t numOps)
+		typename Class::ClassExpression* parseExpressionSequence(TypeId type,SNodeIt nodeIt,const char* errorContext,size_t numOps)
 		{
 			if(numOps == 0) { return as<Class>(new(arena) Nop()); }
 			else if(numOps == 1) { return parseTypedExpression<Class>(type,nodeIt,errorContext); }
@@ -905,7 +903,7 @@ namespace WebAssemblyText
 		// Parse an expression from a sequence of S-expression children. All siblings following nodeIt are used.
 		// Multiple children are turned into a block node, with all but the last expression yielding a void type.
 		template<typename Class>
-		typename Class::Expression* parseExpressionSequence(TypeId type,SNodeIt nodeIt,const char* context)
+		typename Class::ClassExpression* parseExpressionSequence(TypeId type,SNodeIt nodeIt,const char* context)
 		{
 			size_t numOps = 0;
 			for(auto countNodeIt = nodeIt;countNodeIt;++countNodeIt) {++numOps;}
@@ -991,7 +989,7 @@ namespace WebAssemblyText
 		
 		// Parses a load from a local or global variable.
 		template<typename Class>
-		typename Class::Expression* parseGetVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseGetVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr_t variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
@@ -1001,13 +999,13 @@ namespace WebAssemblyText
 			}
 			auto variableType = variables[variableIndex].type;
 			auto load = new(arena) GetVariable(op,getPrimaryTypeClass(variableType),variableIndex);
-			auto result = coerceExpression<Class>(resultType,TypedExpression(load,variableType),nodeIt,"variable");
+			auto result = coerceExpression(Class(),resultType,TypedExpression(load,variableType),nodeIt,"variable");
 			return requireFullMatch(nodeIt,getOpName(op),result);
 		}
 
 		// Parses a store to a local or global variable.
 		template<typename Class>
-		typename Class::Expression* parseSetVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseSetVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr_t variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
@@ -1018,7 +1016,7 @@ namespace WebAssemblyText
 			auto variableType = variables[variableIndex].type;
 			auto valueExpression = parseTypedExpression(variableType,nodeIt,"store value");
 			auto store = new(arena) SetVariable(op,getPrimaryTypeClass(variableType),valueExpression,variableIndex);
-			auto result = coerceExpression<Class>(resultType,TypedExpression(store,variableType),nodeIt,"variable");
+			auto result = coerceExpression(Class(),resultType,TypedExpression(store,variableType),nodeIt,"variable");
 			return requireFullMatch(nodeIt,getOpName(op),result);
 		}
 	};

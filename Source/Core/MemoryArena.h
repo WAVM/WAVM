@@ -151,3 +151,10 @@ inline void* operator new(size_t numBytes,Memory::Arena& arena)
 }
 
 inline void operator delete(void*,Memory::Arena&) {}
+
+inline void* operator new[](size_t numBytes,Memory::Arena& arena)
+{
+	return arena.allocate(numBytes);
+}
+
+inline void operator delete[](void*,Memory::Arena&) {}

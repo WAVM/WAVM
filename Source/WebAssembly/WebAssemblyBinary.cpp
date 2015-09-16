@@ -2,13 +2,6 @@
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
 
-#include <algorithm>
-#include <cstring>
-#include <cstdlib>
-#include <cstdio>
-#include <cmath>
-#include <iostream>
-
 using namespace AST;
 
 namespace WebAssemblyBinary
@@ -494,18 +487,12 @@ namespace WebAssemblyBinary
 		std::vector<BranchTarget*> explicitContinueTargets;
 		std::vector<BranchTarget*> implicitContinueTargets;
 		Function* currentFunction;
-		intptr_t i32TempLocalIndex;
-		intptr_t f32TempLocalIndex;
-		intptr_t f64TempLocalIndex;
 
 		DecodeContext(InputStream& inIn,Module& inModule,std::vector<ErrorRecord*>& inOutErrors)
 		:	in(inIn)
 		,	module(inModule)
 		,	outErrors(inOutErrors)
 		,	arena(inModule.arena)
-		,	i32TempLocalIndex(-1)
-		,	f32TempLocalIndex(-1)
-		,	f64TempLocalIndex(-1)
 		{}
 
 		template<typename Class>
@@ -516,36 +503,11 @@ namespace WebAssemblyBinary
 			return error;
 		}
 
-		template<typename Type>
-		intptr_t getTempLocalIndex();
-
-		template<>
-		intptr_t getTempLocalIndex<I32Type>()
-		{
-			if(i32TempLocalIndex == -1) { i32TempLocalIndex = currentFunction->locals.size(); currentFunction->locals.push_back({TypeId::I32,nullptr}); }
-			return i32TempLocalIndex;
-		}
-		
-		template<>
-		intptr_t getTempLocalIndex<F32Type>()
-		{
-			if(f32TempLocalIndex == -1) { f32TempLocalIndex = currentFunction->locals.size(); currentFunction->locals.push_back({TypeId::F32,nullptr}); }
-			return f32TempLocalIndex;
-		}
-		
-		template<>
-		intptr_t getTempLocalIndex<F64Type>()
-		{
-			if(f64TempLocalIndex == -1) { f64TempLocalIndex = currentFunction->locals.size(); currentFunction->locals.push_back({TypeId::F64,nullptr}); }
-			return f64TempLocalIndex;
-		}
-
 		// Decodes an expression based on the type of its result.
-		template<typename Type> typename Type::Expression* decodeExpression();
-		template<> typename I32Type::Expression* decodeExpression<I32Type>() { return decodeExpressionI32(); }
-		template<> typename F32Type::Expression* decodeExpression<F32Type>() { return decodeExpressionF32(); }
-		template<> typename F64Type::Expression* decodeExpression<F64Type>() { return decodeExpressionF64(); }
-		template<> typename VoidType::Expression* decodeExpression<VoidType>() { return decodeExpressionVoid(); }
+		IntExpression* decodeExpression(I32Type) { return decodeExpressionI32(); }
+		FloatExpression* decodeExpression(F32Type) { return decodeExpressionF32(); }
+		FloatExpression* decodeExpression(F64Type) { return decodeExpressionF64(); }
+		VoidExpression* decodeExpression(VoidType) { return decodeExpressionVoid(); }
 
 		UntypedExpression* decodeExpression(TypeId type)
 		{
@@ -561,11 +523,11 @@ namespace WebAssemblyBinary
 		
 		// Loads a value from a local variable.
 		template<typename Type>
-		typename Type::Expression* getLocal(uint32 localIndex)
+		typename Type::TypeExpression* getLocal(uint32 localIndex)
 		{
-			if(localIndex >= currentFunction->locals.size()) { return recordError<Type::Class>("getlocal: invalid local index"); }
-			if(currentFunction->locals[localIndex].type != Type::id) { return recordError<Type::Class>("getlocal: incorrect type"); }
-			return as<Type::Class>(new(arena) GetVariable(AnyOp::getLocal,Type::Class::id,localIndex));
+			if(localIndex >= currentFunction->locals.size()) { return recordError<typename Type::Class>("getlocal: invalid local index"); }
+			if(currentFunction->locals[localIndex].type != Type::id) { return recordError<typename Type::Class>("getlocal: incorrect type"); }
+			return as<typename Type::Class>(new(arena) GetVariable(AnyOp::getLocal,Type::Class::id,localIndex));
 		}
 
 		// Stores a value to a local variable.
@@ -577,18 +539,18 @@ namespace WebAssemblyBinary
 			return TypedExpression(new(arena) SetVariable(AnyOp::setLocal,getPrimaryTypeClass(type),value,localIndex),type);
 		}
 		template<typename Type>
-		typename Type::Expression* setLocalExpression(uint32 globalIndex)
+		typename Type::TypeExpression* setLocalExpression(uint32 globalIndex)
 		{
-			return as<Type::Class>(setLocal(globalIndex));
+			return as<typename Type::Class>(setLocal(globalIndex));
 		}
 		
 		// Loads a value from a global variable.
 		template<typename Type>
-		typename Type::Expression* getGlobal(uint32 globalIndex)
+		typename Type::TypeExpression* getGlobal(uint32 globalIndex)
 		{
-			if(globalIndex >= module.globals.size()) { return recordError<Type::Class>("getglobal: invalid global index"); }
-			if(module.globals[globalIndex].type != Type::id) { return recordError<Type::Class>("getglobal: incorrect type"); }
-			return as<Type::Class>(new(arena) GetVariable(AnyOp::getGlobal,Type::Class::id,globalIndex));
+			if(globalIndex >= module.globals.size()) { return recordError<typename Type::Class>("getglobal: invalid global index"); }
+			if(module.globals[globalIndex].type != Type::id) { return recordError<typename Type::Class>("getglobal: incorrect type"); }
+			return as<typename Type::Class>(new(arena) GetVariable(AnyOp::getGlobal,Type::Class::id,globalIndex));
 		}
 
 		// Stores a value to a global variable.
@@ -600,15 +562,15 @@ namespace WebAssemblyBinary
 			return TypedExpression(new(arena) SetVariable(AnyOp::setGlobal,getPrimaryTypeClass(type),value,globalIndex),type);
 		}
 		template<typename Type>
-		typename Type::Expression* setGlobalExpression(uint32 globalIndex)
+		typename Type::TypeExpression* setGlobalExpression(uint32 globalIndex)
 		{
-			return as<Type::Class>(setGlobal(globalIndex));
+			return as<typename Type::Class>(setGlobal(globalIndex));
 		}
 
 		// Decodes an address in the form of an offset into the module's linear memory.
 		IntExpression* decodeAddress(uint32 offset)
 		{
-			IntExpression* byteIndex = decodeExpression<I32Type>();
+			IntExpression* byteIndex = decodeExpression(I32Type());
 
 			// Add the offset provided by the operation.
 			if(offset != 0)
@@ -619,39 +581,39 @@ namespace WebAssemblyBinary
 
 		// Loads an I8, I16, or I32 into an I32 intermediate. I8 and I16 is either zero or sign extended to 32-bit depending on the loadOp.
 		template<typename Type>
-		typename Type::Expression* load(TypeId memoryType,typename Type::Op loadOp,IntExpression* address)
+		typename Type::TypeExpression* load(TypeId memoryType,typename Type::Op loadOp,IntExpression* address)
 		{
-			return new(arena) Load<Type::Class>(loadOp,false,true,address,memoryType);
+			return new(arena) Load<typename Type::Class>(loadOp,false,true,address,memoryType);
 		}
 
 		// Stores a value to memory.
 		template<typename Type>
-		typename Type::Expression* store(TypeId memoryType,IntExpression* address)
+		typename Type::TypeExpression* store(TypeId memoryType,IntExpression* address)
 		{
-			auto value = decodeExpression<Type>();
-			return new(arena) Store<Type::Class>(false,true,address,TypedExpression(value,Type::id),memoryType);
+			auto value = decodeExpression(Type());
+			return new(arena) Store<typename Type::Class>(false,true,address,TypedExpression(value,Type::id),memoryType);
 		}
 
 		// Converts a signed or unsigned 32-bit integer to a float32.
 		FloatExpression* castI32ToFloat(FloatOp op)
 		{
-			return new(arena) Cast<FloatClass>(op,TypedExpression(decodeExpression<I32Type>(),TypeId::I32));
+			return new(arena) Cast<FloatClass>(op,TypedExpression(decodeExpression(I32Type()),TypeId::I32));
 		}
 
 		// Applies an unary operation to an integer operand.
 		template<typename Type>
-		typename Type::Expression* decodeUnary(typename Type::Op op)
+		typename Type::TypeExpression* decodeUnary(typename Type::Op op)
 		{
-			auto operand = decodeExpression<Type>();
+			auto operand = decodeExpression(Type());
 			return new(arena) Unary<typename Type::Class>(op,operand);
 		}
 
 		// Applies a binary operation to an integer operand.
 		template<typename Type>
-		typename Type::Expression* decodeBinary(typename Type::Op op)
+		typename Type::TypeExpression* decodeBinary(typename Type::Op op)
 		{
-			auto leftOperand = decodeExpression<Type>();
-			auto rightOperand = decodeExpression<Type>();
+			auto leftOperand = decodeExpression(Type());
+			auto rightOperand = decodeExpression(Type());
 			return new(arena) Binary<typename Type::Class>(op,leftOperand,rightOperand);
 		}
 
@@ -659,31 +621,31 @@ namespace WebAssemblyBinary
 		template<typename OperandType>
 		IntExpression* decodeCompare(BoolOp op)
 		{
-			auto leftOperand = decodeExpression<OperandType>();
-			auto rightOperand = decodeExpression<OperandType>();
+			auto leftOperand = decodeExpression(OperandType());
+			auto rightOperand = decodeExpression(OperandType());
 			return new(arena) Cast<IntClass>(IntOp::reinterpretBool,TypedExpression(new(arena) Comparison(op,OperandType::id,leftOperand,rightOperand),TypeId::Bool));
 		}
 
 		// Evaluates two expressions, and returns only the result of the second.
 		template<typename Type>
-		typename Type::Expression* comma()
+		typename Type::TypeExpression* comma()
 		{
 			VoidExpression* voidExpression;
 			switch(in.returnType())
 			{
-			case TypeId::I32: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<I32Type>(),TypeId::I32)); break;
-			case TypeId::F32: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<F32Type>(),TypeId::F32)); break;
-			case TypeId::F64: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression<F64Type>(),TypeId::F64)); break;
-			case TypeId::Void: voidExpression = decodeExpression<VoidType>(); break;
+			case TypeId::I32: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression(I32Type()),TypeId::I32)); break;
+			case TypeId::F32: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression(F32Type()),TypeId::F32)); break;
+			case TypeId::F64: voidExpression = new(arena) DiscardResult(TypedExpression(decodeExpression(F64Type()),TypeId::F64)); break;
+			case TypeId::Void: voidExpression = decodeExpression(VoidType()); break;
 			default: throw;
 			}
-			auto value = decodeExpression<Type>();
+			auto value = decodeExpression(Type());
 			return new(arena) Sequence<typename Type::Class>(voidExpression,value);
 		}
 
 		BoolExpression* decodeExpressionI32AsBool()
 		{
-			auto i32Value = decodeExpression<I32Type>();
+			auto i32Value = decodeExpression(I32Type());
 			if(i32Value->op() == IntOp::reinterpretBool && ((Cast<IntClass>*)i32Value)->source.type == TypeId::Bool)
 				{ return as<BoolClass>(((Cast<IntClass>*)i32Value)->source); }
 			else { return new(arena) Comparison(BoolOp::neq,TypeId::I32,i32Value,new(arena) Literal<I32Type>(0)); }
@@ -691,11 +653,11 @@ namespace WebAssemblyBinary
 
 		// Chooses between two values based on a predicate value.
 		template<typename Type>
-		typename Type::Expression* cond()
+		typename Type::TypeExpression* cond()
 		{
 			auto condition = decodeExpressionI32AsBool();
-			auto trueValue = decodeExpression<Type>();
-			auto falseValue = decodeExpression<Type>();
+			auto trueValue = decodeExpression(Type());
+			auto falseValue = decodeExpression(Type());
 			return new(arena) IfElse<typename Type::Class>(condition,trueValue,falseValue);
 		}
 
@@ -710,7 +672,7 @@ namespace WebAssemblyBinary
 
 		// Calls a function by a direct pointer.
 		template<typename Class>
-		typename Class::Expression* callInternal(TypeId returnType,uint32 functionIndex)
+		typename Class::ClassExpression* callInternal(TypeId returnType,uint32 functionIndex)
 		{
 			if(functionIndex >= module.functions.size()) { throw new FatalDecodeException("callinternal: invalid function index"); }
 			auto function = module.functions[functionIndex];
@@ -736,11 +698,11 @@ namespace WebAssemblyBinary
 
 		// Calls a function by index into a function pointer table.
 		template<typename Class>
-		typename Class::Expression* callIndirect(TypeId returnType,uint32 tableIndex)
+		typename Class::ClassExpression* callIndirect(TypeId returnType,uint32 tableIndex)
 		{
 			if(tableIndex >= module.functions.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
 			const FunctionTable& functionTable = module.functionTables[tableIndex];
-			auto functionIndex = decodeExpression<I32Type>();
+			auto functionIndex = decodeExpression(I32Type());
 			auto parameters = decodeParameters(functionTable.type.parameters);
 			return functionTable.type.returnType == returnType
 				? as<Class>(new(arena) CallIndirect(Class::id,tableIndex,functionIndex,parameters))
@@ -763,7 +725,7 @@ namespace WebAssemblyBinary
 
 		// Calls a function by index into the module's import table.
 		template<typename Class>
-		typename Class::Expression* callImport(TypeId returnType,uintptr_t functionImportIndex)
+		typename Class::ClassExpression* callImport(TypeId returnType,uintptr_t functionImportIndex)
 		{
 			if(functionImportIndex >= module.functionImports.size()) { throw new FatalDecodeException("callimport: invalid import index"); }
 			const FunctionImport& functionImport = module.functionImports[functionImportIndex];
@@ -804,34 +766,34 @@ namespace WebAssemblyBinary
 			}
 		}
 		template<typename Class>
-		typename Class::Expression* decodeIntrinsic(const FunctionType& intrinsicType,const char* intrinsicName)
+		typename Class::ClassExpression* decodeIntrinsic(const FunctionType& intrinsicType,const char* intrinsicName)
 		{
 			return callImport<Class>(intrinsicType.returnType,getIntrinsicFunctionImport(intrinsicType,intrinsicName));
 		}
 
 		// Computes the minimum or maximum of a set.
 		template<typename Type>
-		typename Type::Expression* minMax(typename Type::Op op)
+		typename Type::TypeExpression* minMax(typename Type::Op op)
 		{
 			auto numParameters = in.immU32();
-			if(numParameters == 0) { return recordError<Type::Class>("minmax: must receive >0 parameters"); }
-			typename Type::Expression* result = decodeExpression<Type>();
+			if(numParameters == 0) { return recordError<typename Type::Class>("minmax: must receive >0 parameters"); }
+			typename Type::TypeExpression* result = decodeExpression(Type());
 			for(uint32 parameterIndex = 1;parameterIndex < numParameters;++parameterIndex)
-			{ result = new(arena) Binary<Type::Class>(op,result,decodeExpression<Type>()); }
+			{ result = new(arena) Binary<typename Type::Class>(op,result,decodeExpression(Type())); }
 			return result;
 		}
 		template<typename Type>
-		typename Type::Expression* minMaxIntrinsic(const char* intrinsicName)
+		typename Type::TypeExpression* minMaxIntrinsic(const char* intrinsicName)
 		{
 			auto numParameters = in.immU32();
-			if(numParameters == 0) { return recordError<Type::Class>("minmax: must receive >0 parameters"); }
+			if(numParameters == 0) { return recordError<typename Type::Class>("minmax: must receive >0 parameters"); }
 			auto intrinsicImportIndex = getIntrinsicFunctionImport(FunctionType(Type::id,{Type::id,Type::id}),intrinsicName);
-			typename Type::Expression* result = decodeExpression<Type>();
+			typename Type::TypeExpression* result = decodeExpression(Type());
 			for(uint32 parameterIndex = 1;parameterIndex < numParameters;++parameterIndex)
 			{
-				auto nextParameter = decodeExpression<Type>();
+				auto nextParameter = decodeExpression(Type());
 				auto parameterPair = new(arena) UntypedExpression*[2] {result,nextParameter};
-				result = as<Type::Class>(new(arena) Call(AnyOp::callImport,Type::Class::id,intrinsicImportIndex,parameterPair));
+				result = as<typename Type::Class>(new(arena) Call(AnyOp::callImport,Type::Class::id,intrinsicImportIndex,parameterPair));
 			}
 			return result;
 		}
@@ -948,7 +910,7 @@ namespace WebAssemblyBinary
 		VoidExpression* decodeSwitch(bool isEnclosedByLabel)
 		{
 			uint32 numCases = in.immU32();
-			auto value = decodeExpression<I32Type>();
+			auto value = decodeExpression(I32Type());
 			
 			auto breakBranchTarget = new(arena) BranchTarget(TypeId::Void);
 			implicitBreakTargets.push_back(breakBranchTarget);
@@ -1020,9 +982,9 @@ namespace WebAssemblyBinary
 		{
 			switch(currentFunction->type.returnType)
 			{
-			case TypeId::I32: return new(arena) Return<VoidClass>(decodeExpression<I32Type>());
-			case TypeId::F32: return new(arena) Return<VoidClass>(decodeExpression<F32Type>());
-			case TypeId::F64: return new(arena) Return<VoidClass>(decodeExpression<F64Type>());
+			case TypeId::I32: return new(arena) Return<VoidClass>(decodeExpression(I32Type()));
+			case TypeId::F32: return new(arena) Return<VoidClass>(decodeExpression(F32Type()));
+			case TypeId::F64: return new(arena) Return<VoidClass>(decodeExpression(F64Type()));
 			case TypeId::Void: return new(arena) Return<VoidClass>(nullptr);
 			default: throw;
 			}
@@ -1065,8 +1027,8 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::CallImp:    return callImport<IntClass>(TypeId::I32,in.immU32());
 				case I32OpEncoding::Cond:       return cond<I32Type>();
 				case I32OpEncoding::Comma:      return comma<I32Type>();
-				case I32OpEncoding::FromF32:    return new(arena) Cast<IntClass>(IntOp::truncSignedFloat,TypedExpression(decodeExpression<F32Type>(),TypeId::F32));
-				case I32OpEncoding::FromF64:    return new(arena) Cast<IntClass>(IntOp::truncSignedFloat,TypedExpression(decodeExpression<F64Type>(),TypeId::F64));
+				case I32OpEncoding::FromF32:    return new(arena) Cast<IntClass>(IntOp::truncSignedFloat,TypedExpression(decodeExpression(F32Type()),TypeId::F32));
+				case I32OpEncoding::FromF64:    return new(arena) Cast<IntClass>(IntOp::truncSignedFloat,TypedExpression(decodeExpression(F64Type()),TypeId::F64));
 				case I32OpEncoding::Neg:        return decodeUnary<I32Type>(IntOp::neg);
 				case I32OpEncoding::Add:        return decodeBinary<I32Type>(IntOp::add);
 				case I32OpEncoding::Sub:        return decodeBinary<I32Type>(IntOp::sub);
@@ -1085,7 +1047,7 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::Clz:        return decodeUnary<I32Type>(IntOp::clz);
 				case I32OpEncoding::LogicNot: 
 				{
-					auto comparison = new(arena) Comparison(BoolOp::eq,TypeId::I32,decodeExpression<I32Type>(),new(arena) Literal<I32Type>(0));
+					auto comparison = new(arena) Comparison(BoolOp::eq,TypeId::I32,decodeExpression(I32Type()),new(arena) Literal<I32Type>(0));
 					return new(arena) Cast<IntClass>(IntOp::reinterpretBool,TypedExpression(comparison,TypeId::Bool));
 				}
 				case I32OpEncoding::EqI32:      return decodeCompare<I32Type>(BoolOp::eq);
@@ -1158,7 +1120,7 @@ namespace WebAssemblyBinary
 				case F32OpEncoding::Comma:    return comma<F32Type>();
 				case F32OpEncoding::FromS32:  return castI32ToFloat(FloatOp::convertSignedInt);
 				case F32OpEncoding::FromU32:  return castI32ToFloat(FloatOp::convertUnsignedInt);
-				case F32OpEncoding::FromF64:  return new(arena) Cast<FloatClass>(FloatOp::demote,TypedExpression(decodeExpression<F64Type>(),TypeId::F64));
+				case F32OpEncoding::FromF64:  return new(arena) Cast<FloatClass>(FloatOp::demote,TypedExpression(decodeExpression(F64Type()),TypeId::F64));
 				case F32OpEncoding::Neg:      return decodeUnary<F32Type>(FloatOp::neg);
 				case F32OpEncoding::Add:      return decodeBinary<F32Type>(FloatOp::add);
 				case F32OpEncoding::Sub:      return decodeBinary<F32Type>(FloatOp::sub);
@@ -1211,7 +1173,7 @@ namespace WebAssemblyBinary
 				case F64OpEncoding::Comma:    return comma<F64Type>();
 				case F64OpEncoding::FromS32:  return castI32ToFloat(FloatOp::convertSignedInt);
 				case F64OpEncoding::FromU32:  return castI32ToFloat(FloatOp::convertUnsignedInt);
-				case F64OpEncoding::FromF32:  return new(arena) Cast<FloatClass>(FloatOp::promote,TypedExpression(decodeExpression<F32Type>(),TypeId::F32));
+				case F64OpEncoding::FromF32:  return new(arena) Cast<FloatClass>(FloatOp::promote,TypedExpression(decodeExpression(F32Type()),TypeId::F32));
 				case F64OpEncoding::Neg:      return decodeUnary<F64Type>(FloatOp::neg);
 				case F64OpEncoding::Add:      return decodeBinary<F64Type>(FloatOp::add);
 				case F64OpEncoding::Sub:      return decodeBinary<F64Type>(FloatOp::sub);
@@ -1352,9 +1314,6 @@ namespace WebAssemblyBinary
 				
 				currentFunction->locals.resize(currentFunction->type.parameters.size() + numLocalI32s + numLocalF32s + numLocalF64s);
 				uintptr_t localIndex = 0;
-				i32TempLocalIndex = -1;
-				f32TempLocalIndex = -1;
-				f64TempLocalIndex = -1;
 				
 				// Create locals for the function's parameters.
 				currentFunction->parameterLocalIndices.resize(currentFunction->type.parameters.size());

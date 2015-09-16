@@ -59,7 +59,7 @@ bool callModuleFunction(const AST::Module* module,const char* functionName,Retur
 	try
 	{
 		// Call the function specified on the command-line.
-		outReturn = ((Return(__cdecl*)(Args...))functionPtr)(args...);
+		outReturn = ((Return(*)(Args...))functionPtr)(args...);
 		return true;
 	}
 	catch(...)
