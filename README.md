@@ -1,3 +1,5 @@
+[![Linux Build Status](https://travis-ci.org/AndrewScheidecker/WAVM.svg?branch=master)](https://travis-ci.org/AndrewScheidecker/WAVM)
+
 # Overview
 
 This is a prototype VM for WebAssembly. It can load two forms of WebAssembly code:
@@ -8,7 +10,7 @@ This is a prototype VM for WebAssembly. It can load two forms of WebAssembly cod
 
 To build it, you'll need CMake and [LLVM 3.7](http://llvm.org/releases/download.html#3.7.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration.
 
-I've only tried building it with WindowsVS2013 so far, and there are a few Windows-specific bits of code related to virtual memory management. However, it should all be in Windows.cpp, and easily ported to Linux or MacOS.
+I've tested it on Windows with Visual C++, Linux with GCC and Clang, and MacOS with Xcode/Clang. If one of those configurations doesn't work, please let me know!
 
 The command-line usage is:
 ```
