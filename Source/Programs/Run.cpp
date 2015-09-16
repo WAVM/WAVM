@@ -1,6 +1,7 @@
 #include "Core/Core.h"
 #include "Core/MemoryArena.h"
 #include "Core/CLI.h"
+#include "Core/Platform.h"
 #include "AST/AST.h"
 #include "Runtime/LLVMJIT.h"
 #include "Runtime/Runtime.h"
@@ -73,10 +74,30 @@ bool initModuleRuntime(const AST::Module* module)
 {
 	std::cout << "Loaded module uses " << (module->arena.getTotalAllocatedBytes() / 1024) << "KB" << std::endl;
 
+	// Allocate address-space for the VM.
 	if(!Runtime::initInstanceMemory(module->maxNumBytesMemory))
 	{
 		std::cerr << "Couldn't initialize address-space for module instance (" << module->maxNumBytesMemory/1024 << "KB requested)" << std::endl;
 		return false;
+	}
+
+	// Initialize the module's requested initial memory.
+	if(Runtime::vmSbrk((int32)module->initialNumBytesMemory) != 0)
+	{
+		std::cerr << "Failed to commit the requested initial memory for module instance (" << module->initialNumBytesMemory/1024 << "KB requested)" << std::endl;
+		return false;
+	}
+
+	// Copy the module's data segments into VM memory.
+	if(module->initialNumBytesMemory >= (1ull<<32)) { throw; }
+	for(auto dataSegment : module->dataSegments)
+	{
+		if(dataSegment.baseAddress + dataSegment.numBytes > module->initialNumBytesMemory)
+		{
+			std::cerr << "Module data segment exceeds initial memory allocation" << std::endl;
+			return false;
+		}
+		memcpy(Runtime::instanceMemoryBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
 	}
 
 	// Generate machine code for the module.
@@ -85,6 +106,9 @@ bool initModuleRuntime(const AST::Module* module)
 		std::cerr << "Couldn't compile module." << std::endl;
 		return false;
 	}
+
+	// Initialize the Emscripten intrinsics.
+	Runtime::initEmscriptenIntrinsics();
 	
 	Void result;
 	callModuleFunction(module,"__GLOBAL__sub_I_iostream_cpp",result);

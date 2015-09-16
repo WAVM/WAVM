@@ -32,8 +32,8 @@ namespace Runtime
 		const size_t alignment = 4ull*1024*1024*1024;
 		const size_t pageAlignment = alignment >> Platform::getPreferredVirtualPageSizeLog2();
 		unalignedInstanceMemoryBase = Platform::allocateVirtualPages(numAllocatedVirtualPages + pageAlignment - 1);
+		if(!unalignedInstanceMemoryBase) { return false; }
 		instanceMemoryBase = (uint8*)((uintptr_t)(unalignedInstanceMemoryBase + alignment - 1) & ~(alignment - 1));
-		assert(Runtime::instanceMemoryBase);
 		return true;
 	}
 

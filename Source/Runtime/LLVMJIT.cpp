@@ -891,18 +891,6 @@ namespace LLVMJIT
 		// Fail if there were any missing imports.
 		if(missingImport) { return false; }
 
-		// Copy the module's data segments into VM memory.
-		if(astModule->initialNumBytesMemory >= (1ull<<32)) { throw; }
-		Runtime::vmSbrk((int32)astModule->initialNumBytesMemory);
-		for(auto dataSegment : astModule->dataSegments)
-		{
-			assert(dataSegment.baseAddress + dataSegment.numBytes <= astModule->initialNumBytesMemory);
-			memcpy(Runtime::instanceMemoryBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
-		}
-
-		// Initialize the Emscripten intrinsics.
-		Runtime::initEmscriptenIntrinsics();
-		
 		// Verify the module.
 		#ifdef _DEBUG
 			std::string verifyOutputString;
