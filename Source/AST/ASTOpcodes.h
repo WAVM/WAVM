@@ -18,7 +18,7 @@ namespace AST
 	#define ENUM_AST_UNARY_OPS_Int() \
 		AST_OP(neg) \
 		AST_OP(abs) \
-		AST_OP(not) \
+		AST_OP(bitwiseNot) \
 		AST_OP(clz) \
 		AST_OP(ctz) \
 		AST_OP(popcnt)
@@ -31,9 +31,9 @@ namespace AST
 		AST_OP(divu) \
 		AST_OP(rems) \
 		AST_OP(remu) \
-		AST_OP(and) \
-		AST_OP(or) \
-		AST_OP(xor) \
+		AST_OP(bitwiseAnd) \
+		AST_OP(bitwiseOr) \
+		AST_OP(bitwiseXor) \
 		AST_OP(shl) \
 		AST_OP(shrSExt) \
 		AST_OP(shrZExt)
@@ -90,11 +90,11 @@ namespace AST
 		AST_OP(lit)
 
 	#define ENUM_AST_UNARY_OPS_Bool() \
-		AST_OP(not)
+		AST_OP(bitwiseNot)
 
 	#define ENUM_AST_BINARY_OPS_Bool() \
-		AST_OP(and) \
-		AST_OP(or)
+		AST_OP(bitwiseAnd) \
+		AST_OP(bitwiseOr)
 
 	#define ENUM_AST_COMPARISON_OPS() \
 		AST_OP(eq) AST_OP(neq) \

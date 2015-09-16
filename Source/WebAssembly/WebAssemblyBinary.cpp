@@ -1075,10 +1075,10 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::UDiv:       return decodeBinary<I32Type>(IntOp::divu);
 				case I32OpEncoding::SMod:       return decodeBinary<I32Type>(IntOp::rems);
 				case I32OpEncoding::UMod:       return decodeBinary<I32Type>(IntOp::remu);
-				case I32OpEncoding::BitNot:     return decodeUnary<I32Type>(IntOp::not);
-				case I32OpEncoding::BitOr:      return decodeBinary<I32Type>(IntOp::or);
-				case I32OpEncoding::BitAnd:     return decodeBinary<I32Type>(IntOp::and);
-				case I32OpEncoding::BitXor:     return decodeBinary<I32Type>(IntOp::xor);
+				case I32OpEncoding::BitNot:     return decodeUnary<I32Type>(IntOp::bitwiseNot);
+				case I32OpEncoding::BitOr:      return decodeBinary<I32Type>(IntOp::bitwiseOr);
+				case I32OpEncoding::BitAnd:     return decodeBinary<I32Type>(IntOp::bitwiseAnd);
+				case I32OpEncoding::BitXor:     return decodeBinary<I32Type>(IntOp::bitwiseXor);
 				case I32OpEncoding::Lsh:        return decodeBinary<I32Type>(IntOp::shl);
 				case I32OpEncoding::ArithRsh:   return decodeBinary<I32Type>(IntOp::shrSExt);
 				case I32OpEncoding::LogicRsh:   return decodeBinary<I32Type>(IntOp::shrZExt);

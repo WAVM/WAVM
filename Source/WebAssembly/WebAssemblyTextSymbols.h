@@ -204,7 +204,7 @@ namespace WebAssemblyText
 		#define MAP_OP_SYMBOL(op,symbol) case IntOp::op: return Symbol::_##symbol;
 		MAP_OP_SYMBOL(neg,neg)
 		MAP_OP_SYMBOL(abs,abs)
-		MAP_OP_SYMBOL(not,not)
+		MAP_OP_SYMBOL(bitwiseNot,not)
 		MAP_OP_SYMBOL(clz,clz)
 		MAP_OP_SYMBOL(ctz,ctz)
 		MAP_OP_SYMBOL(popcnt,popcnt)
@@ -215,9 +215,9 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(divu,div_u)
 		MAP_OP_SYMBOL(rems,rem_s)
 		MAP_OP_SYMBOL(remu,rem_u)
-		MAP_OP_SYMBOL(and,and)
-		MAP_OP_SYMBOL(or,or)
-		MAP_OP_SYMBOL(xor,xor)
+		MAP_OP_SYMBOL(bitwiseAnd,and)
+		MAP_OP_SYMBOL(bitwiseOr,or)
+		MAP_OP_SYMBOL(bitwiseXor,xor)
 		MAP_OP_SYMBOL(shl,shl)
 		MAP_OP_SYMBOL(shrSExt,shr_s)
 		MAP_OP_SYMBOL(shrZExt,shr_u)
@@ -270,8 +270,8 @@ namespace WebAssemblyText
 		switch(op)
 		{
 		#define MAP_OP_SYMBOL(op,symbol) case BoolOp::op: return Symbol::_##symbol;
-		MAP_OP_SYMBOL(not,not)
-		MAP_OP_SYMBOL(or,or)
+		MAP_OP_SYMBOL(bitwiseNot,not)
+		MAP_OP_SYMBOL(bitwiseOr,or)
 		MAP_OP_SYMBOL(eq,eq)
 		MAP_OP_SYMBOL(neq,neq)
 		MAP_OP_SYMBOL(lts,lt_s)

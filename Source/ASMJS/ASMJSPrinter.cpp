@@ -461,7 +461,7 @@ namespace ASMJS
 		{
 		case IntOp::neg: return "-";
 		case IntOp::abs: return "abs";
-		case IntOp::not: return "~";
+		case IntOp::bitwiseNot: return "~";
 		case IntOp::clz: return "clz";
 		case IntOp::ctz: return "ctz";
 		case IntOp::popcnt: return "popcnt";
@@ -479,9 +479,9 @@ namespace ASMJS
 		case IntOp::divu: return "/";
 		case IntOp::rems: return "%";
 		case IntOp::remu: return "%";
-		case IntOp::and: return "&";
-		case IntOp::or: return "|";
-		case IntOp::xor: return "^";
+		case IntOp::bitwiseAnd: return "&";
+		case IntOp::bitwiseOr: return "|";
+		case IntOp::bitwiseXor: return "^";
 		case IntOp::shl: return "<<";
 		case IntOp::shrSExt: return ">>";
 		case IntOp::shrZExt: return ">>>";
@@ -521,7 +521,7 @@ namespace ASMJS
 	{
 		switch(op)
 		{
-		case BoolOp::not: return "!";
+		case BoolOp::bitwiseNot: return "!";
 		default: return "";
 		}
 	}
@@ -529,8 +529,8 @@ namespace ASMJS
 	{
 		switch(op)
 		{
-		case BoolOp::and: return "&";
-		case BoolOp::or: return "|";
+		case BoolOp::bitwiseAnd: return "&";
+		case BoolOp::bitwiseOr: return "|";
 		case BoolOp::eq: return "==";
 		case BoolOp::neq: return "!=";
 		case BoolOp::lts: case BoolOp::ltu: case BoolOp::lt: return "<";
