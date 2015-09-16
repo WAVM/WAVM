@@ -1,0 +1,9 @@
+language: c++
+
+install: sudo ./travis/install-llvm.sh
+
+script: ./travis/script.sh
+
+os:
+  - linux
+  - osx
