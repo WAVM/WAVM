@@ -1,4 +1,5 @@
 #include "MemoryArena.h"
+#include "Platform.h"
 #include <memory>
 #include <memory.h>
 #include <assert.h>
@@ -121,7 +122,7 @@ namespace Memory
 	ScopedArena::~ScopedArena() { restore(); }
 	Arena& ScopedArena::getArena() const
 	{
-		static __declspec(thread) Arena* scopedArena = nullptr;
+		static THREAD_LOCAL Arena* scopedArena = nullptr;
 		if(!scopedArena)
 		{
 			scopedArena = new Arena();

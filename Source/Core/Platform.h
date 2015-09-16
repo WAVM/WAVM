@@ -2,6 +2,12 @@
 
 #include "Core.h"
 
+#ifdef _WIN32
+	#define THREAD_LOCAL __declspec(thread)
+#else
+	#define THREAD_LOCAL __thread
+#endif
+
 namespace Platform
 {
 	// A platform-independent mutex. Allows calling the constructor during static initialization, unlike std::mutex.
