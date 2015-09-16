@@ -6,19 +6,23 @@ This is a prototype VM for WebAssembly. It can load two forms of WebAssembly cod
 
 # Building and running it
 
-To build it, you'll need [LLVM 3.7 built from source](http://llvm.org/releases/download.html#3.7.0). The VC project expects it in WAVM/External/llvm and WAVM/External/LLVM.build, but it's probably easiest to point it to wherever your copy is.
+To build it, you'll need CMake and [LLVM 3.7](http://llvm.org/releases/download.html#3.7.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration.
 
-I've only tried building it with VS2013 so far, and there are a few Windows-specific bits of code related to virtual memory management. However, it should all be in Windows.cpp, and easily ported to Linux or MacOS. There are also no makefiles yet. TODO...
+I've only tried building it with WindowsVS2013 so far, and there are a few Windows-specific bits of code related to virtual memory management. However, it should all be in Windows.cpp, and easily ported to Linux or MacOS.
 
 The command-line usage is:
 ```
-WAVM -binary in.wasm in.js.mem functionname
-WAVM -text in.wast functionname
+Run -binary in.wasm in.js.mem functionname
+Run -text in.wast functionname
+PrintWAST -binary in.wasm in.js.mem out.wast
+PrintWAST -text in.wast out.wast
+PrintASMJS -binary in.wasm in.js.mem out.js
+PrintASMJS -text in.wast out.js
 ```
 
 That will load a text or binary WebAssembly file, and call the named exported function. The type of the function must be I64->I64 at the moment, though that can be easily changed in the source code. A good command-line to try without changing any code:
 
-```WAVM -text ../Test/WAST/fac.wast fac-iter```
+```Run -text ../Test/WAST/fac.wast fac-iter```
 
 # Design
 
@@ -36,7 +40,7 @@ Both the polyfill binary decoder and the WebAssembly text parser are expected to
 
 After it has constructed the AST, it will convert it to LLVM IR, and feed that to LLVM's MCJIT to generate executable machine code, and call it!
 
-The generated code should be unable to access any memory outside of the addresses allocated to it. The VM reserves 4GB of addresses at startup for the VM, and only allows access to 32-bit addresses within that 4GB. WebAssembly will soon support 64-bit addresses, and I expect to support that by reserving most of the process's virtual address space for VM memory, and generating code to mask VM addresses to this subset of the virtual address space.
+The generated code should be unable to access any memory outside of the addresses allocated to it. The VM reserves 4TB of addresses at startup for the VM, and masks addresses to be within those 4TBs.
 
 # License
 
