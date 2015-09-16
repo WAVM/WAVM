@@ -7,15 +7,17 @@
 #include "Intrinsics.h"
 #include "Core/MemoryArena.h"
 
-#pragma warning(push)
-#pragma warning (disable:4267)
-#pragma warning (disable:4800)
-#pragma warning (disable:4291)
-#pragma warning (disable:4244)
-#pragma warning (disable:4351)
-#pragma warning (disable:4065)
-#pragma warning (disable:4624)
-#pragma warning (disable:4245)	// conversion from 'int' to 'unsigned int', signed/unsigned mismatch
+#ifdef _WIN32
+	#pragma warning(push)
+	#pragma warning (disable:4267)
+	#pragma warning (disable:4800)
+	#pragma warning (disable:4291)
+	#pragma warning (disable:4244)
+	#pragma warning (disable:4351)
+	#pragma warning (disable:4065)
+	#pragma warning (disable:4624)
+	#pragma warning (disable:4245)	// conversion from 'int' to 'unsigned int', signed/unsigned mismatch
+#endif
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -40,7 +42,9 @@
 #include <vector>
 #include <iostream>
 
-#pragma warning(pop)
+#ifdef _WIN32
+	#pragma warning(pop)
+#endif
 
 namespace LLVMJIT
 {

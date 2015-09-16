@@ -1,3 +1,5 @@
+#if _WIN32
+
 #include "Core.h"
 #include "Platform.h"
 #include <Windows.h>
@@ -26,7 +28,7 @@ namespace Platform
 		LeaveCriticalSection((CRITICAL_SECTION*)handle);
 	}
 
-	size_t internalGetPreferredVirtualPageSizeLog2()
+	static size_t internalGetPreferredVirtualPageSizeLog2()
 	{
 		SYSTEM_INFO systemInfo;
 		GetSystemInfo(&systemInfo);
@@ -41,11 +43,13 @@ namespace Platform
 		return (uint32)preferredVirtualPageSizeLog2;
 	}
 
-	bool isPageAligned(uint8* address)
-	{
-		const uint64 addressBits = *(uint64*)&address;
-		return (addressBits & ((1ull << getPreferredVirtualPageSizeLog2()) - 1)) == 0;
-	}
+	#ifdef _DEBUG
+		static bool isPageAligned(uint8* address)
+		{
+			const uintptr_t addressBits = reinterpret_cast<uintptr_t>(address);
+			return (addressBits & ((1ull << getPreferredVirtualPageSizeLog2()) - 1)) == 0;
+		}
+	#endif
 
 	uint8* allocateVirtualPages(size_t numPages)
 	{
@@ -72,3 +76,5 @@ namespace Platform
 		if(!result) { throw; }
 	}
 }
+
+#endif

@@ -3,7 +3,9 @@
 #include "Core/Core.h"
 #include "Core/MemoryArena.h"
 
-#pragma warning (disable:4512)	// assignment operator could not be generated
+#ifdef _WIN32
+	#pragma warning (disable:4512)	// assignment operator could not be generated
+#endif
 
 namespace SExp
 {

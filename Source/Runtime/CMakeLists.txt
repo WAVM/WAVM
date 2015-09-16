@@ -15,4 +15,4 @@ target_compile_definitions(Runtime PRIVATE ${LLVM_DEFINITIONS})
 
 # Link against the LLVM libraries
 llvm_map_components_to_libnames(LLVM_LIBS support core passes mcjit native)
-target_link_libraries(Runtime ${LLVM_LIBS})
+target_link_libraries(Runtime Core AST ${LLVM_LIBS})

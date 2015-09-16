@@ -11,10 +11,6 @@
 #include <string.h>
 #include <assert.h>
 
-#pragma warning (disable:4127)	// conditional expression is constant
-#pragma warning (disable:4100)	// unreferenced formal parameter
-#pragma warning (disable:4512)	// assignment operator could not be generated
-
 typedef uint8_t uint8;
 typedef int8_t int8;
 typedef uint16_t uint16;
