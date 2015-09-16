@@ -1,9 +1,23 @@
-sudo: required
-
+sudo: false
 language: c++
+compiler: gcc
 
-install: ./travis/install-llvm.sh
+#install: ./travis/install-llvm.sh
 
 script: ./travis/script.sh
 
 os: linux
+
+addons:
+	apt:
+		sources:
+			- llvm-toolchain-precise-3.7
+			- ubuntu-toolchain-r-test
+		packages:
+			- libllvm3.7
+			- libllvm3.7-dbg
+			- llvm-3.7
+			- llvm-3.7-dev
+			- llvm-3.7-runtime
+			- gcc-4.8
+			- g++-4.8
