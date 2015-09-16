@@ -25,7 +25,8 @@ int main(int argc,char** argv)
 	}
 	
 	if(!module) { return -1; }
-
+	
+	Core::Timer printTimer;
 	std::ofstream outputStream(outputFilename);
 	if(!outputStream.is_open())
 	{
@@ -34,6 +35,7 @@ int main(int argc,char** argv)
 	}
 	outputStream << WebAssemblyText::print(module);
 	outputStream.close();
+	std::cout << "Printed WAST code in " << printTimer.getMilliseconds() << "ms" << std::endl;
 
 	return 0;
 }
