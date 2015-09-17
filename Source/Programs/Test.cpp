@@ -172,7 +172,6 @@ int main(int argc,char** argv)
 	WebAssemblyText::File wastFile;
 	if(!loadTextModule(filename,wastFile)) { return -1; }
 	
-	uintptr_t numTestsPassed = 0;
 	uintptr_t numTestsFailed = 0;
 	for(auto assertEq : wastFile.assertEqs)
 	{
@@ -194,17 +193,18 @@ int main(int argc,char** argv)
 		// Initialize the module runtime environment and call the test function.
 		if(!initModuleRuntime(testModule)) { return -1; }
 		auto assertLocus = filename + assertEq.locus.describe();
-		if(callTestFunction(testModule,"test",assertLocus.c_str(),assertEq.value)) { ++numTestsPassed; }
-		else { ++numTestsFailed; }
+		if(!callTestFunction(testModule,"test",assertLocus.c_str(),assertEq.value)) { ++numTestsFailed; }
 	}
 
 	// Print the results.
-	std::cout << numTestsPassed << " tests passed." << std::endl;
 	if(numTestsFailed)
 	{
 		std::cerr << numTestsFailed << " tests failed!" << std::endl;
 		return -1;
 	}
-
-	return 0;
+	else
+	{
+		std::cout << filename << ": all tests passed." << std::endl;
+		return 0;
+	}	
 }

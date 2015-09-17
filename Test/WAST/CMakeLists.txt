@@ -1,0 +1,10 @@
+set(TEST_BIN ${EXECUTABLE_OUTPUT_PATH}/${CONFIGURATION}/Test)
+
+add_test(conversions ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/conversions.wasm)
+add_test(exports ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/exports.wasm)
+add_test(fac ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/fac.wasm)
+#add_test(float32 ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/float32.wasm)
+add_test(forward ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/forward.wasm)
+#add_test(memory ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/memory.wasm)
+add_test(switch ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/switch.wasm)
+#add_test(unsigned ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/unsigned.wasm)

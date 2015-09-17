@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.7.0)
 project (WAVM)
 
+enable_testing()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # Put executables in the bin dir.
@@ -52,3 +54,5 @@ add_subdirectory(Source/WebAssembly)
 add_subdirectory(Source/ASMJS)
 add_subdirectory(Source/Runtime)
 add_subdirectory(Source/Programs)
+
+add_subdirectory(Test/WAST)

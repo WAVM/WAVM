@@ -44,7 +44,7 @@ inline bool loadTextModule(const char* filename,WebAssemblyText::File& outFile)
 		std::cerr << "WebAssembly text file didn't contain any modules!" << std::endl;
 		return false;
 	}
-	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
 	return true;
 }
 
@@ -64,7 +64,7 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 		for(auto error : errors) { std::cerr << error->message.c_str() << std::endl; }
 		return nullptr;
 	}
-	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
 
 	// Load the static data from the .mem file on the commandline.
 	auto staticMemoryData = loadFile(memFilename);
