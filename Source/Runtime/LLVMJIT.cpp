@@ -605,7 +605,7 @@ namespace LLVMJIT
 		IMPLEMENT_CAST_OP(IntClass,truncSignedFloat,irBuilder.CreateFPToSI(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,truncUnsignedFloat,irBuilder.CreateFPToUI(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,sext,irBuilder.CreateSExt(source,destType))
-		IMPLEMENT_CAST_OP(IntClass,zext,irBuilder.CreateSExt(source,destType))
+		IMPLEMENT_CAST_OP(IntClass,zext,irBuilder.CreateZExt(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,reinterpretFloat,irBuilder.CreateBitCast(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,reinterpretBool,irBuilder.CreateZExt(source,destType))
 		
