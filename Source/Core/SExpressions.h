@@ -21,21 +21,6 @@ namespace SExp
 		Tree
 	};
 
-	// A location in a text file.
-	struct TextFileLocus
-	{
-		uint32 newlines;
-		uint16 tabs;
-		uint16 characters;
-
-		TextFileLocus(): newlines(0), tabs(0), characters(0) {}
-
-		std::string describe(uint32 spacesPerTab = 4) const
-		{
-			return "(" + std::to_string(newlines + 1) + ":" + std::to_string(tabs * spacesPerTab + characters + 1) + ")";
-		}
-	};
-
 	// A node in a tree of S-expressions
 	struct Node
 	{
@@ -56,11 +41,11 @@ namespace SExp
 		// The next node with the same parent.
 		Node* nextSibling;
 		// The start of this node in the source file.
-		TextFileLocus startLocus;
+		Core::TextFileLocus startLocus;
 		// The end of this node in the source file.
-		TextFileLocus endLocus;
+		Core::TextFileLocus endLocus;
 
-		Node(const TextFileLocus& inStartLocus = TextFileLocus(),NodeType inType = NodeType::Tree)
+		Node(const Core::TextFileLocus& inStartLocus = Core::TextFileLocus(),NodeType inType = NodeType::Tree)
 		:	type(inType)
 		,	children(nullptr)
 		,	stringLength(0)
@@ -74,10 +59,10 @@ namespace SExp
 	struct NodeIt
 	{
 		Node* node;
-		SExp::TextFileLocus previousLocus;
+		Core::TextFileLocus previousLocus;
 
 		NodeIt(): node(nullptr) {}
-		explicit NodeIt(Node* inNode,SExp::TextFileLocus inPreviousLocus = SExp::TextFileLocus())
+		explicit NodeIt(Node* inNode,Core::TextFileLocus inPreviousLocus = Core::TextFileLocus())
 		: node(inNode), previousLocus(inPreviousLocus) {}
 
 		NodeIt& operator++()
@@ -98,7 +83,7 @@ namespace SExp
 		
 		NodeIt getChildIt() const
 		{
-			assert(node->type == SExp::NodeType::Tree);
+			assert(node->type == NodeType::Tree);
 			return NodeIt(node->children,node->startLocus);
 		}
 

@@ -55,6 +55,12 @@ namespace LLVMJIT
 
 	// Maps a type ID to the corresponding LLVM type.
 	llvm::Type* llvmTypesByTypeId[(size_t)TypeId::num];
+	
+	// A dummy constant to use as the unique value inhabiting the void type.
+	llvm::Constant* voidDummy = nullptr;
+
+	// Zero constants of each type.
+	llvm::Constant* typedZeroConstants[(size_t)TypeId::num];
 
 	// All the modules that have been JITted.
 	std::vector<struct JITModule*> jitModules;
@@ -102,6 +108,8 @@ namespace LLVMJIT
 		JITModule(const Module* inASTModule)
 		:	astModule(inASTModule)
 		,	llvmModule(new llvm::Module("",context))
+		,	instanceMemoryBase(nullptr)
+		,	instanceMemoryAddressMask(nullptr)
 		,	executionEngine(nullptr)
 		{}
 	};
@@ -116,6 +124,8 @@ namespace LLVMJIT
 		llvm::IRBuilder<> irBuilder;
 
 		llvm::Value** localVariablePointers;
+
+		llvm::BasicBlock* unreachableBlock;
 		
 		// An arena for allocations that can be discarded after compiling the function.
 		Memory::ScopedArena scopedArena;
@@ -148,25 +158,38 @@ namespace LLVMJIT
 		, irBuilder(context)
 		, localVariablePointers(nullptr)
 		, branchContext(nullptr)
-		{}
+		{
+			unreachableBlock = llvm::BasicBlock::Create(context,"unreachable",llvmFunction);
+		}
 
 		void compile();
 		
-		// Allows this object to be used as a visitor by the AST dispatcher.
+		// The result of the functions called by the AST dispatcher.
+		// If the inner expression doesn't return control to the outer, then it will be null.
 		typedef llvm::Value* DispatchResult;
 		
 		// Inserts a branch, and returns the old basic block.
 		llvm::BasicBlock* compileBranch(llvm::BasicBlock* dest)
 		{
-			irBuilder.CreateBr(dest);
-			return irBuilder.GetInsertBlock();
+			auto exitBlock = irBuilder.GetInsertBlock();
+			if(exitBlock == unreachableBlock) { return nullptr; }
+			else
+			{
+				irBuilder.CreateBr(dest);
+				return exitBlock;
+			}
 		}
 
 		// Inserts a conditional branch, and returns the old basic block.
 		llvm::BasicBlock* compileCondBranch(llvm::Value* condition,llvm::BasicBlock* trueDest,llvm::BasicBlock* falseDest)
 		{
-			irBuilder.CreateCondBr(condition,trueDest,falseDest);
-			return irBuilder.GetInsertBlock();
+			auto exitBlock = irBuilder.GetInsertBlock();
+			if(exitBlock == unreachableBlock) { return nullptr; }
+			else
+			{
+				irBuilder.CreateCondBr(condition,trueDest,falseDest);
+				return exitBlock;
+			}
 		}
 
 		// Returns a LLVM intrinsic with the given id and argument types.
@@ -321,16 +344,16 @@ namespace LLVMJIT
 			auto value = dispatch(*this,switchExpression->key);		
 
 			// Create the basic blocks for each arm of the switch so they can be forward referenced by fallthrough branches.
-			auto armEntryBlocks = new(scopedArena) llvm::BasicBlock*[switchExpression->numArms + 1];
+			auto armEntryBlocks = new(scopedArena) llvm::BasicBlock*[switchExpression->numArms];
 			for(uint32 armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
 			{ armEntryBlocks[armIndex] = llvm::BasicBlock::Create(context,"switchArm",llvmFunction); }
 
 			// Create and link the context for this switch's branch target into the list of in-scope contexts.
 			auto successorBlock = llvm::BasicBlock::Create(context,"switchSucc",llvmFunction);
-			armEntryBlocks[switchExpression->numArms] = successorBlock;
 			auto outerBranchContext = branchContext;
 			BranchContext endBranchContext = {switchExpression->endTarget,successorBlock,outerBranchContext,nullptr};
 			branchContext = &endBranchContext;
+			assert(switchExpression->endTarget->type == type);
 
 			// Compile each arm of the switch.
 			assert(switchExpression->numArms > 0);
@@ -356,14 +379,13 @@ namespace LLVMJIT
 
 				irBuilder.SetInsertPoint(armEntryBlocks[armIndex]);
 				assert(arm.value);
-				if(armIndex + 1 == switchExpression->numArms && type != TypeId::Void)
+				if(armIndex + 1 == switchExpression->numArms)
 				{
 					// The final arm is an expression of the same type as the switch.
 					auto value = dispatch(*this,arm.value,type);
 					auto exitBlock = compileBranch(successorBlock);
-					assert(value);
-					assert(exitBlock);
-					endBranchContext.results = new(scopedArena) BranchResult {exitBlock,value,endBranchContext.results};
+					if(type != TypeId::Void && exitBlock)
+					{ endBranchContext.results = new(scopedArena) BranchResult {exitBlock,value,endBranchContext.results}; }
 				}
 				else
 				{
@@ -378,7 +400,7 @@ namespace LLVMJIT
 			branchContext = outerBranchContext;
 
 			irBuilder.SetInsertPoint(successorBlock);
-			if(type == TypeId::Void) { return nullptr; }
+			if(type == TypeId::Void) { return voidDummy; }
 			else
 			{
 				// Create a phi node that merges the results from all the branches out of the switch.
@@ -407,12 +429,12 @@ namespace LLVMJIT
 			auto falseExitBlock = compileBranch(successorBlock);
 
 			irBuilder.SetInsertPoint(successorBlock);
-			if(type == TypeId::Void) { return nullptr; }
+			if(type == TypeId::Void) { return voidDummy; }
 			else
 			{
 				auto phi = irBuilder.CreatePHI(trueValue->getType(),2);
-				phi->addIncoming(trueValue,trueExitBlock);
-				phi->addIncoming(falseValue,falseExitBlock);			
+				if(trueExitBlock) { phi->addIncoming(trueValue,trueExitBlock); }
+				if(falseExitBlock) { phi->addIncoming(falseValue,falseExitBlock); }
 				return phi;
 			}
 		}
@@ -442,11 +464,11 @@ namespace LLVMJIT
 			irBuilder.SetInsertPoint(successorBlock);
 
 			// Create a phi node that merges all the possible values yielded by the label into one.
-			if(type == TypeId::Void) { return nullptr; }
+			if(type == TypeId::Void) { return voidDummy; }
 			else
 			{
 				auto phi = irBuilder.CreatePHI(asLLVMType(type),2);
-				if(value) { phi->addIncoming(value,exitBlock); }
+				if(exitBlock) { phi->addIncoming(value,exitBlock); }
 				for(auto result = endBranchContext.results;result;result = result->next) { phi->addIncoming(result->value,result->incomingBlock); }
 				return phi;
 			}
@@ -458,15 +480,21 @@ namespace LLVMJIT
 			return dispatch(*this,seq->resultExpression,type);
 		}
 		template<typename Class>
-		DispatchResult visitReturn(const Return<Class>* ret)
+		DispatchResult visitReturn(TypeId type,const Return<Class>* ret)
 		{
-			if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
-			else { irBuilder.CreateRet(dispatch(*this,ret->value,astFunction->type.returnType)); }
-			
-			// Create a new block to insert unreachable instructions into.
-			irBuilder.SetInsertPoint(llvm::BasicBlock::Create(context,"returnUnreachable",llvmFunction));
+			auto returnValue = astFunction->type.returnType == TypeId::Void ? nullptr
+				: dispatch(*this,ret->value,astFunction->type.returnType);
 
-			return nullptr;
+			if(irBuilder.GetInsertBlock() != unreachableBlock)
+			{
+				if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
+				else { irBuilder.CreateRet(returnValue); }
+			
+				// Set the insert point to the unreachable block.
+				irBuilder.SetInsertPoint(unreachableBlock);
+			}
+
+			return typedZeroConstants[(size_t)type];
 		}
 		template<typename Class>
 		DispatchResult visitLoop(TypeId type,const Loop<Class>* loop)
@@ -491,7 +519,7 @@ namespace LLVMJIT
 			branchContext = outerBranchContext;
 
 			irBuilder.SetInsertPoint(successorBlock);
-			if(type == TypeId::Void) { return nullptr; }
+			if(type == TypeId::Void) { return voidDummy; }
 			else
 			{
 				auto phi = irBuilder.CreatePHI(asLLVMType(type),1);
@@ -500,7 +528,7 @@ namespace LLVMJIT
 			}
 		}
 		template<typename Class>
-		DispatchResult visitBranch(const Branch<Class>* branch)
+		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
 		{
 			// Find the branch target context for this branch's target.
 			auto targetContext = branchContext;
@@ -508,28 +536,29 @@ namespace LLVMJIT
 			if(!targetContext) { throw; }
 			
 			// If the branch target has a non-void type, compile the branch's value.
-			auto value = branch->value ? dispatch(*this,branch->value,targetContext->branchTarget->type) : nullptr;
+			auto value = branch->branchTarget->type == TypeId::Void ? voidDummy
+				: dispatch(*this,branch->value,targetContext->branchTarget->type);
 			
 			// Insert the branch instruction.
 			auto exitBlock = compileBranch(targetContext->basicBlock);
 			
 			// Add the branch's value to the list of incoming values for the branch target.
-			if(value) { targetContext->results = new(scopedArena) BranchResult {exitBlock,value,targetContext->results}; }
+			if(exitBlock) { targetContext->results = new(scopedArena) BranchResult {exitBlock,value,targetContext->results}; }
 
-			// Create a new block to insert unreachable instructions following the branch into.
-			irBuilder.SetInsertPoint(llvm::BasicBlock::Create(context,"branchUnreachable",llvmFunction));
+			// Set the insert point to the unreachable block.
+			irBuilder.SetInsertPoint(unreachableBlock);
 
-			return nullptr;
+			return typedZeroConstants[(size_t)type];
 		}
 
 		DispatchResult visitNop(const Nop*)
 		{
-			return nullptr;
+			return voidDummy;
 		}
 		DispatchResult visitDiscardResult(const DiscardResult* discardResult)
 		{
 			dispatch(*this,discardResult->expression);
-			return nullptr;
+			return voidDummy;
 		}
 		
 		DispatchResult compileIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand)
@@ -709,12 +738,16 @@ namespace LLVMJIT
 		// Traverse the function's expressions.
 		auto value = dispatch(*this,astFunction->expression,astFunction->type.returnType);
 
-		if(irBuilder.GetInsertBlock())
+		// If the final value of the function is reachable, return it.
+		if(irBuilder.GetInsertBlock() != unreachableBlock)
 		{
 			if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
-			else if(value) { irBuilder.CreateRet(value); }
-			else { irBuilder.CreateUnreachable(); }
+			else { irBuilder.CreateRet(value); }
 		}
+
+		// Delete the unreachable block.
+		unreachableBlock->eraseFromParent();
+		unreachableBlock = nullptr;
 	}
 	
 	static void init()
@@ -734,6 +767,20 @@ namespace LLVMJIT
 		llvmTypesByTypeId[(size_t)TypeId::F64] = llvm::Type::getDoubleTy(context);
 		llvmTypesByTypeId[(size_t)TypeId::Bool] = llvm::Type::getInt1Ty(context);
 		llvmTypesByTypeId[(size_t)TypeId::Void] = llvm::Type::getVoidTy(context);
+		
+		// Create a null pointer constant to use as the void dummy value.
+		voidDummy = llvm::Constant::getIntegerValue(llvm::Type::getInt8Ty(context),llvm::APInt(64,0));
+		
+		// Create zero constants of each type.
+		typedZeroConstants[(size_t)TypeId::None] = nullptr;
+		typedZeroConstants[(size_t)TypeId::I8] = compileLiteral((uint8)0);
+		typedZeroConstants[(size_t)TypeId::I16] = compileLiteral((uint16)0);
+		typedZeroConstants[(size_t)TypeId::I32] = compileLiteral((uint32)0);
+		typedZeroConstants[(size_t)TypeId::I64] = compileLiteral((uint64)0);
+		typedZeroConstants[(size_t)TypeId::F32] = compileLiteral((float32)0.0f);
+		typedZeroConstants[(size_t)TypeId::F64] = compileLiteral((float64)0.0);
+		typedZeroConstants[(size_t)TypeId::Bool] = compileLiteral(false);
+		typedZeroConstants[(size_t)TypeId::Void] = voidDummy;
 	}
 
 	bool compileModule(const Module* astModule)
@@ -775,18 +822,7 @@ namespace LLVMJIT
 		for(uintptr_t importIndex = 0;importIndex < jitModule->globalVariablePointers.size();++importIndex)
 		{
 			auto globalVariable = astModule->globals[importIndex];
-			llvm::Constant* initializer;
-			switch(globalVariable.type)
-			{
-			case TypeId::I8: initializer = compileLiteral((uint8)0); break;
-			case TypeId::I16: initializer = compileLiteral((uint16)0); break;
-			case TypeId::I32: initializer = compileLiteral((uint32)0); break;
-			case TypeId::I64: initializer = compileLiteral((uint64)0); break;
-			case TypeId::F32: initializer = compileLiteral((float32)0.0f); break;
-			case TypeId::F64: initializer = compileLiteral((float64)0.0); break;
-			case TypeId::Bool: initializer = compileLiteral(false); break;
-			default: throw;
-			}
+			llvm::Constant* initializer = typedZeroConstants[(size_t)globalVariable.type];
 			jitModule->globalVariablePointers[importIndex] = new llvm::GlobalVariable(*jitModule->llvmModule,asLLVMType(globalVariable.type),false,llvm::GlobalValue::PrivateLinkage,initializer,getLLVMName(globalVariable.name));
 		}
 		
@@ -836,7 +872,7 @@ namespace LLVMJIT
 		{
 			JITFunctionContext(*jitModule,functionIndex).compile();
 		}
-		std::cout << "Generated LLVM code for module in " << llvmGenTimer.getMilliseconds() << "ms" << std::endl;
+		//std::cout << "Generated LLVM code for module in " << llvmGenTimer.getMilliseconds() << "ms" << std::endl;
 		
 		// Work around a problem with LLVM generating a COFF file that MCJIT can't parse. Adding -elf to the target triple forces it to use ELF instead of COFF.
 		// This also works around a _ being prepended to the symbol before getSymbolAddress is called on MacOS.
@@ -900,7 +936,7 @@ namespace LLVMJIT
 			if(llvm::verifyModule(*jitModule->llvmModule,&verifyOutputStream))
 			{
 				std::error_code errorCode;
-				llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("d:/dropbox/temp/llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
+				llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
 				jitModule->llvmModule->print(dumpFileStream,nullptr);
 				std::cerr << "LLVM verification errors:\n" << verifyOutputStream.str() << std::endl;
 				return false;
@@ -945,12 +981,12 @@ namespace LLVMJIT
 		{ fpm->run(*functionIt); }
 		delete fpm;
 
-		std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
+		//std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
 
 		// Generate native machine code.
 		Core::Timer machineCodeTimer;
 		jitModule->executionEngine->finalizeObject();
-		std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
+		//std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
 
 		return true;
 	}

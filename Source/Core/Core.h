@@ -40,4 +40,19 @@ namespace Core
 		std::chrono::high_resolution_clock::time_point endTime;
 		bool isStopped;
 	};
+	
+	// A location in a text file.
+	struct TextFileLocus
+	{
+		uint32 newlines;
+		uint16 tabs;
+		uint16 characters;
+
+		TextFileLocus(): newlines(0), tabs(0), characters(0) {}
+
+		std::string describe(uint32 spacesPerTab = 4) const
+		{
+			return "(" + std::to_string(newlines + 1) + ":" + std::to_string(tabs * spacesPerTab + characters + 1) + ")";
+		}
+	};
 }

@@ -49,6 +49,12 @@ namespace WebAssemblyText
 		return error;
 	}
 
+	template<typename Error> Error* recordExcessInputError(std::vector<ErrorRecord*>& outErrors,SNodeIt nodeIt,const char* errorContext)
+	{
+		auto message = std::string("unexpected input following ") + errorContext;
+		return recordError<Error>(outErrors,nodeIt,std::move(message));
+	}
+
 	// Parse a type from a S-expression symbol.
 	bool parseType(SNodeIt& nodeIt,TypeId& outType)
 	{
@@ -197,7 +203,7 @@ namespace WebAssemblyText
 		std::map<std::string,uintptr_t> functionImportNameToIndexMap;
 		std::vector<ErrorRecord*>& outErrors;
 
-		ModuleContext(std::vector<ErrorRecord*>& inOutErrors): module(new Module), outErrors(inOutErrors) {}
+		ModuleContext(Module* inModule,std::vector<ErrorRecord*>& inOutErrors): module(inModule), outErrors(inOutErrors) {}
 
 		Module* parse(SNodeIt moduleNode);
 	};
@@ -210,9 +216,34 @@ namespace WebAssemblyText
 		,	outErrors(inModuleContext.outErrors)
 		,	moduleContext(inModuleContext)
 		,	function(inFunction)
-		{}
-
-		void parse(SNodeIt firstFunctionChildNode);
+		{
+			// Build a map from local/parameter names to indices.
+			buildVariableNameToIndexMapMap(function->locals,localNameToIndexMap,outErrors);
+		}
+		
+		// Parses an expression of a specific type that's not known at compile time. Returns an UntypedExpression because the type is known to the caller.
+		UntypedExpression* parseTypedExpression(TypeId type,SNodeIt& nodeIt,const char* errorContext)
+		{
+			switch(type)
+			{
+			#define AST_TYPE(typeName,className,...) case TypeId::typeName: return parseTypedExpression<className##Class>(type,nodeIt,errorContext);
+			ENUM_AST_TYPES(AST_TYPE,_)
+			#undef AST_TYPE
+			default: throw;
+			};
+		}
+		
+		// Parses a sequence of expressions, with the final node being of a specific type.
+		UntypedExpression* parseExpressionSequence(TypeId type,SNodeIt nodeIt,const char* context)
+		{
+			switch(type)
+			{
+			#define AST_TYPE(typeName,className,...) case TypeId::typeName: return parseExpressionSequence<className##Class>(type,nodeIt,context);
+			ENUM_AST_TYPES(AST_TYPE,_)
+			#undef AST_TYPE
+			default: throw;
+			}
+		}
 
 	private:
 		Memory::Arena& arena;
@@ -253,7 +284,7 @@ namespace WebAssemblyText
 				#define DEFINE_CAST_OP(destType,sourceType,symbol,opcode) DEFINE_BITYPED_OP(destType,sourceType,symbol) \
 					{ return parseCastExpression<destType##Type::Class>(destType##Type::Op::opcode,TypeId::sourceType,TypeId::destType,nodeIt); }
 
-				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(new(arena)Nop(),TypeId::Void); }
+				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(Nop::get(),TypeId::Void); }
 
 				DEFINE_TYPED_OP(Int,const)
 				{
@@ -504,10 +535,21 @@ namespace WebAssemblyText
 							}
 
 							// Parse the case's expression.
-							// If it's a fallthrough case, it will be of void type, otherwise it will be of the same type as the switch.
-							arms[armIndex].value = shouldFallthrough
-								? parseExpressionSequence<VoidClass>(TypeId::Void,childNodeIt,"switch case body",numOps)
-								: new(arena)Branch<VoidClass>(endTarget,parseExpressionSequence<Class>(resultType,childNodeIt,"switch case body",numOps));
+							if(shouldFallthrough)
+							{
+								// Fallthrough cases expect void expression[s].
+								arms[armIndex].value = parseExpressionSequence<VoidClass>(TypeId::Void,childNodeIt,"switch case body",numOps);
+							}
+							else
+							{
+								// Non-fallthrough cases expect an expression of the switch's result type.
+								auto armValue = parseExpressionSequence<Class>(resultType,childNodeIt,"switch case body",numOps);
+
+								// Branch to the switch end.
+								// If the switch result type is void, we can't put anything in the branch node's value, so we have to use a sequence node.
+								if(resultType != TypeId::Void) { arms[armIndex].value = new(arena)Branch<VoidClass>(endTarget,armValue); }
+								else { arms[armIndex].value = new(arena)Sequence<VoidClass>(as<VoidClass>(armValue),new(arena)Branch<VoidClass>(endTarget,nullptr)); }
+							}
 							++armIndex;
 						}
 						else { break; }
@@ -535,7 +577,7 @@ namespace WebAssemblyText
 					// Parse an optional else-expression. If there isn't one, use a nop.
 					Expression<Class>* elseExpression;
 					if(nodeIt) { elseExpression = parseTypedExpression<Class>(resultType,nodeIt,"if else"); }
-					else if(resultType == TypeId::Void) { elseExpression = as<Class>(new(arena)Nop()); }
+					else if(resultType == TypeId::Void) { elseExpression = as<Class>(Nop::get()); }
 					else { elseExpression = recordError<Error<Class>>(outErrors,nodeIt,"if without else used as value"); }
 
 					// Construct the IfElse node.
@@ -850,29 +892,13 @@ namespace WebAssemblyText
 			}
 		}
 
-		// Parses an expression of a specific type that's not known at compile time. Returns an UntypedExpression because the type is known to the caller.
-		UntypedExpression* parseTypedExpression(TypeId type,SNodeIt& nodeIt,const char* errorContext)
-		{
-			switch(type)
-			{
-			#define AST_TYPE(typeName,className,...) case TypeId::typeName: return parseTypedExpression<className##Class>(type,nodeIt,errorContext);
-			ENUM_AST_TYPES(AST_TYPE,_)
-			#undef AST_TYPE
-			default: throw;
-			};
-		}
-		
 		// Used to verify that after a SExpr was parsed into an AST node, that all children of the SExpr were consumed.
 		// If node is null, then returns result. Otherwise produces an error that there was unexpected input.
 		template<typename Class>
 		Expression<Class>* requireFullMatch(SNodeIt nodeIt,const char* errorContext,Expression<Class>* result)
 		{
 			if(!nodeIt) { return result; }
-			else
-			{
-				std::string message = std::string("unexpected input following ") + errorContext;
-				return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
-			}
+			else { return recordExcessInputError<Error<Class>>(outErrors,nodeIt,errorContext); }
 		}
 		
 		// Parse an expression from a sequence of S-expression children. A specified number of siblings following nodeIt are used.
@@ -880,7 +906,7 @@ namespace WebAssemblyText
 		template<typename Class>
 		typename Class::ClassExpression* parseExpressionSequence(TypeId type,SNodeIt nodeIt,const char* errorContext,size_t numOps)
 		{
-			if(numOps == 0) { return as<Class>(new(arena) Nop()); }
+			if(numOps == 0) { return as<Class>(Nop::get()); }
 			else if(numOps == 1) { return parseTypedExpression<Class>(type,nodeIt,errorContext); }
 			else
 			{
@@ -912,16 +938,6 @@ namespace WebAssemblyText
 				return recordError<Error<Class>>(outErrors,nodeIt,"missing expression");
 			}
 			return parseExpressionSequence<Class>(type,nodeIt,context,numOps);
-		}
-		UntypedExpression* parseExpressionSequence(TypeId type,SNodeIt nodeIt,const char* context)
-		{
-			switch(type)
-			{
-			#define AST_TYPE(typeName,className,...) case TypeId::typeName: return parseExpressionSequence<className##Class>(type,nodeIt,context);
-			ENUM_AST_TYPES(AST_TYPE,_)
-			#undef AST_TYPE
-			default: throw;
-			}
 		}
 
 		// Parse a comparison operation.
@@ -1020,28 +1036,6 @@ namespace WebAssemblyText
 			return requireFullMatch(nodeIt,getOpName(op),result);
 		}
 	};
-
-	void FunctionContext::parse(SNodeIt firstFunctionChildNode)
-	{
-		// Process nodes until the first node that isn't a param, local, or result.
-		auto nodeIt = firstFunctionChildNode;
-		const char* functionName;
-		parseName(nodeIt,functionName);
-		for(;nodeIt;++nodeIt)
-		{
-			SNodeIt childNode;
-			if(	!parseTaggedNode(nodeIt,Symbol::_local,childNode)
-			&&	!parseTaggedNode(nodeIt,Symbol::_param,childNode)
-			&&	!parseTaggedNode(nodeIt,Symbol::_result,childNode))
-			{ break; }
-		};
-
-		// Build a map from local/parameter names to indices.
-		buildVariableNameToIndexMapMap(function->locals,localNameToIndexMap,outErrors);
-
-		// Parse statements.
-		function->expression = parseExpressionSequence(function->type.returnType,nodeIt,"function body");
-	}
 
 	Module* ModuleContext::parse(SNodeIt firstModuleChildNode)
 	{
@@ -1263,8 +1257,23 @@ namespace WebAssemblyText
 			SNodeIt childNodeIt;
 			if(parseTaggedNode(nodeIt,Symbol::_func,childNodeIt))
 			{
-				// Parse a function definition.
-				FunctionContext(*this,module->functions[currentFunctionIndex++]).parse(childNodeIt);
+				// Process nodes until the first node that isn't the function name, a param, local, or result.
+				const char* functionName;
+				parseName(childNodeIt,functionName);
+
+				for(;childNodeIt;++childNodeIt)
+				{
+					SNodeIt childChildNodeIt;
+					if(	!parseTaggedNode(childNodeIt,Symbol::_local,childChildNodeIt)
+					&&	!parseTaggedNode(childNodeIt,Symbol::_param,childChildNodeIt)
+					&&	!parseTaggedNode(childNodeIt,Symbol::_result,childChildNodeIt))
+					{ break; }
+				};
+
+				// Parse the function's body.
+				auto function = module->functions[currentFunctionIndex++];
+				FunctionContext functionContext(*this,function);
+				function->expression = functionContext.parseExpressionSequence(function->type.returnType,childNodeIt,"function body");
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_export,childNodeIt))
 			{
@@ -1293,13 +1302,76 @@ namespace WebAssemblyText
 		Memory::ScopedArena scopedArena;
 		auto rootNode = SExp::parse(string,scopedArena,symbolIndexMap);
 		
+		// Parse modules from S-expressions.
 		for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
 		{
 			SNodeIt childNodeIt;
 			if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 			{
 				// Parse a module definition.
-				outFile.modules.push_back(ModuleContext(outFile.errors).parse(childNodeIt));
+				outFile.modules.push_back(ModuleContext(new Module(),outFile.errors).parse(childNodeIt));
+			}
+		}
+		
+		// Parse the assertions.
+		for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
+		{
+			SNodeIt childNodeIt;
+			if(parseTaggedNode(rootNodeIt,Symbol::_assert_eq,childNodeIt))
+			{
+				SNodeIt invokeChildIt;
+				if(!parseTaggedNode(childNodeIt++,Symbol::_invoke,invokeChildIt))
+					{ recordError<ErrorRecord>(outFile.errors,childNodeIt,"expected invoke expression"); continue; }
+
+				// Parse the export name to invoke.
+				const char* invokeExportName;
+				size_t invokeExportNameLength;
+				SNodeIt savedExportNameIt = invokeChildIt;
+				if(!parseString(invokeChildIt,invokeExportName,invokeExportNameLength,scopedArena))
+					{ recordError<ErrorRecord>(outFile.errors,invokeChildIt,"expected export name string"); continue; }
+
+				// Find the named export in one of the modules.
+				Module* exportModule = nullptr;
+				uintptr_t exportFunctionIndex = 0;
+				for(auto module : outFile.modules)
+				{
+					auto exportIt = module->exportNameToFunctionIndexMap.find(invokeExportName);
+					if(exportIt != module->exportNameToFunctionIndexMap.end())
+					{
+						exportModule = module;
+						exportFunctionIndex = exportIt->second;
+						break;
+					}
+				}
+				if(!exportModule) { recordError<ErrorRecord>(outFile.errors,savedExportNameIt,"couldn't find export with this name"); continue; }
+
+				// Set up a dummy module, function, and parsing context to parse the invoke parameters in.
+				Module* dummyModule = new AST::Module;
+				Function dummyFunction;
+				ModuleContext dummyModuleContext(dummyModule,outFile.errors);
+				FunctionContext dummyFunctionContext(dummyModuleContext,&dummyFunction);
+
+				// Parse the invoke's parameters.
+				auto function = exportModule->functions[exportFunctionIndex];
+				std::vector<TypedExpression> parameters(function->type.parameters.size());
+				for(uintptr_t parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
+				{
+					auto parameterType = function->type.parameters[parameterIndex];
+					auto parameterValue = dummyFunctionContext.parseTypedExpression(parameterType,invokeChildIt,"invoke parameter");
+					parameters[parameterIndex] = TypedExpression(parameterValue,parameterType);
+				}
+				
+				// Verify that all of the invoke's parameters were matched.
+				if(invokeChildIt) { recordExcessInputError<ErrorRecord>(outFile.errors,invokeChildIt,"invoke parameters"); continue; }
+
+				// Parse the expected value of the invoke.
+				auto returnType = function->type.returnType;
+				auto value = TypedExpression(dummyFunctionContext.parseTypedExpression(returnType,childNodeIt,"assert_eq reference value"),returnType);
+				
+				// Verify that all of the invoke's parameters were matched.
+				if(childNodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,childNodeIt,"assert_eq expected value"); continue; }
+
+				outFile.assertEqs.push_back({dummyModule,exportModule,exportFunctionIndex,std::move(parameters),value,rootNodeIt->startLocus});
 			}
 		}
 

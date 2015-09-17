@@ -14,26 +14,28 @@ namespace Runtime
 
 	bool initInstanceMemory(size_t maxBytes)
 	{
-		assert(!instanceMemoryBase);
-		assert(!instanceAddressSpaceMaxBytes);
+		numCommittedVirtualPages = 0;
+		numAllocatedBytes = 0;
+		if(!instanceMemoryBase)
+		{
+			// Allocate 4TB of address space for the instance. This is a tradeoff:
+			// - Windows 8+ and Linux user processes can allocate 128TB of virtual memory.
+			// - Windows 7 user processes can allocate 8TB of virtual memory.
+			// - Windows (haven't checked on Linux) allocates a fair amount of physical memory
+			//   for memory management data structures: 128MB for 64TB.
+			const size_t addressSpaceMaxBytes = 4ull*1024*1024*1024*1024;
+			if(maxBytes > addressSpaceMaxBytes) { return false; }
 
-		// Allocate 4TB of address space for the instance. This is a tradeoff:
-		// - Windows 8+ and Linux user processes can allocate 128TB of virtual memory.
-		// - Windows 7 user processes can allocate 8TB of virtual memory.
-		// - Windows (haven't checked on Linux) allocates a fair amount of physical memory
-		//   for memory management data structures: 128MB for 64TB.
-		const size_t addressSpaceMaxBytes = 4ull*1024*1024*1024*1024;
-		if(maxBytes > addressSpaceMaxBytes) { return false; }
+			instanceAddressSpaceMaxBytes = maxBytes;
 
-		instanceAddressSpaceMaxBytes = maxBytes;
-
-		// Align the instance memory base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
-		const size_t numAllocatedVirtualPages = addressSpaceMaxBytes >> Platform::getPreferredVirtualPageSizeLog2();
-		const size_t alignment = 4ull*1024*1024*1024;
-		const size_t pageAlignment = alignment >> Platform::getPreferredVirtualPageSizeLog2();
-		unalignedInstanceMemoryBase = Platform::allocateVirtualPages(numAllocatedVirtualPages + pageAlignment - 1);
-		if(!unalignedInstanceMemoryBase) { return false; }
-		instanceMemoryBase = (uint8*)((uintptr_t)(unalignedInstanceMemoryBase + alignment - 1) & ~(alignment - 1));
+			// Align the instance memory base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
+			const size_t numAllocatedVirtualPages = addressSpaceMaxBytes >> Platform::getPreferredVirtualPageSizeLog2();
+			const size_t alignment = 4ull*1024*1024*1024;
+			const size_t pageAlignment = alignment >> Platform::getPreferredVirtualPageSizeLog2();
+			unalignedInstanceMemoryBase = Platform::allocateVirtualPages(numAllocatedVirtualPages + pageAlignment - 1);
+			if(!unalignedInstanceMemoryBase) { return false; }
+			instanceMemoryBase = (uint8*)((uintptr_t)(unalignedInstanceMemoryBase + alignment - 1) & ~(alignment - 1));
+		}
 		return true;
 	}
 

@@ -125,6 +125,14 @@ namespace AST
 
 	struct Nop : public Expression<VoidClass>
 	{
+		static Nop* get()
+		{
+			static Nop globalInstance;
+			return &globalInstance;
+		}
+
+	private:
+		
 		Nop(): Expression(Op::nop) {}
 	};
 	
@@ -195,7 +203,7 @@ namespace AST
 	struct Branch : public Expression<Class>
 	{
 		BranchTarget* branchTarget;
-		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it may be null.
+		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it will be null.
 
 		Branch(BranchTarget* inBranchTarget,UntypedExpression* inValue)
 		: Expression<Class>(Class::Op::branch), branchTarget(inBranchTarget), value(inValue) {}
@@ -205,7 +213,7 @@ namespace AST
 	struct Return : public Expression<Class>
 	{
 		// The value to return. The type is implied by the return type of the function.
-		// If the return type is Void, then it will be null.
+		// If the return type is Void, it will be null.
 		UntypedExpression* value;
 
 		Return(UntypedExpression* inValue): Expression<Class>(Class::Op::ret), value(inValue) {}

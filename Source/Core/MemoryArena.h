@@ -29,6 +29,7 @@ namespace Memory
 
 		Arena(size_t inDefaultSegmentBytes = 8192)
 		: defaultSegmentBytes(inDefaultSegmentBytes), currentSegment(nullptr), currentSegmentAllocatedBytes(0), totalAllocatedBytes(0), totalWastedBytes(0) {}
+		Arena(const Arena&) = delete;
 		~Arena();
 	
 		void* allocate(size_t numBytes);

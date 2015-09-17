@@ -8,9 +8,9 @@ namespace SExp
 {
 	struct FatalParseException
 	{
-		TextFileLocus locus;
+		Core::TextFileLocus locus;
 		std::string message;
-		FatalParseException(const TextFileLocus& inLocus,std::string&& inMessage)
+		FatalParseException(const Core::TextFileLocus& inLocus,std::string&& inMessage)
 		: locus(inLocus), message(std::move(inMessage)) {}
 	};
 
@@ -35,7 +35,7 @@ namespace SExp
 		{
 			return *next;
 		}
-		TextFileLocus getLocus() const { return locus; }
+		Core::TextFileLocus getLocus() const { return locus; }
 
 		// Tries to skip to the next instance of a character, excluding instances between nested parentheses.
 		// If successful, returns true. Will stop skipping and return false if it hits the end of the string or
@@ -72,7 +72,7 @@ namespace SExp
 
 	private:
 		const char* next;
-		TextFileLocus locus;
+		Core::TextFileLocus locus;
 	};
 
 	bool isWhitespace(char c)

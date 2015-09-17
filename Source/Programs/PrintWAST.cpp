@@ -9,7 +9,9 @@ int main(int argc,char** argv)
 	const char* outputFilename;
 	if(argc == 4 && !strcmp(argv[1],"-text"))
 	{
-		module = loadTextModule(argv[2]);
+		WebAssemblyText::File file;
+		if(loadTextModule(argv[2],file)) { module = file.modules[0]; }
+		else { return -1; }
 		outputFilename = argv[3];
 	}
 	else if(argc == 5 && !strcmp(argv[1],"-binary"))

@@ -116,11 +116,13 @@ bool initModuleRuntime(const AST::Module* module)
 
 int main(int argc,char** argv)
 {
-	AST::Module* module;
+	AST::Module* module = nullptr;
 	const char* functionName;
 	if(argc == 4 && !strcmp(argv[1],"-text"))
 	{
-		module = loadTextModule(argv[2]);
+		WebAssemblyText::File wastFile;
+		if(loadTextModule(argv[2],wastFile)) { module = wastFile.modules[0]; }
+		else { return -1; }
 		functionName = argv[3];
 	}
 	else if(argc == 5 && !strcmp(argv[1],"-binary"))

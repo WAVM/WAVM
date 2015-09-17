@@ -800,7 +800,7 @@ namespace WebAssemblyBinary
 		{
 			auto condition = decodeExpressionI32AsBool();
 			auto thenExpression = decodeStatement();
-			return new(arena) IfElse<VoidClass>(condition,thenExpression,new(arena) Nop());
+			return new(arena) IfElse<VoidClass>(condition,thenExpression,Nop::get());
 		}
 
 		VoidExpression* decodeIfElse()
@@ -853,7 +853,7 @@ namespace WebAssemblyBinary
 				loopExpression,
 				new(arena) IfElse<VoidClass>(
 					condition,
-					new(arena) Nop(),
+					Nop::get(),
 					new(arena) Branch<VoidClass>(breakBranchTarget,nullptr)
 					)
 				);
@@ -941,7 +941,7 @@ namespace WebAssemblyBinary
 				{
 				case SwitchCase::Case0:
 				case SwitchCase::Default0:
-					caseValue = new(arena) Nop();
+					caseValue = Nop::get();
 					break;
 				case SwitchCase::Case1:
 				case SwitchCase::Default1:
@@ -963,7 +963,7 @@ namespace WebAssemblyBinary
 			{
 				arms = arena.reallocate(arms,numCases,numCases + 1);
 				arms[numCases].key = 0;
-				arms[numCases].value = new(arena) Nop();
+				arms[numCases].value = Nop::get();
 				defaultCaseIndex = numCases++;
 			}
 
@@ -1272,7 +1272,7 @@ namespace WebAssemblyBinary
 		VoidExpression* decodeStatementList()
 		{
 			uint32 numStatements = in.immU32();
-			if(numStatements == 0) { return new(arena) Nop(); }
+			if(numStatements == 0) { return Nop::get(); }
 			else
 			{
 				VoidExpression* result = decodeStatement();

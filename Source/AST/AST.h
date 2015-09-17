@@ -85,13 +85,13 @@ namespace AST
 		TypedExpression(UntypedExpression* inExpression,TypeId inType): expression(inExpression), type(inType) {}
 		TypedExpression(): expression(nullptr), type(TypeId::None) {}
 		operator bool() const { return expression != nullptr; }
-		
-		template<typename AsClass> friend typename AsClass::ClassExpression* as(const TypedExpression& expression)
-		{
-			assert(expression.expression && isTypeClass(expression.type,AsClass::id));
-			return (typename AsClass::ClassExpression*)expression.expression;
-		}
 	};
+	
+	template<typename AsClass> typename AsClass::ClassExpression* as(const TypedExpression& expression)
+	{
+		assert(expression.expression && isTypeClass(expression.type,AsClass::id));
+		return (typename AsClass::ClassExpression*)expression.expression;
+	}
 
 	struct Variable
 	{
@@ -180,5 +180,19 @@ namespace AST
 		uint64_t maxNumBytesMemory;
 
 		Module() : initialNumBytesMemory(0), maxNumBytesMemory(0) {}
+
+		// When copying a module, copy everything but the arena!
+		// This means the new module will have its own arena, but will reference expressions and other data stored in the old module's arena.
+		Module(const Module& inCopy)
+		: functions(inCopy.functions)
+		, globals(inCopy.globals)
+		, exportNameToFunctionIndexMap(inCopy.exportNameToFunctionIndexMap)
+		, functionTables(inCopy.functionTables)
+		, functionImports(inCopy.functionImports)
+		, variableImports(inCopy.variableImports)
+		, dataSegments(inCopy.dataSegments)
+		, initialNumBytesMemory(inCopy.initialNumBytesMemory)
+		, maxNumBytesMemory(inCopy.maxNumBytesMemory)
+		{}
 	};
 }

@@ -313,7 +313,7 @@ namespace ASMJS
 				);
 		}
 		template<typename Class>
-		LoweredExpression visitReturn(const Return<Class>* ret)
+		LoweredExpression visitReturn(TypeId type,const Return<Class>* ret)
 		{
 			auto value = function->type.returnType == TypeId::Void ? LoweredExpression()
 				: dispatch(*this,ret->value,function->type.returnType);
@@ -345,7 +345,7 @@ namespace ASMJS
 			return LoweredExpression(loopStatement,value);
 		}
 		template<typename Class>
-		LoweredExpression visitBranch(const Branch<Class>* branch)
+		LoweredExpression visitBranch(TypeId type,const Branch<Class>* branch)
 		{
 			auto loweredBranchTarget = branchTargetRemap[branch->branchTarget];
 			VoidExpression* statements = nullptr;
@@ -372,7 +372,7 @@ namespace ASMJS
 		}
 		LoweredExpression visitNop(const Nop* nop)
 		{
-			return LoweredExpression({new(arena) Nop()});
+			return LoweredExpression({Nop::get()});
 		}
 		LoweredExpression visitDiscardResult(const DiscardResult* discardResult)
 		{
@@ -790,7 +790,7 @@ namespace ASMJS
 			return out;
 		}
 		template<typename Class>
-		DispatchResult visitReturn(const Return<Class>* ret)
+		DispatchResult visitReturn(TypeId type,const Return<Class>* ret)
 		{
 			out << "return";
 			if(function->type.returnType != TypeId::Void) { out << " "; dispatch(*this,ret->value,function->type.returnType); };
@@ -805,7 +805,7 @@ namespace ASMJS
 			return out << ";\n}\nwhile(1)";
 		}
 		template<typename Class>
-		DispatchResult visitBranch(const Branch<Class>* branch)
+		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
 		{
 			assert(!branch->value);
 			assert(branch->branchTarget->type == TypeId::Void);

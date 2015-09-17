@@ -354,7 +354,7 @@ namespace WebAssemblyText
 			return subtreeStream;
 		}
 		template<typename Class>
-		DispatchResult visitReturn(const Return<Class>* ret)
+		DispatchResult visitReturn(TypeId type,const Return<Class>* ret)
 		{
 			auto subtreeStream = createTaggedSubtree(Symbol::_return);
 			if(function->type.returnType != TypeId::Void) { subtreeStream << dispatch(*this,ret->value,function->type.returnType); }
@@ -371,7 +371,7 @@ namespace WebAssemblyText
 			return loopStream;
 		}
 		template<typename Class>
-		DispatchResult visitBranch(const Branch<Class>* branch)
+		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
 		{
 			auto subtreeStream = createTaggedSubtree(Symbol::_break) << getLabelName(branch->branchTarget);
 			if(branch->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branch->value,branch->branchTarget->type); }

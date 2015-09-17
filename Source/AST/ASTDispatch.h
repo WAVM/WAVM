@@ -39,8 +39,8 @@ namespace AST
 		case AnyOp::switch_: return visitor.visitSwitch(type,(Switch<Class>*)expression);
 		case AnyOp::ifElse: return visitor.visitIfElse(type,(IfElse<Class>*)expression);
 		case AnyOp::label: return visitor.visitLabel(type,(Label<Class>*)expression);
-		case AnyOp::ret: return visitor.visitReturn((Return<Class>*)expression);
-		case AnyOp::branch: return visitor.visitBranch((Branch<Class>*)expression);
+		case AnyOp::ret: return visitor.visitReturn(type,(Return<Class>*)expression);
+		case AnyOp::branch: return visitor.visitBranch(type,(Branch<Class>*)expression);
 		default: throw;
 		}
 	}
@@ -303,7 +303,7 @@ namespace AST
 			return TypedExpression(new(arena) Sequence<Class>(voidExpression,as<Class>(resultExpression)),resultExpression.type);
 		}
 		template<typename Class>
-		DispatchResult visitReturn(const Return<Class>* ret)
+		DispatchResult visitReturn(TypeId type,const Return<Class>* ret)
 		{
 			auto value = function->type.returnType == TypeId::Void ? nullptr
 				: visitChild(TypedExpression(ret->value,function->type.returnType)).expression;
@@ -321,7 +321,7 @@ namespace AST
 			return TypedExpression(new(arena) Loop<Class>(expression,breakTarget,continueTarget),type);
 		}
 		template<typename Class>
-		DispatchResult visitBranch(const Branch<Class>* branch)
+		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
 		{
 			auto branchTarget = branchTargetRemap[branch->branchTarget];
 			auto value = branch->branchTarget->type == TypeId::Void ? nullptr
@@ -338,7 +338,7 @@ namespace AST
 		}
 		DispatchResult visitNop(const Nop* nop)
 		{
-			return TypedExpression(new(arena) Nop(),TypeId::Void);
+			return TypedExpression(Nop::get(),TypeId::Void);
 		}
 		DispatchResult visitDiscardResult(const DiscardResult* discardResult)
 		{

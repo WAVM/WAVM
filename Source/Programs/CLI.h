@@ -23,7 +23,7 @@ inline std::vector<uint8> loadFile(const char* filename)
 	return data;
 }
 
-inline AST::Module* loadTextModule(const char* filename)
+inline bool loadTextModule(const char* filename,WebAssemblyText::File& outFile)
 {
 	// Read the file into a string.
 	auto wastBytes = loadFile(filename);
@@ -32,21 +32,20 @@ inline AST::Module* loadTextModule(const char* filename)
 	wastBytes.clear();
 
 	Core::Timer loadTimer;
-	WebAssemblyText::File wastFile;
-	if(!WebAssemblyText::parse(wastString.c_str(),wastFile))
+	if(!WebAssemblyText::parse(wastString.c_str(),outFile))
 	{
 		// Print any parse errors;
 		std::cerr << "Error parsing WebAssembly text file:" << std::endl;
-		for(auto error : wastFile.errors) { std::cerr << error->message.c_str() << std::endl; }
-		return nullptr;
+		for(auto error : outFile.errors) { std::cerr << error->message.c_str() << std::endl; }
+		return false;
 	}
-	if(!wastFile.modules.size())
+	if(!outFile.modules.size())
 	{
 		std::cerr << "WebAssembly text file didn't contain any modules!" << std::endl;
-		return nullptr;
+		return false;
 	}
 	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
-	return wastFile.modules[0];
+	return true;
 }
 
 inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFilename)
