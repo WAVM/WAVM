@@ -1,5 +1,5 @@
 #include "Core/Core.h"
-#include "Core/CLI.h"
+#include "CLI.h"
 #include "AST/AST.h"
 #include "WebAssembly/WebAssembly.h"
 

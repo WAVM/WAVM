@@ -1,6 +1,6 @@
 #include "Core/Core.h"
 #include "Core/MemoryArena.h"
-#include "Core/CLI.h"
+#include "CLI.h"
 #include "Core/Platform.h"
 #include "AST/AST.h"
 #include "Runtime/Runtime.h"
