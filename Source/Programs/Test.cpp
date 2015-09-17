@@ -127,7 +127,7 @@ bool callTestFunction(AST::Module* module,const char* name,const char* locus,AST
 	typename Type::NativeType returnValue;
 	if(!callModuleFunction(module,name,returnValue)) { return false; }
 
-	auto expectedValue = AST::as<Type::Class>(typedExpectedValue);
+	auto expectedValue = AST::as<typename Type::Class>(typedExpectedValue);
 	if(expectedValue->op() != Type::Op::lit)
 	{
 		std::cerr << locus << ": assert_eq expected value expression must be const" << std::endl;
