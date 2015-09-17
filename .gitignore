@@ -1,5 +1,1 @@
-External
-VS/**
-!VS/WAVM.sln
-!VS/*.vcxproj
-!VS/*.vcxproj.filters
+Build
