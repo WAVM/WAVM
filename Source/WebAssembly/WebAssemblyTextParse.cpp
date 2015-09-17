@@ -339,9 +339,9 @@ namespace WebAssemblyText
 				DEFINE_BINARY_OP(Bool,and,bitwiseAnd)
 				DEFINE_BINARY_OP(Bool,or,bitwiseOr)
 
-				DEFINE_COMPARE_OP(Int,eq,eq) DEFINE_COMPARE_OP(Int,neq,neq)
-				DEFINE_COMPARE_OP(Float,eq,eq) DEFINE_COMPARE_OP(Float,neq,neq)
-				DEFINE_COMPARE_OP(Bool,eq,eq) DEFINE_COMPARE_OP(Bool,neq,neq)
+				DEFINE_COMPARE_OP(Int,eq,eq) DEFINE_COMPARE_OP(Int,ne,ne)
+				DEFINE_COMPARE_OP(Float,eq,eq) DEFINE_COMPARE_OP(Float,ne,ne)
+				DEFINE_COMPARE_OP(Bool,eq,eq) DEFINE_COMPARE_OP(Bool,ne,ne)
 				DEFINE_COMPARE_OP(Int,lt_s,lts)
 				DEFINE_COMPARE_OP(Int,lt_u,ltu)
 				DEFINE_COMPARE_OP(Int,le_s,les)
@@ -777,7 +777,7 @@ namespace WebAssemblyText
 				default: throw;
 				}
 				// Coerce the integer to a boolean by testing if the integer != 0.
-				return new(arena) Comparison(BoolOp::neq,typedExpression.type,typedExpression.expression,zero);
+				return new(arena) Comparison(BoolOp::ne,typedExpression.type,typedExpression.expression,zero);
 			}
 			else { return typeError<BoolClass>(resultType,typedExpression,nodeIt,errorContext); }
 		}

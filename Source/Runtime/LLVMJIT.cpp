@@ -635,7 +635,7 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(BoolClass,bitwiseOr,irBuilder.CreateOr(left,right))
 
 		IMPLEMENT_COMPARE_OP(eq,isTypeClass(compare->operandType,TypeClassId::Float) ? irBuilder.CreateFCmpUEQ(left,right) : irBuilder.CreateICmpEQ(left,right))
-		IMPLEMENT_COMPARE_OP(neq,isTypeClass(compare->operandType,TypeClassId::Float) ? irBuilder.CreateFCmpUNE(left,right) : irBuilder.CreateICmpNE(left,right))
+		IMPLEMENT_COMPARE_OP(ne,isTypeClass(compare->operandType,TypeClassId::Float) ? irBuilder.CreateFCmpUNE(left,right) : irBuilder.CreateICmpNE(left,right))
 		IMPLEMENT_COMPARE_OP(lt,irBuilder.CreateFCmpULT(left,right))
 		IMPLEMENT_COMPARE_OP(lts,irBuilder.CreateICmpSLT(left,right))
 		IMPLEMENT_COMPARE_OP(ltu,irBuilder.CreateICmpULT(left,right))

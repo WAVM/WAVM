@@ -97,7 +97,7 @@ namespace AST
 		AST_OP(bitwiseOr)
 
 	#define ENUM_AST_COMPARISON_OPS() \
-		AST_OP(eq) AST_OP(neq) \
+		AST_OP(eq) AST_OP(ne) \
 		AST_OP(lts) AST_OP(ltu) AST_OP(lt) \
 		AST_OP(les) AST_OP(leu) AST_OP(le) \
 		AST_OP(gts) AST_OP(gtu) AST_OP(gt) \

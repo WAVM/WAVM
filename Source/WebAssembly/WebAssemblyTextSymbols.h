@@ -101,7 +101,7 @@ namespace WebAssemblyText
 
 	#define ENUM_WAST_BOOL_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(eq) \
-		TYPED_WAST_SYMBOL(neq) \
+		TYPED_WAST_SYMBOL(ne) \
 		TYPED_WAST_SYMBOL(lt_s) \
 		TYPED_WAST_SYMBOL(lt_u) \
 		TYPED_WAST_SYMBOL(le_s) \
@@ -273,7 +273,7 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(bitwiseNot,not)
 		MAP_OP_SYMBOL(bitwiseOr,or)
 		MAP_OP_SYMBOL(eq,eq)
-		MAP_OP_SYMBOL(neq,neq)
+		MAP_OP_SYMBOL(ne,ne)
 		MAP_OP_SYMBOL(lts,lt_s)
 		MAP_OP_SYMBOL(ltu,lt_u)
 		MAP_OP_SYMBOL(lt,lt)

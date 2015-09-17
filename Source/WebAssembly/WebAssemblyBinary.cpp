@@ -641,7 +641,7 @@ namespace WebAssemblyBinary
 			auto i32Value = decodeExpression(I32Type());
 			if(i32Value->op() == IntOp::reinterpretBool && ((Cast<IntClass>*)i32Value)->source.type == TypeId::Bool)
 				{ return as<BoolClass>(((Cast<IntClass>*)i32Value)->source); }
-			else { return new(arena) Comparison(BoolOp::neq,TypeId::I32,i32Value,new(arena) Literal<I32Type>(0)); }
+			else { return new(arena) Comparison(BoolOp::ne,TypeId::I32,i32Value,new(arena) Literal<I32Type>(0)); }
 		}
 
 		// Chooses between two values based on a predicate value.
@@ -1046,9 +1046,9 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::EqI32:      return decodeCompare<I32Type>(BoolOp::eq);
 				case I32OpEncoding::EqF32:      return decodeCompare<F32Type>(BoolOp::eq);
 				case I32OpEncoding::EqF64:      return decodeCompare<F64Type>(BoolOp::eq);
-				case I32OpEncoding::NEqI32:     return decodeCompare<I32Type>(BoolOp::neq);
-				case I32OpEncoding::NEqF32:     return decodeCompare<F32Type>(BoolOp::neq);
-				case I32OpEncoding::NEqF64:     return decodeCompare<F64Type>(BoolOp::neq);
+				case I32OpEncoding::NEqI32:     return decodeCompare<I32Type>(BoolOp::ne);
+				case I32OpEncoding::NEqF32:     return decodeCompare<F32Type>(BoolOp::ne);
+				case I32OpEncoding::NEqF64:     return decodeCompare<F64Type>(BoolOp::ne);
 				case I32OpEncoding::SLeThI32:   return decodeCompare<I32Type>(BoolOp::lts);
 				case I32OpEncoding::ULeThI32:   return decodeCompare<I32Type>(BoolOp::ltu);
 				case I32OpEncoding::LeThF32:    return decodeCompare<F32Type>(BoolOp::lt);

@@ -532,7 +532,7 @@ namespace ASMJS
 		case BoolOp::bitwiseAnd: return "&";
 		case BoolOp::bitwiseOr: return "|";
 		case BoolOp::eq: return "==";
-		case BoolOp::neq: return "!=";
+		case BoolOp::ne: return "!=";
 		case BoolOp::lts: case BoolOp::ltu: case BoolOp::lt: return "<";
 		case BoolOp::les: case BoolOp::leu: case BoolOp::le: return "<=";
 		case BoolOp::gts: case BoolOp::gtu: case BoolOp::gt: return ">";
