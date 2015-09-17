@@ -23,7 +23,6 @@ namespace WebAssemblyText
 		std::vector<AST::ErrorRecord*> errors;
 
 		std::vector<AssertEq> assertEqs;
-		std::vector<AssertInvalid> assertInvalids;
 	};
 
 	bool parse(const char* string,File& outFile);
