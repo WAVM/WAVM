@@ -46,10 +46,10 @@
 	#pragma warning(pop)
 #endif
 
+using namespace AST;
+
 namespace LLVMJIT
-{
-	using namespace AST;
-	
+{	
 	llvm::LLVMContext& context = llvm::getGlobalContext();
 	bool isInitialized = false;
 
@@ -954,10 +954,18 @@ namespace LLVMJIT
 
 		return true;
 	}
+}
+
+namespace Runtime
+{
+	bool compileModule(const Module* astModule)
+	{
+		return LLVMJIT::compileModule(astModule);
+	}
 
 	void* getFunctionPointer(const Module* module,uintptr_t functionIndex)
 	{
-		for(auto jitModule : jitModules)
+		for(auto jitModule : LLVMJIT::jitModules)
 		{
 			if(jitModule->astModule == module)
 			{

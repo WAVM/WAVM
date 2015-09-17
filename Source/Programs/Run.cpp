@@ -3,7 +3,6 @@
 #include "Core/CLI.h"
 #include "Core/Platform.h"
 #include "AST/AST.h"
-#include "Runtime/LLVMJIT.h"
 #include "Runtime/Runtime.h"
 
 struct Void {};
@@ -53,7 +52,7 @@ bool callModuleFunction(const AST::Module* module,const char* functionName,Retur
 		return false;
 	}
 
-	void* functionPtr = LLVMJIT::getFunctionPointer(module,exportIt->second);
+	void* functionPtr = Runtime::getFunctionPointer(module,exportIt->second);
 	assert(functionPtr);
 
 	// Call the generated machine code for the function.
@@ -101,7 +100,7 @@ bool initModuleRuntime(const AST::Module* module)
 	}
 
 	// Generate machine code for the module.
-	if(!LLVMJIT::compileModule(module))
+	if(!Runtime::compileModule(module))
 	{
 		std::cerr << "Couldn't compile module." << std::endl;
 		return false;
