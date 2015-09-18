@@ -7,7 +7,8 @@
 #include "Intrinsics.h"
 #include "Core/MemoryArena.h"
 
-#define WITH_INDIRECT_FUNCTION_PREFIX_CHECK 0
+#define WITH_FUNCTION_PROLOGUE_CHECK 0
+#define WITH_FUNCTION_PREFIX_CHECK 1
 
 #ifdef _WIN32
 	#pragma warning(push)
@@ -71,15 +72,21 @@ namespace LLVMJIT
 	llvm::Type* asLLVMType(TypeId type) { return llvmTypesByTypeId[(uintptr_t)type]; }
 	
 	// Converts an AST function type to a LLVM type.
-	llvm::FunctionType* asLLVMType(const FunctionType& functionType)
+	llvm::FunctionType* asLLVMType(const FunctionType& functionType,bool addFunctionSignatureArg)
 	{
-		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType.parameters.size());
+		size_t numExtraLLVMArgs = addFunctionSignatureArg ? 1 : 0;
+		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * (functionType.parameters.size() + numExtraLLVMArgs));
+		uintptr_t llvmArgIndex = 0;
+		if(addFunctionSignatureArg)
+		{
+			llvmArgTypes[llvmArgIndex++] = llvm::Type::getInt32Ty(context);
+		}
 		for(uintptr_t argIndex = 0;argIndex < functionType.parameters.size();++argIndex)
 		{
-			llvmArgTypes[argIndex] = asLLVMType(functionType.parameters[argIndex]);
+			llvmArgTypes[llvmArgIndex++] = asLLVMType(functionType.parameters[argIndex]);
 		}
 		auto llvmReturnType = asLLVMType(functionType.returnType);
-		return llvm::FunctionType::get(llvmReturnType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType.parameters.size()),false);
+		return llvm::FunctionType::get(llvmReturnType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType.parameters.size() + numExtraLLVMArgs),false);
 	}
 
 	// Converts an AST name to a LLVM name. Ensures that the name is not-null, and prefixes it to ensure it doesn't conflict with export names.
@@ -216,14 +223,27 @@ namespace LLVMJIT
 			return irBuilder.CreatePointerCast(bytePointer,asLLVMType(memoryType)->getPointerTo());
 		}
 
-		DispatchResult compileCall(const FunctionType& functionType,llvm::Value* function,UntypedExpression** args)
+		DispatchResult compileCall(const FunctionType& functionType,llvm::Value* function,UntypedExpression** args,bool isImport)
 		{
-			// Compile the parameter values for the call.
-			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * functionType.parameters.size());
-			for(size_t argIndex = 0;argIndex < functionType.parameters.size();++argIndex)
-				{ llvmArgs[argIndex] = dispatch(*this,args[argIndex],functionType.parameters[argIndex]); }
-			// Create the call instruction.
-			return irBuilder.CreateCall(function,llvm::ArrayRef<llvm::Value*>(llvmArgs,functionType.parameters.size()));
+			if(WITH_FUNCTION_PROLOGUE_CHECK && !isImport)
+			{
+				// Compile the parameter values for the call.
+				auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * (functionType.parameters.size() + 1));
+				llvmArgs[0] = compileLiteral((uint32)0);
+				for(size_t argIndex = 0;argIndex < functionType.parameters.size();++argIndex)
+					{ llvmArgs[argIndex + 1] = dispatch(*this,args[argIndex],functionType.parameters[argIndex]); }
+				// Create the call instruction.
+				return irBuilder.CreateCall(function,llvm::ArrayRef<llvm::Value*>(llvmArgs,functionType.parameters.size() + 1));
+			}
+			else
+			{
+				// Compile the parameter values for the call.
+				auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * functionType.parameters.size());
+				for(size_t argIndex = 0;argIndex < functionType.parameters.size();++argIndex)
+					{ llvmArgs[argIndex] = dispatch(*this,args[argIndex],functionType.parameters[argIndex]); }
+				// Create the call instruction.
+				return irBuilder.CreateCall(function,llvm::ArrayRef<llvm::Value*>(llvmArgs,functionType.parameters.size()));
+			}
 		}
 		
 		template<typename Type> DispatchResult visitLiteral(const Literal<Type>* literal) { return compileLiteral(literal->value); }
@@ -310,14 +330,14 @@ namespace LLVMJIT
 		{
 			auto astFunction = astModule->functions[call->functionIndex];
 			assert(astFunction->type.returnType == type);
-			return compileCall(astFunction->type,jitModule.functions[call->functionIndex],call->parameters);
+			return compileCall(astFunction->type,jitModule.functions[call->functionIndex],call->parameters,false);
 		}
 		DispatchResult visitCall(TypeId type,const Call* call,OpTypes<AnyClass>::callImport)
 		{
 			auto astFunctionImport = astModule->functionImports[call->functionIndex];
 			assert(astFunctionImport.type.returnType == type);
 			auto function = jitModule.functionImportPointers[call->functionIndex];
-			return compileCall(astFunctionImport.type,function,call->parameters);
+			return compileCall(astFunctionImport.type,function,call->parameters,true);
 		}
 		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
@@ -338,7 +358,7 @@ namespace LLVMJIT
 			// Load the function pointer from the table and call it.
 			auto function = irBuilder.CreateLoad(irBuilder.CreateInBoundsGEP(functionTablePointer,gepIndices));
 
-			#if WITH_INDIRECT_FUNCTION_PREFIX_CHECK
+			#if WITH_FUNCTION_PREFIX_CHECK
 				// Look up an I32 prefix stored with the function, and if it's not zero, call a random function of the right type instead.
 				auto prefixPointer = irBuilder.CreateBitCast(function,llvm::Type::getInt32Ty(context)->getPointerTo());
 				auto functionType = irBuilder.CreateLoad(irBuilder.CreateInBoundsGEP(prefixPointer,{compileLiteral((uint64)-1)}));
@@ -351,7 +371,7 @@ namespace LLVMJIT
 				auto safeFunction = function;
 			#endif
 
-			return compileCall(astFunctionTable.type,safeFunction,callIndirect->parameters);
+			return compileCall(astFunctionTable.type,safeFunction,callIndirect->parameters,false);
 		}
 		
 		template<typename Class>
@@ -713,6 +733,9 @@ namespace LLVMJIT
 			const Intrinsics::Value* intrinsicValue = Intrinsics::findValue(name.c_str());
 			if(intrinsicValue) { return reinterpret_cast<uint64>(intrinsicValue->value); }
 
+			// Allow __chkstk through.
+			if(name == "__chkstk") { return llvm::SectionMemoryManager::getSymbolAddress(name); }
+
 			std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
 			throw;
 		}
@@ -723,7 +746,7 @@ namespace LLVMJIT
 		// Create an initial basic block for the function.
 		auto entryBasicBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
 		irBuilder.SetInsertPoint(entryBasicBlock);
-
+		
 		// Create allocas for all the locals and initialize them to zero.
 		localVariablePointers = new(scopedArena) llvm::Value*[astFunction->locals.size()];
 		for(uintptr_t localIndex = 0;localIndex < astFunction->locals.size();++localIndex)
@@ -745,10 +768,32 @@ namespace LLVMJIT
 
 		// Move the function arguments into the corresponding local variable allocas.
 		uintptr_t parameterIndex = 0;
-		for(auto llvmArgIt = llvmFunction->arg_begin();llvmArgIt != llvmFunction->arg_end();++parameterIndex,++llvmArgIt)
+		auto llvmArgIt = llvmFunction->arg_begin();
+		if(WITH_FUNCTION_PROLOGUE_CHECK && llvmFunction->getLinkage() == llvm::Function::PrivateLinkage)
+		{
+			++llvmArgIt;
+		}
+		for(;llvmArgIt != llvmFunction->arg_end();++parameterIndex,++llvmArgIt)
 		{
 			auto localIndex = astFunction->parameterLocalIndices[parameterIndex];
 			irBuilder.CreateStore(llvmArgIt,localVariablePointers[localIndex]);
+		}
+		
+		if(WITH_FUNCTION_PROLOGUE_CHECK && llvmFunction->getLinkage() == llvm::Function::PrivateLinkage)
+		{
+			auto signatureCheckFailBlock = llvm::BasicBlock::Create(context,"signatureCheckFail",llvmFunction);
+			auto signatureCheckSuccBlock = llvm::BasicBlock::Create(context,"signatureCheckSucc",llvmFunction);
+			irBuilder.CreateCondBr(
+				irBuilder.CreateICmpEQ(llvmFunction->arg_begin(),compileLiteral((uint32)0)),
+				signatureCheckSuccBlock,
+				signatureCheckFailBlock
+				);
+
+			irBuilder.SetInsertPoint(signatureCheckFailBlock);
+			irBuilder.CreateCall(getLLVMIntrinsic({},llvm::Intrinsic::trap));
+			irBuilder.CreateUnreachable();
+
+			irBuilder.SetInsertPoint(signatureCheckSuccBlock);
 		}
 
 		// Traverse the function's expressions.
@@ -815,25 +860,29 @@ namespace LLVMJIT
 		jitModule->instanceMemoryBase = llvm::Constant::getIntegerValue(llvm::Type::getInt8PtrTy(context),llvm::APInt(64,reinterpret_cast<uintptr_t>(Runtime::instanceMemoryBase)));
 		auto instanceMemoryAddressMask = Runtime::instanceAddressSpaceMaxBytes - 1;
 		jitModule->instanceMemoryAddressMask = sizeof(uintptr_t) == 8 ? compileLiteral((uint64)instanceMemoryAddressMask) : compileLiteral((uint32)instanceMemoryAddressMask);
+		
+		// Build a reverse map from function index to export.
+		std::map<uintptr_t,const char*> functionIndexToExportNameMap;
+		for(auto exportIt : astModule->exportNameToFunctionIndexMap)
+		{
+			assert(exportIt.second < astModule->functions.size());
+			functionIndexToExportNameMap[exportIt.second] = exportIt.first;
+		}
 
 		// Create the LLVM functions.
 		jitModule->functions.resize(astModule->functions.size());
 		for(uintptr_t functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
 		{
 			auto astFunction = astModule->functions[functionIndex];
-			auto llvmFunctionType = asLLVMType(astFunction->type);
-			jitModule->functions[functionIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::PrivateLinkage,getLLVMName(astFunction->name),jitModule->llvmModule);
-			#if WITH_INDIRECT_FUNCTION_PREFIX_CHECK
+			auto exportIt = functionIndexToExportNameMap.find(functionIndex);
+			bool isExported = exportIt != functionIndexToExportNameMap.end();
+			auto functionName = isExported ? llvm::Twine(exportIt->second) : getLLVMName(astFunction->name);
+			auto linkage = isExported ? llvm::Function::ExternalLinkage : llvm::Function::PrivateLinkage;
+			auto llvmFunctionType = asLLVMType(astFunction->type,WITH_FUNCTION_PROLOGUE_CHECK && !isExported);
+			jitModule->functions[functionIndex] = llvm::Function::Create(llvmFunctionType,linkage,functionName,jitModule->llvmModule);
+			#if WITH_FUNCTION_PREFIX_CHECK
 				jitModule->functions[functionIndex]->setPrefixData(compileLiteral((uint32)0));
 			#endif
-		}
-
-		// Give exported functions the appropriate name and linkage.
-		for(auto exportIt : astModule->exportNameToFunctionIndexMap)
-		{
-			assert(exportIt.second < jitModule->functions.size());
-			jitModule->functions[exportIt.second]->setLinkage(llvm::GlobalValue::ExternalLinkage);
-			jitModule->functions[exportIt.second]->setName(exportIt.first);
 		}
 
 		// Create the global variables.
@@ -859,7 +908,7 @@ namespace LLVMJIT
 		for(uintptr_t importIndex = 0;importIndex < jitModule->functionImportPointers.size();++importIndex)
 		{
 			auto functionImport = astModule->functionImports[importIndex];
-			jitModule->functionImportPointers[importIndex] = new llvm::GlobalVariable(*jitModule->llvmModule,asLLVMType(functionImport.type),true,llvm::GlobalValue::ExternalLinkage,nullptr,functionImport.name);
+			jitModule->functionImportPointers[importIndex] = new llvm::GlobalVariable(*jitModule->llvmModule,asLLVMType(functionImport.type,false),true,llvm::GlobalValue::ExternalLinkage,nullptr,functionImport.name);
 		}
 
 		// Create the function table globals.
@@ -878,7 +927,7 @@ namespace LLVMJIT
 			assert((astFunctionTable.numFunctions & (astFunctionTable.numFunctions-1)) == 0);
 
 			// Create a LLVM global variable that holds the array of function pointers.
-			auto llvmFunctionTablePointerType = llvm::ArrayType::get(asLLVMType(astFunctionTable.type)->getPointerTo(),llvmFunctionTableElements.size());
+			auto llvmFunctionTablePointerType = llvm::ArrayType::get(asLLVMType(astFunctionTable.type,WITH_FUNCTION_PROLOGUE_CHECK)->getPointerTo(),llvmFunctionTableElements.size());
 			auto llvmFunctionTablePointer = new llvm::GlobalVariable(
 				*jitModule->llvmModule,llvmFunctionTablePointerType,true,llvm::GlobalValue::PrivateLinkage,
 				llvm::ConstantArray::get(llvmFunctionTablePointerType,llvmFunctionTableElements)
