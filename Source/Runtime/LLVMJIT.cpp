@@ -7,6 +7,8 @@
 #include "Intrinsics.h"
 #include "Core/MemoryArena.h"
 
+#define WITH_INDIRECT_FUNCTION_PREFIX_CHECK 0
+
 #ifdef _WIN32
 	#pragma warning(push)
 	#pragma warning (disable:4267)
@@ -335,7 +337,21 @@ namespace LLVMJIT
 
 			// Load the function pointer from the table and call it.
 			auto function = irBuilder.CreateLoad(irBuilder.CreateInBoundsGEP(functionTablePointer,gepIndices));
-			return compileCall(astFunctionTable.type,function,callIndirect->parameters);
+
+			#if WITH_INDIRECT_FUNCTION_PREFIX_CHECK
+				// Look up an I32 prefix stored with the function, and if it's not zero, call a random function of the right type instead.
+				auto prefixPointer = irBuilder.CreateBitCast(function,llvm::Type::getInt32Ty(context)->getPointerTo());
+				auto functionType = irBuilder.CreateLoad(irBuilder.CreateInBoundsGEP(prefixPointer,{compileLiteral((uint64)-1)}));
+				auto safeFunction = irBuilder.CreateSelect(
+					irBuilder.CreateICmpEQ(functionType,compileLiteral((uint32)0)),
+					function,
+					jitModule.functions[astFunctionTable.functionIndices[0]]
+					);
+			#else
+				auto safeFunction = function;
+			#endif
+
+			return compileCall(astFunctionTable.type,safeFunction,callIndirect->parameters);
 		}
 		
 		template<typename Class>
@@ -807,6 +823,9 @@ namespace LLVMJIT
 			auto astFunction = astModule->functions[functionIndex];
 			auto llvmFunctionType = asLLVMType(astFunction->type);
 			jitModule->functions[functionIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::PrivateLinkage,getLLVMName(astFunction->name),jitModule->llvmModule);
+			#if WITH_INDIRECT_FUNCTION_PREFIX_CHECK
+				jitModule->functions[functionIndex]->setPrefixData(compileLiteral((uint32)0));
+			#endif
 		}
 
 		// Give exported functions the appropriate name and linkage.
@@ -948,6 +967,7 @@ namespace LLVMJIT
 		llvm::legacy::PassManager passManager;
 		passManager.add(llvm::createFunctionInliningPass(2,0));
 		//passManager.add(llvm::createPartialInliningPass());
+		passManager.add(llvm::createGlobalDCEPass());
 		passManager.run(*jitModule->llvmModule);
 
 		auto fpm = new llvm::legacy::FunctionPassManager(jitModule->llvmModule);
@@ -980,6 +1000,10 @@ namespace LLVMJIT
 		for(auto functionIt = jitModule->llvmModule->begin();functionIt != jitModule->llvmModule->end();++functionIt)
 		{ fpm->run(*functionIt); }
 		delete fpm;
+		
+		std::error_code errorCode;
+		llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("llvmOptimizedDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
+		jitModule->llvmModule->print(dumpFileStream,nullptr);
 
 		//std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
 
