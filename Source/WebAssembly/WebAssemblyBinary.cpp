@@ -1077,10 +1077,10 @@ namespace WebAssemblyBinary
 			{
 				switch(i32WithImm)
 				{
-				case I32OpEncodingWithImm::LitImm:
+				case I32OpEncodingWithImm::LitImm: return new(arena) Literal<I32Type>(imm);
+				case I32OpEncodingWithImm::LitPool:
 					if(imm >= i32Constants.size()) { throw new FatalDecodeException("invalid I32 constant index"); }
-					return new(arena) Literal<I32Type>(imm);
-				case I32OpEncodingWithImm::LitPool: return new(arena) Literal<I32Type>(i32Constants[imm]);
+					return new(arena) Literal<I32Type>(i32Constants[imm]);
 				case I32OpEncodingWithImm::GetLoc: return getLocal<I32Type>(imm);
 				default: throw new FatalDecodeException("invalid I32 opcode");
 				}
