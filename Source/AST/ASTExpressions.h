@@ -20,18 +20,18 @@ namespace AST
 		{}
 	};
 
-	struct GetVariable : public Expression<AnyClass>
+	struct GetLocal : public Expression<AnyClass>
 	{
 		uintptr_t variableIndex;
-		GetVariable(AnyOp inOp,TypeClassId inTypeClass,uintptr_t inVariableIndex) : Expression(inOp,inTypeClass), variableIndex(inVariableIndex) {}
+		GetLocal(TypeClassId inTypeClass,uintptr_t inVariableIndex) : Expression(AnyOp::getLocal,inTypeClass), variableIndex(inVariableIndex) {}
 	};
 	
-	struct SetVariable : public Expression<AnyClass>
+	struct SetLocal : public Expression<AnyClass>
 	{
 		UntypedExpression* value;
 		uintptr_t variableIndex;
-		SetVariable(Op op,TypeClassId inTypeClass,UntypedExpression* inValue,uintptr_t inVariableIndex)
-		: Expression(op,inTypeClass), value(inValue), variableIndex(inVariableIndex) {}
+		SetLocal(TypeClassId inTypeClass,UntypedExpression* inValue,uintptr_t inVariableIndex)
+		: Expression(AnyOp::setLocal,inTypeClass), value(inValue), variableIndex(inVariableIndex) {}
 	};
 
 	template<typename Class>

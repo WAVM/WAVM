@@ -135,6 +135,23 @@ namespace Memory
 			characters[characters.size() - 2] = c;
 			characters[characters.size() - 1] = 0;
 		}
+		void append(Arena& arena,const char* string,size_t numChars)
+		{
+			auto numCharsWithNull = numChars + 1;
+			auto originalLength = length();
+			auto newLength = length() + numChars;
+			characters.resize(arena,newLength + 1);
+			for(uintptr_t i = 0;i < numCharsWithNull;++i) { characters[originalLength + i] = string[i]; }
+		}
+		template<size_t numCharsWithNull>
+		void append(Arena& arena,const char (&string)[numCharsWithNull])
+		{
+			auto numChars = numCharsWithNull - 1;
+			auto originalLength = length();
+			auto newLength = length() + numChars;
+			characters.resize(arena,newLength + 1);
+			for(uintptr_t i = 0;i < numCharsWithNull;++i) { characters[originalLength + i] = string[i]; }
+		}
 		void shrink(Arena& arena) { characters.shrink(arena); }
 
 		const char* c_str() const { if(characters.size()) { return characters.data(); } else { return ""; } }

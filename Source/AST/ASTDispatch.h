@@ -28,10 +28,8 @@ namespace AST
 		case AnyOp::callDirect: return visitor.visitCall(type,(Call*)expression,OpTypes<AnyClass>::callDirect());
 		case AnyOp::callImport: return visitor.visitCall(type,(Call*)expression,OpTypes<AnyClass>::callImport());
 		case AnyOp::callIndirect: return visitor.visitCallIndirect(type,(CallIndirect*)expression);
-		case AnyOp::getLocal: return visitor.visitGetVariable(type,(GetVariable*)expression,OpTypes<AnyClass>::getLocal());
-		case AnyOp::getGlobal: return visitor.visitGetVariable(type,(GetVariable*)expression,OpTypes<AnyClass>::getGlobal());
-		case AnyOp::setLocal: return visitor.visitSetVariable((SetVariable*)expression,OpTypes<AnyClass>::setLocal());
-		case AnyOp::setGlobal: return visitor.visitSetVariable((SetVariable*)expression,OpTypes<AnyClass>::setGlobal());
+		case AnyOp::getLocal: return visitor.visitGetLocal(type,(GetLocal*)expression);
+		case AnyOp::setLocal: return visitor.visitSetLocal((SetLocal*)expression);
 		case AnyOp::load: return visitor.visitLoad(type,(Load<Class>*)expression,OpTypes<AnyClass>::load());
 		case AnyOp::store: return visitor.visitStore((Store<Class>*)expression);
 		case AnyOp::sequence: return visitor.visitSequence(type,(Sequence<Class>*)expression);
@@ -175,23 +173,15 @@ namespace AST
 			return TypedExpression(new(arena) Error<Class>(std::move(message)),type);
 		}
 		
-		template<typename OpAsType>
-		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpAsType)
+		DispatchResult visitGetLocal(TypeId type,const GetLocal* getVariable)
 		{
-			return TypedExpression(new(arena) GetVariable(getVariable->op(),getPrimaryTypeClass(type),getVariable->variableIndex),type);
+			return TypedExpression(new(arena) GetLocal(getPrimaryTypeClass(type),getVariable->variableIndex),type);
 		}
-		template<typename OpAsType>
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpAsType)
+		DispatchResult visitSetLocal(const SetLocal* setVariable)
 		{
-			TypeId variableType;
-			switch(setVariable->op())
-			{
-			case AnyOp::setLocal: variableType = function->locals[setVariable->variableIndex].type; break;
-			case AnyOp::setGlobal: variableType = module->globals[setVariable->variableIndex].type; break;
-			default: throw;
-			}
+			auto variableType = function->locals[setVariable->variableIndex].type;
 			auto value = visitChild(TypedExpression(setVariable->value,variableType));
-			return TypedExpression(new(arena) SetVariable(setVariable->op(),getPrimaryTypeClass(variableType),value.expression,setVariable->variableIndex),value.type);
+			return TypedExpression(new(arena) SetLocal(getPrimaryTypeClass(variableType),value.expression,setVariable->variableIndex),value.type);
 		}
 		template<typename Class,typename OpAsType>
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)

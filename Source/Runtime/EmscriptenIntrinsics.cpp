@@ -8,8 +8,8 @@
 
 namespace Runtime
 {
-	DEFINE_INTRINSIC_VALUE(STACKTOP,I32,=512*1024);
-	DEFINE_INTRINSIC_VALUE(STACK_MAX,I32,=5*1024*1024);
+	DEFINE_INTRINSIC_VALUE(STACKTOP,I32,=0);
+	DEFINE_INTRINSIC_VALUE(STACK_MAX,I32,=0);
 	DEFINE_INTRINSIC_VALUE(tempDoublePtr,I32,=0);
 	DEFINE_INTRINSIC_VALUE(ABORT,I32,=0);
 	DEFINE_INTRINSIC_VALUE(cttz_i8,I32,=0);
@@ -221,6 +221,9 @@ namespace Runtime
 		// Allocate a 5MB stack.
 		STACKTOPValue = vmSbrk(5*1024*1024);
 		STACK_MAXValue = vmSbrk(0);
+
+		// Allocate some 8 byte memory region for tempDoublePtr.
+		tempDoublePtrValue = vmSbrk(8);
 
 		// Setup IO stream handles.
 		_stderrValue = vmSbrk(sizeof(uint32));

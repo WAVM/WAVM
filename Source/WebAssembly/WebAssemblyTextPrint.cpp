@@ -101,11 +101,6 @@ namespace WebAssemblyText
 		ModulePrintContext(Memory::Arena& inArena,const Module* inModule)
 		: arena(inArena), module(inModule) {}
 		
-		std::string getGlobalName(uintptr_t variableIndex) const
-		{
-			if(module->globals[variableIndex].name) { return std::string("$_") + module->globals[variableIndex].name; }
-			else { return "$global" + std::to_string(variableIndex); }
-		}
 		std::string getFunctionImportName(uintptr_t importIndex) const
 		{
 			assert(module->functionImports[importIndex].name);
@@ -199,24 +194,16 @@ namespace WebAssemblyText
 			return createSubtree() << "error" << error->message;
 		}
 		
-		template<typename OpAsType>
-		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpAsType)
+		DispatchResult visitGetLocal(TypeId type,const GetLocal* getVariable)
 		{
 			return createTaggedSubtree(getAnyOpSymbol<AnyClass>(getVariable->op()))
-				<< (getVariable->op() == AnyOp::getLocal ? getLocalName(getVariable->variableIndex) : getGlobalName(getVariable->variableIndex));
+				<< getLocalName(getVariable->variableIndex);
 		}
-		
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setLocal)
+		DispatchResult visitSetLocal(const SetLocal* setVariable)
 		{
 			return createTaggedSubtree(Symbol::_set_local)
 				<< getLocalName(setVariable->variableIndex)
 				<< dispatch(*this,setVariable->value,function->locals[setVariable->variableIndex].type);
-		}
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setGlobal)
-		{
-			return createTaggedSubtree(Symbol::_store_global)
-				<< getGlobalName(setVariable->variableIndex)
-				<< dispatch(*this,setVariable->value,module->globals[setVariable->variableIndex].type);
 		}
 		template<typename Class,typename OpAsType>
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
@@ -495,20 +482,6 @@ namespace WebAssemblyText
 			}
 			moduleStream << importStream;
 		}
-		std::map<uintptr_t,uintptr_t> globalIndexToImportMap;
-		for(uintptr_t importVariableIndex = 0;importVariableIndex < module->variableImports.size();++importVariableIndex)
-		{
-			auto import = module->variableImports[importVariableIndex];
-			auto importStream = createTaggedSubtree(Symbol::_import);
-			importStream << getGlobalName(import.globalIndex);
-			
-			importStream << SNodeOutputStream::StringAtom(import.name,strlen(import.name));
-			importStream << import.type;
-
-			moduleStream << importStream;
-
-			globalIndexToImportMap[import.globalIndex] = importVariableIndex;
-		}
 
 		// Print the module function tables.
 		for(uintptr_t functionTableIndex = 0;functionTableIndex < module->functionTables.size();++functionTableIndex)
@@ -531,20 +504,6 @@ namespace WebAssemblyText
 			exportStream << SNodeOutputStream::StringAtom(exportName,strlen(exportName));
 			exportStream << getFunctionName(exportFunctionIndex);
 			moduleStream << exportStream;
-		}
-
-		// Print the module globals.
-		for(uintptr_t globalIndex = 0;globalIndex < module->globals.size();++globalIndex)
-		{
-			// Don't export imported globals.
-			if(!globalIndexToImportMap.count(globalIndex))
-			{
-				auto global = module->globals[globalIndex];
-				auto globalStream = createTaggedSubtree(Symbol::_global);
-				globalStream << getGlobalName(globalIndex);
-				globalStream << global.type;
-				moduleStream << globalStream;
-			}
 		}
 
 		// Print the module functions.

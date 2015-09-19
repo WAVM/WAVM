@@ -121,4 +121,7 @@ namespace AST
 
 	// Returns the number of bits in a value of a type.
 	size_t getTypeBitWidth(TypeId type);
+
+	// Returns the number of bytes in a value of a type.
+	size_t getTypeByteWidth(TypeId type);
 }

@@ -98,7 +98,6 @@ namespace LLVMJIT
 		const Module* astModule;
 		llvm::Module* llvmModule;
 		std::vector<llvm::Function*> functions;
-		std::vector<llvm::GlobalVariable*> globalVariablePointers;
 		std::vector<llvm::GlobalVariable*> functionImportPointers;
 		std::vector<llvm::GlobalVariable*> functionTablePointers;
 		llvm::Value* instanceMemoryBase;
@@ -234,29 +233,17 @@ namespace LLVMJIT
 			throw;
 		}
 
-		// Local/global get/set
-		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpTypes<AnyClass>::getLocal)
+		// Local get/set
+		DispatchResult visitGetLocal(TypeId type,const GetLocal* getVariable)
 		{
 			assert(getVariable->variableIndex < astFunction->locals.size());
 			return irBuilder.CreateLoad(localVariablePointers[getVariable->variableIndex]);
 		}
-		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpTypes<AnyClass>::getGlobal)
-		{
-			assert(getVariable->variableIndex < jitModule.globalVariablePointers.size());
-			return irBuilder.CreateLoad(jitModule.globalVariablePointers[getVariable->variableIndex]);
-		}
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setLocal)
+		DispatchResult visitSetLocal(const SetLocal* setVariable)
 		{
 			assert(setVariable->variableIndex < astFunction->locals.size());
 			auto value = dispatch(*this,setVariable->value,astFunction->locals[setVariable->variableIndex].type);
 			irBuilder.CreateStore(value,localVariablePointers[setVariable->variableIndex]);
-			return value;
-		}
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setGlobal)
-		{
-			assert(setVariable->variableIndex < jitModule.globalVariablePointers.size());
-			auto value = dispatch(*this,setVariable->value,astModule->globals[setVariable->variableIndex].type);
-			irBuilder.CreateStore(value,jitModule.globalVariablePointers[setVariable->variableIndex]);
 			return value;
 		}
 
@@ -817,24 +804,6 @@ namespace LLVMJIT
 			jitModule->functions[exportIt.second]->setName(exportIt.first);
 		}
 
-		// Create the global variables.
-		jitModule->globalVariablePointers.resize(astModule->globals.size());
-		for(uintptr_t importIndex = 0;importIndex < jitModule->globalVariablePointers.size();++importIndex)
-		{
-			auto globalVariable = astModule->globals[importIndex];
-			llvm::Constant* initializer = typedZeroConstants[(size_t)globalVariable.type];
-			jitModule->globalVariablePointers[importIndex] = new llvm::GlobalVariable(*jitModule->llvmModule,asLLVMType(globalVariable.type),false,llvm::GlobalValue::PrivateLinkage,initializer,getLLVMName(globalVariable.name));
-		}
-		
-		// Set imported global variables to have external linkage and give them the unmangled import name.
-		for(uintptr_t variableImportIndex = 0;variableImportIndex < astModule->variableImports.size();++variableImportIndex)
-		{
-			auto variableImport = astModule->variableImports[variableImportIndex];
-			jitModule->globalVariablePointers[variableImport.globalIndex]->setName(variableImport.name);
-			jitModule->globalVariablePointers[variableImport.globalIndex]->setLinkage(llvm::GlobalValue::ExternalLinkage);
-			jitModule->globalVariablePointers[variableImport.globalIndex]->setInitializer(nullptr);
-		}
-
 		// Create the function import globals.
 		jitModule->functionImportPointers.resize(astModule->functionImports.size());
 		for(uintptr_t importIndex = 0;importIndex < jitModule->functionImportPointers.size();++importIndex)
@@ -892,11 +861,21 @@ namespace LLVMJIT
 		}
 		jitModule->llvmModule->setDataLayout(*jitModule->executionEngine->getDataLayout());
 
-		// Look up intrinsic functions that match the name+type of functions imported by the module, and bind them to the global variable used by the module to access the import.
+		// Look up intrinsic functions that match the name+type of functions imported by the module, and validate their type
+		// Note that this doesn't bind their value, that is done by MCJITMemoryManager.
 		bool missingImport = false;
 		for(uintptr_t functionImportIndex = 0;functionImportIndex < astModule->functionImports.size();++functionImportIndex)
 		{
 			auto functionImport = astModule->functionImports[functionImportIndex];
+
+			// Detect modules that try to call __chkstk, so we can allow it to be linked in by MCJITMemoryManager and still be sure it's not called by user code.
+			if(!strcmp(functionImport.name,"__chkstk"))
+			{
+				std::cerr << "Illegal __chkstk import" << std::endl;
+				missingImport = true;
+				continue;
+			}
+
 			const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(functionImport.name);
 			void* functionPointer = intrinsicFunction && intrinsicFunction->type == functionImport.type ? intrinsicFunction->value : nullptr;
 			if(!functionPointer)
@@ -910,20 +889,6 @@ namespace LLVMJIT
 				std::cerr << ") -> " << getTypeName(functionImport.type.returnType) << std::endl;
 				missingImport = true;
 			}
-		}
-
-		// Look up intrinsic values that match the name+type of values imported by the module, and bind them to the global variable used by the module to access the import.
-		for(uintptr_t variableImportIndex = 0;variableImportIndex < astModule->variableImports.size();++variableImportIndex)
-		{
-			auto variableImport = astModule->variableImports[variableImportIndex];
-			const Intrinsics::Value* intrinsicValue = Intrinsics::findValue(variableImport.name);
-			if(intrinsicValue && variableImport.type != intrinsicValue->type) { intrinsicValue = NULL; }
-			if(!intrinsicValue)
-			{
-				std::cerr << "Missing imported variable " << variableImport.name << " : " << getTypeName(variableImport.type) << std::endl;
-				missingImport = true;
-			}
-			else { jitModule->executionEngine->addGlobalMapping(jitModule->globalVariablePointers[variableImport.globalIndex],intrinsicValue->value); }
 		}
 
 		// Fail if there were any missing imports.

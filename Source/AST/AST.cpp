@@ -79,6 +79,22 @@ namespace AST
 		default: throw;
 		}
 	}
+
+	size_t getTypeByteWidth(TypeId type)
+	{
+		switch(type)
+		{
+		case TypeId::I8: return 1;
+		case TypeId::I16: return 2;
+		case TypeId::I32: return 4;
+		case TypeId::I64: return 8;
+		case TypeId::F32: return 4;
+		case TypeId::F64: return 8;
+		case TypeId::Bool: return 1;
+		case TypeId::Void: return 0;
+		default: throw;
+		};
+	}
 	
 	#define AST_OP(op) #op,
 	#define AST_TYPECLASS(className) \

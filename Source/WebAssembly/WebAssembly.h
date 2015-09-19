@@ -31,5 +31,12 @@ namespace WebAssemblyText
 
 namespace WebAssemblyBinary
 {
-	bool decode(const uint8* data,size_t numBytes,AST::Module*& outModule,std::vector<AST::ErrorRecord*>& outErrors);
+	bool decode(
+		const uint8* code,
+		size_t numCodeBytes,
+		const uint8* data,
+		size_t numDataBytes,
+		AST::Module*& outModule,
+		std::vector<AST::ErrorRecord*>& outErrors
+		);
 }

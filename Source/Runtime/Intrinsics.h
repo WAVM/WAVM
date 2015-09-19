@@ -61,4 +61,13 @@ namespace Intrinsics
 
 #define DEFINE_INTRINSIC_VALUE(name,type,initializer) \
 	AST::NativeTypes::type name##Value initializer; \
-	static Intrinsics::Value name##IntrinsicValue(#name,AST::TypeId::type,(void*)&name##Value);
+	static Intrinsics::Value name##IntrinsicValue(#name,AST::TypeId::type,(void*)&name##Value); \
+	DEFINE_INTRINSIC_FUNCTION0(get_##name,type) \
+	{ \
+		return name##Value; \
+	} \
+	DEFINE_INTRINSIC_FUNCTION1(set_##name,type,type,newValue) \
+	{ \
+		name##Value = newValue; \
+		return newValue; \
+	}

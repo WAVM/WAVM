@@ -474,6 +474,21 @@ namespace WebAssemblyBinary
 		std::vector<FunctionType> functionTypes;
 		std::map<std::string,uintptr_t> intrinsicNameToFunctionImportIndex;
 
+		struct Global
+		{
+			TypeId type;
+			uint64 address;
+		};
+		std::vector<Global> globals;
+
+		struct VariableImport
+		{
+			TypeId type;
+			uintptr_t getterFunctionImportIndex;
+			uintptr_t setterFunctionImportIndex;
+		};
+		std::vector<VariableImport> variableImports;
+
 		// Information about the current operation being decoded.
 		std::vector<BranchTarget*> explicitBreakTargets;
 		std::vector<BranchTarget*> implicitBreakTargets;
@@ -520,7 +535,7 @@ namespace WebAssemblyBinary
 		{
 			if(localIndex >= currentFunction->locals.size()) { return recordError<typename Type::Class>("getlocal: invalid local index"); }
 			if(currentFunction->locals[localIndex].type != Type::id) { return recordError<typename Type::Class>("getlocal: incorrect type"); }
-			return as<typename Type::Class>(new(arena) GetVariable(AnyOp::getLocal,Type::Class::id,localIndex));
+			return as<typename Type::Class>(new(arena) GetLocal(Type::Class::id,localIndex));
 		}
 
 		// Stores a value to a local variable.
@@ -529,30 +544,67 @@ namespace WebAssemblyBinary
 			if(localIndex >= currentFunction->locals.size()) { throw new FatalDecodeException("setlocal: invalid local index"); }
 			auto type = currentFunction->locals[localIndex].type;
 			auto value = decodeExpression(type);
-			return TypedExpression(new(arena) SetVariable(AnyOp::setLocal,getPrimaryTypeClass(type),value,localIndex),type);
+			return TypedExpression(new(arena) SetLocal(getPrimaryTypeClass(type),value,localIndex),type);
 		}
 		template<typename Type>
-		typename Type::TypeExpression* setLocalExpression(uint32 globalIndex)
+		typename Type::TypeExpression* setLocalExpression(uint32 localIndex)
 		{
-			return as<typename Type::Class>(setLocal(globalIndex));
+			return as<typename Type::Class>(setLocal(localIndex));
 		}
 		
 		// Loads a value from a global variable.
 		template<typename Type>
 		typename Type::TypeExpression* getGlobal(uint32 globalIndex)
 		{
-			if(globalIndex >= module.globals.size()) { return recordError<typename Type::Class>("getglobal: invalid global index"); }
-			if(module.globals[globalIndex].type != Type::id) { return recordError<typename Type::Class>("getglobal: incorrect type"); }
-			return as<typename Type::Class>(new(arena) GetVariable(AnyOp::getGlobal,Type::Class::id,globalIndex));
+			if(globalIndex < globals.size())
+			{
+				if(globals[globalIndex].type != Type::id) { return recordError<typename Type::Class>("getglobal: incorrect type"); }
+				auto address = globals[globalIndex].address;
+				bool isFarAddress = address < (1ull << 32);
+				IntExpression* addressLiteral = isFarAddress ? as<IntClass>(new(arena) Literal<I64Type>(address))
+					: new(arena) Literal<I32Type>((uint32)address);
+				return new(arena) Load<typename Type::Class>(Type::Op::load,isFarAddress,true,addressLiteral,Type::id);
+			}
+			else if(globalIndex < globals.size() + variableImports.size())
+			{
+				auto importIndex = globalIndex - globals.size();
+				if(variableImports[importIndex].type != Type::id) { return recordError<typename Type::Class>("getglobal: incorrect type"); }
+				return as<typename Type::Class>(new(arena) Call(AnyOp::callImport,getPrimaryTypeClass(Type::id),variableImports[importIndex].getterFunctionImportIndex,nullptr));
+			}
+			else { return recordError<typename Type::Class>("getglobal: invalid global index"); }
 		}
 
 		// Stores a value to a global variable.
 		TypedExpression setGlobal(uint32 globalIndex)
 		{
-			if(globalIndex >= module.globals.size()) { throw new FatalDecodeException("setglobal: invalid global index"); }
-			auto type = module.globals[globalIndex].type;
-			auto value = decodeExpression(type);
-			return TypedExpression(new(arena) SetVariable(AnyOp::setGlobal,getPrimaryTypeClass(type),value,globalIndex),type);
+			if(globalIndex < globals.size())
+			{
+				auto type = globals[globalIndex].type;
+				auto value = decodeExpression(type);
+				auto address = globals[globalIndex].address;
+				bool isFarAddress = address < (1ull << 32);
+				IntExpression* addressLiteral = isFarAddress ? as<IntClass>(new(arena) Literal<I64Type>(address))
+					: new(arena) Literal<I32Type>((uint32)address);
+				UntypedExpression* store;
+				switch(type)
+				{
+				case TypeId::I32: store = new(arena) Store<IntClass>(isFarAddress,true,addressLiteral,TypedExpression(value,type),type); break;
+				case TypeId::F32:
+				case TypeId::F64: store = new(arena) Store<FloatClass>(isFarAddress,true,addressLiteral,TypedExpression(value,type),type); break;
+				default: throw;
+				}
+				return TypedExpression(store,type);
+			}
+			else if(globalIndex < globals.size() + variableImports.size())
+			{
+				auto import = variableImports[globalIndex - globals.size()];
+				auto type = import.type;
+				auto value = decodeExpression(type);
+				auto parameters = new(arena) UntypedExpression*[1] {value};
+				auto call = new(arena) Call(AnyOp::callImport,getPrimaryTypeClass(type),import.setterFunctionImportIndex,parameters);
+				return TypedExpression(call,type);
+			}
+			else { throw new FatalDecodeException("setglobal: invalid global index"); }
 		}
 		template<typename Type>
 		typename Type::TypeExpression* setGlobalExpression(uint32 globalIndex)
@@ -741,7 +793,7 @@ namespace WebAssemblyBinary
 			default: throw;
 			};
 		}
-		uintptr_t getIntrinsicFunctionImport(const FunctionType& intrinsicType,const char* intrinsicName)
+		uintptr_t getUniqueFunctionImport(const FunctionType& intrinsicType,const char* intrinsicName)
 		{
 			// Add one import for every unique intrinsic name used.
 			auto intrinsicIt = intrinsicNameToFunctionImportIndex.find(intrinsicName);
@@ -761,7 +813,7 @@ namespace WebAssemblyBinary
 		template<typename Class>
 		typename Class::ClassExpression* decodeIntrinsic(const FunctionType& intrinsicType,const char* intrinsicName)
 		{
-			return callImport<Class>(intrinsicType.returnType,getIntrinsicFunctionImport(intrinsicType,intrinsicName));
+			return callImport<Class>(intrinsicType.returnType,getUniqueFunctionImport(intrinsicType,intrinsicName));
 		}
 
 		// Computes the minimum or maximum of a set.
@@ -780,7 +832,7 @@ namespace WebAssemblyBinary
 		{
 			auto numParameters = in.immU32();
 			if(numParameters == 0) { return recordError<typename Type::Class>("minmax: must receive >0 parameters"); }
-			auto intrinsicImportIndex = getIntrinsicFunctionImport(FunctionType(Type::id,{Type::id,Type::id}),intrinsicName);
+			auto intrinsicImportIndex = getUniqueFunctionImport(FunctionType(Type::id,{Type::id,Type::id}),intrinsicName);
 			typename Type::TypeExpression* result = decodeExpression(Type());
 			for(uint32 parameterIndex = 1;parameterIndex < numParameters;++parameterIndex)
 			{
@@ -1403,6 +1455,35 @@ namespace WebAssemblyBinary
 			}
 		}
 
+		void allocateGlobal(TypeId type)
+		{
+			auto numBytes = getTypeByteWidth(type);
+			auto data = new(arena) uint8[numBytes];
+			memset(data,0,numBytes);
+			module.dataSegments.push_back({module.initialNumBytesMemory,numBytes,data});
+			globals.push_back({type,module.initialNumBytesMemory});
+			module.initialNumBytesMemory += numBytes;
+		}
+
+		void addVariableImport(TypeId type,const char* name)
+		{
+			auto numNameChars = strlen(name);
+
+			Memory::ArenaString getterName;
+			getterName.append(arena,"get_");
+			getterName.append(arena,name,numNameChars);
+			getterName.shrink(arena);
+			auto getterFunctionIndex = getUniqueFunctionImport(FunctionType(type,{}),getterName.c_str());
+			
+			Memory::ArenaString setterName;
+			setterName.append(arena,"set_");
+			setterName.append(arena,name,numNameChars);
+			setterName.shrink(arena);
+			auto setterFunctionIndex = getUniqueFunctionImport(FunctionType(type,{type}),setterName.c_str());
+
+			variableImports.push_back({type,getterFunctionIndex,setterFunctionIndex});
+		}
+
 		// Decodes the module's global variables.
 		void decodeGlobals()
 		{
@@ -1413,32 +1494,32 @@ namespace WebAssemblyBinary
 			uint32 numImportsF32 = in.immU32();
 			uint32 numImportsF64 = in.immU32();
 
-			module.globals.reserve(numGlobalsI32 + numGlobalsF32 + numGlobalsF64 + numImportsI32 + numImportsF32 + numImportsF64);
+			globals.reserve(numGlobalsI32 + numGlobalsF32 + numGlobalsF64);
+			variableImports.reserve(numImportsI32 + numImportsF32 + numImportsF64);
 
-			for(uint32 variableIndex = 0;variableIndex < numGlobalsI32;++variableIndex) { module.globals.push_back({TypeId::I32,nullptr}); }
-			for(uint32 variableIndex = 0;variableIndex < numGlobalsF32;++variableIndex) { module.globals.push_back({TypeId::F32,nullptr}); }
-			for(uint32 variableIndex = 0;variableIndex < numGlobalsF64;++variableIndex) { module.globals.push_back({TypeId::F64,nullptr}); }
-
+			for(uint32 variableIndex = 0;variableIndex < numGlobalsI32;++variableIndex) { allocateGlobal(TypeId::I32); }
+			for(uint32 variableIndex = 0;variableIndex < numGlobalsF32;++variableIndex) { allocateGlobal(TypeId::F32); }
+			for(uint32 variableIndex = 0;variableIndex < numGlobalsF64;++variableIndex) { allocateGlobal(TypeId::F64); }
+			
+			Memory::ScopedArena scopedArena;
+			Memory::ArenaString importName;
 			for(uint32 variableIndex = 0;variableIndex < numImportsI32;++variableIndex)
 			{
-				Memory::ArenaString importName;
-				while(char c = in.single_char()) { importName.append(arena,c); };
-				module.variableImports.push_back({TypeId::I32,importName.c_str(),module.globals.size()});
-				module.globals.push_back({TypeId::I32,importName.c_str()});
+				while(char c = in.single_char()) { importName.append(scopedArena,c); };
+				addVariableImport(TypeId::I32,importName.c_str());
+				importName.reset(scopedArena);
 			}
 			for(uint32 i = 0; i < numImportsF32; ++i)
 			{
-				Memory::ArenaString importName;
-				while(char c = in.single_char()) { importName.append(arena,c); };
-				module.variableImports.push_back({TypeId::F32,importName.c_str(),module.globals.size()});
-				module.globals.push_back({TypeId::F32,importName.c_str()});
+				while(char c = in.single_char()) { importName.append(scopedArena,c); };
+				addVariableImport(TypeId::F32,importName.c_str());
+				importName.reset(scopedArena);
 			}
 			for(uint32 i = 0; i < numImportsF64; ++i)
 			{
-				Memory::ArenaString importName;
-				while(char c = in.single_char()) { importName.append(arena,c); };
-				module.variableImports.push_back({TypeId::F64,importName.c_str(),module.globals.size()});
-				module.globals.push_back({TypeId::F64,importName.c_str()});
+				while(char c = in.single_char()) { importName.append(scopedArena,c); };
+				addVariableImport(TypeId::F64,importName.c_str());
+				importName.reset(scopedArena);
 			}
 		}
 
@@ -1515,12 +1596,19 @@ namespace WebAssemblyBinary
 		}
 	};
 
-	bool decode(const uint8* packed,size_t numBytes,Module*& outModule,std::vector<AST::ErrorRecord*>& outErrors)
+	bool decode(const uint8* code,size_t numCodeBytes,const uint8* data,size_t numDataBytes,Module*& outModule,std::vector<AST::ErrorRecord*>& outErrors)
 	{
 		outModule = new Module;
+
+		// Create a segment for the static data.
+		auto segmentArenaData = outModule->arena.copyToArena(data,numDataBytes);
+		outModule->dataSegments.push_back({8,numDataBytes,segmentArenaData});
+		outModule->initialNumBytesMemory = numDataBytes + 8;
+		outModule->maxNumBytesMemory = 1ull << 32;
+
 		try
 		{
-			InputStream in(packed,packed + numBytes);
+			InputStream in(code,code + numCodeBytes);
 			return DecodeContext(in,*outModule,outErrors).decode();
 		}
 		catch(FatalDecodeException* exception)

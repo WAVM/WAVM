@@ -141,13 +141,6 @@ namespace AST
 		const char* name;
 	};
 
-	struct VariableImport
-	{
-		TypeId type;
-		const char* name;
-		uintptr_t globalIndex;
-	};
-
 	struct DataSegment
 	{
 		uint64_t baseAddress;
@@ -169,11 +162,9 @@ namespace AST
 		Memory::Arena arena;
 
 		std::vector<Function*> functions;
-		std::vector<Variable> globals;
 		ExportNameToFunctionIndexMap exportNameToFunctionIndexMap;
 		std::vector<FunctionTable> functionTables;
 		std::vector<FunctionImport> functionImports;
-		std::vector<VariableImport> variableImports;
 		std::vector<DataSegment> dataSegments;
 
 		uint64_t initialNumBytesMemory;
@@ -185,11 +176,9 @@ namespace AST
 		// This means the new module will have its own arena, but will reference expressions and other data stored in the old module's arena.
 		Module(const Module& inCopy)
 		: functions(inCopy.functions)
-		, globals(inCopy.globals)
 		, exportNameToFunctionIndexMap(inCopy.exportNameToFunctionIndexMap)
 		, functionTables(inCopy.functionTables)
 		, functionImports(inCopy.functionImports)
-		, variableImports(inCopy.variableImports)
 		, dataSegments(inCopy.dataSegments)
 		, initialNumBytesMemory(inCopy.initialNumBytesMemory)
 		, maxNumBytesMemory(inCopy.maxNumBytesMemory)

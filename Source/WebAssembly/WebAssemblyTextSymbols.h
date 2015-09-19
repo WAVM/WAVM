@@ -13,7 +13,6 @@ namespace WebAssemblyText
 	#define ENUM_WAST_DECL_SYMBOLS() \
 		WAST_SYMBOL(module) \
 		WAST_SYMBOL(func) \
-		WAST_SYMBOL(global) \
 		WAST_SYMBOL(table) \
 		WAST_SYMBOL(export) \
 		WAST_SYMBOL(import) \
@@ -41,9 +40,7 @@ namespace WebAssemblyText
 		WAST_SYMBOL(block) \
 		WAST_SYMBOL(nop) \
 		WAST_SYMBOL(get_local) \
-		WAST_SYMBOL(load_global) \
 		WAST_SYMBOL(set_local) \
-		WAST_SYMBOL(store_global) \
 		TYPED_WAST_SYMBOL(load) \
 		TYPED_WAST_SYMBOL(store)
 
@@ -178,9 +175,7 @@ namespace WebAssemblyText
 		{
 		#define MAP_OP_SYMBOL(op,symbol) case Class::Op::op: return Symbol::_##symbol;
 		MAP_OP_SYMBOL(getLocal,get_local)
-		MAP_OP_SYMBOL(getGlobal,load_global)
 		MAP_OP_SYMBOL(setLocal,set_local)
-		MAP_OP_SYMBOL(setGlobal,store_global)
 		MAP_OP_SYMBOL(load,load)
 		MAP_OP_SYMBOL(store,store)
 		MAP_OP_SYMBOL(callDirect,call)

@@ -135,7 +135,7 @@ namespace WebAssemblyText
 		}
 	}
 	
-	// Parse a variable from the child nodes of a local, global, or param node. Names are copied into the provided memory arena.
+	// Parse a variable from the child nodes of a local, or param node. Names are copied into the provided memory arena.
 	// Format is (name type) | type+
 	size_t parseVariables(SNodeIt& childNodeIt,std::vector<Variable>& outVariables,std::vector<ErrorRecord*>& outErrors,Memory::Arena& arena)
 	{
@@ -198,7 +198,6 @@ namespace WebAssemblyText
 	{
 		Module* module;
 		std::map<std::string,uintptr_t> functionNameToIndexMap;
-		std::map<std::string,uintptr_t> globalNameToIndexMap;
 		std::map<std::string,uintptr_t> functionTableNameToIndexMap;
 		std::map<std::string,uintptr_t> functionImportNameToIndexMap;
 		std::vector<ErrorRecord*>& outErrors;
@@ -765,13 +764,9 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(block)
 				{ return parseExpressionSequence<Class>(resultType,nodeIt,"block body"); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(get_local)
-				{ return parseGetVariable<Class>(resultType,AnyOp::getLocal,localNameToIndexMap,function->locals,nodeIt); }
-				DEFINE_PARAMETRIC_UNTYPED_OP(load_global)
-				{ return parseGetVariable<Class>(resultType,AnyOp::getGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
+				{ return parseGetLocal<Class>(resultType,localNameToIndexMap,function->locals,nodeIt); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(set_local)
-				{ return parseSetVariable<Class>(resultType,AnyOp::setLocal,localNameToIndexMap,function->locals,nodeIt); }
-				DEFINE_PARAMETRIC_UNTYPED_OP(store_global)
-				{ return parseSetVariable<Class>(resultType,AnyOp::setGlobal,moduleContext.globalNameToIndexMap,moduleContext.module->globals,nodeIt); }
+				{ return parseSetLocal<Class>(resultType,localNameToIndexMap,function->locals,nodeIt); }
 
 				#undef DEFINE_PARAMETRIC_UNTYPED_OP
 				#undef DISPATCH_PARAMETRIC_TYPED_OP
@@ -1003,37 +998,37 @@ namespace WebAssemblyText
 			return TypedExpression(requireFullMatch(nodeIt,getOpName(op),result),destType);
 		}
 		
-		// Parses a load from a local or global variable.
+		// Parses a load from a local variable.
 		template<typename Class>
-		typename Class::ClassExpression* parseGetVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseGetLocal(TypeId resultType,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr_t variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
-				auto message = op == AnyOp::getLocal ? "get_local: expected local name or index" : "load_global: expected global name or index";
+				auto message = "get_local: expected local name or index";
 				return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
 			}
 			auto variableType = variables[variableIndex].type;
-			auto load = new(arena) GetVariable(op,getPrimaryTypeClass(variableType),variableIndex);
+			auto load = new(arena) GetLocal(getPrimaryTypeClass(variableType),variableIndex);
 			auto result = coerceExpression(Class(),resultType,TypedExpression(load,variableType),nodeIt,"variable");
-			return requireFullMatch(nodeIt,getOpName(op),result);
+			return requireFullMatch(nodeIt,"get_local",result);
 		}
 
-		// Parses a store to a local or global variable.
+		// Parses a store to a local variable.
 		template<typename Class>
-		typename Class::ClassExpression* parseSetVariable(TypeId resultType,AnyOp op,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseSetLocal(TypeId resultType,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr_t variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
-				auto message = op == AnyOp::setLocal ? "set_local: expected local name or index" : "store_global: expected global name or index";
+				auto message = "set_local: expected local name or index";
 				return recordError<Error<Class>>(outErrors,nodeIt,message);
 			}
 			auto variableType = variables[variableIndex].type;
 			auto valueExpression = parseTypedExpression(variableType,nodeIt,"store value");
-			auto store = new(arena) SetVariable(op,getPrimaryTypeClass(variableType),valueExpression,variableIndex);
+			auto store = new(arena) SetLocal(getPrimaryTypeClass(variableType),valueExpression,variableIndex);
 			auto result = coerceExpression(Class(),resultType,TypedExpression(store,variableType),nodeIt,"variable");
-			return requireFullMatch(nodeIt,getOpName(op),result);
+			return requireFullMatch(nodeIt,"set_local",result);
 		}
 	};
 
@@ -1111,57 +1106,39 @@ namespace WebAssemblyText
 				if(!parseString(childNodeIt,importExternalName,importExternalNameLength,module->arena))
 				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import name string"); continue; }
 				
-				// If there's a non-function type following the import string, it's a variable import.
-				TypeId variableType;
-				if(parseType(childNodeIt,variableType))
+				// Parse the import's parameter and result declarations.
+				std::vector<Variable> parameters;
+				TypeId returnType = TypeId::Void;
+				bool hasResult = false;
+				for(;childNodeIt;++childNodeIt)
 				{
-					// Create the import.
-					auto globalIndex = module->globals.size();
-					module->globals.push_back({variableType,importInternalName});
-					module->variableImports.push_back({variableType,importExternalName,globalIndex});
-				}
-				else
-				{
-					// Parse the import's parameter and result declarations.
-					std::vector<Variable> parameters;
-					TypeId returnType = TypeId::Void;
-					bool hasResult = false;
-					for(;childNodeIt;++childNodeIt)
+					SNodeIt innerChildNodeIt;
+					if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
 					{
-						SNodeIt innerChildNodeIt;
-						if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
-						{
-							// Parse a result declaration.
-							if(hasResult) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate result declaration"); continue; }
-							if(!parseType(innerChildNodeIt,returnType)) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected type"); continue; }
-							hasResult = true;
-							if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following result declaration"); continue; }
-						}
-						else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
-						{
-							// Parse a parameter declaration.
-							parseVariables(innerChildNodeIt,parameters,outErrors,module->arena);
-							if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following parameter declaration"); continue; }
-						}
-						else
-						{
-							recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected param or result declaration");
-						}
+						// Parse a result declaration.
+						if(hasResult) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate result declaration"); continue; }
+						if(!parseType(innerChildNodeIt,returnType)) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected type"); continue; }
+						hasResult = true;
+						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following result declaration"); continue; }
 					}
-				
-					// Create the import.
-					std::vector<TypeId> parameterTypes;
-					for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
-					module->functionImports.push_back({FunctionType(returnType,parameterTypes),importExternalName});
+					else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
+					{
+						// Parse a parameter declaration.
+						parseVariables(innerChildNodeIt,parameters,outErrors,module->arena);
+						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following parameter declaration"); continue; }
+					}
+					else
+					{
+						recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected param or result declaration");
+					}
 				}
+				
+				// Create the import.
+				std::vector<TypeId> parameterTypes;
+				for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
+				module->functionImports.push_back({FunctionType(returnType,parameterTypes),importExternalName});
 
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following import declaration"); continue; }
-			}
-			else if(parseTaggedNode(nodeIt,Symbol::_global,childNodeIt))
-			{
-				// Parse a global declaration.
-				parseVariables(childNodeIt,module->globals,outErrors,module->arena);
-				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following global declaration"); continue; }
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_memory,childNodeIt))
 			{
@@ -1246,9 +1223,6 @@ namespace WebAssemblyText
 				module->functionTables.push_back({functionType,functionIndices,numFunctions});
 			}
 		}
-
-		// Build a global name to index map.
-		buildVariableNameToIndexMapMap(module->globals,globalNameToIndexMap,outErrors);
 
 		// Do a second pass that parses definitions as well.
 		intptr_t currentFunctionIndex = 0;

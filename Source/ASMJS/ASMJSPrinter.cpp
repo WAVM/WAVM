@@ -36,7 +36,7 @@ namespace ASMJS
 		}
 	}
 
-	// Concatenates the lowered expression's statements with a SetVariable statement that assigns the expression's value to a local variable.
+	// Concatenates the lowered expression's statements with a SetLocal statement that assigns the expression's value to a local variable.
 	VoidExpression* setValueToLocal(Memory::Arena& arena,const LoweredExpression& expression,uintptr_t localIndex)
 	{
 		if(!expression.value) { return expression.statements; }
@@ -44,7 +44,7 @@ namespace ASMJS
 		{
 			auto valueStatement = expression.value.type == TypeId::Void
 				? as<VoidClass>(expression.value)
-				: as<VoidClass>(new(arena) SetVariable(AnyOp::setLocal,TypeClassId::Void,expression.value.expression,localIndex));
+				: as<VoidClass>(new(arena) SetLocal(TypeClassId::Void,expression.value.expression,localIndex));
 			return concatStatements(arena,expression.statements,valueStatement);
 		}
 	}
@@ -94,20 +94,13 @@ namespace ASMJS
 			return index;
 		}
 
-		template<typename OpAsType>
-		LoweredExpression visitSetVariable(const SetVariable* setVariable,OpAsType)
+		LoweredExpression visitSetLocal(const SetLocal* setVariable)
 		{
-			TypeId variableType;
-			switch(setVariable->op())
-			{
-			case AnyOp::setLocal: variableType = function->locals[setVariable->variableIndex].type; break;
-			case AnyOp::setGlobal: variableType = module->globals[setVariable->variableIndex].type; break;
-			default: throw;
-			}
+			auto variableType = function->locals[setVariable->variableIndex].type;
 			auto value = dispatch(*this,setVariable->value,variableType);
 			return LoweredExpression(
 				value.statements,
-				TypedExpression(new(arena) SetVariable(setVariable->op(),getPrimaryTypeClass(variableType),value.value.expression,setVariable->variableIndex),value.value.type)
+				TypedExpression(new(arena) SetLocal(getPrimaryTypeClass(variableType),value.value.expression,setVariable->variableIndex),value.value.type)
 				);
 		}
 		template<typename Class,typename OpAsType>
@@ -223,7 +216,7 @@ namespace ASMJS
 			{
 				// If the switch is used as a value, create a local variable and use the variable's value as the value of the switch.
 				resultLocalIndex = createLocalVariable(type);
-				value = TypedExpression(new(arena) GetVariable(AnyOp::getLocal,Class::id,resultLocalIndex),type);
+				value = TypedExpression(new(arena) GetLocal(Class::id,resultLocalIndex),type);
 			}
 			// Store the branch target and the switch's result variable in branchTargetRemap so branching to the end of the switch will set the variable.
 			branchTargetRemap[switch_->endTarget] = {endTarget,resultLocalIndex};
@@ -269,7 +262,7 @@ namespace ASMJS
 				auto resultLocalIndex = createLocalVariable(type);
 				thenStatements = setValueToLocal(arena,thenExpression,resultLocalIndex);
 				elseStatements = setValueToLocal(arena,elseExpression,resultLocalIndex);
-				value = TypedExpression(new(arena) GetVariable(AnyOp::getLocal,Class::id,resultLocalIndex),type);
+				value = TypedExpression(new(arena) GetLocal(Class::id,resultLocalIndex),type);
 			}
 
 			// Create a new IfElse node.
@@ -288,7 +281,7 @@ namespace ASMJS
 			{
 				// If the label is used as a value, create a local variable and use the variable's value as the value of the label.
 				resultLocalIndex = createLocalVariable(type);
-				value = TypedExpression(new(arena) GetVariable(AnyOp::getLocal,Class::id,resultLocalIndex),type);
+				value = TypedExpression(new(arena) GetLocal(Class::id,resultLocalIndex),type);
 				
 				// Store the branch target and the label's result variable in branchTargetRemap so branching to the end of the label will set the variable.
 				branchTargetRemap[label->endTarget] = {endTarget,resultLocalIndex};
@@ -333,7 +326,7 @@ namespace ASMJS
 			{
 				// If the loop is used as a value, create a local variable and use the variable's value as the value of the loop.
 				resultLocalIndex = createLocalVariable(type);
-				value = TypedExpression(new(arena) GetVariable(AnyOp::getLocal,Class::id,resultLocalIndex),type);
+				value = TypedExpression(new(arena) GetLocal(Class::id,resultLocalIndex),type);
 
 				// Store the branch target and the loop's result variable in branchTargetRemap so breaking out of the loop will set the variable.
 				branchTargetRemap[loop->breakTarget] = {breakTarget,resultLocalIndex};
@@ -445,12 +438,12 @@ namespace ASMJS
 	}
 	uint32 getAddressShift(TypeId type)
 	{
-		switch(getTypeBitWidth(type))
+		switch(getTypeByteWidth(type))
 		{
-		case 8: return 0;
-		case 16: return 1;
-		case 32: return 2;
-		case 64: return 3;
+		case 1: return 0;
+		case 2: return 1;
+		case 4: return 2;
+		case 8: return 3;
 		default: throw;
 		}
 	}
@@ -548,12 +541,7 @@ namespace ASMJS
 
 		ModulePrintContext(const Module* inModule,std::ostream& inOutputStream)
 		: module(inModule), out(inOutputStream) {}
-		
-		std::ostream& printGlobalName(uintptr_t variableIndex) const
-		{
-			if(module->globals[variableIndex].name) { return out << '_' << module->globals[variableIndex].name; }
-			else { return out << "global" << variableIndex; }
-		}
+
 		std::ostream& printFunctionImportName(uintptr_t importIndex) const
 		{
 			assert(module->functionImports[importIndex].name);
@@ -613,27 +601,15 @@ namespace ASMJS
 			return out << "error(\"" << error->message << "\')";
 		}
 		
-		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpTypes<AnyClass>::getLocal)
+		DispatchResult visitGetLocal(TypeId type,const GetLocal* getVariable)
 		{
 			return printLocalName(getVariable->variableIndex);
 		}
-		DispatchResult visitGetVariable(TypeId type,const GetVariable* getVariable,OpTypes<AnyClass>::getGlobal)
-		{
-			return moduleContext.printGlobalName(getVariable->variableIndex);
-		}
 		
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setLocal)
+		DispatchResult visitSetLocal(const SetLocal* setVariable)
 		{
 			auto type = function->locals[setVariable->variableIndex].type;
 			printLocalName(setVariable->variableIndex);
-			out << '=';
-			dispatch(*this,setVariable->value,type);
-			return out;
-		}
-		DispatchResult visitSetVariable(const SetVariable* setVariable,OpTypes<AnyClass>::setGlobal)
-		{
-			auto type = module->globals[setVariable->variableIndex].type;
-			moduleContext.printGlobalName(setVariable->variableIndex);
 			out << '=';
 			dispatch(*this,setVariable->value,type);
 			return out;
@@ -915,32 +891,6 @@ namespace ASMJS
 			out << "var ";
 			printFunctionImportName(importFunctionIndex);
 			out << "=env." << import.name << ";\n";
-		}
-		std::map<uintptr_t,uintptr_t> globalIndexToImportMap;
-		for(uintptr_t importVariableIndex = 0;importVariableIndex < module->variableImports.size();++importVariableIndex)
-		{
-			auto import = module->variableImports[importVariableIndex];
-			out << "var ";
-			printGlobalName(import.globalIndex);
-			out << '=';
-			printCoercePrefix(out,import.type);
-			out << "env." << import.name;
-			printCoerceSuffix(out,import.type);
-			out << ";\n";
-			globalIndexToImportMap[import.globalIndex] = importVariableIndex;
-		}
-
-		// Print the module globals.
-		for(uintptr_t globalIndex = 0;globalIndex < module->globals.size();++globalIndex)
-		{
-			// Don't export imported globals.
-			if(!globalIndexToImportMap.count(globalIndex))
-			{
-				auto global = module->globals[globalIndex];
-				out << "var ";
-				printGlobalName(globalIndex);
-				out << '=' << getZero(global.type) << ";\n";
-			}
 		}
 
 		// Print the module functions.

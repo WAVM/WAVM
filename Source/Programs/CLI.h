@@ -53,27 +53,22 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 	// Read in packed .wasm file bytes.
 	auto wasmBytes = loadFile(wasmFilename);
 	if(!wasmBytes.size()) { return nullptr; }
+	
+	// Load the static data from the .mem file on the commandline.
+	auto staticMemoryData = loadFile(memFilename);
+	if(!staticMemoryData.size()) { return nullptr; }
 
 	// Load the module from a binary WebAssembly file.
 	Core::Timer loadTimer;
 	std::vector<AST::ErrorRecord*> errors;
 	AST::Module* module;
-	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),module,errors))
+	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),staticMemoryData.data(),staticMemoryData.size(),module,errors))
 	{
 		std::cerr << "Error parsing WebAssembly binary file:" << std::endl;
 		for(auto error : errors) { std::cerr << error->message.c_str() << std::endl; }
 		return nullptr;
 	}
 	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
-
-	// Load the static data from the .mem file on the commandline.
-	auto staticMemoryData = loadFile(memFilename);
-	if(!staticMemoryData.size()) { return nullptr; }
-	auto segmentArenaData = module->arena.copyToArena(staticMemoryData.data(),staticMemoryData.size());
-
-	module->dataSegments.push_back({8,staticMemoryData.size(),segmentArenaData});
-	module->initialNumBytesMemory = staticMemoryData.size() + 8;
-	module->maxNumBytesMemory = 1ull << 32;
 
 	return module;
 }

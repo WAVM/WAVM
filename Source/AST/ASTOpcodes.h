@@ -8,8 +8,8 @@ namespace AST
 {
 	#define ENUM_AST_OPS_Any() \
 		AST_OP(error) \
-		AST_OP(getLocal) AST_OP(getGlobal) \
-		AST_OP(setLocal) AST_OP(setGlobal) \
+		AST_OP(getLocal) \
+		AST_OP(setLocal) \
 		AST_OP(load) AST_OP(store) \
 		AST_OP(callDirect) AST_OP(callImport) AST_OP(callIndirect) \
 		AST_OP(loop) AST_OP(switch_) AST_OP(ifElse) AST_OP(label) AST_OP(sequence) \
