@@ -468,6 +468,7 @@ namespace WebAssemblyText
 			auto importStream = createTaggedSubtree(Symbol::_import);
 			importStream << getFunctionImportName(importFunctionIndex);
 			
+			importStream << SNodeOutputStream::StringAtom(import.module,strlen(import.module));
 			importStream << SNodeOutputStream::StringAtom(import.name,strlen(import.name));
 
 			auto paramStream = createTaggedSubtree(Symbol::_param);

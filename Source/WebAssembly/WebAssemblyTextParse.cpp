@@ -1100,12 +1100,18 @@ namespace WebAssemblyText
 					else { functionImportNameToIndexMap[importInternalName] = importIndex; }
 				}
 
-				// Parse a mandatory import string.
-				const char* importExternalName;
-				size_t importExternalNameLength;
-				if(!parseString(childNodeIt,importExternalName,importExternalNameLength,module->arena))
-				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import name string"); continue; }
-				
+				// Parse a mandatory import module name.
+				const char* importModuleName;
+				size_t importModuleNameLength;
+				if(!parseString(childNodeIt,importModuleName,importModuleNameLength,module->arena))
+				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import module name string"); continue; }
+
+				// Parse a mandary import function name.
+				const char* importFunctionName;
+				size_t importFunctionNameLength;
+				if(!parseString(childNodeIt,importFunctionName,importFunctionNameLength,module->arena))
+				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import function name string"); continue; }
+
 				// Parse the import's parameter and result declarations.
 				std::vector<Variable> parameters;
 				TypeId returnType = TypeId::Void;
@@ -1136,7 +1142,7 @@ namespace WebAssemblyText
 				// Create the import.
 				std::vector<TypeId> parameterTypes;
 				for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
-				module->functionImports.push_back({FunctionType(returnType,parameterTypes),importExternalName});
+				module->functionImports.push_back({FunctionType(returnType,parameterTypes),importModuleName,importFunctionName});
 
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following import declaration"); continue; }
 			}

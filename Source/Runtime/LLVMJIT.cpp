@@ -677,15 +677,14 @@ namespace LLVMJIT
 		// Called by MCJIT to resolve symbols by name.
 		virtual uint64 getSymbolAddress(const std::string& name)
 		{
-			// We assume JITModule::finalize has validated the types of any imports against the intrinsic functions available.
 			const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
 			if(intrinsicFunction) { return reinterpret_cast<uint64>(intrinsicFunction->value); }
-			
-			const Intrinsics::Value* intrinsicValue = Intrinsics::findValue(name.c_str());
-			if(intrinsicValue) { return reinterpret_cast<uint64>(intrinsicValue->value); }
-
-			std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
-			throw;
+			else if(name == "__chkstk") { return llvm::SectionMemoryManager::getSymbolAddress(name); }
+			else
+			{
+				std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
+				throw;
+			}
 		}
 	};
 	
@@ -809,7 +808,9 @@ namespace LLVMJIT
 		for(uintptr_t importIndex = 0;importIndex < jitModule->functionImportPointers.size();++importIndex)
 		{
 			auto functionImport = astModule->functionImports[importIndex];
-			jitModule->functionImportPointers[importIndex] = new llvm::GlobalVariable(*jitModule->llvmModule,asLLVMType(functionImport.type),true,llvm::GlobalValue::ExternalLinkage,nullptr,functionImport.name);
+			auto functionType = asLLVMType(functionImport.type);
+			auto functionName = Intrinsics::getDecoratedFunctionName((std::string(functionImport.module) + "." + functionImport.name).c_str(),functionImport.type);
+			jitModule->functionImportPointers[importIndex] = new llvm::GlobalVariable(*jitModule->llvmModule,functionType,true,llvm::GlobalValue::ExternalLinkage,nullptr,functionName);
 		}
 
 		// Create the function table globals.
@@ -860,39 +861,6 @@ namespace LLVMJIT
 			return false;
 		}
 		jitModule->llvmModule->setDataLayout(*jitModule->executionEngine->getDataLayout());
-
-		// Look up intrinsic functions that match the name+type of functions imported by the module, and validate their type
-		// Note that this doesn't bind their value, that is done by MCJITMemoryManager.
-		bool missingImport = false;
-		for(uintptr_t functionImportIndex = 0;functionImportIndex < astModule->functionImports.size();++functionImportIndex)
-		{
-			auto functionImport = astModule->functionImports[functionImportIndex];
-
-			// Detect modules that try to call __chkstk, so we can allow it to be linked in by MCJITMemoryManager and still be sure it's not called by user code.
-			if(!strcmp(functionImport.name,"__chkstk"))
-			{
-				std::cerr << "Illegal __chkstk import" << std::endl;
-				missingImport = true;
-				continue;
-			}
-
-			const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(functionImport.name);
-			void* functionPointer = intrinsicFunction && intrinsicFunction->type == functionImport.type ? intrinsicFunction->value : nullptr;
-			if(!functionPointer)
-			{
-				std::cerr << "Missing imported function " << functionImport.name << " : (";
-				for(auto argIt = functionImport.type.parameters.begin();argIt != functionImport.type.parameters.end();++argIt)
-				{
-					if(argIt != functionImport.type.parameters.begin()) { std::cerr << ","; }
-					std::cerr << getTypeName(*argIt);
-				}
-				std::cerr << ") -> " << getTypeName(functionImport.type.returnType) << std::endl;
-				missingImport = true;
-			}
-		}
-
-		// Fail if there were any missing imports.
-		if(missingImport) { return false; }
 
 		// Verify the module.
 		#ifdef _DEBUG

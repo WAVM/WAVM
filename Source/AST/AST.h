@@ -138,6 +138,7 @@ namespace AST
 	struct FunctionImport
 	{
 		FunctionType type;
+		const char* module;
 		const char* name;
 	};
 
