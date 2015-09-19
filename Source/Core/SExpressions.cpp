@@ -236,7 +236,7 @@ namespace SExp
 			isNegative = state.get() == '-';
 			state.advance();
 		}
-		else if(state.get() == '0')
+		if(state.get() == '0')
 		{
 			state.advance();
 			if(state.get() == 'x')
