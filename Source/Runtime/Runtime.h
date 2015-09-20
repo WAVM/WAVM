@@ -20,8 +20,11 @@ namespace Runtime
 	// Commits or decommits memory in the VM virtual address space.
 	extern uint32 vmSbrk(int32 numBytes);
 
-	// Initializes intrinsic values used by WASM from Emscripten.
+	// Initializes intrinsics used by Emscripten.
 	void initEmscriptenIntrinsics();
+
+	// Initializes intrinsics used by WebAssembly.
+	void initWebAssemblyIntrinsics();
 
 	// Given an address as a byte index, returns a typed reference to that address of VM memory.
 	template<typename memoryType> memoryType& instanceMemoryRef(uint32 address)

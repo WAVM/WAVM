@@ -200,6 +200,7 @@ namespace WebAssemblyText
 		std::map<std::string,uintptr_t> functionNameToIndexMap;
 		std::map<std::string,uintptr_t> functionTableNameToIndexMap;
 		std::map<std::string,uintptr_t> functionImportNameToIndexMap;
+		std::map<std::string,uintptr_t> intrinsicNameToImportIndexMap;
 		std::vector<ErrorRecord*>& outErrors;
 
 		ModuleContext(Module* inModule,std::vector<ErrorRecord*>& inOutErrors): module(inModule), outErrors(inOutErrors) {}
@@ -284,6 +285,10 @@ namespace WebAssemblyText
 					{ return parseCastExpression<destType##Type::Class>(destType##Type::Op::opcode,TypeId::sourceType,TypeId::destType,nodeIt); }
 
 				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(Nop::get(),TypeId::Void); }
+				
+				DEFINE_UNTYPED_OP(memory_size)		{ return parseIntrinsic<IntClass>("memory_size",FunctionType(TypeId::I32,{}),nodeIt); }
+				DEFINE_UNTYPED_OP(page_size)		{ return parseIntrinsic<IntClass>("page_size",FunctionType(TypeId::I32,{}),nodeIt); }
+				DEFINE_UNTYPED_OP(resize_memory)	{ return parseIntrinsic<VoidClass>("resize_memory",FunctionType(TypeId::Void,{TypeId::I32}),nodeIt); }
 
 				DEFINE_TYPED_OP(Int,const)
 				{
@@ -665,13 +670,7 @@ namespace WebAssemblyText
 
 					// Parse the call's parameters.
 					auto callFunction = moduleContext.module->functions[functionIndex];
-					auto parameters = new(arena)UntypedExpression*[callFunction->type.parameters.size()];
-					for(uintptr_t parameterIndex = 0;parameterIndex < callFunction->type.parameters.size();++parameterIndex)
-					{
-						auto parameterType = callFunction->type.parameters[parameterIndex];
-						auto parameterValue = parseTypedExpression(parameterType,nodeIt,"call parameter");
-						parameters[parameterIndex] = parameterValue;
-					}
+					auto parameters = parseParameters(callFunction->type.parameters,nodeIt,"call parameter");
 
 					// Create the Call node.
 					auto call = new(arena)Call(AnyOp::callDirect,getPrimaryTypeClass(callFunction->type.returnType),functionIndex,parameters);
@@ -691,13 +690,7 @@ namespace WebAssemblyText
 
 					// Parse the call's parameters.
 					auto functionImport = moduleContext.module->functionImports[importIndex];
-					auto parameters = new(arena)UntypedExpression*[functionImport.type.parameters.size()];
-					for(uintptr_t parameterIndex = 0;parameterIndex < functionImport.type.parameters.size();++parameterIndex)
-					{
-						auto parameterType = functionImport.type.parameters[parameterIndex];
-						auto parameterValue = parseTypedExpression(parameterType,nodeIt,"call_import parameter");
-						parameters[parameterIndex] = parameterValue;
-					}
+					auto parameters = parseParameters(functionImport.type.parameters,nodeIt,"call_import parameter");
 
 					// Create the Call node.
 					auto call = new(arena)Call(AnyOp::callImport,getPrimaryTypeClass(functionImport.type.returnType),importIndex,parameters);
@@ -720,13 +713,7 @@ namespace WebAssemblyText
 
 					// Parse the call's parameters.
 					auto functionTable = moduleContext.module->functionTables[tableIndex];
-					auto parameters = arena.allocate<UntypedExpression*>(functionTable.type.parameters.size());
-					for(uintptr_t parameterIndex = 0;parameterIndex < functionTable.type.parameters.size();++parameterIndex)
-					{
-						auto parameterType = functionTable.type.parameters[parameterIndex];
-						auto parameterValue = parseTypedExpression(parameterType,nodeIt,"call_indirect parameter");
-						parameters[parameterIndex] = parameterValue;
-					}
+					auto parameters = parseParameters(functionTable.type.parameters,nodeIt,"call_indirect parameter");
 
 					// Create the CallIndirect node.
 					auto call = new(arena)CallIndirect(getPrimaryTypeClass(functionTable.type.returnType),tableIndex,functionIndex,parameters);
@@ -933,6 +920,40 @@ namespace WebAssemblyText
 				return recordError<Error<Class>>(outErrors,nodeIt,"missing expression");
 			}
 			return parseExpressionSequence<Class>(type,nodeIt,context,numOps);
+		}
+
+		// Parses the parameters of a call.
+		UntypedExpression** parseParameters(const std::vector<TypeId>& parameterTypes,SNodeIt& nodeIt,const char* context)
+		{
+			auto parameters = new(arena)UntypedExpression*[parameterTypes.size()];
+			for(uintptr_t parameterIndex = 0;parameterIndex < parameterTypes.size();++parameterIndex)
+			{
+				auto parameterType = parameterTypes[parameterIndex];
+				auto parameterValue = parseTypedExpression(parameterType,nodeIt,context);
+				parameters[parameterIndex] = parameterValue;
+			}
+			return parameters;
+		}
+
+		// Parse an operation that is turned into an intrinsic call.
+		template<typename Class>
+		TypedExpression parseIntrinsic(const char* intrinsicName,const FunctionType& functionType,SNodeIt nodeIt)
+		{
+			// Create a unique import index for the intrinsic.
+			auto intrinsicImportIt = moduleContext.intrinsicNameToImportIndexMap.find(intrinsicName);
+			uintptr_t importIndex;
+			if(intrinsicImportIt != moduleContext.intrinsicNameToImportIndexMap.end()) { importIndex = intrinsicImportIt->second; }
+			{
+				importIndex = moduleContext.module->functionImports.size();
+				moduleContext.module->functionImports.push_back({functionType,"wasm_intrinsics",intrinsicName});
+			}
+
+			// Parse the intrinsic call's parameters.
+			auto parameters = parseParameters(functionType.parameters,nodeIt,"intrinsic parameter");
+
+			// Create the Call node.
+			auto call = as<Class>(new(arena)Call(AnyOp::callImport,Class::id,importIndex,parameters));
+			return TypedExpression(requireFullMatch(nodeIt,intrinsicName,call),functionType.returnType);
 		}
 
 		// Parse a comparison operation.

@@ -105,6 +105,9 @@ bool initModuleRuntime(const AST::Module* module)
 		return false;
 	}
 
+	// Initialize the WebAssembly intrinsics.
+	Runtime::initWebAssemblyIntrinsics();
+
 	return true;
 }
 

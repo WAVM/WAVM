@@ -105,6 +105,9 @@ bool initModuleRuntime(const AST::Module* module)
 		std::cerr << "Couldn't compile module." << std::endl;
 		return false;
 	}
+	
+	// Initialize the WebAssembly intrinsics.
+	Runtime::initWebAssemblyIntrinsics();
 
 	// Initialize the Emscripten intrinsics.
 	Runtime::initEmscriptenIntrinsics();
