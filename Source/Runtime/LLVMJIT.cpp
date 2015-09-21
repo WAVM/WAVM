@@ -935,7 +935,7 @@ namespace LLVMJIT
 		Core::Timer machineCodeTimer;
 		std::vector<llvm::Module*> moduleSet;
 		moduleSet.push_back(jitModule->llvmModule);
-		jitModule->handle = compileLayer->addModuleSet(moduleSet,std::make_unique<llvm::SectionMemoryManager>(),&IntrinsicResolver::singleton);
+		jitModule->handle = compileLayer->addModuleSet(moduleSet,llvm::make_unique<llvm::SectionMemoryManager>(),&IntrinsicResolver::singleton);
 		//std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
 
 		return true;
