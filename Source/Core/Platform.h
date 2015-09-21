@@ -8,7 +8,7 @@
 	#define DLL_IMPORT __declspec(dllimport)
 #else
 	#define THREAD_LOCAL __thread
-	#define DLL_EXPORT __attribute__((visibility ("default")))
+	#define DLL_EXPORT
 	#define DLL_IMPORT
 #endif
 

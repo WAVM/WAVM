@@ -1,7 +1,6 @@
 #pragma once
 
-#include "AST/ASTTypes.h"
-#include "AST/ASTOpcodes.h"
+#include "AST/AST.h"
 #include "Core/SExpressions.h"
 
 #include <cstdint>

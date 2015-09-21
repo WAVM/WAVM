@@ -132,7 +132,7 @@ namespace AST
 	#undef AST_TYPECLASS
 
 	// Define the getOpName function for each ClassOp enum.
-	#define AST_TYPECLASS(className) const char* getOpName(className##Op op);
+	#define AST_TYPECLASS(className) AST_API const char* getOpName(className##Op op);
 	ENUM_AST_TYPECLASSES()
 	#undef AST_TYPECLASS
 }

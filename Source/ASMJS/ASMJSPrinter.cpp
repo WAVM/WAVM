@@ -4,6 +4,7 @@
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
 #include "AST/ASTDispatch.h"
+#include "ASMJS.h"
 
 #include <map>
 #include <sstream>

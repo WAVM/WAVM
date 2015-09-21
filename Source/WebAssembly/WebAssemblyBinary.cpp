@@ -1,11 +1,12 @@
 #include "Core/Core.h"
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
-
-using namespace AST;
+#include "WebAssembly.h"
 
 namespace WebAssemblyBinary
 {
+	using namespace AST;
+
 	// =================================================================================================
 	// Magic serialization constants
 
@@ -1596,7 +1597,7 @@ namespace WebAssemblyBinary
 		}
 	};
 
-	bool decode(const uint8* code,size_t numCodeBytes,const uint8* data,size_t numDataBytes,Module*& outModule,std::vector<AST::ErrorRecord*>& outErrors)
+	bool decode(const uint8* code,size_t numCodeBytes,const uint8* data,size_t numDataBytes,AST::Module*& outModule,std::vector<AST::ErrorRecord*>& outErrors)
 	{
 		outModule = new Module;
 

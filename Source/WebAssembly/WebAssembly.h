@@ -5,6 +5,10 @@
 
 #include <vector>
 
+#ifndef WEBASSEMBLY_API
+	#define WEBASSEMBLY_API DLL_IMPORT
+#endif
+
 namespace WebAssemblyText
 {
 	struct AssertEq
@@ -25,13 +29,13 @@ namespace WebAssemblyText
 		std::vector<AssertEq> assertEqs;
 	};
 
-	bool parse(const char* string,File& outFile);
-	std::string print(const AST::Module* module);
+	WEBASSEMBLY_API bool parse(const char* string,File& outFile);
+	WEBASSEMBLY_API std::string print(const AST::Module* module);
 }
 
 namespace WebAssemblyBinary
 {
-	bool decode(
+	WEBASSEMBLY_API bool decode(
 		const uint8* code,
 		size_t numCodeBytes,
 		const uint8* data,

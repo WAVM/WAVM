@@ -1,4 +1,5 @@
 file(GLOB Sources "*.cpp")
 file(GLOB Headers "*.h")
-add_library(AST STATIC ${Sources} ${Headers})
+add_library(AST SHARED ${Sources} ${Headers})
+add_definitions(-DAST_API=DLL_EXPORT)
 target_link_libraries(AST Core)

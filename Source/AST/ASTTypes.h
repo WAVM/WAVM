@@ -72,7 +72,7 @@ namespace AST
 	#define AST_TYPECLASS(className) \
 		struct className##Class \
 		{ \
-			static TypeClassId id; \
+			AST_API static TypeClassId id; \
 			typedef className##Op Op; \
 			typedef Expression<className##Class> ClassExpression; \
 		}; \
@@ -85,9 +85,9 @@ namespace AST
 	#define AST_TYPE(typeName,className,...) \
 		struct typeName##Type \
 		{ \
-			static TypeId id; \
-			static TypeClassId classId; \
-			static const char* name; \
+			AST_API static TypeId id; \
+			AST_API static TypeClassId classId; \
+			AST_API static const char* name; \
 			typedef className##Op Op; \
 			typedef className##Class Class; \
 			typedef Expression<Class> TypeExpression; \
@@ -111,17 +111,17 @@ namespace AST
 	}
 	
 	// Returns whether a type is part of a type class.
-	bool isTypeClass(TypeId type,TypeClassId typeClass);
+	AST_API bool isTypeClass(TypeId type,TypeClassId typeClass);
 
 	// Returns the primary class for a type: Int, Float, Bool, Void.
-	TypeClassId getPrimaryTypeClass(TypeId type);
+	AST_API TypeClassId getPrimaryTypeClass(TypeId type);
 	
 	// Returns a string with the name of a type.
-	const char* getTypeName(TypeId type);
+	AST_API const char* getTypeName(TypeId type);
 
 	// Returns the number of bits in a value of a type.
-	size_t getTypeBitWidth(TypeId type);
+	AST_API size_t getTypeBitWidth(TypeId type);
 
 	// Returns the number of bytes in a value of a type.
-	size_t getTypeByteWidth(TypeId type);
+	AST_API size_t getTypeByteWidth(TypeId type);
 }

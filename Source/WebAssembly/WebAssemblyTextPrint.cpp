@@ -4,6 +4,7 @@
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
 #include "AST/ASTDispatch.h"
+#include "WebAssembly.h"
 #include "WebAssemblyTextSymbols.h"
 
 #include <map>
@@ -516,7 +517,7 @@ namespace WebAssemblyText
 		return moduleStream;
 	}
 
-	std::string print(const Module* module)
+	std::string print(const AST::Module* module)
 	{
 		Memory::ScopedArena scopedArena;
 		return SExp::print((SExp::Node*)ModulePrintContext(scopedArena,module).print().getRoot(),wastSymbols);

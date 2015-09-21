@@ -1,10 +1,15 @@
 #pragma once
 
 #include "Core/Core.h"
+#include "Core/Platform.h"
 #include "Core/MemoryArena.h"
 
 #include <cstdint>
 #include <vector>
+
+#ifndef AST_API
+	#define AST_API DLL_IMPORT
+#endif
 
 #include "ASTTypes.h"
 #include "ASTOpcodes.h"
