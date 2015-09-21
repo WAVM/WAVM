@@ -792,7 +792,7 @@ namespace LLVMJIT
 		typedZeroConstants[(size_t)TypeId::Void] = voidDummy;
 
 		auto targetMachine = llvm::EngineBuilder().selectTarget();
-		compileLayer = std::make_unique<CompileLayer>(objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
+		compileLayer = llvm::make_unique<CompileLayer>(objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
 		llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 	}
 
