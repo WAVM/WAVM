@@ -21,8 +21,11 @@
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ExecutionEngine/MCJIT.h"
-#include "llvm/ExecutionEngine/SectionMemoryManager.h"
+#include "llvm/ExecutionEngine/RTDyldMemoryManager.h"
+#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
+#include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
+#include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
+#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
@@ -33,6 +36,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -65,6 +69,14 @@ namespace LLVMJIT
 	// All the modules that have been JITted.
 	std::vector<struct JITModule*> jitModules;
 	
+	typedef llvm::orc::ObjectLinkingLayer<> ObjLayer;
+	typedef llvm::orc::IRCompileLayer<ObjLayer> CompileLayer;
+	typedef CompileLayer::ModuleSetHandleT ModuleHandle;
+
+	ObjLayer objectLayer;
+	std::unique_ptr<CompileLayer> compileLayer;
+	std::vector<ModuleHandle> moduleHandles;
+
 	// Converts an AST type to a LLVM type.
 	llvm::Type* asLLVMType(TypeId type) { return llvmTypesByTypeId[(uintptr)type]; }
 	
@@ -91,7 +103,35 @@ namespace LLVMJIT
 	llvm::Constant* compileLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	llvm::Constant* compileLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(asLLVMType(TypeId::Bool),llvm::APInt(1,value ? 1 : 0,false)); }
-	
+
+	// Used to resolve references to intrinsics in the LLVM IR.
+	struct IntrinsicResolver : llvm::RuntimeDyld::SymbolResolver
+	{
+		static IntrinsicResolver singleton;
+
+		void* getSymbolAddress(const std::string& name) const
+		{
+			const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
+			if(intrinsicFunction) { return intrinsicFunction->value; }
+			else
+			{
+				std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
+				return nullptr;
+			}
+		}
+
+		llvm::RuntimeDyld::SymbolInfo findSymbol(const std::string& name) override
+		{
+			return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64>(getSymbolAddress(name)),llvm::JITSymbolFlags::None);
+		}
+
+		llvm::RuntimeDyld::SymbolInfo findSymbolInLogicalDylib(const std::string& name) override
+		{
+			return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64>(getSymbolAddress(name)),llvm::JITSymbolFlags::None);
+		}
+	};
+	IntrinsicResolver IntrinsicResolver::singleton;
+
 	// Information about a JITed module.
 	struct JITModule
 	{
@@ -102,14 +142,14 @@ namespace LLVMJIT
 		std::vector<llvm::GlobalVariable*> functionTablePointers;
 		llvm::Value* instanceMemoryBase;
 		llvm::Value* instanceMemoryAddressMask;
-		llvm::ExecutionEngine* executionEngine;
+		CompileLayer::ModuleSetHandleT handle;
 
 		JITModule(const Module* inASTModule)
 		:	astModule(inASTModule)
 		,	llvmModule(new llvm::Module("",context))
 		,	instanceMemoryBase(nullptr)
 		,	instanceMemoryAddressMask(nullptr)
-		,	executionEngine(nullptr)
+		,	handle()
 		{}
 	};
 
@@ -671,23 +711,6 @@ namespace LLVMJIT
 		#undef IMPLEMENT_COMPARE_OP
 	};
 
-
-	struct MCJITMemoryManager : public llvm::SectionMemoryManager
-	{
-		// Called by MCJIT to resolve symbols by name.
-		virtual uint64 getSymbolAddress(const std::string& name)
-		{
-			const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
-			if(intrinsicFunction) { return reinterpret_cast<uint64>(intrinsicFunction->value); }
-			else if(name == "__chkstk") { return llvm::SectionMemoryManager::getSymbolAddress(name); }
-			else
-			{
-				std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
-				throw;
-			}
-		}
-	};
-	
 	void JITFunctionContext::compile()
 	{
 		// Create an initial basic block for the function.
@@ -767,6 +790,10 @@ namespace LLVMJIT
 		typedZeroConstants[(size_t)TypeId::F64] = compileLiteral((float64)0.0);
 		typedZeroConstants[(size_t)TypeId::Bool] = compileLiteral(false);
 		typedZeroConstants[(size_t)TypeId::Void] = voidDummy;
+
+		auto targetMachine = llvm::EngineBuilder().selectTarget();
+		compileLayer = std::make_unique<CompileLayer>(objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
+		llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 	}
 
 	bool compileModule(const Module* astModule)
@@ -800,6 +827,8 @@ namespace LLVMJIT
 		{
 			assert(exportIt.second < jitModule->functions.size());
 			jitModule->functions[exportIt.second]->setLinkage(llvm::GlobalValue::ExternalLinkage);
+			jitModule->functions[exportIt.second]->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+			jitModule->functions[exportIt.second]->setVisibility(llvm::GlobalValue::DefaultVisibility);
 			jitModule->functions[exportIt.second]->setName(exportIt.first);
 		}
 
@@ -842,25 +871,12 @@ namespace LLVMJIT
 		{
 			JITFunctionContext(*jitModule,functionIndex).compile();
 		}
-		//std::cout << "Generated LLVM code for module in " << llvmGenTimer.getMilliseconds() << "ms" << std::endl;
+		std::cout << "Generated LLVM code for module in " << llvmGenTimer.getMilliseconds() << "ms" << std::endl;
 		
 		// Work around a problem with LLVM generating a COFF file that MCJIT can't parse. Adding -elf to the target triple forces it to use ELF instead of COFF.
 		// This also works around a _ being prepended to the symbol before getSymbolAddress is called on MacOS.
         jitModule->llvmModule->setTargetTriple(llvm::sys::getProcessTriple() + "-elf");
-
-		// Create the MCJIT execution engine for this module.
-		std::string errStr;
-		jitModule->executionEngine = llvm::EngineBuilder(std::unique_ptr<llvm::Module>(jitModule->llvmModule))
-			.setErrorStr(&errStr)
-			.setOptLevel(llvm::CodeGenOpt::Aggressive)
-			.setMCJITMemoryManager(std::unique_ptr<llvm::RTDyldMemoryManager>(new MCJITMemoryManager()))
-			.create();
-		if(!jitModule->executionEngine)
-		{
-			std::cerr << "Could not create ExecutionEngine: " << errStr << std::endl;
-			return false;
-		}
-		jitModule->llvmModule->setDataLayout(*jitModule->executionEngine->getDataLayout());
+		jitModule->llvmModule->setDataLayout(*llvm::EngineBuilder().selectTarget()->getDataLayout());
 
 		// Verify the module.
 		#ifdef _DEBUG
@@ -880,7 +896,6 @@ namespace LLVMJIT
 		Core::Timer optimizationTimer;
 		llvm::legacy::PassManager passManager;
 		passManager.add(llvm::createFunctionInliningPass(2,0));
-		//passManager.add(llvm::createPartialInliningPass());
 		passManager.run(*jitModule->llvmModule);
 
 		auto fpm = new llvm::legacy::FunctionPassManager(jitModule->llvmModule);
@@ -915,10 +930,12 @@ namespace LLVMJIT
 		delete fpm;
 
 		//std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
-
-		// Generate native machine code.
+		
+		// Pass the module to the JIT compiler.
 		Core::Timer machineCodeTimer;
-		jitModule->executionEngine->finalizeObject();
+		std::vector<llvm::Module*> moduleSet;
+		moduleSet.push_back(jitModule->llvmModule);
+		jitModule->handle = compileLayer->addModuleSet(moduleSet,std::make_unique<llvm::SectionMemoryManager>(),&IntrinsicResolver::singleton);
 		//std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
 
 		return true;
@@ -938,7 +955,7 @@ namespace Runtime
 		{
 			if(jitModule->astModule == module)
 			{
-				return (void*)jitModule->executionEngine->getFunctionAddress(jitModule->functions[functionIndex]->getName());
+				return (void*)LLVMJIT::compileLayer->findSymbolIn(jitModule->handle,jitModule->functions[functionIndex]->getName(),false).getAddress();
 			}
 		}
 		return nullptr;
