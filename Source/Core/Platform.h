@@ -9,7 +9,7 @@
 #else
 	#define THREAD_LOCAL __thread
 	#define DLL_EXPORT __attribute__((visibility ("default")))
-	#define DLL_IMPORT __attribute__((visibility ("hidden")))
+	#define DLL_IMPORT
 #endif
 
 namespace Platform

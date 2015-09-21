@@ -47,6 +47,9 @@ else()
 
 	# Disable RTTI
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+	
+	# Ensure that even static libraries are relocatable so they can be linked into a .so
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 endif()
 
 add_subdirectory(Source/Core)
