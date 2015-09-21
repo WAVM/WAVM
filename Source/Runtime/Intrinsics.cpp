@@ -26,7 +26,7 @@ namespace Intrinsics
 	{
 		std::string decoratedName = name;
 		decoratedName += " (";
-		for(uintptr_t parameterIndex = 0;parameterIndex < type.parameters.size();++parameterIndex)
+		for(uintptr parameterIndex = 0;parameterIndex < type.parameters.size();++parameterIndex)
 		{
 			if(parameterIndex != 0) { decoratedName += ','; }
 			decoratedName += AST::getTypeName(type.parameters[parameterIndex]);

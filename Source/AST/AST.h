@@ -126,7 +126,7 @@ namespace AST
 	{
 		const char* name;
 		std::vector<Variable> locals;
-		std::vector<uintptr_t> parameterLocalIndices;
+		std::vector<uintptr> parameterLocalIndices;
 		FunctionType type;
 		UntypedExpression* expression;
 
@@ -136,7 +136,7 @@ namespace AST
 	struct FunctionTable
 	{
 		FunctionType type;
-		uintptr_t* functionIndices;
+		uintptr* functionIndices;
 		size_t numFunctions;
 	};
 
@@ -149,9 +149,9 @@ namespace AST
 
 	struct DataSegment
 	{
-		uint64_t baseAddress;
-		uint64_t numBytes;
-		const uint8_t* data;
+		uint64 baseAddress;
+		uint64 numBytes;
+		const uint8* data;
 	};
 	
 	struct ErrorRecord
@@ -161,7 +161,7 @@ namespace AST
 	};
 
 	struct CaseInsensitiveStringCompareFunctor { bool operator()(const char* left,const char* right) const { return strcmp(left,right) < 0; } };
-	typedef std::map<const char*,uintptr_t,CaseInsensitiveStringCompareFunctor> ExportNameToFunctionIndexMap;
+	typedef std::map<const char*,uintptr,CaseInsensitiveStringCompareFunctor> ExportNameToFunctionIndexMap;
 
 	struct Module
 	{
@@ -173,8 +173,8 @@ namespace AST
 		std::vector<FunctionImport> functionImports;
 		std::vector<DataSegment> dataSegments;
 
-		uint64_t initialNumBytesMemory;
-		uint64_t maxNumBytesMemory;
+		uint64 initialNumBytesMemory;
+		uint64 maxNumBytesMemory;
 
 		Module() : initialNumBytesMemory(0), maxNumBytesMemory(0) {}
 

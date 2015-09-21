@@ -101,8 +101,8 @@ namespace AST
 		static const char* nameStrings##className##Ops[] = { ENUM_AST_OPS_##className() }; \
 		const char* getOpName(className##Op op) \
 		{ \
-			assert((uintptr_t)op < (sizeof(nameStrings##className##Ops) / sizeof(const char*))); \
-			return nameStrings##className##Ops[(uintptr_t)op]; \
+			assert((uintptr)op < (sizeof(nameStrings##className##Ops) / sizeof(const char*))); \
+			return nameStrings##className##Ops[(uintptr)op]; \
 		}
 	ENUM_AST_TYPECLASSES()
 	#undef AST_OP

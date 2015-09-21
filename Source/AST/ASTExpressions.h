@@ -22,15 +22,15 @@ namespace AST
 
 	struct GetLocal : public Expression<AnyClass>
 	{
-		uintptr_t variableIndex;
-		GetLocal(TypeClassId inTypeClass,uintptr_t inVariableIndex) : Expression(AnyOp::getLocal,inTypeClass), variableIndex(inVariableIndex) {}
+		uintptr variableIndex;
+		GetLocal(TypeClassId inTypeClass,uintptr inVariableIndex) : Expression(AnyOp::getLocal,inTypeClass), variableIndex(inVariableIndex) {}
 	};
 	
 	struct SetLocal : public Expression<AnyClass>
 	{
 		UntypedExpression* value;
-		uintptr_t variableIndex;
-		SetLocal(TypeClassId inTypeClass,UntypedExpression* inValue,uintptr_t inVariableIndex)
+		uintptr variableIndex;
+		SetLocal(TypeClassId inTypeClass,UntypedExpression* inValue,uintptr inVariableIndex)
 		: Expression(AnyOp::setLocal,inTypeClass), value(inValue), variableIndex(inVariableIndex) {}
 	};
 
@@ -100,18 +100,18 @@ namespace AST
 	
 	struct Call : public Expression<AnyClass>
 	{
-		uintptr_t functionIndex;
+		uintptr functionIndex;
 		UntypedExpression** parameters;
-		Call(AnyOp op,TypeClassId inTypeClass,uintptr_t inFunctionIndex,UntypedExpression** inParameters)
+		Call(AnyOp op,TypeClassId inTypeClass,uintptr inFunctionIndex,UntypedExpression** inParameters)
 		: Expression(op,inTypeClass), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
 	struct CallIndirect : public Expression<AnyClass>
 	{
-		uintptr_t tableIndex;
+		uintptr tableIndex;
 		Expression<IntClass>* functionIndex; // must be I32
 		UntypedExpression** parameters;
-		CallIndirect(TypeClassId inTypeClass,uintptr_t inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
+		CallIndirect(TypeClassId inTypeClass,uintptr inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
 		: Expression(AnyOp::callIndirect,inTypeClass), tableIndex(inTableIndex), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
@@ -153,12 +153,12 @@ namespace AST
 	struct Switch : public Expression<Class>
 	{
 		TypedExpression key;
-		uintptr_t defaultArmIndex;
+		uintptr defaultArmIndex;
 		size_t numArms;
 		SwitchArm* arms;
 		BranchTarget* endTarget;
 
-		Switch(TypedExpression inKey,uintptr_t inDefaultArmIndex,size_t inNumArms,SwitchArm* inArms,BranchTarget* inEndTarget)
+		Switch(TypedExpression inKey,uintptr inDefaultArmIndex,size_t inNumArms,SwitchArm* inArms,BranchTarget* inEndTarget)
 		: Expression<Class>(Class::Op::switch_), key(inKey), defaultArmIndex(inDefaultArmIndex), numArms(inNumArms), arms(inArms), endTarget(inEndTarget) {}
 	};
 	

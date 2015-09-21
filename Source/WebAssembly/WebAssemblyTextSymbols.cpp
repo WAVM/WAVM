@@ -35,7 +35,7 @@ namespace WebAssemblyText
 		if(!isInitialized)
 		{
 			auto numSymbols = sizeof(wastSymbols) / sizeof(wastSymbols[0]);
-			for(uintptr_t symbolIndex = 0;symbolIndex < numSymbols;++symbolIndex) { symbolIndexMap[wastSymbols[symbolIndex]] = symbolIndex; }
+			for(uintptr symbolIndex = 0;symbolIndex < numSymbols;++symbolIndex) { symbolIndexMap[wastSymbols[symbolIndex]] = symbolIndex; }
 			isInitialized = true;
 		}
 		return symbolIndexMap;

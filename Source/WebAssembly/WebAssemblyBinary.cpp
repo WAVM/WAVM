@@ -473,7 +473,7 @@ namespace WebAssemblyBinary
 		std::vector<float32> f32Constants;
 		std::vector<float64> f64Constants;
 		std::vector<FunctionType> functionTypes;
-		std::map<std::string,uintptr_t> intrinsicNameToFunctionImportIndex;
+		std::map<std::string,uintptr> intrinsicNameToFunctionImportIndex;
 
 		struct Global
 		{
@@ -485,8 +485,8 @@ namespace WebAssemblyBinary
 		struct VariableImport
 		{
 			TypeId type;
-			uintptr_t getterFunctionImportIndex;
-			uintptr_t setterFunctionImportIndex;
+			uintptr getterFunctionImportIndex;
+			uintptr setterFunctionImportIndex;
 		};
 		std::vector<VariableImport> variableImports;
 
@@ -711,7 +711,7 @@ namespace WebAssemblyBinary
 		UntypedExpression** decodeParameters(const std::vector<TypeId>& parameterTypes)
 		{
 			auto parameters = new(arena) UntypedExpression*[parameterTypes.size()];
-			for(uintptr_t parameterIndex = 0;parameterIndex < parameterTypes.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < parameterTypes.size();++parameterIndex)
 			{ parameters[parameterIndex] = decodeExpression(parameterTypes[parameterIndex]); }
 			return parameters;
 		}
@@ -771,7 +771,7 @@ namespace WebAssemblyBinary
 
 		// Calls a function by index into the module's import table.
 		template<typename Class>
-		typename Class::ClassExpression* callImport(TypeId returnType,uintptr_t functionImportIndex)
+		typename Class::ClassExpression* callImport(TypeId returnType,uintptr functionImportIndex)
 		{
 			if(functionImportIndex >= module.functionImports.size()) { throw new FatalDecodeException("callimport: invalid import index"); }
 			const FunctionImport& functionImport = module.functionImports[functionImportIndex];
@@ -780,7 +780,7 @@ namespace WebAssemblyBinary
 				? as<Class>(new(arena) Call(AnyOp::callImport,Class::id,functionImportIndex,parameters))
 				: recordError<Class>("callimport: incorrect type");
 		}
-		VoidExpression* callImportStatement(uintptr_t functionImportIndex)
+		VoidExpression* callImportStatement(uintptr functionImportIndex)
 		{
 			if(functionImportIndex >= module.functionImports.size()) { throw new FatalDecodeException("callimport: invalid import index"); }
 			const FunctionImport& functionImport = module.functionImports[functionImportIndex];
@@ -794,7 +794,7 @@ namespace WebAssemblyBinary
 			default: throw;
 			};
 		}
-		uintptr_t getUniqueFunctionImport(const FunctionType& intrinsicType,const char* intrinsicName)
+		uintptr getUniqueFunctionImport(const FunctionType& intrinsicType,const char* intrinsicName)
 		{
 			// Add one import for every unique intrinsic name used.
 			auto intrinsicIt = intrinsicNameToFunctionImportIndex.find(intrinsicName);
@@ -1359,11 +1359,11 @@ namespace WebAssemblyBinary
 				else numLocalI32s = imm;
 				
 				currentFunction->locals.resize(currentFunction->type.parameters.size() + numLocalI32s + numLocalF32s + numLocalF64s);
-				uintptr_t localIndex = 0;
+				uintptr localIndex = 0;
 				
 				// Create locals for the function's parameters.
 				currentFunction->parameterLocalIndices.resize(currentFunction->type.parameters.size());
-				for(uintptr_t parameterIndex = 0;parameterIndex < currentFunction->type.parameters.size();++parameterIndex)
+				for(uintptr parameterIndex = 0;parameterIndex < currentFunction->type.parameters.size();++parameterIndex)
 				{
 					currentFunction->parameterLocalIndices[parameterIndex] = localIndex;
 					currentFunction->locals[localIndex++] = {currentFunction->type.parameters[parameterIndex],nullptr};
@@ -1565,7 +1565,7 @@ namespace WebAssemblyBinary
 
 				// Decode the function table elements.
 				table.numFunctions = in.immU32();
-				table.functionIndices = new(arena) uintptr_t[table.numFunctions];
+				table.functionIndices = new(arena) uintptr[table.numFunctions];
 				for(uint32 functionIndex = 0;functionIndex < table.numFunctions;++functionIndex)
 				{
 					table.functionIndices[functionIndex] = in.boundedImmU32("function index",module.functions.size());

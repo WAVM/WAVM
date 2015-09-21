@@ -46,7 +46,7 @@ namespace Platform
 	#ifdef _DEBUG
 		static bool isPageAligned(uint8* address)
 		{
-			const uintptr_t addressBits = reinterpret_cast<uintptr_t>(address);
+			const uintptr addressBits = reinterpret_cast<uintptr>(address);
 			return (addressBits & ((1ull << getPreferredVirtualPageSizeLog2()) - 1)) == 0;
 		}
 	#endif

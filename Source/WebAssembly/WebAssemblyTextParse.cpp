@@ -60,10 +60,10 @@ namespace WebAssemblyText
 	{
 		if(nodeIt
 			&& nodeIt->type == SExp::NodeType::Symbol
-			&& nodeIt->symbol > (uintptr_t)Symbol::_typeBase
-			&& nodeIt->symbol <= ((uintptr_t)Symbol::_typeBase + (uintptr_t)TypeId::max))
+			&& nodeIt->symbol > (uintptr)Symbol::_typeBase
+			&& nodeIt->symbol <= ((uintptr)Symbol::_typeBase + (uintptr)TypeId::max))
 		{
-			outType = (TypeId)(nodeIt->symbol - (uintptr_t)Symbol::_typeBase);
+			outType = (TypeId)(nodeIt->symbol - (uintptr)Symbol::_typeBase);
 			++nodeIt;
 			return true;
 		}
@@ -165,11 +165,11 @@ namespace WebAssemblyText
 	// Parse a name or an index.
 	// If a name is parsed that is contained in nameToIndex, the index of the name is assigned to outIndex and true is returned.
 	// If an index is parsed that is between 0 and numValidIndices, the index is assigned to outIndex and true is returned.
-	bool parseNameOrIndex(SNodeIt& nodeIt,const std::map<std::string,uintptr_t>& nameToIndex,size_t numValidIndices,uintptr_t& outIndex)
+	bool parseNameOrIndex(SNodeIt& nodeIt,const std::map<std::string,uintptr>& nameToIndex,size_t numValidIndices,uintptr& outIndex)
 	{
 		const char* name;
 		int64 parsedInt;
-		if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr_t)parsedInt < numValidIndices) { outIndex = (uintptr_t)parsedInt; return true; }
+		if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr)parsedInt < numValidIndices) { outIndex = (uintptr)parsedInt; return true; }
 		else if(parseName(nodeIt,name))
 		{
 			auto it = nameToIndex.find(name);
@@ -180,9 +180,9 @@ namespace WebAssemblyText
 	}
 
 	// Builds a map from name to index from an array of variables.
-	void buildVariableNameToIndexMapMap(const std::vector<Variable>& variables,std::map<std::string,uintptr_t>& outNameToIndexMap,std::vector<ErrorRecord*>& outErrors)
+	void buildVariableNameToIndexMapMap(const std::vector<Variable>& variables,std::map<std::string,uintptr>& outNameToIndexMap,std::vector<ErrorRecord*>& outErrors)
 	{
-		for(uintptr_t variableIndex = 0;variableIndex < variables.size();++variableIndex)
+		for(uintptr variableIndex = 0;variableIndex < variables.size();++variableIndex)
 		{
 			const auto& variable = variables[variableIndex];
 			if(variable.name != nullptr)
@@ -197,10 +197,10 @@ namespace WebAssemblyText
 	struct ModuleContext
 	{
 		Module* module;
-		std::map<std::string,uintptr_t> functionNameToIndexMap;
-		std::map<std::string,uintptr_t> functionTableNameToIndexMap;
-		std::map<std::string,uintptr_t> functionImportNameToIndexMap;
-		std::map<std::string,uintptr_t> intrinsicNameToImportIndexMap;
+		std::map<std::string,uintptr> functionNameToIndexMap;
+		std::map<std::string,uintptr> functionTableNameToIndexMap;
+		std::map<std::string,uintptr> functionImportNameToIndexMap;
+		std::map<std::string,uintptr> intrinsicNameToImportIndexMap;
 		std::vector<ErrorRecord*>& outErrors;
 
 		ModuleContext(Module* inModule,std::vector<ErrorRecord*>& inOutErrors): module(inModule), outErrors(inOutErrors) {}
@@ -250,7 +250,7 @@ namespace WebAssemblyText
 		std::vector<ErrorRecord*>& outErrors;
 		ModuleContext& moduleContext;
 		Function* function;
-		std::map<std::string,uintptr_t> localNameToIndexMap;
+		std::map<std::string,uintptr> localNameToIndexMap;
 		std::map<std::string,BranchTarget*> labelToBranchTargetMap;
 
 		std::vector<BranchTarget*> scopedBranchTargets;
@@ -511,7 +511,7 @@ namespace WebAssemblyText
 
 					// Parse the switch cases.
 					SwitchArm* arms = new(arena)SwitchArm[numArms + 1];
-					uintptr_t armIndex = 0;
+					uintptr armIndex = 0;
 					for(;nodeIt;++nodeIt)
 					{
 						SNodeIt childNodeIt;
@@ -528,7 +528,7 @@ namespace WebAssemblyText
 							bool shouldFallthrough = true;
 							for(auto fallthroughNodeIt = childNodeIt;fallthroughNodeIt;++fallthroughNodeIt)
 							{
-								if(fallthroughNodeIt->type == SExp::NodeType::Symbol && fallthroughNodeIt->symbol == (uintptr_t)Symbol::_fallthrough)
+								if(fallthroughNodeIt->type == SExp::NodeType::Symbol && fallthroughNodeIt->symbol == (uintptr)Symbol::_fallthrough)
 								{
 									shouldFallthrough = true;
 									// The fallthrough symbol should be the last sibling.
@@ -623,9 +623,9 @@ namespace WebAssemblyText
 					const char* name;
 					int64 parsedInt;
 					BranchTarget* branchTarget = nullptr;
-					if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr_t)parsedInt < scopedBranchTargets.size())
+					if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr)parsedInt < scopedBranchTargets.size())
 					{
-						branchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr_t)parsedInt];
+						branchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr)parsedInt];
 					}
 					else if(parseName(nodeIt,name))
 					{
@@ -662,7 +662,7 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(call)
 				{
 					// Parse the function name or index to call.
-					uintptr_t functionIndex;
+					uintptr functionIndex;
 					if(!parseNameOrIndex(nodeIt,moduleContext.functionNameToIndexMap,moduleContext.module->functions.size(),functionIndex))
 					{
 						return recordError<Error<Class>>(outErrors,nodeIt,"call: expected function name or index");
@@ -682,7 +682,7 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(call_import)
 				{
 					// Parse the import name or index to call.
-					uintptr_t importIndex;
+					uintptr importIndex;
 					if(!parseNameOrIndex(nodeIt,moduleContext.functionImportNameToIndexMap,moduleContext.module->functionImports.size(),importIndex))
 					{
 						return recordError<Error<Class>>(outErrors,nodeIt,"call_import: expected function import name or index");
@@ -702,7 +702,7 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(call_indirect)
 				{
 					// Parse the table name or index.
-					uintptr_t tableIndex;
+					uintptr tableIndex;
 					if(!parseNameOrIndex(nodeIt,moduleContext.functionTableNameToIndexMap,moduleContext.module->functionTables.size(),tableIndex))
 					{
 						return recordError<Error<Class>>(outErrors,nodeIt,"call_indirect: expected function table index");
@@ -894,7 +894,7 @@ namespace WebAssemblyText
 			{
 				// Parse the void expressions.
 				VoidExpression* result = nullptr;
-				for(uintptr_t expressionIndex = 0;expressionIndex < numOps - 1;++expressionIndex)
+				for(uintptr expressionIndex = 0;expressionIndex < numOps - 1;++expressionIndex)
 				{
 					auto expression = parseTypedExpression<VoidClass>(TypeId::Void,nodeIt,errorContext);
 					if(result) { result = new(arena) Sequence<VoidClass>(result,expression); }
@@ -926,7 +926,7 @@ namespace WebAssemblyText
 		UntypedExpression** parseParameters(const std::vector<TypeId>& parameterTypes,SNodeIt& nodeIt,const char* context)
 		{
 			auto parameters = new(arena)UntypedExpression*[parameterTypes.size()];
-			for(uintptr_t parameterIndex = 0;parameterIndex < parameterTypes.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < parameterTypes.size();++parameterIndex)
 			{
 				auto parameterType = parameterTypes[parameterIndex];
 				auto parameterValue = parseTypedExpression(parameterType,nodeIt,context);
@@ -941,7 +941,7 @@ namespace WebAssemblyText
 		{
 			// Create a unique import index for the intrinsic.
 			auto intrinsicImportIt = moduleContext.intrinsicNameToImportIndexMap.find(intrinsicName);
-			uintptr_t importIndex;
+			uintptr importIndex;
 			if(intrinsicImportIt != moduleContext.intrinsicNameToImportIndexMap.end()) { importIndex = intrinsicImportIt->second; }
 			{
 				importIndex = moduleContext.module->functionImports.size();
@@ -1021,9 +1021,9 @@ namespace WebAssemblyText
 		
 		// Parses a load from a local variable.
 		template<typename Class>
-		typename Class::ClassExpression* parseGetLocal(TypeId resultType,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseGetLocal(TypeId resultType,const std::map<std::string,uintptr>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
-			uintptr_t variableIndex;
+			uintptr variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
 				auto message = "get_local: expected local name or index";
@@ -1037,9 +1037,9 @@ namespace WebAssemblyText
 
 		// Parses a store to a local variable.
 		template<typename Class>
-		typename Class::ClassExpression* parseSetLocal(TypeId resultType,const std::map<std::string,uintptr_t>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseSetLocal(TypeId resultType,const std::map<std::string,uintptr>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
-			uintptr_t variableIndex;
+			uintptr variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
 				auto message = "set_local: expected local name or index";
@@ -1090,9 +1090,9 @@ namespace WebAssemblyText
 					else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
 					{
 						// Parse a parameter declaration.
-						const uintptr_t baseLocalIndex = function->locals.size();
+						const uintptr baseLocalIndex = function->locals.size();
 						const size_t numParameters = parseVariables(innerChildNodeIt,function->locals,outErrors,module->arena);
-						for(uintptr_t parameterIndex = 0;parameterIndex < numParameters;++parameterIndex)
+						for(uintptr parameterIndex = 0;parameterIndex < numParameters;++parameterIndex)
 						{
 							function->parameterLocalIndices.push_back(baseLocalIndex + parameterIndex);
 							function->type.parameters.push_back(function->locals[baseLocalIndex + parameterIndex].type);
@@ -1224,24 +1224,24 @@ namespace WebAssemblyText
 				{ ++numFunctions; }
 
 				FunctionType functionType;
-				auto functionIndices = new(module->arena) uintptr_t[numFunctions];
+				auto functionIndices = new(module->arena) uintptr[numFunctions];
 				if(!numFunctions) { recordError<ErrorRecord>(outErrors,nodeIt,"function table must contain atleast 1 function"); }
 				else
 				{
 					// Parse the function indices or names.
-					for(uintptr_t index = 0;index < numFunctions;++index)
+					for(uintptr index = 0;index < numFunctions;++index)
 					{
-						uintptr_t functionIndex;
+						uintptr functionIndex;
 						if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
 							{ functionIndices[index] = 0; recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index"); }
-						else if((uintptr_t)functionIndex >= module->functions.size())
+						else if((uintptr)functionIndex >= module->functions.size())
 							{ functionIndices[index] = 0; recordError<ErrorRecord>(outErrors,childNodeIt,"invalid function index"); }
-						else { functionIndices[index] = (uintptr_t)functionIndex; }
+						else { functionIndices[index] = (uintptr)functionIndex; }
 					}
 
 					// Check that all the functions have the same type.
 					functionType = module->functions[functionIndices[0]]->type;
-					for(uintptr_t index = 0;index < numFunctions;++index)
+					for(uintptr index = 0;index < numFunctions;++index)
 					{
 						if(module->functions[functionIndices[index]]->type != functionType)
 							{ recordError<ErrorRecord>(outErrors,nodeIt,"function table must only contain functions of a single type"); }
@@ -1252,7 +1252,7 @@ namespace WebAssemblyText
 		}
 
 		// Do a second pass that parses definitions as well.
-		intptr_t currentFunctionIndex = 0;
+		intptr currentFunctionIndex = 0;
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
 			SNodeIt childNodeIt;
@@ -1283,7 +1283,7 @@ namespace WebAssemblyText
 				size_t nameLength;
 				if(!parseString(childNodeIt,exportName,nameLength,module->arena))
 					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected export name string"); continue; }
-				uintptr_t functionIndex;
+				uintptr functionIndex;
 				if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
 					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index"); continue; }
 				module->exportNameToFunctionIndexMap[exportName] = functionIndex;
@@ -1333,7 +1333,7 @@ namespace WebAssemblyText
 
 				// Find the named export in one of the modules.
 				Module* exportModule = nullptr;
-				uintptr_t exportFunctionIndex = 0;
+				uintptr exportFunctionIndex = 0;
 				for(auto module : outFile.modules)
 				{
 					auto exportIt = module->exportNameToFunctionIndexMap.find(invokeExportName);
@@ -1355,7 +1355,7 @@ namespace WebAssemblyText
 				// Parse the invoke's parameters.
 				auto function = exportModule->functions[exportFunctionIndex];
 				std::vector<TypedExpression> parameters(function->type.parameters.size());
-				for(uintptr_t parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
+				for(uintptr parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
 				{
 					auto parameterType = function->type.parameters[parameterIndex];
 					auto parameterValue = dummyFunctionContext.parseTypedExpression(parameterType,invokeChildIt,"invoke parameter");

@@ -248,7 +248,7 @@ namespace SExp
 
 		// First parse the digits and decimal point.
 		Memory::ArenaString digits;
-		uintptr_t numIntegerDigits = 0;
+		uintptr numIntegerDigits = 0;
 		bool hasDecimalPoint = false;
 		while(true)
 		{
@@ -282,7 +282,7 @@ namespace SExp
 			// If the number has a decimal point, decode its digits into a float64.
 			float64 accumulator = 0.0;
 			float64 digitFactor = isNegative ? -1.0 : 1.0;
-			for(uintptr_t digitIndex = 0;digitIndex < digits.length();++digitIndex)
+			for(uintptr digitIndex = 0;digitIndex < digits.length();++digitIndex)
 			{
 				if(digitIndex < numIntegerDigits)
 				{
@@ -309,7 +309,7 @@ namespace SExp
 			// If the number doesn't have a decimal point, decode its digits into an int64.
 			uint64 accumulator = 0;
 			bool notEnoughBits = false;
-			for(uintptr_t digitIndex = 0;digitIndex < digits.length();++digitIndex)
+			for(uintptr digitIndex = 0;digitIndex < digits.length();++digitIndex)
 			{
 				// Detect if the uint64 is about to overflow.
 				if(accumulator > std::numeric_limits<uint64>::max() / base) { notEnoughBits = true; }
@@ -441,7 +441,7 @@ namespace SExp
 	std::string escapeString(const char* string,size_t numChars)
 	{
 		std::string result;
-		for(uintptr_t charIndex = 0;charIndex < numChars;++charIndex)
+		for(uintptr charIndex = 0;charIndex < numChars;++charIndex)
 		{
 			auto c = string[charIndex];
 			if(c == '\\') { result += "\\\\"; }
@@ -493,7 +493,7 @@ namespace SExp
 		for(auto string : childStrings) { totalChildLength += string.length(); }
 		auto isMultiLine = hasMultiLineSubtree || totalChildLength > 120;
 
-		for(uintptr_t childIndex = 0;childIndex < childStrings.size();++childIndex)
+		for(uintptr childIndex = 0;childIndex < childStrings.size();++childIndex)
 		{
 			outString += childStrings[childIndex];
 			if(childIndex + 1 < childStrings.size()) { outString += isMultiLine ? newline : " "; }

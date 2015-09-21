@@ -230,7 +230,7 @@ namespace AST
 			}
 
 			auto parameters = new(arena) UntypedExpression*[functionType->parameters.size()];
-			for(uintptr_t parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 			{
 				auto parameterType = functionType->parameters[parameterIndex];
 				parameters[parameterIndex] = visitChild(TypedExpression(call->parameters[parameterIndex],parameterType)).expression;
@@ -243,7 +243,7 @@ namespace AST
 			const FunctionType& functionType = module->functionTables[callIndirect->tableIndex].type;
 
 			auto parameters = new(arena) UntypedExpression*[functionType.parameters.size()];
-			for(uintptr_t parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
 			{
 				auto parameterType = functionType.parameters[parameterIndex];
 				parameters[parameterIndex] = visitChild(TypedExpression(callIndirect->parameters[parameterIndex],parameterType)).expression;
@@ -260,7 +260,7 @@ namespace AST
 
 			auto key = visitChild(switch_->key);
 			auto switchArms = new(arena) SwitchArm[switch_->numArms];
-			for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
+			for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
 			{
 				auto armType = armIndex + 1 == switch_->numArms ? type : TypeId::Void;
 				switchArms[armIndex].key = switch_->arms[armIndex].key;

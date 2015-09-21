@@ -38,7 +38,7 @@ namespace ASMJS
 	}
 
 	// Concatenates the lowered expression's statements with a SetLocal statement that assigns the expression's value to a local variable.
-	VoidExpression* setValueToLocal(Memory::Arena& arena,const LoweredExpression& expression,uintptr_t localIndex)
+	VoidExpression* setValueToLocal(Memory::Arena& arena,const LoweredExpression& expression,uintptr localIndex)
 	{
 		if(!expression.value) { return expression.statements; }
 		else
@@ -73,7 +73,7 @@ namespace ASMJS
 		struct LoweredBranchTarget
 		{
 			BranchTarget* target;
-			uintptr_t valueLocalIndex;
+			uintptr valueLocalIndex;
 		};
 		std::map<BranchTarget*,LoweredBranchTarget> branchTargetRemap;
 
@@ -88,7 +88,7 @@ namespace ASMJS
 		}
 
 		// Creates a local variable of a specific type.
-		uintptr_t createLocalVariable(TypeId type)
+		uintptr createLocalVariable(TypeId type)
 		{
 			auto index = function->locals.size();
 			function->locals.push_back({type,nullptr});
@@ -169,7 +169,7 @@ namespace ASMJS
 			// Lower the call's parameters.
 			auto parameters = new(arena) UntypedExpression*[functionType->parameters.size()];
 			VoidExpression* statements = nullptr;
-			for(uintptr_t parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 			{
 				auto parameterType = functionType->parameters[parameterIndex];
 				auto parameter = dispatch(*this,call->parameters[parameterIndex],parameterType);
@@ -193,7 +193,7 @@ namespace ASMJS
 
 			// Lower the call parameters.
 			auto parameters = new(arena) UntypedExpression*[functionType.parameters.size()];
-			for(uintptr_t parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
 			{
 				auto parameterType = functionType.parameters[parameterIndex];
 				auto parameter = dispatch(*this,callIndirect->parameters[parameterIndex],parameterType);
@@ -212,7 +212,7 @@ namespace ASMJS
 		{
 			auto endTarget = new(arena) BranchTarget(TypeId::Void);
 			TypedExpression value;
-			uintptr_t resultLocalIndex = 0;
+			uintptr resultLocalIndex = 0;
 			if(type != TypeId::Void)
 			{
 				// If the switch is used as a value, create a local variable and use the variable's value as the value of the switch.
@@ -224,7 +224,7 @@ namespace ASMJS
 
 			// Lower the switch arms.
 			auto switchArms = new(arena) SwitchArm[switch_->numArms];
-			for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
+			for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
 			{
 				auto armType = armIndex + 1 == switch_->numArms ? type : TypeId::Void;
 				auto armValue = dispatch(*this,switch_->arms[armIndex].value,armType);
@@ -276,7 +276,7 @@ namespace ASMJS
 		{
 			auto endTarget = new(arena) BranchTarget(label->endTarget->type);
 			TypedExpression value;
-			uintptr_t resultLocalIndex = 0;
+			uintptr resultLocalIndex = 0;
 			if(type == TypeId::Void) { branchTargetRemap[label->endTarget] = {endTarget,0}; }
 			else
 			{
@@ -319,7 +319,7 @@ namespace ASMJS
 			auto continueTarget = new(arena) BranchTarget(TypeId::Void);
 			branchTargetRemap[loop->continueTarget] = {continueTarget,0};
 			
-			uintptr_t resultLocalIndex = 0;
+			uintptr resultLocalIndex = 0;
 			TypedExpression value;
 			auto breakTarget = new(arena) BranchTarget(TypeId::Void);
 			if(type == TypeId::Void) { branchTargetRemap[loop->breakTarget] = {breakTarget,0}; }
@@ -543,22 +543,22 @@ namespace ASMJS
 		ModulePrintContext(const Module* inModule,std::ostream& inOutputStream)
 		: module(inModule), out(inOutputStream) {}
 
-		std::ostream& printFunctionImportName(uintptr_t importIndex) const
+		std::ostream& printFunctionImportName(uintptr importIndex) const
 		{
 			assert(module->functionImports[importIndex].name);
 			return out << '_' << module->functionImports[importIndex].name;
 		}
-		std::ostream& printFunctionName(uintptr_t functionIndex) const
+		std::ostream& printFunctionName(uintptr functionIndex) const
 		{
 			if(module->functions[functionIndex]->name) { return out << '_' << module->functions[functionIndex]->name; }
 			else { return out << "func" << functionIndex; }
 		}
-		std::ostream& printFunctionTableName(uintptr_t functionTableIndex) const
+		std::ostream& printFunctionTableName(uintptr functionTableIndex) const
 		{
 			return out << "table" << functionTableIndex;
 		}
 
-		std::ostream& printFunction(uintptr_t functionIndex);
+		std::ostream& printFunction(uintptr functionIndex);
 		std::ostream& print();
 	};
 
@@ -584,7 +584,7 @@ namespace ASMJS
 			return labelName;
 		}
 
-		DispatchResult printLocalName(uintptr_t variableIndex) const
+		DispatchResult printLocalName(uintptr variableIndex) const
 		{
 			if(function->locals[variableIndex].name) { return out << function->locals[variableIndex].name; }
 			else { return out << "local" << variableIndex; }
@@ -679,7 +679,7 @@ namespace ASMJS
 		void compileCallParameters(const std::vector<TypeId>& parameterTypes,UntypedExpression** parameters)
 		{
 			out << '(';
-			for(uintptr_t parameterIndex = 0;parameterIndex < parameterTypes.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < parameterTypes.size();++parameterIndex)
 			{
 				if(parameterIndex != 0) { out << ','; }
 				dispatch(*this,parameters[parameterIndex],parameterTypes[parameterIndex]);
@@ -727,7 +727,7 @@ namespace ASMJS
 			out << labelName << ":switch(";
 			dispatch(*this,switch_->key);
 			out << ")\n{\n";
-			for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
+			for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
 			{
 				if(armIndex != 0) { out << ";\n"; }
 				if(armIndex == switch_->defaultArmIndex) { out << "default:"; }
@@ -809,7 +809,7 @@ namespace ASMJS
 		}
 	};
 
-	std::ostream& ModulePrintContext::printFunction(uintptr_t functionIndex)
+	std::ostream& ModulePrintContext::printFunction(uintptr functionIndex)
 	{
 		// Before printing, lower the function's expressions into those supported by ASM.JS.
 		Memory::ScopedArena loweredFunctionArena;
@@ -822,14 +822,14 @@ namespace ASMJS
 
 		// Print the function parameters.
 		FunctionPrintContext functionContext(*this,&loweredFunction);
-		for(uintptr_t parameterIndex = 0;parameterIndex < loweredFunction.parameterLocalIndices.size();++parameterIndex)
+		for(uintptr parameterIndex = 0;parameterIndex < loweredFunction.parameterLocalIndices.size();++parameterIndex)
 		{
 			auto parameterLocalIndex = loweredFunction.parameterLocalIndices[parameterIndex];
 			if(parameterIndex != 0) { out << ','; }
 			functionContext.printLocalName(parameterLocalIndex);
 		}
 		out << ")\n{\n";
-		for(uintptr_t parameterIndex = 0;parameterIndex < loweredFunction.parameterLocalIndices.size();++parameterIndex)
+		for(uintptr parameterIndex = 0;parameterIndex < loweredFunction.parameterLocalIndices.size();++parameterIndex)
 		{
 			auto parameterLocalIndex = loweredFunction.parameterLocalIndices[parameterIndex];
 			auto parameterType = loweredFunction.type.parameters[parameterIndex];
@@ -848,7 +848,7 @@ namespace ASMJS
 		}
 
 		// Print the function's locals.
-		for(uintptr_t localIndex = 0;localIndex < loweredFunction.locals.size();++localIndex)
+		for(uintptr localIndex = 0;localIndex < loweredFunction.locals.size();++localIndex)
 		{
 			bool isParameter = false;
 			for(auto parameterLocalIndex : loweredFunction.parameterLocalIndices)
@@ -886,7 +886,7 @@ namespace ASMJS
 		// Print the module imports.
 		out << "var f32=global.Math.fround;\n";
 		out << "var i32Mul=global.Math.imul;\n";
-		for(uintptr_t importFunctionIndex = 0;importFunctionIndex < module->functionImports.size();++importFunctionIndex)
+		for(uintptr importFunctionIndex = 0;importFunctionIndex < module->functionImports.size();++importFunctionIndex)
 		{
 			auto import = module->functionImports[importFunctionIndex];
 			out << "var ";
@@ -895,19 +895,19 @@ namespace ASMJS
 		}
 
 		// Print the module functions.
-		for(uintptr_t functionIndex = 0;functionIndex < module->functions.size();++functionIndex)
+		for(uintptr functionIndex = 0;functionIndex < module->functions.size();++functionIndex)
 		{
 			printFunction(functionIndex);
 		}
 
 		// Print the module function tables.
-		for(uintptr_t functionTableIndex = 0;functionTableIndex < module->functionTables.size();++functionTableIndex)
+		for(uintptr functionTableIndex = 0;functionTableIndex < module->functionTables.size();++functionTableIndex)
 		{
 			auto functionTable = module->functionTables[functionTableIndex];
 			out << "var ";
 			printFunctionTableName(functionTableIndex);
 			out << "=[";
-			for(uintptr_t elementIndex = 0;elementIndex < functionTable.numFunctions;++elementIndex)
+			for(uintptr elementIndex = 0;elementIndex < functionTable.numFunctions;++elementIndex)
 			{
 				if(elementIndex != 0) { out << ','; }
 				printFunctionName(functionTable.functionIndices[elementIndex]);

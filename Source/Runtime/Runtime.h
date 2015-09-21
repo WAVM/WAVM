@@ -42,5 +42,5 @@ namespace Runtime
 
 	// Gets a pointer to the native code for the given function of a module.
 	// If the module hasn't yet been passed to jitCompileModule, will return nullptr.
-	RUNTIME_API void* getFunctionPointer(const AST::Module* module,uintptr_t functionIndex);
+	RUNTIME_API void* getFunctionPointer(const AST::Module* module,uintptr functionIndex);
 }

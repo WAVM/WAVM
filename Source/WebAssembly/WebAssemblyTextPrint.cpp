@@ -20,12 +20,12 @@ namespace WebAssemblyText
 	{
 		auto symbolNode = new(stream.getArena()) SNode();
 		symbolNode->type = SExp::NodeType::Symbol;
-		symbolNode->symbol = (uintptr_t)symbol;
+		symbolNode->symbol = (uintptr)symbol;
 		return stream << symbolNode;
 	}
 	SNodeOutputStream& operator<<(SNodeOutputStream& stream,TypeId type)
 	{
-		stream << Symbol((uintptr_t)Symbol::_typeBase + (uintptr_t)type);
+		stream << Symbol((uintptr)Symbol::_typeBase + (uintptr)type);
 		return stream;
 	}
 
@@ -58,7 +58,7 @@ namespace WebAssemblyText
 					auto switchEndTarget = new(arena) BranchTarget(TypeId::I64);
 					auto switchArms = new(arena) SwitchArm[switch_->numArms];
 					SwitchArm* switchArm = switchArms;
-					for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
+					for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
 					{
 						if(armIndex != switch_->defaultArmIndex)
 						{
@@ -77,7 +77,7 @@ namespace WebAssemblyText
 				branchTargetRemap[switch_->endTarget] = cfgEndTarget;
 
 				auto cfgArms = new(arena) SwitchArm[switch_->numArms];
-				for(uintptr_t armIndex = 0;armIndex < switch_->numArms;++armIndex)
+				for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
 				{
 					auto armType = armIndex + 1 == switch_->numArms ? type : TypeId::Void;
 					cfgArms[armIndex].key = armIndex;
@@ -102,17 +102,17 @@ namespace WebAssemblyText
 		ModulePrintContext(Memory::Arena& inArena,const Module* inModule)
 		: arena(inArena), module(inModule) {}
 		
-		std::string getFunctionImportName(uintptr_t importIndex) const
+		std::string getFunctionImportName(uintptr importIndex) const
 		{
 			assert(module->functionImports[importIndex].name);
 			return std::string("$_") + module->functionImports[importIndex].name;
 		}
-		std::string getFunctionName(uintptr_t functionIndex) const
+		std::string getFunctionName(uintptr functionIndex) const
 		{
 			if(module->functions[functionIndex]->name) { return std::string("$_") + module->functions[functionIndex]->name; }
 			else { return "$func" + std::to_string(functionIndex); }
 		}
-		std::string getFunctionTableName(uintptr_t functionTableIndex) const
+		std::string getFunctionTableName(uintptr functionTableIndex) const
 		{
 			return std::to_string(functionTableIndex);
 		}
@@ -127,7 +127,7 @@ namespace WebAssemblyText
 		SNodeOutputStream createTypedTaggedSubtree(TypeId type,Symbol symbol) { auto subtree = createSubtree(); subtree << getTypedSymbol(type,symbol); return subtree; }
 		SNodeOutputStream createBitypedTaggedSubtree(TypeId leftType,Symbol symbol,TypeId rightType) { auto subtree = createSubtree(); subtree << getBitypedSymbol(leftType,symbol,rightType); return subtree; }
 
-		SNodeOutputStream printFunction(uintptr_t functionIndex);
+		SNodeOutputStream printFunction(uintptr functionIndex);
 		SNodeOutputStream print();
 	};
 
@@ -151,7 +151,7 @@ namespace WebAssemblyText
 			}
 			else { return branchTargetIndexMap[branchTarget]; }
 		}
-		std::string getLocalName(uintptr_t variableIndex) const\
+		std::string getLocalName(uintptr variableIndex) const\
 		{
 			if(function->locals[variableIndex].name) { return std::string("$_") + function->locals[variableIndex].name; }
 			else { return "$local" + std::to_string(variableIndex); }
@@ -272,7 +272,7 @@ namespace WebAssemblyText
 			auto functionName = call->op() == AnyOp::callDirect ? getFunctionName(call->functionIndex) : getFunctionImportName(call->functionIndex);
 			auto functionType = call->op() == AnyOp::callDirect ? module->functions[call->functionIndex]->type : module->functionImports[call->functionIndex].type;
 			subtreeStream << functionName;
-			for(uintptr_t parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
 			{
 				subtreeStream << dispatch(*this,call->parameters[parameterIndex],functionType.parameters[parameterIndex]);
 			}
@@ -284,7 +284,7 @@ namespace WebAssemblyText
 				<< getFunctionTableName(callIndirect->tableIndex)
 				<< dispatch(*this,callIndirect->functionIndex,TypeId::I32);
 			auto functionType = module->functionTables[callIndirect->tableIndex].type;
-			for(uintptr_t parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
 			{
 				subtreeStream << dispatch(*this,callIndirect->parameters[parameterIndex],functionType.parameters[parameterIndex]);
 			}
@@ -299,7 +299,7 @@ namespace WebAssemblyText
 			auto switchStream = createTypedTaggedSubtree(switch_->key.type,Symbol::_switch);
 			switchStream << getLabelName(switch_->endTarget);
 			switchStream << dispatch(*this,switch_->key);
-			for(uintptr_t armIndex = 0;armIndex < switch_->numArms - 1;++armIndex)
+			for(uintptr armIndex = 0;armIndex < switch_->numArms - 1;++armIndex)
 			{
 				auto caseSubstream = createTaggedSubtree(Symbol::_case) << switch_->arms[armIndex].key;
 				caseSubstream << dispatch(*this,switch_->arms[armIndex].value,TypeId::Void);
@@ -383,7 +383,7 @@ namespace WebAssemblyText
 		}
 	};
 
-	SNodeOutputStream ModulePrintContext::printFunction(uintptr_t functionIndex)
+	SNodeOutputStream ModulePrintContext::printFunction(uintptr functionIndex)
 	{
 		// Before printing, lower the function's expressions into those supported by WAST.
 		Function loweredFunction = *module->functions[functionIndex];
@@ -415,7 +415,7 @@ namespace WebAssemblyText
 		}
 
 		// Print the function's locals.
-		for(uintptr_t localIndex = 0;localIndex < loweredFunction.locals.size();++localIndex)
+		for(uintptr localIndex = 0;localIndex < loweredFunction.locals.size();++localIndex)
 		{
 			bool isParameter = false;
 			for(auto parameterLocalIndex : loweredFunction.parameterLocalIndices)
@@ -449,13 +449,13 @@ namespace WebAssemblyText
 		{
 			// Split the data segments up into 32 byte chunks so the S-expression pretty printer uses one line/segment.
 			enum { maxDataSegmentSize = 32 };
-			for(uintptr_t offset = 0;offset < dataSegment.numBytes;offset += maxDataSegmentSize)
+			for(uintptr offset = 0;offset < dataSegment.numBytes;offset += maxDataSegmentSize)
 			{
 				auto segmentStream = createTaggedSubtree(Symbol::_segment);
 				segmentStream << (dataSegment.baseAddress + offset);
 				segmentStream << SNodeOutputStream::StringAtom(
 					(const char*)dataSegment.data + offset,
-					std::min<uintptr_t>(maxDataSegmentSize,dataSegment.numBytes - offset)
+					std::min<uintptr>(maxDataSegmentSize,dataSegment.numBytes - offset)
 					);
 				memoryStream << segmentStream;
 			}
@@ -463,7 +463,7 @@ namespace WebAssemblyText
 		moduleStream << memoryStream;
 
 		// Print the module imports.
-		for(uintptr_t importFunctionIndex = 0;importFunctionIndex < module->functionImports.size();++importFunctionIndex)
+		for(uintptr importFunctionIndex = 0;importFunctionIndex < module->functionImports.size();++importFunctionIndex)
 		{
 			auto import = module->functionImports[importFunctionIndex];
 			auto importStream = createTaggedSubtree(Symbol::_import);
@@ -486,11 +486,11 @@ namespace WebAssemblyText
 		}
 
 		// Print the module function tables.
-		for(uintptr_t functionTableIndex = 0;functionTableIndex < module->functionTables.size();++functionTableIndex)
+		for(uintptr functionTableIndex = 0;functionTableIndex < module->functionTables.size();++functionTableIndex)
 		{
 			auto functionTable = module->functionTables[functionTableIndex];
 			auto tableStream = createTaggedSubtree(Symbol::_table);
-			for(uintptr_t elementIndex = 0;elementIndex < functionTable.numFunctions;++elementIndex)
+			for(uintptr elementIndex = 0;elementIndex < functionTable.numFunctions;++elementIndex)
 			{
 				tableStream << getFunctionName(functionTable.functionIndices[elementIndex]);
 			}
@@ -509,7 +509,7 @@ namespace WebAssemblyText
 		}
 
 		// Print the module functions.
-		for(uintptr_t functionIndex = 0;functionIndex < module->functions.size();++functionIndex)
+		for(uintptr functionIndex = 0;functionIndex < module->functions.size();++functionIndex)
 		{
 			moduleStream << printFunction(functionIndex);
 		}

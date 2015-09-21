@@ -6,11 +6,11 @@ namespace AST
 {
 	// Forward declarations.
 	template<typename TypeClass> struct Expression;
-	enum class AnyOp : uint8_t;
-	enum class IntOp : uint8_t;
-	enum class FloatOp : uint8_t;
-	enum class BoolOp : uint8_t;
-	enum class VoidOp : uint8_t;
+	enum class AnyOp : uint8;
+	enum class IntOp : uint8;
+	enum class FloatOp : uint8;
+	enum class BoolOp : uint8;
+	enum class VoidOp : uint8;
 
 	#define ENUM_AST_TYPECLASSES_WITHOUT_ANY() AST_TYPECLASS(Int) AST_TYPECLASS(Float) AST_TYPECLASS(Bool) AST_TYPECLASS(Void)
 	#define ENUM_AST_TYPECLASSES() AST_TYPECLASS(Any) ENUM_AST_TYPECLASSES_WITHOUT_ANY()
@@ -37,10 +37,10 @@ namespace AST
 	// Provides typedefs that match the AST type names.
 	namespace NativeTypes
 	{
-		typedef uint8_t I8;
-		typedef uint16_t I16;
+		typedef uint8 I8;
+		typedef uint16 I16;
 		typedef uint32_t I32;
-		typedef uint64_t I64;
+		typedef uint64 I64;
 		typedef float32 F32;
 		typedef float64 F64;
 		typedef bool Bool;
@@ -48,7 +48,7 @@ namespace AST
 	};
 
 	// Define the TypeClassId enum: TypeClassId::Any, TypeClassId::Int, etc.
-	enum class TypeClassId : uint8_t
+	enum class TypeClassId : uint8
 	{
 		Invalid = 0,
 		#define AST_TYPECLASS(className) className,
@@ -57,7 +57,7 @@ namespace AST
 	};
 
 	// Define the TypeId enum: TypeId::I8, TypeId::I16, etc.
-	enum class TypeId : uint8_t
+	enum class TypeId : uint8
 	{
 		None = 0,
 		#define AST_TYPE(typeName,className,...) typeName,

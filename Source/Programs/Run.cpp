@@ -22,13 +22,13 @@ template<> struct NativeToASTType<bool> { typedef AST::BoolType ASTType; };
 template<> struct NativeToASTType<Void> { typedef AST::VoidType ASTType; };
 
 template<typename... Args>
-bool validateArgTypes(const AST::FunctionType& functionType,uintptr_t argIndex,Args...)
+bool validateArgTypes(const AST::FunctionType& functionType,uintptr argIndex,Args...)
 {
 	return argIndex == functionType.parameters.size();
 }
 
 template<typename Arg0,typename... Args>
-bool validateArgTypes(const AST::FunctionType& functionType,uintptr_t argIndex,Arg0,Args...)
+bool validateArgTypes(const AST::FunctionType& functionType,uintptr argIndex,Arg0,Args...)
 {
 	return validateArgTypes<Args...>(functionType,argIndex + 1)
 		&& functionType.parameters[argIndex] == NativeToASTType<Arg0>::ASTType::id;

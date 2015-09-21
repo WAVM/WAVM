@@ -135,7 +135,7 @@ namespace WebAssemblyText
 		ENUM_WAST_TYPE_SYMBOLS()
 
 	// Declare an enum with all the symbols used by WAST.
-	enum class Symbol : uintptr_t
+	enum class Symbol : uintptr
 	{
 		#define AST_TYPE(typeName,className,symbol) _##symbol##_##typeName,
 		#define AST_TYPE_PAIR(typeName1,typeName2,symbol) _##symbol##_##typeName1##_##typeName2,
@@ -159,15 +159,15 @@ namespace WebAssemblyText
 	
 	inline Symbol getTypedSymbol(TypeId type,Symbol baseSymbol)
 	{
-		return Symbol((uintptr_t)baseSymbol + (uintptr_t)type);
+		return Symbol((uintptr)baseSymbol + (uintptr)type);
 	}
 
 	inline Symbol getBitypedSymbol(TypeId leftType,Symbol baseSymbol,TypeId rightType)
 	{
-		auto leftTypeIndex = (uintptr_t)leftType - 1;
-		auto rightTypeIndex = (uintptr_t)rightType - 1;
-		auto numEnumeratedTypes  = (uintptr_t)TypeId::num - 1;
-		return Symbol((uintptr_t)baseSymbol + 1 + leftTypeIndex + rightTypeIndex * numEnumeratedTypes);
+		auto leftTypeIndex = (uintptr)leftType - 1;
+		auto rightTypeIndex = (uintptr)rightType - 1;
+		auto numEnumeratedTypes  = (uintptr)TypeId::num - 1;
+		return Symbol((uintptr)baseSymbol + 1 + leftTypeIndex + rightTypeIndex * numEnumeratedTypes);
 	}
 	
 	template<typename Class>

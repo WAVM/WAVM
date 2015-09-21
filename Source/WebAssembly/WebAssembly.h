@@ -15,7 +15,7 @@ namespace WebAssemblyText
 	{
 		AST::Module* invokeDummyModule;
 		AST::Module* invokeFunctionModule;
-		uintptr_t invokeFunctionIndex;
+		uintptr invokeFunctionIndex;
 		std::vector<AST::TypedExpression> parameters;
 		AST::TypedExpression value;
 		Core::TextFileLocus locus;

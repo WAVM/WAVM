@@ -29,7 +29,7 @@ namespace SExp
 		union
 		{
 			const char* error;
-			uintptr_t symbol;
+			uintptr symbol;
 			const char* string;
 			int64 integer;
 			float64 decimal;
@@ -143,7 +143,7 @@ namespace SExp
 		NodeOutputStream& operator<<(uint16 i) { appendInt(i); return *this; }
 		NodeOutputStream& operator<<(uint32 i) { appendInt(i); return *this; }
 		NodeOutputStream& operator<<(uint64 i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(intptr_t i) { appendInt(i); return *this; }
+		NodeOutputStream& operator<<(intptr i) { appendInt(i); return *this; }
 		NodeOutputStream& operator<<(float64 d)
 		{
 			auto decimalNode = new(arena) Node();
@@ -189,7 +189,7 @@ namespace SExp
 
 	// Parses a S-expression tree from a string, allocating nodes from arena, and using symbolIndexMap to map symbols to indices.
 	struct StringCompareFunctor { bool operator()(const char* left,const char* right) const { return strcmp(left,right) < 0; } };
-	typedef std::map<const char*,uintptr_t,StringCompareFunctor> SymbolIndexMap;
+	typedef std::map<const char*,uintptr,StringCompareFunctor> SymbolIndexMap;
 	CORE_API Node* parse(const char* string,Memory::Arena& arena,const SymbolIndexMap& symbolIndexMap);
 
 	// Prints a S-expression tree to a string.

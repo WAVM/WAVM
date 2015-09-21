@@ -66,13 +66,13 @@ namespace LLVMJIT
 	std::vector<struct JITModule*> jitModules;
 	
 	// Converts an AST type to a LLVM type.
-	llvm::Type* asLLVMType(TypeId type) { return llvmTypesByTypeId[(uintptr_t)type]; }
+	llvm::Type* asLLVMType(TypeId type) { return llvmTypesByTypeId[(uintptr)type]; }
 	
 	// Converts an AST function type to a LLVM type.
 	llvm::FunctionType* asLLVMType(const FunctionType& functionType)
 	{
 		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType.parameters.size());
-		for(uintptr_t argIndex = 0;argIndex < functionType.parameters.size();++argIndex)
+		for(uintptr argIndex = 0;argIndex < functionType.parameters.size();++argIndex)
 		{
 			llvmArgTypes[argIndex] = asLLVMType(functionType.parameters[argIndex]);
 		}
@@ -149,7 +149,7 @@ namespace LLVMJIT
 		// A linked list of in-scope branch targets.
 		BranchContext* branchContext;
 
-		JITFunctionContext(JITModule& inJITModule,uintptr_t functionIndex)
+		JITFunctionContext(JITModule& inJITModule,uintptr functionIndex)
 		: jitModule(inJITModule)
 		, astModule(inJITModule.astModule)
 		, astFunction(astModule->functions[functionIndex])
@@ -696,7 +696,7 @@ namespace LLVMJIT
 
 		// Create allocas for all the locals and initialize them to zero.
 		localVariablePointers = new(scopedArena) llvm::Value*[astFunction->locals.size()];
-		for(uintptr_t localIndex = 0;localIndex < astFunction->locals.size();++localIndex)
+		for(uintptr localIndex = 0;localIndex < astFunction->locals.size();++localIndex)
 		{
 			auto localVariable = astFunction->locals[localIndex];
 			localVariablePointers[localIndex] = irBuilder.CreateAlloca(asLLVMType(localVariable.type),nullptr,getLLVMName(localVariable.name));
@@ -714,7 +714,7 @@ namespace LLVMJIT
 		}
 
 		// Move the function arguments into the corresponding local variable allocas.
-		uintptr_t parameterIndex = 0;
+		uintptr parameterIndex = 0;
 		for(auto llvmArgIt = llvmFunction->arg_begin();llvmArgIt != llvmFunction->arg_end();++parameterIndex,++llvmArgIt)
 		{
 			auto localIndex = astFunction->parameterLocalIndices[parameterIndex];
@@ -782,13 +782,13 @@ namespace LLVMJIT
 		jitModules.push_back(jitModule);
 
 		// Create literals for the virtual memory base and mask.
-		jitModule->instanceMemoryBase = llvm::Constant::getIntegerValue(llvm::Type::getInt8PtrTy(context),llvm::APInt(64,reinterpret_cast<uintptr_t>(Runtime::instanceMemoryBase)));
+		jitModule->instanceMemoryBase = llvm::Constant::getIntegerValue(llvm::Type::getInt8PtrTy(context),llvm::APInt(64,reinterpret_cast<uintptr>(Runtime::instanceMemoryBase)));
 		auto instanceMemoryAddressMask = Runtime::instanceAddressSpaceMaxBytes - 1;
-		jitModule->instanceMemoryAddressMask = sizeof(uintptr_t) == 8 ? compileLiteral((uint64)instanceMemoryAddressMask) : compileLiteral((uint32)instanceMemoryAddressMask);
+		jitModule->instanceMemoryAddressMask = sizeof(uintptr) == 8 ? compileLiteral((uint64)instanceMemoryAddressMask) : compileLiteral((uint32)instanceMemoryAddressMask);
 
 		// Create the LLVM functions.
 		jitModule->functions.resize(astModule->functions.size());
-		for(uintptr_t functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
+		for(uintptr functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
 		{
 			auto astFunction = astModule->functions[functionIndex];
 			auto llvmFunctionType = asLLVMType(astFunction->type);
@@ -805,7 +805,7 @@ namespace LLVMJIT
 
 		// Create the function import globals.
 		jitModule->functionImportPointers.resize(astModule->functionImports.size());
-		for(uintptr_t importIndex = 0;importIndex < jitModule->functionImportPointers.size();++importIndex)
+		for(uintptr importIndex = 0;importIndex < jitModule->functionImportPointers.size();++importIndex)
 		{
 			auto functionImport = astModule->functionImports[importIndex];
 			auto functionType = asLLVMType(functionImport.type);
@@ -815,7 +815,7 @@ namespace LLVMJIT
 
 		// Create the function table globals.
 		jitModule->functionTablePointers.resize(astModule->functionTables.size());
-		for(uintptr_t tableIndex = 0;tableIndex < astModule->functionTables.size();++tableIndex)
+		for(uintptr tableIndex = 0;tableIndex < astModule->functionTables.size();++tableIndex)
 		{
 			auto astFunctionTable = astModule->functionTables[tableIndex];
 			std::vector<llvm::Constant*> llvmFunctionTableElements;
@@ -838,7 +838,7 @@ namespace LLVMJIT
 		}
 
 		// Compile each function in the module.
-		for(uintptr_t functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
+		for(uintptr functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
 		{
 			JITFunctionContext(*jitModule,functionIndex).compile();
 		}
@@ -932,7 +932,7 @@ namespace Runtime
 		return LLVMJIT::compileModule(astModule);
 	}
 
-	void* getFunctionPointer(const Module* module,uintptr_t functionIndex)
+	void* getFunctionPointer(const Module* module,uintptr functionIndex)
 	{
 		for(auto jitModule : LLVMJIT::jitModules)
 		{

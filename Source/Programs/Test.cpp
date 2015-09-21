@@ -23,13 +23,13 @@ template<> struct NativeToASTType<bool> { typedef AST::BoolType ASTType; };
 template<> struct NativeToASTType<Void> { typedef AST::VoidType ASTType; };
 
 template<typename... Args>
-bool validateArgTypes(const AST::FunctionType& functionType,uintptr_t argIndex,Args...)
+bool validateArgTypes(const AST::FunctionType& functionType,uintptr argIndex,Args...)
 {
 	return argIndex == functionType.parameters.size();
 }
 
 template<typename Arg0,typename... Args>
-bool validateArgTypes(const AST::FunctionType& functionType,uintptr_t argIndex,Arg0,Args...)
+bool validateArgTypes(const AST::FunctionType& functionType,uintptr argIndex,Arg0,Args...)
 {
 	return validateArgTypes<Args...>(functionType,argIndex + 1)
 		&& functionType.parameters[argIndex] == NativeToASTType<Arg0>::ASTType::id;
@@ -111,7 +111,7 @@ bool initModuleRuntime(const AST::Module* module)
 	return true;
 }
 
-uintptr_t createTestFunction(AST::Module* module,const char* name,AST::TypedExpression expression)
+uintptr createTestFunction(AST::Module* module,const char* name,AST::TypedExpression expression)
 {
 	auto function = new AST::Function();
 	function->name = name;
@@ -175,7 +175,7 @@ int main(int argc,char** argv)
 	WebAssemblyText::File wastFile;
 	if(!loadTextModule(filename,wastFile)) { return -1; }
 	
-	uintptr_t numTestsFailed = 0;
+	uintptr numTestsFailed = 0;
 	for(auto assertEq : wastFile.assertEqs)
 	{
 		// Make a copy of the module that the assertion invokes from.
@@ -185,7 +185,7 @@ int main(int argc,char** argv)
 		auto invokedFunction = testModule->functions[assertEq.invokeFunctionIndex];
 		auto invokeType = invokedFunction->type.returnType;
 		auto invokeParameters = new(testModule->arena) AST::UntypedExpression*[invokedFunction->type.parameters.size()];
-		for(uintptr_t parameterIndex = 0;parameterIndex < invokedFunction->type.parameters.size();++parameterIndex)
+		for(uintptr parameterIndex = 0;parameterIndex < invokedFunction->type.parameters.size();++parameterIndex)
 		{
 			assert(assertEq.parameters[parameterIndex].type == invokedFunction->type.parameters[parameterIndex]);
 			invokeParameters[parameterIndex] = assertEq.parameters[parameterIndex].expression;
