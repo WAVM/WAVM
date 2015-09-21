@@ -1,6 +1,6 @@
 file(GLOB Sources "*.cpp")
 file(GLOB Headers "*.h")
-add_library(Runtime STATIC ${Sources} ${Headers})
+add_library(Runtime SHARED ${Sources} ${Headers})
 
 # Find an installed build of LLVM
 find_package(LLVM 3.7 REQUIRED CONFIG)
@@ -8,6 +8,8 @@ find_package(LLVM 3.7 REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
+
+add_definitions(-DRUNTIME_API=DLL_EXPORT)
 
 # Include the LLVM headers
 include_directories(${LLVM_INCLUDE_DIRS})

@@ -1,0 +1,218 @@
+;; Strings, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+
+(module 
+
+  (func $Program_compareStrings
+    (param $lhsIndex i32) (param $rhsIndex i32) 
+    (result i32)
+
+    (return (call $Program_strcmp (call $Program_getAString (get_local $lhsIndex) ) (call $Program_getAString (get_local $rhsIndex) ) ))
+  )
+
+  (func $Program_getAString
+    (param $index i32) (local $result i32) 
+    (result i32)
+
+    (block 
+      ;; switch (@<parameter System.Int32 index>) {
+      (i32.switch (get_local $index)
+        (case 1
+            (block 
+              (set_local $result (call $__getStringFirstChar (i32.const 0)))
+            )
+        )
+        (case 2
+            (block 
+              (set_local $result (call $__getStringFirstChar (i32.const 13)))
+            )
+        )
+        (case 3
+            (block 
+              (set_local $result (call $__getStringFirstChar (i32.const 27)))
+            )
+        )
+        (;default;) (block 
+          (set_local $result (call $__getStringFirstChar (i32.const 39)))
+        )
+      )
+      (return (get_local $result))
+    )
+  )
+
+  (func $Program_getStringLength
+    (param $stringIndex i32) (local $str i32) 
+    (result i32)
+
+    (block 
+      (set_local $str (call $Program_getAString (get_local $stringIndex) ))
+      (return (call $__getStringLength (get_local $str)))
+    )
+  )
+
+  (func $Program_readStringChar
+    (param $stringIndex i32) (param $offset i32) (local $str i32) 
+    (result i32)
+
+    (block 
+      (set_local $str (call $Program_getAString (get_local $stringIndex) ))
+      (return (i32.load/i8/1 (i32.add 
+            (get_local $str)
+            (get_local $offset)
+          ) ))
+    )
+  )
+
+  (func $Program_strcmp
+    (param $lhs i32) (param $rhs i32) (local $result i32) (local $length i32) 
+    (local $flag4 i32) (local $i i32) (local $chL i32) (local $chR i32) 
+    (local $flag5 i32) (local $flag6 i32) (local $num i32) 
+    (result i32)
+
+    (block 
+
+      (if 
+        (i32.eq 
+          (get_local $lhs)
+          (call $__getStringFirstChar (i32.const 39))
+        )
+        (block 
+
+          (if 
+            (i32.eq 
+              (get_local $rhs)
+              (call $__getStringFirstChar (i32.const 39))
+            )
+            (block 
+              (set_local $result (i32.const 0))
+            )
+            (set_local $result (i32.const -1))
+          )
+        )
+        (block 
+
+          (if 
+            (i32.eq 
+              (get_local $rhs)
+              (call $__getStringFirstChar (i32.const 39))
+            )
+            (set_local $result (i32.const 1))
+            (block 
+              (set_local $length (call $__getStringLength (get_local $lhs)))
+              (set_local $flag4 (i32.lt_s 
+                  (call $__getStringLength (get_local $rhs))
+                  (get_local $length)
+                ))
+
+              (if 
+                (get_local $flag4)
+                (set_local $length (call $__getStringLength (get_local $rhs)))
+              )
+
+              ;; for (var (@<var System.Int32 i> = 0); ...)
+              (set_local $i (i32.const 0))
+
+              (label $loop_0 
+                (loop 
+                  ;; for (...; (@<var System.Int32 i> < @<var System.Int32 length>); ...)
+
+                  (if 
+                    (i32.lt_s 
+                      (get_local $i)
+                      (get_local $length)
+                    )
+                    (nop)
+                    (break $loop_0)
+                  )
+
+                  ;; for (...) { 
+                  (block 
+                    (set_local $chL (i32.load/i8/1 (i32.add 
+                          (get_local $lhs)
+                          (get_local $i)
+                        ) ))
+                    (set_local $chR (i32.load/i8/1 (i32.add 
+                          (get_local $rhs)
+                          (get_local $i)
+                        ) ))
+                    (set_local $flag5 (i32.lt_s 
+                        (get_local $chL)
+                        (get_local $chR)
+                      ))
+
+                    (if 
+                      (get_local $flag5)
+                      (block 
+                        (set_local $result (i32.const -1))
+                        (return (get_local $result))
+                      )
+                    )
+                    (set_local $flag6 (i32.gt_s 
+                        (get_local $chL)
+                        (get_local $chR)
+                      ))
+
+                    (if 
+                      (get_local $flag6)
+                      (block 
+                        (set_local $result (i32.const 1))
+                        (return (get_local $result))
+                      )
+                    )
+                    (set_local $num (get_local $i))
+                    (set_local $i (i32.add 
+                        (get_local $num)
+                        (i32.const 1)
+                      ))
+                  )
+                )
+              )
+              (set_local $result (i32.const 0))
+            )
+          )
+        )
+      )
+      (return (get_local $result))
+    )
+  )
+
+  (export "compareStrings" $Program_compareStrings)
+  (export "getStringLength" $Program_getStringLength)
+  (export "readStringChar" $Program_readStringChar)
+
+  ;; Compiler-generated string table routines
+  (func $__getStringFirstChar (param $offset i32) (result i32)
+    (i32.add (i32.const 4) (get_local $offset))
+  )
+
+  (func $__getStringLength (param $firstCharAddress i32) (result i32)
+    (return (i32.load/i32/1 (i32.sub (get_local $firstCharAddress) (i32.const 4))))
+  )
+
+  (memory 47 47
+    ;; string table
+    (segment 0 "\05\00\00\00hello")
+    (segment 13 "\06\00\00\00world!")
+    (segment 27 "\04\00\00\00\00\0D\0A\07")
+    (segment 39 "\00\00\00\00")
+  )
+
+)
+
+
+(assert_eq (invoke "getStringLength" (i32.const 1)  ) (i32.const 5) )
+(assert_eq (invoke "getStringLength" (i32.const 2)  ) (i32.const 6) )
+(assert_eq (invoke "readStringChar" (i32.const 1) (i32.const 0)  ) (i32.const 104) )
+(assert_eq (invoke "readStringChar" (i32.const 1) (i32.const 2)  ) (i32.const 108) )
+(assert_eq (invoke "readStringChar" (i32.const 2) (i32.const 0)  ) (i32.const 119) )
+(assert_eq (invoke "readStringChar" (i32.const 2) (i32.const 3)  ) (i32.const 108) )
+(assert_eq (invoke "readStringChar" (i32.const 2) (i32.const 5)  ) (i32.const 33) )
+(assert_eq (invoke "compareStrings" (i32.const 0) (i32.const 0)  ) (i32.const 0) )
+(assert_eq (invoke "compareStrings" (i32.const 0) (i32.const 1)  ) (i32.const -1) )
+(assert_eq (invoke "compareStrings" (i32.const 2) (i32.const 0)  ) (i32.const 1) )
+(assert_eq (invoke "compareStrings" (i32.const 1) (i32.const 1)  ) (i32.const 0) )
+(assert_eq (invoke "compareStrings" (i32.const 1) (i32.const 2)  ) (i32.const -1) )
+(assert_eq (invoke "compareStrings" (i32.const 2) (i32.const 1)  ) (i32.const 1) )
+(assert_eq (invoke "readStringChar" (i32.const 3) (i32.const 0)  ) (i32.const 0) )
+(assert_eq (invoke "readStringChar" (i32.const 3) (i32.const 1)  ) (i32.const 13) )
+(assert_eq (invoke "readStringChar" (i32.const 3) (i32.const 2)  ) (i32.const 10) )
+(assert_eq (invoke "readStringChar" (i32.const 3) (i32.const 3)  ) (i32.const 7) )

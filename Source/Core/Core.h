@@ -22,6 +22,10 @@ typedef int64_t int64;
 typedef float float32;
 typedef double float64;
 
+#ifndef CORE_API
+	#define CORE_API DLL_EXPORT
+#endif
+
 namespace Core
 {
 	struct Timer

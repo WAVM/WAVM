@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Core.h"
+#include "Core/Platform.h"
 
 #include <cstdint>
 #include <memory>
@@ -30,10 +31,10 @@ namespace Memory
 		Arena(size_t inDefaultSegmentBytes = 8192)
 		: defaultSegmentBytes(inDefaultSegmentBytes), currentSegment(nullptr), currentSegmentAllocatedBytes(0), totalAllocatedBytes(0), totalWastedBytes(0) {}
 		Arena(const Arena&) = delete;
-		~Arena();
+		CORE_API ~Arena();
 	
-		void* allocate(size_t numBytes);
-		void* reallocateRaw(void* oldAllocation,size_t previousNumBytes,size_t newNumBytes);
+		CORE_API void* allocate(size_t numBytes);
+		CORE_API void* reallocateRaw(void* oldAllocation,size_t previousNumBytes,size_t newNumBytes);
 
 		template<typename T> T* allocate(size_t numT) { return (T*)allocate(sizeof(T) * numT); }
 		template<typename T> T* reallocate(T* oldAllocation,size_t oldNumT,size_t newNumT)
@@ -61,17 +62,17 @@ namespace Memory
 		size_t totalAllocatedBytes;
 		size_t totalWastedBytes;
 
-		void revert(Segment* newSegment,size_t newSegmentAllocatedBytes,size_t newTotalAllocatedBytes,size_t newTotalWastedBytes);
+		CORE_API void revert(Segment* newSegment,size_t newSegmentAllocatedBytes,size_t newTotalAllocatedBytes,size_t newTotalWastedBytes);
 	};
 
 	// Encapsulates an arena used to allocate memory that is freed when the ScopedArena goes out of scope.
 	// Implemented using a thread-local Arena.
 	struct ScopedArena : private Arena::Mark
 	{
-		ScopedArena();
-		~ScopedArena();
+		CORE_API ScopedArena();
+		CORE_API ~ScopedArena();
 
-		Arena& getArena() const;
+		CORE_API Arena& getArena() const;
 		operator Arena&() const { return getArena(); }
 	};
 	

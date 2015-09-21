@@ -1,0 +1,76 @@
+;; CountUp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+
+(module 
+
+  (func $Program_countUp
+    (param $outOffset i32) (param $count i32) (local $i i32) (local $num i32) 
+
+    (block 
+
+      ;; for (var (@<var System.Int32 i> = 0); ...)
+      (set_local $i (i32.const 0))
+
+      (label $loop_0 
+        (loop 
+          ;; for (...; (@<var System.Int32 i> < @<parameter System.Int32 count>); ...)
+
+          (if 
+            (i32.lt_s 
+              (get_local $i)
+              (get_local $count)
+            )
+            (nop)
+            (break $loop_0)
+          )
+
+          ;; for (...) { 
+          (block 
+            (i32.store/i32/1 
+              (i32.mul 
+                (i32.add 
+                  (get_local $outOffset)
+                  (get_local $i)
+                )
+                (i32.const 4)
+              )
+              (get_local $i)
+            )
+            (set_local $num (get_local $i))
+            (set_local $i (i32.add 
+                (get_local $num)
+                (i32.const 1)
+              ))
+          )
+        )
+      )
+    )
+  )
+
+  (func $Program_readI32
+    (param $base i32) (param $offset i32) 
+    (result i32)
+
+    (return (i32.load/i32/1 (i32.mul 
+          (i32.add 
+            (get_local $base)
+            (get_local $offset)
+          )
+          (i32.const 4)
+        ) ))
+  )
+
+  (export "countUp" $Program_countUp)
+  (export "readI32" $Program_readI32)
+
+  (memory 4096 4096)
+
+)
+
+
+(invoke "countUp" (i32.const 0) (i32.const 32) )
+(invoke "countUp" (i32.const 16) (i32.const 4) )
+(assert_eq (invoke "readI32" (i32.const 0) (i32.const 0)  ) (i32.const 0) )
+(assert_eq (invoke "readI32" (i32.const 0) (i32.const 2)  ) (i32.const 2) )
+(assert_eq (invoke "readI32" (i32.const 0) (i32.const 31)  ) (i32.const 31) )
+(assert_eq (invoke "readI32" (i32.const 16) (i32.const 0)  ) (i32.const 0) )
+(assert_eq (invoke "readI32" (i32.const 16) (i32.const 3)  ) (i32.const 3) )

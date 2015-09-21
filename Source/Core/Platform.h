@@ -4,8 +4,12 @@
 
 #ifdef _WIN32
 	#define THREAD_LOCAL __declspec(thread)
+	#define DLL_EXPORT __declspec(dllexport)
+	#define DLL_IMPORT __declspec(dllimport)
 #else
 	#define THREAD_LOCAL __thread
+	#define DLL_EXPORT __attribute__((visibility ("default")))
+	#define DLL_IMPORT __attribute__((visibility ("hidden")))
 #endif
 
 namespace Platform
@@ -13,11 +17,11 @@ namespace Platform
 	// A platform-independent mutex. Allows calling the constructor during static initialization, unlike std::mutex.
 	struct Mutex
 	{
-		Mutex();
-		~Mutex();
+		CORE_API Mutex();
+		CORE_API ~Mutex();
 
-		void Lock();
-		void Unlock();
+		CORE_API void Lock();
+		CORE_API void Unlock();
 
 	private:
 		void* handle;
@@ -43,22 +47,22 @@ namespace Platform
 	};
 
 	// Returns the base 2 logarithm of the preferred virtual page size.
-	uint32 getPreferredVirtualPageSizeLog2();
+	CORE_API uint32 getPreferredVirtualPageSizeLog2();
 
 	// Allocates virtual addresses without commiting physical pages to them.
 	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual address space has been exhausted.
-	uint8* allocateVirtualPages(size_t numPages);
+	CORE_API uint8* allocateVirtualPages(size_t numPages);
 
 	// Commits physical memory to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	// Return true if successful, or false if physical memory has been exhausted.
-	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages);
+	CORE_API bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages);
 
 	// Decommits the physical memory that was committed to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
-	void decommitVirtualPages(uint8* baseVirtualAddress,size_t numPages);
+	CORE_API void decommitVirtualPages(uint8* baseVirtualAddress,size_t numPages);
 
 	// Frees virtual addresses. Any physical memory committed to the addresses must have already been decommitted.
 	// baseVirtualAddress must be a multiple of the preferred page size.
-	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages);
+	CORE_API void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages);
 }

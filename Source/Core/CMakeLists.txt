@@ -1,3 +1,6 @@
 file(GLOB Sources "*.cpp")
 file(GLOB Headers "*.h")
-add_library(Core STATIC ${Sources} ${Headers})
+
+add_definitions(-DCORE_API=DLL_EXPORT)
+
+add_library(Core SHARED ${Sources} ${Headers})
