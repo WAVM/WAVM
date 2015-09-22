@@ -898,11 +898,7 @@ namespace LLVMJIT
 			}
 		#endif
 
-		std::error_code errorCode;
-		llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
-		jitModule->llvmModule->print(dumpFileStream,nullptr);
-
-		// Run some optimization on the module's functions.		
+		// Run some optimization on the module's functions.
 		Core::Timer optimizationTimer;
 		llvm::legacy::PassManager passManager;
 		passManager.add(llvm::createFunctionInliningPass(2,0));
