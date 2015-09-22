@@ -564,7 +564,8 @@ namespace WebAssemblyBinary
 				bool isFarAddress = address < (1ull << 32);
 				IntExpression* addressLiteral = isFarAddress ? as<IntClass>(new(arena) Literal<I64Type>(address))
 					: new(arena) Literal<I32Type>((uint32)address);
-				return new(arena) Load<typename Type::Class>(Type::Op::load,isFarAddress,true,addressLiteral,Type::id);
+				
+				return new(arena) Load<typename Type::Class>(Type::Op::load,isFarAddress,getTypeByteWidthLog2(Type::id),addressLiteral,Type::id);
 			}
 			else if(globalIndex < globals.size() + variableImports.size())
 			{
@@ -629,7 +630,7 @@ namespace WebAssemblyBinary
 		template<typename Type>
 		typename Type::TypeExpression* load(TypeId memoryType,typename Type::Op loadOp,IntExpression* address)
 		{
-			return new(arena) Load<typename Type::Class>(loadOp,false,true,address,memoryType);
+			return new(arena) Load<typename Type::Class>(loadOp,false,getTypeByteWidthLog2(Type::id),address,memoryType);
 		}
 
 		// Stores a value to memory.

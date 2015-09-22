@@ -110,7 +110,7 @@ namespace ASMJS
 			auto address = dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
 			return LoweredExpression(
 				address.statements,
-				TypedExpression(new(arena) Load<Class>(load->op(),load->isFarAddress,load->isAligned,as<IntClass>(address.value),load->memoryType),type)
+				TypedExpression(new(arena) Load<Class>(load->op(),load->isFarAddress,load->alignmentLog2,as<IntClass>(address.value),load->memoryType),type)
 				);
 		}
 		template<typename Class>
@@ -120,7 +120,7 @@ namespace ASMJS
 			auto value = dispatch(*this,store->value);
 			return LoweredExpression(
 				concatStatements(arena,address.statements,value.statements),
-				TypedExpression(new(arena) Store<Class>(store->isFarAddress,store->isAligned,as<IntClass>(address.value),value.value,store->memoryType),value.value.type)
+				TypedExpression(new(arena) Store<Class>(store->isFarAddress,store->alignmentLog2,as<IntClass>(address.value),value.value,store->memoryType),value.value.type)
 				);
 		}
 
@@ -437,17 +437,6 @@ namespace ASMJS
 		default: throw;
 		};
 	}
-	uint32 getAddressShift(TypeId type)
-	{
-		switch(getTypeByteWidth(type))
-		{
-		case 1: return 0;
-		case 2: return 1;
-		case 4: return 2;
-		case 8: return 3;
-		default: throw;
-		}
-	}
 	
 	const char* getOperatorPrefix(IntClass::Op op)
 	{
@@ -618,28 +607,37 @@ namespace ASMJS
 		template<typename Class,typename OpAsType>
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
 		{
+			// TODO: handle unaligned loads.
+			if(load->alignmentLog2 != getTypeByteWidthLog2(load->memoryType)) { throw; }
+
 			printCoercePrefix(out,type);
 			out << getHeapName(load->memoryType,false) << "[";
 			dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
-			out << ">>" << getAddressShift(load->memoryType) << ']';
+			out << ">>" << getTypeByteWidthLog2(load->memoryType) << ']';
 			printCoerceSuffix(out,type);
 			return out;
 		}
 		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::loadSExt)
 		{
+			// TODO: handle unaligned loads.
+			if(load->alignmentLog2 != getTypeByteWidthLog2(load->memoryType)) { throw; }
+
 			printCoercePrefix(out,type);
 			out << getHeapName(load->memoryType,true) << "[";
 			dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
-			out << ">>" << getAddressShift(load->memoryType) << ']';
+			out << ">>" << getTypeByteWidthLog2(load->memoryType) << ']';
 			printCoerceSuffix(out,type);
 			return out;
 		}
 		template<typename Class>
 		DispatchResult visitStore(const Store<Class>* store)
 		{
+			// TODO: handle unaligned stores.
+			if(store->alignmentLog2 != getTypeByteWidthLog2(store->memoryType)) { throw; }
+
 			out << getHeapName(store->memoryType,false) << "[";
 			dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32);
-			out << ">>" << std::to_string(getAddressShift(store->memoryType)) << "]=";
+			out << ">>" << std::to_string(getTypeByteWidthLog2(store->memoryType)) << "]=";
 			dispatch(*this,store->value);
 			return out;
 		}

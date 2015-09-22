@@ -40,8 +40,8 @@ namespace WebAssemblyText
 		WAST_SYMBOL(nop) \
 		WAST_SYMBOL(get_local) \
 		WAST_SYMBOL(set_local) \
-		TYPED_WAST_SYMBOL(load) \
-		TYPED_WAST_SYMBOL(store)
+		ALIGNED_TYPED_WAST_SYMBOL(load) \
+		ALIGNED_TYPED_WAST_SYMBOL(store)
 
 	#define ENUM_WAST_NUMERIC_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(const) \
@@ -58,12 +58,12 @@ namespace WebAssemblyText
 		BITYPED_WAST_SYMBOL(reinterpret)
 
 	#define ENUM_WAST_INT_OPCODE_SYMBOLS() \
-		TYPED_WAST_SYMBOL(load8_s) \
-		TYPED_WAST_SYMBOL(load8_u) \
-		TYPED_WAST_SYMBOL(load16_s) \
-		TYPED_WAST_SYMBOL(load16_u) \
-		TYPED_WAST_SYMBOL(store8) \
-		TYPED_WAST_SYMBOL(store16) \
+		ALIGNED_TYPED_WAST_SYMBOL(load8_s) \
+		ALIGNED_TYPED_WAST_SYMBOL(load8_u) \
+		ALIGNED_TYPED_WAST_SYMBOL(load16_s) \
+		ALIGNED_TYPED_WAST_SYMBOL(load16_u) \
+		ALIGNED_TYPED_WAST_SYMBOL(store8) \
+		ALIGNED_TYPED_WAST_SYMBOL(store16) \
 		TYPED_WAST_SYMBOL(not) \
 		TYPED_WAST_SYMBOL(clz) \
 		TYPED_WAST_SYMBOL(ctz) \
@@ -139,13 +139,27 @@ namespace WebAssemblyText
 	{
 		#define AST_TYPE(typeName,className,symbol) _##symbol##_##typeName,
 		#define AST_TYPE_PAIR(typeName1,typeName2,symbol) _##symbol##_##typeName1##_##typeName2,
+		#define ALIGNED_AST_TYPE(typeName,className,symbol) \
+			_##symbol##_##typeName, \
+			_##symbol##_##typeName##_align0, \
+			_##symbol##_##typeName##_align1, \
+			_##symbol##_##typeName##_align2, \
+			_##symbol##_##typeName##_align3, \
+			_##symbol##_##typeName##_align4, \
+			_##symbol##_##typeName##_align5, \
+			_##symbol##_##typeName##_align6, \
+			_##symbol##_##typeName##_align7, \
+			_##symbol##_##typeName##_align8,
 		#define WAST_SYMBOL(symbol) _##symbol,
+		#define ALIGNED_TYPED_WAST_SYMBOL(symbol) _##symbol, ENUM_AST_TYPES(ALIGNED_AST_TYPE,symbol)
 		#define TYPED_WAST_SYMBOL(symbol) _##symbol, ENUM_AST_TYPES(AST_TYPE,symbol)
 		#define BITYPED_WAST_SYMBOL(symbol) _##symbol, ENUM_AST_TYPE_PAIRS(AST_TYPE_PAIR,symbol)
 		ENUM_OPCODE_SYMBOLS()
 		#undef AST_TYPE
 		#undef AST_TYPE_PAIR
+		#undef ALIGNED_AST_TYPE
 		#undef WAST_SYMBOL
+		#undef ALIGNED_TYPED_WAST_SYMBOL
 		#undef TYPED_WAST_SYMBOL
 		#undef BITYPED_WAST_SYMBOL
 		num

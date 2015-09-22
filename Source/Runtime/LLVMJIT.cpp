@@ -292,11 +292,14 @@ namespace LLVMJIT
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,typename OpTypes<AnyClass>::load)
 		{
 			assert(type == load->memoryType);
-			return irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+			auto llvmLoad = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+			llvmLoad->setAlignment(1<<load->alignmentLog2);
+			return llvmLoad;
 		}
 		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<AnyClass>::load)
 		{
 			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+			memoryValue->setAlignment(1<<load->alignmentLog2);
 			assert(isTypeClass(load->memoryType,TypeClassId::Int));
 			return type == load->memoryType ? memoryValue
 				: irBuilder.CreateTrunc(memoryValue,asLLVMType(type));
@@ -304,18 +307,21 @@ namespace LLVMJIT
 		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::loadZExt)
 		{
 			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+			memoryValue->setAlignment(1<<load->alignmentLog2);
 			return irBuilder.CreateZExt(memoryValue,asLLVMType(type));
 		}
 		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::loadSExt)
 		{
 			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType));
+			memoryValue->setAlignment(1<<load->alignmentLog2);
 			return irBuilder.CreateSExt(memoryValue,asLLVMType(type));
 		}
 		template<typename Class>
 		DispatchResult visitStore(const Store<Class>* store)
 		{
 			auto value = dispatch(*this,store->value);
-			irBuilder.CreateStore(value,compileAddress(store->address,store->isFarAddress,store->memoryType));
+			auto llvmStore = irBuilder.CreateStore(value,compileAddress(store->address,store->isFarAddress,store->memoryType));
+			llvmStore->setAlignment(1<<store->alignmentLog2);
 			return value;
 		}
 		DispatchResult visitStore(const Store<IntClass>* store)
@@ -891,6 +897,10 @@ namespace LLVMJIT
 				return false;
 			}
 		#endif
+
+		std::error_code errorCode;
+		llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
+		jitModule->llvmModule->print(dumpFileStream,nullptr);
 
 		// Run some optimization on the module's functions.		
 		Core::Timer optimizationTimer;

@@ -96,6 +96,22 @@ namespace AST
 		};
 	}
 	
+	uint8 getTypeByteWidthLog2(TypeId type)
+	{
+		switch(type)
+		{
+		case TypeId::I8: return 0;
+		case TypeId::I16: return 1;
+		case TypeId::I32: return 2;
+		case TypeId::I64: return 3;
+		case TypeId::F32: return 2;
+		case TypeId::F64: return 3;
+		case TypeId::Bool: return 0;
+		case TypeId::Void: return 0;
+		default: throw;
+		}
+	}
+
 	#define AST_OP(op) #op,
 	#define AST_TYPECLASS(className) \
 		static const char* nameStrings##className##Ops[] = { ENUM_AST_OPS_##className() }; \

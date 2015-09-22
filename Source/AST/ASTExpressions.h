@@ -38,12 +38,25 @@ namespace AST
 	struct Load : public Expression<Class>
 	{
 		bool isFarAddress;
-		bool isAligned;
+		uint8 alignmentLog2;
 		Expression<IntClass>* address;
 		TypeId memoryType;
 
-		Load(typename Class::Op op,bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypeId inMemoryType)
-		: Expression<Class>(op), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), memoryType(inMemoryType) {}
+		Load(typename Class::Op op,bool inIsFarAddress,uint8 inAlignmentLog2,Expression<IntClass>* inAddress,TypeId inMemoryType)
+		: Expression<Class>(op), isFarAddress(inIsFarAddress), alignmentLog2(inAlignmentLog2), address(inAddress), memoryType(inMemoryType) {}
+	};
+	
+	template<typename Class>
+	struct Store : public Expression<Class>
+	{
+		bool isFarAddress;
+		uint8 alignmentLog2;
+		Expression<IntClass>* address;
+		TypedExpression value;
+		TypeId memoryType;
+
+		Store(bool inIsFarAddress,uint8 inAlignmentLog2,Expression<IntClass>* inAddress,TypedExpression inValue,TypeId inMemoryType)
+		: Expression<Class>(Class::Op::store), isFarAddress(inIsFarAddress), alignmentLog2(inAlignmentLog2), address(inAddress), value(inValue), memoryType(inMemoryType) {}
 	};
 	
 	template<typename Class>
@@ -53,19 +66,6 @@ namespace AST
 		Unary(typename Class::Op op,Expression<Class>* inOperand): Expression<Class>(op), operand(inOperand) {}
 	};
 	
-	template<typename Class>
-	struct Store : public Expression<Class>
-	{
-		bool isFarAddress;
-		bool isAligned;
-		Expression<IntClass>* address;
-		TypedExpression value;
-		TypeId memoryType;
-
-		Store(bool inIsFarAddress,bool inIsAligned,Expression<IntClass>* inAddress,TypedExpression inValue,TypeId inMemoryType)
-		: Expression<Class>(Class::Op::store), isFarAddress(inIsFarAddress), isAligned(inIsAligned), address(inAddress), value(inValue), memoryType(inMemoryType) {}
-	};
-
 	template<typename Class>
 	struct Binary : public Expression<Class>
 	{

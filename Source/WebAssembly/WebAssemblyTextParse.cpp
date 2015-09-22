@@ -263,6 +263,7 @@ namespace WebAssemblyText
 			if(parseTreeNode(parentNodeIt,nodeIt) && parseSymbol(nodeIt,tag))
 			{
 				TypeId opType;
+				uint8 alignmentLog2;
 				switch(tag)
 				{
 				default: return TypedExpression();
@@ -273,11 +274,9 @@ namespace WebAssemblyText
 				#define DEFINE_TYPED_OP(opClass,symbol) \
 					ENUM_AST_TYPES_##opClass(DISPATCH_TYPED_OP,symbol) \
 					throw; symbol##opClass##Label:
-				#define DEFINE_TYPED_OP_FOR_TYPE(opTypeName,symbol) \
-					throw; case Symbol::_##symbol##_##opTypeName:
 				#define DEFINE_BITYPED_OP(leftTypeName,rightTypeName,symbol) \
 					throw; case Symbol::_##symbol##_##leftTypeName##_##rightTypeName:
-
+					
 				#define DEFINE_UNARY_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseUnaryExpression<class##Class>(opType,class##Op::opcode,nodeIt); }
 				#define DEFINE_BINARY_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseBinaryExpression<class##Class>(opType,class##Op::opcode,nodeIt); }
 				#define DEFINE_COMPARE_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseComparisonExpression(opType,BoolOp::opcode,nodeIt); }
@@ -315,14 +314,28 @@ namespace WebAssemblyText
 					}
 				}
 				
-				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_TYPED_OP_FOR_TYPE(valueType,loadSymbol)	\
-					{ return parseLoadExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadOp,false,true,nodeIt); }
-				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_TYPED_OP_FOR_TYPE(valueType,storeSymbol) \
-					{ return parseStoreExpression<class##Class>(TypeId::valueType,TypeId::memoryType,false,true,nodeIt); }
+				#define DEFINE_ALIGNED_OP_FOR_TYPE(opTypeName,symbol) \
+					throw; \
+					case Symbol::_##symbol##_##opTypeName##_align0: alignmentLog2 = 0; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName##_align1: alignmentLog2 = 1; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName##_align2: alignmentLog2 = 2; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName##_align3: alignmentLog2 = 3; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName##_align4: alignmentLog2 = 4; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName##_align5: alignmentLog2 = 5; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName##_align6: alignmentLog2 = 6; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName##_align7: alignmentLog2 = 7; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName##_align8: alignmentLog2 = 8; goto symbol##_##opTypeName; \
+					case Symbol::_##symbol##_##opTypeName: alignmentLog2 = getTypeByteWidthLog2(TypeId::opTypeName); \
+					symbol##_##opTypeName:
+					
+				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_ALIGNED_OP_FOR_TYPE(valueType,loadSymbol)	\
+					{ return parseLoadExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadOp,false,alignmentLog2,nodeIt); }
+				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_ALIGNED_OP_FOR_TYPE(valueType,storeSymbol) \
+					{ return parseStoreExpression<class##Class>(TypeId::valueType,TypeId::memoryType,false,alignmentLog2,nodeIt); }
 				#define DEFINE_MEMORY_OP(class,valueType,memoryType,loadSymbol,storeSymbol,loadOp) \
 					DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) \
 					DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol)
-					
+
 				DEFINE_LOAD_OP(Int,I32,I8,load8_s,loadSExt)
 				DEFINE_LOAD_OP(Int,I32,I8,load8_u,loadZExt)
 				DEFINE_LOAD_OP(Int,I32,I16,load16_s,loadSExt)
@@ -986,27 +999,27 @@ namespace WebAssemblyText
 
 		// Parse a memory load operation.
 		template<typename Class>
-		TypedExpression parseLoadExpression(TypeId resultType,TypeId memoryType,typename Class::Op loadOp,bool isFarAddress,bool isAligned,SNodeIt nodeIt)
+		TypedExpression parseLoadExpression(TypeId resultType,TypeId memoryType,typename Class::Op loadOp,bool isFarAddress,uint8 alignmentLog2,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,Class::id))
 				{ return TypedExpression(recordError<Error<Class>>(outErrors,nodeIt,"load: memory type must be same type class as result"),resultType); }
 			
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"load address");
 
-			auto result = new(arena) Load<Class>(loadOp,isFarAddress,isAligned,address,memoryType);
+			auto result = new(arena) Load<Class>(loadOp,isFarAddress,alignmentLog2,address,memoryType);
 			return TypedExpression(requireFullMatch(nodeIt,"load",result),resultType);
 		}
 
 		// Parse a memory store operation.
 		template<typename OperandClass>
-		TypedExpression parseStoreExpression(TypeId valueType,TypeId memoryType,bool isFarAddress,bool isAligned,SNodeIt nodeIt)
+		TypedExpression parseStoreExpression(TypeId valueType,TypeId memoryType,bool isFarAddress,uint8 alignmentLog2,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,OperandClass::id))
 				{ return TypedExpression(recordError<Error<VoidClass>>(outErrors,nodeIt,"store: memory type must be same type class as result"),TypeId::Void); }
 			
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"store address");
 			auto value = parseTypedExpression<OperandClass>(valueType,nodeIt,"store value");
-			auto result = new(arena) Store<OperandClass>(isFarAddress,isAligned,address,TypedExpression(value,valueType),memoryType);
+			auto result = new(arena) Store<OperandClass>(isFarAddress,alignmentLog2,address,TypedExpression(value,valueType),memoryType);
 			return TypedExpression(requireFullMatch(nodeIt,"store",result),valueType);
 		}
 		

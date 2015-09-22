@@ -124,4 +124,7 @@ namespace AST
 
 	// Returns the number of bytes in a value of a type.
 	AST_API size_t getTypeByteWidth(TypeId type);
+
+	// Returns the base 2 logarithm of the number of bytes in a value of a type.
+	AST_API uint8 getTypeByteWidthLog2(TypeId type);
 }
