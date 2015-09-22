@@ -125,6 +125,7 @@ namespace WebAssemblyText
 		}
 		SNodeOutputStream createTaggedSubtree(Symbol symbol) { auto subtree = createSubtree(); subtree << symbol; return subtree; }
 		SNodeOutputStream createTypedTaggedSubtree(TypeId type,Symbol symbol) { auto subtree = createSubtree(); subtree << getTypedSymbol(type,symbol); return subtree; }
+		SNodeOutputStream createAlignedTypedTaggedSubtree(TypeId type,Symbol symbol,uint8 alignmentLog2,TypeId memoryType) { auto subtree = createSubtree(); subtree << getAlignedTypedSymbol(type,symbol,alignmentLog2,memoryType); return subtree; }
 		SNodeOutputStream createBitypedTaggedSubtree(TypeId leftType,Symbol symbol,TypeId rightType) { auto subtree = createSubtree(); subtree << getBitypedSymbol(leftType,symbol,rightType); return subtree; }
 
 		SNodeOutputStream printFunction(uintptr functionIndex);
@@ -206,11 +207,12 @@ namespace WebAssemblyText
 				<< getLocalName(setVariable->variableIndex)
 				<< dispatch(*this,setVariable->value,function->locals[setVariable->variableIndex].type);
 		}
+
 		template<typename Class,typename OpAsType>
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
 		{
 			assert(load->memoryType == type);
-			return createTypedTaggedSubtree(type,getOpSymbol(load->op()))
+			return createAlignedTypedTaggedSubtree(type,getOpSymbol(load->op()),load->alignmentLog2,load->memoryType)
 				<< dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
 		}
 		template<typename OpAsType>
@@ -223,14 +225,14 @@ namespace WebAssemblyText
 			case TypeId::I16: symbol = load->op() == IntOp::loadSExt ? Symbol::_load16_s : Symbol::_load16_u; break;
 			default:;
 			}
-			return createTypedTaggedSubtree(type,symbol)
+			return createAlignedTypedTaggedSubtree(type,symbol,load->alignmentLog2,load->memoryType)
 				<< dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
 		}
 		template<typename Class>
 		DispatchResult visitStore(const Store<Class>* store)
 		{
 			assert(store->memoryType == store->value.type);
-			return createTypedTaggedSubtree(store->value.type,getOpSymbol(store->op()))
+			return createAlignedTypedTaggedSubtree(store->value.type,getOpSymbol(store->op()),store->alignmentLog2,store->memoryType)
 				<< dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)
 				<< dispatch(*this,store->value);
 		}
@@ -243,7 +245,7 @@ namespace WebAssemblyText
 			case TypeId::I16: symbol = Symbol::_store16; break;
 			default:;
 			}
-			return createTypedTaggedSubtree(store->value.type,symbol)
+			return createAlignedTypedTaggedSubtree(store->value.type,symbol,store->alignmentLog2,store->memoryType)
 				<< dispatch(*this,store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)
 				<< dispatch(*this,store->value);
 		}

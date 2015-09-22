@@ -314,7 +314,7 @@ namespace WebAssemblyText
 					}
 				}
 				
-				#define DEFINE_ALIGNED_OP_FOR_TYPE(opTypeName,symbol) \
+				#define DEFINE_ALIGNED_OP_FOR_TYPE(opTypeName,memoryTypeName,symbol) \
 					throw; \
 					case Symbol::_##symbol##_##opTypeName##_align0: alignmentLog2 = 0; goto symbol##_##opTypeName; \
 					case Symbol::_##symbol##_##opTypeName##_align1: alignmentLog2 = 1; goto symbol##_##opTypeName; \
@@ -328,9 +328,9 @@ namespace WebAssemblyText
 					case Symbol::_##symbol##_##opTypeName: alignmentLog2 = getTypeByteWidthLog2(TypeId::opTypeName); \
 					symbol##_##opTypeName:
 					
-				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_ALIGNED_OP_FOR_TYPE(valueType,loadSymbol)	\
+				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_ALIGNED_OP_FOR_TYPE(valueType,memoryType,loadSymbol)	\
 					{ return parseLoadExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadOp,false,alignmentLog2,nodeIt); }
-				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_ALIGNED_OP_FOR_TYPE(valueType,storeSymbol) \
+				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_ALIGNED_OP_FOR_TYPE(valueType,memoryType,storeSymbol) \
 					{ return parseStoreExpression<class##Class>(TypeId::valueType,TypeId::memoryType,false,alignmentLog2,nodeIt); }
 				#define DEFINE_MEMORY_OP(class,valueType,memoryType,loadSymbol,storeSymbol,loadOp) \
 					DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) \

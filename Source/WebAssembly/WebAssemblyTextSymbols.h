@@ -176,6 +176,14 @@ namespace WebAssemblyText
 		return Symbol((uintptr)baseSymbol + (uintptr)type);
 	}
 
+	inline Symbol getAlignedTypedSymbol(TypeId type,Symbol baseSymbol,uint8 alignmentLog2,TypeId memoryType)
+	{
+		auto typeIndex = (uintptr)type - 1;
+		auto numAlignmentVariationsPerType = 10;
+		if(alignmentLog2 == getTypeByteWidthLog2(memoryType)) { return Symbol((uintptr)baseSymbol + 1 + numAlignmentVariationsPerType * typeIndex); }
+		else { return Symbol((uintptr)baseSymbol + 1 + numAlignmentVariationsPerType * typeIndex + 1 + alignmentLog2); }
+	}
+
 	inline Symbol getBitypedSymbol(TypeId leftType,Symbol baseSymbol,TypeId rightType)
 	{
 		auto leftTypeIndex = (uintptr)leftType - 1;
