@@ -561,7 +561,7 @@ namespace WebAssemblyBinary
 			{
 				if(globals[globalIndex].type != Type::id) { return recordError<typename Type::Class>("getglobal: incorrect type"); }
 				auto address = globals[globalIndex].address;
-				bool isFarAddress = address < (1ull << 32);
+				bool isFarAddress = address >= (1ull << 32);
 				IntExpression* addressLiteral = isFarAddress ? as<IntClass>(new(arena) Literal<I64Type>(address))
 					: new(arena) Literal<I32Type>((uint32)address);
 				
@@ -584,7 +584,7 @@ namespace WebAssemblyBinary
 				auto type = globals[globalIndex].type;
 				auto value = decodeExpression(type);
 				auto address = globals[globalIndex].address;
-				bool isFarAddress = address < (1ull << 32);
+				bool isFarAddress = address >= (1ull << 32);
 				IntExpression* addressLiteral = isFarAddress ? as<IntClass>(new(arena) Literal<I64Type>(address))
 					: new(arena) Literal<I32Type>((uint32)address);
 				UntypedExpression* store;
