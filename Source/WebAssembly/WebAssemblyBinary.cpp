@@ -590,9 +590,9 @@ namespace WebAssemblyBinary
 				UntypedExpression* store;
 				switch(type)
 				{
-				case TypeId::I32: store = new(arena) Store<IntClass>(isFarAddress,true,addressLiteral,TypedExpression(value,type),type); break;
+				case TypeId::I32: store = new(arena) Store<IntClass>(isFarAddress,getTypeByteWidthLog2(type),addressLiteral,TypedExpression(value,type),type); break;
 				case TypeId::F32:
-				case TypeId::F64: store = new(arena) Store<FloatClass>(isFarAddress,true,addressLiteral,TypedExpression(value,type),type); break;
+				case TypeId::F64: store = new(arena) Store<FloatClass>(isFarAddress,getTypeByteWidthLog2(type),addressLiteral,TypedExpression(value,type),type); break;
 				default: throw;
 				}
 				return TypedExpression(store,type);
@@ -630,7 +630,7 @@ namespace WebAssemblyBinary
 		template<typename Type>
 		typename Type::TypeExpression* load(TypeId memoryType,typename Type::Op loadOp,IntExpression* address)
 		{
-			return new(arena) Load<typename Type::Class>(loadOp,false,getTypeByteWidthLog2(Type::id),address,memoryType);
+			return new(arena) Load<typename Type::Class>(loadOp,false,getTypeByteWidthLog2(memoryType),address,memoryType);
 		}
 
 		// Stores a value to memory.
@@ -638,7 +638,7 @@ namespace WebAssemblyBinary
 		typename Type::TypeExpression* store(TypeId memoryType,IntExpression* address)
 		{
 			auto value = decodeExpression(Type());
-			return new(arena) Store<typename Type::Class>(false,true,address,TypedExpression(value,Type::id),memoryType);
+			return new(arena) Store<typename Type::Class>(false,getTypeByteWidthLog2(memoryType),address,TypedExpression(value,Type::id),memoryType);
 		}
 
 		// Converts a signed or unsigned 32-bit integer to a float32.
