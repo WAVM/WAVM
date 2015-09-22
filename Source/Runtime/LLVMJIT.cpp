@@ -876,7 +876,7 @@ namespace LLVMJIT
 		// Work around a problem with LLVM generating a COFF file that MCJIT can't parse. Adding -elf to the target triple forces it to use ELF instead of COFF.
 		// This also works around a _ being prepended to the symbol before getSymbolAddress is called on MacOS.
         jitModule->llvmModule->setTargetTriple(llvm::sys::getProcessTriple() + "-elf");
-		jitModule->llvmModule->setDataLayout(*llvm::EngineBuilder().selectTarget()->getDataLayout());
+		jitModule->llvmModule->setDataLayout(llvm::EngineBuilder().selectTarget()->createDataLayout());
 
 		// Verify the module.
 		#ifdef _DEBUG
