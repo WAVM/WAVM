@@ -98,8 +98,8 @@ namespace LLVMJIT
 		typedZeroConstants[(size_t)TypeId::Void] = voidDummy;
 
 		auto targetMachine = llvm::EngineBuilder().selectTarget(llvm::Triple(llvm::sys::getProcessTriple() + "-elf"),"","",llvm::SmallVector<std::string,0>());
-		objectLayer = std::make_unique<ObjectLayer>();
-		compileLayer = std::make_unique<CompileLayer>(*objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
+		objectLayer = llvm::make_unique<ObjectLayer>();
+		compileLayer = llvm::make_unique<CompileLayer>(*objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
 		llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 	}
 	
