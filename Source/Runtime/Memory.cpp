@@ -41,6 +41,8 @@ namespace Runtime
 
 	uint32 vmSbrk(int32 numBytes)
 	{
+		// Round up to an alignment boundary.
+		numBytes = (numBytes + 7) & ~7;
 		const uint32 existingNumBytes = numAllocatedBytes;
 		if(numBytes > 0)
 		{
