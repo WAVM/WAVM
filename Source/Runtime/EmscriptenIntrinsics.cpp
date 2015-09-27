@@ -56,6 +56,9 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION2(emscripten,_pthread_setspecific,I32,I32,a,I32,b) { throw "_pthread_setspecific"; }
 	DEFINE_INTRINSIC_FUNCTION1(emscripten,_pthread_getspecific,I32,I32,a) { throw "_pthread_getspecific"; }
 	DEFINE_INTRINSIC_FUNCTION2(emscripten,_pthread_once,I32,I32,a,I32,b) { throw "_pthread_once"; }
+	DEFINE_INTRINSIC_FUNCTION2(emscripten,_pthread_cleanup_push,Void,I32,a,I32,b) { }
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,_pthread_cleanup_pop,Void,I32,a) { }
+	DEFINE_INTRINSIC_FUNCTION0(emscripten,_pthread_self,I32) { return 0; }
 
 	DEFINE_INTRINSIC_FUNCTION0(emscripten,___ctype_b_loc,I32)
 	{
@@ -221,6 +224,59 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION1(emscripten,_fflush,I32,I32,file)
 	{
 		return fflush(vmFile(file));
+	}
+
+	DEFINE_INTRINSIC_FUNCTION2(emscripten,___syscall6,I32,I32,a,I32,b)
+	{
+		// close
+		throw "___syscall6";
+	}
+
+	DEFINE_INTRINSIC_FUNCTION2(emscripten,___syscall54,I32,I32,a,I32,b)
+	{
+		// ioctl
+		return 0;
+	}
+
+	DEFINE_INTRINSIC_FUNCTION2(emscripten,___syscall140,I32,I32,a,I32,b)
+	{
+		// llseek
+		throw "___syscall140";
+	}
+
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,___lock,Void,I32,a)
+	{
+	}
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,___unlock,Void,I32,a)
+	{
+	}
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,___lockfile,I32,I32,a)
+	{
+		return 1;
+	}
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,___unlockfile,Void,I32,a)
+	{
+	}
+
+	DEFINE_INTRINSIC_FUNCTION2(emscripten,___syscall146,I32,I32,a,I32,b)
+	{
+		// writev
+		uint32 *args = &instanceMemoryRef<uint32>(b);
+		uint32 iov = args[1];
+		uint32 cnt = args[2];
+		uint32 total = 0;
+		size_t i;
+		for(i = 0; i < cnt; i++)
+		{
+			uint32 base = instanceMemoryRef<uint32>(iov + i * 8);
+			uint32 len = instanceMemoryRef<uint32>(iov + i * 8 + 4);
+			// TODO write to the specified file descriptor when implemented.
+			size_t count = fwrite(&instanceMemoryRef<char>(base), 1, len, stdout);
+			total += count;
+			if (count < len)
+				break;
+		}
+		return total;
 	}
 
 	void initEmscriptenIntrinsics()
