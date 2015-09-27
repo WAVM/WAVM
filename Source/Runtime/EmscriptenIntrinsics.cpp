@@ -263,20 +263,19 @@ namespace Runtime
 		// writev
 		uint32 *args = &instanceMemoryRef<uint32>(b);
 		uint32 iov = args[1];
-		uint32 cnt = args[2];
-		uint32 total = 0;
-		size_t i;
-		for(i = 0; i < cnt; i++)
+		uint32 iovcnt = args[2];
+		struct iovec *native_iovec = new struct iovec [iovcnt];
+		for(size_t i = 0; i < iovcnt; i++)
 		{
 			uint32 base = instanceMemoryRef<uint32>(iov + i * 8);
 			uint32 len = instanceMemoryRef<uint32>(iov + i * 8 + 4);
-			// TODO write to the specified file descriptor when implemented.
-			size_t count = fwrite(&instanceMemoryRef<char>(base), 1, len, stdout);
-			total += count;
-			if (count < len)
-				break;
+			native_iovec[i].iov_base = &instanceMemoryRef<char>(base);
+			native_iovec[i].iov_len = len;
 		}
-		return total;
+		// TODO write to the specified file descriptor when implemented.
+		ssize_t count = writev(1, native_iovec, iovcnt);
+		delete native_iovec;
+		return count;
 	}
 
 	void initEmscriptenIntrinsics()
