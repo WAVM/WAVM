@@ -165,7 +165,11 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION4(emscripten,_catgets,I32,I32,catd,I32,set_id,I32,msg_id,I32,s) { return s; }
 	DEFINE_INTRINSIC_FUNCTION1(emscripten,_catclose,I32,I32,a) { return 0; }
 
-	DEFINE_INTRINSIC_FUNCTION3(emscripten,_emscripten_memcpy_big,I32,I32,a,I32,b,I32,c) { throw "_emscripten_memcpy_big"; }
+	DEFINE_INTRINSIC_FUNCTION3(emscripten,_emscripten_memcpy_big,I32,I32,a,I32,b,I32,c)
+	{
+	  memcpy(&instanceMemoryRef<uint32>(a),&instanceMemoryRef<uint32>(b),uint32(c));
+	  return a;
+	}
 
 	enum class ioStreamVMHandle
 	{
