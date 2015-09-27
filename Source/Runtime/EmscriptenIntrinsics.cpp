@@ -227,6 +227,20 @@ namespace Runtime
 		return fflush(vmFile(file));
 	}
 
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,___lock,Void,I32,a)
+	{
+	}
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,___unlock,Void,I32,a)
+	{
+	}
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,___lockfile,I32,I32,a)
+	{
+		return 1;
+	}
+	DEFINE_INTRINSIC_FUNCTION1(emscripten,___unlockfile,Void,I32,a)
+	{
+	}
+
 	DEFINE_INTRINSIC_FUNCTION2(emscripten,___syscall6,I32,I32,a,I32,b)
 	{
 		// close
@@ -243,20 +257,6 @@ namespace Runtime
 	{
 		// llseek
 		throw "___syscall140";
-	}
-
-	DEFINE_INTRINSIC_FUNCTION1(emscripten,___lock,Void,I32,a)
-	{
-	}
-	DEFINE_INTRINSIC_FUNCTION1(emscripten,___unlock,Void,I32,a)
-	{
-	}
-	DEFINE_INTRINSIC_FUNCTION1(emscripten,___lockfile,I32,I32,a)
-	{
-		return 1;
-	}
-	DEFINE_INTRINSIC_FUNCTION1(emscripten,___unlockfile,Void,I32,a)
-	{
 	}
 
 	DEFINE_INTRINSIC_FUNCTION2(emscripten,___syscall146,I32,I32,a,I32,b)
