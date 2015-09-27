@@ -5,6 +5,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <iostream>
+#include <sys/uio.h>
 
 namespace Runtime
 {
