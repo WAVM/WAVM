@@ -5,7 +5,10 @@
 #include <time.h>
 #include <stdio.h>
 #include <iostream>
+
+#ifndef _WIN32
 #include <sys/uio.h>
+#endif
 
 namespace Runtime
 {
