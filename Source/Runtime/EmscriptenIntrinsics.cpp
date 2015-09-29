@@ -167,7 +167,7 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION3(emscripten,_emscripten_memcpy_big,I32,I32,a,I32,b,I32,c)
 	{
-		if (uint64(a) + uint64(c) >= instanceAddressSpaceMaxBytes &&
+		if (uint64(a) + uint64(c) >= instanceAddressSpaceMaxBytes ||
 		    uint64(b) + uint64(c) >= instanceAddressSpaceMaxBytes)
 			throw "_emscripten_memcpy_big";
 		memcpy(&instanceMemoryRef<uint32>(a),&instanceMemoryRef<uint32>(b),uint32(c));
