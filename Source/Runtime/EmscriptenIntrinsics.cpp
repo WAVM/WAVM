@@ -265,6 +265,19 @@ namespace Runtime
 		uint32 *args = &instanceMemoryRef<uint32>(b);
 		uint32 iov = args[1];
 		uint32 iovcnt = args[2];
+#ifdef _WIN32
+		uint32 count = 0;
+		for(size_t i = 0; i < iovcnt; i++)
+		{
+			uint32 base = instanceMemoryRef<uint32>(iov + i * 8);
+			uint32 len = instanceMemoryRef<uint32>(iov + i * 8 + 4);
+			// TODO write to the specified file descriptor when implemented.
+			size_t size = fwrite(&instanceMemoryRef<char>(base), 1, len, stdout);
+			count += size;
+			if (size < len)
+				break;
+		}
+#else
 		struct iovec *native_iovec = new struct iovec [iovcnt];
 		for(size_t i = 0; i < iovcnt; i++)
 		{
@@ -276,6 +289,7 @@ namespace Runtime
 		// TODO write to the specified file descriptor when implemented.
 		ssize_t count = writev(1, native_iovec, iovcnt);
 		delete native_iovec;
+#endif
 		return count;
 	}
 
