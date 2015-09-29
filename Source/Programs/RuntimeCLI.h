@@ -59,54 +59,12 @@ bool callModuleFunction(const AST::Module* module,const char* functionName,Retur
 	// Call the generated machine code for the function.
 	try
 	{
-		// Call the function specified on the command-line.
 		outReturn = ((Return(*)(Args...))functionPtr)(args...);
 		return true;
 	}
 	catch(...)
 	{
-		std::cout << functionName << " threw exception." << std::endl;
+		std::cerr << "Caught exception!" << std::endl;
 		return false;
 	}
-}
-
-inline bool initModuleRuntime(const AST::Module* module)
-{
-	// Allocate address-space for the VM.
-	if(!Runtime::initInstanceMemory(module->maxNumBytesMemory))
-	{
-		std::cerr << "Couldn't initialize address-space for module instance (" << module->maxNumBytesMemory/1024 << "KB requested)" << std::endl;
-		return false;
-	}
-
-	// Initialize the module's requested initial memory.
-	if(Runtime::vmSbrk((int32)module->initialNumBytesMemory) != 0)
-	{
-		std::cerr << "Failed to commit the requested initial memory for module instance (" << module->initialNumBytesMemory/1024 << "KB requested)" << std::endl;
-		return false;
-	}
-
-	// Copy the module's data segments into VM memory.
-	if(module->initialNumBytesMemory >= (1ull<<32)) { throw; }
-	for(auto dataSegment : module->dataSegments)
-	{
-		if(dataSegment.baseAddress + dataSegment.numBytes > module->initialNumBytesMemory)
-		{
-			std::cerr << "Module data segment exceeds initial memory allocation" << std::endl;
-			return false;
-		}
-		memcpy(Runtime::instanceMemoryBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
-	}
-
-	// Generate machine code for the module.
-	if(!Runtime::compileModule(module))
-	{
-		std::cerr << "Couldn't compile module." << std::endl;
-		return false;
-	}
-
-	// Initialize the WebAssembly intrinsics.
-	Runtime::initWebAssemblyIntrinsics();
-
-	return true;
 }

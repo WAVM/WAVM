@@ -1,6 +1,6 @@
 #include "Core/Core.h"
 #include "Intrinsics.h"
-#include "Runtime.h"
+#include "RuntimePrivate.h"
 #include "Core/Platform.h"
 #include <time.h>
 #include <stdio.h>

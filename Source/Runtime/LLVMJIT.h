@@ -2,7 +2,7 @@
 
 #include "Core/Core.h"
 #include "Core/Platform.h"
-#include "Runtime.h"
+#include "RuntimePrivate.h"
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
 #include "AST/ASTDispatch.h"
@@ -63,55 +63,11 @@
 	#pragma warning(pop)
 #endif
 
-using namespace AST;
-
 namespace LLVMJIT
 {
-	// The global LLVM context.
-	extern llvm::LLVMContext& context;
-	
-	// Information about a JITed module.
-	struct JITModule
-	{
-		const Module* astModule;
-		llvm::Module* llvmModule;
-		std::vector<llvm::Function*> functions;
-		std::vector<llvm::GlobalVariable*> functionImportPointers;
-		std::vector<llvm::GlobalVariable*> functionTablePointers;
-		llvm::Value* instanceMemoryBase;
-		llvm::Value* instanceMemoryAddressMask;
-		llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT handle;
+	std::string getExternalFunctionName(uintptr_t functionIndex);
+	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex);
 
-		JITModule(const Module* inASTModule)
-		:	astModule(inASTModule)
-		,	llvmModule(new llvm::Module("",context))
-		,	instanceMemoryBase(nullptr)
-		,	instanceMemoryAddressMask(nullptr)
-		,	handle()
-		{}
-	};
-
-	// A dummy constant to use as the unique value inhabiting the void type.
-	extern llvm::Constant* voidDummy;
-
-	// Zero constants of each type.
-	extern llvm::Constant* typedZeroConstants[(size_t)TypeId::num];
-
-	// Converts an AST type to a LLVM type.
-	llvm::Type* asLLVMType(TypeId type);
-	
-	// Converts an AST function type to a LLVM type.
-	llvm::FunctionType* asLLVMType(const FunctionType& functionType);
-	
-	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
-	inline llvm::ConstantInt* compileLiteral(uint8 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I8),llvm::APInt(8,(uint64)value,false)); }
-	inline llvm::ConstantInt* compileLiteral(uint16 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I16),llvm::APInt(16,(uint64)value,false)); }
-	inline llvm::ConstantInt* compileLiteral(uint32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I32),llvm::APInt(32,(uint64)value,false)); }
-	inline llvm::ConstantInt* compileLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I64),llvm::APInt(64,(uint64)value,false)); }
-	inline llvm::Constant* compileLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
-	inline llvm::Constant* compileLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
-	inline llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(asLLVMType(TypeId::Bool),llvm::APInt(1,value ? 1 : 0,false)); }
-	
 	// Emits LLVM IR for a module.
-	JITModule* emitModule(const Module* astModule);
+	llvm::Module* emitModule(const AST::Module* astModule);
 }

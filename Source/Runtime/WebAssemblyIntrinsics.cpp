@@ -1,7 +1,7 @@
 #include "Core/Core.h"
 #include "Core/Platform.h"
 #include "Intrinsics.h"
-#include "Runtime.h"
+#include "RuntimePrivate.h"
 
 namespace Runtime
 {

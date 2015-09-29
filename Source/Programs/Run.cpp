@@ -31,11 +31,17 @@ int main(int argc,char** argv)
 	}
 	
 	if(!module) { return -1; }
+	
+	// Initialize the runtime.
+	if(!Runtime::init())
+	{
+		std::cerr << "Couldn't initialize runtime" << std::endl;
+		return false;
+	}
 
-	if(!initModuleRuntime(module)) { return -1; }
+	if(!Runtime::loadModule(module)) { return -1; }
 	
 	// Initialize the Emscripten intrinsics.
-	Runtime::initEmscriptenIntrinsics();
 	Void result;
 	callModuleFunction(module,"__GLOBAL__sub_I_iostream_cpp",result);
 

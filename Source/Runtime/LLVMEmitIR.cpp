@@ -1,14 +1,69 @@
 #include "LLVMJIT.h"
 
+using namespace AST;
+
 namespace LLVMJIT
 {
+	// The global LLVM context.
+	llvm::LLVMContext& context = llvm::getGlobalContext();
+
+	// Maps a type ID to the corresponding LLVM type.
+	llvm::Type* llvmTypesByTypeId[(size_t)TypeId::num];
+
+	// Zero constants of each type.
+	llvm::Constant* typedZeroConstants[(size_t)TypeId::num];
+	
+	// A dummy constant to use as the unique value inhabiting the void type.
+	llvm::Constant* voidDummy;
+
+	// Converts an AST type to a LLVM type.
+	llvm::Type* asLLVMType(TypeId type) { return llvmTypesByTypeId[(uintptr)type]; }
+	
+	// Converts an AST function type to a LLVM type.
+	llvm::FunctionType* asLLVMType(const FunctionType& functionType)
+	{
+		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType.parameters.size());
+		for(uintptr argIndex = 0;argIndex < functionType.parameters.size();++argIndex)
+		{
+			llvmArgTypes[argIndex] = asLLVMType(functionType.parameters[argIndex]);
+		}
+		auto llvmReturnType = asLLVMType(functionType.returnType);
+		return llvm::FunctionType::get(llvmReturnType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType.parameters.size()),false);
+	}
+	
 	// Converts an AST name to a LLVM name. Ensures that the name is not-null, and prefixes it to ensure it doesn't conflict with export names.
 	llvm::Twine getLLVMName(const char* nullableName) { return nullableName ? (llvm::Twine('_') + llvm::Twine(nullableName)) : ""; }
+	
+	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
+	inline llvm::ConstantInt* compileLiteral(uint8 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I8),llvm::APInt(8,(uint64)value,false)); }
+	inline llvm::ConstantInt* compileLiteral(uint16 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I16),llvm::APInt(16,(uint64)value,false)); }
+	inline llvm::ConstantInt* compileLiteral(uint32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I32),llvm::APInt(32,(uint64)value,false)); }
+	inline llvm::ConstantInt* compileLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I64),llvm::APInt(64,(uint64)value,false)); }
+	inline llvm::Constant* compileLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	inline llvm::Constant* compileLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	inline llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(asLLVMType(TypeId::Bool),llvm::APInt(1,value ? 1 : 0,false)); }
+	
+	// The LLVM IR for a module.
+	struct ModuleIR
+	{
+		llvm::Module* llvmModule;
+		std::vector<llvm::Function*> functions;
+		std::vector<llvm::GlobalVariable*> functionImportPointers;
+		std::vector<llvm::GlobalVariable*> functionTablePointers;
+		llvm::Value* instanceMemoryBase;
+		llvm::Value* instanceMemoryAddressMask;
+
+		ModuleIR()
+		:	llvmModule(new llvm::Module("",context))
+		,	instanceMemoryBase(nullptr)
+		,	instanceMemoryAddressMask(nullptr)
+		{}
+	};
 
 	// The context used by functions involved in JITing a single AST function.
-	struct JITFunctionContext
+	struct EmitFunctionContext
 	{
-		JITModule& jitModule;
+		ModuleIR& moduleIR;
 		const Module* astModule;
 		Function* astFunction;
 		llvm::Function* llvmFunction;
@@ -41,11 +96,11 @@ namespace LLVMJIT
 		// A linked list of in-scope branch targets.
 		BranchContext* branchContext;
 
-		JITFunctionContext(JITModule& inJITModule,uintptr functionIndex)
-		: jitModule(inJITModule)
-		, astModule(inJITModule.astModule)
+		EmitFunctionContext(ModuleIR& inModuleIR,const Module* inASTModule,uintptr functionIndex)
+		: moduleIR(inModuleIR)
+		, astModule(inASTModule)
 		, astFunction(astModule->functions[functionIndex])
-		, llvmFunction(jitModule.functions[functionIndex])
+		, llvmFunction(inModuleIR.functions[functionIndex])
 		, irBuilder(context)
 		, localVariablePointers(nullptr)
 		, branchContext(nullptr)
@@ -86,7 +141,7 @@ namespace LLVMJIT
 		// Returns a LLVM intrinsic with the given id and argument types.
 		DispatchResult getLLVMIntrinsic(const std::initializer_list<llvm::Type*>& argTypes,llvm::Intrinsic::ID id)
 		{
-			return llvm::Intrinsic::getDeclaration(jitModule.llvmModule,id,llvm::ArrayRef<llvm::Type*>(argTypes.begin(),argTypes.end()));
+			return llvm::Intrinsic::getDeclaration(moduleIR.llvmModule,id,llvm::ArrayRef<llvm::Type*>(argTypes.begin(),argTypes.end()));
 		}
 
 		DispatchResult compileAddress(Expression<IntClass>* address,bool isFarAddress,TypeId memoryType)
@@ -98,10 +153,10 @@ namespace LLVMJIT
 				: irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context));
 
 			// Mask the index to the address-space size.
-			auto maskedByteIndex = irBuilder.CreateAnd(byteIndex,jitModule.instanceMemoryAddressMask);
+			auto maskedByteIndex = irBuilder.CreateAnd(byteIndex,moduleIR.instanceMemoryAddressMask);
 
 			// Cast the pointer to the appropriate type.
-			auto bytePointer = irBuilder.CreateInBoundsGEP(jitModule.instanceMemoryBase,maskedByteIndex);
+			auto bytePointer = irBuilder.CreateInBoundsGEP(moduleIR.instanceMemoryBase,maskedByteIndex);
 			return irBuilder.CreatePointerCast(bytePointer,asLLVMType(memoryType)->getPointerTo());
 		}
 
@@ -193,19 +248,19 @@ namespace LLVMJIT
 		{
 			auto calledFunction = astModule->functions[call->functionIndex];
 			assert(calledFunction->type.returnType == type);
-			return compileCall(calledFunction->type,jitModule.functions[call->functionIndex],call->parameters);
+			return compileCall(calledFunction->type,moduleIR.functions[call->functionIndex],call->parameters);
 		}
 		DispatchResult visitCall(TypeId type,const Call* call,OpTypes<AnyClass>::callImport)
 		{
 			auto astFunctionImport = astModule->functionImports[call->functionIndex];
 			assert(astFunctionImport.type.returnType == type);
-			auto function = jitModule.functionImportPointers[call->functionIndex];
+			auto function = moduleIR.functionImportPointers[call->functionIndex];
 			return compileCall(astFunctionImport.type,function,call->parameters);
 		}
 		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
 			assert(callIndirect->tableIndex < astModule->functionTables.size());
-			auto functionTablePointer = jitModule.functionTablePointers[callIndirect->tableIndex];
+			auto functionTablePointer = moduleIR.functionTablePointers[callIndirect->tableIndex];
 			auto astFunctionTable = astModule->functionTables[callIndirect->tableIndex];
 			assert(astFunctionTable.type.returnType == type);
 			assert(astFunctionTable.numFunctions > 0);
@@ -569,7 +624,7 @@ namespace LLVMJIT
 		#undef IMPLEMENT_COMPARE_OP
 	};
 	
-	void JITFunctionContext::emit()
+	void EmitFunctionContext::emit()
 	{
 		// Create an initial basic block for the function.
 		auto entryBasicBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
@@ -607,48 +662,39 @@ namespace LLVMJIT
 		unreachableBlock = nullptr;
 	}
 
-	JITModule* emitModule(const Module* astModule)
+	llvm::Module* emitModule(const Module* astModule)
 	{
 		// Create a JIT module.
 		Core::Timer emitTimer;
-		JITModule* jitModule = new JITModule(astModule);
+		ModuleIR moduleIR;
 
 		// Create literals for the virtual memory base and mask.
-		jitModule->instanceMemoryBase = llvm::Constant::getIntegerValue(llvm::Type::getInt8PtrTy(context),llvm::APInt(64,reinterpret_cast<uintptr>(Runtime::instanceMemoryBase)));
+		moduleIR.instanceMemoryBase = llvm::Constant::getIntegerValue(llvm::Type::getInt8PtrTy(context),llvm::APInt(64,reinterpret_cast<uintptr>(Runtime::instanceMemoryBase)));
 		auto instanceMemoryAddressMask = Runtime::instanceAddressSpaceMaxBytes - 1;
-		jitModule->instanceMemoryAddressMask = sizeof(uintptr) == 8 ? compileLiteral((uint64)instanceMemoryAddressMask) : compileLiteral((uint32)instanceMemoryAddressMask);
+		moduleIR.instanceMemoryAddressMask = sizeof(uintptr) == 8 ? compileLiteral((uint64)instanceMemoryAddressMask) : compileLiteral((uint32)instanceMemoryAddressMask);
 
 		// Create the LLVM functions.
-		jitModule->functions.resize(astModule->functions.size());
+		moduleIR.functions.resize(astModule->functions.size());
 		for(uintptr functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
 		{
 			auto astFunction = astModule->functions[functionIndex];
 			auto llvmFunctionType = asLLVMType(astFunction->type);
-			jitModule->functions[functionIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::PrivateLinkage,getLLVMName(astFunction->name),jitModule->llvmModule);
-		}
-
-		// Give exported functions the appropriate name and linkage.
-		for(auto exportIt : astModule->exportNameToFunctionIndexMap)
-		{
-			assert(exportIt.second < jitModule->functions.size());
-			jitModule->functions[exportIt.second]->setLinkage(llvm::GlobalValue::ExternalLinkage);
-			jitModule->functions[exportIt.second]->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
-			jitModule->functions[exportIt.second]->setVisibility(llvm::GlobalValue::DefaultVisibility);
-			jitModule->functions[exportIt.second]->setName(exportIt.first);
+			auto externalName = getExternalFunctionName(functionIndex);
+			moduleIR.functions[functionIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,externalName,moduleIR.llvmModule);
 		}
 
 		// Create the function import globals.
-		jitModule->functionImportPointers.resize(astModule->functionImports.size());
-		for(uintptr importIndex = 0;importIndex < jitModule->functionImportPointers.size();++importIndex)
+		moduleIR.functionImportPointers.resize(astModule->functionImports.size());
+		for(uintptr importIndex = 0;importIndex < moduleIR.functionImportPointers.size();++importIndex)
 		{
 			auto functionImport = astModule->functionImports[importIndex];
 			auto functionType = asLLVMType(functionImport.type);
 			auto functionName = Intrinsics::getDecoratedFunctionName((std::string(functionImport.module) + "." + functionImport.name).c_str(),functionImport.type);
-			jitModule->functionImportPointers[importIndex] = new llvm::GlobalVariable(*jitModule->llvmModule,functionType,true,llvm::GlobalValue::ExternalLinkage,nullptr,functionName);
+			moduleIR.functionImportPointers[importIndex] = new llvm::GlobalVariable(*moduleIR.llvmModule,functionType,true,llvm::GlobalValue::ExternalLinkage,nullptr,functionName);
 		}
 
 		// Create the function table globals.
-		jitModule->functionTablePointers.resize(astModule->functionTables.size());
+		moduleIR.functionTablePointers.resize(astModule->functionTables.size());
 		for(uintptr tableIndex = 0;tableIndex < astModule->functionTables.size();++tableIndex)
 		{
 			auto astFunctionTable = astModule->functionTables[tableIndex];
@@ -656,8 +702,8 @@ namespace LLVMJIT
 			llvmFunctionTableElements.resize(astFunctionTable.numFunctions);
 			for(uint32 functionIndex = 0;functionIndex < astFunctionTable.numFunctions;++functionIndex)
 			{
-				assert(astFunctionTable.functionIndices[functionIndex] < jitModule->functions.size());
-				llvmFunctionTableElements[functionIndex] = jitModule->functions[astFunctionTable.functionIndices[functionIndex]];
+				assert(astFunctionTable.functionIndices[functionIndex] < moduleIR.functions.size());
+				llvmFunctionTableElements[functionIndex] = moduleIR.functions[astFunctionTable.functionIndices[functionIndex]];
 			}
 			// Verify that the number of elements is a power of two, so we can use bitwise and to prevent out-of-bounds accesses.
 			assert((astFunctionTable.numFunctions & (astFunctionTable.numFunctions-1)) == 0);
@@ -665,19 +711,51 @@ namespace LLVMJIT
 			// Create a LLVM global variable that holds the array of function pointers.
 			auto llvmFunctionTablePointerType = llvm::ArrayType::get(asLLVMType(astFunctionTable.type)->getPointerTo(),llvmFunctionTableElements.size());
 			auto llvmFunctionTablePointer = new llvm::GlobalVariable(
-				*jitModule->llvmModule,llvmFunctionTablePointerType,true,llvm::GlobalValue::PrivateLinkage,
+				*moduleIR.llvmModule,llvmFunctionTablePointerType,true,llvm::GlobalValue::PrivateLinkage,
 				llvm::ConstantArray::get(llvmFunctionTablePointerType,llvmFunctionTableElements)
 				);
-			jitModule->functionTablePointers[tableIndex] = llvmFunctionTablePointer;
+			moduleIR.functionTablePointers[tableIndex] = llvmFunctionTablePointer;
 		}
 
 		// Compile each function in the module.
 		for(uintptr functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
 		{
-			JITFunctionContext(*jitModule,functionIndex).emit();
+			EmitFunctionContext(moduleIR,astModule,functionIndex).emit();
 		}
 		std::cout << "Emitted LLVM IR for module in " << emitTimer.getMilliseconds() << "ms" << std::endl;
 		
-		return jitModule;
+		return moduleIR.llvmModule;
+	}
+	
+	void init()
+	{
+		llvm::InitializeNativeTarget();
+		llvm::InitializeNativeTargetAsmPrinter();
+		llvm::InitializeNativeTargetAsmParser();
+		llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+
+		llvmTypesByTypeId[(size_t)TypeId::None] = nullptr;
+		llvmTypesByTypeId[(size_t)TypeId::I8] = llvm::Type::getInt8Ty(context);
+		llvmTypesByTypeId[(size_t)TypeId::I16] = llvm::Type::getInt16Ty(context);
+		llvmTypesByTypeId[(size_t)TypeId::I32] = llvm::Type::getInt32Ty(context);
+		llvmTypesByTypeId[(size_t)TypeId::I64] = llvm::Type::getInt64Ty(context);
+		llvmTypesByTypeId[(size_t)TypeId::F32] = llvm::Type::getFloatTy(context);
+		llvmTypesByTypeId[(size_t)TypeId::F64] = llvm::Type::getDoubleTy(context);
+		llvmTypesByTypeId[(size_t)TypeId::Bool] = llvm::Type::getInt1Ty(context);
+		llvmTypesByTypeId[(size_t)TypeId::Void] = llvm::Type::getVoidTy(context);
+		
+		// Create a null pointer constant to use as the void dummy value.
+		voidDummy = llvm::Constant::getIntegerValue(llvm::Type::getInt8Ty(context),llvm::APInt(64,0));
+		
+		// Create zero constants of each type.
+		typedZeroConstants[(size_t)TypeId::None] = nullptr;
+		typedZeroConstants[(size_t)TypeId::I8] = compileLiteral((uint8)0);
+		typedZeroConstants[(size_t)TypeId::I16] = compileLiteral((uint16)0);
+		typedZeroConstants[(size_t)TypeId::I32] = compileLiteral((uint32)0);
+		typedZeroConstants[(size_t)TypeId::I64] = compileLiteral((uint64)0);
+		typedZeroConstants[(size_t)TypeId::F32] = compileLiteral((float32)0.0f);
+		typedZeroConstants[(size_t)TypeId::F64] = compileLiteral((float64)0.0);
+		typedZeroConstants[(size_t)TypeId::Bool] = compileLiteral(false);
+		typedZeroConstants[(size_t)TypeId::Void] = voidDummy;
 	}
 }

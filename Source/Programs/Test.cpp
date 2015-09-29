@@ -72,6 +72,13 @@ int main(int argc,char** argv)
 	WebAssemblyText::File wastFile;
 	if(!loadTextModule(filename,wastFile)) { return -1; }
 	
+	// Initialize the runtime.
+	if(!Runtime::init())
+	{
+		std::cerr << "Couldn't initialize runtime" << std::endl;
+		return false;
+	}
+
 	uintptr numTestsFailed = 0;
 	for(auto assertEq : wastFile.assertEqs)
 	{
@@ -91,7 +98,7 @@ int main(int argc,char** argv)
 		createTestFunction(testModule,"test",AST::TypedExpression(invokeExpression,invokeType));
 		
 		// Initialize the module runtime environment and call the test function.
-		if(!initModuleRuntime(testModule)) { return -1; }
+		if(!Runtime::loadModule(testModule)) { return -1; }
 		auto assertLocus = filename + assertEq.locus.describe();
 		if(!callTestFunction(testModule,"test",assertLocus.c_str(),assertEq.value)) { ++numTestsFailed; }
 	}

@@ -1,127 +1,165 @@
 #include "LLVMJIT.h"
 
 namespace LLVMJIT
-{	
-	llvm::LLVMContext& context = llvm::getGlobalContext();
-	bool isInitialized = false;
-	
-	// Maps a type ID to the corresponding LLVM type.
-	llvm::Type* llvmTypesByTypeId[(size_t)TypeId::num];
-	
-	// A dummy constant to use as the unique value inhabiting the void type.
-	llvm::Constant* voidDummy = nullptr;
-
-	// Zero constants of each type.
-	llvm::Constant* typedZeroConstants[(size_t)TypeId::num];
-
-	// All the modules that have been JITted.
-	std::vector<struct JITModule*> jitModules;
-
-	// Converts an AST type to a LLVM type.
-	llvm::Type* asLLVMType(TypeId type) { return llvmTypesByTypeId[(uintptr)type]; }
-	
-	// Converts an AST function type to a LLVM type.
-	llvm::FunctionType* asLLVMType(const FunctionType& functionType)
+{
+	// Functor that receives notifications when an object produced by the JIT is loaded.
+	struct NotifyLoadedFunctor
 	{
-		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType.parameters.size());
-		for(uintptr argIndex = 0;argIndex < functionType.parameters.size();++argIndex)
-		{
-			llvmArgTypes[argIndex] = asLLVMType(functionType.parameters[argIndex]);
-		}
-		auto llvmReturnType = asLLVMType(functionType.returnType);
-		return llvm::FunctionType::get(llvmReturnType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType.parameters.size()),false);
-	}
-
+		struct JITModule* jitModule;
+		NotifyLoadedFunctor(struct JITModule* inJITModule): jitModule(inJITModule) {}
+		void operator()(
+			const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
+			const std::vector<std::unique_ptr<llvm::object::ObjectFile>>& objectSet,
+			const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResult
+			);
+	};
+	
 	// Used to resolve references to intrinsics in the LLVM IR.
 	struct IntrinsicResolver : llvm::RuntimeDyld::SymbolResolver
 	{
 		static IntrinsicResolver singleton;
 
-		void* getSymbolAddress(const std::string& name) const
-		{
-			const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
-			if(intrinsicFunction) { return intrinsicFunction->value; }
-			else
-			{
-				std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
-				return nullptr;
-			}
-		}
+		void* getSymbolAddress(const std::string& name) const;
 
-		llvm::RuntimeDyld::SymbolInfo findSymbol(const std::string& name) override
-		{
-			return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64>(getSymbolAddress(name)),llvm::JITSymbolFlags::None);
-		}
-
-		llvm::RuntimeDyld::SymbolInfo findSymbolInLogicalDylib(const std::string& name) override
-		{
-			return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64>(getSymbolAddress(name)),llvm::JITSymbolFlags::None);
-		}
+		virtual llvm::RuntimeDyld::SymbolInfo findSymbol(const std::string& name) override;
+		virtual llvm::RuntimeDyld::SymbolInfo findSymbolInLogicalDylib(const std::string& name) override;
 	};
-	IntrinsicResolver IntrinsicResolver::singleton;
-	
-	typedef llvm::orc::ObjectLinkingLayer<> ObjectLayer;
-	typedef llvm::orc::IRCompileLayer<ObjectLayer> CompileLayer;
-	std::unique_ptr<ObjectLayer> objectLayer;
-	std::unique_ptr<CompileLayer> compileLayer;
 
-	static void init()
+	struct JITFunction
 	{
-		isInitialized = true;
+		std::string name;
+		uintptr baseAddress;
+		size_t size;
+	};
 
-		llvm::InitializeNativeTarget();
-		llvm::InitializeNativeTargetAsmPrinter();
-		llvm::InitializeNativeTargetAsmParser();
+	struct JITModule
+	{
+		const AST::Module* astModule;
 
-		llvmTypesByTypeId[(size_t)TypeId::None] = nullptr;
-		llvmTypesByTypeId[(size_t)TypeId::I8] = llvm::Type::getInt8Ty(context);
-		llvmTypesByTypeId[(size_t)TypeId::I16] = llvm::Type::getInt16Ty(context);
-		llvmTypesByTypeId[(size_t)TypeId::I32] = llvm::Type::getInt32Ty(context);
-		llvmTypesByTypeId[(size_t)TypeId::I64] = llvm::Type::getInt64Ty(context);
-		llvmTypesByTypeId[(size_t)TypeId::F32] = llvm::Type::getFloatTy(context);
-		llvmTypesByTypeId[(size_t)TypeId::F64] = llvm::Type::getDoubleTy(context);
-		llvmTypesByTypeId[(size_t)TypeId::Bool] = llvm::Type::getInt1Ty(context);
-		llvmTypesByTypeId[(size_t)TypeId::Void] = llvm::Type::getVoidTy(context);
+		typedef llvm::orc::ObjectLinkingLayer<NotifyLoadedFunctor> ObjectLayer;
+		std::unique_ptr<ObjectLayer> objectLayer;
+
+		typedef llvm::orc::IRCompileLayer<ObjectLayer> CompileLayer;
+		std::unique_ptr<CompileLayer> compileLayer;
+
+		CompileLayer::ModuleSetHandleT handle;
+
+		std::vector<JITFunction> functions;
 		
-		// Create a null pointer constant to use as the void dummy value.
-		voidDummy = llvm::Constant::getIntegerValue(llvm::Type::getInt8Ty(context),llvm::APInt(64,0));
-		
-		// Create zero constants of each type.
-		typedZeroConstants[(size_t)TypeId::None] = nullptr;
-		typedZeroConstants[(size_t)TypeId::I8] = compileLiteral((uint8)0);
-		typedZeroConstants[(size_t)TypeId::I16] = compileLiteral((uint16)0);
-		typedZeroConstants[(size_t)TypeId::I32] = compileLiteral((uint32)0);
-		typedZeroConstants[(size_t)TypeId::I64] = compileLiteral((uint64)0);
-		typedZeroConstants[(size_t)TypeId::F32] = compileLiteral((float32)0.0f);
-		typedZeroConstants[(size_t)TypeId::F64] = compileLiteral((float64)0.0);
-		typedZeroConstants[(size_t)TypeId::Bool] = compileLiteral(false);
-		typedZeroConstants[(size_t)TypeId::Void] = voidDummy;
+		JITModule(const AST::Module* inASTModule) : astModule(inASTModule) {}
+	};
 
-		auto targetMachine = llvm::EngineBuilder().selectTarget(llvm::Triple(llvm::sys::getProcessTriple() + "-elf"),"","",llvm::SmallVector<std::string,0>());
-		objectLayer = llvm::make_unique<ObjectLayer>();
-		compileLayer = llvm::make_unique<CompileLayer>(*objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
-		llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+	// All the modules that have been JITted.
+	std::vector<JITModule*> jitModules;
+
+	IntrinsicResolver IntrinsicResolver::singleton;
+	void* IntrinsicResolver::getSymbolAddress(const std::string& name) const
+	{
+		const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
+		if(intrinsicFunction) { return intrinsicFunction->value; }
+		else
+		{
+			std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
+			return nullptr;
+		}
+	}
+
+	llvm::RuntimeDyld::SymbolInfo IntrinsicResolver::findSymbol(const std::string& name)
+	{
+		return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64>(getSymbolAddress(name)),llvm::JITSymbolFlags::None);
+	}
+
+	llvm::RuntimeDyld::SymbolInfo IntrinsicResolver::findSymbolInLogicalDylib(const std::string& name)
+	{
+		return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64>(getSymbolAddress(name)),llvm::JITSymbolFlags::None);
 	}
 	
-	bool compileModule(const Module* astModule)
+	void NotifyLoadedFunctor::operator()(
+		const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
+		const std::vector<std::unique_ptr<llvm::object::ObjectFile>>& objectSet,
+		const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResult
+		)
 	{
-		if(!isInitialized)
+		assert(objectSet.size() == loadResult.size());
+		for(uintptr objectIndex = 0;objectIndex < loadResult.size();++objectIndex)
 		{
-			init();
-		}
+			auto& object = objectSet[objectIndex];
+			auto& loadedObject = loadResult[objectIndex];
 
-		auto jitModule = emitModule(astModule);
-		jitModules.push_back(jitModule);
+			// Iterate over the functions in the loaded object.
+			for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object.get()))
+			{
+				auto symbol = symbolSizePair.first;
+				auto name = symbol.getName();
+				auto address = symbol.getAddress();
+				if(	symbol.getType() == llvm::object::SymbolRef::ST_Function
+				&&	name
+				&&	!address.getError())
+				{
+					// Compute the address the functions was loaded at.
+					uintptr loadedAddress = *address;
+					auto symbolSection = object->section_begin();
+					if(!symbol.getSection(symbolSection))
+					{
+						llvm::StringRef sectionName;
+						if(!symbolSection->getName(sectionName))
+						{
+							loadedAddress += (uintptr)loadedObject->getSectionLoadAddress(sectionName);
+						}
+					}
+
+					// Save the address range this function was loaded at for future address->symbol lookups.
+					jitModule->functions.push_back({*name,loadedAddress,symbolSizePair.second});
+				}
+			}
+			
+			#ifdef _WIN32
+				// On Windows, look for .pdata and .xdata sections containing information about how to unwind the stack.
+				auto textLoadAddr = loadedObject->getSectionLoadAddress(".text");
+				auto pdataLoadAddr = loadedObject->getSectionLoadAddress(".pdata");
+				auto xdataLoadAddr = loadedObject->getSectionLoadAddress(".xdata");
+				if(pdataLoadAddr && xdataLoadAddr)
+				{
+					// Find the pdata section.
+					llvm::object::SectionRef pdataSection;
+					for(auto section : object->sections())
+					{
+						llvm::StringRef sectionName;
+						if(!section.getName(sectionName) && sectionName == ".pdata")
+						{
+							pdataSection = section;
+							break;
+						}
+					}
+
+					RuntimePlatform::registerSEHUnwindInfo(
+						(uintptr)textLoadAddr,
+						(uintptr)xdataLoadAddr,
+						(uintptr)pdataLoadAddr,
+						pdataSection.getSize()
+						);
+				}
+			#endif
+		}
+	}
+
+	bool compileModule(const AST::Module* astModule)
+	{
+		auto llvmModule = emitModule(astModule);
+		
+		// Get a target machine object for this host, and set the module to use its data layout.
+		auto targetMachine = llvm::EngineBuilder().selectTarget(llvm::Triple(llvm::sys::getProcessTriple()),"","",llvm::SmallVector<std::string,0>());
+		llvmModule->setDataLayout(*targetMachine->getDataLayout());
 
 		// Verify the module.
 		#ifdef _DEBUG
 			std::string verifyOutputString;
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
-			if(llvm::verifyModule(*jitModule->llvmModule,&verifyOutputStream))
+			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
 			{
 				std::error_code errorCode;
 				llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
-				jitModule->llvmModule->print(dumpFileStream,nullptr);
+				llvmModule->print(dumpFileStream,nullptr);
 				std::cerr << "LLVM verification errors:\n" << verifyOutputStream.str() << std::endl;
 				return false;
 			}
@@ -129,11 +167,11 @@ namespace LLVMJIT
 
 		// Run some optimization on the module's functions.
 		Core::Timer optimizationTimer;
-		llvm::legacy::PassManager passManager;
-		passManager.add(llvm::createFunctionInliningPass(2,0));
-		passManager.run(*jitModule->llvmModule);
+		//llvm::legacy::PassManager passManager;
+		//passManager.add(llvm::createFunctionInliningPass(2,0));
+		//passManager.run(*llvmModule);
 
-		auto fpm = new llvm::legacy::FunctionPassManager(jitModule->llvmModule);
+		auto fpm = new llvm::legacy::FunctionPassManager(llvmModule);
 		fpm->add(llvm::createPromoteMemoryToRegisterPass());
 		fpm->add(llvm::createBasicAliasAnalysisPass());
 		fpm->add(llvm::createInstructionCombiningPass());
@@ -160,7 +198,7 @@ namespace LLVMJIT
 		fpm->add(llvm::createMemCpyOptPass());
 		fpm->add(llvm::createConstantHoistingPass());
 		fpm->doInitialization();
-		for(auto functionIt = jitModule->llvmModule->begin();functionIt != jitModule->llvmModule->end();++functionIt)
+		for(auto functionIt = llvmModule->begin();functionIt != llvmModule->end();++functionIt)
 		{ fpm->run(*functionIt); }
 		delete fpm;
 
@@ -169,30 +207,70 @@ namespace LLVMJIT
 		// Pass the module to the JIT compiler.
 		Core::Timer machineCodeTimer;
 		std::vector<llvm::Module*> moduleSet;
-		moduleSet.push_back(jitModule->llvmModule);
-		jitModule->handle = compileLayer->addModuleSet(moduleSet,llvm::make_unique<llvm::SectionMemoryManager>(),&IntrinsicResolver::singleton);
+		moduleSet.push_back(llvmModule);
+
+		// Construct the JIT module and compile layers.
+		auto jitModule = new JITModule(astModule);
+		jitModules.push_back(jitModule);
+		jitModule->objectLayer = llvm::make_unique<JITModule::ObjectLayer>(NotifyLoadedFunctor(jitModule));
+		jitModule->compileLayer = llvm::make_unique<JITModule::CompileLayer>(*jitModule->objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
+
+		// Compile the module.
+		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,llvm::make_unique<llvm::SectionMemoryManager>(),&IntrinsicResolver::singleton);
 		std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
 		
 		return true;
 	}
-}
 
-namespace Runtime
-{
-	bool compileModule(const Module* astModule)
+	std::string getExternalFunctionName(uintptr_t functionIndex)
 	{
-		return LLVMJIT::compileModule(astModule);
+		return "wasmFunc" + std::to_string(functionIndex);
 	}
 
-	void* getFunctionPointer(const Module* module,uintptr functionIndex)
+	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex)
 	{
-		for(auto jitModule : LLVMJIT::jitModules)
+		if(strncmp(externalName,"wasmFunc",8)) { return false; }
+		else
+		{
+			char* numberEnd = nullptr;
+			outFunctionIndex = std::strtoull(externalName + 8,&numberEnd,10);
+			return *numberEnd == 0;
+		}
+	}
+
+	void* getFunctionPointer(const AST::Module* module,uintptr functionIndex)
+	{
+		for(auto jitModule : jitModules)
 		{
 			if(jitModule->astModule == module)
 			{
-				return (void*)LLVMJIT::compileLayer->findSymbolIn(jitModule->handle,jitModule->functions[functionIndex]->getName(),false).getAddress();
+				return (void*)jitModule->compileLayer->findSymbolIn(jitModule->handle,getExternalFunctionName(functionIndex),false).getAddress();
 			}
 		}
 		return nullptr;
+	}
+	
+	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)
+	{
+		for(auto jitModule : jitModules)
+		{
+			for(auto function : jitModule->functions)
+			{
+				if(ip >= function.baseAddress && ip <= (function.baseAddress + function.size))
+				{
+					uintptr_t functionIndex;
+					if(getFunctionIndexFromExternalName(function.name.data(),functionIndex))
+					{
+						assert(functionIndex < jitModule->astModule->functions.size());
+						auto astFunction = jitModule->astModule->functions[functionIndex];
+						if(astFunction->name) { outDescription = astFunction->name; return true; }
+					}
+
+					outDescription = function.name;
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 }

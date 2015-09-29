@@ -12,7 +12,7 @@ namespace Runtime
 	static size_t numCommittedVirtualPages = 0;
 	static uint32 numAllocatedBytes = 0;
 
-	bool initInstanceMemory(size_t maxBytes)
+	bool initInstanceMemory()
 	{
 		numCommittedVirtualPages = 0;
 		numAllocatedBytes = 0;
@@ -24,9 +24,7 @@ namespace Runtime
 			// - Windows (haven't checked on Linux) allocates a fair amount of physical memory
 			//   for memory management data structures: 128MB for 64TB.
 			const size_t addressSpaceMaxBytes = 4ull*1024*1024*1024*1024;
-			if(maxBytes > addressSpaceMaxBytes) { return false; }
-
-			instanceAddressSpaceMaxBytes = maxBytes;
+			instanceAddressSpaceMaxBytes = addressSpaceMaxBytes;
 
 			// Align the instance memory base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
 			const size_t numAllocatedVirtualPages = addressSpaceMaxBytes >> Platform::getPreferredVirtualPageSizeLog2();
