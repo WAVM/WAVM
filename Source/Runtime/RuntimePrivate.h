@@ -11,6 +11,7 @@ namespace Runtime
 		AccessViolation,
 		StackOverflow,
 		IntegerDivideByZero,
+		IntegerOverflow,
 		Unknown
 	};
 	

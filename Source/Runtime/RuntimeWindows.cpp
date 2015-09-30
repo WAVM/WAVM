@@ -88,6 +88,7 @@ namespace RuntimePlatform
 		case EXCEPTION_ACCESS_VIOLATION: cause = ExceptionCause::AccessViolation; break;
 		case EXCEPTION_STACK_OVERFLOW: cause = ExceptionCause::StackOverflow; break;
 		case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = ExceptionCause::IntegerDivideByZero; break;
+		case EXCEPTION_INT_OVERFLOW: cause = ExceptionCause::IntegerOverflow; break;
 		}
 
 		// Unwind the stack frames from the context of the exception.

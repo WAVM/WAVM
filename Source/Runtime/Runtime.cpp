@@ -24,6 +24,7 @@ namespace Runtime
 		case ExceptionCause::AccessViolation: return "access violation";
 		case ExceptionCause::StackOverflow: return "stack overflow";
 		case ExceptionCause::IntegerDivideByZero: return "integer divide by zero";
+		case ExceptionCause::IntegerOverflow: return "integer overflow";
 		default: return "unknown";
 		}
 	}
