@@ -27,10 +27,12 @@ namespace Runtime
 			instanceAddressSpaceMaxBytes = addressSpaceMaxBytes;
 
 			// Align the instance memory base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
+			// Note that this reserves a full extra 4GB, but only uses (4GB-1 page) for alignment, so there will always be a guard page at the end to
+			// protect against unaligned loads/stores that straddle the end of the address-space.
 			const size_t numAllocatedVirtualPages = addressSpaceMaxBytes >> Platform::getPreferredVirtualPageSizeLog2();
 			const size_t alignment = 4ull*1024*1024*1024;
 			const size_t pageAlignment = alignment >> Platform::getPreferredVirtualPageSizeLog2();
-			unalignedInstanceMemoryBase = Platform::allocateVirtualPages(numAllocatedVirtualPages + pageAlignment - 1);
+			unalignedInstanceMemoryBase = Platform::allocateVirtualPages(numAllocatedVirtualPages + pageAlignment);
 			if(!unalignedInstanceMemoryBase) { return false; }
 			instanceMemoryBase = (uint8*)((uintptr)(unalignedInstanceMemoryBase + alignment - 1) & ~(alignment - 1));
 		}
