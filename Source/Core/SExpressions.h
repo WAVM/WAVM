@@ -15,7 +15,8 @@ namespace SExp
 		Symbol,
 		String,
 		UnindexedSymbol,
-		Int,
+		SignedInt,
+		UnsignedInt,
 		Decimal,
 		Error,
 		Tree
@@ -32,6 +33,7 @@ namespace SExp
 			uintptr symbol;
 			const char* string;
 			int64 integer;
+			uint64 unsignedInteger;
 			float64 decimal;
 			Node* children;
 		};
@@ -181,7 +183,7 @@ namespace SExp
 		template<typename T> void appendInt(T i)
 		{
 			auto intNode = new(arena) Node();
-			intNode->type = SExp::NodeType::Int;
+			intNode->type = SExp::NodeType::SignedInt;
 			intNode->integer = i;
 			append(intNode);
 		}

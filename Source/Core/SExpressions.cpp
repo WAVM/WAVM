@@ -1,8 +1,8 @@
 #include "Core/Core.h"
 #include "Core/SExpressions.h"
 #include <initializer_list>
-#include <limits>
-#include <cmath>
+#include <climits>
+#include <cerrno>
 
 namespace SExp
 {
@@ -16,10 +16,25 @@ namespace SExp
 
 	struct StreamState
 	{
+		const char* next;
+		Core::TextFileLocus locus;
+
 		StreamState(const char* inString)
 		:	next(inString)
 		{}
-
+		
+		char peek() const
+		{
+			return *next;
+		}
+		char consume()
+		{
+			auto result = *next;
+			advance();
+			return result;
+		}
+		Core::TextFileLocus getLocus() const { return locus; }
+		
 		void advance()
 		{
 			switch(*next)
@@ -31,21 +46,23 @@ namespace SExp
 			};
 			next++;
 		}
-		char get() const
+		void advanceToPtr(const char* newNext)
 		{
-			return *next;
+			while(next != newNext)
+			{
+				advance();
+			};
 		}
-		Core::TextFileLocus getLocus() const { return locus; }
 
 		// Tries to skip to the next instance of a character, excluding instances between nested parentheses.
 		// If successful, returns true. Will stop skipping and return false if it hits the end of the string or
 		// a closing parenthesis that doesn't match a skipped opening parenthesis.
-		bool skipToNext(char c)
+		bool advanceToNext(char c)
 		{
 			uint32 parenthesesDepth = 0;
 			while(true)
 			{
-				auto nextChar = get();
+				auto nextChar = peek();
 				if(nextChar == 0)
 				{
 					return false;
@@ -69,10 +86,6 @@ namespace SExp
 				advance();
 			};
 		}
-
-	private:
-		const char* next;
-		Core::TextFileLocus locus;
 	};
 
 	bool isWhitespace(char c)
@@ -115,7 +128,7 @@ namespace SExp
 
 	bool parseCharEscapeCode(StreamState& state,char& outCharacter)
 	{
-		switch(state.get())
+		switch(state.peek())
 		{
 		case 'n':	outCharacter = '\n'; break;
 		case 't': outCharacter = '\t'; break;
@@ -125,13 +138,13 @@ namespace SExp
 		default:
 		{
 			char firstValue;
-			if(!parseHexDigit(state.get(),firstValue))
+			if(!parseHexDigit(state.peek(),firstValue))
 			{
 				return false;
 			}
 			state.advance();
 			char secondValue;
-			if(!parseHexDigit(state.get(),secondValue))
+			if(!parseHexDigit(state.peek(),secondValue))
 			{
 				return false;
 			}
@@ -150,14 +163,14 @@ namespace SExp
 		Memory::ArenaString string;
 		while(true)
 		{
-			const char nextChar = state.get();
+			const char nextChar = state.peek();
 			if(nextChar == '\n' || nextChar == 0)
 			{
 				string.reset(arena);
 				node->endLocus = state.getLocus();
 				node->type = NodeType::Error;
 				node->error = "unexpected newline or end of file in quoted string";
-				state.skipToNext('\"');
+				state.advanceToNext('\"');
 				return node;
 			}
 			else if(nextChar == '\\')
@@ -170,7 +183,7 @@ namespace SExp
 					node->endLocus = state.getLocus();
 					node->type = NodeType::Error;
 					node->error = "invalid escape code in quoted string";
-					state.skipToNext('\"');
+					state.advanceToNext('\"');
 					return node;
 				}
 				string.append(arena,escapedChar);
@@ -199,10 +212,10 @@ namespace SExp
 		Memory::ArenaString string;
 		do
 		{
-			string.append(arena,state.get());
+			string.append(arena,state.peek());
 			state.advance();
 		}
-		while(isSymbolCharacter(state.get()));
+		while(isSymbolCharacter(state.peek()));
 
 		node->endLocus = state.getLocus();
 
@@ -229,105 +242,53 @@ namespace SExp
 	{
 		auto startLocus = state.getLocus();
 
-		bool isNegative = false;
-		uint8 base = 10;
-		if(state.get() == '+' || state.get() == '-')
-		{
-			isNegative = state.get() == '-';
-			state.advance();
-		}
-		if(state.get() == '0')
-		{
-			state.advance();
-			if(state.get() == 'x')
-			{
-				base = 16;
-				state.advance();
-			}
-		}
-
-		// First parse the digits and decimal point.
-		Memory::ArenaString digits;
-		uintptr numIntegerDigits = 0;
-		bool hasDecimalPoint = false;
-		while(true)
-		{
-			auto nextChar = state.get();
-			char hexDigit;
-			if(base == 10 && isDigit(nextChar)) { digits.append(arena,nextChar - '0'); }
-			else if(base == 16 && parseHexDigit(nextChar,hexDigit)) { digits.append(arena,hexDigit); }
-			else if(nextChar == '.')
-			{
-				if(hasDecimalPoint)
-				{
-					auto node = new(arena) Node(state.getLocus(),NodeType::Error);
-					node->error = "number must have no more than one decimal point";
-					return node;
-				}
-				else
-				{
-					numIntegerDigits = digits.length();
-					hasDecimalPoint = true;
-				}
-			}
-			else
-			{
-				break;
-			}
-			state.advance();
-		}
+		errno = 0;
+		const char* f64End = state.next;
+		float64 f64 = std::strtod(state.next,const_cast<char**>(&f64End));
+		auto f64Error = errno;
 		
-		if(hasDecimalPoint)
-		{
-			// If the number has a decimal point, decode its digits into a float64.
-			float64 accumulator = 0.0;
-			float64 digitFactor = isNegative ? -1.0 : 1.0;
-			for(uintptr digitIndex = 0;digitIndex < digits.length();++digitIndex)
-			{
-				if(digitIndex < numIntegerDigits)
-				{
-					// Detect if the float64 is about to overflow its maximum value.
-					if(std::abs(accumulator) > std::numeric_limits<float64>::max() / base)
-					{
-						auto node = new(arena) Node(state.getLocus(),NodeType::Error);
-						node->error = "number is too large to represent as a 64-bit float";
-						return node;
-					}
-					accumulator *= base;
-				}
-				else { digitFactor /= base; }
-				accumulator += digitFactor * digits[digitIndex];
-			}
-			digits.reset(arena);
+		errno = 0;
+		const char* i64End = state.next;
+		const bool isNegative = state.peek() == '-';
+		int64 i64 = isNegative
+			? std::strtoll(state.next,const_cast<char**>(&i64End),0)
+			: (int64)std::strtoull(state.next,const_cast<char**>(&i64End),0);
+		auto i64Error = errno;
 
-			auto node = new(arena)Node(startLocus,NodeType::Decimal);
-			node->decimal = accumulator;
-			return node;
-		}
-		else
+		// Between the float and the integer parser, use whichever consumed more input, favoring integers if they're equal.
+		if(f64End > i64End)
 		{
-			// If the number doesn't have a decimal point, decode its digits into an int64.
-			uint64 accumulator = 0;
-			bool notEnoughBits = false;
-			for(uintptr digitIndex = 0;digitIndex < digits.length();++digitIndex)
-			{
-				// Detect if the uint64 is about to overflow.
-				if(accumulator > std::numeric_limits<uint64>::max() / base) { notEnoughBits = true; }
-				accumulator *= base;
-				accumulator += digits[digitIndex];
-			}
-			digits.reset(arena);
-			if(isNegative && -(-(int64)accumulator) != (int64)accumulator) { notEnoughBits = true; }			
-			if(notEnoughBits)
+			if(f64Error == ERANGE)
 			{
 				auto node = new(arena) Node(state.getLocus(),NodeType::Error);
-				node->error = "number is too large to represent as a 64-bit integer";
+				node->error = "number is outside range of 64-bit float";
 				return node;
 			}
 			else
 			{
-				auto node = new(arena)Node(startLocus,NodeType::Int);
-				node->integer = isNegative ? -(int64)accumulator : +accumulator;
+				assert(!f64Error);
+				auto node = new(arena) Node(state.getLocus(),NodeType::Decimal);
+				state.advanceToPtr(f64End);
+				node->endLocus = state.getLocus();
+				node->decimal = f64;
+				return node;
+			}
+		}
+		else
+		{
+			if(i64Error == ERANGE)
+			{
+				auto node = new(arena) Node(state.getLocus(),NodeType::Error);
+				node->error = "number is outside range of 64-bit integer";
+				return node;
+			}
+			else
+			{
+				assert(!i64Error);
+				auto node = new(arena) Node(state.getLocus(),isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
+				state.advanceToPtr(i64End);
+				node->endLocus = state.getLocus();
+				node->integer = i64;
 				return node;
 			}
 		}
@@ -337,7 +298,7 @@ namespace SExp
 	{
 		while(true)
 		{
-			const char nextChar = state.get();
+			const char nextChar = state.peek();
 			if(nextChar == 0)
 			{
 				break;
@@ -351,30 +312,30 @@ namespace SExp
 			{
 				// Parse a line comment.
 				state.advance();
-				if(state.get() != ';')
+				if(state.peek() != ';')
 				{
 					throw new(arena) FatalParseException(state.getLocus(),std::string("expected ';' following ';' but found '") + nextChar + "'");
 				}
 
-				while(state.get() != '\n' && state.get() != 0) state.advance();
+				while(state.peek() != '\n' && state.peek() != 0) state.advance();
 			}
 			else if(nextChar == '(')
 			{
 				state.advance();
 
-				if(state.get() == ';')
+				if(state.peek() == ';')
 				{
 					// Parse a block comment.
 					do
 					{
-						state.skipToNext(';');
+						state.advanceToNext(';');
 						state.advance();
-						if(state.get() == 0)
+						if(state.peek() == 0)
 						{
 							throw new(arena) FatalParseException(state.getLocus(),"reached end of file while parsing block comment");
 						}
 					}
-					while(state.get() != ')');
+					while(state.peek() != ')');
 					state.advance();
 				}
 				else
@@ -382,7 +343,7 @@ namespace SExp
 					// Recursively parse child nodes.
 					auto newNode = new(arena)Node(state.getLocus());
 					parseRecursive(state,arena,symbolIndexMap,&newNode->children);
-					if(state.get() != ')')
+					if(state.peek() != ')')
 					{
 						throw new(arena) FatalParseException(state.getLocus(),std::string("expected ')' following S-expression child nodes but found '") + nextChar + "'");
 					}
@@ -481,7 +442,8 @@ namespace SExp
 			case NodeType::UnindexedSymbol: childStrings.emplace_back(node->string); break;
 			case NodeType::String: childStrings.emplace_back(std::move(std::string() + '\"' + escapeString(node->string,node->stringLength) + '\"')); break;
 			case NodeType::Error: childStrings.emplace_back(node->error); break;
-			case NodeType::Int: childStrings.emplace_back(std::move(std::to_string(node->integer))); break;
+			case NodeType::SignedInt: childStrings.emplace_back(std::move(std::to_string(node->integer))); break;
+			case NodeType::UnsignedInt: childStrings.emplace_back(std::move(std::to_string(node->unsignedInteger))); break;
 			case NodeType::Decimal: childStrings.emplace_back(std::move(std::to_string(node->decimal))); break;
 			default: throw;
 			};

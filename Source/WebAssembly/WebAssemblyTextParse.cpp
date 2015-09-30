@@ -30,7 +30,8 @@ namespace WebAssemblyText
 			{
 			case SExp::NodeType::Tree: return "(" + describeSNode(node->children) + ")";
 			case SExp::NodeType::Symbol: return wastSymbols[node->symbol];
-			case SExp::NodeType::Int: return std::to_string(node->integer);
+			case SExp::NodeType::SignedInt: return std::to_string(node->integer);
+			case SExp::NodeType::UnsignedInt: return std::to_string(node->unsignedInteger);
 			case SExp::NodeType::Decimal: return std::to_string(node->decimal);
 			case SExp::NodeType::Error: return node->error;
 			case SExp::NodeType::String: return node->string;
@@ -73,7 +74,8 @@ namespace WebAssemblyText
 	// Parse an integer from a S-expression node.
 	bool parseInt(SNodeIt& nodeIt,int64& outInt)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::Int) { outInt = nodeIt->integer; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outInt = nodeIt->integer; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt) { outInt = nodeIt->unsignedInteger; ++nodeIt; return true; }
 		else { return false; }
 	}
 
@@ -81,7 +83,8 @@ namespace WebAssemblyText
 	bool parseFloat64(SNodeIt& nodeIt,float64& outDouble)
 	{
 		if(nodeIt && nodeIt->type == SExp::NodeType::Decimal) { outDouble = nodeIt->decimal; ++nodeIt; return true; }
-		else if(nodeIt && nodeIt->type == SExp::NodeType::Int) { outDouble = (float64)nodeIt->integer; ++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outDouble = (float64)nodeIt->integer; ++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt) { outDouble = (float64)nodeIt->unsignedInteger; ++nodeIt; return true; }
 		else { return false; }
 	}
 
