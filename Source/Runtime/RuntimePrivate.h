@@ -38,7 +38,7 @@ namespace Runtime
 	uint32 vmSbrk(int32 numBytes);
 
 	// Given an address as a byte index, returns a typed reference to that address of VM memory.
-	template<typename memoryType> memoryType& instanceMemoryRef(uint32 address)
+	template<typename memoryType> memoryType& instanceMemoryRef(uintptr address)
 	{
 		return *(memoryType*)(instanceMemoryBase + address);
 	}

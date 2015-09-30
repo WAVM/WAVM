@@ -275,7 +275,7 @@ namespace Runtime
 			uint32 base = instanceMemoryRef<uint32>(iov + i * 8);
 			uint32 len = instanceMemoryRef<uint32>(iov + i * 8 + 4);
 			// TODO write to the specified file descriptor when implemented.
-			size_t size = fwrite(&instanceMemoryRef<char>(base), 1, len, stdout);
+			uint32 size = (uint32)fwrite(&instanceMemoryRef<char>(base), 1, len, stdout);
 			count += size;
 			if (size < len)
 				break;
