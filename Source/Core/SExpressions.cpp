@@ -240,8 +240,6 @@ namespace SExp
 
 	Node* parseNumber(StreamState& state,Memory::Arena& arena)
 	{
-		auto startLocus = state.getLocus();
-
 		errno = 0;
 		const char* f64End = state.next;
 		float64 f64 = std::strtod(state.next,const_cast<char**>(&f64End));
