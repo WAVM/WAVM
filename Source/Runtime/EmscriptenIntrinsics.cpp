@@ -262,10 +262,10 @@ namespace Runtime
 		throw "___syscall140";
 	}
 
-	DEFINE_INTRINSIC_FUNCTION2(emscripten,___syscall146,I32,I32,a,I32,b)
+	DEFINE_INTRINSIC_FUNCTION2(emscripten,___syscall146,I32,I32,file,I32,argsPtr)
 	{
 		// writev
-		uint32 *args = &instanceMemoryRef<uint32>(b);
+		uint32 *args = &instanceMemoryRef<uint32>(argsPtr);
 		uint32 iov = args[1];
 		uint32 iovcnt = args[2];
 #ifdef _WIN32
@@ -277,8 +277,7 @@ namespace Runtime
 
 			uint32 base = instanceMemoryRef<uint32>(iov + i * 8);
 			uint32 len = instanceMemoryRef<uint32>(iov + i * 8 + 4);
-			// TODO write to the specified file descriptor when implemented.
-			uint32 size = (uint32)fwrite(&instanceMemoryRef<char>(base), 1, len, stdout);
+			uint32 size = (uint32)fwrite(&instanceMemoryRef<char>(base), 1, len, vmFile(file));
 			count += size;
 			if (size < len)
 				break;
@@ -292,8 +291,7 @@ namespace Runtime
 			native_iovec[i].iov_base = &instanceMemoryRef<char>(base);
 			native_iovec[i].iov_len = len;
 		}
-		// TODO write to the specified file descriptor when implemented.
-		ssize_t count = writev(1, native_iovec, iovcnt);
+		ssize_t count = writev(vmFile(file), native_iovec, iovcnt);
 		delete native_iovec;
 #endif
 		return count;
