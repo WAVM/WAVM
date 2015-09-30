@@ -291,7 +291,7 @@ namespace Runtime
 			native_iovec[i].iov_base = &instanceMemoryRef<char>(base);
 			native_iovec[i].iov_len = len;
 		}
-		ssize_t count = writev(vmFile(file), native_iovec, iovcnt);
+		ssize_t count = writev(fileno(vmFile(file)), native_iovec, iovcnt);
 		delete native_iovec;
 #endif
 		return count;
