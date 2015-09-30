@@ -137,7 +137,7 @@ namespace LLVMJIT
 				return exitBlock;
 			}
 		}
-
+		
 		// Compiles an if-else expression using thunks to define the true and false branches.
 		template<typename TrueValueThunk,typename FalseValueThunk>
 		llvm::Value* compileIfElse(TypeId type,llvm::Value* condition,TrueValueThunk trueValueThunk,FalseValueThunk falseValueThunk)
@@ -534,7 +534,7 @@ namespace LLVMJIT
 			// LLVM's srem has undefined behavior where WebAssembly's rem_s defines that it should not trap if the corresponding
 			// division would overflow a signed integer. To avoid this case, we just branch if the srem(INT_MAX,-1) case that overflows
 			// is detected.
-
+			
 			llvm::Value* intMin = type == TypeId::I32 ? compileLiteral((uint32)INT_MIN) : compileLiteral((uint64)INT64_MIN);
 			llvm::Value* negativeOne = type == TypeId::I32 ? compileLiteral((uint32)-1) : compileLiteral((uint64)-1);
 			llvm::Value* zero = typedZeroConstants[(size_t)type];
@@ -548,6 +548,21 @@ namespace LLVMJIT
 				[&] { return zero; },
 				[&] { return irBuilder.CreateSRem(left,right); }
 				);
+		}
+
+		llvm::Value* compileShift(TypeId type,llvm::Value* shiftBits,llvm::Value* smallShiftValue,llvm::Value* largeShiftValue)
+		{
+			// LLVM's shifts have undefined behavior where WebAssembly defines shifts >= the bit width of the integer
+			// to yield zero (or -1 for shr_s on a negative number). To handle this case, use a different value depending
+			// one whether the shift value is >= the bit width of the operands.
+			auto bits = irBuilder.CreateZExt(compileLiteral((uint8)getTypeBitWidth(type)),llvmTypesByTypeId[(size_t)type]);
+			return irBuilder.CreateSelect(irBuilder.CreateICmpULT(shiftBits,bits),smallShiftValue,largeShiftValue);
+		}
+
+		llvm::Value* compileShrSExt(TypeId type,llvm::Value* left,llvm::Value* right)
+		{
+			auto bitsMinusOne = irBuilder.CreateZExt(compileLiteral((uint8)(getTypeBitWidth(type) - 1)),llvmTypesByTypeId[(size_t)type]);
+			return compileShift(type,right,irBuilder.CreateAShr(left,right),irBuilder.CreateAShr(left,bitsMinusOne));
 		}
 
 		template<typename Class,typename OpAsType> DispatchResult visitUnary(TypeId type,const Unary<Class>* unary,OpAsType);
@@ -598,9 +613,9 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseAnd,irBuilder.CreateAnd(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseOr,irBuilder.CreateOr(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseXor,irBuilder.CreateXor(left,right))
-		IMPLEMENT_BINARY_OP(IntClass,shl,irBuilder.CreateShl(left,right))
-		IMPLEMENT_BINARY_OP(IntClass,shrSExt,irBuilder.CreateAShr(left,right))
-		IMPLEMENT_BINARY_OP(IntClass,shrZExt,irBuilder.CreateLShr(left,right))
+		IMPLEMENT_BINARY_OP(IntClass,shl,compileShift(type,right,irBuilder.CreateShl(left,right),typedZeroConstants[(size_t)type]))
+		IMPLEMENT_BINARY_OP(IntClass,shrSExt,compileShrSExt(type,left,right))
+		IMPLEMENT_BINARY_OP(IntClass,shrZExt,compileShift(type,right,irBuilder.CreateLShr(left,right),typedZeroConstants[(size_t)type]))
 		IMPLEMENT_CAST_OP(IntClass,wrap,irBuilder.CreateTrunc(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,truncSignedFloat,irBuilder.CreateFPToSI(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,truncUnsignedFloat,irBuilder.CreateFPToUI(source,destType))
