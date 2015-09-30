@@ -52,21 +52,21 @@ namespace Runtime
 			const uint32 pageSizeLog2 = Platform::getPreferredVirtualPageSizeLog2();
 			const uint32 pageSize = 1ull << pageSizeLog2;
 			const size_t numDesiredPages = (numAllocatedBytes + numBytes + pageSize - 1) >> pageSizeLog2;
-			const size_t numNewPages = numDesiredPages - numCommittedVirtualPages;
-			if(numNewPages > 0)
+			const intptr deltaPages = numDesiredPages - numCommittedVirtualPages;
+			if(deltaPages > 0)
 			{
-				bool successfullyCommittedPhysicalMemory = Platform::commitVirtualPages(instanceMemoryBase + (numCommittedVirtualPages << pageSizeLog2),numNewPages);
+				bool successfullyCommittedPhysicalMemory = Platform::commitVirtualPages(instanceMemoryBase + (numCommittedVirtualPages << pageSizeLog2),deltaPages);
 				if(!successfullyCommittedPhysicalMemory)
 				{
 					return (uint32)-1;
 				}
-				numAllocatedBytes += numBytes;
-				numCommittedVirtualPages += numNewPages;
+				numCommittedVirtualPages += deltaPages;
 			}
+			numAllocatedBytes += numBytes;
 		}
 		else if(numBytes < 0)
 		{
-			numAllocatedBytes -= numBytes;
+			numAllocatedBytes += numBytes;
 		}
 		return (int32)existingNumBytes;
 	}
