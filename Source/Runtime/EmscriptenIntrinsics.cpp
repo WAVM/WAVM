@@ -212,7 +212,7 @@ namespace Runtime
 	}
 	DEFINE_INTRINSIC_FUNCTION4(emscripten,_fwrite,I32,I32,pointer,I32,size,I32,count,I32,file)
 	{
-		if(pointer + uint64(size) * count > (1ull << 32))
+		if(pointer + uint64(size) * (count + 1) > instanceAddressSpaceMaxBytes)
 		{
 			throw;
 		}
@@ -272,6 +272,9 @@ namespace Runtime
 		uint32 count = 0;
 		for(size_t i = 0; i < iovcnt; i++)
 		{
+			// Detect reads outside the sandbox
+			if(iov + (i+1) * 8 > instanceAddressSpaceMaxBytes) { throw; }
+
 			uint32 base = instanceMemoryRef<uint32>(iov + i * 8);
 			uint32 len = instanceMemoryRef<uint32>(iov + i * 8 + 4);
 			// TODO write to the specified file descriptor when implemented.
