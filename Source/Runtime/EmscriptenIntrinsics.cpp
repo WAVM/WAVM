@@ -272,11 +272,11 @@ namespace Runtime
 		uint32 count = 0;
 		for(size_t i = 0; i < iovcnt; i++)
 		{
-			// Detect reads outside the sandbox
 			if(iov + (i+1) * 8 > instanceAddressSpaceMaxBytes) { throw; }
-
 			uint32 base = instanceMemoryRef<uint32>(iov + i * 8);
 			uint32 len = instanceMemoryRef<uint32>(iov + i * 8 + 4);
+			if(base + len + 1 > instanceAddressSpaceMaxBytes) { throw; }
+
 			uint32 size = (uint32)fwrite(&instanceMemoryRef<char>(base), 1, len, vmFile(file));
 			count += size;
 			if (size < len)
@@ -286,8 +286,11 @@ namespace Runtime
 		struct iovec *native_iovec = new struct iovec [iovcnt];
 		for(size_t i = 0; i < iovcnt; i++)
 		{
+			if(iov + (i+1) * 8 > instanceAddressSpaceMaxBytes) { throw; }
 			uint32 base = instanceMemoryRef<uint32>(iov + i * 8);
 			uint32 len = instanceMemoryRef<uint32>(iov + i * 8 + 4);
+			if(base + len + 1 > instanceAddressSpaceMaxBytes) { throw; }
+
 			native_iovec[i].iov_base = &instanceMemoryRef<char>(base);
 			native_iovec[i].iov_len = len;
 		}
