@@ -6,15 +6,6 @@
 
 namespace Runtime
 {
-	enum class ExceptionCause
-	{
-		AccessViolation,
-		StackOverflow,
-		IntegerDivideByZero,
-		IntegerOverflow,
-		Unknown
-	};
-	
 	struct StackFrame
 	{
 		uintptr_t ip;
@@ -53,10 +44,10 @@ namespace Runtime
 	void initWebAssemblyIntrinsics();
 	
 	// Handles an exception.
-	void handleGlobalException(ExceptionCause cause,const ExecutionContext& context);
+	void handleException(Exception::Cause cause,const ExecutionContext& context);
 
-	// Prints an execution context.
-	void printExecutionContext(const ExecutionContext& context);
+	// Describes a stack frame.
+	std::string describeStackFrame(const StackFrame& frame);
 }
 
 namespace RuntimePlatform

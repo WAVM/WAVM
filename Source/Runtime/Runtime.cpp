@@ -17,36 +17,24 @@ namespace Runtime
 		return initInstanceMemory();
 	}
 	
-	const char* describeExceptionCause(ExceptionCause cause)
+	void handleException(Exception::Cause cause,const ExecutionContext& context)
 	{
-		switch(cause)
-		{
-		case ExceptionCause::AccessViolation: return "access violation";
-		case ExceptionCause::StackOverflow: return "stack overflow";
-		case ExceptionCause::IntegerDivideByZero: return "integer divide by zero";
-		case ExceptionCause::IntegerOverflow: return "integer overflow";
-		default: return "unknown";
-		}
-	}
-
-	void handleGlobalException(ExceptionCause cause,const ExecutionContext& context)
-	{
-		std::cerr << "Exception: " << describeExceptionCause(cause) << std::endl;
-		std::cerr << "Call stack:" << std::endl;
-		printExecutionContext(context);
-	}
-
-	void printExecutionContext(const ExecutionContext& context)
-	{
+		std::vector<std::string> frameDescriptions;
 		for(auto stackFrame : context.stackFrames)
 		{
-			std::string frameDescription;
-			const bool hasDescripton = 
-				LLVMJIT::describeInstructionPointer(stackFrame.ip,frameDescription)
-			||	RuntimePlatform::describeInstructionPointer(stackFrame.ip,frameDescription);
-			if(hasDescripton) { std::cerr << "  " << frameDescription << std::endl; }
-			else { std::cerr << "  IP=0x" << std::hex << stackFrame.ip << ", SP=0x" << stackFrame.bp << std::dec << std::endl; }
+			frameDescriptions.push_back(describeStackFrame(stackFrame));
 		}
+		throw new Exception {cause,frameDescriptions};
+	}
+
+	std::string describeStackFrame(const StackFrame& frame)
+	{
+		std::string frameDescription;
+		const bool hasDescripton = 
+			LLVMJIT::describeInstructionPointer(frame.ip,frameDescription)
+		||	RuntimePlatform::describeInstructionPointer(frame.ip,frameDescription);
+		if(hasDescripton) { return frameDescription; }
+		else { return "<unknown function>"; }
 	}
 
 	bool loadModule(const AST::Module* module)

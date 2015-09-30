@@ -10,7 +10,21 @@
 namespace AST { struct Module; }
 
 namespace Runtime
-{
+{	
+	struct Exception
+	{
+		enum class Cause
+		{
+			AccessViolation,
+			StackOverflow,
+			IntegerDivideByZero,
+			IntegerOverflow
+		};
+
+		Cause cause;
+		std::vector<std::string> callStack;		
+	};
+
 	// Initializes the runtime.
 	RUNTIME_API bool init();
 

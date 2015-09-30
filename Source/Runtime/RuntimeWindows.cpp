@@ -82,22 +82,21 @@ namespace RuntimePlatform
 	LONG CALLBACK vectoredExceptionHandler(EXCEPTION_POINTERS* exceptionPointers)
 	{
 		// Interpret the cause of the exception.
-		ExceptionCause cause = ExceptionCause::Unknown;
+		Exception::Cause cause;
 		switch(exceptionPointers->ExceptionRecord->ExceptionCode)
 		{
-		case EXCEPTION_ACCESS_VIOLATION: cause = ExceptionCause::AccessViolation; break;
-		case EXCEPTION_STACK_OVERFLOW: cause = ExceptionCause::StackOverflow; break;
-		case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = ExceptionCause::IntegerDivideByZero; break;
-		case EXCEPTION_INT_OVERFLOW: cause = ExceptionCause::IntegerOverflow; break;
+		case EXCEPTION_ACCESS_VIOLATION: cause = Exception::Cause::AccessViolation; break;
+		case EXCEPTION_STACK_OVERFLOW: cause = Exception::Cause::StackOverflow; break;
+		case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::IntegerDivideByZero; break;
+		case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::IntegerOverflow; break;
+		default: return EXCEPTION_CONTINUE_SEARCH;
 		}
 
 		// Unwind the stack frames from the context of the exception.
 		auto executionContext = unwindStack(*exceptionPointers->ContextRecord);
 
 		// Pass the exception to the platform independent handler.
-		Runtime::handleGlobalException(cause,executionContext);
-
-		// Allow other exception handlers to see the exception.
+		Runtime::handleException(cause,executionContext);
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
 
