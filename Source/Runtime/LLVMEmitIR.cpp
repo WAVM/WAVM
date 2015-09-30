@@ -138,6 +138,35 @@ namespace LLVMJIT
 			}
 		}
 
+		// Compiles an if-else expression using thunks to define the true and false branches.
+		template<typename TrueValueThunk,typename FalseValueThunk>
+		llvm::Value* compileIfElse(TypeId type,llvm::Value* condition,TrueValueThunk trueValueThunk,FalseValueThunk falseValueThunk)
+		{
+			auto trueBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
+			auto falseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
+			auto successorBlock = llvm::BasicBlock::Create(context,"ifSucc",llvmFunction);
+
+			compileCondBranch(condition,trueBlock,falseBlock);
+
+			irBuilder.SetInsertPoint(trueBlock);
+			auto trueValue = trueValueThunk();
+			auto trueExitBlock = compileBranch(successorBlock);
+
+			irBuilder.SetInsertPoint(falseBlock);
+			auto falseValue = falseValueThunk();
+			auto falseExitBlock = compileBranch(successorBlock);
+
+			irBuilder.SetInsertPoint(successorBlock);
+			if(type == TypeId::Void) { return voidDummy; }
+			else
+			{
+				auto phi = irBuilder.CreatePHI(trueValue->getType(),2);
+				if(trueExitBlock) { phi->addIncoming(trueValue,trueExitBlock); }
+				if(falseExitBlock) { phi->addIncoming(falseValue,falseExitBlock); }
+				return phi;
+			}
+		}
+
 		// Returns a LLVM intrinsic with the given id and argument types.
 		DispatchResult getLLVMIntrinsic(const std::initializer_list<llvm::Type*>& argTypes,llvm::Intrinsic::ID id)
 		{
@@ -352,31 +381,12 @@ namespace LLVMJIT
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
 		{
-			auto condition = dispatch(*this,ifElse->condition,TypeId::Bool);
-
-			auto trueBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
-			auto falseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
-			auto successorBlock = llvm::BasicBlock::Create(context,"ifSucc",llvmFunction);
-
-			compileCondBranch(condition,trueBlock,falseBlock);
-
-			irBuilder.SetInsertPoint(trueBlock);
-			auto trueValue = dispatch(*this,ifElse->thenExpression,type);
-			auto trueExitBlock = compileBranch(successorBlock);
-
-			irBuilder.SetInsertPoint(falseBlock);
-			auto falseValue = dispatch(*this,ifElse->elseExpression,type);
-			auto falseExitBlock = compileBranch(successorBlock);
-
-			irBuilder.SetInsertPoint(successorBlock);
-			if(type == TypeId::Void) { return voidDummy; }
-			else
-			{
-				auto phi = irBuilder.CreatePHI(trueValue->getType(),2);
-				if(trueExitBlock) { phi->addIncoming(trueValue,trueExitBlock); }
-				if(falseExitBlock) { phi->addIncoming(falseValue,falseExitBlock); }
-				return phi;
-			}
+			return compileIfElse(
+				type,
+				dispatch(*this,ifElse->condition,TypeId::Bool),
+				[&] { return dispatch(*this,ifElse->thenExpression,type); },
+				[&] { return dispatch(*this,ifElse->elseExpression,type); }
+				);
 		}
 		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)
@@ -519,6 +529,27 @@ namespace LLVMJIT
 			return irBuilder.CreateXor(irBuilder.CreateAdd(operand,mask),mask);
 		}
 
+		llvm::Value* compileSRem(TypeId type,llvm::Value* left,llvm::Value* right)
+		{
+			// LLVM's srem has undefined behavior where WebAssembly's rem_s defines that it should not trap if the corresponding
+			// division would overflow a signed integer. To avoid this case, we just branch if the srem(INT_MAX,-1) case that overflows
+			// is detected.
+
+			llvm::Value* intMin = type == TypeId::I32 ? compileLiteral((uint32)INT_MIN) : compileLiteral((uint64)INT64_MIN);
+			llvm::Value* negativeOne = type == TypeId::I32 ? compileLiteral((uint32)-1) : compileLiteral((uint64)-1);
+			llvm::Value* zero = typedZeroConstants[(size_t)type];
+
+			return compileIfElse(
+				type,
+				irBuilder.CreateAnd(
+					irBuilder.CreateICmpEQ(left,intMin),
+					irBuilder.CreateICmpEQ(right,negativeOne)
+					),
+				[&] { return zero; },
+				[&] { return irBuilder.CreateSRem(left,right); }
+				);
+		}
+
 		template<typename Class,typename OpAsType> DispatchResult visitUnary(TypeId type,const Unary<Class>* unary,OpAsType);
 		template<typename Class,typename OpAsType> DispatchResult visitBinary(TypeId type,const Binary<Class>* binary,OpAsType);
 		template<typename Class,typename OpAsType> DispatchResult visitCast(TypeId type,const Cast<Class>* cast,OpAsType);
@@ -562,7 +593,7 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(IntClass,mul,irBuilder.CreateMul(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,divs,irBuilder.CreateSDiv(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,divu,irBuilder.CreateUDiv(left,right))
-		IMPLEMENT_BINARY_OP(IntClass,rems,irBuilder.CreateSRem(left,right))
+		IMPLEMENT_BINARY_OP(IntClass,rems,compileSRem(type,left,right))
 		IMPLEMENT_BINARY_OP(IntClass,remu,irBuilder.CreateURem(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseAnd,irBuilder.CreateAnd(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseOr,irBuilder.CreateOr(left,right))
