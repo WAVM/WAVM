@@ -5,6 +5,8 @@
 
 namespace RuntimePlatform
 {
+	using namespace Runtime;
+
 	Value catchRuntimeExceptions(const std::function<Value()>& thunk)
 	{
 		return thunk();
