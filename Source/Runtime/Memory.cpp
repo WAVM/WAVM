@@ -4,6 +4,7 @@
 
 namespace Runtime
 {
+	bool instanceMemoryInitialized = false;
 	uint8* instanceMemoryBase = nullptr;
 	size_t instanceAddressSpaceMaxBytes = 0;
 
@@ -16,8 +17,16 @@ namespace Runtime
 	{
 		numCommittedVirtualPages = 0;
 		numAllocatedBytes = 0;
-		if(!instanceMemoryBase)
+		if(!instanceMemoryInitialized)
 		{
+#if INTPTR_MAX == INT32_MAX
+			const size_t addressSpaceMaxBytes = 0x40000000;
+			instanceAddressSpaceMaxBytes = addressSpaceMaxBytes;
+			const size_t numAllocatedVirtualPages = addressSpaceMaxBytes >> Platform::getPreferredVirtualPageSizeLog2();
+			unalignedInstanceMemoryBase = Platform::allocateVirtualPages(numAllocatedVirtualPages);
+			if(!unalignedInstanceMemoryBase) { return false; }
+			instanceMemoryBase = unalignedInstanceMemoryBase;
+#else
 			// Allocate 4TB of address space for the instance. This is a tradeoff:
 			// - Windows 8+ and Linux user processes can allocate 128TB of virtual memory.
 			// - Windows 7 user processes can allocate 8TB of virtual memory.
@@ -35,6 +44,8 @@ namespace Runtime
 			unalignedInstanceMemoryBase = Platform::allocateVirtualPages(numAllocatedVirtualPages + pageAlignment);
 			if(!unalignedInstanceMemoryBase) { return false; }
 			instanceMemoryBase = (uint8*)((uintptr)(unalignedInstanceMemoryBase + alignment - 1) & ~(alignment - 1));
+#endif
+			instanceMemoryInitialized = true;
 		}
 		return true;
 	}

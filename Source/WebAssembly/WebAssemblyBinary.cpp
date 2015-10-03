@@ -1606,7 +1606,11 @@ namespace WebAssemblyBinary
 		auto segmentArenaData = outModule->arena.copyToArena(data,numDataBytes);
 		outModule->dataSegments.push_back({8,numDataBytes,segmentArenaData});
 		outModule->initialNumBytesMemory = numDataBytes + 8;
+#if INTPTR_MAX == INT32_MAX
+		outModule->maxNumBytesMemory = 0x40000000;
+#else
 		outModule->maxNumBytesMemory = 1ull << 32;
+#endif
 
 		try
 		{

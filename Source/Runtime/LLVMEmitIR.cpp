@@ -178,8 +178,12 @@ namespace LLVMJIT
 			// If the address is 32-bits, zext it to 64-bits.
 			// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
 			// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
+#if INTPTR_MAX == INT32_MAX
+			auto byteIndex = dispatch(*this,address,TypeId::I32);
+#else
 			auto byteIndex = isFarAddress ? dispatch(*this,address,TypeId::I64)
 				: irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context));
+#endif
 
 			// Mask the index to the address-space size.
 			auto maskedByteIndex = irBuilder.CreateAnd(byteIndex,moduleIR.instanceMemoryAddressMask);
@@ -715,7 +719,11 @@ namespace LLVMJIT
 		ModuleIR moduleIR;
 
 		// Create literals for the virtual memory base and mask.
+#if INTPTR_MAX == INT32_MAX
+		moduleIR.instanceMemoryBase = llvm::Constant::getIntegerValue(llvm::Type::getInt8PtrTy(context),llvm::APInt(32,reinterpret_cast<uintptr>(Runtime::instanceMemoryBase)));
+#else
 		moduleIR.instanceMemoryBase = llvm::Constant::getIntegerValue(llvm::Type::getInt8PtrTy(context),llvm::APInt(64,reinterpret_cast<uintptr>(Runtime::instanceMemoryBase)));
+#endif
 		auto instanceMemoryAddressMask = Runtime::instanceAddressSpaceMaxBytes - 1;
 		moduleIR.instanceMemoryAddressMask = sizeof(uintptr) == 8 ? compileLiteral((uint64)instanceMemoryAddressMask) : compileLiteral((uint32)instanceMemoryAddressMask);
 
@@ -791,7 +799,11 @@ namespace LLVMJIT
 		llvmTypesByTypeId[(size_t)TypeId::Void] = llvm::Type::getVoidTy(context);
 		
 		// Create a null pointer constant to use as the void dummy value.
+#if INTPTR_MAX == INT32_MAX
+		voidDummy = llvm::Constant::getIntegerValue(llvm::Type::getInt8Ty(context),llvm::APInt(32,0));
+#else
 		voidDummy = llvm::Constant::getIntegerValue(llvm::Type::getInt8Ty(context),llvm::APInt(64,0));
+#endif
 		
 		// Create zero constants of each type.
 		typedZeroConstants[(size_t)TypeId::None] = nullptr;
