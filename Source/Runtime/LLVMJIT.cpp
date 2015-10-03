@@ -1,9 +1,5 @@
 #include "LLVMJIT.h"
 
-#if defined(__linux__)
-#include <dlfcn.h>
-#endif
-
 namespace LLVMJIT
 {
 	// Functor that receives notifications when an object produced by the JIT is loaded.
@@ -61,19 +57,12 @@ namespace LLVMJIT
 	{
 		const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
 		if(intrinsicFunction) { return intrinsicFunction->value; }
-		else
-		{
-#if defined(__linux__)
-			void *library = dlopen(NULL, RTLD_NOW);
-			void *addr = dlsym(library, name.c_str());
-			dlclose(library);
-			if (addr)
-				return addr;
-#endif
 
-			std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
-			return nullptr;
-		}
+		void *addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
+		if (addr) { return addr; }
+
+		std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
+		return nullptr;
 	}
 
 	llvm::RuntimeDyld::SymbolInfo IntrinsicResolver::findSymbol(const std::string& name)
