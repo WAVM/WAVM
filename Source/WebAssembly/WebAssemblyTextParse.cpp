@@ -1347,6 +1347,7 @@ namespace WebAssemblyText
 			case Symbol::_const_F64:
 				if(!parseFloat64(childNodeIt,floatValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
 				else { return Runtime::Value((float64)floatValue); }
+			default:;
 			};
 		}
 
