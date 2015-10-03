@@ -2,6 +2,7 @@
 
 #include "Core/Core.h"
 #include "AST/AST.h"
+#include "Runtime/Runtime.h"
 
 #include <vector>
 
@@ -11,22 +12,38 @@
 
 namespace WebAssemblyText
 {
-	struct AssertEq
+	enum class TestOp
 	{
-		AST::Module* invokeDummyModule;
-		AST::Module* invokeFunctionModule;
-		uintptr invokeFunctionIndex;
-		std::vector<AST::TypedExpression> parameters;
-		AST::TypedExpression value;
+		Invoke,
+		Assert,
+	};
+
+	struct TestStatement
+	{
+		TestOp op;
 		Core::TextFileLocus locus;
 	};
 
+	struct Invoke : TestStatement
+	{
+		uintptr functionIndex;
+		std::vector<Runtime::Value> parameters;
+		Invoke() : TestStatement({TestOp::Invoke}) {}
+	};
+
+	struct Assert : TestStatement
+	{
+		Invoke* invoke;
+		Runtime::Value value;
+		Assert() : TestStatement({TestOp::Assert}) {}
+	};
+	
 	struct File
 	{
 		std::vector<AST::Module*> modules;
 		std::vector<AST::ErrorRecord*> errors;
 
-		std::vector<AssertEq> assertEqs;
+		std::vector<std::vector<TestStatement*>> moduleTests;
 	};
 
 	WEBASSEMBLY_API bool parse(const char* string,File& outFile);

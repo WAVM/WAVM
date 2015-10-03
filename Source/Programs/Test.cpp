@@ -6,56 +6,23 @@
 #include "Runtime/Runtime.h"
 
 #include "CLI.h"
-#include "RuntimeCLI.h"
 
-uintptr createTestFunction(AST::Module* module,const char* name,AST::TypedExpression expression)
+using namespace WebAssemblyText;
+
+std::string describeRuntimeValue(const Runtime::Value& value)
 {
-	auto function = new AST::Function();
-	function->name = name;
-	function->type.returnType = expression.type;
-	function->expression = expression.expression;
-
-	auto functionIndex = module->functions.size();
-	module->functions.push_back(function);
-	module->exportNameToFunctionIndexMap[name] = functionIndex;
-	return functionIndex;
-}
-
-template<typename Type>
-bool callTestFunction(AST::Module* module,const char* name,const char* locus,AST::TypedExpression typedExpectedValue)
-{
-	typename Type::NativeType returnValue;
-	if(!callModuleFunction(module,name,returnValue)) { return false; }
-
-	auto expectedValue = AST::as<typename Type::Class>(typedExpectedValue);
-	if(expectedValue->op() != Type::Op::lit)
+	switch(value.type)
 	{
-		std::cerr << locus << ": assert_eq expected value expression must be const" << std::endl;
-		return false;
-	}
-	auto expectedValueLiteral = (const AST::Literal<Type>*)expectedValue;
-
-	if(returnValue != expectedValueLiteral->value)
-	{
-		std::cerr << locus <<  ": assert_eq expected " << expectedValueLiteral->value << " but function returned " << returnValue << std::endl;
-		return false;
-	}
-
-	return true;
-}
-
-bool callTestFunction(AST::Module* module,const char* name,const char* locus,AST::TypedExpression expectedValue)
-{
-	switch(expectedValue.type)
-	{
-	case AST::TypeId::I8: return callTestFunction<AST::I8Type>(module,name,locus,expectedValue);
-	case AST::TypeId::I16: return callTestFunction<AST::I16Type>(module,name,locus,expectedValue);
-	case AST::TypeId::I32: return callTestFunction<AST::I32Type>(module,name,locus,expectedValue);
-	case AST::TypeId::I64: return callTestFunction<AST::I64Type>(module,name,locus,expectedValue);
-	case AST::TypeId::F32: return callTestFunction<AST::F32Type>(module,name,locus,expectedValue);
-	case AST::TypeId::F64: return callTestFunction<AST::F64Type>(module,name,locus,expectedValue);
-	case AST::TypeId::Bool: return callTestFunction<AST::BoolType>(module,name,locus,expectedValue);
-	case AST::TypeId::Void: std::cerr << locus << ": Why are you trying to assert the equality of two void values?" << std::endl; return true;
+	case Runtime::TypeId::None: return "None";
+	case Runtime::TypeId::I8: return "I8(" + std::to_string(value.i8) + ")";
+	case Runtime::TypeId::I16: return "I16(" + std::to_string(value.i16) + ")";
+	case Runtime::TypeId::I32: return "I32(" + std::to_string(value.i32) + ")";
+	case Runtime::TypeId::I64: return "I64(" + std::to_string(value.i64) + ")";
+	case Runtime::TypeId::F32: return "F32(" + std::to_string(value.f32) + ")";
+	case Runtime::TypeId::F64: return "F64(" + std::to_string(value.f64) + ")";
+	case Runtime::TypeId::Bool: return value.bool_ ? "Bool(true)" : "Bool(false)";
+	case Runtime::TypeId::Void: return "Void";
+	case Runtime::TypeId::Exception: return "Exception(" + std::string(Runtime::describeExceptionCause(value.exception->cause)) + ")";
 	default: throw;
 	}
 }
@@ -69,7 +36,7 @@ int main(int argc,char** argv)
 	}
 	
 	const char* filename = argv[1];
-	WebAssemblyText::File wastFile;
+	File wastFile;
 	if(!loadTextModule(filename,wastFile)) { return -1; }
 	
 	// Initialize the runtime.
@@ -78,29 +45,64 @@ int main(int argc,char** argv)
 		std::cerr << "Couldn't initialize runtime" << std::endl;
 		return false;
 	}
-
+	
 	uintptr numTestsFailed = 0;
-	for(auto assertEq : wastFile.assertEqs)
+	for(uintptr moduleIndex = 0;moduleIndex < wastFile.modules.size();++moduleIndex)
 	{
-		// Make a copy of the module that the assertion invokes from.
-		auto testModule = new AST::Module(*assertEq.invokeFunctionModule);
+		auto module = wastFile.modules[moduleIndex];
+		auto& testStatements = wastFile.moduleTests[moduleIndex];
+		if(!testStatements.size()) { continue; }
 
-		// Add an exported function to that module that just calls the invoke function with the provided parameters and returns the result.
-		auto invokedFunction = testModule->functions[assertEq.invokeFunctionIndex];
-		auto invokeType = invokedFunction->type.returnType;
-		auto invokeParameters = new(testModule->arena) AST::UntypedExpression*[invokedFunction->type.parameters.size()];
-		for(uintptr parameterIndex = 0;parameterIndex < invokedFunction->type.parameters.size();++parameterIndex)
-		{
-			assert(assertEq.parameters[parameterIndex].type == invokedFunction->type.parameters[parameterIndex]);
-			invokeParameters[parameterIndex] = assertEq.parameters[parameterIndex].expression;
-		}
-		auto invokeExpression = new(testModule->arena) AST::Call(AST::AnyOp::callDirect,getPrimaryTypeClass(invokeType),(uint32)assertEq.invokeFunctionIndex,invokeParameters);
-		createTestFunction(testModule,"test",AST::TypedExpression(invokeExpression,invokeType));
+		// Initialize the module runtime environment.
+		if(!Runtime::loadModule(module)) { return -1; }
 		
-		// Initialize the module runtime environment and call the test function.
-		if(!Runtime::loadModule(testModule)) { return -1; }
-		auto assertLocus = filename + assertEq.locus.describe();
-		if(!callTestFunction(testModule,"test",assertLocus.c_str(),assertEq.value)) { ++numTestsFailed; }
+		// Evaluate each test statement.
+		for(uintptr statementIndex = 0;statementIndex < testStatements.size();++statementIndex)
+		{
+			auto statement = testStatements[statementIndex];
+			auto statementLocus = filename + statement->locus.describe();
+			switch(statement->op)
+			{
+			case TestOp::Invoke:
+			{
+				auto invoke = (Invoke*)statement;
+				auto result = Runtime::invokeFunction(module,invoke->functionIndex,invoke->parameters.data());
+				if(result.type == Runtime::TypeId::Exception)
+				{
+					std::cerr << statementLocus << ": invoke unexpectedly trapped: " << Runtime::describeExceptionCause(result.exception->cause) << std::endl;
+					for(auto function : result.exception->callStack) { std::cerr << "  " << function << std::endl; }
+					++numTestsFailed;
+				}
+				break;
+			}
+			case TestOp::Assert:
+			{
+				auto assertStatement = (Assert*)statement;
+				auto invoke = assertStatement->invoke;
+				auto result = Runtime::invokeFunction(module,invoke->functionIndex,invoke->parameters.data());
+				/*if(result.type == Runtime::TypeId::Exception && assertStatement->value.type != Runtime::TypeId::Exception)
+				{
+					std::cerr << statementLocus << ": assert_eq unexpectedly trapped: " << Runtime::describeExceptionCause(result.exception->cause) << std::endl;
+					for(auto function : result.exception->callStack) { std::cerr << "  " << function << std::endl; }
+					++numTestsFailed;
+				}
+				else if(result.type != Runtime::TypeId::Exception && assertStatement->value.type == Runtime::TypeId::Exception)
+				{
+					std::cerr << statementLocus << ": assert_trap didn't trap." << std::endl;
+					++numTestsFailed;
+				}
+				else*/ if(describeRuntimeValue(result) != describeRuntimeValue(assertStatement->value))
+				{
+					std::cerr << statementLocus << ": assertion failure: expected "
+						<< describeRuntimeValue(assertStatement->value)
+						<< " but got " << describeRuntimeValue(result) << std::endl;
+					++numTestsFailed;
+				}
+				break;
+			}
+			default: throw;
+			}
+		}
 	}
 
 	// Print the results.

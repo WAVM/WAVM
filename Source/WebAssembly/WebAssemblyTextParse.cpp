@@ -308,7 +308,7 @@ namespace WebAssemblyText
 				DEFINE_TYPED_OP(Float,const)
 				{
 					float64 doubleValue;
-					if(!parseFloat64(nodeIt,doubleValue)) { return TypedExpression(recordError<Error<FloatClass>>(outErrors,nodeIt,"const: expected decimal"),opType); }
+					if(!parseFloat64(nodeIt,doubleValue)) { return TypedExpression(recordError<Error<FloatClass>>(outErrors,nodeIt,"const: expected floating point number"),opType); }
 					switch(opType)
 					{
 					case TypeId::F32: return TypedExpression(requireFullMatch(nodeIt,"const.f32",new(arena)Literal<F32Type>((float32)doubleValue)),TypeId::F32);
@@ -1319,6 +1319,147 @@ namespace WebAssemblyText
 		return module;
 	}
 
+	Runtime::Value parseRuntimeValue(SNodeIt nodeIt,std::vector<ErrorRecord*>& outErrors)
+	{
+		SNodeIt childNodeIt;
+		Symbol symbol;
+		int64 integerValue;
+		float64 floatValue;
+		if(parseTreeNode(nodeIt,childNodeIt) && parseSymbol(childNodeIt,symbol))
+		{
+			switch(symbol)
+			{
+			case Symbol::_const_I8:
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
+				else { return Runtime::Value((uint8)integerValue); }
+			case Symbol::_const_I16:
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
+				else { return Runtime::Value((uint16)integerValue); }
+			case Symbol::_const_I32:
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
+				else { return Runtime::Value((uint32)integerValue); }
+			case Symbol::_const_I64:
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
+				else { return Runtime::Value((uint64)integerValue); }
+			case Symbol::_const_F32:
+				if(!parseFloat64(childNodeIt,floatValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
+				else { return Runtime::Value((float32)floatValue); }
+			case Symbol::_const_F64:
+				if(!parseFloat64(childNodeIt,floatValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
+				else { return Runtime::Value((float64)floatValue); }
+			};
+		}
+
+		recordError<ErrorRecord>(outErrors,childNodeIt,"expected const expression");
+		return Runtime::Value();
+	}
+
+	Invoke* parseInvoke(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	{
+		auto locus = nodeIt->startLocus;
+
+		SNodeIt invokeChildIt;
+		if(!parseTaggedNode(nodeIt++,Symbol::_invoke,invokeChildIt))
+			{ recordError<ErrorRecord>(outFile.errors,nodeIt,"expected invoke expression"); return nullptr; }
+
+		// Parse the export name to invoke.
+		Memory::ScopedArena scopedArena;
+		const char* invokeExportName;
+		size_t invokeExportNameLength;
+		SNodeIt savedExportNameIt = invokeChildIt;
+		if(!parseString(invokeChildIt,invokeExportName,invokeExportNameLength,scopedArena))
+			{ recordError<ErrorRecord>(outFile.errors,invokeChildIt,"expected export name string"); return nullptr; }
+
+		// Find the named export in one of the modules.
+		AST::Module* exportModule = nullptr;
+		uintptr exportedFunctionIndex = 0;
+		for(uintptr moduleIndex = 0;moduleIndex < outFile.modules.size();++moduleIndex)
+		{
+			auto module = outFile.modules[moduleIndex];
+			auto exportIt = module->exportNameToFunctionIndexMap.find(invokeExportName);
+			if(exportIt != module->exportNameToFunctionIndexMap.end())
+			{
+				outModuleIndex = moduleIndex;
+				exportModule = module;
+				exportedFunctionIndex = exportIt->second;
+				break;
+			}
+		}
+		if(!exportModule) { recordError<ErrorRecord>(outFile.errors,savedExportNameIt,"couldn't find export with this name"); return nullptr; }
+
+		// Parse the invoke's parameters.
+		auto function = exportModule->functions[exportedFunctionIndex];
+		std::vector<Runtime::Value> parameters(function->type.parameters.size());
+		for(uintptr parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
+			{ parameters[parameterIndex] = parseRuntimeValue(invokeChildIt++,outFile.errors); }
+
+		// Verify that all of the invoke's parameters were matched.
+		if(invokeChildIt) { recordExcessInputError<ErrorRecord>(outFile.errors,invokeChildIt,"invoke parameters"); return nullptr; }
+
+		auto result = new(exportModule->arena) Invoke;
+		result->locus = locus;
+		result->functionIndex = exportedFunctionIndex;
+		result->parameters = std::move(parameters);
+		return result;
+	}
+
+	Assert* parseAssertEq(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	{
+		auto locus = nodeIt->startLocus;
+
+		// Parse the assert_eq's invoke.
+		auto invoke = parseInvoke(nodeIt++,outModuleIndex,outFile);
+		if(!invoke) { return nullptr; }
+
+		// Parse the expected value of the invoke.
+		auto value = parseRuntimeValue(nodeIt++,outFile.errors);
+				
+		// Verify that all of the assert_eq's parameters were matched.
+		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_eq expected value"); return nullptr; }
+
+		auto result = new(outFile.modules[outModuleIndex]->arena) Assert;
+		result->invoke = invoke;
+		result->locus = locus;
+		result->value = value;
+		return result;
+	}
+	
+	Assert* parseAssertTrap(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	{
+		auto locus = nodeIt->startLocus;
+
+		// Parse the assert_trap's invoke.
+		auto invoke = parseInvoke(nodeIt++,outModuleIndex,outFile);
+		if(!invoke) { return nullptr; }
+		
+		// Set up a dummy module, function, and parsing context to parse the assertion value in.
+		Function dummyFunction;
+		ModuleContext dummyModuleContext(outFile.modules[outModuleIndex],outFile.errors);
+		FunctionContext dummyFunctionContext(dummyModuleContext,&dummyFunction);
+
+		// Parse the expected value of the invoke.
+		const char* message;
+		size_t numMessageChars;
+		if(!parseString(nodeIt,message,numMessageChars,outFile.modules[outModuleIndex]->arena))
+			{ recordError<ErrorRecord>(outFile.errors,nodeIt,"expected trap message"); return nullptr; }
+
+		// Verify that all of the assert_trap's parameters were matched.
+		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_eq expected value"); return nullptr; }
+		
+		// Try to map the trap message to an exception cause.
+		Runtime::Exception::Cause cause = Runtime::Exception::Cause::Unknown;
+		if(!strcmp(message,"runtime: out of bounds memory access")) { cause = Runtime::Exception::Cause::AccessViolation; }
+		else if(!strcmp(message,"runtime: callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
+		else if(!strcmp(message,"runtime: integer overflow")) { cause = Runtime::Exception::Cause::IntegerOverflow; }
+		else if(!strcmp(message,"runtime: integer divide by zero")) { cause = Runtime::Exception::Cause::IntegerDivideByZero; }
+
+		auto result = new(outFile.modules[outModuleIndex]->arena) Assert;
+		result->invoke = invoke;
+		result->locus = locus;
+		result->value = Runtime::Value(new Runtime::Exception {cause});
+		return result;
+	}
+
 	// Parses a module from a WAST string.
 	bool parse(const char* string,File& outFile)
 	{
@@ -1339,65 +1480,28 @@ namespace WebAssemblyText
 			}
 		}
 		
-		// Parse the assertions.
+		// Parse the test statements.
+		outFile.moduleTests.resize(outFile.modules.size());
 		for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
 		{
 			SNodeIt childNodeIt;
-			if(parseTaggedNode(rootNodeIt,Symbol::_assert_eq,childNodeIt))
+			if(parseTaggedNode(rootNodeIt,Symbol::_invoke,childNodeIt))
 			{
-				SNodeIt invokeChildIt;
-				if(!parseTaggedNode(childNodeIt++,Symbol::_invoke,invokeChildIt))
-					{ recordError<ErrorRecord>(outFile.errors,childNodeIt,"expected invoke expression"); continue; }
-
-				// Parse the export name to invoke.
-				const char* invokeExportName;
-				size_t invokeExportNameLength;
-				SNodeIt savedExportNameIt = invokeChildIt;
-				if(!parseString(invokeChildIt,invokeExportName,invokeExportNameLength,scopedArena))
-					{ recordError<ErrorRecord>(outFile.errors,invokeChildIt,"expected export name string"); continue; }
-
-				// Find the named export in one of the modules.
-				Module* exportModule = nullptr;
-				uintptr exportFunctionIndex = 0;
-				for(auto module : outFile.modules)
-				{
-					auto exportIt = module->exportNameToFunctionIndexMap.find(invokeExportName);
-					if(exportIt != module->exportNameToFunctionIndexMap.end())
-					{
-						exportModule = module;
-						exportFunctionIndex = exportIt->second;
-						break;
-					}
-				}
-				if(!exportModule) { recordError<ErrorRecord>(outFile.errors,savedExportNameIt,"couldn't find export with this name"); continue; }
-
-				// Set up a dummy module, function, and parsing context to parse the invoke parameters in.
-				Module* dummyModule = new AST::Module;
-				Function dummyFunction;
-				ModuleContext dummyModuleContext(dummyModule,outFile.errors);
-				FunctionContext dummyFunctionContext(dummyModuleContext,&dummyFunction);
-
-				// Parse the invoke's parameters.
-				auto function = exportModule->functions[exportFunctionIndex];
-				std::vector<TypedExpression> parameters(function->type.parameters.size());
-				for(uintptr parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
-				{
-					auto parameterType = function->type.parameters[parameterIndex];
-					auto parameterValue = dummyFunctionContext.parseTypedExpression(parameterType,invokeChildIt,"invoke parameter");
-					parameters[parameterIndex] = TypedExpression(parameterValue,parameterType);
-				}
-				
-				// Verify that all of the invoke's parameters were matched.
-				if(invokeChildIt) { recordExcessInputError<ErrorRecord>(outFile.errors,invokeChildIt,"invoke parameters"); continue; }
-
-				// Parse the expected value of the invoke.
-				auto returnType = function->type.returnType;
-				auto value = TypedExpression(dummyFunctionContext.parseTypedExpression(returnType,childNodeIt,"assert_eq reference value"),returnType);
-				
-				// Verify that all of the invoke's parameters were matched.
-				if(childNodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,childNodeIt,"assert_eq expected value"); continue; }
-
-				outFile.assertEqs.push_back({dummyModule,exportModule,exportFunctionIndex,std::move(parameters),value,rootNodeIt->startLocus});
+				uintptr moduleIndex;
+				auto invoke = parseInvoke(rootNodeIt,moduleIndex,outFile);
+				if(invoke) { outFile.moduleTests[moduleIndex].push_back(invoke); }
+			}
+			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_eq,childNodeIt))
+			{
+				uintptr moduleIndex;
+				auto assertEq = parseAssertEq(childNodeIt,moduleIndex,outFile);
+				if(assertEq) { outFile.moduleTests[moduleIndex].push_back(assertEq); }
+			}
+			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
+			{
+				uintptr moduleIndex;
+				auto assertTrap = parseAssertTrap(childNodeIt,moduleIndex,outFile);
+				if(assertTrap) { outFile.moduleTests[moduleIndex].push_back(assertTrap); }
 			}
 		}
 

@@ -12,19 +12,23 @@ namespace Runtime
 {
 	bool init()
 	{
-		RuntimePlatform::initGlobalExceptionHandlers();
 		LLVMJIT::init();
 		return initInstanceMemory();
 	}
 	
-	void handleException(Exception::Cause cause,const ExecutionContext& context)
+	const char* describeExceptionCause(Exception::Cause cause)
 	{
-		std::vector<std::string> frameDescriptions;
-		for(auto stackFrame : context.stackFrames)
+		switch(cause)
 		{
-			frameDescriptions.push_back(describeStackFrame(stackFrame));
+		case Exception::Cause::Unknown: return "unknown";
+		case Exception::Cause::AccessViolation: return "access violation";
+		case Exception::Cause::StackOverflow: return "stack overflow";
+		case Exception::Cause::IntegerDivideByZero: return "integer divide by zero";
+		case Exception::Cause::IntegerOverflow: return "integer overflow";
+		case Exception::Cause::InvalidFloatOperation: return "invalid floating point operation";
+		case Exception::Cause::InvokeSignatureMismatch: return "invoke signature mismatch";
+		default: return "unknown";
 		}
-		throw new Exception {cause,frameDescriptions};
 	}
 
 	std::string describeStackFrame(const StackFrame& frame)
@@ -68,9 +72,78 @@ namespace Runtime
 		// Generate machine code for the module.
 		return LLVMJIT::compileModule(module);
 	}
-	
-	void* getFunctionPointer(const AST::Module* module,uintptr functionIndex)
+
+	// This is called to recursively turn the boxed values in untypedArgs into C++ values.
+	template<size_t numUntypedArgs,typename... Args>
+	struct RecursiveInvoke
 	{
-		return LLVMJIT::getFunctionPointer(module,functionIndex);
+		static Value invoke(const AST::FunctionType& type,void* functionPtr,const Value* untypedArgs,size_t numTypedArgs,Args... typedArgs)
+		{
+			switch(type.parameters[numTypedArgs])
+			{
+			case AST::TypeId::I8: return RecursiveInvoke<numUntypedArgs-1,Args...,uint8>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i8);
+			case AST::TypeId::I16: return RecursiveInvoke<numUntypedArgs-1,Args...,uint16>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i16);
+			case AST::TypeId::I32: return RecursiveInvoke<numUntypedArgs-1,Args...,uint32>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i32);
+			case AST::TypeId::I64: return RecursiveInvoke<numUntypedArgs-1,Args...,uint64>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i64);
+			case AST::TypeId::F32: return RecursiveInvoke<numUntypedArgs-1,Args...,float32>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].f32);
+			case AST::TypeId::F64: return RecursiveInvoke<numUntypedArgs-1,Args...,float64>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].f64);
+			case AST::TypeId::Bool: return RecursiveInvoke<numUntypedArgs-1,Args...,bool>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].bool_);
+			default: throw;
+			};
+		}
+	};
+
+	// This partial specialization terminates the induction on parameter types, and dispatches to the
+	// appropriate C++ function type depending on the AST function return type.
+	template<typename... Args>
+	struct RecursiveInvoke<0,Args...>
+	{
+		static Value invoke(const AST::FunctionType& type,void* functionPtr,const Value* untypedArgs,size_t numTypedArgs,Args... typedArgs)
+		{
+			switch(type.returnType)
+			{
+			case AST::TypeId::I8: return Value(((uint8(*)(Args...))functionPtr)(typedArgs...));
+			case AST::TypeId::I16: return Value(((uint16(*)(Args...))functionPtr)(typedArgs...));
+			case AST::TypeId::I32: return Value(((uint32(*)(Args...))functionPtr)(typedArgs...));
+			case AST::TypeId::I64: return Value(((uint64(*)(Args...))functionPtr)(typedArgs...));
+			case AST::TypeId::F32: return Value(((float32(*)(Args...))functionPtr)(typedArgs...));
+			case AST::TypeId::F64: return Value(((float64(*)(Args...))functionPtr)(typedArgs...));
+			case AST::TypeId::Bool: return Value(((bool(*)(Args...))functionPtr)(typedArgs...));
+			case AST::TypeId::Void: ((void(*)(Args...))functionPtr)(typedArgs...); return Value(Void());
+			default: throw;
+			}
+		}
+	};
+
+	Value invokeFunction(const AST::Module* module,uintptr functionIndex,const Value* parameters)
+	{
+		// Check that the parameter types match the function.
+		auto function = module->functions[functionIndex];
+		for(uintptr parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
+		{
+			if((Runtime::TypeId)(function->type.parameters[parameterIndex]) != parameters[parameterIndex].type)
+			{
+				return Value(new Exception {Exception::Cause::InvokeSignatureMismatch});
+			}
+		}
+
+		// Get a pointer to the JITed function code.
+		void* functionPtr = LLVMJIT::getFunctionPointer(module,functionIndex);
+		assert(functionPtr);
+
+		// Catch platform-specific runtime exceptions and turn them into Runtime::Values.
+		return RuntimePlatform::catchRuntimeExceptions([&]
+		{
+			// Dispatch the invoke by number of parameters in the function.
+			// We're practically limited in how many parameters can be handled because this instantiates RecursiveInvoke 7^N times.
+			switch(function->type.parameters.size())
+			{
+			case 0: return RecursiveInvoke<0>::invoke(function->type,functionPtr,parameters,0);
+			case 1: return RecursiveInvoke<1>::invoke(function->type,functionPtr,parameters,0);
+			case 2: return RecursiveInvoke<2>::invoke(function->type,functionPtr,parameters,0);
+			case 3: return RecursiveInvoke<3>::invoke(function->type,functionPtr,parameters,0);
+			default: return Value(new Exception {Exception::Cause::InvokeSignatureMismatch});
+			}
+		});
 	}
 }

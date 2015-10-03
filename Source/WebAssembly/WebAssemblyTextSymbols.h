@@ -24,6 +24,7 @@ namespace WebAssemblyText
 		WAST_SYMBOL(fallthrough) \
 		WAST_SYMBOL(assert_eq) \
 		WAST_SYMBOL(assert_invalid) \
+		WAST_SYMBOL(assert_trap) \
 		WAST_SYMBOL(invoke)
 	
 	#define ENUM_WAST_ANY_OPCODE_SYMBOLS() \

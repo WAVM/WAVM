@@ -4,6 +4,8 @@
 #include "Core/Platform.h"
 #include "Runtime.h"
 
+#include <functional>
+
 namespace Runtime
 {
 	struct StackFrame
@@ -42,9 +44,6 @@ namespace Runtime
 
 	// Initializes intrinsics used by WebAssembly.
 	void initWebAssemblyIntrinsics();
-	
-	// Handles an exception.
-	void handleException(Exception::Cause cause,const ExecutionContext& context);
 
 	// Describes a stack frame.
 	std::string describeStackFrame(const StackFrame& frame);
@@ -52,8 +51,8 @@ namespace Runtime
 
 namespace RuntimePlatform
 {
-	// Initializes the platform's global exception handler.
-	void initGlobalExceptionHandlers();
+	// Calls a thunk and catches any runtime exception thrown by it.
+	Runtime::Value catchRuntimeExceptions(const std::function<Runtime::Value()>& thunk);
 
 	// Describes an instruction pointer 
 	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription);

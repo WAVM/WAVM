@@ -6,6 +6,7 @@
 #include <Windows.h>
 #include <DbgHelp.h>
 #include <iostream>
+#include <float.h>
 
 #undef min
 
@@ -79,7 +80,7 @@ namespace RuntimePlatform
 		return executionContext;
 	}
 
-	LONG CALLBACK vectoredExceptionHandler(EXCEPTION_POINTERS* exceptionPointers)
+	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,Exception*& outRuntimeException)
 	{
 		// Interpret the cause of the exception.
 		Exception::Cause cause;
@@ -89,20 +90,44 @@ namespace RuntimePlatform
 		case EXCEPTION_STACK_OVERFLOW: cause = Exception::Cause::StackOverflow; break;
 		case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::IntegerDivideByZero; break;
 		case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::IntegerOverflow; break;
-		default: return EXCEPTION_CONTINUE_SEARCH;
+		case EXCEPTION_FLT_INVALID_OPERATION: cause = Exception::Cause::InvalidFloatOperation; break;
+		default: cause = Exception::Cause::Unknown; break;
 		}
 
 		// Unwind the stack frames from the context of the exception.
 		auto executionContext = unwindStack(*exceptionPointers->ContextRecord);
 
-		// Pass the exception to the platform independent handler.
-		Runtime::handleException(cause,executionContext);
-		return EXCEPTION_CONTINUE_SEARCH;
+		// Describe the exception's call stack.
+		std::vector<std::string> frameDescriptions;
+		for(auto stackFrame : executionContext.stackFrames)
+			{ frameDescriptions.push_back(describeStackFrame(stackFrame)); }
+		outRuntimeException = new Exception {cause,frameDescriptions};
+
+		return EXCEPTION_EXECUTE_HANDLER;
 	}
 
-	void initGlobalExceptionHandlers()
+	Value catchRuntimeExceptions(const std::function<Value()>& thunk)
 	{
-		AddVectoredExceptionHandler(0,vectoredExceptionHandler);
+		// Enable the floating-point invalid operation exception to catch overflow on conversion to integer.
+		auto originalMask = _control87(0,_EM_INVALID);
+
+		__try
+		{
+			Exception* runtimeException = nullptr;
+			__try
+			{
+				return thunk();
+			}
+			__except(sehFilterFunction(GetExceptionInformation(),runtimeException))
+			{
+				return Value(runtimeException);
+			}
+		}
+		__finally
+		{
+			// Reset the FP exception mask.
+			_control87(originalMask,_EM_INVALID);
+		}
 	}
 
 	void registerSEHUnwindInfo(uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes)

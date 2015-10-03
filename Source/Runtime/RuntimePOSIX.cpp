@@ -5,9 +5,9 @@
 
 namespace RuntimePlatform
 {
-	void initGlobalExceptionHandlers()
+	Value catchRuntimeExceptions(const std::function<Value()>& thunk)
 	{
-		// todo
+		return thunk();
 	}
 
 	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)
