@@ -149,7 +149,7 @@ namespace LLVMJIT
 		
 		// Get a target machine object for this host, and set the module to use its data layout.
 		auto targetMachine = llvm::EngineBuilder().selectTarget(llvm::Triple(llvm::sys::getProcessTriple()),"","",llvm::SmallVector<std::string,0>());
-		llvmModule->setDataLayout(*targetMachine->getDataLayout());
+		llvmModule->setDataLayout(targetMachine->createDataLayout());
 
 		// Verify the module.
 		#ifdef _DEBUG
