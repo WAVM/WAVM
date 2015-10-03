@@ -57,11 +57,12 @@ namespace LLVMJIT
 	{
 		const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
 		if(intrinsicFunction) { return intrinsicFunction->value; }
-		else
-		{
-			std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
-			return nullptr;
-		}
+
+		void *addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
+		if (addr) { return addr; }
+
+		std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
+		return nullptr;
 	}
 
 	llvm::RuntimeDyld::SymbolInfo IntrinsicResolver::findSymbol(const std::string& name)
