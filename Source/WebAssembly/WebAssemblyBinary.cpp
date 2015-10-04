@@ -1606,11 +1606,10 @@ namespace WebAssemblyBinary
 		auto segmentArenaData = outModule->arena.copyToArena(data,numDataBytes);
 		outModule->dataSegments.push_back({8,numDataBytes,segmentArenaData});
 		outModule->initialNumBytesMemory = numDataBytes + 8;
-#if INTPTR_MAX == INT32_MAX
-		outModule->maxNumBytesMemory = 0x40000000;
-#else
-		outModule->maxNumBytesMemory = 1ull << 32;
-#endif
+
+		// Limited to 1.5GB for now, so it is consistent on 32 bit and 64 bit runtimes.
+		outModule->maxNumBytesMemory = 0x60000000;
+
 
 		try
 		{
