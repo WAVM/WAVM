@@ -241,11 +241,9 @@ namespace SExp
 
 	Node* parseNumber(StreamState& state,Memory::Arena& arena)
 	{
-		errno = 0;
 		const char* f64End = state.next;
 		float64 f64 = std::strtod(state.next,const_cast<char**>(&f64End));
-		auto f64Error = errno;
-		
+
 		errno = 0;
 		const char* i64End = state.next;
 		const bool isNegative = state.peek() == '-';
@@ -257,24 +255,16 @@ namespace SExp
 		// Between the float and the integer parser, use whichever consumed more input, favoring integers if they're equal.
 		if(f64End > i64End)
 		{
-			if(f64Error == ERANGE)
-			{
-				auto node = new(arena) Node(state.getLocus(),NodeType::Error);
-				node->error = "number is outside range of 64-bit float";
-				return node;
-			}
-			else
-			{
-				assert(!f64Error);
-				auto node = new(arena) Node(state.getLocus(),NodeType::Decimal);
-				state.advanceToPtr(f64End);
-				node->endLocus = state.getLocus();
-				node->decimal = f64;
-				return node;
-			}
+			state.advanceToPtr(f64End);
+			
+            auto node = new(arena) Node(state.getLocus(),NodeType::Decimal);
+            node->endLocus = state.getLocus();
+            node->decimal = f64;
+            return node;
 		}
 		else
 		{
+			state.advanceToPtr(i64End);
 			if(i64Error == ERANGE)
 			{
 				auto node = new(arena) Node(state.getLocus(),NodeType::Error);
@@ -285,7 +275,6 @@ namespace SExp
 			{
 				assert(!i64Error);
 				auto node = new(arena) Node(state.getLocus(),isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
-				state.advanceToPtr(i64End);
 				node->endLocus = state.getLocus();
 				node->integer = i64;
 				return node;
