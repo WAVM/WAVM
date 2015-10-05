@@ -968,9 +968,11 @@ namespace WebAssemblyText
 			auto intrinsicImportIt = moduleContext.intrinsicNameToImportIndexMap.find(intrinsicName);
 			uintptr importIndex;
 			if(intrinsicImportIt != moduleContext.intrinsicNameToImportIndexMap.end()) { importIndex = intrinsicImportIt->second; }
+			else
 			{
 				importIndex = moduleContext.module->functionImports.size();
 				moduleContext.module->functionImports.push_back({functionType,"wasm_intrinsics",intrinsicName});
+				moduleContext.intrinsicNameToImportIndexMap[intrinsicName] = importIndex;
 			}
 
 			// Parse the intrinsic call's parameters.
