@@ -3,6 +3,7 @@
 #include <initializer_list>
 #include <climits>
 #include <cerrno>
+#include <cstdlib>
 
 namespace SExp
 {
