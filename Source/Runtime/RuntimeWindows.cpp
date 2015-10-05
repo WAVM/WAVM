@@ -5,8 +5,6 @@
 
 #include <Windows.h>
 #include <DbgHelp.h>
-#include <iostream>
-#include <float.h>
 
 #undef min
 
@@ -90,7 +88,6 @@ namespace RuntimePlatform
 		case EXCEPTION_STACK_OVERFLOW: cause = Exception::Cause::StackOverflow; break;
 		case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::IntegerDivideByZero; break;
 		case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::IntegerOverflow; break;
-		case EXCEPTION_FLT_INVALID_OPERATION: cause = Exception::Cause::InvalidFloatOperation; break;
 		default: cause = Exception::Cause::Unknown; break;
 		}
 
@@ -108,25 +105,14 @@ namespace RuntimePlatform
 
 	Value catchRuntimeExceptions(const std::function<Value()>& thunk)
 	{
-		// Enable the floating-point invalid operation exception to catch overflow on conversion to integer.
-		auto originalMask = _control87(0,_EM_INVALID);
-
+		Exception* runtimeException = nullptr;
 		__try
 		{
-			Exception* runtimeException = nullptr;
-			__try
-			{
-				return thunk();
-			}
-			__except(sehFilterFunction(GetExceptionInformation(),runtimeException))
-			{
-				return Value(runtimeException);
-			}
+			return thunk();
 		}
-		__finally
+		__except(sehFilterFunction(GetExceptionInformation(),runtimeException))
 		{
-			// Reset the FP exception mask.
-			_control87(originalMask,_EM_INVALID);
+			return Value(runtimeException);
 		}
 	}
 
@@ -163,7 +149,6 @@ namespace RuntimePlatform
 		// Register our manually fixed up copy of the function table.
 		if(!RtlAddFunctionTable(functionsCopy,numFunctions,imageBaseAddress))
 		{
-			std::cerr << "RtlAddFunctionTable failed" << std::endl;
 			throw;
 		}
 	}
