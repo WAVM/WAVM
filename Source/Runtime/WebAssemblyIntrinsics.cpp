@@ -17,6 +17,13 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION1(wasm_intrinsics,resize_memory,Void,I32,deltaBytes)
 	{
+		// Verify that deltaBytes is a multiple of the page size.
+		auto pageSize = 1<<Platform::getPreferredVirtualPageSizeLog2();
+		if(deltaBytes & (pageSize - 1))
+		{
+			throw;
+		}
+
 		if(vmSbrk(deltaBytes) == (uint32)-1)
 		{
 			throw;
@@ -25,7 +32,9 @@ namespace Runtime
 
 	void initWebAssemblyIntrinsics()
 	{
-		// For the moment this function only serves the purpose of helping the compiler realize the module is used,
-		// so it can't just throw away the code.
+		// Align the memory size to the page size.
+		auto pageSize = 1<<Platform::getPreferredVirtualPageSizeLog2();
+		auto unalignedMemorySize = vmSbrk(0);
+		vmSbrk(((unalignedMemorySize + pageSize - 1) & ~(pageSize - 1)) - unalignedMemorySize);
 	}
 }
