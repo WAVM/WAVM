@@ -44,10 +44,10 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION1(emscripten,_sysconf,I32,I32,a)
 	{
-		enum { _SC_PAGE_SIZE = 30 };
+		enum { sysConfPageSize = 30 };
 		switch(a)
 		{
-		case _SC_PAGE_SIZE: return 1 << Platform::getPreferredVirtualPageSizeLog2();
+		case sysConfPageSize: return 1 << Platform::getPreferredVirtualPageSizeLog2();
 		default: throw;
 		}
 	}
