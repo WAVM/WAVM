@@ -27,7 +27,7 @@ inline bool loadTextModule(const char* filename,WebAssemblyText::File& outFile)
 {
 	// Read the file into a string.
 	auto wastBytes = loadFile(filename);
-	if(!wastBytes.size()) { return nullptr; }
+	if(!wastBytes.size()) { return false; }
 	auto wastString = std::string((const char*)wastBytes.data(),wastBytes.size());
 	wastBytes.clear();
 
