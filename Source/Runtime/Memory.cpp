@@ -31,7 +31,7 @@ namespace Runtime
 			// Note that this reserves a full extra 4GB, but only uses (4GB-1 page) for alignment, so there will always be a guard page at the end to
 			// protect against unaligned loads/stores that straddle the end of the address-space.
 			const size_t numAllocatedVirtualPages = addressSpaceMaxBytes >> Platform::getPreferredVirtualPageSizeLog2();
-			const size_t alignment = sizeof(uintptr) == 8 ? 4ull*1024*1024*1024 : 1 << Platform::getPreferredVirtualPageSizeLog2();
+			const size_t alignment = sizeof(uintptr) == 8 ? 4ull*1024*1024*1024 : (uintptr)1 << Platform::getPreferredVirtualPageSizeLog2();
 			const size_t pageAlignment = alignment >> Platform::getPreferredVirtualPageSizeLog2();
 			unalignedInstanceMemoryBase = Platform::allocateVirtualPages(numAllocatedVirtualPages + pageAlignment);
 			if(!unalignedInstanceMemoryBase) { return false; }
