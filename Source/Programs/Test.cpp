@@ -80,18 +80,7 @@ int main(int argc,char** argv)
 				auto assertStatement = (Assert*)statement;
 				auto invoke = assertStatement->invoke;
 				auto result = Runtime::invokeFunction(module,invoke->functionIndex,invoke->parameters.data());
-				/*if(result.type == Runtime::TypeId::Exception && assertStatement->value.type != Runtime::TypeId::Exception)
-				{
-					std::cerr << statementLocus << ": assert_eq unexpectedly trapped: " << Runtime::describeExceptionCause(result.exception->cause) << std::endl;
-					for(auto function : result.exception->callStack) { std::cerr << "  " << function << std::endl; }
-					++numTestsFailed;
-				}
-				else if(result.type != Runtime::TypeId::Exception && assertStatement->value.type == Runtime::TypeId::Exception)
-				{
-					std::cerr << statementLocus << ": assert_trap didn't trap." << std::endl;
-					++numTestsFailed;
-				}
-				else*/ if(describeRuntimeValue(result) != describeRuntimeValue(assertStatement->value))
+				if(describeRuntimeValue(result) != describeRuntimeValue(assertStatement->value))
 				{
 					std::cerr << statementLocus << ": assertion failure: expected "
 						<< describeRuntimeValue(assertStatement->value)
