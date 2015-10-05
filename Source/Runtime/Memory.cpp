@@ -24,7 +24,7 @@ namespace Runtime
 			// - Windows 7 user processes can allocate 8TB of virtual memory.
 			// - Windows (haven't checked on Linux) allocates a fair amount of physical memory
 			//   for memory management data structures: 128MB for 64TB.
-			const size_t addressSpaceMaxBytes = sizeof(uintptr) == 8 ? 4ull*1024*1024*1024*1024 : 0x60000000;
+			const size_t addressSpaceMaxBytes = sizeof(uintptr) == 8 ? 4ull*1024*1024*1024*1024 : 0x40000000;
 			instanceAddressSpaceMaxBytes = addressSpaceMaxBytes;
 
 			// On a 64 bit runtime, align the instance memory base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?

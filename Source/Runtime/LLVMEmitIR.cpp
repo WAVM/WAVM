@@ -179,10 +179,13 @@ namespace LLVMJIT
 			// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
 			// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
 			// There are no 'far addresses' in a 32 bit runtime.
-			auto byteIndex = sizeof(uintptr) == 8 ?
-				(isFarAddress ? dispatch(*this,address,TypeId::I64) :
-						irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context))) :
-				dispatch(*this,address,TypeId::I32);
+			auto byteIndex =
+			  sizeof(uintptr) == 8 &&  isFarAddress ? dispatch(*this,address,TypeId::I64)
+			  : sizeof(uintptr) == 8 && !isFarAddress ? irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context))
+			  : sizeof(uintptr) == 4 &&  isFarAddress ? irBuilder.CreateTrunc(dispatch(*this,address,TypeId::I64),llvm::Type::getInt32Ty(context))
+			  : sizeof(uintptr) == 4 && !isFarAddress ? dispatch(*this,address,TypeId::I32)
+			  : nullptr;
+			assert(byteIndex);
 
 			// Mask the index to the address-space size.
 			auto maskedByteIndex = irBuilder.CreateAnd(byteIndex,moduleIR.instanceMemoryAddressMask);
