@@ -571,6 +571,28 @@ namespace LLVMJIT
 			return compileShift(type,right,irBuilder.CreateAShr(left,right),irBuilder.CreateAShr(left,bitsMinusOne));
 		}
 
+		// WebAssembly's fXX.min and fXX.max are defined to return NaN if either number is NaN.
+		llvm::Value* compileFloatMin(llvm::Value* left,llvm::Value* right)
+		{
+			// If left is a NaN, return it. Otherwise return left < right ? left : right.
+			// If right is a NaN, left < right will be false, so it will return right.
+			return irBuilder.CreateSelect(
+				irBuilder.CreateFCmpUNE(left,left),
+				left,
+				irBuilder.CreateSelect(irBuilder.CreateFCmpOLT(left,right),left,right)
+				);
+		}
+		llvm::Value* compileFloatMax(llvm::Value* left,llvm::Value* right)
+		{
+			// If left is a NaN, return it. Otherwise return left > right ? left : right.
+			// If right is a NaN, left > right will be false, so it will return right.
+			return irBuilder.CreateSelect(
+				irBuilder.CreateFCmpUNE(left,left),
+				left,
+				irBuilder.CreateSelect(irBuilder.CreateFCmpOGT(left,right),left,right)
+				);
+		}
+
 		template<typename Class,typename OpAsType> DispatchResult visitUnary(TypeId type,const Unary<Class>* unary,OpAsType);
 		template<typename Class,typename OpAsType> DispatchResult visitBinary(TypeId type,const Binary<Class>* binary,OpAsType);
 		template<typename Class,typename OpAsType> DispatchResult visitCast(TypeId type,const Cast<Class>* cast,OpAsType);
@@ -642,8 +664,8 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(FloatClass,mul,irBuilder.CreateFMul(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,div,irBuilder.CreateFDiv(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,rem,irBuilder.CreateFRem(left,right))
-		IMPLEMENT_BINARY_OP(FloatClass,min,compileIntrinsic(llvm::Intrinsic::minnum,left,right))
-		IMPLEMENT_BINARY_OP(FloatClass,max,compileIntrinsic(llvm::Intrinsic::maxnum,left,right))
+		IMPLEMENT_BINARY_OP(FloatClass,min,compileFloatMin(left,right))
+		IMPLEMENT_BINARY_OP(FloatClass,max,compileFloatMax(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,copySign,compileIntrinsic(llvm::Intrinsic::copysign,left,right))
 		IMPLEMENT_CAST_OP(FloatClass,convertSignedInt,irBuilder.CreateSIToFP(source,destType))
 		IMPLEMENT_CAST_OP(FloatClass,convertUnsignedInt,irBuilder.CreateUIToFP(source,destType))
