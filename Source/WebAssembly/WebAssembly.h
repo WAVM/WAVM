@@ -16,6 +16,7 @@ namespace WebAssemblyText
 	{
 		Invoke,
 		Assert,
+		AssertNaN,
 	};
 
 	struct TestStatement
@@ -36,6 +37,12 @@ namespace WebAssemblyText
 		Invoke* invoke;
 		Runtime::Value value;
 		Assert() : TestStatement({TestOp::Assert}) {}
+	};
+
+	struct AssertNaN : TestStatement
+	{
+		Invoke* invoke;
+		AssertNaN() : TestStatement({TestOp::AssertNaN}) {}
 	};
 	
 	struct File

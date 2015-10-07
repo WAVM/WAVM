@@ -1409,24 +1409,41 @@ namespace WebAssemblyText
 		return result;
 	}
 
-	Assert* parseAssertEq(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	Assert* parseAssertReturn(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
 	{
 		auto locus = nodeIt->startLocus;
 
-		// Parse the assert_eq's invoke.
+		// Parse the assert_return's invoke.
 		auto invoke = parseInvoke(nodeIt++,outModuleIndex,outFile);
 		if(!invoke) { return nullptr; }
 
 		// Parse the expected value of the invoke.
 		auto value = parseRuntimeValue(nodeIt++,outFile.errors);
 				
-		// Verify that all of the assert_eq's parameters were matched.
-		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_eq expected value"); return nullptr; }
+		// Verify that all of the assert_return's parameters were matched.
+		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
 
 		auto result = new(outFile.modules[outModuleIndex]->arena) Assert;
 		result->invoke = invoke;
 		result->locus = locus;
 		result->value = value;
+		return result;
+	}
+	
+	AssertNaN* parseAssertReturnNaN(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	{
+		auto locus = nodeIt->startLocus;
+
+		// Parse the assert_return's invoke.
+		auto invoke = parseInvoke(nodeIt++,outModuleIndex,outFile);
+		if(!invoke) { return nullptr; }
+
+		// Verify that all of the assert_return_nan's parameters were matched.
+		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
+
+		auto result = new(outFile.modules[outModuleIndex]->arena) AssertNaN;
+		result->invoke = invoke;
+		result->locus = locus;
 		return result;
 	}
 	
@@ -1450,7 +1467,7 @@ namespace WebAssemblyText
 			{ recordError<ErrorRecord>(outFile.errors,nodeIt,"expected trap message"); return nullptr; }
 
 		// Verify that all of the assert_trap's parameters were matched.
-		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_eq expected value"); return nullptr; }
+		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
 		
 		// Try to map the trap message to an exception cause.
 		Runtime::Exception::Cause cause = Runtime::Exception::Cause::Unknown;
@@ -1497,11 +1514,17 @@ namespace WebAssemblyText
 				auto invoke = parseInvoke(rootNodeIt,moduleIndex,outFile);
 				if(invoke) { outFile.moduleTests[moduleIndex].push_back(invoke); }
 			}
-			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_eq,childNodeIt))
+			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return,childNodeIt))
 			{
 				uintptr moduleIndex;
-				auto assertEq = parseAssertEq(childNodeIt,moduleIndex,outFile);
-				if(assertEq) { outFile.moduleTests[moduleIndex].push_back(assertEq); }
+				auto assert = parseAssertReturn(childNodeIt,moduleIndex,outFile);
+				if(assert) { outFile.moduleTests[moduleIndex].push_back(assert); }
+			}
+			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return_nan,childNodeIt))
+			{
+				uintptr moduleIndex;
+				auto assert = parseAssertReturnNaN(childNodeIt,moduleIndex,outFile);
+				if(assert) { outFile.moduleTests[moduleIndex].push_back(assert); }
 			}
 			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
 			{

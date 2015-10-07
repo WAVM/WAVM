@@ -90,6 +90,24 @@ int main(int argc,char** argv)
 				}
 				break;
 			}
+			case TestOp::AssertNaN:
+			{
+				auto assertStatement = (AssertNaN*)statement;
+				auto invoke = assertStatement->invoke;
+				auto result = Runtime::invokeFunction(module,invoke->functionIndex,invoke->parameters.data());
+				if(result.type != Runtime::TypeId::F32 && result.type != Runtime::TypeId::F64)
+				{
+					std::cerr << statementLocus << ": assertion failure: expected floating-point number but got " << describeRuntimeValue(result) << std::endl;
+					++numTestsFailed;
+				}
+				else if(	result.type == Runtime::TypeId::F32 && (result.f32 == result.f32)
+				||		result.type == Runtime::TypeId::F64 && (result.f64 == result.f64))
+				{
+					std::cerr << statementLocus << ": assertion failure: expected NaN but got " << describeRuntimeValue(result) << std::endl;
+					++numTestsFailed;
+				}
+				break;
+			}
 			default: throw;
 			}
 		}

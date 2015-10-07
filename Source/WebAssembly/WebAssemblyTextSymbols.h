@@ -22,7 +22,8 @@ namespace WebAssemblyText
 		WAST_SYMBOL(local) \
 		WAST_SYMBOL(case) \
 		WAST_SYMBOL(fallthrough) \
-		WAST_SYMBOL(assert_eq) \
+		WAST_SYMBOL(assert_return) \
+		WAST_SYMBOL(assert_return_nan) \
 		WAST_SYMBOL(assert_invalid) \
 		WAST_SYMBOL(assert_trap) \
 		WAST_SYMBOL(invoke)
