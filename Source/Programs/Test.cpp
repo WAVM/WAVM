@@ -100,8 +100,8 @@ int main(int argc,char** argv)
 					std::cerr << statementLocus << ": assertion failure: expected floating-point number but got " << describeRuntimeValue(result) << std::endl;
 					++numTestsFailed;
 				}
-				else if(	result.type == Runtime::TypeId::F32 && (result.f32 == result.f32)
-				||		result.type == Runtime::TypeId::F64 && (result.f64 == result.f64))
+				else if(	(result.type == Runtime::TypeId::F32 && (result.f32 == result.f32))
+				||		(result.type == Runtime::TypeId::F64 && (result.f64 == result.f64)))
 				{
 					std::cerr << statementLocus << ": assertion failure: expected NaN but got " << describeRuntimeValue(result) << std::endl;
 					++numTestsFailed;
