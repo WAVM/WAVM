@@ -1,10 +1,12 @@
 #!/bin/sh
 
+set -e
+
 mkdir release
 cd release
 cmake .. -DCMAKE_BUILD_TYPE=RELEASE
 make
-ctest
+ctest -V
 
 cd ..
 mkdir debug
