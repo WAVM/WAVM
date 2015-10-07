@@ -23,8 +23,7 @@ namespace Runtime
 		case Exception::Cause::Unknown: return "unknown";
 		case Exception::Cause::AccessViolation: return "access violation";
 		case Exception::Cause::StackOverflow: return "stack overflow";
-		case Exception::Cause::IntegerDivideByZero: return "integer divide by zero";
-		case Exception::Cause::IntegerOverflow: return "integer overflow";
+		case Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow: return "integer divide by zero or signed integer overflow";
 		case Exception::Cause::InvalidFloatOperation: return "invalid floating point operation";
 		case Exception::Cause::InvokeSignatureMismatch: return "invoke signature mismatch";
 		default: return "unknown";

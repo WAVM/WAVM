@@ -86,8 +86,8 @@ namespace RuntimePlatform
 		{
 		case EXCEPTION_ACCESS_VIOLATION: cause = Exception::Cause::AccessViolation; break;
 		case EXCEPTION_STACK_OVERFLOW: cause = Exception::Cause::StackOverflow; break;
-		case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::IntegerDivideByZero; break;
-		case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::IntegerOverflow; break;
+		case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow; break;
+		case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow; break;
 		default: cause = Exception::Cause::Unknown; break;
 		}
 

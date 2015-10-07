@@ -1473,8 +1473,8 @@ namespace WebAssemblyText
 		Runtime::Exception::Cause cause = Runtime::Exception::Cause::Unknown;
 		if(!strcmp(message,"runtime: out of bounds memory access")) { cause = Runtime::Exception::Cause::AccessViolation; }
 		else if(!strcmp(message,"runtime: callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
-		else if(!strcmp(message,"runtime: integer overflow")) { cause = Runtime::Exception::Cause::IntegerOverflow; }
-		else if(!strcmp(message,"runtime: integer divide by zero")) { cause = Runtime::Exception::Cause::IntegerDivideByZero; }
+		else if(!strcmp(message,"runtime: integer overflow")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow; }
+		else if(!strcmp(message,"runtime: integer divide by zero")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow; }
 
 		auto result = new(outFile.modules[outModuleIndex]->arena) Assert;
 		result->invoke = invoke;

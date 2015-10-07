@@ -22,7 +22,7 @@ namespace RuntimePlatform
 		case SIGFPE:
 			switch(signalInfo->si_code)
 			{
-				case FPE_INTDIV: exceptionCause = Exception::Cause::IntegerDivideByZero; break;
+				case FPE_INTDIV: exceptionCause = Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow; break;
 			};
 			break;
 		case SIGSEGV: exceptionCause = Exception::Cause::AccessViolation; break;
