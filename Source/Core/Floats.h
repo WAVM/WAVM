@@ -42,7 +42,7 @@ namespace Floats
 			else
 			{
 				char significandString[32];
-				auto numChars = std::sprintf(significandString,"%x",components.bits.significand);
+				auto numChars = std::sprintf(significandString,"%llx",components.bits.significand);
 				if(numChars + 1 > sizeof(significandString)) { abort(); }
 				return sign + "nan(0x" + significandString + ")";
 			}
