@@ -39,11 +39,10 @@ namespace Runtime
 	// Initializes the instance memory.
 	bool initInstanceMemory();
 	
-	// Initializes intrinsics used by Emscripten.
+	// Initializes the various intrinsic modules.
 	void initEmscriptenIntrinsics();
-
-	// Initializes intrinsics used by WebAssembly.
 	void initWebAssemblyIntrinsics();
+	void initWAVMIntrinsics();
 
 	// Describes a stack frame.
 	std::string describeStackFrame(const StackFrame& frame);

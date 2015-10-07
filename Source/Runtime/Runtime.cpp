@@ -67,6 +67,7 @@ namespace Runtime
 		// Initialize the intrinsics.
 		initEmscriptenIntrinsics();
 		initWebAssemblyIntrinsics();
+		initWAVMIntrinsics();
 
 		// Generate machine code for the module.
 		return LLVMJIT::compileModule(module);

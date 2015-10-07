@@ -14,6 +14,7 @@ namespace Floats
 			uint64 sign : 1;
 		} bits;
 		float64 value;
+		uint64 bitcastInt;
 	};
 
 	// The components of a 32-bit float.
@@ -26,6 +27,7 @@ namespace Floats
 			uint32 sign : 1;
 		} bits;
 		float32 value;
+		uint32 bitcastInt;
 	};
 
 	template<typename FloatComponents,typename Float,uint64 maxExponent>

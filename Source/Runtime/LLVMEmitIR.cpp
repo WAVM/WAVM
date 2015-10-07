@@ -517,16 +517,27 @@ namespace LLVMJIT
 			return voidDummy;
 		}
 		
-		DispatchResult compileIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand)
+		DispatchResult compileLLVMIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand)
 		{
 			auto operandType = firstOperand->getType();
 			auto intrinsic = getLLVMIntrinsic({operandType},intrinsicId);
 			return irBuilder.CreateCall(intrinsic,firstOperand);
 		}
-		DispatchResult compileIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand,llvm::Value* secondOperand)
+		DispatchResult compileLLVMIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand,llvm::Value* secondOperand)
 		{
 			auto intrinsic = getLLVMIntrinsic({firstOperand->getType()},intrinsicId);
 			return irBuilder.CreateCall(intrinsic,llvm::ArrayRef<llvm::Value*>({firstOperand,secondOperand}));
+		}
+
+		DispatchResult compileRuntimeIntrinsic(const char* intrinsicName,const FunctionType& functionType,const std::initializer_list<llvm::Value*>& args)
+		{
+			auto decoratedIntrinsicName = Intrinsics::getDecoratedFunctionName(intrinsicName,functionType);
+			auto intrinsic = moduleIR.llvmModule->getGlobalVariable(decoratedIntrinsicName);
+			if(!intrinsic)
+			{
+				intrinsic = new llvm::GlobalVariable(*moduleIR.llvmModule,asLLVMType(functionType),true,llvm::GlobalValue::ExternalLinkage,nullptr,decoratedIntrinsicName);
+			}
+			return irBuilder.CreateCall(intrinsic,llvm::ArrayRef<llvm::Value*>(args.begin(),args.end()));
 		}
 		
 		llvm::Value* compileIntAbs(llvm::Value* operand)
@@ -574,27 +585,13 @@ namespace LLVMJIT
 		// WebAssembly's fXX.min and fXX.max are defined to return NaN if either number is NaN.
 		llvm::Value* compileFloatMin(llvm::Value* left,llvm::Value* right)
 		{
-			return irBuilder.CreateSelect(
-				irBuilder.CreateFCmpUNE(left,left),
-				left,
-				irBuilder.CreateSelect(
-					irBuilder.CreateFCmpUNE(right,right),
-					right,
-					compileIntrinsic(llvm::Intrinsic::minnum,left,right)
-					)
-				);
+			TypeId operandType = left->getType()->getScalarSizeInBits() == 32 ? TypeId::F32 : TypeId::F64;
+			return compileRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType(operandType,{operandType,operandType}),{left,right});
 		}
 		llvm::Value* compileFloatMax(llvm::Value* left,llvm::Value* right)
 		{
-			return irBuilder.CreateSelect(
-				irBuilder.CreateFCmpUNE(left,left),
-				left,
-				irBuilder.CreateSelect(
-					irBuilder.CreateFCmpUNE(right,right),
-					right,
-					compileIntrinsic(llvm::Intrinsic::maxnum,left,right)
-					)
-				);
+			TypeId operandType = left->getType()->getScalarSizeInBits() == 32 ? TypeId::F32 : TypeId::F64;
+			return compileRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType(operandType,{operandType,operandType}),{left,right});
 		}
 
 		template<typename Class,typename OpAsType> DispatchResult visitUnary(TypeId type,const Unary<Class>* unary,OpAsType);
@@ -634,7 +631,7 @@ namespace LLVMJIT
 		IMPLEMENT_UNARY_OP(IntClass,bitwiseNot,irBuilder.CreateNot(operand))
 		IMPLEMENT_UNARY_OP(IntClass,clz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctlz),llvm::ArrayRef<llvm::Value*>({operand,compileLiteral(false)})))
 		IMPLEMENT_UNARY_OP(IntClass,ctz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::cttz),llvm::ArrayRef<llvm::Value*>({operand,compileLiteral(false)})))
-		IMPLEMENT_UNARY_OP(IntClass,popcnt,compileIntrinsic(llvm::Intrinsic::ctpop,operand))
+		IMPLEMENT_UNARY_OP(IntClass,popcnt,compileLLVMIntrinsic(llvm::Intrinsic::ctpop,operand))
 		IMPLEMENT_BINARY_OP(IntClass,add,irBuilder.CreateAdd(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,sub,irBuilder.CreateSub(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,mul,irBuilder.CreateMul(left,right))
@@ -657,12 +654,12 @@ namespace LLVMJIT
 		IMPLEMENT_CAST_OP(IntClass,reinterpretBool,irBuilder.CreateZExt(source,destType))
 		
 		IMPLEMENT_UNARY_OP(FloatClass,neg,irBuilder.CreateFNeg(operand))
-		IMPLEMENT_UNARY_OP(FloatClass,abs,compileIntrinsic(llvm::Intrinsic::fabs,operand))
-		IMPLEMENT_UNARY_OP(FloatClass,ceil,compileIntrinsic(llvm::Intrinsic::ceil,operand))
-		IMPLEMENT_UNARY_OP(FloatClass,floor,compileIntrinsic(llvm::Intrinsic::floor,operand))
-		IMPLEMENT_UNARY_OP(FloatClass,trunc,compileIntrinsic(llvm::Intrinsic::trunc,operand))
-		IMPLEMENT_UNARY_OP(FloatClass,nearestInt,compileIntrinsic(llvm::Intrinsic::nearbyint,operand))
-		IMPLEMENT_UNARY_OP(FloatClass,sqrt,compileIntrinsic(llvm::Intrinsic::sqrt,operand))
+		IMPLEMENT_UNARY_OP(FloatClass,abs,compileLLVMIntrinsic(llvm::Intrinsic::fabs,operand))
+		IMPLEMENT_UNARY_OP(FloatClass,ceil,compileLLVMIntrinsic(llvm::Intrinsic::ceil,operand))
+		IMPLEMENT_UNARY_OP(FloatClass,floor,compileLLVMIntrinsic(llvm::Intrinsic::floor,operand))
+		IMPLEMENT_UNARY_OP(FloatClass,trunc,compileLLVMIntrinsic(llvm::Intrinsic::trunc,operand))
+		IMPLEMENT_UNARY_OP(FloatClass,nearestInt,compileLLVMIntrinsic(llvm::Intrinsic::nearbyint,operand))
+		IMPLEMENT_UNARY_OP(FloatClass,sqrt,compileLLVMIntrinsic(llvm::Intrinsic::sqrt,operand))
 		IMPLEMENT_BINARY_OP(FloatClass,add,irBuilder.CreateFAdd(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,sub,irBuilder.CreateFSub(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,mul,irBuilder.CreateFMul(left,right))
@@ -670,7 +667,7 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(FloatClass,rem,irBuilder.CreateFRem(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,min,compileFloatMin(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,max,compileFloatMax(left,right))
-		IMPLEMENT_BINARY_OP(FloatClass,copySign,compileIntrinsic(llvm::Intrinsic::copysign,left,right))
+		IMPLEMENT_BINARY_OP(FloatClass,copySign,compileLLVMIntrinsic(llvm::Intrinsic::copysign,left,right))
 		IMPLEMENT_CAST_OP(FloatClass,convertSignedInt,irBuilder.CreateSIToFP(source,destType))
 		IMPLEMENT_CAST_OP(FloatClass,convertUnsignedInt,irBuilder.CreateUIToFP(source,destType))
 		IMPLEMENT_CAST_OP(FloatClass,promote,irBuilder.CreateFPExt(source,destType))
