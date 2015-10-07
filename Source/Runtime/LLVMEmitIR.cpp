@@ -525,7 +525,7 @@ namespace LLVMJIT
 		}
 		DispatchResult compileIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand,llvm::Value* secondOperand)
 		{
-			auto intrinsic = getLLVMIntrinsic({firstOperand->getType(),secondOperand->getType()},intrinsicId);
+			auto intrinsic = getLLVMIntrinsic({firstOperand->getType()},intrinsicId);
 			return irBuilder.CreateCall(intrinsic,llvm::ArrayRef<llvm::Value*>({firstOperand,secondOperand}));
 		}
 		
@@ -574,22 +574,26 @@ namespace LLVMJIT
 		// WebAssembly's fXX.min and fXX.max are defined to return NaN if either number is NaN.
 		llvm::Value* compileFloatMin(llvm::Value* left,llvm::Value* right)
 		{
-			// If left is a NaN, return it. Otherwise return left < right ? left : right.
-			// If right is a NaN, left < right will be false, so it will return right.
 			return irBuilder.CreateSelect(
 				irBuilder.CreateFCmpUNE(left,left),
 				left,
-				irBuilder.CreateSelect(irBuilder.CreateFCmpOLT(left,right),left,right)
+				irBuilder.CreateSelect(
+					irBuilder.CreateFCmpUNE(right,right),
+					right,
+					compileIntrinsic(llvm::Intrinsic::minnum,left,right)
+					)
 				);
 		}
 		llvm::Value* compileFloatMax(llvm::Value* left,llvm::Value* right)
 		{
-			// If left is a NaN, return it. Otherwise return left > right ? left : right.
-			// If right is a NaN, left > right will be false, so it will return right.
 			return irBuilder.CreateSelect(
 				irBuilder.CreateFCmpUNE(left,left),
 				left,
-				irBuilder.CreateSelect(irBuilder.CreateFCmpOGT(left,right),left,right)
+				irBuilder.CreateSelect(
+					irBuilder.CreateFCmpUNE(right,right),
+					right,
+					compileIntrinsic(llvm::Intrinsic::maxnum,left,right)
+					)
 				);
 		}
 
