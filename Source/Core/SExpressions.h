@@ -17,7 +17,7 @@ namespace SExp
 		UnindexedSymbol,
 		SignedInt,
 		UnsignedInt,
-		Decimal,
+		Float,
 		Error,
 		Tree
 	};
@@ -32,14 +32,19 @@ namespace SExp
 			const char* error;
 			uintptr symbol;
 			const char* string;
-			int64 integer;
-			uint64 unsignedInteger;
-			float64 decimal;
+			int64 i64;
+			uint64 u64;
+			float64 f64;
 			Node* children;
 		};
-		// If type==NodeType::String, contains the length of the string.
-		// string[stringLength] will be zero, but stringLength may not be the first zero in the string.
-		size_t stringLength;
+		union
+		{
+			// If type==NodeType::String, contains the length of the string.
+			// string[stringLength] will be zero, but stringLength may not be the first zero in the string.
+			size_t stringLength;
+			// If type==NodeType::Float, contains a 32-bit float representation of the node.
+			float32 f32;
+		};
 		// The next node with the same parent.
 		Node* nextSibling;
 		// The start of this node in the source file.
@@ -146,11 +151,12 @@ namespace SExp
 		NodeOutputStream& operator<<(uint32 i) { appendInt(i); return *this; }
 		NodeOutputStream& operator<<(uint64 i) { appendInt(i); return *this; }
 		NodeOutputStream& operator<<(intptr i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(float64 d)
+		NodeOutputStream& operator<<(float64 f)
 		{
 			auto decimalNode = new(arena) Node();
-			decimalNode->type = SExp::NodeType::Decimal;
-			decimalNode->decimal = d;
+			decimalNode->type = SExp::NodeType::Float;
+			decimalNode->f64 = f;
+			decimalNode->f32 = (float32)f;
 			append(decimalNode);
 			return *this;
 		}
@@ -184,7 +190,7 @@ namespace SExp
 		{
 			auto intNode = new(arena) Node();
 			intNode->type = SExp::NodeType::SignedInt;
-			intNode->integer = i;
+			intNode->u64 = i;
 			append(intNode);
 		}
 	};

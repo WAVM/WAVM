@@ -1,4 +1,5 @@
 #include "Core/Core.h"
+#include "Core/Floats.h"
 #include "Core/MemoryArena.h"
 #include "Core/SExpressions.h"
 #include "AST/AST.h"
@@ -30,9 +31,9 @@ namespace WebAssemblyText
 			{
 			case SExp::NodeType::Tree: return "(" + describeSNode(node->children) + ")";
 			case SExp::NodeType::Symbol: return wastSymbols[node->symbol];
-			case SExp::NodeType::SignedInt: return std::to_string(node->integer);
-			case SExp::NodeType::UnsignedInt: return std::to_string(node->unsignedInteger);
-			case SExp::NodeType::Decimal: return std::to_string(node->decimal);
+			case SExp::NodeType::SignedInt: return std::to_string(node->i64);
+			case SExp::NodeType::UnsignedInt: return std::to_string(node->u64);
+			case SExp::NodeType::Float: return std::to_string(node->f64);
 			case SExp::NodeType::Error: return node->error;
 			case SExp::NodeType::String: return node->string;
 			case SExp::NodeType::UnindexedSymbol: return node->string;
@@ -74,17 +75,17 @@ namespace WebAssemblyText
 	// Parse an integer from a S-expression node.
 	bool parseInt(SNodeIt& nodeIt,int64& outInt)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outInt = nodeIt->integer; ++nodeIt; return true; }
-		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt) { outInt = nodeIt->unsignedInteger; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outInt = nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt) { outInt = nodeIt->u64; ++nodeIt; return true; }
 		else { return false; }
 	}
 
-	// Parse a 64-bit float32 from a S-expression node.
-	bool parseFloat64(SNodeIt& nodeIt,float64& outDouble)
+	// Parse a float from a S-expression node.
+	bool parseFloat(SNodeIt& nodeIt,float64& outF64,float32& outF32)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::Decimal) { outDouble = nodeIt->decimal; ++nodeIt; return true; }
-		else if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outDouble = (float64)nodeIt->integer; ++nodeIt; return true; }
-		else if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt) { outDouble = (float64)nodeIt->unsignedInteger; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::Float) { outF64 = nodeIt->f64; outF32 = nodeIt->f32; ++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outF64 = (float64)nodeIt->i64; outF32 = (float32)nodeIt->i64; ++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt) { outF64 = (float64)nodeIt->u64; outF32 = (float32)nodeIt->u64; ++nodeIt; return true; }
 		else { return false; }
 	}
 
@@ -307,12 +308,13 @@ namespace WebAssemblyText
 				}
 				DEFINE_TYPED_OP(Float,const)
 				{
-					float64 doubleValue;
-					if(!parseFloat64(nodeIt,doubleValue)) { return TypedExpression(recordError<Error<FloatClass>>(outErrors,nodeIt,"const: expected floating point number"),opType); }
+					float64 f64;
+					float32 f32;
+					if(!parseFloat(nodeIt,f64,f32)) { return TypedExpression(recordError<Error<FloatClass>>(outErrors,nodeIt,"const: expected floating point number"),opType); }
 					switch(opType)
 					{
-					case TypeId::F32: return TypedExpression(requireFullMatch(nodeIt,"const.f32",new(arena)Literal<F32Type>((float32)doubleValue)),TypeId::F32);
-					case TypeId::F64: return TypedExpression(requireFullMatch(nodeIt,"const.f64",new(arena)Literal<F64Type>(doubleValue)),TypeId::F64);
+					case TypeId::F32: return TypedExpression(requireFullMatch(nodeIt,"const.f32",new(arena)Literal<F32Type>(f32)),TypeId::F32);
+					case TypeId::F64: return TypedExpression(requireFullMatch(nodeIt,"const.f64",new(arena)Literal<F64Type>(f64)),TypeId::F64);
 					default: throw;
 					}
 				}
@@ -1326,7 +1328,8 @@ namespace WebAssemblyText
 		SNodeIt childNodeIt;
 		Symbol symbol;
 		int64 integerValue;
-		float64 floatValue;
+		float64 f64Value;
+		float32 f32Value;
 		if(parseTreeNode(nodeIt,childNodeIt) && parseSymbol(childNodeIt,symbol))
 		{
 			switch(symbol)
@@ -1344,16 +1347,16 @@ namespace WebAssemblyText
 				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
 				else { return Runtime::Value((uint64)integerValue); }
 			case Symbol::_const_F32:
-				if(!parseFloat64(childNodeIt,floatValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
-				else { return Runtime::Value((float32)floatValue); }
+				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
+				else { return Runtime::Value(f32Value); }
 			case Symbol::_const_F64:
-				if(!parseFloat64(childNodeIt,floatValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
-				else { return Runtime::Value((float64)floatValue); }
+				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
+				else { return Runtime::Value(f64Value); }
 			default:;
 			};
 		}
 
-		recordError<ErrorRecord>(outErrors,childNodeIt,"expected const expression");
+		recordError<ErrorRecord>(outErrors,nodeIt,"expected const expression");
 		return Runtime::Value();
 	}
 

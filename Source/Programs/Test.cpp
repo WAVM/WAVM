@@ -1,5 +1,6 @@
 #include "Core/Core.h"
 #include "Core/MemoryArena.h"
+#include "Core/Floats.h"
 #include "Core/Platform.h"
 #include "AST/AST.h"
 #include "AST/ASTExpressions.h"
@@ -18,8 +19,8 @@ std::string describeRuntimeValue(const Runtime::Value& value)
 	case Runtime::TypeId::I16: return "I16(" + std::to_string(value.i16) + ")";
 	case Runtime::TypeId::I32: return "I32(" + std::to_string(value.i32) + ")";
 	case Runtime::TypeId::I64: return "I64(" + std::to_string(value.i64) + ")";
-	case Runtime::TypeId::F32: return "F32(" + std::to_string(value.f32) + ")";
-	case Runtime::TypeId::F64: return "F64(" + std::to_string(value.f64) + ")";
+	case Runtime::TypeId::F32: return "F32(" + Floats::asString(value.f32) + ")";
+	case Runtime::TypeId::F64: return "F64(" + Floats::asString(value.f64) + ")";
 	case Runtime::TypeId::Bool: return value.bool_ ? "Bool(true)" : "Bool(false)";
 	case Runtime::TypeId::Void: return "Void";
 	case Runtime::TypeId::Exception: return "Exception(" + std::string(Runtime::describeExceptionCause(value.exception->cause)) + ")";
