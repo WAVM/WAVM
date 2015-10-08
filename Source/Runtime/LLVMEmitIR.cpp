@@ -582,18 +582,6 @@ namespace LLVMJIT
 			return compileShift(type,right,irBuilder.CreateAShr(left,right),irBuilder.CreateAShr(left,bitsMinusOne));
 		}
 
-		// WebAssembly's fXX.min and fXX.max are defined to return NaN if either number is NaN.
-		llvm::Value* compileFloatMin(llvm::Value* left,llvm::Value* right)
-		{
-			TypeId operandType = left->getType()->getScalarSizeInBits() == 32 ? TypeId::F32 : TypeId::F64;
-			return compileRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType(operandType,{operandType,operandType}),{left,right});
-		}
-		llvm::Value* compileFloatMax(llvm::Value* left,llvm::Value* right)
-		{
-			TypeId operandType = left->getType()->getScalarSizeInBits() == 32 ? TypeId::F32 : TypeId::F64;
-			return compileRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType(operandType,{operandType,operandType}),{left,right});
-		}
-
 		template<typename Class,typename OpAsType> DispatchResult visitUnary(TypeId type,const Unary<Class>* unary,OpAsType);
 		template<typename Class,typename OpAsType> DispatchResult visitBinary(TypeId type,const Binary<Class>* binary,OpAsType);
 		template<typename Class,typename OpAsType> DispatchResult visitCast(TypeId type,const Cast<Class>* cast,OpAsType);
@@ -665,8 +653,8 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(FloatClass,mul,irBuilder.CreateFMul(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,div,irBuilder.CreateFDiv(left,right))
 		IMPLEMENT_BINARY_OP(FloatClass,rem,irBuilder.CreateFRem(left,right))
-		IMPLEMENT_BINARY_OP(FloatClass,min,compileFloatMin(left,right))
-		IMPLEMENT_BINARY_OP(FloatClass,max,compileFloatMax(left,right))
+		IMPLEMENT_BINARY_OP(FloatClass,min,compileRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType(type,{type,type}),{left,right}))
+		IMPLEMENT_BINARY_OP(FloatClass,max,compileRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType(type,{type,type}),{left,right}))
 		IMPLEMENT_BINARY_OP(FloatClass,copySign,compileLLVMIntrinsic(llvm::Intrinsic::copysign,left,right))
 		IMPLEMENT_CAST_OP(FloatClass,convertSignedInt,irBuilder.CreateSIToFP(source,destType))
 		IMPLEMENT_CAST_OP(FloatClass,convertUnsignedInt,irBuilder.CreateUIToFP(source,destType))
