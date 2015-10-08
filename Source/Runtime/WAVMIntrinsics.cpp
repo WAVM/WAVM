@@ -82,13 +82,13 @@ namespace Runtime
 		return (Dest)sourceValue;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I32,F32,source) { return floatToInt<int32,float32,false>(source,(float32)INT_MIN,-(float32)INT_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I32,F64,source) { return floatToInt<int32,float64,false>(source,(float64)INT_MIN,-(float64)INT_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I32,F32,source) { return floatToInt<int32,float32,false>(source,(float32)INT32_MIN,-(float32)INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I32,F64,source) { return floatToInt<int32,float64,false>(source,(float64)INT32_MIN,-(float64)INT32_MIN); }
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I64,F32,source) { return floatToInt<int64,float32,false>(source,(float32)INT64_MIN,-(float32)INT64_MIN); }
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I64,F64,source) { return floatToInt<int64,float64,false>(source,(float64)INT64_MIN,-(float64)INT64_MIN); }
 	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I32,F32,source) { return floatToInt<uint32,float32,true>(source,-1.0f,-2.0f * INT_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I32,F64,source) { return floatToInt<uint32,float64,true>(source,-1.0,-2.0 * INT_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I32,F32,source) { return floatToInt<uint32,float32,true>(source,-1.0f,-2.0f * INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I32,F64,source) { return floatToInt<uint32,float64,true>(source,-1.0,-2.0 * INT32_MIN); }
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I64,F32,source) { return floatToInt<uint64,float32,true>(source,-1.0f,-2.0f * INT64_MIN); }
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I64,F64,source) { return floatToInt<uint64,float64,true>(source,-1.0,-2.0 * INT64_MIN); }
 
