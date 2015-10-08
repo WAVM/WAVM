@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core.h"
+#include <inttypes.h>
 
 namespace Floats
 {	
@@ -44,8 +45,8 @@ namespace Floats
 			else
 			{
 				char significandString[32];
-				auto numChars = std::sprintf(significandString,"%lx",(uint64)components.bits.significand);
-				if(numChars + 1 > sizeof(significandString)) { abort(); }
+				auto numChars = std::sprintf(significandString,"%" PRIx64,(uint64)components.bits.significand);
+				if(unsigned(numChars) + 1 > sizeof(significandString)) { abort(); }
 				return sign + "nan(0x" + significandString + ")";
 			}
 		}
@@ -53,7 +54,7 @@ namespace Floats
 		{
 			char buffer[32];
 			auto numChars = std::sprintf(buffer,"%.13a",f);
-			if(numChars + 1 > sizeof(buffer))
+			if(unsigned(numChars) + 1 > sizeof(buffer))
 			{
 				abort();
 			}
