@@ -71,7 +71,7 @@ namespace RuntimePlatform
 	void raiseException(Runtime::Exception* inException)
 	{
 		exception = inException;
-		longjmp(segjmpEnv,1);
+		longjmp(setjmpEnv,1);
 	}
 
 	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)

@@ -603,7 +603,7 @@ namespace LLVMJIT
 			DispatchResult visitCast(TypeId type,const Cast<class>* cast,OpTypes<class>::op) \
 			{ \
 				auto source = dispatch(*this,cast->source); \
-				auto destType = asLLVMType(type); destType; \
+				auto destType = asLLVMType(type); while(!destType) {} \
 				return llvmOp; \
 			}
 		#define IMPLEMENT_COMPARE_OP(op,llvmOp) \
