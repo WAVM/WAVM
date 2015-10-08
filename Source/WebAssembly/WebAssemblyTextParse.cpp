@@ -1476,6 +1476,7 @@ namespace WebAssemblyText
 		else if(!strcmp(message,"runtime: integer overflow")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; }
 		else if(!strcmp(message,"runtime: integer divide by zero")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; }
 		else if(!strcmp(message,"runtime: invalid conversion to integer")) { cause = Runtime::Exception::Cause::InvalidFloatOperation; }
+		else if(!strcmp(message,"runtime: callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
 
 		auto result = new(outFile.modules[outModuleIndex]->arena) Assert;
 		result->invoke = invoke;
