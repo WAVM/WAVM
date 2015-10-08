@@ -12,6 +12,7 @@ namespace RuntimePlatform
 
 	THREAD_LOCAL jmp_buf setjmpEnv;
 	THREAD_LOCAL Exception::Cause exceptionCause = Exception::Cause::Unknown;
+	THREAD_LOCAL Exception* exception = nullptr;
 
 	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
 	{
@@ -22,7 +23,7 @@ namespace RuntimePlatform
 		case SIGFPE:
 			switch(signalInfo->si_code)
 			{
-				case FPE_INTDIV: exceptionCause = Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow; break;
+				case FPE_INTDIV: exceptionCause = Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; break;
 			};
 			break;
 		case SIGSEGV: exceptionCause = Exception::Cause::AccessViolation; break;
@@ -38,7 +39,7 @@ namespace RuntimePlatform
 
 		struct sigaction oldSignalActionSEGV;
 		struct sigaction oldSignalActionFPE;
-
+		
 		// Use setjmp to allow signals to jump
 		if(!setjmp(setjmpEnv))
 		{
@@ -55,16 +56,22 @@ namespace RuntimePlatform
 			// Call the thunk.
 			result = thunk();
 		}
-		else
-		{
-			result = Value(new Exception {exceptionCause});
-		}
+		else if(exception) { result = Value(exception); }
+		else { result = Value(new Exception {exceptionCause}); }
 
-		// Reset the signals.
+		// Reset the signal state.
+		exceptionCause = Exception::Cause::Unknown;
+		exception = nullptr;
 		sigaction(SIGSEGV,&oldSignalActionSEGV,nullptr);
 		sigaction(SIGFPE,&oldSignalActionFPE,nullptr);
 
 		return result;
+	}
+
+	void raiseException(Runtime::Exception* inException)
+	{
+		exception = inException;
+		longjmp(segjmpEnv,1);
 	}
 
 	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)

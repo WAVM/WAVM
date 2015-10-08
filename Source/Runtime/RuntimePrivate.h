@@ -46,12 +46,18 @@ namespace Runtime
 
 	// Describes a stack frame.
 	std::string describeStackFrame(const StackFrame& frame);
+
+	// Describes an execution context. Returns an array of strings, one for each stack frame.
+	std::vector<std::string> describeExecutionContext(const ExecutionContext& executionContext);
 }
 
 namespace RuntimePlatform
 {
 	// Calls a thunk and catches any runtime exception thrown by it.
 	Runtime::Value catchRuntimeExceptions(const std::function<Runtime::Value()>& thunk);
+	
+	// Raises a runtime exception.
+	void raiseException(Runtime::Exception* exception);
 
 	// Describes an instruction pointer 
 	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription);

@@ -5,6 +5,12 @@
 
 namespace Runtime
 {
+	void causeException(Exception::Cause cause)
+	{
+		auto callStack = describeExecutionContext(RuntimePlatform::captureExecutionContext());
+		RuntimePlatform::raiseException(new Exception {cause,callStack});
+	}
+
 	template<typename Float,typename FloatComponents>
 	Float floatMin(Float left,Float right)
 	{
@@ -61,6 +67,30 @@ namespace Runtime
 	{
 		return floatMax<float64,Floats::F64Components>(left,right);
 	}
+
+	template<typename Dest,typename Source,bool isMinInclusive>
+	Dest floatToInt(Source sourceValue,Source minValue,Source maxValue)
+	{
+		if(sourceValue != sourceValue)
+		{
+			causeException(Exception::Cause::InvalidFloatOperation);
+		}
+		else if(sourceValue >= maxValue || (isMinInclusive ? sourceValue <= minValue : sourceValue < minValue))
+		{
+			causeException(Exception::Cause::IntegerDivideByZeroOrIntegerOverflow);
+		}
+		return (Dest)sourceValue;
+	}
+
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I32,F32,source) { return floatToInt<int32,float32,false>(source,(float32)INT_MIN,-(float32)INT_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I32,F64,source) { return floatToInt<int32,float64,false>(source,(float64)INT_MIN,-(float64)INT_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I64,F32,source) { return floatToInt<int64,float32,false>(source,(float32)INT64_MIN,-(float32)INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,I64,F64,source) { return floatToInt<int64,float64,false>(source,(float64)INT64_MIN,-(float64)INT64_MIN); }
+	
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I32,F32,source) { return floatToInt<uint32,float32,true>(source,-1.0f,-2.0f * INT_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I32,F64,source) { return floatToInt<uint32,float64,true>(source,-1.0,-2.0 * INT_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I64,F32,source) { return floatToInt<uint64,float32,true>(source,-1.0f,-2.0f * INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I64,F64,source) { return floatToInt<uint64,float64,true>(source,-1.0,-2.0 * INT64_MIN); }
 
 	void initWAVMIntrinsics()
 	{

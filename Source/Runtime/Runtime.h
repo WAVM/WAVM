@@ -18,7 +18,7 @@ namespace Runtime
 			Unknown,
 			AccessViolation,
 			StackOverflow,
-			IntegerDivideByZeroOrSignedIntegerOverflow,
+			IntegerDivideByZeroOrIntegerOverflow,
 			InvalidFloatOperation,
 			InvokeSignatureMismatch
 		};

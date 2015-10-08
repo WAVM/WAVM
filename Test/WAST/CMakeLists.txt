@@ -1,6 +1,6 @@
 set(TEST_BIN ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CONFIGURATION}/Test)
 
-#add_test(conversions ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/conversions.wast)
+add_test(conversions ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/conversions.wast)
 add_test(exports ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/exports.wast)
 add_test(f32 ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/f32.wast)
 add_test(f64 ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/f64.wast)

@@ -23,7 +23,7 @@ namespace Runtime
 		case Exception::Cause::Unknown: return "unknown";
 		case Exception::Cause::AccessViolation: return "access violation";
 		case Exception::Cause::StackOverflow: return "stack overflow";
-		case Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow: return "integer divide by zero or signed integer overflow";
+		case Exception::Cause::IntegerDivideByZeroOrIntegerOverflow: return "integer divide by zero or signed integer overflow";
 		case Exception::Cause::InvalidFloatOperation: return "invalid floating point operation";
 		case Exception::Cause::InvokeSignatureMismatch: return "invoke signature mismatch";
 		default: return "unknown";
@@ -38,6 +38,13 @@ namespace Runtime
 		||	RuntimePlatform::describeInstructionPointer(frame.ip,frameDescription);
 		if(hasDescripton) { return frameDescription; }
 		else { return "<unknown function>"; }
+	}
+
+	std::vector<std::string> describeExecutionContext(const ExecutionContext& executionContext)
+	{
+		std::vector<std::string> frameDescriptions;
+		for(auto stackFrame : executionContext.stackFrames) { frameDescriptions.push_back(describeStackFrame(stackFrame)); }
+		return frameDescriptions;
 	}
 
 	bool loadModule(const AST::Module* module)

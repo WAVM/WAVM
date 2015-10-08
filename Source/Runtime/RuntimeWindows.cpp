@@ -12,6 +12,12 @@ namespace RuntimePlatform
 {
 	using namespace Runtime;
 	
+	// The top two bits are set to indicate an error.
+	// The next bit is set to indicate a user-defined exception.
+	// The next bit is reserved.
+	// https://msdn.microsoft.com/en-us/library/het71c37.aspx
+	#define EXCEPTION_WAVM_RUNTIME 0xe0000000
+
 	// The interface to the DbgHelp DLL
 	struct DbgHelp
 	{
@@ -80,26 +86,30 @@ namespace RuntimePlatform
 
 	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,Exception*& outRuntimeException)
 	{
-		// Interpret the cause of the exception.
-		Exception::Cause cause;
-		switch(exceptionPointers->ExceptionRecord->ExceptionCode)
+		// Detect a WAVM runtime exception and just pull the the Exception pointer out for the handler.
+		if(exceptionPointers->ExceptionRecord->ExceptionCode == EXCEPTION_WAVM_RUNTIME)
 		{
-		case EXCEPTION_ACCESS_VIOLATION: cause = Exception::Cause::AccessViolation; break;
-		case EXCEPTION_STACK_OVERFLOW: cause = Exception::Cause::StackOverflow; break;
-		case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow; break;
-		case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::IntegerDivideByZeroOrSignedIntegerOverflow; break;
-		default: cause = Exception::Cause::Unknown; break;
+			outRuntimeException = reinterpret_cast<Exception*>(exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
 		}
+		else
+		{
+			// Interpret the cause of the exception.
+			Exception::Cause cause;
+			switch(exceptionPointers->ExceptionRecord->ExceptionCode)
+			{
+			case EXCEPTION_ACCESS_VIOLATION: cause = Exception::Cause::AccessViolation; break;
+			case EXCEPTION_STACK_OVERFLOW: cause = Exception::Cause::StackOverflow; break;
+			case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; break;
+			case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; break;
+			default: cause = Exception::Cause::Unknown; break;
+			}
 
-		// Unwind the stack frames from the context of the exception.
-		auto executionContext = unwindStack(*exceptionPointers->ContextRecord);
+			// Unwind the stack frames from the context of the exception.
+			auto executionContext = unwindStack(*exceptionPointers->ContextRecord);
 
-		// Describe the exception's call stack.
-		std::vector<std::string> frameDescriptions;
-		for(auto stackFrame : executionContext.stackFrames)
-			{ frameDescriptions.push_back(describeStackFrame(stackFrame)); }
-		outRuntimeException = new Exception {cause,frameDescriptions};
-
+			// Describe the exception's call stack.
+			outRuntimeException = new Exception {cause,describeExecutionContext(executionContext)};
+		}
 		return EXCEPTION_EXECUTE_HANDLER;
 	}
 
@@ -114,6 +124,11 @@ namespace RuntimePlatform
 		{
 			return Value(runtimeException);
 		}
+	}
+
+	void raiseException(Runtime::Exception* exception)
+	{
+		RaiseException(EXCEPTION_WAVM_RUNTIME,0,1,reinterpret_cast<ULONG_PTR*>(&exception));
 	}
 
 	void registerSEHUnwindInfo(uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes)

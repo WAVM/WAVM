@@ -603,7 +603,7 @@ namespace LLVMJIT
 			DispatchResult visitCast(TypeId type,const Cast<class>* cast,OpTypes<class>::op) \
 			{ \
 				auto source = dispatch(*this,cast->source); \
-				auto destType = asLLVMType(type); \
+				auto destType = asLLVMType(type); destType; \
 				return llvmOp; \
 			}
 		#define IMPLEMENT_COMPARE_OP(op,llvmOp) \
@@ -634,8 +634,8 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(IntClass,shrSExt,compileShrSExt(type,left,right))
 		IMPLEMENT_BINARY_OP(IntClass,shrZExt,compileShift(type,right,irBuilder.CreateLShr(left,right),typedZeroConstants[(size_t)type]))
 		IMPLEMENT_CAST_OP(IntClass,wrap,irBuilder.CreateTrunc(source,destType))
-		IMPLEMENT_CAST_OP(IntClass,truncSignedFloat,irBuilder.CreateFPToSI(source,destType))
-		IMPLEMENT_CAST_OP(IntClass,truncUnsignedFloat,irBuilder.CreateFPToUI(source,destType))
+		IMPLEMENT_CAST_OP(IntClass,truncSignedFloat,compileRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType(type,{cast->source.type}),{source}))
+		IMPLEMENT_CAST_OP(IntClass,truncUnsignedFloat,compileRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType(type,{cast->source.type}),{source}))
 		IMPLEMENT_CAST_OP(IntClass,sext,irBuilder.CreateSExt(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,zext,irBuilder.CreateZExt(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,reinterpretFloat,irBuilder.CreateBitCast(source,destType))
