@@ -30,7 +30,7 @@ namespace Floats
 		uint32 bitcastInt;
 	};
 
-	template<typename FloatComponents,typename Float,uint64 maxExponent>
+	template<typename FloatComponents,typename Float,uint64 maxExponent,uintptr numSignificandHexits>
 	std::string asString(Float f)
 	{
 		FloatComponents components;
@@ -43,9 +43,13 @@ namespace Floats
 			if(components.bits.significand == 0) { return sign + "infinity"; }
 			else
 			{
-				char significandString[32];
-				auto numChars = std::sprintf(significandString,"%lx",(uint64)components.bits.significand);
-				if(numChars + 1 > sizeof(significandString)) { abort(); }
+				char significandString[numSignificandHexits + 1];
+				for(uintptr hexitIndex = 0;hexitIndex < numSignificandHexits;++hexitIndex)
+				{
+					auto hexitValue = char((components.bits.significand >> ((numSignificandHexits - hexitIndex - 1) * 4)) & 0xf);
+					significandString[hexitIndex] = hexitValue >= 10 ? ('a' + hexitValue) : ('0' + hexitValue);
+				}
+				significandString[numSignificandHexits] = 0;
 				return sign + "nan(0x" + significandString + ")";
 			}
 		}
@@ -61,6 +65,6 @@ namespace Floats
 		}
 	}
 
-	inline std::string asString(float32 f32) { return asString<F32Components,float32,0xff>(f32); }
-	inline std::string asString(float64 f64) { return asString<F64Components,float64,0x7ff>(f64); }
+	inline std::string asString(float32 f32) { return asString<F32Components,float32,0xff,6>(f32); }
+	inline std::string asString(float64 f64) { return asString<F64Components,float64,0x7ff,13>(f64); }
 }
