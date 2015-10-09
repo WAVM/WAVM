@@ -99,6 +99,17 @@ namespace LLVMJIT
 				{
 					// Compute the address the functions was loaded at.
 					uintptr loadedAddress = *address;
+#if LLVM_VERSION_MAJOR >= 3 && LLVM_VERSION_MINOR >= 8
+					auto symbolSection = symbol.getSection();
+					if(!symbolSection.getError())
+					{
+						llvm::StringRef sectionName;
+						if(!(*symbolSection)->getName(sectionName))
+						{
+							loadedAddress += (uintptr)loadedObject->getSectionLoadAddress(**symbolSection);
+						}
+					}
+#else
 					auto symbolSection = object->section_begin();
 					if(!symbol.getSection(symbolSection))
 					{
@@ -108,9 +119,10 @@ namespace LLVMJIT
 							loadedAddress += (uintptr)loadedObject->getSectionLoadAddress(sectionName);
 						}
 					}
+#endif
 
 					// Save the address range this function was loaded at for future address->symbol lookups.
-					jitModule->functions.push_back({*name,loadedAddress,symbolSizePair.second});
+					jitModule->functions.push_back({*name,loadedAddress,size_t(symbolSizePair.second)});
 				}
 			}
 			
