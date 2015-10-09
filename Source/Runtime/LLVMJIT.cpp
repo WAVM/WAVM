@@ -168,36 +168,14 @@ namespace LLVMJIT
 
 		// Run some optimization on the module's functions.
 		Core::Timer optimizationTimer;
-		//llvm::legacy::PassManager passManager;
-		//passManager.add(llvm::createFunctionInliningPass(2,0));
-		//passManager.run(*llvmModule);
 
 		auto fpm = new llvm::legacy::FunctionPassManager(llvmModule);
 		fpm->add(llvm::createPromoteMemoryToRegisterPass());
-		fpm->add(llvm::createBasicAliasAnalysisPass());
 		fpm->add(llvm::createInstructionCombiningPass());
-		fpm->add(llvm::createReassociatePass());
-		fpm->add(llvm::createGVNPass());
-		fpm->add(llvm::createLICMPass());
-		fpm->add(llvm::createLoopVectorizePass());
-		fpm->add(llvm::createSLPVectorizerPass());
-		fpm->add(llvm::createBBVectorizePass());
-		fpm->add(llvm::createLoopUnrollPass());
 		fpm->add(llvm::createCFGSimplificationPass());
-		fpm->add(llvm::createConstantPropagationPass());
-		fpm->add(llvm::createDeadInstEliminationPass());
-		fpm->add(llvm::createDeadCodeEliminationPass());
-		fpm->add(llvm::createDeadStoreEliminationPass());
-		fpm->add(llvm::createAggressiveDCEPass());
-		fpm->add(llvm::createBitTrackingDCEPass());
-		fpm->add(llvm::createInductiveRangeCheckEliminationPass());
-		fpm->add(llvm::createIndVarSimplifyPass());
-		fpm->add(llvm::createLoopStrengthReducePass());
-		fpm->add(llvm::createLoopRotatePass());
-		fpm->add(llvm::createLoopIdiomPass());
 		fpm->add(llvm::createJumpThreadingPass());
-		fpm->add(llvm::createMemCpyOptPass());
-		fpm->add(llvm::createConstantHoistingPass());
+		fpm->add(llvm::createConstantPropagationPass());
+		fpm->doInitialization();
 		fpm->doInitialization();
 		for(auto functionIt = llvmModule->begin();functionIt != llvmModule->end();++functionIt)
 		{ fpm->run(*functionIt); }

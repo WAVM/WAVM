@@ -49,8 +49,6 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/Vectorize.h"
 #include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include <cctype>
