@@ -55,6 +55,7 @@ namespace RuntimePlatform
 			};
 			break;
 		case SIGSEGV:
+		case SIGBUS:
 			exceptionCause = signalInfo->si_addr > stackMinAddr - 16384 && signalInfo->si_addr < stackMinAddr + 16384
 				? Exception::Cause::StackOverflow
 				: Exception::Cause::AccessViolation;
@@ -72,6 +73,7 @@ namespace RuntimePlatform
 		Runtime::Value result;
 
 		struct sigaction oldSignalActionSEGV;
+		struct sigaction oldSignalActionBUS;
 		struct sigaction oldSignalActionFPE;
 		
 		// Use setjmp to allow signals to jump
@@ -83,6 +85,7 @@ namespace RuntimePlatform
 			sigemptyset(&signalAction.sa_mask);
 			signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
 			sigaction(SIGSEGV,&signalAction,&oldSignalActionSEGV);
+			sigaction(SIGBUS,&signalAction,&oldSignalActionBUS);
 			sigaction(SIGFPE,&signalAction,&oldSignalActionFPE);
 
 			// Call the thunk.
@@ -95,6 +98,7 @@ namespace RuntimePlatform
 		exceptionCause = Exception::Cause::Unknown;
 		exception = nullptr;
 		sigaction(SIGSEGV,&oldSignalActionSEGV,nullptr);
+		sigaction(SIGBUS,&oldSignalActionBUS,nullptr);
 		sigaction(SIGFPE,&oldSignalActionFPE,nullptr);
 
 		return result;
