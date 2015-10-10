@@ -149,7 +149,13 @@ namespace LLVMJIT
 		auto llvmModule = emitModule(astModule);
 		
 		// Get a target machine object for this host, and set the module to use its data layout.
-		auto targetMachine = llvm::EngineBuilder().selectTarget(llvm::Triple(llvm::sys::getProcessTriple()),"","",llvm::SmallVector<std::string,0>());
+        auto targetTriple = llvm::sys::getProcessTriple();
+        #ifdef __APPLE__
+			// Didn't figure out exactly why, but this works around a problem with the MacOS dynamic loader. Without it,
+			// our symbols can't be found in the JITed object file.
+			targetTriple += "-elf";
+        #endif
+		auto targetMachine = llvm::EngineBuilder().selectTarget(llvm::Triple(targetTriple),"","",llvm::SmallVector<std::string,0>());
 		llvmModule->setDataLayout(targetMachine->createDataLayout());
 
 		// Verify the module.
