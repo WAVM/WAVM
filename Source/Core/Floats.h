@@ -57,7 +57,7 @@ namespace Floats
 		{
 			char buffer[32];
 			auto numChars = std::sprintf(buffer,"%.13a",f);
-			if(numChars + 1 > sizeof(buffer))
+			if(unsigned(numChars) + 1 > sizeof(buffer))
 			{
 				abort();
 			}
