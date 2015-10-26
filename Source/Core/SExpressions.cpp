@@ -349,13 +349,15 @@ namespace SExp
 	{
 		uint64 integerPart;
 		if(!parseHexInteger(state,integerPart)) { return createError(state.getLocus(),arena,"expected hex digits"); }
-			
+
+		bool hasDecimalPoint = false;
 		uint64 fractionalPart = 0;
 		if(parseKeyword(state,"."))
 		{
 			// Shift the fractional part so the MSB is in the MSB of the float64 significand.
 			auto numFractionalHexits = parseHexInteger(state,fractionalPart);
 			fractionalPart <<= 52 - numFractionalHexits * 4;
+			hasDecimalPoint = true;
 		}
 			
 		int64 exponent = 0;
@@ -380,7 +382,7 @@ namespace SExp
 		}
 		
 		// If there wasn't a fractional part, or exponent, or negative zero, then just create an integer node.
-		if(!fractionalPart && !exponent && (!isNegative || integerPart))
+		if(!fractionalPart && !exponent && !(isNegative && !integerPart && hasDecimalPoint))
 		{
 			auto node = new(arena) Node(state.getLocus(),isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
 			node->endLocus = state.getLocus();
