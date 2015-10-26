@@ -361,8 +361,11 @@ namespace SExp
 		}
 			
 		int64 exponent = 0;
+		bool hasExponent = false;
 		if(parseKeyword(state,"p") || parseKeyword(state,"P"))
 		{
+			hasExponent = true;
+
 			// Parse an optional exponent sign.
 			bool isExponentNegative = false;
 			if(state.peek() == '-' || state.peek() == '+') { isExponentNegative = state.consume() == '-'; }
@@ -382,7 +385,7 @@ namespace SExp
 		}
 		
 		// If there wasn't a fractional part, or exponent, or negative zero, then just create an integer node.
-		if(!fractionalPart && !exponent && !(isNegative && !integerPart && hasDecimalPoint))
+		if(!fractionalPart && !exponent && !(isNegative && !integerPart && (hasDecimalPoint || hasExponent)))
 		{
 			auto node = new(arena) Node(state.getLocus(),isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
 			node->endLocus = state.getLocus();
