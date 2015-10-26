@@ -149,6 +149,7 @@ namespace Runtime
 			case 1: return RecursiveInvoke<1>::invoke(function->type,functionPtr,parameters,0);
 			case 2: return RecursiveInvoke<2>::invoke(function->type,functionPtr,parameters,0);
 			case 3: return RecursiveInvoke<3>::invoke(function->type,functionPtr,parameters,0);
+			case 4: return RecursiveInvoke<4>::invoke(function->type,functionPtr,parameters,0);
 			default: return Value(new Exception {Exception::Cause::InvokeSignatureMismatch});
 			}
 		});
