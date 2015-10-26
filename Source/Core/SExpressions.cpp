@@ -457,7 +457,7 @@ namespace SExp
 		// Handle nan, infinity, and hexadecimal numbers.
 		if(parseKeyword(state,"nan")) { return parseNaN(startLocus,state,arena,isNegative); }
 		else if(parseKeyword(state,"infinity")) { return parseInfinity(startLocus,state,arena,isNegative); }
-		else if(parseKeyword(state,"0x")) { return parseHexNumber(startLocus,state,arena,isNegative); }
+		else if(parseKeyword(state,"0x") || parseKeyword(state,"0X")) { return parseHexNumber(startLocus,state,arena,isNegative); }
 		else
 		{
 			// For decimals, just use the std float parsing code.
