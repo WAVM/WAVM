@@ -1421,8 +1421,8 @@ namespace WebAssemblyText
 		if(!invoke) { return nullptr; }
 
 		// Parse the expected value of the invoke.
-		auto value = parseRuntimeValue(nodeIt++,outFile.errors);
-				
+		auto value = nodeIt ? parseRuntimeValue(nodeIt++,outFile.errors) : Runtime::Value(Runtime::Void());
+
 		// Verify that all of the assert_return's parameters were matched.
 		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
 
