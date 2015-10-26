@@ -750,33 +750,9 @@ namespace WebAssemblyText
 					return requireFullMatch(nodeIt,"call_indirect",result);
 				}
 
-				DEFINE_PARAMETRIC_UNTYPED_OP(label)
-				{
-					// Parse an optional name for the label.
-					const char* labelName;
-					bool hasName = parseName(nodeIt,labelName);
-					if(hasName && labelToBranchTargetMap.count(labelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"label: name shadows outer label"); }
+				DEFINE_PARAMETRIC_UNTYPED_OP(label) { return parseLabelBlock<Class>(resultType,nodeIt); }
+				DEFINE_PARAMETRIC_UNTYPED_OP(block) { return parseLabelBlock<Class>(resultType,nodeIt); }
 
-					// Create a branch target for the label.
-					auto branchTarget = new(arena)BranchTarget(resultType);
-
-					// Add the target to the in-scope branch targets.
-					if(hasName) { labelToBranchTargetMap[labelName] = branchTarget; }
-					scopedBranchTargets.push_back(branchTarget);
-
-					// Parse the label body.
-					auto expression = parseExpressionSequence<Class>(resultType,nodeIt,"label body");
-
-					// Remove the target from the in-scope branch targets.
-					scopedBranchTargets.pop_back();
-					if(hasName) { labelToBranchTargetMap.erase(labelName); }
-					
-					// Create the Label node.
-					return new(arena)Label<Class>(branchTarget,expression);
-				}
-
-				DEFINE_PARAMETRIC_UNTYPED_OP(block)
-				{ return parseExpressionSequence<Class>(resultType,nodeIt,"block body"); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(get_local)
 				{ return parseGetLocal<Class>(resultType,localNameToIndexMap,function->locals,nodeIt); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(set_local)
@@ -1079,6 +1055,33 @@ namespace WebAssemblyText
 			auto store = new(arena) SetLocal(getPrimaryTypeClass(variableType),valueExpression,variableIndex);
 			auto result = coerceExpression(Class(),resultType,TypedExpression(store,variableType),nodeIt,"variable");
 			return requireFullMatch(nodeIt,"set_local",result);
+		}
+
+		// Parses a label or a block.
+		template<typename Class>
+		typename Class::ClassExpression* parseLabelBlock(TypeId resultType,SNodeIt nodeIt)
+		{
+			// Parse an optional name for the label.
+			const char* labelName;
+			bool hasName = parseName(nodeIt,labelName);
+			if(hasName && labelToBranchTargetMap.count(labelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"name shadows outer label"); }
+
+			// Create a branch target for the block.
+			auto branchTarget = new(arena)BranchTarget(resultType);
+
+			// Add the target to the in-scope branch targets.
+			if(hasName) { labelToBranchTargetMap[labelName] = branchTarget; }
+			scopedBranchTargets.push_back(branchTarget);
+
+			// Parse the block body.
+			auto expression = parseExpressionSequence<Class>(resultType,nodeIt,"block body");
+
+			// Remove the target from the in-scope branch targets.
+			scopedBranchTargets.pop_back();
+			if(hasName) { labelToBranchTargetMap.erase(labelName); }
+					
+			// Create the Label node.
+			return new(arena)Label<Class>(branchTarget,expression);
 		}
 	};
 
