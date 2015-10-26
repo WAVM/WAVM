@@ -20,7 +20,8 @@ namespace Runtime
 			StackOverflow,
 			IntegerDivideByZeroOrIntegerOverflow,
 			InvalidFloatOperation,
-			InvokeSignatureMismatch
+			InvokeSignatureMismatch,
+			OutOfMemory
 		};
 
 		Cause cause;

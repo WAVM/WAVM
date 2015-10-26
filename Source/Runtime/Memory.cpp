@@ -1,6 +1,7 @@
 #include "Core/Core.h"
 #include "Runtime.h"
 #include "Core/Platform.h"
+#include "RuntimePrivate.h"
 
 namespace Runtime
 {
@@ -11,7 +12,7 @@ namespace Runtime
 	uint8* unalignedInstanceMemoryBase = nullptr;
 
 	static size_t numCommittedVirtualPages = 0;
-	static uint32 numAllocatedBytes = 0;
+	static size_t numAllocatedBytes = 0;
 
 	bool initInstanceMemory()
 	{
@@ -42,37 +43,39 @@ namespace Runtime
 		return true;
 	}
 
-	uint32 vmSbrk(int32 numBytes)
+	size_t vmGrowMemory(size_t numBytes)
 	{
 		// Round up to an alignment boundary.
 		numBytes = (numBytes + 7) & ~7;
-		const uint32 existingNumBytes = numAllocatedBytes;
-		if(numBytes > 0)
+		const size_t existingNumBytes = numAllocatedBytes;
+		if(uint64(existingNumBytes) + numBytes > (1ull<<32))
 		{
-			if(uint64(existingNumBytes) + numBytes > (1ull<<32))
-			{
-				return (uint32)-1;
-			}
+			causeException(Exception::Cause::OutOfMemory);
+		}
 
-			const uint32 pageSizeLog2 = Platform::getPreferredVirtualPageSizeLog2();
-			const uint32 pageSize = 1ull << pageSizeLog2;
-			const size_t numDesiredPages = (numAllocatedBytes + numBytes + pageSize - 1) >> pageSizeLog2;
-			const intptr deltaPages = numDesiredPages - numCommittedVirtualPages;
-			if(deltaPages > 0)
-			{
-				bool successfullyCommittedPhysicalMemory = Platform::commitVirtualPages(instanceMemoryBase + (numCommittedVirtualPages << pageSizeLog2),deltaPages);
-				if(!successfullyCommittedPhysicalMemory)
-				{
-					return (uint32)-1;
-				}
-				numCommittedVirtualPages += deltaPages;
-			}
-			numAllocatedBytes += numBytes;
-		}
-		else if(numBytes < 0)
+		const uint32 pageSizeLog2 = Platform::getPreferredVirtualPageSizeLog2();
+		const uint32 pageSize = 1ull << pageSizeLog2;
+		const size_t numDesiredPages = (numAllocatedBytes + numBytes + pageSize - 1) >> pageSizeLog2;
+		const intptr deltaPages = numDesiredPages - numCommittedVirtualPages;
+		if(deltaPages > 0)
 		{
-			numAllocatedBytes += numBytes;
+			bool successfullyCommittedPhysicalMemory = Platform::commitVirtualPages(instanceMemoryBase + (numCommittedVirtualPages << pageSizeLog2),deltaPages);
+			if(!successfullyCommittedPhysicalMemory)
+			{
+				causeException(Exception::Cause::OutOfMemory);
+			}
+			numCommittedVirtualPages += deltaPages;
 		}
-		return (int32)existingNumBytes;
+		numAllocatedBytes += numBytes;
+		return existingNumBytes;
+	}
+
+	size_t vmShrinkMemory(size_t numBytes)
+	{
+		// Round up to an alignment boundary.
+		numBytes = (numBytes + 7) & ~7;
+		const size_t existingNumBytes = numAllocatedBytes;
+		numAllocatedBytes -= numBytes;
+		return existingNumBytes;
 	}
 }

@@ -15,7 +15,13 @@ namespace Runtime
 		LLVMJIT::init();
 		return initInstanceMemory();
 	}
-	
+
+	void causeException(Exception::Cause cause)
+	{
+		auto callStack = describeExecutionContext(RuntimePlatform::captureExecutionContext());
+		RuntimePlatform::raiseException(new Exception {cause,callStack});
+	}
+
 	const char* describeExceptionCause(Exception::Cause cause)
 	{
 		switch(cause)
@@ -50,10 +56,10 @@ namespace Runtime
 	bool loadModule(const AST::Module* module)
 	{
 		// Free any existing memory.
-		vmSbrk(-(int32)vmSbrk(0));
+		vmShrinkMemory(vmGrowMemory(0));
 
 		// Initialize the module's requested initial memory.
-		if(vmSbrk((int32)module->initialNumBytesMemory) != 0)
+		if(vmGrowMemory((int32)module->initialNumBytesMemory) != 0)
 		{
 			std::cerr << "Failed to commit the requested initial memory for module instance (" << module->initialNumBytesMemory/1024 << "KB requested)" << std::endl;
 			return false;

@@ -28,7 +28,8 @@ namespace Runtime
 	extern size_t instanceAddressSpaceMaxBytes;
 	
 	// Commits or decommits memory in the VM virtual address space.
-	uint32 vmSbrk(int32 numBytes);
+	size_t vmGrowMemory(size_t numBytes);
+	size_t vmShrinkMemory(size_t numBytes);
 
 	// Given an address as a byte index, returns a typed reference to that address of VM memory.
 	template<typename memoryType> memoryType& instanceMemoryRef(uintptr address)
@@ -49,6 +50,9 @@ namespace Runtime
 
 	// Describes an execution context. Returns an array of strings, one for each stack frame.
 	std::vector<std::string> describeExecutionContext(const ExecutionContext& executionContext);
+
+	// Causes an exception.
+	void causeException(Exception::Cause cause);
 }
 
 namespace RuntimePlatform

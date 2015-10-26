@@ -12,6 +12,15 @@
 
 namespace Runtime
 {
+	static uint32 coerce32bitAddress(uintptr_t address)
+	{
+		if(address >= UINT_MAX)
+		{
+			throw;
+		}
+		return (uint32)address;
+	}
+
 	DEFINE_INTRINSIC_VALUE(emscripten,STACKTOP,I32,=0);
 	DEFINE_INTRINSIC_VALUE(emscripten,STACK_MAX,I32,=0);
 	DEFINE_INTRINSIC_VALUE(emscripten,tempDoublePtr,I32,=0);
@@ -24,7 +33,10 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION1(emscripten,_sbrk,I32,I32,numBytes)
 	{
-		return vmSbrk(numBytes);
+		auto result = numBytes < 0
+			? vmShrinkMemory((size_t)-(int64)numBytes)
+			: vmGrowMemory((size_t)numBytes);
+		return coerce32bitAddress(result);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION1(emscripten,_time,I32,I32,address)
@@ -70,7 +82,7 @@ namespace Runtime
 		static uint32 vmAddress = 0;
 		if(vmAddress == 0)
 		{
-			vmAddress = vmSbrk(sizeof(data));
+			vmAddress = coerce32bitAddress(vmGrowMemory(sizeof(data)));
 			memcpy(&instanceMemoryRef<short>(vmAddress),data,sizeof(data));
 		}
 		return vmAddress + sizeof(short)*128;
@@ -81,7 +93,7 @@ namespace Runtime
 		static uint32 vmAddress = 0;
 		if(vmAddress == 0)
 		{
-			vmAddress = vmSbrk(sizeof(data));
+			vmAddress = coerce32bitAddress(vmGrowMemory(sizeof(data)));
 			memcpy(&instanceMemoryRef<int32>(vmAddress),data,sizeof(data));
 		}
 		return vmAddress + sizeof(int32)*128;
@@ -92,7 +104,7 @@ namespace Runtime
 		static uint32 vmAddress = 0;
 		if(vmAddress == 0)
 		{
-			vmAddress = vmSbrk(sizeof(data));
+			vmAddress = coerce32bitAddress(vmGrowMemory(sizeof(data)));
 			memcpy(&instanceMemoryRef<int32>(vmAddress),data,sizeof(data));
 		}
 		return vmAddress + sizeof(int32)*128;
@@ -131,7 +143,7 @@ namespace Runtime
 	}
 	DEFINE_INTRINSIC_FUNCTION1(emscripten,___cxa_allocate_exception,I32,I32,size)
 	{
-		return vmSbrk(size);
+		return coerce32bitAddress(vmGrowMemory(size));
 	}
 	DEFINE_INTRINSIC_FUNCTION0(emscripten,__ZSt18uncaught_exceptionv,I32)
 	{
@@ -158,7 +170,7 @@ namespace Runtime
 	{
 		if(!base)
 		{
-			base = vmSbrk(4);
+			base = coerce32bitAddress(vmGrowMemory(4));
 		}
 		return base;
 	}
@@ -303,16 +315,16 @@ namespace Runtime
 	void initEmscriptenIntrinsics()
 	{
 		// Allocate a 5MB stack.
-		STACKTOP = vmSbrk(5*1024*1024);
-		STACK_MAX = vmSbrk(0);
+		STACKTOP = coerce32bitAddress(vmGrowMemory(5*1024*1024));
+		STACK_MAX = coerce32bitAddress(vmGrowMemory(0));
 
 		// Allocate some 8 byte memory region for tempDoublePtr.
-		tempDoublePtr = vmSbrk(8);
+		tempDoublePtr = coerce32bitAddress(vmGrowMemory(8));
 
 		// Setup IO stream handles.
-		_stderr = vmSbrk(sizeof(uint32));
-		_stdin = vmSbrk(sizeof(uint32));
-		_stdout = vmSbrk(sizeof(uint32));
+		_stderr = coerce32bitAddress(vmGrowMemory(sizeof(uint32)));
+		_stdin = coerce32bitAddress(vmGrowMemory(sizeof(uint32)));
+		_stdout = coerce32bitAddress(vmGrowMemory(sizeof(uint32)));
 		instanceMemoryRef<uint32>(_stderr) = (uint32)ioStreamVMHandle::StdErr;
 		instanceMemoryRef<uint32>(_stdin) = (uint32)ioStreamVMHandle::StdIn;
 		instanceMemoryRef<uint32>(_stdout) = (uint32)ioStreamVMHandle::StdOut;

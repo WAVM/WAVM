@@ -291,7 +291,7 @@ namespace WebAssemblyText
 				
 				DEFINE_UNTYPED_OP(memory_size)		{ return parseIntrinsic<IntClass>("memory_size",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(page_size)		{ return parseIntrinsic<IntClass>("page_size",FunctionType(TypeId::I32,{}),nodeIt); }
-				DEFINE_UNTYPED_OP(resize_memory)	{ return parseIntrinsic<VoidClass>("resize_memory",FunctionType(TypeId::Void,{TypeId::I32}),nodeIt); }
+				DEFINE_UNTYPED_OP(grow_memory)		{ return parseIntrinsic<VoidClass>("grow_memory",FunctionType(TypeId::Void,{TypeId::I32}),nodeIt); }
 
 				DEFINE_TYPED_OP(Int,const)
 				{
@@ -1480,6 +1480,7 @@ namespace WebAssemblyText
 		else if(!strcmp(message,"runtime: integer divide by zero")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; }
 		else if(!strcmp(message,"runtime: invalid conversion to integer")) { cause = Runtime::Exception::Cause::InvalidFloatOperation; }
 		else if(!strcmp(message,"runtime: callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
+		else if(!strcmp(message,"runtime: grow_memory overflow")) { cause = Runtime::Exception::Cause::OutOfMemory; }
 
 		auto result = new(outFile.modules[outModuleIndex]->arena) Assert;
 		result->invoke = invoke;

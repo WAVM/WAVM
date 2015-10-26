@@ -5,12 +5,6 @@
 
 namespace Runtime
 {
-	void causeException(Exception::Cause cause)
-	{
-		auto callStack = describeExecutionContext(RuntimePlatform::captureExecutionContext());
-		RuntimePlatform::raiseException(new Exception {cause,callStack});
-	}
-
 	template<typename Float,typename FloatComponents>
 	Float floatMin(Float left,Float right)
 	{
