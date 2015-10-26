@@ -85,7 +85,8 @@ namespace WebAssemblyText
 		TYPED_WAST_SYMBOL(shr_u) \
 		WAST_SYMBOL(memory_size) \
 		WAST_SYMBOL(page_size) \
-		WAST_SYMBOL(grow_memory)
+		WAST_SYMBOL(grow_memory) \
+		WAST_SYMBOL(has_feature)
 
 	#define ENUM_WAST_FLOAT_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(ceil) \

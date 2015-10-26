@@ -805,6 +805,10 @@ namespace ASMJS
 		{
 			return dispatch(*this,discardResult->expression);
 		}
+		DispatchResult visitHasFeature(const HasFeature* hasFeature)
+		{
+			return out << "has_feature(" << hasFeature->featureName << ')';
+		}
 	};
 
 	std::ostream& ModulePrintContext::printFunction(uintptr functionIndex)

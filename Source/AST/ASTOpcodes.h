@@ -54,7 +54,8 @@ namespace AST
 		ENUM_AST_CAST_OPS_Int() \
 		AST_OP(lit) \
 		AST_OP(loadZExt) \
-		AST_OP(loadSExt)
+		AST_OP(loadSExt) \
+		AST_OP(hasFeature)
 
 	#define ENUM_AST_UNARY_OPS_Float() \
 		AST_OP(neg) \

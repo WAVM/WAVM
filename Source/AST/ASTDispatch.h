@@ -64,6 +64,7 @@ namespace AST
 		case IntOp::lit: return dispatchLiteral(visitor,expression,type);
 		case IntOp::loadZExt: return visitor.visitLoad(type,(Load<IntClass>*)expression,OpTypes<IntClass>::loadZExt());
 		case IntOp::loadSExt: return visitor.visitLoad(type,(Load<IntClass>*)expression,OpTypes<IntClass>::loadSExt());
+		case IntOp::hasFeature: return visitor.visitHasFeature((HasFeature*)expression);
 		default: return dispatchAny(visitor,expression,type);
 		}
 	}
@@ -334,6 +335,12 @@ namespace AST
 		{
 			auto expression = visitChild(discardResult->expression);
 			return TypedExpression(new(arena) DiscardResult(expression),TypeId::Void);
+		}
+
+		DispatchResult visitHasFeature(const HasFeature* hasFeature)
+		{
+			auto copiedName = arena.copyToArena(hasFeature->featureName,hasFeature->featureNameLength + 1);
+			return TypedExpression(new(arena) HasFeature(copiedName,hasFeature->featureNameLength),TypeId::I32);
 		}
 	};
 }
