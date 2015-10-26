@@ -546,6 +546,23 @@ namespace LLVMJIT
 			return irBuilder.CreateXor(irBuilder.CreateAdd(operand,mask),mask);
 		}
 
+		template<typename NonZeroThunk>
+		llvm::Value* trapDivideByZero(TypeId type,llvm::Value* divisor,NonZeroThunk nonZeroThunk)
+		{
+			return compileIfElse(
+				type,
+				irBuilder.CreateICmpEQ(divisor,typedZeroConstants[(uintptr)type]),
+				[&]
+				{
+					compileRuntimeIntrinsic("wavmIntrinsics.divideByZeroTrap",FunctionType(),{});
+					irBuilder.CreateUnreachable();
+					irBuilder.SetInsertPoint(unreachableBlock);
+					return typedZeroConstants[(uintptr)type];
+				},
+				nonZeroThunk
+				);
+		}
+
 		llvm::Value* compileSRem(TypeId type,llvm::Value* left,llvm::Value* right)
 		{
 			// LLVM's srem has undefined behavior where WebAssembly's rem_s defines that it should not trap if the corresponding
@@ -563,7 +580,7 @@ namespace LLVMJIT
 					irBuilder.CreateICmpEQ(right,negativeOne)
 					),
 				[&] { return zero; },
-				[&] { return irBuilder.CreateSRem(left,right); }
+				[&] { return trapDivideByZero(type,right,[&] { return irBuilder.CreateSRem(left,right); }); }
 				);
 		}
 
@@ -623,10 +640,10 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(IntClass,add,irBuilder.CreateAdd(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,sub,irBuilder.CreateSub(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,mul,irBuilder.CreateMul(left,right))
-		IMPLEMENT_BINARY_OP(IntClass,divs,irBuilder.CreateSDiv(left,right))
-		IMPLEMENT_BINARY_OP(IntClass,divu,irBuilder.CreateUDiv(left,right))
+		IMPLEMENT_BINARY_OP(IntClass,divs,trapDivideByZero(type,right,[&] { return irBuilder.CreateSDiv(left,right); }))
+		IMPLEMENT_BINARY_OP(IntClass,divu,trapDivideByZero(type,right,[&] { return irBuilder.CreateUDiv(left,right); }))
 		IMPLEMENT_BINARY_OP(IntClass,rems,compileSRem(type,left,right))
-		IMPLEMENT_BINARY_OP(IntClass,remu,irBuilder.CreateURem(left,right))
+		IMPLEMENT_BINARY_OP(IntClass,remu,trapDivideByZero(type,right,[&] { return irBuilder.CreateURem(left,right); }))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseAnd,irBuilder.CreateAnd(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseOr,irBuilder.CreateOr(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseXor,irBuilder.CreateXor(left,right))

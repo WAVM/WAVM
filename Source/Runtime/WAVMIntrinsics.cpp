@@ -92,6 +92,11 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I64,F32,source) { return floatToInt<uint64,float32,true>(source,-1.0f,-2.0f * INT64_MIN); }
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,I64,F64,source) { return floatToInt<uint64,float64,true>(source,-1.0,-2.0 * INT64_MIN); }
 
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroTrap,Void)
+	{
+		causeException(Exception::Cause::IntegerDivideByZeroOrIntegerOverflow);
+	}
+
 	void initWAVMIntrinsics()
 	{
 	}
