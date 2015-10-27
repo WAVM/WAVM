@@ -19,8 +19,8 @@ namespace Platform
 		inline uint64 ceilLogTwo(uint64 value) { unsigned long result; return _BitScanReverse64(&result,value) ? result : 0; }
 		inline uint32 ceilLogTwo(uint32 value) { unsigned long result; return _BitScanReverse(&result,value) ? result : 0; }
 	#else
-		inline uint64 ceilLogTwo(uint64 value) { return 63 - __builtin_clzll(preferredVirtualPageSize); }
-		inline uint32 ceilLogTwo(uint32 value) { return 31 - __builtin_clz(preferredVirtualPageSize); }
+		inline uint64 ceilLogTwo(uint64 value) { return 63 - __builtin_clzll(value); }
+		inline uint32 ceilLogTwo(uint32 value) { return 31 - __builtin_clz(value); }
 	#endif
 
 	// A platform-independent mutex. Allows calling the constructor during static initialization, unlike std::mutex.
