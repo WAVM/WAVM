@@ -931,7 +931,7 @@ namespace WebAssemblyText
 		{
 			size_t numOps = 0;
 			for(auto countNodeIt = nodeIt;countNodeIt;++countNodeIt) {++numOps;}
-			if(!numOps)
+			if(!numOps && Class::id != TypeClassId::Void)
 			{
 				return recordError<Error<Class>>(outErrors,nodeIt,"missing expression");
 			}
