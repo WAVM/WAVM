@@ -216,7 +216,7 @@ namespace WebAssemblyText
 			{
 				auto attributeStream = createAttribute();
 				attributeStream << Symbol::_align;
-				attributeStream << (1ull << alignmentLog2);
+				attributeStream << uint64(1ull << alignmentLog2);
 				return attributeStream;
 			}
 		}
