@@ -1533,6 +1533,7 @@ namespace WebAssemblyText
 		else if(!strcmp(message,"runtime: invalid conversion to integer")) { cause = Runtime::Exception::Cause::InvalidFloatOperation; }
 		else if(!strcmp(message,"runtime: callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
 		else if(!strcmp(message,"runtime: grow_memory overflow")) { cause = Runtime::Exception::Cause::OutOfMemory; }
+		else if(!strcmp(message,"runtime: grow_memory operand not multiple of page_size")) { cause = Runtime::Exception::Cause::GrowMemoryNotPageAligned; }
 
 		auto result = new(outFile.modules[moduleIndex]->arena) Assert;
 		result->invoke = invoke;

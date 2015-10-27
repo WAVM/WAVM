@@ -32,6 +32,8 @@ namespace Runtime
 		case Exception::Cause::IntegerDivideByZeroOrIntegerOverflow: return "integer divide by zero or signed integer overflow";
 		case Exception::Cause::InvalidFloatOperation: return "invalid floating point operation";
 		case Exception::Cause::InvokeSignatureMismatch: return "invoke signature mismatch";
+		case Exception::Cause::OutOfMemory: return "out of memory";
+		case Exception::Cause::GrowMemoryNotPageAligned: return "grow_memory called with size that isn't a multiple of page_size";
 		default: return "unknown";
 		}
 	}

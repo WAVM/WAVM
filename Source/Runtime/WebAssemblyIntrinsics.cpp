@@ -33,7 +33,7 @@ namespace Runtime
 		auto pageSize = 1<<Platform::getPreferredVirtualPageSizeLog2();
 		if(deltaBytes & (pageSize - 1))
 		{
-			throw;
+			causeException(Exception::Cause::GrowMemoryNotPageAligned);
 		}
 
 		vmGrowMemory((size_t)deltaBytes);

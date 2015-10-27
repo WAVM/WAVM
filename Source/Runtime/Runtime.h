@@ -21,7 +21,8 @@ namespace Runtime
 			IntegerDivideByZeroOrIntegerOverflow,
 			InvalidFloatOperation,
 			InvokeSignatureMismatch,
-			OutOfMemory
+			OutOfMemory,
+			GrowMemoryNotPageAligned
 		};
 
 		Cause cause;
