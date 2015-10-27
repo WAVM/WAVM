@@ -6,6 +6,7 @@
 	#define THREAD_LOCAL __declspec(thread)
 	#define DLL_EXPORT __declspec(dllexport)
 	#define DLL_IMPORT __declspec(dllimport)
+	#include <intrin.h>
 #else
 	#define THREAD_LOCAL __thread
 	#define DLL_EXPORT
@@ -14,6 +15,14 @@
 
 namespace Platform
 {
+	#ifdef _WIN32
+		inline uint64 ceilLogTwo(uint64 value) { unsigned long result; return _BitScanReverse64(&result,value) ? result : 0; }
+		inline uint32 ceilLogTwo(uint32 value) { unsigned long result; return _BitScanReverse(&result,value) ? result : 0; }
+	#else
+		inline uint64 ceilLogTwo(uint64 value) { return 63 - __builtin_clzll(preferredVirtualPageSize); }
+		inline uint32 ceilLogTwo(uint32 value) { return 31 - __builtin_clz(preferredVirtualPageSize); }
+	#endif
+
 	// A platform-independent mutex. Allows calling the constructor during static initialization, unlike std::mutex.
 	struct Mutex
 	{

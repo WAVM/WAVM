@@ -173,22 +173,21 @@ namespace LLVMJIT
 			return llvm::Intrinsic::getDeclaration(moduleIR.llvmModule,id,llvm::ArrayRef<llvm::Type*>(argTypes.begin(),argTypes.end()));
 		}
 
-		DispatchResult compileAddress(Expression<IntClass>* address,bool isFarAddress,TypeId memoryType)
+		DispatchResult compileAddress(Expression<IntClass>* address,uint64 offset,bool isFarAddress,TypeId memoryType)
 		{
 			// On a 64 bit runtime, if the address is 32-bits, zext it to 64-bits.
 			// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
 			// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
 			// There are no 'far addresses' in a 32 bit runtime.
-			auto byteIndex =
-			  sizeof(uintptr) == 8 &&  isFarAddress ? dispatch(*this,address,TypeId::I64)
-			  : sizeof(uintptr) == 8 && !isFarAddress ? irBuilder.CreateZExt(dispatch(*this,address,TypeId::I32),llvm::Type::getInt64Ty(context))
-			  : sizeof(uintptr) == 4 &&  isFarAddress ? irBuilder.CreateTrunc(dispatch(*this,address,TypeId::I64),llvm::Type::getInt32Ty(context))
-			  : sizeof(uintptr) == 4 && !isFarAddress ? dispatch(*this,address,TypeId::I32)
-			  : nullptr;
-			assert(byteIndex);
+			auto byteIndex = dispatch(*this,address,isFarAddress ? TypeId::I64 : TypeId::I32);
+			auto offsetByteIndex = offset ? irBuilder.CreateAdd(byteIndex,isFarAddress ? compileLiteral((uint64)offset) : compileLiteral((uint32)offset)) : byteIndex;
+			auto nativeByteIndex =
+					sizeof(uintptr) == 8 && !isFarAddress ? irBuilder.CreateZExt(offsetByteIndex,llvm::Type::getInt64Ty(context))
+				:	sizeof(uintptr) == 4 && isFarAddress ? irBuilder.CreateTrunc(offsetByteIndex,llvm::Type::getInt32Ty(context))
+				:	offsetByteIndex;
 
 			// Mask the index to the address-space size.
-			auto maskedByteIndex = irBuilder.CreateAnd(byteIndex,moduleIR.instanceMemoryAddressMask);
+			auto maskedByteIndex = irBuilder.CreateAnd(nativeByteIndex,moduleIR.instanceMemoryAddressMask);
 
 			// Cast the pointer to the appropriate type.
 			auto bytePointer = irBuilder.CreateInBoundsGEP(moduleIR.instanceMemoryBase,maskedByteIndex);
@@ -234,13 +233,13 @@ namespace LLVMJIT
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,typename OpTypes<AnyClass>::load)
 		{
 			assert(type == load->memoryType);
-			auto llvmLoad = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType),true);
+			auto llvmLoad = irBuilder.CreateLoad(compileAddress(load->address,load->offset,load->isFarAddress,load->memoryType),true);
 			llvmLoad->setAlignment(1<<load->alignmentLog2);
 			return llvmLoad;
 		}
 		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<AnyClass>::load)
 		{
-			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType),true);
+			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->offset,load->isFarAddress,load->memoryType),true);
 			memoryValue->setAlignment(1<<load->alignmentLog2);
 			assert(isTypeClass(load->memoryType,TypeClassId::Int));
 			return type == load->memoryType ? memoryValue
@@ -248,13 +247,13 @@ namespace LLVMJIT
 		}
 		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::loadZExt)
 		{
-			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType),true);
+			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->offset,load->isFarAddress,load->memoryType),true);
 			memoryValue->setAlignment(1<<load->alignmentLog2);
 			return irBuilder.CreateZExt(memoryValue,asLLVMType(type));
 		}
 		DispatchResult visitLoad(TypeId type,const Load<IntClass>* load,OpTypes<IntClass>::loadSExt)
 		{
-			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->isFarAddress,load->memoryType),true);
+			auto memoryValue = irBuilder.CreateLoad(compileAddress(load->address,load->offset,load->isFarAddress,load->memoryType),true);
 			memoryValue->setAlignment(1<<load->alignmentLog2);
 			return irBuilder.CreateSExt(memoryValue,asLLVMType(type));
 		}
@@ -262,7 +261,7 @@ namespace LLVMJIT
 		DispatchResult visitStore(const Store<Class>* store)
 		{
 			auto value = dispatch(*this,store->value);
-			auto llvmStore = irBuilder.CreateStore(value,compileAddress(store->address,store->isFarAddress,store->memoryType),true);
+			auto llvmStore = irBuilder.CreateStore(value,compileAddress(store->address,store->offset,store->isFarAddress,store->memoryType),true);
 			llvmStore->setAlignment(1<<store->alignmentLog2);
 			return value;
 		}
@@ -275,7 +274,7 @@ namespace LLVMJIT
 				assert(isTypeClass(store->memoryType,TypeClassId::Int));
 				memoryValue = irBuilder.CreateTrunc(value,asLLVMType(store->memoryType));
 			}
-			irBuilder.CreateStore(memoryValue,compileAddress(store->address,store->isFarAddress,store->memoryType),true);
+			irBuilder.CreateStore(memoryValue,compileAddress(store->address,store->offset,store->isFarAddress,store->memoryType),true);
 			return value;
 		}
 

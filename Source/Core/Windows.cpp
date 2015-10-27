@@ -3,7 +3,6 @@
 #include "Core.h"
 #include "Platform.h"
 #include <Windows.h>
-#include <intrin.h>
 
 namespace Platform
 {
@@ -35,7 +34,7 @@ namespace Platform
 		size_t preferredVirtualPageSize = systemInfo.dwPageSize;
 		// Verify our assumption that the virtual page size is a power of two.
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
-		return __lzcnt64(preferredVirtualPageSize);
+		return ceilLogTwo(preferredVirtualPageSize);
 	}
 	uint32 getPreferredVirtualPageSizeLog2()
 	{

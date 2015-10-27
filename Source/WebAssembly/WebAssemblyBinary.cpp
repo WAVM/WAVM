@@ -565,7 +565,7 @@ namespace WebAssemblyBinary
 				IntExpression* addressLiteral = isFarAddress ? as<IntClass>(new(arena) Literal<I64Type>(address))
 					: new(arena) Literal<I32Type>((uint32)address);
 				
-				return new(arena) Load<typename Type::Class>(Type::Op::load,isFarAddress,getTypeByteWidthLog2(Type::id),addressLiteral,Type::id);
+				return new(arena) Load<typename Type::Class>(Type::Op::load,isFarAddress,getTypeByteWidthLog2(Type::id),0,addressLiteral,Type::id);
 			}
 			else if(globalIndex < globals.size() + variableImports.size())
 			{
@@ -590,9 +590,9 @@ namespace WebAssemblyBinary
 				UntypedExpression* store;
 				switch(type)
 				{
-				case TypeId::I32: store = new(arena) Store<IntClass>(isFarAddress,getTypeByteWidthLog2(type),addressLiteral,TypedExpression(value,type),type); break;
+				case TypeId::I32: store = new(arena) Store<IntClass>(isFarAddress,getTypeByteWidthLog2(type),0,addressLiteral,TypedExpression(value,type),type); break;
 				case TypeId::F32:
-				case TypeId::F64: store = new(arena) Store<FloatClass>(isFarAddress,getTypeByteWidthLog2(type),addressLiteral,TypedExpression(value,type),type); break;
+				case TypeId::F64: store = new(arena) Store<FloatClass>(isFarAddress,getTypeByteWidthLog2(type),0,addressLiteral,TypedExpression(value,type),type); break;
 				default: throw;
 				}
 				return TypedExpression(store,type);
@@ -614,31 +614,21 @@ namespace WebAssemblyBinary
 			return as<typename Type::Class>(setGlobal(globalIndex));
 		}
 
-		// Decodes an address in the form of an offset into the module's linear memory.
-		IntExpression* decodeAddress(uint32 offset)
-		{
-			IntExpression* byteIndex = decodeExpression(I32Type());
-
-			// Add the offset provided by the operation.
-			if(offset != 0)
-			{ byteIndex = new(arena) Binary<IntClass>(IntOp::add,byteIndex,new(arena) Literal<I32Type>(offset)); }
-
-			return byteIndex;
-		}
-
 		// Loads an I8, I16, or I32 into an I32 intermediate. I8 and I16 is either zero or sign extended to 32-bit depending on the loadOp.
 		template<typename Type>
-		typename Type::TypeExpression* load(TypeId memoryType,typename Type::Op loadOp,IntExpression* address)
+		typename Type::TypeExpression* load(TypeId memoryType,typename Type::Op loadOp,uint64 offset)
 		{
-			return new(arena) Load<typename Type::Class>(loadOp,false,getTypeByteWidthLog2(memoryType),address,memoryType);
+			IntExpression* address = decodeExpression(I32Type());
+			return new(arena) Load<typename Type::Class>(loadOp,false,getTypeByteWidthLog2(memoryType),offset,address,memoryType);
 		}
 
 		// Stores a value to memory.
 		template<typename Type>
-		typename Type::TypeExpression* store(TypeId memoryType,IntExpression* address)
+		typename Type::TypeExpression* store(TypeId memoryType,uint64 offset)
 		{
+			IntExpression* address = decodeExpression(I32Type());
 			auto value = decodeExpression(Type());
-			return new(arena) Store<typename Type::Class>(false,getTypeByteWidthLog2(memoryType),address,TypedExpression(value,Type::id),memoryType);
+			return new(arena) Store<typename Type::Class>(false,getTypeByteWidthLog2(memoryType),offset,address,TypedExpression(value,Type::id),memoryType);
 		}
 
 		// Converts a signed or unsigned 32-bit integer to a float32.
@@ -1053,22 +1043,22 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::GetGlo:     return getGlobal<I32Type>(in.immU32());
 				case I32OpEncoding::SetLoc:     return setLocalExpression<I32Type>(in.immU32());
 				case I32OpEncoding::SetGlo:     return setGlobalExpression<I32Type>(in.immU32());
-				case I32OpEncoding::SLoad8:     return load<I32Type>(TypeId::I8,IntOp::loadSExt,decodeAddress(0));
-				case I32OpEncoding::SLoadOff8:  return load<I32Type>(TypeId::I8,IntOp::loadSExt,decodeAddress(in.immU32()));
-				case I32OpEncoding::ULoad8:     return load<I32Type>(TypeId::I8,IntOp::loadZExt,decodeAddress(0));
-				case I32OpEncoding::ULoadOff8:  return load<I32Type>(TypeId::I8,IntOp::loadZExt,decodeAddress(in.immU32()));
-				case I32OpEncoding::SLoad16:    return load<I32Type>(TypeId::I16,IntOp::loadSExt,decodeAddress(0));
-				case I32OpEncoding::SLoadOff16: return load<I32Type>(TypeId::I16,IntOp::loadSExt,decodeAddress(in.immU32()));
-				case I32OpEncoding::ULoad16:    return load<I32Type>(TypeId::I16,IntOp::loadZExt,decodeAddress(0));
-				case I32OpEncoding::ULoadOff16: return load<I32Type>(TypeId::I16,IntOp::loadZExt,decodeAddress(in.immU32()));
-				case I32OpEncoding::Load32:     return load<I32Type>(TypeId::I32,IntOp::load,decodeAddress(0));
-				case I32OpEncoding::LoadOff32:  return load<I32Type>(TypeId::I32,IntOp::load,decodeAddress(in.immU32()));
-				case I32OpEncoding::Store8:     return store<I32Type>(TypeId::I8,decodeAddress(0));
-				case I32OpEncoding::StoreOff8:  return store<I32Type>(TypeId::I8,decodeAddress(in.immU32()));
-				case I32OpEncoding::Store16:    return store<I32Type>(TypeId::I16,decodeAddress(0));
-				case I32OpEncoding::StoreOff16: return store<I32Type>(TypeId::I16,decodeAddress(in.immU32()));
-				case I32OpEncoding::Store32:    return store<I32Type>(TypeId::I32,decodeAddress(0));
-				case I32OpEncoding::StoreOff32: return store<I32Type>(TypeId::I32,decodeAddress(in.immU32()));
+				case I32OpEncoding::SLoad8:     return load<I32Type>(TypeId::I8,IntOp::loadSExt,0);
+				case I32OpEncoding::SLoadOff8:  return load<I32Type>(TypeId::I8,IntOp::loadSExt,in.immU32());
+				case I32OpEncoding::ULoad8:     return load<I32Type>(TypeId::I8,IntOp::loadZExt,0);
+				case I32OpEncoding::ULoadOff8:  return load<I32Type>(TypeId::I8,IntOp::loadZExt,in.immU32());
+				case I32OpEncoding::SLoad16:    return load<I32Type>(TypeId::I16,IntOp::loadSExt,0);
+				case I32OpEncoding::SLoadOff16: return load<I32Type>(TypeId::I16,IntOp::loadSExt,in.immU32());
+				case I32OpEncoding::ULoad16:    return load<I32Type>(TypeId::I16,IntOp::loadZExt,0);
+				case I32OpEncoding::ULoadOff16: return load<I32Type>(TypeId::I16,IntOp::loadZExt,in.immU32());
+				case I32OpEncoding::Load32:     return load<I32Type>(TypeId::I32,IntOp::load,0);
+				case I32OpEncoding::LoadOff32:  return load<I32Type>(TypeId::I32,IntOp::load,in.immU32());
+				case I32OpEncoding::Store8:     return store<I32Type>(TypeId::I8,0);
+				case I32OpEncoding::StoreOff8:  return store<I32Type>(TypeId::I8,in.immU32());
+				case I32OpEncoding::Store16:    return store<I32Type>(TypeId::I16,0);
+				case I32OpEncoding::StoreOff16: return store<I32Type>(TypeId::I16,in.immU32());
+				case I32OpEncoding::Store32:    return store<I32Type>(TypeId::I32,0);
+				case I32OpEncoding::StoreOff32: return store<I32Type>(TypeId::I32,in.immU32());
 				case I32OpEncoding::CallInt:    return callInternal<IntClass>(TypeId::I32,in.immU32());
 				case I32OpEncoding::CallInd:    return callIndirect<IntClass>(TypeId::I32,in.immU32());
 				case I32OpEncoding::CallImp:    return callImport<IntClass>(TypeId::I32,in.immU32());
@@ -1157,10 +1147,10 @@ namespace WebAssemblyBinary
 				case F32OpEncoding::GetGlo:   return getGlobal<F32Type>(in.immU32());
 				case F32OpEncoding::SetLoc:   return setLocalExpression<F32Type>(in.immU32());
 				case F32OpEncoding::SetGlo:   return setGlobalExpression<F32Type>(in.immU32());
-				case F32OpEncoding::Load:     return load<F32Type>(TypeId::F32,FloatOp::load,decodeAddress(0));
-				case F32OpEncoding::LoadOff:  return load<F32Type>(TypeId::F32,FloatOp::load,decodeAddress(in.immU32()));
-				case F32OpEncoding::Store:    return store<F32Type>(TypeId::F32,decodeAddress(0));
-				case F32OpEncoding::StoreOff: return store<F32Type>(TypeId::F32,decodeAddress(in.immU32()));
+				case F32OpEncoding::Load:     return load<F32Type>(TypeId::F32,FloatOp::load,0);
+				case F32OpEncoding::LoadOff:  return load<F32Type>(TypeId::F32,FloatOp::load,in.immU32());
+				case F32OpEncoding::Store:    return store<F32Type>(TypeId::F32,0);
+				case F32OpEncoding::StoreOff: return store<F32Type>(TypeId::F32,in.immU32());
 				case F32OpEncoding::CallInt:  return callInternal<FloatClass>(TypeId::F32,in.immU32());
 				case F32OpEncoding::CallInd:  return callIndirect<FloatClass>(TypeId::F32,in.immU32());
 				case F32OpEncoding::Cond:     return cond<F32Type>();
@@ -1209,10 +1199,10 @@ namespace WebAssemblyBinary
 				case F64OpEncoding::GetGlo:   return getGlobal<F64Type>(in.immU32());
 				case F64OpEncoding::SetLoc:   return setLocalExpression<F64Type>(in.immU32());
 				case F64OpEncoding::SetGlo:   return setGlobalExpression<F64Type>(in.immU32());
-				case F64OpEncoding::Load:     return load<F64Type>(TypeId::F64,FloatOp::load,decodeAddress(0));
-				case F64OpEncoding::LoadOff:  return load<F64Type>(TypeId::F64,FloatOp::load,decodeAddress(in.immU32()));
-				case F64OpEncoding::Store:    return store<F64Type>(TypeId::F64,decodeAddress(0));
-				case F64OpEncoding::StoreOff: return store<F64Type>(TypeId::F64,decodeAddress(in.immU32()));
+				case F64OpEncoding::Load:     return load<F64Type>(TypeId::F64,FloatOp::load,0);
+				case F64OpEncoding::LoadOff:  return load<F64Type>(TypeId::F64,FloatOp::load,in.immU32());
+				case F64OpEncoding::Store:    return store<F64Type>(TypeId::F64,0);
+				case F64OpEncoding::StoreOff: return store<F64Type>(TypeId::F64,in.immU32());
 				case F64OpEncoding::CallInt:  return callInternal<FloatClass>(TypeId::F64,in.immU32());
 				case F64OpEncoding::CallInd:  return callIndirect<FloatClass>(TypeId::F64,in.immU32());
 				case F64OpEncoding::CallImp:  return callImport<FloatClass>(TypeId::F64,in.immU32());
@@ -1284,16 +1274,16 @@ namespace WebAssemblyBinary
 				{
 				case StmtOpEncoding::SetLoc: return new(arena) DiscardResult(setLocal(in.immU32()));
 				case StmtOpEncoding::SetGlo: return new(arena) DiscardResult(setGlobal(in.immU32()));
-				case StmtOpEncoding::I32Store8:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I8,decodeAddress(0)),TypeId::I32));
-				case StmtOpEncoding::I32StoreOff8:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I8,decodeAddress(in.immU32())),TypeId::I32));
-				case StmtOpEncoding::I32Store16:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I16,decodeAddress(0)),TypeId::I32));
-				case StmtOpEncoding::I32StoreOff16:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I16,decodeAddress(in.immU32())),TypeId::I32));
-				case StmtOpEncoding::I32Store32:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I32,decodeAddress(0)),TypeId::I32));
-				case StmtOpEncoding::I32StoreOff32:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I32,decodeAddress(in.immU32())),TypeId::I32));
-				case StmtOpEncoding::F32Store:		return new(arena) DiscardResult(TypedExpression(store<F32Type>(TypeId::F32,decodeAddress(0)),TypeId::F32));
-				case StmtOpEncoding::F32StoreOff:	return new(arena) DiscardResult(TypedExpression(store<F32Type>(TypeId::F32,decodeAddress(in.immU32())),TypeId::F32));
-				case StmtOpEncoding::F64Store:		return new(arena) DiscardResult(TypedExpression(store<F64Type>(TypeId::F64,decodeAddress(0)),TypeId::F64));
-				case StmtOpEncoding::F64StoreOff:	return new(arena) DiscardResult(TypedExpression(store<F64Type>(TypeId::F64,decodeAddress(in.immU32())),TypeId::F64));
+				case StmtOpEncoding::I32Store8:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I8,0),TypeId::I32));
+				case StmtOpEncoding::I32StoreOff8:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I8,in.immU32()),TypeId::I32));
+				case StmtOpEncoding::I32Store16:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I16,0),TypeId::I32));
+				case StmtOpEncoding::I32StoreOff16:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I16,in.immU32()),TypeId::I32));
+				case StmtOpEncoding::I32Store32:		return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I32,0),TypeId::I32));
+				case StmtOpEncoding::I32StoreOff32:	return new(arena) DiscardResult(TypedExpression(store<I32Type>(TypeId::I32,in.immU32()),TypeId::I32));
+				case StmtOpEncoding::F32Store:		return new(arena) DiscardResult(TypedExpression(store<F32Type>(TypeId::F32,0),TypeId::F32));
+				case StmtOpEncoding::F32StoreOff:	return new(arena) DiscardResult(TypedExpression(store<F32Type>(TypeId::F32,in.immU32()),TypeId::F32));
+				case StmtOpEncoding::F64Store:		return new(arena) DiscardResult(TypedExpression(store<F64Type>(TypeId::F64,0),TypeId::F64));
+				case StmtOpEncoding::F64StoreOff:	return new(arena) DiscardResult(TypedExpression(store<F64Type>(TypeId::F64,in.immU32()),TypeId::F64));
 				case StmtOpEncoding::CallInt: return callInternalStatement(in.immU32());
 				case StmtOpEncoding::CallInd: return callIndirectStatement(in.immU32());
 				case StmtOpEncoding::CallImp: return callImportStatement(in.immU32());

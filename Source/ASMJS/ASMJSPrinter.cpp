@@ -110,7 +110,7 @@ namespace ASMJS
 			auto address = dispatch(*this,load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32);
 			return LoweredExpression(
 				address.statements,
-				TypedExpression(new(arena) Load<Class>(load->op(),load->isFarAddress,load->alignmentLog2,as<IntClass>(address.value),load->memoryType),type)
+				TypedExpression(new(arena) Load<Class>(load->op(),load->isFarAddress,load->alignmentLog2,load->offset,as<IntClass>(address.value),load->memoryType),type)
 				);
 		}
 		template<typename Class>
@@ -120,7 +120,7 @@ namespace ASMJS
 			auto value = dispatch(*this,store->value);
 			return LoweredExpression(
 				concatStatements(arena,address.statements,value.statements),
-				TypedExpression(new(arena) Store<Class>(store->isFarAddress,store->alignmentLog2,as<IntClass>(address.value),value.value,store->memoryType),value.value.type)
+				TypedExpression(new(arena) Store<Class>(store->isFarAddress,store->alignmentLog2,store->offset,as<IntClass>(address.value),value.value,store->memoryType),value.value.type)
 				);
 		}
 

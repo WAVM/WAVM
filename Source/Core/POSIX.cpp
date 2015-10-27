@@ -42,7 +42,7 @@ namespace Platform
 		uint32 preferredVirtualPageSize = sysconf(_SC_PAGESIZE);
 		// Verify our assumption that the virtual page size is a power of two.
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
-		return 31 - __builtin_clz(preferredVirtualPageSize);
+		return ceilLogTwo(preferredVirtualPageSize);
 	}
 	uint32 getPreferredVirtualPageSizeLog2()
 	{

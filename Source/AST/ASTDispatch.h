@@ -188,14 +188,14 @@ namespace AST
 		DispatchResult visitLoad(TypeId type,const Load<Class>* load,OpAsType)
 		{
 			auto address = as<IntClass>(visitChild(TypedExpression(load->address,load->isFarAddress ? TypeId::I64 : TypeId::I32)));
-			return TypedExpression(new(arena) Load<Class>(load->op(),load->isFarAddress,load->alignmentLog2,address,load->memoryType),type);
+			return TypedExpression(new(arena) Load<Class>(load->op(),load->isFarAddress,load->alignmentLog2,load->offset,address,load->memoryType),type);
 		}
 		template<typename Class>
 		DispatchResult visitStore(const Store<Class>* store)
 		{
 			auto address = as<IntClass>(visitChild(TypedExpression(store->address,store->isFarAddress ? TypeId::I64 : TypeId::I32)));
 			auto value = visitChild(store->value);
-			return TypedExpression(new(arena) Store<Class>(store->isFarAddress,store->alignmentLog2,address,value,store->memoryType),value.type);
+			return TypedExpression(new(arena) Store<Class>(store->isFarAddress,store->alignmentLog2,store->offset,address,value,store->memoryType),value.type);
 		}
 
 		template<typename Class,typename OpAsType>

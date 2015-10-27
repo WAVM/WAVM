@@ -40,11 +40,12 @@ namespace AST
 	{
 		bool isFarAddress;
 		uint8 alignmentLog2;
+		uint64 offset;
 		Expression<IntClass>* address;
 		TypeId memoryType;
 
-		Load(typename Class::Op op,bool inIsFarAddress,uint8 inAlignmentLog2,Expression<IntClass>* inAddress,TypeId inMemoryType)
-		: Expression<Class>(op), isFarAddress(inIsFarAddress), alignmentLog2(inAlignmentLog2), address(inAddress), memoryType(inMemoryType) {}
+		Load(typename Class::Op op,bool inIsFarAddress,uint8 inAlignmentLog2,uint64 inOffset,Expression<IntClass>* inAddress,TypeId inMemoryType)
+		: Expression<Class>(op), isFarAddress(inIsFarAddress), alignmentLog2(inAlignmentLog2), offset(inOffset), address(inAddress), memoryType(inMemoryType) {}
 	};
 	
 	template<typename Class>
@@ -52,12 +53,13 @@ namespace AST
 	{
 		bool isFarAddress;
 		uint8 alignmentLog2;
+		uint64 offset;
 		Expression<IntClass>* address;
 		TypedExpression value;
 		TypeId memoryType;
 
-		Store(bool inIsFarAddress,uint8 inAlignmentLog2,Expression<IntClass>* inAddress,TypedExpression inValue,TypeId inMemoryType)
-		: Expression<Class>(Class::Op::store), isFarAddress(inIsFarAddress), alignmentLog2(inAlignmentLog2), address(inAddress), value(inValue), memoryType(inMemoryType) {}
+		Store(bool inIsFarAddress,uint8 inAlignmentLog2,uint64 inOffset,Expression<IntClass>* inAddress,TypedExpression inValue,TypeId inMemoryType)
+		: Expression<Class>(Class::Op::store), isFarAddress(inIsFarAddress), alignmentLog2(inAlignmentLog2), offset(inOffset), address(inAddress), value(inValue), memoryType(inMemoryType) {}
 	};
 	
 	template<typename Class>

@@ -29,7 +29,8 @@ namespace WebAssemblyText
 		{
 			switch(node->type)
 			{
-			case SExp::NodeType::Tree: return "(" + describeSNode(node->children) + ")";
+			case SExp::NodeType::Tree: return "(" + describeSNode(node->children) + "...";
+			case SExp::NodeType::Attribute: return describeSNode(node->children) + "=...";
 			case SExp::NodeType::Symbol: return wastSymbols[node->symbol];
 			case SExp::NodeType::SignedInt: return std::to_string(node->i64);
 			case SExp::NodeType::UnsignedInt: return std::to_string(node->u64);
@@ -75,8 +76,20 @@ namespace WebAssemblyText
 	// Parse an integer from a S-expression node.
 	bool parseInt(SNodeIt& nodeIt,int64& outInt)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outInt = nodeIt->i64; ++nodeIt; return true; }
-		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt) { outInt = nodeIt->u64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt)		{ outInt = nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt)	{ outInt = nodeIt->u64; ++nodeIt; return true; }
+		else { return false; }
+	}
+	bool parseSignedInt(SNodeIt& nodeIt,int64& outInt)
+	{
+		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt)									{ outInt = nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt && nodeIt->u64 <= INT64_MAX)	{ outInt = nodeIt->u64; ++nodeIt; return true; }
+		else { return false; }
+	}
+	bool parseUnsignedInt(SNodeIt& nodeIt,uint64& outInt)
+	{
+		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt && nodeIt->i64 >= 0)	{ outInt = nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt)					{ outInt = nodeIt->u64; ++nodeIt; return true; }
 		else { return false; }
 	}
 
@@ -102,12 +115,14 @@ namespace WebAssemblyText
 		else { return false; }
 	}
 	
-	// Parse a S-expression tree node. Upon success, outChildIt is set to the node's first child.
-	bool parseTreeNode(SNodeIt nodeIt,SNodeIt& outChildIt)
+	// Parse a S-expression tree or attribute node. Upon success, outChildIt is set to the node's first child.
+	bool parseTreelikeNode(SNodeIt nodeIt,SExp::NodeType nodeType,SNodeIt& outChildIt)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::Tree) { outChildIt = nodeIt.getChildIt(); return true; }
+		if(nodeIt && nodeIt->type == nodeType) { outChildIt = nodeIt.getChildIt(); return true; }
 		else { return false; }
 	}
+	bool parseTreeNode(SNodeIt nodeIt,SNodeIt& outChildIt) { return parseTreelikeNode(nodeIt,SExp::NodeType::Tree,outChildIt); }
+	bool parseAttributeNode(SNodeIt nodeIt,SNodeIt& outChildIt) { return parseTreelikeNode(nodeIt,SExp::NodeType::Attribute,outChildIt); }
 
 	// Parse a S-expression symbol node. Upon success, outSymbol is set to the parsed symbol.
 	bool parseSymbol(SNodeIt& nodeIt,Symbol& outSymbol)
@@ -116,11 +131,18 @@ namespace WebAssemblyText
 		else { return false; }
 	}
 
-	// Parse a S-expression tree node whose first child is an symbol. Sets outChildren to the first child after the symbol on success.
+	// Parse a S-expression tree node whose first child is a symbol. Sets outChildren to the first child after the symbol on success.
 	bool parseTaggedNode(SNodeIt nodeIt,Symbol tagSymbol,SNodeIt& outChildIt)
 	{
 		Symbol symbol;
 		return parseTreeNode(nodeIt,outChildIt) && parseSymbol(outChildIt,symbol) && symbol == tagSymbol;
+	}
+
+	// Parse a S-expression attribute node whose first child is a symbol. Sets outValue to the attribute value.
+	bool parseSymbolAttribute(SNodeIt nodeIt,Symbol keySymbol,SNodeIt& outValueIt)
+	{
+		Symbol symbol;
+		return parseAttributeNode(nodeIt,outValueIt) && parseSymbol(outValueIt,symbol) && symbol == keySymbol;
 	}
 
 	// Tries to parse a name from a SExp node (a string symbol starting with a $).
@@ -172,8 +194,8 @@ namespace WebAssemblyText
 	bool parseNameOrIndex(SNodeIt& nodeIt,const std::map<std::string,uintptr>& nameToIndex,size_t numValidIndices,uintptr& outIndex)
 	{
 		const char* name;
-		int64 parsedInt;
-		if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr)parsedInt < numValidIndices) { outIndex = (uintptr)parsedInt; return true; }
+		uint64 parsedInt;
+		if(parseUnsignedInt(nodeIt,parsedInt) && (uintptr)parsedInt < numValidIndices) { outIndex = (uintptr)parsedInt; return true; }
 		else if(parseName(nodeIt,name))
 		{
 			auto it = nameToIndex.find(name);
@@ -267,7 +289,6 @@ namespace WebAssemblyText
 			if(parseTreeNode(parentNodeIt,nodeIt) && parseSymbol(nodeIt,tag))
 			{
 				TypeId opType;
-				uint8 alignmentLog2;
 				switch(tag)
 				{
 				default: return TypedExpression();
@@ -278,6 +299,8 @@ namespace WebAssemblyText
 				#define DEFINE_TYPED_OP(opClass,symbol) \
 					ENUM_AST_TYPES_##opClass(DISPATCH_TYPED_OP,symbol) \
 					throw; symbol##opClass##Label:
+				#define DEFINE_ADHOC_TYPED_OP(opTypeName,symbol) \
+					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName;
 				#define DEFINE_BITYPED_OP(leftTypeName,rightTypeName,symbol) \
 					throw; case Symbol::_##symbol##_##leftTypeName##_##rightTypeName:
 					
@@ -331,25 +354,11 @@ namespace WebAssemblyText
 					default: throw;
 					}
 				}
-				
-				#define DEFINE_ALIGNED_OP_FOR_TYPE(opTypeName,memoryTypeName,symbol) \
-					throw; \
-					case Symbol::_##symbol##_##opTypeName##_align0: alignmentLog2 = 0; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName##_align1: alignmentLog2 = 1; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName##_align2: alignmentLog2 = 2; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName##_align3: alignmentLog2 = 3; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName##_align4: alignmentLog2 = 4; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName##_align5: alignmentLog2 = 5; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName##_align6: alignmentLog2 = 6; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName##_align7: alignmentLog2 = 7; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName##_align8: alignmentLog2 = 8; goto symbol##_##opTypeName; \
-					case Symbol::_##symbol##_##opTypeName: alignmentLog2 = getTypeByteWidthLog2(TypeId::opTypeName); \
-					symbol##_##opTypeName:
 					
-				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_ALIGNED_OP_FOR_TYPE(valueType,memoryType,loadSymbol)	\
-					{ return parseLoadExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadOp,false,alignmentLog2,nodeIt); }
-				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_ALIGNED_OP_FOR_TYPE(valueType,memoryType,storeSymbol) \
-					{ return parseStoreExpression<class##Class>(TypeId::valueType,TypeId::memoryType,false,alignmentLog2,nodeIt); }
+				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_ADHOC_TYPED_OP(valueType,loadSymbol)	\
+					{ return parseLoadExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadOp,false,nodeIt); }
+				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_ADHOC_TYPED_OP(valueType,storeSymbol) \
+					{ return parseStoreExpression<class##Class>(TypeId::valueType,TypeId::memoryType,false,nodeIt); }
 				#define DEFINE_MEMORY_OP(class,valueType,memoryType,loadSymbol,storeSymbol,loadOp) \
 					DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) \
 					DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol)
@@ -661,9 +670,9 @@ namespace WebAssemblyText
 				{
 					// Parse the name or index of the target label.
 					const char* name;
-					int64 parsedInt;
+					uint64 parsedInt;
 					BranchTarget* branchTarget = nullptr;
-					if(parseInt(nodeIt,parsedInt) && parsedInt >= 0 && (uintptr)parsedInt < scopedBranchTargets.size())
+					if(parseUnsignedInt(nodeIt,parsedInt) && (uintptr)parsedInt < scopedBranchTargets.size())
 					{
 						branchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr)parsedInt];
 					}
@@ -1002,29 +1011,69 @@ namespace WebAssemblyText
 			return TypedExpression(requireFullMatch(operandNodeIt,getOpName(op),result),opType);
 		}
 
+		// Parses an offset attribute.
+		uint64 parseOffsetAttribute(SNodeIt& nodeIt)
+		{
+			SNodeIt valueIt;
+			uint64 offset = 0;
+			if(parseSymbolAttribute(nodeIt,Symbol::_offset,valueIt))
+			{
+				++nodeIt;
+				if(!parseUnsignedInt(valueIt,offset))
+				{
+					recordError<ErrorRecord>(outErrors,nodeIt,"offset: expected unsigned integer");
+				}
+			}
+			return offset;
+		}
+
+		// Parses an alignment attribute.
+		uint8 parseAlignmentAttribute(SNodeIt& nodeIt)
+		{
+			SNodeIt valueIt;
+			uint64 alignment = 1;
+			if(parseSymbolAttribute(nodeIt,Symbol::_align,valueIt))
+			{
+				++nodeIt;
+				SNodeIt mutableValueIt = valueIt;
+				if(!parseUnsignedInt(mutableValueIt,alignment) || !alignment || (alignment & (alignment-1)))
+				{
+					recordError<ErrorRecord>(outErrors,valueIt,"align: expected positive non-zero power-of-two integer");
+					alignment = 1;
+				}
+			}
+			return (uint8)Platform::ceilLogTwo(alignment);
+		}
+
 		// Parse a memory load operation.
 		template<typename Class>
-		TypedExpression parseLoadExpression(TypeId resultType,TypeId memoryType,typename Class::Op loadOp,bool isFarAddress,uint8 alignmentLog2,SNodeIt nodeIt)
+		TypedExpression parseLoadExpression(TypeId resultType,TypeId memoryType,typename Class::Op loadOp,bool isFarAddress,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,Class::id))
 				{ return TypedExpression(recordError<Error<Class>>(outErrors,nodeIt,"load: memory type must be same type class as result"),resultType); }
 			
+			auto offset = parseOffsetAttribute(nodeIt);
+			auto alignmentLog2 = parseAlignmentAttribute(nodeIt);
+
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"load address");
 
-			auto result = new(arena) Load<Class>(loadOp,isFarAddress,alignmentLog2,address,memoryType);
+			auto result = new(arena) Load<Class>(loadOp,isFarAddress,alignmentLog2,offset,address,memoryType);
 			return TypedExpression(requireFullMatch(nodeIt,"load",result),resultType);
 		}
 
 		// Parse a memory store operation.
 		template<typename OperandClass>
-		TypedExpression parseStoreExpression(TypeId valueType,TypeId memoryType,bool isFarAddress,uint8 alignmentLog2,SNodeIt nodeIt)
+		TypedExpression parseStoreExpression(TypeId valueType,TypeId memoryType,bool isFarAddress,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,OperandClass::id))
 				{ return TypedExpression(recordError<Error<VoidClass>>(outErrors,nodeIt,"store: memory type must be same type class as result"),TypeId::Void); }
 			
+			auto offset = parseOffsetAttribute(nodeIt);
+			auto alignmentLog2 = parseAlignmentAttribute(nodeIt);
+
 			auto address = parseTypedExpression<IntClass>(isFarAddress ? TypeId::I64 : TypeId::I32,nodeIt,"store address");
 			auto value = parseTypedExpression<OperandClass>(valueType,nodeIt,"store value");
-			auto result = new(arena) Store<OperandClass>(isFarAddress,alignmentLog2,address,TypedExpression(value,valueType),memoryType);
+			auto result = new(arena) Store<OperandClass>(isFarAddress,alignmentLog2,offset,address,TypedExpression(value,valueType),memoryType);
 			return TypedExpression(requireFullMatch(nodeIt,"store",result),valueType);
 		}
 		

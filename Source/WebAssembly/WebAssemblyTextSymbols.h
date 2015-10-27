@@ -26,7 +26,9 @@ namespace WebAssemblyText
 		WAST_SYMBOL(assert_return_nan) \
 		WAST_SYMBOL(assert_invalid) \
 		WAST_SYMBOL(assert_trap) \
-		WAST_SYMBOL(invoke)
+		WAST_SYMBOL(invoke) \
+		WAST_SYMBOL(align) \
+		WAST_SYMBOL(offset)
 	
 	#define ENUM_WAST_ANY_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(switch) \
@@ -42,8 +44,8 @@ namespace WebAssemblyText
 		WAST_SYMBOL(nop) \
 		WAST_SYMBOL(get_local) \
 		WAST_SYMBOL(set_local) \
-		ALIGNED_TYPED_WAST_SYMBOL(load) \
-		ALIGNED_TYPED_WAST_SYMBOL(store)
+		TYPED_WAST_SYMBOL(load) \
+		TYPED_WAST_SYMBOL(store)
 
 	#define ENUM_WAST_NUMERIC_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(const) \
@@ -60,15 +62,15 @@ namespace WebAssemblyText
 		BITYPED_WAST_SYMBOL(reinterpret)
 
 	#define ENUM_WAST_INT_OPCODE_SYMBOLS() \
-		ALIGNED_TYPED_WAST_SYMBOL(load8_s) \
-		ALIGNED_TYPED_WAST_SYMBOL(load8_u) \
-		ALIGNED_TYPED_WAST_SYMBOL(load16_s) \
-		ALIGNED_TYPED_WAST_SYMBOL(load16_u) \
-		ALIGNED_TYPED_WAST_SYMBOL(load32_s) \
-		ALIGNED_TYPED_WAST_SYMBOL(load32_u) \
-		ALIGNED_TYPED_WAST_SYMBOL(store8) \
-		ALIGNED_TYPED_WAST_SYMBOL(store16) \
-		ALIGNED_TYPED_WAST_SYMBOL(store32) \
+		TYPED_WAST_SYMBOL(load8_s) \
+		TYPED_WAST_SYMBOL(load8_u) \
+		TYPED_WAST_SYMBOL(load16_s) \
+		TYPED_WAST_SYMBOL(load16_u) \
+		TYPED_WAST_SYMBOL(load32_s) \
+		TYPED_WAST_SYMBOL(load32_u) \
+		TYPED_WAST_SYMBOL(store8) \
+		TYPED_WAST_SYMBOL(store16) \
+		TYPED_WAST_SYMBOL(store32) \
 		TYPED_WAST_SYMBOL(not) \
 		TYPED_WAST_SYMBOL(clz) \
 		TYPED_WAST_SYMBOL(ctz) \
@@ -145,27 +147,13 @@ namespace WebAssemblyText
 	{
 		#define AST_TYPE(typeName,className,symbol) _##symbol##_##typeName,
 		#define AST_TYPE_PAIR(typeName1,typeName2,symbol) _##symbol##_##typeName1##_##typeName2,
-		#define ALIGNED_AST_TYPE(typeName,className,symbol) \
-			_##symbol##_##typeName, \
-			_##symbol##_##typeName##_align0, \
-			_##symbol##_##typeName##_align1, \
-			_##symbol##_##typeName##_align2, \
-			_##symbol##_##typeName##_align3, \
-			_##symbol##_##typeName##_align4, \
-			_##symbol##_##typeName##_align5, \
-			_##symbol##_##typeName##_align6, \
-			_##symbol##_##typeName##_align7, \
-			_##symbol##_##typeName##_align8,
 		#define WAST_SYMBOL(symbol) _##symbol,
-		#define ALIGNED_TYPED_WAST_SYMBOL(symbol) _##symbol, ENUM_AST_TYPES(ALIGNED_AST_TYPE,symbol)
 		#define TYPED_WAST_SYMBOL(symbol) _##symbol, ENUM_AST_TYPES(AST_TYPE,symbol)
 		#define BITYPED_WAST_SYMBOL(symbol) _##symbol, ENUM_AST_TYPE_PAIRS(AST_TYPE_PAIR,symbol)
 		ENUM_OPCODE_SYMBOLS()
 		#undef AST_TYPE
 		#undef AST_TYPE_PAIR
-		#undef ALIGNED_AST_TYPE
 		#undef WAST_SYMBOL
-		#undef ALIGNED_TYPED_WAST_SYMBOL
 		#undef TYPED_WAST_SYMBOL
 		#undef BITYPED_WAST_SYMBOL
 		num
@@ -180,14 +168,6 @@ namespace WebAssemblyText
 	inline Symbol getTypedSymbol(TypeId type,Symbol baseSymbol)
 	{
 		return Symbol((uintptr)baseSymbol + (uintptr)type);
-	}
-
-	inline Symbol getAlignedTypedSymbol(TypeId type,Symbol baseSymbol,uint8 alignmentLog2,TypeId memoryType)
-	{
-		auto typeIndex = (uintptr)type - 1;
-		auto numAlignmentVariationsPerType = 10;
-		if(alignmentLog2 == getTypeByteWidthLog2(memoryType)) { return Symbol((uintptr)baseSymbol + 1 + numAlignmentVariationsPerType * typeIndex); }
-		else { return Symbol((uintptr)baseSymbol + 1 + numAlignmentVariationsPerType * typeIndex + 1 + alignmentLog2); }
 	}
 
 	inline Symbol getBitypedSymbol(TypeId leftType,Symbol baseSymbol,TypeId rightType)

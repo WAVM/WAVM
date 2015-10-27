@@ -19,7 +19,8 @@ namespace SExp
 		UnsignedInt,
 		Float,
 		Error,
-		Tree
+		Tree,
+		Attribute // A tree with two children implicitly separated by an '='
 	};
 
 	// A node in a tree of S-expressions
@@ -90,7 +91,7 @@ namespace SExp
 		
 		NodeIt getChildIt() const
 		{
-			assert(node->type == NodeType::Tree);
+			assert(node->type == NodeType::Tree || node->type == NodeType::Attribute);
 			return NodeIt(node->children,node->startLocus);
 		}
 
@@ -117,6 +118,15 @@ namespace SExp
 		void enterSubtree()
 		{
 			Node* subtreeNode = new(arena) Node();
+			*nextNodeLink = subtreeNode;
+			nextNodeLink = &subtreeNode->children;
+		}
+
+		// Appends an attribute node, and sets the stream to append to its children.
+		void enterAttribute()
+		{
+			Node* subtreeNode = new(arena) Node();
+			subtreeNode->type = NodeType::Attribute;
 			*nextNodeLink = subtreeNode;
 			nextNodeLink = &subtreeNode->children;
 		}
@@ -181,9 +191,12 @@ namespace SExp
 
 		void append(Node* node)
 		{
-			*nextNodeLink = node;
-			while(node->nextSibling) { node = node->nextSibling; };
-			nextNodeLink = &node->nextSibling;
+			if(node)
+			{
+				*nextNodeLink = node;
+				while(node->nextSibling) { node = node->nextSibling; };
+				nextNodeLink = &node->nextSibling;
+			}
 		}
 
 		template<typename T> void appendInt(T i)
