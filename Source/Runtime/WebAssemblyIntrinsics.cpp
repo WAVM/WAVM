@@ -3,6 +3,7 @@
 #include "Intrinsics.h"
 #include "RuntimePrivate.h"
 
+#include <limits.h>
 #include <iostream>
 
 namespace Runtime
