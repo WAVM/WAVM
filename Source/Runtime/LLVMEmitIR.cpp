@@ -260,13 +260,15 @@ namespace LLVMJIT
 		template<typename Class>
 		DispatchResult visitStore(const Store<Class>* store)
 		{
+			auto address = compileAddress(store->address,store->offset,store->isFarAddress,store->memoryType);
 			auto value = dispatch(*this,store->value);
-			auto llvmStore = irBuilder.CreateStore(value,compileAddress(store->address,store->offset,store->isFarAddress,store->memoryType),true);
+			auto llvmStore = irBuilder.CreateStore(value,address,true);
 			llvmStore->setAlignment(1<<store->alignmentLog2);
 			return value;
 		}
 		DispatchResult visitStore(const Store<IntClass>* store)
 		{
+			auto address = compileAddress(store->address,store->offset,store->isFarAddress,store->memoryType);
 			auto value = dispatch(*this,store->value);
 			llvm::Value* memoryValue = value;
 			if(store->value.type != store->memoryType)
@@ -274,7 +276,7 @@ namespace LLVMJIT
 				assert(isTypeClass(store->memoryType,TypeClassId::Int));
 				memoryValue = irBuilder.CreateTrunc(value,asLLVMType(store->memoryType));
 			}
-			irBuilder.CreateStore(memoryValue,compileAddress(store->address,store->offset,store->isFarAddress,store->memoryType),true);
+			irBuilder.CreateStore(memoryValue,address,true);
 			return value;
 		}
 
