@@ -34,8 +34,9 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION1(emscripten,_sbrk,I32,I32,numBytes)
 	{
-		auto result = numBytes < 0
-			? vmShrinkMemory((size_t)-(int64)numBytes)
+		int32 signedNumBytes = (int32)numBytes;
+		auto result = signedNumBytes < 0
+			? vmShrinkMemory((size_t)-(int64)signedNumBytes)
 			: vmGrowMemory((size_t)numBytes);
 		return coerce32bitAddress(result);
 	}
