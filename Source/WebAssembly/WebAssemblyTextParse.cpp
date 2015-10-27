@@ -1376,7 +1376,7 @@ namespace WebAssemblyText
 		return Runtime::Value();
 	}
 
-	Invoke* parseInvoke(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	Invoke* parseInvoke(SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
 	{
 		auto locus = nodeIt->startLocus;
 
@@ -1393,21 +1393,11 @@ namespace WebAssemblyText
 			{ recordError<ErrorRecord>(outFile.errors,invokeChildIt,"expected export name string"); return nullptr; }
 
 		// Find the named export in one of the modules.
-		AST::Module* exportModule = nullptr;
-		uintptr exportedFunctionIndex = 0;
-		for(uintptr moduleIndex = 0;moduleIndex < outFile.modules.size();++moduleIndex)
-		{
-			auto module = outFile.modules[moduleIndex];
-			auto exportIt = module->exportNameToFunctionIndexMap.find(invokeExportName);
-			if(exportIt != module->exportNameToFunctionIndexMap.end())
-			{
-				outModuleIndex = moduleIndex;
-				exportModule = module;
-				exportedFunctionIndex = exportIt->second;
-				break;
-			}
-		}
-		if(!exportModule) { recordError<ErrorRecord>(outFile.errors,savedExportNameIt,"couldn't find export with this name"); return nullptr; }
+		AST::Module* exportModule = outFile.modules[moduleIndex];
+		auto exportIt = exportModule->exportNameToFunctionIndexMap.find(invokeExportName);
+		if(exportIt == exportModule->exportNameToFunctionIndexMap.end())
+		{ recordError<ErrorRecord>(outFile.errors,savedExportNameIt,"couldn't find export with this name"); return nullptr; }
+		auto exportedFunctionIndex = exportIt->second;
 
 		// Parse the invoke's parameters.
 		auto function = exportModule->functions[exportedFunctionIndex];
@@ -1425,12 +1415,12 @@ namespace WebAssemblyText
 		return result;
 	}
 
-	Assert* parseAssertReturn(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	Assert* parseAssertReturn(SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
 	{
 		auto locus = nodeIt->startLocus;
 
 		// Parse the assert_return's invoke.
-		auto invoke = parseInvoke(nodeIt++,outModuleIndex,outFile);
+		auto invoke = parseInvoke(nodeIt++,moduleIndex,outFile);
 		if(!invoke) { return nullptr; }
 
 		// Parse the expected value of the invoke.
@@ -1439,47 +1429,47 @@ namespace WebAssemblyText
 		// Verify that all of the assert_return's parameters were matched.
 		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
 
-		auto result = new(outFile.modules[outModuleIndex]->arena) Assert;
+		auto result = new(outFile.modules[moduleIndex]->arena) Assert;
 		result->invoke = invoke;
 		result->locus = locus;
 		result->value = value;
 		return result;
 	}
 	
-	AssertNaN* parseAssertReturnNaN(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	AssertNaN* parseAssertReturnNaN(SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
 	{
 		auto locus = nodeIt->startLocus;
 
 		// Parse the assert_return's invoke.
-		auto invoke = parseInvoke(nodeIt++,outModuleIndex,outFile);
+		auto invoke = parseInvoke(nodeIt++,moduleIndex,outFile);
 		if(!invoke) { return nullptr; }
 
 		// Verify that all of the assert_return_nan's parameters were matched.
 		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
 
-		auto result = new(outFile.modules[outModuleIndex]->arena) AssertNaN;
+		auto result = new(outFile.modules[moduleIndex]->arena) AssertNaN;
 		result->invoke = invoke;
 		result->locus = locus;
 		return result;
 	}
 	
-	Assert* parseAssertTrap(SNodeIt nodeIt,uintptr& outModuleIndex,File& outFile)
+	Assert* parseAssertTrap(SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
 	{
 		auto locus = nodeIt->startLocus;
 
 		// Parse the assert_trap's invoke.
-		auto invoke = parseInvoke(nodeIt++,outModuleIndex,outFile);
+		auto invoke = parseInvoke(nodeIt++,moduleIndex,outFile);
 		if(!invoke) { return nullptr; }
 		
 		// Set up a dummy module, function, and parsing context to parse the assertion value in.
 		Function dummyFunction;
-		ModuleContext dummyModuleContext(outFile.modules[outModuleIndex],outFile.errors);
+		ModuleContext dummyModuleContext(outFile.modules[moduleIndex],outFile.errors);
 		FunctionContext dummyFunctionContext(dummyModuleContext,&dummyFunction);
 
 		// Parse the expected value of the invoke.
 		const char* message;
 		size_t numMessageChars;
-		if(!parseString(nodeIt,message,numMessageChars,outFile.modules[outModuleIndex]->arena))
+		if(!parseString(nodeIt,message,numMessageChars,outFile.modules[moduleIndex]->arena))
 			{ recordError<ErrorRecord>(outFile.errors,nodeIt,"expected trap message"); return nullptr; }
 
 		// Verify that all of the assert_trap's parameters were matched.
@@ -1495,7 +1485,7 @@ namespace WebAssemblyText
 		else if(!strcmp(message,"runtime: callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
 		else if(!strcmp(message,"runtime: grow_memory overflow")) { cause = Runtime::Exception::Cause::OutOfMemory; }
 
-		auto result = new(outFile.modules[outModuleIndex]->arena) Assert;
+		auto result = new(outFile.modules[moduleIndex]->arena) Assert;
 		result->invoke = invoke;
 		result->locus = locus;
 		result->value = Runtime::Value(new Runtime::Exception {cause});
@@ -1524,32 +1514,36 @@ namespace WebAssemblyText
 		
 		// Parse the test statements.
 		outFile.moduleTests.resize(outFile.modules.size());
+		uintptr currentModuleIndex = UINTPTR_MAX;
 		for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
 		{
 			SNodeIt childNodeIt;
-			if(parseTaggedNode(rootNodeIt,Symbol::_invoke,childNodeIt))
+			if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_invoke,childNodeIt))
 			{
-				uintptr moduleIndex;
-				auto invoke = parseInvoke(rootNodeIt,moduleIndex,outFile);
-				if(invoke) { outFile.moduleTests[moduleIndex].push_back(invoke); }
+				auto invoke = parseInvoke(rootNodeIt,currentModuleIndex,outFile);
+				if(invoke) { outFile.moduleTests[currentModuleIndex].push_back(invoke); }
 			}
-			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return,childNodeIt))
+			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_return,childNodeIt))
 			{
-				uintptr moduleIndex;
-				auto assert = parseAssertReturn(childNodeIt,moduleIndex,outFile);
-				if(assert) { outFile.moduleTests[moduleIndex].push_back(assert); }
+				assert(currentModuleIndex < outFile.modules.size());
+				auto assert = parseAssertReturn(childNodeIt,currentModuleIndex,outFile);
+				if(assert) { outFile.moduleTests[currentModuleIndex].push_back(assert); }
 			}
-			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return_nan,childNodeIt))
+			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_return_nan,childNodeIt))
 			{
-				uintptr moduleIndex;
-				auto assert = parseAssertReturnNaN(childNodeIt,moduleIndex,outFile);
-				if(assert) { outFile.moduleTests[moduleIndex].push_back(assert); }
+				assert(currentModuleIndex < outFile.modules.size());
+				auto assert = parseAssertReturnNaN(childNodeIt,currentModuleIndex,outFile);
+				if(assert) { outFile.moduleTests[currentModuleIndex].push_back(assert); }
 			}
-			else if(parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
+			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
 			{
-				uintptr moduleIndex;
-				auto assertTrap = parseAssertTrap(childNodeIt,moduleIndex,outFile);
-				if(assertTrap) { outFile.moduleTests[moduleIndex].push_back(assertTrap); }
+				assert(currentModuleIndex < outFile.modules.size());
+				auto assertTrap = parseAssertTrap(childNodeIt,currentModuleIndex,outFile);
+				if(assertTrap) { outFile.moduleTests[currentModuleIndex].push_back(assertTrap); }
+			}
+			else if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
+			{
+				++currentModuleIndex;
 			}
 		}
 
