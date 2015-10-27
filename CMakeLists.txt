@@ -59,4 +59,4 @@ add_subdirectory(Source/ASMJS)
 add_subdirectory(Source/Runtime)
 add_subdirectory(Source/Programs)
 
-add_subdirectory(Test/WAST)
+add_subdirectory(Test/spec)
