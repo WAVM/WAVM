@@ -487,13 +487,17 @@ namespace SExp
 					node->f32 = (float32)node->f64;
 					return node;
 				}
-				else
+				else if(i64End > state.next)
 				{
 					state.advanceToPtr(i64End);
 					auto node = new(arena) Node(state.getLocus(),isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
 					node->endLocus = state.getLocus();
 					node->i64 = isNegative ? -(int64)i64 : i64;
 					return node;
+				}
+				else
+				{
+					throw new FatalParseException(state.getLocus(),std::string("expected number but found '") + state.peek() + "'");
 				}
 			}
 		}
