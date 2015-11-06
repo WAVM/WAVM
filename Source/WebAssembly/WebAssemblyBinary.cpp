@@ -1610,5 +1610,10 @@ namespace WebAssemblyBinary
 			outErrors.push_back(exception);
 			return false;
 		}
+		catch(const std::bad_alloc&)
+		{
+			outErrors.push_back(new FatalDecodeException("out of memory"));
+			return false;
+		}
 	}
 }
