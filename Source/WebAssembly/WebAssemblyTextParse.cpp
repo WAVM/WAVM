@@ -1425,7 +1425,7 @@ namespace WebAssemblyText
 
 	Invoke* parseInvoke(SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
 	{
-		auto locus = nodeIt->startLocus;
+		SNodeIt originalNodeIt = nodeIt;
 
 		SNodeIt invokeChildIt;
 		if(!parseTaggedNode(nodeIt++,Symbol::_invoke,invokeChildIt))
@@ -1456,16 +1456,14 @@ namespace WebAssemblyText
 		if(invokeChildIt) { recordExcessInputError<ErrorRecord>(outFile.errors,invokeChildIt,"invoke parameters"); return nullptr; }
 
 		auto result = new(exportModule->arena) Invoke;
-		result->locus = locus;
+		result->locus = originalNodeIt->startLocus;
 		result->functionIndex = exportedFunctionIndex;
 		result->parameters = std::move(parameters);
 		return result;
 	}
 
-	Assert* parseAssertReturn(SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
+	Assert* parseAssertReturn(Core::TextFileLocus locus,SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
 	{
-		auto locus = nodeIt->startLocus;
-
 		// Parse the assert_return's invoke.
 		auto invoke = parseInvoke(nodeIt++,moduleIndex,outFile);
 		if(!invoke) { return nullptr; }
@@ -1483,10 +1481,8 @@ namespace WebAssemblyText
 		return result;
 	}
 	
-	AssertNaN* parseAssertReturnNaN(SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
+	AssertNaN* parseAssertReturnNaN(Core::TextFileLocus locus,SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
 	{
-		auto locus = nodeIt->startLocus;
-
 		// Parse the assert_return's invoke.
 		auto invoke = parseInvoke(nodeIt++,moduleIndex,outFile);
 		if(!invoke) { return nullptr; }
@@ -1500,10 +1496,8 @@ namespace WebAssemblyText
 		return result;
 	}
 	
-	Assert* parseAssertTrap(SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
+	Assert* parseAssertTrap(Core::TextFileLocus locus,SNodeIt nodeIt,uintptr moduleIndex,File& outFile)
 	{
-		auto locus = nodeIt->startLocus;
-
 		// Parse the assert_trap's invoke.
 		auto invoke = parseInvoke(nodeIt++,moduleIndex,outFile);
 		if(!invoke) { return nullptr; }
@@ -1574,19 +1568,19 @@ namespace WebAssemblyText
 			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_return,childNodeIt))
 			{
 				assert(currentModuleIndex < outFile.modules.size());
-				auto assert = parseAssertReturn(childNodeIt,currentModuleIndex,outFile);
+				auto assert = parseAssertReturn(rootNodeIt->startLocus,childNodeIt,currentModuleIndex,outFile);
 				if(assert) { outFile.moduleTests[currentModuleIndex].push_back(assert); }
 			}
 			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_return_nan,childNodeIt))
 			{
 				assert(currentModuleIndex < outFile.modules.size());
-				auto assert = parseAssertReturnNaN(childNodeIt,currentModuleIndex,outFile);
+				auto assert = parseAssertReturnNaN(rootNodeIt->startLocus,childNodeIt,currentModuleIndex,outFile);
 				if(assert) { outFile.moduleTests[currentModuleIndex].push_back(assert); }
 			}
 			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
 			{
 				assert(currentModuleIndex < outFile.modules.size());
-				auto assertTrap = parseAssertTrap(childNodeIt,currentModuleIndex,outFile);
+				auto assertTrap = parseAssertTrap(rootNodeIt->startLocus,childNodeIt,currentModuleIndex,outFile);
 				if(assertTrap) { outFile.moduleTests[currentModuleIndex].push_back(assertTrap); }
 			}
 			else if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
