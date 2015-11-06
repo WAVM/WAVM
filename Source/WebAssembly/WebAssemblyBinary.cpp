@@ -737,7 +737,7 @@ namespace WebAssemblyBinary
 		template<typename Class>
 		typename Class::ClassExpression* callIndirect(TypeId returnType,uint32 tableIndex)
 		{
-			if(tableIndex >= module.functions.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
+			if(tableIndex >= module.functionTables.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
 			const FunctionTable& functionTable = module.functionTables[tableIndex];
 			auto functionIndex = decodeExpression(I32Type());
 			auto parameters = decodeParameters(functionTable.type.parameters);
@@ -747,7 +747,7 @@ namespace WebAssemblyBinary
 		}
 		VoidExpression* callIndirectStatement(uint32 tableIndex)
 		{
-			if(tableIndex >= module.functions.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
+			if(tableIndex >= module.functionTables.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
 			const FunctionTable& functionTable = module.functionTables[tableIndex];
 			auto returnType = functionTable.type.returnType;
 			switch(functionTable.type.returnType)
@@ -1599,7 +1599,6 @@ namespace WebAssemblyBinary
 
 		// Limited to 1GB for now, so it is consistent on 32 bit and 64 bit runtimes.
 		outModule->maxNumBytesMemory = 0x40000000;
-
 
 		try
 		{
