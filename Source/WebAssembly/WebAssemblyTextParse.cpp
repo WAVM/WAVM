@@ -1249,7 +1249,9 @@ namespace WebAssemblyText
 				
 				// Create the import.
 				auto importIndex = module->functionImports.size();
-				module->functionImports.push_back({importType,importModuleName,importFunctionName});
+				std::vector<TypeId> parameterTypes;
+				for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
+				module->functionImports.push_back({FunctionType(returnType,parameterTypes),importModuleName,importFunctionName});
 				if(hasName)
 				{
 					importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
