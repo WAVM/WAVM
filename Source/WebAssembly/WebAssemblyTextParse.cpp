@@ -1204,16 +1204,9 @@ namespace WebAssemblyText
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_import,childNodeIt))
 			{
-				auto importIndex = module->functionImports.size();
-
 				// Parse an optional import name used within the module.
 				const char* importInternalName;
-				if(parseName(childNodeIt,importInternalName))
-				{
-					importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
-					if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),"duplicate variable name"); }
-					else { functionImportNameToIndexMap[importInternalName] = importIndex; }
-				}
+				bool hasName = parseName(childNodeIt,importInternalName);
 
 				// Parse a mandatory import module name.
 				const char* importModuleName;
@@ -1255,9 +1248,14 @@ namespace WebAssemblyText
 				}
 				
 				// Create the import.
-				std::vector<TypeId> parameterTypes;
-				for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
-				module->functionImports.push_back({FunctionType(returnType,parameterTypes),importModuleName,importFunctionName});
+				auto importIndex = module->functionImports.size();
+				module->functionImports.push_back({importType,importModuleName,importFunctionName});
+				if(hasName)
+				{
+					importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
+					if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),"duplicate variable name"); }
+					else { functionImportNameToIndexMap[importInternalName] = importIndex; }
+				}
 
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following import declaration"); continue; }
 			}
