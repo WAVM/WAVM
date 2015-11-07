@@ -1,4 +1,11 @@
+#define __STDC_FORMAT_MACROS
 #include "LLVMJIT.h"
+
+#ifdef __linux__
+#include <inttypes.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 
 namespace LLVMJIT
 {
@@ -144,6 +151,37 @@ namespace LLVMJIT
 		}
 	}
 
+#ifdef __linux__
+	void writePerfMap()
+	{
+		static FILE* perfFile = nullptr;
+		const ssize_t bufferLength = 256;
+		char filename[bufferLength];
+		if (snprintf(filename, bufferLength, "/tmp/perf-%d.map", getpid()) < bufferLength)
+		{
+		    perfFile = fopen(filename, "a");
+		}
+		if (!perfFile)
+		  return;
+		for(auto jitModule : jitModules)
+		{
+			for(auto function : jitModule->functions)
+			{
+				const char *name = function.name.data();
+				uintptr_t functionIndex;
+				if(getFunctionIndexFromExternalName(name,functionIndex))
+				{
+					assert(functionIndex < jitModule->astModule->functions.size());
+					auto astFunction = jitModule->astModule->functions[functionIndex];
+					if(astFunction->name) { name = astFunction->name;}
+				}
+				fprintf(perfFile, "%" PRIxPTR " %" PRIxPTR " %s\n", function.baseAddress, function.size, name);
+			}
+		}
+		fclose(perfFile);
+	}
+#endif
+
 	bool compileModule(const AST::Module* astModule)
 	{
 		auto llvmModule = emitModule(astModule);
@@ -202,6 +240,9 @@ namespace LLVMJIT
 
 		// Compile the module.
 		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,llvm::make_unique<llvm::SectionMemoryManager>(),&IntrinsicResolver::singleton);
+#ifdef __linux__
+		if (getenv("WAVM_PERF")) writePerfMap();
+#endif
 		std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
 		
 		return true;
