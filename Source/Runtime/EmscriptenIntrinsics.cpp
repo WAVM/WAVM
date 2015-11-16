@@ -61,7 +61,7 @@ namespace Runtime
 		enum { sysConfPageSize = 30 };
 		switch(a)
 		{
-		case sysConfPageSize: return 1 << Platform::getPreferredVirtualPageSizeLog2();
+		case sysConfPageSize: return 1 << Platform::getPageSizeLog2();
 		default: throw;
 		}
 	}

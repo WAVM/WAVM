@@ -44,21 +44,33 @@ namespace Platform
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return ceilLogTwo(preferredVirtualPageSize);
 	}
-	uint32 getPreferredVirtualPageSizeLog2()
+	uint32 getPageSizeLog2()
 	{
 		static size_t preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
 		return (uint32)preferredVirtualPageSizeLog2;
+	}
+	
+	uint32 memoryAccessAsPOSIXFlag(MemoryAccess access)
+	{
+		switch(access)
+		{
+		default:
+		case MemoryAccess::None: return PROT_NONE;
+		case MemoryAccess::ReadOnly: return PROT_READ;
+		case MemoryAccess::ReadWrite: return PROT_READ | PROT_WRITE;
+		case MemoryAccess::Execute: return PROT_EXEC;
+		}
 	}
 
 	bool isPageAligned(uint8* address)
 	{
 		const uintptr addressBits = reinterpret_cast<uintptr>(address);
-		return (addressBits & ((1ull << getPreferredVirtualPageSizeLog2()) - 1)) == 0;
+		return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
 	}
 
 	uint8* allocateVirtualPages(size_t numPages)
 	{
-		size_t numBytes = numPages << getPreferredVirtualPageSizeLog2();
+		size_t numBytes = numPages << getPageSizeLog2();
 		auto result = mmap(nullptr,numBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 		if(result == MAP_FAILED)
 		{
@@ -68,16 +80,22 @@ namespace Platform
 		return (uint8*)result;
 	}
 
-	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages)
+	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
 	{
 		assert(isPageAligned(baseVirtualAddress));
-		return mprotect(baseVirtualAddress,numPages << getPreferredVirtualPageSizeLog2(),PROT_READ | PROT_WRITE) == 0;
+		return mprotect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsPOSIXFlag(access)) == 0;
 	}
 	
+	bool setVirtualPageAccess(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
+	{
+		assert(isPageAligned(baseVirtualAddress));
+		return mprotect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsPOSIXFlag(access)) == 0;
+	}
+
 	void decommitVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
-		auto numBytes = numPages << getPreferredVirtualPageSizeLog2();
+		auto numBytes = numPages << getPageSizeLog2();
 		if(madvise(baseVirtualAddress,numBytes,MADV_DONTNEED)) { throw; }
 		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { throw; }
 	}
@@ -85,7 +103,7 @@ namespace Platform
 	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
-		if(munmap(baseVirtualAddress,numPages << getPreferredVirtualPageSizeLog2())) { throw; }
+		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { throw; }
 	}
 }
 

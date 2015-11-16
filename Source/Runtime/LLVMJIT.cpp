@@ -25,6 +25,96 @@ namespace LLVMJIT
 		virtual llvm::RuntimeDyld::SymbolInfo findSymbolInLogicalDylib(const std::string& name) override;
 	};
 
+	// Allocates memory for the LLVM object loader.
+	struct SectionMemoryManager : llvm::RTDyldMemoryManager
+	{
+		SectionMemoryManager()
+		{
+			// Allocate 2GB of virtual pages for the image up front. This ensures that address within the image
+			// is more than a 32-bit offset from any other address in the image. LLVM on Windows produces COFF
+			// files that assume the entire image can be addressed by as 32-bit offset, but the built-in LLVM
+			// SectionMemoryManager doesn't fulfill that assumption.
+			numAllocatedImagePages = (size_t)(1 << (31 - Platform::getPageSizeLog2()));
+			imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
+			numCommittedImagePages = 0;
+		}
+		virtual ~SectionMemoryManager() override
+		{
+			// Free the allocated and possibly committed image pages.
+			Platform::freeVirtualPages(imageBaseAddress,numAllocatedImagePages);
+		}
+
+		virtual uint8* allocateCodeSection(uintptr numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
+		{
+			return allocateSection(numBytes,alignment,Platform::MemoryAccess::Execute);
+		}
+		virtual uint8* allocateDataSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
+		{
+			return allocateSection(numBytes,alignment,isReadOnly ? Platform::MemoryAccess::ReadOnly : Platform::MemoryAccess::ReadWrite);
+		}
+		virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
+		{
+			// Set the requested final memory access for each section's pages.
+			for(auto section : sections)
+			{
+				if(!Platform::setVirtualPageAccess(section.baseAddress,section.numPages,section.finalAccess)) { return false; }
+			}
+			return true;
+		}
+		virtual void invalidateInstructionCache()
+		{
+			// Invalidate the instruction cache for the whole image.
+			llvm::sys::Memory::InvalidateInstructionCache(imageBaseAddress,numAllocatedImagePages << Platform::getPageSizeLog2());
+		}
+
+	private:
+		struct Section
+		{
+			uint8* baseAddress;
+			size_t numPages;
+			Platform::MemoryAccess finalAccess;
+		};
+		
+		std::vector<Section> sections;
+
+		uint8* imageBaseAddress;
+		size_t numAllocatedImagePages;
+		uintptr numCommittedImagePages;
+
+		uint8* allocateSection(uintptr numBytes,uintptr alignment,Platform::MemoryAccess finalAccess)
+		{
+			assert(!(alignment & (alignment - 1)));
+
+			// Allocate the section at the lowest uncommitted byte of image memory.
+			uint8* unalignedSectionBaseAddress = imageBaseAddress + (numCommittedImagePages << Platform::getPageSizeLog2());
+
+			// If there's larger alignment than the page size requested, adjust the base pointer accordingly.
+			uint8* sectionBaseAddress = (uint8*)((uintptr)(unalignedSectionBaseAddress + alignment - 1) & ~(alignment - 1));
+			const size_t numAlignmentPages = (sectionBaseAddress - unalignedSectionBaseAddress) >> Platform::getPageSizeLog2();
+			assert(!((sectionBaseAddress - unalignedSectionBaseAddress) & ((1 << Platform::getPageSizeLog2()) - 1)));
+
+			// Round the allocation size up to the next page.
+			const size_t numPages = (numBytes + (size_t)(1 << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
+
+			// Check that the image memory allocation hasn't been exhausted.
+			if(numCommittedImagePages + numAlignmentPages + numPages > numAllocatedImagePages) { return nullptr; }
+
+			// Commit the section's pages.
+			if(!Platform::commitVirtualPages(sectionBaseAddress,numPages)) { return nullptr; }
+			
+			// Record the section so finalizeMemory can update its access level.
+			sections.push_back({sectionBaseAddress,numPages,finalAccess});
+
+			// Update the allocated page count.
+			numCommittedImagePages += numAlignmentPages + numPages;
+
+			return sectionBaseAddress;
+		}
+
+		SectionMemoryManager(const SectionMemoryManager&) = delete;
+		void operator=(const SectionMemoryManager&) = delete;
+	};
+
 	struct JITFunction
 	{
 		std::string name;
@@ -201,7 +291,7 @@ namespace LLVMJIT
 		jitModule->compileLayer = llvm::make_unique<JITModule::CompileLayer>(*jitModule->objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
 
 		// Compile the module.
-		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,llvm::make_unique<llvm::SectionMemoryManager>(),&IntrinsicResolver::singleton);
+		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,llvm::make_unique<SectionMemoryManager>(),&IntrinsicResolver::singleton);
 		std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
 		
 		return true;

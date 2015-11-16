@@ -55,8 +55,17 @@ namespace Platform
 		Mutex* mutex;
 	};
 
-	// Returns the base 2 logarithm of the preferred virtual page size.
-	CORE_API uint32 getPreferredVirtualPageSizeLog2();
+	// Describes allowed memory accesses.
+	enum class MemoryAccess
+	{
+		None,
+		ReadOnly,
+		ReadWrite,
+		Execute
+	};
+
+	// Returns the base 2 logarithm of the smallest virtual page size.
+	CORE_API uint32 getPageSizeLog2();
 
 	// Allocates virtual addresses without commiting physical pages to them.
 	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual address space has been exhausted.
@@ -65,7 +74,12 @@ namespace Platform
 	// Commits physical memory to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	// Return true if successful, or false if physical memory has been exhausted.
-	CORE_API bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages);
+	CORE_API bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access = MemoryAccess::ReadWrite);
+
+	// Changes the allowed access to the specified virtual pages.
+	// baseVirtualAddress must be a multiple of the preferred page size.
+	// Return true if successful, or false if the access-level could not be set.
+	CORE_API bool setVirtualPageAccess(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access);
 
 	// Decommits the physical memory that was committed to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
