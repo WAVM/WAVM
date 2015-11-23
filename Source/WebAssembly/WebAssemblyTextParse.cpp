@@ -1585,14 +1585,15 @@ namespace WebAssemblyText
 		
 		// Try to map the trap message to an exception cause.
 		Runtime::Exception::Cause cause = Runtime::Exception::Cause::Unknown;
-		if(!strcmp(message,"runtime: out of bounds memory access")) { cause = Runtime::Exception::Cause::AccessViolation; }
-		else if(!strcmp(message,"runtime: callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
-		else if(!strcmp(message,"runtime: integer overflow")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; }
-		else if(!strcmp(message,"runtime: integer divide by zero")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; }
-		else if(!strcmp(message,"runtime: invalid conversion to integer")) { cause = Runtime::Exception::Cause::InvalidFloatOperation; }
-		else if(!strcmp(message,"runtime: callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
-		else if(!strcmp(message,"runtime: grow_memory overflow")) { cause = Runtime::Exception::Cause::OutOfMemory; }
-		else if(!strcmp(message,"runtime: grow_memory operand not multiple of page_size")) { cause = Runtime::Exception::Cause::GrowMemoryNotPageAligned; }
+		if(!strcmp(message,"out of bounds memory access")) { cause = Runtime::Exception::Cause::AccessViolation; }
+		else if(!strcmp(message,"callstack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
+		else if(!strcmp(message,"integer overflow")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; }
+		else if(!strcmp(message,"integer divide by zero")) { cause = Runtime::Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; }
+		else if(!strcmp(message,"invalid conversion to integer")) { cause = Runtime::Exception::Cause::InvalidFloatOperation; }
+		else if(!strcmp(message,"call stack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
+		else if(!strcmp(message,"memory size exceeds implementation limit")) { cause = Runtime::Exception::Cause::OutOfMemory; }
+		else if(!strcmp(message,"growing memory by non-multiple of page size")) { cause = Runtime::Exception::Cause::GrowMemoryNotPageAligned; }
+		else if(!strcmp(message,"unreachable executed")) { cause = Runtime::Exception::Cause::ReachedUnreachable; }
 
 		auto result = new(outFile.modules[moduleIndex]->arena) Assert;
 		result->invoke = invoke;
