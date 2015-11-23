@@ -5,12 +5,28 @@
 
 namespace Runtime
 {
+	float32 quietNaN(float32 value)
+	{
+		Floats::F32Components components;
+		components.value = value;
+		components.bits.significand |= 1 << 22;
+		return components.value;
+	}
+	
+	float64 quietNaN(float64 value)
+	{
+		Floats::F64Components components;
+		components.value = value;
+		components.bits.significand |= 1ull << 51;
+		return components.value;
+	}
+
 	template<typename Float,typename FloatComponents>
 	Float floatMin(Float left,Float right)
 	{
-		// If either operand is a NaN, return it.
-		if(left != left) { return left; }
-		else if(right != right) { return right; }
+		// If either operand is a NaN, convert it to a quiet NaN and return it.
+		if(left != left) { return quietNaN(left); }
+		else if(right != right) { return quietNaN(right); }
 		// If either operand is less than the other, return it.
 		else if(left < right) { return left; }
 		else if(right < left) { return right; }
@@ -28,9 +44,9 @@ namespace Runtime
 	template<typename Float,typename FloatComponents>
 	Float floatMax(Float left,Float right)
 	{
-		// If either operand is a NaN, return it.
-		if(left != left) { return left; }
-		else if(right != right) { return right; }
+		// If either operand is a NaN, convert it to a quiet NaN and return it.
+		if(left != left) { return quietNaN(left); }
+		else if(right != right) { return quietNaN(right); }
 		// If either operand is less than the other, return it.
 		else if(left > right) { return left; }
 		else if(right > left) { return right; }
