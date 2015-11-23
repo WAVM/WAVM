@@ -384,7 +384,7 @@ namespace WebAssemblyText
 		template<typename Class>
 		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
 		{
-			auto subtreeStream = createTaggedSubtree(Symbol::_break) << getLabelName(branch->branchTarget);
+			auto subtreeStream = createTaggedSubtree(Symbol::_br) << getLabelName(branch->branchTarget);
 			if(branch->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branch->value,branch->branchTarget->type); }
 			return subtreeStream;
 		}

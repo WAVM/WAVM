@@ -666,7 +666,7 @@ namespace WebAssemblyText
 					// Create the Loop node.
 					return new(arena)Loop<Class>(expression,breakTarget,continueTarget);
 				}
-				DEFINE_PARAMETRIC_UNTYPED_OP(break)
+				DEFINE_PARAMETRIC_UNTYPED_OP(br)
 				{
 					// Parse the name or index of the target label.
 					const char* name;

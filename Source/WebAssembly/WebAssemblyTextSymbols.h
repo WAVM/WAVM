@@ -37,7 +37,7 @@ namespace WebAssemblyText
 		WAST_SYMBOL(call_indirect) \
 		WAST_SYMBOL(if) \
 		WAST_SYMBOL(loop) \
-		WAST_SYMBOL(break) \
+		WAST_SYMBOL(br) \
 		WAST_SYMBOL(unreachable) \
 		WAST_SYMBOL(label) \
 		WAST_SYMBOL(return) \
@@ -196,7 +196,7 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(switch_,switch)
 		MAP_OP_SYMBOL(ifElse,if)
 		MAP_OP_SYMBOL(label,label)
-		MAP_OP_SYMBOL(branch,break)
+		MAP_OP_SYMBOL(branch,br)
 		MAP_OP_SYMBOL(ret,return)
 		#undef MAP_OP_SYMBOL
 		default: throw;
