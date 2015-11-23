@@ -103,7 +103,7 @@ namespace SExp
 
 	bool isSymbolCharacter(char c)
 	{
-		return !isWhitespace(c) && c != '(' && c != ')' && c != ';' && c != '\"' && c != '=';
+		return !isWhitespace(c) && c != '(' && c != ')' && c != ';' && c != '\"' && c != '=' && c != ':';
 	}
 
 	bool parseHexit(char c,char& outValue)
@@ -300,7 +300,7 @@ namespace SExp
 			f32Components.bits.exponent = 0xff;
 			f32Components.bits.significand = 1ull << 22;
 
-			if(state.peek() == '(')
+			if(state.peek() == ':')
 			{
 				state.consume();
 
@@ -317,10 +317,6 @@ namespace SExp
 				if(significandBits == 0)
 				{
 					return createError(state.getLocus(),"NaN significand must be non-zero");
-				}
-				if(state.consume() != ')')
-				{
-					return createError(state.getLocus(),"expected ')'");
 				}
 
 				f64Components.bits.significand = significandBits;

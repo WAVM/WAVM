@@ -50,7 +50,7 @@ namespace Floats
 					significandString[hexitIndex] = hexitValue >= 10 ? ('a' + hexitValue - 10) : ('0' + hexitValue);
 				}
 				significandString[numSignificandHexits] = 0;
-				return sign + "nan(0x" + significandString + ")";
+				return sign + "nan:0x" + significandString + "";
 			}
 		}
 		else
