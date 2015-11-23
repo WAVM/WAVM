@@ -609,19 +609,13 @@ namespace LLVMJIT
 				);
 		}
 
-		llvm::Value* compileShift(TypeId type,llvm::Value* shiftBits,llvm::Value* smallShiftValue,llvm::Value* largeShiftValue)
+		llvm::Value* compileShiftCountMask(TypeId type,llvm::Value* shiftCount)
 		{
-			// LLVM's shifts have undefined behavior where WebAssembly defines shifts >= the bit width of the integer
-			// to yield zero (or -1 for shr_s on a negative number). To handle this case, use a different value depending
-			// one whether the shift value is >= the bit width of the operands.
-			auto bits = irBuilder.CreateZExt(compileLiteral((uint8)getTypeBitWidth(type)),llvmTypesByTypeId[(size_t)type]);
-			return irBuilder.CreateSelect(irBuilder.CreateICmpULT(shiftBits,bits),smallShiftValue,largeShiftValue);
-		}
-
-		llvm::Value* compileShrSExt(TypeId type,llvm::Value* left,llvm::Value* right)
-		{
+			// LLVM's shifts have undefined behavior where WebAssembly specifies that the shift count will wrap numbers
+			// grather than the bit count of the operands. This matches x86's native shift instructions, but explicitly mask
+			// the shift count anyway to support other platforms, and ensure the optimizer doesn't take advantage of the UB.
 			auto bitsMinusOne = irBuilder.CreateZExt(compileLiteral((uint8)(getTypeBitWidth(type) - 1)),llvmTypesByTypeId[(size_t)type]);
-			return compileShift(type,right,irBuilder.CreateAShr(left,right),irBuilder.CreateAShr(left,bitsMinusOne));
+			return irBuilder.CreateAnd(shiftCount,bitsMinusOne);
 		}
 
 		template<typename Class,typename OpAsType> DispatchResult visitUnary(TypeId type,const Unary<Class>* unary,OpAsType);
@@ -672,9 +666,9 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseAnd,irBuilder.CreateAnd(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseOr,irBuilder.CreateOr(left,right))
 		IMPLEMENT_BINARY_OP(IntClass,bitwiseXor,irBuilder.CreateXor(left,right))
-		IMPLEMENT_BINARY_OP(IntClass,shl,compileShift(type,right,irBuilder.CreateShl(left,right),typedZeroConstants[(size_t)type]))
-		IMPLEMENT_BINARY_OP(IntClass,shrSExt,compileShrSExt(type,left,right))
-		IMPLEMENT_BINARY_OP(IntClass,shrZExt,compileShift(type,right,irBuilder.CreateLShr(left,right),typedZeroConstants[(size_t)type]))
+		IMPLEMENT_BINARY_OP(IntClass,shl,irBuilder.CreateShl(left,compileShiftCountMask(type,right)))
+		IMPLEMENT_BINARY_OP(IntClass,shrSExt,irBuilder.CreateAShr(left,compileShiftCountMask(type,right)))
+		IMPLEMENT_BINARY_OP(IntClass,shrZExt,irBuilder.CreateLShr(left,compileShiftCountMask(type,right)))
 		IMPLEMENT_CAST_OP(IntClass,wrap,irBuilder.CreateTrunc(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,truncSignedFloat,compileRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType(type,{cast->source.type}),{source}))
 		IMPLEMENT_CAST_OP(IntClass,truncUnsignedFloat,compileRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType(type,{cast->source.type}),{source}))
