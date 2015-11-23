@@ -698,6 +698,10 @@ namespace WebAssemblyText
 					// Create the Branch node.
 					return requireFullMatch(nodeIt,"break",new(arena)Branch<Class>(branchTarget,value));
 				}
+				DEFINE_PARAMETRIC_UNTYPED_OP(unreachable)
+				{
+					return requireFullMatch(nodeIt,"unreachable",Unreachable<Class>::get());
+				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(return)
 				{
 					// If the function's return type isn't void, parse an expression for the return value.

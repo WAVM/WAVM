@@ -38,6 +38,7 @@ namespace WebAssemblyText
 		WAST_SYMBOL(if) \
 		WAST_SYMBOL(loop) \
 		WAST_SYMBOL(break) \
+		WAST_SYMBOL(unreachable) \
 		WAST_SYMBOL(label) \
 		WAST_SYMBOL(return) \
 		WAST_SYMBOL(block) \

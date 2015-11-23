@@ -13,7 +13,7 @@ namespace AST
 		AST_OP(load) AST_OP(store) \
 		AST_OP(callDirect) AST_OP(callImport) AST_OP(callIndirect) \
 		AST_OP(loop) AST_OP(switch_) AST_OP(ifElse) AST_OP(label) AST_OP(sequence) \
-		AST_OP(branch) AST_OP(ret)
+		AST_OP(branch) AST_OP(ret) AST_OP(unreachable)
 
 	#define ENUM_AST_UNARY_OPS_Int() \
 		AST_OP(neg) \

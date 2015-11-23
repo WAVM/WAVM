@@ -91,6 +91,11 @@ namespace Runtime
 		causeException(Exception::Cause::IntegerDivideByZeroOrIntegerOverflow);
 	}
 
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,unreachableTrap,Void)
+	{
+		causeException(Exception::Cause::ReachedUnreachable);
+	}
+
 	void initWAVMIntrinsics()
 	{
 	}

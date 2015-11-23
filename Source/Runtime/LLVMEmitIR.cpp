@@ -507,6 +507,17 @@ namespace LLVMJIT
 
 			return typedZeroConstants[(size_t)type];
 		}
+		template<typename Class>
+		DispatchResult visitUnreachable(TypeId type,const Unreachable<Class>* unreachable)
+		{
+			if(irBuilder.GetInsertBlock() != unreachableBlock)
+			{
+				compileRuntimeIntrinsic("wavmIntrinsics.unreachableTrap",FunctionType(),{});
+				irBuilder.CreateUnreachable();
+				irBuilder.SetInsertPoint(unreachableBlock);
+			}
+			return typedZeroConstants[(size_t)type];
+		}
 
 		DispatchResult visitNop(const Nop*)
 		{

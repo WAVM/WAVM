@@ -22,7 +22,8 @@ namespace Runtime
 			InvalidFloatOperation,
 			InvokeSignatureMismatch,
 			OutOfMemory,
-			GrowMemoryNotPageAligned
+			GrowMemoryNotPageAligned,
+			ReachedUnreachable
 		};
 
 		Cause cause;

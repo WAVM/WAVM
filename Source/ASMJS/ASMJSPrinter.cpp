@@ -787,6 +787,11 @@ namespace ASMJS
 			out << branchTargetStatementMap[branch->branchTarget];
 			return out;
 		}
+		template<typename Class>
+		DispatchResult visitUnreachable(TypeId type,const Unreachable<Class>* unreachable)
+		{
+			return out;
+		}
 
 		template<typename OpAsType>
 		DispatchResult visitComparison(const Comparison* compare,OpAsType)

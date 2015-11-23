@@ -388,6 +388,11 @@ namespace WebAssemblyText
 			if(branch->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branch->value,branch->branchTarget->type); }
 			return subtreeStream;
 		}
+		template<typename Class>
+		DispatchResult visitUnreachable(TypeId type,const Unreachable<Class>* unreachable)
+		{
+			return createTaggedSubtree(Symbol::_unreachable);
+		}
 
 		template<typename OpAsType>
 		DispatchResult visitComparison(const Comparison* compare,OpAsType)

@@ -34,6 +34,7 @@ namespace Runtime
 		case Exception::Cause::InvokeSignatureMismatch: return "invoke signature mismatch";
 		case Exception::Cause::OutOfMemory: return "out of memory";
 		case Exception::Cause::GrowMemoryNotPageAligned: return "grow_memory called with size that isn't a multiple of page_size";
+		case Exception::Cause::ReachedUnreachable: return "reached unreachable code";
 		default: return "unknown";
 		}
 	}

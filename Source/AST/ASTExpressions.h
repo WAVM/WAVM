@@ -139,6 +139,21 @@ namespace AST
 		Nop(): Expression(Op::nop) {}
 	};
 	
+	template<typename Class>
+	struct Unreachable : public Expression<Class>
+	{
+		static Unreachable<Class>* get()
+		{
+			static Unreachable<Class> globalInstance;
+			return &globalInstance;
+		}
+
+	private:
+		
+		Unreachable(): Expression<Class>(Op::unreachable) {}
+	};
+	
+
 	// Each unique branch target has a BranchTarget allocated in the module's arena, so you can identify them by pointer.
 	struct BranchTarget
 	{

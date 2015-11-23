@@ -39,6 +39,7 @@ namespace AST
 		case AnyOp::label: return visitor.visitLabel(type,(Label<Class>*)expression);
 		case AnyOp::ret: return visitor.visitReturn(type,(Return<Class>*)expression);
 		case AnyOp::branch: return visitor.visitBranch(type,(Branch<Class>*)expression);
+		case AnyOp::unreachable: return visitor.visitUnreachable(type,(Unreachable<Class>*)expression);
 		default: throw;
 		}
 	}
@@ -318,6 +319,11 @@ namespace AST
 			auto value = branch->branchTarget->type == TypeId::Void ? nullptr
 				: visitChild(TypedExpression(branch->value,branch->branchTarget->type)).expression;
 			return TypedExpression(new(arena) Branch<Class>(branchTarget,value),TypeId::None);
+		}
+		template<typename Class>
+		DispatchResult visitUnreachable(TypeId type,const Unreachable<Class>* unreachable)
+		{
+			return TypedExpression(Unreachable<Class>::get(),type);
 		}
 
 		template<typename OpAsType>
