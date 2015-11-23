@@ -342,6 +342,14 @@ namespace WebAssemblyText
 				<< dispatch(*this,ifElse->elseExpression,type);
 		}
 		template<typename Class>
+		DispatchResult visitSelect(TypeId type,const Select<Class>* select)
+		{
+			return createTaggedSubtree(Symbol::_select)
+				<< dispatch(*this,select->condition)
+				<< dispatch(*this,select->trueValue,type)
+				<< dispatch(*this,select->falseValue,type);
+		}
+		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)
 		{
 			return createTaggedSubtree(Symbol::_label) << getLabelName(label->endTarget) << dispatch(*this,label->expression,type);

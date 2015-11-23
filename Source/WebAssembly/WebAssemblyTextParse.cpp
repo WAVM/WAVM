@@ -636,6 +636,16 @@ namespace WebAssemblyText
 					// Construct the IfElse node.
 					return requireFullMatch(nodeIt,"if",new(arena)IfElse<Class>(condition,thenExpression,elseExpression));
 				}
+				DEFINE_PARAMETRIC_UNTYPED_OP(select)
+				{
+					// Parse the if condition, then-expression, and else-expression.
+					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"select condition");
+					auto trueValue = parseTypedExpression<Class>(resultType,nodeIt,"select true value");
+					auto falseValue = parseTypedExpression<Class>(resultType,nodeIt,"select false value");
+
+					// Construct the Select node.
+					return requireFullMatch(nodeIt,"select",new(arena)Select<Class>(condition,trueValue,falseValue));
+				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(loop)
 				{
 					auto breakTarget = new(arena) BranchTarget(resultType);

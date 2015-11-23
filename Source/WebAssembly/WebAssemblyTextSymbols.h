@@ -32,6 +32,7 @@ namespace WebAssemblyText
 	
 	#define ENUM_WAST_ANY_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(switch) \
+		TYPED_WAST_SYMBOL(select) \
 		WAST_SYMBOL(call) \
 		WAST_SYMBOL(call_import) \
 		WAST_SYMBOL(call_indirect) \

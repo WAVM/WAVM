@@ -196,6 +196,21 @@ namespace AST
 	};
 
 	template<typename Class>
+	struct Select : public Expression<Class>
+	{
+		Expression<BoolClass>* condition;
+		Expression<Class>* trueValue;
+		Expression<Class>* falseValue;
+
+		Select(Expression<BoolClass>* inCondition,Expression<Class>* inTrueValue,Expression<Class>* inFalseValue)
+		:	Expression<Class>(Class::Op::select)
+		,	condition(inCondition)
+		,	trueValue(inTrueValue)
+		,	falseValue(inFalseValue)
+		{}
+	};
+
+	template<typename Class>
 	struct Label : public Expression<Class>
 	{
 		BranchTarget* endTarget;

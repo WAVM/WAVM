@@ -272,6 +272,32 @@ namespace ASMJS
 			return LoweredExpression(statements,value);
 		}
 		template<typename Class>
+		LoweredExpression visitSelect(TypeId type,const Select<Class>* select)
+		{
+			auto condition = dispatch(*this,select->condition,TypeId::Bool);
+			auto trueValue = dispatch(*this,select->trueValue,type);
+			auto falseValue = dispatch(*this,select->falseValue,type);
+			
+			// Create local variables and store the true and false values to them to ensure any side-effects always occur.
+			auto conditionLocalIndex = createLocalVariable(TypeId::Bool);
+			auto trueLocalIndex = createLocalVariable(type);
+			auto falseLocalIndex = createLocalVariable(type);
+			auto statements = concatStatements(arena,
+				concatStatements(arena,
+					condition.statements,
+					setValueToLocal(arena,trueValue,trueLocalIndex)
+					),
+				setValueToLocal(arena,falseValue,falseLocalIndex)
+				);
+
+			// Create a new Select node that simply chooses between the two local variables.
+			return LoweredExpression(statements,TypedExpression(new Select<Class>(
+				as<BoolClass>(new GetLocal(TypeClassId::Bool,conditionLocalIndex)),
+				as<Class>(new GetLocal(Class::id,trueLocalIndex)),
+				as<Class>(new GetLocal(Class::id,falseLocalIndex))
+				),type));
+		}
+		template<typename Class>
 		LoweredExpression visitLabel(TypeId type,const Label<Class>* label)
 		{
 			auto endTarget = new(arena) BranchTarget(label->endTarget->type);
@@ -747,6 +773,16 @@ namespace ASMJS
 				dispatch(*this,ifElse->elseExpression,type);
 			}
 			return out << ";\n}";
+		}
+		template<typename Class>
+		DispatchResult visitSelect(TypeId type,const Select<Class>* select)
+		{
+			dispatch(*this,select->condition);
+			out << "?";
+			dispatch(*this,select->trueValue,type);
+			out << ":";
+			dispatch(*this,select->falseValue,type);
+			return out;
 		}
 		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)

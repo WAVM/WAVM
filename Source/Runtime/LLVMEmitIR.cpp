@@ -396,6 +396,14 @@ namespace LLVMJIT
 				);
 		}
 		template<typename Class>
+		DispatchResult visitSelect(TypeId type,const Select<Class>* select)
+		{
+			auto condition = dispatch(*this,select->condition);
+			auto trueValue = dispatch(*this,select->trueValue,type);
+			auto falseValue = dispatch(*this,select->falseValue,type);
+			return irBuilder.CreateSelect(condition,trueValue,falseValue);
+		}
+		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)
 		{
 			auto labelBlock = llvm::BasicBlock::Create(context,"label",llvmFunction);
