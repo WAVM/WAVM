@@ -47,7 +47,7 @@ namespace Floats
 				for(uintptr hexitIndex = 0;hexitIndex < numSignificandHexits;++hexitIndex)
 				{
 					auto hexitValue = char((components.bits.significand >> ((numSignificandHexits - hexitIndex - 1) * 4)) & 0xf);
-					significandString[hexitIndex] = hexitValue >= 10 ? ('a' + hexitValue) : ('0' + hexitValue);
+					significandString[hexitIndex] = hexitValue >= 10 ? ('a' + hexitValue - 10) : ('0' + hexitValue);
 				}
 				significandString[numSignificandHexits] = 0;
 				return sign + "nan(0x" + significandString + ")";
