@@ -336,10 +336,41 @@ namespace WebAssemblyText
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
 		{
-			return createTaggedSubtree(Symbol::_if)
+			return createTaggedSubtree(Symbol::_if_else)
 				<< dispatch(*this,ifElse->condition)
 				<< dispatch(*this,ifElse->thenExpression,type)
 				<< dispatch(*this,ifElse->elseExpression,type);
+		}
+		DispatchResult visitIfElse(TypeId type,const IfElse<VoidClass>* ifElse)
+		{
+			// Recognize IfElse(...,nop) and translate it into (if) instead of (if_else).
+			// Also recognize IfElse(branch,nop) and translate it into (br_if).
+			if(ifElse->elseExpression->op() == VoidOp::nop)
+			{
+				if(ifElse->thenExpression->op() == VoidOp::branch)
+				{
+					auto branch = (Branch<VoidClass>*)ifElse->thenExpression;
+					auto subtreeStream = createTaggedSubtree(Symbol::_br_if)
+						<< dispatch(*this,ifElse->condition)
+						<< getLabelName(branch->branchTarget);
+					if(branch->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branch->value,branch->branchTarget->type); }
+					return subtreeStream;
+				}
+				else
+				{
+					return createTaggedSubtree(Symbol::_if)
+						<< dispatch(*this,ifElse->condition)
+						<< dispatch(*this,ifElse->thenExpression,type)
+						<< dispatch(*this,ifElse->elseExpression,type);
+				}
+			}
+			else
+			{
+				return createTaggedSubtree(Symbol::_if_else)
+					<< dispatch(*this,ifElse->condition)
+					<< dispatch(*this,ifElse->thenExpression,type)
+					<< dispatch(*this,ifElse->elseExpression,type);
+			}
 		}
 		template<typename Class>
 		DispatchResult visitSelect(TypeId type,const Select<Class>* select)

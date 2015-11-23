@@ -310,8 +310,59 @@ namespace WebAssemblyText
 				#define DEFINE_CAST_OP(destType,sourceType,symbol,opcode) DEFINE_BITYPED_OP(destType,sourceType,symbol) \
 					{ return parseCastExpression<destType##Type::Class>(destType##Type::Op::opcode,TypeId::sourceType,TypeId::destType,nodeIt); }
 
-				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(Nop::get(),TypeId::Void); }
-				
+				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(requireFullMatch(nodeIt,"nop",Nop::get()),TypeId::Void); }
+
+				DEFINE_UNTYPED_OP(if)
+				{
+					// Parse the if condition, then-expression, and else-expression.
+					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
+					auto thenExpression = parseTypedExpression<VoidClass>(TypeId::Void,nodeIt,"if then");
+
+					// Construct the IfElse node.
+					return TypedExpression(requireFullMatch(nodeIt,"if",new(arena)IfElse<VoidClass>(condition,thenExpression,Nop::get())),TypeId::Void);
+				}
+
+				DEFINE_UNTYPED_OP(br_if)
+				{
+					// Parse the condition.
+					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
+
+					// Parse the name or index of the target label.
+					const char* name;
+					uint64 parsedInt;
+					BranchTarget* branchTarget = nullptr;
+					if(parseUnsignedInt(nodeIt,parsedInt) && (uintptr)parsedInt < scopedBranchTargets.size())
+					{
+						branchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr)parsedInt];
+					}
+					else if(parseName(nodeIt,name))
+					{
+						auto it = labelToBranchTargetMap.find(name);
+						if(it != labelToBranchTargetMap.end()) { branchTarget = it->second; }
+					}
+					else
+					{
+						// If no name or index, use the top of the target stack.
+						branchTarget = scopedBranchTargets.back();
+					}
+					if(!branchTarget)
+					{
+						return TypedExpression(recordError<Error<VoidClass>>(outErrors,nodeIt,"br_if: expected label name or index"),TypeId::Void);
+					}
+
+					// If the branch target's type isn't void, parse an expression for the branch's value.
+					auto value = branchTarget->type == TypeId::Void ? nullptr
+						: parseTypedExpression(branchTarget->type,nodeIt,"break value");
+
+					// Create IfElse and Branch nodes.
+					auto result = new(arena)IfElse<VoidClass>(
+						condition,
+						new(arena)Branch<VoidClass>(branchTarget,value),
+						as<VoidClass>(Nop::get())
+						);
+					return TypedExpression(requireFullMatch(nodeIt,"break",result),TypeId::Void);
+				}
+
 				DEFINE_UNTYPED_OP(memory_size)		{ return parseIntrinsic<IntClass>("memory_size",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(page_size)		{ return parseIntrinsic<IntClass>("page_size",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(grow_memory)		{ return parseIntrinsic<VoidClass>("grow_memory",FunctionType(TypeId::Void,{TypeId::I32}),nodeIt); }

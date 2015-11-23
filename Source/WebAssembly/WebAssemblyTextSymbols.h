@@ -36,14 +36,13 @@ namespace WebAssemblyText
 		WAST_SYMBOL(call) \
 		WAST_SYMBOL(call_import) \
 		WAST_SYMBOL(call_indirect) \
-		WAST_SYMBOL(if) \
+		WAST_SYMBOL(if_else) \
 		WAST_SYMBOL(loop) \
 		WAST_SYMBOL(br) \
 		WAST_SYMBOL(unreachable) \
 		WAST_SYMBOL(label) \
 		WAST_SYMBOL(return) \
 		WAST_SYMBOL(block) \
-		WAST_SYMBOL(nop) \
 		WAST_SYMBOL(get_local) \
 		WAST_SYMBOL(set_local) \
 		TYPED_WAST_SYMBOL(load) \
@@ -124,6 +123,11 @@ namespace WebAssemblyText
 		TYPED_WAST_SYMBOL(gt) \
 		TYPED_WAST_SYMBOL(ge)
 
+	#define ENUM_WAST_VOID_OPCODE_SYMBOLS() \
+		WAST_SYMBOL(nop) \
+		WAST_SYMBOL(if) \
+		WAST_SYMBOL(br_if)
+
 	#define ENUM_WAST_TYPE_SYMBOLS() \
 		WAST_SYMBOL(typeBase) \
 		WAST_SYMBOL(i8) \
@@ -142,6 +146,7 @@ namespace WebAssemblyText
 		ENUM_WAST_INT_OPCODE_SYMBOLS() \
 		ENUM_WAST_FLOAT_OPCODE_SYMBOLS() \
 		ENUM_WAST_BOOL_OPCODE_SYMBOLS() \
+		ENUM_WAST_VOID_OPCODE_SYMBOLS() \
 		ENUM_WAST_TYPE_SYMBOLS()
 
 	// Declare an enum with all the symbols used by WAST.
