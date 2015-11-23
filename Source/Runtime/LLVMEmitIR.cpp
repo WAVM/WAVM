@@ -477,7 +477,7 @@ namespace LLVMJIT
 
 			irBuilder.SetInsertPoint(loopBlock);
 			dispatch(*this,loop->expression);
-			compileBranch(loopBlock);
+			compileBranch(successorBlock);
 			
 			// Remove the loop's branch targets from the in-scope context list.
 			assert(branchContext == &breakBranchContext);
