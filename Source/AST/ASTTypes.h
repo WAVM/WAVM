@@ -11,8 +11,12 @@ namespace AST
 	enum class FloatOp : uint8;
 	enum class BoolOp : uint8;
 	enum class VoidOp : uint8;
+	enum class NoneOp : uint8;
 
-	#define ENUM_AST_TYPECLASSES_WITHOUT_ANY() AST_TYPECLASS(Int) AST_TYPECLASS(Float) AST_TYPECLASS(Bool) AST_TYPECLASS(Void)
+	#define ENUM_AST_TYPECLASSES_WITHOUT_ANY() \
+		AST_TYPECLASS(Int) AST_TYPECLASS(Float) \
+		AST_TYPECLASS(Bool) AST_TYPECLASS(Void) \
+		AST_TYPECLASS(None)
 	#define ENUM_AST_TYPECLASSES() AST_TYPECLASS(Any) ENUM_AST_TYPECLASSES_WITHOUT_ANY()
 	
 	#define ENUM_AST_TYPES_Int(callback,...) callback(I8,Int,__VA_ARGS__) callback(I16,Int,__VA_ARGS__) callback(I32,Int,__VA_ARGS__) callback(I64,Int,__VA_ARGS__)
@@ -112,6 +116,9 @@ namespace AST
 	
 	// Returns whether a type is part of a type class.
 	AST_API bool isTypeClass(TypeId type,TypeClassId typeClass);
+
+	// Returns whether a type class is a subclass of another.
+	AST_API bool isSubclass(TypeClassId parent,TypeClassId child);
 
 	// Returns the primary class for a type: Int, Float, Bool, Void.
 	AST_API TypeClassId getPrimaryTypeClass(TypeId type);

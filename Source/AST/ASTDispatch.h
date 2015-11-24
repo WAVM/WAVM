@@ -24,7 +24,7 @@ namespace AST
 	{
 		switch((AnyOp)expression->op())
 		{
-		case AnyOp::error: return visitor.visitError(type,(Error<Class>*)expression);
+		case AnyOp::error: return visitor.visitError(type,(Error*)expression);
 		case AnyOp::callDirect: return visitor.visitCall(type,(Call*)expression,OpTypes<AnyClass>::callDirect());
 		case AnyOp::callImport: return visitor.visitCall(type,(Call*)expression,OpTypes<AnyClass>::callImport());
 		case AnyOp::callIndirect: return visitor.visitCallIndirect(type,(CallIndirect*)expression);
@@ -34,13 +34,13 @@ namespace AST
 		case AnyOp::store: return visitor.visitStore((Store<Class>*)expression);
 		case AnyOp::sequence: return visitor.visitSequence(type,(Sequence<Class>*)expression);
 		case AnyOp::loop: return visitor.visitLoop(type,(Loop<Class>*)expression);
-		case AnyOp::switch_: return visitor.visitSwitch(type,(Switch<Class>*)expression);
 		case AnyOp::ifElse: return visitor.visitIfElse(type,(IfElse<Class>*)expression);
 		case AnyOp::select: return visitor.visitSelect(type,(Select<Class>*)expression);
 		case AnyOp::label: return visitor.visitLabel(type,(Label<Class>*)expression);
-		case AnyOp::ret: return visitor.visitReturn(type,(Return<Class>*)expression);
-		case AnyOp::branch: return visitor.visitBranch(type,(Branch<Class>*)expression);
-		case AnyOp::unreachable: return visitor.visitUnreachable(type,(Unreachable<Class>*)expression);
+		case AnyOp::ret: return visitor.visitReturn(type,(Return*)expression);
+		case AnyOp::branch: return visitor.visitBranch(type,(Branch*)expression);
+		case AnyOp::branchTable: return visitor.visitBranchTable(type,(BranchTable*)expression);
+		case AnyOp::unreachable: return visitor.visitUnreachable(type,(Unreachable*)expression);
 		default: throw;
 		}
 	}
@@ -169,11 +169,10 @@ namespace AST
 			return TypedExpression(new(arena) Literal<Type>(literal->value),Type::id);
 		}
 
-		template<typename Class>
-		DispatchResult visitError(TypeId type,const Error<Class>* error)
+		DispatchResult visitError(TypeId type,const Error* error)
 		{
 			std::string message = error->message;
-			return TypedExpression(new(arena) Error<Class>(std::move(message)),type);
+			return TypedExpression(new(arena) Error(std::move(message)),type);
 		}
 		
 		DispatchResult visitGetLocal(TypeId type,const GetLocal* getVariable)
@@ -243,7 +242,7 @@ namespace AST
 		}
 		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
-			const FunctionType& functionType = module->functionTables[callIndirect->tableIndex].type;
+			const FunctionType& functionType = callIndirect->functionType;
 
 			auto parameters = new(arena) UntypedExpression*[functionType.parameters.size()];
 			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
@@ -253,23 +252,7 @@ namespace AST
 			}
 
 			auto functionIndex = as<IntClass>(visitChild(TypedExpression(callIndirect->functionIndex,TypeId::I32)));
-			return TypedExpression(new(arena) CallIndirect(getPrimaryTypeClass(type),callIndirect->tableIndex,functionIndex,parameters),type);
-		}
-		template<typename Class>
-		DispatchResult visitSwitch(TypeId type,const Switch<Class>* switch_)
-		{
-			auto endTarget = new(arena) BranchTarget(type);
-			branchTargetRemap[switch_->endTarget] = endTarget;
-
-			auto key = visitChild(switch_->key);
-			auto switchArms = new(arena) SwitchArm[switch_->numArms];
-			for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
-			{
-				auto armType = armIndex + 1 == switch_->numArms ? type : TypeId::Void;
-				switchArms[armIndex].key = switch_->arms[armIndex].key;
-				switchArms[armIndex].value = visitChild(TypedExpression(switch_->arms[armIndex].value,armType)).expression;
-			}
-			return TypedExpression(new(arena) Switch<Class>(key,switch_->numArms - 1,switch_->numArms,switchArms,endTarget),type);
+			return TypedExpression(new(arena) CallIndirect(getPrimaryTypeClass(type),callIndirect->tableIndex,callIndirect->functionType,functionIndex,parameters),type);
 		}
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
@@ -304,13 +287,6 @@ namespace AST
 			return TypedExpression(new(arena) Sequence<Class>(voidExpression,as<Class>(resultExpression)),resultExpression.type);
 		}
 		template<typename Class>
-		DispatchResult visitReturn(TypeId type,const Return<Class>* ret)
-		{
-			auto value = function->type.returnType == TypeId::Void ? nullptr
-				: visitChild(TypedExpression(ret->value,function->type.returnType)).expression;
-			return TypedExpression(new(arena) Return<Class>(value),TypeId::None);
-		}
-		template<typename Class>
 		DispatchResult visitLoop(TypeId type,const Loop<Class>* loop)
 		{
 			auto breakTarget = new(arena) BranchTarget(loop->breakTarget->type);
@@ -318,21 +294,34 @@ namespace AST
 			branchTargetRemap[loop->breakTarget] = breakTarget;
 			branchTargetRemap[loop->continueTarget] = continueTarget;
 
-			auto expression = as<VoidClass>(visitChild(TypedExpression(loop->expression,TypeId::Void)));
+			auto expression = as<Class>(visitChild(TypedExpression(loop->expression,type)));
 			return TypedExpression(new(arena) Loop<Class>(expression,breakTarget,continueTarget),type);
 		}
-		template<typename Class>
-		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
+		DispatchResult visitBranch(TypeId type,const Branch* branch)
 		{
 			auto branchTarget = branchTargetRemap[branch->branchTarget];
 			auto value = branch->branchTarget->type == TypeId::Void ? nullptr
 				: visitChild(TypedExpression(branch->value,branch->branchTarget->type)).expression;
-			return TypedExpression(new(arena) Branch<Class>(branchTarget,value),TypeId::None);
+			return TypedExpression(new(arena) Branch(branchTarget,value),TypeId::None);
 		}
-		template<typename Class>
-		DispatchResult visitUnreachable(TypeId type,const Unreachable<Class>* unreachable)
+		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
-			return TypedExpression(Unreachable<Class>::get(),type);
+			auto index = visitChild(branchTable->index);
+			auto defaultTarget = branchTargetRemap[branchTable->defaultTarget];
+			auto tableTargets = new(arena) BranchTarget*[branchTable->numTableTargets];
+			for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
+			{ tableTargets[tableIndex] = branchTargetRemap[branchTable->tableTargets[tableIndex]]; }
+			return TypedExpression(new(arena) BranchTable(index,defaultTarget,tableTargets,branchTable->numTableTargets),TypeId::None);
+		}
+		DispatchResult visitReturn(TypeId type,const Return* ret)
+		{
+			auto value = function->type.returnType == TypeId::Void ? nullptr
+				: visitChild(TypedExpression(ret->value,function->type.returnType)).expression;
+			return TypedExpression(new(arena) Return(value),TypeId::None);
+		}
+		DispatchResult visitUnreachable(TypeId type,const Unreachable* unreachable)
+		{
+			return TypedExpression(Unreachable::get(),TypeId::None);
 		}
 
 		template<typename OpAsType>

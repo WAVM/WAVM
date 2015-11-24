@@ -227,6 +227,8 @@ namespace WebAssemblyText
 		std::map<std::string,uintptr> functionTableNameToIndexMap;
 		std::map<std::string,uintptr> functionImportNameToIndexMap;
 		std::map<std::string,uintptr> intrinsicNameToImportIndexMap;
+		std::map<std::string,uintptr> signatureNameToIndexMap;
+		std::vector<FunctionType> signatures;
 		std::vector<ErrorRecord*>& outErrors;
 
 		ModuleContext(Module* inModule,std::vector<ErrorRecord*>& inOutErrors): module(inModule), outErrors(inOutErrors) {}
@@ -281,6 +283,41 @@ namespace WebAssemblyText
 
 		std::vector<BranchTarget*> scopedBranchTargets;
 	
+		struct ScopedBranchTarget
+		{
+			ScopedBranchTarget(FunctionContext& inContext,bool inHasName,const char* inName,BranchTarget* inBranchTarget,SNodeIt nodeIt)
+			: context(inContext), hasName(inHasName), name(inName), branchTarget(inBranchTarget), outerBranchTarget(nullptr)
+			{
+				if(hasName)
+				{
+					if(context.labelToBranchTargetMap.count(name))
+					{
+						outerBranchTarget = context.labelToBranchTargetMap[name];
+						recordError<ErrorRecord>(context.outErrors,nodeIt,"label name shadows outer name");
+					}
+					context.labelToBranchTargetMap[name] = branchTarget;
+				}
+				context.scopedBranchTargets.push_back(branchTarget);
+			}
+			~ScopedBranchTarget()
+			{
+				if(hasName)
+				{
+					if(outerBranchTarget) { context.labelToBranchTargetMap[name] = outerBranchTarget; }
+					else { context.labelToBranchTargetMap.erase(name); }
+				}
+				assert(context.scopedBranchTargets.back() == branchTarget);
+				context.scopedBranchTargets.pop_back();
+			}
+
+		private:
+			FunctionContext& context;
+			bool hasName;
+			const char* name;
+			BranchTarget* branchTarget;
+			BranchTarget* outerBranchTarget;
+		};
+
 		// Parses a non-parametric expression. These are expressions whose result type is defined by the opcode.
 		TypedExpression parseNonParametricExpression(SNodeIt parentNodeIt)
 		{
@@ -347,7 +384,7 @@ namespace WebAssemblyText
 					}
 					if(!branchTarget)
 					{
-						return TypedExpression(recordError<Error<VoidClass>>(outErrors,nodeIt,"br_if: expected label name or index"),TypeId::Void);
+						return TypedExpression(recordError<Error>(outErrors,nodeIt,"br_if: expected label name or index"),TypeId::Void);
 					}
 
 					// If the branch target's type isn't void, parse an expression for the branch's value.
@@ -357,7 +394,7 @@ namespace WebAssemblyText
 					// Create IfElse and Branch nodes.
 					auto result = new(arena)IfElse<VoidClass>(
 						condition,
-						new(arena)Branch<VoidClass>(branchTarget,value),
+						as<VoidClass>(new(arena)Branch(branchTarget,value)),
 						as<VoidClass>(Nop::get())
 						);
 					return TypedExpression(requireFullMatch(nodeIt,"break",result),TypeId::Void);
@@ -373,7 +410,7 @@ namespace WebAssemblyText
 					const char* featureName;
 					size_t featureNameLength;
 					if(!parseString(nodeIt,featureName,featureNameLength,arena))
-					{ return TypedExpression(recordError<Error<IntClass>>(outErrors,nodeIt,"expected import module name string"),TypeId::I32); }
+					{ return TypedExpression(recordError<Error>(outErrors,nodeIt,"expected import module name string"),TypeId::I32); }
 
 					// Create the HasFeature node.
 					auto result = new(arena)HasFeature(featureName,featureNameLength);
@@ -383,7 +420,7 @@ namespace WebAssemblyText
 				DEFINE_TYPED_OP(Int,const)
 				{
 					int64 integer;
-					if(!parseInt(nodeIt,integer)) { return TypedExpression(recordError<Error<IntClass>>(outErrors,nodeIt,"const: expected integer"),opType); }
+					if(!parseInt(nodeIt,integer)) { return TypedExpression(recordError<Error>(outErrors,nodeIt,"const: expected integer"),opType); }
 					switch(opType)
 					{
 					case TypeId::I8: return TypedExpression(requireFullMatch(nodeIt,"const.i8",new(arena)Literal<I8Type>((uint8)integer)),TypeId::I8);
@@ -397,7 +434,7 @@ namespace WebAssemblyText
 				{
 					float64 f64;
 					float32 f32;
-					if(!parseFloat(nodeIt,f64,f32)) { return TypedExpression(recordError<Error<FloatClass>>(outErrors,nodeIt,"const: expected floating point number"),opType); }
+					if(!parseFloat(nodeIt,f64,f32)) { return TypedExpression(recordError<Error>(outErrors,nodeIt,"const: expected floating point number"),opType); }
 					switch(opType)
 					{
 					case TypeId::F32: return TypedExpression(requireFullMatch(nodeIt,"const.f32",new(arena)Literal<F32Type>(f32)),TypeId::F32);
@@ -581,114 +618,19 @@ namespace WebAssemblyText
 					throw; case Symbol::_##symbol: opType = TypeId::None;
 				#define DISPATCH_PARAMETRIC_TYPED_OP(opTypeName,opClassName,symbol) \
 					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
-				#define DEFINE_PARAMETRIC_TYPED_OP(opClass,symbol) \
-					ENUM_AST_TYPES_##opClass(DISPATCH_PARAMETRIC_TYPED_OP,symbol) \
-					throw; symbol##opClass##Label:
 
-				DEFINE_PARAMETRIC_TYPED_OP(Int,switch)
+				DEFINE_PARAMETRIC_UNTYPED_OP(if_else)
 				{
-					// Parse an optional label name for the switch end branch target.
-					const char* labelName;
-					bool hasEndLabel = parseName(nodeIt,labelName);
-					auto endTarget = new(arena)BranchTarget(resultType);
-					if(hasEndLabel && labelToBranchTargetMap.count(labelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"switch: break label name shadows outer label"); }
-					
-					// Parse the switch key.
-					auto keyType = opType;
-					auto key = parseTypedExpression<IntClass>(keyType,nodeIt,"switch key");
-
-					// Add the switch's label to the in-scope labels.
-					if(hasEndLabel) { labelToBranchTargetMap[labelName] = endTarget; }
-					
-					// Count the number of switch cases.
-					size_t numArms = 0;
-					for(auto caseCountIt = nodeIt;caseCountIt;++caseCountIt)
-					{
-						SNodeIt childNodeIt;
-						if(parseTaggedNode(caseCountIt,Symbol::_case,childNodeIt)) { ++numArms; }
-						else { break; }
-					}
-
-					// Parse the switch cases.
-					SwitchArm* arms = new(arena)SwitchArm[numArms + 1];
-					uintptr armIndex = 0;
-					for(;nodeIt;++nodeIt)
-					{
-						SNodeIt childNodeIt;
-						if(parseTaggedNode(nodeIt,Symbol::_case,childNodeIt))
-						{
-							// Parse the key for this case.
-							int64 keyValue;
-							if(!parseInt(childNodeIt,keyValue)) { return recordError<Error<Class>>(outErrors,childNodeIt,"switch: missing integer case key"); }
-							arms[armIndex].key = (uint64)keyValue;
-
-							// Count the number of operations in the case, and whether it ends with a fallthrough symbol.
-							// If there are no operations or a fallthrough symbol, it should fallthrough to the next case.
-							size_t numOps = 0;
-							bool shouldFallthrough = true;
-							for(auto fallthroughNodeIt = childNodeIt;fallthroughNodeIt;++fallthroughNodeIt)
-							{
-								if(fallthroughNodeIt->type == SExp::NodeType::Symbol && fallthroughNodeIt->symbol == (uintptr)Symbol::_fallthrough)
-								{
-									shouldFallthrough = true;
-									// The fallthrough symbol should be the last sibling.
-									if(fallthroughNodeIt->nextSibling) { return recordError<Error<Class>>(outErrors,fallthroughNodeIt,"switch: expected fallthrough to be final symbol in S-expression"); }
-									break;
-								}
-								else { ++numOps; shouldFallthrough = false; }
-							}
-
-							// Parse the case's expression.
-							if(shouldFallthrough)
-							{
-								// Fallthrough cases expect void expression[s].
-								arms[armIndex].value = parseExpressionSequence<VoidClass>(TypeId::Void,childNodeIt,"switch case body",numOps);
-							}
-							else
-							{
-								// Non-fallthrough cases expect an expression of the switch's result type.
-								auto armValue = parseExpressionSequence<Class>(resultType,childNodeIt,"switch case body",numOps);
-
-								// Branch to the switch end.
-								// If the switch result type is void, we can't put anything in the branch node's value, so we have to use a sequence node.
-								if(resultType != TypeId::Void) { arms[armIndex].value = new(arena)Branch<VoidClass>(endTarget,armValue); }
-								else { arms[armIndex].value = new(arena)Sequence<VoidClass>(as<VoidClass>(armValue),new(arena)Branch<VoidClass>(endTarget,nullptr)); }
-							}
-							++armIndex;
-						}
-						else { break; }
-					}
-					assert(armIndex == numArms);
-
-					// Parse the default expression.
-					arms[numArms].key = 0;
-					arms[numArms].value = parseTypedExpression<Class>(resultType,nodeIt,"switch default value");
-					
-					// Remove the switch end target from the in-scope branch targets.
-					if(hasEndLabel) { labelToBranchTargetMap.erase(labelName); }
-
-					// Create the Switch node.
-					auto result = new(arena)Switch<Class>(TypedExpression(key,keyType),numArms,numArms+1,arms,endTarget);
-					return requireFullMatch(nodeIt,"switch",result);
-				}
-
-				DEFINE_PARAMETRIC_UNTYPED_OP(if)
-				{
-					// Parse the if condition and then-expression.
-					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
-					auto thenExpression = parseTypedExpression<Class>(resultType,nodeIt,"if then");
-
-					// Parse an optional else-expression. If there isn't one, use a nop.
-					Expression<Class>* elseExpression;
-					if(nodeIt) { elseExpression = parseTypedExpression<Class>(resultType,nodeIt,"if else"); }
-					else if(resultType == TypeId::Void) { elseExpression = as<Class>(Nop::get()); }
-					else { elseExpression = recordError<Error<Class>>(outErrors,nodeIt,"if without else used as value"); }
+					// Parse the if condition, then-expression, and else-expression.
+					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if_else condition");
+					auto thenExpression = parseTypedExpression<Class>(resultType,nodeIt,"if_else then");
+					auto elseExpression = parseTypedExpression<Class>(resultType,nodeIt,"if_else else");
 
 					// Construct the IfElse node.
 					return requireFullMatch(nodeIt,"if",new(arena)IfElse<Class>(condition,thenExpression,elseExpression));
-				}
+					}
 				DEFINE_PARAMETRIC_UNTYPED_OP(select)
-				{
+					{
 					// Parse the if condition, then-expression, and else-expression.
 					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"select condition");
 					auto trueValue = parseTypedExpression<Class>(resultType,nodeIt,"select true value");
@@ -696,72 +638,152 @@ namespace WebAssemblyText
 
 					// Construct the Select node.
 					return requireFullMatch(nodeIt,"select",new(arena)Select<Class>(condition,trueValue,falseValue));
-				}
+								}
 				DEFINE_PARAMETRIC_UNTYPED_OP(loop)
-				{
-					auto breakTarget = new(arena) BranchTarget(resultType);
+							{
 					auto continueTarget = new(arena) BranchTarget(TypeId::Void);
+					auto breakTarget = new(arena) BranchTarget(resultType);
 					
-					// Parse a label names for the break and continue branch targets.
+					// Parse a label names for the continue and break branch targets.
 					const char* breakLabelName;
-					const char* continueLabelName;
 					bool hasBreakLabel = parseName(nodeIt,breakLabelName);
+					ScopedBranchTarget scopedBreakTarget(*this,hasBreakLabel,breakLabelName,breakTarget,nodeIt);
+
+					const char* continueLabelName;
 					bool hasContinueLabel = parseName(nodeIt,continueLabelName);
-					if(hasBreakLabel)
-					{
-						if(labelToBranchTargetMap.count(breakLabelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"loop: break label name shadows outer label"); }
-						labelToBranchTargetMap[breakLabelName] = breakTarget;
-					}
-					if(hasContinueLabel)
-					{
-						if(labelToBranchTargetMap.count(continueLabelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"loop: continue label name shadows outer label"); }
-						labelToBranchTargetMap[continueLabelName] = continueTarget;
-					}
+					ScopedBranchTarget scopedContinueTarget(*this,hasContinueLabel,continueLabelName,continueTarget,nodeIt);
 
 					// Parse the loop body.
-					auto expression = parseExpressionSequence<VoidClass>(TypeId::Void,nodeIt,"loop body");
-					
-					if(hasBreakLabel) { labelToBranchTargetMap.erase(breakLabelName); }
-					if(hasContinueLabel) { labelToBranchTargetMap.erase(continueLabelName); }
+					auto expression = parseExpressionSequence<Class>(resultType,nodeIt,"loop body");
 
 					// Create the Loop node.
 					return new(arena)Loop<Class>(expression,breakTarget,continueTarget);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(br)
 				{
-					// Parse the name or index of the target label.
-					const char* name;
-					uint64 parsedInt;
-					BranchTarget* branchTarget = nullptr;
-					if(parseUnsignedInt(nodeIt,parsedInt) && (uintptr)parsedInt < scopedBranchTargets.size())
-					{
-						branchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr)parsedInt];
-					}
-					else if(parseName(nodeIt,name))
-					{
-						auto it = labelToBranchTargetMap.find(name);
-						if(it != labelToBranchTargetMap.end()) { branchTarget = it->second; }
-					}
-					else
-					{
-						// If no name or index, use the top of the target stack.
-						branchTarget = scopedBranchTargets.back();
-					}
-					if(!branchTarget)
-					{
-						return recordError<Error<Class>>(outErrors,nodeIt,"break: expected label name or index");
-					}
+					// Parse the branch target.
+					BranchTarget* branchTarget = parseBranchTargetRef(nodeIt);
+					if(!branchTarget) { return as<Class>(recordError<Error>(outErrors,nodeIt,"br: expected label name or index")); }
 
 					// If the branch target's type isn't void, parse an expression for the branch's value.
 					auto value = branchTarget->type == TypeId::Void ? nullptr
-						: parseTypedExpression(branchTarget->type,nodeIt,"break value");
+						: parseTypedExpression(branchTarget->type,nodeIt,"br value");
 
 					// Create the Branch node.
-					return requireFullMatch(nodeIt,"break",new(arena)Branch<Class>(branchTarget,value));
+					return requireFullMatch(nodeIt,"br",as<Class>(new(arena)Branch(branchTarget,value)));
+				}
+				DEFINE_PARAMETRIC_UNTYPED_OP(tableswitch)
+				{
+					// Parse an optional label name for the end branch target.
+					const char* endLabelName;
+					SNodeIt labelNodeIt = nodeIt;
+					bool hasEndLabel = parseName(nodeIt,endLabelName);
+					auto endBranchTarget = new(arena)BranchTarget(resultType);
+					
+					// Parse the table index.
+					auto index = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"tableswitch index");
+
+					// Add the switch's label to the in-scope labels.
+					ScopedBranchTarget scopedEndTarget(*this,hasEndLabel,endLabelName,endBranchTarget,labelNodeIt);
+					
+					// Skip over the table for now, but verify that it's there, and save its child iterator.
+					SNodeIt tableChildNodeIt;
+					if(!parseTaggedNode(nodeIt++,Symbol::_table,tableChildNodeIt))
+					{ return as<Class>(recordError<Error>(outErrors,nodeIt,"tableswitch: missing table declaration")); }
+
+					// Also skip over the default declaration, but save its iterator.
+					SNodeIt defaultNodeIt = nodeIt++;
+
+					// Parse the inline cases.
+					struct Case
+				{
+						BranchTarget* branchTarget;
+						UntypedExpression* value;
+					};
+					size_t numCases = 0;
+					for(SNodeIt countIt = nodeIt;countIt;++countIt) { ++numCases; }
+					std::vector<Case> cases;
+					std::map<std::string,BranchTarget*> caseLabelToBranchTargetMap;
+					cases.resize(numCases);
+					uintptr caseIndex = 0;
+					for(;nodeIt;++nodeIt,++caseIndex)
+					{
+						SNodeIt caseChildNodeIt;
+						if(!parseTaggedNode(nodeIt,Symbol::_case,caseChildNodeIt))
+						{ return as<Class>(recordError<Error>(outErrors,nodeIt,"tableswitch: expected (case ...)")); }
+
+						const char* caseLabelName;
+						if(!parseName(caseChildNodeIt,caseLabelName))
+						{ return as<Class>(recordError<Error>(outErrors,nodeIt,"case: expected label name")); }
+						
+						cases[caseIndex].branchTarget = new(arena) BranchTarget(TypeId::Void);
+						cases[caseIndex].value = caseIndex < numCases - 1
+							? (UntypedExpression*)parseExpressionSequence<VoidClass>(TypeId::Void,caseChildNodeIt,"case body")
+							: (UntypedExpression*)parseExpressionSequence<Class>(resultType,caseChildNodeIt,"case body");
+						
+						caseLabelToBranchTargetMap[caseLabelName] = cases[caseIndex].branchTarget;
+					}
+
+					// Parse the table targets.
+					size_t numTableTargets = 0;
+					for(SNodeIt countIt = tableChildNodeIt;countIt;++countIt) { ++numTableTargets; }
+					auto tableTargets = new(arena) BranchTarget*[numTableTargets];
+					uintptr tableIndex = 0;
+					for(;tableChildNodeIt;++tableChildNodeIt,++tableIndex)
+					{
+						tableTargets[tableIndex] = parseTableSwitchTargetRef(tableChildNodeIt,caseLabelToBranchTargetMap);
+						if(!tableTargets[tableIndex])
+						{ return as<Class>(recordError<Error>(outErrors,tableChildNodeIt,"tableswitch: expected case or branch target reference")); }
+						else if(tableTargets[tableIndex]->type != TypeId::Void)
+						{ return as<Class>(recordError<Error>(outErrors,tableChildNodeIt,"tableswitch: target must not expect arguments")); }
+					}
+
+					// Parse the default branch target.
+					auto defaultBranchTarget = parseTableSwitchTargetRef(defaultNodeIt,caseLabelToBranchTargetMap);
+					if(!defaultBranchTarget)
+					{ return as<Class>(recordError<Error>(outErrors,defaultNodeIt,"tableswitch: expected case or branch target reference")); }
+					else if(defaultBranchTarget->type != TypeId::Void)
+					{ return as<Class>(recordError<Error>(outErrors,tableChildNodeIt,"tableswitch: target must not expect arguments")); }
+					
+					// Create a BranchTable operation that branches to the appropriate target for the case.
+					auto branchTable = new(arena) BranchTable(
+						TypedExpression(index,TypeId::I32),
+						defaultBranchTarget,
+						tableTargets,
+						numTableTargets
+						);
+
+					Expression<Class>* result;
+					if(!cases.size()) { result = as<Class>(branchTable); }
+					else
+					{
+						// Wrap the BranchTable in a hierarchy of nested labels corresponding to the switch cases.
+						// The root label is the last case, and the innermost is the first case.
+						// Each label introduces that case's branch target, and precedes that case's body in a Sequence node.
+						// The label then contains the Sequence for the preceding case, or the BranchTable for the innermost Label.
+						// Since the last case must be of the same type as the switch, handle it outside the loop.
+						VoidExpression* voidExpression = as<VoidClass>(branchTable);
+						for(uintptr caseIndex = 0;caseIndex < cases.size() - 1;++caseIndex)
+						{
+							voidExpression = new(arena) Sequence<VoidClass>(
+								new(arena) Label<VoidClass>(cases[caseIndex].branchTarget,voidExpression),
+								as<VoidClass>(cases[caseIndex].value)
+								);
+					}
+						result = new Sequence<Class>(
+							new(arena) Label<VoidClass>(cases[cases.size() - 1].branchTarget,voidExpression),
+							as<Class>(cases[cases.size() - 1].value)
+							);
+					}
+
+					// Wrap the whole expression in another Label for the switch's end branch target.
+					result = new(arena) Label<Class>(endBranchTarget,result);
+
+					return requireFullMatch(nodeIt,"tableswitch",result);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(unreachable)
 				{
-					return requireFullMatch(nodeIt,"unreachable",Unreachable<Class>::get());
+					return requireFullMatch(nodeIt,"unreachable",as<Class>(Unreachable::get()));
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(return)
 				{
@@ -771,7 +793,7 @@ namespace WebAssemblyText
 						: parseTypedExpression(returnType,nodeIt,"return value");
 					
 					// Create the Return node.
-					return requireFullMatch(nodeIt,"return",new(arena)Return<Class>(valueExpression));
+					return requireFullMatch(nodeIt,"return",as<Class>(new(arena)Return(valueExpression)));
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(call)
 				{
@@ -779,7 +801,7 @@ namespace WebAssemblyText
 					uintptr functionIndex;
 					if(!parseNameOrIndex(nodeIt,moduleContext.functionNameToIndexMap,moduleContext.module->functions.size(),functionIndex))
 					{
-						return recordError<Error<Class>>(outErrors,nodeIt,"call: expected function name or index");
+						return as<Class>(recordError<Error>(outErrors,nodeIt,"call: expected function name or index"));
 					}
 
 					// Parse the call's parameters.
@@ -799,7 +821,7 @@ namespace WebAssemblyText
 					uintptr importIndex;
 					if(!parseNameOrIndex(nodeIt,moduleContext.functionImportNameToIndexMap,moduleContext.module->functionImports.size(),importIndex))
 					{
-						return recordError<Error<Class>>(outErrors,nodeIt,"call_import: expected function import name or index");
+						return as<Class>(recordError<Error>(outErrors,nodeIt,"call_import: expected function import name or index"));
 					}
 
 					// Parse the call's parameters.
@@ -815,25 +837,25 @@ namespace WebAssemblyText
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(call_indirect)
 				{
-					// Parse the table name or index.
-					uintptr tableIndex;
-					if(!parseNameOrIndex(nodeIt,moduleContext.functionTableNameToIndexMap,moduleContext.module->functionTables.size(),tableIndex))
+					// Parse the function type.
+					uintptr signatureIndex;
+					if(!parseNameOrIndex(nodeIt,moduleContext.signatureNameToIndexMap,moduleContext.signatures.size(),signatureIndex))
 					{
-						return recordError<Error<Class>>(outErrors,nodeIt,"call_indirect: expected function table index");
+						return as<Class>(recordError<Error>(outErrors,nodeIt,"call_indirect: expected type index"));
 					}
+					const auto& functionType = moduleContext.signatures[signatureIndex];
 
 					// Parse the function index.
 					auto functionIndex = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"call_indirect function");
 
 					// Parse the call's parameters.
-					auto functionTable = moduleContext.module->functionTables[tableIndex];
-					auto parameters = parseParameters(functionTable.type.parameters,nodeIt,"call_indirect parameter");
+					auto parameters = parseParameters(functionType.parameters,nodeIt,"call_indirect parameter");
 
 					// Create the CallIndirect node.
-					auto call = new(arena)CallIndirect(getPrimaryTypeClass(functionTable.type.returnType),tableIndex,functionIndex,parameters);
+					auto call = new(arena)CallIndirect(getPrimaryTypeClass(functionType.returnType),0,functionType,functionIndex,parameters);
 					
 					// Validate the function return type against the result type of this call.
-					auto result = coerceExpression(Class(),resultType,TypedExpression(call,functionTable.type.returnType),parentNodeIt,"call_indirect return value");
+					auto result = coerceExpression(Class(),resultType,TypedExpression(call,functionType.returnType),parentNodeIt,"call_indirect return value");
 					return requireFullMatch(nodeIt,"call_indirect",result);
 				}
 
@@ -847,7 +869,6 @@ namespace WebAssemblyText
 
 				#undef DEFINE_PARAMETRIC_UNTYPED_OP
 				#undef DISPATCH_PARAMETRIC_TYPED_OP
-				#undef DEFINE_PARAMETRIC_TYPED_OP
 				}
 			}
 
@@ -855,14 +876,13 @@ namespace WebAssemblyText
 		}
 		
 		// Record a type error.
-		template<typename Class>
-		Error<Class>* typeError(TypeId type,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
+		Error* typeError(TypeId type,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
 			auto message =
 				std::string("type error: expecting a ") + getTypeName(type)
 				+ " " + errorContext
 				+ " but found " + getTypeName(typedExpression.type);
-			return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
+			return recordError<Error>(outErrors,nodeIt,std::move(message));
 		}
 
 		// By default coerceExpression results in a type error, but is overloaded below for specific classes.
@@ -870,7 +890,7 @@ namespace WebAssemblyText
 		typename Class::ClassExpression* coerceExpression(Class,TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
 			if(resultType == typedExpression.type) { return as<Class>(typedExpression.expression); }
-			else { return typeError<Class>(resultType,typedExpression,nodeIt,errorContext); }
+			else { return as<Class>(typeError(resultType,typedExpression,nodeIt,errorContext)); }
 		}
 
 		// coerceExpression for BoolClass will try to coerce integers.
@@ -893,7 +913,7 @@ namespace WebAssemblyText
 				// Coerce the integer to a boolean by testing if the integer != 0.
 				return new(arena) Comparison(BoolOp::ne,typedExpression.type,typedExpression.expression,zero);
 			}
-			else { return typeError<BoolClass>(resultType,typedExpression,nodeIt,errorContext); }
+			else { return as<BoolClass>(typeError(resultType,typedExpression,nodeIt,errorContext)); }
 		}
 
 		// coerceExpression for VoidClass will wrap any other typed expression in a DiscardResult node.
@@ -917,7 +937,7 @@ namespace WebAssemblyText
 				// Reinterpret the bool as an integer.
 				return new(arena) Cast<IntClass>(IntOp::reinterpretBool,typedExpression);
 			}
-			else { return typeError<IntClass>(resultType,typedExpression,nodeIt,errorContext); }
+			else { return as<IntClass>(typeError(resultType,typedExpression,nodeIt,errorContext)); }
 		}
 
 		// Parses expressions of a specific type.
@@ -930,7 +950,7 @@ namespace WebAssemblyText
 				auto messageLength = strlen(nodeIt->error) + 1;
 				auto messageCopy = new char[messageLength];
 				memcpy(messageCopy,nodeIt->error,messageLength + 1);
-				return recordError<Error<Class>>(outErrors,nodeIt,messageCopy);
+				return as<Class>(recordError<Error>(outErrors,nodeIt,messageCopy));
 			}
 			else
 			{
@@ -952,11 +972,11 @@ namespace WebAssemblyText
 					else
 					{
 						// Failed to parse an expression.
-						auto error = recordError<Error<Class>>(outErrors,nodeIt,std::move(std::string("expected ")
+						auto error = as<Class>(recordError<Error>(outErrors,nodeIt,std::move(std::string("expected ")
 							+ getTypeName(type)
 							+ " expression for "
 							+ errorContext
-							));
+							)));
 						++nodeIt;
 						return error;
 					}
@@ -970,7 +990,7 @@ namespace WebAssemblyText
 		Expression<Class>* requireFullMatch(SNodeIt nodeIt,const char* errorContext,Expression<Class>* result)
 		{
 			if(!nodeIt) { return result; }
-			else { return recordExcessInputError<Error<Class>>(outErrors,nodeIt,errorContext); }
+			else { return as<Class>(recordExcessInputError<Error>(outErrors,nodeIt,errorContext)); }
 		}
 		
 		// Parse an expression from a sequence of S-expression children. A specified number of siblings following nodeIt are used.
@@ -1007,7 +1027,7 @@ namespace WebAssemblyText
 			for(auto countNodeIt = nodeIt;countNodeIt;++countNodeIt) {++numOps;}
 			if(!numOps && Class::id != TypeClassId::Void)
 			{
-				return recordError<Error<Class>>(outErrors,nodeIt,"missing expression");
+				return as<Class>(recordError<Error>(outErrors,nodeIt,"missing expression"));
 			}
 			return parseExpressionSequence<Class>(type,nodeIt,context,numOps);
 		}
@@ -1107,7 +1127,7 @@ namespace WebAssemblyText
 					alignment = 1;
 				}
 			}
-			return (uint8)Platform::ceilLogTwo(alignment);
+			return (uint8)Platform::floorLogTwo(alignment);
 		}
 
 		// Parse a memory load operation.
@@ -1115,7 +1135,7 @@ namespace WebAssemblyText
 		TypedExpression parseLoadExpression(TypeId resultType,TypeId memoryType,typename Class::Op loadOp,bool isFarAddress,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,Class::id))
-				{ return TypedExpression(recordError<Error<Class>>(outErrors,nodeIt,"load: memory type must be same type class as result"),resultType); }
+				{ return TypedExpression(recordError<Error>(outErrors,nodeIt,"load: memory type must be same type class as result"),resultType); }
 			
 			auto offset = parseOffsetAttribute(nodeIt);
 			auto alignmentLog2 = parseAlignmentAttribute(nodeIt);
@@ -1131,7 +1151,7 @@ namespace WebAssemblyText
 		TypedExpression parseStoreExpression(TypeId valueType,TypeId memoryType,bool isFarAddress,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,OperandClass::id))
-				{ return TypedExpression(recordError<Error<VoidClass>>(outErrors,nodeIt,"store: memory type must be same type class as result"),TypeId::Void); }
+				{ return TypedExpression(recordError<Error>(outErrors,nodeIt,"store: memory type must be same type class as result"),TypeId::Void); }
 			
 			auto offset = parseOffsetAttribute(nodeIt);
 			auto alignmentLog2 = parseAlignmentAttribute(nodeIt);
@@ -1159,7 +1179,7 @@ namespace WebAssemblyText
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
 				auto message = "get_local: expected local name or index";
-				return recordError<Error<Class>>(outErrors,nodeIt,std::move(message));
+				return as<Class>(recordError<Error>(outErrors,nodeIt,std::move(message)));
 			}
 			auto variableType = variables[variableIndex].type;
 			auto load = new(arena) GetLocal(getPrimaryTypeClass(variableType),variableIndex);
@@ -1175,7 +1195,7 @@ namespace WebAssemblyText
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
 				auto message = "set_local: expected local name or index";
-				return recordError<Error<Class>>(outErrors,nodeIt,message);
+				return as<Class>(recordError<Error>(outErrors,nodeIt,message));
 			}
 			auto variableType = variables[variableIndex].type;
 			auto valueExpression = parseTypedExpression(variableType,nodeIt,"store value");
@@ -1188,29 +1208,82 @@ namespace WebAssemblyText
 		template<typename Class>
 		typename Class::ClassExpression* parseLabelBlock(TypeId resultType,SNodeIt nodeIt)
 		{
+			// Create a branch target for the block.
+			auto branchTarget = new(arena)BranchTarget(resultType);
+			
 			// Parse an optional name for the label.
 			const char* labelName;
 			bool hasName = parseName(nodeIt,labelName);
-			if(hasName && labelToBranchTargetMap.count(labelName)) { return recordError<Error<Class>>(outErrors,nodeIt,"name shadows outer label"); }
-
-			// Create a branch target for the block.
-			auto branchTarget = new(arena)BranchTarget(resultType);
-
-			// Add the target to the in-scope branch targets.
-			if(hasName) { labelToBranchTargetMap[labelName] = branchTarget; }
-			scopedBranchTargets.push_back(branchTarget);
+			ScopedBranchTarget scopedBranchTarget(*this,hasName,labelName,branchTarget,nodeIt);
 
 			// Parse the block body.
 			auto expression = parseExpressionSequence<Class>(resultType,nodeIt,"block body");
 
-			// Remove the target from the in-scope branch targets.
-			scopedBranchTargets.pop_back();
-			if(hasName) { labelToBranchTargetMap.erase(labelName); }
-					
 			// Create the Label node.
 			return new(arena)Label<Class>(branchTarget,expression);
 		}
+
+		BranchTarget* parseBranchTargetRef(SNodeIt& nodeIt)
+		{
+			// Parse the name or index of the target label.
+			const char* name;
+			uint64 parsedInt;
+			if(parseUnsignedInt(nodeIt,parsedInt) && (uintptr)parsedInt < scopedBranchTargets.size())
+			{
+				return scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr)parsedInt];
+			}
+			else if(parseName(nodeIt,name))
+			{
+				auto it = labelToBranchTargetMap.find(name);
+				if(it != labelToBranchTargetMap.end()) { return it->second; }
+			}
+			return nullptr;
+		}
+
+		BranchTarget* parseTableSwitchTargetRef(SNodeIt nodeIt,const std::map<std::string,BranchTarget*>& caseLabelToBranchTargetMap)
+		{
+			SNodeIt elementChildNodeIt;
+			if(parseTaggedNode(nodeIt,Symbol::_case,elementChildNodeIt))
+			{
+				// Parse a case label.
+				const char* name;
+				if(!parseName(elementChildNodeIt,name)) { return nullptr; }
+				auto it = caseLabelToBranchTargetMap.find(name);
+				if(it == caseLabelToBranchTargetMap.end()) { return nullptr; }
+				return it->second;
+			}
+			else if(parseTaggedNode(nodeIt,Symbol::_br,elementChildNodeIt))
+			{
+				// Parse a branch target.
+				return parseBranchTargetRef(elementChildNodeIt);
+			}
+			return nullptr;
+		}
 	};
+
+	void parseFunctionType(SNodeIt& nodeIt,std::vector<Variable>& outParameters,TypeId& outReturnType,Memory::Arena& arena,std::vector<ErrorRecord*>& outErrors)
+	{
+		bool hasResult = false;
+		for(;nodeIt;++nodeIt)
+		{
+			SNodeIt childNodeIt;
+			if(parseTaggedNode(nodeIt,Symbol::_result,childNodeIt))
+			{
+				// Parse a result declaration.
+				if(hasResult) { recordError<ErrorRecord>(outErrors,nodeIt,"duplicate result declaration"); continue; }
+				if(!parseType(childNodeIt,outReturnType)) { recordError<ErrorRecord>(outErrors,childNodeIt,"expected type"); continue; }
+				hasResult = true;
+				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following result declaration"); continue; }
+			}
+			else if(parseTaggedNode(nodeIt,Symbol::_param,childNodeIt))
+			{
+				// Parse a parameter declaration.
+				parseVariables(childNodeIt,outParameters,outErrors,arena);
+				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following parameter declaration"); continue; }
+			}
+			else { break; }
+		}
+	}
 
 	Module* ModuleContext::parse(SNodeIt firstModuleChildNode)
 	{
@@ -1234,31 +1307,53 @@ namespace WebAssemblyText
 					else { functionNameToIndexMap[functionName] = functionIndex; }
 				}
 
-				bool hasResult = false;
+				// Parse a module type reference.
+				FunctionType referencedFunctionType;
+				bool hasReferencedFunctionType = false;
+				SNodeIt typeChildNodeIt;
+				if(parseTaggedNode(childNodeIt,Symbol::_type,typeChildNodeIt))
+				{
+					// Parse a name or index into the module's type declarations.
+					++childNodeIt;
+					uintptr signatureIndex = 0;
+					if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
+					{ recordError<ErrorRecord>(outErrors,typeChildNodeIt,"expected function type name or index"); continue; }
+					referencedFunctionType = signatures[signatureIndex];
+					hasReferencedFunctionType = true;
+				}
+
+				// Parse the function parameter and result types.
+				parseFunctionType(childNodeIt,function->locals,function->type.returnType,module->arena,outErrors);
+				for(uintptr parameterIndex = 0;parameterIndex < function->locals.size();++parameterIndex)
+				{
+					function->parameterLocalIndices.push_back(parameterIndex);
+					function->type.parameters.push_back(function->locals[parameterIndex].type);
+				}
+
+				// If there's both a type reference and explicit function signature, then make sure they match.
+				if(function->type.parameters.size() || function->type.returnType != TypeId::Void)
+				{
+					if(hasReferencedFunctionType && function->type != referencedFunctionType)
+					{
+						recordError<ErrorRecord>(outErrors,nodeIt,std::string("type reference doesn't match function signature"));
+						continue;
+					}
+				}
+				else if(hasReferencedFunctionType)
+				{
+					// If there's only a referenced type, use it.
+					function->type = std::move(referencedFunctionType);
+					for(auto parameterType : referencedFunctionType.parameters)
+					{
+						function->parameterLocalIndices.push_back(function->locals.size());
+						function->locals.push_back({parameterType,nullptr});
+					}
+				}
+
 				for(;childNodeIt;++childNodeIt)
 				{
 					SNodeIt innerChildNodeIt;
-					if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
-					{
-						// Parse a result declaration.
-						if(hasResult) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate result declaration"); continue; }
-						if(!parseType(innerChildNodeIt,function->type.returnType)) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected type"); continue; }
-						hasResult = true;
-						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following result declaration"); continue; }
-					}
-					else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
-					{
-						// Parse a parameter declaration.
-						const uintptr baseLocalIndex = function->locals.size();
-						const size_t numParameters = parseVariables(innerChildNodeIt,function->locals,outErrors,module->arena);
-						for(uintptr parameterIndex = 0;parameterIndex < numParameters;++parameterIndex)
-						{
-							function->parameterLocalIndices.push_back(baseLocalIndex + parameterIndex);
-							function->type.parameters.push_back(function->locals[baseLocalIndex + parameterIndex].type);
-						}
-						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following parameter declaration"); continue; }
-					}
-					else if(parseTaggedNode(childNodeIt,Symbol::_local,innerChildNodeIt))
+					if(parseTaggedNode(childNodeIt,Symbol::_local,innerChildNodeIt))
 					{
 						// Parse a local declaration.
 						parseVariables(innerChildNodeIt,function->locals,outErrors,module->arena);
@@ -1285,38 +1380,31 @@ namespace WebAssemblyText
 				if(!parseString(childNodeIt,importFunctionName,importFunctionNameLength,module->arena))
 				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import function name string"); continue; }
 
-				// Parse the import's parameter and result declarations.
-				std::vector<Variable> parameters;
-				TypeId returnType = TypeId::Void;
-				bool hasResult = false;
-				for(;childNodeIt;++childNodeIt)
+				FunctionType importType;
+				SNodeIt typeChildNodeIt;
+				if(parseTaggedNode(childNodeIt,Symbol::_type,typeChildNodeIt))
 				{
-					SNodeIt innerChildNodeIt;
-					if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
-					{
-						// Parse a result declaration.
-						if(hasResult) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate result declaration"); continue; }
-						if(!parseType(innerChildNodeIt,returnType)) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected type"); continue; }
-						hasResult = true;
-						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following result declaration"); continue; }
-					}
-					else if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
-					{
-						// Parse a parameter declaration.
-						parseVariables(innerChildNodeIt,parameters,outErrors,module->arena);
-						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following parameter declaration"); continue; }
-					}
-					else
-					{
-						recordError<ErrorRecord>(outErrors,innerChildNodeIt,"expected param or result declaration");
-					}
+					// Parse a name or index into the module's type declarations.
+					++childNodeIt;
+					uintptr signatureIndex = 0;
+					if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
+					{ recordError<ErrorRecord>(outErrors,typeChildNodeIt,"expected function type name or index"); continue; }
+					importType = signatures[signatureIndex];
+				}
+				else
+				{
+					// Parse the import's parameter and result declarations.
+					std::vector<Variable> parameters;
+					TypeId returnType = TypeId::Void;
+					parseFunctionType(childNodeIt,parameters,returnType,module->arena,outErrors);
+					std::vector<TypeId> parameterTypes;
+					for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
+					importType = FunctionType(returnType,parameterTypes);
 				}
 				
 				// Create the import.
 				auto importIndex = module->functionImports.size();
-				std::vector<TypeId> parameterTypes;
-				for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
-				module->functionImports.push_back({FunctionType(returnType,parameterTypes),importModuleName,importFunctionName});
+				module->functionImports.push_back({importType,importModuleName,importFunctionName});
 				if(hasName)
 				{
 					importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
@@ -1368,10 +1456,38 @@ namespace WebAssemblyText
 
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following memory declaration"); continue; }
 			}
+			else if(parseTaggedNode(nodeIt,Symbol::_type,childNodeIt))
+			{
+				// Parse a function signature definition.
+				const char* signatureName;
+				bool hasName = parseName(childNodeIt,signatureName);
+
+				SNodeIt funcChildNodeIt;
+				if(!parseTaggedNode(childNodeIt++,Symbol::_func,funcChildNodeIt))
+				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected func declaration"); continue; }
+
+				FunctionType functionType;
+				std::vector<Variable> parameters;
+				parseFunctionType(funcChildNodeIt,parameters,functionType.returnType,module->arena,outErrors);
+				functionType.parameters.resize(parameters.size());
+				for(uintptr parameterIndex = 0;parameterIndex < parameters.size();++parameterIndex)
+				{
+					functionType.parameters[parameterIndex] = parameters[parameterIndex].type;
+				}
+				if(funcChildNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following function type declaration"); continue; }
+
+				auto signatureIndex = signatures.size();
+				signatures.push_back(functionType);
+
+				if(hasName) { signatureNameToIndexMap[signatureName] = signatureIndex; }
+
+				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following type declaration"); continue; }
+			}
 			else if(!parseTaggedNode(nodeIt,Symbol::_export,childNodeIt) && !parseTaggedNode(nodeIt,Symbol::_table,childNodeIt))
 				{ recordError<ErrorRecord>(outErrors,nodeIt,"unrecognized declaration"); continue; }
 		}
 
+		// Parse function tables in a second pass, so it has information about all functions.
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
 			SNodeIt childNodeIt;
@@ -1397,20 +1513,12 @@ namespace WebAssemblyText
 							{ functionIndices[index] = 0; recordError<ErrorRecord>(outErrors,childNodeIt,"invalid function index"); }
 						else { functionIndices[index] = (uintptr)functionIndex; }
 					}
-
-					// Check that all the functions have the same type.
-					functionType = module->functions[functionIndices[0]]->type;
-					for(uintptr index = 0;index < numFunctions;++index)
-					{
-						if(module->functions[functionIndices[index]]->type != functionType)
-							{ recordError<ErrorRecord>(outErrors,nodeIt,"function table must only contain functions of a single type"); }
-					}
 				}
-				module->functionTables.push_back({functionType,functionIndices,numFunctions});
+				module->functionTables.push_back({functionIndices,numFunctions});
 			}
 		}
 
-		// Do a second pass that parses definitions as well.
+		// Parse function definitions last, so it has information about all other function types and the function table.
 		intptr currentFunctionIndex = 0;
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
@@ -1425,6 +1533,7 @@ namespace WebAssemblyText
 				{
 					SNodeIt childChildNodeIt;
 					if(	!parseTaggedNode(childNodeIt,Symbol::_local,childChildNodeIt)
+					&&	!parseTaggedNode(childNodeIt,Symbol::_type,childChildNodeIt)
 					&&	!parseTaggedNode(childNodeIt,Symbol::_param,childChildNodeIt)
 					&&	!parseTaggedNode(childNodeIt,Symbol::_result,childChildNodeIt))
 					{ break; }
@@ -1594,6 +1703,8 @@ namespace WebAssemblyText
 		else if(!strcmp(message,"memory size exceeds implementation limit")) { cause = Runtime::Exception::Cause::OutOfMemory; }
 		else if(!strcmp(message,"growing memory by non-multiple of page size")) { cause = Runtime::Exception::Cause::GrowMemoryNotPageAligned; }
 		else if(!strcmp(message,"unreachable executed")) { cause = Runtime::Exception::Cause::ReachedUnreachable; }
+		else if(!strcmp(message,"indirect call signature mismatch")) { cause = Runtime::Exception::Cause::IndirectCallSignatureMismatch; }
+		else if(!strncmp(message,"undefined table index",21)) { cause = Runtime::Exception::Cause::OutOfBoundsFunctionTableIndex; }
 
 		auto result = new(outFile.modules[moduleIndex]->arena) Assert;
 		result->invoke = invoke;

@@ -35,6 +35,8 @@ namespace Runtime
 		case Exception::Cause::OutOfMemory: return "out of memory";
 		case Exception::Cause::GrowMemoryNotPageAligned: return "grow_memory called with size that isn't a multiple of page_size";
 		case Exception::Cause::ReachedUnreachable: return "reached unreachable code";
+		case Exception::Cause::IndirectCallSignatureMismatch: return "call_indirect to function with wrong signature";
+		case Exception::Cause::OutOfBoundsFunctionTableIndex: return "out-of-bounds index for function table";
 		default: return "unknown";
 		}
 	}

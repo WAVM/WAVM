@@ -12,14 +12,13 @@ namespace AST
 		Literal(NativeType inValue) : Type::TypeExpression(Type::Op::lit), value(inValue) {}
 	};
 
-	template<typename Class>
-	struct Error : public Expression<Class>, public ErrorRecord
+	struct Error : public NoneExpression, public ErrorRecord
 	{
 		Error(std::string&& inMessage)
-		: Expression<Class>(Class::Op::error), ErrorRecord(std::move(inMessage))
+		: NoneExpression(NoneOp::error), ErrorRecord(std::move(inMessage))
 		{}
 	};
-	
+
 
 	struct GetLocal : public Expression<AnyClass>
 	{
@@ -112,10 +111,11 @@ namespace AST
 	struct CallIndirect : public Expression<AnyClass>
 	{
 		uintptr tableIndex;
+		FunctionType functionType;
 		Expression<IntClass>* functionIndex; // must be I32
 		UntypedExpression** parameters;
-		CallIndirect(TypeClassId inTypeClass,uintptr inTableIndex,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
-		: Expression(AnyOp::callIndirect,inTypeClass), tableIndex(inTableIndex), functionIndex(inFunctionIndex), parameters(inParameters) {}
+		CallIndirect(TypeClassId inTypeClass,uintptr inTableIndex,FunctionType inFunctionType,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
+		: Expression(AnyOp::callIndirect,inTypeClass), tableIndex(inTableIndex), functionType(inFunctionType), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
 	// Used to coerce an expression result to void.
@@ -137,47 +137,6 @@ namespace AST
 	private:
 		
 		Nop(): Expression(Op::nop) {}
-	};
-	
-	template<typename Class>
-	struct Unreachable : public Expression<Class>
-	{
-		static Unreachable<Class>* get()
-		{
-			static Unreachable<Class> globalInstance;
-			return &globalInstance;
-		}
-
-	private:
-		
-		Unreachable(): Expression<Class>(Op::unreachable) {}
-	};
-	
-
-	// Each unique branch target has a BranchTarget allocated in the module's arena, so you can identify them by pointer.
-	struct BranchTarget
-	{
-		TypeId type;
-		BranchTarget(TypeId inType): type(inType) {}
-	};
-
-	struct SwitchArm
-	{
-		uint64 key;
-		UntypedExpression* value; // The type of the switch for the final arm, void for all others.
-	};
-
-	template<typename Class>
-	struct Switch : public Expression<Class>
-	{
-		TypedExpression key;
-		uintptr defaultArmIndex;
-		size_t numArms;
-		SwitchArm* arms;
-		BranchTarget* endTarget;
-
-		Switch(TypedExpression inKey,uintptr inDefaultArmIndex,size_t inNumArms,SwitchArm* inArms,BranchTarget* inEndTarget)
-		: Expression<Class>(Class::Op::switch_), key(inKey), defaultArmIndex(inDefaultArmIndex), numArms(inNumArms), arms(inArms), endTarget(inEndTarget) {}
 	};
 	
 	template<typename Class>
@@ -209,6 +168,13 @@ namespace AST
 		,	falseValue(inFalseValue)
 		{}
 	};
+	
+	// Each unique branch target has a BranchTarget allocated in the module's arena, so you can identify them by pointer.
+	struct BranchTarget
+	{
+		TypeId type;
+		BranchTarget(TypeId inType = TypeId::Void): type(inType) {}
+	};
 
 	template<typename Class>
 	struct Label : public Expression<Class>
@@ -223,35 +189,59 @@ namespace AST
 	template<typename Class>
 	struct Loop : public Expression<Class>
 	{
-		Expression<VoidClass>* expression;
+		Expression<Class>* expression;
 		
 		BranchTarget* breakTarget;
 		BranchTarget* continueTarget;
 
-		Loop(Expression<VoidClass>* inExpression,BranchTarget* inBreakTarget,BranchTarget* inContinueTarget)
+		Loop(Expression<Class>* inExpression,BranchTarget* inBreakTarget,BranchTarget* inContinueTarget)
 		: Expression<Class>(Class::Op::loop), expression(inExpression), breakTarget(inBreakTarget), continueTarget(inContinueTarget) {}
 	};
 
-	template<typename Class>
-	struct Branch : public Expression<Class>
+	struct Branch : public NoneExpression
 	{
 		BranchTarget* branchTarget;
 		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it will be null.
 
 		Branch(BranchTarget* inBranchTarget,UntypedExpression* inValue)
-		: Expression<Class>(Class::Op::branch), branchTarget(inBranchTarget), value(inValue) {}
+		: NoneExpression(NoneOp::branch), branchTarget(inBranchTarget), value(inValue) {}
+	};
+	
+	struct BranchTable : public NoneExpression
+	{
+		TypedExpression index;
+		BranchTarget* defaultTarget;
+		BranchTarget** tableTargets;
+		size_t numTableTargets;
+
+		BranchTable(TypedExpression inIndex,BranchTarget* inDefaultTarget,BranchTarget** inTableTargets,size_t inNumTableTargets)
+		: NoneExpression(NoneOp::branchTable)
+		, index(inIndex)
+		, defaultTarget(inDefaultTarget)
+		, tableTargets(inTableTargets)
+		, numTableTargets(inNumTableTargets) {}
 	};
 
-	template<typename Class>
-	struct Return : public Expression<Class>
+	struct Return : public NoneExpression
 	{
 		// The value to return. The type is implied by the return type of the function.
 		// If the return type is Void, it will be null.
 		UntypedExpression* value;
 
-		Return(UntypedExpression* inValue): Expression<Class>(Class::Op::ret), value(inValue) {}
+		Return(UntypedExpression* inValue): NoneExpression(NoneOp::ret), value(inValue) {}
 	};
-
+	
+	struct Unreachable : public NoneExpression
+	{
+		static Unreachable* get()
+		{
+			static Unreachable globalInstance;
+			return &globalInstance;
+		}
+	private:
+		Unreachable(): NoneExpression(NoneOp::unreachable) {}
+	};
+	
 	template<typename Class>
 	struct Sequence : public Expression<Class>
 	{

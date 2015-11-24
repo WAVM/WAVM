@@ -474,6 +474,7 @@ namespace WebAssemblyBinary
 		std::vector<float64> f64Constants;
 		std::vector<FunctionType> functionTypes;
 		std::map<std::string,uintptr> intrinsicNameToFunctionImportIndex;
+		std::vector<FunctionType> functionTableTypes;
 
 		struct Global
 		{
@@ -505,11 +506,11 @@ namespace WebAssemblyBinary
 		{}
 
 		template<typename Class>
-		Error<Class>* recordError(const char* message)
+		Expression<Class>* recordError(const char* message)
 		{
-			auto error = new(arena) Error<Class>(message);
+			auto error = new(arena) Error(message);
 			outErrors.push_back(error);
-			return error;
+			return as<Class>(error);
 		}
 
 		// Decodes an expression based on the type of its result.
@@ -738,23 +739,22 @@ namespace WebAssemblyBinary
 		typename Class::ClassExpression* callIndirect(TypeId returnType,uint32 tableIndex)
 		{
 			if(tableIndex >= module.functionTables.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
-			const FunctionTable& functionTable = module.functionTables[tableIndex];
+			const FunctionType& functionType = functionTableTypes[tableIndex];
 			auto functionIndex = decodeExpression(I32Type());
-			auto parameters = decodeParameters(functionTable.type.parameters);
-			return functionTable.type.returnType == returnType
-				? as<Class>(new(arena) CallIndirect(Class::id,tableIndex,functionIndex,parameters))
+			auto parameters = decodeParameters(functionType.parameters);
+			return functionType.returnType == returnType
+				? as<Class>(new(arena) CallIndirect(Class::id,tableIndex,functionType,functionIndex,parameters))
 				: recordError<Class>("callindirect: incorrect type");
 		}
 		VoidExpression* callIndirectStatement(uint32 tableIndex)
 		{
 			if(tableIndex >= module.functionTables.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
-			const FunctionTable& functionTable = module.functionTables[tableIndex];
-			auto returnType = functionTable.type.returnType;
-			switch(functionTable.type.returnType)
+			const FunctionType& functionType = functionTableTypes[tableIndex];
+			switch(functionType.returnType)
 			{
-			case TypeId::I32: return new(arena) DiscardResult(TypedExpression(callIndirect<IntClass>(TypeId::I32,tableIndex),returnType));
-			case TypeId::F32: return new(arena) DiscardResult(TypedExpression(callIndirect<FloatClass>(TypeId::F32,tableIndex),returnType));
-			case TypeId::F64: return new(arena) DiscardResult(TypedExpression(callIndirect<FloatClass>(TypeId::F64,tableIndex),returnType));
+			case TypeId::I32: return new(arena) DiscardResult(TypedExpression(callIndirect<IntClass>(TypeId::I32,tableIndex),functionType.returnType));
+			case TypeId::F32: return new(arena) DiscardResult(TypedExpression(callIndirect<FloatClass>(TypeId::F32,tableIndex),functionType.returnType));
+			case TypeId::F64: return new(arena) DiscardResult(TypedExpression(callIndirect<FloatClass>(TypeId::F64,tableIndex),functionType.returnType));
 			case TypeId::Void: return callIndirect<VoidClass>(TypeId::Void,tableIndex);
 			default: throw;
 			};
@@ -872,7 +872,14 @@ namespace WebAssemblyBinary
 			auto loopExpression = decodeStatement();
 			implicitBreakTargets.pop_back();
 			implicitContinueTargets.pop_back();
-			auto loopBody = new(arena) IfElse<VoidClass>(condition,loopExpression,new(arena) Branch<VoidClass>(breakBranchTarget,nullptr));
+			auto loopBody = new(arena) IfElse<VoidClass>(
+				condition,
+				new(arena) Sequence<VoidClass>(
+					loopExpression,
+					as<VoidClass>(new(arena) Branch(continueBranchTarget,nullptr))
+					),
+				Nop::get()
+				);
 			return new(arena) Loop<VoidClass>(loopBody,breakBranchTarget,continueBranchTarget);
 		}
 
@@ -897,8 +904,8 @@ namespace WebAssemblyBinary
 				loopExpression,
 				new(arena) IfElse<VoidClass>(
 					condition,
-					Nop::get(),
-					new(arena) Branch<VoidClass>(breakBranchTarget,nullptr)
+					as<VoidClass>(new(arena) Branch(continueBranchTarget,nullptr)),
+					Nop::get()
 					)
 				);
 			return new(arena) Loop<VoidClass>(loopBody,breakBranchTarget,continueBranchTarget);
@@ -923,41 +930,50 @@ namespace WebAssemblyBinary
 		VoidExpression* decodeBreak()
 		{
 			if(!implicitBreakTargets.size()) { return recordError<VoidClass>("break: no implicit break label"); }
-			return new(arena) Branch<VoidClass>(implicitBreakTargets.back(),nullptr);
+			return as<VoidClass>(new(arena) Branch(implicitBreakTargets.back(),nullptr));
 		}
 
 		VoidExpression* decodeContinue()
 		{
 			if(!implicitContinueTargets.size()) { return recordError<VoidClass>("continue: no implicit continue label"); }
-			return new(arena) Branch<VoidClass>(implicitContinueTargets[implicitContinueTargets.size() - 1],nullptr);
+			return as<VoidClass>(new(arena) Branch(implicitContinueTargets[implicitContinueTargets.size() - 1],nullptr));
 		}
 
 		VoidExpression* decodeBreakLabel(uint32 labelIndex)
 		{
 			if(labelIndex >= explicitBreakTargets.size()) { return recordError<VoidClass>("break: invalid label index"); }
-			return new(arena) Branch<VoidClass>(explicitBreakTargets[labelIndex],nullptr);
+			return as<VoidClass>(new(arena) Branch(explicitBreakTargets[labelIndex],nullptr));
 		}
 
 		VoidExpression* decodeContinueLabel(uint32 labelIndex)
 		{
 			if(labelIndex >= explicitContinueTargets.size() || !explicitContinueTargets[labelIndex]) { return recordError<VoidClass>("continue: invalid label index"); }
-			return new(arena) Branch<VoidClass>(explicitContinueTargets[labelIndex],nullptr);
+			return as<VoidClass>(new(arena) Branch(explicitContinueTargets[labelIndex],nullptr));
 		}
 
 		VoidExpression* decodeSwitch(bool isEnclosedByLabel)
 		{
 			uint32 numCases = in.immU32();
-			auto value = decodeExpression(I32Type());
+			auto index = decodeExpression(I32Type());
 			
-			auto breakBranchTarget = new(arena) BranchTarget(TypeId::Void);
-			implicitBreakTargets.push_back(breakBranchTarget);
+			auto endBranchTarget = new(arena) BranchTarget(TypeId::Void);
+			implicitBreakTargets.push_back(endBranchTarget);
 
 			// If the switch is immediately inside a label node, replace the label's explicit break target with our own.
-			if(isEnclosedByLabel) { explicitBreakTargets.back() = breakBranchTarget; }
+			if(isEnclosedByLabel) { explicitBreakTargets.back() = endBranchTarget; }
+			
+			struct Case
+			{
+				int32 key;
+				VoidExpression* value;
+			};
+			Memory::ScopedArena scopedArena;
+			auto cases = new(scopedArena) Case[numCases];
 
-			SwitchArm* arms = new(arena) SwitchArm[numCases];
 			uint32 defaultCaseIndex = numCases;
 			size_t numDefaultCases = 0;
+			int32 minCaseKey = INT32_MAX;
+			int32 maxCaseKey = INT32_MIN;
 			for(uint32 caseIndex = 0;caseIndex < numCases;++caseIndex)
 			{
 				auto caseType = in.switch_case();
@@ -967,7 +983,9 @@ namespace WebAssemblyBinary
 				case SwitchCase::Case1:
 				case SwitchCase::CaseN:
 				{
-					arms[caseIndex].key = in.immS32();
+					cases[caseIndex].key = in.immS32();
+					minCaseKey = std::min(minCaseKey,cases[caseIndex].key);
+					maxCaseKey = std::max(maxCaseKey,cases[caseIndex].key);
 					break;
 				}
 				case SwitchCase::Default0:
@@ -975,12 +993,12 @@ namespace WebAssemblyBinary
 				case SwitchCase::DefaultN:
 					defaultCaseIndex = caseIndex;
 					++numDefaultCases;
-					arms[caseIndex].key = 0;
+					cases[caseIndex].key = 0;
 					break;
 				default: throw new FatalDecodeException("invalid switch case type");
 				};
 
-				Expression<VoidClass>* caseValue;
+				VoidExpression* caseValue;
 				switch(caseType)
 				{
 				case SwitchCase::Case0:
@@ -997,21 +1015,66 @@ namespace WebAssemblyBinary
 					break;
 				default: throw;
 				};
-				arms[caseIndex].value = caseValue;
+
+				cases[caseIndex].value = caseValue;
 			}
 			
 			implicitBreakTargets.pop_back();
 			
+			// Ensure that there is exactly one default case.
 			if(numDefaultCases > 1) { return recordError<VoidClass>("switch: must not have more than 1 default case"); }
 			else if(!numDefaultCases)
 			{
-				arms = arena.reallocate(arms,numCases,numCases + 1);
-				arms[numCases].key = 0;
-				arms[numCases].value = Nop::get();
+				cases = scopedArena.getArena().reallocate(cases,numCases,numCases + 1);
+				cases[numCases].value = Nop::get();
+				cases[numCases].key = 0;
 				defaultCaseIndex = numCases++;
 			}
+			
+			// Create a branch target for each case.
+			auto caseTargets = new(arena) BranchTarget[numCases];
+			auto defaultTarget = &caseTargets[defaultCaseIndex];
 
-			return new(arena) Switch<VoidClass>(TypedExpression(value,TypeId::I32),defaultCaseIndex,numCases,arms,breakBranchTarget);
+			// Find the range of the switch's index, and create a table of branch target pointers spanning that range.
+			minCaseKey = std::min(minCaseKey,maxCaseKey);
+			auto baseTableIndex = uintptr(minCaseKey);
+			auto numTableTargets = size_t(maxCaseKey - minCaseKey);
+			auto tableTargets = new(arena) BranchTarget*[numTableTargets];
+			for(uintptr tableIndex = 0;tableIndex < numTableTargets;++tableIndex)
+			{ tableTargets[tableIndex] = defaultTarget; }
+			for(uintptr caseIndex = 0;caseIndex < numCases;++caseIndex)
+			{
+				if(caseIndex != defaultCaseIndex)
+				{ tableTargets[cases[caseIndex].key - baseTableIndex] = &caseTargets[caseIndex]; }
+			}
+
+			// Offset the switch's index to be relative to minCaseKey.
+			auto relativeIndex = baseTableIndex == 0 ? index
+				: new(arena) Binary<IntClass>(IntOp::sub,index,new(arena) Literal<I32Type>(minCaseKey));
+
+			// Create a BranchTable operation that branches to the appropriate target for the case.
+			auto branchTable = new(arena) BranchTable(
+				TypedExpression(relativeIndex,TypeId::I32),
+				defaultTarget,
+				tableTargets,
+				numTableTargets
+				);
+
+			// Wrap the BranchTable in a hierarchy of nested labels corresponding to the switch cases.
+			// The root label is the last case, and the innermost is the first case.
+			// Each label introduces that case's branch target, and precedes that case's body in a Sequence node.
+			// The label then contains the Sequence for the preceding case, or the BranchTable for the innermost Label.
+			VoidExpression* result = as<VoidClass>(branchTable);
+			for(uintptr caseIndex = 0;caseIndex < numCases;++caseIndex)
+			{
+				auto label = new(arena) Label<VoidClass>(&caseTargets[caseIndex],result);
+				result = new(arena) Sequence<VoidClass>(label,cases[caseIndex].value);
+			}
+
+			// Wrap the whole expression in another Label for the switch's end branch target.
+			result = new(arena) Label<VoidClass>(endBranchTarget,result);
+
+			return result;
 		}
 		
 		// Decodes a return based on the current function's return type.
@@ -1019,10 +1082,10 @@ namespace WebAssemblyBinary
 		{
 			switch(currentFunction->type.returnType)
 			{
-			case TypeId::I32: return new(arena) Return<VoidClass>(decodeExpression(I32Type()));
-			case TypeId::F32: return new(arena) Return<VoidClass>(decodeExpression(F32Type()));
-			case TypeId::F64: return new(arena) Return<VoidClass>(decodeExpression(F64Type()));
-			case TypeId::Void: return new(arena) Return<VoidClass>(nullptr);
+			case TypeId::I32: return as<VoidClass>(new(arena) Return(decodeExpression(I32Type())));
+			case TypeId::F32: return as<VoidClass>(new(arena) Return(decodeExpression(F32Type())));
+			case TypeId::F64: return as<VoidClass>(new(arena) Return(decodeExpression(F64Type())));
+			case TypeId::Void: return as<VoidClass>(new(arena) Return(nullptr));
 			default: throw;
 			}
 		}
@@ -1549,10 +1612,11 @@ namespace WebAssemblyBinary
 		{
 			const uint32 numFunctionPointerTables = in.immU32();
 			module.functionTables.resize(numFunctionPointerTables);
+			functionTableTypes.resize(numFunctionPointerTables);
 			for(uint32 tableIndex = 0;tableIndex < numFunctionPointerTables;++tableIndex)
 			{
 				auto& table = module.functionTables[tableIndex];
-				table.type = functionTypes[in.boundedImmU32("function type index",functionTypes.size())];
+				functionTableTypes[tableIndex] = functionTypes[in.boundedImmU32("function type index",functionTypes.size())];
 
 				// Decode the function table elements.
 				table.numFunctions = in.immU32();

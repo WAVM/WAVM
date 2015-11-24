@@ -16,12 +16,14 @@
 namespace Platform
 {
 	#ifdef _WIN32
-		inline uint64 ceilLogTwo(uint64 value) { unsigned long result; return _BitScanReverse64(&result,value) ? result : 0; }
-		inline uint32 ceilLogTwo(uint32 value) { unsigned long result; return _BitScanReverse(&result,value) ? result : 0; }
+		inline uint64 floorLogTwo(uint64 value) { unsigned long result; return _BitScanReverse64(&result,value) ? result : 0; }
+		inline uint32 floorLogTwo(uint32 value) { unsigned long result; return _BitScanReverse(&result,value) ? result : 0; }
 	#else
-		inline uint64 ceilLogTwo(uint64 value) { return 63 - __builtin_clzll(value); }
-		inline uint32 ceilLogTwo(uint32 value) { return 31 - __builtin_clz(value); }
+		inline uint64 floorLogTwo(uint64 value) { return 63 - __builtin_clzll(value); }
+		inline uint32 floorLogTwo(uint32 value) { return 31 - __builtin_clz(value); }
 	#endif
+	inline uint64 ceilLogTwo(uint64 value) { return floorLogTwo(value * 2 - 1); }
+	inline uint32 ceilLogTwo(uint32 value) { return floorLogTwo(value * 2 - 1); }
 
 	// A platform-independent mutex. Allows calling the constructor during static initialization, unlike std::mutex.
 	struct Mutex

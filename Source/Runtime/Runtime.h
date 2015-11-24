@@ -23,7 +23,9 @@ namespace Runtime
 			InvokeSignatureMismatch,
 			OutOfMemory,
 			GrowMemoryNotPageAligned,
-			ReachedUnreachable
+			ReachedUnreachable,
+			IndirectCallSignatureMismatch,
+			OutOfBoundsFunctionTableIndex
 		};
 
 		Cause cause;

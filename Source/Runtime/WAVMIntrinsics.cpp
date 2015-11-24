@@ -112,6 +112,11 @@ namespace Runtime
 		causeException(Exception::Cause::ReachedUnreachable);
 	}
 
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallSignatureMismatch,Void)
+	{
+		causeException(Exception::Cause::IndirectCallSignatureMismatch);
+	}
+
 	void initWAVMIntrinsics()
 	{
 	}

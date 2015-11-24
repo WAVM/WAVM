@@ -12,8 +12,8 @@ namespace AST
 		AST_OP(setLocal) \
 		AST_OP(load) AST_OP(store) \
 		AST_OP(callDirect) AST_OP(callImport) AST_OP(callIndirect) \
-		AST_OP(loop) AST_OP(switch_) AST_OP(ifElse) AST_OP(select) AST_OP(label) AST_OP(sequence) \
-		AST_OP(branch) AST_OP(ret) AST_OP(unreachable)
+		AST_OP(loop) AST_OP(ifElse) AST_OP(select) AST_OP(label) AST_OP(sequence) \
+		AST_OP(branch) AST_OP(branchTable) AST_OP(ret) AST_OP(unreachable)
 
 	#define ENUM_AST_UNARY_OPS_Int() \
 		AST_OP(neg) \
@@ -115,6 +115,8 @@ namespace AST
 		ENUM_AST_OPS_Any() \
 		AST_OP(discardResult) AST_OP(nop)
 
+	#define ENUM_AST_OPS_None() ENUM_AST_OPS_Any()
+
 	// Define the ClassOp enums: AnyOp, IntOp, etc.
 	#define AST_OP(op) op,
 	enum class AnyOp : uint8		{ ENUM_AST_OPS_Any() };
@@ -122,6 +124,7 @@ namespace AST
 	enum class FloatOp : uint8	{ ENUM_AST_OPS_Float() };
 	enum class BoolOp : uint8	{ ENUM_AST_OPS_Bool() };
 	enum class VoidOp : uint8	{ ENUM_AST_OPS_Void() };
+	enum class NoneOp : uint8 { ENUM_AST_OPS_None() };
 	#undef AST_OP
 	
 	// Used to represent an opcode as a type for compile-time specialization.

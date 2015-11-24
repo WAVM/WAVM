@@ -45,10 +45,18 @@ namespace AST
 		}
 	}
 
+	bool isSubclass(TypeClassId parent,TypeClassId child)
+	{
+		return	child == TypeClassId::None
+			||	parent == TypeClassId::Any
+			||	parent == child;
+	}
+
 	TypeClassId getPrimaryTypeClass(TypeId type)
 	{
 		switch(type)
 		{
+		case TypeId::None: return TypeClassId::None;
 		case TypeId::I8: return TypeClassId::Int;
 		case TypeId::I16: return TypeClassId::Int;
 		case TypeId::I32: return TypeClassId::Int;

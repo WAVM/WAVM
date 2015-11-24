@@ -32,7 +32,6 @@ namespace WebAssemblyText
 	// An AST visitor that lowers certain operations that aren't supported by the WebAssembly text format:
 	//	- I8 and I16 operations (todo)
 	//	- boolean operations (todo)
-	//	- Switches with default case in the middle.
 	struct LoweringVisitor : MapChildrenVisitor<LoweringVisitor&,TypedExpression>
 	{
 		LoweringVisitor(Memory::Arena& inArena,const Module* inModule,Function* inFunction)
@@ -41,56 +40,6 @@ namespace WebAssemblyText
 		TypedExpression operator()(TypedExpression child)
 		{
 			return dispatch(*this,child);
-		}
-
-		template<typename Class>
-		DispatchResult visitSwitch(TypeId type,const Switch<Class>* switch_)
-		{
-			// Convert switches so the default arm is always last.
-			if(switch_->defaultArmIndex == switch_->numArms - 1) { return MapChildrenVisitor::visitSwitch(type,switch_); }
-			else
-			{
-				auto key = visitChild(switch_->key);
-
-				// Create a switch that just maps each case of the original switch to the arm index that handles it.
-				Switch<IntClass>* armIndexSwitch;
-				{
-					auto switchEndTarget = new(arena) BranchTarget(TypeId::I64);
-					auto switchArms = new(arena) SwitchArm[switch_->numArms];
-					SwitchArm* switchArm = switchArms;
-					for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
-					{
-						if(armIndex != switch_->defaultArmIndex)
-						{
-							switchArm->key = switch_->arms[armIndex].key;
-							switchArm->value = new(arena) Branch<IntClass>(switchEndTarget,new(arena) Literal<I64Type>(armIndex));
-							++switchArm;
-						}
-					}
-					switchArm->key = 0;
-					switchArm->value = new(arena) Literal<I64Type>(switch_->defaultArmIndex);
-					armIndexSwitch = new(arena) Switch<IntClass>(key,switch_->numArms - 1,switch_->numArms,switchArms,switchEndTarget);
-				}
-
-				// Create a switch that maps the arm index to the appropriate expression from the original switch.
-				auto cfgEndTarget = new(arena) BranchTarget(type);
-				branchTargetRemap[switch_->endTarget] = cfgEndTarget;
-
-				auto cfgArms = new(arena) SwitchArm[switch_->numArms];
-				for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
-				{
-					auto armType = armIndex + 1 == switch_->numArms ? type : TypeId::Void;
-					cfgArms[armIndex].key = armIndex;
-					cfgArms[armIndex].value = visitChild(TypedExpression(switch_->arms[armIndex].value,armType)).expression;
-				}
-				return TypedExpression(new(arena) Switch<Class>(
-					TypedExpression(armIndexSwitch,TypeId::I64),
-					switch_->numArms - 1,
-					switch_->numArms,
-					cfgArms,
-					cfgEndTarget
-					),type);
-			}
 		}
 	};
 
@@ -179,8 +128,7 @@ namespace WebAssemblyText
 			return createTypedTaggedSubtree(TypeId::F64,Symbol::_const) << literal->value;
 		}
 
-		template<typename Class>
-		DispatchResult visitError(TypeId type,const Error<Class>* error)
+		DispatchResult visitError(TypeId type,const Error* error)
 		{
 			return createSubtree() << "error" << error->message;
 		}
@@ -306,7 +254,7 @@ namespace WebAssemblyText
 			auto subtreeStream = createTaggedSubtree(Symbol::_call_indirect)
 				<< getFunctionTableName(callIndirect->tableIndex)
 				<< dispatch(*this,callIndirect->functionIndex,TypeId::I32);
-			auto functionType = module->functionTables[callIndirect->tableIndex].type;
+			auto functionType = callIndirect->functionType;
 			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
 			{
 				subtreeStream << dispatch(*this,callIndirect->parameters[parameterIndex],functionType.parameters[parameterIndex]);
@@ -314,25 +262,6 @@ namespace WebAssemblyText
 			return subtreeStream;
 		}
 		
-		template<typename Class>
-		DispatchResult visitSwitch(TypeId type,const Switch<Class>* switch_)
-		{
-			// The lowering pass should only give us switches with the default arm as the final arm.
-			assert(switch_->defaultArmIndex == switch_->numArms - 1);
-			auto switchStream = createTypedTaggedSubtree(switch_->key.type,Symbol::_switch);
-			switchStream << getLabelName(switch_->endTarget);
-			switchStream << dispatch(*this,switch_->key);
-			for(uintptr armIndex = 0;armIndex < switch_->numArms - 1;++armIndex)
-			{
-				auto caseSubstream = createTaggedSubtree(Symbol::_case) << switch_->arms[armIndex].key;
-				caseSubstream << dispatch(*this,switch_->arms[armIndex].value,TypeId::Void);
-				caseSubstream << Symbol::_fallthrough;
-				switchStream << caseSubstream;
-			}
-			switchStream << dispatch(*this,switch_->arms[switch_->numArms - 1].value,type);
-			
-			return switchStream;
-		}
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
 		{
@@ -349,7 +278,7 @@ namespace WebAssemblyText
 			{
 				if(ifElse->thenExpression->op() == VoidOp::branch)
 				{
-					auto branch = (Branch<VoidClass>*)ifElse->thenExpression;
+					auto branch = (Branch*)ifElse->thenExpression;
 					auto subtreeStream = createTaggedSubtree(Symbol::_br_if)
 						<< dispatch(*this,ifElse->condition)
 						<< getLabelName(branch->branchTarget);
@@ -358,7 +287,7 @@ namespace WebAssemblyText
 				}
 				else
 				{
-					return createTaggedSubtree(Symbol::_if)
+					return createTaggedSubtree(Symbol::_if_else)
 						<< dispatch(*this,ifElse->condition)
 						<< dispatch(*this,ifElse->thenExpression,type)
 						<< dispatch(*this,ifElse->elseExpression,type);
@@ -404,31 +333,43 @@ namespace WebAssemblyText
 			return subtreeStream;
 		}
 		template<typename Class>
-		DispatchResult visitReturn(TypeId type,const Return<Class>* ret)
-		{
-			auto subtreeStream = createTaggedSubtree(Symbol::_return);
-			if(function->type.returnType != TypeId::Void) { subtreeStream << dispatch(*this,ret->value,function->type.returnType); }
-			return subtreeStream;
-		}
-		template<typename Class>
 		DispatchResult visitLoop(TypeId type,const Loop<Class>* loop)
 		{
 			// Simulate the loop break/continue labels with two label nodes.
 			auto loopStream = createTaggedSubtree(Symbol::_loop);
 			loopStream << getLabelName(loop->breakTarget) << getLabelName(loop->continueTarget);
-			auto bodyStream = dispatch(*this,loop->expression);
+			auto bodyStream = dispatch(*this,loop->expression,type);
 			loopStream << bodyStream;
 			return loopStream;
 		}
-		template<typename Class>
-		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
+		DispatchResult visitBranch(TypeId type,const Branch* branch)
 		{
 			auto subtreeStream = createTaggedSubtree(Symbol::_br) << getLabelName(branch->branchTarget);
 			if(branch->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branch->value,branch->branchTarget->type); }
 			return subtreeStream;
 		}
-		template<typename Class>
-		DispatchResult visitUnreachable(TypeId type,const Unreachable<Class>* unreachable)
+		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
+		{
+			auto tableswitchStream = createTaggedSubtree(Symbol::_tableswitch);
+			tableswitchStream << dispatch(*this,branchTable->index);
+			auto tableStream = createTaggedSubtree(Symbol::_table);
+			for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
+			{
+				auto targetStream = createTaggedSubtree(Symbol::_br) << getLabelName(branchTable->tableTargets[tableIndex]);
+				tableStream << targetStream;
+			}
+			tableswitchStream << tableStream;
+			auto defaultTargetStream = createTaggedSubtree(Symbol::_br) << getLabelName(branchTable->defaultTarget);
+			tableswitchStream << defaultTargetStream;
+			return tableswitchStream;
+		}
+		DispatchResult visitReturn(TypeId type,const Return* ret)
+		{
+			auto subtreeStream = createTaggedSubtree(Symbol::_return);
+			if(function->type.returnType != TypeId::Void) { subtreeStream << dispatch(*this,ret->value,function->type.returnType); }
+			return subtreeStream;
+		}
+		DispatchResult visitUnreachable(TypeId type,const Unreachable* unreachable)
 		{
 			return createTaggedSubtree(Symbol::_unreachable);
 		}

@@ -42,7 +42,7 @@ namespace LLVMJIT
 	inline llvm::Constant* compileLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	inline llvm::Constant* compileLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	inline llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(asLLVMType(TypeId::Bool),llvm::APInt(1,value ? 1 : 0,false)); }
-	
+
 	// The LLVM IR for a module.
 	struct ModuleIR
 	{
@@ -50,14 +50,30 @@ namespace LLVMJIT
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::GlobalVariable*> functionImportPointers;
 		std::vector<llvm::GlobalVariable*> functionTablePointers;
+		std::vector<llvm::Value*> functionTableIndexMasks;
 		llvm::Value* instanceMemoryBase;
 		llvm::Value* instanceMemoryAddressMask;
+		
+		std::map<FunctionType,uintptr> functionTypeToSignatureIndexMap;
 
 		ModuleIR()
 		:	llvmModule(new llvm::Module("",context))
 		,	instanceMemoryBase(nullptr)
 		,	instanceMemoryAddressMask(nullptr)
 		{}
+
+		uintptr getSignatureIndex(const FunctionType& type)
+		{
+			auto signatureIt = functionTypeToSignatureIndexMap.find(type);
+			uintptr signatureIndex;
+			if(signatureIt != functionTypeToSignatureIndexMap.end()) { signatureIndex = signatureIt->second; }
+			else
+			{
+				signatureIndex = functionTypeToSignatureIndexMap.size();
+				functionTypeToSignatureIndexMap[type] = signatureIndex;
+			}
+			return signatureIndex;
+		}
 	};
 
 	// The context used by functions involved in JITing a single AST function.
@@ -158,6 +174,7 @@ namespace LLVMJIT
 
 			irBuilder.SetInsertPoint(successorBlock);
 			if(type == TypeId::Void) { return voidDummy; }
+			else if(!trueExitBlock && !falseExitBlock) { return typedZeroConstants[(uintptr)type]; }
 			else
 			{
 				auto phi = irBuilder.CreatePHI(trueValue->getType(),2);
@@ -206,8 +223,7 @@ namespace LLVMJIT
 		
 		template<typename Type> DispatchResult visitLiteral(const Literal<Type>* literal) { return compileLiteral(literal->value); }
 
-		template<typename Class>
-		DispatchResult visitError(TypeId type,const Error<Class>* error)
+		DispatchResult visitError(TypeId type,const Error* error)
 		{
 			std::cerr << "Found error node while compiling:" << std::endl;
 			std::cerr << error->message << std::endl;
@@ -297,94 +313,39 @@ namespace LLVMJIT
 		{
 			assert(callIndirect->tableIndex < astModule->functionTables.size());
 			auto functionTablePointer = moduleIR.functionTablePointers[callIndirect->tableIndex];
-			auto astFunctionTable = astModule->functionTables[callIndirect->tableIndex];
-			assert(astFunctionTable.type.returnType == type);
-			assert(astFunctionTable.numFunctions > 0);
+			assert(callIndirect->functionType.returnType == type);
 
-			// Compile the function index and mask it to be within the function table's bounds (which are already verified to be 2^N).
+			auto expectedSignatureIndex = moduleIR.getSignatureIndex(callIndirect->functionType);
+			auto functionPointerType = asLLVMType(callIndirect->functionType)->getPointerTo()->getPointerTo();
+
+			// Compile the function index and mask it to be within the function table's bounds.
 			auto functionIndex = dispatch(*this,callIndirect->functionIndex,TypeId::I32);
-			auto functionIndexMask = compileLiteral((uint32)astFunctionTable.numFunctions-1);
-			auto maskedFunctionIndex = irBuilder.CreateAnd(functionIndex,functionIndexMask);
+			auto functionIndexMask = moduleIR.functionTableIndexMasks[callIndirect->tableIndex];
+			auto maskedFunctionIndex = irBuilder.CreateZExt(irBuilder.CreateAnd(functionIndex,functionIndexMask),llvmTypesByTypeId[(uintptr)TypeId::I64]);
 
 			// Get a pointer to the function pointer in the function table using the masked function index.
-			llvm::Value* gepIndices[2] = {compileLiteral((uint32)0),maskedFunctionIndex};
+			auto functionPointerPointer = irBuilder.CreateInBoundsGEP(functionTablePointer,{compileLiteral((uint32)0),maskedFunctionIndex,compileLiteral((uint32)0)});
+			auto signatureIndexPointer = irBuilder.CreateInBoundsGEP(functionTablePointer,{compileLiteral((uint32)0),maskedFunctionIndex,compileLiteral((uint32)1)});
+			auto functionPointer = irBuilder.CreateLoad(irBuilder.CreatePointerCast(functionPointerPointer,functionPointerType));
+			auto signatureIndex = irBuilder.CreateLoad(signatureIndexPointer);
 
-			// Load the function pointer from the table and call it.
-			auto function = irBuilder.CreateLoad(irBuilder.CreateInBoundsGEP(functionTablePointer,gepIndices));
-			return compileCall(astFunctionTable.type,function,callIndirect->parameters);
+			// Check whether the function table entry has the correct signature.
+			return compileIfElse(
+				type,
+				irBuilder.CreateICmpNE(compileLiteral((uintptr)expectedSignatureIndex),signatureIndex),
+				// If the signature ID doesn't match, trap.
+				[&]
+				{
+					compileRuntimeIntrinsic("wavmIntrinsics.indirectCallSignatureMismatch",FunctionType(),{});
+					irBuilder.CreateUnreachable();
+					irBuilder.SetInsertPoint(unreachableBlock);
+					return typedZeroConstants[(uintptr)type];
+				},
+				// If the signature ID does match, call the function loaded from the table.
+				[&] { return compileCall(callIndirect->functionType,functionPointer,callIndirect->parameters); }
+				);
 		}
-		
-		template<typename Class>
-		DispatchResult visitSwitch(TypeId type,const Switch<Class>* switchExpression)
-		{
-			auto value = dispatch(*this,switchExpression->key);		
 
-			// Create the basic blocks for each arm of the switch so they can be forward referenced by fallthrough branches.
-			auto armEntryBlocks = new(scopedArena) llvm::BasicBlock*[switchExpression->numArms];
-			for(uint32 armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
-			{ armEntryBlocks[armIndex] = llvm::BasicBlock::Create(context,"switchArm",llvmFunction); }
-
-			// Create and link the context for this switch's branch target into the list of in-scope contexts.
-			auto successorBlock = llvm::BasicBlock::Create(context,"switchSucc",llvmFunction);
-			auto outerBranchContext = branchContext;
-			BranchContext endBranchContext = {switchExpression->endTarget,successorBlock,outerBranchContext,nullptr};
-			branchContext = &endBranchContext;
-			assert(switchExpression->endTarget->type == type);
-
-			// Compile each arm of the switch.
-			assert(switchExpression->numArms > 0);
-			assert(switchExpression->defaultArmIndex < switchExpression->numArms);
-			auto defaultBlock = armEntryBlocks[switchExpression->defaultArmIndex];
-			auto switchInstruction = irBuilder.CreateSwitch(value,defaultBlock,(uint32)switchExpression->numArms - 1);
-			for(uint32 armIndex = 0;armIndex < switchExpression->numArms;++armIndex)
-			{
-				const SwitchArm& arm = switchExpression->arms[armIndex];
-				if(armIndex != switchExpression->defaultArmIndex)
-				{
-					llvm::ConstantInt* armKey;
-					switch(switchExpression->key.type)
-					{
-					case TypeId::I8: armKey = compileLiteral((uint8)arm.key); break;
-					case TypeId::I16: armKey = compileLiteral((uint16)arm.key); break;
-					case TypeId::I32: armKey = compileLiteral((uint32)arm.key); break;
-					case TypeId::I64: armKey = compileLiteral((uint64)arm.key); break;
-					default: throw;
-					}
-					switchInstruction->addCase(armKey,armEntryBlocks[armIndex]);
-				}
-
-				irBuilder.SetInsertPoint(armEntryBlocks[armIndex]);
-				assert(arm.value);
-				if(armIndex + 1 == switchExpression->numArms)
-				{
-					// The final arm is an expression of the same type as the switch.
-					auto armValue = dispatch(*this,arm.value,type);
-					auto exitBlock = compileBranch(successorBlock);
-					if(type != TypeId::Void && exitBlock)
-					{ endBranchContext.results = new(scopedArena) BranchResult {exitBlock,armValue,endBranchContext.results}; }
-				}
-				else
-				{
-					// The other arms yield void.
-					dispatch(*this,arm.value,TypeId::Void);
-					compileBranch(armEntryBlocks[armIndex + 1]);
-				}
-			}
-
-			// Remove the switch's branch target from the in-scope context list.
-			assert(branchContext == &endBranchContext);
-			branchContext = outerBranchContext;
-
-			irBuilder.SetInsertPoint(successorBlock);
-			if(type == TypeId::Void) { return voidDummy; }
-			else
-			{
-				// Create a phi node that merges the results from all the branches out of the switch.
-				auto phi = irBuilder.CreatePHI(asLLVMType(type),(uint32)switchExpression->numArms);
-				for(auto result = endBranchContext.results;result;result = result->next) { phi->addIncoming(result->value,result->incomingBlock); }
-				return phi;
-			}
-		}
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
 		{
@@ -430,6 +391,7 @@ namespace LLVMJIT
 
 			// Create a phi node that merges all the possible values yielded by the label into one.
 			if(type == TypeId::Void) { return voidDummy; }
+			else if(!exitBlock && !endBranchContext.results) { return typedZeroConstants[(uintptr)type]; }
 			else
 			{
 				auto phi = irBuilder.CreatePHI(asLLVMType(type),2);
@@ -443,23 +405,6 @@ namespace LLVMJIT
 		{
 			dispatch(*this,seq->voidExpression);
 			return dispatch(*this,seq->resultExpression,type);
-		}
-		template<typename Class>
-		DispatchResult visitReturn(TypeId type,const Return<Class>* ret)
-		{
-			auto returnValue = astFunction->type.returnType == TypeId::Void ? nullptr
-				: dispatch(*this,ret->value,astFunction->type.returnType);
-
-			if(irBuilder.GetInsertBlock() != unreachableBlock)
-			{
-				if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
-				else { irBuilder.CreateRet(returnValue); }
-			
-				// Set the insert point to the unreachable block.
-				irBuilder.SetInsertPoint(unreachableBlock);
-			}
-
-			return typedZeroConstants[(size_t)type];
 		}
 		template<typename Class>
 		DispatchResult visitLoop(TypeId type,const Loop<Class>* loop)
@@ -476,8 +421,8 @@ namespace LLVMJIT
 			compileBranch(loopBlock);
 
 			irBuilder.SetInsertPoint(loopBlock);
-			dispatch(*this,loop->expression);
-			compileBranch(successorBlock);
+			auto bodyValue = dispatch(*this,loop->expression,type);
+			auto bodyExitBlock = compileBranch(successorBlock);
 			
 			// Remove the loop's branch targets from the in-scope context list.
 			assert(branchContext == &breakBranchContext);
@@ -485,25 +430,32 @@ namespace LLVMJIT
 
 			irBuilder.SetInsertPoint(successorBlock);
 			if(type == TypeId::Void) { return voidDummy; }
+			else if(!bodyExitBlock && !breakBranchContext.results) { return typedZeroConstants[(uintptr)type]; }
 			else
 			{
 				auto phi = irBuilder.CreatePHI(asLLVMType(type),1);
+				if(bodyExitBlock) { phi->addIncoming(bodyValue,bodyExitBlock); }
 				for(auto result = breakBranchContext.results;result;result = result->next) { phi->addIncoming(result->value,result->incomingBlock); }
 				return phi;
 			}
 		}
-		template<typename Class>
-		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
+		BranchContext* findBranchTargetContext(const BranchTarget* branchTarget)
 		{
 			// Find the branch target context for this branch's target.
 			auto targetContext = branchContext;
-			while(targetContext && targetContext->branchTarget != branch->branchTarget) { targetContext = targetContext->outerContext; }
+			while(targetContext && targetContext->branchTarget != branchTarget) { targetContext = targetContext->outerContext; }
 			if(!targetContext) { throw; }
-			
+			return targetContext;
+		}
+		DispatchResult visitBranch(TypeId type,const Branch* branch)
+		{
 			// If the branch target has a non-void type, compile the branch's value.
 			auto value = branch->branchTarget->type == TypeId::Void ? voidDummy
-				: dispatch(*this,branch->value,targetContext->branchTarget->type);
-			
+				: dispatch(*this,branch->value,branch->branchTarget->type);
+
+			// Find the branch target context for this branch's target.
+			auto targetContext = findBranchTargetContext(branch->branchTarget);
+	
 			// Insert the branch instruction.
 			auto exitBlock = compileBranch(targetContext->basicBlock);
 			
@@ -515,8 +467,60 @@ namespace LLVMJIT
 
 			return typedZeroConstants[(size_t)type];
 		}
-		template<typename Class>
-		DispatchResult visitUnreachable(TypeId type,const Unreachable<Class>* unreachable)
+		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
+		{
+			auto exitBlock = irBuilder.GetInsertBlock();
+			if(exitBlock != unreachableBlock)
+			{
+				auto index = dispatch(*this,branchTable->index);
+
+				// Create the switch instruction.
+				auto defaultContext = findBranchTargetContext(branchTable->defaultTarget);
+				auto switchInstruction = irBuilder.CreateSwitch(index,defaultContext->basicBlock,(unsigned int)branchTable->numTableTargets);
+
+				for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
+				{
+					// Find the branch target context for this branch's target.
+					auto targetContext = findBranchTargetContext(branchTable->tableTargets[tableIndex]);
+			
+					// Create a literal int that matches the type of the table index.
+					llvm::ConstantInt* caseIndex;
+					switch(branchTable->index.type)
+					{
+					case TypeId::I8: caseIndex = compileLiteral((uint8)tableIndex); break;
+					case TypeId::I16: caseIndex = compileLiteral((uint16)tableIndex); break;
+					case TypeId::I32: caseIndex = compileLiteral((uint32)tableIndex); break;
+					case TypeId::I64: caseIndex = compileLiteral((uint64)tableIndex); break;
+					default: throw;
+					}
+
+					// Add the case to the switch instruction.
+					switchInstruction->addCase(caseIndex,targetContext->basicBlock);
+				}
+
+				// Set the insert point to the unreachable block.
+				irBuilder.SetInsertPoint(unreachableBlock);
+			}
+		
+			return typedZeroConstants[(size_t)type];
+		}
+		DispatchResult visitReturn(TypeId type,const Return* ret)
+		{
+			auto returnValue = astFunction->type.returnType == TypeId::Void ? nullptr
+				: dispatch(*this,ret->value,astFunction->type.returnType);
+
+			if(irBuilder.GetInsertBlock() != unreachableBlock)
+			{
+				if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
+				else { irBuilder.CreateRet(returnValue); }
+			
+				// Set the insert point to the unreachable block.
+				irBuilder.SetInsertPoint(unreachableBlock);
+			}
+
+			return typedZeroConstants[(size_t)type];
+		}
+		DispatchResult visitUnreachable(TypeId type,const Unreachable* unreachable)
 		{
 			if(irBuilder.GetInsertBlock() != unreachableBlock)
 			{
@@ -794,7 +798,12 @@ namespace LLVMJIT
 		}
 
 		// Create the function table globals.
+		auto functionPointerTableElementType = llvm::StructType::get(context,{
+			llvm::Type::getInt8PtrTy(context),
+			sizeof(uintptr) == 8 ? llvm::Type::getInt64Ty(context) : llvm::Type::getInt32Ty(context)
+			});
 		moduleIR.functionTablePointers.resize(astModule->functionTables.size());
+		moduleIR.functionTableIndexMasks.resize(astModule->functionTables.size());
 		for(uintptr tableIndex = 0;tableIndex < astModule->functionTables.size();++tableIndex)
 		{
 			auto astFunctionTable = astModule->functionTables[tableIndex];
@@ -803,18 +812,30 @@ namespace LLVMJIT
 			for(uint32 functionIndex = 0;functionIndex < astFunctionTable.numFunctions;++functionIndex)
 			{
 				assert(astFunctionTable.functionIndices[functionIndex] < moduleIR.functions.size());
-				llvmFunctionTableElements[functionIndex] = moduleIR.functions[astFunctionTable.functionIndices[functionIndex]];
+				auto signatureIndex = moduleIR.getSignatureIndex(astModule->functions[astFunctionTable.functionIndices[functionIndex]]->type);
+				auto llvmFunction = moduleIR.functions[astFunctionTable.functionIndices[functionIndex]];
+				llvmFunctionTableElements[functionIndex] = llvm::ConstantStruct::get(
+					functionPointerTableElementType,
+					{
+						llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(llvmFunction,llvm::Type::getInt8PtrTy(context)),
+						compileLiteral((uintptr)signatureIndex)
+					});
 			}
-			// Verify that the number of elements is a power of two, so we can use bitwise and to prevent out-of-bounds accesses.
-			assert((astFunctionTable.numFunctions & (astFunctionTable.numFunctions-1)) == 0);
+			// Pad the function table to be a power of two number of functions.
+			assert(llvmFunctionTableElements.size());
+			if(llvmFunctionTableElements.size() >= UINT32_MAX) { throw; }
+			const uint32 numFunctionsPowerOfTwo = 1 << Platform::ceilLogTwo(llvmFunctionTableElements.size());
+			while(llvmFunctionTableElements.size() < numFunctionsPowerOfTwo)
+			{ llvmFunctionTableElements.push_back(llvmFunctionTableElements[0]); };
 
 			// Create a LLVM global variable that holds the array of function pointers.
-			auto llvmFunctionTablePointerType = llvm::ArrayType::get(asLLVMType(astFunctionTable.type)->getPointerTo(),llvmFunctionTableElements.size());
+			auto llvmFunctionTablePointerType = llvm::ArrayType::get(functionPointerTableElementType,llvmFunctionTableElements.size());
 			auto llvmFunctionTablePointer = new llvm::GlobalVariable(
 				*moduleIR.llvmModule,llvmFunctionTablePointerType,true,llvm::GlobalValue::PrivateLinkage,
 				llvm::ConstantArray::get(llvmFunctionTablePointerType,llvmFunctionTableElements)
 				);
 			moduleIR.functionTablePointers[tableIndex] = llvmFunctionTablePointer;
+			moduleIR.functionTableIndexMasks[tableIndex] = compileLiteral(numFunctionsPowerOfTwo - 1);
 		}
 
 		// Compile each function in the module.

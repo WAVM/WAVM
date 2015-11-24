@@ -61,7 +61,7 @@ namespace ASMJS
 	}
 
 	// An AST visitor that lowers certain operations that aren't supported by ASM.JS:
-	//	- turns ifs, loops, blocks, labels, switches, branches, returns, etc into statements
+	//	- turns ifs, loops, blocks, labels, branchTable, branches, returns, etc into statements
 	//	- I8, I16, and I64 operations (todo)
 	//	- boolean operations (todo)
 	//	- unaligned memory operations (todo)
@@ -185,7 +185,7 @@ namespace ASMJS
 		}
 		LoweredExpression visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
-			const FunctionType& functionType = module->functionTables[callIndirect->tableIndex].type;
+			const FunctionType& functionType = callIndirect->functionType;
 			
 			// Lower the function index.
 			auto functionIndex = dispatch(*this,callIndirect->functionIndex,TypeId::I32);
@@ -204,43 +204,8 @@ namespace ASMJS
 			// Create a new CallIndirect node.
 			return LoweredExpression(
 				statements,
-				TypedExpression(new(arena) CallIndirect(getPrimaryTypeClass(type),callIndirect->tableIndex,as<IntClass>(functionIndex.value),parameters),type)
+				TypedExpression(new(arena) CallIndirect(getPrimaryTypeClass(type),callIndirect->tableIndex,callIndirect->functionType,as<IntClass>(functionIndex.value),parameters),type)
 				);
-		}
-		template<typename Class>
-		LoweredExpression visitSwitch(TypeId type,const Switch<Class>* switch_)
-		{
-			auto endTarget = new(arena) BranchTarget(TypeId::Void);
-			TypedExpression value;
-			uintptr resultLocalIndex = 0;
-			if(type != TypeId::Void)
-			{
-				// If the switch is used as a value, create a local variable and use the variable's value as the value of the switch.
-				resultLocalIndex = createLocalVariable(type);
-				value = TypedExpression(new(arena) GetLocal(Class::id,resultLocalIndex),type);
-			}
-			// Store the branch target and the switch's result variable in branchTargetRemap so branching to the end of the switch will set the variable.
-			branchTargetRemap[switch_->endTarget] = {endTarget,resultLocalIndex};
-
-			// Lower the switch arms.
-			auto switchArms = new(arena) SwitchArm[switch_->numArms];
-			for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
-			{
-				auto armType = armIndex + 1 == switch_->numArms ? type : TypeId::Void;
-				auto armValue = dispatch(*this,switch_->arms[armIndex].value,armType);
-				switchArms[armIndex].key = switch_->arms[armIndex].key;
-
-				// If the final arm of the switch is an expression, assign it to the switch's value variable.
-				switchArms[armIndex].value = armType == TypeId::Void ? sequenceValue(arena,armValue)
-					: setValueToLocal(arena,armValue,resultLocalIndex);
-			}
-
-			// Create a new Switch node as a statement.
-			auto key = dispatch(*this,switch_->key);
-			VoidExpression* statements = key.statements;
-			statements = concatStatements(arena,statements,
-				new(arena) Switch<VoidClass>(key.value,switch_->numArms - 1,switch_->numArms,switchArms,endTarget));
-			return LoweredExpression(statements,value);
 		}
 		template<typename Class>
 		LoweredExpression visitIfElse(TypeId type,const IfElse<Class>* ifElse)
@@ -333,13 +298,6 @@ namespace ASMJS
 				);
 		}
 		template<typename Class>
-		LoweredExpression visitReturn(TypeId type,const Return<Class>* ret)
-		{
-			auto value = function->type.returnType == TypeId::Void ? LoweredExpression()
-				: dispatch(*this,ret->value,function->type.returnType);
-			return LoweredExpression(concatStatements(arena,value.statements,new(arena) Return<VoidClass>(value.value.expression)));
-		}
-		template<typename Class>
 		LoweredExpression visitLoop(TypeId type,const Loop<Class>* loop)
 		{
 			auto continueTarget = new(arena) BranchTarget(TypeId::Void);
@@ -360,12 +318,11 @@ namespace ASMJS
 			}
 
 			// Create a new Loop node.
-			auto expression = dispatch(*this,loop->expression,TypeId::Void);
-			auto loopStatement = new(arena) Loop<VoidClass>(sequenceValue(arena,expression),breakTarget,continueTarget);
+			auto expression = dispatch(*this,loop->expression,type);
+			auto loopStatement = new(arena) Loop<VoidClass>(setValueToLocal(arena,expression,resultLocalIndex),breakTarget,continueTarget);
 			return LoweredExpression(loopStatement,value);
 		}
-		template<typename Class>
-		LoweredExpression visitBranch(TypeId type,const Branch<Class>* branch)
+		LoweredExpression visitBranch(TypeId type,const Branch* branch)
 		{
 			auto loweredBranchTarget = branchTargetRemap[branch->branchTarget];
 			VoidExpression* statements = nullptr;
@@ -376,8 +333,38 @@ namespace ASMJS
 				auto value = dispatch(*this,branch->value,branch->branchTarget->type);
 				statements = setValueToLocal(arena,value,loweredBranchTarget.valueLocalIndex);
 			}
-			statements = concatStatements(arena,statements,new(arena) Branch<VoidClass>(loweredBranchTarget.target,nullptr));
+			statements = concatStatements(arena,statements,as<VoidClass>(new(arena) Branch(loweredBranchTarget.target,nullptr)));
 			return LoweredExpression(statements);
+		}
+		LoweredExpression visitBranchTable(TypeId type,const BranchTable* branchTable)
+		{
+			TypedExpression value;
+			uintptr resultLocalIndex = 0;
+			if(type != TypeId::Void)
+			{
+				// If the switch is used as a value, create a local variable and use the variable's value as the value of the switch.
+				resultLocalIndex = createLocalVariable(type);
+				value = TypedExpression(new(arena) GetLocal(getPrimaryTypeClass(type),resultLocalIndex),type);
+			}
+
+			// Remap the table and default targets.
+			auto defaultTarget = branchTargetRemap[branchTable->defaultTarget].target;
+			auto tableTargets = new(arena) BranchTarget*[branchTable->numTableTargets];
+			for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
+			{ tableTargets[tableIndex] = branchTargetRemap[branchTable->tableTargets[tableIndex]].target; }
+
+			// Create a new BranchTable node as a statement.
+			auto index = dispatch(*this,branchTable->index);
+			VoidExpression* statements = index.statements;
+			statements = concatStatements(arena,statements,
+				as<VoidClass>(new(arena) BranchTable(index.value,defaultTarget,tableTargets,branchTable->numTableTargets)));
+			return LoweredExpression(statements,value);
+		}
+		LoweredExpression visitReturn(TypeId type,const Return* ret)
+		{
+			auto value = function->type.returnType == TypeId::Void ? LoweredExpression()
+				: dispatch(*this,ret->value,function->type.returnType);
+			return LoweredExpression(concatStatements(arena,value.statements,as<VoidClass>(new(arena) Return(value.value.expression))));
 		}
 
 		template<typename OpAsType>
@@ -411,7 +398,7 @@ namespace ASMJS
 		VoidExpression* loweredStatements = nullptr;
 		if(returnType == TypeId::Void) { loweredStatements = sequenceValue(arena,loweredExpression); }
 		else if(!loweredExpression.value) { loweredStatements = loweredExpression.statements; }
-		else { loweredStatements = concatStatements(arena,loweredExpression.statements,as<VoidClass>(new(arena) Return<VoidClass>(loweredExpression.value.expression))); }
+		else { loweredStatements = concatStatements(arena,loweredExpression.statements,as<VoidClass>(new(arena) Return(loweredExpression.value.expression))); }
 		loweredFunction.expression = loweredStatements;
 		return loweredFunction;
 	}
@@ -611,8 +598,7 @@ namespace ASMJS
 			return out << literal->value;
 		}
 
-		template<typename Class>
-		DispatchResult visitError(TypeId type,const Error<Class>* error)
+		DispatchResult visitError(TypeId type,const Error* error)
 		{
 			return out << "error(\"" << error->message << "\')";
 		}
@@ -732,7 +718,7 @@ namespace ASMJS
 		}
 		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
-			auto& functionType = module->functionTables[callIndirect->tableIndex].type;
+			auto& functionType = callIndirect->functionType;
 			printCoercePrefix(out,functionType.returnType);
 			moduleContext.printFunctionTableName(callIndirect->tableIndex);
 			out << '[';
@@ -744,22 +730,6 @@ namespace ASMJS
 			return out;
 		}
 		
-		template<typename Class>
-		DispatchResult visitSwitch(TypeId type,const Switch<Class>* switch_)
-		{
-			auto labelName = addLabel(switch_->endTarget);
-			out << labelName << ":switch(";
-			dispatch(*this,switch_->key);
-			out << ")\n{\n";
-			for(uintptr armIndex = 0;armIndex < switch_->numArms;++armIndex)
-			{
-				if(armIndex != 0) { out << ";\n"; }
-				if(armIndex == switch_->defaultArmIndex) { out << "default:"; }
-				else { out << "case " << switch_->arms[armIndex].key << ':'; }
-				dispatch(*this,switch_->arms[armIndex].value,TypeId::Void);
-			}
-			return out << ";\n}";
-		}
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
 		{
@@ -801,30 +771,38 @@ namespace ASMJS
 			return out;
 		}
 		template<typename Class>
-		DispatchResult visitReturn(TypeId type,const Return<Class>* ret)
-		{
-			out << "return";
-			if(function->type.returnType != TypeId::Void) { out << " "; dispatch(*this,ret->value,function->type.returnType); };
-			return out;
-		}
-		template<typename Class>
 		DispatchResult visitLoop(TypeId type,const Loop<Class>* loop)
 		{
 			auto labelName = addLabel(loop->breakTarget,loop->continueTarget);
 			out << labelName << ":do\n{\n";
-			dispatch(*this,loop->expression);
-			return out << ";\n}\nwhile(1)";
+			dispatch(*this,loop->expression,type);
+			return out << ";\n}\nwhile(0)";
 		}
-		template<typename Class>
-		DispatchResult visitBranch(TypeId type,const Branch<Class>* branch)
+		DispatchResult visitBranch(TypeId type,const Branch* branch)
 		{
 			assert(!branch->value);
 			assert(branch->branchTarget->type == TypeId::Void);
 			out << branchTargetStatementMap[branch->branchTarget];
 			return out;
 		}
-		template<typename Class>
-		DispatchResult visitUnreachable(TypeId type,const Unreachable<Class>* unreachable)
+		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
+		{
+			out << "switch(";
+			dispatch(*this,branchTable->index);
+			out << ")\n{\n";
+			for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
+			{
+				out << "case " << tableIndex << ": " << branchTargetStatementMap[branchTable->tableTargets[tableIndex]] << ";\n";
+			}
+			return out << "default: " << branchTargetStatementMap[branchTable->defaultTarget] << ";\n}";
+		}
+		DispatchResult visitReturn(TypeId type,const Return* ret)
+		{
+			out << "return";
+			if(function->type.returnType != TypeId::Void) { out << " "; dispatch(*this,ret->value,function->type.returnType); };
+			return out;
+		}
+		DispatchResult visitUnreachable(TypeId type,const Unreachable* unreachable)
 		{
 			return out;
 		}

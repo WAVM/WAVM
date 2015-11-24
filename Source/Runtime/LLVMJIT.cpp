@@ -234,6 +234,13 @@ namespace LLVMJIT
 		}
 	}
 
+	void printModule(const llvm::Module* llvmModule,const char* filename)
+	{
+		std::error_code errorCode;
+		llvm::raw_fd_ostream dumpFileStream(llvm::StringRef(filename),errorCode,llvm::sys::fs::OpenFlags::F_Text);
+		llvmModule->print(dumpFileStream,nullptr);
+	}
+
 	bool compileModule(const AST::Module* astModule)
 	{
 		auto llvmModule = emitModule(astModule);
@@ -250,16 +257,19 @@ namespace LLVMJIT
 
 		// Verify the module.
 		#ifdef _DEBUG
+			printModule(llvmModule,"llvmDump.ll");
+
 			std::string verifyOutputString;
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
 			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
 			{
-				std::error_code errorCode;
-				llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
-				llvmModule->print(dumpFileStream,nullptr);
 				std::cerr << "LLVM verification errors:\n" << verifyOutputStream.str() << std::endl;
 				return false;
 			}
+
+			std::error_code errorCode;
+			llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
+			llvmModule->print(dumpFileStream,nullptr);
 		#endif
 
 		// Run some optimization on the module's functions.
@@ -278,6 +288,10 @@ namespace LLVMJIT
 		delete fpm;
 
 		std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
+		
+		#ifdef _DEBUG
+			printModule(llvmModule,"llvmOptimizedDump.ll");
+		#endif
 
 		// Pass the module to the JIT compiler.
 		Core::Timer machineCodeTimer;

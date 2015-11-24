@@ -34,7 +34,7 @@ namespace Platform
 		size_t preferredVirtualPageSize = systemInfo.dwPageSize;
 		// Verify our assumption that the virtual page size is a power of two.
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
-		return ceilLogTwo(preferredVirtualPageSize);
+		return floorLogTwo(preferredVirtualPageSize);
 	}
 	uint32 getPageSizeLog2()
 	{

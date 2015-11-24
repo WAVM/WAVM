@@ -56,7 +56,7 @@ namespace AST
     typename Class::ClassExpression* as(const UntypedExpression* expression)
     {
 #ifdef _DEBUG
-        assert(Class::id == TypeClassId::Any || expression->typeClass == Class::id);
+        assert(isSubclass(Class::id,expression->typeClass));
 #endif
         return (Expression<Class>*)expression;
     }
@@ -120,6 +120,10 @@ namespace AST
 		{
 			return left.returnType != right.returnType || left.parameters != right.parameters;
 		}
+		friend bool operator<(const FunctionType& left,const FunctionType& right)
+		{
+			return left.returnType < right.returnType || left.parameters < right.parameters;
+		}
 	};
 
 	struct Function
@@ -135,7 +139,6 @@ namespace AST
 
 	struct FunctionTable
 	{
-		FunctionType type;
 		uintptr* functionIndices;
 		size_t numFunctions;
 	};

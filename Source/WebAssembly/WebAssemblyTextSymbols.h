@@ -12,6 +12,7 @@ namespace WebAssemblyText
 	#define ENUM_WAST_DECL_SYMBOLS() \
 		WAST_SYMBOL(module) \
 		WAST_SYMBOL(func) \
+		WAST_SYMBOL(type) \
 		WAST_SYMBOL(table) \
 		WAST_SYMBOL(export) \
 		WAST_SYMBOL(import) \
@@ -31,7 +32,7 @@ namespace WebAssemblyText
 		WAST_SYMBOL(offset)
 	
 	#define ENUM_WAST_ANY_OPCODE_SYMBOLS() \
-		TYPED_WAST_SYMBOL(switch) \
+		TYPED_WAST_SYMBOL(tableswitch) \
 		TYPED_WAST_SYMBOL(select) \
 		WAST_SYMBOL(call) \
 		WAST_SYMBOL(call_import) \
@@ -199,7 +200,7 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(callImport,call_import)
 		MAP_OP_SYMBOL(callIndirect,call_indirect)
 		MAP_OP_SYMBOL(loop,loop)
-		MAP_OP_SYMBOL(switch_,switch)
+		MAP_OP_SYMBOL(branchTable,tableswitch)
 		MAP_OP_SYMBOL(ifElse,if)
 		MAP_OP_SYMBOL(label,label)
 		MAP_OP_SYMBOL(branch,br)

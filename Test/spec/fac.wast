@@ -1,9 +1,7 @@
-;; (c) 2015 Andreas Rossberg
-
 (module
   ;; Recursive factorial
   (func (param i64) (result i64)
-    (if (i64.eq (get_local 0) (i64.const 0))
+    (if_else (i64.eq (get_local 0) (i64.const 0))
       (i64.const 1)
       (i64.mul (get_local 0) (call 0 (i64.sub (get_local 0) (i64.const 1))))
     )
@@ -11,7 +9,7 @@
 
   ;; Recursive factorial named
   (func $fac-rec (param $n i64) (result i64)
-    (if (i64.eq (get_local $n) (i64.const 0))
+    (if_else (i64.eq (get_local $n) (i64.const 0))
       (i64.const 1)
       (i64.mul
         (get_local $n)
@@ -27,14 +25,15 @@
     (set_local 2 (i64.const 1))
     (label
       (loop
-        (if
+        (if_else
           (i64.eq (get_local 1) (i64.const 0))
-          (break 0)
+          (br 1)
           (block
             (set_local 2 (i64.mul (get_local 1) (get_local 2)))
             (set_local 1 (i64.sub (get_local 1) (i64.const 1)))
           )
         )
+        (br 0)
       )
     )
     (return (get_local 2))
@@ -47,15 +46,16 @@
     (set_local $i (get_local $n))
     (set_local $res (i64.const 1))
     (label $done
-      (loop
-        (if
+      (loop $loop
+        (if_else
           (i64.eq (get_local $i) (i64.const 0))
-          (break $done)
+          (br $done)
           (block
             (set_local $res (i64.mul (get_local $i) (get_local $res)))
             (set_local $i (i64.sub (get_local $i) (i64.const 1)))
           )
         )
+        (br $loop)
       )
     )
     (return (get_local $res))
@@ -71,4 +71,4 @@
 (assert_return (invoke "fac-iter" (i64.const 25)) (i64.const 7034535277573963776))
 (assert_return (invoke "fac-rec-named" (i64.const 25)) (i64.const 7034535277573963776))
 (assert_return (invoke "fac-iter-named" (i64.const 25)) (i64.const 7034535277573963776))
-(assert_trap (invoke "fac-rec" (i64.const 1073741824)) "runtime: callstack exhausted")
+(assert_trap (invoke "fac-rec" (i64.const 1073741824)) "call stack exhausted")
