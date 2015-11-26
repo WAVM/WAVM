@@ -628,9 +628,9 @@ namespace WebAssemblyText
 
 					// Construct the IfElse node.
 					return requireFullMatch(nodeIt,"if",new(arena)IfElse<Class>(condition,thenExpression,elseExpression));
-					}
+				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(select)
-					{
+				{
 					// Parse the if condition, then-expression, and else-expression.
 					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"select condition");
 					auto trueValue = parseTypedExpression<Class>(resultType,nodeIt,"select true value");
@@ -638,12 +638,12 @@ namespace WebAssemblyText
 
 					// Construct the Select node.
 					return requireFullMatch(nodeIt,"select",new(arena)Select<Class>(condition,trueValue,falseValue));
-								}
+				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(loop)
-							{
+				{
 					auto continueTarget = new(arena) BranchTarget(TypeId::Void);
 					auto breakTarget = new(arena) BranchTarget(resultType);
-					
+
 					// Parse a label names for the continue and break branch targets.
 					const char* breakLabelName;
 					bool hasBreakLabel = parseName(nodeIt,breakLabelName);
@@ -696,7 +696,7 @@ namespace WebAssemblyText
 
 					// Parse the inline cases.
 					struct Case
-				{
+					{
 						BranchTarget* branchTarget;
 						UntypedExpression* value;
 					};
@@ -769,7 +769,7 @@ namespace WebAssemblyText
 								new(arena) Label<VoidClass>(cases[caseIndex].branchTarget,voidExpression),
 								as<VoidClass>(cases[caseIndex].value)
 								);
-					}
+						}
 						result = new Sequence<Class>(
 							new(arena) Label<VoidClass>(cases[cases.size() - 1].branchTarget,voidExpression),
 							as<Class>(cases[cases.size() - 1].value)
