@@ -419,9 +419,22 @@ namespace SExp
 						exponent = -1023;
 					}
 				}
-				else if(integerPart != 1)
+				else
 				{
-					return createError(startLocus,"hexadecimal float must start with 0x1. or 0x0.");
+					while(integerPart != 1)
+					{
+						if(fractionalPart & 1)
+						{
+							return createError(startLocus,"number has more bits than can be represented by 64-bit float");
+						}
+						if(exponent >= 1022)
+						{
+							return createError(startLocus,"normalized exponent must be between -1022 and +1023");
+						}
+						fractionalPart = ((integerPart & 1) << 51) | (fractionalPart >> 1);
+						integerPart >>= 1;
+						++exponent;
+					};
 				}
 
 				// Encode the float and create a node for it.
