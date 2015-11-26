@@ -61,22 +61,47 @@ namespace Runtime
 		}
 	}
 
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,F32,F32,left,F32,right)
+	template<typename Float>
+	Float floatCeil(Float value)
 	{
-		return floatMin<float32,Floats::F32Components>(left,right);
+		if(value != value) { return quietNaN(value); }
+		else { return ceil(value); }
 	}
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,F64,F64,left,F64,right)
+	
+	template<typename Float>
+	Float floatFloor(Float value)
 	{
-		return floatMin<float64,Floats::F64Components>(left,right);
+		if(value != value) { return quietNaN(value); }
+		else { return floor(value); }
 	}
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,F32,F32,left,F32,right)
+	
+	template<typename Float>
+	Float floatTrunc(Float value)
 	{
-		return floatMax<float32,Floats::F32Components>(left,right);
+		if(value != value) { return quietNaN(value); }
+		else { return trunc(value); }
 	}
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,F64,F64,left,F64,right)
+	
+	template<typename Float>
+	Float floatNearest(Float value)
 	{
-		return floatMax<float64,Floats::F64Components>(left,right);
+		if(value != value) { return quietNaN(value); }
+		else { return nearbyint(value); }
 	}
+
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,F32,F32,left,F32,right) { return floatMin<float32,Floats::F32Components>(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,F64,F64,left,F64,right) { return floatMin<float64,Floats::F64Components>(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,F32,F32,left,F32,right) { return floatMax<float32,Floats::F32Components>(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,F64,F64,left,F64,right) { return floatMax<float64,Floats::F64Components>(left,right); }
+
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,F32,F32,value) { return floatCeil<float32>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,F64,F64,value) { return floatCeil<float64>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,F32,F32,value) { return floatFloor<float32>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,F64,F64,value) { return floatFloor<float64>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,F32,F32,value) { return floatTrunc<float32>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,F64,F64,value) { return floatTrunc<float64>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,F32,F32,value) { return floatNearest<float32>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,F64,F64,value) { return floatNearest<float64>(value); }
 
 	template<typename Dest,typename Source,bool isMinInclusive>
 	Dest floatToInt(Source sourceValue,Source minValue,Source maxValue)
