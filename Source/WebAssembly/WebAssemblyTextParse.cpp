@@ -641,13 +641,16 @@ namespace WebAssemblyText
 					auto breakTarget = new(arena) BranchTarget(resultType);
 
 					// Parse a label names for the continue and break branch targets.
-					const char* breakLabelName;
-					bool hasBreakLabel = parseName(nodeIt,breakLabelName);
-					ScopedBranchTarget scopedBreakTarget(*this,hasBreakLabel,breakLabelName,breakTarget,nodeIt);
+					const char* firstLabelName = nullptr;
+					const char* secondLabelName = nullptr;
+					bool hasFirstLabel = parseName(nodeIt,firstLabelName);
+					bool hasSecondLabel = hasFirstLabel && parseName(nodeIt,secondLabelName);
+					
+					const char* breakLabelName = hasSecondLabel ? firstLabelName : nullptr;
+					const char* continueLabelName = hasSecondLabel ? secondLabelName : (hasFirstLabel ? firstLabelName : nullptr);
 
-					const char* continueLabelName;
-					bool hasContinueLabel = parseName(nodeIt,continueLabelName);
-					ScopedBranchTarget scopedContinueTarget(*this,hasContinueLabel,continueLabelName,continueTarget,nodeIt);
+					ScopedBranchTarget scopedBreakTarget(*this,breakLabelName != nullptr,breakLabelName,breakTarget,nodeIt);
+					ScopedBranchTarget scopedContinueTarget(*this,continueLabelName != nullptr,continueLabelName,continueTarget,nodeIt);
 
 					// Parse the loop body.
 					auto expression = parseExpressionSequence<Class>(resultType,nodeIt,"loop body");
