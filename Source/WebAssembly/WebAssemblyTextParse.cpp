@@ -606,14 +606,13 @@ namespace WebAssemblyText
 			Symbol tag;
 			if(parseTreeNode(parentNodeIt,nodeIt) && parseSymbol(nodeIt,tag))
 			{
-				TypeId opType;
 				switch(tag)
 				{
 				default: return nullptr;
 				#define DEFINE_PARAMETRIC_UNTYPED_OP(symbol) \
-					throw; case Symbol::_##symbol: opType = TypeId::None;
+					throw; case Symbol::_##symbol:
 				#define DISPATCH_PARAMETRIC_TYPED_OP(opTypeName,opClassName,symbol) \
-					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##opClassName##Label;
+					throw; case Symbol::_##symbol##_##opTypeName: goto symbol##opClassName##Label;
 
 				DEFINE_PARAMETRIC_UNTYPED_OP(if_else)
 				{
