@@ -467,6 +467,29 @@ namespace LLVMJIT
 
 			return typedZeroConstants[(size_t)type];
 		}
+		DispatchResult visitBranchIf(const BranchIf* branchIf)
+		{
+			auto condition = dispatch(*this,branchIf->condition);
+
+			// If the branch target has a non-void type, compile the branch's value.
+			auto value = branchIf->branchTarget->type == TypeId::Void ? voidDummy
+				: dispatch(*this,branchIf->value,branchIf->branchTarget->type);
+
+			// Find the branch target context for this branch's target.
+			auto targetContext = findBranchTargetContext(branchIf->branchTarget);
+	
+			// Insert the branch instruction.
+			auto successorBlock = llvm::BasicBlock::Create(context,"branchIfSucc",llvmFunction);
+			auto exitBlock = compileCondBranch(condition,targetContext->basicBlock,successorBlock);
+			
+			// Add the branch's value to the list of incoming values for the branch target.
+			if(exitBlock) { targetContext->results = new(scopedArena) BranchResult {exitBlock,value,targetContext->results}; }
+
+			// Set the insert point to the unreachable block.
+			irBuilder.SetInsertPoint(successorBlock);
+
+			return typedZeroConstants[(size_t)TypeId::Void];
+		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
 			auto exitBlock = irBuilder.GetInsertBlock();

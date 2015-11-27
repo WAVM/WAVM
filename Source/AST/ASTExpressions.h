@@ -207,6 +207,16 @@ namespace AST
 		: NoneExpression(NoneOp::branch), branchTarget(inBranchTarget), value(inValue) {}
 	};
 	
+	struct BranchIf : public VoidExpression
+	{
+		BranchTarget* branchTarget;
+		Expression<BoolClass>* condition;
+		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it will be null.
+
+		BranchIf(BranchTarget* inBranchTarget,Expression<BoolClass>* inCondition,UntypedExpression* inValue)
+		: VoidExpression(VoidOp::branchIf), branchTarget(inBranchTarget), condition(inCondition), value(inValue) {}
+	};
+	
 	struct BranchTable : public NoneExpression
 	{
 		TypedExpression index;

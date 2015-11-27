@@ -348,6 +348,14 @@ namespace WebAssemblyText
 			if(branch->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branch->value,branch->branchTarget->type); }
 			return subtreeStream;
 		}
+		DispatchResult visitBranchIf(const BranchIf* branchIf)
+		{
+			auto subtreeStream = createTaggedSubtree(Symbol::_br_if)
+				<< dispatch(*this,branchIf->condition)
+				<< getLabelName(branchIf->branchTarget);
+			if(branchIf->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branchIf->value,branchIf->branchTarget->type); }
+			return subtreeStream;
+		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
 			auto tableswitchStream = createTaggedSubtree(Symbol::_tableswitch);

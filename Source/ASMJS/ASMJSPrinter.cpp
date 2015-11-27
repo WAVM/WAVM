@@ -336,6 +336,23 @@ namespace ASMJS
 			statements = concatStatements(arena,statements,as<VoidClass>(new(arena) Branch(loweredBranchTarget.target,nullptr)));
 			return LoweredExpression(statements);
 		}
+		LoweredExpression visitBranchIf(const BranchIf* branchIf)
+		{
+			auto loweredBranchTarget = branchTargetRemap[branchIf->branchTarget];
+			VoidExpression* statements = nullptr;
+			if(branchIf->branchTarget->type != TypeId::Void)
+			{
+				// If the branch target is expecting a value, the branchTargetRemap entry for it will have a local variable to put the value in.
+				// Assign the value passed to the branch target to the variable before breaking.
+				auto value = dispatch(*this,branchIf->value,branchIf->branchTarget->type);
+				statements = setValueToLocal(arena,value,loweredBranchTarget.valueLocalIndex);
+			}
+			auto condition = dispatch(*this,branchIf->condition,TypeId::Bool);
+
+			statements = concatStatements(arena,concatStatements(arena,condition.statements,statements),
+				new(arena) BranchIf(loweredBranchTarget.target,as<BoolClass>(condition.value),nullptr));
+			return LoweredExpression(statements);
+		}
 		LoweredExpression visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
 			TypedExpression value;
@@ -783,6 +800,15 @@ namespace ASMJS
 			assert(!branch->value);
 			assert(branch->branchTarget->type == TypeId::Void);
 			out << branchTargetStatementMap[branch->branchTarget];
+			return out;
+		}
+		DispatchResult visitBranchIf(const BranchIf* branchIf)
+		{
+			assert(!branchIf->value);
+			assert(branchIf->branchTarget->type == TypeId::Void);
+			out << "if("; dispatch(*this,branchIf->condition); out << "){";
+			out << branchTargetStatementMap[branchIf->branchTarget];
+			out << ";}";
 			return out;
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)

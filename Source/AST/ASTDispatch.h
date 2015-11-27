@@ -124,6 +124,7 @@ namespace AST
 		{
 		case VoidOp::nop: return visitor.visitNop((Nop*)expression);
 		case VoidOp::discardResult: return visitor.visitDiscardResult((DiscardResult*)expression);
+		case VoidOp::branchIf: return visitor.visitBranchIf((BranchIf*)expression);
 		default: return dispatchAny(visitor,expression,type);
 		}
 	}
@@ -303,6 +304,14 @@ namespace AST
 			auto value = branch->branchTarget->type == TypeId::Void ? nullptr
 				: visitChild(TypedExpression(branch->value,branch->branchTarget->type)).expression;
 			return TypedExpression(new(arena) Branch(branchTarget,value),TypeId::None);
+		}
+		DispatchResult visitBranchIf(const BranchIf* branchIf)
+		{
+			auto branchTarget = branchTargetRemap[branchIf->branchTarget];
+			auto condition = dispatch(*this,branchIf->condition);
+			auto value = branchIf->branchTarget->type == TypeId::Void ? nullptr
+				: visitChild(TypedExpression(branchIf->value,branchIf->branchTarget->type)).expression;
+			return TypedExpression(new(arena) BranchIf(branchTarget,as<BoolClass>(condition),value),TypeId::Void);
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{

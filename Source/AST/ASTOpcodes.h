@@ -113,7 +113,8 @@ namespace AST
 
 	#define ENUM_AST_OPS_Void() \
 		ENUM_AST_OPS_Any() \
-		AST_OP(discardResult) AST_OP(nop)
+		AST_OP(discardResult) AST_OP(nop) \
+		AST_OP(branchIf)
 
 	#define ENUM_AST_OPS_None() ENUM_AST_OPS_Any()
 

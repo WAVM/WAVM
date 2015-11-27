@@ -392,12 +392,8 @@ namespace WebAssemblyText
 						: parseTypedExpression(branchTarget->type,nodeIt,"break value");
 
 					// Create IfElse and Branch nodes.
-					auto result = new(arena)IfElse<VoidClass>(
-						condition,
-						as<VoidClass>(new(arena)Branch(branchTarget,value)),
-						as<VoidClass>(Nop::get())
-						);
-					return TypedExpression(requireFullMatch(nodeIt,"break",result),TypeId::Void);
+					auto result = new(arena) BranchIf(branchTarget,condition,value);
+					return TypedExpression(requireFullMatch(nodeIt,"br_if",result),TypeId::Void);
 				}
 
 				DEFINE_UNTYPED_OP(memory_size)		{ return parseIntrinsic<IntClass>("memory_size",FunctionType(TypeId::I32,{}),nodeIt); }
