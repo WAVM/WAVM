@@ -1341,7 +1341,7 @@ namespace WebAssemblyText
 				{
 					// If there's only a referenced type, use it.
 					function->type = std::move(referencedFunctionType);
-					for(auto parameterType : referencedFunctionType.parameters)
+					for(auto parameterType : function->type.parameters)
 					{
 						function->parameterLocalIndices.push_back(function->locals.size());
 						function->locals.push_back({parameterType,nullptr});
