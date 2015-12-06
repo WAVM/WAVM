@@ -1,5 +1,0 @@
-file(GLOB Sources "*.cpp")
-file(GLOB Headers "*.h")
-add_library(ASMJS SHARED ${Sources} ${Headers})
-add_definitions(-DASMJS_API=DLL_EXPORT)
-target_link_libraries(ASMJS Core AST)

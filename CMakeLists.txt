@@ -55,7 +55,6 @@ endif()
 add_subdirectory(Source/Core)
 add_subdirectory(Source/AST)
 add_subdirectory(Source/WebAssembly)
-add_subdirectory(Source/ASMJS)
 add_subdirectory(Source/Runtime)
 add_subdirectory(Source/Programs)
 
