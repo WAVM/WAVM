@@ -122,7 +122,8 @@ namespace AST
 		}
 		friend bool operator<(const FunctionType& left,const FunctionType& right)
 		{
-			return left.returnType < right.returnType || left.parameters < right.parameters;
+			return left.returnType < right.returnType
+				|| (left.returnType == right.returnType && left.parameters < right.parameters);
 		}
 	};
 
@@ -141,6 +142,7 @@ namespace AST
 	{
 		uintptr* functionIndices;
 		size_t numFunctions;
+		FunctionTable() : functionIndices(nullptr), numFunctions(0) {}
 	};
 
 	struct FunctionImport
@@ -172,7 +174,7 @@ namespace AST
 
 		std::vector<Function*> functions;
 		ExportNameToFunctionIndexMap exportNameToFunctionIndexMap;
-		std::vector<FunctionTable> functionTables;
+		FunctionTable functionTable;
 		std::vector<FunctionImport> functionImports;
 		std::vector<DataSegment> dataSegments;
 
@@ -186,7 +188,7 @@ namespace AST
 		Module(const Module& inCopy)
 		: functions(inCopy.functions)
 		, exportNameToFunctionIndexMap(inCopy.exportNameToFunctionIndexMap)
-		, functionTables(inCopy.functionTables)
+		, functionTable(inCopy.functionTable)
 		, functionImports(inCopy.functionImports)
 		, dataSegments(inCopy.dataSegments)
 		, initialNumBytesMemory(inCopy.initialNumBytesMemory)

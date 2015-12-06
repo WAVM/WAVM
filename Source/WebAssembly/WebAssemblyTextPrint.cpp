@@ -43,13 +43,38 @@ namespace WebAssemblyText
 		}
 	};
 
-	struct ModulePrintContext
+	struct PrintContext
 	{
 		Memory::Arena& arena;
+
+		PrintContext(Memory::Arena& inArena): arena(inArena) {}
+
+		SNodeOutputStream createSubtree()
+		{
+			SNodeOutputStream result(arena);
+			result.enterSubtree();
+			return result;
+		}
+		SNodeOutputStream createAttribute()
+		{
+			SNodeOutputStream result(arena);
+			result.enterAttribute();
+			return result;
+		}
+		SNodeOutputStream createTaggedSubtree(Symbol symbol) { auto subtree = createSubtree(); subtree << symbol; return subtree; }
+		SNodeOutputStream createTypedTaggedSubtree(TypeId type,Symbol symbol) { auto subtree = createSubtree(); subtree << getTypedSymbol(type,symbol); return subtree; }
+		SNodeOutputStream createBitypedTaggedSubtree(TypeId leftType,Symbol symbol,TypeId rightType) { auto subtree = createSubtree(); subtree << getBitypedSymbol(leftType,symbol,rightType); return subtree; }
+	};
+
+	struct ModulePrintContext : PrintContext
+	{
 		const Module* module;
 
+		std::map<FunctionType,uintptr> functionTypeToSignatureIndexMap;
+		std::vector<uint32> functionTableBaseIndices;
+		
 		ModulePrintContext(Memory::Arena& inArena,const Module* inModule)
-		: arena(inArena), module(inModule) {}
+		: PrintContext(inArena), module(inModule) {}
 		
 		std::string getFunctionImportName(uintptr importIndex) const
 		{
@@ -66,35 +91,39 @@ namespace WebAssemblyText
 			return std::to_string(functionTableIndex);
 		}
 		
-		SNodeOutputStream createSubtree()
+		uintptr getSignatureIndex(const FunctionType& type)
 		{
-			SNodeOutputStream result(arena);
-			result.enterSubtree();
-			return result;
+			auto signatureIt = functionTypeToSignatureIndexMap.find(type);
+			uintptr signatureIndex;
+			if(signatureIt != functionTypeToSignatureIndexMap.end()) { signatureIndex = signatureIt->second; }
+			else
+			{
+				signatureIndex = functionTypeToSignatureIndexMap.size();
+				functionTypeToSignatureIndexMap[type] = signatureIndex;
+			}
+			return signatureIndex;
 		}
-		SNodeOutputStream createAttribute()
+
+		std::string getSignatureName(uintptr signatureIndex)
 		{
-			SNodeOutputStream result(arena);
-			result.enterAttribute();
-			return result;
+			return "$sig" + std::to_string(signatureIndex);
 		}
-		SNodeOutputStream createTaggedSubtree(Symbol symbol) { auto subtree = createSubtree(); subtree << symbol; return subtree; }
-		SNodeOutputStream createTypedTaggedSubtree(TypeId type,Symbol symbol) { auto subtree = createSubtree(); subtree << getTypedSymbol(type,symbol); return subtree; }
-		SNodeOutputStream createBitypedTaggedSubtree(TypeId leftType,Symbol symbol,TypeId rightType) { auto subtree = createSubtree(); subtree << getBitypedSymbol(leftType,symbol,rightType); return subtree; }
 
 		SNodeOutputStream printFunction(uintptr functionIndex);
+		SNodeOutputStream printFunctionType(const FunctionType& functionType);
 		SNodeOutputStream print();
 	};
 
-	struct FunctionPrintContext : ModulePrintContext
+	struct FunctionPrintContext : PrintContext
 	{
 		typedef SNodeOutputStream DispatchResult;
 
+		ModulePrintContext& moduleContext;
 		const Function* function;
 		std::map<BranchTarget*,std::string> branchTargetIndexMap;
 
-		FunctionPrintContext(Memory::Arena& inArena,const Module* inModule,const Function* inFunction)
-		: ModulePrintContext(inArena,inModule), function(inFunction) {}
+		FunctionPrintContext(ModulePrintContext& inModuleContext,const Function* inFunction)
+		: PrintContext(inModuleContext.arena), moduleContext(inModuleContext), function(inFunction) {}
 
 		std::string getLabelName(BranchTarget* branchTarget)
 		{
@@ -240,25 +269,25 @@ namespace WebAssemblyText
 		DispatchResult visitCall(TypeId type,const Call* call,OpAsType)
 		{
 			auto subtreeStream = createTaggedSubtree(getAnyOpSymbol<AnyClass>(call->op()));
-			auto functionName = call->op() == AnyOp::callDirect ? getFunctionName(call->functionIndex) : getFunctionImportName(call->functionIndex);
-			auto functionType = call->op() == AnyOp::callDirect ? module->functions[call->functionIndex]->type : module->functionImports[call->functionIndex].type;
+			auto functionName = call->op() == AnyOp::callDirect
+				? moduleContext.getFunctionName(call->functionIndex)
+				: moduleContext.getFunctionImportName(call->functionIndex);
+			auto functionType = call->op() == AnyOp::callDirect
+				? moduleContext.module->functions[call->functionIndex]->type
+				: moduleContext.module->functionImports[call->functionIndex].type;
 			subtreeStream << functionName;
 			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
-			{
-				subtreeStream << dispatch(*this,call->parameters[parameterIndex],functionType.parameters[parameterIndex]);
-			}
+			{ subtreeStream << dispatch(*this,call->parameters[parameterIndex],functionType.parameters[parameterIndex]); }
 			return subtreeStream;
 		}
 		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
 			auto subtreeStream = createTaggedSubtree(Symbol::_call_indirect)
-				<< getFunctionTableName(callIndirect->tableIndex)
+				<< moduleContext.getSignatureName(moduleContext.getSignatureIndex(callIndirect->functionType))
 				<< dispatch(*this,callIndirect->functionIndex,TypeId::I32);
 			auto functionType = callIndirect->functionType;
 			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
-			{
-				subtreeStream << dispatch(*this,callIndirect->parameters[parameterIndex],functionType.parameters[parameterIndex]);
-			}
+			{ subtreeStream << dispatch(*this,callIndirect->parameters[parameterIndex],functionType.parameters[parameterIndex]); }
 			return subtreeStream;
 		}
 		
@@ -410,11 +439,11 @@ namespace WebAssemblyText
 		LoweringVisitor loweringVisitor(arena,module,&loweredFunction);
 		loweredFunction.expression = loweringVisitor(TypedExpression(loweredFunction.expression,loweredFunction.type.returnType)).expression;
 		
-		FunctionPrintContext functionContext(arena,module,&loweredFunction);
+		FunctionPrintContext functionContext(*this,&loweredFunction);
 		auto functionStream = createTaggedSubtree(Symbol::_func);
 
 		// Print the function name.
-		functionStream << functionContext.getFunctionName(functionIndex);
+		functionStream << getFunctionName(functionIndex);
 
 		// Print the function parameters.
 		for(auto parameterLocalIndex : loweredFunction.parameterLocalIndices)
@@ -456,6 +485,24 @@ namespace WebAssemblyText
 		functionStream << dispatch(functionContext,loweredFunction.expression,loweredFunction.type.returnType);
 
 		return functionStream;
+	}
+	
+	SNodeOutputStream ModulePrintContext::printFunctionType(const FunctionType& functionType)
+	{
+		auto funcStream = createTaggedSubtree(Symbol::_func);
+
+		auto paramStream = createTaggedSubtree(Symbol::_param);
+		for(auto parameterType : functionType.parameters) { paramStream << parameterType; }
+		funcStream << paramStream;
+
+		if(functionType.returnType != TypeId::Void)
+		{
+			auto resultStream = createTaggedSubtree(Symbol::_result);
+			resultStream << functionType.returnType;
+			funcStream << resultStream;
+		}
+		
+		return funcStream;
 	}
 
 	SNodeOutputStream ModulePrintContext::print()
@@ -505,17 +552,24 @@ namespace WebAssemblyText
 			moduleStream << importStream;
 		}
 
-		// Print the module function tables.
-		for(uintptr functionTableIndex = 0;functionTableIndex < module->functionTables.size();++functionTableIndex)
+		// Print the indirect call signatures.
+		for(uintptr elementIndex = 0;elementIndex < module->functionTable.numFunctions;++elementIndex)
 		{
-			auto functionTable = module->functionTables[functionTableIndex];
-			auto tableStream = createTaggedSubtree(Symbol::_table);
-			for(uintptr elementIndex = 0;elementIndex < functionTable.numFunctions;++elementIndex)
-			{
-				tableStream << getFunctionName(functionTable.functionIndices[elementIndex]);
-			}
-			moduleStream << tableStream;
+			auto function = module->functions[module->functionTable.functionIndices[elementIndex]];
+			getSignatureIndex(function->type);
 		}
+		for(auto functionTypeIndex : functionTypeToSignatureIndexMap)
+		{
+			moduleStream << (createTaggedSubtree(Symbol::_type)
+				<< getSignatureName(functionTypeIndex.second)
+				<< printFunctionType(functionTypeIndex.first));
+		}
+
+		// Print the module function table.
+		auto tableStream = createTaggedSubtree(Symbol::_table);
+		for(uintptr elementIndex = 0;elementIndex < module->functionTable.numFunctions;++elementIndex)
+		{ tableStream << getFunctionName(module->functionTable.functionIndices[elementIndex]); }
+		moduleStream << tableStream;
 
 		// Print the module exports.
 		for(auto exportIt : module->exportNameToFunctionIndexMap)
@@ -529,10 +583,15 @@ namespace WebAssemblyText
 		}
 
 		// Print the module functions.
+		const uintptr initialNumReferencedSignatures = functionTypeToSignatureIndexMap.size();
 		for(uintptr functionIndex = 0;functionIndex < module->functions.size();++functionIndex)
 		{
 			moduleStream << printFunction(functionIndex);
 		}
+
+		// Ensure that there weren't any references to function types first discovered while visiting the function expressions,
+		// which occurs after the function types have already been printed.
+		if(initialNumReferencedSignatures != functionTypeToSignatureIndexMap.size()) { throw; }
 
 		return moduleStream;
 	}

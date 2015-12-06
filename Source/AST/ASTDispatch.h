@@ -253,7 +253,7 @@ namespace AST
 			}
 
 			auto functionIndex = as<IntClass>(visitChild(TypedExpression(callIndirect->functionIndex,TypeId::I32)));
-			return TypedExpression(new(arena) CallIndirect(getPrimaryTypeClass(type),callIndirect->tableIndex,callIndirect->functionType,functionIndex,parameters),type);
+			return TypedExpression(new(arena) CallIndirect(getPrimaryTypeClass(type),callIndirect->functionType,functionIndex,parameters),type);
 		}
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)

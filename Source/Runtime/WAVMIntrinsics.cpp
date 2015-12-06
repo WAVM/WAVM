@@ -3,6 +3,8 @@
 #include "Intrinsics.h"
 #include "RuntimePrivate.h"
 
+#include <math.h>
+
 namespace Runtime
 {
 	float32 quietNaN(float32 value)
@@ -140,6 +142,11 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallSignatureMismatch,Void)
 	{
 		causeException(Exception::Cause::IndirectCallSignatureMismatch);
+	}
+
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallIndexOutOfBounds,Void)
+	{
+		causeException(Exception::Cause::OutOfBoundsFunctionTableIndex);
 	}
 
 	void initWAVMIntrinsics()

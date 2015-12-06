@@ -475,6 +475,7 @@ namespace WebAssemblyBinary
 		std::vector<FunctionType> functionTypes;
 		std::map<std::string,uintptr> intrinsicNameToFunctionImportIndex;
 		std::vector<FunctionType> functionTableTypes;
+		std::vector<uint32> functionTableBaseIndices;
 
 		struct Global
 		{
@@ -738,17 +739,23 @@ namespace WebAssemblyBinary
 		template<typename Class>
 		typename Class::ClassExpression* callIndirect(TypeId returnType,uint32 tableIndex)
 		{
-			if(tableIndex >= module.functionTables.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
+			if(tableIndex >= functionTableTypes.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
 			const FunctionType& functionType = functionTableTypes[tableIndex];
-			auto functionIndex = decodeExpression(I32Type());
+
+			// The function tables are merged into a single table in the AST, so give the index an appropriate offset.
+			auto baseIndex = functionTableBaseIndices[tableIndex];
+			auto relativeIndex = decodeExpression(I32Type());
+			auto absoluteIndex = baseIndex == 0 ? relativeIndex
+				: new(arena) Binary<IntClass>(IntOp::add,relativeIndex,new Literal<I32Type>(baseIndex));
+
 			auto parameters = decodeParameters(functionType.parameters);
 			return functionType.returnType == returnType
-				? as<Class>(new(arena) CallIndirect(Class::id,tableIndex,functionType,functionIndex,parameters))
+				? as<Class>(new(arena) CallIndirect(Class::id,functionType,absoluteIndex,parameters))
 				: recordError<Class>("callindirect: incorrect type");
 		}
 		VoidExpression* callIndirectStatement(uint32 tableIndex)
 		{
-			if(tableIndex >= module.functionTables.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
+			if(tableIndex >= functionTableTypes.size()) { throw new FatalDecodeException("callindirect: invalid table index"); }
 			const FunctionType& functionType = functionTableTypes[tableIndex];
 			switch(functionType.returnType)
 			{
@@ -1611,25 +1618,29 @@ namespace WebAssemblyBinary
 		void decodeFunctionPointerTables()
 		{
 			const uint32 numFunctionPointerTables = in.immU32();
-			module.functionTables.resize(numFunctionPointerTables);
 			functionTableTypes.resize(numFunctionPointerTables);
+			functionTableBaseIndices.resize(numFunctionPointerTables);
+			uintptr* functionIndices = nullptr;
+			size_t numFunctionIndices = 0;
 			for(uint32 tableIndex = 0;tableIndex < numFunctionPointerTables;++tableIndex)
 			{
-				auto& table = module.functionTables[tableIndex];
+				auto baseIndex = numFunctionIndices;
+				if(baseIndex > UINT32_MAX) { throw new FatalDecodeException("module contains more than 2^32 function table entries"); }
+				functionTableBaseIndices[tableIndex] = (uint32)baseIndex;
 				functionTableTypes[tableIndex] = functionTypes[in.boundedImmU32("function type index",functionTypes.size())];
+				
+				// Resize the function table index allocation.
+				auto numFunctions = in.immU32();
+				functionIndices = arena.reallocate(functionIndices,numFunctionIndices,numFunctionIndices + numFunctions);
+				numFunctionIndices += numFunctions;
 
 				// Decode the function table elements.
-				table.numFunctions = in.immU32();
-				table.functionIndices = new(arena) uintptr[table.numFunctions];
-				for(uint32 functionIndex = 0;functionIndex < table.numFunctions;++functionIndex)
-				{
-					table.functionIndices[functionIndex] = in.boundedImmU32("function index",module.functions.size());
-					if(table.functionIndices[functionIndex] >= module.functions.size()) { throw new FatalDecodeException("invalid function index"); }
-				}
-
-				// Verify that the number of elements is a non-zero power of two, so we can use bitwise and to prevent out-of-bounds accesses.
-				if((table.numFunctions & (table.numFunctions-1)) != 0) { throw new FatalDecodeException("function table have non-zero power of two number of entries"); }
+				for(uint32 functionIndex = 0;functionIndex < numFunctions;++functionIndex)
+				{ functionIndices[baseIndex + functionIndex] = in.boundedImmU32("function index",module.functions.size()); }
 			}
+			
+			module.functionTable.numFunctions = numFunctionIndices;
+			module.functionTable.functionIndices = functionIndices;
 		}
 
 		bool decode()

@@ -110,12 +110,11 @@ namespace AST
 
 	struct CallIndirect : public Expression<AnyClass>
 	{
-		uintptr tableIndex;
 		FunctionType functionType;
 		Expression<IntClass>* functionIndex; // must be I32
 		UntypedExpression** parameters;
-		CallIndirect(TypeClassId inTypeClass,uintptr inTableIndex,FunctionType inFunctionType,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
-		: Expression(AnyOp::callIndirect,inTypeClass), tableIndex(inTableIndex), functionType(inFunctionType), functionIndex(inFunctionIndex), parameters(inParameters) {}
+		CallIndirect(TypeClassId inTypeClass,FunctionType inFunctionType,Expression<IntClass>* inFunctionIndex,UntypedExpression** inParameters)
+		: Expression(AnyOp::callIndirect,inTypeClass), functionType(inFunctionType), functionIndex(inFunctionIndex), parameters(inParameters) {}
 	};
 
 	// Used to coerce an expression result to void.

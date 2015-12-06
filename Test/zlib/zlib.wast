@@ -625,11 +625,31 @@
 	(import $_set_ABORT "emscripten" "set_ABORT" (param i32) (result i32))
 	(import $_get_cttz_i8 "emscripten" "get_cttz_i8" (param) (result i32))
 	(import $_set_cttz_i8 "emscripten" "set_cttz_i8" (param i32) (result i32))
-	(table $func97 $func68)
-	(table $func90 $func56 $func52 $func82 $func23 $func90 $func90 $func90)
-	(table $func94 $func92)
-	(table $func93 $func15 $func12 $func9)
-	(table $func102 $func87)
+	(type $sig0 (func (param i32) (result i32)))
+	(type $sig3 (func (param i32 i32) (result i32)))
+	(type $sig1 (func (param i32 i32 i32) (result i32)))
+	(type $sig4 (func (param i32)))
+	(type $sig2 (func (param i32 i32)))
+	(table
+		$func97
+		$func68
+		$func90
+		$func56
+		$func52
+		$func82
+		$func23
+		$func90
+		$func90
+		$func90
+		$func94
+		$func92
+		$func93
+		$func15
+		$func12
+		$func9
+		$func102
+		$func87
+	)
 	(export "___errno_location" $____errno_location)
 	(export "_bitshift64Lshr" $__bitshift64Lshr)
 	(export "_bitshift64Shl" $__bitshift64Shl)
@@ -14134,11 +14154,14 @@
 																		(set_local
 																			$local49
 																			(call_indirect
-																				3
-																				(i32.load
-																					offset=8
-																					align=4
-																					(i32.add (i32.const 16) (i32.mul (i32.load offset=132 align=4 (get_local $local3)) (i32.const 12)))
+																				$sig3
+																				(i32.add
+																					(i32.load
+																						offset=8
+																						align=4
+																						(i32.add (i32.const 16) (i32.mul (i32.load offset=132 align=4 (get_local $local3)) (i32.const 12)))
+																					)
+																					(i32.const 12)
 																				)
 																				(get_local $local3)
 																				(get_local $local1)
@@ -23339,7 +23362,13 @@
 			(set_local $local2 (if_else (i32.eq (get_local $local10) (i32.const 8)) (i32.const 9) (get_local $local10)))
 			(set_local
 				$local10
-				(call_indirect 1 (get_local $local9) (i32.load offset=40 align=4 (get_local $local0)) (i32.const 1) (i32.const 5828))
+				(call_indirect
+					$sig1
+					(i32.add (get_local $local9) (i32.const 2))
+					(i32.load offset=40 align=4 (get_local $local0))
+					(i32.const 1)
+					(i32.const 5828)
+				)
 			)
 			(if_else
 				(i32.eq (get_local $local10) (i32.const 0))
@@ -23372,8 +23401,8 @@
 				align=4
 				(get_local $local10)
 				(call_indirect
-					1
-					(i32.load offset=32 align=4 (get_local $local0))
+					$sig1
+					(i32.add (i32.load offset=32 align=4 (get_local $local0)) (i32.const 2))
 					(i32.load offset=40 align=4 (get_local $local0))
 					(i32.shl (i32.const 1) (get_local $local2))
 					(i32.const 2)
@@ -23382,8 +23411,8 @@
 			(set_local
 				$local2
 				(call_indirect
-					1
-					(i32.load offset=32 align=4 (get_local $local0))
+					$sig1
+					(i32.add (i32.load offset=32 align=4 (get_local $local0)) (i32.const 2))
 					(i32.load offset=40 align=4 (get_local $local0))
 					(i32.load offset=44 align=4 (get_local $local10))
 					(i32.const 2)
@@ -23396,8 +23425,8 @@
 				align=4
 				(get_local $local10)
 				(call_indirect
-					1
-					(i32.load offset=32 align=4 (get_local $local0))
+					$sig1
+					(i32.add (i32.load offset=32 align=4 (get_local $local0)) (i32.const 2))
 					(i32.load offset=40 align=4 (get_local $local0))
 					(i32.load offset=76 align=4 (get_local $local10))
 					(i32.const 2)
@@ -23408,8 +23437,8 @@
 			(set_local
 				$local2
 				(call_indirect
-					1
-					(i32.load offset=32 align=4 (get_local $local0))
+					$sig1
+					(i32.add (i32.load offset=32 align=4 (get_local $local0)) (i32.const 2))
 					(i32.load offset=40 align=4 (get_local $local0))
 					(i32.shl (i32.const 1) (i32.add (get_local $local4) (i32.const 6)))
 					(i32.const 4)
@@ -24153,8 +24182,8 @@
 				(set_local $local12 (get_local $local10))
 				(block
 					(call_indirect
-						2
-						(i32.load offset=36 align=4 (get_local $local0))
+						$sig2
+						(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 						(i32.load offset=40 align=4 (get_local $local0))
 						(get_local $local5)
 					)
@@ -24167,8 +24196,8 @@
 				(set_local $local13 (get_local $local12))
 				(block
 					(call_indirect
-						2
-						(i32.load offset=36 align=4 (get_local $local0))
+						$sig2
+						(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 						(i32.load offset=40 align=4 (get_local $local0))
 						(get_local $local5)
 					)
@@ -24181,8 +24210,8 @@
 				(set_local $local14 (get_local $local13))
 				(block
 					(call_indirect
-						2
-						(i32.load offset=36 align=4 (get_local $local0))
+						$sig2
+						(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 						(i32.load offset=40 align=4 (get_local $local0))
 						(get_local $local5)
 					)
@@ -24195,8 +24224,8 @@
 				(set_local $local15 (get_local $local14))
 				(block
 					(call_indirect
-						2
-						(i32.load offset=36 align=4 (get_local $local0))
+						$sig2
+						(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 						(i32.load offset=40 align=4 (get_local $local0))
 						(get_local $local5)
 					)
@@ -24204,8 +24233,8 @@
 				)
 			)
 			(call_indirect
-				2
-				(i32.load offset=36 align=4 (get_local $local0))
+				$sig2
+				(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 				(i32.load offset=40 align=4 (get_local $local0))
 				(get_local $local15)
 			)
@@ -26161,8 +26190,8 @@
 					(set_local
 						$local4
 						(call_indirect
-							1
-							(i32.load offset=32 align=4 (get_local $local0))
+							$sig1
+							(i32.add (i32.load offset=32 align=4 (get_local $local0)) (i32.const 2))
 							(i32.load offset=40 align=4 (get_local $local0))
 							(i32.shl (i32.const 1) (i32.load offset=36 align=4 (get_local $local2)))
 							(i32.const 1)
@@ -26331,7 +26360,13 @@
 								(i32.eq (get_local $local4) (i32.const 0))
 								(set_local $local8 (get_local $local5))
 								(block
-									(call_indirect 1 (i32.load offset=36 align=4 (get_local $local0)) (get_local $local0) (i32.const 0) (i32.const 0))
+									(call_indirect
+										$sig1
+										(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 2))
+										(get_local $local0)
+										(i32.const 0)
+										(i32.const 0)
+									)
 									(set_local
 										$local9
 										(if_else (i32.eq (i32.load offset=20 align=4 (get_local $local0)) (i32.const 0)) (i32.const 4294967295) (get_local $local5))
@@ -27085,8 +27120,8 @@
 				(set_local $local5 (get_local $local2))
 				(block
 					(call_indirect
-						2
-						(i32.load offset=36 align=4 (get_local $local0))
+						$sig2
+						(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 						(i32.load offset=40 align=4 (get_local $local0))
 						(get_local $local4)
 					)
@@ -27099,8 +27134,8 @@
 				(set_local $local6 (get_local $local5))
 				(block
 					(call_indirect
-						2
-						(i32.load offset=36 align=4 (get_local $local0))
+						$sig2
+						(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 						(i32.load offset=40 align=4 (get_local $local0))
 						(get_local $local4)
 					)
@@ -27113,8 +27148,8 @@
 				(set_local $local7 (get_local $local6))
 				(block
 					(call_indirect
-						2
-						(i32.load offset=36 align=4 (get_local $local0))
+						$sig2
+						(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 						(i32.load offset=40 align=4 (get_local $local0))
 						(get_local $local4)
 					)
@@ -27131,8 +27166,8 @@
 				)
 				(block
 					(call_indirect
-						2
-						(i32.load offset=36 align=4 (get_local $local0))
+						$sig2
+						(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 10))
 						(i32.load offset=40 align=4 (get_local $local0))
 						(get_local $local4)
 					)
@@ -27141,7 +27176,12 @@
 					(set_local $local10 (i32.load offset=28 align=4 (get_local $local0)))
 				)
 			)
-			(call_indirect 2 (i32.load align=4 (get_local $local9)) (i32.load align=4 (get_local $local8)) (get_local $local10))
+			(call_indirect
+				$sig2
+				(i32.add (i32.load align=4 (get_local $local9)) (i32.const 10))
+				(i32.load align=4 (get_local $local8))
+				(get_local $local10)
+			)
 			(i32.store offset=28 align=4 (get_local $local0) (i32.const 0))
 			(set_local $local1 (if_else (i32.eq (get_local $local3) (i32.const 113)) (i32.const 4294967293) (i32.const 0)))
 			(return (get_local $local1))
@@ -27196,7 +27236,13 @@
 			)
 			(set_local
 				$local1
-				(call_indirect 1 (get_local $local4) (i32.load offset=40 align=4 (get_local $local0)) (i32.const 1) (i32.const 7116))
+				(call_indirect
+					$sig1
+					(i32.add (get_local $local4) (i32.const 2))
+					(i32.load offset=40 align=4 (get_local $local0))
+					(i32.const 1)
+					(i32.const 7116)
+				)
 			)
 			(if_else
 				(i32.eq (get_local $local1) (i32.const 0))
@@ -27273,7 +27319,13 @@
 								(block
 									(set_local
 										$local6
-										(call_indirect 1 (i32.load offset=36 align=4 (get_local $local2)) (get_local $local2) (get_local $local0) (get_local $local1))
+										(call_indirect
+											$sig1
+											(i32.add (i32.load offset=36 align=4 (get_local $local2)) (i32.const 2))
+											(get_local $local2)
+											(get_local $local0)
+											(get_local $local1)
+										)
 									)
 									(br $label1)
 								)
@@ -27317,7 +27369,13 @@
 											)
 											(if_else
 												(i32.lt_u
-													(call_indirect 1 (i32.load offset=36 align=4 (get_local $local2)) (get_local $local2) (get_local $local0) (get_local $local13))
+													(call_indirect
+														$sig1
+														(i32.add (i32.load offset=36 align=4 (get_local $local2)) (i32.const 2))
+														(get_local $local2)
+														(get_local $local0)
+														(get_local $local13)
+													)
 													(get_local $local13)
 												)
 												(block (set_local $local6 (get_local $local13)) (br $label1))
@@ -30275,7 +30333,13 @@
 							)
 							(if_else
 								(i32.eq
-									(call_indirect 1 (i32.load offset=36 align=4 (get_local $local0)) (get_local $local0) (get_local $local2) (i32.const 1))
+									(call_indirect
+										$sig1
+										(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 2))
+										(get_local $local0)
+										(get_local $local2)
+										(i32.const 1)
+									)
 									(i32.const 1)
 								)
 								(set_local $local6 (i32.load8_u (get_local $local2)))
@@ -30551,12 +30615,22 @@
 				(i32.eq (get_local $local4) (i32.const 0))
 				(block (set_local $local5 (get_local $local3)) (set_local $local6 (get_local $local2)))
 				(block
-					(call_indirect 2 (get_local $local3) (i32.load offset=40 align=4 (get_local $local0)) (get_local $local4))
+					(call_indirect
+						$sig2
+						(i32.add (get_local $local3) (i32.const 10))
+						(i32.load offset=40 align=4 (get_local $local0))
+						(get_local $local4)
+					)
 					(set_local $local5 (i32.load offset=36 align=4 (get_local $local0)))
 					(set_local $local6 (i32.load offset=28 align=4 (get_local $local0)))
 				)
 			)
-			(call_indirect 2 (get_local $local5) (i32.load offset=40 align=4 (get_local $local0)) (get_local $local6))
+			(call_indirect
+				$sig2
+				(i32.add (get_local $local5) (i32.const 10))
+				(i32.load offset=40 align=4 (get_local $local0))
+				(get_local $local6)
+			)
 			(i32.store offset=28 align=4 (get_local $local0) (i32.const 0))
 			(set_local $local1 (i32.const 0))
 			(return (get_local $local1))
@@ -30656,7 +30730,13 @@
 					(if_else
 						(i32.gt_u (i32.load offset=20 align=4 (get_local $local0)) (i32.load offset=28 align=4 (get_local $local0)))
 						(block
-							(call_indirect 1 (i32.load offset=36 align=4 (get_local $local0)) (get_local $local0) (i32.const 0) (i32.const 0))
+							(call_indirect
+								$sig1
+								(i32.add (i32.load offset=36 align=4 (get_local $local0)) (i32.const 2))
+								(get_local $local0)
+								(i32.const 0)
+								(i32.const 0)
+							)
 							(i32.reinterpret/bool (i32.eq (i32.load offset=20 align=4 (get_local $local0)) (i32.const 0)))
 						)
 						(i32.const 0)
@@ -30670,8 +30750,8 @@
 					(if_else
 						(i32.lt_u (get_local $local2) (get_local $local3))
 						(call_indirect
-							1
-							(i32.load offset=40 align=4 (get_local $local0))
+							$sig1
+							(i32.add (i32.load offset=40 align=4 (get_local $local0)) (i32.const 2))
 							(get_local $local0)
 							(i32.sub (get_local $local2) (get_local $local3))
 							(i32.const 1)
@@ -31424,7 +31504,9 @@
 		(param $local3 i32)
 		(result i32)
 		(block
-			(return (call_indirect 1 (get_local $local0) (get_local $local1) (get_local $local2) (get_local $local3)))
+			(return
+				(call_indirect $sig1 (i32.add (get_local $local0) (i32.const 2)) (get_local $local1) (get_local $local2) (get_local $local3))
+			)
 			(i32.const 0)
 		)
 	)
@@ -31533,14 +31615,17 @@
 		(param $local1 i32)
 		(param $local2 i32)
 		(result i32)
-		(block (return (call_indirect 3 (get_local $local0) (get_local $local1) (get_local $local2))) (i32.const 0))
+		(block
+			(return (call_indirect $sig3 (i32.add (get_local $local0) (i32.const 12)) (get_local $local1) (get_local $local2)))
+			(i32.const 0)
+		)
 	)
 	(func
 		$_dynCall_vii
 		(param $local0 i32)
 		(param $local1 i32)
 		(param $local2 i32)
-		(call_indirect 2 (get_local $local0) (get_local $local1) (get_local $local2))
+		(call_indirect $sig2 (i32.add (get_local $local0) (i32.const 10)) (get_local $local1) (get_local $local2))
 	)
 	(func
 		$func82
@@ -31597,7 +31682,7 @@
 		(param $local0 i32)
 		(param $local1 i32)
 		(result i32)
-		(block (return (call_indirect 0 (get_local $local0) (get_local $local1))) (i32.const 0))
+		(block (return (call_indirect $sig0 (get_local $local0) (get_local $local1))) (i32.const 0))
 	)
 	(func
 		$func87
@@ -31613,7 +31698,12 @@
 		(param $local1 i32)
 		(block (call_import $_set_STACKTOP (get_local $local0)) (call_import $_set_STACK_MAX (get_local $local1)))
 	)
-	(func $_dynCall_vi (param $local0 i32) (param $local1 i32) (call_indirect 4 (get_local $local0) (get_local $local1)))
+	(func
+		$_dynCall_vi
+		(param $local0 i32)
+		(param $local1 i32)
+		(call_indirect $sig4 (i32.add (get_local $local0) (i32.const 16)) (get_local $local1))
+	)
 	(func
 		$func90
 		(param $local0 i32)

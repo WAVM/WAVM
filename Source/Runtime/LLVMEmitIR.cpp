@@ -49,8 +49,8 @@ namespace LLVMJIT
 		llvm::Module* llvmModule;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::GlobalVariable*> functionImportPointers;
-		std::vector<llvm::GlobalVariable*> functionTablePointers;
-		std::vector<llvm::Value*> functionTableIndexMasks;
+		llvm::GlobalVariable* functionTablePointer;
+		llvm::Value* numFunctionTableEntries;
 		llvm::Value* instanceMemoryBase;
 		llvm::Value* instanceMemoryAddressMask;
 		
@@ -58,6 +58,8 @@ namespace LLVMJIT
 
 		ModuleIR()
 		:	llvmModule(new llvm::Module("",context))
+		,	functionTablePointer(nullptr)
+		,	numFunctionTableEntries(nullptr)
 		,	instanceMemoryBase(nullptr)
 		,	instanceMemoryAddressMask(nullptr)
 		{}
@@ -311,39 +313,54 @@ namespace LLVMJIT
 		}
 		DispatchResult visitCallIndirect(TypeId type,const CallIndirect* callIndirect)
 		{
-			assert(callIndirect->tableIndex < astModule->functionTables.size());
-			auto functionTablePointer = moduleIR.functionTablePointers[callIndirect->tableIndex];
+			auto functionTablePointer = moduleIR.functionTablePointer;
 			assert(callIndirect->functionType.returnType == type);
 
 			auto expectedSignatureIndex = moduleIR.getSignatureIndex(callIndirect->functionType);
 			auto functionPointerType = asLLVMType(callIndirect->functionType)->getPointerTo()->getPointerTo();
 
-			// Compile the function index and mask it to be within the function table's bounds.
+			// Compile the function index.
 			auto functionIndex = dispatch(*this,callIndirect->functionIndex,TypeId::I32);
-			auto functionIndexMask = moduleIR.functionTableIndexMasks[callIndirect->tableIndex];
-			auto maskedFunctionIndex = irBuilder.CreateZExt(irBuilder.CreateAnd(functionIndex,functionIndexMask),llvmTypesByTypeId[(uintptr)TypeId::I64]);
 
-			// Get a pointer to the function pointer in the function table using the masked function index.
-			auto functionPointerPointer = irBuilder.CreateInBoundsGEP(functionTablePointer,{compileLiteral((uint32)0),maskedFunctionIndex,compileLiteral((uint32)0)});
-			auto signatureIndexPointer = irBuilder.CreateInBoundsGEP(functionTablePointer,{compileLiteral((uint32)0),maskedFunctionIndex,compileLiteral((uint32)1)});
-			auto functionPointer = irBuilder.CreateLoad(irBuilder.CreatePointerCast(functionPointerPointer,functionPointerType));
-			auto signatureIndex = irBuilder.CreateLoad(signatureIndexPointer);
-
-			// Check whether the function table entry has the correct signature.
+			// Check whether the index is within the bounds of the function table.
 			return compileIfElse(
 				type,
-				irBuilder.CreateICmpNE(compileLiteral((uintptr)expectedSignatureIndex),signatureIndex),
-				// If the signature ID doesn't match, trap.
+				irBuilder.CreateICmpUGT(functionIndex,moduleIR.numFunctionTableEntries),
+				// If the function index is larger than the function table size, trap.
 				[&]
 				{
-					compileRuntimeIntrinsic("wavmIntrinsics.indirectCallSignatureMismatch",FunctionType(),{});
+					compileRuntimeIntrinsic("wavmIntrinsics.indirectCallIndexOutOfBounds",FunctionType(),{});
 					irBuilder.CreateUnreachable();
 					irBuilder.SetInsertPoint(unreachableBlock);
 					return typedZeroConstants[(uintptr)type];
 				},
-				// If the signature ID does match, call the function loaded from the table.
-				[&] { return compileCall(callIndirect->functionType,functionPointer,callIndirect->parameters); }
-				);
+				[&]
+				{
+					// Zero extend the function index to the pointer size.
+					auto functionIndexZExt = irBuilder.CreateZExt(functionIndex,sizeof(uintptr) == 4 ? llvm::Type::getInt32Ty(context) : llvm::Type::getInt64Ty(context));
+
+					// Load the function table entry.
+					auto functionPointerPointer = irBuilder.CreateInBoundsGEP(functionTablePointer,{compileLiteral((uint32)0),functionIndexZExt,compileLiteral((uint32)0)});
+					auto signatureIndexPointer = irBuilder.CreateInBoundsGEP(functionTablePointer,{compileLiteral((uint32)0),functionIndexZExt,compileLiteral((uint32)1)});
+					auto signatureIndex = irBuilder.CreateLoad(signatureIndexPointer);
+					auto functionPointer = irBuilder.CreateLoad(irBuilder.CreatePointerCast(functionPointerPointer,functionPointerType));
+
+					// Check whether the function table entry has the correct signature.
+					return compileIfElse(
+						type,
+						irBuilder.CreateICmpNE(compileLiteral((uintptr)expectedSignatureIndex),signatureIndex),
+						// If the signature ID doesn't match, trap.
+						[&]
+						{
+							compileRuntimeIntrinsic("wavmIntrinsics.indirectCallSignatureMismatch",FunctionType(),{});
+							irBuilder.CreateUnreachable();
+							irBuilder.SetInsertPoint(unreachableBlock);
+							return typedZeroConstants[(uintptr)type];
+						},
+						// If the signature ID does match, call the function loaded from the table.
+						[&] { return compileCall(callIndirect->functionType,functionPointer,callIndirect->parameters); }
+						);
+				});
 		}
 
 		template<typename Class>
@@ -820,46 +837,35 @@ namespace LLVMJIT
 			moduleIR.functionImportPointers[importIndex] = new llvm::GlobalVariable(*moduleIR.llvmModule,functionType,true,llvm::GlobalValue::ExternalLinkage,nullptr,functionName);
 		}
 
-		// Create the function table globals.
+		// Create the function table global.
 		auto functionPointerTableElementType = llvm::StructType::get(context,{
 			llvm::Type::getInt8PtrTy(context),
 			sizeof(uintptr) == 8 ? llvm::Type::getInt64Ty(context) : llvm::Type::getInt32Ty(context)
 			});
-		moduleIR.functionTablePointers.resize(astModule->functionTables.size());
-		moduleIR.functionTableIndexMasks.resize(astModule->functionTables.size());
-		for(uintptr tableIndex = 0;tableIndex < astModule->functionTables.size();++tableIndex)
+		auto astFunctionTable = astModule->functionTable;
+		std::vector<llvm::Constant*> llvmFunctionTableElements;
+		llvmFunctionTableElements.resize(astFunctionTable.numFunctions);
+		for(uint32 functionIndex = 0;functionIndex < astFunctionTable.numFunctions;++functionIndex)
 		{
-			auto astFunctionTable = astModule->functionTables[tableIndex];
-			std::vector<llvm::Constant*> llvmFunctionTableElements;
-			llvmFunctionTableElements.resize(astFunctionTable.numFunctions);
-			for(uint32 functionIndex = 0;functionIndex < astFunctionTable.numFunctions;++functionIndex)
-			{
-				assert(astFunctionTable.functionIndices[functionIndex] < moduleIR.functions.size());
-				auto signatureIndex = moduleIR.getSignatureIndex(astModule->functions[astFunctionTable.functionIndices[functionIndex]]->type);
-				auto llvmFunction = moduleIR.functions[astFunctionTable.functionIndices[functionIndex]];
-				llvmFunctionTableElements[functionIndex] = llvm::ConstantStruct::get(
-					functionPointerTableElementType,
-					{
-						llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(llvmFunction,llvm::Type::getInt8PtrTy(context)),
-						compileLiteral((uintptr)signatureIndex)
-					});
-			}
-			// Pad the function table to be a power of two number of functions.
-			assert(llvmFunctionTableElements.size());
-			if(llvmFunctionTableElements.size() >= UINT32_MAX) { throw; }
-			const uint32 numFunctionsPowerOfTwo = 1 << Platform::ceilLogTwo(llvmFunctionTableElements.size());
-			while(llvmFunctionTableElements.size() < numFunctionsPowerOfTwo)
-			{ llvmFunctionTableElements.push_back(llvmFunctionTableElements[0]); };
-
-			// Create a LLVM global variable that holds the array of function pointers.
-			auto llvmFunctionTablePointerType = llvm::ArrayType::get(functionPointerTableElementType,llvmFunctionTableElements.size());
-			auto llvmFunctionTablePointer = new llvm::GlobalVariable(
-				*moduleIR.llvmModule,llvmFunctionTablePointerType,true,llvm::GlobalValue::PrivateLinkage,
-				llvm::ConstantArray::get(llvmFunctionTablePointerType,llvmFunctionTableElements)
-				);
-			moduleIR.functionTablePointers[tableIndex] = llvmFunctionTablePointer;
-			moduleIR.functionTableIndexMasks[tableIndex] = compileLiteral(numFunctionsPowerOfTwo - 1);
+			assert(astFunctionTable.functionIndices[functionIndex] < moduleIR.functions.size());
+			auto signatureIndex = moduleIR.getSignatureIndex(astModule->functions[astFunctionTable.functionIndices[functionIndex]]->type);
+			auto llvmFunction = moduleIR.functions[astFunctionTable.functionIndices[functionIndex]];
+			llvmFunctionTableElements[functionIndex] = llvm::ConstantStruct::get(
+				functionPointerTableElementType,
+				{
+					llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(llvmFunction,llvm::Type::getInt8PtrTy(context)),
+					compileLiteral((uintptr)signatureIndex)
+				});
 		}
+
+		// Create a LLVM global variable that holds the array of function pointers.
+		auto llvmFunctionTablePointerType = llvm::ArrayType::get(functionPointerTableElementType,llvmFunctionTableElements.size());
+		auto llvmFunctionTablePointer = new llvm::GlobalVariable(
+			*moduleIR.llvmModule,llvmFunctionTablePointerType,true,llvm::GlobalValue::PrivateLinkage,
+			llvm::ConstantArray::get(llvmFunctionTablePointerType,llvmFunctionTableElements)
+			);
+		moduleIR.functionTablePointer = llvmFunctionTablePointer;
+		moduleIR.numFunctionTableEntries = compileLiteral((uint32)llvmFunctionTableElements.size());
 
 		// Compile each function in the module.
 		for(uintptr functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)

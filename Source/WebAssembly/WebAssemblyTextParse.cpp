@@ -850,7 +850,7 @@ namespace WebAssemblyText
 					auto parameters = parseParameters(functionType.parameters,nodeIt,"call_indirect parameter");
 
 					// Create the CallIndirect node.
-					auto call = new(arena)CallIndirect(getPrimaryTypeClass(functionType.returnType),0,functionType,functionIndex,parameters);
+					auto call = new(arena)CallIndirect(getPrimaryTypeClass(functionType.returnType),functionType,functionIndex,parameters);
 					
 					// Validate the function return type against the result type of this call.
 					auto result = coerceExpression(Class(),resultType,TypedExpression(call,functionType.returnType),parentNodeIt,"call_indirect return value");
@@ -1486,11 +1486,14 @@ namespace WebAssemblyText
 		}
 
 		// Parse function tables in a second pass, so it has information about all functions.
+		bool hasFunctionTable = false;
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
 			SNodeIt childNodeIt;
 			if(parseTaggedNode(nodeIt,Symbol::_table,childNodeIt))
 			{
+				if(hasFunctionTable) { recordError<ErrorRecord>(outErrors,nodeIt,"duplicate function table"); continue; }
+
 				// Count the number of functions in the table.
 				size_t numFunctions = 0;
 				for(auto countNodeIt = childNodeIt;countNodeIt;++countNodeIt)
@@ -1512,7 +1515,9 @@ namespace WebAssemblyText
 						else { functionIndices[index] = (uintptr)functionIndex; }
 					}
 				}
-				module->functionTables.push_back({functionIndices,numFunctions});
+				module->functionTable.functionIndices = functionIndices;
+				module->functionTable.numFunctions = numFunctions;
+				hasFunctionTable = true;
 			}
 		}
 
