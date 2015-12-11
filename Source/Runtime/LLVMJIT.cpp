@@ -266,10 +266,6 @@ namespace LLVMJIT
 				std::cerr << "LLVM verification errors:\n" << verifyOutputStream.str() << std::endl;
 				return false;
 			}
-
-			std::error_code errorCode;
-			llvm::raw_fd_ostream dumpFileStream(llvm::StringRef("llvmDump.ll"),errorCode,llvm::sys::fs::OpenFlags::F_Text);
-			llvmModule->print(dumpFileStream,nullptr);
 		#endif
 
 		// Run some optimization on the module's functions.
@@ -281,7 +277,6 @@ namespace LLVMJIT
 		fpm->add(llvm::createCFGSimplificationPass());
 		fpm->add(llvm::createJumpThreadingPass());
 		fpm->add(llvm::createConstantPropagationPass());
-		fpm->doInitialization();
 		fpm->doInitialization();
 		for(auto functionIt = llvmModule->begin();functionIt != llvmModule->end();++functionIt)
 		{ fpm->run(*functionIt); }
