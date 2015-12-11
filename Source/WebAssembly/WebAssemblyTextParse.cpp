@@ -857,8 +857,7 @@ namespace WebAssemblyText
 					return requireFullMatch(nodeIt,"call_indirect",result);
 				}
 
-				DEFINE_PARAMETRIC_UNTYPED_OP(label) { return parseLabelBlock<Class>(resultType,nodeIt); }
-				DEFINE_PARAMETRIC_UNTYPED_OP(block) { return parseLabelBlock<Class>(resultType,nodeIt); }
+				DEFINE_PARAMETRIC_UNTYPED_OP(block) { return parseLabeledBlock<Class>(resultType,nodeIt); }
 
 				DEFINE_PARAMETRIC_UNTYPED_OP(get_local)
 				{ return parseGetLocal<Class>(resultType,localNameToIndexMap,function->locals,nodeIt); }
@@ -1204,7 +1203,7 @@ namespace WebAssemblyText
 
 		// Parses a label or a block.
 		template<typename Class>
-		typename Class::ClassExpression* parseLabelBlock(TypeId resultType,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseLabeledBlock(TypeId resultType,SNodeIt nodeIt)
 		{
 			// Create a branch target for the block.
 			auto branchTarget = new(arena)BranchTarget(resultType);

@@ -1134,103 +1134,103 @@
 							$label3
 							$label2
 							(block
-								(label
+								(block
 									$label4
 									(block
-										(label
+										(block
 											$label5
 											(block
-												(label
+												(block
 													$label6
 													(block
-														(label
+														(block
 															$label7
 															(block
-																(label
+																(block
 																	$label8
 																	(block
-																		(label
+																		(block
 																			$label9
 																			(block
-																				(label
+																				(block
 																					$label10
 																					(block
-																						(label
+																						(block
 																							$label11
 																							(block
-																								(label
+																								(block
 																									$label12
 																									(block
-																										(label
+																										(block
 																											$label13
 																											(block
-																												(label
+																												(block
 																													$label14
 																													(block
-																														(label
+																														(block
 																															$label15
 																															(block
-																																(label
+																																(block
 																																	$label16
 																																	(block
-																																		(label
+																																		(block
 																																			$label17
 																																			(block
-																																				(label
+																																				(block
 																																					$label18
 																																					(block
-																																						(label
+																																						(block
 																																							$label19
 																																							(block
-																																								(label
+																																								(block
 																																									$label20
 																																									(block
-																																										(label
+																																										(block
 																																											$label21
 																																											(block
-																																												(label
+																																												(block
 																																													$label22
 																																													(block
-																																														(label
+																																														(block
 																																															$label23
 																																															(block
-																																																(label
+																																																(block
 																																																	$label24
 																																																	(block
-																																																		(label
+																																																		(block
 																																																			$label25
 																																																			(block
-																																																				(label
+																																																				(block
 																																																					$label26
 																																																					(block
-																																																						(label
+																																																						(block
 																																																							$label27
 																																																							(block
-																																																								(label
+																																																								(block
 																																																									$label28
 																																																									(block
-																																																										(label
+																																																										(block
 																																																											$label29
 																																																											(block
-																																																												(label
+																																																												(block
 																																																													$label30
 																																																													(block
-																																																														(label
+																																																														(block
 																																																															$label31
 																																																															(block
-																																																																(label
+																																																																(block
 																																																																	$label32
 																																																																	(block
-																																																																		(label
+																																																																		(block
 																																																																			$label33
 																																																																			(block
-																																																																				(label
+																																																																				(block
 																																																																					$label34
 																																																																					(block
-																																																																						(label
+																																																																						(block
 																																																																							$label35
 																																																																							(block
-																																																																								(label
+																																																																								(block
 																																																																									$label36
 																																																																									(tableswitch
 																																																																										(get_local $local10)
@@ -3043,22 +3043,22 @@
 												)
 											)
 											(i32.store offset=4 align=4 (get_local $local4) (i32.and (get_local $local213) (i32.const 1)))
-											(label
+											(block
 												$label67
 												(block
-													(label
+													(block
 														$label68
 														(block
-															(label
+															(block
 																$label69
 																(block
-																	(label
+																	(block
 																		$label70
 																		(block
-																			(label
+																			(block
 																				$label71
 																				(block
-																					(label
+																					(block
 																						$label72
 																						(tableswitch
 																							(i32.and (i32.shr_u (get_local $local213) (i32.const 1)) (i32.const 3))
@@ -3229,16 +3229,16 @@
 																			(if_else
 																				(i32.ge_s (i32.and (get_local $local193) (i32.const 65535)) (i32.const 16))
 																				(block
-																					(label
+																					(block
 																						$label79
 																						(block
-																							(label
+																							(block
 																								$label80
 																								(block
-																									(label
+																									(block
 																										$label81
 																										(block
-																											(label
+																											(block
 																												$label82
 																												(tableswitch
 																													(i32.sub (i32.shr_s (i32.shl (get_local $local193) (i32.const 16)) (i32.const 16)) (i32.const 16))
@@ -9128,16 +9128,16 @@
 							(if_else
 								(i32.ne (i32.const 1) (i32.const 0))
 								(block
-									(label
+									(block
 										$label6
 										(block
-											(label
+											(block
 												$label7
 												(block
-													(label
+													(block
 														$label8
 														(block
-															(label
+															(block
 																$label9
 																(tableswitch
 																	(i32.shr_s (i32.shl (get_local $local17) (i32.const 24)) (i32.const 24))
@@ -9710,73 +9710,73 @@
 							$label31
 							$label30
 							(block
-								(label
+								(block
 									$label32
 									(block
-										(label
+										(block
 											$label33
 											(block
-												(label
+												(block
 													$label34
 													(block
-														(label
+														(block
 															$label35
 															(block
-																(label
+																(block
 																	$label36
 																	(block
-																		(label
+																		(block
 																			$label37
 																			(block
-																				(label
+																				(block
 																					$label38
 																					(block
-																						(label
+																						(block
 																							$label39
 																							(block
-																								(label
+																								(block
 																									$label40
 																									(block
-																										(label
+																										(block
 																											$label41
 																											(block
-																												(label
+																												(block
 																													$label42
 																													(block
-																														(label
+																														(block
 																															$label43
 																															(block
-																																(label
+																																(block
 																																	$label44
 																																	(block
-																																		(label
+																																		(block
 																																			$label45
 																																			(block
-																																				(label
+																																				(block
 																																					$label46
 																																					(block
-																																						(label
+																																						(block
 																																							$label47
 																																							(block
-																																								(label
+																																								(block
 																																									$label48
 																																									(block
-																																										(label
+																																										(block
 																																											$label49
 																																											(block
-																																												(label
+																																												(block
 																																													$label50
 																																													(block
-																																														(label
+																																														(block
 																																															$label51
 																																															(block
-																																																(label
+																																																(block
 																																																	$label52
 																																																	(block
-																																																		(label
+																																																		(block
 																																																			$label53
 																																																			(block
-																																																				(label
+																																																				(block
 																																																					$label54
 																																																					(tableswitch
 																																																						(i32.sub (get_local $local23) (i32.const 65))
@@ -9841,31 +9841,31 @@
 																																																					)
 																																																				)
 																																																				(block
-																																																					(label
+																																																					(block
 																																																						$label55
 																																																						(block
-																																																							(label
+																																																							(block
 																																																								$label56
 																																																								(block
-																																																									(label
+																																																									(block
 																																																										$label57
 																																																										(block
-																																																											(label
+																																																											(block
 																																																												$label58
 																																																												(block
-																																																													(label
+																																																													(block
 																																																														$label59
 																																																														(block
-																																																															(label
+																																																															(block
 																																																																$label60
 																																																																(block
-																																																																	(label
+																																																																	(block
 																																																																		$label61
 																																																																		(block
-																																																																			(label
+																																																																			(block
 																																																																				$label62
 																																																																				(block
-																																																																					(label
+																																																																					(block
 																																																																						$label63
 																																																																						(tableswitch
 																																																																							(get_local $local56)
@@ -13408,16 +13408,16 @@
 														$label23
 														$label22
 														(block
-															(label
+															(block
 																$label24
 																(block
-																	(label
+																	(block
 																		$label25
 																		(block
-																			(label
+																			(block
 																				$label26
 																				(block
-																					(label
+																					(block
 																						$label27
 																						(tableswitch (i32.sub (i32.load offset=136 align=4 (get_local $local3)) (i32.const 2)) (table (br $label27)) (br $label25))
 																					)
@@ -14186,16 +14186,16 @@
 																(i32.ne (i32.and (get_local $local49) (i32.const 4294967293)) (i32.const 0))
 																(block
 																	(br_if (i32.ne (get_local $local49) (i32.const 1)) $label21)
-																	(label
+																	(block
 																		$label34
 																		(block
-																			(label
+																			(block
 																				$label35
 																				(block
-																					(label
+																					(block
 																						$label36
 																						(block
-																							(label
+																							(block
 																								$label37
 																								(tableswitch
 																									(i32.sub (get_local $local1) (i32.const 1))
@@ -17459,16 +17459,16 @@
 				)
 				(nop)
 			)
-			(label
+			(block
 				$label12
 				(block
-					(label
+					(block
 						$label13
 						(block
-							(label
+							(block
 								$label14
 								(block
-									(label $label15 (tableswitch (get_local $local0) (table (br $label15)) (br $label13)))
+									(block $label15 (tableswitch (get_local $local0) (table (br $label15)) (br $label13)))
 									(block
 										(set_local $local19 (i32.const 0))
 										(set_local $local20 (i32.const 0))
@@ -23495,31 +23495,31 @@
 				(block (set_local $local8 (i32.const 4294967292)) (return (get_local $local8)))
 				(nop)
 			)
-			(label
+			(block
 				$label0
 				(block
-					(label
+					(block
 						$label1
 						(block
-							(label
+							(block
 								$label2
 								(block
-									(label
+									(block
 										$label3
 										(block
-											(label
+											(block
 												$label4
 												(block
-													(label
+													(block
 														$label5
 														(block
-															(label
+															(block
 																$label6
 																(block
-																	(label
+																	(block
 																		$label7
 																		(block
-																			(label
+																			(block
 																				$label8
 																				(tableswitch
 																					(i32.sub (i32.load offset=4 align=4 (get_local $local10)) (i32.const 42))
@@ -24780,16 +24780,16 @@
 							(block (set_local $local14 (i32.const 0)) (set_local $local15 (get_local $local8)))
 							(block
 								(i32.store offset=4 align=4 (get_local $local9) (i32.sub (get_local $local10) (get_local $local13)))
-								(label
+								(block
 									$label6
 									(block
-										(label
+										(block
 											$label7
 											(block
-												(label
+												(block
 													$label8
 													(block
-														(label
+														(block
 															$label9
 															(tableswitch
 																(i32.sub (i32.load offset=24 align=4 (i32.load offset=28 align=4 (get_local $local9))) (i32.const 1))
@@ -25208,40 +25208,40 @@
 							$label3
 							$label2
 							(block
-								(label
+								(block
 									$label4
 									(block
-										(label
+										(block
 											$label5
 											(block
-												(label
+												(block
 													$label6
 													(block
-														(label
+														(block
 															$label7
 															(block
-																(label
+																(block
 																	$label8
 																	(block
-																		(label
+																		(block
 																			$label9
 																			(block
-																				(label
+																				(block
 																					$label10
 																					(block
-																						(label
+																						(block
 																							$label11
 																							(block
-																								(label
+																								(block
 																									$label12
 																									(block
-																										(label
+																										(block
 																											$label13
 																											(block
-																												(label
+																												(block
 																													$label14
 																													(block
-																														(label
+																														(block
 																															$label15
 																															(tableswitch
 																																(i32.sub (get_local $local1) (i32.const 9))
@@ -26433,31 +26433,31 @@
 				(nop)
 			)
 			(set_local $local3 (i32.load offset=4 align=4 (get_local $local2)))
-			(label
+			(block
 				$label0
 				(block
-					(label
+					(block
 						$label1
 						(block
-							(label
+							(block
 								$label2
 								(block
-									(label
+									(block
 										$label3
 										(block
-											(label
+											(block
 												$label4
 												(block
-													(label
+													(block
 														$label5
 														(block
-															(label
+															(block
 																$label6
 																(block
-																	(label
+																	(block
 																		$label7
 																		(block
-																			(label
+																			(block
 																				$label8
 																				(tableswitch
 																					(i32.sub (get_local $local3) (i32.const 42))
@@ -27538,16 +27538,16 @@
 				(nop)
 			)
 			(call $func46 (get_local $local4))
-			(label
+			(block
 				$label0
 				(block
-					(label
+					(block
 						$label1
 						(block
-							(label
+							(block
 								$label2
 								(block
-									(label
+									(block
 										$label3
 										(tableswitch
 											(i32.sub (get_local $local0) (i32.const 4294967291))
@@ -28051,16 +28051,16 @@
 			(set_local $local2 (i32.load align=4 (call_import $_get_tempDoublePtr)))
 			(set_local $local3 (i32.load offset=4 align=4 (call_import $_get_tempDoublePtr)))
 			(set_local $local4 (call $__bitshift64Lshr (get_local $local2) (get_local $local3) (i32.const 52)))
-			(label
+			(block
 				$label0
 				(block
-					(label
+					(block
 						$label1
 						(block
-							(label
+							(block
 								$label2
 								(block
-									(label
+									(block
 										$label3
 										(tableswitch
 											(i32.and (get_local $local4) (i32.const 2047))

@@ -341,7 +341,7 @@ namespace WebAssemblyText
 		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)
 		{
-			return createTaggedSubtree(Symbol::_label) << getLabelName(label->endTarget) << dispatch(*this,label->expression,type);
+			return createTaggedSubtree(Symbol::_block) << getLabelName(label->endTarget) << dispatch(*this,label->expression,type);
 		}
 		template<typename Class>
 		void visitSequenceRecursive(SNodeOutputStream& outputStream,TypeId type,const Sequence<Class>* seq)

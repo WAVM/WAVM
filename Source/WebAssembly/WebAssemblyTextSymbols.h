@@ -41,7 +41,6 @@ namespace WebAssemblyText
 		WAST_SYMBOL(loop) \
 		WAST_SYMBOL(br) \
 		WAST_SYMBOL(unreachable) \
-		WAST_SYMBOL(label) \
 		WAST_SYMBOL(return) \
 		WAST_SYMBOL(block) \
 		WAST_SYMBOL(get_local) \
@@ -202,7 +201,6 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(loop,loop)
 		MAP_OP_SYMBOL(branchTable,tableswitch)
 		MAP_OP_SYMBOL(ifElse,if)
-		MAP_OP_SYMBOL(label,label)
 		MAP_OP_SYMBOL(branch,br)
 		MAP_OP_SYMBOL(ret,return)
 		#undef MAP_OP_SYMBOL
