@@ -30,9 +30,9 @@ namespace LLVMJIT
 	{
 		SectionMemoryManager()
 		{
-			// Allocate 2GB of virtual pages for the image up front. This ensures that address within the image
+			// Allocate 2GB of virtual pages for the image up front. This ensures that no address within the image
 			// is more than a 32-bit offset from any other address in the image. LLVM on Windows produces COFF
-			// files that assume the entire image can be addressed by as 32-bit offset, but the built-in LLVM
+			// files that assume the entire image can be addressed by a 32-bit offset, but the built-in LLVM
 			// SectionMemoryManager doesn't fulfill that assumption.
 			numAllocatedImagePages = (size_t)(1 << (31 - Platform::getPageSizeLog2()));
 			imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
