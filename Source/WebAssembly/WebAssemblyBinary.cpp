@@ -804,7 +804,7 @@ namespace WebAssemblyBinary
 			else
 			{
 				auto functionImportIndex = module.functionImports.size();
-				module.functionImports.push_back({intrinsicType,"emscripten",intrinsicName});
+				module.functionImports.push_back({intrinsicType,"env",intrinsicName});
 				intrinsicNameToFunctionImportIndex[intrinsicName] = functionImportIndex;
 				return functionImportIndex;
 			}
@@ -1513,7 +1513,7 @@ namespace WebAssemblyBinary
 
 				auto numTypes = in.immU32();
 				for(uint32 typeIndex = 0;typeIndex < numTypes;++typeIndex)
-				{ module.functionImports.push_back({functionTypes[in.boundedImmU32("function type index",functionTypes.size())],"emscripten",importName.c_str()}); }
+				{ module.functionImports.push_back({functionTypes[in.boundedImmU32("function type index",functionTypes.size())],"env",importName.c_str()}); }
 			}
 		}
 

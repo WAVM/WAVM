@@ -17,17 +17,17 @@ namespace Runtime
 		return (uint32)address;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wasm_intrinsics,memory_size,I32)
+	DEFINE_INTRINSIC_FUNCTION0(wasm_intrinsics,memory_size,memory_size,I32)
 	{
 		return coerce32bitAddress(vmGrowMemory(0));
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wasm_intrinsics,page_size,I32)
+	DEFINE_INTRINSIC_FUNCTION0(wasm_intrinsics,page_size,page_size,I32)
 	{
 		return 1<<Platform::getPageSizeLog2();
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(wasm_intrinsics,grow_memory,Void,I32,deltaBytes)
+	DEFINE_INTRINSIC_FUNCTION1(wasm_intrinsics,grow_memory,grow_memory,Void,I32,deltaBytes)
 	{
 		// Verify that deltaBytes is a multiple of the page size.
 		auto pageSize = 1<<Platform::getPageSizeLog2();
@@ -39,22 +39,22 @@ namespace Runtime
 		vmGrowMemory((size_t)deltaBytes);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(spectest,print,Void,I32,a)
+	DEFINE_INTRINSIC_FUNCTION1(spectest,print,print,Void,I32,a)
 	{
 		std::cout << a << " : I32" << std::endl;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(spectest,print,Void,I64,a)
+	DEFINE_INTRINSIC_FUNCTION1(spectest,print,print,Void,I64,a)
 	{
 		std::cout << a << " : I64" << std::endl;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(spectest,print,Void,F32,a)
+	DEFINE_INTRINSIC_FUNCTION1(spectest,print,print,Void,F32,a)
 	{
 		std::cout << a << " : F32" << std::endl;
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION1(spectest,print,Void,F64,a)
+	DEFINE_INTRINSIC_FUNCTION1(spectest,print,print,Void,F64,a)
 	{
 		std::cout << a << " : F64" << std::endl;
 	}

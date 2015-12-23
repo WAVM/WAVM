@@ -81,14 +81,16 @@ namespace Runtime
 			}
 			memcpy(instanceMemoryBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
 		}
-		
+
+		// Generate machine code for the module.
+		if(!LLVMJIT::compileModule(module)) { return false; }
+
 		// Initialize the intrinsics.
-		initEmscriptenIntrinsics();
+		initEmscriptenIntrinsics(module);
 		initWebAssemblyIntrinsics();
 		initWAVMIntrinsics();
 
-		// Generate machine code for the module.
-		return LLVMJIT::compileModule(module);
+		return true;
 	}
 
 	// This is called to recursively turn the boxed values in untypedArgs into C++ values.

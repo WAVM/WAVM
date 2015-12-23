@@ -39,26 +39,6 @@ int main(int argc,char** argv)
 	}
 
 	if(!Runtime::loadModule(module)) { return -1; }
-	
-	// Initialize the Emscripten intrinsics.
-	auto iostreamInitExport = module->exportNameToFunctionIndexMap.find("__GLOBAL__sub_I_iostream_cpp");
-	if(iostreamInitExport != module->exportNameToFunctionIndexMap.end())
-	{
-		auto iostreamInitFunction = module->functions[iostreamInitExport->second];
-		if(iostreamInitFunction->type.parameters.size() || iostreamInitFunction->type.returnType != AST::TypeId::Void)
-		{
-			std::cerr << "Module exports '__GLOBAL__sub_I_iostream_cpp' but it isn't the right type?!" << std::endl;
-		}
-		else
-		{
-			auto iostreamInitResult = Runtime::invokeFunction(module,iostreamInitExport->second,nullptr);
-			if(iostreamInitResult.type == Runtime::TypeId::Exception)
-			{
-				std::cerr << "__GLOBAL__sub_I_iostream_cpp threw exception: " << Runtime::describeExceptionCause(iostreamInitResult.exception->cause) << std::endl;
-				for(auto function : iostreamInitResult.exception->callStack) { std::cerr << "  " << function << std::endl; }
-			}
-		}
-	}
 
 	Core::Timer executionTime;
 	auto functionExport = module->exportNameToFunctionIndexMap.find(functionName);
