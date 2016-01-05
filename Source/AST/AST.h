@@ -165,8 +165,7 @@ namespace AST
 		ErrorRecord(std::string&& inMessage) : message(std::move(inMessage)) {}
 	};
 
-	struct CaseInsensitiveStringCompareFunctor { bool operator()(const char* left,const char* right) const { return strcmp(left,right) < 0; } };
-	typedef std::map<const char*,uintptr,CaseInsensitiveStringCompareFunctor> ExportNameToFunctionIndexMap;
+	typedef std::map<const char*,uintptr,Core::StringCompareFunctor> ExportNameToFunctionIndexMap;
 
 	struct Module
 	{

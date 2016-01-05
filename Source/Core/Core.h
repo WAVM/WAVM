@@ -51,8 +51,8 @@ namespace Core
 	struct TextFileLocus
 	{
 		uint32 newlines;
-		uint16 tabs;
-		uint16 characters;
+		uint8 tabs;
+		uint8 characters;
 
 		TextFileLocus(): newlines(0), tabs(0), characters(0) {}
 
@@ -61,4 +61,25 @@ namespace Core
 			return "(" + std::to_string(newlines + 1) + ":" + std::to_string(tabs * spacesPerTab + characters + 1) + ")";
 		}
 	};
+	
+	struct StringCompareFunctor { bool operator()(const char* left,const char* right) const
+	{
+		while(true)
+		{
+			if(*left == *right)
+			{
+				if(!*left) { return false; }
+			}
+			else if(*left < *right)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+			++left;
+			++right;
+		};
+	}};
 }

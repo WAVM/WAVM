@@ -21,6 +21,9 @@ namespace WebAssemblyText
 	typedef SExp::Node SNode;
 	typedef SExp::NodeIt SNodeIt;
 	
+	typedef std::map<const char*,uintptr,Core::StringCompareFunctor> NameToIndexMap;
+	typedef std::map<const char*,BranchTarget*,Core::StringCompareFunctor> NameToBranchTargetMap;
+
 	// Describes a S-expression node briefly for parsing error messages.
 	std::string describeSNode(SNode* node)
 	{
@@ -191,7 +194,7 @@ namespace WebAssemblyText
 	// Parse a name or an index.
 	// If a name is parsed that is contained in nameToIndex, the index of the name is assigned to outIndex and true is returned.
 	// If an index is parsed that is between 0 and numValidIndices, the index is assigned to outIndex and true is returned.
-	bool parseNameOrIndex(SNodeIt& nodeIt,const std::map<std::string,uintptr>& nameToIndex,size_t numValidIndices,uintptr& outIndex)
+	bool parseNameOrIndex(SNodeIt& nodeIt,const NameToIndexMap& nameToIndex,size_t numValidIndices,uintptr& outIndex)
 	{
 		const char* name;
 		uint64 parsedInt;
@@ -206,7 +209,7 @@ namespace WebAssemblyText
 	}
 
 	// Builds a map from name to index from an array of variables.
-	void buildVariableNameToIndexMapMap(const std::vector<Variable>& variables,std::map<std::string,uintptr>& outNameToIndexMap,std::vector<ErrorRecord*>& outErrors)
+	void buildVariableNameToIndexMapMap(const std::vector<Variable>& variables,NameToIndexMap& outNameToIndexMap,std::vector<ErrorRecord*>& outErrors)
 	{
 		for(uintptr variableIndex = 0;variableIndex < variables.size();++variableIndex)
 		{
@@ -223,11 +226,11 @@ namespace WebAssemblyText
 	struct ModuleContext
 	{
 		Module* module;
-		std::map<std::string,uintptr> functionNameToIndexMap;
-		std::map<std::string,uintptr> functionTableNameToIndexMap;
-		std::map<std::string,uintptr> functionImportNameToIndexMap;
-		std::map<std::string,uintptr> intrinsicNameToImportIndexMap;
-		std::map<std::string,uintptr> signatureNameToIndexMap;
+		NameToIndexMap functionNameToIndexMap;
+		NameToIndexMap functionTableNameToIndexMap;
+		NameToIndexMap functionImportNameToIndexMap;
+		NameToIndexMap intrinsicNameToImportIndexMap;
+		NameToIndexMap signatureNameToIndexMap;
 		std::vector<FunctionType> signatures;
 		std::vector<ErrorRecord*>& outErrors;
 
@@ -278,8 +281,8 @@ namespace WebAssemblyText
 		std::vector<ErrorRecord*>& outErrors;
 		ModuleContext& moduleContext;
 		Function* function;
-		std::map<std::string,uintptr> localNameToIndexMap;
-		std::map<std::string,BranchTarget*> labelToBranchTargetMap;
+		NameToIndexMap localNameToIndexMap;
+		NameToBranchTargetMap labelToBranchTargetMap;
 
 		std::vector<BranchTarget*> scopedBranchTargets;
 	
@@ -701,7 +704,7 @@ namespace WebAssemblyText
 					size_t numCases = 0;
 					for(SNodeIt countIt = nodeIt;countIt;++countIt) { ++numCases; }
 					std::vector<Case> cases;
-					std::map<std::string,BranchTarget*> caseLabelToBranchTargetMap;
+					NameToBranchTargetMap caseLabelToBranchTargetMap;
 					cases.resize(numCases);
 					uintptr caseIndex = 0;
 					for(;nodeIt;++nodeIt,++caseIndex)
@@ -1170,7 +1173,7 @@ namespace WebAssemblyText
 		
 		// Parses a load from a local variable.
 		template<typename Class>
-		typename Class::ClassExpression* parseGetLocal(TypeId resultType,const std::map<std::string,uintptr>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseGetLocal(TypeId resultType,const NameToIndexMap& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
@@ -1186,7 +1189,7 @@ namespace WebAssemblyText
 
 		// Parses a store to a local variable.
 		template<typename Class>
-		typename Class::ClassExpression* parseSetLocal(TypeId resultType,const std::map<std::string,uintptr>& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseSetLocal(TypeId resultType,const NameToIndexMap& nameToIndexMap,const std::vector<Variable>& variables,SNodeIt nodeIt)
 		{
 			uintptr variableIndex;
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
@@ -1237,7 +1240,7 @@ namespace WebAssemblyText
 			return nullptr;
 		}
 
-		BranchTarget* parseTableSwitchTargetRef(SNodeIt nodeIt,const std::map<std::string,BranchTarget*>& caseLabelToBranchTargetMap)
+		BranchTarget* parseTableSwitchTargetRef(SNodeIt nodeIt,const NameToBranchTargetMap& caseLabelToBranchTargetMap)
 		{
 			SNodeIt elementChildNodeIt;
 			if(parseTaggedNode(nodeIt,Symbol::_case,elementChildNodeIt))
