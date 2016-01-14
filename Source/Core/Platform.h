@@ -12,7 +12,7 @@
 	#define THREAD_LOCAL __thread
 	#define DLL_EXPORT
 	#define DLL_IMPORT
-	#define FORCEINLINE __attribute__((always_inline))
+	#define FORCEINLINE inline __attribute__((always_inline))
 #endif
 
 namespace Platform
