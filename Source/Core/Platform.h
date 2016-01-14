@@ -6,11 +6,13 @@
 	#define THREAD_LOCAL __declspec(thread)
 	#define DLL_EXPORT __declspec(dllexport)
 	#define DLL_IMPORT __declspec(dllimport)
+	#define FORCEINLINE __forceinline
 	#include <intrin.h>
 #else
 	#define THREAD_LOCAL __thread
 	#define DLL_EXPORT
 	#define DLL_IMPORT
+	#define FORCEINLINE __attribute__((always_inline))
 #endif
 
 namespace Platform

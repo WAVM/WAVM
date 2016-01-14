@@ -138,11 +138,11 @@ namespace Memory
 		}
 		void append(Arena& arena,const char* string,size_t numChars)
 		{
-			auto numCharsWithNull = numChars + 1;
 			auto originalLength = length();
 			auto newLength = length() + numChars;
 			characters.resize(arena,newLength + 1);
-			for(uintptr i = 0;i < numCharsWithNull;++i) { characters[originalLength + i] = string[i]; }
+			for(uintptr i = 0;i < numChars;++i) { characters[originalLength + i] = string[i]; }
+			characters[originalLength + numChars] = 0;
 		}
 		template<size_t numCharsWithNull>
 		void append(Arena& arena,const char (&string)[numCharsWithNull])

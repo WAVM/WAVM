@@ -25,27 +25,34 @@ namespace SExp
 		:	next(inString)
 		{}
 		
-		char peek() const
+		inline char peek() const
 		{
 			return *next;
 		}
-		char consume()
+		FORCEINLINE char consume(bool KnownToBeNonWhitespace = false)
 		{
 			auto result = *next;
-			advance();
+			advance(KnownToBeNonWhitespace);
 			return result;
 		}
 		Core::TextFileLocus getLocus() const { return locus; }
 		
-		void advance()
+		FORCEINLINE void advance(bool KnownToBeNonWhitespace = false)
 		{
-			switch(*next)
+			if(KnownToBeNonWhitespace)
 			{
-			case 0: throw new FatalParseException(locus,"unexpected end of file");
-			case '\n': locus.newlines++; locus.tabs = 0; locus.characters = 0; break;
-			case '\t': locus.tabs++; break;
-			default: locus.characters++; break;
-			};
+				locus.characters++;
+			}
+			else
+			{
+				switch(*next)
+				{
+				case 0: throw new FatalParseException(locus,"unexpected end of file");
+				case '\n': locus.newlines++; locus.tabs = 0; locus.characters = 0; break;
+				case '\t': locus.tabs++; break;
+				default: locus.characters++; break;
+				};
+			}
 			next++;
 		}
 		void advanceToPtr(const char* newNext)
@@ -91,22 +98,22 @@ namespace SExp
 		}
 	};
 
-	bool isWhitespace(char c)
+	FORCEINLINE bool isWhitespace(char c)
 	{
 		return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 	}
 
-	bool isDigit(char c)
+	FORCEINLINE bool isDigit(char c)
 	{
 		return c >= '0' && c <= '9';
 	}
 
-	bool isSymbolCharacter(char c)
+	FORCEINLINE bool isSymbolCharacter(char c)
 	{
 		return !isWhitespace(c) && c != '(' && c != ')' && c != ';' && c != '\"' && c != '=' && c != ':';
 	}
 
-	bool parseHexit(char c,char& outValue)
+	FORCEINLINE bool parseHexit(char c,char& outValue)
 	{
 		if(c >= '0' && c <= '9')
 		{
@@ -129,11 +136,11 @@ namespace SExp
 		}
 	}
 
-	uint64 shlSaturate(uint64 left,uint64 right)
+	FORCEINLINE uint64 shlSaturate(uint64 left,uint64 right)
 	{
 		return right >= 64 ? 0 : left << right;
 	}
-	uint64 shrSaturate(uint64 left,uint64 right)
+	FORCEINLINE uint64 shrSaturate(uint64 left,uint64 right)
 	{
 		return right >= 64 ? 0 : left >> right;
 	}
@@ -163,7 +170,7 @@ namespace SExp
 				{
 					return false;
 				}
-				state.advance();
+				state.advance(true);
 				char secondValue;
 				if(!parseHexit(state.peek(),secondValue))
 				{
@@ -176,16 +183,6 @@ namespace SExp
 			return true;
 		}
 
-		bool parseChar(char c)
-		{
-			if(state.peek() != c) { return false; }
-			else
-			{
-				state.consume();
-				return true;
-			}
-		}
-
 		Node* createError(const Core::TextFileLocus& locus,const char* message)
 		{
 			auto result = new(arena) Node(locus,NodeType::Error);
@@ -195,7 +192,7 @@ namespace SExp
 
 		Node* parseQuotedString()
 		{
-			state.advance();
+			state.advance(true);
 
 			Memory::ArenaString string;
 			while(true)
@@ -210,7 +207,7 @@ namespace SExp
 				}
 				else if(nextChar == '\\')
 				{
-					state.advance();
+					state.advance(true);
 					char escapedChar;
 					if(!parseCharEscapeCode(escapedChar))
 					{
@@ -220,11 +217,11 @@ namespace SExp
 						return createError(locus,"invalid escape code in quoted string");
 					}
 					string.append(arena,escapedChar);
-					state.advance();
+					state.advance(true);
 				}
 				else
 				{
-					state.advance();
+					state.advance(true);
 					if(nextChar == '\"') { break; }
 					else { string.append(arena,nextChar); }
 				}
@@ -264,7 +261,7 @@ namespace SExp
 				{
 					return numMatchedCharacters;
 				}
-				state.consume();
+				state.consume(true);
 				++numMatchedCharacters;
 
 				if(outValue > std::numeric_limits<uint64>::max() / 16)
@@ -302,7 +299,7 @@ namespace SExp
 
 			if(state.peek() == ':')
 			{
-				state.consume();
+				state.consume(true);
 
 				uint64 significandBits = 0;
 				if(!parseKeyword("0x"))
@@ -372,7 +369,7 @@ namespace SExp
 
 				// Parse an optional exponent sign.
 				bool isExponentNegative = false;
-				if(state.peek() == '-' || state.peek() == '+') { isExponentNegative = state.consume() == '-'; }
+				if(state.peek() == '-' || state.peek() == '+') { isExponentNegative = state.consume(true) == '-'; }
 
 				// Parse a decimal exponent.
 				uint64 unsignedExponent = 0;
@@ -471,7 +468,7 @@ namespace SExp
 			bool isNegative = false;
 			if(state.peek() == '-' || state.peek() == '+')
 			{
-				isNegative = state.consume() == '-';
+				isNegative = state.consume(true) == '-';
 			}
 
 			// Handle nan, infinity, and hexadecimal numbers.
@@ -513,7 +510,7 @@ namespace SExp
 	
 		Node* parseAttribute(Node* symbolNode)
 		{
-			state.consume();
+			state.consume(true);
 
 			auto value = parseNode();
 
@@ -528,33 +525,33 @@ namespace SExp
 		{
 			auto startLocus = state.getLocus();
 
-			Memory::ArenaString string;
+			const char* symbolStart = state.next;
 			do
 			{
-				string.append(arena,state.peek());
-				state.advance();
+				state.consume(true);
 			}
 			while(isSymbolCharacter(state.peek()));
+			Memory::ArenaString symbolString;
+			symbolString.append(arena,symbolStart,state.next - symbolStart);
 
 			// If the symbol is nan or infinity, parse it as a number.
-			if(!strcmp(string.c_str(),"nan")) { return parseNaN(startLocus,false); }
-			else if(!strcmp(string.c_str(),"infinity")) { return parseInfinity(startLocus,false); }
+			if(!strcmp(symbolString.c_str(),"nan")) { return parseNaN(startLocus,false); }
+			else if(!strcmp(symbolString.c_str(),"infinity")) { return parseInfinity(startLocus,false); }
 
 			// Look up the symbol string in the index map.
-			auto symbolIndexIt = symbolIndexMap.find(string.c_str());
+			auto symbolIndexIt = symbolIndexMap.find(symbolString.c_str());
 			Node* symbolNode;
 			if(symbolIndexIt == symbolIndexMap.end())
 			{
-				string.shrink(arena);
 				symbolNode = new(arena)Node(startLocus,NodeType::UnindexedSymbol);
 				symbolNode->endLocus = state.getLocus();
-				symbolNode->string = string.c_str();
-				symbolNode->stringLength = string.length();
+				symbolNode->string = symbolString.c_str();
+				symbolNode->stringLength = symbolString.length();
 			}
 			else
 			{
 				// If the symbol was in the index map, discard the memory for the string and just store it as an index.
-				string.reset(arena);
+				symbolString.reset(arena);
 				symbolNode = new(arena)Node(startLocus,NodeType::Symbol);
 				symbolNode->endLocus = state.getLocus();
 				symbolNode->symbol = symbolIndexIt->second;
@@ -582,7 +579,7 @@ namespace SExp
 				else if(nextChar == ';')
 				{
 					// Parse a line comment.
-					state.advance();
+					state.advance(true);
 					if(state.peek() != ';')
 					{
 						throw new FatalParseException(state.getLocus(),std::string("expected ';' following ';' but found '") + nextChar + "'");
@@ -592,7 +589,7 @@ namespace SExp
 				}
 				else if(nextChar == '(')
 				{
-					state.advance();
+					state.advance(true);
 
 					if(state.peek() == ';')
 					{
@@ -605,7 +602,7 @@ namespace SExp
 							}
 						}
 						while(state.peek() != ')');
-						state.advance();
+						state.advance(true);
 					}
 					else
 					{
@@ -616,7 +613,7 @@ namespace SExp
 						{
 							throw new FatalParseException(state.getLocus(),std::string("expected ')' following S-expression child nodes but found '") + nextChar + "'");
 						}
-						state.advance();
+						state.advance(true);
 						newNode->endLocus = state.getLocus();
 						return newNode;
 					}
