@@ -609,13 +609,17 @@ namespace WebAssemblyText
 			Symbol tag;
 			if(parseTreeNode(parentNodeIt,nodeIt) && parseSymbol(nodeIt,tag))
 			{
+				TypeId opType;
 				switch(tag)
 				{
 				default: return nullptr;
 				#define DEFINE_PARAMETRIC_UNTYPED_OP(symbol) \
 					throw; case Symbol::_##symbol:
 				#define DISPATCH_PARAMETRIC_TYPED_OP(opTypeName,opClassName,symbol) \
-					throw; case Symbol::_##symbol##_##opTypeName: goto symbol##opClassName##Label;
+					throw; case Symbol::_##symbol##_##opTypeName: opType = TypeId::opTypeName; goto symbol##Label;
+				#define DEFINE_PARAMETRIC_TYPED_OP(symbol) \
+					ENUM_AST_TYPES(DISPATCH_PARAMETRIC_TYPED_OP,symbol) \
+					throw; symbol##Label:
 
 				DEFINE_PARAMETRIC_UNTYPED_OP(if_else)
 				{
@@ -627,15 +631,27 @@ namespace WebAssemblyText
 					// Construct the IfElse node.
 					return requireFullMatch(nodeIt,"if",new(arena)IfElse<Class>(condition,thenExpression,elseExpression));
 				}
-				DEFINE_PARAMETRIC_UNTYPED_OP(select)
+				DEFINE_PARAMETRIC_TYPED_OP(select)
 				{
-					// Parse the if condition, then-expression, and else-expression.
+					// Parse the then-expression, and else-expression, and select condition.
+					auto trueValue = parseTypedExpression(opType,nodeIt,"select true value");
+					auto falseValue = parseTypedExpression(opType,nodeIt,"select false value");
 					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"select condition");
-					auto trueValue = parseTypedExpression<Class>(resultType,nodeIt,"select true value");
-					auto falseValue = parseTypedExpression<Class>(resultType,nodeIt,"select false value");
 
 					// Construct the Select node.
-					return requireFullMatch(nodeIt,"select",new(arena)Select<Class>(condition,trueValue,falseValue));
+					UntypedExpression* select;
+					switch(getPrimaryTypeClass(opType))
+					{
+					case TypeClassId::Int: select = new(arena)Select<IntClass>(condition,as<IntClass>(trueValue),as<IntClass>(falseValue)); break;
+					case TypeClassId::Float: select = new(arena)Select<FloatClass>(condition,as<FloatClass>(trueValue),as<FloatClass>(falseValue)); break;
+					case TypeClassId::Bool: select = new(arena)Select<BoolClass>(condition,as<BoolClass>(trueValue),as<BoolClass>(falseValue)); break;
+					case TypeClassId::Void: select = new(arena)Select<VoidClass>(condition,as<VoidClass>(trueValue),as<VoidClass>(falseValue)); break;
+					default: throw;
+					};
+
+					// Validate the select's type against the type expected by this expression's context.
+					auto result = coerceExpression(Class(),resultType,TypedExpression(select,opType),parentNodeIt,"select");
+					return requireFullMatch(nodeIt,"select",result);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(loop)
 				{
@@ -869,6 +885,7 @@ namespace WebAssemblyText
 
 				#undef DEFINE_PARAMETRIC_UNTYPED_OP
 				#undef DISPATCH_PARAMETRIC_TYPED_OP
+				#undef DEFINE_PARAMETRIC_TYPED_OP
 				}
 			}
 
