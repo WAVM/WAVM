@@ -829,13 +829,26 @@ namespace LLVMJIT
 		}
 
 		// Create the function import globals.
+		// Make sure the import with the same decorated name use the same llvm::GlobalVariable to ensure that LLVM doesn't further mangle the name
+		// to maintain uniqueness.
 		moduleIR.functionImportPointers.resize(astModule->functionImports.size());
+		std::map<std::string,llvm::GlobalVariable*> uniqueFunctionImportGlobals;
 		for(uintptr importIndex = 0;importIndex < moduleIR.functionImportPointers.size();++importIndex)
 		{
 			auto functionImport = astModule->functionImports[importIndex];
 			auto functionType = asLLVMType(functionImport.type);
 			auto functionName = Intrinsics::getDecoratedFunctionName((std::string(functionImport.module) + "." + functionImport.name).c_str(),functionImport.type);
-			moduleIR.functionImportPointers[importIndex] = new llvm::GlobalVariable(*moduleIR.llvmModule,functionType,true,llvm::GlobalValue::ExternalLinkage,nullptr,functionName);
+			auto existingImportGlobalIt = uniqueFunctionImportGlobals.find(functionName);
+			if(existingImportGlobalIt != uniqueFunctionImportGlobals.end())
+			{
+				moduleIR.functionImportPointers[importIndex] = existingImportGlobalIt->second;
+			}
+			else
+			{
+				auto functionImportGlobal = new llvm::GlobalVariable(*moduleIR.llvmModule,functionType,true,llvm::GlobalValue::ExternalLinkage,nullptr,functionName);
+				moduleIR.functionImportPointers[importIndex] = functionImportGlobal;
+				uniqueFunctionImportGlobals[functionName] = functionImportGlobal;
+			}
 		}
 
 		// Create the function table global.
