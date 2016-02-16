@@ -48,7 +48,7 @@ namespace RuntimePlatform
 		CONTEXT context;
 		memcpy(&context,&immutableContext,sizeof(CONTEXT));
 
-		// Unwind the stack until there's a valid instruction pointer, which signals we've reached the base.
+		// Unwind the stack until there isn't a valid instruction pointer, which signals we've reached the base.
 		ExecutionContext executionContext;
 		while(context.Rip)
 		{
