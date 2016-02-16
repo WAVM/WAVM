@@ -481,7 +481,7 @@ namespace SExp
 				const char* f64End = state.next;
 				float64 f64 = std::strtod(state.next,const_cast<char**>(&f64End));
 				const char* i64End = state.next;
-				uint64 i64 = std::strtoull(state.next,const_cast<char**>(&i64End),0);
+				uint64 i64 = std::strtoull(state.next,const_cast<char**>(&i64End),10);
 
 				// Between the float and the integer parser, use whichever consumed more input, favoring integers if they're equal.
 				if(f64End > i64End)
