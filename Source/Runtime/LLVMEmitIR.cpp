@@ -486,11 +486,12 @@ namespace LLVMJIT
 		}
 		DispatchResult visitBranchIf(const BranchIf* branchIf)
 		{
-			auto condition = dispatch(*this,branchIf->condition);
-
 			// If the branch target has a non-void type, compile the branch's value.
 			auto value = branchIf->branchTarget->type == TypeId::Void ? voidDummy
 				: dispatch(*this,branchIf->value,branchIf->branchTarget->type);
+
+			// Compile the branch's condition.
+			auto condition = dispatch(*this,branchIf->condition);
 
 			// Find the branch target context for this branch's target.
 			auto targetContext = findBranchTargetContext(branchIf->branchTarget);

@@ -364,9 +364,6 @@ namespace WebAssemblyText
 
 				DEFINE_UNTYPED_OP(br_if)
 				{
-					// Parse the condition.
-					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
-
 					// Parse the name or index of the target label.
 					const char* name;
 					uint64 parsedInt;
@@ -389,10 +386,13 @@ namespace WebAssemblyText
 					{
 						return TypedExpression(recordError<Error>(outErrors,nodeIt,"br_if: expected label name or index"),TypeId::Void);
 					}
-
+					
 					// If the branch target's type isn't void, parse an expression for the branch's value.
 					auto value = branchTarget->type == TypeId::Void ? nullptr
 						: parseTypedExpression(branchTarget->type,nodeIt,"break value");
+
+					// Parse the condition.
+					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
 
 					// Create IfElse and Branch nodes.
 					auto result = new(arena) BranchIf(branchTarget,condition,value);
