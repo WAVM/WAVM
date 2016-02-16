@@ -1292,202 +1292,222 @@ namespace WebAssemblyText
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
 			SNodeIt childNodeIt;
-			if(parseTaggedNode(nodeIt,Symbol::_func,childNodeIt))
+			Symbol tag;
+			if(parseTreeNode(nodeIt,childNodeIt) && parseSymbol(childNodeIt,tag))
 			{
-				auto function = new(module->arena) Function();
-				auto functionIndex = module->functions.size();
-				module->functions.push_back(function);
-
-				// Parse an optional function name.
-				const char* functionName;
-				if(parseName(childNodeIt,functionName))
+				switch(tag)
 				{
-					function->name = module->arena.copyToArena(functionName,strlen(functionName)+1);
-					if(functionNameToIndexMap.count(functionName)) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate function name"); }
-					else { functionNameToIndexMap[functionName] = functionIndex; }
-				}
-
-				// Parse a module type reference.
-				FunctionType referencedFunctionType;
-				bool hasReferencedFunctionType = false;
-				SNodeIt typeChildNodeIt;
-				if(parseTaggedNode(childNodeIt,Symbol::_type,typeChildNodeIt))
-				{
-					// Parse a name or index into the module's type declarations.
-					++childNodeIt;
-					uintptr signatureIndex = 0;
-					if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
-					{ recordError<ErrorRecord>(outErrors,typeChildNodeIt,"expected function type name or index"); continue; }
-					referencedFunctionType = signatures[signatureIndex];
-					hasReferencedFunctionType = true;
-				}
-
-				// Parse the function parameter and result types.
-				parseFunctionType(childNodeIt,function->locals,function->type.returnType,module->arena,outErrors);
-				for(uintptr parameterIndex = 0;parameterIndex < function->locals.size();++parameterIndex)
-				{
-					function->parameterLocalIndices.push_back(parameterIndex);
-					function->type.parameters.push_back(function->locals[parameterIndex].type);
-				}
-
-				// If there's both a type reference and explicit function signature, then make sure they match.
-				if(function->type.parameters.size() || function->type.returnType != TypeId::Void)
-				{
-					if(hasReferencedFunctionType && function->type != referencedFunctionType)
+					case Symbol::_func:
 					{
-						recordError<ErrorRecord>(outErrors,nodeIt,std::string("type reference doesn't match function signature"));
-						continue;
+						auto function = new(module->arena) Function();
+						auto functionIndex = module->functions.size();
+						module->functions.push_back(function);
+
+						// Parse an optional function name.
+						const char* functionName;
+						if(parseName(childNodeIt,functionName))
+						{
+							function->name = module->arena.copyToArena(functionName,strlen(functionName)+1);
+							if(functionNameToIndexMap.count(functionName)) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate function name"); }
+							else { functionNameToIndexMap[functionName] = functionIndex; }
+						}
+
+						// Parse a module type reference.
+						FunctionType referencedFunctionType;
+						bool hasReferencedFunctionType = false;
+						SNodeIt typeChildNodeIt;
+						if(parseTaggedNode(childNodeIt,Symbol::_type,typeChildNodeIt))
+						{
+							// Parse a name or index into the module's type declarations.
+							++childNodeIt;
+							uintptr signatureIndex = 0;
+							if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
+							{ recordError<ErrorRecord>(outErrors,typeChildNodeIt,"expected function type name or index"); continue; }
+							referencedFunctionType = signatures[signatureIndex];
+							hasReferencedFunctionType = true;
+						}
+
+						// Parse the function parameter and result types.
+						parseFunctionType(childNodeIt,function->locals,function->type.returnType,module->arena,outErrors);
+						for(uintptr parameterIndex = 0;parameterIndex < function->locals.size();++parameterIndex)
+						{
+							function->parameterLocalIndices.push_back(parameterIndex);
+							function->type.parameters.push_back(function->locals[parameterIndex].type);
+						}
+
+						// If there's both a type reference and explicit function signature, then make sure they match.
+						if(function->type.parameters.size() || function->type.returnType != TypeId::Void)
+						{
+							if(hasReferencedFunctionType && function->type != referencedFunctionType)
+							{
+								recordError<ErrorRecord>(outErrors,nodeIt,std::string("type reference doesn't match function signature"));
+								continue;
+							}
+						}
+						else if(hasReferencedFunctionType)
+						{
+							// If there's only a referenced type, use it.
+							function->type = std::move(referencedFunctionType);
+							for(auto parameterType : function->type.parameters)
+							{
+								function->parameterLocalIndices.push_back(function->locals.size());
+								function->locals.push_back({parameterType,nullptr});
+							}
+						}
+
+						for(;childNodeIt;++childNodeIt)
+						{
+							SNodeIt innerChildNodeIt;
+							if(parseTaggedNode(childNodeIt,Symbol::_local,innerChildNodeIt))
+							{
+								// Parse a local declaration.
+								parseVariables(innerChildNodeIt,function->locals,outErrors,module->arena);
+								if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following local declaration"); continue; }
+							}
+							else { break; } // Stop parsing when we reach the first func child that isn't a param, result, or local.
+						}
+
+						break;
 					}
-				}
-				else if(hasReferencedFunctionType)
-				{
-					// If there's only a referenced type, use it.
-					function->type = std::move(referencedFunctionType);
-					for(auto parameterType : function->type.parameters)
+					case Symbol::_import:
 					{
-						function->parameterLocalIndices.push_back(function->locals.size());
-						function->locals.push_back({parameterType,nullptr});
-					}
-				}
+						// Parse an optional import name used within the module.
+						const char* importInternalName;
+						bool hasName = parseName(childNodeIt,importInternalName);
 
-				for(;childNodeIt;++childNodeIt)
-				{
-					SNodeIt innerChildNodeIt;
-					if(parseTaggedNode(childNodeIt,Symbol::_local,innerChildNodeIt))
-					{
-						// Parse a local declaration.
-						parseVariables(innerChildNodeIt,function->locals,outErrors,module->arena);
-						if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following local declaration"); continue; }
-					}
-					else { break; } // Stop parsing when we reach the first func child that isn't a param, result, or local.
-				}
-			}
-			else if(parseTaggedNode(nodeIt,Symbol::_import,childNodeIt))
-			{
-				// Parse an optional import name used within the module.
-				const char* importInternalName;
-				bool hasName = parseName(childNodeIt,importInternalName);
+						// Parse a mandatory import module name.
+						const char* importModuleName;
+						size_t importModuleNameLength;
+						if(!parseString(childNodeIt,importModuleName,importModuleNameLength,module->arena))
+						{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import module name string"); continue; }
 
-				// Parse a mandatory import module name.
-				const char* importModuleName;
-				size_t importModuleNameLength;
-				if(!parseString(childNodeIt,importModuleName,importModuleNameLength,module->arena))
-				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import module name string"); continue; }
+						// Parse a mandary import function name.
+						const char* importFunctionName;
+						size_t importFunctionNameLength;
+						if(!parseString(childNodeIt,importFunctionName,importFunctionNameLength,module->arena))
+						{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import function name string"); continue; }
 
-				// Parse a mandary import function name.
-				const char* importFunctionName;
-				size_t importFunctionNameLength;
-				if(!parseString(childNodeIt,importFunctionName,importFunctionNameLength,module->arena))
-				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import function name string"); continue; }
-
-				FunctionType importType;
-				SNodeIt typeChildNodeIt;
-				if(parseTaggedNode(childNodeIt,Symbol::_type,typeChildNodeIt))
-				{
-					// Parse a name or index into the module's type declarations.
-					++childNodeIt;
-					uintptr signatureIndex = 0;
-					if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
-					{ recordError<ErrorRecord>(outErrors,typeChildNodeIt,"expected function type name or index"); continue; }
-					importType = signatures[signatureIndex];
-				}
-				else
-				{
-					// Parse the import's parameter and result declarations.
-					std::vector<Variable> parameters;
-					TypeId returnType = TypeId::Void;
-					parseFunctionType(childNodeIt,parameters,returnType,module->arena,outErrors);
-					std::vector<TypeId> parameterTypes;
-					for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
-					importType = FunctionType(returnType,parameterTypes);
-				}
+						FunctionType importType;
+						SNodeIt typeChildNodeIt;
+						if(parseTaggedNode(childNodeIt,Symbol::_type,typeChildNodeIt))
+						{
+							// Parse a name or index into the module's type declarations.
+							++childNodeIt;
+							uintptr signatureIndex = 0;
+							if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
+							{ recordError<ErrorRecord>(outErrors,typeChildNodeIt,"expected function type name or index"); continue; }
+							importType = signatures[signatureIndex];
+						}
+						else
+						{
+							// Parse the import's parameter and result declarations.
+							std::vector<Variable> parameters;
+							TypeId returnType = TypeId::Void;
+							parseFunctionType(childNodeIt,parameters,returnType,module->arena,outErrors);
+							std::vector<TypeId> parameterTypes;
+							for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
+							importType = FunctionType(returnType,parameterTypes);
+						}
 				
-				// Create the import.
-				auto importIndex = module->functionImports.size();
-				module->functionImports.push_back({importType,importModuleName,importFunctionName});
-				if(hasName)
-				{
-					importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
-					if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),"duplicate variable name"); }
-					else { functionImportNameToIndexMap[importInternalName] = importIndex; }
-				}
+						// Create the import.
+						auto importIndex = module->functionImports.size();
+						module->functionImports.push_back({importType,importModuleName,importFunctionName});
+						if(hasName)
+						{
+							importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
+							if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),"duplicate variable name"); }
+							else { functionImportNameToIndexMap[importInternalName] = importIndex; }
+						}
 
-				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following import declaration"); continue; }
-			}
-			else if(parseTaggedNode(nodeIt,Symbol::_memory,childNodeIt))
-			{
-				// Parse a memory declaration.
-				if(hasMemoryNode) { recordError<ErrorRecord>(outErrors,nodeIt,"duplicate memory declaration"); continue; }
-				hasMemoryNode = true;
+						if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following import declaration"); continue; }
+						
+						break;
+					}
+					case Symbol::_memory:
+					{
+						// Parse a memory declaration.
+						if(hasMemoryNode) { recordError<ErrorRecord>(outErrors,nodeIt,"duplicate memory declaration"); continue; }
+						hasMemoryNode = true;
 
-				// Parse the initial and maximum number of bytes.
-				// If one number is found, it is taken to be both the initial and max.
-				int64 initialNumBytes;
-				int64 maxNumBytes;
-				if(!parseInt(childNodeIt,initialNumBytes))
-					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected initial memory size integer"); continue; }
-				if(!parseInt(childNodeIt,maxNumBytes))
-					{ maxNumBytes = initialNumBytes; }
-				if(module->maxNumBytesMemory > (1ull<<32))
-					{ recordError<ErrorRecord>(outErrors,childNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
-				if(module->initialNumBytesMemory > module->maxNumBytesMemory)
-					{ recordError<ErrorRecord>(outErrors,childNodeIt,"initial memory size must be <= maximum memory size"); continue; }
-				module->initialNumBytesMemory = (uint64) initialNumBytes;
-				module->maxNumBytesMemory = (uint64) maxNumBytes;
+						// Parse the initial and maximum number of bytes.
+						// If one number is found, it is taken to be both the initial and max.
+						int64 initialNumBytes;
+						int64 maxNumBytes;
+						if(!parseInt(childNodeIt,initialNumBytes))
+							{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected initial memory size integer"); continue; }
+						if(!parseInt(childNodeIt,maxNumBytes))
+							{ maxNumBytes = initialNumBytes; }
+						if(module->maxNumBytesMemory > (1ull<<32))
+							{ recordError<ErrorRecord>(outErrors,childNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
+						if(module->initialNumBytesMemory > module->maxNumBytesMemory)
+							{ recordError<ErrorRecord>(outErrors,childNodeIt,"initial memory size must be <= maximum memory size"); continue; }
+						module->initialNumBytesMemory = (uint64) initialNumBytes;
+						module->maxNumBytesMemory = (uint64) maxNumBytes;
 				
-				// Parse the memory segments.
-				for(;childNodeIt;++childNodeIt)
-				{
-					SNodeIt segmentChildNodeIt;
-					int64 baseAddress;
-					const char* dataString;
-					size_t dataLength;
-					if(!parseTaggedNode(childNodeIt,Symbol::_segment,segmentChildNodeIt))
-						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment declaration"); continue; }
-					if(!parseInt(segmentChildNodeIt,baseAddress))
-						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment base address integer"); continue; }
-					if(!parseString(segmentChildNodeIt,dataString,dataLength,module->arena))
-						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment data string"); continue; }
-					if(	(uint64)baseAddress + dataLength < (uint64)baseAddress // Check for integer overflow in baseAddress+dataLength.
-					||	(uint64)baseAddress + dataLength > module->initialNumBytesMemory)
-						{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"data segment bounds aren't contained by initial memory size"); continue; }
-					module->dataSegments.push_back({(uint64)baseAddress,dataLength,(uint8*)dataString});
+						// Parse the memory segments.
+						for(;childNodeIt;++childNodeIt)
+						{
+							SNodeIt segmentChildNodeIt;
+							int64 baseAddress;
+							const char* dataString;
+							size_t dataLength;
+							if(!parseTaggedNode(childNodeIt,Symbol::_segment,segmentChildNodeIt))
+								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment declaration"); continue; }
+							if(!parseInt(segmentChildNodeIt,baseAddress))
+								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment base address integer"); continue; }
+							if(!parseString(segmentChildNodeIt,dataString,dataLength,module->arena))
+								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment data string"); continue; }
+							if(	(uint64)baseAddress + dataLength < (uint64)baseAddress // Check for integer overflow in baseAddress+dataLength.
+							||	(uint64)baseAddress + dataLength > module->initialNumBytesMemory)
+								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"data segment bounds aren't contained by initial memory size"); continue; }
+							module->dataSegments.push_back({(uint64)baseAddress,dataLength,(uint8*)dataString});
+						}
+
+						if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following memory declaration"); continue; }
+						
+						break;
+					}
+					case Symbol::_type:
+					{
+						// Parse a function signature definition.
+						const char* signatureName;
+						bool hasName = parseName(childNodeIt,signatureName);
+
+						SNodeIt funcChildNodeIt;
+						if(!parseTaggedNode(childNodeIt++,Symbol::_func,funcChildNodeIt))
+						{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected func declaration"); continue; }
+
+						FunctionType functionType;
+						std::vector<Variable> parameters;
+						parseFunctionType(funcChildNodeIt,parameters,functionType.returnType,module->arena,outErrors);
+						functionType.parameters.resize(parameters.size());
+						for(uintptr parameterIndex = 0;parameterIndex < parameters.size();++parameterIndex)
+						{
+							functionType.parameters[parameterIndex] = parameters[parameterIndex].type;
+						}
+						if(funcChildNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following function type declaration"); continue; }
+
+						auto signatureIndex = signatures.size();
+						signatures.push_back(functionType);
+
+						if(hasName) { signatureNameToIndexMap[signatureName] = signatureIndex; }
+
+						if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following type declaration"); continue; }
+						
+						break;
+					}
+					case Symbol::_export:
+					case Symbol::_start:
+					case Symbol::_table:
+						break;
+					default:
+						recordError<ErrorRecord>(outErrors,nodeIt,"unrecognized declaration");
+						break;
 				}
-
-				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following memory declaration"); continue; }
 			}
-			else if(parseTaggedNode(nodeIt,Symbol::_type,childNodeIt))
-			{
-				// Parse a function signature definition.
-				const char* signatureName;
-				bool hasName = parseName(childNodeIt,signatureName);
-
-				SNodeIt funcChildNodeIt;
-				if(!parseTaggedNode(childNodeIt++,Symbol::_func,funcChildNodeIt))
-				{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected func declaration"); continue; }
-
-				FunctionType functionType;
-				std::vector<Variable> parameters;
-				parseFunctionType(funcChildNodeIt,parameters,functionType.returnType,module->arena,outErrors);
-				functionType.parameters.resize(parameters.size());
-				for(uintptr parameterIndex = 0;parameterIndex < parameters.size();++parameterIndex)
-				{
-					functionType.parameters[parameterIndex] = parameters[parameterIndex].type;
-				}
-				if(funcChildNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following function type declaration"); continue; }
-
-				auto signatureIndex = signatures.size();
-				signatures.push_back(functionType);
-
-				if(hasName) { signatureNameToIndexMap[signatureName] = signatureIndex; }
-
-				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following type declaration"); continue; }
-			}
-			else if(!parseTaggedNode(nodeIt,Symbol::_export,childNodeIt) && !parseTaggedNode(nodeIt,Symbol::_table,childNodeIt))
-				{ recordError<ErrorRecord>(outErrors,nodeIt,"unrecognized declaration"); continue; }
 		}
 
-		// Parse function tables in a second pass, so it has information about all functions.
+		// Parse function tables and the start function reference in a second pass, so it has information about all functions.
 		bool hasFunctionTable = false;
 		for(auto nodeIt = firstModuleChildNode;nodeIt;++nodeIt)
 		{
@@ -1512,14 +1532,21 @@ namespace WebAssemblyText
 						uintptr functionIndex;
 						if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
 							{ functionIndices[index] = 0; recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index"); }
-						else if((uintptr)functionIndex >= module->functions.size())
-							{ functionIndices[index] = 0; recordError<ErrorRecord>(outErrors,childNodeIt,"invalid function index"); }
-						else { functionIndices[index] = (uintptr)functionIndex; }
+						else { functionIndices[index] = functionIndex; }
 					}
 				}
 				module->functionTable.functionIndices = functionIndices;
 				module->functionTable.numFunctions = numFunctions;
 				hasFunctionTable = true;
+			}
+			else if(parseTaggedNode(nodeIt,Symbol::_start,childNodeIt))
+			{
+				uintptr functionIndex;
+				if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
+					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index"); }
+				else if(module->functions[functionIndex]->type != FunctionType())
+					{ recordError<ErrorRecord>(outErrors,childNodeIt,"start function must be of type ()->Void"); }
+				else { module->startFunctionIndex = functionIndex; }
 			}
 		}
 

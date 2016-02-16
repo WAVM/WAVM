@@ -179,8 +179,9 @@ namespace AST
 
 		uint64 initialNumBytesMemory;
 		uint64 maxNumBytesMemory;
+		uintptr startFunctionIndex;
 
-		Module() : initialNumBytesMemory(0), maxNumBytesMemory(0) {}
+		Module() : initialNumBytesMemory(0), maxNumBytesMemory(0), startFunctionIndex(UINTPTR_MAX) {}
 
 		// When copying a module, copy everything but the arena!
 		// This means the new module will have its own arena, but will reference expressions and other data stored in the old module's arena.
@@ -192,6 +193,7 @@ namespace AST
 		, dataSegments(inCopy.dataSegments)
 		, initialNumBytesMemory(inCopy.initialNumBytesMemory)
 		, maxNumBytesMemory(inCopy.maxNumBytesMemory)
+		, startFunctionIndex(inCopy.startFunctionIndex)
 		{}
 	};
 }

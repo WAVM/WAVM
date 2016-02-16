@@ -18,6 +18,7 @@ namespace WebAssemblyText
 		WAST_SYMBOL(import) \
 		WAST_SYMBOL(memory) \
 		WAST_SYMBOL(segment) \
+		WAST_SYMBOL(start) \
 		WAST_SYMBOL(param) \
 		WAST_SYMBOL(result) \
 		WAST_SYMBOL(local) \

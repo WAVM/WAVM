@@ -32,6 +32,7 @@ add_test(nan-propagation ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/nan-propagation.w
 #add_test(resizing ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/resizing.wast)
 add_test(runaway-recursion ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/runaway-recursion.wast)
 add_test(select ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/select.wast)
+add_test(start ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/start.wast)
 add_test(store_retval ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/switch.wast)
 add_test(switch ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/switch.wast)
 add_test(traps ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/traps.wast)

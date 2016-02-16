@@ -90,6 +90,13 @@ namespace Runtime
 		initWebAssemblyIntrinsics();
 		initWAVMIntrinsics();
 
+		// Call the module's start function.
+		if(module->startFunctionIndex != UINTPTR_MAX)
+		{
+			assert(module->functions[module->startFunctionIndex]->type == AST::FunctionType());
+			invokeFunction(module,module->startFunctionIndex,nullptr);
+		}
+
 		return true;
 	}
 
