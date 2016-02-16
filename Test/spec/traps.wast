@@ -87,4 +87,3 @@
 ;;(assert_trap (invoke "no_dce.i32.load" (i32.const 8)) "out of bounds memory access")
 ;;(assert_trap (invoke "no_dce.i64.load" (i32.const 8)) "out of bounds memory access")
 ;;(assert_trap (invoke "no_dce.f32.load" (i32.const 8)) "out of bounds memory access")
-;;(assert_trap (invoke "no_dce.f64.load" (i32.const 8)) "out of bounds memory access")
