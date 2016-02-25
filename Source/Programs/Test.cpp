@@ -38,7 +38,7 @@ int main(int argc,char** argv)
 	
 	const char* filename = argv[1];
 	File wastFile;
-	if(!loadTextModule(filename,wastFile)) { return -1; }
+	if(!loadTextFile(filename,wastFile)) { return -1; }
 	
 	// Initialize the runtime.
 	if(!Runtime::init())

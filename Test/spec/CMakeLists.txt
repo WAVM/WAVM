@@ -1,6 +1,7 @@
 set(TEST_BIN ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CONFIGURATION}/Test)
 
 #add_test(address ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/address.wast)
+add_test(block_comments ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/block_comments.wast)
 add_test(conversions ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/conversions.wast)
 add_test(endianness ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/endianness.wast)
 add_test(exports ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/exports.wast)

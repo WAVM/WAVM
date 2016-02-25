@@ -23,7 +23,7 @@ inline std::vector<uint8> loadFile(const char* filename)
 	return data;
 }
 
-inline bool loadTextModule(const char* filename,WebAssemblyText::File& outFile)
+inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 {
 	// Read the file into a string.
 	auto wastBytes = loadFile(filename);
@@ -39,6 +39,13 @@ inline bool loadTextModule(const char* filename,WebAssemblyText::File& outFile)
 		for(auto error : outFile.errors) { std::cerr << error->message.c_str() << std::endl; }
 		return false;
 	}
+	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	return true;
+}
+
+inline bool loadTextModule(const char* filename,WebAssemblyText::File& outFile)
+{
+	if(!loadTextFile(filename,outFile)) { return false; }
 	if(!outFile.modules.size())
 	{
 		std::cerr << "WebAssembly text file didn't contain any modules!" << std::endl;
