@@ -296,7 +296,6 @@ namespace WebAssemblyText
 					if(context.labelToBranchTargetMap.count(name))
 					{
 						outerBranchTarget = context.labelToBranchTargetMap[name];
-						recordError<ErrorRecord>(context.outErrors,nodeIt,"label name shadows outer name");
 					}
 					context.labelToBranchTargetMap[name] = branchTarget;
 				}
