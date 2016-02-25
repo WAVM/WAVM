@@ -395,30 +395,19 @@ namespace SExp
 			}
 			else
 			{
-				if(!integerPart)
+				if(!integerPart && !fractionalPart)
 				{
-					if(!fractionalPart)
-					{
-						// If both the integer and fractional part are zero, just return zero.
-						auto node = new(arena) Node(state.getLocus(),NodeType::Float);
-						node->endLocus = state.getLocus();
-						node->f64 = isNegative ? -0.0 : 0.0;
-						node->f32 = isNegative ? -0.0f : 0.0f;
-						return node;
-					}
-					else if(exponent != -1022)
-					{
-						return createError(startLocus,"exponent on subnormal hexadecimal float must be -1022");
-					}
-					else
-					{
-						// For subnormals (integerPart=0 fractionalPart!=0 exponent=-1022), change the encoded exponent to -1023.
-						exponent = -1023;
-					}
+					// If both the integer and fractional part are zero, just return zero.
+					auto node = new(arena) Node(state.getLocus(),NodeType::Float);
+					node->endLocus = state.getLocus();
+					node->f64 = isNegative ? -0.0 : 0.0;
+					node->f32 = isNegative ? -0.0f : 0.0f;
+					return node;
 				}
 				else
 				{
-					while(integerPart != 1)
+					// Normalize the integer and fractional parts so that integerPart=1.
+					while(integerPart > 1)
 					{
 						if(fractionalPart & 1)
 						{
@@ -431,6 +420,18 @@ namespace SExp
 						fractionalPart = ((integerPart & 1) << 51) | (fractionalPart >> 1);
 						integerPart >>= 1;
 						++exponent;
+					};
+					while(integerPart < 1)
+					{
+						if(exponent <= -1022)
+						{
+							// For subnormals (integerPart=0 fractionalPart!=0 exponent=-1022), change the encoded exponent to -1023.
+							exponent = -1023;
+							break;
+						}
+						integerPart = (fractionalPart >> 51) & 1;
+						fractionalPart = (fractionalPart << 1) & ((1ull<<52)-1);
+						--exponent;
 					};
 				}
 
