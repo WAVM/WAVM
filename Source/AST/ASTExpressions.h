@@ -263,16 +263,4 @@ namespace AST
 		,	resultExpression(inResultExpression)
 		{}
 	};
-	
-	struct HasFeature : public IntExpression
-	{
-		const char* featureName;
-		size_t featureNameLength;
-
-		HasFeature(const char* inFeatureName,size_t inFeatureNameLength)
-		: IntExpression(IntOp::hasFeature)
-		, featureName(inFeatureName)
-		, featureNameLength(inFeatureNameLength)
-		{}
-	};
 }

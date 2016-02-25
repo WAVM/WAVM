@@ -426,10 +426,6 @@ namespace WebAssemblyText
 		{
 			return dispatch(*this,discardResult->expression);
 		}
-		DispatchResult visitHasFeature(const HasFeature* hasFeature)
-		{
-			return createTaggedSubtree(Symbol::_has_feature) << hasFeature->featureName;
-		}
 	};
 
 	SNodeOutputStream ModulePrintContext::printFunction(uintptr functionIndex)

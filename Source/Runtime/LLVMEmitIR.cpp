@@ -581,11 +581,6 @@ namespace LLVMJIT
 			dispatch(*this,discardResult->expression);
 			return voidDummy;
 		}
-		DispatchResult visitHasFeature(const HasFeature* hasFeature)
-		{
-			if(!strcmp(hasFeature->featureName,"wasm")) { return compileLiteral((uint32)1); }
-			else { return compileLiteral((uint32)0); }
-		}
 		
 		DispatchResult compileLLVMIntrinsic(llvm::Intrinsic::ID intrinsicId,llvm::Value* firstOperand)
 		{

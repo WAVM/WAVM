@@ -403,19 +403,6 @@ namespace WebAssemblyText
 				DEFINE_UNTYPED_OP(page_size)		{ return parseIntrinsic<IntClass>("page_size",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(grow_memory)		{ return parseIntrinsic<VoidClass>("grow_memory",FunctionType(TypeId::Void,{TypeId::I32}),nodeIt); }
 
-				DEFINE_UNTYPED_OP(has_feature)
-				{
-					// Parse the feature name.
-					const char* featureName;
-					size_t featureNameLength;
-					if(!parseString(nodeIt,featureName,featureNameLength,arena))
-					{ return TypedExpression(recordError<Error>(outErrors,nodeIt,"expected import module name string"),TypeId::I32); }
-
-					// Create the HasFeature node.
-					auto result = new(arena)HasFeature(featureName,featureNameLength);
-					return TypedExpression(requireFullMatch(nodeIt,"has_feature",result),TypeId::I32);
-				}
-
 				DEFINE_TYPED_OP(Int,const)
 				{
 					int64 integer;
