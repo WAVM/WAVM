@@ -17,7 +17,7 @@ namespace DavidGay
 	#ifdef _MSC_VER
 		#pragma warning(push)
 		#pragma warning(disable : 4244 4083 4706 4701 4703)
-	#elif __GNUC__
+	#elif defined(__GNUC__) && !defined(__clang__)
 		#pragma GCC diagnostic push
 		#pragma GCC diagnostic ignored "-Wsign-compare"
 		#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
