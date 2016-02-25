@@ -1587,9 +1587,23 @@ namespace WebAssemblyText
 				if(!parseString(childNodeIt,exportName,nameLength,module->arena))
 					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected export name string"); continue; }
 				uintptr functionIndex;
-				if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
-					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index"); continue; }
-				module->exportNameToFunctionIndexMap[exportName] = functionIndex;
+				if(parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
+				{
+					module->exportNameToFunctionIndexMap[exportName] = functionIndex;
+				}
+				else
+				{
+					Symbol symbol;
+					if(parseSymbol(childNodeIt,symbol) && symbol == Symbol::_memory)
+					{
+						// Ignore the memory export declaration for now.
+					}
+					else
+					{
+						recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index or 'memory'");
+						continue;
+					}
+				}
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following export declaration"); continue; }
 			}
 		}
