@@ -27,7 +27,7 @@ namespace Runtime
 		return 1<<Platform::getPageSizeLog2();
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(wasm_intrinsics,grow_memory,grow_memory,Void,I32,deltaBytes)
+	DEFINE_INTRINSIC_FUNCTION1(wasm_intrinsics,grow_memory,grow_memory,I32,I32,deltaBytes)
 	{
 		// Verify that deltaBytes is a multiple of the page size.
 		auto pageSize = 1<<Platform::getPageSizeLog2();
@@ -36,7 +36,7 @@ namespace Runtime
 			causeException(Exception::Cause::GrowMemoryNotPageAligned);
 		}
 
-		vmGrowMemory((size_t)deltaBytes);
+		return (uint32)vmGrowMemory((size_t)deltaBytes);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION1(spectest,print,print,Void,I32,a)

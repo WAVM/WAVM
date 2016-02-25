@@ -400,7 +400,7 @@ namespace WebAssemblyText
 
 				DEFINE_UNTYPED_OP(memory_size)		{ return parseIntrinsic<IntClass>("memory_size",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(page_size)		{ return parseIntrinsic<IntClass>("page_size",FunctionType(TypeId::I32,{}),nodeIt); }
-				DEFINE_UNTYPED_OP(grow_memory)		{ return parseIntrinsic<VoidClass>("grow_memory",FunctionType(TypeId::Void,{TypeId::I32}),nodeIt); }
+				DEFINE_UNTYPED_OP(grow_memory)		{ return parseIntrinsic<IntClass>("grow_memory",FunctionType(TypeId::I32,{TypeId::I32}),nodeIt); }
 
 				DEFINE_TYPED_OP(Int,const)
 				{
