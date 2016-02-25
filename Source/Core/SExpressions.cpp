@@ -17,10 +17,14 @@ namespace DavidGay
 	#ifdef _MSC_VER
 		#pragma warning(push)
 		#pragma warning(disable : 4244 4083 4706 4701 4703)
-	#else
+	#elif __GNUC__
 		#pragma GCC diagnostic push
 		#pragma GCC diagnostic ignored "-Wsign-compare"
 		#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+		#define Long int
+	#else
+		#pragma GCC diagnostic push
+		#pragma GCC diagnostic ignored "-Wsign-compare"
 		#define Long int
 	#endif
 
