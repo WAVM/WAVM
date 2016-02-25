@@ -38,7 +38,7 @@ namespace WebAssemblyText
 			case SExp::NodeType::SignedInt: return std::to_string(node->i64);
 			case SExp::NodeType::UnsignedInt: return std::to_string(node->u64);
 			case SExp::NodeType::Float: return std::to_string(node->f64);
-			case SExp::NodeType::Error: return node->error;
+			case SExp::NodeType::Error: return std::string("error") + node->startLocus.describe() + ": " + node->error;
 			case SExp::NodeType::String: return node->string;
 			case SExp::NodeType::UnindexedSymbol: return node->string;
 			default: throw;

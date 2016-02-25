@@ -6,6 +6,41 @@
 #include <cerrno>
 #include <cstdlib>
 
+namespace DavidGay
+{
+	#define IEEE_8087
+	#define NO_HEX_FP
+	#define NO_INFNAN_CHECK
+	#define strtod parseDecimalF64
+	#define dtoa printDecimalF64
+
+	#ifdef _MSC_VER
+		#pragma warning(push)
+		#pragma warning(disable : 4244 4083 4706 4701 4703)
+	#else
+		#pragma GCC diagnostic push
+		#pragma GCC diagnostic ignored "-Wsign-compare"
+		#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+		#define Long int
+	#endif
+
+	#include "../ThirdParty/dtoa.c"
+
+	#ifdef _MSC_VER
+		#pragma warning(pop)
+	#else
+		#pragma GCC diagnostic pop
+		#undef Long
+	#endif
+
+	#undef IEEE_8087
+	#undef NO_HEX_FP
+	#undef NO_STRTOD_BIGCOMP
+	#undef NO_INFNAN_CHECK
+	#undef strtod
+	#undef dtoa
+};
+
 namespace SExp
 {
 	struct FatalParseException
@@ -478,33 +513,46 @@ namespace SExp
 			else if(parseKeyword("0x") || parseKeyword("0X")) { return parseHexNumber(startLocus,isNegative); }
 			else
 			{
-				// For decimals, just use the std float parsing code.
-				const char* f64End = state.next;
-				float64 f64 = std::strtod(state.next,const_cast<char**>(&f64End));
-				const char* i64End = state.next;
-				uint64 i64 = std::strtoull(state.next,const_cast<char**>(&i64End),10);
-
-				// Between the float and the integer parser, use whichever consumed more input, favoring integers if they're equal.
-				if(f64End > i64End)
+				// Parse a decimal integer.
+				auto startLocus = state.getLocus();
+				const char* firstNumberChar = state.next;
+				uint64 i64 = 0;
+				bool i64Overflow = false;
+				while(isDigit(*state.next))
 				{
+					if(i64 > UINT64_MAX / 10)
+					{
+						i64Overflow = true;
+					}
+
+					i64 *= 10;
+					i64 += (*state.next - '0');
+					state.advance(true);
+				};
+
+				if(*state.next == '.' || *state.next == 'e' || *state.next == 'E')
+				{
+					// Use David Gay's strtod to parse a floating point number.
+					const char* f64End;
+					auto f64 = DavidGay::parseDecimalF64(firstNumberChar,const_cast<char**>(&f64End));
 					state.advanceToPtr(f64End);
-					auto node = new(arena) Node(state.getLocus(),NodeType::Float);
+
+					auto node = new(arena) Node(startLocus,NodeType::Float);
 					node->endLocus = state.getLocus();
 					node->f64 = isNegative ? -f64 : f64;
 					node->f32 = (float32)node->f64;
 					return node;
 				}
-				else if(i64End > state.next)
+				else if(i64Overflow)
 				{
-					state.advanceToPtr(i64End);
-					auto node = new(arena) Node(state.getLocus(),isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
-					node->endLocus = state.getLocus();
-					node->i64 = isNegative ? -(int64)i64 : i64;
-					return node;
+					return createError(startLocus,"number is too large for 64-bit integer");
 				}
 				else
 				{
-					throw new FatalParseException(state.getLocus(),std::string("expected number but found '") + state.peek() + "'");
+					auto node = new(arena) Node(startLocus,isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
+					node->endLocus = state.getLocus();
+					node->i64 = isNegative ? -(int64)i64 : i64;
+					return node;
 				}
 			}
 		}
