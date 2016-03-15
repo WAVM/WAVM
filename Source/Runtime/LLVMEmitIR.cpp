@@ -664,6 +664,30 @@ namespace LLVMJIT
 			return irBuilder.CreateAnd(shiftCount,bitsMinusOne);
 		}
 
+		llvm::Value* compileRotl(TypeId type,llvm::Value* left,llvm::Value* right)
+		{
+			auto bitWidthMinusRight = irBuilder.CreateSub(
+				irBuilder.CreateZExt(compileLiteral((uint8)getTypeBitWidth(type)),llvmTypesByTypeId[(size_t)type]),
+				right
+				);
+			return irBuilder.CreateOr(
+				irBuilder.CreateShl(left,compileShiftCountMask(type,right)),
+				irBuilder.CreateLShr(left,compileShiftCountMask(type,bitWidthMinusRight))
+				);
+		}
+		
+		llvm::Value* compileRotr(TypeId type,llvm::Value* left,llvm::Value* right)
+		{
+			auto bitWidthMinusRight = irBuilder.CreateSub(
+				irBuilder.CreateZExt(compileLiteral((uint8)getTypeBitWidth(type)),llvmTypesByTypeId[(size_t)type]),
+				right
+				);
+			return irBuilder.CreateOr(
+				irBuilder.CreateShl(left,compileShiftCountMask(type,bitWidthMinusRight)),
+				irBuilder.CreateLShr(left,compileShiftCountMask(type,right))
+				);
+		}
+
 		template<typename Class,typename OpAsType> DispatchResult visitUnary(TypeId type,const Unary<Class>* unary,OpAsType);
 		template<typename Class,typename OpAsType> DispatchResult visitBinary(TypeId type,const Binary<Class>* binary,OpAsType);
 		template<typename Class,typename OpAsType> DispatchResult visitCast(TypeId type,const Cast<Class>* cast,OpAsType);
@@ -715,6 +739,8 @@ namespace LLVMJIT
 		IMPLEMENT_BINARY_OP(IntClass,shl,irBuilder.CreateShl(left,compileShiftCountMask(type,right)))
 		IMPLEMENT_BINARY_OP(IntClass,shrSExt,irBuilder.CreateAShr(left,compileShiftCountMask(type,right)))
 		IMPLEMENT_BINARY_OP(IntClass,shrZExt,irBuilder.CreateLShr(left,compileShiftCountMask(type,right)))
+		IMPLEMENT_BINARY_OP(IntClass,rotl,compileRotl(type,left,right))
+		IMPLEMENT_BINARY_OP(IntClass,rotr,compileRotr(type,left,right))
 		IMPLEMENT_CAST_OP(IntClass,wrap,irBuilder.CreateTrunc(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,truncSignedFloat,compileRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType(type,{cast->source.type}),{source}))
 		IMPLEMENT_CAST_OP(IntClass,truncUnsignedFloat,compileRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType(type,{cast->source.type}),{source}))

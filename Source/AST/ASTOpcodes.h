@@ -36,7 +36,9 @@ namespace AST
 		AST_OP(bitwiseXor) \
 		AST_OP(shl) \
 		AST_OP(shrSExt) \
-		AST_OP(shrZExt)
+		AST_OP(shrZExt) \
+		AST_OP(rotl) \
+		AST_OP(rotr)
 
 	#define ENUM_AST_CAST_OPS_Int() \
 		AST_OP(wrap) \

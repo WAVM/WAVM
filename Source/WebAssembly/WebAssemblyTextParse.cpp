@@ -391,6 +391,22 @@ namespace WebAssemblyText
 				DEFINE_UNTYPED_OP(memory_size)		{ return parseIntrinsic<IntClass>("memory_size",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(page_size)		{ return parseIntrinsic<IntClass>("page_size",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(grow_memory)		{ return parseIntrinsic<IntClass>("grow_memory",FunctionType(TypeId::I32,{TypeId::I32}),nodeIt); }
+				
+				DEFINE_TYPED_OP(Int,eqz)
+				{
+					UntypedExpression* zero = nullptr;
+					switch(opType)
+					{
+					case TypeId::I8: zero = new(arena) Literal<I8Type>(0); break;
+					case TypeId::I16: zero = new(arena) Literal<I16Type>(0); break;
+					case TypeId::I32: zero = new(arena) Literal<I32Type>(0); break;
+					case TypeId::I64: zero = new(arena) Literal<I64Type>(0); break;
+					default: throw;
+					}
+					auto operand = parseTypedExpression(opType,nodeIt,"eqz operand");
+					auto result = new(arena) Comparison(BoolOp::eq,opType,operand,zero);
+					return TypedExpression(requireFullMatch(nodeIt,getOpName(BoolOp::eq),result),TypeId::Bool);
+				}
 
 				DEFINE_TYPED_OP(Int,const)
 				{
@@ -417,7 +433,7 @@ namespace WebAssemblyText
 					default: throw;
 					}
 				}
-					
+				
 				#define DEFINE_LOAD_OP(class,valueType,memoryType,loadSymbol,loadOp) DEFINE_ADHOC_TYPED_OP(valueType,loadSymbol)	\
 					{ return parseLoadExpression<class##Class>(TypeId::valueType,TypeId::memoryType,class##Op::loadOp,false,nodeIt); }
 				#define DEFINE_STORE_OP(class,valueType,memoryType,storeSymbol) DEFINE_ADHOC_TYPED_OP(valueType,storeSymbol) \
@@ -465,6 +481,8 @@ namespace WebAssemblyText
 				DEFINE_BINARY_OP(Int,shl,shl)
 				DEFINE_BINARY_OP(Int,shr_s,shrSExt)
 				DEFINE_BINARY_OP(Int,shr_u,shrZExt)
+				DEFINE_BINARY_OP(Int,rotl,rotl)
+				DEFINE_BINARY_OP(Int,rotr,rotr)
 
 				DEFINE_UNARY_OP(Float,neg,neg)
 				DEFINE_UNARY_OP(Float,abs,abs)

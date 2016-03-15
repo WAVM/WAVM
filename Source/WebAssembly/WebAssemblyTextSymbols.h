@@ -89,6 +89,9 @@ namespace WebAssemblyText
 		TYPED_WAST_SYMBOL(shl) \
 		TYPED_WAST_SYMBOL(shr_s) \
 		TYPED_WAST_SYMBOL(shr_u) \
+		TYPED_WAST_SYMBOL(rotl) \
+		TYPED_WAST_SYMBOL(rotr) \
+		TYPED_WAST_SYMBOL(eqz) \
 		WAST_SYMBOL(memory_size) \
 		WAST_SYMBOL(page_size) \
 		WAST_SYMBOL(grow_memory)
@@ -227,6 +230,8 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(divu,div_u)
 		MAP_OP_SYMBOL(rems,rem_s)
 		MAP_OP_SYMBOL(remu,rem_u)
+		MAP_OP_SYMBOL(rotl,rotl)
+		MAP_OP_SYMBOL(rotr,rotr)
 		MAP_OP_SYMBOL(bitwiseAnd,and)
 		MAP_OP_SYMBOL(bitwiseOr,or)
 		MAP_OP_SYMBOL(bitwiseXor,xor)
