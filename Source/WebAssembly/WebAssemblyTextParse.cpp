@@ -597,11 +597,11 @@ namespace WebAssemblyText
 					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
 
 					SNodeIt thenNodeIt;
-					Class::ClassExpression* thenExpression = nullptr;
+					typename Class::ClassExpression* thenExpression = nullptr;
 					if(parseTaggedNode(nodeIt,Symbol::_then,thenNodeIt)) { ++nodeIt; thenExpression = parseLabeledBlock<Class>(resultType,thenNodeIt,"if then"); }
 					else { thenExpression = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if then"); }
 
-					Class::ClassExpression* elseExpression = nullptr;
+					typename Class::ClassExpression* elseExpression = nullptr;
 					SNodeIt elseNodeIt;
 					if(parseTaggedNode(nodeIt,Symbol::_else,elseNodeIt)) { ++nodeIt; elseExpression = parseLabeledBlock<Class>(resultType,elseNodeIt,"if else"); }
 					else if(nodeIt) { elseExpression = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if else"); }
