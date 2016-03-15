@@ -518,7 +518,6 @@ namespace SExp
 			else
 			{
 				// Parse a decimal integer.
-				auto startLocus = state.getLocus();
 				const char* firstNumberChar = state.next;
 				uint64 i64 = 0;
 				bool i64Overflow = false;

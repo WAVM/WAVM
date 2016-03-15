@@ -38,6 +38,8 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100")
 	# disable warning: assignment operator could not be generated
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4512")
+	# disable warning: 'typedef ': ignored on left of '' when no variable is declared
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4091")
 else()
 	# Use C++11
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")

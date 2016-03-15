@@ -55,7 +55,7 @@ int main(int argc,char** argv)
 			if(functionResult.type == Runtime::TypeId::Exception)
 			{
 				std::cerr << functionName << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
-				for(auto function : functionResult.exception->callStack) { std::cerr << "  " << function << std::endl; }
+				for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
 			}
 		}
 	}

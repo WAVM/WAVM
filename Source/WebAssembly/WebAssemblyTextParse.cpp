@@ -691,8 +691,7 @@ namespace WebAssemblyText
 					std::vector<Case> cases;
 					NameToBranchTargetMap caseLabelToBranchTargetMap;
 					cases.resize(numCases);
-					uintptr caseIndex = 0;
-					for(;nodeIt;++nodeIt,++caseIndex)
+					for(uintptr caseIndex = 0;nodeIt;++nodeIt,++caseIndex)
 					{
 						SNodeIt caseChildNodeIt;
 						if(!parseTaggedNode(nodeIt,Symbol::_case,caseChildNodeIt))
