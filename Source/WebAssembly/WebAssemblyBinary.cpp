@@ -500,12 +500,12 @@ namespace WebAssemblyBinary
 		std::vector<BranchTarget*> implicitContinueTargets;
 		Function* currentFunction;
 
-		DecodeContext(InputStream& inIn,Module& inModule,std::vector<ErrorRecord*>& inOutErrors)
+		DecodeContext(InputStream& inIn,Module& inModule,std::vector<ErrorRecord*>& inOutErrors,size_t inInitialNumBytesMemory)
 		:	in(inIn)
 		,	module(inModule)
 		,	outErrors(inOutErrors)
 		,	arena(inModule.arena)
-		,	initialNumBytesMemory(0)
+		,	initialNumBytesMemory(inInitialNumBytesMemory)
 		{}
 
 		template<typename Class>
@@ -1683,7 +1683,7 @@ namespace WebAssemblyBinary
 		try
 		{
 			InputStream in(code,code + numCodeBytes);
-			return DecodeContext(in,*outModule,outErrors).decode();
+			return DecodeContext(in,*outModule,outErrors,numDataBytes + 8).decode();
 		}
 		catch(FatalDecodeException* exception)
 		{
