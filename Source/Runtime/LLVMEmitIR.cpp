@@ -385,14 +385,10 @@ namespace LLVMJIT
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)
 		{
 			auto labelBlock = llvm::BasicBlock::Create(context,"label",llvmFunction);
-			auto successorBlock = llvm::BasicBlock::Create(context,"labelSucc",llvmFunction);
-			
-			compileBranch(labelBlock);
-			irBuilder.SetInsertPoint(labelBlock);
 
 			// Create and link the context for this label's branch target into the list of in-scope contexts.
 			auto outerBranchContext = branchContext;
-			BranchContext endBranchContext = {label->endTarget,successorBlock,outerBranchContext,nullptr};
+			BranchContext endBranchContext = {label->endTarget,labelBlock,outerBranchContext,nullptr};
 			branchContext = &endBranchContext;
 			
 			// Compile the label's value.
@@ -403,8 +399,8 @@ namespace LLVMJIT
 			branchContext = outerBranchContext;
 
 			// Branch to the successor block.
-			auto exitBlock = compileBranch(successorBlock);
-			irBuilder.SetInsertPoint(successorBlock);
+			auto exitBlock = compileBranch(labelBlock);
+			irBuilder.SetInsertPoint(labelBlock);
 
 			// Create a phi node that merges all the possible values yielded by the label into one.
 			if(type == TypeId::Void) { return voidDummy; }
