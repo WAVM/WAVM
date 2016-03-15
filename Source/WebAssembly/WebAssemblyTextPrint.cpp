@@ -387,18 +387,19 @@ namespace WebAssemblyText
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
-			auto tableswitchStream = createTaggedSubtree(Symbol::_tableswitch);
-			tableswitchStream << dispatch(*this,branchTable->index);
+			auto brTableStream = createTaggedSubtree(Symbol::_br_table);
+			if(branchTable->defaultTarget->type != TypeId::Void) { brTableStream << dispatch(*this,branchTable->value,branchTable->defaultTarget->type); }
+			brTableStream << dispatch(*this,branchTable->index);
 			auto tableStream = createTaggedSubtree(Symbol::_table);
 			for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
 			{
 				auto targetStream = createTaggedSubtree(Symbol::_br) << getLabelName(branchTable->tableTargets[tableIndex]);
 				tableStream << targetStream;
 			}
-			tableswitchStream << tableStream;
+			brTableStream << tableStream;
 			auto defaultTargetStream = createTaggedSubtree(Symbol::_br) << getLabelName(branchTable->defaultTarget);
-			tableswitchStream << defaultTargetStream;
-			return tableswitchStream;
+			brTableStream << defaultTargetStream;
+			return brTableStream;
 		}
 		DispatchResult visitReturn(TypeId type,const Return* ret)
 		{

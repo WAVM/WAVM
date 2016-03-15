@@ -658,113 +658,57 @@ namespace WebAssemblyText
 					// Create the Branch node.
 					return requireFullMatch(nodeIt,"br",as<Class>(new(arena)Branch(branchTarget,value)));
 				}
-				DEFINE_PARAMETRIC_UNTYPED_OP(tableswitch)
+				DEFINE_PARAMETRIC_UNTYPED_OP(br_table)
 				{
-					// Parse an optional label name for the end branch target.
-					const char* endLabelName;
-					SNodeIt labelNodeIt = nodeIt;
-					bool hasEndLabel = parseName(nodeIt,endLabelName);
-					auto endBranchTarget = new(arena)BranchTarget(resultType);
-					
-					// Parse the table index.
-					auto index = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"tableswitch index");
-
-					// Add the switch's label to the in-scope labels.
-					ScopedBranchTarget scopedEndTarget(*this,hasEndLabel,endLabelName,endBranchTarget,labelNodeIt);
-					
-					// Skip over the table for now, but verify that it's there, and save its child iterator.
-					SNodeIt tableChildNodeIt;
-					if(!parseTaggedNode(nodeIt++,Symbol::_table,tableChildNodeIt))
-					{ return as<Class>(recordError<Error>(outErrors,nodeIt,"tableswitch: missing table declaration")); }
-
-					// Also skip over the default declaration, but save its iterator.
-					SNodeIt defaultNodeIt = nodeIt++;
-
-					// Parse the inline cases.
-					struct Case
-					{
-						BranchTarget* branchTarget;
-						UntypedExpression* value;
-					};
-					size_t numCases = 0;
-					for(SNodeIt countIt = nodeIt;countIt;++countIt) { ++numCases; }
-					std::vector<Case> cases;
-					NameToBranchTargetMap caseLabelToBranchTargetMap;
-					cases.resize(numCases);
-					for(uintptr caseIndex = 0;nodeIt;++nodeIt,++caseIndex)
-					{
-						SNodeIt caseChildNodeIt;
-						if(!parseTaggedNode(nodeIt,Symbol::_case,caseChildNodeIt))
-						{ return as<Class>(recordError<Error>(outErrors,nodeIt,"tableswitch: expected (case ...)")); }
-
-						const char* caseLabelName;
-						if(!parseName(caseChildNodeIt,caseLabelName))
-						{ return as<Class>(recordError<Error>(outErrors,nodeIt,"case: expected label name")); }
-						
-						cases[caseIndex].branchTarget = new(arena) BranchTarget(TypeId::Void);
-						cases[caseIndex].value = caseIndex < numCases - 1
-							? (UntypedExpression*)parseExpressionSequence<VoidClass>(TypeId::Void,caseChildNodeIt,"case body")
-							: (UntypedExpression*)parseExpressionSequence<Class>(resultType,caseChildNodeIt,"case body");
-						
-						caseLabelToBranchTargetMap[caseLabelName] = cases[caseIndex].branchTarget;
-					}
+					// Count the number of branch targets provided.
+					size_t numTableTargets = 0;
+					for(SNodeIt countIt = nodeIt;parseBranchTargetRef(countIt);) { ++numTableTargets; }
+					if(numTableTargets == 0)
+					{ return as<Class>(recordError<Error>(outErrors,nodeIt,"br_table: must have at least a default branch target")); }
 
 					// Parse the table targets.
-					size_t numTableTargets = 0;
-					for(SNodeIt countIt = tableChildNodeIt;countIt;++countIt) { ++numTableTargets; }
-					auto tableTargets = new(arena) BranchTarget*[numTableTargets];
-					uintptr tableIndex = 0;
-					for(;tableChildNodeIt;++tableChildNodeIt,++tableIndex)
+					auto tableTargets = new(arena) BranchTarget*[numTableTargets-1];
+					for(uintptr tableIndex = 0;tableIndex < numTableTargets - 1;++tableIndex)
 					{
-						tableTargets[tableIndex] = parseTableSwitchTargetRef(tableChildNodeIt,caseLabelToBranchTargetMap);
+						SNodeIt errorNodeIt = nodeIt;
+						tableTargets[tableIndex] = parseBranchTargetRef(nodeIt);
 						if(!tableTargets[tableIndex])
-						{ return as<Class>(recordError<Error>(outErrors,tableChildNodeIt,"tableswitch: expected case or branch target reference")); }
-						else if(tableTargets[tableIndex]->type != TypeId::Void)
-						{ return as<Class>(recordError<Error>(outErrors,tableChildNodeIt,"tableswitch: target must not expect arguments")); }
+						{ return as<Class>(recordError<Error>(outErrors,errorNodeIt,"br_table: expected case or branch target reference")); }
 					}
 
 					// Parse the default branch target.
-					auto defaultBranchTarget = parseTableSwitchTargetRef(defaultNodeIt,caseLabelToBranchTargetMap);
-					if(!defaultBranchTarget)
-					{ return as<Class>(recordError<Error>(outErrors,defaultNodeIt,"tableswitch: expected case or branch target reference")); }
-					else if(defaultBranchTarget->type != TypeId::Void)
-					{ return as<Class>(recordError<Error>(outErrors,tableChildNodeIt,"tableswitch: target must not expect arguments")); }
-					
+					BranchTarget* defaultBranchTarget;
+					{
+						SNodeIt errorNodeIt = nodeIt;
+						defaultBranchTarget = parseBranchTargetRef(nodeIt);
+						if(!defaultBranchTarget)
+						{ return as<Class>(recordError<Error>(outErrors,errorNodeIt,"br_table: expected case or branch target reference")); }
+					}
+
+					// Verify that all the branch targets have the same type (assume the type of the default target is what's expected).
+					for(uintptr tableIndex = 0;tableIndex < numTableTargets - 1;++tableIndex)
+					{
+						if(tableTargets[tableIndex]->type != defaultBranchTarget->type)
+						{ return as<Class>(recordError<Error>(outErrors,parentNodeIt,std::string("br_table: target ") + std::to_string(tableIndex) + " doesn't take an argument of the same type as the default target")); }
+					}
+
+					// If the branch target's type isn't void, parse an expression for the branch's value.
+					auto value = defaultBranchTarget->type == TypeId::Void ? nullptr
+						: parseTypedExpression(defaultBranchTarget->type,nodeIt,"br_table value");
+
+					// Parse the table index.
+					auto index = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"br_table index");
+
 					// Create a BranchTable operation that branches to the appropriate target for the case.
 					auto branchTable = new(arena) BranchTable(
+						value,
 						TypedExpression(index,TypeId::I32),
 						defaultBranchTarget,
 						tableTargets,
-						numTableTargets
+						numTableTargets-1
 						);
 
-					Expression<Class>* result;
-					if(!cases.size()) { result = as<Class>(branchTable); }
-					else
-					{
-						// Wrap the BranchTable in a hierarchy of nested labels corresponding to the switch cases.
-						// The root label is the last case, and the innermost is the first case.
-						// Each label introduces that case's branch target, and precedes that case's body in a Sequence node.
-						// The label then contains the Sequence for the preceding case, or the BranchTable for the innermost Label.
-						// Since the last case must be of the same type as the switch, handle it outside the loop.
-						VoidExpression* voidExpression = as<VoidClass>(branchTable);
-						for(uintptr caseIndex = 0;caseIndex < cases.size() - 1;++caseIndex)
-						{
-							voidExpression = new(arena) Sequence<VoidClass>(
-								new(arena) Label<VoidClass>(cases[caseIndex].branchTarget,voidExpression),
-								as<VoidClass>(cases[caseIndex].value)
-								);
-						}
-						result = new Sequence<Class>(
-							new(arena) Label<VoidClass>(cases[cases.size() - 1].branchTarget,voidExpression),
-							as<Class>(cases[cases.size() - 1].value)
-							);
-					}
-
-					// Wrap the whole expression in another Label for the switch's end branch target.
-					result = new(arena) Label<Class>(endBranchTarget,result);
-
-					return requireFullMatch(nodeIt,"tableswitch",result);
+					return requireFullMatch(nodeIt,"br_table",as<Class>(branchTable));
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(unreachable)
 				{
@@ -1219,26 +1163,6 @@ namespace WebAssemblyText
 			{
 				auto it = labelToBranchTargetMap.find(name);
 				if(it != labelToBranchTargetMap.end()) { return it->second; }
-			}
-			return nullptr;
-		}
-
-		BranchTarget* parseTableSwitchTargetRef(SNodeIt nodeIt,const NameToBranchTargetMap& caseLabelToBranchTargetMap)
-		{
-			SNodeIt elementChildNodeIt;
-			if(parseTaggedNode(nodeIt,Symbol::_case,elementChildNodeIt))
-			{
-				// Parse a case label.
-				const char* name;
-				if(!parseName(elementChildNodeIt,name)) { return nullptr; }
-				auto it = caseLabelToBranchTargetMap.find(name);
-				if(it == caseLabelToBranchTargetMap.end()) { return nullptr; }
-				return it->second;
-			}
-			else if(parseTaggedNode(nodeIt,Symbol::_br,elementChildNodeIt))
-			{
-				// Parse a branch target.
-				return parseBranchTargetRef(elementChildNodeIt);
 			}
 			return nullptr;
 		}

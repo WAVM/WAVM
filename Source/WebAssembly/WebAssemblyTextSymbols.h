@@ -33,7 +33,7 @@ namespace WebAssemblyText
 		WAST_SYMBOL(offset)
 	
 	#define ENUM_WAST_ANY_OPCODE_SYMBOLS() \
-		TYPED_WAST_SYMBOL(tableswitch) \
+		TYPED_WAST_SYMBOL(br_table) \
 		TYPED_WAST_SYMBOL(select) \
 		WAST_SYMBOL(call) \
 		WAST_SYMBOL(call_import) \
@@ -199,7 +199,7 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(callImport,call_import)
 		MAP_OP_SYMBOL(callIndirect,call_indirect)
 		MAP_OP_SYMBOL(loop,loop)
-		MAP_OP_SYMBOL(branchTable,tableswitch)
+		MAP_OP_SYMBOL(branchTable,br_table)
 		MAP_OP_SYMBOL(ifElse,if)
 		MAP_OP_SYMBOL(branch,br)
 		MAP_OP_SYMBOL(ret,return)

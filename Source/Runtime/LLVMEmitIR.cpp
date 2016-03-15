@@ -513,10 +513,17 @@ namespace LLVMJIT
 			auto exitBlock = irBuilder.GetInsertBlock();
 			if(exitBlock != unreachableBlock)
 			{
+				// If the branch target has a non-void type, compile the branch's value.
+				auto value = branchTable->defaultTarget->type == TypeId::Void ? voidDummy
+					: dispatch(*this,branchTable->value,branchTable->defaultTarget->type);
+
 				auto index = dispatch(*this,branchTable->index);
 
-				// Create the switch instruction.
+				// Look up the default branch target context and add the branch's value to the list of incoming values.
 				auto defaultContext = findBranchTargetContext(branchTable->defaultTarget);
+				defaultContext->results = new(scopedArena) BranchResult {exitBlock,value,defaultContext->results};
+
+				// Create the switch instruction.
 				auto switchInstruction = irBuilder.CreateSwitch(index,defaultContext->basicBlock,(unsigned int)branchTable->numTableTargets);
 
 				for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
@@ -537,6 +544,9 @@ namespace LLVMJIT
 
 					// Add the case to the switch instruction.
 					switchInstruction->addCase(caseIndex,targetContext->basicBlock);
+
+					// Add the branch's value to the list of incoming values for the branch target.
+					targetContext->results = new(scopedArena) BranchResult {exitBlock,value,targetContext->results};
 				}
 
 				// Set the insert point to the unreachable block.

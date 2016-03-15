@@ -218,13 +218,15 @@ namespace AST
 	
 	struct BranchTable : public NoneExpression
 	{
+		UntypedExpression* value; // The type is determined by the branch targets. If the type if void, it will be null.
 		TypedExpression index;
 		BranchTarget* defaultTarget;
 		BranchTarget** tableTargets;
 		size_t numTableTargets;
 
-		BranchTable(TypedExpression inIndex,BranchTarget* inDefaultTarget,BranchTarget** inTableTargets,size_t inNumTableTargets)
+		BranchTable(UntypedExpression* inValue,TypedExpression inIndex,BranchTarget* inDefaultTarget,BranchTarget** inTableTargets,size_t inNumTableTargets)
 		: NoneExpression(NoneOp::branchTable)
+		, value(inValue)
 		, index(inIndex)
 		, defaultTarget(inDefaultTarget)
 		, tableTargets(inTableTargets)

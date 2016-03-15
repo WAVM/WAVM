@@ -314,12 +314,14 @@ namespace AST
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
+			auto value = branchTable->defaultTarget->type == TypeId::Void ? nullptr
+				: visitChild(TypedExpression(branchTable->value,branchTable->defaultTarget->type)).expression;
 			auto index = visitChild(branchTable->index);
 			auto defaultTarget = branchTargetRemap[branchTable->defaultTarget];
 			auto tableTargets = new(arena) BranchTarget*[branchTable->numTableTargets];
 			for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
 			{ tableTargets[tableIndex] = branchTargetRemap[branchTable->tableTargets[tableIndex]]; }
-			return TypedExpression(new(arena) BranchTable(index,defaultTarget,tableTargets,branchTable->numTableTargets),TypeId::None);
+			return TypedExpression(new(arena) BranchTable(value,index,defaultTarget,tableTargets,branchTable->numTableTargets),TypeId::None);
 		}
 		DispatchResult visitReturn(TypeId type,const Return* ret)
 		{
