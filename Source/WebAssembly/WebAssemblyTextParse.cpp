@@ -351,16 +351,6 @@ namespace WebAssemblyText
 
 				DEFINE_UNTYPED_OP(nop)			{ return TypedExpression(requireFullMatch(nodeIt,"nop",Nop::get()),TypeId::Void); }
 
-				DEFINE_UNTYPED_OP(if)
-				{
-					// Parse the if condition, then-expression, and else-expression.
-					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
-					auto thenExpression = parseTypedExpression<VoidClass>(TypeId::Void,nodeIt,"if then");
-
-					// Construct the IfElse node.
-					return TypedExpression(requireFullMatch(nodeIt,"if",new(arena)IfElse<VoidClass>(condition,thenExpression,Nop::get())),TypeId::Void);
-				}
-
 				DEFINE_UNTYPED_OP(br_if)
 				{
 					// Parse the name or index of the target label.
@@ -601,12 +591,22 @@ namespace WebAssemblyText
 				#define DEFINE_PARAMETRIC_UNTYPED_OP(symbol) \
 					throw; case Symbol::_##symbol:
 
-				DEFINE_PARAMETRIC_UNTYPED_OP(if_else)
+				DEFINE_PARAMETRIC_UNTYPED_OP(if)
 				{
 					// Parse the if condition, then-expression, and else-expression.
-					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if_else condition");
-					auto thenExpression = parseTypedExpression<Class>(resultType,nodeIt,"if_else then");
-					auto elseExpression = parseTypedExpression<Class>(resultType,nodeIt,"if_else else");
+					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
+
+					SNodeIt thenNodeIt;
+					Class::ClassExpression* thenExpression = nullptr;
+					if(parseTaggedNode(nodeIt,Symbol::_then,thenNodeIt)) { ++nodeIt; thenExpression = parseLabeledBlock<Class>(resultType,thenNodeIt,"if then"); }
+					else { thenExpression = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if then"); }
+
+					Class::ClassExpression* elseExpression = nullptr;
+					SNodeIt elseNodeIt;
+					if(parseTaggedNode(nodeIt,Symbol::_else,elseNodeIt)) { ++nodeIt; elseExpression = parseLabeledBlock<Class>(resultType,elseNodeIt,"if else"); }
+					else if(nodeIt) { elseExpression = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if else"); }
+					else if(resultType != TypeId::Void) { return as<Class>(recordError<Error>(outErrors,nodeIt,"if: expected else expression for if with non-void result")); }
+					else { elseExpression = as<Class>(Nop::get()); }
 
 					// Construct the IfElse node.
 					return requireFullMatch(nodeIt,"if",new(arena)IfElse<Class>(condition,thenExpression,elseExpression));
@@ -788,7 +788,7 @@ namespace WebAssemblyText
 					return requireFullMatch(nodeIt,"call_indirect",result);
 				}
 
-				DEFINE_PARAMETRIC_UNTYPED_OP(block) { return parseLabeledBlock<Class>(resultType,nodeIt); }
+				DEFINE_PARAMETRIC_UNTYPED_OP(block) { return parseLabeledBlock<Class>(resultType,nodeIt,"block"); }
 
 				DEFINE_PARAMETRIC_UNTYPED_OP(get_local)
 				{ return parseGetLocal<Class>(resultType,localNameToIndexMap,function->locals,nodeIt); }
@@ -1133,7 +1133,7 @@ namespace WebAssemblyText
 
 		// Parses a label or a block.
 		template<typename Class>
-		typename Class::ClassExpression* parseLabeledBlock(TypeId resultType,SNodeIt nodeIt)
+		typename Class::ClassExpression* parseLabeledBlock(TypeId resultType,SNodeIt nodeIt,const char* errorContext)
 		{
 			// Create a branch target for the block.
 			auto branchTarget = new(arena)BranchTarget(resultType);
@@ -1144,7 +1144,22 @@ namespace WebAssemblyText
 			ScopedBranchTarget scopedBranchTarget(*this,hasName,labelName,branchTarget,nodeIt);
 
 			// Parse the block body.
-			auto expression = parseExpressionSequence<Class>(resultType,nodeIt,"block body");
+			auto expression = parseExpressionSequence<Class>(resultType,nodeIt,errorContext);
+
+			// Create the Label node.
+			return new(arena)Label<Class>(branchTarget,expression);
+		}
+
+		// Parse an anonymously labeled expression.
+		template<typename Class>
+		typename Class::ClassExpression* parseAnonLabeledExpression(TypeId resultType,SNodeIt& nodeIt,const char* errorContext)
+		{
+			// Create a branch target for the block.
+			auto branchTarget = new(arena)BranchTarget(resultType);
+			ScopedBranchTarget scopedBranchTarget(*this,false,nullptr,branchTarget,nodeIt);
+
+			// Parse the block body.
+			auto expression = parseTypedExpression<Class>(resultType,nodeIt,errorContext);
 
 			// Create the Label node.
 			return new(arena)Label<Class>(branchTarget,expression);

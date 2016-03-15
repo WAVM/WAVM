@@ -30,7 +30,9 @@ namespace WebAssemblyText
 		WAST_SYMBOL(assert_trap) \
 		WAST_SYMBOL(invoke) \
 		WAST_SYMBOL(align) \
-		WAST_SYMBOL(offset)
+		WAST_SYMBOL(offset) \
+		WAST_SYMBOL(then) \
+		WAST_SYMBOL(else)
 	
 	#define ENUM_WAST_ANY_OPCODE_SYMBOLS() \
 		TYPED_WAST_SYMBOL(br_table) \
@@ -38,7 +40,7 @@ namespace WebAssemblyText
 		WAST_SYMBOL(call) \
 		WAST_SYMBOL(call_import) \
 		WAST_SYMBOL(call_indirect) \
-		WAST_SYMBOL(if_else) \
+		WAST_SYMBOL(if) \
 		WAST_SYMBOL(loop) \
 		WAST_SYMBOL(br) \
 		WAST_SYMBOL(unreachable) \
@@ -125,7 +127,6 @@ namespace WebAssemblyText
 
 	#define ENUM_WAST_VOID_OPCODE_SYMBOLS() \
 		WAST_SYMBOL(nop) \
-		WAST_SYMBOL(if) \
 		WAST_SYMBOL(br_if)
 
 	#define ENUM_WAST_TYPE_SYMBOLS() \

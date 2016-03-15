@@ -294,7 +294,7 @@ namespace WebAssemblyText
 		template<typename Class>
 		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
 		{
-			return createTaggedSubtree(Symbol::_if_else)
+			return createTaggedSubtree(Symbol::_if)
 				<< dispatch(*this,ifElse->condition)
 				<< dispatch(*this,ifElse->thenExpression,type)
 				<< dispatch(*this,ifElse->elseExpression,type);
@@ -316,7 +316,7 @@ namespace WebAssemblyText
 				}
 				else
 				{
-					return createTaggedSubtree(Symbol::_if_else)
+					return createTaggedSubtree(Symbol::_if)
 						<< dispatch(*this,ifElse->condition)
 						<< dispatch(*this,ifElse->thenExpression,type)
 						<< dispatch(*this,ifElse->elseExpression,type);
@@ -324,7 +324,7 @@ namespace WebAssemblyText
 			}
 			else
 			{
-				return createTaggedSubtree(Symbol::_if_else)
+				return createTaggedSubtree(Symbol::_if)
 					<< dispatch(*this,ifElse->condition)
 					<< dispatch(*this,ifElse->thenExpression,type)
 					<< dispatch(*this,ifElse->elseExpression,type);

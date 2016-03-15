@@ -66,28 +66,80 @@
     )
   )
 
+  (func $if (result i32)
+    (local $i i32)
+    (set_local $i (i32.const 0))
+    (block
+      (if
+        (i32.const 1)
+        (then $l (br $l) (set_local $i (i32.const 666)))
+      )
+      (set_local $i (i32.add (get_local $i) (i32.const 1)))
+      (if
+        (i32.const 1)
+        (then $l (br $l) (set_local $i (i32.const 666)))
+        (else (set_local $i (i32.const 888)))
+      )
+      (set_local $i (i32.add (get_local $i) (i32.const 1)))
+      (if
+        (i32.const 1)
+        (then $l (br $l) (set_local $i (i32.const 666)))
+        (else $l (set_local $i (i32.const 888)))
+      )
+      (set_local $i (i32.add (get_local $i) (i32.const 1)))
+      (if
+        (i32.const 0)
+        (then (set_local $i (i32.const 888)))
+        (else $l (br $l) (set_local $i (i32.const 666)))
+      )
+      (set_local $i (i32.add (get_local $i) (i32.const 1)))
+      (if
+        (i32.const 0)
+        (then $l (set_local $i (i32.const 888)))
+        (else $l (br $l) (set_local $i (i32.const 666)))
+      )
+      (set_local $i (i32.add (get_local $i) (i32.const 1)))
+    )
+    (get_local $i)
+  )
+
   (func $switch (param i32) (result i32)
     (block $ret
       (i32.mul (i32.const 10)
-        (tableswitch $exit (get_local 0)
-          (table (case $0) (case $1) (case $2) (case $3)) (case $default)
-          (case $1 (i32.const 1))
-          (case $2 (br $exit (i32.const 2)))
-          (case $3 (br $ret (i32.const 3)))
-          (case $default (i32.const 4))
-          (case $0 (i32.const 5))
+        (block $exit
+          (block $0
+            (block $default
+              (block $3
+                (block $2
+                  (block $1
+                    (br_table $0 $1 $2 $3 $default (get_local 0))
+                  ) ;; 1
+                  (i32.const 1)
+                ) ;; 2
+                (br $exit (i32.const 2))
+              ) ;; 3
+              (br $ret (i32.const 3))
+            ) ;; default
+            (i32.const 4)
+          ) ;; 0
+          (i32.const 5)
         )
       )
     )
   )
 
   (func $return (param i32) (result i32)
-    (tableswitch (get_local 0)
-      (table (case $0) (case $1)) (case $default)
-      (case $0 (return (i32.const 0)))
-      (case $1 (i32.const 1))
-      (case $default (i32.const 2))
-    )
+    (block $default
+      (block $1
+        (block $0
+          (br_table $0 $1 (get_local 0))
+          (br $default)
+        ) ;; 0
+        (return (i32.const 0))
+      ) ;; 1
+      (i32.const 1)
+    ) ;; default
+    (i32.const 2)
   )
 
   (func $br_if0 (result i32)
@@ -100,9 +152,13 @@
         (br_if $inner (i32.const 1))
         (set_local $i (i32.or (get_local $i) (i32.const 0x2)))
       )
-      (br_if $outer (set_local $i (i32.or (get_local $i) (i32.const 0x4))) (i32.const 0))
+      (br_if $outer
+        (set_local $i (i32.or (get_local $i) (i32.const 0x4))) (i32.const 0)
+      )
       (set_local $i (i32.or (get_local $i) (i32.const 0x8)))
-      (br_if $outer (set_local $i (i32.or (get_local $i) (i32.const 0x10))) (i32.const 1))
+      (br_if $outer
+        (set_local $i (i32.or (get_local $i) (i32.const 0x10))) (i32.const 1)
+      )
       (set_local $i (i32.or (get_local $i) (i32.const 0x20)))
     )
   )
@@ -152,6 +208,7 @@
   (export "loop3" $loop3)
   (export "loop4" $loop4)
   (export "loop5" $loop5)
+  (export "if" $if)
   (export "switch" $switch)
   (export "return" $return)
   (export "br_if0" $br_if0)
@@ -169,6 +226,7 @@
 (assert_return (invoke "loop3") (i32.const 1))
 (assert_return (invoke "loop4" (i32.const 8)) (i32.const 16))
 (assert_return (invoke "loop5") (i32.const 2))
+(assert_return (invoke "if") (i32.const 5))
 (assert_return (invoke "switch" (i32.const 0)) (i32.const 50))
 (assert_return (invoke "switch" (i32.const 1)) (i32.const 20))
 (assert_return (invoke "switch" (i32.const 2)) (i32.const 20))
@@ -200,7 +258,7 @@
   "arity mismatch")
 (assert_invalid (module (func (result i32)
   (block $l0
-    (if_else (i32.const 1)
+    (if (i32.const 1)
       (br $l0 (block $l1 (br $l1 (i32.const 1))))
       (block (block $l1 (br $l1 (i32.const 1))) (nop))
     )
