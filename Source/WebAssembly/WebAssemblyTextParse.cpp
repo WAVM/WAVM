@@ -1359,7 +1359,7 @@ namespace WebAssemblyText
 							{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected initial memory size integer"); continue; }
 						if(!parseInt(childNodeIt,maxNumPages))
 							{ maxNumPages = initialNumPages; }
-						if(maxNumPages > (1ull<<32))
+						if(maxNumPages > (1ll<<32))
 							{ recordError<ErrorRecord>(outErrors,childNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
 						if(initialNumPages > maxNumPages)
 							{ recordError<ErrorRecord>(outErrors,childNodeIt,"initial memory size must be <= maximum memory size"); continue; }
