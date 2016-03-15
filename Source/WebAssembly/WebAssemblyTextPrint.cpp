@@ -305,22 +305,9 @@ namespace WebAssemblyText
 			// Also recognize IfElse(branch,nop) and translate it into (br_if).
 			if(ifElse->elseExpression->op() == VoidOp::nop)
 			{
-				if(ifElse->thenExpression->op() == VoidOp::branch)
-				{
-					auto branch = (Branch*)ifElse->thenExpression;
-					auto subtreeStream = createTaggedSubtree(Symbol::_br_if)
-						<< dispatch(*this,ifElse->condition)
-						<< getLabelName(branch->branchTarget);
-					if(branch->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branch->value,branch->branchTarget->type); }
-					return subtreeStream;
-				}
-				else
-				{
-					return createTaggedSubtree(Symbol::_if)
-						<< dispatch(*this,ifElse->condition)
-						<< dispatch(*this,ifElse->thenExpression,type)
-						<< dispatch(*this,ifElse->elseExpression,type);
-				}
+				return createTaggedSubtree(Symbol::_if)
+					<< dispatch(*this,ifElse->condition)
+					<< dispatch(*this,ifElse->thenExpression,type);
 			}
 			else
 			{
@@ -341,7 +328,10 @@ namespace WebAssemblyText
 		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)
 		{
-			return createTaggedSubtree(Symbol::_block) << getLabelName(label->endTarget) << dispatch(*this,label->expression,type);
+			auto blockStream = createTaggedSubtree(Symbol::_block) << getLabelName(label->endTarget);
+			if(label->expression->op() == Class::Op::sequence) { visitSequenceRecursive(blockStream,type,(Sequence<Class>*)label->expression); }
+			else { blockStream << dispatch(*this,label->expression,type); }
+			return blockStream;
 		}
 		template<typename Class>
 		void visitSequenceRecursive(SNodeOutputStream& outputStream,TypeId type,const Sequence<Class>* seq)
@@ -380,25 +370,21 @@ namespace WebAssemblyText
 		DispatchResult visitBranchIf(const BranchIf* branchIf)
 		{
 			auto subtreeStream = createTaggedSubtree(Symbol::_br_if)
-				<< dispatch(*this,branchIf->condition)
 				<< getLabelName(branchIf->branchTarget);
 			if(branchIf->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branchIf->value,branchIf->branchTarget->type); }
+			subtreeStream << dispatch(*this,branchIf->condition);
 			return subtreeStream;
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
 			auto brTableStream = createTaggedSubtree(Symbol::_br_table);
-			if(branchTable->defaultTarget->type != TypeId::Void) { brTableStream << dispatch(*this,branchTable->value,branchTable->defaultTarget->type); }
-			brTableStream << dispatch(*this,branchTable->index);
-			auto tableStream = createTaggedSubtree(Symbol::_table);
 			for(uintptr tableIndex = 0;tableIndex < branchTable->numTableTargets;++tableIndex)
 			{
-				auto targetStream = createTaggedSubtree(Symbol::_br) << getLabelName(branchTable->tableTargets[tableIndex]);
-				tableStream << targetStream;
+				brTableStream << getLabelName(branchTable->tableTargets[tableIndex]);
 			}
-			brTableStream << tableStream;
-			auto defaultTargetStream = createTaggedSubtree(Symbol::_br) << getLabelName(branchTable->defaultTarget);
-			brTableStream << defaultTargetStream;
+			brTableStream << getLabelName(branchTable->defaultTarget);
+			if(branchTable->defaultTarget->type != TypeId::Void) { brTableStream << dispatch(*this,branchTable->value,branchTable->defaultTarget->type); }
+			brTableStream << dispatch(*this,branchTable->index);
 			return brTableStream;
 		}
 		DispatchResult visitReturn(TypeId type,const Return* ret)
