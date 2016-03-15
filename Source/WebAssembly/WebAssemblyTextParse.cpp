@@ -1353,18 +1353,18 @@ namespace WebAssemblyText
 
 						// Parse the initial and maximum number of bytes.
 						// If one number is found, it is taken to be both the initial and max.
-						int64 initialNumBytes;
-						int64 maxNumBytes;
-						if(!parseInt(childNodeIt,initialNumBytes))
+						int64 initialNumPages;
+						int64 maxNumPages;
+						if(!parseInt(childNodeIt,initialNumPages))
 							{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected initial memory size integer"); continue; }
-						if(!parseInt(childNodeIt,maxNumBytes))
-							{ maxNumBytes = initialNumBytes; }
-						if(module->maxNumBytesMemory > (1ull<<32))
+						if(!parseInt(childNodeIt,maxNumPages))
+							{ maxNumPages = initialNumPages; }
+						if(maxNumPages > (1ull<<32))
 							{ recordError<ErrorRecord>(outErrors,childNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
-						if(module->initialNumBytesMemory > module->maxNumBytesMemory)
+						if(initialNumPages > maxNumPages)
 							{ recordError<ErrorRecord>(outErrors,childNodeIt,"initial memory size must be <= maximum memory size"); continue; }
-						module->initialNumBytesMemory = (uint64) initialNumBytes;
-						module->maxNumBytesMemory = (uint64) maxNumBytes;
+						module->initialNumPagesMemory = (uint64) initialNumPages;
+						module->maxNumPagesMemory = (uint64) maxNumPages;
 				
 						// Parse the memory segments.
 						for(;childNodeIt;++childNodeIt)
@@ -1380,7 +1380,7 @@ namespace WebAssemblyText
 							if(!parseString(segmentChildNodeIt,dataString,dataLength,module->arena))
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment data string"); continue; }
 							if(	(uint64)baseAddress + dataLength < (uint64)baseAddress // Check for integer overflow in baseAddress+dataLength.
-							||	(uint64)baseAddress + dataLength > module->initialNumBytesMemory)
+							||	(uint64)baseAddress + dataLength > module->initialNumPagesMemory * AST::numBytesPerPage )
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"data segment bounds aren't contained by initial memory size"); continue; }
 							module->dataSegments.push_back({(uint64)baseAddress,dataLength,(uint8*)dataString});
 						}

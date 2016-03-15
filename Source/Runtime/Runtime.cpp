@@ -64,17 +64,17 @@ namespace Runtime
 		vmShrinkMemory(vmGrowMemory(0));
 
 		// Initialize the module's requested initial memory.
-		if(vmGrowMemory((int32)module->initialNumBytesMemory) != 0)
+		if(vmGrowMemory((int32)module->initialNumPagesMemory * AST::numBytesPerPage) != 0)
 		{
-			std::cerr << "Failed to commit the requested initial memory for module instance (" << module->initialNumBytesMemory/1024 << "KB requested)" << std::endl;
+			std::cerr << "Failed to commit the requested initial memory for module instance (" << module->initialNumPagesMemory*AST::numBytesPerPage/1024 << "KB requested)" << std::endl;
 			return false;
 		}
 
 		// Copy the module's data segments into VM memory.
-		if(module->initialNumBytesMemory >= (1ull<<32)) { throw; }
+		if(module->initialNumPagesMemory * AST::numBytesPerPage >= (1ull<<32)) { throw; }
 		for(auto dataSegment : module->dataSegments)
 		{
-			if(dataSegment.baseAddress + dataSegment.numBytes > module->initialNumBytesMemory)
+			if(dataSegment.baseAddress + dataSegment.numBytes > module->initialNumPagesMemory * AST::numBytesPerPage)
 			{
 				std::cerr << "Module data segment exceeds initial memory allocation" << std::endl;
 				return false;

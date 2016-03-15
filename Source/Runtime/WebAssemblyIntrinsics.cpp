@@ -12,7 +12,7 @@ namespace Runtime
 	{
 		if(address >= UINT_MAX)
 		{
-			throw;
+			causeException(Exception::Cause::AccessViolation);
 		}
 		return (uint32)address;
 	}
@@ -22,16 +22,10 @@ namespace Runtime
 		return coerce32bitAddress(vmGrowMemory(0));
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wasm_intrinsics,page_size,page_size,I32)
-	{
-		return 1<<Platform::getPageSizeLog2();
-	}
-
 	DEFINE_INTRINSIC_FUNCTION1(wasm_intrinsics,grow_memory,grow_memory,I32,I32,deltaBytes)
 	{
 		// Verify that deltaBytes is a multiple of the page size.
-		auto pageSize = 1<<Platform::getPageSizeLog2();
-		if(deltaBytes & (pageSize - 1))
+		if(deltaBytes & (AST::numBytesPerPage - 1))
 		{
 			causeException(Exception::Cause::GrowMemoryNotPageAligned);
 		}
@@ -62,7 +56,7 @@ namespace Runtime
 	void initWebAssemblyIntrinsics()
 	{
 		// Align the memory size to the page size.
-		auto pageSize = 1<<Platform::getPageSizeLog2();
+		uint64_t pageSize = AST::numBytesPerPage;
 		auto unalignedMemorySize = vmGrowMemory(0);
 		vmGrowMemory(((unalignedMemorySize + pageSize - 1) & ~(pageSize - 1)) - unalignedMemorySize);
 	}

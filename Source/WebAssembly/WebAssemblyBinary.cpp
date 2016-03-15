@@ -476,13 +476,14 @@ namespace WebAssemblyBinary
 		std::map<std::string,uintptr> intrinsicNameToFunctionImportIndex;
 		std::vector<FunctionType> functionTableTypes;
 		std::vector<uint32> functionTableBaseIndices;
-
+		
 		struct Global
 		{
 			TypeId type;
 			uint64 address;
 		};
 		std::vector<Global> globals;
+		size_t initialNumBytesMemory;
 
 		struct VariableImport
 		{
@@ -504,6 +505,7 @@ namespace WebAssemblyBinary
 		,	module(inModule)
 		,	outErrors(inOutErrors)
 		,	arena(inModule.arena)
+		,	initialNumBytesMemory(0)
 		{}
 
 		template<typename Class>
@@ -1523,9 +1525,9 @@ namespace WebAssemblyBinary
 			auto numBytes = getTypeByteWidth(type);
 			auto data = new(arena) uint8[numBytes];
 			memset(data,0,numBytes);
-			module.dataSegments.push_back({module.initialNumBytesMemory,numBytes,data});
-			globals.push_back({type,module.initialNumBytesMemory});
-			module.initialNumBytesMemory += numBytes;
+			module.dataSegments.push_back({initialNumBytesMemory,numBytes,data});
+			globals.push_back({type,initialNumBytesMemory});
+			initialNumBytesMemory += numBytes;
 		}
 
 		void addVariableImport(TypeId type,const char* name)
@@ -1660,6 +1662,9 @@ namespace WebAssemblyBinary
 			decodeFunctions();
 			decodeExports();
 
+			// Set the module's initial memory pages.
+			module.initialNumPagesMemory = (initialNumBytesMemory + AST::numBytesPerPage - 1) / AST::numBytesPerPage;
+
 			return in.complete() && !outErrors.size();
 		}
 	};
@@ -1671,10 +1676,9 @@ namespace WebAssemblyBinary
 		// Create a segment for the static data.
 		auto segmentArenaData = outModule->arena.copyToArena(data,numDataBytes);
 		outModule->dataSegments.push_back({8,numDataBytes,segmentArenaData});
-		outModule->initialNumBytesMemory = numDataBytes + 8;
 
 		// Limited to 1GB for now, so it is consistent on 32 bit and 64 bit runtimes.
-		outModule->maxNumBytesMemory = 0x40000000;
+		outModule->maxNumPagesMemory = 0x40000000;
 
 		try
 		{

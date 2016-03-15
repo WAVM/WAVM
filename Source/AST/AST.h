@@ -164,6 +164,8 @@ namespace AST
 		std::string message;
 		ErrorRecord(std::string&& inMessage) : message(std::move(inMessage)) {}
 	};
+	
+	enum { numBytesPerPage = 65536 };
 
 	typedef std::map<const char*,uintptr,Core::StringCompareFunctor> ExportNameToFunctionIndexMap;
 
@@ -177,11 +179,11 @@ namespace AST
 		std::vector<FunctionImport> functionImports;
 		std::vector<DataSegment> dataSegments;
 
-		uint64 initialNumBytesMemory;
-		uint64 maxNumBytesMemory;
+		uint64 initialNumPagesMemory;
+		uint64 maxNumPagesMemory;
 		uintptr startFunctionIndex;
 
-		Module() : initialNumBytesMemory(0), maxNumBytesMemory(0), startFunctionIndex(UINTPTR_MAX) {}
+		Module() : initialNumPagesMemory(0), maxNumPagesMemory(0), startFunctionIndex(UINTPTR_MAX) {}
 
 		// When copying a module, copy everything but the arena!
 		// This means the new module will have its own arena, but will reference expressions and other data stored in the old module's arena.
@@ -191,8 +193,8 @@ namespace AST
 		, functionTable(inCopy.functionTable)
 		, functionImports(inCopy.functionImports)
 		, dataSegments(inCopy.dataSegments)
-		, initialNumBytesMemory(inCopy.initialNumBytesMemory)
-		, maxNumBytesMemory(inCopy.maxNumBytesMemory)
+		, initialNumPagesMemory(inCopy.initialNumPagesMemory)
+		, maxNumPagesMemory(inCopy.maxNumPagesMemory)
 		, startFunctionIndex(inCopy.startFunctionIndex)
 		{}
 	};

@@ -508,7 +508,7 @@ namespace WebAssemblyText
 		
 		// Print the module memory declarations and data segments.
 		auto memoryStream = createTaggedSubtree(Symbol::_memory);
-		memoryStream << module->initialNumBytesMemory << module->maxNumBytesMemory;
+		memoryStream << module->initialNumPagesMemory << module->maxNumPagesMemory;
 		for(auto dataSegment : module->dataSegments)
 		{
 			// Split the data segments up into 32 byte chunks so the S-expression pretty printer uses one line/segment.
