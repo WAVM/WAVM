@@ -1,16 +1,18 @@
-[![Linux Build Status](https://travis-ci.org/AndrewScheidecker/WAVM.svg?branch=master)](https://travis-ci.org/AndrewScheidecker/WAVM)
+[![Linux/OSX Build Status](https://travis-ci.org/AndrewScheidecker/WAVM.svg?branch=master)](https://travis-ci.org/AndrewScheidecker/WAVM)
 
 # Overview
 
-This is a prototype VM for WebAssembly. It can load two forms of WebAssembly code:
+This is a prototype of a simple standalone VM for WebAssembly. It can load two forms of WebAssembly code:
 * Most of the text format defined by the [WebAssembly reference interpreter](https://github.com/WebAssembly/spec/tree/master/ml-proto). [The tests](Tests/WAST) are so far just copied from the reference interpreter, and are covered by its [license](spec.LICENSE). What I don't support are multiple return values and unaligned loads/stores, but AFAIK everything else does.
 * The binary format defined by the [polyfill prototype](https://github.com/WebAssembly/polyfill-prototype-1). The code was evolved from that project, so should be considered to be covered by its [license](polyfill.LICENSE).
 
+It does not yet handle loading the official binary format for WebAssembly, though I plan to support it once it's closer to done.
+
 # Building and running it
 
-To build it, you'll need CMake and [LLVM 3.7](http://llvm.org/releases/download.html#3.7.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration.
+To build it, you'll need CMake and [LLVM 3.7](http://llvm.org/releases/download.html#3.7.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable.
 
-I've tested it on Windows with Visual C++, Linux with GCC and Clang, and MacOS with Xcode/Clang. If one of those configurations doesn't work, please let me know!
+I've tested it on Windows with Visual C++ 2013 and 2015, Linux with GCC and Clang, and MacOS with Xcode/Clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
 
 The command-line usage is:
 ```
@@ -32,9 +34,7 @@ Parsing the WebAssembly text format goes through a [generic S-expression parser]
 
 Decoding the polyfill binary format also produces the same AST, so while it sticks pretty closely to the syntax of the text format, there are a few differences to accomodate the polyfill format:
 * WebAssembly only supports I32 and I64 integer value types, with loads and stores supporting explicitly converting to and from I8s or I16s in memory. The WAVM AST just supports general I8 and I16 values.
-* WebAssembly's switch statement is more restrictive than the polyfill prototype's switch statements, so I use a more general switch construct as described [here](https://github.com/WebAssembly/design/issues/322).
-* WebAssembly's branching is also a little more constrained than the polyfill prototype. It only allows breaking out of a label node, which is sufficient to encode any control flow possible in JavaScript, but requires extra label nodes to do so. Instead of creating more label nodes when decoding the polyfill prototype format, I give each loop node a label that represents continuing out of it, as well as a label that represents breaking out of it. A branch node can then reference the appropriate in-scope label to break or continue out of the loop.
-* WebAssembly doesn't yet have explicit boolean types, but I like them, and I think there's a consensus to add them, so I have boolean AST types.
+* WebAssembly doesn't have explicit boolean types, but I was hoping it would, so WAVM supports them. I'll likely remove them to match the spec, but for now WAVM supports a superset of WebAssembly where comparison operators yield a boolean value, but they can be implicitly coerced to an i32 value for compatibility with the WebAssembly spec.
 
 The AST also has a few concepts that the text format doesn't. For example, it uses type classes to represent the idea of a set of types an operation can be defined on. Every AST opcode is specific to a type class, and so there is a different opcode enum for each type class. The type classes defined are Int, Float, Bool, and Void. This means that you need to know what type a subexpresion is to interpret its opcode, which is usually trivial, but occasionally requires a *TypedExpression* to wrap up the subexpression with an explicit type. Types are otherwise implicit.
 
@@ -46,7 +46,7 @@ The generated code should be unable to access any memory outside of the addresse
 
 # License
 
-Copyright (c) 2015, Andrew Scheidecker
+Copyright (c) 2016, Andrew Scheidecker
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
