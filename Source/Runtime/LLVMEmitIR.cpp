@@ -364,17 +364,17 @@ namespace LLVMJIT
 		}
 
 		template<typename Class>
-		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
+		DispatchResult visitConditional(TypeId type,const Conditional<Class>* ifElse,typename OpTypes<Class>::ifElse)
 		{
 			return compileIfElse(
 				type,
 				dispatch(*this,ifElse->condition,TypeId::Bool),
-				[&] { return dispatch(*this,ifElse->thenExpression,type); },
-				[&] { return dispatch(*this,ifElse->elseExpression,type); }
+				[&] { return dispatch(*this,ifElse->trueValue,type); },
+				[&] { return dispatch(*this,ifElse->falseValue,type); }
 				);
 		}
 		template<typename Class>
-		DispatchResult visitSelect(TypeId type,const Select<Class>* select)
+		DispatchResult visitConditional(TypeId type,const Conditional<Class>* select,typename OpTypes<Class>::select)
 		{
 			auto trueValue = dispatch(*this,select->trueValue,type);
 			auto falseValue = dispatch(*this,select->falseValue,type);

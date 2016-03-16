@@ -34,8 +34,8 @@ namespace AST
 		case AnyOp::store: return visitor.visitStore((Store<Class>*)expression);
 		case AnyOp::sequence: return visitor.visitSequence(type,(Sequence<Class>*)expression);
 		case AnyOp::loop: return visitor.visitLoop(type,(Loop<Class>*)expression);
-		case AnyOp::ifElse: return visitor.visitIfElse(type,(IfElse<Class>*)expression);
-		case AnyOp::select: return visitor.visitSelect(type,(Select<Class>*)expression);
+		case AnyOp::ifElse: return visitor.visitConditional(type,(Conditional<Class>*)expression,OpTypes<Class>::ifElse());
+		case AnyOp::select: return visitor.visitConditional(type,(Conditional<Class>*)expression,OpTypes<Class>::select());
 		case AnyOp::label: return visitor.visitLabel(type,(Label<Class>*)expression);
 		case AnyOp::ret: return visitor.visitReturn(type,(Return*)expression);
 		case AnyOp::branch: return visitor.visitBranch(type,(Branch*)expression);
@@ -254,21 +254,13 @@ namespace AST
 			auto functionIndex = as<IntClass>(visitChild(TypedExpression(callIndirect->functionIndex,TypeId::I32)));
 			return TypedExpression(new(arena) CallIndirect(getPrimaryTypeClass(type),callIndirect->functionType,functionIndex,parameters),type);
 		}
-		template<typename Class>
-		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
+		template<typename Class,typename OpAsType>
+		DispatchResult visitConditional(TypeId type,const Conditional<Class>* conditional,OpAsType)
 		{
-			auto condition = as<BoolClass>(visitChild(TypedExpression(ifElse->condition,TypeId::Bool)));
-			auto thenExpression = as<Class>(visitChild(TypedExpression(ifElse->thenExpression,type)));
-			auto elseExpression = as<Class>(visitChild(TypedExpression(ifElse->elseExpression,type)));
-			return TypedExpression(new(arena) IfElse<Class>(condition,thenExpression,elseExpression),type);
-		}
-		template<typename Class>
-		DispatchResult visitSelect(TypeId type,const Select<Class>* select)
-		{
-			auto condition = as<BoolClass>(visitChild(TypedExpression(select->condition,TypeId::Bool)));
-			auto trueValue = as<Class>(visitChild(TypedExpression(select->trueValue,type)));
-			auto falseValue = as<Class>(visitChild(TypedExpression(select->falseValue,type)));
-			return TypedExpression(new(arena) Select<Class>(condition,trueValue,falseValue),type);
+			auto condition = as<BoolClass>(visitChild(TypedExpression(conditional->condition,TypeId::Bool)));
+			auto trueValue = as<Class>(visitChild(TypedExpression(conditional->trueValue,type)));
+			auto falseValue = as<Class>(visitChild(TypedExpression(conditional->falseValue,type)));
+			return TypedExpression(new(arena) Conditional<Class>(conditional->op(),condition,trueValue,falseValue),type);
 		}
 		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)

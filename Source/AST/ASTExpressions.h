@@ -137,31 +137,16 @@ namespace AST
 		
 		Nop(): Expression(Op::nop) {}
 	};
-	
-	template<typename Class>
-	struct IfElse : public Expression<Class>
-	{
-		Expression<BoolClass>* condition;
-		Expression<Class>* thenExpression;
-		Expression<Class>* elseExpression;
-
-		IfElse(Expression<BoolClass>* inCondition,Expression<Class>* inThenExpression,Expression<Class>* inElseExpression)
-		:	Expression<Class>(Class::Op::ifElse)
-		,	condition(inCondition)
-		,	thenExpression(inThenExpression)
-		,	elseExpression(inElseExpression)
-		{}
-	};
 
 	template<typename Class>
-	struct Select : public Expression<Class>
+	struct Conditional : public Expression<Class>
 	{
 		Expression<BoolClass>* condition;
 		Expression<Class>* trueValue;
 		Expression<Class>* falseValue;
 
-		Select(Expression<BoolClass>* inCondition,Expression<Class>* inTrueValue,Expression<Class>* inFalseValue)
-		:	Expression<Class>(Class::Op::select)
+		Conditional(typename Class::Op op,Expression<BoolClass>* inCondition,Expression<Class>* inTrueValue,Expression<Class>* inFalseValue)
+		:	Expression<Class>(op)
 		,	condition(inCondition)
 		,	trueValue(inTrueValue)
 		,	falseValue(inFalseValue)

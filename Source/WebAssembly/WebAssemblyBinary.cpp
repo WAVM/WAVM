@@ -699,7 +699,7 @@ namespace WebAssemblyBinary
 			auto condition = decodeExpressionI32AsBool();
 			auto trueValue = decodeExpression(Type());
 			auto falseValue = decodeExpression(Type());
-			return new(arena) IfElse<typename Type::Class>(condition,trueValue,falseValue);
+			return new(arena) Conditional<typename Type::Class>(Type::Class::Op::ifElse,condition,trueValue,falseValue);
 		}
 
 		// Decodes the parameters for a function.
@@ -852,16 +852,16 @@ namespace WebAssemblyBinary
 		VoidExpression* decodeIf()
 		{
 			auto condition = decodeExpressionI32AsBool();
-			auto thenExpression = decodeStatement();
-			return new(arena) IfElse<VoidClass>(condition,thenExpression,Nop::get());
+			auto trueValue = decodeStatement();
+			return new(arena) Conditional<VoidClass>(VoidOp::ifElse,condition,trueValue,Nop::get());
 		}
 
 		VoidExpression* decodeIfElse()
 		{
 			auto condition = decodeExpressionI32AsBool();
-			auto thenExpression = decodeStatement();
-			auto elseExpression = decodeStatement();
-			return new(arena) IfElse<VoidClass>(condition,thenExpression,elseExpression);
+			auto trueValue = decodeStatement();
+			auto falseValue = decodeStatement();
+			return new(arena) Conditional<VoidClass>(VoidOp::ifElse,condition,trueValue,falseValue);
 		}
 
 		VoidExpression* decodeWhile(bool isEnclosedByLabel)
@@ -881,7 +881,8 @@ namespace WebAssemblyBinary
 			auto loopExpression = decodeStatement();
 			implicitBreakTargets.pop_back();
 			implicitContinueTargets.pop_back();
-			auto loopBody = new(arena) IfElse<VoidClass>(
+			auto loopBody = new(arena) Conditional<VoidClass>(
+				VoidOp::ifElse,
 				condition,
 				new(arena) Sequence<VoidClass>(
 					loopExpression,
@@ -911,7 +912,8 @@ namespace WebAssemblyBinary
 			implicitContinueTargets.pop_back();
 			auto loopBody = new(arena) Sequence<VoidClass>(
 				loopExpression,
-				new(arena) IfElse<VoidClass>(
+				new(arena) Conditional<VoidClass>(
+					VoidOp::ifElse,
 					condition,
 					as<VoidClass>(new(arena) Branch(continueBranchTarget,nullptr)),
 					Nop::get()

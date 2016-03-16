@@ -291,39 +291,31 @@ namespace WebAssemblyText
 			return subtreeStream;
 		}
 		
-		template<typename Class>
-		DispatchResult visitIfElse(TypeId type,const IfElse<Class>* ifElse)
+		template<typename Class,typename OpAsType>
+		DispatchResult visitConditional(TypeId type,const Conditional<Class>* conditional,OpAsType)
 		{
-			return createTaggedSubtree(Symbol::_if)
-				<< dispatch(*this,ifElse->condition)
-				<< dispatch(*this,ifElse->thenExpression,type)
-				<< dispatch(*this,ifElse->elseExpression,type);
+			return createTaggedSubtree(getOpSymbol(conditional->op()))
+				<< dispatch(*this,conditional->condition)
+				<< dispatch(*this,conditional->trueValue,type)
+				<< dispatch(*this,conditional->falseValue,type);
 		}
-		DispatchResult visitIfElse(TypeId type,const IfElse<VoidClass>* ifElse)
+		DispatchResult visitConditional(TypeId type,const Conditional<VoidClass>* ifElse,OpTypes<VoidClass>::ifElse)
 		{
-			// Recognize IfElse(...,nop) and translate it into (if) instead of (if_else).
+			// Recognize IfElse(...,nop) and omit the else branch.
 			// Also recognize IfElse(branch,nop) and translate it into (br_if).
-			if(ifElse->elseExpression->op() == VoidOp::nop)
+			if(ifElse->falseValue->op() == VoidOp::nop)
 			{
 				return createTaggedSubtree(Symbol::_if)
 					<< dispatch(*this,ifElse->condition)
-					<< dispatch(*this,ifElse->thenExpression,type);
+					<< dispatch(*this,ifElse->trueValue,type);
 			}
 			else
 			{
 				return createTaggedSubtree(Symbol::_if)
 					<< dispatch(*this,ifElse->condition)
-					<< dispatch(*this,ifElse->thenExpression,type)
-					<< dispatch(*this,ifElse->elseExpression,type);
+					<< dispatch(*this,ifElse->trueValue,type)
+					<< dispatch(*this,ifElse->falseValue,type);
 			}
-		}
-		template<typename Class>
-		DispatchResult visitSelect(TypeId type,const Select<Class>* select)
-		{
-			return createTaggedSubtree(Symbol::_select)
-				<< dispatch(*this,select->condition)
-				<< dispatch(*this,select->trueValue,type)
-				<< dispatch(*this,select->falseValue,type);
 		}
 		template<typename Class>
 		DispatchResult visitLabel(TypeId type,const Label<Class>* label)

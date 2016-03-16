@@ -383,7 +383,7 @@ namespace WebAssemblyText
 					// Parse the condition.
 					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
 
-					// Create IfElse and Branch nodes.
+					// Create BranchIf node.
 					auto result = new(arena) BranchIf(branchTarget,condition,value);
 					return TypedExpression(requireFullMatch(nodeIt,"br_if",result),TypeId::Void);
 				}
@@ -615,19 +615,19 @@ namespace WebAssemblyText
 					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
 
 					SNodeIt thenNodeIt;
-					typename Class::ClassExpression* thenExpression = nullptr;
-					if(parseTaggedNode(nodeIt,Symbol::_then,thenNodeIt)) { ++nodeIt; thenExpression = parseLabeledBlock<Class>(resultType,thenNodeIt,"if then"); }
-					else { thenExpression = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if then"); }
+					typename Class::ClassExpression* trueValue = nullptr;
+					if(parseTaggedNode(nodeIt,Symbol::_then,thenNodeIt)) { ++nodeIt; trueValue = parseLabeledBlock<Class>(resultType,thenNodeIt,"if then"); }
+					else { trueValue = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if then"); }
 
-					typename Class::ClassExpression* elseExpression = nullptr;
+					typename Class::ClassExpression* falseValue = nullptr;
 					SNodeIt elseNodeIt;
-					if(parseTaggedNode(nodeIt,Symbol::_else,elseNodeIt)) { ++nodeIt; elseExpression = parseLabeledBlock<Class>(resultType,elseNodeIt,"if else"); }
-					else if(nodeIt) { elseExpression = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if else"); }
+					if(parseTaggedNode(nodeIt,Symbol::_else,elseNodeIt)) { ++nodeIt; falseValue = parseLabeledBlock<Class>(resultType,elseNodeIt,"if else"); }
+					else if(nodeIt) { falseValue = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if else"); }
 					else if(resultType != TypeId::Void) { return as<Class>(recordError<Error>(outErrors,nodeIt,"if: expected else expression for if with non-void result")); }
-					else { elseExpression = as<Class>(Nop::get()); }
+					else { falseValue = as<Class>(Nop::get()); }
 
-					// Construct the IfElse node.
-					return requireFullMatch(nodeIt,"if",new(arena)IfElse<Class>(condition,thenExpression,elseExpression));
+					// Construct the Conditional node.
+					return requireFullMatch(nodeIt,"if",new(arena)Conditional<Class>(Class::Op::ifElse,condition,trueValue,falseValue));
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(select)
 				{
@@ -636,8 +636,8 @@ namespace WebAssemblyText
 					auto falseValue = parseTypedExpression<Class>(resultType,nodeIt,"select false value");
 					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"select condition");
 
-					// Construct the Select node.
-					auto select = new(arena)Select<Class>(condition,trueValue,falseValue);
+					// Construct the Conditional node.
+					auto select = new(arena)Conditional<Class>(Class::Op::select,condition,trueValue,falseValue);
 					return requireFullMatch(nodeIt,"select",select);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(loop)
