@@ -34,8 +34,8 @@ namespace AST
 		case AnyOp::store: return visitor.visitStore((Store<Class>*)expression);
 		case AnyOp::sequence: return visitor.visitSequence(type,(Sequence<Class>*)expression);
 		case AnyOp::loop: return visitor.visitLoop(type,(Loop<Class>*)expression);
-		case AnyOp::ifElse: return visitor.visitConditional(type,(Conditional<Class>*)expression,OpTypes<Class>::ifElse());
-		case AnyOp::select: return visitor.visitConditional(type,(Conditional<Class>*)expression,OpTypes<Class>::select());
+		case AnyOp::ifElse: return visitor.visitConditional(type,(Conditional<Class>*)expression,typename OpTypes<Class>::ifElse());
+		case AnyOp::select: return visitor.visitConditional(type,(Conditional<Class>*)expression,typename OpTypes<Class>::select());
 		case AnyOp::label: return visitor.visitLabel(type,(Label<Class>*)expression);
 		case AnyOp::ret: return visitor.visitReturn(type,(Return*)expression);
 		case AnyOp::branch: return visitor.visitBranch(type,(Branch*)expression);
