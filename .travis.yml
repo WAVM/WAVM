@@ -11,6 +11,12 @@ script: ./travis-build.sh
 
 os:
  - linux
+ - osx
+
+matrix:
+  exclude:
+    - os: osx
+      compiler: gcc
 
 addons:
  apt:
@@ -27,3 +33,9 @@ addons:
    - g++-4.8
    - libedit-dev
    - clang
+
+before_install:
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      brew update;
+      brew install homebrew/versions/llvm37;
+    fi
