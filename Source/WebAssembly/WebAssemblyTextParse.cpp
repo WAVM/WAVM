@@ -1157,7 +1157,7 @@ namespace WebAssemblyText
 			auto branchTarget = new(arena)BranchTarget(resultType);
 			
 			// Parse an optional name for the label.
-			const char* labelName;
+			const char* labelName = nullptr;
 			bool hasName = parseName(nodeIt,labelName);
 			ScopedBranchTarget scopedBranchTarget(*this,hasName,labelName,branchTarget,nodeIt);
 
