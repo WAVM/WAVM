@@ -44,13 +44,13 @@ namespace LLVMJIT
 			Platform::freeVirtualPages(imageBaseAddress,numAllocatedImagePages);
 		}
 
-		virtual uint8* allocateCodeSection(uintptr numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
+		virtual uint8* allocateCodeSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
 		{
-			return allocateSection(numBytes,alignment,Platform::MemoryAccess::Execute);
+			return allocateSection((uintptr)numBytes,alignment,Platform::MemoryAccess::Execute);
 		}
 		virtual uint8* allocateDataSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
 		{
-			return allocateSection(numBytes,alignment,isReadOnly ? Platform::MemoryAccess::ReadOnly : Platform::MemoryAccess::ReadWrite);
+			return allocateSection((uintptr)numBytes,alignment,isReadOnly ? Platform::MemoryAccess::ReadOnly : Platform::MemoryAccess::ReadWrite);
 		}
 		virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
 		{
