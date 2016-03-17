@@ -244,8 +244,21 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(sext,extend_s)
 		MAP_OP_SYMBOL(zext,extend_u)
 		MAP_OP_SYMBOL(reinterpretFloat,reinterpret)
-		MAP_OP_SYMBOL(reinterpretBool,reinterpret)
 		MAP_OP_SYMBOL(lit,const)
+		MAP_OP_SYMBOL(eq,eq)
+		MAP_OP_SYMBOL(ne,ne)
+		MAP_OP_SYMBOL(lts,lt_s)
+		MAP_OP_SYMBOL(ltu,lt_u)
+		MAP_OP_SYMBOL(lt,lt)
+		MAP_OP_SYMBOL(les,le_s)
+		MAP_OP_SYMBOL(leu,le_u)
+		MAP_OP_SYMBOL(le,le)
+		MAP_OP_SYMBOL(gts,gt_s)
+		MAP_OP_SYMBOL(gtu,gt_u)
+		MAP_OP_SYMBOL(gt,gt)
+		MAP_OP_SYMBOL(ges,ge_s)
+		MAP_OP_SYMBOL(geu,ge_u)
+		MAP_OP_SYMBOL(ge,ge)
 		#undef MAP_OP_SYMBOL
 		default: return getAnyOpSymbol<IntClass>(op);
 		}
@@ -279,33 +292,6 @@ namespace WebAssemblyText
 		MAP_OP_SYMBOL(sqrt,sqrt)
 		#undef MAP_OP_SYMBOL
 		default: return getAnyOpSymbol<FloatClass>(op);
-		}
-	}
-
-	inline Symbol getOpSymbol(BoolOp op)
-	{
-		switch(op)
-		{
-		#define MAP_OP_SYMBOL(op,symbol) case BoolOp::op: return Symbol::_##symbol;
-		MAP_OP_SYMBOL(bitwiseNot,not)
-		MAP_OP_SYMBOL(bitwiseOr,or)
-		MAP_OP_SYMBOL(eq,eq)
-		MAP_OP_SYMBOL(ne,ne)
-		MAP_OP_SYMBOL(lts,lt_s)
-		MAP_OP_SYMBOL(ltu,lt_u)
-		MAP_OP_SYMBOL(lt,lt)
-		MAP_OP_SYMBOL(les,le_s)
-		MAP_OP_SYMBOL(leu,le_u)
-		MAP_OP_SYMBOL(le,le)
-		MAP_OP_SYMBOL(gts,gt_s)
-		MAP_OP_SYMBOL(gtu,gt_u)
-		MAP_OP_SYMBOL(gt,gt)
-		MAP_OP_SYMBOL(ges,ge_s)
-		MAP_OP_SYMBOL(geu,ge_u)
-		MAP_OP_SYMBOL(ge,ge)
-		MAP_OP_SYMBOL(lit,const)
-		#undef MAP_OP_SYMBOL
-		default: return getAnyOpSymbol<BoolClass>(op);
 		}
 	}
 

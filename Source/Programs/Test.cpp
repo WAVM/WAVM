@@ -21,7 +21,6 @@ std::string describeRuntimeValue(const Runtime::Value& value)
 	case Runtime::TypeId::I64: return "I64(" + std::to_string(value.i64) + ")";
 	case Runtime::TypeId::F32: return "F32(" + Floats::asString(value.f32) + ")";
 	case Runtime::TypeId::F64: return "F64(" + Floats::asString(value.f64) + ")";
-	case Runtime::TypeId::Bool: return value.bool_ ? "Bool(true)" : "Bool(false)";
 	case Runtime::TypeId::Void: return "Void";
 	case Runtime::TypeId::Exception: return "Exception(" + std::string(Runtime::describeExceptionCause(value.exception->cause)) + ")";
 	default: throw;

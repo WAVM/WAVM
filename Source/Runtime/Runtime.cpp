@@ -114,7 +114,6 @@ namespace Runtime
 			case AST::TypeId::I64: return RecursiveInvoke<numUntypedArgs-1,Args...,uint64>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i64);
 			case AST::TypeId::F32: return RecursiveInvoke<numUntypedArgs-1,Args...,float32>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].f32);
 			case AST::TypeId::F64: return RecursiveInvoke<numUntypedArgs-1,Args...,float64>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].f64);
-			case AST::TypeId::Bool: return RecursiveInvoke<numUntypedArgs-1,Args...,bool>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].bool_);
 			default: throw;
 			};
 		}
@@ -135,7 +134,6 @@ namespace Runtime
 			case AST::TypeId::I64: return Value(((uint64(*)(Args...))functionPtr)(typedArgs...));
 			case AST::TypeId::F32: return Value(((float32(*)(Args...))functionPtr)(typedArgs...));
 			case AST::TypeId::F64: return Value(((float64(*)(Args...))functionPtr)(typedArgs...));
-			case AST::TypeId::Bool: return Value(((bool(*)(Args...))functionPtr)(typedArgs...));
 			case AST::TypeId::Void: ((void(*)(Args...))functionPtr)(typedArgs...); return Value(Void());
 			default: throw;
 			}

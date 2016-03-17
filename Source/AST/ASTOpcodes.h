@@ -46,14 +46,21 @@ namespace AST
 		AST_OP(truncUnsignedFloat) \
 		AST_OP(sext) \
 		AST_OP(zext) \
-		AST_OP(reinterpretFloat) \
-		AST_OP(reinterpretBool)
+		AST_OP(reinterpretFloat)
+	
+	#define ENUM_AST_COMPARISON_OPS() \
+		AST_OP(eq) AST_OP(ne) \
+		AST_OP(lts) AST_OP(ltu) AST_OP(lt) \
+		AST_OP(les) AST_OP(leu) AST_OP(le) \
+		AST_OP(gts) AST_OP(gtu) AST_OP(gt) \
+		AST_OP(ges) AST_OP(geu) AST_OP(ge)
 
 	#define ENUM_AST_OPS_Int() \
 		ENUM_AST_OPS_Any() \
 		ENUM_AST_UNARY_OPS_Int() \
 		ENUM_AST_BINARY_OPS_Int() \
 		ENUM_AST_CAST_OPS_Int() \
+		ENUM_AST_COMPARISON_OPS() \
 		AST_OP(lit) \
 		AST_OP(loadZExt) \
 		AST_OP(loadSExt) \
@@ -92,27 +99,6 @@ namespace AST
 		ENUM_AST_CAST_OPS_Float() \
 		AST_OP(lit)
 
-	#define ENUM_AST_UNARY_OPS_Bool() \
-		AST_OP(bitwiseNot)
-
-	#define ENUM_AST_BINARY_OPS_Bool() \
-		AST_OP(bitwiseAnd) \
-		AST_OP(bitwiseOr)
-
-	#define ENUM_AST_COMPARISON_OPS() \
-		AST_OP(eq) AST_OP(ne) \
-		AST_OP(lts) AST_OP(ltu) AST_OP(lt) \
-		AST_OP(les) AST_OP(leu) AST_OP(le) \
-		AST_OP(gts) AST_OP(gtu) AST_OP(gt) \
-		AST_OP(ges) AST_OP(geu) AST_OP(ge)
-
-	#define ENUM_AST_OPS_Bool() \
-		ENUM_AST_OPS_Any() \
-		ENUM_AST_UNARY_OPS_Bool() \
-		ENUM_AST_BINARY_OPS_Bool() \
-		ENUM_AST_COMPARISON_OPS() \
-		AST_OP(lit)
-
 	#define ENUM_AST_OPS_Void() \
 		ENUM_AST_OPS_Any() \
 		AST_OP(discardResult) AST_OP(nop) \
@@ -125,7 +111,6 @@ namespace AST
 	enum class AnyOp : uint8		{ ENUM_AST_OPS_Any() };
 	enum class IntOp : uint8		{ ENUM_AST_OPS_Int() };
 	enum class FloatOp : uint8	{ ENUM_AST_OPS_Float() };
-	enum class BoolOp : uint8	{ ENUM_AST_OPS_Bool() };
 	enum class VoidOp : uint8	{ ENUM_AST_OPS_Void() };
 	enum class NoneOp : uint8 { ENUM_AST_OPS_None() };
 	#undef AST_OP

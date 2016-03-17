@@ -9,7 +9,6 @@ namespace WebAssemblyText
 	#define I64LowerCaseString "i64"
 	#define F32LowerCaseString "f32"
 	#define F64LowerCaseString "f64"
-	#define BoolLowerCaseString "bool"
 	#define VoidLowerCaseString "void"
 
 	// Declare an array, indexed by the symbol enum, containing the symbol string.

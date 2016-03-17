@@ -34,7 +34,6 @@ Parsing the WebAssembly text format goes through a [generic S-expression parser]
 
 Decoding the polyfill binary format also produces the same AST, so while it sticks pretty closely to the syntax of the text format, there are a few differences to accomodate the polyfill format:
 * WebAssembly only supports I32 and I64 integer value types, with loads and stores supporting explicitly converting to and from I8s or I16s in memory. The WAVM AST just supports general I8 and I16 values.
-* WebAssembly doesn't have explicit boolean types, but I was hoping it would, so WAVM supports them. I'll likely remove them to match the spec, but for now WAVM supports a superset of WebAssembly where comparison operators yield a boolean value, but they can be implicitly coerced to an i32 value for compatibility with the WebAssembly spec.
 
 The AST also has a few concepts that the text format doesn't. For example, it uses type classes to represent the idea of a set of types an operation can be defined on. Every AST opcode is specific to a type class, and so there is a different opcode enum for each type class. The type classes defined are Int, Float, Bool, and Void. This means that you need to know what type a subexpresion is to interpret its opcode, which is usually trivial, but occasionally requires a *TypedExpression* to wrap up the subexpression with an explicit type. Types are otherwise implicit.
 

@@ -295,7 +295,7 @@ namespace WebAssemblyText
 		DispatchResult visitConditional(TypeId type,const Conditional<Class>* conditional,OpAsType)
 		{
 			return createTaggedSubtree(getOpSymbol(conditional->op()))
-				<< dispatch(*this,conditional->condition)
+				<< dispatch(*this,conditional->condition,TypeId::I32)
 				<< dispatch(*this,conditional->trueValue,type)
 				<< dispatch(*this,conditional->falseValue,type);
 		}
@@ -306,13 +306,13 @@ namespace WebAssemblyText
 			if(ifElse->falseValue->op() == VoidOp::nop)
 			{
 				return createTaggedSubtree(Symbol::_if)
-					<< dispatch(*this,ifElse->condition)
+					<< dispatch(*this,ifElse->condition,TypeId::I32)
 					<< dispatch(*this,ifElse->trueValue,type);
 			}
 			else
 			{
 				return createTaggedSubtree(Symbol::_if)
-					<< dispatch(*this,ifElse->condition)
+					<< dispatch(*this,ifElse->condition,TypeId::I32)
 					<< dispatch(*this,ifElse->trueValue,type)
 					<< dispatch(*this,ifElse->falseValue,type);
 			}
@@ -364,7 +364,7 @@ namespace WebAssemblyText
 			auto subtreeStream = createTaggedSubtree(Symbol::_br_if)
 				<< getLabelName(branchIf->branchTarget);
 			if(branchIf->branchTarget->type != TypeId::Void) { subtreeStream << dispatch(*this,branchIf->value,branchIf->branchTarget->type); }
-			subtreeStream << dispatch(*this,branchIf->condition);
+			subtreeStream << dispatch(*this,branchIf->condition,TypeId::I32);
 			return subtreeStream;
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)

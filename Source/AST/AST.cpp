@@ -15,7 +15,6 @@ namespace AST
 	#define I64LowerCaseString "i64"
 	#define F32LowerCaseString "f32"
 	#define F64LowerCaseString "f64"
-	#define BoolLowerCaseString "bool"
 	#define VoidLowerCaseString "void"
 	#define AST_TYPE(typeName,className,...) \
 		TypeId typeName##Type::id = TypeId::typeName; \
@@ -38,7 +37,6 @@ namespace AST
 			case TypeId::I64: return typeClass == TypeClassId::Int;
 			case TypeId::F32: return typeClass == TypeClassId::Float;
 			case TypeId::F64: return typeClass == TypeClassId::Float;
-			case TypeId::Bool: return typeClass == TypeClassId::Bool;
 			case TypeId::Void: return typeClass == TypeClassId::Void;
 			default: throw;
 			}
@@ -63,7 +61,6 @@ namespace AST
 		case TypeId::I64: return TypeClassId::Int;
 		case TypeId::F32: return TypeClassId::Float;
 		case TypeId::F64: return TypeClassId::Float;
-		case TypeId::Bool: return TypeClassId::Bool;
 		case TypeId::Void: return TypeClassId::Void;
 		default: throw;
 		}
@@ -82,7 +79,6 @@ namespace AST
 		case TypeId::I64: return 64;
 		case TypeId::F32: return 32;
 		case TypeId::F64: return 64;
-		case TypeId::Bool: return 1;
 		case TypeId::Void: return 0;
 		default: throw;
 		}
@@ -98,7 +94,6 @@ namespace AST
 		case TypeId::I64: return 8;
 		case TypeId::F32: return 4;
 		case TypeId::F64: return 8;
-		case TypeId::Bool: return 1;
 		case TypeId::Void: return 0;
 		default: throw;
 		};
@@ -114,7 +109,6 @@ namespace AST
 		case TypeId::I64: return 3;
 		case TypeId::F32: return 2;
 		case TypeId::F64: return 3;
-		case TypeId::Bool: return 0;
 		case TypeId::Void: return 0;
 		default: throw;
 		}

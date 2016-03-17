@@ -660,11 +660,11 @@ namespace WebAssemblyBinary
 
 		// Compares two integers and returns an I32 value.
 		template<typename OperandType>
-		IntExpression* decodeCompare(BoolOp op)
+		IntExpression* decodeCompare(IntOp op)
 		{
 			auto leftOperand = decodeExpression(OperandType());
 			auto rightOperand = decodeExpression(OperandType());
-			return new(arena) Cast<IntClass>(IntOp::reinterpretBool,TypedExpression(new(arena) Comparison(op,OperandType::id,leftOperand,rightOperand),TypeId::Bool));
+			return new(arena) Comparison(op,OperandType::id,leftOperand,rightOperand);
 		}
 
 		// Evaluates two expressions, and returns only the result of the second.
@@ -684,22 +684,14 @@ namespace WebAssemblyBinary
 			return new(arena) Sequence<typename Type::Class>(voidExpression,value);
 		}
 
-		BoolExpression* decodeExpressionI32AsBool()
-		{
-			auto i32Value = decodeExpression(I32Type());
-			if(i32Value->op() == IntOp::reinterpretBool && ((Cast<IntClass>*)i32Value)->source.type == TypeId::Bool)
-				{ return as<BoolClass>(((Cast<IntClass>*)i32Value)->source); }
-			else { return new(arena) Comparison(BoolOp::ne,TypeId::I32,i32Value,new(arena) Literal<I32Type>(0)); }
-		}
-
 		// Chooses between two values based on a predicate value.
 		template<typename Type>
 		typename Type::TypeExpression* cond()
 		{
-			auto condition = decodeExpressionI32AsBool();
+			auto condition = decodeExpression(I32Type());
 			auto trueValue = decodeExpression(Type());
 			auto falseValue = decodeExpression(Type());
-			return new(arena) Conditional<typename Type::Class>(Type::Class::Op::ifElse,condition,trueValue,falseValue);
+			return new(arena) Conditional<typename Type::Class>(Type::Op::ifElse,condition,trueValue,falseValue);
 		}
 
 		// Decodes the parameters for a function.
@@ -851,14 +843,14 @@ namespace WebAssemblyBinary
 
 		VoidExpression* decodeIf()
 		{
-			auto condition = decodeExpressionI32AsBool();
+			auto condition = decodeExpression(I32Type());
 			auto trueValue = decodeStatement();
 			return new(arena) Conditional<VoidClass>(VoidOp::ifElse,condition,trueValue,Nop::get());
 		}
 
 		VoidExpression* decodeIfElse()
 		{
-			auto condition = decodeExpressionI32AsBool();
+			auto condition = decodeExpression(I32Type());
 			auto trueValue = decodeStatement();
 			auto falseValue = decodeStatement();
 			return new(arena) Conditional<VoidClass>(VoidOp::ifElse,condition,trueValue,falseValue);
@@ -866,7 +858,7 @@ namespace WebAssemblyBinary
 
 		VoidExpression* decodeWhile(bool isEnclosedByLabel)
 		{
-			auto condition = decodeExpressionI32AsBool();
+			auto condition = decodeExpression(I32Type());
 			auto breakBranchTarget = new(arena) BranchTarget(TypeId::Void);
 			auto continueBranchTarget = new(arena) BranchTarget(TypeId::Void);
 			implicitBreakTargets.push_back(breakBranchTarget);
@@ -907,7 +899,7 @@ namespace WebAssemblyBinary
 				explicitContinueTargets.back() = continueBranchTarget;
 			}
 			auto loopExpression = decodeStatement();
-			auto condition = decodeExpressionI32AsBool();
+			auto condition = decodeExpression(I32Type());
 			implicitBreakTargets.pop_back();
 			implicitContinueTargets.pop_back();
 			auto loopBody = new(arena) Sequence<VoidClass>(
@@ -1157,33 +1149,29 @@ namespace WebAssemblyBinary
 				case I32OpEncoding::ArithRsh:   return decodeBinary<I32Type>(IntOp::shrSExt);
 				case I32OpEncoding::LogicRsh:   return decodeBinary<I32Type>(IntOp::shrZExt);
 				case I32OpEncoding::Clz:        return decodeUnary<I32Type>(IntOp::clz);
-				case I32OpEncoding::LogicNot: 
-				{
-					auto comparison = new(arena) Comparison(BoolOp::eq,TypeId::I32,decodeExpression(I32Type()),new(arena) Literal<I32Type>(0));
-					return new(arena) Cast<IntClass>(IntOp::reinterpretBool,TypedExpression(comparison,TypeId::Bool));
-				}
-				case I32OpEncoding::EqI32:      return decodeCompare<I32Type>(BoolOp::eq);
-				case I32OpEncoding::EqF32:      return decodeCompare<F32Type>(BoolOp::eq);
-				case I32OpEncoding::EqF64:      return decodeCompare<F64Type>(BoolOp::eq);
-				case I32OpEncoding::NEqI32:     return decodeCompare<I32Type>(BoolOp::ne);
-				case I32OpEncoding::NEqF32:     return decodeCompare<F32Type>(BoolOp::ne);
-				case I32OpEncoding::NEqF64:     return decodeCompare<F64Type>(BoolOp::ne);
-				case I32OpEncoding::SLeThI32:   return decodeCompare<I32Type>(BoolOp::lts);
-				case I32OpEncoding::ULeThI32:   return decodeCompare<I32Type>(BoolOp::ltu);
-				case I32OpEncoding::LeThF32:    return decodeCompare<F32Type>(BoolOp::lt);
-				case I32OpEncoding::LeThF64:    return decodeCompare<F64Type>(BoolOp::lt);
-				case I32OpEncoding::SLeEqI32:   return decodeCompare<I32Type>(BoolOp::les);
-				case I32OpEncoding::ULeEqI32:   return decodeCompare<I32Type>(BoolOp::leu);
-				case I32OpEncoding::LeEqF32:    return decodeCompare<F32Type>(BoolOp::le);
-				case I32OpEncoding::LeEqF64:    return decodeCompare<F64Type>(BoolOp::le);
-				case I32OpEncoding::SGrThI32:   return decodeCompare<I32Type>(BoolOp::gts);
-				case I32OpEncoding::UGrThI32:   return decodeCompare<I32Type>(BoolOp::gtu);
-				case I32OpEncoding::GrThF32:    return decodeCompare<F32Type>(BoolOp::gt);
-				case I32OpEncoding::GrThF64:    return decodeCompare<F64Type>(BoolOp::gt);
-				case I32OpEncoding::SGrEqI32:   return decodeCompare<I32Type>(BoolOp::ges);
-				case I32OpEncoding::UGrEqI32:   return decodeCompare<I32Type>(BoolOp::geu);
-				case I32OpEncoding::GrEqF32:    return decodeCompare<F32Type>(BoolOp::ge);
-				case I32OpEncoding::GrEqF64:    return decodeCompare<F64Type>(BoolOp::ge);
+				case I32OpEncoding::LogicNot:   return new(arena) Comparison(IntOp::eq,TypeId::I32,decodeExpression(I32Type()),new(arena) Literal<I32Type>(0));
+				case I32OpEncoding::EqI32:      return decodeCompare<I32Type>(IntOp::eq);
+				case I32OpEncoding::EqF32:      return decodeCompare<F32Type>(IntOp::eq);
+				case I32OpEncoding::EqF64:      return decodeCompare<F64Type>(IntOp::eq);
+				case I32OpEncoding::NEqI32:     return decodeCompare<I32Type>(IntOp::ne);
+				case I32OpEncoding::NEqF32:     return decodeCompare<F32Type>(IntOp::ne);
+				case I32OpEncoding::NEqF64:     return decodeCompare<F64Type>(IntOp::ne);
+				case I32OpEncoding::SLeThI32:   return decodeCompare<I32Type>(IntOp::lts);
+				case I32OpEncoding::ULeThI32:   return decodeCompare<I32Type>(IntOp::ltu);
+				case I32OpEncoding::LeThF32:    return decodeCompare<F32Type>(IntOp::lt);
+				case I32OpEncoding::LeThF64:    return decodeCompare<F64Type>(IntOp::lt);
+				case I32OpEncoding::SLeEqI32:   return decodeCompare<I32Type>(IntOp::les);
+				case I32OpEncoding::ULeEqI32:   return decodeCompare<I32Type>(IntOp::leu);
+				case I32OpEncoding::LeEqF32:    return decodeCompare<F32Type>(IntOp::le);
+				case I32OpEncoding::LeEqF64:    return decodeCompare<F64Type>(IntOp::le);
+				case I32OpEncoding::SGrThI32:   return decodeCompare<I32Type>(IntOp::gts);
+				case I32OpEncoding::UGrThI32:   return decodeCompare<I32Type>(IntOp::gtu);
+				case I32OpEncoding::GrThF32:    return decodeCompare<F32Type>(IntOp::gt);
+				case I32OpEncoding::GrThF64:    return decodeCompare<F64Type>(IntOp::gt);
+				case I32OpEncoding::SGrEqI32:   return decodeCompare<I32Type>(IntOp::ges);
+				case I32OpEncoding::UGrEqI32:   return decodeCompare<I32Type>(IntOp::geu);
+				case I32OpEncoding::GrEqF32:    return decodeCompare<F32Type>(IntOp::ge);
+				case I32OpEncoding::GrEqF64:    return decodeCompare<F64Type>(IntOp::ge);
 				case I32OpEncoding::SMin:       return minMaxIntrinsic<I32Type>("min_s");
 				case I32OpEncoding::UMin:       return minMaxIntrinsic<I32Type>("max_u");
 				case I32OpEncoding::SMax:       return minMaxIntrinsic<I32Type>("max_s");

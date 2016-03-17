@@ -41,7 +41,7 @@ namespace LLVMJIT
 	inline llvm::ConstantInt* compileLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(asLLVMType(TypeId::I64),llvm::APInt(64,(uint64)value,false)); }
 	inline llvm::Constant* compileLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	inline llvm::Constant* compileLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
-	inline llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(asLLVMType(TypeId::Bool),llvm::APInt(1,value ? 1 : 0,false)); }
+	inline llvm::Constant* compileLiteral(bool value) { return llvm::ConstantInt::get(llvm::Type::getInt1Ty(context),llvm::APInt(1,value ? 1 : 0,false)); }
 
 	// The LLVM IR for a module.
 	struct ModuleIR
@@ -144,27 +144,33 @@ namespace LLVMJIT
 			}
 		}
 
+		// Coerces an I32 value to a boolean value.
+		llvm::Value* coerceI32ToBool(llvm::Value* i32Value)
+		{
+			return irBuilder.CreateICmpNE(i32Value,typedZeroConstants[(size_t)TypeId::I32]);
+		}
+
 		// Inserts a conditional branch, and returns the old basic block.
-		llvm::BasicBlock* compileCondBranch(llvm::Value* condition,llvm::BasicBlock* trueDest,llvm::BasicBlock* falseDest)
+		llvm::BasicBlock* compileCondBranch(llvm::Value* booleanCondition,llvm::BasicBlock* trueDest,llvm::BasicBlock* falseDest)
 		{
 			auto exitBlock = irBuilder.GetInsertBlock();
 			if(exitBlock == unreachableBlock) { return nullptr; }
 			else
 			{
-				irBuilder.CreateCondBr(condition,trueDest,falseDest);
+				irBuilder.CreateCondBr(booleanCondition,trueDest,falseDest);
 				return exitBlock;
 			}
 		}
 		
 		// Compiles an if-else expression using thunks to define the true and false branches.
 		template<typename TrueValueThunk,typename FalseValueThunk>
-		llvm::Value* compileIfElse(TypeId type,llvm::Value* condition,TrueValueThunk trueValueThunk,FalseValueThunk falseValueThunk)
+		llvm::Value* compileIfElse(TypeId type,llvm::Value* booleanCondition,TrueValueThunk trueValueThunk,FalseValueThunk falseValueThunk)
 		{
 			auto trueBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
 			auto falseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
 			auto successorBlock = llvm::BasicBlock::Create(context,"ifSucc",llvmFunction);
-
-			compileCondBranch(condition,trueBlock,falseBlock);
+			
+			compileCondBranch(booleanCondition,trueBlock,falseBlock);
 
 			irBuilder.SetInsertPoint(trueBlock);
 			auto trueValue = trueValueThunk();
@@ -368,7 +374,7 @@ namespace LLVMJIT
 		{
 			return compileIfElse(
 				type,
-				dispatch(*this,ifElse->condition,TypeId::Bool),
+				coerceI32ToBool(dispatch(*this,ifElse->condition,TypeId::I32)),
 				[&] { return dispatch(*this,ifElse->trueValue,type); },
 				[&] { return dispatch(*this,ifElse->falseValue,type); }
 				);
@@ -378,7 +384,7 @@ namespace LLVMJIT
 		{
 			auto trueValue = dispatch(*this,select->trueValue,type);
 			auto falseValue = dispatch(*this,select->falseValue,type);
-			auto condition = dispatch(*this,select->condition);
+			auto condition = coerceI32ToBool(dispatch(*this,select->condition,TypeId::I32));
 			return irBuilder.CreateSelect(condition,trueValue,falseValue);
 		}
 		template<typename Class>
@@ -487,14 +493,14 @@ namespace LLVMJIT
 				: dispatch(*this,branchIf->value,branchIf->branchTarget->type);
 
 			// Compile the branch's condition.
-			auto condition = dispatch(*this,branchIf->condition);
+			auto condition = dispatch(*this,branchIf->condition,TypeId::I32);
 
 			// Find the branch target context for this branch's target.
 			auto targetContext = findBranchTargetContext(branchIf->branchTarget);
 	
 			// Insert the branch instruction.
 			auto successorBlock = llvm::BasicBlock::Create(context,"branchIfSucc",llvmFunction);
-			auto exitBlock = compileCondBranch(condition,targetContext->basicBlock,successorBlock);
+			auto exitBlock = compileCondBranch(coerceI32ToBool(condition),targetContext->basicBlock,successorBlock);
 			
 			// Add the branch's value to the list of incoming values for the branch target.
 			if(exitBlock) { targetContext->results = new(scopedArena) BranchResult {exitBlock,value,targetContext->results}; }
@@ -713,11 +719,11 @@ namespace LLVMJIT
 				return llvmOp; \
 			}
 		#define IMPLEMENT_COMPARE_OP(op,llvmOp) \
-			DispatchResult visitComparison(const Comparison* compare,OpTypes<BoolClass>::op) \
+			DispatchResult visitComparison(const Comparison* compare,OpTypes<IntClass>::op) \
 			{ \
 				auto left = dispatch(*this,compare->left,compare->operandType); \
 				auto right = dispatch(*this,compare->right,compare->operandType); \
-				return llvmOp; \
+				return irBuilder.CreateZExt(llvmOp,llvmTypesByTypeId[(size_t)TypeId::I32]); \
 			}
 
 		IMPLEMENT_UNARY_OP(IntClass,neg,irBuilder.CreateNeg(operand))
@@ -747,7 +753,6 @@ namespace LLVMJIT
 		IMPLEMENT_CAST_OP(IntClass,sext,irBuilder.CreateSExt(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,zext,irBuilder.CreateZExt(source,destType))
 		IMPLEMENT_CAST_OP(IntClass,reinterpretFloat,irBuilder.CreateBitCast(source,destType))
-		IMPLEMENT_CAST_OP(IntClass,reinterpretBool,irBuilder.CreateZExt(source,destType))
 		
 		IMPLEMENT_UNARY_OP(FloatClass,neg,irBuilder.CreateFNeg(operand))
 		IMPLEMENT_UNARY_OP(FloatClass,abs,compileLLVMIntrinsic(llvm::Intrinsic::fabs,operand))
@@ -769,10 +774,6 @@ namespace LLVMJIT
 		IMPLEMENT_CAST_OP(FloatClass,promote,irBuilder.CreateFPExt(source,destType))
 		IMPLEMENT_CAST_OP(FloatClass,demote,irBuilder.CreateFPTrunc(source,destType))
 		IMPLEMENT_CAST_OP(FloatClass,reinterpretInt,irBuilder.CreateBitCast(source,destType))
-
-		IMPLEMENT_UNARY_OP(BoolClass,bitwiseNot,irBuilder.CreateNot(operand))
-		IMPLEMENT_BINARY_OP(BoolClass,bitwiseAnd,irBuilder.CreateAnd(left,right))
-		IMPLEMENT_BINARY_OP(BoolClass,bitwiseOr,irBuilder.CreateOr(left,right))
 
 		IMPLEMENT_COMPARE_OP(eq,isTypeClass(compare->operandType,TypeClassId::Float) ? irBuilder.CreateFCmpOEQ(left,right) : irBuilder.CreateICmpEQ(left,right))
 		IMPLEMENT_COMPARE_OP(ne,isTypeClass(compare->operandType,TypeClassId::Float) ? irBuilder.CreateFCmpUNE(left,right) : irBuilder.CreateICmpNE(left,right))
@@ -932,7 +933,6 @@ namespace LLVMJIT
 		llvmTypesByTypeId[(size_t)TypeId::I64] = llvm::Type::getInt64Ty(context);
 		llvmTypesByTypeId[(size_t)TypeId::F32] = llvm::Type::getFloatTy(context);
 		llvmTypesByTypeId[(size_t)TypeId::F64] = llvm::Type::getDoubleTy(context);
-		llvmTypesByTypeId[(size_t)TypeId::Bool] = llvm::Type::getInt1Ty(context);
 		llvmTypesByTypeId[(size_t)TypeId::Void] = llvm::Type::getVoidTy(context);
 		
 		// Create a null pointer constant to use as the void dummy value.
@@ -947,7 +947,6 @@ namespace LLVMJIT
 		typedZeroConstants[(size_t)TypeId::I64] = compileLiteral((uint64)0);
 		typedZeroConstants[(size_t)TypeId::F32] = compileLiteral((float32)0.0f);
 		typedZeroConstants[(size_t)TypeId::F64] = compileLiteral((float64)0.0);
-		typedZeroConstants[(size_t)TypeId::Bool] = compileLiteral(false);
 		typedZeroConstants[(size_t)TypeId::Void] = voidDummy;
 	}
 }

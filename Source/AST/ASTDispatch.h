@@ -63,6 +63,10 @@ namespace AST
 		ENUM_AST_CAST_OPS_Int()
 		#undef AST_OP
 		
+		#define AST_OP(op) case IntOp::op: return visitor.visitComparison((Comparison*)expression,OpTypes<IntClass>::op());
+		ENUM_AST_COMPARISON_OPS()
+		#undef AST_OP
+
 		case IntOp::lit: return dispatchLiteral(visitor,expression,type);
 		case IntOp::loadZExt: return visitor.visitLoad(type,(Load<IntClass>*)expression,OpTypes<IntClass>::loadZExt());
 		case IntOp::loadSExt: return visitor.visitLoad(type,(Load<IntClass>*)expression,OpTypes<IntClass>::loadSExt());
@@ -89,28 +93,6 @@ namespace AST
 		#undef AST_OP
 		
 		case FloatOp::lit: return dispatchLiteral(visitor,expression,type);
-		default: return dispatchAny(visitor,expression,type);
-		}
-	}
-
-	// Dispatch opcodes that can occur in type contexts expecting a boolean result.
-	template<typename Visitor>
-	static typename Visitor::DispatchResult dispatch(Visitor& visitor,Expression<BoolClass>* expression,TypeId type = TypeId::Bool)
-	{
-		switch(expression->op())
-		{
-		#define AST_OP(op) case BoolOp::op: return visitor.visitUnary(type,(Unary<BoolClass>*)expression,OpTypes<BoolClass>::op());
-		ENUM_AST_UNARY_OPS_Bool()
-		#undef AST_OP
-
-		#define AST_OP(op) case BoolOp::op: return visitor.visitBinary(type,(Binary<BoolClass>*)expression,OpTypes<BoolClass>::op());
-		ENUM_AST_BINARY_OPS_Bool()
-		#undef AST_OP
-
-		#define AST_OP(op) case BoolOp::op: return visitor.visitComparison((Comparison*)expression,OpTypes<BoolClass>::op());
-		ENUM_AST_COMPARISON_OPS()
-		#undef AST_OP
-
 		default: return dispatchAny(visitor,expression,type);
 		}
 	}
@@ -257,7 +239,7 @@ namespace AST
 		template<typename Class,typename OpAsType>
 		DispatchResult visitConditional(TypeId type,const Conditional<Class>* conditional,OpAsType)
 		{
-			auto condition = as<BoolClass>(visitChild(TypedExpression(conditional->condition,TypeId::Bool)));
+			auto condition = as<IntClass>(visitChild(TypedExpression(conditional->condition,TypeId::I32)));
 			auto trueValue = as<Class>(visitChild(TypedExpression(conditional->trueValue,type)));
 			auto falseValue = as<Class>(visitChild(TypedExpression(conditional->falseValue,type)));
 			return TypedExpression(new(arena) Conditional<Class>(conditional->op(),condition,trueValue,falseValue),type);
@@ -299,10 +281,10 @@ namespace AST
 		DispatchResult visitBranchIf(const BranchIf* branchIf)
 		{
 			auto branchTarget = branchTargetRemap[branchIf->branchTarget];
-			auto condition = dispatch(*this,branchIf->condition);
+			auto condition = dispatch(*this,branchIf->condition,TypeId::I32);
 			auto value = branchIf->branchTarget->type == TypeId::Void ? nullptr
 				: visitChild(TypedExpression(branchIf->value,branchIf->branchTarget->type)).expression;
-			return TypedExpression(new(arena) BranchIf(branchTarget,as<BoolClass>(condition),value),TypeId::Void);
+			return TypedExpression(new(arena) BranchIf(branchTarget,as<IntClass>(condition),value),TypeId::Void);
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
@@ -331,7 +313,7 @@ namespace AST
 		{
 			auto left = visitChild(TypedExpression(compare->left,compare->operandType)).expression;
 			auto right = visitChild(TypedExpression(compare->right,compare->operandType)).expression;
-			return TypedExpression(new(arena) Comparison(compare->op(),compare->operandType,left,right),TypeId::Bool);
+			return TypedExpression(new(arena) Comparison(compare->op(),compare->operandType,left,right),TypeId::I32);
 		}
 		DispatchResult visitNop(const Nop* nop)
 		{

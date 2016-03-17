@@ -79,7 +79,7 @@ namespace AST
 		{}
 	};
 
-	struct Comparison : public Expression<BoolClass>
+	struct Comparison : public Expression<IntClass>
 	{
 		TypeId operandType;
 		UntypedExpression* left;
@@ -141,11 +141,11 @@ namespace AST
 	template<typename Class>
 	struct Conditional : public Expression<Class>
 	{
-		Expression<BoolClass>* condition;
+		Expression<IntClass>* condition;
 		Expression<Class>* trueValue;
 		Expression<Class>* falseValue;
 
-		Conditional(typename Class::Op op,Expression<BoolClass>* inCondition,Expression<Class>* inTrueValue,Expression<Class>* inFalseValue)
+		Conditional(typename Class::Op op,Expression<IntClass>* inCondition,Expression<Class>* inTrueValue,Expression<Class>* inFalseValue)
 		:	Expression<Class>(op)
 		,	condition(inCondition)
 		,	trueValue(inTrueValue)
@@ -194,10 +194,10 @@ namespace AST
 	struct BranchIf : public VoidExpression
 	{
 		BranchTarget* branchTarget;
-		Expression<BoolClass>* condition;
+		Expression<IntClass>* condition;
 		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it will be null.
 
-		BranchIf(BranchTarget* inBranchTarget,Expression<BoolClass>* inCondition,UntypedExpression* inValue)
+		BranchIf(BranchTarget* inBranchTarget,Expression<IntClass>* inCondition,UntypedExpression* inValue)
 		: VoidExpression(VoidOp::branchIf), branchTarget(inBranchTarget), condition(inCondition), value(inValue) {}
 	};
 	

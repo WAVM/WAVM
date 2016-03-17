@@ -45,7 +45,6 @@ namespace Runtime
 		I64 = (uint8)AST::TypeId::I64,
 		F32 = (uint8)AST::TypeId::F32,
 		F64 = (uint8)AST::TypeId::F64,
-		Bool = (uint8)AST::TypeId::Bool,
 		Void = (uint8)AST::TypeId::Void,
 		Exception
 	};
@@ -73,7 +72,6 @@ namespace Runtime
 		Value(uint64 inI64): i64(inI64), type(TypeId::I64) {}
 		Value(float32 inF32): f32(inF32), type(TypeId::F32) {}
 		Value(float64 inF64): f64(inF64), type(TypeId::F64) {}
-		Value(bool inBool): bool_(inBool), type(TypeId::Bool) {}
 		Value(Void inVoid): void_(inVoid), type(TypeId::Void) {}
 		Value(): type(TypeId::None) {}
 		Value(Exception* inException): exception(inException), type(TypeId::Exception) {}

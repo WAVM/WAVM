@@ -345,7 +345,7 @@ namespace WebAssemblyText
 					
 				#define DEFINE_UNARY_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseUnaryExpression<class##Class>(opType,class##Op::opcode,nodeIt); }
 				#define DEFINE_BINARY_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseBinaryExpression<class##Class>(opType,class##Op::opcode,nodeIt); }
-				#define DEFINE_COMPARE_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseComparisonExpression(opType,BoolOp::opcode,nodeIt); }
+				#define DEFINE_COMPARE_OP(class,symbol,opcode) DEFINE_TYPED_OP(class,symbol) { return parseComparisonExpression(opType,IntOp::opcode,nodeIt); }
 				#define DEFINE_CAST_OP(destType,sourceType,symbol,opcode) DEFINE_BITYPED_OP(destType,sourceType,symbol) \
 					{ return parseCastExpression<destType##Type::Class>(destType##Type::Op::opcode,TypeId::sourceType,TypeId::destType,nodeIt); }
 
@@ -378,10 +378,10 @@ namespace WebAssemblyText
 					
 					// If the branch target's type isn't void, parse an expression for the branch's value.
 					auto value = branchTarget->type == TypeId::Void ? nullptr
-						: parseTypedExpression(branchTarget->type,nodeIt,"break value");
+						: parseTypedExpression(branchTarget->type,nodeIt,"br_if value");
 
 					// Parse the condition.
-					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
+					auto condition = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"br_if condition");
 
 					// Create BranchIf node.
 					auto result = new(arena) BranchIf(branchTarget,condition,value);
@@ -404,8 +404,8 @@ namespace WebAssemblyText
 					default: throw;
 					}
 					auto operand = parseTypedExpression(opType,nodeIt,"eqz operand");
-					auto result = new(arena) Comparison(BoolOp::eq,opType,operand,zero);
-					return TypedExpression(requireFullMatch(nodeIt,getOpName(BoolOp::eq),result),TypeId::Bool);
+					auto result = new(arena) Comparison(IntOp::eq,opType,operand,zero);
+					return TypedExpression(requireFullMatch(nodeIt,getOpName(IntOp::eq),result),TypeId::I32);
 				}
 
 				DEFINE_TYPED_OP(Int,const)
@@ -500,13 +500,8 @@ namespace WebAssemblyText
 				DEFINE_BINARY_OP(Float,max,max)
 				DEFINE_UNARY_OP(Float,sqrt,sqrt)
 
-				DEFINE_UNARY_OP(Bool,not,bitwiseNot)
-				DEFINE_BINARY_OP(Bool,and,bitwiseAnd)
-				DEFINE_BINARY_OP(Bool,or,bitwiseOr)
-
 				DEFINE_COMPARE_OP(Int,eq,eq) DEFINE_COMPARE_OP(Int,ne,ne)
 				DEFINE_COMPARE_OP(Float,eq,eq) DEFINE_COMPARE_OP(Float,ne,ne)
-				DEFINE_COMPARE_OP(Bool,eq,eq) DEFINE_COMPARE_OP(Bool,ne,ne)
 				DEFINE_COMPARE_OP(Int,lt_s,lts)
 				DEFINE_COMPARE_OP(Int,lt_u,ltu)
 				DEFINE_COMPARE_OP(Int,le_s,les)
@@ -578,11 +573,6 @@ namespace WebAssemblyText
 				DEFINE_CAST_OP(I64,F64,reinterpret,reinterpretFloat)
 				DEFINE_CAST_OP(I32,F32,reinterpret,reinterpretFloat)
 
-				DEFINE_CAST_OP(I8,Bool,reinterpret,reinterpretBool)
-				DEFINE_CAST_OP(I16,Bool,reinterpret,reinterpretBool)
-				DEFINE_CAST_OP(I32,Bool,reinterpret,reinterpretBool)
-				DEFINE_CAST_OP(I64,Bool,reinterpret,reinterpretBool)
-
 				#undef DEFINE_UNTYPED_OP
 				#undef DISPATCH_TYPED_OP
 				#undef DEFINE_TYPED_OP
@@ -612,7 +602,7 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(if)
 				{
 					// Parse the if condition, then-expression, and else-expression.
-					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"if condition");
+					auto condition = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"if condition");
 
 					SNodeIt thenNodeIt;
 					typename Class::ClassExpression* trueValue = nullptr;
@@ -634,7 +624,7 @@ namespace WebAssemblyText
 					// Parse the then-expression, and else-expression, and select condition.
 					auto trueValue = parseTypedExpression<Class>(resultType,nodeIt,"select true value");
 					auto falseValue = parseTypedExpression<Class>(resultType,nodeIt,"select false value");
-					auto condition = parseTypedExpression<BoolClass>(TypeId::Bool,nodeIt,"select condition");
+					auto condition = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"select condition");
 
 					// Construct the Conditional node.
 					auto select = new(arena)Conditional<Class>(Class::Op::select,condition,trueValue,falseValue);
@@ -838,29 +828,6 @@ namespace WebAssemblyText
 			else { return as<Class>(typeError(resultType,typedExpression,nodeIt,errorContext)); }
 		}
 
-		// coerceExpression for BoolClass will try to coerce integers.
-		BoolClass::ClassExpression* coerceExpression(BoolClass,TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
-		{
-			assert(resultType == TypeId::Bool);
-			if(resultType == typedExpression.type) { return as<BoolClass>(typedExpression); }
-			else if(isTypeClass(typedExpression.type,TypeClassId::Int))
-			{
-				// Create a literal zero of the appropriate type.
-				IntExpression* zero;
-				switch(typedExpression.type)
-				{
-				case TypeId::I8: zero = new(arena) Literal<I8Type>(0); break;
-				case TypeId::I16: zero = new(arena) Literal<I16Type>(0); break;
-				case TypeId::I32: zero = new(arena) Literal<I32Type>(0); break;
-				case TypeId::I64: zero = new(arena) Literal<I64Type>(0); break;
-				default: throw;
-				}
-				// Coerce the integer to a boolean by testing if the integer != 0.
-				return new(arena) Comparison(BoolOp::ne,typedExpression.type,typedExpression.expression,zero);
-			}
-			else { return as<BoolClass>(typeError(resultType,typedExpression,nodeIt,errorContext)); }
-		}
-
 		// coerceExpression for VoidClass will wrap any other typed expression in a DiscardResult node.
 		VoidClass::ClassExpression* coerceExpression(VoidClass,TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
 		{
@@ -870,19 +837,6 @@ namespace WebAssemblyText
 				assert(typedExpression.type != TypeId::Void);
 				return new(arena) DiscardResult(typedExpression);
 			}
-		}
-		
-		// coerceExpression for IntClass will try to coerce bools.
-		IntClass::ClassExpression* coerceExpression(IntClass,TypeId resultType,TypedExpression typedExpression,SNodeIt nodeIt,const char* errorContext)
-		{
-			assert(isTypeClass(resultType,TypeClassId::Int));
-			if(resultType == typedExpression.type) { return as<IntClass>(typedExpression); }
-			else if(isTypeClass(typedExpression.type,TypeClassId::Bool))
-			{
-				// Reinterpret the bool as an integer.
-				return new(arena) Cast<IntClass>(IntOp::reinterpretBool,typedExpression);
-			}
-			else { return as<IntClass>(typeError(resultType,typedExpression,nodeIt,errorContext)); }
 		}
 
 		// Parses expressions of a specific type.
@@ -1014,12 +968,12 @@ namespace WebAssemblyText
 		}
 
 		// Parse a comparison operation.
-		TypedExpression parseComparisonExpression(TypeId opType,BoolOp op,SNodeIt childNodeIt)
+		TypedExpression parseComparisonExpression(TypeId opType,IntOp op,SNodeIt childNodeIt)
 		{
 			auto leftOperand = parseTypedExpression(opType,childNodeIt,"comparison left operand");
 			auto rightOperand = parseTypedExpression(opType,childNodeIt,"comparison right operand");
 			auto result = new(arena) Comparison(op,opType,leftOperand,rightOperand);
-			return TypedExpression(requireFullMatch(childNodeIt,getOpName(op),result),TypeId::Bool);
+			return TypedExpression(requireFullMatch(childNodeIt,getOpName(op),result),TypeId::I32);
 		}
 
 		// Parse a binary operation.
