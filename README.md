@@ -20,8 +20,6 @@ Run -binary in.wasm in.js.mem functionname
 Run -text in.wast functionname
 PrintWAST -binary in.wasm in.js.mem out.wast
 PrintWAST -text in.wast out.wast
-PrintASMJS -binary in.wasm in.js.mem out.js
-PrintASMJS -text in.wast out.js
 ```
 
 That will load a text or binary WebAssembly file, and call the named exported function. The type of the function must be I64->I64 at the moment, though that can be easily changed in the source code. A good command-line to try without changing any code:
