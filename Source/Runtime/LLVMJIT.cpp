@@ -34,7 +34,7 @@ namespace LLVMJIT
 			// is more than a 32-bit offset from any other address in the image. LLVM on Windows produces COFF
 			// files that assume the entire image can be addressed by a 32-bit offset, but the built-in LLVM
 			// SectionMemoryManager doesn't fulfill that assumption.
-			numAllocatedImagePages = (size_t)(1 << (31 - Platform::getPageSizeLog2()));
+			numAllocatedImagePages = ((size_t)1) << (31 - Platform::getPageSizeLog2());
 			imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
 			numCommittedImagePages = 0;
 		}
@@ -94,7 +94,7 @@ namespace LLVMJIT
 			assert(!((sectionBaseAddress - unalignedSectionBaseAddress) & ((1 << Platform::getPageSizeLog2()) - 1)));
 
 			// Round the allocation size up to the next page.
-			const size_t numPages = (numBytes + (size_t)(1 << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
+			const size_t numPages = (numBytes + (((size_t)1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 
 			// Check that the image memory allocation hasn't been exhausted.
 			if(numCommittedImagePages + numAlignmentPages + numPages > numAllocatedImagePages) { return nullptr; }
