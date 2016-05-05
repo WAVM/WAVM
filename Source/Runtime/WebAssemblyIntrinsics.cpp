@@ -17,20 +17,14 @@ namespace Runtime
 		return (uint32)address;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wasm_intrinsics,memory_size,memory_size,I32)
+	DEFINE_INTRINSIC_FUNCTION0(wasm_intrinsics,current_memory,current_memory,I32)
 	{
-		return coerce32bitAddress(vmGrowMemory(0));
+		return coerce32bitAddress(vmGrowMemory(0)) >> AST::numBytesPerPageLog2;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(wasm_intrinsics,grow_memory,grow_memory,I32,I32,deltaBytes)
+	DEFINE_INTRINSIC_FUNCTION1(wasm_intrinsics,grow_memory,grow_memory,I32,I32,deltaPages)
 	{
-		// Verify that deltaBytes is a multiple of the page size.
-		if(deltaBytes & (AST::numBytesPerPage - 1))
-		{
-			causeException(Exception::Cause::GrowMemoryNotPageAligned);
-		}
-
-		return (uint32)vmGrowMemory((size_t)deltaBytes);
+		return (uint32)vmGrowMemory((size_t)deltaPages << AST::numBytesPerPageLog2) >> AST::numBytesPerPageLog2;
 	}
 
 	DEFINE_INTRINSIC_FUNCTION1(spectest,print,print,Void,I32,a)

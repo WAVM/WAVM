@@ -388,7 +388,7 @@ namespace WebAssemblyText
 					return TypedExpression(requireFullMatch(nodeIt,"br_if",result),TypeId::Void);
 				}
 
-				DEFINE_UNTYPED_OP(memory_size)		{ return parseIntrinsic<IntClass>("memory_size",FunctionType(TypeId::I32,{}),nodeIt); }
+				DEFINE_UNTYPED_OP(current_memory)		{ return parseIntrinsic<IntClass>("current_memory",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(page_size)		{ return parseIntrinsic<IntClass>("page_size",FunctionType(TypeId::I32,{}),nodeIt); }
 				DEFINE_UNTYPED_OP(grow_memory)		{ return parseIntrinsic<IntClass>("grow_memory",FunctionType(TypeId::I32,{TypeId::I32}),nodeIt); }
 				

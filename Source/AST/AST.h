@@ -166,6 +166,7 @@ namespace AST
 	};
 	
 	enum { numBytesPerPage = 65536 };
+	enum { numBytesPerPageLog2 = 16 };
 
 	typedef std::map<const char*,uintptr,Core::StringCompareFunctor> ExportNameToFunctionIndexMap;
 

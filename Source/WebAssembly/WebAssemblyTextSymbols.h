@@ -92,7 +92,7 @@ namespace WebAssemblyText
 		TYPED_WAST_SYMBOL(rotl) \
 		TYPED_WAST_SYMBOL(rotr) \
 		TYPED_WAST_SYMBOL(eqz) \
-		WAST_SYMBOL(memory_size) \
+		WAST_SYMBOL(current_memory) \
 		WAST_SYMBOL(page_size) \
 		WAST_SYMBOL(grow_memory)
 
