@@ -42,7 +42,6 @@
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Object/SymbolSize.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/TargetSelect.h"
