@@ -376,11 +376,10 @@ namespace WebAssemblyText
 						return TypedExpression(recordError<Error>(outErrors,nodeIt,"br_if: expected label name or index"),TypeId::Void);
 					}
 					
-					// If the branch target's type isn't void, parse an expression for the branch's value.
-					auto value = branchTarget->type == TypeId::Void ? nullptr
-						: parseTypedExpression(branchTarget->type,nodeIt,"br_if value");
-
-					// Parse the condition.
+					// If there are two more parameters, the first is the value and the second the condition. If there's only one, then it must be the condition.
+					SNodeIt peekNodeIt = nodeIt;
+					++peekNodeIt;
+					auto value = peekNodeIt ? parseTypedExpression(branchTarget->type,nodeIt,"br_if value") : nullptr;
 					auto condition = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"br_if condition");
 
 					// Create BranchIf node.
@@ -659,8 +658,8 @@ namespace WebAssemblyText
 					BranchTarget* branchTarget = parseBranchTargetRef(nodeIt);
 					if(!branchTarget) { return as<Class>(recordError<Error>(outErrors,nodeIt,"br: expected label name or index")); }
 
-					// If the branch target's type isn't void, parse an expression for the branch's value.
-					auto value = branchTarget->type == TypeId::Void ? nullptr
+					// Parse an expression for the branch's value.
+					auto value = !nodeIt && branchTarget->type == TypeId::Void ? nullptr
 						: parseTypedExpression(branchTarget->type,nodeIt,"br value");
 
 					// Create the Branch node.
@@ -694,22 +693,43 @@ namespace WebAssemblyText
 					}
 
 					// Verify that all the branch targets have the same type (assume the type of the default target is what's expected).
+					auto tableTargetsType = defaultBranchTarget->type;
+					uintptr typeTargetIndex = numTableTargets - 1;
 					for(uintptr tableIndex = 0;tableIndex < numTableTargets - 1;++tableIndex)
 					{
-						if(tableTargets[tableIndex]->type != defaultBranchTarget->type)
-						{ return as<Class>(recordError<Error>(outErrors,parentNodeIt,std::string("br_table: target ") + std::to_string(tableIndex) + " doesn't take an argument of the same type as the default target")); }
+						auto targetType = tableTargets[tableIndex]->type;
+						if(tableTargetsType == TypeId::Void)
+						{
+							tableTargetsType = targetType;
+							typeTargetIndex = tableIndex;
+						}
+						else if(targetType != tableTargetsType)
+						{
+							return as<Class>(recordError<Error>(
+								outErrors,
+								parentNodeIt,
+								std::string("br_table: target ")
+									+ std::to_string(tableIndex) + "'s argument type is incompatible with "
+									+ (typeTargetIndex == numTableTargets - 1 ? "the default target" : std::string("target ") + std::to_string(typeTargetIndex))
+									+ "'s argument type"
+								));
+						}
 					}
 
-					// If the branch target's type isn't void, parse an expression for the branch's value.
-					auto value = defaultBranchTarget->type == TypeId::Void ? nullptr
-						: parseTypedExpression(defaultBranchTarget->type,nodeIt,"br_table value");
+					// If there are two more parameters, the first is the value and the second the table index. If there's only one, then it must be the table index, assuming the branch targets don't expect a parameter.
+					SNodeIt peekNodeIt = nodeIt;
+					++peekNodeIt;
+
+					// Parse an expression for the branch's value.
+					auto value = !peekNodeIt && tableTargetsType == TypeId::Void ? nullptr
+						: parseTypedExpression(tableTargetsType,nodeIt,"br_table value");
 
 					// Parse the table index.
 					auto index = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"br_table index");
 
 					// Create a BranchTable operation that branches to the appropriate target for the case.
 					auto branchTable = new(arena) BranchTable(
-						value,
+						TypedExpression(value,tableTargetsType),
 						TypedExpression(index,TypeId::I32),
 						defaultBranchTarget,
 						tableTargets,
@@ -726,7 +746,8 @@ namespace WebAssemblyText
 				{
 					// If the function's return type isn't void, parse an expression for the return value.
 					auto returnType = function->type.returnType;
-					auto valueExpression = returnType == TypeId::Void ? nullptr
+
+					auto valueExpression = !nodeIt && returnType == TypeId::Void ? nullptr
 						: parseTypedExpression(returnType,nodeIt,"return value");
 					
 					// Create the Return node.

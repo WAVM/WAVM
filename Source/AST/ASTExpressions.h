@@ -185,7 +185,7 @@ namespace AST
 	struct Branch : public NoneExpression
 	{
 		BranchTarget* branchTarget;
-		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it will be null.
+		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it may be null.
 
 		Branch(BranchTarget* inBranchTarget,UntypedExpression* inValue)
 		: NoneExpression(NoneOp::branch), branchTarget(inBranchTarget), value(inValue) {}
@@ -195,7 +195,7 @@ namespace AST
 	{
 		BranchTarget* branchTarget;
 		Expression<IntClass>* condition;
-		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it will be null.
+		UntypedExpression* value; // The type is determined by the branch target. If the type is void, it may be null.
 
 		BranchIf(BranchTarget* inBranchTarget,Expression<IntClass>* inCondition,UntypedExpression* inValue)
 		: VoidExpression(VoidOp::branchIf), branchTarget(inBranchTarget), condition(inCondition), value(inValue) {}
@@ -203,13 +203,13 @@ namespace AST
 	
 	struct BranchTable : public NoneExpression
 	{
-		UntypedExpression* value; // The type is determined by the branch targets. If the type if void, it will be null.
+		TypedExpression value;
 		TypedExpression index;
 		BranchTarget* defaultTarget;
 		BranchTarget** tableTargets;
 		size_t numTableTargets;
 
-		BranchTable(UntypedExpression* inValue,TypedExpression inIndex,BranchTarget* inDefaultTarget,BranchTarget** inTableTargets,size_t inNumTableTargets)
+		BranchTable(TypedExpression inValue,TypedExpression inIndex,BranchTarget* inDefaultTarget,BranchTarget** inTableTargets,size_t inNumTableTargets)
 		: NoneExpression(NoneOp::branchTable)
 		, value(inValue)
 		, index(inIndex)

@@ -375,7 +375,7 @@ namespace WebAssemblyText
 				brTableStream << getLabelName(branchTable->tableTargets[tableIndex]);
 			}
 			brTableStream << getLabelName(branchTable->defaultTarget);
-			if(branchTable->defaultTarget->type != TypeId::Void) { brTableStream << dispatch(*this,branchTable->value,branchTable->defaultTarget->type); }
+			if(branchTable->value) { brTableStream << dispatch(*this,branchTable->value); }
 			brTableStream << dispatch(*this,branchTable->index);
 			return brTableStream;
 		}

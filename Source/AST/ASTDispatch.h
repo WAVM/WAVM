@@ -288,8 +288,7 @@ namespace AST
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
-			auto value = branchTable->defaultTarget->type == TypeId::Void ? nullptr
-				: visitChild(TypedExpression(branchTable->value,branchTable->defaultTarget->type)).expression;
+			auto value = branchTable->value ? TypedExpression(visitChild(branchTable->value).expression,branchTable->value.type) : TypedExpression();
 			auto index = visitChild(branchTable->index);
 			auto defaultTarget = branchTargetRemap[branchTable->defaultTarget];
 			auto tableTargets = new(arena) BranchTarget*[branchTable->numTableTargets];

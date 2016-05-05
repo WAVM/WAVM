@@ -1057,7 +1057,7 @@ namespace WebAssemblyBinary
 
 			// Create a BranchTable operation that branches to the appropriate target for the case.
 			auto branchTable = new(arena) BranchTable(
-				nullptr,
+				TypedExpression(),
 				TypedExpression(relativeIndex,TypeId::I32),
 				defaultTarget,
 				tableTargets,

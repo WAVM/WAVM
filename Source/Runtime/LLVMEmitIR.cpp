@@ -469,8 +469,7 @@ namespace LLVMJIT
 		DispatchResult visitBranch(TypeId type,const Branch* branch)
 		{
 			// If the branch target has a non-void type, compile the branch's value.
-			auto value = branch->branchTarget->type == TypeId::Void ? voidDummy
-				: dispatch(*this,branch->value,branch->branchTarget->type);
+			auto value = branch->value ? dispatch(*this,branch->value,branch->branchTarget->type) : voidDummy;
 
 			// Find the branch target context for this branch's target.
 			auto targetContext = findBranchTargetContext(branch->branchTarget);
@@ -489,8 +488,7 @@ namespace LLVMJIT
 		DispatchResult visitBranchIf(const BranchIf* branchIf)
 		{
 			// If the branch target has a non-void type, compile the branch's value.
-			auto value = branchIf->branchTarget->type == TypeId::Void ? voidDummy
-				: dispatch(*this,branchIf->value,branchIf->branchTarget->type);
+			auto value = branchIf->value ? dispatch(*this,branchIf->value,branchIf->branchTarget->type) : voidDummy;
 
 			// Compile the branch's condition.
 			auto condition = dispatch(*this,branchIf->condition,TypeId::I32);
@@ -516,8 +514,7 @@ namespace LLVMJIT
 			if(exitBlock != unreachableBlock)
 			{
 				// If the branch target has a non-void type, compile the branch's value.
-				auto value = branchTable->defaultTarget->type == TypeId::Void ? voidDummy
-					: dispatch(*this,branchTable->value,branchTable->defaultTarget->type);
+				auto value = branchTable->value ? dispatch(*this,branchTable->value) : voidDummy;
 
 				auto index = dispatch(*this,branchTable->index);
 
@@ -559,8 +556,7 @@ namespace LLVMJIT
 		}
 		DispatchResult visitReturn(TypeId type,const Return* ret)
 		{
-			auto returnValue = astFunction->type.returnType == TypeId::Void ? nullptr
-				: dispatch(*this,ret->value,astFunction->type.returnType);
+			auto returnValue = ret->value ? dispatch(*this,ret->value,astFunction->type.returnType) : voidDummy;
 
 			if(irBuilder.GetInsertBlock() != unreachableBlock)
 			{
