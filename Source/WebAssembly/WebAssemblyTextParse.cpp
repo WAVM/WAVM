@@ -1218,6 +1218,14 @@ namespace WebAssemblyText
 						auto functionIndex = module->functions.size();
 						module->functions.push_back(function);
 
+						// Parse an optional export name.
+						const char* exportName;
+						size_t exportNameLength = 0;
+						if(parseString(childNodeIt,exportName,exportNameLength,module->arena))
+						{
+							module->exportNameToFunctionIndexMap[exportName] = functionIndex;
+						}
+
 						// Parse an optional function name.
 						const char* functionName;
 						if(parseName(childNodeIt,functionName))
@@ -1473,6 +1481,11 @@ namespace WebAssemblyText
 			if(parseTaggedNode(nodeIt,Symbol::_func,childNodeIt))
 			{
 				// Process nodes until the first node that isn't the function name, a param, local, or result.
+
+				const char* exportName;
+				size_t exportNameLength;
+				parseString(childNodeIt,exportName,exportNameLength,module->arena);
+
 				const char* functionName;
 				parseName(childNodeIt,functionName);
 
