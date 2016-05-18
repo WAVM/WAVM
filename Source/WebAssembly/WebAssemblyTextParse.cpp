@@ -1676,7 +1676,7 @@ namespace WebAssemblyText
 		else if(!strcmp(message,"call stack exhausted")) { cause = Runtime::Exception::Cause::StackOverflow; }
 		else if(!strcmp(message,"memory size exceeds implementation limit")) { cause = Runtime::Exception::Cause::OutOfMemory; }
 		else if(!strcmp(message,"growing memory by non-multiple of page size")) { cause = Runtime::Exception::Cause::GrowMemoryNotPageAligned; }
-		else if(!strcmp(message,"unreachable executed")) { cause = Runtime::Exception::Cause::ReachedUnreachable; }
+		else if(!strncmp(message,"unreachable",11)) { cause = Runtime::Exception::Cause::ReachedUnreachable; } // Use strncmp because the spec tests inconsistently use both "unreachable" and "unreachable executed".
 		else if(!strcmp(message,"indirect call signature mismatch")) { cause = Runtime::Exception::Cause::IndirectCallSignatureMismatch; }
 		else if(!strncmp(message,"undefined table index",21)) { cause = Runtime::Exception::Cause::OutOfBoundsFunctionTableIndex; }
 
