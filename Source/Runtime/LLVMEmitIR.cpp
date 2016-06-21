@@ -815,14 +815,27 @@ namespace LLVMJIT
 			irBuilder.CreateStore(llvmArgIt,localVariablePointers[localIndex]);
 		}
 
+		// Create and link the context for this function's return branch target into the list of in-scope contexts.
+		auto returnBasicBlock = llvm::BasicBlock::Create(context,"return",llvmFunction);
+		BranchContext returnBranchContext = {astFunction->returnTarget,returnBasicBlock,nullptr,nullptr};
+		branchContext = &returnBranchContext;
+
 		// Traverse the function's expressions.
 		auto value = dispatch(*this,astFunction->expression,astFunction->type.returnType);
 
-		// If the final value of the function is reachable, return it.
-		if(irBuilder.GetInsertBlock() != unreachableBlock)
+		// Branch to the return block.
+		auto exitBlock = compileBranch(returnBasicBlock);
+		irBuilder.SetInsertPoint(returnBasicBlock);
+
+		// Create a phi node that merges all the possible values yielded by the function into one.
+		if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
+		else if(!exitBlock && !returnBranchContext.results) { irBuilder.CreateRet(typedZeroConstants[(uintptr)astFunction->type.returnType]); }
+		else
 		{
-			if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
-			else { irBuilder.CreateRet(value); }
+			auto phi = irBuilder.CreatePHI(asLLVMType(astFunction->type.returnType),2);
+			if(exitBlock) { phi->addIncoming(value,exitBlock); }
+			for(auto result = returnBranchContext.results;result;result = result->next) { phi->addIncoming(result->value,result->incomingBlock); }
+			irBuilder.CreateRet(phi);
 		}
 
 		// Delete the unreachable block.

@@ -152,13 +152,6 @@ namespace AST
 		,	falseValue(inFalseValue)
 		{}
 	};
-	
-	// Each unique branch target has a BranchTarget allocated in the module's arena, so you can identify them by pointer.
-	struct BranchTarget
-	{
-		TypeId type;
-		BranchTarget(TypeId inType = TypeId::Void): type(inType) {}
-	};
 
 	template<typename Class>
 	struct Label : public Expression<Class>

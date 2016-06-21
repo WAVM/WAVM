@@ -126,6 +126,13 @@ namespace AST
 				|| (left.returnType == right.returnType && left.parameters < right.parameters);
 		}
 	};
+	
+	// Each unique branch target has a BranchTarget allocated in the module's arena, so you can identify them by pointer.
+	struct BranchTarget
+	{
+		TypeId type;
+		BranchTarget(TypeId inType = TypeId::Void): type(inType) {}
+	};
 
 	struct Function
 	{
@@ -133,9 +140,10 @@ namespace AST
 		std::vector<Variable> locals;
 		std::vector<uintptr> parameterLocalIndices;
 		FunctionType type;
+		BranchTarget* returnTarget;
 		UntypedExpression* expression;
 
-		Function(): name(nullptr), expression(nullptr) {}
+		Function(): name(nullptr), returnTarget(nullptr), expression(nullptr) {}
 	};
 
 	struct FunctionTable

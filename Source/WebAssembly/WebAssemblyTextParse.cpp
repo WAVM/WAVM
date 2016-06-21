@@ -250,6 +250,8 @@ namespace WebAssemblyText
 		{
 			// Build a map from local/parameter names to indices.
 			buildVariableNameToIndexMapMap(function->locals,localNameToIndexMap,outErrors);
+
+			scopedBranchTargets.push_back(function->returnTarget);
 		}
 		
 		// Parses an expression of a specific type that's not known at compile time. Returns an UntypedExpression because the type is known to the caller.
@@ -1289,6 +1291,9 @@ namespace WebAssemblyText
 							}
 							else { break; } // Stop parsing when we reach the first func child that isn't a param, result, or local.
 						}
+
+						// Create the function's implicit return branch target.
+						function->returnTarget = new(module->arena) BranchTarget(function->type.returnType);
 
 						break;
 					}
