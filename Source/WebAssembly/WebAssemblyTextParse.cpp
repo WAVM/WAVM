@@ -704,7 +704,7 @@ namespace WebAssemblyText
 							tableTargetsType = targetType;
 							typeTargetIndex = tableIndex;
 						}
-						else if(targetType != tableTargetsType)
+						else if(targetType != tableTargetsType && targetType != TypeId::Void)
 						{
 							return as<Class>(recordError<Error>(
 								outErrors,
