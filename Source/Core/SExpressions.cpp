@@ -429,7 +429,7 @@ namespace SExp
 			{
 				auto node = new(arena) Node(state.getLocus(),isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
 				node->endLocus = state.getLocus();
-				node->i64 = isNegative ? -(int64)integerPart : integerPart;
+				node->i64 = integerPart;
 				return node;
 			}
 			else
@@ -554,7 +554,7 @@ namespace SExp
 				{
 					auto node = new(arena) Node(startLocus,isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
 					node->endLocus = state.getLocus();
-					node->i64 = isNegative ? -(int64)i64 : i64;
+					node->i64 = i64;
 					return node;
 				}
 			}
@@ -771,7 +771,7 @@ namespace SExp
 		case NodeType::UnindexedSymbol: return node->string;
 		case NodeType::String: return std::string() + '\"' + escapeString(node->string,node->stringLength) + '\"';
 		case NodeType::Error: return node->error;
-		case NodeType::SignedInt: return std::to_string(node->i64);
+		case NodeType::SignedInt: return std::string() + '-' + std::to_string(node->i64);
 		case NodeType::UnsignedInt: return std::to_string(node->u64);
 		case NodeType::Float: return Floats::asString(node->f64);
 		default: throw;

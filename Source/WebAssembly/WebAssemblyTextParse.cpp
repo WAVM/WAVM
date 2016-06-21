@@ -35,7 +35,7 @@ namespace WebAssemblyText
 			case SExp::NodeType::Tree: return "(" + describeSNode(node->children) + "...";
 			case SExp::NodeType::Attribute: return describeSNode(node->children) + "=...";
 			case SExp::NodeType::Symbol: return wastSymbols[node->symbol];
-			case SExp::NodeType::SignedInt: return std::to_string(node->i64);
+			case SExp::NodeType::SignedInt: return '-' + std::to_string(node->i64);
 			case SExp::NodeType::UnsignedInt: return std::to_string(node->u64);
 			case SExp::NodeType::Float: return std::to_string(node->f64);
 			case SExp::NodeType::Error: return std::string("error") + node->startLocus.describe() + ": " + node->error;
@@ -79,19 +79,18 @@ namespace WebAssemblyText
 	// Parse an integer from a S-expression node.
 	bool parseInt(SNodeIt& nodeIt,int64& outInt)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt)		{ outInt = nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt)		{ outInt = -nodeIt->i64; ++nodeIt; return true; }
 		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt)	{ outInt = nodeIt->u64; ++nodeIt; return true; }
 		else { return false; }
 	}
 	bool parseSignedInt(SNodeIt& nodeIt,int64& outInt)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt)									{ outInt = nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt && nodeIt->u64 <= (uint64)-INT64_MIN)		{ outInt = -(int64)nodeIt->u64; ++nodeIt; return true; }
 		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt && nodeIt->u64 <= INT64_MAX)	{ outInt = nodeIt->u64; ++nodeIt; return true; }
 		else { return false; }
 	}
 	bool parseUnsignedInt(SNodeIt& nodeIt,uint64& outInt)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt && nodeIt->i64 >= 0)	{ outInt = nodeIt->i64; ++nodeIt; return true; }
 		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt)					{ outInt = nodeIt->u64; ++nodeIt; return true; }
 		else { return false; }
 	}
@@ -100,7 +99,7 @@ namespace WebAssemblyText
 	bool parseFloat(SNodeIt& nodeIt,float64& outF64,float32& outF32)
 	{
 		if(nodeIt && nodeIt->type == SExp::NodeType::Float) { outF64 = nodeIt->f64; outF32 = nodeIt->f32; ++nodeIt; return true; }
-		else if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outF64 = (float64)nodeIt->i64; outF32 = (float32)nodeIt->i64; ++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt) { outF64 = -(float64)nodeIt->u64; outF32 = -(float32)nodeIt->u64; ++nodeIt; return true; }
 		else if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt) { outF64 = (float64)nodeIt->u64; outF32 = (float32)nodeIt->u64; ++nodeIt; return true; }
 		else { return false; }
 	}

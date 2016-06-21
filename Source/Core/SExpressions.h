@@ -202,8 +202,8 @@ namespace SExp
 		template<typename T> void appendInt(T i)
 		{
 			auto intNode = new(arena) Node();
-			intNode->type = SExp::NodeType::SignedInt;
-			intNode->u64 = i;
+			intNode->type = i < 0 ? SExp::NodeType::SignedInt : SExp::NodeType::UnsignedInt;
+			intNode->u64 = i < 0 ? (uint64)-(int64)i : i;
 			append(intNode);
 		}
 	};
