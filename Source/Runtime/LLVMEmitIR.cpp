@@ -510,14 +510,14 @@ namespace LLVMJIT
 		}
 		DispatchResult visitBranchTable(TypeId type,const BranchTable* branchTable)
 		{
+			// If the branch target has a non-void type, compile the branch's value.
+			auto value = branchTable->value ? dispatch(*this,branchTable->value) : voidDummy;
+
+			auto index = dispatch(*this,branchTable->index);
+
 			auto exitBlock = irBuilder.GetInsertBlock();
 			if(exitBlock != unreachableBlock)
 			{
-				// If the branch target has a non-void type, compile the branch's value.
-				auto value = branchTable->value ? dispatch(*this,branchTable->value) : voidDummy;
-
-				auto index = dispatch(*this,branchTable->index);
-
 				// Look up the default branch target context and add the branch's value to the list of incoming values.
 				auto defaultContext = findBranchTargetContext(branchTable->defaultTarget);
 				defaultContext->results = new(scopedArena) BranchResult {exitBlock,value,defaultContext->results};
