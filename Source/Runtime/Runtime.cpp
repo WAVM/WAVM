@@ -108,8 +108,8 @@ namespace Runtime
 		{
 			switch(type.parameters[numTypedArgs])
 			{
-			case AST::TypeId::I8: return RecursiveInvoke<numUntypedArgs-1,Args...,uint8>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i8);
-			case AST::TypeId::I16: return RecursiveInvoke<numUntypedArgs-1,Args...,uint16>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i16);
+			//case AST::TypeId::I8: return RecursiveInvoke<numUntypedArgs-1,Args...,uint8>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i8);
+			//case AST::TypeId::I16: return RecursiveInvoke<numUntypedArgs-1,Args...,uint16>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i16);
 			case AST::TypeId::I32: return RecursiveInvoke<numUntypedArgs-1,Args...,uint32>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i32);
 			case AST::TypeId::I64: return RecursiveInvoke<numUntypedArgs-1,Args...,uint64>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i64);
 			case AST::TypeId::F32: return RecursiveInvoke<numUntypedArgs-1,Args...,float32>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].f32);
@@ -128,8 +128,8 @@ namespace Runtime
 		{
 			switch(type.returnType)
 			{
-			case AST::TypeId::I8: return Value(((uint8(*)(Args...))functionPtr)(typedArgs...));
-			case AST::TypeId::I16: return Value(((uint16(*)(Args...))functionPtr)(typedArgs...));
+			//case AST::TypeId::I8: return Value(((uint8(*)(Args...))functionPtr)(typedArgs...));
+			//case AST::TypeId::I16: return Value(((uint16(*)(Args...))functionPtr)(typedArgs...));
 			case AST::TypeId::I32: return Value(((uint32(*)(Args...))functionPtr)(typedArgs...));
 			case AST::TypeId::I64: return Value(((uint64(*)(Args...))functionPtr)(typedArgs...));
 			case AST::TypeId::F32: return Value(((float32(*)(Args...))functionPtr)(typedArgs...));
@@ -168,6 +168,8 @@ namespace Runtime
 			case 2: return RecursiveInvoke<2>::invoke(function->type,functionPtr,parameters,0);
 			case 3: return RecursiveInvoke<3>::invoke(function->type,functionPtr,parameters,0);
 			case 4: return RecursiveInvoke<4>::invoke(function->type,functionPtr,parameters,0);
+			case 5: return RecursiveInvoke<5>::invoke(function->type,functionPtr,parameters,0);
+			case 6: return RecursiveInvoke<6>::invoke(function->type,functionPtr,parameters,0);
 			default: return Value(new Exception {Exception::Cause::InvokeSignatureMismatch});
 			}
 		});
