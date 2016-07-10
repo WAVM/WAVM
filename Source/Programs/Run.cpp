@@ -52,10 +52,31 @@ int main(int argc,char** argv)
 		else
 		{
 			auto functionResult = Runtime::invokeFunction(module,functionExport->second,nullptr);
-			if(functionResult.type == Runtime::TypeId::Exception)
-			{
+			switch(functionResult.type) {
+			case Runtime::TypeId::Exception:
 				std::cerr << functionName << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
 				for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
+				break;
+			case Runtime::TypeId::I8:
+				std::cout << "Function result: " << functionResult.i8 << std::endl;
+				break;
+			case Runtime::TypeId::I16:
+				std::cout << "Function result: " << functionResult.i16 << std::endl;
+				break;
+			case Runtime::TypeId::I32:
+				std::cout << "Function result: " << functionResult.i32 << std::endl;
+				break;
+			case Runtime::TypeId::I64:
+				std::cout << "Function result: " << functionResult.i64 << std::endl;
+				break;
+			case Runtime::TypeId::F32:
+				std::cout << "Function result: " << functionResult.f32 << std::endl;
+				break;
+			case Runtime::TypeId::F64:
+				std::cout << "Function result: " << functionResult.f64 << std::endl;
+				break;
+			default:
+				break;
 			}
 		}
 	}
