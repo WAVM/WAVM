@@ -36,7 +36,7 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 	{
 		// Print any parse errors;
 		std::cerr << "Error parsing WebAssembly text file:" << std::endl;
-		for(auto error : outFile.errors) { std::cerr << error->message.c_str() << std::endl; }
+		for(auto error : outFile.errors) { std::cerr << filename << ":" << error->message.c_str() << std::endl; }
 		return false;
 	}
 	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
@@ -72,7 +72,7 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),staticMemoryData.data(),staticMemoryData.size(),module,errors))
 	{
 		std::cerr << "Error parsing WebAssembly binary file:" << std::endl;
-		for(auto error : errors) { std::cerr << error->message.c_str() << std::endl; }
+		for(auto error : errors) { std::cerr << wasmFilename << ":" << error->message.c_str() << std::endl; }
 		return nullptr;
 	}
 	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
