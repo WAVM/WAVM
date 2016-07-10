@@ -173,7 +173,7 @@ namespace WebAssemblyText
 			TypeId type;
 			if(!parseType(childNodeIt,type)) { recordError<ErrorRecord>(outErrors,childNodeIt,"expected type"); return 0; }
 			auto nameCopy = arena.copyToArena(name,strlen(name)+1);
-			outVariables.emplace_back(std::move(Variable({type,nameCopy})));
+			outVariables.emplace_back(Variable({type,nameCopy}));
 			return 1;
 		}
 		else
@@ -183,7 +183,7 @@ namespace WebAssemblyText
 			{
 				TypeId type;
 				if(!parseType(childNodeIt,type)) { recordError<ErrorRecord>(outErrors,childNodeIt,"expected type"); return numVariables; }
- 				outVariables.emplace_back(std::move(Variable({type,nullptr})));
+				outVariables.emplace_back(Variable({type,nullptr}));
 				++numVariables;
 			}
 			return numVariables;
@@ -893,11 +893,11 @@ namespace WebAssemblyText
 					else
 					{
 						// Failed to parse an expression.
-						auto error = as<Class>(recordError<Error>(outErrors,nodeIt,std::move(std::string("expected ")
+						auto error = as<Class>(recordError<Error>(outErrors,nodeIt,std::string("expected ")
 							+ getTypeName(type)
 							+ " expression for "
 							+ errorContext
-							)));
+							));
 						++nodeIt;
 						return error;
 					}
