@@ -4,6 +4,7 @@ add_library(Runtime SHARED ${Sources} ${Headers})
 
 # Find an installed build of LLVM
 find_package(LLVM 3.7 REQUIRED CONFIG)
+find_package(ZLIB REQUIRED)
 
 # Include the LLVM headers
 include_directories(${LLVM_INCLUDE_DIRS})
