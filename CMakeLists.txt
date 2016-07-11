@@ -56,6 +56,11 @@ else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 endif()
 
+option(WAVM_TIMER_OUTPUT "controls printing the timings of some operations to stdout" OFF)
+if(WAVM_TIMER_OUTPUT)
+	add_definitions("-DWAVM_TIMER_OUTPUT=1")
+endif()
+
 add_subdirectory(Source/Core)
 add_subdirectory(Source/AST)
 add_subdirectory(Source/WebAssembly)

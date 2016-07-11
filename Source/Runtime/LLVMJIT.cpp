@@ -267,7 +267,9 @@ namespace LLVMJIT
 		#endif
 
 		// Run some optimization on the module's functions.
+		#if WAVM_TIMER_OUTPUT
 		Core::Timer optimizationTimer;
+		#endif
 
 		auto fpm = new llvm::legacy::FunctionPassManager(llvmModule);
 		fpm->add(llvm::createPromoteMemoryToRegisterPass());
@@ -280,14 +282,18 @@ namespace LLVMJIT
 		{ fpm->run(*functionIt); }
 		delete fpm;
 
+		#if WAVM_TIMER_OUTPUT
 		std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
-		
+		#endif
+
 		#ifdef _DEBUG
 			printModule(llvmModule,"llvmOptimizedDump.ll");
 		#endif
 
 		// Pass the module to the JIT compiler.
+		#if WAVM_TIMER_OUTPUT
 		Core::Timer machineCodeTimer;
+		#endif
 		std::vector<llvm::Module*> moduleSet;
 		moduleSet.push_back(llvmModule);
 
@@ -299,7 +305,9 @@ namespace LLVMJIT
 
 		// Compile the module.
 		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,llvm::make_unique<SectionMemoryManager>(),&IntrinsicResolver::singleton);
+		#if WAVM_TIMER_OUTPUT
 		std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
+		#endif
 		
 		return true;
 	}
