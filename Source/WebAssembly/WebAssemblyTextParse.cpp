@@ -171,7 +171,7 @@ namespace WebAssemblyText
 		if(parseName(childNodeIt,name))
 		{
 			TypeId type;
-			if(!parseType(childNodeIt,type)) { recordError<ErrorRecord>(outErrors,childNodeIt,"expected type"); return 0; }
+			if(!parseType(childNodeIt,type)) { recordError<ErrorRecord>(outErrors,childNodeIt,std::string("expected type for: '") + name + "'"); return 0; }
 			auto nameCopy = arena.copyToArena(name,strlen(name)+1);
 			outVariables.emplace_back(Variable({type,nameCopy}));
 			return 1;
@@ -215,7 +215,7 @@ namespace WebAssemblyText
 			const auto& variable = variables[variableIndex];
 			if(variable.name != nullptr)
 			{
-				if(outNameToIndexMap.count(variable.name)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),"duplicate variable name"); }
+				if(outNameToIndexMap.count(variable.name)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),std::string("duplicate variable name: ") + variable.name); }
 				else { outNameToIndexMap[variable.name] = variableIndex; }
 			}
 		}
@@ -1232,7 +1232,7 @@ namespace WebAssemblyText
 						if(parseName(childNodeIt,functionName))
 						{
 							function->name = module->arena.copyToArena(functionName,strlen(functionName)+1);
-							if(functionNameToIndexMap.count(functionName)) { recordError<ErrorRecord>(outErrors,childNodeIt,"duplicate function name"); }
+							if(functionNameToIndexMap.count(functionName)) { recordError<ErrorRecord>(outErrors,childNodeIt,std::string("duplicate function name:") + functionName); }
 							else { functionNameToIndexMap[functionName] = functionIndex; }
 						}
 
@@ -1342,7 +1342,7 @@ namespace WebAssemblyText
 						if(hasName)
 						{
 							importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
-							if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),"duplicate variable name"); }
+							if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,nodeIt,std::string("duplicate variable name: ") + importInternalName); }
 							else { functionImportNameToIndexMap[importInternalName] = importIndex; }
 						}
 
@@ -1598,7 +1598,7 @@ namespace WebAssemblyText
 		AST::Module* exportModule = outFile.modules[moduleIndex];
 		auto exportIt = exportModule->exportNameToFunctionIndexMap.find(invokeExportName);
 		if(exportIt == exportModule->exportNameToFunctionIndexMap.end())
-		{ recordError<ErrorRecord>(outFile.errors,savedExportNameIt,"couldn't find export with this name"); return nullptr; }
+		{ recordError<ErrorRecord>(outFile.errors,savedExportNameIt,std::string("couldn't find export with name: ") + invokeExportName); return nullptr; }
 		auto exportedFunctionIndex = exportIt->second;
 
 		// Parse the invoke's parameters.
@@ -1608,7 +1608,7 @@ namespace WebAssemblyText
 			{ parameters[parameterIndex] = parseRuntimeValue(invokeChildIt++,outFile.errors); }
 
 		// Verify that all of the invoke's parameters were matched.
-		if(invokeChildIt) { recordExcessInputError<ErrorRecord>(outFile.errors,invokeChildIt,"invoke parameters"); return nullptr; }
+		if(invokeChildIt) { recordExcessInputError<ErrorRecord>(outFile.errors,invokeChildIt,"invoke parameters mismatch"); return nullptr; }
 
 		auto result = new(exportModule->arena) Invoke;
 		result->locus = originalNodeIt->startLocus;
