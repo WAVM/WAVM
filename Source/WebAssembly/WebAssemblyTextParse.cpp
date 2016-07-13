@@ -1362,12 +1362,13 @@ namespace WebAssemblyText
 						int64 maxNumPages;
 						if(!parseInt(childNodeIt,initialNumPages))
 							{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected initial memory size integer"); continue; }
+					        auto maxNumPagesNodeIt = childNodeIt;
 						if(!parseInt(childNodeIt,maxNumPages))
 							{ maxNumPages = initialNumPages; }
 						if(maxNumPages > (1ll<<32))
-							{ recordError<ErrorRecord>(outErrors,childNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
+							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
 						if(initialNumPages > maxNumPages)
-							{ recordError<ErrorRecord>(outErrors,childNodeIt,std::string("initial memory size '") + std::to_string(initialNumPages) + "' must be <= maximum specified memory size '" + std::to_string(maxNumPages) + "'"); continue; }
+							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,std::string("initial memory size '") + std::to_string(initialNumPages) + "' must be <= maximum specified memory size '" + std::to_string(maxNumPages) + "'"); continue; }
 						module->initialNumPagesMemory = (uint64) initialNumPages;
 						module->maxNumPagesMemory = (uint64) maxNumPages;
 				
