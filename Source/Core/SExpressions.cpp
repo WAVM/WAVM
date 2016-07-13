@@ -785,7 +785,7 @@ namespace SExp
 		bool hasMultiLineSubtree = false;
 		do
 		{
-			childStrings.emplace_back(std::move(printNode(node,symbolStrings,newline,hasMultiLineSubtree)));
+			childStrings.emplace_back(printNode(node,symbolStrings,newline,hasMultiLineSubtree));
 			node = node->nextSibling;
 		}
 		while(node);
