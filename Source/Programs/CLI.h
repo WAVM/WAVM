@@ -36,23 +36,21 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 	Core::Timer loadTimer;
 	if(!WebAssemblyText::parse(wastString.c_str(),outFile))
 	{
-		// Print any parse errors;
-		std::cerr << "Error parsing WebAssembly text file:" << std::endl;
-
-		std::vector<int> wastFileLineOffsets;
-		size_t start = 0;
-		wastFileLineOffsets.push_back(start);
-		while((start = wastString.find('\n',start)) && start != std::string::npos) { wastFileLineOffsets.push_back(++start); }
+		// Build an index of newline offsets in the file.
+		std::vector<size_t> wastFileLineOffsets;
+		wastFileLineOffsets.push_back(0);
+		for(size_t charIndex = 0;charIndex < wastString.length();++charIndex)
+		{ if(wastString[charIndex] == '\n') { wastFileLineOffsets.push_back(charIndex); } }
 		wastFileLineOffsets.push_back(wastString.length()+1);
 
+		// Print any parse errors;
+		std::cerr << "Error parsing WebAssembly text file:" << std::endl;
 		for(auto error : outFile.errors)
 		{
 			std::cerr << filename << ":" << error->message.c_str() << std::endl;
-			auto lineNumber = error->locus.lineNumber();
-			auto startLine = wastFileLineOffsets[lineNumber-1];
-			auto endLine =  wastFileLineOffsets[lineNumber];
-			auto line = wastString.substr(startLine, endLine-startLine-1);
-			std::cerr << line << std::endl;
+			auto startLine = wastFileLineOffsets[error->locus.newlines];
+			auto endLine =  wastFileLineOffsets[error->locus.newlines+1];
+			std::cerr << wastString.substr(startLine, endLine-startLine-1) << std::endl;
 			std::cerr << std::setw(error->locus.column(8)) << "^" << std::endl;
 		}
 		return false;

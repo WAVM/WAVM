@@ -64,7 +64,7 @@ namespace Core
 		TextFileLocus(): newlines(0), tabs(0), characters(0) {}
 
 		uint32 lineNumber() const { return newlines + 1; }
-		uint8 column(uint32 spacesPerTab = 4) const { return tabs * spacesPerTab + characters + 1; }
+		uint32 column(uint32 spacesPerTab = 4) const { return tabs * spacesPerTab + characters + 1; }
 
 		std::string describe(uint32 spacesPerTab = 4) const
 		{
