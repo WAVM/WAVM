@@ -12,7 +12,7 @@ inline std::vector<uint8> loadFile(const char* filename)
 	std::ifstream stream(filename,std::ios::binary | std::ios::ate);
 	if(!stream.is_open())
 	{
-		std::cerr << "Failed to open " << filename << std::endl;
+		std::cerr << "Failed to open " << filename << ": " << std::strerror(errno) << std::endl;
 		return std::vector<uint8>();
 	}
 	std::vector<uint8> data;
@@ -48,7 +48,7 @@ inline bool loadTextModule(const char* filename,WebAssemblyText::File& outFile)
 	if(!loadTextFile(filename,outFile)) { return false; }
 	if(!outFile.modules.size())
 	{
-		std::cerr << "WebAssembly text file didn't contain any modules!" << std::endl;
+		std::cerr << "WebAssembly text file '" << filename << "' didn't contain any modules!" << std::endl;
 		return false;
 	}
 	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
