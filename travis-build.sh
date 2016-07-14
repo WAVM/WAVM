@@ -3,9 +3,9 @@
 set -e -v
 
 if [[ $TRAVIS_OS_NAME == "osx" ]]; then
-  export CMAKE_LLVM_DIR_ARGUMENT="-DLLVM_DIR=$(brew --prefix llvm37)/lib/llvm-3.7/share/llvm/cmake";
+  export CMAKE_LLVM_DIR_ARGUMENT="-DLLVM_DIR=$(brew --prefix llvm38)/lib/llvm-3.8/share/llvm/cmake";
 else
-  export CMAKE_LLVM_DIR_ARGUMENT="";
+  export CMAKE_LLVM_DIR_ARGUMENT="-DLLVM_DIR=/usr/lib/llvm-3.8/share/llvm/cmake";
 fi
 
 mkdir release

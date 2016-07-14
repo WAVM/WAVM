@@ -10,7 +10,7 @@ It does not yet handle loading the official binary format for WebAssembly, thoug
 
 # Building and running it
 
-To build it, you'll need CMake and [LLVM 3.7](http://llvm.org/releases/download.html#3.7.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable. Note that on Windows, you must compile LLVM from source, and manually point the LLVM_DIR configuration variable at `<LLVM build directory>/share/llvm/cmake`.
+To build it, you'll need CMake and [LLVM 3.8](http://llvm.org/releases/download.html#3.8.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable. Note that on Windows, you must compile LLVM from source, and manually point the LLVM_DIR configuration variable at `<LLVM build directory>/share/llvm/cmake`.
 
 I've tested it on Windows with Visual C++ 2013 and 2015, Linux with GCC and Clang, and MacOS with Xcode/Clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
 

@@ -21,21 +21,24 @@ matrix:
 addons:
  apt:
   sources:
-   - llvm-toolchain-precise-3.7
+   - llvm-toolchain-precise-3.8
    - ubuntu-toolchain-r-test
+   - george-edison55-precise-backports # cmake 3.2.3 / doxygen 1.8.3
   packages:
-   - libllvm3.7
-   - libllvm3.7-dbg
-   - llvm-3.7
-   - llvm-3.7-dev
-   - llvm-3.7-runtime
+   - libllvm3.8
+   - libllvm3.8-dbg
+   - llvm-3.8
+   - llvm-3.8-dev
+   - llvm-3.8-runtime
    - gcc-4.8
    - g++-4.8
    - libedit-dev
    - clang
+   - cmake
+   - cmake-data
 
 before_install:
  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
       brew update;
-      brew install homebrew/versions/llvm37;
+      brew install homebrew/versions/llvm38;
     fi

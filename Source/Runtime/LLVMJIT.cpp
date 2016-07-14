@@ -189,14 +189,10 @@ namespace LLVMJIT
 				{
 					// Compute the address the functions was loaded at.
 					uintptr loadedAddress = *address;
-					auto symbolSection = object->section_begin();
-					if(!symbol.getSection(symbolSection))
+					auto symbolSection = symbol.getSection();
+					if(!symbolSection)
 					{
-						llvm::StringRef sectionName;
-						if(!symbolSection->getName(sectionName))
-						{
-							loadedAddress += (uintptr)loadedObject->getSectionLoadAddress(sectionName);
-						}
+						loadedAddress += (uintptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
 					}
 
 					// Save the address range this function was loaded at for future address->symbol lookups.
@@ -206,27 +202,29 @@ namespace LLVMJIT
 			
 			#ifdef _WIN32
 				// On Windows, look for .pdata and .xdata sections containing information about how to unwind the stack.
-				auto textLoadAddr = loadedObject->getSectionLoadAddress(".text");
-				auto pdataLoadAddr = loadedObject->getSectionLoadAddress(".pdata");
-				auto xdataLoadAddr = loadedObject->getSectionLoadAddress(".xdata");
-				if(pdataLoadAddr && xdataLoadAddr)
+				
+				// Find the text, pdata, and xdata sections.
+				llvm::object::SectionRef textSection;
+				llvm::object::SectionRef pdataSection;
+				llvm::object::SectionRef xdataSection;
+				for(auto section : object->sections())
 				{
-					// Find the pdata section.
-					llvm::object::SectionRef pdataSection;
-					for(auto section : object->sections())
+					llvm::StringRef sectionName;
+					if(!section.getName(sectionName))
 					{
-						llvm::StringRef sectionName;
-						if(!section.getName(sectionName) && sectionName == ".pdata")
-						{
-							pdataSection = section;
-							break;
-						}
+						if(sectionName == ".pdata") { pdataSection = section; }
+						else if(sectionName == ".xdata") { xdataSection = section; }
+						else if(sectionName == ".text") { textSection = section; }
 					}
+				}
 
+				// Pass the sections to the platform to register unwind info.
+				if(textSection.getObject() && pdataSection.getObject() && xdataSection.getObject())
+				{
 					RuntimePlatform::registerSEHUnwindInfo(
-						(uintptr)textLoadAddr,
-						(uintptr)xdataLoadAddr,
-						(uintptr)pdataLoadAddr,
+						(uintptr)loadedObject->getSectionLoadAddress(textSection),
+						(uintptr)loadedObject->getSectionLoadAddress(xdataSection),
+						(uintptr)loadedObject->getSectionLoadAddress(pdataSection),
 						pdataSection.getSize()
 						);
 				}

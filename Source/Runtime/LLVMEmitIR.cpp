@@ -812,7 +812,7 @@ namespace LLVMJIT
 		for(auto llvmArgIt = llvmFunction->arg_begin();llvmArgIt != llvmFunction->arg_end();++parameterIndex,++llvmArgIt)
 		{
 			auto localIndex = astFunction->parameterLocalIndices[parameterIndex];
-			irBuilder.CreateStore(llvmArgIt,localVariablePointers[localIndex]);
+			irBuilder.CreateStore((llvm::Argument*)llvmArgIt,localVariablePointers[localIndex]);
 		}
 
 		// Create and link the context for this function's return branch target into the list of in-scope contexts.

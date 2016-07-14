@@ -3,7 +3,10 @@ file(GLOB Headers "*.h")
 add_library(Runtime SHARED ${Sources} ${Headers})
 
 # Find an installed build of LLVM
-find_package(LLVM 3.7 REQUIRED CONFIG)
+find_package(LLVM 3.8 REQUIRED CONFIG)
+
+# Workaround an apparent problem in the Homebrew LLVM 3.8 bottle.
+string(REGEX REPLACE "\@LLVM_DEFINITIONS\@" "-D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS" LLVM_DEFINITIONS ${LLVM_DEFINITIONS})
 
 # Include the LLVM headers
 include_directories(${LLVM_INCLUDE_DIRS})
