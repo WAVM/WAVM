@@ -14,8 +14,8 @@ namespace AST
 
 	struct Error : public NoneExpression, public ErrorRecord
 	{
-		Error(std::string&& inMessage)
-		: NoneExpression(NoneOp::error), ErrorRecord(std::move(inMessage))
+		Error(std::string&& inMessage, Core::TextFileLocus locus = Core::TextFileLocus())
+		: NoneExpression(NoneOp::error), ErrorRecord(std::move(inMessage), locus)
 		{}
 	};
 

@@ -6,6 +6,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <iomanip>
 
 inline std::vector<uint8> loadFile(const char* filename)
 {
@@ -36,7 +38,23 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 	{
 		// Print any parse errors;
 		std::cerr << "Error parsing WebAssembly text file:" << std::endl;
-		for(auto error : outFile.errors) { std::cerr << error->message.c_str() << std::endl; }
+
+		std::vector<int> wastFileLineOffsets;
+		size_t start = 0;
+		wastFileLineOffsets.push_back(start);
+		while((start = wastString.find('\n',start)) && start != std::string::npos) { wastFileLineOffsets.push_back(++start); }
+		wastFileLineOffsets.push_back(wastString.length()+1);
+
+		for(auto error : outFile.errors)
+		{
+			std::cerr << filename << ":" << error->message.c_str() << std::endl;
+			auto lineNumber = error->locus.lineNumber();
+			auto startLine = wastFileLineOffsets[lineNumber-1];
+			auto endLine =  wastFileLineOffsets[lineNumber];
+			auto line = wastString.substr(startLine, endLine-startLine-1);
+			std::cerr << line << std::endl;
+			std::cerr << std::setw(error->locus.column(8)) << "^" << std::endl;
+		}
 		return false;
 	}
 	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
@@ -72,7 +90,7 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),staticMemoryData.data(),staticMemoryData.size(),module,errors))
 	{
 		std::cerr << "Error parsing WebAssembly binary file:" << std::endl;
-		for(auto error : errors) { std::cerr << error->message.c_str() << std::endl; }
+		for(auto error : errors) { std::cerr << wasmFilename << ":" << error->message.c_str() << std::endl; }
 		return nullptr;
 	}
 	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;

@@ -50,7 +50,7 @@ namespace WebAssemblyText
 	template<typename Error> Error* recordError(std::vector<ErrorRecord*>& outErrors,SNodeIt nodeIt,std::string&& message)
 	{
 		auto locus = nodeIt.node ? nodeIt.node->startLocus : nodeIt.previousLocus;
-		auto error = new Error(locus.describe() + ": " + message + " (S-expression node is " + describeSNode(nodeIt) + ")");
+		auto error = new Error(locus.describe() + ": " + message,locus);
 		outErrors.push_back(error);
 		return error;
 	}

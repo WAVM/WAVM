@@ -170,7 +170,8 @@ namespace AST
 	struct ErrorRecord
 	{
 		std::string message;
-		ErrorRecord(std::string&& inMessage) : message(std::move(inMessage)) {}
+		Core::TextFileLocus locus;
+		ErrorRecord(std::string&& inMessage, Core::TextFileLocus locusIn = Core::TextFileLocus()) : message(std::move(inMessage)), locus(locusIn) {}
 	};
 	
 	enum { numBytesPerPage = 65536 };
