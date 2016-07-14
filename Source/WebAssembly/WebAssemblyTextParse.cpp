@@ -1388,6 +1388,7 @@ namespace WebAssemblyText
 							size_t dataLength;
 							if(!parseTaggedNode(childNodeIt,Symbol::_segment,segmentChildNodeIt))
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment declaration"); continue; }
+							SNodeIt baseAddressNodeIt = segmentChildNodeIt;
 							if(!parseInt(segmentChildNodeIt,baseAddress))
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment base address integer"); continue; }
 							if(!parseString(segmentChildNodeIt,dataString,dataLength,module->arena))
@@ -1395,6 +1396,16 @@ namespace WebAssemblyText
 							if(	(uint64)baseAddress + dataLength < (uint64)baseAddress // Check for integer overflow in baseAddress+dataLength.
 							||	(uint64)baseAddress + dataLength > module->initialNumPagesMemory * AST::numBytesPerPage )
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"data segment bounds aren't contained by initial memory size"); continue; }
+							if (module->dataSegments.size() != 0)
+							{
+								auto lastSegment = module->dataSegments.back();
+								auto lastEndAddress = (int64)(lastSegment.baseAddress+lastSegment.numBytes-1);
+								if (baseAddress <= lastEndAddress)
+								{
+									recordError<ErrorRecord>(outErrors,baseAddressNodeIt, std::string("data segment base address '") + std::to_string(baseAddress) + "' must be greater than previous segment which ends at: '" + std::to_string(lastEndAddress) + "'");
+									continue;
+								}
+							}
 							module->dataSegments.push_back({(uint64)baseAddress,dataLength,(uint8*)dataString});
 						}
 
