@@ -231,6 +231,7 @@ namespace SExp
 
 		Node* parseQuotedString()
 		{
+			const Core::TextFileLocus& startLocus = state.getLocus();
 			state.advance(true);
 
 			Memory::ArenaString string;
@@ -267,7 +268,7 @@ namespace SExp
 			}
 
 			string.shrink(arena);
-			auto node = new(arena)Node(state.getLocus(),NodeType::String);
+			auto node = new(arena)Node(startLocus,NodeType::String);
 			node->string = string.c_str();
 			node->stringLength = string.length();
 			node->endLocus = state.getLocus();
