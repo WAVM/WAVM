@@ -389,7 +389,7 @@ namespace SExp
 		Node* parseHexNumber(const Core::TextFileLocus& startLocus,bool isNegative)
 		{
 			uint64 integerPart;
-			if(!parseHexInteger(integerPart)) { return createError(state.getLocus(),"expected hex digits"); }
+			if(!parseHexInteger(integerPart)) { return createError(startLocus,"expected hex digits"); }
 
 			bool hasDecimalPoint = false;
 			uint64 fractionalPart = 0;

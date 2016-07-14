@@ -24,37 +24,33 @@ namespace WebAssemblyText
 	typedef std::map<const char*,uintptr,Core::StringCompareFunctor> NameToIndexMap;
 	typedef std::map<const char*,BranchTarget*,Core::StringCompareFunctor> NameToBranchTargetMap;
 
-	// Describes a S-expression node briefly for parsing error messages.
-	std::string describeSNode(SNode* node)
+	// Creates and records an error with the given message and location.
+	template<typename Error> Error* recordError(std::vector<ErrorRecord*>& outErrors,const Core::TextFileLocus& locus,std::string&& message)
 	{
-		if(!node) { return "null"; }
-		else
-		{
-			switch(node->type)
-			{
-			case SExp::NodeType::Tree: return "(" + describeSNode(node->children) + "...";
-			case SExp::NodeType::Attribute: return describeSNode(node->children) + "=...";
-			case SExp::NodeType::Symbol: return wastSymbols[node->symbol];
-			case SExp::NodeType::SignedInt: return '-' + std::to_string(node->i64);
-			case SExp::NodeType::UnsignedInt: return std::to_string(node->u64);
-			case SExp::NodeType::Float: return std::to_string(node->f64);
-			case SExp::NodeType::Error: return std::string("error") + node->startLocus.describe() + ": " + node->error;
-			case SExp::NodeType::String: return node->string;
-			case SExp::NodeType::UnindexedSymbol: return node->string;
-			default: throw;
-			}
-		}
+		auto error = new Error(locus.describe() + ": " + message,locus);
+		outErrors.push_back(error);
+		return error;
+	}
+	
+	// Creates and record a S-expression error node.
+	template<typename Error> Error* recordSExpError(std::vector<ErrorRecord*>& outErrors,SExp::Node* node)
+	{
+		auto messageLength = strlen(node->error) + 1;
+		auto messageCopy = new char[messageLength];
+		memcpy(messageCopy,node->error,messageLength + 1);
+		return recordError<Error>(outErrors,node->startLocus,messageCopy);
 	}
 
 	// Creates and records an error with the given message and location (taken from nodeIt).
 	template<typename Error> Error* recordError(std::vector<ErrorRecord*>& outErrors,SNodeIt nodeIt,std::string&& message)
 	{
-		auto locus = nodeIt.node ? nodeIt.node->startLocus : nodeIt.previousLocus;
-		auto error = new Error(locus.describe() + ": " + message,locus);
-		outErrors.push_back(error);
-		return error;
-	}
+		// If the referenced node is a S-expression error, pass it through as well.
+		if(nodeIt && nodeIt->type == SExp::NodeType::Error) { recordSExpError<ErrorRecord>(outErrors,nodeIt); }
 
+		const Core::TextFileLocus& locus = nodeIt.node ? nodeIt.node->startLocus : nodeIt.previousLocus;
+		return recordError<Error>(outErrors,locus,std::move(message));
+	}
+	
 	template<typename Error> Error* recordExcessInputError(std::vector<ErrorRecord*>& outErrors,SNodeIt nodeIt,const char* errorContext)
 	{
 		auto message = std::string("unexpected input following ") + errorContext;
@@ -411,13 +407,27 @@ namespace WebAssemblyText
 				DEFINE_TYPED_OP(Int,const)
 				{
 					int64 integer;
-					if(!parseInt(nodeIt,integer)) { return TypedExpression(recordError<Error>(outErrors,nodeIt,"const: expected integer"),opType); }
+					SNodeIt literalNodeIt = nodeIt;
+					if(!parseInt(nodeIt,integer)) { return TypedExpression(recordError<Error>(outErrors,nodeIt,"const: expected integer literal"),opType); }
 					switch(opType)
 					{
-					case TypeId::I8: return TypedExpression(requireFullMatch(nodeIt,"const.i8",new(arena)Literal<I8Type>((uint8)integer)),TypeId::I8);
-					case TypeId::I16: return TypedExpression(requireFullMatch(nodeIt,"const.i16",new(arena)Literal<I16Type>((uint16)integer)),TypeId::I16);
-					case TypeId::I32: return TypedExpression(requireFullMatch(nodeIt,"const.i32",new(arena)Literal<I32Type>((uint32)integer)),TypeId::I32);
-					case TypeId::I64: return TypedExpression(requireFullMatch(nodeIt,"const.i64",new(arena)Literal<I64Type>((uint64)integer)),TypeId::I64);
+					case TypeId::I8:
+						if(integer < std::numeric_limits<int8>::min() || integer > std::numeric_limits<uint8>::max())
+						{ return TypedExpression(recordError<Error>(outErrors,literalNodeIt,"const: literal doesn't fit in 8-bit integer"),opType); }
+						else
+						{ return TypedExpression(requireFullMatch(nodeIt,"const.i8",new(arena)Literal<I8Type>((uint8)integer)),TypeId::I8); }
+					case TypeId::I16:
+						if(integer < std::numeric_limits<int16>::min() || integer > std::numeric_limits<uint16>::max())
+						{ return TypedExpression(recordError<Error>(outErrors,literalNodeIt,"const: literal doesn't fit in 16-bit integer"),opType); }
+						else
+						{ return TypedExpression(requireFullMatch(nodeIt,"const.i16",new(arena)Literal<I16Type>((uint16)integer)),TypeId::I16); }
+					case TypeId::I32:
+						if(integer < std::numeric_limits<int32>::min() || integer > std::numeric_limits<uint32>::max())
+						{ return TypedExpression(recordError<Error>(outErrors,literalNodeIt,"const: literal doesn't fit in 32-bit integer"),opType); }
+						else
+						{ return TypedExpression(requireFullMatch(nodeIt,"const.i32",new(arena)Literal<I32Type>((uint32)integer)),TypeId::I32); }
+					case TypeId::I64:
+						return TypedExpression(requireFullMatch(nodeIt,"const.i64",new(arena)Literal<I64Type>((uint64)integer)),TypeId::I64);
 					default: throw;
 					}
 				}
@@ -425,7 +435,7 @@ namespace WebAssemblyText
 				{
 					float64 f64;
 					float32 f32;
-					if(!parseFloat(nodeIt,f64,f32)) { return TypedExpression(recordError<Error>(outErrors,nodeIt,"const: expected floating point number"),opType); }
+					if(!parseFloat(nodeIt,f64,f32)) { return TypedExpression(recordError<Error>(outErrors,nodeIt,"const: expected floating point literal"),opType); }
 					switch(opType)
 					{
 					case TypeId::F32: return TypedExpression(requireFullMatch(nodeIt,"const.f32",new(arena)Literal<F32Type>(f32)),TypeId::F32);
@@ -868,10 +878,7 @@ namespace WebAssemblyText
 			// If the node is a S-expression error node, translate it to an AST error node.
 			if(nodeIt && nodeIt->type == SExp::NodeType::Error)
 			{
-				auto messageLength = strlen(nodeIt->error) + 1;
-				auto messageCopy = new char[messageLength];
-				memcpy(messageCopy,nodeIt->error,messageLength + 1);
-				return as<Class>(recordError<Error>(outErrors,nodeIt,messageCopy));
+				return as<Class>(recordSExpError<Error>(outErrors,nodeIt));
 			}
 			else
 			{
@@ -1553,22 +1560,22 @@ namespace WebAssemblyText
 			switch(symbol)
 			{
 			case Symbol::_const_I8:
-				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
 				else { return Runtime::Value((uint8)integerValue); }
 			case Symbol::_const_I16:
-				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
 				else { return Runtime::Value((uint16)integerValue); }
 			case Symbol::_const_I32:
-				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
 				else { return Runtime::Value((uint32)integerValue); }
 			case Symbol::_const_I64:
-				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer"); return Runtime::Value(); }
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
 				else { return Runtime::Value((uint64)integerValue); }
 			case Symbol::_const_F32:
-				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
+				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number literal"); return Runtime::Value(); }
 				else { return Runtime::Value(f32Value); }
 			case Symbol::_const_F64:
-				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number"); return Runtime::Value(); }
+				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number literal"); return Runtime::Value(); }
 				else { return Runtime::Value(f64Value); }
 			default:;
 			};
