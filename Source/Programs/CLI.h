@@ -40,7 +40,7 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 		std::vector<size_t> wastFileLineOffsets;
 		wastFileLineOffsets.push_back(0);
 		for(size_t charIndex = 0;charIndex < wastString.length();++charIndex)
-		{ if(wastString[charIndex] == '\n') { wastFileLineOffsets.push_back(charIndex); } }
+		{ if(wastString[charIndex] == '\n') { wastFileLineOffsets.push_back(charIndex+1); } }
 		wastFileLineOffsets.push_back(wastString.length()+1);
 
 		// Print any parse errors;
