@@ -1200,6 +1200,8 @@ namespace WebAssemblyText
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_param,childNodeIt))
 			{
+				if (hasResult)
+					{ recordError<ErrorRecord>(outErrors,nodeIt,"unexpected param following result declaration"); continue; }
 				// Parse a parameter declaration.
 				parseVariables(childNodeIt,outParameters,outErrors,arena);
 				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following parameter declaration"); continue; }
