@@ -1295,7 +1295,13 @@ namespace WebAssemblyText
 								parseVariables(innerChildNodeIt,function->locals,outErrors,module->arena);
 								if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following local declaration"); continue; }
 							}
-							else { break; } // Stop parsing when we reach the first func child that isn't a param, result, or local.
+							else {
+								if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
+									{ recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected param declaration"); }
+								if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
+									{ recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected result declaration"); }
+								break;
+							} // Stop parsing when we reach the first func child that isn't a param, result, or local.
 						}
 
 						// Create the function's implicit return branch target.
