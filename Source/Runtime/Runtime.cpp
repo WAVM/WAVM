@@ -100,78 +100,36 @@ namespace Runtime
 		return true;
 	}
 
-	// This is called to recursively turn the boxed values in untypedArgs into C++ values.
-	template<size_t numUntypedArgs,typename... Args>
-	struct RecursiveInvoke
-	{
-		static Value invoke(const AST::FunctionType& type,void* functionPtr,const Value* untypedArgs,size_t numTypedArgs,Args... typedArgs)
-		{
-			switch(type.parameters[numTypedArgs])
-			{
-			//case AST::TypeId::I8: return RecursiveInvoke<numUntypedArgs-1,Args...,uint8>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i8);
-			//case AST::TypeId::I16: return RecursiveInvoke<numUntypedArgs-1,Args...,uint16>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i16);
-			case AST::TypeId::I32: return RecursiveInvoke<numUntypedArgs-1,Args...,uint32>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i32);
-			case AST::TypeId::I64: return RecursiveInvoke<numUntypedArgs-1,Args...,uint64>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].i64);
-			case AST::TypeId::F32: return RecursiveInvoke<numUntypedArgs-1,Args...,float32>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].f32);
-			case AST::TypeId::F64: return RecursiveInvoke<numUntypedArgs-1,Args...,float64>::invoke(type,functionPtr,untypedArgs,numTypedArgs+1,typedArgs...,untypedArgs[numTypedArgs].f64);
-			default: throw;
-			};
-		}
-	};
-
-	// This partial specialization terminates the induction on parameter types, and dispatches to the
-	// appropriate C++ function type depending on the AST function return type.
-	template<typename... Args>
-	struct RecursiveInvoke<0,Args...>
-	{
-		static Value invoke(const AST::FunctionType& type,void* functionPtr,const Value* untypedArgs,size_t numTypedArgs,Args... typedArgs)
-		{
-			switch(type.returnType)
-			{
-			//case AST::TypeId::I8: return Value(((uint8(*)(Args...))functionPtr)(typedArgs...));
-			//case AST::TypeId::I16: return Value(((uint16(*)(Args...))functionPtr)(typedArgs...));
-			case AST::TypeId::I32: return Value(((uint32(*)(Args...))functionPtr)(typedArgs...));
-			case AST::TypeId::I64: return Value(((uint64(*)(Args...))functionPtr)(typedArgs...));
-			case AST::TypeId::F32: return Value(((float32(*)(Args...))functionPtr)(typedArgs...));
-			case AST::TypeId::F64: return Value(((float64(*)(Args...))functionPtr)(typedArgs...));
-			case AST::TypeId::Void: ((void(*)(Args...))functionPtr)(typedArgs...); return Value(Void());
-			default: throw;
-			}
-		}
-	};
-
 	Value invokeFunction(const AST::Module* module,uintptr functionIndex,const Value* parameters)
 	{
-		// Check that the parameter types match the function.
+		// Check that the parameter types match the function, and copy them into a memory block that stores each as a 64-bit value.
 		auto function = module->functions[functionIndex];
+		uint64* thunkMemory = (uint64*)alloca((function->type.parameters.size() + 1) * sizeof(uint64));
 		for(uintptr parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
 		{
 			if((Runtime::TypeId)(function->type.parameters[parameterIndex]) != parameters[parameterIndex].type)
 			{
 				return Value(new Exception {Exception::Cause::InvokeSignatureMismatch});
 			}
+
+			thunkMemory[parameterIndex] = parameters[parameterIndex].i64;
 		}
 
-		// Get a pointer to the JITed function code.
-		void* functionPtr = LLVMJIT::getFunctionPointer(module,functionIndex);
+		// Get a pointer to the invoke thunk for the JITted code.
+		LLVMJIT::InvokeFunctionPointer functionPtr = LLVMJIT::getInvokeFunctionPointer(module,functionIndex,true);
 		assert(functionPtr);
 
 		// Catch platform-specific runtime exceptions and turn them into Runtime::Values.
 		return RuntimePlatform::catchRuntimeExceptions([&]
 		{
-			// Dispatch the invoke by number of parameters in the function.
-			// We're practically limited in how many parameters can be handled because this instantiates RecursiveInvoke 7^N times.
-			switch(function->type.parameters.size())
-			{
-			case 0: return RecursiveInvoke<0>::invoke(function->type,functionPtr,parameters,0);
-			case 1: return RecursiveInvoke<1>::invoke(function->type,functionPtr,parameters,0);
-			case 2: return RecursiveInvoke<2>::invoke(function->type,functionPtr,parameters,0);
-			case 3: return RecursiveInvoke<3>::invoke(function->type,functionPtr,parameters,0);
-			case 4: return RecursiveInvoke<4>::invoke(function->type,functionPtr,parameters,0);
-			case 5: return RecursiveInvoke<5>::invoke(function->type,functionPtr,parameters,0);
-			case 6: return RecursiveInvoke<6>::invoke(function->type,functionPtr,parameters,0);
-			default: return Value(new Exception {Exception::Cause::InvokeSignatureMismatch});
-			}
+			// Call the invoke thunk.
+			functionPtr(thunkMemory);
+
+			// Read the return value out of the thunk memory block.
+			Value returnValue;
+			returnValue.type = (Runtime::TypeId)function->type.returnType;
+			returnValue.i64 = thunkMemory[function->type.parameters.size()];
+			return returnValue;
 		});
 	}
 }

@@ -62,7 +62,7 @@
 
 namespace LLVMJIT
 {
-	std::string getExternalFunctionName(uintptr_t functionIndex);
+	std::string getExternalFunctionName(uintptr_t functionIndex,bool invokeThunk);
 	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex);
 
 	// Emits LLVM IR for a module.

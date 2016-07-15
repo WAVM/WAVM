@@ -304,29 +304,37 @@ namespace LLVMJIT
 		return true;
 	}
 
-	std::string getExternalFunctionName(uintptr_t functionIndex)
+	std::string getExternalFunctionName(uintptr_t functionIndex,bool invokeThunk)
 	{
-		return "wasmFunc" + std::to_string(functionIndex);
+		return invokeThunk
+			? "invokeThunk" + std::to_string(functionIndex)
+			: "wasmFunc" + std::to_string(functionIndex);
 	}
 
 	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex)
 	{
-		if(strncmp(externalName,"wasmFunc",8)) { return false; }
-		else
+		if(!strncmp(externalName,"wasmFunc",8))
 		{
 			char* numberEnd = nullptr;
 			outFunctionIndex = std::strtoull(externalName + 8,&numberEnd,10);
 			return *numberEnd == 0;
 		}
+		else if(!strncmp(externalName,"invokeThunk",11))
+		{
+			char* numberEnd = nullptr;
+			outFunctionIndex = std::strtoull(externalName + 11,&numberEnd,10);
+			return *numberEnd == 0;
+		}
+		else { return false; }
 	}
 
-	void* getFunctionPointer(const AST::Module* module,uintptr functionIndex)
+	InvokeFunctionPointer getInvokeFunctionPointer(const AST::Module* module,uintptr functionIndex,bool invokeThunk)
 	{
 		for(auto jitModule : jitModules)
 		{
 			if(jitModule->astModule == module)
 			{
-				return (void*)jitModule->compileLayer->findSymbolIn(jitModule->handle,getExternalFunctionName(functionIndex),false).getAddress();
+				return (InvokeFunctionPointer)jitModule->compileLayer->findSymbolIn(jitModule->handle,getExternalFunctionName(functionIndex,invokeThunk),false).getAddress();
 			}
 		}
 		return nullptr;

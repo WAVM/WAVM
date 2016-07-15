@@ -861,8 +861,9 @@ namespace LLVMJIT
 		{
 			auto astFunction = astModule->functions[functionIndex];
 			auto llvmFunctionType = asLLVMType(astFunction->type);
-			auto externalName = getExternalFunctionName(functionIndex);
+			auto externalName = getExternalFunctionName(functionIndex,false);
 			moduleIR.functions[functionIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,externalName,moduleIR.llvmModule);
+
 		}
 
 		// Create the function import globals.
@@ -923,8 +924,53 @@ namespace LLVMJIT
 		{
 			EmitFunctionContext(moduleIR,astModule,functionIndex).emit();
 		}
+
+		// Create thunks for invoking each function.
+		for(uintptr functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
+		{
+			auto astFunction = astModule->functions[functionIndex];
+
+			llvm::Type* const i64PointerType = llvm::Type::getInt64PtrTy(context);
+			auto llvmFunctionType = llvm::FunctionType::get(llvm::Type::getVoidTy(context),llvm::ArrayRef<llvm::Type*>(&i64PointerType,(size_t)1),false);
+
+			auto thunk = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,getExternalFunctionName(functionIndex,true),moduleIR.llvmModule);
+			auto thunkEntryBlock = llvm::BasicBlock::Create(context,"entry",thunk);
+			llvm::IRBuilder<> irBuilder(thunkEntryBlock);
+			
+			// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
+			llvm::Value* argBaseAddress = (llvm::Argument*)thunk->args().begin();
+			std::vector<llvm::Value*> structArgLoads;
+			for(uintptr parameterIndex = 0;parameterIndex < astFunction->type.parameters.size();++parameterIndex)
+			{
+				structArgLoads.push_back(irBuilder.CreateLoad(
+					irBuilder.CreatePointerCast(
+						irBuilder.CreateInBoundsGEP(argBaseAddress,{compileLiteral((uintptr)parameterIndex)}),
+						asLLVMType(astFunction->type.parameters[parameterIndex])->getPointerTo()
+						)
+					));
+			}
+
+			// Call the llvm function with the actual implementation.
+			auto returnValue = irBuilder.CreateCall(moduleIR.functions[functionIndex],structArgLoads);
+
+			// If the function has a return value, write it to the end of the argument array.
+			if(astFunction->type.returnType != TypeId::Void)
+			{
+				auto llvmReturnType = asLLVMType(astFunction->type.returnType);
+				irBuilder.CreateStore(
+					returnValue,
+					irBuilder.CreatePointerCast(
+						irBuilder.CreateInBoundsGEP(argBaseAddress,{compileLiteral((uintptr)astFunction->type.parameters.size())}),
+						llvmReturnType->getPointerTo()
+						)
+					);
+			}
+
+			irBuilder.CreateRetVoid();
+		}
+
 		std::cout << "Emitted LLVM IR for module in " << emitTimer.getMilliseconds() << "ms" << std::endl;
-		
+
 		return moduleIR.llvmModule;
 	}
 	

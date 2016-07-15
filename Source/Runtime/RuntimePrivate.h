@@ -77,10 +77,12 @@ namespace RuntimePlatform
 
 namespace LLVMJIT
 {
+	typedef void (*InvokeFunctionPointer)(uint64*);
+
 	void init();
 
 	bool compileModule(const AST::Module* astModule);
-	void* getFunctionPointer(const AST::Module* module,uintptr functionIndex);
+	InvokeFunctionPointer getInvokeFunctionPointer(const AST::Module* module,uintptr functionIndex,bool invokeThunk);
 	
 	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription);
 }
