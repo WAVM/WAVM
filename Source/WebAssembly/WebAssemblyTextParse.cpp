@@ -1375,26 +1375,39 @@ namespace WebAssemblyText
 						if(maxNumPages > (1ll<<32))
 							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
 						if(initialNumPages > maxNumPages)
-							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,std::string("initial memory size '") + std::to_string(initialNumPages) + "' must be <= maximum specified memory size '" + std::to_string(maxNumPages) + "'"); continue; }
+							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,std::string("maximum specified memory size: '") + std::to_string(maxNumPages) + "' is smaller than initial memory size '" + std::to_string(initialNumPages) + "'"); continue; }
 						module->initialNumPagesMemory = (uint64) initialNumPages;
 						module->maxNumPagesMemory = (uint64) maxNumPages;
 				
 						// Parse the memory segments.
 						for(;childNodeIt;++childNodeIt)
 						{
-							SNodeIt segmentChildNodeIt;
+							SNodeIt segmentChildNodeIt = childNodeIt;
 							int64 baseAddress;
 							const char* dataString;
 							size_t dataLength;
 							if(!parseTaggedNode(childNodeIt,Symbol::_segment,segmentChildNodeIt))
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment declaration"); continue; }
+							SNodeIt baseAddressNodeIt = segmentChildNodeIt;
 							if(!parseInt(segmentChildNodeIt,baseAddress))
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment base address integer"); continue; }
+							SNodeIt dataNodeIt = segmentChildNodeIt;
 							if(!parseString(segmentChildNodeIt,dataString,dataLength,module->arena))
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment data string"); continue; }
-							if(	(uint64)baseAddress + dataLength < (uint64)baseAddress // Check for integer overflow in baseAddress+dataLength.
-							||	(uint64)baseAddress + dataLength > module->initialNumPagesMemory * AST::numBytesPerPage )
-								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"data segment bounds aren't contained by initial memory size"); continue; }
+							if((uint64)baseAddress + dataLength < (uint64)baseAddress) // Check for integer overflow in baseAddress+dataLength.
+								{ recordError<ErrorRecord>(outErrors,dataNodeIt,std::string("data length overflow")); continue; }
+							if((uint64)baseAddress + dataLength > module->initialNumPagesMemory * AST::numBytesPerPage )
+								{ recordError<ErrorRecord>(outErrors,dataNodeIt,std::string("data segment exceeds initial memory size by: ") + std::to_string((baseAddress + dataLength) - module->initialNumPagesMemory * AST::numBytesPerPage)); continue; }
+							if (module->dataSegments.size() != 0)
+							{
+								auto lastSegment = module->dataSegments.back();
+								auto lastEndAddress = (int64)(lastSegment.baseAddress+lastSegment.numBytes-1);
+								if (baseAddress <= lastEndAddress)
+								{
+									recordError<ErrorRecord>(outErrors,baseAddressNodeIt, std::string("data segment base address '") + std::to_string(baseAddress) + "' must be greater than previous segment which ends at: '" + std::to_string(lastEndAddress) + "'");
+									continue;
+								}
+							}
 							module->dataSegments.push_back({(uint64)baseAddress,dataLength,(uint8*)dataString});
 						}
 
