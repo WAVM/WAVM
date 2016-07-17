@@ -354,14 +354,17 @@ namespace WebAssemblyText
 					const char* name;
 					uint64 parsedInt;
 					BranchTarget* branchTarget = nullptr;
-					if(parseUnsignedInt(nodeIt,parsedInt) && (uintptr)parsedInt < scopedBranchTargets.size())
+					SNodeIt errorNodeIt = nodeIt;
+					if(parseUnsignedInt(nodeIt,parsedInt))
 					{
+						if((uintptr)parsedInt > scopedBranchTargets.size() - 1) { return TypedExpression(recordError<Error>(outErrors,errorNodeIt,std::string("br_if: invalid offset: '")+std::to_string(parsedInt)+"' > "+std::to_string(scopedBranchTargets.size()-1)),TypeId::Void); }
 						branchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr)parsedInt];
 					}
 					else if(parseName(nodeIt,name))
 					{
 						auto it = labelToBranchTargetMap.find(name);
-						if(it != labelToBranchTargetMap.end()) { branchTarget = it->second; }
+						if(it == labelToBranchTargetMap.end()) { return TypedExpression(recordError<Error>(outErrors,errorNodeIt,std::string("br_if: unknown label name: '")+name+"'"),TypeId::Void); }
+						branchTarget = it->second;
 					}
 					else
 					{
