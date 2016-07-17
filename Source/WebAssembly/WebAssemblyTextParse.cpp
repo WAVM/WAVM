@@ -1733,6 +1733,27 @@ namespace WebAssemblyText
 		return result;
 	}
 
+	void parseAssertInvalid(SNodeIt nodeIt, std::vector<ErrorRecord*>& outErrors) {
+		SNodeIt moduleNodeIt = nodeIt;
+		SNodeIt childNodeIt;
+		std::vector<ErrorRecord*> moduleErrors;
+		if(parseTaggedNode(nodeIt,Symbol::_module,childNodeIt))
+		{
+			ModuleContext(new Module(),moduleErrors).parse(childNodeIt);
+			++nodeIt;
+		} else { recordError<ErrorRecord>(outErrors,moduleNodeIt,"expected module definition"); return; }
+
+		SNodeIt description;
+		if(nodeIt && nodeIt->type == SExp::NodeType::String)
+		{
+			description = nodeIt;
+			++nodeIt;
+		} else { recordError<ErrorRecord>(outErrors,nodeIt,"expected assert_invalid description"); return; }
+
+		// assert_invalid validation
+		if (moduleErrors.size() == 0) { recordError<ErrorRecord>(outErrors,moduleNodeIt,std::string("expected module error:") + description->string); }
+	}
+
 	// Parses a module from a WAST string.
 	bool parse(const char* string,File& outFile)
 	{
@@ -1746,6 +1767,11 @@ namespace WebAssemblyText
 		for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
 		{
 			SNodeIt childNodeIt;
+			if(parseTaggedNode(rootNodeIt,Symbol::_assert_invalid,childNodeIt))
+			{
+				parseAssertInvalid(childNodeIt, outFile.errors);
+				continue;
+			}
 			if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 			{
 				// Parse a module definition.
