@@ -379,8 +379,11 @@ namespace WebAssemblyText
 					// If there are two more parameters, the first is the value and the second the condition. If there's only one, then it must be the condition.
 					SNodeIt peekNodeIt = nodeIt;
 					++peekNodeIt;
-					auto value = peekNodeIt ? parseTypedExpression(branchTarget->type,nodeIt,"br_if value") : nullptr;
+					const bool hasValueOperand = peekNodeIt;
+					auto value = hasValueOperand ? parseTypedExpression(branchTarget->type,nodeIt,"br_if value") : nullptr;
 					auto condition = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"br_if condition");
+					if (!hasValueOperand && branchTarget->type != TypeId::Void)
+						{ recordError<ErrorRecord>(outErrors,errorNodeIt,"mismatch type"); }
 
 					// Create BranchIf node.
 					auto result = new(arena) BranchIf(branchTarget,condition,value);
