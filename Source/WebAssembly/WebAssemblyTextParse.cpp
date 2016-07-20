@@ -1563,6 +1563,7 @@ namespace WebAssemblyText
 					Symbol symbol;
 					if(parseSymbol(childNodeIt,symbol) && symbol == Symbol::_memory)
 					{
+						if (!hasMemoryNode) { recordError<ErrorRecord>(outErrors,childNodeIt,"no memory to export"); continue; }
 						// Ignore the memory export declaration for now.
 					}
 					else
