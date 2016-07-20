@@ -1234,8 +1234,11 @@ namespace WebAssemblyText
 						// Parse an optional export name.
 						const char* exportName;
 						size_t exportNameLength = 0;
+						SNodeIt savedExportNameIt = childNodeIt;
 						if(parseString(childNodeIt,exportName,exportNameLength,module->arena))
 						{
+							auto exportIt = module->exportNameToFunctionIndexMap.find(exportName);
+							if(exportIt != module->exportNameToFunctionIndexMap.end()) { recordError<ErrorRecord>(outErrors,savedExportNameIt,std::string("duplicate export name: ") + exportName); continue; }
 							module->exportNameToFunctionIndexMap[exportName] = functionIndex;
 						}
 
@@ -1545,8 +1548,11 @@ namespace WebAssemblyText
 				// Parse an export definition.
 				const char* exportName;
 				size_t nameLength;
+				SNodeIt savedExportNameIt = childNodeIt;
 				if(!parseString(childNodeIt,exportName,nameLength,module->arena))
 					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected export name string"); continue; }
+				auto exportIt = module->exportNameToFunctionIndexMap.find(exportName);
+				if(exportIt != module->exportNameToFunctionIndexMap.end()) { recordError<ErrorRecord>(outErrors,savedExportNameIt,std::string("duplicate export name: ") + exportName); continue; }
 				uintptr functionIndex;
 				if(parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
 				{
