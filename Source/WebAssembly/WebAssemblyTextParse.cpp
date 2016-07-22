@@ -1332,7 +1332,7 @@ namespace WebAssemblyText
 						if(!parseString(childNodeIt,importModuleName,importModuleNameLength,module->arena))
 						{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import module name string"); continue; }
 
-						// Parse a mandary import function name.
+						// Parse a mandatory import function name.
 						const char* importFunctionName;
 						size_t importFunctionNameLength;
 						if(!parseString(childNodeIt,importFunctionName,importFunctionNameLength,module->arena))
