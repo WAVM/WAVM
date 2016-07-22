@@ -1488,7 +1488,7 @@ namespace WebAssemblyText
 
 				FunctionType functionType;
 				auto functionIndices = new(module->arena) uintptr[numFunctions];
-				if(!numFunctions) { recordError<ErrorRecord>(outErrors,nodeIt,"function table must contain atleast 1 function"); }
+				if(!numFunctions) { recordError<ErrorRecord>(outErrors,nodeIt,"function table must contain at least 1 function"); }
 				else
 				{
 					// Parse the function indices or names.
