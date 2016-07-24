@@ -37,7 +37,7 @@ int main(int argc,char** argv)
 	
 	const char* filename = argv[1];
 	File wastFile;
-	if(!loadTextFile(filename,wastFile)) { return -1; }
+	if(!loadTextFile(filename,wastFile)) { return EXIT_FAILURE; }
 	
 	if(!Runtime::init()) { return EXIT_FAILURE; }
 	
@@ -49,7 +49,7 @@ int main(int argc,char** argv)
 		if(!testStatements.size()) { continue; }
 
 		// Initialize the module runtime environment.
-		if(!Runtime::loadModule(module)) { return -1; }
+		if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
 		
 		// Evaluate each test statement.
 		for(uintptr statementIndex = 0;statementIndex < testStatements.size();++statementIndex)
