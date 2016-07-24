@@ -32,7 +32,7 @@ int main(int argc,char** argv)
 	if(argc != 2)
 	{
 		std::cerr <<  "Usage: Test in.wast" << std::endl;
-		return -1;
+		return EXIT_FAILURE;
 	}
 	
 	const char* filename = argv[1];
@@ -43,7 +43,7 @@ int main(int argc,char** argv)
 	if(!Runtime::init())
 	{
 		std::cerr << "Couldn't initialize runtime" << std::endl;
-		return false;
+		return EXIT_FAILURE;
 	}
 	
 	uintptr numTestsFailed = 0;
@@ -116,11 +116,11 @@ int main(int argc,char** argv)
 	if(numTestsFailed)
 	{
 		std::cerr << numTestsFailed << " tests failed!" << std::endl;
-		return -1;
+		return EXIT_FAILURE;
 	}
 	else
 	{
 		std::cout << filename << ": all tests passed." << std::endl;
-		return 0;
+		return EXIT_SUCCESS;
 	}	
 }
