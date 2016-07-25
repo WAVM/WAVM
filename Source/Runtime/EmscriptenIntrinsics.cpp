@@ -238,7 +238,8 @@ namespace Runtime
 	}
 	DEFINE_INTRINSIC_FUNCTION4(env,_fwrite,_fwrite,I32,I32,pointer,I32,size,I32,count,I32,file)
 	{
-		if(pointer + uint64(size) * (count + 1) > instanceAddressSpaceMaxBytes)
+		if(pointer >= instanceAddressSpaceMaxBytes ||
+		  (instanceAddressSpaceMaxBytes - pointer) < (uint64(size) * (uint64(count) + 1)))
 		{
 			throw;
 		}
