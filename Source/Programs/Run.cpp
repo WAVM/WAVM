@@ -49,40 +49,32 @@ int main(int argc,char** argv)
 		std::cerr << "Module does not export '" << functionName << "'" << std::endl;
 		return EXIT_FAILURE;
 	}
-	auto function = module->functions[functionExport->second];
-	if(function->type.parameters.size())
-	{
-		std::cerr << "Module exports '" << functionName << "' but it isn't the right type?!" << std::endl;
-	}
-	else
-	{
-		auto functionResult = Runtime::invokeFunction(module,functionExport->second,nullptr);
-		switch(functionResult.type) {
-		case Runtime::TypeId::Exception:
-			std::cerr << functionName << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
-			for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
-			break;
-		case Runtime::TypeId::I8:
-			std::cout << "Function result: " << functionResult.i8 << std::endl;
-			break;
-		case Runtime::TypeId::I16:
-			std::cout << "Function result: " << functionResult.i16 << std::endl;
-			break;
-		case Runtime::TypeId::I32:
-			std::cout << "Function result: " << functionResult.i32 << std::endl;
-			break;
-		case Runtime::TypeId::I64:
-			std::cout << "Function result: " << functionResult.i64 << std::endl;
-			break;
-		case Runtime::TypeId::F32:
-			std::cout << "Function result: " << functionResult.f32 << std::endl;
-			break;
-		case Runtime::TypeId::F64:
-			std::cout << "Function result: " << functionResult.f64 << std::endl;
-			break;
-		default:
-			break;
-		}
+	auto functionResult = Runtime::invokeFunction(module,functionExport->second,nullptr);
+	switch(functionResult.type) {
+	case Runtime::TypeId::Exception:
+		std::cerr << functionName << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
+		for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
+		break;
+	case Runtime::TypeId::I8:
+		std::cout << "Function result: " << functionResult.i8 << std::endl;
+		break;
+	case Runtime::TypeId::I16:
+		std::cout << "Function result: " << functionResult.i16 << std::endl;
+		break;
+	case Runtime::TypeId::I32:
+		std::cout << "Function result: " << functionResult.i32 << std::endl;
+		break;
+	case Runtime::TypeId::I64:
+		std::cout << "Function result: " << functionResult.i64 << std::endl;
+		break;
+	case Runtime::TypeId::F32:
+		std::cout << "Function result: " << functionResult.f32 << std::endl;
+		break;
+	case Runtime::TypeId::F64:
+		std::cout << "Function result: " << functionResult.f64 << std::endl;
+		break;
+	default:
+		break;
 	}
 	#if WAVM_TIMER_OUTPUT
 	executionTime.stop();
