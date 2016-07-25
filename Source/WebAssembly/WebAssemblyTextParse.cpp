@@ -1332,7 +1332,7 @@ namespace WebAssemblyText
 						if(!parseString(childNodeIt,importModuleName,importModuleNameLength,module->arena))
 						{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import module name string"); continue; }
 
-						// Parse a mandary import function name.
+						// Parse a mandatory import function name.
 						const char* importFunctionName;
 						size_t importFunctionNameLength;
 						if(!parseString(childNodeIt,importFunctionName,importFunctionNameLength,module->arena))
@@ -1390,7 +1390,7 @@ namespace WebAssemblyText
 						if(!parseInt(childNodeIt,maxNumPages))
 							{ maxNumPages = initialNumPages; }
 						if(maxNumPages > (1ll<<32))
-							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,"maximum memory size must be <=2^32 bytes"); continue; }
+							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,std::string("maximum memory size: '") + std::to_string(maxNumPages) + "' must be <=2^32 bytes: " + std::to_string((1ll<<32))); continue; }
 						if(initialNumPages > maxNumPages)
 							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,std::string("maximum specified memory size: '") + std::to_string(maxNumPages) + "' is smaller than initial memory size '" + std::to_string(initialNumPages) + "'"); continue; }
 						module->initialNumPagesMemory = (uint64) initialNumPages;
@@ -1488,7 +1488,7 @@ namespace WebAssemblyText
 
 				FunctionType functionType;
 				auto functionIndices = new(module->arena) uintptr[numFunctions];
-				if(!numFunctions) { recordError<ErrorRecord>(outErrors,nodeIt,"function table must contain atleast 1 function"); }
+				if(!numFunctions) { recordError<ErrorRecord>(outErrors,nodeIt,"function table must contain at least 1 function"); }
 				else
 				{
 					// Parse the function indices or names.
