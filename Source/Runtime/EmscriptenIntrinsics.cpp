@@ -224,9 +224,22 @@ namespace Runtime
 	{
 		return ungetc(character,vmFile(file));
 	}
+	DEFINE_INTRINSIC_FUNCTION4(env,_fread,_fread,I32,I32,pointer,I32,size,I32,count,I32,file)
+	{
+		if(pointer >= instanceAddressSpaceMaxBytes ||
+		  (instanceAddressSpaceMaxBytes - pointer) < (uint64(size) * (uint64(count) + 1)))
+		{
+			throw;
+		}
+		else
+		{
+			return (int32)fread(&instanceMemoryRef<uint8>(pointer),size,count,vmFile(file));
+		}
+	}
 	DEFINE_INTRINSIC_FUNCTION4(env,_fwrite,_fwrite,I32,I32,pointer,I32,size,I32,count,I32,file)
 	{
-		if(pointer + uint64(size) * (count + 1) > instanceAddressSpaceMaxBytes)
+		if(pointer >= instanceAddressSpaceMaxBytes ||
+		  (instanceAddressSpaceMaxBytes - pointer) < (uint64(size) * (uint64(count) + 1)))
 		{
 			throw;
 		}
