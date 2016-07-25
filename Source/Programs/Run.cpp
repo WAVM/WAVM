@@ -14,7 +14,7 @@ int main(int argc,char** argv)
 	{
 		WebAssemblyText::File wastFile;
 		if(loadTextModule(argv[2],wastFile)) { module = wastFile.modules[0]; }
-		else { return -1; }
+		else { return EXIT_FAILURE; }
 		functionName = argv[3];
 	}
 	else if(argc == 5 && !strcmp(argv[1],"-binary"))
@@ -26,19 +26,19 @@ int main(int argc,char** argv)
 	{
 		std::cerr <<  "Usage: Run -binary in.wasm in.js.mem functionname" << std::endl;
 		std::cerr <<  "       Run -text in.wast functionname" << std::endl;
-		return -1;
+		return EXIT_FAILURE;
 	}
 	
-	if(!module) { return -1; }
+	if(!module) { return EXIT_FAILURE; }
 	
 	// Initialize the runtime.
 	if(!Runtime::init())
 	{
 		std::cerr << "Couldn't initialize runtime" << std::endl;
-		return false;
+		return EXIT_FAILURE;
 	}
 
-	if(!Runtime::loadModule(module)) { return -1; }
+	if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
 
 	Core::Timer executionTime;
 	auto functionExport = module->exportNameToFunctionIndexMap.find(functionName);
@@ -83,11 +83,11 @@ int main(int argc,char** argv)
 	else
 	{
 		std::cerr << "Module does not export '" << functionName << "'" << std::endl;
-		return -1;
+		return EXIT_FAILURE;
 	}
 	executionTime.stop();
 
 	std::cout << "Execution time: " << executionTime.getMilliseconds() << "ms" << std::endl;
 
-	return 0;
+	return EXIT_SUCCESS;
 }

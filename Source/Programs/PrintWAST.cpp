@@ -11,7 +11,7 @@ int main(int argc,char** argv)
 	{
 		WebAssemblyText::File file;
 		if(loadTextModule(argv[2],file)) { module = file.modules[0]; }
-		else { return -1; }
+		else { return EXIT_FAILURE; }
 		outputFilename = argv[3];
 	}
 	else if(argc == 5 && !strcmp(argv[1],"-binary"))
@@ -23,21 +23,21 @@ int main(int argc,char** argv)
 	{
 		std::cerr <<  "Usage: Print -binary in.wasm in.js.mem out.wast" << std::endl;
 		std::cerr <<  "       Print -text in.wast out.wast" << std::endl;
-		return -1;
+		return EXIT_FAILURE;
 	}
 	
-	if(!module) { return -1; }
+	if(!module) { return EXIT_FAILURE; }
 	
 	Core::Timer printTimer;
 	std::ofstream outputStream(outputFilename);
 	if(!outputStream.is_open())
 	{
 		std::cerr << "Failed to open " << outputFilename << std::endl;
-		return -1;
+		return EXIT_FAILURE;
 	}
 	outputStream << WebAssemblyText::print(module);
 	outputStream.close();
 	std::cout << "Printed WAST code in " << printTimer.getMilliseconds() << "ms" << std::endl;
 
-	return 0;
+	return EXIT_SUCCESS;
 }
