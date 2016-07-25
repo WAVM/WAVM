@@ -60,7 +60,7 @@ int main(int argc,char** argv)
 		for(uintptr statementIndex = 0;statementIndex < testStatements.size();++statementIndex)
 		{
 			auto statement = testStatements[statementIndex];
-			auto statementLocus = filename + statement->locus.describe();
+			auto statementLocus = std::string(filename) + ":" + statement->locus.describe();
 			switch(statement->op)
 			{
 			case TestOp::Invoke:
