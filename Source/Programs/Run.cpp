@@ -30,67 +30,52 @@ int main(int argc,char** argv)
 	}
 	
 	if(!module) { return EXIT_FAILURE; }
-	
-	// Initialize the runtime.
-	if(!Runtime::init())
-	{
-		std::cerr << "Couldn't initialize runtime" << std::endl;
-		return EXIT_FAILURE;
-	}
-
+	if(!Runtime::init()) { return EXIT_FAILURE; }
 	if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
 
-	#if WAVM_TIMER_OUTPUT
-	Core::Timer executionTime;
-	#endif
 	auto functionExport = module->exportNameToFunctionIndexMap.find(functionName);
-	if(functionExport != module->exportNameToFunctionIndexMap.end())
-	{
-		auto function = module->functions[functionExport->second];
-		if(function->type.parameters.size())
-		{
-			std::cerr << "Module exports '" << functionName << "' but it isn't the right type?!" << std::endl;
-		}
-		else
-		{
-			auto functionResult = Runtime::invokeFunction(module,functionExport->second,nullptr);
-			switch(functionResult.type) {
-			case Runtime::TypeId::Exception:
-				std::cerr << functionName << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
-				for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
-				break;
-			case Runtime::TypeId::I8:
-				std::cout << "Function result: " << functionResult.i8 << std::endl;
-				break;
-			case Runtime::TypeId::I16:
-				std::cout << "Function result: " << functionResult.i16 << std::endl;
-				break;
-			case Runtime::TypeId::I32:
-				std::cout << "Function result: " << functionResult.i32 << std::endl;
-				break;
-			case Runtime::TypeId::I64:
-				std::cout << "Function result: " << functionResult.i64 << std::endl;
-				break;
-			case Runtime::TypeId::F32:
-				std::cout << "Function result: " << functionResult.f32 << std::endl;
-				break;
-			case Runtime::TypeId::F64:
-				std::cout << "Function result: " << functionResult.f64 << std::endl;
-				break;
-			default:
-				break;
-			}
-		}
-	}
-	else
+	if(functionExport == module->exportNameToFunctionIndexMap.end())
 	{
 		std::cerr << "Module does not export '" << functionName << "'" << std::endl;
 		return EXIT_FAILURE;
 	}
+
+
+	#if WAVM_TIMER_OUTPUT
+	Core::Timer executionTime;
+	#endif
+	auto functionResult = Runtime::invokeFunction(module,functionExport->second,nullptr);
 	#if WAVM_TIMER_OUTPUT
 	executionTime.stop();
 	std::cout << "Execution time: " << executionTime.getMilliseconds() << "ms" << std::endl;
 	#endif
+
+	switch(functionResult.type) {
+	case Runtime::TypeId::Exception:
+		std::cerr << functionName << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
+		for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
+		break;
+	case Runtime::TypeId::I8:
+		std::cout << "Function result: " << functionResult.i8 << std::endl;
+		break;
+	case Runtime::TypeId::I16:
+		std::cout << "Function result: " << functionResult.i16 << std::endl;
+		break;
+	case Runtime::TypeId::I32:
+		std::cout << "Function result: " << functionResult.i32 << std::endl;
+		break;
+	case Runtime::TypeId::I64:
+		std::cout << "Function result: " << functionResult.i64 << std::endl;
+		break;
+	case Runtime::TypeId::F32:
+		std::cout << "Function result: " << functionResult.f32 << std::endl;
+		break;
+	case Runtime::TypeId::F64:
+		std::cout << "Function result: " << functionResult.f64 << std::endl;
+		break;
+	default:
+		break;
+	}
 
 	return EXIT_SUCCESS;
 }
