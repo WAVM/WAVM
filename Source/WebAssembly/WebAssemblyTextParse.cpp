@@ -1763,12 +1763,6 @@ namespace WebAssemblyText
 		Memory::ScopedArena scopedArena;
 		auto rootNode = SExp::parse(string,scopedArena,symbolIndexMap);
 
-		if (rootNode->type == SExp::NodeType::Error)
-		{
-			outFile.errors.push_back(new Error(rootNode->error, rootNode->startLocus));
-			return false;
-		}
-
 		// Parse modules from S-expressions.
 		for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
 		{
@@ -1776,12 +1770,16 @@ namespace WebAssemblyText
 			if(parseTaggedNode(rootNodeIt,Symbol::_assert_invalid,childNodeIt))
 			{
 				parseAssertInvalid(childNodeIt, outFile.errors);
-				continue;
 			}
-			if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
+			else if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 			{
 				// Parse a module definition.
 				outFile.modules.push_back(ModuleContext(new Module(),outFile.errors).parse(childNodeIt));
+			}
+			else if(rootNodeIt->type == SExp::NodeType::Error)
+			{
+				// Pass through top-level errors from the S-expression parser.
+				recordError<Error>(outFile.errors,rootNodeIt->startLocus,rootNodeIt->error);
 			}
 		}
 		
