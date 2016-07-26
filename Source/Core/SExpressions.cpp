@@ -105,7 +105,7 @@ namespace SExp
 		// Tries to skip to the next instance of a character, excluding instances between nested parentheses.
 		// If successful, returns true. Will stop skipping and return false if it hits the end of the string or
 		// a closing parenthesis that doesn't match a skipped opening parenthesis.
-		bool advancePastNext(char c)
+		bool advancePastNext(char c,bool ignoreParentheses)
 		{
 			uint32 parenthesesDepth = 0;
 			while(true)
@@ -115,9 +115,9 @@ namespace SExp
 				{
 					return false;
 				}
-				else if(nextChar == c && parenthesesDepth == 0)
+				else if(nextChar == c && (parenthesesDepth == 0 || ignoreParentheses))
 				{
-					advance();
+					advance(true);
 					return true;
 				}
 				else if(nextChar == '(')
@@ -126,9 +126,9 @@ namespace SExp
 				}
 				else if(nextChar == ')')
 				{
-					if(parenthesesDepth == 0)
+					if(parenthesesDepth == 0 && !ignoreParentheses)
 					{
-						return false;
+						throw new FatalParseException(locus,"unexpected ')'");
 					}
 					--parenthesesDepth;
 				}
@@ -242,7 +242,7 @@ namespace SExp
 				{
 					string.reset(arena);
 					auto locus = state.getLocus();
-					state.advancePastNext('\"');
+					state.advancePastNext('\"',true);
 					return createError(locus,"unexpected newline or end of file in quoted string");
 				}
 				else if(nextChar == '\\')
@@ -253,7 +253,7 @@ namespace SExp
 					{
 						string.reset(arena);
 						auto locus = state.getLocus();
-						state.advancePastNext('\"');
+						state.advancePastNext('\"',true);
 						return createError(locus,"invalid escape code in quoted string");
 					}
 					string.append(arena,escapedChar);
@@ -301,7 +301,7 @@ namespace SExp
 				{
 					return numMatchedCharacters;
 				}
-				state.consume(true);
+				state.advance(true);
 				++numMatchedCharacters;
 
 				if(outValue > std::numeric_limits<uint64>::max() / 16)
@@ -339,12 +339,12 @@ namespace SExp
 
 			if(state.peek() == ':')
 			{
-				state.consume(true);
+				state.advance(true);
 
 				uint64 significandBits = 0;
 				if(!parseKeyword("0x"))
 				{
-					state.advancePastNext(')');
+					state.advancePastNext(')',false);
 					return createError(state.getLocus(),"expected hexadecimal NaN significand");
 				}
 				if(!parseHexInteger(significandBits))
@@ -563,7 +563,7 @@ namespace SExp
 	
 		Node* parseAttribute(Node* symbolNode)
 		{
-			state.consume(true);
+			state.advance(true);
 
 			auto value = parseNode();
 
@@ -581,7 +581,7 @@ namespace SExp
 			const char* symbolStart = state.next;
 			do
 			{
-				state.consume(true);
+				state.advance(true);
 			}
 			while(isSymbolCharacter(state.peek()));
 			Memory::ArenaString symbolString;
@@ -614,6 +614,37 @@ namespace SExp
 			if(state.peek() == '=') { return parseAttribute(symbolNode); }
 			else { return symbolNode; }
 		}
+
+		void parseBlockComment(const Core::TextFileLocus& startLocus)
+		{
+			uintptr commentNestingLevel = 1;
+			while(commentNestingLevel > 0)
+			{
+				switch(state.peek())
+				{
+				case '(':
+					state.advance(true);
+					if(state.peek() == ';')
+					{
+						state.advance(true);
+						++commentNestingLevel;
+					}
+					break;
+				case ';':
+					state.advance(true);
+					if(state.peek() == ')')
+					{
+						state.advance(true);
+						--commentNestingLevel;
+					}
+					break;
+				case 0:
+					throw new FatalParseException(startLocus,"reached end of file without finding end of block comment");
+				default:
+					state.advance();
+				}
+			}
+		}
 	
 		Node* parseNode()
 		{
@@ -642,20 +673,14 @@ namespace SExp
 				}
 				else if(nextChar == '(')
 				{
+					auto startLocus = state.getLocus();
 					state.advance(true);
 
 					if(state.peek() == ';')
 					{
-						// Parse a block comment.
-						do
-						{
-							if(!state.advancePastNext(';'))
-							{
-								throw new FatalParseException(state.getLocus(),"reached end of file while parsing block comment");
-							}
-						}
-						while(state.peek() != ')');
 						state.advance(true);
+						// Parse a block comment.
+						parseBlockComment(startLocus);
 					}
 					else
 					{
@@ -713,7 +738,16 @@ namespace SExp
 		{
 			Node* firstRootNode = nullptr;
 			parseContext.parseNodeSequence(&firstRootNode);
-			return firstRootNode;
+			if(state.peek() != 0)
+			{
+				auto errorMessage = std::string("expected ';' or '(' but found '") + state.peek() + "'";
+				auto result = parseContext.createError(state.getLocus(),arena.copyToArena(errorMessage.c_str(),errorMessage.length() + 1));
+				return result;
+			}
+			else
+			{
+				return firstRootNode;
+			}
 		}
 		catch(FatalParseException* exception)
 		{
