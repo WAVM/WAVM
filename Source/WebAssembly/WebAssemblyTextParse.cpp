@@ -27,7 +27,7 @@ namespace WebAssemblyText
 	// Creates and records an error with the given message and location.
 	template<typename Error> Error* recordError(std::vector<ErrorRecord*>& outErrors,const Core::TextFileLocus& locus,std::string&& message)
 	{
-		auto error = new Error(locus.describe() + ": " + message,locus);
+		auto error = new Error(std::move(message),locus);
 		outErrors.push_back(error);
 		return error;
 	}

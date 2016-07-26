@@ -49,7 +49,7 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 		std::cerr << "Error parsing WebAssembly text file:" << std::endl;
 		for(auto error : outFile.errors)
 		{
-			std::cerr << filename << ":" << error->message.c_str() << std::endl;
+			std::cerr << filename << ":" << error->locus.describe() << ": " << error->message.c_str() << std::endl;
 			auto startLine = wastFileLineOffsets[error->locus.newlines];
 			auto endLine =  wastFileLineOffsets[error->locus.newlines+1];
 			std::cerr << wastString.substr(startLine, endLine-startLine-1) << std::endl;
