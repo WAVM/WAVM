@@ -147,9 +147,9 @@ namespace WebAssemblyText
 	// On success, returns true, sets outString to the name's string, and advances node to the sibling following the name.
 	bool parseName(SNodeIt& nodeIt,const char*& outString)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::UnindexedSymbol && nodeIt->string[0] == '$')
+		if(nodeIt && nodeIt->type == SExp::NodeType::Name)
 		{
-			outString = nodeIt->string + 1;
+			outString = nodeIt->string;
 			++nodeIt;
 			return true;
 		}

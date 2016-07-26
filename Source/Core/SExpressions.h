@@ -15,6 +15,7 @@ namespace SExp
 		Symbol,
 		String,
 		UnindexedSymbol,
+		Name,
 		SignedInt,
 		UnsignedInt,
 		Float,

@@ -152,6 +152,16 @@ namespace SExp
 		return !isWhitespace(c) && c != '(' && c != ')' && c != ';' && c != '\"' && c != '=' && c != ':';
 	}
 
+	FORCEINLINE bool isNameCharacter(char c)
+	{
+		return (c >= 'a' && c <= 'z')
+			|| (c >= 'A' && c <= 'Z')
+			|| (c >= '0' && c <= '9')
+			|| c=='_' || c=='\'' || c=='+' || c=='-' || c=='*' || c=='/' || c=='\\' || c=='^' || c=='~' || c=='='
+			|| c=='<' || c=='>' || c=='!' || c=='?' || c=='@' || c=='#' || c=='$' || c=='%' || c=='&' || c=='|'
+			|| c==':' || c=='`' || c=='.';
+	}
+
 	FORCEINLINE bool parseHexit(char c,char& outValue)
 	{
 		if(c >= '0' && c <= '9')
@@ -615,6 +625,34 @@ namespace SExp
 			else { return symbolNode; }
 		}
 
+		Node* parseName()
+		{
+			auto startLocus = state.getLocus();
+
+			// skip the $.
+			state.advance(true);
+
+			// Consume characters until a non-name character is reached.
+			const char* nameStart = state.next;
+			do
+			{
+				state.advance(true);
+			}
+			while(isNameCharacter(state.peek()));
+
+			// Copy the name's characters to the result arena.
+			Memory::ArenaString nameString;
+			nameString.append(arena,nameStart,state.next - nameStart);
+
+			// Create the name node.
+			Node* nameNode;
+			nameNode = new(arena)Node(startLocus,NodeType::Name);
+			nameNode->endLocus = state.getLocus();
+			nameNode->string = nameString.c_str();
+			nameNode->stringLength = nameString.length();
+			return nameNode;
+		}
+
 		void parseBlockComment(const Core::TextFileLocus& startLocus)
 		{
 			uintptr commentNestingLevel = 1;
@@ -705,6 +743,11 @@ namespace SExp
 				{
 					// Parse a number.
 					return parseNumber();
+				}
+				else if(nextChar == '$')
+				{
+					// Parse a name.
+					return parseName();
 				}
 				else if(isSymbolCharacter(nextChar))
 				{
@@ -804,6 +847,7 @@ namespace SExp
 		}
 		case NodeType::Symbol: return symbolStrings[node->symbol];
 		case NodeType::UnindexedSymbol: return node->string;
+		case NodeType::Name: return std::string() + '$' + node->string;
 		case NodeType::String: return std::string() + '\"' + escapeString(node->string,node->stringLength) + '\"';
 		case NodeType::Error: return node->error;
 		case NodeType::SignedInt: return std::string() + '-' + std::to_string(node->i64);
