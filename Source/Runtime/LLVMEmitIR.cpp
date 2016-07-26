@@ -846,7 +846,9 @@ namespace LLVMJIT
 	llvm::Module* emitModule(const Module* astModule)
 	{
 		// Create a JIT module.
+		#if WAVM_TIMER_OUTPUT
 		Core::Timer emitTimer;
+		#endif
 		ModuleIR moduleIR;
 
 		// Create literals for the virtual memory base and mask.
@@ -969,7 +971,9 @@ namespace LLVMJIT
 			irBuilder.CreateRetVoid();
 		}
 
+		#if WAVM_TIMER_OUTPUT
 		std::cout << "Emitted LLVM IR for module in " << emitTimer.getMilliseconds() << "ms" << std::endl;
+		#endif
 
 		return moduleIR.llvmModule;
 	}

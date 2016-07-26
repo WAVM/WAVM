@@ -33,7 +33,9 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 	auto wastString = std::string((const char*)wastBytes.data(),wastBytes.size());
 	wastBytes.clear();
 
+	#if WAVM_TIMER_OUTPUT
 	Core::Timer loadTimer;
+	#endif
 	if(!WebAssemblyText::parse(wastString.c_str(),outFile))
 	{
 		// Build an index of newline offsets in the file.
@@ -55,7 +57,9 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 		}
 		return false;
 	}
-	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	#if WAVM_TIMER_OUTPUT
+	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	#endif
 	return true;
 }
 
@@ -82,7 +86,9 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 	if(!staticMemoryData.size()) { return nullptr; }
 
 	// Load the module from a binary WebAssembly file.
+	#if WAVM_TIMER_OUTPUT
 	Core::Timer loadTimer;
+	#endif
 	std::vector<AST::ErrorRecord*> errors;
 	AST::Module* module;
 	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),staticMemoryData.data(),staticMemoryData.size(),module,errors))
@@ -91,7 +97,9 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 		for(auto error : errors) { std::cerr << wasmFilename << ":" << error->message.c_str() << std::endl; }
 		return nullptr;
 	}
-	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	#if WAVM_TIMER_OUTPUT
+	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
+	#endif
 
 	return module;
 }

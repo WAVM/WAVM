@@ -40,7 +40,9 @@ int main(int argc,char** argv)
 
 	if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
 
+	#if WAVM_TIMER_OUTPUT
 	Core::Timer executionTime;
+	#endif
 	auto functionExport = module->exportNameToFunctionIndexMap.find(functionName);
 	if(functionExport != module->exportNameToFunctionIndexMap.end())
 	{
@@ -85,9 +87,10 @@ int main(int argc,char** argv)
 		std::cerr << "Module does not export '" << functionName << "'" << std::endl;
 		return EXIT_FAILURE;
 	}
+	#if WAVM_TIMER_OUTPUT
 	executionTime.stop();
-
 	std::cout << "Execution time: " << executionTime.getMilliseconds() << "ms" << std::endl;
+	#endif
 
 	return EXIT_SUCCESS;
 }
