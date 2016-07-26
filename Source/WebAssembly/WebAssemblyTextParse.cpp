@@ -1762,7 +1762,13 @@ namespace WebAssemblyText
 		// Parse S-expressions from the string.
 		Memory::ScopedArena scopedArena;
 		auto rootNode = SExp::parse(string,scopedArena,symbolIndexMap);
-		
+
+		if (rootNode->type == SExp::NodeType::Error)
+		{
+			outFile.errors.push_back(new Error(rootNode->error, rootNode->startLocus));
+			return false;
+		}
+
 		// Parse modules from S-expressions.
 		for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
 		{
