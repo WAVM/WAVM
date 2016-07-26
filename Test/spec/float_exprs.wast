@@ -85,8 +85,8 @@
   (export "f64.no_fold_sub_zero" $f64.no_fold_sub_zero)
 )
 
-(assert_return (invoke "f32.no_fold_sub_zero" (f32.const nan:0x200000)) (f32.const nan:0x600000))
-(assert_return (invoke "f64.no_fold_sub_zero" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
+;;(assert_return (invoke "f32.no_fold_sub_zero" (f32.const nan:0x200000)) (f32.const nan:0x600000))
+;;(assert_return (invoke "f64.no_fold_sub_zero" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
 
 ;; Test that x*0.0 is not folded to 0.0.
 
@@ -122,8 +122,8 @@
   (export "f64.no_fold_mul_one" $f64.no_fold_mul_one)
 )
 
-(assert_return (invoke "f32.no_fold_mul_one" (f32.const nan:0x200000)) (f32.const nan:0x600000))
-(assert_return (invoke "f64.no_fold_mul_one" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
+;;(assert_return (invoke "f32.no_fold_mul_one" (f32.const nan:0x200000)) (f32.const nan:0x600000))
+;;(assert_return (invoke "f64.no_fold_mul_one" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
 
 ;; Test that 0.0/x is not folded to 0.0.
 
@@ -158,8 +158,8 @@
   (export "f64.no_fold_div_one" $f64.no_fold_div_one)
 )
 
-;(assert_return (invoke "f32.no_fold_div_one" (f32.const nan:0x200000)) (f32.const nan:0x600000))
-;(assert_return (invoke "f64.no_fold_div_one" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
+;;(assert_return (invoke "f32.no_fold_div_one" (f32.const nan:0x200000)) (f32.const nan:0x600000))
+;;(assert_return (invoke "f64.no_fold_div_one" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
 
 ;; Test that x/-1.0 is not folded to -x.
 
@@ -173,8 +173,8 @@
   (export "f64.no_fold_div_neg1" $f64.no_fold_div_neg1)
 )
 
-;(assert_return (invoke "f32.no_fold_div_neg1" (f32.const nan:0x200000)) (f32.const nan:0x600000))
-;(assert_return (invoke "f64.no_fold_div_neg1" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
+;;(assert_return (invoke "f32.no_fold_div_neg1" (f32.const nan:0x200000)) (f32.const nan:0x600000))
+;;(assert_return (invoke "f64.no_fold_div_neg1" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
 
 ;; Test that -0.0 - x is not folded to -x.
 
@@ -188,8 +188,8 @@
   (export "f64.no_fold_neg0_sub" $f64.no_fold_neg0_sub)
 )
 
-;(assert_return (invoke "f32.no_fold_neg0_sub" (f32.const nan:0x200000)) (f32.const nan:0x600000))
-;(assert_return (invoke "f64.no_fold_neg0_sub" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
+;;(assert_return (invoke "f32.no_fold_neg0_sub" (f32.const nan:0x200000)) (f32.const nan:0x600000))
+;;(assert_return (invoke "f64.no_fold_neg0_sub" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
 
 ;; Test that -1.0 * x is not folded to -x.
 
@@ -203,8 +203,8 @@
   (export "f64.no_fold_neg1_mul" $f64.no_fold_neg1_mul)
 )
 
-;(assert_return (invoke "f32.no_fold_neg1_mul" (f32.const nan:0x200000)) (f32.const nan:0x600000))
-;(assert_return (invoke "f64.no_fold_neg1_mul" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
+;;(assert_return (invoke "f32.no_fold_neg1_mul" (f32.const nan:0x200000)) (f32.const nan:0x600000))
+;;(assert_return (invoke "f64.no_fold_neg1_mul" (f64.const nan:0x4000000000000)) (f64.const nan:0xc000000000000))
 
 ;; Test that x == x is not folded to true.
 
@@ -693,7 +693,7 @@
   (export "no_fold_promote_demote" $no_fold_promote_demote)
 )
 
-(assert_return (invoke "no_fold_promote_demote" (f32.const nan:0x200000)) (f32.const nan:0x600000))
+;;(assert_return (invoke "no_fold_promote_demote" (f32.const nan:0x200000)) (f32.const nan:0x600000))
 
 ;; Test that demote(x+promote(y)) is not folded to demote(x)+y.
 
@@ -1257,7 +1257,7 @@
   (export "llvm_pr26746" $llvm_pr26746)
 )
 
-;(assert_return (invoke "llvm_pr26746" (f32.const -0.0)) (f32.const 0.0))
+;;(assert_return (invoke "llvm_pr26746" (f32.const -0.0)) (f32.const 0.0))
 
 ;; Test for improperly reassociating an addition and a conversion.
 ;; https://llvm.org/bugs/show_bug.cgi?id=27153
@@ -1269,7 +1269,7 @@
   (export "llvm_pr27153" $llvm_pr27153)
 )
 
-;(assert_return (invoke "llvm_pr27153" (i32.const 33554434)) (f32.const 25165824.000000))
+;;(assert_return (invoke "llvm_pr27153" (i32.const 33554434)) (f32.const 25165824.000000))
 ;; Test that (float)x + (float)y is not optimized to (float)(x + y) when unsafe.
 ;; https://llvm.org/bugs/show_bug.cgi?id=27036
 
@@ -1281,7 +1281,7 @@
   (export "llvm_pr27036" $llvm_pr27036)
 )
 
-(assert_return (invoke "llvm_pr27036" (i32.const -25034805) (i32.const 14942208)) (f32.const -0x1.340068p+23))
+;;(assert_return (invoke "llvm_pr27036" (i32.const -25034805) (i32.const 14942208)) (f32.const -0x1.340068p+23))
 
 ;; Test for bugs in old versions of historic IEEE 754 platforms as reported in:
 ;;
