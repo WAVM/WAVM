@@ -40,16 +40,23 @@ int main(int argc,char** argv)
 
 	if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
 
-	#if WAVM_TIMER_OUTPUT
-	Core::Timer executionTime;
-	#endif
 	auto functionExport = module->exportNameToFunctionIndexMap.find(functionName);
 	if(functionExport == module->exportNameToFunctionIndexMap.end())
 	{
 		std::cerr << "Module does not export '" << functionName << "'" << std::endl;
 		return EXIT_FAILURE;
 	}
+
+
+	#if WAVM_TIMER_OUTPUT
+	Core::Timer executionTime;
+	#endif
 	auto functionResult = Runtime::invokeFunction(module,functionExport->second,nullptr);
+	#if WAVM_TIMER_OUTPUT
+	executionTime.stop();
+	std::cout << "Execution time: " << executionTime.getMilliseconds() << "ms" << std::endl;
+	#endif
+
 	switch(functionResult.type) {
 	case Runtime::TypeId::Exception:
 		std::cerr << functionName << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
@@ -76,10 +83,6 @@ int main(int argc,char** argv)
 	default:
 		break;
 	}
-	#if WAVM_TIMER_OUTPUT
-	executionTime.stop();
-	std::cout << "Execution time: " << executionTime.getMilliseconds() << "ms" << std::endl;
-	#endif
 
 	return EXIT_SUCCESS;
 }
