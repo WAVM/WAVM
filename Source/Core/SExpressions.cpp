@@ -664,7 +664,7 @@ namespace SExp
 						parseNodeSequence(&newNode->children);
 						if(state.peek() != ')')
 						{
-							throw new FatalParseException(state.getLocus(),std::string("expected ')' following S-expression child nodes but found '") + nextChar + "'");
+							throw new FatalParseException(state.getLocus(),std::string("expected ')' following S-expression child nodes but found '") + state.peek() + "'");
 						}
 						state.advance(true);
 						newNode->endLocus = state.getLocus();
