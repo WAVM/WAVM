@@ -3,6 +3,7 @@
 #include "Core.h"
 #include "Platform.h"
 #include <Windows.h>
+#include <iostream>
 
 namespace Platform
 {
@@ -68,8 +69,8 @@ namespace Platform
 		auto result = VirtualAlloc(nullptr,numBytes,MEM_RESERVE,PAGE_NOACCESS);
 		if(result == NULL)
 		{
-                        std::cerr << "VirtualAlloc(" << numBytes/1024 << "KB) failed: GetLastError=" << GetLastError() << std::endl;
-                        return nullptr;
+			std::cerr << "VirtualAlloc(" << numBytes/1024 << "KB) failed: GetLastError=" << GetLastError() << std::endl;
+			return nullptr;
 		}
 		return (uint8*)result;
 	}
