@@ -64,7 +64,14 @@ namespace Platform
 
 	uint8* allocateVirtualPages(size_t numPages)
 	{
-		return (uint8*)VirtualAlloc(nullptr,numPages << getPageSizeLog2(),MEM_RESERVE,PAGE_NOACCESS);
+		size_t numBytes = numPages << getPageSizeLog2();
+		auto result = VirtualAlloc(nullptr,numBytes,MEM_RESERVE,PAGE_NOACCESS);
+		if(result == NULL)
+		{
+                        std::cerr << "VirtualAlloc(" << numBytes/1024 << "KB) failed: GetLastError=" << GetLastError() << std::endl;
+                        return nullptr;
+		}
+		return (uint8*)result;
 	}
 
 	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
