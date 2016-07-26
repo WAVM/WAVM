@@ -30,14 +30,7 @@ int main(int argc,char** argv)
 	}
 	
 	if(!module) { return EXIT_FAILURE; }
-	
-	// Initialize the runtime.
-	if(!Runtime::init())
-	{
-		std::cerr << "Couldn't initialize runtime" << std::endl;
-		return EXIT_FAILURE;
-	}
-
+	if(!Runtime::init()) { return EXIT_FAILURE; }
 	if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
 
 	auto functionExport = module->exportNameToFunctionIndexMap.find(functionName);

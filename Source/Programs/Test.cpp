@@ -39,12 +39,7 @@ int main(int argc,char** argv)
 	File wastFile;
 	if(!loadTextFile(filename,wastFile)) { return -1; }
 	
-	// Initialize the runtime.
-	if(!Runtime::init())
-	{
-		std::cerr << "Couldn't initialize runtime" << std::endl;
-		return EXIT_FAILURE;
-	}
+	if(!Runtime::init()) { return EXIT_FAILURE; }
 	
 	uintptr numTestsFailed = 0;
 	for(uintptr moduleIndex = 0;moduleIndex < wastFile.modules.size();++moduleIndex)
