@@ -190,7 +190,7 @@ namespace LLVMJIT
 					// Compute the address the functions was loaded at.
 					uintptr loadedAddress = *address;
 					auto symbolSection = symbol.getSection();
-					if(!symbolSection)
+					if(symbolSection)
 					{
 						loadedAddress += (uintptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
 					}
