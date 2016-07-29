@@ -7,6 +7,11 @@
 #include <setjmp.h>
 #include <sys/resource.h>
 
+#ifdef __linux__
+#include <execinfo.h>
+#include <dlfcn.h>
+#endif
+
 namespace RuntimePlatform
 {
 	using namespace Runtime;
@@ -112,12 +117,36 @@ namespace RuntimePlatform
 
 	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)
 	{
+		#ifdef __linux__
+			// Look up static symbol information for the address.
+			Dl_info symbolInfo;
+			if(dladdr((void*)ip,&symbolInfo) && symbolInfo.dli_sname)
+			{
+				outDescription = symbolInfo.dli_sname;
+				return true;
+			}
+		#endif
 		return false;
 	}
 
 	Runtime::ExecutionContext captureExecutionContext()
 	{
-		return Runtime::ExecutionContext();
+		#ifdef __linux__
+			// Unwind the callstack.
+			enum { maxCallStackSize = 512 };
+			void* callstackAddresses[maxCallStackSize];
+			auto numCallStackEntries = backtrace(callstackAddresses,maxCallStackSize);
+
+			// Copy the return pointers into the stack frames of the resulting ExecutionContext.
+			Runtime::ExecutionContext result;
+			for(intptr index = 0;index < numCallStackEntries;++index)
+			{
+				result.stackFrames.push_back({(uintptr)callstackAddresses[index],0});
+			}
+			return result;
+		#else
+			return Runtime::ExecutionContext();
+		#endif
 	}
 }
 
