@@ -14,17 +14,25 @@ To build it, you'll need CMake and [LLVM 3.8](http://llvm.org/releases/download.
 
 I've tested it on Windows with Visual C++ 2013 and 2015, Linux with GCC and Clang, and MacOS with Xcode/Clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
 
-The command-line usage is:
 ```
-Run -binary in.wasm in.js.mem functionname
-Run -text in.wast functionname
+Usage: wavm [switches] [programfile] [--] [arguments]
+  --text in.wast                Specify text program file (.wast)
+  --binary in.wasm in.js.mem    Specify binary program file (.wasm) and memory file (.js.mem)
+  -f|--function name            Specify function name to run in module rather than main
+  --                            Stop parsing arguments
+
 PrintWAST -binary in.wasm in.js.mem out.wast
 PrintWAST -text in.wast out.wast
 ```
 
-That will load a text or binary WebAssembly file, and call the named exported function. The type of the function must be I64->I64 at the moment, though that can be easily changed in the source code. A good command-line to try without changing any code:
+wavm will load a WebAssembly file and call main (or a specified function).  Example programs to try without changing any code include those found in the Test/wast and Test/spec directory such as the following:
 
-```Run -text ../Test/WAST/fac.wast fac-iter```
+```
+wavm ../Test/wast/helloworld.wast
+wavm --text ../Test/spec/fac.wast --function fac-iter 5
+```
+
+WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments.  If the same main function returns a i32 type it will become the exit code.  WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr.  See [echo.wast](Test/wast/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
 
 # Design
 
