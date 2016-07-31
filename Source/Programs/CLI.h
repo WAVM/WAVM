@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Core.h"
+#include "Core/Floats.h"
 #include "AST/AST.h"
 #include "WebAssembly/WebAssembly.h"
 
@@ -102,4 +103,21 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 	#endif
 
 	return module;
+}
+
+std::string describeRuntimeValue(const Runtime::Value& value)
+{
+        switch(value.type)
+        {
+        case Runtime::TypeId::None: return "None";
+        case Runtime::TypeId::I8: return "I8(" + std::to_string(value.i8) + ")";
+        case Runtime::TypeId::I16: return "I16(" + std::to_string(value.i16) + ")";
+        case Runtime::TypeId::I32: return "I32(" + std::to_string(value.i32) + ")";
+        case Runtime::TypeId::I64: return "I64(" + std::to_string(value.i64) + ")";
+        case Runtime::TypeId::F32: return "F32(" + Floats::asString(value.f32) + ")";
+        case Runtime::TypeId::F64: return "F64(" + Floats::asString(value.f64) + ")";
+        case Runtime::TypeId::Void: return "Void";
+        case Runtime::TypeId::Exception: return "Exception(" + std::string(Runtime::describeExceptionCause(value.exception->cause)) + ")";
+        default: throw;
+        }
 }
