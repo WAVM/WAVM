@@ -76,6 +76,24 @@ namespace Runtime
 		Value(): type(TypeId::None) {}
 		Value(Exception* inException): exception(inException), type(TypeId::Exception) {}
 	};
+	
+	// The base of the virtual address space allocated for the VM.
+	// This is never changed after it is initialized.
+	extern RUNTIME_API uint8* instanceMemoryBase;
+
+	// The number of bytes of address-space reserved (but not necessarily committed) for the VM.
+	// This should be a power of two, and is never changed after it is initialized.
+	extern RUNTIME_API size_t instanceAddressSpaceMaxBytes;
+	
+	// Commits or decommits memory in the VM virtual address space.
+	RUNTIME_API size_t vmGrowMemory(size_t numBytes);
+	RUNTIME_API size_t vmShrinkMemory(size_t numBytes);
+
+	// Given an address as a byte index, returns a typed reference to that address of VM memory.
+	template<typename memoryType> memoryType& instanceMemoryRef(uintptr address)
+	{
+		return *(memoryType*)(instanceMemoryBase + address);
+	}
 
 	// Initializes the runtime.
 	RUNTIME_API bool init();

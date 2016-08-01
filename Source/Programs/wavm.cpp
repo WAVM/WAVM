@@ -3,7 +3,6 @@
 #include "Core/Platform.h"
 #include "AST/AST.h"
 #include "Runtime/Runtime.h"
-#include "Runtime/RuntimePrivate.h"
 
 #include "CLI.h"
 
@@ -126,9 +125,9 @@ int main(int argc,char** argv)
 	{
 		if(function->type.parameters.size() == 2)
 		{
-			uint32 main_argc_start = args-argv-1;
-			auto main_argc = (uint32)argc - main_argc_start;
-			auto main_argv = (uint32)Runtime::vmGrowMemory((main_argc+1) * sizeof(uint32));
+			uintptr main_argc_start = args-argv-1;
+			auto main_argc = (uintptr)argc - main_argc_start;
+			auto main_argv = (uintptr)Runtime::vmGrowMemory((main_argc+1) * sizeof(uint32));
 			auto main_argvGlobal = &Runtime::instanceMemoryRef<uint32>(main_argv);
 			for (auto i = main_argc_start; i < (uint32)argc; ++i)
 			{
@@ -152,8 +151,8 @@ int main(int argc,char** argv)
 	else
 	{
 		parameters.resize(function->type.parameters.size());
-		uint32 main_argc_start = args-argv;
-		auto end = (uint32)std::min((uint64)function->type.parameters.size(), (uint64)(argc - main_argc_start));
+		uintptr main_argc_start = args-argv;
+		auto end = (uintptr)std::min((uintptr)function->type.parameters.size(), (uintptr)(argc - main_argc_start));
 		for(uint32 i = 0; i < end; ++i)
 		{
 			Runtime::Value value;

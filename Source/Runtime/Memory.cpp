@@ -6,8 +6,8 @@
 namespace Runtime
 {
 	bool instanceMemoryInitialized = false;
-	uint8* instanceMemoryBase = nullptr;
-	size_t instanceAddressSpaceMaxBytes = 0;
+	RUNTIME_API uint8* instanceMemoryBase = nullptr;
+	RUNTIME_API size_t instanceAddressSpaceMaxBytes = 0;
 
 	uint8* unalignedInstanceMemoryBase = nullptr;
 

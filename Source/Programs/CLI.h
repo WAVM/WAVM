@@ -105,7 +105,7 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 	return module;
 }
 
-std::string describeRuntimeValue(const Runtime::Value& value)
+inline std::string describeRuntimeValue(const Runtime::Value& value)
 {
         switch(value.type)
         {

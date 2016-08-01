@@ -19,24 +19,6 @@ namespace Runtime
 		std::vector<StackFrame> stackFrames;
 	};
 
-	// The base of the virtual address space allocated for the VM.
-	// This is never changed after it is initialized.
-	extern uint8* instanceMemoryBase;
-
-	// The number of bytes of address-space reserved (but not necessarily committed) for the VM.
-	// This should be a power of two, and is never changed after it is initialized.
-	extern size_t instanceAddressSpaceMaxBytes;
-	
-	// Commits or decommits memory in the VM virtual address space.
-	size_t vmGrowMemory(size_t numBytes);
-	size_t vmShrinkMemory(size_t numBytes);
-
-	// Given an address as a byte index, returns a typed reference to that address of VM memory.
-	template<typename memoryType> memoryType& instanceMemoryRef(uintptr address)
-	{
-		return *(memoryType*)(instanceMemoryBase + address);
-	}
-	
 	// Initializes the instance memory.
 	bool initInstanceMemory();
 	

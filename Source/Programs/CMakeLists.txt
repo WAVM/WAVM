@@ -1,5 +1,5 @@
 add_executable(PrintWAST PrintWAST.cpp CLI.h)
-target_link_libraries(PrintWAST Core AST WebAssembly Runtime)
+target_link_libraries(PrintWAST Core AST WebAssembly)
 set_target_properties(PrintWAST PROPERTIES FOLDER Programs)
 
 add_executable(Test Test.cpp CLI.h)
