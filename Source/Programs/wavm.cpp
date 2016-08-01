@@ -139,7 +139,7 @@ int main(int argc,char** argv)
 				main_argvGlobal[i-main_argc_start] = vmAddress;
 			}
 			main_argvGlobal[main_argc] = 0;
-			std::vector<Runtime::Value> mainParameters = {main_argc, main_argv};
+			std::vector<Runtime::Value> mainParameters = {(uint32)main_argc, (uint32)main_argv};
 			parameters = mainParameters;
 		}
 		else if(function->type.parameters.size() > 0)
