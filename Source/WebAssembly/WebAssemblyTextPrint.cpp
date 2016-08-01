@@ -541,10 +541,13 @@ namespace WebAssemblyText
 		}
 
 		// Print the module function table.
-		auto tableStream = createTaggedSubtree(Symbol::_table);
-		for(uintptr elementIndex = 0;elementIndex < module->functionTable.numFunctions;++elementIndex)
-		{ tableStream << getFunctionName(module->functionTable.functionIndices[elementIndex]); }
-		moduleStream << tableStream;
+		if (module->functionTable.numFunctions != 0)
+		{
+			auto tableStream = createTaggedSubtree(Symbol::_table);
+			for(uintptr elementIndex = 0;elementIndex < module->functionTable.numFunctions;++elementIndex)
+			{ tableStream << getFunctionName(module->functionTable.functionIndices[elementIndex]); }
+			moduleStream << tableStream;
+		}
 
 		// Print the module exports.
 		for(auto exportIt : module->exportNameToFunctionIndexMap)
