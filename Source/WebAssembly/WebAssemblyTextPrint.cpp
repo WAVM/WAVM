@@ -11,6 +11,22 @@
 
 using namespace AST;
 
+bool startsWith(const char *str, const char *prefix)
+{
+        size_t lenstr = strlen(str);
+        size_t lenprefix = strlen(prefix);
+        if(lenstr < lenprefix) { return false; }
+	return (strncmp(prefix, str, lenprefix) == 0);
+}
+
+bool nameConflict(const char *name)
+{
+	return (startsWith(name, "local") ||
+		startsWith(name, "func") ||
+		startsWith(name, "sig") ||
+		startsWith(name, "label"));
+}
+
 namespace WebAssemblyText
 {
 	typedef SExp::Node SNode;
@@ -79,11 +95,14 @@ namespace WebAssemblyText
 		std::string getFunctionImportName(uintptr importIndex) const
 		{
 			assert(module->functionImports[importIndex].name);
-			return std::string("$_") + module->functionImports[importIndex].name;
+			auto name = module->functionImports[importIndex].name;
+			return std::string("$") + (nameConflict(name) ? "_" : "") + name;
 		}
+
 		std::string getFunctionName(uintptr functionIndex) const
 		{
-			if(module->functions[functionIndex]->name) { return std::string("$_") + module->functions[functionIndex]->name; }
+			auto name = module->functions[functionIndex]->name;
+			if (name) return std::string("$") + (nameConflict(name) ? "_" : "") + name;
 			else { return "$func" + std::to_string(functionIndex); }
 		}
 		std::string getFunctionTableName(uintptr functionTableIndex) const
@@ -137,7 +156,8 @@ namespace WebAssemblyText
 		}
 		std::string getLocalName(uintptr variableIndex) const\
 		{
-			if(function->locals[variableIndex].name) { return std::string("$_") + function->locals[variableIndex].name; }
+			auto name = function->locals[variableIndex].name;
+			if (name) return std::string("$") + (nameConflict(name) ? "_" : "") + name;
 			else { return "$local" + std::to_string(variableIndex); }
 		}
 
