@@ -534,7 +534,7 @@ namespace SExp
 				bool i64Overflow = false;
 				while(isDigit(*state.next))
 				{
-					if(i64 > UINT64_MAX / 10)
+					if(i64 > (UINT64_MAX - (*state.next - '0')) / 10)
 					{
 						i64Overflow = true;
 					}

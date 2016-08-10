@@ -75,14 +75,8 @@ namespace WebAssemblyText
 	// Parse an integer from a S-expression node.
 	bool parseInt(SNodeIt& nodeIt,int64& outInt)
 	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt)		{ outInt = -nodeIt->i64; ++nodeIt; return true; }
-		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt)	{ outInt = nodeIt->u64; ++nodeIt; return true; }
-		else { return false; }
-	}
-	bool parseSignedInt(SNodeIt& nodeIt,int64& outInt)
-	{
-		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt && nodeIt->u64 <= (uint64)-INT64_MIN)		{ outInt = -(int64)nodeIt->u64; ++nodeIt; return true; }
-		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt && nodeIt->u64 <= INT64_MAX)	{ outInt = nodeIt->u64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::SignedInt && nodeIt->u64 <= (uint64)-INT64_MIN)	{ outInt = -nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SExp::NodeType::UnsignedInt)									{ outInt = nodeIt->u64; ++nodeIt; return true; }
 		else { return false; }
 	}
 	bool parseUnsignedInt(SNodeIt& nodeIt,uint64& outInt)
@@ -1382,12 +1376,12 @@ namespace WebAssemblyText
 
 						// Parse the initial and maximum number of bytes.
 						// If one number is found, it is taken to be both the initial and max.
-						int64 initialNumPages;
-						int64 maxNumPages;
-						if(!parseInt(childNodeIt,initialNumPages))
+						uint64 initialNumPages;
+						uint64 maxNumPages;
+						if(!parseUnsignedInt(childNodeIt,initialNumPages))
 							{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected initial memory size integer"); continue; }
 					        auto maxNumPagesNodeIt = childNodeIt;
-						if(!parseInt(childNodeIt,maxNumPages))
+						if(!parseUnsignedInt(childNodeIt,maxNumPages))
 							{ maxNumPages = initialNumPages; }
 						if(maxNumPages > (1ll<<32))
 							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,std::string("maximum memory size: '") + std::to_string(maxNumPages) + "' must be <=2^32 bytes: " + std::to_string((1ll<<32))); continue; }
@@ -1400,13 +1394,13 @@ namespace WebAssemblyText
 						for(;childNodeIt;++childNodeIt)
 						{
 							SNodeIt segmentChildNodeIt = childNodeIt;
-							int64 baseAddress;
+							uint64 baseAddress;
 							const char* dataString;
 							size_t dataLength;
 							if(!parseTaggedNode(childNodeIt,Symbol::_segment,segmentChildNodeIt))
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment declaration"); continue; }
 							SNodeIt baseAddressNodeIt = segmentChildNodeIt;
-							if(!parseInt(segmentChildNodeIt,baseAddress))
+							if(!parseUnsignedInt(segmentChildNodeIt,baseAddress))
 								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment base address integer"); continue; }
 							SNodeIt dataNodeIt = segmentChildNodeIt;
 							if(!parseString(segmentChildNodeIt,dataString,dataLength,module->arena))
@@ -1418,7 +1412,7 @@ namespace WebAssemblyText
 							if (module->dataSegments.size() != 0)
 							{
 								auto lastSegment = module->dataSegments.back();
-								auto lastEndAddress = (int64)(lastSegment.baseAddress+lastSegment.numBytes-1);
+								auto lastEndAddress = (lastSegment.baseAddress+lastSegment.numBytes-1);
 								if (baseAddress <= lastEndAddress)
 								{
 									recordError<ErrorRecord>(outErrors,baseAddressNodeIt, std::string("data segment base address '") + std::to_string(baseAddress) + "' must be greater than previous segment which ends at: '" + std::to_string(lastEndAddress) + "'");
