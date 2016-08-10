@@ -19,6 +19,7 @@ Usage: wavm [switches] [programfile] [--] [arguments]
   --text in.wast                Specify text program file (.wast)
   --binary in.wasm in.js.mem    Specify binary program file (.wasm) and memory file (.js.mem)
   -f|--function name            Specify function name to run in module rather than main
+  -c|--check                    Exit after checking that the program is valid
   --                            Stop parsing arguments
 
 PrintWAST -binary in.wasm in.js.mem out.wast
