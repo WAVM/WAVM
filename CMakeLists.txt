@@ -54,6 +54,11 @@ else()
 	
 	# Ensure that even static libraries are relocatable so they can be linked into a .so
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+
+	# Enable asan in debug builds.
+	if(CMAKE_BUILD_TYPE MATCHES "Debug")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+	endif()
 endif()
 
 option(WAVM_TIMER_OUTPUT "controls printing the timings of some operations to stdout" OFF)

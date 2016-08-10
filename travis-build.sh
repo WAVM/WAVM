@@ -19,3 +19,4 @@ mkdir debug
 cd debug
 cmake .. -DCMAKE_BUILD_TYPE=DEBUG $CMAKE_LLVM_DIR_ARGUMENT
 make
+ASAN_OPTIONS=detect_leaks=0 ctest -V
