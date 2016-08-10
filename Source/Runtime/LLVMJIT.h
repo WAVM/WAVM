@@ -21,6 +21,8 @@
 	#pragma warning (disable:4245)	// conversion from 'int' to 'unsigned int', signed/unsigned mismatch
 	#pragma warning(disable:4146) // unary minus operator applied to unsigned type, result is still unsigned
 	#pragma warning(disable:4458) // declaration of 'x' hides class member
+	#pragma warning(disable:4510) // default constructor could not be generated
+	#pragma warning(disable:4610) // struct can never be instantiated - user defined constructor required
 #endif
 
 #include "llvm/Analysis/Passes.h"
