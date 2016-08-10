@@ -149,7 +149,7 @@ namespace SExp
 
 	FORCEINLINE bool isSymbolCharacter(char c)
 	{
-		return !isWhitespace(c) && c != '(' && c != ')' && c != ';' && c != '\"' && c != '=' && c != ':';
+		return !isWhitespace(c) && c != '(' && c != ')' && c != ';' && c != '\"' && c != '=' && c != ':' && c != 0;
 	}
 
 	FORCEINLINE bool isNameCharacter(char c)
