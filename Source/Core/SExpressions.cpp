@@ -549,6 +549,11 @@ namespace SExp
 					// Use David Gay's strtod to parse a floating point number.
 					const char* f64End;
 					auto f64 = DavidGay::parseDecimalF64(firstNumberChar,const_cast<char**>(&f64End));
+					if (f64End == firstNumberChar)
+					{
+						state.advance();
+						return createError(startLocus,"Unable to parse floating point number");
+					}
 					state.advanceToPtr(f64End);
 
 					auto node = new(arena) Node(startLocus,NodeType::Float);
