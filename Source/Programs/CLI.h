@@ -64,16 +64,18 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 	return true;
 }
 
-inline bool loadTextModule(const char* filename,WebAssemblyText::File& outFile)
+inline AST::Module* loadTextModule(const char* filename)
 {
-	if(!loadTextFile(filename,outFile)) { return false; }
+	WebAssemblyText::File outFile;
+	AST::Module* module = nullptr;
+	if(!loadTextFile(filename,outFile)) { return module; }
 	if(!outFile.modules.size())
 	{
 		std::cerr << "WebAssembly text file '" << filename << "' didn't contain any modules!" << std::endl;
-		return false;
-	}
+		return module;
+	} else { module = outFile.modules[0]; }
 	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
-	return true;
+	return module;
 }
 
 inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFilename)
