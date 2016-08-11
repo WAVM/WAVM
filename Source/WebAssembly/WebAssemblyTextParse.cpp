@@ -37,7 +37,7 @@ namespace WebAssemblyText
 	{
 		auto messageLength = strlen(node->error) + 1;
 		auto messageCopy = new char[messageLength];
-		memcpy(messageCopy,node->error,messageLength + 1);
+		memcpy(messageCopy,node->error,messageLength);
 		return recordError<Error>(outErrors,node->startLocus,messageCopy);
 	}
 
