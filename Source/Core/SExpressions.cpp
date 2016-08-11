@@ -634,11 +634,10 @@ namespace SExp
 
 			// Consume characters until a non-name character is reached.
 			const char* nameStart = state.next;
-			do
+			while(isNameCharacter(state.peek()))
 			{
 				state.advance(true);
 			}
-			while(isNameCharacter(state.peek()));
 
 			// Copy the name's characters to the result arena.
 			Memory::ArenaString nameString;
