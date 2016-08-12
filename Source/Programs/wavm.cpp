@@ -84,9 +84,7 @@ int main(int argc,char** argv)
 	const char* main_arg0 = 0;
 	if(sourceFile)
 	{
-		WebAssemblyText::File wastFile;
-		if(loadTextModule(sourceFile,wastFile)) { module = wastFile.modules[0]; }
-		else { return EXIT_FAILURE; }
+		module = loadTextModule(sourceFile);
 		main_arg0 = sourceFile;
 	}
 	else if(binaryFile)
