@@ -21,6 +21,7 @@ void showHelp()
 	std::cerr << "  --text in.wast\t\tSpecify text program file (.wast)" << std::endl;
 	std::cerr << "  --binary in.wasm in.js.mem\tSpecify binary program file (.wasm) and memory file (.js.mem)" << std::endl;
 	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main" << std::endl;
+	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
 	std::cerr << "  --\t\t\t\tStop parsing arguments" << std::endl;
 }
 
@@ -31,6 +32,7 @@ int main(int argc,char** argv)
 	const char* binaryMemFile = 0;
 	const char* functionName = 0;
 
+	bool check = false;
 	auto args = argv;
 	while(*++args)
 	{
@@ -60,6 +62,10 @@ int main(int argc,char** argv)
 		{
 			if(!*++args) { showHelp(); return EXIT_FAILURE; }
 			functionName = *args;
+		}
+		else if(!strcmp(*args, "--check") || !strcmp(*args, "-c"))
+		{
+			check = true;
 		}
 		else if(!strcmp(*args, "--"))
 		{
@@ -93,8 +99,10 @@ int main(int argc,char** argv)
 		showHelp();
 		return EXIT_FAILURE;
 	}
-
 	if(!module) { return EXIT_FAILURE; }
+
+	if (check) { return EXIT_SUCCESS; }
+
 	if(!Runtime::init()) { return EXIT_FAILURE; }
 	if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
 
