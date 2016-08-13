@@ -82,6 +82,9 @@ int main(int argc,char** argv)
 
 	AST::Module* module = nullptr;
 	const char* main_arg0 = 0;
+#ifdef __AFL_LOOP
+        while (__AFL_LOOP(2000)) {
+#endif
 	if(sourceFile)
 	{
 		if(!loadTextModule(sourceFile,module)) { return EXIT_FAILURE; }
@@ -97,6 +100,12 @@ int main(int argc,char** argv)
 		showHelp();
 		return EXIT_FAILURE;
 	}
+#ifdef __AFL_LOOP
+	delete module;
+	module = nullptr;
+	}
+	return EXIT_SUCCESS;
+#endif
 
 	if(onlyCheck) { return EXIT_SUCCESS; }
 

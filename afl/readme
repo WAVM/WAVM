@@ -1,0 +1,9 @@
+Scripts for helping to run the AFL (http://lcamtuf.coredump.cx/afl/) fuzzer against wavm
+
+1) Add the directory containing the AFL binaries to your path
+2) `source afl/build-with-afl.env`
+3) Build wavm
+4) In the top of the wavm directory run: afl/run-afl-fuzz
+5) In the top of the wavm directory run: afl/run-afl-fuzz 2 (to run a n more slave instances if the machine can handle it)
+
+run-afl-fuzz will create a corpus, use the generated dictionary, and with __AFL_LOOP in place it will use the persistent hack and get a 10X performance boost.
