@@ -23,7 +23,7 @@ namespace Runtime
 	bool initInstanceMemory();
 	
 	// Initializes the various intrinsic modules.
-	void initEmscriptenIntrinsics(const AST::Module* module);
+	bool initEmscriptenIntrinsics(const AST::Module* module);
 	void initWebAssemblyIntrinsics();
 	void initWAVMIntrinsics();
 

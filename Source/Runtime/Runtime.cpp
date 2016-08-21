@@ -86,7 +86,7 @@ namespace Runtime
 		if(!LLVMJIT::compileModule(module)) { return false; }
 
 		// Initialize the intrinsics.
-		initEmscriptenIntrinsics(module);
+		if(!initEmscriptenIntrinsics(module)) { return false; }
 		initWebAssemblyIntrinsics();
 		initWAVMIntrinsics();
 
@@ -94,7 +94,13 @@ namespace Runtime
 		if(module->startFunctionIndex != UINTPTR_MAX)
 		{
 			assert(module->functions[module->startFunctionIndex].type == AST::FunctionType());
-			invokeFunction(module,module->startFunctionIndex,nullptr);
+			auto result = invokeFunction(module,module->startFunctionIndex,nullptr);
+			if(result.type == Runtime::TypeId::Exception)
+			{
+				std::cerr << "Module start function threw exception: " << Runtime::describeExceptionCause(result.exception->cause) << std::endl;
+				for(auto calledFunction : result.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
+				return false;
+			}
 		}
 
 		return true;

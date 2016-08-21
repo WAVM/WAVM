@@ -335,7 +335,7 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION1(asm2wasm,f64_to_int,f64-to-int,I32,F64,f) { return (int32)f; }
 
-	void initEmscriptenIntrinsics(const AST::Module* module)
+	bool initEmscriptenIntrinsics(const AST::Module* module)
 	{
 		// Allocate a 5MB stack.
 		STACKTOP = coerce32bitAddress(vmGrowMemory(5*1024*1024));
@@ -364,6 +364,7 @@ namespace Runtime
 				{
 					std::cerr << exportIt.first << " threw exception: " << Runtime::describeExceptionCause(result.exception->cause) << std::endl;
 					for(auto function : result.exception->callStack) { std::cerr << "  " << function << std::endl; }
+					return false;
 				}
 			}
 		}
@@ -379,6 +380,7 @@ namespace Runtime
 				|| establishStackSpaceFunction.type.returnType != AST::TypeId::Void)
 			{
 				std::cerr << "Module exports 'establishStackSpace' but it isn't the right type?!" << std::endl;
+				return false;
 			}
 			else
 			{
@@ -388,8 +390,11 @@ namespace Runtime
 				{
 					std::cerr << "establishStackSpace threw exception: " << Runtime::describeExceptionCause(establishStackSpaceResult.exception->cause) << std::endl;
 					for(auto function : establishStackSpaceResult.exception->callStack) { std::cerr << "  " << function << std::endl; }
+					return false;
 				}
 			}
 		}
+
+		return true;
 	}
 }
