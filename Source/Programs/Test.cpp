@@ -26,7 +26,7 @@ int main(int argc,char** argv)
 	uintptr numTestsFailed = 0;
 	for(uintptr moduleIndex = 0;moduleIndex < wastFile.modules.size();++moduleIndex)
 	{
-		auto module = wastFile.modules[moduleIndex];
+		const AST::Module* module = &wastFile.modules[moduleIndex];
 		auto& testStatements = wastFile.moduleTests[moduleIndex];
 		if(!testStatements.size()) { continue; }
 

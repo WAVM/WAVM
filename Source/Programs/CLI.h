@@ -64,37 +64,38 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 	return true;
 }
 
-inline AST::Module* loadTextModule(const char* filename)
+inline bool loadTextModule(const char* filename,AST::Module*& outModule)
 {
-	WebAssemblyText::File outFile;
-	AST::Module* module = nullptr;
-	if(!loadTextFile(filename,outFile)) { return module; }
-	if(!outFile.modules.size())
+	WebAssemblyText::File file;
+	if(!loadTextFile(filename,file)) { return false; }
+	if(!file.modules.size())
 	{
 		std::cerr << "WebAssembly text file '" << filename << "' didn't contain any modules!" << std::endl;
-		return module;
-	} else { module = outFile.modules[0]; }
-	//std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
-	return module;
+		return false;
+	}
+	else
+	{
+		outModule = new AST::Module(std::move(file.modules[0]));
+		return true;
+	}
 }
 
-inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFilename)
+inline bool loadBinaryModule(const char* wasmFilename,const char* memFilename,AST::Module*& outModule)
 {
 	// Read in packed .wasm file bytes.
 	auto wasmBytes = loadFile(wasmFilename);
-	if(!wasmBytes.size()) { return nullptr; }
+	if(!wasmBytes.size()) { return false; }
 	
 	// Load the static data from the .mem file on the commandline.
 	auto staticMemoryData = loadFile(memFilename);
-	if(!staticMemoryData.size()) { return nullptr; }
+	if(!staticMemoryData.size()) { return false; }
 
 	// Load the module from a binary WebAssembly file.
 	#if WAVM_TIMER_OUTPUT
 	Core::Timer loadTimer;
 	#endif
 	std::vector<AST::ErrorRecord*> errors;
-	AST::Module* module;
-	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),staticMemoryData.data(),staticMemoryData.size(),module,errors))
+	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),staticMemoryData.data(),staticMemoryData.size(),outModule,errors))
 	{
 		std::cerr << "Error parsing WebAssembly binary file:" << std::endl;
 		for(auto error : errors) { std::cerr << wasmFilename << ":" << error->message.c_str() << std::endl; }
@@ -104,7 +105,7 @@ inline AST::Module* loadBinaryModule(const char* wasmFilename,const char* memFil
 	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
 	#endif
 
-	return module;
+	return true;
 }
 
 inline std::string describeRuntimeValue(const Runtime::Value& value)

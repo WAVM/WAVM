@@ -5,16 +5,16 @@
 
 int main(int argc,char** argv)
 {
-	AST::Module* module;
+	AST::Module* module = nullptr;
 	const char* outputFilename;
 	if(argc == 4 && !strcmp(argv[1],"-text"))
 	{
-		module = loadTextModule(argv[2]);
+		if(!loadTextModule(argv[2],module)) { return EXIT_FAILURE; }
 		outputFilename = argv[3];
 	}
 	else if(argc == 5 && !strcmp(argv[1],"-binary"))
 	{
-		module = loadBinaryModule(argv[2],argv[3]);
+		if(!loadBinaryModule(argv[2],argv[3],module)) { return EXIT_FAILURE; }
 		outputFilename = argv[4];
 	}
 	else
@@ -23,8 +23,6 @@ int main(int argc,char** argv)
 		std::cerr <<  "       Print -text in.wast out.wast" << std::endl;
 		return EXIT_FAILURE;
 	}
-	
-	if(!module) { return EXIT_FAILURE; }
 	
 	Core::Timer printTimer;
 	std::ofstream outputStream(outputFilename);

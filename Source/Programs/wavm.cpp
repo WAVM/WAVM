@@ -32,7 +32,7 @@ int main(int argc,char** argv)
 	const char* binaryMemFile = 0;
 	const char* functionName = 0;
 
-	bool check = false;
+	bool onlyCheck = false;
 	auto args = argv;
 	while(*++args)
 	{
@@ -65,7 +65,7 @@ int main(int argc,char** argv)
 		}
 		else if(!strcmp(*args, "--check") || !strcmp(*args, "-c"))
 		{
-			check = true;
+			onlyCheck = true;
 		}
 		else if(!strcmp(*args, "--"))
 		{
@@ -84,12 +84,12 @@ int main(int argc,char** argv)
 	const char* main_arg0 = 0;
 	if(sourceFile)
 	{
-		module = loadTextModule(sourceFile);
+		if(!loadTextModule(sourceFile,module)) { return EXIT_FAILURE; }
 		main_arg0 = sourceFile;
 	}
 	else if(binaryFile)
 	{
-		module = loadBinaryModule(binaryFile,binaryMemFile);
+		if(!loadBinaryModule(binaryFile,binaryMemFile,module)) { return EXIT_FAILURE; }
 		main_arg0 = binaryFile;
 	}
 	else
@@ -97,9 +97,8 @@ int main(int argc,char** argv)
 		showHelp();
 		return EXIT_FAILURE;
 	}
-	if(!module) { return EXIT_FAILURE; }
 
-	if (check) { return EXIT_SUCCESS; }
+	if(onlyCheck) { return EXIT_SUCCESS; }
 
 	if(!Runtime::init()) { return EXIT_FAILURE; }
 	if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
@@ -126,10 +125,10 @@ int main(int argc,char** argv)
 	}
 
 	std::vector<Runtime::Value> parameters;
-	auto function = module->functions[functionExport->second];
+	const AST::Function& function = module->functions[functionExport->second];
 	if(!functionName)
 	{
-		if(function->type.parameters.size() == 2)
+		if(function.type.parameters.size() == 2)
 		{
 			uintptr main_argc_start = args-argv-1;
 			auto main_argc = (uintptr)argc - main_argc_start;
@@ -148,21 +147,21 @@ int main(int argc,char** argv)
 			std::vector<Runtime::Value> mainParameters = {(uint32)main_argc, (uint32)main_argv};
 			parameters = mainParameters;
 		}
-		else if(function->type.parameters.size() > 0)
+		else if(function.type.parameters.size() > 0)
 		{
-			std::cerr << "'" << function->name << "' requires " << function->type.parameters.size() << " argument(s), but only 0 or 2 can be passed!" << std::endl;
+			std::cerr << "'" << function.name << "' requires " << function.type.parameters.size() << " argument(s), but only 0 or 2 can be passed!" << std::endl;
 			return EXIT_FAILURE;
 		}
 	}
 	else
 	{
-		parameters.resize(function->type.parameters.size());
+		parameters.resize(function.type.parameters.size());
 		uintptr main_argc_start = args-argv;
-		auto end = (uintptr)std::min((uintptr)function->type.parameters.size(), (uintptr)(argc - main_argc_start));
+		auto end = (uintptr)std::min((uintptr)function.type.parameters.size(), (uintptr)(argc - main_argc_start));
 		for(uint32 i = 0; i < end; ++i)
 		{
 			Runtime::Value value;
-			switch((Runtime::TypeId)function->type.parameters[i])
+			switch((Runtime::TypeId)function.type.parameters[i])
 			{
 			case Runtime::TypeId::Void:
 			case Runtime::TypeId::None: break;
@@ -189,7 +188,7 @@ int main(int argc,char** argv)
 
 	if(functionResult.type == Runtime::TypeId::Exception)
 	{
-		std::cerr << function->name << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
+		std::cerr << function.name << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
 		for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
 		return EXIT_FAILURE;
 	}

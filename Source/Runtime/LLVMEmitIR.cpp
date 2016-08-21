@@ -83,7 +83,7 @@ namespace LLVMJIT
 	{
 		ModuleIR& moduleIR;
 		const Module* astModule;
-		Function* astFunction;
+		const Function& astFunction;
 		llvm::Function* llvmFunction;
 		llvm::IRBuilder<> irBuilder;
 
@@ -241,13 +241,13 @@ namespace LLVMJIT
 		// Local get/set
 		DispatchResult visitGetLocal(TypeId type,const GetLocal* getVariable)
 		{
-			assert(getVariable->variableIndex < astFunction->locals.size());
+			assert(getVariable->variableIndex < astFunction.locals.size());
 			return irBuilder.CreateLoad(localVariablePointers[getVariable->variableIndex]);
 		}
 		DispatchResult visitSetLocal(const SetLocal* setVariable)
 		{
-			assert(setVariable->variableIndex < astFunction->locals.size());
-			auto value = dispatch(*this,setVariable->value,astFunction->locals[setVariable->variableIndex].type);
+			assert(setVariable->variableIndex < astFunction.locals.size());
+			auto value = dispatch(*this,setVariable->value,astFunction.locals[setVariable->variableIndex].type);
 			irBuilder.CreateStore(value,localVariablePointers[setVariable->variableIndex]);
 			return value;
 		}
@@ -306,9 +306,9 @@ namespace LLVMJIT
 
 		DispatchResult visitCall(TypeId type,const Call* call,OpTypes<AnyClass>::callDirect)
 		{
-			auto calledFunction = astModule->functions[call->functionIndex];
-			assert(calledFunction->type.returnType == type);
-			return compileCall(calledFunction->type,moduleIR.functions[call->functionIndex],call->parameters);
+			const Function& calledFunction = astModule->functions[call->functionIndex];
+			assert(calledFunction.type.returnType == type);
+			return compileCall(calledFunction.type,moduleIR.functions[call->functionIndex],call->parameters);
 		}
 		DispatchResult visitCall(TypeId type,const Call* call,OpTypes<AnyClass>::callImport)
 		{
@@ -556,11 +556,11 @@ namespace LLVMJIT
 		}
 		DispatchResult visitReturn(TypeId type,const Return* ret)
 		{
-			auto returnValue = ret->value ? dispatch(*this,ret->value,astFunction->type.returnType) : voidDummy;
+			auto returnValue = ret->value ? dispatch(*this,ret->value,astFunction.type.returnType) : voidDummy;
 
 			if(irBuilder.GetInsertBlock() != unreachableBlock)
 			{
-				if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
+				if(astFunction.type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
 				else { irBuilder.CreateRet(returnValue); }
 			
 				// Set the insert point to the unreachable block.
@@ -799,10 +799,10 @@ namespace LLVMJIT
 		irBuilder.SetInsertPoint(entryBasicBlock);
 
 		// Create allocas for all the locals and initialize them to zero.
-		localVariablePointers = new(scopedArena) llvm::Value*[astFunction->locals.size()];
-		for(uintptr localIndex = 0;localIndex < astFunction->locals.size();++localIndex)
+		localVariablePointers = new(scopedArena) llvm::Value*[astFunction.locals.size()];
+		for(uintptr localIndex = 0;localIndex < astFunction.locals.size();++localIndex)
 		{
-			auto localVariable = astFunction->locals[localIndex];
+			auto localVariable = astFunction.locals[localIndex];
 			localVariablePointers[localIndex] = irBuilder.CreateAlloca(asLLVMType(localVariable.type),nullptr,getLLVMName(localVariable.name));
 			irBuilder.CreateStore(typedZeroConstants[(uintptr)localVariable.type],localVariablePointers[localIndex]);
 		}
@@ -811,28 +811,28 @@ namespace LLVMJIT
 		uintptr parameterIndex = 0;
 		for(auto llvmArgIt = llvmFunction->arg_begin();llvmArgIt != llvmFunction->arg_end();++parameterIndex,++llvmArgIt)
 		{
-			auto localIndex = astFunction->parameterLocalIndices[parameterIndex];
+			auto localIndex = astFunction.parameterLocalIndices[parameterIndex];
 			irBuilder.CreateStore((llvm::Argument*)llvmArgIt,localVariablePointers[localIndex]);
 		}
 
 		// Create and link the context for this function's return branch target into the list of in-scope contexts.
 		auto returnBasicBlock = llvm::BasicBlock::Create(context,"return",llvmFunction);
-		BranchContext returnBranchContext = {astFunction->returnTarget,returnBasicBlock,nullptr,nullptr};
+		BranchContext returnBranchContext = {astFunction.returnTarget,returnBasicBlock,nullptr,nullptr};
 		branchContext = &returnBranchContext;
 
 		// Traverse the function's expressions.
-		auto value = dispatch(*this,astFunction->expression,astFunction->type.returnType);
+		auto value = dispatch(*this,astFunction.expression,astFunction.type.returnType);
 
 		// Branch to the return block.
 		auto exitBlock = compileBranch(returnBasicBlock);
 		irBuilder.SetInsertPoint(returnBasicBlock);
 
 		// Create a phi node that merges all the possible values yielded by the function into one.
-		if(astFunction->type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
-		else if(!exitBlock && !returnBranchContext.results) { irBuilder.CreateRet(typedZeroConstants[(uintptr)astFunction->type.returnType]); }
+		if(astFunction.type.returnType == TypeId::Void) { irBuilder.CreateRetVoid(); }
+		else if(!exitBlock && !returnBranchContext.results) { irBuilder.CreateRet(typedZeroConstants[(uintptr)astFunction.type.returnType]); }
 		else
 		{
-			auto phi = irBuilder.CreatePHI(asLLVMType(astFunction->type.returnType),2);
+			auto phi = irBuilder.CreatePHI(asLLVMType(astFunction.type.returnType),2);
 			if(exitBlock) { phi->addIncoming(value,exitBlock); }
 			for(auto result = returnBranchContext.results;result;result = result->next) { phi->addIncoming(result->value,result->incomingBlock); }
 			irBuilder.CreateRet(phi);
@@ -862,7 +862,7 @@ namespace LLVMJIT
 		for(uintptr functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
 		{
 			auto astFunction = astModule->functions[functionIndex];
-			auto llvmFunctionType = asLLVMType(astFunction->type);
+			auto llvmFunctionType = asLLVMType(astFunction.type);
 			auto externalName = getExternalFunctionName(functionIndex,false);
 			moduleIR.functions[functionIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,externalName,moduleIR.llvmModule);
 
@@ -902,7 +902,7 @@ namespace LLVMJIT
 		for(uint32 functionIndex = 0;functionIndex < astFunctionTable.numFunctions;++functionIndex)
 		{
 			assert(astFunctionTable.functionIndices[functionIndex] < moduleIR.functions.size());
-			auto signatureIndex = moduleIR.getSignatureIndex(astModule->functions[astFunctionTable.functionIndices[functionIndex]]->type);
+			auto signatureIndex = moduleIR.getSignatureIndex(astModule->functions[astFunctionTable.functionIndices[functionIndex]].type);
 			auto llvmFunction = moduleIR.functions[astFunctionTable.functionIndices[functionIndex]];
 			llvmFunctionTableElements[functionIndex] = llvm::ConstantStruct::get(
 				functionPointerTableElementType,
@@ -930,7 +930,7 @@ namespace LLVMJIT
 		// Create thunks for invoking each function.
 		for(uintptr functionIndex = 0;functionIndex < astModule->functions.size();++functionIndex)
 		{
-			auto astFunction = astModule->functions[functionIndex];
+			const Function& astFunction = astModule->functions[functionIndex];
 
 			llvm::Type* const i64PointerType = llvm::Type::getInt64PtrTy(context);
 			auto llvmFunctionType = llvm::FunctionType::get(llvm::Type::getVoidTy(context),llvm::ArrayRef<llvm::Type*>(&i64PointerType,(size_t)1),false);
@@ -942,12 +942,12 @@ namespace LLVMJIT
 			// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
 			llvm::Value* argBaseAddress = (llvm::Argument*)thunk->args().begin();
 			std::vector<llvm::Value*> structArgLoads;
-			for(uintptr parameterIndex = 0;parameterIndex < astFunction->type.parameters.size();++parameterIndex)
+			for(uintptr parameterIndex = 0;parameterIndex < astFunction.type.parameters.size();++parameterIndex)
 			{
 				structArgLoads.push_back(irBuilder.CreateLoad(
 					irBuilder.CreatePointerCast(
 						irBuilder.CreateInBoundsGEP(argBaseAddress,{compileLiteral((uintptr)parameterIndex)}),
-						asLLVMType(astFunction->type.parameters[parameterIndex])->getPointerTo()
+						asLLVMType(astFunction.type.parameters[parameterIndex])->getPointerTo()
 						)
 					));
 			}
@@ -956,13 +956,13 @@ namespace LLVMJIT
 			auto returnValue = irBuilder.CreateCall(moduleIR.functions[functionIndex],structArgLoads);
 
 			// If the function has a return value, write it to the end of the argument array.
-			if(astFunction->type.returnType != TypeId::Void)
+			if(astFunction.type.returnType != TypeId::Void)
 			{
-				auto llvmReturnType = asLLVMType(astFunction->type.returnType);
+				auto llvmReturnType = asLLVMType(astFunction.type.returnType);
 				irBuilder.CreateStore(
 					returnValue,
 					irBuilder.CreatePointerCast(
-						irBuilder.CreateInBoundsGEP(argBaseAddress,{compileLiteral((uintptr)astFunction->type.parameters.size())}),
+						irBuilder.CreateInBoundsGEP(argBaseAddress,{compileLiteral((uintptr)astFunction.type.parameters.size())}),
 						llvmReturnType->getPointerTo()
 						)
 					);

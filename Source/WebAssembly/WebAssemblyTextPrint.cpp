@@ -83,7 +83,7 @@ namespace WebAssemblyText
 		}
 		std::string getFunctionName(uintptr functionIndex) const
 		{
-			if(module->functions[functionIndex]->name) { return std::string("$_") + module->functions[functionIndex]->name; }
+			if(module->functions[functionIndex].name) { return std::string("$_") + module->functions[functionIndex].name; }
 			else { return "$func" + std::to_string(functionIndex); }
 		}
 		std::string getFunctionTableName(uintptr functionTableIndex) const
@@ -273,7 +273,7 @@ namespace WebAssemblyText
 				? moduleContext.getFunctionName(call->functionIndex)
 				: moduleContext.getFunctionImportName(call->functionIndex);
 			auto functionType = call->op() == AnyOp::callDirect
-				? moduleContext.module->functions[call->functionIndex]->type
+				? moduleContext.module->functions[call->functionIndex].type
 				: moduleContext.module->functionImports[call->functionIndex].type;
 			subtreeStream << functionName;
 			for(uintptr parameterIndex = 0;parameterIndex < functionType.parameters.size();++parameterIndex)
@@ -410,7 +410,7 @@ namespace WebAssemblyText
 	SNodeOutputStream ModulePrintContext::printFunction(uintptr functionIndex)
 	{
 		// Before printing, lower the function's expressions into those supported by WAST.
-		Function loweredFunction = *module->functions[functionIndex];
+		Function loweredFunction = module->functions[functionIndex];
 		LoweringVisitor loweringVisitor(arena,module,&loweredFunction);
 		loweredFunction.expression = loweringVisitor(TypedExpression(loweredFunction.expression,loweredFunction.type.returnType)).expression;
 		
@@ -530,8 +530,7 @@ namespace WebAssemblyText
 		// Print the indirect call signatures.
 		for(uintptr elementIndex = 0;elementIndex < module->functionTable.numFunctions;++elementIndex)
 		{
-			auto function = module->functions[module->functionTable.functionIndices[elementIndex]];
-			getSignatureIndex(function->type);
+			getSignatureIndex(module->functions[module->functionTable.functionIndices[elementIndex]].type);
 		}
 		for(auto functionTypeIndex : functionTypeToSignatureIndexMap)
 		{

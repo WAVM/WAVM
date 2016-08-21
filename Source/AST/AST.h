@@ -183,7 +183,7 @@ namespace AST
 	{
 		Memory::Arena arena;
 
-		std::vector<Function*> functions;
+		std::vector<Function> functions;
 		ExportNameToFunctionIndexMap exportNameToFunctionIndexMap;
 		FunctionTable functionTable;
 		std::vector<FunctionImport> functionImports;
@@ -194,18 +194,5 @@ namespace AST
 		uintptr startFunctionIndex;
 
 		Module() : initialNumPagesMemory(0), maxNumPagesMemory(0), startFunctionIndex(UINTPTR_MAX) {}
-
-		// When copying a module, copy everything but the arena!
-		// This means the new module will have its own arena, but will reference expressions and other data stored in the old module's arena.
-		Module(const Module& inCopy)
-		: functions(inCopy.functions)
-		, exportNameToFunctionIndexMap(inCopy.exportNameToFunctionIndexMap)
-		, functionTable(inCopy.functionTable)
-		, functionImports(inCopy.functionImports)
-		, dataSegments(inCopy.dataSegments)
-		, initialNumPagesMemory(inCopy.initialNumPagesMemory)
-		, maxNumPagesMemory(inCopy.maxNumPagesMemory)
-		, startFunctionIndex(inCopy.startFunctionIndex)
-		{}
 	};
 }

@@ -208,7 +208,7 @@ namespace AST
 			const FunctionType* functionType;
 			switch(call->op())
 			{
-			case AnyOp::callDirect: functionType = &module->functions[call->functionIndex]->type; break;
+			case AnyOp::callDirect: functionType = &module->functions[call->functionIndex].type; break;
 			case AnyOp::callImport: functionType = &module->functionImports[call->functionIndex].type; break;
 			default: throw;
 			}

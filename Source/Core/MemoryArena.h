@@ -31,6 +31,18 @@ namespace Memory
 		Arena(size_t inDefaultSegmentBytes = 8192)
 		: defaultSegmentBytes(inDefaultSegmentBytes), currentSegment(nullptr), currentSegmentAllocatedBytes(0), totalAllocatedBytes(0), totalWastedBytes(0) {}
 		Arena(const Arena&) = delete;
+		Arena(Arena&& inMove)
+		: defaultSegmentBytes(inMove.defaultSegmentBytes)
+		, currentSegment(inMove.currentSegment)
+		, currentSegmentAllocatedBytes(inMove.currentSegmentAllocatedBytes)
+		, totalAllocatedBytes(inMove.totalAllocatedBytes)
+		, totalWastedBytes(inMove.totalWastedBytes)
+		{
+			inMove.currentSegment = nullptr;
+			inMove.currentSegmentAllocatedBytes = 0;
+			inMove.totalAllocatedBytes = 0;
+			inMove.totalWastedBytes = 0;
+		}
 		CORE_API ~Arena();
 	
 		CORE_API void* allocate(size_t numBytes);

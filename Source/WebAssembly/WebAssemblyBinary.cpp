@@ -708,18 +708,18 @@ namespace WebAssemblyBinary
 		typename Class::ClassExpression* callInternal(TypeId returnType,uint32 functionIndex)
 		{
 			if(functionIndex >= module.functions.size()) { throw new FatalDecodeException("callinternal: invalid function index"); }
-			auto function = module.functions[functionIndex];
-			auto parameters = decodeParameters(function->type.parameters);
-			return function->type.returnType == returnType
+			const Function& function = module.functions[functionIndex];
+			auto parameters = decodeParameters(function.type.parameters);
+			return function.type.returnType == returnType
 				? as<Class>(new(arena) Call(AnyOp::callDirect,Class::id,functionIndex,parameters))
 				: recordError<Class>("callinternal: incorrect type");
 		}
 		VoidExpression* callInternalStatement(uint32 functionIndex)
 		{
 			if(functionIndex >= module.functions.size()) { throw new FatalDecodeException("callinternal: invalid function index"); }
-			auto function = module.functions[functionIndex];
-			auto returnType = function->type.returnType;
-			switch(function->type.returnType)
+			const Function& function = module.functions[functionIndex];
+			auto returnType = function.type.returnType;
+			switch(function.type.returnType)
 			{
 			case TypeId::I32: return new(arena) DiscardResult(TypedExpression(callInternal<IntClass>(TypeId::I32,functionIndex),returnType));
 			case TypeId::F32: return new(arena) DiscardResult(TypedExpression(callInternal<FloatClass>(TypeId::F32,functionIndex),returnType));
@@ -1395,7 +1395,7 @@ namespace WebAssemblyBinary
 		{
 			for(size_t functionIndex = 0; functionIndex < module.functions.size(); functionIndex++)
 			{
-				currentFunction = module.functions[functionIndex];
+				currentFunction = &module.functions[functionIndex];
 
 				// Decode the number of local variables used by the function.
 				uint32 numLocalI32s = 0;
@@ -1468,7 +1468,7 @@ namespace WebAssemblyBinary
 					module.exportNameToFunctionIndexMap[exportName.c_str()] = functionIndex;
 
 					// Also set the export name on the function.
-					module.functions[functionIndex]->name = exportName.c_str();
+					module.functions[functionIndex].name = exportName.c_str();
 				}
 				break;
 			}
@@ -1601,9 +1601,7 @@ namespace WebAssemblyBinary
 			module.functions.resize(numFunctions);
 			for(uint32 functionIndex = 0;functionIndex < numFunctions;++functionIndex)
 			{
-				auto function = new(arena) Function;
-				module.functions[functionIndex] = function;
-				function->type = functionTypes[in.boundedImmU32("function type index",functionTypes.size())];
+				module.functions[functionIndex].type = functionTypes[in.boundedImmU32("function type index",functionTypes.size())];
 			}
 		}
 

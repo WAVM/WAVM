@@ -356,8 +356,8 @@ namespace Runtime
 		for(auto exportIt : module->exportNameToFunctionIndexMap)
 		{
 			if(!strncmp(exportIt.first,"__GLOBAL__",10)
-				&& !module->functions[exportIt.second]->type.parameters.size()
-				&& module->functions[exportIt.second]->type.returnType == AST::TypeId::Void)
+				&& !module->functions[exportIt.second].type.parameters.size()
+				&& module->functions[exportIt.second].type.returnType == AST::TypeId::Void)
 			{
 				auto result = Runtime::invokeFunction(module,exportIt.second,nullptr);
 				if(result.type == Runtime::TypeId::Exception)
@@ -372,11 +372,11 @@ namespace Runtime
 		auto establishStackSpaceExport = module->exportNameToFunctionIndexMap.find("establishStackSpace");
 		if(establishStackSpaceExport != module->exportNameToFunctionIndexMap.end())
 		{
-			auto establishStackSpaceFunction = module->functions[establishStackSpaceExport->second];
-			if(establishStackSpaceFunction->type.parameters.size() != 2
-				|| establishStackSpaceFunction->type.parameters[0] != AST::TypeId::I32
-				|| establishStackSpaceFunction->type.parameters[1] != AST::TypeId::I32
-				|| establishStackSpaceFunction->type.returnType != AST::TypeId::Void)
+			const AST::Function& establishStackSpaceFunction = module->functions[establishStackSpaceExport->second];
+			if(establishStackSpaceFunction.type.parameters.size() != 2
+				|| establishStackSpaceFunction.type.parameters[0] != AST::TypeId::I32
+				|| establishStackSpaceFunction.type.parameters[1] != AST::TypeId::I32
+				|| establishStackSpaceFunction.type.returnType != AST::TypeId::Void)
 			{
 				std::cerr << "Module exports 'establishStackSpace' but it isn't the right type?!" << std::endl;
 			}

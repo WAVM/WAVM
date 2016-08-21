@@ -360,8 +360,8 @@ namespace LLVMJIT
 					if(getFunctionIndexFromExternalName(function.name.data(),functionIndex))
 					{
 						assert(functionIndex < jitModule->astModule->functions.size());
-						auto astFunction = jitModule->astModule->functions[functionIndex];
-						if(astFunction->name) { outDescription = astFunction->name; return true; }
+						const AST::Function& astFunction = jitModule->astModule->functions[functionIndex];
+						if(astFunction.name) { outDescription = astFunction.name; return true; }
 					}
 
 					outDescription = function.name;

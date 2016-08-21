@@ -93,7 +93,7 @@ namespace Runtime
 		// Call the module's start function.
 		if(module->startFunctionIndex != UINTPTR_MAX)
 		{
-			assert(module->functions[module->startFunctionIndex]->type == AST::FunctionType());
+			assert(module->functions[module->startFunctionIndex].type == AST::FunctionType());
 			invokeFunction(module,module->startFunctionIndex,nullptr);
 		}
 
@@ -103,11 +103,11 @@ namespace Runtime
 	Value invokeFunction(const AST::Module* module,uintptr functionIndex,const Value* parameters)
 	{
 		// Check that the parameter types match the function, and copy them into a memory block that stores each as a 64-bit value.
-		auto function = module->functions[functionIndex];
-		uint64* thunkMemory = (uint64*)alloca((function->type.parameters.size() + 1) * sizeof(uint64));
-		for(uintptr parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
+		const AST::Function& function = module->functions[functionIndex];
+		uint64* thunkMemory = (uint64*)alloca((function.type.parameters.size() + 1) * sizeof(uint64));
+		for(uintptr parameterIndex = 0;parameterIndex < function.type.parameters.size();++parameterIndex)
 		{
-			if((Runtime::TypeId)(function->type.parameters[parameterIndex]) != parameters[parameterIndex].type)
+			if((Runtime::TypeId)(function.type.parameters[parameterIndex]) != parameters[parameterIndex].type)
 			{
 				return Value(new Exception {Exception::Cause::InvokeSignatureMismatch});
 			}
@@ -127,8 +127,8 @@ namespace Runtime
 
 			// Read the return value out of the thunk memory block.
 			Value returnValue;
-			returnValue.type = (Runtime::TypeId)function->type.returnType;
-			returnValue.i64 = thunkMemory[function->type.parameters.size()];
+			returnValue.type = (Runtime::TypeId)function.type.returnType;
+			returnValue.i64 = thunkMemory[function.type.parameters.size()];
 			return returnValue;
 		});
 	}

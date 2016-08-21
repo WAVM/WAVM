@@ -25,36 +25,33 @@ namespace WebAssemblyText
 	typedef std::map<const char*,BranchTarget*,Core::StringCompareFunctor> NameToBranchTargetMap;
 
 	// Creates and records an error with the given message and location.
-	template<typename Error> Error* recordError(std::vector<ErrorRecord*>& outErrors,const Core::TextFileLocus& locus,std::string&& message)
+	template<typename Error> Error* recordError(File& file,const Core::TextFileLocus& locus,std::string&& message)
 	{
-		auto error = new Error(std::move(message),locus);
-		outErrors.push_back(error);
+		auto error = new(file.testAndErrorArena) Error(std::move(message),locus);
+		file.errors.push_back(error);
 		return error;
 	}
 	
 	// Creates and record a S-expression error node.
-	template<typename Error> Error* recordSExpError(std::vector<ErrorRecord*>& outErrors,SExp::Node* node)
+	template<typename Error> Error* recordSExpError(File& file,SExp::Node* node)
 	{
-		auto messageLength = strlen(node->error) + 1;
-		auto messageCopy = new char[messageLength];
-		memcpy(messageCopy,node->error,messageLength);
-		return recordError<Error>(outErrors,node->startLocus,messageCopy);
+		return recordError<Error>(file,node->startLocus,node->error);
 	}
 
 	// Creates and records an error with the given message and location (taken from nodeIt).
-	template<typename Error> Error* recordError(std::vector<ErrorRecord*>& outErrors,SNodeIt nodeIt,std::string&& message)
+	template<typename Error> Error* recordError(File& file,SNodeIt nodeIt,std::string&& message)
 	{
 		// If the referenced node is a S-expression error, pass it through as well.
-		if(nodeIt && nodeIt->type == SExp::NodeType::Error) { recordSExpError<ErrorRecord>(outErrors,nodeIt); }
+		if(nodeIt && nodeIt->type == SExp::NodeType::Error) { recordSExpError<ErrorRecord>(file,nodeIt); }
 
 		const Core::TextFileLocus& locus = nodeIt.node ? nodeIt.node->startLocus : nodeIt.previousLocus;
-		return recordError<Error>(outErrors,locus,std::move(message));
+		return recordError<Error>(file,locus,std::move(message));
 	}
 	
-	template<typename Error> Error* recordExcessInputError(std::vector<ErrorRecord*>& outErrors,SNodeIt nodeIt,const char* errorContext)
+	template<typename Error> Error* recordExcessInputError(File& file,SNodeIt nodeIt,const char* errorContext)
 	{
 		auto message = std::string("unexpected input following ") + errorContext;
-		return recordError<Error>(outErrors,nodeIt,std::move(message));
+		return recordError<Error>(file,nodeIt,std::move(message));
 	}
 
 	// Parse a type from a S-expression symbol.
@@ -155,13 +152,13 @@ namespace WebAssemblyText
 	
 	// Parse a variable from the child nodes of a local, or param node. Names are copied into the provided memory arena.
 	// Format is (name type) | type+
-	size_t parseVariables(SNodeIt& childNodeIt,std::vector<Variable>& outVariables,std::vector<ErrorRecord*>& outErrors,Memory::Arena& arena)
+	size_t parseVariables(SNodeIt& childNodeIt,std::vector<Variable>& outVariables,File& file,Memory::Arena& arena)
 	{
 		const char* name;
 		if(parseName(childNodeIt,name))
 		{
 			TypeId type;
-			if(!parseType(childNodeIt,type)) { recordError<ErrorRecord>(outErrors,childNodeIt,std::string("expected type for: '") + name + "'"); return 0; }
+			if(!parseType(childNodeIt,type)) { recordError<ErrorRecord>(file,childNodeIt,std::string("expected type for: '") + name + "'"); return 0; }
 			auto nameCopy = arena.copyToArena(name,strlen(name)+1);
 			outVariables.emplace_back(Variable({type,nameCopy}));
 			return 1;
@@ -172,7 +169,7 @@ namespace WebAssemblyText
 			while(childNodeIt)
 			{
 				TypeId type;
-				if(!parseType(childNodeIt,type)) { recordError<ErrorRecord>(outErrors,childNodeIt,"expected type"); return numVariables; }
+				if(!parseType(childNodeIt,type)) { recordError<ErrorRecord>(file,childNodeIt,"expected type"); return numVariables; }
 				outVariables.emplace_back(Variable({type,nullptr}));
 				++numVariables;
 			}
@@ -198,14 +195,14 @@ namespace WebAssemblyText
 	}
 
 	// Builds a map from name to index from an array of variables.
-	void buildVariableNameToIndexMapMap(const std::vector<Variable>& variables,NameToIndexMap& outNameToIndexMap,std::vector<ErrorRecord*>& outErrors)
+	void buildVariableNameToIndexMapMap(const std::vector<Variable>& variables,NameToIndexMap& outNameToIndexMap,File& file)
 	{
 		for(uintptr variableIndex = 0;variableIndex < variables.size();++variableIndex)
 		{
 			const auto& variable = variables[variableIndex];
 			if(variable.name != nullptr)
 			{
-				if(outNameToIndexMap.count(variable.name)) { recordError<ErrorRecord>(outErrors,SNodeIt(nullptr),std::string("duplicate variable name: ") + variable.name); }
+				if(outNameToIndexMap.count(variable.name)) { recordError<ErrorRecord>(file,SNodeIt(nullptr),std::string("duplicate variable name: ") + variable.name); }
 				else { outNameToIndexMap[variable.name] = variableIndex; }
 			}
 		}
@@ -214,33 +211,33 @@ namespace WebAssemblyText
 	// Context that is shared between functions parsing a module.
 	struct ModuleContext
 	{
-		Module* module;
+		Module& module;
 		NameToIndexMap functionNameToIndexMap;
 		NameToIndexMap functionTableNameToIndexMap;
 		NameToIndexMap functionImportNameToIndexMap;
 		NameToIndexMap intrinsicNameToImportIndexMap;
 		NameToIndexMap signatureNameToIndexMap;
 		std::vector<FunctionType> signatures;
-		std::vector<ErrorRecord*>& outErrors;
+		File& file;
 
-		ModuleContext(Module* inModule,std::vector<ErrorRecord*>& inOutErrors): module(inModule), outErrors(inOutErrors) {}
+		ModuleContext(Module& inModule,File& inFile): module(inModule), file(inFile) {}
 
-		Module* parse(SNodeIt moduleNode);
+		void parse(SNodeIt moduleNode);
 	};
 
 	// Context that is shared between functions parsing a function.
 	struct FunctionContext
 	{
-		FunctionContext(ModuleContext& inModuleContext,Function* inFunction)
-		:	arena(inModuleContext.module->arena)
-		,	outErrors(inModuleContext.outErrors)
+		FunctionContext(ModuleContext& inModuleContext,Function& inFunction)
+		:	arena(inModuleContext.module.arena)
+		,	file(inModuleContext.file)
 		,	moduleContext(inModuleContext)
 		,	function(inFunction)
 		{
 			// Build a map from local/parameter names to indices.
-			buildVariableNameToIndexMapMap(function->locals,localNameToIndexMap,outErrors);
+			buildVariableNameToIndexMapMap(function.locals,localNameToIndexMap,file);
 
-			scopedBranchTargets.push_back(function->returnTarget);
+			scopedBranchTargets.push_back(function.returnTarget);
 		}
 		
 		// Parses an expression of a specific type that's not known at compile time. Returns an UntypedExpression because the type is known to the caller.
@@ -269,9 +266,9 @@ namespace WebAssemblyText
 
 	private:
 		Memory::Arena& arena;
-		std::vector<ErrorRecord*>& outErrors;
+		File& file;
 		ModuleContext& moduleContext;
-		Function* function;
+		Function& function;
 		NameToIndexMap localNameToIndexMap;
 		NameToBranchTargetMap labelToBranchTargetMap;
 
@@ -351,13 +348,13 @@ namespace WebAssemblyText
 					SNodeIt errorNodeIt = nodeIt;
 					if(parseUnsignedInt(nodeIt,parsedInt))
 					{
-						if((uintptr)parsedInt > scopedBranchTargets.size() - 1) { return TypedExpression(recordError<Error>(outErrors,errorNodeIt,std::string("br_if: invalid offset: '")+std::to_string(parsedInt)+"' > "+std::to_string(scopedBranchTargets.size()-1)),TypeId::Void); }
+						if((uintptr)parsedInt > scopedBranchTargets.size() - 1) { return TypedExpression(recordError<Error>(file,errorNodeIt,std::string("br_if: invalid offset: '")+std::to_string(parsedInt)+"' > "+std::to_string(scopedBranchTargets.size()-1)),TypeId::Void); }
 						branchTarget = scopedBranchTargets[scopedBranchTargets.size() - 1 - (uintptr)parsedInt];
 					}
 					else if(parseName(nodeIt,name))
 					{
 						auto it = labelToBranchTargetMap.find(name);
-						if(it == labelToBranchTargetMap.end()) { return TypedExpression(recordError<Error>(outErrors,errorNodeIt,std::string("br_if: unknown label name: '")+name+"'"),TypeId::Void); }
+						if(it == labelToBranchTargetMap.end()) { return TypedExpression(recordError<Error>(file,errorNodeIt,std::string("br_if: unknown label name: '")+name+"'"),TypeId::Void); }
 						branchTarget = it->second;
 					}
 					else
@@ -367,7 +364,7 @@ namespace WebAssemblyText
 					}
 					if(!branchTarget)
 					{
-						return TypedExpression(recordError<Error>(outErrors,nodeIt,"br_if: expected label name or index"),TypeId::Void);
+						return TypedExpression(recordError<Error>(file,nodeIt,"br_if: expected label name or index"),TypeId::Void);
 					}
 					
 					// If there are two more parameters, the first is the value and the second the condition. If there's only one, then it must be the condition.
@@ -377,7 +374,7 @@ namespace WebAssemblyText
 					auto value = hasValueOperand ? parseTypedExpression(branchTarget->type,nodeIt,"br_if value") : nullptr;
 					auto condition = parseTypedExpression<IntClass>(TypeId::I32,nodeIt,"br_if condition");
 					if (!hasValueOperand && branchTarget->type != TypeId::Void)
-						{ recordError<ErrorRecord>(outErrors,errorNodeIt,"mismatch type"); }
+						{ recordError<ErrorRecord>(file,errorNodeIt,"mismatch type"); }
 
 					// Create BranchIf node.
 					auto result = new(arena) BranchIf(branchTarget,condition,value);
@@ -408,22 +405,22 @@ namespace WebAssemblyText
 				{
 					int64 integer;
 					SNodeIt literalNodeIt = nodeIt;
-					if(!parseInt(nodeIt,integer)) { return TypedExpression(recordError<Error>(outErrors,nodeIt,"const: expected integer literal"),opType); }
+					if(!parseInt(nodeIt,integer)) { return TypedExpression(recordError<Error>(file,nodeIt,"const: expected integer literal"),opType); }
 					switch(opType)
 					{
 					case TypeId::I8:
 						if(integer < std::numeric_limits<int8>::min() || integer > std::numeric_limits<uint8>::max())
-						{ return TypedExpression(recordError<Error>(outErrors,literalNodeIt,"const: literal doesn't fit in 8-bit integer"),opType); }
+						{ return TypedExpression(recordError<Error>(file,literalNodeIt,"const: literal doesn't fit in 8-bit integer"),opType); }
 						else
 						{ return TypedExpression(requireFullMatch(nodeIt,"const.i8",new(arena)Literal<I8Type>((uint8)integer)),TypeId::I8); }
 					case TypeId::I16:
 						if(integer < std::numeric_limits<int16>::min() || integer > std::numeric_limits<uint16>::max())
-						{ return TypedExpression(recordError<Error>(outErrors,literalNodeIt,"const: literal doesn't fit in 16-bit integer"),opType); }
+						{ return TypedExpression(recordError<Error>(file,literalNodeIt,"const: literal doesn't fit in 16-bit integer"),opType); }
 						else
 						{ return TypedExpression(requireFullMatch(nodeIt,"const.i16",new(arena)Literal<I16Type>((uint16)integer)),TypeId::I16); }
 					case TypeId::I32:
 						if(integer < std::numeric_limits<int32>::min() || integer > std::numeric_limits<uint32>::max())
-						{ return TypedExpression(recordError<Error>(outErrors,literalNodeIt,"const: literal doesn't fit in 32-bit integer"),opType); }
+						{ return TypedExpression(recordError<Error>(file,literalNodeIt,"const: literal doesn't fit in 32-bit integer"),opType); }
 						else
 						{ return TypedExpression(requireFullMatch(nodeIt,"const.i32",new(arena)Literal<I32Type>((uint32)integer)),TypeId::I32); }
 					case TypeId::I64:
@@ -435,7 +432,7 @@ namespace WebAssemblyText
 				{
 					float64 f64;
 					float32 f32;
-					if(!parseFloat(nodeIt,f64,f32)) { return TypedExpression(recordError<Error>(outErrors,nodeIt,"const: expected floating point literal"),opType); }
+					if(!parseFloat(nodeIt,f64,f32)) { return TypedExpression(recordError<Error>(file,nodeIt,"const: expected floating point literal"),opType); }
 					switch(opType)
 					{
 					case TypeId::F32: return TypedExpression(requireFullMatch(nodeIt,"const.f32",new(arena)Literal<F32Type>(f32)),TypeId::F32);
@@ -623,7 +620,7 @@ namespace WebAssemblyText
 					SNodeIt elseNodeIt;
 					if(parseTaggedNode(nodeIt,Symbol::_else,elseNodeIt)) { ++nodeIt; falseValue = parseLabeledBlock<Class>(resultType,elseNodeIt,"if else"); }
 					else if(nodeIt) { falseValue = parseAnonLabeledExpression<Class>(resultType,nodeIt,"if else"); }
-					else if(resultType != TypeId::Void) { return as<Class>(recordError<Error>(outErrors,nodeIt,"if: expected else expression for if with non-void result")); }
+					else if(resultType != TypeId::Void) { return as<Class>(recordError<Error>(file,nodeIt,"if: expected else expression for if with non-void result")); }
 					else { falseValue = as<Class>(Nop::get()); }
 
 					// Construct the Conditional node.
@@ -667,7 +664,7 @@ namespace WebAssemblyText
 				{
 					// Parse the branch target.
 					BranchTarget* branchTarget = parseBranchTargetRef(nodeIt);
-					if(!branchTarget) { return as<Class>(recordError<Error>(outErrors,nodeIt,"br: expected label name or index")); }
+					if(!branchTarget) { return as<Class>(recordError<Error>(file,nodeIt,"br: expected label name or index")); }
 
 					// Parse an expression for the branch's value.
 					auto value = !nodeIt && branchTarget->type == TypeId::Void ? nullptr
@@ -682,7 +679,7 @@ namespace WebAssemblyText
 					size_t numTableTargets = 0;
 					for(SNodeIt countIt = nodeIt;parseBranchTargetRef(countIt);) { ++numTableTargets; }
 					if(numTableTargets == 0)
-					{ return as<Class>(recordError<Error>(outErrors,nodeIt,"br_table: must have at least a default branch target")); }
+					{ return as<Class>(recordError<Error>(file,nodeIt,"br_table: must have at least a default branch target")); }
 
 					// Parse the table targets.
 					auto tableTargets = new(arena) BranchTarget*[numTableTargets-1];
@@ -691,7 +688,7 @@ namespace WebAssemblyText
 						SNodeIt errorNodeIt = nodeIt;
 						tableTargets[tableIndex] = parseBranchTargetRef(nodeIt);
 						if(!tableTargets[tableIndex])
-						{ return as<Class>(recordError<Error>(outErrors,errorNodeIt,"br_table: expected case or branch target reference")); }
+						{ return as<Class>(recordError<Error>(file,errorNodeIt,"br_table: expected case or branch target reference")); }
 					}
 
 					// Parse the default branch target.
@@ -700,7 +697,7 @@ namespace WebAssemblyText
 						SNodeIt errorNodeIt = nodeIt;
 						defaultBranchTarget = parseBranchTargetRef(nodeIt);
 						if(!defaultBranchTarget)
-						{ return as<Class>(recordError<Error>(outErrors,errorNodeIt,"br_table: expected case or branch target reference")); }
+						{ return as<Class>(recordError<Error>(file,errorNodeIt,"br_table: expected case or branch target reference")); }
 					}
 
 					// Verify that all the branch targets have the same type (assume the type of the default target is what's expected).
@@ -717,7 +714,7 @@ namespace WebAssemblyText
 						else if(targetType != tableTargetsType && targetType != TypeId::Void)
 						{
 							return as<Class>(recordError<Error>(
-								outErrors,
+								file,
 								parentNodeIt,
 								std::string("br_table: target ")
 									+ std::to_string(tableIndex) + "'s argument type is incompatible with "
@@ -756,7 +753,7 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(return)
 				{
 					// If the function's return type isn't void, parse an expression for the return value.
-					auto returnType = function->type.returnType;
+					auto returnType = function.type.returnType;
 
 					auto valueExpression = !nodeIt && returnType == TypeId::Void ? nullptr
 						: parseTypedExpression(returnType,nodeIt,"return value");
@@ -768,33 +765,33 @@ namespace WebAssemblyText
 				{
 					// Parse the function name or index to call.
 					uintptr functionIndex;
-					if(!parseNameOrIndex(nodeIt,moduleContext.functionNameToIndexMap,moduleContext.module->functions.size(),functionIndex))
+					if(!parseNameOrIndex(nodeIt,moduleContext.functionNameToIndexMap,moduleContext.module.functions.size(),functionIndex))
 					{
-						return as<Class>(recordError<Error>(outErrors,nodeIt,"call: expected function name or index"));
+						return as<Class>(recordError<Error>(file,nodeIt,"call: expected function name or index"));
 					}
 
 					// Parse the call's parameters.
-					auto callFunction = moduleContext.module->functions[functionIndex];
-					auto parameters = parseParameters(callFunction->type.parameters,nodeIt,"call parameter");
+					const Function& callFunction = moduleContext.module.functions[functionIndex];
+					auto parameters = parseParameters(callFunction.type.parameters,nodeIt,"call parameter");
 
 					// Create the Call node.
-					auto call = new(arena)Call(AnyOp::callDirect,getPrimaryTypeClass(callFunction->type.returnType),functionIndex,parameters);
+					auto call = new(arena)Call(AnyOp::callDirect,getPrimaryTypeClass(callFunction.type.returnType),functionIndex,parameters);
 
 					// Validate the function return type against the result type of this call.
-					auto result = coerceExpression(Class(),resultType,TypedExpression(call,callFunction->type.returnType),parentNodeIt,"call return value");
+					auto result = coerceExpression(Class(),resultType,TypedExpression(call,callFunction.type.returnType),parentNodeIt,"call return value");
 					return requireFullMatch(nodeIt,"call",result);
 				}
 				DEFINE_PARAMETRIC_UNTYPED_OP(call_import)
 				{
 					// Parse the import name or index to call.
 					uintptr importIndex;
-					if(!parseNameOrIndex(nodeIt,moduleContext.functionImportNameToIndexMap,moduleContext.module->functionImports.size(),importIndex))
+					if(!parseNameOrIndex(nodeIt,moduleContext.functionImportNameToIndexMap,moduleContext.module.functionImports.size(),importIndex))
 					{
-						return as<Class>(recordError<Error>(outErrors,nodeIt,"call_import: expected function import name or index"));
+						return as<Class>(recordError<Error>(file,nodeIt,"call_import: expected function import name or index"));
 					}
 
 					// Parse the call's parameters.
-					auto functionImport = moduleContext.module->functionImports[importIndex];
+					auto functionImport = moduleContext.module.functionImports[importIndex];
 					auto parameters = parseParameters(functionImport.type.parameters,nodeIt,"call_import parameter");
 
 					// Create the Call node.
@@ -810,7 +807,7 @@ namespace WebAssemblyText
 					uintptr signatureIndex;
 					if(!parseNameOrIndex(nodeIt,moduleContext.signatureNameToIndexMap,moduleContext.signatures.size(),signatureIndex))
 					{
-						return as<Class>(recordError<Error>(outErrors,nodeIt,"call_indirect: expected type index"));
+						return as<Class>(recordError<Error>(file,nodeIt,"call_indirect: expected type index"));
 					}
 					const auto& functionType = moduleContext.signatures[signatureIndex];
 
@@ -831,9 +828,9 @@ namespace WebAssemblyText
 				DEFINE_PARAMETRIC_UNTYPED_OP(block) { return parseLabeledBlock<Class>(resultType,nodeIt,"block"); }
 
 				DEFINE_PARAMETRIC_UNTYPED_OP(get_local)
-				{ return parseGetLocal<Class>(resultType,localNameToIndexMap,function->locals,nodeIt); }
+				{ return parseGetLocal<Class>(resultType,localNameToIndexMap,function.locals,nodeIt); }
 				DEFINE_PARAMETRIC_UNTYPED_OP(set_local)
-				{ return parseSetLocal<Class>(resultType,localNameToIndexMap,function->locals,nodeIt); }
+				{ return parseSetLocal<Class>(resultType,localNameToIndexMap,function.locals,nodeIt); }
 
 				#undef DEFINE_PARAMETRIC_UNTYPED_OP
 				}
@@ -849,7 +846,7 @@ namespace WebAssemblyText
 				std::string("type error: expecting a ") + getTypeName(type)
 				+ " " + errorContext
 				+ " but found " + getTypeName(typedExpression.type);
-			return recordError<Error>(outErrors,nodeIt,std::move(message));
+			return recordError<Error>(file,nodeIt,std::move(message));
 		}
 
 		// By default coerceExpression results in a type error, but is overloaded below for specific classes.
@@ -878,7 +875,7 @@ namespace WebAssemblyText
 			// If the node is a S-expression error node, translate it to an AST error node.
 			if(nodeIt && nodeIt->type == SExp::NodeType::Error)
 			{
-				return as<Class>(recordSExpError<Error>(outErrors,nodeIt));
+				return as<Class>(recordSExpError<Error>(file,nodeIt));
 			}
 			else
 			{
@@ -900,7 +897,7 @@ namespace WebAssemblyText
 					else
 					{
 						// Failed to parse an expression.
-						auto error = as<Class>(recordError<Error>(outErrors,nodeIt,std::string("expected ")
+						auto error = as<Class>(recordError<Error>(file,nodeIt,std::string("expected ")
 							+ getTypeName(type)
 							+ " expression for "
 							+ errorContext
@@ -918,7 +915,7 @@ namespace WebAssemblyText
 		Expression<Class>* requireFullMatch(SNodeIt nodeIt,const char* errorContext,Expression<Class>* result)
 		{
 			if(!nodeIt) { return result; }
-			else { return as<Class>(recordExcessInputError<Error>(outErrors,nodeIt,errorContext)); }
+			else { return as<Class>(recordExcessInputError<Error>(file,nodeIt,errorContext)); }
 		}
 		
 		// Parse an expression from a sequence of S-expression children. A specified number of siblings following nodeIt are used.
@@ -955,7 +952,7 @@ namespace WebAssemblyText
 			for(auto countNodeIt = nodeIt;countNodeIt;++countNodeIt) {++numOps;}
 			if(!numOps && Class::id != TypeClassId::Void)
 			{
-				return as<Class>(recordError<Error>(outErrors,nodeIt,"missing expression"));
+				return as<Class>(recordError<Error>(file,nodeIt,"missing expression"));
 			}
 			return parseExpressionSequence<Class>(type,nodeIt,context,numOps);
 		}
@@ -983,8 +980,8 @@ namespace WebAssemblyText
 			if(intrinsicImportIt != moduleContext.intrinsicNameToImportIndexMap.end()) { importIndex = intrinsicImportIt->second; }
 			else
 			{
-				importIndex = moduleContext.module->functionImports.size();
-				moduleContext.module->functionImports.push_back({functionType,"wasm_intrinsics",intrinsicName});
+				importIndex = moduleContext.module.functionImports.size();
+				moduleContext.module.functionImports.push_back({functionType,"wasm_intrinsics",intrinsicName});
 				moduleContext.intrinsicNameToImportIndexMap[intrinsicName] = importIndex;
 			}
 
@@ -1034,7 +1031,7 @@ namespace WebAssemblyText
 				++nodeIt;
 				if(!parseUnsignedInt(valueIt,offset))
 				{
-					recordError<ErrorRecord>(outErrors,nodeIt,"offset: expected unsigned integer");
+					recordError<ErrorRecord>(file,nodeIt,"offset: expected unsigned integer");
 				}
 			}
 			return offset;
@@ -1051,7 +1048,7 @@ namespace WebAssemblyText
 				SNodeIt mutableValueIt = valueIt;
 				if(!parseUnsignedInt(mutableValueIt,alignment) || !alignment || (alignment & (alignment-1)))
 				{
-					recordError<ErrorRecord>(outErrors,valueIt,"align: expected positive non-zero power-of-two integer");
+					recordError<ErrorRecord>(file,valueIt,"align: expected positive non-zero power-of-two integer");
 					alignment = 1;
 				}
 			}
@@ -1063,7 +1060,7 @@ namespace WebAssemblyText
 		TypedExpression parseLoadExpression(TypeId resultType,TypeId memoryType,typename Class::Op loadOp,bool isFarAddress,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,Class::id))
-				{ return TypedExpression(recordError<Error>(outErrors,nodeIt,"load: memory type must be same type class as result"),resultType); }
+				{ return TypedExpression(recordError<Error>(file,nodeIt,"load: memory type must be same type class as result"),resultType); }
 			
 			auto offset = parseOffsetAttribute(nodeIt);
 			auto alignmentLog2 = parseAlignmentAttribute(nodeIt);
@@ -1079,7 +1076,7 @@ namespace WebAssemblyText
 		TypedExpression parseStoreExpression(TypeId valueType,TypeId memoryType,bool isFarAddress,SNodeIt nodeIt)
 		{
 			if(!isTypeClass(memoryType,OperandClass::id))
-				{ return TypedExpression(recordError<Error>(outErrors,nodeIt,"store: memory type must be same type class as result"),TypeId::Void); }
+				{ return TypedExpression(recordError<Error>(file,nodeIt,"store: memory type must be same type class as result"),TypeId::Void); }
 			
 			auto offset = parseOffsetAttribute(nodeIt);
 			auto alignmentLog2 = parseAlignmentAttribute(nodeIt);
@@ -1107,7 +1104,7 @@ namespace WebAssemblyText
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
 				auto message = "get_local: expected local name or index";
-				return as<Class>(recordError<Error>(outErrors,nodeIt,std::move(message)));
+				return as<Class>(recordError<Error>(file,nodeIt,std::move(message)));
 			}
 			auto variableType = variables[variableIndex].type;
 			auto load = new(arena) GetLocal(getPrimaryTypeClass(variableType),variableIndex);
@@ -1123,7 +1120,7 @@ namespace WebAssemblyText
 			if(!parseNameOrIndex(nodeIt,nameToIndexMap,variables.size(),variableIndex))
 			{
 				auto message = "set_local: expected local name or index";
-				return as<Class>(recordError<Error>(outErrors,nodeIt,message));
+				return as<Class>(recordError<Error>(file,nodeIt,message));
 			}
 			auto variableType = variables[variableIndex].type;
 			auto valueExpression = parseTypedExpression(variableType,nodeIt,"store value");
@@ -1184,7 +1181,7 @@ namespace WebAssemblyText
 		}
 	};
 
-	void parseFunctionType(SNodeIt& nodeIt,std::vector<Variable>& outParameters,TypeId& outReturnType,Memory::Arena& arena,std::vector<ErrorRecord*>& outErrors)
+	void parseFunctionType(SNodeIt& nodeIt,std::vector<Variable>& outParameters,TypeId& outReturnType,Memory::Arena& arena,File& file)
 	{
 		bool hasResult = false;
 		for(;nodeIt;++nodeIt)
@@ -1193,24 +1190,24 @@ namespace WebAssemblyText
 			if(parseTaggedNode(nodeIt,Symbol::_result,childNodeIt))
 			{
 				// Parse a result declaration.
-				if(hasResult) { recordError<ErrorRecord>(outErrors,nodeIt,"duplicate result declaration"); continue; }
-				if(!parseType(childNodeIt,outReturnType)) { recordError<ErrorRecord>(outErrors,childNodeIt,"expected type"); continue; }
+				if(hasResult) { recordError<ErrorRecord>(file,nodeIt,"duplicate result declaration"); continue; }
+				if(!parseType(childNodeIt,outReturnType)) { recordError<ErrorRecord>(file,childNodeIt,"expected type"); continue; }
 				hasResult = true;
-				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following result declaration"); continue; }
+				if(childNodeIt) { recordError<ErrorRecord>(file,childNodeIt,"unexpected input following result declaration"); continue; }
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_param,childNodeIt))
 			{
 				if (hasResult)
-					{ recordError<ErrorRecord>(outErrors,nodeIt,"unexpected param following result declaration"); continue; }
+					{ recordError<ErrorRecord>(file,nodeIt,"unexpected param following result declaration"); continue; }
 				// Parse a parameter declaration.
-				parseVariables(childNodeIt,outParameters,outErrors,arena);
-				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following parameter declaration"); continue; }
+				parseVariables(childNodeIt,outParameters,file,arena);
+				if(childNodeIt) { recordError<ErrorRecord>(file,childNodeIt,"unexpected input following parameter declaration"); continue; }
 			}
 			else { break; }
 		}
 	}
 
-	Module* ModuleContext::parse(SNodeIt firstModuleChildNode)
+	void ModuleContext::parse(SNodeIt firstModuleChildNode)
 	{
 		// Do a first pass that only parses declarations before parsing definitions.
 		bool hasMemoryNode = false;
@@ -1224,27 +1221,27 @@ namespace WebAssemblyText
 				{
 					case Symbol::_func:
 					{
-						auto function = new(module->arena) Function();
-						auto functionIndex = module->functions.size();
-						module->functions.push_back(function);
+						auto functionIndex = module.functions.size();
+						module.functions.push_back(Function());
+						Function& function = module.functions[functionIndex];
 
 						// Parse an optional export name.
 						const char* exportName;
 						size_t exportNameLength = 0;
 						SNodeIt savedExportNameIt = childNodeIt;
-						if(parseString(childNodeIt,exportName,exportNameLength,module->arena))
+						if(parseString(childNodeIt,exportName,exportNameLength,module.arena))
 						{
-							auto exportIt = module->exportNameToFunctionIndexMap.find(exportName);
-							if(exportIt != module->exportNameToFunctionIndexMap.end()) { recordError<ErrorRecord>(outErrors,savedExportNameIt,std::string("duplicate export name: ") + exportName); continue; }
-							module->exportNameToFunctionIndexMap[exportName] = functionIndex;
+							auto exportIt = module.exportNameToFunctionIndexMap.find(exportName);
+							if(exportIt != module.exportNameToFunctionIndexMap.end()) { recordError<ErrorRecord>(file,savedExportNameIt,std::string("duplicate export name: ") + exportName); continue; }
+							module.exportNameToFunctionIndexMap[exportName] = functionIndex;
 						}
 
 						// Parse an optional function name.
 						const char* functionName;
 						if(parseName(childNodeIt,functionName))
 						{
-							function->name = module->arena.copyToArena(functionName,strlen(functionName)+1);
-							if(functionNameToIndexMap.count(functionName)) { recordError<ErrorRecord>(outErrors,childNodeIt,std::string("duplicate function name:") + functionName); }
+							function.name = module.arena.copyToArena(functionName,strlen(functionName)+1);
+							if(functionNameToIndexMap.count(functionName)) { recordError<ErrorRecord>(file,childNodeIt,std::string("duplicate function name:") + functionName); }
 							else { functionNameToIndexMap[functionName] = functionIndex; }
 						}
 
@@ -1258,36 +1255,36 @@ namespace WebAssemblyText
 							++childNodeIt;
 							uintptr signatureIndex = 0;
 							if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
-							{ recordError<ErrorRecord>(outErrors,typeChildNodeIt,"expected function type name or index"); continue; }
+							{ recordError<ErrorRecord>(file,typeChildNodeIt,"expected function type name or index"); continue; }
 							referencedFunctionType = signatures[signatureIndex];
 							hasReferencedFunctionType = true;
 						}
 
 						// Parse the function parameter and result types.
-						parseFunctionType(childNodeIt,function->locals,function->type.returnType,module->arena,outErrors);
-						for(uintptr parameterIndex = 0;parameterIndex < function->locals.size();++parameterIndex)
+						parseFunctionType(childNodeIt,function.locals,function.type.returnType,module.arena,file);
+						for(uintptr parameterIndex = 0;parameterIndex < function.locals.size();++parameterIndex)
 						{
-							function->parameterLocalIndices.push_back(parameterIndex);
-							function->type.parameters.push_back(function->locals[parameterIndex].type);
+							function.parameterLocalIndices.push_back(parameterIndex);
+							function.type.parameters.push_back(function.locals[parameterIndex].type);
 						}
 
 						// If there's both a type reference and explicit function signature, then make sure they match.
-						if(function->type.parameters.size() || function->type.returnType != TypeId::Void)
+						if(function.type.parameters.size() || function.type.returnType != TypeId::Void)
 						{
-							if(hasReferencedFunctionType && function->type != referencedFunctionType)
+							if(hasReferencedFunctionType && function.type != referencedFunctionType)
 							{
-								recordError<ErrorRecord>(outErrors,nodeIt,std::string("type reference doesn't match function signature"));
+								recordError<ErrorRecord>(file,nodeIt,std::string("type reference doesn't match function signature"));
 								continue;
 							}
 						}
 						else if(hasReferencedFunctionType)
 						{
 							// If there's only a referenced type, use it.
-							function->type = std::move(referencedFunctionType);
-							for(auto parameterType : function->type.parameters)
+							function.type = std::move(referencedFunctionType);
+							for(auto parameterType : function.type.parameters)
 							{
-								function->parameterLocalIndices.push_back(function->locals.size());
-								function->locals.push_back({parameterType,nullptr});
+								function.parameterLocalIndices.push_back(function.locals.size());
+								function.locals.push_back({parameterType,nullptr});
 							}
 						}
 
@@ -1297,20 +1294,20 @@ namespace WebAssemblyText
 							if(parseTaggedNode(childNodeIt,Symbol::_local,innerChildNodeIt))
 							{
 								// Parse a local declaration.
-								parseVariables(innerChildNodeIt,function->locals,outErrors,module->arena);
-								if(innerChildNodeIt) { recordError<ErrorRecord>(outErrors,innerChildNodeIt,"unexpected input following local declaration"); continue; }
+								parseVariables(innerChildNodeIt,function.locals,file,module.arena);
+								if(innerChildNodeIt) { recordError<ErrorRecord>(file,innerChildNodeIt,"unexpected input following local declaration"); continue; }
 							}
 							else {
 								if(parseTaggedNode(childNodeIt,Symbol::_param,innerChildNodeIt))
-									{ recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected param declaration"); }
+									{ recordError<ErrorRecord>(file,childNodeIt,"unexpected param declaration"); }
 								if(parseTaggedNode(childNodeIt,Symbol::_result,innerChildNodeIt))
-									{ recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected result declaration"); }
+									{ recordError<ErrorRecord>(file,childNodeIt,"unexpected result declaration"); }
 								break;
 							} // Stop parsing when we reach the first func child that isn't a param, result, or local.
 						}
 
 						// Create the function's implicit return branch target.
-						function->returnTarget = new(module->arena) BranchTarget(function->type.returnType);
+						function.returnTarget = new(module.arena) BranchTarget(function.type.returnType);
 
 						break;
 					}
@@ -1323,14 +1320,14 @@ namespace WebAssemblyText
 						// Parse a mandatory import module name.
 						const char* importModuleName;
 						size_t importModuleNameLength;
-						if(!parseString(childNodeIt,importModuleName,importModuleNameLength,module->arena))
-						{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import module name string"); continue; }
+						if(!parseString(childNodeIt,importModuleName,importModuleNameLength,module.arena))
+						{ recordError<ErrorRecord>(file,childNodeIt,"expected import module name string"); continue; }
 
 						// Parse a mandatory import function name.
 						const char* importFunctionName;
 						size_t importFunctionNameLength;
-						if(!parseString(childNodeIt,importFunctionName,importFunctionNameLength,module->arena))
-						{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected import function name string"); continue; }
+						if(!parseString(childNodeIt,importFunctionName,importFunctionNameLength,module.arena))
+						{ recordError<ErrorRecord>(file,childNodeIt,"expected import function name string"); continue; }
 
 						FunctionType importType;
 						SNodeIt typeChildNodeIt;
@@ -1340,7 +1337,7 @@ namespace WebAssemblyText
 							++childNodeIt;
 							uintptr signatureIndex = 0;
 							if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
-							{ recordError<ErrorRecord>(outErrors,typeChildNodeIt,"expected function type name or index"); continue; }
+							{ recordError<ErrorRecord>(file,typeChildNodeIt,"expected function type name or index"); continue; }
 							importType = signatures[signatureIndex];
 						}
 						else
@@ -1348,30 +1345,30 @@ namespace WebAssemblyText
 							// Parse the import's parameter and result declarations.
 							std::vector<Variable> parameters;
 							TypeId returnType = TypeId::Void;
-							parseFunctionType(childNodeIt,parameters,returnType,module->arena,outErrors);
+							parseFunctionType(childNodeIt,parameters,returnType,module.arena,file);
 							std::vector<TypeId> parameterTypes;
 							for(auto parameter : parameters) { parameterTypes.push_back(parameter.type); }
 							importType = FunctionType(returnType,parameterTypes);
 						}
 				
 						// Create the import.
-						auto importIndex = module->functionImports.size();
-						module->functionImports.push_back({importType,importModuleName,importFunctionName});
+						auto importIndex = module.functionImports.size();
+						module.functionImports.push_back({importType,importModuleName,importFunctionName});
 						if(hasName)
 						{
-							importInternalName = module->arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
-							if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(outErrors,nodeIt,std::string("duplicate variable name: ") + importInternalName); }
+							importInternalName = module.arena.copyToArena(importInternalName,strlen(importInternalName) + 1);
+							if(functionImportNameToIndexMap.count(importInternalName)) { recordError<ErrorRecord>(file,nodeIt,std::string("duplicate variable name: ") + importInternalName); }
 							else { functionImportNameToIndexMap[importInternalName] = importIndex; }
 						}
 
-						if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following import declaration"); continue; }
+						if(childNodeIt) { recordError<ErrorRecord>(file,childNodeIt,"unexpected input following import declaration"); continue; }
 						
 						break;
 					}
 					case Symbol::_memory:
 					{
 						// Parse a memory declaration.
-						if(hasMemoryNode) { recordError<ErrorRecord>(outErrors,nodeIt,"duplicate memory declaration"); continue; }
+						if(hasMemoryNode) { recordError<ErrorRecord>(file,nodeIt,"duplicate memory declaration"); continue; }
 						hasMemoryNode = true;
 
 						// Parse the initial and maximum number of bytes.
@@ -1379,16 +1376,16 @@ namespace WebAssemblyText
 						uint64 initialNumPages;
 						uint64 maxNumPages;
 						if(!parseUnsignedInt(childNodeIt,initialNumPages))
-							{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected initial memory size integer"); continue; }
+							{ recordError<ErrorRecord>(file,childNodeIt,"expected initial memory size integer"); continue; }
 					        auto maxNumPagesNodeIt = childNodeIt;
 						if(!parseUnsignedInt(childNodeIt,maxNumPages))
 							{ maxNumPages = initialNumPages; }
 						if(maxNumPages > (1ll<<32))
-							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,std::string("maximum memory size: '") + std::to_string(maxNumPages) + "' must be <=2^32 bytes: " + std::to_string((1ll<<32))); continue; }
+							{ recordError<ErrorRecord>(file,maxNumPagesNodeIt,std::string("maximum memory size: '") + std::to_string(maxNumPages) + "' must be <=2^32 bytes: " + std::to_string((1ll<<32))); continue; }
 						if(initialNumPages > maxNumPages)
-							{ recordError<ErrorRecord>(outErrors,maxNumPagesNodeIt,std::string("maximum specified memory size: '") + std::to_string(maxNumPages) + "' is smaller than initial memory size '" + std::to_string(initialNumPages) + "'"); continue; }
-						module->initialNumPagesMemory = (uint64) initialNumPages;
-						module->maxNumPagesMemory = (uint64) maxNumPages;
+							{ recordError<ErrorRecord>(file,maxNumPagesNodeIt,std::string("maximum specified memory size: '") + std::to_string(maxNumPages) + "' is smaller than initial memory size '" + std::to_string(initialNumPages) + "'"); continue; }
+						module.initialNumPagesMemory = (uint64) initialNumPages;
+						module.maxNumPagesMemory = (uint64) maxNumPages;
 				
 						// Parse the memory segments.
 						for(;childNodeIt;++childNodeIt)
@@ -1398,31 +1395,31 @@ namespace WebAssemblyText
 							const char* dataString;
 							size_t dataLength;
 							if(!parseTaggedNode(childNodeIt,Symbol::_segment,segmentChildNodeIt))
-								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment declaration"); continue; }
+								{ recordError<ErrorRecord>(file,segmentChildNodeIt,"expected segment declaration"); continue; }
 							SNodeIt baseAddressNodeIt = segmentChildNodeIt;
 							if(!parseUnsignedInt(segmentChildNodeIt,baseAddress))
-								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment base address integer"); continue; }
+								{ recordError<ErrorRecord>(file,segmentChildNodeIt,"expected segment base address integer"); continue; }
 							SNodeIt dataNodeIt = segmentChildNodeIt;
-							if(!parseString(segmentChildNodeIt,dataString,dataLength,module->arena))
-								{ recordError<ErrorRecord>(outErrors,segmentChildNodeIt,"expected segment data string"); continue; }
+							if(!parseString(segmentChildNodeIt,dataString,dataLength,module.arena))
+								{ recordError<ErrorRecord>(file,segmentChildNodeIt,"expected segment data string"); continue; }
 							if((uint64)baseAddress + dataLength < (uint64)baseAddress) // Check for integer overflow in baseAddress+dataLength.
-								{ recordError<ErrorRecord>(outErrors,dataNodeIt,std::string("data length overflow")); continue; }
-							if((uint64)baseAddress + dataLength > module->initialNumPagesMemory * AST::numBytesPerPage )
-								{ recordError<ErrorRecord>(outErrors,dataNodeIt,std::string("data segment exceeds initial memory size by: ") + std::to_string((baseAddress + dataLength) - module->initialNumPagesMemory * AST::numBytesPerPage)); continue; }
-							if (module->dataSegments.size() != 0)
+								{ recordError<ErrorRecord>(file,dataNodeIt,std::string("data length overflow")); continue; }
+							if((uint64)baseAddress + dataLength > module.initialNumPagesMemory * AST::numBytesPerPage )
+								{ recordError<ErrorRecord>(file,dataNodeIt,std::string("data segment exceeds initial memory size by: ") + std::to_string((baseAddress + dataLength) - module.initialNumPagesMemory * AST::numBytesPerPage)); continue; }
+							if (module.dataSegments.size() != 0)
 							{
-								auto lastSegment = module->dataSegments.back();
+								auto lastSegment = module.dataSegments.back();
 								auto lastEndAddress = (lastSegment.baseAddress+lastSegment.numBytes-1);
 								if (baseAddress <= lastEndAddress)
 								{
-									recordError<ErrorRecord>(outErrors,baseAddressNodeIt, std::string("data segment base address '") + std::to_string(baseAddress) + "' must be greater than previous segment which ends at: '" + std::to_string(lastEndAddress) + "'");
+									recordError<ErrorRecord>(file,baseAddressNodeIt, std::string("data segment base address '") + std::to_string(baseAddress) + "' must be greater than previous segment which ends at: '" + std::to_string(lastEndAddress) + "'");
 									continue;
 								}
 							}
-							module->dataSegments.push_back({(uint64)baseAddress,dataLength,(uint8*)dataString});
+							module.dataSegments.push_back({(uint64)baseAddress,dataLength,(uint8*)dataString});
 						}
 
-						if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following memory declaration"); continue; }
+						if(childNodeIt) { recordError<ErrorRecord>(file,childNodeIt,"unexpected input following memory declaration"); continue; }
 						
 						break;
 					}
@@ -1434,24 +1431,24 @@ namespace WebAssemblyText
 
 						SNodeIt funcChildNodeIt;
 						if(!parseTaggedNode(childNodeIt++,Symbol::_func,funcChildNodeIt))
-						{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected func declaration"); continue; }
+						{ recordError<ErrorRecord>(file,childNodeIt,"expected func declaration"); continue; }
 
 						FunctionType functionType;
 						std::vector<Variable> parameters;
-						parseFunctionType(funcChildNodeIt,parameters,functionType.returnType,module->arena,outErrors);
+						parseFunctionType(funcChildNodeIt,parameters,functionType.returnType,module.arena,file);
 						functionType.parameters.resize(parameters.size());
 						for(uintptr parameterIndex = 0;parameterIndex < parameters.size();++parameterIndex)
 						{
 							functionType.parameters[parameterIndex] = parameters[parameterIndex].type;
 						}
-						if(funcChildNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following function type declaration"); continue; }
+						if(funcChildNodeIt) { recordError<ErrorRecord>(file,childNodeIt,"unexpected input following function type declaration"); continue; }
 
 						auto signatureIndex = signatures.size();
 						signatures.push_back(functionType);
 
 						if(hasName) { signatureNameToIndexMap[signatureName] = signatureIndex; }
 
-						if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following type declaration"); continue; }
+						if(childNodeIt) { recordError<ErrorRecord>(file,childNodeIt,"unexpected input following type declaration"); continue; }
 						
 						break;
 					}
@@ -1460,7 +1457,7 @@ namespace WebAssemblyText
 					case Symbol::_table:
 						break;
 					default:
-						recordError<ErrorRecord>(outErrors,nodeIt,"unrecognized declaration");
+						recordError<ErrorRecord>(file,nodeIt,"unrecognized declaration");
 						break;
 				}
 			}
@@ -1473,7 +1470,7 @@ namespace WebAssemblyText
 			SNodeIt childNodeIt;
 			if(parseTaggedNode(nodeIt,Symbol::_table,childNodeIt))
 			{
-				if(hasFunctionTable) { recordError<ErrorRecord>(outErrors,nodeIt,"duplicate function table"); continue; }
+				if(hasFunctionTable) { recordError<ErrorRecord>(file,nodeIt,"duplicate function table"); continue; }
 
 				// Count the number of functions in the table.
 				size_t numFunctions = 0;
@@ -1481,31 +1478,31 @@ namespace WebAssemblyText
 				{ ++numFunctions; }
 
 				FunctionType functionType;
-				auto functionIndices = new(module->arena) uintptr[numFunctions];
-				if(!numFunctions) { recordError<ErrorRecord>(outErrors,nodeIt,"function table must contain at least 1 function"); }
+				auto functionIndices = new(module.arena) uintptr[numFunctions];
+				if(!numFunctions) { recordError<ErrorRecord>(file,nodeIt,"function table must contain at least 1 function"); }
 				else
 				{
 					// Parse the function indices or names.
 					for(uintptr index = 0;index < numFunctions;++index)
 					{
 						uintptr functionIndex;
-						if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
-							{ functionIndices[index] = 0; recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index"); }
+						if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module.functions.size(),functionIndex))
+							{ functionIndices[index] = 0; recordError<ErrorRecord>(file,childNodeIt,"expected function name or index"); }
 						else { functionIndices[index] = functionIndex; }
 					}
 				}
-				module->functionTable.functionIndices = functionIndices;
-				module->functionTable.numFunctions = numFunctions;
+				module.functionTable.functionIndices = functionIndices;
+				module.functionTable.numFunctions = numFunctions;
 				hasFunctionTable = true;
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_start,childNodeIt))
 			{
 				uintptr functionIndex;
-				if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
-					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index"); }
-				else if(module->functions[functionIndex]->type != FunctionType())
-					{ recordError<ErrorRecord>(outErrors,childNodeIt,"start function must be of type ()->Void"); }
-				else { module->startFunctionIndex = functionIndex; }
+				if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,module.functions.size(),functionIndex))
+					{ recordError<ErrorRecord>(file,childNodeIt,"expected function name or index"); }
+				else if(module.functions[functionIndex].type != FunctionType())
+					{ recordError<ErrorRecord>(file,childNodeIt,"start function must be of type ()->Void"); }
+				else { module.startFunctionIndex = functionIndex; }
 			}
 		}
 
@@ -1520,7 +1517,7 @@ namespace WebAssemblyText
 
 				const char* exportName;
 				size_t exportNameLength;
-				parseString(childNodeIt,exportName,exportNameLength,module->arena);
+				parseString(childNodeIt,exportName,exportNameLength,module.arena);
 
 				const char* functionName;
 				parseName(childNodeIt,functionName);
@@ -1536,9 +1533,9 @@ namespace WebAssemblyText
 				};
 
 				// Parse the function's body.
-				auto function = module->functions[currentFunctionIndex++];
+				Function& function = module.functions[currentFunctionIndex++];
 				FunctionContext functionContext(*this,function);
-				function->expression = functionContext.parseExpressionSequence(function->type.returnType,childNodeIt,"function body");
+				function.expression = functionContext.parseExpressionSequence(function.type.returnType,childNodeIt,"function body");
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_export,childNodeIt))
 			{
@@ -1546,37 +1543,35 @@ namespace WebAssemblyText
 				const char* exportName;
 				size_t nameLength;
 				SNodeIt savedExportNameIt = childNodeIt;
-				if(!parseString(childNodeIt,exportName,nameLength,module->arena))
-					{ recordError<ErrorRecord>(outErrors,childNodeIt,"expected export name string"); continue; }
-				auto exportIt = module->exportNameToFunctionIndexMap.find(exportName);
-				if(exportIt != module->exportNameToFunctionIndexMap.end()) { recordError<ErrorRecord>(outErrors,savedExportNameIt,std::string("duplicate export name: ") + exportName); continue; }
+				if(!parseString(childNodeIt,exportName,nameLength,module.arena))
+					{ recordError<ErrorRecord>(file,childNodeIt,"expected export name string"); continue; }
+				auto exportIt = module.exportNameToFunctionIndexMap.find(exportName);
+				if(exportIt != module.exportNameToFunctionIndexMap.end()) { recordError<ErrorRecord>(file,savedExportNameIt,std::string("duplicate export name: ") + exportName); continue; }
 				uintptr functionIndex;
-				if(parseNameOrIndex(childNodeIt,functionNameToIndexMap,module->functions.size(),functionIndex))
+				if(parseNameOrIndex(childNodeIt,functionNameToIndexMap,module.functions.size(),functionIndex))
 				{
-					module->exportNameToFunctionIndexMap[exportName] = functionIndex;
+					module.exportNameToFunctionIndexMap[exportName] = functionIndex;
 				}
 				else
 				{
 					Symbol symbol;
 					if(parseSymbol(childNodeIt,symbol) && symbol == Symbol::_memory)
 					{
-						if (!hasMemoryNode) { recordError<ErrorRecord>(outErrors,childNodeIt,"no memory to export"); continue; }
+						if (!hasMemoryNode) { recordError<ErrorRecord>(file,childNodeIt,"no memory to export"); continue; }
 						// Ignore the memory export declaration for now.
 					}
 					else
 					{
-						recordError<ErrorRecord>(outErrors,childNodeIt,"expected function name or index or 'memory'");
+						recordError<ErrorRecord>(file,childNodeIt,"expected function name or index or 'memory'");
 						continue;
 					}
 				}
-				if(childNodeIt) { recordError<ErrorRecord>(outErrors,childNodeIt,"unexpected input following export declaration"); continue; }
+				if(childNodeIt) { recordError<ErrorRecord>(file,childNodeIt,"unexpected input following export declaration"); continue; }
 			}
 		}
-		
-		return module;
 	}
 
-	Runtime::Value parseRuntimeValue(SNodeIt nodeIt,std::vector<ErrorRecord*>& outErrors)
+	Runtime::Value parseRuntimeValue(SNodeIt nodeIt,File& file)
 	{
 		SNodeIt childNodeIt;
 		Symbol symbol;
@@ -1588,28 +1583,28 @@ namespace WebAssemblyText
 			switch(symbol)
 			{
 			case Symbol::_const_I8:
-				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(file,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
 				else { return Runtime::Value((uint8)integerValue); }
 			case Symbol::_const_I16:
-				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(file,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
 				else { return Runtime::Value((uint16)integerValue); }
 			case Symbol::_const_I32:
-				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(file,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
 				else { return Runtime::Value((uint32)integerValue); }
 			case Symbol::_const_I64:
-				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
+				if(!parseInt(childNodeIt,integerValue)) { recordError<ErrorRecord>(file,childNodeIt,"const: expected integer literal"); return Runtime::Value(); }
 				else { return Runtime::Value((uint64)integerValue); }
 			case Symbol::_const_F32:
-				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number literal"); return Runtime::Value(); }
+				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(file,childNodeIt,"const: expected floating point number literal"); return Runtime::Value(); }
 				else { return Runtime::Value(f32Value); }
 			case Symbol::_const_F64:
-				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(outErrors,childNodeIt,"const: expected floating point number literal"); return Runtime::Value(); }
+				if(!parseFloat(childNodeIt,f64Value,f32Value)) { recordError<ErrorRecord>(file,childNodeIt,"const: expected floating point number literal"); return Runtime::Value(); }
 				else { return Runtime::Value(f64Value); }
 			default:;
 			};
 		}
 
-		recordError<ErrorRecord>(outErrors,nodeIt,"expected const expression");
+		recordError<ErrorRecord>(file,nodeIt,"expected const expression");
 		return Runtime::Value();
 	}
 
@@ -1619,7 +1614,7 @@ namespace WebAssemblyText
 
 		SNodeIt invokeChildIt;
 		if(!parseTaggedNode(nodeIt++,Symbol::_invoke,invokeChildIt))
-			{ recordError<ErrorRecord>(outFile.errors,nodeIt,"expected invoke expression"); return nullptr; }
+			{ recordError<ErrorRecord>(outFile,nodeIt,"expected invoke expression"); return nullptr; }
 
 		// Parse the export name to invoke.
 		Memory::ScopedArena scopedArena;
@@ -1627,25 +1622,25 @@ namespace WebAssemblyText
 		size_t invokeExportNameLength;
 		SNodeIt savedExportNameIt = invokeChildIt;
 		if(!parseString(invokeChildIt,invokeExportName,invokeExportNameLength,scopedArena))
-			{ recordError<ErrorRecord>(outFile.errors,invokeChildIt,"expected export name string"); return nullptr; }
+			{ recordError<ErrorRecord>(outFile,invokeChildIt,"expected export name string"); return nullptr; }
 
 		// Find the named export in one of the modules.
-		AST::Module* exportModule = outFile.modules[moduleIndex];
-		auto exportIt = exportModule->exportNameToFunctionIndexMap.find(invokeExportName);
-		if(exportIt == exportModule->exportNameToFunctionIndexMap.end())
-		{ recordError<ErrorRecord>(outFile.errors,savedExportNameIt,std::string("couldn't find export with name: ") + invokeExportName); return nullptr; }
+		const AST::Module& exportModule = outFile.modules[moduleIndex];
+		auto exportIt = exportModule.exportNameToFunctionIndexMap.find(invokeExportName);
+		if(exportIt == exportModule.exportNameToFunctionIndexMap.end())
+		{ recordError<ErrorRecord>(outFile,savedExportNameIt,std::string("couldn't find export with name: ") + invokeExportName); return nullptr; }
 		auto exportedFunctionIndex = exportIt->second;
 
 		// Parse the invoke's parameters.
-		auto function = exportModule->functions[exportedFunctionIndex];
-		std::vector<Runtime::Value> parameters(function->type.parameters.size());
-		for(uintptr parameterIndex = 0;parameterIndex < function->type.parameters.size();++parameterIndex)
-			{ parameters[parameterIndex] = parseRuntimeValue(invokeChildIt++,outFile.errors); }
+		const Function& function = exportModule.functions[exportedFunctionIndex];
+		std::vector<Runtime::Value> parameters(function.type.parameters.size());
+		for(uintptr parameterIndex = 0;parameterIndex < function.type.parameters.size();++parameterIndex)
+			{ parameters[parameterIndex] = parseRuntimeValue(invokeChildIt++,outFile); }
 
 		// Verify that all of the invoke's parameters were matched.
-		if(invokeChildIt) { recordExcessInputError<ErrorRecord>(outFile.errors,invokeChildIt,"invoke parameters mismatch"); return nullptr; }
+		if(invokeChildIt) { recordExcessInputError<ErrorRecord>(outFile,invokeChildIt,"invoke parameters mismatch"); return nullptr; }
 
-		auto result = new(exportModule->arena) Invoke;
+		auto result = new(outFile.testAndErrorArena) Invoke;
 		result->locus = originalNodeIt->startLocus;
 		result->functionIndex = exportedFunctionIndex;
 		result->parameters = std::move(parameters);
@@ -1659,12 +1654,12 @@ namespace WebAssemblyText
 		if(!invoke) { return nullptr; }
 
 		// Parse the expected value of the invoke.
-		auto value = nodeIt ? parseRuntimeValue(nodeIt++,outFile.errors) : Runtime::Value(Runtime::Void());
+		auto value = nodeIt ? parseRuntimeValue(nodeIt++,outFile) : Runtime::Value(Runtime::Void());
 
 		// Verify that all of the assert_return's parameters were matched.
-		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
+		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile,nodeIt,"assert_return expected value"); return nullptr; }
 
-		auto result = new(outFile.modules[moduleIndex]->arena) Assert;
+		auto result = new(outFile.testAndErrorArena) Assert;
 		result->invoke = invoke;
 		result->locus = locus;
 		result->value = value;
@@ -1678,9 +1673,9 @@ namespace WebAssemblyText
 		if(!invoke) { return nullptr; }
 
 		// Verify that all of the assert_return_nan's parameters were matched.
-		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
+		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile,nodeIt,"assert_return expected value"); return nullptr; }
 
-		auto result = new(outFile.modules[moduleIndex]->arena) AssertNaN;
+		auto result = new(outFile.testAndErrorArena) AssertNaN;
 		result->invoke = invoke;
 		result->locus = locus;
 		return result;
@@ -1694,17 +1689,17 @@ namespace WebAssemblyText
 		
 		// Set up a dummy module, function, and parsing context to parse the assertion value in.
 		Function dummyFunction;
-		ModuleContext dummyModuleContext(outFile.modules[moduleIndex],outFile.errors);
-		FunctionContext dummyFunctionContext(dummyModuleContext,&dummyFunction);
+		ModuleContext dummyModuleContext(outFile.modules[moduleIndex],outFile);
+		FunctionContext dummyFunctionContext(dummyModuleContext,dummyFunction);
 
 		// Parse the expected value of the invoke.
 		const char* message;
 		size_t numMessageChars;
-		if(!parseString(nodeIt,message,numMessageChars,outFile.modules[moduleIndex]->arena))
-			{ recordError<ErrorRecord>(outFile.errors,nodeIt,"expected trap message"); return nullptr; }
+		if(!parseString(nodeIt,message,numMessageChars,outFile.testAndErrorArena))
+			{ recordError<ErrorRecord>(outFile,nodeIt,"expected trap message"); return nullptr; }
 
 		// Verify that all of the assert_trap's parameters were matched.
-		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile.errors,nodeIt,"assert_return expected value"); return nullptr; }
+		if(nodeIt) { recordExcessInputError<ErrorRecord>(outFile,nodeIt,"assert_return expected value"); return nullptr; }
 		
 		// Try to map the trap message to an exception cause.
 		Runtime::Exception::Cause cause = Runtime::Exception::Cause::Unknown;
@@ -1720,32 +1715,37 @@ namespace WebAssemblyText
 		else if(!strcmp(message,"indirect call signature mismatch")) { cause = Runtime::Exception::Cause::IndirectCallSignatureMismatch; }
 		else if(!strncmp(message,"undefined table index",21)) { cause = Runtime::Exception::Cause::OutOfBoundsFunctionTableIndex; }
 
-		auto result = new(outFile.modules[moduleIndex]->arena) Assert;
+		// Free the arena memory allocated for the trap's message.
+		outFile.testAndErrorArena.reallocate(const_cast<char*>(message),numMessageChars+1,0);
+
+		auto result = new(outFile.testAndErrorArena) Assert;
 		result->invoke = invoke;
 		result->locus = locus;
-		result->value = Runtime::Value(new Runtime::Exception {cause});
+		result->value = Runtime::Value(new(outFile.testAndErrorArena) Runtime::Exception {cause});
 		return result;
 	}
 
-	void parseAssertInvalid(SNodeIt nodeIt, std::vector<ErrorRecord*>& outErrors) {
+	void parseAssertInvalid(SNodeIt nodeIt,File& file)
+	{
 		SNodeIt moduleNodeIt = nodeIt;
 		SNodeIt childNodeIt;
-		std::vector<ErrorRecord*> moduleErrors;
+		File dummyFile;
 		if(parseTaggedNode(nodeIt,Symbol::_module,childNodeIt))
 		{
-			ModuleContext(new Module(),moduleErrors).parse(childNodeIt);
+			Module dummyModule;
+			ModuleContext(dummyModule,dummyFile).parse(childNodeIt);
 			++nodeIt;
-		} else { recordError<ErrorRecord>(outErrors,moduleNodeIt,"expected module definition"); return; }
+		} else { recordError<ErrorRecord>(file,moduleNodeIt,"expected module definition"); return; }
 
 		SNodeIt description;
 		if(nodeIt && nodeIt->type == SExp::NodeType::String)
 		{
 			description = nodeIt;
 			++nodeIt;
-		} else { recordError<ErrorRecord>(outErrors,nodeIt,"expected assert_invalid description"); return; }
+		} else { recordError<ErrorRecord>(file,nodeIt,"expected assert_invalid description"); return; }
 
 		// assert_invalid validation
-		if (moduleErrors.size() == 0) { recordError<ErrorRecord>(outErrors,moduleNodeIt,std::string("expected module error:") + description->string); }
+		if (dummyFile.errors.size() == 0) { recordError<ErrorRecord>(file,moduleNodeIt,std::string("expected module error:") + description->string); }
 	}
 
 	// Parses a module from a WAST string.
@@ -1763,17 +1763,19 @@ namespace WebAssemblyText
 			SNodeIt childNodeIt;
 			if(parseTaggedNode(rootNodeIt,Symbol::_assert_invalid,childNodeIt))
 			{
-				parseAssertInvalid(childNodeIt, outFile.errors);
+				parseAssertInvalid(childNodeIt,outFile);
 			}
 			else if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 			{
 				// Parse a module definition.
-				outFile.modules.push_back(ModuleContext(new Module(),outFile.errors).parse(childNodeIt));
+				outFile.modules.push_back(Module());
+				Module& module = outFile.modules.back();
+				ModuleContext(module,outFile).parse(childNodeIt);
 			}
 			else if(rootNodeIt->type == SExp::NodeType::Error)
 			{
 				// Pass through top-level errors from the S-expression parser.
-				recordError<Error>(outFile.errors,rootNodeIt->startLocus,rootNodeIt->error);
+				recordError<Error>(outFile,rootNodeIt->startLocus,rootNodeIt->error);
 			}
 		}
 		
@@ -1790,19 +1792,16 @@ namespace WebAssemblyText
 			}
 			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_return,childNodeIt))
 			{
-				assert(currentModuleIndex < outFile.modules.size());
 				auto assert = parseAssertReturn(rootNodeIt->startLocus,childNodeIt,currentModuleIndex,outFile);
 				if(assert) { outFile.moduleTests[currentModuleIndex].push_back(assert); }
 			}
 			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_return_nan,childNodeIt))
 			{
-				assert(currentModuleIndex < outFile.modules.size());
 				auto assert = parseAssertReturnNaN(rootNodeIt->startLocus,childNodeIt,currentModuleIndex,outFile);
 				if(assert) { outFile.moduleTests[currentModuleIndex].push_back(assert); }
 			}
 			else if(currentModuleIndex < outFile.modules.size() && parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
 			{
-				assert(currentModuleIndex < outFile.modules.size());
 				auto assertTrap = parseAssertTrap(rootNodeIt->startLocus,childNodeIt,currentModuleIndex,outFile);
 				if(assertTrap) { outFile.moduleTests[currentModuleIndex].push_back(assertTrap); }
 			}

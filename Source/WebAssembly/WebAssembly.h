@@ -47,9 +47,10 @@ namespace WebAssemblyText
 	
 	struct File
 	{
-		std::vector<AST::Module*> modules;
-		std::vector<AST::ErrorRecord*> errors;
+		std::vector<AST::Module> modules;
 
+		Memory::Arena testAndErrorArena;
+		std::vector<AST::ErrorRecord*> errors;
 		std::vector<std::vector<TestStatement*>> moduleTests;
 	};
 
