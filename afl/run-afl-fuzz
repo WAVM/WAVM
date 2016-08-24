@@ -1,0 +1,19 @@
+#!/bin/sh -ex
+
+FINDINGS=/tmp/afl-ramdisk/
+if [ ! -d $FINDINGS ] ; then
+  mkdir /tmp/afl-ramdisk && chmod 777 /tmp/afl-ramdisk
+  sudo mount -t tmpfs -o size=512M tmpfs /tmp/afl-ramdisk
+fi
+
+./afl/make-corpus
+
+if [ -n "$1" ] ; then
+  MASTER="-S" ;
+  FUZZNAME="$1"
+else
+  MASTER="-M"
+  FUZZNAME="01"
+fi
+
+afl-fuzz -i corpus -o ${FINDINGS} -m 9999999999999999999 $MASTER fuzzer${FUZZNAME} -x afl/wast.dict -- ./bin/wavm --check --text @@
