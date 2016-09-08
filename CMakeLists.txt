@@ -58,6 +58,7 @@ else()
 	# Enable asan in debug builds.
 	if(CMAKE_BUILD_TYPE MATCHES "Debug")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+		add_definitions("-D_DEBUG")
 	endif()
 endif()
 
@@ -67,8 +68,8 @@ if(WAVM_TIMER_OUTPUT)
 endif()
 
 add_subdirectory(Source/Core)
-add_subdirectory(Source/AST)
 add_subdirectory(Source/WebAssembly)
+add_subdirectory(Source/WAST)
 add_subdirectory(Source/Runtime)
 add_subdirectory(Source/Programs)
 add_subdirectory(Source/ThirdParty)

@@ -10,7 +10,7 @@
 namespace SExp
 {
 	// The type of a S-expression node.
-	enum class NodeType : uint8
+	enum class SNodeType : uint8
 	{
 		Symbol,
 		String,
@@ -25,10 +25,10 @@ namespace SExp
 	};
 
 	// A node in a tree of S-expressions
-	struct Node
+	struct SNode
 	{
 		// The type of the node. Determines how to interpret the union.
-		NodeType type;
+		SNodeType type;
 		union
 		{
 			const char* error;
@@ -37,7 +37,7 @@ namespace SExp
 			int64 i64;
 			uint64 u64;
 			float64 f64;
-			Node* children;
+			SNode* children;
 		};
 		union
 		{
@@ -48,13 +48,13 @@ namespace SExp
 			float32 f32;
 		};
 		// The next node with the same parent.
-		Node* nextSibling;
+		SNode* nextSibling;
 		// The start of this node in the source file.
 		Core::TextFileLocus startLocus;
 		// The end of this node in the source file.
 		Core::TextFileLocus endLocus;
 
-		Node(const Core::TextFileLocus& inStartLocus = Core::TextFileLocus(),NodeType inType = NodeType::Tree)
+		SNode(const Core::TextFileLocus& inStartLocus = Core::TextFileLocus(),SNodeType inType = SNodeType::Tree)
 		:	type(inType)
 		,	children(nullptr)
 		,	stringLength(0)
@@ -65,16 +65,16 @@ namespace SExp
 	};
 
 	// Iterates over sibling nodes in a S-expression tree.
-	struct NodeIt
+	struct SNodeIt
 	{
-		Node* node;
+		SNode* node;
 		Core::TextFileLocus previousLocus;
 
-		NodeIt(): node(nullptr) {}
-		explicit NodeIt(Node* inNode,Core::TextFileLocus inPreviousLocus = Core::TextFileLocus())
+		SNodeIt(): node(nullptr) {}
+		explicit SNodeIt(SNode* inNode,Core::TextFileLocus inPreviousLocus = Core::TextFileLocus())
 		: node(inNode), previousLocus(inPreviousLocus) {}
 
-		NodeIt& operator++()
+		SNodeIt& operator++()
 		{
 			if(node)
 			{
@@ -83,136 +83,121 @@ namespace SExp
 			}
 			return *this;
 		}
-		NodeIt operator++(int)
+		SNodeIt operator++(int)
 		{
-			NodeIt copy = *this;
+			SNodeIt copy = *this;
 			++(*this);
 			return copy;
 		}
 		
-		NodeIt getChildIt() const
+		SNodeIt getChildIt() const
 		{
-			assert(node->type == NodeType::Tree || node->type == NodeType::Attribute);
-			return NodeIt(node->children,node->startLocus);
+			assert(node->type == SNodeType::Tree || node->type == SNodeType::Attribute);
+			return SNodeIt(node->children,node->startLocus);
 		}
 
-		Node* operator->() const { return node; }
-		operator Node*() const { return node; }
+		SNode* operator->() const { return node; }
+		operator SNode*() const { return node; }
 		operator bool() const { return node != nullptr; }
-	};
-
-	// An output stream for S-expression nodes.
-	struct NodeOutputStream
-	{
-		// Used to distinguish an unindexed symbol from a quoted string, which may contain zeroes other than its terminator.
-		struct StringAtom
-		{
-			const char* string;
-			size_t length;
-			StringAtom(const char* inString,size_t inLength) : string(inString), length(inLength) {}
-			StringAtom(const std::string& inString) : string(inString.c_str()), length(inString.length()) {}
-		};
-		
-		NodeOutputStream(Memory::Arena& inArena): arena(inArena), rootNode(nullptr), nextNodeLink(&rootNode) {}
-
-		// Appends a subtree node, and sets the stream to append to its children.
-		void enterSubtree()
-		{
-			Node* subtreeNode = new(arena) Node();
-			*nextNodeLink = subtreeNode;
-			nextNodeLink = &subtreeNode->children;
-		}
-
-		// Appends an attribute node, and sets the stream to append to its children.
-		void enterAttribute()
-		{
-			Node* subtreeNode = new(arena) Node();
-			subtreeNode->type = NodeType::Attribute;
-			*nextNodeLink = subtreeNode;
-			nextNodeLink = &subtreeNode->children;
-		}
-
-		// Append a substream's nodes.
-		NodeOutputStream& operator<<(const NodeOutputStream& substream)
-		{
-			append(substream.getRoot());
-			return *this;
-		}
-		// Append a S-expression node.
-		NodeOutputStream& operator<<(Node* node)
-		{
-			append(node);
-			return *this;
-		}
-		// Append an unindexed symbol.
-		NodeOutputStream& operator<<(const char* string)
-		{
-			auto stringLength = strlen(string);
-			auto symbolNode = new(arena) Node();
-			symbolNode->type = SExp::NodeType::UnindexedSymbol;
-			symbolNode->string = arena.copyToArena(string,stringLength + 1);;
-			symbolNode->stringLength = stringLength;
-			append(symbolNode);
-			return *this;
-		}
-		NodeOutputStream& operator<<(const std::string& string) { return *this << string.c_str(); }
-		NodeOutputStream& operator<<(bool b) { appendInt(b ? 1 : 0); return *this; }
-		NodeOutputStream& operator<<(uint8 i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(uint16 i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(uint32 i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(uint64 i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(intptr i) { appendInt(i); return *this; }
-		NodeOutputStream& operator<<(float64 f)
-		{
-			auto decimalNode = new(arena) Node();
-			decimalNode->type = SExp::NodeType::Float;
-			decimalNode->f64 = f;
-			decimalNode->f32 = (float32)f;
-			append(decimalNode);
-			return *this;
-		}
-		
-		NodeOutputStream& operator<<(const StringAtom& string)
-		{
-			auto intNode = new(arena) Node();
-			intNode->type = SExp::NodeType::String;
-			intNode->string = string.string;
-			intNode->stringLength = string.length;
-			append(intNode);
-			return *this;
-		}
-		
-		Memory::Arena& getArena() { return arena; }
-		Node* getRoot() const { return rootNode; }
-
-	private:
-		Memory::Arena& arena;
-		Node* rootNode;
-		Node** nextNodeLink;
-
-		void append(Node* node)
-		{
-			if(node)
-			{
-				*nextNodeLink = node;
-				while(node->nextSibling) { node = node->nextSibling; };
-				nextNodeLink = &node->nextSibling;
-			}
-		}
-
-		template<typename T> void appendInt(T i)
-		{
-			auto intNode = new(arena) Node();
-			intNode->type = i < 0 ? SExp::NodeType::SignedInt : SExp::NodeType::UnsignedInt;
-			intNode->u64 = i < 0 ? (uint64)-(int64)i : i;
-			append(intNode);
-		}
 	};
 
 	// Parses a S-expression tree from a string, allocating nodes from arena, and using symbolIndexMap to map symbols to indices.
 	typedef std::map<const char*,uintptr,Core::StringCompareFunctor> SymbolIndexMap;
-	CORE_API Node* parse(const char* string,Memory::Arena& arena,const SymbolIndexMap& symbolIndexMap);
+	CORE_API SNode* parse(const char* string,MemoryArena::Arena& arena,const SymbolIndexMap& symbolIndexMap);
 
-	// Prints a S-expression tree to a string.
-	CORE_API std::string print(SExp::Node* rootNode,const char* symbolStrings[]);
+	// Parse an integer from a S-expression node.
+	inline bool parseInt(SNodeIt& nodeIt,int32& outInt)
+	{
+		if(nodeIt && nodeIt->type == SNodeType::SignedInt && nodeIt->u64 <= (uint64)-int64(INT32_MIN))	{ outInt = (int32)-nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SNodeType::UnsignedInt && nodeIt->u64 <= (uint64)UINT32_MAX)	{ outInt = (int32)nodeIt->u64; ++nodeIt; return true; }
+		else { return false; }
+	}
+	inline bool parseInt(SNodeIt& nodeIt,int64& outInt)
+	{
+		if(nodeIt && nodeIt->type == SNodeType::SignedInt && nodeIt->u64 <= (uint64)-INT64_MIN)	{ outInt = -nodeIt->i64; ++nodeIt; return true; }
+		if(nodeIt && nodeIt->type == SNodeType::UnsignedInt)									{ outInt = nodeIt->u64; ++nodeIt; return true; }
+		else { return false; }
+	}
+	inline bool parseUnsignedInt(SNodeIt& nodeIt,uint64& outInt)
+	{
+		if(nodeIt && nodeIt->type == SNodeType::UnsignedInt) { outInt = nodeIt->u64; ++nodeIt; return true; }
+		else { return false; }
+	}
+
+	// Parse a float from a S-expression node.
+	inline bool parseFloat(SNodeIt& nodeIt,float32& outF32)
+	{
+		if(nodeIt && nodeIt->type == SNodeType::Float) { outF32 = nodeIt->f32;++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SNodeType::SignedInt) { outF32 = -(float32)nodeIt->u64; ++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SNodeType::UnsignedInt) { outF32 = (float32)nodeIt->u64; ++nodeIt; return true; }
+		else { return false; }
+	}
+	inline bool parseFloat(SNodeIt& nodeIt,float64& outF64)
+	{
+		if(nodeIt && nodeIt->type == SNodeType::Float) { outF64 = nodeIt->f64;++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SNodeType::SignedInt) { outF64 = -(float64)nodeIt->u64; ++nodeIt; return true; }
+		else if(nodeIt && nodeIt->type == SNodeType::UnsignedInt) { outF64 = (float64)nodeIt->u64; ++nodeIt; return true; }
+		else { return false; }
+	}
+
+	// Parse a string from a S-expression node.
+	inline bool parseString(SNodeIt& nodeIt,std::string& outString)
+	{
+		if(nodeIt && nodeIt->type == SNodeType::String)
+		{
+			outString = std::string(nodeIt->string,nodeIt->stringLength);
+			++nodeIt;
+			return true;
+		}
+		else { return false; }
+	}
+	
+	// Parse a S-expression tree or attribute node. Upon success, outChildIt is set to the node's first child.
+	inline bool parseTreelikeNode(SNodeIt nodeIt,SNodeType nodeType,SNodeIt& outChildIt)
+	{
+		if(nodeIt && nodeIt->type == nodeType) { outChildIt = nodeIt.getChildIt(); return true; }
+		else { return false; }
+	}
+	inline bool parseTreeNode(SNodeIt nodeIt,SNodeIt& outChildIt) { return parseTreelikeNode(nodeIt,SNodeType::Tree,outChildIt); }
+	inline bool parseAttributeNode(SNodeIt nodeIt,SNodeIt& outChildIt) { return parseTreelikeNode(nodeIt,SNodeType::Attribute,outChildIt); }
+	
+	// Parse a S-expression symbol node. Upon success, outSymbol is set to the parsed symbol.
+	template<typename Symbol>
+	bool parseSymbol(SNodeIt& nodeIt,Symbol& outSymbol)
+	{
+		if(nodeIt && nodeIt->type == SNodeType::Symbol) { outSymbol = (Symbol)nodeIt->symbol; ++nodeIt; return true; }
+		else { return false; }
+	}
+
+	// Parse a S-expression tree node whose first child is a symbol. Sets outChildren to the first child after the symbol on success.
+	template<typename Symbol>
+	bool parseTaggedNode(SNodeIt nodeIt,Symbol tagSymbol,SNodeIt& outChildIt)
+	{
+		Symbol symbol;
+		return parseTreeNode(nodeIt,outChildIt) && parseSymbol(outChildIt,symbol) && symbol == tagSymbol;
+	}
+	
+	// Parse a S-expression attribute node whose first child is a symbol. Sets outValue to the attribute value.
+	template<typename Symbol>
+	bool parseSymbolAttribute(SNodeIt nodeIt,Symbol keySymbol,SNodeIt& outValueIt)
+	{
+		Symbol symbol;
+		return parseAttributeNode(nodeIt,outValueIt) && parseSymbol(outValueIt,symbol) && symbol == keySymbol;
+	}
+
+	// Tries to parse a name from a SExp node (a string symbol starting with a $).
+	// On success, returns true, sets outString to the name's string, and advances node to the sibling following the name.
+	inline bool parseName(SNodeIt& nodeIt,const char*& outString)
+	{
+		if(nodeIt && nodeIt->type == SNodeType::Name)
+		{
+			outString = nodeIt->string;
+			++nodeIt;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
 }

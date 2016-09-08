@@ -1,71 +1,27 @@
 #pragma once
 
-#include "Core/Core.h"
-#include "AST/AST.h"
-#include "Runtime/Runtime.h"
-
-#include <vector>
-
 #ifndef WEBASSEMBLY_API
 	#define WEBASSEMBLY_API DLL_IMPORT
 #endif
 
-namespace WebAssemblyText
+#include "Core/Core.h"
+#include "Core/Serialization.h"
+
+namespace WebAssembly
 {
-	enum class TestOp
-	{
-		Invoke,
-		Assert,
-		AssertNaN,
-	};
-
-	struct TestStatement
-	{
-		TestOp op;
-		Core::TextFileLocus locus;
-	};
-
-	struct Invoke : TestStatement
-	{
-		uintptr functionIndex;
-		std::vector<Runtime::Value> parameters;
-		Invoke() : TestStatement({TestOp::Invoke}) {}
-	};
-
-	struct Assert : TestStatement
-	{
-		Invoke* invoke;
-		Runtime::Value value;
-		Assert() : TestStatement({TestOp::Assert}) {}
-	};
-
-	struct AssertNaN : TestStatement
-	{
-		Invoke* invoke;
-		AssertNaN() : TestStatement({TestOp::AssertNaN}) {}
-	};
+	enum { maxMemoryPages = (uintptr)65535 };
+	enum { numBytesPerPage = (uintptr)65536 };
+	enum { numBytesPerPageLog2 = (uintptr)16 };
 	
-	struct File
-	{
-		std::vector<AST::Module> modules;
+	struct Module;
 
-		Memory::Arena testAndErrorArena;
-		std::vector<AST::ErrorRecord*> errors;
-		std::vector<std::vector<TestStatement*>> moduleTests;
+	struct ValidationException
+	{
+		std::string message;
+		ValidationException(std::string&& inMessage): message(inMessage) {}
 	};
 
-	WEBASSEMBLY_API bool parse(const char* string,File& outFile);
-	WEBASSEMBLY_API std::string print(const AST::Module* module);
-}
-
-namespace WebAssemblyBinary
-{
-	WEBASSEMBLY_API bool decode(
-		const uint8* code,
-		size_t numCodeBytes,
-		const uint8* data,
-		size_t numDataBytes,
-		AST::Module*& outModule,
-		std::vector<AST::ErrorRecord*>& outErrors
-		);
+	WEBASSEMBLY_API void serialize(Serialization::InputStream& stream,Module& module);
+	WEBASSEMBLY_API void serialize(Serialization::OutputStream& stream,const Module& module);
+	WEBASSEMBLY_API void validate(const Module& module);
 }

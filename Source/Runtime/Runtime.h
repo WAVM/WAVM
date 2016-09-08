@@ -2,11 +2,15 @@
 
 #include "Core/Core.h"
 #include "Core/Platform.h"
-#include "AST/AST.h"
+#include "TaggedValue.h"
+#include "WebAssembly/Types.h"
 
 #ifndef RUNTIME_API
 	#define RUNTIME_API DLL_IMPORT
 #endif
+
+// Declare WebAssembly::Module to avoid including the definition.
+namespace WebAssembly { struct Module; }
 
 namespace Runtime
 {
@@ -15,95 +19,125 @@ namespace Runtime
 	{
 		enum class Cause : uint8
 		{
-			Unknown,
-			AccessViolation,
-			StackOverflow,
-			IntegerDivideByZeroOrIntegerOverflow,
-			InvalidFloatOperation,
-			InvokeSignatureMismatch,
-			OutOfMemory,
-			GrowMemoryNotPageAligned,
-			ReachedUnreachable,
-			IndirectCallSignatureMismatch,
-			OutOfBoundsFunctionTableIndex
+			unknown,
+			accessViolation,
+			stackOverflow,
+			integerDivideByZeroOrIntegerOverflow,
+			invalidFloatOperation,
+			invokeSignatureMismatch,
+			reachedUnreachable,
+			indirectCallSignatureMismatch,
+			undefinedTableElement,
+			calledAbort,
+			calledUnimplementedIntrinsic
 		};
 
 		Cause cause;
 		std::vector<std::string> callStack;		
 	};
 	
-	// Used to represent a void runtime value.
-	struct Void {};
-
-	// The type of a runtime value.
-	enum class TypeId : uint8
+	// Returns a string that describes the given exception cause.
+	inline const char* describeExceptionCause(Exception::Cause cause)
 	{
-		None = (uint8)AST::TypeId::None,
-		I8 = (uint8)AST::TypeId::I8,
-		I16 = (uint8)AST::TypeId::I16,
-		I32 = (uint8)AST::TypeId::I32,
-		I64 = (uint8)AST::TypeId::I64,
-		F32 = (uint8)AST::TypeId::F32,
-		F64 = (uint8)AST::TypeId::F64,
-		Void = (uint8)AST::TypeId::Void,
-		Exception
-	};
-
-	// A boxed value: may hold any value that can be passed to, or returned from a function invoked through the runtime.
-	struct Value
-	{
-		union
+		switch(cause)
 		{
-			uint8 i8;
-			uint16 i16;
-			uint32 i32;
-			uint64 i64;
-			float32 f32;
-			float64 f64;
-			bool bool_;
-			Void void_;
-			Exception* exception;
-		};
-		TypeId type;
-
-		Value(uint8 inI8): i8(inI8), type(TypeId::I8) {}
-		Value(uint16 inI16): i16(inI16), type(TypeId::I16) {}
-		Value(uint32 inI32): i32(inI32), type(TypeId::I32) {}
-		Value(uint64 inI64): i64(inI64), type(TypeId::I64) {}
-		Value(float32 inF32): f32(inF32), type(TypeId::F32) {}
-		Value(float64 inF64): f64(inF64), type(TypeId::F64) {}
-		Value(Void inVoid): void_(inVoid), type(TypeId::Void) {}
-		Value(): type(TypeId::None) {}
-		Value(Exception* inException): exception(inException), type(TypeId::Exception) {}
-	};
-	
-	// The base of the virtual address space allocated for the VM.
-	// This is never changed after it is initialized.
-	extern RUNTIME_API uint8* instanceMemoryBase;
-
-	// The number of bytes of address-space reserved (but not necessarily committed) for the VM.
-	// This should be a power of two, and is never changed after it is initialized.
-	extern RUNTIME_API size_t instanceAddressSpaceMaxBytes;
-	
-	// Commits or decommits memory in the VM virtual address space.
-	RUNTIME_API size_t vmGrowMemory(size_t numBytes);
-	RUNTIME_API size_t vmShrinkMemory(size_t numBytes);
-
-	// Given an address as a byte index, returns a typed reference to that address of VM memory.
-	template<typename memoryType> memoryType& instanceMemoryRef(uintptr address)
-	{
-		return *(memoryType*)(instanceMemoryBase + address);
+		case Exception::Cause::accessViolation: return "access violation";
+		case Exception::Cause::stackOverflow: return "stack overflow";
+		case Exception::Cause::integerDivideByZeroOrIntegerOverflow: return "integer divide by zero or signed integer overflow";
+		case Exception::Cause::invalidFloatOperation: return "invalid floating point operation";
+		case Exception::Cause::invokeSignatureMismatch: return "invoke signature mismatch";
+		case Exception::Cause::reachedUnreachable: return "reached unreachable code";
+		case Exception::Cause::indirectCallSignatureMismatch: return "call_indirect to function with wrong signature";
+		case Exception::Cause::undefinedTableElement: return "undefined function table element";
+		case Exception::Cause::calledAbort: return "called abort";
+		case Exception::Cause::calledUnimplementedIntrinsic: return "called unimplemented intrinsic";
+		default: return "unknown";
+		}
 	}
 
-	// Initializes the runtime.
-	RUNTIME_API bool init();
+	struct InstantiationException
+	{
+		enum Cause
+		{
+			importCountMismatch,
+			importTypeMismatch,
+			invalidInitializerGlobalRef,
+			invalidDataSegmentBase,
+			codeGenFailed,
+			startFunctionException
+		};
 
-	// Adds a module to the instance.
-	RUNTIME_API bool loadModule(const AST::Module* module);
+		const Cause cause;
 
-	// Invokes a function with the provided boxed parameters.
-	RUNTIME_API Value invokeFunction(const AST::Module* module,uintptr functionIndex,const Value* parameters);
+		InstantiationException(Cause inCause): cause(inCause) {}
+	};
 
-	// Returns a string that describes the given exception cause.
-	RUNTIME_API const char* describeExceptionCause(Runtime::Exception::Cause cause);
+	struct FunctionInstance;
+	struct Table;
+	struct Memory;
+	struct GlobalInstance;
+	struct ModuleInstance;
+
+	struct Object
+	{
+		const WebAssembly::ObjectKind kind;
+
+		Object(WebAssembly::ObjectKind inKind): kind(inKind) {}
+		virtual ~Object() {}
+		
+		friend RUNTIME_API bool isA(Object* object,const WebAssembly::ObjectType& type);
+
+		friend FunctionInstance* asFunction(Object* object)	{ assert(object && object->kind == WebAssembly::ObjectKind::function); return (FunctionInstance*)object; }
+		friend Table* asTable(Object* object)				{ assert(object && object->kind == WebAssembly::ObjectKind::table); return (Table*)object; }
+		friend Memory* asMemory(Object* object)			{ assert(object && object->kind == WebAssembly::ObjectKind::memory); return (Memory*)object; }
+		friend GlobalInstance* asGlobal(Object* object)		{ assert(object && object->kind == WebAssembly::ObjectKind::global); return (GlobalInstance*)object; }
+		friend ModuleInstance* asModule(Object* object)		{ assert(object && object->kind == WebAssembly::ObjectKind::module); return (ModuleInstance*)object; }
+
+		friend FunctionInstance* asFunctionNullable(Object* object)	{ return object && object->kind == WebAssembly::ObjectKind::function ? (FunctionInstance*)object : nullptr; }
+		friend Table* asTableNullable(Object* object)			{ return object && object->kind == WebAssembly::ObjectKind::table ? (Table*)object : nullptr; }
+		friend Memory* asMemoryNullable(Object* object)		{ return object && object->kind == WebAssembly::ObjectKind::memory ? (Memory*)object : nullptr; }
+		friend GlobalInstance* asGlobalNullable(Object* object)		{ return object && object->kind == WebAssembly::ObjectKind::global ? (GlobalInstance*)object : nullptr; }
+		friend ModuleInstance* asModuleNullable(Object* object)	{ return object && object->kind == WebAssembly::ObjectKind::module ? (ModuleInstance*)object : nullptr; }
+
+		friend Object* asObject(FunctionInstance* function) { return (Object*)function; }
+		friend Object* asObject(Table* table) { return (Object*)table; }
+		friend Object* asObject(Memory* memory) { return (Object*)memory; }
+		friend Object* asObject(GlobalInstance* global) { return (Object*)global; }
+		friend Object* asObject(ModuleInstance* module) { return (Object*)module; }
+	};
+
+	// Function API
+	RUNTIME_API Value invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters);
+	RUNTIME_API const WebAssembly::FunctionType* getFunctionType(FunctionInstance* function);
+
+	// Table API
+	RUNTIME_API Table* createTable(WebAssembly::TableType type);
+	RUNTIME_API Object* getTableElement(Table* table,uintptr index);
+	RUNTIME_API Object* setTableElement(Table* table,uintptr index,Object* newValue);
+	RUNTIME_API size_t getTableNumElements(Table* table);
+	RUNTIME_API size_t getTableMaxElements(Table* table);
+	RUNTIME_API intptr_t growTable(Table* table,size_t numElements);
+	RUNTIME_API intptr_t shrinkTable(Table* table,size_t numElements);
+
+	// Memory API
+	RUNTIME_API Memory* createMemory(WebAssembly::MemoryType type);
+	RUNTIME_API uint8* getMemoryBaseAddress(Memory* memory);
+	RUNTIME_API size_t getMemoryNumPages(Memory* memory);
+	RUNTIME_API size_t getMemoryMaxPages(Memory* memory);
+	RUNTIME_API intptr_t growMemory(Memory* memory,size_t numPages);
+	RUNTIME_API intptr_t shrinkMemory(Memory* memory,size_t numPages);
+
+	// Global API
+	RUNTIME_API GlobalInstance* createGlobal(WebAssembly::GlobalType type,Value initialValue);
+	RUNTIME_API Value getGlobalValue(GlobalInstance* global);
+	RUNTIME_API Value setGlobalValue(GlobalInstance* global,Value newValue);
+
+	// Module API
+	RUNTIME_API ModuleInstance* instantiateModule(const WebAssembly::Module& module,std::vector<Object*>&& imports);
+	RUNTIME_API Memory* getDefaultMemory(ModuleInstance* moduleInstance);
+	RUNTIME_API Table* getDefaultTable(ModuleInstance* moduleInstance);
+	RUNTIME_API Object* getInstanceExport(ModuleInstance* moduleInstance,const char* exportName);
+
+	// Initializes the runtime. Should only be called once.
+	RUNTIME_API void init();
 }

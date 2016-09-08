@@ -1,13 +1,13 @@
 ;; Classic Unix echo program in WebAssembly WASM AST
 
 (module
-  (memory 1
-   (segment 8 "\n\00")
-   (segment 12 " \00")
-  )
-  (import $__fwrite "env" "_fwrite" (param i32 i32 i32 i32) (result i32))
-  (import $_get__stdout "env" "get__stdout" (param) (result i32))
-  (export "main" $main)
+  (data (i32.const 8) "\n\00")
+  (data (i32.const 12) " \00")
+
+  (import "env" "memory" (memory 1))
+  (import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
+  (import "env" "_stdout" (global $stdoutPtr (mut i32)))
+  (export "main" (func $main))
 
   (func $strlen (param $s i32) (result i32)
     (local $head i32)
@@ -24,7 +24,7 @@
   (func $fputs (param $s i32) (param $stream i32) (result i32)
     (local $len i32)
     (set_local $len (call $strlen (get_local $s)))
-    (return (call_import $__fwrite
+    (return (call $__fwrite
       (get_local $s)        ;; ptr
       (i32.const 1)         ;; size_t size  => Data size
       (get_local $len)      ;; size_t nmemb => Length of our string
@@ -36,7 +36,7 @@
     (local $s i32)
     (local $space i32)
     (set_local $space (i32.const 0))
-    (set_local $stdout (call_import $_get__stdout))
+    (set_local $stdout (i32.load align=4 (get_global $stdoutPtr)))
 
     (loop $done $loop
       (set_local $argv (i32.add (get_local $argv) (i32.const 4)))
@@ -44,15 +44,15 @@
       (br_if $done (i32.eq (i32.const 0) (get_local $s)))
 
       (if (i32.eq (i32.const 1) (get_local $space))
-        (call $fputs (i32.const 12) (get_local $stdout)) ;; ' '
+        (drop (call $fputs (i32.const 12) (get_local $stdout))) ;; ' '
       )
       (set_local $space (i32.const 1))
 
-      (call $fputs (get_local $s) (get_local $stdout))
+      (drop (call $fputs (get_local $s) (get_local $stdout)))
       (br $loop)
     )
 
-    (call $fputs (i32.const 8) (get_local $stdout)) ;; \n
+    (drop (call $fputs (i32.const 8) (get_local $stdout))) ;; \n
 
     (return (i32.const 0))
   )

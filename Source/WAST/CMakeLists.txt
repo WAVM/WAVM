@@ -1,0 +1,5 @@
+file(GLOB Sources "*.cpp")
+file(GLOB Headers "*.h")
+add_library(WAST SHARED ${Sources} ${Headers})
+add_definitions(-DWAST_API=DLL_EXPORT)
+target_link_libraries(WAST Core WebAssembly)

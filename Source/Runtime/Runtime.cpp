@@ -1,44 +1,19 @@
 #include "Core/Core.h"
 #include "Core/Platform.h"
-#include "AST/AST.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
-#include <iostream>
-
-namespace AST { struct Module; }
-
 namespace Runtime
 {
-	bool init()
+	void init()
 	{
 		LLVMJIT::init();
-		return initInstanceMemory();
 	}
 
-	void causeException(Exception::Cause cause)
+	[[noreturn]] void causeException(Exception::Cause cause)
 	{
 		auto callStack = describeExecutionContext(RuntimePlatform::captureExecutionContext());
 		RuntimePlatform::raiseException(new Exception {cause,callStack});
-	}
-
-	const char* describeExceptionCause(Exception::Cause cause)
-	{
-		switch(cause)
-		{
-		case Exception::Cause::Unknown: return "unknown";
-		case Exception::Cause::AccessViolation: return "access violation";
-		case Exception::Cause::StackOverflow: return "stack overflow";
-		case Exception::Cause::IntegerDivideByZeroOrIntegerOverflow: return "integer divide by zero or signed integer overflow";
-		case Exception::Cause::InvalidFloatOperation: return "invalid floating point operation";
-		case Exception::Cause::InvokeSignatureMismatch: return "invoke signature mismatch";
-		case Exception::Cause::OutOfMemory: return "out of memory";
-		case Exception::Cause::GrowMemoryNotPageAligned: return "grow_memory called with size that isn't a multiple of page_size";
-		case Exception::Cause::ReachedUnreachable: return "reached unreachable code";
-		case Exception::Cause::IndirectCallSignatureMismatch: return "call_indirect to function with wrong signature";
-		case Exception::Cause::OutOfBoundsFunctionTableIndex: return "out-of-bounds index for function table";
-		default: return "unknown";
-		}
 	}
 
 	std::string describeStackFrame(const StackFrame& frame)
@@ -58,84 +33,90 @@ namespace Runtime
 		return frameDescriptions;
 	}
 
-	bool loadModule(const AST::Module* module)
+	bool isA(Object* object,const ObjectType& type)
 	{
-		// Free any existing memory.
-		vmShrinkMemory(vmGrowMemory(0));
+		if(type.kind != object->kind) { return false; }
 
-		// Initialize the module's requested initial memory.
-		if(vmGrowMemory((int32)module->initialNumPagesMemory * AST::numBytesPerPage) != 0)
+		switch(type.kind)
 		{
-			std::cerr << "Failed to commit the requested initial memory for module instance (" << module->initialNumPagesMemory*AST::numBytesPerPage/1024 << "KB requested)" << std::endl;
-			return false;
-		}
-
-		// Copy the module's data segments into VM memory.
-		if(module->initialNumPagesMemory * AST::numBytesPerPage >= (1ull<<32)) { throw; }
-		for(auto dataSegment : module->dataSegments)
+		case ObjectKind::function: return type.function == asFunction(object)->type;
+		case ObjectKind::global: return type.global == asGlobal(object)->type;
+		case ObjectKind::table:
 		{
-			if(dataSegment.baseAddress + dataSegment.numBytes > module->initialNumPagesMemory * AST::numBytesPerPage)
-			{
-				std::cerr << "Module data segment exceeds initial memory allocation" << std::endl;
-				return false;
-			}
-			memcpy(instanceMemoryBase + dataSegment.baseAddress,dataSegment.data,dataSegment.numBytes);
+			auto table = asTable(object);
+			return type.table.elementType == table->type.elementType
+				&&	isSubset(type.table.size,table->type.size);
 		}
-
-		// Generate machine code for the module.
-		if(!LLVMJIT::compileModule(module)) { return false; }
-
-		// Initialize the intrinsics.
-		if(!initEmscriptenIntrinsics(module)) { return false; }
-		initWebAssemblyIntrinsics();
-		initWAVMIntrinsics();
-
-		// Call the module's start function.
-		if(module->startFunctionIndex != UINTPTR_MAX)
+		case ObjectKind::memory:
 		{
-			assert(module->functions[module->startFunctionIndex].type == AST::FunctionType());
-			auto result = invokeFunction(module,module->startFunctionIndex,nullptr);
-			if(result.type == Runtime::TypeId::Exception)
-			{
-				std::cerr << "Module start function threw exception: " << Runtime::describeExceptionCause(result.exception->cause) << std::endl;
-				for(auto calledFunction : result.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
-				return false;
-			}
+			auto memory = asMemory(object);
+			return isSubset(type.memory.size,memory->type.size);
 		}
-
-		return true;
+		default: throw;
+		}
 	}
 
-	Value invokeFunction(const AST::Module* module,uintptr functionIndex,const Value* parameters)
+	Value invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters)
 	{
-		// Check that the parameter types match the function, and copy them into a memory block that stores each as a 64-bit value.
-		const AST::Function& function = module->functions[functionIndex];
-		uint64* thunkMemory = (uint64*)alloca((function.type.parameters.size() + 1) * sizeof(uint64));
-		for(uintptr parameterIndex = 0;parameterIndex < function.type.parameters.size();++parameterIndex)
+		assert(function->invokeThunk);
+
+		const FunctionType* functionType = function->type;
+
+		if(parameters.size() != functionType->parameters.size())
 		{
-			if((Runtime::TypeId)(function.type.parameters[parameterIndex]) != parameters[parameterIndex].type)
+			return Value(new Exception {Exception::Cause::invokeSignatureMismatch});
+		}
+
+		// Check that the parameter types match the function, and copy them into a memory block that stores each as a 64-bit value.
+		uint64* thunkMemory = (uint64*)alloca((functionType->parameters.size() + getArity(functionType->ret)) * sizeof(uint64));
+		for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+		{
+			if(asRuntimeValueType(functionType->parameters[parameterIndex]) != parameters[parameterIndex].type)
 			{
-				return Value(new Exception {Exception::Cause::InvokeSignatureMismatch});
+				return Value(new Exception {Exception::Cause::invokeSignatureMismatch});
 			}
 
 			thunkMemory[parameterIndex] = parameters[parameterIndex].i64;
 		}
 
-		// Get a pointer to the invoke thunk for the JITted code.
-		LLVMJIT::InvokeFunctionPointer functionPtr = LLVMJIT::getInvokeFunctionPointer(module,functionIndex,true);
-		assert(functionPtr);
-
 		// Catch platform-specific runtime exceptions and turn them into Runtime::Values.
 		return RuntimePlatform::catchRuntimeExceptions([&]
 		{
 			// Call the invoke thunk.
-			functionPtr(thunkMemory);
+			(*function->invokeThunk)(thunkMemory);
 
 			// Read the return value out of the thunk memory block.
 			Value returnValue;
-			returnValue.type = (Runtime::TypeId)function.type.returnType;
-			returnValue.i64 = thunkMemory[function.type.parameters.size()];
+			if(functionType->ret != ReturnType::unit)
+			{
+				returnValue.type = asRuntimeValueType(functionType->ret);
+				returnValue.i64 = thunkMemory[functionType->parameters.size()];
+			}
 			return returnValue;
 		});
+	}
+
+	const FunctionType* getFunctionType(FunctionInstance* function)
+	{
+		return function->type;
+	}
+
+	GlobalInstance* createGlobal(GlobalType type,Value initialValue)
+	{
+		return new GlobalInstance(type,initialValue);
+	}
+
+	Value getGlobalValue(GlobalInstance* global)
+	{
+		return Value(asRuntimeValueType(global->type.valueType),global->value);
+	}
+
+	Value setGlobalValue(GlobalInstance* global,Value newValue)
+	{
+		assert(newValue.type == asRuntimeValueType(global->type.valueType));
+		assert(global->type.isMutable);
+		const Value previousValue = Value(asRuntimeValueType(global->type.valueType),global->value);
+		global->value = newValue;
+		return previousValue;
 	}
 }

@@ -7,7 +7,7 @@
 #include <memory>
 #include <assert.h>
 
-namespace Memory
+namespace MemoryArena
 {
 	class Arena
 	{
@@ -30,6 +30,8 @@ namespace Memory
 
 		Arena(size_t inDefaultSegmentBytes = 8192)
 		: defaultSegmentBytes(inDefaultSegmentBytes), currentSegment(nullptr), currentSegmentAllocatedBytes(0), totalAllocatedBytes(0), totalWastedBytes(0) {}
+		CORE_API ~Arena();
+
 		Arena(const Arena&) = delete;
 		Arena(Arena&& inMove)
 		: defaultSegmentBytes(inMove.defaultSegmentBytes)
@@ -43,8 +45,20 @@ namespace Memory
 			inMove.totalAllocatedBytes = 0;
 			inMove.totalWastedBytes = 0;
 		}
-		CORE_API ~Arena();
-	
+		void operator=(const Arena&) = delete;
+		void operator=(Arena&& inMove)
+		{
+			defaultSegmentBytes = inMove.defaultSegmentBytes;
+			currentSegment = inMove.currentSegment;
+			currentSegmentAllocatedBytes = inMove.currentSegmentAllocatedBytes;
+			totalAllocatedBytes = inMove.totalAllocatedBytes;
+			totalWastedBytes = inMove.totalWastedBytes;
+			inMove.currentSegment = nullptr;
+			inMove.currentSegmentAllocatedBytes = 0;
+			inMove.totalAllocatedBytes = 0;
+			inMove.totalWastedBytes = 0;
+		}
+
 		CORE_API void* allocate(size_t numBytes);
 		CORE_API void* reallocateRaw(void* oldAllocation,size_t previousNumBytes,size_t newNumBytes);
 
@@ -90,11 +104,11 @@ namespace Memory
 	
 	// Encapsulates an array allocated from a memory arena. Doesn't call constructors/destructors.
 	template<typename Element>
-	struct ArenaArray
+	struct Array
 	{
-		ArenaArray(): elements(nullptr), numElements(0), numReservedElements(0) {}
-		ArenaArray(const ArenaArray&) = delete;
-		ArenaArray(ArenaArray&& inMove)
+		Array(): elements(nullptr), numElements(0), numReservedElements(0) {}
+		Array(const Array&) = delete;
+		Array(Array&& inMove)
 		: elements(inMove.elements), numElements(inMove.numElements), numReservedElements(inMove.numReservedElements)
 		{ inMove.elements = nullptr; inMove.numElements = 0; inMove.numReservedElements = 0; }
 		
@@ -118,7 +132,7 @@ namespace Memory
 			}
 		}
 
-		friend bool operator==(const ArenaArray<Element>& left,const ArenaArray<Element>& right)
+		friend bool operator==(const Array<Element>& left,const Array<Element>& right)
 		{
 			if(left.size() != right.size()) { return false; }
 			for(uintptr elementIndex = 0;elementIndex < left.size();++elementIndex)
@@ -138,7 +152,7 @@ namespace Memory
 	};
 
 	// Encapsulates a string allocated from a memory arena.
-	struct ArenaString
+	struct String
 	{
 		void reset(Arena& arena) { characters.reset(arena); }
 		void append(Arena& arena,const char c)
@@ -172,20 +186,20 @@ namespace Memory
 		char& operator[](uintptr index) { assert(index < length()); return characters[index]; }
 		size_t length() const { return characters.size() ? characters.size() - 1 : 0; }
 	private:
-		ArenaArray<char> characters;
+		Array<char> characters;
 	};
 }
 
-inline void* operator new(size_t numBytes,Memory::Arena& arena)
+inline void* operator new(size_t numBytes,MemoryArena::Arena& arena)
 {
 	return arena.allocate(numBytes);
 }
 
-inline void operator delete(void*,Memory::Arena&) {}
+inline void operator delete(void*,MemoryArena::Arena&) {}
 
-inline void* operator new[](size_t numBytes,Memory::Arena& arena)
+inline void* operator new[](size_t numBytes,MemoryArena::Arena& arena)
 {
 	return arena.allocate(numBytes);
 }
 
-inline void operator delete[](void*,Memory::Arena&) {}
+inline void operator delete[](void*,MemoryArena::Arena&) {}

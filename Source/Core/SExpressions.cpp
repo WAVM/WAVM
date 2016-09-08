@@ -11,8 +11,8 @@ namespace DavidGay
 	#define IEEE_8087
 	#define NO_HEX_FP
 	#define NO_INFNAN_CHECK
-	#define strtod parseDecimalF64
-	#define dtoa printDecimalF64
+	#define strtod parseDecimalf64
+	#define dtoa printDecimalf64
 
 	#ifdef _MSC_VER
 		#pragma warning(push)
@@ -197,10 +197,10 @@ namespace SExp
 	struct ParseContext
 	{
 		StreamState& state;
-		Memory::Arena& arena;
+		MemoryArena::Arena& arena;
 		const SymbolIndexMap& symbolIndexMap;
 
-		ParseContext(StreamState& inState,Memory::Arena& inArena,const SymbolIndexMap& inSymbolIndexMap)
+		ParseContext(StreamState& inState,MemoryArena::Arena& inArena,const SymbolIndexMap& inSymbolIndexMap)
 		: state(inState), arena(inArena), symbolIndexMap(inSymbolIndexMap) {}
 		
 		bool parseCharEscapeCode(char& outCharacter)
@@ -232,19 +232,19 @@ namespace SExp
 			return true;
 		}
 
-		Node* createError(const Core::TextFileLocus& locus,const char* message)
+		SNode* createError(const Core::TextFileLocus& locus,const char* message)
 		{
-			auto result = new(arena) Node(locus,NodeType::Error);
+			auto result = new(arena) SNode(locus,SNodeType::Error);
 			result->error = message;
 			return result;
 		}
 
-		Node* parseQuotedString()
+		SNode* parseQuotedString()
 		{
 			const Core::TextFileLocus& startLocus = state.getLocus();
 			state.advance(true);
 
-			Memory::ArenaString string;
+			MemoryArena::String string;
 			while(true)
 			{
 				const char nextChar = state.peek();
@@ -278,7 +278,7 @@ namespace SExp
 			}
 
 			string.shrink(arena);
-			auto node = new(arena)Node(startLocus,NodeType::String);
+			auto node = new(arena)SNode(startLocus,SNodeType::String);
 			node->string = string.c_str();
 			node->stringLength = string.length();
 			node->endLocus = state.getLocus();
@@ -335,17 +335,17 @@ namespace SExp
 			return true;
 		}
 	
-		Node* parseNaN(const Core::TextFileLocus& startLocus,bool isNegative)
+		SNode* parseNaN(const Core::TextFileLocus& startLocus,bool isNegative)
 		{
-			Floats::F64Components f64Components;
-			f64Components.bits.sign = isNegative;
-			f64Components.bits.exponent = 0x7ff;
-			f64Components.bits.significand = 1ull << 51;
+			Floats::F64Components F64Components;
+			F64Components.bits.sign = isNegative;
+			F64Components.bits.exponent = 0x7ff;
+			F64Components.bits.significand = 1ull << 51;
 
-			Floats::F32Components f32Components;
-			f32Components.bits.sign = isNegative;
-			f32Components.bits.exponent = 0xff;
-			f32Components.bits.significand = 1ull << 22;
+			Floats::F32Components F32Components;
+			F32Components.bits.sign = isNegative;
+			F32Components.bits.exponent = 0xff;
+			F32Components.bits.significand = 1ull << 22;
 
 			if(state.peek() == ':')
 			{
@@ -366,37 +366,37 @@ namespace SExp
 					return createError(state.getLocus(),"NaN significand must be non-zero");
 				}
 
-				f64Components.bits.significand = significandBits;
-				f32Components.bits.significand = significandBits;
+				F64Components.bits.significand = significandBits;
+				F32Components.bits.significand = significandBits;
 			}
 
-			auto node = new(arena) Node(startLocus,NodeType::Float);
+			auto node = new(arena) SNode(startLocus,SNodeType::Float);
 			node->endLocus = state.getLocus();
-			node->f64 = f64Components.value;
-			node->f32 = f32Components.value;
+			node->f64 = F64Components.value;
+			node->f32 = F32Components.value;
 			return node;
 		}
 
-		Node* parseInfinity(const Core::TextFileLocus& startLocus,bool isNegative)
+		SNode* parseInfinity(const Core::TextFileLocus& startLocus,bool isNegative)
 		{
 			// Floating point infinite is represented by max exponent with a zero significand.
-			Floats::F64Components f64Components;
-			f64Components.bits.sign = isNegative ? 1 : 0;
-			f64Components.bits.exponent = 0x7ff;
-			f64Components.bits.significand = 0;
-			Floats::F32Components f32Components;
-			f32Components.bits.sign = isNegative ? 1 : 0;
-			f32Components.bits.exponent = 0xff;
-			f32Components.bits.significand = 0;
+			Floats::F64Components F64Components;
+			F64Components.bits.sign = isNegative ? 1 : 0;
+			F64Components.bits.exponent = 0x7ff;
+			F64Components.bits.significand = 0;
+			Floats::F32Components F32Components;
+			F32Components.bits.sign = isNegative ? 1 : 0;
+			F32Components.bits.exponent = 0xff;
+			F32Components.bits.significand = 0;
 
-			auto node = new(arena) Node(startLocus,NodeType::Float);
+			auto node = new(arena) SNode(startLocus,SNodeType::Float);
 			node->endLocus = state.getLocus();
-			node->f64 = f64Components.value;
-			node->f32 = f32Components.value;
+			node->f64 = F64Components.value;
+			node->f32 = F32Components.value;
 			return node;
 		}
 
-		Node* parseHexNumber(const Core::TextFileLocus& startLocus,bool isNegative)
+		SNode* parseHexNumber(const Core::TextFileLocus& startLocus,bool isNegative)
 		{
 			uint64 integerPart;
 			if(!parseHexInteger(integerPart)) { return createError(startLocus,"expected hex digits"); }
@@ -438,7 +438,7 @@ namespace SExp
 			// If there wasn't a fractional part, or exponent, or negative zero, then just create an integer node.
 			if(!fractionalPart && !exponent && !(isNegative && !integerPart && (hasDecimalPoint || hasExponent)))
 			{
-				auto node = new(arena) Node(state.getLocus(),isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
+				auto node = new(arena) SNode(state.getLocus(),isNegative ? SNodeType::SignedInt : SNodeType::UnsignedInt);
 				node->endLocus = state.getLocus();
 				node->i64 = integerPart;
 				return node;
@@ -448,7 +448,7 @@ namespace SExp
 				if(!integerPart && !fractionalPart)
 				{
 					// If both the integer and fractional part are zero, just return zero.
-					auto node = new(arena) Node(state.getLocus(),NodeType::Float);
+					auto node = new(arena) SNode(state.getLocus(),SNodeType::Float);
 					node->endLocus = state.getLocus();
 					node->f64 = isNegative ? -0.0 : 0.0;
 					node->f32 = isNegative ? -0.0f : 0.0f;
@@ -486,19 +486,19 @@ namespace SExp
 				}
 
 				// Encode the float and create a node for it.
-				Floats::F64Components f64Components;
-				f64Components.bits.sign = isNegative ? 1 : 0;
-				f64Components.bits.exponent = exponent + 1023;
-				f64Components.bits.significand = fractionalPart;
-				auto node = new(arena) Node(state.getLocus(),NodeType::Float);
+				Floats::F64Components F64Components;
+				F64Components.bits.sign = isNegative ? 1 : 0;
+				F64Components.bits.exponent = exponent + 1023;
+				F64Components.bits.significand = fractionalPart;
+				auto node = new(arena) SNode(state.getLocus(),SNodeType::Float);
 				node->endLocus = state.getLocus();
-				node->f64 = f64Components.value;
-				node->f32 = (float32)f64Components.value;
+				node->f64 = F64Components.value;
+				node->f32 = (float32)F64Components.value;
 				return node;
 			}
 		}
 
-		Node* parseNumber()
+		SNode* parseNumber()
 		{
 			/*
 				Syntax from the WebAssembly/spec interpreter number lexer
@@ -548,7 +548,7 @@ namespace SExp
 				{
 					// Use David Gay's strtod to parse a floating point number.
 					const char* f64End;
-					auto f64 = DavidGay::parseDecimalF64(firstNumberChar,const_cast<char**>(&f64End));
+					auto f64 = DavidGay::parseDecimalf64(firstNumberChar,const_cast<char**>(&f64End));
 					if (f64End == firstNumberChar)
 					{
 						state.advance();
@@ -556,7 +556,7 @@ namespace SExp
 					}
 					state.advanceToPtr(f64End);
 
-					auto node = new(arena) Node(startLocus,NodeType::Float);
+					auto node = new(arena) SNode(startLocus,SNodeType::Float);
 					node->endLocus = state.getLocus();
 					node->f64 = isNegative ? -f64 : f64;
 					node->f32 = (float32)node->f64;
@@ -568,7 +568,7 @@ namespace SExp
 				}
 				else
 				{
-					auto node = new(arena) Node(startLocus,isNegative ? NodeType::SignedInt : NodeType::UnsignedInt);
+					auto node = new(arena) SNode(startLocus,isNegative ? SNodeType::SignedInt : SNodeType::UnsignedInt);
 					node->endLocus = state.getLocus();
 					node->i64 = i64;
 					return node;
@@ -576,20 +576,20 @@ namespace SExp
 			}
 		}
 	
-		Node* parseAttribute(Node* symbolNode)
+		SNode* parseAttribute(SNode* symbolSNode)
 		{
 			state.advance(true);
 
-			auto value = parseNode();
+			auto value = parseSNode();
 
-			auto attributeNode = new(arena) Node(symbolNode->startLocus,NodeType::Attribute);
-			attributeNode->children = symbolNode;
-			attributeNode->children->nextSibling = value;
-			attributeNode->endLocus = state.getLocus();
-			return attributeNode;
+			auto attributeSNode = new(arena) SNode(symbolSNode->startLocus,SNodeType::Attribute);
+			attributeSNode->children = symbolSNode;
+			attributeSNode->children->nextSibling = value;
+			attributeSNode->endLocus = state.getLocus();
+			return attributeSNode;
 		}
 
-		Node* parseSymbol()
+		SNode* parseSymbol()
 		{
 			auto startLocus = state.getLocus();
 
@@ -599,7 +599,7 @@ namespace SExp
 				state.advance(true);
 			}
 			while(isSymbolCharacter(state.peek()));
-			Memory::ArenaString symbolString;
+			MemoryArena::String symbolString;
 			symbolString.append(arena,symbolStart,state.next - symbolStart);
 
 			// If the symbol is nan or infinity, parse it as a number.
@@ -608,29 +608,29 @@ namespace SExp
 
 			// Look up the symbol string in the index map.
 			auto symbolIndexIt = symbolIndexMap.find(symbolString.c_str());
-			Node* symbolNode;
+			SNode* symbolSNode;
 			if(symbolIndexIt == symbolIndexMap.end())
 			{
-				symbolNode = new(arena)Node(startLocus,NodeType::UnindexedSymbol);
-				symbolNode->endLocus = state.getLocus();
-				symbolNode->string = symbolString.c_str();
-				symbolNode->stringLength = symbolString.length();
+				symbolSNode = new(arena)SNode(startLocus,SNodeType::UnindexedSymbol);
+				symbolSNode->endLocus = state.getLocus();
+				symbolSNode->string = symbolString.c_str();
+				symbolSNode->stringLength = symbolString.length();
 			}
 			else
 			{
 				// If the symbol was in the index map, discard the memory for the string and just store it as an index.
 				symbolString.reset(arena);
-				symbolNode = new(arena)Node(startLocus,NodeType::Symbol);
-				symbolNode->endLocus = state.getLocus();
-				symbolNode->symbol = symbolIndexIt->second;
+				symbolSNode = new(arena)SNode(startLocus,SNodeType::Symbol);
+				symbolSNode->endLocus = state.getLocus();
+				symbolSNode->symbol = symbolIndexIt->second;
 			}
 
 			// If the symbol is followed by an equals sign, parse an attribute.
-			if(state.peek() == '=') { return parseAttribute(symbolNode); }
-			else { return symbolNode; }
+			if(state.peek() == '=') { return parseAttribute(symbolSNode); }
+			else { return symbolSNode; }
 		}
 
-		Node* parseName()
+		SNode* parseName()
 		{
 			auto startLocus = state.getLocus();
 
@@ -645,16 +645,16 @@ namespace SExp
 			}
 
 			// Copy the name's characters to the result arena.
-			Memory::ArenaString nameString;
+			MemoryArena::String nameString;
 			nameString.append(arena,nameStart,state.next - nameStart);
 
 			// Create the name node.
-			Node* nameNode;
-			nameNode = new(arena)Node(startLocus,NodeType::Name);
-			nameNode->endLocus = state.getLocus();
-			nameNode->string = nameString.c_str();
-			nameNode->stringLength = nameString.length();
-			return nameNode;
+			SNode* nameSNode;
+			nameSNode = new(arena)SNode(startLocus,SNodeType::Name);
+			nameSNode->endLocus = state.getLocus();
+			nameSNode->string = nameString.c_str();
+			nameSNode->stringLength = nameString.length();
+			return nameSNode;
 		}
 
 		void parseBlockComment(const Core::TextFileLocus& startLocus)
@@ -688,7 +688,7 @@ namespace SExp
 			}
 		}
 	
-		Node* parseNode()
+		SNode* parseSNode()
 		{
 			while(true)
 			{
@@ -727,15 +727,15 @@ namespace SExp
 					else
 					{
 						// Recursively parse child nodes.
-						auto newNode = new(arena)Node(state.getLocus());
-						parseNodeSequence(&newNode->children);
+						auto newSNode = new(arena)SNode(state.getLocus());
+						parseSNodeSequence(&newSNode->children);
 						if(state.peek() != ')')
 						{
 							throw new FatalParseException(state.getLocus(),std::string("expected ')' following S-expression child nodes but found '") + state.peek() + "'");
 						}
 						state.advance(true);
-						newNode->endLocus = state.getLocus();
-						return newNode;
+						newSNode->endLocus = state.getLocus();
+						return newSNode;
 					}
 				}
 				else if(nextChar == '\"')
@@ -765,26 +765,26 @@ namespace SExp
 			}
 		}
 
-		void parseNodeSequence(Node** nextNodePtr)
+		void parseSNodeSequence(SNode** nextSNodePtr)
 		{
 			while(true)
 			{
-				auto node = parseNode();
+				auto node = parseSNode();
 				if(!node) { break; }
-				*nextNodePtr = node;
-				nextNodePtr = &(*nextNodePtr)->nextSibling;
+				*nextSNodePtr = node;
+				nextSNodePtr = &(*nextSNodePtr)->nextSibling;
 			}
 		}
 	};
 
-	Node* parse(const char* string,Memory::Arena& arena,const SymbolIndexMap& symbolIndexMap)
+	SNode* parse(const char* string,MemoryArena::Arena& arena,const SymbolIndexMap& symbolIndexMap)
 	{
 		StreamState state(string);
 		ParseContext parseContext(state,arena,symbolIndexMap);
 		try
 		{
-			Node* firstRootNode = nullptr;
-			parseContext.parseNodeSequence(&firstRootNode);
+			SNode* firstRootSNode = nullptr;
+			parseContext.parseSNodeSequence(&firstRootSNode);
 			if(state.peek() != 0)
 			{
 				auto errorMessage = std::string("expected ';' or '(' but found '") + state.peek() + "'";
@@ -793,7 +793,7 @@ namespace SExp
 			}
 			else
 			{
-				return firstRootNode;
+				return firstRootSNode;
 			}
 		}
 		catch(FatalParseException* exception)
@@ -802,94 +802,5 @@ namespace SExp
 			delete exception;
 			return result;
 		}
-	}
-
-	char nibbleToHexChar(uint8 value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
-
-	std::string escapeString(const char* string,size_t numChars)
-	{
-		std::string result;
-		for(uintptr charIndex = 0;charIndex < numChars;++charIndex)
-		{
-			auto c = string[charIndex];
-			if(c == '\\') { result += "\\\\"; }
-			else if(c == '\"') { result += "\\\""; }
-			else if(c == '\n') { result += "\\n"; }
-			else if(c < 0x20 || c > 0x7e)
-			{
-				result += '\\';
-				result += nibbleToHexChar((c & 0xf0) >> 4);
-				result += nibbleToHexChar((c & 0x0f) >> 0);
-			}
-			else { result += c; }
-		}
-		return result;
-	}
-
-	bool printRecursive(SExp::Node* initialNode,const char* symbolStrings[],std::string& outString,const std::string& newline);
-
-	std::string printNode(SExp::Node* node,const char* symbolStrings[],const std::string& newline,bool& outHasMultiLineSubtree)
-	{
-		switch(node->type)
-		{
-		case NodeType::Tree:
-		{
-			std::string subtreeString;
-			subtreeString += "(";
-			bool isSubtreeMultiLine = printRecursive(node->children,symbolStrings,subtreeString,newline + '\t');
-			if(isSubtreeMultiLine) { subtreeString += newline; outHasMultiLineSubtree = true; }
-			subtreeString += ")";
-			return subtreeString;
-		}
-		case NodeType::Attribute:
-		{
-			std::string attributeString = printNode(node->children,symbolStrings,newline,outHasMultiLineSubtree);
-			attributeString += "=";
-			assert(node->children->nextSibling);
-			attributeString += printNode(node->children->nextSibling,symbolStrings,newline,outHasMultiLineSubtree);
-			return attributeString;
-		}
-		case NodeType::Symbol: return symbolStrings[node->symbol];
-		case NodeType::UnindexedSymbol: return node->string;
-		case NodeType::Name: return std::string() + '$' + node->string;
-		case NodeType::String: return std::string() + '\"' + escapeString(node->string,node->stringLength) + '\"';
-		case NodeType::Error: return node->error;
-		case NodeType::SignedInt: return std::string() + '-' + std::to_string(node->i64);
-		case NodeType::UnsignedInt: return std::to_string(node->u64);
-		case NodeType::Float: return Floats::asString(node->f64);
-		default: throw;
-		};
-	}
-
-	bool printRecursive(SExp::Node* initialNode,const char* symbolStrings[],std::string& outString,const std::string& newline)
-	{
-		SExp::Node* node = initialNode;
-		std::vector<std::string> childStrings;
-		bool hasMultiLineSubtree = false;
-		do
-		{
-			childStrings.emplace_back(printNode(node,symbolStrings,newline,hasMultiLineSubtree));
-			node = node->nextSibling;
-		}
-		while(node);
-		
-		size_t totalChildLength = 0;
-		for(auto string : childStrings) { totalChildLength += string.length(); }
-		auto isMultiLine = hasMultiLineSubtree || totalChildLength > 120;
-
-		for(uintptr childIndex = 0;childIndex < childStrings.size();++childIndex)
-		{
-			outString += childStrings[childIndex];
-			if(childIndex + 1 < childStrings.size()) { outString += isMultiLine ? newline : " "; }
-		}
-
-		return isMultiLine;
-	}
-
-	std::string print(SExp::Node* rootNode,const char* symbolStrings[])
-	{
-		std::string result;
-		printRecursive(rootNode,symbolStrings,result,"\n");
-		return result;
 	}
 }

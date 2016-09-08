@@ -97,11 +97,18 @@ namespace RuntimePlatform
 			Exception::Cause cause;
 			switch(exceptionPointers->ExceptionRecord->ExceptionCode)
 			{
-			case EXCEPTION_ACCESS_VIOLATION: cause = Exception::Cause::AccessViolation; break;
-			case EXCEPTION_STACK_OVERFLOW: cause = Exception::Cause::StackOverflow; break;
-			case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; break;
-			case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; break;
-			default: cause = Exception::Cause::Unknown; break;
+			case EXCEPTION_ACCESS_VIOLATION:
+			{
+				// Detect an access violation reading a table element and turn it into an undefined table element exception.
+				cause = isAddressOwnedByTable(reinterpret_cast<uint8*>(exceptionPointers->ExceptionRecord->ExceptionInformation[1]))
+					? Exception::Cause::undefinedTableElement
+					: Exception::Cause::accessViolation;
+				break;
+			}
+			case EXCEPTION_STACK_OVERFLOW: cause = Exception::Cause::stackOverflow; break;
+			case EXCEPTION_INT_DIVIDE_BY_ZERO: cause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; break;
+			case EXCEPTION_INT_OVERFLOW: cause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; break;
+			default: cause = Exception::Cause::unknown; break;
 			}
 
 			// Unwind the stack frames from the context of the exception.
@@ -127,7 +134,7 @@ namespace RuntimePlatform
 		__except(sehFilterFunction(GetExceptionInformation(),runtimeException))
 		{}
 
-		if(runtimeException->cause == Exception::Cause::StackOverflow)
+		if(runtimeException->cause == Exception::Cause::stackOverflow)
 		{
 			// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
 			_resetstkoflw();
@@ -136,7 +143,7 @@ namespace RuntimePlatform
 		return Value(runtimeException);
 	}
 
-	void raiseException(Runtime::Exception* exception)
+	[[noreturn]] void raiseException(Runtime::Exception* exception)
 	{
 		RaiseException(EXCEPTION_WAVM_RUNTIME,0,1,reinterpret_cast<ULONG_PTR*>(&exception));
 	}

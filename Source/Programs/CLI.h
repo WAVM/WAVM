@@ -2,8 +2,11 @@
 
 #include "Core/Core.h"
 #include "Core/Floats.h"
-#include "AST/AST.h"
+#include "WAST/WAST.h"
 #include "WebAssembly/WebAssembly.h"
+#include "WebAssembly/Module.h"
+#include "Runtime/Runtime.h"
+#include "Runtime/Linker.h"
 
 #include <iostream>
 #include <fstream>
@@ -26,7 +29,7 @@ inline std::vector<uint8> loadFile(const char* filename)
 	return data;
 }
 
-inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
+inline bool loadTextModule(const char* filename,WebAssembly::Module& outModule)
 {
 	// Read the file into a string.
 	auto wastBytes = loadFile(filename);
@@ -37,7 +40,8 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 	#if WAVM_TIMER_OUTPUT
 	Core::Timer loadTimer;
 	#endif
-	if(!WebAssemblyText::parse(wastString.c_str(),outFile))
+	std::vector<WAST::ParseError> parseErrors;
+	if(!WAST::parseModule(wastString.c_str(),outModule,parseErrors))
 	{
 		// Build an index of newline offsets in the file.
 		std::vector<size_t> wastFileLineOffsets;
@@ -48,13 +52,13 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 
 		// Print any parse errors;
 		std::cerr << "Error parsing WebAssembly text file:" << std::endl;
-		for(auto error : outFile.errors)
+		for(auto& error : parseErrors)
 		{
-			std::cerr << filename << ":" << error->locus.describe() << ": " << error->message.c_str() << std::endl;
-			auto startLine = wastFileLineOffsets.at(error->locus.newlines);
-			auto endLine =  wastFileLineOffsets.at(error->locus.newlines+1);
+			std::cerr << filename << ":" << error.locus.describe() << ": " << error.message.c_str() << std::endl;
+			auto startLine = wastFileLineOffsets.at(error.locus.newlines);
+			auto endLine =  wastFileLineOffsets.at(error.locus.newlines+1);
 			std::cerr << wastString.substr(startLine, endLine-startLine-1) << std::endl;
-			std::cerr << std::setw(error->locus.column(8)) << "^" << std::endl;
+			std::cerr << std::setw(error.locus.column(8)) << "^" << std::endl;
 		}
 		return false;
 	}
@@ -64,63 +68,134 @@ inline bool loadTextFile(const char* filename,WebAssemblyText::File& outFile)
 	return true;
 }
 
-inline bool loadTextModule(const char* filename,AST::Module*& outModule)
-{
-	WebAssemblyText::File file;
-	if(!loadTextFile(filename,file)) { return false; }
-	if(!file.modules.size())
-	{
-		std::cerr << "WebAssembly text file '" << filename << "' didn't contain any modules!" << std::endl;
-		return false;
-	}
-	else
-	{
-		outModule = new AST::Module(std::move(file.modules[0]));
-		return true;
-	}
-}
-
-inline bool loadBinaryModule(const char* wasmFilename,const char* memFilename,AST::Module*& outModule)
+inline bool loadBinaryModule(const char* wasmFilename,WebAssembly::Module& outModule)
 {
 	// Read in packed .wasm file bytes.
 	auto wasmBytes = loadFile(wasmFilename);
 	if(!wasmBytes.size()) { return false; }
 	
-	// Load the static data from the .mem file on the commandline.
-	auto staticMemoryData = loadFile(memFilename);
-	if(!staticMemoryData.size()) { return false; }
-
-	// Load the module from a binary WebAssembly file.
 	#if WAVM_TIMER_OUTPUT
 	Core::Timer loadTimer;
 	#endif
-	std::vector<AST::ErrorRecord*> errors;
-	if(!WebAssemblyBinary::decode(wasmBytes.data(),wasmBytes.size(),staticMemoryData.data(),staticMemoryData.size(),outModule,errors))
+
+	// Load the module from a binary WebAssembly file.
+	try
 	{
-		std::cerr << "Error parsing WebAssembly binary file:" << std::endl;
-		for(auto error : errors) { std::cerr << wasmFilename << ":" << error->message.c_str() << std::endl; }
-		return nullptr;
+		Serialization::InputStream stream(wasmBytes.data(),wasmBytes.size());
+		WebAssembly::serialize(stream,outModule);
 	}
+	catch(Serialization::FatalSerializationException exception)
+	{
+		std::cerr << "Error deserializing WebAssembly binary file:" << std::endl;
+		std::cerr << exception.message << std::endl;
+		return false;
+	}
+	catch(WebAssembly::ValidationException exception)
+	{
+		std::cerr << "Error validating WebAssembly binary file:" << std::endl;
+		std::cerr << exception.message << std::endl;
+		return false;
+	}
+
 	#if WAVM_TIMER_OUTPUT
 	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
 	#endif
+	
+	return true;
+}
 
+inline bool saveBinaryModule(const char* wasmFilename,const WebAssembly::Module& module)
+{
+	#if WAVM_TIMER_OUTPUT
+	Core::Timer saveTimer;
+	#endif
+
+	std::vector<uint8> wasmBytes;
+	try
+	{
+		// Serialize the WebAssembly module.
+		Serialization::ArrayOutputStream stream;
+		WebAssembly::serialize(stream,module);
+		wasmBytes = stream.getBytes();
+	}
+	catch(Serialization::FatalSerializationException exception)
+	{
+		std::cerr << "Error deserializing WebAssembly binary file:" << std::endl;
+		std::cerr << exception.message << std::endl;
+		return false;
+	}
+	
+	#if WAVM_TIMER_OUTPUT
+	std::cout << "Saved in " << saveTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / saveTimer.getSeconds()) << " MB/s)" << std::endl;
+	#endif
+
+	// Write the serialized data to the output file.
+	std::ofstream outputStream(wasmFilename,std::ios::binary);
+	outputStream.write((char*)wasmBytes.data(),wasmBytes.size());
+	outputStream.close();
+	
 	return true;
 }
 
 inline std::string describeRuntimeValue(const Runtime::Value& value)
 {
-        switch(value.type)
-        {
-        case Runtime::TypeId::None: return "None";
-        case Runtime::TypeId::I8: return "I8(" + std::to_string(value.i8) + ")";
-        case Runtime::TypeId::I16: return "I16(" + std::to_string(value.i16) + ")";
-        case Runtime::TypeId::I32: return "I32(" + std::to_string(value.i32) + ")";
-        case Runtime::TypeId::I64: return "I64(" + std::to_string(value.i64) + ")";
-        case Runtime::TypeId::F32: return "F32(" + Floats::asString(value.f32) + ")";
-        case Runtime::TypeId::F64: return "F64(" + Floats::asString(value.f64) + ")";
-        case Runtime::TypeId::Void: return "Void";
-        case Runtime::TypeId::Exception: return "Exception(" + std::string(Runtime::describeExceptionCause(value.exception->cause)) + ")";
-        default: throw;
-        }
+    switch(value.type)
+    {
+    case Runtime::TypeId::unit: return "()";
+    case Runtime::TypeId::i32: return "i32(" + std::to_string(value.i32) + ")";
+    case Runtime::TypeId::i64: return "i64(" + std::to_string(value.i64) + ")";
+    case Runtime::TypeId::f32: return "f32(" + Floats::asString(value.f32) + ")";
+    case Runtime::TypeId::f64: return "f64(" + Floats::asString(value.f64) + ")";
+    case Runtime::TypeId::exception: return "Exception(" + std::string(Runtime::describeExceptionCause(value.exception->cause)) + ")";
+    default: throw;
+    }
+}
+
+inline bool endsWith(const char *str, const char *suffix)
+{
+	if(!str || !suffix) { return false; }
+	size_t lenstr = strlen(str);
+	size_t lensuffix = strlen(suffix);
+	if(lenstr < lensuffix) { return false; }
+	return (strncmp(str+lenstr-lensuffix, suffix, lensuffix) == 0);
+}
+
+int commandMain(int argc,char** argv);
+
+int main(int argc,char** argv)
+{
+	try
+	{
+		return commandMain(argc,argv);
+	}
+	catch(WebAssembly::ValidationException exception)
+	{
+		std::cerr << "Failed to validate module: " << exception.message << std::endl;
+		return EXIT_FAILURE;
+	}
+	catch(Runtime::LinkException exception)
+	{
+		std::cerr << "Failed to link module:" << std::endl;
+		for(auto& missingImport : exception.missingImports)
+		{
+			std::cerr << "Missing import: module=\"" << missingImport.module << "\" export=\"" << missingImport.exportName << "\"" << std::endl;
+		}
+		return EXIT_FAILURE;
+	}
+	catch(Runtime::InstantiationException exception)
+	{
+		std::cerr << "Failed to instantiate module: cause=" << std::to_string((uintptr)exception.cause) << std::endl;
+		return EXIT_FAILURE;
+	}
+	catch(Runtime::Exception* exception)
+	{
+		std::cerr << "Runtime exception: " << describeExceptionCause(exception->cause) << std::endl;
+		for(auto calledFunction : exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
+		return EXIT_FAILURE;
+	}
+	catch(Serialization::FatalSerializationException exception)
+	{
+		std::cerr << "Fatal serialization exception: " << exception.message << std::endl;
+		return EXIT_FAILURE;
+	}
 }

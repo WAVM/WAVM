@@ -1,6 +1,7 @@
 #include "Core/Core.h"
 #include "Intrinsics.h"
 #include "Core/Platform.h"
+#include "RuntimePrivate.h"
 
 #include <string>
 
@@ -9,7 +10,9 @@ namespace Intrinsics
 	struct Singleton
 	{
 		std::map<std::string,Function*> functionMap;
-		std::map<std::string,Value*> valueMap;
+		std::map<std::string,Variable*> variableMap;
+		std::map<std::string,Memory*> memoryMap;
+		std::map<std::string,Table*> tableMap;
 		Platform::Mutex mutex;
 
 		Singleton() {}
@@ -22,70 +25,117 @@ namespace Intrinsics
 		}
 	};
 
-	std::string getDecoratedFunctionName(const char* name,const AST::FunctionType& type)
-	{
-		std::string decoratedName = name;
-		decoratedName += " (";
-		for(uintptr parameterIndex = 0;parameterIndex < type.parameters.size();++parameterIndex)
-		{
-			if(parameterIndex != 0) { decoratedName += ','; }
-			decoratedName += AST::getTypeName(type.parameters[parameterIndex]);
-		}
-		decoratedName += ")->";
-		decoratedName += getTypeName(type.returnType);
-		return decoratedName;
-	}
-	
-	std::string getDecoratedValueName(const char* name,AST::TypeId type)
-	{
-		std::string decoratedName = name;
-		decoratedName += " (";
-		decoratedName += getTypeName(type);
-		decoratedName += ")";
-		return decoratedName;
-	}
-
-	Function::Function(const char* inName,const AST::FunctionType& inType,void* inValue)
+	Function::Function(const char* inName,const WebAssembly::FunctionType* type,void* nativeFunction)
 	:	name(inName)
-	,	type(inType)
-	,	value(inValue)
 	{
+		function = new Runtime::FunctionInstance(type,nativeFunction,nullptr);
 		Platform::Lock lock(Singleton::get().mutex);
-		Singleton::get().functionMap[getDecoratedFunctionName(inName,inType)] = this;
+		Singleton::get().functionMap[getDecoratedName(inName,type)] = this;
 	}
 
 	Function::~Function()
 	{
-		Platform::Lock Lock(Singleton::get().mutex);
-		Singleton::get().functionMap.erase(Singleton::get().functionMap.find(getDecoratedFunctionName(name,type)));
+		{
+			Platform::Lock Lock(Singleton::get().mutex);
+			Singleton::get().functionMap.erase(Singleton::get().functionMap.find(getDecoratedName(name,function->type)));
+		}
+		delete function;
 	}
 
-	Value::Value(const char* inName,AST::TypeId inType,void* inValue)
+	Variable::Variable(const char* inName,WebAssembly::GlobalType type)
 	:	name(inName)
-	,	type(inType)
-	,	value(inValue)
+	{
+		global = new Runtime::GlobalInstance(type,Runtime::Value((int64)0));
+		value = &global->value;
+		{
+			Platform::Lock lock(Singleton::get().mutex);
+			Singleton::get().variableMap[getDecoratedName(inName,type)] = this;
+		}
+	}
+
+	Variable::~Variable()
+	{
+		{
+			Platform::Lock Lock(Singleton::get().mutex);
+			Singleton::get().variableMap.erase(Singleton::get().variableMap.find(getDecoratedName(name,global->type)));
+		}
+		delete global;
+	}
+
+	Table::Table(const char* inName,const WebAssembly::TableType& type)
+	: name(inName)
+	, table(Runtime::createTable(type))
 	{
 		Platform::Lock lock(Singleton::get().mutex);
-		Singleton::get().valueMap[getDecoratedValueName(inName,inType)] = this;
+		Singleton::get().tableMap[getDecoratedName(inName,type)] = this;
+	}
+	
+	Table::~Table()
+	{
+		{
+			Platform::Lock Lock(Singleton::get().mutex);
+			Singleton::get().tableMap.erase(Singleton::get().tableMap.find(getDecoratedName(name,table->type)));
+		}
+		delete table;
+	}
+	
+	Memory::Memory(const char* inName,const WebAssembly::MemoryType& type)
+	: name(inName)
+	, memory(Runtime::createMemory(type))
+	{
+		Platform::Lock lock(Singleton::get().mutex);
+		Singleton::get().memoryMap[getDecoratedName(inName,type)] = this;
+	}
+	
+	Memory::~Memory()
+	{
+		{
+			Platform::Lock Lock(Singleton::get().mutex);
+			Singleton::get().memoryMap.erase(Singleton::get().memoryMap.find(getDecoratedName(name,memory->type)));
+		}
+		delete memory;
 	}
 
-	Value::~Value()
+	std::string getDecoratedName(const char* name,const WebAssembly::ObjectType& type)
 	{
-		Platform::Lock Lock(Singleton::get().mutex);
-		Singleton::get().valueMap.erase(Singleton::get().valueMap.find(getDecoratedValueName(name,type)));
+		std::string decoratedName = name;
+		decoratedName += " : ";
+		decoratedName += WebAssembly::getTypeName(type);
+		return decoratedName;
 	}
-
-	const Function* findFunction(const char* decoratedName)
+	Runtime::Object* find(const char* decoratedName,const WebAssembly::ObjectType& type)
 	{
 		Platform::Lock Lock(Singleton::get().mutex);
-		auto keyValue = Singleton::get().functionMap.find(decoratedName);
-		return keyValue == Singleton::get().functionMap.end() ? nullptr : keyValue->second;
-	}
-
-	const Value* findValue(const char* decoratedName)
-	{
-		Platform::Lock Lock(Singleton::get().mutex);
-		auto keyValue = Singleton::get().valueMap.find(decoratedName);
-		return keyValue == Singleton::get().valueMap.end() ? nullptr : keyValue->second;
+		Runtime::Object* result = nullptr;
+		switch(type.kind)
+		{
+		case WebAssembly::ObjectKind::function:
+		{
+			auto keyValue = Singleton::get().functionMap.find(decoratedName);
+			result = keyValue == Singleton::get().functionMap.end() ? nullptr : asObject(keyValue->second->function);
+			break;
+		}
+		case WebAssembly::ObjectKind::table:
+		{
+			auto keyValue = Singleton::get().tableMap.find(decoratedName);
+			result = keyValue == Singleton::get().tableMap.end() ? nullptr : asObject((Runtime::Table*)*keyValue->second);
+			break;
+		}
+		case WebAssembly::ObjectKind::memory:
+		{
+			auto keyValue = Singleton::get().memoryMap.find(decoratedName);
+			result = keyValue == Singleton::get().memoryMap.end() ? nullptr : asObject((Runtime::Memory*)*keyValue->second);
+			break;
+		}
+		case WebAssembly::ObjectKind::global:
+		{
+			auto keyValue = Singleton::get().variableMap.find(decoratedName);
+			result = keyValue == Singleton::get().variableMap.end() ? nullptr : asObject(keyValue->second->global);
+			break;
+		}
+		default: throw;
+		};
+		if(result && !isA(result,type)) { result = nullptr; }
+		return result;
 	}
 }

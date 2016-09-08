@@ -1,5 +1,9 @@
 #include "LLVMJIT.h"
 
+#define DUMP_UNOPTIMIZED_MODULE _DEBUG
+#define VERIFY_MODULE _DEBUG
+#define DUMP_OPTIMIZED_MODULE _DEBUG
+
 namespace LLVMJIT
 {
 	// Functor that receives notifications when an object produced by the JIT is loaded.
@@ -14,13 +18,10 @@ namespace LLVMJIT
 			);
 	};
 	
-	// Used to resolve references to intrinsics in the LLVM IR.
-	struct IntrinsicResolver : llvm::RuntimeDyld::SymbolResolver
+	// Used to ensure that 
+	struct NullResolver : llvm::RuntimeDyld::SymbolResolver
 	{
-		static IntrinsicResolver singleton;
-
-		void* getSymbolAddress(const std::string& name) const;
-
+		static NullResolver singleton;
 		virtual llvm::RuntimeDyld::SymbolInfo findSymbol(const std::string& name) override;
 		virtual llvm::RuntimeDyld::SymbolInfo findSymbolInLogicalDylib(const std::string& name) override;
 	};
@@ -28,6 +29,8 @@ namespace LLVMJIT
 	// Allocates memory for the LLVM object loader.
 	struct SectionMemoryManager : llvm::RTDyldMemoryManager
 	{
+		static SectionMemoryManager singleton;
+
 		SectionMemoryManager()
 		{
 			// Allocate 2GB of virtual pages for the image up front. This ensures that no address within the image
@@ -114,17 +117,19 @@ namespace LLVMJIT
 		SectionMemoryManager(const SectionMemoryManager&) = delete;
 		void operator=(const SectionMemoryManager&) = delete;
 	};
+	SectionMemoryManager SectionMemoryManager::singleton;
 
-	struct JITFunction
+	struct JITFunctionSymbol
 	{
-		std::string name;
+		uintptr functionIndex;
 		uintptr baseAddress;
 		size_t size;
+		bool isInvokeThunk;
 	};
 
 	struct JITModule
 	{
-		const AST::Module* astModule;
+		ModuleInstance* moduleInstance;
 
 		typedef llvm::orc::ObjectLinkingLayer<NotifyLoadedFunctor> ObjectLayer;
 		std::unique_ptr<ObjectLayer> objectLayer;
@@ -134,36 +139,17 @@ namespace LLVMJIT
 
 		CompileLayer::ModuleSetHandleT handle;
 
-		std::vector<JITFunction> functions;
+		std::vector<JITFunctionSymbol> functionSymbols;
 		
-		JITModule(const AST::Module* inASTModule) : astModule(inASTModule) {}
+		JITModule(ModuleInstance* inModuleInstance) : moduleInstance(inModuleInstance) {}
 	};
 
 	// All the modules that have been JITted.
 	std::vector<JITModule*> jitModules;
 
-	IntrinsicResolver IntrinsicResolver::singleton;
-	void* IntrinsicResolver::getSymbolAddress(const std::string& name) const
-	{
-		const Intrinsics::Function* intrinsicFunction = Intrinsics::findFunction(name.c_str());
-		if(intrinsicFunction) { return intrinsicFunction->value; }
-
-		void *addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
-		if (addr) { return addr; }
-
-		std::cerr << "getSymbolAddress: " << name << " not found" << std::endl;
-		return nullptr;
-	}
-
-	llvm::RuntimeDyld::SymbolInfo IntrinsicResolver::findSymbol(const std::string& name)
-	{
-		return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64>(getSymbolAddress(name)),llvm::JITSymbolFlags::None);
-	}
-
-	llvm::RuntimeDyld::SymbolInfo IntrinsicResolver::findSymbolInLogicalDylib(const std::string& name)
-	{
-		return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uint64>(getSymbolAddress(name)),llvm::JITSymbolFlags::None);
-	}
+	NullResolver NullResolver::singleton;
+	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbol(const std::string& name) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
+	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbolInLogicalDylib(const std::string& name) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
 	
 	void NotifyLoadedFunctor::operator()(
 		const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
@@ -196,7 +182,12 @@ namespace LLVMJIT
 					}
 
 					// Save the address range this function was loaded at for future address->symbol lookups.
-					jitModule->functions.push_back({*name,loadedAddress,symbolSizePair.second});
+					uintptr functionIndex;
+					bool isInvokeThunk;
+					if(getFunctionIndexFromExternalName(name->data(),functionIndex,isInvokeThunk))
+					{
+						jitModule->functionSymbols.push_back({functionIndex,loadedAddress,symbolSizePair.second,isInvokeThunk});
+					}
 				}
 			}
 			
@@ -232,17 +223,21 @@ namespace LLVMJIT
 		}
 	}
 
+	static uintptr printedModuleId = 0;
+
 	void printModule(const llvm::Module* llvmModule,const char* filename)
 	{
 		std::error_code errorCode;
-		llvm::raw_fd_ostream dumpFileStream(llvm::StringRef(filename),errorCode,llvm::sys::fs::OpenFlags::F_Text);
+		std::string augmentedFilename = std::string(filename) + std::to_string(printedModuleId++) + ".ll";
+		llvm::raw_fd_ostream dumpFileStream(augmentedFilename,errorCode,llvm::sys::fs::OpenFlags::F_Text);
 		llvmModule->print(dumpFileStream,nullptr);
+		std::cout << "Dumped LLVM module to: " << augmentedFilename << std::endl;
 	}
 
-	bool compileModule(const AST::Module* astModule)
+	bool instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance)
 	{
-		auto llvmModule = emitModule(astModule);
-		
+		auto llvmModule = emitModule(module,moduleInstance);
+
 		// Get a target machine object for this host, and set the module to use its data layout.
 		auto targetTriple = llvm::sys::getProcessTriple();
 		#ifdef __APPLE__
@@ -254,9 +249,11 @@ namespace LLVMJIT
 		llvmModule->setDataLayout(targetMachine->createDataLayout());
 
 		// Verify the module.
-		#ifdef _DEBUG
-			printModule(llvmModule,"llvmDump.ll");
+		#if DUMP_UNOPTIMIZED_MODULE
+			printModule(llvmModule,"llvmDump");
+		#endif
 
+		#if VERIFY_MODULE
 			std::string verifyOutputString;
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
 			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
@@ -286,8 +283,8 @@ namespace LLVMJIT
 		std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
 		#endif
 
-		#ifdef _DEBUG
-			printModule(llvmModule,"llvmOptimizedDump.ll");
+		#if DUMP_OPTIMIZED_MODULE
+			printModule(llvmModule,"llvmOptimizedDump");
 		#endif
 
 		// Pass the module to the JIT compiler.
@@ -298,73 +295,79 @@ namespace LLVMJIT
 		moduleSet.push_back(llvmModule);
 
 		// Construct the JIT module and compile layers.
-		auto jitModule = new JITModule(astModule);
+		auto jitModule = new JITModule(moduleInstance);
 		jitModules.push_back(jitModule);
 		jitModule->objectLayer = llvm::make_unique<JITModule::ObjectLayer>(NotifyLoadedFunctor(jitModule));
 		jitModule->compileLayer = llvm::make_unique<JITModule::CompileLayer>(*jitModule->objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
 
 		// Compile the module.
-		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,llvm::make_unique<SectionMemoryManager>(),&IntrinsicResolver::singleton);
+		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,&SectionMemoryManager::singleton,&NullResolver::singleton);
 		#if WAVM_TIMER_OUTPUT
 		std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
 		#endif
 		
+		// Find any thunks created for function imports that were reexported, and update the imported FunctionInstance.
+		for(uintptr functionIndex = 0;functionIndex < moduleInstance->functions.size();++functionIndex)
+		{
+			FunctionInstance* functionInstance = moduleInstance->functions[functionIndex];
+			if(functionIndex >= moduleInstance->functions.size() - module.functionDefs.size())
+			{
+				functionInstance->nativeFunction = (void*)jitModule->compileLayer->findSymbolIn(jitModule->handle,getExternalFunctionName(moduleInstance,functionIndex,false),false).getAddress();
+			}
+
+			if(!functionInstance->invokeThunk)
+			{
+				functionInstance->invokeThunk = (InvokeThunk)jitModule->compileLayer->findSymbolIn(jitModule->handle,getExternalFunctionName(moduleInstance,functionIndex,true),false).getAddress();
+			}
+		}
+
 		return true;
 	}
 
-	std::string getExternalFunctionName(uintptr_t functionIndex,bool invokeThunk)
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr_t functionIndex,bool invokeThunk)
 	{
-		return invokeThunk
+		std::string result = invokeThunk
 			? "invokeThunk" + std::to_string(functionIndex)
 			: "wasmFunc" + std::to_string(functionIndex);
+		if(functionIndex  < moduleInstance->functions.size())
+		{
+			result += "_";
+			result += moduleInstance->functions[functionIndex]->debugName.c_str();
+		}
+		return result;
 	}
 
-	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex)
+	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex,bool& outIsInvokeThunk)
 	{
 		if(!strncmp(externalName,"wasmFunc",8))
 		{
 			char* numberEnd = nullptr;
 			outFunctionIndex = std::strtoull(externalName + 8,&numberEnd,10);
-			return *numberEnd == 0;
+			outIsInvokeThunk = false;
+			return true;
 		}
 		else if(!strncmp(externalName,"invokeThunk",11))
 		{
 			char* numberEnd = nullptr;
 			outFunctionIndex = std::strtoull(externalName + 11,&numberEnd,10);
-			return *numberEnd == 0;
+			outIsInvokeThunk = true;
+			return true;
 		}
 		else { return false; }
 	}
 
-	InvokeFunctionPointer getInvokeFunctionPointer(const AST::Module* module,uintptr functionIndex,bool invokeThunk)
-	{
-		for(auto jitModule : jitModules)
-		{
-			if(jitModule->astModule == module)
-			{
-				return (InvokeFunctionPointer)jitModule->compileLayer->findSymbolIn(jitModule->handle,getExternalFunctionName(functionIndex,invokeThunk),false).getAddress();
-			}
-		}
-		return nullptr;
-	}
-	
 	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)
 	{
 		for(auto jitModule : jitModules)
 		{
-			for(auto function : jitModule->functions)
+			for(auto functionSymbol : jitModule->functionSymbols)
 			{
-				if(ip >= function.baseAddress && ip <= (function.baseAddress + function.size))
+				if(ip >= functionSymbol.baseAddress && ip <= (functionSymbol.baseAddress + functionSymbol.size))
 				{
-					uintptr_t functionIndex;
-					if(getFunctionIndexFromExternalName(function.name.data(),functionIndex))
-					{
-						assert(functionIndex < jitModule->astModule->functions.size());
-						const AST::Function& astFunction = jitModule->astModule->functions[functionIndex];
-						if(astFunction.name) { outDescription = astFunction.name; return true; }
-					}
-
-					outDescription = function.name;
+					assert(functionSymbol.functionIndex < jitModule->moduleInstance->functions.size());
+					outDescription = jitModule->moduleInstance->functions[functionSymbol.functionIndex]->debugName;
+					if(!outDescription.size()) { outDescription = "function #" + std::to_string(functionSymbol.functionIndex); }
+					if(functionSymbol.isInvokeThunk) { outDescription += " (invoke thunk)"; }
 					return true;
 				}
 			}

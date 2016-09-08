@@ -4,6 +4,7 @@
 #include "RuntimePrivate.h"
 
 #include <math.h>
+#include <iostream>
 
 namespace Runtime
 {
@@ -91,62 +92,89 @@ namespace Runtime
 		else { return nearbyint(value); }
 	}
 
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,F32,F32,left,F32,right) { return floatMin<float32,Floats::F32Components>(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,F64,F64,left,F64,right) { return floatMin<float64,Floats::F64Components>(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,F32,F32,left,F32,right) { return floatMax<float32,Floats::F32Components>(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,F64,F64,left,F64,right) { return floatMax<float64,Floats::F64Components>(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,f32,f32,left,f32,right) { return floatMin<float32,Floats::F32Components>(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,f64,f64,left,f64,right) { return floatMin<float64,Floats::F64Components>(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,f32,f32,left,f32,right) { return floatMax<float32,Floats::F32Components>(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,f64,f64,left,f64,right) { return floatMax<float64,Floats::F64Components>(left,right); }
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,F32,F32,value) { return floatCeil<float32>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,F64,F64,value) { return floatCeil<float64>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,F32,F32,value) { return floatFloor<float32>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,F64,F64,value) { return floatFloor<float64>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,F32,F32,value) { return floatTrunc<float32>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,F64,F64,value) { return floatTrunc<float64>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,F32,F32,value) { return floatNearest<float32>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,F64,F64,value) { return floatNearest<float64>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,f32,f32,value) { return floatCeil<float32>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,f64,f64,value) { return floatCeil<float64>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,f32,f32,value) { return floatFloor<float32>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,f64,f64,value) { return floatFloor<float64>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,f32,f32,value) { return floatTrunc<float32>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,f64,f64,value) { return floatTrunc<float64>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f32,f32,value) { return floatNearest<float32>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f64,f64,value) { return floatNearest<float64>(value); }
 
 	template<typename Dest,typename Source,bool isMinInclusive>
 	Dest floatToInt(Source sourceValue,Source minValue,Source maxValue)
 	{
 		if(sourceValue != sourceValue)
 		{
-			causeException(Exception::Cause::InvalidFloatOperation);
+			causeException(Exception::Cause::invalidFloatOperation);
 		}
 		else if(sourceValue >= maxValue || (isMinInclusive ? sourceValue <= minValue : sourceValue < minValue))
 		{
-			causeException(Exception::Cause::IntegerDivideByZeroOrIntegerOverflow);
+			causeException(Exception::Cause::integerDivideByZeroOrIntegerOverflow);
 		}
 		return (Dest)sourceValue;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,I32,F32,source) { return floatToInt<int32,float32,false>(source,(float32)INT32_MIN,-(float32)INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,I32,F64,source) { return floatToInt<int32,float64,false>(source,(float64)INT32_MIN,-(float64)INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,I64,F32,source) { return floatToInt<int64,float32,false>(source,(float32)INT64_MIN,-(float32)INT64_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,I64,F64,source) { return floatToInt<int64,float64,false>(source,(float64)INT64_MIN,-(float64)INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i32,f32,source) { return floatToInt<int32,float32,false>(source,(float32)INT32_MIN,-(float32)INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i32,f64,source) { return floatToInt<int32,float64,false>(source,(float64)INT32_MIN,-(float64)INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i64,f32,source) { return floatToInt<int64,float32,false>(source,(float32)INT64_MIN,-(float32)INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i64,f64,source) { return floatToInt<int64,float64,false>(source,(float64)INT64_MIN,-(float64)INT64_MIN); }
 	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,I32,F32,source) { return floatToInt<uint32,float32,true>(source,-1.0f,-2.0f * INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,I32,F64,source) { return floatToInt<uint32,float64,true>(source,-1.0,-2.0 * INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,I64,F32,source) { return floatToInt<uint64,float32,true>(source,-1.0f,-2.0f * INT64_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,I64,F64,source) { return floatToInt<uint64,float64,true>(source,-1.0,-2.0 * INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i32,f32,source) { return floatToInt<uint32,float32,true>(source,-1.0f,-2.0f * INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i32,f64,source) { return floatToInt<uint32,float64,true>(source,-1.0,-2.0 * INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f32,source) { return floatToInt<uint64,float32,true>(source,-1.0f,-2.0f * INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f64,source) { return floatToInt<uint64,float64,true>(source,-1.0,-2.0 * INT64_MIN); }
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroTrap,divideByZeroTrap,Void)
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroTrap,divideByZeroTrap,unit)
 	{
-		causeException(Exception::Cause::IntegerDivideByZeroOrIntegerOverflow);
+		causeException(Exception::Cause::integerDivideByZeroOrIntegerOverflow);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,unreachableTrap,unreachableTrap,Void)
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,unreachableTrap,unreachableTrap,unit)
 	{
-		causeException(Exception::Cause::ReachedUnreachable);
+		causeException(Exception::Cause::reachedUnreachable);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,Void)
+	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,unit,i32,index,i64,expectedSignatureBits,i64,tableBits)
 	{
-		causeException(Exception::Cause::IndirectCallSignatureMismatch);
+		Table* table = reinterpret_cast<Table*>(tableBits);
+		void* elementValue = table->baseAddress[index].value;
+		#ifdef _DEBUG
+			const FunctionType* actualSignature = table->baseAddress[index].type;
+			const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((uintptr)expectedSignatureBits);
+			std::string ipDescription = "<unknown>";
+			LLVMJIT::describeInstructionPointer(reinterpret_cast<uintptr>(elementValue),ipDescription);
+			std::cerr << "call_indirect signature mismatch: expected " << getTypeName(expectedSignature)
+				<< " at index " << index << " but got " << (actualSignature ? getTypeName(actualSignature) : "nullptr")
+				<< " (" << ipDescription << ")" << std::endl;
+		#endif
+		causeException(elementValue == nullptr ? Exception::Cause::undefinedTableElement : Exception::Cause::indirectCallSignatureMismatch);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallIndexOutOfBounds,indirectCallIndexOutOfBounds,Void)
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallIndexOutOfBounds,indirectCallIndexOutOfBounds,unit)
 	{
-		causeException(Exception::Cause::OutOfBoundsFunctionTableIndex);
+		causeException(Exception::Cause::undefinedTableElement);
+	}
+
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,_growMemory,growMemory,i32,i32,deltaPages,i64,memoryBits)
+	{
+		Memory* memory = reinterpret_cast<Memory*>(memoryBits);
+		assert(memory);
+		if(memory->numPages + (uintptr)deltaPages > 65536) { return -1; }
+		else { return (int32)growMemory(memory,(uintptr)deltaPages); }
+	}
+	
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryBits)
+	{
+		Memory* memory = reinterpret_cast<Memory*>(memoryBits);
+		assert(memory);
+		if(memory->numPages > 65536) { return -1; }
+		else { return (uint32)getMemoryNumPages(memory); }
 	}
 
 	void initWAVMIntrinsics()

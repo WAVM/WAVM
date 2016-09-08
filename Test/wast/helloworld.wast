@@ -1,18 +1,20 @@
 ;; WebAssembly WASM AST Hello World! program
 
 (module
-  (memory 1
-   (segment 8 "Hello World!\n")
-  )
-  (import $__fwrite "env" "_fwrite" (param i32 i32 i32 i32) (result i32))
-  (import $_get__stdout "env" "get__stdout" (param) (result i32))
-  (export "main" $main)
+  (import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
+  (import "env" "_stdout" (global $stdoutPtr (mut i32)))
+  (import "env" "memory" (memory 1))
+  (export "main" (func $main))
+
+  (data (i32.const 8) "Hello World!\n")
+
+  (func (export "establishStackSpace") (param i32 i32) (nop))
 
   (func $main (result i32)
     (local $stdout i32)
-    (set_local $stdout (call_import $_get__stdout))
+    (set_local $stdout (i32.load align=4 (get_global $stdoutPtr)))
 
-    (return (call_import $__fwrite
+    (return (call $__fwrite
        (i32.const 8)         ;; void *ptr    => Address of our string
        (i32.const 1)         ;; size_t size  => Data size
        (i32.const 13)        ;; size_t nmemb => Length of our string

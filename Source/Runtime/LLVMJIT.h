@@ -3,9 +3,6 @@
 #include "Core/Core.h"
 #include "Core/Platform.h"
 #include "RuntimePrivate.h"
-#include "AST/AST.h"
-#include "AST/ASTExpressions.h"
-#include "AST/ASTDispatch.h"
 #include "Intrinsics.h"
 #include "Core/MemoryArena.h"
 
@@ -64,9 +61,9 @@
 
 namespace LLVMJIT
 {
-	std::string getExternalFunctionName(uintptr_t functionIndex,bool invokeThunk);
-	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex);
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr_t functionIndex,bool invokeThunk);
+	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex,bool& outIsInvokeThunk);
 
 	// Emits LLVM IR for a module.
-	llvm::Module* emitModule(const AST::Module* astModule);
+	llvm::Module* emitModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance);
 }

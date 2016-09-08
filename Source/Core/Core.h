@@ -92,4 +92,58 @@ namespace Core
 			++right;
 		};
 	}};
+	
+	template<size_t numInlineElements,typename Element,typename StorageElement=Element>
+	struct InlineAllocator
+	{
+		typedef Element value_type;
+		typedef value_type* pointer;
+		typedef const value_type* const_pointer;
+		typedef value_type& reference;
+		typedef const value_type& const_reference;
+		typedef std::size_t size_type;
+		typedef std::ptrdiff_t difference_type;
+		Element* address(Element& r) const { return &r; }
+		const Element* address(const Element& r) { return &r; }
+		Element* allocate(size_type numElements,const_pointer = nullptr)
+		{
+			if(numElements <= numInlineElements) { return reinterpret_cast<Element*>(inlineElementData); }
+			else
+			{
+				void* allocation = std::malloc(numElements * sizeof(StorageElement));
+				if(!allocation) { throw std::bad_alloc(); }
+				return static_cast<Element*>(allocation);
+			}
+		}
+		void deallocate(Element* elements,size_type num)
+		{
+			if(num > numInlineElements) { std::free(elements); }
+		}
+		size_type max_size() const { return SIZE_MAX / sizeof(StorageElement); }
+
+		template<typename OtherElement>
+		struct rebind { typedef InlineAllocator<numInlineElements,OtherElement,StorageElement> other; };
+
+		friend bool operator==(const InlineAllocator& left,const InlineAllocator& right) { return true; }
+		friend bool operator!=(const InlineAllocator& left,const InlineAllocator& right) { return false; }
+
+		InlineAllocator() {}
+		template<typename OtherElement>
+		InlineAllocator(const InlineAllocator<numInlineElements,OtherElement,StorageElement>& inCopy)
+		{
+			memcpy(inlineElementData,inCopy.getInlineData(),numInlineBytes);
+		}
+		template<typename OtherElement>
+		InlineAllocator(InlineAllocator<numInlineElements,OtherElement,StorageElement>&& inMove)
+		{
+			memcpy(inlineElementData,inMove.getInlineData(),numInlineBytes);
+		}
+
+		const uint8* getInlineData() const { return inlineElementData; }
+
+	private:
+
+		enum { numInlineBytes=numInlineElements*sizeof(StorageElement) };
+		uint8 inlineElementData[numInlineBytes];
+	};
 }

@@ -4,7 +4,7 @@
 #include <memory.h>
 #include <assert.h>
 
-namespace Memory
+namespace MemoryArena
 {
 	Arena::~Arena()
 	{

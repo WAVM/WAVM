@@ -37,10 +37,10 @@ namespace Platform
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return floorLogTwo(preferredVirtualPageSize);
 	}
-	uint32 getPageSizeLog2()
+	uintptr getPageSizeLog2()
 	{
 		static size_t preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
-		return (uint32)preferredVirtualPageSizeLog2;
+		return preferredVirtualPageSizeLog2;
 	}
 
 	uint32 memoryAccessAsWin32Flag(MemoryAccess access)

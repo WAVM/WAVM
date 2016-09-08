@@ -7,12 +7,14 @@
 	#define DLL_EXPORT __declspec(dllexport)
 	#define DLL_IMPORT __declspec(dllimport)
 	#define FORCEINLINE __forceinline
+	#define UNUSED
 	#include <intrin.h>
 #else
 	#define THREAD_LOCAL __thread
 	#define DLL_EXPORT
 	#define DLL_IMPORT
 	#define FORCEINLINE inline __attribute__((always_inline))
+	#define UNUSED __attribute__((unused))
 #endif
 
 namespace Platform
@@ -69,7 +71,7 @@ namespace Platform
 	};
 
 	// Returns the base 2 logarithm of the smallest virtual page size.
-	CORE_API uint32 getPageSizeLog2();
+	CORE_API uintptr getPageSizeLog2();
 
 	// Allocates virtual addresses without commiting physical pages to them.
 	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual address space has been exhausted.

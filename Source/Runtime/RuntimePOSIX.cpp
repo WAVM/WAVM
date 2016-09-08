@@ -17,7 +17,7 @@ namespace RuntimePlatform
 	using namespace Runtime;
 
 	THREAD_LOCAL jmp_buf setjmpEnv;
-	THREAD_LOCAL Exception::Cause exceptionCause = Exception::Cause::Unknown;
+	THREAD_LOCAL Exception::Cause exceptionCause = Exception::Cause::unknown;
 	THREAD_LOCAL Exception* exception = nullptr;
 
 	enum { signalStackNumBytes = SIGSTKSZ };
@@ -50,20 +50,21 @@ namespace RuntimePlatform
 	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
 	{
 		// Derive the exception cause the from signal that was received.
-		exceptionCause = Exception::Cause::Unknown;
+		exceptionCause = Exception::Cause::unknown;
 		switch(signalNumber)
 		{
 		case SIGFPE:
 			switch(signalInfo->si_code)
 			{
-				case FPE_INTDIV: exceptionCause = Exception::Cause::IntegerDivideByZeroOrIntegerOverflow; break;
+				case FPE_INTDIV: exceptionCause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; break;
 			};
 			break;
 		case SIGSEGV:
 		case SIGBUS:
-			exceptionCause = signalInfo->si_addr > stackMinAddr - 16384 && signalInfo->si_addr < stackMinAddr + 16384
-				? Exception::Cause::StackOverflow
-				: Exception::Cause::AccessViolation;
+			exceptionCause =
+				signalInfo->si_addr > stackMinAddr - 16384 && signalInfo->si_addr < stackMinAddr + 16384 ? Exception::Cause::stackOverflow
+				: isAddressOwnedByTable((uint8*)signalInfo->si_addr) ? Exception::Cause::undefinedTableElement
+				: Exception::Cause::accessViolation;
 			break;
 		};
 
@@ -100,7 +101,7 @@ namespace RuntimePlatform
 		else { result = Value(new Exception {exceptionCause}); }
 
 		// Reset the signal state.
-		exceptionCause = Exception::Cause::Unknown;
+		exceptionCause = Exception::Cause::unknown;
 		exception = nullptr;
 		sigaction(SIGSEGV,&oldSignalActionSEGV,nullptr);
 		sigaction(SIGBUS,&oldSignalActionBUS,nullptr);
@@ -109,7 +110,7 @@ namespace RuntimePlatform
 		return result;
 	}
 
-	void raiseException(Runtime::Exception* inException)
+	[[noreturn]] void raiseException(Runtime::Exception* inException)
 	{
 		exception = inException;
 		longjmp(setjmpEnv,1);

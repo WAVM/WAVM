@@ -1,62 +1,63 @@
 #include "Core/Core.h"
 #include "Core/MemoryArena.h"
 #include "Core/Platform.h"
-#include "AST/AST.h"
+#include "WAST/WAST.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/Linker.h"
+#include "Runtime/Intrinsics.h"
 
 #include "CLI.h"
 
-bool endsWith(const char *str, const char *suffix)
-{
-	if(!str || !suffix) { return false; }
-	size_t lenstr = strlen(str);
-	size_t lensuffix = strlen(suffix);
-	if(lenstr < lensuffix) { return false; }
-	return (strncmp(str+lenstr-lensuffix, suffix, lensuffix) == 0);
-}
+using namespace WebAssembly;
+using namespace Runtime;
 
 void showHelp()
 {
 	std::cerr << "Usage: wavm [switches] [programfile] [--] [arguments]" << std::endl;
-	std::cerr << "  --text in.wast\t\tSpecify text program file (.wast)" << std::endl;
-	std::cerr << "  --binary in.wasm in.js.mem\tSpecify binary program file (.wasm) and memory file (.js.mem)" << std::endl;
+	std::cerr << "  in.wast\t\tSpecify text program file (.wast)" << std::endl;
+	std::cerr << "  in.wasm\tSpecify binary program file (.wasm)" << std::endl;
 	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main" << std::endl;
 	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
 	std::cerr << "  --\t\t\t\tStop parsing arguments" << std::endl;
 }
 
-int main(int argc,char** argv)
+struct RootResolver : Resolver
+{
+	std::map<std::string,Resolver*> moduleNameToResolverMap;
+
+	bool resolve(const char* moduleName,const char* exportName,ObjectType type,Object*& outObject) override
+	{
+		// Try to resolve an intrinsic first.
+		if(IntrinsicResolver::singleton.resolve(moduleName,exportName,type,outObject)) { return true; }
+
+		// Then look for a named module.
+		auto namedResolverIt = moduleNameToResolverMap.find(moduleName);
+		if(namedResolverIt != moduleNameToResolverMap.end())
+		{
+			return namedResolverIt->second->resolve(moduleName,exportName,type,outObject);
+		}
+
+		return false;
+	}
+};
+
+int commandMain(int argc,char** argv)
 {
 	const char* sourceFile = 0;
 	const char* binaryFile = 0;
-	const char* binaryMemFile = 0;
 	const char* functionName = 0;
 
 	bool onlyCheck = false;
 	auto args = argv;
 	while(*++args)
 	{
-		if(!sourceFile && !strcmp(*args, "--text"))
-		{
-			if(!*++args) { showHelp(); return EXIT_FAILURE; }
-			sourceFile = *args;
-		}
-		else if(!sourceFile && endsWith(*args, ".wast"))
+		if(!sourceFile && endsWith(*args, ".wast"))
 		{
 			sourceFile = *args;
-		}
-		else if(!binaryFile && !strcmp(*args, "--binary"))
-		{
-			if(!*++args) { showHelp(); return EXIT_FAILURE; }
-			binaryFile = *args;
-			if(!*++args) { showHelp(); return EXIT_FAILURE; }
-			binaryMemFile = *args;
 		}
 		else if(!binaryFile && endsWith(*args, ".wasm"))
 		{
 			binaryFile = *args;
-			if(!*++args) { showHelp(); return EXIT_FAILURE; }
-			binaryMemFile = *args;
 		}
 		else if(!strcmp(*args, "--function") || !strcmp(*args, "-f"))
 		{
@@ -80,7 +81,7 @@ int main(int argc,char** argv)
 		else { break; }
 	}
 
-	AST::Module* module = nullptr;
+	Module module;
 	const char* main_arg0 = 0;
 	if(sourceFile)
 	{
@@ -89,7 +90,7 @@ int main(int argc,char** argv)
 	}
 	else if(binaryFile)
 	{
-		if(!loadBinaryModule(binaryFile,binaryMemFile,module)) { return EXIT_FAILURE; }
+		if(!loadBinaryModule(binaryFile,module)) { return EXIT_FAILURE; }
 		main_arg0 = binaryFile;
 	}
 	else
@@ -99,78 +100,90 @@ int main(int argc,char** argv)
 	}
 
 	if(onlyCheck) { return EXIT_SUCCESS; }
+		
+	RootResolver rootResolver;
 
-	if(!Runtime::init()) { return EXIT_FAILURE; }
-	if(!Runtime::loadModule(module)) { return EXIT_FAILURE; }
+	Runtime::init();
+	ModuleInstance* moduleInstance = linkAndInstantiateModule(module,rootResolver);
+	if(!moduleInstance) { return EXIT_FAILURE; }
 
-	auto functionExport = module->exportNameToFunctionIndexMap.end();
+	FunctionInstance* functionInstance;
 	if(!functionName)
 	{
-		functionExport = module->exportNameToFunctionIndexMap.find("main");
-		if(functionExport == module->exportNameToFunctionIndexMap.end()) { functionExport = module->exportNameToFunctionIndexMap.find("_main"); }
-		if(functionExport == module->exportNameToFunctionIndexMap.end())
+		functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,"main"));
+		if(!functionInstance) { functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,"_main")); }
+		if(!functionInstance)
 		{
-			std::cerr << "Module does not export main" << std::endl;
+			std::cerr << "Module does not export main function" << std::endl;
 			return EXIT_FAILURE;
 		}
 	}
 	else
 	{
-		functionExport = module->exportNameToFunctionIndexMap.find(functionName);
-		if(functionExport == module->exportNameToFunctionIndexMap.end())
+		functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,functionName));
+		if(!functionInstance)
 		{
 			std::cerr << "Module does not export '" << functionName << "'" << std::endl;
 			return EXIT_FAILURE;
 		}
 	}
+	const FunctionType* functionType = getFunctionType(functionInstance);
 
-	std::vector<Runtime::Value> parameters;
-	const AST::Function& function = module->functions[functionExport->second];
+	std::vector<Value> parameters;
 	if(!functionName)
 	{
-		if(function.type.parameters.size() == 2)
+		if(functionType->parameters.size() == 2)
 		{
+			Memory* defaultMemory = Runtime::getDefaultMemory(moduleInstance);
+			if(!defaultMemory)
+			{
+				std::cerr << "Module does not declare a default memory object to put arguments in." << std::endl;
+				return EXIT_FAILURE;
+			}
+
+			size_t argumentPageIndex = growMemory(defaultMemory,1);
+			uint8* defaultMemoryBase = getMemoryBaseAddress(defaultMemory);
+			uint8* argumentMemory = defaultMemoryBase + (argumentPageIndex << WebAssembly::numBytesPerPageLog2);
+
 			uintptr main_argc_start = args-argv-1;
 			auto main_argc = (uintptr)argc - main_argc_start;
-			auto main_argv = (uintptr)Runtime::vmGrowMemory((main_argc+1) * sizeof(uint32));
-			auto main_argvGlobal = &Runtime::instanceMemoryRef<uint32>(main_argv);
+				
+			auto main_argv = (uint32*)argumentMemory;
+			argumentMemory += (main_argc + 1) * sizeof(uint32);
 			for (auto i = main_argc_start; i < (uint32)argc; ++i)
 			{
-				const char* str = argv[i];
-				if(i == main_argc_start) { str = main_arg0; }
-				auto len = strlen(str)+1;
-				auto vmAddress = (uint32)Runtime::vmGrowMemory(sizeof(uint8)*(len));
-				memcpy(&Runtime::instanceMemoryRef<short>(vmAddress),str,len);
-				main_argvGlobal[i-main_argc_start] = vmAddress;
+				const char* string = argv[i];
+				if(i == main_argc_start) { string = main_arg0; }
+				auto stringSize = strlen(string)+1;
+				auto stringMemory = argumentMemory;
+				argumentMemory += stringSize;
+				memcpy(stringMemory,string,stringSize);
+				main_argv[i-main_argc_start] = (uint32)(stringMemory - getMemoryBaseAddress(defaultMemory));
 			}
-			main_argvGlobal[main_argc] = 0;
-			std::vector<Runtime::Value> mainParameters = {(uint32)main_argc, (uint32)main_argv};
-			parameters = mainParameters;
+			main_argv[main_argc] = 0;
+			parameters = {(uint32)main_argc, (uint32)((uint8*)main_argv - defaultMemoryBase) };
 		}
-		else if(function.type.parameters.size() > 0)
+		else if(functionType->parameters.size() > 0)
 		{
-			std::cerr << "'" << function.name << "' requires " << function.type.parameters.size() << " argument(s), but only 0 or 2 can be passed!" << std::endl;
+			std::cerr << "WebAssembly function requires " << functionType->parameters.size() << " argument(s), but only 0 or 2 can be passed!" << std::endl;
 			return EXIT_FAILURE;
 		}
 	}
 	else
 	{
-		parameters.resize(function.type.parameters.size());
+		parameters.resize(functionType->parameters.size());
 		uintptr main_argc_start = args-argv;
-		auto end = (uintptr)std::min((uintptr)function.type.parameters.size(), (uintptr)(argc - main_argc_start));
+		auto end = (uintptr)std::min((uintptr)functionType->parameters.size(), (uintptr)(argc - main_argc_start));
 		for(uint32 i = 0; i < end; ++i)
 		{
-			Runtime::Value value;
-			switch((Runtime::TypeId)function.type.parameters[i])
+			Value value;
+			switch((TypeId)functionType->parameters[i])
 			{
-			case Runtime::TypeId::Void:
-			case Runtime::TypeId::None: break;
-			case Runtime::TypeId::I8:
-			case Runtime::TypeId::I16:
-			case Runtime::TypeId::I32: value = (uint32)atoi(argv[main_argc_start+i]); break;
-			case Runtime::TypeId::I64: value = (uint64)atol(argv[main_argc_start+i]); break;
-			case Runtime::TypeId::F32:
-			case Runtime::TypeId::F64: value = atof(argv[main_argc_start+i]); break;
+			case TypeId::unit: break;
+			case TypeId::i32: value = (uint32)atoi(argv[main_argc_start+i]); break;
+			case TypeId::i64: value = (uint64)atol(argv[main_argc_start+i]); break;
+			case TypeId::f32:
+			case TypeId::f64: value = atof(argv[main_argc_start+i]); break;
 			default: throw;
 			}
 			parameters[i] = value;
@@ -180,22 +193,22 @@ int main(int argc,char** argv)
 	#if WAVM_TIMER_OUTPUT
 	Core::Timer executionTime;
 	#endif
-	auto functionResult = Runtime::invokeFunction(module,functionExport->second,parameters.data());
+	auto functionResult = invokeFunction(functionInstance,parameters);
 	#if WAVM_TIMER_OUTPUT
 	executionTime.stop();
 	std::cout << "Execution time: " << executionTime.getMilliseconds() << "ms" << std::endl;
 	#endif
 
-	if(functionResult.type == Runtime::TypeId::Exception)
+	if(functionResult.type == TypeId::exception)
 	{
-		std::cerr << function.name << " threw exception: " << Runtime::describeExceptionCause(functionResult.exception->cause) << std::endl;
+		std::cerr << "WebAssembly module threw exception: " << describeExceptionCause(functionResult.exception->cause) << std::endl;
 		for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
 		return EXIT_FAILURE;
 	}
 
 	if(!functionName)
 	{
-		if(functionResult.type != Runtime::TypeId::I32) { return EXIT_SUCCESS; }
+		if(functionResult.type != TypeId::i32) { return EXIT_SUCCESS; }
 		return functionResult.i32;
 	}
 
