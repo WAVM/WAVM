@@ -83,6 +83,9 @@ int commandMain(int argc,char** argv)
 
 	Module module;
 	const char* main_arg0 = 0;
+#ifdef __AFL_LOOP
+        while (__AFL_LOOP(2000)) {
+#endif
 	if(sourceFile)
 	{
 		if(!loadTextModule(sourceFile,module)) { return EXIT_FAILURE; }
@@ -98,6 +101,12 @@ int commandMain(int argc,char** argv)
 		showHelp();
 		return EXIT_FAILURE;
 	}
+#ifdef __AFL_LOOP
+	delete module;
+	module = nullptr;
+	}
+	return EXIT_SUCCESS;
+#endif
 
 	if(onlyCheck) { return EXIT_SUCCESS; }
 		
