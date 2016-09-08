@@ -60,8 +60,18 @@ namespace Runtime
 		}
 
 		// Instantiate the module's memory and table definitions.
-		for(auto memoryType : module.memoryDefs) { moduleInstance->memories.push_back(createMemory(memoryType)); }
-		for(auto tableType : module.tableDefs) { moduleInstance->tables.push_back(createTable(tableType)); }
+		for(auto memoryType : module.memoryDefs)
+		{
+			auto memory = createMemory(memoryType);
+			if(!memory) { throw InstantiationException(InstantiationException::outOfMemory); }
+			moduleInstance->memories.push_back(memory);
+		}
+		for(auto tableType : module.tableDefs)
+		{
+			auto table = createTable(tableType);
+			if(!table) { throw InstantiationException(InstantiationException::outOfMemory); }
+			moduleInstance->tables.push_back(table);
+		}
 
 		// Find the default memory and table for the module.
 		if(moduleInstance->memories.size() != 0)
@@ -158,7 +168,7 @@ namespace Runtime
 		// Call the module's start function.
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
-			assert(module.types[module.functionDefs[module.startFunctionIndex].typeIndex] == WebAssembly::FunctionType::get());
+			assert(moduleInstance->functions[module.startFunctionIndex]->type == WebAssembly::FunctionType::get());
 			auto result = invokeFunction(moduleInstance->functions[module.startFunctionIndex],{});
 			if(result.type == Runtime::TypeId::exception)
 			{

@@ -47,7 +47,8 @@ namespace Runtime
 		memory->reservedNumBytes = memory->reservedNumPlatformPages << Platform::getPageSizeLog2();
 		memory->maxPages = memoryMaxBytes >> WebAssembly::numBytesPerPageLog2;
 
-		growMemory(memory,type.size.min);
+		if(!memory->baseAddress) { delete memory; return nullptr; }
+		if(growMemory(memory,type.size.min) == -1) { delete memory; return nullptr; }
 
 		return memory;
 	}
@@ -122,8 +123,9 @@ namespace Runtime
 		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : (uintptr(1) << Platform::getPageSizeLog2());
 		table->baseAddress = (Table::Element*)allocateVirtualPagesAligned(tableMaxBytes,alignmentBytes,table->reservedBaseAddress,table->reservedNumPlatformPages);
 		table->maxPlatformPages = tableMaxBytes >> Platform::getPageSizeLog2();
-
-		growTable(table,type.size.min);
+		
+		if(!table->baseAddress) { delete table; return nullptr; }
+		if(growTable(table,type.size.min) == -1) { delete table; return nullptr; }
 
 		tables.push_back(table);
 		return table;

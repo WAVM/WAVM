@@ -64,7 +64,8 @@ namespace Runtime
 			invalidInitializerGlobalRef,
 			invalidDataSegmentBase,
 			codeGenFailed,
-			startFunctionException
+			startFunctionException,
+			outOfMemory
 		};
 
 		const Cause cause;
