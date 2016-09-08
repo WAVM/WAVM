@@ -628,7 +628,7 @@ namespace WebAssembly
 				VALIDATE_INDEX(exportIt.index,numMemories);
 				break;
 			case ObjectKind::global:
-				validateGlobalIndex(exportIt.index,false,true,false,"exported global index");
+				validateGlobalIndex(exportIt.index,false,false,false,"exported global index");
 				break;
 			default: throw;
 			};

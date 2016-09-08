@@ -662,3 +662,18 @@
     )
   )
 ) "bad signature index")
+
+
+;;
+;; from globals.wast
+;;
+
+(module $m (global (export "a") (mut i32) (i32.const 0)))
+(register "m" $m)
+
+;; these should be prohibited for now due to importing mutable globals.
+
+(module (import "m" "a" (global (mut i32))))
+(module (global (import "m" "a") (mut i32)))
+(module (global (mut f32) (f32.const 0)) (export "a" (global 0)))
+(module (global (export "a") (mut f32) (f32.const 0)))

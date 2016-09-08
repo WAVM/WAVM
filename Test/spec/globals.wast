@@ -51,7 +51,7 @@
   "global is immutable"
 )
 
-(assert_invalid
+(;(assert_invalid
   (module (import "m" "a" (global (mut i32))))
   "mutable globals cannot be imported"
 )
@@ -69,7 +69,7 @@
 (assert_invalid
   (module (global (export "a") (mut f32) (f32.const 0)))
   "mutable globals cannot be exported"
-)
+);)
 
 (assert_invalid
   (module (global f32 (f32.neg (f32.const 0))))
