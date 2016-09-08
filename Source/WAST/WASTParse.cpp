@@ -594,9 +594,6 @@ namespace WAST
 
 		private:
 			FunctionContext& context;
-			bool hasName;
-			const char* name;
-			uintptr outerNamedBranchTargetIndex;
 			bool isEnded;
 			uintptr branchTargetIndex;
 		};
