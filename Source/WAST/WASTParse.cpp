@@ -1439,7 +1439,7 @@ namespace WAST
 						case Symbol::_func:
 						{
 							// Parse an optional import name used within the module.
-							const char* importInternalName;
+							const char* importInternalName = nullptr;
 							bool hasName = parseName(importTypeChildNodeIt,importInternalName);
 
 							const FunctionType* importType = nullptr;
@@ -1476,7 +1476,7 @@ namespace WAST
 							const uintptr tableIndex = tableTypes.size();
 
 							// Parse an optional import name used within the module.
-							const char* importInternalName;
+							const char* importInternalName = nullptr;
 							bool hasName = parseName(importTypeChildNodeIt,importInternalName);
 							
 							// Parse the table type.
@@ -1498,7 +1498,7 @@ namespace WAST
 							const uintptr memoryIndex = memoryTypes.size();
 
 							// Parse an optional import name used within the module.
-							const char* importInternalName;
+							const char* importInternalName = nullptr;
 							bool hasName = parseName(importTypeChildNodeIt,importInternalName);
 
 							// Parse the memory type.
@@ -1520,7 +1520,7 @@ namespace WAST
 							const uintptr globalIndex = globalTypes.size();
 
 							// Parse an optional import name used within the module.
-							const char* importInternalName;
+							const char* importInternalName = nullptr;
 							bool hasName = parseName(importTypeChildNodeIt,importInternalName);
 
 							// Parse the type of the global.
@@ -1550,7 +1550,7 @@ namespace WAST
 						const uintptr memoryIndex = memoryTypes.size();
 
 						// Parse an optional memory name used within the module.
-						const char* memoryInternalName;
+						const char* memoryInternalName = nullptr;
 						if(parseName(childNodeIt,memoryInternalName))
 						{
 							if(memoryNameToIndexMap.count(memoryInternalName)) { recordError(*this,nodeIt,"duplicate memory name"); continue; }
@@ -1600,7 +1600,7 @@ namespace WAST
 						const uintptr tableIndex = tableTypes.size();
 
 						// Parse an optional table name used within the module.
-						const char* tableInternalName;
+						const char* tableInternalName = nullptr;
 						if(parseName(childNodeIt,tableInternalName))
 						{
 							if(tableNameToIndexMap.count(tableInternalName)) { recordError(*this,nodeIt,"duplicate table name"); continue; }
@@ -1648,7 +1648,7 @@ namespace WAST
 					case Symbol::_type:
 					{
 						// Parse a function type definition.
-						const char* typeName;
+						const char* typeName = nullptr;
 						bool hasName = parseName(childNodeIt,typeName);
 
 						SNodeIt funcChildNodeIt;
@@ -1674,7 +1674,7 @@ namespace WAST
 						const uintptr globalIndex = globalTypes.size();
 
 						// Parse an optional name for the global.
-						const char* globalName;
+						const char* globalName = nullptr;
 						if(parseName(childNodeIt,globalName))
 						{
 							if(globalNameToIndexMap.count(globalName)) { recordError(*this,nodeIt,std::string("duplicate global name: ") + globalName); }
