@@ -1590,7 +1590,7 @@ namespace WAST
 							{
 								SNodeIt dataChildNodeIt;
 								if(parseTaggedNode(childNodeIt,Symbol::_data,dataChildNodeIt))
-								{ dataNodes.push_back({true,memoryIndex,childNodeIt++}); }
+								{ dataNodes.push_back(std::make_tuple(true,memoryIndex,childNodeIt++)); }
 							}
 						}
 
@@ -1640,7 +1640,7 @@ namespace WAST
 							{
 								SNodeIt elemChildNodeIt;
 								if(parseTaggedNode(childNodeIt,Symbol::_elem,elemChildNodeIt))
-								{ elemNodes.push_back({true,tableIndex,childNodeIt++}); }
+								{ elemNodes.push_back(std::make_tuple(true,tableIndex,childNodeIt++)); }
 							}
 						}
 
@@ -1728,10 +1728,10 @@ namespace WAST
 
 						break;
 					}
-					case Symbol::_data: dataNodes.push_back({false,0,nodeIt}); break;
+					case Symbol::_data: dataNodes.push_back(std::make_tuple(false,0,nodeIt)); break;
 					case Symbol::_export: exportNodes.push_back(nodeIt); break;
 					case Symbol::_start: startNodes.push_back(nodeIt); break;
-					case Symbol::_elem: elemNodes.push_back({false,0,nodeIt}); break;
+					case Symbol::_elem: elemNodes.push_back(std::make_tuple(false,0,nodeIt)); break;
 					default:
 						recordError(*this,nodeIt,"unrecognized declaration");
 						break;
