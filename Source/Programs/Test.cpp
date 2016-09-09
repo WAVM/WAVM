@@ -355,7 +355,7 @@ bool TestScriptState::process()
 		else if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 		{
 			// Parse an optional module name.
-			const char* moduleInternalName;
+			const char* moduleInternalName = nullptr;
 			bool hasName = parseName(childNodeIt,moduleInternalName);
 
 			// Parse a module definition.
@@ -385,7 +385,7 @@ bool TestScriptState::process()
 			if(!parseString(childNodeIt,moduleName)) { recordError(childNodeIt,"expected module name string"); continue; }
 
 			// Parse the internal name of the module.
-			const char* moduleInternalName;
+			const char* moduleInternalName = nullptr;
 			if(parseName(childNodeIt,moduleInternalName))
 			{
 				auto mapIt = moduleInternalNameToIndexMap.find(moduleInternalName);
