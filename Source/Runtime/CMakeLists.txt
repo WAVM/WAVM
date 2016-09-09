@@ -1,5 +1,9 @@
 file(GLOB Sources "*.cpp")
 file(GLOB Headers "*.h")
+
+file(GLOB Headers "${WAVM_INCLUDE_DIR}/Runtime/*.h")
+include_directories(${WAVM_INCLUDE_DIR}/Runtime)
+
 add_library(Runtime SHARED ${Sources} ${Headers})
 
 # Find an installed build of LLVM

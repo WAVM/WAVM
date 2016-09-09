@@ -151,7 +151,7 @@ namespace WebAssembly
 		case ValueType::i64: return "i64";
 		case ValueType::f32: return "f32";
 		case ValueType::f64: return "f64";
-		default: return "unknown";
+		default: throw;
 		};
 	}
 
@@ -159,12 +159,12 @@ namespace WebAssembly
 	{
 		switch(type)
 		{
-		case ReturnType::unit: return "()";
 		case ReturnType::i32: return "i32";
 		case ReturnType::i64: return "i64";
 		case ReturnType::f32: return "f32";
 		case ReturnType::f64: return "f64";
-		default: return "unknown";
+		case ReturnType::unit: return "()";
+		default: throw;
 		};
 	}
 

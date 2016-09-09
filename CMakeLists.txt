@@ -10,7 +10,8 @@ SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
 # Allow includes relative to the source path.
-include_directories(Source)
+set(WAVM_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/Include)
+include_directories(${WAVM_INCLUDE_DIR})
 
 if(MSVC)
 	# Taken out of the VC projects to avoid the compiler complaining about POSIX code
