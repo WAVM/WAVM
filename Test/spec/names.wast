@@ -62,7 +62,7 @@
 (assert_return (invoke "if") (f32.const 0x2.03p+2))
 
 (module
-  ;; Test that we can use indices instead of names to reference imports, 
+  ;; Test that we can use indices instead of names to reference imports,
   ;; exports, functions and parameters.
   (import "spectest" "print" (func (param i32)))
   (func (import "spectest" "print") (param i32))

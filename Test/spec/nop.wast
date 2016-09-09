@@ -95,7 +95,7 @@
     (block
       (nop) (nop) (get_local 0) (nop) (nop) (get_local 0) (nop) (nop)
       (br_if 1 0)
-      (i32.const 0) 
+      (i32.const 0)
     )
   )
 

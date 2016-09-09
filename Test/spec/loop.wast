@@ -92,7 +92,7 @@
 
   (func $fx (export "effects") (result i32)
     (local i32)
-    (block 
+    (block
       (loop
         (set_local 0 (i32.const 1))
         (set_local 0 (i32.mul (get_local 0) (i32.const 3)))
