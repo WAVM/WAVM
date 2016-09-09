@@ -169,7 +169,6 @@ namespace LLVMJIT
 			if(type == ReturnType::unit) { return nullptr; }
 			else
 			{
-				assert(basicBlock->end() == basicBlock->end());
 				auto originalBlock = irBuilder.GetInsertBlock();
 				irBuilder.SetInsertPoint(basicBlock);
 				auto phi = irBuilder.CreatePHI(asLLVMType(type),2);
