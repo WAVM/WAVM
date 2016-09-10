@@ -54,7 +54,7 @@ namespace Serialization
 		{
 			const uintptr nextIndex = next - bytes.data();
 
-			bytes.resize(std::max(nextIndex+numBytes,bytes.size() * 7 / 5 + 32));
+			bytes.resize(std::max((size_t)nextIndex+numBytes,bytes.size() * 7 / 5 + 32));
 
 			next = bytes.data() + nextIndex;
 			end = bytes.data() + bytes.size();
