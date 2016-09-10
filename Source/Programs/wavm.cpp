@@ -5,6 +5,7 @@
 #include "Runtime/Runtime.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Intrinsics.h"
+#include "Emscripten/Emscripten.h"
 
 #include "CLI.h"
 
@@ -40,11 +41,6 @@ struct RootResolver : Resolver
 		return false;
 	}
 };
-
-namespace Runtime
-{
-	extern RUNTIME_API void setupCommandLine(const std::vector<const char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs);
-}
 
 int commandMain(int argc,char** argv)
 {
@@ -120,6 +116,8 @@ int commandMain(int argc,char** argv)
 	Runtime::init();
 	ModuleInstance* moduleInstance = linkAndInstantiateModule(module,rootResolver);
 	if(!moduleInstance) { return EXIT_FAILURE; }
+	
+	Emscripten::initInstance(module,moduleInstance);
 
 	FunctionInstance* functionInstance;
 	if(!functionName)
@@ -159,7 +157,7 @@ int commandMain(int argc,char** argv)
 			argStrings.push_back(main_arg0);
 			while(*args) { argStrings.push_back(*args++); };
 
-			setupCommandLine(argStrings,invokeArgs);
+			Emscripten::injectCommandArgs(argStrings,invokeArgs);
 		}
 		else if(functionType->parameters.size() > 0)
 		{

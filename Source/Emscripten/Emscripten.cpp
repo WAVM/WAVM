@@ -1,7 +1,8 @@
 #include "Core/Core.h"
-#include "Intrinsics.h"
-#include "RuntimePrivate.h"
-#include "Core/Platform.h"
+#include "WebAssembly/Module.h"
+#include "Runtime/Runtime.h"
+#include "Runtime/Intrinsics.h"
+#include "Emscripten.h"
 #include <time.h>
 #include <stdio.h>
 #include <iostream>
@@ -11,8 +12,11 @@
 #include <sys/uio.h>
 #endif
 
-namespace Runtime
+namespace Emscripten
 {
+	using namespace WebAssembly;
+	using namespace Runtime;
+
 	static uint32 coerce32bitAddress(uintptr address)
 	{
 		if(address >= UINT32_MAX) { causeException(Exception::Cause::accessViolation); }
@@ -378,10 +382,10 @@ namespace Runtime
 		return left / right;
 	}
 
-	void initEmscriptenIntrinsics(const Module& module,ModuleInstance* moduleInstance)
+	EMSCRIPTEN_API void initInstance(const Module& module,ModuleInstance* moduleInstance)
 	{
 		// Only initialize the module as an Emscripten module if it uses the emscripten memory by default.
-		if(moduleInstance->defaultMemory == emscriptenMemory)
+		if(getDefaultMemory(moduleInstance) == emscriptenMemory)
 		{
 			// Allocate a 5MB stack.
 			STACKTOP = coerce32bitAddress(sbrk(5*1024*1024));
@@ -424,7 +428,7 @@ namespace Runtime
 		}
 	}
 
-	RUNTIME_API void setupCommandLine(const std::vector<const char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs)
+	EMSCRIPTEN_API void injectCommandArgs(const std::vector<const char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs)
 	{
 		uint8* emscriptenMemoryBase = getMemoryBaseAddress(emscriptenMemory);
 

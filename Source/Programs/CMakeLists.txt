@@ -11,5 +11,5 @@ target_link_libraries(Test Core WAST WebAssembly Runtime)
 set_target_properties(Test PROPERTIES FOLDER Programs)
 
 add_executable(wavm wavm.cpp CLI.h)
-target_link_libraries(wavm Core WAST WebAssembly Runtime)
+target_link_libraries(wavm Core WAST WebAssembly Runtime Emscripten)
 set_target_properties(wavm PROPERTIES FOLDER Programs)

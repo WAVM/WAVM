@@ -72,7 +72,7 @@ add_subdirectory(Source/Core)
 add_subdirectory(Source/WebAssembly)
 add_subdirectory(Source/WAST)
 add_subdirectory(Source/Runtime)
+add_subdirectory(Source/Emscripten)
 add_subdirectory(Source/Programs)
-add_subdirectory(Source/ThirdParty)
 
 add_subdirectory(Test/spec)

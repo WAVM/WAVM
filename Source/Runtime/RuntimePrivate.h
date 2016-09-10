@@ -106,9 +106,7 @@ namespace Runtime
 		{}
 	};
 
-	// Initializes the various intrinsic modules.
-	void initEmscriptenIntrinsics(const WebAssembly::Module& module,ModuleInstance* moduleInstance);
-	void initSpecTestIntrinsics();
+	// Initializes global state used by the WAVM intrinsics.
 	void initWAVMIntrinsics();
 
 	// Describes a stack frame.
@@ -117,38 +115,8 @@ namespace Runtime
 	// Describes an execution context. Returns an array of strings, one for each stack frame.
 	std::vector<std::string> describeExecutionContext(const ExecutionContext& executionContext);
 
-	// Causes an exception.
-	[[noreturn]] void causeException(Exception::Cause cause);
-
 	// Checks whether an address is owned by a table.
 	bool isAddressOwnedByTable(uint8* address);
-
-	// Validates that an offset range is wholly inside a Memory's virtual address range.
-	inline void validateMemoryOffsetRange(Memory* memory,uintptr offset,size_t numBytes)
-	{
-		uint8* address = memory->baseAddress + offset;
-		if(	!memory
-		||	address < memory->reservedBaseAddress
-		||	address + numBytes < address
-		||	address + numBytes > memory->reservedBaseAddress + memory->reservedNumBytes)
-		{
-			causeException(Exception::Cause::accessViolation);
-		}
-	}
-
-	// Validates an access to a single element of memory at the given offset, and returns a reference to it.
-	template<typename Value> Value& memoryRef(Memory* memory,uint32 offset)
-	{
-		validateMemoryOffsetRange(memory,offset,sizeof(Value));
-		return *(Value*)(memory->baseAddress + offset);
-	}
-
-	// Validates an access to multiple elements of memory at the given offset, and returns a pointer to it.
-	template<typename Value> Value* memoryArrayPtr(Memory* memory,uint32 offset,uint32 numElements)
-	{
-		validateMemoryOffsetRange(memory,offset,numElements * sizeof(Value));
-		return (Value*)(memory->baseAddress + offset);
-	}
 }
 
 namespace RuntimePlatform

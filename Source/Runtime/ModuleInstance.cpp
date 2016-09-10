@@ -158,11 +158,6 @@ namespace Runtime
 			}
 		}
 
-		// Initialize the intrinsics.
-		initEmscriptenIntrinsics(module,moduleInstance);
-		initSpecTestIntrinsics();
-		initWAVMIntrinsics();
-
 		// Call the module's start function.
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{

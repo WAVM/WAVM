@@ -9,6 +9,7 @@ namespace Runtime
 	{
 		LLVMJIT::init();
 		RuntimePlatform::initThread();
+		initWAVMIntrinsics();
 	}
 
 	[[noreturn]] void causeException(Exception::Cause cause)

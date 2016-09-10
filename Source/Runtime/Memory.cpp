@@ -110,6 +110,19 @@ namespace Runtime
 		return memory->baseAddress;
 	}
 	
+	uint8* getValidatedMemoryOffsetRange(Memory* memory,uintptr offset,size_t numBytes)
+	{
+		uint8* address = memory->baseAddress + offset;
+		if(	!memory
+		||	address < memory->reservedBaseAddress
+		||	address + numBytes < address
+		||	address + numBytes > memory->reservedBaseAddress + memory->reservedNumBytes)
+		{
+			causeException(Exception::Cause::accessViolation);
+		}
+		return address;
+	}
+
 	Table* createTable(TableType type)
 	{
 		Table* table = new Table(type);

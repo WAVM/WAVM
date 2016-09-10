@@ -128,6 +128,17 @@ namespace Runtime
 	RUNTIME_API intptr_t growMemory(Memory* memory,size_t numPages);
 	RUNTIME_API intptr_t shrinkMemory(Memory* memory,size_t numPages);
 
+	// Validates that an offset range is wholly inside a Memory's virtual address range.
+	RUNTIME_API uint8* getValidatedMemoryOffsetRange(Memory* memory,uintptr offset,size_t numBytes);
+	
+	// Validates an access to a single element of memory at the given offset, and returns a reference to it.
+	template<typename Value> Value& memoryRef(Memory* memory,uint32 offset)
+	{ return *(Value*)getValidatedMemoryOffsetRange(memory,offset,sizeof(Value)); }
+
+	// Validates an access to multiple elements of memory at the given offset, and returns a pointer to it.
+	template<typename Value> Value* memoryArrayPtr(Memory* memory,uint32 offset,uint32 numElements)
+	{ return (Value*)getValidatedMemoryOffsetRange(memory,offset,numElements * sizeof(Value)); }
+
 	// Global API
 	RUNTIME_API GlobalInstance* createGlobal(WebAssembly::GlobalType type,Value initialValue);
 	RUNTIME_API Value getGlobalValue(GlobalInstance* global);
@@ -141,4 +152,7 @@ namespace Runtime
 
 	// Initializes the runtime. Should only be called once.
 	RUNTIME_API void init();
+
+	// Causes an exception.
+	[[noreturn]] RUNTIME_API void causeException(Exception::Cause cause);
 }
