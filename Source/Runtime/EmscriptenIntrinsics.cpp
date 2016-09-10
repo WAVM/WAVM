@@ -32,8 +32,8 @@ namespace Runtime
 	DEFINE_INTRINSIC_MEMORY(env,emscriptenMemory,memory,MemoryType({SizeConstraints({256,UINT64_MAX})}));
 	DEFINE_INTRINSIC_TABLE(env,table,table,TableType({TableElementType::anyfunc,SizeConstraints({1024*1024,UINT64_MAX})}));
 
-	//DEFINE_INTRINSIC_VARIABLE(env,memoryBase,memoryBase,i32,false,8);
-	//DEFINE_INTRINSIC_VARIABLE(env,tableBase,tableBase,i32,false,0);
+	DEFINE_INTRINSIC_VARIABLE(env,memoryBase,memoryBase,i32,false,1024);
+	DEFINE_INTRINSIC_VARIABLE(env,tableBase,tableBase,i32,false,0);
 
 	bool hasSbrkBeenCalled = false;
 	size_t sbrkNumPages = 0;
@@ -191,6 +191,10 @@ namespace Runtime
 		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
 	}
 	DEFINE_INTRINSIC_FUNCTION0(env,_abort,_abort,unit)
+	{
+		causeException(Runtime::Exception::Cause::calledAbort);
+	}
+	DEFINE_INTRINSIC_FUNCTION1(env,_exit,_exit,unit,i32,code)
 	{
 		causeException(Runtime::Exception::Cause::calledAbort);
 	}
@@ -354,8 +358,8 @@ namespace Runtime
 	static float64 makeNaN() { return zero / zero; }
 	static float64 makeInf() { return 1.0/zero; }
 
-	DEFINE_INTRINSIC_VARIABLE(global,NaN,NaN,f64,false,makeNaN())
-	DEFINE_INTRINSIC_VARIABLE(global,Infinity,Infinity,f64,false,makeInf())
+	DEFINE_INTRINSIC_VARIABLE(global,NaN,NaN,f64,true,makeNaN())
+	DEFINE_INTRINSIC_VARIABLE(global,Infinity,Infinity,f64,true,makeInf())
 
 	DEFINE_INTRINSIC_FUNCTION2(asm2wasm,i32_remu,i32u-rem,i32,i32,left,i32,right)
 	{
@@ -407,16 +411,32 @@ namespace Runtime
 			for(uintptr exportIndex = 0;exportIndex < module.exports.size();++exportIndex)
 			{
 				const Export& functionExport = module.exports[exportIndex];
-				if(functionExport.kind == ObjectKind::function
-					&& !strncmp(functionExport.name.c_str(),"__GLOBAL__",10)
-					&& !module.types[module.functionDefs[functionExport.index].typeIndex]->parameters.size()
-					&& module.types[module.functionDefs[functionExport.index].typeIndex]->ret == ReturnType::unit)
+				if(functionExport.kind == ObjectKind::function && !strncmp(functionExport.name.c_str(),"__GLOBAL__",10))
 				{
-					FunctionInstance* functionInstance = asFunction(getInstanceExport(moduleInstance,functionExport.name.c_str()));
-					auto result = Runtime::invokeFunction(functionInstance,{});
-					if(result.type == Runtime::TypeId::exception) { throw result.exception; }
+					FunctionInstance* functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,functionExport.name.c_str()));
+					if(functionInstance && getFunctionType(functionInstance) == FunctionType::get())
+					{
+						auto result = Runtime::invokeFunction(functionInstance,{});
+						if(result.type == Runtime::TypeId::exception) { throw result.exception; }
+					}
 				}
 			}
 		}
+	}
+
+	RUNTIME_API void setupCommandLine(const std::vector<char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs)
+	{
+		uint8* emscriptenMemoryBase = getMemoryBaseAddress(emscriptenMemory);
+
+		uint32* argvOffsets = (uint32*)(emscriptenMemoryBase + sbrk((uint32)(sizeof(uint32) * (argStrings.size() + 1))));
+		for(uintptr argIndex = 0;argIndex < argStrings.size();++argIndex)
+		{
+			auto stringSize = strlen(argStrings[argIndex])+1;
+			auto stringMemory = emscriptenMemoryBase + sbrk((uint32)stringSize);
+			memcpy(stringMemory,argStrings[argIndex],stringSize);
+			argvOffsets[argIndex] = (uint32)(stringMemory - emscriptenMemoryBase);
+		}
+		argvOffsets[argStrings.size()] = 0;
+		outInvokeArgs = {(uint32)argStrings.size(), (uint32)((uint8*)argvOffsets - emscriptenMemoryBase) };
 	}
 }

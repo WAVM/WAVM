@@ -41,6 +41,11 @@ struct RootResolver : Resolver
 	}
 };
 
+namespace Runtime
+{
+	extern RUNTIME_API void setupCommandLine(const std::vector<char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs);
+}
+
 int commandMain(int argc,char** argv)
 {
 	const char* sourceFile = 0;
@@ -138,7 +143,7 @@ int commandMain(int argc,char** argv)
 	}
 	const FunctionType* functionType = getFunctionType(functionInstance);
 
-	std::vector<Value> parameters;
+	std::vector<Value> invokeArgs;
 	if(!functionName)
 	{
 		if(functionType->parameters.size() == 2)
@@ -150,27 +155,11 @@ int commandMain(int argc,char** argv)
 				return EXIT_FAILURE;
 			}
 
-			size_t argumentPageIndex = growMemory(defaultMemory,1);
-			uint8* defaultMemoryBase = getMemoryBaseAddress(defaultMemory);
-			uint8* argumentMemory = defaultMemoryBase + (argumentPageIndex << WebAssembly::numBytesPerPageLog2);
+			std::vector<char*> argStrings;
+			argStrings.push_back(argv[0]);
+			while(*args) { argStrings.push_back(*args++); };
 
-			uintptr main_argc_start = args-argv-1;
-			auto main_argc = (uintptr)argc - main_argc_start;
-				
-			auto main_argv = (uint32*)argumentMemory;
-			argumentMemory += (main_argc + 1) * sizeof(uint32);
-			for (auto i = main_argc_start; i < (uint32)argc; ++i)
-			{
-				const char* string = argv[i];
-				if(i == main_argc_start) { string = main_arg0; }
-				auto stringSize = strlen(string)+1;
-				auto stringMemory = argumentMemory;
-				argumentMemory += stringSize;
-				memcpy(stringMemory,string,stringSize);
-				main_argv[i-main_argc_start] = (uint32)(stringMemory - getMemoryBaseAddress(defaultMemory));
-			}
-			main_argv[main_argc] = 0;
-			parameters = {(uint32)main_argc, (uint32)((uint8*)main_argv - defaultMemoryBase) };
+			setupCommandLine(argStrings,invokeArgs);
 		}
 		else if(functionType->parameters.size() > 0)
 		{
@@ -180,7 +169,7 @@ int commandMain(int argc,char** argv)
 	}
 	else
 	{
-		parameters.resize(functionType->parameters.size());
+		invokeArgs.resize(functionType->parameters.size());
 		uintptr main_argc_start = args-argv;
 		auto end = (uintptr)std::min((uintptr)functionType->parameters.size(), (uintptr)(argc - main_argc_start));
 		for(uint32 i = 0; i < end; ++i)
@@ -195,14 +184,14 @@ int commandMain(int argc,char** argv)
 			case TypeId::f64: value = atof(argv[main_argc_start+i]); break;
 			default: throw;
 			}
-			parameters[i] = value;
+			invokeArgs[i] = value;
 		}
 	}
 
 	#if WAVM_TIMER_OUTPUT
 	Core::Timer executionTime;
 	#endif
-	auto functionResult = invokeFunction(functionInstance,parameters);
+	auto functionResult = invokeFunction(functionInstance,invokeArgs);
 	#if WAVM_TIMER_OUTPUT
 	executionTime.stop();
 	std::cout << "Execution time: " << executionTime.getMilliseconds() << "ms" << std::endl;
