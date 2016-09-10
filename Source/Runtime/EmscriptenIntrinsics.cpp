@@ -100,7 +100,7 @@ namespace Runtime
 		enum { sysConfPageSize = 30 };
 		switch(a)
 		{
-		case sysConfPageSize: return 1 << Platform::getPageSizeLog2();
+		case sysConfPageSize: return WebAssembly::numBytesPerPage;
 		default: causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
 		}
 	}
