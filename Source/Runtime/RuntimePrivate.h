@@ -16,8 +16,8 @@ namespace Runtime
 
 	struct StackFrame
 	{
-		uintptr_t ip;
-		uintptr_t bp;
+		uintptr ip;
+		uintptr bp;
 	};
 
 	struct ExecutionContext
@@ -160,7 +160,7 @@ namespace RuntimePlatform
 	[[noreturn]] void raiseException(Runtime::Exception* exception);
 
 	// Describes an instruction pointer 
-	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription);
+	bool describeInstructionPointer(uintptr ip,std::string& outDescription);
 
 	// Captures the execution context of the caller.
 	Runtime::ExecutionContext captureExecutionContext();
@@ -177,5 +177,5 @@ namespace LLVMJIT
 
 	void init();
 	bool instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance);
-	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription);
+	bool describeInstructionPointer(uintptr ip,std::string& outDescription);
 }

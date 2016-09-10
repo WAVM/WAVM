@@ -61,8 +61,8 @@
 
 namespace LLVMJIT
 {
-	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr_t functionIndex,bool invokeThunk);
-	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex,bool& outIsInvokeThunk);
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionIndex,bool invokeThunk);
+	bool getFunctionIndexFromExternalName(const char* externalName,uintptr& outFunctionIndex,bool& outIsInvokeThunk);
 
 	// Emits LLVM IR for a module.
 	llvm::Module* emitModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance);

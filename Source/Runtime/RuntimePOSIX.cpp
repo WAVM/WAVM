@@ -116,7 +116,7 @@ namespace RuntimePlatform
 		longjmp(setjmpEnv,1);
 	}
 
-	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)
+	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
 	{
 		#ifdef __linux__
 			// Look up static symbol information for the address.

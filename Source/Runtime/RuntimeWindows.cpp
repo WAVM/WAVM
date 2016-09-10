@@ -185,7 +185,7 @@ namespace RuntimePlatform
 		}
 	}
 	
-	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)
+	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
 	{
 		// Initialize DbgHelp.
 		if(!dbgHelp) { dbgHelp = new DbgHelp(); }

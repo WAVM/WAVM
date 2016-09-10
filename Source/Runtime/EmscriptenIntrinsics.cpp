@@ -13,7 +13,7 @@
 
 namespace Runtime
 {
-	static uint32 coerce32bitAddress(uintptr_t address)
+	static uint32 coerce32bitAddress(uintptr address)
 	{
 		if(address >= UINT32_MAX) { causeException(Exception::Cause::accessViolation); }
 		return (uint32)address;

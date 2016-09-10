@@ -328,7 +328,7 @@ namespace LLVMJIT
 		return true;
 	}
 
-	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr_t functionIndex,bool invokeThunk)
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionIndex,bool invokeThunk)
 	{
 		std::string result = invokeThunk
 			? "invokeThunk" + std::to_string(functionIndex)
@@ -341,7 +341,7 @@ namespace LLVMJIT
 		return result;
 	}
 
-	bool getFunctionIndexFromExternalName(const char* externalName,uintptr_t& outFunctionIndex,bool& outIsInvokeThunk)
+	bool getFunctionIndexFromExternalName(const char* externalName,uintptr& outFunctionIndex,bool& outIsInvokeThunk)
 	{
 		if(!strncmp(externalName,"wasmFunc",8))
 		{
@@ -360,7 +360,7 @@ namespace LLVMJIT
 		else { return false; }
 	}
 
-	bool describeInstructionPointer(uintptr_t ip,std::string& outDescription)
+	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
 	{
 		for(auto jitModule : jitModules)
 		{
