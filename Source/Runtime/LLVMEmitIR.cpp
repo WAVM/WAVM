@@ -4,6 +4,7 @@
 #include "WebAssembly/OperatorLoggingProxy.h"
 
 #define ENABLE_LOGGING 0
+#define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
 
 #if ENABLE_LOGGING
 	#include <cstdio>
@@ -92,7 +93,7 @@ namespace LLVMJIT
 		const Module& module;
 		const Function& function;
 		const FunctionType* functionType;
-		uintptr functionIndex;
+		uintptr functionDefIndex;
 		llvm::Function* llvmFunction;
 		llvm::IRBuilder<> irBuilder;
 
@@ -126,13 +127,13 @@ namespace LLVMJIT
 		std::vector<ControlContext> controlStack;
 		std::vector<llvm::Value*> stack;
 
-		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,uintptr inFunctionIndex)
+		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,uintptr inFunctionDefIndex)
 		: moduleContext(inEmitModuleContext)
 		, module(inModule)
-		, function(module.functionDefs[inFunctionIndex])
-		, functionType(module.types[module.functionDefs[inFunctionIndex].typeIndex])
-		, functionIndex(inFunctionIndex)
-		, llvmFunction(inEmitModuleContext.functionDefs[inFunctionIndex])
+		, function(module.functionDefs[inFunctionDefIndex])
+		, functionType(module.types[module.functionDefs[inFunctionDefIndex].typeIndex])
+		, functionDefIndex(inFunctionDefIndex)
+		, llvmFunction(inEmitModuleContext.functionDefs[inFunctionDefIndex])
 		, irBuilder(context)
 		{}
 
@@ -439,10 +440,10 @@ namespace LLVMJIT
 			}
 			else
 			{
-				const uintptr functionDefIndex = immediates.functionIndex - moduleContext.importedFunctionPointers.size();
-				assert(functionDefIndex < moduleContext.functionDefs.size());
-				callee = moduleContext.functionDefs[functionDefIndex];
-				calleeType = module.types[module.functionDefs[functionDefIndex].typeIndex];
+				const uintptr calleeIndex = immediates.functionIndex - moduleContext.importedFunctionPointers.size();
+				assert(calleeIndex < moduleContext.functionDefs.size());
+				callee = moduleContext.functionDefs[calleeIndex];
+				calleeType = module.types[module.functionDefs[calleeIndex].typeIndex];
 			}
 			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * calleeType->parameters.size());
 			popMultiple(llvmArgs,calleeType->parameters.size());
@@ -840,6 +841,15 @@ namespace LLVMJIT
 		auto entryBasicBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
 		irBuilder.SetInsertPoint(entryBasicBlock);
 
+		// If enabled, emit a call to the WAVM function enter hook (for debugging).
+		#if ENABLE_FUNCTION_ENTER_EXIT_HOOKS
+			emitRuntimeIntrinsic(
+				"wavmIntrinsics.debugEnterFunction",
+				FunctionType::get(ReturnType::unit,{ValueType::i64}),
+				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->functionDefs[functionDefIndex]))}
+				);
+		#endif
+
 		// Create allocas for all the locals and parameters.
 		localTypes = functionType->parameters;
 		localTypes.insert(localTypes.end(),function.nonParameterLocalTypes.begin(),function.nonParameterLocalTypes.end());
@@ -848,8 +858,8 @@ namespace LLVMJIT
 		for(uintptr localIndex = 0;localIndex < localTypes.size();++localIndex)
 		{
 			llvm::Twine localName = 
-				//functionIndex < module.disassemblyInfo.functions.size() && localIndex < module.disassemblyInfo.functions[functionIndex].localNames.size()
-				//? llvm::Twine("local") + llvm::Twine(localIndex) + "_" + module.disassemblyInfo.functions[functionIndex].localNames[localIndex]
+				//functionDefIndex < module.disassemblyInfo.functions.size() && localIndex < module.disassemblyInfo.functions[functionDefIndex].localNames.size()
+				//? llvm::Twine("local") + llvm::Twine(localIndex) + "_" + module.disassemblyInfo.functions[functionDefIndex].localNames[localIndex]
 				//: "";
 				"";
 			auto localType = localTypes[localIndex];
@@ -878,9 +888,17 @@ namespace LLVMJIT
 			while(decoder && controlStack.size()) { decoder.decodeOp(*this); };
 		#endif
 		assert(irBuilder.GetInsertBlock() == returnBlock);
+		
+		// If enabled, emit a call to the WAVM function enter hook (for debugging).
+		#if ENABLE_FUNCTION_ENTER_EXIT_HOOKS
+			emitRuntimeIntrinsic(
+				"wavmIntrinsics.debugExitFunction",
+				FunctionType::get(ReturnType::unit,{ValueType::i64}),
+				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->functionDefs[functionDefIndex]))}
+				);
+		#endif
 
 		// Emit the function return.
-		assert(irBuilder.GetInsertBlock() == returnBlock);
 		if(functionType->ret == ReturnType::unit) { irBuilder.CreateRetVoid(); }
 		else { irBuilder.CreateRet(pop()); }
 	}
@@ -940,8 +958,8 @@ namespace LLVMJIT
 		}
 
 		// Compile each function in the module.
-		for(uintptr functionIndex = 0;functionIndex < module.functionDefs.size();++functionIndex)
-		{ EmitFunctionContext(*this,module,functionIndex).emit(); }
+		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		{ EmitFunctionContext(*this,module,functionDefIndex).emit(); }
 
 		// Create thunks for invoking each export and the start function (if it exists).
 		for(auto& exportIt : module.exports)

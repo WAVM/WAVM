@@ -111,12 +111,10 @@ namespace Runtime
 		// Create the FunctionInstance objects for the module's function definitions.
 		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
-			moduleInstance->functions.push_back(new FunctionInstance(
-				module.types[module.functionDefs[functionDefIndex].typeIndex],
-				nullptr,
-				nullptr,
-				functionDefIndex < module.disassemblyInfo.functions.size() ? module.disassemblyInfo.functions[functionDefIndex].name.c_str() : "<WebAssembly function>"
-				));
+			auto debugName = functionDefIndex < module.disassemblyInfo.functions.size() ? module.disassemblyInfo.functions[functionDefIndex].name.c_str() : "<WebAssembly function>";
+			auto functionInstance = new FunctionInstance(module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,nullptr,debugName);
+			moduleInstance->functionDefs.push_back(functionInstance);
+			moduleInstance->functions.push_back(functionInstance);
 		}
 
 		// Generate machine code for the module.

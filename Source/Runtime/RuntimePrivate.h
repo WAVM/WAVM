@@ -87,6 +87,8 @@ namespace Runtime
 		std::vector<Object*> imports;
 		std::map<std::string,Object*> exportMap;
 
+		std::vector<FunctionInstance*> functionDefs;
+
 		std::vector<FunctionInstance*> functions;
 		std::vector<Table*> tables;
 		std::vector<Memory*> memories;

@@ -5,6 +5,7 @@
 
 #include <math.h>
 #include <iostream>
+#include <iomanip>
 
 namespace Runtime
 {
@@ -175,6 +176,27 @@ namespace Runtime
 		assert(memory);
 		if(memory->numPages > 65536) { return -1; }
 		else { return (uint32)getMemoryNumPages(memory); }
+	}
+
+	uintptr indentLevel = 0;
+
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,enterFunction,unit,i64,functionInstanceBits)
+	{
+		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
+		std::cout << std::setw(7+indentLevel*2) << "ENTER: " << function->debugName << std::endl;
+		++indentLevel;
+	}
+	
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugExitFunction,exitFunction,unit,i64,functionInstanceBits)
+	{
+		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
+		--indentLevel;
+		std::cout << std::setw(7+indentLevel*2) << "EXIT:  " << function->debugName << std::endl;
+	}
+	
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,debugBreak,debugBreak,unit)
+	{
+		std::cout << "============================= wavmIntrinsics.debugBreak ========================" << std::endl;
 	}
 
 	void initWAVMIntrinsics()
