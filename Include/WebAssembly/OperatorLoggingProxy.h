@@ -7,14 +7,14 @@
 
 namespace WebAssembly
 {
-	template<typename InnerVisitor,bool isEnabled>
+	template<typename InnerVisitor>
 	struct OperatorLoggingProxy
 	{
 		OperatorLoggingProxy(const Module& inModule,InnerVisitor& inInnerVisitor): module(inModule), innerVisitor(inInnerVisitor) {}
 		#define VISIT_OPCODE(encoding,name,Immediates) \
 			void name(Immediates immediates) \
 			{ \
-				if(isEnabled) { innerVisitor.logOperator(#name + describeImmediates(immediates)); } \
+				innerVisitor.logOperator(#name + describeImmediates(immediates)); \
 				innerVisitor.name(immediates); \
 			}
 		ENUM_OPCODES(VISIT_OPCODE)
@@ -24,6 +24,7 @@ namespace WebAssembly
 		const Module& module;
 		InnerVisitor& innerVisitor;
 
+		std::string describeImmediates(Opcode opcode) { return std::to_string((uintptr)opcode); }
 		std::string describeImmediates(NoImmediates) { return ""; }
 		std::string describeImmediates(ControlStructureImmediates imm) { return " : " + getTypeName(module.types[imm.signatureTypeIndex]); }
 		std::string describeImmediates(BranchImmediates imm) { return " " + std::to_string(imm.targetDepth); }

@@ -156,9 +156,13 @@ namespace WebAssembly
 
 			Serialization::InputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
 			OperationDecoder decoder(codeStream);
-			OperatorLoggingProxy<FunctionCodeValidator,ENABLE_LOGGING> loggingProxy(module,*this);
-			logOperator("---- function start ----");
-			while(decoder && controlStack.size()) { decoder.decodeOp(loggingProxy); };
+			#if ENABLE_LOGGING
+				OperatorLoggingProxy<FunctionCodeValidator> loggingProxy(module,*this);
+				logOperator("---- function start ----");
+				while(decoder && controlStack.size()) { decoder.decodeOp(loggingProxy); };
+			#else
+				while(decoder && controlStack.size()) { decoder.decodeOp(*this); };
+			#endif
 
 			if(decoder) { throw ValidationException("function end reached before end of code"); }
 			if(controlStack.size()) { throw ValidationException("end of code reached before end of function"); }
