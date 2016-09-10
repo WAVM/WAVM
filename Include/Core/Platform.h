@@ -67,7 +67,8 @@ namespace Platform
 		None,
 		ReadOnly,
 		ReadWrite,
-		Execute
+		Execute,
+		ReadWriteExecute
 	};
 
 	// Returns the base 2 logarithm of the smallest virtual page size.

@@ -1,5 +1,8 @@
 #include "LLVMJIT.h"
 
+// This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through the JITed code.
+#define USE_WRITEABLE_JIT_CODE_PAGES 0
+
 #define DUMP_UNOPTIMIZED_MODULE _DEBUG
 #define VERIFY_MODULE _DEBUG
 #define DUMP_OPTIMIZED_MODULE _DEBUG
@@ -49,7 +52,8 @@ namespace LLVMJIT
 
 		virtual uint8* allocateCodeSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
 		{
-			return allocateSection((uintptr)numBytes,alignment,Platform::MemoryAccess::Execute);
+			auto finalAccess = USE_WRITEABLE_JIT_CODE_PAGES ? Platform::MemoryAccess::ReadWriteExecute : Platform::MemoryAccess::Execute;
+			return allocateSection((uintptr)numBytes,alignment,finalAccess);
 		}
 		virtual uint8* allocateDataSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
 		{

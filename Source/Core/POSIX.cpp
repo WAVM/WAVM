@@ -59,6 +59,7 @@ namespace Platform
 		case MemoryAccess::ReadOnly: return PROT_READ;
 		case MemoryAccess::ReadWrite: return PROT_READ | PROT_WRITE;
 		case MemoryAccess::Execute: return PROT_EXEC;
+		case MemoryAccess::ReadWriteExecute: return PROT_EXEC | PROT_READ | PROT_WRITE;
 		}
 	}
 

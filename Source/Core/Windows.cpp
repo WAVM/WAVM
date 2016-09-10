@@ -52,6 +52,7 @@ namespace Platform
 		case MemoryAccess::ReadOnly: return PAGE_READONLY;
 		case MemoryAccess::ReadWrite: return PAGE_READWRITE;
 		case MemoryAccess::Execute: return PAGE_EXECUTE_READ;
+		case MemoryAccess::ReadWriteExecute: return PAGE_EXECUTE_READWRITE;
 		}
 	}
 
