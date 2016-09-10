@@ -1,10 +1,10 @@
 file(GLOB Sources "*.cpp")
-file(GLOB Headers "*.h")
+file(GLOB PrivateHeaders "*.h")
 
 file(GLOB Headers "${WAVM_INCLUDE_DIR}/Runtime/*.h")
 include_directories(${WAVM_INCLUDE_DIR}/Runtime)
 
-add_library(Runtime SHARED ${Sources} ${Headers})
+add_library(Runtime SHARED ${Sources} ${Headers} ${PrivateHeaders})
 
 # Find an installed build of LLVM
 find_package(LLVM 3.8 REQUIRED CONFIG)
