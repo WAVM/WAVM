@@ -677,3 +677,130 @@
 (module (global (import "m" "a") (mut i32)))
 (module (global (mut f32) (f32.const 0)) (export "a" (global 0)))
 (module (global (export "a") (mut f32) (f32.const 0)))
+
+
+;;
+;; from block.wast
+;;
+
+(assert_invalid (module
+  (func (result i32)
+    (block
+      (br 0 (i32.const 18))
+      (br 0 (i32.const 19))
+      (br_if 0 (i32.const 20) (i32.const 0))
+      (br_if 0 (i32.const 20) (i32.const 1))
+      (br 0 (i32.const 21))
+      (br_table 0 (i32.const 22) (i32.const 4))
+      (br_table 0 0 0 (i32.const 23) (i32.const 1))
+      (i32.const 21)
+    )
+  )
+) "expecting () in block but found i32")
+
+;;
+;; from br.wast
+;;
+
+(assert_invalid (module
+  (func (result i32)
+    (block (br_if 0 (i32.const 6) (br 0 (i32.const 9))) (i32.const 7))
+  )
+) "expecting () in block but found i32")
+
+(assert_invalid (module
+  (func (result i32)
+    (i32.add
+      (i32.const 1)
+      (block
+        (drop (i32.const 2))
+        (br_if 0 (i32.const 4) (br 0 (i32.const 8)))
+        (i32.const 16)
+      )
+    )
+  )
+) "expecting () in block but found i32")
+
+
+;;
+;; from br_if.wast
+;;
+
+(assert_invalid (module
+  (func (param i32) (result i32)
+    (block (br_if 0 (i32.const 10) (get_local 0)) (return (i32.const 11)))
+  )
+) "expecting () in block but found i32")
+
+(assert_invalid (module
+  (func $dummy)
+  (func (param i32) (result i32)
+    (block (call $dummy) (br_if 0 (i32.const 20) (get_local 0)) (return (i32.const 21)))
+  )
+) "expecting () in block but found i32")
+
+;;
+;; from br_table.wast
+;;
+
+(assert_invalid (module
+  (func (result i32)
+    (block (br_if 0 (i32.const 6) (br_table 0 0 (i32.const 9) (i32.const 0))) (i32.const 7))
+  )
+) "expecting () in block but found i32")
+
+(assert_invalid (module
+  (func (param i32) (result i32)
+    (block
+      (i32.add
+        (i32.const 1)
+        (block
+          (drop (i32.const 2))
+          (br_if 0 (i32.const 4) (br_table 0 1 0 (i32.const 8) (get_local 0)))
+          (i32.const 16)
+        )
+      )
+    )
+  )
+) "expecting () in block but found i32")
+
+;;
+;; from loop.wast
+;;
+
+(assert_invalid (module
+  (func (export "break-repeated") (result i32)
+    (block
+      (loop
+        (br 1 (i32.const 18))
+        (br 1 (i32.const 19))
+        (br_if 1 (i32.const 20) (i32.const 0))
+        (br_if 1 (i32.const 20) (i32.const 1))
+        (br 1 (i32.const 21))
+        (br_table 1 (i32.const 22) (i32.const 0))
+        (br_table 1 1 1 (i32.const 23) (i32.const 1))
+        (i32.const 21)
+      )
+    )
+  )
+) "expecting () in loop body but found i32")
+
+;;
+;; from return.wast
+;;
+
+(assert_invalid (module
+  (func (export "as-br_if-value-cond") (result i32)
+    (block (br_if 0 (i32.const 6) (return (i32.const 9))) (i32.const 7))
+  )
+) "expecting () in block but found i32")
+
+;;
+;; from unreachable.wast
+;;
+
+(assert_invalid (module
+  (func (export "as-br_if-value-cond") (result i32)
+    (block (br_if 0 (i32.const 6) (unreachable)) (i32.const 7))
+  )
+) "expecting () in block but found i32")

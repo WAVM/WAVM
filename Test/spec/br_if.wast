@@ -7,23 +7,29 @@
     (block (br_if 0 (get_local 0)) (return (i32.const 2))) (i32.const 3)
   )
   (func (export "as-block-mid") (param i32) (result i32)
-    (block (call $dummy) (br_if 0 (get_local 0)) (return (i32.const 2))) (i32.const 3)
+    (block (call $dummy) (br_if 0 (get_local 0)) (return (i32.const 2)))
+    (i32.const 3)
   )
   (func (export "as-block-last") (param i32)
     (block (call $dummy) (call $dummy) (br_if 0 (get_local 0)))
   )
   (func (export "as-block-first-value") (param i32) (result i32)
-    (block (br_if 0 (i32.const 10) (get_local 0)) (i32.const 11))
+    ;;(block (br_if 0 (i32.const 10) (get_local 0)) (return (i32.const 11)))
+	(block (drop (br_if 0 (i32.const 10) (get_local 0))) (return (i32.const 11)))
   )
   (func (export "as-block-mid-value") (param i32) (result i32)
-    (block (call $dummy) (br_if 0 (i32.const 20) (get_local 0)) (i32.const 21))
+    (block (call $dummy) (drop (br_if 0 (i32.const 20) (get_local 0))) (return (i32.const 21)))
+  )
+  (func (export "as-block-last-value") (param i32) (result i32)
+    (block (call $dummy) (call $dummy) (br_if 0 (i32.const 11) (get_local 0)))
   )
 
   (func (export "as-loop-first") (param i32) (result i32)
-    (loop (br_if 1 (i32.const 3) (get_local 0)) (i32.const 2))
+    (block (loop (br_if 1 (get_local 0)) (return (i32.const 2)))) (i32.const 3)
   )
   (func (export "as-loop-mid") (param i32) (result i32)
-    (loop (call $dummy) (br_if 1 (i32.const 4) (get_local 0)) (i32.const 2))
+    (block (loop (call $dummy) (br_if 1 (get_local 0)) (return (i32.const 2))))
+    (i32.const 4)
   )
   (func (export "as-loop-last") (param i32)
     (loop (call $dummy) (br_if 1 (get_local 0)))
@@ -43,7 +49,7 @@
         (drop (i32.const 2))
         (i32.add
           (i32.const 4)
-          (block (br_if 1 (i32.const 8) (get_local 0)) (i32.const 16))
+          (block (drop (br_if 1 (i32.const 8) (get_local 0))) (i32.const 16))
         )
       )
     )
@@ -55,7 +61,7 @@
       (block
         (drop (i32.const 2))
         (br 0
-          (block (br_if 1 (i32.const 8) (get_local 0)) (i32.const 4))
+          (block (drop (br_if 1 (i32.const 8) (get_local 0))) (i32.const 4))
         )
         (i32.const 16)
       )
@@ -67,10 +73,10 @@
       (i32.const 1)
       (block
         (drop (i32.const 2))
-        (br_if 0
-          (block (br_if 1 (i32.const 8) (get_local 0)) (i32.const 4))
+        (drop (br_if 0
+          (block (drop (br_if 1 (i32.const 8) (get_local 0))) (i32.const 4))
           (i32.const 1)
-        )
+        ))
         (i32.const 16)
       )
     )
@@ -81,10 +87,10 @@
       (i32.const 1)
       (block
         (drop (i32.const 2))
-        (br_if 0
+        (drop (br_if 0
           (i32.const 4)
-          (block (br_if 1 (i32.const 8) (get_local 0)) (i32.const 1))
-        )
+          (block (drop (br_if 1 (i32.const 8) (get_local 0))) (i32.const 1))
+        ))
         (i32.const 16)
       )
     )
@@ -96,7 +102,7 @@
       (block
         (drop (i32.const 2))
         (br_table 0
-          (block (br_if 1 (i32.const 8) (get_local 0)) (i32.const 4))
+          (block (drop (br_if 1 (i32.const 8) (get_local 0))) (i32.const 4))
           (i32.const 1)
         )
         (i32.const 16)
@@ -111,7 +117,7 @@
         (drop (i32.const 2))
         (br_table 0
           (i32.const 4)
-          (block (br_if 1 (i32.const 8) (get_local 0)) (i32.const 1))
+          (block (drop (br_if 1 (i32.const 8) (get_local 0))) (i32.const 1))
         )
         (i32.const 16)
       )
@@ -125,11 +131,8 @@
 (assert_return (invoke "as-block-mid" (i32.const 1)) (i32.const 3))
 (assert_return (invoke "as-block-last" (i32.const 0)))
 (assert_return (invoke "as-block-last" (i32.const 1)))
-
-(assert_return (invoke "as-block-first-value" (i32.const 0)) (i32.const 11))
-(assert_return (invoke "as-block-first-value" (i32.const 1)) (i32.const 10))
-(assert_return (invoke "as-block-mid-value" (i32.const 0)) (i32.const 21))
-(assert_return (invoke "as-block-mid-value" (i32.const 1)) (i32.const 20))
+(assert_return (invoke "as-block-last-value" (i32.const 0)) (i32.const 11))
+(assert_return (invoke "as-block-last-value" (i32.const 1)) (i32.const 11))
 
 (assert_return (invoke "as-loop-first" (i32.const 0)) (i32.const 2))
 (assert_return (invoke "as-loop-first" (i32.const 1)) (i32.const 3))
@@ -259,13 +262,13 @@
 )
 (assert_invalid
   (module (func $type-false-arg-num-vs-num (result i32)
-    (block (br_if 0 (i64.const 1) (i32.const 0)) (i32.const 1))
+    (block (drop (br_if 0 (i64.const 1) (i32.const 0))) (i32.const 1))
   ))
   "type mismatch"
 )
 (assert_invalid
   (module (func $type-true-arg-num-vs-num (result i32)
-    (block (br_if 0 (i64.const 1) (i32.const 0)) (i32.const 1))
+    (block (drop (br_if 0 (i64.const 1) (i32.const 0))) (i32.const 1))
   ))
   "type mismatch"
 )
@@ -319,7 +322,7 @@
   "unknown label"
 )
 (assert_invalid
-  (module (func $large-label (br_if 0x100000001 (i32.const 1))))
+  (module (func $large-label (br_if 0x10000001 (i32.const 1))))
   "unknown label"
 )
 

@@ -56,8 +56,10 @@
   (func $f64_another (result f64) (call $bump) (i32.store8 (i32.const 8) (i32.const 3)) (f64.const 1))
   (func $f64_callee (result i32) (call $bump) (i32.store8 (i32.const 8) (i32.const 4)) (i32.const 6))
   (func $f64_bool (result i32) (call $bump) (i32.store8 (i32.const 8) (i32.const 5)) (i32.const 0))
-  (func $i32_dummy (param i32 i32))                  (func $i64_dummy (param i64 i64))
-  (func $f32_dummy (param f32 f32))                  (func $f64_dummy (param f64 f64))
+  (func $i32_dummy (param i32 i32))
+  (func $i64_dummy (param i64 i64))
+  (func $f32_dummy (param f32 f32))
+  (func $f64_dummy (param f64 f64))
 
   (func (export "i32_add") (result i32) (call $reset) (drop (i32.add (call $i32_left) (call $i32_right))) (call $get))
   (func (export "i32_sub") (result i32) (call $reset) (drop (i32.sub (call $i32_left) (call $i32_right))) (call $get))
@@ -159,7 +161,7 @@
   (func (export "br_if") (result i32)
     (block
       (call $reset)
-      (br_if 0 (call $i32_left) (i32.and (call $i32_right) (i32.const 0)))
+      (drop (br_if 0 (call $i32_left) (i32.and (call $i32_right) (i32.const 0))))
       (call $get)
     )
   )

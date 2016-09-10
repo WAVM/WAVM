@@ -869,7 +869,7 @@
     (block (br_if 0 (br_table 0 (i32.const 8) (i32.const 0)) (i32.const 1)) (i32.const 7))
   )
   (func (export "as-br_if-value-cond") (result i32)
-    (block (br_if 0 (i32.const 6) (br_table 0 0 (i32.const 9) (i32.const 0))) (i32.const 7))
+    (block (drop (br_if 0 (i32.const 6) (br_table 0 0 (i32.const 9) (i32.const 0)))) (i32.const 7))
   )
 
   (func (export "as-br_table-index")
@@ -1052,7 +1052,7 @@
         (i32.const 1)
         (block
           (drop (i32.const 2))
-          (br_if 0 (i32.const 4) (br_table 0 1 0 (i32.const 8) (get_local 0)))
+          (drop (br_if 0 (i32.const 4) (br_table 0 1 0 (i32.const 8) (get_local 0))))
           (i32.const 16)
         )
       )
@@ -1363,7 +1363,7 @@
 )
 (assert_invalid
   (module (func $large-label
-    (block (br_table 0 0x100000001 0 (i32.const 1)))
+    (block (br_table 0 0x10000001 0 (i32.const 1)))
   ))
   "unknown label"
 )
@@ -1382,7 +1382,7 @@
 )
 (assert_invalid
   (module (func $large-label-default
-    (block (br_table 0 0 0x100000001 (i32.const 1)))
+    (block (br_table 0 0 0x10000001 (i32.const 1)))
   ))
   "unknown label"
 )
