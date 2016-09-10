@@ -373,7 +373,7 @@ namespace LLVMJIT
 			ControlContext& targetContext = getBranchTargetByDepth(immediates.targetDepth);
 			if(targetContext.branchArgumentType != ReturnType::unit)
 			{
-				llvm::Value* argument = pop();
+				llvm::Value* argument = getTopValue();
 				targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
 			}
 			auto falseBlock = llvm::BasicBlock::Create(context,"br_ifElse",llvmFunction);

@@ -268,6 +268,7 @@ namespace WebAssembly
 		{
 			popAndValidateOperand(ValueType::i32);
 			popAndValidateReturnType(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
+			push(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
 		}
 
 		void nop(NoImmediates) {}

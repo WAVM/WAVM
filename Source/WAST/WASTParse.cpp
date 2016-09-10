@@ -1132,7 +1132,7 @@ namespace WAST
 				parseOperands(nodeIt,"br_if condition",ExpressionTypeSet::i32);
 
 				encoder.br_if({depth});
-				resultType = ExpressionType::unit;
+				resultType = argumentType;
 			}
 	
 			DEFINE_OP(unreachable)
