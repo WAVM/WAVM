@@ -140,25 +140,6 @@ namespace WAST
 		return set;
 	}
 	
-	// Parse a name or an index.
-	// If a name is parsed that is contained in nameToIndex, the index of the name is assigned to outIndex and true is returned.
-	// If an index is parsed that is between 0 and numValidIndices, the index is assigned to outIndex and true is returned.
-	bool parseNameOrIndex(SNodeIt& nodeIt,const NameToIndexMap& nameToIndex,size_t numValidIndices,uintptr& outIndex)
-	{
-		SNodeIt savedNodeIt = nodeIt;
-		const char* name;
-		uint64 parsedInt;
-		if(parseUnsignedInt(nodeIt,parsedInt) && (uintptr)parsedInt < numValidIndices) { outIndex = (uintptr)parsedInt; return true; }
-		else if(parseName(nodeIt,name))
-		{
-			auto it = nameToIndex.find(name);
-			if(it != nameToIndex.end()) { outIndex = it->second; return true; }
-		}
-
-		nodeIt = savedNodeIt;
-		return false;
-	}
-	
 	// Parse a type from a S-expression node.
 	bool parseType(SNodeIt& nodeIt,ValueType& outType)
 	{
@@ -258,7 +239,32 @@ namespace WAST
 		auto message = std::string("unexpected input following ") + errorContext;
 		recordError(moduleContext,nodeIt,std::move(message));
 	}
-		
+	
+	// Parse a name or an index.
+	// If a name is parsed that is contained in nameToIndex, the index of the name is assigned to outIndex and true is returned.
+	// If an index is parsed that is between 0 and numValidIndices, the index is assigned to outIndex and true is returned.
+	bool parseNameOrIndex(ModuleContext& moduleContext,SNodeIt& nodeIt,const NameToIndexMap& nameToIndexMap,size_t numValidIndices,bool isOptional,const char* errorContext,uintptr& outIndex)
+	{
+		SNodeIt savedNodeIt = nodeIt;
+		const char* name = nullptr;
+		if(parseName(nodeIt,name))
+		{
+			auto mapIt = nameToIndexMap.find(name);
+			if(mapIt == nameToIndexMap.end()) { recordError(moduleContext,savedNodeIt,std::string(errorContext) + ": not a valid name"); return false; }
+			else { outIndex = mapIt->second; assert(outIndex < numValidIndices); return true; }
+		}
+		else if(parseUnsignedInt(nodeIt,outIndex))
+		{
+			if(outIndex >= numValidIndices) { recordError(moduleContext,savedNodeIt,std::string(errorContext) + ": not a valid index"); return false; }
+			else { return true; }
+		}
+		else
+		{
+			if(!isOptional) { recordError(moduleContext,savedNodeIt,std::string(errorContext) + ": not a valid name or index"); }
+			return false;
+		}
+	}
+
 	// Parse a variable from the child nodes of a local, or param node. Format is (name type) | type+
 	template<typename Allocator>
 	size_t parseVariables(ModuleContext& moduleContext,SNodeIt& childNodeIt,std::vector<ValueType,Allocator>& outTypes,std::vector<std::string>& outNames)
@@ -478,9 +484,8 @@ namespace WAST
 			}
 			case Symbol::_get_global:
 			{
-				uintptr globalIndex;
-				if(!parseNameOrIndex(childNodeIt,globalNameToIndexMap,globalTypes.size(),globalIndex))
-				{ recordError(*this,childNodeIt,"get_global: expected global name or index"); return false; }
+				uintptr globalIndex = 0;
+				if(!parseNameOrIndex(*this,childNodeIt,globalNameToIndexMap,globalTypes.size(),false,"get_global",globalIndex)) { return false; }
 				outExpression = InitializerExpression(InitializerExpression::Type::get_global,globalIndex);
 				actualType = globalTypes[globalIndex].valueType;
 				break;
@@ -1153,9 +1158,8 @@ namespace WAST
 			DEFINE_OP(call)
 			{
 				// Parse the function name or index to call.
-				uintptr functionIndex;
-				if(!parseNameOrIndex(nodeIt,moduleContext.functionNameToIndexMap,moduleContext.functionTypes.size(),functionIndex))
-				{ emitError(nodeIt,"call: expected function name or index"); break; }
+				uintptr functionIndex = 0;
+				if(!parseNameOrIndex(moduleContext,nodeIt,moduleContext.functionNameToIndexMap,moduleContext.functionTypes.size(),false,"call",functionIndex)) { break; }
 				const FunctionType* calleeType = moduleContext.module.types[moduleContext.functionTypes[functionIndex]];
 
 				// Parse the call's arguments.
@@ -1171,9 +1175,8 @@ namespace WAST
 				if(!moduleContext.tableTypes.size()) { emitError(parentNodeIt,"call_indirect: module does not have default table"); break; }
 
 				// Parse the function type.
-				uintptr signatureIndex;
-				if(!parseNameOrIndex(nodeIt,moduleContext.signatureNameToIndexMap,moduleContext.signatures.size(),signatureIndex))
-				{ emitError(nodeIt,"call_indirect: expected type name or index"); break; }
+				uintptr signatureIndex = 0;
+				if(!parseNameOrIndex(moduleContext,nodeIt,moduleContext.signatureNameToIndexMap,moduleContext.signatures.size(),false,"call_indirect",signatureIndex)) { break; }
 				const FunctionType* calleeType = moduleContext.signatures[signatureIndex];
 					
 				// Parse the call's arguments.
@@ -1222,9 +1225,8 @@ namespace WAST
 			}
 			DEFINE_OP(get_local)
 			{
-				uintptr localIndex;
-				if(!parseNameOrIndex(nodeIt,localNameToIndexMap,localTypes.size(),localIndex))
-				{ emitError(nodeIt,"get_local: expected local name or index"); break; }
+				uintptr localIndex = 0;
+				if(!parseNameOrIndex(moduleContext,nodeIt,localNameToIndexMap,localTypes.size(),false,"get_local",localIndex)) { break; }
 				auto localType = localTypes[localIndex];
 
 				encoder.get_local({localIndex});
@@ -1232,9 +1234,8 @@ namespace WAST
 			}
 			DEFINE_OP(set_local)
 			{
-				uintptr localIndex;
-				if(!parseNameOrIndex(nodeIt,localNameToIndexMap,localTypes.size(),localIndex))
-				{ emitError(nodeIt,"set_local: expected local name or index"); break; }
+				uintptr localIndex = 0;
+				if(!parseNameOrIndex(moduleContext,nodeIt,localNameToIndexMap,localTypes.size(),false,"set_local",localIndex)) { break; }
 				auto localType = localTypes[localIndex];
 
 				parseOperands(nodeIt,"set_local value operand",asExpressionTypeSet(asExpressionType(localType)));
@@ -1244,9 +1245,8 @@ namespace WAST
 			}
 			DEFINE_OP(tee_local)
 			{
-				uintptr localIndex;
-				if(!parseNameOrIndex(nodeIt,localNameToIndexMap,localTypes.size(),localIndex))
-				{ emitError(nodeIt,"tee_local: expected local name or index"); break; }
+				uintptr localIndex = 0;
+				if(!parseNameOrIndex(moduleContext,nodeIt,localNameToIndexMap,localTypes.size(),false,"tee_local",localIndex)) { break; }
 				auto localType = localTypes[localIndex];
 					
 				parseOperands(nodeIt,"tee_local value operand",asExpressionTypeSet(asExpressionType(localType)));
@@ -1257,9 +1257,8 @@ namespace WAST
 
 			DEFINE_OP(get_global)
 			{
-				uintptr globalIndex;
-				if(!parseNameOrIndex(nodeIt,moduleContext.globalNameToIndexMap,moduleContext.globalTypes.size(),globalIndex))
-				{ emitError(nodeIt,"get_global: expected global name or index"); break; }
+				uintptr globalIndex = 0;
+				if(!parseNameOrIndex(moduleContext,nodeIt,moduleContext.globalNameToIndexMap,moduleContext.globalTypes.size(),false,"get_global",globalIndex)) { break; }
 				auto globalType = moduleContext.globalTypes[globalIndex];
 
 				encoder.get_global({globalIndex});
@@ -1267,9 +1266,8 @@ namespace WAST
 			}
 			DEFINE_OP(set_global)
 			{
-				uintptr globalIndex;
-				if(!parseNameOrIndex(nodeIt,moduleContext.globalNameToIndexMap,moduleContext.globalTypes.size(),globalIndex))
-				{ emitError(nodeIt,"set_global: expected global name or index"); break; }
+				uintptr globalIndex = 0;
+				if(!parseNameOrIndex(moduleContext,nodeIt,moduleContext.globalNameToIndexMap,moduleContext.globalTypes.size(),false,"set_global",globalIndex)) { break; }
 				auto globalType = moduleContext.globalTypes[globalIndex];
 					
 				if(!globalType.isMutable) { emitError(parentNodeIt,"set_global: cannot write to immutable global"); break; }
@@ -1338,11 +1336,7 @@ namespace WAST
 							// Parse a name or index into the module's type declarations.
 							++childNodeIt;
 							uintptr signatureIndex = 0;
-							if(!parseNameOrIndex(typeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
-							{
-								recordError(*this,typeChildNodeIt,"expected function type name or index");
-								continue;
-							}
+							if(!parseNameOrIndex(*this,typeChildNodeIt,signatureNameToIndexMap,signatures.size(),false,"func type",signatureIndex)) { continue; }
 							referencedFunctionType = signatures[signatureIndex];
 							hasReferencedFunctionType = true;
 						}
@@ -1449,8 +1443,7 @@ namespace WAST
 								// Parse a name or index into the module's type declarations.
 								++importTypeChildNodeIt;
 								uintptr signatureIndex = 0;
-								if(!parseNameOrIndex(functionTypeChildNodeIt,signatureNameToIndexMap,signatures.size(),signatureIndex))
-								{ recordError(*this,functionTypeChildNodeIt,"expected function type name or index"); continue; }
+								if(!parseNameOrIndex(*this,functionTypeChildNodeIt,signatureNameToIndexMap,signatures.size(),false,"func type",signatureIndex)) { continue; }
 								importType = signatures[signatureIndex];
 							}
 							else
@@ -1781,14 +1774,10 @@ namespace WAST
 			};
 
 			// Parse a name or index of the appropriate kind for the export.
-			uintptr exportedIndex;
-			if(parseNameOrIndex(kindChildNodeIt,*kindNameToIndexMap,maxKindIndex,exportedIndex))
-			{ module.exports.push_back({kind,exportedIndex,exportName}); }
-			else
-			{
-				recordError(*this,kindChildNodeIt,"expected exported object name");
-				continue;
-			}
+			uintptr exportedIndex = 0;
+			SNodeIt exportNodeIt = kindChildNodeIt;
+			if(!parseNameOrIndex(*this,kindChildNodeIt,*kindNameToIndexMap,maxKindIndex,false,"exported object",exportedIndex)) { continue; }
+			module.exports.push_back({kind,exportedIndex,exportName});
 
 			if(kindChildNodeIt) { recordError(*this,kindChildNodeIt,"unexpected input following export declaration"); }
 		}
@@ -1798,12 +1787,13 @@ namespace WAST
 		else if(startNodes.size() == 1)
 		{
 			SNodeIt childNodeIt(startNodes[0]->children->nextSibling);
-			uintptr functionIndex;
-			if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,functionTypes.size(),functionIndex))
-				{ recordError(*this,childNodeIt,"expected function name or index"); }
-			else if(module.types[functionTypes[functionIndex]] != FunctionType::get())
-				{ recordError(*this,childNodeIt,"start function must be of type ()->Void"); }
-			else { module.startFunctionIndex = functionIndex; }
+			uintptr functionIndex = 0;
+			SNodeIt functionNodeIt = childNodeIt;
+			if(parseNameOrIndex(*this,childNodeIt,functionNameToIndexMap,functionTypes.size(),false,"start function",functionIndex))
+			{
+				if(module.types[functionTypes[functionIndex]] == FunctionType::get()) { module.startFunctionIndex = functionIndex; }
+				else { recordError(*this,functionNodeIt,"start function must be of type ()->Void"); }
+			}
 		}
 
 		// Parse the function bodies after all other declarations are available for use.
@@ -1851,8 +1841,8 @@ namespace WAST
 			if(!isInline)
 			{
 				// Parse an optional name or index of the memory to put this data in.
-				if(!parseNameOrIndex(childNodeIt,memoryNameToIndexMap,memoryTypes.size(),memoryIndex)) { memoryIndex = 0; }
-				
+				if(!parseNameOrIndex(*this,childNodeIt,memoryNameToIndexMap,memoryTypes.size(),true,"data segment memory object",memoryIndex)) { memoryIndex = 0; }
+
 				// Parse an initializer expression for the base offset of the segment in the memory.
 				if(!parseInitializerExpression(childNodeIt,ValueType::i32,baseOffset))
 				{ recordError(*this,childNodeIt,"expected initializer expression"); }
@@ -1908,7 +1898,7 @@ namespace WAST
 			if(!isInline)
 			{
 				// Parse an optional name or index of the table to put these elements in.
-				if(!parseNameOrIndex(childNodeIt,tableNameToIndexMap,tableTypes.size(),tableIndex)) { tableIndex = 0; }
+				if(!parseNameOrIndex(*this,childNodeIt,tableNameToIndexMap,tableTypes.size(),true,"elem segment table object",tableIndex)) { tableIndex = 0; }
 
 				// Parse an initializer expression for the base offset of the segment in the table.
 				if(!parseInitializerExpression(childNodeIt,ValueType::i32,baseOffset))
@@ -1919,9 +1909,10 @@ namespace WAST
 			std::vector<uintptr> functionIndices;
 			while(childNodeIt)
 			{
-				uintptr functionIndex;
-				if(!parseNameOrIndex(childNodeIt,functionNameToIndexMap,functionTypes.size(),functionIndex))
-					{ functionIndex = 0; recordError(*this,childNodeIt,"expected function name or index"); ++childNodeIt; }
+				uintptr functionIndex = 0;
+				SNodeIt elementIt = childNodeIt++;
+				if(!parseNameOrIndex(*this,elementIt,functionNameToIndexMap,functionTypes.size(),true,"table element",functionIndex))
+				{ functionIndex = 0; }
 				functionIndices.push_back(functionIndex);
 			};
 			
