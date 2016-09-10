@@ -424,7 +424,7 @@ namespace Runtime
 		}
 	}
 
-	RUNTIME_API void setupCommandLine(const std::vector<char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs)
+	RUNTIME_API void setupCommandLine(const std::vector<const char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs)
 	{
 		uint8* emscriptenMemoryBase = getMemoryBaseAddress(emscriptenMemory);
 

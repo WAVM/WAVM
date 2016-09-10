@@ -43,7 +43,7 @@ struct RootResolver : Resolver
 
 namespace Runtime
 {
-	extern RUNTIME_API void setupCommandLine(const std::vector<char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs);
+	extern RUNTIME_API void setupCommandLine(const std::vector<const char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs);
 }
 
 int commandMain(int argc,char** argv)
@@ -87,7 +87,7 @@ int commandMain(int argc,char** argv)
 	}
 
 	Module module;
-	const char* main_arg0 = 0;
+	const char* main_arg0 = nullptr;
 #ifdef __AFL_LOOP
         while (__AFL_LOOP(2000)) {
 #endif
@@ -155,8 +155,8 @@ int commandMain(int argc,char** argv)
 				return EXIT_FAILURE;
 			}
 
-			std::vector<char*> argStrings;
-			argStrings.push_back(argv[0]);
+			std::vector<const char*> argStrings;
+			argStrings.push_back(main_arg0);
 			while(*args) { argStrings.push_back(*args++); };
 
 			setupCommandLine(argStrings,invokeArgs);

@@ -1775,7 +1775,6 @@ namespace WAST
 
 			// Parse a name or index of the appropriate kind for the export.
 			uintptr exportedIndex = 0;
-			SNodeIt exportNodeIt = kindChildNodeIt;
 			if(!parseNameOrIndex(*this,kindChildNodeIt,*kindNameToIndexMap,maxKindIndex,false,"exported object",exportedIndex)) { continue; }
 			module.exports.push_back({kind,exportedIndex,exportName});
 
