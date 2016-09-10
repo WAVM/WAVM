@@ -10,8 +10,7 @@ namespace WebAssembly
 		#define VISIT_OPCODE(encoding,name,Immediates) case Opcode::name: return #name;
 		ENUM_OPCODES(VISIT_OPCODE)
 		#undef VISIT_OPCODE
-		default:
-			throw;
+		default: return "unknown";
 		};
 	}
 }

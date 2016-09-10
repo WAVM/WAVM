@@ -18,6 +18,7 @@ namespace WebAssembly
 				innerVisitor.name(immediates); \
 			}
 		ENUM_OPCODES(VISIT_OPCODE)
+		VISIT_OPCODE(_,unknown,Opcode)
 		#undef VISIT_OPCODE
 	private:
 		const Module& module;

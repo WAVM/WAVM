@@ -198,6 +198,10 @@ namespace WebAssembly
 		}
 
 		// Operation dispatch methods.
+		void unknown(Opcode opcode)
+		{
+			throw ValidationException("Unknown opcode: " + std::to_string((uintptr)opcode));
+		}
 		void beginBlock(ControlStructureImmediates immediates)
 		{
 			VALIDATE_INDEX(immediates.signatureTypeIndex,module.types.size());

@@ -266,6 +266,10 @@ namespace LLVMJIT
 		}
 
 		// Operation dispatch methods.
+		void unknown(Opcode opcode)
+		{
+			throw InstantiationException(InstantiationException::Cause::codeGenFailed);
+		}
 		void beginBlock(ControlStructureImmediates immediates)
 		{
 			const FunctionType* signature = module.types[immediates.signatureTypeIndex];

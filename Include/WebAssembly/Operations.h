@@ -374,8 +374,7 @@ namespace WebAssembly
 				}
 			ENUM_OPCODES(VISIT_OPCODE)
 			#undef VISIT_OPCODE
-			default:
-				throw;
+			default: return visitor.unknown(opcode);
 			}
 		}
 
