@@ -928,7 +928,7 @@ namespace LLVMJIT
 				llvmI8PtrType
 				});
 			defaultTablePointer = emitLiteralPointer(moduleInstance->defaultTable->baseAddress,tableElementType->getPointerTo());
-			defaultTableMaxElements = emitLiteral((moduleInstance->defaultTable->maxPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::Element));
+			defaultTableMaxElements = emitLiteral(uintptr((moduleInstance->defaultTable->maxPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::Element)));
 		}
 		else
 		{
