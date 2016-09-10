@@ -178,7 +178,9 @@ int main(int argc,char** argv)
 		std::cerr << "Failed to link module:" << std::endl;
 		for(auto& missingImport : exception.missingImports)
 		{
-			std::cerr << "Missing import: module=\"" << missingImport.module << "\" export=\"" << missingImport.exportName << "\"" << std::endl;
+			std::cerr << "Missing import: module=\"" << missingImport.moduleName
+				<< "\" export=\"" << missingImport.exportName
+				<< "\" type=\"" << getTypeName(missingImport.type) << "\"" << std::endl;
 		}
 		return EXIT_FAILURE;
 	}

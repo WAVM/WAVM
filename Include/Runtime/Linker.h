@@ -60,7 +60,14 @@ namespace Runtime
 
 	struct LinkException
 	{
-		std::vector<WebAssembly::Import> missingImports;
+		struct MissingImport
+		{
+			std::string moduleName;
+			std::string exportName;
+			WebAssembly::ObjectType type;
+		};
+
+		std::vector<MissingImport> missingImports;
 	};
 
 	// Links a module using the given resolver, returning an array mapping import indices to objects.

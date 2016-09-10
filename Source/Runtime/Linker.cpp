@@ -20,7 +20,7 @@ namespace Runtime
 	std::vector<Object*> linkModule(const WebAssembly::Module& module,Resolver& resolver)
 	{
 		std::vector<Object*> imports;
-		std::vector<Import> missingImports;
+		std::vector<LinkException::MissingImport> missingImports;
 		for(const Import& import : module.imports)
 		{
 			Object* importValue;
@@ -28,7 +28,7 @@ namespace Runtime
 			if(!resolver.resolve(import.module.c_str(),import.exportName.c_str(),objectType,importValue)) { importValue = nullptr; }
 			if(importValue && !isA(importValue,objectType)) { importValue = nullptr; }
 			if(importValue) { imports.push_back(importValue); }
-			else { missingImports.push_back(import); }
+			else { missingImports.push_back({import.module,import.exportName,objectType}); }
 		}
 
 		if(missingImports.size()) { throw LinkException {std::move(missingImports)}; }
