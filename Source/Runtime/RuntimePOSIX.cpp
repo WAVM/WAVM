@@ -23,9 +23,9 @@ namespace RuntimePlatform
 	enum { signalStackNumBytes = SIGSTKSZ };
 	THREAD_LOCAL uint8* signalStack = nullptr;
 	THREAD_LOCAL uint8* stackMinAddr = nullptr;
-	THREAD_LOCAL size_t stackSize = 0;
+	THREAD_LOCAL uint8* stackMaxAddr = nullptr;
 
-	void initSignalStack()
+	void initThread()
 	{
 		if(!signalStack)
 		{
@@ -38,13 +38,13 @@ namespace RuntimePlatform
 			{
 				throw;
 			}
-
-			struct rlimit stackLimit;
-			getrlimit(RLIMIT_STACK,&stackLimit);
-			stackSize = stackLimit.rlim_cur;
-
-			stackMinAddr = (uint8*)&signalStackInfo - stackSize;
 		}
+
+		struct rlimit stackLimit;
+		getrlimit(RLIMIT_STACK,&stackLimit);
+		const size_t stackSize = stackLimit.rlim_cur;
+
+		stackMinAddr = (uint8*)&stackLimit - stackSize;
 	}
 
 	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
@@ -62,7 +62,7 @@ namespace RuntimePlatform
 		case SIGSEGV:
 		case SIGBUS:
 			exceptionCause =
-				signalInfo->si_addr > stackMinAddr - 16384 && signalInfo->si_addr < stackMinAddr + 16384 ? Exception::Cause::stackOverflow
+				signalInfo->si_addr > stackMinAddr && signalInfo->si_addr < stackMaxAddr ? Exception::Cause::stackOverflow
 				: isAddressOwnedByTable((uint8*)signalInfo->si_addr) ? Exception::Cause::undefinedTableElement
 				: Exception::Cause::accessViolation;
 			break;
@@ -74,17 +74,20 @@ namespace RuntimePlatform
 
 	Value catchRuntimeExceptions(const std::function<Value()>& thunk)
 	{
-		initSignalStack();
+		assert(signalStack);
 
 		Runtime::Value result;
 
 		struct sigaction oldSignalActionSEGV;
 		struct sigaction oldSignalActionBUS;
 		struct sigaction oldSignalActionFPE;
-		
-		// Use setjmp to allow signals to jump
+
+		// Use setjmp to allow signals to jump back to this point.
 		if(!sigsetjmp(setjmpEnv,1))
 		{
+			// Initialize the maximum address used to detect whether a SIGBUS or SIGSEGV was a stack overflow.
+			stackMaxAddr = (uint8*)&result;
+
 			// Set a signal handler for the signals we want to intercept.
 			struct sigaction signalAction;
 			signalAction.sa_sigaction = signalHandler;

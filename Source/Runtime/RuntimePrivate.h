@@ -153,6 +153,9 @@ namespace Runtime
 
 namespace RuntimePlatform
 {
+	// Initializes thread-specific state.
+	void initThread();
+
 	// Calls a thunk and catches any runtime exception thrown by it.
 	Runtime::Value catchRuntimeExceptions(const std::function<Runtime::Value()>& thunk);
 	

@@ -119,6 +119,10 @@ namespace RuntimePlatform
 		}
 		return EXCEPTION_EXECUTE_HANDLER;
 	}
+	
+	void initThread()
+	{
+	}
 
 	Value catchRuntimeExceptions(const std::function<Value()>& thunk)
 	{

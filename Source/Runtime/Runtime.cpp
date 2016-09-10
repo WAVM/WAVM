@@ -8,6 +8,7 @@ namespace Runtime
 	void init()
 	{
 		LLVMJIT::init();
+		RuntimePlatform::initThread();
 	}
 
 	[[noreturn]] void causeException(Exception::Cause cause)
