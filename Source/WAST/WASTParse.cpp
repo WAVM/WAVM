@@ -1001,7 +1001,7 @@ namespace WAST
 				if(!parseBranchTargetRef(nodeIt,depth)) { emitError(nodeIt,"br: expected label name or index"); break; }
 
 				// Parse the branch argument.
-				const ExpressionType argumentType = parseOptionalExpression(nodeIt,"br target argument",asExpressionTypeSet(getBranchTargetByDepth(depth).expectedArgumentType));
+				parseOptionalExpression(nodeIt,"br target argument",asExpressionTypeSet(getBranchTargetByDepth(depth).expectedArgumentType));
 
 				encoder.br({depth});
 				suppressUnreachableCode();
@@ -1038,7 +1038,7 @@ namespace WAST
 				}
 
 				// Parse the branch argument.
-				const ExpressionType argumentType = parseOptionalExpression(nodeIt,"br_table target argument",expectedArgumentType);
+				parseOptionalExpression(nodeIt,"br_table target argument",expectedArgumentType);
 
 				// Parse the branch index.
 				parseOperands(nodeIt,"br_table index",ExpressionTypeSet::i32);
