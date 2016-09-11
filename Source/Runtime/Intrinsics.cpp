@@ -24,6 +24,14 @@ namespace Intrinsics
 			return result;
 		}
 	};
+	
+	std::string getDecoratedName(const char* name,const WebAssembly::ObjectType& type)
+	{
+		std::string decoratedName = name;
+		decoratedName += " : ";
+		decoratedName += WebAssembly::getTypeName(type);
+		return decoratedName;
+	}
 
 	Function::Function(const char* inName,const WebAssembly::FunctionType* type,void* nativeFunction)
 	:	name(inName)
@@ -96,15 +104,9 @@ namespace Intrinsics
 		delete memory;
 	}
 
-	std::string getDecoratedName(const char* name,const WebAssembly::ObjectType& type)
+	Runtime::Object* find(const char* name,const WebAssembly::ObjectType& type)
 	{
-		std::string decoratedName = name;
-		decoratedName += " : ";
-		decoratedName += WebAssembly::getTypeName(type);
-		return decoratedName;
-	}
-	Runtime::Object* find(const char* decoratedName,const WebAssembly::ObjectType& type)
-	{
+		std::string decoratedName = getDecoratedName(name,type);
 		Platform::Lock Lock(Singleton::get().mutex);
 		Runtime::Object* result = nullptr;
 		switch(type.kind)

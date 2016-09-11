@@ -12,8 +12,7 @@ namespace Runtime
 
 	bool IntrinsicResolver::resolve(const char* moduleName,const char* exportName,ObjectType type,Object*& outObject)
 	{
-		const std::string decoratedName = Intrinsics::getDecoratedName((std::string(moduleName) + "." + exportName).c_str(),type);
-		outObject = Intrinsics::find(decoratedName.c_str(),type);
+		outObject = Intrinsics::find((std::string(moduleName) + "." + exportName).c_str(),type);
 		return outObject != nullptr;
 	}
 

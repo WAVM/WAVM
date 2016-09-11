@@ -76,9 +76,8 @@ namespace Intrinsics
 		const char* name;
 		Runtime::Table* const table;
 	};
-	
-	RUNTIME_API std::string getDecoratedName(const char* name,const WebAssembly::ObjectType& type);
-	RUNTIME_API Runtime::Object* find(const char* decoratedName,const WebAssembly::ObjectType& type);
+
+	RUNTIME_API Runtime::Object* find(const char* name,const WebAssembly::ObjectType& type);
 }
 
 #define DEFINE_INTRINSIC_FUNCTION0(module,cName,name,returnType) \

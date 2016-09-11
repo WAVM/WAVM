@@ -684,8 +684,7 @@ namespace LLVMJIT
 		
 		llvm::Value* emitRuntimeIntrinsic(const char* intrinsicName,const FunctionType* intrinsicType,const std::initializer_list<llvm::Value*>& args)
 		{
-			auto decoratedIntrinsicName = Intrinsics::getDecoratedName(intrinsicName,intrinsicType);	
-			Object* intrinsicObject = Intrinsics::find(decoratedIntrinsicName.c_str(),intrinsicType);
+			Object* intrinsicObject = Intrinsics::find(intrinsicName,intrinsicType);
 			assert(intrinsicObject);
 			FunctionInstance* intrinsicFunction = asFunction(intrinsicObject);
 			assert(intrinsicFunction->type == intrinsicType);
