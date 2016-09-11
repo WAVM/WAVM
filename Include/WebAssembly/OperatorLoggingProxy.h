@@ -26,7 +26,7 @@ namespace WebAssembly
 
 		std::string describeImmediates(Opcode opcode) { return std::to_string((uintptr)opcode); }
 		std::string describeImmediates(NoImmediates) { return ""; }
-		std::string describeImmediates(ControlStructureImmediates imm) { return " : " + getTypeName(module.types[imm.signatureTypeIndex]); }
+		std::string describeImmediates(ControlStructureImmediates imm) { return std::string(" : ") + getTypeName(imm.resultType); }
 		std::string describeImmediates(BranchImmediates imm) { return " " + std::to_string(imm.targetDepth); }
 		std::string describeImmediates(BranchTableImmediates imm)
 		{

@@ -12,9 +12,9 @@ namespace WebAssembly
 		i64 = 2,
 		f32 = 3,
 		f64 = 4,
-
-		max = 4,
-		num = max + 1
+		
+		num,
+		max = num-1
 	};
 
 	template<ValueType type> struct ValueTypeInfo;
@@ -25,15 +25,13 @@ namespace WebAssembly
 
 	enum class ReturnType : uint8
 	{
-		invalid = (uint8)ValueType::invalid,
+		unit = 0,
 		i32 = (uint8)ValueType::i32,
 		i64 = (uint8)ValueType::i64,
 		f32 = (uint8)ValueType::f32,
 		f64 = (uint8)ValueType::f64,
-		unit = (uint8)ValueType::max + 1,
-
-		max = unit,
-		num = max + 1
+		num,
+		max = num-1,
 	};
 
 	struct FunctionType

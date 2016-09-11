@@ -208,17 +208,13 @@ namespace WebAssembly
 		}
 		void beginBlock(ControlStructureImmediates immediates)
 		{
-			VALIDATE_INDEX(immediates.signatureTypeIndex,module.types.size());
-			const FunctionType* signature = module.types[immediates.signatureTypeIndex];
-			VALIDATE_UNLESS("block signature may not take parameters: ",signature->parameters.size() > 0);
-			pushControlStack(ControlContext::Type::block,signature->ret,signature->ret);
+			validate(immediates.resultType);
+			pushControlStack(ControlContext::Type::block,immediates.resultType,immediates.resultType);
 		}
 		void beginLoop(ControlStructureImmediates immediates)
 		{
-			VALIDATE_INDEX(immediates.signatureTypeIndex,module.types.size());
-			const FunctionType* signature = module.types[immediates.signatureTypeIndex];
-			VALIDATE_UNLESS("loop signature may not take parameters: ",signature->parameters.size() > 0);
-			pushControlStack(ControlContext::Type::loop,ReturnType::unit,signature->ret);
+			validate(immediates.resultType);
+			pushControlStack(ControlContext::Type::loop,ReturnType::unit,immediates.resultType);
 		}
 		void beginIf(NoImmediates)
 		{
@@ -227,11 +223,9 @@ namespace WebAssembly
 		}
 		void beginIfElse(ControlStructureImmediates immediates)
 		{
-			VALIDATE_INDEX(immediates.signatureTypeIndex,module.types.size());
-			const FunctionType* signature = module.types[immediates.signatureTypeIndex];
-			VALIDATE_UNLESS("if_else signature may not take parameters: ",signature->parameters.size() > 0);
+			validate(immediates.resultType);
 			popAndValidateOperand(ValueType::i32);
-			pushControlStack(ControlContext::Type::ifThen,signature->ret,signature->ret);
+			pushControlStack(ControlContext::Type::ifThen,immediates.resultType,immediates.resultType);
 		}
 		void end(NoImmediates)
 		{

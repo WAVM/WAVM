@@ -273,20 +273,18 @@ namespace LLVMJIT
 		}
 		void beginBlock(ControlStructureImmediates immediates)
 		{
-			const FunctionType* signature = module.types[immediates.signatureTypeIndex];
 			auto endBlock = llvm::BasicBlock::Create(context,"blockEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,signature->ret);
-			pushControlStack(ControlContext::Type::block,signature->ret,signature->ret,endBlock,endPHI,endBlock,endPHI);
+			auto endPHI = createPHI(endBlock,immediates.resultType);
+			pushControlStack(ControlContext::Type::block,immediates.resultType,immediates.resultType,endBlock,endPHI,endBlock,endPHI);
 		}
 		void beginLoop(ControlStructureImmediates immediates)
 		{
-			const FunctionType* signature = module.types[immediates.signatureTypeIndex];
 			auto loopBodyBlock = llvm::BasicBlock::Create(context,"loopBody",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(context,"loopEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,signature->ret);
+			auto endPHI = createPHI(endBlock,immediates.resultType);
 			irBuilder.CreateBr(loopBodyBlock);
 			irBuilder.SetInsertPoint(loopBodyBlock);
-			pushControlStack(ControlContext::Type::loop,ReturnType::unit,signature->ret,endBlock,endPHI,loopBodyBlock,nullptr);
+			pushControlStack(ControlContext::Type::loop,ReturnType::unit,immediates.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
 		}
 		void beginIf(NoImmediates)
 		{
@@ -299,15 +297,14 @@ namespace LLVMJIT
 		}
 		void beginIfElse(ControlStructureImmediates immediates)
 		{
-			const FunctionType* signature = module.types[immediates.signatureTypeIndex];
 			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
 			auto elseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(context,"ifElseEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,signature->ret);
+			auto endPHI = createPHI(endBlock,immediates.resultType);
 			auto condition = pop();
 			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,elseBlock);
 			irBuilder.SetInsertPoint(thenBlock);
-			pushControlStack(ControlContext::Type::ifThen,signature->ret,signature->ret,endBlock,endPHI,endBlock,endPHI,elseBlock);
+			pushControlStack(ControlContext::Type::ifThen,immediates.resultType,immediates.resultType,endBlock,endPHI,endBlock,endPHI,elseBlock);
 		}
 		void end(NoImmediates)
 		{
@@ -1064,12 +1061,11 @@ namespace LLVMJIT
 		llvmBoolType = llvm::Type::getInt1Ty(context);
 		llvmI8PtrType = llvmI8Type->getPointerTo();
 
-		llvmReturnTypes[(size_t)ReturnType::invalid] = llvm::Type::getVoidTy(context);
+		llvmReturnTypes[(size_t)ReturnType::unit] = llvm::Type::getVoidTy(context);
 		llvmReturnTypes[(size_t)ReturnType::i32] = llvmI32Type;
 		llvmReturnTypes[(size_t)ReturnType::i64] = llvmI64Type;
 		llvmReturnTypes[(size_t)ReturnType::f32] = llvmF32Type;
 		llvmReturnTypes[(size_t)ReturnType::f64] = llvmF64Type;
-		llvmReturnTypes[(size_t)ReturnType::unit] = llvm::Type::getVoidTy(context);
 
 		// Create zero constants of each type.
 		typedZeroConstants[(size_t)ValueType::invalid] = nullptr;

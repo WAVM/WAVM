@@ -1,7 +1,8 @@
 #pragma once
 
-#include "WebAssembly.h"
 #include "Core/Serialization.h"
+#include "WebAssembly.h"
+#include "Types.h"
 
 namespace WebAssembly
 {
@@ -248,12 +249,12 @@ namespace WebAssembly
 
 	struct ControlStructureImmediates
 	{
-		uintptr signatureTypeIndex;
+		ReturnType resultType;
 		
 		template<typename Stream>
 		friend void serialize(Stream& stream,ControlStructureImmediates& controlStructureOp)
 		{
-			serializeVarUInt32(stream,controlStructureOp.signatureTypeIndex);
+			serializeNativeValue(stream,controlStructureOp.resultType);
 		}
 	};
 
