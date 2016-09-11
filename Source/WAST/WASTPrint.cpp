@@ -139,118 +139,118 @@ namespace WAST
 		{
 			throw;
 		}
-		void beginBlock(ControlStructureImmediates immediates)
+		void beginBlock(ControlStructureImm imm)
 		{
 			string += "\nblock";
-			printControlSignature(string,immediates.resultType);
+			printControlSignature(string,imm.resultType);
 			pushControlStack(ControlContextType::block);
 		}
-		void beginLoop(ControlStructureImmediates immediates)
+		void beginLoop(ControlStructureImm imm)
 		{
 			string += "\nloop";
-			printControlSignature(string,immediates.resultType);
+			printControlSignature(string,imm.resultType);
 			pushControlStack(ControlContextType::loop);
 		}
-		void beginIf(NoImmediates)
+		void beginIf(NoImm)
 		{
 			string += "\nif";
 			pushControlStack(ControlContextType::ifWithoutElse);
 		}
-		void beginIfElse(ControlStructureImmediates immediates)
+		void beginIfElse(ControlStructureImm imm)
 		{
 			string += "\nif";
-			printControlSignature(string,immediates.resultType);
+			printControlSignature(string,imm.resultType);
 			pushControlStack(ControlContextType::ifThen);
 		}
-		void end(NoImmediates)
+		void end(NoImm)
 		{
 			popControlStack();
 		}
 		
-		void ret(NoImmediates)
+		void ret(NoImm)
 		{
 			string += "\nreturn";
 			popControlStack();
 		}
 
-		void br(BranchImmediates immediates)
+		void br(BranchImm imm)
 		{
-			string += "\nbr " + std::to_string(immediates.targetDepth);
+			string += "\nbr " + std::to_string(imm.targetDepth);
 			popControlStack();
 		}
-		void br_table(BranchTableImmediates immediates)
+		void br_table(BranchTableImm imm)
 		{
 			string += "\nbr_table";
-			for(auto targetDepth : immediates.targetDepths)
+			for(auto targetDepth : imm.targetDepths)
 			{
 				string += ' ';
 				string += std::to_string(targetDepth);
 			}
 			string += ' ';
-			string += std::to_string(immediates.defaultTargetDepth);
+			string += std::to_string(imm.defaultTargetDepth);
 
 			popControlStack();
 		}
-		void br_if(BranchImmediates immediates)
+		void br_if(BranchImm imm)
 		{
-			string += "\nbr_if " + std::to_string(immediates.targetDepth);
+			string += "\nbr_if " + std::to_string(imm.targetDepth);
 		}
 
-		void nop(NoImmediates) { string += "\nnop"; }
-		void unreachable(NoImmediates) { string += "\nunreachable"; popControlStack(); }
-		void drop(NoImmediates) { string += "\ndrop"; }
+		void nop(NoImm) { string += "\nnop"; }
+		void unreachable(NoImm) { string += "\nunreachable"; popControlStack(); }
+		void drop(NoImm) { string += "\ndrop"; }
 
-		void select(NoImmediates)
+		void select(NoImm)
 		{
 			string += "\nselect";
 		}
 
-		void get_local(GetOrSetVariableImmediates immediates)
+		void get_local(GetOrSetVariableImm imm)
 		{
-			string += "\nget_local " + std::to_string(immediates.variableIndex);
+			string += "\nget_local " + std::to_string(imm.variableIndex);
 		}
-		void set_local(GetOrSetVariableImmediates immediates)
+		void set_local(GetOrSetVariableImm imm)
 		{
-			string += "\nset_local " + std::to_string(immediates.variableIndex);
+			string += "\nset_local " + std::to_string(imm.variableIndex);
 		}
-		void tee_local(GetOrSetVariableImmediates immediates)
+		void tee_local(GetOrSetVariableImm imm)
 		{
-			string += "\ntee_local " + std::to_string(immediates.variableIndex);
+			string += "\ntee_local " + std::to_string(imm.variableIndex);
 		}
 		
-		void get_global(GetOrSetVariableImmediates immediates)
+		void get_global(GetOrSetVariableImm imm)
 		{
-			string += "\nget_global " + std::to_string(immediates.variableIndex);
+			string += "\nget_global " + std::to_string(imm.variableIndex);
 		}
-		void set_global(GetOrSetVariableImmediates immediates)
+		void set_global(GetOrSetVariableImm imm)
 		{
-			string += "\nset_global " + std::to_string(immediates.variableIndex);
-		}
-
-		void call(CallImmediates immediates)
-		{
-			string += "\ncall " + std::to_string(immediates.functionIndex);
-		}
-		void call_indirect(CallIndirectImmediates immediates)
-		{
-			string += "\ncall_indirect " + getTypeName(module.types[immediates.typeIndex]);
+			string += "\nset_global " + std::to_string(imm.variableIndex);
 		}
 
-		void grow_memory(NoImmediates) { string += "\ngrow_memory"; }
-		void current_memory(NoImmediates) { string += "\ncurrent_memory"; }
+		void call(CallImm imm)
+		{
+			string += "\ncall " + std::to_string(imm.functionIndex);
+		}
+		void call_indirect(CallIndirectImm imm)
+		{
+			string += "\ncall_indirect " + getTypeName(module.types[imm.typeIndex]);
+		}
 
-		void error(ErrorImmediates immediates) { string += "\nerror \"" + escapeString(immediates.message.data(),immediates.message.size()) + "\""; popControlStack(); }
+		void grow_memory(NoImm) { string += "\ngrow_memory"; }
+		void current_memory(NoImm) { string += "\ncurrent_memory"; }
+
+		void error(ErrorImm imm) { string += "\nerror \"" + escapeString(imm.message.data(),imm.message.size()) + "\""; popControlStack(); }
 
 		#define PRINT_CONST(typeId,nativeType) \
-			void typeId##_const(LiteralImmediates<nativeType> immediates) { string += "\n" #typeId; string += ".const "; string += std::to_string(immediates.value); }
+			void typeId##_const(LiteralImm<nativeType> imm) { string += "\n" #typeId; string += ".const "; string += std::to_string(imm.value); }
 		PRINT_CONST(i32,int32); PRINT_CONST(i64,int64);
 		PRINT_CONST(f32,float32); PRINT_CONST(f64,float64);
 
-		#define PRINT_LOAD_OPCODE(typeId,name,naturalAlignmentLog2,resultType) void typeId##_##name(LoadOrStoreImmediates immediates) \
+		#define PRINT_LOAD_OPCODE(typeId,name,naturalAlignmentLog2,resultType) void typeId##_##name(LoadOrStoreImm imm) \
 			{ \
 				string += "\n" #typeId "." #name " align="; \
-				string += std::to_string(1 << immediates.alignmentLog2); \
-				if(immediates.offset != 0) { string += " offset=" + std::to_string(immediates.offset); } \
+				string += std::to_string(1 << imm.alignmentLog2); \
+				if(imm.offset != 0) { string += " offset=" + std::to_string(imm.offset); } \
 			}
 
 		PRINT_LOAD_OPCODE(i32,load8_s,1,i32)  PRINT_LOAD_OPCODE(i32,load8_u,1,i32)
@@ -262,22 +262,22 @@ namespace WAST
 		PRINT_LOAD_OPCODE(i32,load,4,i32) PRINT_LOAD_OPCODE(i64,load,8,i64)
 		PRINT_LOAD_OPCODE(f32,load,4,f32) PRINT_LOAD_OPCODE(f64,load,8,f64)
 			
-		#define PRINT_STORE_OPCODE(typeId,name,naturalAlignmentLog2,valueTypeId) void typeId##_##name(LoadOrStoreImmediates immediates) \
+		#define PRINT_STORE_OPCODE(typeId,name,naturalAlignmentLog2,valueTypeId) void typeId##_##name(LoadOrStoreImm imm) \
 			{ \
 				string += "\n" #typeId "." #name " align="; \
-				string += std::to_string(1 << immediates.alignmentLog2); \
-				if(immediates.offset != 0) { string += " offset=" + std::to_string(immediates.offset); } \
+				string += std::to_string(1 << imm.alignmentLog2); \
+				if(imm.offset != 0) { string += " offset=" + std::to_string(imm.offset); } \
 			}
 
 		PRINT_STORE_OPCODE(i32,store8,1,i32) PRINT_STORE_OPCODE(i32,store16,2,i32) PRINT_STORE_OPCODE(i32,store,4,i32)
 		PRINT_STORE_OPCODE(i64,store8,1,i64) PRINT_STORE_OPCODE(i64,store16,2,i64) PRINT_STORE_OPCODE(i64,store32,4,i64) PRINT_STORE_OPCODE(i64,store,8,i64)
 		PRINT_STORE_OPCODE(f32,store,4,f32) PRINT_STORE_OPCODE(f64,store,8,f64)
 
-		#define PRINT_CONVERSION_OPCODE(name,operandTypeId,resultTypeId) void resultTypeId##_##name##_##operandTypeId(NoImmediates) \
+		#define PRINT_CONVERSION_OPCODE(name,operandTypeId,resultTypeId) void resultTypeId##_##name##_##operandTypeId(NoImm) \
 			{ string += "\n" #resultTypeId "." #name "/" #operandTypeId; }
-		#define PRINT_COMPARE_OPCODE(name,operandTypeId,resultTypeId) void operandTypeId##_##name(NoImmediates) \
+		#define PRINT_COMPARE_OPCODE(name,operandTypeId,resultTypeId) void operandTypeId##_##name(NoImm) \
 			{ string += "\n" #operandTypeId "." #name; }
-		#define PRINT_BASIC_OPCODE(name,operandTypeId,resultTypeId) void resultTypeId##_##name(NoImmediates) \
+		#define PRINT_BASIC_OPCODE(name,operandTypeId,resultTypeId) void resultTypeId##_##name(NoImm) \
 			{ string += "\n" #resultTypeId "." #name; }
 
 		PRINT_BASIC_OPCODE(add,i32,i32) PRINT_BASIC_OPCODE(add,i64,i64)

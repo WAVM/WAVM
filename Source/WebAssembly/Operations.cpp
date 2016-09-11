@@ -7,7 +7,7 @@ namespace WebAssembly
 	{
 		switch(opcode)
 		{
-		#define VISIT_OPCODE(encoding,name,Immediates) case Opcode::name: return #name;
+		#define VISIT_OPCODE(encoding,name,Imm) case Opcode::name: return #name;
 		ENUM_OPCODES(VISIT_OPCODE)
 		#undef VISIT_OPCODE
 		default: return "unknown";

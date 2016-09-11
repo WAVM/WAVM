@@ -271,22 +271,22 @@ namespace LLVMJIT
 		{
 			throw InstantiationException(InstantiationException::Cause::codeGenFailed);
 		}
-		void beginBlock(ControlStructureImmediates immediates)
+		void beginBlock(ControlStructureImm imm)
 		{
 			auto endBlock = llvm::BasicBlock::Create(context,"blockEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,immediates.resultType);
-			pushControlStack(ControlContext::Type::block,immediates.resultType,immediates.resultType,endBlock,endPHI,endBlock,endPHI);
+			auto endPHI = createPHI(endBlock,imm.resultType);
+			pushControlStack(ControlContext::Type::block,imm.resultType,imm.resultType,endBlock,endPHI,endBlock,endPHI);
 		}
-		void beginLoop(ControlStructureImmediates immediates)
+		void beginLoop(ControlStructureImm imm)
 		{
 			auto loopBodyBlock = llvm::BasicBlock::Create(context,"loopBody",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(context,"loopEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,immediates.resultType);
+			auto endPHI = createPHI(endBlock,imm.resultType);
 			irBuilder.CreateBr(loopBodyBlock);
 			irBuilder.SetInsertPoint(loopBodyBlock);
-			pushControlStack(ControlContext::Type::loop,ResultType::unit,immediates.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
+			pushControlStack(ControlContext::Type::loop,ResultType::unit,imm.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
 		}
-		void beginIf(NoImmediates)
+		void beginIf(NoImm)
 		{
 			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(context,"ifEnd",llvmFunction);
@@ -295,18 +295,18 @@ namespace LLVMJIT
 			irBuilder.SetInsertPoint(thenBlock);
 			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::unit,ResultType::unit,endBlock,nullptr,endBlock,nullptr);
 		}
-		void beginIfElse(ControlStructureImmediates immediates)
+		void beginIfElse(ControlStructureImm imm)
 		{
 			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
 			auto elseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(context,"ifElseEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,immediates.resultType);
+			auto endPHI = createPHI(endBlock,imm.resultType);
 			auto condition = pop();
 			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,elseBlock);
 			irBuilder.SetInsertPoint(thenBlock);
-			pushControlStack(ControlContext::Type::ifThen,immediates.resultType,immediates.resultType,endBlock,endPHI,endBlock,endPHI,elseBlock);
+			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType,endBlock,endPHI,endBlock,endPHI,elseBlock);
 		}
-		void end(NoImmediates)
+		void end(NoImm)
 		{
 			if(controlStack.back().resultType != ResultType::unit)
 			{
@@ -317,7 +317,7 @@ namespace LLVMJIT
 			popControlStack();
 		}
 		
-		void ret(NoImmediates)
+		void ret(NoImm)
 		{
 			if(functionType->ret != ResultType::unit)
 			{
@@ -328,9 +328,9 @@ namespace LLVMJIT
 			popControlStack();
 		}
 
-		void br(BranchImmediates immediates)
+		void br(BranchImm imm)
 		{
-			ControlContext& targetContext = getBranchTargetByDepth(immediates.targetDepth);
+			ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepth);
 			if(targetContext.branchArgumentType != ResultType::unit)
 			{
 				llvm::Value* argument = pop();
@@ -339,11 +339,11 @@ namespace LLVMJIT
 			irBuilder.CreateBr(targetContext.branchTargetBlock);
 			popControlStack();
 		}
-		void br_table(BranchTableImmediates immediates)
+		void br_table(BranchTableImm imm)
 		{
 			auto index = pop();
 			
-			ControlContext& defaultTargetContext = getBranchTargetByDepth(immediates.defaultTargetDepth);
+			ControlContext& defaultTargetContext = getBranchTargetByDepth(imm.defaultTargetDepth);
 			const ResultType argumentType = defaultTargetContext.branchArgumentType;
 			llvm::Value* argument = nullptr;
 			if(argumentType != ResultType::unit)
@@ -352,22 +352,22 @@ namespace LLVMJIT
 				defaultTargetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
 			}
 			
-			auto llvmSwitch = irBuilder.CreateSwitch(index,defaultTargetContext.branchTargetBlock,(unsigned int)immediates.targetDepths.size());
+			auto llvmSwitch = irBuilder.CreateSwitch(index,defaultTargetContext.branchTargetBlock,(unsigned int)imm.targetDepths.size());
 
-			for(uintptr targetIndex = 0;targetIndex < immediates.targetDepths.size();++targetIndex)
+			for(uintptr targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
 			{
-				ControlContext& targetContext = getBranchTargetByDepth(immediates.targetDepths[targetIndex]);
+				ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepths[targetIndex]);
 				if(argumentType != ResultType::unit) { targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock()); }
 				llvmSwitch->addCase(emitLiteral((uint32)targetIndex),targetContext.branchTargetBlock);
 			}
 
 			popControlStack();
 		}
-		void br_if(BranchImmediates immediates)
+		void br_if(BranchImm imm)
 		{
 			auto condition = pop();
 
-			ControlContext& targetContext = getBranchTargetByDepth(immediates.targetDepth);
+			ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepth);
 			if(targetContext.branchArgumentType != ResultType::unit)
 			{
 				llvm::Value* argument = getTopValue();
@@ -378,16 +378,16 @@ namespace LLVMJIT
 			irBuilder.SetInsertPoint(falseBlock);
 		}
 
-		void nop(NoImmediates) {}
-		void unreachable(NoImmediates)
+		void nop(NoImm) {}
+		void unreachable(NoImm)
 		{
 			emitRuntimeIntrinsic("wavmIntrinsics.unreachableTrap",FunctionType::get(),{});
 			irBuilder.CreateUnreachable();
 			popControlStack();
 		}
-		void drop(NoImmediates) { stack.pop_back(); }
+		void drop(NoImm) { stack.pop_back(); }
 
-		void select(NoImmediates)
+		void select(NoImm)
 		{
 			auto condition = pop();
 			auto falseValue = pop();
@@ -395,49 +395,49 @@ namespace LLVMJIT
 			push(irBuilder.CreateSelect(coerceI32ToBool(condition),trueValue,falseValue));
 		}
 
-		void get_local(GetOrSetVariableImmediates immediates)
+		void get_local(GetOrSetVariableImm imm)
 		{
-			assert(immediates.variableIndex < localPointers.size());
-			push(irBuilder.CreateLoad(localPointers[immediates.variableIndex]));
+			assert(imm.variableIndex < localPointers.size());
+			push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
 		}
-		void set_local(GetOrSetVariableImmediates immediates)
+		void set_local(GetOrSetVariableImm imm)
 		{
-			assert(immediates.variableIndex < localPointers.size());
+			assert(imm.variableIndex < localPointers.size());
 			auto value = pop();
-			irBuilder.CreateStore(value,localPointers[immediates.variableIndex]);
+			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
 		}
-		void tee_local(GetOrSetVariableImmediates immediates)
+		void tee_local(GetOrSetVariableImm imm)
 		{
-			assert(immediates.variableIndex < localPointers.size());
+			assert(imm.variableIndex < localPointers.size());
 			auto value = getTopValue();
-			irBuilder.CreateStore(value,localPointers[immediates.variableIndex]);
+			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
 		}
 		
-		void get_global(GetOrSetVariableImmediates immediates)
+		void get_global(GetOrSetVariableImm imm)
 		{
-			assert(immediates.variableIndex < moduleContext.globalPointers.size());
-			push(irBuilder.CreateLoad(moduleContext.globalPointers[immediates.variableIndex]));
+			assert(imm.variableIndex < moduleContext.globalPointers.size());
+			push(irBuilder.CreateLoad(moduleContext.globalPointers[imm.variableIndex]));
 		}
-		void set_global(GetOrSetVariableImmediates immediates)
+		void set_global(GetOrSetVariableImm imm)
 		{
-			assert(immediates.variableIndex < moduleContext.globalPointers.size());
+			assert(imm.variableIndex < moduleContext.globalPointers.size());
 			auto value = pop();
-			irBuilder.CreateStore(value,moduleContext.globalPointers[immediates.variableIndex]);
+			irBuilder.CreateStore(value,moduleContext.globalPointers[imm.variableIndex]);
 		}
 
-		void call(CallImmediates immediates)
+		void call(CallImm imm)
 		{
 			llvm::Value* callee;
 			const FunctionType* calleeType;
-			if(immediates.functionIndex < moduleContext.importedFunctionPointers.size())
+			if(imm.functionIndex < moduleContext.importedFunctionPointers.size())
 			{
-				assert(immediates.functionIndex < moduleContext.moduleInstance->functions.size());
-				callee = moduleContext.importedFunctionPointers[immediates.functionIndex];
-				calleeType = moduleContext.moduleInstance->functions[immediates.functionIndex]->type;
+				assert(imm.functionIndex < moduleContext.moduleInstance->functions.size());
+				callee = moduleContext.importedFunctionPointers[imm.functionIndex];
+				calleeType = moduleContext.moduleInstance->functions[imm.functionIndex]->type;
 			}
 			else
 			{
-				const uintptr calleeIndex = immediates.functionIndex - moduleContext.importedFunctionPointers.size();
+				const uintptr calleeIndex = imm.functionIndex - moduleContext.importedFunctionPointers.size();
 				assert(calleeIndex < moduleContext.functionDefs.size());
 				callee = moduleContext.functionDefs[calleeIndex];
 				calleeType = module.types[module.functionDefs[calleeIndex].typeIndex];
@@ -447,11 +447,11 @@ namespace LLVMJIT
 			auto result = irBuilder.CreateCall(callee,llvm::ArrayRef<llvm::Value*>(llvmArgs,calleeType->parameters.size()));
 			if(calleeType->ret != ResultType::unit) { push(result); }
 		}
-		void call_indirect(CallIndirectImmediates immediates)
+		void call_indirect(CallIndirectImm imm)
 		{
-			assert(immediates.typeIndex < module.types.size());
+			assert(imm.typeIndex < module.types.size());
 			
-			auto calleeType = module.types[immediates.typeIndex];
+			auto calleeType = module.types[imm.typeIndex];
 			auto functionPointerType = asLLVMType(calleeType)->getPointerTo()->getPointerTo();
 
 			// Compile the function index.
@@ -512,7 +512,7 @@ namespace LLVMJIT
 			if(calleeType->ret != ResultType::unit) { push(result); }
 		}
 
-		void grow_memory(NoImmediates)
+		void grow_memory(NoImm)
 		{
 			auto deltaNumPages = pop();
 			auto previousNumPages = emitRuntimeIntrinsic(
@@ -521,7 +521,7 @@ namespace LLVMJIT
 				{deltaNumPages,emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory))});
 			push(previousNumPages);
 		}
-		void current_memory(NoImmediates)
+		void current_memory(NoImm)
 		{
 			auto currentNumPages = emitRuntimeIntrinsic(
 				"wavmIntrinsics.currentMemory",
@@ -530,7 +530,7 @@ namespace LLVMJIT
 			push(currentNumPages);
 		}
 
-		void error(ErrorImmediates immediates)
+		void error(ErrorImm imm)
 		{
 			throw InstantiationException(InstantiationException::Cause::codeGenFailed);
 		}
@@ -693,28 +693,28 @@ namespace LLVMJIT
 			return irBuilder.CreateCall(intrinsicFunctionPointer,llvm::ArrayRef<llvm::Value*>(args.begin(),args.end()));
 		}
 
-		#define EMIT_CONST(typeId,nativeType) void typeId##_const(LiteralImmediates<nativeType> immediates) { push(emitLiteral(immediates.value)); }
+		#define EMIT_CONST(typeId,nativeType) void typeId##_const(LiteralImm<nativeType> imm) { push(emitLiteral(imm.value)); }
 		EMIT_CONST(i32,int32) EMIT_CONST(i64,int64)
 		EMIT_CONST(f32,float32) EMIT_CONST(f64,float64)
 
-		#define EMIT_LOAD_OPCODE(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImmediates immediates) \
+		#define EMIT_LOAD_OPCODE(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImm imm) \
 			{ \
 				auto byteIndex = pop(); \
-				auto pointer = coerceByteIndexToPointer(byteIndex,immediates.offset,llvmMemoryType); \
+				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
 				auto load = irBuilder.CreateLoad(pointer); \
-				load->setAlignment(1<<immediates.alignmentLog2); \
+				load->setAlignment(1<<imm.alignmentLog2); \
 				load->setVolatile(true); \
 				push(conversionOp(load,asLLVMType(ValueType::valueTypeId))); \
 			}
-		#define EMIT_STORE_OPCODE(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImmediates immediates) \
+		#define EMIT_STORE_OPCODE(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImm imm) \
 			{ \
 				auto value = pop(); \
 				auto byteIndex = pop(); \
-				auto pointer = coerceByteIndexToPointer(byteIndex,immediates.offset,llvmMemoryType); \
+				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
 				auto memoryValue = conversionOp(value,llvmMemoryType); \
 				auto store = irBuilder.CreateStore(memoryValue,pointer); \
 				store->setVolatile(true); \
-				store->setAlignment(1<<immediates.alignmentLog2); \
+				store->setAlignment(1<<imm.alignmentLog2); \
 			}
 
 		EMIT_LOAD_OPCODE(i32,load8_s,llvmI8Type,irBuilder.CreateSExt)  EMIT_LOAD_OPCODE(i32,load8_u,llvmI8Type,irBuilder.CreateZExt)
@@ -732,7 +732,7 @@ namespace LLVMJIT
 		EMIT_STORE_OPCODE(i64,store,llvmI64Type,identityConversion)
 		EMIT_STORE_OPCODE(f32,store,llvmF32Type,identityConversion) EMIT_STORE_OPCODE(f64,store,llvmF64Type,identityConversion)
 
-		#define EMIT_BINARY_OPCODE(typeId,name,emitCode) void typeId##_##name(NoImmediates) \
+		#define EMIT_BINARY_OPCODE(typeId,name,emitCode) void typeId##_##name(NoImm) \
 			{ \
 				UNUSED const ValueType type = ValueType::typeId; \
 				auto right = pop(); \
@@ -742,7 +742,7 @@ namespace LLVMJIT
 		#define EMIT_INT_BINARY_OPCODE(name,emitCode) EMIT_BINARY_OPCODE(i32,name,emitCode) EMIT_BINARY_OPCODE(i64,name,emitCode)
 		#define EMIT_FP_BINARY_OPCODE(name,emitCode) EMIT_BINARY_OPCODE(f32,name,emitCode) EMIT_BINARY_OPCODE(f64,name,emitCode)
 
-		#define EMIT_UNARY_OPCODE(typeId,name,emitCode) void typeId##_##name(NoImmediates) \
+		#define EMIT_UNARY_OPCODE(typeId,name,emitCode) void typeId##_##name(NoImm) \
 			{ \
 				UNUSED const ValueType type = ValueType::typeId; \
 				auto operand = pop(); \

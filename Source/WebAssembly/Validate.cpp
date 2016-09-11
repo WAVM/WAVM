@@ -206,130 +206,130 @@ namespace WebAssembly
 		{
 			throw ValidationException("Unknown opcode: " + std::to_string((uintptr)opcode));
 		}
-		void beginBlock(ControlStructureImmediates immediates)
+		void beginBlock(ControlStructureImm imm)
 		{
-			validate(immediates.resultType);
-			pushControlStack(ControlContext::Type::block,immediates.resultType,immediates.resultType);
+			validate(imm.resultType);
+			pushControlStack(ControlContext::Type::block,imm.resultType,imm.resultType);
 		}
-		void beginLoop(ControlStructureImmediates immediates)
+		void beginLoop(ControlStructureImm imm)
 		{
-			validate(immediates.resultType);
-			pushControlStack(ControlContext::Type::loop,ResultType::unit,immediates.resultType);
+			validate(imm.resultType);
+			pushControlStack(ControlContext::Type::loop,ResultType::unit,imm.resultType);
 		}
-		void beginIf(NoImmediates)
+		void beginIf(NoImm)
 		{
 			popAndValidateOperand(ValueType::i32);
 			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::unit,ResultType::unit);
 		}
-		void beginIfElse(ControlStructureImmediates immediates)
+		void beginIfElse(ControlStructureImm imm)
 		{
-			validate(immediates.resultType);
+			validate(imm.resultType);
 			popAndValidateOperand(ValueType::i32);
-			pushControlStack(ControlContext::Type::ifThen,immediates.resultType,immediates.resultType);
+			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType);
 		}
-		void end(NoImmediates)
+		void end(NoImm)
 		{
 			popAndValidateResultType(controlStack.back().resultType);
 			popControlStack();
 		}
 		
-		void ret(NoImmediates)
+		void ret(NoImm)
 		{
 			popAndValidateResultType(functionType->ret);
 			popControlStack();
 		}
 
-		void br(BranchImmediates immediates)
+		void br(BranchImm imm)
 		{
-			popAndValidateResultType(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
+			popAndValidateResultType(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
 			popControlStack();
 		}
-		void br_table(BranchTableImmediates immediates)
+		void br_table(BranchTableImm imm)
 		{
 			popAndValidateOperand(ValueType::i32);
-			const ResultType defaultTargetArgumentType = getBranchTargetByDepth(immediates.defaultTargetDepth).branchArgumentType;
+			const ResultType defaultTargetArgumentType = getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
 			popAndValidateResultType(defaultTargetArgumentType);
 
-			for(uintptr targetIndex = 0;targetIndex < immediates.targetDepths.size();++targetIndex)
+			for(uintptr targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
 			{
-				const ResultType targetArgumentType = getBranchTargetByDepth(immediates.targetDepths[targetIndex]).branchArgumentType;
+				const ResultType targetArgumentType = getBranchTargetByDepth(imm.targetDepths[targetIndex]).branchArgumentType;
 				VALIDATE_UNLESS("br_table target argument must match default target argument: ",targetArgumentType != defaultTargetArgumentType);
 			}
 
 			popControlStack();
 		}
-		void br_if(BranchImmediates immediates)
+		void br_if(BranchImm imm)
 		{
 			popAndValidateOperand(ValueType::i32);
-			popAndValidateResultType(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
-			push(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
+			popAndValidateResultType(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
+			push(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
 		}
 
-		void nop(NoImmediates) {}
-		void unreachable(NoImmediates) { popControlStack(); }
-		void drop(NoImmediates) { validateStackAccess(1); stack.pop_back(); }
+		void nop(NoImm) {}
+		void unreachable(NoImm) { popControlStack(); }
+		void drop(NoImm) { validateStackAccess(1); stack.pop_back(); }
 
-		void select(NoImmediates)
+		void select(NoImm)
 		{
 			validateStackAccess(3);
 			ValueType operandType = stack[stack.size() - 3];
 			popAndValidateOperands(operandType,ValueType::i32);
 		}
 
-		void get_local(GetOrSetVariableImmediates immediates)
+		void get_local(GetOrSetVariableImm imm)
 		{
-			push(validateLocalIndex(immediates.variableIndex));
+			push(validateLocalIndex(imm.variableIndex));
 		}
-		void set_local(GetOrSetVariableImmediates immediates)
+		void set_local(GetOrSetVariableImm imm)
 		{
-			popAndValidateOperand(validateLocalIndex(immediates.variableIndex));
+			popAndValidateOperand(validateLocalIndex(imm.variableIndex));
 		}
-		void tee_local(GetOrSetVariableImmediates immediates)
+		void tee_local(GetOrSetVariableImm imm)
 		{
-			const ValueType localType = validateLocalIndex(immediates.variableIndex);
+			const ValueType localType = validateLocalIndex(imm.variableIndex);
 			popAndValidateOperand(localType);
 			push(localType);
 		}
 		
-		void get_global(GetOrSetVariableImmediates immediates)
+		void get_global(GetOrSetVariableImm imm)
 		{
-			push(moduleContext.validateGlobalIndex(immediates.variableIndex,false,false,false,"get_global"));
+			push(moduleContext.validateGlobalIndex(imm.variableIndex,false,false,false,"get_global"));
 		}
-		void set_global(GetOrSetVariableImmediates immediates)
+		void set_global(GetOrSetVariableImm imm)
 		{
-			popAndValidateOperand(moduleContext.validateGlobalIndex(immediates.variableIndex,true,false,false,"set_global"));
+			popAndValidateOperand(moduleContext.validateGlobalIndex(imm.variableIndex,true,false,false,"set_global"));
 		}
 
-		void call(CallImmediates immediates)
+		void call(CallImm imm)
 		{
-			const FunctionType* calleeType = moduleContext.validateFunctionIndex(immediates.functionIndex);
+			const FunctionType* calleeType = moduleContext.validateFunctionIndex(imm.functionIndex);
 			popAndValidateOperands(calleeType->parameters.data(),calleeType->parameters.size());
 			push(calleeType->ret);
 		}
-		void call_indirect(CallIndirectImmediates immediates)
+		void call_indirect(CallIndirectImm imm)
 		{
-			VALIDATE_INDEX(immediates.typeIndex,module.types.size());
+			VALIDATE_INDEX(imm.typeIndex,module.types.size());
 			VALIDATE_UNLESS("call_indirect in module without default function table: ",moduleContext.numTables==0);
-			const FunctionType* calleeType = module.types[immediates.typeIndex];
+			const FunctionType* calleeType = module.types[imm.typeIndex];
 			popAndValidateOperand(ValueType::i32);
 			popAndValidateOperands(calleeType->parameters.data(),calleeType->parameters.size());
 			push(calleeType->ret);
 		}
 
-		void grow_memory(NoImmediates) { popAndValidateOperand(ValueType::i32); push(ValueType::i32); }
-		void current_memory(NoImmediates) { push(ValueType::i32); }
+		void grow_memory(NoImm) { popAndValidateOperand(ValueType::i32); push(ValueType::i32); }
+		void current_memory(NoImm) { push(ValueType::i32); }
 
-		void error(ErrorImmediates immediates) { throw ValidationException("error opcode"); }
+		void error(ErrorImm imm) { throw ValidationException("error opcode"); }
 
 		#define VALIDATE_CONST(typeId,nativeType) \
-			void typeId##_const(LiteralImmediates<nativeType> immediates) { push(ValueType::typeId); }
+			void typeId##_const(LiteralImm<nativeType> imm) { push(ValueType::typeId); }
 		VALIDATE_CONST(i32,int32); VALIDATE_CONST(i64,int64);
 		VALIDATE_CONST(f32,float32); VALIDATE_CONST(f64,float64);
 
-		#define VALIDATE_LOAD_OPCODE(name,naturalAlignmentLog2,resultType) void name(LoadOrStoreImmediates immediates) \
+		#define VALIDATE_LOAD_OPCODE(name,naturalAlignmentLog2,resultType) void name(LoadOrStoreImm imm) \
 			{ \
 				popAndValidateOperand(ValueType::i32); \
-				VALIDATE_UNLESS("load alignment greater than natural alignment: ",immediates.alignmentLog2>naturalAlignmentLog2); \
+				VALIDATE_UNLESS("load alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
 				VALIDATE_UNLESS(#name " in module without default memory: ",moduleContext.numMemories==0); \
 				push(ValueType::resultType); \
 			}
@@ -343,10 +343,10 @@ namespace WebAssembly
 		VALIDATE_LOAD_OPCODE(i32_load,4,i32) VALIDATE_LOAD_OPCODE(i64_load,8,i64)
 		VALIDATE_LOAD_OPCODE(f32_load,4,f32) VALIDATE_LOAD_OPCODE(f64_load,8,f64)
 			
-		#define VALIDATE_STORE_OPCODE(name,naturalAlignmentLog2,valueTypeId) void name(LoadOrStoreImmediates immediates) \
+		#define VALIDATE_STORE_OPCODE(name,naturalAlignmentLog2,valueTypeId) void name(LoadOrStoreImm imm) \
 			{ \
 				popAndValidateOperands(ValueType::i32,ValueType::valueTypeId); \
-				VALIDATE_UNLESS("store alignment greater than natural alignment: ",immediates.alignmentLog2>naturalAlignmentLog2); \
+				VALIDATE_UNLESS("store alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
 				VALIDATE_UNLESS(#name " in module without default memory: ",moduleContext.numMemories==0); \
 			}
 
@@ -354,12 +354,12 @@ namespace WebAssembly
 		VALIDATE_STORE_OPCODE(i64_store8,1,i64) VALIDATE_STORE_OPCODE(i64_store16,2,i64) VALIDATE_STORE_OPCODE(i64_store32,4,i64) VALIDATE_STORE_OPCODE(i64_store,8,i64)
 		VALIDATE_STORE_OPCODE(f32_store,4,f32) VALIDATE_STORE_OPCODE(f64_store,8,f64)
 
-		#define VALIDATE_BINARY_OPCODE(name,operandTypeId,resultTypeId) void name(NoImmediates) \
+		#define VALIDATE_BINARY_OPCODE(name,operandTypeId,resultTypeId) void name(NoImm) \
 			{ \
 				popAndValidateOperands(ValueType::operandTypeId,ValueType::operandTypeId); \
 				push(ValueType::resultTypeId); \
 			}
-		#define VALIDATE_UNARY_OPCODE(name,operandTypeId,resultTypeId) void name(NoImmediates) \
+		#define VALIDATE_UNARY_OPCODE(name,operandTypeId,resultTypeId) void name(NoImm) \
 			{ \
 				popAndValidateOperand(ValueType::operandTypeId); \
 				push(ValueType::resultTypeId); \

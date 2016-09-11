@@ -11,11 +11,11 @@ namespace WebAssembly
 	struct OperatorLoggingProxy
 	{
 		OperatorLoggingProxy(const Module& inModule,InnerVisitor& inInnerVisitor): module(inModule), innerVisitor(inInnerVisitor) {}
-		#define VISIT_OPCODE(encoding,name,Immediates) \
-			void name(Immediates immediates) \
+		#define VISIT_OPCODE(encoding,name,Imm) \
+			void name(Imm imm) \
 			{ \
-				innerVisitor.logOperator(#name + describeImmediates(immediates)); \
-				innerVisitor.name(immediates); \
+				innerVisitor.logOperator(#name + describeImm(imm)); \
+				innerVisitor.name(imm); \
 			}
 		ENUM_OPCODES(VISIT_OPCODE)
 		VISIT_OPCODE(_,unknown,Opcode)
@@ -24,11 +24,11 @@ namespace WebAssembly
 		const Module& module;
 		InnerVisitor& innerVisitor;
 
-		std::string describeImmediates(Opcode opcode) { return std::to_string((uintptr)opcode); }
-		std::string describeImmediates(NoImmediates) { return ""; }
-		std::string describeImmediates(ControlStructureImmediates imm) { return std::string(" : ") + getTypeName(imm.resultType); }
-		std::string describeImmediates(BranchImmediates imm) { return " " + std::to_string(imm.targetDepth); }
-		std::string describeImmediates(BranchTableImmediates imm)
+		std::string describeImm(Opcode opcode) { return std::to_string((uintptr)opcode); }
+		std::string describeImm(NoImm) { return ""; }
+		std::string describeImm(ControlStructureImm imm) { return std::string(" : ") + getTypeName(imm.resultType); }
+		std::string describeImm(BranchImm imm) { return " " + std::to_string(imm.targetDepth); }
+		std::string describeImm(BranchTableImm imm)
 		{
 			std::string result = " " + std::to_string(imm.defaultTargetDepth);
 			const char* prefix = " [";
@@ -37,11 +37,11 @@ namespace WebAssembly
 			return result;
 		}
 		template<typename NativeValue>
-		std::string describeImmediates(LiteralImmediates<NativeValue> imm) { return " " + std::to_string(imm.value); }
-		std::string describeImmediates(GetOrSetVariableImmediates imm) { return " " + std::to_string(imm.variableIndex); }
-		std::string describeImmediates(CallImmediates imm) { return " " + std::to_string(imm.functionIndex); }
-		std::string describeImmediates(CallIndirectImmediates imm) { return " " + getTypeName(module.types[imm.typeIndex]); }
-		std::string describeImmediates(LoadOrStoreImmediates imm) { return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset); }
-		std::string describeImmediates(ErrorImmediates imm) { return " " + imm.message; }
+		std::string describeImm(LiteralImm<NativeValue> imm) { return " " + std::to_string(imm.value); }
+		std::string describeImm(GetOrSetVariableImm imm) { return " " + std::to_string(imm.variableIndex); }
+		std::string describeImm(CallImm imm) { return " " + std::to_string(imm.functionIndex); }
+		std::string describeImm(CallIndirectImm imm) { return " " + getTypeName(module.types[imm.typeIndex]); }
+		std::string describeImm(LoadOrStoreImm imm) { return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset); }
+		std::string describeImm(ErrorImm imm) { return " " + imm.message; }
 	};
 }

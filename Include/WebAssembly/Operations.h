@@ -9,215 +9,215 @@ namespace WebAssembly
 	using namespace Serialization;
 
 	#define ENUM_CONTROL_OPCODES(visit) \
-		visit(0x00,nop,NoImmediates) \
-		visit(0x01,beginBlock,ControlStructureImmediates) \
-		visit(0x02,beginLoop,ControlStructureImmediates) \
-		visit(0x03,beginIf,NoImmediates) \
-		visit(0x04,beginIfElse,ControlStructureImmediates) \
-		visit(0x05,select,NoImmediates) \
-		visit(0x06,br,BranchImmediates) \
-		visit(0x07,br_if,BranchImmediates) \
-		visit(0x08,br_table,BranchTableImmediates) \
-		visit(0x09,ret,NoImmediates) \
-		visit(0x0a,unreachable,NoImmediates) \
-		visit(0x0b,drop,NoImmediates) \
-		visit(0x0f,end,NoImmediates) \
-		visit(0x16,call,CallImmediates) \
-		visit(0x17,call_indirect,CallIndirectImmediates)
+		visit(0x00,nop,NoImm) \
+		visit(0x01,beginBlock,ControlStructureImm) \
+		visit(0x02,beginLoop,ControlStructureImm) \
+		visit(0x03,beginIf,NoImm) \
+		visit(0x04,beginIfElse,ControlStructureImm) \
+		visit(0x05,select,NoImm) \
+		visit(0x06,br,BranchImm) \
+		visit(0x07,br_if,BranchImm) \
+		visit(0x08,br_table,BranchTableImm) \
+		visit(0x09,ret,NoImm) \
+		visit(0x0a,unreachable,NoImm) \
+		visit(0x0b,drop,NoImm) \
+		visit(0x0f,end,NoImm) \
+		visit(0x16,call,CallImm) \
+		visit(0x17,call_indirect,CallIndirectImm)
 
 	#define ENUM_LOAD_OPCODES(visit) \
-		visit(0x20,i32_load8_s,LoadOrStoreImmediates) \
-		visit(0x21,i32_load8_u,LoadOrStoreImmediates) \
-		visit(0x22,i32_load16_s,LoadOrStoreImmediates) \
-		visit(0x23,i32_load16_u,LoadOrStoreImmediates) \
-		visit(0x24,i64_load8_s,LoadOrStoreImmediates) \
-		visit(0x25,i64_load8_u,LoadOrStoreImmediates) \
-		visit(0x26,i64_load16_s,LoadOrStoreImmediates) \
-		visit(0x27,i64_load16_u,LoadOrStoreImmediates) \
-		visit(0x28,i64_load32_s,LoadOrStoreImmediates) \
-		visit(0x29,i64_load32_u,LoadOrStoreImmediates) \
-		visit(0x2a,i32_load,LoadOrStoreImmediates) \
-		visit(0x2b,i64_load,LoadOrStoreImmediates) \
-		visit(0x2c,f32_load,LoadOrStoreImmediates) \
-		visit(0x2d,f64_load,LoadOrStoreImmediates)
+		visit(0x20,i32_load8_s,LoadOrStoreImm) \
+		visit(0x21,i32_load8_u,LoadOrStoreImm) \
+		visit(0x22,i32_load16_s,LoadOrStoreImm) \
+		visit(0x23,i32_load16_u,LoadOrStoreImm) \
+		visit(0x24,i64_load8_s,LoadOrStoreImm) \
+		visit(0x25,i64_load8_u,LoadOrStoreImm) \
+		visit(0x26,i64_load16_s,LoadOrStoreImm) \
+		visit(0x27,i64_load16_u,LoadOrStoreImm) \
+		visit(0x28,i64_load32_s,LoadOrStoreImm) \
+		visit(0x29,i64_load32_u,LoadOrStoreImm) \
+		visit(0x2a,i32_load,LoadOrStoreImm) \
+		visit(0x2b,i64_load,LoadOrStoreImm) \
+		visit(0x2c,f32_load,LoadOrStoreImm) \
+		visit(0x2d,f64_load,LoadOrStoreImm)
 
 	#define ENUM_STORE_OPCODES(visit) \
-		visit(0x2e,i32_store8,LoadOrStoreImmediates) \
-		visit(0x2f,i32_store16,LoadOrStoreImmediates) \
-		visit(0x30,i64_store8,LoadOrStoreImmediates) \
-		visit(0x31,i64_store16,LoadOrStoreImmediates) \
-		visit(0x32,i64_store32,LoadOrStoreImmediates) \
-		visit(0x33,i32_store,LoadOrStoreImmediates) \
-		visit(0x34,i64_store,LoadOrStoreImmediates) \
-		visit(0x35,f32_store,LoadOrStoreImmediates) \
-		visit(0x36,f64_store,LoadOrStoreImmediates)
+		visit(0x2e,i32_store8,LoadOrStoreImm) \
+		visit(0x2f,i32_store16,LoadOrStoreImm) \
+		visit(0x30,i64_store8,LoadOrStoreImm) \
+		visit(0x31,i64_store16,LoadOrStoreImm) \
+		visit(0x32,i64_store32,LoadOrStoreImm) \
+		visit(0x33,i32_store,LoadOrStoreImm) \
+		visit(0x34,i64_store,LoadOrStoreImm) \
+		visit(0x35,f32_store,LoadOrStoreImm) \
+		visit(0x36,f64_store,LoadOrStoreImm)
 
 	#define ENUM_LITERAL_OPCODES(visit) \
-		visit(0x10,i32_const,LiteralImmediates<int32>) \
-		visit(0x11,i64_const,LiteralImmediates<int64>) \
-		visit(0x12,f64_const,LiteralImmediates<float64>) \
-		visit(0x13,f32_const,LiteralImmediates<float32>)
+		visit(0x10,i32_const,LiteralImm<int32>) \
+		visit(0x11,i64_const,LiteralImm<int64>) \
+		visit(0x12,f64_const,LiteralImm<float64>) \
+		visit(0x13,f32_const,LiteralImm<float32>)
 
 	#define ENUM_VARIABLE_OPCODES(visit) \
-		visit(0x14,get_local,GetOrSetVariableImmediates) \
-		visit(0x15,set_local,GetOrSetVariableImmediates) \
-		visit(0x19,tee_local,GetOrSetVariableImmediates) \
-		visit(0x1a,get_global,GetOrSetVariableImmediates) \
-		visit(0x1b,set_global,GetOrSetVariableImmediates)
+		visit(0x14,get_local,GetOrSetVariableImm) \
+		visit(0x15,set_local,GetOrSetVariableImm) \
+		visit(0x19,tee_local,GetOrSetVariableImm) \
+		visit(0x1a,get_global,GetOrSetVariableImm) \
+		visit(0x1b,set_global,GetOrSetVariableImm)
 
 	#define ENUM_I32_BINARY_OPCODES(visit) \
-		visit(0x40,i32_add,NoImmediates) \
-		visit(0x41,i32_sub,NoImmediates) \
-		visit(0x42,i32_mul,NoImmediates) \
-		visit(0x43,i32_div_s,NoImmediates) \
-		visit(0x44,i32_div_u,NoImmediates) \
-		visit(0x45,i32_rem_s,NoImmediates) \
-		visit(0x46,i32_rem_u,NoImmediates) \
-		visit(0x47,i32_and,NoImmediates) \
-		visit(0x48,i32_or,NoImmediates) \
-		visit(0x49,i32_xor,NoImmediates) \
-		visit(0x4a,i32_shl,NoImmediates) \
-		visit(0x4b,i32_shr_u,NoImmediates) \
-		visit(0x4c,i32_shr_s,NoImmediates) \
-		visit(0xb6,i32_rotr,NoImmediates) \
-		visit(0xb7,i32_rotl,NoImmediates) \
+		visit(0x40,i32_add,NoImm) \
+		visit(0x41,i32_sub,NoImm) \
+		visit(0x42,i32_mul,NoImm) \
+		visit(0x43,i32_div_s,NoImm) \
+		visit(0x44,i32_div_u,NoImm) \
+		visit(0x45,i32_rem_s,NoImm) \
+		visit(0x46,i32_rem_u,NoImm) \
+		visit(0x47,i32_and,NoImm) \
+		visit(0x48,i32_or,NoImm) \
+		visit(0x49,i32_xor,NoImm) \
+		visit(0x4a,i32_shl,NoImm) \
+		visit(0x4b,i32_shr_u,NoImm) \
+		visit(0x4c,i32_shr_s,NoImm) \
+		visit(0xb6,i32_rotr,NoImm) \
+		visit(0xb7,i32_rotl,NoImm) \
 
 	#define ENUM_I32_COMPARE_OPCODES(visit) \
-		visit(0x4d,i32_eq,NoImmediates) \
-		visit(0x4e,i32_ne,NoImmediates) \
-		visit(0x4f,i32_lt_s,NoImmediates) \
-		visit(0x50,i32_le_s,NoImmediates) \
-		visit(0x51,i32_lt_u,NoImmediates) \
-		visit(0x52,i32_le_u,NoImmediates) \
-		visit(0x53,i32_gt_s,NoImmediates) \
-		visit(0x54,i32_ge_s,NoImmediates) \
-		visit(0x55,i32_gt_u,NoImmediates) \
-		visit(0x56,i32_ge_u,NoImmediates)
+		visit(0x4d,i32_eq,NoImm) \
+		visit(0x4e,i32_ne,NoImm) \
+		visit(0x4f,i32_lt_s,NoImm) \
+		visit(0x50,i32_le_s,NoImm) \
+		visit(0x51,i32_lt_u,NoImm) \
+		visit(0x52,i32_le_u,NoImm) \
+		visit(0x53,i32_gt_s,NoImm) \
+		visit(0x54,i32_ge_s,NoImm) \
+		visit(0x55,i32_gt_u,NoImm) \
+		visit(0x56,i32_ge_u,NoImm)
 
 	#define ENUM_I32_UNARY_OPCODES(visit) \
-		visit(0x57,i32_clz,NoImmediates) \
-		visit(0x58,i32_ctz,NoImmediates) \
-		visit(0x59,i32_popcnt,NoImmediates)
+		visit(0x57,i32_clz,NoImm) \
+		visit(0x58,i32_ctz,NoImm) \
+		visit(0x59,i32_popcnt,NoImm)
 
 	#define ENUM_I64_BINARY_OPCODES(visit) \
-		visit(0x5b,i64_add,NoImmediates) \
-		visit(0x5c,i64_sub,NoImmediates) \
-		visit(0x5d,i64_mul,NoImmediates) \
-		visit(0x5e,i64_div_s,NoImmediates) \
-		visit(0x5f,i64_div_u,NoImmediates) \
-		visit(0x60,i64_rem_s,NoImmediates) \
-		visit(0x61,i64_rem_u,NoImmediates) \
-		visit(0x62,i64_and,NoImmediates) \
-		visit(0x63,i64_or,NoImmediates) \
-		visit(0x64,i64_xor,NoImmediates) \
-		visit(0x65,i64_shl,NoImmediates) \
-		visit(0x66,i64_shr_u,NoImmediates) \
-		visit(0x67,i64_shr_s,NoImmediates) \
-		visit(0xb8,i64_rotr,NoImmediates) \
-		visit(0xb9,i64_rotl,NoImmediates)
+		visit(0x5b,i64_add,NoImm) \
+		visit(0x5c,i64_sub,NoImm) \
+		visit(0x5d,i64_mul,NoImm) \
+		visit(0x5e,i64_div_s,NoImm) \
+		visit(0x5f,i64_div_u,NoImm) \
+		visit(0x60,i64_rem_s,NoImm) \
+		visit(0x61,i64_rem_u,NoImm) \
+		visit(0x62,i64_and,NoImm) \
+		visit(0x63,i64_or,NoImm) \
+		visit(0x64,i64_xor,NoImm) \
+		visit(0x65,i64_shl,NoImm) \
+		visit(0x66,i64_shr_u,NoImm) \
+		visit(0x67,i64_shr_s,NoImm) \
+		visit(0xb8,i64_rotr,NoImm) \
+		visit(0xb9,i64_rotl,NoImm)
 
 	#define ENUM_I64_COMPARE_OPCODES(visit) \
-		visit(0x68,i64_eq,NoImmediates) \
-		visit(0x69,i64_ne,NoImmediates) \
-		visit(0x6a,i64_lt_s,NoImmediates) \
-		visit(0x6b,i64_le_s,NoImmediates) \
-		visit(0x6c,i64_lt_u,NoImmediates) \
-		visit(0x6d,i64_le_u,NoImmediates) \
-		visit(0x6e,i64_gt_s,NoImmediates) \
-		visit(0x6f,i64_ge_s,NoImmediates) \
-		visit(0x70,i64_gt_u,NoImmediates) \
-		visit(0x71,i64_ge_u,NoImmediates)
+		visit(0x68,i64_eq,NoImm) \
+		visit(0x69,i64_ne,NoImm) \
+		visit(0x6a,i64_lt_s,NoImm) \
+		visit(0x6b,i64_le_s,NoImm) \
+		visit(0x6c,i64_lt_u,NoImm) \
+		visit(0x6d,i64_le_u,NoImm) \
+		visit(0x6e,i64_gt_s,NoImm) \
+		visit(0x6f,i64_ge_s,NoImm) \
+		visit(0x70,i64_gt_u,NoImm) \
+		visit(0x71,i64_ge_u,NoImm)
 
 	#define ENUM_I64_UNARY_OPCODES(visit) \
-		visit(0x72,i64_clz,NoImmediates) \
-		visit(0x73,i64_ctz,NoImmediates) \
-		visit(0x74,i64_popcnt,NoImmediates)
+		visit(0x72,i64_clz,NoImm) \
+		visit(0x73,i64_ctz,NoImm) \
+		visit(0x74,i64_popcnt,NoImm)
 
 	#define ENUM_F32_BINARY_OPCODES(visit) \
-		visit(0x75,f32_add,NoImmediates) \
-		visit(0x76,f32_sub,NoImmediates) \
-		visit(0x77,f32_mul,NoImmediates) \
-		visit(0x78,f32_div,NoImmediates) \
-		visit(0x79,f32_min,NoImmediates) \
-		visit(0x7a,f32_max,NoImmediates)
+		visit(0x75,f32_add,NoImm) \
+		visit(0x76,f32_sub,NoImm) \
+		visit(0x77,f32_mul,NoImm) \
+		visit(0x78,f32_div,NoImm) \
+		visit(0x79,f32_min,NoImm) \
+		visit(0x7a,f32_max,NoImm)
 
 	#define ENUM_F32_UNARY_OPCODES(visit) \
-		visit(0x7b,f32_abs,NoImmediates) \
-		visit(0x7c,f32_neg,NoImmediates) \
-		visit(0x7d,f32_copysign,NoImmediates) \
-		visit(0x7e,f32_ceil,NoImmediates) \
-		visit(0x7f,f32_floor,NoImmediates) \
-		visit(0x80,f32_trunc,NoImmediates) \
-		visit(0x81,f32_nearest,NoImmediates) \
-		visit(0x82,f32_sqrt,NoImmediates)
+		visit(0x7b,f32_abs,NoImm) \
+		visit(0x7c,f32_neg,NoImm) \
+		visit(0x7d,f32_copysign,NoImm) \
+		visit(0x7e,f32_ceil,NoImm) \
+		visit(0x7f,f32_floor,NoImm) \
+		visit(0x80,f32_trunc,NoImm) \
+		visit(0x81,f32_nearest,NoImm) \
+		visit(0x82,f32_sqrt,NoImm)
 
 	#define ENUM_F32_COMPARE_OPCODES(visit) \
-		visit(0x83,f32_eq,NoImmediates) \
-		visit(0x84,f32_ne,NoImmediates) \
-		visit(0x85,f32_lt,NoImmediates) \
-		visit(0x86,f32_le,NoImmediates) \
-		visit(0x87,f32_gt,NoImmediates) \
-		visit(0x88,f32_ge,NoImmediates)
+		visit(0x83,f32_eq,NoImm) \
+		visit(0x84,f32_ne,NoImm) \
+		visit(0x85,f32_lt,NoImm) \
+		visit(0x86,f32_le,NoImm) \
+		visit(0x87,f32_gt,NoImm) \
+		visit(0x88,f32_ge,NoImm)
 
 	#define ENUM_F64_BINARY_OPCODES(visit) \
-		visit(0x89,f64_add,NoImmediates) \
-		visit(0x8a,f64_sub,NoImmediates) \
-		visit(0x8b,f64_mul,NoImmediates) \
-		visit(0x8c,f64_div,NoImmediates) \
-		visit(0x8d,f64_min,NoImmediates) \
-		visit(0x8e,f64_max,NoImmediates)
+		visit(0x89,f64_add,NoImm) \
+		visit(0x8a,f64_sub,NoImm) \
+		visit(0x8b,f64_mul,NoImm) \
+		visit(0x8c,f64_div,NoImm) \
+		visit(0x8d,f64_min,NoImm) \
+		visit(0x8e,f64_max,NoImm)
 
 	#define ENUM_F64_UNARY_OPCODES(visit) \
-		visit(0x8f,f64_abs,NoImmediates) \
-		visit(0x90,f64_neg,NoImmediates) \
-		visit(0x91,f64_copysign,NoImmediates) \
-		visit(0x92,f64_ceil,NoImmediates) \
-		visit(0x93,f64_floor,NoImmediates) \
-		visit(0x94,f64_trunc,NoImmediates) \
-		visit(0x95,f64_nearest,NoImmediates) \
-		visit(0x96,f64_sqrt,NoImmediates)
+		visit(0x8f,f64_abs,NoImm) \
+		visit(0x90,f64_neg,NoImm) \
+		visit(0x91,f64_copysign,NoImm) \
+		visit(0x92,f64_ceil,NoImm) \
+		visit(0x93,f64_floor,NoImm) \
+		visit(0x94,f64_trunc,NoImm) \
+		visit(0x95,f64_nearest,NoImm) \
+		visit(0x96,f64_sqrt,NoImm)
 
 	#define ENUM_F64_COMPARE_OPCODES(visit) \
-		visit(0x97,f64_eq,NoImmediates) \
-		visit(0x98,f64_ne,NoImmediates) \
-		visit(0x99,f64_lt,NoImmediates) \
-		visit(0x9a,f64_le,NoImmediates) \
-		visit(0x9b,f64_gt,NoImmediates) \
-		visit(0x9c,f64_ge,NoImmediates)
+		visit(0x97,f64_eq,NoImm) \
+		visit(0x98,f64_ne,NoImm) \
+		visit(0x99,f64_lt,NoImm) \
+		visit(0x9a,f64_le,NoImm) \
+		visit(0x9b,f64_gt,NoImm) \
+		visit(0x9c,f64_ge,NoImm)
 
 	#define ENUM_CONVERSION_OPCODES(visit) \
-		visit(0x9d,i32_trunc_s_f32,NoImmediates) \
-		visit(0x9e,i32_trunc_s_f64,NoImmediates) \
-		visit(0x9f,i32_trunc_u_f32,NoImmediates) \
-		visit(0xa0,i32_trunc_u_f64,NoImmediates) \
-		visit(0xa1,i32_wrap_i64,NoImmediates) \
-		visit(0xa2,i64_trunc_s_f32,NoImmediates) \
-		visit(0xa3,i64_trunc_s_f64,NoImmediates) \
-		visit(0xa4,i64_trunc_u_f32,NoImmediates) \
-		visit(0xa5,i64_trunc_u_f64,NoImmediates) \
-		visit(0xa6,i64_extend_s_i32,NoImmediates) \
-		visit(0xa7,i64_extend_u_i32,NoImmediates) \
-		visit(0xa8,f32_convert_s_i32,NoImmediates) \
-		visit(0xa9,f32_convert_u_i32,NoImmediates) \
-		visit(0xaa,f32_convert_s_i64,NoImmediates) \
-		visit(0xab,f32_convert_u_i64,NoImmediates) \
-		visit(0xac,f32_demote_f64,NoImmediates) \
-		visit(0xad,f32_reinterpret_i32,NoImmediates) \
-		visit(0xae,f64_convert_s_i32,NoImmediates) \
-		visit(0xaf,f64_convert_u_i32,NoImmediates) \
-		visit(0xb0,f64_convert_s_i64,NoImmediates) \
-		visit(0xb1,f64_convert_u_i64,NoImmediates) \
-		visit(0xb2,f64_promote_f32,NoImmediates) \
-		visit(0xb3,f64_reinterpret_i64,NoImmediates) \
-		visit(0xb4,i32_reinterpret_f32,NoImmediates) \
-		visit(0xb5,i64_reinterpret_f64,NoImmediates)
+		visit(0x9d,i32_trunc_s_f32,NoImm) \
+		visit(0x9e,i32_trunc_s_f64,NoImm) \
+		visit(0x9f,i32_trunc_u_f32,NoImm) \
+		visit(0xa0,i32_trunc_u_f64,NoImm) \
+		visit(0xa1,i32_wrap_i64,NoImm) \
+		visit(0xa2,i64_trunc_s_f32,NoImm) \
+		visit(0xa3,i64_trunc_s_f64,NoImm) \
+		visit(0xa4,i64_trunc_u_f32,NoImm) \
+		visit(0xa5,i64_trunc_u_f64,NoImm) \
+		visit(0xa6,i64_extend_s_i32,NoImm) \
+		visit(0xa7,i64_extend_u_i32,NoImm) \
+		visit(0xa8,f32_convert_s_i32,NoImm) \
+		visit(0xa9,f32_convert_u_i32,NoImm) \
+		visit(0xaa,f32_convert_s_i64,NoImm) \
+		visit(0xab,f32_convert_u_i64,NoImm) \
+		visit(0xac,f32_demote_f64,NoImm) \
+		visit(0xad,f32_reinterpret_i32,NoImm) \
+		visit(0xae,f64_convert_s_i32,NoImm) \
+		visit(0xaf,f64_convert_u_i32,NoImm) \
+		visit(0xb0,f64_convert_s_i64,NoImm) \
+		visit(0xb1,f64_convert_u_i64,NoImm) \
+		visit(0xb2,f64_promote_f32,NoImm) \
+		visit(0xb3,f64_reinterpret_i64,NoImm) \
+		visit(0xb4,i32_reinterpret_f32,NoImm) \
+		visit(0xb5,i64_reinterpret_f64,NoImm)
 
 	#define ENUM_MISC_OPCODES(visit) \
-		visit(0x5a,i32_eqz,NoImmediates) \
-		visit(0xba,i64_eqz,NoImmediates) \
-		visit(0x39,grow_memory,NoImmediates) \
-		visit(0x3b,current_memory,NoImmediates) \
-		visit(0xff,error,ErrorImmediates)
+		visit(0x5a,i32_eqz,NoImm) \
+		visit(0xba,i64_eqz,NoImm) \
+		visit(0x39,grow_memory,NoImm) \
+		visit(0x3b,current_memory,NoImm) \
+		visit(0xff,error,ErrorImm)
 
 	#define ENUM_OPCODES(visit) \
 		ENUM_CONTROL_OPCODES(visit) \
@@ -233,7 +233,7 @@ namespace WebAssembly
 
 	enum class Opcode : uint8
 	{
-		#define VISIT_OPCODE(encoding,name,immediates) name = encoding,
+		#define VISIT_OPCODE(encoding,name,imm) name = encoding,
 		ENUM_OPCODES(VISIT_OPCODE)
 		#undef VISIT_OPCODE
 	};
@@ -241,116 +241,116 @@ namespace WebAssembly
 	template<typename Stream>
 	void serialize(Stream& stream,Opcode& opcode) { return Serialization::serializeNativeValue(stream,*(uint8*)&opcode); }
 
-	struct NoImmediates
+	struct NoImm
 	{
 		template<typename Stream>
-		friend void serialize(Stream& stream,NoImmediates&) {}
+		friend void serialize(Stream& stream,NoImm&) {}
 	};
 
-	struct ControlStructureImmediates
+	struct ControlStructureImm
 	{
 		ResultType resultType;
 		
 		template<typename Stream>
-		friend void serialize(Stream& stream,ControlStructureImmediates& controlStructureOp)
+		friend void serialize(Stream& stream,ControlStructureImm& imm)
 		{
-			serializeNativeValue(stream,controlStructureOp.resultType);
+			serializeNativeValue(stream,imm.resultType);
 		}
 	};
 
-	struct BranchImmediates
+	struct BranchImm
 	{
 		uintptr targetDepth;
 
 		template<typename Stream>
-		friend void serialize(Stream& stream,BranchImmediates& branchOp)
+		friend void serialize(Stream& stream,BranchImm& imm)
 		{
-			serializeVarUInt32(stream,branchOp.targetDepth);
+			serializeVarUInt32(stream,imm.targetDepth);
 		}
 	};
 
-	struct BranchTableImmediates
+	struct BranchTableImm
 	{
 		uintptr defaultTargetDepth;
 		std::vector<uintptr> targetDepths;
 		
 		template<typename Stream>
-		friend void serialize(Stream& stream,BranchTableImmediates& branchTableOp)
+		friend void serialize(Stream& stream,BranchTableImm& imm)
 		{
-			serializeVarUInt32(stream,branchTableOp.defaultTargetDepth);
-			serializeArray(stream,branchTableOp.targetDepths,[](Stream& stream,uintptr& targetDepth){serializeVarUInt32(stream,targetDepth);});
+			serializeVarUInt32(stream,imm.defaultTargetDepth);
+			serializeArray(stream,imm.targetDepths,[](Stream& stream,uintptr& targetDepth){serializeVarUInt32(stream,targetDepth);});
 		}
 	};
 
 	template<typename Value>
-	struct LiteralImmediates
+	struct LiteralImm
 	{
 		Value value;
 	};
 	
 	template<typename Stream,typename Value>
-	void serialize(Stream& stream,LiteralImmediates<Value>& literalOp)
-	{ serialize(stream,literalOp.value); }
+	void serialize(Stream& stream,LiteralImm<Value>& imm)
+	{ serialize(stream,imm.value); }
 		
 	template<typename Stream>
-	void serialize(Stream& stream,LiteralImmediates<int32>& literalOp)
-	{ serializeVarInt32(stream,literalOp.value); }
+	void serialize(Stream& stream,LiteralImm<int32>& imm)
+	{ serializeVarInt32(stream,imm.value); }
 	
 	template<typename Stream>
-	void serialize(Stream& stream,LiteralImmediates<int64>& literalOp)
-	{ serializeVarInt64(stream,literalOp.value); }
+	void serialize(Stream& stream,LiteralImm<int64>& imm)
+	{ serializeVarInt64(stream,imm.value); }
 
-	struct GetOrSetVariableImmediates
+	struct GetOrSetVariableImm
 	{
 		uintptr variableIndex;
 		
 		template<typename Stream>
-		friend void serialize(Stream& stream,GetOrSetVariableImmediates& getOrSetLocalOp)
-		{ serializeVarUInt32(stream,getOrSetLocalOp.variableIndex); }		
+		friend void serialize(Stream& stream,GetOrSetVariableImm& imm)
+		{ serializeVarUInt32(stream,imm.variableIndex); }		
 	};
 
-	struct CallImmediates
+	struct CallImm
 	{
 		uintptr functionIndex;
 
 		template<typename Stream>
-		friend void serialize(Stream& stream,CallImmediates& callOp)
+		friend void serialize(Stream& stream,CallImm& imm)
 		{
-			serializeVarUInt32(stream,callOp.functionIndex);
+			serializeVarUInt32(stream,imm.functionIndex);
 		}
 	};
 
-	struct CallIndirectImmediates
+	struct CallIndirectImm
 	{
 		uintptr typeIndex;
 		
 		template<typename Stream>
-		friend void serialize(Stream& stream,CallIndirectImmediates& callIndirectOp)
+		friend void serialize(Stream& stream,CallIndirectImm& imm)
 		{
-			serializeVarUInt32(stream,callIndirectOp.typeIndex);
+			serializeVarUInt32(stream,imm.typeIndex);
 		}
 	};
 
-	struct LoadOrStoreImmediates
+	struct LoadOrStoreImm
 	{
 		uint32 offset;
 		uint8 alignmentLog2;
 		
 		template<typename Stream>
-		friend void serialize(Stream& stream,LoadOrStoreImmediates& loadOrStoreOp)
+		friend void serialize(Stream& stream,LoadOrStoreImm& imm)
 		{
-			serializeVarUInt7(stream,loadOrStoreOp.alignmentLog2);
-			serializeVarUInt32(stream,loadOrStoreOp.offset);
+			serializeVarUInt7(stream,imm.alignmentLog2);
+			serializeVarUInt32(stream,imm.offset);
 		}
 	};
 
-	struct ErrorImmediates
+	struct ErrorImm
 	{
 		std::string message;
 		
 		template<typename Stream>
-		friend void serialize(Stream& stream,ErrorImmediates& errorOp)
-		{ serialize(stream,errorOp.message); }
+		friend void serialize(Stream& stream,ErrorImm& imm)
+		{ serialize(stream,imm.message); }
 	};
 
 	struct OperationDecoder
@@ -366,12 +366,12 @@ namespace WebAssembly
 			serializeNativeValue(stream,opcode);
 			switch(opcode)
 			{
-			#define VISIT_OPCODE(encoding,name,Immediates) \
+			#define VISIT_OPCODE(encoding,name,Imm) \
 				case Opcode::name: \
 				{ \
-					Immediates immediates; \
-					serialize(stream,immediates); \
-					return visitor.name(immediates); \
+					Imm imm; \
+					serialize(stream,imm); \
+					return visitor.name(imm); \
 				}
 			ENUM_OPCODES(VISIT_OPCODE)
 			#undef VISIT_OPCODE
@@ -391,14 +391,14 @@ namespace WebAssembly
 
 		OperationEncoder(Serialization::OutputStream& inStream): stream(inStream), unreachableDepth(0) {}
 
-		#define VISIT_OPCODE(encoding,name,Immediates) \
-			void name(Immediates immediates = {}) \
+		#define VISIT_OPCODE(encoding,name,Imm) \
+			void name(Imm imm = {}) \
 			{ \
 				if(!unreachableDepth) \
 				{ \
 					Opcode opcode = Opcode::name; \
 					serialize(stream,opcode); \
-					serialize(stream,immediates); \
+					serialize(stream,imm); \
 				} \
 			}
 		ENUM_OPCODES(VISIT_OPCODE)
