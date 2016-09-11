@@ -709,25 +709,6 @@
 ;; from br.wast
 ;;
 
-(assert_invalid (module
-  (func (result i32)
-    (block i32 (br_if 0 (i32.const 6) (br 0 (i32.const 9))) (i32.const 7))
-  )
-) "expecting () in block but found i32")
-
-(assert_invalid (module
-  (func (result i32)
-    (i32.add
-      (i32.const 1)
-      (block
-        (drop (i32.const 2))
-        (br_if 0 (i32.const 4) (br 0 (i32.const 8)))
-        (i32.const 16)
-      )
-    )
-  )
-) "expecting () in block but found i32")
-
 (assert_invalid (module (func $type-arg-num-vs-void
   (block (i32.const 0) (br 0))
 )) "type mismatch")
@@ -817,10 +798,6 @@
   )
 ) "expecting () in block but found i32")
 
-(assert_invalid (module (func (export "as-if-cond") (result i32)
-  (if (return (i32.const 2)) (i32.const 0) (i32.const 1))
-)) "type mismatch")
-
 ;;
 ;; from unreachable.wast
 ;;
@@ -829,10 +806,4 @@
   (func (export "as-br_if-value-cond") (result i32)
     (block (br_if 0 (i32.const 6) (unreachable)) (i32.const 7))
   )
-) "expecting () in block but found i32")
-
-(assert_invalid (module
-  (func (export "as-if-cond") (result i32)
-    (if (unreachable) (i32.const 0) (i32.const 1))
-  )
-) "expecting () in then but found i32")
+) "unexpected operand")

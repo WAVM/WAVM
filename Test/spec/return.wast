@@ -81,8 +81,7 @@
   )
 
   (func (export "as-if-cond") (result i32)
-    ;;(if (return (i32.const 2)) (i32.const 0) (i32.const 1))
-	(if i32 (return (i32.const 2)) (i32.const 0) (i32.const 1))
+    (if (return (i32.const 2)) (i32.const 0) (i32.const 1))
   )
   (func (export "as-if-then") (param i32 i32) (result i32)
     (if i32 (get_local 0) (return (i32.const 3)) (get_local 1))

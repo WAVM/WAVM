@@ -32,112 +32,44 @@ namespace WAST
 		unreachable
 	};
 	
-	ExpressionType asExpressionType(ValueType type)
+	static ExpressionType asExpressionType(ValueType type)
 	{
 		assert(type != ValueType::invalid && type <= ValueType::max);
 		return (ExpressionType)type;
 	}
 	
-	ExpressionType asExpressionType(ResultType type)
+	static ExpressionType asExpressionType(ResultType type)
 	{
+		assert(type <= ResultType::max);
 		return (ExpressionType)type;
 	}
 
+	static ResultType asResultType(ExpressionType type)
+	{
+		assert(type <= (ExpressionType)ResultType::max);
+		return (ResultType)type;
+	}
+	
+	static ExpressionType intersectTypes(ExpressionType a,ExpressionType b)
+	{
+		if(a == b) { return a; }
+		else { return ExpressionType::unreachable; }
+	}
+	
 	const char* getTypeName(ExpressionType type)
 	{
 		switch(type)
 		{
+		case ExpressionType::unit: return "()";
 		case ExpressionType::i32: return "i32";
 		case ExpressionType::i64: return "i64";
 		case ExpressionType::f32: return "f32";
 		case ExpressionType::f64: return "f64";
-		case ExpressionType::unit: return "()";
 		case ExpressionType::unreachable: return "unreachable";
 		default: throw;
 		};
 	}
 
-	enum class ExpressionTypeSet : uint8
-	{
-		unit = (uint8)ResultType::unit,
-		i32 = (uint8)ResultType::i32,
-		i64 = (uint8)ResultType::i64,
-		f32 = (uint8)ResultType::f32,
-		f64 = (uint8)ResultType::f64,
-		empty,
-		any,
-	};
-
-	ExpressionTypeSet asExpressionTypeSet(ExpressionType type)
-	{
-		assert(type != ExpressionType::unreachable);
-		return (ExpressionTypeSet)type;
-	}
-	
-	ExpressionTypeSet asExpressionTypeSet(ResultType type)
-	{
-		return (ExpressionTypeSet)type;
-	}
-
-	ResultType asResultType(ExpressionTypeSet set)
-	{
-		assert(set <= (ExpressionTypeSet)ResultType::max);
-		return (ResultType)set;
-	}
-
-	ResultType asResultType(ExpressionType type)
-	{
-		assert(type <= (ExpressionType)ResultType::max);
-		return (ResultType)type;
-	}
-
-	bool isMember(ExpressionTypeSet set,ExpressionType type)
-	{
-		return	type == ExpressionType::unreachable
-		||		(ExpressionTypeSet)type == set
-		||		(set == ExpressionTypeSet::any && type != ExpressionType::unit);
-	}
-
-	ExpressionType getSingularType(ExpressionTypeSet set)
-	{
-		if(set == ExpressionTypeSet::any) { return ExpressionType::unreachable; }
-		else { return (ExpressionType)set; }
-	}
-
-	const char* getTypeName(ExpressionTypeSet typeSet)
-	{
-		switch(typeSet)
-		{
-		case ExpressionTypeSet::unit: return "()";
-		case ExpressionTypeSet::empty: return "bot";
-		case ExpressionTypeSet::i32: return "i32";
-		case ExpressionTypeSet::i64: return "i64";
-		case ExpressionTypeSet::f32: return "f32";
-		case ExpressionTypeSet::f64: return "f64";
-		case ExpressionTypeSet::any: return "*";
-		default: throw;
-		};
-	}
-
-	ExpressionTypeSet intersectTypeSet(ExpressionTypeSet a,ExpressionTypeSet b)
-	{
-		if(a == ExpressionTypeSet::any) { return b; }
-		else if(b == ExpressionTypeSet::any) { return a; }
-		else if(a == ExpressionTypeSet::empty) { return a; }
-		else if(b == ExpressionTypeSet::empty) { return b; }
-		else if(a == b) { return a; }
-		else { return ExpressionTypeSet::empty; }
-	}
-
-	ExpressionTypeSet refineTypeSet(ExpressionTypeSet set,ExpressionType type)
-	{
-		// If this is the first branch to the target with a precisely known argument type, narrow the target's expected type.
-		if(set == ExpressionTypeSet::any && type != ExpressionType::unreachable)
-		{ set = intersectTypeSet(set,asExpressionTypeSet(type)); }
-
-		return set;
-	}
-	
 	// Parse a type from a S-expression node.
 	bool parseType(SNodeIt& nodeIt,ValueType& outType)
 	{
@@ -524,22 +456,27 @@ namespace WAST
 			branchTargets.push_back(BranchTarget(asExpressionType(functionType->ret)));
 		}
 
-		ExpressionType parseExpressionSequence(SNodeIt& nodeIt,const char* errorContext,ExpressionTypeSet expectedType)
+		void parseTypedExpressionSequence(SNodeIt& nodeIt,const char* errorContext,ExpressionType expectedType)
 		{
-			if(!nodeIt && expectedType == ExpressionTypeSet::unit) { return ExpressionType::unit; }
+			if(!nodeIt && expectedType == ExpressionType::unit) { return; }
 
 			while(true)
 			{
 				SNodeIt expressionNodeIt = nodeIt++;
-				if(!nodeIt) { return parseExpression(expressionNodeIt,errorContext,expectedType); }
-				else { parseExpression(expressionNodeIt,errorContext,ExpressionTypeSet::unit); }
+				if(!nodeIt) { parseTypedExpression(expressionNodeIt,errorContext,expectedType); break; }
+				else { parseTypedExpression(expressionNodeIt,errorContext,ExpressionType::unit); }
 			};
 		}
 
-		ExpressionType parseOptionalExpression(SNodeIt& nodeIt,const char* errorContext,ExpressionTypeSet expectedType)
+		void parseOptionalTypedExpression(SNodeIt& nodeIt,const char* errorContext,ExpressionType expectedType)
 		{
-			if(expectedType == ExpressionTypeSet::unit) { return ExpressionType::unit; }
-			else { return parseExpression(nodeIt++,errorContext,expectedType); }
+			if(expectedType != ExpressionType::unit) { parseTypedExpression(nodeIt++,errorContext,expectedType); }
+		}
+
+		void parseTypedExpression(SNodeIt nodeIt,const char* errorContext,ExpressionType expectedType)
+		{
+			const ExpressionType resultType = parseExpression(nodeIt,errorContext);
+			coerceResult(expectedType,resultType,nodeIt,errorContext);
 		}
 
 		std::vector<uint8>&& getCode()
@@ -602,7 +539,7 @@ namespace WAST
 		};
 
 		// Parses an expression of any type.
-		ExpressionType parseExpression(SNodeIt parentNodeIt,const char* errorContext,ExpressionTypeSet expectedType);
+		ExpressionType parseExpression(SNodeIt parentNodeIt,const char* errorContext);
 
 		void suppressUnreachableCode()
 		{
@@ -635,27 +572,29 @@ namespace WAST
 		void parseOperands(SNodeIt& nodeIt,const char* errorContext) { }
 
 		template<typename... OperandTypes>
-		void parseOperands(SNodeIt& nodeIt,const char* errorContext,ExpressionTypeSet operandType,OperandTypes... operandTypes)
+		void parseOperands(SNodeIt& nodeIt,const char* errorContext,ExpressionType operandType,OperandTypes... operandTypes)
 		{
-			parseExpression(nodeIt++,errorContext,operandType);
+			parseTypedExpression(nodeIt++,errorContext,operandType);
 			parseOperands(nodeIt,errorContext,operandTypes...);
 		}
 
 		// Record a type error.
-		ExpressionType typeError(ExpressionType type,ExpressionTypeSet expectedType,SNodeIt nodeIt,const char* errorContext)
+		void typeError(ExpressionType type,ExpressionType expectedType,SNodeIt nodeIt,const char* errorContext)
 		{
-			std::string message =
-				std::string("type error: expecting ") + getTypeName(expectedType)
-				+ " in " + errorContext
-				+ " but found " + getTypeName(type);
-			emitError(nodeIt,std::move(message));
-			return ExpressionType::unreachable;
+			// Ignore type errors in unreachable code.
+			if(!encoder.unreachableDepth)
+			{
+				std::string message =
+					std::string("type error: expecting ") + getTypeName(expectedType)
+					+ " in " + errorContext
+					+ " but found " + getTypeName(type);
+				emitError(nodeIt,std::move(message));
+			}
 		}
 
-		ExpressionType coerceResult(ExpressionTypeSet expectedType,ExpressionType type,SNodeIt nodeIt,const char* errorContext)
+		void coerceResult(ExpressionType expectedType,ExpressionType type,SNodeIt nodeIt,const char* errorContext)
 		{
-			if(isMember(expectedType,type)) { return type; }
-			else { return typeError(type,expectedType,nodeIt,errorContext); }
+			if(type != expectedType && type != ExpressionType::unreachable) { typeError(type,expectedType,nodeIt,errorContext); }
 		}
 
 		// Parses an offset attribute.
@@ -726,14 +665,14 @@ namespace WAST
 		}
 	};
 
-	void parseControlSignature(SNodeIt& nodeIt,ExpressionType& outResultType)
+	ExpressionType parseControlSignature(SNodeIt& nodeIt)
 	{
 		ValueType valueType;
-		if(!parseType(nodeIt,valueType)) { outResultType = ExpressionType::unit; }
-		else { outResultType = asExpressionType(valueType); }
+		if(!parseType(nodeIt,valueType)) { return ExpressionType::unit; }
+		else { return asExpressionType(valueType); }
 	}
 
-	ExpressionType FunctionContext::parseExpression(SNodeIt parentNodeIt,const char* errorContext,ExpressionTypeSet expectedType)
+	ExpressionType FunctionContext::parseExpression(SNodeIt parentNodeIt,const char* errorContext)
 	{
 		ExpressionType resultType = ExpressionType::unreachable;
 
@@ -759,7 +698,7 @@ namespace WAST
 				case Symbol::_##opcode:
 
 			DEFINE_OP(current_memory)	{ encoder.current_memory(); resultType = ExpressionType::i32; }
-			DEFINE_OP(grow_memory)		{ parseOperands(nodeIt,"grow_memory operand",ExpressionTypeSet::i32); encoder.grow_memory(); resultType = ExpressionType::i32; }
+			DEFINE_OP(grow_memory)		{ parseOperands(nodeIt,"grow_memory operand",ExpressionType::i32); encoder.grow_memory(); resultType = ExpressionType::i32; }
 
 			#define DEFINE_CONST_OP(type,parseLiteralFunc) \
 				DEFINE_OP(type##_const) \
@@ -779,7 +718,7 @@ namespace WAST
 					if(!moduleContext.memoryTypes.size()) { emitError(parentNodeIt,#type "." #opcode ": module does not have default memory"); break; } \
 					auto offset = parseOffsetAttribute(nodeIt); \
 					auto alignmentLog2 = parseAlignmentAttribute(nodeIt,numBytes); \
-					parseOperands(nodeIt,"load address operand",ExpressionTypeSet::i32); \
+					parseOperands(nodeIt,"load address operand",ExpressionType::i32); \
 					encoder.type##_##opcode({offset,alignmentLog2}); \
 					resultType = ExpressionType::type; \
 				}
@@ -788,7 +727,7 @@ namespace WAST
 					if(!moduleContext.memoryTypes.size()) { emitError(parentNodeIt,#type "." #opcode ": module does not have default memory"); break; } \
 					auto offset = parseOffsetAttribute(nodeIt); \
 					auto alignmentLog2 = parseAlignmentAttribute(nodeIt,numBytes); \
-					parseOperands(nodeIt,"store operands",ExpressionTypeSet::i32,ExpressionTypeSet::type); \
+					parseOperands(nodeIt,"store operands",ExpressionType::i32,ExpressionType::type); \
 					encoder.type##_##opcode({offset,alignmentLog2}); \
 					resultType = ExpressionType::unit; \
 				}
@@ -816,11 +755,11 @@ namespace WAST
 			DEFINE_MEMORY_OP(f64,8,load,store)
 
 			#define DEFINE_TYPED_UNARY_OP(type,opcode) DEFINE_OP(type##_##opcode) \
-				{ parseOperands(nodeIt,"unary operand"	,ExpressionTypeSet::type);					encoder.type##_##opcode(); resultType = ExpressionType::type; }
+				{ parseOperands(nodeIt,"unary operand"	,ExpressionType::type);					encoder.type##_##opcode(); resultType = ExpressionType::type; }
 			#define DEFINE_TYPED_BINARY_OP(type,opcode) DEFINE_OP(type##_##opcode) \
-				{ parseOperands(nodeIt,"binary operands"	,ExpressionTypeSet::type,ExpressionTypeSet::type);	encoder.type##_##opcode(); resultType = ExpressionType::type; }
+				{ parseOperands(nodeIt,"binary operands"	,ExpressionType::type,ExpressionType::type);	encoder.type##_##opcode(); resultType = ExpressionType::type; }
 			#define DEFINE_TYPED_COMPARE_OP(type,opcode) DEFINE_OP(type##_##opcode) \
-				{ parseOperands(nodeIt,"compare operands"	,ExpressionTypeSet::type,ExpressionTypeSet::type);	encoder.type##_##opcode(); resultType = ExpressionType::i32; }
+				{ parseOperands(nodeIt,"compare operands"	,ExpressionType::type,ExpressionType::type);	encoder.type##_##opcode(); resultType = ExpressionType::i32; }
 
 			#define DEFINE_INT_UNARY_OP(opcode) DEFINE_TYPED_UNARY_OP(i32,opcode) DEFINE_TYPED_UNARY_OP(i64,opcode)
 			#define DEFINE_FLOAT_UNARY_OP(opcode) DEFINE_TYPED_UNARY_OP(f32,opcode) DEFINE_TYPED_UNARY_OP(f64,opcode)
@@ -876,7 +815,7 @@ namespace WAST
 			DEFINE_FLOAT_COMPARE_OP(gt) DEFINE_FLOAT_COMPARE_OP(ge)
 	
 			#define DEFINE_CAST_OP(destType,sourceType,opcode) DEFINE_OP(destType##_##opcode##_##sourceType) \
-				{ parseOperands(nodeIt,"cast operand",ExpressionTypeSet::sourceType); encoder.destType##_##opcode##_##sourceType(); resultType = ExpressionType::destType; }
+				{ parseOperands(nodeIt,"cast operand",ExpressionType::sourceType); encoder.destType##_##opcode##_##sourceType(); resultType = ExpressionType::destType; }
 
 			DEFINE_CAST_OP(i32,i64,wrap)
 			DEFINE_CAST_OP(i64,i32,extend_s)
@@ -902,8 +841,8 @@ namespace WAST
 			DEFINE_CAST_OP(i64,f64,reinterpret)
 			DEFINE_CAST_OP(i32,f32,reinterpret)
 					
-			DEFINE_OP(i32_eqz) { parseOperands(nodeIt,"i32.eqz operand",ExpressionTypeSet::i32); encoder.i32_eqz(); resultType = ExpressionType::i32; }
-			DEFINE_OP(i64_eqz) { parseOperands(nodeIt,"i64.eqz operand",ExpressionTypeSet::i64); encoder.i64_eqz(); resultType = ExpressionType::i32; }
+			DEFINE_OP(i32_eqz) { parseOperands(nodeIt,"i32.eqz operand",ExpressionType::i32); encoder.i32_eqz(); resultType = ExpressionType::i32; }
+			DEFINE_OP(i64_eqz) { parseOperands(nodeIt,"i64.eqz operand",ExpressionType::i64); encoder.i64_eqz(); resultType = ExpressionType::i32; }
 			
 			DEFINE_OP(block)
 			{
@@ -912,7 +851,7 @@ namespace WAST
 				bool hasLabel = parseName(nodeIt,labelName);
 
 				// Parse an optional result type for the block.
-				parseControlSignature(nodeIt,resultType);
+				resultType = parseControlSignature(nodeIt);
 
 				// Write the block operator.
 				encoder.beginBlock({asResultType(resultType)});
@@ -920,7 +859,7 @@ namespace WAST
 				// Parse the block's body.
 				ScopedBranchTarget scopedBranchTarget(*this,resultType,hasLabel,labelName);
 				enterControlStructure();
-				parseExpressionSequence(nodeIt,"block",asExpressionTypeSet(resultType));
+				parseTypedExpressionSequence(nodeIt,"block",resultType);
 				endControlStructure();
 			}
 				
@@ -931,10 +870,10 @@ namespace WAST
 				bool hasLabel = parseName(nodeIt,labelName);
 				
 				// Parse an optional result type for the if.
-				parseControlSignature(nodeIt,resultType);
+				resultType = parseControlSignature(nodeIt);
 				
 				// Parse the condition.
-				parseOperands(nodeIt,"if condition",ExpressionTypeSet::i32);
+				parseOperands(nodeIt,"if condition",ExpressionType::i32);
 
 				// Wrap the whole if in a branch target.
 				ScopedBranchTarget scopedBranchTarget(*this,resultType,hasLabel,labelName);
@@ -955,8 +894,8 @@ namespace WAST
 				// Parse the then clause.
 				SNodeIt thenNodeIt;
 				if(parseTaggedNode(nodeIt,Symbol::_then,thenNodeIt))
-					{ parseExpressionSequence(thenNodeIt,"then",asExpressionTypeSet(resultType)); }
-				else	{ parseExpression(nodeIt,"then",asExpressionTypeSet(resultType)); }
+					{ parseTypedExpressionSequence(thenNodeIt,"then",resultType); }
+				else	{ parseTypedExpression(nodeIt,"then",resultType); }
 				++nodeIt;
 
 				// Parse the else clause.
@@ -967,8 +906,8 @@ namespace WAST
 
 					SNodeIt elseNodeIt;
 					if(parseTaggedNode(nodeIt,Symbol::_else,elseNodeIt))
-						{ parseExpressionSequence(elseNodeIt,"else",asExpressionTypeSet(resultType)); }
-					else	{ parseExpression(nodeIt++,"else",asExpressionTypeSet(resultType)); }
+						{ parseTypedExpressionSequence(elseNodeIt,"else",resultType); }
+					else	{ parseTypedExpression(nodeIt++,"else",resultType); }
 					++nodeIt;
 				}
 
@@ -982,13 +921,13 @@ namespace WAST
 				bool hasLabel = parseName(nodeIt,labelName);
 				
 				// Parse an optional result type for the loop.
-				parseControlSignature(nodeIt,resultType);
+				resultType = parseControlSignature(nodeIt);
 
 				ScopedBranchTarget scopedContinueTarget(*this,ExpressionType::unit,hasLabel,labelName);
 
 				encoder.beginLoop({asResultType(resultType)});
 				enterControlStructure();
-				parseExpressionSequence(nodeIt,"loop body",asExpressionTypeSet(resultType));
+				parseTypedExpressionSequence(nodeIt,"loop body",resultType);
 				endControlStructure();
 			}
 				
@@ -999,7 +938,7 @@ namespace WAST
 				if(!parseBranchTargetRef(nodeIt,depth)) { emitError(nodeIt,"br: expected label name or index"); break; }
 
 				// Parse the branch argument.
-				parseOptionalExpression(nodeIt,"br target argument",asExpressionTypeSet(getBranchTargetByDepth(depth).expectedArgumentType));
+				parseOptionalTypedExpression(nodeIt,"br target argument",getBranchTargetByDepth(depth).expectedArgumentType);
 
 				encoder.br({depth});
 				suppressUnreachableCode();
@@ -1027,19 +966,19 @@ namespace WAST
 				parseBranchTargetRef(nodeIt,defaultTargetDepth);
 
 				// Find the most specific argument type expected between the default targets and cases.
-				ExpressionTypeSet expectedArgumentType = asExpressionTypeSet(getBranchTargetByDepth(defaultTargetDepth).expectedArgumentType);
-				for(uintptr depth : targetDepths) { expectedArgumentType = refineTypeSet(expectedArgumentType,getBranchTargetByDepth(depth).expectedArgumentType); }
-				if(expectedArgumentType == ExpressionTypeSet::empty)
+				ExpressionType expectedArgumentType = getBranchTargetByDepth(defaultTargetDepth).expectedArgumentType;
+				for(uintptr depth : targetDepths) { expectedArgumentType = intersectTypes(expectedArgumentType,getBranchTargetByDepth(depth).expectedArgumentType); }
+				if(expectedArgumentType == ExpressionType::unreachable)
 				{
 					emitError(parentNodeIt,"br_table: targets must have compatible signatures.");
 					break;
 				}
 
 				// Parse the branch argument.
-				parseOptionalExpression(nodeIt,"br_table target argument",expectedArgumentType);
+				parseOptionalTypedExpression(nodeIt,"br_table target argument",expectedArgumentType);
 
 				// Parse the branch index.
-				parseOperands(nodeIt,"br_table index",ExpressionTypeSet::i32);
+				parseOperands(nodeIt,"br_table index",ExpressionType::i32);
 
 				encoder.br_table({defaultTargetDepth,std::move(targetDepths)});
 				suppressUnreachableCode();
@@ -1053,13 +992,13 @@ namespace WAST
 				if(!parseBranchTargetRef(nodeIt,depth)) { emitError(nodeIt,"br_if: expected label name or index"); break; }
 					
 				// Parse the branch argument.
-				const ExpressionType argumentType = parseOptionalExpression(nodeIt,"br_if target argument",asExpressionTypeSet(getBranchTargetByDepth(depth).expectedArgumentType));
+				resultType = getBranchTargetByDepth(depth).expectedArgumentType;
+				parseOptionalTypedExpression(nodeIt,"br_if target argument",resultType);
 
 				// Parse the branch condition.
-				parseOperands(nodeIt,"br_if condition",ExpressionTypeSet::i32);
+				parseOperands(nodeIt,"br_if condition",ExpressionType::i32);
 
 				encoder.br_if({depth});
-				resultType = argumentType;
 			}
 	
 			DEFINE_OP(unreachable)
@@ -1071,7 +1010,7 @@ namespace WAST
 
 			DEFINE_OP(return)
 			{
-				parseOptionalExpression(nodeIt,"return operands",asExpressionTypeSet(functionType->ret));
+				parseOptionalTypedExpression(nodeIt,"return operands",asExpressionType(functionType->ret));
 				encoder.ret();
 				suppressUnreachableCode();
 				resultType = ExpressionType::unreachable;
@@ -1086,7 +1025,7 @@ namespace WAST
 
 				// Parse the call's arguments.
 				for(auto parameterType : calleeType->parameters)
-				{ parseExpression(nodeIt++,"call arguments",asExpressionTypeSet(asExpressionType(parameterType))); }
+				{ parseTypedExpression(nodeIt++,"call arguments",asExpressionType(parameterType)); }
 
 				encoder.call({functionIndex});
 				resultType = asExpressionType(calleeType->ret);
@@ -1103,10 +1042,10 @@ namespace WAST
 					
 				// Parse the call's arguments.
 				for(auto parameterType : calleeType->parameters)
-				{ parseExpression(nodeIt++,"call_indirect arguments",asExpressionTypeSet(asExpressionType(parameterType))); }
+				{ parseTypedExpression(nodeIt++,"call_indirect arguments",asExpressionType(parameterType)); }
 					
 				// Parse the function index.
-				parseOperands(nodeIt,"call_indirect index operand",ExpressionTypeSet::i32);
+				parseOperands(nodeIt,"call_indirect index operand",ExpressionType::i32);
 					
 				encoder.call_indirect({moduleContext.getFunctionTypeIndex(calleeType)});
 				resultType = asExpressionType(calleeType->ret);
@@ -1116,19 +1055,22 @@ namespace WAST
 				
 			DEFINE_OP(select)
 			{
-				const ExpressionType trueType = parseExpression(nodeIt++,"select true operand",expectedType);
-				expectedType = refineTypeSet(expectedType,trueType);
-				const ExpressionType falseType = parseExpression(nodeIt++,"select false operand",expectedType);
-				expectedType = refineTypeSet(expectedType,falseType);
-				if(expectedType == ExpressionTypeSet::empty) { emitError(parentNodeIt,"select non-condition operands must be the same type"); break; }
-				parseOperands(nodeIt,"select condition operand",ExpressionTypeSet::i32);
+				const ExpressionType trueType = parseExpression(nodeIt++,"select true operand");
+				const ExpressionType falseType = parseExpression(nodeIt++,"select false operand");
+
+				if(trueType == falseType) { resultType = trueType; }
+				else if(trueType == ExpressionType::unreachable) { resultType = falseType; }
+				else if(falseType == ExpressionType::unreachable) { resultType = trueType; }
+				else { emitError(parentNodeIt,"select non-condition operands must be the same type"); break; }
+
+				parseOperands(nodeIt,"select condition operand",ExpressionType::i32);
 				encoder.select();
-				resultType = getSingularType(expectedType);
 			}
 
 			DEFINE_OP(drop)
 			{
-				parseOperands(nodeIt,"drop operands",ExpressionTypeSet::any);
+				const ExpressionType dropType = parseExpression(nodeIt++,"drop operand");
+				if(dropType == ExpressionType::unit) { emitError(parentNodeIt,"drop operand must yield a value"); }
 				encoder.drop();
 				resultType = ExpressionType::unit;
 			}
@@ -1147,7 +1089,7 @@ namespace WAST
 				if(!parseNameOrIndex(moduleContext,nodeIt,localNameToIndexMap,localTypes.size(),false,"set_local",localIndex)) { break; }
 				auto localType = localTypes[localIndex];
 
-				parseOperands(nodeIt,"set_local value operand",asExpressionTypeSet(asExpressionType(localType)));
+				parseOperands(nodeIt,"set_local value operand",asExpressionType(localType));
 
 				encoder.set_local({localIndex});
 				resultType = ExpressionType::unit;
@@ -1158,7 +1100,7 @@ namespace WAST
 				if(!parseNameOrIndex(moduleContext,nodeIt,localNameToIndexMap,localTypes.size(),false,"tee_local",localIndex)) { break; }
 				auto localType = localTypes[localIndex];
 					
-				parseOperands(nodeIt,"tee_local value operand",asExpressionTypeSet(asExpressionType(localType)));
+				parseOperands(nodeIt,"tee_local value operand",asExpressionType(localType));
 
 				encoder.tee_local({localIndex});
 				resultType = asExpressionType(localType);
@@ -1181,7 +1123,7 @@ namespace WAST
 					
 				if(!globalType.isMutable) { emitError(parentNodeIt,"set_global: cannot write to immutable global"); break; }
 					
-				parseOperands(nodeIt,"set_global value operand",asExpressionTypeSet(asExpressionType(globalType.valueType)));
+				parseOperands(nodeIt,"set_global value operand",asExpressionType(globalType.valueType));
 
 				encoder.set_global({globalIndex});
 				resultType = ExpressionType::unit;
@@ -1192,7 +1134,7 @@ namespace WAST
 		}
 		else { emitError(parentNodeIt,"expected expression"); }
 
-		return coerceResult(expectedType,resultType,parentNodeIt,errorContext);
+		return resultType;
 	}
 
 	void ModuleContext::parse(SNodeIt firstModuleChildNodeIt)
@@ -1729,7 +1671,7 @@ namespace WAST
 			const FunctionDisassemblyInfo& functionDisassemblyInfo = module.disassemblyInfo.functions[functionDefinitionIndex];
 			Function& function = module.functionDefs[functionDefinitionIndex];
 			FunctionContext functionContext(*this,function,functionDisassemblyInfo.localNames,module.types[function.typeIndex]);
-			functionContext.parseExpressionSequence(childNodeIt,"function body",asExpressionTypeSet(module.types[function.typeIndex]->ret));
+			functionContext.parseTypedExpressionSequence(childNodeIt,"function body",asExpressionType(module.types[function.typeIndex]->ret));
 
 			// Append the code to the module's code array and reference it from the function.
 			std::vector<uint8> functionCode = functionContext.getCode();

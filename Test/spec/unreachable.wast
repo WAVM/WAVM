@@ -81,8 +81,7 @@
   )
 
   (func (export "as-if-cond") (result i32)
-    ;;(if (unreachable) (i32.const 0) (i32.const 1))
-	(if i32 (unreachable) (i32.const 0) (i32.const 1))
+    (if (unreachable) (i32.const 0) (i32.const 1))
   )
   (func (export "as-if-then") (param i32 i32) (result i32)
     (if i32 (get_local 0) (unreachable) (get_local 1))
