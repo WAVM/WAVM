@@ -663,6 +663,9 @@
   )
 ) "bad signature index")
 
+(assert_invalid (module (func $type-break-last-num-vs-void
+  (i32.const 0) (br 0)
+)) "type mismatch")
 
 ;;
 ;; from globals.wast
@@ -698,13 +701,17 @@
   )
 ) "expecting () in block but found i32")
 
+(assert_invalid (module (func $type-break-num-vs-void
+  (block (i32.const 66) (br 0))
+)) "type mismatch")
+
 ;;
 ;; from br.wast
 ;;
 
 (assert_invalid (module
   (func (result i32)
-    (block (br_if 0 (i32.const 6) (br 0 (i32.const 9))) (i32.const 7))
+    (block i32 (br_if 0 (i32.const 6) (br 0 (i32.const 9))) (i32.const 7))
   )
 ) "expecting () in block but found i32")
 
@@ -721,6 +728,9 @@
   )
 ) "expecting () in block but found i32")
 
+(assert_invalid (module (func $type-arg-num-vs-void
+  (block (i32.const 0) (br 0))
+)) "type mismatch")
 
 ;;
 ;; from br_if.wast
@@ -728,14 +738,14 @@
 
 (assert_invalid (module
   (func (param i32) (result i32)
-    (block (br_if 0 (i32.const 10) (get_local 0)) (return (i32.const 11)))
+    (block i32 (br_if 0 (i32.const 10) (get_local 0)) (return (i32.const 11)))
   )
 ) "expecting () in block but found i32")
 
 (assert_invalid (module
   (func $dummy)
   (func (param i32) (result i32)
-    (block (call $dummy) (br_if 0 (i32.const 20) (get_local 0)) (return (i32.const 21)))
+    (block i32 (call $dummy) (br_if 0 (i32.const 20) (get_local 0)) (return (i32.const 21)))
   )
 ) "expecting () in block but found i32")
 
@@ -764,6 +774,10 @@
   )
 ) "expecting () in block but found i32")
 
+(assert_invalid (module (func $type-arg-num-vs-void
+  (block (br_table 0 (i32.const 0) (i32.const 1)))
+)) "type mismatch")
+
 ;;
 ;; from loop.wast
 ;;
@@ -785,6 +799,14 @@
   )
 ) "expecting () in loop body but found i32")
 
+(assert_invalid (module (func $type-cont-num-vs-void
+  (loop (i32.const 0) (br 0))
+)) "type mismatch")
+
+(assert_invalid (module (func $type-cont-nested-num-vs-void
+  (block (loop (i32.const 1) (loop (i32.const 1) (br 2)) (br 1)))
+)) "type mismatch")
+
 ;;
 ;; from return.wast
 ;;
@@ -795,6 +817,10 @@
   )
 ) "expecting () in block but found i32")
 
+(assert_invalid (module (func (export "as-if-cond") (result i32)
+  (if (return (i32.const 2)) (i32.const 0) (i32.const 1))
+)) "type mismatch")
+
 ;;
 ;; from unreachable.wast
 ;;
@@ -804,3 +830,9 @@
     (block (br_if 0 (i32.const 6) (unreachable)) (i32.const 7))
   )
 ) "expecting () in block but found i32")
+
+(assert_invalid (module
+  (func (export "as-if-cond") (result i32)
+    (if (unreachable) (i32.const 0) (i32.const 1))
+  )
+) "expecting () in then but found i32")

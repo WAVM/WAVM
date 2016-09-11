@@ -523,7 +523,7 @@ namespace WAST
 			localTypes.insert(localTypes.begin(),functionType->parameters.begin(),functionType->parameters.end());
 			localTypes.insert(localTypes.end(),function.nonParameterLocalTypes.begin(),function.nonParameterLocalTypes.end());
 
-			branchTargets.push_back(BranchTarget(asExpressionTypeSet(functionType->ret)));
+			branchTargets.push_back(BranchTarget(asExpressionType(functionType->ret)));
 		}
 
 		ExpressionType parseExpressionSequence(SNodeIt& nodeIt,const char* errorContext,ExpressionTypeSet expectedType)
@@ -561,12 +561,8 @@ namespace WAST
 
 		struct BranchTarget
 		{
-			ExpressionTypeSet expectedArgumentType;
-			BranchTarget(ExpressionTypeSet inExpectedArgumentType): expectedArgumentType(inExpectedArgumentType) {}
-			void refineArgumentType(ExpressionType actualArgumentType)
-			{
-				expectedArgumentType = refineTypeSet(expectedArgumentType,actualArgumentType);
-			}
+			ExpressionType expectedArgumentType;
+			BranchTarget(ExpressionType inExpectedArgumentType): expectedArgumentType(inExpectedArgumentType) {}
 		};
 		std::vector<BranchTarget> branchTargets;
 
@@ -575,55 +571,33 @@ namespace WAST
 
 		struct ScopedBranchTarget
 		{
-			ScopedBranchTarget(FunctionContext& inContext,ExpressionTypeSet argumentTypes)
-			: context(inContext), isEnded(false)
-			{
-				branchTargetIndex = context.branchTargets.size();
-				context.branchTargets.push_back(BranchTarget(argumentTypes));
-			}
-			~ScopedBranchTarget() { if(!isEnded) { end(); } }
-			BranchTarget& getBranchTarget() const { return context.branchTargets[branchTargetIndex]; }
-			ExpressionType end(ExpressionType resultType = ExpressionType::unreachable)
-			{
-				assert(!isEnded);
-				isEnded = true;
-				
-				assert(branchTargetIndex == context.branchTargets.size() - 1);
-				BranchTarget& branchTarget = context.branchTargets.back();
-				const ExpressionType finalType = getSingularType(refineTypeSet(branchTarget.expectedArgumentType,resultType));
-
-				context.branchTargets.pop_back();
-
-				return finalType;
-			}
-
-		private:
-			FunctionContext& context;
-			bool isEnded;
-			uintptr branchTargetIndex;
-		};
-
-		struct ScopedLabelName
-		{
-			ScopedLabelName(FunctionContext& inContext,bool inHasName,const char* inName)
+			ScopedBranchTarget(FunctionContext& inContext,ExpressionType inExpectedArgumentType,bool inHasName,const char* inName)
 			: context(inContext), hasName(inHasName), name(inName), outerNamedBranchTargetIndex(UINTPTR_MAX)
 			{
+				branchTargetIndex = context.branchTargets.size();
+				context.branchTargets.push_back(BranchTarget(inExpectedArgumentType));
+				
 				if(hasName)
 				{
 					if(context.labelToBranchTargetMap.count(name)) { outerNamedBranchTargetIndex = context.labelToBranchTargetMap[name]; }
 					context.labelToBranchTargetMap[name] = context.branchTargets.size() - 1;
 				}
 			}
-			~ScopedLabelName()
+			~ScopedBranchTarget()
 			{
+				assert(branchTargetIndex == context.branchTargets.size() - 1);
+				context.branchTargets.pop_back();
+
 				if(hasName)
 				{
 					if(outerNamedBranchTargetIndex != UINTPTR_MAX) { context.labelToBranchTargetMap[name] = outerNamedBranchTargetIndex; }
 					else { context.labelToBranchTargetMap.erase(name); }
 				}
 			}
+			BranchTarget& getBranchTarget() const { return context.branchTargets[branchTargetIndex]; }
 		private:
 			FunctionContext& context;
+			uintptr branchTargetIndex;
 			bool hasName;
 			const char* name;
 			uintptr outerNamedBranchTargetIndex;
@@ -634,32 +608,18 @@ namespace WAST
 
 		void suppressUnreachableCode()
 		{
-			if(encoder.controlStackDepth == encoder.reachableDepth)
-			{
-				--encoder.reachableDepth;
-			}
-			assert(encoder.reachableDepth <= encoder.controlStackDepth);
+			if(!encoder.unreachableDepth) { ++encoder.unreachableDepth; }
 		}
 
 		void enterControlStructure()
 		{
-			if(encoder.reachableDepth == encoder.controlStackDepth)
-			{
-				++encoder.reachableDepth;
-			}
-			++encoder.controlStackDepth;
-			assert(encoder.reachableDepth <= encoder.controlStackDepth);
+			if(encoder.unreachableDepth) { ++encoder.unreachableDepth; }
 		}
 
 		void endControlStructure()
 		{
-			if(encoder.controlStackDepth == encoder.reachableDepth)
-			{
-				encoder.end();
-				--encoder.reachableDepth;
-			}
-			--encoder.controlStackDepth;
-			assert(encoder.reachableDepth <= encoder.controlStackDepth);
+			if(!encoder.unreachableDepth) { encoder.end(); }
+			else { --encoder.unreachableDepth; }
 		}
 
 		void emitError(SNodeIt nodeIt,const std::string& message)
@@ -748,16 +708,6 @@ namespace WAST
 			}
 			return (uint8)Platform::floorLogTwo(alignment);
 		}
-		
-		ExpressionType parseLabeledExpressionSequence(SNodeIt& nodeIt,const char* context,ExpressionTypeSet expectedType)
-		{
-			// Parse an optional name for the label.
-			const char* labelName = nullptr;
-			bool hasName = parseName(nodeIt,labelName);
-			
-			ScopedLabelName scopedLabelName(*this,hasName,labelName);
-			return parseExpressionSequence(nodeIt,context,expectedType);
-		}
 
 		BranchTarget& getBranchTargetByDepth(uintptr depth)
 		{
@@ -777,6 +727,13 @@ namespace WAST
 			return false;
 		}
 	};
+
+	void parseControlSignature(SNodeIt& nodeIt,ExpressionType& outResultType)
+	{
+		ValueType valueType;
+		if(!parseType(nodeIt,valueType)) { outResultType = ExpressionType::unit; }
+		else { outResultType = asExpressionType(valueType); }
+	}
 
 	ExpressionType FunctionContext::parseExpression(SNodeIt parentNodeIt,const char* errorContext,ExpressionTypeSet expectedType)
 	{
@@ -949,43 +906,62 @@ namespace WAST
 					
 			DEFINE_OP(i32_eqz) { parseOperands(nodeIt,"i32.eqz operand",ExpressionTypeSet::i32); encoder.i32_eqz(); resultType = ExpressionType::i32; }
 			DEFINE_OP(i64_eqz) { parseOperands(nodeIt,"i64.eqz operand",ExpressionTypeSet::i64); encoder.i64_eqz(); resultType = ExpressionType::i32; }
+			
+			DEFINE_OP(block)
+			{
+				// Parse an optional label.
+				const char* labelName;
+				bool hasLabel = parseName(nodeIt,labelName);
 
+				// Parse an optional result type for the block.
+				parseControlSignature(nodeIt,resultType);
+
+				// Write the block operator.
+				encoder.beginBlock({asResultType(resultType)});
+
+				// Parse the block's body.
+				ScopedBranchTarget scopedBranchTarget(*this,resultType,hasLabel,labelName);
+				enterControlStructure();
+				parseExpressionSequence(nodeIt,"block",asExpressionTypeSet(resultType));
+				endControlStructure();
+			}
+				
 			DEFINE_OP(if)
 			{
+				// Parse a label for the if.
+				const char* labelName = nullptr;
+				bool hasLabel = parseName(nodeIt,labelName);
+				
+				// Parse an optional result type for the if.
+				parseControlSignature(nodeIt,resultType);
+				
 				// Parse the condition.
 				parseOperands(nodeIt,"if condition",ExpressionTypeSet::i32);
 
 				// Wrap the whole if in a branch target.
-				ScopedBranchTarget scopedBranchTarget(*this,expectedType);
+				ScopedBranchTarget scopedBranchTarget(*this,resultType,hasLabel,labelName);
+				
+				// Look ahead to see whether there's an else node.
+				SNodeIt testElseNodeIt = nodeIt;
+				const bool hasElseNode = (++testElseNodeIt);
+
+				// Emit an if or an if_else depending on whether there's an else node.
+				if(hasElseNode) { encoder.beginIfElse({asResultType(resultType)}); }
+				else
+				{
+					if(resultType != ExpressionType::unit) { emitError(nodeIt,"if without else cannot yield a result"); }
+					encoder.beginIf();
+				}
 				enterControlStructure();
 
-				// Look ahead to see whether there's an else node.
-				SNodeIt savedNodeIt = nodeIt;
-				++nodeIt;
-				const bool hasElseNode = nodeIt;
-				nodeIt = savedNodeIt;
-					
-				if(!hasElseNode) { expectedType = ExpressionTypeSet::unit; }
-					
-				// Encode the if body into a new bytecode stream so we can defer writing the signature of the if until after its clauses have been processed.
-				ArrayOutputStream savedOutputStream;
-				savedOutputStream = std::move(codeStream);
-				codeStream = ArrayOutputStream();
-
 				// Parse the then clause.
-				ExpressionType thenType;
 				SNodeIt thenNodeIt;
 				if(parseTaggedNode(nodeIt,Symbol::_then,thenNodeIt))
-					{ thenType = parseLabeledExpressionSequence(thenNodeIt,"then",expectedType); }
-				else	{ thenType = parseExpression(nodeIt,"then",expectedType); }
+					{ parseExpressionSequence(thenNodeIt,"then",asExpressionTypeSet(resultType)); }
+				else	{ parseExpression(nodeIt,"then",asExpressionTypeSet(resultType)); }
 				++nodeIt;
 
-				// Refine the type context for the else expression and any branches to the if target based on the actual result of the then clause.
-				expectedType = scopedBranchTarget.getBranchTarget().expectedArgumentType =
-					refineTypeSet(scopedBranchTarget.getBranchTarget().expectedArgumentType,thenType);
-					
 				// Parse the else clause.
-				ExpressionType elseType = ExpressionType::unit;
 				if(hasElseNode)
 				{
 					endControlStructure();
@@ -993,58 +969,28 @@ namespace WAST
 
 					SNodeIt elseNodeIt;
 					if(parseTaggedNode(nodeIt,Symbol::_else,elseNodeIt))
-						{ elseType = parseLabeledExpressionSequence(elseNodeIt,"else",expectedType); }
-					else	{ elseType = parseExpression(nodeIt++,"else",expectedType); }
+						{ parseExpressionSequence(elseNodeIt,"else",asExpressionTypeSet(resultType)); }
+					else	{ parseExpression(nodeIt++,"else",asExpressionTypeSet(resultType)); }
 					++nodeIt;
 				}
-					
+
 				endControlStructure();
-					
-				// Get the final result type of the if.
-				resultType = scopedBranchTarget.end(elseType);
-					
-				// Restore the original bytecode stream, and write the beginIf or beginIfElse operator to it, followed by the bytecode generated by the clauses of the if.
-				const std::vector<uint8> innerCodeBytes = codeStream.getBytes();
-				codeStream = std::move(savedOutputStream);
-				if(hasElseNode)
-				{
-					ResultType signatureResultType = ResultType::i32;
-					if(resultType != ExpressionType::unreachable) { signatureResultType = asResultType(resultType); }
-					encoder.beginIfElse({signatureResultType});
-				}
-				else { encoder.beginIf(); }
-				codeStream.serializeBytes(innerCodeBytes.data(),innerCodeBytes.size());
 			}
 				
-			DEFINE_OP(select)
-			{
-				const ExpressionType trueType = parseExpression(nodeIt++,"select true operand",expectedType);
-				expectedType = refineTypeSet(expectedType,trueType);
-				const ExpressionType falseType = parseExpression(nodeIt++,"select false operand",expectedType);
-				expectedType = refineTypeSet(expectedType,falseType);
-				if(expectedType == ExpressionTypeSet::empty) { emitError(parentNodeIt,"select non-condition operands must be the same type"); break; }
-				parseOperands(nodeIt,"select condition operand",ExpressionTypeSet::i32);
-				encoder.select();
-				resultType = getSingularType(expectedType);
-			}
-
 			DEFINE_OP(loop)
 			{
-				if(expectedType == ExpressionTypeSet::any) { emitError(parentNodeIt,"loop cannot occur in polymorphic type context"); break; }
-
 				// Parse a label names for the continue and break branch targets.
 				const char* labelName = nullptr;
 				bool hasLabel = parseName(nodeIt,labelName);
-					
-				ScopedBranchTarget scopedContinueTarget(*this,ExpressionTypeSet::unit);
-				ScopedLabelName scopedContinueName(*this,hasLabel,labelName);
-					
-				encoder.beginLoop({asResultType(expectedType)});
+				
+				// Parse an optional result type for the loop.
+				parseControlSignature(nodeIt,resultType);
+
+				ScopedBranchTarget scopedContinueTarget(*this,ExpressionType::unit,hasLabel,labelName);
+
+				encoder.beginLoop({asResultType(resultType)});
 				enterControlStructure();
-
-				resultType = parseExpressionSequence(nodeIt,"loop body",expectedType);
-
-				scopedContinueTarget.end(ExpressionType::unit);
+				parseExpressionSequence(nodeIt,"loop body",asExpressionTypeSet(resultType));
 				endControlStructure();
 			}
 				
@@ -1055,8 +1001,7 @@ namespace WAST
 				if(!parseBranchTargetRef(nodeIt,depth)) { emitError(nodeIt,"br: expected label name or index"); break; }
 
 				// Parse the branch argument.
-				const ExpressionType argumentType = parseOptionalExpression(nodeIt,"br target argument",getBranchTargetByDepth(depth).expectedArgumentType);
-				getBranchTargetByDepth(depth).refineArgumentType(argumentType);
+				const ExpressionType argumentType = parseOptionalExpression(nodeIt,"br target argument",asExpressionTypeSet(getBranchTargetByDepth(depth).expectedArgumentType));
 
 				encoder.br({depth});
 				suppressUnreachableCode();
@@ -1084,9 +1029,8 @@ namespace WAST
 				parseBranchTargetRef(nodeIt,defaultTargetDepth);
 
 				// Find the most specific argument type expected between the default targets and cases.
-				ExpressionTypeSet expectedArgumentType = getBranchTargetByDepth(defaultTargetDepth).expectedArgumentType;
-				for(uintptr depth : targetDepths)
-				{ expectedArgumentType = intersectTypeSet(expectedArgumentType,getBranchTargetByDepth(depth).expectedArgumentType); }
+				ExpressionTypeSet expectedArgumentType = asExpressionTypeSet(getBranchTargetByDepth(defaultTargetDepth).expectedArgumentType);
+				for(uintptr depth : targetDepths) { expectedArgumentType = refineTypeSet(expectedArgumentType,getBranchTargetByDepth(depth).expectedArgumentType); }
 				if(expectedArgumentType == ExpressionTypeSet::empty)
 				{
 					emitError(parentNodeIt,"br_table: targets must have compatible signatures.");
@@ -1095,10 +1039,6 @@ namespace WAST
 
 				// Parse the branch argument.
 				const ExpressionType argumentType = parseOptionalExpression(nodeIt,"br_table target argument",expectedArgumentType);
-					
-				// Verify that the branch target signatures are all compatible.
-				getBranchTargetByDepth(defaultTargetDepth).refineArgumentType(argumentType);
-				for(uintptr depth : targetDepths) { getBranchTargetByDepth(depth).refineArgumentType(argumentType); }
 
 				// Parse the branch index.
 				parseOperands(nodeIt,"br_table index",ExpressionTypeSet::i32);
@@ -1115,8 +1055,7 @@ namespace WAST
 				if(!parseBranchTargetRef(nodeIt,depth)) { emitError(nodeIt,"br_if: expected label name or index"); break; }
 					
 				// Parse the branch argument.
-				const ExpressionType argumentType = parseOptionalExpression(nodeIt,"br_if target argument",getBranchTargetByDepth(depth).expectedArgumentType);
-				getBranchTargetByDepth(depth).refineArgumentType(argumentType);
+				const ExpressionType argumentType = parseOptionalExpression(nodeIt,"br_if target argument",asExpressionTypeSet(getBranchTargetByDepth(depth).expectedArgumentType));
 
 				// Parse the branch condition.
 				parseOperands(nodeIt,"br_if condition",ExpressionTypeSet::i32);
@@ -1174,34 +1113,21 @@ namespace WAST
 				encoder.call_indirect({moduleContext.getFunctionTypeIndex(calleeType)});
 				resultType = asExpressionType(calleeType->ret);
 			}
-				
-			DEFINE_OP(block)
-			{
-				// Encode the block body into a new bytecode stream so we can defer writing the signature of the block until after its body has been processed.
-				ArrayOutputStream savedOutputStream;
-				savedOutputStream = std::move(codeStream);
-				codeStream = ArrayOutputStream();
 
-				// Parse the block's body.
-				ScopedBranchTarget scopedBranchTarget(*this,expectedType);
-				enterControlStructure();
-				const ExpressionType bodyResultType = parseLabeledExpressionSequence(nodeIt,"block",expectedType);
-				resultType = scopedBranchTarget.end(bodyResultType);
-				endControlStructure();
-					
-				// Restore the original bytecode stream, and write the beginBlock, followed by the bytecode generated by the body of the block.
-				const std::vector<uint8> innerCodeBytes = codeStream.getBytes();
-				codeStream = std::move(savedOutputStream);
-					
-				ResultType signatureResultType = ResultType::i32;
-				if(resultType != ExpressionType::unreachable) { signatureResultType = asResultType(resultType); }
-				encoder.beginBlock({signatureResultType});
-
-				codeStream.serializeBytes(innerCodeBytes.data(),innerCodeBytes.size());
-			}
-				
 			DEFINE_OP(nop) { encoder.nop(); resultType = ExpressionType::unit; }
 				
+			DEFINE_OP(select)
+			{
+				const ExpressionType trueType = parseExpression(nodeIt++,"select true operand",expectedType);
+				expectedType = refineTypeSet(expectedType,trueType);
+				const ExpressionType falseType = parseExpression(nodeIt++,"select false operand",expectedType);
+				expectedType = refineTypeSet(expectedType,falseType);
+				if(expectedType == ExpressionTypeSet::empty) { emitError(parentNodeIt,"select non-condition operands must be the same type"); break; }
+				parseOperands(nodeIt,"select condition operand",ExpressionTypeSet::i32);
+				encoder.select();
+				resultType = getSingularType(expectedType);
+			}
+
 			DEFINE_OP(drop)
 			{
 				parseOperands(nodeIt,"drop operands",ExpressionTypeSet::any);

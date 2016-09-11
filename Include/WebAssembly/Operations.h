@@ -387,15 +387,14 @@ namespace WebAssembly
 	struct OperationEncoder
 	{
 		Serialization::OutputStream& stream;
-		uintptr controlStackDepth;
-		uintptr reachableDepth;
+		uintptr unreachableDepth;
 
-		OperationEncoder(Serialization::OutputStream& inStream): stream(inStream), controlStackDepth(1), reachableDepth(1) {}
+		OperationEncoder(Serialization::OutputStream& inStream): stream(inStream), unreachableDepth(0) {}
 
 		#define VISIT_OPCODE(encoding,name,Immediates) \
 			void name(Immediates immediates = {}) \
 			{ \
-				if(controlStackDepth == reachableDepth) \
+				if(!unreachableDepth) \
 				{ \
 					Opcode opcode = Opcode::name; \
 					serialize(stream,opcode); \

@@ -606,7 +606,7 @@ namespace WebAssembly
 		for(auto& table : module.tableDefs) { validate(table.size,UINT32_MAX); ++numTables; }
 		VALIDATE_UNLESS("too many tables: ",numTables>1);
 
-		for(auto& memory : module.memoryDefs) { validate(memory.size,65535); ++numMemories; }
+		for(auto& memory : module.memoryDefs) { validate(memory.size,WebAssembly::maxMemoryPages); ++numMemories; }
 		VALIDATE_UNLESS("too many memories: ",numMemories>1);
 
 		for(uintptr functionIndex = 0;functionIndex < module.functionDefs.size();++functionIndex)
