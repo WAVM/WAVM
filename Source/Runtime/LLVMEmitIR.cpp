@@ -18,7 +18,7 @@ namespace LLVMJIT
 	llvm::LLVMContext& context = llvm::getGlobalContext();
 
 	// Maps a type ID to the corresponding LLVM type.
-	llvm::Type* llvmReturnTypes[(size_t)ReturnType::num];
+	llvm::Type* llvmResultTypes[(size_t)ResultType::num];
 	llvm::Type* llvmI8Type;
 	llvm::Type* llvmI16Type;
 	llvm::Type* llvmI32Type;
@@ -33,8 +33,8 @@ namespace LLVMJIT
 	llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
 
 	// Converts a WebAssembly type to a LLVM type.
-	inline llvm::Type* asLLVMType(ValueType type) { return llvmReturnTypes[(uintptr)asReturnType(type)]; }
-	inline llvm::Type* asLLVMType(ReturnType type) { return llvmReturnTypes[(uintptr)type]; }
+	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(uintptr)asResultType(type)]; }
+	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(uintptr)type]; }
 
 	// Converts a WebAssembly function type to a LLVM type.
 	llvm::FunctionType* asLLVMType(const FunctionType* functionType)
@@ -44,8 +44,8 @@ namespace LLVMJIT
 		{
 			llvmArgTypes[argIndex] = asLLVMType(functionType->parameters[argIndex]);
 		}
-		auto llvmReturnType = asLLVMType(functionType->ret);
-		return llvm::FunctionType::get(llvmReturnType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType->parameters.size()),false);
+		auto llvmResultType = asLLVMType(functionType->ret);
+		return llvm::FunctionType::get(llvmResultType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType->parameters.size()),false);
 	}
 	
 	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
@@ -119,8 +119,8 @@ namespace LLVMJIT
 			llvm::BasicBlock* branchTargetBlock;
 			llvm::PHINode* branchTargetPHI;
 			llvm::BasicBlock* elseBlock;
-			ReturnType branchArgumentType;
-			ReturnType resultType;
+			ResultType branchArgumentType;
+			ResultType resultType;
 			uintptr outerStackSize;
 		};
 
@@ -165,9 +165,9 @@ namespace LLVMJIT
 			stack.push_back(value);
 		}
 
-		llvm::PHINode* createPHI(llvm::BasicBlock* basicBlock,ReturnType type)
+		llvm::PHINode* createPHI(llvm::BasicBlock* basicBlock,ResultType type)
 		{
-			if(type == ReturnType::unit) { return nullptr; }
+			if(type == ResultType::unit) { return nullptr; }
 			else
 			{
 				auto originalBlock = irBuilder.GetInsertBlock();
@@ -180,8 +180,8 @@ namespace LLVMJIT
 
 		void pushControlStack(
 			ControlContext::Type type,
-			ReturnType branchArgumentType,
-			ReturnType resultType,
+			ResultType branchArgumentType,
+			ResultType resultType,
 			llvm::BasicBlock* endBlock,
 			llvm::PHINode* endPHI,
 			llvm::BasicBlock* branchTargetBlock,
@@ -216,7 +216,7 @@ namespace LLVMJIT
 					else
 					{
 						currentContext.endPHI->removeFromParent();
-						assert(currentContext.resultType != ReturnType::unit);
+						assert(currentContext.resultType != ResultType::unit);
 						push(typedZeroConstants[(uintptr)asValueType(currentContext.resultType)]);
 					}
 				}
@@ -284,7 +284,7 @@ namespace LLVMJIT
 			auto endPHI = createPHI(endBlock,immediates.resultType);
 			irBuilder.CreateBr(loopBodyBlock);
 			irBuilder.SetInsertPoint(loopBodyBlock);
-			pushControlStack(ControlContext::Type::loop,ReturnType::unit,immediates.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
+			pushControlStack(ControlContext::Type::loop,ResultType::unit,immediates.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
 		}
 		void beginIf(NoImmediates)
 		{
@@ -293,7 +293,7 @@ namespace LLVMJIT
 			auto condition = pop();
 			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,endBlock);
 			irBuilder.SetInsertPoint(thenBlock);
-			pushControlStack(ControlContext::Type::ifWithoutElse,ReturnType::unit,ReturnType::unit,endBlock,nullptr,endBlock,nullptr);
+			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::unit,ResultType::unit,endBlock,nullptr,endBlock,nullptr);
 		}
 		void beginIfElse(ControlStructureImmediates immediates)
 		{
@@ -308,7 +308,7 @@ namespace LLVMJIT
 		}
 		void end(NoImmediates)
 		{
-			if(controlStack.back().resultType != ReturnType::unit)
+			if(controlStack.back().resultType != ResultType::unit)
 			{
 				llvm::Value* result = pop();
 				controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
@@ -319,7 +319,7 @@ namespace LLVMJIT
 		
 		void ret(NoImmediates)
 		{
-			if(functionType->ret != ReturnType::unit)
+			if(functionType->ret != ResultType::unit)
 			{
 				llvm::Value* result = pop();
 				controlStack[0].branchTargetPHI->addIncoming(result,irBuilder.GetInsertBlock());
@@ -331,7 +331,7 @@ namespace LLVMJIT
 		void br(BranchImmediates immediates)
 		{
 			ControlContext& targetContext = getBranchTargetByDepth(immediates.targetDepth);
-			if(targetContext.branchArgumentType != ReturnType::unit)
+			if(targetContext.branchArgumentType != ResultType::unit)
 			{
 				llvm::Value* argument = pop();
 				targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
@@ -344,9 +344,9 @@ namespace LLVMJIT
 			auto index = pop();
 			
 			ControlContext& defaultTargetContext = getBranchTargetByDepth(immediates.defaultTargetDepth);
-			const ReturnType argumentType = defaultTargetContext.branchArgumentType;
+			const ResultType argumentType = defaultTargetContext.branchArgumentType;
 			llvm::Value* argument = nullptr;
-			if(argumentType != ReturnType::unit)
+			if(argumentType != ResultType::unit)
 			{
 				argument = pop();
 				defaultTargetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
@@ -357,7 +357,7 @@ namespace LLVMJIT
 			for(uintptr targetIndex = 0;targetIndex < immediates.targetDepths.size();++targetIndex)
 			{
 				ControlContext& targetContext = getBranchTargetByDepth(immediates.targetDepths[targetIndex]);
-				if(argumentType != ReturnType::unit) { targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock()); }
+				if(argumentType != ResultType::unit) { targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock()); }
 				llvmSwitch->addCase(emitLiteral((uint32)targetIndex),targetContext.branchTargetBlock);
 			}
 
@@ -368,7 +368,7 @@ namespace LLVMJIT
 			auto condition = pop();
 
 			ControlContext& targetContext = getBranchTargetByDepth(immediates.targetDepth);
-			if(targetContext.branchArgumentType != ReturnType::unit)
+			if(targetContext.branchArgumentType != ResultType::unit)
 			{
 				llvm::Value* argument = getTopValue();
 				targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
@@ -445,7 +445,7 @@ namespace LLVMJIT
 			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * calleeType->parameters.size());
 			popMultiple(llvmArgs,calleeType->parameters.size());
 			auto result = irBuilder.CreateCall(callee,llvm::ArrayRef<llvm::Value*>(llvmArgs,calleeType->parameters.size()));
-			if(calleeType->ret != ReturnType::unit) { push(result); }
+			if(calleeType->ret != ResultType::unit) { push(result); }
 		}
 		void call_indirect(CallIndirectImmediates immediates)
 		{
@@ -491,7 +491,7 @@ namespace LLVMJIT
 						{
 							emitRuntimeIntrinsic(
 								"wavmIntrinsics.indirectCallSignatureMismatch",
-								FunctionType::get(ReturnType::unit,{ValueType::i32,ValueType::i64,ValueType::i64}),
+								FunctionType::get(ResultType::unit,{ValueType::i32,ValueType::i64,ValueType::i64}),
 								{	tableElementIndex,
 									irBuilder.CreatePtrToInt(llvmCalleeType,llvmI64Type),
 									emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultTable))	}
@@ -509,7 +509,7 @@ namespace LLVMJIT
 					return (llvm::Value*)nullptr;
 				});
 			
-			if(calleeType->ret != ReturnType::unit) { push(result); }
+			if(calleeType->ret != ResultType::unit) { push(result); }
 		}
 
 		void grow_memory(NoImmediates)
@@ -517,7 +517,7 @@ namespace LLVMJIT
 			auto deltaNumPages = pop();
 			auto previousNumPages = emitRuntimeIntrinsic(
 				"wavmIntrinsics.growMemory",
-				FunctionType::get(ReturnType::i32,{ValueType::i32,ValueType::i64}),
+				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i64}),
 				{deltaNumPages,emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory))});
 			push(previousNumPages);
 		}
@@ -525,7 +525,7 @@ namespace LLVMJIT
 		{
 			auto currentNumPages = emitRuntimeIntrinsic(
 				"wavmIntrinsics.currentMemory",
-				FunctionType::get(ReturnType::i32,{ValueType::i64}),
+				FunctionType::get(ResultType::i32,{ValueType::i64}),
 				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory))});
 			push(currentNumPages);
 		}
@@ -787,16 +787,16 @@ namespace LLVMJIT
 		EMIT_FP_BINARY_OPCODE(sub,irBuilder.CreateFSub(left,right))
 		EMIT_FP_BINARY_OPCODE(mul,irBuilder.CreateFMul(left,right))
 		EMIT_FP_BINARY_OPCODE(div,irBuilder.CreateFDiv(left,right))
-		EMIT_FP_BINARY_OPCODE(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asReturnType(type),{type,type}),{left,right}))
-		EMIT_FP_BINARY_OPCODE(max,emitRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType::get(asReturnType(type),{type,type}),{left,right}))
+		EMIT_FP_BINARY_OPCODE(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asResultType(type),{type,type}),{left,right}))
+		EMIT_FP_BINARY_OPCODE(max,emitRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType::get(asResultType(type),{type,type}),{left,right}))
 		EMIT_FP_BINARY_OPCODE(copysign,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::copysign),llvm::ArrayRef<llvm::Value*>({left,right})))
 			
 		EMIT_FP_UNARY_OPCODE(neg,irBuilder.CreateFNeg(operand))
 		EMIT_FP_UNARY_OPCODE(abs,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::fabs),llvm::ArrayRef<llvm::Value*>({operand})))
-		EMIT_FP_UNARY_OPCODE(ceil,emitRuntimeIntrinsic("wavmIntrinsics.floatCeil",FunctionType::get(asReturnType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OPCODE(floor,emitRuntimeIntrinsic("wavmIntrinsics.floatFloor",FunctionType::get(asReturnType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OPCODE(trunc,emitRuntimeIntrinsic("wavmIntrinsics.floatTrunc",FunctionType::get(asReturnType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OPCODE(nearest,emitRuntimeIntrinsic("wavmIntrinsics.floatNearest",FunctionType::get(asReturnType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OPCODE(ceil,emitRuntimeIntrinsic("wavmIntrinsics.floatCeil",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OPCODE(floor,emitRuntimeIntrinsic("wavmIntrinsics.floatFloor",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OPCODE(trunc,emitRuntimeIntrinsic("wavmIntrinsics.floatTrunc",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OPCODE(nearest,emitRuntimeIntrinsic("wavmIntrinsics.floatNearest",FunctionType::get(asResultType(type),{type}),{operand}))
 		EMIT_FP_UNARY_OPCODE(sqrt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::sqrt),llvm::ArrayRef<llvm::Value*>({operand})))
 
 		EMIT_FP_BINARY_OPCODE(eq,coerceBoolToI32(irBuilder.CreateFCmpOEQ(left,right)))
@@ -806,10 +806,10 @@ namespace LLVMJIT
 		EMIT_FP_BINARY_OPCODE(gt,coerceBoolToI32(irBuilder.CreateFCmpOGT(left,right)))
 		EMIT_FP_BINARY_OPCODE(ge,coerceBoolToI32(irBuilder.CreateFCmpOGE(left,right)))
 
-		EMIT_INT_UNARY_OPCODE(trunc_s_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asReturnType(type),{ValueType::f32}),{operand}))
-		EMIT_INT_UNARY_OPCODE(trunc_s_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asReturnType(type),{ValueType::f64}),{operand}))
-		EMIT_INT_UNARY_OPCODE(trunc_u_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asReturnType(type),{ValueType::f32}),{operand}))
-		EMIT_INT_UNARY_OPCODE(trunc_u_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asReturnType(type),{ValueType::f64}),{operand}))
+		EMIT_INT_UNARY_OPCODE(trunc_s_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
+		EMIT_INT_UNARY_OPCODE(trunc_s_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
+		EMIT_INT_UNARY_OPCODE(trunc_u_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
+		EMIT_INT_UNARY_OPCODE(trunc_u_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
 		EMIT_UNARY_OPCODE(i32,wrap_i64,irBuilder.CreateTrunc(operand,llvmI32Type))
 		EMIT_UNARY_OPCODE(i64,extend_s_i32,irBuilder.CreateSExt(operand,llvmI64Type))
 		EMIT_UNARY_OPCODE(i64,extend_u_i32,irBuilder.CreateZExt(operand,llvmI64Type))
@@ -842,7 +842,7 @@ namespace LLVMJIT
 		#if ENABLE_FUNCTION_ENTER_EXIT_HOOKS
 			emitRuntimeIntrinsic(
 				"wavmIntrinsics.debugEnterFunction",
-				FunctionType::get(ReturnType::unit,{ValueType::i64}),
+				FunctionType::get(ResultType::unit,{ValueType::i64}),
 				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->functionDefs[functionDefIndex]))}
 				);
 		#endif
@@ -890,13 +890,13 @@ namespace LLVMJIT
 		#if ENABLE_FUNCTION_ENTER_EXIT_HOOKS
 			emitRuntimeIntrinsic(
 				"wavmIntrinsics.debugExitFunction",
-				FunctionType::get(ReturnType::unit,{ValueType::i64}),
+				FunctionType::get(ResultType::unit,{ValueType::i64}),
 				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->functionDefs[functionDefIndex]))}
 				);
 		#endif
 
 		// Emit the function return.
-		if(functionType->ret == ReturnType::unit) { irBuilder.CreateRetVoid(); }
+		if(functionType->ret == ResultType::unit) { irBuilder.CreateRetVoid(); }
 		else { irBuilder.CreateRet(pop()); }
 	}
 
@@ -1026,12 +1026,12 @@ namespace LLVMJIT
 		// If the function has a return value, write it to the end of the argument array.
 		if(getArity(functionType->ret))
 		{
-			auto llvmReturnType = asLLVMType(functionType->ret);
+			auto llvmResultType = asLLVMType(functionType->ret);
 			irBuilder.CreateStore(
 				returnValue,
 				irBuilder.CreatePointerCast(
 					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintptr)functionType->parameters.size())}),
-					llvmReturnType->getPointerTo()
+					llvmResultType->getPointerTo()
 					)
 				);
 		}
@@ -1061,11 +1061,11 @@ namespace LLVMJIT
 		llvmBoolType = llvm::Type::getInt1Ty(context);
 		llvmI8PtrType = llvmI8Type->getPointerTo();
 
-		llvmReturnTypes[(size_t)ReturnType::unit] = llvm::Type::getVoidTy(context);
-		llvmReturnTypes[(size_t)ReturnType::i32] = llvmI32Type;
-		llvmReturnTypes[(size_t)ReturnType::i64] = llvmI64Type;
-		llvmReturnTypes[(size_t)ReturnType::f32] = llvmF32Type;
-		llvmReturnTypes[(size_t)ReturnType::f64] = llvmF64Type;
+		llvmResultTypes[(size_t)ResultType::unit] = llvm::Type::getVoidTy(context);
+		llvmResultTypes[(size_t)ResultType::i32] = llvmI32Type;
+		llvmResultTypes[(size_t)ResultType::i64] = llvmI64Type;
+		llvmResultTypes[(size_t)ResultType::f32] = llvmF32Type;
+		llvmResultTypes[(size_t)ResultType::f64] = llvmF64Type;
 
 		// Create zero constants of each type.
 		typedZeroConstants[(size_t)ValueType::invalid] = nullptr;

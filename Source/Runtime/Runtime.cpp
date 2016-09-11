@@ -89,7 +89,7 @@ namespace Runtime
 
 			// Read the return value out of the thunk memory block.
 			Value returnValue;
-			if(functionType->ret != ReturnType::unit)
+			if(functionType->ret != ResultType::unit)
 			{
 				returnValue.type = asRuntimeValueType(functionType->ret);
 				returnValue.i64 = thunkMemory[functionType->parameters.size()];

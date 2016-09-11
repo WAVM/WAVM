@@ -23,7 +23,7 @@ namespace WebAssembly
 	template<> struct ValueTypeInfo<ValueType::f32> { typedef float32 Value; };
 	template<> struct ValueTypeInfo<ValueType::f64> { typedef float64 Value; };
 
-	enum class ReturnType : uint8
+	enum class ResultType : uint8
 	{
 		unit = 0,
 		i32 = (uint8)ValueType::i32,
@@ -36,16 +36,16 @@ namespace WebAssembly
 
 	struct FunctionType
 	{
-		ReturnType ret;
+		ResultType ret;
 		std::vector<ValueType> parameters;
 
-		WEBASSEMBLY_API static const FunctionType* get(ReturnType ret,const std::initializer_list<ValueType>& parameters);
-		WEBASSEMBLY_API static const FunctionType* get(ReturnType ret,const std::vector<ValueType>& parameters);
-		WEBASSEMBLY_API static const FunctionType* get(ReturnType ret = ReturnType::unit);
+		WEBASSEMBLY_API static const FunctionType* get(ResultType ret,const std::initializer_list<ValueType>& parameters);
+		WEBASSEMBLY_API static const FunctionType* get(ResultType ret,const std::vector<ValueType>& parameters);
+		WEBASSEMBLY_API static const FunctionType* get(ResultType ret = ResultType::unit);
 
 	private:
 
-		FunctionType(ReturnType inRet,const std::vector<ValueType>& inParameters)
+		FunctionType(ResultType inRet,const std::vector<ValueType>& inParameters)
 		: ret(inRet), parameters(inParameters) {}
 	};
 	
@@ -126,18 +126,18 @@ namespace WebAssembly
 		ObjectType(GlobalType inGlobal)			: kind(ObjectKind::global), global(inGlobal) {}
 	};
 	
-	inline size_t getArity(ReturnType returnType) { return returnType == ReturnType::unit ? 0 : 1; }
+	inline size_t getArity(ResultType returnType) { return returnType == ResultType::unit ? 0 : 1; }
 	
-	inline ValueType asValueType(ReturnType type)
+	inline ValueType asValueType(ResultType type)
 	{
-		assert(type != ReturnType::unit);
+		assert(type != ResultType::unit);
 		return (ValueType)type;
 	}
 
-	inline ReturnType asReturnType(ValueType type)
+	inline ResultType asResultType(ValueType type)
 	{
 		assert(type != ValueType::invalid);
-		return (ReturnType)type;
+		return (ResultType)type;
 	}
 
 	inline const char* getTypeName(ValueType type)
@@ -153,15 +153,15 @@ namespace WebAssembly
 		};
 	}
 
-	inline const char* getTypeName(ReturnType type)
+	inline const char* getTypeName(ResultType type)
 	{
 		switch(type)
 		{
-		case ReturnType::i32: return "i32";
-		case ReturnType::i64: return "i64";
-		case ReturnType::f32: return "f32";
-		case ReturnType::f64: return "f64";
-		case ReturnType::unit: return "()";
+		case ResultType::i32: return "i32";
+		case ResultType::i64: return "i64";
+		case ResultType::f32: return "f32";
+		case ResultType::f64: return "f64";
+		case ResultType::unit: return "()";
 		default: throw;
 		};
 	}

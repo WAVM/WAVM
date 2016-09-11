@@ -249,7 +249,7 @@ namespace WebAssembly
 
 	struct ControlStructureImmediates
 	{
-		ReturnType resultType;
+		ResultType resultType;
 		
 		template<typename Stream>
 		friend void serialize(Stream& stream,ControlStructureImmediates& controlStructureOp)

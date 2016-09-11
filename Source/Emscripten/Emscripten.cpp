@@ -404,7 +404,7 @@ namespace Emscripten
 
 			// Call the establishStackSpace function to set the Emscripten module's internal stack pointers.
 			FunctionInstance* establishStackSpace = asFunctionNullable(getInstanceExport(moduleInstance,"establishStackSpace"));
-			if(establishStackSpace && getFunctionType(establishStackSpace) == FunctionType::get(ReturnType::unit,{ValueType::i32,ValueType::i32}))
+			if(establishStackSpace && getFunctionType(establishStackSpace) == FunctionType::get(ResultType::unit,{ValueType::i32,ValueType::i32}))
 			{
 				std::vector<Runtime::Value> parameters = {Runtime::Value(STACKTOP),Runtime::Value(STACK_MAX)};
 				auto establishStackSpaceResult = Runtime::invokeFunction(establishStackSpace,parameters);

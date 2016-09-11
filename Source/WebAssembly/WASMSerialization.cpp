@@ -36,16 +36,16 @@ namespace WebAssembly
 		serializeNativeValue(stream,type);
 	}
 
-	void serialize(InputStream& stream,ReturnType& returnType)
+	void serialize(InputStream& stream,ResultType& returnType)
 	{
 		uintptr arity;
 		serializeVarUInt1(stream,arity);
-		if(arity == 0) { returnType = ReturnType::unit; }
+		if(arity == 0) { returnType = ResultType::unit; }
 		else { serializeNativeValue(stream,returnType); }
 	}
-	void serialize(OutputStream& stream,ReturnType& returnType)
+	void serialize(OutputStream& stream,ResultType& returnType)
 	{
-		uintptr arity = returnType == ReturnType::unit ? 0 : 1;
+		uintptr arity = returnType == ResultType::unit ? 0 : 1;
 		serializeVarUInt1(stream,arity);
 		if(arity) { serializeNativeValue(stream,returnType); }
 	}
@@ -287,7 +287,7 @@ namespace WebAssembly
 				if(Stream::isInput)
 				{
 					std::vector<ValueType> parameterTypes;
-					ReturnType returnType;
+					ResultType returnType;
 					serialize(stream,parameterTypes);
 					serialize(stream,returnType);
 					functionType = FunctionType::get(returnType,parameterTypes);
@@ -295,7 +295,7 @@ namespace WebAssembly
 				else
 				{
 					serialize(stream,const_cast<std::vector<ValueType>&>(functionType->parameters));
-					serialize(stream,const_cast<ReturnType&>(functionType->ret));
+					serialize(stream,const_cast<ResultType&>(functionType->ret));
 				}
 			});
 		});

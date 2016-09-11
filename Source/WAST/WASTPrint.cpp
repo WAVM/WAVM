@@ -79,7 +79,7 @@ namespace WAST
 	};
 
 	void print(std::string& string,ValueType type) { string += getTypeName(type); }
-	void print(std::string& string,ReturnType type) { string += getTypeName(type); }
+	void print(std::string& string,ResultType type) { string += getTypeName(type); }
 
 	void printSignature(std::string& string,const FunctionType* functionType)
 	{
@@ -92,7 +92,7 @@ namespace WAST
 		}
 
 		// Print the function return type.
-		if(functionType->ret != ReturnType::unit)
+		if(functionType->ret != ResultType::unit)
 		{
 			string += ' ';
 			ScopedTagPrinter resultTag(string,"result");
@@ -101,9 +101,9 @@ namespace WAST
 		}
 	}
 
-	void printControlSignature(std::string& string,ReturnType resultType)
+	void printControlSignature(std::string& string,ResultType resultType)
 	{
-		if(resultType != ReturnType::unit)
+		if(resultType != ResultType::unit)
 		{
 			string += ' ';
 			print(string,resultType);

@@ -78,15 +78,15 @@ namespace Runtime
 		};
 	}
 	
-	inline TypeId asRuntimeValueType(const WebAssembly::ReturnType valueType)
+	inline TypeId asRuntimeValueType(const WebAssembly::ResultType valueType)
 	{
 		switch(valueType)
 		{
-		case WebAssembly::ReturnType::unit: return TypeId::unit;
-		case WebAssembly::ReturnType::i32: return TypeId::i32;
-		case WebAssembly::ReturnType::i64: return TypeId::i64;
-		case WebAssembly::ReturnType::f32: return TypeId::f32;
-		case WebAssembly::ReturnType::f64: return TypeId::f64;
+		case WebAssembly::ResultType::unit: return TypeId::unit;
+		case WebAssembly::ResultType::i32: return TypeId::i32;
+		case WebAssembly::ResultType::i64: return TypeId::i64;
+		case WebAssembly::ResultType::f32: return TypeId::f32;
+		case WebAssembly::ResultType::f64: return TypeId::f64;
 		default: throw;
 		};
 	}

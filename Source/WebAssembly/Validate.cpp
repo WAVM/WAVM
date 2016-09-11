@@ -30,9 +30,9 @@ namespace WebAssembly
 		}
 	}
 
-	void validate(ReturnType returnType)
+	void validate(ResultType returnType)
 	{
-		if(returnType > ReturnType::max)
+		if(returnType > ResultType::max)
 		{
 			throw ValidationException("invalid return type (" + std::to_string((uintptr)returnType) + ")");
 		}
@@ -214,12 +214,12 @@ namespace WebAssembly
 		void beginLoop(ControlStructureImmediates immediates)
 		{
 			validate(immediates.resultType);
-			pushControlStack(ControlContext::Type::loop,ReturnType::unit,immediates.resultType);
+			pushControlStack(ControlContext::Type::loop,ResultType::unit,immediates.resultType);
 		}
 		void beginIf(NoImmediates)
 		{
 			popAndValidateOperand(ValueType::i32);
-			pushControlStack(ControlContext::Type::ifWithoutElse,ReturnType::unit,ReturnType::unit);
+			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::unit,ResultType::unit);
 		}
 		void beginIfElse(ControlStructureImmediates immediates)
 		{
@@ -229,30 +229,30 @@ namespace WebAssembly
 		}
 		void end(NoImmediates)
 		{
-			popAndValidateReturnType(controlStack.back().resultType);
+			popAndValidateResultType(controlStack.back().resultType);
 			popControlStack();
 		}
 		
 		void ret(NoImmediates)
 		{
-			popAndValidateReturnType(functionType->ret);
+			popAndValidateResultType(functionType->ret);
 			popControlStack();
 		}
 
 		void br(BranchImmediates immediates)
 		{
-			popAndValidateReturnType(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
+			popAndValidateResultType(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
 			popControlStack();
 		}
 		void br_table(BranchTableImmediates immediates)
 		{
 			popAndValidateOperand(ValueType::i32);
-			const ReturnType defaultTargetArgumentType = getBranchTargetByDepth(immediates.defaultTargetDepth).branchArgumentType;
-			popAndValidateReturnType(defaultTargetArgumentType);
+			const ResultType defaultTargetArgumentType = getBranchTargetByDepth(immediates.defaultTargetDepth).branchArgumentType;
+			popAndValidateResultType(defaultTargetArgumentType);
 
 			for(uintptr targetIndex = 0;targetIndex < immediates.targetDepths.size();++targetIndex)
 			{
-				const ReturnType targetArgumentType = getBranchTargetByDepth(immediates.targetDepths[targetIndex]).branchArgumentType;
+				const ResultType targetArgumentType = getBranchTargetByDepth(immediates.targetDepths[targetIndex]).branchArgumentType;
 				VALIDATE_UNLESS("br_table target argument must match default target argument: ",targetArgumentType != defaultTargetArgumentType);
 			}
 
@@ -261,7 +261,7 @@ namespace WebAssembly
 		void br_if(BranchImmediates immediates)
 		{
 			popAndValidateOperand(ValueType::i32);
-			popAndValidateReturnType(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
+			popAndValidateResultType(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
 			push(getBranchTargetByDepth(immediates.targetDepth).branchArgumentType);
 		}
 
@@ -461,8 +461,8 @@ namespace WebAssembly
 			Type type;
 			uintptr outerStackSize;
 			
-			ReturnType branchArgumentType;
-			ReturnType resultType;
+			ResultType branchArgumentType;
+			ResultType resultType;
 		};
 
 		ModuleValidationContext& moduleContext;
@@ -474,7 +474,7 @@ namespace WebAssembly
 		std::vector<ControlContext> controlStack;
 		std::vector<ValueType> stack;
 
-		void pushControlStack(ControlContext::Type type,ReturnType branchArgumentType,ReturnType resultType)
+		void pushControlStack(ControlContext::Type type,ResultType branchArgumentType,ResultType resultType)
 		{
 			controlStack.push_back({type,stack.size(),branchArgumentType,resultType});
 		}
@@ -542,13 +542,13 @@ namespace WebAssembly
 			stack.pop_back();
 		}
 
-		void popAndValidateReturnType(ReturnType expectedType)
+		void popAndValidateResultType(ResultType expectedType)
 		{
-			if(expectedType != ReturnType::unit) { popAndValidateOperands(asValueType(expectedType)); }
+			if(expectedType != ResultType::unit) { popAndValidateOperands(asValueType(expectedType)); }
 		}
 
 		void push(ValueType type) { stack.push_back(type); }
-		void push(ReturnType type) { if(type != ReturnType::unit) { push(asValueType(type)); } }
+		void push(ResultType type) { if(type != ResultType::unit) { push(asValueType(type)); } }
 	};
 
 	ModuleValidationContext::ModuleValidationContext(const Module& inModule)

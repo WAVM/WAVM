@@ -7,7 +7,7 @@ namespace WebAssembly
 {
 	struct FunctionTypeKey
 	{
-		ReturnType ret;
+		ResultType ret;
 		std::vector<ValueType> parameters;
 
 		friend bool operator==(const FunctionTypeKey& left,const FunctionTypeKey& right) { return left.ret == right.ret && left.parameters == right.parameters; }
@@ -29,10 +29,10 @@ namespace WebAssembly
 		}
 	}
 
-	const FunctionType* FunctionType::get(ReturnType ret,const std::initializer_list<ValueType>& parameters)
+	const FunctionType* FunctionType::get(ResultType ret,const std::initializer_list<ValueType>& parameters)
 	{ return findExistingOrCreateNew(uniqueFunctionTypeMap,FunctionTypeKey {ret,parameters},[=]{return new FunctionType(ret,parameters);}); }
-	const FunctionType* FunctionType::get(ReturnType ret,const std::vector<ValueType>& parameters)
+	const FunctionType* FunctionType::get(ResultType ret,const std::vector<ValueType>& parameters)
 	{ return findExistingOrCreateNew(uniqueFunctionTypeMap,FunctionTypeKey {ret,parameters},[=]{return new FunctionType(ret,parameters);}); }
-	const FunctionType* FunctionType::get(ReturnType ret)
+	const FunctionType* FunctionType::get(ResultType ret)
 	{ return findExistingOrCreateNew(uniqueFunctionTypeMap,FunctionTypeKey {ret,{}},[=]{return new FunctionType(ret,{});}); }
 }

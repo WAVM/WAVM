@@ -24,11 +24,11 @@ namespace WAST
 	
 	enum class ExpressionType : uint8
 	{
-		unit = (uint8)ReturnType::unit,
-		i32 = (uint8)ReturnType::i32,
-		i64 = (uint8)ReturnType::i64,
-		f32 = (uint8)ReturnType::f32,
-		f64 = (uint8)ReturnType::f64,
+		unit = (uint8)ResultType::unit,
+		i32 = (uint8)ResultType::i32,
+		i64 = (uint8)ResultType::i64,
+		f32 = (uint8)ResultType::f32,
+		f64 = (uint8)ResultType::f64,
 		unreachable
 	};
 	
@@ -38,7 +38,7 @@ namespace WAST
 		return (ExpressionType)type;
 	}
 	
-	ExpressionType asExpressionType(ReturnType type)
+	ExpressionType asExpressionType(ResultType type)
 	{
 		return (ExpressionType)type;
 	}
@@ -59,11 +59,11 @@ namespace WAST
 
 	enum class ExpressionTypeSet : uint8
 	{
-		unit = (uint8)ReturnType::unit,
-		i32 = (uint8)ReturnType::i32,
-		i64 = (uint8)ReturnType::i64,
-		f32 = (uint8)ReturnType::f32,
-		f64 = (uint8)ReturnType::f64,
+		unit = (uint8)ResultType::unit,
+		i32 = (uint8)ResultType::i32,
+		i64 = (uint8)ResultType::i64,
+		f32 = (uint8)ResultType::f32,
+		f64 = (uint8)ResultType::f64,
 		empty,
 		any,
 	};
@@ -74,21 +74,21 @@ namespace WAST
 		return (ExpressionTypeSet)type;
 	}
 	
-	ExpressionTypeSet asExpressionTypeSet(ReturnType type)
+	ExpressionTypeSet asExpressionTypeSet(ResultType type)
 	{
 		return (ExpressionTypeSet)type;
 	}
 
-	ReturnType asReturnType(ExpressionTypeSet set)
+	ResultType asResultType(ExpressionTypeSet set)
 	{
-		assert(set <= (ExpressionTypeSet)ReturnType::max);
-		return (ReturnType)set;
+		assert(set <= (ExpressionTypeSet)ResultType::max);
+		return (ResultType)set;
 	}
 
-	ReturnType asReturnType(ExpressionType type)
+	ResultType asResultType(ExpressionType type)
 	{
-		assert(type <= (ExpressionType)ReturnType::max);
-		return (ReturnType)type;
+		assert(type <= (ExpressionType)ResultType::max);
+		return (ResultType)type;
 	}
 
 	bool isMember(ExpressionTypeSet set,ExpressionType type)
@@ -309,7 +309,7 @@ namespace WAST
 	
 	void parseFunctionType(ModuleContext& moduleContext,SNodeIt& nodeIt,const FunctionType*& outFunctionType,std::vector<std::string>& outParameterNames)
 	{
-		ReturnType returnType = ReturnType::unit;
+		ResultType returnType = ResultType::unit;
 		std::vector<ValueType> parameterTypes;
 		for(;nodeIt;++nodeIt)
 		{
@@ -317,15 +317,15 @@ namespace WAST
 			if(parseTaggedNode(nodeIt,Symbol::_result,childNodeIt))
 			{
 				// Parse a result declaration.
-				if(returnType != ReturnType::unit) { recordError(moduleContext,nodeIt,"duplicate result declaration"); continue; }
+				if(returnType != ResultType::unit) { recordError(moduleContext,nodeIt,"duplicate result declaration"); continue; }
 				ValueType valueType;
 				if(!parseType(childNodeIt,valueType)) { recordError(moduleContext,childNodeIt,"expected type"); continue; }
-				returnType = asReturnType(valueType);
+				returnType = asResultType(valueType);
 				if(childNodeIt) { recordError(moduleContext,childNodeIt,"unexpected input following result declaration"); continue; }
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_param,childNodeIt))
 			{
-				if(returnType != ReturnType::unit) { recordError(moduleContext,nodeIt,"unexpected param following result declaration"); continue; }
+				if(returnType != ResultType::unit) { recordError(moduleContext,nodeIt,"unexpected param following result declaration"); continue; }
 				// Parse a parameter declaration.
 				parseVariables(moduleContext,childNodeIt,parameterTypes,outParameterNames);
 				if(childNodeIt) { recordError(moduleContext,childNodeIt,"unexpected input following parameter declaration"); continue; }
@@ -1008,9 +1008,9 @@ namespace WAST
 				codeStream = std::move(savedOutputStream);
 				if(hasElseNode)
 				{
-					ReturnType signatureReturnType = ReturnType::i32;
-					if(resultType != ExpressionType::unreachable) { signatureReturnType = asReturnType(resultType); }
-					encoder.beginIfElse({signatureReturnType});
+					ResultType signatureResultType = ResultType::i32;
+					if(resultType != ExpressionType::unreachable) { signatureResultType = asResultType(resultType); }
+					encoder.beginIfElse({signatureResultType});
 				}
 				else { encoder.beginIf(); }
 				codeStream.serializeBytes(innerCodeBytes.data(),innerCodeBytes.size());
@@ -1039,7 +1039,7 @@ namespace WAST
 				ScopedBranchTarget scopedContinueTarget(*this,ExpressionTypeSet::unit);
 				ScopedLabelName scopedContinueName(*this,hasLabel,labelName);
 					
-				encoder.beginLoop({asReturnType(expectedType)});
+				encoder.beginLoop({asResultType(expectedType)});
 				enterControlStructure();
 
 				resultType = parseExpressionSequence(nodeIt,"loop body",expectedType);
@@ -1185,17 +1185,17 @@ namespace WAST
 				// Parse the block's body.
 				ScopedBranchTarget scopedBranchTarget(*this,expectedType);
 				enterControlStructure();
-				const ExpressionType bodyReturnType = parseLabeledExpressionSequence(nodeIt,"block",expectedType);
-				resultType = scopedBranchTarget.end(bodyReturnType);
+				const ExpressionType bodyResultType = parseLabeledExpressionSequence(nodeIt,"block",expectedType);
+				resultType = scopedBranchTarget.end(bodyResultType);
 				endControlStructure();
 					
 				// Restore the original bytecode stream, and write the beginBlock, followed by the bytecode generated by the body of the block.
 				const std::vector<uint8> innerCodeBytes = codeStream.getBytes();
 				codeStream = std::move(savedOutputStream);
 					
-				ReturnType signatureReturnType = ReturnType::i32;
-				if(resultType != ExpressionType::unreachable) { signatureReturnType = asReturnType(resultType); }
-				encoder.beginBlock({signatureReturnType});
+				ResultType signatureResultType = ResultType::i32;
+				if(resultType != ExpressionType::unreachable) { signatureResultType = asResultType(resultType); }
+				encoder.beginBlock({signatureResultType});
 
 				codeStream.serializeBytes(innerCodeBytes.data(),innerCodeBytes.size());
 			}
