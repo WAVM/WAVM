@@ -40,12 +40,12 @@ namespace WebAssembly
 	{
 		uintptr arity;
 		serializeVarUInt1(stream,arity);
-		if(arity == 0) { returnType = ResultType::unit; }
+		if(arity == 0) { returnType = ResultType::none; }
 		else { serializeNativeValue(stream,returnType); }
 	}
 	void serialize(OutputStream& stream,ResultType& returnType)
 	{
-		uintptr arity = returnType == ResultType::unit ? 0 : 1;
+		uintptr arity = returnType == ResultType::none ? 0 : 1;
 		serializeVarUInt1(stream,arity);
 		if(arity) { serializeNativeValue(stream,returnType); }
 	}

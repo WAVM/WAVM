@@ -92,7 +92,7 @@ namespace WAST
 		}
 
 		// Print the function return type.
-		if(functionType->ret != ResultType::unit)
+		if(functionType->ret != ResultType::none)
 		{
 			string += ' ';
 			ScopedTagPrinter resultTag(string,"result");
@@ -103,7 +103,7 @@ namespace WAST
 
 	void printControlSignature(std::string& string,ResultType resultType)
 	{
-		if(resultType != ResultType::unit)
+		if(resultType != ResultType::none)
 		{
 			string += ' ';
 			print(string,resultType);

@@ -451,32 +451,32 @@ bool TestScriptState::process()
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,unit,i32,a)
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i32,a)
 {
 	std::cout << a << " : i32" << std::endl;
 }
 
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,unit,i64,a)
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i64,a)
 {
 	std::cout << a << " : i64" << std::endl;
 }
 
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,unit,f32,a)
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f32,a)
 {
 	std::cout << a << " : f32" << std::endl;
 }
 	
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,unit,f64,a)
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f64,a)
 {
 	std::cout << a << " : f64" << std::endl;
 }
 
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,unit,i32,a,f32,b)
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i32,a,f32,b)
 {
 	std::cout << a << " : i32, " << b << " : f32" << std::endl;
 }
 
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,unit,i64,a,f64,b)
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i64,a,f64,b)
 {
 	std::cout << a << " : i64, " << b << " : f64" << std::endl;
 }

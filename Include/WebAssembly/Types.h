@@ -25,7 +25,7 @@ namespace WebAssembly
 
 	enum class ResultType : uint8
 	{
-		unit = 0,
+		none = 0,
 		i32 = (uint8)ValueType::i32,
 		i64 = (uint8)ValueType::i64,
 		f32 = (uint8)ValueType::f32,
@@ -41,7 +41,7 @@ namespace WebAssembly
 
 		WEBASSEMBLY_API static const FunctionType* get(ResultType ret,const std::initializer_list<ValueType>& parameters);
 		WEBASSEMBLY_API static const FunctionType* get(ResultType ret,const std::vector<ValueType>& parameters);
-		WEBASSEMBLY_API static const FunctionType* get(ResultType ret = ResultType::unit);
+		WEBASSEMBLY_API static const FunctionType* get(ResultType ret = ResultType::none);
 
 	private:
 
@@ -126,11 +126,11 @@ namespace WebAssembly
 		ObjectType(GlobalType inGlobal)			: kind(ObjectKind::global), global(inGlobal) {}
 	};
 	
-	inline size_t getArity(ResultType returnType) { return returnType == ResultType::unit ? 0 : 1; }
+	inline size_t getArity(ResultType returnType) { return returnType == ResultType::none ? 0 : 1; }
 	
 	inline ValueType asValueType(ResultType type)
 	{
-		assert(type != ResultType::unit);
+		assert(type != ResultType::none);
 		return (ValueType)type;
 	}
 
@@ -161,7 +161,7 @@ namespace WebAssembly
 		case ResultType::i64: return "i64";
 		case ResultType::f32: return "f32";
 		case ResultType::f64: return "f64";
-		case ResultType::unit: return "()";
+		case ResultType::none: return "()";
 		default: throw;
 		};
 	}

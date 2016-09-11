@@ -24,7 +24,7 @@ namespace WAST
 	
 	enum class ExpressionType : uint8
 	{
-		unit = (uint8)ResultType::unit,
+		none = (uint8)ResultType::none,
 		i32 = (uint8)ResultType::i32,
 		i64 = (uint8)ResultType::i64,
 		f32 = (uint8)ResultType::f32,
@@ -60,7 +60,7 @@ namespace WAST
 	{
 		switch(type)
 		{
-		case ExpressionType::unit: return "()";
+		case ExpressionType::none: return "()";
 		case ExpressionType::i32: return "i32";
 		case ExpressionType::i64: return "i64";
 		case ExpressionType::f32: return "f32";
@@ -239,7 +239,7 @@ namespace WAST
 	
 	void parseFunctionType(ModuleContext& moduleContext,SNodeIt& nodeIt,const FunctionType*& outFunctionType,std::vector<std::string>& outParameterNames)
 	{
-		ResultType returnType = ResultType::unit;
+		ResultType returnType = ResultType::none;
 		std::vector<ValueType> parameterTypes;
 		for(;nodeIt;++nodeIt)
 		{
@@ -247,7 +247,7 @@ namespace WAST
 			if(parseTaggedNode(nodeIt,Symbol::_result,childNodeIt))
 			{
 				// Parse a result declaration.
-				if(returnType != ResultType::unit) { recordError(moduleContext,nodeIt,"duplicate result declaration"); continue; }
+				if(returnType != ResultType::none) { recordError(moduleContext,nodeIt,"duplicate result declaration"); continue; }
 				ValueType valueType;
 				if(!parseType(childNodeIt,valueType)) { recordError(moduleContext,childNodeIt,"expected type"); continue; }
 				returnType = asResultType(valueType);
@@ -255,7 +255,7 @@ namespace WAST
 			}
 			else if(parseTaggedNode(nodeIt,Symbol::_param,childNodeIt))
 			{
-				if(returnType != ResultType::unit) { recordError(moduleContext,nodeIt,"unexpected param following result declaration"); continue; }
+				if(returnType != ResultType::none) { recordError(moduleContext,nodeIt,"unexpected param following result declaration"); continue; }
 				// Parse a parameter declaration.
 				parseVariables(moduleContext,childNodeIt,parameterTypes,outParameterNames);
 				if(childNodeIt) { recordError(moduleContext,childNodeIt,"unexpected input following parameter declaration"); continue; }
@@ -458,19 +458,19 @@ namespace WAST
 
 		void parseTypedExpressionSequence(SNodeIt& nodeIt,const char* errorContext,ExpressionType expectedType)
 		{
-			if(!nodeIt && expectedType == ExpressionType::unit) { return; }
+			if(!nodeIt && expectedType == ExpressionType::none) { return; }
 
 			while(true)
 			{
 				SNodeIt expressionNodeIt = nodeIt++;
 				if(!nodeIt) { parseTypedExpression(expressionNodeIt,errorContext,expectedType); break; }
-				else { parseTypedExpression(expressionNodeIt,errorContext,ExpressionType::unit); }
+				else { parseTypedExpression(expressionNodeIt,errorContext,ExpressionType::none); }
 			};
 		}
 
 		void parseOptionalTypedExpression(SNodeIt& nodeIt,const char* errorContext,ExpressionType expectedType)
 		{
-			if(expectedType != ExpressionType::unit) { parseTypedExpression(nodeIt++,errorContext,expectedType); }
+			if(expectedType != ExpressionType::none) { parseTypedExpression(nodeIt++,errorContext,expectedType); }
 		}
 
 		void parseTypedExpression(SNodeIt nodeIt,const char* errorContext,ExpressionType expectedType)
@@ -668,7 +668,7 @@ namespace WAST
 	ExpressionType parseControlSignature(SNodeIt& nodeIt)
 	{
 		ValueType valueType;
-		if(!parseType(nodeIt,valueType)) { return ExpressionType::unit; }
+		if(!parseType(nodeIt,valueType)) { return ExpressionType::none; }
 		else { return asExpressionType(valueType); }
 	}
 
@@ -729,7 +729,7 @@ namespace WAST
 					auto alignmentLog2 = parseAlignmentAttribute(nodeIt,numBytes); \
 					parseOperands(nodeIt,"store operands",ExpressionType::i32,ExpressionType::type); \
 					encoder.type##_##opcode({offset,alignmentLog2}); \
-					resultType = ExpressionType::unit; \
+					resultType = ExpressionType::none; \
 				}
 			#define DEFINE_MEMORY_OP(type,numBytes,loadOpcode,storeOpcode) \
 				DEFINE_LOAD_OP(type,numBytes,loadOpcode) DEFINE_STORE_OP(type,numBytes,storeOpcode)
@@ -886,7 +886,7 @@ namespace WAST
 				if(hasElseNode) { encoder.beginIfElse({asResultType(resultType)}); }
 				else
 				{
-					if(resultType != ExpressionType::unit) { emitError(nodeIt,"if without else cannot yield a result"); }
+					if(resultType != ExpressionType::none) { emitError(nodeIt,"if without else cannot yield a result"); }
 					encoder.beginIf();
 				}
 				enterControlStructure();
@@ -923,7 +923,7 @@ namespace WAST
 				// Parse an optional result type for the loop.
 				resultType = parseControlSignature(nodeIt);
 
-				ScopedBranchTarget scopedContinueTarget(*this,ExpressionType::unit,hasLabel,labelName);
+				ScopedBranchTarget scopedContinueTarget(*this,ExpressionType::none,hasLabel,labelName);
 
 				encoder.beginLoop({asResultType(resultType)});
 				enterControlStructure();
@@ -1051,7 +1051,7 @@ namespace WAST
 				resultType = asExpressionType(calleeType->ret);
 			}
 
-			DEFINE_OP(nop) { encoder.nop(); resultType = ExpressionType::unit; }
+			DEFINE_OP(nop) { encoder.nop(); resultType = ExpressionType::none; }
 				
 			DEFINE_OP(select)
 			{
@@ -1070,9 +1070,9 @@ namespace WAST
 			DEFINE_OP(drop)
 			{
 				const ExpressionType dropType = parseExpression(nodeIt++,"drop operand");
-				if(dropType == ExpressionType::unit) { emitError(parentNodeIt,"drop operand must yield a value"); }
+				if(dropType == ExpressionType::none) { emitError(parentNodeIt,"drop operand must yield a value"); }
 				encoder.drop();
-				resultType = ExpressionType::unit;
+				resultType = ExpressionType::none;
 			}
 			DEFINE_OP(get_local)
 			{
@@ -1092,7 +1092,7 @@ namespace WAST
 				parseOperands(nodeIt,"set_local value operand",asExpressionType(localType));
 
 				encoder.set_local({localIndex});
-				resultType = ExpressionType::unit;
+				resultType = ExpressionType::none;
 			}
 			DEFINE_OP(tee_local)
 			{
@@ -1126,7 +1126,7 @@ namespace WAST
 				parseOperands(nodeIt,"set_global value operand",asExpressionType(globalType.valueType));
 
 				encoder.set_global({globalIndex});
-				resultType = ExpressionType::unit;
+				resultType = ExpressionType::none;
 			}
 				
 			break;

@@ -131,17 +131,17 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f32,source) { return floatToInt<uint64,float32,true>(source,-1.0f,-2.0f * INT64_MIN); }
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f64,source) { return floatToInt<uint64,float64,true>(source,-1.0,-2.0 * INT64_MIN); }
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroTrap,divideByZeroTrap,unit)
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroTrap,divideByZeroTrap,none)
 	{
 		causeException(Exception::Cause::integerDivideByZeroOrIntegerOverflow);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,unreachableTrap,unreachableTrap,unit)
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,unreachableTrap,unreachableTrap,none)
 	{
 		causeException(Exception::Cause::reachedUnreachable);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,unit,i32,index,i64,expectedSignatureBits,i64,tableBits)
+	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableBits)
 	{
 		Table* table = reinterpret_cast<Table*>(tableBits);
 		void* elementValue = table->baseAddress[index].value;
@@ -157,7 +157,7 @@ namespace Runtime
 		causeException(elementValue == nullptr ? Exception::Cause::undefinedTableElement : Exception::Cause::indirectCallSignatureMismatch);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallIndexOutOfBounds,indirectCallIndexOutOfBounds,unit)
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallIndexOutOfBounds,indirectCallIndexOutOfBounds,none)
 	{
 		causeException(Exception::Cause::undefinedTableElement);
 	}
@@ -180,21 +180,21 @@ namespace Runtime
 
 	uintptr indentLevel = 0;
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,enterFunction,unit,i64,functionInstanceBits)
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,enterFunction,none,i64,functionInstanceBits)
 	{
 		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 		std::cout << std::setw(7+indentLevel*2) << "ENTER: " << function->debugName << std::endl;
 		++indentLevel;
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugExitFunction,exitFunction,unit,i64,functionInstanceBits)
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugExitFunction,exitFunction,none,i64,functionInstanceBits)
 	{
 		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 		--indentLevel;
 		std::cout << std::setw(7+indentLevel*2) << "EXIT:  " << function->debugName << std::endl;
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,debugBreak,debugBreak,unit)
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,debugBreak,debugBreak,none)
 	{
 		std::cout << "============================= wavmIntrinsics.debugBreak ========================" << std::endl;
 	}

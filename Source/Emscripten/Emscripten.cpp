@@ -117,8 +117,8 @@ namespace Emscripten
 	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_setspecific,_pthread_setspecific,i32,i32,a,i32,b) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
 	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_getspecific,_pthread_getspecific,i32,i32,a) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
 	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_once,_pthread_once,i32,i32,a,i32,b) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
-	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_cleanup_push,_pthread_cleanup_push,unit,i32,a,i32,b) { }
-	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_cleanup_pop,_pthread_cleanup_pop,unit,i32,a) { }
+	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_cleanup_push,_pthread_cleanup_push,none,i32,a,i32,b) { }
+	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_cleanup_pop,_pthread_cleanup_pop,none,i32,a) { }
 	DEFINE_INTRINSIC_FUNCTION0(env,_pthread_self,_pthread_self,i32) { return 0; }
 
 	DEFINE_INTRINSIC_FUNCTION0(env,___ctype_b_loc,___ctype_b_loc,i32)
@@ -154,7 +154,7 @@ namespace Emscripten
 		}
 		return vmAddress + sizeof(int32)*128;
 	}
-	DEFINE_INTRINSIC_FUNCTION4(env,___assert_fail,___assert_fail,unit,i32,condition,i32,filename,i32,line,i32,function)
+	DEFINE_INTRINSIC_FUNCTION4(env,___assert_fail,___assert_fail,none,i32,condition,i32,filename,i32,line,i32,function)
 	{
 		ABORT = 1;
 		causeException(Runtime::Exception::Cause::calledAbort);
@@ -176,9 +176,9 @@ namespace Emscripten
 			return 0;
 		}
 	}
-	DEFINE_INTRINSIC_FUNCTION1(env,___cxa_guard_release,___cxa_guard_release,unit,i32,a)
+	DEFINE_INTRINSIC_FUNCTION1(env,___cxa_guard_release,___cxa_guard_release,none,i32,a)
 	{}
-	DEFINE_INTRINSIC_FUNCTION3(env,___cxa_throw,___cxa_throw,unit,i32,a,i32,b,i32,c)
+	DEFINE_INTRINSIC_FUNCTION3(env,___cxa_throw,___cxa_throw,none,i32,a,i32,b,i32,c)
 	{
 		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
 	}
@@ -194,15 +194,15 @@ namespace Emscripten
 	{
 		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
 	}
-	DEFINE_INTRINSIC_FUNCTION0(env,_abort,_abort,unit)
+	DEFINE_INTRINSIC_FUNCTION0(env,_abort,_abort,none)
 	{
 		causeException(Runtime::Exception::Cause::calledAbort);
 	}
-	DEFINE_INTRINSIC_FUNCTION1(env,_exit,_exit,unit,i32,code)
+	DEFINE_INTRINSIC_FUNCTION1(env,_exit,_exit,none,i32,code)
 	{
 		causeException(Runtime::Exception::Cause::calledAbort);
 	}
-	DEFINE_INTRINSIC_FUNCTION1(env,abort,abort,unit,i32,code)
+	DEFINE_INTRINSIC_FUNCTION1(env,abort,abort,none,i32,code)
 	{
 		std::cerr << "abort(" << code << ")" << std::endl;
 		causeException(Runtime::Exception::Cause::calledAbort);
@@ -223,7 +223,7 @@ namespace Emscripten
 		}
 		return base;
 	}
-	DEFINE_INTRINSIC_FUNCTION1(env,_freelocale,_freelocale,unit,i32,a)
+	DEFINE_INTRINSIC_FUNCTION1(env,_freelocale,_freelocale,none,i32,a)
 	{}
 
 	DEFINE_INTRINSIC_FUNCTION5(env,_strftime_l,_strftime_l,i32,i32,a,i32,b,i32,c,i32,d,i32,e) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
@@ -285,17 +285,17 @@ namespace Emscripten
 		return fflush(vmFile(file));
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(env,___lock,___lock,unit,i32,a)
+	DEFINE_INTRINSIC_FUNCTION1(env,___lock,___lock,none,i32,a)
 	{
 	}
-	DEFINE_INTRINSIC_FUNCTION1(env,___unlock,___unlock,unit,i32,a)
+	DEFINE_INTRINSIC_FUNCTION1(env,___unlock,___unlock,none,i32,a)
 	{
 	}
 	DEFINE_INTRINSIC_FUNCTION1(env,___lockfile,___lockfile,i32,i32,a)
 	{
 		return 1;
 	}
-	DEFINE_INTRINSIC_FUNCTION1(env,___unlockfile,___unlockfile,unit,i32,a)
+	DEFINE_INTRINSIC_FUNCTION1(env,___unlockfile,___unlockfile,none,i32,a)
 	{
 	}
 
@@ -404,7 +404,7 @@ namespace Emscripten
 
 			// Call the establishStackSpace function to set the Emscripten module's internal stack pointers.
 			FunctionInstance* establishStackSpace = asFunctionNullable(getInstanceExport(moduleInstance,"establishStackSpace"));
-			if(establishStackSpace && getFunctionType(establishStackSpace) == FunctionType::get(ResultType::unit,{ValueType::i32,ValueType::i32}))
+			if(establishStackSpace && getFunctionType(establishStackSpace) == FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i32}))
 			{
 				std::vector<Runtime::Value> parameters = {Runtime::Value(STACKTOP),Runtime::Value(STACK_MAX)};
 				auto establishStackSpaceResult = Runtime::invokeFunction(establishStackSpace,parameters);

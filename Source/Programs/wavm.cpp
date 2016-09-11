@@ -175,7 +175,7 @@ int commandMain(int argc,char** argv)
 			Value value;
 			switch((TypeId)functionType->parameters[i])
 			{
-			case TypeId::unit: break;
+			case TypeId::none: break;
 			case TypeId::i32: value = (uint32)atoi(argv[main_argc_start+i]); break;
 			case TypeId::i64: value = (uint64)atol(argv[main_argc_start+i]); break;
 			case TypeId::f32:

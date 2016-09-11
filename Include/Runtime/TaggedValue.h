@@ -33,7 +33,7 @@ namespace Runtime
 	// The type of a runtime value.
 	enum class TypeId : uint8
 	{
-		unit = 0,
+		none = 0,
 		i32,
 		i64,
 		f32,
@@ -54,12 +54,12 @@ namespace Runtime
 		Value(float64 inF64): UntaggedValue(inF64), type(TypeId::f64) {}
 		Value(Exception* inException): UntaggedValue(inException), type(TypeId::exception) {}
 		Value(TypeId inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
-		Value(): type(TypeId::unit) {}
+		Value(): type(TypeId::none) {}
 	};
 
 	namespace NativeTypes
 	{
-		typedef void unit;
+		typedef void none;
 		typedef int32 i32;
 		typedef int64 i64;
 		typedef float32 f32;
@@ -82,7 +82,7 @@ namespace Runtime
 	{
 		switch(valueType)
 		{
-		case WebAssembly::ResultType::unit: return TypeId::unit;
+		case WebAssembly::ResultType::none: return TypeId::none;
 		case WebAssembly::ResultType::i32: return TypeId::i32;
 		case WebAssembly::ResultType::i64: return TypeId::i64;
 		case WebAssembly::ResultType::f32: return TypeId::f32;

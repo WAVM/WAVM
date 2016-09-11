@@ -141,7 +141,7 @@ inline std::string describeRuntimeValue(const Runtime::Value& value)
 {
     switch(value.type)
     {
-    case Runtime::TypeId::unit: return "()";
+    case Runtime::TypeId::none: return "()";
     case Runtime::TypeId::i32: return "i32(" + std::to_string(value.i32) + ")";
     case Runtime::TypeId::i64: return "i64(" + std::to_string(value.i64) + ")";
     case Runtime::TypeId::f32: return "f32(" + Floats::asString(value.f32) + ")";

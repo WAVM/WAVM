@@ -214,12 +214,12 @@ namespace WebAssembly
 		void beginLoop(ControlStructureImm imm)
 		{
 			validate(imm.resultType);
-			pushControlStack(ControlContext::Type::loop,ResultType::unit,imm.resultType);
+			pushControlStack(ControlContext::Type::loop,ResultType::none,imm.resultType);
 		}
 		void beginIf(NoImm)
 		{
 			popAndValidateOperand(ValueType::i32);
-			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::unit,ResultType::unit);
+			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::none,ResultType::none);
 		}
 		void beginIfElse(ControlStructureImm imm)
 		{
@@ -544,11 +544,11 @@ namespace WebAssembly
 
 		void popAndValidateResultType(ResultType expectedType)
 		{
-			if(expectedType != ResultType::unit) { popAndValidateOperands(asValueType(expectedType)); }
+			if(expectedType != ResultType::none) { popAndValidateOperands(asValueType(expectedType)); }
 		}
 
 		void push(ValueType type) { stack.push_back(type); }
-		void push(ResultType type) { if(type != ResultType::unit) { push(asValueType(type)); } }
+		void push(ResultType type) { if(type != ResultType::none) { push(asValueType(type)); } }
 	};
 
 	ModuleValidationContext::ModuleValidationContext(const Module& inModule)

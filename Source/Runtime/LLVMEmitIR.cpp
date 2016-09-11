@@ -167,7 +167,7 @@ namespace LLVMJIT
 
 		llvm::PHINode* createPHI(llvm::BasicBlock* basicBlock,ResultType type)
 		{
-			if(type == ResultType::unit) { return nullptr; }
+			if(type == ResultType::none) { return nullptr; }
 			else
 			{
 				auto originalBlock = irBuilder.GetInsertBlock();
@@ -216,7 +216,7 @@ namespace LLVMJIT
 					else
 					{
 						currentContext.endPHI->removeFromParent();
-						assert(currentContext.resultType != ResultType::unit);
+						assert(currentContext.resultType != ResultType::none);
 						push(typedZeroConstants[(uintptr)asValueType(currentContext.resultType)]);
 					}
 				}
@@ -284,7 +284,7 @@ namespace LLVMJIT
 			auto endPHI = createPHI(endBlock,imm.resultType);
 			irBuilder.CreateBr(loopBodyBlock);
 			irBuilder.SetInsertPoint(loopBodyBlock);
-			pushControlStack(ControlContext::Type::loop,ResultType::unit,imm.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
+			pushControlStack(ControlContext::Type::loop,ResultType::none,imm.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
 		}
 		void beginIf(NoImm)
 		{
@@ -293,7 +293,7 @@ namespace LLVMJIT
 			auto condition = pop();
 			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,endBlock);
 			irBuilder.SetInsertPoint(thenBlock);
-			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::unit,ResultType::unit,endBlock,nullptr,endBlock,nullptr);
+			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::none,ResultType::none,endBlock,nullptr,endBlock,nullptr);
 		}
 		void beginIfElse(ControlStructureImm imm)
 		{
@@ -308,7 +308,7 @@ namespace LLVMJIT
 		}
 		void end(NoImm)
 		{
-			if(controlStack.back().resultType != ResultType::unit)
+			if(controlStack.back().resultType != ResultType::none)
 			{
 				llvm::Value* result = pop();
 				controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
@@ -319,7 +319,7 @@ namespace LLVMJIT
 		
 		void ret(NoImm)
 		{
-			if(functionType->ret != ResultType::unit)
+			if(functionType->ret != ResultType::none)
 			{
 				llvm::Value* result = pop();
 				controlStack[0].branchTargetPHI->addIncoming(result,irBuilder.GetInsertBlock());
@@ -331,7 +331,7 @@ namespace LLVMJIT
 		void br(BranchImm imm)
 		{
 			ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepth);
-			if(targetContext.branchArgumentType != ResultType::unit)
+			if(targetContext.branchArgumentType != ResultType::none)
 			{
 				llvm::Value* argument = pop();
 				targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
@@ -346,7 +346,7 @@ namespace LLVMJIT
 			ControlContext& defaultTargetContext = getBranchTargetByDepth(imm.defaultTargetDepth);
 			const ResultType argumentType = defaultTargetContext.branchArgumentType;
 			llvm::Value* argument = nullptr;
-			if(argumentType != ResultType::unit)
+			if(argumentType != ResultType::none)
 			{
 				argument = pop();
 				defaultTargetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
@@ -357,7 +357,7 @@ namespace LLVMJIT
 			for(uintptr targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
 			{
 				ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepths[targetIndex]);
-				if(argumentType != ResultType::unit) { targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock()); }
+				if(argumentType != ResultType::none) { targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock()); }
 				llvmSwitch->addCase(emitLiteral((uint32)targetIndex),targetContext.branchTargetBlock);
 			}
 
@@ -368,7 +368,7 @@ namespace LLVMJIT
 			auto condition = pop();
 
 			ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepth);
-			if(targetContext.branchArgumentType != ResultType::unit)
+			if(targetContext.branchArgumentType != ResultType::none)
 			{
 				llvm::Value* argument = getTopValue();
 				targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
@@ -445,7 +445,7 @@ namespace LLVMJIT
 			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * calleeType->parameters.size());
 			popMultiple(llvmArgs,calleeType->parameters.size());
 			auto result = irBuilder.CreateCall(callee,llvm::ArrayRef<llvm::Value*>(llvmArgs,calleeType->parameters.size()));
-			if(calleeType->ret != ResultType::unit) { push(result); }
+			if(calleeType->ret != ResultType::none) { push(result); }
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
@@ -491,7 +491,7 @@ namespace LLVMJIT
 						{
 							emitRuntimeIntrinsic(
 								"wavmIntrinsics.indirectCallSignatureMismatch",
-								FunctionType::get(ResultType::unit,{ValueType::i32,ValueType::i64,ValueType::i64}),
+								FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i64,ValueType::i64}),
 								{	tableElementIndex,
 									irBuilder.CreatePtrToInt(llvmCalleeType,llvmI64Type),
 									emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultTable))	}
@@ -509,7 +509,7 @@ namespace LLVMJIT
 					return (llvm::Value*)nullptr;
 				});
 			
-			if(calleeType->ret != ResultType::unit) { push(result); }
+			if(calleeType->ret != ResultType::none) { push(result); }
 		}
 
 		void grow_memory(NoImm)
@@ -841,7 +841,7 @@ namespace LLVMJIT
 		#if ENABLE_FUNCTION_ENTER_EXIT_HOOKS
 			emitRuntimeIntrinsic(
 				"wavmIntrinsics.debugEnterFunction",
-				FunctionType::get(ResultType::unit,{ValueType::i64}),
+				FunctionType::get(ResultType::none,{ValueType::i64}),
 				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->functionDefs[functionDefIndex]))}
 				);
 		#endif
@@ -889,13 +889,13 @@ namespace LLVMJIT
 		#if ENABLE_FUNCTION_ENTER_EXIT_HOOKS
 			emitRuntimeIntrinsic(
 				"wavmIntrinsics.debugExitFunction",
-				FunctionType::get(ResultType::unit,{ValueType::i64}),
+				FunctionType::get(ResultType::none,{ValueType::i64}),
 				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->functionDefs[functionDefIndex]))}
 				);
 		#endif
 
 		// Emit the function return.
-		if(functionType->ret == ResultType::unit) { irBuilder.CreateRetVoid(); }
+		if(functionType->ret == ResultType::none) { irBuilder.CreateRetVoid(); }
 		else { irBuilder.CreateRet(pop()); }
 	}
 
@@ -1060,7 +1060,7 @@ namespace LLVMJIT
 		llvmBoolType = llvm::Type::getInt1Ty(context);
 		llvmI8PtrType = llvmI8Type->getPointerTo();
 
-		llvmResultTypes[(size_t)ResultType::unit] = llvm::Type::getVoidTy(context);
+		llvmResultTypes[(size_t)ResultType::none] = llvm::Type::getVoidTy(context);
 		llvmResultTypes[(size_t)ResultType::i32] = llvmI32Type;
 		llvmResultTypes[(size_t)ResultType::i64] = llvmI64Type;
 		llvmResultTypes[(size_t)ResultType::f32] = llvmF32Type;
