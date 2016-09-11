@@ -131,8 +131,6 @@ namespace WAST
 
 	ExpressionTypeSet refineTypeSet(ExpressionTypeSet set,ExpressionType type)
 	{
-		assert(isMember(set,type));
-
 		// If this is the first branch to the target with a precisely known argument type, narrow the target's expected type.
 		if(set == ExpressionTypeSet::any && type != ExpressionType::unreachable)
 		{ set = intersectTypeSet(set,asExpressionTypeSet(type)); }
