@@ -1033,31 +1033,16 @@ namespace WAST
 				if(expectedType == ExpressionTypeSet::any) { emitError(parentNodeIt,"loop cannot occur in polymorphic type context"); break; }
 
 				// Parse a label names for the continue and break branch targets.
-				const char* firstLabelName = nullptr;
-				const char* secondLabelName = nullptr;
-				bool hasFirstLabel = parseName(nodeIt,firstLabelName);
-				bool hasSecondLabel = hasFirstLabel && parseName(nodeIt,secondLabelName);
-				const char* breakLabelName = hasSecondLabel ? firstLabelName : nullptr;
-				const char* continueLabelName = hasSecondLabel ? secondLabelName : (hasFirstLabel ? firstLabelName : nullptr);
+				const char* labelName = nullptr;
+				bool hasLabel = parseName(nodeIt,labelName);
 					
 				ScopedBranchTarget scopedContinueTarget(*this,ExpressionTypeSet::unit);
-				ScopedLabelName scopedContinueName(*this,continueLabelName != nullptr,continueLabelName);
+				ScopedLabelName scopedContinueName(*this,hasLabel,labelName);
 					
 				encoder.beginLoop({asReturnType(expectedType)});
 				enterControlStructure();
-					
-				if(!breakLabelName) { resultType = parseExpressionSequence(nodeIt,"loop body",expectedType); }
-				else
-				{
-					ScopedBranchTarget scopedBreakTarget(*this,expectedType);
-					ScopedLabelName scopedBreakName(*this,breakLabelName != nullptr,breakLabelName);
-					
-					encoder.beginBlock({asReturnType(expectedType)});
-					enterControlStructure();
-					resultType = parseExpressionSequence(nodeIt,"loop body",expectedType);
-					resultType = scopedBreakTarget.end(resultType);
-					endControlStructure();
-				}
+
+				resultType = parseExpressionSequence(nodeIt,"loop body",expectedType);
 
 				scopedContinueTarget.end(ExpressionType::unit);
 				endControlStructure();

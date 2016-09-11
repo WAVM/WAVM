@@ -38,18 +38,20 @@
     (set_local $space (i32.const 0))
     (set_local $stdout (i32.load align=4 (get_global $stdoutPtr)))
 
-    (loop $done $loop
-      (set_local $argv (i32.add (get_local $argv) (i32.const 4)))
-      (set_local $s (i32.load (get_local $argv)))
-      (br_if $done (i32.eq (i32.const 0) (get_local $s)))
+    (loop $loop
+      (block $done
+        (set_local $argv (i32.add (get_local $argv) (i32.const 4)))
+        (set_local $s (i32.load (get_local $argv)))
+        (br_if $done (i32.eq (i32.const 0) (get_local $s)))
 
-      (if (i32.eq (i32.const 1) (get_local $space))
-        (drop (call $fputs (i32.const 12) (get_local $stdout))) ;; ' '
+        (if (i32.eq (i32.const 1) (get_local $space))
+          (drop (call $fputs (i32.const 12) (get_local $stdout))) ;; ' '
+        )
+        (set_local $space (i32.const 1))
+
+        (drop (call $fputs (get_local $s) (get_local $stdout)))
+        (br $loop)
       )
-      (set_local $space (i32.const 1))
-
-      (drop (call $fputs (get_local $s) (get_local $stdout)))
-      (br $loop)
     )
 
     (drop (call $fputs (i32.const 8) (get_local $stdout))) ;; \n
