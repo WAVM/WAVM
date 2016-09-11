@@ -908,7 +908,7 @@ namespace WAST
 			DEFINE_OP(block)
 			{
 				// Parse an optional label.
-				const char* labelName;
+				const char* labelName = nullptr;
 				bool hasLabel = parseName(nodeIt,labelName);
 
 				// Parse an optional result type for the block.
