@@ -170,13 +170,13 @@ namespace WAST
 		void ret(NoImm)
 		{
 			string += "\nreturn";
-			popControlStack();
+			enterUnreachable();
 		}
 
 		void br(BranchImm imm)
 		{
 			string += "\nbr " + std::to_string(imm.targetDepth);
-			popControlStack();
+			enterUnreachable();
 		}
 		void br_table(BranchTableImm imm)
 		{
@@ -189,7 +189,7 @@ namespace WAST
 			string += ' ';
 			string += std::to_string(imm.defaultTargetDepth);
 
-			popControlStack();
+			enterUnreachable();
 		}
 		void br_if(BranchImm imm)
 		{
@@ -197,7 +197,7 @@ namespace WAST
 		}
 
 		void nop(NoImm) { string += "\nnop"; }
-		void unreachable(NoImm) { string += "\nunreachable"; popControlStack(); }
+		void unreachable(NoImm) { string += "\nunreachable"; enterUnreachable(); }
 		void drop(NoImm) { string += "\ndrop"; }
 
 		void select(NoImm)
@@ -394,6 +394,11 @@ namespace WAST
 				if(controlStack.back() != ControlContextType::function) { string += "\nend"; }
 				controlStack.pop_back();
 			}
+		}
+
+		void enterUnreachable()
+		{
+			if(WebAssembly::unconditionalBranchImpliesEnd) { popControlStack(); }
 		}
 	};
 
