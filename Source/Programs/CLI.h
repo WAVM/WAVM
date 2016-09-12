@@ -40,7 +40,7 @@ inline bool loadTextModule(const char* filename,WebAssembly::Module& outModule)
 	#if WAVM_TIMER_OUTPUT
 	Core::Timer loadTimer;
 	#endif
-	std::vector<WAST::ParseError> parseErrors;
+	std::vector<WAST::Error> parseErrors;
 	if(!WAST::parseModule(wastString.c_str(),outModule,parseErrors))
 	{
 		// Build an index of newline offsets in the file.

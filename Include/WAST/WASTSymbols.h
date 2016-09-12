@@ -27,6 +27,7 @@ namespace WAST
 		WAST_SYMBOL(assert_trap) \
 		WAST_SYMBOL(assert_invalid) \
 		WAST_SYMBOL(assert_unlinkable) \
+		WAST_SYMBOL(assert_malformed) \
 		WAST_SYMBOL(invoke) \
 		WAST_SYMBOL(get) \
 		WAST_SYMBOL(align) \

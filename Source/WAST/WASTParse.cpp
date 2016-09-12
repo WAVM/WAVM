@@ -113,7 +113,7 @@ namespace WAST
 	struct ModuleContext
 	{
 		Module& module;
-		std::vector<ParseError>& errors;
+		std::vector<Error>& errors;
 
 		NameToIndexMap functionNameToIndexMap;
 		NameToIndexMap memoryNameToIndexMap;
@@ -129,7 +129,7 @@ namespace WAST
 		NameToIndexMap signatureNameToIndexMap;
 		std::vector<const FunctionType*> signatures;
 
-		ModuleContext(Module& inModule,std::vector<ParseError>& inErrors): module(inModule), errors(inErrors) {}
+		ModuleContext(Module& inModule,std::vector<Error>& inErrors): module(inModule), errors(inErrors) {}
 
 		uintptr getFunctionTypeIndex(const FunctionType* functionType);
 		bool parseInitializerExpression(SNodeIt& nodeIt,ValueType expectedType,InitializerExpression& outExpression);
@@ -137,7 +137,7 @@ namespace WAST
 		void parse(SNodeIt moduleNode);
 	};
 
-	void recordError(std::vector<ParseError>& outErrors,const Core::TextFileLocus& locus,std::string&& message)
+	void recordError(std::vector<Error>& outErrors,const Core::TextFileLocus& locus,std::string&& message)
 	{
 		outErrors.push_back({locus,std::move(message)});
 	}
@@ -1578,6 +1578,7 @@ namespace WAST
 						break;
 				}
 			}
+			else { recordError(*this,nodeIt,"unrecognized input"); }
 		}
 		
 		// Parse the export declarations after all other declarations are available for use.
@@ -1819,50 +1820,36 @@ namespace WAST
 			}
 		}
 
-		// If there weren't any other errors, validate the module to try to catch any validation errors the parser didn't catch sooner.
-		// In general, the parser should try to catch validation errors first though, so it can give more than one error at a time, and
-		// with a nice location within the file.
-		if(!errors.size())
-		{
-			try { WebAssembly::validate(module); }
-			catch(WebAssembly::ValidationException exception) { recordError(*this,firstModuleChildNodeIt,"validation error: " + exception.message); }
-		}
-	}
-
-	bool parseStringSequence(SNodeIt& nodeIt,std::string& outString)
-	{
-		bool result = false;
-		std::string tempString;
-		while(parseString(nodeIt,tempString)) { outString += tempString; result = true; }
-		return result;
 	}
 
 	// Parses a module from a S-expression.
-	bool parseModule(SNodeIt firstNonNameChildNodeIt,WebAssembly::Module& outModule,std::vector<ParseError>& outErrors)
+	bool parseModule(SNodeIt firstNonNameChildNodeIt,WebAssembly::Module& outModule,std::vector<Error>& outErrors)
 	{
-		SNodeIt binaryNodeIt = firstNonNameChildNodeIt;
-		std::string binaryString;
-		if(parseStringSequence(firstNonNameChildNodeIt,binaryString))
-		{
-			InputStream stringStream((uint8*)binaryString.data(),binaryString.size());
-			try { serialize(stringStream,outModule); }
-			catch(FatalSerializationException exception)
-			{
-				outErrors.push_back({binaryNodeIt->startLocus,"failed to deserialize binary module: " + exception.message});
-				return false;
-			}
-			return true;
-		}
-		else
+		try
 		{
 			ModuleContext moduleContext(outModule,outErrors);
 			moduleContext.parse(firstNonNameChildNodeIt);
-			return moduleContext.errors.size() == 0;
+		
+			// If there weren't any other errors, validate the module to try to catch any validation errors the parser didn't catch sooner.
+			// In general, the parser should try to catch validation errors first though, so it can give more than one error at a time, and
+			// with a nice location within the file.
+			if(!outErrors.size()) { WebAssembly::validate(outModule); }
+			return outErrors.size() == 0;
+		}
+		catch(WebAssembly::ValidationException exception)
+		{
+			recordError(outErrors,firstNonNameChildNodeIt->startLocus,"validation error: " + exception.message);
+			return false;
+		}
+		catch(FatalSerializationException exception)
+		{
+			recordError(outErrors,firstNonNameChildNodeIt->startLocus,"serialization error: " + exception.message);
+			return false;
 		}
 	}
 
 	// Parses a module from a WAST string.
-	bool parseModule(const char* string,WebAssembly::Module& outModule,std::vector<ParseError>& outErrors)
+	bool parseModule(const char* string,WebAssembly::Module& outModule,std::vector<Error>& outErrors)
 	{
 		const SExp::SymbolIndexMap& symbolIndexMap = getWASTSymbolIndexMap();
 		

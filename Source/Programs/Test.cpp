@@ -1,5 +1,6 @@
 #include "Core/Core.h"
 #include "Core/SExpressions.h"
+#include "Core/Serialization.h"
 #include "Core/Platform.h"
 #include "WAST/WAST.h"
 #include "WAST/WASTSymbols.h"
@@ -19,7 +20,7 @@ uintptr numErrors = 0;
 
 struct TestScriptState : private Resolver
 {
-	std::vector<ParseError> errors;
+	std::vector<WAST::Error> errors;
 
 	TestScriptState(const char* inFilename): filename(inFilename) {}
 
@@ -44,8 +45,12 @@ private:
 		auto mapIt = moduleNameToIndexMap.find(moduleName);
 		if(mapIt != moduleNameToIndexMap.end())
 		{
-			outObject = getInstanceExport(moduleInstances[mapIt->second],exportName);
-			return outObject != nullptr && isA(outObject,type);
+			auto moduleInstance = moduleInstances[mapIt->second];
+			if(moduleInstance)
+			{
+				outObject = getInstanceExport(moduleInstance,exportName);
+				return outObject != nullptr && isA(outObject,type);
+			}
 		}
 
 		return false;
@@ -140,27 +145,33 @@ private:
 				moduleIndex = mapIt->second;
 			}
 
-			// Parse the export name to invoke.
-			std::string invokeExportName;
-			SNodeIt savedExportNameIt = childNodeIt;
-			if(!parseString(childNodeIt,invokeExportName))
-				{ recordError(childNodeIt,"expected export name string"); return false; }
+			// Look up the module this invoke uses, and bail without an error if there was an error parsing the module.
+			auto moduleInstance = moduleInstances[moduleIndex];
+			if(moduleInstance)
+			{
+				// Parse the export name to invoke.
+				std::string invokeExportName;
+				SNodeIt savedExportNameIt = childNodeIt;
+				if(!parseString(childNodeIt,invokeExportName))
+					{ recordError(childNodeIt,"expected export name string"); return false; }
 
-			// Find the named export in the module instance and get its type.
-			auto functionInstance = asFunctionNullable(getInstanceExport(moduleInstances[moduleIndex],invokeExportName.c_str()));
-			if(!functionInstance) { recordError(savedExportNameIt,std::string("couldn't find exported function with name: ") + invokeExportName); return false; }
-			auto functionType = getFunctionType(functionInstance);
+				// Find the named export in the module instance and get its type.
+				auto functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,invokeExportName.c_str()));
+				if(!functionInstance) { recordError(savedExportNameIt,std::string("couldn't find exported function with name: ") + invokeExportName); return false; }
+				auto functionType = getFunctionType(functionInstance);
 
-			// Parse the invoke's parameters.
-			std::vector<Runtime::Value> parameters(functionType->parameters.size());
-			for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
-				{ parameters[parameterIndex] = parseRuntimeValue(childNodeIt++); }
+				// Parse the invoke's parameters.
+				std::vector<Runtime::Value> parameters(functionType->parameters.size());
+				for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+					{ parameters[parameterIndex] = parseRuntimeValue(childNodeIt++); }
 
-			// Verify that all of the invoke's operands were parsed.
-			if(childNodeIt) { recordExcessInputError(childNodeIt,"invoke unexpected argument"); }
+				// Verify that all of the invoke's operands were parsed.
+				if(childNodeIt) { recordExcessInputError(childNodeIt,"invoke unexpected argument"); }
 
-			// Execute the invoke
-			outValue = invokeFunction(functionInstance,parameters);
+				// Execute the invoke
+				outValue = invokeFunction(functionInstance,parameters);
+			}
+
 			return true;
 		}
 		else if(parseTaggedNode(nodeIt,Symbol::_get,childNodeIt))
@@ -182,22 +193,26 @@ private:
 				moduleIndex = mapIt->second;
 			}
 
-			// Parse the export name to get.
-			std::string getExportName;
-			SNodeIt savedExportNameIt = childNodeIt;
-			if(!parseString(childNodeIt,getExportName))
-				{ recordError(childNodeIt,"expected export name string"); return false; }
+			// Look up the module this invoke uses, and bail without an error if there was an error parsing the module.
+			auto moduleInstance = moduleInstances[moduleIndex];
+			if(moduleInstance)
+			{
+				// Parse the export name to get.
+				std::string getExportName;
+				SNodeIt savedExportNameIt = childNodeIt;
+				if(!parseString(childNodeIt,getExportName)) { recordError(childNodeIt,"expected export name string"); return false; }
 
-			// Find the named export in the module.
-			auto global = asGlobalNullable(getInstanceExport(moduleInstances[moduleIndex],getExportName.c_str()));
-			if(!global)
-			{ recordError(savedExportNameIt,std::string("couldn't find exported global with name: ") + getExportName); return false; }
+				// Find the named export in the module.
+				auto global = asGlobalNullable(getInstanceExport(moduleInstance,getExportName.c_str()));
+				if(!global) { recordError(savedExportNameIt,std::string("couldn't find exported global with name: ") + getExportName); return false; }
 
-			// Verify that all of the get's operands were parsed.
-			if(childNodeIt) { recordExcessInputError(childNodeIt,"get unexpected argument"); }
+				// Verify that all of the get's operands were parsed.
+				if(childNodeIt) { recordExcessInputError(childNodeIt,"get unexpected argument"); }
 
-			// Get the value of the specified global.
-			outValue = getGlobalValue(global);
+				// Get the value of the specified global.
+				outValue = getGlobalValue(global);
+			}
+
 			return true;
 		}
 		else { recordError(nodeIt,"expected invoke or get"); return false; }
@@ -285,12 +300,31 @@ private:
 		if(!parseTaggedNode(nodeIt,Symbol::_module,childNodeIt)) { recordError(moduleNodeIt,"assert_invalid: expected module definition"); return; }
 		++nodeIt;
 		
-		std::vector<WAST::ParseError> invalidModuleErrors;
+		std::vector<WAST::Error> invalidModuleErrors;
 		Module invalidModule;
-		const bool hasParseSucceeded = WAST::parseModule(childNodeIt,invalidModule,invalidModuleErrors);
+		const char* internalModuleName = nullptr;
+		const bool hasParseSucceeded = parseTextOrBinaryModule(childNodeIt,invalidModule,invalidModuleErrors,internalModuleName);
 
 		std::string description;
 		if(!parseString(nodeIt,description)) { recordError(nodeIt,"expected assert_invalid description"); return; }
+
+		if(hasParseSucceeded) { recordError(moduleNodeIt,"expected invalid module(" + description + ") but got a valid module"); }
+	}
+
+	void processAssertMalformed(SNodeIt nodeIt)
+	{
+		SNodeIt moduleNodeIt = nodeIt;
+		SNodeIt childNodeIt;
+		if(!parseTaggedNode(nodeIt,Symbol::_module,childNodeIt)) { recordError(moduleNodeIt,"assert_malformed: expected module definition"); return; }
+		++nodeIt;
+		
+		std::vector<WAST::Error> malformedModuleErrors;
+		Module invalidModule;
+		const char* internalModuleName = nullptr;
+		const bool hasParseSucceeded = parseBinaryModule(childNodeIt,invalidModule,malformedModuleErrors,internalModuleName);
+
+		std::string description;
+		if(!parseString(nodeIt,description)) { recordError(nodeIt,"expected assert_malformed description"); return; }
 
 		if(hasParseSucceeded) { recordError(moduleNodeIt,"expected invalid module(" + description + ") but got a valid module"); }
 	}
@@ -303,8 +337,9 @@ private:
 		++nodeIt;
 		
 		Module* unlinkableModule = new Module();
-		std::vector<ParseError> unlinkableModuleErrors;
-		if(!WAST::parseModule(childNodeIt,*unlinkableModule,unlinkableModuleErrors))
+		std::vector<Error> unlinkableModuleErrors;
+		const char* internalModuleName = nullptr;
+		if(!parseTextOrBinaryModule(childNodeIt,*unlinkableModule,unlinkableModuleErrors,internalModuleName))
 		{
 			errors.insert(errors.end(),unlinkableModuleErrors.begin(),unlinkableModuleErrors.end());
 			return;
@@ -320,6 +355,59 @@ private:
 		}
 		catch(LinkException exception)
 		{
+		}
+	}
+	
+	bool parseStringSequence(SNodeIt& nodeIt,std::string& outString)
+	{
+		bool result = false;
+		std::string tempString;
+		while(parseString(nodeIt,tempString)) { outString += tempString; result = true; }
+		return result;
+	}
+
+	bool deserializeBinaryModule(SNodeIt binaryNodeIt,const std::string& binaryString,WebAssembly::Module& outModule,std::vector<Error>& outModuleErrors)
+	{
+		Serialization::MemoryInputStream stringStream((uint8*)binaryString.data(),binaryString.size());
+		try { serialize(stringStream,outModule); }
+		catch(Serialization::FatalSerializationException exception)
+		{
+			outModuleErrors.push_back({binaryNodeIt->startLocus,"failed to deserialize binary module: " + exception.message});
+			return false;
+		}
+		catch(ValidationException exception)
+		{
+			outModuleErrors.push_back({binaryNodeIt->startLocus,"failed to validate binary module: " + exception.message});
+			return false;
+		}
+		return true;
+	}
+
+	bool parseBinaryModule(SNodeIt firstChildNodeIt,WebAssembly::Module& outModule,std::vector<Error>& outModuleErrors,const char*& outInternalName)
+	{
+		// Parse an optional internal module name.
+		if(!parseName(firstChildNodeIt,outInternalName)) { outInternalName = nullptr;}
+
+		// Parse and deserialize a binary module.
+		SNodeIt binaryNodeIt = firstChildNodeIt;
+		std::string binaryString;
+		if(parseStringSequence(firstChildNodeIt,binaryString)) { return deserializeBinaryModule(binaryNodeIt,binaryString,outModule,outModuleErrors); }
+		else { return false; }
+	}
+
+	bool parseTextOrBinaryModule(SNodeIt firstChildNodeIt,WebAssembly::Module& outModule,std::vector<Error>& outModuleErrors,const char*& outInternalName)
+	{
+		// Parse an optional internal module name.
+		if(!parseName(firstChildNodeIt,outInternalName)) { outInternalName = nullptr;}
+
+		// Try parsing and deserializing a binary module first.
+		SNodeIt binaryNodeIt = firstChildNodeIt;
+		std::string binaryString;
+		if(parseStringSequence(firstChildNodeIt,binaryString)) { return deserializeBinaryModule(binaryNodeIt,binaryString,outModule,outModuleErrors); }
+		else
+		{
+			// If it wasn't a binary module, then try parsing a text module.
+			return WAST::parseModule(firstChildNodeIt,outModule,outModuleErrors);
 		}
 	}
 };
@@ -353,30 +441,36 @@ bool TestScriptState::process()
 		{
 			processAssertInvalid(childNodeIt);
 		}
+		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_malformed,childNodeIt))
+		{
+			processAssertMalformed(childNodeIt);
+		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 		{
-			// Parse an optional module name.
-			const char* moduleInternalName = nullptr;
-			bool hasName = parseName(childNodeIt,moduleInternalName);
-
 			// Parse a module definition.
+			const char* moduleInternalName = nullptr;
 			Module* module = new Module();
-			std::vector<ParseError> moduleParseErrors;
-			if(!WAST::parseModule(childNodeIt,*module,moduleParseErrors))
+			std::vector<WAST::Error> moduleErrors;
+			if(parseTextOrBinaryModule(childNodeIt,*module,moduleErrors,moduleInternalName))
 			{
-				errors.insert(errors.end(),moduleParseErrors.begin(),moduleParseErrors.end());
-				break;
+				// Link and instantiate the module.
+				moduleInstances.push_back(linkAndInstantiateModule(*module,*this));
 			}
 			else
 			{
-				modules.push_back(module);
-				moduleInstances.push_back(linkAndInstantiateModule(*module,*this));
-				if(hasName)
-				{
-					// Don't check for duplicate names for now, since the ml-proto tests rely on name shadowing.
-					/*if(moduleInternalNameToIndexMap.count(moduleInternalName)) { recordError(moduleInternalNameIt,std::string("duplicate module name: ") + moduleInternalName); }
-					else*/ { moduleInternalNameToIndexMap[moduleInternalName] = modules.size() - 1; }
-				}
+				errors.insert(errors.end(),moduleErrors.begin(),moduleErrors.end());
+				// Otherwise insert a nullptr in modules and moduleInstances so that tests that reference the most recent module realize there was a problem.
+				delete module;
+				module = nullptr;
+				moduleInstances.push_back(nullptr);
+			}
+
+			modules.push_back(module);
+			if(moduleInternalName)
+			{
+				// Don't check for duplicate names for now, since the ml-proto tests rely on name shadowing.
+				/*if(moduleInternalNameToIndexMap.count(moduleInternalName)) { recordError(moduleInternalNameIt,std::string("duplicate module name: ") + moduleInternalName); }
+				else*/ { moduleInternalNameToIndexMap[moduleInternalName] = modules.size() - 1; }
 			}
 		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_register,childNodeIt))
