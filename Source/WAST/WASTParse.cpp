@@ -541,8 +541,9 @@ namespace WAST
 		// Parses an expression of any type.
 		ExpressionType parseExpression(SNodeIt parentNodeIt,const char* errorContext);
 
-		void suppressUnreachableCode()
+		void enterUnreachable()
 		{
+			if(!WebAssembly::unconditionalBranchImpliesEnd) { encoder.end(); }
 			if(!encoder.unreachableDepth) { ++encoder.unreachableDepth; }
 		}
 
@@ -561,7 +562,7 @@ namespace WAST
 		{
 			recordError(moduleContext,nodeIt,std::string(message));
 			encoder.error({message});
-			suppressUnreachableCode();
+			enterUnreachable();
 		}
 
 		void prohibitExtraOperands(SNodeIt nodeIt)
@@ -941,7 +942,7 @@ namespace WAST
 				parseOptionalTypedExpression(nodeIt,"br target argument",getBranchTargetByDepth(depth).expectedArgumentType);
 
 				encoder.br({depth});
-				suppressUnreachableCode();
+				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
 			DEFINE_OP(br_table)
@@ -981,7 +982,7 @@ namespace WAST
 				parseOperands(nodeIt,"br_table index",ExpressionType::i32);
 
 				encoder.br_table({defaultTargetDepth,std::move(targetDepths)});
-				suppressUnreachableCode();
+				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
 
@@ -1004,7 +1005,7 @@ namespace WAST
 			DEFINE_OP(unreachable)
 			{
 				encoder.unreachable();
-				suppressUnreachableCode();
+				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
 
@@ -1012,7 +1013,7 @@ namespace WAST
 			{
 				parseOptionalTypedExpression(nodeIt,"return operands",asExpressionType(functionType->ret));
 				encoder.ret();
-				suppressUnreachableCode();
+				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
 

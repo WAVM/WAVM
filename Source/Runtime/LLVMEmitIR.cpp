@@ -6,10 +6,6 @@
 #define ENABLE_LOGGING 0
 #define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
 
-#if ENABLE_LOGGING
-	#include <cstdio>
-#endif
-
 using namespace WebAssembly;
 
 namespace LLVMJIT
@@ -122,6 +118,8 @@ namespace LLVMJIT
 			ResultType branchArgumentType;
 			ResultType resultType;
 			uintptr outerStackSize;
+			bool isReachable;
+			bool isElseReachable;
 		};
 
 		std::vector<ControlContext> controlStack;
@@ -189,21 +187,23 @@ namespace LLVMJIT
 			llvm::BasicBlock* elseBlock = nullptr
 			)
 		{
-			controlStack.push_back({type,endBlock,endPHI,branchTargetBlock,branchTargetPHI,elseBlock,branchArgumentType,resultType,stack.size()});
+			bool isReachable = controlStack.size() ? controlStack.back().isReachable : true;
+
+			controlStack.push_back({type,endBlock,endPHI,branchTargetBlock,branchTargetPHI,elseBlock,branchArgumentType,resultType,stack.size(),isReachable,isReachable});
 		}
 
 		void popControlStack()
 		{
 			assert(controlStack.size());
-
 			ControlContext& currentContext = controlStack.back();
-			stack.resize(currentContext.outerStackSize);
+			assert(stack.size() == currentContext.outerStackSize);
 			if(currentContext.type == ControlContext::Type::ifThen)
 			{
 				assert(currentContext.elseBlock);
 				irBuilder.SetInsertPoint(currentContext.elseBlock);
 
 				currentContext.type = ControlContext::Type::ifElse;
+				currentContext.isReachable = currentContext.isElseReachable;
 			}
 			else
 			{
@@ -222,6 +222,13 @@ namespace LLVMJIT
 				}
 				controlStack.pop_back();
 			}
+		}
+
+		void enterUnreachable()
+		{
+			stack.resize(controlStack.back().outerStackSize);
+			if(WebAssembly::unconditionalBranchImpliesEnd) { popControlStack(); }
+			else { controlStack.back().isReachable = false; }
 		}
 		
 		ControlContext& getBranchTargetByDepth(uintptr depth)
@@ -246,6 +253,7 @@ namespace LLVMJIT
 					case ControlContext::Type::loop: controlStackString += "L"; break;
 					default: throw;
 					};
+					if(!controlStack[stackIndex].isReachable) { controlStackString += "-"; }
 				}
 
 				std::string stackString;
@@ -308,12 +316,15 @@ namespace LLVMJIT
 		}
 		void end(NoImm)
 		{
-			if(controlStack.back().resultType != ResultType::none)
+			if(controlStack.back().isReachable)
 			{
-				llvm::Value* result = pop();
-				controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
+				if(controlStack.back().resultType != ResultType::none)
+				{
+					llvm::Value* result = pop();
+					controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
+				}
+				irBuilder.CreateBr(controlStack.back().endBlock);
 			}
-			irBuilder.CreateBr(controlStack.back().endBlock);
 			popControlStack();
 		}
 		
@@ -325,7 +336,7 @@ namespace LLVMJIT
 				controlStack[0].branchTargetPHI->addIncoming(result,irBuilder.GetInsertBlock());
 			}
 			irBuilder.CreateBr(controlStack[0].endBlock);
-			popControlStack();
+			enterUnreachable();
 		}
 
 		void br(BranchImm imm)
@@ -337,7 +348,7 @@ namespace LLVMJIT
 				targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
 			}
 			irBuilder.CreateBr(targetContext.branchTargetBlock);
-			popControlStack();
+			enterUnreachable();
 		}
 		void br_table(BranchTableImm imm)
 		{
@@ -361,7 +372,7 @@ namespace LLVMJIT
 				llvmSwitch->addCase(emitLiteral((uint32)targetIndex),targetContext.branchTargetBlock);
 			}
 
-			popControlStack();
+			enterUnreachable();
 		}
 		void br_if(BranchImm imm)
 		{
@@ -383,7 +394,7 @@ namespace LLVMJIT
 		{
 			emitRuntimeIntrinsic("wavmIntrinsics.unreachableTrap",FunctionType::get(),{});
 			irBuilder.CreateUnreachable();
-			popControlStack();
+			enterUnreachable();
 		}
 		void drop(NoImm) { stack.pop_back(); }
 
@@ -825,6 +836,23 @@ namespace LLVMJIT
 		EMIT_UNARY_OPCODE(i32,reinterpret_f32,irBuilder.CreateBitCast(operand,llvmI32Type))
 		EMIT_UNARY_OPCODE(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
 	};
+	
+	// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end operator through).
+	struct UnreachableOpVisitor
+	{
+		UnreachableOpVisitor(EmitFunctionContext& inContext): context(inContext) {}
+		#define VISIT_OPCODE(encoding,name,Imm) void name(Imm imm) {}
+		ENUM_NONEND_OPCODES(VISIT_OPCODE)
+		VISIT_OPCODE(_,unknown,Opcode)
+		#undef VISIT_OPCODE
+		void end(NoImm imm)
+		{
+			context.end(imm);
+		}
+		void logOperator(const std::string& operatorDescription) { context.logOperator(operatorDescription); }
+	private:
+		EmitFunctionContext& context;
+	};
 
 	void EmitFunctionContext::emit()
 	{
@@ -877,12 +905,22 @@ namespace LLVMJIT
 		// Decode the WebAssembly opcodes and emit LLVM IR for them.
 		Serialization::MemoryInputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
 		OperationDecoder decoder(codeStream);
-		#if ENABLE_LOGGING
-			OperatorLoggingProxy<EmitFunctionContext> loggingProxy(module,*this);
-			while(decoder && controlStack.size()) { decoder.decodeOp(loggingProxy); };
-		#else
-			while(decoder && controlStack.size()) { decoder.decodeOp(*this); };
-		#endif
+		UnreachableOpVisitor unreachableOpVisitor(*this);
+		OperatorLoggingProxy<EmitFunctionContext> loggingProxy(module,*this);
+		OperatorLoggingProxy<UnreachableOpVisitor> unreachableLoggingProxy(module,unreachableOpVisitor);
+		while(decoder && controlStack.size())
+		{
+			if(ENABLE_LOGGING)
+			{
+				if(controlStack.back().isReachable) { decoder.decodeOp(loggingProxy); }
+				else { decoder.decodeOp(unreachableLoggingProxy); }
+			}
+			else
+			{
+				if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
+				else { decoder.decodeOp(unreachableOpVisitor); }
+			}
+		};
 		assert(irBuilder.GetInsertBlock() == returnBlock);
 		
 		// If enabled, emit a call to the WAVM function enter hook (for debugging).

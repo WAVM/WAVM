@@ -21,7 +21,6 @@ namespace WebAssembly
 		visit(0x09,ret,NoImm) \
 		visit(0x0a,unreachable,NoImm) \
 		visit(0x0b,drop,NoImm) \
-		visit(0x0f,end,NoImm) \
 		visit(0x16,call,CallImm) \
 		visit(0x17,call_indirect,CallIndirectImm)
 
@@ -219,7 +218,7 @@ namespace WebAssembly
 		visit(0x3b,current_memory,NoImm) \
 		visit(0xff,error,ErrorImm)
 
-	#define ENUM_OPCODES(visit) \
+	#define ENUM_NONEND_OPCODES(visit) \
 		ENUM_CONTROL_OPCODES(visit) \
 		ENUM_LOAD_OPCODES(visit) ENUM_STORE_OPCODES(visit) \
 		ENUM_LITERAL_OPCODES(visit) \
@@ -230,6 +229,10 @@ namespace WebAssembly
 		ENUM_F64_BINARY_OPCODES(visit) ENUM_F64_UNARY_OPCODES(visit) ENUM_F64_COMPARE_OPCODES(visit) \
 		ENUM_CONVERSION_OPCODES(visit) \
 		ENUM_MISC_OPCODES(visit)
+
+	#define ENUM_OPCODES(visit) \
+		ENUM_NONEND_OPCODES(visit) \
+		visit(0x0f,end,NoImm)
 
 	enum class Opcode : uint8
 	{
