@@ -3,17 +3,16 @@
 # Overview
 
 This is a prototype of a simple standalone VM for WebAssembly. It can load two forms of WebAssembly code:
-* Most of the text format defined by the [WebAssembly reference interpreter](https://github.com/WebAssembly/spec/tree/master/ml-proto). [The tests](Tests/WAST) are so far just copied from the reference interpreter, and are covered by its [license](spec.LICENSE). What I don't support are multiple return values and unaligned loads/stores, but AFAIK everything else does.
-* The binary format defined by the [polyfill prototype](https://github.com/WebAssembly/polyfill-prototype-1). The code was evolved from that project, so should be considered to be covered by its [license](polyfill.LICENSE).
-
-It does not yet handle loading the official binary format for WebAssembly, though I plan to support it once it's closer to done.
+* The text format defined by the [WebAssembly reference interpreter](https://github.com/WebAssembly/spec/tree/master/ml-proto). [The tests](Tests/WAST) are just copied from the tests used by the reference interpreter, and are covered by its [license](spec.LICENSE). WAVM passes most of these spec tests; you can look at [WAVM_known_failures.wast](Test/spec/WAVM_known_failures.wast) to see the tests it DOESN'T pass.
+* The official binary format: this is a work in progress, both in WAVM and in the other tools that use it, so don't be surprised if there are incompatibilities.
 
 # Building and running it
 
 To build it, you'll need CMake and [LLVM 3.8](http://llvm.org/releases/download.html#3.8.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable. Note that on Windows, you must compile LLVM from source, and manually point the LLVM_DIR configuration variable at `<LLVM build directory>/share/llvm/cmake`.
 
-I've tested it on Windows with Visual C++ 2013 and 2015, Linux with GCC and Clang, and MacOS with Xcode/Clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
+I've tested it on Windows with Visual C++ 2015, Linux with GCC and Clang, and MacOS with Xcode/Clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
 
+The primary executable is `wavm`:
 ```
 Usage: wavm [switches] [programfile] [--] [arguments]
   --text in.wast                Specify text program file (.wast)
@@ -21,34 +20,33 @@ Usage: wavm [switches] [programfile] [--] [arguments]
   -f|--function name            Specify function name to run in module rather than main
   -c|--check                    Exit after checking that the program is valid
   --                            Stop parsing arguments
-
-PrintWAST -binary in.wasm in.js.mem out.wast
-PrintWAST -text in.wast out.wast
 ```
 
-wavm will load a WebAssembly file and call main (or a specified function).  Example programs to try without changing any code include those found in the Test/wast and Test/spec directory such as the following:
+`wavm` will load a WebAssembly file and call `main` (or a specified function).  Example programs to try without changing any code include those found in the Test/wast and Test/spec directory such as the following:
 
 ```
 wavm ../Test/wast/helloworld.wast
+wavm ../Test/zlib/zlib.wast
 wavm --text ../Test/spec/fac.wast --function fac-iter 5
 ```
 
 WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments.  If the same main function returns a i32 type it will become the exit code.  WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr.  See [echo.wast](Test/wast/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
 
+There are a few additional executables that can be used to assemble the WAST file into a binary, disassemble a binary into a WAST file, and to execute a test script defined by a WAST file (see the [Test/spec directory](Test/spec) for examples of the syntax).
+
+```
+Assemble in.wast out.wasm
+Disassemble in.wasm out.wast
+Test in.wast
+```
+
 # Design
 
-Parsing the WebAssembly text format goes through a [generic S-expression parser](Source/Core/SExpressions.cpp) that creates a tree of nodes, symbols, integers, etc. The symbols are statically defined strings, and are represented in the tree by an index. After creating that tree, it is transformed into a WebAssembly-like AST by [WebAssemblyTextParse.cpp](Source/WebAssembly/WebAssemblyTextParse.cpp).
+Parsing the WebAssembly text format goes through a [generic S-expression parser](Source/Core/SExpressions.cpp) that creates a tree of nodes, symbols, integers, etc. The symbols are statically defined strings, and are represented in the tree by an index. After creating that tree, it is parsed into a WebAssembly module by [WASTParse.cpp](Source/WAST/WASTParse.cpp). The parsed module encodes the WAST expressions as a stack machine byte code which can be directly serialized to and from disk.
 
-Decoding the polyfill binary format also produces the same AST, so while it sticks pretty closely to the syntax of the text format, there are a few differences to accomodate the polyfill format:
-* WebAssembly only supports I32 and I64 integer value types, with loads and stores supporting explicitly converting to and from I8s or I16s in memory. The WAVM AST just supports general I8 and I16 values.
+Loading a binary WebAssembly module deserializes the module-scoped definitions into [C++ structures](Include/WebAssembly/Module.h), but leaves the function code as the same byte codes saved to disk. However, it validates the byte code to reject all forms of undefined code before any other consumer may encounter it.
 
-The AST also has a few concepts that the text format doesn't. For example, it uses type classes to represent the idea of a set of types an operation can be defined on. Every AST opcode is specific to a type class, and so there is a different opcode enum for each type class. The type classes defined are Int, Float, Bool, and Void. This means that you need to know what type a subexpresion is to interpret its opcode, which is usually trivial, but occasionally requires a *TypedExpression* to wrap up the subexpression with an explicit type. Types are otherwise implicit.
-
-Both the polyfill binary decoder and the WebAssembly text parser are expected to validate that the program is well typed. The AST uses Error nodes to isolate most parse or type errors to a subtree of the AST. Given an AST without Error nodes, you should assume it is well typed.
-
-After it has constructed the AST, it will convert it to LLVM IR, and feed that to LLVM's MCJIT to generate executable machine code, and call it!
-
-The generated code should be unable to access any memory outside of the addresses allocated to it. The VM reserves 4TB of addresses at startup for the VM, and masks addresses to be within those 4TBs.
+The [Runtime](Source/Runtime/) is the primary consumer of the byte code. It provides an [API](Include/Runtime/Runtime.h) for instantiating WebAssembly modules and calling functions exported from them. To instantiate a module, it [initializes the module's runtime environment](Source/Runtime/ModuleInstance.cpp) (globals, memory objects, and table objects), [translates the byte code into LLVM IR](Source/Runtime/LLVMEmitIR.cpp), and [uses LLVM to generate machine code](Source/Runtime/LLVMJIT.cpp) for the module's functions.
 
 # License
 
