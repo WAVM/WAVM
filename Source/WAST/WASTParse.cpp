@@ -719,7 +719,7 @@ namespace WAST
 					auto offset = parseOffsetAttribute(nodeIt); \
 					auto alignmentLog2 = parseAlignmentAttribute(nodeIt,numBytes); \
 					parseOperands(nodeIt,"load address operand",ExpressionType::i32); \
-					encoder.type##_##opcode({offset,alignmentLog2}); \
+					encoder.type##_##opcode({alignmentLog2,offset}); \
 					resultType = ExpressionType::type; \
 				}
 			#define DEFINE_STORE_OP(type,numBytes,opcode) DEFINE_OP(type##_##opcode) \
@@ -728,7 +728,7 @@ namespace WAST
 					auto offset = parseOffsetAttribute(nodeIt); \
 					auto alignmentLog2 = parseAlignmentAttribute(nodeIt,numBytes); \
 					parseOperands(nodeIt,"store operands",ExpressionType::i32,ExpressionType::type); \
-					encoder.type##_##opcode({offset,alignmentLog2}); \
+					encoder.type##_##opcode({alignmentLog2,offset}); \
 					resultType = ExpressionType::none; \
 				}
 			#define DEFINE_MEMORY_OP(type,numBytes,loadOpcode,storeOpcode) \
@@ -1175,7 +1175,7 @@ namespace WAST
 							auto exportIt = exportNameToIndexMap.find(inlineImportExport.exportName);
 							if(exportIt != exportNameToIndexMap.end()) { recordError(*this,savedImportExportIt,std::string("duplicate export name: ") + inlineImportExport.exportName); continue; }
 							exportNameToIndexMap[inlineImportExport.exportName] = module.exports.size();
-							module.exports.push_back({ObjectKind::function,functionIndex,inlineImportExport.exportName});
+							module.exports.push_back({inlineImportExport.exportName,ObjectKind::function,functionIndex});
 						}
 
 						// Parse a module type reference.
@@ -1410,7 +1410,7 @@ namespace WAST
 							auto exportIt = exportNameToIndexMap.find(inlineImportExport.exportName);
 							if(exportIt != exportNameToIndexMap.end()) { recordError(*this,savedImportExportIt,std::string("duplicate export name: ") + inlineImportExport.exportName); continue; }
 							exportNameToIndexMap[inlineImportExport.exportName] = module.exports.size();
-							module.exports.push_back({ObjectKind::memory,memoryIndex,inlineImportExport.exportName});
+							module.exports.push_back({inlineImportExport.exportName,ObjectKind::memory,memoryIndex});
 						}
 
 						// Parse the memory type.
@@ -1460,7 +1460,7 @@ namespace WAST
 							auto exportIt = exportNameToIndexMap.find(inlineImportExport.exportName);
 							if(exportIt != exportNameToIndexMap.end()) { recordError(*this,savedImportExportIt,std::string("duplicate export name: ") + inlineImportExport.exportName); continue; }
 							exportNameToIndexMap[inlineImportExport.exportName] = module.exports.size();
-							module.exports.push_back({ObjectKind::table,tableIndex,inlineImportExport.exportName});
+							module.exports.push_back({inlineImportExport.exportName,ObjectKind::table,tableIndex});
 						}
 
 						// Parse the table type.
@@ -1534,7 +1534,7 @@ namespace WAST
 							auto exportIt = exportNameToIndexMap.find(inlineImportExport.exportName);
 							if(exportIt != exportNameToIndexMap.end()) { recordError(*this,savedImportExportIt,std::string("duplicate export name: ") + inlineImportExport.exportName); continue; }
 							exportNameToIndexMap[inlineImportExport.exportName] = module.exports.size();
-							module.exports.push_back({ObjectKind::global,globalIndex,inlineImportExport.exportName});
+							module.exports.push_back({inlineImportExport.exportName,ObjectKind::global,globalIndex});
 						}
 
 						// Parse the global type.
@@ -1627,7 +1627,7 @@ namespace WAST
 			// Parse a name or index of the appropriate kind for the export.
 			uintptr exportedIndex = 0;
 			if(!parseNameOrIndex(*this,kindChildNodeIt,*kindNameToIndexMap,maxKindIndex,false,"exported object",exportedIndex)) { continue; }
-			module.exports.push_back({kind,exportedIndex,exportName});
+			module.exports.push_back({exportName,kind,exportedIndex});
 
 			if(kindChildNodeIt) { recordError(*this,kindChildNodeIt,"unexpected input following export declaration"); }
 		}
@@ -1731,7 +1731,7 @@ namespace WAST
 			}
 
 			// Create the data segment.
-			module.dataSegments.push_back({baseOffset,std::move(dataVector)});
+			module.dataSegments.push_back({memoryIndex,baseOffset,std::move(dataVector)});
 			
 			if(childNodeIt) { recordError(*this,childNodeIt,"unexpected input following data segment declaration"); continue; }
 		}
@@ -1792,7 +1792,7 @@ namespace WAST
 			}
 
 			// Create the table segment.
-			module.tableSegments.push_back({baseOffset,std::move(functionIndices)});
+			module.tableSegments.push_back({tableIndex,baseOffset,std::move(functionIndices)});
 		}
 		
 		// Fix up memory and table definitions with uninitialized sizes to fit any static data or elem segments.

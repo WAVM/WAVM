@@ -81,7 +81,7 @@ inline bool loadBinaryModule(const char* wasmFilename,WebAssembly::Module& outMo
 	// Load the module from a binary WebAssembly file.
 	try
 	{
-		Serialization::InputStream stream(wasmBytes.data(),wasmBytes.size());
+		Serialization::MemoryInputStream stream(wasmBytes.data(),wasmBytes.size());
 		WebAssembly::serialize(stream,outModule);
 	}
 	catch(Serialization::FatalSerializationException exception)

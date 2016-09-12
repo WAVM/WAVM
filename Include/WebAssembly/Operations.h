@@ -254,7 +254,7 @@ namespace WebAssembly
 		template<typename Stream>
 		friend void serialize(Stream& stream,ControlStructureImm& imm)
 		{
-			serializeNativeValue(stream,imm.resultType);
+			Serialization::serializeNativeValue(stream,imm.resultType);
 		}
 	};
 
@@ -333,13 +333,13 @@ namespace WebAssembly
 
 	struct LoadOrStoreImm
 	{
+		uint32 alignmentLog2;
 		uint32 offset;
-		uint8 alignmentLog2;
 		
 		template<typename Stream>
 		friend void serialize(Stream& stream,LoadOrStoreImm& imm)
 		{
-			serializeVarUInt7(stream,imm.alignmentLog2);
+			serializeVarUInt32(stream,imm.alignmentLog2);
 			serializeVarUInt32(stream,imm.offset);
 		}
 	};
@@ -355,9 +355,9 @@ namespace WebAssembly
 
 	struct OperationDecoder
 	{
-		OperationDecoder(const Serialization::InputStream& inStream): stream(inStream) {}
+		OperationDecoder(Serialization::InputStream& inStream): stream(inStream) {}
 
-		operator bool() const { return stream.capacity() > 0; }
+		operator bool() const { return stream.capacity() != 0; }
 
 		template<typename Visitor>
 		void decodeOp(Visitor& visitor)
@@ -381,7 +381,7 @@ namespace WebAssembly
 
 	private:
 
-		Serialization::InputStream stream;
+		Serialization::InputStream& stream;
 	};
 
 	struct OperationEncoder

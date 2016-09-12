@@ -88,16 +88,16 @@ namespace Runtime
 		// Copy the module's data segments into the module's default memory.
 		for(auto& dataSegment : module.dataSegments)
 		{
-			assert(moduleInstance->defaultMemory);
+			Memory* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
 			assert(baseOffsetValue.type == TypeId::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			if(baseOffset + dataSegment.data.size() > (moduleInstance->defaultMemory->numPages << WebAssembly::numBytesPerPageLog2))
+			if(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2))
 			{ throw InstantiationException(InstantiationException::invalidDataSegmentBase); }
 
-			memcpy(moduleInstance->defaultMemory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
+			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
 		}
 		
 		// Instantiate the module's global definitions.
@@ -138,23 +138,22 @@ namespace Runtime
 		// Copy the module's table segments into the module's default table.
 		for(auto& tableSegment : module.tableSegments)
 		{
-			assert(moduleInstance->defaultTable);
+			Table* table = moduleInstance->tables[tableSegment.tableIndex];
 			
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
 			assert(baseOffsetValue.type == TypeId::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			if(baseOffset + tableSegment.indices.size() > moduleInstance->defaultTable->numElements)
+			if(baseOffset + tableSegment.indices.size() > table->numElements)
 			{ throw InstantiationException(InstantiationException::invalidDataSegmentBase); }
 
-			Table::Element* defaultTableElements = moduleInstance->defaultTable->baseAddress;
 			for(uintptr index = 0;index < tableSegment.indices.size();++index)
 			{
 				const uintptr functionIndex = tableSegment.indices[index];
 				assert(functionIndex < moduleInstance->functions.size());
 				assert(moduleInstance->functions[functionIndex]->nativeFunction);
-				defaultTableElements[baseOffset + index].type = moduleInstance->functions[functionIndex]->type;
-				defaultTableElements[baseOffset + index].value = moduleInstance->functions[functionIndex]->nativeFunction;
+				table->baseAddress[baseOffset + index].type = moduleInstance->functions[functionIndex]->type;
+				table->baseAddress[baseOffset + index].value = moduleInstance->functions[functionIndex]->nativeFunction;
 			}
 		}
 

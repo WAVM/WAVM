@@ -97,6 +97,8 @@ namespace WebAssembly
 	template<typename Stream>
 	void serialize(Stream& stream,Import& import)
 	{
+		serialize(stream,import.module);
+		serialize(stream,import.exportName);
 		serialize(stream,import.type.kind);
 		switch(import.type.kind)
 		{
@@ -106,16 +108,14 @@ namespace WebAssembly
 		case ObjectKind::global: serialize(stream,import.type.global); break;
 		default: throw FatalSerializationException("invalid ObjectKind");
 		}
-		serialize(stream,import.module);
-		serialize(stream,import.exportName);
 	}
 		
 	template<typename Stream>
 	void serialize(Stream& stream,Export& e)
 	{
-		serializeVarUInt32(stream,e.index);
-		serialize(stream,e.kind);
 		serialize(stream,e.name);
+		serialize(stream,e.kind);
+		serializeVarUInt32(stream,e.index);
 	}
 
 	template<typename Stream>
@@ -124,8 +124,8 @@ namespace WebAssembly
 		serializeNativeValue(stream,*(uint8*)&initializer.type);
 		switch(initializer.type)
 		{
-		case InitializerExpression::Type::i32_const: serialize(stream,initializer.i32); break;
-		case InitializerExpression::Type::i64_const: serialize(stream,initializer.i64); break;
+		case InitializerExpression::Type::i32_const: serializeVarInt32(stream,initializer.i32); break;
+		case InitializerExpression::Type::i64_const: serializeVarInt64(stream,initializer.i64); break;
 		case InitializerExpression::Type::f32_const: serialize(stream,initializer.f32); break;
 		case InitializerExpression::Type::f64_const: serialize(stream,initializer.f64); break;
 		case InitializerExpression::Type::get_global: serializeVarUInt32(stream,initializer.globalIndex); break;
@@ -144,7 +144,7 @@ namespace WebAssembly
 	template<typename Stream>
 	void serialize(Stream& stream,DataSegment& dataSegment)
 	{
-		serializeConstant<uint8>(stream,"invalid memory index",0);
+		serializeVarUInt32(stream,dataSegment.memoryIndex);
 		serialize(stream,dataSegment.baseOffset);
 		serialize(stream,dataSegment.data);
 	}
@@ -152,7 +152,7 @@ namespace WebAssembly
 	template<typename Stream>
 	void serialize(Stream& stream,TableSegment& tableSegment)
 	{
-		serializeConstant<uint8>(stream,"invalid table index",0);
+		serializeVarUInt32(stream,tableSegment.tableIndex);
 		serialize(stream,tableSegment.baseOffset);
 		serializeArray(stream,tableSegment.indices,[](Stream& stream,uintptr& functionIndex){serializeVarUInt32(stream,functionIndex);});
 	}
@@ -171,35 +171,34 @@ namespace WebAssembly
 	}
 
 	template<typename SerializeSection>
-	void serializeSection(OutputStream& stream,SectionType type,bool mustSerialize,SerializeSection serializeSection)
+	void serializeSection(OutputStream& stream,SectionType type,bool mustSerialize,SerializeSection serializeSectionBody)
 	{
 		if(mustSerialize)
 		{
 			serializeNativeValue(stream,type);
 			ArrayOutputStream sectionStream;
-			serializeSection(sectionStream);
+			serializeSectionBody(sectionStream);
 			std::vector<uint8> sectionBytes = sectionStream.getBytes();
 			size_t sectionNumBytes = sectionBytes.size();
 			serializeVarUInt32(stream,sectionNumBytes);
-			stream.serializeBytes(sectionBytes.data(),sectionBytes.size());
+			serializeBytes(stream,sectionBytes.data(),sectionBytes.size());
 		}
 	}
 	template<typename SerializeSection>
-	void serializeSection(InputStream& stream,SectionType expectedType,bool,SerializeSection serializeSection)
+	void serializeSection(InputStream& stream,SectionType expectedType,bool,SerializeSection serializeSectionBody)
 	{
-		InputStream savedStream = stream;
 		if(stream.capacity())
 		{
-			SectionType type;
-			serializeNativeValue(stream,type);
+			SectionType type = (SectionType)*stream.peek(sizeof(SectionType));
 			if(type == expectedType)
 			{
-				size_t numBytes = 0;
-				serializeVarUInt32(stream,numBytes);
-				InputStream sectionStream = stream.makeSubstream(numBytes);
-				serializeSection(sectionStream);
+				stream.advance(sizeof(SectionType));
+				size_t numSectionBytes = 0;
+				serializeVarUInt32(stream,numSectionBytes);
+				MemoryInputStream sectionStream(stream.advance(numSectionBytes),numSectionBytes);
+				serializeSectionBody(sectionStream);
+				if(sectionStream.capacity()) { throw FatalSerializationException("section contained more data than expected"); }
 			}
-			else { stream = savedStream; }
 		}
 	}
 	
@@ -244,7 +243,7 @@ namespace WebAssembly
 		serializeVarUInt32(bodyStream,numLocalSets);
 		for(uintptr setIndex = 0;setIndex < numLocalSets;++setIndex) { serialize(bodyStream,localSets[setIndex]); }
 
-		bodyStream.serializeBytes(module.code.data() + function.code.offset,function.code.numBytes);
+		serializeBytes(bodyStream,module.code.data() + function.code.offset,function.code.numBytes);
 
 		std::vector<uint8> bodyBytes = bodyStream.getBytes();
 		serialize(sectionStream,bodyBytes);
@@ -254,23 +253,23 @@ namespace WebAssembly
 	{
 		size_t numBodyBytes = 0;
 		serializeVarUInt32(sectionStream,numBodyBytes);
-		const size_t initialCapacity = sectionStream.capacity();
+
+		MemoryInputStream bodyStream(sectionStream.advance(numBodyBytes),numBodyBytes);
 		
 		// Deserialize local sets and unpack them into a linear array of local types.
 		size_t numLocalSets = 0;
-		serializeVarUInt32(sectionStream,numLocalSets);
+		serializeVarUInt32(bodyStream,numLocalSets);
 		for(uintptr setIndex = 0;setIndex < numLocalSets;++setIndex)
 		{
 			LocalSet localSet;
-			serialize(sectionStream,localSet);
+			serialize(bodyStream,localSet);
 			for(uintptr index = 0;index < localSet.num;++index) { function.nonParameterLocalTypes.push_back(localSet.type); }
 		}
 
-		const size_t numLocalBytes = initialCapacity - sectionStream.capacity();
-
-		function.code = {module.code.size(),numBodyBytes - numLocalBytes};
+		const size_t numCodeBytes = bodyStream.capacity();
+		function.code = {module.code.size(),numCodeBytes};
 		module.code.resize(function.code.offset + function.code.numBytes);
-		sectionStream.serializeBytes(module.code.data() + function.code.offset,function.code.numBytes);
+		serializeBytes(bodyStream,module.code.data() + function.code.offset,function.code.numBytes);
 	}
 
 	template<typename Stream>
@@ -312,16 +311,18 @@ namespace WebAssembly
 		});
 		serializeSection(moduleStream,SectionType::table,module.tableDefs.size()>0,[&module](Stream& sectionStream)
 		{
-			serializeArray(sectionStream,module.tableDefs,[](Stream& stream,TableType& tableType)
+			serializeArray(sectionStream,module.tableDefs,[](Stream& elementStream,TableType& tableType)
 			{
-				serialize(stream,tableType.elementType);
-				serialize(stream,tableType.size);
+				serialize(elementStream,tableType.elementType);
+				serialize(elementStream,tableType.size);
 			});
 		});
 		serializeSection(moduleStream,SectionType::memory,module.memoryDefs.size()>0,[&module](Stream& sectionStream)
 		{
-			if(Stream::isInput) { module.memoryDefs.resize(1); }
-			serialize(sectionStream,module.memoryDefs[0].size);
+			serializeArray(sectionStream,module.memoryDefs,[](Stream& elementStream,MemoryType& memoryType)
+			{
+				serialize(elementStream,memoryType.size);
+			});
 		});
 		serializeSection(moduleStream,SectionType::global,module.globalDefs.size()>0,[&module](Stream& sectionStream)
 		{

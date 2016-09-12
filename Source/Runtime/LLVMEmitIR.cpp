@@ -875,7 +875,7 @@ namespace LLVMJIT
 		}
 
 		// Decode the WebAssembly opcodes and emit LLVM IR for them.
-		Serialization::InputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
+		Serialization::MemoryInputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
 		OperationDecoder decoder(codeStream);
 		#if ENABLE_LOGGING
 			OperatorLoggingProxy<EmitFunctionContext> loggingProxy(module,*this);

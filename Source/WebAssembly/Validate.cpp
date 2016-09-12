@@ -154,7 +154,7 @@ namespace WebAssembly
 			// Push the function context onto the control stack.
 			pushControlStack(ControlContext::Type::function,functionType->ret,functionType->ret);
 
-			Serialization::InputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
+			Serialization::MemoryInputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
 			OperationDecoder decoder(codeStream);
 			#if ENABLE_LOGGING
 				OperatorLoggingProxy<FunctionCodeValidator> loggingProxy(module,*this);
@@ -329,8 +329,9 @@ namespace WebAssembly
 		#define VALIDATE_LOAD_OPCODE(name,naturalAlignmentLog2,resultType) void name(LoadOrStoreImm imm) \
 			{ \
 				popAndValidateOperand(ValueType::i32); \
-				VALIDATE_UNLESS("load alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
+				VALIDATE_UNLESS(#name " alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
 				VALIDATE_UNLESS(#name " in module without default memory: ",moduleContext.numMemories==0); \
+				VALIDATE_UNLESS(#name " offset too large: ",imm.offset > UINT32_MAX); \
 				push(ValueType::resultType); \
 			}
 
@@ -346,8 +347,9 @@ namespace WebAssembly
 		#define VALIDATE_STORE_OPCODE(name,naturalAlignmentLog2,valueTypeId) void name(LoadOrStoreImm imm) \
 			{ \
 				popAndValidateOperands(ValueType::i32,ValueType::valueTypeId); \
-				VALIDATE_UNLESS("store alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
+				VALIDATE_UNLESS(#name " alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
 				VALIDATE_UNLESS(#name " in module without default memory: ",moduleContext.numMemories==0); \
+				VALIDATE_UNLESS(#name " offset too large: ",imm.offset > UINT32_MAX); \
 			}
 
 		VALIDATE_STORE_OPCODE(i32_store8,1,i32) VALIDATE_STORE_OPCODE(i32_store16,2,i32) VALIDATE_STORE_OPCODE(i32_store,4,i32)
@@ -643,9 +645,17 @@ namespace WebAssembly
 		for(uintptr functionIndex = 0;functionIndex < module.functionDefs.size();++functionIndex)
 		{ FunctionCodeValidator(*this,module,module.functionDefs[functionIndex]); }
 			
-		for(auto& dataSegment : module.dataSegments) { validateInitializer(dataSegment.baseOffset,ValueType::i32,"data segment base initializer"); }
+		for(auto& dataSegment : module.dataSegments)
+		{
+			VALIDATE_INDEX(dataSegment.memoryIndex,numMemories);
+			validateInitializer(dataSegment.baseOffset,ValueType::i32,"data segment base initializer");
+		}
 
-		for(auto& tableSegment : module.tableSegments) { validateInitializer(tableSegment.baseOffset,ValueType::i32,"table segment base initializer"); }
+		for(auto& tableSegment : module.tableSegments)
+		{
+			VALIDATE_INDEX(tableSegment.tableIndex,numTables);
+			validateInitializer(tableSegment.baseOffset,ValueType::i32,"table segment base initializer");
+		}
 			
 		if(module.disassemblyInfo.functions.size())
 		{

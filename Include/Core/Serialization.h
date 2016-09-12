@@ -21,11 +21,12 @@ namespace Serialization
 
 		OutputStream(): next(nullptr), end(nullptr) {}
 
-		inline void serializeBytes(const uint8* data,size_t numBytes)
+		inline uint8* advance(size_t numBytes)
 		{
 			if(next + numBytes > end) { extendBuffer(numBytes); }
-			memcpy(next,data,numBytes);
+			uint8* data = next;
 			next += numBytes;
+			return data;
 		}
 
 	protected:
@@ -59,48 +60,66 @@ namespace Serialization
 			next = bytes.data() + nextIndex;
 			end = bytes.data() + bytes.size();
 		}
+		virtual bool canExtendBuffer(size_t numBytes) const { return true; }
 	};
 
 	struct InputStream
 	{
 		enum { isInput = true };
 
-		InputStream(const uint8* inNext,uintptr numBytes)
-		: next(inNext), end(inNext + numBytes) {}
+		InputStream(): next(nullptr), end(nullptr) {}
 
-		InputStream(InputStream& parentStream,uintptr numBytes)
-		: next(parentStream.next)
-		, end(parentStream.end + numBytes)
+		virtual size_t capacity() const = 0;
+		inline const uint8* advance(size_t numBytes)
 		{
-			assert(parentStream.capacity() < numBytes);
-			parentStream.next += numBytes;
-		}
-
-		inline uintptr capacity() const { return end - next; }
-
-		inline void serializeBytes(uint8* data,size_t numBytes)
-		{
-			if(capacity() < numBytes) { throw FatalSerializationException("expected data but found end of stream"); }
-			memcpy(data,next,numBytes);
+			if(next + numBytes > end) { getMoreData(numBytes); }
+			const uint8* data = next;
 			next += numBytes;
+			return data;
 		}
-
-		InputStream makeSubstream(uintptr numBytes)
+		inline const uint8* peek(size_t numBytes)
 		{
-			if(capacity() < numBytes) { throw FatalSerializationException("expected data but found end of stream"); }
-			const uint8* substreamStart = next;
-			next += numBytes;
-			return InputStream(substreamStart,next - substreamStart);
+			if(next + numBytes > end) { getMoreData(numBytes); }
+			return next;
 		}
 
-	private:
+	protected:
 
 		const uint8* next;
 		const uint8* end;
+		
+		virtual void getMoreData(size_t numBytes) = 0;
 	};
 
-	template<typename Value,typename ByteValue>
-	void serializeVarInt(OutputStream& stream,Value& inValue,Value minValue,Value maxValue)
+	struct MemoryInputStream : InputStream
+	{
+	public:
+
+		MemoryInputStream(const uint8* begin,size_t numBytes)
+		{
+			next = begin;
+			end = begin + numBytes;
+		}
+
+		virtual size_t capacity() const { return end - next; }
+
+	private:
+
+		virtual void getMoreData(size_t numBytes) { throw FatalSerializationException("expected data but found end of stream"); }
+	};
+
+	FORCEINLINE void serializeBytes(OutputStream& stream,const uint8* bytes,size_t numBytes)
+	{
+		memcpy(stream.advance(numBytes),bytes,numBytes);
+	}
+	
+	FORCEINLINE void serializeBytes(InputStream& stream,uint8* bytes,size_t numBytes)
+	{
+		memcpy(bytes,stream.advance(numBytes),numBytes);
+	}
+
+	template<typename Value,size_t maxBits>
+	FORCEINLINE void serializeVarInt(OutputStream& stream,Value& inValue,Value minValue,Value maxValue)
 	{
 		Value value = inValue;
 
@@ -109,100 +128,92 @@ namespace Serialization
 			throw FatalSerializationException(std::string("out-of-range value: ") + std::to_string(minValue) + "<=" + std::to_string(value) + "<=" + std::to_string(maxValue));
 		}
 
-		if(minValue < 0)
+		if(std::is_signed<Value>::value)
 		{
 			bool more = true;
 			while(more)
 			{
-				ByteValue outputByte = (ByteValue)(value&127);
+				uint8 outputByte = (uint8)(value&127);
 				value >>= 7;
 				more = std::is_signed<Value>::value
 					? (value != 0 && value != Value(-1)) || (value >= 0 && (outputByte & 0x40)) || (value < 0 && !(outputByte & 0x40))
 					: (value != 0);
 				outputByte |= more ? 0x80 : 0;
-				stream.serializeBytes((uint8*)&outputByte,1);
+				*stream.advance(1) = outputByte;
 			};
 		}
 		else
 		{
 			do
 			{
-				ByteValue outputByte = (ByteValue)(value&127);
+				uint8 outputByte = (uint8)(value&127);
 				value >>= 7;
 				if(value) { outputByte |= 0x80; }
-				stream.serializeBytes((uint8*)&outputByte,1);
+				*stream.advance(1) = outputByte;
 			}
 			while(value != 0);
 		}
 	}
 	
-	template<typename Value,typename ByteValue>
-	void serializeVarInt(InputStream& stream,Value& value,Value minValue,Value maxValue)
+	template<typename Value,size_t maxBits>
+	FORCEINLINE void serializeVarInt(InputStream& stream,Value& value,Value minValue,Value maxValue)
 	{
-		value = 0;
-		Value shift = 0;
-		ByteValue byte = 0;
-		while (1)
+		enum { maxBytes = (maxBits + 6) / 7 };
+		uint8 bytes[maxBytes] = {0};
+		uintptr numBytes = 0;
+		int8 signExtendShift = (int8)sizeof(Value) * 8;
+		while(numBytes < maxBytes)
 		{
-			stream.serializeBytes((uint8*)&byte,1);
-			bool last = !(byte & 128);
-			Value payload = byte & 127;
-			typedef typename std::make_unsigned<Value>::type mask_type;
-			auto shift_mask = 0 == shift
-				? ~mask_type(0)
-				: ((mask_type(1) << (sizeof(Value) * 8 - shift)) - 1u);
-			Value significant_payload = payload & shift_mask;
-			if (significant_payload != payload)
-			{
-				assert(std::is_signed<Value>::value && last &&
-				"dropped bits only valid for signed LEB");
-			}
-			value |= significant_payload << shift;
-			if (last) break;
-			shift += 7;
-			assert(size_t(shift) < sizeof(Value) * 8 && "LEB overflow");
-		}
-		// If signed LEB, then we might need to sign-extend. (compile should
-		// optimize this out if not needed).
-		if (std::is_signed<Value>::value)
+			uint8 byte = *stream.advance(1);
+			bytes[numBytes] = byte;
+			++numBytes;
+			signExtendShift -= 7;
+			if(!(byte & 0x80)) { break; }
+		};
+		enum { numUsedBitsInHighestByte = maxBits - (maxBytes-1) * 7 };
+		enum { highestByteUsedBitmask = uint8(1<<numUsedBitsInHighestByte)-1 };
+		enum { highestByteSignedBitmask = ~uint8(highestByteUsedBitmask) & ~uint8(0x80) };
+		if((bytes[maxBytes-1] & ~highestByteUsedBitmask) == 0
+		|| ((bytes[maxBytes-1] & ~highestByteUsedBitmask) == uint8(highestByteSignedBitmask) && std::is_signed<Value>::value))
 		{
-			shift += 7;
-			if ((byte & 64) && size_t(shift) < 8 * sizeof(Value))
-			{
-				size_t sext_bits = 8 * sizeof(Value) - size_t(shift);
-				value <<= sext_bits;
-				value >>= sext_bits;
-				assert(value < 0 && "sign-extend should produces a negative value");
-			}
-		}
-		
-		if(value < minValue || value > maxValue)
-		{
-			throw FatalSerializationException(std::string("out-of-range value: ") + std::to_string(minValue) + "<=" + std::to_string(value) + "<=" + std::to_string(maxValue));
-		}
+			value = 0;
+			for(uintptr byteIndex = 0;byteIndex < maxBytes;++byteIndex)
+			{ value |= Value(bytes[byteIndex] & ~0x80) << (byteIndex * 7); }
 
+			if(std::is_signed<Value>::value && signExtendShift > 0)
+			{
+				// Sign extend the deserialized bits to the full size of Value.
+				value = (value << signExtendShift) >> signExtendShift;
+			}
+
+			if(value < minValue || value > maxValue)
+			{
+				throw FatalSerializationException(std::string("out-of-range value: ") + std::to_string(minValue) + "<=" + std::to_string(value) + "<=" + std::to_string(maxValue));
+			}
+		}
+		else { throw FatalSerializationException("Invalid LEB encoding: invalid final byte"); }
 	}
 	
 	template<typename Stream,typename Value>
-	void serializeVarUInt1(Stream& stream,Value& value) { serializeVarInt<Value,uint8>(stream,value,0,1); }
+	void serializeVarUInt1(Stream& stream,Value& value) { serializeVarInt<Value,1>(stream,value,0,1); }
 	
 	template<typename Stream,typename Value>
-	void serializeVarUInt7(Stream& stream,Value& value) { serializeVarInt<Value,uint8>(stream,value,0,127); }
+	void serializeVarUInt7(Stream& stream,Value& value) { serializeVarInt<Value,7>(stream,value,0,127); }
 
 	template<typename Stream,typename Value>
-	void serializeVarUInt32(Stream& stream,Value& value) { serializeVarInt<Value,uint8>(stream,value,0,UINT32_MAX); }
+	void serializeVarUInt32(Stream& stream,Value& value) { serializeVarInt<Value,32>(stream,value,0,UINT32_MAX); }
 	
 	template<typename Stream,typename Value>
-	void serializeVarUInt64(Stream& stream,Value& value) { serializeVarInt<Value,uint8>(stream,value,0,UINT32_MAX); }
+	void serializeVarUInt64(Stream& stream,Value& value) { serializeVarInt<Value,64>(stream,value,0,UINT64_MAX); }
 
 	template<typename Stream,typename Value>
-	void serializeVarInt32(Stream& stream,Value& value) { serializeVarInt<Value,int8>(stream,value,INT32_MIN,INT32_MAX); }
+	void serializeVarInt32(Stream& stream,Value& value) { serializeVarInt<Value,32>(stream,value,INT32_MIN,INT32_MAX); }
 
 	template<typename Stream,typename Value>
-	void serializeVarInt64(Stream& stream,Value& value) { serializeVarInt<Value,int8>(stream,value,INT64_MIN,INT64_MAX); }
+	void serializeVarInt64(Stream& stream,Value& value) { serializeVarInt<Value,64>(stream,value,INT64_MIN,INT64_MAX); }
 	
 	template<typename Stream,typename Value>
-	FORCEINLINE void serializeNativeValue(Stream& stream,Value& value) { stream.serializeBytes((uint8*)&value,sizeof(Value)); }
+	FORCEINLINE void serializeNativeValue(Stream& stream,Value& value) { serializeBytes(stream,(uint8*)&value,sizeof(Value)); }
 
 	template<typename Constant>
 	void serializeConstant(InputStream& stream,const char* constantMismatchMessage,Constant constant)
@@ -235,7 +246,7 @@ namespace Serialization
 		size_t size = string.size();
 		serializeVarUInt32(stream,size);
 		if(Stream::isInput) { string.resize(size); }
-		stream.serializeBytes((uint8*)string.c_str(),size);
+		serializeBytes(stream,(uint8*)string.c_str(),size);
 		if(Stream::isInput) { string.shrink_to_fit(); }
 	}
 

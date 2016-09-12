@@ -57,9 +57,9 @@ namespace WebAssembly
 
 	struct Export
 	{
+		std::string name;
 		ObjectKind kind;
 		uintptr index;
-		std::string name;
 	};
 	
 	struct InitializerExpression
@@ -98,22 +98,24 @@ namespace WebAssembly
 
 	struct DataSegment
 	{
+		uintptr memoryIndex;
 		InitializerExpression baseOffset;
 		std::vector<uint8> data;
 
 		DataSegment() {}
-		DataSegment(InitializerExpression inBaseOffset,const std::vector<uint8>& inData)
-		: baseOffset(inBaseOffset), data(inData) {}
+		DataSegment(uintptr inMemoryIndex,InitializerExpression inBaseOffset,const std::vector<uint8>& inData)
+		: memoryIndex(inMemoryIndex), baseOffset(inBaseOffset), data(inData) {}
 	};
 
 	struct TableSegment
 	{
+		uintptr tableIndex;
 		InitializerExpression baseOffset;
 		std::vector<uintptr> indices;
 		
 		TableSegment() {}
-		TableSegment(InitializerExpression inBaseOffset,const std::vector<uintptr>& inIndices)
-		: baseOffset(inBaseOffset), indices(inIndices) {}
+		TableSegment(uintptr inTableIndex,InitializerExpression inBaseOffset,const std::vector<uintptr>& inIndices)
+		: tableIndex(inTableIndex), baseOffset(inBaseOffset), indices(inIndices) {}
 	};
 
 	struct FunctionDisassemblyInfo

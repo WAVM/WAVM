@@ -452,7 +452,7 @@ namespace WAST
 		pushControlStack(ControlContextType::function);
 		string += DEDENT_STRING;
 
-		Serialization::InputStream codeStream(module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
+		Serialization::MemoryInputStream codeStream(module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
 		OperationDecoder decoder(codeStream);
 		while(decoder && controlStack.size())
 		{
