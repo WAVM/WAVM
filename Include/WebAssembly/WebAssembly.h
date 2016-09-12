@@ -13,6 +13,8 @@ namespace WebAssembly
 	enum { numBytesPerPage = (uintptr)65536 };
 	enum { numBytesPerPageLog2 = (uintptr)16 };
 	
+	// Compatibility options
+	enum { allowMutableGlobals = 1 };
 	struct Module;
 
 	struct ValidationException

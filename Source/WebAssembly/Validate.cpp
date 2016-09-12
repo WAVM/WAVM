@@ -4,8 +4,6 @@
 #include "Operations.h"
 #include "OperatorLoggingProxy.h"
 
-#define ALLOW_MUTABLE_GLOBALS 1
-
 #define ENABLE_LOGGING 0
 
 #if ENABLE_LOGGING
@@ -588,9 +586,10 @@ namespace WebAssembly
 				break;
 			case ObjectKind::global:
 				validate(import.type.global);
-				#if !ALLOW_MUTABLE_GLOBALS
+				if(!WebAssembly::allowMutableGlobals)
+				{
 					VALIDATE_UNLESS("mutable globals cannot be imported: ",import.type.global.isMutable);
-				#endif
+				}
 				globals.push_back(import.type.global);
 				break;
 			default: throw;
