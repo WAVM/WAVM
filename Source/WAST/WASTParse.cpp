@@ -622,7 +622,7 @@ namespace WAST
 		uint8 parseAlignmentAttribute(SNodeIt& nodeIt,size_t naturalAlignment)
 		{
 			SNodeIt valueIt;
-			uint64 alignment = 1;
+			uint64 alignment = naturalAlignment;
 			if(parseSymbolAttribute(nodeIt,Symbol::_align,valueIt))
 			{
 				++nodeIt;
