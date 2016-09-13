@@ -1,5 +1,6 @@
 #include "Core/Core.h"
 #include "Core/MemoryArena.h"
+#include "Core/Floats.h"
 #include "WAST.h"
 #include "WASTSymbols.h"
 #include "WebAssembly/Module.h"
@@ -241,10 +242,10 @@ namespace WAST
 
 		void error(ErrorImm imm) { string += "\nerror \"" + escapeString(imm.message.data(),imm.message.size()) + "\""; popControlStack(); }
 
-		#define PRINT_CONST(typeId,nativeType) \
-			void typeId##_const(LiteralImm<nativeType> imm) { string += "\n" #typeId; string += ".const "; string += std::to_string(imm.value); }
-		PRINT_CONST(i32,int32); PRINT_CONST(i64,int64);
-		PRINT_CONST(f32,float32); PRINT_CONST(f64,float64);
+		#define PRINT_CONST(typeId,nativeType,toString) \
+			void typeId##_const(LiteralImm<nativeType> imm) { string += "\n" #typeId; string += ".const "; string += toString(imm.value); }
+		PRINT_CONST(i32,int32,std::to_string); PRINT_CONST(i64,int64,std::to_string);
+		PRINT_CONST(f32,float32,Floats::asString); PRINT_CONST(f64,float64,Floats::asString);
 
 		#define PRINT_LOAD_OPCODE(typeId,name,naturalAlignmentLog2,resultType) void typeId##_##name(LoadOrStoreImm imm) \
 			{ \
