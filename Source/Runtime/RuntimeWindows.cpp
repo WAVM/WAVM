@@ -185,7 +185,7 @@ namespace RuntimePlatform
 		// Register our manually fixed up copy of the function table.
 		if(!RtlAddFunctionTable(functionsCopy,numFunctions,imageBaseAddress))
 		{
-			throw;
+			Core::fatalError("RtlAddFunctionTable failed");
 		}
 	}
 	

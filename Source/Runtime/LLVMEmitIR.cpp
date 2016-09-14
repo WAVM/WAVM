@@ -251,7 +251,7 @@ namespace LLVMJIT
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
-					default: throw;
+					default: Core::unreachable();
 					};
 					if(!controlStack[stackIndex].isReachable) { controlStackString += "-"; }
 				}

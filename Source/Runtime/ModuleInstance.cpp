@@ -33,8 +33,7 @@ namespace Runtime
 			}
 			throw InstantiationException(InstantiationException::invalidInitializerGlobalRef);
 		}
-		default:
-			throw;
+		default: Core::unreachable();
 		};
 	}
 
@@ -55,7 +54,7 @@ namespace Runtime
 			case ObjectKind::table: moduleInstance->tables.push_back(asTable(importObject)); break;
 			case ObjectKind::memory: moduleInstance->memories.push_back(asMemory(importObject)); break;
 			case ObjectKind::global: moduleInstance->globals.push_back(asGlobal(importObject)); break;
-			default: throw;
+			default: Core::unreachable();
 			};
 		}
 
@@ -130,7 +129,7 @@ namespace Runtime
 			case ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
 			case ObjectKind::memory: exportedObject = moduleInstance->memories[exportIt.index]; break;
 			case ObjectKind::global: exportedObject = moduleInstance->globals[exportIt.index]; break;
-			default: throw;
+			default: Core::unreachable();
 			}
 			moduleInstance->exportMap[exportIt.name] = exportedObject;
 		}
@@ -170,6 +169,7 @@ namespace Runtime
 			}
 		}
 		
+
 		moduleInstances.push_back(moduleInstance);
 		return moduleInstance;
 	}

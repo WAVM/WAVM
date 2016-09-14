@@ -54,7 +54,7 @@ namespace Runtime
 			auto memory = asMemory(object);
 			return isSubset(type.memory.size,memory->type.size);
 		}
-		default: throw;
+		default: Core::unreachable();
 		}
 	}
 

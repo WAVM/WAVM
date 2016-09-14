@@ -149,7 +149,7 @@ namespace WebAssembly
 		case ValueType::i64: return "i64";
 		case ValueType::f32: return "f32";
 		case ValueType::f64: return "f64";
-		default: throw;
+		default: Core::unreachable();
 		};
 	}
 
@@ -162,7 +162,7 @@ namespace WebAssembly
 		case ResultType::f32: return "f32";
 		case ResultType::f64: return "f64";
 		case ResultType::none: return "()";
-		default: throw;
+		default: Core::unreachable();
 		};
 	}
 
@@ -197,7 +197,7 @@ namespace WebAssembly
 		case ObjectKind::table: return "table";
 		case ObjectKind::memory: return "memory";
 		case ObjectKind::global: return getTypeName(objectType.global);
-		default: throw;
+		default: Core::unreachable();
 		};
 	}
 
@@ -209,7 +209,7 @@ namespace WebAssembly
 		case ValueType::i64: return 64;
 		case ValueType::f32: return 32;
 		case ValueType::f64: return 64;
-		default: throw;
+		default: Core::unreachable();
 		};
 	}
 }

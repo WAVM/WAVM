@@ -19,22 +19,22 @@ namespace Platform
 	Mutex::Mutex()
 	{
 		handle = new pthread_mutex_t();
-		if(pthread_mutex_init((pthread_mutex_t*)handle,nullptr)) { throw; }
+		if(pthread_mutex_init((pthread_mutex_t*)handle,nullptr)) { Core::fatalError("pthread_mutex_init failed"); }
 	}
 
 	Mutex::~Mutex()
 	{
-		if(pthread_mutex_destroy((pthread_mutex_t*)handle)) { throw; }
+		if(pthread_mutex_destroy((pthread_mutex_t*)handle)) { Core::fatalError("pthread_mutex_destroy failed"); }
 	}
 
 	void Mutex::Lock()
 	{
-		if(pthread_mutex_lock((pthread_mutex_t*)handle)) { throw; }
+		if(pthread_mutex_lock((pthread_mutex_t*)handle)) { Core::fatalError("pthread_mutex_lock failed"); }
 	}
 
 	void Mutex::Unlock()
 	{
-		if(pthread_mutex_unlock((pthread_mutex_t*)handle)) { throw; }
+		if(pthread_mutex_unlock((pthread_mutex_t*)handle)) { Core::fatalError("pthread_mutex_unlock failed"); }
 	}
 
 	static size_t internalGetPreferredVirtualPageSizeLog2()
@@ -97,14 +97,14 @@ namespace Platform
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto numBytes = numPages << getPageSizeLog2();
-		if(madvise(baseVirtualAddress,numBytes,MADV_DONTNEED)) { throw; }
-		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { throw; }
+		if(madvise(baseVirtualAddress,numBytes,MADV_DONTNEED)) { Core::fatalError("madvise failed"); }
+		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { Core::fatalError("mprotect failed"); }
 	}
 
 	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
-		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { throw; }
+		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Core::fatalError("munmap failed"); }
 	}
 }
 

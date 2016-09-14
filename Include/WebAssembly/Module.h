@@ -157,7 +157,7 @@ namespace WebAssembly
 		case ObjectKind::table: return ObjectType(type.table);
 		case ObjectKind::memory: return ObjectType(type.memory);
 		case ObjectKind::global: return ObjectType(type.global);
-		default: throw;
+		default: Core::unreachable();
 		}
 	}
 }

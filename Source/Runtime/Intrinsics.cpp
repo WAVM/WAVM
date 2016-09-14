@@ -135,7 +135,7 @@ namespace Intrinsics
 			result = keyValue == Singleton::get().variableMap.end() ? nullptr : asObject(keyValue->second->global);
 			break;
 		}
-		default: throw;
+		default: Core::unreachable();
 		};
 		if(result && !isA(result,type)) { result = nullptr; }
 		return result;

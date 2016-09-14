@@ -74,7 +74,7 @@ namespace Runtime
 		case WebAssembly::ValueType::i64: return TypeId::i64;
 		case WebAssembly::ValueType::f32: return TypeId::f32;
 		case WebAssembly::ValueType::f64: return TypeId::f64;
-		default: throw;
+		default: Core::unreachable();
 		};
 	}
 	
@@ -87,7 +87,7 @@ namespace Runtime
 		case WebAssembly::ResultType::i64: return TypeId::i64;
 		case WebAssembly::ResultType::f32: return TypeId::f32;
 		case WebAssembly::ResultType::f64: return TypeId::f64;
-		default: throw;
+		default: Core::unreachable();
 		};
 	}
 }

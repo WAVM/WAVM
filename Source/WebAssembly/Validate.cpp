@@ -180,7 +180,7 @@ namespace WebAssembly
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
-					default: throw;
+					default: Core::unreachable();
 					};
 					if(!controlStack[stackIndex].isReachable) { controlStackString += "-"; }
 				}
@@ -635,7 +635,7 @@ namespace WebAssembly
 				}
 				globals.push_back(import.type.global);
 				break;
-			default: throw;
+			default: Core::unreachable();
 			};
 		}
 
@@ -677,7 +677,7 @@ namespace WebAssembly
 			case ObjectKind::global:
 				validateGlobalIndex(exportIt.index,false,false,false,"exported global index");
 				break;
-			default: throw;
+			default: Core::unreachable();
 			};
 		}
 

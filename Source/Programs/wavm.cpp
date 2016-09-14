@@ -180,7 +180,7 @@ int commandMain(int argc,char** argv)
 			case TypeId::i64: value = (uint64)atol(argv[main_argc_start+i]); break;
 			case TypeId::f32:
 			case TypeId::f64: value = atof(argv[main_argc_start+i]); break;
-			default: throw;
+			default: Core::unreachable();
 			}
 			invokeArgs[i] = value;
 		}

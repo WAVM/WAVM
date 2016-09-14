@@ -147,7 +147,7 @@ inline std::string describeRuntimeValue(const Runtime::Value& value)
     case Runtime::TypeId::f32: return "f32(" + Floats::asString(value.f32) + ")";
     case Runtime::TypeId::f64: return "f64(" + Floats::asString(value.f64) + ")";
     case Runtime::TypeId::exception: return "Exception(" + std::string(Runtime::describeExceptionCause(value.exception->cause)) + ")";
-    default: throw;
+	default: Core::unreachable();
     }
 }
 

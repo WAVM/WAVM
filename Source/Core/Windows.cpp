@@ -93,14 +93,14 @@ namespace Platform
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,numPages << getPageSizeLog2(),MEM_DECOMMIT);
-		if(!result) { throw; }
+		if(!result) { Core::fatalError("VirtualFree(MEM_DECOMMIT) failed"); }
 	}
 
 	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,0/*numPages << getPageSizeLog2()*/,MEM_RELEASE);
-		if(!result) { throw; }
+		if(!result) { Core::fatalError("VirtualFree(MEM_RELEASE) failed"); }
 	}
 }
 

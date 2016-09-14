@@ -36,7 +36,7 @@ namespace RuntimePlatform
 			signalStackInfo.ss_flags = 0;
 			if(sigaltstack(&signalStackInfo,nullptr) < 0)
 			{
-				throw;
+				Core::fatalError("sigaltstack failed");
 			}
 		}
 

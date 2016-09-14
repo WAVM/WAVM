@@ -66,7 +66,7 @@ namespace WAST
 		case ExpressionType::f32: return "f32";
 		case ExpressionType::f64: return "f64";
 		case ExpressionType::unreachable: return "unreachable";
-		default: throw;
+		default: Core::unreachable();
 		};
 	}
 

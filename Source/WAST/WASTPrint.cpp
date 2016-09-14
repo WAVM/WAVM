@@ -138,7 +138,7 @@ namespace WAST
 		
 		void unknown(Opcode)
 		{
-			throw;
+			Core::unreachable();
 		}
 		void beginBlock(ControlStructureImm imm)
 		{

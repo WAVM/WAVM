@@ -35,6 +35,8 @@ typedef PointerIntHelper<sizeof(size_t)>::IntType intptr;
 	#define CORE_API DLL_EXPORT
 #endif
 
+#include "Platform.h"
+
 namespace Core
 {
 	struct Timer
@@ -71,4 +73,8 @@ namespace Core
 			return std::to_string(lineNumber()) + ":" + std::to_string(column(spacesPerTab));
 		}
 	};
+
+	// Fatal error handling.
+	[[noreturn]] CORE_API void fatalError(const char* message);
+	[[noreturn]] CORE_API void unreachable();
 }
