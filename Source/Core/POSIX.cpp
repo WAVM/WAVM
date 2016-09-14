@@ -7,8 +7,8 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <iostream>
 #include <errno.h>
+#include <inttypes.h>
 
 #ifdef __APPLE__
     #define MAP_ANONYMOUS MAP_ANON
@@ -75,7 +75,7 @@ namespace Platform
 		auto result = mmap(nullptr,numBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 		if(result == MAP_FAILED)
 		{
-			std::cerr << "mmap(" << numBytes/1024 << "KB) failed: errno=" << strerror(errno) << std::endl;
+			Log::printf(Log::Category::error,"mmap(%" PRIuPTR " KB) failed: errno=%s\n",numBytes,strerror(errno));
 			return nullptr;
 		}
 		return (uint8*)result;

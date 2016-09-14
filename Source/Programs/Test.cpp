@@ -592,6 +592,9 @@ int commandMain(int argc,char** argv)
 	}
 	const char* filename = argv[1];
 	
+	// Always enable debug logging for tests.
+	Log::setCategoryEnabled(Log::Category::debug,true);
+
 	Runtime::init();
 	
 	TestScriptState scriptState(filename);

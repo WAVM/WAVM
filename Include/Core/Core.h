@@ -35,10 +35,15 @@ typedef PointerIntHelper<sizeof(size_t)>::IntType intptr;
 	#define CORE_API DLL_EXPORT
 #endif
 
+#ifndef _DEBUG
+	#define _DEBUG 0
+#endif
+
 #include "Platform.h"
 
 namespace Core
 {
+	// Encapsulates a timer that starts when constructed and stops when read.
 	struct Timer
 	{
 		Timer(): startTime(std::chrono::high_resolution_clock::now()), isStopped(false) {}
@@ -78,3 +83,29 @@ namespace Core
 	[[noreturn]] CORE_API void fatalError(const char* message);
 	[[noreturn]] CORE_API void unreachable();
 }
+
+namespace Log
+{
+	// Debug logging.
+	enum class Category
+	{
+		error,
+		debug,
+		metrics,
+		num
+	};
+	CORE_API void setCategoryEnabled(Category category,bool enable);
+	CORE_API bool isCategoryEnabled(Category category);
+	CORE_API void printf(Category category,const char* format,...);
+	
+	inline void logTimer(const char* context,Core::Timer& timer) { printf(Category::metrics,"%s in %.2fms\n",context,timer.getMilliseconds()); }
+	inline void logRatePerSecond(const char* context,Core::Timer& timer,float64 numerator,const char* numeratorUnit)
+	{
+		printf(Category::metrics,"%s in %.2fms (%f %s/s)\n",
+			context,
+			timer.getMilliseconds(),
+			numerator / timer.getSeconds(),
+			numeratorUnit
+			);
+	}
+};

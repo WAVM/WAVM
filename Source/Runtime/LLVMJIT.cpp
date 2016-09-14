@@ -235,7 +235,7 @@ namespace LLVMJIT
 		std::string augmentedFilename = std::string(filename) + std::to_string(printedModuleId++) + ".ll";
 		llvm::raw_fd_ostream dumpFileStream(augmentedFilename,errorCode,llvm::sys::fs::OpenFlags::F_Text);
 		llvmModule->print(dumpFileStream,nullptr);
-		std::cout << "Dumped LLVM module to: " << augmentedFilename << std::endl;
+		Log::printf(Log::Category::debug,"Dumped LLVM module to: %s\n",augmentedFilename.c_str());
 	}
 
 	bool instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance)
@@ -262,15 +262,14 @@ namespace LLVMJIT
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
 			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
 			{
-				std::cerr << "LLVM verification errors:\n" << verifyOutputStream.str() << std::endl;
+				Log::printf(Log::Category::error,"LLVM verification errors:\n%s\n",verifyOutputString.c_str());
 				return false;
 			}
+			Log::printf(Log::Category::debug,"Verified LLVM module\n");
 		#endif
 
 		// Run some optimization on the module's functions.
-		#if WAVM_TIMER_OUTPUT
 		Core::Timer optimizationTimer;
-		#endif
 
 		auto fpm = new llvm::legacy::FunctionPassManager(llvmModule);
 		fpm->add(llvm::createPromoteMemoryToRegisterPass());
@@ -282,19 +281,15 @@ namespace LLVMJIT
 		for(auto functionIt = llvmModule->begin();functionIt != llvmModule->end();++functionIt)
 		{ fpm->run(*functionIt); }
 		delete fpm;
-
-		#if WAVM_TIMER_OUTPUT
-		std::cout << "Optimized LLVM code in " << optimizationTimer.getMilliseconds() << "ms" << std::endl;
-		#endif
+		
+		Log::logRatePerSecond("Optimized LLVM module",optimizationTimer,(float64)llvmModule->size(),"functions");
 
 		#if DUMP_OPTIMIZED_MODULE
 			printModule(llvmModule,"llvmOptimizedDump");
 		#endif
 
 		// Pass the module to the JIT compiler.
-		#if WAVM_TIMER_OUTPUT
 		Core::Timer machineCodeTimer;
-		#endif
 		std::vector<llvm::Module*> moduleSet;
 		moduleSet.push_back(llvmModule);
 
@@ -306,9 +301,7 @@ namespace LLVMJIT
 
 		// Compile the module.
 		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,&SectionMemoryManager::singleton,&NullResolver::singleton);
-		#if WAVM_TIMER_OUTPUT
-		std::cout << "Generated machine code in " << machineCodeTimer.getMilliseconds() << "ms" << std::endl;
-		#endif
+		Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
 		
 		// Find any thunks created for function imports that were reexported, and update the imported FunctionInstance.
 		for(uintptr functionIndex = 0;functionIndex < moduleInstance->functions.size();++functionIndex)

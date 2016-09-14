@@ -2,8 +2,6 @@
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
-#include <iostream>
-
 namespace Runtime
 {
 	std::vector<ModuleInstance*> moduleInstances;
@@ -163,8 +161,8 @@ namespace Runtime
 			auto result = invokeFunction(moduleInstance->functions[module.startFunctionIndex],{});
 			if(result.type == Runtime::TypeId::exception)
 			{
-				std::cerr << "Module start function threw exception: " << Runtime::describeExceptionCause(result.exception->cause) << std::endl;
-				for(auto calledFunction : result.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
+				Log::printf(Log::Category::error,"Module start function threw exception: %s\n",Runtime::describeExceptionCause(result.exception->cause));
+				for(auto calledFunction : result.exception->callStack) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
 				throw InstantiationException(InstantiationException::Cause::startFunctionException);
 			}
 		}

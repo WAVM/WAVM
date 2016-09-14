@@ -19,6 +19,7 @@ void showHelp()
 	std::cerr << "  in.wasm\tSpecify binary program file (.wasm)" << std::endl;
 	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main" << std::endl;
 	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
+	std::cerr << "  -d|--debug\t\t\tWrite additional debug information to stdout" << std::endl;
 	std::cerr << "  --\t\t\t\tStop parsing arguments" << std::endl;
 }
 
@@ -68,6 +69,10 @@ int commandMain(int argc,char** argv)
 		else if(!strcmp(*args, "--check") || !strcmp(*args, "-c"))
 		{
 			onlyCheck = true;
+		}
+		else if(!strcmp(*args, "--debug") || !strcmp(*args, "-d"))
+		{
+			Log::setCategoryEnabled(Log::Category::debug,true);
 		}
 		else if(!strcmp(*args, "--"))
 		{
@@ -186,14 +191,9 @@ int commandMain(int argc,char** argv)
 		}
 	}
 
-	#if WAVM_TIMER_OUTPUT
-	Core::Timer executionTime;
-	#endif
+	Core::Timer executionTimer;
 	auto functionResult = invokeFunction(functionInstance,invokeArgs);
-	#if WAVM_TIMER_OUTPUT
-	executionTime.stop();
-	std::cout << "Execution time: " << executionTime.getMilliseconds() << "ms" << std::endl;
-	#endif
+	Log::logTimer("Executed function",executionTimer);
 
 	if(functionResult.type == TypeId::exception)
 	{

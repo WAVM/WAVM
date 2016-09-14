@@ -50,10 +50,8 @@
 #include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include <cctype>
-#include <cstdio>
 #include <string>
 #include <vector>
-#include <iostream>
 
 #ifdef _WIN32
 	#pragma warning(pop)

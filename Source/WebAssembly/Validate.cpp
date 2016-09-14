@@ -6,10 +6,6 @@
 
 #define ENABLE_LOGGING 0
 
-#if ENABLE_LOGGING
-	#include <cstdio>
-#endif
-
 namespace WebAssembly
 {
 	#define VALIDATE_UNLESS(reason,comparison) \
@@ -136,7 +132,9 @@ namespace WebAssembly
 
 	void validate(const Module& module)
 	{
+		Core::Timer timer;
 		ModuleValidationContext context(module);
+		Log::printf(Log::Category::metrics,"Validated WebAssembly module in %.2fms\n",timer.getMilliseconds());
 	}
 
 	struct FunctionCodeValidator
@@ -194,9 +192,8 @@ namespace WebAssembly
 					stackString +=  " ";
 				}
 				if(stack.size() == stackBase) { stackString += "|"; }
-			
-				std::printf("%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
-				std::fflush(stdout);
+
+				Log::printf(LogCategory::debug,"%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
 			#endif
 		}
 

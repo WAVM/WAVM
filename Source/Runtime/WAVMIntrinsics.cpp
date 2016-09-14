@@ -4,8 +4,6 @@
 #include "RuntimePrivate.h"
 
 #include <math.h>
-#include <iostream>
-#include <iomanip>
 
 namespace Runtime
 {
@@ -145,15 +143,16 @@ namespace Runtime
 	{
 		Table* table = reinterpret_cast<Table*>(tableBits);
 		void* elementValue = table->baseAddress[index].value;
-		#ifdef _DEBUG
-			const FunctionType* actualSignature = table->baseAddress[index].type;
-			const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((uintptr)expectedSignatureBits);
-			std::string ipDescription = "<unknown>";
-			LLVMJIT::describeInstructionPointer(reinterpret_cast<uintptr>(elementValue),ipDescription);
-			std::cerr << "call_indirect signature mismatch: expected " << getTypeName(expectedSignature)
-				<< " at index " << index << " but got " << (actualSignature ? getTypeName(actualSignature) : "nullptr")
-				<< " (" << ipDescription << ")" << std::endl;
-		#endif
+		const FunctionType* actualSignature = table->baseAddress[index].type;
+		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((uintptr)expectedSignatureBits);
+		std::string ipDescription = "<unknown>";
+		LLVMJIT::describeInstructionPointer(reinterpret_cast<uintptr>(elementValue),ipDescription);
+		Log::printf(Log::Category::debug,"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",
+			getTypeName(expectedSignature).c_str(),
+			index,
+			actualSignature ? getTypeName(actualSignature).c_str() : "nullptr",
+			ipDescription.c_str()
+			);
 		causeException(elementValue == nullptr ? Exception::Cause::undefinedTableElement : Exception::Cause::indirectCallSignatureMismatch);
 	}
 
@@ -183,7 +182,7 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,enterFunction,none,i64,functionInstanceBits)
 	{
 		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
-		std::cout << std::setw(7+indentLevel*2) << "ENTER: " << function->debugName << std::endl;
+		Log::printf(Log::Category::debug,"ENTER: %s\n",function->debugName.c_str());
 		++indentLevel;
 	}
 	
@@ -191,12 +190,12 @@ namespace Runtime
 	{
 		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 		--indentLevel;
-		std::cout << std::setw(7+indentLevel*2) << "EXIT:  " << function->debugName << std::endl;
+		Log::printf(Log::Category::debug,"EXIT:  %s\n",function->debugName.c_str());
 	}
 	
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,debugBreak,debugBreak,none)
 	{
-		std::cout << "============================= wavmIntrinsics.debugBreak ========================" << std::endl;
+		Log::printf(Log::Category::debug,"================== wavmIntrinsics.debugBreak\n");
 	}
 
 	void initWAVMIntrinsics()

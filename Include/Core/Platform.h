@@ -3,14 +3,14 @@
 #include "Core.h"
 
 #ifdef _WIN32
-	#define THREAD_LOCAL __declspec(thread)
+	#define THREAD_LOCAL thread_local
 	#define DLL_EXPORT __declspec(dllexport)
 	#define DLL_IMPORT __declspec(dllimport)
 	#define FORCEINLINE __forceinline
 	#define UNUSED
 	#include <intrin.h>
 #else
-	#define THREAD_LOCAL __thread
+	#define THREAD_LOCAL thread_local
 	#define DLL_EXPORT
 	#define DLL_IMPORT
 	#define FORCEINLINE inline __attribute__((always_inline))

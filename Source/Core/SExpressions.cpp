@@ -779,22 +779,21 @@ namespace SExp
 
 	SNode* parse(const char* string,MemoryArena::Arena& arena,const SymbolIndexMap& symbolIndexMap)
 	{
+		Core::Timer parseTimer;
+
 		StreamState state(string);
 		ParseContext parseContext(state,arena,symbolIndexMap);
 		try
 		{
-			SNode* firstRootSNode = nullptr;
-			parseContext.parseSNodeSequence(&firstRootSNode);
+			SNode* result = nullptr;
+			parseContext.parseSNodeSequence(&result);
 			if(state.peek() != 0)
 			{
 				auto errorMessage = std::string("expected ';' or '(' but found '") + state.peek() + "'";
-				auto result = parseContext.createError(state.getLocus(),arena.copyToArena(errorMessage.c_str(),errorMessage.length() + 1));
-				return result;
+				result = parseContext.createError(state.getLocus(),arena.copyToArena(errorMessage.c_str(),errorMessage.length() + 1));
 			}
-			else
-			{
-				return firstRootSNode;
-			}
+			Log::logRatePerSecond("Parsed S-expressions",parseTimer,float64(state.next - string) / 1024.0 / 1024.0,"MB");
+			return result;
 		}
 		catch(FatalParseException* exception)
 		{

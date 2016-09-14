@@ -37,9 +37,6 @@ inline bool loadTextModule(const char* filename,WebAssembly::Module& outModule)
 	auto wastString = std::string((const char*)wastBytes.data(),wastBytes.size());
 	wastBytes.clear();
 
-	#if WAVM_TIMER_OUTPUT
-	Core::Timer loadTimer;
-	#endif
 	std::vector<WAST::Error> parseErrors;
 	if(!WAST::parseModule(wastString.c_str(),outModule,parseErrors))
 	{
@@ -62,9 +59,6 @@ inline bool loadTextModule(const char* filename,WebAssembly::Module& outModule)
 		}
 		return false;
 	}
-	#if WAVM_TIMER_OUTPUT
-	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wastString.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
-	#endif
 	return true;
 }
 
@@ -74,9 +68,7 @@ inline bool loadBinaryModule(const char* wasmFilename,WebAssembly::Module& outMo
 	auto wasmBytes = loadFile(wasmFilename);
 	if(!wasmBytes.size()) { return false; }
 	
-	#if WAVM_TIMER_OUTPUT
 	Core::Timer loadTimer;
-	#endif
 
 	// Load the module from a binary WebAssembly file.
 	try
@@ -97,18 +89,13 @@ inline bool loadBinaryModule(const char* wasmFilename,WebAssembly::Module& outMo
 		return false;
 	}
 
-	#if WAVM_TIMER_OUTPUT
-	std::cout << "Loaded in " << loadTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / loadTimer.getSeconds()) << " MB/s)" << std::endl;
-	#endif
-	
+	Log::logRatePerSecond("Loaded WASM",loadTimer,wasmBytes.size()/1024.0/1024.0,"MB");
 	return true;
 }
 
 inline bool saveBinaryModule(const char* wasmFilename,const WebAssembly::Module& module)
 {
-	#if WAVM_TIMER_OUTPUT
 	Core::Timer saveTimer;
-	#endif
 
 	std::vector<uint8> wasmBytes;
 	try
@@ -125,9 +112,7 @@ inline bool saveBinaryModule(const char* wasmFilename,const WebAssembly::Module&
 		return false;
 	}
 	
-	#if WAVM_TIMER_OUTPUT
-	std::cout << "Saved in " << saveTimer.getMilliseconds() << "ms" << " (" << (wasmBytes.size()/1024.0/1024.0 / saveTimer.getSeconds()) << " MB/s)" << std::endl;
-	#endif
+	Log::logRatePerSecond("Saved WASM",saveTimer,wasmBytes.size()/1024.0/1024.0,"MB");
 
 	// Write the serialized data to the output file.
 	std::ofstream outputStream(wasmFilename,std::ios::binary);

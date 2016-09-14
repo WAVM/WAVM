@@ -1828,8 +1828,10 @@ namespace WAST
 	{
 		try
 		{
+			Core::Timer parseTimer;
 			ModuleContext moduleContext(outModule,outErrors);
 			moduleContext.parse(firstNonNameChildNodeIt);
+			Log::logTimer("Parsed WAST",parseTimer);
 		
 			// If there weren't any other errors, validate the module to try to catch any validation errors the parser didn't catch sooner.
 			// In general, the parser should try to catch validation errors first though, so it can give more than one error at a time, and

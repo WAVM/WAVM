@@ -3,7 +3,7 @@
 #include "Core.h"
 #include "Platform.h"
 #include <Windows.h>
-#include <iostream>
+#include <inttypes.h>
 
 namespace Platform
 {
@@ -56,7 +56,7 @@ namespace Platform
 		}
 	}
 
-	#ifdef _DEBUG
+	#if _DEBUG
 		static bool isPageAligned(uint8* address)
 		{
 			const uintptr addressBits = reinterpret_cast<uintptr>(address);
@@ -70,7 +70,7 @@ namespace Platform
 		auto result = VirtualAlloc(nullptr,numBytes,MEM_RESERVE,PAGE_NOACCESS);
 		if(result == NULL)
 		{
-			std::cerr << "VirtualAlloc(" << numBytes/1024 << "KB) failed: GetLastError=" << GetLastError() << std::endl;
+			Log::printf(Log::Category::error,"VirtualAlloc(%" PRIuPTR " KB) failed: GetLastError=%u\n",numBytes,GetLastError());
 			return nullptr;
 		}
 		return (uint8*)result;

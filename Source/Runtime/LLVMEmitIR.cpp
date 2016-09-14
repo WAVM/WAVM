@@ -269,8 +269,7 @@ namespace LLVMJIT
 				}
 				if(stack.size() == stackBase) { stackString += "|"; }
 
-				std::printf("%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
-				std::fflush(stdout);
+				Log::printf(LogCategory::debug,"%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
 			#endif
 		}
 
@@ -939,10 +938,8 @@ namespace LLVMJIT
 
 	llvm::Module* EmitModuleContext::emit()
 	{
-		#if WAVM_TIMER_OUTPUT
 		Core::Timer emitTimer;
-		#endif
-		
+
 		llvmModule = new llvm::Module("",context);
 
 		// Create literals for the default memory base and mask.
@@ -1005,9 +1002,7 @@ namespace LLVMJIT
 		}
 		if(module.startFunctionIndex != UINTPTR_MAX) { emitInvokeThunk(module.startFunctionIndex); }
 
-		#if WAVM_TIMER_OUTPUT
-		std::cout << "Emitted LLVM IR for module in " << emitTimer.getMilliseconds() << "ms" << std::endl;
-		#endif
+		Log::logRatePerSecond("Emitted LLVM IR",emitTimer,(float64)llvmModule->size(),"functions");
 
 		return llvmModule;
 	}

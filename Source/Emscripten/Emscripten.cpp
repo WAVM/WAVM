@@ -5,7 +5,6 @@
 #include "Emscripten.h"
 #include <time.h>
 #include <stdio.h>
-#include <iostream>
 #include <limits.h>
 
 #ifndef _WIN32
@@ -204,7 +203,7 @@ namespace Emscripten
 	}
 	DEFINE_INTRINSIC_FUNCTION1(env,abort,abort,none,i32,code)
 	{
-		std::cerr << "abort(" << code << ")" << std::endl;
+		Log::printf(Log::Category::error,"env.abort(%i)\n",code);
 		causeException(Runtime::Exception::Cause::calledAbort);
 	}
 
