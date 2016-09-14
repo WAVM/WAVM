@@ -102,7 +102,27 @@ namespace SExp
 	};
 
 	// Parses a S-expression tree from a string, allocating nodes from arena, and using symbolIndexMap to map symbols to indices.
-	typedef std::map<const char*,uintptr,Core::StringCompareFunctor> SymbolIndexMap;
+	struct StringCompareFunctor { bool operator()(const char* left,const char* right) const
+	{
+		while(true)
+		{
+			if(*left == *right)
+			{
+				if(!*left) { return false; }
+			}
+			else if(*left < *right)
+			{
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+			++left;
+			++right;
+		};
+	}};
+	typedef std::map<const char*,uintptr,StringCompareFunctor> SymbolIndexMap;
 	CORE_API SNode* parse(const char* string,MemoryArena::Arena& arena,const SymbolIndexMap& symbolIndexMap);
 
 	// Parse an integer from a S-expression node.

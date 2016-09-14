@@ -71,25 +71,4 @@ namespace Core
 			return std::to_string(lineNumber()) + ":" + std::to_string(column(spacesPerTab));
 		}
 	};
-	
-	struct StringCompareFunctor { bool operator()(const char* left,const char* right) const
-	{
-		while(true)
-		{
-			if(*left == *right)
-			{
-				if(!*left) { return false; }
-			}
-			else if(*left < *right)
-			{
-				return true;
-			}
-			else
-			{
-				return false;
-			}
-			++left;
-			++right;
-		};
-	}};
 }
