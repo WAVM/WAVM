@@ -179,14 +179,14 @@ namespace Runtime
 
 	uintptr indentLevel = 0;
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,enterFunction,none,i64,functionInstanceBits)
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,debugEnterFunction,none,i64,functionInstanceBits)
 	{
 		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 		Log::printf(Log::Category::debug,"ENTER: %s\n",function->debugName.c_str());
 		++indentLevel;
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugExitFunction,exitFunction,none,i64,functionInstanceBits)
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugExitFunction,debugExitFunction,none,i64,functionInstanceBits)
 	{
 		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 		--indentLevel;
