@@ -84,15 +84,22 @@ namespace RuntimePlatform
 		return executionContext;
 	}
 
+	THREAD_LOCAL bool isReentrantException = false;
 	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,Exception*& outRuntimeException)
 	{
-		// Detect a WAVM runtime exception and just pull the the Exception pointer out for the handler.
-		if(exceptionPointers->ExceptionRecord->ExceptionCode == EXCEPTION_WAVM_RUNTIME)
+		if(isReentrantException)
 		{
+			Core::fatalError("reentrant exception");
+		}
+		else if(exceptionPointers->ExceptionRecord->ExceptionCode == EXCEPTION_WAVM_RUNTIME)
+		{
+			// Detect a WAVM runtime exception and just pull the the Exception pointer out for the handler.
 			outRuntimeException = reinterpret_cast<Exception*>(exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
 		}
 		else
 		{
+			isReentrantException = true;
+
 			// Interpret the cause of the exception.
 			Exception::Cause cause;
 			switch(exceptionPointers->ExceptionRecord->ExceptionCode)
@@ -137,6 +144,7 @@ namespace RuntimePlatform
 		}
 		__except(sehFilterFunction(GetExceptionInformation(),runtimeException))
 		{}
+		isReentrantException = false;
 
 		if(runtimeException->cause == Exception::Cause::stackOverflow)
 		{

@@ -19,6 +19,7 @@ namespace RuntimePlatform
 	THREAD_LOCAL jmp_buf setjmpEnv;
 	THREAD_LOCAL Exception::Cause exceptionCause = Exception::Cause::unknown;
 	THREAD_LOCAL Exception* exception = nullptr;
+	THREAD_LOCAL bool isReentrantException = false;
 
 	enum { signalStackNumBytes = SIGSTKSZ };
 	THREAD_LOCAL uint8* signalStack = nullptr;
@@ -49,6 +50,9 @@ namespace RuntimePlatform
 
 	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
 	{
+		if(isReentrantException) { Core::fatalError("reentrant exception"); }
+		isReentrantException = true;
+
 		// Derive the exception cause the from signal that was received.
 		exceptionCause = Exception::Cause::unknown;
 		switch(signalNumber)
@@ -106,6 +110,7 @@ namespace RuntimePlatform
 		// Reset the signal state.
 		exceptionCause = Exception::Cause::unknown;
 		exception = nullptr;
+		isReentrantException = false;
 		sigaction(SIGSEGV,&oldSignalActionSEGV,nullptr);
 		sigaction(SIGBUS,&oldSignalActionBUS,nullptr);
 		sigaction(SIGFPE,&oldSignalActionFPE,nullptr);
