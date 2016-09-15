@@ -8,6 +8,8 @@
 #include <sys/mman.h>
 
 #include <errno.h>
+
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 #ifdef __APPLE__
