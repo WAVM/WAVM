@@ -10,7 +10,7 @@
 	#define UNUSED
 	#include <intrin.h>
 #else
-	#define THREAD_LOCAL thread_local
+	#define THREAD_LOCAL __thread
 	#define DLL_EXPORT
 	#define DLL_IMPORT
 	#define FORCEINLINE inline __attribute__((always_inline))
