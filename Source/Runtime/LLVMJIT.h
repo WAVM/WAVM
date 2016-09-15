@@ -59,8 +59,57 @@
 
 namespace LLVMJIT
 {
-	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionIndex,bool invokeThunk);
-	bool getFunctionIndexFromExternalName(const char* externalName,uintptr& outFunctionIndex,bool& outIsInvokeThunk);
+	// The global LLVM context.
+	extern llvm::LLVMContext& context;
+	
+	// Maps a type ID to the corresponding LLVM type.
+	extern llvm::Type* llvmResultTypes[(size_t)ResultType::num];
+	extern llvm::Type* llvmI8Type;
+	extern llvm::Type* llvmI16Type;
+	extern llvm::Type* llvmI32Type;
+	extern llvm::Type* llvmI64Type;
+	extern llvm::Type* llvmF32Type;
+	extern llvm::Type* llvmF64Type;
+	extern llvm::Type* llvmVoidType;
+	extern llvm::Type* llvmBoolType;
+	extern llvm::Type* llvmI8PtrType;
+
+	// Zero constants of each type.
+	extern llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
+
+	// Converts a WebAssembly type to a LLVM type.
+	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(uintptr)asResultType(type)]; }
+	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(uintptr)type]; }
+
+	// Converts a WebAssembly function type to a LLVM type.
+	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType)
+	{
+		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType->parameters.size());
+		for(uintptr argIndex = 0;argIndex < functionType->parameters.size();++argIndex)
+		{
+			llvmArgTypes[argIndex] = asLLVMType(functionType->parameters[argIndex]);
+		}
+		auto llvmResultType = asLLVMType(functionType->ret);
+		return llvm::FunctionType::get(llvmResultType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType->parameters.size()),false);
+	}
+
+	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
+	inline llvm::ConstantInt* emitLiteral(uint32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(uint64)value,false)); }
+	inline llvm::ConstantInt* emitLiteral(int32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(int64)value,false)); }
+	inline llvm::ConstantInt* emitLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
+	inline llvm::ConstantInt* emitLiteral(int64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
+	inline llvm::Constant* emitLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	inline llvm::Constant* emitLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	inline llvm::Constant* emitLiteral(bool value) { return llvm::ConstantInt::get(llvmBoolType,llvm::APInt(1,value ? 1 : 0,false)); }
+	inline llvm::Constant* emitLiteralPointer(const void* pointer,llvm::Type* type)
+	{
+		auto pointerInt = llvm::APInt(sizeof(uintptr) == 8 ? 64 : 32,reinterpret_cast<uintptr>(pointer));
+		return llvm::Constant::getIntegerValue(type,pointerInt);
+	}
+
+	// Functions that map between the symbols used for externally visible functions and the function
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionDefIndex);
+	bool getFunctionIndexFromExternalName(const char* externalName,uintptr& outFunctionDefIndex);
 
 	// Emits LLVM IR for a module.
 	llvm::Module* emitModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance);

@@ -36,7 +36,7 @@ namespace Intrinsics
 	Function::Function(const char* inName,const WebAssembly::FunctionType* type,void* nativeFunction)
 	:	name(inName)
 	{
-		function = new Runtime::FunctionInstance(type,nativeFunction,nullptr);
+		function = new Runtime::FunctionInstance(type,nativeFunction);
 		Platform::Lock lock(Singleton::get().mutex);
 		Singleton::get().functionMap[getDecoratedName(inName,type)] = this;
 	}

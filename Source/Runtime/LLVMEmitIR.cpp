@@ -10,54 +10,6 @@ using namespace WebAssembly;
 
 namespace LLVMJIT
 {
-	// The global LLVM context.
-	llvm::LLVMContext& context = llvm::getGlobalContext();
-
-	// Maps a type ID to the corresponding LLVM type.
-	llvm::Type* llvmResultTypes[(size_t)ResultType::num];
-	llvm::Type* llvmI8Type;
-	llvm::Type* llvmI16Type;
-	llvm::Type* llvmI32Type;
-	llvm::Type* llvmI64Type;
-	llvm::Type* llvmF32Type;
-	llvm::Type* llvmF64Type;
-	llvm::Type* llvmVoidType;
-	llvm::Type* llvmBoolType;
-	llvm::Type* llvmI8PtrType;
-
-	// Zero constants of each type.
-	llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
-
-	// Converts a WebAssembly type to a LLVM type.
-	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(uintptr)asResultType(type)]; }
-	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(uintptr)type]; }
-
-	// Converts a WebAssembly function type to a LLVM type.
-	llvm::FunctionType* asLLVMType(const FunctionType* functionType)
-	{
-		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType->parameters.size());
-		for(uintptr argIndex = 0;argIndex < functionType->parameters.size();++argIndex)
-		{
-			llvmArgTypes[argIndex] = asLLVMType(functionType->parameters[argIndex]);
-		}
-		auto llvmResultType = asLLVMType(functionType->ret);
-		return llvm::FunctionType::get(llvmResultType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType->parameters.size()),false);
-	}
-	
-	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
-	inline llvm::ConstantInt* emitLiteral(uint32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(uint64)value,false)); }
-	inline llvm::ConstantInt* emitLiteral(int32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(int64)value,false)); }
-	inline llvm::ConstantInt* emitLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
-	inline llvm::ConstantInt* emitLiteral(int64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
-	inline llvm::Constant* emitLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
-	inline llvm::Constant* emitLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
-	inline llvm::Constant* emitLiteral(bool value) { return llvm::ConstantInt::get(llvmBoolType,llvm::APInt(1,value ? 1 : 0,false)); }
-	inline llvm::Constant* emitLiteralPointer(const void* pointer,llvm::Type* type)
-	{
-		auto pointerInt = llvm::APInt(sizeof(uintptr) == 8 ? 64 : 32,reinterpret_cast<uintptr>(pointer));
-		return llvm::Constant::getIntegerValue(type,pointerInt);
-	}
-
 	// The LLVM IR for a module.
 	struct EmitModuleContext
 	{
@@ -79,7 +31,6 @@ namespace LLVMJIT
 		{}
 
 		llvm::Module* emit();
-		void emitInvokeThunk(uintptr functionIndex);
 	};
 
 	// The context used by functions involved in JITing a single AST function.
@@ -984,7 +935,7 @@ namespace LLVMJIT
 			const Function& function = module.functionDefs[functionDefIndex];
 			const FunctionType* functionType = module.types[function.typeIndex];
 			auto llvmFunctionType = asLLVMType(functionType);
-			auto externalName = getExternalFunctionName(moduleInstance,importedFunctionPointers.size() + functionDefIndex,false);
+			auto externalName = getExternalFunctionName(moduleInstance,functionDefIndex);
 			functionDefs[functionDefIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,externalName,llvmModule);
 		}
 
@@ -992,118 +943,13 @@ namespace LLVMJIT
 		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{ EmitFunctionContext(*this,module,functionDefIndex).emit(); }
 
-		// Create thunks for invoking each export and the start function (if it exists).
-		for(auto& exportIt : module.exports)
-		{
-			if(exportIt.kind == ObjectKind::function)
-			{
-				emitInvokeThunk(exportIt.index);
-			}
-		}
-		if(module.startFunctionIndex != UINTPTR_MAX) { emitInvokeThunk(module.startFunctionIndex); }
-
 		Log::logRatePerSecond("Emitted LLVM IR",emitTimer,(float64)llvmModule->size(),"functions");
 
 		return llvmModule;
 	}
 
-	void EmitModuleContext::emitInvokeThunk(uintptr functionIndex)
-	{
-		// Allow this function to be called multiple times for the same function, but only create one thunk.
-		auto thunkName = getExternalFunctionName(moduleInstance,functionIndex,true);
-		if(llvmModule->getNamedGlobal(thunkName)) { return; }
-
-		llvm::Value* functionValue;
-		const FunctionType* functionType;
-		if(functionIndex < importedFunctionPointers.size())
-		{
-			assert(functionIndex < moduleInstance->functions.size());
-			functionValue = importedFunctionPointers[functionIndex];
-			functionType = moduleInstance->functions[functionIndex]->type;
-
-			// Don't create thunks for imported functions that already have an invoke thunk.
-			if(moduleInstance->functions[functionIndex]->invokeThunk) { return; }
-		}
-		else
-		{
-			const uintptr functionDefIndex = functionIndex - importedFunctionPointers.size();
-			assert(functionDefIndex < functionDefs.size());
-			functionValue = functionDefs[functionDefIndex];
-			functionType = module.types[module.functionDefs[functionDefIndex].typeIndex];
-		}
-
-		llvm::Type* const i64PointerType = llvmI64Type->getPointerTo();
-		auto llvmFunctionType = llvm::FunctionType::get(llvmVoidType,llvm::ArrayRef<llvm::Type*>(&i64PointerType,(size_t)1),false);
-
-		auto thunk = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,thunkName,llvmModule);
-		auto thunkEntryBlock = llvm::BasicBlock::Create(context,"entry",thunk);
-		llvm::IRBuilder<> irBuilder(thunkEntryBlock);
-
-		// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
-		llvm::Value* argBaseAddress = (llvm::Argument*)thunk->args().begin();
-		std::vector<llvm::Value*> structArgLoads;
-		for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
-		{
-			structArgLoads.push_back(irBuilder.CreateLoad(
-				irBuilder.CreatePointerCast(
-					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintptr)parameterIndex)}),
-					asLLVMType(functionType->parameters[parameterIndex])->getPointerTo()
-					)
-				));
-		}
-
-		// Call the llvm function with the actual implementation.
-		auto returnValue = irBuilder.CreateCall(functionValue,structArgLoads);
-
-		// If the function has a return value, write it to the end of the argument array.
-		if(getArity(functionType->ret))
-		{
-			auto llvmResultType = asLLVMType(functionType->ret);
-			irBuilder.CreateStore(
-				returnValue,
-				irBuilder.CreatePointerCast(
-					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintptr)functionType->parameters.size())}),
-					llvmResultType->getPointerTo()
-					)
-				);
-		}
-
-		irBuilder.CreateRetVoid();
-	}
-
 	llvm::Module* emitModule(const Module& module,ModuleInstance* moduleInstance)
 	{
 		return EmitModuleContext(module,moduleInstance).emit();
-	}
-	
-	void init()
-	{
-		llvm::InitializeNativeTarget();
-		llvm::InitializeNativeTargetAsmPrinter();
-		llvm::InitializeNativeTargetAsmParser();
-		llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
-		
-		llvmI8Type = llvm::Type::getInt8Ty(context);
-		llvmI16Type = llvm::Type::getInt16Ty(context);
-		llvmI32Type = llvm::Type::getInt32Ty(context);
-		llvmI64Type = llvm::Type::getInt64Ty(context);
-		llvmF32Type = llvm::Type::getFloatTy(context);
-		llvmF64Type = llvm::Type::getDoubleTy(context);
-		llvmVoidType = llvm::Type::getVoidTy(context);
-		llvmBoolType = llvm::Type::getInt1Ty(context);
-		llvmI8PtrType = llvmI8Type->getPointerTo();
-
-		llvmResultTypes[(size_t)ResultType::none] = llvm::Type::getVoidTy(context);
-		llvmResultTypes[(size_t)ResultType::i32] = llvmI32Type;
-		llvmResultTypes[(size_t)ResultType::i64] = llvmI64Type;
-		llvmResultTypes[(size_t)ResultType::f32] = llvmF32Type;
-		llvmResultTypes[(size_t)ResultType::f64] = llvmF64Type;
-
-		// Create zero constants of each type.
-		typedZeroConstants[(size_t)ValueType::invalid] = nullptr;
-		typedZeroConstants[(size_t)ValueType::i32] = emitLiteral((uint32)0);
-		typedZeroConstants[(size_t)ValueType::i64] = emitLiteral((uint64)0);
-		typedZeroConstants[(size_t)ValueType::f32] = emitLiteral((float32)0.0f);
-		typedZeroConstants[(size_t)ValueType::f64] = emitLiteral((float64)0.0);
 	}
 }

@@ -60,8 +60,6 @@ namespace Runtime
 
 	Value invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters)
 	{
-		assert(function->invokeThunk);
-
 		const FunctionType* functionType = function->type;
 
 		if(parameters.size() != functionType->parameters.size())
@@ -80,12 +78,15 @@ namespace Runtime
 
 			thunkMemory[parameterIndex] = parameters[parameterIndex].i64;
 		}
+		
+		// Get the invoke thunk for this function type.
+		LLVMJIT::InvokeFunctionPointer invokeFunctionPointer = LLVMJIT::getInvokeThunk(functionType);
 
 		// Catch platform-specific runtime exceptions and turn them into Runtime::Values.
 		return RuntimePlatform::catchRuntimeExceptions([&]
 		{
 			// Call the invoke thunk.
-			(*function->invokeThunk)(thunkMemory);
+			(*invokeFunctionPointer)(function->nativeFunction,thunkMemory);
 
 			// Read the return value out of the thunk memory block.
 			Value returnValue;

@@ -1,7 +1,7 @@
 #include "LLVMJIT.h"
 
 // This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through the JITed code.
-#define USE_WRITEABLE_JIT_CODE_PAGES 0
+#define USE_WRITEABLE_JIT_CODE_PAGES _DEBUG
 
 #define DUMP_UNOPTIMIZED_MODULE _DEBUG
 #define VERIFY_MODULE _DEBUG
@@ -9,26 +9,140 @@
 
 namespace LLVMJIT
 {
-	// Functor that receives notifications when an object produced by the JIT is loaded.
-	struct NotifyLoadedFunctor
+	llvm::LLVMContext& context = llvm::getGlobalContext();
+	llvm::TargetMachine* targetMachine = nullptr;
+	llvm::Type* llvmResultTypes[(size_t)ResultType::num];
+	llvm::Type* llvmI8Type;
+	llvm::Type* llvmI16Type;
+	llvm::Type* llvmI32Type;
+	llvm::Type* llvmI64Type;
+	llvm::Type* llvmF32Type;
+	llvm::Type* llvmF64Type;
+	llvm::Type* llvmVoidType;
+	llvm::Type* llvmBoolType;
+	llvm::Type* llvmI8PtrType;
+	llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
+	
+	// A map from address to loaded JIT symbols.
+	std::map<uintptr,struct JITSymbol*> addressToSymbolMap;
+
+	// A map from function types to function indices in the invoke thunk unit.
+	std::map<const FunctionType*,struct JITSymbol*> invokeThunkTypeToSymbolMap;
+
+	// Information about a JIT symbol, used to map instruction pointers to descriptive names.
+	struct JITSymbol
 	{
-		struct JITModule* jitModule;
-		NotifyLoadedFunctor(struct JITModule* inJITModule): jitModule(inJITModule) {}
-		void operator()(
-			const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
-			const std::vector<std::unique_ptr<llvm::object::ObjectFile>>& objectSet,
-			const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResult
-			);
+		enum class Type
+		{
+			functionInstance,
+			invokeThunk
+		};
+		Type type;
+		union
+		{
+			FunctionInstance* functionInstance;
+			const FunctionType* invokeThunkType;
+		};
+		uintptr baseAddress;
+		size_t numBytes;
+		
+		JITSymbol(FunctionInstance* inFunctionInstance,uintptr inBaseAddress,size_t inNumBytes)
+		: type(Type::functionInstance), functionInstance(inFunctionInstance), baseAddress(inBaseAddress), numBytes(inNumBytes) {}
+
+		JITSymbol(const FunctionType* inInvokeThunkType,uintptr inBaseAddress,size_t inNumBytes)
+		: type(Type::invokeThunk), invokeThunkType(inInvokeThunkType), baseAddress(inBaseAddress), numBytes(inNumBytes) {}
+	};
+
+	// A unit of JIT compilation.
+	// Encapsulates the LLVM JIT compilation pipeline but allows subclasses to define how the resulting code is used.
+	struct JITUnit
+	{
+		JITUnit()
+		{
+			objectLayer = llvm::make_unique<ObjectLayer>(NotifyLoadedFunctor(this));
+			compileLayer = llvm::make_unique<CompileLayer>(*objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
+		}
+
+		bool compile(llvm::Module* llvmModule);
+
+		virtual void notifySymbolLoaded(const char* name,uintptr baseAddress,size_t numBytes) = 0;
+
+	private:
+		
+		// Functor that receives notifications when an object produced by the JIT is loaded.
+		struct NotifyLoadedFunctor
+		{
+			JITUnit* jitUnit;
+			NotifyLoadedFunctor(JITUnit* inJITUnit): jitUnit(inJITUnit) {}
+			void operator()(
+				const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
+				const std::vector<std::unique_ptr<llvm::object::ObjectFile>>& objectSet,
+				const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResult
+				);
+		};
+
+		typedef llvm::orc::ObjectLinkingLayer<NotifyLoadedFunctor> ObjectLayer;
+		typedef llvm::orc::IRCompileLayer<ObjectLayer> CompileLayer;
+
+		std::unique_ptr<ObjectLayer> objectLayer;
+		std::unique_ptr<CompileLayer> compileLayer;
+		CompileLayer::ModuleSetHandleT handle;
+	};
+
+	// The JIT compilation unit for a WebAssembly module instance.
+	struct JITModule : JITUnit
+	{
+		ModuleInstance* moduleInstance;
+
+		std::vector<JITSymbol*> functionDefSymbols;
+
+		JITModule(ModuleInstance* inModuleInstance): moduleInstance(inModuleInstance) {}
+
+		void notifySymbolLoaded(const char* name,uintptr baseAddress,size_t numBytes) override
+		{
+			// Save the address range this function was loaded at for future address->symbol lookups.
+			uintptr functionDefIndex;
+			if(getFunctionIndexFromExternalName(name,functionDefIndex))
+			{
+				assert(moduleInstance);
+				assert(functionDefIndex < moduleInstance->functionDefs.size());
+				FunctionInstance* functionInstance = moduleInstance->functionDefs[functionDefIndex];
+				auto symbol = new JITSymbol(functionInstance,baseAddress,numBytes);
+				functionDefSymbols.push_back(symbol);
+				addressToSymbolMap[baseAddress] = symbol;
+				functionInstance->nativeFunction = reinterpret_cast<void*>(baseAddress);
+			}
+		}
+	};
+
+	// The JIT compilation unit for a single invoke thunk.
+	struct JITInvokeThunkUnit : JITUnit
+	{
+		const FunctionType* functionType;
+
+		JITSymbol* symbol;
+
+		JITInvokeThunkUnit(const FunctionType* inFunctionType): functionType(inFunctionType), symbol(nullptr) {}
+
+		void notifySymbolLoaded(const char* name,uintptr baseAddress,size_t numBytes) override
+		{
+			assert(!strcmp(name,"invokeThunk"));
+			symbol = new JITSymbol(functionType,baseAddress,numBytes);
+		}
 	};
 	
-	// Used to ensure that 
+	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
 	struct NullResolver : llvm::RuntimeDyld::SymbolResolver
 	{
 		static NullResolver singleton;
 		virtual llvm::RuntimeDyld::SymbolInfo findSymbol(const std::string& name) override;
 		virtual llvm::RuntimeDyld::SymbolInfo findSymbolInLogicalDylib(const std::string& name) override;
 	};
-
+	
+	NullResolver NullResolver::singleton;
+	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbol(const std::string& name) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
+	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbolInLogicalDylib(const std::string& name) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
+	
 	// Allocates memory for the LLVM object loader.
 	struct SectionMemoryManager : llvm::RTDyldMemoryManager
 	{
@@ -64,7 +178,11 @@ namespace LLVMJIT
 			// Set the requested final memory access for each section's pages.
 			for(auto section : sections)
 			{
-				if(!Platform::setVirtualPageAccess(section.baseAddress,section.numPages,section.finalAccess)) { return false; }
+				if(!section.isFinalized)
+				{
+					if(!Platform::setVirtualPageAccess(section.baseAddress,section.numPages,section.finalAccess)) { return false; }
+					section.isFinalized = true;
+				}
 			}
 			return true;
 		}
@@ -80,6 +198,7 @@ namespace LLVMJIT
 			uint8* baseAddress;
 			size_t numPages;
 			Platform::MemoryAccess finalAccess;
+			bool isFinalized;
 		};
 		
 		std::vector<Section> sections;
@@ -110,7 +229,7 @@ namespace LLVMJIT
 			if(!Platform::commitVirtualPages(sectionBaseAddress,numPages)) { return nullptr; }
 			
 			// Record the section so finalizeMemory can update its access level.
-			sections.push_back({sectionBaseAddress,numPages,finalAccess});
+			sections.push_back({sectionBaseAddress,numPages,finalAccess,false});
 
 			// Update the allocated page count.
 			numCommittedImagePages += numAlignmentPages + numPages;
@@ -123,39 +242,7 @@ namespace LLVMJIT
 	};
 	SectionMemoryManager SectionMemoryManager::singleton;
 
-	struct JITFunctionSymbol
-	{
-		uintptr functionIndex;
-		uintptr baseAddress;
-		size_t size;
-		bool isInvokeThunk;
-	};
-
-	struct JITModule
-	{
-		ModuleInstance* moduleInstance;
-
-		typedef llvm::orc::ObjectLinkingLayer<NotifyLoadedFunctor> ObjectLayer;
-		std::unique_ptr<ObjectLayer> objectLayer;
-
-		typedef llvm::orc::IRCompileLayer<ObjectLayer> CompileLayer;
-		std::unique_ptr<CompileLayer> compileLayer;
-
-		CompileLayer::ModuleSetHandleT handle;
-
-		std::vector<JITFunctionSymbol> functionSymbols;
-		
-		JITModule(ModuleInstance* inModuleInstance) : moduleInstance(inModuleInstance) {}
-	};
-
-	// All the modules that have been JITted.
-	std::vector<JITModule*> jitModules;
-
-	NullResolver NullResolver::singleton;
-	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbol(const std::string& name) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
-	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbolInLogicalDylib(const std::string& name) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
-	
-	void NotifyLoadedFunctor::operator()(
+	void JITUnit::NotifyLoadedFunctor::operator()(
 		const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
 		const std::vector<std::unique_ptr<llvm::object::ObjectFile>>& objectSet,
 		const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResult
@@ -185,13 +272,8 @@ namespace LLVMJIT
 						loadedAddress += (uintptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
 					}
 
-					// Save the address range this function was loaded at for future address->symbol lookups.
-					uintptr functionIndex;
-					bool isInvokeThunk;
-					if(getFunctionIndexFromExternalName(name->data(),functionIndex,isInvokeThunk))
-					{
-						jitModule->functionSymbols.push_back({functionIndex,loadedAddress,symbolSizePair.second,isInvokeThunk});
-					}
+					// Notify the JIT unit that the symbol was loaded.
+					jitUnit->notifySymbolLoaded(name->data(),loadedAddress,symbolSizePair.second);
 				}
 			}
 			
@@ -238,18 +320,9 @@ namespace LLVMJIT
 		Log::printf(Log::Category::debug,"Dumped LLVM module to: %s\n",augmentedFilename.c_str());
 	}
 
-	bool instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance)
+	bool JITUnit::compile(llvm::Module* llvmModule)
 	{
-		auto llvmModule = emitModule(module,moduleInstance);
-
 		// Get a target machine object for this host, and set the module to use its data layout.
-		auto targetTriple = llvm::sys::getProcessTriple();
-		#ifdef __APPLE__
-			// Didn't figure out exactly why, but this works around a problem with the MacOS dynamic loader. Without it,
-			// our symbols can't be found in the JITed object file.
-			targetTriple += "-elf";
-		#endif
-		auto targetMachine = llvm::EngineBuilder().selectTarget(llvm::Triple(targetTriple),"","",llvm::SmallVector<std::string,0>());
 		llvmModule->setDataLayout(targetMachine->createDataLayout());
 
 		// Verify the module.
@@ -290,64 +363,41 @@ namespace LLVMJIT
 
 		// Pass the module to the JIT compiler.
 		Core::Timer machineCodeTimer;
-		std::vector<llvm::Module*> moduleSet;
-		moduleSet.push_back(llvmModule);
-
-		// Construct the JIT module and compile layers.
-		auto jitModule = new JITModule(moduleInstance);
-		jitModules.push_back(jitModule);
-		jitModule->objectLayer = llvm::make_unique<JITModule::ObjectLayer>(NotifyLoadedFunctor(jitModule));
-		jitModule->compileLayer = llvm::make_unique<JITModule::CompileLayer>(*jitModule->objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
-
-		// Compile the module.
-		jitModule->handle = jitModule->compileLayer->addModuleSet(moduleSet,&SectionMemoryManager::singleton,&NullResolver::singleton);
+		handle = compileLayer->addModuleSet(
+			std::vector<llvm::Module*>{llvmModule},
+			&SectionMemoryManager::singleton,
+			&NullResolver::singleton);
+		compileLayer->emitAndFinalize(handle);
 		Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
-		
-		// Find any thunks created for function imports that were reexported, and update the imported FunctionInstance.
-		for(uintptr functionIndex = 0;functionIndex < moduleInstance->functions.size();++functionIndex)
-		{
-			FunctionInstance* functionInstance = moduleInstance->functions[functionIndex];
-			if(functionIndex >= moduleInstance->functions.size() - module.functionDefs.size())
-			{
-				functionInstance->nativeFunction = (void*)jitModule->compileLayer->findSymbolIn(jitModule->handle,getExternalFunctionName(moduleInstance,functionIndex,false),false).getAddress();
-			}
-
-			if(!functionInstance->invokeThunk)
-			{
-				functionInstance->invokeThunk = (InvokeThunk)jitModule->compileLayer->findSymbolIn(jitModule->handle,getExternalFunctionName(moduleInstance,functionIndex,true),false).getAddress();
-			}
-		}
 
 		return true;
 	}
 
-	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionIndex,bool invokeThunk)
+	bool instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance)
 	{
-		std::string result = invokeThunk
-			? "invokeThunk" + std::to_string(functionIndex)
-			: "wasmFunc" + std::to_string(functionIndex);
-		if(functionIndex  < moduleInstance->functions.size())
-		{
-			result += "_";
-			result += moduleInstance->functions[functionIndex]->debugName.c_str();
-		}
-		return result;
+		// Emit LLVM IR for the module.
+		auto llvmModule = emitModule(module,moduleInstance);
+
+		// Construct the JIT compilation pipeline for this module.
+		moduleInstance->jitModule = new JITModule(moduleInstance);
+
+		// Compile the module.
+		return moduleInstance->jitModule->compile(llvmModule);
 	}
 
-	bool getFunctionIndexFromExternalName(const char* externalName,uintptr& outFunctionIndex,bool& outIsInvokeThunk)
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionDefIndex)
+	{
+		assert(functionDefIndex < moduleInstance->functionDefs.size());
+		return "wasmFunc" + std::to_string(functionDefIndex)
+			+ "_" + moduleInstance->functionDefs[functionDefIndex]->debugName;
+	}
+
+	bool getFunctionIndexFromExternalName(const char* externalName,uintptr& outFunctionDefIndex)
 	{
 		if(!strncmp(externalName,"wasmFunc",8))
 		{
 			char* numberEnd = nullptr;
-			outFunctionIndex = std::strtoull(externalName + 8,&numberEnd,10);
-			outIsInvokeThunk = false;
-			return true;
-		}
-		else if(!strncmp(externalName,"invokeThunk",11))
-		{
-			char* numberEnd = nullptr;
-			outFunctionIndex = std::strtoull(externalName + 11,&numberEnd,10);
-			outIsInvokeThunk = true;
+			outFunctionDefIndex = std::strtoull(externalName + 8,&numberEnd,10);
 			return true;
 		}
 		else { return false; }
@@ -355,20 +405,120 @@ namespace LLVMJIT
 
 	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
 	{
-		for(auto jitModule : jitModules)
+		auto symbolIt = --addressToSymbolMap.upper_bound(ip);
+		if(symbolIt == addressToSymbolMap.end()) { return false; }
+
+		JITSymbol* symbol = symbolIt->second;
+		assert(symbol->baseAddress <= ip);
+		if(ip >= symbol->baseAddress + symbol->numBytes) { return false; }
+
+		switch(symbol->type)
 		{
-			for(auto functionSymbol : jitModule->functionSymbols)
-			{
-				if(ip >= functionSymbol.baseAddress && ip <= (functionSymbol.baseAddress + functionSymbol.size))
-				{
-					assert(functionSymbol.functionIndex < jitModule->moduleInstance->functions.size());
-					outDescription = jitModule->moduleInstance->functions[functionSymbol.functionIndex]->debugName;
-					if(!outDescription.size()) { outDescription = "function #" + std::to_string(functionSymbol.functionIndex); }
-					if(functionSymbol.isInvokeThunk) { outDescription += " (invoke thunk)"; }
-					return true;
-				}
-			}
+		case JITSymbol::Type::functionInstance:
+			outDescription = symbol->functionInstance->debugName;
+			if(!outDescription.size()) { outDescription = "<unnamed function>"; }
+			return true;
+		case JITSymbol::Type::invokeThunk:
+			outDescription = "<invoke thunk : " + getTypeName(symbol->invokeThunkType) + ">";
+			return true;
+		default: Core::unreachable();
+		};
+	}
+
+	InvokeFunctionPointer getInvokeThunk(const FunctionType* functionType)
+	{
+		// Reuse cached invoke thunks for the same function type.
+		auto mapIt = invokeThunkTypeToSymbolMap.find(functionType);
+		if(mapIt != invokeThunkTypeToSymbolMap.end()) { return reinterpret_cast<InvokeFunctionPointer>(mapIt->second->baseAddress); }
+
+		auto llvmModule = new llvm::Module("",context);
+		auto llvmFunctionType = llvm::FunctionType::get(
+			llvmVoidType,
+			{asLLVMType(functionType)->getPointerTo(),llvmI64Type->getPointerTo()},
+			false);
+		auto llvmFunction = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,"invokeThunk",llvmModule);
+		auto argIt = llvmFunction->args().begin();
+		llvm::Value* functionPointer = &*argIt++;
+		llvm::Value* argBaseAddress = &*argIt;
+		auto entryBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
+		llvm::IRBuilder<> irBuilder(entryBlock);
+
+		// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
+		std::vector<llvm::Value*> structArgLoads;
+		for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+		{
+			structArgLoads.push_back(irBuilder.CreateLoad(
+				irBuilder.CreatePointerCast(
+					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintptr)parameterIndex)}),
+					asLLVMType(functionType->parameters[parameterIndex])->getPointerTo()
+					)
+				));
 		}
-		return false;
+
+		// Call the llvm function with the actual implementation.
+		auto returnValue = irBuilder.CreateCall(functionPointer,structArgLoads);
+
+		// If the function has a return value, write it to the end of the argument array.
+		if(functionType->ret != ResultType::none)
+		{
+			auto llvmResultType = asLLVMType(functionType->ret);
+			irBuilder.CreateStore(
+				returnValue,
+				irBuilder.CreatePointerCast(
+					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintptr)functionType->parameters.size())}),
+					llvmResultType->getPointerTo()
+					)
+				);
+		}
+
+		irBuilder.CreateRetVoid();
+
+		// Compile the invoke thunk.
+		JITInvokeThunkUnit jitUnit(functionType);
+		if(!jitUnit.compile(llvmModule)) { Core::fatalError("error compiling invoke thunk"); }
+
+		assert(jitUnit.symbol);
+		invokeThunkTypeToSymbolMap[functionType] = jitUnit.symbol;
+		addressToSymbolMap[jitUnit.symbol->baseAddress] = jitUnit.symbol;
+		return reinterpret_cast<InvokeFunctionPointer>(jitUnit.symbol->baseAddress);
+	}
+	
+	void init()
+	{
+		llvm::InitializeNativeTarget();
+		llvm::InitializeNativeTargetAsmPrinter();
+		llvm::InitializeNativeTargetAsmParser();
+		llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
+
+		auto targetTriple = llvm::sys::getProcessTriple();
+		#ifdef __APPLE__
+			// Didn't figure out exactly why, but this works around a problem with the MacOS dynamic loader. Without it,
+			// our symbols can't be found in the JITed object file.
+			targetTriple += "-elf";
+		#endif
+		targetMachine = llvm::EngineBuilder().selectTarget(llvm::Triple(targetTriple),"","",llvm::SmallVector<std::string,0>());
+
+		llvmI8Type = llvm::Type::getInt8Ty(context);
+		llvmI16Type = llvm::Type::getInt16Ty(context);
+		llvmI32Type = llvm::Type::getInt32Ty(context);
+		llvmI64Type = llvm::Type::getInt64Ty(context);
+		llvmF32Type = llvm::Type::getFloatTy(context);
+		llvmF64Type = llvm::Type::getDoubleTy(context);
+		llvmVoidType = llvm::Type::getVoidTy(context);
+		llvmBoolType = llvm::Type::getInt1Ty(context);
+		llvmI8PtrType = llvmI8Type->getPointerTo();
+
+		llvmResultTypes[(size_t)ResultType::none] = llvm::Type::getVoidTy(context);
+		llvmResultTypes[(size_t)ResultType::i32] = llvmI32Type;
+		llvmResultTypes[(size_t)ResultType::i64] = llvmI64Type;
+		llvmResultTypes[(size_t)ResultType::f32] = llvmF32Type;
+		llvmResultTypes[(size_t)ResultType::f64] = llvmF64Type;
+
+		// Create zero constants of each type.
+		typedZeroConstants[(size_t)ValueType::invalid] = nullptr;
+		typedZeroConstants[(size_t)ValueType::i32] = emitLiteral((uint32)0);
+		typedZeroConstants[(size_t)ValueType::i64] = emitLiteral((uint64)0);
+		typedZeroConstants[(size_t)ValueType::f32] = emitLiteral((float32)0.0f);
+		typedZeroConstants[(size_t)ValueType::f64] = emitLiteral((float64)0.0);
 	}
 }

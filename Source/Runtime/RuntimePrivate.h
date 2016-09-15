@@ -8,11 +8,25 @@
 
 #include <functional>
 
+namespace LLVMJIT
+{
+	using namespace Runtime;
+
+	struct JITModule;
+
+	void init();
+	bool instantiateModule(const WebAssembly::Module& module,Runtime::ModuleInstance* moduleInstance);
+	bool describeInstructionPointer(uintptr ip,std::string& outDescription);
+	
+	typedef void (*InvokeFunctionPointer)(void*,uint64*);
+
+	// Generates an invoke thunk for a specific function type.
+	InvokeFunctionPointer getInvokeThunk(const WebAssembly::FunctionType* functionType);
+}
+
 namespace Runtime
 {
 	using namespace WebAssembly;
-
-	typedef void (*InvokeFunctionPointer)(uint64*);
 
 	struct StackFrame
 	{
@@ -24,17 +38,15 @@ namespace Runtime
 	{
 		std::vector<StackFrame> stackFrames;
 	};
-	
-	typedef void (*InvokeThunk)(void*);
+
 	struct FunctionInstance : Object
 	{
 		const FunctionType* type;
 		void* nativeFunction;
-		InvokeThunk invokeThunk;
 		std::string debugName;
 
-		FunctionInstance(const FunctionType* inType,void* inNativeFunction = nullptr,InvokeThunk inInvokeThunk = nullptr,const char* inDebugName = "<unidentified FunctionInstance>")
-		: Object(ObjectKind::function), type(inType), nativeFunction(inNativeFunction), invokeThunk(inInvokeThunk), debugName(inDebugName) {}
+		FunctionInstance(const FunctionType* inType,void* inNativeFunction = nullptr,const char* inDebugName = "<unidentified FunctionInstance>")
+		: Object(ObjectKind::function), type(inType), nativeFunction(inNativeFunction), debugName(inDebugName) {}
 	};
 
 	struct Table : Object
@@ -97,12 +109,15 @@ namespace Runtime
 		Memory* defaultMemory;
 		Table* defaultTable;
 
+		LLVMJIT::JITModule* jitModule;
+
 		ModuleInstance(const Module& inModule,std::vector<Object*>&& inImports)
 		: Object({ObjectKind::module})
 		, module(inModule)
 		, imports(inImports)
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
+		, jitModule(nullptr)
 		{}
 	};
 
@@ -140,13 +155,4 @@ namespace RuntimePlatform
 		// Registers the data used by Windows SEH to unwind stack frames.
 		void registerSEHUnwindInfo(uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes);
 	#endif
-}
-
-namespace LLVMJIT
-{
-	using namespace Runtime;
-
-	void init();
-	bool instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance);
-	bool describeInstructionPointer(uintptr ip,std::string& outDescription);
 }
