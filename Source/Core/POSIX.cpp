@@ -8,12 +8,20 @@
 #include <sys/mman.h>
 
 #include <errno.h>
+#include <signal.h>
+#include <setjmp.h>
+#include <sys/resource.h>
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 #ifdef __APPLE__
     #define MAP_ANONYMOUS MAP_ANON
+#endif
+
+#ifdef __linux__
+	#include <execinfo.h>
+	#include <dlfcn.h>
 #endif
 
 namespace Platform
@@ -77,7 +85,7 @@ namespace Platform
 		auto result = mmap(nullptr,numBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 		if(result == MAP_FAILED)
 		{
-			Log::printf(Log::Category::error,"mmap(%" PRIuPTR " KB) failed: errno=%s\n",numBytes,strerror(errno));
+			Log::printf(Log::Category::error,"mmap(%" PRIuPTR " KB) failed: errno=%s\n",numBytes/1024,strerror(errno));
 			return nullptr;
 		}
 		return (uint8*)result;
@@ -107,6 +115,143 @@ namespace Platform
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Core::fatalError("munmap failed"); }
+	}
+
+	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
+	{
+		#ifdef __linux__
+			// Look up static symbol information for the address.
+			Dl_info symbolInfo;
+			if(dladdr((void*)ip,&symbolInfo) && symbolInfo.dli_sname)
+			{
+				outDescription = symbolInfo.dli_sname;
+				return true;
+			}
+		#endif
+		return false;
+	}
+
+	THREAD_LOCAL jmp_buf signalReturnEnv;
+	THREAD_LOCAL HardwareTrapType signalType = HardwareTrapType::none;
+	THREAD_LOCAL uintptr signalOperand;
+	THREAD_LOCAL bool isReentrantSignal = false;
+
+	enum { signalStackNumBytes = SIGSTKSZ };
+	THREAD_LOCAL uint8* signalStack = nullptr;
+	THREAD_LOCAL uint8* stackMinAddr = nullptr;
+	THREAD_LOCAL uint8* stackMaxAddr = nullptr;
+
+	void initThread()
+	{
+		if(!signalStack)
+		{
+			signalStack = new uint8[signalStackNumBytes];
+			stack_t signalStackInfo;
+			signalStackInfo.ss_size = signalStackNumBytes;
+			signalStackInfo.ss_sp = signalStack;
+			signalStackInfo.ss_flags = 0;
+			if(sigaltstack(&signalStackInfo,nullptr) < 0)
+			{
+				Core::fatalError("sigaltstack failed");
+			}
+		}
+
+		struct rlimit stackLimit;
+		getrlimit(RLIMIT_STACK,&stackLimit);
+		const size_t stackSize = stackLimit.rlim_cur;
+
+		stackMinAddr = (uint8*)&stackLimit - stackSize;
+		stackMaxAddr = (uint8*)&stackSize;
+	}
+
+	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
+	{
+		if(isReentrantSignal) { Core::fatalError("reentrant signal handler"); }
+		isReentrantSignal = true;
+
+		// Derive the exception cause the from signal that was received.
+		switch(signalNumber)
+		{
+		case SIGFPE:
+			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Core::fatalError("unknown SIGFPE code"); }
+			signalType = HardwareTrapType::intDivideByZeroOrOverflow;
+			break;
+		case SIGSEGV:
+		case SIGBUS:
+			signalType = signalInfo->si_addr > stackMinAddr && signalInfo->si_addr < stackMaxAddr
+				? HardwareTrapType::stackOverflow
+				: HardwareTrapType::accessViolation;
+			signalOperand = reinterpret_cast<uintptr>(signalInfo->si_addr);
+			break;
+		default:
+			Core::fatalError("unknown signal number");
+			break;
+		};
+
+		// Jump back to the setjmp in catchRuntimeExceptions.
+		siglongjmp(signalReturnEnv,1);
+	}
+
+	HardwareTrapType catchHardwareTraps(
+		ExecutionContext& outContext,
+		uintptr& outOperand,
+		const std::function<void()>& thunk
+		)
+	{
+		assert(signalStack);
+		
+		struct sigaction oldSignalActionSEGV;
+		struct sigaction oldSignalActionBUS;
+		struct sigaction oldSignalActionFPE;
+
+		// Use setjmp to allow signals to jump back to this point.
+		bool isReturningFromSignalHandler = sigsetjmp(signalReturnEnv,1);
+		if(!isReturningFromSignalHandler)
+		{
+			signalType = HardwareTrapType::none;
+
+			// Set a signal handler for the signals we want to intercept.
+			struct sigaction signalAction;
+			signalAction.sa_sigaction = signalHandler;
+			sigemptyset(&signalAction.sa_mask);
+			signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
+			sigaction(SIGSEGV,&signalAction,&oldSignalActionSEGV);
+			sigaction(SIGBUS,&signalAction,&oldSignalActionBUS);
+			sigaction(SIGFPE,&signalAction,&oldSignalActionFPE);
+
+			// Call the thunk.
+			thunk();
+		}
+
+		// Reset the signal state.
+		isReentrantSignal = false;
+		sigaction(SIGSEGV,&oldSignalActionSEGV,nullptr);
+		sigaction(SIGBUS,&oldSignalActionBUS,nullptr);
+		sigaction(SIGFPE,&oldSignalActionFPE,nullptr);
+
+		outContext = ExecutionContext();
+		outOperand = 0;		
+		return signalType;
+	}
+
+	ExecutionContext captureExecutionContext()
+	{
+		#ifdef __linux__
+			// Unwind the callstack.
+			enum { maxCallStackSize = 512 };
+			void* callstackAddresses[maxCallStackSize];
+			auto numCallStackEntries = backtrace(callstackAddresses,maxCallStackSize);
+
+			// Copy the return pointers into the stack frames of the resulting ExecutionContext.
+			ExecutionContext result;
+			for(intptr index = 0;index < numCallStackEntries;++index)
+			{
+				result.stackFrames.push_back({(uintptr)callstackAddresses[index],0});
+			}
+			return result;
+		#else
+			return ExecutionContext();
+		#endif
 	}
 }
 

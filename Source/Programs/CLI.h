@@ -151,6 +151,7 @@ int main(int argc,char** argv)
 {
 	try
 	{
+		Platform::initThread();
 		return commandMain(argc,argv);
 	}
 	catch(WebAssembly::ValidationException exception)

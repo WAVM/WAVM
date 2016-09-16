@@ -28,17 +28,6 @@ namespace Runtime
 {
 	using namespace WebAssembly;
 
-	struct StackFrame
-	{
-		uintptr ip;
-		uintptr bp;
-	};
-
-	struct ExecutionContext
-	{
-		std::vector<StackFrame> stackFrames;
-	};
-
 	struct FunctionInstance : Object
 	{
 		const FunctionType* type;
@@ -124,35 +113,9 @@ namespace Runtime
 	// Initializes global state used by the WAVM intrinsics.
 	void initWAVMIntrinsics();
 
-	// Describes a stack frame.
-	std::string describeStackFrame(const StackFrame& frame);
-
 	// Describes an execution context. Returns an array of strings, one for each stack frame.
-	std::vector<std::string> describeExecutionContext(const ExecutionContext& executionContext);
+	std::vector<std::string> describeExecutionContext(const Platform::ExecutionContext& executionContext);
 
 	// Checks whether an address is owned by a table.
 	bool isAddressOwnedByTable(uint8* address);
-}
-
-namespace RuntimePlatform
-{
-	// Initializes thread-specific state.
-	void initThread();
-
-	// Calls a thunk and catches any runtime exception thrown by it.
-	Runtime::Value catchRuntimeExceptions(const std::function<Runtime::Value()>& thunk);
-	
-	// Raises a runtime exception.
-	[[noreturn]] void raiseException(Runtime::Exception* exception);
-
-	// Describes an instruction pointer 
-	bool describeInstructionPointer(uintptr ip,std::string& outDescription);
-
-	// Captures the execution context of the caller.
-	Runtime::ExecutionContext captureExecutionContext();
-
-	#ifdef _WIN32
-		// Registers the data used by Windows SEH to unwind stack frames.
-		void registerSEHUnwindInfo(uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes);
-	#endif
 }

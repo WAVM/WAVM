@@ -8,27 +8,26 @@ namespace Runtime
 	void init()
 	{
 		LLVMJIT::init();
-		RuntimePlatform::initThread();
 		initWAVMIntrinsics();
 	}
 
 	[[noreturn]] void causeException(Exception::Cause cause)
 	{
-		auto callStack = describeExecutionContext(RuntimePlatform::captureExecutionContext());
-		RuntimePlatform::raiseException(new Exception {cause,callStack});
+		auto callStack = describeExecutionContext(Platform::captureExecutionContext());
+		throw new Exception {cause,callStack};
 	}
 
-	std::string describeStackFrame(const StackFrame& frame)
+	std::string describeStackFrame(const Platform::ExecutionContext::StackFrame& frame)
 	{
 		std::string frameDescription;
 		const bool hasDescripton = 
 			LLVMJIT::describeInstructionPointer(frame.ip,frameDescription)
-		||	RuntimePlatform::describeInstructionPointer(frame.ip,frameDescription);
+		||	Platform::describeInstructionPointer(frame.ip,frameDescription);
 		if(hasDescripton) { return frameDescription; }
 		else { return "<unknown function>"; }
 	}
 
-	std::vector<std::string> describeExecutionContext(const ExecutionContext& executionContext)
+	std::vector<std::string> describeExecutionContext(const Platform::ExecutionContext& executionContext)
 	{
 		std::vector<std::string> frameDescriptions;
 		for(auto stackFrame : executionContext.stackFrames) { frameDescriptions.push_back(describeStackFrame(stackFrame)); }
@@ -83,20 +82,52 @@ namespace Runtime
 		LLVMJIT::InvokeFunctionPointer invokeFunctionPointer = LLVMJIT::getInvokeThunk(functionType);
 
 		// Catch platform-specific runtime exceptions and turn them into Runtime::Values.
-		return RuntimePlatform::catchRuntimeExceptions([&]
-		{
-			// Call the invoke thunk.
-			(*invokeFunctionPointer)(function->nativeFunction,thunkMemory);
-
-			// Read the return value out of the thunk memory block.
-			Value returnValue;
-			if(functionType->ret != ResultType::none)
+		Value returnValue;
+		Platform::HardwareTrapType trapCause;
+		Platform::ExecutionContext trapContext;
+		uintptr trapOperand;
+		trapCause = Platform::catchHardwareTraps(trapContext,trapOperand,
+			[&]
 			{
-				returnValue.type = asRuntimeValueType(functionType->ret);
-				returnValue.i64 = thunkMemory[functionType->parameters.size()];
-			}
-			return returnValue;
-		});
+				try
+				{
+					// Call the invoke thunk.
+					(*invokeFunctionPointer)(function->nativeFunction,thunkMemory);
+
+					// Read the return value out of the thunk memory block.
+					if(functionType->ret != ResultType::none)
+					{
+						returnValue.type = asRuntimeValueType(functionType->ret);
+						returnValue.i64 = thunkMemory[functionType->parameters.size()];
+					}
+				}
+				catch(Runtime::Exception* exception)
+				{
+					returnValue = exception;
+				}
+			});
+
+		switch(trapCause)
+		{
+		case Platform::HardwareTrapType::accessViolation:
+		{
+			auto cause = isAddressOwnedByTable(reinterpret_cast<uint8*>(trapOperand))
+				? Exception::Cause::undefinedTableElement
+				: Exception::Cause::accessViolation;
+			returnValue = new Exception { cause, describeExecutionContext(trapContext) };
+			break;
+		}
+		case Platform::HardwareTrapType::stackOverflow:
+			returnValue = new Exception { Exception::Cause::stackOverflow, describeExecutionContext(trapContext) };
+			break;
+		case Platform::HardwareTrapType::intDivideByZeroOrOverflow:
+			returnValue = new Exception { Exception::Cause::integerDivideByZeroOrIntegerOverflow, describeExecutionContext(trapContext) };
+			break;
+		case Platform::HardwareTrapType::none: break;
+		default: Core::unreachable();
+		};
+
+		return returnValue;
 	}
 
 	const FunctionType* getFunctionType(FunctionInstance* function)

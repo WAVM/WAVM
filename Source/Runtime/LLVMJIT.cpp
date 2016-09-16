@@ -298,7 +298,7 @@ namespace LLVMJIT
 				// Pass the sections to the platform to register unwind info.
 				if(textSection.getObject() && pdataSection.getObject() && xdataSection.getObject())
 				{
-					RuntimePlatform::registerSEHUnwindInfo(
+					Platform::registerSEHUnwindInfo(
 						(uintptr)loadedObject->getSectionLoadAddress(textSection),
 						(uintptr)loadedObject->getSectionLoadAddress(xdataSection),
 						(uintptr)loadedObject->getSectionLoadAddress(pdataSection),

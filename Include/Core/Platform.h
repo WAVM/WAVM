@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "Core.h"
 
 #ifdef _WIN32
@@ -95,4 +97,43 @@ namespace Platform
 	// Frees virtual addresses. Any physical memory committed to the addresses must have already been decommitted.
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	CORE_API void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages);
+
+	// Describes an instruction pointer.
+	CORE_API bool describeInstructionPointer(uintptr ip,std::string& outDescription);
+
+	struct ExecutionContext
+	{
+		struct StackFrame
+		{
+			uintptr ip;
+			uintptr bp;
+		};
+		std::vector<StackFrame> stackFrames;
+	};
+
+	// Captures the execution context of the caller.
+	CORE_API ExecutionContext captureExecutionContext();
+
+	#ifdef _WIN32
+		// Registers the data used by Windows SEH to unwind stack frames.
+		CORE_API void registerSEHUnwindInfo(uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes);
+	#endif
+
+	// Initializes thread-specific state.
+	CORE_API void initThread();
+
+	// Calls a thunk, and if it causes any of some specific hardware traps, returns true.
+	// If a trap was caught, the outCause, outContext, and outOperand parameters are set to describe the trap.
+	enum HardwareTrapType
+	{
+		none,
+		accessViolation,
+		stackOverflow,
+		intDivideByZeroOrOverflow
+	};
+	CORE_API HardwareTrapType catchHardwareTraps(
+		ExecutionContext& outContext,
+		uintptr& outOperand,
+		const std::function<void()>& thunk
+		);
 }
