@@ -21,6 +21,7 @@ namespace Serialization
 
 		OutputStream(): next(nullptr), end(nullptr) {}
 
+		size_t capacity() const { return SIZE_MAX; }
 		inline uint8* advance(size_t numBytes)
 		{
 			if(next + numBytes > end) { extendBuffer(numBytes); }

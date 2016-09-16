@@ -695,17 +695,5 @@ namespace WebAssembly
 			VALIDATE_INDEX(tableSegment.tableIndex,numTables);
 			validateInitializer(tableSegment.baseOffset,ValueType::i32,"table segment base initializer");
 		}
-			
-		if(module.disassemblyInfo.functions.size())
-		{
-			VALIDATE_UNLESS("too many function disassembly infos: ",module.disassemblyInfo.functions.size()>module.functionDefs.size());
-			for(uintptr functionIndex = 0;functionIndex < module.functionDefs.size();++functionIndex)
-			{
-				const Function& function = module.functionDefs[functionIndex];
-				const FunctionDisassemblyInfo& functionDisassemblyInfo = module.disassemblyInfo.functions[functionIndex];
-				const uintptr numLocals = module.types[function.typeIndex]->parameters.size() + function.nonParameterLocalTypes.size();
-				VALIDATE_UNLESS("too many local disassembly infos: ",functionDisassemblyInfo.localNames.size()>numLocals);
-			}
-		}
 	}
 }

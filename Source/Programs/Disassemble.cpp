@@ -25,5 +25,5 @@ int commandMain(int argc,char** argv)
 	outputStream.write(wastString.data(),wastString.size());
 	outputStream.close();
 
-	return EXIT_FAILURE;
+	return EXIT_SUCCESS;
 }

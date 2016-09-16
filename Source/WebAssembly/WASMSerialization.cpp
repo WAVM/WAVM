@@ -16,6 +16,7 @@ namespace WebAssembly
 
 	enum class SectionType : uint8
 	{
+		user = 0,
 		type = 1,
 		import = 2,
 		functionDeclarations = 3,
@@ -27,7 +28,7 @@ namespace WebAssembly
 		functionDefinitions = 9,
 		elem = 10,
 		data = 11,
-		name = 0x80,
+		name = 0x80
 	};
 
 	template<typename Stream>
@@ -157,19 +158,6 @@ namespace WebAssembly
 		serializeArray(stream,tableSegment.indices,[](Stream& stream,uintptr& functionIndex){serializeVarUInt32(stream,functionIndex);});
 	}
 
-	template<typename Stream>
-	void serialize(Stream& stream,FunctionDisassemblyInfo& functionDisassemblyInfo)
-	{
-		serialize(stream,functionDisassemblyInfo.name);
-		serialize(stream,functionDisassemblyInfo.localNames);
-	}
-		
-	template<typename Stream>
-	void serialize(Stream& stream,ModuleDisassemblyInfo& moduleDisassemblyInfo)
-	{
-		serialize(stream,moduleDisassemblyInfo.functions);
-	}
-
 	template<typename SerializeSection>
 	void serializeSection(OutputStream& stream,SectionType type,bool mustSerialize,SerializeSection serializeSectionBody)
 	{
@@ -202,6 +190,29 @@ namespace WebAssembly
 		}
 	}
 	
+	void serialize(OutputStream& stream,UserSection& userSection)
+	{
+		serializeConstant(stream,"expected user section (section ID 0)",(uint8)SectionType::user);
+		ArrayOutputStream sectionStream;
+		serialize(sectionStream,userSection.name);
+		serializeBytes(sectionStream,userSection.data.data(),userSection.data.size());
+		std::vector<uint8> sectionBytes = sectionStream.getBytes();
+		serialize(stream,sectionBytes);
+	}
+	
+	void serialize(InputStream& stream,UserSection& userSection)
+	{
+		serializeConstant(stream,"expected user section (section ID 0)",(uint8)SectionType::user);
+		size_t numSectionBytes = 0;
+		serializeVarUInt32(stream,numSectionBytes);
+		
+		MemoryInputStream sectionStream(stream.advance(numSectionBytes),numSectionBytes);
+		serialize(sectionStream,userSection.name);
+		userSection.data.resize(sectionStream.capacity());
+		serializeBytes(sectionStream,userSection.data.data(),userSection.data.size());
+		assert(!sectionStream.capacity());
+	}
+
 	struct LocalSet
 	{
 		uintptr num;
@@ -352,10 +363,14 @@ namespace WebAssembly
 		{
 			serialize(sectionStream,module.dataSegments);
 		});
-		serializeSection(moduleStream,SectionType::name,module.disassemblyInfo.functions.size()>0,[&module](Stream& sectionStream)
+
+		uintptr userSectionIndex = 0;
+		while((Stream::isInput && moduleStream.capacity()) || userSectionIndex < module.userSections.size())
 		{
-			serialize(sectionStream,module.disassemblyInfo);
-		});
+			UserSection& userSection = Stream::isInput ? *module.userSections.insert(module.userSections.end(),UserSection()) : module.userSections[userSectionIndex];
+			serialize(moduleStream,userSection);
+			++userSectionIndex;
+		};
 	}
 
 	void serialize(Serialization::InputStream& stream,Module& module)
@@ -366,5 +381,109 @@ namespace WebAssembly
 	void serialize(Serialization::OutputStream& stream,const Module& module)
 	{
 		serializeModule(stream,const_cast<Module&>(module));
+	}
+
+	void getDisassemblyNames(const Module& module,DisassemblyNames& outNames)
+	{
+		// Fill in the output with the correct number of blank names.
+		for(auto import : module.imports)
+		{
+			switch(import.type.kind)
+			{
+			case ObjectKind::function: outNames.functions.push_back(""); break;
+			case ObjectKind::table: outNames.tables.push_back(""); break;
+			case ObjectKind::memory: outNames.memories.push_back(""); break;
+			case ObjectKind::global: outNames.globals.push_back(""); break;
+			default: Core::unreachable();
+			};
+		}
+		const uintptr numImportedFunctions = outNames.functions.size();
+		const uintptr numImportedTables = outNames.tables.size();
+		const uintptr numImportedMemories = outNames.memories.size();
+		const uintptr numImportedGlobals = outNames.globals.size();
+		for(uintptr typeIndex = 0;typeIndex < module.types.size();++typeIndex) { outNames.types.push_back(""); }
+		for(uintptr tableDefIndex = 0;tableDefIndex < module.tableDefs.size();++tableDefIndex) { outNames.tables.push_back(""); }
+		for(uintptr memoryDefIndex = 0;memoryDefIndex < module.memoryDefs.size();++memoryDefIndex) { outNames.memories.push_back(""); }
+		for(uintptr globalDefIndex = 0;globalDefIndex < module.globalDefs.size();++globalDefIndex) { outNames.globals.push_back(""); }
+		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		{
+			const Function& functionDef = module.functionDefs[functionDefIndex];
+			const FunctionType* functionType = module.types[functionDef.typeIndex];
+			outNames.functions.push_back("");
+			DisassemblyNames::FunctionDef functionDefNames;
+			for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex) { functionDefNames.locals.push_back(""); }
+			for(uintptr localIndex = 0;localIndex < functionDef.nonParameterLocalTypes.size();++localIndex) { functionDefNames.locals.push_back(""); }
+			outNames.functionDefs.push_back(std::move(functionDefNames));
+		}
+
+		// Deserialize the name section, if it is present.
+		uintptr userSectionIndex = 0;
+		if(findUserSection(module,"name",userSectionIndex))
+		{
+			try
+			{
+				const UserSection& nameSection = module.userSections[userSectionIndex];
+				MemoryInputStream stream(nameSection.data.data(),nameSection.data.size());
+			
+				size_t numFunctionNames = 0;
+				serializeVarUInt32(stream,numFunctionNames);
+				numFunctionNames = std::min(numFunctionNames,module.functionDefs.size());
+
+				for(uintptr functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
+				{
+					const uintptr functionIndex = numImportedFunctions + functionDefIndex;
+					DisassemblyNames::FunctionDef& functionDefNames = outNames.functionDefs[functionDefIndex];
+
+					serialize(stream,outNames.functions[functionIndex]);
+
+					size_t numLocalNames = 0;
+					serializeVarUInt32(stream,numLocalNames);
+					numLocalNames = std::min(numLocalNames,functionDefNames.locals.size());
+
+					for(uintptr localIndex = 0;localIndex < numLocalNames;++localIndex)
+					{ serialize(stream,functionDefNames.locals[localIndex]); }
+				}
+			}
+			catch(FatalSerializationException exception)
+			{
+				Log::printf(Log::Category::debug,"FatalSerializationException while deserializing WASM user name section: %s",exception.message.c_str());
+			}
+		}
+	}
+
+	void setDisassemblyNames(Module& module,const DisassemblyNames& names)
+	{
+		// Replace an existing name section if one is present, or create a new section.
+		uintptr userSectionIndex = 0;
+		if(!findUserSection(module,"name",userSectionIndex))
+		{
+			userSectionIndex = module.userSections.size();
+			module.userSections.push_back({"name",{}});
+		}
+
+		ArrayOutputStream stream;
+		
+		size_t numFunctionNames = std::max(names.functions.size(),names.functionDefs.size());
+		serializeVarUInt32(stream,numFunctionNames);
+
+		assert(names.functions.size() > names.functionDefs.size());
+		const uintptr baseFunctionDefIndex = names.functions.size() - names.functionDefs.size();
+
+		for(uintptr functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
+		{
+			const uintptr functionIndex = baseFunctionDefIndex + functionDefIndex;
+			std::string functionName = functionIndex < names.functions.size() ? names.functions[functionIndex] : "";
+			serialize(stream,functionName);
+
+			size_t numLocalNames = functionDefIndex < names.functionDefs.size() ? names.functionDefs[functionDefIndex].locals.size() : 0;
+			serializeVarUInt32(stream,numLocalNames);
+			for(uintptr localIndex = 0;localIndex < numLocalNames;++localIndex)
+			{
+				std::string localName = names.functionDefs[functionDefIndex].locals[localIndex];
+				serialize(stream,localName);
+			}
+		}
+
+		module.userSections[userSectionIndex].data = stream.getBytes();
 	}
 }

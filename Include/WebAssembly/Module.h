@@ -118,15 +118,10 @@ namespace WebAssembly
 		: tableIndex(inTableIndex), baseOffset(inBaseOffset), indices(inIndices) {}
 	};
 
-	struct FunctionDisassemblyInfo
+	struct UserSection
 	{
 		std::string name;
-		std::vector<std::string> localNames;
-	};
-
-	struct ModuleDisassemblyInfo
-	{
-		std::vector<FunctionDisassemblyInfo> functions;
+		std::vector<uint8> data;
 	};
 
 	struct Module
@@ -141,8 +136,7 @@ namespace WebAssembly
 		std::vector<uint8> code;
 		std::vector<DataSegment> dataSegments;
 		std::vector<TableSegment> tableSegments;
-		
-		ModuleDisassemblyInfo disassemblyInfo;
+		std::vector<UserSection> userSections;
 
 		uintptr startFunctionIndex;
 
@@ -160,4 +154,39 @@ namespace WebAssembly
 		default: Core::unreachable();
 		}
 	}
+	
+	inline bool findUserSection(const Module& module,const char* userSectionName,uintptr& outUserSectionIndex)
+	{
+		for(uintptr sectionIndex = 0;sectionIndex < module.userSections.size();++sectionIndex)
+		{
+			if(module.userSections[sectionIndex].name == userSectionName)
+			{
+				outUserSectionIndex = sectionIndex;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	struct DisassemblyNames
+	{
+		struct FunctionDef
+		{
+			std::vector<std::string> locals;
+		};
+
+		std::vector<std::string> types;
+		std::vector<std::string> functions;
+		std::vector<std::string> tables;
+		std::vector<std::string> memories;
+		std::vector<std::string> globals;
+		std::vector<FunctionDef> functionDefs;
+	};
+
+	// Looks for a name section in a module. If it exists, deserialize it into outNames.
+	// If it doesn't exist, fill outNames with sensible defaults.
+	WEBASSEMBLY_API void getDisassemblyNames(const Module& module,DisassemblyNames& outNames);
+
+	// Serializes a DisassemblyNames structure and adds it to the module as a name section.
+	WEBASSEMBLY_API void setDisassemblyNames(Module& module,const DisassemblyNames& names);
 }

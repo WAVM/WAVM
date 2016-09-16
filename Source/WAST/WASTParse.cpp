@@ -129,6 +129,8 @@ namespace WAST
 		NameToIndexMap signatureNameToIndexMap;
 		std::vector<const FunctionType*> signatures;
 
+		DisassemblyNames names;
+
 		ModuleContext(Module& inModule,std::vector<Error>& inErrors): module(inModule), errors(inErrors) {}
 
 		uintptr getFunctionTypeIndex(const FunctionType* functionType);
@@ -1159,12 +1161,12 @@ namespace WAST
 						auto functionIndex = functionTypes.size();
 
 						// Parse an optional function name.
-						const char* functionName = "";
+						const char* functionInternalName = "";
 						const SNodeIt nameIt = childNodeIt;
-						if(parseName(childNodeIt,functionName))
+						if(parseName(childNodeIt,functionInternalName))
 						{
-							if(functionNameToIndexMap.count(functionName)) { recordError(*this,nameIt,std::string("duplicate function name: ") + functionName); }
-							else { functionNameToIndexMap[functionName] = functionIndex; }
+							if(functionNameToIndexMap.count(functionInternalName)) { recordError(*this,nameIt,std::string("duplicate function name: ") + functionInternalName); }
+							else { functionNameToIndexMap[functionInternalName] = functionIndex; }
 						}
 
 						// Parse an inline import or export tag.
@@ -1194,9 +1196,9 @@ namespace WAST
 						}
 
 						// Parse the function parameter and result types.
-						std::vector<std::string> parameterNames;
+						std::vector<std::string> localNames;
 						const FunctionType* inlineFunctionType = nullptr;
-						parseFunctionType(*this,childNodeIt,inlineFunctionType,parameterNames);
+						parseFunctionType(*this,childNodeIt,inlineFunctionType,localNames);
 
 						// Use either the referenced function type or the inline function type.
 						uintptr functionTypeIndex;
@@ -1214,10 +1216,12 @@ namespace WAST
 						}
 
 						functionTypes.push_back(functionTypeIndex);
+						names.functions.push_back(functionInternalName);
 
 						if(inlineImportExport.type == InlineImportExport::Type::imported)
 						{
 							// Create the function import.
+							names.functions.push_back(functionInternalName);
 							module.imports.push_back({inlineImportExport.moduleName,inlineImportExport.exportName,functionTypeIndex});
 
 							if(childNodeIt) { recordError(*this,childNodeIt,"unexpected input following imported function declaration"); continue; }
@@ -1230,11 +1234,6 @@ namespace WAST
 							Function& function = module.functionDefs.back();
 							function.typeIndex = functionTypeIndex;
 
-							module.disassemblyInfo.functions.push_back(FunctionDisassemblyInfo());
-							FunctionDisassemblyInfo& functionDisassemblyInfo = module.disassemblyInfo.functions.back();
-							functionDisassemblyInfo.localNames = std::move(parameterNames);
-							functionDisassemblyInfo.name = functionName;
-
 							std::vector<ValueType> localTypes;
 							for(;childNodeIt;++childNodeIt)
 							{
@@ -1242,7 +1241,7 @@ namespace WAST
 								if(parseTaggedNode(childNodeIt,Symbol::_local,innerChildNodeIt))
 								{
 									// Parse a local declaration.
-									parseVariables(*this,innerChildNodeIt,localTypes,functionDisassemblyInfo.localNames);
+									parseVariables(*this,innerChildNodeIt,localTypes,localNames);
 									if(innerChildNodeIt) { recordError(*this,innerChildNodeIt,"unexpected input following local declaration"); continue; }
 								}
 								else
@@ -1255,6 +1254,7 @@ namespace WAST
 								} // Stop parsing when we reach the first func child that isn't a param, result, or local.
 							}
 							function.nonParameterLocalTypes = std::move(localTypes);
+							names.functionDefs.push_back({std::move(localNames)});
 						}
 						break;
 					}
@@ -1285,7 +1285,7 @@ namespace WAST
 						case Symbol::_func:
 						{
 							// Parse an optional import name used within the module.
-							const char* importInternalName = nullptr;
+							const char* importInternalName = "";
 							bool hasName = parseName(importTypeChildNodeIt,importInternalName);
 
 							const FunctionType* importType = nullptr;
@@ -1314,6 +1314,7 @@ namespace WAST
 								else { functionNameToIndexMap[importInternalName] = functionTypes.size(); }
 							}
 							functionTypes.push_back(functionTypeIndex);
+							names.functions.push_back(importInternalName);
 							break;
 						}
 						case Symbol::_table:
@@ -1321,7 +1322,7 @@ namespace WAST
 							const uintptr tableIndex = tableTypes.size();
 
 							// Parse an optional import name used within the module.
-							const char* importInternalName = nullptr;
+							const char* importInternalName = "";
 							bool hasName = parseName(importTypeChildNodeIt,importInternalName);
 							
 							// Parse the table type.
@@ -1329,6 +1330,8 @@ namespace WAST
 							if(!parseTableType(*this,importTypeChildNodeIt,tableType)) { recordError(*this,importTypeChildNodeIt,"expected table type"); continue; }
 							tableTypes.push_back(tableType);
 							if(tableTypes.size() > 1) { recordError(*this,nodeIt,"may not have more than one table declaration or import"); }
+							
+							names.tables.push_back(importInternalName);
 
 							module.imports.push_back({std::move(importModuleName),std::move(importExportName),tableType});
 							if(hasName)
@@ -1343,7 +1346,7 @@ namespace WAST
 							const uintptr memoryIndex = memoryTypes.size();
 
 							// Parse an optional import name used within the module.
-							const char* importInternalName = nullptr;
+							const char* importInternalName = "";
 							bool hasName = parseName(importTypeChildNodeIt,importInternalName);
 
 							// Parse the memory type.
@@ -1351,6 +1354,8 @@ namespace WAST
 							if(!parseMemoryType(*this,importTypeChildNodeIt,memoryType)) { recordError(*this,importTypeChildNodeIt,"expected memory type"); continue; }
 							memoryTypes.push_back(memoryType);
 							if(memoryTypes.size() > 1) { recordError(*this,nodeIt,"may not have more than one memory declaration or import"); }
+
+							names.memories.push_back(importInternalName);
 
 							module.imports.push_back({std::move(importModuleName),std::move(importExportName),memoryType});
 							if(hasName)
@@ -1365,7 +1370,7 @@ namespace WAST
 							const uintptr globalIndex = globalTypes.size();
 
 							// Parse an optional import name used within the module.
-							const char* importInternalName = nullptr;
+							const char* importInternalName = "";
 							bool hasName = parseName(importTypeChildNodeIt,importInternalName);
 
 							// Parse the type of the global.
@@ -1373,6 +1378,8 @@ namespace WAST
 							if(!parseGlobalType(importTypeChildNodeIt,globalType))
 							{ recordError(*this,importTypeChildNodeIt,"expected global type"); continue; }
 							globalTypes.push_back(globalType);
+
+							names.globals.push_back(importInternalName);
 
 							module.imports.push_back({std::move(importModuleName),std::move(importExportName),globalType});
 							if(hasName)
@@ -1395,7 +1402,7 @@ namespace WAST
 						const uintptr memoryIndex = memoryTypes.size();
 
 						// Parse an optional memory name used within the module.
-						const char* memoryInternalName = nullptr;
+						const char* memoryInternalName = "";
 						if(parseName(childNodeIt,memoryInternalName))
 						{
 							if(memoryNameToIndexMap.count(memoryInternalName)) { recordError(*this,nodeIt,"duplicate memory name"); continue; }
@@ -1420,9 +1427,13 @@ namespace WAST
 						memoryTypes.push_back(memoryType);
 						if(memoryTypes.size() > 1) { recordError(*this,nodeIt,"may not have more than one memory declaration or import"); }
 						
+						names.memories.push_back(memoryInternalName);
+
 						// Create a memory import or definition.
 						if(inlineImportExport.type == InlineImportExport::Type::imported)
-						{ module.imports.push_back({inlineImportExport.moduleName,inlineImportExport.exportName,memoryType}); }
+						{
+							module.imports.push_back({inlineImportExport.moduleName,inlineImportExport.exportName,memoryType});
+						}
 						else
 						{
 							module.memoryDefs.push_back(memoryType);
@@ -1445,7 +1456,7 @@ namespace WAST
 						const uintptr tableIndex = tableTypes.size();
 
 						// Parse an optional table name used within the module.
-						const char* tableInternalName = nullptr;
+						const char* tableInternalName = "";
 						if(parseName(childNodeIt,tableInternalName))
 						{
 							if(tableNameToIndexMap.count(tableInternalName)) { recordError(*this,nodeIt,"duplicate table name"); continue; }
@@ -1470,9 +1481,13 @@ namespace WAST
 						tableTypes.push_back(tableType);
 						if(tableTypes.size() > 1) { recordError(*this,nodeIt,"may not have more than one table declaration or import"); }
 
+						names.tables.push_back(tableInternalName);
+
 						// Create a table import or definition.
 						if(inlineImportExport.type == InlineImportExport::Type::imported)
-						{ module.imports.push_back({inlineImportExport.moduleName,inlineImportExport.exportName,tableType}); }
+						{
+							module.imports.push_back({inlineImportExport.moduleName,inlineImportExport.exportName,tableType});
+						}
 						else
 						{
 							module.tableDefs.push_back(tableType);
@@ -1493,8 +1508,8 @@ namespace WAST
 					case Symbol::_type:
 					{
 						// Parse a function type definition.
-						const char* typeName = nullptr;
-						bool hasName = parseName(childNodeIt,typeName);
+						const char* typeInternalName = "";
+						bool hasName = parseName(childNodeIt,typeInternalName);
 
 						SNodeIt funcChildNodeIt;
 						if(!parseTaggedNode(childNodeIt++,Symbol::_func,funcChildNodeIt))
@@ -1508,7 +1523,7 @@ namespace WAST
 						auto signatureIndex = signatures.size();
 						signatures.push_back(functionType);
 
-						if(hasName) { signatureNameToIndexMap[typeName] = signatureIndex; }
+						if(hasName) { signatureNameToIndexMap[typeInternalName] = signatureIndex; }
 
 						if(childNodeIt) { recordError(*this,childNodeIt,"unexpected input following type declaration"); continue; }
 						
@@ -1519,7 +1534,7 @@ namespace WAST
 						const uintptr globalIndex = globalTypes.size();
 
 						// Parse an optional name for the global.
-						const char* globalName = nullptr;
+						const char* globalName = "";
 						if(parseName(childNodeIt,globalName))
 						{
 							if(globalNameToIndexMap.count(globalName)) { recordError(*this,nodeIt,std::string("duplicate global name: ") + globalName); }
@@ -1545,6 +1560,8 @@ namespace WAST
 							recordError(*this,childNodeIt,"expected global type");
 							continue;
 						}
+						
+						names.globals.push_back(globalName);
 
 						if(inlineImportExport.type == InlineImportExport::Type::imported)
 						{
@@ -1670,9 +1687,8 @@ namespace WAST
 			};
 
 			// Parse the function's body.
-			const FunctionDisassemblyInfo& functionDisassemblyInfo = module.disassemblyInfo.functions[functionDefinitionIndex];
 			Function& function = module.functionDefs[functionDefinitionIndex];
-			FunctionContext functionContext(*this,function,functionDisassemblyInfo.localNames,module.types[function.typeIndex]);
+			FunctionContext functionContext(*this,function,names.functionDefs[functionDefinitionIndex].locals,module.types[function.typeIndex]);
 			functionContext.parseTypedExpressionSequence(childNodeIt,"function body",asExpressionType(module.types[function.typeIndex]->ret));
 
 			// Append the code to the module's code array and reference it from the function.
@@ -1821,6 +1837,8 @@ namespace WAST
 			}
 		}
 
+		// Store the WAST names in a user name section in the module.
+		setDisassemblyNames(module,names);
 	}
 
 	// Parses a module from a S-expression.

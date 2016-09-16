@@ -38,6 +38,10 @@ namespace Runtime
 	ModuleInstance* instantiateModule(const Module& module,std::vector<Object*>&& imports)
 	{
 		ModuleInstance* moduleInstance = new ModuleInstance(module,std::move(imports));
+		
+		// Get disassembly names for the module's objects.
+		DisassemblyNames disassemblyNames;
+		getDisassemblyNames(module,disassemblyNames);
 
 		// Validate the types of the imports.
 		if(imports.size() != module.imports.size()) { throw InstantiationException(InstantiationException::importCountMismatch); }
@@ -108,11 +112,10 @@ namespace Runtime
 		// Create the FunctionInstance objects for the module's function definitions.
 		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
-			auto debugName = functionDefIndex < module.disassemblyInfo.functions.size()
-				? module.disassemblyInfo.functions[functionDefIndex].name
-				: "";
-			if(!debugName.size()) { debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-			auto functionInstance = new FunctionInstance(module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,debugName.c_str());
+			const uintptr functionIndex = moduleInstance->functions.size();
+			auto disassemblyName = disassemblyNames.functions[functionIndex];
+			if(!disassemblyName.size()) { disassemblyName = "<function #" + std::to_string(functionDefIndex) + ">"; }
+			auto functionInstance = new FunctionInstance(module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,disassemblyName.c_str());
 			moduleInstance->functionDefs.push_back(functionInstance);
 			moduleInstance->functions.push_back(functionInstance);
 		}
