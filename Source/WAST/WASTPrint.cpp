@@ -167,10 +167,17 @@ namespace WAST
 		const FunctionType* functionType;
 		std::string& string;
 
+		std::string funcId;
 		std::vector<std::string> localIds;
 
-		FunctionPrintContext(const ModulePrintContext& inModuleContext,uintptr functionDefIndex)
-		: moduleContext(inModuleContext), module(inModuleContext.module), functionDef(inModuleContext.module.functionDefs[functionDefIndex]), functionType(inModuleContext.module.types[functionDef.typeIndex]), string(inModuleContext.string)
+		FunctionPrintContext(const ModulePrintContext& inModuleContext,uintptr functionDefIndex,const std::string& inFuncId)
+		: moduleContext(inModuleContext)
+		, module(inModuleContext.module)
+		, functionDef(inModuleContext.module.functionDefs[functionDefIndex])
+		, functionType(inModuleContext.module.types[functionDef.typeIndex])
+		, string(inModuleContext.string)
+		, funcId(inFuncId)
+		, numLabels(0)
 		{
 			for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 			{
@@ -178,8 +185,8 @@ namespace WAST
 					&& parameterIndex < module.disassemblyInfo.functions[functionDefIndex].localNames.size()
 					? "$" + module.disassemblyInfo.functions[functionDefIndex].localNames[parameterIndex]
 					: "";
-				if(!name.length()) { name = "$param" + std::to_string(parameterIndex); }
-				localIds.push_back("$param" + std::to_string(parameterIndex));
+				if(!name.length()) { name = funcId + "_param" + std::to_string(parameterIndex); }
+				localIds.push_back(name);
 			}
 			for(uintptr localIndex = 0;localIndex < functionDef.nonParameterLocalTypes.size();++localIndex)
 			{
@@ -187,7 +194,7 @@ namespace WAST
 					&& functionType->parameters.size() + localIndex < module.disassemblyInfo.functions[functionDefIndex].localNames.size()
 					? "$" + module.disassemblyInfo.functions[functionDefIndex].localNames[functionType->parameters.size() + localIndex]
 					: "";
-				if(!name.length()) { name = "$local" + std::to_string(localIndex); }
+				if(!name.length()) { name = funcId + "_local" + std::to_string(localIndex); }
 				localIds.push_back(name);
 			}
 		}
@@ -202,24 +209,24 @@ namespace WAST
 		{
 			string += "\nblock";
 			printControlSignature(string,imm.resultType);
-			pushControlStack(ControlContextType::block);
+			pushControlStack(ControlContext::Type::block,"block");
 		}
 		void beginLoop(ControlStructureImm imm)
 		{
 			string += "\nloop";
 			printControlSignature(string,imm.resultType);
-			pushControlStack(ControlContextType::loop);
+			pushControlStack(ControlContext::Type::loop,"loop");
 		}
 		void beginIf(NoImm)
 		{
 			string += "\nif";
-			pushControlStack(ControlContextType::ifWithoutElse);
+			pushControlStack(ControlContext::Type::ifWithoutElse,"if");
 		}
 		void beginIfElse(ControlStructureImm imm)
 		{
 			string += "\nif";
 			printControlSignature(string,imm.resultType);
-			pushControlStack(ControlContextType::ifThen);
+			pushControlStack(ControlContext::Type::ifThen,"if");
 		}
 		void end(NoImm)
 		{
@@ -234,25 +241,28 @@ namespace WAST
 
 		void br(BranchImm imm)
 		{
-			string += "\nbr " + std::to_string(imm.targetDepth);
+			string += "\nbr " + getBranchTargetId(imm.targetDepth);
 			enterUnreachable();
 		}
 		void br_table(BranchTableImm imm)
 		{
-			string += "\nbr_table";
-			for(auto targetDepth : imm.targetDepths)
+			string += "\nbr_table" INDENT_STRING;
+			enum { numTargetsPerLine = 16 };
+			for(uintptr targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
 			{
-				string += ' ';
-				string += std::to_string(targetDepth);
+				if(targetIndex % numTargetsPerLine == 0) { string += '\n'; }
+				else { string += ' '; }
+				string += getBranchTargetId(imm.targetDepths[targetIndex]);
 			}
-			string += ' ';
-			string += std::to_string(imm.defaultTargetDepth);
+			string += '\n';
+			string += getBranchTargetId(imm.defaultTargetDepth);
+			string += " ;; default" DEDENT_STRING;
 
 			enterUnreachable();
 		}
 		void br_if(BranchImm imm)
 		{
-			string += "\nbr_if " + std::to_string(imm.targetDepth);
+			string += "\nbr_if " + getBranchTargetId(imm.targetDepth);
 		}
 
 		void nop(NoImm) { string += "\nnop"; }
@@ -422,35 +432,54 @@ namespace WAST
 
 	private:
 		
-		enum class ControlContextType : uint8
+		struct ControlContext
 		{
-			function,
-			block,
-			ifWithoutElse,
-			ifThen,
-			ifElse,
-			loop
+			enum class Type : uint8
+			{
+				function,
+				block,
+				ifWithoutElse,
+				ifThen,
+				ifElse,
+				loop
+			};
+			Type type;
+			std::string labelId;
 		};
 
-		std::vector<ControlContextType> controlStack;
+		std::vector<ControlContext> controlStack;
+		uintptr numLabels;
 
-		void pushControlStack(ControlContextType type)
+		std::string getBranchTargetId(uintptr depth)
 		{
-			controlStack.push_back(type);
+			const ControlContext& controlContext = controlStack[controlStack.size() - depth - 1];
+			return controlContext.type == ControlContext::Type::function ? std::to_string(depth) : controlContext.labelId;
+		}
+
+		void pushControlStack(ControlContext::Type type,const char* labelIdBase)
+		{
+			std::string labelId;
+			if(type != ControlContext::Type::function)
+			{
+				labelId = funcId + "_" + labelIdBase + std::to_string(numLabels++);
+				string += ' ';
+				string += labelId;
+			}
+			controlStack.push_back({type,labelId});
 			string += INDENT_STRING;
 		}
 
 		void popControlStack()
 		{
 			string += DEDENT_STRING;
-			if(controlStack.back() == ControlContextType::ifThen)
+			if(controlStack.back().type == ControlContext::Type::ifThen)
 			{
-				controlStack.back() = ControlContextType::ifElse;
+				controlStack.back().type = ControlContext::Type::ifElse;
 				string += "\nelse" INDENT_STRING;
 			}
 			else
 			{
-				if(controlStack.back() != ControlContextType::function) { string += "\nend"; }
+				if(controlStack.back().type != ControlContext::Type::function) { string += "\nend ;; "; string += controlStack.back().labelId; }
 				controlStack.pop_back();
 			}
 		}
@@ -619,7 +648,7 @@ namespace WAST
 		{
 			const Function& functionDef = module.functionDefs[functionDefIndex];
 			const FunctionType* functionType = module.types[functionDef.typeIndex];
-			FunctionPrintContext functionContext(*this,functionDefIndex);
+			FunctionPrintContext functionContext(*this,functionDefIndex,functionIds[functionDefIndex + numImportedFunctions]);
 		
 			string += "\n\n";
 			ScopedTagPrinter funcTag(string,"func");
@@ -668,7 +697,7 @@ namespace WAST
 	void FunctionPrintContext::printFunctionBody()
 	{
 		//string += "(";
-		pushControlStack(ControlContextType::function);
+		pushControlStack(ControlContext::Type::function,nullptr);
 		string += DEDENT_STRING;
 
 		Serialization::MemoryInputStream codeStream(module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
