@@ -109,7 +109,7 @@ namespace LLVMJIT
 				FunctionInstance* functionInstance = moduleInstance->functionDefs[functionDefIndex];
 				auto symbol = new JITSymbol(functionInstance,baseAddress,numBytes);
 				functionDefSymbols.push_back(symbol);
-				addressToSymbolMap[baseAddress] = symbol;
+				addressToSymbolMap[baseAddress + numBytes] = symbol;
 				functionInstance->nativeFunction = reinterpret_cast<void*>(baseAddress);
 			}
 		}
@@ -405,12 +405,11 @@ namespace LLVMJIT
 
 	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
 	{
-		auto symbolIt = --addressToSymbolMap.upper_bound(ip);
+		auto symbolIt = addressToSymbolMap.upper_bound(ip);
 		if(symbolIt == addressToSymbolMap.end()) { return false; }
 
 		JITSymbol* symbol = symbolIt->second;
-		assert(symbol->baseAddress <= ip);
-		if(ip >= symbol->baseAddress + symbol->numBytes) { return false; }
+		if(ip < symbol->baseAddress || ip >= symbol->baseAddress + symbol->numBytes) { return false; }
 
 		switch(symbol->type)
 		{
@@ -479,7 +478,7 @@ namespace LLVMJIT
 
 		assert(jitUnit.symbol);
 		invokeThunkTypeToSymbolMap[functionType] = jitUnit.symbol;
-		addressToSymbolMap[jitUnit.symbol->baseAddress] = jitUnit.symbol;
+		addressToSymbolMap[jitUnit.symbol->baseAddress + jitUnit.symbol->numBytes] = jitUnit.symbol;
 		return reinterpret_cast<InvokeFunctionPointer>(jitUnit.symbol->baseAddress);
 	}
 	
