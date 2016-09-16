@@ -70,6 +70,13 @@ else()
 	add_definitions("-DWAVM_METRICS_OUTPUT=0")
 endif()
 
+option(PRETEND_32BIT_ADDRESS_SPACE "forces 64-bit WAVM to reserve address-space as it would in a 32-bit process" OFF)
+if(PRETEND_32BIT_ADDRESS_SPACE)
+	add_definitions("-DPRETEND_32BIT_ADDRESS_SPACE=1")
+else()
+	add_definitions("-DPRETEND_32BIT_ADDRESS_SPACE=0")
+endif()
+
 add_subdirectory(Source/Core)
 add_subdirectory(Source/WebAssembly)
 add_subdirectory(Source/WAST)

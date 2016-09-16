@@ -3,7 +3,7 @@
 #include "Core/Platform.h"
 #include "RuntimePrivate.h"
 
-#define HAS_64BIT_ADDRESS_SPACE sizeof(uintptr) == 8
+#define HAS_64BIT_ADDRESS_SPACE (sizeof(uintptr) == 8 && !PRETEND_32BIT_ADDRESS_SPACE)
 
 namespace Runtime
 {
