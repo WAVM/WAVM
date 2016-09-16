@@ -48,12 +48,14 @@ namespace WAST
 		uintptr indentDepth = 0;
 		while(next < end)
 		{
+			// Absorb INDENT_STRING and DEDENT_STRING, but keep track of the indentation depth,
+			// and insert a proportional number of spaces following newlines. 
 			if(*(uint16*)next == *(uint16*)INDENT_STRING) { ++indentDepth; next += 2; }
 			else if(*(uint16*)next == *(uint16*)DEDENT_STRING) { assert(indentDepth > 0); --indentDepth; next += 2; }
 			else if(*next == '\n')
 			{
 				result += '\n';
-				result.insert(result.end(),indentDepth,'\t');
+				result.insert(result.end(),indentDepth*2,' ');
 				++next;
 			}
 			else { result += *next++; }
@@ -81,15 +83,24 @@ namespace WAST
 
 	void print(std::string& string,ValueType type) { string += getTypeName(type); }
 	void print(std::string& string,ResultType type) { string += getTypeName(type); }
+	void print(std::string& string,GlobalType type)
+	{
+		if(type.isMutable) { string += "(mut "; }
+		print(string,type.valueType);
+		if(type.isMutable) { string += ")"; }
+	}
 
 	void printSignature(std::string& string,const FunctionType* functionType)
 	{
 		// Print the function parameters.
 		if(functionType->parameters.size())
 		{
-			string += ' ';
 			ScopedTagPrinter paramTag(string,"param");
-			for(auto parameterType : functionType->parameters) { string += ' '; print(string,parameterType); }
+			for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+			{
+				string += ' ';
+				print(string,functionType->parameters[parameterIndex]);
+			}
 		}
 
 		// Print the function return type.
@@ -111,15 +122,41 @@ namespace WAST
 		}
 	}
 
+	void print(std::string& string,const SizeConstraints& size)
+	{
+		string += std::to_string(size.min);
+		if(size.max != UINT64_MAX) { string += ' '; string += std::to_string(size.max); }
+	}
+
 	struct ModulePrintContext
 	{
 		const Module& module;
 		std::string& string;
+		
+		std::vector<std::string> typeIds;
+		std::vector<std::string> importIds;
+		std::vector<std::string> functionIds;
+		std::vector<std::string> tableIds;
+		std::vector<std::string> memoryIds;
+		std::vector<std::string> globalIds;
 
 		ModulePrintContext(const Module& inModule,std::string& inString)
 		: module(inModule), string(inString) {}
 
 		void printModule();
+		
+		void printInitializerExpression(const InitializerExpression& expression)
+		{
+			switch(expression.type)
+			{
+			case InitializerExpression::Type::i32_const: string += "(i32.const " + std::to_string(expression.i32) + ')'; break;
+			case InitializerExpression::Type::i64_const: string += "(i64.const " + std::to_string(expression.i64) + ')'; break;
+			case InitializerExpression::Type::f32_const: string += "(f32.const " + Floats::asString(expression.f32) + ')'; break;
+			case InitializerExpression::Type::f64_const: string += "(f64.const " + Floats::asString(expression.f64) + ')'; break;
+			case InitializerExpression::Type::get_global: string += "(get_global " + globalIds[expression.globalIndex] + ')'; break;
+			default: Core::unreachable();
+			};
+		}
 	};
 	
 	struct FunctionPrintContext
@@ -130,9 +167,30 @@ namespace WAST
 		const FunctionType* functionType;
 		std::string& string;
 
-		FunctionPrintContext(const ModulePrintContext& inModuleContext,const Function& inFunctionDef)
-		: moduleContext(inModuleContext), module(inModuleContext.module), functionDef(inFunctionDef), functionType(inModuleContext.module.types[inFunctionDef.typeIndex]), string(inModuleContext.string)
-		{}
+		std::vector<std::string> localIds;
+
+		FunctionPrintContext(const ModulePrintContext& inModuleContext,uintptr functionDefIndex)
+		: moduleContext(inModuleContext), module(inModuleContext.module), functionDef(inModuleContext.module.functionDefs[functionDefIndex]), functionType(inModuleContext.module.types[functionDef.typeIndex]), string(inModuleContext.string)
+		{
+			for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+			{
+				std::string name = functionDefIndex < module.disassemblyInfo.functions.size()
+					&& parameterIndex < module.disassemblyInfo.functions[functionDefIndex].localNames.size()
+					? "$" + module.disassemblyInfo.functions[functionDefIndex].localNames[parameterIndex]
+					: "";
+				if(!name.length()) { name = "$param" + std::to_string(parameterIndex); }
+				localIds.push_back("$param" + std::to_string(parameterIndex));
+			}
+			for(uintptr localIndex = 0;localIndex < functionDef.nonParameterLocalTypes.size();++localIndex)
+			{
+				std::string name = functionDefIndex < module.disassemblyInfo.functions.size()
+					&& functionType->parameters.size() + localIndex < module.disassemblyInfo.functions[functionDefIndex].localNames.size()
+					? "$" + module.disassemblyInfo.functions[functionDefIndex].localNames[functionType->parameters.size() + localIndex]
+					: "";
+				if(!name.length()) { name = "$local" + std::to_string(localIndex); }
+				localIds.push_back(name);
+			}
+		}
 
 		void printFunctionBody();
 		
@@ -208,15 +266,15 @@ namespace WAST
 
 		void get_local(GetOrSetVariableImm imm)
 		{
-			string += "\nget_local " + std::to_string(imm.variableIndex);
+			string += "\nget_local " + localIds[imm.variableIndex];
 		}
 		void set_local(GetOrSetVariableImm imm)
 		{
-			string += "\nset_local " + std::to_string(imm.variableIndex);
+			string += "\nset_local " + localIds[imm.variableIndex];
 		}
 		void tee_local(GetOrSetVariableImm imm)
 		{
-			string += "\ntee_local " + std::to_string(imm.variableIndex);
+			string += "\ntee_local " + localIds[imm.variableIndex];
 		}
 		
 		void get_global(GetOrSetVariableImm imm)
@@ -230,11 +288,11 @@ namespace WAST
 
 		void call(CallImm imm)
 		{
-			string += "\ncall " + std::to_string(imm.functionIndex);
+			string += "\ncall " + moduleContext.functionIds[imm.functionIndex];
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
-			string += "\ncall_indirect " + getTypeName(module.types[imm.typeIndex]);
+			string += "\ncall_indirect " + moduleContext.typeIds[imm.typeIndex];
 		}
 
 		void grow_memory(NoImm) { string += "\ngrow_memory"; }
@@ -405,49 +463,204 @@ namespace WAST
 
 	void ModulePrintContext::printModule()
 	{
+		// Create a identifier indices for functions, memories, tables, and globals.
+		for(auto import : module.imports)
+		{
+			std::string importName;
+			switch(import.type.kind)
+			{
+			case ObjectKind::function: importName = "$funcImport"+std::to_string(functionIds.size()); functionIds.push_back(importName); break;
+			case ObjectKind::table: importName = "$tableImport"+std::to_string(tableIds.size()); tableIds.push_back(importName); break;
+			case ObjectKind::memory: importName = "$memoryImport"+std::to_string(memoryIds.size()); memoryIds.push_back(importName); break;
+			case ObjectKind::global: importName = "$globalImport"+std::to_string(globalIds.size()); globalIds.push_back(importName); break;
+			default: Core::unreachable();
+			};
+			importIds.push_back(importName);
+		}
+		const uintptr numImportedFunctions = functionIds.size();
+		const uintptr numImportedTables = tableIds.size();
+		const uintptr numImportedMemories = memoryIds.size();
+		const uintptr numImportedGlobals = globalIds.size();
+		for(uintptr typeIndex = 0;typeIndex < module.types.size();++typeIndex) { typeIds.push_back("$type" + std::to_string(typeIndex)); }
+		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		{
+			std::string name = functionDefIndex < module.disassemblyInfo.functions.size()
+				? "$" + module.disassemblyInfo.functions[functionDefIndex].name
+				: "";
+			if(!name.size()) { name = "$function"+std::to_string(functionDefIndex); }
+			functionIds.push_back(name);
+		}
+		for(uintptr tableDefIndex = 0;tableDefIndex < module.tableDefs.size();++tableDefIndex) { tableIds.push_back("$table" + std::to_string(tableDefIndex)); }
+		for(uintptr memoryDefIndex = 0;memoryDefIndex < module.memoryDefs.size();++memoryDefIndex) { memoryIds.push_back("$memory" + std::to_string(memoryDefIndex)); }
+		for(uintptr globalDefIndex = 0;globalDefIndex < module.globalDefs.size();++globalDefIndex) { globalIds.push_back("$global" + std::to_string(globalDefIndex)); }
+
 		ScopedTagPrinter moduleTag(string,"module");
 		
-		// Print the module memory declarations and data segments.
-		for(auto& memory : module.memoryDefs)
+		// Print the types.
+		for(uintptr typeIndex = 0;typeIndex < module.types.size();++typeIndex)
 		{
+			string += '\n';
+			ScopedTagPrinter typeTag(string,"type");
+			string += ' ';
+			string += typeIds[typeIndex];
+			string += ' ';
+			printSignature(string,module.types[typeIndex]);
+		}
+
+		// Print the module imports.
+		for(uintptr importIndex = 0;importIndex < module.imports.size();++importIndex)
+		{
+			const Import& import = module.imports[importIndex];
+			
+			string += '\n';
+			ScopedTagPrinter importTag(string,"import");
+			string += " \"";
+			string += escapeString(import.module.c_str(),import.module.length());
+			string += "\" \"";
+			string += escapeString(import.exportName.c_str(),import.exportName.length());
+			string += "\" ";
+			const char* typeTag;
+			std::string typeBody;
+			switch(import.type.kind)
+			{
+			case ObjectKind::function: typeTag = "func"; printSignature(typeBody,module.types[import.type.functionTypeIndex]); break;
+			case ObjectKind::table: typeTag = "table"; print(typeBody,import.type.table.size); typeBody += " anyfunc"; break;
+			case ObjectKind::memory: typeTag = "memory"; print(typeBody,import.type.memory.size); break;
+			case ObjectKind::global: typeTag = "global"; print(typeBody,import.type.global); break;
+			default: Core::unreachable();
+			};
+			string += '(';
+			string += typeTag;
+			string += ' ';
+			string += importIds[importIndex];
+			string += ' ';
+			string += typeBody;
+			string += ')';
+		}
+		// Print the module exports.
+
+
+		// Print the module memory definitions.
+		for(uintptr memoryDefIndex = 0;memoryDefIndex < module.memoryDefs.size();++memoryDefIndex)
+		{
+			const MemoryType& memory = module.memoryDefs[memoryDefIndex];
 			string += '\n';
 			ScopedTagPrinter memoryTag(string,"memory");
 			string += ' ';
+			string += memoryIds[numImportedMemories + memoryDefIndex];
+			string += ' ';
 			string += std::to_string(memory.size.min);
 			if(memory.size.max != UINT64_MAX) { string += std::to_string(memory.size.max); }
+		}
+		
+		// Print the module table definitions and elem segments.
+		for(uintptr tableDefIndex = 0;tableDefIndex < module.tableDefs.size();++tableDefIndex)
+		{
+			const TableType& table = module.tableDefs[tableDefIndex];
+			string += '\n';
+			ScopedTagPrinter memoryTag(string,"table");
+			string += ' ';
+			string += tableIds[numImportedTables + tableDefIndex];
+			string += ' ';
+			string += std::to_string(table.size.min);
+			if(table.size.max != UINT64_MAX) { string += std::to_string(table.size.max); }
+			string += " anyfunc";
+		}
+		
+		// Print the module global definitions.
+		for(uintptr globalDefIndex = 0;globalDefIndex < module.globalDefs.size();++globalDefIndex)
+		{
+			const Global& global = module.globalDefs[globalDefIndex];
+			string += '\n';
+			ScopedTagPrinter memoryTag(string,"global");
+			string += ' ';
+			string += globalIds[numImportedGlobals + globalDefIndex];
+			string += ' ';
+			print(string,global.type);
+			string += ' ';
+			printInitializerExpression(global.initializer);
+		}
+		
+		// Print the data and table segment definitions.
+		for(auto tableSegment : module.tableSegments)
+		{
+			string += '\n';
+			ScopedTagPrinter dataTag(string,"elem");
+			string += ' ';
+			string += tableIds[tableSegment.tableIndex];
+			string += ' ';
+			printInitializerExpression(tableSegment.baseOffset);
+			enum { numElemsPerLine = 8 };
+			for(uintptr elementIndex = 0;elementIndex < tableSegment.indices.size();++elementIndex)
+			{
+				if(elementIndex % numElemsPerLine == 0) { string += '\n'; }
+				else { string += ' '; }
+				string += functionIds[tableSegment.indices[elementIndex]];
+			}
 		}
 		for(auto dataSegment : module.dataSegments)
 		{
 			string += '\n';
 			ScopedTagPrinter dataTag(string,"data");
-			for(uintptr offset = 0;offset < dataSegment.data.size();offset += 32)
+			string += ' ';
+			string += memoryIds[dataSegment.memoryIndex];
+			string += ' ';
+			printInitializerExpression(dataSegment.baseOffset);
+			enum { numBytesPerLine = 64 };
+			for(uintptr offset = 0;offset < dataSegment.data.size();offset += numBytesPerLine)
 			{
 				string += "\n\"";
-				string += escapeString((const char*)dataSegment.data.data() + offset,std::min(dataSegment.data.size() - offset,(uintptr)32));
+				string += escapeString((const char*)dataSegment.data.data() + offset,std::min(dataSegment.data.size() - offset,(uintptr)numBytesPerLine));
 				string += "\"";
 			}
 		}
 
-		for(auto functionDef : module.functionDefs)
+		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
+			const Function& functionDef = module.functionDefs[functionDefIndex];
 			const FunctionType* functionType = module.types[functionDef.typeIndex];
+			FunctionPrintContext functionContext(*this,functionDefIndex);
 		
 			string += "\n\n";
 			ScopedTagPrinter funcTag(string,"func");
 
-			// Print the function's parameters and return type.
-			printSignature(string,functionType);
+			string += ' ';
+			string += functionIds[functionDefIndex + numImportedFunctions];
+			
+			// Print the function parameters.
+			if(functionType->parameters.size())
+			{
+				for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+				{
+					string += '\n';
+					ScopedTagPrinter paramTag(string,"param");
+					string += ' ';
+					string += functionContext.localIds[parameterIndex];
+					string += ' ';
+					print(string,functionType->parameters[parameterIndex]);
+				}
+			}
+
+			// Print the function return type.
+			if(functionType->ret != ResultType::none)
+			{
+				string += '\n';
+				ScopedTagPrinter resultTag(string,"result");
+				string += ' ';
+				print(string,functionType->ret);
+			}
 
 			// Print the function's locals.
-			for(auto localType : functionDef.nonParameterLocalTypes)
+			for(uintptr localIndex = 0;localIndex < functionDef.nonParameterLocalTypes.size();++localIndex)
 			{
 				string += '\n';
 				ScopedTagPrinter localTag(string,"local");
 				string += ' ';
-				print(string,localType);
+				string += functionContext.localIds[functionType->parameters.size() + localIndex];
+				string += ' ';
+				print(string,functionDef.nonParameterLocalTypes[localIndex]);
 			}
 
-			FunctionPrintContext functionContext(*this,functionDef);
 			functionContext.printFunctionBody();
 		}
 	}
