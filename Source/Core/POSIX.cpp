@@ -230,7 +230,7 @@ namespace Platform
 		sigaction(SIGFPE,&oldSignalActionFPE,nullptr);
 
 		outContext = ExecutionContext();
-		outOperand = 0;		
+		outOperand = signalOperand;
 		return signalType;
 	}
 
