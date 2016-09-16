@@ -83,10 +83,10 @@ namespace Runtime
 
 		// Catch platform-specific runtime exceptions and turn them into Runtime::Values.
 		Value returnValue;
-		Platform::HardwareTrapType trapCause;
+		Platform::HardwareTrapType trapType;
 		Platform::ExecutionContext trapContext;
 		uintptr trapOperand;
-		trapCause = Platform::catchHardwareTraps(trapContext,trapOperand,
+		trapType = Platform::catchHardwareTraps(trapContext,trapOperand,
 			[&]
 			{
 				try
@@ -107,7 +107,7 @@ namespace Runtime
 				}
 			});
 
-		switch(trapCause)
+		switch(trapType)
 		{
 		case Platform::HardwareTrapType::accessViolation:
 		{
