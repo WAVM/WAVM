@@ -74,6 +74,8 @@ namespace Intrinsics
 	: name(inName)
 	, table(Runtime::createTable(type))
 	{
+		if(!table) { Core::fatalError("failed to create intrinsic table"); }
+
 		Platform::Lock lock(Singleton::get().mutex);
 		Singleton::get().tableMap[getDecoratedName(inName,type)] = this;
 	}
@@ -91,6 +93,8 @@ namespace Intrinsics
 	: name(inName)
 	, memory(Runtime::createMemory(type))
 	{
+		if(!memory) { Core::fatalError("failed to create intrinsic memory"); }
+
 		Platform::Lock lock(Singleton::get().mutex);
 		Singleton::get().memoryMap[getDecoratedName(inName,type)] = this;
 	}
