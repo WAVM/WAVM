@@ -59,7 +59,7 @@ namespace Floats
 			auto numChars = std::sprintf(buffer,"%.13a",f);
 			if(unsigned(numChars) + 1 > sizeof(buffer))
 			{
-				abort();
+				Core::fatalError("not enough space in Float::asString buffer");
 			}
 			return buffer;
 		}
