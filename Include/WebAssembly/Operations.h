@@ -12,8 +12,7 @@ namespace WebAssembly
 		visit(0x00,nop,NoImm) \
 		visit(0x01,beginBlock,ControlStructureImm) \
 		visit(0x02,beginLoop,ControlStructureImm) \
-		visit(0x03,beginIf,NoImm) \
-		visit(0x04,beginIfElse,ControlStructureImm) \
+		visit(0x03,beginIf,ControlStructureImm) \
 		visit(0x05,select,NoImm) \
 		visit(0x06,br,BranchImm) \
 		visit(0x07,br_if,BranchImm) \
@@ -232,6 +231,7 @@ namespace WebAssembly
 
 	#define ENUM_OPCODES(visit) \
 		ENUM_NONEND_OPCODES(visit) \
+		visit(0x04,beginElse,NoImm) \
 		visit(0x0f,end,NoImm)
 
 	enum class Opcode : uint8

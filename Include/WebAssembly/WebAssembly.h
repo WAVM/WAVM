@@ -15,7 +15,6 @@ namespace WebAssembly
 	
 	// Compatibility options
 	enum { allowMutableGlobals = 1 };
-	enum { unconditionalBranchImpliesEnd = 0 };
 
 	struct Module;
 

@@ -174,7 +174,6 @@ namespace WebAssembly
 					{
 					case ControlContext::Type::function: controlStackString += "F"; break;
 					case ControlContext::Type::block: controlStackString += "B"; break;
-					case ControlContext::Type::ifWithoutElse: controlStackString += "I"; break;
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
@@ -193,7 +192,7 @@ namespace WebAssembly
 				}
 				if(stack.size() == stackBase) { stackString += "|"; }
 
-				Log::printf(LogCategory::debug,"%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
+				Log::printf(Log::Category::debug,"%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
 			#endif
 		}
 
@@ -212,16 +211,16 @@ namespace WebAssembly
 			validate(imm.resultType);
 			pushControlStack(ControlContext::Type::loop,ResultType::none,imm.resultType);
 		}
-		void beginIf(NoImm)
-		{
-			popAndValidateOperand(ValueType::i32);
-			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::none,ResultType::none);
-		}
-		void beginIfElse(ControlStructureImm imm)
+		void beginIf(ControlStructureImm imm)
 		{
 			validate(imm.resultType);
 			popAndValidateOperand(ValueType::i32);
 			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType);
+		}
+		void beginElse(NoImm imm)
+		{
+			popAndValidateResultType(controlStack.back().resultType);
+			popControlStack(true);
 		}
 		void end(NoImm)
 		{
@@ -487,18 +486,19 @@ namespace WebAssembly
 			controlStack.push_back({type,stack.size(),branchArgumentType,resultType,true});
 		}
 
-		void popControlStack()
+		void popControlStack(bool isElse = false)
 		{
 			if(controlStack.back().isReachable)
 			{ VALIDATE_UNLESS("stack was not empty at end of control structure: ",stack.size() > controlStack.back().outerStackSize); }
 
-			if(controlStack.back().type == ControlContext::Type::ifThen)
+			if(isElse && controlStack.back().type == ControlContext::Type::ifThen)
 			{
 				controlStack.back().type = ControlContext::Type::ifElse;
 				controlStack.back().isReachable = true;
 			}
 			else
 			{
+				VALIDATE_UNLESS("else only allowed in if context: ",isElse);
 				const ResultType resultType = controlStack.back().resultType;
 				controlStack.pop_back();
 				if(controlStack.size()) { push(resultType); }
@@ -508,14 +508,7 @@ namespace WebAssembly
 		void enterUnreachable()
 		{
 			stack.resize(controlStack.back().outerStackSize);
-			if(WebAssembly::unconditionalBranchImpliesEnd)
-			{
-				popControlStack();
-			}
-			else
-			{
-				controlStack.back().isReachable = false;
-			}
+			controlStack.back().isReachable = false;
 		}
 
 		void validateStackAccess(size_t num)

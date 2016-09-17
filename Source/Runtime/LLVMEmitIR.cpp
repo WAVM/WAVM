@@ -54,7 +54,6 @@ namespace LLVMJIT
 			{
 				function,
 				block,
-				ifWithoutElse,
 				ifThen,
 				ifElse,
 				loop
@@ -143,24 +142,32 @@ namespace LLVMJIT
 			controlStack.push_back({type,endBlock,endPHI,branchTargetBlock,branchTargetPHI,elseBlock,branchArgumentType,resultType,stack.size(),isReachable,isReachable});
 		}
 
-		void popControlStack()
+		void popControlStack(bool isElse = false)
 		{
 			assert(controlStack.size());
 			ControlContext& currentContext = controlStack.back();
 			assert(stack.size() == currentContext.outerStackSize);
-			if(currentContext.type == ControlContext::Type::ifThen)
+			if(isElse)
 			{
 				assert(currentContext.elseBlock);
+				assert(currentContext.type == ControlContext::Type::ifThen);
 				irBuilder.SetInsertPoint(currentContext.elseBlock);
 
 				currentContext.type = ControlContext::Type::ifElse;
 				currentContext.isReachable = currentContext.isElseReachable;
+				currentContext.elseBlock = nullptr;
 			}
 			else
 			{
+				if(currentContext.elseBlock)
+				{
+					irBuilder.SetInsertPoint(currentContext.elseBlock);
+					irBuilder.CreateBr(currentContext.endBlock);
+				}
+
 				currentContext.endBlock->moveAfter(irBuilder.GetInsertBlock());
 				irBuilder.SetInsertPoint(currentContext.endBlock);
-				
+
 				if(currentContext.endPHI)
 				{
 					if(currentContext.endPHI->getNumIncomingValues()) { push(currentContext.endPHI); }
@@ -178,8 +185,7 @@ namespace LLVMJIT
 		void enterUnreachable()
 		{
 			stack.resize(controlStack.back().outerStackSize);
-			if(WebAssembly::unconditionalBranchImpliesEnd) { popControlStack(); }
-			else { controlStack.back().isReachable = false; }
+			controlStack.back().isReachable = false;
 		}
 		
 		ControlContext& getBranchTargetByDepth(uintptr depth)
@@ -198,7 +204,6 @@ namespace LLVMJIT
 					{
 					case ControlContext::Type::function: controlStackString += "F"; break;
 					case ControlContext::Type::block: controlStackString += "B"; break;
-					case ControlContext::Type::ifWithoutElse: controlStackString += "I"; break;
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
@@ -220,7 +225,7 @@ namespace LLVMJIT
 				}
 				if(stack.size() == stackBase) { stackString += "|"; }
 
-				Log::printf(LogCategory::debug,"%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
+				Log::printf(Log::Category::debug,"%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
 			#endif
 		}
 
@@ -244,16 +249,7 @@ namespace LLVMJIT
 			irBuilder.SetInsertPoint(loopBodyBlock);
 			pushControlStack(ControlContext::Type::loop,ResultType::none,imm.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
 		}
-		void beginIf(NoImm)
-		{
-			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
-			auto endBlock = llvm::BasicBlock::Create(context,"ifEnd",llvmFunction);
-			auto condition = pop();
-			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,endBlock);
-			irBuilder.SetInsertPoint(thenBlock);
-			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::none,ResultType::none,endBlock,nullptr,endBlock,nullptr);
-		}
-		void beginIfElse(ControlStructureImm imm)
+		void beginIf(ControlStructureImm imm)
 		{
 			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
 			auto elseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
@@ -263,6 +259,19 @@ namespace LLVMJIT
 			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,elseBlock);
 			irBuilder.SetInsertPoint(thenBlock);
 			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType,endBlock,endPHI,endBlock,endPHI,elseBlock);
+		}
+		void beginElse(NoImm imm)
+		{
+			if(controlStack.back().isReachable)
+			{
+				if(controlStack.back().resultType != ResultType::none)
+				{
+					llvm::Value* result = pop();
+					controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
+				}
+				irBuilder.CreateBr(controlStack.back().endBlock);
+			}
+			popControlStack(true);
 		}
 		void end(NoImm)
 		{
@@ -795,10 +804,8 @@ namespace LLVMJIT
 		ENUM_NONEND_OPCODES(VISIT_OPCODE)
 		VISIT_OPCODE(_,unknown,Opcode)
 		#undef VISIT_OPCODE
-		void end(NoImm imm)
-		{
-			context.end(imm);
-		}
+		void beginElse(NoImm imm) { context.beginElse(imm); }
+		void end(NoImm imm) { context.end(imm); }
 		void logOperator(const std::string& operatorDescription) { context.logOperator(operatorDescription); }
 	private:
 		EmitFunctionContext& context;
