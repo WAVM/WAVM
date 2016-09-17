@@ -561,6 +561,7 @@ namespace WAST
 			case ObjectKind::table: string += "table " + names.tables[export_.index]; break;
 			case ObjectKind::memory: string += "memory " + names.memories[export_.index]; break;
 			case ObjectKind::global: string += "global " + names.globals[export_.index]; break;
+			default: Core::unreachable();
 			};
 			string += ')';
 		}
