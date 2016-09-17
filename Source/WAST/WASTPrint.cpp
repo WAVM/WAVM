@@ -548,7 +548,22 @@ namespace WAST
 			}
 		}
 		// Print the module exports.
-		// TODO
+		for(auto export_ : module.exports)
+		{
+			string += '\n';
+			ScopedTagPrinter exportTag(string,"export");
+			string += " \"";
+			string += escapeString(export_.name.c_str(),export_.name.length());
+			string += "\" (";
+			switch(export_.kind)
+			{
+			case ObjectKind::function: string += "func " + names.functions[export_.index]; break;
+			case ObjectKind::table: string += "table " + names.tables[export_.index]; break;
+			case ObjectKind::memory: string += "memory " + names.memories[export_.index]; break;
+			case ObjectKind::global: string += "global " + names.globals[export_.index]; break;
+			};
+			string += ')';
+		}
 
 		// Print the module memory definitions.
 		for(uintptr memoryDefIndex = 0;memoryDefIndex < module.memoryDefs.size();++memoryDefIndex)
