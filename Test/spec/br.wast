@@ -247,7 +247,7 @@
       (i32.const 1)
       (block i32
         (drop (i32.const 2))
-		(br_if 0 (i32.const 4) (br 0 (i32.const 8)))
+        (br_if 0 (i32.const 4) (br 0 (i32.const 8)))
         (i32.const 16)
       )
     )
@@ -396,19 +396,6 @@
     (block (br 0 (i64.const 1)) (i32.const 1))
   ))
   "type mismatch"
-)
-
-(assert_invalid
-  (module (func $type-binary (result i64)
-    (block i64 i64 (i64.const 1) (i64.const 2) (br 0)) (i64.add)
-  ))
-  "invalid result arity"
-)
-(assert_invalid
-  (module (func $type-binary-with-nop (result i32)
-    (block i32 i32 (nop) (i32.const 7) (nop) (i32.const 8) (br 0)) (i32.add)
-  ))
-  "invalid result arity"
 )
 
 (assert_invalid

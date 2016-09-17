@@ -60,6 +60,9 @@ add_test(traps ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/traps.wast)
 add_test(typecheck ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/typecheck.wast)
 add_test(unreachable ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/unreachable.wast)
 
+add_test(address-offset-range.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/address-offset-range.fail.wast)
+set_tests_properties(address-offset-range.fail PROPERTIES WILL_FAIL TRUE)
+
 add_test(f32.load32.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/f32.load32.fail.wast)
 set_tests_properties(f32.load32.fail PROPERTIES WILL_FAIL TRUE)
 
@@ -101,9 +104,6 @@ set_tests_properties(func-result-after-body.fail PROPERTIES WILL_FAIL TRUE)
 
 add_test(func-result-before-param.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/func-result-before-param.fail.wast)
 set_tests_properties(func-result-before-param.fail PROPERTIES WILL_FAIL TRUE)
-
-add_test(if_label_scope.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/if_label_scope.fail.wast)
-set_tests_properties(if_label_scope.fail PROPERTIES WILL_FAIL TRUE)
 
 add_test(i32.load32_s.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/i32.load32_s.fail.wast)
 set_tests_properties(i32.load32_s.fail PROPERTIES WILL_FAIL TRUE)
