@@ -461,7 +461,7 @@ namespace WebAssembly
 		size_t numFunctionNames = std::max(names.functions.size(),names.functionDefs.size());
 		serializeVarUInt32(stream,numFunctionNames);
 
-		assert(names.functions.size() > names.functionDefs.size());
+		assert(names.functions.size() >= names.functionDefs.size());
 		const uintptr baseFunctionDefIndex = names.functions.size() - names.functionDefs.size();
 
 		for(uintptr functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
