@@ -398,21 +398,17 @@ namespace WebAssembly
 			};
 		}
 		const uintptr numImportedFunctions = outNames.functions.size();
-		const uintptr numImportedTables = outNames.tables.size();
-		const uintptr numImportedMemories = outNames.memories.size();
-		const uintptr numImportedGlobals = outNames.globals.size();
-		for(uintptr typeIndex = 0;typeIndex < module.types.size();++typeIndex) { outNames.types.push_back(""); }
-		for(uintptr tableDefIndex = 0;tableDefIndex < module.tableDefs.size();++tableDefIndex) { outNames.tables.push_back(""); }
-		for(uintptr memoryDefIndex = 0;memoryDefIndex < module.memoryDefs.size();++memoryDefIndex) { outNames.memories.push_back(""); }
-		for(uintptr globalDefIndex = 0;globalDefIndex < module.globalDefs.size();++globalDefIndex) { outNames.globals.push_back(""); }
+		outNames.types.insert(outNames.types.end(),module.types.size(),"");
+		outNames.tables.insert(outNames.tables.end(),module.tableDefs.size(),"");
+		outNames.memories.insert(outNames.memories.end(),module.memoryDefs.size(),"");
+		outNames.globals.insert(outNames.globals.end(),module.globalDefs.size(),"");
+		outNames.functions.insert(outNames.functions.end(),module.functionDefs.size(),"");
 		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
 			const Function& functionDef = module.functionDefs[functionDefIndex];
 			const FunctionType* functionType = module.types[functionDef.typeIndex];
-			outNames.functions.push_back("");
 			DisassemblyNames::FunctionDef functionDefNames;
-			for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex) { functionDefNames.locals.push_back(""); }
-			for(uintptr localIndex = 0;localIndex < functionDef.nonParameterLocalTypes.size();++localIndex) { functionDefNames.locals.push_back(""); }
+			functionDefNames.locals.insert(functionDefNames.locals.begin(),functionType->parameters.size() + functionDef.nonParameterLocalTypes.size(),"");
 			outNames.functionDefs.push_back(std::move(functionDefNames));
 		}
 
