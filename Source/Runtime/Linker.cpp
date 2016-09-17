@@ -12,6 +12,9 @@ namespace Runtime
 
 	bool IntrinsicResolver::resolve(const char* moduleName,const char* exportName,ObjectType type,Object*& outObject)
 	{
+		// Make sure the wavmIntrinsics module can't be directly imported.
+		if(!strcmp(moduleName,"wavmIntrinsics")) { return false; }
+
 		outObject = Intrinsics::find((std::string(moduleName) + "." + exportName).c_str(),type);
 		return outObject != nullptr;
 	}
