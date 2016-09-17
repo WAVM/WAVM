@@ -25,10 +25,9 @@ namespace WebAssembly
 		global = 6,
 		export_ = 7,
 		start = 8,
-		functionDefinitions = 9,
-		elem = 10,
-		data = 11,
-		name = 0x80
+		elem = 9,
+		functionDefinitions = 10,
+		data = 11
 	};
 
 	template<typename Stream>
@@ -347,6 +346,10 @@ namespace WebAssembly
 		{
 			serializeVarUInt32(sectionStream,module.startFunctionIndex);
 		});
+		serializeSection(moduleStream,SectionType::elem,module.tableSegments.size()>0,[&module](Stream& sectionStream)
+		{
+			serialize(sectionStream,module.tableSegments);
+		});
 		serializeSection(moduleStream,SectionType::functionDefinitions,module.functionDefs.size()>0,[&module](Stream& sectionStream)
 		{
 			size_t numFunctionBodies = module.functionDefs.size();
@@ -354,10 +357,6 @@ namespace WebAssembly
 			if(Stream::isInput && numFunctionBodies != module.functionDefs.size())
 				{ throw FatalSerializationException("function and code sections have mismatched function counts"); }
 			for(Function& function : module.functionDefs) { serializeFunctionBody(sectionStream,module,function); }
-		});
-		serializeSection(moduleStream,SectionType::elem,module.tableSegments.size()>0,[&module](Stream& sectionStream)
-		{
-			serialize(sectionStream,module.tableSegments);
 		});
 		serializeSection(moduleStream,SectionType::data,module.dataSegments.size()>0,[&module](Stream& sectionStream)
 		{
