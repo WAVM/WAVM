@@ -274,14 +274,14 @@ namespace WebAssembly
 
 	struct BranchTableImm
 	{
-		uintptr defaultTargetDepth;
 		std::vector<uintptr> targetDepths;
+		uintptr defaultTargetDepth;
 		
 		template<typename Stream>
 		friend void serialize(Stream& stream,BranchTableImm& imm)
 		{
-			serializeVarUInt32(stream,imm.defaultTargetDepth);
 			serializeArray(stream,imm.targetDepths,[](Stream& stream,uintptr& targetDepth){serializeVarUInt32(stream,targetDepth);});
+			serializeVarUInt32(stream,imm.defaultTargetDepth);
 		}
 	};
 

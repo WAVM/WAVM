@@ -979,7 +979,7 @@ namespace WAST
 				// Parse the branch index.
 				parseOperands(nodeIt,"br_table index",ExpressionType::i32);
 
-				encoder.br_table({defaultTargetDepth,std::move(targetDepths)});
+				encoder.br_table({std::move(targetDepths),defaultTargetDepth});
 				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
