@@ -16,7 +16,7 @@ int commandMain(int argc,char** argv)
 	bool omitNames = false;
 	if(argc > 3)
 	{
-		for(uintptr argumentIndex = 3;argumentIndex < argc;++argumentIndex)
+		for(intptr argumentIndex = 3;argumentIndex < argc;++argumentIndex)
 		{
 			if(!strcmp(argv[argumentIndex],"-n") || !strcmp(argv[argumentIndex],"--omit-names"))
 			{
