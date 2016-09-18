@@ -37,7 +37,7 @@ namespace Runtime
 
 	ModuleInstance* instantiateModule(const Module& module,std::vector<Object*>&& imports)
 	{
-		ModuleInstance* moduleInstance = new ModuleInstance(module,std::move(imports));
+		ModuleInstance* moduleInstance = new ModuleInstance(std::move(imports));
 		
 		// Get disassembly names for the module's objects.
 		DisassemblyNames disassemblyNames;

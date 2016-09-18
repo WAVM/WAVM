@@ -83,8 +83,6 @@ namespace Runtime
 	
 	struct ModuleInstance : Object
 	{
-		const Module& module;
-
 		std::vector<Object*> imports;
 		std::map<std::string,Object*> exportMap;
 
@@ -100,9 +98,8 @@ namespace Runtime
 
 		LLVMJIT::JITModule* jitModule;
 
-		ModuleInstance(const Module& inModule,std::vector<Object*>&& inImports)
+		ModuleInstance(std::vector<Object*>&& inImports)
 		: Object({ObjectKind::module})
-		, module(inModule)
 		, imports(inImports)
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
