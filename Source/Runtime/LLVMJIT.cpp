@@ -140,8 +140,18 @@ namespace LLVMJIT
 	};
 	
 	NullResolver NullResolver::singleton;
-	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbol(const std::string& name) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
-	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbolInLogicalDylib(const std::string& name) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
+	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbol(const std::string& name)
+	{
+		if(name == "__chkstk")
+		{
+			void *addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
+			if (addr) { return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uintptr>(addr),llvm::JITSymbolFlags::None); }
+		}
+
+		Log::printf(Log::Category::error,"LLVM generated code referenced external symbol: %s\n",name.c_str());
+		throw InstantiationException(InstantiationException::Cause::codeGenFailed);
+	}
+	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbolInLogicalDylib(const std::string& name) { return llvm::RuntimeDyld::SymbolInfo(nullptr); }
 	
 	// Allocates memory for the LLVM object loader.
 	struct SectionMemoryManager : llvm::RTDyldMemoryManager
