@@ -1,11 +1,13 @@
 #include "Core/Core.h"
-#include "Core/MemoryArena.h"
+#include "Core/Serialization.h"
 #include "Core/Platform.h"
 #include "WAST/WAST.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Intrinsics.h"
 #include "Emscripten/Emscripten.h"
+#include "WebAssembly/Module.h"
+#include "WebAssembly/Operations.h"
 
 #include "CLI.h"
 
@@ -37,6 +39,33 @@ struct RootResolver : Resolver
 		if(namedResolverIt != moduleNameToResolverMap.end())
 		{
 			return namedResolverIt->second->resolve(moduleName,exportName,type,outObject);
+		}
+
+		// Finally, stub in missing function imports.
+		if(type.kind == ObjectKind::function)
+		{
+			// Generate a function body that just uses the unreachable op to fault if called.
+			ArrayOutputStream codeStream;
+			OperationEncoder encoder(codeStream);
+			encoder.unreachable();
+			encoder.end();
+
+			// Generate a module for the stub function.
+			Module stubModule;
+			DisassemblyNames stubModuleNames;
+			stubModule.code = codeStream.getBytes();
+			stubModule.types.push_back(type.function);
+			stubModule.functionDefs.push_back({{},0,{0,stubModule.code.size()}});
+			stubModule.exports.push_back({"importStub",ObjectKind::function,0});
+			stubModuleNames.functions.push_back(std::string(moduleName) + "." + exportName);
+			setDisassemblyNames(stubModule,stubModuleNames);
+			WebAssembly::validate(stubModule);
+
+			// Instantiate the module and return the stub function instance.
+			auto stubModuleInstance = instantiateModule(stubModule,{});
+			outObject = getInstanceExport(stubModuleInstance,"importStub");
+			Log::printf(Log::Category::error,"Generated stub for missing function import %s.%s : %s\n",moduleName,exportName,getTypeName(type).c_str());
+			return true;
 		}
 
 		return false;
