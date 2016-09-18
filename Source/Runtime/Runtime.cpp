@@ -85,12 +85,15 @@ namespace Runtime
 		Value returnValue;
 		Platform::HardwareTrapType trapType;
 		Platform::ExecutionContext trapContext;
+		Platform::ExecutionContext callingContext;
 		uintptr trapOperand;
 		trapType = Platform::catchHardwareTraps(trapContext,trapOperand,
 			[&]
 			{
 				try
 				{
+					callingContext = Platform::captureExecutionContext();
+
 					// Call the invoke thunk.
 					(*invokeFunctionPointer)(function->nativeFunction,thunkMemory);
 
@@ -106,6 +109,14 @@ namespace Runtime
 					returnValue = exception;
 				}
 			});
+		
+		// Truncate the stack frame to the native code invoking the function.
+		if(trapContext.stackFrames.size() >= callingContext.stackFrames.size() + 1)
+		{
+			trapContext.stackFrames.resize(trapContext.stackFrames.size() - callingContext.stackFrames.size() -1);
+		}
+
+		std::vector<std::string> callStack = describeExecutionContext(trapContext);
 
 		switch(trapType)
 		{
@@ -114,14 +125,14 @@ namespace Runtime
 			auto cause = isAddressOwnedByTable(reinterpret_cast<uint8*>(trapOperand))
 				? Exception::Cause::undefinedTableElement
 				: Exception::Cause::accessViolation;
-			returnValue = new Exception { cause, describeExecutionContext(trapContext) };
+			returnValue = new Exception { cause, callStack };
 			break;
 		}
 		case Platform::HardwareTrapType::stackOverflow:
-			returnValue = new Exception { Exception::Cause::stackOverflow, describeExecutionContext(trapContext) };
+			returnValue = new Exception { Exception::Cause::stackOverflow, callStack };
 			break;
 		case Platform::HardwareTrapType::intDivideByZeroOrOverflow:
-			returnValue = new Exception { Exception::Cause::integerDivideByZeroOrIntegerOverflow, describeExecutionContext(trapContext) };
+			returnValue = new Exception { Exception::Cause::integerDivideByZeroOrIntegerOverflow, callStack };
 			break;
 		case Platform::HardwareTrapType::none: break;
 		default: Core::unreachable();
