@@ -113,6 +113,8 @@ namespace Runtime
 	// Describes an execution context. Returns an array of strings, one for each stack frame.
 	std::vector<std::string> describeExecutionContext(const Platform::ExecutionContext& executionContext);
 
-	// Checks whether an address is owned by a table.
+	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(uint8* address);
+	bool isAddressOwnedByMemory(uint8* address);
+
 }

@@ -7,6 +7,7 @@
 
 namespace Runtime
 {
+	std::vector<Memory*> memories;
 	std::vector<Table*> tables;
 
 	static uintptr getPlatformPagesPerWebAssemblyPageLog2()
@@ -50,6 +51,7 @@ namespace Runtime
 		if(!memory->baseAddress) { delete memory; return nullptr; }
 		if(growMemory(memory,type.size.min) == -1) { delete memory; return nullptr; }
 
+		memories.push_back(memory);
 		return memory;
 	}
 
@@ -63,6 +65,22 @@ namespace Runtime
 
 		reservedBaseAddress = baseAddress = nullptr;
 		reservedNumPlatformPages = reservedNumBytes = 0;
+
+		for(uintptr memoryIndex = 0;memoryIndex < tables.size();++memoryIndex)
+		{
+			if(memories[memoryIndex] == this) { memories.erase(memories.begin() + memoryIndex); break; }
+		}
+	}
+	
+	bool isAddressOwnedByMemory(uint8* address)
+	{
+		for(auto memory : memories)
+		{
+			uint8* startAddress = memory->reservedBaseAddress;
+			uint8* endAddress = memory->reservedBaseAddress + memory->reservedNumBytes;
+			if(address >= startAddress && address < endAddress) { return true; }
+		}
+		return false;
 	}
 
 	size_t getMemoryNumPages(Memory* memory) { return memory->numPages; }
@@ -166,8 +184,8 @@ namespace Runtime
 	{
 		for(auto table : tables)
 		{
-			uint8* startAddress = (uint8*)table->baseAddress;
-			uint8* endAddress = ((uint8*)table->baseAddress) + (table->maxPlatformPages << Platform::getPageSizeLog2());
+			uint8* startAddress = (uint8*)table->reservedBaseAddress;
+			uint8* endAddress = ((uint8*)table->reservedBaseAddress) + (table->reservedNumPlatformPages << Platform::getPageSizeLog2());
 			if(address >= startAddress && address < endAddress) { return true; }
 		}
 		return false;

@@ -125,6 +125,12 @@ namespace Runtime
 			auto cause = isAddressOwnedByTable(reinterpret_cast<uint8*>(trapOperand))
 				? Exception::Cause::undefinedTableElement
 				: Exception::Cause::accessViolation;
+			if(cause == Exception::Cause::accessViolation && !isAddressOwnedByMemory(reinterpret_cast<uint8*>(trapOperand)))
+			{
+				Log::printf(Log::Category::error,"Access violation outside of table or memory reserved addresses. Call stack:\n");
+				for(auto calledFunction : callStack) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
+				Core::fatalError("Aborting.");
+			}
 			returnValue = new Exception { cause, callStack };
 			break;
 		}
