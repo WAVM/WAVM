@@ -24,11 +24,28 @@ namespace LLVMJIT
 		llvm::Constant* defaultTableMaxElements;
 		llvm::Constant* defaultMemoryBase;
 		llvm::Constant* defaultMemoryAddressMask;
+		
+		llvm::DIBuilder diBuilder;
+		llvm::DICompileUnit* diCompileUnit;
+		llvm::DIFile* diModuleScope;
+
+		llvm::DIType* diValueTypes[(size_t)ValueType::num];
 
 		EmitModuleContext(const Module& inModule,ModuleInstance* inModuleInstance)
 		: module(inModule)
 		, moduleInstance(inModuleInstance)
-		{}
+		, llvmModule(new llvm::Module("",context))
+		, diBuilder(*llvmModule)
+		{
+			diCompileUnit = diBuilder.createCompileUnit(0xffff,"unknown","unknown","WAVM",true,"",0);
+			diModuleScope = diBuilder.createFile("unknown","unknown");
+
+			diValueTypes[(uintp)ValueType::invalid] = nullptr;
+			diValueTypes[(uintp)ValueType::i32] = diBuilder.createBasicType("i32",32,32,llvm::dwarf::DW_ATE_signed);
+			diValueTypes[(uintp)ValueType::i64] = diBuilder.createBasicType("i64",64,64,llvm::dwarf::DW_ATE_signed);
+			diValueTypes[(uintp)ValueType::f32] = diBuilder.createBasicType("f32",32,32,llvm::dwarf::DW_ATE_float);
+			diValueTypes[(uintp)ValueType::f64] = diBuilder.createBasicType("f64",64,64,llvm::dwarf::DW_ATE_float);
+		}
 
 		llvm::Module* emit();
 	};
@@ -40,12 +57,14 @@ namespace LLVMJIT
 		const Module& module;
 		const Function& function;
 		const FunctionType* functionType;
-		uintp functionDefIndex;
+		FunctionInstance* functionInstance;
 		llvm::Function* llvmFunction;
 		llvm::IRBuilder<> irBuilder;
 
 		std::vector<ValueType> localTypes;
 		std::vector<llvm::Value*> localPointers;
+
+		llvm::DISubprogram* diFunction;
 
 		// Information about an in-scope branch target.
 		struct ControlContext
@@ -75,13 +94,13 @@ namespace LLVMJIT
 		std::vector<ControlContext> controlStack;
 		std::vector<llvm::Value*> stack;
 
-		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,uintp inFunctionDefIndex)
+		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,const Function& inFunction,FunctionInstance* inFunctionInstance,llvm::Function* inLLVMFunction)
 		: moduleContext(inEmitModuleContext)
 		, module(inModule)
-		, function(module.functionDefs[inFunctionDefIndex])
-		, functionType(module.types[module.functionDefs[inFunctionDefIndex].typeIndex])
-		, functionDefIndex(inFunctionDefIndex)
-		, llvmFunction(inEmitModuleContext.functionDefs[inFunctionDefIndex])
+		, function(inFunction)
+		, functionType(module.types[inFunction.typeIndex])
+		, functionInstance(inFunctionInstance)
+		, llvmFunction(inLLVMFunction)
 		, irBuilder(context)
 		{}
 
@@ -813,6 +832,22 @@ namespace LLVMJIT
 
 	void EmitFunctionContext::emit()
 	{
+		// Create debug info for the function.
+		llvm::SmallVector<llvm::Metadata*,10> diFunctionParameterTypes;
+		for(auto parameterType : functionType->parameters) { diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(uintp)parameterType]); }
+		auto diFunctionType = moduleContext.diBuilder.createSubroutineType(moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes));
+		diFunction = moduleContext.diBuilder.createFunction(
+			moduleContext.diModuleScope,
+			functionInstance->debugName,
+			llvmFunction->getName(),
+			moduleContext.diModuleScope,
+			0,
+			diFunctionType,
+			false,
+			true,
+			0);
+		llvmFunction->setSubprogram(diFunction);
+
 		// Create the return basic block, and push the root control context for the function.
 		auto returnBlock = llvm::BasicBlock::Create(context,"return",llvmFunction);
 		auto returnPHI = createPHI(returnBlock,functionType->ret);
@@ -823,13 +858,14 @@ namespace LLVMJIT
 		irBuilder.SetInsertPoint(entryBasicBlock);
 
 		// If enabled, emit a call to the WAVM function enter hook (for debugging).
-		#if ENABLE_FUNCTION_ENTER_EXIT_HOOKS
+		if(ENABLE_FUNCTION_ENTER_EXIT_HOOKS)
+		{
 			emitRuntimeIntrinsic(
 				"wavmIntrinsics.debugEnterFunction",
 				FunctionType::get(ResultType::none,{ValueType::i64}),
-				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->functionDefs[functionDefIndex]))}
+				{emitLiteral(reinterpret_cast<uint64>(functionInstance))}
 				);
-		#endif
+		}
 
 		// Create allocas for all the locals and parameters.
 		localTypes = functionType->parameters;
@@ -860,8 +896,10 @@ namespace LLVMJIT
 		UnreachableOpVisitor unreachableOpVisitor(*this);
 		OperatorLoggingProxy<EmitFunctionContext> loggingProxy(module,*this);
 		OperatorLoggingProxy<UnreachableOpVisitor> unreachableLoggingProxy(module,unreachableOpVisitor);
+		uintp opIndex = 0;
 		while(decoder && controlStack.size())
 		{
+			irBuilder.SetCurrentDebugLocation(llvm::DILocation::get(context,(unsigned int)opIndex++,0,diFunction));
 			if(ENABLE_LOGGING)
 			{
 				if(controlStack.back().isReachable) { decoder.decodeOp(loggingProxy); }
@@ -876,13 +914,14 @@ namespace LLVMJIT
 		assert(irBuilder.GetInsertBlock() == returnBlock);
 		
 		// If enabled, emit a call to the WAVM function enter hook (for debugging).
-		#if ENABLE_FUNCTION_ENTER_EXIT_HOOKS
+		if(ENABLE_FUNCTION_ENTER_EXIT_HOOKS)
+		{
 			emitRuntimeIntrinsic(
 				"wavmIntrinsics.debugExitFunction",
 				FunctionType::get(ResultType::none,{ValueType::i64}),
-				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->functionDefs[functionDefIndex]))}
+				{emitLiteral(reinterpret_cast<uint64>(functionInstance))}
 				);
-		#endif
+		}
 
 		// Emit the function return.
 		if(functionType->ret == ResultType::none) { irBuilder.CreateRetVoid(); }
@@ -892,8 +931,6 @@ namespace LLVMJIT
 	llvm::Module* EmitModuleContext::emit()
 	{
 		Core::Timer emitTimer;
-
-		llvmModule = new llvm::Module("",context);
 
 		// Create literals for the default memory base and mask.
 		if(moduleInstance->defaultMemory)
@@ -943,7 +980,10 @@ namespace LLVMJIT
 
 		// Compile each function in the module.
 		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
-		{ EmitFunctionContext(*this,module,functionDefIndex).emit(); }
+		{ EmitFunctionContext(*this,module,module.functionDefs[functionDefIndex],moduleInstance->functionDefs[functionDefIndex],functionDefs[functionDefIndex]).emit(); }
+		
+		// Finalize the debug info.
+		diBuilder.finalize();
 
 		Log::logRatePerSecond("Emitted LLVM IR",emitTimer,(float64)llvmModule->size(),"functions");
 

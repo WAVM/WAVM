@@ -47,6 +47,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include <cctype>

@@ -45,12 +45,13 @@ namespace LLVMJIT
 		};
 		uintp baseAddress;
 		size_t numBytes;
+		std::map<uint32,uint32> offsetToOpIndexMap;
 		
-		JITSymbol(FunctionInstance* inFunctionInstance,uintp inBaseAddress,size_t inNumBytes)
-		: type(Type::functionInstance), functionInstance(inFunctionInstance), baseAddress(inBaseAddress), numBytes(inNumBytes) {}
+		JITSymbol(FunctionInstance* inFunctionInstance,uintp inBaseAddress,size_t inNumBytes,std::map<uint32,uint32>&& inOffsetToOpIndexMap)
+		: type(Type::functionInstance), functionInstance(inFunctionInstance), baseAddress(inBaseAddress), numBytes(inNumBytes), offsetToOpIndexMap(inOffsetToOpIndexMap) {}
 
-		JITSymbol(const FunctionType* inInvokeThunkType,uintp inBaseAddress,size_t inNumBytes)
-		: type(Type::invokeThunk), invokeThunkType(inInvokeThunkType), baseAddress(inBaseAddress), numBytes(inNumBytes) {}
+		JITSymbol(const FunctionType* inInvokeThunkType,uintp inBaseAddress,size_t inNumBytes,std::map<uint32,uint32>&& inOffsetToOpIndexMap)
+		: type(Type::invokeThunk), invokeThunkType(inInvokeThunkType), baseAddress(inBaseAddress), numBytes(inNumBytes), offsetToOpIndexMap(inOffsetToOpIndexMap) {}
 	};
 
 	// Allocates memory for the LLVM object loader.
@@ -119,9 +120,9 @@ namespace LLVMJIT
 			isFinalized = true;
 			// Set the requested final memory access for each section's pages.
 			const Platform::MemoryAccess codeAccess = USE_WRITEABLE_JIT_CODE_PAGES ? Platform::MemoryAccess::ReadWriteExecute : Platform::MemoryAccess::Execute;
-			if(!Platform::setVirtualPageAccess(codeSection.baseAddress,codeSection.numPages,codeAccess)) { return false; }
-			if(!Platform::setVirtualPageAccess(readOnlySection.baseAddress,readOnlySection.numPages,Platform::MemoryAccess::ReadOnly)) { return false; }
-			if(!Platform::setVirtualPageAccess(readWriteSection.baseAddress,readWriteSection.numPages,Platform::MemoryAccess::ReadWrite)) { return false; }
+			if(codeSection.numPages && !Platform::setVirtualPageAccess(codeSection.baseAddress,codeSection.numPages,codeAccess)) { return false; }
+			if(readOnlySection.numPages && !Platform::setVirtualPageAccess(readOnlySection.baseAddress,readOnlySection.numPages,Platform::MemoryAccess::ReadOnly)) { return false; }
+			if(readWriteSection.numPages && !Platform::setVirtualPageAccess(readWriteSection.baseAddress,readWriteSection.numPages,Platform::MemoryAccess::ReadWrite)) { return false; }
 			return true;
 		}
 		virtual void invalidateInstructionCache()
@@ -187,6 +188,7 @@ namespace LLVMJIT
 		#endif
 		{
 			objectLayer = llvm::make_unique<ObjectLayer>(NotifyLoadedFunctor(this));
+			objectLayer->setProcessAllSections(true);
 			compileLayer = llvm::make_unique<CompileLayer>(*objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
 		}
 		~JITUnit()
@@ -199,7 +201,7 @@ namespace LLVMJIT
 
 		bool compile(llvm::Module* llvmModule);
 
-		virtual void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes) = 0;
+		virtual void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes,std::map<uint32,uint32>&& offsetToOpIndexMap) = 0;
 
 	private:
 		
@@ -245,7 +247,7 @@ namespace LLVMJIT
 			}
 		}
 
-		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes) override
+		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes,std::map<uint32,uint32>&& offsetToOpIndexMap) override
 		{
 			// Save the address range this function was loaded at for future address->symbol lookups.
 			uintp functionDefIndex;
@@ -254,7 +256,7 @@ namespace LLVMJIT
 				assert(moduleInstance);
 				assert(functionDefIndex < moduleInstance->functionDefs.size());
 				FunctionInstance* functionInstance = moduleInstance->functionDefs[functionDefIndex];
-				auto symbol = new JITSymbol(functionInstance,baseAddress,numBytes);
+				auto symbol = new JITSymbol(functionInstance,baseAddress,numBytes,std::move(offsetToOpIndexMap));
 				functionDefSymbols.push_back(symbol);
 				addressToSymbolMap[baseAddress + numBytes] = symbol;
 				functionInstance->nativeFunction = reinterpret_cast<void*>(baseAddress);
@@ -271,10 +273,10 @@ namespace LLVMJIT
 
 		JITInvokeThunkUnit(const FunctionType* inFunctionType): functionType(inFunctionType), symbol(nullptr) {}
 
-		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes) override
+		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes,std::map<uint32,uint32>&& offsetToOpIndexMap) override
 		{
 			assert(!strcmp(name,"invokeThunk"));
-			symbol = new JITSymbol(functionType,baseAddress,numBytes);
+			symbol = new JITSymbol(functionType,baseAddress,numBytes,std::move(offsetToOpIndexMap));
 		}
 	};
 	
@@ -303,40 +305,18 @@ namespace LLVMJIT
 	void JITUnit::NotifyLoadedFunctor::operator()(
 		const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
 		const std::vector<std::unique_ptr<llvm::object::ObjectFile>>& objectSet,
-		const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResult
+		const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResults
 		)
 	{
-		assert(objectSet.size() == loadResult.size());
-		for(uintp objectIndex = 0;objectIndex < loadResult.size();++objectIndex)
+		assert(objectSet.size() == loadResults.size());
+		for(uintp objectIndex = 0;objectIndex < loadResults.size();++objectIndex)
 		{
 			auto& object = objectSet[objectIndex];
-			auto& loadedObject = loadResult[objectIndex];
+			auto& loadedObject = loadResults[objectIndex];
 
-			// Iterate over the functions in the loaded object.
-			for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object.get()))
-			{
-				auto symbol = symbolSizePair.first;
-				auto name = symbol.getName();
-				auto address = symbol.getAddress();
-				if(	symbol.getType() == llvm::object::SymbolRef::ST_Function
-				&&	name
-				&&	!address.getError())
-				{
-					// Compute the address the functions was loaded at.
-					uintp loadedAddress = *address;
-					auto symbolSection = symbol.getSection();
-					if(symbolSection)
-					{
-						loadedAddress += (uintp)loadedObject->getSectionLoadAddress(*symbolSection.get());
-					}
-
-					// Notify the JIT unit that the symbol was loaded.
-					jitUnit->notifySymbolLoaded(name->data(),loadedAddress,symbolSizePair.second);
-				}
-			}
-			
 			#ifdef _WIN32
 				// On Windows, look for .pdata and .xdata sections containing information about how to unwind the stack.
+				// This needs to be done before the below emitAndFinalize call, which will incorrectly apply relocations to the unwind info.
 				
 				// Find the text, pdata, and xdata sections.
 				llvm::object::SectionRef textSection;
@@ -365,6 +345,40 @@ namespace LLVMJIT
 						);
 				}
 			#endif
+
+			// Relocate and finalize the memory of the object.
+			jitUnit->compileLayer->emitAndFinalize(objectSetHandle);
+
+			// Create a DWARF context to interpret the debug information in this compilation unit.
+			auto dwarfContext = std::make_unique<llvm::DWARFContextInMemory>(*object,loadedObject.get());
+
+			// Iterate over the functions in the loaded object.
+			for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object.get()))
+			{
+				auto symbol = symbolSizePair.first;
+				auto name = symbol.getName();
+				auto address = symbol.getAddress();
+				if(	symbol.getType() == llvm::object::SymbolRef::ST_Function
+				&&	name
+				&&	!address.getError())
+				{
+					// Compute the address the functions was loaded at.
+					uintp loadedAddress = *address;
+					auto symbolSection = symbol.getSection();
+					if(symbolSection)
+					{
+						loadedAddress += (uintp)loadedObject->getSectionLoadAddress(*symbolSection.get());
+					}
+
+					// Get the DWARF line info for this symbol, which maps machine code addresses to WebAssembly op indices.
+					llvm::DILineInfoTable lineInfoTable = dwarfContext->getLineInfoForAddressRange(loadedAddress,symbolSizePair.second);
+					std::map<uint32,uint32> offsetToOpIndexMap;
+					for(auto lineInfo : lineInfoTable) { offsetToOpIndexMap.emplace(uint32(lineInfo.first - loadedAddress),lineInfo.second.Line); }
+
+					// Notify the JIT unit that the symbol was loaded.
+					jitUnit->notifySymbolLoaded(name->data(),loadedAddress,symbolSizePair.second,std::move(offsetToOpIndexMap));
+				}
+			}
 		}
 	}
 
@@ -426,7 +440,7 @@ namespace LLVMJIT
 			std::vector<llvm::Module*>{llvmModule},
 			&memoryManager,
 			&NullResolver::singleton);
-		compileLayer->emitAndFinalize(handle);
+
 		Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
 
 		return true;
@@ -476,12 +490,23 @@ namespace LLVMJIT
 		case JITSymbol::Type::functionInstance:
 			outDescription = symbol->functionInstance->debugName;
 			if(!outDescription.size()) { outDescription = "<unnamed function>"; }
-			return true;
+			break;
 		case JITSymbol::Type::invokeThunk:
 			outDescription = "<invoke thunk : " + getTypeName(symbol->invokeThunkType) + ">";
-			return true;
+			break;
 		default: Core::unreachable();
 		};
+		
+		// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
+		uint32 ipOffset = (uint32)(ip - symbol->baseAddress);
+		intp opIndex = -1;
+		for(auto offsetMapIt : symbol->offsetToOpIndexMap)
+		{
+			if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
+			else { break; }
+		}
+		if(opIndex >= 0) { outDescription += " (op " + std::to_string(opIndex) + ")"; }
+		return true;
 	}
 
 	InvokeFunctionPointer getInvokeThunk(const FunctionType* functionType)
