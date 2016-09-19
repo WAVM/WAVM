@@ -125,8 +125,8 @@ namespace Runtime
 	RUNTIME_API uint8* getMemoryBaseAddress(Memory* memory);
 	RUNTIME_API size_t getMemoryNumPages(Memory* memory);
 	RUNTIME_API size_t getMemoryMaxPages(Memory* memory);
-	RUNTIME_API intptr_t growMemory(Memory* memory,size_t numPages);
-	RUNTIME_API intptr_t shrinkMemory(Memory* memory,size_t numPages);
+	RUNTIME_API intp growMemory(Memory* memory,size_t numPages);
+	RUNTIME_API intp shrinkMemory(Memory* memory,size_t numPages);
 
 	// Validates that an offset range is wholly inside a Memory's virtual address range.
 	RUNTIME_API uint8* getValidatedMemoryOffsetRange(Memory* memory,uintp offset,size_t numBytes);
