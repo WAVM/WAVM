@@ -85,27 +85,27 @@ namespace Runtime
 
 		Object(WebAssembly::ObjectKind inKind): kind(inKind) {}
 		virtual ~Object() {}
-		
-		friend RUNTIME_API bool isA(Object* object,const WebAssembly::ObjectType& type);
-
-		friend FunctionInstance* asFunction(Object* object)	{ assert(object && object->kind == WebAssembly::ObjectKind::function); return (FunctionInstance*)object; }
-		friend Table* asTable(Object* object)				{ assert(object && object->kind == WebAssembly::ObjectKind::table); return (Table*)object; }
-		friend Memory* asMemory(Object* object)			{ assert(object && object->kind == WebAssembly::ObjectKind::memory); return (Memory*)object; }
-		friend GlobalInstance* asGlobal(Object* object)		{ assert(object && object->kind == WebAssembly::ObjectKind::global); return (GlobalInstance*)object; }
-		friend ModuleInstance* asModule(Object* object)		{ assert(object && object->kind == WebAssembly::ObjectKind::module); return (ModuleInstance*)object; }
-
-		friend FunctionInstance* asFunctionNullable(Object* object)	{ return object && object->kind == WebAssembly::ObjectKind::function ? (FunctionInstance*)object : nullptr; }
-		friend Table* asTableNullable(Object* object)			{ return object && object->kind == WebAssembly::ObjectKind::table ? (Table*)object : nullptr; }
-		friend Memory* asMemoryNullable(Object* object)		{ return object && object->kind == WebAssembly::ObjectKind::memory ? (Memory*)object : nullptr; }
-		friend GlobalInstance* asGlobalNullable(Object* object)		{ return object && object->kind == WebAssembly::ObjectKind::global ? (GlobalInstance*)object : nullptr; }
-		friend ModuleInstance* asModuleNullable(Object* object)	{ return object && object->kind == WebAssembly::ObjectKind::module ? (ModuleInstance*)object : nullptr; }
-
-		friend Object* asObject(FunctionInstance* function) { return (Object*)function; }
-		friend Object* asObject(Table* table) { return (Object*)table; }
-		friend Object* asObject(Memory* memory) { return (Object*)memory; }
-		friend Object* asObject(GlobalInstance* global) { return (Object*)global; }
-		friend Object* asObject(ModuleInstance* module) { return (Object*)module; }
 	};
+	
+	RUNTIME_API bool isA(Object* object,const WebAssembly::ObjectType& type);
+
+	inline FunctionInstance* asFunction(Object* object)	{ assert(object && object->kind == WebAssembly::ObjectKind::function); return (FunctionInstance*)object; }
+	inline Table* asTable(Object* object)				{ assert(object && object->kind == WebAssembly::ObjectKind::table); return (Table*)object; }
+	inline Memory* asMemory(Object* object)			{ assert(object && object->kind == WebAssembly::ObjectKind::memory); return (Memory*)object; }
+	inline GlobalInstance* asGlobal(Object* object)		{ assert(object && object->kind == WebAssembly::ObjectKind::global); return (GlobalInstance*)object; }
+	inline ModuleInstance* asModule(Object* object)		{ assert(object && object->kind == WebAssembly::ObjectKind::module); return (ModuleInstance*)object; }
+
+	inline FunctionInstance* asFunctionNullable(Object* object)	{ return object && object->kind == WebAssembly::ObjectKind::function ? (FunctionInstance*)object : nullptr; }
+	inline Table* asTableNullable(Object* object)			{ return object && object->kind == WebAssembly::ObjectKind::table ? (Table*)object : nullptr; }
+	inline Memory* asMemoryNullable(Object* object)		{ return object && object->kind == WebAssembly::ObjectKind::memory ? (Memory*)object : nullptr; }
+	inline GlobalInstance* asGlobalNullable(Object* object)		{ return object && object->kind == WebAssembly::ObjectKind::global ? (GlobalInstance*)object : nullptr; }
+	inline ModuleInstance* asModuleNullable(Object* object)	{ return object && object->kind == WebAssembly::ObjectKind::module ? (ModuleInstance*)object : nullptr; }
+
+	inline Object* asObject(FunctionInstance* function) { return (Object*)function; }
+	inline Object* asObject(Table* table) { return (Object*)table; }
+	inline Object* asObject(Memory* memory) { return (Object*)memory; }
+	inline Object* asObject(GlobalInstance* global) { return (Object*)global; }
+	inline Object* asObject(ModuleInstance* module) { return (Object*)module; }
 
 	// Function API
 	RUNTIME_API Value invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters);
@@ -155,4 +155,7 @@ namespace Runtime
 
 	// Causes an exception.
 	[[noreturn]] RUNTIME_API void causeException(Exception::Cause cause);
+
+	// Frees unreferenced Objects, using the provided array of Objects as the root set.
+	RUNTIME_API void freeUnreferencedObjects(const std::vector<Object*>& rootObjectReferences);
 }

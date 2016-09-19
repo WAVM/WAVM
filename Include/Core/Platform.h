@@ -115,8 +115,9 @@ namespace Platform
 	CORE_API ExecutionContext captureExecutionContext();
 
 	#ifdef _WIN32
-		// Registers the data used by Windows SEH to unwind stack frames.
-		CORE_API void registerSEHUnwindInfo(uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes);
+		// Registers/deregisters the data used by Windows SEH to unwind stack frames.
+		CORE_API void* registerSEHUnwindInfo(uintptr imageLoadAddress,uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes);
+		CORE_API void deregisterSEHUnwindInfo(void* registerResult);
 	#endif
 
 	// Initializes thread-specific state.

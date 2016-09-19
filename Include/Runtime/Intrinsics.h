@@ -78,6 +78,8 @@ namespace Intrinsics
 	};
 
 	RUNTIME_API Runtime::Object* find(const char* name,const WebAssembly::ObjectType& type);
+
+	RUNTIME_API std::vector<Runtime::Object*> getAllIntrinsicObjects();
 }
 
 #define DEFINE_INTRINSIC_FUNCTION0(module,cName,name,returnType) \

@@ -11,8 +11,11 @@
 namespace LLVMJIT
 {
 	using namespace Runtime;
-
-	struct JITModule;
+	
+	struct JITModuleBase
+	{
+		virtual ~JITModuleBase() {}
+	};
 
 	void init();
 	bool instantiateModule(const WebAssembly::Module& module,Runtime::ModuleInstance* moduleInstance);
@@ -27,38 +30,46 @@ namespace LLVMJIT
 namespace Runtime
 {
 	using namespace WebAssembly;
-
-	struct FunctionInstance : Object
+	
+	struct GCObject : Object
 	{
+		GCObject(ObjectKind inKind);
+		~GCObject() override;
+	};
+
+	struct FunctionInstance : GCObject
+	{
+		ModuleInstance* moduleInstance;
 		const FunctionType* type;
 		void* nativeFunction;
 		std::string debugName;
 
-		FunctionInstance(const FunctionType* inType,void* inNativeFunction = nullptr,const char* inDebugName = "<unidentified FunctionInstance>")
-		: Object(ObjectKind::function), type(inType), nativeFunction(inNativeFunction), debugName(inDebugName) {}
+		FunctionInstance(ModuleInstance* inModuleInstance,const FunctionType* inType,void* inNativeFunction = nullptr,const char* inDebugName = "<unidentified FunctionInstance>")
+		: GCObject(ObjectKind::function), moduleInstance(inModuleInstance), type(inType), nativeFunction(inNativeFunction), debugName(inDebugName) {}
 	};
 
-	struct Table : Object
+	struct Table : GCObject
 	{
-		struct Element
+		struct FunctionElement
 		{
 			const FunctionType* type;
 			void* value;
 		};
 
 		TableType type;
-		Element* baseAddress;
-		size_t numElements;
+		FunctionElement* baseAddress;
 		size_t maxPlatformPages;
 		
 		uint8* reservedBaseAddress;
 		size_t reservedNumPlatformPages;
 
-		Table(const TableType& inType): Object(ObjectKind::table), type(inType), baseAddress(nullptr), numElements(0), maxPlatformPages(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
+		std::vector<Object*> elements;
+
+		Table(const TableType& inType): GCObject(ObjectKind::table), type(inType), baseAddress(nullptr), maxPlatformPages(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
 		~Table() override;
 	};
 
-	struct Memory : Object
+	struct Memory : GCObject
 	{
 		MemoryType type;
 		uint8* baseAddress;
@@ -69,19 +80,19 @@ namespace Runtime
 		size_t reservedNumPlatformPages;
 		size_t reservedNumBytes;
 
-		Memory(const MemoryType& inType): Object(ObjectKind::memory), type(inType), baseAddress(nullptr), numPages(0), maxPages(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0), reservedNumBytes(0) {}
+		Memory(const MemoryType& inType): GCObject(ObjectKind::memory), type(inType), baseAddress(nullptr), numPages(0), maxPages(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0), reservedNumBytes(0) {}
 		~Memory() override;
 	};
 
-	struct GlobalInstance : Object
+	struct GlobalInstance : GCObject
 	{
 		GlobalType type;
 		UntaggedValue value;
 
-		GlobalInstance(GlobalType inType,UntaggedValue inValue): Object(ObjectKind::global), type(inType), value(inValue) {}
+		GlobalInstance(GlobalType inType,UntaggedValue inValue): GCObject(ObjectKind::global), type(inType), value(inValue) {}
 	};
-	
-	struct ModuleInstance : Object
+
+	struct ModuleInstance : GCObject
 	{
 		std::vector<Object*> imports;
 		std::map<std::string,Object*> exportMap;
@@ -96,15 +107,17 @@ namespace Runtime
 		Memory* defaultMemory;
 		Table* defaultTable;
 
-		LLVMJIT::JITModule* jitModule;
+		LLVMJIT::JITModuleBase* jitModule;
 
 		ModuleInstance(std::vector<Object*>&& inImports)
-		: Object({ObjectKind::module})
+		: GCObject({ObjectKind::module})
 		, imports(inImports)
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
 		, jitModule(nullptr)
 		{}
+
+		~ModuleInstance() override;
 	};
 
 	// Initializes global state used by the WAVM intrinsics.

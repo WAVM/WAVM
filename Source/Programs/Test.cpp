@@ -16,13 +16,11 @@ using namespace WAST;
 using namespace WebAssembly;
 using namespace Runtime;
 
-uintptr numErrors = 0;
-
 struct TestScriptState : private Resolver
 {
 	std::vector<WAST::Error> errors;
 
-	TestScriptState(const char* inFilename): filename(inFilename) {}
+	TestScriptState(const char* inFilename): filename(inFilename), lastModuleInstance(nullptr) {}
 
 	bool process();
 
@@ -30,11 +28,19 @@ private:
 
 	const char* filename;
 
-	std::vector<Module*> modules;
-	std::vector<ModuleInstance*> moduleInstances;
+	ModuleInstance* lastModuleInstance;
 	
-	std::map<std::string,uintptr> moduleInternalNameToIndexMap;
-	std::map<std::string,uintptr> moduleNameToIndexMap;
+	std::map<std::string,ModuleInstance*> moduleInternalNameToIndexMap;
+	std::map<std::string,ModuleInstance*> moduleNameToIndexMap;
+
+	void collectGarbage()
+	{
+		std::vector<Object*> rootObjects;
+		rootObjects.push_back(asObject(lastModuleInstance));
+		for(auto& mapIt : moduleInternalNameToIndexMap) { rootObjects.push_back(asObject(mapIt.second)); }
+		for(auto& mapIt : moduleNameToIndexMap) { rootObjects.push_back(asObject(mapIt.second)); }
+		freeUnreferencedObjects(rootObjects);
+	}
 
 	bool resolve(const char* moduleName,const char* exportName,ObjectType type,Object*& outObject) override
 	{
@@ -45,12 +51,8 @@ private:
 		auto mapIt = moduleNameToIndexMap.find(moduleName);
 		if(mapIt != moduleNameToIndexMap.end())
 		{
-			auto moduleInstance = moduleInstances[mapIt->second];
-			if(moduleInstance)
-			{
-				outObject = getInstanceExport(moduleInstance,exportName);
-				return outObject != nullptr && isA(outObject,type);
-			}
+			outObject = getInstanceExport(mapIt->second,exportName);
+			return outObject != nullptr && isA(outObject,type);
 		}
 
 		return false;
@@ -83,7 +85,7 @@ private:
 		recordError(nodeIt,std::move(message));
 	}
 
-	Runtime::Value parseRuntimeValue(SNodeIt nodeIt)
+	Value parseRuntimeValue(SNodeIt nodeIt)
 	{
 		SNodeIt childNodeIt;
 		Symbol symbol;
@@ -94,46 +96,46 @@ private:
 			case Symbol::_i32_const:
 			{
 				int32 i32Value;
-				if(!parseInt(childNodeIt,i32Value)) { recordError(childNodeIt,"const: expected i32 literal"); return Runtime::Value(); }
-				else { return Runtime::Value(i32Value); }
+				if(!parseInt(childNodeIt,i32Value)) { recordError(childNodeIt,"const: expected i32 literal"); return Value(); }
+				else { return Value(i32Value); }
 			}
 			case Symbol::_i64_const:
 			{
 				int64 i64Value;
-				if(!parseInt(childNodeIt,i64Value)) { recordError(childNodeIt,"const: expected i64 literal"); return Runtime::Value(); }
-				else { return Runtime::Value(i64Value); }
+				if(!parseInt(childNodeIt,i64Value)) { recordError(childNodeIt,"const: expected i64 literal"); return Value(); }
+				else { return Value(i64Value); }
 			}
 			case Symbol::_f32_const:
 			{
 				float32 f32Value;
-				if(!parseFloat(childNodeIt,f32Value)) { recordError(childNodeIt,"const: expected f32 literal"); return Runtime::Value(); }
-				else { return Runtime::Value(f32Value); }
+				if(!parseFloat(childNodeIt,f32Value)) { recordError(childNodeIt,"const: expected f32 literal"); return Value(); }
+				else { return Value(f32Value); }
 			}
 			case Symbol::_f64_const:
 			{
 				float64 f64Value;
-				if(!parseFloat(childNodeIt,f64Value)) { recordError(childNodeIt,"const: expected f64 literal"); return Runtime::Value(); }
-				else { return Runtime::Value(f64Value); }
+				if(!parseFloat(childNodeIt,f64Value)) { recordError(childNodeIt,"const: expected f64 literal"); return Value(); }
+				else { return Value(f64Value); }
 			}
 			default:;
 			};
 		}
 
 		recordError(nodeIt,"expected const expression");
-		return Runtime::Value();
+		return Value();
 	}
 
-	bool processAction(SNodeIt nodeIt,Runtime::Value& outValue)
+	bool processAction(SNodeIt nodeIt,Value& outValue)
 	{
 		SNodeIt childNodeIt;
 		if(parseTaggedNode(nodeIt,Symbol::_invoke,childNodeIt))
 		{
-			if(!modules.size()) { recordError(nodeIt,"no module to use in invoke"); return false; }
+			if(!lastModuleInstance) { recordError(nodeIt,"no module to use in invoke"); return false; }
 
 			// Parse an optional module name.
 			SNodeIt moduleNameIt = childNodeIt;
 			const char* moduleName;
-			uintptr moduleIndex = modules.size() - 1;
+			ModuleInstance* moduleInstance = lastModuleInstance;
 			if(parseName(childNodeIt,moduleName))
 			{
 				auto mapIt = moduleInternalNameToIndexMap.find(moduleName);
@@ -142,11 +144,10 @@ private:
 					recordError(moduleNameIt,std::string("unknown module name: ") + moduleName);
 					return true;
 				}
-				moduleIndex = mapIt->second;
+				moduleInstance = mapIt->second;
 			}
 
 			// Look up the module this invoke uses, and bail without an error if there was an error parsing the module.
-			auto moduleInstance = moduleInstances[moduleIndex];
 			if(moduleInstance)
 			{
 				// Parse the export name to invoke.
@@ -161,7 +162,7 @@ private:
 				auto functionType = getFunctionType(functionInstance);
 
 				// Parse the invoke's parameters.
-				std::vector<Runtime::Value> parameters(functionType->parameters.size());
+				std::vector<Value> parameters(functionType->parameters.size());
 				for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 					{ parameters[parameterIndex] = parseRuntimeValue(childNodeIt++); }
 
@@ -176,12 +177,12 @@ private:
 		}
 		else if(parseTaggedNode(nodeIt,Symbol::_get,childNodeIt))
 		{
-			if(!modules.size()) { recordError(nodeIt,"no module to use in get"); return false; }
+			if(!lastModuleInstance) { recordError(nodeIt,"no module to use in get"); return false; }
 
 			// Parse an optional module name.
 			SNodeIt moduleNameIt = childNodeIt;
 			const char* moduleName;
-			uintptr moduleIndex = modules.size() - 1;
+			ModuleInstance* moduleInstance = lastModuleInstance;
 			if(parseName(childNodeIt,moduleName))
 			{
 				auto mapIt = moduleInternalNameToIndexMap.find(moduleName);
@@ -190,11 +191,10 @@ private:
 					recordError(moduleNameIt,std::string("unknown module name: ") + moduleName);
 					return false;
 				}
-				moduleIndex = mapIt->second;
+				moduleInstance = mapIt->second;
 			}
 
 			// Look up the module this invoke uses, and bail without an error if there was an error parsing the module.
-			auto moduleInstance = moduleInstances[moduleIndex];
 			if(moduleInstance)
 			{
 				// Parse the export name to get.
@@ -221,11 +221,11 @@ private:
 	void processAssertReturn(Core::TextFileLocus locus,SNodeIt nodeIt)
 	{
 		// Process the action.
-		Runtime::Value result;
+		Value result;
 		if(!processAction(nodeIt++,result)) { return; }
 
 		// Parse the expected value of the action.
-		auto expectedValue = nodeIt ? parseRuntimeValue(nodeIt++) : Runtime::Value();
+		auto expectedValue = nodeIt ? parseRuntimeValue(nodeIt++) : Value();
 	
 		// Check that the action result matched the expected value.
 		if(describeRuntimeValue(result) != describeRuntimeValue(expectedValue))
@@ -242,7 +242,7 @@ private:
 	void processAssertReturnNaN(Core::TextFileLocus locus,SNodeIt nodeIt)
 	{
 		// Process the action.
-		Runtime::Value result;
+		Value result;
 		if(!processAction(nodeIt++,result)) { return; }
 
 		// Check that the action result was a NaN.
@@ -259,7 +259,7 @@ private:
 	void processAssertTrap(Core::TextFileLocus locus,SNodeIt nodeIt)
 	{
 		// Process the action.
-		Runtime::Value result;
+		Value result;
 		if(!processAction(nodeIt++,result)) { return; }
 
 		// Parse the expected value of the invoke.
@@ -267,25 +267,25 @@ private:
 		if(!parseString(nodeIt,message)) { recordError(nodeIt,"expected trap message"); return; }
 		
 		// Try to map the trap message to an exception cause.
-		Runtime::Exception::Cause expectedCause = Runtime::Exception::Cause::unknown;
-		if(!strcmp(message.c_str(),"out of bounds memory access")) { expectedCause = Runtime::Exception::Cause::accessViolation; }
-		else if(!strcmp(message.c_str(),"callstack exhausted")) { expectedCause = Runtime::Exception::Cause::stackOverflow; }
-		else if(!strcmp(message.c_str(),"integer overflow")) { expectedCause = Runtime::Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
-		else if(!strcmp(message.c_str(),"integer divide by zero")) { expectedCause = Runtime::Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
-		else if(!strcmp(message.c_str(),"invalid conversion to integer")) { expectedCause = Runtime::Exception::Cause::invalidFloatOperation; }
-		else if(!strcmp(message.c_str(),"call stack exhausted")) { expectedCause = Runtime::Exception::Cause::stackOverflow; }
-		else if(!strcmp(message.c_str(),"unreachable executed")) { expectedCause = Runtime::Exception::Cause::reachedUnreachable; }
-		else if(!strcmp(message.c_str(),"unreachable")) { expectedCause = Runtime::Exception::Cause::reachedUnreachable; }
-		else if(!strcmp(message.c_str(),"indirect call signature mismatch")) { expectedCause = Runtime::Exception::Cause::indirectCallSignatureMismatch; }
-		else if(!strcmp(message.c_str(),"indirect call")) { expectedCause = Runtime::Exception::Cause::indirectCallSignatureMismatch; }
-		else if(!strcmp(message.c_str(),"undefined element")) { expectedCause = Runtime::Exception::Cause::undefinedTableElement; }
-		else if(!strcmp(message.c_str(),"undefined")) { expectedCause = Runtime::Exception::Cause::undefinedTableElement; }
-		else if(!strcmp(message.c_str(),"uninitialized")) { expectedCause = Runtime::Exception::Cause::undefinedTableElement; }
-		else if(!strcmp(message.c_str(),"uninitialized element")) { expectedCause = Runtime::Exception::Cause::undefinedTableElement; }
+		Exception::Cause expectedCause = Exception::Cause::unknown;
+		if(!strcmp(message.c_str(),"out of bounds memory access")) { expectedCause = Exception::Cause::accessViolation; }
+		else if(!strcmp(message.c_str(),"callstack exhausted")) { expectedCause = Exception::Cause::stackOverflow; }
+		else if(!strcmp(message.c_str(),"integer overflow")) { expectedCause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
+		else if(!strcmp(message.c_str(),"integer divide by zero")) { expectedCause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
+		else if(!strcmp(message.c_str(),"invalid conversion to integer")) { expectedCause = Exception::Cause::invalidFloatOperation; }
+		else if(!strcmp(message.c_str(),"call stack exhausted")) { expectedCause = Exception::Cause::stackOverflow; }
+		else if(!strcmp(message.c_str(),"unreachable executed")) { expectedCause = Exception::Cause::reachedUnreachable; }
+		else if(!strcmp(message.c_str(),"unreachable")) { expectedCause = Exception::Cause::reachedUnreachable; }
+		else if(!strcmp(message.c_str(),"indirect call signature mismatch")) { expectedCause = Exception::Cause::indirectCallSignatureMismatch; }
+		else if(!strcmp(message.c_str(),"indirect call")) { expectedCause = Exception::Cause::indirectCallSignatureMismatch; }
+		else if(!strcmp(message.c_str(),"undefined element")) { expectedCause = Exception::Cause::undefinedTableElement; }
+		else if(!strcmp(message.c_str(),"undefined")) { expectedCause = Exception::Cause::undefinedTableElement; }
+		else if(!strcmp(message.c_str(),"uninitialized")) { expectedCause = Exception::Cause::undefinedTableElement; }
+		else if(!strcmp(message.c_str(),"uninitialized element")) { expectedCause = Exception::Cause::undefinedTableElement; }
 		const std::string expectedCauseDescription = std::string("Exception(") + describeExceptionCause(expectedCause) + ")";
 
 		// Check that the action result was an exception of the expected type.
-		if(result.type != Runtime::TypeId::exception) { recordError(locus,"assert_trap: expected " + expectedCauseDescription + " but got " + describeRuntimeValue(result)); }
+		if(result.type != TypeId::exception) { recordError(locus,"assert_trap: expected " + expectedCauseDescription + " but got " + describeRuntimeValue(result)); }
 		else if(result.exception->cause != expectedCause)
 		{ recordError(locus,std::string("assert_trap: expected ") + expectedCauseDescription + " but got " + describeRuntimeValue(result)); }
 
@@ -412,7 +412,7 @@ private:
 	}
 };
 
-std::string describeRuntimeException(const Runtime::Exception* exception)
+std::string describeRuntimeException(const Exception* exception)
 {
 	std::string result = describeExceptionCause(exception->cause);
 	for(auto function : exception->callStack) { result += "\n"; result += function; }
@@ -447,6 +447,10 @@ bool TestScriptState::process()
 		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 		{
+			// Clear the previous module.
+			lastModuleInstance = nullptr;
+			collectGarbage();
+
 			// Parse a module definition.
 			const char* moduleInternalName = nullptr;
 			Module* module = new Module();
@@ -454,7 +458,7 @@ bool TestScriptState::process()
 			if(parseTextOrBinaryModule(childNodeIt,*module,moduleErrors,moduleInternalName))
 			{
 				// Link and instantiate the module.
-				moduleInstances.push_back(linkAndInstantiateModule(*module,*this));
+				lastModuleInstance = linkAndInstantiateModule(*module,*this);
 			}
 			else
 			{
@@ -462,15 +466,13 @@ bool TestScriptState::process()
 				// Otherwise insert a nullptr in modules and moduleInstances so that tests that reference the most recent module realize there was a problem.
 				delete module;
 				module = nullptr;
-				moduleInstances.push_back(nullptr);
 			}
 
-			modules.push_back(module);
 			if(moduleInternalName)
 			{
 				// Don't check for duplicate names for now, since the ml-proto tests rely on name shadowing.
 				/*if(moduleInternalNameToIndexMap.count(moduleInternalName)) { recordError(moduleInternalNameIt,std::string("duplicate module name: ") + moduleInternalName); }
-				else*/ { moduleInternalNameToIndexMap[moduleInternalName] = modules.size() - 1; }
+				else*/ { moduleInternalNameToIndexMap[moduleInternalName] = lastModuleInstance; }
 			}
 		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_register,childNodeIt))
@@ -485,8 +487,7 @@ bool TestScriptState::process()
 			{
 				auto mapIt = moduleInternalNameToIndexMap.find(moduleInternalName);
 				if(mapIt == moduleInternalNameToIndexMap.end()) { recordError(childNodeIt,"unknown module internal name"); continue; }
-				const uintptr moduleIndex = mapIt->second;
-				moduleNameToIndexMap[moduleName] = moduleIndex;
+				moduleNameToIndexMap[moduleName] = mapIt->second;
 			}
 		}
 		else if(rootNodeIt->type == SNodeType::Error)
@@ -512,7 +513,7 @@ bool TestScriptState::process()
 		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_invoke,childNodeIt) || parseTaggedNode(rootNodeIt,Symbol::_get,childNodeIt))
 		{
-			Runtime::Value actionResult;
+			Value actionResult;
 			if(processAction(rootNodeIt,actionResult))
 			{
 				if(actionResult.type == TypeId::exception) { recordError(rootNodeIt,"unexpected trap: " + describeRuntimeException(actionResult.exception)); }
@@ -595,7 +596,7 @@ int commandMain(int argc,char** argv)
 	// Always enable debug logging for tests.
 	Log::setCategoryEnabled(Log::Category::debug,true);
 
-	Runtime::init();
+	init();
 	
 	TestScriptState scriptState(filename);
 	if(!scriptState.process())

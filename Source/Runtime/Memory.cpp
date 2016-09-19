@@ -146,13 +146,13 @@ namespace Runtime
 		Table* table = new Table(type);
 
 		// In 64-bit, allocate enough address-space to safely access 32-bit table indices without bounds checking, or 16MB (4M elements) if the host is 32-bit.
-		const size_t tableMaxBytes = HAS_64BIT_ADDRESS_SPACE ? (sizeof(Table::Element) << 32) : 16*1024*1024;
+		const size_t tableMaxBytes = HAS_64BIT_ADDRESS_SPACE ? (sizeof(Table::FunctionElement) << 32) : 16*1024*1024;
 		
 		// On a 64 bit runtime, align the table base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
 		// Note that this reserves a full extra 4GB, but only uses (4GB-1 page) for alignment, so there will always be a guard page at the end to
 		// protect against unaligned loads/stores that straddle the end of the address-space.
 		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : (uintptr(1) << Platform::getPageSizeLog2());
-		table->baseAddress = (Table::Element*)allocateVirtualPagesAligned(tableMaxBytes,alignmentBytes,table->reservedBaseAddress,table->reservedNumPlatformPages);
+		table->baseAddress = (Table::FunctionElement*)allocateVirtualPagesAligned(tableMaxBytes,alignmentBytes,table->reservedBaseAddress,table->reservedNumPlatformPages);
 		table->maxPlatformPages = tableMaxBytes >> Platform::getPageSizeLog2();
 		
 		if(!table->baseAddress) { delete table; return nullptr; }
@@ -165,7 +165,7 @@ namespace Runtime
 	Table::~Table()
 	{
 		// Decommit all pages.
-		if(numElements > 0) { Platform::decommitVirtualPages((uint8*)baseAddress,getNumPlatformPages(numElements * sizeof(Table::Element))); }
+		if(elements.size() > 0) { Platform::decommitVirtualPages((uint8*)baseAddress,getNumPlatformPages(elements.size() * sizeof(Table::FunctionElement))); }
 
 		// Free the virtual address space.
 		if(maxPlatformPages > 0) { Platform::freeVirtualPages((uint8*)reservedBaseAddress,reservedNumPlatformPages); }
@@ -191,19 +191,31 @@ namespace Runtime
 		return false;
 	}
 
+	Object* setTableElement(Table* table,uintptr index,Object* newValue)
+	{
+		assert(index < table->numElements);
+		FunctionInstance* functionInstance = asFunction(newValue);
+		assert(functionInstance->nativeFunction);
+		table->baseAddress[index].type = functionInstance->type;
+		table->baseAddress[index].value = functionInstance->nativeFunction;
+		auto oldValue = table->elements[index];
+		table->elements[index] = newValue;
+		return oldValue;
+	}
+
 	size_t getTableNumElements(Table* table)
 	{
-		return table->numElements;
+		return table->elements.size();
 	}
 
 	intptr_t growTable(Table* table,size_t numNewElements)
 	{
-		const size_t previousNumElements = table->numElements;
+		const size_t previousNumElements = table->elements.size();
 		if(numNewElements > 0)
 		{
-			const size_t previousNumPlatformPages = getNumPlatformPages(table->numElements * sizeof(Table::Element));
-			const size_t newNumPlatformPages = getNumPlatformPages((table->numElements+numNewElements) * sizeof(Table::Element));
-			if(table->numElements > UINTPTR_MAX - numNewElements
+			const size_t previousNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(Table::FunctionElement));
+			const size_t newNumPlatformPages = getNumPlatformPages((table->elements.size()+numNewElements) * sizeof(Table::FunctionElement));
+			if(table->elements.size() > UINTPTR_MAX - numNewElements
 			|| newNumPlatformPages > table->maxPlatformPages
 			|| !Platform::commitVirtualPages(
 				(uint8*)table->baseAddress + (previousNumPlatformPages << Platform::getPageSizeLog2()),
@@ -212,20 +224,20 @@ namespace Runtime
 			{
 				return -1;
 			}
-			table->numElements += numNewElements;
+			table->elements.insert(table->elements.end(),numNewElements,nullptr);
 		}
 		return previousNumElements;
 	}
 
 	intptr_t shrinkTable(Table* table,size_t numElementsToShrink)
 	{
-		const size_t previousNumElements = table->numElements;
+		const size_t previousNumElements = table->elements.size();
 		if(numElementsToShrink > 0)
 		{
-			if(numElementsToShrink > table->numElements) { return -1; }
-			const size_t previousNumPlatformPages = getNumPlatformPages(table->numElements * sizeof(Table::Element));
-			table->numElements -= numElementsToShrink;
-			const size_t newNumPlatformPages = getNumPlatformPages(table->numElements * sizeof(Table::Element));
+			if(numElementsToShrink > table->elements.size()) { return -1; }
+			const size_t previousNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(Table::FunctionElement));
+			table->elements.resize(table->elements.size() - numElementsToShrink);
+			const size_t newNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(Table::FunctionElement));
 			Platform::decommitVirtualPages(
 				(uint8*)table->baseAddress + (newNumPlatformPages << Platform::getPageSizeLog2()),
 				(previousNumPlatformPages - newNumPlatformPages) << Platform::getPageSizeLog2()

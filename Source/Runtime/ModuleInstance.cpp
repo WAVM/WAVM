@@ -115,7 +115,7 @@ namespace Runtime
 			const uintptr functionIndex = moduleInstance->functions.size();
 			auto disassemblyName = disassemblyNames.functions[functionIndex];
 			if(!disassemblyName.size()) { disassemblyName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-			auto functionInstance = new FunctionInstance(module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,disassemblyName.c_str());
+			auto functionInstance = new FunctionInstance(moduleInstance,module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,disassemblyName.c_str());
 			moduleInstance->functionDefs.push_back(functionInstance);
 			moduleInstance->functions.push_back(functionInstance);
 		}
@@ -147,16 +147,14 @@ namespace Runtime
 			assert(baseOffsetValue.type == TypeId::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			if(baseOffset + tableSegment.indices.size() > table->numElements)
+			if(baseOffset + tableSegment.indices.size() > table->elements.size())
 			{ throw InstantiationException(InstantiationException::invalidDataSegmentBase); }
 
 			for(uintptr index = 0;index < tableSegment.indices.size();++index)
 			{
 				const uintptr functionIndex = tableSegment.indices[index];
 				assert(functionIndex < moduleInstance->functions.size());
-				assert(moduleInstance->functions[functionIndex]->nativeFunction);
-				table->baseAddress[baseOffset + index].type = moduleInstance->functions[functionIndex]->type;
-				table->baseAddress[baseOffset + index].value = moduleInstance->functions[functionIndex]->nativeFunction;
+				setTableElement(table,baseOffset + index,moduleInstance->functions[functionIndex]);
 			}
 		}
 
@@ -176,6 +174,12 @@ namespace Runtime
 
 		moduleInstances.push_back(moduleInstance);
 		return moduleInstance;
+	}
+
+	ModuleInstance::~ModuleInstance()
+	{
+		Log::printf(Log::Category::debug,"Freeing module instance\n");
+		delete jitModule;
 	}
 
 	Memory* getDefaultMemory(ModuleInstance* moduleInstance) { return moduleInstance->defaultMemory; }

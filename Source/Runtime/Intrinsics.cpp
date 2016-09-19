@@ -1,6 +1,7 @@
 #include "Core/Core.h"
 #include "Intrinsics.h"
 #include "Core/Platform.h"
+#include "Runtime.h"
 #include "RuntimePrivate.h"
 
 #include <string>
@@ -36,7 +37,7 @@ namespace Intrinsics
 	Function::Function(const char* inName,const WebAssembly::FunctionType* type,void* nativeFunction)
 	:	name(inName)
 	{
-		function = new Runtime::FunctionInstance(type,nativeFunction);
+		function = new Runtime::FunctionInstance(nullptr,type,nativeFunction);
 		Platform::Lock lock(Singleton::get().mutex);
 		Singleton::get().functionMap[getDecoratedName(inName,type)] = this;
 	}
@@ -142,6 +143,17 @@ namespace Intrinsics
 		default: Core::unreachable();
 		};
 		if(result && !isA(result,type)) { result = nullptr; }
+		return result;
+	}
+	
+	std::vector<Runtime::Object*> getAllIntrinsicObjects()
+	{
+		Platform::Lock lock(Singleton::get().mutex);
+		std::vector<Runtime::Object*> result;
+		for(auto mapIt : Singleton::get().functionMap) { result.push_back(mapIt.second->function); }
+		for(auto mapIt : Singleton::get().tableMap) { result.push_back((Runtime::Table*)*mapIt.second); }
+		for(auto mapIt : Singleton::get().memoryMap) { result.push_back((Runtime::Memory*)*mapIt.second); }
+		for(auto mapIt : Singleton::get().variableMap) { result.push_back(mapIt.second->global); }
 		return result;
 	}
 }

@@ -96,14 +96,14 @@ namespace Platform
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,numPages << getPageSizeLog2(),MEM_DECOMMIT);
-		if(!result) { Core::fatalError("VirtualFree(MEM_DECOMMIT) failed"); }
+		if(baseVirtualAddress && !result) { Core::fatalError("VirtualFree(MEM_DECOMMIT) failed"); }
 	}
 
 	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		assert(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,0/*numPages << getPageSizeLog2()*/,MEM_RELEASE);
-		if(!result) { Core::fatalError("VirtualFree(MEM_RELEASE) failed"); }
+		if(baseVirtualAddress && !result) { Core::fatalError("VirtualFree(MEM_RELEASE) failed"); }
 	}
 
 	// The interface to the DbgHelp DLL
@@ -152,12 +152,8 @@ namespace Platform
 		}
 	}
 	
-	void registerSEHUnwindInfo(uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes)
+	void* registerSEHUnwindInfo(uintptr imageLoadAddress,uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes)
 	{
-		// Use the smallest address of the 3 segments as the base address of the image.
-		// This assumes that the segments are all loaded less than 2GB away from each other!
-		auto imageBaseAddress = std::min(textLoadAddress,std::min(pdataLoadAddress,xdataLoadAddress));
-
 		// The LLVM COFF dynamic loader doesn't handle the image-relative relocations used by the pdata section,
 		// and overwrites those values with o: https://github.com/llvm-mirror/llvm/blob/e84d8c12d5157a926db15976389f703809c49aa5/lib/ExecutionEngine/RuntimeDyld/Targets/RuntimeDyldCOFFX86_64.h#L96
 		// This works around that by making a copy of the RUNTIME_FUNCTION structs and doing a manual relocation
@@ -172,21 +168,29 @@ namespace Platform
 			auto& functionCopy = functionsCopy[functionIndex];
 
 			// BeginAddress and EndAddress are relative to the start of the function, so BeginAddress should be 0 and EndAddress the length of the function's code.
-			functionCopy.BeginAddress = (uint32)(currentFunctionTextLoadAddr + function.BeginAddress - imageBaseAddress);
-			functionCopy.EndAddress = (uint32)(currentFunctionTextLoadAddr + function.EndAddress - imageBaseAddress);
+			functionCopy.BeginAddress = (uint32)(currentFunctionTextLoadAddr + function.BeginAddress - imageLoadAddress);
+			functionCopy.EndAddress = (uint32)(currentFunctionTextLoadAddr + function.EndAddress - imageLoadAddress);
 
 			// UnwindInfoAddress is an offset relative to the start of the xdata section.
-			functionCopy.UnwindInfoAddress = (uint32)(xdataLoadAddress + function.UnwindInfoAddress - imageBaseAddress);
+			functionCopy.UnwindInfoAddress = (uint32)(xdataLoadAddress + function.UnwindInfoAddress - imageLoadAddress);
 
 			// Assume that the next function immediately follows the current function at the next 16-byte aligned address.
 			currentFunctionTextLoadAddr += (function.EndAddress + 15) & ~15;
 		}
 
 		// Register our manually fixed up copy of the function table.
-		if(!RtlAddFunctionTable(functionsCopy,numFunctions,imageBaseAddress))
+		if(!RtlAddFunctionTable(functionsCopy,numFunctions,imageLoadAddress))
 		{
 			Core::fatalError("RtlAddFunctionTable failed");
 		}
+
+		return functionsCopy;
+	}
+	void deregisterSEHUnwindInfo(void* registerResult)
+	{
+		auto functionTable = (RUNTIME_FUNCTION*)registerResult;
+		RtlDeleteFunctionTable(functionTable);
+		delete [] functionTable;
 	}
 	
 	ExecutionContext unwindStack(const CONTEXT& immutableContext)

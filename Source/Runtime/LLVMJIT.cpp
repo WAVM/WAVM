@@ -53,14 +53,146 @@ namespace LLVMJIT
 		: type(Type::invokeThunk), invokeThunkType(inInvokeThunkType), baseAddress(inBaseAddress), numBytes(inNumBytes) {}
 	};
 
+	// Allocates memory for the LLVM object loader.
+	struct UnitMemoryManager : llvm::RTDyldMemoryManager
+	{
+		UnitMemoryManager()
+		: imageBaseAddress(nullptr)
+		, isFinalized(false)
+		, codeSection({0})
+		, readOnlySection({0})
+		, readWriteSection({0})
+		, hasRegisteredEHFrames(false)
+		{}
+		virtual ~UnitMemoryManager() override
+		{
+			if(hasRegisteredEHFrames)
+			{
+				hasRegisteredEHFrames = false;
+				deregisterEHFrames(ehFramesAddr,ehFramesLoadAddr,ehFramesNumBytes);
+			}
+
+			// Decommit the image pages, but leave them reserved to catch any references to them that might erroneously remain.
+			Platform::decommitVirtualPages(imageBaseAddress,numAllocatedImagePages);
+		}
+		
+		void registerEHFrames(uint8* addr, uint64 loadAddr,size_t numBytes) override
+		{
+			llvm::RTDyldMemoryManager::registerEHFrames(addr,loadAddr,numBytes);
+			hasRegisteredEHFrames = true;
+			ehFramesAddr = addr;
+			ehFramesLoadAddr = loadAddr;
+			ehFramesNumBytes = numBytes;
+		}
+		void deregisterEHFrames(uint8* addr, uint64 loadAddr,size_t numBytes) override
+		{
+			Log::printf(Log::Category::error,"deregisterRHFrames %u\n",numBytes);
+			llvm::RTDyldMemoryManager::deregisterEHFrames(addr,loadAddr,numBytes);
+		}
+
+		virtual uint8* allocateCodeSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
+		{
+			return allocateBytes((uintptr)numBytes,alignment,codeSection);
+		}
+		virtual uint8* allocateDataSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
+		{
+			return allocateBytes((uintptr)numBytes,alignment,isReadOnly ? readOnlySection : readWriteSection);
+		}
+		virtual bool needsToReserveAllocationSpace() override { return true; }
+		virtual void reserveAllocationSpace(uintptr_t numCodeBytes,uint32 codeAlignment,uintptr_t numReadOnlyBytes,uint32 readOnlyAlignment,uintptr_t numReadWriteBytes,uint32 readWriteAlignment) override
+		{
+			codeSection.numPages = shrAndRoundUp(numCodeBytes,Platform::getPageSizeLog2());
+			readOnlySection.numPages = shrAndRoundUp(numReadOnlyBytes,Platform::getPageSizeLog2());
+			readWriteSection.numPages = shrAndRoundUp(numReadWriteBytes,Platform::getPageSizeLog2());
+			numAllocatedImagePages = codeSection.numPages + readOnlySection.numPages + readWriteSection.numPages;
+			if(numAllocatedImagePages)
+			{
+				imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
+				if(!imageBaseAddress || !Platform::commitVirtualPages(imageBaseAddress,numAllocatedImagePages)) { Core::fatalError("memory allocation for JIT code failed"); }
+				codeSection.baseAddress = imageBaseAddress;
+				readOnlySection.baseAddress = codeSection.baseAddress + (codeSection.numPages << Platform::getPageSizeLog2());
+				readWriteSection.baseAddress = readOnlySection.baseAddress + (readOnlySection.numPages << Platform::getPageSizeLog2());
+			}
+		}
+		virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
+		{
+			assert(!isFinalized);
+			isFinalized = true;
+			// Set the requested final memory access for each section's pages.
+			const Platform::MemoryAccess codeAccess = USE_WRITEABLE_JIT_CODE_PAGES ? Platform::MemoryAccess::ReadWriteExecute : Platform::MemoryAccess::Execute;
+			if(!Platform::setVirtualPageAccess(codeSection.baseAddress,codeSection.numPages,codeAccess)) { return false; }
+			if(!Platform::setVirtualPageAccess(readOnlySection.baseAddress,readOnlySection.numPages,Platform::MemoryAccess::ReadOnly)) { return false; }
+			if(!Platform::setVirtualPageAccess(readWriteSection.baseAddress,readWriteSection.numPages,Platform::MemoryAccess::ReadWrite)) { return false; }
+			return true;
+		}
+		virtual void invalidateInstructionCache()
+		{
+			// Invalidate the instruction cache for the whole image.
+			llvm::sys::Memory::InvalidateInstructionCache(imageBaseAddress,numAllocatedImagePages << Platform::getPageSizeLog2());
+		}
+
+		uint8* getImageBaseAddress() const { return imageBaseAddress; }
+
+	private:
+		struct Section
+		{
+			uint8* baseAddress;
+			size_t numPages;
+			size_t numCommittedBytes;
+		};
+		
+		uint8* imageBaseAddress;
+		size_t numAllocatedImagePages;
+		bool isFinalized;
+
+		Section codeSection;
+		Section readOnlySection;
+		Section readWriteSection;
+
+		bool hasRegisteredEHFrames;
+		uint8* ehFramesAddr;
+		uint64 ehFramesLoadAddr;
+		size_t ehFramesNumBytes;
+
+		uint8* allocateBytes(uintptr numBytes,uintptr alignment,Section& section)
+		{
+			assert(section.baseAddress);
+			assert(!(alignment & (alignment - 1)));
+			assert(!isFinalized);
+			
+			// Allocate the section at the lowest uncommitted byte of image memory.
+			uint8* allocationBaseAddress = section.baseAddress + align(section.numCommittedBytes,alignment);
+			assert(!(reinterpret_cast<uintptr>(allocationBaseAddress) & (alignment-1)));
+			section.numCommittedBytes = align(section.numCommittedBytes,alignment) + align(numBytes,alignment);
+
+			// Check that enough space was reserved in the section.
+			if(section.numCommittedBytes > (section.numPages << Platform::getPageSizeLog2())) { Core::fatalError("didn't reserve enough space in section"); }
+
+			return allocationBaseAddress;
+		}
+		
+		static uintptr align(uintptr size,uintptr alignment) { return (size + alignment - 1) & ~(alignment - 1); }
+		static uintptr shrAndRoundUp(uintptr value,uintptr shift) { return (value + (uintptr(1)<<shift) - 1) >> shift; }
+
+		UnitMemoryManager(const UnitMemoryManager&) = delete;
+		void operator=(const UnitMemoryManager&) = delete;
+	};
+
 	// A unit of JIT compilation.
 	// Encapsulates the LLVM JIT compilation pipeline but allows subclasses to define how the resulting code is used.
 	struct JITUnit
 	{
-		JITUnit()
+		JITUnit(): registerSEHUnwindInfoResult(nullptr)
 		{
 			objectLayer = llvm::make_unique<ObjectLayer>(NotifyLoadedFunctor(this));
 			compileLayer = llvm::make_unique<CompileLayer>(*objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
+		}
+		~JITUnit()
+		{
+			compileLayer->removeModuleSet(handle);
+			#ifdef _WIN32
+				if(registerSEHUnwindInfoResult) { Platform::deregisterSEHUnwindInfo(registerSEHUnwindInfoResult); }
+			#endif
 		}
 
 		bool compile(llvm::Module* llvmModule);
@@ -84,19 +216,30 @@ namespace LLVMJIT
 		typedef llvm::orc::ObjectLinkingLayer<NotifyLoadedFunctor> ObjectLayer;
 		typedef llvm::orc::IRCompileLayer<ObjectLayer> CompileLayer;
 
+		UnitMemoryManager memoryManager;
 		std::unique_ptr<ObjectLayer> objectLayer;
 		std::unique_ptr<CompileLayer> compileLayer;
 		CompileLayer::ModuleSetHandleT handle;
+
+		void* registerSEHUnwindInfoResult;
 	};
 
 	// The JIT compilation unit for a WebAssembly module instance.
-	struct JITModule : JITUnit
+	struct JITModule : JITUnit, JITModuleBase
 	{
 		ModuleInstance* moduleInstance;
 
 		std::vector<JITSymbol*> functionDefSymbols;
 
 		JITModule(ModuleInstance* inModuleInstance): moduleInstance(inModuleInstance) {}
+		~JITModule() override
+		{
+			for(auto symbol : functionDefSymbols)
+			{
+				addressToSymbolMap.erase(addressToSymbolMap.find(symbol->baseAddress + symbol->numBytes));
+				delete symbol;
+			}
+		}
 
 		void notifySymbolLoaded(const char* name,uintptr baseAddress,size_t numBytes) override
 		{
@@ -152,105 +295,6 @@ namespace LLVMJIT
 		throw InstantiationException(InstantiationException::Cause::codeGenFailed);
 	}
 	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbolInLogicalDylib(const std::string& name) { return llvm::RuntimeDyld::SymbolInfo(nullptr); }
-	
-	// Allocates memory for the LLVM object loader.
-	struct SectionMemoryManager : llvm::RTDyldMemoryManager
-	{
-		static SectionMemoryManager singleton;
-
-		SectionMemoryManager()
-		{
-			// Allocate 2GB of virtual pages for the image up front. This ensures that no address within the image
-			// is more than a 32-bit offset from any other address in the image. LLVM on Windows produces COFF
-			// files that assume the entire image can be addressed by a 32-bit offset, but the built-in LLVM
-			// SectionMemoryManager doesn't fulfill that assumption.
-			numAllocatedImagePages = ((size_t)1) << (31 - Platform::getPageSizeLog2());
-			imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
-			numCommittedImagePages = 0;
-		}
-		virtual ~SectionMemoryManager() override
-		{
-			// Free the allocated and possibly committed image pages.
-			Platform::freeVirtualPages(imageBaseAddress,numAllocatedImagePages);
-		}
-
-		virtual uint8* allocateCodeSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
-		{
-			auto finalAccess = USE_WRITEABLE_JIT_CODE_PAGES ? Platform::MemoryAccess::ReadWriteExecute : Platform::MemoryAccess::Execute;
-			return allocateSection((uintptr)numBytes,alignment,finalAccess);
-		}
-		virtual uint8* allocateDataSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
-		{
-			return allocateSection((uintptr)numBytes,alignment,isReadOnly ? Platform::MemoryAccess::ReadOnly : Platform::MemoryAccess::ReadWrite);
-		}
-		virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
-		{
-			// Set the requested final memory access for each section's pages.
-			for(auto section : sections)
-			{
-				if(!section.isFinalized)
-				{
-					if(!Platform::setVirtualPageAccess(section.baseAddress,section.numPages,section.finalAccess)) { return false; }
-					section.isFinalized = true;
-				}
-			}
-			return true;
-		}
-		virtual void invalidateInstructionCache()
-		{
-			// Invalidate the instruction cache for the whole image.
-			llvm::sys::Memory::InvalidateInstructionCache(imageBaseAddress,numAllocatedImagePages << Platform::getPageSizeLog2());
-		}
-
-	private:
-		struct Section
-		{
-			uint8* baseAddress;
-			size_t numPages;
-			Platform::MemoryAccess finalAccess;
-			bool isFinalized;
-		};
-		
-		std::vector<Section> sections;
-
-		uint8* imageBaseAddress;
-		size_t numAllocatedImagePages;
-		uintptr numCommittedImagePages;
-
-		uint8* allocateSection(uintptr numBytes,uintptr alignment,Platform::MemoryAccess finalAccess)
-		{
-			assert(!(alignment & (alignment - 1)));
-
-			// Allocate the section at the lowest uncommitted byte of image memory.
-			uint8* unalignedSectionBaseAddress = imageBaseAddress + (numCommittedImagePages << Platform::getPageSizeLog2());
-
-			// If there's larger alignment than the page size requested, adjust the base pointer accordingly.
-			uint8* sectionBaseAddress = (uint8*)((uintptr)(unalignedSectionBaseAddress + alignment - 1) & ~(alignment - 1));
-			const size_t numAlignmentPages = (sectionBaseAddress - unalignedSectionBaseAddress) >> Platform::getPageSizeLog2();
-			assert(!((sectionBaseAddress - unalignedSectionBaseAddress) & ((1 << Platform::getPageSizeLog2()) - 1)));
-
-			// Round the allocation size up to the next page.
-			const size_t numPages = (numBytes + (((size_t)1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
-
-			// Check that the image memory allocation hasn't been exhausted.
-			if(numCommittedImagePages + numAlignmentPages + numPages > numAllocatedImagePages) { return nullptr; }
-
-			// Commit the section's pages.
-			if(!Platform::commitVirtualPages(sectionBaseAddress,numPages)) { return nullptr; }
-			
-			// Record the section so finalizeMemory can update its access level.
-			sections.push_back({sectionBaseAddress,numPages,finalAccess,false});
-
-			// Update the allocated page count.
-			numCommittedImagePages += numAlignmentPages + numPages;
-
-			return sectionBaseAddress;
-		}
-
-		SectionMemoryManager(const SectionMemoryManager&) = delete;
-		void operator=(const SectionMemoryManager&) = delete;
-	};
-	SectionMemoryManager SectionMemoryManager::singleton;
 
 	void JITUnit::NotifyLoadedFunctor::operator()(
 		const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
@@ -308,7 +352,8 @@ namespace LLVMJIT
 				// Pass the sections to the platform to register unwind info.
 				if(textSection.getObject() && pdataSection.getObject() && xdataSection.getObject())
 				{
-					Platform::registerSEHUnwindInfo(
+					jitUnit->registerSEHUnwindInfoResult = Platform::registerSEHUnwindInfo(
+						reinterpret_cast<uintptr>(jitUnit->memoryManager.getImageBaseAddress()),
 						(uintptr)loadedObject->getSectionLoadAddress(textSection),
 						(uintptr)loadedObject->getSectionLoadAddress(xdataSection),
 						(uintptr)loadedObject->getSectionLoadAddress(pdataSection),
@@ -375,7 +420,7 @@ namespace LLVMJIT
 		Core::Timer machineCodeTimer;
 		handle = compileLayer->addModuleSet(
 			std::vector<llvm::Module*>{llvmModule},
-			&SectionMemoryManager::singleton,
+			&memoryManager,
 			&NullResolver::singleton);
 		compileLayer->emitAndFinalize(handle);
 		Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
@@ -389,10 +434,11 @@ namespace LLVMJIT
 		auto llvmModule = emitModule(module,moduleInstance);
 
 		// Construct the JIT compilation pipeline for this module.
-		moduleInstance->jitModule = new JITModule(moduleInstance);
+		auto jitModule = new JITModule(moduleInstance);
+		moduleInstance->jitModule = jitModule;
 
 		// Compile the module.
-		return moduleInstance->jitModule->compile(llvmModule);
+		return jitModule->compile(llvmModule);
 	}
 
 	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionDefIndex)
@@ -483,13 +529,13 @@ namespace LLVMJIT
 		irBuilder.CreateRetVoid();
 
 		// Compile the invoke thunk.
-		JITInvokeThunkUnit jitUnit(functionType);
-		if(!jitUnit.compile(llvmModule)) { Core::fatalError("error compiling invoke thunk"); }
+		auto jitUnit = new JITInvokeThunkUnit(functionType);
+		if(!jitUnit->compile(llvmModule)) { Core::fatalError("error compiling invoke thunk"); }
 
-		assert(jitUnit.symbol);
-		invokeThunkTypeToSymbolMap[functionType] = jitUnit.symbol;
-		addressToSymbolMap[jitUnit.symbol->baseAddress + jitUnit.symbol->numBytes] = jitUnit.symbol;
-		return reinterpret_cast<InvokeFunctionPointer>(jitUnit.symbol->baseAddress);
+		assert(jitUnit->symbol);
+		invokeThunkTypeToSymbolMap[functionType] = jitUnit->symbol;
+		addressToSymbolMap[jitUnit->symbol->baseAddress + jitUnit->symbol->numBytes] = jitUnit->symbol;
+		return reinterpret_cast<InvokeFunctionPointer>(jitUnit->symbol->baseAddress);
 	}
 	
 	void init()

@@ -38,6 +38,12 @@ namespace Emscripten
 	DEFINE_INTRINSIC_VARIABLE(env,memoryBase,memoryBase,i32,false,1024);
 	DEFINE_INTRINSIC_VARIABLE(env,tableBase,tableBase,i32,false,0);
 
+	DEFINE_INTRINSIC_VARIABLE(env,DYNAMICTOP_PTR,DYNAMICTOP_PTR,i32,true,0)
+	DEFINE_INTRINSIC_VARIABLE(env,em_environ,_environ,i32,true,0)
+	DEFINE_INTRINSIC_VARIABLE(env,EMTSTACKTOP,EMTSTACKTOP,i32,true,0)
+	DEFINE_INTRINSIC_VARIABLE(env,EMT_STACK_MAX,EMT_STACK_MAX,i32,true,0)
+	DEFINE_INTRINSIC_VARIABLE(env,eb,eb,i32,true,0)
+
 	bool hasSbrkBeenCalled = false;
 	size_t sbrkNumPages = 0;
 	uint32_t sbrkMinBytes = 0;

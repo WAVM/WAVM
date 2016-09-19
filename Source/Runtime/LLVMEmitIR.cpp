@@ -838,13 +838,8 @@ namespace LLVMJIT
 		auto llvmArgIt = llvmFunction->arg_begin();
 		for(uintptr localIndex = 0;localIndex < localTypes.size();++localIndex)
 		{
-			llvm::Twine localName = 
-				//functionDefIndex < module.disassemblyInfo.functions.size() && localIndex < module.disassemblyInfo.functions[functionDefIndex].localNames.size()
-				//? llvm::Twine("local") + llvm::Twine(localIndex) + "_" + module.disassemblyInfo.functions[functionDefIndex].localNames[localIndex]
-				//: "";
-				"";
 			auto localType = localTypes[localIndex];
-			localPointers[localIndex] = irBuilder.CreateAlloca(asLLVMType(localType),nullptr,localName);
+			localPointers[localIndex] = irBuilder.CreateAlloca(asLLVMType(localType),nullptr,"");
 
 			if(localIndex < functionType->parameters.size())
 			{
@@ -917,7 +912,7 @@ namespace LLVMJIT
 				llvmI8PtrType
 				});
 			defaultTablePointer = emitLiteralPointer(moduleInstance->defaultTable->baseAddress,tableElementType->getPointerTo());
-			defaultTableMaxElements = emitLiteral(uintptr((moduleInstance->defaultTable->maxPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::Element)));
+			defaultTableMaxElements = emitLiteral(uintptr((moduleInstance->defaultTable->maxPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::FunctionElement)));
 		}
 		else
 		{
