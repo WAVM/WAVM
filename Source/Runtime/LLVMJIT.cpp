@@ -24,7 +24,7 @@ namespace LLVMJIT
 	llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
 	
 	// A map from address to loaded JIT symbols.
-	std::map<uintptr,struct JITSymbol*> addressToSymbolMap;
+	std::map<uintp,struct JITSymbol*> addressToSymbolMap;
 
 	// A map from function types to function indices in the invoke thunk unit.
 	std::map<const FunctionType*,struct JITSymbol*> invokeThunkTypeToSymbolMap;
@@ -43,13 +43,13 @@ namespace LLVMJIT
 			FunctionInstance* functionInstance;
 			const FunctionType* invokeThunkType;
 		};
-		uintptr baseAddress;
+		uintp baseAddress;
 		size_t numBytes;
 		
-		JITSymbol(FunctionInstance* inFunctionInstance,uintptr inBaseAddress,size_t inNumBytes)
+		JITSymbol(FunctionInstance* inFunctionInstance,uintp inBaseAddress,size_t inNumBytes)
 		: type(Type::functionInstance), functionInstance(inFunctionInstance), baseAddress(inBaseAddress), numBytes(inNumBytes) {}
 
-		JITSymbol(const FunctionType* inInvokeThunkType,uintptr inBaseAddress,size_t inNumBytes)
+		JITSymbol(const FunctionType* inInvokeThunkType,uintp inBaseAddress,size_t inNumBytes)
 		: type(Type::invokeThunk), invokeThunkType(inInvokeThunkType), baseAddress(inBaseAddress), numBytes(inNumBytes) {}
 	};
 
@@ -91,11 +91,11 @@ namespace LLVMJIT
 
 		virtual uint8* allocateCodeSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
 		{
-			return allocateBytes((uintptr)numBytes,alignment,codeSection);
+			return allocateBytes((uintp)numBytes,alignment,codeSection);
 		}
 		virtual uint8* allocateDataSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
 		{
-			return allocateBytes((uintptr)numBytes,alignment,isReadOnly ? readOnlySection : readWriteSection);
+			return allocateBytes((uintp)numBytes,alignment,isReadOnly ? readOnlySection : readWriteSection);
 		}
 		virtual bool needsToReserveAllocationSpace() override { return true; }
 		virtual void reserveAllocationSpace(uintptr_t numCodeBytes,uint32 codeAlignment,uintptr_t numReadOnlyBytes,uint32 readOnlyAlignment,uintptr_t numReadWriteBytes,uint32 readWriteAlignment) override
@@ -153,7 +153,7 @@ namespace LLVMJIT
 		uint64 ehFramesLoadAddr;
 		size_t ehFramesNumBytes;
 
-		uint8* allocateBytes(uintptr numBytes,uintptr alignment,Section& section)
+		uint8* allocateBytes(uintp numBytes,uintp alignment,Section& section)
 		{
 			assert(section.baseAddress);
 			assert(!(alignment & (alignment - 1)));
@@ -161,7 +161,7 @@ namespace LLVMJIT
 			
 			// Allocate the section at the lowest uncommitted byte of image memory.
 			uint8* allocationBaseAddress = section.baseAddress + align(section.numCommittedBytes,alignment);
-			assert(!(reinterpret_cast<uintptr>(allocationBaseAddress) & (alignment-1)));
+			assert(!(reinterpret_cast<uintp>(allocationBaseAddress) & (alignment-1)));
 			section.numCommittedBytes = align(section.numCommittedBytes,alignment) + align(numBytes,alignment);
 
 			// Check that enough space was reserved in the section.
@@ -170,8 +170,8 @@ namespace LLVMJIT
 			return allocationBaseAddress;
 		}
 		
-		static uintptr align(uintptr size,uintptr alignment) { return (size + alignment - 1) & ~(alignment - 1); }
-		static uintptr shrAndRoundUp(uintptr value,uintptr shift) { return (value + (uintptr(1)<<shift) - 1) >> shift; }
+		static uintp align(uintp size,uintp alignment) { return (size + alignment - 1) & ~(alignment - 1); }
+		static uintp shrAndRoundUp(uintp value,uintp shift) { return (value + (uintp(1)<<shift) - 1) >> shift; }
 
 		UnitMemoryManager(const UnitMemoryManager&) = delete;
 		void operator=(const UnitMemoryManager&) = delete;
@@ -199,7 +199,7 @@ namespace LLVMJIT
 
 		bool compile(llvm::Module* llvmModule);
 
-		virtual void notifySymbolLoaded(const char* name,uintptr baseAddress,size_t numBytes) = 0;
+		virtual void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes) = 0;
 
 	private:
 		
@@ -245,10 +245,10 @@ namespace LLVMJIT
 			}
 		}
 
-		void notifySymbolLoaded(const char* name,uintptr baseAddress,size_t numBytes) override
+		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes) override
 		{
 			// Save the address range this function was loaded at for future address->symbol lookups.
-			uintptr functionDefIndex;
+			uintp functionDefIndex;
 			if(getFunctionIndexFromExternalName(name,functionDefIndex))
 			{
 				assert(moduleInstance);
@@ -271,7 +271,7 @@ namespace LLVMJIT
 
 		JITInvokeThunkUnit(const FunctionType* inFunctionType): functionType(inFunctionType), symbol(nullptr) {}
 
-		void notifySymbolLoaded(const char* name,uintptr baseAddress,size_t numBytes) override
+		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes) override
 		{
 			assert(!strcmp(name,"invokeThunk"));
 			symbol = new JITSymbol(functionType,baseAddress,numBytes);
@@ -292,7 +292,7 @@ namespace LLVMJIT
 		if(name == "__chkstk")
 		{
 			void *addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
-			if (addr) { return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uintptr>(addr),llvm::JITSymbolFlags::None); }
+			if (addr) { return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uintp>(addr),llvm::JITSymbolFlags::None); }
 		}
 
 		Log::printf(Log::Category::error,"LLVM generated code referenced external symbol: %s\n",name.c_str());
@@ -307,7 +307,7 @@ namespace LLVMJIT
 		)
 	{
 		assert(objectSet.size() == loadResult.size());
-		for(uintptr objectIndex = 0;objectIndex < loadResult.size();++objectIndex)
+		for(uintp objectIndex = 0;objectIndex < loadResult.size();++objectIndex)
 		{
 			auto& object = objectSet[objectIndex];
 			auto& loadedObject = loadResult[objectIndex];
@@ -323,11 +323,11 @@ namespace LLVMJIT
 				&&	!address.getError())
 				{
 					// Compute the address the functions was loaded at.
-					uintptr loadedAddress = *address;
+					uintp loadedAddress = *address;
 					auto symbolSection = symbol.getSection();
 					if(symbolSection)
 					{
-						loadedAddress += (uintptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
+						loadedAddress += (uintp)loadedObject->getSectionLoadAddress(*symbolSection.get());
 					}
 
 					// Notify the JIT unit that the symbol was loaded.
@@ -357,10 +357,10 @@ namespace LLVMJIT
 				if(textSection.getObject() && pdataSection.getObject() && xdataSection.getObject())
 				{
 					jitUnit->registerSEHUnwindInfoResult = Platform::registerSEHUnwindInfo(
-						reinterpret_cast<uintptr>(jitUnit->memoryManager.getImageBaseAddress()),
-						(uintptr)loadedObject->getSectionLoadAddress(textSection),
-						(uintptr)loadedObject->getSectionLoadAddress(xdataSection),
-						(uintptr)loadedObject->getSectionLoadAddress(pdataSection),
+						reinterpret_cast<uintp>(jitUnit->memoryManager.getImageBaseAddress()),
+						(uintp)loadedObject->getSectionLoadAddress(textSection),
+						(uintp)loadedObject->getSectionLoadAddress(xdataSection),
+						(uintp)loadedObject->getSectionLoadAddress(pdataSection),
 						pdataSection.getSize()
 						);
 				}
@@ -368,7 +368,7 @@ namespace LLVMJIT
 		}
 	}
 
-	static uintptr printedModuleId = 0;
+	static uintp printedModuleId = 0;
 
 	void printModule(const llvm::Module* llvmModule,const char* filename)
 	{
@@ -445,14 +445,14 @@ namespace LLVMJIT
 		return jitModule->compile(llvmModule);
 	}
 
-	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionDefIndex)
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintp functionDefIndex)
 	{
 		assert(functionDefIndex < moduleInstance->functionDefs.size());
 		return "wasmFunc" + std::to_string(functionDefIndex)
 			+ "_" + moduleInstance->functionDefs[functionDefIndex]->debugName;
 	}
 
-	bool getFunctionIndexFromExternalName(const char* externalName,uintptr& outFunctionDefIndex)
+	bool getFunctionIndexFromExternalName(const char* externalName,uintp& outFunctionDefIndex)
 	{
 		if(!strncmp(externalName,"wasmFunc",8))
 		{
@@ -463,7 +463,7 @@ namespace LLVMJIT
 		else { return false; }
 	}
 
-	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
+	bool describeInstructionPointer(uintp ip,std::string& outDescription)
 	{
 		auto symbolIt = addressToSymbolMap.upper_bound(ip);
 		if(symbolIt == addressToSymbolMap.end()) { return false; }
@@ -504,11 +504,11 @@ namespace LLVMJIT
 
 		// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
 		std::vector<llvm::Value*> structArgLoads;
-		for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+		for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 		{
 			structArgLoads.push_back(irBuilder.CreateLoad(
 				irBuilder.CreatePointerCast(
-					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintptr)parameterIndex)}),
+					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintp)parameterIndex)}),
 					asLLVMType(functionType->parameters[parameterIndex])->getPointerTo()
 					)
 				));
@@ -524,7 +524,7 @@ namespace LLVMJIT
 			irBuilder.CreateStore(
 				returnValue,
 				irBuilder.CreatePointerCast(
-					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintptr)functionType->parameters.size())}),
+					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintp)functionType->parameters.size())}),
 					llvmResultType->getPointerTo()
 					)
 				);

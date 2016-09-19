@@ -54,7 +54,7 @@ namespace Platform
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return floorLogTwo(preferredVirtualPageSize);
 	}
-	uintptr getPageSizeLog2()
+	uintp getPageSizeLog2()
 	{
 		static size_t preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
 		return preferredVirtualPageSizeLog2;
@@ -75,7 +75,7 @@ namespace Platform
 
 	bool isPageAligned(uint8* address)
 	{
-		const uintptr addressBits = reinterpret_cast<uintptr>(address);
+		const uintp addressBits = reinterpret_cast<uintp>(address);
 		return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
 	}
 
@@ -117,7 +117,7 @@ namespace Platform
 		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Core::fatalError("munmap failed"); }
 	}
 
-	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
+	bool describeInstructionPointer(uintp ip,std::string& outDescription)
 	{
 		#ifdef __linux__
 			// Look up static symbol information for the address.
@@ -133,7 +133,7 @@ namespace Platform
 
 	THREAD_LOCAL jmp_buf signalReturnEnv;
 	THREAD_LOCAL HardwareTrapType signalType = HardwareTrapType::none;
-	THREAD_LOCAL uintptr signalOperand;
+	THREAD_LOCAL uintp signalOperand;
 	THREAD_LOCAL bool isReentrantSignal = false;
 
 	enum { signalStackNumBytes = SIGSTKSZ };
@@ -181,7 +181,7 @@ namespace Platform
 			signalType = signalInfo->si_addr > stackMinAddr && signalInfo->si_addr < stackMaxAddr
 				? HardwareTrapType::stackOverflow
 				: HardwareTrapType::accessViolation;
-			signalOperand = reinterpret_cast<uintptr>(signalInfo->si_addr);
+			signalOperand = reinterpret_cast<uintp>(signalInfo->si_addr);
 			break;
 		default:
 			Core::fatalError("unknown signal number");
@@ -194,7 +194,7 @@ namespace Platform
 
 	HardwareTrapType catchHardwareTraps(
 		ExecutionContext& outContext,
-		uintptr& outOperand,
+		uintp& outOperand,
 		const std::function<void()>& thunk
 		)
 	{
@@ -244,9 +244,9 @@ namespace Platform
 
 			// Copy the return pointers into the stack frames of the resulting ExecutionContext.
 			ExecutionContext result;
-			for(intptr index = 0;index < numCallStackEntries;++index)
+			for(intp index = 0;index < numCallStackEntries;++index)
 			{
-				result.stackFrames.push_back({(uintptr)callstackAddresses[index],0});
+				result.stackFrames.push_back({(uintp)callstackAddresses[index],0});
 			}
 			return result;
 		#else

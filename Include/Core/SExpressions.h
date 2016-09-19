@@ -32,7 +32,7 @@ namespace SExp
 		union
 		{
 			const char* error;
-			uintptr symbol;
+			uintp symbol;
 			const char* string;
 			int64 i64;
 			uint64 u64;
@@ -122,7 +122,7 @@ namespace SExp
 			++right;
 		};
 	}};
-	typedef std::map<const char*,uintptr,StringCompareFunctor> SymbolIndexMap;
+	typedef std::map<const char*,uintp,StringCompareFunctor> SymbolIndexMap;
 	CORE_API SNode* parse(const char* string,MemoryArena::Arena& arena,const SymbolIndexMap& symbolIndexMap);
 
 	// Parse an integer from a S-expression node.

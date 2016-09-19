@@ -3,14 +3,14 @@
 #include "Core/Platform.h"
 #include "RuntimePrivate.h"
 
-#define HAS_64BIT_ADDRESS_SPACE (sizeof(uintptr) == 8 && !PRETEND_32BIT_ADDRESS_SPACE)
+#define HAS_64BIT_ADDRESS_SPACE (sizeof(uintp) == 8 && !PRETEND_32BIT_ADDRESS_SPACE)
 
 namespace Runtime
 {
 	std::vector<Memory*> memories;
 	std::vector<Table*> tables;
 
-	static uintptr getPlatformPagesPerWebAssemblyPageLog2()
+	static uintp getPlatformPagesPerWebAssemblyPageLog2()
 	{
 		assert(Platform::getPageSizeLog2() < WebAssembly::numBytesPerPageLog2);
 		return WebAssembly::numBytesPerPageLog2 - Platform::getPageSizeLog2();
@@ -18,7 +18,7 @@ namespace Runtime
 
 	static size_t getNumPlatformPages(size_t numBytes)
 	{
-		return (numBytes + (uintptr(1)<<Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
+		return (numBytes + (uintp(1)<<Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 	}
 
 	static uint8* allocateVirtualPagesAligned(size_t numBytes,size_t alignmentBytes,uint8*& outUnalignedBaseAddress,size_t& outUnalignedNumPlatformPages)
@@ -28,7 +28,7 @@ namespace Runtime
 		outUnalignedNumPlatformPages = numAllocatedVirtualPages + alignmentPages;
 		outUnalignedBaseAddress = Platform::allocateVirtualPages(outUnalignedNumPlatformPages);
 		if(!outUnalignedBaseAddress) { return nullptr; }
-		else { return (uint8*)((uintptr)(outUnalignedBaseAddress + alignmentBytes - 1) & ~(alignmentBytes - 1)); }
+		else { return (uint8*)((uintp)(outUnalignedBaseAddress + alignmentBytes - 1) & ~(alignmentBytes - 1)); }
 	}
 
 	Memory* createMemory(MemoryType type)
@@ -43,7 +43,7 @@ namespace Runtime
 		// On a 64 bit runtime, align the instance memory base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
 		// Note that this reserves a full extra 4GB, but only uses (4GB-1 page) for alignment, so there will always be a guard page at the end to
 		// protect against unaligned loads/stores that straddle the end of the address-space.
-		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : ((uintptr)1 << Platform::getPageSizeLog2());
+		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : ((uintp)1 << Platform::getPageSizeLog2());
 		memory->baseAddress = allocateVirtualPagesAligned(memoryMaxBytes,alignmentBytes,memory->reservedBaseAddress,memory->reservedNumPlatformPages);
 		memory->reservedNumBytes = memory->reservedNumPlatformPages << Platform::getPageSizeLog2();
 		memory->maxPages = memoryMaxBytes >> WebAssembly::numBytesPerPageLog2;
@@ -66,7 +66,7 @@ namespace Runtime
 		reservedBaseAddress = baseAddress = nullptr;
 		reservedNumPlatformPages = reservedNumBytes = 0;
 
-		for(uintptr memoryIndex = 0;memoryIndex < tables.size();++memoryIndex)
+		for(uintp memoryIndex = 0;memoryIndex < tables.size();++memoryIndex)
 		{
 			if(memories[memoryIndex] == this) { memories.erase(memories.begin() + memoryIndex); break; }
 		}
@@ -86,7 +86,7 @@ namespace Runtime
 	size_t getMemoryNumPages(Memory* memory) { return memory->numPages; }
 	size_t getMemoryMaxPages(Memory* memory) { return memory->type.size.max; }
 
-	intptr_t growMemory(Memory* memory,size_t numNewPages)
+	intp growMemory(Memory* memory,size_t numNewPages)
 	{
 		const size_t previousNumPages = memory->numPages;
 		if(numNewPages > 0)
@@ -106,7 +106,7 @@ namespace Runtime
 		return previousNumPages;
 	}
 
-	intptr_t shrinkMemory(Memory* memory,size_t numPagesToShrink)
+	intp shrinkMemory(Memory* memory,size_t numPagesToShrink)
 	{
 		const size_t previousNumPages = memory->numPages;
 		if(numPagesToShrink > 0)
@@ -128,7 +128,7 @@ namespace Runtime
 		return memory->baseAddress;
 	}
 	
-	uint8* getValidatedMemoryOffsetRange(Memory* memory,uintptr offset,size_t numBytes)
+	uint8* getValidatedMemoryOffsetRange(Memory* memory,uintp offset,size_t numBytes)
 	{
 		uint8* address = memory->baseAddress + offset;
 		if(	!memory
@@ -151,7 +151,7 @@ namespace Runtime
 		// On a 64 bit runtime, align the table base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
 		// Note that this reserves a full extra 4GB, but only uses (4GB-1 page) for alignment, so there will always be a guard page at the end to
 		// protect against unaligned loads/stores that straddle the end of the address-space.
-		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : (uintptr(1) << Platform::getPageSizeLog2());
+		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : (uintp(1) << Platform::getPageSizeLog2());
 		table->baseAddress = (Table::FunctionElement*)allocateVirtualPagesAligned(tableMaxBytes,alignmentBytes,table->reservedBaseAddress,table->reservedNumPlatformPages);
 		table->maxPlatformPages = tableMaxBytes >> Platform::getPageSizeLog2();
 		
@@ -174,7 +174,7 @@ namespace Runtime
 		reservedNumPlatformPages = 0;
 		baseAddress = nullptr;
 
-		for(uintptr tableIndex = 0;tableIndex < tables.size();++tableIndex)
+		for(uintp tableIndex = 0;tableIndex < tables.size();++tableIndex)
 		{
 			if(tables[tableIndex] == this) { tables.erase(tables.begin() + tableIndex); break; }
 		}
@@ -191,7 +191,7 @@ namespace Runtime
 		return false;
 	}
 
-	Object* setTableElement(Table* table,uintptr index,Object* newValue)
+	Object* setTableElement(Table* table,uintp index,Object* newValue)
 	{
 		assert(index < table->elements.size());
 		FunctionInstance* functionInstance = asFunction(newValue);
@@ -208,7 +208,7 @@ namespace Runtime
 		return table->elements.size();
 	}
 
-	intptr_t growTable(Table* table,size_t numNewElements)
+	intp growTable(Table* table,size_t numNewElements)
 	{
 		const size_t previousNumElements = table->elements.size();
 		if(numNewElements > 0)
@@ -229,7 +229,7 @@ namespace Runtime
 		return previousNumElements;
 	}
 
-	intptr_t shrinkTable(Table* table,size_t numElementsToShrink)
+	intp shrinkTable(Table* table,size_t numElementsToShrink)
 	{
 		const size_t previousNumElements = table->elements.size();
 		if(numElementsToShrink > 0)

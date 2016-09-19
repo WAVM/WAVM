@@ -23,7 +23,7 @@ namespace WAST
 		if(!isInitialized)
 		{
 			auto numSymbols = sizeof(wastSymbols) / sizeof(wastSymbols[0]);
-			for(uintptr symbolIndex = 0;symbolIndex < numSymbols;++symbolIndex) { symbolIndexMap.emplace(std::make_pair(wastSymbols[symbolIndex], symbolIndex)); }
+			for(uintp symbolIndex = 0;symbolIndex < numSymbols;++symbolIndex) { symbolIndexMap.emplace(std::make_pair(wastSymbols[symbolIndex], symbolIndex)); }
 			isInitialized = true;
 		}
 		return symbolIndexMap;

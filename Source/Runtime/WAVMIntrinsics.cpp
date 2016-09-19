@@ -144,9 +144,9 @@ namespace Runtime
 		Table* table = reinterpret_cast<Table*>(tableBits);
 		void* elementValue = table->baseAddress[index].value;
 		const FunctionType* actualSignature = table->baseAddress[index].type;
-		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((uintptr)expectedSignatureBits);
+		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((uintp)expectedSignatureBits);
 		std::string ipDescription = "<unknown>";
-		LLVMJIT::describeInstructionPointer(reinterpret_cast<uintptr>(elementValue),ipDescription);
+		LLVMJIT::describeInstructionPointer(reinterpret_cast<uintp>(elementValue),ipDescription);
 		Log::printf(Log::Category::debug,"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",
 			getTypeName(expectedSignature).c_str(),
 			index,
@@ -165,8 +165,8 @@ namespace Runtime
 	{
 		Memory* memory = reinterpret_cast<Memory*>(memoryBits);
 		assert(memory);
-		if(memory->numPages + (uintptr)deltaPages > 65536) { return -1; }
-		else { return (int32)growMemory(memory,(uintptr)deltaPages); }
+		if(memory->numPages + (uintp)deltaPages > 65536) { return -1; }
+		else { return (int32)growMemory(memory,(uintp)deltaPages); }
 	}
 	
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryBits)
@@ -177,7 +177,7 @@ namespace Runtime
 		else { return (uint32)getMemoryNumPages(memory); }
 	}
 
-	uintptr indentLevel = 0;
+	uintp indentLevel = 0;
 
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,debugEnterFunction,none,i64,functionInstanceBits)
 	{

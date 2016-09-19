@@ -263,7 +263,7 @@ namespace WebAssembly
 
 	struct BranchImm
 	{
-		uintptr targetDepth;
+		uintp targetDepth;
 
 		template<typename Stream>
 		friend void serialize(Stream& stream,BranchImm& imm)
@@ -274,13 +274,13 @@ namespace WebAssembly
 
 	struct BranchTableImm
 	{
-		std::vector<uintptr> targetDepths;
-		uintptr defaultTargetDepth;
+		std::vector<uintp> targetDepths;
+		uintp defaultTargetDepth;
 		
 		template<typename Stream>
 		friend void serialize(Stream& stream,BranchTableImm& imm)
 		{
-			serializeArray(stream,imm.targetDepths,[](Stream& stream,uintptr& targetDepth){serializeVarUInt32(stream,targetDepth);});
+			serializeArray(stream,imm.targetDepths,[](Stream& stream,uintp& targetDepth){serializeVarUInt32(stream,targetDepth);});
 			serializeVarUInt32(stream,imm.defaultTargetDepth);
 		}
 	};
@@ -305,7 +305,7 @@ namespace WebAssembly
 
 	struct GetOrSetVariableImm
 	{
-		uintptr variableIndex;
+		uintp variableIndex;
 		
 		template<typename Stream>
 		friend void serialize(Stream& stream,GetOrSetVariableImm& imm)
@@ -314,7 +314,7 @@ namespace WebAssembly
 
 	struct CallImm
 	{
-		uintptr functionIndex;
+		uintp functionIndex;
 
 		template<typename Stream>
 		friend void serialize(Stream& stream,CallImm& imm)
@@ -325,7 +325,7 @@ namespace WebAssembly
 
 	struct CallIndirectImm
 	{
-		uintptr typeIndex;
+		uintp typeIndex;
 		
 		template<typename Stream>
 		friend void serialize(Stream& stream,CallIndirectImm& imm)
@@ -390,7 +390,7 @@ namespace WebAssembly
 	struct OperationEncoder
 	{
 		Serialization::OutputStream& stream;
-		uintptr unreachableDepth;
+		uintp unreachableDepth;
 
 		OperationEncoder(Serialization::OutputStream& inStream): stream(inStream), unreachableDepth(0) {}
 

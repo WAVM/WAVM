@@ -30,7 +30,7 @@ namespace Floats
 		uint32 bitcastInt;
 	};
 
-	template<typename FloatComponents,typename Float,uint64 maxExponent,uintptr numSignificandHexits>
+	template<typename FloatComponents,typename Float,uint64 maxExponent,uintp numSignificandHexits>
 	std::string asString(Float f)
 	{
 		FloatComponents components;
@@ -44,7 +44,7 @@ namespace Floats
 			else
 			{
 				char significandString[numSignificandHexits + 1];
-				for(uintptr hexitIndex = 0;hexitIndex < numSignificandHexits;++hexitIndex)
+				for(uintp hexitIndex = 0;hexitIndex < numSignificandHexits;++hexitIndex)
 				{
 					auto hexitValue = char((components.bits.significand >> ((numSignificandHexits - hexitIndex - 1) * 4)) & 0xf);
 					significandString[hexitIndex] = hexitValue >= 10 ? ('a' + hexitValue - 10) : ('0' + hexitValue);

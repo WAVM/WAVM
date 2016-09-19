@@ -135,15 +135,15 @@ namespace MemoryArena
 		friend bool operator==(const Array<Element>& left,const Array<Element>& right)
 		{
 			if(left.size() != right.size()) { return false; }
-			for(uintptr elementIndex = 0;elementIndex < left.size();++elementIndex)
+			for(uintp elementIndex = 0;elementIndex < left.size();++elementIndex)
 			{ if(left[elementIndex] != right[elementIndex]) { return false; } }
 			return true;
 		}
 
 		const Element* data() const { return elements; }
 		Element* data() { return elements; }
-		const Element& operator[](uintptr index) const { assert(index < numElements); return elements[index]; }
-		Element& operator[](uintptr index) { assert(index < numElements); return elements[index]; }
+		const Element& operator[](uintp index) const { assert(index < numElements); return elements[index]; }
+		Element& operator[](uintp index) { assert(index < numElements); return elements[index]; }
 		size_t size() const { return numElements; }
 	private:
 		Element* elements;
@@ -167,7 +167,7 @@ namespace MemoryArena
 			auto originalLength = length();
 			auto newLength = length() + numChars;
 			characters.resize(arena,newLength + 1);
-			for(uintptr i = 0;i < numChars;++i) { characters[originalLength + i] = string[i]; }
+			for(uintp i = 0;i < numChars;++i) { characters[originalLength + i] = string[i]; }
 			characters[originalLength + numChars] = 0;
 		}
 		template<size_t numCharsWithNull>
@@ -177,13 +177,13 @@ namespace MemoryArena
 			auto originalLength = length();
 			auto newLength = length() + numChars;
 			characters.resize(arena,newLength + 1);
-			for(uintptr i = 0;i < numCharsWithNull;++i) { characters[originalLength + i] = string[i]; }
+			for(uintp i = 0;i < numCharsWithNull;++i) { characters[originalLength + i] = string[i]; }
 		}
 		void shrink(Arena& arena) { characters.shrink(arena); }
 
 		const char* c_str() const { if(characters.size()) { return characters.data(); } else { return ""; } }
-		const char operator[](uintptr index) const { assert(index < length()); return characters[index]; }
-		char& operator[](uintptr index) { assert(index < length()); return characters[index]; }
+		const char operator[](uintp index) const { assert(index < length()); return characters[index]; }
+		char& operator[](uintp index) { assert(index < length()); return characters[index]; }
 		size_t length() const { return characters.size() ? characters.size() - 1 : 0; }
 	private:
 		Array<char> characters;

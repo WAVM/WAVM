@@ -17,7 +17,7 @@ namespace Runtime
 		case InitializerExpression::Type::get_global:
 		{
 			// Find the import this refers to.
-			uintptr numGlobalImportsSeen = 0;
+			uintp numGlobalImportsSeen = 0;
 			for(Object* import : moduleInstance->imports)
 			{
 				if(import->kind == ObjectKind::global)
@@ -45,7 +45,7 @@ namespace Runtime
 
 		// Validate the types of the imports.
 		if(imports.size() != module.imports.size()) { throw InstantiationException(InstantiationException::importCountMismatch); }
-		for(uintptr importIndex = 0;importIndex < module.imports.size();++importIndex)
+		for(uintp importIndex = 0;importIndex < module.imports.size();++importIndex)
 		{
 			const Import& import = module.imports[importIndex];
 			Object* importObject = imports[importIndex];
@@ -110,9 +110,9 @@ namespace Runtime
 		}
 		
 		// Create the FunctionInstance objects for the module's function definitions.
-		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
-			const uintptr functionIndex = moduleInstance->functions.size();
+			const uintp functionIndex = moduleInstance->functions.size();
 			auto disassemblyName = disassemblyNames.functions[functionIndex];
 			if(!disassemblyName.size()) { disassemblyName = "<function #" + std::to_string(functionDefIndex) + ">"; }
 			auto functionInstance = new FunctionInstance(moduleInstance,module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,disassemblyName.c_str());
@@ -150,9 +150,9 @@ namespace Runtime
 			if(baseOffset + tableSegment.indices.size() > table->elements.size())
 			{ throw InstantiationException(InstantiationException::invalidDataSegmentBase); }
 
-			for(uintptr index = 0;index < tableSegment.indices.size();++index)
+			for(uintp index = 0;index < tableSegment.indices.size();++index)
 			{
-				const uintptr functionIndex = tableSegment.indices[index];
+				const uintp functionIndex = tableSegment.indices[index];
 				assert(functionIndex < moduleInstance->functions.size());
 				setTableElement(table,baseOffset + index,moduleInstance->functions[functionIndex]);
 			}

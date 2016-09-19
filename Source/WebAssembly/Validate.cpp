@@ -20,7 +20,7 @@ namespace WebAssembly
 	{
 		if(valueType == ValueType::invalid || valueType > ValueType::max)
 		{
-			throw ValidationException("invalid value type (" + std::to_string((uintptr)valueType) + ")");
+			throw ValidationException("invalid value type (" + std::to_string((uintp)valueType) + ")");
 		}
 	}
 
@@ -28,7 +28,7 @@ namespace WebAssembly
 	{
 		if(returnType > ResultType::max)
 		{
-			throw ValidationException("invalid return type (" + std::to_string((uintptr)returnType) + ")");
+			throw ValidationException("invalid return type (" + std::to_string((uintp)returnType) + ")");
 		}
 	}
 
@@ -36,7 +36,7 @@ namespace WebAssembly
 	{
 		if(kind > ObjectKind::max)
 		{
-			throw ValidationException("invalid external kind (" + std::to_string((uintptr)kind) + ")");
+			throw ValidationException("invalid external kind (" + std::to_string((uintp)kind) + ")");
 		}
 	}
 
@@ -49,7 +49,7 @@ namespace WebAssembly
 
 	void validate(TableElementType type)
 	{
-		if(type != TableElementType::anyfunc) { throw ValidationException("invalid table element type (" + std::to_string((uintptr)type) + ")"); }
+		if(type != TableElementType::anyfunc) { throw ValidationException("invalid table element type (" + std::to_string((uintp)type) + ")"); }
 	}
 
 	void validate(GlobalType type)
@@ -80,12 +80,12 @@ namespace WebAssembly
 
 	struct ModuleValidationContext
 	{
-		uintptr numTables;
-		uintptr numMemories;
+		uintp numTables;
+		uintp numMemories;
 
 		ModuleValidationContext(const Module& inModule);
 
-		ValueType validateGlobalIndex(uintptr globalIndex,bool mustBeMutable,bool mustBeImmutable,bool mustBeImport,const char* context)
+		ValueType validateGlobalIndex(uintp globalIndex,bool mustBeMutable,bool mustBeImmutable,bool mustBeImport,const char* context)
 		{
 			assert(numImportedGlobals != UINTPTR_MAX);
 			VALIDATE_INDEX(globalIndex,globals.size());
@@ -96,7 +96,7 @@ namespace WebAssembly
 			return globalType.valueType;
 		}
 
-		const FunctionType* validateFunctionIndex(uintptr functionIndex)
+		const FunctionType* validateFunctionIndex(uintp functionIndex)
 		{
 			VALIDATE_INDEX(functionIndex,functions.size());
 			return functions[functionIndex];
@@ -106,7 +106,7 @@ namespace WebAssembly
 			
 		const Module& module;
 		std::vector<GlobalType> globals;
-		uintptr numImportedGlobals;
+		uintp numImportedGlobals;
 		std::vector<const FunctionType*> functions;
 		
 		void validateInitializer(const InitializerExpression& expression,ValueType expectedType,const char* context)
@@ -168,7 +168,7 @@ namespace WebAssembly
 		{
 			#if ENABLE_LOGGING
 				std::string controlStackString;
-				for(uintptr stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
+				for(uintp stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
 				{
 					switch(controlStack[stackIndex].type)
 					{
@@ -183,8 +183,8 @@ namespace WebAssembly
 				}
 
 				std::string stackString;
-				const uintptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
-				for(uintptr stackIndex = 0;stackIndex < stack.size();++stackIndex)
+				const uintp stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
+				for(uintp stackIndex = 0;stackIndex < stack.size();++stackIndex)
 				{
 					if(stackIndex == stackBase) { stackString += "| "; }
 					stackString +=  getTypeName(stack[stackIndex]);
@@ -199,7 +199,7 @@ namespace WebAssembly
 		// Operation dispatch methods.
 		void unknown(Opcode opcode)
 		{
-			throw ValidationException("Unknown opcode: " + std::to_string((uintptr)opcode));
+			throw ValidationException("Unknown opcode: " + std::to_string((uintp)opcode));
 		}
 		void beginBlock(ControlStructureImm imm)
 		{
@@ -245,7 +245,7 @@ namespace WebAssembly
 			const ResultType defaultTargetArgumentType = getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
 			popAndValidateResultType(defaultTargetArgumentType);
 
-			for(uintptr targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
+			for(uintp targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
 			{
 				const ResultType targetArgumentType = getBranchTargetByDepth(imm.targetDepths[targetIndex]).branchArgumentType;
 				VALIDATE_UNLESS("br_table target argument must match default target argument: ",targetArgumentType != defaultTargetArgumentType);
@@ -465,7 +465,7 @@ namespace WebAssembly
 			};
 
 			Type type;
-			uintptr outerStackSize;
+			uintp outerStackSize;
 			
 			ResultType branchArgumentType;
 			ResultType resultType;
@@ -515,24 +515,24 @@ namespace WebAssembly
 		{
 			if(controlStack.back().isReachable)
 			{
-				const uintptr stackBase = controlStack.back().outerStackSize;
+				const uintp stackBase = controlStack.back().outerStackSize;
 				if(stack.size() < stackBase + num) { throw ValidationException("invalid stack access"); }
 			}
 		}
 
-		void validateBranchDepth(uintptr depth) const
+		void validateBranchDepth(uintp depth) const
 		{
 			VALIDATE_INDEX(depth,controlStack.size());
 			if(depth >= controlStack.size()) { throw ValidationException("invalid branch depth"); }
 		}
 
-		const ControlContext& getBranchTargetByDepth(uintptr depth) const
+		const ControlContext& getBranchTargetByDepth(uintp depth) const
 		{
 			validateBranchDepth(depth);
 			return controlStack[controlStack.size() - depth - 1];
 		}
 
-		ValueType validateLocalIndex(uintptr localIndex)
+		ValueType validateLocalIndex(uintp localIndex)
 		{
 			VALIDATE_INDEX(localIndex,locals.size());
 			return locals[localIndex];
@@ -543,7 +543,7 @@ namespace WebAssembly
 			if(controlStack.back().isReachable)
 			{
 				validateStackAccess(num);
-				for(uintptr operandIndex = 0;operandIndex < num;++operandIndex)
+				for(uintp operandIndex = 0;operandIndex < num;++operandIndex)
 				{ validateType(stack[stack.size()-num+operandIndex],expectedTypes[operandIndex],"operand"); }
 				stack.resize(stack.size() - num);
 			}
@@ -588,8 +588,8 @@ namespace WebAssembly
 	: numTables(0), numMemories(0), module(inModule), numImportedGlobals(UINTPTR_MAX)
 	{
 		{
-			std::map<const FunctionType*,uintptr> functionTypeMap;
-			for(uintptr typeIndex = 0;typeIndex < module.types.size();++typeIndex)
+			std::map<const FunctionType*,uintp> functionTypeMap;
+			for(uintp typeIndex = 0;typeIndex < module.types.size();++typeIndex)
 			{
 				const FunctionType* functionType = module.types[typeIndex];
 				for(auto parameterType : functionType->parameters) { validate(parameterType); }
@@ -643,7 +643,7 @@ namespace WebAssembly
 		for(auto& memory : module.memoryDefs) { validate(memory.size,WebAssembly::maxMemoryPages); ++numMemories; }
 		VALIDATE_UNLESS("too many memories: ",numMemories>1);
 
-		for(uintptr functionIndex = 0;functionIndex < module.functionDefs.size();++functionIndex)
+		for(uintp functionIndex = 0;functionIndex < module.functionDefs.size();++functionIndex)
 		{
 			const Function& function = module.functionDefs[functionIndex];
 			for(auto localType : function.nonParameterLocalTypes) { validate(localType); }
@@ -674,7 +674,7 @@ namespace WebAssembly
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{ VALIDATE_INDEX(module.startFunctionIndex,functions.size()); }
 			
-		for(uintptr functionIndex = 0;functionIndex < module.functionDefs.size();++functionIndex)
+		for(uintp functionIndex = 0;functionIndex < module.functionDefs.size();++functionIndex)
 		{ FunctionCodeValidator(*this,module,module.functionDefs[functionIndex]); }
 			
 		for(auto& dataSegment : module.dataSegments)

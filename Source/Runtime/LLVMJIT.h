@@ -78,14 +78,14 @@ namespace LLVMJIT
 	extern llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
 
 	// Converts a WebAssembly type to a LLVM type.
-	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(uintptr)asResultType(type)]; }
-	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(uintptr)type]; }
+	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(uintp)asResultType(type)]; }
+	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(uintp)type]; }
 
 	// Converts a WebAssembly function type to a LLVM type.
 	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType)
 	{
 		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType->parameters.size());
-		for(uintptr argIndex = 0;argIndex < functionType->parameters.size();++argIndex)
+		for(uintp argIndex = 0;argIndex < functionType->parameters.size();++argIndex)
 		{
 			llvmArgTypes[argIndex] = asLLVMType(functionType->parameters[argIndex]);
 		}
@@ -103,13 +103,13 @@ namespace LLVMJIT
 	inline llvm::Constant* emitLiteral(bool value) { return llvm::ConstantInt::get(llvmBoolType,llvm::APInt(1,value ? 1 : 0,false)); }
 	inline llvm::Constant* emitLiteralPointer(const void* pointer,llvm::Type* type)
 	{
-		auto pointerInt = llvm::APInt(sizeof(uintptr) == 8 ? 64 : 32,reinterpret_cast<uintptr>(pointer));
+		auto pointerInt = llvm::APInt(sizeof(uintp) == 8 ? 64 : 32,reinterpret_cast<uintp>(pointer));
 		return llvm::Constant::getIntegerValue(type,pointerInt);
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function
-	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintptr functionDefIndex);
-	bool getFunctionIndexFromExternalName(const char* externalName,uintptr& outFunctionDefIndex);
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintp functionDefIndex);
+	bool getFunctionIndexFromExternalName(const char* externalName,uintp& outFunctionDefIndex);
 
 	// Emits LLVM IR for a module.
 	llvm::Module* emitModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance);

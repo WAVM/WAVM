@@ -9,9 +9,9 @@
 
 namespace WebAssembly
 {
-	enum { maxMemoryPages = (uintptr)65536 };
-	enum { numBytesPerPage = (uintptr)65536 };
-	enum { numBytesPerPageLog2 = (uintptr)16 };
+	enum { maxMemoryPages = (uintp)65536 };
+	enum { numBytesPerPage = (uintp)65536 };
+	enum { numBytesPerPageLog2 = (uintp)16 };
 	
 	// Compatibility options
 	enum { allowMutableGlobals = 1 };

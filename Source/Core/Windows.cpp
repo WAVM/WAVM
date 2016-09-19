@@ -40,7 +40,7 @@ namespace Platform
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return floorLogTwo(preferredVirtualPageSize);
 	}
-	uintptr getPageSizeLog2()
+	uintp getPageSizeLog2()
 	{
 		static size_t preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
 		return preferredVirtualPageSizeLog2;
@@ -62,7 +62,7 @@ namespace Platform
 	#if _DEBUG
 		static bool isPageAligned(uint8* address)
 		{
-			const uintptr addressBits = reinterpret_cast<uintptr>(address);
+			const uintp addressBits = reinterpret_cast<uintp>(address);
 			return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
 		}
 	#endif
@@ -130,7 +130,7 @@ namespace Platform
 	};
 	DbgHelp* dbgHelp = nullptr;
 
-	bool describeInstructionPointer(uintptr ip,std::string& outDescription)
+	bool describeInstructionPointer(uintp ip,std::string& outDescription)
 	{
 		// Initialize DbgHelp.
 		if(!dbgHelp) { dbgHelp = new DbgHelp(); }
@@ -152,7 +152,7 @@ namespace Platform
 		}
 	}
 	
-	void* registerSEHUnwindInfo(uintptr imageLoadAddress,uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes)
+	void* registerSEHUnwindInfo(uintp imageLoadAddress,uintp textLoadAddress,uintp xdataLoadAddress,uintp pdataLoadAddress,size_t pdataNumBytes)
 	{
 		// The LLVM COFF dynamic loader doesn't handle the image-relative relocations used by the pdata section,
 		// and overwrites those values with o: https://github.com/llvm-mirror/llvm/blob/e84d8c12d5157a926db15976389f703809c49aa5/lib/ExecutionEngine/RuntimeDyld/Targets/RuntimeDyldCOFFX86_64.h#L96
@@ -161,7 +161,7 @@ namespace Platform
 		const uint32 numFunctions = (uint32)(pdataNumBytes / sizeof(RUNTIME_FUNCTION));
 		auto functions = reinterpret_cast<RUNTIME_FUNCTION*>(pdataLoadAddress);
 		auto functionsCopy = new RUNTIME_FUNCTION[numFunctions];
-		uintptr currentFunctionTextLoadAddr = textLoadAddress;
+		uintp currentFunctionTextLoadAddr = textLoadAddress;
 		for(uint32 functionIndex = 0;functionIndex < numFunctions;++functionIndex)
 		{
 			const auto& function = functions[functionIndex];
@@ -251,7 +251,7 @@ namespace Platform
 	}
 
 	THREAD_LOCAL bool isReentrantException = false;
-	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,DWORD& outCode,uintptr& outOperand,ExecutionContext& outContext)
+	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,DWORD& outCode,uintp& outOperand,ExecutionContext& outContext)
 	{
 		if(isReentrantException) { Core::fatalError("reentrant exception"); }
 		else
@@ -282,7 +282,7 @@ namespace Platform
 
 	HardwareTrapType catchHardwareTraps(
 		ExecutionContext& outContext,
-		uintptr& outOperand,
+		uintp& outOperand,
 		const std::function<void()>& thunk
 		)
 	{

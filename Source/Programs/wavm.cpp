@@ -202,8 +202,8 @@ int commandMain(int argc,char** argv)
 	else
 	{
 		invokeArgs.resize(functionType->parameters.size());
-		uintptr main_argc_start = args-argv;
-		auto end = (uintptr)std::min((uintptr)functionType->parameters.size(), (uintptr)(argc - main_argc_start));
+		uintp main_argc_start = args-argv;
+		auto end = (uintp)std::min((uintp)functionType->parameters.size(), (uintp)(argc - main_argc_start));
 		for(uint32 i = 0; i < end; ++i)
 		{
 			Value value;

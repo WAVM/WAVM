@@ -172,7 +172,7 @@ int main(int argc,char** argv)
 	}
 	catch(Runtime::InstantiationException exception)
 	{
-		std::cerr << "Failed to instantiate module: cause=" << std::to_string((uintptr)exception.cause) << std::endl;
+		std::cerr << "Failed to instantiate module: cause=" << std::to_string((uintp)exception.cause) << std::endl;
 		return EXIT_FAILURE;
 	}
 	catch(Runtime::Exception* exception)

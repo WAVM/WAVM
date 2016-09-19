@@ -74,7 +74,7 @@ namespace Platform
 	};
 
 	// Returns the base 2 logarithm of the smallest virtual page size.
-	CORE_API uintptr getPageSizeLog2();
+	CORE_API uintp getPageSizeLog2();
 
 	// Allocates virtual addresses without commiting physical pages to them.
 	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual address space has been exhausted.
@@ -99,14 +99,14 @@ namespace Platform
 	CORE_API void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages);
 
 	// Describes an instruction pointer.
-	CORE_API bool describeInstructionPointer(uintptr ip,std::string& outDescription);
+	CORE_API bool describeInstructionPointer(uintp ip,std::string& outDescription);
 
 	struct ExecutionContext
 	{
 		struct StackFrame
 		{
-			uintptr ip;
-			uintptr bp;
+			uintp ip;
+			uintp bp;
 		};
 		std::vector<StackFrame> stackFrames;
 	};
@@ -116,7 +116,7 @@ namespace Platform
 
 	#ifdef _WIN32
 		// Registers/deregisters the data used by Windows SEH to unwind stack frames.
-		CORE_API void* registerSEHUnwindInfo(uintptr imageLoadAddress,uintptr textLoadAddress,uintptr xdataLoadAddress,uintptr pdataLoadAddress,size_t pdataNumBytes);
+		CORE_API void* registerSEHUnwindInfo(uintp imageLoadAddress,uintp textLoadAddress,uintp xdataLoadAddress,uintp pdataLoadAddress,size_t pdataNumBytes);
 		CORE_API void deregisterSEHUnwindInfo(void* registerResult);
 	#endif
 
@@ -134,7 +134,7 @@ namespace Platform
 	};
 	CORE_API HardwareTrapType catchHardwareTraps(
 		ExecutionContext& outContext,
-		uintptr& outOperand,
+		uintp& outOperand,
 		const std::function<void()>& thunk
 		);
 }

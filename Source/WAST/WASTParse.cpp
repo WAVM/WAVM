@@ -19,8 +19,8 @@ namespace WAST
 {
 	using namespace SExp;
 	
-	typedef std::map<std::string,uintptr> NameToIndexMap;
-	typedef std::map<std::string,uintptr> NameToBranchTargetMap;
+	typedef std::map<std::string,uintp> NameToIndexMap;
+	typedef std::map<std::string,uintp> NameToBranchTargetMap;
 	
 	enum class ExpressionType : uint8
 	{
@@ -120,11 +120,11 @@ namespace WAST
 		NameToIndexMap tableNameToIndexMap;
 		NameToIndexMap exportNameToIndexMap;
 		NameToIndexMap globalNameToIndexMap;
-		std::map<const FunctionType*,uintptr> functionTypeToTypeIndexMap;
+		std::map<const FunctionType*,uintp> functionTypeToTypeIndexMap;
 		std::vector<GlobalType> globalTypes;
 		std::vector<MemoryType> memoryTypes;
 		std::vector<TableType> tableTypes;
-		std::vector<uintptr> functionTypes;
+		std::vector<uintp> functionTypes;
 		
 		NameToIndexMap signatureNameToIndexMap;
 		std::vector<const FunctionType*> signatures;
@@ -133,7 +133,7 @@ namespace WAST
 
 		ModuleContext(Module& inModule,std::vector<Error>& inErrors): module(inModule), errors(inErrors) {}
 
-		uintptr getFunctionTypeIndex(const FunctionType* functionType);
+		uintp getFunctionTypeIndex(const FunctionType* functionType);
 		bool parseInitializerExpression(SNodeIt& nodeIt,ValueType expectedType,InitializerExpression& outExpression);
 
 		void parse(SNodeIt moduleNode);
@@ -175,7 +175,7 @@ namespace WAST
 	// Parse a name or an index.
 	// If a name is parsed that is contained in nameToIndex, the index of the name is assigned to outIndex and true is returned.
 	// If an index is parsed that is between 0 and numValidIndices, the index is assigned to outIndex and true is returned.
-	bool parseNameOrIndex(ModuleContext& moduleContext,SNodeIt& nodeIt,const NameToIndexMap& nameToIndexMap,size_t numValidIndices,bool isOptional,const char* errorContext,uintptr& outIndex)
+	bool parseNameOrIndex(ModuleContext& moduleContext,SNodeIt& nodeIt,const NameToIndexMap& nameToIndexMap,size_t numValidIndices,bool isOptional,const char* errorContext,uintp& outIndex)
 	{
 		SNodeIt savedNodeIt = nodeIt;
 		const char* name = nullptr;
@@ -228,7 +228,7 @@ namespace WAST
 	// Builds a map from name to index from an array of variables.
 	void buildVariableNameToIndexMapMap(ModuleContext& moduleContext,const std::vector<std::string>& variableNames,NameToIndexMap& outNameToIndexMap)
 	{
-		for(uintptr variableIndex = 0;variableIndex < variableNames.size();++variableIndex)
+		for(uintp variableIndex = 0;variableIndex < variableNames.size();++variableIndex)
 		{
 			const auto& variableName = variableNames[variableIndex];
 			if(variableName.size())
@@ -360,13 +360,13 @@ namespace WAST
 		else { return false; }
 	}
 
-	uintptr ModuleContext::getFunctionTypeIndex(const FunctionType* functionType)
+	uintp ModuleContext::getFunctionTypeIndex(const FunctionType* functionType)
 	{
 		auto existingIt = functionTypeToTypeIndexMap.find(functionType);
 		if(existingIt != functionTypeToTypeIndexMap.end()) { return existingIt->second; }
 		else
 		{
-			const uintptr typeIndex = module.types.size();
+			const uintp typeIndex = module.types.size();
 			module.types.push_back(functionType);
 			functionTypeToTypeIndexMap[functionType] = typeIndex;
 			return typeIndex;
@@ -416,7 +416,7 @@ namespace WAST
 			}
 			case Symbol::_get_global:
 			{
-				uintptr globalIndex = 0;
+				uintp globalIndex = 0;
 				if(!parseNameOrIndex(*this,childNodeIt,globalNameToIndexMap,globalTypes.size(),false,"get_global",globalIndex)) { return false; }
 				outExpression = InitializerExpression(InitializerExpression::Type::get_global,globalIndex);
 				actualType = globalTypes[globalIndex].valueType;
@@ -534,10 +534,10 @@ namespace WAST
 			BranchTarget& getBranchTarget() const { return context.branchTargets[branchTargetIndex]; }
 		private:
 			FunctionContext& context;
-			uintptr branchTargetIndex;
+			uintp branchTargetIndex;
 			bool hasName;
 			const char* name;
-			uintptr outerNamedBranchTargetIndex;
+			uintp outerNamedBranchTargetIndex;
 		};
 
 		// Parses an expression of any type.
@@ -650,16 +650,16 @@ namespace WAST
 			return (uint8)Platform::floorLogTwo(alignment);
 		}
 
-		BranchTarget& getBranchTargetByDepth(uintptr depth)
+		BranchTarget& getBranchTargetByDepth(uintp depth)
 		{
 			return branchTargets[branchTargets.size() - depth - 1];
 		}
 
-		bool parseBranchTargetRef(SNodeIt& nodeIt,uintptr& outDepth)
+		bool parseBranchTargetRef(SNodeIt& nodeIt,uintp& outDepth)
 		{
 			// Parse the name or index of the target label.
 			const char* name;
-			if(parseUnsignedInt(nodeIt,outDepth) && (uintptr)outDepth < branchTargets.size()) { return true; }
+			if(parseUnsignedInt(nodeIt,outDepth) && (uintp)outDepth < branchTargets.size()) { return true; }
 			else if(parseName(nodeIt,name))
 			{
 				auto it = labelToBranchTargetMap.find(name);
@@ -933,7 +933,7 @@ namespace WAST
 			DEFINE_OP(br)
 			{
 				// Parse the branch target.
-				uintptr depth;
+				uintp depth;
 				if(!parseBranchTargetRef(nodeIt,depth)) { emitError(nodeIt,"br: expected label name or index"); break; }
 
 				// Parse the branch argument.
@@ -947,26 +947,26 @@ namespace WAST
 			{
 				// Count the number of branch targets provided.
 				size_t numTableTargets = 0;
-				uintptr countTargetDepth = 0;
+				uintp countTargetDepth = 0;
 				for(SNodeIt countIt = nodeIt;parseBranchTargetRef(countIt,countTargetDepth);) { ++numTableTargets; }
 				if(numTableTargets == 0) { emitError(nodeIt,"br_table: must have at least a default branch target"); break; }
 
 				// Parse the table targets.
-				std::vector<uintptr> targetDepths;
-				for(uintptr tableIndex = 0;tableIndex < numTableTargets - 1;++tableIndex)
+				std::vector<uintp> targetDepths;
+				for(uintp tableIndex = 0;tableIndex < numTableTargets - 1;++tableIndex)
 				{
-					uintptr targetDepth = 0;
+					uintp targetDepth = 0;
 					parseBranchTargetRef(nodeIt,targetDepth);
 					targetDepths.push_back(targetDepth);
 				}
 
 				// Parse the default branch target.
-				uintptr defaultTargetDepth = 0;
+				uintp defaultTargetDepth = 0;
 				parseBranchTargetRef(nodeIt,defaultTargetDepth);
 
 				// Find the most specific argument type expected between the default targets and cases.
 				ExpressionType expectedArgumentType = getBranchTargetByDepth(defaultTargetDepth).expectedArgumentType;
-				for(uintptr depth : targetDepths) { expectedArgumentType = intersectTypes(expectedArgumentType,getBranchTargetByDepth(depth).expectedArgumentType); }
+				for(uintp depth : targetDepths) { expectedArgumentType = intersectTypes(expectedArgumentType,getBranchTargetByDepth(depth).expectedArgumentType); }
 				if(expectedArgumentType == ExpressionType::unreachable)
 				{
 					emitError(parentNodeIt,"br_table: targets must have compatible signatures.");
@@ -987,7 +987,7 @@ namespace WAST
 			DEFINE_OP(br_if)
 			{
 				// Parse the branch target.
-				uintptr depth;
+				uintp depth;
 				if(!parseBranchTargetRef(nodeIt,depth)) { emitError(nodeIt,"br_if: expected label name or index"); break; }
 					
 				// Parse the branch argument.
@@ -1018,7 +1018,7 @@ namespace WAST
 			DEFINE_OP(call)
 			{
 				// Parse the function name or index to call.
-				uintptr functionIndex = 0;
+				uintp functionIndex = 0;
 				if(!parseNameOrIndex(moduleContext,nodeIt,moduleContext.functionNameToIndexMap,moduleContext.functionTypes.size(),false,"call",functionIndex)) { break; }
 				const FunctionType* calleeType = moduleContext.module.types[moduleContext.functionTypes[functionIndex]];
 
@@ -1035,7 +1035,7 @@ namespace WAST
 				if(!moduleContext.tableTypes.size()) { emitError(parentNodeIt,"call_indirect: module does not have default table"); break; }
 
 				// Parse the function type.
-				uintptr signatureIndex = 0;
+				uintp signatureIndex = 0;
 				if(!parseNameOrIndex(moduleContext,nodeIt,moduleContext.signatureNameToIndexMap,moduleContext.signatures.size(),false,"call_indirect",signatureIndex)) { break; }
 				const FunctionType* calleeType = moduleContext.signatures[signatureIndex];
 					
@@ -1075,7 +1075,7 @@ namespace WAST
 			}
 			DEFINE_OP(get_local)
 			{
-				uintptr localIndex = 0;
+				uintp localIndex = 0;
 				if(!parseNameOrIndex(moduleContext,nodeIt,localNameToIndexMap,localTypes.size(),false,"get_local",localIndex)) { break; }
 				auto localType = localTypes[localIndex];
 
@@ -1084,7 +1084,7 @@ namespace WAST
 			}
 			DEFINE_OP(set_local)
 			{
-				uintptr localIndex = 0;
+				uintp localIndex = 0;
 				if(!parseNameOrIndex(moduleContext,nodeIt,localNameToIndexMap,localTypes.size(),false,"set_local",localIndex)) { break; }
 				auto localType = localTypes[localIndex];
 
@@ -1095,7 +1095,7 @@ namespace WAST
 			}
 			DEFINE_OP(tee_local)
 			{
-				uintptr localIndex = 0;
+				uintp localIndex = 0;
 				if(!parseNameOrIndex(moduleContext,nodeIt,localNameToIndexMap,localTypes.size(),false,"tee_local",localIndex)) { break; }
 				auto localType = localTypes[localIndex];
 					
@@ -1107,7 +1107,7 @@ namespace WAST
 
 			DEFINE_OP(get_global)
 			{
-				uintptr globalIndex = 0;
+				uintp globalIndex = 0;
 				if(!parseNameOrIndex(moduleContext,nodeIt,moduleContext.globalNameToIndexMap,moduleContext.globalTypes.size(),false,"get_global",globalIndex)) { break; }
 				auto globalType = moduleContext.globalTypes[globalIndex];
 
@@ -1116,7 +1116,7 @@ namespace WAST
 			}
 			DEFINE_OP(set_global)
 			{
-				uintptr globalIndex = 0;
+				uintp globalIndex = 0;
 				if(!parseNameOrIndex(moduleContext,nodeIt,moduleContext.globalNameToIndexMap,moduleContext.globalTypes.size(),false,"set_global",globalIndex)) { break; }
 				auto globalType = moduleContext.globalTypes[globalIndex];
 					
@@ -1142,8 +1142,8 @@ namespace WAST
 		std::vector<SNodeIt> exportNodes;
 		std::vector<SNodeIt> startNodes;
 		std::vector<SNodeIt> funcNodes;
-		std::vector<std::tuple<bool,uintptr,SNodeIt>> dataNodes;
-		std::vector<std::tuple<bool,uintptr,SNodeIt>> elemNodes;
+		std::vector<std::tuple<bool,uintp,SNodeIt>> dataNodes;
+		std::vector<std::tuple<bool,uintp,SNodeIt>> elemNodes;
 		for(auto nodeIt = firstModuleChildNodeIt;nodeIt;++nodeIt)
 		{
 			SNodeIt childNodeIt;
@@ -1185,7 +1185,7 @@ namespace WAST
 						{
 							// Parse a name or index into the module's type declarations.
 							++childNodeIt;
-							uintptr signatureIndex = 0;
+							uintp signatureIndex = 0;
 							if(!parseNameOrIndex(*this,typeChildNodeIt,signatureNameToIndexMap,signatures.size(),false,"func type",signatureIndex)) { continue; }
 							referencedFunctionType = signatures[signatureIndex];
 							hasReferencedFunctionType = true;
@@ -1197,7 +1197,7 @@ namespace WAST
 						parseFunctionType(*this,childNodeIt,inlineFunctionType,localNames);
 
 						// Use either the referenced function type or the inline function type.
-						uintptr functionTypeIndex;
+						uintp functionTypeIndex;
 						if(!hasReferencedFunctionType) { functionTypeIndex = getFunctionTypeIndex(inlineFunctionType); }
 						else
 						{
@@ -1290,7 +1290,7 @@ namespace WAST
 							{
 								// Parse a name or index into the module's type declarations.
 								++importTypeChildNodeIt;
-								uintptr signatureIndex = 0;
+								uintp signatureIndex = 0;
 								if(!parseNameOrIndex(*this,functionTypeChildNodeIt,signatureNameToIndexMap,signatures.size(),false,"func type",signatureIndex)) { continue; }
 								importType = signatures[signatureIndex];
 							}
@@ -1315,7 +1315,7 @@ namespace WAST
 						}
 						case Symbol::_table:
 						{
-							const uintptr tableIndex = tableTypes.size();
+							const uintp tableIndex = tableTypes.size();
 
 							// Parse an optional import name used within the module.
 							const char* importInternalName = "";
@@ -1339,7 +1339,7 @@ namespace WAST
 						}
 						case Symbol::_memory:
 						{
-							const uintptr memoryIndex = memoryTypes.size();
+							const uintp memoryIndex = memoryTypes.size();
 
 							// Parse an optional import name used within the module.
 							const char* importInternalName = "";
@@ -1363,7 +1363,7 @@ namespace WAST
 						}
 						case Symbol::_global:
 						{
-							const uintptr globalIndex = globalTypes.size();
+							const uintp globalIndex = globalTypes.size();
 
 							// Parse an optional import name used within the module.
 							const char* importInternalName = "";
@@ -1395,7 +1395,7 @@ namespace WAST
 					}
 					case Symbol::_memory:
 					{
-						const uintptr memoryIndex = memoryTypes.size();
+						const uintp memoryIndex = memoryTypes.size();
 
 						// Parse an optional memory name used within the module.
 						const char* memoryInternalName = "";
@@ -1449,7 +1449,7 @@ namespace WAST
 					}
 					case Symbol::_table:
 					{
-						const uintptr tableIndex = tableTypes.size();
+						const uintp tableIndex = tableTypes.size();
 
 						// Parse an optional table name used within the module.
 						const char* tableInternalName = "";
@@ -1527,7 +1527,7 @@ namespace WAST
 					}
 					case Symbol::_global:
 					{
-						const uintptr globalIndex = globalTypes.size();
+						const uintp globalIndex = globalTypes.size();
 
 						// Parse an optional name for the global.
 						const char* globalName = "";
@@ -1640,7 +1640,7 @@ namespace WAST
 			};
 
 			// Parse a name or index of the appropriate kind for the export.
-			uintptr exportedIndex = 0;
+			uintp exportedIndex = 0;
 			if(!parseNameOrIndex(*this,kindChildNodeIt,*kindNameToIndexMap,maxKindIndex,false,"exported object",exportedIndex)) { continue; }
 			module.exports.push_back({exportName,kind,exportedIndex});
 
@@ -1652,7 +1652,7 @@ namespace WAST
 		else if(startNodes.size() == 1)
 		{
 			SNodeIt childNodeIt(startNodes[0]->children->nextSibling);
-			uintptr functionIndex = 0;
+			uintp functionIndex = 0;
 			SNodeIt functionNodeIt = childNodeIt;
 			if(parseNameOrIndex(*this,childNodeIt,functionNameToIndexMap,functionTypes.size(),false,"start function",functionIndex))
 			{
@@ -1662,7 +1662,7 @@ namespace WAST
 		}
 
 		// Parse the function bodies after all other declarations are available for use.
-		for(uintptr functionDefinitionIndex = 0;functionDefinitionIndex < funcNodes.size();++functionDefinitionIndex)
+		for(uintp functionDefinitionIndex = 0;functionDefinitionIndex < funcNodes.size();++functionDefinitionIndex)
 		{
 			SNodeIt childNodeIt(funcNodes[functionDefinitionIndex]->children->nextSibling);
 			
@@ -1700,7 +1700,7 @@ namespace WAST
 			SNodeIt nodeIt = std::get<2>(dataNodeTuple);
 			SNodeIt childNodeIt(nodeIt->children->nextSibling);
 
-			uintptr memoryIndex = std::get<1>(dataNodeTuple);
+			uintp memoryIndex = std::get<1>(dataNodeTuple);
 			InitializerExpression baseOffset = InitializerExpression((int32)0);
 			if(!isInline)
 			{
@@ -1757,7 +1757,7 @@ namespace WAST
 			SNodeIt nodeIt = std::get<2>(elemNodeTuple);
 			SNodeIt childNodeIt(nodeIt->children->nextSibling);
 			
-			uintptr tableIndex = std::get<1>(elemNodeTuple);
+			uintp tableIndex = std::get<1>(elemNodeTuple);
 			InitializerExpression baseOffset = InitializerExpression((int32)0);
 			if(!isInline)
 			{
@@ -1770,10 +1770,10 @@ namespace WAST
 			}
 
 			// Parse the function indices or names.
-			std::vector<uintptr> functionIndices;
+			std::vector<uintp> functionIndices;
 			while(childNodeIt)
 			{
-				uintptr functionIndex = 0;
+				uintp functionIndex = 0;
 				SNodeIt elementIt = childNodeIt++;
 				if(!parseNameOrIndex(*this,elementIt,functionNameToIndexMap,functionTypes.size(),true,"table element",functionIndex))
 				{ functionIndex = 0; }

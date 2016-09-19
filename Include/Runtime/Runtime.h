@@ -113,12 +113,12 @@ namespace Runtime
 
 	// Table API
 	RUNTIME_API Table* createTable(WebAssembly::TableType type);
-	RUNTIME_API Object* getTableElement(Table* table,uintptr index);
-	RUNTIME_API Object* setTableElement(Table* table,uintptr index,Object* newValue);
+	RUNTIME_API Object* getTableElement(Table* table,uintp index);
+	RUNTIME_API Object* setTableElement(Table* table,uintp index,Object* newValue);
 	RUNTIME_API size_t getTableNumElements(Table* table);
 	RUNTIME_API size_t getTableMaxElements(Table* table);
-	RUNTIME_API intptr_t growTable(Table* table,size_t numElements);
-	RUNTIME_API intptr_t shrinkTable(Table* table,size_t numElements);
+	RUNTIME_API intp growTable(Table* table,size_t numElements);
+	RUNTIME_API intp shrinkTable(Table* table,size_t numElements);
 
 	// Memory API
 	RUNTIME_API Memory* createMemory(WebAssembly::MemoryType type);
@@ -129,7 +129,7 @@ namespace Runtime
 	RUNTIME_API intptr_t shrinkMemory(Memory* memory,size_t numPages);
 
 	// Validates that an offset range is wholly inside a Memory's virtual address range.
-	RUNTIME_API uint8* getValidatedMemoryOffsetRange(Memory* memory,uintptr offset,size_t numBytes);
+	RUNTIME_API uint8* getValidatedMemoryOffsetRange(Memory* memory,uintp offset,size_t numBytes);
 	
 	// Validates an access to a single element of memory at the given offset, and returns a reference to it.
 	template<typename Value> Value& memoryRef(Memory* memory,uint32 offset)

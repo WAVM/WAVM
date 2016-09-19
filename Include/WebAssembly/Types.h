@@ -169,7 +169,7 @@ namespace WebAssembly
 	inline std::string getTypeName(const std::vector<ValueType>& typeTuple)
 	{
 		std::string result = "(";
-		for(uintptr parameterIndex = 0;parameterIndex < typeTuple.size();++parameterIndex)
+		for(uintp parameterIndex = 0;parameterIndex < typeTuple.size();++parameterIndex)
 		{
 			if(parameterIndex != 0) { result += ','; }
 			result += getTypeName(typeTuple[parameterIndex]);

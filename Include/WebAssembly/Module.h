@@ -11,22 +11,22 @@ namespace WebAssembly
 {
 	struct CodeRef
 	{
-		uintptr offset;
+		uintp offset;
 		size_t numBytes;
 
 		CodeRef(): offset(0), numBytes(0) {}
-		CodeRef(uintptr inOffset,size_t inNumBytes): offset(inOffset), numBytes(inNumBytes) {}
+		CodeRef(uintp inOffset,size_t inNumBytes): offset(inOffset), numBytes(inNumBytes) {}
 	};
 
 	struct Function
 	{
 		// Note: doesn't include parameters.
 		std::vector<ValueType> nonParameterLocalTypes;
-		uintptr typeIndex;
+		uintp typeIndex;
 		CodeRef code;
 
 		Function(): typeIndex(UINTPTR_MAX) {}
-		Function(std::vector<ValueType>&& inNonParameterLocalTypes,uintptr inTypeIndex,CodeRef inCode)
+		Function(std::vector<ValueType>&& inNonParameterLocalTypes,uintp inTypeIndex,CodeRef inCode)
 		: nonParameterLocalTypes(inNonParameterLocalTypes), typeIndex(inTypeIndex), code(inCode)
 		{}
 	};
@@ -36,13 +36,13 @@ namespace WebAssembly
 		ObjectKind kind;
 		union
 		{
-			uintptr functionTypeIndex;
+			uintp functionTypeIndex;
 			TableType table;
 			MemoryType memory;
 			GlobalType global;
 		};
 		ImportType()							: kind(ObjectKind::invalid) {}
-		ImportType(uintptr inFunctionTypeIndex)	: kind(ObjectKind::function), functionTypeIndex(inFunctionTypeIndex) {}
+		ImportType(uintp inFunctionTypeIndex)	: kind(ObjectKind::function), functionTypeIndex(inFunctionTypeIndex) {}
 		ImportType(TableType inTable)			: kind(ObjectKind::table), table(inTable) {}
 		ImportType(MemoryType inMemory)		: kind(ObjectKind::memory), memory(inMemory) {}
 		ImportType(GlobalType inGlobal)			: kind(ObjectKind::global), global(inGlobal) {}
@@ -59,7 +59,7 @@ namespace WebAssembly
 	{
 		std::string name;
 		ObjectKind kind;
-		uintptr index;
+		uintp index;
 	};
 	
 	struct InitializerExpression
@@ -80,14 +80,14 @@ namespace WebAssembly
 			int64 i64;
 			float32 f32;
 			float64 f64;
-			uintptr globalIndex;
+			uintp globalIndex;
 		};
 		InitializerExpression(): type(Type::error) {}
 		InitializerExpression(int32 inI32): type(Type::i32_const), i32(inI32) {}
 		InitializerExpression(int64 inI64): type(Type::i64_const), i64(inI64) {}
 		InitializerExpression(float32 inF32): type(Type::f32_const), f32(inF32) {}
 		InitializerExpression(float64 inF64): type(Type::f64_const), f64(inF64) {}
-		InitializerExpression(Type inType,uintptr inGlobalIndex): type(inType), globalIndex(inGlobalIndex) { assert(inType == Type::get_global); }
+		InitializerExpression(Type inType,uintp inGlobalIndex): type(inType), globalIndex(inGlobalIndex) { assert(inType == Type::get_global); }
 	};
 
 	struct Global
@@ -98,23 +98,23 @@ namespace WebAssembly
 
 	struct DataSegment
 	{
-		uintptr memoryIndex;
+		uintp memoryIndex;
 		InitializerExpression baseOffset;
 		std::vector<uint8> data;
 
 		DataSegment() {}
-		DataSegment(uintptr inMemoryIndex,InitializerExpression inBaseOffset,const std::vector<uint8>& inData)
+		DataSegment(uintp inMemoryIndex,InitializerExpression inBaseOffset,const std::vector<uint8>& inData)
 		: memoryIndex(inMemoryIndex), baseOffset(inBaseOffset), data(inData) {}
 	};
 
 	struct TableSegment
 	{
-		uintptr tableIndex;
+		uintp tableIndex;
 		InitializerExpression baseOffset;
-		std::vector<uintptr> indices;
+		std::vector<uintp> indices;
 		
 		TableSegment() {}
-		TableSegment(uintptr inTableIndex,InitializerExpression inBaseOffset,const std::vector<uintptr>& inIndices)
+		TableSegment(uintp inTableIndex,InitializerExpression inBaseOffset,const std::vector<uintp>& inIndices)
 		: tableIndex(inTableIndex), baseOffset(inBaseOffset), indices(inIndices) {}
 	};
 
@@ -138,7 +138,7 @@ namespace WebAssembly
 		std::vector<TableSegment> tableSegments;
 		std::vector<UserSection> userSections;
 
-		uintptr startFunctionIndex;
+		uintp startFunctionIndex;
 
 		Module() : startFunctionIndex(UINTPTR_MAX) {}
 	};
@@ -155,9 +155,9 @@ namespace WebAssembly
 		}
 	}
 	
-	inline bool findUserSection(const Module& module,const char* userSectionName,uintptr& outUserSectionIndex)
+	inline bool findUserSection(const Module& module,const char* userSectionName,uintp& outUserSectionIndex)
 	{
-		for(uintptr sectionIndex = 0;sectionIndex < module.userSections.size();++sectionIndex)
+		for(uintp sectionIndex = 0;sectionIndex < module.userSections.size();++sectionIndex)
 		{
 			if(module.userSections[sectionIndex].name == userSectionName)
 			{

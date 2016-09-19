@@ -68,7 +68,7 @@ namespace Runtime
 
 		// Check that the parameter types match the function, and copy them into a memory block that stores each as a 64-bit value.
 		uint64* thunkMemory = (uint64*)alloca((functionType->parameters.size() + getArity(functionType->ret)) * sizeof(uint64));
-		for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+		for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 		{
 			if(asRuntimeValueType(functionType->parameters[parameterIndex]) != parameters[parameterIndex].type)
 			{
@@ -86,7 +86,7 @@ namespace Runtime
 		Platform::HardwareTrapType trapType;
 		Platform::ExecutionContext trapContext;
 		Platform::ExecutionContext callingContext;
-		uintptr trapOperand;
+		uintp trapOperand;
 		trapType = Platform::catchHardwareTraps(trapContext,trapOperand,
 			[&]
 			{

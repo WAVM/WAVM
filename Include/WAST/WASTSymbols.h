@@ -158,7 +158,7 @@ namespace WAST
 		ENUM_WAST_TYPE_SYMBOLS()
 
 	// Declare an enum with all the symbols used by WAST.
-	enum class Symbol : uintptr
+	enum class Symbol : uintp
 	{
 		#define WAST_SYMBOL(symbol) _##symbol,
 		#define WAST_INT_OPCODE_SYMBOL(opcode) _i32_##opcode, _i64_##opcode,

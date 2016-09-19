@@ -16,7 +16,7 @@ namespace Emscripten
 	using namespace WebAssembly;
 	using namespace Runtime;
 
-	static uint32 coerce32bitAddress(uintptr address)
+	static uint32 coerce32bitAddress(uintp address)
 	{
 		if(address >= UINT32_MAX) { causeException(Exception::Cause::accessViolation); }
 		return (uint32)address;
@@ -417,7 +417,7 @@ namespace Emscripten
 			}
 
 			// Call the global initializer functions.
-			for(uintptr exportIndex = 0;exportIndex < module.exports.size();++exportIndex)
+			for(uintp exportIndex = 0;exportIndex < module.exports.size();++exportIndex)
 			{
 				const Export& functionExport = module.exports[exportIndex];
 				if(functionExport.kind == ObjectKind::function && !strncmp(functionExport.name.c_str(),"__GLOBAL__",10))
@@ -438,7 +438,7 @@ namespace Emscripten
 		uint8* emscriptenMemoryBase = getMemoryBaseAddress(emscriptenMemory);
 
 		uint32* argvOffsets = (uint32*)(emscriptenMemoryBase + sbrk((uint32)(sizeof(uint32) * (argStrings.size() + 1))));
-		for(uintptr argIndex = 0;argIndex < argStrings.size();++argIndex)
+		for(uintp argIndex = 0;argIndex < argStrings.size();++argIndex)
 		{
 			auto stringSize = strlen(argStrings[argIndex])+1;
 			auto stringMemory = emscriptenMemoryBase + sbrk((uint32)stringSize);

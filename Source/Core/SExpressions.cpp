@@ -288,7 +288,7 @@ namespace SExp
 		bool parseKeyword(const char* keyword)
 		{
 			StreamState savedState = state;
-			for(uintptr charIndex = 0;keyword[charIndex];++charIndex)
+			for(uintp charIndex = 0;keyword[charIndex];++charIndex)
 			{
 				if(state.consume() != keyword[charIndex])
 				{
@@ -303,7 +303,7 @@ namespace SExp
 		{
 			StreamState savedState = state;
 			outValue = 0;
-			uintptr numMatchedCharacters = 0;
+			uintp numMatchedCharacters = 0;
 			while(true)
 			{
 				char hexit = 0;
@@ -659,7 +659,7 @@ namespace SExp
 
 		void parseBlockComment(const Core::TextFileLocus& startLocus)
 		{
-			uintptr commentNestingLevel = 1;
+			uintp commentNestingLevel = 1;
 			while(commentNestingLevel > 0)
 			{
 				switch(state.peek())

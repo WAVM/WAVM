@@ -40,7 +40,7 @@ namespace LLVMJIT
 		const Module& module;
 		const Function& function;
 		const FunctionType* functionType;
-		uintptr functionDefIndex;
+		uintp functionDefIndex;
 		llvm::Function* llvmFunction;
 		llvm::IRBuilder<> irBuilder;
 
@@ -67,7 +67,7 @@ namespace LLVMJIT
 			llvm::BasicBlock* elseBlock;
 			ResultType branchArgumentType;
 			ResultType resultType;
-			uintptr outerStackSize;
+			uintp outerStackSize;
 			bool isReachable;
 			bool isElseReachable;
 		};
@@ -75,7 +75,7 @@ namespace LLVMJIT
 		std::vector<ControlContext> controlStack;
 		std::vector<llvm::Value*> stack;
 
-		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,uintptr inFunctionDefIndex)
+		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,uintp inFunctionDefIndex)
 		: moduleContext(inEmitModuleContext)
 		, module(inModule)
 		, function(module.functionDefs[inFunctionDefIndex])
@@ -175,7 +175,7 @@ namespace LLVMJIT
 					{
 						currentContext.endPHI->removeFromParent();
 						assert(currentContext.resultType != ResultType::none);
-						push(typedZeroConstants[(uintptr)asValueType(currentContext.resultType)]);
+						push(typedZeroConstants[(uintp)asValueType(currentContext.resultType)]);
 					}
 				}
 				controlStack.pop_back();
@@ -188,7 +188,7 @@ namespace LLVMJIT
 			controlStack.back().isReachable = false;
 		}
 		
-		ControlContext& getBranchTargetByDepth(uintptr depth)
+		ControlContext& getBranchTargetByDepth(uintp depth)
 		{
 			assert(depth < controlStack.size());
 			return controlStack[controlStack.size() - depth - 1];
@@ -198,7 +198,7 @@ namespace LLVMJIT
 		{
 			#if ENABLE_LOGGING
 				std::string controlStackString;
-				for(uintptr stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
+				for(uintp stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
 				{
 					switch(controlStack[stackIndex].type)
 					{
@@ -213,8 +213,8 @@ namespace LLVMJIT
 				}
 
 				std::string stackString;
-				const uintptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
-				for(uintptr stackIndex = 0;stackIndex < stack.size();++stackIndex)
+				const uintp stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
+				for(uintp stackIndex = 0;stackIndex < stack.size();++stackIndex)
 				{
 					if(stackIndex == stackBase) { stackString += "| "; }
 					{
@@ -324,7 +324,7 @@ namespace LLVMJIT
 			
 			auto llvmSwitch = irBuilder.CreateSwitch(index,defaultTargetContext.branchTargetBlock,(unsigned int)imm.targetDepths.size());
 
-			for(uintptr targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
+			for(uintp targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
 			{
 				ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepths[targetIndex]);
 				if(argumentType != ResultType::none) { targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock()); }
@@ -407,7 +407,7 @@ namespace LLVMJIT
 			}
 			else
 			{
-				const uintptr calleeIndex = imm.functionIndex - moduleContext.importedFunctionPointers.size();
+				const uintp calleeIndex = imm.functionIndex - moduleContext.importedFunctionPointers.size();
 				assert(calleeIndex < moduleContext.functionDefs.size());
 				callee = moduleContext.functionDefs[calleeIndex];
 				calleeType = module.types[module.functionDefs[calleeIndex].typeIndex];
@@ -432,7 +432,7 @@ namespace LLVMJIT
 			popMultiple(llvmArgs,calleeType->parameters.size());
 
 			// Zero extend the function index to the pointer size.
-			auto functionIndexZExt = irBuilder.CreateZExt(tableElementIndex,sizeof(uintptr) == 4 ? llvmI32Type : llvmI64Type);
+			auto functionIndexZExt = irBuilder.CreateZExt(tableElementIndex,sizeof(uintp) == 4 ? llvmI32Type : llvmI64Type);
 
 			// Check whether the index is within the bounds of the function table.
 			auto result = emitIfElse(
@@ -554,11 +554,11 @@ namespace LLVMJIT
 			// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
 			// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
 			// There are no 'far addresses' in a 32 bit runtime.
-			llvm::Value* nativeByteIndex = sizeof(uintptr) == 4 ? byteIndex : irBuilder.CreateZExt(byteIndex,llvmI64Type);
+			llvm::Value* nativeByteIndex = sizeof(uintp) == 4 ? byteIndex : irBuilder.CreateZExt(byteIndex,llvmI64Type);
 			llvm::Value* offsetByteIndex = nativeByteIndex;
 			if(offset)
 			{
-				auto nativeOffset = sizeof(uintptr) == 4 ? emitLiteral((uint32)offset) : irBuilder.CreateZExt(emitLiteral((uint32)offset),llvmI64Type);
+				auto nativeOffset = sizeof(uintp) == 4 ? emitLiteral((uint32)offset) : irBuilder.CreateZExt(emitLiteral((uint32)offset),llvmI64Type);
 				offsetByteIndex = irBuilder.CreateAdd(nativeByteIndex,nativeOffset);
 			}
 
@@ -581,7 +581,7 @@ namespace LLVMJIT
 		{
 			return emitIfElse(
 				"checkDivideByZero",
-				irBuilder.CreateICmpNE(divisor,typedZeroConstants[(uintptr)type]),
+				irBuilder.CreateICmpNE(divisor,typedZeroConstants[(uintp)type]),
 				nonZeroThunk,
 				[&]
 				{
@@ -750,7 +750,7 @@ namespace LLVMJIT
 		EMIT_INT_UNARY_OPCODE(clz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctlz),llvm::ArrayRef<llvm::Value*>({operand,emitLiteral(false)})))
 		EMIT_INT_UNARY_OPCODE(ctz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::cttz),llvm::ArrayRef<llvm::Value*>({operand,emitLiteral(false)})))
 		EMIT_INT_UNARY_OPCODE(popcnt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctpop),llvm::ArrayRef<llvm::Value*>({operand})))
-		EMIT_INT_UNARY_OPCODE(eqz,coerceBoolToI32(irBuilder.CreateICmpEQ(operand,typedZeroConstants[(uintptr)type])))
+		EMIT_INT_UNARY_OPCODE(eqz,coerceBoolToI32(irBuilder.CreateICmpEQ(operand,typedZeroConstants[(uintp)type])))
 
 		EMIT_FP_BINARY_OPCODE(add,irBuilder.CreateFAdd(left,right))
 		EMIT_FP_BINARY_OPCODE(sub,irBuilder.CreateFSub(left,right))
@@ -836,7 +836,7 @@ namespace LLVMJIT
 		localTypes.insert(localTypes.end(),function.nonParameterLocalTypes.begin(),function.nonParameterLocalTypes.end());
 		localPointers.resize(localTypes.size());
 		auto llvmArgIt = llvmFunction->arg_begin();
-		for(uintptr localIndex = 0;localIndex < localTypes.size();++localIndex)
+		for(uintp localIndex = 0;localIndex < localTypes.size();++localIndex)
 		{
 			auto localType = localTypes[localIndex];
 			localPointers[localIndex] = irBuilder.CreateAlloca(asLLVMType(localType),nullptr,"");
@@ -850,7 +850,7 @@ namespace LLVMJIT
 			else
 			{
 				// Initialize non-parameter locals to zero.
-				irBuilder.CreateStore(typedZeroConstants[(uintptr)localType],localPointers[localIndex]);
+				irBuilder.CreateStore(typedZeroConstants[(uintp)localType],localPointers[localIndex]);
 			}
 		}
 
@@ -900,7 +900,7 @@ namespace LLVMJIT
 		{
 			defaultMemoryBase = emitLiteralPointer(moduleInstance->defaultMemory->baseAddress,llvmI8PtrType);
 			auto defaultMemoryAddressMaskValue = (moduleInstance->defaultMemory->maxPages << WebAssembly::numBytesPerPageLog2) - 1;
-			defaultMemoryAddressMask = sizeof(uintptr) == 8 ? emitLiteral((uint64)defaultMemoryAddressMaskValue) : emitLiteral((uint32)defaultMemoryAddressMaskValue);
+			defaultMemoryAddressMask = sizeof(uintp) == 8 ? emitLiteral((uint64)defaultMemoryAddressMaskValue) : emitLiteral((uint32)defaultMemoryAddressMaskValue);
 		}
 		else { defaultMemoryBase = defaultMemoryAddressMask = nullptr; }
 
@@ -912,7 +912,7 @@ namespace LLVMJIT
 				llvmI8PtrType
 				});
 			defaultTablePointer = emitLiteralPointer(moduleInstance->defaultTable->baseAddress,tableElementType->getPointerTo());
-			defaultTableMaxElements = emitLiteral(uintptr((moduleInstance->defaultTable->maxPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::FunctionElement)));
+			defaultTableMaxElements = emitLiteral(uintp((moduleInstance->defaultTable->maxPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::FunctionElement)));
 		}
 		else
 		{
@@ -920,7 +920,7 @@ namespace LLVMJIT
 		}
 
 		// Create LLVM pointer constants for the module's imported functions.
-		for(uintptr functionIndex = 0;functionIndex < moduleInstance->functions.size() - module.functionDefs.size();++functionIndex)
+		for(uintp functionIndex = 0;functionIndex < moduleInstance->functions.size() - module.functionDefs.size();++functionIndex)
 		{
 			const FunctionInstance* functionInstance = moduleInstance->functions[functionIndex];
 			importedFunctionPointers.push_back(emitLiteralPointer(functionInstance->nativeFunction,asLLVMType(functionInstance->type)->getPointerTo()));
@@ -932,7 +932,7 @@ namespace LLVMJIT
 		
 		// Create the LLVM functions.
 		functionDefs.resize(module.functionDefs.size());
-		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
 			const Function& function = module.functionDefs[functionDefIndex];
 			const FunctionType* functionType = module.types[function.typeIndex];
@@ -942,7 +942,7 @@ namespace LLVMJIT
 		}
 
 		// Compile each function in the module.
-		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{ EmitFunctionContext(*this,module,functionDefIndex).emit(); }
 
 		Log::logRatePerSecond("Emitted LLVM IR",emitTimer,(float64)llvmModule->size(),"functions");

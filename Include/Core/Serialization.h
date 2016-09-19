@@ -54,7 +54,7 @@ namespace Serialization
 
 		virtual void extendBuffer(size_t numBytes)
 		{
-			const uintptr nextIndex = next - bytes.data();
+			const uintp nextIndex = next - bytes.data();
 
 			bytes.resize(std::max((size_t)nextIndex+numBytes,bytes.size() * 7 / 5 + 32));
 
@@ -161,7 +161,7 @@ namespace Serialization
 	{
 		enum { maxBytes = (maxBits + 6) / 7 };
 		uint8 bytes[maxBytes] = {0};
-		uintptr numBytes = 0;
+		uintp numBytes = 0;
 		int8 signExtendShift = (int8)sizeof(Value) * 8;
 		while(numBytes < maxBytes)
 		{
@@ -178,7 +178,7 @@ namespace Serialization
 		|| ((bytes[maxBytes-1] & ~highestByteUsedBitmask) == uint8(highestByteSignedBitmask) && std::is_signed<Value>::value))
 		{
 			value = 0;
-			for(uintptr byteIndex = 0;byteIndex < maxBytes;++byteIndex)
+			for(uintp byteIndex = 0;byteIndex < maxBytes;++byteIndex)
 			{ value |= Value(bytes[byteIndex] & ~0x80) << (byteIndex * 7); }
 
 			if(std::is_signed<Value>::value && signExtendShift > 0)
@@ -257,7 +257,7 @@ namespace Serialization
 		size_t size = vector.size();
 		serializeVarUInt32(stream,size);
 		if(Stream::isInput) { vector.resize(size); }
-		for(uintptr index = 0;index < vector.size();++index) { serializeElement(stream,vector[index]); }
+		for(uintp index = 0;index < vector.size();++index) { serializeElement(stream,vector[index]); }
 		if(Stream::isInput) { vector.shrink_to_fit(); }
 	}
 

@@ -38,14 +38,14 @@ namespace WebAssembly
 
 	void serialize(InputStream& stream,ResultType& returnType)
 	{
-		uintptr arity;
+		uintp arity;
 		serializeVarUInt1(stream,arity);
 		if(arity == 0) { returnType = ResultType::none; }
 		else { serializeNativeValue(stream,returnType); }
 	}
 	void serialize(OutputStream& stream,ResultType& returnType)
 	{
-		uintptr arity = returnType == ResultType::none ? 0 : 1;
+		uintp arity = returnType == ResultType::none ? 0 : 1;
 		serializeVarUInt1(stream,arity);
 		if(arity) { serializeNativeValue(stream,returnType); }
 	}
@@ -53,7 +53,7 @@ namespace WebAssembly
 	template<typename Stream>
 	void serialize(Stream& stream,SizeConstraints& sizeConstraints)
 	{
-		uintptr flags = sizeConstraints.max != UINT64_MAX ? 1 : 0;
+		uintp flags = sizeConstraints.max != UINT64_MAX ? 1 : 0;
 		serializeVarUInt32(stream,flags);
 		serializeVarUInt32(stream,sizeConstraints.min);
 		if(flags) { serializeVarUInt32(stream,sizeConstraints.max); }
@@ -154,7 +154,7 @@ namespace WebAssembly
 	{
 		serializeVarUInt32(stream,tableSegment.tableIndex);
 		serialize(stream,tableSegment.baseOffset);
-		serializeArray(stream,tableSegment.indices,[](Stream& stream,uintptr& functionIndex){serializeVarUInt32(stream,functionIndex);});
+		serializeArray(stream,tableSegment.indices,[](Stream& stream,uintp& functionIndex){serializeVarUInt32(stream,functionIndex);});
 	}
 
 	template<typename SerializeSection>
@@ -214,7 +214,7 @@ namespace WebAssembly
 
 	struct LocalSet
 	{
-		uintptr num;
+		uintp num;
 		ValueType type;
 	};
 	
@@ -231,7 +231,7 @@ namespace WebAssembly
 
 		// Convert the function's local types into LocalSets: runs of locals of the same type.
 		LocalSet* localSets = (LocalSet*)alloca(sizeof(LocalSet)*function.nonParameterLocalTypes.size());
-		uintptr numLocalSets = 0;
+		uintp numLocalSets = 0;
 		if(function.nonParameterLocalTypes.size())
 		{
 			localSets[0].type = ValueType::invalid;
@@ -251,7 +251,7 @@ namespace WebAssembly
 
 		// Serialize the local sets.
 		serializeVarUInt32(bodyStream,numLocalSets);
-		for(uintptr setIndex = 0;setIndex < numLocalSets;++setIndex) { serialize(bodyStream,localSets[setIndex]); }
+		for(uintp setIndex = 0;setIndex < numLocalSets;++setIndex) { serialize(bodyStream,localSets[setIndex]); }
 
 		serializeBytes(bodyStream,module.code.data() + function.code.offset,function.code.numBytes);
 
@@ -269,11 +269,11 @@ namespace WebAssembly
 		// Deserialize local sets and unpack them into a linear array of local types.
 		size_t numLocalSets = 0;
 		serializeVarUInt32(bodyStream,numLocalSets);
-		for(uintptr setIndex = 0;setIndex < numLocalSets;++setIndex)
+		for(uintp setIndex = 0;setIndex < numLocalSets;++setIndex)
 		{
 			LocalSet localSet;
 			serialize(bodyStream,localSet);
-			for(uintptr index = 0;index < localSet.num;++index) { function.nonParameterLocalTypes.push_back(localSet.type); }
+			for(uintp index = 0;index < localSet.num;++index) { function.nonParameterLocalTypes.push_back(localSet.type); }
 		}
 
 		const size_t numCodeBytes = bodyStream.capacity();
@@ -363,7 +363,7 @@ namespace WebAssembly
 			serialize(sectionStream,module.dataSegments);
 		});
 
-		uintptr userSectionIndex = 0;
+		uintp userSectionIndex = 0;
 		while((Stream::isInput && moduleStream.capacity()) || userSectionIndex < module.userSections.size())
 		{
 			UserSection& userSection = Stream::isInput ? *module.userSections.insert(module.userSections.end(),UserSection()) : module.userSections[userSectionIndex];
@@ -396,13 +396,13 @@ namespace WebAssembly
 			default: Core::unreachable();
 			};
 		}
-		const uintptr numImportedFunctions = outNames.functions.size();
+		const uintp numImportedFunctions = outNames.functions.size();
 		outNames.types.insert(outNames.types.end(),module.types.size(),"");
 		outNames.tables.insert(outNames.tables.end(),module.tableDefs.size(),"");
 		outNames.memories.insert(outNames.memories.end(),module.memoryDefs.size(),"");
 		outNames.globals.insert(outNames.globals.end(),module.globalDefs.size(),"");
 		outNames.functions.insert(outNames.functions.end(),module.functionDefs.size(),"");
-		for(uintptr functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
 			const Function& functionDef = module.functionDefs[functionDefIndex];
 			const FunctionType* functionType = module.types[functionDef.typeIndex];
@@ -412,7 +412,7 @@ namespace WebAssembly
 		}
 
 		// Deserialize the name section, if it is present.
-		uintptr userSectionIndex = 0;
+		uintp userSectionIndex = 0;
 		if(findUserSection(module,"name",userSectionIndex))
 		{
 			try
@@ -424,9 +424,9 @@ namespace WebAssembly
 				serializeVarUInt32(stream,numFunctionNames);
 				numFunctionNames = std::min(numFunctionNames,module.functionDefs.size());
 
-				for(uintptr functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
+				for(uintp functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
 				{
-					const uintptr functionIndex = numImportedFunctions + functionDefIndex;
+					const uintp functionIndex = numImportedFunctions + functionDefIndex;
 					DisassemblyNames::FunctionDef& functionDefNames = outNames.functionDefs[functionDefIndex];
 
 					serialize(stream,outNames.functions[functionIndex]);
@@ -435,7 +435,7 @@ namespace WebAssembly
 					serializeVarUInt32(stream,numLocalNames);
 					numLocalNames = std::min(numLocalNames,functionDefNames.locals.size());
 
-					for(uintptr localIndex = 0;localIndex < numLocalNames;++localIndex)
+					for(uintp localIndex = 0;localIndex < numLocalNames;++localIndex)
 					{ serialize(stream,functionDefNames.locals[localIndex]); }
 				}
 			}
@@ -449,7 +449,7 @@ namespace WebAssembly
 	void setDisassemblyNames(Module& module,const DisassemblyNames& names)
 	{
 		// Replace an existing name section if one is present, or create a new section.
-		uintptr userSectionIndex = 0;
+		uintp userSectionIndex = 0;
 		if(!findUserSection(module,"name",userSectionIndex))
 		{
 			userSectionIndex = module.userSections.size();
@@ -462,17 +462,17 @@ namespace WebAssembly
 		serializeVarUInt32(stream,numFunctionNames);
 
 		assert(names.functions.size() >= names.functionDefs.size());
-		const uintptr baseFunctionDefIndex = names.functions.size() - names.functionDefs.size();
+		const uintp baseFunctionDefIndex = names.functions.size() - names.functionDefs.size();
 
-		for(uintptr functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
+		for(uintp functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
 		{
-			const uintptr functionIndex = baseFunctionDefIndex + functionDefIndex;
+			const uintp functionIndex = baseFunctionDefIndex + functionDefIndex;
 			std::string functionName = functionIndex < names.functions.size() ? names.functions[functionIndex] : "";
 			serialize(stream,functionName);
 
 			size_t numLocalNames = functionDefIndex < names.functionDefs.size() ? names.functionDefs[functionDefIndex].locals.size() : 0;
 			serializeVarUInt32(stream,numLocalNames);
-			for(uintptr localIndex = 0;localIndex < numLocalNames;++localIndex)
+			for(uintp localIndex = 0;localIndex < numLocalNames;++localIndex)
 			{
 				std::string localName = names.functionDefs[functionDefIndex].locals[localIndex];
 				serialize(stream,localName);

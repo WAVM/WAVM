@@ -24,7 +24,7 @@ namespace WebAssembly
 		const Module& module;
 		InnerVisitor& innerVisitor;
 
-		std::string describeImm(Opcode opcode) { return std::to_string((uintptr)opcode); }
+		std::string describeImm(Opcode opcode) { return std::to_string((uintp)opcode); }
 		std::string describeImm(NoImm) { return ""; }
 		std::string describeImm(ControlStructureImm imm) { return std::string(" : ") + getTypeName(imm.resultType); }
 		std::string describeImm(BranchImm imm) { return " " + std::to_string(imm.targetDepth); }

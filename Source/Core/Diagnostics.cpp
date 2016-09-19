@@ -31,16 +31,16 @@ namespace Log
 	void setCategoryEnabled(Category category,bool enable)
 	{
 		assert(category < Category::num);
-		categoryEnabled[(uintptr)category] = enable;
+		categoryEnabled[(uintp)category] = enable;
 	}
 	bool isCategoryEnabled(Category category)
 	{
 		assert(category < Category::num);
-		return categoryEnabled[(uintptr)category];
+		return categoryEnabled[(uintp)category];
 	}
 	void printf(Category category,const char* format,...)
 	{
-		if(categoryEnabled[(uintptr)category])
+		if(categoryEnabled[(uintp)category])
 		{
 			va_list varArgs;
 			va_start(varArgs,format);

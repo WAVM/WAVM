@@ -163,7 +163,7 @@ private:
 
 				// Parse the invoke's parameters.
 				std::vector<Value> parameters(functionType->parameters.size());
-				for(uintptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+				for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 					{ parameters[parameterIndex] = parseRuntimeValue(childNodeIt++); }
 
 				// Verify that all of the invoke's operands were parsed.
