@@ -193,7 +193,7 @@ namespace Runtime
 
 	Object* setTableElement(Table* table,uintptr index,Object* newValue)
 	{
-		assert(index < table->numElements);
+		assert(index < table->elements.size());
 		FunctionInstance* functionInstance = asFunction(newValue);
 		assert(functionInstance->nativeFunction);
 		table->baseAddress[index].type = functionInstance->type;
