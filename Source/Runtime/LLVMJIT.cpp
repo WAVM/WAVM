@@ -350,7 +350,7 @@ namespace LLVMJIT
 			jitUnit->compileLayer->emitAndFinalize(objectSetHandle);
 
 			// Create a DWARF context to interpret the debug information in this compilation unit.
-			auto dwarfContext = std::make_unique<llvm::DWARFContextInMemory>(*object,loadedObject.get());
+			auto dwarfContext = llvm::make_unique<llvm::DWARFContextInMemory>(*object,loadedObject.get());
 
 			// Iterate over the functions in the loaded object.
 			for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object.get()))
