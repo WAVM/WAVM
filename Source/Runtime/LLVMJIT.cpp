@@ -182,7 +182,10 @@ namespace LLVMJIT
 	// Encapsulates the LLVM JIT compilation pipeline but allows subclasses to define how the resulting code is used.
 	struct JITUnit
 	{
-		JITUnit(): registerSEHUnwindInfoResult(nullptr)
+		JITUnit()
+		#ifdef _WIN32
+			: registerSEHUnwindInfoResult(nullptr)
+		#endif
 		{
 			objectLayer = llvm::make_unique<ObjectLayer>(NotifyLoadedFunctor(this));
 			compileLayer = llvm::make_unique<CompileLayer>(*objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
@@ -221,7 +224,9 @@ namespace LLVMJIT
 		std::unique_ptr<CompileLayer> compileLayer;
 		CompileLayer::ModuleSetHandleT handle;
 
-		void* registerSEHUnwindInfoResult;
+		#ifdef _WIN32
+			void* registerSEHUnwindInfoResult;
+		#endif
 	};
 
 	// The JIT compilation unit for a WebAssembly module instance.
