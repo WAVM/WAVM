@@ -178,7 +178,6 @@ namespace Runtime
 
 	ModuleInstance::~ModuleInstance()
 	{
-		Log::printf(Log::Category::debug,"Freeing module instance\n");
 		delete jitModule;
 	}
 

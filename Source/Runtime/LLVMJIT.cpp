@@ -86,7 +86,6 @@ namespace LLVMJIT
 		}
 		void deregisterEHFrames(uint8* addr, uint64 loadAddr,size_t numBytes) override
 		{
-			Log::printf(Log::Category::error,"deregisterRHFrames %u\n",numBytes);
 			llvm::RTDyldMemoryManager::deregisterEHFrames(addr,loadAddr,numBytes);
 		}
 
