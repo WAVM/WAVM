@@ -174,12 +174,12 @@ namespace WebAssembly
 					{
 					case ControlContext::Type::function: controlStackString += "F"; break;
 					case ControlContext::Type::block: controlStackString += "B"; break;
+					case ControlContext::Type::ifWithoutElse: controlStackString += "I"; break;
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
 					default: Core::unreachable();
 					};
-					if(!controlStack[stackIndex].isReachable) { controlStackString += "-"; }
 				}
 
 				std::string stackString;
@@ -211,16 +211,16 @@ namespace WebAssembly
 			validate(imm.resultType);
 			pushControlStack(ControlContext::Type::loop,ResultType::none,imm.resultType);
 		}
-		void beginIf(ControlStructureImm imm)
+		void beginIf(NoImm imm)
+		{
+			popAndValidateOperand(ValueType::i32);
+			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::none,ResultType::none);
+		}
+		void beginIfElse(ControlStructureImm imm)
 		{
 			validate(imm.resultType);
 			popAndValidateOperand(ValueType::i32);
 			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType);
-		}
-		void beginElse(NoImm imm)
-		{
-			popAndValidateResultType(controlStack.back().resultType);
-			popControlStack(true);
 		}
 		void end(NoImm)
 		{
@@ -267,17 +267,15 @@ namespace WebAssembly
 		}
 		void drop(NoImm)
 		{
-			if(controlStack.back().isReachable) { validateStackAccess(1); stack.pop_back(); }
+			validateStackAccess(1);
+			stack.pop_back();
 		}
 
 		void select(NoImm)
 		{
-			if(controlStack.back().isReachable)
-			{
-				validateStackAccess(3);
-				ValueType operandType = stack[stack.size() - 3];
-				popAndValidateOperands(operandType,ValueType::i32);
-			}
+			validateStackAccess(3);
+			ValueType operandType = stack[stack.size() - 3];
+			popAndValidateOperands(operandType,ValueType::i32);
 		}
 
 		void get_local(GetOrSetVariableImm imm)
@@ -469,7 +467,6 @@ namespace WebAssembly
 			
 			ResultType branchArgumentType;
 			ResultType resultType;
-			bool isReachable;
 		};
 
 		ModuleValidationContext& moduleContext;
@@ -483,22 +480,19 @@ namespace WebAssembly
 
 		void pushControlStack(ControlContext::Type type,ResultType branchArgumentType,ResultType resultType)
 		{
-			controlStack.push_back({type,stack.size(),branchArgumentType,resultType,true});
+			controlStack.push_back({type,stack.size(),branchArgumentType,resultType});
 		}
 
-		void popControlStack(bool isElse = false)
+		void popControlStack()
 		{
-			if(controlStack.back().isReachable)
-			{ VALIDATE_UNLESS("stack was not empty at end of control structure: ",stack.size() > controlStack.back().outerStackSize); }
+			VALIDATE_UNLESS("stack was not empty at end of control structure: ",stack.size() > controlStack.back().outerStackSize);
 
-			if(isElse && controlStack.back().type == ControlContext::Type::ifThen)
+			if(controlStack.back().type == ControlContext::Type::ifThen)
 			{
 				controlStack.back().type = ControlContext::Type::ifElse;
-				controlStack.back().isReachable = true;
 			}
 			else
 			{
-				VALIDATE_UNLESS("else only allowed in if context: ",isElse);
 				const ResultType resultType = controlStack.back().resultType;
 				controlStack.pop_back();
 				if(controlStack.size()) { push(resultType); }
@@ -508,16 +502,13 @@ namespace WebAssembly
 		void enterUnreachable()
 		{
 			stack.resize(controlStack.back().outerStackSize);
-			controlStack.back().isReachable = false;
+			popControlStack();
 		}
 
 		void validateStackAccess(size_t num)
 		{
-			if(controlStack.back().isReachable)
-			{
-				const uintptr stackBase = controlStack.back().outerStackSize;
-				if(stack.size() < stackBase + num) { throw ValidationException("invalid stack access"); }
-			}
+			const uintptr stackBase = controlStack.back().outerStackSize;
+			if(stack.size() < stackBase + num) { throw ValidationException("invalid stack access"); }
 		}
 
 		void validateBranchDepth(uintptr depth) const
@@ -540,13 +531,10 @@ namespace WebAssembly
 
 		void popAndValidateOperands(const ValueType* expectedTypes,size_t num)
 		{
-			if(controlStack.back().isReachable)
-			{
-				validateStackAccess(num);
-				for(uintptr operandIndex = 0;operandIndex < num;++operandIndex)
-				{ validateType(stack[stack.size()-num+operandIndex],expectedTypes[operandIndex],"operand"); }
-				stack.resize(stack.size() - num);
-			}
+			validateStackAccess(num);
+			for(uintptr operandIndex = 0;operandIndex < num;++operandIndex)
+			{ validateType(stack[stack.size()-num+operandIndex],expectedTypes[operandIndex],"operand"); }
+			stack.resize(stack.size() - num);
 		}
 
 		template<size_t num>
@@ -561,12 +549,9 @@ namespace WebAssembly
 
 		void popAndValidateOperand(const ValueType expectedType)
 		{
-			if(controlStack.back().isReachable)
-			{
-				validateStackAccess(1);
-				validateType(stack.back(),expectedType,"operand");
-				stack.pop_back();
-			}
+			validateStackAccess(1);
+			validateType(stack.back(),expectedType,"operand");
+			stack.pop_back();
 		}
 
 		void popAndValidateResultType(ResultType expectedType)
@@ -576,11 +561,11 @@ namespace WebAssembly
 
 		void push(ValueType type)
 		{
-			if(controlStack.back().isReachable) { stack.push_back(type); }
+			stack.push_back(type);
 		}
 		void push(ResultType type)
 		{
-			if(controlStack.back().isReachable && type != ResultType::none) { push(asValueType(type)); }
+			if(type != ResultType::none) { push(asValueType(type)); }
 		}
 	};
 

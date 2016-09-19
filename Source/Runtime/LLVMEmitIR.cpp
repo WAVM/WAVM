@@ -54,6 +54,7 @@ namespace LLVMJIT
 			{
 				function,
 				block,
+				ifWithoutElse,
 				ifThen,
 				ifElse,
 				loop
@@ -68,8 +69,6 @@ namespace LLVMJIT
 			ResultType branchArgumentType;
 			ResultType resultType;
 			uintptr outerStackSize;
-			bool isReachable;
-			bool isElseReachable;
 		};
 
 		std::vector<ControlContext> controlStack;
@@ -137,34 +136,24 @@ namespace LLVMJIT
 			llvm::BasicBlock* elseBlock = nullptr
 			)
 		{
-			bool isReachable = controlStack.size() ? controlStack.back().isReachable : true;
-
-			controlStack.push_back({type,endBlock,endPHI,branchTargetBlock,branchTargetPHI,elseBlock,branchArgumentType,resultType,stack.size(),isReachable,isReachable});
+			controlStack.push_back({type,endBlock,endPHI,branchTargetBlock,branchTargetPHI,elseBlock,branchArgumentType,resultType,stack.size()});
 		}
 
-		void popControlStack(bool isElse = false)
+		void popControlStack()
 		{
 			assert(controlStack.size());
 			ControlContext& currentContext = controlStack.back();
 			assert(stack.size() == currentContext.outerStackSize);
-			if(isElse)
+			if(currentContext.type == ControlContext::Type::ifThen)
 			{
 				assert(currentContext.elseBlock);
-				assert(currentContext.type == ControlContext::Type::ifThen);
 				irBuilder.SetInsertPoint(currentContext.elseBlock);
 
 				currentContext.type = ControlContext::Type::ifElse;
-				currentContext.isReachable = currentContext.isElseReachable;
 				currentContext.elseBlock = nullptr;
 			}
 			else
 			{
-				if(currentContext.elseBlock)
-				{
-					irBuilder.SetInsertPoint(currentContext.elseBlock);
-					irBuilder.CreateBr(currentContext.endBlock);
-				}
-
 				currentContext.endBlock->moveAfter(irBuilder.GetInsertBlock());
 				irBuilder.SetInsertPoint(currentContext.endBlock);
 
@@ -185,7 +174,7 @@ namespace LLVMJIT
 		void enterUnreachable()
 		{
 			stack.resize(controlStack.back().outerStackSize);
-			controlStack.back().isReachable = false;
+			popControlStack();
 		}
 		
 		ControlContext& getBranchTargetByDepth(uintptr depth)
@@ -204,12 +193,12 @@ namespace LLVMJIT
 					{
 					case ControlContext::Type::function: controlStackString += "F"; break;
 					case ControlContext::Type::block: controlStackString += "B"; break;
+					case ControlContext::Type::ifWithoutElse: controlStackString += "I"; break;
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
 					default: Core::unreachable();
 					};
-					if(!controlStack[stackIndex].isReachable) { controlStackString += "-"; }
 				}
 
 				std::string stackString;
@@ -249,7 +238,16 @@ namespace LLVMJIT
 			irBuilder.SetInsertPoint(loopBodyBlock);
 			pushControlStack(ControlContext::Type::loop,ResultType::none,imm.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
 		}
-		void beginIf(ControlStructureImm imm)
+		void beginIf(NoImm)
+		{
+			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(context,"ifElseEnd",llvmFunction);
+			auto condition = pop();
+			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,endBlock);
+			irBuilder.SetInsertPoint(thenBlock);
+			pushControlStack(ControlContext::Type::ifWithoutElse,ResultType::none,ResultType::none,endBlock,nullptr,endBlock,nullptr);
+		}
+		void beginIfElse(ControlStructureImm imm)
 		{
 			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
 			auto elseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
@@ -260,30 +258,14 @@ namespace LLVMJIT
 			irBuilder.SetInsertPoint(thenBlock);
 			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType,endBlock,endPHI,endBlock,endPHI,elseBlock);
 		}
-		void beginElse(NoImm imm)
-		{
-			if(controlStack.back().isReachable)
-			{
-				if(controlStack.back().resultType != ResultType::none)
-				{
-					llvm::Value* result = pop();
-					controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
-				}
-				irBuilder.CreateBr(controlStack.back().endBlock);
-			}
-			popControlStack(true);
-		}
 		void end(NoImm)
 		{
-			if(controlStack.back().isReachable)
+			if(controlStack.back().resultType != ResultType::none)
 			{
-				if(controlStack.back().resultType != ResultType::none)
-				{
-					llvm::Value* result = pop();
-					controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
-				}
-				irBuilder.CreateBr(controlStack.back().endBlock);
+				llvm::Value* result = pop();
+				controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
 			}
+			irBuilder.CreateBr(controlStack.back().endBlock);
 			popControlStack();
 		}
 		
@@ -796,21 +778,6 @@ namespace LLVMJIT
 		EMIT_UNARY_OPCODE(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
 	};
 	
-	// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end operator through).
-	struct UnreachableOpVisitor
-	{
-		UnreachableOpVisitor(EmitFunctionContext& inContext): context(inContext) {}
-		#define VISIT_OPCODE(encoding,name,Imm) void name(Imm imm) {}
-		ENUM_NONEND_OPCODES(VISIT_OPCODE)
-		VISIT_OPCODE(_,unknown,Opcode)
-		#undef VISIT_OPCODE
-		void beginElse(NoImm imm) { context.beginElse(imm); }
-		void end(NoImm imm) { context.end(imm); }
-		void logOperator(const std::string& operatorDescription) { context.logOperator(operatorDescription); }
-	private:
-		EmitFunctionContext& context;
-	};
-
 	void EmitFunctionContext::emit()
 	{
 		// Create the return basic block, and push the root control context for the function.
@@ -857,21 +824,11 @@ namespace LLVMJIT
 		// Decode the WebAssembly opcodes and emit LLVM IR for them.
 		Serialization::MemoryInputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
 		OperationDecoder decoder(codeStream);
-		UnreachableOpVisitor unreachableOpVisitor(*this);
 		OperatorLoggingProxy<EmitFunctionContext> loggingProxy(module,*this);
-		OperatorLoggingProxy<UnreachableOpVisitor> unreachableLoggingProxy(module,unreachableOpVisitor);
 		while(decoder && controlStack.size())
 		{
-			if(ENABLE_LOGGING)
-			{
-				if(controlStack.back().isReachable) { decoder.decodeOp(loggingProxy); }
-				else { decoder.decodeOp(unreachableLoggingProxy); }
-			}
-			else
-			{
-				if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
-				else { decoder.decodeOp(unreachableOpVisitor); }
-			}
+			if(ENABLE_LOGGING) { decoder.decodeOp(loggingProxy); }
+			else { decoder.decodeOp(*this); }
 		};
 		assert(irBuilder.GetInsertBlock() == returnBlock);
 		

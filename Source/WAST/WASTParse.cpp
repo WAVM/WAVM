@@ -553,12 +553,10 @@ namespace WAST
 			if(encoder.unreachableDepth) { ++encoder.unreachableDepth; }
 		}
 
-		void endControlStructure(bool isElse = false)
+		void endControlStructure()
 		{
-			if(encoder.unreachableDepth) { --encoder.unreachableDepth; }
-
-			if(!isElse) { encoder.end(); }
-			else { encoder.beginElse(); }
+			if(!encoder.unreachableDepth) { encoder.end(); }
+			else { --encoder.unreachableDepth; }
 		}
 
 		void emitError(SNodeIt nodeIt,const std::string& message)
@@ -886,8 +884,13 @@ namespace WAST
 				SNodeIt testElseNodeIt = nodeIt;
 				const bool hasElseNode = (++testElseNodeIt);
 
-				// Emit the if operator.
-				encoder.beginIf({asResultType(resultType)});
+				// Emit an if or an if_else depending on whether there's an else node.
+				if(hasElseNode) { encoder.beginIfElse({asResultType(resultType)}); }
+				else
+				{
+					if(resultType != ExpressionType::none) { emitError(nodeIt,"if without else cannot  yield a result"); }
+					encoder.beginIf();
+				}
 				enterControlStructure();
 
 				// Parse the then clause.
@@ -900,7 +903,7 @@ namespace WAST
 				// Parse the else clause.
 				if(hasElseNode)
 				{
-					endControlStructure(true);
+					endControlStructure();
 					enterControlStructure();
 
 					SNodeIt elseNodeIt;

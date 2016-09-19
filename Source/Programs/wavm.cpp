@@ -48,7 +48,6 @@ struct RootResolver : Resolver
 			ArrayOutputStream codeStream;
 			OperationEncoder encoder(codeStream);
 			encoder.unreachable();
-			encoder.end();
 
 			// Generate a module for the stub function.
 			Module stubModule;

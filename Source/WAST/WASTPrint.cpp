@@ -226,15 +226,16 @@ namespace WAST
 			printControlSignature(string,imm.resultType);
 			pushControlStack(ControlContext::Type::loop,"loop");
 		}
-		void beginIf(ControlStructureImm imm)
+		void beginIf(NoImm)
+		{
+			string += "\nif";
+			pushControlStack(ControlContext::Type::ifWithoutElse,"if");
+		}
+		void beginIfElse(ControlStructureImm imm)
 		{
 			string += "\nif";
 			printControlSignature(string,imm.resultType);
 			pushControlStack(ControlContext::Type::ifThen,"if");
-		}
-		void beginElse(NoImm imm)
-		{
-			popControlStack(true);
 		}
 		void end(NoImm)
 		{
@@ -446,6 +447,7 @@ namespace WAST
 			{
 				function,
 				block,
+				ifWithoutElse,
 				ifThen,
 				ifElse,
 				loop
@@ -476,10 +478,10 @@ namespace WAST
 			string += INDENT_STRING;
 		}
 
-		void popControlStack(bool isElse = false)
+		void popControlStack()
 		{
 			string += DEDENT_STRING;
-			if(isElse)
+			if(controlStack.back().type == ControlContext::Type::ifThen)
 			{
 				controlStack.back().type = ControlContext::Type::ifElse;
 				string += "\nelse" INDENT_STRING;
@@ -492,7 +494,9 @@ namespace WAST
 		}
 
 		void enterUnreachable()
-		{}
+		{
+			popControlStack();
+		}
 	};
 
 	void ModulePrintContext::printModule()
