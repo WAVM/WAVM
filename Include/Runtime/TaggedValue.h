@@ -1,11 +1,10 @@
 #pragma once
 
 #include "WebAssembly/Types.h"
+#include "Core/Floats.h"
 
 namespace Runtime
 {
-	struct Exception;
-
 	// A runtime value of any type.
 	struct UntaggedValue
 	{
@@ -17,7 +16,6 @@ namespace Runtime
 			uint64 u64;
 			float32 f32;
 			float64 f64;
-			Exception* exception;
 		};
 		
 		UntaggedValue(int32 inI32) { i32 = inI32; }
@@ -26,68 +24,82 @@ namespace Runtime
 		UntaggedValue(uint64 inU64) { u64 = inU64; }
 		UntaggedValue(float32 inF32) { f32 = inF32; }
 		UntaggedValue(float64 inF64) { f64 = inF64; }
-		UntaggedValue(Exception* inException) { exception = inException; }
 		UntaggedValue() {i64=0;}
 	};
 
-	// The type of a runtime value.
-	enum class TypeId : uint8
-	{
-		none = 0,
-		i32,
-		i64,
-		f32,
-		f64,
-		exception
-	};
-	
-	// A boxed value: may hold any value that can be passed to, or returned from a function invoked through the runtime.
+	// A boxed value: may hold any value that can be passed to a function invoked through the runtime.
 	struct Value : UntaggedValue
 	{
-		TypeId type;
+		WebAssembly::ValueType type;
 
-		Value(int32 inI32): UntaggedValue(inI32), type(TypeId::i32) {}
-		Value(int64 inI64): UntaggedValue(inI64), type(TypeId::i64) {}
-		Value(uint32 inU32): UntaggedValue(inU32), type(TypeId::i32) {}
-		Value(uint64 inU64): UntaggedValue(inU64), type(TypeId::i64) {}
-		Value(float32 inF32): UntaggedValue(inF32), type(TypeId::f32) {}
-		Value(float64 inF64): UntaggedValue(inF64), type(TypeId::f64) {}
-		Value(Exception* inException): UntaggedValue(inException), type(TypeId::exception) {}
-		Value(TypeId inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
-		Value(): type(TypeId::none) {}
-	};
-
-	namespace NativeTypes
-	{
-		typedef void none;
-		typedef int32 i32;
-		typedef int64 i64;
-		typedef float32 f32;
-		typedef float64 f64;
-	};
-
-	inline TypeId asRuntimeValueType(const WebAssembly::ValueType valueType)
-	{
-		switch(valueType)
+		Value(int32 inI32): UntaggedValue(inI32), type(WebAssembly::ValueType::i32) {}
+		Value(int64 inI64): UntaggedValue(inI64), type(WebAssembly::ValueType::i64) {}
+		Value(uint32 inU32): UntaggedValue(inU32), type(WebAssembly::ValueType::i32) {}
+		Value(uint64 inU64): UntaggedValue(inU64), type(WebAssembly::ValueType::i64) {}
+		Value(float32 inF32): UntaggedValue(inF32), type(WebAssembly::ValueType::f32) {}
+		Value(float64 inF64): UntaggedValue(inF64), type(WebAssembly::ValueType::f64) {}
+		Value(WebAssembly::ValueType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
+		Value(): type(WebAssembly::ValueType::invalid) {}
+		
+		friend std::string asString(const Value& value)
 		{
-		case WebAssembly::ValueType::i32: return TypeId::i32;
-		case WebAssembly::ValueType::i64: return TypeId::i64;
-		case WebAssembly::ValueType::f32: return TypeId::f32;
-		case WebAssembly::ValueType::f64: return TypeId::f64;
+			switch(value.type)
+			{
+			case WebAssembly::ValueType::i32: return "i32(" + std::to_string(value.i32) + ")";
+			case WebAssembly::ValueType::i64: return "i64(" + std::to_string(value.i64) + ")";
+			case WebAssembly::ValueType::f32: return "f32(" + Floats::asString(value.f32) + ")";
+			case WebAssembly::ValueType::f64: return "f64(" + Floats::asString(value.f64) + ")";
+			default: Core::unreachable();
+			}
+		}
+	};
+
+	// A boxed value: may hold any value that can be returned from a function invoked through the runtime.
+	struct Result : UntaggedValue
+	{
+		WebAssembly::ResultType type;
+
+		Result(int32 inI32): UntaggedValue(inI32), type(WebAssembly::ResultType::i32) {}
+		Result(int64 inI64): UntaggedValue(inI64), type(WebAssembly::ResultType::i64) {}
+		Result(uint32 inU32): UntaggedValue(inU32), type(WebAssembly::ResultType::i32) {}
+		Result(uint64 inU64): UntaggedValue(inU64), type(WebAssembly::ResultType::i64) {}
+		Result(float32 inF32): UntaggedValue(inF32), type(WebAssembly::ResultType::f32) {}
+		Result(float64 inF64): UntaggedValue(inF64), type(WebAssembly::ResultType::f64) {}
+		Result(WebAssembly::ResultType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
+		Result(const Value& inValue): UntaggedValue(inValue), type(asResultType(inValue.type)) {}
+		Result(): type(WebAssembly::ResultType::none) {}
+
+		friend std::string asString(const Result& result)
+		{
+			switch(result.type)
+			{
+			case WebAssembly::ResultType::none: return "()";
+			case WebAssembly::ResultType::i32: return "i32(" + std::to_string(result.i32) + ")";
+			case WebAssembly::ResultType::i64: return "i64(" + std::to_string(result.i64) + ")";
+			case WebAssembly::ResultType::f32: return "f32(" + Floats::asString(result.f32) + ")";
+			case WebAssembly::ResultType::f64: return "f64(" + Floats::asString(result.f64) + ")";
+			default: Core::unreachable();
+			}
+		}
+	};
+
+	// Compares whether two UntaggedValue of the same type have identical bits.
+	inline bool areBitsEqual(WebAssembly::ResultType type,UntaggedValue a,UntaggedValue b)
+	{
+		switch(type)
+		{
+		case WebAssembly::ResultType::i32:
+		case WebAssembly::ResultType::f32: return a.i32 == b.i32;
+		case WebAssembly::ResultType::i64:
+		case WebAssembly::ResultType::f64: return a.i64 == b.i64;
+		case WebAssembly::ResultType::none: return true;
 		default: Core::unreachable();
 		};
 	}
-	
-	inline TypeId asRuntimeValueType(const WebAssembly::ResultType valueType)
-	{
-		switch(valueType)
-		{
-		case WebAssembly::ResultType::none: return TypeId::none;
-		case WebAssembly::ResultType::i32: return TypeId::i32;
-		case WebAssembly::ResultType::i64: return TypeId::i64;
-		case WebAssembly::ResultType::f32: return TypeId::f32;
-		case WebAssembly::ResultType::f64: return TypeId::f64;
-		default: Core::unreachable();
-		};
-	}
+
+	// Compares whether two Value/Result have the same type and bits.
+	inline bool areBitsEqual(const Value& a,const Value& b) { return a.type == b.type && areBitsEqual(asResultType(a.type),a,b); }
+	inline bool areBitsEqual(const Result& a,const Result& b) { return a.type == b.type && areBitsEqual(a.type,a,b); }
+	inline bool areBitsEqual(const Result& a,const Value& b) { return a.type == asResultType(b.type) && areBitsEqual(a.type,a,b); }
+	inline bool areBitsEqual(const Value& a,const Result& b) { return asResultType(a.type) == b.type && areBitsEqual(b.type,a,b); }
 }

@@ -122,20 +122,6 @@ inline bool saveBinaryModule(const char* wasmFilename,const WebAssembly::Module&
 	return true;
 }
 
-inline std::string describeRuntimeValue(const Runtime::Value& value)
-{
-    switch(value.type)
-    {
-    case Runtime::TypeId::none: return "()";
-    case Runtime::TypeId::i32: return "i32(" + std::to_string(value.i32) + ")";
-    case Runtime::TypeId::i64: return "i64(" + std::to_string(value.i64) + ")";
-    case Runtime::TypeId::f32: return "f32(" + Floats::asString(value.f32) + ")";
-    case Runtime::TypeId::f64: return "f64(" + Floats::asString(value.f64) + ")";
-    case Runtime::TypeId::exception: return "Exception(" + std::string(Runtime::describeExceptionCause(value.exception->cause)) + ")";
-	default: Core::unreachable();
-    }
-}
-
 inline bool endsWith(const char *str, const char *suffix)
 {
 	if(!str || !suffix) { return false; }
@@ -175,10 +161,10 @@ int main(int argc,char** argv)
 		std::cerr << "Failed to instantiate module: cause=" << std::to_string((uintp)exception.cause) << std::endl;
 		return EXIT_FAILURE;
 	}
-	catch(Runtime::Exception* exception)
+	catch(Runtime::Exception exception)
 	{
-		std::cerr << "Runtime exception: " << describeExceptionCause(exception->cause) << std::endl;
-		for(auto calledFunction : exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
+		std::cerr << "Runtime exception: " << describeExceptionCause(exception.cause) << std::endl;
+		for(auto calledFunction : exception.callStack) { std::cerr << "  " << calledFunction << std::endl; }
 		return EXIT_FAILURE;
 	}
 	catch(Serialization::FatalSerializationException exception)

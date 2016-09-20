@@ -86,7 +86,7 @@ namespace SExp
 			{
 				switch(*next)
 				{
-				case 0: throw new FatalParseException(locus,"unexpected end of file");
+				case 0: throw FatalParseException(locus,"unexpected end of file");
 				case '\n': locus.newlines++; locus.tabs = 0; locus.characters = 0; break;
 				case '\t': locus.tabs++; break;
 				default: locus.characters++; break;
@@ -128,7 +128,7 @@ namespace SExp
 				{
 					if(parenthesesDepth == 0 && !ignoreParentheses)
 					{
-						throw new FatalParseException(locus,"unexpected ')'");
+						throw FatalParseException(locus,"unexpected ')'");
 					}
 					--parenthesesDepth;
 				}
@@ -681,7 +681,7 @@ namespace SExp
 					}
 					break;
 				case 0:
-					throw new FatalParseException(startLocus,"reached end of file without finding end of block comment");
+					throw FatalParseException(startLocus,"reached end of file without finding end of block comment");
 				default:
 					state.advance();
 				}
@@ -708,7 +708,7 @@ namespace SExp
 					state.advance(true);
 					if(state.peek() != ';')
 					{
-						throw new FatalParseException(state.getLocus(),std::string("expected ';' following ';' but found '") + nextChar + "'");
+						throw FatalParseException(state.getLocus(),std::string("expected ';' following ';' but found '") + nextChar + "'");
 					}
 
 					while(state.peek() != '\n' && state.peek() != 0) state.advance();
@@ -731,7 +731,7 @@ namespace SExp
 						parseSNodeSequence(&newSNode->children);
 						if(state.peek() != ')')
 						{
-							throw new FatalParseException(state.getLocus(),std::string("expected ')' following S-expression child nodes but found '") + state.peek() + "'");
+							throw FatalParseException(state.getLocus(),std::string("expected ')' following S-expression child nodes but found '") + state.peek() + "'");
 						}
 						state.advance(true);
 						newSNode->endLocus = state.getLocus();
@@ -795,10 +795,9 @@ namespace SExp
 			Log::logRatePerSecond("Parsed S-expressions",parseTimer,float64(state.next - string) / 1024.0 / 1024.0,"MB");
 			return result;
 		}
-		catch(FatalParseException* exception)
+		catch(FatalParseException exception)
 		{
-			auto result = parseContext.createError(exception->locus,arena.copyToArena(exception->message.c_str(),exception->message.length() + 1));
-			delete exception;
+			auto result = parseContext.createError(exception.locus,arena.copyToArena(exception.message.c_str(),exception.message.length() + 1));
 			return result;
 		}
 	}

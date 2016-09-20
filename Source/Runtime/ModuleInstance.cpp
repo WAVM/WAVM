@@ -25,7 +25,7 @@ namespace Runtime
 					if(numGlobalImportsSeen++ == expression.globalIndex)
 					{
 						GlobalInstance* global = asGlobal(import);
-						return Runtime::Value(asRuntimeValueType(global->type.valueType),global->value);
+						return Runtime::Value(global->type.valueType,global->value);
 					}
 				}
 			}
@@ -121,7 +121,7 @@ namespace Runtime
 		}
 
 		// Generate machine code for the module.
-		if(!LLVMJIT::instantiateModule(module,moduleInstance)) { throw InstantiationException(InstantiationException::Cause::codeGenFailed); }
+		LLVMJIT::instantiateModule(module,moduleInstance);
 
 		// Set up the instance's exports.
 		for(auto& exportIt : module.exports)
@@ -162,13 +162,7 @@ namespace Runtime
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
 			assert(moduleInstance->functions[module.startFunctionIndex]->type == WebAssembly::FunctionType::get());
-			auto result = invokeFunction(moduleInstance->functions[module.startFunctionIndex],{});
-			if(result.type == Runtime::TypeId::exception)
-			{
-				Log::printf(Log::Category::error,"Module start function threw exception: %s\n",Runtime::describeExceptionCause(result.exception->cause));
-				for(auto calledFunction : result.exception->callStack) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
-				throw InstantiationException(InstantiationException::Cause::startFunctionException);
-			}
+			invokeFunction(moduleInstance->functions[module.startFunctionIndex],{});
 		}
 		
 

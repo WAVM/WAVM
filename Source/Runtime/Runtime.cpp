@@ -14,7 +14,7 @@ namespace Runtime
 	[[noreturn]] void causeException(Exception::Cause cause)
 	{
 		auto callStack = describeExecutionContext(Platform::captureExecutionContext());
-		throw new Exception {cause,callStack};
+		throw Exception {cause,callStack};
 	}
 
 	std::string describeStackFrame(const Platform::ExecutionContext::StackFrame& frame)
@@ -57,22 +57,22 @@ namespace Runtime
 		}
 	}
 
-	Value invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters)
+	Result invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters)
 	{
 		const FunctionType* functionType = function->type;
 
 		if(parameters.size() != functionType->parameters.size())
 		{
-			return Value(new Exception {Exception::Cause::invokeSignatureMismatch});
+			throw Exception {Exception::Cause::invokeSignatureMismatch};
 		}
 
 		// Check that the parameter types match the function, and copy them into a memory block that stores each as a 64-bit value.
 		uint64* thunkMemory = (uint64*)alloca((functionType->parameters.size() + getArity(functionType->ret)) * sizeof(uint64));
 		for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 		{
-			if(asRuntimeValueType(functionType->parameters[parameterIndex]) != parameters[parameterIndex].type)
+			if(functionType->parameters[parameterIndex] != parameters[parameterIndex].type)
 			{
-				return Value(new Exception {Exception::Cause::invokeSignatureMismatch});
+				throw Exception {Exception::Cause::invokeSignatureMismatch};
 			}
 
 			thunkMemory[parameterIndex] = parameters[parameterIndex].i64;
@@ -82,7 +82,7 @@ namespace Runtime
 		LLVMJIT::InvokeFunctionPointer invokeFunctionPointer = LLVMJIT::getInvokeThunk(functionType);
 
 		// Catch platform-specific runtime exceptions and turn them into Runtime::Values.
-		Value returnValue;
+		Result result;
 		Platform::HardwareTrapType trapType;
 		Platform::ExecutionContext trapContext;
 		Platform::ExecutionContext callingContext;
@@ -90,23 +90,16 @@ namespace Runtime
 		trapType = Platform::catchHardwareTraps(trapContext,trapOperand,
 			[&]
 			{
-				try
-				{
-					callingContext = Platform::captureExecutionContext();
+				callingContext = Platform::captureExecutionContext();
 
-					// Call the invoke thunk.
-					(*invokeFunctionPointer)(function->nativeFunction,thunkMemory);
+				// Call the invoke thunk.
+				(*invokeFunctionPointer)(function->nativeFunction,thunkMemory);
 
-					// Read the return value out of the thunk memory block.
-					if(functionType->ret != ResultType::none)
-					{
-						returnValue.type = asRuntimeValueType(functionType->ret);
-						returnValue.i64 = thunkMemory[functionType->parameters.size()];
-					}
-				}
-				catch(Runtime::Exception* exception)
+				// Read the return value out of the thunk memory block.
+				if(functionType->ret != ResultType::none)
 				{
-					returnValue = exception;
+					result.type = functionType->ret;
+					result.i64 = thunkMemory[functionType->parameters.size()];
 				}
 			});
 		
@@ -131,20 +124,17 @@ namespace Runtime
 				for(auto calledFunction : callStack) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
 				Core::fatalError("Aborting.");
 			}
-			returnValue = new Exception { cause, callStack };
-			break;
+			throw Exception { cause, callStack };
 		}
 		case Platform::HardwareTrapType::stackOverflow:
-			returnValue = new Exception { Exception::Cause::stackOverflow, callStack };
-			break;
+			throw Exception { Exception::Cause::stackOverflow, callStack };
 		case Platform::HardwareTrapType::intDivideByZeroOrOverflow:
-			returnValue = new Exception { Exception::Cause::integerDivideByZeroOrIntegerOverflow, callStack };
-			break;
+			throw Exception { Exception::Cause::integerDivideByZeroOrIntegerOverflow, callStack };
 		case Platform::HardwareTrapType::none: break;
 		default: Core::unreachable();
 		};
 
-		return returnValue;
+		return result;
 	}
 
 	const FunctionType* getFunctionType(FunctionInstance* function)
@@ -159,14 +149,14 @@ namespace Runtime
 
 	Value getGlobalValue(GlobalInstance* global)
 	{
-		return Value(asRuntimeValueType(global->type.valueType),global->value);
+		return Value(global->type.valueType,global->value);
 	}
 
 	Value setGlobalValue(GlobalInstance* global,Value newValue)
 	{
 		assert(newValue.type == asRuntimeValueType(global->type.valueType));
 		assert(global->type.isMutable);
-		const Value previousValue = Value(asRuntimeValueType(global->type.valueType),global->value);
+		const Value previousValue = Value(global->type.valueType,global->value);
 		global->value = newValue;
 		return previousValue;
 	}

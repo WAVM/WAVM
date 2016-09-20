@@ -125,7 +125,7 @@ private:
 		return Value();
 	}
 
-	bool processAction(SNodeIt nodeIt,Value& outValue)
+	bool processAction(SNodeIt nodeIt,Result& outResult)
 	{
 		SNodeIt childNodeIt;
 		if(parseTaggedNode(nodeIt,Symbol::_invoke,childNodeIt))
@@ -170,7 +170,7 @@ private:
 				if(childNodeIt) { recordExcessInputError(childNodeIt,"invoke unexpected argument"); }
 
 				// Execute the invoke
-				outValue = invokeFunction(functionInstance,parameters);
+				outResult = invokeFunction(functionInstance,parameters);
 			}
 
 			return true;
@@ -210,7 +210,7 @@ private:
 				if(childNodeIt) { recordExcessInputError(childNodeIt,"get unexpected argument"); }
 
 				// Get the value of the specified global.
-				outValue = getGlobalValue(global);
+				outResult = getGlobalValue(global);
 			}
 
 			return true;
@@ -220,20 +220,22 @@ private:
 
 	void processAssertReturn(Core::TextFileLocus locus,SNodeIt nodeIt)
 	{
-		// Process the action.
-		Value result;
-		if(!processAction(nodeIt++,result)) { return; }
+		SNodeIt actionNodeIt = nodeIt++;
 
 		// Parse the expected value of the action.
 		auto expectedValue = nodeIt ? parseRuntimeValue(nodeIt++) : Value();
-	
-		// Check that the action result matched the expected value.
-		if(describeRuntimeValue(result) != describeRuntimeValue(expectedValue))
+
+		// Process the action.
+		try
 		{
-			recordError(locus,"assert_return: expected " + describeRuntimeValue(expectedValue)
-				+ " but got " + describeRuntimeValue(result)
-				);
+			Result result;
+			if(!processAction(actionNodeIt,result)) { return; }
+	
+			// Check that the action result matched the expected value.
+			if(!areBitsEqual(result,expectedValue))
+			{ recordError(locus,"assert_return: expected " + asString(expectedValue) + " but got " + asString(result)); }
 		}
+		catch(Exception exception) { recordError(locus,std::string("assert_return: unexpected trap: ") + describeExceptionCause(exception.cause)); }
 
 		// Verify that all of the assert_return consumed all its input.
 		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return unexpected input"); }
@@ -242,15 +244,19 @@ private:
 	void processAssertReturnNaN(Core::TextFileLocus locus,SNodeIt nodeIt)
 	{
 		// Process the action.
-		Value result;
-		if(!processAction(nodeIt++,result)) { return; }
-
-		// Check that the action result was a NaN.
-		if(result.type != TypeId::f32 && result.type != TypeId::f64)
-		{ recordError(locus,"assert_return_nan: expected floating-point number but got " + describeRuntimeValue(result)); }
-		else if(	(result.type == TypeId::f32 && (result.f32 == result.f32))
-		||		(result.type == TypeId::f64 && (result.f64 == result.f64)))
-		{ recordError(locus,"assert_return_nan: expected NaN but got " + describeRuntimeValue(result)); }
+		try
+		{
+			Result result;
+			if(!processAction(nodeIt++,result)) { return; }
+			
+			// Check that the action result was a NaN.
+			if(result.type != ResultType::f32 && result.type != ResultType::f64)
+			{ recordError(locus,"assert_return_nan: expected floating-point number but got " + asString(result)); }
+			else if(	(result.type == ResultType::f32 && (result.f32 == result.f32))
+			||		(result.type == ResultType::f64 && (result.f64 == result.f64)))
+			{ recordError(locus,"assert_return_nan: expected NaN but got " + asString(result)); }
+		}
+		catch(Exception exception) { recordError(locus,std::string("assert_return_nan: unexpected trap: ") + describeExceptionCause(exception.cause)); }
 
 		// Verify that all of the assert_return_nan consumed all its input.
 		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return_nan unexpected input"); }
@@ -258,10 +264,8 @@ private:
 	
 	void processAssertTrap(Core::TextFileLocus locus,SNodeIt nodeIt)
 	{
-		// Process the action.
-		Value result;
-		if(!processAction(nodeIt++,result)) { return; }
-
+		SNodeIt actionNodeIt = nodeIt++;
+		
 		// Parse the expected value of the invoke.
 		std::string message;
 		if(!parseString(nodeIt,message)) { recordError(nodeIt,"expected trap message"); return; }
@@ -282,12 +286,21 @@ private:
 		else if(!strcmp(message.c_str(),"undefined")) { expectedCause = Exception::Cause::undefinedTableElement; }
 		else if(!strcmp(message.c_str(),"uninitialized")) { expectedCause = Exception::Cause::undefinedTableElement; }
 		else if(!strcmp(message.c_str(),"uninitialized element")) { expectedCause = Exception::Cause::undefinedTableElement; }
-		const std::string expectedCauseDescription = std::string("Exception(") + describeExceptionCause(expectedCause) + ")";
+		const char* expectedCauseDescription = describeExceptionCause(expectedCause);
 
-		// Check that the action result was an exception of the expected type.
-		if(result.type != TypeId::exception) { recordError(locus,"assert_trap: expected " + expectedCauseDescription + " but got " + describeRuntimeValue(result)); }
-		else if(result.exception->cause != expectedCause)
-		{ recordError(locus,std::string("assert_trap: expected ") + expectedCauseDescription + " but got " + describeRuntimeValue(result)); }
+		// Process the action.
+		try
+		{
+			Result result;
+			if(!processAction(actionNodeIt,result)) { return; }
+			recordError(locus,std::string("assert_trap: expected ") + expectedCauseDescription + " trap but got " + asString(result));
+		}
+		catch(Exception exception)
+		{
+			// Check that the action result was an exception of the expected type.
+			if(exception.cause != expectedCause)
+			{ recordError(locus,std::string("assert_trap: expected ") + expectedCauseDescription + " trap but got " + describeExceptionCause(exception.cause) + " trap"); }
+		}
 
 		// Verify that all of the assert_trap's parameters were matched.
 		if(nodeIt) { recordExcessInputError(nodeIt,"assert_trap unexpected input"); }
@@ -412,10 +425,10 @@ private:
 	}
 };
 
-std::string describeRuntimeException(const Exception* exception)
+std::string describeRuntimeException(const Exception& exception)
 {
-	std::string result = describeExceptionCause(exception->cause);
-	for(auto function : exception->callStack) { result += "\n"; result += function; }
+	std::string result = describeExceptionCause(exception.cause);
+	for(auto function : exception.callStack) { result += "\n"; result += function; }
 	return result;
 }
 
@@ -513,11 +526,9 @@ bool TestScriptState::process()
 		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_invoke,childNodeIt) || parseTaggedNode(rootNodeIt,Symbol::_get,childNodeIt))
 		{
-			Value actionResult;
-			if(processAction(rootNodeIt,actionResult))
-			{
-				if(actionResult.type == TypeId::exception) { recordError(rootNodeIt,"unexpected trap: " + describeRuntimeException(actionResult.exception)); }
-			}
+			Result actionResult;
+			try { processAction(rootNodeIt,actionResult); }
+			catch(Exception exception) { recordError(rootNodeIt,"unexpected trap: " + describeRuntimeException(exception)); }
 		}
 		else { recordError(rootNodeIt,"unrecognized input"); }
 	}

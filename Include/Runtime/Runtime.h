@@ -63,8 +63,6 @@ namespace Runtime
 			importTypeMismatch,
 			invalidInitializerGlobalRef,
 			invalidDataSegmentBase,
-			codeGenFailed,
-			startFunctionException,
 			outOfMemory
 		};
 
@@ -108,7 +106,7 @@ namespace Runtime
 	inline Object* asObject(ModuleInstance* module) { return (Object*)module; }
 
 	// Function API
-	RUNTIME_API Value invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters);
+	RUNTIME_API Result invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters);
 	RUNTIME_API const WebAssembly::FunctionType* getFunctionType(FunctionInstance* function);
 
 	// Table API

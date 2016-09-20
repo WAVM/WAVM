@@ -207,13 +207,12 @@ int commandMain(int argc,char** argv)
 		for(uint32 i = 0; i < end; ++i)
 		{
 			Value value;
-			switch((TypeId)functionType->parameters[i])
+			switch(functionType->parameters[i])
 			{
-			case TypeId::none: break;
-			case TypeId::i32: value = (uint32)atoi(argv[main_argc_start+i]); break;
-			case TypeId::i64: value = (uint64)atol(argv[main_argc_start+i]); break;
-			case TypeId::f32:
-			case TypeId::f64: value = atof(argv[main_argc_start+i]); break;
+			case ValueType::i32: value = (uint32)atoi(argv[main_argc_start+i]); break;
+			case ValueType::i64: value = (uint64)atol(argv[main_argc_start+i]); break;
+			case ValueType::f32: value = (float32)atof(argv[main_argc_start+i]); break;
+			case ValueType::f64: value = atof(argv[main_argc_start+i]); break;
 			default: Core::unreachable();
 			}
 			invokeArgs[i] = value;
@@ -224,19 +223,12 @@ int commandMain(int argc,char** argv)
 	auto functionResult = invokeFunction(functionInstance,invokeArgs);
 	Log::logTimer("Executed function",executionTimer);
 
-	if(functionResult.type == TypeId::exception)
-	{
-		std::cerr << "WebAssembly module threw exception: " << describeExceptionCause(functionResult.exception->cause) << std::endl;
-		for(auto calledFunction : functionResult.exception->callStack) { std::cerr << "  " << calledFunction << std::endl; }
-		return EXIT_FAILURE;
-	}
-
 	if(!functionName)
 	{
-		if(functionResult.type != TypeId::i32) { return EXIT_SUCCESS; }
+		if(functionResult.type != ResultType::i32) { return EXIT_SUCCESS; }
 		return functionResult.i32;
 	}
 
-	std::cout << functionName << " returned: " << describeRuntimeValue(functionResult) << std::endl;
+	std::cout << functionName << " returned: " << asString(functionResult) << std::endl;
 	return EXIT_SUCCESS;
 }

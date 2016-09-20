@@ -412,8 +412,7 @@ namespace Emscripten
 			if(establishStackSpace && getFunctionType(establishStackSpace) == FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i32}))
 			{
 				std::vector<Runtime::Value> parameters = {Runtime::Value(STACKTOP),Runtime::Value(STACK_MAX)};
-				auto establishStackSpaceResult = Runtime::invokeFunction(establishStackSpace,parameters);
-				if(establishStackSpaceResult.type == Runtime::TypeId::exception) { throw establishStackSpaceResult.exception; }
+				Runtime::invokeFunction(establishStackSpace,parameters);
 			}
 
 			// Call the global initializer functions.
@@ -423,11 +422,7 @@ namespace Emscripten
 				if(functionExport.kind == ObjectKind::function && !strncmp(functionExport.name.c_str(),"__GLOBAL__",10))
 				{
 					FunctionInstance* functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,functionExport.name.c_str()));
-					if(functionInstance && getFunctionType(functionInstance) == FunctionType::get())
-					{
-						auto result = Runtime::invokeFunction(functionInstance,{});
-						if(result.type == Runtime::TypeId::exception) { throw result.exception; }
-					}
+					if(functionInstance) { Runtime::invokeFunction(functionInstance,{}); }
 				}
 			}
 		}

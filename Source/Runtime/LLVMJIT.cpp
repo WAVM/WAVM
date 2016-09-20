@@ -199,7 +199,7 @@ namespace LLVMJIT
 			#endif
 		}
 
-		bool compile(llvm::Module* llvmModule);
+		void compile(llvm::Module* llvmModule);
 
 		virtual void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes,std::map<uint32,uint32>&& offsetToOpIndexMap) = 0;
 
@@ -298,7 +298,7 @@ namespace LLVMJIT
 		}
 
 		Log::printf(Log::Category::error,"LLVM generated code referenced external symbol: %s\n",name.c_str());
-		throw InstantiationException(InstantiationException::Cause::codeGenFailed);
+		Core::unreachable();
 	}
 	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbolInLogicalDylib(const std::string& name) { return llvm::RuntimeDyld::SymbolInfo(nullptr); }
 
@@ -393,7 +393,7 @@ namespace LLVMJIT
 		Log::printf(Log::Category::debug,"Dumped LLVM module to: %s\n",augmentedFilename.c_str());
 	}
 
-	bool JITUnit::compile(llvm::Module* llvmModule)
+	void JITUnit::compile(llvm::Module* llvmModule)
 	{
 		// Get a target machine object for this host, and set the module to use its data layout.
 		llvmModule->setDataLayout(targetMachine->createDataLayout());
@@ -409,7 +409,7 @@ namespace LLVMJIT
 			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
 			{
 				Log::printf(Log::Category::error,"LLVM verification errors:\n%s\n",verifyOutputString.c_str());
-				return false;
+				Core::unreachable();
 			}
 			Log::printf(Log::Category::debug,"Verified LLVM module\n");
 		#endif
@@ -442,11 +442,9 @@ namespace LLVMJIT
 			&NullResolver::singleton);
 
 		Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
-
-		return true;
 	}
 
-	bool instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance)
+	void instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance)
 	{
 		// Emit LLVM IR for the module.
 		auto llvmModule = emitModule(module,moduleInstance);
@@ -456,7 +454,7 @@ namespace LLVMJIT
 		moduleInstance->jitModule = jitModule;
 
 		// Compile the module.
-		return jitModule->compile(llvmModule);
+		jitModule->compile(llvmModule);
 	}
 
 	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintp functionDefIndex)
@@ -559,7 +557,7 @@ namespace LLVMJIT
 
 		// Compile the invoke thunk.
 		auto jitUnit = new JITInvokeThunkUnit(functionType);
-		if(!jitUnit->compile(llvmModule)) { Core::fatalError("error compiling invoke thunk"); }
+		jitUnit->compile(llvmModule);
 
 		assert(jitUnit->symbol);
 		invokeThunkTypeToSymbolMap[functionType] = jitUnit->symbol;

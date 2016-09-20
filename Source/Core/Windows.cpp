@@ -252,16 +252,24 @@ namespace Platform
 	}
 
 	THREAD_LOCAL bool isReentrantException = false;
-	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,DWORD& outCode,uintp& outOperand,ExecutionContext& outContext)
+	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,HardwareTrapType& outType,uintp& outOperand,ExecutionContext& outContext)
 	{
 		if(isReentrantException) { Core::fatalError("reentrant exception"); }
 		else
 		{
+			// Decide how to handle this exception code.
+			switch(exceptionPointers->ExceptionRecord->ExceptionCode)
+			{
+			case EXCEPTION_ACCESS_VIOLATION:
+				outType = HardwareTrapType::accessViolation;
+				outOperand = exceptionPointers->ExceptionRecord->ExceptionInformation[1];
+				break;
+			case EXCEPTION_STACK_OVERFLOW: outType = HardwareTrapType::stackOverflow; break;
+			case STATUS_INTEGER_DIVIDE_BY_ZERO: outType = HardwareTrapType::intDivideByZeroOrOverflow; break;
+			case STATUS_INTEGER_OVERFLOW: outType = HardwareTrapType::intDivideByZeroOrOverflow; break;
+			default: return EXCEPTION_CONTINUE_SEARCH;
+			}
 			isReentrantException = true;
-
-			// Interpret the exception information.
-			outCode = exceptionPointers->ExceptionRecord->ExceptionCode;
-			if(outCode == EXCEPTION_ACCESS_VIOLATION) { outOperand = exceptionPointers->ExceptionRecord->ExceptionInformation[1]; }
 
 			// Unwind the stack frames from the context of the exception.
 			outContext = unwindStack(*exceptionPointers->ContextRecord);
@@ -289,28 +297,19 @@ namespace Platform
 	{
 		assert(isThreadInitialized);
 
-		DWORD exceptionCode = 0;
+		HardwareTrapType result = HardwareTrapType::none;
 		__try
 		{
 			thunk();
-			return HardwareTrapType::none;
 		}
-		__except(sehFilterFunction(GetExceptionInformation(),exceptionCode,outOperand,outContext))
+		__except(sehFilterFunction(GetExceptionInformation(),result,outOperand,outContext))
 		{
 			isReentrantException = false;
-
-			switch(exceptionCode)
-			{
-			case EXCEPTION_STACK_OVERFLOW:
-				// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
-				_resetstkoflw();
-				return HardwareTrapType::stackOverflow;
-			case EXCEPTION_ACCESS_VIOLATION: return HardwareTrapType::accessViolation;
-			case EXCEPTION_INT_DIVIDE_BY_ZERO:
-			case EXCEPTION_INT_OVERFLOW: return HardwareTrapType::intDivideByZeroOrOverflow;
-			default: Core::fatalError("unhandled hardware exception");
-			}
+			
+			// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
+			if(result == HardwareTrapType::stackOverflow) { _resetstkoflw(); }
 		}
+		return result;
 	}
 }
 

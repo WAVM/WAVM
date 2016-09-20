@@ -18,7 +18,7 @@ namespace LLVMJIT
 	};
 
 	void init();
-	bool instantiateModule(const WebAssembly::Module& module,Runtime::ModuleInstance* moduleInstance);
+	void instantiateModule(const WebAssembly::Module& module,Runtime::ModuleInstance* moduleInstance);
 	bool describeInstructionPointer(uintp ip,std::string& outDescription);
 	
 	typedef void (*InvokeFunctionPointer)(void*,uint64*);

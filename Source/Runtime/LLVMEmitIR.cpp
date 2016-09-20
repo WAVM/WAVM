@@ -251,7 +251,7 @@ namespace LLVMJIT
 		// Operation dispatch methods.
 		void unknown(Opcode opcode)
 		{
-			throw InstantiationException(InstantiationException::Cause::codeGenFailed);
+			Core::unreachable();
 		}
 		void beginBlock(ControlStructureImm imm)
 		{
@@ -521,7 +521,7 @@ namespace LLVMJIT
 
 		void error(ErrorImm imm)
 		{
-			throw InstantiationException(InstantiationException::Cause::codeGenFailed);
+			Core::unreachable();
 		}
 		
 		template<typename TrueValueThunk,typename FalseValueThunk>
