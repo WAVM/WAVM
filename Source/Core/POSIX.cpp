@@ -133,9 +133,9 @@ namespace Platform
 
 	THREAD_LOCAL jmp_buf signalReturnEnv;
 	THREAD_LOCAL HardwareTrapType signalType = HardwareTrapType::none;
-	THREAD_LOCAL uintp signalOperand;
+	THREAD_LOCAL ExecutionContext* signalContext = nullptr;
+	THREAD_LOCAL uintp* signalOperand = nullptr;
 	THREAD_LOCAL bool isReentrantSignal = false;
-	thread_local ExecutionContext signalContext;
 
 	enum { signalStackNumBytes = SIGSTKSZ };
 	THREAD_LOCAL uint8* signalStack = nullptr;
@@ -182,7 +182,7 @@ namespace Platform
 			signalType = signalInfo->si_addr > stackMinAddr && signalInfo->si_addr < stackMaxAddr
 				? HardwareTrapType::stackOverflow
 				: HardwareTrapType::accessViolation;
-			signalOperand = reinterpret_cast<uintp>(signalInfo->si_addr);
+			*signalOperand = reinterpret_cast<uintp>(signalInfo->si_addr);
 			break;
 		default:
 			Core::fatalError("unknown signal number");
@@ -191,7 +191,7 @@ namespace Platform
 
 		// Capture the execution context, omitting this function and the function that called it,
 		// so the top of the callstack is the function that triggered the signal.
-		signalContext = captureExecutionContext(2);
+		*signalContext = captureExecutionContext(2);
 
 		// Jump back to the setjmp in catchRuntimeExceptions.
 		siglongjmp(signalReturnEnv,1);
@@ -214,6 +214,8 @@ namespace Platform
 		if(!isReturningFromSignalHandler)
 		{
 			signalType = HardwareTrapType::none;
+			signalContext = &outContext;
+			signalOperand = &outOperand;
 
 			// Set a signal handler for the signals we want to intercept.
 			struct sigaction signalAction;
@@ -230,12 +232,12 @@ namespace Platform
 
 		// Reset the signal state.
 		isReentrantSignal = false;
+		signalContext = nullptr;
+		signalOperand = nullptr;
 		sigaction(SIGSEGV,&oldSignalActionSEGV,nullptr);
 		sigaction(SIGBUS,&oldSignalActionBUS,nullptr);
 		sigaction(SIGFPE,&oldSignalActionFPE,nullptr);
 
-		outContext = signalContext;
-		outOperand = signalOperand;
 		return signalType;
 	}
 
