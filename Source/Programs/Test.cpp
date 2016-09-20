@@ -223,7 +223,7 @@ private:
 		SNodeIt actionNodeIt = nodeIt++;
 
 		// Parse the expected value of the action.
-		auto expectedValue = nodeIt ? parseRuntimeValue(nodeIt++) : Value();
+		Result expectedResult = nodeIt ? parseRuntimeValue(nodeIt++) : Result();
 
 		// Process the action.
 		try
@@ -232,8 +232,8 @@ private:
 			if(!processAction(actionNodeIt,result)) { return; }
 	
 			// Check that the action result matched the expected value.
-			if(!areBitsEqual(result,expectedValue))
-			{ recordError(locus,"assert_return: expected " + asString(expectedValue) + " but got " + asString(result)); }
+			if(!areBitsEqual(result,expectedResult))
+			{ recordError(locus,"assert_return: expected " + asString(expectedResult) + " but got " + asString(result)); }
 		}
 		catch(Exception exception) { recordError(locus,std::string("assert_return: unexpected trap: ") + describeExceptionCause(exception.cause)); }
 
