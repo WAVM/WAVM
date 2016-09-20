@@ -235,7 +235,7 @@ namespace Platform
 		return executionContext;
 	}
 
-	ExecutionContext captureExecutionContext()
+	ExecutionContext captureExecutionContext(uintp numOmittedFramesFromTop)
 	{
 		// Capture the current processor state.
 		CONTEXT context;
@@ -244,8 +244,9 @@ namespace Platform
 		// Unwind the stack.
 		auto result = unwindStack(context);
 
-		// Remove the top stack frame so the first entry is the caller of this function.
-		result.stackFrames.erase(result.stackFrames.begin());
+		// Remote the requested number of omitted frames, +1 for this function.
+		const uintp numOmittedFrames = std::min(result.stackFrames.size(),numOmittedFramesFromTop + 1);
+		result.stackFrames.erase(result.stackFrames.begin(),result.stackFrames.begin() + numOmittedFrames);
 
 		return result;
 	}

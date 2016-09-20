@@ -112,7 +112,7 @@ namespace Platform
 	};
 
 	// Captures the execution context of the caller.
-	CORE_API ExecutionContext captureExecutionContext();
+	CORE_API ExecutionContext captureExecutionContext(uintp numOmittedFramesFromTop = 0);
 
 	#ifdef _WIN32
 		// Registers/deregisters the data used by Windows SEH to unwind stack frames.
