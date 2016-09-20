@@ -88,6 +88,11 @@ inline bool loadBinaryModule(const char* wasmFilename,WebAssembly::Module& outMo
 		std::cerr << exception.message << std::endl;
 		return false;
 	}
+	catch(std::bad_alloc)
+	{
+		std::cerr << "Memory allocation failed: input is likely malformed" << std::endl;
+		return false;
+	}
 
 	Log::logRatePerSecond("Loaded WASM",loadTimer,wasmBytes.size()/1024.0/1024.0,"MB");
 	return true;

@@ -625,7 +625,7 @@ namespace WebAssembly
 				}
 				globals.push_back(import.type.global);
 				break;
-			default: Core::unreachable();
+			default: throw ValidationException("unknown import kind");
 			};
 		}
 
@@ -667,7 +667,7 @@ namespace WebAssembly
 			case ObjectKind::global:
 				validateGlobalIndex(exportIt.index,false,false,false,"exported global index");
 				break;
-			default: Core::unreachable();
+			default: throw ValidationException("unknown export kind");
 			};
 		}
 
