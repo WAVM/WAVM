@@ -8,16 +8,28 @@
 
 namespace Runtime
 {
-	static std::set<GCObject*> allObjects;
+	struct GCGlobals
+	{
+		std::set<GCObject*> allObjects;
+
+		static GCGlobals& get()
+		{
+			static GCGlobals globals;
+			return globals;
+		}
+		
+	private:
+		GCGlobals() {}
+	};
 
 	GCObject::GCObject(ObjectKind inKind): Object(inKind)
 	{
-		allObjects.insert(this);
+		GCGlobals::get().allObjects.insert(this);
 	}
 
 	GCObject::~GCObject()
 	{
-		allObjects.erase(this);
+		GCGlobals::get().allObjects.erase(this);
 	}
 
 	void freeUnreferencedObjects(const std::vector<Object*>& rootObjectReferences)
@@ -94,14 +106,15 @@ namespace Runtime
 			}
 		};
 
-		auto objectIt = allObjects.begin();
-		while(objectIt != allObjects.end())
+		GCGlobals& gcGlobals = GCGlobals::get();
+		auto objectIt = gcGlobals.allObjects.begin();
+		while(objectIt != gcGlobals.allObjects.end())
 		{
 			if(referencedObjects.count(*objectIt)) { ++objectIt; }
 			else
 			{
 				Object* object = *objectIt;
-				objectIt = allObjects.erase(objectIt);
+				objectIt = gcGlobals.allObjects.erase(objectIt);
 				delete object;
 			}
 		}
