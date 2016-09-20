@@ -92,7 +92,7 @@ namespace Runtime
 			Memory* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
-			assert(baseOffsetValue.type == TypeId::i32);
+			assert(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
 			if(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2))
@@ -105,7 +105,7 @@ namespace Runtime
 		for(auto global : module.globalDefs)
 		{
 			const Value initialValue = evaluateInitializer(moduleInstance,global.initializer);
-			assert(initialValue.type == asRuntimeValueType(global.type.valueType));
+			assert(initialValue.type == global.type.valueType);
 			moduleInstance->globals.push_back(new GlobalInstance(global.type,initialValue));
 		}
 		
@@ -144,7 +144,7 @@ namespace Runtime
 			Table* table = moduleInstance->tables[tableSegment.tableIndex];
 			
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
-			assert(baseOffsetValue.type == TypeId::i32);
+			assert(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
 			if(baseOffset + tableSegment.indices.size() > table->elements.size())

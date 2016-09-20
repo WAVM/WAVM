@@ -154,7 +154,7 @@ namespace Runtime
 
 	Value setGlobalValue(GlobalInstance* global,Value newValue)
 	{
-		assert(newValue.type == asRuntimeValueType(global->type.valueType));
+		assert(newValue.type == global->type.valueType);
 		assert(global->type.isMutable);
 		const Value previousValue = Value(global->type.valueType,global->value);
 		global->value = newValue;
