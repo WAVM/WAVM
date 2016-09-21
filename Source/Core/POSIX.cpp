@@ -156,13 +156,27 @@ namespace Platform
 				Core::fatalError("sigaltstack failed");
 			}
 		}
-
+		
+		// Find the approximate stack min and max using the address of a local (hopefully near the top of the stack),
+		// and the stack size limit.
 		struct rlimit stackLimit;
 		getrlimit(RLIMIT_STACK,&stackLimit);
 		const size_t stackSize = stackLimit.rlim_cur;
 
 		stackMinAddr = (uint8*)&stackLimit - stackSize;
 		stackMaxAddr = (uint8*)&stackSize;
+
+		// mmap the pages from the overly-inclusive stack bottom up to find the exact bottom of the stack's reserved pages.
+		const size_t pageSize = size_t(1) << getPageSizeLog2();
+		stackMinAddr = reinterpret_cast<uint8*>(reinterpret_cast<uintp>(stackMinAddr) & ~(pageSize-1));
+		while(true)
+		{
+			auto mmapResult = mmap(stackMinAddr,pageSize,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
+			if(mmapResult != stackMinAddr) { break; }
+			stackMinAddr += pageSize;
+		};
+		// Include one extra page below the stack's usable address range to distinguish stack overflows from general SIGSEGV.
+		stackMinAddr -= pageSize;
 	}
 
 	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
@@ -179,7 +193,7 @@ namespace Platform
 			break;
 		case SIGSEGV:
 		case SIGBUS:
-			signalType = signalInfo->si_addr > stackMinAddr && signalInfo->si_addr < stackMaxAddr
+			signalType = signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
 				? HardwareTrapType::stackOverflow
 				: HardwareTrapType::accessViolation;
 			*signalOperand = reinterpret_cast<uintp>(signalInfo->si_addr);
