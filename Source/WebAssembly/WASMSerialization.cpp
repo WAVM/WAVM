@@ -441,7 +441,7 @@ namespace WebAssembly
 			}
 			catch(FatalSerializationException exception)
 			{
-				Log::printf(Log::Category::debug,"FatalSerializationException while deserializing WASM user name section: %s",exception.message.c_str());
+				Log::printf(Log::Category::debug,"FatalSerializationException while deserializing WASM user name section: %s\n",exception.message.c_str());
 			}
 		}
 	}
