@@ -13,6 +13,7 @@ namespace WebAssembly
 		visit(0x01,beginBlock,ControlStructureImm) \
 		visit(0x02,beginLoop,ControlStructureImm) \
 		visit(0x03,beginIf,ControlStructureImm) \
+		visit(0x04,beginElse,NoImm) \
 		visit(0x05,select,NoImm) \
 		visit(0x06,br,BranchImm) \
 		visit(0x07,br_if,BranchImm) \
@@ -20,6 +21,7 @@ namespace WebAssembly
 		visit(0x09,ret,NoImm) \
 		visit(0x0a,unreachable,NoImm) \
 		visit(0x0b,drop,NoImm) \
+		visit(0x0f,end,NoImm) \
 		visit(0x16,call,CallImm) \
 		visit(0x17,call_indirect,CallIndirectImm)
 
@@ -217,8 +219,7 @@ namespace WebAssembly
 		visit(0x3b,current_memory,NoImm) \
 		visit(0xff,error,ErrorImm)
 
-	#define ENUM_NONEND_OPCODES(visit) \
-		ENUM_CONTROL_OPCODES(visit) \
+	#define ENUM_NONCONTROL_OPCODES(visit) \
 		ENUM_LOAD_OPCODES(visit) ENUM_STORE_OPCODES(visit) \
 		ENUM_LITERAL_OPCODES(visit) \
 		ENUM_VARIABLE_OPCODES(visit) \
@@ -230,9 +231,8 @@ namespace WebAssembly
 		ENUM_MISC_OPCODES(visit)
 
 	#define ENUM_OPCODES(visit) \
-		ENUM_NONEND_OPCODES(visit) \
-		visit(0x04,beginElse,NoImm) \
-		visit(0x0f,end,NoImm)
+		ENUM_NONCONTROL_OPCODES(visit) \
+		ENUM_CONTROL_OPCODES(visit)
 
 	enum class Opcode : uint8
 	{

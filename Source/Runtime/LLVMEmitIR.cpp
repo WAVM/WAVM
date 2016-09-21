@@ -818,16 +818,41 @@ namespace LLVMJIT
 	// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end operator through).
 	struct UnreachableOpVisitor
 	{
-		UnreachableOpVisitor(EmitFunctionContext& inContext): context(inContext) {}
+		UnreachableOpVisitor(EmitFunctionContext& inContext): context(inContext), unreachableControlDepth(0) {}
 		#define VISIT_OPCODE(encoding,name,Imm) void name(Imm imm) {}
-		ENUM_NONEND_OPCODES(VISIT_OPCODE)
+		ENUM_NONCONTROL_OPCODES(VISIT_OPCODE)
 		VISIT_OPCODE(_,unknown,Opcode)
 		#undef VISIT_OPCODE
-		void beginElse(NoImm imm) { context.beginElse(imm); }
-		void end(NoImm imm) { context.end(imm); }
+
+		void nop(NoImm) {}
+		void select(NoImm) {}
+		void br(BranchImm) {}
+		void br_if(BranchImm) {}
+		void br_table(BranchTableImm) {}
+		void ret(NoImm) {}
+		void unreachable(NoImm) {}
+		void drop(NoImm) {}
+		void call(CallImm) {}
+		void call_indirect(CallIndirectImm) {}
+
+		void beginBlock(ControlStructureImm) { ++unreachableControlDepth; }
+		void beginLoop(ControlStructureImm) { ++unreachableControlDepth; }
+		void beginIf(ControlStructureImm) { ++unreachableControlDepth; }
+
+		void beginElse(NoImm imm)
+		{
+			if(!unreachableControlDepth) { context.beginElse(imm); }
+		}
+		void end(NoImm imm)
+		{
+			if(!unreachableControlDepth) { context.end(imm); }
+			else { --unreachableControlDepth; }
+		}
+
 		void logOperator(const std::string& operatorDescription) { context.logOperator(operatorDescription); }
 	private:
 		EmitFunctionContext& context;
+		uintp unreachableControlDepth;
 	};
 
 	void EmitFunctionContext::emit()
