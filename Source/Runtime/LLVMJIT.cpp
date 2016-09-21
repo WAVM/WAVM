@@ -442,6 +442,8 @@ namespace LLVMJIT
 			&NullResolver::singleton);
 
 		Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
+		
+		delete llvmModule;
 	}
 
 	void instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance)
