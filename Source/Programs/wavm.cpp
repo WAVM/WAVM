@@ -17,8 +17,8 @@ using namespace Runtime;
 void showHelp()
 {
 	std::cerr << "Usage: wavm [switches] [programfile] [--] [arguments]" << std::endl;
-	std::cerr << "  in.wast\t\tSpecify text program file (.wast)" << std::endl;
-	std::cerr << "  in.wasm\tSpecify binary program file (.wasm)" << std::endl;
+	std::cerr << "  in.wast|--text <path>\t\tSpecify text program file (.wast)" << std::endl;
+	std::cerr << "  in.wasm|--binary <path>\tSpecify binary program file (.wasm)" << std::endl;
 	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main" << std::endl;
 	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
 	std::cerr << "  -d|--debug\t\t\tWrite additional debug information to stdout" << std::endl;
@@ -72,55 +72,10 @@ struct RootResolver : Resolver
 	}
 };
 
-int commandMain(int argc,char** argv)
+int mainBody(const char* sourceFile,const char* binaryFile,const char* functionName,bool onlyCheck,char** args)
 {
-	const char* sourceFile = 0;
-	const char* binaryFile = 0;
-	const char* functionName = 0;
-
-	bool onlyCheck = false;
-	auto args = argv;
-	while(*++args)
-	{
-		if(!sourceFile && endsWith(*args, ".wast"))
-		{
-			sourceFile = *args;
-		}
-		else if(!binaryFile && endsWith(*args, ".wasm"))
-		{
-			binaryFile = *args;
-		}
-		else if(!strcmp(*args, "--function") || !strcmp(*args, "-f"))
-		{
-			if(!*++args) { showHelp(); return EXIT_FAILURE; }
-			functionName = *args;
-		}
-		else if(!strcmp(*args, "--check") || !strcmp(*args, "-c"))
-		{
-			onlyCheck = true;
-		}
-		else if(!strcmp(*args, "--debug") || !strcmp(*args, "-d"))
-		{
-			Log::setCategoryEnabled(Log::Category::debug,true);
-		}
-		else if(!strcmp(*args, "--"))
-		{
-			++args;
-			break;
-		}
-		else if(!strcmp(*args, "--help") || !strcmp(*args, "-h"))
-		{
-			showHelp();
-			return EXIT_SUCCESS;
-		}
-		else { break; }
-	}
-
 	Module module;
 	const char* main_arg0 = nullptr;
-#ifdef __AFL_LOOP
-        while (__AFL_LOOP(2000)) {
-#endif
 	if(sourceFile)
 	{
 		if(!loadTextModule(sourceFile,module)) { return EXIT_FAILURE; }
@@ -136,18 +91,11 @@ int commandMain(int argc,char** argv)
 		showHelp();
 		return EXIT_FAILURE;
 	}
-#ifdef __AFL_LOOP
-	delete module;
-	module = nullptr;
-	}
-	return EXIT_SUCCESS;
-#endif
 
 	if(onlyCheck) { return EXIT_SUCCESS; }
 		
 	RootResolver rootResolver;
 
-	Runtime::init();
 	ModuleInstance* moduleInstance = linkAndInstantiateModule(module,rootResolver);
 	if(!moduleInstance) { return EXIT_FAILURE; }
 	
@@ -201,21 +149,18 @@ int commandMain(int argc,char** argv)
 	}
 	else
 	{
-		invokeArgs.resize(functionType->parameters.size());
-		uintp main_argc_start = args-argv;
-		auto end = (uintp)std::min((uintp)functionType->parameters.size(), (uintp)(argc - main_argc_start));
-		for(uint32 i = 0; i < end; ++i)
+		for(uint32 i = 0; args[i]; ++i)
 		{
 			Value value;
 			switch(functionType->parameters[i])
 			{
-			case ValueType::i32: value = (uint32)atoi(argv[main_argc_start+i]); break;
-			case ValueType::i64: value = (uint64)atol(argv[main_argc_start+i]); break;
-			case ValueType::f32: value = (float32)atof(argv[main_argc_start+i]); break;
-			case ValueType::f64: value = atof(argv[main_argc_start+i]); break;
+			case ValueType::i32: value = (uint32)atoi(args[i]); break;
+			case ValueType::i64: value = (uint64)atol(args[i]); break;
+			case ValueType::f32: value = (float32)atof(args[i]); break;
+			case ValueType::f64: value = atof(args[i]); break;
 			default: Core::unreachable();
 			}
-			invokeArgs[i] = value;
+			invokeArgs.push_back(value);
 		}
 	}
 
@@ -223,12 +168,78 @@ int commandMain(int argc,char** argv)
 	auto functionResult = invokeFunction(functionInstance,invokeArgs);
 	Log::logTimer("Executed function",executionTimer);
 
-	if(!functionName)
+	if(functionName)
 	{
-		if(functionResult.type != ResultType::i32) { return EXIT_SUCCESS; }
-		return functionResult.i32;
+		Log::printf(Log::Category::debug,"%s returned: %s\n",functionName,asString(functionResult).c_str());
+		return EXIT_SUCCESS;
+	}
+	else if(functionResult.type == ResultType::i32) { return functionResult.i32; }
+	else { return EXIT_SUCCESS; }
+}
+
+int commandMain(int argc,char** argv)
+{
+	const char* sourceFile = nullptr;
+	const char* binaryFile = nullptr;
+	const char* functionName = nullptr;
+
+	bool onlyCheck = false;
+	auto args = argv;
+	while(*++args)
+	{
+		if(!sourceFile && endsWith(*args, ".wast"))
+		{
+			sourceFile = *args;
+		}
+		else if(!binaryFile && endsWith(*args, ".wasm"))
+		{
+			binaryFile = *args;
+		}
+		else if(!strcmp(*args, "--text"))
+		{
+			if(sourceFile || binaryFile || !*++args) { showHelp(); return EXIT_FAILURE; }
+			sourceFile = *args;
+		}
+		else if(!strcmp(*args, "--binary"))
+		{
+			if(sourceFile || binaryFile || !*++args) { showHelp(); return EXIT_FAILURE; }
+			binaryFile = *args;
+		}
+		else if(!strcmp(*args, "--function") || !strcmp(*args, "-f"))
+		{
+			if(!*++args) { showHelp(); return EXIT_FAILURE; }
+			functionName = *args;
+		}
+		else if(!strcmp(*args, "--check") || !strcmp(*args, "-c"))
+		{
+			onlyCheck = true;
+		}
+		else if(!strcmp(*args, "--debug") || !strcmp(*args, "-d"))
+		{
+			Log::setCategoryEnabled(Log::Category::debug,true);
+		}
+		else if(!strcmp(*args, "--"))
+		{
+			++args;
+			break;
+		}
+		else if(!strcmp(*args, "--help") || !strcmp(*args, "-h"))
+		{
+			showHelp();
+			return EXIT_SUCCESS;
+		}
+		else { break; }
 	}
 
-	std::cout << functionName << " returned: " << asString(functionResult) << std::endl;
-	return EXIT_SUCCESS;
+	Runtime::init();
+
+	int returnCode = EXIT_FAILURE;
+	#ifdef __AFL_LOOP
+	while(__AFL_LOOP(2000))
+	#endif
+	{
+		returnCode = mainBody(sourceFile,binaryFile,functionName,onlyCheck,args);
+		Runtime::freeUnreferencedObjects({});
+	}
+	return returnCode;
 }
