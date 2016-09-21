@@ -113,11 +113,10 @@ namespace WebAssembly
 		{
 			switch(expression.type)
 			{
-			case InitializerExpression::Type::i32_const:
-			case InitializerExpression::Type::i64_const:
-			case InitializerExpression::Type::f32_const:
-			case InitializerExpression::Type::f64_const:
-				break;
+			case InitializerExpression::Type::i32_const: validateType(expectedType,ValueType::i32,context); break;
+			case InitializerExpression::Type::i64_const: validateType(expectedType,ValueType::i64,context); break;
+			case InitializerExpression::Type::f32_const: validateType(expectedType,ValueType::f32,context); break;
+			case InitializerExpression::Type::f64_const: validateType(expectedType,ValueType::f64,context); break;
 			case InitializerExpression::Type::get_global:
 			{
 				const ValueType globalValueType = validateGlobalIndex(expression.globalIndex,false,true,true,"initializer expression global index");
