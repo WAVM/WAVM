@@ -137,7 +137,7 @@ namespace Platform
 	THREAD_LOCAL uintp* signalOperand = nullptr;
 	THREAD_LOCAL bool isReentrantSignal = false;
 
-	enum { signalStackNumBytes = SIGSTKSZ };
+	enum { signalStackNumBytes = 65536 };
 	THREAD_LOCAL uint8* signalStack = nullptr;
 	THREAD_LOCAL uint8* stackMinAddr = nullptr;
 	THREAD_LOCAL uint8* stackMaxAddr = nullptr;
@@ -245,7 +245,7 @@ namespace Platform
 	{
 		#ifdef __linux__
 			// Unwind the callstack.
-			enum { maxCallStackSize = 512 };
+			enum { maxCallStackSize = signalStackNumBytes / sizeof(void*) / 8 };
 			void* callstackAddresses[maxCallStackSize];
 			auto numCallStackEntries = backtrace(callstackAddresses,maxCallStackSize);
 
