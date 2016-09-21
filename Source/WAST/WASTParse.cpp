@@ -138,38 +138,26 @@ namespace WAST
 
 		void parse(SNodeIt moduleNode);
 	};
-
-	void recordError(std::vector<Error>& outErrors,const Core::TextFileLocus& locus,std::string&& message)
+	
+	// Creates and record a S-expression error node.
+	static void recordSExpError(std::vector<Error>& outErrors,SNode* node)
 	{
+		outErrors.push_back({node->startLocus,std::move(node->error)});
+	}
+
+	static void recordError(std::vector<Error>& outErrors,SNodeIt nodeIt,std::string&& message)
+	{
+		// If the referenced node is a S-expression error, pass it through as well.
+		if(nodeIt && nodeIt->type == SNodeType::Error) { recordSExpError(outErrors,nodeIt); }
+
+		const Core::TextFileLocus& locus = nodeIt.node ? nodeIt.node->startLocus : nodeIt.previousLocus;
 		outErrors.push_back({locus,std::move(message)});
 	}
 
-	// Creates and records an error with the given message and location.
-	void recordError(ModuleContext& moduleContext,const Core::TextFileLocus& locus,std::string&& message)
-	{
-		recordError(moduleContext.errors,locus,std::move(message));
-	}
-	
-	// Creates and record a S-expression error node.
-	void recordSExpError(ModuleContext& moduleContext,SNode* node)
-	{
-		recordError(moduleContext,node->startLocus,node->error);
-	}
-
 	// Creates and records an error with the given message and location (taken from nodeIt).
-	void recordError(ModuleContext& moduleContext,SNodeIt nodeIt,std::string&& message)
+	static void recordError(ModuleContext& moduleContext,SNodeIt nodeIt,std::string&& message)
 	{
-		// If the referenced node is a S-expression error, pass it through as well.
-		if(nodeIt && nodeIt->type == SNodeType::Error) { recordSExpError(moduleContext,nodeIt); }
-
-		const Core::TextFileLocus& locus = nodeIt.node ? nodeIt.node->startLocus : nodeIt.previousLocus;
-		recordError(moduleContext,locus,std::move(message));
-	}
-	
-	void recordExcessInputError(ModuleContext& moduleContext,SNodeIt nodeIt,const char* errorContext)
-	{
-		auto message = std::string("unexpected input following ") + errorContext;
-		recordError(moduleContext,nodeIt,std::move(message));
+		recordError(moduleContext.errors,nodeIt,std::move(message));
 	}
 	
 	// Parse a name or an index.
@@ -685,7 +673,7 @@ namespace WAST
 		if(nodeIt && nodeIt->type == SNodeType::Error)
 		{
 			// If the node is a S-expression error node, translate it to an AST error node.
-			recordSExpError(moduleContext,nodeIt);
+			recordSExpError(moduleContext.errors,nodeIt);
 			encoder.error({nodeIt->string});
 		}
 		else if(parseTreeNode(parentNodeIt,nodeIt) && parseSymbol(nodeIt,tag))
@@ -1855,12 +1843,12 @@ namespace WAST
 		}
 		catch(WebAssembly::ValidationException exception)
 		{
-			recordError(outErrors,firstNonNameChildNodeIt->startLocus,"validation error: " + exception.message);
+			recordError(outErrors,firstNonNameChildNodeIt,"validation error: " + exception.message);
 			return false;
 		}
 		catch(FatalSerializationException exception)
 		{
-			recordError(outErrors,firstNonNameChildNodeIt->startLocus,"serialization error: " + exception.message);
+			recordError(outErrors,firstNonNameChildNodeIt,"serialization error: " + exception.message);
 			return false;
 		}
 	}
@@ -1877,11 +1865,11 @@ namespace WAST
 		// Parse the module from the S-expressions.
 		SNodeIt rootNodeIt(rootNode);
 		SNodeIt moduleChildNodeIt;
-		if(rootNodeIt && rootNodeIt->type == SNodeType::Error) { recordError(outErrors,rootNodeIt->startLocus,rootNodeIt->error); }
+		if(rootNodeIt && rootNodeIt->type == SNodeType::Error) { recordError(outErrors,rootNodeIt,rootNodeIt->error); }
 		else if(parseTaggedNode(rootNodeIt,Symbol::_module,moduleChildNodeIt)) { parseModule(moduleChildNodeIt,outModule,outErrors); }
-		else { recordError(outErrors,rootNodeIt->startLocus,"expected module"); }
+		else { recordError(outErrors,rootNodeIt,"expected module"); }
 		++rootNodeIt;
-		if(rootNodeIt) { recordError(outErrors,rootNodeIt->startLocus,"unexpected input following module"); }
+		if(rootNodeIt) { recordError(outErrors,rootNodeIt,"unexpected input following module"); }
 
 		return outErrors.size() == 0;
 	}
