@@ -58,8 +58,13 @@ else()
 
 	# Enable asan in debug builds.
 	if(CMAKE_BUILD_TYPE MATCHES "Debug")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+		option(ENABLE_ASAN "enable ASAN" ON)
 		add_definitions("-D_DEBUG")
+	else()
+		option(ENABLE_ASAN "enable ASAN" OFF)
+	endif()
+	if(ENABLE_ASAN)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 	endif()
 endif()
 
