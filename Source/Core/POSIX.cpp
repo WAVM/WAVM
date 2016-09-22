@@ -146,6 +146,7 @@ namespace Platform
 	{
 		if(!signalStack)
 		{
+			// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
 			signalStack = new uint8[signalStackNumBytes];
 			stack_t signalStackInfo;
 			signalStackInfo.ss_size = signalStackNumBytes;
@@ -156,25 +157,26 @@ namespace Platform
 				Core::fatalError("sigaltstack failed");
 			}
 
-			// Get the stack base and size from pthreads.
-			void* stackBase;
-			size_t stackSize;
+			// Get the stack address from pthreads, but use getrlimit to find the maximum size of the stack instead of the current.
+			struct rlimit stackLimit;
+			getrlimit(RLIMIT_STACK,&stackLimit);
 			#ifdef __linux__
+				// Linux uses pthread_getattr_np/pthread_attr_getstack, and returns a pointer to the minimum address of the stack.
 				pthread_attr_t threadAttributes;
 				memset(&threadAttributes,0,sizeof(threadAttributes));
 				pthread_getattr_np(pthread_self(),&threadAttributes);
-				pthread_attr_getstack(&threadAttributes,&stackBase,&stackSize);
+				size_t stackSize;
+				pthread_attr_getstack(&threadAttributes,(void**)&stackMinAddr,&stackSize);
 				pthread_attr_destroy(&threadAttributes);
-				stackMinAddr = (uint8*)stackBase;
 				stackMaxAddr = stackMinAddr + stackSize;
+				stackMinAddr = stackMaxAddr - stackLimit.rlim_cur;
 			#else
-				stackBase = pthread_get_stackaddr_np(pthread_self());
-				stackSize = pthread_get_stacksize_np(pthread_self());
-				stackMinAddr = ((uint8*)stackBase) - stackSize;
-				stackMaxAddr = (uint8*)stackBase;
+				// MacOS uses pthread_getstackaddr_np, and returns a pointer to the maximum address of the stack.
+				stackMaxAddr = (uint8*)pthread_get_stackaddr_np(pthread_self());
+				stackMinAddr = stackMaxAddr - stackLimit.rlim_cur;
 			#endif
 
-			// Reserve an extra page below the stack's usable address range to distinguish stack overflows from general SIGSEGV.
+			// Include an extra page below the stack's usable address range to distinguish stack overflows from general SIGSEGV.
 			const size_t pageSize = sysconf(_SC_PAGESIZE);
 			stackMinAddr -= pageSize;
 		}
