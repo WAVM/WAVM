@@ -10,5 +10,5 @@ add_library(Core SHARED ${Sources} ${Headers} ${PrivateHeaders})
 
 # Link with dl on Linux for dladdr.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	target_link_libraries(Core dl)
+	target_link_libraries(Core dl pthread)
 endif()

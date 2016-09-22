@@ -155,28 +155,22 @@ namespace Platform
 			{
 				Core::fatalError("sigaltstack failed");
 			}
+
+			// Get the stack base and size from pthreads.
+			pthread_attr_t threadAttributes;
+			void* stackBase;
+			size_t stackSize;
+			memset(&threadAttributes,0,sizeof(threadAttributes));
+			pthread_getattr_np(pthread_self(),&threadAttributes);
+			pthread_attr_getstack(&threadAttributes,&stackBase,&stackSize);
+			pthread_attr_destroy(&threadAttributes);
+			stackMinAddr = (uint8*)stackBase;
+			stackMaxAddr = stackMinAddr + stackSize;
+
+			// Reserve an extra page below the stack's usable address range to distinguish stack overflows from general SIGSEGV.
+			const size_t pageSize = sysconf(_SC_PAGESIZE);
+			stackMinAddr -= pageSize;
 		}
-		
-		// Find the approximate stack min and max using the address of a local (hopefully near the top of the stack),
-		// and the stack size limit.
-		struct rlimit stackLimit;
-		getrlimit(RLIMIT_STACK,&stackLimit);
-		const size_t stackSize = stackLimit.rlim_cur;
-
-		stackMinAddr = (uint8*)&stackLimit - stackSize;
-		stackMaxAddr = (uint8*)&stackSize;
-
-		// mmap the pages from the overly-inclusive stack bottom up to find the exact bottom of the stack's reserved pages.
-		const size_t pageSize = size_t(1) << getPageSizeLog2();
-		stackMinAddr = reinterpret_cast<uint8*>(reinterpret_cast<uintp>(stackMinAddr) & ~(pageSize-1));
-		while(true)
-		{
-			auto mmapResult = mmap(stackMinAddr,pageSize,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
-			if(mmapResult != stackMinAddr) { break; }
-			stackMinAddr += pageSize;
-		};
-		// Include one extra page below the stack's usable address range to distinguish stack overflows from general SIGSEGV.
-		stackMinAddr -= pageSize;
 	}
 
 	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
