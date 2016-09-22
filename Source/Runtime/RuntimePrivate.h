@@ -110,7 +110,7 @@ namespace Runtime
 		LLVMJIT::JITModuleBase* jitModule;
 
 		ModuleInstance(std::vector<Object*>&& inImports)
-		: GCObject({ObjectKind::module})
+		: GCObject(ObjectKind::module)
 		, imports(inImports)
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
