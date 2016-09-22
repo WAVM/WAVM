@@ -157,13 +157,18 @@ namespace Platform
 			}
 
 			// Get the stack base and size from pthreads.
-			pthread_attr_t threadAttributes;
 			void* stackBase;
 			size_t stackSize;
-			memset(&threadAttributes,0,sizeof(threadAttributes));
-			pthread_getattr_np(pthread_self(),&threadAttributes);
-			pthread_attr_getstack(&threadAttributes,&stackBase,&stackSize);
-			pthread_attr_destroy(&threadAttributes);
+			#ifdef __linux__
+				pthread_attr_t threadAttributes;
+				memset(&threadAttributes,0,sizeof(threadAttributes));
+				pthread_getattr_np(pthread_self(),&threadAttributes);
+				pthread_attr_getstack(&threadAttributes,&stackBase,&stackSize);
+				pthread_attr_destroy(&threadAttributes);
+			#else
+				stackBase = pthread_get_stackaddr_np(pthread_self());
+				stackSize = pthread_get_stacksize_np(pthread_self());
+			#endif
 			stackMinAddr = (uint8*)stackBase;
 			stackMaxAddr = stackMinAddr + stackSize;
 
