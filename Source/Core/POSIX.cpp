@@ -165,12 +165,14 @@ namespace Platform
 				pthread_getattr_np(pthread_self(),&threadAttributes);
 				pthread_attr_getstack(&threadAttributes,&stackBase,&stackSize);
 				pthread_attr_destroy(&threadAttributes);
+				stackMinAddr = (uint8*)stackBase;
+				stackMaxAddr = stackMinAddr + stackSize;
 			#else
 				stackBase = pthread_get_stackaddr_np(pthread_self());
 				stackSize = pthread_get_stacksize_np(pthread_self());
+				stackMinAddr = ((uint8*)stackBase) - stackSize;
+				stackMaxAddr = (uint8*)stackBase;
 			#endif
-			stackMinAddr = (uint8*)stackBase;
-			stackMaxAddr = stackMinAddr + stackSize;
 
 			// Reserve an extra page below the stack's usable address range to distinguish stack overflows from general SIGSEGV.
 			const size_t pageSize = sysconf(_SC_PAGESIZE);
