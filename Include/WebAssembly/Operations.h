@@ -139,12 +139,12 @@ namespace WebAssembly
 		visit(0x77,f32_mul,NoImm) \
 		visit(0x78,f32_div,NoImm) \
 		visit(0x79,f32_min,NoImm) \
-		visit(0x7a,f32_max,NoImm)
+		visit(0x7a,f32_max,NoImm) \
+		visit(0x7d,f32_copysign,NoImm)
 
 	#define ENUM_F32_UNARY_OPCODES(visit) \
 		visit(0x7b,f32_abs,NoImm) \
 		visit(0x7c,f32_neg,NoImm) \
-		visit(0x7d,f32_copysign,NoImm) \
 		visit(0x7e,f32_ceil,NoImm) \
 		visit(0x7f,f32_floor,NoImm) \
 		visit(0x80,f32_trunc,NoImm) \
@@ -165,12 +165,12 @@ namespace WebAssembly
 		visit(0x8b,f64_mul,NoImm) \
 		visit(0x8c,f64_div,NoImm) \
 		visit(0x8d,f64_min,NoImm) \
-		visit(0x8e,f64_max,NoImm)
+		visit(0x8e,f64_max,NoImm) \
+		visit(0x91,f64_copysign,NoImm)
 
 	#define ENUM_F64_UNARY_OPCODES(visit) \
 		visit(0x8f,f64_abs,NoImm) \
 		visit(0x90,f64_neg,NoImm) \
-		visit(0x91,f64_copysign,NoImm) \
 		visit(0x92,f64_ceil,NoImm) \
 		visit(0x93,f64_floor,NoImm) \
 		visit(0x94,f64_trunc,NoImm) \
