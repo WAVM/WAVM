@@ -13,30 +13,24 @@
 #include <sstream>
 #include <iomanip>
 
-inline std::vector<uint8> loadFile(const char* filename)
+inline std::string loadFile(const char* filename)
 {
 	std::ifstream stream(filename,std::ios::binary | std::ios::ate);
 	if(!stream.is_open())
 	{
 		std::cerr << "Failed to open " << filename << ": " << std::strerror(errno) << std::endl;
-		return std::vector<uint8>();
+		return std::string();
 	}
-	std::vector<uint8> data;
+	std::string data;
 	data.resize((unsigned int)stream.tellg());
 	stream.seekg(0);
-	stream.read((char*)data.data(),data.size());
+	stream.read(const_cast<char*>(data.data()),data.size());
 	stream.close();
 	return data;
 }
 
-inline bool loadTextModule(const char* filename,WebAssembly::Module& outModule)
+inline bool loadTextModule(const char* filename,const std::string& wastString,WebAssembly::Module& outModule)
 {
-	// Read the file into a string.
-	auto wastBytes = loadFile(filename);
-	if(!wastBytes.size()) { return false; }
-	auto wastString = std::string((const char*)wastBytes.data(),wastBytes.size());
-	wastBytes.clear();
-
 	std::vector<WAST::Error> parseErrors;
 	if(!WAST::parseModule(wastString.c_str(),outModule,parseErrors))
 	{
@@ -62,18 +56,24 @@ inline bool loadTextModule(const char* filename,WebAssembly::Module& outModule)
 	return true;
 }
 
-inline bool loadBinaryModule(const char* wasmFilename,WebAssembly::Module& outModule)
+inline bool loadTextModule(const char* filename,WebAssembly::Module& outModule)
 {
-	// Read in packed .wasm file bytes.
-	auto wasmBytes = loadFile(wasmFilename);
-	if(!wasmBytes.size()) { return false; }
-	
+	// Read the file into a string.
+	auto wastBytes = loadFile(filename);
+	if(!wastBytes.size()) { return false; }
+	const std::string wastString = std::move(wastBytes);
+
+	return loadTextModule(filename,wastString,outModule);
+}
+
+inline bool loadBinaryModule(const std::string& wasmBytes,WebAssembly::Module& outModule)
+{
 	Core::Timer loadTimer;
 
 	// Load the module from a binary WebAssembly file.
 	try
 	{
-		Serialization::MemoryInputStream stream(wasmBytes.data(),wasmBytes.size());
+		Serialization::MemoryInputStream stream((const uint8*)wasmBytes.data(),wasmBytes.size());
 		WebAssembly::serialize(stream,outModule);
 	}
 	catch(Serialization::FatalSerializationException exception)
@@ -96,6 +96,31 @@ inline bool loadBinaryModule(const char* wasmFilename,WebAssembly::Module& outMo
 
 	Log::logRatePerSecond("Loaded WASM",loadTimer,wasmBytes.size()/1024.0/1024.0,"MB");
 	return true;
+}
+
+inline bool loadBinaryModule(const char* wasmFilename,WebAssembly::Module& outModule)
+{
+	// Read in packed .wasm file bytes.
+	auto wasmBytes = loadFile(wasmFilename);
+	if(!wasmBytes.size()) { return false; }
+
+	return loadBinaryModule(wasmBytes,outModule);
+}
+
+inline bool loadModule(const char* filename,WebAssembly::Module& outModule)
+{
+	// Read the specified file into an array.
+	auto fileBytes = loadFile(filename);
+	if(!fileBytes.size()) { return false; }
+
+	// If the file starts with the WASM binary magic number, load it as a binary module.
+	if(*(uint32*)fileBytes.data() == 0x6d736100) { return loadBinaryModule(fileBytes,outModule); }
+	else
+	{
+		// Otherwise, load it as a text module.
+		auto wastString = std::move(fileBytes);
+		return loadTextModule(filename,wastString,outModule);
+	}
 }
 
 inline bool saveBinaryModule(const char* wasmFilename,const WebAssembly::Module& module)

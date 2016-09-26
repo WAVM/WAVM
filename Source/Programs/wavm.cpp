@@ -17,8 +17,7 @@ using namespace Runtime;
 void showHelp()
 {
 	std::cerr << "Usage: wavm [switches] [programfile] [--] [arguments]" << std::endl;
-	std::cerr << "  in.wast|--text <path>\t\tSpecify text program file (.wast)" << std::endl;
-	std::cerr << "  in.wasm|--binary <path>\tSpecify binary program file (.wasm)" << std::endl;
+	std::cerr << "  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)" << std::endl;
 	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main" << std::endl;
 	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
 	std::cerr << "  -d|--debug\t\t\tWrite additional debug information to stdout" << std::endl;
@@ -72,19 +71,12 @@ struct RootResolver : Resolver
 	}
 };
 
-int mainBody(const char* sourceFile,const char* binaryFile,const char* functionName,bool onlyCheck,char** args)
+int mainBody(const char* filename,const char* functionName,bool onlyCheck,char** args)
 {
 	Module module;
-	const char* main_arg0 = nullptr;
-	if(sourceFile)
+	if(filename)
 	{
-		if(!loadTextModule(sourceFile,module)) { return EXIT_FAILURE; }
-		main_arg0 = sourceFile;
-	}
-	else if(binaryFile)
-	{
-		if(!loadBinaryModule(binaryFile,module)) { return EXIT_FAILURE; }
-		main_arg0 = binaryFile;
+		if(!loadModule(filename,module)) { return EXIT_FAILURE; }
 	}
 	else
 	{
@@ -137,7 +129,7 @@ int mainBody(const char* sourceFile,const char* binaryFile,const char* functionN
 			}
 
 			std::vector<const char*> argStrings;
-			argStrings.push_back(main_arg0);
+			argStrings.push_back(filename);
 			while(*args) { argStrings.push_back(*args++); };
 
 			Emscripten::injectCommandArgs(argStrings,invokeArgs);
@@ -181,33 +173,14 @@ int mainBody(const char* sourceFile,const char* binaryFile,const char* functionN
 
 int commandMain(int argc,char** argv)
 {
-	const char* sourceFile = nullptr;
-	const char* binaryFile = nullptr;
+	const char* filename = nullptr;
 	const char* functionName = nullptr;
 
 	bool onlyCheck = false;
 	auto args = argv;
 	while(*++args)
 	{
-		if(!sourceFile && endsWith(*args, ".wast"))
-		{
-			sourceFile = *args;
-		}
-		else if(!binaryFile && endsWith(*args, ".wasm"))
-		{
-			binaryFile = *args;
-		}
-		else if(!strcmp(*args, "--text"))
-		{
-			if(sourceFile || binaryFile || !*++args) { showHelp(); return EXIT_FAILURE; }
-			sourceFile = *args;
-		}
-		else if(!strcmp(*args, "--binary"))
-		{
-			if(sourceFile || binaryFile || !*++args) { showHelp(); return EXIT_FAILURE; }
-			binaryFile = *args;
-		}
-		else if(!strcmp(*args, "--function") || !strcmp(*args, "-f"))
+		if(!strcmp(*args, "--function") || !strcmp(*args, "-f"))
 		{
 			if(!*++args) { showHelp(); return EXIT_FAILURE; }
 			functionName = *args;
@@ -230,6 +203,10 @@ int commandMain(int argc,char** argv)
 			showHelp();
 			return EXIT_SUCCESS;
 		}
+		else if(!filename)
+		{
+			filename = *args;
+		}
 		else { break; }
 	}
 
@@ -240,7 +217,7 @@ int commandMain(int argc,char** argv)
 	while(__AFL_LOOP(2000))
 	#endif
 	{
-		returnCode = mainBody(sourceFile,binaryFile,functionName,onlyCheck,args);
+		returnCode = mainBody(filename,functionName,onlyCheck,args);
 		Runtime::freeUnreferencedObjects({});
 	}
 	return returnCode;
