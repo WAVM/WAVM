@@ -66,7 +66,8 @@ namespace Runtime
 	{
 		enum Cause
 		{
-			outOfMemory
+			outOfMemory,
+			invalidSegmentOffset
 		};
 		const Cause cause;
 		InstantiationException(Cause inCause): cause(inCause) {}

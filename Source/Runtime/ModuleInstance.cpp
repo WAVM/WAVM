@@ -95,7 +95,10 @@ namespace Runtime
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			errorUnless(baseOffset + dataSegment.data.size() <= (memory->numPages << WebAssembly::numBytesPerPageLog2));
+			if(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2))
+			{
+				throw InstantiationException(InstantiationException::invalidSegmentOffset);
+			}
 
 			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
 		}
@@ -146,7 +149,10 @@ namespace Runtime
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			errorUnless(baseOffset + tableSegment.indices.size() <= table->elements.size());
+			if(baseOffset + tableSegment.indices.size() > table->elements.size())
+			{
+				throw InstantiationException(InstantiationException::invalidSegmentOffset);
+			}
 
 			for(uintp index = 0;index < tableSegment.indices.size();++index)
 			{
