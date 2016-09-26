@@ -148,9 +148,9 @@ namespace Runtime
 		std::string ipDescription = "<unknown>";
 		LLVMJIT::describeInstructionPointer(reinterpret_cast<uintp>(elementValue),ipDescription);
 		Log::printf(Log::Category::debug,"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",
-			getTypeName(expectedSignature).c_str(),
+			asString(expectedSignature).c_str(),
 			index,
-			actualSignature ? getTypeName(actualSignature).c_str() : "nullptr",
+			actualSignature ? asString(actualSignature).c_str() : "nullptr",
 			ipDescription.c_str()
 			);
 		causeException(elementValue == nullptr ? Exception::Cause::undefinedTableElement : Exception::Cause::indirectCallSignatureMismatch);

@@ -23,6 +23,7 @@ namespace MemoryArena
 
 			size_t segmentBytes = numBytes > defaultSegmentBytes ? numBytes : defaultSegmentBytes;
 			uint8* newSegmentMemory = (uint8*)malloc(sizeof(Segment) - 1 + segmentBytes);
+			if(!newSegmentMemory) { Core::error("out of memory allocating arena segment"); }
 			Segment* newSegment = (Segment*)newSegmentMemory;
 			newSegment->previousSegment = currentSegment;
 			newSegment->totalBytes = segmentBytes;
@@ -110,6 +111,12 @@ namespace MemoryArena
 	,	savedTotalAllocatedBytes(inArena.totalAllocatedBytes)
 	,	savedTotalWastedBytes(inArena.totalWastedBytes)
 	{}
+
+	Arena::Mark::~Mark()
+	{
+		if(arena) { restore(); }
+		arena = nullptr;
+	}
 
 	void Arena::Mark::restore()
 	{

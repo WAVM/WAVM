@@ -64,7 +64,7 @@ struct RootResolver : Resolver
 			// Instantiate the module and return the stub function instance.
 			auto stubModuleInstance = instantiateModule(stubModule,{});
 			outObject = getInstanceExport(stubModuleInstance,"importStub");
-			Log::printf(Log::Category::error,"Generated stub for missing function import %s.%s : %s\n",moduleName,exportName,getTypeName(type).c_str());
+			Log::printf(Log::Category::error,"Generated stub for missing function import %s.%s : %s\n",moduleName,exportName,asString(type).c_str());
 			return true;
 		}
 
@@ -93,14 +93,14 @@ int mainBody(const char* sourceFile,const char* binaryFile,const char* functionN
 	}
 
 	if(onlyCheck) { return EXIT_SUCCESS; }
-		
-	RootResolver rootResolver;
 
+	// Link and instantiate the module.
+	RootResolver rootResolver;
 	ModuleInstance* moduleInstance = linkAndInstantiateModule(module,rootResolver);
 	if(!moduleInstance) { return EXIT_FAILURE; }
-	
 	Emscripten::initInstance(module,moduleInstance);
 
+	// Look up the function export to call.
 	FunctionInstance* functionInstance;
 	if(!functionName)
 	{
@@ -123,6 +123,7 @@ int mainBody(const char* sourceFile,const char* binaryFile,const char* functionN
 	}
 	const FunctionType* functionType = getFunctionType(functionInstance);
 
+	// Set up the arguments for the invoke.
 	std::vector<Value> invokeArgs;
 	if(!functionName)
 	{
@@ -164,9 +165,10 @@ int mainBody(const char* sourceFile,const char* binaryFile,const char* functionN
 		}
 	}
 
+	// Invoke the function.
 	Core::Timer executionTimer;
 	auto functionResult = invokeFunction(functionInstance,invokeArgs);
-	Log::logTimer("Executed function",executionTimer);
+	Log::logTimer("Invoked function",executionTimer);
 
 	if(functionName)
 	{

@@ -8,7 +8,9 @@ namespace WebAssembly
 {
 	using namespace Serialization;
 
-	#define ENUM_CONTROL_OPCODES(visit) \
+	// Enumate the WebAssembly operators
+
+	#define ENUM_CONTROL_OPS(visit) \
 		visit(0x00,nop,NoImm) \
 		visit(0x01,beginBlock,ControlStructureImm) \
 		visit(0x02,beginLoop,ControlStructureImm) \
@@ -25,7 +27,7 @@ namespace WebAssembly
 		visit(0x16,call,CallImm) \
 		visit(0x17,call_indirect,CallIndirectImm)
 
-	#define ENUM_LOAD_OPCODES(visit) \
+	#define ENUM_LOAD_OPS(visit) \
 		visit(0x20,i32_load8_s,LoadOrStoreImm) \
 		visit(0x21,i32_load8_u,LoadOrStoreImm) \
 		visit(0x22,i32_load16_s,LoadOrStoreImm) \
@@ -41,7 +43,7 @@ namespace WebAssembly
 		visit(0x2c,f32_load,LoadOrStoreImm) \
 		visit(0x2d,f64_load,LoadOrStoreImm)
 
-	#define ENUM_STORE_OPCODES(visit) \
+	#define ENUM_STORE_OPS(visit) \
 		visit(0x2e,i32_store8,LoadOrStoreImm) \
 		visit(0x2f,i32_store16,LoadOrStoreImm) \
 		visit(0x30,i64_store8,LoadOrStoreImm) \
@@ -52,20 +54,20 @@ namespace WebAssembly
 		visit(0x35,f32_store,LoadOrStoreImm) \
 		visit(0x36,f64_store,LoadOrStoreImm)
 
-	#define ENUM_LITERAL_OPCODES(visit) \
+	#define ENUM_LITERAL_OPS(visit) \
 		visit(0x10,i32_const,LiteralImm<int32>) \
 		visit(0x11,i64_const,LiteralImm<int64>) \
 		visit(0x12,f64_const,LiteralImm<float64>) \
 		visit(0x13,f32_const,LiteralImm<float32>)
 
-	#define ENUM_VARIABLE_OPCODES(visit) \
+	#define ENUM_VARIABLE_OPS(visit) \
 		visit(0x14,get_local,GetOrSetVariableImm) \
 		visit(0x15,set_local,GetOrSetVariableImm) \
 		visit(0x19,tee_local,GetOrSetVariableImm) \
 		visit(0x1a,get_global,GetOrSetVariableImm) \
 		visit(0x1b,set_global,GetOrSetVariableImm)
 
-	#define ENUM_I32_BINARY_OPCODES(visit) \
+	#define ENUM_I32_BINARY_OPS(visit) \
 		visit(0x40,i32_add,NoImm) \
 		visit(0x41,i32_sub,NoImm) \
 		visit(0x42,i32_mul,NoImm) \
@@ -82,7 +84,7 @@ namespace WebAssembly
 		visit(0xb6,i32_rotr,NoImm) \
 		visit(0xb7,i32_rotl,NoImm) \
 
-	#define ENUM_I32_COMPARE_OPCODES(visit) \
+	#define ENUM_I32_COMPARE_OPS(visit) \
 		visit(0x4d,i32_eq,NoImm) \
 		visit(0x4e,i32_ne,NoImm) \
 		visit(0x4f,i32_lt_s,NoImm) \
@@ -94,12 +96,12 @@ namespace WebAssembly
 		visit(0x55,i32_gt_u,NoImm) \
 		visit(0x56,i32_ge_u,NoImm)
 
-	#define ENUM_I32_UNARY_OPCODES(visit) \
+	#define ENUM_I32_UNARY_OPS(visit) \
 		visit(0x57,i32_clz,NoImm) \
 		visit(0x58,i32_ctz,NoImm) \
 		visit(0x59,i32_popcnt,NoImm)
 
-	#define ENUM_I64_BINARY_OPCODES(visit) \
+	#define ENUM_I64_BINARY_OPS(visit) \
 		visit(0x5b,i64_add,NoImm) \
 		visit(0x5c,i64_sub,NoImm) \
 		visit(0x5d,i64_mul,NoImm) \
@@ -116,7 +118,7 @@ namespace WebAssembly
 		visit(0xb8,i64_rotr,NoImm) \
 		visit(0xb9,i64_rotl,NoImm)
 
-	#define ENUM_I64_COMPARE_OPCODES(visit) \
+	#define ENUM_I64_COMPARE_OPS(visit) \
 		visit(0x68,i64_eq,NoImm) \
 		visit(0x69,i64_ne,NoImm) \
 		visit(0x6a,i64_lt_s,NoImm) \
@@ -128,12 +130,12 @@ namespace WebAssembly
 		visit(0x70,i64_gt_u,NoImm) \
 		visit(0x71,i64_ge_u,NoImm)
 
-	#define ENUM_I64_UNARY_OPCODES(visit) \
+	#define ENUM_I64_UNARY_OPS(visit) \
 		visit(0x72,i64_clz,NoImm) \
 		visit(0x73,i64_ctz,NoImm) \
 		visit(0x74,i64_popcnt,NoImm)
 
-	#define ENUM_F32_BINARY_OPCODES(visit) \
+	#define ENUM_F32_BINARY_OPS(visit) \
 		visit(0x75,f32_add,NoImm) \
 		visit(0x76,f32_sub,NoImm) \
 		visit(0x77,f32_mul,NoImm) \
@@ -142,7 +144,7 @@ namespace WebAssembly
 		visit(0x7a,f32_max,NoImm) \
 		visit(0x7d,f32_copysign,NoImm)
 
-	#define ENUM_F32_UNARY_OPCODES(visit) \
+	#define ENUM_F32_UNARY_OPS(visit) \
 		visit(0x7b,f32_abs,NoImm) \
 		visit(0x7c,f32_neg,NoImm) \
 		visit(0x7e,f32_ceil,NoImm) \
@@ -151,7 +153,7 @@ namespace WebAssembly
 		visit(0x81,f32_nearest,NoImm) \
 		visit(0x82,f32_sqrt,NoImm)
 
-	#define ENUM_F32_COMPARE_OPCODES(visit) \
+	#define ENUM_F32_COMPARE_OPS(visit) \
 		visit(0x83,f32_eq,NoImm) \
 		visit(0x84,f32_ne,NoImm) \
 		visit(0x85,f32_lt,NoImm) \
@@ -159,7 +161,7 @@ namespace WebAssembly
 		visit(0x87,f32_gt,NoImm) \
 		visit(0x88,f32_ge,NoImm)
 
-	#define ENUM_F64_BINARY_OPCODES(visit) \
+	#define ENUM_F64_BINARY_OPS(visit) \
 		visit(0x89,f64_add,NoImm) \
 		visit(0x8a,f64_sub,NoImm) \
 		visit(0x8b,f64_mul,NoImm) \
@@ -168,7 +170,7 @@ namespace WebAssembly
 		visit(0x8e,f64_max,NoImm) \
 		visit(0x91,f64_copysign,NoImm)
 
-	#define ENUM_F64_UNARY_OPCODES(visit) \
+	#define ENUM_F64_UNARY_OPS(visit) \
 		visit(0x8f,f64_abs,NoImm) \
 		visit(0x90,f64_neg,NoImm) \
 		visit(0x92,f64_ceil,NoImm) \
@@ -177,7 +179,7 @@ namespace WebAssembly
 		visit(0x95,f64_nearest,NoImm) \
 		visit(0x96,f64_sqrt,NoImm)
 
-	#define ENUM_F64_COMPARE_OPCODES(visit) \
+	#define ENUM_F64_COMPARE_OPS(visit) \
 		visit(0x97,f64_eq,NoImm) \
 		visit(0x98,f64_ne,NoImm) \
 		visit(0x99,f64_lt,NoImm) \
@@ -185,7 +187,7 @@ namespace WebAssembly
 		visit(0x9b,f64_gt,NoImm) \
 		visit(0x9c,f64_ge,NoImm)
 
-	#define ENUM_CONVERSION_OPCODES(visit) \
+	#define ENUM_CONVERSION_OPS(visit) \
 		visit(0x9d,i32_trunc_s_f32,NoImm) \
 		visit(0x9e,i32_trunc_s_f64,NoImm) \
 		visit(0x9f,i32_trunc_u_f32,NoImm) \
@@ -212,37 +214,39 @@ namespace WebAssembly
 		visit(0xb4,i32_reinterpret_f32,NoImm) \
 		visit(0xb5,i64_reinterpret_f64,NoImm)
 
-	#define ENUM_MISC_OPCODES(visit) \
+	#define ENUM_MISC_OPS(visit) \
 		visit(0x5a,i32_eqz,NoImm) \
 		visit(0xba,i64_eqz,NoImm) \
 		visit(0x39,grow_memory,NoImm) \
 		visit(0x3b,current_memory,NoImm) \
 		visit(0xff,error,ErrorImm)
 
-	#define ENUM_NONCONTROL_OPCODES(visit) \
-		ENUM_LOAD_OPCODES(visit) ENUM_STORE_OPCODES(visit) \
-		ENUM_LITERAL_OPCODES(visit) \
-		ENUM_VARIABLE_OPCODES(visit) \
-		ENUM_I32_BINARY_OPCODES(visit) ENUM_I32_UNARY_OPCODES(visit) ENUM_I32_COMPARE_OPCODES(visit) \
-		ENUM_I64_BINARY_OPCODES(visit) ENUM_I64_UNARY_OPCODES(visit) ENUM_I64_COMPARE_OPCODES(visit) \
-		ENUM_F32_BINARY_OPCODES(visit) ENUM_F32_UNARY_OPCODES(visit) ENUM_F32_COMPARE_OPCODES(visit) \
-		ENUM_F64_BINARY_OPCODES(visit) ENUM_F64_UNARY_OPCODES(visit) ENUM_F64_COMPARE_OPCODES(visit) \
-		ENUM_CONVERSION_OPCODES(visit) \
-		ENUM_MISC_OPCODES(visit)
+	#define ENUM_NONCONTROL_OPS(visit) \
+		ENUM_LOAD_OPS(visit) ENUM_STORE_OPS(visit) \
+		ENUM_LITERAL_OPS(visit) \
+		ENUM_VARIABLE_OPS(visit) \
+		ENUM_I32_BINARY_OPS(visit) ENUM_I32_UNARY_OPS(visit) ENUM_I32_COMPARE_OPS(visit) \
+		ENUM_I64_BINARY_OPS(visit) ENUM_I64_UNARY_OPS(visit) ENUM_I64_COMPARE_OPS(visit) \
+		ENUM_F32_BINARY_OPS(visit) ENUM_F32_UNARY_OPS(visit) ENUM_F32_COMPARE_OPS(visit) \
+		ENUM_F64_BINARY_OPS(visit) ENUM_F64_UNARY_OPS(visit) ENUM_F64_COMPARE_OPS(visit) \
+		ENUM_CONVERSION_OPS(visit) \
+		ENUM_MISC_OPS(visit)
 
-	#define ENUM_OPCODES(visit) \
-		ENUM_NONCONTROL_OPCODES(visit) \
-		ENUM_CONTROL_OPCODES(visit)
+	#define ENUM_OPS(visit) \
+		ENUM_NONCONTROL_OPS(visit) \
+		ENUM_CONTROL_OPS(visit)
 
 	enum class Opcode : uint8
 	{
 		#define VISIT_OPCODE(encoding,name,imm) name = encoding,
-		ENUM_OPCODES(VISIT_OPCODE)
+		ENUM_OPS(VISIT_OPCODE)
 		#undef VISIT_OPCODE
 	};
 
 	template<typename Stream>
 	void serialize(Stream& stream,Opcode& opcode) { return Serialization::serializeNativeValue(stream,*(uint8*)&opcode); }
+
+	// Structures for operator immediates
 
 	struct NoImm
 	{
@@ -356,6 +360,7 @@ namespace WebAssembly
 		{ serialize(stream,imm.message); }
 	};
 
+	// Decodes an operator from an input stream and dispatches by opcode.
 	struct OperationDecoder
 	{
 		OperationDecoder(Serialization::InputStream& inStream): stream(inStream) {}
@@ -376,7 +381,7 @@ namespace WebAssembly
 					serialize(stream,imm); \
 					return visitor.name(imm); \
 				}
-			ENUM_OPCODES(VISIT_OPCODE)
+			ENUM_OPS(VISIT_OPCODE)
 			#undef VISIT_OPCODE
 			default: return visitor.unknown(opcode);
 			}
@@ -387,6 +392,7 @@ namespace WebAssembly
 		Serialization::InputStream& stream;
 	};
 
+	// Encodes an operator to an output stream.
 	struct OperationEncoder
 	{
 		Serialization::OutputStream& stream;
@@ -404,9 +410,9 @@ namespace WebAssembly
 					serialize(stream,imm); \
 				} \
 			}
-		ENUM_OPCODES(VISIT_OPCODE)
+		ENUM_OPS(VISIT_OPCODE)
 		#undef VISIT_OPCODE
 	};
-	
+
 	WEBASSEMBLY_API const char* getOpcodeName(Opcode opcode);
 }

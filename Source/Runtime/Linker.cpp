@@ -25,11 +25,16 @@ namespace Runtime
 		std::vector<LinkException::MissingImport> missingImports;
 		for(const Import& import : module.imports)
 		{
-			Object* importValue;
 			const ObjectType objectType = resolveImportType(module,import.type);
-			if(!resolver.resolve(import.module.c_str(),import.exportName.c_str(),objectType,importValue)) { importValue = nullptr; }
-			if(importValue && !isA(importValue,objectType)) { importValue = nullptr; }
-			if(importValue) { imports.push_back(importValue); }
+
+			// Ask the resolver for a value for this import.
+			Object* importValue;
+			if(resolver.resolve(import.module.c_str(),import.exportName.c_str(),objectType,importValue))
+			{
+				// Sanity check that the resolver returned an object of the right type.
+				errorUnless(isA(importValue,objectType));
+				imports.push_back(importValue);
+			}
 			else { missingImports.push_back({import.module,import.exportName,objectType}); }
 		}
 

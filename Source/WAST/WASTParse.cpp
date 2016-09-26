@@ -56,7 +56,7 @@ namespace WAST
 		else { return ExpressionType::unreachable; }
 	}
 	
-	const char* getTypeName(ExpressionType type)
+	const char* asString(ExpressionType type)
 	{
 		switch(type)
 		{
@@ -421,7 +421,7 @@ namespace WAST
 			if(actualType == expectedType) { return true; }
 			else
 			{
-				recordError(*this,nodeIt,std::string("expected ") + getTypeName(expectedType) + " initializer expression, but got " + getTypeName(actualType));
+				recordError(*this,nodeIt,std::string("expected ") + asString(expectedType) + " initializer expression, but got " + asString(actualType));
 				outExpression = InitializerExpression();
 				return true;
 			}
@@ -577,9 +577,9 @@ namespace WAST
 			if(!encoder.unreachableDepth)
 			{
 				std::string message =
-					std::string("type error: expecting ") + getTypeName(expectedType)
+					std::string("type error: expecting ") + asString(expectedType)
 					+ " in " + errorContext
-					+ " but found " + getTypeName(type);
+					+ " but found " + asString(type);
 				emitError(nodeIt,std::move(message));
 			}
 		}
@@ -1191,7 +1191,7 @@ namespace WAST
 						{
 							functionTypeIndex = getFunctionTypeIndex(referencedFunctionType);
 
-							if(inlineFunctionType->parameters.size() && getArity(inlineFunctionType->ret) && inlineFunctionType != referencedFunctionType)
+							if((inlineFunctionType->parameters.size() || inlineFunctionType->ret != ResultType::none) && inlineFunctionType != referencedFunctionType)
 							{
 								// If there's both a type reference and explicit function signature, then make sure they match.
 								recordError(*this,nodeIt,std::string("type reference doesn't match function signature"));

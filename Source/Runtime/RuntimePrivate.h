@@ -31,12 +31,14 @@ namespace Runtime
 {
 	using namespace WebAssembly;
 	
+	// A private root for all runtime objects that handles garbage collection.
 	struct GCObject : Object
 	{
 		GCObject(ObjectKind inKind);
 		~GCObject() override;
 	};
 
+	// An instance of a function: a function defined in an instantiated module, or an intrinsic function.
 	struct FunctionInstance : GCObject
 	{
 		ModuleInstance* moduleInstance;
@@ -48,6 +50,7 @@ namespace Runtime
 		: GCObject(ObjectKind::function), moduleInstance(inModuleInstance), type(inType), nativeFunction(inNativeFunction), debugName(inDebugName) {}
 	};
 
+	// An instance of a WebAssembly Table.
 	struct Table : GCObject
 	{
 		struct FunctionElement
@@ -57,33 +60,37 @@ namespace Runtime
 		};
 
 		TableType type;
+
 		FunctionElement* baseAddress;
-		size_t maxPlatformPages;
-		
+		size_t endOffset;
+
 		uint8* reservedBaseAddress;
 		size_t reservedNumPlatformPages;
 
+		// The Objects corresponding to the FunctionElements at baseAddress.
 		std::vector<Object*> elements;
 
-		Table(const TableType& inType): GCObject(ObjectKind::table), type(inType), baseAddress(nullptr), maxPlatformPages(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
+		Table(const TableType& inType): GCObject(ObjectKind::table), type(inType), baseAddress(nullptr), endOffset(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
 		~Table() override;
 	};
 
+	// An instance of a WebAssembly Memory.
 	struct Memory : GCObject
 	{
 		MemoryType type;
+
 		uint8* baseAddress;
 		size_t numPages;
-		size_t maxPages;
-		
+		size_t endOffset;
+
 		uint8* reservedBaseAddress;
 		size_t reservedNumPlatformPages;
-		size_t reservedNumBytes;
 
-		Memory(const MemoryType& inType): GCObject(ObjectKind::memory), type(inType), baseAddress(nullptr), numPages(0), maxPages(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0), reservedNumBytes(0) {}
+		Memory(const MemoryType& inType): GCObject(ObjectKind::memory), type(inType), baseAddress(nullptr), numPages(0), endOffset(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
 		~Memory() override;
 	};
 
+	// An instance of a WebAssembly global.
 	struct GlobalInstance : GCObject
 	{
 		GlobalType type;
@@ -92,6 +99,7 @@ namespace Runtime
 		GlobalInstance(GlobalType inType,UntaggedValue inValue): GCObject(ObjectKind::global), type(inType), value(inValue) {}
 	};
 
+	// An instance of a WebAssembly module.
 	struct ModuleInstance : GCObject
 	{
 		std::vector<Object*> imports;
@@ -122,9 +130,6 @@ namespace Runtime
 
 	// Initializes global state used by the WAVM intrinsics.
 	void initWAVMIntrinsics();
-
-	// Describes an execution context. Returns an array of strings, one for each stack frame.
-	std::vector<std::string> describeExecutionContext(const Platform::ExecutionContext& executionContext);
 
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(uint8* address);

@@ -157,7 +157,7 @@ int main(int argc,char** argv)
 		{
 			std::cerr << "Missing import: module=\"" << missingImport.moduleName
 				<< "\" export=\"" << missingImport.exportName
-				<< "\" type=\"" << getTypeName(missingImport.type) << "\"" << std::endl;
+				<< "\" type=\"" << asString(missingImport.type) << "\"" << std::endl;
 		}
 		return EXIT_FAILURE;
 	}

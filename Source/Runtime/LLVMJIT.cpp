@@ -67,6 +67,7 @@ namespace LLVMJIT
 		{}
 		virtual ~UnitMemoryManager() override
 		{
+			// Deregister the exception handling frame info.
 			if(hasRegisteredEHFrames)
 			{
 				hasRegisteredEHFrames = false;
@@ -89,7 +90,25 @@ namespace LLVMJIT
 		{
 			llvm::RTDyldMemoryManager::deregisterEHFrames(addr,loadAddr,numBytes);
 		}
-
+		
+		virtual bool needsToReserveAllocationSpace() override { return true; }
+		virtual void reserveAllocationSpace(uintptr_t numCodeBytes,uint32 codeAlignment,uintptr_t numReadOnlyBytes,uint32 readOnlyAlignment,uintptr_t numReadWriteBytes,uint32 readWriteAlignment) override
+		{
+			// Calculate the number of pages to be used by each section.
+			codeSection.numPages = shrAndRoundUp(numCodeBytes,Platform::getPageSizeLog2());
+			readOnlySection.numPages = shrAndRoundUp(numReadOnlyBytes,Platform::getPageSizeLog2());
+			readWriteSection.numPages = shrAndRoundUp(numReadWriteBytes,Platform::getPageSizeLog2());
+			numAllocatedImagePages = codeSection.numPages + readOnlySection.numPages + readWriteSection.numPages;
+			if(numAllocatedImagePages)
+			{
+				// Reserve enough contiguous pages for all sections.
+				imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
+				if(!imageBaseAddress || !Platform::commitVirtualPages(imageBaseAddress,numAllocatedImagePages)) { Core::error("memory allocation for JIT code failed"); }
+				codeSection.baseAddress = imageBaseAddress;
+				readOnlySection.baseAddress = codeSection.baseAddress + (codeSection.numPages << Platform::getPageSizeLog2());
+				readWriteSection.baseAddress = readOnlySection.baseAddress + (readOnlySection.numPages << Platform::getPageSizeLog2());
+			}
+		}
 		virtual uint8* allocateCodeSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
 		{
 			return allocateBytes((uintp)numBytes,alignment,codeSection);
@@ -97,22 +116,6 @@ namespace LLVMJIT
 		virtual uint8* allocateDataSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
 		{
 			return allocateBytes((uintp)numBytes,alignment,isReadOnly ? readOnlySection : readWriteSection);
-		}
-		virtual bool needsToReserveAllocationSpace() override { return true; }
-		virtual void reserveAllocationSpace(uintptr_t numCodeBytes,uint32 codeAlignment,uintptr_t numReadOnlyBytes,uint32 readOnlyAlignment,uintptr_t numReadWriteBytes,uint32 readWriteAlignment) override
-		{
-			codeSection.numPages = shrAndRoundUp(numCodeBytes,Platform::getPageSizeLog2());
-			readOnlySection.numPages = shrAndRoundUp(numReadOnlyBytes,Platform::getPageSizeLog2());
-			readWriteSection.numPages = shrAndRoundUp(numReadWriteBytes,Platform::getPageSizeLog2());
-			numAllocatedImagePages = codeSection.numPages + readOnlySection.numPages + readWriteSection.numPages;
-			if(numAllocatedImagePages)
-			{
-				imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
-				if(!imageBaseAddress || !Platform::commitVirtualPages(imageBaseAddress,numAllocatedImagePages)) { Core::fatalError("memory allocation for JIT code failed"); }
-				codeSection.baseAddress = imageBaseAddress;
-				readOnlySection.baseAddress = codeSection.baseAddress + (codeSection.numPages << Platform::getPageSizeLog2());
-				readWriteSection.baseAddress = readOnlySection.baseAddress + (readOnlySection.numPages << Platform::getPageSizeLog2());
-			}
 		}
 		virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
 		{
@@ -166,7 +169,7 @@ namespace LLVMJIT
 			section.numCommittedBytes = align(section.numCommittedBytes,alignment) + align(numBytes,alignment);
 
 			// Check that enough space was reserved in the section.
-			if(section.numCommittedBytes > (section.numPages << Platform::getPageSizeLog2())) { Core::fatalError("didn't reserve enough space in section"); }
+			if(section.numCommittedBytes > (section.numPages << Platform::getPageSizeLog2())) { Core::error("didn't reserve enough space in section"); }
 
 			return allocationBaseAddress;
 		}
@@ -240,6 +243,7 @@ namespace LLVMJIT
 		JITModule(ModuleInstance* inModuleInstance): moduleInstance(inModuleInstance) {}
 		~JITModule() override
 		{
+			// Delete the module's symbols, and remove them from the global address-to-symbol map.
 			for(auto symbol : functionDefSymbols)
 			{
 				addressToSymbolMap.erase(addressToSymbolMap.find(symbol->baseAddress + symbol->numBytes));
@@ -291,6 +295,7 @@ namespace LLVMJIT
 	NullResolver NullResolver::singleton;
 	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbol(const std::string& name)
 	{
+		// Allow __chkstk through: the LLVM X86 code generator adds calls to it when allocating more than 4KB of stack space.
 		if(name == "__chkstk")
 		{
 			void *addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
@@ -407,10 +412,7 @@ namespace LLVMJIT
 			std::string verifyOutputString;
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
 			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
-			{
-				Log::printf(Log::Category::error,"LLVM verification errors:\n%s\n",verifyOutputString.c_str());
-				Core::unreachable();
-			}
+			{ Core::errorf("LLVM verification errors:\n%s\n",verifyOutputString.c_str()); }
 			Log::printf(Log::Category::debug,"Verified LLVM module\n");
 		#endif
 
@@ -492,7 +494,7 @@ namespace LLVMJIT
 			if(!outDescription.size()) { outDescription = "<unnamed function>"; }
 			break;
 		case JITSymbol::Type::invokeThunk:
-			outDescription = "<invoke thunk : " + getTypeName(symbol->invokeThunkType) + ">";
+			outDescription = "<invoke thunk : " + asString(symbol->invokeThunkType) + ">";
 			break;
 		default: Core::unreachable();
 		};

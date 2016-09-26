@@ -2,11 +2,11 @@
 
 #include "Core/Core.h"
 #include "WebAssembly/WebAssembly.h"
-#include "TaggedValue.h"
 #include "Runtime.h"
 
 namespace Intrinsics
 {
+	// An intrinsic function.
 	struct Function
 	{
 		Runtime::FunctionInstance* function;
@@ -18,12 +18,13 @@ namespace Intrinsics
 		const char* name;
 	};
 	
-	struct Variable
+	// The base class of Intrinsic globals.
+	struct Global
 	{
 		Runtime::GlobalInstance* global;
 
-		RUNTIME_API Variable(const char* inName,WebAssembly::GlobalType inType);
-		RUNTIME_API ~Variable();
+		RUNTIME_API Global(const char* inName,WebAssembly::GlobalType inType);
+		RUNTIME_API ~Global();
 
 	protected:
 		void* value;
@@ -31,28 +32,31 @@ namespace Intrinsics
 		const char* name;
 	};
 	
+	// A partially specialized template for Intrinsic globals:
+	// Provides access via implicit coercion to a value, and for mutable globals an assignment operator.
 	template<WebAssembly::ValueType type,bool isMutable>
-	struct GenericVariable : Variable
+	struct GenericGlobal : Global
 	{
 		typedef typename WebAssembly::ValueTypeInfo<type>::Value Value;
 
-		GenericVariable(const char* inName,WebAssembly::GlobalType inType,Value inValue)
-		: Variable(inName,inType) { *(Value*)value = inValue; }
+		GenericGlobal(const char* inName,WebAssembly::GlobalType inType,Value inValue)
+		: Global(inName,inType) { *(Value*)value = inValue; }
 
 		operator Value() const { return *(Value*)value; }
 		void operator=(Value newValue) { *(Value*)value = newValue; }
 	};
 	template<WebAssembly::ValueType type>
-	struct GenericVariable<type,false> : Variable
+	struct GenericGlobal<type,false> : Global
 	{
 		typedef typename WebAssembly::ValueTypeInfo<type>::Value Value;
 
-		GenericVariable(const char* inName,WebAssembly::GlobalType inType,Value inValue)
-		: Variable(inName,inType) { *(Value*)value = inValue; }
+		GenericGlobal(const char* inName,WebAssembly::GlobalType inType,Value inValue)
+		: Global(inName,inType) { *(Value*)value = inValue; }
 
 		operator Value() const { return *(Value*)value; }
 	};
 
+	// Intrinsic memories and tables
 	struct Memory
 	{
 		RUNTIME_API Memory(const char* inName,const WebAssembly::MemoryType& inType);
@@ -77,8 +81,10 @@ namespace Intrinsics
 		Runtime::Table* const table;
 	};
 
+	// Finds an intrinsic object by name and type.
 	RUNTIME_API Runtime::Object* find(const char* name,const WebAssembly::ObjectType& type);
 
+	// Returns an array of all intrinsic runtime Objects; used as roots for garbage collection.
 	RUNTIME_API std::vector<Runtime::Object*> getAllIntrinsicObjects();
 }
 
@@ -91,6 +97,7 @@ namespace NativeTypes
 	typedef void none;
 };
 
+// Macros for defining intrinsic functions of various arities.
 #define DEFINE_INTRINSIC_FUNCTION0(module,cName,name,returnType) \
 	NativeTypes::returnType cName##returnType(); \
 	static Intrinsics::Function cName##returnType##Function(#module "." #name,WebAssembly::FunctionType::get(WebAssembly::ResultType::returnType),(void*)&cName##returnType); \
@@ -121,8 +128,9 @@ namespace NativeTypes
 	static Intrinsics::Function cName##returnType##arg0Type##arg1Type##arg2Type##arg3Type##arg4Type##Function(#module "." #name,WebAssembly::FunctionType::get(WebAssembly::ResultType::returnType,{WebAssembly::ValueType::arg0Type,WebAssembly::ValueType::arg1Type,WebAssembly::ValueType::arg2Type,WebAssembly::ValueType::arg3Type,WebAssembly::ValueType::arg4Type}),(void*)&cName##returnType##arg0Type##arg1Type##arg2Type##arg3Type##arg4Type); \
 	NativeTypes::returnType cName##returnType##arg0Type##arg1Type##arg2Type##arg3Type##arg4Type(NativeTypes::arg0Type arg0Name,NativeTypes::arg1Type arg1Name,NativeTypes::arg2Type arg2Name,NativeTypes::arg3Type arg3Name,NativeTypes::arg4Type arg4Name)
 
-#define DEFINE_INTRINSIC_VARIABLE(module,cName,name,valueType,isMutable,initializer) \
-	static Intrinsics::GenericVariable<WebAssembly::ValueType::valueType,isMutable> \
+// Macros for defining intrinsic globals, memories, and tables.
+#define DEFINE_INTRINSIC_GLOBAL(module,cName,name,valueType,isMutable,initializer) \
+	static Intrinsics::GenericGlobal<WebAssembly::ValueType::valueType,isMutable> \
 		cName(#module "." #name,{WebAssembly::ValueType::valueType,isMutable},initializer);
 
 #define DEFINE_INTRINSIC_MEMORY(module,cName,name,type) static Intrinsics::Memory cName(#module "." #name,type);

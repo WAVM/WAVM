@@ -7,12 +7,13 @@
 
 namespace Runtime
 {
+	// Global lists of memories and tables; used to query whether an address is reserved by one of them.
 	std::vector<Memory*> memories;
 	std::vector<Table*> tables;
 
 	static uintp getPlatformPagesPerWebAssemblyPageLog2()
 	{
-		assert(Platform::getPageSizeLog2() < WebAssembly::numBytesPerPageLog2);
+		errorUnless(Platform::getPageSizeLog2() <= WebAssembly::numBytesPerPageLog2);
 		return WebAssembly::numBytesPerPageLog2 - Platform::getPageSizeLog2();
 	}
 
@@ -21,6 +22,8 @@ namespace Runtime
 		return (numBytes + (uintp(1)<<Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 	}
 
+	// Allocates virtual pages with alignBytes of padding, and returns an aligned base address.
+	// The unaligned allocation address and size are written to outUnalignedBaseAddress and outUnalignedNumPlatformPages.
 	static uint8* allocateVirtualPagesAligned(size_t numBytes,size_t alignmentBytes,uint8*& outUnalignedBaseAddress,size_t& outUnalignedNumPlatformPages)
 	{
 		const size_t numAllocatedVirtualPages = numBytes >> Platform::getPageSizeLog2();
@@ -45,12 +48,13 @@ namespace Runtime
 		// protect against unaligned loads/stores that straddle the end of the address-space.
 		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : ((uintp)1 << Platform::getPageSizeLog2());
 		memory->baseAddress = allocateVirtualPagesAligned(memoryMaxBytes,alignmentBytes,memory->reservedBaseAddress,memory->reservedNumPlatformPages);
-		memory->reservedNumBytes = memory->reservedNumPlatformPages << Platform::getPageSizeLog2();
-		memory->maxPages = memoryMaxBytes >> WebAssembly::numBytesPerPageLog2;
-
+		memory->endOffset = memoryMaxBytes;
 		if(!memory->baseAddress) { delete memory; return nullptr; }
+
+		// Grow the memory to the type's minimum size.
 		if(growMemory(memory,type.size.min) == -1) { delete memory; return nullptr; }
 
+		// Add the memory to the global array.
 		memories.push_back(memory);
 		return memory;
 	}
@@ -61,11 +65,11 @@ namespace Runtime
 		if(numPages > 0) { Platform::decommitVirtualPages(baseAddress,numPages << getPlatformPagesPerWebAssemblyPageLog2()); }
 
 		// Free the virtual address space.
-		if(maxPages > 0) { Platform::freeVirtualPages(reservedBaseAddress,reservedNumPlatformPages); }
-
+		if(reservedNumPlatformPages > 0) { Platform::freeVirtualPages(reservedBaseAddress,reservedNumPlatformPages); }
 		reservedBaseAddress = baseAddress = nullptr;
-		reservedNumPlatformPages = reservedNumBytes = 0;
+		reservedNumPlatformPages = 0;
 
+		// Remove the memory from the global array.
 		for(uintp memoryIndex = 0;memoryIndex < tables.size();++memoryIndex)
 		{
 			if(memories[memoryIndex] == this) { memories.erase(memories.begin() + memoryIndex); break; }
@@ -74,10 +78,11 @@ namespace Runtime
 	
 	bool isAddressOwnedByMemory(uint8* address)
 	{
+		// Iterate over all memories and check if the address is within the reserved address space for each.
 		for(auto memory : memories)
 		{
 			uint8* startAddress = memory->reservedBaseAddress;
-			uint8* endAddress = memory->reservedBaseAddress + memory->reservedNumBytes;
+			uint8* endAddress = memory->reservedBaseAddress + (memory->reservedNumPlatformPages << Platform::getPageSizeLog2());
 			if(address >= startAddress && address < endAddress) { return true; }
 		}
 		return false;
@@ -91,10 +96,11 @@ namespace Runtime
 		const size_t previousNumPages = memory->numPages;
 		if(numNewPages > 0)
 		{
-			if(numNewPages > memory->maxPages
-			|| memory->numPages > memory->maxPages - numNewPages
-			|| memory->numPages > memory->type.size.max - numNewPages
-			|| !Platform::commitVirtualPages(
+			// If the number of pages to grow would cause the memory's size to exceed its maximum, return -1.
+			if(numNewPages > memory->type.size.max || memory->numPages > memory->type.size.max - numNewPages) { return -1; }
+
+			// Try to commit the new pages, and return -1 if the commit fails.
+			if(!Platform::commitVirtualPages(
 				memory->baseAddress + (memory->numPages << WebAssembly::numBytesPerPageLog2),
 				numNewPages << getPlatformPagesPerWebAssemblyPageLog2()
 				))
@@ -111,10 +117,13 @@ namespace Runtime
 		const size_t previousNumPages = memory->numPages;
 		if(numPagesToShrink > 0)
 		{
+			// If the number of pages to shrink would cause the memory's size to drop below its minimum, return -1.
 			if(numPagesToShrink > memory->numPages
 			|| memory->numPages - numPagesToShrink < memory->type.size.min)
 			{ return -1; }
 			memory->numPages -= numPagesToShrink;
+
+			// Decommit the pages that were shrunk off the end of the memory.
 			Platform::decommitVirtualPages(
 				memory->baseAddress + (memory->numPages << WebAssembly::numBytesPerPageLog2),
 				numPagesToShrink << getPlatformPagesPerWebAssemblyPageLog2()
@@ -130,11 +139,12 @@ namespace Runtime
 	
 	uint8* getValidatedMemoryOffsetRange(Memory* memory,uintp offset,size_t numBytes)
 	{
+		// Validate that the range [offset..offset+numBytes) is contained by the memory's reserved pages.
 		uint8* address = memory->baseAddress + offset;
 		if(	!memory
 		||	address < memory->reservedBaseAddress
 		||	address + numBytes < address
-		||	address + numBytes > memory->reservedBaseAddress + memory->reservedNumBytes)
+		||	address + numBytes >= memory->reservedBaseAddress + (memory->reservedNumPlatformPages << Platform::getPageSizeLog2()))
 		{
 			causeException(Exception::Cause::accessViolation);
 		}
@@ -153,11 +163,13 @@ namespace Runtime
 		// protect against unaligned loads/stores that straddle the end of the address-space.
 		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : (uintp(1) << Platform::getPageSizeLog2());
 		table->baseAddress = (Table::FunctionElement*)allocateVirtualPagesAligned(tableMaxBytes,alignmentBytes,table->reservedBaseAddress,table->reservedNumPlatformPages);
-		table->maxPlatformPages = tableMaxBytes >> Platform::getPageSizeLog2();
-		
+		table->endOffset = tableMaxBytes;
 		if(!table->baseAddress) { delete table; return nullptr; }
+		
+		// Grow the table to the type's minimum size.
 		if(growTable(table,type.size.min) == -1) { delete table; return nullptr; }
-
+		
+		// Add the table to the global array.
 		tables.push_back(table);
 		return table;
 	}
@@ -168,12 +180,12 @@ namespace Runtime
 		if(elements.size() > 0) { Platform::decommitVirtualPages((uint8*)baseAddress,getNumPlatformPages(elements.size() * sizeof(Table::FunctionElement))); }
 
 		// Free the virtual address space.
-		if(maxPlatformPages > 0) { Platform::freeVirtualPages((uint8*)reservedBaseAddress,reservedNumPlatformPages); }
-
+		if(reservedNumPlatformPages > 0) { Platform::freeVirtualPages((uint8*)reservedBaseAddress,reservedNumPlatformPages); }
 		reservedBaseAddress = nullptr;
 		reservedNumPlatformPages = 0;
 		baseAddress = nullptr;
-
+		
+		// Remove the table from the global array.
 		for(uintp tableIndex = 0;tableIndex < tables.size();++tableIndex)
 		{
 			if(tables[tableIndex] == this) { tables.erase(tables.begin() + tableIndex); break; }
@@ -182,6 +194,7 @@ namespace Runtime
 
 	bool isAddressOwnedByTable(uint8* address)
 	{
+		// Iterate over all tables and check if the address is within the reserved address space for each.
 		for(auto table : tables)
 		{
 			uint8* startAddress = (uint8*)table->reservedBaseAddress;
@@ -193,6 +206,7 @@ namespace Runtime
 
 	Object* setTableElement(Table* table,uintp index,Object* newValue)
 	{
+		// Write the new table element to both the table's elements array and its indirect function call data.
 		assert(index < table->elements.size());
 		FunctionInstance* functionInstance = asFunction(newValue);
 		assert(functionInstance->nativeFunction);
@@ -213,17 +227,22 @@ namespace Runtime
 		const size_t previousNumElements = table->elements.size();
 		if(numNewElements > 0)
 		{
+			// If the number of elements to grow would cause the table's size to exceed its maximum, return -1.
+			if(numNewElements > table->type.size.max || table->elements.size() > table->type.size.max - numNewElements) { return -1; }
+			
+			// Try to commit pages for the new elements, and return -1 if the commit fails.
 			const size_t previousNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(Table::FunctionElement));
 			const size_t newNumPlatformPages = getNumPlatformPages((table->elements.size()+numNewElements) * sizeof(Table::FunctionElement));
-			if(table->elements.size() > UINTPTR_MAX - numNewElements
-			|| newNumPlatformPages > table->maxPlatformPages
-			|| !Platform::commitVirtualPages(
+			if(newNumPlatformPages != previousNumPlatformPages
+			&& !Platform::commitVirtualPages(
 				(uint8*)table->baseAddress + (previousNumPlatformPages << Platform::getPageSizeLog2()),
 				newNumPlatformPages - previousNumPlatformPages
 				))
 			{
 				return -1;
 			}
+
+			// Also grow the table's elements array.
 			table->elements.insert(table->elements.end(),numNewElements,nullptr);
 		}
 		return previousNumElements;
@@ -234,14 +253,23 @@ namespace Runtime
 		const size_t previousNumElements = table->elements.size();
 		if(numElementsToShrink > 0)
 		{
-			if(numElementsToShrink > table->elements.size()) { return -1; }
-			const size_t previousNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(Table::FunctionElement));
+			// If the number of elements to shrink would cause the tables's size to drop below its minimum, return -1.
+			if(numElementsToShrink > table->elements.size()
+			|| table->elements.size() - numElementsToShrink < table->type.size.min) { return -1; }
+
+			// Shrink the table's elements array.
 			table->elements.resize(table->elements.size() - numElementsToShrink);
+			
+			// Decommit the pages that were shrunk off the end of the table's indirect function call data.
+			const size_t previousNumPlatformPages = getNumPlatformPages(previousNumElements * sizeof(Table::FunctionElement));
 			const size_t newNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(Table::FunctionElement));
-			Platform::decommitVirtualPages(
-				(uint8*)table->baseAddress + (newNumPlatformPages << Platform::getPageSizeLog2()),
-				(previousNumPlatformPages - newNumPlatformPages) << Platform::getPageSizeLog2()
-				);
+			if(newNumPlatformPages != previousNumPlatformPages)
+			{
+				Platform::decommitVirtualPages(
+					(uint8*)table->baseAddress + (newNumPlatformPages << Platform::getPageSizeLog2()),
+					(previousNumPlatformPages - newNumPlatformPages) << Platform::getPageSizeLog2()
+					);
+			}
 		}
 		return previousNumElements;
 	}

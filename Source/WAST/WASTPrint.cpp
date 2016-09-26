@@ -51,7 +51,7 @@ namespace WAST
 			// Absorb INDENT_STRING and DEDENT_STRING, but keep track of the indentation depth,
 			// and insert a proportional number of spaces following newlines. 
 			if(*(uint16*)next == *(uint16*)INDENT_STRING) { ++indentDepth; next += 2; }
-			else if(*(uint16*)next == *(uint16*)DEDENT_STRING) { assert(indentDepth > 0); --indentDepth; next += 2; }
+			else if(*(uint16*)next == *(uint16*)DEDENT_STRING) { errorUnless(indentDepth > 0); --indentDepth; next += 2; }
 			else if(*next == '\n')
 			{
 				result += '\n';
@@ -81,8 +81,8 @@ namespace WAST
 		std::string& string;
 	};
 
-	void print(std::string& string,ValueType type) { string += getTypeName(type); }
-	void print(std::string& string,ResultType type) { string += getTypeName(type); }
+	void print(std::string& string,ValueType type) { string += asString(type); }
+	void print(std::string& string,ResultType type) { string += asString(type); }
 	void print(std::string& string,GlobalType type)
 	{
 		if(type.isMutable) { string += "(mut "; }

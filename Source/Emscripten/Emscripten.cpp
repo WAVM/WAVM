@@ -22,27 +22,27 @@ namespace Emscripten
 		return (uint32)address;
 	}
 
-	DEFINE_INTRINSIC_VARIABLE(env,STACKTOP,STACKTOP,i32,true,0);
-	DEFINE_INTRINSIC_VARIABLE(env,STACK_MAX,STACK_MAX,i32,true,0);
-	DEFINE_INTRINSIC_VARIABLE(env,tempDoublePtr,tempDoublePtr,i32,true,0);
-	DEFINE_INTRINSIC_VARIABLE(env,ABORT,ABORT,i32,true,0);
-	DEFINE_INTRINSIC_VARIABLE(env,cttz_i8,cttz_i8,i32,true,0);
-	DEFINE_INTRINSIC_VARIABLE(env,___dso_handle,___dso_handle,i32,true,0);
-	DEFINE_INTRINSIC_VARIABLE(env,_stderr,_stderr,i32,true,0);
-	DEFINE_INTRINSIC_VARIABLE(env,_stdin,_stdin,i32,true,0);
-	DEFINE_INTRINSIC_VARIABLE(env,_stdout,_stdout,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,STACKTOP,STACKTOP,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,STACK_MAX,STACK_MAX,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,tempDoublePtr,tempDoublePtr,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,ABORT,ABORT,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,cttz_i8,cttz_i8,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,___dso_handle,___dso_handle,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,_stderr,_stderr,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,_stdin,_stdin,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,_stdout,_stdout,i32,true,0);
 
 	DEFINE_INTRINSIC_MEMORY(env,emscriptenMemory,memory,MemoryType({SizeConstraints({256,UINT64_MAX})}));
 	DEFINE_INTRINSIC_TABLE(env,table,table,TableType({TableElementType::anyfunc,SizeConstraints({1024*1024,UINT64_MAX})}));
 
-	DEFINE_INTRINSIC_VARIABLE(env,memoryBase,memoryBase,i32,false,1024);
-	DEFINE_INTRINSIC_VARIABLE(env,tableBase,tableBase,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,memoryBase,memoryBase,i32,false,1024);
+	DEFINE_INTRINSIC_GLOBAL(env,tableBase,tableBase,i32,false,0);
 
-	DEFINE_INTRINSIC_VARIABLE(env,DYNAMICTOP_PTR,DYNAMICTOP_PTR,i32,true,0)
-	DEFINE_INTRINSIC_VARIABLE(env,em_environ,_environ,i32,true,0)
-	DEFINE_INTRINSIC_VARIABLE(env,EMTSTACKTOP,EMTSTACKTOP,i32,true,0)
-	DEFINE_INTRINSIC_VARIABLE(env,EMT_STACK_MAX,EMT_STACK_MAX,i32,true,0)
-	DEFINE_INTRINSIC_VARIABLE(env,eb,eb,i32,true,0)
+	DEFINE_INTRINSIC_GLOBAL(env,DYNAMICTOP_PTR,DYNAMICTOP_PTR,i32,true,0)
+	DEFINE_INTRINSIC_GLOBAL(env,em_environ,_environ,i32,true,0)
+	DEFINE_INTRINSIC_GLOBAL(env,EMTSTACKTOP,EMTSTACKTOP,i32,true,0)
+	DEFINE_INTRINSIC_GLOBAL(env,EMT_STACK_MAX,EMT_STACK_MAX,i32,true,0)
+	DEFINE_INTRINSIC_GLOBAL(env,eb,eb,i32,true,0)
 
 	bool hasSbrkBeenCalled = false;
 	size_t sbrkNumPages = 0;
@@ -367,8 +367,8 @@ namespace Emscripten
 	static float64 makeNaN() { return zero / zero; }
 	static float64 makeInf() { return 1.0/zero; }
 
-	DEFINE_INTRINSIC_VARIABLE(global,NaN,NaN,f64,true,makeNaN())
-	DEFINE_INTRINSIC_VARIABLE(global,Infinity,Infinity,f64,true,makeInf())
+	DEFINE_INTRINSIC_GLOBAL(global,NaN,NaN,f64,true,makeNaN())
+	DEFINE_INTRINSIC_GLOBAL(global,Infinity,Infinity,f64,true,makeInf())
 
 	DEFINE_INTRINSIC_FUNCTION2(asm2wasm,i32_remu,i32u-rem,i32,i32,left,i32,right)
 	{

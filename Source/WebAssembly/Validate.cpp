@@ -71,8 +71,8 @@ namespace WebAssembly
 		if(expectedType != type)
 		{
 			throw ValidationException(
-				std::string("type mismatch: expected ") + getTypeName(expectedType)
-				+ " but got " + getTypeName(type)
+				std::string("type mismatch: expected ") + asString(expectedType)
+				+ " but got " + asString(type)
 				+ " in " + context
 				);
 		}
@@ -186,7 +186,7 @@ namespace WebAssembly
 				for(uintp stackIndex = 0;stackIndex < stack.size();++stackIndex)
 				{
 					if(stackIndex == stackBase) { stackString += "| "; }
-					stackString +=  getTypeName(stack[stackIndex]);
+					stackString +=  asString(stack[stackIndex]);
 					stackString +=  " ";
 				}
 				if(stack.size() == stackBase) { stackString += "|"; }

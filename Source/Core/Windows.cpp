@@ -37,7 +37,7 @@ namespace Platform
 		GetSystemInfo(&systemInfo);
 		size_t preferredVirtualPageSize = systemInfo.dwPageSize;
 		// Verify our assumption that the virtual page size is a power of two.
-		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
+		errorUnless(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return floorLogTwo(preferredVirtualPageSize);
 	}
 	uintp getPageSizeLog2()
@@ -59,13 +59,11 @@ namespace Platform
 		}
 	}
 
-	#if _DEBUG
-		static bool isPageAligned(uint8* address)
-		{
-			const uintp addressBits = reinterpret_cast<uintp>(address);
-			return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
-		}
-	#endif
+	static bool isPageAligned(uint8* address)
+	{
+		const uintp addressBits = reinterpret_cast<uintp>(address);
+		return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
+	}
 
 	uint8* allocateVirtualPages(size_t numPages)
 	{
@@ -81,29 +79,29 @@ namespace Platform
 
 	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
 	{
-		assert(isPageAligned(baseVirtualAddress));
+		errorUnless(isPageAligned(baseVirtualAddress));
 		return baseVirtualAddress == VirtualAlloc(baseVirtualAddress,numPages << getPageSizeLog2(),MEM_COMMIT,memoryAccessAsWin32Flag(access));
 	}
 
 	bool setVirtualPageAccess(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
 	{
-		assert(isPageAligned(baseVirtualAddress));
+		errorUnless(isPageAligned(baseVirtualAddress));
 		DWORD oldProtection = 0;
 		return VirtualProtect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsWin32Flag(access),&oldProtection) != 0;
 	}
 	
 	void decommitVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
-		assert(isPageAligned(baseVirtualAddress));
+		errorUnless(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,numPages << getPageSizeLog2(),MEM_DECOMMIT);
-		if(baseVirtualAddress && !result) { Core::fatalError("VirtualFree(MEM_DECOMMIT) failed"); }
+		if(baseVirtualAddress && !result) { Core::error("VirtualFree(MEM_DECOMMIT) failed"); }
 	}
 
 	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
-		assert(isPageAligned(baseVirtualAddress));
+		errorUnless(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,0/*numPages << getPageSizeLog2()*/,MEM_RELEASE);
-		if(baseVirtualAddress && !result) { Core::fatalError("VirtualFree(MEM_RELEASE) failed"); }
+		if(baseVirtualAddress && !result) { Core::error("VirtualFree(MEM_RELEASE) failed"); }
 	}
 
 	// The interface to the DbgHelp DLL
@@ -181,7 +179,7 @@ namespace Platform
 		// Register our manually fixed up copy of the function table.
 		if(!RtlAddFunctionTable(functionsCopy,numFunctions,imageLoadAddress))
 		{
-			Core::fatalError("RtlAddFunctionTable failed");
+			Core::error("RtlAddFunctionTable failed");
 		}
 
 		return functionsCopy;
@@ -193,17 +191,17 @@ namespace Platform
 		delete [] functionTable;
 	}
 	
-	ExecutionContext unwindStack(const CONTEXT& immutableContext)
+	CallStack unwindStack(const CONTEXT& immutableContext)
 	{
 		// Make a mutable copy of the context.
 		CONTEXT context;
 		memcpy(&context,&immutableContext,sizeof(CONTEXT));
 
 		// Unwind the stack until there isn't a valid instruction pointer, which signals we've reached the base.
-		ExecutionContext executionContext;
+		CallStack callStack;
 		while(context.Rip)
 		{
-			executionContext.stackFrames.push_back({context.Rip,context.Rsp});
+			callStack.stackFrames.push_back({context.Rip});
 
 			// Look up the SEH unwind information for this function.
 			uint64 imageBase;
@@ -232,10 +230,10 @@ namespace Platform
 			}
 		}
 
-		return executionContext;
+		return callStack;
 	}
 
-	ExecutionContext captureExecutionContext(uintp numOmittedFramesFromTop)
+	CallStack captureCallStack(uintp numOmittedFramesFromTop)
 	{
 		// Capture the current processor state.
 		CONTEXT context;
@@ -252,9 +250,9 @@ namespace Platform
 	}
 
 	THREAD_LOCAL bool isReentrantException = false;
-	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,HardwareTrapType& outType,uintp& outOperand,ExecutionContext& outContext)
+	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,HardwareTrapType& outType,uintp& outTrapOperand,CallStack& outCallStack)
 	{
-		if(isReentrantException) { Core::fatalError("reentrant exception"); }
+		if(isReentrantException) { Core::error("reentrant exception"); }
 		else
 		{
 			// Decide how to handle this exception code.
@@ -262,7 +260,7 @@ namespace Platform
 			{
 			case EXCEPTION_ACCESS_VIOLATION:
 				outType = HardwareTrapType::accessViolation;
-				outOperand = exceptionPointers->ExceptionRecord->ExceptionInformation[1];
+				outTrapOperand = exceptionPointers->ExceptionRecord->ExceptionInformation[1];
 				break;
 			case EXCEPTION_STACK_OVERFLOW: outType = HardwareTrapType::stackOverflow; break;
 			case STATUS_INTEGER_DIVIDE_BY_ZERO: outType = HardwareTrapType::intDivideByZeroOrOverflow; break;
@@ -272,7 +270,7 @@ namespace Platform
 			isReentrantException = true;
 
 			// Unwind the stack frames from the context of the exception.
-			outContext = unwindStack(*exceptionPointers->ContextRecord);
+			outCallStack = unwindStack(*exceptionPointers->ContextRecord);
 
 			return EXCEPTION_EXECUTE_HANDLER;
 		}
@@ -281,7 +279,7 @@ namespace Platform
 	THREAD_LOCAL bool isThreadInitialized = false;
 	void initThread()
 	{
-		assert(!isThreadInitialized);
+		errorUnless(!isThreadInitialized);
 		isThreadInitialized = true;
 
 		// Ensure that there's enough space left on the stack in the case of a stack overflow to prepare the stack trace.
@@ -290,19 +288,19 @@ namespace Platform
 	}
 
 	HardwareTrapType catchHardwareTraps(
-		ExecutionContext& outContext,
-		uintp& outOperand,
+		CallStack& outTrapCallStack,
+		uintp& outTrapOperand,
 		const std::function<void()>& thunk
 		)
 	{
-		assert(isThreadInitialized);
+		errorUnless(isThreadInitialized);
 
 		HardwareTrapType result = HardwareTrapType::none;
 		__try
 		{
 			thunk();
 		}
-		__except(sehFilterFunction(GetExceptionInformation(),result,outOperand,outContext))
+		__except(sehFilterFunction(GetExceptionInformation(),result,outTrapOperand,outTrapCallStack))
 		{
 			isReentrantException = false;
 			

@@ -29,22 +29,22 @@ namespace Platform
 	Mutex::Mutex()
 	{
 		handle = new pthread_mutex_t();
-		if(pthread_mutex_init((pthread_mutex_t*)handle,nullptr)) { Core::fatalError("pthread_mutex_init failed"); }
+		if(pthread_mutex_init((pthread_mutex_t*)handle,nullptr)) { Core::error("pthread_mutex_init failed"); }
 	}
 
 	Mutex::~Mutex()
 	{
-		if(pthread_mutex_destroy((pthread_mutex_t*)handle)) { Core::fatalError("pthread_mutex_destroy failed"); }
+		if(pthread_mutex_destroy((pthread_mutex_t*)handle)) { Core::error("pthread_mutex_destroy failed"); }
 	}
 
 	void Mutex::Lock()
 	{
-		if(pthread_mutex_lock((pthread_mutex_t*)handle)) { Core::fatalError("pthread_mutex_lock failed"); }
+		if(pthread_mutex_lock((pthread_mutex_t*)handle)) { Core::error("pthread_mutex_lock failed"); }
 	}
 
 	void Mutex::Unlock()
 	{
-		if(pthread_mutex_unlock((pthread_mutex_t*)handle)) { Core::fatalError("pthread_mutex_unlock failed"); }
+		if(pthread_mutex_unlock((pthread_mutex_t*)handle)) { Core::error("pthread_mutex_unlock failed"); }
 	}
 
 	static size_t internalGetPreferredVirtualPageSizeLog2()
@@ -93,28 +93,28 @@ namespace Platform
 
 	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
 	{
-		assert(isPageAligned(baseVirtualAddress));
+		errorUnless(isPageAligned(baseVirtualAddress));
 		return mprotect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsPOSIXFlag(access)) == 0;
 	}
 	
 	bool setVirtualPageAccess(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
 	{
-		assert(isPageAligned(baseVirtualAddress));
+		errorUnless(isPageAligned(baseVirtualAddress));
 		return mprotect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsPOSIXFlag(access)) == 0;
 	}
 
 	void decommitVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
-		assert(isPageAligned(baseVirtualAddress));
+		errorUnless(isPageAligned(baseVirtualAddress));
 		auto numBytes = numPages << getPageSizeLog2();
-		if(madvise(baseVirtualAddress,numBytes,MADV_DONTNEED)) { Core::fatalError("madvise failed"); }
-		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { Core::fatalError("mprotect failed"); }
+		if(madvise(baseVirtualAddress,numBytes,MADV_DONTNEED)) { Core::error("madvise failed"); }
+		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { Core::error("mprotect failed"); }
 	}
 
 	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
-		assert(isPageAligned(baseVirtualAddress));
-		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Core::fatalError("munmap failed"); }
+		errorUnless(isPageAligned(baseVirtualAddress));
+		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Core::error("munmap failed"); }
 	}
 
 	bool describeInstructionPointer(uintp ip,std::string& outDescription)
@@ -133,7 +133,7 @@ namespace Platform
 
 	THREAD_LOCAL jmp_buf signalReturnEnv;
 	THREAD_LOCAL HardwareTrapType signalType = HardwareTrapType::none;
-	THREAD_LOCAL ExecutionContext* signalContext = nullptr;
+	THREAD_LOCAL CallStack* signalCallStack = nullptr;
 	THREAD_LOCAL uintp* signalOperand = nullptr;
 	THREAD_LOCAL bool isReentrantSignal = false;
 
@@ -154,7 +154,7 @@ namespace Platform
 			signalStackInfo.ss_flags = 0;
 			if(sigaltstack(&signalStackInfo,nullptr) < 0)
 			{
-				Core::fatalError("sigaltstack failed");
+				Core::error("sigaltstack failed");
 			}
 
 			// Get the stack address from pthreads, but use getrlimit to find the maximum size of the stack instead of the current.
@@ -184,14 +184,14 @@ namespace Platform
 
 	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
 	{
-		if(isReentrantSignal) { Core::fatalError("reentrant signal handler"); }
+		if(isReentrantSignal) { Core::error("reentrant signal handler"); }
 		isReentrantSignal = true;
 
 		// Derive the exception cause the from signal that was received.
 		switch(signalNumber)
 		{
 		case SIGFPE:
-			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Core::fatalError("unknown SIGFPE code"); }
+			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Core::error("unknown SIGFPE code"); }
 			signalType = HardwareTrapType::intDivideByZeroOrOverflow;
 			break;
 		case SIGSEGV:
@@ -202,25 +202,25 @@ namespace Platform
 			*signalOperand = reinterpret_cast<uintp>(signalInfo->si_addr);
 			break;
 		default:
-			Core::fatalError("unknown signal number");
+			Core::errorf("unknown signal number: %i",signalNumber);
 			break;
 		};
 
 		// Capture the execution context, omitting this function and the function that called it,
 		// so the top of the callstack is the function that triggered the signal.
-		*signalContext = captureExecutionContext(2);
+		*signalCallStack = captureCallStack(2);
 
 		// Jump back to the setjmp in catchRuntimeExceptions.
 		siglongjmp(signalReturnEnv,1);
 	}
 
 	HardwareTrapType catchHardwareTraps(
-		ExecutionContext& outContext,
-		uintp& outOperand,
+		CallStack& outTrapCallStack,
+		uintp& outTrapOperand,
 		const std::function<void()>& thunk
 		)
 	{
-		assert(signalStack);
+		errorUnless(signalStack);
 		
 		struct sigaction oldSignalActionSEGV;
 		struct sigaction oldSignalActionBUS;
@@ -231,8 +231,8 @@ namespace Platform
 		if(!isReturningFromSignalHandler)
 		{
 			signalType = HardwareTrapType::none;
-			signalContext = &outContext;
-			signalOperand = &outOperand;
+			signalCallStack = &outTrapCallStack;
+			signalOperand = &outTrapOperand;
 
 			// Set a signal handler for the signals we want to intercept.
 			struct sigaction signalAction;
@@ -249,7 +249,7 @@ namespace Platform
 
 		// Reset the signal state.
 		isReentrantSignal = false;
-		signalContext = nullptr;
+		signalCallStack = nullptr;
 		signalOperand = nullptr;
 		sigaction(SIGSEGV,&oldSignalActionSEGV,nullptr);
 		sigaction(SIGBUS,&oldSignalActionBUS,nullptr);
@@ -258,7 +258,7 @@ namespace Platform
 		return signalType;
 	}
 
-	ExecutionContext captureExecutionContext(uintp numOmittedFramesFromTop)
+	CallStack captureCallStack(uintp numOmittedFramesFromTop)
 	{
 		#ifdef __linux__
 			// Unwind the callstack.
@@ -269,14 +269,14 @@ namespace Platform
 			// Copy the return pointers into the stack frames of the resulting ExecutionContext.
 			// Skip the first numOmittedFramesFromTop+1 frames, which correspond to this function
 			// and others that the caller would like to omit.
-			ExecutionContext result;
+			CallStack result;
 			for(intp index = numOmittedFramesFromTop + 1;index < numCallStackEntries;++index)
 			{
-				result.stackFrames.push_back({(uintp)callstackAddresses[index],0});
+				result.stackFrames.push_back({(uintp)callstackAddresses[index]});
 			}
 			return result;
 		#else
-			return ExecutionContext();
+			return CallStack();
 		#endif
 	}
 }

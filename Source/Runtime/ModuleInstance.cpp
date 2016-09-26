@@ -29,7 +29,7 @@ namespace Runtime
 					}
 				}
 			}
-			throw InstantiationException(InstantiationException::invalidInitializerGlobalRef);
+			Core::error("get_global initializer expression does not refer to imported global");
 		}
 		default: Core::unreachable();
 		};
@@ -43,13 +43,13 @@ namespace Runtime
 		DisassemblyNames disassemblyNames;
 		getDisassemblyNames(module,disassemblyNames);
 
-		// Validate the types of the imports.
-		if(imports.size() != module.imports.size()) { throw InstantiationException(InstantiationException::importCountMismatch); }
+		// Initialize the ModuleInstance's imports.
+		errorUnless(imports.size() == module.imports.size());
 		for(uintp importIndex = 0;importIndex < module.imports.size();++importIndex)
 		{
 			const Import& import = module.imports[importIndex];
 			Object* importObject = imports[importIndex];
-			if(!isA(importObject,resolveImportType(module,import.type))) { throw InstantiationException(InstantiationException::importTypeMismatch); }
+			errorUnless(isA(importObject,resolveImportType(module,import.type)));
 			switch(importObject->kind)
 			{
 			case ObjectKind::function: moduleInstance->functions.push_back(asFunction(importObject)); break;
@@ -92,11 +92,10 @@ namespace Runtime
 			Memory* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
-			assert(baseOffsetValue.type == ValueType::i32);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			if(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2))
-			{ throw InstantiationException(InstantiationException::invalidDataSegmentBase); }
+			errorUnless(baseOffset + dataSegment.data.size() <= (memory->numPages << WebAssembly::numBytesPerPageLog2));
 
 			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
 		}
@@ -105,7 +104,7 @@ namespace Runtime
 		for(auto global : module.globalDefs)
 		{
 			const Value initialValue = evaluateInitializer(moduleInstance,global.initializer);
-			assert(initialValue.type == global.type.valueType);
+			errorUnless(initialValue.type == global.type.valueType);
 			moduleInstance->globals.push_back(new GlobalInstance(global.type,initialValue));
 		}
 		
@@ -144,11 +143,10 @@ namespace Runtime
 			Table* table = moduleInstance->tables[tableSegment.tableIndex];
 			
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
-			assert(baseOffsetValue.type == ValueType::i32);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			if(baseOffset + tableSegment.indices.size() > table->elements.size())
-			{ throw InstantiationException(InstantiationException::invalidDataSegmentBase); }
+			errorUnless(baseOffset + tableSegment.indices.size() <= table->elements.size());
 
 			for(uintp index = 0;index < tableSegment.indices.size();++index)
 			{
@@ -164,7 +162,6 @@ namespace Runtime
 			assert(moduleInstance->functions[module.startFunctionIndex]->type == WebAssembly::FunctionType::get());
 			invokeFunction(moduleInstance->functions[module.startFunctionIndex],{});
 		}
-		
 
 		moduleInstances.push_back(moduleInstance);
 		return moduleInstance;

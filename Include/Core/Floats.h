@@ -30,6 +30,7 @@ namespace Floats
 		uint32 bitcastInt;
 	};
 
+	// Prints a floating point value to a string, using the WebAssembly syntax for text floats.
 	template<typename FloatComponents,typename Float,uint64 maxExponent,uintp numSignificandHexits>
 	std::string asString(Float f)
 	{
@@ -40,9 +41,11 @@ namespace Floats
 
 		if(components.bits.exponent == maxExponent)
 		{
+			// Handle infinity.
 			if(components.bits.significand == 0) { return sign + "infinity"; }
 			else
 			{
+				// Handle NaN.
 				char significandString[numSignificandHexits + 1];
 				for(uintp hexitIndex = 0;hexitIndex < numSignificandHexits;++hexitIndex)
 				{
@@ -55,11 +58,12 @@ namespace Floats
 		}
 		else
 		{
+			// If it's not infinite or NaN, just use the STL decimal float printing.
 			char buffer[32];
 			auto numChars = std::sprintf(buffer,"%.13a",f);
 			if(unsigned(numChars) + 1 > sizeof(buffer))
 			{
-				Core::fatalError("not enough space in Float::asString buffer");
+				Core::error("not enough space in Float::asString buffer");
 			}
 			return buffer;
 		}

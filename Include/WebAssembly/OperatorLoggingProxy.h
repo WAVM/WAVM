@@ -17,7 +17,7 @@ namespace WebAssembly
 				innerVisitor.logOperator(#name + describeImm(imm)); \
 				innerVisitor.name(imm); \
 			}
-		ENUM_OPCODES(VISIT_OPCODE)
+		ENUM_OPS(VISIT_OPCODE)
 		VISIT_OPCODE(_,unknown,Opcode)
 		#undef VISIT_OPCODE
 	private:
@@ -26,7 +26,7 @@ namespace WebAssembly
 
 		std::string describeImm(Opcode opcode) { return std::to_string((uintp)opcode); }
 		std::string describeImm(NoImm) { return ""; }
-		std::string describeImm(ControlStructureImm imm) { return std::string(" : ") + getTypeName(imm.resultType); }
+		std::string describeImm(ControlStructureImm imm) { return std::string(" : ") + asString(imm.resultType); }
 		std::string describeImm(BranchImm imm) { return " " + std::to_string(imm.targetDepth); }
 		std::string describeImm(BranchTableImm imm)
 		{
@@ -40,7 +40,7 @@ namespace WebAssembly
 		std::string describeImm(LiteralImm<NativeValue> imm) { return " " + std::to_string(imm.value); }
 		std::string describeImm(GetOrSetVariableImm imm) { return " " + std::to_string(imm.variableIndex); }
 		std::string describeImm(CallImm imm) { return " " + std::to_string(imm.functionIndex); }
-		std::string describeImm(CallIndirectImm imm) { return " " + getTypeName(module.types[imm.typeIndex]); }
+		std::string describeImm(CallIndirectImm imm) { return " " + asString(module.types[imm.typeIndex]); }
 		std::string describeImm(LoadOrStoreImm imm) { return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset); }
 		std::string describeImm(ErrorImm imm) { return " " + imm.message; }
 	};

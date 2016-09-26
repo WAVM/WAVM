@@ -12,6 +12,7 @@
 	#define UNUSED
 	#include <intrin.h>
 #else
+	// Use __thread instead of the C++11 thread_local because Apple's clang doesn't support thread_local yet.
 	#define THREAD_LOCAL __thread
 	#define DLL_EXPORT
 	#define DLL_IMPORT
@@ -101,18 +102,18 @@ namespace Platform
 	// Describes an instruction pointer.
 	CORE_API bool describeInstructionPointer(uintp ip,std::string& outDescription);
 
-	struct ExecutionContext
+	// Describes a call stack.
+	struct CallStack
 	{
-		struct StackFrame
+		struct Frame
 		{
 			uintp ip;
-			uintp bp;
 		};
-		std::vector<StackFrame> stackFrames;
+		std::vector<Frame> stackFrames;
 	};
 
 	// Captures the execution context of the caller.
-	CORE_API ExecutionContext captureExecutionContext(uintp numOmittedFramesFromTop = 0);
+	CORE_API CallStack captureCallStack(uintp numOmittedFramesFromTop = 0);
 
 	#ifdef _WIN32
 		// Registers/deregisters the data used by Windows SEH to unwind stack frames.
@@ -133,8 +134,8 @@ namespace Platform
 		intDivideByZeroOrOverflow
 	};
 	CORE_API HardwareTrapType catchHardwareTraps(
-		ExecutionContext& outContext,
-		uintp& outOperand,
+		CallStack& outTrapCallStack,
+		uintp& outTrapOperand,
 		const std::function<void()>& thunk
 		);
 }

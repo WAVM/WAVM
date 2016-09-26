@@ -8,6 +8,7 @@
 
 namespace Runtime
 {
+	// Keep a global list of all objects.
 	struct GCGlobals
 	{
 		std::set<GCObject*> allObjects;
@@ -24,11 +25,13 @@ namespace Runtime
 
 	GCObject::GCObject(ObjectKind inKind): Object(inKind)
 	{
+		// Add the object to the global array.
 		GCGlobals::get().allObjects.insert(this);
 	}
 
 	GCObject::~GCObject()
 	{
+		// Remove the object from the global array.
 		GCGlobals::get().allObjects.erase(this);
 	}
 
@@ -63,6 +66,7 @@ namespace Runtime
 			Object* scanObject = pendingScanObjects.back();
 			pendingScanObjects.pop_back();
 
+			// Gather the child references for this object based on its kind.
 			std::vector<Object*> childReferences;
 			switch(scanObject->kind)
 			{
@@ -96,6 +100,7 @@ namespace Runtime
 			default: Core::unreachable();
 			};
 
+			// Add the object's child references to the referenced set, and enqueue them for scanning.
 			for(auto reference : childReferences)
 			{
 				if(reference && !referencedObjects.count(reference))
@@ -106,6 +111,7 @@ namespace Runtime
 			}
 		};
 
+		// Iterate over all objects, and delete objects that weren't referenced directly or indirectly by the root set.
 		GCGlobals& gcGlobals = GCGlobals::get();
 		auto objectIt = gcGlobals.allObjects.begin();
 		while(objectIt != gcGlobals.allObjects.end())

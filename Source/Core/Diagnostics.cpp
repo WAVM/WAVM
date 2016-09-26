@@ -7,16 +7,14 @@
 
 namespace Core
 {
-	[[noreturn]] void fatalError(const char* message)
+	[[noreturn]] void errorf(const char* messageFormat,...)
 	{
-		std::printf("fatal error: %s\n",message);
-		std::fflush(stdout);
+		va_list varArgs;
+		va_start(varArgs,messageFormat);
+		std::vfprintf(stderr,messageFormat,varArgs);
+		std::fprintf(stderr,"\nfatal error: aborting.");
+		std::fflush(stderr);
 		std::abort();
-	}
-
-	[[noreturn]] void unreachable()
-	{
-		fatalError("reached unreachable code");
 	}
 }
 

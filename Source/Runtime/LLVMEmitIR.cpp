@@ -21,7 +21,7 @@ namespace LLVMJIT
 		std::vector<llvm::Constant*> importedFunctionPointers;
 		std::vector<llvm::Constant*> globalPointers;
 		llvm::Constant* defaultTablePointer;
-		llvm::Constant* defaultTableMaxElements;
+		llvm::Constant* defaultTableEndOffset;
 		llvm::Constant* defaultMemoryBase;
 		llvm::Constant* defaultMemoryAddressMask;
 		
@@ -61,12 +61,11 @@ namespace LLVMJIT
 		llvm::Function* llvmFunction;
 		llvm::IRBuilder<> irBuilder;
 
-		std::vector<ValueType> localTypes;
 		std::vector<llvm::Value*> localPointers;
 
 		llvm::DISubprogram* diFunction;
 
-		// Information about an in-scope branch target.
+		// Information about an in-scope control structure.
 		struct ControlContext
 		{
 			enum class Type : uint8
@@ -81,17 +80,23 @@ namespace LLVMJIT
 			Type type;
 			llvm::BasicBlock* endBlock;
 			llvm::PHINode* endPHI;
-			llvm::BasicBlock* branchTargetBlock;
-			llvm::PHINode* branchTargetPHI;
 			llvm::BasicBlock* elseBlock;
-			ResultType branchArgumentType;
 			ResultType resultType;
 			uintp outerStackSize;
+			uintp outerBranchTargetStackSize;
 			bool isReachable;
 			bool isElseReachable;
 		};
 
+		struct BranchTarget
+		{
+			ResultType argumentType;
+			llvm::BasicBlock* block;
+			llvm::PHINode* phi;
+		};
+
 		std::vector<ControlContext> controlStack;
+		std::vector<BranchTarget> branchTargetStack;
 		std::vector<llvm::Value*> stack;
 
 		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,const Function& inFunction,FunctionInstance* inFunctionInstance,llvm::Function* inLLVMFunction)
@@ -106,6 +111,7 @@ namespace LLVMJIT
 
 		void emit();
 
+		// Operand stack manipulation
 		llvm::Value* pop()
 		{
 			assert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0) >= 1);
@@ -120,7 +126,6 @@ namespace LLVMJIT
 			std::copy(stack.end() - num,stack.end(),outValues);
 			stack.resize(stack.size() - num);
 		}
-		template<size_t num> void popMultiple(llvm::Value* (&outValues)[num]) { popMultiple(outValues,num); }
 
 		llvm::Value* getTopValue() const
 		{
@@ -132,6 +137,7 @@ namespace LLVMJIT
 			stack.push_back(value);
 		}
 
+		// Creates a PHI node for the argument of branches to a basic block.
 		llvm::PHINode* createPHI(llvm::BasicBlock* basicBlock,ResultType type)
 		{
 			if(type == ResultType::none) { return nullptr; }
@@ -145,77 +151,11 @@ namespace LLVMJIT
 			}
 		}
 
-		void pushControlStack(
-			ControlContext::Type type,
-			ResultType branchArgumentType,
-			ResultType resultType,
-			llvm::BasicBlock* endBlock,
-			llvm::PHINode* endPHI,
-			llvm::BasicBlock* branchTargetBlock,
-			llvm::PHINode* branchTargetPHI,
-			llvm::BasicBlock* elseBlock = nullptr
-			)
-		{
-			bool isReachable = controlStack.size() ? controlStack.back().isReachable : true;
-
-			controlStack.push_back({type,endBlock,endPHI,branchTargetBlock,branchTargetPHI,elseBlock,branchArgumentType,resultType,stack.size(),isReachable,isReachable});
-		}
-
-		void popControlStack(bool isElse = false)
-		{
-			assert(controlStack.size());
-			ControlContext& currentContext = controlStack.back();
-			assert(stack.size() == currentContext.outerStackSize);
-			if(isElse)
-			{
-				assert(currentContext.elseBlock);
-				assert(currentContext.type == ControlContext::Type::ifThen);
-				irBuilder.SetInsertPoint(currentContext.elseBlock);
-
-				currentContext.type = ControlContext::Type::ifElse;
-				currentContext.isReachable = currentContext.isElseReachable;
-				currentContext.elseBlock = nullptr;
-			}
-			else
-			{
-				if(currentContext.elseBlock)
-				{
-					irBuilder.SetInsertPoint(currentContext.elseBlock);
-					irBuilder.CreateBr(currentContext.endBlock);
-				}
-
-				currentContext.endBlock->moveAfter(irBuilder.GetInsertBlock());
-				irBuilder.SetInsertPoint(currentContext.endBlock);
-
-				if(currentContext.endPHI)
-				{
-					if(currentContext.endPHI->getNumIncomingValues()) { push(currentContext.endPHI); }
-					else
-					{
-						currentContext.endPHI->removeFromParent();
-						assert(currentContext.resultType != ResultType::none);
-						push(typedZeroConstants[(uintp)asValueType(currentContext.resultType)]);
-					}
-				}
-				controlStack.pop_back();
-			}
-		}
-
-		void enterUnreachable()
-		{
-			stack.resize(controlStack.back().outerStackSize);
-			controlStack.back().isReachable = false;
-		}
-		
-		ControlContext& getBranchTargetByDepth(uintp depth)
-		{
-			assert(depth < controlStack.size());
-			return controlStack[controlStack.size() - depth - 1];
-		}
-		
+		// Debug logging.
 		void logOperator(const std::string& operatorDescription)
 		{
-			#if ENABLE_LOGGING
+			if(ENABLE_LOGGING)
+			{
 				std::string controlStackString;
 				for(uintp stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
 				{
@@ -245,135 +185,402 @@ namespace LLVMJIT
 				if(stack.size() == stackBase) { stackString += "|"; }
 
 				Log::printf(Log::Category::debug,"%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
-			#endif
+			}
+		}
+		
+		// A helper function to emit an if-then-else-end control flow diamond.
+		template<typename TrueValueThunk,typename FalseValueThunk>
+		llvm::Value* emitIfElse(const char* blockBaseName,llvm::Value* booleanCondition,TrueValueThunk trueValueThunk,FalseValueThunk falseValueThunk)
+		{
+			auto trueBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "Then",llvmFunction);
+			auto falseBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "Else",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "End",llvmFunction);
+
+			irBuilder.CreateCondBr(booleanCondition,trueBlock,falseBlock);
+
+			irBuilder.SetInsertPoint(trueBlock);
+			auto trueValue = trueValueThunk();
+			auto trueExitBlock = irBuilder.GetInsertBlock();
+			if(trueValue) { irBuilder.CreateBr(endBlock); }
+			endBlock->moveAfter(trueExitBlock);
+
+			irBuilder.SetInsertPoint(falseBlock);
+			auto falseValue = falseValueThunk();
+			auto falseExitBlock = irBuilder.GetInsertBlock();
+			if(falseValue) { irBuilder.CreateBr(endBlock); }
+			endBlock->moveAfter(falseExitBlock);
+
+			irBuilder.SetInsertPoint(endBlock);
+			if(!trueValue && !falseValue) { return nullptr; }
+			else if(!falseValue) { return trueValue; }
+			else if(!trueValue) { return falseValue; }
+			else
+			{
+				auto phi = irBuilder.CreatePHI(trueValue->getType(),2);
+				if(trueValue && trueExitBlock) { phi->addIncoming(trueValue,trueExitBlock); }
+				if(falseValue && falseExitBlock) { phi->addIncoming(falseValue,falseExitBlock); }
+				return phi;
+			}
+		}
+		
+		// Coerces an I32 value to an I1, and vice-versa.
+		llvm::Value* coerceI32ToBool(llvm::Value* i32Value)
+		{
+			return irBuilder.CreateICmpNE(i32Value,typedZeroConstants[(size_t)ValueType::i32]);
+		}
+		llvm::Value* coerceBoolToI32(llvm::Value* boolValue)
+		{
+			return irBuilder.CreateZExt(boolValue,llvmI32Type);
+		}
+		
+		// Bounds checks and converts a memory operation I32 address operand to a LLVM pointer.
+		llvm::Value* coerceByteIndexToPointer(llvm::Value* byteIndex,uint32 offset,llvm::Type* memoryType)
+		{
+			// On a 64 bit runtime, if the address is 32-bits, zext it to 64-bits.
+			// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
+			// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
+			// There are no 'far addresses' in a 32 bit runtime.
+			llvm::Value* nativeByteIndex = sizeof(uintp) == 4 ? byteIndex : irBuilder.CreateZExt(byteIndex,llvmI64Type);
+			llvm::Value* offsetByteIndex = nativeByteIndex;
+			if(offset)
+			{
+				auto nativeOffset = sizeof(uintp) == 4 ? emitLiteral((uint32)offset) : irBuilder.CreateZExt(emitLiteral((uint32)offset),llvmI64Type);
+				offsetByteIndex = irBuilder.CreateAdd(nativeByteIndex,nativeOffset);
+			}
+
+			// Mask the index to the address-space size.
+			auto maskedByteIndex = irBuilder.CreateAnd(offsetByteIndex,moduleContext.defaultMemoryAddressMask);
+
+			// Cast the pointer to the appropriate type.
+			auto bytePointer = irBuilder.CreateInBoundsGEP(moduleContext.defaultMemoryBase,maskedByteIndex);
+			return irBuilder.CreatePointerCast(bytePointer,memoryType->getPointerTo());
 		}
 
-		// Operation dispatch methods.
-		void unknown(Opcode opcode)
+		// Traps a divide-by-zero
+		template<typename NonZeroThunk>
+		llvm::Value* trapDivideByZero(ValueType type,llvm::Value* divisor,NonZeroThunk nonZeroThunk)
 		{
-			Core::unreachable();
+			return emitIfElse(
+				"checkDivideByZero",
+				irBuilder.CreateICmpNE(divisor,typedZeroConstants[(uintp)type]),
+				nonZeroThunk,
+				[&]
+				{
+					emitRuntimeIntrinsic("wavmIntrinsics.divideByZeroTrap",FunctionType::get(),{});
+					irBuilder.CreateUnreachable();
+					return (llvm::Value*)nullptr;
+				});
 		}
+
+		llvm::Value* getLLVMIntrinsic(const std::initializer_list<llvm::Type*>& argTypes,llvm::Intrinsic::ID id)
+		{
+			return llvm::Intrinsic::getDeclaration(moduleContext.llvmModule,id,llvm::ArrayRef<llvm::Type*>(argTypes.begin(),argTypes.end()));
+		}
+		
+		// Emits a call to a WAVM intrinsic function.
+		llvm::Value* emitRuntimeIntrinsic(const char* intrinsicName,const FunctionType* intrinsicType,const std::initializer_list<llvm::Value*>& args)
+		{
+			Object* intrinsicObject = Intrinsics::find(intrinsicName,intrinsicType);
+			assert(intrinsicObject);
+			FunctionInstance* intrinsicFunction = asFunction(intrinsicObject);
+			assert(intrinsicFunction->type == intrinsicType);
+			auto intrinsicFunctionPointer = emitLiteralPointer(intrinsicFunction->nativeFunction,asLLVMType(intrinsicType)->getPointerTo());
+			return irBuilder.CreateCall(intrinsicFunctionPointer,llvm::ArrayRef<llvm::Value*>(args.begin(),args.end()));
+		}
+
+		//
+		// Misc operators
+		//
+
+		void nop(NoImm) {}
+		void unknown(Opcode opcode) { Core::unreachable(); }
+		void error(ErrorImm imm) { Core::unreachable(); }
+		
+		//
+		// Control structure operators
+		//
+		
+		void pushControlStack(
+			ControlContext::Type type,
+			ResultType resultType,
+			llvm::BasicBlock* endBlock,
+			llvm::PHINode* endPHI,
+			llvm::BasicBlock* elseBlock = nullptr
+			)
+		{
+			// The unreachable operator filtering should filter out any opcodes that call pushControlStack.
+			if(controlStack.size()) { errorUnless(controlStack.back().isReachable); }
+
+			controlStack.push_back({type,endBlock,endPHI,elseBlock,resultType,stack.size(),branchTargetStack.size(),true,true});
+		}
+
+		void pushBranchTarget(ResultType branchArgumentType,llvm::BasicBlock* branchTargetBlock,llvm::PHINode* branchTargetPHI)
+		{
+			branchTargetStack.push_back({branchArgumentType,branchTargetBlock,branchTargetPHI});
+		}
+
 		void beginBlock(ControlStructureImm imm)
 		{
+			// Create an end block+phi for the block result.
 			auto endBlock = llvm::BasicBlock::Create(context,"blockEnd",llvmFunction);
 			auto endPHI = createPHI(endBlock,imm.resultType);
-			pushControlStack(ControlContext::Type::block,imm.resultType,imm.resultType,endBlock,endPHI,endBlock,endPHI);
+
+			// Push a control context that ends at the end block/phi.
+			pushControlStack(ControlContext::Type::block,imm.resultType,endBlock,endPHI);
+			
+			// Push a branch target for the end block/phi.
+			pushBranchTarget(imm.resultType,endBlock,endPHI);
 		}
 		void beginLoop(ControlStructureImm imm)
 		{
+			// Create a loop block, and an end block+phi for the loop result.
 			auto loopBodyBlock = llvm::BasicBlock::Create(context,"loopBody",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(context,"loopEnd",llvmFunction);
 			auto endPHI = createPHI(endBlock,imm.resultType);
+			
+			// Branch to the loop body and switch the IR builder to emit there.
 			irBuilder.CreateBr(loopBodyBlock);
 			irBuilder.SetInsertPoint(loopBodyBlock);
-			pushControlStack(ControlContext::Type::loop,ResultType::none,imm.resultType,endBlock,endPHI,loopBodyBlock,nullptr);
+
+			// Push a control context that ends at the end block/phi.
+			pushControlStack(ControlContext::Type::loop,imm.resultType,endBlock,endPHI);
+			
+			// Push a branch target for the loop body start.
+			pushBranchTarget(ResultType::none,loopBodyBlock,nullptr);
 		}
 		void beginIf(ControlStructureImm imm)
 		{
+			// Create a then block and else block for the if, and an end block+phi for the if result.
 			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
 			auto elseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(context,"ifElseEnd",llvmFunction);
 			auto endPHI = createPHI(endBlock,imm.resultType);
+
+			// Pop the if condition from the operand stack.
 			auto condition = pop();
 			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,elseBlock);
+			
+			// Switch the IR builder to emit the then block.
 			irBuilder.SetInsertPoint(thenBlock);
-			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType,endBlock,endPHI,endBlock,endPHI,elseBlock);
+
+			// Push an ifThen control context that ultimately ends at the end block/phi, but may
+			// be terminated by an else operator that changes the control context to the else block.
+			pushControlStack(ControlContext::Type::ifThen,imm.resultType,endBlock,endPHI,elseBlock);
+			
+			// Push a branch target for the if end.
+			pushBranchTarget(imm.resultType,endBlock,endPHI);
+			
 		}
 		void beginElse(NoImm imm)
 		{
-			if(controlStack.back().isReachable)
+			assert(controlStack.size());
+			ControlContext& currentContext = controlStack.back();
+
+			if(currentContext.isReachable)
 			{
-				if(controlStack.back().resultType != ResultType::none)
+				// If the control context expects a result, take it from the operand stack and add it to the
+				// control context's end PHI.
+				if(currentContext.resultType != ResultType::none)
 				{
 					llvm::Value* result = pop();
-					controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
+					currentContext.endPHI->addIncoming(result,irBuilder.GetInsertBlock());
 				}
-				irBuilder.CreateBr(controlStack.back().endBlock);
+
+				// Branch to the control context's end.
+				irBuilder.CreateBr(currentContext.endBlock);
 			}
-			popControlStack(true);
+			assert(stack.size() == currentContext.outerStackSize);
+
+			// Switch the IR emitter to the else block.
+			assert(currentContext.elseBlock);
+			assert(currentContext.type == ControlContext::Type::ifThen);
+			currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
+			irBuilder.SetInsertPoint(currentContext.elseBlock);
+
+			// Change the top of the control stack to an else clause.
+			currentContext.type = ControlContext::Type::ifElse;
+			currentContext.isReachable = currentContext.isElseReachable;
+			currentContext.elseBlock = nullptr;
 		}
 		void end(NoImm)
 		{
-			if(controlStack.back().isReachable)
+			assert(controlStack.size());
+			ControlContext& currentContext = controlStack.back();
+
+			if(currentContext.isReachable)
 			{
-				if(controlStack.back().resultType != ResultType::none)
+				// If the control context yields a result, take the top of the operand stack and
+				// add it to the control context's end PHI.
+				if(currentContext.resultType != ResultType::none)
 				{
 					llvm::Value* result = pop();
-					controlStack.back().endPHI->addIncoming(result,irBuilder.GetInsertBlock());
+					currentContext.endPHI->addIncoming(result,irBuilder.GetInsertBlock());
 				}
-				irBuilder.CreateBr(controlStack.back().endBlock);
+
+				// Branch to the control context's end.
+				irBuilder.CreateBr(currentContext.endBlock);
 			}
-			popControlStack();
+			assert(stack.size() == currentContext.outerStackSize);
+
+			if(currentContext.elseBlock)
+			{
+				// If this is the end of an if without an else clause, create a dummy else clause.
+				currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
+				irBuilder.SetInsertPoint(currentContext.elseBlock);
+				irBuilder.CreateBr(currentContext.endBlock);
+			}
+
+			// Switch the IR emitter to the end block.
+			currentContext.endBlock->moveAfter(irBuilder.GetInsertBlock());
+			irBuilder.SetInsertPoint(currentContext.endBlock);
+
+			if(currentContext.endPHI)
+			{
+				// If the control context yields a result, take the PHI that merges all the control flow
+				// to the end and push it onto the operand stack.
+				if(currentContext.endPHI->getNumIncomingValues()) { push(currentContext.endPHI); }
+				else
+				{
+					// If there weren't any incoming values for the end PHI, remove it and push a dummy value.
+					currentContext.endPHI->eraseFromParent();
+					assert(currentContext.resultType != ResultType::none);
+					push(typedZeroConstants[(uintp)asValueType(currentContext.resultType)]);
+				}
+			}
+
+			// Pop and branch targets introduced by this control context.
+			assert(currentContext.outerBranchTargetStackSize <= branchTargetStack.size());
+			branchTargetStack.resize(currentContext.outerBranchTargetStackSize);
+
+			// Pop this control context.
+			controlStack.pop_back();
 		}
 		
-		void ret(NoImm)
+		//
+		// Control flow operators
+		//
+		
+		BranchTarget& getBranchTargetByDepth(uintp depth)
 		{
-			if(functionType->ret != ResultType::none)
-			{
-				llvm::Value* result = pop();
-				controlStack[0].branchTargetPHI->addIncoming(result,irBuilder.GetInsertBlock());
-			}
-			irBuilder.CreateBr(controlStack[0].endBlock);
-			enterUnreachable();
+			assert(depth < branchTargetStack.size());
+			return branchTargetStack[branchTargetStack.size() - depth - 1];
 		}
+		
+		// This is called after unconditional control flow to indicate that operators following it are unreachable until the control stack is popped.
+		void enterUnreachable()
+		{
+			// Unwind the operand stack to the outer control context.
+			assert(controlStack.back().outerStackSize <= stack.size());
+			stack.resize(controlStack.back().outerStackSize);
 
+			// Mark the current control context as unreachable: this will cause the outer loop to stop dispatching operators to us
+			// until an else/end for the current control context is reached.
+			controlStack.back().isReachable = false;
+		}
+		
+		void br_if(BranchImm imm)
+		{
+			// Pop the condition from operand stack.
+			auto condition = pop();
+
+			BranchTarget& target = getBranchTargetByDepth(imm.targetDepth);
+			if(target.argumentType != ResultType::none)
+			{
+				// Use the stack top as the branch argument (don't pop it) and add it to the target phi's incoming values.
+				llvm::Value* argument = getTopValue();
+				target.phi->addIncoming(argument,irBuilder.GetInsertBlock());
+			}
+
+			// Create a new basic block for the case where the branch is not taken.
+			auto falseBlock = llvm::BasicBlock::Create(context,"br_ifElse",llvmFunction);
+
+			// Emit a conditional branch to either the falseBlock or the target block.
+			irBuilder.CreateCondBr(coerceI32ToBool(condition),target.block,falseBlock);
+
+			// Resume emitting instructions in the falseBlock.
+			irBuilder.SetInsertPoint(falseBlock);
+		}
+		
 		void br(BranchImm imm)
 		{
-			ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepth);
-			if(targetContext.branchArgumentType != ResultType::none)
+			BranchTarget& target = getBranchTargetByDepth(imm.targetDepth);
+			if(target.argumentType != ResultType::none)
 			{
+				// Pop the branch argument from the stack and add it to the target phi's incoming values.
 				llvm::Value* argument = pop();
-				targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
+				target.phi->addIncoming(argument,irBuilder.GetInsertBlock());
 			}
-			irBuilder.CreateBr(targetContext.branchTargetBlock);
+
+			// Branch to the target block.
+			irBuilder.CreateBr(target.block);
+
 			enterUnreachable();
 		}
 		void br_table(BranchTableImm imm)
 		{
+			// Pop the table index from the operand stack.
 			auto index = pop();
 			
-			ControlContext& defaultTargetContext = getBranchTargetByDepth(imm.defaultTargetDepth);
-			const ResultType argumentType = defaultTargetContext.branchArgumentType;
+			// Look up the default branch target, and assume its argument type applies to all targets.
+			// (this is guaranteed by the validator)
+			BranchTarget& defaultTarget = getBranchTargetByDepth(imm.defaultTargetDepth);
+			const ResultType argumentType = defaultTarget.argumentType;
 			llvm::Value* argument = nullptr;
 			if(argumentType != ResultType::none)
 			{
+				// Pop the branch argument from the stack and add it to the default target phi's incoming values.
 				argument = pop();
-				defaultTargetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
+				defaultTarget.phi->addIncoming(argument,irBuilder.GetInsertBlock());
 			}
-			
-			auto llvmSwitch = irBuilder.CreateSwitch(index,defaultTargetContext.branchTargetBlock,(unsigned int)imm.targetDepths.size());
+
+			// Create a LLVM switch instruction.
+			auto llvmSwitch = irBuilder.CreateSwitch(index,defaultTarget.block,(unsigned int)imm.targetDepths.size());
 
 			for(uintp targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
 			{
-				ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepths[targetIndex]);
-				if(argumentType != ResultType::none) { targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock()); }
-				llvmSwitch->addCase(emitLiteral((uint32)targetIndex),targetContext.branchTargetBlock);
+				BranchTarget& target = getBranchTargetByDepth(imm.targetDepths[targetIndex]);
+
+				// Add this target to the switch instruction.
+				llvmSwitch->addCase(emitLiteral((uint32)targetIndex),target.block);
+
+				if(argumentType != ResultType::none)
+				{
+					// If this is the first case in the table for this branch target, add the branch argument to
+					// the target phi's incoming values.
+					target.phi->addIncoming(argument,irBuilder.GetInsertBlock());
+				}
 			}
 
 			enterUnreachable();
 		}
-		void br_if(BranchImm imm)
+		void ret(NoImm)
 		{
-			auto condition = pop();
-
-			ControlContext& targetContext = getBranchTargetByDepth(imm.targetDepth);
-			if(targetContext.branchArgumentType != ResultType::none)
+			if(functionType->ret != ResultType::none)
 			{
-				llvm::Value* argument = getTopValue();
-				targetContext.branchTargetPHI->addIncoming(argument,irBuilder.GetInsertBlock());
+				// Pop the return value from the stack and add it to the return phi's incoming values.
+				llvm::Value* result = pop();
+				controlStack[0].endPHI->addIncoming(result,irBuilder.GetInsertBlock());
 			}
-			auto falseBlock = llvm::BasicBlock::Create(context,"br_ifElse",llvmFunction);
-			irBuilder.CreateCondBr(coerceI32ToBool(condition),targetContext.branchTargetBlock,falseBlock);
-			irBuilder.SetInsertPoint(falseBlock);
+
+			// Branch to the return block.
+			irBuilder.CreateBr(controlStack[0].endBlock);
+
+			enterUnreachable();
 		}
 
-		void nop(NoImm) {}
 		void unreachable(NoImm)
 		{
+			// Call an intrinsic that causes a trap, and insert the LLVM unreachable terminator.
 			emitRuntimeIntrinsic("wavmIntrinsics.unreachableTrap",FunctionType::get(),{});
 			irBuilder.CreateUnreachable();
+
 			enterUnreachable();
 		}
+
+		//
+		// Polymorphic operators
+		//
+
 		void drop(NoImm) { stack.pop_back(); }
 
 		void select(NoImm)
@@ -384,38 +591,13 @@ namespace LLVMJIT
 			push(irBuilder.CreateSelect(coerceI32ToBool(condition),trueValue,falseValue));
 		}
 
-		void get_local(GetOrSetVariableImm imm)
-		{
-			assert(imm.variableIndex < localPointers.size());
-			push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
-		}
-		void set_local(GetOrSetVariableImm imm)
-		{
-			assert(imm.variableIndex < localPointers.size());
-			auto value = pop();
-			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
-		}
-		void tee_local(GetOrSetVariableImm imm)
-		{
-			assert(imm.variableIndex < localPointers.size());
-			auto value = getTopValue();
-			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
-		}
-		
-		void get_global(GetOrSetVariableImm imm)
-		{
-			assert(imm.variableIndex < moduleContext.globalPointers.size());
-			push(irBuilder.CreateLoad(moduleContext.globalPointers[imm.variableIndex]));
-		}
-		void set_global(GetOrSetVariableImm imm)
-		{
-			assert(imm.variableIndex < moduleContext.globalPointers.size());
-			auto value = pop();
-			irBuilder.CreateStore(value,moduleContext.globalPointers[imm.variableIndex]);
-		}
+		//
+		// Call operators
+		//
 
 		void call(CallImm imm)
 		{
+			// Map the callee function index to either an imported function pointer or a function in this module.
 			llvm::Value* callee;
 			const FunctionType* calleeType;
 			if(imm.functionIndex < moduleContext.importedFunctionPointers.size())
@@ -431,9 +613,15 @@ namespace LLVMJIT
 				callee = moduleContext.functionDefs[calleeIndex];
 				calleeType = module.types[module.functionDefs[calleeIndex].typeIndex];
 			}
+
+			// Pop the call arguments from the operand stack.
 			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * calleeType->parameters.size());
 			popMultiple(llvmArgs,calleeType->parameters.size());
+
+			// Call the function.
 			auto result = irBuilder.CreateCall(callee,llvm::ArrayRef<llvm::Value*>(llvmArgs,calleeType->parameters.size()));
+
+			// Push the result on the operand stack.
 			if(calleeType->ret != ResultType::none) { push(result); }
 		}
 		void call_indirect(CallIndirectImm imm)
@@ -456,7 +644,7 @@ namespace LLVMJIT
 			// Check whether the index is within the bounds of the function table.
 			auto result = emitIfElse(
 				"checkTableMax",
-				irBuilder.CreateICmpULE(functionIndexZExt,moduleContext.defaultTableMaxElements),
+				irBuilder.CreateICmpULT(functionIndexZExt,moduleContext.defaultTableEndOffset),
 				[&]
 				{
 					// Load the type for this table entry.
@@ -498,117 +686,144 @@ namespace LLVMJIT
 					return (llvm::Value*)nullptr;
 				});
 			
+			// Push the result on the operand stack.
 			if(calleeType->ret != ResultType::none) { push(result); }
 		}
+		
+		//
+		// Local/global operators
+		//
+
+		void get_local(GetOrSetVariableImm imm)
+		{
+			assert(imm.variableIndex < localPointers.size());
+			push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
+		}
+		void set_local(GetOrSetVariableImm imm)
+		{
+			assert(imm.variableIndex < localPointers.size());
+			auto value = pop();
+			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
+		}
+		void tee_local(GetOrSetVariableImm imm)
+		{
+			assert(imm.variableIndex < localPointers.size());
+			auto value = getTopValue();
+			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
+		}
+		
+		void get_global(GetOrSetVariableImm imm)
+		{
+			assert(imm.variableIndex < moduleContext.globalPointers.size());
+			push(irBuilder.CreateLoad(moduleContext.globalPointers[imm.variableIndex]));
+		}
+		void set_global(GetOrSetVariableImm imm)
+		{
+			assert(imm.variableIndex < moduleContext.globalPointers.size());
+			auto value = pop();
+			irBuilder.CreateStore(value,moduleContext.globalPointers[imm.variableIndex]);
+		}
+
+		//
+		// Memory size operators
+		// These just call out to wavmIntrinsics.growMemory/currentMemory, passing a pointer to the default memory for the module.
+		//
 
 		void grow_memory(NoImm)
 		{
 			auto deltaNumPages = pop();
+			auto defaultMemoryObjectAsI64 = emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory));
 			auto previousNumPages = emitRuntimeIntrinsic(
 				"wavmIntrinsics.growMemory",
 				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i64}),
-				{deltaNumPages,emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory))});
+				{deltaNumPages,defaultMemoryObjectAsI64});
 			push(previousNumPages);
 		}
 		void current_memory(NoImm)
 		{
+			auto defaultMemoryObjectAsI64 = emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory));
 			auto currentNumPages = emitRuntimeIntrinsic(
 				"wavmIntrinsics.currentMemory",
 				FunctionType::get(ResultType::i32,{ValueType::i64}),
-				{emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory))});
+				{defaultMemoryObjectAsI64});
 			push(currentNumPages);
 		}
 
-		void error(ErrorImm imm)
-		{
-			Core::unreachable();
-		}
-		
-		template<typename TrueValueThunk,typename FalseValueThunk>
-		llvm::Value* emitIfElse(const char* blockBaseName,llvm::Value* booleanCondition,TrueValueThunk trueValueThunk,FalseValueThunk falseValueThunk)
-		{
-			auto trueBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "Then",llvmFunction);
-			auto falseBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "Else",llvmFunction);
-			auto endBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "End",llvmFunction);
+		//
+		// Constant operators
+		//
 
-			irBuilder.CreateCondBr(booleanCondition,trueBlock,falseBlock);
+		#define EMIT_CONST(typeId,nativeType) void typeId##_const(LiteralImm<nativeType> imm) { push(emitLiteral(imm.value)); }
+		EMIT_CONST(i32,int32) EMIT_CONST(i64,int64)
+		EMIT_CONST(f32,float32) EMIT_CONST(f64,float64)
 
-			irBuilder.SetInsertPoint(trueBlock);
-			auto trueValue = trueValueThunk();
-			auto trueExitBlock = irBuilder.GetInsertBlock();
-			if(trueValue) { irBuilder.CreateBr(endBlock); }
-			endBlock->moveAfter(trueExitBlock);
+		//
+		// Load/store operators
+		//
 
-			irBuilder.SetInsertPoint(falseBlock);
-			auto falseValue = falseValueThunk();
-			auto falseExitBlock = irBuilder.GetInsertBlock();
-			if(falseValue) { irBuilder.CreateBr(endBlock); }
-			endBlock->moveAfter(falseExitBlock);
-
-			irBuilder.SetInsertPoint(endBlock);
-			if(!trueValue && !falseValue) { return nullptr; }
-			else if(!falseValue) { return trueValue; }
-			else if(!trueValue) { return falseValue; }
-			else
-			{
-				auto phi = irBuilder.CreatePHI(trueValue->getType(),2);
-				if(trueValue && trueExitBlock) { phi->addIncoming(trueValue,trueExitBlock); }
-				if(falseValue && falseExitBlock) { phi->addIncoming(falseValue,falseExitBlock); }
-				return phi;
+		#define EMIT_LOAD_OP(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImm imm) \
+			{ \
+				auto byteIndex = pop(); \
+				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
+				auto load = irBuilder.CreateLoad(pointer); \
+				load->setAlignment(1<<imm.alignmentLog2); \
+				load->setVolatile(true); \
+				push(conversionOp(load,asLLVMType(ValueType::valueTypeId))); \
 			}
-		}
-		
-		llvm::Value* coerceI32ToBool(llvm::Value* i32Value)
-		{
-			return irBuilder.CreateICmpNE(i32Value,typedZeroConstants[(size_t)ValueType::i32]);
-		}
-		llvm::Value* coerceBoolToI32(llvm::Value* boolValue)
-		{
-			return irBuilder.CreateZExt(boolValue,llvmI32Type);
-		}
-		
-		llvm::Value* coerceByteIndexToPointer(llvm::Value* byteIndex,uint32 offset,llvm::Type* memoryType)
-		{
-			// On a 64 bit runtime, if the address is 32-bits, zext it to 64-bits.
-			// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in the GEP below,
-			// interpreting it as a signed offset and allowing access to memory outside the sandboxed memory range.
-			// There are no 'far addresses' in a 32 bit runtime.
-			llvm::Value* nativeByteIndex = sizeof(uintp) == 4 ? byteIndex : irBuilder.CreateZExt(byteIndex,llvmI64Type);
-			llvm::Value* offsetByteIndex = nativeByteIndex;
-			if(offset)
-			{
-				auto nativeOffset = sizeof(uintp) == 4 ? emitLiteral((uint32)offset) : irBuilder.CreateZExt(emitLiteral((uint32)offset),llvmI64Type);
-				offsetByteIndex = irBuilder.CreateAdd(nativeByteIndex,nativeOffset);
+		#define EMIT_STORE_OP(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImm imm) \
+			{ \
+				auto value = pop(); \
+				auto byteIndex = pop(); \
+				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
+				auto memoryValue = conversionOp(value,llvmMemoryType); \
+				auto store = irBuilder.CreateStore(memoryValue,pointer); \
+				store->setVolatile(true); \
+				store->setAlignment(1<<imm.alignmentLog2); \
 			}
+			
+		llvm::Value* identityConversion(llvm::Value* value,llvm::Type* type) { return value; }
 
-			// Mask the index to the address-space size.
-			auto maskedByteIndex = irBuilder.CreateAnd(offsetByteIndex,moduleContext.defaultMemoryAddressMask);
+		EMIT_LOAD_OP(i32,load8_s,llvmI8Type,irBuilder.CreateSExt)  EMIT_LOAD_OP(i32,load8_u,llvmI8Type,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i32,load16_s,llvmI16Type,irBuilder.CreateSExt) EMIT_LOAD_OP(i32,load16_u,llvmI16Type,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i64,load8_s,llvmI8Type,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load8_u,llvmI8Type,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i64,load16_s,llvmI16Type,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load16_u,llvmI16Type,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i64,load32_s,llvmI32Type,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load32_u,llvmI32Type,irBuilder.CreateZExt)
 
-			// Cast the pointer to the appropriate type.
-			auto bytePointer = irBuilder.CreateInBoundsGEP(moduleContext.defaultMemoryBase,maskedByteIndex);
-			return irBuilder.CreatePointerCast(bytePointer,memoryType->getPointerTo());
-		}
-		
-		llvm::Value* compileIntAbs(llvm::Value* operand)
-		{
-			auto mask = irBuilder.CreateAShr(operand,operand->getType()->getScalarSizeInBits() - 1);
-			return irBuilder.CreateXor(irBuilder.CreateAdd(operand,mask),mask);
-		}
+		EMIT_LOAD_OP(i32,load,llvmI32Type,identityConversion) EMIT_LOAD_OP(i64,load,llvmI64Type,identityConversion)
+		EMIT_LOAD_OP(f32,load,llvmF32Type,identityConversion) EMIT_LOAD_OP(f64,load,llvmF64Type,identityConversion)
 
-		template<typename NonZeroThunk>
-		llvm::Value* trapDivideByZero(ValueType type,llvm::Value* divisor,NonZeroThunk nonZeroThunk)
-		{
-			return emitIfElse(
-				"checkDivideByZero",
-				irBuilder.CreateICmpNE(divisor,typedZeroConstants[(uintp)type]),
-				nonZeroThunk,
-				[&]
-				{
-					emitRuntimeIntrinsic("wavmIntrinsics.divideByZeroTrap",FunctionType::get(),{});
-					irBuilder.CreateUnreachable();
-					return (llvm::Value*)nullptr;
-				});
-		}
+		EMIT_STORE_OP(i32,store8,llvmI8Type,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store8,llvmI8Type,irBuilder.CreateTrunc)
+		EMIT_STORE_OP(i32,store16,llvmI16Type,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store16,llvmI16Type,irBuilder.CreateTrunc)
+		EMIT_STORE_OP(i32,store,llvmI32Type,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store32,llvmI32Type,irBuilder.CreateTrunc)
+		EMIT_STORE_OP(i64,store,llvmI64Type,identityConversion)
+		EMIT_STORE_OP(f32,store,llvmF32Type,identityConversion) EMIT_STORE_OP(f64,store,llvmF64Type,identityConversion)
+
+		//
+		// Numeric operator macros
+		//
+
+		#define EMIT_BINARY_OP(typeId,name,emitCode) void typeId##_##name(NoImm) \
+			{ \
+				UNUSED const ValueType type = ValueType::typeId; \
+				auto right = pop(); \
+				auto left = pop(); \
+				push(emitCode); \
+			}
+		#define EMIT_INT_BINARY_OP(name,emitCode) EMIT_BINARY_OP(i32,name,emitCode) EMIT_BINARY_OP(i64,name,emitCode)
+		#define EMIT_FP_BINARY_OP(name,emitCode) EMIT_BINARY_OP(f32,name,emitCode) EMIT_BINARY_OP(f64,name,emitCode)
+
+		#define EMIT_UNARY_OP(typeId,name,emitCode) void typeId##_##name(NoImm) \
+			{ \
+				UNUSED const ValueType type = ValueType::typeId; \
+				auto operand = pop(); \
+				push(emitCode); \
+			}
+		#define EMIT_INT_UNARY_OP(name,emitCode) EMIT_UNARY_OP(i32,name,emitCode) EMIT_UNARY_OP(i64,name,emitCode)
+		#define EMIT_FP_UNARY_OP(name,emitCode) EMIT_UNARY_OP(f32,name,emitCode) EMIT_UNARY_OP(f64,name,emitCode)
+
+		//
+		// Int operators
+		//
 
 		llvm::Value* emitSRem(ValueType type,llvm::Value* left,llvm::Value* right)
 		{
@@ -630,7 +845,7 @@ namespace LLVMJIT
 				[&] { return zero; }
 				);
 		}
-
+		
 		llvm::Value* emitShiftCountMask(ValueType type,llvm::Value* shiftCount)
 		{
 			// LLVM's shifts have undefined behavior where WebAssembly specifies that the shift count will wrap numbers
@@ -664,165 +879,100 @@ namespace LLVMJIT
 				);
 		}
 
-		llvm::Value* identityConversion(llvm::Value* value,llvm::Type* type) { return value; }
-
-		llvm::Value* getLLVMIntrinsic(const std::initializer_list<llvm::Type*>& argTypes,llvm::Intrinsic::ID id)
-		{
-			return llvm::Intrinsic::getDeclaration(moduleContext.llvmModule,id,llvm::ArrayRef<llvm::Type*>(argTypes.begin(),argTypes.end()));
-		}
-		
-		llvm::Value* emitRuntimeIntrinsic(const char* intrinsicName,const FunctionType* intrinsicType,const std::initializer_list<llvm::Value*>& args)
-		{
-			Object* intrinsicObject = Intrinsics::find(intrinsicName,intrinsicType);
-			assert(intrinsicObject);
-			FunctionInstance* intrinsicFunction = asFunction(intrinsicObject);
-			assert(intrinsicFunction->type == intrinsicType);
-			auto intrinsicFunctionPointer = emitLiteralPointer(intrinsicFunction->nativeFunction,asLLVMType(intrinsicType)->getPointerTo());
-			return irBuilder.CreateCall(intrinsicFunctionPointer,llvm::ArrayRef<llvm::Value*>(args.begin(),args.end()));
-		}
-
-		#define EMIT_CONST(typeId,nativeType) void typeId##_const(LiteralImm<nativeType> imm) { push(emitLiteral(imm.value)); }
-		EMIT_CONST(i32,int32) EMIT_CONST(i64,int64)
-		EMIT_CONST(f32,float32) EMIT_CONST(f64,float64)
-
-		#define EMIT_LOAD_OPCODE(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImm imm) \
-			{ \
-				auto byteIndex = pop(); \
-				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
-				auto load = irBuilder.CreateLoad(pointer); \
-				load->setAlignment(1<<imm.alignmentLog2); \
-				load->setVolatile(true); \
-				push(conversionOp(load,asLLVMType(ValueType::valueTypeId))); \
-			}
-		#define EMIT_STORE_OPCODE(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImm imm) \
-			{ \
-				auto value = pop(); \
-				auto byteIndex = pop(); \
-				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
-				auto memoryValue = conversionOp(value,llvmMemoryType); \
-				auto store = irBuilder.CreateStore(memoryValue,pointer); \
-				store->setVolatile(true); \
-				store->setAlignment(1<<imm.alignmentLog2); \
-			}
-
-		EMIT_LOAD_OPCODE(i32,load8_s,llvmI8Type,irBuilder.CreateSExt)  EMIT_LOAD_OPCODE(i32,load8_u,llvmI8Type,irBuilder.CreateZExt)
-		EMIT_LOAD_OPCODE(i32,load16_s,llvmI16Type,irBuilder.CreateSExt) EMIT_LOAD_OPCODE(i32,load16_u,llvmI16Type,irBuilder.CreateZExt)
-		EMIT_LOAD_OPCODE(i64,load8_s,llvmI8Type,irBuilder.CreateSExt)  EMIT_LOAD_OPCODE(i64,load8_u,llvmI8Type,irBuilder.CreateZExt)
-		EMIT_LOAD_OPCODE(i64,load16_s,llvmI16Type,irBuilder.CreateSExt)  EMIT_LOAD_OPCODE(i64,load16_u,llvmI16Type,irBuilder.CreateZExt)
-		EMIT_LOAD_OPCODE(i64,load32_s,llvmI32Type,irBuilder.CreateSExt)  EMIT_LOAD_OPCODE(i64,load32_u,llvmI32Type,irBuilder.CreateZExt)
-
-		EMIT_LOAD_OPCODE(i32,load,llvmI32Type,identityConversion) EMIT_LOAD_OPCODE(i64,load,llvmI64Type,identityConversion)
-		EMIT_LOAD_OPCODE(f32,load,llvmF32Type,identityConversion) EMIT_LOAD_OPCODE(f64,load,llvmF64Type,identityConversion)
-
-		EMIT_STORE_OPCODE(i32,store8,llvmI8Type,irBuilder.CreateTrunc) EMIT_STORE_OPCODE(i64,store8,llvmI8Type,irBuilder.CreateTrunc)
-		EMIT_STORE_OPCODE(i32,store16,llvmI16Type,irBuilder.CreateTrunc) EMIT_STORE_OPCODE(i64,store16,llvmI16Type,irBuilder.CreateTrunc)
-		EMIT_STORE_OPCODE(i32,store,llvmI32Type,irBuilder.CreateTrunc) EMIT_STORE_OPCODE(i64,store32,llvmI32Type,irBuilder.CreateTrunc)
-		EMIT_STORE_OPCODE(i64,store,llvmI64Type,identityConversion)
-		EMIT_STORE_OPCODE(f32,store,llvmF32Type,identityConversion) EMIT_STORE_OPCODE(f64,store,llvmF64Type,identityConversion)
-
-		#define EMIT_BINARY_OPCODE(typeId,name,emitCode) void typeId##_##name(NoImm) \
-			{ \
-				UNUSED const ValueType type = ValueType::typeId; \
-				auto right = pop(); \
-				auto left = pop(); \
-				push(emitCode); \
-			}
-		#define EMIT_INT_BINARY_OPCODE(name,emitCode) EMIT_BINARY_OPCODE(i32,name,emitCode) EMIT_BINARY_OPCODE(i64,name,emitCode)
-		#define EMIT_FP_BINARY_OPCODE(name,emitCode) EMIT_BINARY_OPCODE(f32,name,emitCode) EMIT_BINARY_OPCODE(f64,name,emitCode)
-
-		#define EMIT_UNARY_OPCODE(typeId,name,emitCode) void typeId##_##name(NoImm) \
-			{ \
-				UNUSED const ValueType type = ValueType::typeId; \
-				auto operand = pop(); \
-				push(emitCode); \
-			}
-		#define EMIT_INT_UNARY_OPCODE(name,emitCode) EMIT_UNARY_OPCODE(i32,name,emitCode) EMIT_UNARY_OPCODE(i64,name,emitCode)
-		#define EMIT_FP_UNARY_OPCODE(name,emitCode) EMIT_UNARY_OPCODE(f32,name,emitCode) EMIT_UNARY_OPCODE(f64,name,emitCode)
-
-		EMIT_INT_BINARY_OPCODE(add,irBuilder.CreateAdd(left,right))
-		EMIT_INT_BINARY_OPCODE(sub,irBuilder.CreateSub(left,right))
-		EMIT_INT_BINARY_OPCODE(mul,irBuilder.CreateMul(left,right))
-		EMIT_INT_BINARY_OPCODE(div_s,trapDivideByZero(type,right,[&] { return irBuilder.CreateSDiv(left,right); }))
-		EMIT_INT_BINARY_OPCODE(div_u,trapDivideByZero(type,right,[&] { return irBuilder.CreateUDiv(left,right); }))
-		EMIT_INT_BINARY_OPCODE(rem_u,trapDivideByZero(type,right,[&] { return irBuilder.CreateURem(left,right); }))
-		EMIT_INT_BINARY_OPCODE(rem_s,emitSRem(type,left,right))
-		EMIT_INT_BINARY_OPCODE(and,irBuilder.CreateAnd(left,right))
-		EMIT_INT_BINARY_OPCODE(or,irBuilder.CreateOr(left,right))
-		EMIT_INT_BINARY_OPCODE(xor,irBuilder.CreateXor(left,right))
-		EMIT_INT_BINARY_OPCODE(shl,irBuilder.CreateShl(left,emitShiftCountMask(type,right)))
-		EMIT_INT_BINARY_OPCODE(shr_s,irBuilder.CreateAShr(left,emitShiftCountMask(type,right)))
-		EMIT_INT_BINARY_OPCODE(shr_u,irBuilder.CreateLShr(left,emitShiftCountMask(type,right)))
-		EMIT_INT_BINARY_OPCODE(rotr,emitRotr(type,left,right))
-		EMIT_INT_BINARY_OPCODE(rotl,emitRotl(type,left,right))
-		
-		EMIT_INT_BINARY_OPCODE(eq,coerceBoolToI32(irBuilder.CreateICmpEQ(left,right)))
-		EMIT_INT_BINARY_OPCODE(ne,coerceBoolToI32(irBuilder.CreateICmpNE(left,right)))
-		EMIT_INT_BINARY_OPCODE(lt_s,coerceBoolToI32(irBuilder.CreateICmpSLT(left,right)))
-		EMIT_INT_BINARY_OPCODE(lt_u,coerceBoolToI32(irBuilder.CreateICmpULT(left,right)))
-		EMIT_INT_BINARY_OPCODE(le_s,coerceBoolToI32(irBuilder.CreateICmpSLE(left,right)))
-		EMIT_INT_BINARY_OPCODE(le_u,coerceBoolToI32(irBuilder.CreateICmpULE(left,right)))
-		EMIT_INT_BINARY_OPCODE(gt_s,coerceBoolToI32(irBuilder.CreateICmpSGT(left,right)))
-		EMIT_INT_BINARY_OPCODE(gt_u,coerceBoolToI32(irBuilder.CreateICmpUGT(left,right)))
-		EMIT_INT_BINARY_OPCODE(ge_s,coerceBoolToI32(irBuilder.CreateICmpSGE(left,right)))
-		EMIT_INT_BINARY_OPCODE(ge_u,coerceBoolToI32(irBuilder.CreateICmpUGE(left,right)))
-
-		EMIT_INT_UNARY_OPCODE(clz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctlz),llvm::ArrayRef<llvm::Value*>({operand,emitLiteral(false)})))
-		EMIT_INT_UNARY_OPCODE(ctz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::cttz),llvm::ArrayRef<llvm::Value*>({operand,emitLiteral(false)})))
-		EMIT_INT_UNARY_OPCODE(popcnt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctpop),llvm::ArrayRef<llvm::Value*>({operand})))
-		EMIT_INT_UNARY_OPCODE(eqz,coerceBoolToI32(irBuilder.CreateICmpEQ(operand,typedZeroConstants[(uintp)type])))
-
-		EMIT_FP_BINARY_OPCODE(add,irBuilder.CreateFAdd(left,right))
-		EMIT_FP_BINARY_OPCODE(sub,irBuilder.CreateFSub(left,right))
-		EMIT_FP_BINARY_OPCODE(mul,irBuilder.CreateFMul(left,right))
-		EMIT_FP_BINARY_OPCODE(div,irBuilder.CreateFDiv(left,right))
-		EMIT_FP_BINARY_OPCODE(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asResultType(type),{type,type}),{left,right}))
-		EMIT_FP_BINARY_OPCODE(max,emitRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType::get(asResultType(type),{type,type}),{left,right}))
-		EMIT_FP_BINARY_OPCODE(copysign,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::copysign),llvm::ArrayRef<llvm::Value*>({left,right})))
+		EMIT_INT_BINARY_OP(add,irBuilder.CreateAdd(left,right))
+		EMIT_INT_BINARY_OP(sub,irBuilder.CreateSub(left,right))
+		EMIT_INT_BINARY_OP(mul,irBuilder.CreateMul(left,right))
+		EMIT_INT_BINARY_OP(and,irBuilder.CreateAnd(left,right))
+		EMIT_INT_BINARY_OP(or,irBuilder.CreateOr(left,right))
+		EMIT_INT_BINARY_OP(xor,irBuilder.CreateXor(left,right))
+		EMIT_INT_BINARY_OP(rotr,emitRotr(type,left,right))
+		EMIT_INT_BINARY_OP(rotl,emitRotl(type,left,right))
 			
-		EMIT_FP_UNARY_OPCODE(neg,irBuilder.CreateFNeg(operand))
-		EMIT_FP_UNARY_OPCODE(abs,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::fabs),llvm::ArrayRef<llvm::Value*>({operand})))
-		EMIT_FP_UNARY_OPCODE(ceil,emitRuntimeIntrinsic("wavmIntrinsics.floatCeil",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OPCODE(floor,emitRuntimeIntrinsic("wavmIntrinsics.floatFloor",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OPCODE(trunc,emitRuntimeIntrinsic("wavmIntrinsics.floatTrunc",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OPCODE(nearest,emitRuntimeIntrinsic("wavmIntrinsics.floatNearest",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OPCODE(sqrt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::sqrt),llvm::ArrayRef<llvm::Value*>({operand})))
+		// Divides use trapDivideByZero to avoid the undefined behavior in LLVM's division instructions.
+		EMIT_INT_BINARY_OP(div_s,trapDivideByZero(type,right,[&] { return irBuilder.CreateSDiv(left,right); }))
+		EMIT_INT_BINARY_OP(div_u,trapDivideByZero(type,right,[&] { return irBuilder.CreateUDiv(left,right); }))
+		EMIT_INT_BINARY_OP(rem_u,trapDivideByZero(type,right,[&] { return irBuilder.CreateURem(left,right); }))
+		EMIT_INT_BINARY_OP(rem_s,emitSRem(type,left,right))
 
-		EMIT_FP_BINARY_OPCODE(eq,coerceBoolToI32(irBuilder.CreateFCmpOEQ(left,right)))
-		EMIT_FP_BINARY_OPCODE(ne,coerceBoolToI32(irBuilder.CreateFCmpUNE(left,right)))
-		EMIT_FP_BINARY_OPCODE(lt,coerceBoolToI32(irBuilder.CreateFCmpOLT(left,right)))
-		EMIT_FP_BINARY_OPCODE(le,coerceBoolToI32(irBuilder.CreateFCmpOLE(left,right)))
-		EMIT_FP_BINARY_OPCODE(gt,coerceBoolToI32(irBuilder.CreateFCmpOGT(left,right)))
-		EMIT_FP_BINARY_OPCODE(ge,coerceBoolToI32(irBuilder.CreateFCmpOGE(left,right)))
+		// Explicitly mask the shift amount operand to the word size to avoid LLVM's undefined behavior.
+		EMIT_INT_BINARY_OP(shl,irBuilder.CreateShl(left,emitShiftCountMask(type,right)))
+		EMIT_INT_BINARY_OP(shr_s,irBuilder.CreateAShr(left,emitShiftCountMask(type,right)))
+		EMIT_INT_BINARY_OP(shr_u,irBuilder.CreateLShr(left,emitShiftCountMask(type,right)))
+		
+		EMIT_INT_BINARY_OP(eq,coerceBoolToI32(irBuilder.CreateICmpEQ(left,right)))
+		EMIT_INT_BINARY_OP(ne,coerceBoolToI32(irBuilder.CreateICmpNE(left,right)))
+		EMIT_INT_BINARY_OP(lt_s,coerceBoolToI32(irBuilder.CreateICmpSLT(left,right)))
+		EMIT_INT_BINARY_OP(lt_u,coerceBoolToI32(irBuilder.CreateICmpULT(left,right)))
+		EMIT_INT_BINARY_OP(le_s,coerceBoolToI32(irBuilder.CreateICmpSLE(left,right)))
+		EMIT_INT_BINARY_OP(le_u,coerceBoolToI32(irBuilder.CreateICmpULE(left,right)))
+		EMIT_INT_BINARY_OP(gt_s,coerceBoolToI32(irBuilder.CreateICmpSGT(left,right)))
+		EMIT_INT_BINARY_OP(gt_u,coerceBoolToI32(irBuilder.CreateICmpUGT(left,right)))
+		EMIT_INT_BINARY_OP(ge_s,coerceBoolToI32(irBuilder.CreateICmpSGE(left,right)))
+		EMIT_INT_BINARY_OP(ge_u,coerceBoolToI32(irBuilder.CreateICmpUGE(left,right)))
 
-		EMIT_INT_UNARY_OPCODE(trunc_s_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
-		EMIT_INT_UNARY_OPCODE(trunc_s_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
-		EMIT_INT_UNARY_OPCODE(trunc_u_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
-		EMIT_INT_UNARY_OPCODE(trunc_u_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
-		EMIT_UNARY_OPCODE(i32,wrap_i64,irBuilder.CreateTrunc(operand,llvmI32Type))
-		EMIT_UNARY_OPCODE(i64,extend_s_i32,irBuilder.CreateSExt(operand,llvmI64Type))
-		EMIT_UNARY_OPCODE(i64,extend_u_i32,irBuilder.CreateZExt(operand,llvmI64Type))
+		EMIT_INT_UNARY_OP(clz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctlz),llvm::ArrayRef<llvm::Value*>({operand,emitLiteral(false)})))
+		EMIT_INT_UNARY_OP(ctz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::cttz),llvm::ArrayRef<llvm::Value*>({operand,emitLiteral(false)})))
+		EMIT_INT_UNARY_OP(popcnt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctpop),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_INT_UNARY_OP(eqz,coerceBoolToI32(irBuilder.CreateICmpEQ(operand,typedZeroConstants[(uintp)type])))
 
-		EMIT_FP_UNARY_OPCODE(convert_s_i32,irBuilder.CreateSIToFP(operand,asLLVMType(type)))
-		EMIT_FP_UNARY_OPCODE(convert_s_i64,irBuilder.CreateSIToFP(operand,asLLVMType(type)))
-		EMIT_FP_UNARY_OPCODE(convert_u_i32,irBuilder.CreateUIToFP(operand,asLLVMType(type)))
-		EMIT_FP_UNARY_OPCODE(convert_u_i64,irBuilder.CreateUIToFP(operand,asLLVMType(type)))
+		//
+		// FP operators
+		//
 
-		EMIT_UNARY_OPCODE(f32,demote_f64,irBuilder.CreateFPTrunc(operand,llvmF32Type))
-		EMIT_UNARY_OPCODE(f64,promote_f32,irBuilder.CreateFPExt(operand,llvmF64Type))
-		EMIT_UNARY_OPCODE(f32,reinterpret_i32,irBuilder.CreateBitCast(operand,llvmF32Type))
-		EMIT_UNARY_OPCODE(f64,reinterpret_i64,irBuilder.CreateBitCast(operand,llvmF64Type))
-		EMIT_UNARY_OPCODE(i32,reinterpret_f32,irBuilder.CreateBitCast(operand,llvmI32Type))
-		EMIT_UNARY_OPCODE(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
+		EMIT_FP_BINARY_OP(add,irBuilder.CreateFAdd(left,right))
+		EMIT_FP_BINARY_OP(sub,irBuilder.CreateFSub(left,right))
+		EMIT_FP_BINARY_OP(mul,irBuilder.CreateFMul(left,right))
+		EMIT_FP_BINARY_OP(div,irBuilder.CreateFDiv(left,right))
+		EMIT_FP_BINARY_OP(copysign,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::copysign),llvm::ArrayRef<llvm::Value*>({left,right})))
+
+		EMIT_FP_UNARY_OP(neg,irBuilder.CreateFNeg(operand))
+		EMIT_FP_UNARY_OP(abs,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::fabs),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_FP_UNARY_OP(sqrt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::sqrt),llvm::ArrayRef<llvm::Value*>({operand})))
+
+		EMIT_FP_BINARY_OP(eq,coerceBoolToI32(irBuilder.CreateFCmpOEQ(left,right)))
+		EMIT_FP_BINARY_OP(ne,coerceBoolToI32(irBuilder.CreateFCmpUNE(left,right)))
+		EMIT_FP_BINARY_OP(lt,coerceBoolToI32(irBuilder.CreateFCmpOLT(left,right)))
+		EMIT_FP_BINARY_OP(le,coerceBoolToI32(irBuilder.CreateFCmpOLE(left,right)))
+		EMIT_FP_BINARY_OP(gt,coerceBoolToI32(irBuilder.CreateFCmpOGT(left,right)))
+		EMIT_FP_BINARY_OP(ge,coerceBoolToI32(irBuilder.CreateFCmpOGE(left,right)))
+
+		EMIT_UNARY_OP(i32,wrap_i64,irBuilder.CreateTrunc(operand,llvmI32Type))
+		EMIT_UNARY_OP(i64,extend_s_i32,irBuilder.CreateSExt(operand,llvmI64Type))
+		EMIT_UNARY_OP(i64,extend_u_i32,irBuilder.CreateZExt(operand,llvmI64Type))
+
+		EMIT_FP_UNARY_OP(convert_s_i32,irBuilder.CreateSIToFP(operand,asLLVMType(type)))
+		EMIT_FP_UNARY_OP(convert_s_i64,irBuilder.CreateSIToFP(operand,asLLVMType(type)))
+		EMIT_FP_UNARY_OP(convert_u_i32,irBuilder.CreateUIToFP(operand,asLLVMType(type)))
+		EMIT_FP_UNARY_OP(convert_u_i64,irBuilder.CreateUIToFP(operand,asLLVMType(type)))
+
+		EMIT_UNARY_OP(f32,demote_f64,irBuilder.CreateFPTrunc(operand,llvmF32Type))
+		EMIT_UNARY_OP(f64,promote_f32,irBuilder.CreateFPExt(operand,llvmF64Type))
+		EMIT_UNARY_OP(f32,reinterpret_i32,irBuilder.CreateBitCast(operand,llvmF32Type))
+		EMIT_UNARY_OP(f64,reinterpret_i64,irBuilder.CreateBitCast(operand,llvmF64Type))
+		EMIT_UNARY_OP(i32,reinterpret_f32,irBuilder.CreateBitCast(operand,llvmI32Type))
+		EMIT_UNARY_OP(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
+
+		// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
+		EMIT_FP_BINARY_OP(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asResultType(type),{type,type}),{left,right}))
+		EMIT_FP_BINARY_OP(max,emitRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType::get(asResultType(type),{type,type}),{left,right}))
+		EMIT_FP_UNARY_OP(ceil,emitRuntimeIntrinsic("wavmIntrinsics.floatCeil",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OP(floor,emitRuntimeIntrinsic("wavmIntrinsics.floatFloor",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OP(trunc,emitRuntimeIntrinsic("wavmIntrinsics.floatTrunc",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OP(nearest,emitRuntimeIntrinsic("wavmIntrinsics.floatNearest",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_INT_UNARY_OP(trunc_s_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
+		EMIT_INT_UNARY_OP(trunc_s_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
+		EMIT_INT_UNARY_OP(trunc_u_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
+		EMIT_INT_UNARY_OP(trunc_u_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
 	};
 	
 	// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end operator through).
 	struct UnreachableOpVisitor
 	{
 		UnreachableOpVisitor(EmitFunctionContext& inContext): context(inContext), unreachableControlDepth(0) {}
-		#define VISIT_OPCODE(encoding,name,Imm) void name(Imm imm) {}
-		ENUM_NONCONTROL_OPCODES(VISIT_OPCODE)
-		VISIT_OPCODE(_,unknown,Opcode)
-		#undef VISIT_OPCODE
+		#define VISIT_OP(encoding,name,Imm) void name(Imm imm) {}
+		ENUM_NONCONTROL_OPS(VISIT_OP)
+		VISIT_OP(_,unknown,Opcode)
+		#undef VISIT_OP
 
 		void nop(NoImm) {}
 		void select(NoImm) {}
@@ -835,10 +985,12 @@ namespace LLVMJIT
 		void call(CallImm) {}
 		void call_indirect(CallIndirectImm) {}
 
+		// Keep track of control structure nesting level in unreachable code, so we know when we reach the end of the unreachable code.
 		void beginBlock(ControlStructureImm) { ++unreachableControlDepth; }
 		void beginLoop(ControlStructureImm) { ++unreachableControlDepth; }
 		void beginIf(ControlStructureImm) { ++unreachableControlDepth; }
 
+		// If an else or end opcode would signal an end to the unreachable code, then pass it through to the IR emitter.
 		void beginElse(NoImm imm)
 		{
 			if(!unreachableControlDepth) { context.beginElse(imm); }
@@ -876,7 +1028,8 @@ namespace LLVMJIT
 		// Create the return basic block, and push the root control context for the function.
 		auto returnBlock = llvm::BasicBlock::Create(context,"return",llvmFunction);
 		auto returnPHI = createPHI(returnBlock,functionType->ret);
-		pushControlStack(ControlContext::Type::function,functionType->ret,functionType->ret,returnBlock,returnPHI,returnBlock,returnPHI);
+		pushControlStack(ControlContext::Type::function,functionType->ret,returnBlock,returnPHI);
+		pushBranchTarget(functionType->ret,returnBlock,returnPHI);
 
 		// Create an initial basic block for the function.
 		auto entryBasicBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
@@ -892,26 +1045,26 @@ namespace LLVMJIT
 				);
 		}
 
-		// Create allocas for all the locals and parameters.
-		localTypes = functionType->parameters;
-		localTypes.insert(localTypes.end(),function.nonParameterLocalTypes.begin(),function.nonParameterLocalTypes.end());
-		localPointers.resize(localTypes.size());
+		// Create and initialize allocas for all the locals and parameters.
 		auto llvmArgIt = llvmFunction->arg_begin();
-		for(uintp localIndex = 0;localIndex < localTypes.size();++localIndex)
+		for(uintp localIndex = 0;localIndex < functionType->parameters.size() + function.nonParameterLocalTypes.size();++localIndex)
 		{
-			auto localType = localTypes[localIndex];
-			localPointers[localIndex] = irBuilder.CreateAlloca(asLLVMType(localType),nullptr,"");
+			auto localType = localIndex < functionType->parameters.size()
+				? functionType->parameters[localIndex]
+				: function.nonParameterLocalTypes[localIndex - functionType->parameters.size()];
+			auto localPointer = irBuilder.CreateAlloca(asLLVMType(localType),nullptr,"");
+			localPointers.push_back(localPointer);
 
 			if(localIndex < functionType->parameters.size())
 			{
 				// Copy the parameter value into the local that stores it.
-				irBuilder.CreateStore((llvm::Argument*)llvmArgIt,localPointers[localIndex]);
+				irBuilder.CreateStore((llvm::Argument*)llvmArgIt,localPointer);
 				++llvmArgIt;
 			}
 			else
 			{
 				// Initialize non-parameter locals to zero.
-				irBuilder.CreateStore(typedZeroConstants[(uintp)localType],localPointers[localIndex]);
+				irBuilder.CreateStore(typedZeroConstants[(uintp)localType],localPointer);
 			}
 		}
 
@@ -961,8 +1114,8 @@ namespace LLVMJIT
 		if(moduleInstance->defaultMemory)
 		{
 			defaultMemoryBase = emitLiteralPointer(moduleInstance->defaultMemory->baseAddress,llvmI8PtrType);
-			auto defaultMemoryAddressMaskValue = (moduleInstance->defaultMemory->maxPages << WebAssembly::numBytesPerPageLog2) - 1;
-			defaultMemoryAddressMask = sizeof(uintp) == 8 ? emitLiteral((uint64)defaultMemoryAddressMaskValue) : emitLiteral((uint32)defaultMemoryAddressMaskValue);
+			const size_t defaultMemoryAddressMaskValue = moduleInstance->defaultMemory->endOffset - 1;
+			defaultMemoryAddressMask = sizeof(size_t) == 8 ? emitLiteral((uint64)defaultMemoryAddressMaskValue) : emitLiteral((uint32)defaultMemoryAddressMaskValue);
 		}
 		else { defaultMemoryBase = defaultMemoryAddressMask = nullptr; }
 
@@ -974,11 +1127,11 @@ namespace LLVMJIT
 				llvmI8PtrType
 				});
 			defaultTablePointer = emitLiteralPointer(moduleInstance->defaultTable->baseAddress,tableElementType->getPointerTo());
-			defaultTableMaxElements = emitLiteral(uintp((moduleInstance->defaultTable->maxPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::FunctionElement)));
+			defaultTableEndOffset = emitLiteral(moduleInstance->defaultTable->endOffset);
 		}
 		else
 		{
-			defaultTablePointer = defaultTableMaxElements = nullptr;
+			defaultTablePointer = defaultTableEndOffset = nullptr;
 		}
 
 		// Create LLVM pointer constants for the module's imported functions.

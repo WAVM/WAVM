@@ -80,13 +80,18 @@ namespace Core
 	};
 
 	// Fatal error handling.
-	[[noreturn]] CORE_API void fatalError(const char* message);
-	[[noreturn]] CORE_API void unreachable();
+	[[noreturn]] CORE_API void errorf(const char* messageFormat,...);
+	[[noreturn]] inline void error(const char* message) { errorf("%s",message); }
+	[[noreturn]] inline void unreachable() { errorf("reached unreachable code"); }
 }
 
+// Like assert, but is never removed in any build configuration.
+#define errorUnless(condition) if(!(condition)) { Core::errorf("errorUnless(%s) failed",#condition); }
+
+// Debug logging.
 namespace Log
 {
-	// Debug logging.
+	// Allow filtering the logging by category.
 	enum class Category
 	{
 		error,
@@ -96,8 +101,11 @@ namespace Log
 	};
 	CORE_API void setCategoryEnabled(Category category,bool enable);
 	CORE_API bool isCategoryEnabled(Category category);
+
+	// Print some categorized, formatted string, and flush the output. Newline is not included.
 	CORE_API void printf(Category category,const char* format,...);
 	
+	// Helpers for printing timers.
 	inline void logTimer(const char* context,Core::Timer& timer) { printf(Category::metrics,"%s in %.2fms\n",context,timer.getMilliseconds()); }
 	inline void logRatePerSecond(const char* context,Core::Timer& timer,float64 numerator,const char* numeratorUnit)
 	{

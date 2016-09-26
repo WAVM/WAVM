@@ -11,7 +11,7 @@ namespace Intrinsics
 	struct Singleton
 	{
 		std::map<std::string,Function*> functionMap;
-		std::map<std::string,Variable*> variableMap;
+		std::map<std::string,Global*> variableMap;
 		std::map<std::string,Memory*> memoryMap;
 		std::map<std::string,Table*> tableMap;
 		Platform::Mutex mutex;
@@ -30,7 +30,7 @@ namespace Intrinsics
 	{
 		std::string decoratedName = name;
 		decoratedName += " : ";
-		decoratedName += WebAssembly::getTypeName(type);
+		decoratedName += WebAssembly::asString(type);
 		return decoratedName;
 	}
 
@@ -51,7 +51,7 @@ namespace Intrinsics
 		delete function;
 	}
 
-	Variable::Variable(const char* inName,WebAssembly::GlobalType type)
+	Global::Global(const char* inName,WebAssembly::GlobalType type)
 	:	name(inName)
 	{
 		global = new Runtime::GlobalInstance(type,Runtime::Value((int64)0));
@@ -62,7 +62,7 @@ namespace Intrinsics
 		}
 	}
 
-	Variable::~Variable()
+	Global::~Global()
 	{
 		{
 			Platform::Lock Lock(Singleton::get().mutex);
@@ -75,7 +75,7 @@ namespace Intrinsics
 	: name(inName)
 	, table(Runtime::createTable(type))
 	{
-		if(!table) { Core::fatalError("failed to create intrinsic table"); }
+		if(!table) { Core::error("failed to create intrinsic table"); }
 
 		Platform::Lock lock(Singleton::get().mutex);
 		Singleton::get().tableMap[getDecoratedName(inName,type)] = this;
@@ -94,7 +94,7 @@ namespace Intrinsics
 	: name(inName)
 	, memory(Runtime::createMemory(type))
 	{
-		if(!memory) { Core::fatalError("failed to create intrinsic memory"); }
+		if(!memory) { Core::error("failed to create intrinsic memory"); }
 
 		Platform::Lock lock(Singleton::get().mutex);
 		Singleton::get().memoryMap[getDecoratedName(inName,type)] = this;

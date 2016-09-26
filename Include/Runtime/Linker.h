@@ -8,6 +8,7 @@
 
 namespace Runtime
 {
+	// An abstract resolver: maps module+export name pairs to a Runtime::Object.
 	struct Resolver
 	{
 		virtual bool resolve(const char* moduleName,const char* exportName,WebAssembly::ObjectType type,Object*& outObject) = 0;
@@ -58,6 +59,7 @@ namespace Runtime
 		}
 	};
 
+	// An exception that is thrown by linkModule/linkAndInstantiateModule if any imports were missing.
 	struct LinkException
 	{
 		struct MissingImport
@@ -71,8 +73,11 @@ namespace Runtime
 	};
 
 	// Links a module using the given resolver, returning an array mapping import indices to objects.
+	// If the resolver fails to resolve any imports, throws a LinkException.
 	RUNTIME_API std::vector<Object*> linkModule(const WebAssembly::Module& module,Resolver& resolver);
 
 	// Links and instantiates a module using the given resolver.
+	// If the resolver fails to resolve any imports, throws a LinkException.
+	// Calls Runtime::instantiateModule, so may also throw an InstantiationException.
 	RUNTIME_API ModuleInstance* linkAndInstantiateModule(const WebAssembly::Module& module,Resolver& resolver);
 }

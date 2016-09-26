@@ -9,6 +9,7 @@
 
 namespace WebAssembly
 {
+	// A reference to a function's code within the owning module's code array
 	struct CodeRef
 	{
 		uintp offset;
@@ -18,9 +19,9 @@ namespace WebAssembly
 		CodeRef(uintp inOffset,size_t inNumBytes): offset(inOffset), numBytes(inNumBytes) {}
 	};
 
+	// A function definition
 	struct Function
 	{
-		// Note: doesn't include parameters.
 		std::vector<ValueType> nonParameterLocalTypes;
 		uintp typeIndex;
 		CodeRef code;
@@ -31,6 +32,8 @@ namespace WebAssembly
 		{}
 	};
 	
+	// The type of an imported object.
+	// This is very similar to ObjectType, but refers to a function type by index into the module's type table instead of pointer.
 	struct ImportType
 	{
 		ObjectKind kind;
@@ -41,13 +44,14 @@ namespace WebAssembly
 			MemoryType memory;
 			GlobalType global;
 		};
-		ImportType()							: kind(ObjectKind::invalid) {}
+		ImportType()						: kind(ObjectKind::invalid) {}
 		ImportType(uintp inFunctionTypeIndex)	: kind(ObjectKind::function), functionTypeIndex(inFunctionTypeIndex) {}
-		ImportType(TableType inTable)			: kind(ObjectKind::table), table(inTable) {}
-		ImportType(MemoryType inMemory)		: kind(ObjectKind::memory), memory(inMemory) {}
-		ImportType(GlobalType inGlobal)			: kind(ObjectKind::global), global(inGlobal) {}
+		ImportType(TableType inTable)		: kind(ObjectKind::table), table(inTable) {}
+		ImportType(MemoryType inMemory)	: kind(ObjectKind::memory), memory(inMemory) {}
+		ImportType(GlobalType inGlobal)		: kind(ObjectKind::global), global(inGlobal) {}
 	};
 
+	// Describes an object imported into a module.
 	struct Import
 	{
 		std::string module;
@@ -55,6 +59,7 @@ namespace WebAssembly
 		ImportType type;
 	};
 
+	// Describes an export from a module. The interpretation of index depends on kind
 	struct Export
 	{
 		std::string name;
@@ -62,6 +67,7 @@ namespace WebAssembly
 		uintp index;
 	};
 	
+	// An initializer expression: serialized like any other code, but may only be a constant or immutable global
 	struct InitializerExpression
 	{
 		enum class Type : uint8
@@ -90,12 +96,14 @@ namespace WebAssembly
 		InitializerExpression(Type inType,uintp inGlobalIndex): type(inType), globalIndex(inGlobalIndex) { assert(inType == Type::get_global); }
 	};
 
+	// A global definition
 	struct Global
 	{
 		GlobalType type;
 		InitializerExpression initializer;
 	};
 
+	// A data segment: a literal sequence of bytes that is copied into a Runtime::Memory when instantiating a module
 	struct DataSegment
 	{
 		uintp memoryIndex;
@@ -107,6 +115,7 @@ namespace WebAssembly
 		: memoryIndex(inMemoryIndex), baseOffset(inBaseOffset), data(inData) {}
 	};
 
+	// A table segment: a literal sequence of function indices that is copied into a Runtime::Table when instantiating a module
 	struct TableSegment
 	{
 		uintp tableIndex;
@@ -118,12 +127,14 @@ namespace WebAssembly
 		: tableIndex(inTableIndex), baseOffset(inBaseOffset), indices(inIndices) {}
 	};
 
+	// A user-defined module section as an array of bytes
 	struct UserSection
 	{
 		std::string name;
 		std::vector<uint8> data;
 	};
 
+	// A WebAssembly module definition
 	struct Module
 	{
 		std::vector<const FunctionType*> types;
@@ -143,6 +154,7 @@ namespace WebAssembly
 		Module() : startFunctionIndex(UINTPTR_MAX) {}
 	};
 
+	// Converts an ImportType, which is only meaningful in the context of a module, to an ObjectType.
 	inline ObjectType resolveImportType(const Module& module,const ImportType& type)
 	{
 		switch(type.kind)
@@ -155,6 +167,7 @@ namespace WebAssembly
 		}
 	}
 	
+	// Finds a named user section in a module.
 	inline bool findUserSection(const Module& module,const char* userSectionName,uintp& outUserSectionIndex)
 	{
 		for(uintp sectionIndex = 0;sectionIndex < module.userSections.size();++sectionIndex)
@@ -168,6 +181,7 @@ namespace WebAssembly
 		return false;
 	}
 
+	// Maps declarations in a module to names to use in disassembly.
 	struct DisassemblyNames
 	{
 		struct FunctionDef
