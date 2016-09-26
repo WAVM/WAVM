@@ -1114,8 +1114,8 @@ namespace LLVMJIT
 		if(moduleInstance->defaultMemory)
 		{
 			defaultMemoryBase = emitLiteralPointer(moduleInstance->defaultMemory->baseAddress,llvmI8PtrType);
-			const size_t defaultMemoryAddressMaskValue = moduleInstance->defaultMemory->endOffset - 1;
-			defaultMemoryAddressMask = sizeof(size_t) == 8 ? emitLiteral((uint64)defaultMemoryAddressMaskValue) : emitLiteral((uint32)defaultMemoryAddressMaskValue);
+			const uintp defaultMemoryAddressMaskValue = uintp(moduleInstance->defaultMemory->endOffset) - 1;
+			defaultMemoryAddressMask = emitLiteral(defaultMemoryAddressMaskValue);
 		}
 		else { defaultMemoryBase = defaultMemoryAddressMask = nullptr; }
 
@@ -1127,7 +1127,7 @@ namespace LLVMJIT
 				llvmI8PtrType
 				});
 			defaultTablePointer = emitLiteralPointer(moduleInstance->defaultTable->baseAddress,tableElementType->getPointerTo());
-			defaultTableEndOffset = emitLiteral(moduleInstance->defaultTable->endOffset);
+			defaultTableEndOffset = emitLiteral((uintp)moduleInstance->defaultTable->endOffset);
 		}
 		else
 		{
