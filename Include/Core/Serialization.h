@@ -236,9 +236,16 @@ namespace Serialization
 	{
 		size_t size = string.size();
 		serializeVarUInt32(stream,size);
-		if(Stream::isInput) { string.resize(size); }
-		serializeBytes(stream,(uint8*)string.c_str(),size);
-		if(Stream::isInput) { string.shrink_to_fit(); }
+		if(Stream::isInput)
+		{
+			// Advance the stream before resizing the string:
+			// try to get a serialization exception before making a huge allocation for malformed input.
+			const uint8* inputBytes = stream.advance(size);
+			string.resize(size);
+			memcpy(const_cast<char*>(string.data()),inputBytes,size);
+			string.shrink_to_fit();
+		}
+		else { serializeBytes(stream,(uint8*)string.c_str(),size); }
 	}
 
 	template<typename Stream,typename Element,typename Allocator,typename SerializeElement>
@@ -246,9 +253,22 @@ namespace Serialization
 	{
 		size_t size = vector.size();
 		serializeVarUInt32(stream,size);
-		if(Stream::isInput) { vector.resize(size); }
-		for(uintp index = 0;index < vector.size();++index) { serializeElement(stream,vector[index]); }
-		if(Stream::isInput) { vector.shrink_to_fit(); }
+		if(Stream::isInput)
+		{
+			// Grow the vector one element at a time:
+			// try to get a serialization exception before making a huge allocation for malformed input.
+			vector.clear();
+			for(uintp index = 0;index < size;++index)
+			{
+				vector.push_back(Element());
+				serializeElement(stream,vector.back());
+			}
+			vector.shrink_to_fit();
+		}
+		else
+		{
+			for(uintp index = 0;index < vector.size();++index) { serializeElement(stream,vector[index]); }
+		}
 	}
 
 	template<typename Stream,typename Element,typename Allocator>
