@@ -686,6 +686,7 @@ namespace WebAssembly
 		{
 			VALIDATE_INDEX(tableSegment.tableIndex,numTables);
 			validateInitializer(tableSegment.baseOffset,ValueType::i32,"table segment base initializer");
+			for(auto functionIndex : tableSegment.indices) { VALIDATE_INDEX(functionIndex,functions.size()); }
 		}
 	}
 }
