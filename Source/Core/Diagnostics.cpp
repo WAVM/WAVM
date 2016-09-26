@@ -12,7 +12,6 @@ namespace Core
 		va_list varArgs;
 		va_start(varArgs,messageFormat);
 		std::vfprintf(stderr,messageFormat,varArgs);
-		std::fprintf(stderr,"\nfatal error: aborting.");
 		std::fflush(stderr);
 		std::abort();
 	}
