@@ -1,19 +1,40 @@
 #!/bin/sh -ex
 
-FINDINGS=/tmp/afl-ramdisk/
-if [ ! -d $FINDINGS ] ; then
-  mkdir /tmp/afl-ramdisk && chmod 777 /tmp/afl-ramdisk
-  sudo mount -t tmpfs -o size=512M tmpfs /tmp/afl-ramdisk
-fi
+WAVM="$1"
+WAVM_BIN=./bin
 
-./afl/make-corpus
+TMPDIR=./tmp
+FINDINGS=${TMPDIR}/findings
+CORPUS=./corpus
 
-if [ -n "$1" ] ; then
-  MASTER="-S" ;
-  FUZZNAME="$1"
+if [ -n "$2" ] ; then
+  NUM_SLAVES=$2
 else
-  MASTER="-M"
-  FUZZNAME="01"
+  NUM_SLAVES=0
 fi
 
-afl-fuzz -i corpus -o ${FINDINGS} -m 9999999999999999999 $MASTER fuzzer${FUZZNAME} -x afl/wast.dict -- ./bin/wavm --check --text @@
+# Compile WAVM using the AFL compiler and ASAN.
+export CC=afl-clang-fast
+export CXX=afl-clang-fast++
+export AFL_HARDEN=1
+cmake ${WAVM} -DENABLE_ASAN=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo
+make -j
+
+# Set up ASAN to ignore seg faults, ignore leaks, and abort on error.
+export ASAN_OPTIONS=handle_segv=0:detect_leaks=0:abort_on_error=1
+
+# Make a ramdisk to hold the AFL temp files.
+if [ ! -d $TMPDIR ] ; then
+  mkdir $TMPDIR && chmod 777 $TMPDIR
+  sudo mount -t tmpfs -o size=512M tmpfs $TMPDIR
+fi
+
+if [ ! -d $FINDINGS ] ; then
+  mkdir $FINDINGS
+fi
+
+for i in `seq 0 $NUM_SLAVES`; do
+    afl-fuzz -i ${CORPUS} -o ${FINDINGS} -m 9999999999999999999 -t 5000 -S slave${i} -- ${WAVM_BIN}/wavm @@ 1>slave${i}.stdout.txt 2>slave${i}.stderr.txt &
+done
+
+afl-fuzz -i ${CORPUS} -o ${FINDINGS} -m 9999999999999999999 -t 5000 -M master -- ${WAVM_BIN}/wavm @@
