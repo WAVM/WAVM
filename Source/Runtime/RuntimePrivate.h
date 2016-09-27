@@ -8,6 +8,8 @@
 
 #include <functional>
 
+#define HAS_64BIT_ADDRESS_SPACE (sizeof(uintp) == 8 && !PRETEND_32BIT_ADDRESS_SPACE)
+
 namespace LLVMJIT
 {
 	using namespace Runtime;
@@ -134,5 +136,8 @@ namespace Runtime
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(uint8* address);
 	bool isAddressOwnedByMemory(uint8* address);
-
+	
+	// Allocates virtual pages with alignBytes of padding, and returns an aligned base address.
+	// The unaligned allocation address and size are written to outUnalignedBaseAddress and outUnalignedNumPlatformPages.
+	uint8* allocateVirtualPagesAligned(size_t numBytes,size_t alignmentBytes,uint8*& outUnalignedBaseAddress,size_t& outUnalignedNumPlatformPages);
 }
