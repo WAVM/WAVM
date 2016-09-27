@@ -31,6 +31,9 @@ namespace LLVMJIT
 
 		llvm::DIType* diValueTypes[(size_t)ValueType::num];
 
+		llvm::MDNode* likelyFalseBranchWeights;
+		llvm::MDNode* likelyTrueBranchWeights;
+
 		EmitModuleContext(const Module& inModule,ModuleInstance* inModuleInstance)
 		: module(inModule)
 		, moduleInstance(inModuleInstance)
@@ -45,6 +48,11 @@ namespace LLVMJIT
 			diValueTypes[(uintp)ValueType::i64] = diBuilder.createBasicType("i64",64,64,llvm::dwarf::DW_ATE_signed);
 			diValueTypes[(uintp)ValueType::f32] = diBuilder.createBasicType("f32",32,32,llvm::dwarf::DW_ATE_float);
 			diValueTypes[(uintp)ValueType::f64] = diBuilder.createBasicType("f64",64,64,llvm::dwarf::DW_ATE_float);
+			
+			auto zeroAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(int32(0)));
+			auto i32MaxAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(int32(INT32_MAX)));
+			likelyFalseBranchWeights = llvm::MDTuple::getDistinct(context,{llvm::MDString::get(context,"branch_weights"),zeroAsMetadata,i32MaxAsMetadata});
+			likelyTrueBranchWeights = llvm::MDTuple::getDistinct(context,{llvm::MDString::get(context,"branch_weights"),i32MaxAsMetadata,zeroAsMetadata});
 		}
 
 		llvm::Module* emit();
@@ -188,41 +196,6 @@ namespace LLVMJIT
 			}
 		}
 		
-		// A helper function to emit an if-then-else-end control flow diamond.
-		template<typename TrueValueThunk,typename FalseValueThunk>
-		llvm::Value* emitIfElse(const char* blockBaseName,llvm::Value* booleanCondition,TrueValueThunk trueValueThunk,FalseValueThunk falseValueThunk)
-		{
-			auto trueBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "Then",llvmFunction);
-			auto falseBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "Else",llvmFunction);
-			auto endBlock = llvm::BasicBlock::Create(context,llvm::Twine(blockBaseName) + "End",llvmFunction);
-
-			irBuilder.CreateCondBr(booleanCondition,trueBlock,falseBlock);
-
-			irBuilder.SetInsertPoint(trueBlock);
-			auto trueValue = trueValueThunk();
-			auto trueExitBlock = irBuilder.GetInsertBlock();
-			if(trueValue) { irBuilder.CreateBr(endBlock); }
-			endBlock->moveAfter(trueExitBlock);
-
-			irBuilder.SetInsertPoint(falseBlock);
-			auto falseValue = falseValueThunk();
-			auto falseExitBlock = irBuilder.GetInsertBlock();
-			if(falseValue) { irBuilder.CreateBr(endBlock); }
-			endBlock->moveAfter(falseExitBlock);
-
-			irBuilder.SetInsertPoint(endBlock);
-			if(!trueValue && !falseValue) { return nullptr; }
-			else if(!falseValue) { return trueValue; }
-			else if(!trueValue) { return falseValue; }
-			else
-			{
-				auto phi = irBuilder.CreatePHI(trueValue->getType(),2);
-				if(trueValue && trueExitBlock) { phi->addIncoming(trueValue,trueExitBlock); }
-				if(falseValue && falseExitBlock) { phi->addIncoming(falseValue,falseExitBlock); }
-				return phi;
-			}
-		}
-		
 		// Coerces an I32 value to an I1, and vice-versa.
 		llvm::Value* coerceI32ToBool(llvm::Value* i32Value)
 		{
@@ -257,19 +230,11 @@ namespace LLVMJIT
 		}
 
 		// Traps a divide-by-zero
-		template<typename NonZeroThunk>
-		llvm::Value* trapDivideByZero(ValueType type,llvm::Value* divisor,NonZeroThunk nonZeroThunk)
+		void trapDivideByZero(ValueType type,llvm::Value* divisor)
 		{
-			return emitIfElse(
-				"checkDivideByZero",
-				irBuilder.CreateICmpNE(divisor,typedZeroConstants[(uintp)type]),
-				nonZeroThunk,
-				[&]
-				{
-					emitRuntimeIntrinsic("wavmIntrinsics.divideByZeroTrap",FunctionType::get(),{});
-					irBuilder.CreateUnreachable();
-					return (llvm::Value*)nullptr;
-				});
+			emitConditionalTrapIntrinsic(
+				irBuilder.CreateICmpEQ(divisor,typedZeroConstants[(uintp)type]),
+				"wavmIntrinsics.divideByZeroTrap",FunctionType::get(),{});
 		}
 
 		llvm::Value* getLLVMIntrinsic(const std::initializer_list<llvm::Type*>& argTypes,llvm::Intrinsic::ID id)
@@ -286,6 +251,21 @@ namespace LLVMJIT
 			assert(intrinsicFunction->type == intrinsicType);
 			auto intrinsicFunctionPointer = emitLiteralPointer(intrinsicFunction->nativeFunction,asLLVMType(intrinsicType)->getPointerTo());
 			return irBuilder.CreateCall(intrinsicFunctionPointer,llvm::ArrayRef<llvm::Value*>(args.begin(),args.end()));
+		}
+
+		// A helper function to emit a conditional call to a non-returning intrinsic function.
+		void emitConditionalTrapIntrinsic(llvm::Value* booleanCondition,const char* intrinsicName,const FunctionType* intrinsicType,const std::initializer_list<llvm::Value*>& args)
+		{
+			auto trueBlock = llvm::BasicBlock::Create(context,llvm::Twine(intrinsicName) + "Trap",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(context,llvm::Twine(intrinsicName) + "Skip",llvmFunction);
+
+			irBuilder.CreateCondBr(booleanCondition,trueBlock,endBlock,moduleContext.likelyFalseBranchWeights);
+
+			irBuilder.SetInsertPoint(trueBlock);
+			emitRuntimeIntrinsic(intrinsicName,intrinsicType,args);
+			irBuilder.CreateUnreachable();
+
+			irBuilder.SetInsertPoint(endBlock);
 		}
 
 		//
@@ -640,52 +620,32 @@ namespace LLVMJIT
 
 			// Zero extend the function index to the pointer size.
 			auto functionIndexZExt = irBuilder.CreateZExt(tableElementIndex,sizeof(uintp) == 4 ? llvmI32Type : llvmI64Type);
-
-			// Check whether the index is within the bounds of the function table.
-			auto result = emitIfElse(
-				"checkTableMax",
-				irBuilder.CreateICmpULT(functionIndexZExt,moduleContext.defaultTableEndOffset),
-				[&]
-				{
-					// Load the type for this table entry.
-					auto functionTypePointerPointer = irBuilder.CreateInBoundsGEP(moduleContext.defaultTablePointer,{functionIndexZExt,emitLiteral((uint32)0)});
-					auto functionTypePointer = irBuilder.CreateLoad(functionTypePointerPointer);
-					auto llvmCalleeType = emitLiteralPointer(calleeType,llvmI8PtrType);
-
-					// Check whether the function table entry has the correct signature.
-					return emitIfElse(
-						"checkIndirectCallType",
-						irBuilder.CreateICmpEQ(llvmCalleeType,functionTypePointer),
-						// If the function type matches, call the function loaded from the table.
-						[&]
-						{
-							auto functionPointerPointer = irBuilder.CreateInBoundsGEP(moduleContext.defaultTablePointer,{functionIndexZExt,emitLiteral((uint32)1)});
-							auto functionPointer = irBuilder.CreateLoad(irBuilder.CreatePointerCast(functionPointerPointer,functionPointerType));
-							return irBuilder.CreateCall(functionPointer,llvm::ArrayRef<llvm::Value*>(llvmArgs,calleeType->parameters.size()));
-						},
-						// If the function type doesn't match, trap.
-						[&]
-						{
-							emitRuntimeIntrinsic(
-								"wavmIntrinsics.indirectCallSignatureMismatch",
-								FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i64,ValueType::i64}),
-								{	tableElementIndex,
-									irBuilder.CreatePtrToInt(llvmCalleeType,llvmI64Type),
-									emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultTable))	}
-								);
-							irBuilder.CreateUnreachable();
-							return (llvm::Value*)nullptr;
-						}
-						);
-				},
-				// If the function index is larger than the function table size, trap.
-				[&]
-				{
-					emitRuntimeIntrinsic("wavmIntrinsics.indirectCallIndexOutOfBounds",FunctionType::get(),{});
-					irBuilder.CreateUnreachable();
-					return (llvm::Value*)nullptr;
-				});
 			
+			// If the function index is larger than the function table size, trap.
+			emitConditionalTrapIntrinsic(
+				irBuilder.CreateICmpUGE(functionIndexZExt,moduleContext.defaultTableEndOffset),
+				"wavmIntrinsics.indirectCallIndexOutOfBounds",FunctionType::get(),{});
+
+			// Load the type for this table entry.
+			auto functionTypePointerPointer = irBuilder.CreateInBoundsGEP(moduleContext.defaultTablePointer,{functionIndexZExt,emitLiteral((uint32)0)});
+			auto functionTypePointer = irBuilder.CreateLoad(functionTypePointerPointer);
+			auto llvmCalleeType = emitLiteralPointer(calleeType,llvmI8PtrType);
+			
+			// If the function type doesn't match, trap.
+			emitConditionalTrapIntrinsic(
+				irBuilder.CreateICmpNE(llvmCalleeType,functionTypePointer),
+				"wavmIntrinsics.indirectCallSignatureMismatch",
+				FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i64,ValueType::i64}),
+				{	tableElementIndex,
+					irBuilder.CreatePtrToInt(llvmCalleeType,llvmI64Type),
+					emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultTable))	}
+				);
+
+			// Call the function loaded from the table.
+			auto functionPointerPointer = irBuilder.CreateInBoundsGEP(moduleContext.defaultTablePointer,{functionIndexZExt,emitLiteral((uint32)1)});
+			auto functionPointer = irBuilder.CreateLoad(irBuilder.CreatePointerCast(functionPointerPointer,functionPointerType));
+			auto result = irBuilder.CreateCall(functionPointer,llvm::ArrayRef<llvm::Value*>(llvmArgs,calleeType->parameters.size()));
+
 			// Push the result on the operand stack.
 			if(calleeType->ret != ResultType::none) { push(result); }
 		}
@@ -827,23 +787,30 @@ namespace LLVMJIT
 
 		llvm::Value* emitSRem(ValueType type,llvm::Value* left,llvm::Value* right)
 		{
-			// LLVM's srem has undefined behavior where WebAssembly's rem_s defines that it should not trap if the corresponding
-			// division would overflow a signed integer. To avoid this case, we just branch if the srem(INT_MAX,-1) case that overflows
-			// is detected.
-			
-			llvm::Value* intMin = type == ValueType::i32 ? emitLiteral((uint32)INT_MIN) : emitLiteral((uint64)INT64_MIN);
-			llvm::Value* negativeOne = type == ValueType::i32 ? emitLiteral((uint32)-1) : emitLiteral((uint64)-1);
-			llvm::Value* zero = typedZeroConstants[(size_t)type];
+			// Trap if the dividend is zero.
+			trapDivideByZero(type,right); 
 
-			return emitIfElse(
-				"checkSRemIntMinNegativeOne",
-				irBuilder.CreateNot(irBuilder.CreateAnd(
-					irBuilder.CreateICmpEQ(left,intMin),
-					irBuilder.CreateICmpEQ(right,negativeOne)
-					)),
-				[&] { return trapDivideByZero(type,right,[&] { return irBuilder.CreateSRem(left,right); }); },
-				[&] { return zero; }
+			// LLVM's srem has undefined behavior where WebAssembly's rem_s defines that it should not trap if the corresponding
+			// division would overflow a signed integer. To avoid this case, we just branch around the srem if the INT_MAX%-1 case
+			// that overflows is detected.
+			auto preOverflowBlock = irBuilder.GetInsertBlock();
+			auto noOverflowBlock = llvm::BasicBlock::Create(context,"sremNoOverflow",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(context,"sremEnd",llvmFunction);
+			auto noOverflow = irBuilder.CreateOr(
+				irBuilder.CreateICmpNE(left,type == ValueType::i32 ? emitLiteral((uint32)INT32_MIN) : emitLiteral((uint64)INT64_MIN)),
+				irBuilder.CreateICmpNE(right,type == ValueType::i32 ? emitLiteral((uint32)-1) : emitLiteral((uint64)-1))
 				);
+			irBuilder.CreateCondBr(noOverflow,noOverflowBlock,endBlock,moduleContext.likelyTrueBranchWeights);
+
+			irBuilder.SetInsertPoint(noOverflowBlock);
+			auto noOverflowValue = irBuilder.CreateSRem(left,right);
+			irBuilder.CreateBr(endBlock);
+
+			irBuilder.SetInsertPoint(endBlock);
+			auto phi = irBuilder.CreatePHI(asLLVMType(type),2);
+			phi->addIncoming(typedZeroConstants[(uintp)type],preOverflowBlock);
+			phi->addIncoming(noOverflowValue,noOverflowBlock);
+			return phi;
 		}
 		
 		llvm::Value* emitShiftCountMask(ValueType type,llvm::Value* shiftCount)
@@ -889,9 +856,9 @@ namespace LLVMJIT
 		EMIT_INT_BINARY_OP(rotl,emitRotl(type,left,right))
 			
 		// Divides use trapDivideByZero to avoid the undefined behavior in LLVM's division instructions.
-		EMIT_INT_BINARY_OP(div_s,trapDivideByZero(type,right,[&] { return irBuilder.CreateSDiv(left,right); }))
-		EMIT_INT_BINARY_OP(div_u,trapDivideByZero(type,right,[&] { return irBuilder.CreateUDiv(left,right); }))
-		EMIT_INT_BINARY_OP(rem_u,trapDivideByZero(type,right,[&] { return irBuilder.CreateURem(left,right); }))
+		EMIT_INT_BINARY_OP(div_s, (trapDivideByZero(type,right), irBuilder.CreateSDiv(left,right)) )
+		EMIT_INT_BINARY_OP(div_u, (trapDivideByZero(type,right), irBuilder.CreateUDiv(left,right)) )
+		EMIT_INT_BINARY_OP(rem_u, (trapDivideByZero(type,right), irBuilder.CreateURem(left,right)) )
 		EMIT_INT_BINARY_OP(rem_s,emitSRem(type,left,right))
 
 		// Explicitly mask the shift amount operand to the word size to avoid LLVM's undefined behavior.
