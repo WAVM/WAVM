@@ -316,8 +316,22 @@ namespace WebAssembly
 		{
 			size_t numFunctions = module.functionDefs.size();
 			serializeVarUInt32(sectionStream,numFunctions);
-			if(Stream::isInput) { module.functionDefs.resize(numFunctions); }
-			for(Function& function : module.functionDefs) { serializeVarUInt32(sectionStream,function.typeIndex); }
+			if(Stream::isInput)
+			{
+				// Grow the vector one element at a time:
+				// try to get a serialization exception before making a huge allocation for malformed input.
+				module.functionDefs.clear();
+				for(uintp functionIndex = 0;functionIndex < numFunctions;++functionIndex)
+				{
+					module.functionDefs.push_back(Function());
+					serializeVarUInt32(sectionStream,module.functionDefs.back().typeIndex);
+				}
+				module.functionDefs.shrink_to_fit();
+			}
+			else
+			{
+				for(Function& function : module.functionDefs) { serializeVarUInt32(sectionStream,function.typeIndex); }
+			}
 		});
 		serializeSection(moduleStream,SectionType::table,module.tableDefs.size()>0,[&module](Stream& sectionStream)
 		{
