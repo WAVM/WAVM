@@ -151,13 +151,16 @@ namespace WebAssembly
 
 			Serialization::MemoryInputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
 			OperationDecoder decoder(codeStream);
-			#if ENABLE_LOGGING
+			if(ENABLE_LOGGING)
+			{
 				OperatorLoggingProxy<FunctionCodeValidator> loggingProxy(module,*this);
 				logOperator("---- function start ----");
 				while(decoder && controlStack.size()) { decoder.decodeOp(loggingProxy); };
-			#else
+			}
+			else
+			{
 				while(decoder && controlStack.size()) { decoder.decodeOp(*this); };
-			#endif
+			}
 
 			if(decoder) { throw ValidationException("function end reached before end of code"); }
 			if(controlStack.size()) { throw ValidationException("end of code reached before end of function"); }
@@ -165,7 +168,8 @@ namespace WebAssembly
 		
 		void logOperator(const std::string& operatorDescription)
 		{
-			#if ENABLE_LOGGING
+			if(ENABLE_LOGGING)
+			{
 				std::string controlStackString;
 				for(uintp stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
 				{
@@ -192,7 +196,7 @@ namespace WebAssembly
 				if(stack.size() == stackBase) { stackString += "|"; }
 
 				Log::printf(Log::Category::debug,"%-50s %-50s %-50s\n",controlStackString.c_str(),operatorDescription.c_str(),stackString.c_str());
-			#endif
+			}
 		}
 
 		// Operation dispatch methods.

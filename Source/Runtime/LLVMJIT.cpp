@@ -404,17 +404,15 @@ namespace LLVMJIT
 		llvmModule->setDataLayout(targetMachine->createDataLayout());
 
 		// Verify the module.
-		#if DUMP_UNOPTIMIZED_MODULE
-			printModule(llvmModule,"llvmDump");
-		#endif
-
-		#if VERIFY_MODULE
+		if(DUMP_UNOPTIMIZED_MODULE) { printModule(llvmModule,"llvmDump"); }
+		if(VERIFY_MODULE)
+		{
 			std::string verifyOutputString;
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
 			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
 			{ Core::errorf("LLVM verification errors:\n%s\n",verifyOutputString.c_str()); }
 			Log::printf(Log::Category::debug,"Verified LLVM module\n");
-		#endif
+		}
 
 		// Run some optimization on the module's functions.
 		Core::Timer optimizationTimer;
@@ -432,9 +430,7 @@ namespace LLVMJIT
 		
 		Log::logRatePerSecond("Optimized LLVM module",optimizationTimer,(float64)llvmModule->size(),"functions");
 
-		#if DUMP_OPTIMIZED_MODULE
-			printModule(llvmModule,"llvmOptimizedDump");
-		#endif
+		if(DUMP_OPTIMIZED_MODULE) { printModule(llvmModule,"llvmOptimizedDump"); }
 
 		// Pass the module to the JIT compiler.
 		Core::Timer machineCodeTimer;
