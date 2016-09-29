@@ -11,7 +11,7 @@ namespace WebAssembly
 	// Enumate the WebAssembly operators
 
 	#define ENUM_CONTROL_OPS(visit) \
-		visit(0x00,nop,NoImm) \
+		visit(0x00,unreachable,NoImm) \
 		visit(0x01,beginBlock,ControlStructureImm) \
 		visit(0x02,beginLoop,ControlStructureImm) \
 		visit(0x03,beginIf,ControlStructureImm) \
@@ -21,7 +21,7 @@ namespace WebAssembly
 		visit(0x07,br_if,BranchImm) \
 		visit(0x08,br_table,BranchTableImm) \
 		visit(0x09,ret,NoImm) \
-		visit(0x0a,unreachable,NoImm) \
+		visit(0x0a,nop,NoImm) \
 		visit(0x0b,drop,NoImm) \
 		visit(0x0f,end,NoImm) \
 		visit(0x16,call,CallImm) \
@@ -64,8 +64,8 @@ namespace WebAssembly
 		visit(0x14,get_local,GetOrSetVariableImm) \
 		visit(0x15,set_local,GetOrSetVariableImm) \
 		visit(0x19,tee_local,GetOrSetVariableImm) \
-		visit(0x1a,get_global,GetOrSetVariableImm) \
-		visit(0x1b,set_global,GetOrSetVariableImm)
+		visit(0xbb,get_global,GetOrSetVariableImm) \
+		visit(0xbc,set_global,GetOrSetVariableImm)
 
 	#define ENUM_I32_BINARY_OPS(visit) \
 		visit(0x40,i32_add,NoImm) \

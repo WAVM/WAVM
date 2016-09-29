@@ -76,7 +76,7 @@ namespace WebAssembly
 			i64_const = 0x11,
 			f32_const = 0x13,
 			f64_const = 0x12,
-			get_global = 0x1a,
+			get_global = 0xbb,
 			error = 0xff
 		};
 		Type type;
