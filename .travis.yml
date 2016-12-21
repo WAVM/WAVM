@@ -5,7 +5,8 @@ compiler:
  - gcc
 
 install:
- - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+ - if [ "$CXX" = "g++" ]; then export CXX="g++-5" CC="gcc-5"; fi
+ - if [ "$CXX" = "clang++" ] && [ "$TRAVIS_OS_NAME" != "osx" ]; then export CXX="clang++-3.8" CC="clang-3.8"; fi
 
 script: ./travis-build.sh
 
@@ -30,10 +31,10 @@ addons:
    - llvm-3.8
    - llvm-3.8-dev
    - llvm-3.8-runtime
-   - gcc-4.8
-   - g++-4.8
+   - gcc-5
+   - g++-5
    - libedit-dev
-   - clang
+   - clang-3.8
    - cmake
    - cmake-data
 
