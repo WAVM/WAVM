@@ -88,7 +88,19 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 
 	// Link and instantiate the module.
 	RootResolver rootResolver;
-	ModuleInstance* moduleInstance = linkAndInstantiateModule(module,rootResolver);
+	LinkResult linkResult = linkModule(module,rootResolver);
+	if(!linkResult.success)
+	{
+		std::cerr << "Failed to link module:" << std::endl;
+		for(auto& missingImport : linkResult.missingImports)
+		{
+			std::cerr << "Missing import: module=\"" << missingImport.moduleName
+				<< "\" export=\"" << missingImport.exportName
+				<< "\" type=\"" << asString(missingImport.type) << "\"" << std::endl;
+		}
+		return EXIT_FAILURE;
+	}
+	ModuleInstance* moduleInstance = instantiateModule(module,std::move(linkResult.resolvedImports));
 	if(!moduleInstance) { return EXIT_FAILURE; }
 	Emscripten::initInstance(module,moduleInstance);
 

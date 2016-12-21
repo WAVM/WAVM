@@ -63,9 +63,9 @@
         get_local $i
         i64.const 0
         i64.eq
-        if
+        if $body
           br $done
-        else
+        else $body
           get_local $i
           get_local $res
           i64.mul
@@ -74,10 +74,10 @@
           i64.const 1
           i64.sub
           set_local $i
-        end
+        end $body
         br $loop
-      end
-    end
+      end $loop
+    end $done
     get_local $res
   )
 
@@ -130,4 +130,3 @@
 (assert_return (invoke "fac-expr" (i64.const 25)) (i64.const 7034535277573963776))
 (assert_return (invoke "fac-stack" (i64.const 25)) (i64.const 7034535277573963776))
 (assert_return (invoke "fac-mixed" (i64.const 25)) (i64.const 7034535277573963776))
-

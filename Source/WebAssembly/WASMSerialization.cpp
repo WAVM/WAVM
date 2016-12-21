@@ -11,11 +11,12 @@ namespace WebAssembly
 	enum
 	{
 		magicNumber=0x6d736100, // "\0asm"
-		currentVersion=0xc
+		currentVersion=0xd
 	};
 
 	enum class SectionType : uint8
 	{
+		unknown = 0,
 		user = 0,
 		type = 1,
 		import = 2,
@@ -33,21 +34,32 @@ namespace WebAssembly
 	template<typename Stream>
 	void serialize(Stream& stream,ValueType& type)
 	{
-		serializeNativeValue(stream,type);
+		int8 encodedValueType = -(int8)type;
+		serializeVarInt7(stream,encodedValueType);
+		if(Stream::isInput) { type = (ValueType)-encodedValueType; }
 	}
 
-	void serialize(InputStream& stream,ResultType& returnType)
+	void serialize(InputStream& stream,ResultType& resultType)
 	{
 		uintp arity;
 		serializeVarUInt1(stream,arity);
-		if(arity == 0) { returnType = ResultType::none; }
-		else { serializeNativeValue(stream,returnType); }
+		if(arity == 0) { resultType = ResultType::none; }
+		else
+		{
+			int8 encodedValueType = 0;
+			serializeVarInt7(stream,encodedValueType);
+			resultType = (ResultType)-encodedValueType;
+		}
 	}
 	void serialize(OutputStream& stream,ResultType& returnType)
 	{
 		uintp arity = returnType == ResultType::none ? 0 : 1;
 		serializeVarUInt1(stream,arity);
-		if(arity) { serializeNativeValue(stream,returnType); }
+		if(arity)
+		{
+			int8 encodedValueType = -(int8)returnType;
+			serializeVarInt7(stream,encodedValueType);
+		}
 	}
 	
 	template<typename Stream>
@@ -158,35 +170,26 @@ namespace WebAssembly
 	}
 
 	template<typename SerializeSection>
-	void serializeSection(OutputStream& stream,SectionType type,bool mustSerialize,SerializeSection serializeSectionBody)
+	void serializeSection(OutputStream& stream,SectionType type,SerializeSection serializeSectionBody)
 	{
-		if(mustSerialize)
-		{
-			serializeNativeValue(stream,type);
-			ArrayOutputStream sectionStream;
-			serializeSectionBody(sectionStream);
-			std::vector<uint8> sectionBytes = sectionStream.getBytes();
-			size_t sectionNumBytes = sectionBytes.size();
-			serializeVarUInt32(stream,sectionNumBytes);
-			serializeBytes(stream,sectionBytes.data(),sectionBytes.size());
-		}
+		serializeNativeValue(stream,type);
+		ArrayOutputStream sectionStream;
+		serializeSectionBody(sectionStream);
+		std::vector<uint8> sectionBytes = sectionStream.getBytes();
+		size_t sectionNumBytes = sectionBytes.size();
+		serializeVarUInt32(stream,sectionNumBytes);
+		serializeBytes(stream,sectionBytes.data(),sectionBytes.size());
 	}
 	template<typename SerializeSection>
-	void serializeSection(InputStream& stream,SectionType expectedType,bool,SerializeSection serializeSectionBody)
+	void serializeSection(InputStream& stream,SectionType expectedType,SerializeSection serializeSectionBody)
 	{
-		if(stream.capacity())
-		{
-			SectionType type = (SectionType)*stream.peek(sizeof(SectionType));
-			if(type == expectedType)
-			{
-				stream.advance(sizeof(SectionType));
-				size_t numSectionBytes = 0;
-				serializeVarUInt32(stream,numSectionBytes);
-				MemoryInputStream sectionStream(stream.advance(numSectionBytes),numSectionBytes);
-				serializeSectionBody(sectionStream);
-				if(sectionStream.capacity()) { throw FatalSerializationException("section contained more data than expected"); }
-			}
-		}
+		assert((SectionType)*stream.peek(sizeof(SectionType)) == expectedType);
+		stream.advance(sizeof(SectionType));
+		size_t numSectionBytes = 0;
+		serializeVarUInt32(stream,numSectionBytes);
+		MemoryInputStream sectionStream(stream.advance(numSectionBytes),numSectionBytes);
+		serializeSectionBody(sectionStream);
+		if(sectionStream.capacity()) { throw FatalSerializationException("section contained more data than expected"); }
 	}
 	
 	void serialize(OutputStream& stream,UserSection& userSection)
@@ -281,18 +284,15 @@ namespace WebAssembly
 		module.code.resize(function.code.offset + function.code.numBytes);
 		serializeBytes(bodyStream,module.code.data() + function.code.offset,function.code.numBytes);
 	}
-
+	
 	template<typename Stream>
-	void serializeModule(Stream& moduleStream,Module& module)
+	void serializeTypeSection(Stream& moduleStream,Module& module)
 	{
-		serializeConstant(moduleStream,"magic number",uint32(magicNumber));
-		serializeConstant(moduleStream,"version",uint32(currentVersion));
-
-		serializeSection(moduleStream,SectionType::type,module.types.size()>0,[&module](Stream& sectionStream)
+		serializeSection(moduleStream,SectionType::type,[&module](Stream& sectionStream)
 		{
 			serializeArray(sectionStream,module.types,[](Stream& stream,const FunctionType*& functionType)
 			{
-				serializeConstant(stream,"function type tag",uint8(0x40));
+				serializeConstant(stream,"function type tag",uint8(0x60));
 				if(Stream::isInput)
 				{
 					std::vector<ValueType> parameterTypes;
@@ -308,11 +308,20 @@ namespace WebAssembly
 				}
 			});
 		});
-		serializeSection(moduleStream,SectionType::import,module.imports.size()>0,[&module](Stream& sectionStream)
+	}
+	template<typename Stream>
+	void serializeImportSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::import,[&module](Stream& sectionStream)
 		{
 			serialize(sectionStream,module.imports);
 		});
-		serializeSection(moduleStream,SectionType::functionDeclarations,module.functionDefs.size()>0,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeFunctionSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::functionDeclarations,[&module](Stream& sectionStream)
 		{
 			size_t numFunctions = module.functionDefs.size();
 			serializeVarUInt32(sectionStream,numFunctions);
@@ -333,7 +342,12 @@ namespace WebAssembly
 				for(Function& function : module.functionDefs) { serializeVarUInt32(sectionStream,function.typeIndex); }
 			}
 		});
-		serializeSection(moduleStream,SectionType::table,module.tableDefs.size()>0,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeTableSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::table,[&module](Stream& sectionStream)
 		{
 			serializeArray(sectionStream,module.tableDefs,[](Stream& elementStream,TableType& tableType)
 			{
@@ -341,30 +355,60 @@ namespace WebAssembly
 				serialize(elementStream,tableType.size);
 			});
 		});
-		serializeSection(moduleStream,SectionType::memory,module.memoryDefs.size()>0,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeMemorySection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::memory,[&module](Stream& sectionStream)
 		{
 			serializeArray(sectionStream,module.memoryDefs,[](Stream& elementStream,MemoryType& memoryType)
 			{
 				serialize(elementStream,memoryType.size);
 			});
 		});
-		serializeSection(moduleStream,SectionType::global,module.globalDefs.size()>0,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeGlobalSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::global,[&module](Stream& sectionStream)
 		{
 			serialize(sectionStream,module.globalDefs);
 		});
-		serializeSection(moduleStream,SectionType::export_,module.exports.size()>0,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeExportSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::export_,[&module](Stream& sectionStream)
 		{
 			serialize(sectionStream,module.exports);
 		});
-		serializeSection(moduleStream,SectionType::start,module.startFunctionIndex!=UINTPTR_MAX,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeStartSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::start,[&module](Stream& sectionStream)
 		{
 			serializeVarUInt32(sectionStream,module.startFunctionIndex);
 		});
-		serializeSection(moduleStream,SectionType::elem,module.tableSegments.size()>0,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeElementSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::elem,[&module](Stream& sectionStream)
 		{
 			serialize(sectionStream,module.tableSegments);
 		});
-		serializeSection(moduleStream,SectionType::functionDefinitions,module.functionDefs.size()>0,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeCodeSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::functionDefinitions,[&module](Stream& sectionStream)
 		{
 			size_t numFunctionBodies = module.functionDefs.size();
 			serializeVarUInt32(sectionStream,numFunctionBodies);
@@ -372,17 +416,71 @@ namespace WebAssembly
 				{ throw FatalSerializationException("function and code sections have mismatched function counts"); }
 			for(Function& function : module.functionDefs) { serializeFunctionBody(sectionStream,module,function); }
 		});
-		serializeSection(moduleStream,SectionType::data,module.dataSegments.size()>0,[&module](Stream& sectionStream)
+	}
+
+	template<typename Stream>
+	void serializeDataSection(Stream& moduleStream,Module& module)
+	{
+		serializeSection(moduleStream,SectionType::data,[&module](Stream& sectionStream)
 		{
 			serialize(sectionStream,module.dataSegments);
 		});
+	}
 
-		uintp userSectionIndex = 0;
-		while((Stream::isInput && moduleStream.capacity()) || userSectionIndex < module.userSections.size())
+	void serializeModule(OutputStream& moduleStream,Module& module)
+	{
+		serializeConstant(moduleStream,"magic number",uint32(magicNumber));
+		serializeConstant(moduleStream,"version",uint32(currentVersion));
+
+		if(module.types.size() > 0) { serializeTypeSection(moduleStream,module); }
+		if(module.imports.size() > 0) { serializeImportSection(moduleStream,module); }
+		if(module.functionDefs.size() > 0) { serializeFunctionSection(moduleStream,module); }
+		if(module.tableDefs.size() > 0) { serializeTableSection(moduleStream,module); }
+		if(module.memoryDefs.size() > 0) { serializeMemorySection(moduleStream,module); }
+		if(module.globalDefs.size() > 0) { serializeGlobalSection(moduleStream,module); }
+		if(module.exports.size() > 0) { serializeExportSection(moduleStream,module); }
+		if(module.startFunctionIndex != UINTPTR_MAX) { serializeStartSection(moduleStream,module); }
+		if(module.tableSegments.size() > 0) { serializeElementSection(moduleStream,module); }
+		if(module.functionDefs.size() > 0) { serializeCodeSection(moduleStream,module); }
+		if(module.dataSegments.size() > 0) { serializeDataSection(moduleStream,module); }
+
+		for(auto& userSection : module.userSections) { serialize(moduleStream,userSection); }
+	}
+	void serializeModule(InputStream& moduleStream,Module& module)
+	{
+		serializeConstant(moduleStream,"magic number",uint32(magicNumber));
+		serializeConstant(moduleStream,"version",uint32(currentVersion));
+
+		SectionType lastKnownSectionType = SectionType::unknown;
+		while(moduleStream.capacity())
 		{
-			UserSection& userSection = Stream::isInput ? *module.userSections.insert(module.userSections.end(),UserSection()) : module.userSections[userSectionIndex];
-			serialize(moduleStream,userSection);
-			++userSectionIndex;
+			const SectionType sectionType = *(SectionType*)moduleStream.peek(sizeof(SectionType));
+			if(sectionType != SectionType::user)
+			{
+				if(sectionType > lastKnownSectionType) { lastKnownSectionType = sectionType; }
+				else { throw FatalSerializationException("incorrect order for known section"); }
+			}
+			switch(sectionType)
+			{
+			case SectionType::type: serializeTypeSection(moduleStream,module); break;
+			case SectionType::import: serializeImportSection(moduleStream,module); break;
+			case SectionType::functionDeclarations: serializeFunctionSection(moduleStream,module); break;
+			case SectionType::table: serializeTableSection(moduleStream,module); break;
+			case SectionType::memory: serializeMemorySection(moduleStream,module); break;
+			case SectionType::global: serializeGlobalSection(moduleStream,module); break;
+			case SectionType::export_: serializeExportSection(moduleStream,module); break;
+			case SectionType::start: serializeStartSection(moduleStream,module); break;
+			case SectionType::elem: serializeElementSection(moduleStream,module); break;
+			case SectionType::functionDefinitions: serializeCodeSection(moduleStream,module); break;
+			case SectionType::data: serializeDataSection(moduleStream,module); break;
+			case SectionType::user:
+			{
+				UserSection& userSection = *module.userSections.insert(module.userSections.end(),UserSection());
+				serialize(moduleStream,userSection);
+				break;
+			}
+			default: throw FatalSerializationException("unknown section ID");
+			};
 		};
 	}
 

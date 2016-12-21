@@ -6,7 +6,6 @@
 #include "WebAssembly/WebAssembly.h"
 #include "WebAssembly/Module.h"
 #include "Runtime/Runtime.h"
-#include "Runtime/Linker.h"
 
 #include <iostream>
 #include <fstream>
@@ -173,22 +172,6 @@ int main(int argc,char** argv)
 	catch(WebAssembly::ValidationException exception)
 	{
 		std::cerr << "Failed to validate module: " << exception.message << std::endl;
-		return EXIT_FAILURE;
-	}
-	catch(Runtime::LinkException exception)
-	{
-		std::cerr << "Failed to link module:" << std::endl;
-		for(auto& missingImport : exception.missingImports)
-		{
-			std::cerr << "Missing import: module=\"" << missingImport.moduleName
-				<< "\" export=\"" << missingImport.exportName
-				<< "\" type=\"" << asString(missingImport.type) << "\"" << std::endl;
-		}
-		return EXIT_FAILURE;
-	}
-	catch(Runtime::InstantiationException exception)
-	{
-		std::cerr << "Failed to instantiate module: cause=" << std::to_string((uintp)exception.cause) << std::endl;
 		return EXIT_FAILURE;
 	}
 	catch(Runtime::Exception exception)

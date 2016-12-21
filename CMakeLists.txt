@@ -43,6 +43,8 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4091")
 	# disable warning: 'inline': used more than once
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4141")
+	# disable warning: cast truncates constant value
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4310")
 else()
 	# Use C++11
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")

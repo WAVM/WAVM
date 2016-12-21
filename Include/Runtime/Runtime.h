@@ -32,7 +32,9 @@ namespace Runtime
 			indirectCallSignatureMismatch,
 			undefinedTableElement,
 			calledAbort,
-			calledUnimplementedIntrinsic
+			calledUnimplementedIntrinsic,
+			outOfMemory,
+			invalidSegmentOffset
 		};
 
 		Cause cause;
@@ -54,24 +56,14 @@ namespace Runtime
 		case Exception::Cause::undefinedTableElement: return "undefined function table element";
 		case Exception::Cause::calledAbort: return "called abort";
 		case Exception::Cause::calledUnimplementedIntrinsic: return "called unimplemented intrinsic";
+		case Exception::Cause::outOfMemory: return "out of memory";
+		case Exception::Cause::invalidSegmentOffset: return "invalid segment offset";
 		default: return "unknown";
 		}
 	}
 
 	// Causes a runtime exception.
 	[[noreturn]] RUNTIME_API void causeException(Exception::Cause cause);
-
-	// An exception that may be thrown during module instantiation.
-	struct InstantiationException
-	{
-		enum Cause
-		{
-			outOfMemory,
-			invalidSegmentOffset
-		};
-		const Cause cause;
-		InstantiationException(Cause inCause): cause(inCause) {}
-	};
 
 	// These are subclasses of Object, but are only defined within Runtime, so other modules must
 	// use these forward declarations as opaque pointers.

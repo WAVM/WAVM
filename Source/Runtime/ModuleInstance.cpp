@@ -64,13 +64,13 @@ namespace Runtime
 		for(auto memoryType : module.memoryDefs)
 		{
 			auto memory = createMemory(memoryType);
-			if(!memory) { throw InstantiationException(InstantiationException::outOfMemory); }
+			if(!memory) { causeException(Exception::Cause::outOfMemory); }
 			moduleInstance->memories.push_back(memory);
 		}
 		for(auto tableType : module.tableDefs)
 		{
 			auto table = createTable(tableType);
-			if(!table) { throw InstantiationException(InstantiationException::outOfMemory); }
+			if(!table) { causeException(Exception::Cause::outOfMemory); }
 			moduleInstance->tables.push_back(table);
 		}
 
@@ -97,7 +97,7 @@ namespace Runtime
 
 			if(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2))
 			{
-				throw InstantiationException(InstantiationException::invalidSegmentOffset);
+				causeException(Exception::Cause::invalidSegmentOffset);
 			}
 
 			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
@@ -151,7 +151,7 @@ namespace Runtime
 
 			if(baseOffset + tableSegment.indices.size() > table->elements.size())
 			{
-				throw InstantiationException(InstantiationException::invalidSegmentOffset);
+				causeException(Exception::Cause::invalidSegmentOffset);
 			}
 
 			for(uintp index = 0;index < tableSegment.indices.size();++index)

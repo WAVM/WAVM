@@ -42,6 +42,7 @@ namespace WebAssembly
 		std::string describeImm(CallImm imm) { return " " + std::to_string(imm.functionIndex); }
 		std::string describeImm(CallIndirectImm imm) { return " " + asString(module.types[imm.typeIndex]); }
 		std::string describeImm(LoadOrStoreImm imm) { return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset); }
+		std::string describeImm(MemoryImm) { return ""; }
 		std::string describeImm(ErrorImm imm) { return " " + imm.message; }
 	};
 }

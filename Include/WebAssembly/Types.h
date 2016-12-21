@@ -140,7 +140,7 @@ namespace WebAssembly
 	// The type of element a table contains: for now can only be anyfunc, meaning any function type.
 	enum class TableElementType : uint8
 	{
-		anyfunc = 0x20
+		anyfunc = (uint8)-16
 	};
 
 	// The type of a table
@@ -180,8 +180,8 @@ namespace WebAssembly
 	
 	inline std::string asString(const GlobalType& globalType)
 	{
-		if(globalType.isMutable) { return std::string("global") + asString(globalType.valueType); }
-		else { return std::string("immutable") + asString(globalType.valueType); }
+		if(globalType.isMutable) { return std::string("global ") + asString(globalType.valueType); }
+		else { return std::string("immutable ") + asString(globalType.valueType); }
 	}
 
 	// The type of an object

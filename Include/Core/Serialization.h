@@ -185,8 +185,8 @@ namespace Serialization
 
 		// Ensure that the input does not encode more than maxBits of data.
 		enum { numUsedBitsInHighestByte = maxBits - (maxBytes-1) * 7 };
-		enum { highestByteUsedBitmask = uint8(1<<numUsedBitsInHighestByte)-1 };
-		enum { highestByteSignedBitmask = ~uint8(highestByteUsedBitmask) & ~uint8(0x80) };
+		enum { highestByteUsedBitmask = uint8(1<<numUsedBitsInHighestByte)-uint8(1) };
+		enum { highestByteSignedBitmask = uint8(~uint8(highestByteUsedBitmask) & ~uint8(0x80)) };
 		if((bytes[maxBytes-1] & ~highestByteUsedBitmask) != 0
 		&& ((bytes[maxBytes-1] & ~highestByteUsedBitmask) != uint8(highestByteSignedBitmask) || !std::is_signed<Value>::value))
 		{ throw FatalSerializationException("Invalid LEB encoding: invalid final byte"); }
@@ -198,7 +198,7 @@ namespace Serialization
 		
 		// Sign extend the output integer to the full size of Value.
 		if(std::is_signed<Value>::value && signExtendShift > 0)
-		{ value = (value << signExtendShift) >> signExtendShift; }
+		{ value = Value(value << signExtendShift) >> signExtendShift; }
 
 		// Check that the output integer is in the expected range.
 		if(value < minValue || value > maxValue)
@@ -210,6 +210,7 @@ namespace Serialization
 	template<typename Stream,typename Value> void serializeVarUInt7(Stream& stream,Value& value) { serializeVarInt<Value,7>(stream,value,0,127); }
 	template<typename Stream,typename Value> void serializeVarUInt32(Stream& stream,Value& value) { serializeVarInt<Value,32>(stream,value,0,UINT32_MAX); }
 	template<typename Stream,typename Value> void serializeVarUInt64(Stream& stream,Value& value) { serializeVarInt<Value,64>(stream,value,0,UINT64_MAX); }
+	template<typename Stream,typename Value> void serializeVarInt7(Stream& stream,Value& value) { serializeVarInt<Value,7>(stream,value,-64,63); }
 	template<typename Stream,typename Value> void serializeVarInt32(Stream& stream,Value& value) { serializeVarInt<Value,32>(stream,value,INT32_MIN,INT32_MAX); }
 	template<typename Stream,typename Value> void serializeVarInt64(Stream& stream,Value& value) { serializeVarInt<Value,64>(stream,value,INT64_MIN,INT64_MAX); }
 

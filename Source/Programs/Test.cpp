@@ -30,15 +30,15 @@ private:
 
 	ModuleInstance* lastModuleInstance;
 	
-	std::map<std::string,ModuleInstance*> moduleInternalNameToIndexMap;
-	std::map<std::string,ModuleInstance*> moduleNameToIndexMap;
+	std::map<std::string,ModuleInstance*> moduleInternalNameToInstanceMap;
+	std::map<std::string,ModuleInstance*> moduleNameToInstanceMap;
 
 	void collectGarbage()
 	{
 		std::vector<Object*> rootObjects;
 		rootObjects.push_back(asObject(lastModuleInstance));
-		for(auto& mapIt : moduleInternalNameToIndexMap) { rootObjects.push_back(asObject(mapIt.second)); }
-		for(auto& mapIt : moduleNameToIndexMap) { rootObjects.push_back(asObject(mapIt.second)); }
+		for(auto& mapIt : moduleInternalNameToInstanceMap) { rootObjects.push_back(asObject(mapIt.second)); }
+		for(auto& mapIt : moduleNameToInstanceMap) { rootObjects.push_back(asObject(mapIt.second)); }
 		freeUnreferencedObjects(rootObjects);
 	}
 
@@ -48,8 +48,8 @@ private:
 		if(IntrinsicResolver::singleton.resolve(moduleName,exportName,type,outObject)) { return true; }
 
 		// Then look for a named module.
-		auto mapIt = moduleNameToIndexMap.find(moduleName);
-		if(mapIt != moduleNameToIndexMap.end())
+		auto mapIt = moduleNameToInstanceMap.find(moduleName);
+		if(mapIt != moduleNameToInstanceMap.end())
 		{
 			outObject = getInstanceExport(mapIt->second,exportName);
 			return outObject != nullptr && isA(outObject,type);
@@ -138,8 +138,8 @@ private:
 			ModuleInstance* moduleInstance = lastModuleInstance;
 			if(parseName(childNodeIt,moduleName))
 			{
-				auto mapIt = moduleInternalNameToIndexMap.find(moduleName);
-				if(mapIt == moduleInternalNameToIndexMap.end())
+				auto mapIt = moduleInternalNameToInstanceMap.find(moduleName);
+				if(mapIt == moduleInternalNameToInstanceMap.end())
 				{
 					recordError(moduleNameIt,std::string("unknown module name: ") + moduleName);
 					return true;
@@ -185,8 +185,8 @@ private:
 			ModuleInstance* moduleInstance = lastModuleInstance;
 			if(parseName(childNodeIt,moduleName))
 			{
-				auto mapIt = moduleInternalNameToIndexMap.find(moduleName);
-				if(mapIt == moduleInternalNameToIndexMap.end())
+				auto mapIt = moduleInternalNameToInstanceMap.find(moduleName);
+				if(mapIt == moduleInternalNameToInstanceMap.end())
 				{
 					recordError(moduleNameIt,std::string("unknown module name: ") + moduleName);
 					return false;
@@ -211,6 +211,51 @@ private:
 
 				// Get the value of the specified global.
 				outResult = getGlobalValue(global);
+			}
+
+			return true;
+		}
+		else if(parseTaggedNode(nodeIt,Symbol::_module,childNodeIt))
+		{
+			// Clear the previous module.
+			lastModuleInstance = nullptr;
+			collectGarbage();
+
+			// Parse a module definition.
+			const char* moduleInternalName = nullptr;
+			Module* module = new Module();
+			std::vector<WAST::Error> moduleErrors;
+			if(parseTextOrBinaryModule(childNodeIt,*module,moduleErrors,moduleInternalName))
+			{
+				// Link and instantiate the module.
+				LinkResult linkResult = linkModule(*module,*this);
+				if(linkResult.success) { lastModuleInstance = instantiateModule(*module,std::move(linkResult.resolvedImports)); }
+				else
+				{
+					for(auto& missingImport : linkResult.missingImports)
+					{
+						recordError(
+							nodeIt,
+							std::string("missing import module=\"") + missingImport.moduleName
+							+ "\" export=\"" + missingImport.exportName
+							+ "\" type=\"" + asString(missingImport.type) + "\""
+							);
+					}
+				}
+			}
+			else
+			{
+				errors.insert(errors.end(),moduleErrors.begin(),moduleErrors.end());
+				// Otherwise clear the module reference so that tests that reference it realize there was a problem.
+				delete module;
+				module = nullptr;
+			}
+
+			if(moduleInternalName)
+			{
+				// Don't check for duplicate names for now, since the ml-proto tests rely on name shadowing.
+				/*if(moduleInternalNameToInstanceMap.count(moduleInternalName)) { recordError(moduleInternalNameIt,std::string("duplicate module name: ") + moduleInternalName); }
+				else*/ { moduleInternalNameToInstanceMap[moduleInternalName] = lastModuleInstance; }
 			}
 
 			return true;
@@ -363,12 +408,14 @@ private:
 
 		try
 		{
-			linkModule(*unlinkableModule,*this);
-			recordError(moduleNodeIt,"expected unlinkable module, but link succeeded");
+			LinkResult linkResult = linkModule(*unlinkableModule,*this);
+			if(linkResult.success)
+			{
+				instantiateModule(*unlinkableModule,std::move(linkResult.resolvedImports));
+				recordError(moduleNodeIt,"expected unlinkable module, but link succeeded");
+			}
 		}
-		catch(LinkException exception)
-		{
-		}
+		catch(Exception) {}
 	}
 	
 	bool parseStringSequence(SNodeIt& nodeIt,std::string& outString)
@@ -458,36 +505,6 @@ bool TestScriptState::process()
 		{
 			processAssertMalformed(childNodeIt);
 		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
-		{
-			// Clear the previous module.
-			lastModuleInstance = nullptr;
-			collectGarbage();
-
-			// Parse a module definition.
-			const char* moduleInternalName = nullptr;
-			Module* module = new Module();
-			std::vector<WAST::Error> moduleErrors;
-			if(parseTextOrBinaryModule(childNodeIt,*module,moduleErrors,moduleInternalName))
-			{
-				// Link and instantiate the module.
-				lastModuleInstance = linkAndInstantiateModule(*module,*this);
-			}
-			else
-			{
-				errors.insert(errors.end(),moduleErrors.begin(),moduleErrors.end());
-				// Otherwise insert a nullptr in modules and moduleInstances so that tests that reference the most recent module realize there was a problem.
-				delete module;
-				module = nullptr;
-			}
-
-			if(moduleInternalName)
-			{
-				// Don't check for duplicate names for now, since the ml-proto tests rely on name shadowing.
-				/*if(moduleInternalNameToIndexMap.count(moduleInternalName)) { recordError(moduleInternalNameIt,std::string("duplicate module name: ") + moduleInternalName); }
-				else*/ { moduleInternalNameToIndexMap[moduleInternalName] = lastModuleInstance; }
-			}
-		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_register,childNodeIt))
 		{
 			// Parse the public name of the module.
@@ -498,9 +515,15 @@ bool TestScriptState::process()
 			const char* moduleInternalName = nullptr;
 			if(parseName(childNodeIt,moduleInternalName))
 			{
-				auto mapIt = moduleInternalNameToIndexMap.find(moduleInternalName);
-				if(mapIt == moduleInternalNameToIndexMap.end()) { recordError(childNodeIt,"unknown module internal name"); continue; }
-				moduleNameToIndexMap[moduleName] = mapIt->second;
+				auto mapIt = moduleInternalNameToInstanceMap.find(moduleInternalName);
+				if(mapIt == moduleInternalNameToInstanceMap.end()) { recordError(childNodeIt,"unknown module internal name"); continue; }
+				moduleNameToInstanceMap[moduleName] = mapIt->second;
+			}
+			else
+			{
+				// If no internal name is used, just use the last declared module.
+				if(!lastModuleInstance) { recordError(childNodeIt,"no module to register"); continue; }
+				moduleNameToInstanceMap[moduleName] = lastModuleInstance;
 			}
 		}
 		else if(rootNodeIt->type == SNodeType::Error)
@@ -524,7 +547,7 @@ bool TestScriptState::process()
 		{
 			processAssertUnlinkable(childNodeIt);
 		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_invoke,childNodeIt) || parseTaggedNode(rootNodeIt,Symbol::_get,childNodeIt))
+		else if(parseTaggedNode(rootNodeIt,Symbol::_invoke,childNodeIt) || parseTaggedNode(rootNodeIt,Symbol::_get,childNodeIt) || parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
 		{
 			Result actionResult;
 			try { processAction(rootNodeIt,actionResult); }
@@ -557,6 +580,10 @@ bool TestScriptState::process()
 	}
 }
 
+DEFINE_INTRINSIC_FUNCTION0(spectest,spectest_print,print,none)
+{
+}
+
 DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i32,a)
 {
 	std::cout << a << " : i32" << std::endl;
@@ -575,6 +602,12 @@ DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f32,a)
 DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f64,a)
 {
 	std::cout << a << " : f64" << std::endl;
+}
+	
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,f64,a,f64,b)
+{
+	std::cout << a << " : f64" << std::endl;
+	std::cout << b << " : f64" << std::endl;
 }
 
 DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i32,a,f32,b)

@@ -323,8 +323,8 @@ namespace WebAssembly
 			push(calleeType->ret);
 		}
 
-		void grow_memory(NoImm) { popAndValidateOperand(ValueType::i32); push(ValueType::i32); }
-		void current_memory(NoImm) { push(ValueType::i32); }
+		void grow_memory(MemoryImm) { popAndValidateOperand(ValueType::i32); push(ValueType::i32); }
+		void current_memory(MemoryImm) { push(ValueType::i32); }
 
 		void error(ErrorImm imm) { throw ValidationException("error opcode"); }
 

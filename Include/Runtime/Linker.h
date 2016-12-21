@@ -59,8 +59,9 @@ namespace Runtime
 		}
 	};
 
-	// An exception that is thrown by linkModule/linkAndInstantiateModule if any imports were missing.
-	struct LinkException
+	// Links a module using the given resolver, returning an array mapping import indices to objects.
+	// If the resolver fails to resolve any imports, throws a LinkException.
+	struct LinkResult
 	{
 		struct MissingImport
 		{
@@ -70,14 +71,9 @@ namespace Runtime
 		};
 
 		std::vector<MissingImport> missingImports;
+		std::vector<Object*> resolvedImports;
+		bool success;
 	};
 
-	// Links a module using the given resolver, returning an array mapping import indices to objects.
-	// If the resolver fails to resolve any imports, throws a LinkException.
-	RUNTIME_API std::vector<Object*> linkModule(const WebAssembly::Module& module,Resolver& resolver);
-
-	// Links and instantiates a module using the given resolver.
-	// If the resolver fails to resolve any imports, throws a LinkException.
-	// Calls Runtime::instantiateModule, so may also throw an InstantiationException.
-	RUNTIME_API ModuleInstance* linkAndInstantiateModule(const WebAssembly::Module& module,Resolver& resolver);
+	RUNTIME_API LinkResult linkModule(const WebAssembly::Module& module,Resolver& resolver);
 }

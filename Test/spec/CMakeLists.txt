@@ -16,6 +16,7 @@ add_test(call ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/call.wast)
 add_test(call_indirect ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/call_indirect.wast)
 add_test(comments ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/comments.wast)
 add_test(conversions ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/conversions.wast)
+add_test(custom_section ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/custom_section.wast)
 add_test(endianness ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/endianness.wast)
 add_test(exports ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/exports.wast)
 add_test(f32 ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/f32.wast)
@@ -45,12 +46,13 @@ add_test(memory ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/memory.wast)
 add_test(memory_redundancy ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/memory_redundancy.wast)
 add_test(memory_trap ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/memory_trap.wast)
 add_test(names ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/names.wast)
-add_test(nan-propagation ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/nan-propagation.wast)
 #add_test(nop ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/nop.wast)
 add_test(resizing ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/resizing.wast)
 add_test(return ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/return.wast)
 add_test(select ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/select.wast)
 add_test(set_local ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/set_local.wast)
+add_test(skip-stack-guard-page ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/skip-stack-guard-page.wast)
+#add_test(soft-fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/soft-fail.wast)
 add_test(start ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/start.wast)
 #add_test(stack ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/stack.wast)
 add_test(store_retval ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/store_retval.wast)
@@ -59,6 +61,7 @@ add_test(tee_local ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/tee_local.wast)
 add_test(traps ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/traps.wast)
 add_test(typecheck ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/typecheck.wast)
 add_test(unreachable ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/unreachable.wast)
+#add_test(unwind ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/unwind.wast)
 
 add_test(address-offset-range.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/address-offset-range.fail.wast)
 set_tests_properties(address-offset-range.fail PROPERTIES WILL_FAIL TRUE)
@@ -161,3 +164,48 @@ set_tests_properties(of_string-overflow-u32.fail PROPERTIES WILL_FAIL TRUE)
 
 add_test(of_string-overflow-u64.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/of_string-overflow-u64.fail.wast)
 set_tests_properties(of_string-overflow-u64.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(x.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/x.fail.wast)
+set_tests_properties(x.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(block-end-label-mismatch.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/block-end-label-mismatch.fail.wast)
+set_tests_properties(block-end-label-mismatch.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(block-end-label-superfluous.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/block-end-label-superfluous.fail.wast)
+set_tests_properties(block-end-label-superfluous.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(if-else-end-label-mismatch.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/if-else-end-label-mismatch.fail.wast)
+set_tests_properties(if-else-end-label-mismatch.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(if-else-end-label-superfluous.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/if-else-end-label-superfluous.fail.wast)
+set_tests_properties(if-else-end-label-superfluous.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(if-else-label-mismatch.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/if-else-label-mismatch.fail.wast)
+set_tests_properties(if-else-label-mismatch.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(if-else-label-superfluous.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/if-else-label-superfluous.fail.wast)
+set_tests_properties(if-else-label-superfluous.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(if-end-label-mismatch.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/if-end-label-mismatch.fail.wast)
+set_tests_properties(if-end-label-mismatch.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(if-end-label-superfluous.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/if-end-label-superfluous.fail.wast)
+set_tests_properties(if-end-label-superfluous.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(load-align-0.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/load-align-0.fail.wast)
+set_tests_properties(load-align-0.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(load-align-odd.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/load-align-odd.fail.wast)
+set_tests_properties(load-align-odd.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(loop-end-label-mismatch.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/loop-end-label-mismatch.fail.wast)
+set_tests_properties(loop-end-label-mismatch.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(loop-end-label-superfluous.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/loop-end-label-superfluous.fail.wast)
+set_tests_properties(loop-end-label-superfluous.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(store-align-0.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/store-align-0.fail.wast)
+set_tests_properties(store-align-0.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(store-align-odd.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/store-align-odd.fail.wast)
+set_tests_properties(store-align-odd.fail PROPERTIES WILL_FAIL TRUE)

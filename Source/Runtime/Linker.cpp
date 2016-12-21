@@ -19,10 +19,9 @@ namespace Runtime
 		return outObject != nullptr;
 	}
 
-	std::vector<Object*> linkModule(const WebAssembly::Module& module,Resolver& resolver)
+	LinkResult linkModule(const WebAssembly::Module& module,Resolver& resolver)
 	{
-		std::vector<Object*> imports;
-		std::vector<LinkException::MissingImport> missingImports;
+		LinkResult linkResult;
 		for(const Import& import : module.imports)
 		{
 			const ObjectType objectType = resolveImportType(module,import.type);
@@ -33,18 +32,12 @@ namespace Runtime
 			{
 				// Sanity check that the resolver returned an object of the right type.
 				errorUnless(isA(importValue,objectType));
-				imports.push_back(importValue);
+				linkResult.resolvedImports.push_back(importValue);
 			}
-			else { missingImports.push_back({import.module,import.exportName,objectType}); }
+			else { linkResult.missingImports.push_back({import.module,import.exportName,objectType}); }
 		}
 
-		if(missingImports.size()) { throw LinkException {std::move(missingImports)}; }
-		else { return imports; }
-	}
-
-	ModuleInstance* linkAndInstantiateModule(const Module& module,Resolver& resolver)
-	{
-		std::vector<Object*> imports = linkModule(module,resolver);
-		return instantiateModule(module,std::move(imports));
+		linkResult.success = linkResult.missingImports.size() == 0;
+		return linkResult;
 	}
 }

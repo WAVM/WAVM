@@ -234,11 +234,15 @@ namespace WAST
 		}
 		void beginElse(NoImm imm)
 		{
-			popControlStack(true);
+			string += DEDENT_STRING;
+			controlStack.back().type = ControlContext::Type::ifElse;
+			string += "\nelse" INDENT_STRING;
 		}
 		void end(NoImm)
 		{
-			popControlStack();
+			string += DEDENT_STRING;
+			if(controlStack.back().type != ControlContext::Type::function) { string += "\nend ;; "; string += controlStack.back().labelId; }
+			controlStack.pop_back();
 		}
 		
 		void ret(NoImm)
@@ -313,10 +317,10 @@ namespace WAST
 			string += "\ncall_indirect " + moduleContext.names.types[imm.typeIndex];
 		}
 
-		void grow_memory(NoImm) { string += "\ngrow_memory"; }
-		void current_memory(NoImm) { string += "\ncurrent_memory"; }
+		void grow_memory(MemoryImm) { string += "\ngrow_memory"; }
+		void current_memory(MemoryImm) { string += "\ncurrent_memory"; }
 
-		void error(ErrorImm imm) { string += "\nerror \"" + escapeString(imm.message.data(),imm.message.size()) + "\""; popControlStack(); }
+		void error(ErrorImm imm) { string += "\nerror \"" + escapeString(imm.message.data(),imm.message.size()) + "\""; enterUnreachable(); }
 
 		#define PRINT_CONST(typeId,nativeType,toString) \
 			void typeId##_const(LiteralImm<nativeType> imm) { string += "\n" #typeId; string += ".const "; string += toString(imm.value); }
@@ -325,30 +329,30 @@ namespace WAST
 
 		#define PRINT_LOAD_OPCODE(typeId,name,naturalAlignmentLog2,resultType) void typeId##_##name(LoadOrStoreImm imm) \
 			{ \
-				string += "\n" #typeId "." #name " align="; \
-				string += std::to_string(1 << imm.alignmentLog2); \
+				string += "\n" #typeId "." #name; \
+				if(imm.alignmentLog2 != naturalAlignmentLog2) { string += " align=" + std::to_string(1 << imm.alignmentLog2); } \
 				if(imm.offset != 0) { string += " offset=" + std::to_string(imm.offset); } \
 			}
 
-		PRINT_LOAD_OPCODE(i32,load8_s,1,i32)  PRINT_LOAD_OPCODE(i32,load8_u,1,i32)
-		PRINT_LOAD_OPCODE(i32,load16_s,2,i32) PRINT_LOAD_OPCODE(i32,load16_u,2,i32)
-		PRINT_LOAD_OPCODE(i64,load8_s,1,i64)  PRINT_LOAD_OPCODE(i64,load8_u,1,i64)
-		PRINT_LOAD_OPCODE(i64,load16_s,2,i64)  PRINT_LOAD_OPCODE(i64,load16_u,2,i64)
-		PRINT_LOAD_OPCODE(i64,load32_s,4,i64)  PRINT_LOAD_OPCODE(i64,load32_u,4,i64)
+		PRINT_LOAD_OPCODE(i32,load8_s,0,i32)  PRINT_LOAD_OPCODE(i32,load8_u,0,i32)
+		PRINT_LOAD_OPCODE(i32,load16_s,1,i32) PRINT_LOAD_OPCODE(i32,load16_u,1,i32)
+		PRINT_LOAD_OPCODE(i64,load8_s,0,i64)  PRINT_LOAD_OPCODE(i64,load8_u,0,i64)
+		PRINT_LOAD_OPCODE(i64,load16_s,1,i64)  PRINT_LOAD_OPCODE(i64,load16_u,1,i64)
+		PRINT_LOAD_OPCODE(i64,load32_s,2,i64)  PRINT_LOAD_OPCODE(i64,load32_u,2,i64)
 
-		PRINT_LOAD_OPCODE(i32,load,4,i32) PRINT_LOAD_OPCODE(i64,load,8,i64)
-		PRINT_LOAD_OPCODE(f32,load,4,f32) PRINT_LOAD_OPCODE(f64,load,8,f64)
+		PRINT_LOAD_OPCODE(i32,load,2,i32) PRINT_LOAD_OPCODE(i64,load,3,i64)
+		PRINT_LOAD_OPCODE(f32,load,2,f32) PRINT_LOAD_OPCODE(f64,load,3,f64)
 			
 		#define PRINT_STORE_OPCODE(typeId,name,naturalAlignmentLog2,valueTypeId) void typeId##_##name(LoadOrStoreImm imm) \
 			{ \
-				string += "\n" #typeId "." #name " align="; \
-				string += std::to_string(1 << imm.alignmentLog2); \
+				string += "\n" #typeId "." #name; \
+				if(imm.alignmentLog2 != naturalAlignmentLog2) { string += " align=" + std::to_string(1 << imm.alignmentLog2); } \
 				if(imm.offset != 0) { string += " offset=" + std::to_string(imm.offset); } \
 			}
 
-		PRINT_STORE_OPCODE(i32,store8,1,i32) PRINT_STORE_OPCODE(i32,store16,2,i32) PRINT_STORE_OPCODE(i32,store,4,i32)
-		PRINT_STORE_OPCODE(i64,store8,1,i64) PRINT_STORE_OPCODE(i64,store16,2,i64) PRINT_STORE_OPCODE(i64,store32,4,i64) PRINT_STORE_OPCODE(i64,store,8,i64)
-		PRINT_STORE_OPCODE(f32,store,4,f32) PRINT_STORE_OPCODE(f64,store,8,f64)
+		PRINT_STORE_OPCODE(i32,store8,0,i32) PRINT_STORE_OPCODE(i32,store16,1,i32) PRINT_STORE_OPCODE(i32,store,2,i32)
+		PRINT_STORE_OPCODE(i64,store8,0,i64) PRINT_STORE_OPCODE(i64,store16,1,i64) PRINT_STORE_OPCODE(i64,store32,2,i64) PRINT_STORE_OPCODE(i64,store,3,i64)
+		PRINT_STORE_OPCODE(f32,store,2,f32) PRINT_STORE_OPCODE(f64,store,3,f64)
 
 		#define PRINT_CONVERSION_OPCODE(name,operandTypeId,resultTypeId) void resultTypeId##_##name##_##operandTypeId(NoImm) \
 			{ string += "\n" #resultTypeId "." #name "/" #operandTypeId; }
@@ -474,21 +478,6 @@ namespace WAST
 			}
 			controlStack.push_back({type,labelId});
 			string += INDENT_STRING;
-		}
-
-		void popControlStack(bool isElse = false)
-		{
-			string += DEDENT_STRING;
-			if(isElse)
-			{
-				controlStack.back().type = ControlContext::Type::ifElse;
-				string += "\nelse" INDENT_STRING;
-			}
-			else
-			{
-				if(controlStack.back().type != ControlContext::Type::function) { string += "\nend ;; "; string += controlStack.back().labelId; }
-				controlStack.pop_back();
-			}
 		}
 
 		void enterUnreachable()
@@ -726,7 +715,7 @@ namespace WAST
 			decoder.decodeOp(*this);
 		};
 
-		string += INDENT_STRING;
+		string += INDENT_STRING "\n";
 	}
 
 	std::string print(const Module& module)

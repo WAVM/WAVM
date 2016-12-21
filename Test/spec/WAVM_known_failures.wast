@@ -807,3 +807,11 @@
     (block (br_if 0 (i32.const 6) (unreachable)) (i32.const 7))
   )
 ) "unexpected operand")
+
+;;
+;; from memory.wast
+;;
+
+(assert_unlinkable
+	(module (memory 0 0) (data (i32.const 1) ""))
+	"invalid segment offset")

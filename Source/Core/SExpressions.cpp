@@ -5,6 +5,9 @@
 #include <climits>
 #include <cerrno>
 #include <cstdlib>
+#include "math.h"
+#include "stdlib.h"
+#include "string.h"
 
 namespace DavidGay
 {

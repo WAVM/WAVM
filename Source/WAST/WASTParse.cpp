@@ -689,8 +689,19 @@ namespace WAST
 				break; \
 				case Symbol::_##opcode:
 
-			DEFINE_OP(current_memory)	{ encoder.current_memory(); resultType = ExpressionType::i32; }
-			DEFINE_OP(grow_memory)		{ parseOperands(nodeIt,"grow_memory operand",ExpressionType::i32); encoder.grow_memory(); resultType = ExpressionType::i32; }
+			DEFINE_OP(current_memory)
+			{
+				if(!moduleContext.memoryTypes.size()) { emitError(parentNodeIt,"current_memory: module does not have default memory"); break; }
+				encoder.current_memory();
+				resultType = ExpressionType::i32;
+			}
+			DEFINE_OP(grow_memory)
+			{
+				if(!moduleContext.memoryTypes.size()) { emitError(parentNodeIt,"grow_memory: module does not have default memory"); break; }
+				parseOperands(nodeIt,"grow_memory operand",ExpressionType::i32);
+				encoder.grow_memory();
+				resultType = ExpressionType::i32;
+			}
 
 			#define DEFINE_CONST_OP(type,parseLiteralFunc) \
 				DEFINE_OP(type##_const) \
@@ -1720,16 +1731,6 @@ namespace WAST
 			{
 				// Validate that there is a memory to place this segment in, and that it's minimum size includes the segment's address range.
 				if(!memoryTypes.size()) { recordError(*this,nodeIt,"module does not have a memory to allocate data segment in"); }
-				else if(baseOffset.type == InitializerExpression::Type::i32_const
-					&& (uint64)baseOffset.i32 + dataVector.size() > (memoryTypes[0].size.min << WebAssembly::numBytesPerPageLog2))
-				{ recordError(*this,nodeIt,"data segment address range is outside of allocated memory pages"); }
-			
-				// Validate that this segment follows previous segment declarations.
-				if(module.dataSegments.size()
-					&& module.dataSegments.back().baseOffset.type == InitializerExpression::Type::i32_const
-					&& baseOffset.type == InitializerExpression::Type::i32_const
-					&& (uint32)module.dataSegments.back().baseOffset.i32 + module.dataSegments.back().data.size() > (uint32)baseOffset.i32)
-				{ recordError(*this,nodeIt,"data segment must use address range that follows previous segments"); }
 			}
 
 			// Create the data segment.
@@ -1779,18 +1780,6 @@ namespace WAST
 			{
 				// Validate that there is a table to place this segment in, and that its minimum size includes the segment's index range.
 				if(!tableTypes.size()) { recordError(*this,nodeIt,"module does not have a table to allocate this elem segment in"); }
-				else if(baseOffset.type == InitializerExpression::Type::i32_const
-					&& (uint64)baseOffset.i32 + functionIndices.size() > tableTypes[0].size.min)
-				{
-					recordError(*this,nodeIt,"elem segment index range is outside of allocated table indices");
-				}
-
-				// Validate that this segment follows previous segment declarations.
-				if(module.tableSegments.size()
-					&& module.tableSegments.back().baseOffset.type == InitializerExpression::Type::i32_const
-					&& baseOffset.type == InitializerExpression::Type::i32_const
-					&& (uint32)module.tableSegments.back().baseOffset.i32 + module.tableSegments.back().indices.size() > (uint32)baseOffset.i32)
-				{ recordError(*this,nodeIt,"elem segment must use index range that follows previous segments"); }
 			}
 
 			// Create the table segment.
