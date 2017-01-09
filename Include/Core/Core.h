@@ -32,7 +32,7 @@ typedef PointerIntHelper<sizeof(size_t)>::UnsignedIntType uintp;
 typedef PointerIntHelper<sizeof(size_t)>::IntType intp;
 
 #ifndef CORE_API
-	#define CORE_API DLL_EXPORT
+	#define CORE_API DLL_IMPORT
 #endif
 
 #ifndef _DEBUG
