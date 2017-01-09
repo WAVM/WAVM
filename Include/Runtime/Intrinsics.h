@@ -25,11 +25,14 @@ namespace Intrinsics
 
 		RUNTIME_API Global(const char* inName,WebAssembly::GlobalType inType);
 		RUNTIME_API ~Global();
+		
+		RUNTIME_API void reset();
 
 	protected:
 		void* value;
 	private:
 		const char* name;
+		WebAssembly::GlobalType globalType;
 	};
 	
 	// A partially specialized template for Intrinsic globals:
@@ -39,8 +42,8 @@ namespace Intrinsics
 	{
 		typedef typename WebAssembly::ValueTypeInfo<type>::Value Value;
 
-		GenericGlobal(const char* inName,WebAssembly::GlobalType inType,Value inValue)
-		: Global(inName,inType) { *(Value*)value = inValue; }
+		GenericGlobal(const char* inName,Value inValue)
+		: Global(inName,WebAssembly::GlobalType(type,isMutable)) { *(Value*)value = inValue; }
 
 		operator Value() const { return *(Value*)value; }
 		void operator=(Value newValue) { *(Value*)value = newValue; }
@@ -50,10 +53,16 @@ namespace Intrinsics
 	{
 		typedef typename WebAssembly::ValueTypeInfo<type>::Value Value;
 
-		GenericGlobal(const char* inName,WebAssembly::GlobalType inType,Value inValue)
-		: Global(inName,inType) { *(Value*)value = inValue; }
+		GenericGlobal(const char* inName,Value inValue)
+		: Global(inName,WebAssembly::GlobalType(type,false)) { *(Value*)value = inValue; }
 
 		operator Value() const { return *(Value*)value; }
+		
+		void reset(Value inValue)
+		{
+			Global::reset();
+			*(Value*)value = inValue;
+		}
 	};
 
 	// Intrinsic memories and tables
@@ -131,7 +140,7 @@ namespace NativeTypes
 // Macros for defining intrinsic globals, memories, and tables.
 #define DEFINE_INTRINSIC_GLOBAL(module,cName,name,valueType,isMutable,initializer) \
 	static Intrinsics::GenericGlobal<WebAssembly::ValueType::valueType,isMutable> \
-		cName(#module "." #name,{WebAssembly::ValueType::valueType,isMutable},initializer);
+		cName(#module "." #name,initializer);
 
 #define DEFINE_INTRINSIC_MEMORY(module,cName,name,type) static Intrinsics::Memory cName(#module "." #name,type);
 #define DEFINE_INTRINSIC_TABLE(module,cName,name,type) static Intrinsics::Table cName(#module "." #name,type);

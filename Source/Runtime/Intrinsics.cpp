@@ -51,14 +51,15 @@ namespace Intrinsics
 		delete function;
 	}
 
-	Global::Global(const char* inName,WebAssembly::GlobalType type)
+	Global::Global(const char* inName,WebAssembly::GlobalType inType)
 	:	name(inName)
+	,	globalType(inType)
 	{
-		global = new Runtime::GlobalInstance(type,Runtime::Value((int64)0));
+		global = new Runtime::GlobalInstance(inType,Runtime::Value((int64)0));
 		value = &global->value;
 		{
 			Platform::Lock lock(Singleton::get().mutex);
-			Singleton::get().variableMap[getDecoratedName(inName,type)] = this;
+			Singleton::get().variableMap[getDecoratedName(inName,inType)] = this;
 		}
 	}
 
@@ -69,6 +70,12 @@ namespace Intrinsics
 			Singleton::get().variableMap.erase(Singleton::get().variableMap.find(getDecoratedName(name,global->type)));
 		}
 		delete global;
+	}
+
+	void Global::reset()
+	{
+		global = new Runtime::GlobalInstance(globalType,Runtime::Value((int64)0));
+		value = &global->value;
 	}
 
 	Table::Table(const char* inName,const WebAssembly::TableType& type)

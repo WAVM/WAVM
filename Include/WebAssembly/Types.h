@@ -173,7 +173,10 @@ namespace WebAssembly
 	{
 		ValueType valueType;
 		bool isMutable;
-		
+	
+		GlobalType(): valueType(ValueType::invalid), isMutable(false) {}
+		GlobalType(ValueType inValueType,bool inIsMutable): valueType(inValueType), isMutable(inIsMutable) {}
+
 		friend bool operator==(const GlobalType& left,const GlobalType& right) { return left.valueType == right.valueType && left.isMutable == right.isMutable; }
 		friend bool operator!=(const GlobalType& left,const GlobalType& right) { return left.valueType != right.valueType || left.isMutable != right.isMutable; }
 	};

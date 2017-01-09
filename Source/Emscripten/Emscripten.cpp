@@ -22,15 +22,15 @@ namespace Emscripten
 		return (uint32)address;
 	}
 
-	DEFINE_INTRINSIC_GLOBAL(env,STACKTOP,STACKTOP,i32,true,0);
-	DEFINE_INTRINSIC_GLOBAL(env,STACK_MAX,STACK_MAX,i32,true,0);
-	DEFINE_INTRINSIC_GLOBAL(env,tempDoublePtr,tempDoublePtr,i32,true,0);
-	DEFINE_INTRINSIC_GLOBAL(env,ABORT,ABORT,i32,true,0);
-	DEFINE_INTRINSIC_GLOBAL(env,cttz_i8,cttz_i8,i32,true,0);
-	DEFINE_INTRINSIC_GLOBAL(env,___dso_handle,___dso_handle,i32,true,0);
-	DEFINE_INTRINSIC_GLOBAL(env,_stderr,_stderr,i32,true,0);
-	DEFINE_INTRINSIC_GLOBAL(env,_stdin,_stdin,i32,true,0);
-	DEFINE_INTRINSIC_GLOBAL(env,_stdout,_stdout,i32,true,0);
+	DEFINE_INTRINSIC_GLOBAL(env,STACKTOP,STACKTOP,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,STACK_MAX,STACK_MAX,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,tempDoublePtr,tempDoublePtr,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,ABORT,ABORT,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,cttz_i8,cttz_i8,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,___dso_handle,___dso_handle,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,_stderr,_stderr,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,_stdin,_stdin,i32,false,0);
+	DEFINE_INTRINSIC_GLOBAL(env,_stdout,_stdout,i32,false,0);
 
 	DEFINE_INTRINSIC_MEMORY(env,emscriptenMemory,memory,MemoryType({SizeConstraints({256,UINT64_MAX})}));
 	DEFINE_INTRINSIC_TABLE(env,table,table,TableType({TableElementType::anyfunc,SizeConstraints({1024*1024,UINT64_MAX})}));
@@ -38,11 +38,11 @@ namespace Emscripten
 	DEFINE_INTRINSIC_GLOBAL(env,memoryBase,memoryBase,i32,false,1024);
 	DEFINE_INTRINSIC_GLOBAL(env,tableBase,tableBase,i32,false,0);
 
-	DEFINE_INTRINSIC_GLOBAL(env,DYNAMICTOP_PTR,DYNAMICTOP_PTR,i32,true,0)
-	DEFINE_INTRINSIC_GLOBAL(env,em_environ,_environ,i32,true,0)
-	DEFINE_INTRINSIC_GLOBAL(env,EMTSTACKTOP,EMTSTACKTOP,i32,true,0)
-	DEFINE_INTRINSIC_GLOBAL(env,EMT_STACK_MAX,EMT_STACK_MAX,i32,true,0)
-	DEFINE_INTRINSIC_GLOBAL(env,eb,eb,i32,true,0)
+	DEFINE_INTRINSIC_GLOBAL(env,DYNAMICTOP_PTR,DYNAMICTOP_PTR,i32,false,0)
+	DEFINE_INTRINSIC_GLOBAL(env,em_environ,_environ,i32,false,0)
+	DEFINE_INTRINSIC_GLOBAL(env,EMTSTACKTOP,EMTSTACKTOP,i32,false,0)
+	DEFINE_INTRINSIC_GLOBAL(env,EMT_STACK_MAX,EMT_STACK_MAX,i32,false,0)
+	DEFINE_INTRINSIC_GLOBAL(env,eb,eb,i32,false,0)
 
 	bool hasSbrkBeenCalled = false;
 	size_t sbrkNumPages = 0;
@@ -161,7 +161,6 @@ namespace Emscripten
 	}
 	DEFINE_INTRINSIC_FUNCTION4(env,___assert_fail,___assert_fail,none,i32,condition,i32,filename,i32,line,i32,function)
 	{
-		ABORT = 1;
 		causeException(Runtime::Exception::Cause::calledAbort);
 	}
 
@@ -367,8 +366,8 @@ namespace Emscripten
 	static float64 makeNaN() { return zero / zero; }
 	static float64 makeInf() { return 1.0/zero; }
 
-	DEFINE_INTRINSIC_GLOBAL(global,NaN,NaN,f64,true,makeNaN())
-	DEFINE_INTRINSIC_GLOBAL(global,Infinity,Infinity,f64,true,makeInf())
+	DEFINE_INTRINSIC_GLOBAL(global,NaN,NaN,f64,false,makeNaN())
+	DEFINE_INTRINSIC_GLOBAL(global,Infinity,Infinity,f64,false,makeInf())
 
 	DEFINE_INTRINSIC_FUNCTION2(asm2wasm,i32_remu,i32u-rem,i32,i32,left,i32,right)
 	{
@@ -393,16 +392,16 @@ namespace Emscripten
 		if(getDefaultMemory(moduleInstance) == emscriptenMemory)
 		{
 			// Allocate a 5MB stack.
-			STACKTOP = coerce32bitAddress(sbrk(5*1024*1024));
-			STACK_MAX = coerce32bitAddress(sbrk(0));
+			STACKTOP.reset(coerce32bitAddress(sbrk(5*1024*1024)));
+			STACK_MAX.reset(coerce32bitAddress(sbrk(0)));
 
 			// Allocate some 8 byte memory region for tempDoublePtr.
-			tempDoublePtr = coerce32bitAddress(sbrk(8));
+			tempDoublePtr.reset(coerce32bitAddress(sbrk(8)));
 
 			// Setup IO stream handles.
-			_stderr = coerce32bitAddress(sbrk(sizeof(uint32)));
-			_stdin = coerce32bitAddress(sbrk(sizeof(uint32)));
-			_stdout = coerce32bitAddress(sbrk(sizeof(uint32)));
+			_stderr.reset(coerce32bitAddress(sbrk(sizeof(uint32))));
+			_stdin.reset(coerce32bitAddress(sbrk(sizeof(uint32))));
+			_stdout.reset(coerce32bitAddress(sbrk(sizeof(uint32))));
 			memoryRef<uint32>(emscriptenMemory,_stderr) = (uint32)ioStreamVMHandle::StdErr;
 			memoryRef<uint32>(emscriptenMemory,_stdin) = (uint32)ioStreamVMHandle::StdIn;
 			memoryRef<uint32>(emscriptenMemory,_stdout) = (uint32)ioStreamVMHandle::StdOut;
