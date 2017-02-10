@@ -319,10 +319,10 @@ private:
 		Exception::Cause expectedCause = Exception::Cause::unknown;
 		if(!strcmp(message.c_str(),"out of bounds memory access")) { expectedCause = Exception::Cause::accessViolation; }
 		else if(!strcmp(message.c_str(),"callstack exhausted")) { expectedCause = Exception::Cause::stackOverflow; }
+		else if(!strcmp(message.c_str(),"call stack exhausted")) { expectedCause = Exception::Cause::stackOverflow; }
 		else if(!strcmp(message.c_str(),"integer overflow")) { expectedCause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
 		else if(!strcmp(message.c_str(),"integer divide by zero")) { expectedCause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
 		else if(!strcmp(message.c_str(),"invalid conversion to integer")) { expectedCause = Exception::Cause::invalidFloatOperation; }
-		else if(!strcmp(message.c_str(),"call stack exhausted")) { expectedCause = Exception::Cause::stackOverflow; }
 		else if(!strcmp(message.c_str(),"unreachable executed")) { expectedCause = Exception::Cause::reachedUnreachable; }
 		else if(!strcmp(message.c_str(),"unreachable")) { expectedCause = Exception::Cause::reachedUnreachable; }
 		else if(!strcmp(message.c_str(),"indirect call signature mismatch")) { expectedCause = Exception::Cause::indirectCallSignatureMismatch; }
@@ -345,6 +345,32 @@ private:
 			// Check that the action result was an exception of the expected type.
 			if(exception.cause != expectedCause)
 			{ recordError(locus,std::string("assert_trap: expected ") + expectedCauseDescription + " trap but got " + describeExceptionCause(exception.cause) + " trap"); }
+		}
+
+		// Verify that all of the assert_trap's parameters were matched.
+		if(nodeIt) { recordExcessInputError(nodeIt,"assert_trap unexpected input"); }
+	}
+
+	void processAssertExhaustion(Core::TextFileLocus locus,SNodeIt nodeIt)
+	{
+		SNodeIt actionNodeIt = nodeIt++;
+		
+		// Parse the expected value of the invoke.
+		std::string message;
+		if(!parseString(nodeIt,message)) { recordError(nodeIt,"expected trap message"); return; }
+		
+		// Process the action.
+		try
+		{
+			Result result;
+			if(!processAction(actionNodeIt,result)) { return; }
+			recordError(locus,"assert_trap: expected stack overflow trap but got " + asString(result));
+		}
+		catch(Exception exception)
+		{
+			// Check that the action result was an exception of the expected type.
+			if(exception.cause != Exception::Cause::stackOverflow)
+			{ recordError(locus,std::string("assert_trap: expected stack overflow trap but got ") + describeExceptionCause(exception.cause) + " trap"); }
 		}
 
 		// Verify that all of the assert_trap's parameters were matched.
@@ -404,14 +430,18 @@ private:
 		}
 
 		std::string description;
-		if(!parseString(nodeIt,description)) { recordError(nodeIt,"expected assert_unlinkable description"); return; }
+		if(!parseString(nodeIt,description)) { recordError(nodeIt,"expected assert_unlinkable description\n"); return; }
 
 		try
 		{
+			Log::printf(Log::Category::debug,"assert_unlinkable: %u a\n",moduleNodeIt->startLocus.newlines + 1);
 			LinkResult linkResult = linkModule(*unlinkableModule,*this);
+			Log::printf(Log::Category::debug,"assert_unlinkable: %u b\n",moduleNodeIt->startLocus.newlines + 1);
 			if(linkResult.success)
 			{
+				Log::printf(Log::Category::debug,"assert_unlinkable: %u c\n",moduleNodeIt->startLocus.newlines + 1);
 				instantiateModule(*unlinkableModule,std::move(linkResult.resolvedImports));
+				Log::printf(Log::Category::debug,"assert_unlinkable: %u d\n",moduleNodeIt->startLocus.newlines + 1);
 				recordError(moduleNodeIt,"expected unlinkable module, but link succeeded");
 			}
 		}
@@ -542,6 +572,10 @@ bool TestScriptState::process()
 		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
 		{
 			processAssertTrap(rootNodeIt->startLocus,childNodeIt);
+		}
+		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_exhaustion,childNodeIt))
+		{
+			processAssertExhaustion(rootNodeIt->startLocus,childNodeIt);
 		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_unlinkable,childNodeIt))
 		{

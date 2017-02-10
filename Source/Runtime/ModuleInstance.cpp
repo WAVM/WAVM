@@ -86,6 +86,27 @@ namespace Runtime
 			moduleInstance->defaultTable = moduleInstance->tables[0];
 		}
 
+		// If any memory or table segment doesn't fit, throw an exception before mutating any memory/table.
+		for(auto& tableSegment : module.tableSegments)
+		{
+			Table* table = moduleInstance->tables[tableSegment.tableIndex];
+			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
+			const uint32 baseOffset = baseOffsetValue.i32;
+			if(baseOffset + tableSegment.indices.size() > table->elements.size())
+			{ causeException(Exception::Cause::invalidSegmentOffset); }
+		}
+		for(auto& dataSegment : module.dataSegments)
+		{
+			Memory* memory = moduleInstance->memories[dataSegment.memoryIndex];
+
+			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
+			const uint32 baseOffset = baseOffsetValue.i32;
+			if(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2))
+			{ causeException(Exception::Cause::invalidSegmentOffset); }
+		}
+
 		// Copy the module's data segments into the module's default memory.
 		for(auto& dataSegment : module.dataSegments)
 		{
@@ -95,10 +116,7 @@ namespace Runtime
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			if(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2))
-			{
-				causeException(Exception::Cause::invalidSegmentOffset);
-			}
+			assert(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2));
 
 			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
 		}
@@ -148,11 +166,7 @@ namespace Runtime
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
-
-			if(baseOffset + tableSegment.indices.size() > table->elements.size())
-			{
-				causeException(Exception::Cause::invalidSegmentOffset);
-			}
+			assert(baseOffset + tableSegment.indices.size() > table->elements.size());
 
 			for(uintp index = 0;index < tableSegment.indices.size();++index)
 			{
