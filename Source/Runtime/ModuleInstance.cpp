@@ -116,7 +116,7 @@ namespace Runtime
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			assert(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2));
+			assert(baseOffset + dataSegment.data.size() <= (memory->numPages << WebAssembly::numBytesPerPageLog2));
 
 			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
 		}
@@ -166,7 +166,7 @@ namespace Runtime
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
-			assert(baseOffset + tableSegment.indices.size() > table->elements.size());
+			assert(baseOffset + tableSegment.indices.size() <= table->elements.size());
 
 			for(uintp index = 0;index < tableSegment.indices.size();++index)
 			{
