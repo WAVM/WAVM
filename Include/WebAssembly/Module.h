@@ -72,11 +72,11 @@ namespace WebAssembly
 	{
 		enum class Type : uint8
 		{
-			i32_const = 0x10,
-			i64_const = 0x11,
-			f32_const = 0x13,
-			f64_const = 0x12,
-			get_global = 0xbb,
+			i32_const = 0x41,
+			i64_const = 0x42,
+			f32_const = 0x43,
+			f64_const = 0x44,
+			get_global = 0x23,
 			error = 0xff
 		};
 		Type type;

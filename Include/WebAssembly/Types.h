@@ -140,7 +140,7 @@ namespace WebAssembly
 	// The type of element a table contains: for now can only be anyfunc, meaning any function type.
 	enum class TableElementType : uint8
 	{
-		anyfunc = (uint8)-16
+		anyfunc = 0x70
 	};
 
 	// The type of a table
