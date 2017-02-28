@@ -1401,6 +1401,17 @@
   ))
   "type mismatch"
 )
+(assert_invalid
+  (module (func $type-arg-num-vs-arg-num
+    (block
+      (block f32
+        (br_table 0 1 (f32.const 0) (i32.const 0))
+      )
+      (drop)
+    )
+  ))
+  "type mismatch"
+)
 
 (assert_invalid
   (module (func $type-index-void-vs-i32
@@ -1417,6 +1428,12 @@
 (assert_invalid
   (module (func $type-arg-index-void-vs-i32 (result i32)
     (block i32 (br_table 0 0 (i32.const 0) (nop)) (i32.const 1))
+  ))
+  "type mismatch"
+)
+(assert_invalid
+  (module (func $type-arg-void-vs-num-nested (result i32)
+    (block i32 (i32.const 0) (block (br_table 1 (i32.const 0))))
   ))
   "type mismatch"
 )

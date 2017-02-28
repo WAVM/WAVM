@@ -799,6 +799,20 @@
 ) "expecting () in block but found i32")
 
 ;;
+;; from select.wast
+;;
+
+(assert_invalid (module
+  (func (export "select_unreached")
+    (unreachable) (select)
+    (unreachable) (i32.const 0) (select)
+    (unreachable) (i32.const 0) (i32.const 0) (select)
+    (unreachable) (f32.const 0) (i32.const 0) (select)
+    (unreachable)
+  )
+) "expected expression")
+
+;;
 ;; from unreachable.wast
 ;;
 
@@ -807,6 +821,12 @@
     (block (br_if 0 (i32.const 6) (unreachable)) (i32.const 7))
   )
 ) "unexpected operand")
+
+(assert_invalid (module
+  (func (export "as-br_table-value-and-index") (result i32)
+    (block i32 (br_table 0 0 (unreachable)) (i32.const 8))
+  )
+) "expected expression")
 
 ;;
 ;; from memory.wast

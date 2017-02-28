@@ -72,9 +72,15 @@
   (func (export "as-br_table-value") (result i32)
     (block i32 (br_table 0 0 0 (unreachable) (i32.const 1)) (i32.const 7))
   )
+  (func (export "as-br_table-value-2") (result i32)
+    (block i32 (block i32 (br_table 0 1 (unreachable) (i32.const 1))))
+  )
   (func (export "as-br_table-value-index") (result i32)
     (block i32 (br_table 0 0 (i32.const 6) (unreachable)) (i32.const 7))
   )
+  (;(func (export "as-br_table-value-and-index") (result i32)
+    (block i32 (br_table 0 0 (unreachable)) (i32.const 8))
+  );)
 
   (func (export "as-return-value") (result i64)
     (return (unreachable))
@@ -211,7 +217,9 @@
 
 (assert_trap (invoke "as-br_table-index") "unreachable")
 (assert_trap (invoke "as-br_table-value") "unreachable")
+(assert_trap (invoke "as-br_table-value-2") "unreachable")
 (assert_trap (invoke "as-br_table-value-index") "unreachable")
+;;(assert_trap (invoke "as-br_table-value-and-index") "unreachable")
 
 (assert_trap (invoke "as-return-value") "unreachable")
 
