@@ -908,6 +908,8 @@ namespace WAST
 					else	{ parseTypedExpression(nodeIt++,"else",resultType); }
 					++nodeIt;
 				}
+				else if(resultType != ExpressionType::none)
+					{ emitError(nodeIt,"if: expected else clause in if operator that yields a result"); }
 
 				endControlStructure();
 			}
