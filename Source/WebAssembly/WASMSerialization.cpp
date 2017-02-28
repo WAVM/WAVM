@@ -11,7 +11,7 @@ namespace WebAssembly
 	enum
 	{
 		magicNumber=0x6d736100, // "\0asm"
-		currentVersion=0xd
+		currentVersion=1
 	};
 
 	enum class SectionType : uint8
