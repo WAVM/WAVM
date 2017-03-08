@@ -153,6 +153,8 @@ namespace WAST
 		
 		DisassemblyNames names;
 
+		uintp numImportedFunctions;
+
 		ModulePrintContext(const Module& inModule,std::string& inString)
 		: module(inModule), string(inString)
 		{
@@ -160,14 +162,21 @@ namespace WAST
 			getDisassemblyNames(module,names);
 			NameScope globalNameScope('$');
 			for(auto& name : names.types) { globalNameScope.map(name); }
-			for(auto& name : names.functions) { globalNameScope.map(name); }
 			for(auto& name : names.tables) { globalNameScope.map(name); }
 			for(auto& name : names.memories) { globalNameScope.map(name); }
 			for(auto& name : names.globals) { globalNameScope.map(name); }
-			for(auto& functionDef : names.functionDefs)
+			for(auto& function : names.functions)
 			{
+				globalNameScope.map(function.name);
+
 				NameScope localNameScope('$');
-				for(auto& name : functionDef.locals) { localNameScope.map(name); }
+				for(auto& name : function.locals) { localNameScope.map(name); }
+			}
+
+			numImportedFunctions = 0;
+			for(uintp importIndex = 0;importIndex < inModule.imports.size();++importIndex)
+			{
+				if(inModule.imports[importIndex].type.kind == ObjectKind::function) { ++numImportedFunctions; }
 			}
 		}
 
@@ -204,7 +213,7 @@ namespace WAST
 		, functionDef(inModuleContext.module.functionDefs[functionDefIndex])
 		, functionType(inModuleContext.module.types[functionDef.typeIndex])
 		, string(inModuleContext.string)
-		, localNames(inModuleContext.names.functionDefs[functionDefIndex].locals)
+		, localNames(inModuleContext.names.functions[inModuleContext.numImportedFunctions + functionDefIndex].locals)
 		, labelNameScope('$')
 		{}
 
@@ -310,7 +319,7 @@ namespace WAST
 
 		void call(CallImm imm)
 		{
-			string += "\ncall " + moduleContext.names.functions[imm.functionIndex];
+			string += "\ncall " + moduleContext.names.functions[imm.functionIndex].name;
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
@@ -521,7 +530,7 @@ namespace WAST
 				const char* importName;
 				switch(import.type.kind)
 				{
-				case ObjectKind::function: typeTag = "func"; importName = names.functions[importedFunctionIndex++].c_str(); printSignature(typeBody,module.types[import.type.functionTypeIndex]); break;
+				case ObjectKind::function: typeTag = "func"; importName = names.functions[importedFunctionIndex++].name.c_str(); printSignature(typeBody,module.types[import.type.functionTypeIndex]); break;
 				case ObjectKind::table: typeTag = "table"; importName = names.tables[importedTableIndex++].c_str(); print(typeBody,import.type.table.size); typeBody += " anyfunc"; break;
 				case ObjectKind::memory: typeTag = "memory"; importName = names.memories[importedMemoryIndex++].c_str(); print(typeBody,import.type.memory.size); break;
 				case ObjectKind::global: typeTag = "global"; importName = names.globals[importedGlobalIndex++].c_str(); print(typeBody,import.type.global); break;
@@ -546,7 +555,7 @@ namespace WAST
 			string += "\" (";
 			switch(export_.kind)
 			{
-			case ObjectKind::function: string += "func " + names.functions[export_.index]; break;
+			case ObjectKind::function: string += "func " + names.functions[export_.index].name; break;
 			case ObjectKind::table: string += "table " + names.tables[export_.index]; break;
 			case ObjectKind::memory: string += "memory " + names.memories[export_.index]; break;
 			case ObjectKind::global: string += "global " + names.globals[export_.index]; break;
@@ -610,7 +619,7 @@ namespace WAST
 			{
 				if(elementIndex % numElemsPerLine == 0) { string += '\n'; }
 				else { string += ' '; }
-				string += names.functions[tableSegment.indices[elementIndex]];
+				string += names.functions[tableSegment.indices[elementIndex]].name;
 			}
 		}
 		for(auto dataSegment : module.dataSegments)
@@ -630,10 +639,9 @@ namespace WAST
 			}
 		}
 
-		const uintp baseFunctionDefIndex = names.functions.size() - names.functionDefs.size();
 		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
-			const uintp functionIndex = baseFunctionDefIndex + functionDefIndex;
+			const uintp functionIndex = numImportedFunctions + functionDefIndex;
 			const Function& functionDef = module.functionDefs[functionDefIndex];
 			const FunctionType* functionType = module.types[functionDef.typeIndex];
 			FunctionPrintContext functionContext(*this,functionDefIndex);
@@ -642,7 +650,7 @@ namespace WAST
 			ScopedTagPrinter funcTag(string,"func");
 
 			string += ' ';
-			string += names.functions[functionIndex];
+			string += names.functions[functionIndex].name;
 			
 			// Print the function parameters.
 			if(functionType->parameters.size())

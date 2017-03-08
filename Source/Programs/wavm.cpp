@@ -56,7 +56,7 @@ struct RootResolver : Resolver
 			stubModule.types.push_back(type.function);
 			stubModule.functionDefs.push_back({{},0,{0,stubModule.code.size()}});
 			stubModule.exports.push_back({"importStub",ObjectKind::function,0});
-			stubModuleNames.functions.push_back(std::string(moduleName) + "." + exportName);
+			stubModuleNames.functions.push_back({std::string(moduleName) + "." + exportName,{}});
 			setDisassemblyNames(stubModule,stubModuleNames);
 			WebAssembly::validate(stubModule);
 

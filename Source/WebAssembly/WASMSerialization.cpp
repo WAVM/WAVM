@@ -501,7 +501,13 @@ namespace WebAssembly
 		{
 			switch(import.type.kind)
 			{
-			case ObjectKind::function: outNames.functions.push_back(""); break;
+			case ObjectKind::function:
+			{
+				DisassemblyNames::Function functionNames;
+				functionNames.locals.resize(module.types[import.type.functionTypeIndex]->parameters.size());
+				outNames.functions.push_back(std::move(functionNames));
+				break;
+			}
 			case ObjectKind::table: outNames.tables.push_back(""); break;
 			case ObjectKind::memory: outNames.memories.push_back(""); break;
 			case ObjectKind::global: outNames.globals.push_back(""); break;
@@ -513,14 +519,13 @@ namespace WebAssembly
 		outNames.tables.insert(outNames.tables.end(),module.tableDefs.size(),"");
 		outNames.memories.insert(outNames.memories.end(),module.memoryDefs.size(),"");
 		outNames.globals.insert(outNames.globals.end(),module.globalDefs.size(),"");
-		outNames.functions.insert(outNames.functions.end(),module.functionDefs.size(),"");
 		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
 			const Function& functionDef = module.functionDefs[functionDefIndex];
 			const FunctionType* functionType = module.types[functionDef.typeIndex];
-			DisassemblyNames::FunctionDef functionDefNames;
-			functionDefNames.locals.insert(functionDefNames.locals.begin(),functionType->parameters.size() + functionDef.nonParameterLocalTypes.size(),"");
-			outNames.functionDefs.push_back(std::move(functionDefNames));
+			DisassemblyNames::Function functionNames;
+			functionNames.locals.insert(functionNames.locals.begin(),functionType->parameters.size() + functionDef.nonParameterLocalTypes.size(),"");
+			outNames.functions.push_back(std::move(functionNames));
 		}
 
 		// Deserialize the name section, if it is present.
@@ -534,21 +539,23 @@ namespace WebAssembly
 			
 				size_t numFunctionNames = 0;
 				serializeVarUInt32(stream,numFunctionNames);
-				numFunctionNames = std::min(numFunctionNames,module.functionDefs.size());
+				numFunctionNames = std::min(numFunctionNames,outNames.functions.size());
 
-				for(uintp functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
+				for(uintp functionIndex = 0;functionIndex < numFunctionNames;++functionIndex)
 				{
-					const uintp functionIndex = numImportedFunctions + functionDefIndex;
-					DisassemblyNames::FunctionDef& functionDefNames = outNames.functionDefs[functionDefIndex];
+					DisassemblyNames::Function& functionNames = outNames.functions[functionIndex];
 
-					serialize(stream,outNames.functions[functionIndex]);
+					serialize(stream,outNames.functions[functionIndex].name);
 
 					size_t numLocalNames = 0;
 					serializeVarUInt32(stream,numLocalNames);
-					numLocalNames = std::min(numLocalNames,functionDefNames.locals.size());
 
 					for(uintp localIndex = 0;localIndex < numLocalNames;++localIndex)
-					{ serialize(stream,functionDefNames.locals[localIndex]); }
+					{
+						std::string localName;
+						serialize(stream,localName);
+						if(localIndex < functionNames.locals.size()) { functionNames.locals[localIndex] = std::move(localName); }
+					}
 				}
 			}
 			catch(FatalSerializationException exception)
@@ -570,23 +577,19 @@ namespace WebAssembly
 
 		ArrayOutputStream stream;
 		
-		size_t numFunctionNames = std::max(names.functions.size(),names.functionDefs.size());
+		size_t numFunctionNames = names.functions.size();
 		serializeVarUInt32(stream,numFunctionNames);
 
-		assert(names.functions.size() >= names.functionDefs.size());
-		const uintp baseFunctionDefIndex = names.functions.size() - names.functionDefs.size();
-
-		for(uintp functionDefIndex = 0;functionDefIndex < numFunctionNames;++functionDefIndex)
+		for(uintp functionIndex = 0;functionIndex < names.functions.size();++functionIndex)
 		{
-			const uintp functionIndex = baseFunctionDefIndex + functionDefIndex;
-			std::string functionName = functionIndex < names.functions.size() ? names.functions[functionIndex] : "";
+			std::string functionName = names.functions[functionIndex].name;
 			serialize(stream,functionName);
 
-			size_t numLocalNames = functionDefIndex < names.functionDefs.size() ? names.functionDefs[functionDefIndex].locals.size() : 0;
+			size_t numLocalNames = names.functions[functionIndex].locals.size();
 			serializeVarUInt32(stream,numLocalNames);
 			for(uintp localIndex = 0;localIndex < numLocalNames;++localIndex)
 			{
-				std::string localName = names.functionDefs[functionDefIndex].locals[localIndex];
+				std::string localName = names.functions[functionIndex].locals[localIndex];
 				serialize(stream,localName);
 			}
 		}

@@ -133,9 +133,10 @@ namespace Runtime
 		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
 		{
 			const uintp functionIndex = moduleInstance->functions.size();
-			auto disassemblyName = disassemblyNames.functions[functionIndex];
-			if(!disassemblyName.size()) { disassemblyName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-			auto functionInstance = new FunctionInstance(moduleInstance,module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,disassemblyName.c_str());
+			const DisassemblyNames::Function& functionNames = disassemblyNames.functions[functionIndex];
+			std::string debugName = functionNames.name;
+			if(!debugName.size()) { debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
+			auto functionInstance = new FunctionInstance(moduleInstance,module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,debugName.c_str());
 			moduleInstance->functionDefs.push_back(functionInstance);
 			moduleInstance->functions.push_back(functionInstance);
 		}

@@ -184,17 +184,17 @@ namespace WebAssembly
 	// Maps declarations in a module to names to use in disassembly.
 	struct DisassemblyNames
 	{
-		struct FunctionDef
+		struct Function
 		{
+			std::string name;
 			std::vector<std::string> locals;
 		};
 
 		std::vector<std::string> types;
-		std::vector<std::string> functions;
+		std::vector<Function> functions;
 		std::vector<std::string> tables;
 		std::vector<std::string> memories;
 		std::vector<std::string> globals;
-		std::vector<FunctionDef> functionDefs;
 	};
 
 	// Looks for a name section in a module. If it exists, deserialize it into outNames.

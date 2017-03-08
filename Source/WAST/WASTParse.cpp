@@ -1213,12 +1213,11 @@ namespace WAST
 						}
 
 						functionTypes.push_back(functionTypeIndex);
-						names.functions.push_back(functionInternalName);
 
 						if(inlineImportExport.type == InlineImportExport::Type::imported)
 						{
 							// Create the function import.
-							names.functions.push_back(functionInternalName);
+							names.functions.push_back({functionInternalName,std::move(localNames)});
 							module.imports.push_back({inlineImportExport.moduleName,inlineImportExport.exportName,functionTypeIndex});
 
 							if(childNodeIt) { recordError(*this,childNodeIt,"unexpected input following imported function declaration"); continue; }
@@ -1251,7 +1250,7 @@ namespace WAST
 								} // Stop parsing when we reach the first func child that isn't a param, result, or local.
 							}
 							function.nonParameterLocalTypes = std::move(localTypes);
-							names.functionDefs.push_back({std::move(localNames)});
+							names.functions.push_back({functionInternalName,std::move(localNames)});
 						}
 						break;
 					}
@@ -1287,6 +1286,7 @@ namespace WAST
 
 							const FunctionType* importType = nullptr;
 							SNodeIt functionTypeChildNodeIt;
+							std::vector<std::string> parameterNames;
 							if(parseTaggedNode(importTypeChildNodeIt,Symbol::_type,functionTypeChildNodeIt))
 							{
 								// Parse a name or index into the module's type declarations.
@@ -1298,7 +1298,6 @@ namespace WAST
 							else
 							{
 								// Parse the import's parameter and result declarations.
-								std::vector<std::string> parameterNames;
 								parseFunctionType(*this,importTypeChildNodeIt,importType,parameterNames);
 							}
 
@@ -1311,7 +1310,7 @@ namespace WAST
 								else { functionNameToIndexMap[importInternalName] = functionTypes.size(); }
 							}
 							functionTypes.push_back(functionTypeIndex);
-							names.functions.push_back(importInternalName);
+							names.functions.push_back({importInternalName,std::move(parameterNames)});
 							break;
 						}
 						case Symbol::_table:
@@ -1663,6 +1662,7 @@ namespace WAST
 		}
 
 		// Parse the function bodies after all other declarations are available for use.
+		const uintp baseFunctionDefIndex = names.functions.size() - funcNodes.size();
 		for(uintp functionDefinitionIndex = 0;functionDefinitionIndex < funcNodes.size();++functionDefinitionIndex)
 		{
 			SNodeIt childNodeIt(funcNodes[functionDefinitionIndex]->children->nextSibling);
@@ -1684,8 +1684,9 @@ namespace WAST
 			};
 
 			// Parse the function's body.
+			const uintp functionIndex = baseFunctionDefIndex + functionDefinitionIndex;
 			Function& function = module.functionDefs[functionDefinitionIndex];
-			FunctionContext functionContext(*this,function,names.functionDefs[functionDefinitionIndex].locals,module.types[function.typeIndex]);
+			FunctionContext functionContext(*this,function,names.functions[functionIndex].locals,module.types[function.typeIndex]);
 			functionContext.parseTypedExpressionSequence(childNodeIt,"function body",asExpressionType(module.types[function.typeIndex]->ret));
 
 			// Append the code to the module's code array and reference it from the function.
