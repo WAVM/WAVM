@@ -209,16 +209,16 @@ namespace WebAssembly
 		visit(0xb9,f64_convert_s_i64,NoImm) \
 		visit(0xba,f64_convert_u_i64,NoImm) \
 		visit(0xbb,f64_promote_f32,NoImm) \
-		visit(0xbc,f32_reinterpret_i32,NoImm) \
-		visit(0xbd,f64_reinterpret_i64,NoImm) \
-		visit(0xbe,i32_reinterpret_f32,NoImm) \
-		visit(0xbf,i64_reinterpret_f64,NoImm)
+		visit(0xbc,i32_reinterpret_f32,NoImm) \
+		visit(0xbd,i64_reinterpret_f64,NoImm) \
+		visit(0xbe,f32_reinterpret_i32,NoImm) \
+		visit(0xbf,f64_reinterpret_i64,NoImm)
 
 	#define ENUM_MISC_OPS(visit) \
 		visit(0x45,i32_eqz,NoImm) \
 		visit(0x50,i64_eqz,NoImm) \
-		visit(0x3f,grow_memory,MemoryImm) \
-		visit(0x40,current_memory,MemoryImm) \
+		visit(0x3f,current_memory,MemoryImm) \
+		visit(0x40,grow_memory,MemoryImm) \
 		visit(0xff,error,ErrorImm)
 
 	#define ENUM_NONCONTROL_OPS(visit) \
@@ -337,6 +337,9 @@ namespace WebAssembly
 		friend void serialize(Stream& stream,CallIndirectImm& imm)
 		{
 			serializeVarUInt32(stream,imm.typeIndex);
+
+			uint8 reserved = 0;
+			serializeVarUInt1(stream,reserved);
 		}
 	};
 
