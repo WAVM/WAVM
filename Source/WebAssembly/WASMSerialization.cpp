@@ -514,7 +514,6 @@ namespace WebAssembly
 			default: Core::unreachable();
 			};
 		}
-		const uintp numImportedFunctions = outNames.functions.size();
 		outNames.types.insert(outNames.types.end(),module.types.size(),"");
 		outNames.tables.insert(outNames.tables.end(),module.tableDefs.size(),"");
 		outNames.memories.insert(outNames.memories.end(),module.memoryDefs.size(),"");
@@ -537,6 +536,67 @@ namespace WebAssembly
 				const UserSection& nameSection = module.userSections[userSectionIndex];
 				MemoryInputStream stream(nameSection.data.data(),nameSection.data.size());
 			
+				#if 0
+				while(stream.capacity())
+				{
+					uint8 substreamType = 0;
+					serializeVarUInt7(stream,substreamType);
+
+					uint32 numSubstreamBytes = 0;
+					serializeVarUInt32(stream,numSubstreamBytes);
+					
+					MemoryInputStream substream(stream.advance(numSubstreamBytes),numSubstreamBytes);
+					switch(substreamType)
+					{
+					case 0: // function names
+					{
+						uint32 numFunctionNames = 0;
+						serializeVarUInt32(substream,numFunctionNames);
+						for(uintp functionNameIndex = 0;functionNameIndex < numFunctionNames;++functionNameIndex)
+						{
+							uint32 functionIndex = 0;
+							serializeVarUInt32(substream,functionIndex);
+
+							std::string functionName;
+							serialize(substream,functionName);
+
+							if(functionIndex < outNames.functions.size()) { outNames.functions[functionIndex].name = std::move(functionName); }
+						}
+						break;
+					}
+					case 1: // local names
+					{
+						uint32 numFunctionLocalNameMaps = 0;
+						serializeVarUInt32(substream,numFunctionLocalNameMaps);
+						for(uintp functionNameIndex = 0;functionNameIndex < numFunctionLocalNameMaps;++functionNameIndex)
+						{
+							uint32 functionIndex = 0;
+							serializeVarUInt32(substream,functionIndex);
+
+							uint32 numLocalNames = 0;
+							serializeVarUInt32(substream,numLocalNames);
+							
+							for(uintp localNameIndex =  0;localNameIndex < numLocalNames;++numLocalNames)
+							{
+								uint32 localIndex = 0;
+								serializeVarUInt32(substream,localIndex);
+
+								std::string localName;
+								serialize(substream,localName);
+
+								if(functionIndex < outNames.functions.size() && localIndex < outNames.functions[functionIndex].locals.size())
+								{
+									outNames.functions[functionIndex].locals[localIndex] = std::move(localName);
+								}
+							}
+						}
+
+						break;
+					}
+					};
+				};
+				#endif
+
 				size_t numFunctionNames = 0;
 				serializeVarUInt32(stream,numFunctionNames);
 				numFunctionNames = std::min(numFunctionNames,outNames.functions.size());
