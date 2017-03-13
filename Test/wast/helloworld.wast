@@ -2,7 +2,7 @@
 
 (module
   (import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
-  (import "env" "_stdout" (global $stdoutPtr (mut i32)))
+  (import "env" "_stdout" (global $stdoutPtr i32))
   (import "env" "memory" (memory 1))
   (export "main" (func $main))
 

@@ -6,9 +6,9 @@
   (import "env" "memory" (memory 1))
   (import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
   (import "env" "_fread" (func $__fread (param i32 i32 i32 i32) (result i32)))
-  (import "env" "_stdin" (global $stdinPtr (mut i32)))
-  (import "env" "_stdout" (global $stdoutPtr (mut i32)))
-  (import "env" "_stderr" (global $stderrPtr (mut i32)))
+  (import "env" "_stdin" (global $stdinPtr i32))
+  (import "env" "_stdout" (global $stdoutPtr i32))
+  (import "env" "_stderr" (global $stderrPtr i32))
   (export "main" (func $main))
 
   (func $main
