@@ -15,12 +15,11 @@ I've tested it on Windows with Visual C++ 2015, Linux with GCC and Clang, and Ma
 The primary executable is `wavm`:
 ```
 Usage: wavm [switches] [programfile] [--] [arguments]
-  --text in.wast                Specify text program file (.wast)
-  --binary in.wasm in.js.mem    Specify binary program file (.wasm) and memory file (.js.mem)
-  -f|--function name            Specify function name to run in module rather than main
-  -c|--check                    Exit after checking that the program is valid
-  -d|--debug                    Write additional debug information to stdout
-  --                            Stop parsing arguments
+  in.wast|in.wasm		Specify program file (.wast/.wasm)
+  -f|--function name		Specify function name to run in module rather than main
+  -c|--check			Exit after checking that the program is valid
+  -d|--debug			Write additional debug information to stdout
+  --				Stop parsing arguments
 ```
 
 `wavm` will load a WebAssembly file and call `main` (or a specified function).  Example programs to try without changing any code include those found in the Test/wast and Test/spec directory such as the following:
@@ -28,7 +27,7 @@ Usage: wavm [switches] [programfile] [--] [arguments]
 ```
 wavm ../Test/wast/helloworld.wast
 wavm ../Test/zlib/zlib.wast
-wavm --text ../Test/spec/fac.wast --function fac-iter 5
+wavm ../Test/spec/fac.wast --function fac-iter 5
 ```
 
 WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments.  If the same main function returns a i32 type it will become the exit code.  WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr.  See [echo.wast](Test/wast/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
