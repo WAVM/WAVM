@@ -190,14 +190,14 @@ namespace WebAssembly
 	#define ENUM_CONVERSION_OPS(visit) \
 		visit(0xa7,i32_wrap_i64,NoImm) \
 		visit(0xa8,i32_trunc_s_f32,NoImm) \
-		visit(0xa9,i32_trunc_s_f64,NoImm) \
-		visit(0xaa,i32_trunc_u_f32,NoImm) \
+		visit(0xa9,i32_trunc_u_f32,NoImm) \
+		visit(0xaa,i32_trunc_s_f64,NoImm) \
 		visit(0xab,i32_trunc_u_f64,NoImm) \
 		visit(0xac,i64_extend_s_i32,NoImm) \
 		visit(0xad,i64_extend_u_i32,NoImm) \
 		visit(0xae,i64_trunc_s_f32,NoImm) \
-		visit(0xaf,i64_trunc_s_f64,NoImm) \
-		visit(0xb0,i64_trunc_u_f32,NoImm) \
+		visit(0xaf,i64_trunc_u_f32,NoImm) \
+		visit(0xb0,i64_trunc_s_f64,NoImm) \
 		visit(0xb1,i64_trunc_u_f64,NoImm) \
 		visit(0xb2,f32_convert_s_i32,NoImm) \
 		visit(0xb3,f32_convert_u_i32,NoImm) \
