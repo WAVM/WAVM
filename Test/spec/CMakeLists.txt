@@ -199,6 +199,9 @@ set_tests_properties(load-align-0.fail PROPERTIES WILL_FAIL TRUE)
 add_test(load-align-odd.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/load-align-odd.fail.wast)
 set_tests_properties(load-align-odd.fail PROPERTIES WILL_FAIL TRUE)
 
+add_test(load-align-big.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/load-align-big.fail.wast)
+set_tests_properties(load-align-big.fail PROPERTIES WILL_FAIL TRUE)
+
 add_test(loop-end-label-mismatch.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/loop-end-label-mismatch.fail.wast)
 set_tests_properties(loop-end-label-mismatch.fail PROPERTIES WILL_FAIL TRUE)
 
@@ -210,3 +213,6 @@ set_tests_properties(store-align-0.fail PROPERTIES WILL_FAIL TRUE)
 
 add_test(store-align-odd.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/store-align-odd.fail.wast)
 set_tests_properties(store-align-odd.fail PROPERTIES WILL_FAIL TRUE)
+
+add_test(store-align-big.fail ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/store-align-big.fail.wast)
+set_tests_properties(store-align-big.fail PROPERTIES WILL_FAIL TRUE)
