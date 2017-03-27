@@ -142,6 +142,70 @@
 ;; should be (assert_return (invoke "llvm_pr27036" (i32.const -25034805) (i32.const 14942208)) (f32.const -0x1.340068p+23))
 (assert_return (invoke "llvm_pr27036" (i32.const -25034805) (i32.const 14942208)) (f32.const -0x1.34006ap+23))
 
+(assert_invalid (module
+  (func (export "tau") (param i32) (result f64)
+    (local f64 f64 f64 f64)
+    f64.const 0x0p+0
+    set_local 1
+    block
+      get_local 0
+      i32.const 1
+      i32.lt_s
+      br_if 0
+      f64.const 0x1p+0
+      set_local 2
+      f64.const 0x0p+0
+      set_local 3
+      loop
+        get_local 1
+        get_local 2
+        f64.const 0x1p+3
+        get_local 3
+        f64.const 0x1p+3
+        f64.mul
+        tee_local 4
+        f64.const 0x1p+0
+        f64.add
+        f64.div
+        f64.const 0x1p+2
+        get_local 4
+        f64.const 0x1p+2
+        f64.add
+        f64.div
+        f64.sub
+        f64.const 0x1p+1
+        get_local 4
+        f64.const 0x1.4p+2
+        f64.add
+        f64.div
+        f64.sub
+        f64.const 0x1p+1
+        get_local 4
+        f64.const 0x1.8p+2
+        f64.add
+        f64.div
+        f64.sub
+        f64.mul
+        f64.add
+        set_local 1
+        get_local 3
+        f64.const 0x1p+0
+        f64.add
+        set_local 3
+        get_local 2
+        f64.const 0x1p-4
+        f64.mul
+        set_local 2
+        get_local 0
+        i32.const -1
+        i32.add
+        tee_local 0
+        br_if 0
+      end
+    end
+    get_local 1
+  )
+) "")
 
 ;;
 ;; from call.wast

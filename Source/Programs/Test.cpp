@@ -282,11 +282,11 @@ private:
 		}
 		catch(Exception exception) { recordError(locus,std::string("assert_return: unexpected trap: ") + describeExceptionCause(exception.cause)); }
 
-		// Verify that all of the assert_return consumed all its input.
+		// Verify that assert_return consumed all its input.
 		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return unexpected input"); }
 	}
 	
-	void processAssertReturnNaN(Core::TextFileLocus locus,SNodeIt nodeIt)
+	void processAssertReturnCanonicalNaN(Core::TextFileLocus locus,SNodeIt nodeIt)
 	{
 		// Process the action.
 		try
@@ -294,17 +294,53 @@ private:
 			Result result;
 			if(!processAction(nodeIt++,result)) { return; }
 			
-			// Check that the action result was a NaN.
+			// Check that the action result was a canonical NaN.
+			switch(result.type)
+			{
+			case ResultType::f32:
+			{
+				Floats::F32Components f32Components;
+				f32Components.value = result.f32;
+				if(f32Components.bits.exponent != 0xff || f32Components.bits.significand != 0x400000)
+				{ recordError(locus,"assert_return_canonical_nan: expected canonical NaN but got " + asString(result)); }
+				break;
+			}
+			case ResultType::f64:
+			{
+				Floats::F64Components f64Components;
+				f64Components.value = result.f64;
+				if(f64Components.bits.exponent != 0x7ff || f64Components.bits.significand != 0x8000000000000ull)
+				{ recordError(locus,"assert_return_canonical_nan: expected canonical NaN but got " + asString(result)); }
+				break;
+			}
+			default: recordError(locus,"assert_return_canonical_nan: expected floating-point number but got " + asString(result)); 
+			};
+		}
+		catch(Exception exception) { recordError(locus,std::string("assert_return_canonical_nan: unexpected trap: ") + describeExceptionCause(exception.cause)); }
+
+		// Verify that assert_return_canonical_nan consumed all its input.
+		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return_canonical_nan unexpected input"); }
+	}
+	
+	void processAssertReturnArithmeticNaN(Core::TextFileLocus locus,SNodeIt nodeIt)
+	{
+		// Process the action.
+		try
+		{
+			Result result;
+			if(!processAction(nodeIt++,result)) { return; }
+			
+			// Check that the action result was an arithmetic NaN.
 			if(result.type != ResultType::f32 && result.type != ResultType::f64)
-			{ recordError(locus,"assert_return_nan: expected floating-point number but got " + asString(result)); }
+			{ recordError(locus,"assert_return_arithmetic_nan: expected floating-point number but got " + asString(result)); }
 			else if(	(result.type == ResultType::f32 && (result.f32 == result.f32))
 			||		(result.type == ResultType::f64 && (result.f64 == result.f64)))
-			{ recordError(locus,"assert_return_nan: expected NaN but got " + asString(result)); }
+			{ recordError(locus,"assert_return_arithmetic_nan: expected NaN but got " + asString(result)); }
 		}
-		catch(Exception exception) { recordError(locus,std::string("assert_return_nan: unexpected trap: ") + describeExceptionCause(exception.cause)); }
+		catch(Exception exception) { recordError(locus,std::string("assert_return_arithmetic_nan: unexpected trap: ") + describeExceptionCause(exception.cause)); }
 
-		// Verify that all of the assert_return_nan consumed all its input.
-		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return_nan unexpected input"); }
+		// Verify that assert_return_arithmetic_nan consumed all its input.
+		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return_arithmetic_nan unexpected input"); }
 	}
 	
 	void processAssertTrap(Core::TextFileLocus locus,SNodeIt nodeIt)
@@ -565,9 +601,13 @@ bool TestScriptState::process()
 		{
 			processAssertReturn(rootNodeIt->startLocus,childNodeIt);
 		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return_nan,childNodeIt))
+		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return_canonical_nan,childNodeIt))
 		{
-			processAssertReturnNaN(rootNodeIt->startLocus,childNodeIt);
+			processAssertReturnCanonicalNaN(rootNodeIt->startLocus,childNodeIt);
+		}
+		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return_arithmetic_nan,childNodeIt))
+		{
+			processAssertReturnArithmeticNaN(rootNodeIt->startLocus,childNodeIt);
 		}
 		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
 		{

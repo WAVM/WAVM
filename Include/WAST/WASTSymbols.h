@@ -23,7 +23,8 @@ namespace WAST
 		WAST_SYMBOL(case) \
 		WAST_SYMBOL(fallthrough) \
 		WAST_SYMBOL(assert_return) \
-		WAST_SYMBOL(assert_return_nan) \
+		WAST_SYMBOL(assert_return_canonical_nan) \
+		WAST_SYMBOL(assert_return_arithmetic_nan) \
 		WAST_SYMBOL(assert_trap) \
 		WAST_SYMBOL(assert_invalid) \
 		WAST_SYMBOL(assert_unlinkable) \
