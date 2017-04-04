@@ -114,9 +114,6 @@
   )
 )
 
-;; should be (assert_return (invoke "llvm_pr26746" (f32.const -0.0)) (f32.const 0.0))
-(assert_return (invoke "llvm_pr26746" (f32.const -0.0)) (f32.const -0.0))
-
 ;; Test for improperly reassociating an addition and a conversion.
 ;; https://llvm.org/bugs/show_bug.cgi?id=27153
 

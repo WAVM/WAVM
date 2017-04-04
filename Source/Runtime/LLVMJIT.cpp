@@ -9,7 +9,7 @@
 
 namespace LLVMJIT
 {
-	llvm::LLVMContext& context = llvm::getGlobalContext();
+	llvm::LLVMContext context;
 	llvm::TargetMachine* targetMachine = nullptr;
 	llvm::Type* llvmResultTypes[(size_t)ResultType::num];
 	llvm::Type* llvmI8Type;
@@ -187,10 +187,10 @@ namespace LLVMJIT
 	{
 		JITUnit()
 		#ifdef _WIN32
-			: registerSEHUnwindInfoResult(nullptr)
+			: pdataCopy(nullptr)
 		#endif
 		{
-			objectLayer = llvm::make_unique<ObjectLayer>(NotifyLoadedFunctor(this));
+			objectLayer = llvm::make_unique<ObjectLayer>(NotifyLoadedFunctor(this),NotifyFinalizedFunctor(this));
 			objectLayer->setProcessAllSections(true);
 			compileLayer = llvm::make_unique<CompileLayer>(*objectLayer,llvm::orc::SimpleCompiler(*targetMachine));
 		}
@@ -198,7 +198,7 @@ namespace LLVMJIT
 		{
 			compileLayer->removeModuleSet(handle);
 			#ifdef _WIN32
-				if(registerSEHUnwindInfoResult) { Platform::deregisterSEHUnwindInfo(registerSEHUnwindInfoResult); }
+				if(pdataCopy) { Platform::deregisterSEHUnwindInfo(reinterpret_cast<uintp>(pdataCopy)); }
 			#endif
 		}
 
@@ -215,11 +215,18 @@ namespace LLVMJIT
 			NotifyLoadedFunctor(JITUnit* inJITUnit): jitUnit(inJITUnit) {}
 			void operator()(
 				const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
-				const std::vector<std::unique_ptr<llvm::object::ObjectFile>>& objectSet,
-				const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResult
+				const std::vector<std::unique_ptr<llvm::object::OwningBinary<llvm::object::ObjectFile>>>& objectSet,
+				const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadedObjects
 				);
 		};
-
+		
+		// Functor that receives notifications when an object produced by the JIT is finalized.
+		struct NotifyFinalizedFunctor
+		{
+			JITUnit* jitUnit;
+			NotifyFinalizedFunctor(JITUnit* inJITUnit): jitUnit(inJITUnit) {}
+			void operator()(const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle);
+		};
 		typedef llvm::orc::ObjectLinkingLayer<NotifyLoadedFunctor> ObjectLayer;
 		typedef llvm::orc::IRCompileLayer<ObjectLayer> CompileLayer;
 
@@ -228,8 +235,16 @@ namespace LLVMJIT
 		std::unique_ptr<CompileLayer> compileLayer;
 		CompileLayer::ModuleSetHandleT handle;
 
+		struct LoadedObject
+		{
+			llvm::object::ObjectFile* object;
+			llvm::RuntimeDyld::LoadedObjectInfo* loadedObject;
+		};
+
+		std::vector<LoadedObject> loadedObjects;
+
 		#ifdef _WIN32
-			void* registerSEHUnwindInfoResult;
+			uint8* pdataCopy;
 		#endif
 	};
 
@@ -285,87 +300,114 @@ namespace LLVMJIT
 	};
 	
 	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
-	struct NullResolver : llvm::RuntimeDyld::SymbolResolver
+	struct NullResolver : llvm::JITSymbolResolver
 	{
 		static NullResolver singleton;
-		virtual llvm::RuntimeDyld::SymbolInfo findSymbol(const std::string& name) override;
-		virtual llvm::RuntimeDyld::SymbolInfo findSymbolInLogicalDylib(const std::string& name) override;
+		virtual llvm::JITSymbol findSymbol(const std::string& name) override;
+		virtual llvm::JITSymbol findSymbolInLogicalDylib(const std::string& name) override;
 	};
 	
 	NullResolver NullResolver::singleton;
-	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbol(const std::string& name)
+	llvm::JITSymbol NullResolver::findSymbol(const std::string& name)
 	{
 		// Allow __chkstk through: the LLVM X86 code generator adds calls to it when allocating more than 4KB of stack space.
 		if(name == "__chkstk")
 		{
 			void *addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
-			if (addr) { return llvm::RuntimeDyld::SymbolInfo(reinterpret_cast<uintp>(addr),llvm::JITSymbolFlags::None); }
+			if (addr) { return llvm::JITSymbol(reinterpret_cast<uintp>(addr),llvm::JITSymbolFlags::None); }
 		}
 
 		Log::printf(Log::Category::error,"LLVM generated code referenced external symbol: %s\n",name.c_str());
 		Core::unreachable();
 	}
-	llvm::RuntimeDyld::SymbolInfo NullResolver::findSymbolInLogicalDylib(const std::string& name) { return llvm::RuntimeDyld::SymbolInfo(nullptr); }
+	llvm::JITSymbol NullResolver::findSymbolInLogicalDylib(const std::string& name) { return llvm::JITSymbol(nullptr); }
 
 	void JITUnit::NotifyLoadedFunctor::operator()(
 		const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle,
-		const std::vector<std::unique_ptr<llvm::object::ObjectFile>>& objectSet,
-		const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadResults
+		const std::vector<std::unique_ptr<llvm::object::OwningBinary<llvm::object::ObjectFile>>>& objectSet,
+		const std::vector<std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo>>& loadedObjects
 		)
 	{
-		assert(objectSet.size() == loadResults.size());
-		for(uintp objectIndex = 0;objectIndex < loadResults.size();++objectIndex)
+		assert(objectSet.size() == loadedObjects.size());
+		for(uintp objectIndex = 0;objectIndex < loadedObjects.size();++objectIndex)
 		{
-			auto& object = objectSet[objectIndex];
-			auto& loadedObject = loadResults[objectIndex];
+			llvm::object::ObjectFile* object = objectSet[objectIndex].get()->getBinary();
+			llvm::RuntimeDyld::LoadedObjectInfo* loadedObject = loadedObjects[objectIndex].get();
+			
+			// Make a copy of the loaded object info for use by the finalizer.
+			jitUnit->loadedObjects.push_back({object,loadedObject});
 
 			#ifdef _WIN32
 				// On Windows, look for .pdata and .xdata sections containing information about how to unwind the stack.
 				// This needs to be done before the below emitAndFinalize call, which will incorrectly apply relocations to the unwind info.
 				
-				// Find the text, pdata, and xdata sections.
-				llvm::object::SectionRef textSection;
+				// Find the pdata section.
 				llvm::object::SectionRef pdataSection;
-				llvm::object::SectionRef xdataSection;
 				for(auto section : object->sections())
 				{
 					llvm::StringRef sectionName;
 					if(!section.getName(sectionName))
 					{
-						if(sectionName == ".pdata") { pdataSection = section; }
-						else if(sectionName == ".xdata") { xdataSection = section; }
-						else if(sectionName == ".text") { textSection = section; }
+						if(sectionName == ".pdata") { pdataSection = section; break; }
 					}
 				}
 
-				// Pass the sections to the platform to register unwind info.
-				if(textSection.getObject() && pdataSection.getObject() && xdataSection.getObject())
+				// Pass the pdata section to the platform to register unwind info.
+				if(pdataSection.getObject())
 				{
-					jitUnit->registerSEHUnwindInfoResult = Platform::registerSEHUnwindInfo(
-						reinterpret_cast<uintp>(jitUnit->memoryManager.getImageBaseAddress()),
-						(uintp)loadedObject->getSectionLoadAddress(textSection),
-						(uintp)loadedObject->getSectionLoadAddress(xdataSection),
-						(uintp)loadedObject->getSectionLoadAddress(pdataSection),
-						pdataSection.getSize()
-						);
+					const uintp imageBaseAddress = reinterpret_cast<uintp>(jitUnit->memoryManager.getImageBaseAddress());
+					const uintp pdataSectionLoadAddress = (uintp)loadedObject->getSectionLoadAddress(pdataSection);
+					
+					// The LLVM COFF dynamic loader doesn't handle the image-relative relocations used by the pdata section,
+					// and overwrites those values with o: https://github.com/llvm-mirror/llvm/blob/e84d8c12d5157a926db15976389f703809c49aa5/lib/ExecutionEngine/RuntimeDyld/Targets/RuntimeDyldCOFFX86_64.h#L96
+					// This works around that by making a copy of the pdata section and doing the pdata relocations manually.
+					jitUnit->pdataCopy = new uint8[pdataSection.getSize()];
+					memcpy(jitUnit->pdataCopy,reinterpret_cast<uint8*>(pdataSectionLoadAddress),pdataSection.getSize());
+
+					for(auto pdataRelocIt : pdataSection.relocations())
+					{
+						// Only handle type 3 (IMAGE_REL_AMD64_ADDR32NB).
+						if(pdataRelocIt.getType() != 3) { Core::unreachable(); }
+
+						const auto symbol = pdataRelocIt.getSymbol();
+						const uint64 symbolAddress = symbol->getAddress().get();
+						const llvm::object::section_iterator symbolSection = symbol->getSection().get();
+						uint32* valueToRelocate = (uint32*)(jitUnit->pdataCopy + pdataRelocIt.getOffset());
+						const uint64 relocatedValue64 =
+							+ (symbolAddress - symbolSection->getAddress())
+							+ loadedObject->getSectionLoadAddress(*symbolSection)
+							+ *valueToRelocate
+							- imageBaseAddress;
+						if(relocatedValue64 > UINT32_MAX) { Core::unreachable(); }
+						*valueToRelocate = (uint32)relocatedValue64;
+					}
+
+					Platform::registerSEHUnwindInfo(imageBaseAddress,reinterpret_cast<uintp>(jitUnit->pdataCopy),pdataSection.getSize());
 				}
 			#endif
+		}
 
-			// Relocate and finalize the memory of the object.
-			jitUnit->compileLayer->emitAndFinalize(objectSetHandle);
+	}
+
+	void JITUnit::NotifyFinalizedFunctor::operator()(const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle)
+	{
+		for(uintp objectIndex = 0;objectIndex < jitUnit->loadedObjects.size();++objectIndex)
+		{
+			llvm::object::ObjectFile* object = jitUnit->loadedObjects[objectIndex].object;
+			llvm::RuntimeDyld::LoadedObjectInfo* loadedObject = jitUnit->loadedObjects[objectIndex].loadedObject;
 
 			// Create a DWARF context to interpret the debug information in this compilation unit.
-			auto dwarfContext = llvm::make_unique<llvm::DWARFContextInMemory>(*object,loadedObject.get());
+			auto dwarfContext = llvm::make_unique<llvm::DWARFContextInMemory>(*object,loadedObject);
 
 			// Iterate over the functions in the loaded object.
-			for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object.get()))
+			for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object))
 			{
 				auto symbol = symbolSizePair.first;
 				auto name = symbol.getName();
 				auto address = symbol.getAddress();
-				if(	symbol.getType() == llvm::object::SymbolRef::ST_Function
+				if(	symbol.getType() && symbol.getType().get() == llvm::object::SymbolRef::ST_Function
 				&&	name
-				&&	!address.getError())
+				&&	address)
 				{
 					// Compute the address the functions was loaded at.
 					uintp loadedAddress = *address;
@@ -385,6 +427,8 @@ namespace LLVMJIT
 				}
 			}
 		}
+
+		jitUnit->loadedObjects.clear();
 	}
 
 	static uintp printedModuleId = 0;
@@ -438,6 +482,7 @@ namespace LLVMJIT
 			std::vector<llvm::Module*>{llvmModule},
 			&memoryManager,
 			&NullResolver::singleton);
+		compileLayer->emitAndFinalize(handle);
 
 		Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
 		

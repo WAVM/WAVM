@@ -150,43 +150,19 @@ namespace Platform
 		}
 	}
 	
-	void* registerSEHUnwindInfo(uintp imageLoadAddress,uintp textLoadAddress,uintp xdataLoadAddress,uintp pdataLoadAddress,size_t pdataNumBytes)
+	void registerSEHUnwindInfo(uintp imageLoadAddress,uintp pdataAddress,size_t pdataNumBytes)
 	{
-		// The LLVM COFF dynamic loader doesn't handle the image-relative relocations used by the pdata section,
-		// and overwrites those values with o: https://github.com/llvm-mirror/llvm/blob/e84d8c12d5157a926db15976389f703809c49aa5/lib/ExecutionEngine/RuntimeDyld/Targets/RuntimeDyldCOFFX86_64.h#L96
-		// This works around that by making a copy of the RUNTIME_FUNCTION structs and doing a manual relocation
-		// with some assumptions about the relocations.
 		const uint32 numFunctions = (uint32)(pdataNumBytes / sizeof(RUNTIME_FUNCTION));
-		auto functions = reinterpret_cast<RUNTIME_FUNCTION*>(pdataLoadAddress);
-		auto functionsCopy = new RUNTIME_FUNCTION[numFunctions];
-		uintp currentFunctionTextLoadAddr = textLoadAddress;
-		for(uint32 functionIndex = 0;functionIndex < numFunctions;++functionIndex)
-		{
-			const auto& function = functions[functionIndex];
-			auto& functionCopy = functionsCopy[functionIndex];
-
-			// BeginAddress and EndAddress are relative to the start of the function, so BeginAddress should be 0 and EndAddress the length of the function's code.
-			functionCopy.BeginAddress = (uint32)(currentFunctionTextLoadAddr + function.BeginAddress - imageLoadAddress);
-			functionCopy.EndAddress = (uint32)(currentFunctionTextLoadAddr + function.EndAddress - imageLoadAddress);
-
-			// UnwindInfoAddress is an offset relative to the start of the xdata section.
-			functionCopy.UnwindInfoAddress = (uint32)(xdataLoadAddress + function.UnwindInfoAddress - imageLoadAddress);
-
-			// Assume that the next function immediately follows the current function at the next 16-byte aligned address.
-			currentFunctionTextLoadAddr += (function.EndAddress + 15) & ~15;
-		}
 
 		// Register our manually fixed up copy of the function table.
-		if(!RtlAddFunctionTable(functionsCopy,numFunctions,imageLoadAddress))
+		if(!RtlAddFunctionTable(reinterpret_cast<RUNTIME_FUNCTION*>(pdataAddress),numFunctions,imageLoadAddress))
 		{
 			Core::error("RtlAddFunctionTable failed");
 		}
-
-		return functionsCopy;
 	}
-	void deregisterSEHUnwindInfo(void* registerResult)
+	void deregisterSEHUnwindInfo(uintp pdataAddress)
 	{
-		auto functionTable = (RUNTIME_FUNCTION*)registerResult;
+		auto functionTable = reinterpret_cast<RUNTIME_FUNCTION*>(pdataAddress);
 		RtlDeleteFunctionTable(functionTable);
 		delete [] functionTable;
 	}

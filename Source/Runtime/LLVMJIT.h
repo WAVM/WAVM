@@ -20,6 +20,8 @@
 	#pragma warning(disable:4458) // declaration of 'x' hides class member
 	#pragma warning(disable:4510) // default constructor could not be generated
 	#pragma warning(disable:4610) // struct can never be instantiated - user defined constructor required
+	#pragma warning(disable:4324) // structure was padded due to alignment specifier
+	#pragma warning(disable:4702) // unreachable code
 #endif
 
 #include "llvm/Analysis/Passes.h"
@@ -55,13 +57,16 @@
 #include <vector>
 
 #ifdef _WIN32
+	#undef and
+	#undef or
+	#undef xor
 	#pragma warning(pop)
 #endif
 
 namespace LLVMJIT
 {
 	// The global LLVM context.
-	extern llvm::LLVMContext& context;
+	extern llvm::LLVMContext context;
 	
 	// Maps a type ID to the corresponding LLVM type.
 	extern llvm::Type* llvmResultTypes[(size_t)ResultType::num];

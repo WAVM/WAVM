@@ -40,14 +40,14 @@ namespace LLVMJIT
 		, llvmModule(new llvm::Module("",context))
 		, diBuilder(*llvmModule)
 		{
-			diCompileUnit = diBuilder.createCompileUnit(0xffff,"unknown","unknown","WAVM",true,"",0);
 			diModuleScope = diBuilder.createFile("unknown","unknown");
+			diCompileUnit = diBuilder.createCompileUnit(0xffff,diModuleScope,"WAVM",true,"",0);
 
 			diValueTypes[(uintp)ValueType::invalid] = nullptr;
-			diValueTypes[(uintp)ValueType::i32] = diBuilder.createBasicType("i32",32,32,llvm::dwarf::DW_ATE_signed);
-			diValueTypes[(uintp)ValueType::i64] = diBuilder.createBasicType("i64",64,64,llvm::dwarf::DW_ATE_signed);
-			diValueTypes[(uintp)ValueType::f32] = diBuilder.createBasicType("f32",32,32,llvm::dwarf::DW_ATE_float);
-			diValueTypes[(uintp)ValueType::f64] = diBuilder.createBasicType("f64",64,64,llvm::dwarf::DW_ATE_float);
+			diValueTypes[(uintp)ValueType::i32] = diBuilder.createBasicType("i32",32,llvm::dwarf::DW_ATE_signed);
+			diValueTypes[(uintp)ValueType::i64] = diBuilder.createBasicType("i64",64,llvm::dwarf::DW_ATE_signed);
+			diValueTypes[(uintp)ValueType::f32] = diBuilder.createBasicType("f32",32,llvm::dwarf::DW_ATE_float);
+			diValueTypes[(uintp)ValueType::f64] = diBuilder.createBasicType("f64",64,llvm::dwarf::DW_ATE_float);
 			
 			auto zeroAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(int32(0)));
 			auto i32MaxAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(int32(INT32_MAX)));
@@ -1025,7 +1025,7 @@ namespace LLVMJIT
 			if(localIndex < functionType->parameters.size())
 			{
 				// Copy the parameter value into the local that stores it.
-				irBuilder.CreateStore((llvm::Argument*)llvmArgIt,localPointer);
+				irBuilder.CreateStore((llvm::Argument*)&(*llvmArgIt),localPointer);
 				++llvmArgIt;
 			}
 			else

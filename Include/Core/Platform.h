@@ -117,8 +117,8 @@ namespace Platform
 
 	#ifdef _WIN32
 		// Registers/deregisters the data used by Windows SEH to unwind stack frames.
-		CORE_API void* registerSEHUnwindInfo(uintp imageLoadAddress,uintp textLoadAddress,uintp xdataLoadAddress,uintp pdataLoadAddress,size_t pdataNumBytes);
-		CORE_API void deregisterSEHUnwindInfo(void* registerResult);
+		CORE_API void registerSEHUnwindInfo(uintp imageLoadAddress,uintp pdataAddress,size_t pdataNumBytes);
+		CORE_API void deregisterSEHUnwindInfo(uintp pdataAddress);
 	#endif
 
 	// Initializes thread-specific state.
