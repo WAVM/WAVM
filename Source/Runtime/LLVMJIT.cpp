@@ -642,7 +642,7 @@ namespace LLVMJIT
 		llvmResultTypes[(size_t)ResultType::f64] = llvmF64Type;
 
 		// Create zero constants of each type.
-		typedZeroConstants[(size_t)ValueType::invalid] = nullptr;
+		typedZeroConstants[(size_t)ValueType::any] = nullptr;
 		typedZeroConstants[(size_t)ValueType::i32] = emitLiteral((uint32)0);
 		typedZeroConstants[(size_t)ValueType::i64] = emitLiteral((uint64)0);
 		typedZeroConstants[(size_t)ValueType::f32] = emitLiteral((float32)0.0f);

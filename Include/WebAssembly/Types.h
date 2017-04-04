@@ -8,7 +8,7 @@ namespace WebAssembly
 	// The type of a WebAssembly operand
 	enum class ValueType : uint8
 	{
-		invalid = 0,
+		any = 0,
 		i32 = 1,
 		i64 = 2,
 		f32 = 3,
@@ -40,7 +40,7 @@ namespace WebAssembly
 	{
 		switch(type)
 		{
-		case ValueType::invalid: return "invalid";
+		case ValueType::any: return "any";
 		case ValueType::i32: return "i32";
 		case ValueType::i64: return "i64";
 		case ValueType::f32: return "f32";
@@ -85,7 +85,7 @@ namespace WebAssembly
 
 	inline ResultType asResultType(ValueType type)
 	{
-		assert(type != ValueType::invalid);
+		assert(type != ValueType::any);
 		return (ResultType)type;
 	}
 
@@ -174,7 +174,7 @@ namespace WebAssembly
 		ValueType valueType;
 		bool isMutable;
 	
-		GlobalType(): valueType(ValueType::invalid), isMutable(false) {}
+		GlobalType(): valueType(ValueType::any), isMutable(false) {}
 		GlobalType(ValueType inValueType,bool inIsMutable): valueType(inValueType), isMutable(inIsMutable) {}
 
 		friend bool operator==(const GlobalType& left,const GlobalType& right) { return left.valueType == right.valueType && left.isMutable == right.isMutable; }

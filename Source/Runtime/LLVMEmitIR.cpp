@@ -43,7 +43,7 @@ namespace LLVMJIT
 			diModuleScope = diBuilder.createFile("unknown","unknown");
 			diCompileUnit = diBuilder.createCompileUnit(0xffff,diModuleScope,"WAVM",true,"",0);
 
-			diValueTypes[(uintp)ValueType::invalid] = nullptr;
+			diValueTypes[(uintp)ValueType::any] = nullptr;
 			diValueTypes[(uintp)ValueType::i32] = diBuilder.createBasicType("i32",32,llvm::dwarf::DW_ATE_signed);
 			diValueTypes[(uintp)ValueType::i64] = diBuilder.createBasicType("i64",64,llvm::dwarf::DW_ATE_signed);
 			diValueTypes[(uintp)ValueType::f32] = diBuilder.createBasicType("f32",32,llvm::dwarf::DW_ATE_float);
@@ -167,6 +167,7 @@ namespace LLVMJIT
 				std::string controlStackString;
 				for(uintp stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
 				{
+					if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
 					switch(controlStack[stackIndex].type)
 					{
 					case ControlContext::Type::function: controlStackString += "F"; break;
@@ -176,7 +177,7 @@ namespace LLVMJIT
 					case ControlContext::Type::loop: controlStackString += "L"; break;
 					default: Core::unreachable();
 					};
-					if(!controlStack[stackIndex].isReachable) { controlStackString += "-"; }
+					if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 				}
 
 				std::string stackString;

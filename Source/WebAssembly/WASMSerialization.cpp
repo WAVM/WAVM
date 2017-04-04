@@ -237,19 +237,19 @@ namespace WebAssembly
 		uintp numLocalSets = 0;
 		if(function.nonParameterLocalTypes.size())
 		{
-			localSets[0].type = ValueType::invalid;
+			localSets[0].type = ValueType::any;
 			localSets[0].num = 0;
 			for(auto localType : function.nonParameterLocalTypes)
 			{
 				if(localSets[numLocalSets].type != localType)
 				{
-					if(localSets[numLocalSets].type != ValueType::invalid) { ++numLocalSets; }
+					if(localSets[numLocalSets].type != ValueType::any) { ++numLocalSets; }
 					localSets[numLocalSets].type = localType;
 					localSets[numLocalSets].num = 0;
 				}
 				++localSets[numLocalSets].num;
 			}
-			if(localSets[numLocalSets].type != ValueType::invalid) { ++numLocalSets; }
+			if(localSets[numLocalSets].type != ValueType::any) { ++numLocalSets; }
 		}
 
 		// Serialize the local sets.

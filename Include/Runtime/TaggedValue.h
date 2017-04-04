@@ -39,7 +39,7 @@ namespace Runtime
 		Value(float32 inF32): UntaggedValue(inF32), type(WebAssembly::ValueType::f32) {}
 		Value(float64 inF64): UntaggedValue(inF64), type(WebAssembly::ValueType::f64) {}
 		Value(WebAssembly::ValueType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
-		Value(): type(WebAssembly::ValueType::invalid) {}
+		Value(): type(WebAssembly::ValueType::any) {}
 		
 		friend std::string asString(const Value& value)
 		{

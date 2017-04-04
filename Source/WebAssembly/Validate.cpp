@@ -18,7 +18,7 @@ namespace WebAssembly
 
 	void validate(ValueType valueType)
 	{
-		if(valueType == ValueType::invalid || valueType > ValueType::max)
+		if(valueType == ValueType::any || valueType > ValueType::max)
 		{
 			throw ValidationException("invalid value type (" + std::to_string((uintp)valueType) + ")");
 		}
@@ -66,14 +66,27 @@ namespace WebAssembly
 	}
 
 	template<typename Type>
-	void validateType(Type expectedType,Type type,const char* context)
+	void validateType(Type expectedType,Type actualType,const char* context)
 	{
-		if(expectedType != type)
+		if(expectedType != actualType)
 		{
 			throw ValidationException(
 				std::string("type mismatch: expected ") + asString(expectedType)
-				+ " but got " + asString(type)
+				+ " but got " + asString(actualType)
 				+ " in " + context
+				);
+		}
+	}
+
+	void validateOperandType(ValueType expectedType,ValueType actualType,const char* context)
+	{
+		// Handle polymorphic values popped off the operand stack after unconditional branches.
+		if(expectedType != actualType && actualType != ValueType::any)
+		{
+			throw ValidationException(
+				std::string("type mismatch: expected ") + asString(expectedType)
+				+ " but got " + asString(actualType)
+				+ " in " + context + " operand"
 				);
 		}
 	}
@@ -173,6 +186,7 @@ namespace WebAssembly
 				std::string controlStackString;
 				for(uintp stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
 				{
+					if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
 					switch(controlStack[stackIndex].type)
 					{
 					case ControlContext::Type::function: controlStackString += "F"; break;
@@ -182,7 +196,7 @@ namespace WebAssembly
 					case ControlContext::Type::loop: controlStackString += "L"; break;
 					default: Core::unreachable();
 					};
-					if(!controlStack[stackIndex].isReachable) { controlStackString += "-"; }
+					if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 				}
 
 				std::string stackString;
@@ -217,36 +231,36 @@ namespace WebAssembly
 		void beginIf(ControlStructureImm imm)
 		{
 			validate(imm.resultType);
-			popAndValidateOperand(ValueType::i32);
+			popAndValidateOperand("if condition",ValueType::i32);
 			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType);
 		}
 		void beginElse(NoImm imm)
 		{
-			popAndValidateResultType(controlStack.back().resultType);
+			popAndValidateResultType("if result",controlStack.back().resultType);
 			popControlStack(true);
 		}
 		void end(NoImm)
 		{
-			popAndValidateResultType(controlStack.back().resultType);
+			popAndValidateResultType("end result",controlStack.back().resultType);
 			popControlStack();
 		}
 		
 		void ret(NoImm)
 		{
-			popAndValidateResultType(functionType->ret);
+			popAndValidateResultType("ret",functionType->ret);
 			enterUnreachable();
 		}
 
 		void br(BranchImm imm)
 		{
-			popAndValidateResultType(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
+			popAndValidateResultType("br argument",getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
 			enterUnreachable();
 		}
 		void br_table(BranchTableImm imm)
 		{
-			popAndValidateOperand(ValueType::i32);
+			popAndValidateOperand("br_table index",ValueType::i32);
 			const ResultType defaultTargetArgumentType = getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
-			popAndValidateResultType(defaultTargetArgumentType);
+			popAndValidateResultType("br_table argument",defaultTargetArgumentType);
 
 			for(uintp targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
 			{
@@ -258,9 +272,9 @@ namespace WebAssembly
 		}
 		void br_if(BranchImm imm)
 		{
-			popAndValidateOperand(ValueType::i32);
-			popAndValidateResultType(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
-			push(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
+			popAndValidateOperand("br_if condition",ValueType::i32);
+			popAndValidateResultType("br_if argument",getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
+			pushOperand(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
 		}
 
 		void nop(NoImm) {}
@@ -270,76 +284,79 @@ namespace WebAssembly
 		}
 		void drop(NoImm)
 		{
-			if(controlStack.back().isReachable) { validateStackAccess(1); stack.pop_back(); }
+			popOperand();
 		}
 
 		void select(NoImm)
 		{
-			if(controlStack.back().isReachable)
+			const ValueType condition = popOperand();
+			const ValueType falseType = popOperand();
+			const ValueType trueType = popOperand();
+			validateOperandType(ValueType::i32,condition,"select condition");
+			if(trueType != ValueType::any && falseType != ValueType::any)
 			{
-				validateStackAccess(3);
-				ValueType operandType = stack[stack.size() - 3];
-				popAndValidateOperands(operandType,ValueType::i32);
+				validateType(trueType,falseType,"select operands");
 			}
+			pushOperand(trueType);
 		}
 
 		void get_local(GetOrSetVariableImm imm)
 		{
-			push(validateLocalIndex(imm.variableIndex));
+			pushOperand(validateLocalIndex(imm.variableIndex));
 		}
 		void set_local(GetOrSetVariableImm imm)
 		{
-			popAndValidateOperand(validateLocalIndex(imm.variableIndex));
+			popAndValidateOperand("set_local",validateLocalIndex(imm.variableIndex));
 		}
 		void tee_local(GetOrSetVariableImm imm)
 		{
 			const ValueType localType = validateLocalIndex(imm.variableIndex);
-			popAndValidateOperand(localType);
-			push(localType);
+			popAndValidateOperand("tee_local",localType);
+			pushOperand(localType);
 		}
 		
 		void get_global(GetOrSetVariableImm imm)
 		{
-			push(moduleContext.validateGlobalIndex(imm.variableIndex,false,false,false,"get_global"));
+			pushOperand(moduleContext.validateGlobalIndex(imm.variableIndex,false,false,false,"get_global"));
 		}
 		void set_global(GetOrSetVariableImm imm)
 		{
-			popAndValidateOperand(moduleContext.validateGlobalIndex(imm.variableIndex,true,false,false,"set_global"));
+			popAndValidateOperand("set_global",moduleContext.validateGlobalIndex(imm.variableIndex,true,false,false,"set_global"));
 		}
 
 		void call(CallImm imm)
 		{
 			const FunctionType* calleeType = moduleContext.validateFunctionIndex(imm.functionIndex);
-			popAndValidateOperands(calleeType->parameters.data(),calleeType->parameters.size());
-			push(calleeType->ret);
+			popAndValidateOperands("call arguments",calleeType->parameters.data(),calleeType->parameters.size());
+			pushOperand(calleeType->ret);
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
 			VALIDATE_INDEX(imm.typeIndex,module.types.size());
 			VALIDATE_UNLESS("call_indirect in module without default function table: ",moduleContext.numTables==0);
 			const FunctionType* calleeType = module.types[imm.typeIndex];
-			popAndValidateOperand(ValueType::i32);
-			popAndValidateOperands(calleeType->parameters.data(),calleeType->parameters.size());
-			push(calleeType->ret);
+			popAndValidateOperand("call_indirect function index",ValueType::i32);
+			popAndValidateOperands("call_indirect arguments",calleeType->parameters.data(),calleeType->parameters.size());
+			pushOperand(calleeType->ret);
 		}
 
-		void grow_memory(MemoryImm) { popAndValidateOperand(ValueType::i32); push(ValueType::i32); }
-		void current_memory(MemoryImm) { push(ValueType::i32); }
+		void grow_memory(MemoryImm) { popAndValidateOperand("grow_memory",ValueType::i32); pushOperand(ValueType::i32); }
+		void current_memory(MemoryImm) { pushOperand(ValueType::i32); }
 
 		void error(ErrorImm imm) { throw ValidationException("error opcode"); }
 
 		#define VALIDATE_CONST(typeId,nativeType) \
-			void typeId##_const(LiteralImm<nativeType> imm) { push(ValueType::typeId); }
+			void typeId##_const(LiteralImm<nativeType> imm) { pushOperand(ValueType::typeId); }
 		VALIDATE_CONST(i32,int32); VALIDATE_CONST(i64,int64);
 		VALIDATE_CONST(f32,float32); VALIDATE_CONST(f64,float64);
 
 		#define VALIDATE_LOAD_OPCODE(name,naturalAlignmentLog2,resultType) void name(LoadOrStoreImm imm) \
 			{ \
-				popAndValidateOperand(ValueType::i32); \
+				popAndValidateOperand(#name,ValueType::i32); \
 				VALIDATE_UNLESS(#name " alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
 				VALIDATE_UNLESS(#name " in module without default memory: ",moduleContext.numMemories==0); \
 				VALIDATE_UNLESS(#name " offset too large: ",imm.offset > UINT32_MAX); \
-				push(ValueType::resultType); \
+				pushOperand(ValueType::resultType); \
 			}
 
 		VALIDATE_LOAD_OPCODE(i32_load8_s,1,i32)  VALIDATE_LOAD_OPCODE(i32_load8_u,1,i32)
@@ -353,7 +370,7 @@ namespace WebAssembly
 			
 		#define VALIDATE_STORE_OPCODE(name,naturalAlignmentLog2,valueTypeId) void name(LoadOrStoreImm imm) \
 			{ \
-				popAndValidateOperands(ValueType::i32,ValueType::valueTypeId); \
+				popAndValidateOperands(#name,ValueType::i32,ValueType::valueTypeId); \
 				VALIDATE_UNLESS(#name " alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
 				VALIDATE_UNLESS(#name " in module without default memory: ",moduleContext.numMemories==0); \
 				VALIDATE_UNLESS(#name " offset too large: ",imm.offset > UINT32_MAX); \
@@ -365,13 +382,13 @@ namespace WebAssembly
 
 		#define VALIDATE_BINARY_OPCODE(name,operandTypeId,resultTypeId) void name(NoImm) \
 			{ \
-				popAndValidateOperands(ValueType::operandTypeId,ValueType::operandTypeId); \
-				push(ValueType::resultTypeId); \
+				popAndValidateOperands(#name,ValueType::operandTypeId,ValueType::operandTypeId); \
+				pushOperand(ValueType::resultTypeId); \
 			}
 		#define VALIDATE_UNARY_OPCODE(name,operandTypeId,resultTypeId) void name(NoImm) \
 			{ \
-				popAndValidateOperand(ValueType::operandTypeId); \
-				push(ValueType::resultTypeId); \
+				popAndValidateOperand(#name,ValueType::operandTypeId); \
+				pushOperand(ValueType::resultTypeId); \
 			}
 
 		VALIDATE_BINARY_OPCODE(i32_add,i32,i32) VALIDATE_BINARY_OPCODE(i64_add,i64,i64)
@@ -491,8 +508,7 @@ namespace WebAssembly
 
 		void popControlStack(bool isElse = false)
 		{
-			if(controlStack.back().isReachable)
-			{ VALIDATE_UNLESS("stack was not empty at end of control structure: ",stack.size() > controlStack.back().outerStackSize); }
+			VALIDATE_UNLESS("stack was not empty at end of control structure: ",stack.size() > controlStack.back().outerStackSize);
 
 			if(isElse && controlStack.back().type == ControlContext::Type::ifThen)
 			{
@@ -504,7 +520,7 @@ namespace WebAssembly
 				VALIDATE_UNLESS("else only allowed in if context: ",isElse);
 				const ResultType resultType = controlStack.back().resultType;
 				controlStack.pop_back();
-				if(controlStack.size()) { push(resultType); }
+				if(controlStack.size()) { pushOperand(resultType); }
 			}
 		}
 
@@ -512,15 +528,6 @@ namespace WebAssembly
 		{
 			stack.resize(controlStack.back().outerStackSize);
 			controlStack.back().isReachable = false;
-		}
-
-		void validateStackAccess(size_t num)
-		{
-			if(controlStack.back().isReachable)
-			{
-				const uintp stackBase = controlStack.back().outerStackSize;
-				if(stack.size() < stackBase + num) { throw ValidationException("invalid stack access"); }
-			}
 		}
 
 		void validateBranchDepth(uintp depth) const
@@ -540,50 +547,63 @@ namespace WebAssembly
 			VALIDATE_INDEX(localIndex,locals.size());
 			return locals[localIndex];
 		}
-
-		void popAndValidateOperands(const ValueType* expectedTypes,size_t num)
+		
+		ValueType popOperand()
 		{
-			if(controlStack.back().isReachable)
+			if(stack.size() > controlStack.back().outerStackSize)
 			{
-				validateStackAccess(num);
-				for(uintp operandIndex = 0;operandIndex < num;++operandIndex)
-				{ validateType(stack[stack.size()-num+operandIndex],expectedTypes[operandIndex],"operand"); }
-				stack.resize(stack.size() - num);
+				const ValueType result = stack.back();
+				stack.pop_back();
+				return result;
+			}
+			else if(controlStack.back().isReachable)
+			{
+				throw ValidationException("invalid stack access");
+			}
+			else
+			{
+				return ValueType::any;
+			}
+		}
+
+		void popAndValidateOperands(const char* context,const ValueType* expectedTypes,size_t num)
+		{
+			for(uintp operandIndexFromEnd = 0;operandIndexFromEnd < num;++operandIndexFromEnd)
+			{
+				const uintp operandIndex = num - operandIndexFromEnd - 1;
+				const ValueType actualType = popOperand();
+				validateOperandType(expectedTypes[operandIndex],actualType,context);
 			}
 		}
 
 		template<size_t num>
-		void popAndValidateOperands(const ValueType (&expectedTypes)[num]) { popAndValidateOperands(expectedTypes,num); }
+		void popAndValidateOperands(const char* context,const ValueType (&expectedTypes)[num]) { popAndValidateOperands(context,expectedTypes,num); }
 		
 		template<typename... OperandTypes>
-		void popAndValidateOperands(OperandTypes... operands)
+		void popAndValidateOperands(const char* context,OperandTypes... operands)
 		{
 			ValueType operandTypes[] = {operands...};
-			popAndValidateOperands(operandTypes);
+			popAndValidateOperands(context,operandTypes);
 		}
 
-		void popAndValidateOperand(const ValueType expectedType)
+		void popAndValidateOperand(const char* context,const ValueType expectedType)
 		{
-			if(controlStack.back().isReachable)
-			{
-				validateStackAccess(1);
-				validateType(stack.back(),expectedType,"operand");
-				stack.pop_back();
-			}
+			const ValueType actualType = popOperand();
+			validateOperandType(expectedType,actualType,context);
 		}
 
-		void popAndValidateResultType(ResultType expectedType)
+		void popAndValidateResultType(const char* context,ResultType expectedType)
 		{
-			if(expectedType != ResultType::none) { popAndValidateOperands(asValueType(expectedType)); }
+			if(expectedType != ResultType::none) { popAndValidateOperand(context,asValueType(expectedType)); }
 		}
 
-		void push(ValueType type)
+		void pushOperand(ValueType type)
 		{
-			if(controlStack.back().isReachable) { stack.push_back(type); }
+			stack.push_back(type);
 		}
-		void push(ResultType type)
+		void pushOperand(ResultType type)
 		{
-			if(controlStack.back().isReachable && type != ResultType::none) { push(asValueType(type)); }
+			if(type != ResultType::none) { pushOperand(asValueType(type)); }
 		}
 	};
 

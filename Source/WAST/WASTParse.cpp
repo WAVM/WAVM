@@ -34,7 +34,7 @@ namespace WAST
 	
 	static ExpressionType asExpressionType(ValueType type)
 	{
-		assert(type != ValueType::invalid && type <= ValueType::max);
+		assert(type != ValueType::any && type <= ValueType::max);
 		return (ExpressionType)type;
 	}
 	
@@ -367,7 +367,7 @@ namespace WAST
 		Symbol symbol;
 		if(parseTreeNode(nodeIt,childNodeIt) && parseSymbol(childNodeIt,symbol))
 		{
-			ValueType actualType = ValueType::invalid;
+			ValueType actualType = ValueType::any;
 			switch(symbol)
 			{
 			case Symbol::_i32_const:
@@ -531,20 +531,8 @@ namespace WAST
 		// Parses an expression of any type.
 		ExpressionType parseExpression(SNodeIt parentNodeIt,const char* errorContext);
 
-		void enterUnreachable()
-		{
-			if(!encoder.unreachableDepth) { ++encoder.unreachableDepth; }
-		}
-
-		void enterControlStructure()
-		{
-			if(encoder.unreachableDepth) { ++encoder.unreachableDepth; }
-		}
-
 		void endControlStructure(bool isElse = false)
 		{
-			if(encoder.unreachableDepth) { --encoder.unreachableDepth; }
-
 			if(!isElse) { encoder.end(); }
 			else { encoder.beginElse(); }
 		}
@@ -553,7 +541,6 @@ namespace WAST
 		{
 			recordError(moduleContext,nodeIt,std::string(message));
 			encoder.error({message});
-			enterUnreachable();
 		}
 
 		void prohibitExtraOperands(SNodeIt nodeIt)
@@ -573,15 +560,11 @@ namespace WAST
 		// Record a type error.
 		void typeError(ExpressionType type,ExpressionType expectedType,SNodeIt nodeIt,const char* errorContext)
 		{
-			// Ignore type errors in unreachable code.
-			if(!encoder.unreachableDepth)
-			{
-				std::string message =
-					std::string("type error: expecting ") + asString(expectedType)
-					+ " in " + errorContext
-					+ " but found " + asString(type);
-				emitError(nodeIt,std::move(message));
-			}
+			std::string message =
+				std::string("type error: expecting ") + asString(expectedType)
+				+ " in " + errorContext
+				+ " but found " + asString(type);
+			emitError(nodeIt,std::move(message));
 		}
 
 		void coerceResult(ExpressionType expectedType,ExpressionType type,SNodeIt nodeIt,const char* errorContext)
@@ -861,7 +844,6 @@ namespace WAST
 
 				// Parse the block's body.
 				ScopedBranchTarget scopedBranchTarget(*this,resultType,hasLabel,labelName);
-				enterControlStructure();
 				parseTypedExpressionSequence(nodeIt,"block",resultType);
 				endControlStructure();
 			}
@@ -887,7 +869,6 @@ namespace WAST
 
 				// Emit the if operator.
 				encoder.beginIf({asResultType(resultType)});
-				enterControlStructure();
 
 				// Parse the then clause.
 				SNodeIt thenNodeIt;
@@ -900,7 +881,6 @@ namespace WAST
 				if(hasElseNode)
 				{
 					endControlStructure(true);
-					enterControlStructure();
 
 					SNodeIt elseNodeIt;
 					if(parseTaggedNode(nodeIt,Symbol::_else,elseNodeIt))
@@ -926,7 +906,6 @@ namespace WAST
 				ScopedBranchTarget scopedContinueTarget(*this,ExpressionType::none,hasLabel,labelName);
 
 				encoder.beginLoop({asResultType(resultType)});
-				enterControlStructure();
 				parseTypedExpressionSequence(nodeIt,"loop body",resultType);
 				endControlStructure();
 			}
@@ -941,7 +920,6 @@ namespace WAST
 				parseOptionalTypedExpression(nodeIt,"br target argument",getBranchTargetByDepth(depth).expectedArgumentType);
 
 				encoder.br({depth});
-				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
 			DEFINE_OP(br_table)
@@ -981,7 +959,6 @@ namespace WAST
 				parseOperands(nodeIt,"br_table index",ExpressionType::i32);
 
 				encoder.br_table({std::move(targetDepths),defaultTargetDepth});
-				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
 
@@ -1004,7 +981,6 @@ namespace WAST
 			DEFINE_OP(unreachable)
 			{
 				encoder.unreachable();
-				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
 
@@ -1012,7 +988,6 @@ namespace WAST
 			{
 				parseOptionalTypedExpression(nodeIt,"return operands",asExpressionType(functionType->ret));
 				encoder.ret();
-				enterUnreachable();
 				resultType = ExpressionType::unreachable;
 			}
 

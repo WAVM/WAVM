@@ -411,19 +411,15 @@ namespace WebAssembly
 	struct OperationEncoder
 	{
 		Serialization::OutputStream& stream;
-		uintp unreachableDepth;
 
-		OperationEncoder(Serialization::OutputStream& inStream): stream(inStream), unreachableDepth(0) {}
+		OperationEncoder(Serialization::OutputStream& inStream): stream(inStream) {}
 
 		#define VISIT_OPCODE(encoding,name,Imm) \
 			void name(Imm imm = {}) \
 			{ \
-				if(!unreachableDepth) \
-				{ \
-					Opcode opcode = Opcode::name; \
-					serialize(stream,opcode); \
-					serialize(stream,imm); \
-				} \
+				Opcode opcode = Opcode::name; \
+				serialize(stream,opcode); \
+				serialize(stream,imm); \
 			}
 		ENUM_OPS(VISIT_OPCODE)
 		#undef VISIT_OPCODE
