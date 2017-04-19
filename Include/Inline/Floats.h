@@ -2,6 +2,9 @@
 
 #include "Core/Core.h"
 
+#include <string>
+#include <cstdio>
+
 namespace Floats
 {	
 	template<typename Float>
