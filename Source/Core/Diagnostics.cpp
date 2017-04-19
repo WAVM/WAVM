@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstdarg>
+#include <cstdlib>
 
 namespace Core
 {
