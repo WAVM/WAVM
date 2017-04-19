@@ -1,12 +1,15 @@
-file(GLOB Sources "*.cpp")
-file(GLOB PrivateHeaders "*.h")
-
-file(GLOB Headers "${WAVM_INCLUDE_DIR}/Core/*.h")
+set(Sources
+	Diagnostics.cpp
+	POSIX.cpp
+	Windows.cpp)
+set(PublicHeaders
+	${WAVM_INCLUDE_DIR}/Core/Core.h
+	${WAVM_INCLUDE_DIR}/Core/Platform.h)
 include_directories(${WAVM_INCLUDE_DIR}/Core)
 
 add_definitions(-DCORE_API=DLL_EXPORT)
 
-add_library(Core SHARED ${Sources} ${Headers} ${PrivateHeaders})
+add_library(Core SHARED ${Sources} ${PublicHeaders})
 
 # Link with dl on Linux for dladdr.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

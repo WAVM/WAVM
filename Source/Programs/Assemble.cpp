@@ -1,7 +1,7 @@
 #include "Core/Core.h"
 #include "CLI.h"
 #include "WAST/WAST.h"
-#include "WebAssembly/WebAssembly.h"
+#include "WASM/WASM.h"
 
 int commandMain(int argc,char** argv)
 {
@@ -31,7 +31,7 @@ int commandMain(int argc,char** argv)
 	}
 	
 	// Load the WAST module.
-	WebAssembly::Module module;
+	IR::Module module;
 	if(!loadTextModule(inputFilename,module)) { return EXIT_FAILURE; }
 
 	// If the command-line switch to omit names was specified, strip the name section.

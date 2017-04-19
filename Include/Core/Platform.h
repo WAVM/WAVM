@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <functional>
 
 #include "Core.h"
@@ -22,13 +23,22 @@
 
 namespace Platform
 {
+	// countLeadingZeroes/countTrailingZeroes returns the number of leading/trailing zeroes, or the bit width of the input if no bits are set.
 	#ifdef _WIN32
-		inline uint64 floorLogTwo(uint64 value) { unsigned long result; return _BitScanReverse64(&result,value) ? result : 0; }
-		inline uint32 floorLogTwo(uint32 value) { unsigned long result; return _BitScanReverse(&result,value) ? result : 0; }
+		// BitScanReverse/BitScanForward return 0 if the input is 0.
+		inline uint64 countLeadingZeroes(uint64 value) { unsigned long result; return _BitScanReverse64(&result,value) ? (63 - result) : 64; }
+		inline uint32 countLeadingZeroes(uint32 value) { unsigned long result; return _BitScanReverse(&result,value) ? (31 - result) : 32; }
+		inline uint64 countTrailingZeroes(uint64 value) { unsigned long result; return _BitScanForward64(&result,value) ? result : 64; }
+		inline uint32 countTrailingZeroes(uint32 value) { unsigned long result; return _BitScanForward(&result,value) ? result : 32; }
 	#else
-		inline uint64 floorLogTwo(uint64 value) { return 63 - __builtin_clzll(value); }
-		inline uint32 floorLogTwo(uint32 value) { return 31 - __builtin_clz(value); }
+		// __builtin_clz/__builtin_ctz are undefined if the input is 0. 
+		inline uint64 countLeadingZeroes(uint64 value) { return value == 0 ? 64 : __builtin_clzll(value); }
+		inline uint32 countLeadingZeroes(uint32 value) { return value == 0 ? 32 : __builtin_clz(value); }
+		inline uint64 countTrailingZeroes(uint64 value) { return value == 0 ? 64 : __builtin_ctzll(value); }
+		inline uint32 countTrailingZeroes(uint32 value) { return value == 0 ? 32 : __builtin_ctz(value); }
 	#endif
+	inline uint64 floorLogTwo(uint64 value) { return value <= 1 ? 0 : 63 - countLeadingZeroes(value); }
+	inline uint32 floorLogTwo(uint32 value) { return value <= 1 ? 0 : 31 - countLeadingZeroes(value); }
 	inline uint64 ceilLogTwo(uint64 value) { return floorLogTwo(value * 2 - 1); }
 	inline uint32 ceilLogTwo(uint32 value) { return floorLogTwo(value * 2 - 1); }
 

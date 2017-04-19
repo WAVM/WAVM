@@ -45,6 +45,8 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4141")
 	# disable warning: cast truncates constant value
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4310")
+	# disable warning: unreachable code
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4702")
 else()
 	# Use C++11
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -84,8 +86,11 @@ else()
 	add_definitions("-DPRETEND_32BIT_ADDRESS_SPACE=0")
 endif()
 
+add_subdirectory(Include/Inline)
+
 add_subdirectory(Source/Core)
-add_subdirectory(Source/WebAssembly)
+add_subdirectory(Source/IR)
+add_subdirectory(Source/WASM)
 add_subdirectory(Source/WAST)
 add_subdirectory(Source/Runtime)
 add_subdirectory(Source/Emscripten)

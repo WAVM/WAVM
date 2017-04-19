@@ -1,12 +1,12 @@
 #include "LLVMJIT.h"
 #include "llvm/ADT/SmallVector.h"
-#include "WebAssembly/Operations.h"
-#include "WebAssembly/OperatorLoggingProxy.h"
+#include "IR/Operators.h"
+#include "IR/OperatorLoggingProxy.h"
 
 #define ENABLE_LOGGING 0
 #define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
 
-using namespace WebAssembly;
+using namespace IR;
 
 namespace LLVMJIT
 {
@@ -63,7 +63,7 @@ namespace LLVMJIT
 	{
 		EmitModuleContext& moduleContext;
 		const Module& module;
-		const Function& function;
+		const FunctionDef& functionDef;
 		const FunctionType* functionType;
 		FunctionInstance* functionInstance;
 		llvm::Function* llvmFunction;
@@ -107,11 +107,11 @@ namespace LLVMJIT
 		std::vector<BranchTarget> branchTargetStack;
 		std::vector<llvm::Value*> stack;
 
-		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,const Function& inFunction,FunctionInstance* inFunctionInstance,llvm::Function* inLLVMFunction)
+		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,const FunctionDef& inFunctionDef,FunctionInstance* inFunctionInstance,llvm::Function* inLLVMFunction)
 		: moduleContext(inEmitModuleContext)
 		, module(inModule)
-		, function(inFunction)
-		, functionType(module.types[inFunction.typeIndex])
+		, functionDef(inFunctionDef)
+		, functionType(inModule.types[inFunctionDef.type.index])
 		, functionInstance(inFunctionInstance)
 		, llvmFunction(inLLVMFunction)
 		, irBuilder(context)
@@ -246,7 +246,7 @@ namespace LLVMJIT
 		// Emits a call to a WAVM intrinsic function.
 		llvm::Value* emitRuntimeIntrinsic(const char* intrinsicName,const FunctionType* intrinsicType,const std::initializer_list<llvm::Value*>& args)
 		{
-			Object* intrinsicObject = Intrinsics::find(intrinsicName,intrinsicType);
+			ObjectInstance* intrinsicObject = Intrinsics::find(intrinsicName,intrinsicType);
 			assert(intrinsicObject);
 			FunctionInstance* intrinsicFunction = asFunction(intrinsicObject);
 			assert(intrinsicFunction->type == intrinsicType);
@@ -300,7 +300,7 @@ namespace LLVMJIT
 			branchTargetStack.push_back({branchArgumentType,branchTargetBlock,branchTargetPHI});
 		}
 
-		void beginBlock(ControlStructureImm imm)
+		void block(ControlStructureImm imm)
 		{
 			// Create an end block+phi for the block result.
 			auto endBlock = llvm::BasicBlock::Create(context,"blockEnd",llvmFunction);
@@ -312,7 +312,7 @@ namespace LLVMJIT
 			// Push a branch target for the end block/phi.
 			pushBranchTarget(imm.resultType,endBlock,endPHI);
 		}
-		void beginLoop(ControlStructureImm imm)
+		void loop(ControlStructureImm imm)
 		{
 			// Create a loop block, and an end block+phi for the loop result.
 			auto loopBodyBlock = llvm::BasicBlock::Create(context,"loopBody",llvmFunction);
@@ -329,7 +329,7 @@ namespace LLVMJIT
 			// Push a branch target for the loop body start.
 			pushBranchTarget(ResultType::none,loopBodyBlock,nullptr);
 		}
-		void beginIf(ControlStructureImm imm)
+		void if_(ControlStructureImm imm)
 		{
 			// Create a then block and else block for the if, and an end block+phi for the if result.
 			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
@@ -352,7 +352,7 @@ namespace LLVMJIT
 			pushBranchTarget(imm.resultType,endBlock,endPHI);
 			
 		}
-		void beginElse(NoImm imm)
+		void else_(NoImm imm)
 		{
 			assert(controlStack.size());
 			ControlContext& currentContext = controlStack.back();
@@ -534,7 +534,7 @@ namespace LLVMJIT
 
 			enterUnreachable();
 		}
-		void ret(NoImm)
+		void return_(NoImm)
 		{
 			if(functionType->ret != ResultType::none)
 			{
@@ -592,7 +592,7 @@ namespace LLVMJIT
 				const uintp calleeIndex = imm.functionIndex - moduleContext.importedFunctionPointers.size();
 				assert(calleeIndex < moduleContext.functionDefs.size());
 				callee = moduleContext.functionDefs[calleeIndex];
-				calleeType = module.types[module.functionDefs[calleeIndex].typeIndex];
+				calleeType = module.types[module.functions.defs[calleeIndex].type.index];
 			}
 
 			// Pop the call arguments from the operand stack.
@@ -607,9 +607,9 @@ namespace LLVMJIT
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
-			assert(imm.typeIndex < module.types.size());
+			assert(imm.type.index < module.types.size());
 			
-			auto calleeType = module.types[imm.typeIndex];
+			auto calleeType = module.types[imm.type.index];
 			auto functionPointerType = asLLVMType(calleeType)->getPointerTo()->getPointerTo();
 
 			// Compile the function index.
@@ -937,31 +937,20 @@ namespace LLVMJIT
 	struct UnreachableOpVisitor
 	{
 		UnreachableOpVisitor(EmitFunctionContext& inContext): context(inContext), unreachableControlDepth(0) {}
-		#define VISIT_OP(encoding,name,Imm) void name(Imm imm) {}
-		ENUM_NONCONTROL_OPS(VISIT_OP)
-		VISIT_OP(_,unknown,Opcode)
+		#define VISIT_OP(opcode,name,nameString,Imm) void name(Imm imm) {}
+		ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+		VISIT_OP(_,unknown,"unknown",Opcode)
 		#undef VISIT_OP
 
-		void nop(NoImm) {}
-		void select(NoImm) {}
-		void br(BranchImm) {}
-		void br_if(BranchImm) {}
-		void br_table(BranchTableImm) {}
-		void ret(NoImm) {}
-		void unreachable(NoImm) {}
-		void drop(NoImm) {}
-		void call(CallImm) {}
-		void call_indirect(CallIndirectImm) {}
-
 		// Keep track of control structure nesting level in unreachable code, so we know when we reach the end of the unreachable code.
-		void beginBlock(ControlStructureImm) { ++unreachableControlDepth; }
-		void beginLoop(ControlStructureImm) { ++unreachableControlDepth; }
-		void beginIf(ControlStructureImm) { ++unreachableControlDepth; }
+		void block(ControlStructureImm) { ++unreachableControlDepth; }
+		void loop(ControlStructureImm) { ++unreachableControlDepth; }
+		void if_(ControlStructureImm) { ++unreachableControlDepth; }
 
 		// If an else or end opcode would signal an end to the unreachable code, then pass it through to the IR emitter.
-		void beginElse(NoImm imm)
+		void else_(NoImm imm)
 		{
-			if(!unreachableControlDepth) { context.beginElse(imm); }
+			if(!unreachableControlDepth) { context.else_(imm); }
 		}
 		void end(NoImm imm)
 		{
@@ -969,7 +958,11 @@ namespace LLVMJIT
 			else { --unreachableControlDepth; }
 		}
 
-		void logOperator(const std::string& operatorDescription) { context.logOperator(operatorDescription); }
+		void logOperator(const std::string& operatorDescription)
+		{
+			if(unreachableControlDepth) { context.logOperator("*unreachable* " + operatorDescription); }
+			else { context.logOperator(operatorDescription); }
+		}
 	private:
 		EmitFunctionContext& context;
 		uintp unreachableControlDepth;
@@ -1015,11 +1008,11 @@ namespace LLVMJIT
 
 		// Create and initialize allocas for all the locals and parameters.
 		auto llvmArgIt = llvmFunction->arg_begin();
-		for(uintp localIndex = 0;localIndex < functionType->parameters.size() + function.nonParameterLocalTypes.size();++localIndex)
+		for(uintp localIndex = 0;localIndex < functionType->parameters.size() + functionDef.nonParameterLocalTypes.size();++localIndex)
 		{
 			auto localType = localIndex < functionType->parameters.size()
 				? functionType->parameters[localIndex]
-				: function.nonParameterLocalTypes[localIndex - functionType->parameters.size()];
+				: functionDef.nonParameterLocalTypes[localIndex - functionType->parameters.size()];
 			auto localPointer = irBuilder.CreateAlloca(asLLVMType(localType),nullptr,"");
 			localPointers.push_back(localPointer);
 
@@ -1037,7 +1030,7 @@ namespace LLVMJIT
 		}
 
 		// Decode the WebAssembly opcodes and emit LLVM IR for them.
-		Serialization::MemoryInputStream codeStream(module.code.data() + function.code.offset,function.code.numBytes);
+		Serialization::MemoryInputStream codeStream(module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
 		OperationDecoder decoder(codeStream);
 		UnreachableOpVisitor unreachableOpVisitor(*this);
 		OperatorLoggingProxy<EmitFunctionContext> loggingProxy(module,*this);
@@ -1103,7 +1096,7 @@ namespace LLVMJIT
 		}
 
 		// Create LLVM pointer constants for the module's imported functions.
-		for(uintp functionIndex = 0;functionIndex < moduleInstance->functions.size() - module.functionDefs.size();++functionIndex)
+		for(uintp functionIndex = 0;functionIndex < module.functions.imports.size();++functionIndex)
 		{
 			const FunctionInstance* functionInstance = moduleInstance->functions[functionIndex];
 			importedFunctionPointers.push_back(emitLiteralPointer(functionInstance->nativeFunction,asLLVMType(functionInstance->type)->getPointerTo()));
@@ -1114,19 +1107,17 @@ namespace LLVMJIT
 		{ globalPointers.push_back(emitLiteralPointer(&global->value,asLLVMType(global->type.valueType)->getPointerTo())); }
 		
 		// Create the LLVM functions.
-		functionDefs.resize(module.functionDefs.size());
-		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		functionDefs.resize(module.functions.defs.size());
+		for(uintp functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
-			const Function& function = module.functionDefs[functionDefIndex];
-			const FunctionType* functionType = module.types[function.typeIndex];
-			auto llvmFunctionType = asLLVMType(functionType);
+			auto llvmFunctionType = asLLVMType(module.types[module.functions.defs[functionDefIndex].type.index]);
 			auto externalName = getExternalFunctionName(moduleInstance,functionDefIndex);
 			functionDefs[functionDefIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,externalName,llvmModule);
 		}
 
 		// Compile each function in the module.
-		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
-		{ EmitFunctionContext(*this,module,module.functionDefs[functionDefIndex],moduleInstance->functionDefs[functionDefIndex],functionDefs[functionDefIndex]).emit(); }
+		for(uintp functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
+		{ EmitFunctionContext(*this,module,module.functions.defs[functionDefIndex],moduleInstance->functionDefs[functionDefIndex],functionDefs[functionDefIndex]).emit(); }
 		
 		// Finalize the debug info.
 		diBuilder.finalize();

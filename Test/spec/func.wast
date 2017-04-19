@@ -169,7 +169,7 @@
     (call_indirect $sig (i32.const 4))
   )
 
-  (; (func (export "signature-implicit-reused")
+  (func (export "signature-implicit-reused")
     ;; The implicit index 16 in this test depends on the function and
     ;; type definitions, and may need adapting if they change.
     (call_indirect 16
@@ -187,7 +187,7 @@
       (f64.const 0) (i64.const 0) (f32.const 0) (i32.const 0)
       (i32.const 3)
     )
-  ) ;)
+  )
 
   (func (export "signature-explicit-duplicate")
     (call_indirect $empty-sig-duplicate (i32.const 1))
@@ -304,7 +304,7 @@
 (assert_return (invoke "init-local-f64") (f64.const 0))
 
 (assert_return (invoke "signature-explicit-reused"))
-;;(assert_return (invoke "signature-implicit-reused"))
+(assert_return (invoke "signature-implicit-reused"))
 (assert_return (invoke "signature-explicit-duplicate"))
 (assert_return (invoke "signature-implicit-duplicate"))
 

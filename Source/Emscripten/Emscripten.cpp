@@ -1,11 +1,13 @@
 #include "Core/Core.h"
-#include "WebAssembly/Module.h"
+#include "IR/IR.h"
+#include "IR/Module.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/Intrinsics.h"
 #include "Emscripten.h"
 #include <time.h>
 #include <stdio.h>
 #include <limits.h>
+#include <string.h>
 
 #ifndef _WIN32
 #include <sys/uio.h>
@@ -13,7 +15,7 @@
 
 namespace Emscripten
 {
-	using namespace WebAssembly;
+	using namespace IR;
 	using namespace Runtime;
 
 	static uint32 coerce32bitAddress(uintp address)
@@ -109,7 +111,7 @@ namespace Emscripten
 		enum { sysConfPageSize = 30 };
 		switch(a)
 		{
-		case sysConfPageSize: return WebAssembly::numBytesPerPage;
+		case sysConfPageSize: return IR::numBytesPerPage;
 		default: causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
 		}
 	}

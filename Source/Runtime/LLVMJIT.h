@@ -4,7 +4,6 @@
 #include "Core/Platform.h"
 #include "RuntimePrivate.h"
 #include "Intrinsics.h"
-#include "Core/MemoryArena.h"
 
 #ifdef _WIN32
 	#pragma warning(push)
@@ -118,5 +117,5 @@ namespace LLVMJIT
 	bool getFunctionIndexFromExternalName(const char* externalName,uintp& outFunctionDefIndex);
 
 	// Emits LLVM IR for a module.
-	llvm::Module* emitModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance);
+	llvm::Module* emitModule(const IR::Module& module,ModuleInstance* moduleInstance);
 }

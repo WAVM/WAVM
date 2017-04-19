@@ -10,10 +10,10 @@ namespace Intrinsics
 {
 	struct Singleton
 	{
-		std::map<std::string,Function*> functionMap;
-		std::map<std::string,Global*> variableMap;
-		std::map<std::string,Memory*> memoryMap;
-		std::map<std::string,Table*> tableMap;
+		std::map<std::string,Intrinsics::Function*> functionMap;
+		std::map<std::string,Intrinsics::Global*> variableMap;
+		std::map<std::string,Intrinsics::Memory*> memoryMap;
+		std::map<std::string,Intrinsics::Table*> tableMap;
 		Platform::Mutex mutex;
 
 		Singleton() {}
@@ -26,15 +26,15 @@ namespace Intrinsics
 		}
 	};
 	
-	std::string getDecoratedName(const char* name,const WebAssembly::ObjectType& type)
+	std::string getDecoratedName(const char* name,const IR::ObjectType& type)
 	{
 		std::string decoratedName = name;
 		decoratedName += " : ";
-		decoratedName += WebAssembly::asString(type);
+		decoratedName += IR::asString(type);
 		return decoratedName;
 	}
 
-	Function::Function(const char* inName,const WebAssembly::FunctionType* type,void* nativeFunction)
+	Function::Function(const char* inName,const IR::FunctionType* type,void* nativeFunction)
 	:	name(inName)
 	{
 		function = new Runtime::FunctionInstance(nullptr,type,nativeFunction);
@@ -51,7 +51,7 @@ namespace Intrinsics
 		delete function;
 	}
 
-	Global::Global(const char* inName,WebAssembly::GlobalType inType)
+	Global::Global(const char* inName,IR::GlobalType inType)
 	:	name(inName)
 	,	globalType(inType)
 	{
@@ -78,7 +78,7 @@ namespace Intrinsics
 		value = &global->value;
 	}
 
-	Table::Table(const char* inName,const WebAssembly::TableType& type)
+	Table::Table(const char* inName,const IR::TableType& type)
 	: name(inName)
 	, table(Runtime::createTable(type))
 	{
@@ -97,7 +97,7 @@ namespace Intrinsics
 		delete table;
 	}
 	
-	Memory::Memory(const char* inName,const WebAssembly::MemoryType& type)
+	Memory::Memory(const char* inName,const IR::MemoryType& type)
 	: name(inName)
 	, memory(Runtime::createMemory(type))
 	{
@@ -116,32 +116,32 @@ namespace Intrinsics
 		delete memory;
 	}
 
-	Runtime::Object* find(const char* name,const WebAssembly::ObjectType& type)
+	Runtime::ObjectInstance* find(const char* name,const IR::ObjectType& type)
 	{
 		std::string decoratedName = getDecoratedName(name,type);
 		Platform::Lock Lock(Singleton::get().mutex);
-		Runtime::Object* result = nullptr;
+		Runtime::ObjectInstance* result = nullptr;
 		switch(type.kind)
 		{
-		case WebAssembly::ObjectKind::function:
+		case IR::ObjectKind::function:
 		{
 			auto keyValue = Singleton::get().functionMap.find(decoratedName);
 			result = keyValue == Singleton::get().functionMap.end() ? nullptr : asObject(keyValue->second->function);
 			break;
 		}
-		case WebAssembly::ObjectKind::table:
+		case IR::ObjectKind::table:
 		{
 			auto keyValue = Singleton::get().tableMap.find(decoratedName);
-			result = keyValue == Singleton::get().tableMap.end() ? nullptr : asObject((Runtime::Table*)*keyValue->second);
+			result = keyValue == Singleton::get().tableMap.end() ? nullptr : asObject((Runtime::TableInstance*)*keyValue->second);
 			break;
 		}
-		case WebAssembly::ObjectKind::memory:
+		case IR::ObjectKind::memory:
 		{
 			auto keyValue = Singleton::get().memoryMap.find(decoratedName);
-			result = keyValue == Singleton::get().memoryMap.end() ? nullptr : asObject((Runtime::Memory*)*keyValue->second);
+			result = keyValue == Singleton::get().memoryMap.end() ? nullptr : asObject((Runtime::MemoryInstance*)*keyValue->second);
 			break;
 		}
-		case WebAssembly::ObjectKind::global:
+		case IR::ObjectKind::global:
 		{
 			auto keyValue = Singleton::get().variableMap.find(decoratedName);
 			result = keyValue == Singleton::get().variableMap.end() ? nullptr : asObject(keyValue->second->global);
@@ -153,13 +153,13 @@ namespace Intrinsics
 		return result;
 	}
 	
-	std::vector<Runtime::Object*> getAllIntrinsicObjects()
+	std::vector<Runtime::ObjectInstance*> getAllIntrinsicObjects()
 	{
 		Platform::Lock lock(Singleton::get().mutex);
-		std::vector<Runtime::Object*> result;
+		std::vector<Runtime::ObjectInstance*> result;
 		for(auto mapIt : Singleton::get().functionMap) { result.push_back(mapIt.second->function); }
-		for(auto mapIt : Singleton::get().tableMap) { result.push_back((Runtime::Table*)*mapIt.second); }
-		for(auto mapIt : Singleton::get().memoryMap) { result.push_back((Runtime::Memory*)*mapIt.second); }
+		for(auto mapIt : Singleton::get().tableMap) { result.push_back((Runtime::TableInstance*)*mapIt.second); }
+		for(auto mapIt : Singleton::get().memoryMap) { result.push_back((Runtime::MemoryInstance*)*mapIt.second); }
 		for(auto mapIt : Singleton::get().variableMap) { result.push_back(mapIt.second->global); }
 		return result;
 	}

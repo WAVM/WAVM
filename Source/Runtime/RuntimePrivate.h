@@ -3,10 +3,9 @@
 #include "Core/Core.h"
 #include "Core/Platform.h"
 #include "Runtime.h"
-#include "WebAssembly/WebAssembly.h"
-#include "WebAssembly/Module.h"
 
 #include <functional>
+#include <map>
 
 #define HAS_64BIT_ADDRESS_SPACE (sizeof(uintp) == 8 && !PRETEND_32BIT_ADDRESS_SPACE)
 
@@ -20,21 +19,21 @@ namespace LLVMJIT
 	};
 
 	void init();
-	void instantiateModule(const WebAssembly::Module& module,Runtime::ModuleInstance* moduleInstance);
+	void instantiateModule(const IR::Module& module,Runtime::ModuleInstance* moduleInstance);
 	bool describeInstructionPointer(uintp ip,std::string& outDescription);
 	
 	typedef void (*InvokeFunctionPointer)(void*,uint64*);
 
 	// Generates an invoke thunk for a specific function type.
-	InvokeFunctionPointer getInvokeThunk(const WebAssembly::FunctionType* functionType);
+	InvokeFunctionPointer getInvokeThunk(const IR::FunctionType* functionType);
 }
 
 namespace Runtime
 {
-	using namespace WebAssembly;
+	using namespace IR;
 	
 	// A private root for all runtime objects that handles garbage collection.
-	struct GCObject : Object
+	struct GCObject : ObjectInstance
 	{
 		GCObject(ObjectKind inKind);
 		~GCObject() override;
@@ -53,7 +52,7 @@ namespace Runtime
 	};
 
 	// An instance of a WebAssembly Table.
-	struct Table : GCObject
+	struct TableInstance : GCObject
 	{
 		struct FunctionElement
 		{
@@ -70,14 +69,14 @@ namespace Runtime
 		size_t reservedNumPlatformPages;
 
 		// The Objects corresponding to the FunctionElements at baseAddress.
-		std::vector<Object*> elements;
+		std::vector<ObjectInstance*> elements;
 
-		Table(const TableType& inType): GCObject(ObjectKind::table), type(inType), baseAddress(nullptr), endOffset(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
-		~Table() override;
+		TableInstance(const TableType& inType): GCObject(ObjectKind::table), type(inType), baseAddress(nullptr), endOffset(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
+		~TableInstance() override;
 	};
 
 	// An instance of a WebAssembly Memory.
-	struct Memory : GCObject
+	struct MemoryInstance : GCObject
 	{
 		MemoryType type;
 
@@ -88,8 +87,8 @@ namespace Runtime
 		uint8* reservedBaseAddress;
 		size_t reservedNumPlatformPages;
 
-		Memory(const MemoryType& inType): GCObject(ObjectKind::memory), type(inType), baseAddress(nullptr), numPages(0), endOffset(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
-		~Memory() override;
+		MemoryInstance(const MemoryType& inType): GCObject(ObjectKind::memory), type(inType), baseAddress(nullptr), numPages(0), endOffset(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
+		~MemoryInstance() override;
 	};
 
 	// An instance of a WebAssembly global.
@@ -104,24 +103,31 @@ namespace Runtime
 	// An instance of a WebAssembly module.
 	struct ModuleInstance : GCObject
 	{
-		std::vector<Object*> imports;
-		std::map<std::string,Object*> exportMap;
+		std::map<std::string,ObjectInstance*> exportMap;
 
 		std::vector<FunctionInstance*> functionDefs;
 
 		std::vector<FunctionInstance*> functions;
-		std::vector<Table*> tables;
-		std::vector<Memory*> memories;
+		std::vector<TableInstance*> tables;
+		std::vector<MemoryInstance*> memories;
 		std::vector<GlobalInstance*> globals;
 
-		Memory* defaultMemory;
-		Table* defaultTable;
+		MemoryInstance* defaultMemory;
+		TableInstance* defaultTable;
 
 		LLVMJIT::JITModuleBase* jitModule;
 
-		ModuleInstance(std::vector<Object*>&& inImports)
+		ModuleInstance(
+			std::vector<FunctionInstance*>&& inFunctionImports,
+			std::vector<TableInstance*>&& inTableImports,
+			std::vector<MemoryInstance*>&& inMemoryImports,
+			std::vector<GlobalInstance*>&& inGlobalImports
+			)
 		: GCObject(ObjectKind::module)
-		, imports(inImports)
+		, functions(inFunctionImports)
+		, tables(inTableImports)
+		, memories(inMemoryImports)
+		, globals(inGlobalImports)
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
 		, jitModule(nullptr)

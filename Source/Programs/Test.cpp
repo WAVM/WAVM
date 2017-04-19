@@ -1,55 +1,48 @@
 #include "Core/Core.h"
-#include "Core/SExpressions.h"
-#include "Core/Serialization.h"
+#include "Inline/Serialization.h"
 #include "Core/Platform.h"
 #include "WAST/WAST.h"
-#include "WAST/WASTSymbols.h"
-#include "WebAssembly/WebAssembly.h"
+#include "WAST/TestScript.h"
+#include "WASM/WASM.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Intrinsics.h"
 
 #include "CLI.h"
 
-using namespace SExp;
+#include <map>
+#include <vector>
+#include <cstdio>
+#include <cstdarg>
+
 using namespace WAST;
-using namespace WebAssembly;
+using namespace IR;
 using namespace Runtime;
 
-struct TestScriptState : private Resolver
+struct TestScriptState
 {
-	std::vector<WAST::Error> errors;
-
-	TestScriptState(const char* inFilename): filename(inFilename), lastModuleInstance(nullptr) {}
-
-	bool process();
-
-private:
-
-	const char* filename;
-
+	bool hasInstantiatedModule;
 	ModuleInstance* lastModuleInstance;
 	
 	std::map<std::string,ModuleInstance*> moduleInternalNameToInstanceMap;
 	std::map<std::string,ModuleInstance*> moduleNameToInstanceMap;
+	
+	std::vector<WAST::Error> errors;
+	
+	TestScriptState() : hasInstantiatedModule(false), lastModuleInstance(nullptr) {}
+};
 
-	void collectGarbage()
-	{
-		std::vector<Object*> rootObjects;
-		rootObjects.push_back(asObject(lastModuleInstance));
-		for(auto& mapIt : moduleInternalNameToInstanceMap) { rootObjects.push_back(asObject(mapIt.second)); }
-		for(auto& mapIt : moduleNameToInstanceMap) { rootObjects.push_back(asObject(mapIt.second)); }
-		freeUnreferencedObjects(rootObjects);
-	}
-
-	bool resolve(const char* moduleName,const char* exportName,ObjectType type,Object*& outObject) override
+struct TestScriptResolver : Resolver
+{
+	TestScriptResolver(const TestScriptState& inState): state(inState) {}
+	bool resolve(const char* moduleName,const char* exportName,ObjectType type,ObjectInstance*& outObject) override
 	{
 		// Try to resolve an intrinsic first.
 		if(IntrinsicResolver::singleton.resolve(moduleName,exportName,type,outObject)) { return true; }
 
 		// Then look for a named module.
-		auto mapIt = moduleNameToInstanceMap.find(moduleName);
-		if(mapIt != moduleNameToInstanceMap.end())
+		auto mapIt = state.moduleNameToInstanceMap.find(moduleName);
+		if(mapIt != state.moduleNameToInstanceMap.end())
 		{
 			outObject = getInstanceExport(mapIt->second,exportName);
 			return outObject != nullptr && isA(outObject,type);
@@ -57,642 +50,272 @@ private:
 
 		return false;
 	}
-	
-	// Creates and records an error with the given message and location.
-	void recordError(const Core::TextFileLocus& locus,std::string&& message)
-	{
-		errors.push_back({locus,std::move(message)});
-	}
-	// Creates and record a S-expression error node.
-	void recordSExpError(SNode* node)
-	{
-		recordError(node->startLocus,node->error);
-	}
+private:
+	const TestScriptState& state;
+};
 
-	// Creates and record a S-expression error node.
-	void recordError(SNodeIt nodeIt,std::string&& message)
-	{
-		// If the referenced node is a S-expression error, pass it through as well.
-		if(nodeIt && nodeIt->type == SNodeType::Error) { recordSExpError(nodeIt); }
-
-		const Core::TextFileLocus& locus = nodeIt.node ? nodeIt.node->startLocus : nodeIt.previousLocus;
-		errors.push_back({locus,std::move(message)});
-	}
-	
-	void recordExcessInputError(SNodeIt nodeIt,const char* errorContext)
-	{
-		auto message = std::string("unexpected input following ") + errorContext;
-		recordError(nodeIt,std::move(message));
-	}
-
-	Value parseRuntimeValue(SNodeIt nodeIt)
-	{
-		SNodeIt childNodeIt;
-		Symbol symbol;
-		if(parseTreeNode(nodeIt,childNodeIt) && parseSymbol(childNodeIt,symbol))
-		{
-			switch(symbol)
-			{
-			case Symbol::_i32_const:
-			{
-				int32 i32Value;
-				if(!parseInt(childNodeIt,i32Value)) { recordError(childNodeIt,"const: expected i32 literal"); return Value(); }
-				else { return Value(i32Value); }
-			}
-			case Symbol::_i64_const:
-			{
-				int64 i64Value;
-				if(!parseInt(childNodeIt,i64Value)) { recordError(childNodeIt,"const: expected i64 literal"); return Value(); }
-				else { return Value(i64Value); }
-			}
-			case Symbol::_f32_const:
-			{
-				float32 f32Value;
-				if(!parseFloat(childNodeIt,f32Value)) { recordError(childNodeIt,"const: expected f32 literal"); return Value(); }
-				else { return Value(f32Value); }
-			}
-			case Symbol::_f64_const:
-			{
-				float64 f64Value;
-				if(!parseFloat(childNodeIt,f64Value)) { recordError(childNodeIt,"const: expected f64 literal"); return Value(); }
-				else { return Value(f64Value); }
-			}
-			default:;
-			};
-		}
-
-		recordError(nodeIt,"expected const expression");
-		return Value();
-	}
-
-	bool processAction(SNodeIt nodeIt,Result& outResult)
-	{
-		SNodeIt childNodeIt;
-		if(parseTaggedNode(nodeIt,Symbol::_invoke,childNodeIt))
-		{
-			if(!lastModuleInstance) { recordError(nodeIt,"no module to use in invoke"); return false; }
-
-			// Parse an optional module name.
-			SNodeIt moduleNameIt = childNodeIt;
-			const char* moduleName;
-			ModuleInstance* moduleInstance = lastModuleInstance;
-			if(parseName(childNodeIt,moduleName))
-			{
-				auto mapIt = moduleInternalNameToInstanceMap.find(moduleName);
-				if(mapIt == moduleInternalNameToInstanceMap.end())
-				{
-					recordError(moduleNameIt,std::string("unknown module name: ") + moduleName);
-					return true;
-				}
-				moduleInstance = mapIt->second;
-			}
-
-			// Look up the module this invoke uses, and bail without an error if there was an error parsing the module.
-			if(moduleInstance)
-			{
-				// Parse the export name to invoke.
-				std::string invokeExportName;
-				SNodeIt savedExportNameIt = childNodeIt;
-				if(!parseString(childNodeIt,invokeExportName))
-					{ recordError(childNodeIt,"expected export name string"); return false; }
-
-				// Find the named export in the module instance and get its type.
-				auto functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,invokeExportName.c_str()));
-				if(!functionInstance) { recordError(savedExportNameIt,std::string("couldn't find exported function with name: ") + invokeExportName); return false; }
-				auto functionType = getFunctionType(functionInstance);
-
-				// Parse the invoke's parameters.
-				std::vector<Value> parameters(functionType->parameters.size());
-				for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
-					{ parameters[parameterIndex] = parseRuntimeValue(childNodeIt++); }
-
-				// Verify that all of the invoke's operands were parsed.
-				if(childNodeIt) { recordExcessInputError(childNodeIt,"invoke unexpected argument"); }
-
-				// Execute the invoke
-				outResult = invokeFunction(functionInstance,parameters);
-			}
-
-			return true;
-		}
-		else if(parseTaggedNode(nodeIt,Symbol::_get,childNodeIt))
-		{
-			if(!lastModuleInstance) { recordError(nodeIt,"no module to use in get"); return false; }
-
-			// Parse an optional module name.
-			SNodeIt moduleNameIt = childNodeIt;
-			const char* moduleName;
-			ModuleInstance* moduleInstance = lastModuleInstance;
-			if(parseName(childNodeIt,moduleName))
-			{
-				auto mapIt = moduleInternalNameToInstanceMap.find(moduleName);
-				if(mapIt == moduleInternalNameToInstanceMap.end())
-				{
-					recordError(moduleNameIt,std::string("unknown module name: ") + moduleName);
-					return false;
-				}
-				moduleInstance = mapIt->second;
-			}
-
-			// Look up the module this invoke uses, and bail without an error if there was an error parsing the module.
-			if(moduleInstance)
-			{
-				// Parse the export name to get.
-				std::string getExportName;
-				SNodeIt savedExportNameIt = childNodeIt;
-				if(!parseString(childNodeIt,getExportName)) { recordError(childNodeIt,"expected export name string"); return false; }
-
-				// Find the named export in the module.
-				auto global = asGlobalNullable(getInstanceExport(moduleInstance,getExportName.c_str()));
-				if(!global) { recordError(savedExportNameIt,std::string("couldn't find exported global with name: ") + getExportName); return false; }
-
-				// Verify that all of the get's operands were parsed.
-				if(childNodeIt) { recordExcessInputError(childNodeIt,"get unexpected argument"); }
-
-				// Get the value of the specified global.
-				outResult = getGlobalValue(global);
-			}
-
-			return true;
-		}
-		else if(parseTaggedNode(nodeIt,Symbol::_module,childNodeIt))
-		{
-			// Clear the previous module.
-			lastModuleInstance = nullptr;
-			collectGarbage();
-
-			// Parse a module definition.
-			const char* moduleInternalName = nullptr;
-			Module* module = new Module();
-			std::vector<WAST::Error> moduleErrors;
-			if(parseTextOrBinaryModule(childNodeIt,*module,moduleErrors,moduleInternalName))
-			{
-				// Link and instantiate the module.
-				LinkResult linkResult = linkModule(*module,*this);
-				if(linkResult.success) { lastModuleInstance = instantiateModule(*module,std::move(linkResult.resolvedImports)); }
-				else
-				{
-					for(auto& missingImport : linkResult.missingImports)
-					{
-						recordError(
-							nodeIt,
-							std::string("missing import module=\"") + missingImport.moduleName
-							+ "\" export=\"" + missingImport.exportName
-							+ "\" type=\"" + asString(missingImport.type) + "\""
-							);
-					}
-				}
-			}
-			else
-			{
-				errors.insert(errors.end(),moduleErrors.begin(),moduleErrors.end());
-				// Otherwise clear the module reference so that tests that reference it realize there was a problem.
-				delete module;
-				module = nullptr;
-			}
-
-			if(moduleInternalName)
-			{
-				// Don't check for duplicate names for now, since the ml-proto tests rely on name shadowing.
-				/*if(moduleInternalNameToInstanceMap.count(moduleInternalName)) { recordError(moduleInternalNameIt,std::string("duplicate module name: ") + moduleInternalName); }
-				else*/ { moduleInternalNameToInstanceMap[moduleInternalName] = lastModuleInstance; }
-			}
-
-			return true;
-		}
-		else { recordError(nodeIt,"expected invoke or get"); return false; }
-	}
-
-	void processAssertReturn(Core::TextFileLocus locus,SNodeIt nodeIt)
-	{
-		SNodeIt actionNodeIt = nodeIt++;
-
-		// Parse the expected value of the action.
-		Result expectedResult = nodeIt ? parseRuntimeValue(nodeIt++) : Result();
-
-		// Process the action.
-		try
-		{
-			Result result;
-			if(!processAction(actionNodeIt,result)) { return; }
-	
-			// Check that the action result matched the expected value.
-			if(!areBitsEqual(result,expectedResult))
-			{ recordError(locus,"assert_return: expected " + asString(expectedResult) + " but got " + asString(result)); }
-		}
-		catch(Exception exception) { recordError(locus,std::string("assert_return: unexpected trap: ") + describeExceptionCause(exception.cause)); }
-
-		// Verify that assert_return consumed all its input.
-		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return unexpected input"); }
-	}
-	
-	void processAssertReturnCanonicalNaN(Core::TextFileLocus locus,SNodeIt nodeIt)
-	{
-		// Process the action.
-		try
-		{
-			Result result;
-			if(!processAction(nodeIt++,result)) { return; }
-			
-			// Check that the action result was a canonical NaN.
-			switch(result.type)
-			{
-			case ResultType::f32:
-			{
-				Floats::F32Components f32Components;
-				f32Components.value = result.f32;
-				if(f32Components.bits.exponent != 0xff || f32Components.bits.significand != 0x400000)
-				{ recordError(locus,"assert_return_canonical_nan: expected canonical NaN but got " + asString(result)); }
-				break;
-			}
-			case ResultType::f64:
-			{
-				Floats::F64Components f64Components;
-				f64Components.value = result.f64;
-				if(f64Components.bits.exponent != 0x7ff || f64Components.bits.significand != 0x8000000000000ull)
-				{ recordError(locus,"assert_return_canonical_nan: expected canonical NaN but got " + asString(result)); }
-				break;
-			}
-			default: recordError(locus,"assert_return_canonical_nan: expected floating-point number but got " + asString(result)); 
-			};
-		}
-		catch(Exception exception) { recordError(locus,std::string("assert_return_canonical_nan: unexpected trap: ") + describeExceptionCause(exception.cause)); }
-
-		// Verify that assert_return_canonical_nan consumed all its input.
-		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return_canonical_nan unexpected input"); }
-	}
-	
-	void processAssertReturnArithmeticNaN(Core::TextFileLocus locus,SNodeIt nodeIt)
-	{
-		// Process the action.
-		try
-		{
-			Result result;
-			if(!processAction(nodeIt++,result)) { return; }
-			
-			// Check that the action result was an arithmetic NaN.
-			if(result.type != ResultType::f32 && result.type != ResultType::f64)
-			{ recordError(locus,"assert_return_arithmetic_nan: expected floating-point number but got " + asString(result)); }
-			else if(	(result.type == ResultType::f32 && (result.f32 == result.f32))
-			||		(result.type == ResultType::f64 && (result.f64 == result.f64)))
-			{ recordError(locus,"assert_return_arithmetic_nan: expected NaN but got " + asString(result)); }
-		}
-		catch(Exception exception) { recordError(locus,std::string("assert_return_arithmetic_nan: unexpected trap: ") + describeExceptionCause(exception.cause)); }
-
-		// Verify that assert_return_arithmetic_nan consumed all its input.
-		if(nodeIt) { recordExcessInputError(nodeIt,"assert_return_arithmetic_nan unexpected input"); }
-	}
-	
-	void processAssertTrap(Core::TextFileLocus locus,SNodeIt nodeIt)
-	{
-		SNodeIt actionNodeIt = nodeIt++;
+void testErrorf(TestScriptState& state,const TextFileLocus& locus,const char* messageFormat,...)
+{
+	va_list messageArguments;
+	va_start(messageArguments,messageFormat);
+	char messageBuffer[1024];
+	int numPrintedChars = std::vsnprintf(messageBuffer,sizeof(messageBuffer),messageFormat,messageArguments);
+	if(numPrintedChars >= 1023 || numPrintedChars < 0) { Core::unreachable(); }
+	messageBuffer[numPrintedChars] = 0;
+	va_end(messageArguments);
 		
-		// Parse the expected value of the invoke.
-		std::string message;
-		if(!parseString(nodeIt,message)) { recordError(nodeIt,"expected trap message"); return; }
-		
-		// Try to map the trap message to an exception cause.
-		Exception::Cause expectedCause = Exception::Cause::unknown;
-		if(!strcmp(message.c_str(),"out of bounds memory access")) { expectedCause = Exception::Cause::accessViolation; }
-		else if(!strcmp(message.c_str(),"callstack exhausted")) { expectedCause = Exception::Cause::stackOverflow; }
-		else if(!strcmp(message.c_str(),"call stack exhausted")) { expectedCause = Exception::Cause::stackOverflow; }
-		else if(!strcmp(message.c_str(),"integer overflow")) { expectedCause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
-		else if(!strcmp(message.c_str(),"integer divide by zero")) { expectedCause = Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
-		else if(!strcmp(message.c_str(),"invalid conversion to integer")) { expectedCause = Exception::Cause::invalidFloatOperation; }
-		else if(!strcmp(message.c_str(),"unreachable executed")) { expectedCause = Exception::Cause::reachedUnreachable; }
-		else if(!strcmp(message.c_str(),"unreachable")) { expectedCause = Exception::Cause::reachedUnreachable; }
-		else if(!strcmp(message.c_str(),"indirect call signature mismatch")) { expectedCause = Exception::Cause::indirectCallSignatureMismatch; }
-		else if(!strcmp(message.c_str(),"indirect call")) { expectedCause = Exception::Cause::indirectCallSignatureMismatch; }
-		else if(!strcmp(message.c_str(),"undefined element")) { expectedCause = Exception::Cause::undefinedTableElement; }
-		else if(!strcmp(message.c_str(),"undefined")) { expectedCause = Exception::Cause::undefinedTableElement; }
-		else if(!strcmp(message.c_str(),"uninitialized")) { expectedCause = Exception::Cause::undefinedTableElement; }
-		else if(!strcmp(message.c_str(),"uninitialized element")) { expectedCause = Exception::Cause::undefinedTableElement; }
-		const char* expectedCauseDescription = describeExceptionCause(expectedCause);
+	state.errors.push_back({locus,messageBuffer});
+}
 
-		// Process the action.
-		try
-		{
-			Result result;
-			if(!processAction(actionNodeIt,result)) { return; }
-			recordError(locus,std::string("assert_trap: expected ") + expectedCauseDescription + " trap but got " + asString(result));
-		}
-		catch(Exception exception)
-		{
-			// Check that the action result was an exception of the expected type.
-			if(exception.cause != expectedCause)
-			{ recordError(locus,std::string("assert_trap: expected ") + expectedCauseDescription + " trap but got " + describeExceptionCause(exception.cause) + " trap"); }
-		}
+void collectGarbage(TestScriptState& state)
+{
+	std::vector<ObjectInstance*> rootObjects;
+	rootObjects.push_back(asObject(state.lastModuleInstance));
+	for(auto& mapIt : state.moduleInternalNameToInstanceMap) { rootObjects.push_back(asObject(mapIt.second)); }
+	for(auto& mapIt : state.moduleNameToInstanceMap) { rootObjects.push_back(asObject(mapIt.second)); }
+	freeUnreferencedObjects(rootObjects);
+}
 
-		// Verify that all of the assert_trap's parameters were matched.
-		if(nodeIt) { recordExcessInputError(nodeIt,"assert_trap unexpected input"); }
-	}
-
-	void processAssertExhaustion(Core::TextFileLocus locus,SNodeIt nodeIt)
+ModuleInstance* getModuleContextByInternalName(TestScriptState& state,const TextFileLocus& locus,const char* context,const std::string& internalName)
+{
+	// Look up the module this invoke uses.
+	if(!state.hasInstantiatedModule) { testErrorf(state,locus,"no module to use in %s",context); return nullptr; }
+	ModuleInstance* moduleInstance = state.lastModuleInstance;
+	if(internalName.size())
 	{
-		SNodeIt actionNodeIt = nodeIt++;
-		
-		// Parse the expected value of the invoke.
-		std::string message;
-		if(!parseString(nodeIt,message)) { recordError(nodeIt,"expected trap message"); return; }
-		
-		// Process the action.
-		try
+		auto mapIt = state.moduleInternalNameToInstanceMap.find(internalName);
+		if(mapIt == state.moduleInternalNameToInstanceMap.end())
 		{
-			Result result;
-			if(!processAction(actionNodeIt,result)) { return; }
-			recordError(locus,"assert_trap: expected stack overflow trap but got " + asString(result));
+			testErrorf(state,locus,"unknown %s module name: %s",context,internalName.c_str());
+			return nullptr;
 		}
-		catch(Exception exception)
+		moduleInstance = mapIt->second;
+	}
+	return moduleInstance;
+}
+
+bool processAction(TestScriptState& state,Action* action,Result& outResult)
+{
+	outResult = Result();
+
+	switch(action->type)
+	{
+	case ActionType::_module:
+	{
+		auto moduleAction = (ModuleAction*)action;
+
+		// Clear the previous module.
+		state.lastModuleInstance = nullptr;
+		collectGarbage(state);
+
+		// Link and instantiate the module.
+		TestScriptResolver resolver(state);
+		LinkResult linkResult = linkModule(*moduleAction->module,resolver);
+		if(linkResult.success)
 		{
-			// Check that the action result was an exception of the expected type.
-			if(exception.cause != Exception::Cause::stackOverflow)
-			{ recordError(locus,std::string("assert_trap: expected stack overflow trap but got ") + describeExceptionCause(exception.cause) + " trap"); }
+			state.hasInstantiatedModule = true;
+			state.lastModuleInstance = instantiateModule(*moduleAction->module,std::move(linkResult.resolvedImports));
 		}
-
-		// Verify that all of the assert_trap's parameters were matched.
-		if(nodeIt) { recordExcessInputError(nodeIt,"assert_trap unexpected input"); }
-	}
-
-	void processAssertInvalid(SNodeIt nodeIt)
-	{
-		SNodeIt moduleNodeIt = nodeIt;
-		SNodeIt childNodeIt;
-		if(!parseTaggedNode(nodeIt,Symbol::_module,childNodeIt)) { recordError(moduleNodeIt,"assert_invalid: expected module definition"); return; }
-		++nodeIt;
-		
-		std::vector<WAST::Error> invalidModuleErrors;
-		Module invalidModule;
-		const char* internalModuleName = nullptr;
-		const bool hasParseSucceeded = parseTextOrBinaryModule(childNodeIt,invalidModule,invalidModuleErrors,internalModuleName);
-
-		std::string description;
-		if(!parseString(nodeIt,description)) { recordError(nodeIt,"expected assert_invalid description"); return; }
-
-		if(hasParseSucceeded) { recordError(moduleNodeIt,"expected invalid module(" + description + ") but got a valid module"); }
-	}
-
-	void processAssertMalformed(SNodeIt nodeIt)
-	{
-		SNodeIt moduleNodeIt = nodeIt;
-		SNodeIt childNodeIt;
-		if(!parseTaggedNode(nodeIt,Symbol::_module,childNodeIt)) { recordError(moduleNodeIt,"assert_malformed: expected module definition"); return; }
-		++nodeIt;
-		
-		std::vector<WAST::Error> malformedModuleErrors;
-		Module invalidModule;
-		const char* internalModuleName = nullptr;
-		const bool hasParseSucceeded = parseBinaryModule(childNodeIt,invalidModule,malformedModuleErrors,internalModuleName);
-
-		std::string description;
-		if(!parseString(nodeIt,description)) { recordError(nodeIt,"expected assert_malformed description"); return; }
-
-		if(hasParseSucceeded) { recordError(moduleNodeIt,"expected invalid module(" + description + ") but got a valid module"); }
-	}
-
-	void processAssertUnlinkable(SNodeIt nodeIt)
-	{
-		SNodeIt moduleNodeIt = nodeIt;
-		SNodeIt childNodeIt;
-		if(!parseTaggedNode(nodeIt,Symbol::_module,childNodeIt)) { recordError(moduleNodeIt,"assert_invalid: expected module definition"); return; }
-		++nodeIt;
-		
-		Module* unlinkableModule = new Module();
-		std::vector<Error> unlinkableModuleErrors;
-		const char* internalModuleName = nullptr;
-		if(!parseTextOrBinaryModule(childNodeIt,*unlinkableModule,unlinkableModuleErrors,internalModuleName))
+		else
 		{
-			errors.insert(errors.end(),unlinkableModuleErrors.begin(),unlinkableModuleErrors.end());
-			return;
-		}
-
-		std::string description;
-		if(!parseString(nodeIt,description)) { recordError(nodeIt,"expected assert_unlinkable description\n"); return; }
-
-		try
-		{
-			Log::printf(Log::Category::debug,"assert_unlinkable: %u a\n",moduleNodeIt->startLocus.newlines + 1);
-			LinkResult linkResult = linkModule(*unlinkableModule,*this);
-			Log::printf(Log::Category::debug,"assert_unlinkable: %u b\n",moduleNodeIt->startLocus.newlines + 1);
-			if(linkResult.success)
+			// Create an error for each import that couldn't be linked.
+			for(auto& missingImport : linkResult.missingImports)
 			{
-				Log::printf(Log::Category::debug,"assert_unlinkable: %u c\n",moduleNodeIt->startLocus.newlines + 1);
-				instantiateModule(*unlinkableModule,std::move(linkResult.resolvedImports));
-				Log::printf(Log::Category::debug,"assert_unlinkable: %u d\n",moduleNodeIt->startLocus.newlines + 1);
-				recordError(moduleNodeIt,"expected unlinkable module, but link succeeded");
+				testErrorf(
+					state,
+					moduleAction->locus,
+					"missing import module=\"%s\" export=\"%s\" type=\"%s\"",
+					missingImport.moduleName.c_str(),
+					missingImport.exportName.c_str(),
+					asString(missingImport.type).c_str()
+					);
 			}
 		}
-		catch(Exception) {}
-	}
-	
-	bool parseStringSequence(SNodeIt& nodeIt,std::string& outString)
-	{
-		bool result = false;
-		std::string tempString;
-		while(parseString(nodeIt,tempString)) { outString += tempString; result = true; }
-		return result;
-	}
 
-	bool deserializeBinaryModule(SNodeIt binaryNodeIt,const std::string& binaryString,WebAssembly::Module& outModule,std::vector<Error>& outModuleErrors)
-	{
-		Serialization::MemoryInputStream stringStream((uint8*)binaryString.data(),binaryString.size());
-		try { serialize(stringStream,outModule); }
-		catch(Serialization::FatalSerializationException exception)
+		// Register the module under its internal name.
+		if(moduleAction->internalModuleName.size())
 		{
-			outModuleErrors.push_back({binaryNodeIt->startLocus,"failed to deserialize binary module: " + exception.message});
-			return false;
+			state.moduleInternalNameToInstanceMap[moduleAction->internalModuleName] = state.lastModuleInstance;
 		}
-		catch(ValidationException exception)
+
+		return true;
+	}
+	case ActionType::invoke:
+	{
+		auto invokeAction = (InvokeAction*)action;
+
+		// Look up the module this invoke uses.
+		ModuleInstance* moduleInstance = getModuleContextByInternalName(state,invokeAction->locus,"invoke",invokeAction->internalModuleName);
+
+		// A null module instance at this point indicates a module that failed to link or instantiate, so don't produce further errors.
+		if(moduleInstance)
 		{
-			outModuleErrors.push_back({binaryNodeIt->startLocus,"failed to validate binary module: " + exception.message});
-			return false;
+			// Find the named export in the module instance.
+			auto functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,invokeAction->exportName.c_str()));
+			if(!functionInstance) { testErrorf(state,invokeAction->locus,"couldn't find exported function with name: %s",invokeAction->exportName.c_str()); return false; }
+
+			// Execute the invoke
+			outResult = invokeFunction(functionInstance,invokeAction->arguments);
 		}
 		return true;
 	}
-
-	bool parseBinaryModule(SNodeIt firstChildNodeIt,WebAssembly::Module& outModule,std::vector<Error>& outModuleErrors,const char*& outInternalName)
+	case ActionType::get:
 	{
-		// Parse an optional internal module name.
-		if(!parseName(firstChildNodeIt,outInternalName)) { outInternalName = nullptr;}
+		auto getAction = (GetAction*)action;
 
-		// Parse and deserialize a binary module.
-		SNodeIt binaryNodeIt = firstChildNodeIt;
-		std::string binaryString;
-		if(parseStringSequence(firstChildNodeIt,binaryString)) { return deserializeBinaryModule(binaryNodeIt,binaryString,outModule,outModuleErrors); }
-		else { return false; }
+		// Look up the module this get uses.
+		ModuleInstance* moduleInstance = getModuleContextByInternalName(state,getAction->locus,"get",getAction->internalModuleName);
+
+		// A null module instance at this point indicates a module that failed to link or instantiate, so just return without further errors.
+		if(!moduleInstance) { return false; }
+
+		// Find the named export in the module instance.
+		auto globalInstance = asGlobalNullable(getInstanceExport(moduleInstance,getAction->exportName.c_str()));
+		if(!globalInstance) { testErrorf(state,getAction->locus,"couldn't find exported global with name: %s",getAction->exportName.c_str()); return false; }
+
+		// Get the value of the specified global.
+		outResult = getGlobalValue(globalInstance);
+			
+		return true;
 	}
-
-	bool parseTextOrBinaryModule(SNodeIt firstChildNodeIt,WebAssembly::Module& outModule,std::vector<Error>& outModuleErrors,const char*& outInternalName)
-	{
-		// Parse an optional internal module name.
-		if(!parseName(firstChildNodeIt,outInternalName)) { outInternalName = nullptr;}
-
-		// Try parsing and deserializing a binary module first.
-		SNodeIt binaryNodeIt = firstChildNodeIt;
-		std::string binaryString;
-		if(parseStringSequence(firstChildNodeIt,binaryString)) { return deserializeBinaryModule(binaryNodeIt,binaryString,outModule,outModuleErrors); }
-		else
-		{
-			// If it wasn't a binary module, then try parsing a text module.
-			return WAST::parseModule(firstChildNodeIt,outModule,outModuleErrors);
-		}
+	default:
+		Core::unreachable();
 	}
-};
-
-std::string describeRuntimeException(const Exception& exception)
-{
-	std::string result = describeExceptionCause(exception.cause);
-	for(auto function : exception.callStack) { result += "\n"; result += function; }
-	return result;
 }
 
-bool TestScriptState::process()
+// Tests whether a float is a "canonical" NaN, which just means that it's a NaN only the MSB of its significand set.
+template<typename Float> bool isCanonicalOrArithmeticNaN(Float value,bool requireCanonical)
 {
-	// Read the file into a string.
-	auto wastBytes = loadFile(filename);
-	if(!wastBytes.size()) { return false; }
-	auto wastString = std::string((const char*)wastBytes.data(),wastBytes.size());
-	wastBytes.clear();
-		
-	const SExp::SymbolIndexMap& symbolIndexMap = getWASTSymbolIndexMap();
-		
-	// Parse S-expressions from the string.
-	MemoryArena::ScopedArena scopedArena;
-	auto rootNode = SExp::parse(wastString.c_str(),scopedArena,symbolIndexMap);
+	Floats::FloatComponents<Float> components;
+	components.value = value;
+	return components.bits.exponent == Floats::FloatComponents<Float>::maxExponentBits
+	&& (!requireCanonical || components.bits.significand == Floats::FloatComponents<Float>::canonicalSignificand);
+}
 
-	// Parse modules from S-expressions.
-	for(auto rootNodeIt = SNodeIt(rootNode);rootNodeIt;++rootNodeIt)
+void processCommand(TestScriptState& state,const Command* command)
+{
+	try
 	{
-		SNodeIt childNodeIt;
-		if(parseTaggedNode(rootNodeIt,Symbol::_assert_invalid,childNodeIt))
+		switch(command->type)
 		{
-			processAssertInvalid(childNodeIt);
-		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_malformed,childNodeIt))
+		case Command::_register:
 		{
-			processAssertMalformed(childNodeIt);
-		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_register,childNodeIt))
-		{
-			// Parse the public name of the module.
-			std::string moduleName;
-			if(!parseString(childNodeIt,moduleName)) { recordError(childNodeIt,"expected module name string"); continue; }
+			auto registerCommand = (RegisterCommand*)command;
 
-			// Parse the internal name of the module.
-			const char* moduleInternalName = nullptr;
-			if(parseName(childNodeIt,moduleInternalName))
-			{
-				auto mapIt = moduleInternalNameToInstanceMap.find(moduleInternalName);
-				if(mapIt == moduleInternalNameToInstanceMap.end()) { recordError(childNodeIt,"unknown module internal name"); continue; }
-				moduleNameToInstanceMap[moduleName] = mapIt->second;
-			}
-			else
-			{
-				// If no internal name is used, just use the last declared module.
-				if(!lastModuleInstance) { recordError(childNodeIt,"no module to register"); continue; }
-				moduleNameToInstanceMap[moduleName] = lastModuleInstance;
-			}
+			// Look up a module by internal name, and bind the result to the public name.
+			ModuleInstance* moduleInstance = getModuleContextByInternalName(state,registerCommand->locus,"register",registerCommand->internalModuleName);
+			state.moduleNameToInstanceMap[registerCommand->moduleName] = moduleInstance;
+			break;
 		}
-		else if(rootNodeIt->type == SNodeType::Error)
+		case Command::action:
 		{
-			// Pass through top-level errors from the S-expression parser.
-			recordError(rootNodeIt->startLocus,rootNodeIt->error);
+			Result result;
+			processAction(state,((ActionCommand*)command)->action.get(),result);
+			break;
 		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return,childNodeIt))
+		case Command::assert_return:
 		{
-			processAssertReturn(rootNodeIt->startLocus,childNodeIt);
-		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return_canonical_nan,childNodeIt))
-		{
-			processAssertReturnCanonicalNaN(rootNodeIt->startLocus,childNodeIt);
-		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_return_arithmetic_nan,childNodeIt))
-		{
-			processAssertReturnArithmeticNaN(rootNodeIt->startLocus,childNodeIt);
-		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_trap,childNodeIt))
-		{
-			processAssertTrap(rootNodeIt->startLocus,childNodeIt);
-		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_exhaustion,childNodeIt))
-		{
-			processAssertExhaustion(rootNodeIt->startLocus,childNodeIt);
-		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_assert_unlinkable,childNodeIt))
-		{
-			processAssertUnlinkable(childNodeIt);
-		}
-		else if(parseTaggedNode(rootNodeIt,Symbol::_invoke,childNodeIt) || parseTaggedNode(rootNodeIt,Symbol::_get,childNodeIt) || parseTaggedNode(rootNodeIt,Symbol::_module,childNodeIt))
-		{
+			auto assertCommand = (AssertReturnCommand*)command;
+			// Execute the action and do a bitwise comparison of the result to the expected result.
 			Result actionResult;
-			try { processAction(rootNodeIt,actionResult); }
-			catch(Exception exception) { recordError(rootNodeIt,"unexpected trap: " + describeRuntimeException(exception)); }
+			if(processAction(state,assertCommand->action.get(),actionResult)
+			&& !areBitsEqual(actionResult,assertCommand->expectedReturn))
+			{
+				testErrorf(state,assertCommand->locus,"expected %s but got %s",
+					asString(assertCommand->expectedReturn).c_str(),
+					asString(actionResult).c_str());
+			}
+			break;
 		}
-		else { recordError(rootNodeIt,"unrecognized input"); }
-	}
-
-	if(!errors.size()) { return true; }
-	else
-	{
-		// Build an index of newline offsets in the file.
-		std::vector<size_t> wastFileLineOffsets;
-		wastFileLineOffsets.push_back(0);
-		for(size_t charIndex = 0;charIndex < wastString.length();++charIndex)
-		{ if(wastString[charIndex] == '\n') { wastFileLineOffsets.push_back(charIndex+1); } }
-		wastFileLineOffsets.push_back(wastString.length()+1);
-
-		// Print any parse errors;
-		std::cerr << "Error processing WebAssembly text file:" << std::endl;
-		for(auto error : errors)
+		case Command::assert_return_canonical_nan: case Command::assert_return_arithmetic_nan:
 		{
-			std::cerr << filename << ":" << error.locus.describe() << ": " << error.message.c_str() << std::endl;
-			auto startLine = wastFileLineOffsets.at(error.locus.newlines);
-			auto endLine =  wastFileLineOffsets.at(error.locus.newlines+1);
-			std::cerr << wastString.substr(startLine, endLine-startLine-1) << std::endl;
-			std::cerr << std::setw(error.locus.column(8)) << "^" << std::endl;
+			auto assertCommand = (AssertReturnNaNCommand*)command;
+			// Execute the action and check that the result is a NaN of the expected type.
+			Result actionResult;
+			if(processAction(state,assertCommand->action.get(),actionResult))
+			{
+				const bool requireCanonicalNaN = assertCommand->type == Command::assert_return_canonical_nan;
+				const bool isError =
+						actionResult.type == ResultType::f32 ? !isCanonicalOrArithmeticNaN(actionResult.f32,requireCanonicalNaN)
+					:	actionResult.type == ResultType::f64 ? !isCanonicalOrArithmeticNaN(actionResult.f64,requireCanonicalNaN)
+					:	true;
+				if(isError)
+				{
+					testErrorf(state,assertCommand->locus,
+						requireCanonicalNaN ? "expected canonical float NaN but got %s" : "expected float NaN but got %s",
+						asString(actionResult).c_str());
+				}
+			}
+			break;
 		}
-		return false;
+		case Command::assert_trap:
+		{
+			auto assertCommand = (AssertTrapCommand*)command;
+			try
+			{
+				Result actionResult;
+				if(processAction(state,assertCommand->action.get(),actionResult))
+				{
+					testErrorf(state,assertCommand->locus,"expected trap but got %s",asString(actionResult).c_str());
+				}
+			}
+			catch(Runtime::Exception exception)
+			{
+				if(exception.cause != assertCommand->expectedCause)
+				{
+					testErrorf(state,assertCommand->action->locus,"expected %s trap but got %s trap",
+						describeExceptionCause(assertCommand->expectedCause),
+						describeExceptionCause(exception.cause));
+				}
+			}
+			break;
+		}
+		case Command::assert_invalid: case Command::assert_malformed:
+		{
+			auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
+			if(!assertCommand->wasInvalidOrMalformed)
+			{
+				testErrorf(state,assertCommand->locus,"module was %s",
+					assertCommand->type == Command::assert_invalid ? "valid" : "well formed");
+			}
+			break;
+		}
+		case Command::assert_unlinkable:
+		{
+			auto assertCommand = (AssertUnlinkableCommand*)command;
+			Result result;
+			try
+			{
+				TestScriptResolver resolver(state);
+				LinkResult linkResult = linkModule(*assertCommand->moduleAction->module,resolver);
+				if(linkResult.success)
+				{
+					instantiateModule(*assertCommand->moduleAction->module,std::move(linkResult.resolvedImports));
+					testErrorf(state,assertCommand->locus,"module was linkable");
+				}
+			}
+			catch(Runtime::Exception)
+			{
+				// If the instantiation throws an exception, the assert_unlinkable succeeds.
+			}
+			break;
+		}
+		};
+	}
+	catch(Runtime::Exception exception)
+	{
+		testErrorf(state,command->locus,"unexpected trap: %s",describeExceptionCause(exception.cause));
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION0(spectest,spectest_print,print,none)
-{
-}
-
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i32,a)
-{
-	std::cout << a << " : i32" << std::endl;
-}
-
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i64,a)
-{
-	std::cout << a << " : i64" << std::endl;
-}
-
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f32,a)
-{
-	std::cout << a << " : f32" << std::endl;
-}
-	
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f64,a)
-{
-	std::cout << a << " : f64" << std::endl;
-}
-	
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,f64,a,f64,b)
-{
-	std::cout << a << " : f64" << std::endl;
-	std::cout << b << " : f64" << std::endl;
-}
-
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i32,a,f32,b)
-{
-	std::cout << a << " : i32, " << b << " : f32" << std::endl;
-}
-
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i64,a,f64,b)
-{
-	std::cout << a << " : i64, " << b << " : f64" << std::endl;
-}
+DEFINE_INTRINSIC_FUNCTION0(spectest,spectest_print,print,none) {}
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i32,a) { std::cout << a << " : i32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i64,a) { std::cout << a << " : i64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f32,a) { std::cout << a << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f64,a) { std::cout << a << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,f64,a,f64,b) { std::cout << a << " : f64" << std::endl << b << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i32,a,f32,b) { std::cout << a << " : i32" << std::endl << b << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i64,a,f64,b) { std::cout << a << " : i64" << std::endl << b << " : f64" << std::endl; }
 
 DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI32,global,i32,false,666)
 DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI64,global,i64,false,0)
@@ -714,11 +337,37 @@ int commandMain(int argc,char** argv)
 	// Always enable debug logging for tests.
 	Log::setCategoryEnabled(Log::Category::debug,true);
 
-	init();
+	Runtime::init();
 	
-	TestScriptState scriptState(filename);
-	if(!scriptState.process())
+	// Read the file into a string.
+	const std::string testScriptString = loadFile(filename);
+	if(!testScriptString.size()) { return EXIT_FAILURE; }
+
+	// Process the test script.
+	TestScriptState testScriptState;
+	std::vector<std::unique_ptr<Command>> testCommands;
+	
+	// Parse the test script.
+	WAST::parseTestCommands(testScriptString.c_str(),testScriptString.size(),testCommands,testScriptState.errors);
+	if(!testScriptState.errors.size())
 	{
+		// Process the test script commands.
+		for(auto& command : testCommands)
+		{
+			processCommand(testScriptState,command.get());
+		}
+	}
+	
+	if(testScriptState.errors.size())
+	{
+		// Print any errors;
+		for(auto& error : testScriptState.errors)
+		{
+			std::cerr << filename << ":" << error.locus.describe() << ": " << error.message.c_str() << std::endl;
+			std::cerr << error.locus.sourceLine << std::endl;
+			std::cerr << std::setw(error.locus.column(8)) << "^" << std::endl;
+		}
+
 		std::cerr << filename << ": testing failed!" << std::endl;
 		return EXIT_FAILURE;
 	}

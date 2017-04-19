@@ -1,6 +1,9 @@
 #include "Core/Core.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
+#include "IR/Module.h"
+
+#include <string.h>
 
 namespace Runtime
 {
@@ -17,61 +20,61 @@ namespace Runtime
 		case InitializerExpression::Type::get_global:
 		{
 			// Find the import this refers to.
-			uintp numGlobalImportsSeen = 0;
-			for(Object* import : moduleInstance->imports)
-			{
-				if(import->kind == ObjectKind::global)
-				{
-					if(numGlobalImportsSeen++ == expression.globalIndex)
-					{
-						GlobalInstance* global = asGlobal(import);
-						return Runtime::Value(global->type.valueType,global->value);
-					}
-				}
-			}
-			Core::error("get_global initializer expression does not refer to imported global");
+			errorUnless(expression.globalIndex < moduleInstance->globals.size());
+			GlobalInstance* globalInstance = moduleInstance->globals[expression.globalIndex];
+			return Runtime::Value(globalInstance->type.valueType,globalInstance->value);
 		}
 		default: Core::unreachable();
 		};
 	}
 
-	ModuleInstance* instantiateModule(const Module& module,std::vector<Object*>&& imports)
+	ModuleInstance* instantiateModule(const IR::Module& module,ImportBindings&& imports)
 	{
-		ModuleInstance* moduleInstance = new ModuleInstance(std::move(imports));
+		ModuleInstance* moduleInstance = new ModuleInstance(
+			std::move(imports.functions),
+			std::move(imports.tables),
+			std::move(imports.memories),
+			std::move(imports.globals)
+			);
 		
 		// Get disassembly names for the module's objects.
 		DisassemblyNames disassemblyNames;
-		getDisassemblyNames(module,disassemblyNames);
+		IR::getDisassemblyNames(module,disassemblyNames);
 
-		// Initialize the ModuleInstance's imports.
-		errorUnless(imports.size() == module.imports.size());
-		for(uintp importIndex = 0;importIndex < module.imports.size();++importIndex)
+		// Check the type of the ModuleInstance's imports.
+		errorUnless(moduleInstance->functions.size() == module.functions.imports.size());
+		for(uintp importIndex = 0;importIndex < module.functions.imports.size();++importIndex)
 		{
-			const Import& import = module.imports[importIndex];
-			Object* importObject = imports[importIndex];
-			errorUnless(isA(importObject,resolveImportType(module,import.type)));
-			switch(importObject->kind)
-			{
-			case ObjectKind::function: moduleInstance->functions.push_back(asFunction(importObject)); break;
-			case ObjectKind::table: moduleInstance->tables.push_back(asTable(importObject)); break;
-			case ObjectKind::memory: moduleInstance->memories.push_back(asMemory(importObject)); break;
-			case ObjectKind::global: moduleInstance->globals.push_back(asGlobal(importObject)); break;
-			default: Core::unreachable();
-			};
+			errorUnless(isA(moduleInstance->functions[importIndex],module.types[module.functions.imports[importIndex].type.index]));
+		}
+		errorUnless(moduleInstance->tables.size() == module.tables.imports.size());
+		for(uintp importIndex = 0;importIndex < module.tables.imports.size();++importIndex)
+		{
+			errorUnless(isA(moduleInstance->tables[importIndex],module.tables.imports[importIndex].type));
+		}
+		errorUnless(moduleInstance->memories.size() == module.memories.imports.size());
+		for(uintp importIndex = 0;importIndex < module.memories.imports.size();++importIndex)
+		{
+			errorUnless(isA(moduleInstance->memories[importIndex],module.memories.imports[importIndex].type));
+		}
+		errorUnless(moduleInstance->globals.size() == module.globals.imports.size());
+		for(uintp importIndex = 0;importIndex < module.globals.imports.size();++importIndex)
+		{
+			errorUnless(isA(moduleInstance->globals[importIndex],module.globals.imports[importIndex].type));
 		}
 
 		// Instantiate the module's memory and table definitions.
-		for(auto memoryType : module.memoryDefs)
+		for(const TableDef& tableDef : module.tables.defs)
 		{
-			auto memory = createMemory(memoryType);
-			if(!memory) { causeException(Exception::Cause::outOfMemory); }
-			moduleInstance->memories.push_back(memory);
-		}
-		for(auto tableType : module.tableDefs)
-		{
-			auto table = createTable(tableType);
+			auto table = createTable(tableDef.type);
 			if(!table) { causeException(Exception::Cause::outOfMemory); }
 			moduleInstance->tables.push_back(table);
+		}
+		for(const MemoryDef& memoryDef : module.memories.defs)
+		{
+			auto memory = createMemory(memoryDef.type);
+			if(!memory) { causeException(Exception::Cause::outOfMemory); }
+			moduleInstance->memories.push_back(memory);
 		}
 
 		// Find the default memory and table for the module.
@@ -89,7 +92,7 @@ namespace Runtime
 		// If any memory or table segment doesn't fit, throw an exception before mutating any memory/table.
 		for(auto& tableSegment : module.tableSegments)
 		{
-			Table* table = moduleInstance->tables[tableSegment.tableIndex];
+			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
@@ -98,45 +101,45 @@ namespace Runtime
 		}
 		for(auto& dataSegment : module.dataSegments)
 		{
-			Memory* memory = moduleInstance->memories[dataSegment.memoryIndex];
+			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
-			if(baseOffset + dataSegment.data.size() > (memory->numPages << WebAssembly::numBytesPerPageLog2))
+			if(baseOffset + dataSegment.data.size() > (memory->numPages << IR::numBytesPerPageLog2))
 			{ causeException(Exception::Cause::invalidSegmentOffset); }
 		}
 
 		// Copy the module's data segments into the module's default memory.
-		for(auto& dataSegment : module.dataSegments)
+		for(const DataSegment& dataSegment : module.dataSegments)
 		{
-			Memory* memory = moduleInstance->memories[dataSegment.memoryIndex];
+			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const uint32 baseOffset = baseOffsetValue.i32;
 
-			assert(baseOffset + dataSegment.data.size() <= (memory->numPages << WebAssembly::numBytesPerPageLog2));
+			assert(baseOffset + dataSegment.data.size() <= (memory->numPages << IR::numBytesPerPageLog2));
 
 			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
 		}
 		
 		// Instantiate the module's global definitions.
-		for(auto global : module.globalDefs)
+		for(const GlobalDef& globalDef : module.globals.defs)
 		{
-			const Value initialValue = evaluateInitializer(moduleInstance,global.initializer);
-			errorUnless(initialValue.type == global.type.valueType);
-			moduleInstance->globals.push_back(new GlobalInstance(global.type,initialValue));
+			const Value initialValue = evaluateInitializer(moduleInstance,globalDef.initializer);
+			errorUnless(initialValue.type == globalDef.type.valueType);
+			moduleInstance->globals.push_back(new GlobalInstance(globalDef.type,initialValue));
 		}
 		
 		// Create the FunctionInstance objects for the module's function definitions.
-		for(uintp functionDefIndex = 0;functionDefIndex < module.functionDefs.size();++functionDefIndex)
+		for(uintp functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
 			const uintp functionIndex = moduleInstance->functions.size();
 			const DisassemblyNames::Function& functionNames = disassemblyNames.functions[functionIndex];
 			std::string debugName = functionNames.name;
 			if(!debugName.size()) { debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-			auto functionInstance = new FunctionInstance(moduleInstance,module.types[module.functionDefs[functionDefIndex].typeIndex],nullptr,debugName.c_str());
+			auto functionInstance = new FunctionInstance(moduleInstance,module.types[module.functions.defs[functionDefIndex].type.index],nullptr,debugName.c_str());
 			moduleInstance->functionDefs.push_back(functionInstance);
 			moduleInstance->functions.push_back(functionInstance);
 		}
@@ -145,9 +148,9 @@ namespace Runtime
 		LLVMJIT::instantiateModule(module,moduleInstance);
 
 		// Set up the instance's exports.
-		for(auto& exportIt : module.exports)
+		for(const Export& exportIt : module.exports)
 		{
-			Object* exportedObject = nullptr;
+			ObjectInstance* exportedObject = nullptr;
 			switch(exportIt.kind)
 			{
 			case ObjectKind::function: exportedObject = moduleInstance->functions[exportIt.index]; break;
@@ -160,9 +163,9 @@ namespace Runtime
 		}
 		
 		// Copy the module's table segments into the module's default table.
-		for(auto& tableSegment : module.tableSegments)
+		for(const TableSegment& tableSegment : module.tableSegments)
 		{
-			Table* table = moduleInstance->tables[tableSegment.tableIndex];
+			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
 			
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
@@ -180,7 +183,7 @@ namespace Runtime
 		// Call the module's start function.
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
-			assert(moduleInstance->functions[module.startFunctionIndex]->type == WebAssembly::FunctionType::get());
+			assert(moduleInstance->functions[module.startFunctionIndex]->type == IR::FunctionType::get());
 			invokeFunction(moduleInstance->functions[module.startFunctionIndex],{});
 		}
 
@@ -193,10 +196,10 @@ namespace Runtime
 		delete jitModule;
 	}
 
-	Memory* getDefaultMemory(ModuleInstance* moduleInstance) { return moduleInstance->defaultMemory; }
-	Table* getDefaultTable(ModuleInstance* moduleInstance) { return moduleInstance->defaultTable; }
+	MemoryInstance* getDefaultMemory(ModuleInstance* moduleInstance) { return moduleInstance->defaultMemory; }
+	TableInstance* getDefaultTable(ModuleInstance* moduleInstance) { return moduleInstance->defaultTable; }
 	
-	Object* getInstanceExport(ModuleInstance* moduleInstance,const char* name)
+	ObjectInstance* getInstanceExport(ModuleInstance* moduleInstance,const char* name)
 	{
 		auto mapIt = moduleInstance->exportMap.find(name);
 		return mapIt == moduleInstance->exportMap.end() ? nullptr : mapIt->second;

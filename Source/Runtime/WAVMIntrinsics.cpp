@@ -1,5 +1,5 @@
 #include "Core/Core.h"
-#include "Core/Floats.h"
+#include "Inline/Floats.h"
 #include "Intrinsics.h"
 #include "RuntimePrivate.h"
 
@@ -7,23 +7,16 @@
 
 namespace Runtime
 {
-	float32 quietNaN(float32 value)
+	template<typename Float>
+	Float quietNaN(Float value)
 	{
-		Floats::F32Components components;
+		Floats::FloatComponents<Float> components;
 		components.value = value;
-		components.bits.significand |= 1 << 22;
-		return components.value;
-	}
-	
-	float64 quietNaN(float64 value)
-	{
-		Floats::F64Components components;
-		components.value = value;
-		components.bits.significand |= 1ull << 51;
+		components.bits.significand |= typename Floats::FloatComponents<Float>::Bits(1) << (Floats::FloatComponents<Float>::numSignificandBits - 1);
 		return components.value;
 	}
 
-	template<typename Float,typename FloatComponents>
+	template<typename Float>
 	Float floatMin(Float left,Float right)
 	{
 		// If either operand is a NaN, convert it to a quiet NaN and return it.
@@ -35,15 +28,15 @@ namespace Runtime
 		else
 		{
 			// Finally, if the operands are apparently equal, compare their integer values to distinguish -0.0 from +0.0
-			FloatComponents leftComponents;
+			Floats::FloatComponents<Float> leftComponents;
 			leftComponents.value = left;
-			FloatComponents rightComponents;
+			Floats::FloatComponents<Float> rightComponents;
 			rightComponents.value = right;
 			return leftComponents.bitcastInt < rightComponents.bitcastInt ? right : left;
 		}
 	}
 	
-	template<typename Float,typename FloatComponents>
+	template<typename Float>
 	Float floatMax(Float left,Float right)
 	{
 		// If either operand is a NaN, convert it to a quiet NaN and return it.
@@ -55,9 +48,9 @@ namespace Runtime
 		else
 		{
 			// Finally, if the operands are apparently equal, compare their integer values to distinguish -0.0 from +0.0
-			FloatComponents leftComponents;
+			Floats::FloatComponents<Float> leftComponents;
 			leftComponents.value = left;
-			FloatComponents rightComponents;
+			Floats::FloatComponents<Float> rightComponents;
 			rightComponents.value = right;
 			return leftComponents.bitcastInt > rightComponents.bitcastInt ? right : left;
 		}
@@ -91,19 +84,19 @@ namespace Runtime
 		else { return nearbyint(value); }
 	}
 
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,f32,f32,left,f32,right) { return floatMin<float32,Floats::F32Components>(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,f64,f64,left,f64,right) { return floatMin<float64,Floats::F64Components>(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,f32,f32,left,f32,right) { return floatMax<float32,Floats::F32Components>(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,f64,f64,left,f64,right) { return floatMax<float64,Floats::F64Components>(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,f32,f32,left,f32,right) { return floatMin(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,f64,f64,left,f64,right) { return floatMin(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,f32,f32,left,f32,right) { return floatMax(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,f64,f64,left,f64,right) { return floatMax(left,right); }
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,f32,f32,value) { return floatCeil<float32>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,f64,f64,value) { return floatCeil<float64>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,f32,f32,value) { return floatFloor<float32>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,f64,f64,value) { return floatFloor<float64>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,f32,f32,value) { return floatTrunc<float32>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,f64,f64,value) { return floatTrunc<float64>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f32,f32,value) { return floatNearest<float32>(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f64,f64,value) { return floatNearest<float64>(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,f32,f32,value) { return floatCeil(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,f64,f64,value) { return floatCeil(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,f32,f32,value) { return floatFloor(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,f64,f64,value) { return floatFloor(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,f32,f32,value) { return floatTrunc(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,f64,f64,value) { return floatTrunc(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f32,f32,value) { return floatNearest(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f64,f64,value) { return floatNearest(value); }
 
 	template<typename Dest,typename Source,bool isMinInclusive>
 	Dest floatToInt(Source sourceValue,Source minValue,Source maxValue)
@@ -141,7 +134,7 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableBits)
 	{
-		Table* table = reinterpret_cast<Table*>(tableBits);
+		TableInstance* table = reinterpret_cast<TableInstance*>(tableBits);
 		void* elementValue = table->baseAddress[index].value;
 		const FunctionType* actualSignature = table->baseAddress[index].type;
 		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((uintp)expectedSignatureBits);
@@ -163,7 +156,7 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,_growMemory,growMemory,i32,i32,deltaPages,i64,memoryBits)
 	{
-		Memory* memory = reinterpret_cast<Memory*>(memoryBits);
+		MemoryInstance* memory = reinterpret_cast<MemoryInstance*>(memoryBits);
 		assert(memory);
 		if(memory->numPages + (uintp)deltaPages > 65536) { return -1; }
 		else { return (int32)growMemory(memory,(uintp)deltaPages); }
@@ -171,7 +164,7 @@ namespace Runtime
 	
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryBits)
 	{
-		Memory* memory = reinterpret_cast<Memory*>(memoryBits);
+		MemoryInstance* memory = reinterpret_cast<MemoryInstance*>(memoryBits);
 		assert(memory);
 		if(memory->numPages > 65536) { return -1; }
 		else { return (uint32)getMemoryNumPages(memory); }

@@ -185,9 +185,10 @@ namespace LLVMJIT
 	// Encapsulates the LLVM JIT compilation pipeline but allows subclasses to define how the resulting code is used.
 	struct JITUnit
 	{
-		JITUnit()
+		JITUnit(bool inShouldLogMetrics = true)
+		: shouldLogMetrics(inShouldLogMetrics)
 		#ifdef _WIN32
-			: pdataCopy(nullptr)
+			, pdataCopy(nullptr)
 		#endif
 		{
 			objectLayer = llvm::make_unique<ObjectLayer>(NotifyLoadedFunctor(this),NotifyFinalizedFunctor(this));
@@ -234,6 +235,7 @@ namespace LLVMJIT
 		std::unique_ptr<ObjectLayer> objectLayer;
 		std::unique_ptr<CompileLayer> compileLayer;
 		CompileLayer::ModuleSetHandleT handle;
+		bool shouldLogMetrics;
 
 		struct LoadedObject
 		{
@@ -290,7 +292,7 @@ namespace LLVMJIT
 
 		JITSymbol* symbol;
 
-		JITInvokeThunkUnit(const FunctionType* inFunctionType): functionType(inFunctionType), symbol(nullptr) {}
+		JITInvokeThunkUnit(const FunctionType* inFunctionType): JITUnit(false), functionType(inFunctionType), symbol(nullptr) {}
 
 		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes,std::map<uint32,uint32>&& offsetToOpIndexMap) override
 		{
@@ -472,7 +474,10 @@ namespace LLVMJIT
 		{ fpm->run(*functionIt); }
 		delete fpm;
 		
-		Log::logRatePerSecond("Optimized LLVM module",optimizationTimer,(float64)llvmModule->size(),"functions");
+		if(shouldLogMetrics)
+		{
+			Log::logRatePerSecond("Optimized LLVM module",optimizationTimer,(float64)llvmModule->size(),"functions");
+		}
 
 		if(DUMP_OPTIMIZED_MODULE) { printModule(llvmModule,"llvmOptimizedDump"); }
 
@@ -484,12 +489,15 @@ namespace LLVMJIT
 			&NullResolver::singleton);
 		compileLayer->emitAndFinalize(handle);
 
-		Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
+		if(shouldLogMetrics)
+		{
+			Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
+		}
 		
 		delete llvmModule;
 	}
 
-	void instantiateModule(const WebAssembly::Module& module,ModuleInstance* moduleInstance)
+	void instantiateModule(const IR::Module& module,ModuleInstance* moduleInstance)
 	{
 		// Emit LLVM IR for the module.
 		auto llvmModule = emitModule(module,moduleInstance);

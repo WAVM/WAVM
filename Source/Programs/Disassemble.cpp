@@ -1,7 +1,7 @@
 #include "Core/Core.h"
 #include "CLI.h"
 #include "WAST/WAST.h"
-#include "WebAssembly/WebAssembly.h"
+#include "WASM/WASM.h"
 
 int commandMain(int argc,char** argv)
 {
@@ -14,7 +14,7 @@ int commandMain(int argc,char** argv)
 	const char* outputFilename = argv[2];
 	
 	// Load the WASM file.
-	WebAssembly::Module module;
+	IR::Module module;
 	if(!loadBinaryModule(inputFilename,module)) { return EXIT_FAILURE; }
 
 	// Print the module to WAST.

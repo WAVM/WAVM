@@ -1,14 +1,8 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
-#include <memory>
-#include <vector>
-#include <map>
 #include <chrono>
 #include <algorithm>
-#include <string>
-#include <cstring>
-#include <string.h>
 #include <assert.h>
 
 typedef uint8_t uint8;
@@ -61,24 +55,6 @@ namespace Core
 		bool isStopped;
 	};
 	
-	// A location in a text file.
-	struct TextFileLocus
-	{
-		uint32 newlines;
-		uint8 tabs;
-		uint8 characters;
-
-		TextFileLocus(): newlines(0), tabs(0), characters(0) {}
-
-		uint32 lineNumber() const { return newlines + 1; }
-		uint32 column(uint32 spacesPerTab = 4) const { return tabs * spacesPerTab + characters + 1; }
-
-		std::string describe(uint32 spacesPerTab = 4) const
-		{
-			return std::to_string(lineNumber()) + ":" + std::to_string(column(spacesPerTab));
-		}
-	};
-
 	// Fatal error handling.
 	[[noreturn]] CORE_API void errorf(const char* messageFormat,...);
 	[[noreturn]] inline void error(const char* message) { errorf("%s",message); }
@@ -86,7 +62,7 @@ namespace Core
 }
 
 // Like assert, but is never removed in any build configuration.
-#define errorUnless(condition) if(!(condition)) { Core::errorf("errorUnless(%s) failed",#condition); }
+#define errorUnless(condition) if(!(condition)) { Core::errorf("errorUnless(%s) failed\n",#condition); }
 
 // Debug logging.
 namespace Log

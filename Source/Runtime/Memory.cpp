@@ -6,12 +6,12 @@
 namespace Runtime
 {
 	// Global lists of memories; used to query whether an address is reserved by one of them.
-	std::vector<Memory*> memories;
+	std::vector<MemoryInstance*> memories;
 
 	static uintp getPlatformPagesPerWebAssemblyPageLog2()
 	{
-		errorUnless(Platform::getPageSizeLog2() <= WebAssembly::numBytesPerPageLog2);
-		return WebAssembly::numBytesPerPageLog2 - Platform::getPageSizeLog2();
+		errorUnless(Platform::getPageSizeLog2() <= IR::numBytesPerPageLog2);
+		return IR::numBytesPerPageLog2 - Platform::getPageSizeLog2();
 	}
 
 	uint8* allocateVirtualPagesAligned(size_t numBytes,size_t alignmentBytes,uint8*& outUnalignedBaseAddress,size_t& outUnalignedNumPlatformPages)
@@ -24,9 +24,9 @@ namespace Runtime
 		else { return (uint8*)((uintp)(outUnalignedBaseAddress + alignmentBytes - 1) & ~(alignmentBytes - 1)); }
 	}
 
-	Memory* createMemory(MemoryType type)
+	MemoryInstance* createMemory(MemoryType type)
 	{
-		Memory* memory = new Memory(type);
+		MemoryInstance* memory = new MemoryInstance(type);
 
 		// On a 64-bit runtime, allocate 8GB of address space for the memory.
 		// This allows eliding bounds checks on memory accesses, since a 32-bit index + 32-bit offset will always be within the reserved address-space.
@@ -49,7 +49,7 @@ namespace Runtime
 		return memory;
 	}
 
-	Memory::~Memory()
+	MemoryInstance::~MemoryInstance()
 	{
 		// Decommit all default memory pages.
 		if(numPages > 0) { Platform::decommitVirtualPages(baseAddress,numPages << getPlatformPagesPerWebAssemblyPageLog2()); }
@@ -78,10 +78,10 @@ namespace Runtime
 		return false;
 	}
 
-	size_t getMemoryNumPages(Memory* memory) { return memory->numPages; }
-	size_t getMemoryMaxPages(Memory* memory) { return memory->type.size.max; }
+	size_t getMemoryNumPages(MemoryInstance* memory) { return memory->numPages; }
+	size_t getMemoryMaxPages(MemoryInstance* memory) { return memory->type.size.max; }
 
-	intp growMemory(Memory* memory,size_t numNewPages)
+	intp growMemory(MemoryInstance* memory,size_t numNewPages)
 	{
 		const size_t previousNumPages = memory->numPages;
 		if(numNewPages > 0)
@@ -91,7 +91,7 @@ namespace Runtime
 
 			// Try to commit the new pages, and return -1 if the commit fails.
 			if(!Platform::commitVirtualPages(
-				memory->baseAddress + (memory->numPages << WebAssembly::numBytesPerPageLog2),
+				memory->baseAddress + (memory->numPages << IR::numBytesPerPageLog2),
 				numNewPages << getPlatformPagesPerWebAssemblyPageLog2()
 				))
 			{
@@ -102,7 +102,7 @@ namespace Runtime
 		return previousNumPages;
 	}
 
-	intp shrinkMemory(Memory* memory,size_t numPagesToShrink)
+	intp shrinkMemory(MemoryInstance* memory,size_t numPagesToShrink)
 	{
 		const size_t previousNumPages = memory->numPages;
 		if(numPagesToShrink > 0)
@@ -115,19 +115,19 @@ namespace Runtime
 
 			// Decommit the pages that were shrunk off the end of the memory.
 			Platform::decommitVirtualPages(
-				memory->baseAddress + (memory->numPages << WebAssembly::numBytesPerPageLog2),
+				memory->baseAddress + (memory->numPages << IR::numBytesPerPageLog2),
 				numPagesToShrink << getPlatformPagesPerWebAssemblyPageLog2()
 				);
 		}
 		return previousNumPages;
 	}
 
-	uint8* getMemoryBaseAddress(Memory* memory)
+	uint8* getMemoryBaseAddress(MemoryInstance* memory)
 	{
 		return memory->baseAddress;
 	}
 	
-	uint8* getValidatedMemoryOffsetRange(Memory* memory,uintp offset,size_t numBytes)
+	uint8* getValidatedMemoryOffsetRange(MemoryInstance* memory,uintp offset,size_t numBytes)
 	{
 		// Validate that the range [offset..offset+numBytes) is contained by the memory's reserved pages.
 		uint8* address = memory->baseAddress + offset;

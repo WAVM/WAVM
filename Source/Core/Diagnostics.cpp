@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <cstdarg>
-#include <cstdlib>
 
 namespace Core
 {
@@ -13,6 +12,7 @@ namespace Core
 		va_start(varArgs,messageFormat);
 		std::vfprintf(stderr,messageFormat,varArgs);
 		std::fflush(stderr);
+		va_end(varArgs);
 		std::abort();
 	}
 }
@@ -43,6 +43,7 @@ namespace Log
 			va_start(varArgs,format);
 			vfprintf(stdout,format,varArgs);
 			fflush(stdout);
+			va_end(varArgs);
 		}
 	}
 }

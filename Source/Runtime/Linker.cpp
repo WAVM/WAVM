@@ -2,15 +2,17 @@
 #include "Runtime.h"
 #include "Core/Platform.h"
 #include "RuntimePrivate.h"
-#include "WebAssembly/WebAssembly.h"
 #include "Linker.h"
 #include "Intrinsics.h"
+#include "IR/Module.h"
+
+#include <string.h>
 
 namespace Runtime
 {
 	RUNTIME_API IntrinsicResolver IntrinsicResolver::singleton;
 
-	bool IntrinsicResolver::resolve(const char* moduleName,const char* exportName,ObjectType type,Object*& outObject)
+	bool IntrinsicResolver::resolve(const char* moduleName,const char* exportName,ObjectType type,ObjectInstance*& outObject)
 	{
 		// Make sure the wavmIntrinsics module can't be directly imported.
 		if(!strcmp(moduleName,"wavmIntrinsics")) { return false; }
@@ -19,22 +21,46 @@ namespace Runtime
 		return outObject != nullptr;
 	}
 
-	LinkResult linkModule(const WebAssembly::Module& module,Resolver& resolver)
+	const FunctionType* resolveImportType(const IR::Module& module,IndexedFunctionType type)
+	{
+		return module.types[type.index];
+	}
+	TableType resolveImportType(const IR::Module& module,TableType type) { return type; }
+	MemoryType resolveImportType(const IR::Module& module,MemoryType type) { return type; }
+	GlobalType resolveImportType(const IR::Module& module,GlobalType type) { return type; }
+
+	template<typename Instance,typename Type>
+	void linkImport(const IR::Module& module,const Import<Type>& import,Resolver& resolver,LinkResult& linkResult,std::vector<Instance*>& resolvedImports)
+	{
+		// Ask the resolver for a value for this import.
+		ObjectInstance* importValue;
+		if(resolver.resolve(import.moduleName.c_str(),import.exportName.c_str(),resolveImportType(module,import.type),importValue))
+		{
+			// Sanity check that the resolver returned an object of the right type.
+			assert(isA(importValue,resolveImportType(module,import.type)));
+			resolvedImports.push_back(as<Instance>(importValue));
+		}
+		else { linkResult.missingImports.push_back({import.moduleName,import.exportName,resolveImportType(module,import.type)}); }
+	}
+
+	LinkResult linkModule(const IR::Module& module,Resolver& resolver)
 	{
 		LinkResult linkResult;
-		for(const Import& import : module.imports)
+		for(const auto& import : module.functions.imports)
 		{
-			const ObjectType objectType = resolveImportType(module,import.type);
-
-			// Ask the resolver for a value for this import.
-			Object* importValue;
-			if(resolver.resolve(import.module.c_str(),import.exportName.c_str(),objectType,importValue))
-			{
-				// Sanity check that the resolver returned an object of the right type.
-				errorUnless(isA(importValue,objectType));
-				linkResult.resolvedImports.push_back(importValue);
-			}
-			else { linkResult.missingImports.push_back({import.module,import.exportName,objectType}); }
+			linkImport(module,import,resolver,linkResult,linkResult.resolvedImports.functions);
+		}
+		for(const auto& import : module.tables.imports)
+		{
+			linkImport(module,import,resolver,linkResult,linkResult.resolvedImports.tables);
+		}
+		for(const auto& import : module.memories.imports)
+		{
+			linkImport(module,import,resolver,linkResult,linkResult.resolvedImports.memories);
+		}
+		for(const auto& import : module.globals.imports)
+		{
+			linkImport(module,import,resolver,linkResult,linkResult.resolvedImports.globals);
 		}
 
 		linkResult.success = linkResult.missingImports.size() == 0;

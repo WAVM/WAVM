@@ -1,11 +1,9 @@
-file(GLOB Sources "*.cpp")
-file(GLOB PrivateHeaders "*.h")
-
-file(GLOB Headers "${WAVM_INCLUDE_DIR}/Emscripten/*.h")
+set(Sources Emscripten.cpp)
+set(PublicHeaders ${WAVM_INCLUDE_DIR}/Emscripten/Emscripten.h)
 include_directories(${WAVM_INCLUDE_DIR}/Emscripten)
 
-add_library(Emscripten SHARED ${Sources} ${Headers} ${PrivateHeaders})
+add_library(Emscripten SHARED ${Sources} ${PublicHeaders})
 
 add_definitions(-DEMSCRIPTEN_API=DLL_EXPORT)
 
-target_link_libraries(Emscripten Core WebAssembly Runtime)
+target_link_libraries(Emscripten Core Runtime)

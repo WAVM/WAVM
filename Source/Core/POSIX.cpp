@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <setjmp.h>
 #include <sys/resource.h>
+#include <string.h>
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>

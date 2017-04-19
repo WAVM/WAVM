@@ -1,9 +1,22 @@
-file(GLOB Sources "*.cpp")
-file(GLOB PrivateHeaders "*.h")
-
-file(GLOB Headers "${WAVM_INCLUDE_DIR}/WAST/*.h")
+set(Sources
+	NFA.cpp
+	NFA.h
+	Lexer.cpp
+	Lexer.h
+	Parse.cpp
+	Parse.h
+	ParseFunction.cpp
+	ParseNumbers.cpp
+	ParseModule.cpp
+	ParseTests.cpp
+	Print.cpp
+	Regexp.cpp
+	Regexp.h)
+set(PublicHeaders
+	${WAVM_INCLUDE_DIR}/WAST/WAST.h
+	${WAVM_INCLUDE_DIR}/WAST/TestScript.h)
 include_directories(${WAVM_INCLUDE_DIR}/WAST)
 
-add_library(WAST SHARED ${Sources} ${Headers} ${PrivateHeaders})
+add_library(WAST SHARED ${Sources} ${PublicHeaders})
 add_definitions(-DWAST_API=DLL_EXPORT)
-target_link_libraries(WAST Core WebAssembly)
+target_link_libraries(WAST Core IR WASM)

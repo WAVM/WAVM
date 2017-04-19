@@ -37,24 +37,24 @@ namespace Runtime
 		throw Exception {cause,describeCallStack(callStack)};
 	}
 
-	bool isA(Object* object,const ObjectType& type)
+	bool isA(ObjectInstance* object,const ObjectType& type)
 	{
 		if(type.kind != object->kind) { return false; }
 
 		switch(type.kind)
 		{
-		case ObjectKind::function: return type.function == asFunction(object)->type;
-		case ObjectKind::global: return type.global == asGlobal(object)->type;
+		case ObjectKind::function: return asFunctionType(type) == asFunction(object)->type;
+		case ObjectKind::global: return asGlobalType(type) == asGlobal(object)->type;
 		case ObjectKind::table:
 		{
 			auto table = asTable(object);
-			return type.table.elementType == table->type.elementType
-				&&	isSubset(type.table.size,table->type.size);
+			return asTableType(type).elementType == table->type.elementType
+				&&	isSubset(asTableType(type).size,table->type.size);
 		}
 		case ObjectKind::memory:
 		{
 			auto memory = asMemory(object);
-			return isSubset(type.memory.size,memory->type.size);
+			return isSubset(asMemoryType(type).size,memory->type.size);
 		}
 		default: Core::unreachable();
 		}
