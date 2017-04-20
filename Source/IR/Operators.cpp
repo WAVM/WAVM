@@ -6,7 +6,7 @@ namespace IR
 	{
 		switch(opcode)
 		{
-		#define VISIT_OPCODE(encoding,name,nameString,Imm) case Opcode::name: return nameString;
+		#define VISIT_OPCODE(encoding,name,nameString,Imm,...) case Opcode::name: return nameString;
 		ENUM_OPERATORS(VISIT_OPCODE)
 		#undef VISIT_OPCODE
 		default: return "unknown";

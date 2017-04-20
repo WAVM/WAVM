@@ -187,37 +187,9 @@ static void parseImm(FunctionParseState& state,CallIndirectImm& outImm,Opcode)
 	outImm.type.index = parseAndResolveNameOrIndexRef(state,state.moduleState.typeNameToIndexMap,"type");
 }
 
-static void parseImm(FunctionParseState& state,LoadOrStoreImm& outImm,Opcode opcode)
+template<size_t naturalAlignmentLog2>
+static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLog2>& outImm,Opcode opcode)
 {
-	// Look at the opcode to determine the natural alignment.
-	uint32 naturalAlignment = 0;
-	switch(opcode)
-	{
-	case Opcode::i32_load8_s:	case Opcode::i64_load8_s:
-	case Opcode::i32_load8_u:	case Opcode::i64_load8_u:
-	case Opcode::i32_store8:	case Opcode::i64_store8:
-		naturalAlignment = 1;
-		break;
-	case Opcode::i32_load16_s:	case Opcode::i64_load16_s:
-	case Opcode::i32_load16_u:	case Opcode::i64_load16_u:
-	case Opcode::i32_store16:	case Opcode::i64_store16:
-		naturalAlignment = 2;
-		break;
-	case Opcode::i32_load:	case Opcode::f32_load:
-	case Opcode::i32_store:	case Opcode::f32_store:
-	case Opcode::i64_load32_s:
-	case Opcode::i64_load32_u:
-	case Opcode::i64_store32:
-		naturalAlignment = 4;
-		break;
-	case Opcode::i64_load:	case Opcode::f64_load:
-	case Opcode::i64_store:	case Opcode::f64_store:
-		naturalAlignment = 8;
-		break;
-	default:
-		Core::unreachable();
-	};
-
 	outImm.offset = 0;
 	if(state.nextToken->type == t_offset)
 	{
@@ -226,6 +198,7 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm& outImm,Opcode opc
 		outImm.offset = parseI32(state);
 	}
 
+	const uint32 naturalAlignment = 1 << naturalAlignmentLog2;
 	uint32 alignment = naturalAlignment;
 	if(state.nextToken->type == t_align)
 	{
@@ -376,7 +349,7 @@ static void parseExpr(FunctionParseState& state)
 					state.codeStream.name(imm); \
 					break; \
 				}
-			#define VISIT_OP(opcode,name,nameString,Imm) VISIT_OPCODE_TOKEN(name,Imm)
+			#define VISIT_OP(opcode,name,nameString,Imm,...) VISIT_OPCODE_TOKEN(name,Imm)
 			ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 			#undef VISIT_OP
 			#undef VISIT_OPCODE_TOKEN
@@ -458,7 +431,7 @@ static void parseInstrSequence(FunctionParseState& state)
 					state.codeStream.name(imm); \
 					break; \
 				}
-			#define VISIT_OP(opcode,name,nameString,Imm) VISIT_OPCODE_TOKEN(name,Imm)
+			#define VISIT_OP(opcode,name,nameString,Imm,...) VISIT_OPCODE_TOKEN(name,Imm)
 			ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 			#undef VISIT_OP
 			#undef VISIT_OPCODE_TOKEN

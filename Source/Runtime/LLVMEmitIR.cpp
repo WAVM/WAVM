@@ -275,7 +275,6 @@ namespace LLVMJIT
 
 		void nop(NoImm) {}
 		void unknown(Opcode opcode) { Core::unreachable(); }
-		void error(ErrorImm imm) { Core::unreachable(); }
 		
 		//
 		// Control structure operators
@@ -722,7 +721,8 @@ namespace LLVMJIT
 		// Load/store operators
 		//
 
-		#define EMIT_LOAD_OP(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImm imm) \
+		#define EMIT_LOAD_OP(valueTypeId,name,llvmMemoryType,naturalAlignmentLog2,conversionOp) \
+			void valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) \
 			{ \
 				auto byteIndex = pop(); \
 				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
@@ -731,7 +731,8 @@ namespace LLVMJIT
 				load->setVolatile(true); \
 				push(conversionOp(load,asLLVMType(ValueType::valueTypeId))); \
 			}
-		#define EMIT_STORE_OP(valueTypeId,name,llvmMemoryType,conversionOp) void valueTypeId##_##name(LoadOrStoreImm imm) \
+		#define EMIT_STORE_OP(valueTypeId,name,llvmMemoryType,naturalAlignmentLog2,conversionOp) \
+			void valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) \
 			{ \
 				auto value = pop(); \
 				auto byteIndex = pop(); \
@@ -744,20 +745,20 @@ namespace LLVMJIT
 			
 		llvm::Value* identityConversion(llvm::Value* value,llvm::Type* type) { return value; }
 
-		EMIT_LOAD_OP(i32,load8_s,llvmI8Type,irBuilder.CreateSExt)  EMIT_LOAD_OP(i32,load8_u,llvmI8Type,irBuilder.CreateZExt)
-		EMIT_LOAD_OP(i32,load16_s,llvmI16Type,irBuilder.CreateSExt) EMIT_LOAD_OP(i32,load16_u,llvmI16Type,irBuilder.CreateZExt)
-		EMIT_LOAD_OP(i64,load8_s,llvmI8Type,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load8_u,llvmI8Type,irBuilder.CreateZExt)
-		EMIT_LOAD_OP(i64,load16_s,llvmI16Type,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load16_u,llvmI16Type,irBuilder.CreateZExt)
-		EMIT_LOAD_OP(i64,load32_s,llvmI32Type,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load32_u,llvmI32Type,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i32,load8_s,llvmI8Type,0,irBuilder.CreateSExt)  EMIT_LOAD_OP(i32,load8_u,llvmI8Type,0,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i32,load16_s,llvmI16Type,1,irBuilder.CreateSExt) EMIT_LOAD_OP(i32,load16_u,llvmI16Type,1,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i64,load8_s,llvmI8Type,0,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load8_u,llvmI8Type,0,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i64,load16_s,llvmI16Type,1,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load16_u,llvmI16Type,1,irBuilder.CreateZExt)
+		EMIT_LOAD_OP(i64,load32_s,llvmI32Type,2,irBuilder.CreateSExt)  EMIT_LOAD_OP(i64,load32_u,llvmI32Type,2,irBuilder.CreateZExt)
 
-		EMIT_LOAD_OP(i32,load,llvmI32Type,identityConversion) EMIT_LOAD_OP(i64,load,llvmI64Type,identityConversion)
-		EMIT_LOAD_OP(f32,load,llvmF32Type,identityConversion) EMIT_LOAD_OP(f64,load,llvmF64Type,identityConversion)
+		EMIT_LOAD_OP(i32,load,llvmI32Type,2,identityConversion) EMIT_LOAD_OP(i64,load,llvmI64Type,3,identityConversion)
+		EMIT_LOAD_OP(f32,load,llvmF32Type,2,identityConversion) EMIT_LOAD_OP(f64,load,llvmF64Type,3,identityConversion)
 
-		EMIT_STORE_OP(i32,store8,llvmI8Type,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store8,llvmI8Type,irBuilder.CreateTrunc)
-		EMIT_STORE_OP(i32,store16,llvmI16Type,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store16,llvmI16Type,irBuilder.CreateTrunc)
-		EMIT_STORE_OP(i32,store,llvmI32Type,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store32,llvmI32Type,irBuilder.CreateTrunc)
-		EMIT_STORE_OP(i64,store,llvmI64Type,identityConversion)
-		EMIT_STORE_OP(f32,store,llvmF32Type,identityConversion) EMIT_STORE_OP(f64,store,llvmF64Type,identityConversion)
+		EMIT_STORE_OP(i32,store8,llvmI8Type,0,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store8,llvmI8Type,0,irBuilder.CreateTrunc)
+		EMIT_STORE_OP(i32,store16,llvmI16Type,1,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store16,llvmI16Type,1,irBuilder.CreateTrunc)
+		EMIT_STORE_OP(i32,store,llvmI32Type,2,irBuilder.CreateTrunc) EMIT_STORE_OP(i64,store32,llvmI32Type,2,irBuilder.CreateTrunc)
+		EMIT_STORE_OP(i64,store,llvmI64Type,3,identityConversion)
+		EMIT_STORE_OP(f32,store,llvmF32Type,2,identityConversion) EMIT_STORE_OP(f64,store,llvmF64Type,3,identityConversion)
 
 		//
 		// Numeric operator macros
@@ -937,7 +938,7 @@ namespace LLVMJIT
 	struct UnreachableOpVisitor
 	{
 		UnreachableOpVisitor(EmitFunctionContext& inContext): context(inContext), unreachableControlDepth(0) {}
-		#define VISIT_OP(opcode,name,nameString,Imm) void name(Imm imm) {}
+		#define VISIT_OP(opcode,name,nameString,Imm,...) void name(Imm imm) {}
 		ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 		VISIT_OP(_,unknown,"unknown",Opcode)
 		#undef VISIT_OP

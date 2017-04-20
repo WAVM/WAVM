@@ -331,14 +331,12 @@ namespace WAST
 		void grow_memory(MemoryImm) { string += "\ngrow_memory"; }
 		void current_memory(MemoryImm) { string += "\ncurrent_memory"; }
 
-		void error(ErrorImm imm) { string += "\nerror \"" + escapeString(imm.message.data(),imm.message.size()) + "\""; enterUnreachable(); }
-
 		#define PRINT_CONST(typeId,nativeType,toString) \
 			void typeId##_const(LiteralImm<nativeType> imm) { string += "\n" #typeId; string += ".const "; string += toString(imm.value); }
 		PRINT_CONST(i32,int32,std::to_string); PRINT_CONST(i64,int64,std::to_string);
 		PRINT_CONST(f32,float32,Floats::asString); PRINT_CONST(f64,float64,Floats::asString);
 
-		#define PRINT_LOAD_OPCODE(typeId,name,naturalAlignmentLog2,resultType) void typeId##_##name(LoadOrStoreImm imm) \
+		#define PRINT_LOAD_OPCODE(typeId,name,naturalAlignmentLog2,resultType) void typeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) \
 			{ \
 				string += "\n" #typeId "." #name; \
 				if(imm.alignmentLog2 != naturalAlignmentLog2) { string += " align=" + std::to_string(1 << imm.alignmentLog2); } \
@@ -354,7 +352,7 @@ namespace WAST
 		PRINT_LOAD_OPCODE(i32,load,2,i32) PRINT_LOAD_OPCODE(i64,load,3,i64)
 		PRINT_LOAD_OPCODE(f32,load,2,f32) PRINT_LOAD_OPCODE(f64,load,3,f64)
 			
-		#define PRINT_STORE_OPCODE(typeId,name,naturalAlignmentLog2,valueTypeId) void typeId##_##name(LoadOrStoreImm imm) \
+		#define PRINT_STORE_OPCODE(typeId,name,naturalAlignmentLog2,valueTypeId) void typeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) \
 			{ \
 				string += "\n" #typeId "." #name; \
 				if(imm.alignmentLog2 != naturalAlignmentLog2) { string += " align=" + std::to_string(1 << imm.alignmentLog2); } \

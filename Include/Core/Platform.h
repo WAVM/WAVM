@@ -10,7 +10,7 @@
 	#define DLL_EXPORT __declspec(dllexport)
 	#define DLL_IMPORT __declspec(dllimport)
 	#define FORCEINLINE __forceinline
-	#define UNUSED
+	#define UNUSED __pragma(warning(suppress:4189))
 	#include <intrin.h>
 #else
 	// Use __thread instead of the C++11 thread_local because Apple's clang doesn't support thread_local yet.

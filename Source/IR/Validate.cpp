@@ -241,7 +241,6 @@ namespace IR
 			pushOperand(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
 		}
 
-		void nop(NoImm) {}
 		void unreachable(NoImm)
 		{
 			enterUnreachable();
@@ -300,144 +299,48 @@ namespace IR
 			popAndValidateOperands("call_indirect arguments",calleeType->parameters.data(),calleeType->parameters.size());
 			pushOperand(calleeType->ret);
 		}
+		
+		void validateImm(NoImm) {}
 
-		void grow_memory(MemoryImm)
+		template<typename nativeType>
+		void validateImm(LiteralImm<nativeType> imm) {}
+
+		template<size_t naturalAlignmentLog2>
+		void validateImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
-			VALIDATE_UNLESS("grow_memory is only valid if there is a default memory",module.memories.size() == 0);
-			popAndValidateOperand("grow_memory",ValueType::i32); pushOperand(ValueType::i32);
+			VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2);
+			VALIDATE_UNLESS("load or store in module without default memory: ",module.memories.size()==0);
+			VALIDATE_UNLESS("load or store offset too large: ",imm.offset > UINT32_MAX);
 		}
-		void current_memory(MemoryImm)
+		
+		void validateImm(MemoryImm)
 		{
-			VALIDATE_UNLESS("current_memory is only valid if there is a default memory",module.memories.size() == 0);
-			pushOperand(ValueType::i32);
+			VALIDATE_UNLESS("current_memory and grow_memory are only valid if there is a default memory",module.memories.size() == 0);
 		}
 
-		void error(ErrorImm imm) { throw ValidationException("error opcode"); }
+		#define LOAD(resultTypeId) \
+			popAndValidateOperand(operatorName,ValueType::i32); \
+			pushOperand(ResultType::resultTypeId);
+		#define STORE(valueTypeId) \
+			popAndValidateOperands(operatorName,ValueType::i32,ValueType::valueTypeId);
+		#define NULLARY(resultTypeId) \
+			pushOperand(ResultType::resultTypeId);
+		#define BINARY(operandTypeId,resultTypeId) \
+			popAndValidateOperands(operatorName,ValueType::operandTypeId,ValueType::operandTypeId); \
+			pushOperand(ResultType::resultTypeId)
+		#define UNARY(operandTypeId,resultTypeId) \
+			popAndValidateOperand(operatorName,ValueType::operandTypeId); \
+			pushOperand(ResultType::resultTypeId)
 
-		#define VALIDATE_CONST(typeId,nativeType) \
-			void typeId##_const(LiteralImm<nativeType> imm) { pushOperand(ValueType::typeId); }
-		VALIDATE_CONST(i32,int32); VALIDATE_CONST(i64,int64);
-		VALIDATE_CONST(f32,float32); VALIDATE_CONST(f64,float64);
-
-		#define VALIDATE_LOAD_OPCODE(name,nameString,naturalAlignmentLog2,resultType) void name(LoadOrStoreImm imm) \
+		#define VALIDATE_OP(opcode,name,nameString,Imm,validateOperands) \
+			void name(Imm imm) \
 			{ \
-				popAndValidateOperand(#name,ValueType::i32); \
-				VALIDATE_UNLESS(nameString " alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
-				VALIDATE_UNLESS(nameString " in module without default memory: ",module.memories.size()==0); \
-				VALIDATE_UNLESS(nameString " offset too large: ",imm.offset > UINT32_MAX); \
-				pushOperand(ValueType::resultType); \
+				UNUSED const char* operatorName = nameString; \
+				validateImm(imm); \
+				validateOperands; \
 			}
-
-		VALIDATE_LOAD_OPCODE(i32_load8_s,"i32.load8_s",1,i32)  VALIDATE_LOAD_OPCODE(i32_load8_u,"i32.load8_u",1,i32)
-		VALIDATE_LOAD_OPCODE(i32_load16_s,"i32.load16_s",2,i32) VALIDATE_LOAD_OPCODE(i32_load16_u,"i32.load16_u",2,i32)
-		VALIDATE_LOAD_OPCODE(i64_load8_s,"i64.load8_s",1,i64)  VALIDATE_LOAD_OPCODE(i64_load8_u,"i64.load8_u",1,i64)
-		VALIDATE_LOAD_OPCODE(i64_load16_s,"i64.load16_s",2,i64)  VALIDATE_LOAD_OPCODE(i64_load16_u,"i64.load16_u",2,i64)
-		VALIDATE_LOAD_OPCODE(i64_load32_s,"i64.load32_s",4,i64)  VALIDATE_LOAD_OPCODE(i64_load32_u,"i64.load32_u",4,i64)
-
-		VALIDATE_LOAD_OPCODE(i32_load,"i32.load",4,i32) VALIDATE_LOAD_OPCODE(i64_load,"i64.load",8,i64)
-		VALIDATE_LOAD_OPCODE(f32_load,"f32.load",4,f32) VALIDATE_LOAD_OPCODE(f64_load,"f64.load",8,f64)
-			
-		#define VALIDATE_STORE_OPCODE(name,nameString,naturalAlignmentLog2,valueTypeId) void name(LoadOrStoreImm imm) \
-			{ \
-				popAndValidateOperands(nameString,ValueType::i32,ValueType::valueTypeId); \
-				VALIDATE_UNLESS(nameString " alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2); \
-				VALIDATE_UNLESS(nameString " in module without default memory: ",module.memories.size()==0); \
-				VALIDATE_UNLESS(nameString " offset too large: ",imm.offset > UINT32_MAX); \
-			}
-
-		VALIDATE_STORE_OPCODE(i32_store8,"i32.store8",1,i32) VALIDATE_STORE_OPCODE(i32_store16,"i32.store16",2,i32) VALIDATE_STORE_OPCODE(i32_store,"i32.store",4,i32)
-		VALIDATE_STORE_OPCODE(i64_store8,"i64.store8",1,i64) VALIDATE_STORE_OPCODE(i64_store16,"i64.store16",2,i64) VALIDATE_STORE_OPCODE(i64_store32,"i64.store32",4,i64) VALIDATE_STORE_OPCODE(i64_store,"i64.store",8,i64)
-		VALIDATE_STORE_OPCODE(f32_store,"f32.store",4,f32) VALIDATE_STORE_OPCODE(f64_store,"f64.store",8,f64)
-
-		#define VALIDATE_BINARY_OPCODE(name,nameString,operandTypeId,resultTypeId) void name(NoImm) \
-			{ \
-				popAndValidateOperands(nameString,ValueType::operandTypeId,ValueType::operandTypeId); \
-				pushOperand(ValueType::resultTypeId); \
-			}
-		#define VALIDATE_UNARY_OPCODE(name,nameString,operandTypeId,resultTypeId) void name(NoImm) \
-			{ \
-				popAndValidateOperand(nameString,ValueType::operandTypeId); \
-				pushOperand(ValueType::resultTypeId); \
-			}
-
-		VALIDATE_BINARY_OPCODE(i32_add,"i32.add",i32,i32) VALIDATE_BINARY_OPCODE(i64_add,"i64.add",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_sub,"i32.sub",i32,i32) VALIDATE_BINARY_OPCODE(i64_sub,"i64.sub",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_mul,"i32.mul",i32,i32) VALIDATE_BINARY_OPCODE(i64_mul,"i64.mul",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_div_s,"i32.div_s",i32,i32) VALIDATE_BINARY_OPCODE(i64_div_s,"i64.div_s",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_div_u,"i32.div_u",i32,i32) VALIDATE_BINARY_OPCODE(i64_div_u,"i64.div_u",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_rem_s,"i32.rem_s",i32,i32) VALIDATE_BINARY_OPCODE(i64_rem_s,"i64.rem_s",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_rem_u,"i32.rem_u",i32,i32) VALIDATE_BINARY_OPCODE(i64_rem_u,"i64.rem_u",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_and,"i32.and",i32,i32) VALIDATE_BINARY_OPCODE(i64_and,"i64.and",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_or,"i32.or",i32,i32) VALIDATE_BINARY_OPCODE(i64_or,"i64.or",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_xor,"i32.xor",i32,i32) VALIDATE_BINARY_OPCODE(i64_xor,"i64.xor",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_shl,"i32.shl",i32,i32) VALIDATE_BINARY_OPCODE(i64_shl,"i64.shl",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_shr_u,"i32.shr_u",i32,i32) VALIDATE_BINARY_OPCODE(i64_shr_u,"i64.shr_u",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_shr_s,"i32.shr_s",i32,i32) VALIDATE_BINARY_OPCODE(i64_shr_s,"i64.shr_s",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_rotr,"i32.rotr",i32,i32) VALIDATE_BINARY_OPCODE(i64_rotr,"i64.rotr",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_rotl,"i32.rotl",i32,i32) VALIDATE_BINARY_OPCODE(i64_rotl,"i64.rotl",i64,i64)
-		VALIDATE_BINARY_OPCODE(i32_eq,"i32.eq",i32,i32) VALIDATE_BINARY_OPCODE(i64_eq,"i64.eq",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_ne,"i32.ne",i32,i32) VALIDATE_BINARY_OPCODE(i64_ne,"i64.ne",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_lt_s,"i32.lt_s",i32,i32) VALIDATE_BINARY_OPCODE(i64_lt_s,"i64.lt_s",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_le_s,"i32.le_s",i32,i32) VALIDATE_BINARY_OPCODE(i64_le_s,"i64.le_s",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_lt_u,"i32.lt_u",i32,i32) VALIDATE_BINARY_OPCODE(i64_lt_u,"i64.lt_u",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_le_u,"i32.le_u",i32,i32) VALIDATE_BINARY_OPCODE(i64_le_u,"i64.le_u",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_gt_s,"i32.gt_s",i32,i32) VALIDATE_BINARY_OPCODE(i64_gt_s,"i64.gt_s",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_ge_s,"i32.ge_s",i32,i32) VALIDATE_BINARY_OPCODE(i64_ge_s,"i64.ge_s",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_gt_u,"i32.gt_u",i32,i32) VALIDATE_BINARY_OPCODE(i64_gt_u,"i64.gt_u",i64,i32)
-		VALIDATE_BINARY_OPCODE(i32_ge_u,"i32.ge_u",i32,i32) VALIDATE_BINARY_OPCODE(i64_ge_u,"i64.ge_u",i64,i32)
-		VALIDATE_UNARY_OPCODE(i32_clz,"i32.clz",i32,i32) VALIDATE_UNARY_OPCODE(i64_clz,"i64.clz",i64,i64)
-		VALIDATE_UNARY_OPCODE(i32_ctz,"i32.ctz",i32,i32) VALIDATE_UNARY_OPCODE(i64_ctz,"i64.ctz",i64,i64)
-		VALIDATE_UNARY_OPCODE(i32_popcnt,"i32.popcnt",i32,i32) VALIDATE_UNARY_OPCODE(i64_popcnt,"i64.popcnt",i64,i64)
-		VALIDATE_UNARY_OPCODE(i32_eqz,"i32.eqz",i32,i32) VALIDATE_UNARY_OPCODE(i64_eqz,"i64.eqz",i64,i32)
-
-		VALIDATE_BINARY_OPCODE(f32_add,"f32.add",f32,f32) VALIDATE_BINARY_OPCODE(f64_add,"f64.add",f64,f64)
-		VALIDATE_BINARY_OPCODE(f32_sub,"f32.sub",f32,f32) VALIDATE_BINARY_OPCODE(f64_sub,"f64.sub",f64,f64)
-		VALIDATE_BINARY_OPCODE(f32_mul,"f32.mul",f32,f32) VALIDATE_BINARY_OPCODE(f64_mul,"f64.mul",f64,f64)
-		VALIDATE_BINARY_OPCODE(f32_div,"f32.div",f32,f32) VALIDATE_BINARY_OPCODE(f64_div,"f64.div",f64,f64)
-		VALIDATE_BINARY_OPCODE(f32_min,"f32.min",f32,f32) VALIDATE_BINARY_OPCODE(f64_min,"f64.min",f64,f64)
-		VALIDATE_BINARY_OPCODE(f32_max,"f32.max",f32,f32) VALIDATE_BINARY_OPCODE(f64_max,"f64.max",f64,f64)
-		VALIDATE_BINARY_OPCODE(f32_copysign,"f32.copysign",f32,f32) VALIDATE_BINARY_OPCODE(f64_copysign,"f64.copysign",f64,f64)
-
-		VALIDATE_BINARY_OPCODE(f32_eq,"f32.eq",f32,i32) VALIDATE_BINARY_OPCODE(f64_eq,"f64.eq",f64,i32)
-		VALIDATE_BINARY_OPCODE(f32_ne,"f32.ne",f32,i32) VALIDATE_BINARY_OPCODE(f64_ne,"f64.ne",f64,i32)
-		VALIDATE_BINARY_OPCODE(f32_lt,"f32.lt",f32,i32) VALIDATE_BINARY_OPCODE(f64_lt,"f64.lt",f64,i32)
-		VALIDATE_BINARY_OPCODE(f32_le,"f32.le",f32,i32) VALIDATE_BINARY_OPCODE(f64_le,"f64.le",f64,i32)
-		VALIDATE_BINARY_OPCODE(f32_gt,"f32.gt",f32,i32) VALIDATE_BINARY_OPCODE(f64_gt,"f64.gt",f64,i32)
-		VALIDATE_BINARY_OPCODE(f32_ge,"f32.ge",f32,i32) VALIDATE_BINARY_OPCODE(f64_ge,"f64.ge",f64,i32)
-
-		VALIDATE_UNARY_OPCODE(f32_abs,"f32.abs",f32,f32) VALIDATE_UNARY_OPCODE(f64_abs,"f64.abs",f64,f64)
-		VALIDATE_UNARY_OPCODE(f32_neg,"f32.neg",f32,f32) VALIDATE_UNARY_OPCODE(f64_neg,"f64.neg",f64,f64)
-		VALIDATE_UNARY_OPCODE(f32_ceil,"f32.ceil",f32,f32) VALIDATE_UNARY_OPCODE(f64_ceil,"f64.ceil",f64,f64)
-		VALIDATE_UNARY_OPCODE(f32_floor,"f32.floor",f32,f32) VALIDATE_UNARY_OPCODE(f64_floor,"f64.floor",f64,f64)
-		VALIDATE_UNARY_OPCODE(f32_trunc,"f32.trunc",f32,f32) VALIDATE_UNARY_OPCODE(f64_trunc,"f64.trunc",f64,f64)
-		VALIDATE_UNARY_OPCODE(f32_nearest,"f32.nearest",f32,f32) VALIDATE_UNARY_OPCODE(f64_nearest,"f64.nearest",f64,f64)
-		VALIDATE_UNARY_OPCODE(f32_sqrt,"f32.sqrt",f32,f32) VALIDATE_UNARY_OPCODE(f64_sqrt,"f64.sqrt",f64,f64)
-
-		VALIDATE_UNARY_OPCODE(i32_trunc_s_f32,"i32.trunc_s/f32",f32,i32)
-		VALIDATE_UNARY_OPCODE(i32_trunc_s_f64,"i32.trunc_s/f64",f64,i32)
-		VALIDATE_UNARY_OPCODE(i32_trunc_u_f32,"i32.trunc_u/f32",f32,i32)
-		VALIDATE_UNARY_OPCODE(i32_trunc_u_f64,"i32.trunc_u/f64",f64,i32)
-		VALIDATE_UNARY_OPCODE(i32_wrap_i64,"i32.wrap/i64",i64,i32)
-		VALIDATE_UNARY_OPCODE(i64_trunc_s_f32,"i64.trunc_s/f32",f32,i64)
-		VALIDATE_UNARY_OPCODE(i64_trunc_s_f64,"i64.trunc_s/f64",f64,i64)
-		VALIDATE_UNARY_OPCODE(i64_trunc_u_f32,"i64.trunc_u/f32",f32,i64)
-		VALIDATE_UNARY_OPCODE(i64_trunc_u_f64,"i64.trunc_u/f64",f64,i64)
-		VALIDATE_UNARY_OPCODE(i64_extend_s_i32,"i64.extend_s/i32",i32,i64)
-		VALIDATE_UNARY_OPCODE(i64_extend_u_i32,"i64.extend_u/i32",i32,i64)
-		VALIDATE_UNARY_OPCODE(f32_convert_s_i32,"f32.convert_s/i32",i32,f32)
-		VALIDATE_UNARY_OPCODE(f32_convert_u_i32,"f32.convert_u/i32",i32,f32)
-		VALIDATE_UNARY_OPCODE(f32_convert_s_i64,"f32.convert_s/i64",i64,f32)
-		VALIDATE_UNARY_OPCODE(f32_convert_u_i64,"f32.convert_u/i64",i64,f32)
-		VALIDATE_UNARY_OPCODE(f32_demote_f64,"f32.demote/f64",f64,f32)
-		VALIDATE_UNARY_OPCODE(f32_reinterpret_i32,"f32.reinterpret/i32",i32,f32)
-		VALIDATE_UNARY_OPCODE(f64_convert_s_i32,"f64.convert_s/i32",i32,f64)
-		VALIDATE_UNARY_OPCODE(f64_convert_u_i32,"f64.convert_u/i32",i32,f64)
-		VALIDATE_UNARY_OPCODE(f64_convert_s_i64,"f64.convert_s/i64",i64,f64)
-		VALIDATE_UNARY_OPCODE(f64_convert_u_i64,"f64.convert_u/i64",i64,f64)
-		VALIDATE_UNARY_OPCODE(f64_promote_f32,"f64.promote/f32",f32,f64)
-		VALIDATE_UNARY_OPCODE(f64_reinterpret_i64,"f64.reinterpret/i64",i64,f64)
-		VALIDATE_UNARY_OPCODE(i32_reinterpret_f32,"i32.reinterpret/f32",f32,i32)
-		VALIDATE_UNARY_OPCODE(i64_reinterpret_f64,"i64.reinterpret/f64",f64,i64)
+		ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
+		#undef VALIDATE_OP
 
 	private:
 		
@@ -731,7 +634,7 @@ namespace IR
 		if(impl->functionContext.getControlStackSize()) { throw ValidationException("end of code reached before end of function"); }
 	}
 
-	#define VISIT_OPCODE(_,name,nameString,Imm) \
+	#define VISIT_OPCODE(_,name,nameString,Imm,...) \
 		void CodeValidationStream::name(Imm imm) \
 		{ \
 			if(ENABLE_LOGGING) { impl->loggingProxy.name(imm); } \

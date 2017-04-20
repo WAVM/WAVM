@@ -12,7 +12,7 @@ namespace IR
 	struct OperatorLoggingProxy
 	{
 		OperatorLoggingProxy(const Module& inModule,InnerVisitor& inInnerVisitor): module(inModule), innerVisitor(inInnerVisitor) {}
-		#define VISIT_OPCODE(encoding,name,nameString,Imm) \
+		#define VISIT_OPCODE(encoding,name,nameString,Imm,...) \
 			void name(Imm imm = {}) \
 			{ \
 				innerVisitor.logOperator(nameString + describeImm(imm)); \
@@ -54,8 +54,8 @@ namespace IR
 				: asString(module.types[imm.type.index]);
 			return " " + typeString;
 		}
-		std::string describeImm(LoadOrStoreImm imm) { return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset); }
+		template<size_t naturalAlignmentLog2>
+		std::string describeImm(LoadOrStoreImm<naturalAlignmentLog2> imm) { return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset); }
 		std::string describeImm(MemoryImm) { return ""; }
-		std::string describeImm(ErrorImm imm) { return " " + imm.message; }
 	};
 }

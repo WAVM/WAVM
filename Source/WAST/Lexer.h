@@ -4,7 +4,7 @@
 #include "IR/Operators.h"
 #include "WAST.h"
 
-#define VISIT_OPERATOR_TOKEN(opcode,name,nameString,Imm) \
+#define VISIT_OPERATOR_TOKEN(opcode,name,nameString,...) \
 	VISIT_TOKEN(name,"'" #nameString "'")
 
 #define VISIT_LITERAL_TOKEN(name) VISIT_TOKEN(name,"'" #name "'")

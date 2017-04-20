@@ -25,7 +25,7 @@ namespace IR
 		
 		IR_API void finish();
 
-		#define VISIT_OPCODE(_,name,nameString,Imm) IR_API void name(Imm imm = {});
+		#define VISIT_OPCODE(_,name,nameString,Imm,...) IR_API void name(Imm imm = {});
 		ENUM_OPERATORS(VISIT_OPCODE)
 		#undef VISIT_OPCODE
 
@@ -43,7 +43,7 @@ namespace IR
 		
 		void finishValidation() { codeValidationStream.finish(); }
 
-		#define VISIT_OPCODE(_,name,nameString,Imm) \
+		#define VISIT_OPCODE(_,name,nameString,Imm,...) \
 			void name(Imm imm = {}) \
 			{ \
 				codeValidationStream.name(imm); \
