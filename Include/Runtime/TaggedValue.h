@@ -107,10 +107,10 @@ namespace Runtime
 			case IR::ResultType::f64: return "f64(" + Floats::asString(result.f64) + ")";
 			#if ENABLE_SIMD_PROTOTYPE
 			case IR::ResultType::v128: return "v128(" + std::to_string(result.v128.u64[0]) + "," + std::to_string(result.v128.u64[1]) + ")";
-			case IR::ValueType::b8x16: return "b8x16(" + IR::asString(result.b8x16) + ')';
-			case IR::ValueType::b16x8: return "b16x8(" + IR::asString(result.b16x8) + ')';
-			case IR::ValueType::b32x4: return "b32x4(" + IR::asString(result.b32x4) + ')';
-			case IR::ValueType::b64x2: return "b64x2(" + IR::asString(result.b64x2) + ')';
+			case IR::ResultType::b8x16: return "b8x16(" + IR::asString(result.b8x16) + ')';
+			case IR::ResultType::b16x8: return "b16x8(" + IR::asString(result.b16x8) + ')';
+			case IR::ResultType::b32x4: return "b32x4(" + IR::asString(result.b32x4) + ')';
+			case IR::ResultType::b64x2: return "b64x2(" + IR::asString(result.b64x2) + ')';
 			#endif
 			default: Core::unreachable();
 			}
