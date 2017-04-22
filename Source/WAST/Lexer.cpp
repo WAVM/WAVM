@@ -264,7 +264,7 @@ namespace WAST
 		++nextToken;
 		
 		// Emit an extra line start for the end of the file, so you can find the end of a line with lineStarts[line + 1].
-		*nextLineStart++ = uint32(nextChar - string);
+		*nextLineStart++ = uint32(nextChar - string) + 1;
 
 		// Shrink the line start and token arrays to the final number of tokens/lines.
 		const size_t numLineStarts = nextLineStart - lineStarts;
@@ -331,9 +331,8 @@ namespace WAST
 
 		// Copy the full source line into the TextFileLocus for context.
 		const uintp lineStartOffset = getLineOffset(lineInfo,result.newlines);
-		uintp lineEndOffset = getLineOffset(lineInfo,result.newlines+1);
-		if(string[lineEndOffset-1] == '\n') { --lineEndOffset; }
-		result.sourceLine = std::string(string + lineStartOffset,string + lineEndOffset);
+		uintp lineEndOffset = getLineOffset(lineInfo,result.newlines+1) - 1;
+		result.sourceLine = std::string(string + lineStartOffset,lineEndOffset - lineStartOffset);
 
 		return result;
 	}
