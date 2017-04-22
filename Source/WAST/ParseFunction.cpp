@@ -358,9 +358,15 @@ static void parseExpr(FunctionParseState& state)
 				throw RecoverParseException();
 			}
 		}
+		catch(RecoverParseException)
+		{
+			state.codeStream.unreachable();
+			throw RecoverParseException();
+		}
 		catch(ValidationException exception)
 		{
 			parseErrorf(state,opcodeToken,"%s",exception.message.c_str());
+			state.codeStream.unreachable();
 			throw RecoverParseException();
 		}
 	});
@@ -440,9 +446,15 @@ static void parseInstrSequence(FunctionParseState& state)
 				throw RecoverParseException();
 			}
 		}
+		catch(RecoverParseException)
+		{
+			state.codeStream.unreachable();
+			throw RecoverParseException();
+		}
 		catch(ValidationException exception)
 		{
 			parseErrorf(state,opcodeToken,"%s",exception.message.c_str());
+			state.codeStream.unreachable();
 			throw RecoverParseException();
 		}
 	};
