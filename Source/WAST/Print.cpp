@@ -288,7 +288,6 @@ namespace WAST
 			string += "\nbr_if " + getBranchTargetId(imm.targetDepth);
 		}
 
-		void nop(NoImm) { string += "\nnop"; }
 		void unreachable(NoImm) { string += "\nunreachable"; enterUnreachable(); }
 		void drop(NoImm) { string += "\ndrop"; }
 
@@ -328,128 +327,38 @@ namespace WAST
 			string += "\ncall_indirect " + moduleContext.names.types[imm.type.index];
 		}
 
-		void grow_memory(MemoryImm) { string += "\ngrow_memory"; }
-		void current_memory(MemoryImm) { string += "\ncurrent_memory"; }
+		void printImm(NoImm) {}
+		void printImm(MemoryImm) {}
 
-		#define PRINT_CONST(typeId,nativeType,toString) \
-			void typeId##_const(LiteralImm<nativeType> imm) { string += "\n" #typeId; string += ".const "; string += toString(imm.value); }
-		PRINT_CONST(i32,int32,std::to_string); PRINT_CONST(i64,int64,std::to_string);
-		PRINT_CONST(f32,float32,Floats::asString); PRINT_CONST(f64,float64,Floats::asString);
+		template<typename nativeType> void printImm(LiteralImm<nativeType> imm);
+		template<> void printImm(LiteralImm<int32> imm) { string += ' '; string += std::to_string(imm.value); }
+		template<> void printImm(LiteralImm<int64> imm) { string += ' '; string += std::to_string(imm.value); }
+		template<> void printImm(LiteralImm<float32> imm) { string += ' '; string += Floats::asString(imm.value); }
+		template<> void printImm(LiteralImm<float64> imm) { string += ' '; string += Floats::asString(imm.value); }
 
-		#define PRINT_LOAD_OPCODE(typeId,name,naturalAlignmentLog2,resultType) void typeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) \
-			{ \
-				string += "\n" #typeId "." #name; \
-				if(imm.alignmentLog2 != naturalAlignmentLog2) { string += " align=" + std::to_string(1 << imm.alignmentLog2); } \
-				if(imm.offset != 0) { string += " offset=" + std::to_string(imm.offset); } \
+		template<size_t naturalAlignmentLog2>
+		void printImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
+		{
+			if(imm.offset != 0)
+			{
+				string += " offset=";
+				string += std::to_string(imm.offset);
 			}
-
-		PRINT_LOAD_OPCODE(i32,load8_s,0,i32)  PRINT_LOAD_OPCODE(i32,load8_u,0,i32)
-		PRINT_LOAD_OPCODE(i32,load16_s,1,i32) PRINT_LOAD_OPCODE(i32,load16_u,1,i32)
-		PRINT_LOAD_OPCODE(i64,load8_s,0,i64)  PRINT_LOAD_OPCODE(i64,load8_u,0,i64)
-		PRINT_LOAD_OPCODE(i64,load16_s,1,i64)  PRINT_LOAD_OPCODE(i64,load16_u,1,i64)
-		PRINT_LOAD_OPCODE(i64,load32_s,2,i64)  PRINT_LOAD_OPCODE(i64,load32_u,2,i64)
-
-		PRINT_LOAD_OPCODE(i32,load,2,i32) PRINT_LOAD_OPCODE(i64,load,3,i64)
-		PRINT_LOAD_OPCODE(f32,load,2,f32) PRINT_LOAD_OPCODE(f64,load,3,f64)
-			
-		#define PRINT_STORE_OPCODE(typeId,name,naturalAlignmentLog2,valueTypeId) void typeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) \
-			{ \
-				string += "\n" #typeId "." #name; \
-				if(imm.alignmentLog2 != naturalAlignmentLog2) { string += " align=" + std::to_string(1 << imm.alignmentLog2); } \
-				if(imm.offset != 0) { string += " offset=" + std::to_string(imm.offset); } \
+			if(imm.alignmentLog2 != naturalAlignmentLog2)
+			{
+				string += " align=";
+				string += std::to_string(1 << imm.alignmentLog2);
 			}
+		}
 
-		PRINT_STORE_OPCODE(i32,store8,0,i32) PRINT_STORE_OPCODE(i32,store16,1,i32) PRINT_STORE_OPCODE(i32,store,2,i32)
-		PRINT_STORE_OPCODE(i64,store8,0,i64) PRINT_STORE_OPCODE(i64,store16,1,i64) PRINT_STORE_OPCODE(i64,store32,2,i64) PRINT_STORE_OPCODE(i64,store,3,i64)
-		PRINT_STORE_OPCODE(f32,store,2,f32) PRINT_STORE_OPCODE(f64,store,3,f64)
-
-		#define PRINT_CONVERSION_OPCODE(name,operandTypeId,resultTypeId) void resultTypeId##_##name##_##operandTypeId(NoImm) \
-			{ string += "\n" #resultTypeId "." #name "/" #operandTypeId; }
-		#define PRINT_COMPARE_OPCODE(name,operandTypeId,resultTypeId) void operandTypeId##_##name(NoImm) \
-			{ string += "\n" #operandTypeId "." #name; }
-		#define PRINT_BASIC_OPCODE(name,operandTypeId,resultTypeId) void resultTypeId##_##name(NoImm) \
-			{ string += "\n" #resultTypeId "." #name; }
-
-		PRINT_BASIC_OPCODE(add,i32,i32) PRINT_BASIC_OPCODE(add,i64,i64)
-		PRINT_BASIC_OPCODE(sub,i32,i32) PRINT_BASIC_OPCODE(sub,i64,i64)
-		PRINT_BASIC_OPCODE(mul,i32,i32) PRINT_BASIC_OPCODE(mul,i64,i64)
-		PRINT_BASIC_OPCODE(div_s,i32,i32) PRINT_BASIC_OPCODE(div_s,i64,i64)
-		PRINT_BASIC_OPCODE(div_u,i32,i32) PRINT_BASIC_OPCODE(div_u,i64,i64)
-		PRINT_BASIC_OPCODE(rem_s,i32,i32) PRINT_BASIC_OPCODE(rem_s,i64,i64)
-		PRINT_BASIC_OPCODE(rem_u,i32,i32) PRINT_BASIC_OPCODE(rem_u,i64,i64)
-		PRINT_BASIC_OPCODE(and,i32,i32) PRINT_BASIC_OPCODE(and,i64,i64)
-		PRINT_BASIC_OPCODE(or,i32,i32) PRINT_BASIC_OPCODE(or,i64,i64)
-		PRINT_BASIC_OPCODE(xor,i32,i32) PRINT_BASIC_OPCODE(xor,i64,i64)
-		PRINT_BASIC_OPCODE(shl,i32,i32) PRINT_BASIC_OPCODE(shl,i64,i64)
-		PRINT_BASIC_OPCODE(shr_u,i32,i32) PRINT_BASIC_OPCODE(shr_u,i64,i64)
-		PRINT_BASIC_OPCODE(shr_s,i32,i32) PRINT_BASIC_OPCODE(shr_s,i64,i64)
-		PRINT_BASIC_OPCODE(rotr,i32,i32) PRINT_BASIC_OPCODE(rotr,i64,i64)
-		PRINT_BASIC_OPCODE(rotl,i32,i32) PRINT_BASIC_OPCODE(rotl,i64,i64)
-
-		PRINT_COMPARE_OPCODE(eq,i32,i32) PRINT_COMPARE_OPCODE(eq,i64,i32)
-		PRINT_COMPARE_OPCODE(ne,i32,i32) PRINT_COMPARE_OPCODE(ne,i64,i32)
-		PRINT_COMPARE_OPCODE(lt_s,i32,i32) PRINT_COMPARE_OPCODE(lt_s,i64,i32)
-		PRINT_COMPARE_OPCODE(le_s,i32,i32) PRINT_COMPARE_OPCODE(le_s,i64,i32)
-		PRINT_COMPARE_OPCODE(lt_u,i32,i32) PRINT_COMPARE_OPCODE(lt_u,i64,i32)
-		PRINT_COMPARE_OPCODE(le_u,i32,i32) PRINT_COMPARE_OPCODE(le_u,i64,i32)
-		PRINT_COMPARE_OPCODE(gt_s,i32,i32) PRINT_COMPARE_OPCODE(gt_s,i64,i32)
-		PRINT_COMPARE_OPCODE(ge_s,i32,i32) PRINT_COMPARE_OPCODE(ge_s,i64,i32)
-		PRINT_COMPARE_OPCODE(gt_u,i32,i32) PRINT_COMPARE_OPCODE(gt_u,i64,i32)
-		PRINT_COMPARE_OPCODE(ge_u,i32,i32) PRINT_COMPARE_OPCODE(ge_u,i64,i32)
-		PRINT_COMPARE_OPCODE(eqz,i32,i32) PRINT_COMPARE_OPCODE(eqz,i64,i32)
-
-		PRINT_BASIC_OPCODE(clz,i32,i32) PRINT_BASIC_OPCODE(clz,i64,i64)
-		PRINT_BASIC_OPCODE(ctz,i32,i32) PRINT_BASIC_OPCODE(ctz,i64,i64)
-		PRINT_BASIC_OPCODE(popcnt,i32,i32) PRINT_BASIC_OPCODE(popcnt,i64,i64)
-
-		PRINT_BASIC_OPCODE(add,f32,f32) PRINT_BASIC_OPCODE(add,f64,f64)
-		PRINT_BASIC_OPCODE(sub,f32,f32) PRINT_BASIC_OPCODE(sub,f64,f64)
-		PRINT_BASIC_OPCODE(mul,f32,f32) PRINT_BASIC_OPCODE(mul,f64,f64)
-		PRINT_BASIC_OPCODE(div,f32,f32) PRINT_BASIC_OPCODE(div,f64,f64)
-		PRINT_BASIC_OPCODE(min,f32,f32) PRINT_BASIC_OPCODE(min,f64,f64)
-		PRINT_BASIC_OPCODE(max,f32,f32) PRINT_BASIC_OPCODE(max,f64,f64)
-		PRINT_BASIC_OPCODE(copysign,f32,f32) PRINT_BASIC_OPCODE(copysign,f64,f64)
-
-		PRINT_COMPARE_OPCODE(eq,f32,i32) PRINT_COMPARE_OPCODE(eq,f64,i32)
-		PRINT_COMPARE_OPCODE(ne,f32,i32) PRINT_COMPARE_OPCODE(ne,f64,i32)
-		PRINT_COMPARE_OPCODE(lt,f32,i32) PRINT_COMPARE_OPCODE(lt,f64,i32)
-		PRINT_COMPARE_OPCODE(le,f32,i32) PRINT_COMPARE_OPCODE(le,f64,i32)
-		PRINT_COMPARE_OPCODE(gt,f32,i32) PRINT_COMPARE_OPCODE(gt,f64,i32)
-		PRINT_COMPARE_OPCODE(ge,f32,i32) PRINT_COMPARE_OPCODE(ge,f64,i32)
-
-		PRINT_BASIC_OPCODE(abs,f32,f32) PRINT_BASIC_OPCODE(abs,f64,f64)
-		PRINT_BASIC_OPCODE(neg,f32,f32) PRINT_BASIC_OPCODE(neg,f64,f64)
-		PRINT_BASIC_OPCODE(ceil,f32,f32) PRINT_BASIC_OPCODE(ceil,f64,f64)
-		PRINT_BASIC_OPCODE(floor,f32,f32) PRINT_BASIC_OPCODE(floor,f64,f64)
-		PRINT_BASIC_OPCODE(trunc,f32,f32) PRINT_BASIC_OPCODE(trunc,f64,f64)
-		PRINT_BASIC_OPCODE(nearest,f32,f32) PRINT_BASIC_OPCODE(nearest,f64,f64)
-		PRINT_BASIC_OPCODE(sqrt,f32,f32) PRINT_BASIC_OPCODE(sqrt,f64,f64)
-
-		PRINT_CONVERSION_OPCODE(trunc_s,f32,i32)
-		PRINT_CONVERSION_OPCODE(trunc_s,f64,i32)
-		PRINT_CONVERSION_OPCODE(trunc_u,f32,i32)
-		PRINT_CONVERSION_OPCODE(trunc_u,f64,i32)
-		PRINT_CONVERSION_OPCODE(wrap,i64,i32)
-		PRINT_CONVERSION_OPCODE(trunc_s,f32,i64)
-		PRINT_CONVERSION_OPCODE(trunc_s,f64,i64)
-		PRINT_CONVERSION_OPCODE(trunc_u,f32,i64)
-		PRINT_CONVERSION_OPCODE(trunc_u,f64,i64)
-		PRINT_CONVERSION_OPCODE(extend_s,i32,i64)
-		PRINT_CONVERSION_OPCODE(extend_u,i32,i64)
-		PRINT_CONVERSION_OPCODE(convert_s,i32,f32)
-		PRINT_CONVERSION_OPCODE(convert_u,i32,f32)
-		PRINT_CONVERSION_OPCODE(convert_s,i64,f32)
-		PRINT_CONVERSION_OPCODE(convert_u,i64,f32)
-		PRINT_CONVERSION_OPCODE(demote,f64,f32)
-		PRINT_CONVERSION_OPCODE(reinterpret,i32,f32)
-		PRINT_CONVERSION_OPCODE(convert_s,i32,f64)
-		PRINT_CONVERSION_OPCODE(convert_u,i32,f64)
-		PRINT_CONVERSION_OPCODE(convert_s,i64,f64)
-		PRINT_CONVERSION_OPCODE(convert_u,i64,f64)
-		PRINT_CONVERSION_OPCODE(promote,f32,f64)
-		PRINT_CONVERSION_OPCODE(reinterpret,i64,f64)
-		PRINT_CONVERSION_OPCODE(reinterpret,f32,i32)
-		PRINT_CONVERSION_OPCODE(reinterpret,f64,i64)
+		#define PRINT_OP(opcode,name,nameString,Imm,printOperands) \
+			void name(Imm imm) \
+			{ \
+				string += "\n" nameString; \
+				printImm(imm); \
+			}
+		ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(PRINT_OP)
+		#undef VALIDATE_OP
 
 	private:
 		
