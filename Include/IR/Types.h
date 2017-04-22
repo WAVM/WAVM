@@ -16,7 +16,15 @@ namespace IR
 		i64 = 2,
 		f32 = 3,
 		f64 = 4,
-		
+
+	#if ENABLE_SIMD_PROTOTYPE
+		v128 = 5,
+		b8x16 = 6,
+		b16x8 = 7,
+		b32x4 = 8,
+		b64x2 = 9,
+	#endif
+
 		num,
 		max = num-1
 	};
@@ -26,6 +34,49 @@ namespace IR
 	template<> struct ValueTypeInfo<ValueType::i64> { typedef int64 Value; };
 	template<> struct ValueTypeInfo<ValueType::f32> { typedef float32 Value; };
 	template<> struct ValueTypeInfo<ValueType::f64> { typedef float64 Value; };
+
+	#if ENABLE_SIMD_PROTOTYPE
+	union V128
+	{
+		uint8 u8[16];
+		int8 i8[16];
+		uint16 u16[8];
+		int16 i16[8];
+		uint32 u32[4];
+		int32 i32[4];
+		uint64 u64[2];
+		int64 i64[2];
+	};
+
+	template<size_t numLanes>
+	struct BoolVector
+	{
+		bool b[numLanes];
+	};
+
+	template<size_t numLanes>
+	std::string asString(const BoolVector<numLanes>& boolVector)
+	{
+		std::string result;
+		for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		{
+			if(laneIndex != 0) { result += ','; }
+			result += boolVector.b[laneIndex] ? '1' : '0';
+		}
+		return result;
+	}
+
+	typedef BoolVector<16> B8x16;
+	typedef BoolVector<8> B16x8;
+	typedef BoolVector<4> B32x4;
+	typedef BoolVector<2> B64x2;
+
+	template<> struct ValueTypeInfo<ValueType::v128> { typedef V128 Value; };
+	template<> struct ValueTypeInfo<ValueType::b8x16> { typedef B8x16 Value; };
+	template<> struct ValueTypeInfo<ValueType::b16x8> { typedef B16x8 Value; };
+	template<> struct ValueTypeInfo<ValueType::b32x4> { typedef B32x4 Value; };
+	template<> struct ValueTypeInfo<ValueType::b64x2> { typedef B64x2 Value; };
+	#endif
 	
 	inline uint8 getTypeBitWidth(ValueType type)
 	{
@@ -35,6 +86,13 @@ namespace IR
 		case ValueType::i64: return 64;
 		case ValueType::f32: return 32;
 		case ValueType::f64: return 64;
+		#if ENABLE_SIMD_PROTOTYPE
+		case ValueType::v128: return 128;
+		case ValueType::b8x16: return 128;
+		case ValueType::b16x8: return 128;
+		case ValueType::b32x4: return 128;
+		case ValueType::b64x2: return 128;
+		#endif
 		default: Core::unreachable();
 		};
 	}
@@ -48,6 +106,13 @@ namespace IR
 		case ValueType::i64: return "i64";
 		case ValueType::f32: return "f32";
 		case ValueType::f64: return "f64";
+		#if ENABLE_SIMD_PROTOTYPE
+		case ValueType::v128: return "v128";
+		case ValueType::b8x16: return "b8x16";
+		case ValueType::b16x8: return "b16x8";
+		case ValueType::b32x4: return "b32x4";
+		case ValueType::b64x2: return "b64x2";
+		#endif
 		default: Core::unreachable();
 		};
 	}
@@ -60,6 +125,13 @@ namespace IR
 		i64 = (uint8)ValueType::i64,
 		f32 = (uint8)ValueType::f32,
 		f64 = (uint8)ValueType::f64,
+		#if ENABLE_SIMD_PROTOTYPE
+		v128 = (uint8)ValueType::v128,
+		b8x16 = (uint8)ValueType::b8x16,
+		b16x8 = (uint8)ValueType::b16x8,
+		b32x4 = (uint8)ValueType::b32x4,
+		b64x2 = (uint8)ValueType::b64x2,
+		#endif
 		num,
 		max = num-1,
 	};
@@ -74,6 +146,13 @@ namespace IR
 		case ResultType::i64: return "i64";
 		case ResultType::f32: return "f32";
 		case ResultType::f64: return "f64";
+		#if ENABLE_SIMD_PROTOTYPE
+		case ResultType::v128: return "v128";
+		case ResultType::b8x16: return "b8x16";
+		case ResultType::b16x8: return "b16x8";
+		case ResultType::b32x4: return "b32x4";
+		case ResultType::b64x2: return "b64x2";
+		#endif
 		case ResultType::none: return "()";
 		default: Core::unreachable();
 		};

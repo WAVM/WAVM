@@ -86,6 +86,13 @@ else()
 	add_definitions("-DPRETEND_32BIT_ADDRESS_SPACE=0")
 endif()
 
+option(ENABLE_SIMD_PROTOTYPE "enables the prototype implementation of the proposed WebAssembly SIMD extension" ON)
+if(ENABLE_SIMD_PROTOTYPE)
+	add_definitions("-DENABLE_SIMD_PROTOTYPE=1")
+else()
+	add_definitions("-DENABLE_SIMD_PROTOTYPE=0")
+endif()
+
 add_subdirectory(Include/Inline)
 
 add_subdirectory(Source/Core)

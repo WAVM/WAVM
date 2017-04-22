@@ -71,7 +71,7 @@ namespace NFA
 		typedef int16 InternalStateIndex;
 		enum { internalMaxStates = INT16_MAX };
 
-		uint16 charToOffsetMap[256];
+		uint32 charToOffsetMap[256];
 		InternalStateIndex* stateAndOffsetToNextStateMap;
 		size_t numClasses;
 		size_t numStates;

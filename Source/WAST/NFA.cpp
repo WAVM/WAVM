@@ -363,9 +363,11 @@ namespace NFA
 		}
 
 		// Build a map from character index to offset into [charClass][initialState] transition map.
-		assert(numClasses * numStates <= UINT16_MAX + 1);
+		assert(((numClasses - 1) * (numStates - 1)) >> offsetShift <= UINT32_MAX);
 		for(uintp charIndex = 0;charIndex < 256;++charIndex)
-		{ charToOffsetMap[charIndex] = uint16(numStates * characterToClassMap[charIndex]); }
+		{
+			charToOffsetMap[charIndex] = uint32(numStates * characterToClassMap[charIndex]);
+		}
 
 		Log::logTimer("reduced DFA character classes",timer);
 		Log::printf(Log::Category::metrics,"  reduced DFA character classes to %u\n",numClasses);

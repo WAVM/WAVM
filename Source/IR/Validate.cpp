@@ -318,6 +318,32 @@ namespace IR
 			VALIDATE_UNLESS("current_memory and grow_memory are only valid if there is a default memory",module.memories.size() == 0);
 		}
 
+		#if ENABLE_SIMD_PROTOTYPE
+		template<size_t numLanes>
+		void validateImm(LaneIndexImm<numLanes> imm)
+		{
+			VALIDATE_UNLESS("swizzle invalid lane index",imm.laneIndex>=numLanes);
+		}
+		
+		template<size_t numLanes>
+		void validateImm(SwizzleImm<numLanes> imm)
+		{
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			{
+				VALIDATE_UNLESS("swizzle invalid lane index",imm.laneIndices[laneIndex]>=numLanes);
+			}
+		}
+
+		template<size_t numLanes>
+		void validateImm(ShuffleImm<numLanes> imm)
+		{
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			{
+				VALIDATE_UNLESS("shuffle invalid lane index",imm.laneIndices[laneIndex]>=numLanes*2);
+			}
+		}
+		#endif
+
 		#define LOAD(resultTypeId) \
 			popAndValidateOperand(operatorName,ValueType::i32); \
 			pushOperand(ResultType::resultTypeId);
@@ -331,6 +357,21 @@ namespace IR
 		#define UNARY(operandTypeId,resultTypeId) \
 			popAndValidateOperand(operatorName,ValueType::operandTypeId); \
 			pushOperand(ResultType::resultTypeId)
+
+		#if ENABLE_SIMD_PROTOTYPE
+		#define VECTORSELECT(vectorTypeId,scalarTypeId) \
+			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::vectorTypeId,ValueType::scalarTypeId); \
+			pushOperand(ValueType::vectorTypeId);
+		#define BUILDVECTOR(scalarTypeId,numLanes,vectorTypeId) \
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex) \
+			{ \
+				popAndValidateOperand(operatorName,ValueType::scalarTypeId); \
+			} \
+			pushOperand(ValueType::vectorTypeId);
+		#define REPLACELANE(scalarTypeId,vectorTypeId) \
+			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::scalarTypeId); \
+			pushOperand(ValueType::vectorTypeId);
+		#endif
 
 		#define VALIDATE_OP(opcode,name,nameString,Imm,validateOperands) \
 			void name(Imm imm) \

@@ -350,6 +350,39 @@ namespace WAST
 			}
 		}
 
+		#if ENABLE_SIMD_PROTOTYPE
+		template<size_t numLanes>
+		void printImm(LaneIndexImm<numLanes> imm)
+		{
+			string += ' ';
+			string += imm.laneIndex;
+		}
+		
+		template<size_t numLanes>
+		void printImm(SwizzleImm<numLanes> imm)
+		{
+			string += " (";
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			{
+				if(laneIndex != 0) { string += ' '; }
+				string += std::to_string(imm.laneIndices[laneIndex]);
+			}
+			string += ')';
+		}
+
+		template<size_t numLanes>
+		void printImm(ShuffleImm<numLanes> imm)
+		{
+			string += " (";
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			{
+				if(laneIndex != 0) { string += ' '; }
+				string += std::to_string(imm.laneIndices[laneIndex]);
+			}
+			string += ')';
+		}
+		#endif
+
 		#define PRINT_OP(opcode,name,nameString,Imm,printOperands) \
 			void name(Imm imm) \
 			{ \

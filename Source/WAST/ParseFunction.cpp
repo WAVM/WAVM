@@ -219,6 +219,47 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 	}
 }
 
+#if ENABLE_SIMD_PROTOTYPE
+template<size_t numLanes>
+static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm,Opcode)
+{
+}
+
+template<size_t numLanes>
+static void parseImm(FunctionParseState& state,SwizzleImm<numLanes>& outImm,Opcode)
+{
+	parseParenthesized(state,[&]
+	{
+		for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		{
+			const uint64 u64 = parseI64(state);
+			if(u64 >= numLanes)
+			{
+				parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes);
+			}
+			outImm.laneIndices[laneIndex] = uint8(u64);
+		}
+	});
+}
+
+template<size_t numLanes>
+static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm,Opcode)
+{
+	parseParenthesized(state,[&]
+	{
+		for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		{
+			const uint64 u64 = parseI64(state);
+			if(u64 >= numLanes * 2)
+			{
+				parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes * 2);
+			}
+			outImm.laneIndices[laneIndex] = uint8(u64);
+		}
+	});
+}
+#endif
+
 static void parseInstrSequence(FunctionParseState& state);
 static void parseExpr(FunctionParseState& state);
 

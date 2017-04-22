@@ -12,6 +12,7 @@ namespace LLVMJIT
 	llvm::LLVMContext context;
 	llvm::TargetMachine* targetMachine = nullptr;
 	llvm::Type* llvmResultTypes[(size_t)ResultType::num];
+
 	llvm::Type* llvmI8Type;
 	llvm::Type* llvmI16Type;
 	llvm::Type* llvmI32Type;
@@ -21,6 +22,20 @@ namespace LLVMJIT
 	llvm::Type* llvmVoidType;
 	llvm::Type* llvmBoolType;
 	llvm::Type* llvmI8PtrType;
+	
+	#if ENABLE_SIMD_PROTOTYPE
+	llvm::Type* llvmI8x16Type;
+	llvm::Type* llvmI16x8Type;
+	llvm::Type* llvmI32x4Type;
+	llvm::Type* llvmI64x2Type;
+	llvm::Type* llvmF32x4Type;
+	llvm::Type* llvmF64x2Type;
+	llvm::Type* llvmB8x16Type;
+	llvm::Type* llvmB16x8Type;
+	llvm::Type* llvmB32x4Type;
+	llvm::Type* llvmB64x2Type;
+	#endif
+
 	llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
 	
 	// A map from address to loaded JIT symbols.
@@ -642,6 +657,19 @@ namespace LLVMJIT
 		llvmVoidType = llvm::Type::getVoidTy(context);
 		llvmBoolType = llvm::Type::getInt1Ty(context);
 		llvmI8PtrType = llvmI8Type->getPointerTo();
+		
+		#if ENABLE_SIMD_PROTOTYPE
+		llvmI8x16Type = llvm::VectorType::get(llvmI8Type,16);
+		llvmI16x8Type = llvm::VectorType::get(llvmI16Type,8);
+		llvmI32x4Type = llvm::VectorType::get(llvmI32Type,4);
+		llvmI64x2Type = llvm::VectorType::get(llvmI64Type,2);
+		llvmF32x4Type = llvm::VectorType::get(llvmF32Type,4);
+		llvmF64x2Type = llvm::VectorType::get(llvmF64Type,2);
+		llvmB8x16Type = llvm::VectorType::get(llvmBoolType,16);
+		llvmB16x8Type = llvm::VectorType::get(llvmBoolType,8);
+		llvmB32x4Type = llvm::VectorType::get(llvmBoolType,4);
+		llvmB64x2Type = llvm::VectorType::get(llvmBoolType,2);
+		#endif
 
 		llvmResultTypes[(size_t)ResultType::none] = llvm::Type::getVoidTy(context);
 		llvmResultTypes[(size_t)ResultType::i32] = llvmI32Type;
@@ -649,11 +677,30 @@ namespace LLVMJIT
 		llvmResultTypes[(size_t)ResultType::f32] = llvmF32Type;
 		llvmResultTypes[(size_t)ResultType::f64] = llvmF64Type;
 
+		#if ENABLE_SIMD_PROTOTYPE
+		llvmResultTypes[(size_t)ResultType::v128] = llvmI64x2Type;
+		llvmResultTypes[(size_t)ResultType::b8x16] = llvm::VectorType::get(llvmBoolType,16);
+		llvmResultTypes[(size_t)ResultType::b16x8] = llvm::VectorType::get(llvmBoolType,8);
+		llvmResultTypes[(size_t)ResultType::b32x4] = llvm::VectorType::get(llvmBoolType,4);
+		llvmResultTypes[(size_t)ResultType::b64x2] = llvm::VectorType::get(llvmBoolType,2);
+		#endif
+
 		// Create zero constants of each type.
 		typedZeroConstants[(size_t)ValueType::any] = nullptr;
 		typedZeroConstants[(size_t)ValueType::i32] = emitLiteral((uint32)0);
 		typedZeroConstants[(size_t)ValueType::i64] = emitLiteral((uint64)0);
 		typedZeroConstants[(size_t)ValueType::f32] = emitLiteral((float32)0.0f);
 		typedZeroConstants[(size_t)ValueType::f64] = emitLiteral((float64)0.0);
+
+		#if ENABLE_SIMD_PROTOTYPE
+		typedZeroConstants[(size_t)ValueType::v128] = llvm::ConstantVector::get({typedZeroConstants[(size_t)ValueType::i64],typedZeroConstants[(size_t)ValueType::i64]});
+
+		llvm::Constant* llvmFalse = emitLiteral(false);
+		typedZeroConstants[(size_t)ValueType::b8x16] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,
+																	llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse});
+		typedZeroConstants[(size_t)ValueType::b16x8] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse});
+		typedZeroConstants[(size_t)ValueType::b32x4] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse});
+		typedZeroConstants[(size_t)ValueType::b64x2] = llvm::ConstantVector::get({llvmFalse,llvmFalse});
+		#endif
 	}
 }

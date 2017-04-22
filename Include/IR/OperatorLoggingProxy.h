@@ -57,5 +57,36 @@ namespace IR
 		template<size_t naturalAlignmentLog2>
 		std::string describeImm(LoadOrStoreImm<naturalAlignmentLog2> imm) { return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset); }
 		std::string describeImm(MemoryImm) { return ""; }
+
+		#if ENABLE_SIMD_PROTOTYPE
+		template<size_t numLanes>
+		std::string describeImm(LaneIndexImm<numLanes> imm) { return " " + std::to_string(imm.laneIndex); }
+		template<size_t numLanes>
+		std::string describeImm(SwizzleImm<numLanes> imm)
+		{
+			std::string result = " [";
+			const char* prefix = "";
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			{
+				result += prefix + std::to_string(imm.laneIndices[laneIndex]);
+				prefix = ",";
+			}
+			return result;
+		}
+		template<size_t numLanes>
+		std::string describeImm(ShuffleImm<numLanes> imm)
+		{
+			std::string result = " [";
+			const char* prefix = "";
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			{
+				result += prefix
+					+ (imm.laneIndices[laneIndex] < numLanes ? 'a' : 'b')
+					+ std::to_string(imm.laneIndices[laneIndex]);
+				prefix = ",";
+			}
+			return result;
+		}
+		#endif
 	};
 }
