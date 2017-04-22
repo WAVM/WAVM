@@ -450,7 +450,7 @@ static void parseInstrSequence(FunctionParseState& state)
 
 namespace WAST
 {
-	FunctionDef parseFunctionDef(ModuleParseState& state)
+	FunctionDef parseFunctionDef(ModuleParseState& state,const Token* funcToken)
 	{
 		std::vector<std::string>* localDisassemblyNames = new std::vector<std::string>;
 		NameToIndexMap* localNameToIndexMap = new NameToIndexMap();
@@ -538,7 +538,7 @@ namespace WAST
 		});
 
 		// Continue parsing after the closing parenthesis.
-		findClosingParenthesis(state);
+		findClosingParenthesis(state,funcToken-1);
 		--state.nextToken;
 	
 		return {functionType,std::move(nonParameterLocalTypes),CodeRef()};

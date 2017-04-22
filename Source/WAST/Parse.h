@@ -167,12 +167,13 @@ namespace WAST
 	uintp resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
-	void findClosingParenthesis(ParseState& state);
+	void findClosingParenthesis(ParseState& state,const Token* openingParenthesisToken);
 
 	// Parses the surrounding parentheses for an inner parser, and handles recovery at the closing parenthesis.
 	template<typename ParseInner>
 	static void parseParenthesized(ParseState& state,ParseInner parseInner)
 	{
+		const Token* openingParenthesisToken = state.nextToken;
 		require(state,t_leftParenthesis);
 		try
 		{
@@ -181,7 +182,7 @@ namespace WAST
 		}
 		catch(RecoverParseException)
 		{
-			findClosingParenthesis(state);
+			findClosingParenthesis(state,openingParenthesisToken);
 		}
 	}
 
@@ -190,6 +191,7 @@ namespace WAST
 	template<typename ParseInner>
 	static bool tryParseParenthesizedTagged(ParseState& state,TokenType tagType,ParseInner parseInner)
 	{
+		const Token* openingParenthesisToken = state.nextToken;
 		if(state.nextToken[0].type != t_leftParenthesis || state.nextToken[1].type != tagType)
 		{
 			return false;
@@ -202,13 +204,13 @@ namespace WAST
 		}
 		catch(RecoverParseException)
 		{
-			findClosingParenthesis(state);
+			findClosingParenthesis(state,openingParenthesisToken);
 		}
 		return true;
 	}
 
 	// Function parsing.
-	IR::FunctionDef parseFunctionDef(ModuleParseState& state);
+	IR::FunctionDef parseFunctionDef(ModuleParseState& state,const Token* funcToken);
 
 	// Module parsing.
 	void parseModuleBody(ModuleParseState& state);

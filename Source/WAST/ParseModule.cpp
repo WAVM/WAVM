@@ -363,6 +363,7 @@ static void parseObjectDefOrImport(
 	ParseImport parseImport,
 	ParseDef parseDef)
 {
+	const Token* declarationTagToken = state.nextToken;
 	require(state,declarationTag);
 
 	Name name;
@@ -393,7 +394,7 @@ static void parseObjectDefOrImport(
 			state.module.exports.push_back({parseUTF8String(state),kind,indexSpace.size()});
 		});
 
-		Def def = parseDef(state);
+		Def def = parseDef(state,declarationTagToken);
 		bindName(state,nameToIndexMap,name,indexSpace.size());
 		indexSpace.defs.push_back(std::move(def));
 		disassemblyNameArray.push_back({name.getString()});
@@ -419,7 +420,7 @@ static void parseTable(ModuleParseState& state)
 			return TableType {elementType,sizeConstraints};
 		},
 		// Parse a table definition.
-		[](ModuleParseState& state)
+		[](ModuleParseState& state,const Token*)
 		{
 			// Parse the table type.
 			SizeConstraints sizeConstraints;
@@ -450,7 +451,7 @@ static void parseMemory(ModuleParseState& state)
 		// Parse a memory import.
 		[](ModuleParseState& state) { return MemoryType {parseSizeConstraints(state,IR::maxMemoryPages)}; },
 		// Parse a memory definition
-		[](ModuleParseState& state)
+		[](ModuleParseState& state,const Token*)
 		{
 			SizeConstraints sizeConstraints;
 			if(!tryParseSizeConstraints(state,IR::maxMemoryPages,sizeConstraints))
@@ -479,7 +480,7 @@ static void parseGlobal(ModuleParseState& state)
 		// Parse a global import.
 		parseGlobalType,
 		// Parse a global definition
-		[](ModuleParseState& state)
+		[](ModuleParseState& state,const Token*)
 		{
 			const GlobalType globalType = parseGlobalType(state);
 			const InitializerExpression initializerExpression = parseInitializerExpression(state);

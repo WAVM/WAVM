@@ -15,7 +15,7 @@ using namespace IR;
 
 namespace WAST
 {
-	void findClosingParenthesis(ParseState& state)
+	void findClosingParenthesis(ParseState& state,const Token* openingParenthesisToken)
 	{
 		// Skip over tokens until the ')' closing the current parentheses nesting depth is found.
 		uintp depth = 1;
@@ -35,7 +35,7 @@ namespace WAST
 				--depth;
 				break;
 			case t_eof:
-				parseErrorf(state,state.nextToken,"reached end of input while trying to find closing parenthesis");
+				parseErrorf(state,openingParenthesisToken,"reached end of input while trying to find closing parenthesis");
 				throw FatalParseException();
 			}
 		}
