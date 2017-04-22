@@ -330,11 +330,10 @@ namespace WAST
 		void printImm(NoImm) {}
 		void printImm(MemoryImm) {}
 
-		template<typename nativeType> void printImm(LiteralImm<nativeType> imm);
-		template<> void printImm(LiteralImm<int32> imm) { string += ' '; string += std::to_string(imm.value); }
-		template<> void printImm(LiteralImm<int64> imm) { string += ' '; string += std::to_string(imm.value); }
-		template<> void printImm(LiteralImm<float32> imm) { string += ' '; string += Floats::asString(imm.value); }
-		template<> void printImm(LiteralImm<float64> imm) { string += ' '; string += Floats::asString(imm.value); }
+		void printImm(LiteralImm<int32> imm) { string += ' '; string += std::to_string(imm.value); }
+		void printImm(LiteralImm<int64> imm) { string += ' '; string += std::to_string(imm.value); }
+		void printImm(LiteralImm<float32> imm) { string += ' '; string += Floats::asString(imm.value); }
+		void printImm(LiteralImm<float64> imm) { string += ' '; string += Floats::asString(imm.value); }
 
 		template<size_t naturalAlignmentLog2>
 		void printImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
