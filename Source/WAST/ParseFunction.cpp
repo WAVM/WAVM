@@ -223,6 +223,12 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 template<size_t numLanes>
 static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm,Opcode)
 {
+	const uint64 u64 = parseI64(state);
+	if(u64 > numLanes)
+	{
+		parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes);
+	}
+	outImm.laneIndex = uint8(u64);
 }
 
 template<size_t numLanes>
