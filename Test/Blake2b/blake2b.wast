@@ -1,4 +1,4 @@
-;; WebAssembly WASM AST Hello World! program
+;; Blake2b hash function
 
 (module
 	(import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
