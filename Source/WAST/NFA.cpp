@@ -363,7 +363,7 @@ namespace NFA
 		}
 
 		// Build a map from character index to offset into [charClass][initialState] transition map.
-		assert(((numClasses - 1) * (numStates - 1)) >> offsetShift <= UINT32_MAX);
+		assert((numClasses - 1) * (numStates - 1) <= UINT32_MAX);
 		for(uintp charIndex = 0;charIndex < 256;++charIndex)
 		{
 			charToOffsetMap[charIndex] = uint32(numStates * characterToClassMap[charIndex]);
