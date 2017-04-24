@@ -291,7 +291,7 @@ namespace NFA
 		{
 			inMove.nextStateByInitialState = nullptr;
 		}
-		~StateTransitionsByChar() { if(nextStateByInitialState) { delete nextStateByInitialState; } }
+		~StateTransitionsByChar() { if(nextStateByInitialState) { delete [] nextStateByInitialState; } }
 
 		void operator=(StateTransitionsByChar&& inMove)
 		{
