@@ -8,16 +8,6 @@
 
 namespace IR
 {
-	// A reference to a function's code within the owning module's code array
-	struct CodeRef
-	{
-		uintp offset;
-		size_t numBytes;
-
-		CodeRef(): offset(0), numBytes(0) {}
-		CodeRef(uintp inOffset,size_t inNumBytes): offset(inOffset), numBytes(inNumBytes) {}
-	};
-	
 	// An initializer expression: serialized like any other code, but may only be a constant or immutable global
 	struct InitializerExpression
 	{
@@ -52,7 +42,8 @@ namespace IR
 	{
 		IndexedFunctionType type;
 		std::vector<ValueType> nonParameterLocalTypes;
-		CodeRef code;
+		std::vector<uint8> code;
+		std::vector<std::vector<uint32>> branchTables;
 	};
 
 	// A table definition
@@ -145,7 +136,6 @@ namespace IR
 		IndexSpace<GlobalDef,GlobalType> globals;
 
 		std::vector<Export> exports;
-		std::vector<uint8> code;
 		std::vector<DataSegment> dataSegments;
 		std::vector<TableSegment> tableSegments;
 		std::vector<UserSection> userSections;

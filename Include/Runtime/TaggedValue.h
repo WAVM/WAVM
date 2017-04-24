@@ -3,6 +3,8 @@
 #include "IR/Types.h"
 #include "Inline/Floats.h"
 
+#include <string.h>
+
 namespace Runtime
 {
 	// A runtime value of any type.

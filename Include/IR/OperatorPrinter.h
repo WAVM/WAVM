@@ -8,24 +8,29 @@
 
 namespace IR
 {
-	template<typename InnerVisitor>
-	struct OperatorLoggingProxy
+	struct OperatorPrinter
 	{
-		OperatorLoggingProxy(const Module& inModule,InnerVisitor& inInnerVisitor): module(inModule), innerVisitor(inInnerVisitor) {}
+		typedef std::string Result;
+
+		OperatorPrinter(const Module& inModule,const FunctionDef& inFunctionDef)
+		: module(inModule), functionDef(inFunctionDef) {}
+
 		#define VISIT_OPCODE(encoding,name,nameString,Imm,...) \
-			void name(Imm imm = {}) \
+			std::string name(Imm imm = {}) \
 			{ \
-				innerVisitor.logOperator(nameString + describeImm(imm)); \
-				innerVisitor.name(imm); \
+				return std::string(nameString) + describeImm(imm); \
 			}
 		ENUM_OPERATORS(VISIT_OPCODE)
-		VISIT_OPCODE(_,unknown,"unknown",Opcode)
 		#undef VISIT_OPCODE
+
+		std::string unknown(Opcode opcode)
+		{
+			return "<unknown opcode " + std::to_string((uintp)opcode) + ">";
+		}
 	private:
 		const Module& module;
-		InnerVisitor& innerVisitor;
+		const FunctionDef& functionDef;
 
-		std::string describeImm(Opcode opcode) { return std::to_string((uintp)opcode); }
 		std::string describeImm(NoImm) { return ""; }
 		std::string describeImm(ControlStructureImm imm) { return std::string(" : ") + asString(imm.resultType); }
 		std::string describeImm(BranchImm imm) { return " " + std::to_string(imm.targetDepth); }
@@ -33,7 +38,8 @@ namespace IR
 		{
 			std::string result = " " + std::to_string(imm.defaultTargetDepth);
 			const char* prefix = " [";
-			for(auto depth : imm.targetDepths) { result += prefix + std::to_string(depth); prefix = ","; }
+			assert(imm.branchTableIndex < functionDef.branchTables.size());
+			for(auto depth : functionDef.branchTables[imm.branchTableIndex]) { result += prefix + std::to_string(depth); prefix = ","; }
 			result += "]";
 			return result;
 		}

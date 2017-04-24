@@ -1,13 +1,82 @@
 #pragma once
 
 #include "Core/Core.h"
-#include "Inline/Serialization.h"
 #include "IR.h"
 #include "Types.h"
+#include "Inline/Serialization.h"
 
 namespace IR
 {
-	using namespace Serialization;
+	// Structures for operator immediates
+
+	struct NoImm {};
+	struct MemoryImm {};
+
+	struct ControlStructureImm
+	{
+		ResultType resultType;
+	};
+
+	struct BranchImm
+	{
+		uint32 targetDepth;
+	};
+
+	PACKED_STRUCT(
+	struct BranchTableImm
+	{
+		uint32 defaultTargetDepth;
+		uintp branchTableIndex; // An index into the FunctionDef's branchTables array.
+	});
+
+	template<typename Value>
+	struct LiteralImm
+	{
+		Value value;
+	};
+
+	struct GetOrSetVariableImm
+	{
+		uint32 variableIndex;
+	};
+
+	struct CallImm
+	{
+		uint32 functionIndex;
+	};
+
+	struct CallIndirectImm
+	{
+		IndexedFunctionType type;
+	};
+
+	PACKED_STRUCT(
+	template<size_t naturalAlignmentLog2>
+	struct LoadOrStoreImm
+	{
+		uint8 alignmentLog2;
+		uint32 offset;
+	});
+
+	#if ENABLE_SIMD_PROTOTYPE
+	template<size_t numLanes>
+	struct LaneIndexImm
+	{
+		uint8 laneIndex;
+	};
+	
+	template<size_t numLanes>
+	struct SwizzleImm
+	{
+		uint8 laneIndices[numLanes];
+	};
+	
+	template<size_t numLanes>
+	struct ShuffleImm
+	{
+		uint8 laneIndices[numLanes];
+	};
+	#endif
 
 	// Enumate the WebAssembly operators
 
@@ -462,236 +531,88 @@ namespace IR
 		maxSingleByteOpcode = 0xcf,
 	};
 
-	inline void serialize(InputStream& stream,Opcode& opcode)
+	PACKED_STRUCT(
+	template<typename Imm>
+	struct OpcodeAndImm
 	{
-		opcode = (Opcode)0;
-		Serialization::serializeNativeValue(stream,*(uint8*)&opcode);
-		if(opcode > Opcode::maxSingleByteOpcode)
-		{
-			opcode = (Opcode)(uint16(opcode) << 8);
-			Serialization::serializeNativeValue(stream,*(uint8*)&opcode);
-		}
-	}
-	inline void serialize(OutputStream& stream,Opcode opcode)
+		Opcode opcode;
+		Imm imm;
+	});
+
+	// Specialize for the empty immediate structs so they don't take an extra byte of space.
+	template<>
+	struct OpcodeAndImm<NoImm>
 	{
-		if(opcode <= Opcode::maxSingleByteOpcode) { Serialization::serializeNativeValue(stream,*(uint8*)&opcode); }
-		else
-		{
-			serializeNativeValue(stream,*(((uint8*)&opcode) + 1));
-			serializeNativeValue(stream,*(((uint8*)&opcode) + 0));
-		}
-	}
-
-	// Structures for operator immediates
-
-	struct NoImm
-	{
-		template<typename Stream>
-		friend void serialize(Stream& stream,NoImm&) {}
-	};
-
-	struct ControlStructureImm
-	{
-		ResultType resultType;
-
-		template<typename Stream>
-		friend void serialize(Stream& stream,ControlStructureImm& imm)
-		{
-			int8 encodedResultType = imm.resultType == ResultType::none ? -64 : -(int8)imm.resultType;
-			serializeVarInt7(stream,encodedResultType);
-			if(Stream::isInput) { imm.resultType = encodedResultType == -64 ? ResultType::none : (ResultType)-encodedResultType; }
-		}
-	};
-
-	struct BranchImm
-	{
-		uintp targetDepth;
-
-		template<typename Stream>
-		friend void serialize(Stream& stream,BranchImm& imm)
-		{
-			serializeVarUInt32(stream,imm.targetDepth);
-		}
-	};
-
-	struct BranchTableImm
-	{
-		std::vector<uintp> targetDepths;
-		uintp defaultTargetDepth;
-
-		template<typename Stream>
-		friend void serialize(Stream& stream,BranchTableImm& imm)
-		{
-			serializeArray(stream,imm.targetDepths,[](Stream& stream,uintp& targetDepth){serializeVarUInt32(stream,targetDepth);});
-			serializeVarUInt32(stream,imm.defaultTargetDepth);
-		}
-	};
-
-	template<typename Value>
-	struct LiteralImm
-	{
-		Value value;
-	};
-
-	template<typename Stream,typename Value>
-	void serialize(Stream& stream,LiteralImm<Value>& imm)
-	{ serialize(stream,imm.value); }
-		
-	template<typename Stream>
-	void serialize(Stream& stream,LiteralImm<int32>& imm)
-	{ serializeVarInt32(stream,imm.value); }
-	
-	template<typename Stream>
-	void serialize(Stream& stream,LiteralImm<int64>& imm)
-	{ serializeVarInt64(stream,imm.value); }
-
-	struct GetOrSetVariableImm
-	{
-		uintp variableIndex;
-
-		template<typename Stream>
-		friend void serialize(Stream& stream,GetOrSetVariableImm& imm)
-		{ serializeVarUInt32(stream,imm.variableIndex); }
-	};
-
-	struct CallImm
-	{
-		uintp functionIndex;
-
-		template<typename Stream>
-		friend void serialize(Stream& stream,CallImm& imm)
-		{
-			serializeVarUInt32(stream,imm.functionIndex);
-		}
-	};
-
-	struct CallIndirectImm
-	{
-		IndexedFunctionType type;
-
-		template<typename Stream>
-		friend void serialize(Stream& stream,CallIndirectImm& imm)
-		{
-			serializeVarUInt32(stream,imm.type.index);
-
-			uint8 reserved = 0;
-			serializeVarUInt1(stream,reserved);
-		}
-	};
-
-	template<size_t naturalAlignmentLog2>
-	struct LoadOrStoreImm
-	{
-		uint32 alignmentLog2;
-		uint32 offset;
-
-		template<typename Stream>
-		friend void serialize(Stream& stream,LoadOrStoreImm& imm)
-		{
-			serializeVarUInt32(stream,imm.alignmentLog2);
-			serializeVarUInt32(stream,imm.offset);
-		}
-	};
-
-	struct MemoryImm
-	{
-		template<typename Stream>
-		friend void serialize(Stream& stream,MemoryImm& imm)
-		{
-			uint8 reserved = 0;
-			serializeVarUInt1(stream,reserved);
-		}
-	};
-
-	#if ENABLE_SIMD_PROTOTYPE
-	template<size_t numLanes>
-	struct LaneIndexImm
-	{
-		uint8 laneIndex;
-		template<typename Stream>
-		friend void serialize(Stream& stream,LaneIndexImm<numLanes>& imm)
-		{
-			serializeVarUInt7(stream,imm.laneIndex);
-		}
-	};
-	
-	template<size_t numLanes>
-	struct SwizzleImm
-	{
-		uint8 laneIndices[numLanes];
-		template<typename Stream>
-		friend void serialize(Stream& stream,SwizzleImm& imm)
-		{
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
-			{
-				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
-			}
-		}
-	};
-	
-	template<size_t numLanes>
-	struct ShuffleImm
-	{
-		uint8 laneIndices[numLanes];
-		template<typename Stream>
-		friend void serialize(Stream& stream,ShuffleImm& imm)
-		{
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
-			{
-				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
-			}
-		}
-	};
-	#endif
-
-	// Decodes an operator from an input stream and dispatches by opcode.
-	struct OperationDecoder
-	{
-		OperationDecoder(Serialization::InputStream& inStream): stream(inStream) {}
-
-		operator bool() const { return stream.capacity() != 0; }
-
-		template<typename Visitor>
-		void decodeOp(Visitor& visitor)
+		union
 		{
 			Opcode opcode;
-			serialize(stream,opcode);
+			NoImm imm;
+		};
+	};
+	template<>
+	struct OpcodeAndImm<MemoryImm>
+	{
+		union
+		{
+			Opcode opcode;
+			MemoryImm imm;
+		};
+	};
+
+	// Decodes an operator from an input stream and dispatches by opcode.
+	struct OperatorDecoderStream
+	{
+		OperatorDecoderStream(const std::vector<uint8>& codeBytes)
+		: nextByte(codeBytes.data()), end(codeBytes.data()+codeBytes.size()) {}
+
+		operator bool() const { return nextByte < end; }
+
+		template<typename Visitor>
+		typename Visitor::Result decodeOp(Visitor& visitor)
+		{
+			assert(nextByte + sizeof(Opcode) <= end);
+			Opcode opcode = *(Opcode*)nextByte;
 			switch(opcode)
 			{
 			#define VISIT_OPCODE(opcode,name,nameString,Imm,...) \
 				case Opcode::name: \
 				{ \
-					Imm imm; \
-					serialize(stream,imm); \
-					return visitor.name(imm); \
+					assert(nextByte + sizeof(OpcodeAndImm<Imm>) <= end); \
+					OpcodeAndImm<Imm>* encodedOperator = (OpcodeAndImm<Imm>*)nextByte; \
+					nextByte += sizeof(OpcodeAndImm<Imm>); \
+					return visitor.name(encodedOperator->imm); \
 				}
 			ENUM_OPERATORS(VISIT_OPCODE)
 			#undef VISIT_OPCODE
-			default: return visitor.unknown(opcode);
+			default:
+				nextByte += sizeof(Opcode);
+				return visitor.unknown(opcode);
 			}
 		}
 
 	private:
 
-		Serialization::InputStream& stream;
+		const uint8* nextByte;
+		const uint8* end;
 	};
 
 	// Encodes an operator to an output stream.
-	struct OperationEncoder
+	struct OperatorEncoderStream
 	{
-		Serialization::OutputStream& stream;
-
-		OperationEncoder(Serialization::OutputStream& inStream): stream(inStream) {}
+		OperatorEncoderStream(Serialization::OutputStream& inByteStream): byteStream(inByteStream) {}
 
 		#define VISIT_OPCODE(_,name,nameString,Imm,...) \
 			void name(Imm imm = {}) \
 			{ \
-				Opcode opcode = Opcode::name; \
-				serialize(stream,opcode); \
-				serialize(stream,imm); \
+				OpcodeAndImm<Imm>* encodedOperator = (OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)); \
+				encodedOperator->opcode = Opcode::name; \
+				encodedOperator->imm = imm; \
 			}
 		ENUM_OPERATORS(VISIT_OPCODE)
 		#undef VISIT_OPCODE
+
+	private:
+		Serialization::OutputStream& byteStream;
 	};
 
 	IR_API const char* getOpcodeName(Opcode opcode);

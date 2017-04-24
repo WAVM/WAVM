@@ -248,11 +248,11 @@ static void parseType(ModuleParseState& state)
 		NameToIndexMap parameterNameToIndexMap;
 		std::vector<std::string> localDisassemblyNames;
 		const FunctionType* functionType = parseFunctionType(state,parameterNameToIndexMap,localDisassemblyNames);
-		uintp functionTypeIndex;
 
-		functionTypeIndex = state.module.types.size();
+		uintp functionTypeIndex = state.module.types.size();
 		state.module.types.push_back(functionType);
-		state.functionTypeToIndexMap[functionType] = functionTypeIndex;
+		errorUnless(functionTypeIndex < UINT32_MAX);
+		state.functionTypeToIndexMap[functionType] = (uint32)functionTypeIndex;
 
 		bindName(state,state.typeNameToIndexMap,name,functionTypeIndex);
 		state.disassemblyNames.types.push_back(name.getString());
@@ -436,7 +436,9 @@ static void parseTable(ModuleParseState& state)
 				{
 					require(state,t_elem);
 
-					const uintp numElements = parseElemSegmentBody(state,Reference(state.module.tables.size()),InitializerExpression((int32)0),state.nextToken-1);
+					const uintp tableIndex = state.module.tables.size();
+					errorUnless(tableIndex < UINT32_MAX);
+					const uintp numElements = parseElemSegmentBody(state,Reference(uint32(tableIndex)),InitializerExpression((int32)0),state.nextToken-1);
 					sizeConstraints.min = sizeConstraints.max = numElements;
 				});
 			}

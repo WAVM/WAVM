@@ -331,6 +331,11 @@ bool tryParseFloat(ParseState& state,Float& outFloat)
 
 namespace WAST
 {
+	bool tryParseI32(ParseState& state,uint32& outI32)
+	{
+		return tryParseInt<uint32>(state,outI32,INT32_MIN,UINT32_MAX);
+	}
+
 	bool tryParseI64(ParseState& state,uint64& outI64)
 	{
 		return tryParseInt<uint64>(state,outI64,INT64_MIN,UINT64_MAX);
@@ -339,7 +344,7 @@ namespace WAST
 	uint32 parseI32(ParseState& state)
 	{
 		uint32 result;
-		if(!tryParseInt<uint32>(state,result,INT32_MIN,UINT32_MAX))
+		if(!tryParseI32(state,result))
 		{
 			parseErrorf(state,state.nextToken,"expected i32 literal");
 			throw RecoverParseException();

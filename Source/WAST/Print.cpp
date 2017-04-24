@@ -200,6 +200,8 @@ namespace WAST
 	
 	struct FunctionPrintContext
 	{
+		typedef void Result;
+
 		ModulePrintContext& moduleContext;
 		const Module& module;
 		const FunctionDef& functionDef;
@@ -271,11 +273,13 @@ namespace WAST
 		{
 			string += "\nbr_table" INDENT_STRING;
 			enum { numTargetsPerLine = 16 };
-			for(uintp targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
+			assert(imm.branchTableIndex < functionDef.branchTables.size());
+			const std::vector<uint32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+			for(uintp targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
 			{
 				if(targetIndex % numTargetsPerLine == 0) { string += '\n'; }
 				else { string += ' '; }
-				string += getBranchTargetId(imm.targetDepths[targetIndex]);
+				string += getBranchTargetId(targetDepths[targetIndex]);
 			}
 			string += '\n';
 			string += getBranchTargetId(imm.defaultTargetDepth);
@@ -664,8 +668,7 @@ namespace WAST
 		pushControlStack(ControlContext::Type::function,nullptr);
 		string += DEDENT_STRING;
 
-		Serialization::MemoryInputStream codeStream(module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
-		OperationDecoder decoder(codeStream);
+		OperatorDecoderStream decoder(functionDef.code);
 		while(decoder && controlStack.size())
 		{
 			decoder.decodeOp(*this);

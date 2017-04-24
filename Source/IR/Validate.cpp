@@ -1,6 +1,6 @@
 #include "IR/Module.h"
 #include "IR/Operators.h"
-#include "IR/OperatorLoggingProxy.h"
+#include "IR/OperatorPrinter.h"
 #include "IR/Validate.h"
 
 #include <set>
@@ -226,9 +226,11 @@ namespace IR
 			const ResultType defaultTargetArgumentType = getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
 			popAndValidateResultType("br_table argument",defaultTargetArgumentType);
 
-			for(uintp targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
+			assert(imm.branchTableIndex < functionDef.branchTables.size());
+			const std::vector<uint32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+			for(uintp targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
 			{
-				const ResultType targetArgumentType = getBranchTargetByDepth(imm.targetDepths[targetIndex]).branchArgumentType;
+				const ResultType targetArgumentType = getBranchTargetByDepth(targetDepths[targetIndex]).branchArgumentType;
 				VALIDATE_UNLESS("br_table target argument must match default target argument: ",targetArgumentType != defaultTargetArgumentType);
 			}
 
@@ -376,7 +378,7 @@ namespace IR
 		#define VALIDATE_OP(opcode,name,nameString,Imm,validateOperands) \
 			void name(Imm imm) \
 			{ \
-				UNUSED const char* operatorName = nameString; \
+				const char* operatorName = nameString; SUPPRESS_UNUSED(operatorName); \
 				validateImm(imm); \
 				validateOperands; \
 			}
@@ -619,43 +621,14 @@ namespace IR
 		Log::printf(Log::Category::metrics,"Validated WebAssembly module definitions in %.2fms\n",timer.getMilliseconds());
 	}
 
-	void validateCode(const Module& module)
-	{
-		Core::Timer timer;
-
-		for(uintp functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
-		{
-			const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
-			FunctionValidationContext functionContext(module,functionDef);
-
-			Serialization::MemoryInputStream codeStream(module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
-			OperationDecoder decoder(codeStream);
-			if(ENABLE_LOGGING)
-			{
-				OperatorLoggingProxy<FunctionValidationContext> loggingProxy(module,functionContext);
-				functionContext.logOperator("---- function start ----");
-				while(decoder && functionContext.getControlStackSize()) { decoder.decodeOp(loggingProxy); };
-			}
-			else
-			{
-				while(decoder && functionContext.getControlStackSize()) { decoder.decodeOp(functionContext); };
-			}
-			
-			if(decoder) { throw ValidationException("function end reached before end of code"); }
-			if(functionContext.getControlStackSize()) { throw ValidationException("end of code reached before end of function"); }
-		}
-
-		Log::printf(Log::Category::metrics,"Validated WebAssembly module code in %.2fms\n",timer.getMilliseconds());
-	}
-
 	struct CodeValidationStreamImpl
 	{
 		FunctionValidationContext functionContext;
-		OperatorLoggingProxy<FunctionValidationContext> loggingProxy;
+		OperatorPrinter operatorPrinter;
 
 		CodeValidationStreamImpl(const Module& module,const FunctionDef& functionDef)
 		: functionContext(module,functionDef)
-		, loggingProxy(module,functionContext)
+		, operatorPrinter(module,functionDef)
 		{}
 	};
 
@@ -678,8 +651,8 @@ namespace IR
 	#define VISIT_OPCODE(_,name,nameString,Imm,...) \
 		void CodeValidationStream::name(Imm imm) \
 		{ \
-			if(ENABLE_LOGGING) { impl->loggingProxy.name(imm); } \
-			else { impl->functionContext.name(imm); } \
+			if(ENABLE_LOGGING) { impl->functionContext.logOperator(impl->operatorPrinter.name(imm)); } \
+			impl->functionContext.name(imm); \
 		}
 	ENUM_OPERATORS(VISIT_OPCODE)
 	#undef VISIT_OPCODE

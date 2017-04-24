@@ -168,7 +168,7 @@ namespace WAST
 		&& state.nextToken[1].type == t_type)
 		{
 			// Parse a reference by name or index to some type in the module's type table.
-			IndexedFunctionType result = {UINTPTR_MAX};
+			IndexedFunctionType result = {UINT32_MAX};
 			parseParenthesized(state,[&]
 			{
 				require(state,t_type);
@@ -178,7 +178,7 @@ namespace WAST
 
 				// Callers may use the returned index to look up a FunctionType from the module's type table,
 				// so make sure that the index is valid.
-				if(result.index != UINTPTR_MAX && result.index >= state.module.types.size())
+				if(result.index != UINT32_MAX && result.index >= state.module.types.size())
 				{
 					parseErrorf(state,refToken,"invalid type reference");
 					result = getUniqueFunctionTypeIndex(state,FunctionType::get());
@@ -209,8 +209,9 @@ namespace WAST
 			const uintp functionTypeIndex = state.module.types.size();
 			state.module.types.push_back(functionType);
 			state.disassemblyNames.types.push_back(std::string());
-			state.functionTypeToIndexMap.emplace(functionType,functionTypeIndex);
-			return IndexedFunctionType {functionTypeIndex};
+			errorUnless(functionTypeIndex < UINT32_MAX);
+			state.functionTypeToIndexMap.emplace(functionType,(uint32)functionTypeIndex);
+			return IndexedFunctionType {(uint32)functionTypeIndex};
 		}
 	}
 
@@ -260,11 +261,11 @@ namespace WAST
 	{
 		outRef.token = state.nextToken;
 		if(tryParseName(state,outRef.name)) { outRef.type = Reference::Type::name; return true; }
-		else if(tryParseI64(state,outRef.index)) { outRef.type = Reference::Type::index; return true; }
+		else if(tryParseI32(state,outRef.index)) { outRef.type = Reference::Type::index; return true; }
 		return false;
 	}
 
-	uintp parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context)
+	uint32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context)
 	{
 		Reference ref;
 		if(!tryParseNameOrIndexRef(state,ref))
@@ -277,6 +278,8 @@ namespace WAST
 
 	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,uintp index)
 	{
+		errorUnless(index <= UINT32_MAX);
+
 		if(name)
 		{
 			auto mapIt = nameToIndexMap.find(name);
@@ -285,11 +288,11 @@ namespace WAST
 				const TextFileLocus previousDefinitionLocus = calcLocusFromOffset(state.string,	state.lineInfo,mapIt->first.getCharOffset(state.string));
 				parseErrorf(state,name.getCharOffset(state.string),"redefinition of name defined at %s",previousDefinitionLocus.describe().c_str());
 			}
-			nameToIndexMap.emplace(name,index);
+			nameToIndexMap.emplace(name,uint32(index));
 		}
 	}
 
-	uintp resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref)
+	uint32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref)
 	{
 		switch(ref.type)
 		{
@@ -300,7 +303,7 @@ namespace WAST
 			if(nameToIndexMapIt == nameToIndexMap.end())
 			{
 				parseErrorf(state,ref.token,"unknown name");
-				return UINTPTR_MAX;
+				return UINT32_MAX;
 			}
 			else
 			{

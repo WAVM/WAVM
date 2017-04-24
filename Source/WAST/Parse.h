@@ -85,7 +85,7 @@ namespace WAST
 	};
 	
 	// A map from Name to index using a hash table.
-	typedef std::unordered_map<Name,uintp,Name::Hasher> NameToIndexMap;
+	typedef std::unordered_map<Name,uint32,Name::Hasher> NameToIndexMap;
 	
 	// Represents a yet-to-be-resolved reference, parsed as either a name or an index.
 	struct Reference
@@ -95,11 +95,11 @@ namespace WAST
 		union
 		{
 			Name name;
-			uint64 index;
+			uint32 index;
 		};
 		const Token* token;
 		Reference(const Name& inName): type(Type::name), name(inName) {}
-		Reference(uint64 inIndex): type(Type::index), index(inIndex) {}
+		Reference(uint32 inIndex): type(Type::index), index(inIndex) {}
 		Reference(): type(Type::invalid), token(nullptr) {}
 		operator bool() const { return type != Type::invalid; }
 	};
@@ -109,7 +109,7 @@ namespace WAST
 	{
 		IR::Module& module;
 
-		std::map<const IR::FunctionType*,uintp> functionTypeToIndexMap;
+		std::map<const IR::FunctionType*,uint32> functionTypeToIndexMap;
 		NameToIndexMap typeNameToIndexMap;
 
 		NameToIndexMap functionNameToIndexMap;
@@ -147,6 +147,7 @@ namespace WAST
 	// Literal parsing.
 	bool tryParseHexit(const char*& nextChar,uint8& outValue);
 	
+	bool tryParseI32(ParseState& state,uint32& outI32);
 	bool tryParseI64(ParseState& state,uint64& outI64);
 
 	uint32 parseI32(ParseState& state);
@@ -161,10 +162,10 @@ namespace WAST
 	// Name parsing and resolution.
 	bool tryParseName(ParseState& state,Name& outName);
 	bool tryParseNameOrIndexRef(ParseState& state,Reference& outRef);
-	uintp parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context);
+	uint32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context);
 
 	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,uintp index);
-	uintp resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref);
+	uint32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
 	void findClosingParenthesis(ParseState& state,const Token* openingParenthesisToken);

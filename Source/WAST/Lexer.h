@@ -81,7 +81,7 @@
 
 namespace WAST
 {
-	enum TokenType : uint32
+	enum TokenType : uint16
 	{
 		#define VISIT_TOKEN(name,description) t_##name,
 		ENUM_TOKENS()
@@ -89,11 +89,12 @@ namespace WAST
 		numTokenTypes
 	};
 
+	PACKED_STRUCT(
 	struct Token
 	{
 		TokenType type;
 		uint32 begin;
-	};
+	});
 
 	struct LineInfo;
 

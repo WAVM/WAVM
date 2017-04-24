@@ -59,5 +59,4 @@ namespace IR
 	};
 
 	IR_API void validateDefinitions(const IR::Module& module);
-	IR_API void validateCode(const IR::Module& module);
 }

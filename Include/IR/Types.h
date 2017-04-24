@@ -189,7 +189,7 @@ namespace IR
 	
 	struct IndexedFunctionType
 	{
-		uintp index;
+		uint32 index;
 	};
 	
 	inline std::string asString(const std::vector<ValueType>& typeTuple)

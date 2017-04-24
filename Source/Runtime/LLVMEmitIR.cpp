@@ -1,7 +1,7 @@
 #include "LLVMJIT.h"
 #include "llvm/ADT/SmallVector.h"
 #include "IR/Operators.h"
-#include "IR/OperatorLoggingProxy.h"
+#include "IR/OperatorPrinter.h"
 
 #define ENABLE_LOGGING 0
 #define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
@@ -68,6 +68,8 @@ namespace LLVMJIT
 	// The context used by functions involved in JITing a single AST function.
 	struct EmitFunctionContext
 	{
+		typedef void Result;
+
 		EmitModuleContext& moduleContext;
 		const Module& module;
 		const FunctionDef& functionDef;
@@ -521,11 +523,13 @@ namespace LLVMJIT
 			}
 
 			// Create a LLVM switch instruction.
-			auto llvmSwitch = irBuilder.CreateSwitch(index,defaultTarget.block,(unsigned int)imm.targetDepths.size());
+			assert(imm.branchTableIndex < functionDef.branchTables.size());
+			const std::vector<uint32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+			auto llvmSwitch = irBuilder.CreateSwitch(index,defaultTarget.block,(unsigned int)targetDepths.size());
 
-			for(uintp targetIndex = 0;targetIndex < imm.targetDepths.size();++targetIndex)
+			for(uintp targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
 			{
-				BranchTarget& target = getBranchTargetByDepth(imm.targetDepths[targetIndex]);
+				BranchTarget& target = getBranchTargetByDepth(targetDepths[targetIndex]);
 
 				// Add this target to the switch instruction.
 				llvmSwitch->addCase(emitLiteral((uint32)targetIndex),target.block);
@@ -773,7 +777,7 @@ namespace LLVMJIT
 
 		#define EMIT_BINARY_OP(typeId,name,emitCode) void typeId##_##name(NoImm) \
 			{ \
-				UNUSED const ValueType type = ValueType::typeId; \
+				const ValueType type = ValueType::typeId; SUPPRESS_UNUSED(type); \
 				auto right = pop(); \
 				auto left = pop(); \
 				push(emitCode); \
@@ -783,7 +787,7 @@ namespace LLVMJIT
 
 		#define EMIT_UNARY_OP(typeId,name,emitCode) void typeId##_##name(NoImm) \
 			{ \
-				UNUSED const ValueType type = ValueType::typeId; \
+				const ValueType type = ValueType::typeId; SUPPRESS_UNUSED(type); \
 				auto operand = pop(); \
 				push(emitCode); \
 			}
@@ -992,14 +996,14 @@ namespace LLVMJIT
 		#define EMIT_SIMD_BINARY_OP(name,llvmType,emitCode) \
 			void name(NoImm) \
 			{ \
-				UNUSED auto right = irBuilder.CreateBitCast(pop(),llvmType); \
-				UNUSED auto left = irBuilder.CreateBitCast(pop(),llvmType); \
+				auto right = irBuilder.CreateBitCast(pop(),llvmType); SUPPRESS_UNUSED(right); \
+				auto left = irBuilder.CreateBitCast(pop(),llvmType); SUPPRESS_UNUSED(left); \
 				push(emitCode); \
 			}
 		#define EMIT_SIMD_UNARY_OP(name,llvmType,emitCode) \
 			void name(NoImm) \
 			{ \
-				UNUSED auto operand = irBuilder.CreateBitCast(pop(),llvmType); \
+				auto operand = irBuilder.CreateBitCast(pop(),llvmType); SUPPRESS_UNUSED(operand); \
 				push(emitCode); \
 			}
 		#define EMIT_SIMD_INT_BINARY_OP(name,emitCode) \
@@ -1258,6 +1262,8 @@ namespace LLVMJIT
 	// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end operator through).
 	struct UnreachableOpVisitor
 	{
+		typedef void Result;
+
 		UnreachableOpVisitor(EmitFunctionContext& inContext): context(inContext), unreachableControlDepth(0) {}
 		#define VISIT_OP(opcode,name,nameString,Imm,...) void name(Imm imm) {}
 		ENUM_NONCONTROL_OPERATORS(VISIT_OP)
@@ -1280,11 +1286,6 @@ namespace LLVMJIT
 			else { --unreachableControlDepth; }
 		}
 
-		void logOperator(const std::string& operatorDescription)
-		{
-			if(unreachableControlDepth) { context.logOperator("*unreachable* " + operatorDescription); }
-			else { context.logOperator(operatorDescription); }
-		}
 	private:
 		EmitFunctionContext& context;
 		uintp unreachableControlDepth;
@@ -1352,25 +1353,20 @@ namespace LLVMJIT
 		}
 
 		// Decode the WebAssembly opcodes and emit LLVM IR for them.
-		Serialization::MemoryInputStream codeStream(module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
-		OperationDecoder decoder(codeStream);
+		OperatorDecoderStream decoder(functionDef.code);
 		UnreachableOpVisitor unreachableOpVisitor(*this);
-		OperatorLoggingProxy<EmitFunctionContext> loggingProxy(module,*this);
-		OperatorLoggingProxy<UnreachableOpVisitor> unreachableLoggingProxy(module,unreachableOpVisitor);
+		OperatorPrinter operatorPrinter(module,functionDef);
 		uintp opIndex = 0;
 		while(decoder && controlStack.size())
 		{
 			irBuilder.SetCurrentDebugLocation(llvm::DILocation::get(context,(unsigned int)opIndex++,0,diFunction));
 			if(ENABLE_LOGGING)
 			{
-				if(controlStack.back().isReachable) { decoder.decodeOp(loggingProxy); }
-				else { decoder.decodeOp(unreachableLoggingProxy); }
+				logOperator(decoder.decodeOp(operatorPrinter));
 			}
-			else
-			{
-				if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
-				else { decoder.decodeOp(unreachableOpVisitor); }
-			}
+
+			if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
+			else { decoder.decodeOp(unreachableOpVisitor); }
 		};
 		assert(irBuilder.GetInsertBlock() == returnBlock);
 		

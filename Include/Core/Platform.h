@@ -10,15 +10,17 @@
 	#define DLL_EXPORT __declspec(dllexport)
 	#define DLL_IMPORT __declspec(dllimport)
 	#define FORCEINLINE __forceinline
-	#define UNUSED __pragma(warning(suppress:4189))
+	#define SUPPRESS_UNUSED(variable) (void)(variable);
 	#include <intrin.h>
+	#define PACKED_STRUCT(definition) __pragma(pack(push, 1)) definition; __pragma(pack(pop))
 #else
 	// Use __thread instead of the C++11 thread_local because Apple's clang doesn't support thread_local yet.
 	#define THREAD_LOCAL __thread
 	#define DLL_EXPORT
 	#define DLL_IMPORT
 	#define FORCEINLINE inline __attribute__((always_inline))
-	#define UNUSED __attribute__((unused))
+	#define SUPPRESS_UNUSED(variable) (void)(variable);
+	#define PACKED_STRUCT(definition) definition __attribute__((packed));
 #endif
 
 namespace Platform

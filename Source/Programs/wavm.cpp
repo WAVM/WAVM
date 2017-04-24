@@ -47,22 +47,20 @@ struct RootResolver : Resolver
 		if(type.kind == ObjectKind::function)
 		{
 			// Generate a function body that just uses the unreachable op to fault if called.
-			ArrayOutputStream codeStream;
-			OperationEncoder encoder(codeStream);
+			Serialization::ArrayOutputStream codeStream;
+			OperatorEncoderStream encoder(codeStream);
 			encoder.unreachable();
 			encoder.end();
 
 			// Generate a module for the stub function.
 			Module stubModule;
 			DisassemblyNames stubModuleNames;
-			stubModule.code = codeStream.getBytes();
 			stubModule.types.push_back(asFunctionType(type));
-			stubModule.functions.defs.push_back({{0},{},{0,stubModule.code.size()}});
+			stubModule.functions.defs.push_back({{0},{},std::move(codeStream.getBytes()),{}});
 			stubModule.exports.push_back({"importStub",ObjectKind::function,0});
 			stubModuleNames.functions.push_back({std::string(moduleName) + "." + exportName,{}});
 			IR::setDisassemblyNames(stubModule,stubModuleNames);
 			IR::validateDefinitions(stubModule);
-			IR::validateCode(stubModule);
 
 			// Instantiate the module and return the stub function instance.
 			auto stubModuleInstance = instantiateModule(stubModule,{});

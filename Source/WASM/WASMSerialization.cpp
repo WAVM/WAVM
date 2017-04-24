@@ -6,6 +6,9 @@
 #include "IR/Types.h"
 #include "IR/Validate.h"
 
+using namespace Serialization;
+
+// These serialization functions need to be declared in the IR namespace for the array serializer in the Serialization namespace to find them.
 namespace IR
 {
 	template<typename Stream>
@@ -16,7 +19,7 @@ namespace IR
 		if(Stream::isInput) { type = (ValueType)-encodedValueType; }
 	}
 
-	static void serialize(InputStream& stream,ResultType& resultType)
+	FORCEINLINE static void serialize(InputStream& stream,ResultType& resultType)
 	{
 		uintp arity;
 		serializeVarUInt1(stream,arity);
@@ -171,6 +174,127 @@ namespace WASM
 		data = 11
 	};
 	
+	FORCEINLINE void serialize(InputStream& stream,Opcode& opcode)
+	{
+		opcode = (Opcode)0;
+		Serialization::serializeNativeValue(stream,*(uint8*)&opcode);
+		if(opcode > Opcode::maxSingleByteOpcode)
+		{
+			opcode = (Opcode)(uint16(opcode) << 8);
+			Serialization::serializeNativeValue(stream,*(uint8*)&opcode);
+		}
+	}
+	FORCEINLINE void serialize(OutputStream& stream,Opcode opcode)
+	{
+		if(opcode <= Opcode::maxSingleByteOpcode) { Serialization::serializeNativeValue(stream,*(uint8*)&opcode); }
+		else
+		{
+			serializeNativeValue(stream,*(((uint8*)&opcode) + 1));
+			serializeNativeValue(stream,*(((uint8*)&opcode) + 0));
+		}
+	}
+	
+	template<typename Stream>
+	void serialize(Stream& stream,NoImm&,const FunctionDef&) {}
+	
+	template<typename Stream>
+	void serialize(Stream& stream,ControlStructureImm& imm,const FunctionDef&)
+	{
+		int8 encodedResultType = imm.resultType == ResultType::none ? -64 : -(int8)imm.resultType;
+		serializeVarInt7(stream,encodedResultType);
+		if(Stream::isInput) { imm.resultType = encodedResultType == -64 ? ResultType::none : (ResultType)-encodedResultType; }
+	}
+
+	template<typename Stream>
+	void serialize(Stream& stream,BranchImm& imm,const FunctionDef&)
+	{
+		serializeVarUInt32(stream,imm.targetDepth);
+	}
+
+	void serialize(InputStream& stream,BranchTableImm& imm,FunctionDef& functionDef)
+	{
+		std::vector<uint32> branchTable;
+		serializeArray(stream,branchTable,[](InputStream& stream,uint32& targetDepth){serializeVarUInt32(stream,targetDepth);});
+		imm.branchTableIndex = functionDef.branchTables.size();
+		functionDef.branchTables.push_back(std::move(branchTable));
+		serializeVarUInt32(stream,imm.defaultTargetDepth);
+	}
+	void serialize(OutputStream& stream,BranchTableImm& imm,FunctionDef& functionDef)
+	{
+		assert(imm.branchTableIndex < functionDef.branchTables.size());
+		std::vector<uint32>& branchTable = functionDef.branchTables[imm.branchTableIndex];
+		serializeArray(stream,branchTable,[](OutputStream& stream,uint32& targetDepth){serializeVarUInt32(stream,targetDepth);});
+		serializeVarUInt32(stream,imm.defaultTargetDepth);
+	}
+
+	template<typename Stream,typename Value>
+	void serialize(Stream& stream,LiteralImm<Value>& imm,const FunctionDef&)
+	{ serialize(stream,imm.value); }
+		
+	template<typename Stream>
+	void serialize(Stream& stream,LiteralImm<int32>& imm,const FunctionDef&)
+	{ serializeVarInt32(stream,imm.value); }
+	
+	template<typename Stream>
+	void serialize(Stream& stream,LiteralImm<int64>& imm,const FunctionDef&)
+	{ serializeVarInt64(stream,imm.value); }
+
+	template<typename Stream>
+	void serialize(Stream& stream,GetOrSetVariableImm& imm,const FunctionDef&)
+	{ serializeVarUInt32(stream,imm.variableIndex); }
+
+	template<typename Stream>
+	void serialize(Stream& stream,CallImm& imm,const FunctionDef&)
+	{
+		serializeVarUInt32(stream,imm.functionIndex);
+	}
+
+	template<typename Stream>
+	void serialize(Stream& stream,CallIndirectImm& imm,const FunctionDef&)
+	{
+		serializeVarUInt32(stream,imm.type.index);
+
+		uint8 reserved = 0;
+		serializeVarUInt1(stream,reserved);
+	}
+
+	template<typename Stream,size_t naturalAlignmentLog2>
+	void serialize(Stream& stream,LoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
+	{
+		serializeVarUInt7(stream,imm.alignmentLog2);
+		serializeVarUInt32(stream,imm.offset);
+	}
+	template<typename Stream>
+	void serialize(Stream& stream,MemoryImm& imm,const FunctionDef&)
+	{
+		uint8 reserved = 0;
+		serializeVarUInt1(stream,reserved);
+	}
+
+	#if ENABLE_SIMD_PROTOTYPE
+		template<typename Stream,size_t numLanes>
+		void serialize(Stream& stream,LaneIndexImm<numLanes>& imm,const FunctionDef&)
+		{
+			serializeVarUInt7(stream,imm.laneIndex);
+		}
+		template<typename Stream,size_t numLanes>
+		void serialize(Stream& stream,SwizzleImm<numLanes>& imm,const FunctionDef&)
+		{
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			{
+				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
+			}
+		}
+		template<typename Stream,size_t numLanes>
+		void serialize(Stream& stream,ShuffleImm<numLanes>& imm,const FunctionDef&)
+		{
+			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			{
+				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
+			}
+		}
+	#endif
+
 	template<typename SerializeSection>
 	void serializeSection(OutputStream& stream,SectionType type,SerializeSection serializeSectionBody)
 	{
@@ -230,6 +354,32 @@ namespace WASM
 		serialize(stream,localSet.type);
 	}
 
+	struct OperatorSerializerStream
+	{
+		typedef void Result;
+
+		OperatorSerializerStream(Serialization::OutputStream& inByteStream,FunctionDef& inFunctionDef)
+		: byteStream(inByteStream), functionDef(inFunctionDef) {}
+
+		#define VISIT_OPCODE(_,name,nameString,Imm,...) \
+			void name(Imm imm) const \
+			{ \
+				Opcode opcode = Opcode::name; \
+				serialize(byteStream,opcode); \
+				serialize(byteStream,imm,functionDef); \
+			}
+		ENUM_OPERATORS(VISIT_OPCODE)
+		#undef VISIT_OPCODE
+
+		void unknown(Opcode opcode)
+		{
+			throw FatalSerializationException("unknown opcode");
+		}
+	private:
+		Serialization::OutputStream& byteStream;
+		FunctionDef& functionDef;
+	};
+
 	void serializeFunctionBody(OutputStream& sectionStream,Module& module,FunctionDef& functionDef)
 	{
 		ArrayOutputStream bodyStream;
@@ -258,7 +408,10 @@ namespace WASM
 		serializeVarUInt32(bodyStream,numLocalSets);
 		for(uintp setIndex = 0;setIndex < numLocalSets;++setIndex) { serialize(bodyStream,localSets[setIndex]); }
 
-		serializeBytes(bodyStream,module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
+		// Serialize the function code.
+		OperatorDecoderStream irDecoderStream(functionDef.code);
+		OperatorSerializerStream wasmOpEncoderStream(bodyStream,functionDef);
+		while(irDecoderStream) { irDecoderStream.decodeOp(wasmOpEncoderStream); };
 
 		std::vector<uint8> bodyBytes = bodyStream.getBytes();
 		serialize(sectionStream,bodyBytes);
@@ -281,10 +434,33 @@ namespace WASM
 			for(uintp index = 0;index < localSet.num;++index) { functionDef.nonParameterLocalTypes.push_back(localSet.type); }
 		}
 
-		const size_t numCodeBytes = bodyStream.capacity();
-		functionDef.code = {module.code.size(),numCodeBytes};
-		module.code.resize(functionDef.code.offset + functionDef.code.numBytes);
-		serializeBytes(bodyStream,module.code.data() + functionDef.code.offset,functionDef.code.numBytes);
+		// Deserialize the function code, validate it, and re-encode it in the IR format.
+		ArrayOutputStream irCodeByteStream;
+		OperatorEncoderStream irEncoderStream(irCodeByteStream);
+		CodeValidationStream codeValidationStream(module,functionDef);
+		while(bodyStream.capacity())
+		{
+			Opcode opcode;
+			serialize(bodyStream,opcode);
+			switch(opcode)
+			{
+			#define VISIT_OPCODE(_,name,nameString,Imm,...) \
+				case Opcode::name: \
+				{ \
+					Imm imm; \
+					serialize(bodyStream,imm,functionDef); \
+					codeValidationStream.name(imm); \
+					irEncoderStream.name(imm); \
+					break; \
+				}
+			ENUM_OPERATORS(VISIT_OPCODE)
+			#undef VISIT_OPCODE
+			default: throw FatalSerializationException("unknown opcode");
+			};
+		};
+		codeValidationStream.finish();
+
+		functionDef.code = std::move(irCodeByteStream.getBytes());
 	}
 	
 	template<typename Stream>
@@ -335,7 +511,7 @@ namespace WASM
 					{
 					case ObjectKind::function:
 					{
-						uintp functionTypeIndex = 0;
+						uint32 functionTypeIndex = 0;
 						serializeVarUInt32(sectionStream,functionTypeIndex);
 						if(functionTypeIndex >= module.types.size())
 						{
@@ -421,10 +597,10 @@ namespace WASM
 				module.functions.defs.clear();
 				for(uintp functionIndex = 0;functionIndex < numFunctions;++functionIndex)
 				{
-					uintp functionTypeIndex = 0;
+					uint32 functionTypeIndex = 0;
 					serializeVarUInt32(sectionStream,functionTypeIndex);
 					if(functionTypeIndex >= module.types.size()) { throw FatalSerializationException("invalid function type index"); }
-					module.functions.defs.push_back({{functionTypeIndex},{},CodeRef()});
+					module.functions.defs.push_back({{functionTypeIndex},{},{}});
 				}
 				module.functions.defs.shrink_to_fit();
 			}
@@ -578,7 +754,6 @@ namespace WASM
 	{
 		serializeModule(stream,module);
 		IR::validateDefinitions(module);
-		IR::validateCode(module);
 	}
 	void serialize(Serialization::OutputStream& stream,const Module& module)
 	{

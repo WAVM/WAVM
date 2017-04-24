@@ -5,6 +5,7 @@
 #include "IR/Module.h"
 #include "IR/Operators.h"
 #include "IR/Validate.h"
+#include "Inline/Serialization.h"
 
 #include <memory>
 
@@ -19,23 +20,25 @@ namespace
 	struct FunctionParseState : ParseState
 	{
 		const ModuleParseState& moduleState;
+		FunctionDef& functionDef;
 
 		std::unique_ptr<NameToIndexMap> localNameToIndexMap;
 		NameToIndexMap branchTargetNameToIndexMap;
 
-		uintp branchTargetDepth;
+		uint32 branchTargetDepth;
 
-		ArrayOutputStream codeByteStream;
-		OperationEncoder operationEncoder;
-		CodeValidationProxyStream<OperationEncoder> codeStream;
+		Serialization::ArrayOutputStream codeByteStream;
+		OperatorEncoderStream operationEncoder;
+		CodeValidationProxyStream<OperatorEncoderStream> validatingCodeStream;
 
-		FunctionParseState(const ModuleParseState& inModuleState,NameToIndexMap* inLocalNameToIndexMap,const Token* firstBodyToken,const FunctionDef& functionDef)
+		FunctionParseState(const ModuleParseState& inModuleState,NameToIndexMap* inLocalNameToIndexMap,const Token* firstBodyToken,FunctionDef& inFunctionDef)
 		: ParseState(inModuleState.string,inModuleState.lineInfo,inModuleState.errors,firstBodyToken)
 		, moduleState(inModuleState)
+		, functionDef(inFunctionDef)
 		, localNameToIndexMap(inLocalNameToIndexMap)
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
-		, codeStream(inModuleState.module,functionDef,operationEncoder)
+		, validatingCodeStream(inModuleState.module,functionDef,operationEncoder)
 		{}
 	};
 
@@ -44,7 +47,7 @@ namespace
 	struct ScopedBranchTarget
 	{
 		ScopedBranchTarget(FunctionParseState& inState,Name inName)
-		: state(inState), name(inName), previousBranchTargetIndex(UINTPTR_MAX)
+		: state(inState), name(inName), previousBranchTargetIndex(UINT32_MAX)
 		{
 			branchTargetIndex = ++state.branchTargetDepth;
 			if(name)
@@ -72,7 +75,7 @@ namespace
 			{
 				assert(state.branchTargetNameToIndexMap.count(name) == 1);
 				assert(state.branchTargetNameToIndexMap.at(name) == branchTargetIndex);
-				if(previousBranchTargetIndex == UINTPTR_MAX)
+				if(previousBranchTargetIndex == UINT32_MAX)
 				{
 					state.branchTargetNameToIndexMap.erase(name);
 				}
@@ -88,12 +91,12 @@ namespace
 
 		FunctionParseState& state;
 		Name name;
-		uintp branchTargetIndex;
-		uintp previousBranchTargetIndex;
+		uint32 branchTargetIndex;
+		uint32 previousBranchTargetIndex;
 	};
 }
 
-static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state,uintp& outTargetDepth)
+static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state,uint32& outTargetDepth)
 {
 	Reference branchTargetRef;
 	if(tryParseNameOrIndexRef(state,branchTargetRef))
@@ -107,7 +110,7 @@ static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state,uintp& o
 			if(nameToIndexMapIt == state.branchTargetNameToIndexMap.end())
 			{
 				parseErrorf(state,branchTargetRef.token,"unknown name");
-				outTargetDepth = UINTPTR_MAX;
+				outTargetDepth = UINT32_MAX;
 			}
 			else
 			{
@@ -150,21 +153,24 @@ static void parseImm(FunctionParseState& state,BranchImm& outImm,Opcode)
 
 static void parseImm(FunctionParseState& state,BranchTableImm& outImm,Opcode)
 {
-	uintp targetDepth = 0;
+	std::vector<uint32> targetDepths;
+	uint32 targetDepth = 0;
 	while(tryParseAndResolveBranchTargetRef(state,targetDepth))
 	{
-		outImm.targetDepths.push_back(targetDepth);
+		targetDepths.push_back(targetDepth);
 	};
 
-	if(!outImm.targetDepths.size())
+	if(!targetDepths.size())
 	{
 		parseErrorf(state,state.nextToken,"expected branch target name or index");
 		throw RecoverParseException();
 	}
 	else
 	{
-		outImm.defaultTargetDepth = outImm.targetDepths.back();
-		outImm.targetDepths.pop_back();
+		outImm.defaultTargetDepth = targetDepths.back();
+		targetDepths.pop_back();
+		outImm.branchTableIndex = (uint32)state.functionDef.branchTables.size();
+		state.functionDef.branchTables.push_back(std::move(targetDepths));
 	}
 }
 
@@ -212,7 +218,7 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 		}
 	}
 
-	outImm.alignmentLog2 = Platform::floorLogTwo(alignment);
+	outImm.alignmentLog2 = (uint8)Platform::floorLogTwo(alignment);
 	if(!alignment || alignment & (alignment - 1))
 	{
 		parseErrorf(state,state.nextToken,"alignment must be power of 2");
@@ -277,9 +283,9 @@ static void parseBlock(FunctionParseState& state,bool isExpr)
 	tryParseResultType(state,imm.resultType);
 				
 	ScopedBranchTarget branchTarget(state,branchTargetName);
-	state.codeStream.block(imm);
+	state.validatingCodeStream.block(imm);
 	parseInstrSequence(state);
-	state.codeStream.end();
+	state.validatingCodeStream.end();
 
 	if(!isExpr)
 	{
@@ -296,9 +302,9 @@ static void parseLoop(FunctionParseState& state,bool isExpr)
 	tryParseResultType(state,imm.resultType);
 			
 	ScopedBranchTarget branchTarget(state,branchTargetName);
-	state.codeStream.loop(imm);
+	state.validatingCodeStream.loop(imm);
 	parseInstrSequence(state);
-	state.codeStream.end();
+	state.validatingCodeStream.end();
 	
 	if(!isExpr)
 	{
@@ -352,7 +358,7 @@ static void parseExpr(FunctionParseState& state)
 				}
 
 				ScopedBranchTarget branchTarget(state,branchTargetName);
-				state.codeStream.if_(imm);
+				state.validatingCodeStream.if_(imm);
 
 				// Parse the if clauses.
 				if(state.nextToken[0].type == t_leftParenthesis && state.nextToken[1].type == t_then)
@@ -368,7 +374,7 @@ static void parseExpr(FunctionParseState& state)
 						parseParenthesized(state,[&]
 						{
 							require(state,t_else_);
-							state.codeStream.else_();
+							state.validatingCodeStream.else_();
 							parseInstrSequence(state);
 						});
 					}
@@ -379,11 +385,11 @@ static void parseExpr(FunctionParseState& state)
 					parseExpr(state);
 					if(state.nextToken->type != t_rightParenthesis)
 					{
-						state.codeStream.else_();
+						state.validatingCodeStream.else_();
 						parseExpr(state);
 					}
 				}
-				state.codeStream.end();
+				state.validatingCodeStream.end();
 				break;
 			}
 			#define VISIT_OPCODE_TOKEN(name,Imm) \
@@ -393,7 +399,7 @@ static void parseExpr(FunctionParseState& state)
 					Imm imm; \
 					parseImm(state,imm,Opcode::name); \
 					parseExprSequence(state); \
-					state.codeStream.name(imm); \
+					state.validatingCodeStream.name(imm); \
 					break; \
 				}
 			#define VISIT_OP(opcode,name,nameString,Imm,...) VISIT_OPCODE_TOKEN(name,Imm)
@@ -407,13 +413,13 @@ static void parseExpr(FunctionParseState& state)
 		}
 		catch(RecoverParseException)
 		{
-			state.codeStream.unreachable();
+			state.validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 		catch(ValidationException exception)
 		{
 			parseErrorf(state,opcodeToken,"%s",exception.message.c_str());
-			state.codeStream.unreachable();
+			state.validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 	});
@@ -454,7 +460,7 @@ static void parseInstrSequence(FunctionParseState& state)
 				tryParseResultType(state,imm.resultType);
 				
 				ScopedBranchTarget branchTarget(state,branchTargetName);
-				state.codeStream.if_(imm);
+				state.validatingCodeStream.if_(imm);
 
 				// Parse the then clause.
 				parseInstrSequence(state);
@@ -465,10 +471,10 @@ static void parseInstrSequence(FunctionParseState& state)
 					++state.nextToken;
 					parseAndValidateRedundantBranchTargetName(state,branchTargetName,"if","else");
 
-					state.codeStream.else_();
+					state.validatingCodeStream.else_();
 					parseInstrSequence(state);
 				}
-				state.codeStream.end();
+				state.validatingCodeStream.end();
 		
 				require(state,t_end);
 				parseAndValidateRedundantBranchTargetName(state,branchTargetName,"if","end");
@@ -481,7 +487,7 @@ static void parseInstrSequence(FunctionParseState& state)
 					++state.nextToken; \
 					Imm imm; \
 					parseImm(state,imm,Opcode::name); \
-					state.codeStream.name(imm); \
+					state.validatingCodeStream.name(imm); \
 					break; \
 				}
 			#define VISIT_OP(opcode,name,nameString,Imm,...) VISIT_OPCODE_TOKEN(name,Imm)
@@ -495,13 +501,13 @@ static void parseInstrSequence(FunctionParseState& state)
 		}
 		catch(RecoverParseException)
 		{
-			state.codeStream.unreachable();
+			state.validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 		catch(ValidationException exception)
 		{
 			parseErrorf(state,opcodeToken,"%s",exception.message.c_str());
-			state.codeStream.unreachable();
+			state.validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 	};
@@ -516,7 +522,7 @@ namespace WAST
 
 		// Parse an optional function type reference.
 		const Token* typeReferenceToken = state.nextToken;
-		IndexedFunctionType referencedFunctionType = {UINTPTR_MAX};
+		IndexedFunctionType referencedFunctionType = {UINT32_MAX};
 		if(state.nextToken[0].type == t_leftParenthesis
 		&& state.nextToken[1].type == t_type)
 		{
@@ -529,14 +535,14 @@ namespace WAST
 
 		// Validate that if the function definition has both a type reference, and explicit parameter/result type declarations, that they match.
 		IndexedFunctionType functionType;
-		if(referencedFunctionType.index != UINTPTR_MAX && hasNoDirectType)
+		if(referencedFunctionType.index != UINT32_MAX && hasNoDirectType)
 		{
 			functionType = referencedFunctionType;
 		}
 		else
 		{
 			functionType = getUniqueFunctionTypeIndex(state,directFunctionType);
-			if(referencedFunctionType.index != UINTPTR_MAX && state.module.types[referencedFunctionType.index] != directFunctionType)
+			if(referencedFunctionType.index != UINT32_MAX && state.module.types[referencedFunctionType.index] != directFunctionType)
 			{
 				parseErrorf(state,typeReferenceToken,"referenced function type (%s) does not match declared parameters and results (%s)",
 					asString(state.module.types[referencedFunctionType.index]).c_str(),
@@ -578,8 +584,8 @@ namespace WAST
 				parseInstrSequence(functionState);
 				if(!functionState.errors.size())
 				{
-					functionState.codeStream.end();
-					functionState.codeStream.finishValidation();
+					functionState.validatingCodeStream.end();
+					functionState.validatingCodeStream.finishValidation();
 				}
 			}
 			catch(ValidationException exception)
@@ -589,9 +595,7 @@ namespace WAST
 			catch(RecoverParseException) {}
 			catch(FatalParseException) {}
 
-			std::vector<uint8>&& functionCodeBytes = functionState.codeByteStream.getBytes();
-			state.module.functions.defs[functionDefIndex].code = CodeRef {state.module.code.size(),functionCodeBytes.size()};
-			state.module.code.insert(state.module.code.end(),functionCodeBytes.begin(),functionCodeBytes.end());
+			state.module.functions.defs[functionDefIndex].code = std::move(functionState.codeByteStream.getBytes());
 			state.disassemblyNames.functions[functionIndex].locals = std::move(*localDisassemblyNames);
 			delete localDisassemblyNames;
 		});
@@ -600,6 +604,6 @@ namespace WAST
 		findClosingParenthesis(state,funcToken-1);
 		--state.nextToken;
 	
-		return {functionType,std::move(nonParameterLocalTypes),CodeRef()};
+		return {functionType,std::move(nonParameterLocalTypes),{}};
 	}
 }
