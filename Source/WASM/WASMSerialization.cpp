@@ -217,14 +217,20 @@ namespace WASM
 		serializeArray(stream,branchTable,[](InputStream& stream,uint32& targetDepth){serializeVarUInt32(stream,targetDepth);});
 		imm.branchTableIndex = functionDef.branchTables.size();
 		functionDef.branchTables.push_back(std::move(branchTable));
-		serializeVarUInt32(stream,imm.defaultTargetDepth);
+		// Work around GCC "cannot bind packed field" error.
+		// This will break on architectures that require distinguishing unaligned memory accesses!
+		uint32* defaultTargetDepth = &imm.defaultTargetDepth;
+		serializeVarUInt32(stream,*defaultTargetDepth);
 	}
 	void serialize(OutputStream& stream,BranchTableImm& imm,FunctionDef& functionDef)
 	{
 		assert(imm.branchTableIndex < functionDef.branchTables.size());
 		std::vector<uint32>& branchTable = functionDef.branchTables[imm.branchTableIndex];
 		serializeArray(stream,branchTable,[](OutputStream& stream,uint32& targetDepth){serializeVarUInt32(stream,targetDepth);});
-		serializeVarUInt32(stream,imm.defaultTargetDepth);
+		// Work around GCC "cannot bind packed field" error.
+		// This will break on architectures that require distinguishing unaligned memory accesses!
+		uint32* defaultTargetDepth = &imm.defaultTargetDepth;
+		serializeVarUInt32(stream,*defaultTargetDepth);
 	}
 
 	template<typename Stream,typename Value>
@@ -261,8 +267,11 @@ namespace WASM
 	template<typename Stream,size_t naturalAlignmentLog2>
 	void serialize(Stream& stream,LoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
 	{
+		// Work around GCC "cannot bind packed field" error.
+		// This will break on architectures that require distinguishing unaligned memory accesses!
+		uint32* offset = &imm.offset;
 		serializeVarUInt7(stream,imm.alignmentLog2);
-		serializeVarUInt32(stream,imm.offset);
+		serializeVarUInt32(stream,*offset);
 	}
 	template<typename Stream>
 	void serialize(Stream& stream,MemoryImm& imm,const FunctionDef&)
