@@ -47,6 +47,8 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4310")
 	# disable warning: unreachable code
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4702")
+	# disable warning: The result of the unary '&' operator may be unaligned
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4366")
 else()
 	# Use C++11
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
