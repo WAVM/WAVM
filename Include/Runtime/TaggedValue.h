@@ -38,7 +38,7 @@ namespace Runtime
 		UntaggedValue(IR::B32x4 inB32x4) { b32x4 = inB32x4; }
 		UntaggedValue(IR::B64x2 inB64x2) { b64x2 = inB64x2; }
 		#endif
-		UntaggedValue() {i64=0;}
+		UntaggedValue() {memset(this,0,sizeof(*this));}
 	};
 
 	// A boxed value: may hold any value that can be passed to a function invoked through the runtime.
