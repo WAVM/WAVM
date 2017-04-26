@@ -1362,7 +1362,7 @@ namespace LLVMJIT
 			irBuilder.SetCurrentDebugLocation(llvm::DILocation::get(context,(unsigned int)opIndex++,0,diFunction));
 			if(ENABLE_LOGGING)
 			{
-				logOperator(decoder.decodeOp(operatorPrinter));
+				logOperator(decoder.decodeOpWithoutConsume(operatorPrinter));
 			}
 
 			if(controlStack.back().isReachable) { decoder.decodeOp(*this); }

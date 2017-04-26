@@ -590,6 +590,15 @@ namespace IR
 			}
 		}
 
+		template<typename Visitor>
+		typename Visitor::Result decodeOpWithoutConsume(Visitor& visitor)
+		{
+			const uint8* savedNextByte = nextByte;
+			typename Visitor::Result result = decodeOp(visitor);
+			nextByte = savedNextByte;
+			return result;
+		}
+
 	private:
 
 		const uint8* nextByte;
