@@ -360,7 +360,7 @@ namespace Emscripten
 			native_iovec[i].iov_base = memoryArrayPtr<U8>(emscriptenMemory,base,len);
 			native_iovec[i].iov_len = len;
 		}
-		sUptr count = writev(fileno(vmFile(file)), native_iovec, iovcnt);
+		Iptr count = writev(fileno(vmFile(file)), native_iovec, iovcnt);
 #endif
 		return count;
 	}
