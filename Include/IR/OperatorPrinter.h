@@ -25,7 +25,7 @@ namespace IR
 
 		std::string unknown(Opcode opcode)
 		{
-			return "<unknown opcode " + std::to_string((uintp)opcode) + ">";
+			return "<unknown opcode " + std::to_string((Uptr)opcode) + ">";
 		}
 	private:
 		const Module& module;
@@ -61,7 +61,7 @@ namespace IR
 				: asString(module.types[imm.type.index]);
 			return " " + typeString;
 		}
-		template<size_t naturalAlignmentLog2>
+		template<Uptr naturalAlignmentLog2>
 		std::string describeImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
 			return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset);
@@ -69,26 +69,26 @@ namespace IR
 		std::string describeImm(MemoryImm) { return ""; }
 
 		#if ENABLE_SIMD_PROTOTYPE
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		std::string describeImm(LaneIndexImm<numLanes> imm) { return " " + std::to_string(imm.laneIndex); }
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		std::string describeImm(SwizzleImm<numLanes> imm)
 		{
 			std::string result = " [";
 			const char* prefix = "";
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 			{
 				result += prefix + std::to_string(imm.laneIndices[laneIndex]);
 				prefix = ",";
 			}
 			return result;
 		}
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		std::string describeImm(ShuffleImm<numLanes> imm)
 		{
 			std::string result = " [";
 			const char* prefix = "";
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 			{
 				result += prefix
 					+ (imm.laneIndices[laneIndex] < numLanes ? 'a' : 'b')
@@ -102,7 +102,7 @@ namespace IR
 		#if ENABLE_THREADING_PROTOTYPE
 		std::string describeImm(LaunchThreadImm) { return ""; }
 		
-		template<size_t naturalAlignmentLog2>
+		template<Uptr naturalAlignmentLog2>
 		std::string describeImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
 			return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset);

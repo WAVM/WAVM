@@ -43,22 +43,22 @@ namespace Runtime
 
 		// Check the type of the ModuleInstance's imports.
 		errorUnless(moduleInstance->functions.size() == module.functions.imports.size());
-		for(uintp importIndex = 0;importIndex < module.functions.imports.size();++importIndex)
+		for(Uptr importIndex = 0;importIndex < module.functions.imports.size();++importIndex)
 		{
 			errorUnless(isA(moduleInstance->functions[importIndex],module.types[module.functions.imports[importIndex].type.index]));
 		}
 		errorUnless(moduleInstance->tables.size() == module.tables.imports.size());
-		for(uintp importIndex = 0;importIndex < module.tables.imports.size();++importIndex)
+		for(Uptr importIndex = 0;importIndex < module.tables.imports.size();++importIndex)
 		{
 			errorUnless(isA(moduleInstance->tables[importIndex],module.tables.imports[importIndex].type));
 		}
 		errorUnless(moduleInstance->memories.size() == module.memories.imports.size());
-		for(uintp importIndex = 0;importIndex < module.memories.imports.size();++importIndex)
+		for(Uptr importIndex = 0;importIndex < module.memories.imports.size();++importIndex)
 		{
 			errorUnless(isA(moduleInstance->memories[importIndex],module.memories.imports[importIndex].type));
 		}
 		errorUnless(moduleInstance->globals.size() == module.globals.imports.size());
-		for(uintp importIndex = 0;importIndex < module.globals.imports.size();++importIndex)
+		for(Uptr importIndex = 0;importIndex < module.globals.imports.size();++importIndex)
 		{
 			errorUnless(isA(moduleInstance->globals[importIndex],module.globals.imports[importIndex].type));
 		}
@@ -95,7 +95,7 @@ namespace Runtime
 			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const uint32 baseOffset = baseOffsetValue.i32;
+			const U32 baseOffset = baseOffsetValue.i32;
 			if(baseOffset + tableSegment.indices.size() > table->elements.size())
 			{ causeException(Exception::Cause::invalidSegmentOffset); }
 		}
@@ -105,7 +105,7 @@ namespace Runtime
 
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const uint32 baseOffset = baseOffsetValue.i32;
+			const U32 baseOffset = baseOffsetValue.i32;
 			if(baseOffset + dataSegment.data.size() > (memory->numPages << IR::numBytesPerPageLog2))
 			{ causeException(Exception::Cause::invalidSegmentOffset); }
 		}
@@ -117,7 +117,7 @@ namespace Runtime
 
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const uint32 baseOffset = baseOffsetValue.i32;
+			const U32 baseOffset = baseOffsetValue.i32;
 
 			assert(baseOffset + dataSegment.data.size() <= (memory->numPages << IR::numBytesPerPageLog2));
 
@@ -133,9 +133,9 @@ namespace Runtime
 		}
 		
 		// Create the FunctionInstance objects for the module's function definitions.
-		for(uintp functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
+		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
-			const uintp functionIndex = moduleInstance->functions.size();
+			const Uptr functionIndex = moduleInstance->functions.size();
 			const DisassemblyNames::Function& functionNames = disassemblyNames.functions[functionIndex];
 			std::string debugName = functionNames.name;
 			if(!debugName.size()) { debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
@@ -169,12 +169,12 @@ namespace Runtime
 			
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const uint32 baseOffset = baseOffsetValue.i32;
+			const U32 baseOffset = baseOffsetValue.i32;
 			assert(baseOffset + tableSegment.indices.size() <= table->elements.size());
 
-			for(uintp index = 0;index < tableSegment.indices.size();++index)
+			for(Uptr index = 0;index < tableSegment.indices.size();++index)
 			{
-				const uintp functionIndex = tableSegment.indices[index];
+				const Uptr functionIndex = tableSegment.indices[index];
 				assert(functionIndex < moduleInstance->functions.size());
 				setTableElement(table,baseOffset + index,moduleInstance->functions[functionIndex]);
 			}

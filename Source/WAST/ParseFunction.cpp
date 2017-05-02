@@ -25,7 +25,7 @@ namespace
 		std::unique_ptr<NameToIndexMap> localNameToIndexMap;
 		NameToIndexMap branchTargetNameToIndexMap;
 
-		uint32 branchTargetDepth;
+		U32 branchTargetDepth;
 
 		Serialization::ArrayOutputStream codeByteStream;
 		OperatorEncoderStream operationEncoder;
@@ -91,12 +91,12 @@ namespace
 
 		FunctionParseState& state;
 		Name name;
-		uint32 branchTargetIndex;
-		uint32 previousBranchTargetIndex;
+		U32 branchTargetIndex;
+		U32 previousBranchTargetIndex;
 	};
 }
 
-static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state,uint32& outTargetDepth)
+static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state,U32& outTargetDepth)
 {
 	Reference branchTargetRef;
 	if(tryParseNameOrIndexRef(state,branchTargetRef))
@@ -137,10 +137,10 @@ static void parseAndValidateRedundantBranchTargetName(ParseState& state,Name bra
 static void parseImm(FunctionParseState& state,NoImm&) {}
 static void parseImm(FunctionParseState& state,MemoryImm& outImm) {}
 
-static void parseImm(FunctionParseState& state,LiteralImm<int32>& outImm) { outImm.value = (int32)parseI32(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<int64>& outImm) { outImm.value = (int64)parseI64(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<float32>& outImm) { outImm.value = parseF32(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<float64>& outImm) { outImm.value = parseF64(state); }
+static void parseImm(FunctionParseState& state,LiteralImm<I32>& outImm) { outImm.value = (I32)parseI32(state); }
+static void parseImm(FunctionParseState& state,LiteralImm<I64>& outImm) { outImm.value = (I64)parseI64(state); }
+static void parseImm(FunctionParseState& state,LiteralImm<F32>& outImm) { outImm.value = parseF32(state); }
+static void parseImm(FunctionParseState& state,LiteralImm<F64>& outImm) { outImm.value = parseF64(state); }
 
 static void parseImm(FunctionParseState& state,BranchImm& outImm)
 {
@@ -153,8 +153,8 @@ static void parseImm(FunctionParseState& state,BranchImm& outImm)
 
 static void parseImm(FunctionParseState& state,BranchTableImm& outImm)
 {
-	std::vector<uint32> targetDepths;
-	uint32 targetDepth = 0;
+	std::vector<U32> targetDepths;
+	U32 targetDepth = 0;
 	while(tryParseAndResolveBranchTargetRef(state,targetDepth))
 	{
 		targetDepths.push_back(targetDepth);
@@ -169,7 +169,7 @@ static void parseImm(FunctionParseState& state,BranchTableImm& outImm)
 	{
 		outImm.defaultTargetDepth = targetDepths.back();
 		targetDepths.pop_back();
-		outImm.branchTableIndex = (uint32)state.functionDef.branchTables.size();
+		outImm.branchTableIndex = (U32)state.functionDef.branchTables.size();
 		state.functionDef.branchTables.push_back(std::move(targetDepths));
 	}
 }
@@ -193,7 +193,7 @@ static void parseImm(FunctionParseState& state,CallIndirectImm& outImm)
 	outImm.type.index = parseAndResolveNameOrIndexRef(state,state.moduleState.typeNameToIndexMap,"type");
 }
 
-template<size_t naturalAlignmentLog2>
+template<Uptr naturalAlignmentLog2>
 static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.offset = 0;
@@ -204,8 +204,8 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 		outImm.offset = parseI32(state);
 	}
 
-	const uint32 naturalAlignment = 1 << naturalAlignmentLog2;
-	uint32 alignment = naturalAlignment;
+	const U32 naturalAlignment = 1 << naturalAlignmentLog2;
+	U32 alignment = naturalAlignment;
 	if(state.nextToken->type == t_align)
 	{
 		++state.nextToken;
@@ -218,7 +218,7 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 		}
 	}
 
-	outImm.alignmentLog2 = (uint8)Platform::floorLogTwo(alignment);
+	outImm.alignmentLog2 = (U8)Platform::floorLogTwo(alignment);
 	if(!alignment || alignment & (alignment - 1))
 	{
 		parseErrorf(state,state.nextToken,"alignment must be power of 2");
@@ -226,47 +226,47 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 }
 
 #if ENABLE_SIMD_PROTOTYPE
-template<size_t numLanes>
+template<Uptr numLanes>
 static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm)
 {
-	const uint64 u64 = parseI64(state);
+	const U64 u64 = parseI64(state);
 	if(u64 > numLanes)
 	{
 		parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes);
 	}
-	outImm.laneIndex = uint8(u64);
+	outImm.laneIndex = U8(u64);
 }
 
-template<size_t numLanes>
+template<Uptr numLanes>
 static void parseImm(FunctionParseState& state,SwizzleImm<numLanes>& outImm)
 {
 	parseParenthesized(state,[&]
 	{
-		for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 		{
-			const uint64 u64 = parseI64(state);
+			const U64 u64 = parseI64(state);
 			if(u64 >= numLanes)
 			{
 				parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes);
 			}
-			outImm.laneIndices[laneIndex] = uint8(u64);
+			outImm.laneIndices[laneIndex] = U8(u64);
 		}
 	});
 }
 
-template<size_t numLanes>
+template<Uptr numLanes>
 static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm)
 {
 	parseParenthesized(state,[&]
 	{
-		for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 		{
-			const uint64 u64 = parseI64(state);
+			const U64 u64 = parseI64(state);
 			if(u64 >= numLanes * 2)
 			{
 				parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes * 2);
 			}
-			outImm.laneIndices[laneIndex] = uint8(u64);
+			outImm.laneIndices[laneIndex] = U8(u64);
 		}
 	});
 }
@@ -275,7 +275,7 @@ static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm)
 #if ENABLE_THREADING_PROTOTYPE
 static void parseImm(FunctionParseState& state,LaunchThreadImm& outImm) {}
 
-template<size_t naturalAlignmentLog2>
+template<Uptr naturalAlignmentLog2>
 static void parseImm(FunctionParseState& state,AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	LoadOrStoreImm<naturalAlignmentLog2> loadOrStoreImm;
@@ -580,8 +580,8 @@ namespace WAST
 		}));
 
 		// Defer parsing the body of the function until after all declarations have been parsed.
-		const uintp functionIndex = state.module.functions.size();
-		const uintp functionDefIndex = state.module.functions.defs.size();
+		const Uptr functionIndex = state.module.functions.size();
+		const Uptr functionDefIndex = state.module.functions.defs.size();
 		const Token* firstBodyToken = state.nextToken;
 		state.postDeclarationCallbacks.push_back([functionIndex,functionDefIndex,firstBodyToken,localNameToIndexMap,localDisassemblyNames](ModuleParseState& state)
 		{

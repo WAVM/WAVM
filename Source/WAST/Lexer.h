@@ -82,7 +82,7 @@
 
 namespace WAST
 {
-	enum TokenType : uint16
+	enum TokenType : U16
 	{
 		#define VISIT_TOKEN(name,description) t_##name,
 		ENUM_TOKENS()
@@ -94,7 +94,7 @@ namespace WAST
 	struct Token
 	{
 		TokenType type;
-		uint32 begin;
+		U32 begin;
 	});
 
 	struct LineInfo;
@@ -102,12 +102,12 @@ namespace WAST
 	// Lexes a string and returns an array of tokens.
 	// Also returns a pointer in outLineInfo to the information necessary to resolve line/column numbers for the tokens.
 	// The caller should pass the tokens and line info to freeTokens/freeLineInfo, respectively, when it is done with them.
-	Token* lex(const char* string,size_t stringLength,LineInfo*& outLineInfo);
+	Token* lex(const char* string,Uptr stringLength,LineInfo*& outLineInfo);
 
 	void freeTokens(Token* tokens);
 	void freeLineInfo(LineInfo* lineInfo);
 	
 	const char* describeToken(TokenType tokenType);	
 
-	TextFileLocus calcLocusFromOffset(const char* string,const LineInfo* lineInfo,uintp charOffset);
+	TextFileLocus calcLocusFromOffset(const char* string,const LineInfo* lineInfo,Uptr charOffset);
 }

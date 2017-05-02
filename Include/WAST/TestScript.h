@@ -32,7 +32,7 @@ namespace WAST
 	// Parse a test script from a string. Returns true if it succeeds, and writes the test commands to outTestCommands.
 	WAST_API void parseTestCommands(
 		const char* string,
-		size_t stringLength,
+		Uptr stringLength,
 		std::vector<std::unique_ptr<Command>>& outTestCommands,
 		std::vector<Error>& outErrors);
 	

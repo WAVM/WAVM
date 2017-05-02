@@ -99,10 +99,10 @@ namespace Intrinsics
 
 namespace NativeTypes
 {
-	typedef int32 i32;
-	typedef int64 i64;
-	typedef float32 f32;
-	typedef float64 f64;
+	typedef I32 i32;
+	typedef I64 i64;
+	typedef F32 f32;
+	typedef F64 f64;
 	typedef void none;
 	#if ENABLE_SIMD_PROTOTYPE
 	typedef IR::V128 v128;

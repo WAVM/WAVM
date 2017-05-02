@@ -8,9 +8,9 @@ namespace Runtime
 	// Global lists of tables; used to query whether an address is reserved by one of them.
 	std::vector<TableInstance*> tables;
 
-	static size_t getNumPlatformPages(size_t numBytes)
+	static Uptr getNumPlatformPages(Uptr numBytes)
 	{
-		return (numBytes + (uintp(1)<<Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
+		return (numBytes + (Uptr(1)<<Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 	}
 
 	TableInstance* createTable(TableType type)
@@ -18,12 +18,12 @@ namespace Runtime
 		TableInstance* table = new TableInstance(type);
 
 		// In 64-bit, allocate enough address-space to safely access 32-bit table indices without bounds checking, or 16MB (4M elements) if the host is 32-bit.
-		const size_t tableMaxBytes = HAS_64BIT_ADDRESS_SPACE ? (sizeof(TableInstance::FunctionElement) << 32) : 16*1024*1024;
+		const Uptr tableMaxBytes = HAS_64BIT_ADDRESS_SPACE ? (sizeof(TableInstance::FunctionElement) << 32) : 16*1024*1024;
 		
 		// On a 64 bit runtime, align the table base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
 		// Note that this reserves a full extra 4GB, but only uses (4GB-1 page) for alignment, so there will always be a guard page at the end to
 		// protect against unaligned loads/stores that straddle the end of the address-space.
-		const size_t alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : (uintp(1) << Platform::getPageSizeLog2());
+		const Uptr alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? 4ull*1024*1024*1024 : (Uptr(1) << Platform::getPageSizeLog2());
 		table->baseAddress = (TableInstance::FunctionElement*)allocateVirtualPagesAligned(tableMaxBytes,alignmentBytes,table->reservedBaseAddress,table->reservedNumPlatformPages);
 		table->endOffset = tableMaxBytes;
 		if(!table->baseAddress) { delete table; return nullptr; }
@@ -39,34 +39,34 @@ namespace Runtime
 	TableInstance::~TableInstance()
 	{
 		// Decommit all pages.
-		if(elements.size() > 0) { Platform::decommitVirtualPages((uint8*)baseAddress,getNumPlatformPages(elements.size() * sizeof(TableInstance::FunctionElement))); }
+		if(elements.size() > 0) { Platform::decommitVirtualPages((U8*)baseAddress,getNumPlatformPages(elements.size() * sizeof(TableInstance::FunctionElement))); }
 
 		// Free the virtual address space.
-		if(reservedNumPlatformPages > 0) { Platform::freeVirtualPages((uint8*)reservedBaseAddress,reservedNumPlatformPages); }
+		if(reservedNumPlatformPages > 0) { Platform::freeVirtualPages((U8*)reservedBaseAddress,reservedNumPlatformPages); }
 		reservedBaseAddress = nullptr;
 		reservedNumPlatformPages = 0;
 		baseAddress = nullptr;
 		
 		// Remove the table from the global array.
-		for(uintp tableIndex = 0;tableIndex < tables.size();++tableIndex)
+		for(Uptr tableIndex = 0;tableIndex < tables.size();++tableIndex)
 		{
 			if(tables[tableIndex] == this) { tables.erase(tables.begin() + tableIndex); break; }
 		}
 	}
 
-	bool isAddressOwnedByTable(uint8* address)
+	bool isAddressOwnedByTable(U8* address)
 	{
 		// Iterate over all tables and check if the address is within the reserved address space for each.
 		for(auto table : tables)
 		{
-			uint8* startAddress = (uint8*)table->reservedBaseAddress;
-			uint8* endAddress = ((uint8*)table->reservedBaseAddress) + (table->reservedNumPlatformPages << Platform::getPageSizeLog2());
+			U8* startAddress = (U8*)table->reservedBaseAddress;
+			U8* endAddress = ((U8*)table->reservedBaseAddress) + (table->reservedNumPlatformPages << Platform::getPageSizeLog2());
 			if(address >= startAddress && address < endAddress) { return true; }
 		}
 		return false;
 	}
 
-	ObjectInstance* setTableElement(TableInstance* table,uintp index,ObjectInstance* newValue)
+	ObjectInstance* setTableElement(TableInstance* table,Uptr index,ObjectInstance* newValue)
 	{
 		// Write the new table element to both the table's elements array and its indirect function call data.
 		assert(index < table->elements.size());
@@ -79,25 +79,25 @@ namespace Runtime
 		return oldValue;
 	}
 
-	size_t getTableNumElements(TableInstance* table)
+	Uptr getTableNumElements(TableInstance* table)
 	{
 		return table->elements.size();
 	}
 
-	intp growTable(TableInstance* table,size_t numNewElements)
+	Iptr growTable(TableInstance* table,Uptr numNewElements)
 	{
-		const size_t previousNumElements = table->elements.size();
+		const Uptr previousNumElements = table->elements.size();
 		if(numNewElements > 0)
 		{
 			// If the number of elements to grow would cause the table's size to exceed its maximum, return -1.
 			if(numNewElements > table->type.size.max || table->elements.size() > table->type.size.max - numNewElements) { return -1; }
 			
 			// Try to commit pages for the new elements, and return -1 if the commit fails.
-			const size_t previousNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(TableInstance::FunctionElement));
-			const size_t newNumPlatformPages = getNumPlatformPages((table->elements.size()+numNewElements) * sizeof(TableInstance::FunctionElement));
+			const Uptr previousNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(TableInstance::FunctionElement));
+			const Uptr newNumPlatformPages = getNumPlatformPages((table->elements.size()+numNewElements) * sizeof(TableInstance::FunctionElement));
 			if(newNumPlatformPages != previousNumPlatformPages
 			&& !Platform::commitVirtualPages(
-				(uint8*)table->baseAddress + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+				(U8*)table->baseAddress + (previousNumPlatformPages << Platform::getPageSizeLog2()),
 				newNumPlatformPages - previousNumPlatformPages
 				))
 			{
@@ -110,9 +110,9 @@ namespace Runtime
 		return previousNumElements;
 	}
 
-	intp shrinkTable(TableInstance* table,size_t numElementsToShrink)
+	Iptr shrinkTable(TableInstance* table,Uptr numElementsToShrink)
 	{
-		const size_t previousNumElements = table->elements.size();
+		const Uptr previousNumElements = table->elements.size();
 		if(numElementsToShrink > 0)
 		{
 			// If the number of elements to shrink would cause the tables's size to drop below its minimum, return -1.
@@ -123,12 +123,12 @@ namespace Runtime
 			table->elements.resize(table->elements.size() - numElementsToShrink);
 			
 			// Decommit the pages that were shrunk off the end of the table's indirect function call data.
-			const size_t previousNumPlatformPages = getNumPlatformPages(previousNumElements * sizeof(TableInstance::FunctionElement));
-			const size_t newNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(TableInstance::FunctionElement));
+			const Uptr previousNumPlatformPages = getNumPlatformPages(previousNumElements * sizeof(TableInstance::FunctionElement));
+			const Uptr newNumPlatformPages = getNumPlatformPages(table->elements.size() * sizeof(TableInstance::FunctionElement));
 			if(newNumPlatformPages != previousNumPlatformPages)
 			{
 				Platform::decommitVirtualPages(
-					(uint8*)table->baseAddress + (newNumPlatformPages << Platform::getPageSizeLog2()),
+					(U8*)table->baseAddress + (newNumPlatformPages << Platform::getPageSizeLog2()),
 					(previousNumPlatformPages - newNumPlatformPages) << Platform::getPageSizeLog2()
 					);
 			}

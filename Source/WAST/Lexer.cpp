@@ -120,8 +120,8 @@ namespace WAST
 
 	struct LineInfo
 	{
-		uint32* lineStarts;
-		uint32 numLineStarts;
+		U32* lineStarts;
+		U32 numLineStarts;
 	};
 
 	inline bool isRecoveryPointChar(char c)
@@ -137,7 +137,7 @@ namespace WAST
 		};
 	}
 
-	Token* lex(const char* string,size_t stringLength,LineInfo*& outLineInfo)
+	Token* lex(const char* string,Uptr stringLength,LineInfo*& outLineInfo)
 	{
 		static StaticData staticData;
 		
@@ -150,10 +150,10 @@ namespace WAST
 		
 		// Allocate enough memory up front for a token and newline for each character in the input string.
 		Token* tokens = (Token*)malloc(sizeof(Token) * stringLength);
-		uint32* lineStarts = (uint32*)malloc(sizeof(uint32) * (stringLength + 1));
+		U32* lineStarts = (U32*)malloc(sizeof(U32) * (stringLength + 1));
 
 		Token* nextToken = tokens;
-		uint32* nextLineStart = lineStarts;
+		U32* nextLineStart = lineStarts;
 		*nextLineStart++ = 0;
 
 		const char* nextChar = string;
@@ -175,7 +175,7 @@ namespace WAST
 							if(*nextChar == '\n')
 							{
 								// Emit a line start for the newline.
-								*nextLineStart++ = uint32(nextChar - string + 1);
+								*nextLineStart++ = U32(nextChar - string + 1);
 								++nextChar;
 								break;
 							}
@@ -190,7 +190,7 @@ namespace WAST
 					{
 						const char* firstCommentChar = nextChar;
 						nextChar += 2;
-						uint32 commentDepth = 1;
+						U32 commentDepth = 1;
 						while(commentDepth)
 						{
 							if(nextChar[0] == ';' && nextChar[1] == ')')
@@ -207,7 +207,7 @@ namespace WAST
 							{
 								// Emit an unterminated comment token.
 								nextToken->type = t_unterminatedComment;
-								nextToken->begin = uint32(firstCommentChar - string);
+								nextToken->begin = U32(firstCommentChar - string);
 								++nextToken;
 								goto doneSkippingWhitespace;
 							}
@@ -216,7 +216,7 @@ namespace WAST
 								if(*nextChar == '\n')
 								{
 									// Emit a line start for the newline.
-									*nextLineStart++ = uint32(nextChar - string);
+									*nextLineStart++ = U32(nextChar - string);
 								}
 								++nextChar;
 							}
@@ -225,7 +225,7 @@ namespace WAST
 					break;
 				// Whitespace.
 				case '\n':
-					*nextLineStart++ = uint32(nextChar - string + 1);
+					*nextLineStart++ = U32(nextChar - string + 1);
 					++nextChar;
 					break;
 				case ' ': case '\t': case '\r': case '\f':
@@ -238,7 +238,7 @@ namespace WAST
 			doneSkippingWhitespace:
 
 			// Once we reach a non-whitespace, non-comment character, feed characters into the NFA until it reaches a terminal state.
-			nextToken->begin = uint32(nextChar - string);
+			nextToken->begin = U32(nextChar - string);
 			NFA::StateIndex terminalState = staticData.nfaMachine.feed(nextChar);
 			if(terminalState != NFA::unmatchedCharacterTerminal)
 			{
@@ -268,16 +268,16 @@ namespace WAST
 		++nextToken;
 		
 		// Emit an extra line start for the end of the file, so you can find the end of a line with lineStarts[line + 1].
-		*nextLineStart++ = uint32(nextChar - string) + 1;
+		*nextLineStart++ = U32(nextChar - string) + 1;
 
 		// Shrink the line start and token arrays to the final number of tokens/lines.
-		const size_t numLineStarts = nextLineStart - lineStarts;
-		const size_t numTokens = nextToken - tokens;
-		lineStarts = (uint32*)realloc(lineStarts,sizeof(uint32) * numLineStarts);
+		const Uptr numLineStarts = nextLineStart - lineStarts;
+		const Uptr numTokens = nextToken - tokens;
+		lineStarts = (U32*)realloc(lineStarts,sizeof(U32) * numLineStarts);
 		tokens = (Token*)realloc(tokens,sizeof(Token) * numTokens);
 
 		// Create the LineInfo object that encapsulates the line start information.
-		outLineInfo = new LineInfo {lineStarts,uint32(numLineStarts)};
+		outLineInfo = new LineInfo {lineStarts,U32(numLineStarts)};
 
 		Timing::logRatePerSecond("lexed WAST file",timer,stringLength/1024.0/1024.0,"MB");
 		Log::printf(Log::Category::metrics,"lexer produced %u tokens (%.1fMB)\n",numTokens,numTokens*sizeof(Token)/1024.0/1024.0);
@@ -296,20 +296,20 @@ namespace WAST
 		delete lineInfo;
 	}
 	
-	static uintp getLineOffset(const LineInfo* lineInfo,uintp lineIndex)
+	static Uptr getLineOffset(const LineInfo* lineInfo,Uptr lineIndex)
 	{
 		errorUnless(lineIndex < lineInfo->numLineStarts);
 		return lineInfo->lineStarts[lineIndex];
 	}
 
-	TextFileLocus calcLocusFromOffset(const char* string,const LineInfo* lineInfo,uintp charOffset)
+	TextFileLocus calcLocusFromOffset(const char* string,const LineInfo* lineInfo,Uptr charOffset)
 	{
 		// Binary search the line starts for the last one before charIndex.
-		uintp minLineIndex = 0;
-		uintp maxLineIndex = lineInfo->numLineStarts - 1;
+		Uptr minLineIndex = 0;
+		Uptr maxLineIndex = lineInfo->numLineStarts - 1;
 		while(maxLineIndex > minLineIndex)
 		{
-			const uintp medianLineIndex = (minLineIndex + maxLineIndex + 1) / 2;
+			const Uptr medianLineIndex = (minLineIndex + maxLineIndex + 1) / 2;
 			if(charOffset < lineInfo->lineStarts[medianLineIndex])
 			{
 				maxLineIndex = medianLineIndex - 1;
@@ -324,18 +324,18 @@ namespace WAST
 			}
 		};
 		TextFileLocus result;
-		result.newlines = (uint32)minLineIndex;
+		result.newlines = (U32)minLineIndex;
 
 		// Count tabs and and spaces from the beginning of the line to charIndex.
-		for(uint32 index = lineInfo->lineStarts[result.newlines];index < charOffset;++index)
+		for(U32 index = lineInfo->lineStarts[result.newlines];index < charOffset;++index)
 		{
 			if(string[index] == '\t') { ++result.tabs; }
 			else { ++result.characters; }
 		}
 
 		// Copy the full source line into the TextFileLocus for context.
-		const uintp lineStartOffset = getLineOffset(lineInfo,result.newlines);
-		uintp lineEndOffset = getLineOffset(lineInfo,result.newlines+1) - 1;
+		const Uptr lineStartOffset = getLineOffset(lineInfo,result.newlines);
+		Uptr lineEndOffset = getLineOffset(lineInfo,result.newlines+1) - 1;
 		result.sourceLine = std::string(string + lineStartOffset,lineEndOffset - lineStartOffset);
 
 		return result;

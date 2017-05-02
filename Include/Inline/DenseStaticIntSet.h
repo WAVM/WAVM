@@ -9,8 +9,8 @@
 
 // Encapsulates a set of integers that are in the range 0 to maxIndexPlusOne (excluding maxIndexPlusOne).
 // It uses 1 bit of storage for each integer in the range, and many operations look at all bits, so it's best suited to small ranges.
-// However, this avoids heap allocations, and so is pretty fast for sets of small integers (e.g. uint8).
-template<typename Index,size_t maxIndexPlusOne>
+// However, this avoids heap allocations, and so is pretty fast for sets of small integers (e.g. U8).
+template<typename Index,Uptr maxIndexPlusOne>
 struct DenseStaticIntSet
 {
 	DenseStaticIntSet()
@@ -27,13 +27,13 @@ struct DenseStaticIntSet
 
 	inline bool contains(Index index) const
 	{
-		assert((size_t)index < maxIndexPlusOne);
+		assert((Uptr)index < maxIndexPlusOne);
 		return (elements[index / indicesPerElement] & (1ull << (index % indicesPerElement))) != 0;
 	}
 	bool isEmpty() const
 	{
 		Element combinedElements = 0;
-		for(uintp elementIndex = 0;elementIndex < numElements;++elementIndex)
+		for(Uptr elementIndex = 0;elementIndex < numElements;++elementIndex)
 		{
 			combinedElements |= elements[elementIndex];
 		}
@@ -42,7 +42,7 @@ struct DenseStaticIntSet
 	inline Index getSmallestMember() const
 	{
 		// Find the first element that has any bits set.
-		for(uintp elementIndex = 0;elementIndex < numElements;++elementIndex)
+		for(Uptr elementIndex = 0;elementIndex < numElements;++elementIndex)
 		{
 			if(elements[elementIndex])
 			{
@@ -59,13 +59,13 @@ struct DenseStaticIntSet
 
 	inline void add(Index index)
 	{
-		assert((size_t)index < maxIndexPlusOne);
+		assert((Uptr)index < maxIndexPlusOne);
 		elements[index / indicesPerElement] |= 1ull << (index % indicesPerElement);
 	}
 	inline void addRange(Index rangeMin,Index rangeMax)
 	{
 		assert(rangeMin <= rangeMax);
-		assert((size_t)rangeMax < maxIndexPlusOne);
+		assert((Uptr)rangeMax < maxIndexPlusOne);
 		for(Index index = rangeMin;index <= rangeMax;++index)
 		{
 			add(index);
@@ -84,7 +84,7 @@ struct DenseStaticIntSet
 	friend DenseStaticIntSet operator~(const DenseStaticIntSet& set)
 	{
 		DenseStaticIntSet result;
-		for(uintp elementIndex = 0;elementIndex < numElements;++elementIndex)
+		for(Uptr elementIndex = 0;elementIndex < numElements;++elementIndex)
 		{
 			result.elements[elementIndex] = ~set.elements[elementIndex];
 		}
@@ -93,7 +93,7 @@ struct DenseStaticIntSet
 	friend DenseStaticIntSet operator|(const DenseStaticIntSet& left,const DenseStaticIntSet& right)
 	{
 		DenseStaticIntSet result;
-		for(uintp elementIndex = 0;elementIndex < numElements;++elementIndex)
+		for(Uptr elementIndex = 0;elementIndex < numElements;++elementIndex)
 		{
 			result.elements[elementIndex] = left.elements[elementIndex] | right.elements[elementIndex];
 		}
@@ -102,7 +102,7 @@ struct DenseStaticIntSet
 	friend DenseStaticIntSet operator&(const DenseStaticIntSet& left,const DenseStaticIntSet& right)
 	{
 		DenseStaticIntSet result;
-		for(uintp elementIndex = 0;elementIndex < numElements;++elementIndex)
+		for(Uptr elementIndex = 0;elementIndex < numElements;++elementIndex)
 		{
 			result.elements[elementIndex] = left.elements[elementIndex] & right.elements[elementIndex];
 		}
@@ -111,7 +111,7 @@ struct DenseStaticIntSet
 	friend DenseStaticIntSet operator^(const DenseStaticIntSet& left,const DenseStaticIntSet& right)
 	{
 		DenseStaticIntSet result;
-		for(uintp elementIndex = 0;elementIndex < numElements;++elementIndex)
+		for(Uptr elementIndex = 0;elementIndex < numElements;++elementIndex)
 		{
 			result.elements[elementIndex] = left.elements[elementIndex] ^ right.elements[elementIndex];
 		}
@@ -134,8 +134,8 @@ struct DenseStaticIntSet
 	}
 
 private:
-	typedef uint64 Element;
+	typedef U64 Element;
 	enum { indicesPerElement = sizeof(Element) * 8 };
 	enum { numElements = (maxIndexPlusOne + indicesPerElement - 1) / indicesPerElement };
-	uint64 elements[numElements];
+	U64 elements[numElements];
 };

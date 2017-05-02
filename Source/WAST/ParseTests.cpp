@@ -71,7 +71,7 @@ static void parseTestScriptModule(ParseState& state,IR::Module& outModule,std::v
 
 		try
 		{
-			Serialization::MemoryInputStream wasmInputStream((const uint8*)moduleBinaryString.data(),moduleBinaryString.size());
+			Serialization::MemoryInputStream wasmInputStream((const U8*)moduleBinaryString.data(),moduleBinaryString.size());
 			WASM::serialize(wasmInputStream,outModule);
 		}
 		catch(Serialization::FatalSerializationException exception)
@@ -301,7 +301,7 @@ static Command* parseCommand(ParseState& state)
 
 namespace WAST
 {
-	void parseTestCommands(const char* string,size_t stringLength,std::vector<std::unique_ptr<Command>>& outTestCommands,std::vector<Error>& outErrors)
+	void parseTestCommands(const char* string,Uptr stringLength,std::vector<std::unique_ptr<Command>>& outTestCommands,std::vector<Error>& outErrors)
 	{
 		// Lex the input string.
 		LineInfo* lineInfo = nullptr;

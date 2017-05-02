@@ -18,7 +18,7 @@ namespace WAST
 	void findClosingParenthesis(ParseState& state,const Token* openingParenthesisToken)
 	{
 		// Skip over tokens until the ')' closing the current parentheses nesting depth is found.
-		uintp depth = 1;
+		Uptr depth = 1;
 		while(depth > 0)
 		{
 			switch(state.nextToken->type)
@@ -41,7 +41,7 @@ namespace WAST
 		}
 	}
 
-	void parseErrorf(ParseState& state,uintp charOffset,const char* messageFormat,va_list messageArguments)
+	void parseErrorf(ParseState& state,Uptr charOffset,const char* messageFormat,va_list messageArguments)
 	{
 		// Format the message.
 		char messageBuffer[1024];
@@ -52,7 +52,7 @@ namespace WAST
 		// Add the error to the state's error list.
 		state.errors.emplace_back(charOffset,messageBuffer);
 	}
-	void parseErrorf(ParseState& state,uintp charOffset,const char* messageFormat,...)
+	void parseErrorf(ParseState& state,Uptr charOffset,const char* messageFormat,...)
 	{
 		va_list messageArguments;
 		va_start(messageArguments,messageFormat);
@@ -206,16 +206,16 @@ namespace WAST
 		}
 		else
 		{
-			const uintp functionTypeIndex = state.module.types.size();
+			const Uptr functionTypeIndex = state.module.types.size();
 			state.module.types.push_back(functionType);
 			state.disassemblyNames.types.push_back(std::string());
 			errorUnless(functionTypeIndex < UINT32_MAX);
-			state.functionTypeToIndexMap.emplace(functionType,(uint32)functionTypeIndex);
-			return IndexedFunctionType {(uint32)functionTypeIndex};
+			state.functionTypeToIndexMap.emplace(functionType,(U32)functionTypeIndex);
+			return IndexedFunctionType {(U32)functionTypeIndex};
 		}
 	}
 
-	uint32 Name::calcHash(const char* begin,uint32 numChars)
+	U32 Name::calcHash(const char* begin,U32 numChars)
 	{
 		// Use xxHash32 to hash names. xxHash64 is theoretically faster for long strings on 64-bit machines,
 		// but I did not find it to be faster for typical name lengths.
@@ -253,7 +253,7 @@ namespace WAST
 		++state.nextToken;
 		assert(nextChar - state.string <= state.nextToken->begin);
 		assert(nextChar - firstChar <= UINT32_MAX);
-		outName = Name(firstChar,uint32(nextChar - firstChar));
+		outName = Name(firstChar,U32(nextChar - firstChar));
 		return true;
 	}
 
@@ -265,7 +265,7 @@ namespace WAST
 		return false;
 	}
 
-	uint32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context)
+	U32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context)
 	{
 		Reference ref;
 		if(!tryParseNameOrIndexRef(state,ref))
@@ -276,7 +276,7 @@ namespace WAST
 		return resolveRef(state,nameToIndexMap,ref);
 	}
 
-	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,uintp index)
+	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index)
 	{
 		errorUnless(index <= UINT32_MAX);
 
@@ -288,11 +288,11 @@ namespace WAST
 				const TextFileLocus previousDefinitionLocus = calcLocusFromOffset(state.string,	state.lineInfo,mapIt->first.getCharOffset(state.string));
 				parseErrorf(state,name.getCharOffset(state.string),"redefinition of name defined at %s",previousDefinitionLocus.describe().c_str());
 			}
-			nameToIndexMap.emplace(name,uint32(index));
+			nameToIndexMap.emplace(name,U32(index));
 		}
 	}
 
-	uint32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref)
+	U32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref)
 	{
 		switch(ref.type)
 		{
@@ -314,7 +314,7 @@ namespace WAST
 		};
 	}
 	
-	bool tryParseHexit(const char*& nextChar,uint8& outValue)
+	bool tryParseHexit(const char*& nextChar,U8& outValue)
 	{
 		if(*nextChar >= '0' && *nextChar <= '9') { outValue = *nextChar - '0'; }
 		else if(*nextChar >= 'a' && *nextChar <= 'f') { outValue = *nextChar - 'a' + 10; }
@@ -330,11 +330,11 @@ namespace WAST
 	
 	static void parseCharEscapeCode(const char*& nextChar,ParseState& state,char& outEscapedChar)
 	{
-		uint8 firstNibble;
+		U8 firstNibble;
 		if(tryParseHexit(nextChar,firstNibble))
 		{
 			// Parse an 8-bit literal from two hexits.
-			uint8 secondNibble;
+			U8 secondNibble;
 			if(!tryParseHexit(nextChar,secondNibble)) { parseErrorf(state,nextChar,"expected hexit"); }
 			outEscapedChar = firstNibble * 16 + secondNibble;
 		}
@@ -404,8 +404,8 @@ namespace WAST
 		// Check that the string is a valid UTF-8 encoding.
 		// The valid ranges are taken from table 3-7 in the Unicode Standard 9.0:
 		// "Well-Formed UTF-8 Byte Sequences"
-		const uint8* endChar = (const uint8*)result.data() + result.size();
-		const uint8* nextChar = (const uint8*)result.data();
+		const U8* endChar = (const U8*)result.data() + result.size();
+		const U8* nextChar = (const U8*)result.data();
 		while(nextChar != endChar)
 		{
 			if(*nextChar < 0x80) { ++nextChar; }
@@ -466,7 +466,7 @@ namespace WAST
 		return result;
 
 	invalid:
-		const uintp charOffset = stringToken->begin + (nextChar - (const uint8*)result.data()) + 1;
+		const Uptr charOffset = stringToken->begin + (nextChar - (const U8*)result.data()) + 1;
 		parseErrorf(state,charOffset,"invalid UTF-8 encoding");
 		return result;
 	}

@@ -113,15 +113,15 @@ namespace Runtime
 		return (Dest)sourceValue;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i32,f32,source) { return floatToInt<int32,float32,false>(source,(float32)INT32_MIN,-(float32)INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i32,f64,source) { return floatToInt<int32,float64,false>(source,(float64)INT32_MIN,-(float64)INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i64,f32,source) { return floatToInt<int64,float32,false>(source,(float32)INT64_MIN,-(float32)INT64_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i64,f64,source) { return floatToInt<int64,float64,false>(source,(float64)INT64_MIN,-(float64)INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i32,f32,source) { return floatToInt<I32,F32,false>(source,(F32)INT32_MIN,-(F32)INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i32,f64,source) { return floatToInt<I32,F64,false>(source,(F64)INT32_MIN,-(F64)INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i64,f32,source) { return floatToInt<I64,F32,false>(source,(F32)INT64_MIN,-(F32)INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i64,f64,source) { return floatToInt<I64,F64,false>(source,(F64)INT64_MIN,-(F64)INT64_MIN); }
 	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i32,f32,source) { return floatToInt<uint32,float32,true>(source,-1.0f,-2.0f * INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i32,f64,source) { return floatToInt<uint32,float64,true>(source,-1.0,-2.0 * INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f32,source) { return floatToInt<uint64,float32,true>(source,-1.0f,-2.0f * INT64_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f64,source) { return floatToInt<uint64,float64,true>(source,-1.0,-2.0 * INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i32,f32,source) { return floatToInt<U32,F32,true>(source,-1.0f,-2.0f * INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i32,f64,source) { return floatToInt<U32,F64,true>(source,-1.0,-2.0 * INT32_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f32,source) { return floatToInt<U64,F32,true>(source,-1.0f,-2.0f * INT64_MIN); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f64,source) { return floatToInt<U64,F64,true>(source,-1.0,-2.0 * INT64_MIN); }
 
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroTrap,divideByZeroTrap,none)
 	{
@@ -138,9 +138,9 @@ namespace Runtime
 		TableInstance* table = reinterpret_cast<TableInstance*>(tableBits);
 		void* elementValue = table->baseAddress[index].value;
 		const FunctionType* actualSignature = table->baseAddress[index].type;
-		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((uintp)expectedSignatureBits);
+		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((Uptr)expectedSignatureBits);
 		std::string ipDescription = "<unknown>";
-		LLVMJIT::describeInstructionPointer(reinterpret_cast<uintp>(elementValue),ipDescription);
+		LLVMJIT::describeInstructionPointer(reinterpret_cast<Uptr>(elementValue),ipDescription);
 		Log::printf(Log::Category::debug,"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",
 			asString(expectedSignature).c_str(),
 			index,
@@ -159,21 +159,21 @@ namespace Runtime
 	{
 		MemoryInstance* memory = reinterpret_cast<MemoryInstance*>(memoryBits);
 		assert(memory);
-		const intp numPreviousMemoryPages = growMemory(memory,(uintp)deltaPages);
-		if(numPreviousMemoryPages + (uintp)deltaPages > IR::maxMemoryPages) { return -1; }
-		else { return (int32)numPreviousMemoryPages; }
+		const Iptr numPreviousMemoryPages = growMemory(memory,(Uptr)deltaPages);
+		if(numPreviousMemoryPages + (Uptr)deltaPages > IR::maxMemoryPages) { return -1; }
+		else { return (I32)numPreviousMemoryPages; }
 	}
 	
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryBits)
 	{
 		MemoryInstance* memory = reinterpret_cast<MemoryInstance*>(memoryBits);
 		assert(memory);
-		uintp numMemoryPages = getMemoryNumPages(memory);
+		Uptr numMemoryPages = getMemoryNumPages(memory);
 		if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }
-		return (uint32)numMemoryPages;
+		return (U32)numMemoryPages;
 	}
 
-	THREAD_LOCAL uintp indentLevel = 0;
+	THREAD_LOCAL Uptr indentLevel = 0;
 
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,debugEnterFunction,none,i64,functionInstanceBits)
 	{

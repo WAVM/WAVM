@@ -9,7 +9,7 @@
 using namespace WAST;
 using namespace IR;
 
-static bool tryParseSizeConstraints(ParseState& state,uint64 maxMax,SizeConstraints& outSizeConstraints)
+static bool tryParseSizeConstraints(ParseState& state,U64 maxMax,SizeConstraints& outSizeConstraints)
 {
 	outSizeConstraints.min = 0;
 	outSizeConstraints.max = UINT64_MAX;
@@ -42,7 +42,7 @@ static bool tryParseSizeConstraints(ParseState& state,uint64 maxMax,SizeConstrai
 	}
 }
 
-static SizeConstraints parseSizeConstraints(ParseState& state,uint64 maxMax)
+static SizeConstraints parseSizeConstraints(ParseState& state,U64 maxMax)
 {
 	SizeConstraints result;
 	if(!tryParseSizeConstraints(state,maxMax,result))
@@ -73,8 +73,8 @@ static InitializerExpression parseInitializerExpression(ModuleParseState& state)
 	{
 		switch(state.nextToken->type)
 		{
-		case t_i32_const: { ++state.nextToken; result = (int32)parseI32(state); break; }
-		case t_i64_const: { ++state.nextToken; result = (int64)parseI64(state); break; }
+		case t_i32_const: { ++state.nextToken; result = (I32)parseI32(state); break; }
+		case t_i64_const: { ++state.nextToken; result = (I64)parseI64(state); break; }
 		case t_f32_const: { ++state.nextToken; result = parseF32(state); break; }
 		case t_f64_const: { ++state.nextToken; result = parseF64(state); break; }
 		case t_get_global:
@@ -224,12 +224,12 @@ static void parseExport(ModuleParseState& state)
 			throw RecoverParseException();
 		}
 
-		const uintp exportIndex = state.module.exports.size();
+		const Uptr exportIndex = state.module.exports.size();
 		state.module.exports.push_back({std::move(exportName),exportKind,0});
 
 		state.postDeclarationCallbacks.push_back([=](ModuleParseState& state)
 		{
-			uintp& exportedObjectIndex = state.module.exports[exportIndex].index;
+			Uptr& exportedObjectIndex = state.module.exports[exportIndex].index;
 			switch(exportKind)
 			{
 			case ObjectKind::function: exportedObjectIndex = resolveRef(state,state.functionNameToIndexMap,exportRef); break;
@@ -258,10 +258,10 @@ static void parseType(ModuleParseState& state)
 		std::vector<std::string> localDisassemblyNames;
 		const FunctionType* functionType = parseFunctionType(state,parameterNameToIndexMap,localDisassemblyNames);
 
-		uintp functionTypeIndex = state.module.types.size();
+		Uptr functionTypeIndex = state.module.types.size();
 		state.module.types.push_back(functionType);
 		errorUnless(functionTypeIndex < UINT32_MAX);
-		state.functionTypeToIndexMap[functionType] = (uint32)functionTypeIndex;
+		state.functionTypeToIndexMap[functionType] = (U32)functionTypeIndex;
 
 		bindName(state,state.typeNameToIndexMap,name,functionTypeIndex);
 		state.disassemblyNames.types.push_back(name.getString());
@@ -285,8 +285,8 @@ static void parseData(ModuleParseState& state)
 	while(tryParseString(state,dataString)) {};
 	
 	// Create the data segment.
-	std::vector<uint8> dataVector((const uint8*)dataString.data(),(const uint8*)dataString.data() + dataString.size());
-	const uintp dataSegmentIndex = state.module.dataSegments.size();
+	std::vector<U8> dataVector((const U8*)dataString.data(),(const U8*)dataString.data() + dataString.size());
+	const Uptr dataSegmentIndex = state.module.dataSegments.size();
 	state.module.dataSegments.push_back({UINTPTR_MAX,baseAddress,std::move(dataVector)});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the memory to put the data segment in.
@@ -304,7 +304,7 @@ static void parseData(ModuleParseState& state)
 	});
 }
 
-static uintp parseElemSegmentBody(ModuleParseState& state,Reference tableRef,InitializerExpression baseIndex,const Token* elemToken)
+static Uptr parseElemSegmentBody(ModuleParseState& state,Reference tableRef,InitializerExpression baseIndex,const Token* elemToken)
 {
 	// Allocate the elementReferences array on the heap so it doesn't need to be copied for the post-declaration callback.
 	std::vector<Reference>* elementReferences = new std::vector<Reference>();
@@ -316,8 +316,8 @@ static uintp parseElemSegmentBody(ModuleParseState& state,Reference tableRef,Ini
 	};
 	
 	// Create the table segment.
-	const uintp tableSegmentIndex = state.module.tableSegments.size();
-	state.module.tableSegments.push_back({UINTPTR_MAX,baseIndex,std::vector<uintp>()});
+	const Uptr tableSegmentIndex = state.module.tableSegments.size();
+	state.module.tableSegments.push_back({UINTPTR_MAX,baseIndex,std::vector<Uptr>()});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table elements' references.
 	state.postDeclarationCallbacks.push_back([tableRef,tableSegmentIndex,elementReferences,elemToken](ModuleParseState& state)
@@ -332,7 +332,7 @@ static uintp parseElemSegmentBody(ModuleParseState& state,Reference tableRef,Ini
 			tableSegment.tableIndex = tableRef ? resolveRef(state,state.tableNameToIndexMap,tableRef) : 0;
 
 			tableSegment.indices.resize(elementReferences->size());
-			for(uintp elementIndex = 0;elementIndex < elementReferences->size();++elementIndex)
+			for(Uptr elementIndex = 0;elementIndex < elementReferences->size();++elementIndex)
 			{
 				tableSegment.indices[elementIndex] = resolveRef(state,state.functionNameToIndexMap,(*elementReferences)[elementIndex]);
 			}
@@ -446,9 +446,9 @@ static void parseTable(ModuleParseState& state)
 				{
 					require(state,t_elem);
 
-					const uintp tableIndex = state.module.tables.size();
+					const Uptr tableIndex = state.module.tables.size();
 					errorUnless(tableIndex < UINT32_MAX);
-					const uintp numElements = parseElemSegmentBody(state,Reference(uint32(tableIndex)),InitializerExpression((int32)0),state.nextToken-1);
+					const Uptr numElements = parseElemSegmentBody(state,Reference(U32(tableIndex)),InitializerExpression((I32)0),state.nextToken-1);
 					sizeConstraints.min = sizeConstraints.max = numElements;
 				});
 			}
@@ -483,9 +483,9 @@ static void parseMemory(ModuleParseState& state)
 					while(tryParseString(state,dataString)) {};
 				});
 
-				std::vector<uint8> dataVector((const uint8*)dataString.data(),(const uint8*)dataString.data() + dataString.size());
+				std::vector<U8> dataVector((const U8*)dataString.data(),(const U8*)dataString.data() + dataString.size());
 				sizeConstraints.min = sizeConstraints.max = (dataVector.size() + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
-				state.module.dataSegments.push_back({state.module.memories.size(),InitializerExpression(int32(0)),std::move(dataVector)});
+				state.module.dataSegments.push_back({state.module.memories.size(),InitializerExpression(I32(0)),std::move(dataVector)});
 			}
 
 			const bool isShared = parseOptionalSharedDeclaration(state);
@@ -588,7 +588,7 @@ namespace WAST
 		IR::setDisassemblyNames(state.module,state.disassemblyNames);
 	}
 
-	bool parseModule(const char* string,size_t stringLength,IR::Module& outModule,std::vector<Error>& outErrors)
+	bool parseModule(const char* string,Uptr stringLength,IR::Module& outModule,std::vector<Error>& outErrors)
 	{
 		Timing::Timer timer;
 		

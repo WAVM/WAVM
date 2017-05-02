@@ -68,7 +68,7 @@ namespace LLVMJIT
 	extern llvm::LLVMContext context;
 	
 	// Maps a type ID to the corresponding LLVM type.
-	extern llvm::Type* llvmResultTypes[(size_t)ResultType::num];
+	extern llvm::Type* llvmResultTypes[(Uptr)ResultType::num];
 	extern llvm::Type* llvmI8Type;
 	extern llvm::Type* llvmI16Type;
 	extern llvm::Type* llvmI32Type;
@@ -93,17 +93,17 @@ namespace LLVMJIT
 	#endif
 
 	// Zero constants of each type.
-	extern llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
+	extern llvm::Constant* typedZeroConstants[(Uptr)ValueType::num];
 
 	// Converts a WebAssembly type to a LLVM type.
-	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(uintp)asResultType(type)]; }
-	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(uintp)type]; }
+	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(Uptr)asResultType(type)]; }
+	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(Uptr)type]; }
 
 	// Converts a WebAssembly function type to a LLVM type.
 	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType)
 	{
 		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType->parameters.size());
-		for(uintp argIndex = 0;argIndex < functionType->parameters.size();++argIndex)
+		for(Uptr argIndex = 0;argIndex < functionType->parameters.size();++argIndex)
 		{
 			llvmArgTypes[argIndex] = asLLVMType(functionType->parameters[argIndex]);
 		}
@@ -112,22 +112,22 @@ namespace LLVMJIT
 	}
 
 	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
-	inline llvm::ConstantInt* emitLiteral(uint32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(uint64)value,false)); }
-	inline llvm::ConstantInt* emitLiteral(int32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(int64)value,false)); }
-	inline llvm::ConstantInt* emitLiteral(uint64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
-	inline llvm::ConstantInt* emitLiteral(int64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
-	inline llvm::Constant* emitLiteral(float32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
-	inline llvm::Constant* emitLiteral(float64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	inline llvm::ConstantInt* emitLiteral(U32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(U64)value,false)); }
+	inline llvm::ConstantInt* emitLiteral(I32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(I64)value,false)); }
+	inline llvm::ConstantInt* emitLiteral(U64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
+	inline llvm::ConstantInt* emitLiteral(I64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
+	inline llvm::Constant* emitLiteral(F32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	inline llvm::Constant* emitLiteral(F64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	inline llvm::Constant* emitLiteral(bool value) { return llvm::ConstantInt::get(llvmBoolType,llvm::APInt(1,value ? 1 : 0,false)); }
 	inline llvm::Constant* emitLiteralPointer(const void* pointer,llvm::Type* type)
 	{
-		auto pointerInt = llvm::APInt(sizeof(uintp) == 8 ? 64 : 32,reinterpret_cast<uintp>(pointer));
+		auto pointerInt = llvm::APInt(sizeof(Uptr) == 8 ? 64 : 32,reinterpret_cast<Uptr>(pointer));
 		return llvm::Constant::getIntegerValue(type,pointerInt);
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function
-	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintp functionDefIndex);
-	bool getFunctionIndexFromExternalName(const char* externalName,uintp& outFunctionDefIndex);
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,Uptr functionDefIndex);
+	bool getFunctionIndexFromExternalName(const char* externalName,Uptr& outFunctionDefIndex);
 
 	// Emits LLVM IR for a module.
 	llvm::Module* emitModule(const IR::Module& module,ModuleInstance* moduleInstance);

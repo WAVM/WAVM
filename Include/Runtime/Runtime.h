@@ -19,7 +19,7 @@ namespace Runtime
 	// Information about a runtime exception.
 	struct Exception
 	{
-		enum class Cause : uint8
+		enum class Cause : U8
 		{
 			unknown,
 			accessViolation,
@@ -135,18 +135,18 @@ namespace Runtime
 	RUNTIME_API TableInstance* createTable(IR::TableType type);
 
 	// Reads an element from the table. Assumes that index is in bounds.
-	RUNTIME_API ObjectInstance* getTableElement(TableInstance* table,uintp index);
+	RUNTIME_API ObjectInstance* getTableElement(TableInstance* table,Uptr index);
 
 	// Writes an element to the table. Assumes that index is in bounds, and returns a pointer to the previous value of the element.
-	RUNTIME_API ObjectInstance* setTableElement(TableInstance* table,uintp index,ObjectInstance* newValue);
+	RUNTIME_API ObjectInstance* setTableElement(TableInstance* table,Uptr index,ObjectInstance* newValue);
 
 	// Gets the current or maximum size of the table.
-	RUNTIME_API size_t getTableNumElements(TableInstance* table);
-	RUNTIME_API size_t getTableMaxElements(TableInstance* table);
+	RUNTIME_API Uptr getTableNumElements(TableInstance* table);
+	RUNTIME_API Uptr getTableMaxElements(TableInstance* table);
 
 	// Grows or shrinks the size of a table by numElements. Returns the previous size of the table.
-	RUNTIME_API intp growTable(TableInstance* table,size_t numElements);
-	RUNTIME_API intp shrinkTable(TableInstance* table,size_t numElements);
+	RUNTIME_API Iptr growTable(TableInstance* table,Uptr numElements);
+	RUNTIME_API Iptr shrinkTable(TableInstance* table,Uptr numElements);
 
 	//
 	// Memories
@@ -156,25 +156,25 @@ namespace Runtime
 	RUNTIME_API MemoryInstance* createMemory(IR::MemoryType type);
 
 	// Gets the base address of the memory's data.
-	RUNTIME_API uint8* getMemoryBaseAddress(MemoryInstance* memory);
+	RUNTIME_API U8* getMemoryBaseAddress(MemoryInstance* memory);
 
 	// Gets the current or maximum size of the memory in pages.
-	RUNTIME_API size_t getMemoryNumPages(MemoryInstance* memory);
-	RUNTIME_API size_t getMemoryMaxPages(MemoryInstance* memory);
+	RUNTIME_API Uptr getMemoryNumPages(MemoryInstance* memory);
+	RUNTIME_API Uptr getMemoryMaxPages(MemoryInstance* memory);
 
 	// Grows or shrinks the size of a memory by numPages. Returns the previous size of the memory.
-	RUNTIME_API intp growMemory(MemoryInstance* memory,size_t numPages);
-	RUNTIME_API intp shrinkMemory(MemoryInstance* memory,size_t numPages);
+	RUNTIME_API Iptr growMemory(MemoryInstance* memory,Uptr numPages);
+	RUNTIME_API Iptr shrinkMemory(MemoryInstance* memory,Uptr numPages);
 
 	// Validates that an offset range is wholly inside a Memory's virtual address range.
-	RUNTIME_API uint8* getValidatedMemoryOffsetRange(MemoryInstance* memory,uintp offset,size_t numBytes);
+	RUNTIME_API U8* getValidatedMemoryOffsetRange(MemoryInstance* memory,Uptr offset,Uptr numBytes);
 	
 	// Validates an access to a single element of memory at the given offset, and returns a reference to it.
-	template<typename Value> Value& memoryRef(MemoryInstance* memory,uint32 offset)
+	template<typename Value> Value& memoryRef(MemoryInstance* memory,U32 offset)
 	{ return *(Value*)getValidatedMemoryOffsetRange(memory,offset,sizeof(Value)); }
 
 	// Validates an access to multiple elements of memory at the given offset, and returns a pointer to it.
-	template<typename Value> Value* memoryArrayPtr(MemoryInstance* memory,uint32 offset,uint32 numElements)
+	template<typename Value> Value* memoryArrayPtr(MemoryInstance* memory,U32 offset,U32 numElements)
 	{ return (Value*)getValidatedMemoryOffsetRange(memory,offset,numElements * sizeof(Value)); }
 
 	//

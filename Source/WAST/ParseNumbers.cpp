@@ -60,14 +60,14 @@ static bool parseSign(const char*& nextChar)
 
 // Parses an unsigned integer from hexits, starting with "0x", and advancing nextChar past the parsed hexits.
 // be called for input that's already been accepted by the lexer as a hexadecimal integer.
-static uint64 parseHexUnsignedInt(const char*& nextChar,ParseState& state,uint64 maxValue)
+static U64 parseHexUnsignedInt(const char*& nextChar,ParseState& state,U64 maxValue)
 {
 	const char* firstHexit = nextChar;
 	assert(nextChar[0] == '0' && (nextChar[1] == 'x' || nextChar[1] == 'X'));
 	nextChar += 2;
 	
-	uint64 result = 0;
-	uint8 hexit = 0;
+	U64 result = 0;
+	U8 hexit = 0;
 	while(tryParseHexit(nextChar,hexit))
 	{
 		if(result > (maxValue - hexit) / 16)
@@ -85,16 +85,16 @@ static uint64 parseHexUnsignedInt(const char*& nextChar,ParseState& state,uint64
 
 // Parses an unsigned integer from digits, advancing nextChar past the parsed digits.
 // Assumes it will only be called for input that's already been accepted by the lexer as a decimal integer.
-static uint64 parseDecimalUnsignedInt(const char*& nextChar,ParseState& state,uint64 maxValue,const char* context)
+static U64 parseDecimalUnsignedInt(const char*& nextChar,ParseState& state,U64 maxValue,const char* context)
 {
-	uint64 result = 0;
+	U64 result = 0;
 	const char* firstDigit = nextChar;
 	while(*nextChar >= '0' && *nextChar <= '9')
 	{
-		const uint8 digit = *nextChar - '0';
+		const U8 digit = *nextChar - '0';
 		++nextChar;
 
-		if(result > uint64(maxValue - digit) / 10)
+		if(result > U64(maxValue - digit) / 10)
 		{
 			parseErrorf(state,firstDigit,"%s is too large",context);
 			result = maxValue;
@@ -126,7 +126,7 @@ Float parseNaN(const char*& nextChar,ParseState& state)
 	{
 		++nextChar;
 
-		const uint64 significandBits = parseHexUnsignedInt(nextChar,state,FloatComponents::maxSignificand);
+		const U64 significandBits = parseHexUnsignedInt(nextChar,state,FloatComponents::maxSignificand);
 		resultComponents.bits.significand = typename FloatComponents::Bits(significandBits);
 	}
 	else
@@ -160,7 +160,7 @@ Float parseDecimalFloat(const char*& nextChar,ParseState& state)
 {
 	// Use David Gay's strtod to parse a floating point number.
 	const char* firstChar = nextChar;
-	float64 f64 = DavidGay::parseDecimalF64(nextChar,const_cast<char**>(&nextChar));
+	F64 f64 = DavidGay::parseDecimalF64(nextChar,const_cast<char**>(&nextChar));
 	if(nextChar == firstChar)
 	{
 		++nextChar;
@@ -189,20 +189,20 @@ Float parseHexFloat(const char*& nextChar,ParseState& state)
 	nextChar += 2;
 
 	// Parse hexits into a 64-bit fixed point number, keeping track of where the point is in exponent.
-	uint64 fixedPoint64 = 0;
+	U64 fixedPoI64 = 0;
 	bool hasSeenPoint = false;
-	int64 exponent = 0;
+	I64 exponent = 0;
 	while(true)
 	{
-		uint8 hexit = 0;
+		U8 hexit = 0;
 		if(tryParseHexit(nextChar,hexit))
 		{
 			// Once there are too many hexits to accumulate in the 64-bit fixed point number, ignore
 			// the hexits, but continue to update exponent so we get an accurate but imprecise number.
-			if(fixedPoint64 <= (UINT64_MAX - 15) / 16)
+			if(fixedPoI64 <= (UINT64_MAX - 15) / 16)
 			{
-				assert(fixedPoint64 * 16 + hexit >= fixedPoint64);
-				fixedPoint64 = fixedPoint64 * 16 + hexit;
+				assert(fixedPoI64 * 16 + hexit >= fixedPoI64);
+				fixedPoI64 = fixedPoI64 * 16 + hexit;
 				exponent -= hasSeenPoint ? 4 : 0;
 			}
 			else
@@ -224,11 +224,11 @@ Float parseHexFloat(const char*& nextChar,ParseState& state)
 	{
 		++nextChar;
 		const bool isExponentNegative = parseSign(nextChar);
-		const uint64 userExponent = parseDecimalUnsignedInt(nextChar,state,uint64(-INT32_MIN),"float literal exponent");
+		const U64 userExponent = parseDecimalUnsignedInt(nextChar,state,U64(-INT32_MIN),"float literal exponent");
 		exponent = isExponentNegative ? exponent - userExponent : exponent + userExponent;
 	}
 
-	if(!fixedPoint64)
+	if(!fixedPoI64)
 	{
 		// If both the integer and fractional part are zero, just return zero.
 		resultComponents.bits.exponent = 0;
@@ -237,12 +237,12 @@ Float parseHexFloat(const char*& nextChar,ParseState& state)
 	else
 	{
 		// Shift the fixed point number's most significant set bit into the MSB.
-		const uintp leadingZeroes = Platform::countLeadingZeroes(fixedPoint64);
-		fixedPoint64 <<= leadingZeroes;
+		const Uptr leadingZeroes = Platform::countLeadingZeroes(fixedPoI64);
+		fixedPoI64 <<= leadingZeroes;
 		exponent += 64;
 		exponent -= leadingZeroes;
 		
-		const int64 exponentWithImplicitLeadingOne = exponent - 1;
+		const I64 exponentWithImplicitLeadingOne = exponent - 1;
 		if(exponentWithImplicitLeadingOne > FloatComponents::maxNormalExponent)
 		{
 			// If the number is out of range, produce an error and return infinity.
@@ -255,10 +255,10 @@ Float parseHexFloat(const char*& nextChar,ParseState& state)
 			// Denormals are encoded as if their exponent is minNormalExponent, but
 			// with the significand shifted down to include the leading 1 that is implicit for
 			// normal numbers, and with the encoded exponent = 0.
-			const uintp denormalShift = FloatComponents::minNormalExponent - exponent;
-			fixedPoint64 = denormalShift >= 64 ? 0 : (fixedPoint64 >> denormalShift);
+			const Uptr denormalShift = FloatComponents::minNormalExponent - exponent;
+			fixedPoI64 = denormalShift >= 64 ? 0 : (fixedPoI64 >> denormalShift);
 			resultComponents.bits.exponent = 0;
-			resultComponents.bits.significand = FloatBits(fixedPoint64 >> (64 - FloatComponents::numSignificandBits));
+			resultComponents.bits.significand = FloatBits(fixedPoI64 >> (64 - FloatComponents::numSignificandBits));
 		}
 		else
 		{
@@ -266,7 +266,7 @@ Float parseHexFloat(const char*& nextChar,ParseState& state)
 			assert(exponentWithImplicitLeadingOne >= FloatComponents::minNormalExponent);
 			assert(exponentWithImplicitLeadingOne <= FloatComponents::maxNormalExponent);
 			resultComponents.bits.exponent = FloatBits(exponentWithImplicitLeadingOne + FloatComponents::exponentBias);
-			resultComponents.bits.significand = FloatBits(fixedPoint64 >> (63 - FloatComponents::numSignificandBits));
+			resultComponents.bits.significand = FloatBits(fixedPoI64 >> (63 - FloatComponents::numSignificandBits));
 		}
 	}
 
@@ -276,27 +276,27 @@ Float parseHexFloat(const char*& nextChar,ParseState& state)
 // Tries to parse an numeric literal token as an integer, advancing state.nextToken.
 // Returns true if it matched a token.
 template<typename UnsignedInt>
-bool tryParseInt(ParseState& state,UnsignedInt& outUnsignedInt,int64 minSignedValue,uint64 maxUnsignedValue)
+bool tryParseInt(ParseState& state,UnsignedInt& outUnsignedInt,I64 minSignedValue,U64 maxUnsignedValue)
 {
 	bool isNegative = false;
-	uint64 u64 = 0;
+	U64 u64 = 0;
 
 	const char* nextChar = state.string + state.nextToken->begin;
 	switch(state.nextToken->type)
 	{
 	case t_decimalInt:
 		isNegative = parseSign(nextChar);
-		u64 = parseDecimalUnsignedInt(nextChar,state,isNegative ? uint64(-minSignedValue) : maxUnsignedValue,"int literal");
+		u64 = parseDecimalUnsignedInt(nextChar,state,isNegative ? U64(-minSignedValue) : maxUnsignedValue,"int literal");
 		break;
 	case t_hexInt:
 		isNegative = parseSign(nextChar);
-		u64 = parseHexUnsignedInt(nextChar,state,isNegative ? uint64(-minSignedValue) : maxUnsignedValue);
+		u64 = parseHexUnsignedInt(nextChar,state,isNegative ? U64(-minSignedValue) : maxUnsignedValue);
 		break;
 	default:
 		return false;
 	};
 
-	outUnsignedInt = isNegative ? UnsignedInt(-int64(u64)) : UnsignedInt(u64);
+	outUnsignedInt = isNegative ? UnsignedInt(-I64(u64)) : UnsignedInt(u64);
 		
 	++state.nextToken;
 	assert(nextChar <= state.string + state.nextToken->begin);
@@ -331,19 +331,19 @@ bool tryParseFloat(ParseState& state,Float& outFloat)
 
 namespace WAST
 {
-	bool tryParseI32(ParseState& state,uint32& outI32)
+	bool tryParseI32(ParseState& state,U32& outI32)
 	{
-		return tryParseInt<uint32>(state,outI32,INT32_MIN,UINT32_MAX);
+		return tryParseInt<U32>(state,outI32,INT32_MIN,UINT32_MAX);
 	}
 
-	bool tryParseI64(ParseState& state,uint64& outI64)
+	bool tryParseI64(ParseState& state,U64& outI64)
 	{
-		return tryParseInt<uint64>(state,outI64,INT64_MIN,UINT64_MAX);
+		return tryParseInt<U64>(state,outI64,INT64_MIN,UINT64_MAX);
 	}
 
-	uint32 parseI32(ParseState& state)
+	U32 parseI32(ParseState& state)
 	{
-		uint32 result;
+		U32 result;
 		if(!tryParseI32(state,result))
 		{
 			parseErrorf(state,state.nextToken,"expected i32 literal");
@@ -352,9 +352,9 @@ namespace WAST
 		return result;
 	}
 
-	uint64 parseI64(ParseState& state)
+	U64 parseI64(ParseState& state)
 	{
-		uint64 result;
+		U64 result;
 		if(!tryParseI64(state,result))
 		{
 			parseErrorf(state,state.nextToken,"expected i64 literal");
@@ -363,9 +363,9 @@ namespace WAST
 		return result;
 	}
 
-	float32 parseF32(ParseState& state)
+	F32 parseF32(ParseState& state)
 	{
-		float32 result;
+		F32 result;
 		if(!tryParseFloat(state,result))
 		{
 			parseErrorf(state,state.nextToken,"expected f32 literal");
@@ -374,9 +374,9 @@ namespace WAST
 		return result;
 	}
 
-	float64 parseF64(ParseState& state)
+	F64 parseF64(ParseState& state)
 	{
-		float64 result;
+		F64 result;
 		if(!tryParseFloat(state,result))
 		{
 			parseErrorf(state,state.nextToken,"expected f64 literal");

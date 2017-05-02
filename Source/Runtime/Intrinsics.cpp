@@ -55,7 +55,7 @@ namespace Intrinsics
 	:	name(inName)
 	,	globalType(inType)
 	{
-		global = Runtime::createGlobal(inType,Runtime::Value((int64)0));
+		global = Runtime::createGlobal(inType,Runtime::Value((I64)0));
 		value = &global->value;
 		{
 			Platform::Lock lock(Singleton::get().mutex);
@@ -74,7 +74,7 @@ namespace Intrinsics
 
 	void Global::reset()
 	{
-		global = Runtime::createGlobal(globalType,Runtime::Value((int64)0));
+		global = Runtime::createGlobal(globalType,Runtime::Value((I64)0));
 		value = &global->value;
 	}
 

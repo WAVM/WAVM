@@ -52,7 +52,7 @@ namespace Runtime
 		}
 	}
 
-	[[noreturn]] void handleHardwareTrap(Platform::HardwareTrapType trapType,Platform::CallStack&& trapCallStack,uintp trapOperand)
+	[[noreturn]] void handleHardwareTrap(Platform::HardwareTrapType trapType,Platform::CallStack&& trapCallStack,Uptr trapOperand)
 	{
 		std::vector<std::string> callStackDescription = describeCallStack(trapCallStack);
 
@@ -61,9 +61,9 @@ namespace Runtime
 		case Platform::HardwareTrapType::accessViolation:
 		{
 			// If the access violation occured in a Table's reserved pages, treat it as an undefined table element runtime error.
-			if(isAddressOwnedByTable(reinterpret_cast<uint8*>(trapOperand))) { throw Exception { Exception::Cause::undefinedTableElement, callStackDescription }; }
+			if(isAddressOwnedByTable(reinterpret_cast<U8*>(trapOperand))) { throw Exception { Exception::Cause::undefinedTableElement, callStackDescription }; }
 			// If the access violation occured in a Memory's reserved pages, treat it as an access violation runtime error.
-			else if(isAddressOwnedByMemory(reinterpret_cast<uint8*>(trapOperand))) { throw Exception { Exception::Cause::accessViolation, callStackDescription }; }
+			else if(isAddressOwnedByMemory(reinterpret_cast<U8*>(trapOperand))) { throw Exception { Exception::Cause::accessViolation, callStackDescription }; }
 			else
 			{
 				// If the access violation occured outside of a Table or Memory, treat it as a bug (possibly a security hole)
@@ -87,8 +87,8 @@ namespace Runtime
 		if(parameters.size() != functionType->parameters.size())
 		{ throw Exception {Exception::Cause::invokeSignatureMismatch}; }
 
-		uint64* thunkMemory = (uint64*)alloca((functionType->parameters.size() + getArity(functionType->ret)) * sizeof(uint64));
-		for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+		U64* thunkMemory = (U64*)alloca((functionType->parameters.size() + getArity(functionType->ret)) * sizeof(U64));
+		for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 		{
 			if(functionType->parameters[parameterIndex] != parameters[parameterIndex].type)
 			{
@@ -105,7 +105,7 @@ namespace Runtime
 		Result result;
 		Platform::HardwareTrapType trapType;
 		Platform::CallStack trapCallStack;
-		uintp trapOperand;
+		Uptr trapOperand;
 		trapType = Platform::catchHardwareTraps(trapCallStack,trapOperand,
 			[&]
 			{

@@ -5,7 +5,7 @@
 
 #include <assert.h>
 
-enum class NodeType : uint8
+enum class NodeType : U8
 {
 	lit,
 	zeroOrMore,
@@ -103,9 +103,9 @@ static NFA::CharSet parseLit(const char*& nextChar)
 	{
 		++nextChar;
 		const char d = parseChar<inSet>(nextChar);
-		result.addRange((uint8)c,(uint8)d);
+		result.addRange((U8)c,(U8)d);
 	}
-	else { result.add((uint8)c); }
+	else { result.add((U8)c); }
 	return result;
 }
 
@@ -163,7 +163,7 @@ static NFA::CharSet parseSet(const char*& nextChar)
 	return result;
 }
 
-static Node* parseElementary(const char*& nextChar,uintp groupDepth)
+static Node* parseElementary(const char*& nextChar,Uptr groupDepth)
 {
 	NFA::CharSet charSet;
 	switch(*nextChar)
@@ -194,8 +194,8 @@ static Node* parseElementary(const char*& nextChar,uintp groupDepth)
 	return new Lit(charSet);
 }
 	
-static Node* parseUnion(const char*& nextChar,uintp groupDepth);
-static Node* parseGroup(const char*& nextChar,uintp groupDepth)
+static Node* parseUnion(const char*& nextChar,Uptr groupDepth);
+static Node* parseGroup(const char*& nextChar,Uptr groupDepth)
 {
 	if(*nextChar != '(') { return parseElementary(nextChar,groupDepth); }
 	else
@@ -208,7 +208,7 @@ static Node* parseGroup(const char*& nextChar,uintp groupDepth)
 	}
 }
 
-static Node* parseQuantifier(const char*& nextChar,uintp groupDepth)
+static Node* parseQuantifier(const char*& nextChar,Uptr groupDepth)
 {
 	Node* result = parseGroup(nextChar,groupDepth);
 
@@ -222,7 +222,7 @@ static Node* parseQuantifier(const char*& nextChar,uintp groupDepth)
 	return result;
 }
 
-static Node* parseSeq(const char*& nextChar,uintp groupDepth)
+static Node* parseSeq(const char*& nextChar,Uptr groupDepth)
 {
 	Node* result = nullptr;
 	while(true)
@@ -244,7 +244,7 @@ static Node* parseSeq(const char*& nextChar,uintp groupDepth)
 	};
 }
 
-static Node* parseUnion(const char*& nextChar,uintp groupDepth)
+static Node* parseUnion(const char*& nextChar,Uptr groupDepth)
 {
 	Node* result = nullptr;
 	while(true)

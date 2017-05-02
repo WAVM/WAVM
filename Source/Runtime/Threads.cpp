@@ -24,7 +24,7 @@ struct WaitList
 {
 	Platform::Mutex* mutex;
 	std::vector<Platform::Event*> wakeEvents;
-	std::atomic<uintp> numReferences;
+	std::atomic<Uptr> numReferences;
 
 	WaitList(): mutex(Platform::createMutex()), numReferences(1) {}
 	~WaitList() { destroyMutex(mutex); }
@@ -35,7 +35,7 @@ THREAD_LOCAL Platform::Event* threadWakeEvent = nullptr;
 
 // A map from address to a list of threads waiting on that address.
 static Platform::Mutex* addressToWaitListMapMutex = Platform::createMutex();
-static std::map<uintp,WaitList*> addressToWaitListMap;
+static std::map<Uptr,WaitList*> addressToWaitListMap;
 
 // A global list of running threads created by WebAssembly code.
 static Platform::Mutex* threadsMutex = Platform::createMutex();
@@ -45,7 +45,7 @@ static std::vector<Thread*> threads;
 // Increases the wait list's reference count, and returns a pointer to it.
 // Note that it does not lock the wait list mutex.
 // A call to openWaitList should be followed by a call to closeWaitList to avoid leaks.
-static WaitList* openWaitList(uintp address)
+static WaitList* openWaitList(Uptr address)
 {
 	Platform::Lock mapLock(addressToWaitListMapMutex);
 	auto mapIt = addressToWaitListMap.find(address);
@@ -63,7 +63,7 @@ static WaitList* openWaitList(uintp address)
 }
 
 // Closes a wait list, deleting it and removing it from the global map if it was the last reference.
-static void closeWaitList(uintp address,WaitList* waitList)
+static void closeWaitList(Uptr address,WaitList* waitList)
 {
 	if(--waitList->numReferences == 0)
 	{
@@ -98,19 +98,19 @@ static void atomicStore(Value* valuePointer,Value newValue)
 }
 
 // Decodes a floating-point timeout value relative to startTime.
-uint64 getEndTimeFromTimeout(uint64 startTime,float64 timeout)
+U64 getEndTimeFromTimeout(U64 startTime,F64 timeout)
 {
-	const float64 timeoutMicroseconds = timeout * 1000.0;
-	uint64 endTime = UINT64_MAX;
+	const F64 timeoutMicroseconds = timeout * 1000.0;
+	U64 endTime = UINT64_MAX;
 	if(!std::isnan(timeoutMicroseconds) && std::isfinite(timeoutMicroseconds))
 	{
 		if(timeoutMicroseconds <= 0.0)
 		{
 			endTime = startTime;
 		}
-		else if(timeoutMicroseconds <= float64(UINT64_MAX - 1))
+		else if(timeoutMicroseconds <= F64(UINT64_MAX - 1))
 		{
-			endTime = startTime + uint64(timeoutMicroseconds);
+			endTime = startTime + U64(timeoutMicroseconds);
 			errorUnless(endTime >= startTime);
 		}
 	}
@@ -118,12 +118,12 @@ uint64 getEndTimeFromTimeout(uint64 startTime,float64 timeout)
 }
 
 template<typename Value>
-static uint32 waitOnAddress(Value* valuePointer,Value expectedValue,float64 timeout)
+static U32 waitOnAddress(Value* valuePointer,Value expectedValue,F64 timeout)
 {
-	const uint64 endTime = getEndTimeFromTimeout(Platform::getMonotonicClock(),timeout);
+	const U64 endTime = getEndTimeFromTimeout(Platform::getMonotonicClock(),timeout);
 
 	// Open the wait list for this address.
-	const uintp address = reinterpret_cast<uintp>(valuePointer);
+	const Uptr address = reinterpret_cast<Uptr>(valuePointer);
 	WaitList* waitList = openWaitList(address);
 
 	// Lock the wait list, and check that *valuePointer is still what the caller expected it to be.
@@ -170,7 +170,7 @@ static uint32 waitOnAddress(Value* valuePointer,Value expectedValue,float64 time
 	return timedOut ? 2 : 0;
 }
 
-static uint32 wakeAddress(uintp address,uint32 numToWake)
+static U32 wakeAddress(Uptr address,U32 numToWake)
 {
 	if(numToWake == 0) { return 0; }
 
@@ -181,14 +181,14 @@ static uint32 wakeAddress(uintp address,uint32 numToWake)
 
 		// Determine how many threads to wake.
 		// numToWake==UINT32_MAX means wake all waiting threads.
-		uintp actualNumToWake = numToWake;
+		Uptr actualNumToWake = numToWake;
 		if(numToWake == UINT32_MAX || numToWake > waitList->wakeEvents.size())
 		{
 			actualNumToWake = waitList->wakeEvents.size();
 		}
 
 		// Signal the events corresponding to the oldest waiting threads.
-		for(uintp wakeIndex = 0;wakeIndex < actualNumToWake;++wakeIndex)
+		for(Uptr wakeIndex = 0;wakeIndex < actualNumToWake;++wakeIndex)
 		{
 			signalEvent(waitList->wakeEvents[wakeIndex]);
 		}
@@ -223,10 +223,10 @@ namespace Runtime
 		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
 
 		// Validate that the address is within the memory's bounds and 4-byte aligned.
-		if(uint32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
+		if(U32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
 		if(addressOffset & 3) { causeException(Exception::Cause::misalignedAtomicMemoryAccess); }
 
-		const uintp address = reinterpret_cast<uintp>(getMemoryBaseAddress(memoryInstance)) + addressOffset;
+		const Uptr address = reinterpret_cast<Uptr>(getMemoryBaseAddress(memoryInstance)) + addressOffset;
 		return wakeAddress(address,numToWake);
 	}
 
@@ -235,10 +235,10 @@ namespace Runtime
 		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
 
 		// Validate that the address is within the memory's bounds and naturally aligned.
-		if(uint32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
+		if(U32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
 		if(addressOffset & 3) { causeException(Exception::Cause::misalignedAtomicMemoryAccess); }
 
-		int32* valuePointer = reinterpret_cast<int32*>(getMemoryBaseAddress(memoryInstance) + addressOffset);
+		I32* valuePointer = reinterpret_cast<I32*>(getMemoryBaseAddress(memoryInstance) + addressOffset);
 		return waitOnAddress(valuePointer,expectedValue,timeout);
 	}
 	DEFINE_INTRINSIC_FUNCTION4(wavmIntrinsics,wait,wait,i32,i32,addressOffset,i64,expectedValue,f64,timeout,i64,memoryInstanceBits)
@@ -246,14 +246,14 @@ namespace Runtime
 		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
 
 		// Validate that the address is within the memory's bounds and naturally aligned.
-		if(uint32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
+		if(U32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
 		if(addressOffset & 7) { causeException(Exception::Cause::misalignedAtomicMemoryAccess); }
 
-		int64* valuePointer = reinterpret_cast<int64*>(getMemoryBaseAddress(memoryInstance) + addressOffset);
+		I64* valuePointer = reinterpret_cast<I64*>(getMemoryBaseAddress(memoryInstance) + addressOffset);
 		return waitOnAddress(valuePointer,expectedValue,timeout);
 	}
 
-	FunctionInstance* getFunctionFromTable(TableInstance* table,const FunctionType* expectedType,uint32 elementIndex)
+	FunctionInstance* getFunctionFromTable(TableInstance* table,const FunctionType* expectedType,U32 elementIndex)
 	{
 		// Validate that the index is valid.
 		if(elementIndex * sizeof(TableInstance::FunctionElement) >= table->endOffset)
@@ -269,10 +269,10 @@ namespace Runtime
 		return asFunction(table->elements[elementIndex]);
 	}
 
-	void callAndTurnHardwareTrapsIntoRuntimeExceptions(void (*function)(int32),int32 argument)
+	void callAndTurnHardwareTrapsIntoRuntimeExceptions(void (*function)(I32),I32 argument)
 	{
 		Platform::CallStack trapCallStack;
-		uintp trapOperand;
+		Uptr trapOperand;
 		const Platform::HardwareTrapType trapType = Platform::catchHardwareTraps(
 			trapCallStack,trapOperand,
 			[function,argument]{(*function)(argument);}
@@ -283,12 +283,12 @@ namespace Runtime
 		}
 	}
 	
-	static void threadFunc(Thread* thread,int32 argument)
+	static void threadFunc(Thread* thread,I32 argument)
 	{
 		try
 		{
 			// Call the thread entry function.
-			callAndTurnHardwareTrapsIntoRuntimeExceptions((void(*)(int32))thread->entryFunction->nativeFunction,argument);
+			callAndTurnHardwareTrapsIntoRuntimeExceptions((void(*)(I32))thread->entryFunction->nativeFunction,argument);
 		}
 		catch(Runtime::Exception exception)
 		{
@@ -300,7 +300,7 @@ namespace Runtime
 			try
 			{
 				// Call the thread error function.
-				callAndTurnHardwareTrapsIntoRuntimeExceptions((void(*)(int32))thread->errorFunction->nativeFunction,argument);
+				callAndTurnHardwareTrapsIntoRuntimeExceptions((void(*)(I32))thread->errorFunction->nativeFunction,argument);
 			}
 			catch(Runtime::Exception secondException)
 			{

@@ -174,14 +174,14 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 	}
 	else
 	{
-		for(uint32 i = 0; args[i]; ++i)
+		for(U32 i = 0; args[i]; ++i)
 		{
 			Value value;
 			switch(functionType->parameters[i])
 			{
-			case ValueType::i32: value = (uint32)atoi(args[i]); break;
-			case ValueType::i64: value = (uint64)atol(args[i]); break;
-			case ValueType::f32: value = (float32)atof(args[i]); break;
+			case ValueType::i32: value = (U32)atoi(args[i]); break;
+			case ValueType::i64: value = (U64)atol(args[i]); break;
+			case ValueType::f32: value = (F32)atof(args[i]); break;
 			case ValueType::f64: value = atof(args[i]); break;
 			default: Errors::unreachable();
 			}

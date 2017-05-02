@@ -17,7 +17,7 @@ namespace IR
 			functionNames.locals.resize(module.types[functionImport.type.index]->parameters.size());
 			outNames.functions.push_back(std::move(functionNames));
 		}
-		for(uintp functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
+		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
 			const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
 			DisassemblyNames::Function functionNames;
@@ -31,7 +31,7 @@ namespace IR
 		outNames.globals.insert(outNames.globals.end(),module.globals.defs.size() + module.globals.imports.size(),"");
 
 		// Deserialize the name section, if it is present.
-		uintp userSectionIndex = 0;
+		Uptr userSectionIndex = 0;
 		if(findUserSection(module,"name",userSectionIndex))
 		{
 			try
@@ -42,10 +42,10 @@ namespace IR
 				#if 0
 				while(stream.capacity())
 				{
-					uint8 substreamType = 0;
+					U8 substreamType = 0;
 					serializeVarUInt7(stream,substreamType);
 
-					uint32 numSubstreamBytes = 0;
+					U32 numSubstreamBytes = 0;
 					serializeVarUInt32(stream,numSubstreamBytes);
 					
 					MemoryInputStream substream(stream.advance(numSubstreamBytes),numSubstreamBytes);
@@ -53,11 +53,11 @@ namespace IR
 					{
 					case 0: // function names
 					{
-						uint32 numFunctionNames = 0;
+						U32 numFunctionNames = 0;
 						serializeVarUInt32(substream,numFunctionNames);
-						for(uintp functionNameIndex = 0;functionNameIndex < numFunctionNames;++functionNameIndex)
+						for(Uptr functionNameIndex = 0;functionNameIndex < numFunctionNames;++functionNameIndex)
 						{
-							uint32 functionIndex = 0;
+							U32 functionIndex = 0;
 							serializeVarUInt32(substream,functionIndex);
 
 							std::string functionName;
@@ -69,19 +69,19 @@ namespace IR
 					}
 					case 1: // local names
 					{
-						uint32 numFunctionLocalNameMaps = 0;
+						U32 numFunctionLocalNameMaps = 0;
 						serializeVarUInt32(substream,numFunctionLocalNameMaps);
-						for(uintp functionNameIndex = 0;functionNameIndex < numFunctionLocalNameMaps;++functionNameIndex)
+						for(Uptr functionNameIndex = 0;functionNameIndex < numFunctionLocalNameMaps;++functionNameIndex)
 						{
-							uint32 functionIndex = 0;
+							U32 functionIndex = 0;
 							serializeVarUInt32(substream,functionIndex);
 
-							uint32 numLocalNames = 0;
+							U32 numLocalNames = 0;
 							serializeVarUInt32(substream,numLocalNames);
 							
-							for(uintp localNameIndex =  0;localNameIndex < numLocalNames;++numLocalNames)
+							for(Uptr localNameIndex =  0;localNameIndex < numLocalNames;++numLocalNames)
 							{
-								uint32 localIndex = 0;
+								U32 localIndex = 0;
 								serializeVarUInt32(substream,localIndex);
 
 								std::string localName;
@@ -100,20 +100,20 @@ namespace IR
 				};
 				#endif
 
-				size_t numFunctionNames = 0;
+				Uptr numFunctionNames = 0;
 				serializeVarUInt32(stream,numFunctionNames);
 				numFunctionNames = std::min(numFunctionNames,outNames.functions.size());
 
-				for(uintp functionIndex = 0;functionIndex < numFunctionNames;++functionIndex)
+				for(Uptr functionIndex = 0;functionIndex < numFunctionNames;++functionIndex)
 				{
 					DisassemblyNames::Function& functionNames = outNames.functions[functionIndex];
 
 					serialize(stream,outNames.functions[functionIndex].name);
 
-					size_t numLocalNames = 0;
+					Uptr numLocalNames = 0;
 					serializeVarUInt32(stream,numLocalNames);
 
-					for(uintp localIndex = 0;localIndex < numLocalNames;++localIndex)
+					for(Uptr localIndex = 0;localIndex < numLocalNames;++localIndex)
 					{
 						std::string localName;
 						serialize(stream,localName);
@@ -131,7 +131,7 @@ namespace IR
 	void setDisassemblyNames(Module& module,const DisassemblyNames& names)
 	{
 		// Replace an existing name section if one is present, or create a new section.
-		uintp userSectionIndex = 0;
+		Uptr userSectionIndex = 0;
 		if(!findUserSection(module,"name",userSectionIndex))
 		{
 			userSectionIndex = module.userSections.size();
@@ -140,17 +140,17 @@ namespace IR
 
 		ArrayOutputStream stream;
 		
-		size_t numFunctionNames = names.functions.size();
+		Uptr numFunctionNames = names.functions.size();
 		serializeVarUInt32(stream,numFunctionNames);
 
-		for(uintp functionIndex = 0;functionIndex < names.functions.size();++functionIndex)
+		for(Uptr functionIndex = 0;functionIndex < names.functions.size();++functionIndex)
 		{
 			std::string functionName = names.functions[functionIndex].name;
 			serialize(stream,functionName);
 
-			size_t numLocalNames = names.functions[functionIndex].locals.size();
+			Uptr numLocalNames = names.functions[functionIndex].locals.size();
 			serializeVarUInt32(stream,numLocalNames);
-			for(uintp localIndex = 0;localIndex < numLocalNames;++localIndex)
+			for(Uptr localIndex = 0;localIndex < numLocalNames;++localIndex)
 			{
 				std::string localName = names.functions[functionIndex].locals[localIndex];
 				serialize(stream,localName);

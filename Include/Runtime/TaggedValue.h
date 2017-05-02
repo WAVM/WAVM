@@ -12,12 +12,12 @@ namespace Runtime
 	{
 		union
 		{
-			int32 i32;
-			uint32 u32;
-			int64 i64;
-			uint64 u64;
-			float32 f32;
-			float64 f64;
+			I32 i32;
+			U32 u32;
+			I64 i64;
+			U64 u64;
+			F32 f32;
+			F64 f64;
 			#if ENABLE_SIMD_PROTOTYPE
 			IR::V128 v128;
 			IR::B8x16 b8x16;
@@ -27,12 +27,12 @@ namespace Runtime
 			#endif
 		};
 		
-		UntaggedValue(int32 inI32) { i32 = inI32; }
-		UntaggedValue(int64 inI64) { i64 = inI64; }
-		UntaggedValue(uint32 inU32) { u32 = inU32; }
-		UntaggedValue(uint64 inU64) { u64 = inU64; }
-		UntaggedValue(float32 inF32) { f32 = inF32; }
-		UntaggedValue(float64 inF64) { f64 = inF64; }
+		UntaggedValue(I32 inI32) { i32 = inI32; }
+		UntaggedValue(I64 inI64) { i64 = inI64; }
+		UntaggedValue(U32 inU32) { u32 = inU32; }
+		UntaggedValue(U64 inU64) { u64 = inU64; }
+		UntaggedValue(F32 inF32) { f32 = inF32; }
+		UntaggedValue(F64 inF64) { f64 = inF64; }
 		#if ENABLE_SIMD_PROTOTYPE
 		UntaggedValue(IR::V128 inV128) { v128 = inV128; }
 		UntaggedValue(IR::B8x16 inB8x16) { b8x16 = inB8x16; }
@@ -48,12 +48,12 @@ namespace Runtime
 	{
 		IR::ValueType type;
 
-		Value(int32 inI32): UntaggedValue(inI32), type(IR::ValueType::i32) {}
-		Value(int64 inI64): UntaggedValue(inI64), type(IR::ValueType::i64) {}
-		Value(uint32 inU32): UntaggedValue(inU32), type(IR::ValueType::i32) {}
-		Value(uint64 inU64): UntaggedValue(inU64), type(IR::ValueType::i64) {}
-		Value(float32 inF32): UntaggedValue(inF32), type(IR::ValueType::f32) {}
-		Value(float64 inF64): UntaggedValue(inF64), type(IR::ValueType::f64) {}
+		Value(I32 inI32): UntaggedValue(inI32), type(IR::ValueType::i32) {}
+		Value(I64 inI64): UntaggedValue(inI64), type(IR::ValueType::i64) {}
+		Value(U32 inU32): UntaggedValue(inU32), type(IR::ValueType::i32) {}
+		Value(U64 inU64): UntaggedValue(inU64), type(IR::ValueType::i64) {}
+		Value(F32 inF32): UntaggedValue(inF32), type(IR::ValueType::f32) {}
+		Value(F64 inF64): UntaggedValue(inF64), type(IR::ValueType::f64) {}
 		#if ENABLE_SIMD_PROTOTYPE
 		Value(const IR::V128& inV128): UntaggedValue(inV128), type(IR::ValueType::v128) {}
 		#endif
@@ -85,12 +85,12 @@ namespace Runtime
 	{
 		IR::ResultType type;
 
-		Result(int32 inI32): UntaggedValue(inI32), type(IR::ResultType::i32) {}
-		Result(int64 inI64): UntaggedValue(inI64), type(IR::ResultType::i64) {}
-		Result(uint32 inU32): UntaggedValue(inU32), type(IR::ResultType::i32) {}
-		Result(uint64 inU64): UntaggedValue(inU64), type(IR::ResultType::i64) {}
-		Result(float32 inF32): UntaggedValue(inF32), type(IR::ResultType::f32) {}
-		Result(float64 inF64): UntaggedValue(inF64), type(IR::ResultType::f64) {}
+		Result(I32 inI32): UntaggedValue(inI32), type(IR::ResultType::i32) {}
+		Result(I64 inI64): UntaggedValue(inI64), type(IR::ResultType::i64) {}
+		Result(U32 inU32): UntaggedValue(inU32), type(IR::ResultType::i32) {}
+		Result(U64 inU64): UntaggedValue(inU64), type(IR::ResultType::i64) {}
+		Result(F32 inF32): UntaggedValue(inF32), type(IR::ResultType::f32) {}
+		Result(F64 inF64): UntaggedValue(inF64), type(IR::ResultType::f64) {}
 		#if ENABLE_SIMD_PROTOTYPE
 		Result(const IR::V128& inV128): UntaggedValue(inV128), type(IR::ResultType::v128) {}
 		#endif

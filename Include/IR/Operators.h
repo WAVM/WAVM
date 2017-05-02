@@ -19,13 +19,13 @@ namespace IR
 
 	struct BranchImm
 	{
-		uint32 targetDepth;
+		U32 targetDepth;
 	};
 
 	struct BranchTableImm
 	{
-		uintp defaultTargetDepth;
-		uintp branchTableIndex; // An index into the FunctionDef's branchTables array.
+		Uptr defaultTargetDepth;
+		Uptr branchTableIndex; // An index into the FunctionDef's branchTables array.
 	};
 
 	template<typename Value>
@@ -37,12 +37,12 @@ namespace IR
 	template<bool isGlobal>
 	struct GetOrSetVariableImm
 	{
-		uint32 variableIndex;
+		U32 variableIndex;
 	};
 
 	struct CallImm
 	{
-		uint32 functionIndex;
+		U32 functionIndex;
 	};
 
 	struct CallIndirectImm
@@ -50,41 +50,41 @@ namespace IR
 		IndexedFunctionType type;
 	};
 
-	template<size_t naturalAlignmentLog2>
+	template<Uptr naturalAlignmentLog2>
 	struct LoadOrStoreImm
 	{
-		uint8 alignmentLog2;
-		uint32 offset;
+		U8 alignmentLog2;
+		U32 offset;
 	};
 
 	#if ENABLE_SIMD_PROTOTYPE
-	template<size_t numLanes>
+	template<Uptr numLanes>
 	struct LaneIndexImm
 	{
-		uint8 laneIndex;
+		U8 laneIndex;
 	};
 	
-	template<size_t numLanes>
+	template<Uptr numLanes>
 	struct SwizzleImm
 	{
-		uint8 laneIndices[numLanes];
+		U8 laneIndices[numLanes];
 	};
 	
-	template<size_t numLanes>
+	template<Uptr numLanes>
 	struct ShuffleImm
 	{
-		uint8 laneIndices[numLanes];
+		U8 laneIndices[numLanes];
 	};
 	#endif
 
 	#if ENABLE_THREADING_PROTOTYPE
 	struct LaunchThreadImm {};
 	
-	template<size_t naturalAlignmentLog2>
+	template<Uptr naturalAlignmentLog2>
 	struct AtomicLoadOrStoreImm
 	{
-		uint8 alignmentLog2;
-		uint32 offset;
+		U8 alignmentLog2;
+		U32 offset;
 	};
 	#endif
 
@@ -161,10 +161,10 @@ namespace IR
 		visitOp(0x3d,i64_store16,"i64.store16",LoadOrStoreImm<1>,STORE(i64)) \
 		visitOp(0x3e,i64_store32,"i64.store32",LoadOrStoreImm<2>,STORE(i64)) \
 		\
-		visitOp(0x41,i32_const,"i32.const",LiteralImm<int32>,NULLARY(i32)) \
-		visitOp(0x42,i64_const,"i64.const",LiteralImm<int64>,NULLARY(i64)) \
-		visitOp(0x43,f32_const,"f32.const",LiteralImm<float32>,NULLARY(f32)) \
-		visitOp(0x44,f64_const,"f64.const",LiteralImm<float64>,NULLARY(f64)) \
+		visitOp(0x41,i32_const,"i32.const",LiteralImm<I32>,NULLARY(i32)) \
+		visitOp(0x42,i64_const,"i64.const",LiteralImm<I64>,NULLARY(i64)) \
+		visitOp(0x43,f32_const,"f32.const",LiteralImm<F32>,NULLARY(f32)) \
+		visitOp(0x44,f64_const,"f64.const",LiteralImm<F64>,NULLARY(f64)) \
 		\
 		visitOp(0x45,i32_eqz,"i32.eqz",NoImm,UNARY(i32,i32)) \
 		visitOp(0x46,i32_eq,"i32.eq",NoImm,BINARY(i32,i32)) \
@@ -663,7 +663,7 @@ namespace IR
 		ENUM_NONCONTROL_OPERATORS(visitOp) \
 		ENUM_CONTROL_OPERATORS(visitOp)
 
-	enum class Opcode : uint16
+	enum class Opcode : U16
 	{
 		#define VISIT_OPCODE(opcode,name,...) name = opcode,
 		ENUM_OPERATORS(VISIT_OPCODE)
@@ -703,7 +703,7 @@ namespace IR
 	// Decodes an operator from an input stream and dispatches by opcode.
 	struct OperatorDecoderStream
 	{
-		OperatorDecoderStream(const std::vector<uint8>& codeBytes)
+		OperatorDecoderStream(const std::vector<U8>& codeBytes)
 		: nextByte(codeBytes.data()), end(codeBytes.data()+codeBytes.size()) {}
 
 		operator bool() const { return nextByte < end; }
@@ -734,7 +734,7 @@ namespace IR
 		template<typename Visitor>
 		typename Visitor::Result decodeOpWithoutConsume(Visitor& visitor)
 		{
-			const uint8* savedNextByte = nextByte;
+			const U8* savedNextByte = nextByte;
 			typename Visitor::Result result = decodeOp(visitor);
 			nextByte = savedNextByte;
 			return result;
@@ -742,8 +742,8 @@ namespace IR
 
 	private:
 
-		const uint8* nextByte;
-		const uint8* end;
+		const U8* nextByte;
+		const U8* end;
 	};
 
 	// Encodes an operator to an output stream.

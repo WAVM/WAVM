@@ -13,12 +13,12 @@ namespace Floats
 
 	// The components of a 64-bit float
 	template<>
-	struct FloatComponents<float64>
+	struct FloatComponents<F64>
 	{
-		typedef uint64 Bits;
-		typedef float64 Float;
+		typedef U64 Bits;
+		typedef F64 Float;
 
-		enum Constants : int64
+		enum Constants : I64
 		{
 			maxSignificand = 0xfffffffffffff,
 			numSignificandBits = 52,
@@ -36,9 +36,9 @@ namespace Floats
 		{
 			struct
 			{
-				uint64 significand : 52;
-				uint64 exponent : 11;
-				uint64 sign : 1;
+				U64 significand : 52;
+				U64 exponent : 11;
+				U64 sign : 1;
 			} bits;
 			Float value;
 			Bits bitcastInt;
@@ -47,12 +47,12 @@ namespace Floats
 
 	// The components of a 32-bit float.
 	template<>
-	struct FloatComponents<float32>
+	struct FloatComponents<F32>
 	{
-		typedef uint32 Bits;
-		typedef float32 Float;
+		typedef U32 Bits;
+		typedef F32 Float;
 		
-		enum Constants : int32
+		enum Constants : I32
 		{
 			maxSignificand = 0x7fffff,
 			numSignificandBits = 23,
@@ -70,9 +70,9 @@ namespace Floats
 		{
 			struct
 			{
-				uint32 significand : 23;
-				uint32 exponent : 8;
-				uint32 sign : 1;
+				U32 significand : 23;
+				U32 exponent : 8;
+				U32 sign : 1;
 			} bits;
 			Float value;
 			Bits bitcastInt;
@@ -96,7 +96,7 @@ namespace Floats
 			{
 				// Handle NaN.
 				char significandString[FloatComponents<Float>::numSignificandHexits + 1];
-				for(uintp hexitIndex = 0;hexitIndex < FloatComponents<Float>::numSignificandHexits;++hexitIndex)
+				for(Uptr hexitIndex = 0;hexitIndex < FloatComponents<Float>::numSignificandHexits;++hexitIndex)
 				{
 					auto hexitValue = char((components.bits.significand >> ((FloatComponents<Float>::numSignificandHexits - hexitIndex - 1) * 4)) & 0xf);
 					significandString[hexitIndex] = hexitValue >= 10 ? ('a' + hexitValue - 10) : ('0' + hexitValue);

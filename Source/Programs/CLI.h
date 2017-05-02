@@ -69,7 +69,7 @@ inline bool loadBinaryModule(const std::string& wasmBytes,IR::Module& outModule)
 	// Load the module from a binary WebAssembly file.
 	try
 	{
-		Serialization::MemoryInputStream stream((const uint8*)wasmBytes.data(),wasmBytes.size());
+		Serialization::MemoryInputStream stream((const U8*)wasmBytes.data(),wasmBytes.size());
 		WASM::serialize(stream,outModule);
 	}
 	catch(Serialization::FatalSerializationException exception)
@@ -110,7 +110,7 @@ inline bool loadModule(const char* filename,IR::Module& outModule)
 	if(!fileBytes.size()) { return false; }
 
 	// If the file starts with the WASM binary magic number, load it as a binary module.
-	if(*(uint32*)fileBytes.data() == 0x6d736100) { return loadBinaryModule(fileBytes,outModule); }
+	if(*(U32*)fileBytes.data() == 0x6d736100) { return loadBinaryModule(fileBytes,outModule); }
 	else
 	{
 		// Otherwise, load it as a text module.
@@ -123,7 +123,7 @@ inline bool saveBinaryModule(const char* wasmFilename,const IR::Module& module)
 {
 	Timing::Timer saveTimer;
 
-	std::vector<uint8> wasmBytes;
+	std::vector<U8> wasmBytes;
 	try
 	{
 		// Serialize the WebAssembly module.
@@ -151,8 +151,8 @@ inline bool saveBinaryModule(const char* wasmFilename,const IR::Module& module)
 inline bool endsWith(const char *str, const char *suffix)
 {
 	if(!str || !suffix) { return false; }
-	size_t lenstr = strlen(str);
-	size_t lensuffix = strlen(suffix);
+	Uptr lenstr = strlen(str);
+	Uptr lensuffix = strlen(suffix);
 	if(lenstr < lensuffix) { return false; }
 	return (strncmp(str+lenstr-lensuffix, suffix, lensuffix) == 0);
 }

@@ -8,9 +8,9 @@
 
 namespace IR
 {
-	enum { maxMemoryPages = (uintp)65536 };
-	enum { numBytesPerPage = (uintp)65536 };
-	enum { numBytesPerPageLog2 = (uintp)16 };
+	enum { maxMemoryPages = (Uptr)65536 };
+	enum { numBytesPerPage = (Uptr)65536 };
+	enum { numBytesPerPageLog2 = (Uptr)16 };
 
 	enum { requireSharedFlagForAtomicOperators = false };
 }

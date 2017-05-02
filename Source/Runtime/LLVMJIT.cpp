@@ -22,7 +22,7 @@ namespace LLVMJIT
 {
 	llvm::LLVMContext context;
 	llvm::TargetMachine* targetMachine = nullptr;
-	llvm::Type* llvmResultTypes[(size_t)ResultType::num];
+	llvm::Type* llvmResultTypes[(Uptr)ResultType::num];
 
 	llvm::Type* llvmI8Type;
 	llvm::Type* llvmI16Type;
@@ -47,11 +47,11 @@ namespace LLVMJIT
 	llvm::Type* llvmB64x2Type;
 	#endif
 
-	llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
+	llvm::Constant* typedZeroConstants[(Uptr)ValueType::num];
 	
 	// A map from address to loaded JIT symbols.
 	Platform::Mutex* addressToSymbolMapMutex = Platform::createMutex();
-	std::map<uintp,struct JITSymbol*> addressToSymbolMap;
+	std::map<Uptr,struct JITSymbol*> addressToSymbolMap;
 
 	// A map from function types to function indices in the invoke thunk unit.
 	std::map<const FunctionType*,struct JITSymbol*> invokeThunkTypeToSymbolMap;
@@ -70,14 +70,14 @@ namespace LLVMJIT
 			FunctionInstance* functionInstance;
 			const FunctionType* invokeThunkType;
 		};
-		uintp baseAddress;
-		size_t numBytes;
-		std::map<uint32,uint32> offsetToOpIndexMap;
+		Uptr baseAddress;
+		Uptr numBytes;
+		std::map<U32,U32> offsetToOpIndexMap;
 		
-		JITSymbol(FunctionInstance* inFunctionInstance,uintp inBaseAddress,size_t inNumBytes,std::map<uint32,uint32>&& inOffsetToOpIndexMap)
+		JITSymbol(FunctionInstance* inFunctionInstance,Uptr inBaseAddress,Uptr inNumBytes,std::map<U32,U32>&& inOffsetToOpIndexMap)
 		: type(Type::functionInstance), functionInstance(inFunctionInstance), baseAddress(inBaseAddress), numBytes(inNumBytes), offsetToOpIndexMap(inOffsetToOpIndexMap) {}
 
-		JITSymbol(const FunctionType* inInvokeThunkType,uintp inBaseAddress,size_t inNumBytes,std::map<uint32,uint32>&& inOffsetToOpIndexMap)
+		JITSymbol(const FunctionType* inInvokeThunkType,Uptr inBaseAddress,Uptr inNumBytes,std::map<U32,U32>&& inOffsetToOpIndexMap)
 		: type(Type::invokeThunk), invokeThunkType(inInvokeThunkType), baseAddress(inBaseAddress), numBytes(inNumBytes), offsetToOpIndexMap(inOffsetToOpIndexMap) {}
 	};
 
@@ -105,7 +105,7 @@ namespace LLVMJIT
 			Platform::decommitVirtualPages(imageBaseAddress,numAllocatedImagePages);
 		}
 		
-		void registerEHFrames(uint8* addr, uint64 loadAddr,size_t numBytes) override
+		void registerEHFrames(U8* addr, U64 loadAddr,Uptr numBytes) override
 		{
 			llvm::RTDyldMemoryManager::registerEHFrames(addr,loadAddr,numBytes);
 			hasRegisteredEHFrames = true;
@@ -113,13 +113,13 @@ namespace LLVMJIT
 			ehFramesLoadAddr = loadAddr;
 			ehFramesNumBytes = numBytes;
 		}
-		void deregisterEHFrames(uint8* addr, uint64 loadAddr,size_t numBytes) override
+		void deregisterEHFrames(U8* addr, U64 loadAddr,Uptr numBytes) override
 		{
 			llvm::RTDyldMemoryManager::deregisterEHFrames(addr,loadAddr,numBytes);
 		}
 		
 		virtual bool needsToReserveAllocationSpace() override { return true; }
-		virtual void reserveAllocationSpace(uintptr_t numCodeBytes,uint32 codeAlignment,uintptr_t numReadOnlyBytes,uint32 readOnlyAlignment,uintptr_t numReadWriteBytes,uint32 readWriteAlignment) override
+		virtual void reserveAllocationSpace(uintptr_t numCodeBytes,U32 codeAlignment,uintptr_t numReadOnlyBytes,U32 readOnlyAlignment,uintptr_t numReadWriteBytes,U32 readWriteAlignment) override
 		{
 			// Calculate the number of pages to be used by each section.
 			codeSection.numPages = shrAndRoundUp(numCodeBytes,Platform::getPageSizeLog2());
@@ -136,13 +136,13 @@ namespace LLVMJIT
 				readWriteSection.baseAddress = readOnlySection.baseAddress + (readOnlySection.numPages << Platform::getPageSizeLog2());
 			}
 		}
-		virtual uint8* allocateCodeSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef sectionName) override
+		virtual U8* allocateCodeSection(uintptr_t numBytes,U32 alignment,U32 sectionID,llvm::StringRef sectionName) override
 		{
-			return allocateBytes((uintp)numBytes,alignment,codeSection);
+			return allocateBytes((Uptr)numBytes,alignment,codeSection);
 		}
-		virtual uint8* allocateDataSection(uintptr_t numBytes,uint32 alignment,uint32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
+		virtual U8* allocateDataSection(uintptr_t numBytes,U32 alignment,U32 sectionID,llvm::StringRef SectionName,bool isReadOnly) override
 		{
-			return allocateBytes((uintp)numBytes,alignment,isReadOnly ? readOnlySection : readWriteSection);
+			return allocateBytes((Uptr)numBytes,alignment,isReadOnly ? readOnlySection : readWriteSection);
 		}
 		virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
 		{
@@ -161,18 +161,18 @@ namespace LLVMJIT
 			llvm::sys::Memory::InvalidateInstructionCache(imageBaseAddress,numAllocatedImagePages << Platform::getPageSizeLog2());
 		}
 
-		uint8* getImageBaseAddress() const { return imageBaseAddress; }
+		U8* getImageBaseAddress() const { return imageBaseAddress; }
 
 	private:
 		struct Section
 		{
-			uint8* baseAddress;
-			size_t numPages;
-			size_t numCommittedBytes;
+			U8* baseAddress;
+			Uptr numPages;
+			Uptr numCommittedBytes;
 		};
 		
-		uint8* imageBaseAddress;
-		size_t numAllocatedImagePages;
+		U8* imageBaseAddress;
+		Uptr numAllocatedImagePages;
 		bool isFinalized;
 
 		Section codeSection;
@@ -180,19 +180,19 @@ namespace LLVMJIT
 		Section readWriteSection;
 
 		bool hasRegisteredEHFrames;
-		uint8* ehFramesAddr;
-		uint64 ehFramesLoadAddr;
-		size_t ehFramesNumBytes;
+		U8* ehFramesAddr;
+		U64 ehFramesLoadAddr;
+		Uptr ehFramesNumBytes;
 
-		uint8* allocateBytes(uintp numBytes,uintp alignment,Section& section)
+		U8* allocateBytes(Uptr numBytes,Uptr alignment,Section& section)
 		{
 			assert(section.baseAddress);
 			assert(!(alignment & (alignment - 1)));
 			assert(!isFinalized);
 			
 			// Allocate the section at the lowest uncommitted byte of image memory.
-			uint8* allocationBaseAddress = section.baseAddress + align(section.numCommittedBytes,alignment);
-			assert(!(reinterpret_cast<uintp>(allocationBaseAddress) & (alignment-1)));
+			U8* allocationBaseAddress = section.baseAddress + align(section.numCommittedBytes,alignment);
+			assert(!(reinterpret_cast<Uptr>(allocationBaseAddress) & (alignment-1)));
 			section.numCommittedBytes = align(section.numCommittedBytes,alignment) + align(numBytes,alignment);
 
 			// Check that enough space was reserved in the section.
@@ -201,8 +201,8 @@ namespace LLVMJIT
 			return allocationBaseAddress;
 		}
 		
-		static uintp align(uintp size,uintp alignment) { return (size + alignment - 1) & ~(alignment - 1); }
-		static uintp shrAndRoundUp(uintp value,uintp shift) { return (value + (uintp(1)<<shift) - 1) >> shift; }
+		static Uptr align(Uptr size,Uptr alignment) { return (size + alignment - 1) & ~(alignment - 1); }
+		static Uptr shrAndRoundUp(Uptr value,Uptr shift) { return (value + (Uptr(1)<<shift) - 1) >> shift; }
 
 		UnitMemoryManager(const UnitMemoryManager&) = delete;
 		void operator=(const UnitMemoryManager&) = delete;
@@ -226,13 +226,13 @@ namespace LLVMJIT
 		{
 			compileLayer->removeModuleSet(handle);
 			#ifdef _WIN32
-				if(pdataCopy) { Platform::deregisterSEHUnwindInfo(reinterpret_cast<uintp>(pdataCopy)); }
+				if(pdataCopy) { Platform::deregisterSEHUnwindInfo(reinterpret_cast<Uptr>(pdataCopy)); }
 			#endif
 		}
 
 		void compile(llvm::Module* llvmModule);
 
-		virtual void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes,std::map<uint32,uint32>&& offsetToOpIndexMap) = 0;
+		virtual void notifySymbolLoaded(const char* name,Uptr baseAddress,Uptr numBytes,std::map<U32,U32>&& offsetToOpIndexMap) = 0;
 
 	private:
 		
@@ -273,7 +273,7 @@ namespace LLVMJIT
 		std::vector<LoadedObject> loadedObjects;
 
 		#ifdef _WIN32
-			uint8* pdataCopy;
+			U8* pdataCopy;
 		#endif
 	};
 
@@ -296,10 +296,10 @@ namespace LLVMJIT
 			}
 		}
 
-		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes,std::map<uint32,uint32>&& offsetToOpIndexMap) override
+		void notifySymbolLoaded(const char* name,Uptr baseAddress,Uptr numBytes,std::map<U32,U32>&& offsetToOpIndexMap) override
 		{
 			// Save the address range this function was loaded at for future address->symbol lookups.
-			uintp functionDefIndex;
+			Uptr functionDefIndex;
 			if(getFunctionIndexFromExternalName(name,functionDefIndex))
 			{
 				assert(moduleInstance);
@@ -326,7 +326,7 @@ namespace LLVMJIT
 
 		JITInvokeThunkUnit(const FunctionType* inFunctionType): JITUnit(false), functionType(inFunctionType), symbol(nullptr) {}
 
-		void notifySymbolLoaded(const char* name,uintp baseAddress,size_t numBytes,std::map<uint32,uint32>&& offsetToOpIndexMap) override
+		void notifySymbolLoaded(const char* name,Uptr baseAddress,Uptr numBytes,std::map<U32,U32>&& offsetToOpIndexMap) override
 		{
 			assert(!strcmp(name,"invokeThunk"));
 			symbol = new JITSymbol(functionType,baseAddress,numBytes,std::move(offsetToOpIndexMap));
@@ -348,7 +348,7 @@ namespace LLVMJIT
 		if(name == "__chkstk")
 		{
 			void *addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
-			if (addr) { return llvm::JITSymbol(reinterpret_cast<uintp>(addr),llvm::JITSymbolFlags::None); }
+			if (addr) { return llvm::JITSymbol(reinterpret_cast<Uptr>(addr),llvm::JITSymbolFlags::None); }
 		}
 
 		Log::printf(Log::Category::error,"LLVM generated code referenced external symbol: %s\n",name.c_str());
@@ -363,7 +363,7 @@ namespace LLVMJIT
 		)
 	{
 		assert(objectSet.size() == loadedObjects.size());
-		for(uintp objectIndex = 0;objectIndex < loadedObjects.size();++objectIndex)
+		for(Uptr objectIndex = 0;objectIndex < loadedObjects.size();++objectIndex)
 		{
 			llvm::object::ObjectFile* object = objectSet[objectIndex].get()->getBinary();
 			llvm::RuntimeDyld::LoadedObjectInfo* loadedObject = loadedObjects[objectIndex].get();
@@ -389,14 +389,14 @@ namespace LLVMJIT
 				// Pass the pdata section to the platform to register unwind info.
 				if(pdataSection.getObject())
 				{
-					const uintp imageBaseAddress = reinterpret_cast<uintp>(jitUnit->memoryManager.getImageBaseAddress());
-					const uintp pdataSectionLoadAddress = (uintp)loadedObject->getSectionLoadAddress(pdataSection);
+					const Uptr imageBaseAddress = reinterpret_cast<Uptr>(jitUnit->memoryManager.getImageBaseAddress());
+					const Uptr pdataSectionLoadAddress = (Uptr)loadedObject->getSectionLoadAddress(pdataSection);
 					
 					// The LLVM COFF dynamic loader doesn't handle the image-relative relocations used by the pdata section,
 					// and overwrites those values with o: https://github.com/llvm-mirror/llvm/blob/e84d8c12d5157a926db15976389f703809c49aa5/lib/ExecutionEngine/RuntimeDyld/Targets/RuntimeDyldCOFFX86_64.h#L96
 					// This works around that by making a copy of the pdata section and doing the pdata relocations manually.
-					jitUnit->pdataCopy = new uint8[pdataSection.getSize()];
-					memcpy(jitUnit->pdataCopy,reinterpret_cast<uint8*>(pdataSectionLoadAddress),pdataSection.getSize());
+					jitUnit->pdataCopy = new U8[pdataSection.getSize()];
+					memcpy(jitUnit->pdataCopy,reinterpret_cast<U8*>(pdataSectionLoadAddress),pdataSection.getSize());
 
 					for(auto pdataRelocIt : pdataSection.relocations())
 					{
@@ -404,19 +404,19 @@ namespace LLVMJIT
 						if(pdataRelocIt.getType() != 3) { Errors::unreachable(); }
 
 						const auto symbol = pdataRelocIt.getSymbol();
-						const uint64 symbolAddress = symbol->getAddress().get();
+						const U64 symbolAddress = symbol->getAddress().get();
 						const llvm::object::section_iterator symbolSection = symbol->getSection().get();
-						uint32* valueToRelocate = (uint32*)(jitUnit->pdataCopy + pdataRelocIt.getOffset());
-						const uint64 relocatedValue64 =
+						U32* valueToRelocate = (U32*)(jitUnit->pdataCopy + pdataRelocIt.getOffset());
+						const U64 relocatedValue64 =
 							+ (symbolAddress - symbolSection->getAddress())
 							+ loadedObject->getSectionLoadAddress(*symbolSection)
 							+ *valueToRelocate
 							- imageBaseAddress;
 						if(relocatedValue64 > UINT32_MAX) { Errors::unreachable(); }
-						*valueToRelocate = (uint32)relocatedValue64;
+						*valueToRelocate = (U32)relocatedValue64;
 					}
 
-					Platform::registerSEHUnwindInfo(imageBaseAddress,reinterpret_cast<uintp>(jitUnit->pdataCopy),pdataSection.getSize());
+					Platform::registerSEHUnwindInfo(imageBaseAddress,reinterpret_cast<Uptr>(jitUnit->pdataCopy),pdataSection.getSize());
 				}
 			#endif
 		}
@@ -425,7 +425,7 @@ namespace LLVMJIT
 
 	void JITUnit::NotifyFinalizedFunctor::operator()(const llvm::orc::ObjectLinkingLayerBase::ObjSetHandleT& objectSetHandle)
 	{
-		for(uintp objectIndex = 0;objectIndex < jitUnit->loadedObjects.size();++objectIndex)
+		for(Uptr objectIndex = 0;objectIndex < jitUnit->loadedObjects.size();++objectIndex)
 		{
 			llvm::object::ObjectFile* object = jitUnit->loadedObjects[objectIndex].object;
 			llvm::RuntimeDyld::LoadedObjectInfo* loadedObject = jitUnit->loadedObjects[objectIndex].loadedObject;
@@ -444,17 +444,17 @@ namespace LLVMJIT
 				&&	address)
 				{
 					// Compute the address the functions was loaded at.
-					uintp loadedAddress = *address;
+					Uptr loadedAddress = *address;
 					auto symbolSection = symbol.getSection();
 					if(symbolSection)
 					{
-						loadedAddress += (uintp)loadedObject->getSectionLoadAddress(*symbolSection.get());
+						loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
 					}
 
 					// Get the DWARF line info for this symbol, which maps machine code addresses to WebAssembly op indices.
 					llvm::DILineInfoTable lineInfoTable = dwarfContext->getLineInfoForAddressRange(loadedAddress,symbolSizePair.second);
-					std::map<uint32,uint32> offsetToOpIndexMap;
-					for(auto lineInfo : lineInfoTable) { offsetToOpIndexMap.emplace(uint32(lineInfo.first - loadedAddress),lineInfo.second.Line); }
+					std::map<U32,U32> offsetToOpIndexMap;
+					for(auto lineInfo : lineInfoTable) { offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress),lineInfo.second.Line); }
 
 					// Notify the JIT unit that the symbol was loaded.
 					jitUnit->notifySymbolLoaded(name->data(),loadedAddress,symbolSizePair.second,std::move(offsetToOpIndexMap));
@@ -465,7 +465,7 @@ namespace LLVMJIT
 		jitUnit->loadedObjects.clear();
 	}
 
-	static uintp printedModuleId = 0;
+	static Uptr printedModuleId = 0;
 
 	void printModule(const llvm::Module* llvmModule,const char* filename)
 	{
@@ -508,7 +508,7 @@ namespace LLVMJIT
 		
 		if(shouldLogMetrics)
 		{
-			Timing::logRatePerSecond("Optimized LLVM module",optimizationTimer,(float64)llvmModule->size(),"functions");
+			Timing::logRatePerSecond("Optimized LLVM module",optimizationTimer,(F64)llvmModule->size(),"functions");
 		}
 
 		if(DUMP_OPTIMIZED_MODULE) { printModule(llvmModule,"llvmOptimizedDump"); }
@@ -523,7 +523,7 @@ namespace LLVMJIT
 
 		if(shouldLogMetrics)
 		{
-			Timing::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
+			Timing::logRatePerSecond("Generated machine code",machineCodeTimer,(F64)llvmModule->size(),"functions");
 		}
 		
 		delete llvmModule;
@@ -542,14 +542,14 @@ namespace LLVMJIT
 		jitModule->compile(llvmModule);
 	}
 
-	std::string getExternalFunctionName(ModuleInstance* moduleInstance,uintp functionDefIndex)
+	std::string getExternalFunctionName(ModuleInstance* moduleInstance,Uptr functionDefIndex)
 	{
 		assert(functionDefIndex < moduleInstance->functionDefs.size());
 		return "wasmFunc" + std::to_string(functionDefIndex)
 			+ "_" + moduleInstance->functionDefs[functionDefIndex]->debugName;
 	}
 
-	bool getFunctionIndexFromExternalName(const char* externalName,uintp& outFunctionDefIndex)
+	bool getFunctionIndexFromExternalName(const char* externalName,Uptr& outFunctionDefIndex)
 	{
 		if(!strncmp(externalName,"wasmFunc",8))
 		{
@@ -560,7 +560,7 @@ namespace LLVMJIT
 		else { return false; }
 	}
 
-	bool describeInstructionPointer(uintp ip,std::string& outDescription)
+	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
 	{
 		JITSymbol* symbol;
 		{
@@ -584,8 +584,8 @@ namespace LLVMJIT
 		};
 		
 		// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
-		uint32 ipOffset = (uint32)(ip - symbol->baseAddress);
-		intp opIndex = -1;
+		U32 ipOffset = (U32)(ip - symbol->baseAddress);
+		Iptr opIndex = -1;
 		for(auto offsetMapIt : symbol->offsetToOpIndexMap)
 		{
 			if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
@@ -615,11 +615,11 @@ namespace LLVMJIT
 
 		// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
 		std::vector<llvm::Value*> structArgLoads;
-		for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+		for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 		{
 			structArgLoads.push_back(irBuilder.CreateLoad(
 				irBuilder.CreatePointerCast(
-					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintp)parameterIndex)}),
+					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((Uptr)parameterIndex)}),
 					asLLVMType(functionType->parameters[parameterIndex])->getPointerTo()
 					)
 				));
@@ -635,7 +635,7 @@ namespace LLVMJIT
 			irBuilder.CreateStore(
 				returnValue,
 				irBuilder.CreatePointerCast(
-					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((uintp)functionType->parameters.size())}),
+					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((Uptr)functionType->parameters.size())}),
 					llvmResultType->getPointerTo()
 					)
 				);
@@ -696,36 +696,36 @@ namespace LLVMJIT
 		llvmB64x2Type = llvm::VectorType::get(llvmBoolType,2);
 		#endif
 
-		llvmResultTypes[(size_t)ResultType::none] = llvm::Type::getVoidTy(context);
-		llvmResultTypes[(size_t)ResultType::i32] = llvmI32Type;
-		llvmResultTypes[(size_t)ResultType::i64] = llvmI64Type;
-		llvmResultTypes[(size_t)ResultType::f32] = llvmF32Type;
-		llvmResultTypes[(size_t)ResultType::f64] = llvmF64Type;
+		llvmResultTypes[(Uptr)ResultType::none] = llvm::Type::getVoidTy(context);
+		llvmResultTypes[(Uptr)ResultType::i32] = llvmI32Type;
+		llvmResultTypes[(Uptr)ResultType::i64] = llvmI64Type;
+		llvmResultTypes[(Uptr)ResultType::f32] = llvmF32Type;
+		llvmResultTypes[(Uptr)ResultType::f64] = llvmF64Type;
 
 		#if ENABLE_SIMD_PROTOTYPE
-		llvmResultTypes[(size_t)ResultType::v128] = llvmI64x2Type;
-		llvmResultTypes[(size_t)ResultType::b8x16] = llvm::VectorType::get(llvmBoolType,16);
-		llvmResultTypes[(size_t)ResultType::b16x8] = llvm::VectorType::get(llvmBoolType,8);
-		llvmResultTypes[(size_t)ResultType::b32x4] = llvm::VectorType::get(llvmBoolType,4);
-		llvmResultTypes[(size_t)ResultType::b64x2] = llvm::VectorType::get(llvmBoolType,2);
+		llvmResultTypes[(Uptr)ResultType::v128] = llvmI64x2Type;
+		llvmResultTypes[(Uptr)ResultType::b8x16] = llvm::VectorType::get(llvmBoolType,16);
+		llvmResultTypes[(Uptr)ResultType::b16x8] = llvm::VectorType::get(llvmBoolType,8);
+		llvmResultTypes[(Uptr)ResultType::b32x4] = llvm::VectorType::get(llvmBoolType,4);
+		llvmResultTypes[(Uptr)ResultType::b64x2] = llvm::VectorType::get(llvmBoolType,2);
 		#endif
 
 		// Create zero constants of each type.
-		typedZeroConstants[(size_t)ValueType::any] = nullptr;
-		typedZeroConstants[(size_t)ValueType::i32] = emitLiteral((uint32)0);
-		typedZeroConstants[(size_t)ValueType::i64] = emitLiteral((uint64)0);
-		typedZeroConstants[(size_t)ValueType::f32] = emitLiteral((float32)0.0f);
-		typedZeroConstants[(size_t)ValueType::f64] = emitLiteral((float64)0.0);
+		typedZeroConstants[(Uptr)ValueType::any] = nullptr;
+		typedZeroConstants[(Uptr)ValueType::i32] = emitLiteral((U32)0);
+		typedZeroConstants[(Uptr)ValueType::i64] = emitLiteral((U64)0);
+		typedZeroConstants[(Uptr)ValueType::f32] = emitLiteral((F32)0.0f);
+		typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral((F64)0.0);
 
 		#if ENABLE_SIMD_PROTOTYPE
-		typedZeroConstants[(size_t)ValueType::v128] = llvm::ConstantVector::get({typedZeroConstants[(size_t)ValueType::i64],typedZeroConstants[(size_t)ValueType::i64]});
+		typedZeroConstants[(Uptr)ValueType::v128] = llvm::ConstantVector::get({typedZeroConstants[(Uptr)ValueType::i64],typedZeroConstants[(Uptr)ValueType::i64]});
 
 		llvm::Constant* llvmFalse = emitLiteral(false);
-		typedZeroConstants[(size_t)ValueType::b8x16] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,
+		typedZeroConstants[(Uptr)ValueType::b8x16] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,
 																	llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse});
-		typedZeroConstants[(size_t)ValueType::b16x8] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse});
-		typedZeroConstants[(size_t)ValueType::b32x4] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse});
-		typedZeroConstants[(size_t)ValueType::b64x2] = llvm::ConstantVector::get({llvmFalse,llvmFalse});
+		typedZeroConstants[(Uptr)ValueType::b16x8] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse});
+		typedZeroConstants[(Uptr)ValueType::b32x4] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse});
+		typedZeroConstants[(Uptr)ValueType::b64x2] = llvm::ConstantVector::get({llvmFalse,llvmFalse});
 		#endif
 	}
 }

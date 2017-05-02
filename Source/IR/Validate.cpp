@@ -23,7 +23,7 @@ namespace IR
 	{
 		if(valueType == ValueType::any || valueType > ValueType::max)
 		{
-			throw ValidationException("invalid value type (" + std::to_string((uintp)valueType) + ")");
+			throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")");
 		}
 	}
 
@@ -31,7 +31,7 @@ namespace IR
 	{
 		if(returnType > ResultType::max)
 		{
-			throw ValidationException("invalid return type (" + std::to_string((uintp)returnType) + ")");
+			throw ValidationException("invalid return type (" + std::to_string((Uptr)returnType) + ")");
 		}
 	}
 
@@ -39,20 +39,20 @@ namespace IR
 	{
 		if(kind > ObjectKind::max)
 		{
-			throw ValidationException("invalid external kind (" + std::to_string((uintp)kind) + ")");
+			throw ValidationException("invalid external kind (" + std::to_string((Uptr)kind) + ")");
 		}
 	}
 
-	void validate(SizeConstraints size,size_t maxMax)
+	void validate(SizeConstraints size,Uptr maxMax)
 	{
-		size_t max = size.max == UINT64_MAX ? maxMax : size.max;
+		Uptr max = size.max == UINT64_MAX ? maxMax : size.max;
 		VALIDATE_UNLESS("disjoint size bounds: ",size.min>max);
 		VALIDATE_UNLESS("maximum size exceeds limit: ",max>maxMax);
 	}
 
 	void validate(TableElementType type)
 	{
-		if(type != TableElementType::anyfunc) { throw ValidationException("invalid table element type (" + std::to_string((uintp)type) + ")"); }
+		if(type != TableElementType::anyfunc) { throw ValidationException("invalid table element type (" + std::to_string((Uptr)type) + ")"); }
 	}
 
 	void validate(TableType type)
@@ -113,7 +113,7 @@ namespace IR
 		}
 	}
 
-	ValueType validateGlobalIndex(const Module& module,uintp globalIndex,bool mustBeMutable,bool mustBeImmutable,bool mustBeImport,const char* context)
+	ValueType validateGlobalIndex(const Module& module,Uptr globalIndex,bool mustBeMutable,bool mustBeImmutable,bool mustBeImport,const char* context)
 	{
 		VALIDATE_INDEX(globalIndex,module.globals.size());
 		const GlobalType& globalType = module.globals.getType(globalIndex);
@@ -123,7 +123,7 @@ namespace IR
 		return globalType.valueType;
 	}
 
-	const FunctionType* validateFunctionIndex(const Module& module,uintp functionIndex)
+	const FunctionType* validateFunctionIndex(const Module& module,Uptr functionIndex)
 	{
 		VALIDATE_INDEX(functionIndex,module.functions.size());
 		return module.types[module.functions.getType(functionIndex).index];
@@ -162,14 +162,14 @@ namespace IR
 			pushControlStack(ControlContext::Type::function,functionType->ret,functionType->ret);
 		}
 
-		size_t getControlStackSize() { return controlStack.size(); }
+		Uptr getControlStackSize() { return controlStack.size(); }
 		
 		void logOperator(const std::string& operatorDescription)
 		{
 			if(ENABLE_LOGGING)
 			{
 				std::string controlStackString;
-				for(uintp stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
+				for(Uptr stackIndex = 0;stackIndex < controlStack.size();++stackIndex)
 				{
 					if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
 					switch(controlStack[stackIndex].type)
@@ -185,8 +185,8 @@ namespace IR
 				}
 
 				std::string stackString;
-				const uintp stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
-				for(uintp stackIndex = 0;stackIndex < stack.size();++stackIndex)
+				const Uptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
+				for(Uptr stackIndex = 0;stackIndex < stack.size();++stackIndex)
 				{
 					if(stackIndex == stackBase) { stackString += "| "; }
 					stackString +=  asString(stack[stackIndex]);
@@ -201,7 +201,7 @@ namespace IR
 		// Operation dispatch methods.
 		void unknown(Opcode opcode)
 		{
-			throw ValidationException("Unknown opcode: " + std::to_string((uintp)opcode));
+			throw ValidationException("Unknown opcode: " + std::to_string((Uptr)opcode));
 		}
 		void block(ControlStructureImm imm)
 		{
@@ -248,8 +248,8 @@ namespace IR
 			popAndValidateResultType("br_table argument",defaultTargetArgumentType);
 
 			assert(imm.branchTableIndex < functionDef.branchTables.size());
-			const std::vector<uint32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
-			for(uintp targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
+			const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+			for(Uptr targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
 			{
 				const ResultType targetArgumentType = getBranchTargetByDepth(targetDepths[targetIndex]).branchArgumentType;
 				VALIDATE_UNLESS("br_table target argument must match default target argument: ",targetArgumentType != defaultTargetArgumentType);
@@ -328,7 +328,7 @@ namespace IR
 		template<typename nativeType>
 		void validateImm(LiteralImm<nativeType> imm) {}
 
-		template<size_t naturalAlignmentLog2>
+		template<Uptr naturalAlignmentLog2>
 		void validateImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
 			VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2);
@@ -341,25 +341,25 @@ namespace IR
 		}
 
 		#if ENABLE_SIMD_PROTOTYPE
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		void validateImm(LaneIndexImm<numLanes> imm)
 		{
 			VALIDATE_UNLESS("swizzle invalid lane index",imm.laneIndex>=numLanes);
 		}
 		
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		void validateImm(SwizzleImm<numLanes> imm)
 		{
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 			{
 				VALIDATE_UNLESS("swizzle invalid lane index",imm.laneIndices[laneIndex]>=numLanes);
 			}
 		}
 
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		void validateImm(ShuffleImm<numLanes> imm)
 		{
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 			{
 				VALIDATE_UNLESS("shuffle invalid lane index",imm.laneIndices[laneIndex]>=numLanes*2);
 			}
@@ -371,7 +371,7 @@ namespace IR
 		{
 			VALIDATE_UNLESS("launch_thread is only valid if there is a default table",module.tables.size() == 0);
 		}
-		template<size_t naturalAlignmentLog2>
+		template<Uptr naturalAlignmentLog2>
 		void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
 			VALIDATE_UNLESS("atomic memory operator in module without default memory: ",module.memories.size()==0);
@@ -402,7 +402,7 @@ namespace IR
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::vectorTypeId,ValueType::scalarTypeId); \
 			pushOperand(ValueType::vectorTypeId);
 		#define BUILDVECTOR(scalarTypeId,numLanes,vectorTypeId) \
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex) \
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex) \
 			{ \
 				popAndValidateOperand(operatorName,ValueType::scalarTypeId); \
 			} \
@@ -440,7 +440,7 @@ namespace IR
 		
 		struct ControlContext
 		{
-			enum class Type : uint8
+			enum class Type : U8
 			{
 				function,
 				block,
@@ -451,7 +451,7 @@ namespace IR
 			};
 
 			Type type;
-			uintp outerStackSize;
+			Uptr outerStackSize;
 			
 			ResultType branchArgumentType;
 			ResultType resultType;
@@ -499,19 +499,19 @@ namespace IR
 			controlStack.back().isReachable = false;
 		}
 
-		void validateBranchDepth(uintp depth) const
+		void validateBranchDepth(Uptr depth) const
 		{
 			VALIDATE_INDEX(depth,controlStack.size());
 			if(depth >= controlStack.size()) { throw ValidationException("invalid branch depth"); }
 		}
 
-		const ControlContext& getBranchTargetByDepth(uintp depth) const
+		const ControlContext& getBranchTargetByDepth(Uptr depth) const
 		{
 			validateBranchDepth(depth);
 			return controlStack[controlStack.size() - depth - 1];
 		}
 
-		ValueType validateLocalIndex(uintp localIndex)
+		ValueType validateLocalIndex(Uptr localIndex)
 		{
 			VALIDATE_INDEX(localIndex,locals.size());
 			return locals[localIndex];
@@ -535,17 +535,17 @@ namespace IR
 			}
 		}
 
-		void popAndValidateOperands(const char* context,const ValueType* expectedTypes,size_t num)
+		void popAndValidateOperands(const char* context,const ValueType* expectedTypes,Uptr num)
 		{
-			for(uintp operandIndexFromEnd = 0;operandIndexFromEnd < num;++operandIndexFromEnd)
+			for(Uptr operandIndexFromEnd = 0;operandIndexFromEnd < num;++operandIndexFromEnd)
 			{
-				const uintp operandIndex = num - operandIndexFromEnd - 1;
+				const Uptr operandIndex = num - operandIndexFromEnd - 1;
 				const ValueType actualType = popOperand();
 				validateOperandType(expectedTypes[operandIndex],actualType,context);
 			}
 		}
 
-		template<size_t num>
+		template<Uptr num>
 		void popAndValidateOperands(const char* context,const ValueType (&expectedTypes)[num]) { popAndValidateOperands(context,expectedTypes,num); }
 		
 		template<typename... OperandTypes>
@@ -580,7 +580,7 @@ namespace IR
 	{
 		Timing::Timer timer;
 		
-		for(uintp typeIndex = 0;typeIndex < module.types.size();++typeIndex)
+		for(Uptr typeIndex = 0;typeIndex < module.types.size();++typeIndex)
 		{
 			const FunctionType* functionType = module.types[typeIndex];
 			for(auto parameterType : functionType->parameters) { validate(parameterType); }
@@ -599,7 +599,7 @@ namespace IR
 			VALIDATE_UNLESS("mutable globals cannot be imported: ",globalImport.type.isMutable);
 		}
 		
-		for(uintp functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
+		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
 			const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
 			VALIDATE_INDEX(functionDef.type.index,module.types.size());

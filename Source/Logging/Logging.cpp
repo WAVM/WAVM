@@ -8,7 +8,7 @@
 namespace Log
 {
 	static Platform::Mutex* categoryEnabledMutex = Platform::createMutex();
-	static bool categoryEnabled[(size_t)Category::num] =
+	static bool categoryEnabled[(Uptr)Category::num] =
 	{
 		true, // error
 		#ifdef _DEBUG // debug
@@ -22,18 +22,18 @@ namespace Log
 	{
 		Platform::Lock lock(categoryEnabledMutex);
 		assert(category < Category::num);
-		categoryEnabled[(uintp)category] = enable;
+		categoryEnabled[(Uptr)category] = enable;
 	}
 	bool isCategoryEnabled(Category category)
 	{
 		Platform::Lock lock(categoryEnabledMutex);
 		assert(category < Category::num);
-		return categoryEnabled[(uintp)category];
+		return categoryEnabled[(Uptr)category];
 	}
 	void printf(Category category,const char* format,...)
 	{
 		Platform::Lock lock(categoryEnabledMutex);
-		if(categoryEnabled[(uintp)category])
+		if(categoryEnabled[(Uptr)category])
 		{
 			va_list varArgs;
 			va_start(varArgs,format);

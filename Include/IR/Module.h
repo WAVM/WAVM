@@ -11,7 +11,7 @@ namespace IR
 	// An initializer expression: serialized like any other code, but may only be a constant or immutable global
 	struct InitializerExpression
 	{
-		enum class Type : uint8
+		enum class Type : U8
 		{
 			i32_const = 0x41,
 			i64_const = 0x42,
@@ -23,18 +23,18 @@ namespace IR
 		Type type;
 		union
 		{
-			int32 i32;
-			int64 i64;
-			float32 f32;
-			float64 f64;
-			uintp globalIndex;
+			I32 i32;
+			I64 i64;
+			F32 f32;
+			F64 f64;
+			Uptr globalIndex;
 		};
 		InitializerExpression(): type(Type::error) {}
-		InitializerExpression(int32 inI32): type(Type::i32_const), i32(inI32) {}
-		InitializerExpression(int64 inI64): type(Type::i64_const), i64(inI64) {}
-		InitializerExpression(float32 inF32): type(Type::f32_const), f32(inF32) {}
-		InitializerExpression(float64 inF64): type(Type::f64_const), f64(inF64) {}
-		InitializerExpression(Type inType,uintp inGlobalIndex): type(inType), globalIndex(inGlobalIndex) { assert(inType == Type::get_global); }
+		InitializerExpression(I32 inI32): type(Type::i32_const), i32(inI32) {}
+		InitializerExpression(I64 inI64): type(Type::i64_const), i64(inI64) {}
+		InitializerExpression(F32 inF32): type(Type::f32_const), f32(inF32) {}
+		InitializerExpression(F64 inF64): type(Type::f64_const), f64(inF64) {}
+		InitializerExpression(Type inType,Uptr inGlobalIndex): type(inType), globalIndex(inGlobalIndex) { assert(inType == Type::get_global); }
 	};
 
 	// A function definition
@@ -42,8 +42,8 @@ namespace IR
 	{
 		IndexedFunctionType type;
 		std::vector<ValueType> nonParameterLocalTypes;
-		std::vector<uint8> code;
-		std::vector<std::vector<uint32>> branchTables;
+		std::vector<U8> code;
+		std::vector<std::vector<U32>> branchTables;
 	};
 
 	// A table definition
@@ -74,7 +74,7 @@ namespace IR
 		std::string exportName;
 	};
 
-	typedef Import<uintp> FunctionImport;
+	typedef Import<Uptr> FunctionImport;
 	typedef Import<TableType> TableImport;
 	typedef Import<MemoryType> MemoryImport;
 	typedef Import<GlobalType> GlobalImport;
@@ -84,30 +84,30 @@ namespace IR
 	{
 		std::string name;
 		ObjectKind kind;
-		uintp index;
+		Uptr index;
 	};
 	
 	// A data segment: a literal sequence of bytes that is copied into a Runtime::Memory when instantiating a module
 	struct DataSegment
 	{
-		uintp memoryIndex;
+		Uptr memoryIndex;
 		InitializerExpression baseOffset;
-		std::vector<uint8> data;
+		std::vector<U8> data;
 	};
 
 	// A table segment: a literal sequence of function indices that is copied into a Runtime::Table when instantiating a module
 	struct TableSegment
 	{
-		uintp tableIndex;
+		Uptr tableIndex;
 		InitializerExpression baseOffset;
-		std::vector<uintp> indices;
+		std::vector<Uptr> indices;
 	};
 
 	// A user-defined module section as an array of bytes
 	struct UserSection
 	{
 		std::string name;
-		std::vector<uint8> data;
+		std::vector<U8> data;
 	};
 
 	// An index-space for imports and definitions of a specific kind.
@@ -117,8 +117,8 @@ namespace IR
 		std::vector<Import<Type>> imports;
 		std::vector<Definition> defs;
 
-		size_t size() const { return imports.size() + defs.size(); }
-		Type getType(uintp index) const
+		Uptr size() const { return imports.size() + defs.size(); }
+		Type getType(Uptr index) const
 		{
 			if(index < imports.size()) { return imports[index].type; }
 			else { return defs[index - imports.size()].type; }
@@ -140,15 +140,15 @@ namespace IR
 		std::vector<TableSegment> tableSegments;
 		std::vector<UserSection> userSections;
 
-		uintp startFunctionIndex;
+		Uptr startFunctionIndex;
 
 		Module() : startFunctionIndex(UINTPTR_MAX) {}
 	};
 	
 	// Finds a named user section in a module.
-	inline bool findUserSection(const Module& module,const char* userSectionName,uintp& outUserSectionIndex)
+	inline bool findUserSection(const Module& module,const char* userSectionName,Uptr& outUserSectionIndex)
 	{
-		for(uintp sectionIndex = 0;sectionIndex < module.userSections.size();++sectionIndex)
+		for(Uptr sectionIndex = 0;sectionIndex < module.userSections.size();++sectionIndex)
 		{
 			if(module.userSections[sectionIndex].name == userSectionName)
 			{

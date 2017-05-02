@@ -8,7 +8,7 @@
 #include <map>
 #include <atomic>
 
-#define HAS_64BIT_ADDRESS_SPACE (sizeof(uintp) == 8 && !PRETEND_32BIT_ADDRESS_SPACE)
+#define HAS_64BIT_ADDRESS_SPACE (sizeof(Uptr) == 8 && !PRETEND_32BIT_ADDRESS_SPACE)
 
 namespace LLVMJIT
 {
@@ -21,9 +21,9 @@ namespace LLVMJIT
 
 	void init();
 	void instantiateModule(const IR::Module& module,Runtime::ModuleInstance* moduleInstance);
-	bool describeInstructionPointer(uintp ip,std::string& outDescription);
+	bool describeInstructionPointer(Uptr ip,std::string& outDescription);
 	
-	typedef void (*InvokeFunctionPointer)(void*,uint64*);
+	typedef void (*InvokeFunctionPointer)(void*,U64*);
 
 	// Generates an invoke thunk for a specific function type.
 	InvokeFunctionPointer getInvokeThunk(const IR::FunctionType* functionType);
@@ -64,10 +64,10 @@ namespace Runtime
 		TableType type;
 
 		FunctionElement* baseAddress;
-		size_t endOffset;
+		Uptr endOffset;
 
-		uint8* reservedBaseAddress;
-		size_t reservedNumPlatformPages;
+		U8* reservedBaseAddress;
+		Uptr reservedNumPlatformPages;
 
 		// The Objects corresponding to the FunctionElements at baseAddress.
 		std::vector<ObjectInstance*> elements;
@@ -81,12 +81,12 @@ namespace Runtime
 	{
 		MemoryType type;
 
-		uint8* baseAddress;
-		std::atomic<size_t> numPages;
-		size_t endOffset;
+		U8* baseAddress;
+		std::atomic<Uptr> numPages;
+		Uptr endOffset;
 
-		uint8* reservedBaseAddress;
-		size_t reservedNumPlatformPages;
+		U8* reservedBaseAddress;
+		Uptr reservedNumPlatformPages;
 
 		MemoryInstance(const MemoryType& inType): GCObject(ObjectKind::memory), type(inType), baseAddress(nullptr), numPages(0), endOffset(0), reservedBaseAddress(nullptr), reservedNumPlatformPages(0) {}
 		~MemoryInstance() override;
@@ -141,15 +141,15 @@ namespace Runtime
 	void initWAVMIntrinsics();
 
 	// Checks whether an address is owned by a table or memory.
-	bool isAddressOwnedByTable(uint8* address);
-	bool isAddressOwnedByMemory(uint8* address);
+	bool isAddressOwnedByTable(U8* address);
+	bool isAddressOwnedByMemory(U8* address);
 	
 	// Allocates virtual pages with alignBytes of padding, and returns an aligned base address.
 	// The unaligned allocation address and size are written to outUnalignedBaseAddress and outUnalignedNumPlatformPages.
-	uint8* allocateVirtualPagesAligned(size_t numBytes,size_t alignmentBytes,uint8*& outUnalignedBaseAddress,size_t& outUnalignedNumPlatformPages);
+	U8* allocateVirtualPagesAligned(Uptr numBytes,Uptr alignmentBytes,U8*& outUnalignedBaseAddress,Uptr& outUnalignedNumPlatformPages);
 
 	// Turns a hardware trap that occurred in WASM code into a runtime exception or fatal error.
-	[[noreturn]] void handleHardwareTrap(Platform::HardwareTrapType trapType,Platform::CallStack&& trapCallStack,uintp trapOperand);
+	[[noreturn]] void handleHardwareTrap(Platform::HardwareTrapType trapType,Platform::CallStack&& trapCallStack,Uptr trapOperand);
 
 	// Adds GC roots from WASM threads to the provided array.
 	void getThreadGCRoots(std::vector<ObjectInstance*>& outGCRoots);

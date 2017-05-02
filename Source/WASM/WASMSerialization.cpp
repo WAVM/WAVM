@@ -14,30 +14,30 @@ namespace IR
 	template<typename Stream>
 	void serialize(Stream& stream,ValueType& type)
 	{
-		int8 encodedValueType = -(int8)type;
+		I8 encodedValueType = -(I8)type;
 		serializeVarInt7(stream,encodedValueType);
 		if(Stream::isInput) { type = (ValueType)-encodedValueType; }
 	}
 
 	FORCEINLINE static void serialize(InputStream& stream,ResultType& resultType)
 	{
-		uintp arity;
+		Uptr arity;
 		serializeVarUInt1(stream,arity);
 		if(arity == 0) { resultType = ResultType::none; }
 		else
 		{
-			int8 encodedValueType = 0;
+			I8 encodedValueType = 0;
 			serializeVarInt7(stream,encodedValueType);
 			resultType = (ResultType)-encodedValueType;
 		}
 	}
 	static void serialize(OutputStream& stream,ResultType& returnType)
 	{
-		uintp arity = returnType == ResultType::none ? 0 : 1;
+		Uptr arity = returnType == ResultType::none ? 0 : 1;
 		serializeVarUInt1(stream,arity);
 		if(arity)
 		{
-			int8 encodedValueType = -(int8)returnType;
+			I8 encodedValueType = -(I8)returnType;
 			serializeVarInt7(stream,encodedValueType);
 		}
 	}
@@ -61,7 +61,7 @@ namespace IR
 	{
 		serialize(stream,tableType.elementType);
 		
-		uintp flags = 0;
+		Uptr flags = 0;
 		if(!Stream::isInput && tableType.size.max != UINT64_MAX) { flags |= 1; }
 		#if ENABLE_THREADING_PROTOTYPE
 		if(!Stream::isInput && tableType.isShared) { flags |= 2; }
@@ -76,7 +76,7 @@ namespace IR
 	template<typename Stream>
 	void serialize(Stream& stream,MemoryType& memoryType)
 	{
-		uintp flags = 0;
+		Uptr flags = 0;
 		if(!Stream::isInput && memoryType.size.max != UINT64_MAX) { flags |= 1; }
 		#if ENABLE_THREADING_PROTOTYPE
 		if(!Stream::isInput && memoryType.isShared) { flags |= 2; }
@@ -92,7 +92,7 @@ namespace IR
 	void serialize(Stream& stream,GlobalType& globalType)
 	{
 		serialize(stream,globalType.valueType);
-		uint8 isMutable = globalType.isMutable ? 1 : 0;
+		U8 isMutable = globalType.isMutable ? 1 : 0;
 		serializeVarUInt1(stream,isMutable);
 		if(Stream::isInput) { globalType.isMutable = isMutable != 0; }
 	}
@@ -100,7 +100,7 @@ namespace IR
 	template<typename Stream>
 	void serialize(Stream& stream,ObjectKind& kind)
 	{
-		serializeNativeValue(stream,*(uint8*)&kind);
+		serializeNativeValue(stream,*(U8*)&kind);
 	}
 
 	template<typename Stream>
@@ -114,7 +114,7 @@ namespace IR
 	template<typename Stream>
 	void serialize(Stream& stream,InitializerExpression& initializer)
 	{
-		serializeNativeValue(stream,*(uint8*)&initializer.type);
+		serializeNativeValue(stream,*(U8*)&initializer.type);
 		switch(initializer.type)
 		{
 		case InitializerExpression::Type::i32_const: serializeVarInt32(stream,initializer.i32); break;
@@ -124,7 +124,7 @@ namespace IR
 		case InitializerExpression::Type::get_global: serializeVarUInt32(stream,initializer.globalIndex); break;
 		default: throw FatalSerializationException("invalid initializer expression opcode");
 		}
-		serializeConstant(stream,"expected end opcode",(uint8)Opcode::end);
+		serializeConstant(stream,"expected end opcode",(U8)Opcode::end);
 	}
 	
 	template<typename Stream>
@@ -159,7 +159,7 @@ namespace IR
 	{
 		serializeVarUInt32(stream,tableSegment.tableIndex);
 		serialize(stream,tableSegment.baseOffset);
-		serializeArray(stream,tableSegment.indices,[](Stream& stream,uintp& functionIndex){serializeVarUInt32(stream,functionIndex);});
+		serializeArray(stream,tableSegment.indices,[](Stream& stream,Uptr& functionIndex){serializeVarUInt32(stream,functionIndex);});
 	}
 }
 
@@ -174,7 +174,7 @@ namespace WASM
 		currentVersion=1
 	};
 
-	enum class SectionType : uint8
+	enum class SectionType : U8
 	{
 		unknown = 0,
 		user = 0,
@@ -194,20 +194,20 @@ namespace WASM
 	FORCEINLINE void serialize(InputStream& stream,Opcode& opcode)
 	{
 		opcode = (Opcode)0;
-		Serialization::serializeNativeValue(stream,*(uint8*)&opcode);
+		Serialization::serializeNativeValue(stream,*(U8*)&opcode);
 		if(opcode > Opcode::maxSingleByteOpcode)
 		{
-			opcode = (Opcode)(uint16(opcode) << 8);
-			Serialization::serializeNativeValue(stream,*(uint8*)&opcode);
+			opcode = (Opcode)(U16(opcode) << 8);
+			Serialization::serializeNativeValue(stream,*(U8*)&opcode);
 		}
 	}
 	FORCEINLINE void serialize(OutputStream& stream,Opcode opcode)
 	{
-		if(opcode <= Opcode::maxSingleByteOpcode) { Serialization::serializeNativeValue(stream,*(uint8*)&opcode); }
+		if(opcode <= Opcode::maxSingleByteOpcode) { Serialization::serializeNativeValue(stream,*(U8*)&opcode); }
 		else
 		{
-			serializeNativeValue(stream,*(((uint8*)&opcode) + 1));
-			serializeNativeValue(stream,*(((uint8*)&opcode) + 0));
+			serializeNativeValue(stream,*(((U8*)&opcode) + 1));
+			serializeNativeValue(stream,*(((U8*)&opcode) + 0));
 		}
 	}
 	
@@ -217,7 +217,7 @@ namespace WASM
 	template<typename Stream>
 	void serialize(Stream& stream,ControlStructureImm& imm,const FunctionDef&)
 	{
-		int8 encodedResultType = imm.resultType == ResultType::none ? -64 : -(int8)imm.resultType;
+		I8 encodedResultType = imm.resultType == ResultType::none ? -64 : -(I8)imm.resultType;
 		serializeVarInt7(stream,encodedResultType);
 		if(Stream::isInput) { imm.resultType = encodedResultType == -64 ? ResultType::none : (ResultType)-encodedResultType; }
 	}
@@ -230,8 +230,8 @@ namespace WASM
 
 	void serialize(InputStream& stream,BranchTableImm& imm,FunctionDef& functionDef)
 	{
-		std::vector<uint32> branchTable;
-		serializeArray(stream,branchTable,[](InputStream& stream,uint32& targetDepth){serializeVarUInt32(stream,targetDepth);});
+		std::vector<U32> branchTable;
+		serializeArray(stream,branchTable,[](InputStream& stream,U32& targetDepth){serializeVarUInt32(stream,targetDepth);});
 		imm.branchTableIndex = functionDef.branchTables.size();
 		functionDef.branchTables.push_back(std::move(branchTable));
 		serializeVarUInt32(stream,imm.defaultTargetDepth);
@@ -239,8 +239,8 @@ namespace WASM
 	void serialize(OutputStream& stream,BranchTableImm& imm,FunctionDef& functionDef)
 	{
 		assert(imm.branchTableIndex < functionDef.branchTables.size());
-		std::vector<uint32>& branchTable = functionDef.branchTables[imm.branchTableIndex];
-		serializeArray(stream,branchTable,[](OutputStream& stream,uint32& targetDepth){serializeVarUInt32(stream,targetDepth);});
+		std::vector<U32>& branchTable = functionDef.branchTables[imm.branchTableIndex];
+		serializeArray(stream,branchTable,[](OutputStream& stream,U32& targetDepth){serializeVarUInt32(stream,targetDepth);});
 		serializeVarUInt32(stream,imm.defaultTargetDepth);
 	}
 
@@ -249,11 +249,11 @@ namespace WASM
 	{ serialize(stream,imm.value); }
 		
 	template<typename Stream>
-	void serialize(Stream& stream,LiteralImm<int32>& imm,const FunctionDef&)
+	void serialize(Stream& stream,LiteralImm<I32>& imm,const FunctionDef&)
 	{ serializeVarInt32(stream,imm.value); }
 	
 	template<typename Stream>
-	void serialize(Stream& stream,LiteralImm<int64>& imm,const FunctionDef&)
+	void serialize(Stream& stream,LiteralImm<I64>& imm,const FunctionDef&)
 	{ serializeVarInt64(stream,imm.value); }
 
 	template<typename Stream,bool isGlobal>
@@ -271,11 +271,11 @@ namespace WASM
 	{
 		serializeVarUInt32(stream,imm.type.index);
 
-		uint8 reserved = 0;
+		U8 reserved = 0;
 		serializeVarUInt1(stream,reserved);
 	}
 
-	template<typename Stream,size_t naturalAlignmentLog2>
+	template<typename Stream,Uptr naturalAlignmentLog2>
 	void serialize(Stream& stream,LoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
 	{
 		serializeVarUInt7(stream,imm.alignmentLog2);
@@ -284,28 +284,28 @@ namespace WASM
 	template<typename Stream>
 	void serialize(Stream& stream,MemoryImm& imm,const FunctionDef&)
 	{
-		uint8 reserved = 0;
+		U8 reserved = 0;
 		serializeVarUInt1(stream,reserved);
 	}
 
 	#if ENABLE_SIMD_PROTOTYPE
-		template<typename Stream,size_t numLanes>
+		template<typename Stream,Uptr numLanes>
 		void serialize(Stream& stream,LaneIndexImm<numLanes>& imm,const FunctionDef&)
 		{
 			serializeVarUInt7(stream,imm.laneIndex);
 		}
-		template<typename Stream,size_t numLanes>
+		template<typename Stream,Uptr numLanes>
 		void serialize(Stream& stream,SwizzleImm<numLanes>& imm,const FunctionDef&)
 		{
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 			{
 				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
 			}
 		}
-		template<typename Stream,size_t numLanes>
+		template<typename Stream,Uptr numLanes>
 		void serialize(Stream& stream,ShuffleImm<numLanes>& imm,const FunctionDef&)
 		{
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 			{
 				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
 			}
@@ -316,7 +316,7 @@ namespace WASM
 		template<typename Stream>
 		void serialize(Stream& stream,LaunchThreadImm& imm,const FunctionDef&) {}
 		
-		template<typename Stream,size_t naturalAlignmentLog2>
+		template<typename Stream,Uptr naturalAlignmentLog2>
 		void serialize(Stream& stream,AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
 		{
 			serializeVarUInt7(stream,imm.alignmentLog2);
@@ -330,8 +330,8 @@ namespace WASM
 		serializeNativeValue(stream,type);
 		ArrayOutputStream sectionStream;
 		serializeSectionBody(sectionStream);
-		std::vector<uint8> sectionBytes = sectionStream.getBytes();
-		size_t sectionNumBytes = sectionBytes.size();
+		std::vector<U8> sectionBytes = sectionStream.getBytes();
+		Uptr sectionNumBytes = sectionBytes.size();
 		serializeVarUInt32(stream,sectionNumBytes);
 		serializeBytes(stream,sectionBytes.data(),sectionBytes.size());
 	}
@@ -340,7 +340,7 @@ namespace WASM
 	{
 		assert((SectionType)*stream.peek(sizeof(SectionType)) == expectedType);
 		stream.advance(sizeof(SectionType));
-		size_t numSectionBytes = 0;
+		Uptr numSectionBytes = 0;
 		serializeVarUInt32(stream,numSectionBytes);
 		MemoryInputStream sectionStream(stream.advance(numSectionBytes),numSectionBytes);
 		serializeSectionBody(sectionStream);
@@ -349,18 +349,18 @@ namespace WASM
 	
 	void serialize(OutputStream& stream,UserSection& userSection)
 	{
-		serializeConstant(stream,"expected user section (section ID 0)",(uint8)SectionType::user);
+		serializeConstant(stream,"expected user section (section ID 0)",(U8)SectionType::user);
 		ArrayOutputStream sectionStream;
 		serialize(sectionStream,userSection.name);
 		serializeBytes(sectionStream,userSection.data.data(),userSection.data.size());
-		std::vector<uint8> sectionBytes = sectionStream.getBytes();
+		std::vector<U8> sectionBytes = sectionStream.getBytes();
 		serialize(stream,sectionBytes);
 	}
 	
 	void serialize(InputStream& stream,UserSection& userSection)
 	{
-		serializeConstant(stream,"expected user section (section ID 0)",(uint8)SectionType::user);
-		size_t numSectionBytes = 0;
+		serializeConstant(stream,"expected user section (section ID 0)",(U8)SectionType::user);
+		Uptr numSectionBytes = 0;
 		serializeVarUInt32(stream,numSectionBytes);
 		
 		MemoryInputStream sectionStream(stream.advance(numSectionBytes),numSectionBytes);
@@ -372,7 +372,7 @@ namespace WASM
 
 	struct LocalSet
 	{
-		uintp num;
+		Uptr num;
 		ValueType type;
 	};
 	
@@ -415,7 +415,7 @@ namespace WASM
 
 		// Convert the function's local types into LocalSets: runs of locals of the same type.
 		LocalSet* localSets = (LocalSet*)alloca(sizeof(LocalSet)*functionDef.nonParameterLocalTypes.size());
-		uintp numLocalSets = 0;
+		Uptr numLocalSets = 0;
 		if(functionDef.nonParameterLocalTypes.size())
 		{
 			localSets[0].type = ValueType::any;
@@ -435,32 +435,32 @@ namespace WASM
 
 		// Serialize the local sets.
 		serializeVarUInt32(bodyStream,numLocalSets);
-		for(uintp setIndex = 0;setIndex < numLocalSets;++setIndex) { serialize(bodyStream,localSets[setIndex]); }
+		for(Uptr setIndex = 0;setIndex < numLocalSets;++setIndex) { serialize(bodyStream,localSets[setIndex]); }
 
 		// Serialize the function code.
 		OperatorDecoderStream irDecoderStream(functionDef.code);
 		OperatorSerializerStream wasmOpEncoderStream(bodyStream,functionDef);
 		while(irDecoderStream) { irDecoderStream.decodeOp(wasmOpEncoderStream); };
 
-		std::vector<uint8> bodyBytes = bodyStream.getBytes();
+		std::vector<U8> bodyBytes = bodyStream.getBytes();
 		serialize(sectionStream,bodyBytes);
 	}
 	
 	void serializeFunctionBody(InputStream& sectionStream,Module& module,FunctionDef& functionDef)
 	{
-		size_t numBodyBytes = 0;
+		Uptr numBodyBytes = 0;
 		serializeVarUInt32(sectionStream,numBodyBytes);
 
 		MemoryInputStream bodyStream(sectionStream.advance(numBodyBytes),numBodyBytes);
 		
 		// Deserialize local sets and unpack them into a linear array of local types.
-		size_t numLocalSets = 0;
+		Uptr numLocalSets = 0;
 		serializeVarUInt32(bodyStream,numLocalSets);
-		for(uintp setIndex = 0;setIndex < numLocalSets;++setIndex)
+		for(Uptr setIndex = 0;setIndex < numLocalSets;++setIndex)
 		{
 			LocalSet localSet;
 			serialize(bodyStream,localSet);
-			for(uintp index = 0;index < localSet.num;++index) { functionDef.nonParameterLocalTypes.push_back(localSet.type); }
+			for(Uptr index = 0;index < localSet.num;++index) { functionDef.nonParameterLocalTypes.push_back(localSet.type); }
 		}
 
 		// Deserialize the function code, validate it, and re-encode it in the IR format.
@@ -499,7 +499,7 @@ namespace WASM
 		{
 			serializeArray(sectionStream,module.types,[](Stream& stream,const FunctionType*& functionType)
 			{
-				serializeConstant(stream,"function type tag",uint8(0x60));
+				serializeConstant(stream,"function type tag",U8(0x60));
 				if(Stream::isInput)
 				{
 					std::vector<ValueType> parameterTypes;
@@ -521,14 +521,14 @@ namespace WASM
 	{
 		serializeSection(moduleStream,SectionType::import,[&module](Stream& sectionStream)
 		{
-			size_t size = module.functions.imports.size()
+			Uptr size = module.functions.imports.size()
 				+ module.tables.imports.size()
 				+ module.memories.imports.size()
 				+ module.globals.imports.size();
 			serializeVarUInt32(sectionStream,size);
 			if(Stream::isInput)
 			{
-				for(uintp index = 0;index < size;++index)
+				for(Uptr index = 0;index < size;++index)
 				{
 					std::string moduleName;
 					std::string exportName;
@@ -540,7 +540,7 @@ namespace WASM
 					{
 					case ObjectKind::function:
 					{
-						uint32 functionTypeIndex = 0;
+						U32 functionTypeIndex = 0;
 						serializeVarUInt32(sectionStream,functionTypeIndex);
 						if(functionTypeIndex >= module.types.size())
 						{
@@ -617,16 +617,16 @@ namespace WASM
 	{
 		serializeSection(moduleStream,SectionType::functionDeclarations,[&module](Stream& sectionStream)
 		{
-			size_t numFunctions = module.functions.defs.size();
+			Uptr numFunctions = module.functions.defs.size();
 			serializeVarUInt32(sectionStream,numFunctions);
 			if(Stream::isInput)
 			{
 				// Grow the vector one element at a time:
 				// try to get a serialization exception before making a huge allocation for malformed input.
 				module.functions.defs.clear();
-				for(uintp functionIndex = 0;functionIndex < numFunctions;++functionIndex)
+				for(Uptr functionIndex = 0;functionIndex < numFunctions;++functionIndex)
 				{
-					uint32 functionTypeIndex = 0;
+					U32 functionTypeIndex = 0;
 					serializeVarUInt32(sectionStream,functionTypeIndex);
 					if(functionTypeIndex >= module.types.size()) { throw FatalSerializationException("invalid function type index"); }
 					module.functions.defs.push_back({{functionTypeIndex},{},{}});
@@ -702,7 +702,7 @@ namespace WASM
 	{
 		serializeSection(moduleStream,SectionType::functionDefinitions,[&module](Stream& sectionStream)
 		{
-			size_t numFunctionBodies = module.functions.defs.size();
+			Uptr numFunctionBodies = module.functions.defs.size();
 			serializeVarUInt32(sectionStream,numFunctionBodies);
 			if(Stream::isInput && numFunctionBodies != module.functions.defs.size())
 				{ throw FatalSerializationException("function and code sections have mismatched function counts"); }
@@ -721,8 +721,8 @@ namespace WASM
 
 	void serializeModule(OutputStream& moduleStream,Module& module)
 	{
-		serializeConstant(moduleStream,"magic number",uint32(magicNumber));
-		serializeConstant(moduleStream,"version",uint32(currentVersion));
+		serializeConstant(moduleStream,"magic number",U32(magicNumber));
+		serializeConstant(moduleStream,"version",U32(currentVersion));
 
 		if(module.types.size() > 0) { serializeTypeSection(moduleStream,module); }
 		if(module.functions.imports.size() > 0
@@ -743,8 +743,8 @@ namespace WASM
 	}
 	void serializeModule(InputStream& moduleStream,Module& module)
 	{
-		serializeConstant(moduleStream,"magic number",uint32(magicNumber));
-		serializeConstant(moduleStream,"version",uint32(currentVersion));
+		serializeConstant(moduleStream,"magic number",U32(magicNumber));
+		serializeConstant(moduleStream,"version",U32(currentVersion));
 
 		SectionType lastKnownSectionType = SectionType::unknown;
 		while(moduleStream.capacity())

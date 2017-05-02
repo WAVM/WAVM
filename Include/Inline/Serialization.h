@@ -25,35 +25,35 @@ namespace Serialization
 
 		OutputStream(): next(nullptr), end(nullptr) {}
 
-		size_t capacity() const { return SIZE_MAX; }
+		Uptr capacity() const { return SIZE_MAX; }
 		
 		// Advances the stream cursor by numBytes, and returns a pointer to the previous stream cursor.
-		inline uint8* advance(size_t numBytes)
+		inline U8* advance(Uptr numBytes)
 		{
 			if(next + numBytes > end) { extendBuffer(numBytes); }
 			assert(next + numBytes <= end);
 
-			uint8* data = next;
+			U8* data = next;
 			next += numBytes;
 			return data;
 		}
 
 	protected:
 
-		uint8* next;
-		uint8* end;
+		U8* next;
+		U8* end;
 
 		// Called when there isn't enough space in the buffer to hold a write to the stream.
 		// Should update next and end to point to a new buffer, and ensure that the new
 		// buffer has at least numBytes. May throw FatalSerializationException.
-		virtual void extendBuffer(size_t numBytes) = 0;
+		virtual void extendBuffer(Uptr numBytes) = 0;
 	};
 
 	// An output stream that writes to an array of bytes.
 	struct ArrayOutputStream : public OutputStream
 	{
 		// Moves the output array from the stream to the caller.
-		std::vector<uint8>&& getBytes()
+		std::vector<U8>&& getBytes()
 		{
 			bytes.resize(next - bytes.data());
 			next = nullptr;
@@ -63,20 +63,20 @@ namespace Serialization
 		
 	private:
 
-		std::vector<uint8> bytes;
+		std::vector<U8> bytes;
 
-		virtual void extendBuffer(size_t numBytes)
+		virtual void extendBuffer(Uptr numBytes)
 		{
-			const uintp nextIndex = next - bytes.data();
+			const Uptr nextIndex = next - bytes.data();
 
 			// Grow the array by larger and larger increments, so the time spent growing
 			// the buffer is O(1).
-			bytes.resize(std::max((size_t)nextIndex+numBytes,bytes.size() * 7 / 5 + 32));
+			bytes.resize(std::max((Uptr)nextIndex+numBytes,bytes.size() * 7 / 5 + 32));
 
 			next = bytes.data() + nextIndex;
 			end = bytes.data() + bytes.size();
 		}
-		virtual bool canExtendBuffer(size_t numBytes) const { return true; }
+		virtual bool canExtendBuffer(Uptr numBytes) const { return true; }
 	};
 
 	// An abstract input stream.
@@ -84,21 +84,21 @@ namespace Serialization
 	{
 		enum { isInput = true };
 
-		InputStream(const uint8* inNext,const uint8* inEnd): next(inNext), end(inEnd) {}
+		InputStream(const U8* inNext,const U8* inEnd): next(inNext), end(inEnd) {}
 
-		virtual size_t capacity() const = 0;
+		virtual Uptr capacity() const = 0;
 		
 		// Advances the stream cursor by numBytes, and returns a pointer to the previous stream cursor.
-		inline const uint8* advance(size_t numBytes)
+		inline const U8* advance(Uptr numBytes)
 		{
 			if(next + numBytes > end) { getMoreData(numBytes); }
-			const uint8* data = next;
+			const U8* data = next;
 			next += numBytes;
 			return data;
 		}
 
 		// Returns a pointer to the current stream cursor, ensuring that there are at least numBytes following it.
-		inline const uint8* peek(size_t numBytes)
+		inline const U8* peek(Uptr numBytes)
 		{
 			if(next + numBytes > end) { getMoreData(numBytes); }
 			return next;
@@ -106,45 +106,45 @@ namespace Serialization
 
 	protected:
 
-		const uint8* next;
-		const uint8* end;
+		const U8* next;
+		const U8* end;
 		
 		// Called when there isn't enough space in the buffer to satisfy a read from the stream.
 		// Should update next and end to point to a new buffer, and ensure that the new
 		// buffer has at least numBytes. May throw FatalSerializationException.
-		virtual void getMoreData(size_t numBytes) = 0;
+		virtual void getMoreData(Uptr numBytes) = 0;
 	};
 
 	// An input stream that reads from a contiguous range of memory.
 	struct MemoryInputStream : InputStream
 	{
-		MemoryInputStream(const uint8* begin,size_t numBytes): InputStream(begin,begin+numBytes) {}
-		virtual size_t capacity() const { return end - next; }
+		MemoryInputStream(const U8* begin,Uptr numBytes): InputStream(begin,begin+numBytes) {}
+		virtual Uptr capacity() const { return end - next; }
 	private:
-		virtual void getMoreData(size_t numBytes) { throw FatalSerializationException("expected data but found end of stream"); }
+		virtual void getMoreData(Uptr numBytes) { throw FatalSerializationException("expected data but found end of stream"); }
 	};
 
 	// Serialize raw byte sequences.
-	FORCEINLINE void serializeBytes(OutputStream& stream,const uint8* bytes,size_t numBytes)
+	FORCEINLINE void serializeBytes(OutputStream& stream,const U8* bytes,Uptr numBytes)
 	{ memcpy(stream.advance(numBytes),bytes,numBytes); }
-	FORCEINLINE void serializeBytes(InputStream& stream,uint8* bytes,size_t numBytes)
+	FORCEINLINE void serializeBytes(InputStream& stream,U8* bytes,Uptr numBytes)
 	{ memcpy(bytes,stream.advance(numBytes),numBytes); }
 	
 	// Serialize basic C++ types.
 	template<typename Stream,typename Value>
-	FORCEINLINE void serializeNativeValue(Stream& stream,Value& value) { serializeBytes(stream,(uint8*)&value,sizeof(Value)); }
+	FORCEINLINE void serializeNativeValue(Stream& stream,Value& value) { serializeBytes(stream,(U8*)&value,sizeof(Value)); }
 
-	template<typename Stream> void serialize(Stream& stream,uint8& i) { serializeNativeValue(stream,i); }
-	template<typename Stream> void serialize(Stream& stream,uint32& i) { serializeNativeValue(stream,i); }
-	template<typename Stream> void serialize(Stream& stream,uint64& i) { serializeNativeValue(stream,i);  }
-	template<typename Stream> void serialize(Stream& stream,int8& i) { serializeNativeValue(stream,i); }
-	template<typename Stream> void serialize(Stream& stream,int32& i) { serializeNativeValue(stream,i); }
-	template<typename Stream> void serialize(Stream& stream,int64& i) { serializeNativeValue(stream,i); }
-	template<typename Stream> void serialize(Stream& stream,float32& f) { serializeNativeValue(stream,f); }
-	template<typename Stream> void serialize(Stream& stream,float64& f) { serializeNativeValue(stream,f); }
+	template<typename Stream> void serialize(Stream& stream,U8& i) { serializeNativeValue(stream,i); }
+	template<typename Stream> void serialize(Stream& stream,U32& i) { serializeNativeValue(stream,i); }
+	template<typename Stream> void serialize(Stream& stream,U64& i) { serializeNativeValue(stream,i);  }
+	template<typename Stream> void serialize(Stream& stream,I8& i) { serializeNativeValue(stream,i); }
+	template<typename Stream> void serialize(Stream& stream,I32& i) { serializeNativeValue(stream,i); }
+	template<typename Stream> void serialize(Stream& stream,I64& i) { serializeNativeValue(stream,i); }
+	template<typename Stream> void serialize(Stream& stream,F32& f) { serializeNativeValue(stream,f); }
+	template<typename Stream> void serialize(Stream& stream,F64& f) { serializeNativeValue(stream,f); }
 
 	// LEB128 variable-length integer serialization.
-	template<typename Value,size_t maxBits>
+	template<typename Value,Uptr maxBits>
 	FORCEINLINE void serializeVarInt(OutputStream& stream,Value& inValue,Value minValue,Value maxValue)
 	{
 		Value value = inValue;
@@ -157,7 +157,7 @@ namespace Serialization
 		bool more = true;
 		while(more)
 		{
-			uint8 outputByte = (uint8)(value&127);
+			U8 outputByte = (U8)(value&127);
 			value >>= 7;
 			more = std::is_signed<Value>::value
 				? (value != 0 && value != Value(-1)) || (value >= 0 && (outputByte & 0x40)) || (value < 0 && !(outputByte & 0x40))
@@ -167,17 +167,17 @@ namespace Serialization
 		};
 	}
 	
-	template<typename Value,size_t maxBits>
+	template<typename Value,Uptr maxBits>
 	FORCEINLINE void serializeVarInt(InputStream& stream,Value& value,Value minValue,Value maxValue)
 	{
 		// First, read the variable number of input bytes into a fixed size buffer.
 		enum { maxBytes = (maxBits + 6) / 7 };
-		uint8 bytes[maxBytes] = {0};
-		uintp numBytes = 0;
-		int8 signExtendShift = (int8)sizeof(Value) * 8;
+		U8 bytes[maxBytes] = {0};
+		Uptr numBytes = 0;
+		I8 signExtendShift = (I8)sizeof(Value) * 8;
 		while(numBytes < maxBytes)
 		{
-			uint8 byte = *stream.advance(1);
+			U8 byte = *stream.advance(1);
 			bytes[numBytes] = byte;
 			++numBytes;
 			signExtendShift -= 7;
@@ -186,15 +186,15 @@ namespace Serialization
 
 		// Ensure that the input does not encode more than maxBits of data.
 		enum { numUsedBitsInHighestByte = maxBits - (maxBytes-1) * 7 };
-		enum { highestByteUsedBitmask = uint8(1<<numUsedBitsInHighestByte)-uint8(1) };
-		enum { highestByteSignedBitmask = uint8(~uint8(highestByteUsedBitmask) & ~uint8(0x80)) };
+		enum { highestByteUsedBitmask = U8(1<<numUsedBitsInHighestByte)-U8(1) };
+		enum { highestByteSignedBitmask = U8(~U8(highestByteUsedBitmask) & ~U8(0x80)) };
 		if((bytes[maxBytes-1] & ~highestByteUsedBitmask) != 0
-		&& ((bytes[maxBytes-1] & ~highestByteUsedBitmask) != uint8(highestByteSignedBitmask) || !std::is_signed<Value>::value))
+		&& ((bytes[maxBytes-1] & ~highestByteUsedBitmask) != U8(highestByteSignedBitmask) || !std::is_signed<Value>::value))
 		{ throw FatalSerializationException("Invalid LEB encoding: invalid final byte"); }
 
 		// Decode the buffer's bytes into the output integer.
 		value = 0;
-		for(uintp byteIndex = 0;byteIndex < maxBytes;++byteIndex)
+		for(Uptr byteIndex = 0;byteIndex < maxBytes;++byteIndex)
 		{ value |= Value(bytes[byteIndex] & ~0x80) << (byteIndex * 7); }
 		
 		// Sign extend the output integer to the full size of Value.
@@ -236,31 +236,31 @@ namespace Serialization
 	template<typename Stream>
 	void serialize(Stream& stream,std::string& string)
 	{
-		size_t size = string.size();
+		Uptr size = string.size();
 		serializeVarUInt32(stream,size);
 		if(Stream::isInput)
 		{
 			// Advance the stream before resizing the string:
 			// try to get a serialization exception before making a huge allocation for malformed input.
-			const uint8* inputBytes = stream.advance(size);
+			const U8* inputBytes = stream.advance(size);
 			string.resize(size);
 			memcpy(const_cast<char*>(string.data()),inputBytes,size);
 			string.shrink_to_fit();
 		}
-		else { serializeBytes(stream,(uint8*)string.c_str(),size); }
+		else { serializeBytes(stream,(U8*)string.c_str(),size); }
 	}
 
 	template<typename Stream,typename Element,typename Allocator,typename SerializeElement>
 	void serializeArray(Stream& stream,std::vector<Element,Allocator>& vector,SerializeElement serializeElement)
 	{
-		size_t size = vector.size();
+		Uptr size = vector.size();
 		serializeVarUInt32(stream,size);
 		if(Stream::isInput)
 		{
 			// Grow the vector one element at a time:
 			// try to get a serialization exception before making a huge allocation for malformed input.
 			vector.clear();
-			for(uintp index = 0;index < size;++index)
+			for(Uptr index = 0;index < size;++index)
 			{
 				vector.push_back(Element());
 				serializeElement(stream,vector.back());
@@ -269,7 +269,7 @@ namespace Serialization
 		}
 		else
 		{
-			for(uintp index = 0;index < vector.size();++index) { serializeElement(stream,vector[index]); }
+			for(Uptr index = 0;index < vector.size();++index) { serializeElement(stream,vector[index]); }
 		}
 	}
 

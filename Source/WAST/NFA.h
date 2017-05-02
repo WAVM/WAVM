@@ -8,10 +8,10 @@
 namespace NFA
 {
 	// A set of characters.
-	typedef DenseStaticIntSet<uint8,256> CharSet;
+	typedef DenseStaticIntSet<U8,256> CharSet;
 
 	// An index of a DFA state. A negative index indicates an "accepting" or terminal state.
-	typedef int16 StateIndex;
+	typedef I16 StateIndex;
 
 	enum
 	{
@@ -50,10 +50,10 @@ namespace NFA
 		// is updated to point to the first character not consumed by the DFA.
 		inline StateIndex feed(const char*& nextChar) const
 		{
-			intp state = 0;
+			Iptr state = 0;
 			do
 			{
-				const uint8 character = (uint8)*nextChar++;
+				const U8 character = (U8)*nextChar++;
 				state = stateAndOffsetToNextStateMap[state + charToOffsetMap[character]];
 			}
 			while(state >= 0);
@@ -70,13 +70,13 @@ namespace NFA
 
 	private:
 
-		typedef int16 InternalStateIndex;
+		typedef I16 InternalStateIndex;
 		enum { internalMaxStates = INT16_MAX };
 
-		uint32 charToOffsetMap[256];
+		U32 charToOffsetMap[256];
 		InternalStateIndex* stateAndOffsetToNextStateMap;
-		size_t numClasses;
-		size_t numStates;
+		Uptr numClasses;
+		Uptr numStates;
 
 		void moveFrom(Machine&& inMachine);
 	};

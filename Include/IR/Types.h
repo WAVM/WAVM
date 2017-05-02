@@ -10,7 +10,7 @@
 namespace IR
 {
 	// The type of a WebAssembly operand
-	enum class ValueType : uint8
+	enum class ValueType : U8
 	{
 		any = 0,
 		i32 = 1,
@@ -31,35 +31,35 @@ namespace IR
 	};
 
 	template<ValueType type> struct ValueTypeInfo;
-	template<> struct ValueTypeInfo<ValueType::i32> { typedef int32 Value; };
-	template<> struct ValueTypeInfo<ValueType::i64> { typedef int64 Value; };
-	template<> struct ValueTypeInfo<ValueType::f32> { typedef float32 Value; };
-	template<> struct ValueTypeInfo<ValueType::f64> { typedef float64 Value; };
+	template<> struct ValueTypeInfo<ValueType::i32> { typedef I32 Value; };
+	template<> struct ValueTypeInfo<ValueType::i64> { typedef I64 Value; };
+	template<> struct ValueTypeInfo<ValueType::f32> { typedef F32 Value; };
+	template<> struct ValueTypeInfo<ValueType::f64> { typedef F64 Value; };
 
 	#if ENABLE_SIMD_PROTOTYPE
 	union V128
 	{
-		uint8 u8[16];
-		int8 i8[16];
-		uint16 u16[8];
-		int16 i16[8];
-		uint32 u32[4];
-		int32 i32[4];
-		uint64 u64[2];
-		int64 i64[2];
+		U8 u8[16];
+		I8 i8[16];
+		U16 u16[8];
+		I16 i16[8];
+		U32 u32[4];
+		I32 i32[4];
+		U64 u64[2];
+		I64 i64[2];
 	};
 
-	template<size_t numLanes>
+	template<Uptr numLanes>
 	struct BoolVector
 	{
 		bool b[numLanes];
 	};
 
-	template<size_t numLanes>
+	template<Uptr numLanes>
 	std::string asString(const BoolVector<numLanes>& boolVector)
 	{
 		std::string result;
-		for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 		{
 			if(laneIndex != 0) { result += ','; }
 			result += boolVector.b[laneIndex] ? '1' : '0';
@@ -79,7 +79,7 @@ namespace IR
 	template<> struct ValueTypeInfo<ValueType::b64x2> { typedef B64x2 Value; };
 	#endif
 	
-	inline uint8 getTypeBitWidth(ValueType type)
+	inline U8 getTypeBitWidth(ValueType type)
 	{
 		switch(type)
 		{
@@ -119,25 +119,25 @@ namespace IR
 	}
 
 	// The type of a WebAssembly operator result. Mostly the same as ValueType, but allows operators with no result (none).
-	enum class ResultType : uint8
+	enum class ResultType : U8
 	{
 		none = 0,
-		i32 = (uint8)ValueType::i32,
-		i64 = (uint8)ValueType::i64,
-		f32 = (uint8)ValueType::f32,
-		f64 = (uint8)ValueType::f64,
+		i32 = (U8)ValueType::i32,
+		i64 = (U8)ValueType::i64,
+		f32 = (U8)ValueType::f32,
+		f64 = (U8)ValueType::f64,
 		#if ENABLE_SIMD_PROTOTYPE
-		v128 = (uint8)ValueType::v128,
-		b8x16 = (uint8)ValueType::b8x16,
-		b16x8 = (uint8)ValueType::b16x8,
-		b32x4 = (uint8)ValueType::b32x4,
-		b64x2 = (uint8)ValueType::b64x2,
+		v128 = (U8)ValueType::v128,
+		b8x16 = (U8)ValueType::b8x16,
+		b16x8 = (U8)ValueType::b16x8,
+		b32x4 = (U8)ValueType::b32x4,
+		b64x2 = (U8)ValueType::b64x2,
 		#endif
 		num,
 		max = num-1,
 	};
 	
-	inline size_t getArity(ResultType returnType) { return returnType == ResultType::none ? 0 : 1; }
+	inline Uptr getArity(ResultType returnType) { return returnType == ResultType::none ? 0 : 1; }
 	
 	inline const char* asString(ResultType type)
 	{
@@ -190,13 +190,13 @@ namespace IR
 	
 	struct IndexedFunctionType
 	{
-		uint32 index;
+		U32 index;
 	};
 	
 	inline std::string asString(const std::vector<ValueType>& typeTuple)
 	{
 		std::string result = "(";
-		for(uintp parameterIndex = 0;parameterIndex < typeTuple.size();++parameterIndex)
+		for(Uptr parameterIndex = 0;parameterIndex < typeTuple.size();++parameterIndex)
 		{
 			if(parameterIndex != 0) { result += ','; }
 			result += asString(typeTuple[parameterIndex]);
@@ -214,8 +214,8 @@ namespace IR
 	// If max==UINT64_MAX, the maximum size is unbounded.
 	struct SizeConstraints
 	{
-		uint64 min;
-		uint64 max;
+		U64 min;
+		U64 max;
 
 		friend bool operator==(const SizeConstraints& left,const SizeConstraints& right) { return left.min == right.min && left.max == right.max; }
 		friend bool operator!=(const SizeConstraints& left,const SizeConstraints& right) { return left.min != right.min || left.max != right.max; }
@@ -226,7 +226,7 @@ namespace IR
 	};
 	
 	// The type of element a table contains: for now can only be anyfunc, meaning any function type.
-	enum class TableElementType : uint8
+	enum class TableElementType : U8
 	{
 		anyfunc = 0x70
 	};
@@ -286,7 +286,7 @@ namespace IR
 	}
 
 	// The type of an object
-	enum class ObjectKind : uint8
+	enum class ObjectKind : U8
 	{
 		function = 0,
 		table = 1,

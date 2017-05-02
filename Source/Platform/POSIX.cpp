@@ -30,20 +30,20 @@
 
 namespace Platform
 {
-	static size_t internalGetPreferredVirtualPageSizeLog2()
+	static Uptr internalGetPreferredVirtualPageSizeLog2()
 	{
-		uint32 preferredVirtualPageSize = sysconf(_SC_PAGESIZE);
+		U32 preferredVirtualPageSize = sysconf(_SC_PAGESIZE);
 		// Verify our assumption that the virtual page size is a power of two.
 		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return floorLogTwo(preferredVirtualPageSize);
 	}
-	uintp getPageSizeLog2()
+	Uptr getPageSizeLog2()
 	{
-		static size_t preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
+		static Uptr preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
 		return preferredVirtualPageSizeLog2;
 	}
 	
-	uint32 memoryAccessAsPOSIXFlag(MemoryAccess access)
+	U32 memoryAccessAsPOSIXFlag(MemoryAccess access)
 	{
 		switch(access)
 		{
@@ -56,36 +56,36 @@ namespace Platform
 		}
 	}
 
-	bool isPageAligned(uint8* address)
+	bool isPageAligned(U8* address)
 	{
-		const uintp addressBits = reinterpret_cast<uintp>(address);
+		const Uptr addressBits = reinterpret_cast<Uptr>(address);
 		return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
 	}
 
-	uint8* allocateVirtualPages(size_t numPages)
+	U8* allocateVirtualPages(Uptr numPages)
 	{
-		size_t numBytes = numPages << getPageSizeLog2();
+		Uptr numBytes = numPages << getPageSizeLog2();
 		auto result = mmap(nullptr,numBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 		if(result == MAP_FAILED)
 		{
 			return nullptr;
 		}
-		return (uint8*)result;
+		return (U8*)result;
 	}
 
-	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
+	bool commitVirtualPages(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		return mprotect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsPOSIXFlag(access)) == 0;
 	}
 	
-	bool setVirtualPageAccess(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
+	bool setVirtualPageAccess(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		return mprotect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsPOSIXFlag(access)) == 0;
 	}
 
-	void decommitVirtualPages(uint8* baseVirtualAddress,size_t numPages)
+	void decommitVirtualPages(U8* baseVirtualAddress,Uptr numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		auto numBytes = numPages << getPageSizeLog2();
@@ -93,13 +93,13 @@ namespace Platform
 		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { Errors::fatal("mprotect failed"); }
 	}
 
-	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
+	void freeVirtualPages(U8* baseVirtualAddress,Uptr numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Errors::fatal("munmap failed"); }
 	}
 
-	bool describeInstructionPointer(uintp ip,std::string& outDescription)
+	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
 	{
 		#ifdef __linux__
 			// Look up static symbol information for the address.
@@ -114,16 +114,16 @@ namespace Platform
 	}
 
 	enum { signalStackNumBytes = 65536 };
-	THREAD_LOCAL uint8* signalStack = nullptr;
-	THREAD_LOCAL uint8* stackMinAddr = nullptr;
-	THREAD_LOCAL uint8* stackMaxAddr = nullptr;
+	THREAD_LOCAL U8* signalStack = nullptr;
+	THREAD_LOCAL U8* stackMinAddr = nullptr;
+	THREAD_LOCAL U8* stackMaxAddr = nullptr;
 
 	void initThread()
 	{
 		if(!signalStack)
 		{
 			// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
-			signalStack = new uint8[signalStackNumBytes];
+			signalStack = new U8[signalStackNumBytes];
 			stack_t signalStackInfo;
 			signalStackInfo.ss_size = signalStackNumBytes;
 			signalStackInfo.ss_sp = signalStack;
@@ -141,19 +141,19 @@ namespace Platform
 				pthread_attr_t threadAttributes;
 				memset(&threadAttributes,0,sizeof(threadAttributes));
 				pthread_getattr_np(pthread_self(),&threadAttributes);
-				size_t stackSize;
+				Uptr stackSize;
 				pthread_attr_getstack(&threadAttributes,(void**)&stackMinAddr,&stackSize);
 				pthread_attr_destroy(&threadAttributes);
 				stackMaxAddr = stackMinAddr + stackSize;
 				stackMinAddr = stackMaxAddr - stackLimit.rlim_cur;
 			#else
 				// MacOS uses pthread_getstackaddr_np, and returns a pointer to the maximum address of the stack.
-				stackMaxAddr = (uint8*)pthread_get_stackaddr_np(pthread_self());
+				stackMaxAddr = (U8*)pthread_get_stackaddr_np(pthread_self());
 				stackMinAddr = stackMaxAddr - stackLimit.rlim_cur;
 			#endif
 
 			// Include an extra page below the stack's usable address range to distinguish stack overflows from general SIGSEGV.
-			const size_t pageSize = sysconf(_SC_PAGESIZE);
+			const Uptr pageSize = sysconf(_SC_PAGESIZE);
 			stackMinAddr -= pageSize;
 		}
 	}
@@ -161,7 +161,7 @@ namespace Platform
 	THREAD_LOCAL jmp_buf signalReturnEnv;
 	THREAD_LOCAL HardwareTrapType signalType = HardwareTrapType::none;
 	THREAD_LOCAL CallStack* signalCallStack = nullptr;
-	THREAD_LOCAL uintp* signalOperand = nullptr;
+	THREAD_LOCAL Uptr* signalOperand = nullptr;
 	THREAD_LOCAL bool isReentrantSignal = false;
 	THREAD_LOCAL bool isCatchingSignals = false;
 
@@ -182,7 +182,7 @@ namespace Platform
 			signalType = signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
 				? HardwareTrapType::stackOverflow
 				: HardwareTrapType::accessViolation;
-			*signalOperand = reinterpret_cast<uintp>(signalInfo->si_addr);
+			*signalOperand = reinterpret_cast<Uptr>(signalInfo->si_addr);
 			break;
 		default:
 			Errors::fatalf("unknown signal number: %i",signalNumber);
@@ -230,7 +230,7 @@ namespace Platform
 
 	HardwareTrapType catchHardwareTraps(
 		CallStack& outTrapCallStack,
-		uintp& outTrapOperand,
+		Uptr& outTrapOperand,
 		const std::function<void()>& thunk
 		)
 	{
@@ -264,7 +264,7 @@ namespace Platform
 		return signalType;
 	}
 
-	CallStack captureCallStack(uintp numOmittedFramesFromTop)
+	CallStack captureCallStack(Uptr numOmittedFramesFromTop)
 	{
 		#ifdef __linux__
 			// Unwind the callstack.
@@ -276,9 +276,9 @@ namespace Platform
 			// Skip the first numOmittedFramesFromTop+1 frames, which correspond to this function
 			// and others that the caller would like to omit.
 			CallStack result;
-			for(intp index = numOmittedFramesFromTop + 1;index < numCallStackEntries;++index)
+			for(Iptr index = numOmittedFramesFromTop + 1;index < numCallStackEntries;++index)
 			{
-				result.stackFrames.push_back({(uintp)callstackAddresses[index]});
+				result.stackFrames.push_back({(Uptr)callstackAddresses[index]});
 			}
 			return result;
 		#else
@@ -286,16 +286,16 @@ namespace Platform
 		#endif
 	}
 
-	uint64 getMonotonicClock()
+	U64 getMonotonicClock()
 	{
 		#ifdef __APPLE__
 			timeval timeVal;
 			gettimeofday(&timeVal, nullptr);
-			return uint64(timeVal.tv_sec) * 1000000 + uint64(timeVal.tv_usec);
+			return U64(timeVal.tv_sec) * 1000000 + U64(timeVal.tv_usec);
 		#else
 			timespec monotonicClock;
 			clock_gettime(CLOCK_MONOTONIC,&monotonicClock);
-			return uint64(monotonicClock.tv_sec) * 1000000 + uint64(monotonicClock.tv_nsec) / 1000;
+			return U64(monotonicClock.tv_sec) * 1000000 + U64(monotonicClock.tv_nsec) / 1000;
 		#endif
 	}
 	
@@ -360,7 +360,7 @@ namespace Platform
 		delete event;
 	}
 	
-	bool waitForEvent(Event* event,uint64 untilTime)
+	bool waitForEvent(Event* event,U64 untilTime)
 	{
 		errorUnless(!pthread_mutex_lock(&event->mutex));
 

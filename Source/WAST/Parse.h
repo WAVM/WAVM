@@ -18,9 +18,9 @@ namespace WAST
 	// Like WAST::Error, but only has an offset in the input string instead of a full TextFileLocus.
 	struct UnresolvedError
 	{
-		uintp charOffset;
+		Uptr charOffset;
 		std::string message;
-		UnresolvedError(uintp inCharOffset,std::string&& inMessage)
+		UnresolvedError(Uptr inCharOffset,std::string&& inMessage)
 		: charOffset(inCharOffset), message(inMessage) {}
 	};
 
@@ -48,7 +48,7 @@ namespace WAST
 	struct Name
 	{
 		Name(): begin(nullptr), numChars(0), hash(0) {}
-		Name(const char* inBegin,uint32 inNumChars)
+		Name(const char* inBegin,U32 inNumChars)
 		: begin(inBegin)
 		, numChars(inNumChars)
 		, hash(calcHash(inBegin,inNumChars))
@@ -56,7 +56,7 @@ namespace WAST
 
 		operator bool() const { return begin != nullptr; }
 		std::string getString() const { return begin ? std::string(begin + 1,numChars - 1) : std::string(); }
-		uintp getCharOffset(const char* string) const { return begin - string; }
+		Uptr getCharOffset(const char* string) const { return begin - string; }
 
 		friend bool operator==(const Name& a,const Name& b)
 		{
@@ -69,7 +69,7 @@ namespace WAST
 	
 		struct Hasher
 		{
-			size_t operator()(const Name& name) const
+			Uptr operator()(const Name& name) const
 			{
 				return name.hash;
 			}
@@ -78,14 +78,14 @@ namespace WAST
 	private:
 
 		const char* begin;
-		uint32 numChars;
-		uint32 hash;
+		U32 numChars;
+		U32 hash;
 
-		static uint32 calcHash(const char* begin,uint32 numChars);
+		static U32 calcHash(const char* begin,U32 numChars);
 	};
 	
 	// A map from Name to index using a hash table.
-	typedef std::unordered_map<Name,uint32,Name::Hasher> NameToIndexMap;
+	typedef std::unordered_map<Name,U32,Name::Hasher> NameToIndexMap;
 	
 	// Represents a yet-to-be-resolved reference, parsed as either a name or an index.
 	struct Reference
@@ -95,11 +95,11 @@ namespace WAST
 		union
 		{
 			Name name;
-			uint32 index;
+			U32 index;
 		};
 		const Token* token;
 		Reference(const Name& inName): type(Type::name), name(inName) {}
-		Reference(uint32 inIndex): type(Type::index), index(inIndex) {}
+		Reference(U32 inIndex): type(Type::index), index(inIndex) {}
 		Reference(): type(Type::invalid), token(nullptr) {}
 		operator bool() const { return type != Type::invalid; }
 	};
@@ -109,7 +109,7 @@ namespace WAST
 	{
 		IR::Module& module;
 
-		std::map<const IR::FunctionType*,uint32> functionTypeToIndexMap;
+		std::map<const IR::FunctionType*,U32> functionTypeToIndexMap;
 		NameToIndexMap typeNameToIndexMap;
 
 		NameToIndexMap functionNameToIndexMap;
@@ -129,7 +129,7 @@ namespace WAST
 	};
 	
 	// Error handling.
-	void parseErrorf(ParseState& state,uintp charOffset,const char* messageFormat,...);
+	void parseErrorf(ParseState& state,Uptr charOffset,const char* messageFormat,...);
 	void parseErrorf(ParseState& state,const char* nextChar,const char* messageFormat,...);
 	void parseErrorf(ParseState& state,const Token* nextToken,const char* messageFormat,...);
 
@@ -145,15 +145,15 @@ namespace WAST
 	IR::IndexedFunctionType getUniqueFunctionTypeIndex(ModuleParseState& state,const IR::FunctionType* functionType);
 
 	// Literal parsing.
-	bool tryParseHexit(const char*& nextChar,uint8& outValue);
+	bool tryParseHexit(const char*& nextChar,U8& outValue);
 	
-	bool tryParseI32(ParseState& state,uint32& outI32);
-	bool tryParseI64(ParseState& state,uint64& outI64);
+	bool tryParseI32(ParseState& state,U32& outI32);
+	bool tryParseI64(ParseState& state,U64& outI64);
 
-	uint32 parseI32(ParseState& state);
-	uint64 parseI64(ParseState& state);
-	float32 parseF32(ParseState& state);
-	float64 parseF64(ParseState& state);
+	U32 parseI32(ParseState& state);
+	U64 parseI64(ParseState& state);
+	F32 parseF32(ParseState& state);
+	F64 parseF64(ParseState& state);
 
 	bool tryParseString(ParseState& state,std::string& outString);
 
@@ -162,10 +162,10 @@ namespace WAST
 	// Name parsing and resolution.
 	bool tryParseName(ParseState& state,Name& outName);
 	bool tryParseNameOrIndexRef(ParseState& state,Reference& outRef);
-	uint32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context);
+	U32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context);
 
-	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,uintp index);
-	uint32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref);
+	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index);
+	U32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
 	void findClosingParenthesis(ParseState& state,const Token* openingParenthesisToken);

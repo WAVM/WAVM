@@ -13,12 +13,12 @@ namespace WAST
 	#define INDENT_STRING "\xE0\x01"
 	#define DEDENT_STRING "\xE0\x02"
 
-	char nibbleToHexChar(uint8 value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
+	char nibbleToHexChar(U8 value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
 
-	std::string escapeString(const char* string,size_t numChars)
+	std::string escapeString(const char* string,Uptr numChars)
 	{
 		std::string result;
-		for(uintp charIndex = 0;charIndex < numChars;++charIndex)
+		for(Uptr charIndex = 0;charIndex < numChars;++charIndex)
 		{
 			auto c = string[charIndex];
 			if(c == '\\') { result += "\\\\"; }
@@ -35,7 +35,7 @@ namespace WAST
 		return result;
 	}
 
-	std::string expandIndentation(std::string&& inString,uint8 spacesPerIndentLevel = 2)
+	std::string expandIndentation(std::string&& inString,U8 spacesPerIndentLevel = 2)
 	{
 		std::string paddedInput = std::move(inString);
 		paddedInput += '\0';
@@ -43,13 +43,13 @@ namespace WAST
 		std::string result;
 		const char* next = paddedInput.data();
 		const char* end = paddedInput.data() + paddedInput.size() - 1;
-		uintp indentDepth = 0;
+		Uptr indentDepth = 0;
 		while(next < end)
 		{
 			// Absorb INDENT_STRING and DEDENT_STRING, but keep track of the indentation depth,
 			// and insert a proportional number of spaces following newlines. 
-			if(*(uint16*)next == *(uint16*)INDENT_STRING) { ++indentDepth; next += 2; }
-			else if(*(uint16*)next == *(uint16*)DEDENT_STRING) { errorUnless(indentDepth > 0); --indentDepth; next += 2; }
+			if(*(U16*)next == *(U16*)INDENT_STRING) { ++indentDepth; next += 2; }
+			else if(*(U16*)next == *(U16*)DEDENT_STRING) { errorUnless(indentDepth > 0); --indentDepth; next += 2; }
 			else if(*next == '\n')
 			{
 				result += '\n';
@@ -94,7 +94,7 @@ namespace WAST
 		if(functionType->parameters.size())
 		{
 			ScopedTagPrinter paramTag(string,"param");
-			for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+			for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 			{
 				string += ' ';
 				print(string,functionType->parameters[parameterIndex]);
@@ -153,7 +153,7 @@ namespace WAST
 	private:
 
 		char sigil;
-		std::map<std::string,uintp> nameToCountMap;
+		std::map<std::string,Uptr> nameToCountMap;
 	};
 
 	struct ModulePrintContext
@@ -211,7 +211,7 @@ namespace WAST
 		const std::vector<std::string>& localNames;
 		NameScope labelNameScope;
 
-		FunctionPrintContext(ModulePrintContext& inModuleContext,uintp functionDefIndex)
+		FunctionPrintContext(ModulePrintContext& inModuleContext,Uptr functionDefIndex)
 		: moduleContext(inModuleContext)
 		, module(inModuleContext.module)
 		, functionDef(inModuleContext.module.functions.defs[functionDefIndex])
@@ -274,8 +274,8 @@ namespace WAST
 			string += "\nbr_table" INDENT_STRING;
 			enum { numTargetsPerLine = 16 };
 			assert(imm.branchTableIndex < functionDef.branchTables.size());
-			const std::vector<uint32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
-			for(uintp targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
+			const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+			for(Uptr targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
 			{
 				if(targetIndex % numTargetsPerLine == 0) { string += '\n'; }
 				else { string += ' '; }
@@ -334,12 +334,12 @@ namespace WAST
 		void printImm(NoImm) {}
 		void printImm(MemoryImm) {}
 
-		void printImm(LiteralImm<int32> imm) { string += ' '; string += std::to_string(imm.value); }
-		void printImm(LiteralImm<int64> imm) { string += ' '; string += std::to_string(imm.value); }
-		void printImm(LiteralImm<float32> imm) { string += ' '; string += Floats::asString(imm.value); }
-		void printImm(LiteralImm<float64> imm) { string += ' '; string += Floats::asString(imm.value); }
+		void printImm(LiteralImm<I32> imm) { string += ' '; string += std::to_string(imm.value); }
+		void printImm(LiteralImm<I64> imm) { string += ' '; string += std::to_string(imm.value); }
+		void printImm(LiteralImm<F32> imm) { string += ' '; string += Floats::asString(imm.value); }
+		void printImm(LiteralImm<F64> imm) { string += ' '; string += Floats::asString(imm.value); }
 
-		template<size_t naturalAlignmentLog2>
+		template<Uptr naturalAlignmentLog2>
 		void printImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
 			if(imm.offset != 0)
@@ -355,18 +355,18 @@ namespace WAST
 		}
 
 		#if ENABLE_SIMD_PROTOTYPE
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		void printImm(LaneIndexImm<numLanes> imm)
 		{
 			string += ' ';
 			string += imm.laneIndex;
 		}
 		
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		void printImm(SwizzleImm<numLanes> imm)
 		{
 			string += " (";
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 			{
 				if(laneIndex != 0) { string += ' '; }
 				string += std::to_string(imm.laneIndices[laneIndex]);
@@ -374,11 +374,11 @@ namespace WAST
 			string += ')';
 		}
 
-		template<size_t numLanes>
+		template<Uptr numLanes>
 		void printImm(ShuffleImm<numLanes> imm)
 		{
 			string += " (";
-			for(uintp laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 			{
 				if(laneIndex != 0) { string += ' '; }
 				string += std::to_string(imm.laneIndices[laneIndex]);
@@ -390,7 +390,7 @@ namespace WAST
 		#if ENABLE_THREADING_PROTOTYPE
 		void printImm(LaunchThreadImm) {}
 		
-		template<size_t naturalAlignmentLog2>
+		template<Uptr naturalAlignmentLog2>
 		void printImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
 			if(imm.offset != 0)
@@ -415,7 +415,7 @@ namespace WAST
 		
 		struct ControlContext
 		{
-			enum class Type : uint8
+			enum class Type : U8
 			{
 				function,
 				block,
@@ -429,7 +429,7 @@ namespace WAST
 
 		std::vector<ControlContext> controlStack;
 
-		std::string getBranchTargetId(uintp depth)
+		std::string getBranchTargetId(Uptr depth)
 		{
 			const ControlContext& controlContext = controlStack[controlStack.size() - depth - 1];
 			return controlContext.type == ControlContext::Type::function ? std::to_string(depth) : controlContext.labelId;
@@ -465,7 +465,7 @@ namespace WAST
 	}
 
 	template<typename Type>
-	void printImport(std::string& string,const Module& module,const Import<Type>& import,uintp importIndex,const char* name,const char* typeTag)
+	void printImport(std::string& string,const Module& module,const Import<Type>& import,Uptr importIndex,const char* name,const char* typeTag)
 	{
 		string += '\n';
 		ScopedTagPrinter importTag(string,"import");
@@ -487,7 +487,7 @@ namespace WAST
 		ScopedTagPrinter moduleTag(string,"module");
 		
 		// Print the types.
-		for(uintp typeIndex = 0;typeIndex < module.types.size();++typeIndex)
+		for(Uptr typeIndex = 0;typeIndex < module.types.size();++typeIndex)
 		{
 			string += '\n';
 			ScopedTagPrinter typeTag(string,"type");
@@ -499,19 +499,19 @@ namespace WAST
 		}
 
 		// Print the module imports.
-		for(uintp importIndex = 0;importIndex < module.functions.imports.size();++importIndex)
+		for(Uptr importIndex = 0;importIndex < module.functions.imports.size();++importIndex)
 		{
 			printImport(string,module,module.functions.imports[importIndex],importIndex,names.functions[importIndex].name.c_str(),"func");
 		}
-		for(uintp importIndex = 0;importIndex < module.tables.imports.size();++importIndex)
+		for(Uptr importIndex = 0;importIndex < module.tables.imports.size();++importIndex)
 		{
 			printImport(string,module,module.tables.imports[importIndex],importIndex,names.tables[importIndex].c_str(),"table");
 		}
-		for(uintp importIndex = 0;importIndex < module.memories.imports.size();++importIndex)
+		for(Uptr importIndex = 0;importIndex < module.memories.imports.size();++importIndex)
 		{
 			printImport(string,module,module.memories.imports[importIndex],importIndex,names.memories[importIndex].c_str(),"memory");
 		}
-		for(uintp importIndex = 0;importIndex < module.globals.imports.size();++importIndex)
+		for(Uptr importIndex = 0;importIndex < module.globals.imports.size();++importIndex)
 		{
 			printImport(string,module,module.globals.imports[importIndex],importIndex,names.globals[importIndex].c_str(),"global");
 		}
@@ -535,7 +535,7 @@ namespace WAST
 		}
 
 		// Print the module memory definitions.
-		for(uintp memoryDefIndex = 0;memoryDefIndex < module.memories.defs.size();++memoryDefIndex)
+		for(Uptr memoryDefIndex = 0;memoryDefIndex < module.memories.defs.size();++memoryDefIndex)
 		{
 			const MemoryDef& memoryDef = module.memories.defs[memoryDefIndex];
 			string += '\n';
@@ -547,7 +547,7 @@ namespace WAST
 		}
 		
 		// Print the module table definitions and elem segments.
-		for(uintp tableDefIndex = 0;tableDefIndex < module.tables.defs.size();++tableDefIndex)
+		for(Uptr tableDefIndex = 0;tableDefIndex < module.tables.defs.size();++tableDefIndex)
 		{
 			const TableDef& tableDef = module.tables.defs[tableDefIndex];
 			string += '\n';
@@ -559,7 +559,7 @@ namespace WAST
 		}
 		
 		// Print the module global definitions.
-		for(uintp globalDefIndex = 0;globalDefIndex < module.globals.defs.size();++globalDefIndex)
+		for(Uptr globalDefIndex = 0;globalDefIndex < module.globals.defs.size();++globalDefIndex)
 		{
 			const GlobalDef& globalDef = module.globals.defs[globalDefIndex];
 			string += '\n';
@@ -582,7 +582,7 @@ namespace WAST
 			string += ' ';
 			printInitializerExpression(tableSegment.baseOffset);
 			enum { numElemsPerLine = 8 };
-			for(uintp elementIndex = 0;elementIndex < tableSegment.indices.size();++elementIndex)
+			for(Uptr elementIndex = 0;elementIndex < tableSegment.indices.size();++elementIndex)
 			{
 				if(elementIndex % numElemsPerLine == 0) { string += '\n'; }
 				else { string += ' '; }
@@ -598,17 +598,17 @@ namespace WAST
 			string += ' ';
 			printInitializerExpression(dataSegment.baseOffset);
 			enum { numBytesPerLine = 64 };
-			for(uintp offset = 0;offset < dataSegment.data.size();offset += numBytesPerLine)
+			for(Uptr offset = 0;offset < dataSegment.data.size();offset += numBytesPerLine)
 			{
 				string += "\n\"";
-				string += escapeString((const char*)dataSegment.data.data() + offset,std::min(dataSegment.data.size() - offset,(uintp)numBytesPerLine));
+				string += escapeString((const char*)dataSegment.data.data() + offset,std::min(dataSegment.data.size() - offset,(Uptr)numBytesPerLine));
 				string += "\"";
 			}
 		}
 
-		for(uintp functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
+		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
-			const uintp functionIndex = module.functions.imports.size() + functionDefIndex;
+			const Uptr functionIndex = module.functions.imports.size() + functionDefIndex;
 			const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
 			const FunctionType* functionType = module.types[functionDef.type.index];
 			FunctionPrintContext functionContext(*this,functionDefIndex);
@@ -622,7 +622,7 @@ namespace WAST
 			// Print the function parameters.
 			if(functionType->parameters.size())
 			{
-				for(uintp parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+				for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 				{
 					string += '\n';
 					ScopedTagPrinter paramTag(string,"param");
@@ -643,7 +643,7 @@ namespace WAST
 			}
 
 			// Print the function's locals.
-			for(uintp localIndex = 0;localIndex < functionDef.nonParameterLocalTypes.size();++localIndex)
+			for(Uptr localIndex = 0;localIndex < functionDef.nonParameterLocalTypes.size();++localIndex)
 			{
 				string += '\n';
 				ScopedTagPrinter localTag(string,"local");
@@ -667,10 +667,10 @@ namespace WAST
 				string += escapeString(userSection.name.c_str(),userSection.name.length());
 				string += "\" ";
 				enum { numBytesPerLine = 64 };
-				for(uintp offset = 0;offset < userSection.data.size();offset += numBytesPerLine)
+				for(Uptr offset = 0;offset < userSection.data.size();offset += numBytesPerLine)
 				{
 					string += "\n\"";
-					string += escapeString((const char*)userSection.data.data() + offset,std::min(userSection.data.size() - offset,(uintp)numBytesPerLine));
+					string += escapeString((const char*)userSection.data.data() + offset,std::min(userSection.data.size() - offset,(Uptr)numBytesPerLine));
 					string += "\"";
 				}
 			}

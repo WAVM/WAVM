@@ -13,22 +13,22 @@
 
 namespace Platform
 {
-	static size_t internalGetPreferredVirtualPageSizeLog2()
+	static Uptr internalGetPreferredVirtualPageSizeLog2()
 	{
 		SYSTEM_INFO systemInfo;
 		GetSystemInfo(&systemInfo);
-		size_t preferredVirtualPageSize = systemInfo.dwPageSize;
+		Uptr preferredVirtualPageSize = systemInfo.dwPageSize;
 		// Verify our assumption that the virtual page size is a power of two.
 		errorUnless(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return floorLogTwo(preferredVirtualPageSize);
 	}
-	uintp getPageSizeLog2()
+	Uptr getPageSizeLog2()
 	{
-		static size_t preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
+		static Uptr preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
 		return preferredVirtualPageSizeLog2;
 	}
 
-	uint32 memoryAccessAsWin32Flag(MemoryAccess access)
+	U32 memoryAccessAsWin32Flag(MemoryAccess access)
 	{
 		switch(access)
 		{
@@ -41,44 +41,44 @@ namespace Platform
 		}
 	}
 
-	static bool isPageAligned(uint8* address)
+	static bool isPageAligned(U8* address)
 	{
-		const uintp addressBits = reinterpret_cast<uintp>(address);
+		const Uptr addressBits = reinterpret_cast<Uptr>(address);
 		return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
 	}
 
-	uint8* allocateVirtualPages(size_t numPages)
+	U8* allocateVirtualPages(Uptr numPages)
 	{
-		size_t numBytes = numPages << getPageSizeLog2();
+		Uptr numBytes = numPages << getPageSizeLog2();
 		auto result = VirtualAlloc(nullptr,numBytes,MEM_RESERVE,PAGE_NOACCESS);
 		if(result == NULL)
 		{
 			return nullptr;
 		}
-		return (uint8*)result;
+		return (U8*)result;
 	}
 
-	bool commitVirtualPages(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
+	bool commitVirtualPages(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		return baseVirtualAddress == VirtualAlloc(baseVirtualAddress,numPages << getPageSizeLog2(),MEM_COMMIT,memoryAccessAsWin32Flag(access));
 	}
 
-	bool setVirtualPageAccess(uint8* baseVirtualAddress,size_t numPages,MemoryAccess access)
+	bool setVirtualPageAccess(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		DWORD oldProtection = 0;
 		return VirtualProtect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsWin32Flag(access),&oldProtection) != 0;
 	}
 	
-	void decommitVirtualPages(uint8* baseVirtualAddress,size_t numPages)
+	void decommitVirtualPages(U8* baseVirtualAddress,Uptr numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,numPages << getPageSizeLog2(),MEM_DECOMMIT);
 		if(baseVirtualAddress && !result) { Errors::fatal("VirtualFree(MEM_DECOMMIT) failed"); }
 	}
 
-	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
+	void freeVirtualPages(U8* baseVirtualAddress,Uptr numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,0/*numPages << getPageSizeLog2()*/,MEM_RELEASE);
@@ -88,7 +88,7 @@ namespace Platform
 	// The interface to the DbgHelp DLL
 	struct DbgHelp
 	{
-		typedef BOOL (WINAPI* SymFromAddr)(HANDLE,uint64,uint64*,SYMBOL_INFO*);
+		typedef BOOL (WINAPI* SymFromAddr)(HANDLE,U64,U64*,SYMBOL_INFO*);
 		SymFromAddr symFromAddr;
 		DbgHelp()
 		{
@@ -109,14 +109,14 @@ namespace Platform
 	};
 	DbgHelp* dbgHelp = nullptr;
 
-	bool describeInstructionPointer(uintp ip,std::string& outDescription)
+	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
 	{
 		// Initialize DbgHelp.
 		if(!dbgHelp) { dbgHelp = new DbgHelp(); }
 
 		// Allocate up a SYMBOL_INFO struct to receive information about the symbol for this instruction pointer.
-		const size_t maxSymbolNameChars = 256;
-		const size_t symbolAllocationSize = sizeof(SYMBOL_INFO) + sizeof(TCHAR) * (maxSymbolNameChars - 1);
+		const Uptr maxSymbolNameChars = 256;
+		const Uptr symbolAllocationSize = sizeof(SYMBOL_INFO) + sizeof(TCHAR) * (maxSymbolNameChars - 1);
 		SYMBOL_INFO* symbolInfo = (SYMBOL_INFO*)alloca(symbolAllocationSize);
 		ZeroMemory(symbolInfo,symbolAllocationSize);
 		symbolInfo->SizeOfStruct = sizeof(SYMBOL_INFO);
@@ -131,9 +131,9 @@ namespace Platform
 		}
 	}
 	
-	void registerSEHUnwindInfo(uintp imageLoadAddress,uintp pdataAddress,size_t pdataNumBytes)
+	void registerSEHUnwindInfo(Uptr imageLoadAddress,Uptr pdataAddress,Uptr pdataNumBytes)
 	{
-		const uint32 numFunctions = (uint32)(pdataNumBytes / sizeof(RUNTIME_FUNCTION));
+		const U32 numFunctions = (U32)(pdataNumBytes / sizeof(RUNTIME_FUNCTION));
 
 		// Register our manually fixed up copy of the function table.
 		if(!RtlAddFunctionTable(reinterpret_cast<RUNTIME_FUNCTION*>(pdataAddress),numFunctions,imageLoadAddress))
@@ -141,7 +141,7 @@ namespace Platform
 			Errors::fatal("RtlAddFunctionTable failed");
 		}
 	}
-	void deregisterSEHUnwindInfo(uintp pdataAddress)
+	void deregisterSEHUnwindInfo(Uptr pdataAddress)
 	{
 		auto functionTable = reinterpret_cast<RUNTIME_FUNCTION*>(pdataAddress);
 		RtlDeleteFunctionTable(functionTable);
@@ -161,19 +161,19 @@ namespace Platform
 			callStack.stackFrames.push_back({context.Rip});
 
 			// Look up the SEH unwind information for this function.
-			uint64 imageBase;
+			U64 imageBase;
 			auto runtimeFunction = RtlLookupFunctionEntry(context.Rip,&imageBase,nullptr);
 			if(!runtimeFunction)
 			{
 				// Leaf functions that don't touch Rsp may not have unwind information.
-				context.Rip  = *(uint64*)context.Rsp;
+				context.Rip  = *(U64*)context.Rsp;
 				context.Rsp += 8;
 			}
 			else
 			{
 				// Use the SEH information to unwind to the next stack frame.
 				void* handlerData;
-				uint64 establisherFrame;
+				U64 establisherFrame;
 				RtlVirtualUnwind(
 					UNW_FLAG_NHANDLER,
 					imageBase,
@@ -190,7 +190,7 @@ namespace Platform
 		return callStack;
 	}
 
-	CallStack captureCallStack(uintp numOmittedFramesFromTop)
+	CallStack captureCallStack(Uptr numOmittedFramesFromTop)
 	{
 		// Capture the current processor state.
 		CONTEXT context;
@@ -200,14 +200,14 @@ namespace Platform
 		auto result = unwindStack(context);
 
 		// Remote the requested number of omitted frames, +1 for this function.
-		const uintp numOmittedFrames = std::min(result.stackFrames.size(),numOmittedFramesFromTop + 1);
+		const Uptr numOmittedFrames = std::min(result.stackFrames.size(),numOmittedFramesFromTop + 1);
 		result.stackFrames.erase(result.stackFrames.begin(),result.stackFrames.begin() + numOmittedFrames);
 
 		return result;
 	}
 
 	THREAD_LOCAL bool isReentrantException = false;
-	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,HardwareTrapType& outType,uintp& outTrapOperand,CallStack& outCallStack)
+	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,HardwareTrapType& outType,Uptr& outTrapOperand,CallStack& outCallStack)
 	{
 		if(isReentrantException) { Errors::fatal("reentrant exception"); }
 		else
@@ -248,7 +248,7 @@ namespace Platform
 
 	HardwareTrapType catchHardwareTraps(
 		CallStack& outTrapCallStack,
-		uintp& outTrapOperand,
+		Uptr& outTrapOperand,
 		const std::function<void()>& thunk
 		)
 	{
@@ -269,14 +269,14 @@ namespace Platform
 		return result;
 	}
 	
-	uint64 getMonotonicClock()
+	U64 getMonotonicClock()
 	{
 		LARGE_INTEGER performanceCounter;
 		LARGE_INTEGER performanceCounterFrequency;
 		QueryPerformanceCounter(&performanceCounter);
 		QueryPerformanceFrequency(&performanceCounterFrequency);
 
-		const uint64 wavmFrequency = 1000000;
+		const U64 wavmFrequency = 1000000;
 
 		return performanceCounterFrequency.QuadPart > wavmFrequency
 			? performanceCounter.QuadPart / (performanceCounterFrequency.QuadPart / wavmFrequency)
@@ -321,20 +321,20 @@ namespace Platform
 		CloseHandle(reinterpret_cast<HANDLE>(event));
 	}
 
-	bool waitForEvent(Event* event,uint64 untilTime)
+	bool waitForEvent(Event* event,U64 untilTime)
 	{
-		uint64 currentTime = getMonotonicClock();
-		const uint64 startProcessTime = currentTime;
+		U64 currentTime = getMonotonicClock();
+		const U64 startProcessTime = currentTime;
 		while(true)
 		{
-			const uint64 timeoutMicroseconds = currentTime > untilTime ? 0 : (untilTime - currentTime);
-			const uint64 timeoutMilliseconds64 = timeoutMicroseconds / 1000;
-			const uint32 timeoutMilliseconds32 =
+			const U64 timeoutMicroseconds = currentTime > untilTime ? 0 : (untilTime - currentTime);
+			const U64 timeoutMilliseconds64 = timeoutMicroseconds / 1000;
+			const U32 timeoutMilliseconds32 =
 				timeoutMilliseconds64 > UINT32_MAX
 				? (UINT32_MAX - 1)
-				: uint32(timeoutMilliseconds64);
+				: U32(timeoutMilliseconds64);
 		
-			const uint32 waitResult = WaitForSingleObject(reinterpret_cast<HANDLE>(event),timeoutMilliseconds32);
+			const U32 waitResult = WaitForSingleObject(reinterpret_cast<HANDLE>(event),timeoutMilliseconds32);
 			if(waitResult != WAIT_TIMEOUT)
 			{
 				errorUnless(waitResult == WAIT_OBJECT_0);
