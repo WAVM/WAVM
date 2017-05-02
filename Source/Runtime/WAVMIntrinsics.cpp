@@ -173,7 +173,7 @@ namespace Runtime
 		return (uint32)numMemoryPages;
 	}
 
-	thread_local uintp indentLevel = 0;
+	THREAD_LOCAL uintp indentLevel = 0;
 
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,debugEnterFunction,none,i64,functionInstanceBits)
 	{
