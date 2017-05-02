@@ -11,5 +11,5 @@ add_library(Platform SHARED ${Sources} ${PublicHeaders})
 
 # Link with dl on Linux for dladdr.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	target_link_libraries(Platform dl pthread)
+	target_link_libraries(Platform dl pthread rt)
 endif()
