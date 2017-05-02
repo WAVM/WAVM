@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
+#include "Inline/Timing.h"
 #include "WAST/WAST.h"
 #include "WASM/WASM.h"
 #include "IR/Module.h"
@@ -16,7 +17,7 @@
 
 inline std::string loadFile(const char* filename)
 {
-	Core::Timer timer;
+	Timing::Timer timer;
 	std::ifstream stream(filename,std::ios::binary | std::ios::ate);
 	if(!stream.is_open())
 	{
@@ -28,7 +29,7 @@ inline std::string loadFile(const char* filename)
 	stream.seekg(0);
 	stream.read(const_cast<char*>(data.data()),data.size());
 	stream.close();
-	Log::logRatePerSecond("loaded file",timer,data.size() / 1024.0 / 1024.0,"MB");
+	Timing::logRatePerSecond("loaded file",timer,data.size() / 1024.0 / 1024.0,"MB");
 	return data;
 }
 
@@ -63,7 +64,7 @@ inline bool loadTextModule(const char* filename,IR::Module& outModule)
 
 inline bool loadBinaryModule(const std::string& wasmBytes,IR::Module& outModule)
 {
-	Core::Timer loadTimer;
+	Timing::Timer loadTimer;
 
 	// Load the module from a binary WebAssembly file.
 	try
@@ -89,7 +90,7 @@ inline bool loadBinaryModule(const std::string& wasmBytes,IR::Module& outModule)
 		return false;
 	}
 
-	Log::logRatePerSecond("Loaded WASM",loadTimer,wasmBytes.size()/1024.0/1024.0,"MB");
+	Timing::logRatePerSecond("Loaded WASM",loadTimer,wasmBytes.size()/1024.0/1024.0,"MB");
 	return true;
 }
 
@@ -120,7 +121,7 @@ inline bool loadModule(const char* filename,IR::Module& outModule)
 
 inline bool saveBinaryModule(const char* wasmFilename,const IR::Module& module)
 {
-	Core::Timer saveTimer;
+	Timing::Timer saveTimer;
 
 	std::vector<uint8> wasmBytes;
 	try
@@ -137,7 +138,7 @@ inline bool saveBinaryModule(const char* wasmFilename,const IR::Module& module)
 		return false;
 	}
 	
-	Log::logRatePerSecond("Saved WASM",saveTimer,wasmBytes.size()/1024.0/1024.0,"MB");
+	Timing::logRatePerSecond("Saved WASM",saveTimer,wasmBytes.size()/1024.0/1024.0,"MB");
 
 	// Write the serialized data to the output file.
 	std::ofstream outputStream(wasmFilename,std::ios::binary);
@@ -162,7 +163,6 @@ int main(int argc,char** argv)
 {
 	try
 	{
-		Platform::initThread();
 		return commandMain(argc,argv);
 	}
 	catch(IR::ValidationException exception)

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "IR.h"
 #include "Types.h"
 #include "Inline/Serialization.h"
@@ -22,12 +22,11 @@ namespace IR
 		uint32 targetDepth;
 	};
 
-	PACKED_STRUCT(
 	struct BranchTableImm
 	{
-		uint32 defaultTargetDepth;
+		uintp defaultTargetDepth;
 		uintp branchTableIndex; // An index into the FunctionDef's branchTables array.
-	});
+	};
 
 	template<typename Value>
 	struct LiteralImm
@@ -35,6 +34,7 @@ namespace IR
 		Value value;
 	};
 
+	template<bool isGlobal>
 	struct GetOrSetVariableImm
 	{
 		uint32 variableIndex;
@@ -50,13 +50,12 @@ namespace IR
 		IndexedFunctionType type;
 	};
 
-	PACKED_STRUCT(
 	template<size_t naturalAlignmentLog2>
 	struct LoadOrStoreImm
 	{
 		uint8 alignmentLog2;
 		uint32 offset;
-	});
+	};
 
 	#if ENABLE_SIMD_PROTOTYPE
 	template<size_t numLanes>
@@ -75,6 +74,17 @@ namespace IR
 	struct ShuffleImm
 	{
 		uint8 laneIndices[numLanes];
+	};
+	#endif
+
+	#if ENABLE_THREADING_PROTOTYPE
+	struct LaunchThreadImm {};
+	
+	template<size_t naturalAlignmentLog2>
+	struct AtomicLoadOrStoreImm
+	{
+		uint8 alignmentLog2;
+		uint32 offset;
 	};
 	#endif
 
@@ -98,11 +108,11 @@ namespace IR
 		visitOp(0x1a,drop,"drop",NoImm,DROP) \
 		visitOp(0x1b,select,"select",NoImm,SELECT) \
 		\
-		visitOp(0x20,get_local,"get_local",GetOrSetVariableImm,GETLOCAL) \
-		visitOp(0x21,set_local,"set_local",GetOrSetVariableImm,SETLOCAL) \
-		visitOp(0x22,tee_local,"tee_local",GetOrSetVariableImm,TEELOCAL) \
-		visitOp(0x23,get_global,"get_global",GetOrSetVariableImm,GETGLOBAL) \
-		visitOp(0x24,set_global,"set_global",GetOrSetVariableImm,SETGLOBAL)
+		visitOp(0x20,get_local,"get_local",GetOrSetVariableImm<false>,GETLOCAL) \
+		visitOp(0x21,set_local,"set_local",GetOrSetVariableImm<false>,SETLOCAL) \
+		visitOp(0x22,tee_local,"tee_local",GetOrSetVariableImm<false>,TEELOCAL) \
+		visitOp(0x23,get_global,"get_global",GetOrSetVariableImm<true>,GETGLOBAL) \
+		visitOp(0x24,set_global,"set_global",GetOrSetVariableImm<true>,SETGLOBAL)
 	
 	/*
 		Possible signatures used by ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS:
@@ -110,10 +120,14 @@ namespace IR
 		UNARY(T,U) : T -> U
 		BINARY(T,U) : (T,T) -> U
 		LOAD(T) : i32 -> T
-		STORE(T) : (i32,T) -> T
+		STORE(T) : (i32,T) -> ()
 		VECTORSELECT(V,B) : (V,V,B) -> V
         BUILDVECTOR(S,N,V) : S{N} -> V
         REPLACELANE(S,V) : (V,S) -> V
+		COMPAREEXCHANGE(T) : (i32,T,T) -> T
+		WAIT(T) : (i32,T,f64) -> i32
+		LAUNCHTHREAD : (i32,i32,i32) -> ()
+		ATOMICRMW : (i32,T) -> T
 	*/
 
 	#define ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp) \
@@ -287,7 +301,8 @@ namespace IR
 		visitOp(0xbd,i64_reinterpret_f64,"i64.reinterpret/f64",NoImm,UNARY(f64,i64)) \
 		visitOp(0xbe,f32_reinterpret_i32,"f32.reinterpret/i32",NoImm,UNARY(i32,f32)) \
 		visitOp(0xbf,f64_reinterpret_i64,"f64.reinterpret/i64",NoImm,UNARY(i64,f64)) \
-		ENUM_SIMD_OPERATORS(visitOp)
+		ENUM_SIMD_OPERATORS(visitOp) \
+		ENUM_THREADING_OPERATORS(visitOp)
 
 	#if !ENABLE_SIMD_PROTOTYPE
 	#define ENUM_SIMD_OPERATORS(visitOp)
@@ -512,6 +527,132 @@ namespace IR
 		visitOp(0xd0ca,b64x2_not,"b64x2.not",NoImm,UNARY(b64x2,b64x2)) \
 		visitOp(0xd0cb,b64x2_any_true,"b64x2.any_true",NoImm,UNARY(b64x2,i32)) \
 		visitOp(0xd0cc,b64x2_all_true,"b64x2.all_true",NoImm,UNARY(b64x2,i32))
+	#endif
+
+	#if !ENABLE_THREADING_PROTOTYPE
+	#define ENUM_THREADING_OPERATORS(visitOp)
+	#else
+	#define ENUM_THREADING_OPERATORS(visitOp) \
+		visitOp(0xf000,is_lock_free,"is_lock_free",NoImm,UNARY(i32,i32)) \
+		visitOp(0xf001,wake,"wake",AtomicLoadOrStoreImm<2>,BINARY(i32,i32)) \
+		visitOp(0xf002,i32_wait,"i32.wait",AtomicLoadOrStoreImm<2>,WAIT(i32)) \
+		visitOp(0xf003,i64_wait,"i64.wait",AtomicLoadOrStoreImm<3>,WAIT(i64)) \
+		visitOp(0xf004,launch_thread,"launch_thread",LaunchThreadImm,LAUNCHTHREAD) \
+		\
+		visitOp(0xf010,i32_atomic_rmw_xchg,"i32.atomic.rmw.xchg",AtomicLoadOrStoreImm<2>,ATOMICRMW(i32)) \
+		visitOp(0xf011,i64_atomic_rmw_xchg,"i64.atomic.rmw.xchg",AtomicLoadOrStoreImm<3>,ATOMICRMW(i64)) \
+		visitOp(0xf012,i32_atomic_rmw8_s_xchg,"i32.atomic.rmw8_s.xchg",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf013,i32_atomic_rmw8_u_xchg,"i32.atomic.rmw8_u.xchg",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf014,i32_atomic_rmw16_s_xchg,"i32.atomic.rmw16_s.xchg",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf015,i32_atomic_rmw16_u_xchg,"i32.atomic.rmw16_u.xchg",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf016,i64_atomic_rmw8_s_xchg,"i64.atomic.rmw8_s.xchg",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf017,i64_atomic_rmw8_u_xchg,"i64.atomic.rmw8_u.xchg",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf018,i64_atomic_rmw16_s_xchg,"i64.atomic.rmw16_s.xchg",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf019,i64_atomic_rmw16_u_xchg,"i64.atomic.rmw16_u.xchg",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf01a,i64_atomic_rmw32_s_xchg,"i64.atomic.rmw32_s.xchg",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		visitOp(0xf01b,i64_atomic_rmw32_u_xchg,"i64.atomic.rmw32_u.xchg",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		\
+		visitOp(0xf01c,i32_atomic_rmw_cmpxchg,"i32.atomic.rmw.cmpxchg",AtomicLoadOrStoreImm<2>,COMPAREEXCHANGE(i32)) \
+		visitOp(0xf01d,i64_atomic_rmw_cmpxchg,"i64.atomic.rmw.cmpxchg",AtomicLoadOrStoreImm<3>,COMPAREEXCHANGE(i64)) \
+		visitOp(0xf01e,i32_atomic_rmw8_s_cmpxchg,"i32.atomic.rmw8_s.cmpxchg",AtomicLoadOrStoreImm<0>,COMPAREEXCHANGE(i32)) \
+		visitOp(0xf01f,i32_atomic_rmw8_u_cmpxchg,"i32.atomic.rmw8_u.cmpxchg",AtomicLoadOrStoreImm<0>,COMPAREEXCHANGE(i32)) \
+		visitOp(0xf020,i32_atomic_rmw16_s_cmpxchg,"i32.atomic.rmw16_s.cmpxchg",AtomicLoadOrStoreImm<1>,COMPAREEXCHANGE(i32)) \
+		visitOp(0xf021,i32_atomic_rmw16_u_cmpxchg,"i32.atomic.rmw16_u.cmpxchg",AtomicLoadOrStoreImm<1>,COMPAREEXCHANGE(i32)) \
+		visitOp(0xf022,i64_atomic_rmw8_s_cmpxchg,"i64.atomic.rmw8_s.cmpxchg",AtomicLoadOrStoreImm<0>,COMPAREEXCHANGE(i64)) \
+		visitOp(0xf023,i64_atomic_rmw8_u_cmpxchg,"i64.atomic.rmw8_u.cmpxchg",AtomicLoadOrStoreImm<0>,COMPAREEXCHANGE(i64)) \
+		visitOp(0xf024,i64_atomic_rmw16_s_cmpxchg,"i64.atomic.rmw16_s.cmpxchg",AtomicLoadOrStoreImm<1>,COMPAREEXCHANGE(i64)) \
+		visitOp(0xf025,i64_atomic_rmw16_u_cmpxchg,"i64.atomic.rmw16_u.cmpxchg",AtomicLoadOrStoreImm<1>,COMPAREEXCHANGE(i64)) \
+		visitOp(0xf026,i64_atomic_rmw32_s_cmpxchg,"i64.atomic.rmw32_s.cmpxchg",AtomicLoadOrStoreImm<2>,COMPAREEXCHANGE(i64)) \
+		visitOp(0xf027,i64_atomic_rmw32_u_cmpxchg,"i64.atomic.rmw32_u.cmpxchg",AtomicLoadOrStoreImm<2>,COMPAREEXCHANGE(i64)) \
+		\
+		visitOp(0xf028,i32_atomic_load,"i32.atomic.load",AtomicLoadOrStoreImm<2>,LOAD(i32)) \
+		visitOp(0xf029,i64_atomic_load,"i64.atomic.load",AtomicLoadOrStoreImm<3>,LOAD(i64)) \
+		visitOp(0xf02a,f32_atomic_load,"f32.atomic.load",AtomicLoadOrStoreImm<2>,LOAD(f32)) \
+		visitOp(0xf02b,f64_atomic_load,"f64.atomic.load",AtomicLoadOrStoreImm<3>,LOAD(f64)) \
+		visitOp(0xf02c,i32_atomic_load8_s,"i32.atomic.load8_s",AtomicLoadOrStoreImm<0>,LOAD(i32)) \
+		visitOp(0xf02d,i32_atomic_load8_u,"i32.atomic.load8_u",AtomicLoadOrStoreImm<0>,LOAD(i32)) \
+		visitOp(0xf02e,i32_atomic_load16_s,"i32.atomic.load16_s",AtomicLoadOrStoreImm<1>,LOAD(i32)) \
+		visitOp(0xf02f,i32_atomic_load16_u,"i32.atomic.load16_u",AtomicLoadOrStoreImm<1>,LOAD(i32)) \
+		visitOp(0xf030,i64_atomic_load8_s,"i64.atomic.load8_s",AtomicLoadOrStoreImm<0>,LOAD(i64)) \
+		visitOp(0xf031,i64_atomic_load8_u,"i64.atomic.load8_u",AtomicLoadOrStoreImm<0>,LOAD(i64)) \
+		visitOp(0xf032,i64_atomic_load16_s,"i64.atomic.load16_s",AtomicLoadOrStoreImm<1>,LOAD(i64)) \
+		visitOp(0xf033,i64_atomic_load16_u,"i64.atomic.load16_u",AtomicLoadOrStoreImm<1>,LOAD(i64)) \
+		visitOp(0xf034,i64_atomic_load32_s,"i64.atomic.load32_s",AtomicLoadOrStoreImm<2>,LOAD(i64)) \
+		visitOp(0xf035,i64_atomic_load32_u,"i64.atomic.load32_u",AtomicLoadOrStoreImm<2>,LOAD(i64)) \
+		visitOp(0xf036,i32_atomic_store,"i32.atomic.store",AtomicLoadOrStoreImm<2>,STORE(i32)) \
+		visitOp(0xf037,i64_atomic_store,"i64.atomic.store",AtomicLoadOrStoreImm<3>,STORE(i64)) \
+		visitOp(0xf038,f32_atomic_store,"f32.atomic.store",AtomicLoadOrStoreImm<2>,STORE(f32)) \
+		visitOp(0xf039,f64_atomic_store,"f64.atomic.store",AtomicLoadOrStoreImm<3>,STORE(f64)) \
+		visitOp(0xf03a,i32_atomic_store8,"i32.atomic.store8",AtomicLoadOrStoreImm<0>,STORE(i32)) \
+		visitOp(0xf03b,i32_atomic_store16,"i32.atomic.store16",AtomicLoadOrStoreImm<1>,STORE(i32)) \
+		visitOp(0xf03c,i64_atomic_store8,"i64.atomic.store8",AtomicLoadOrStoreImm<0>,STORE(i64)) \
+		visitOp(0xf03d,i64_atomic_store16,"i64.atomic.store16",AtomicLoadOrStoreImm<1>,STORE(i64)) \
+		visitOp(0xf03e,i64_atomic_store32,"i64.atomic.store32",AtomicLoadOrStoreImm<2>,STORE(i64)) \
+		\
+		visitOp(0xf03f,i32_atomic_rmw_add,"i32.atomic.rmw.add",AtomicLoadOrStoreImm<2>,ATOMICRMW(i32)) \
+		visitOp(0xf040,i64_atomic_rmw_add,"i64.atomic.rmw.add",AtomicLoadOrStoreImm<3>,ATOMICRMW(i64)) \
+		visitOp(0xf041,i32_atomic_rmw8_s_add,"i32.atomic.rmw8_s.add",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf042,i32_atomic_rmw8_u_add,"i32.atomic.rmw8_u.add",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf043,i32_atomic_rmw16_s_add,"i32.atomic.rmw16_s.add",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf044,i32_atomic_rmw16_u_add,"i32.atomic.rmw16_u.add",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf045,i64_atomic_rmw8_s_add,"i64.atomic.rmw8_s.add",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf046,i64_atomic_rmw8_u_add,"i64.atomic.rmw8_u.add",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf047,i64_atomic_rmw16_s_add,"i64.atomic.rmw16_s.add",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf048,i64_atomic_rmw16_u_add,"i64.atomic.rmw16_u.add",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf049,i64_atomic_rmw32_s_add,"i64.atomic.rmw32_s.add",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		visitOp(0xf04a,i64_atomic_rmw32_u_add,"i64.atomic.rmw32_u.add",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		\
+		visitOp(0xf04b,i32_atomic_rmw_sub,"i32.atomic.rmw.sub",AtomicLoadOrStoreImm<2>,ATOMICRMW(i32)) \
+		visitOp(0xf04c,i64_atomic_rmw_sub,"i64.atomic.rmw.sub",AtomicLoadOrStoreImm<3>,ATOMICRMW(i64)) \
+		visitOp(0xf04d,i32_atomic_rmw8_s_sub,"i32.atomic.rmw8_s.sub",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf04e,i32_atomic_rmw8_u_sub,"i32.atomic.rmw8_u.sub",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf04f,i32_atomic_rmw16_s_sub,"i32.atomic.rmw16_s.sub",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf050,i32_atomic_rmw16_u_sub,"i32.atomic.rmw16_u.sub",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf051,i64_atomic_rmw8_s_sub,"i64.atomic.rmw8_s.sub",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf052,i64_atomic_rmw8_u_sub,"i64.atomic.rmw8_u.sub",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf053,i64_atomic_rmw16_s_sub,"i64.atomic.rmw16_s.sub",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf054,i64_atomic_rmw16_u_sub,"i64.atomic.rmw16_u.sub",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf055,i64_atomic_rmw32_s_sub,"i64.atomic.rmw32_s.sub",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		visitOp(0xf056,i64_atomic_rmw32_u_sub,"i64.atomic.rmw32_u.sub",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		\
+		visitOp(0xf057,i32_atomic_rmw_and,"i32.atomic.rmw.and",AtomicLoadOrStoreImm<2>,ATOMICRMW(i32)) \
+		visitOp(0xf058,i64_atomic_rmw_and,"i64.atomic.rmw.and",AtomicLoadOrStoreImm<3>,ATOMICRMW(i64)) \
+		visitOp(0xf059,i32_atomic_rmw8_s_and,"i32.atomic.rmw8_s.and",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf05a,i32_atomic_rmw8_u_and,"i32.atomic.rmw8_u.and",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf05b,i32_atomic_rmw16_s_and,"i32.atomic.rmw16_s.and",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf05c,i32_atomic_rmw16_u_and,"i32.atomic.rmw16_u.and",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf05d,i64_atomic_rmw8_s_and,"i64.atomic.rmw8_s.and",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf05e,i64_atomic_rmw8_u_and,"i64.atomic.rmw8_u.and",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf05f,i64_atomic_rmw16_s_and,"i64.atomic.rmw16_s.and",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf060,i64_atomic_rmw16_u_and,"i64.atomic.rmw16_u.and",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf061,i64_atomic_rmw32_s_and,"i64.atomic.rmw32_s.and",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		visitOp(0xf062,i64_atomic_rmw32_u_and,"i64.atomic.rmw32_u.and",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		\
+		visitOp(0xf063,i32_atomic_rmw_or,"i32.atomic.rmw.or",AtomicLoadOrStoreImm<2>,ATOMICRMW(i32)) \
+		visitOp(0xf064,i64_atomic_rmw_or,"i64.atomic.rmw.or",AtomicLoadOrStoreImm<3>,ATOMICRMW(i64)) \
+		visitOp(0xf065,i32_atomic_rmw8_s_or,"i32.atomic.rmw8_s.or",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf066,i32_atomic_rmw8_u_or,"i32.atomic.rmw8_u.or",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf067,i32_atomic_rmw16_s_or,"i32.atomic.rmw16_s.or",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf068,i32_atomic_rmw16_u_or,"i32.atomic.rmw16_u.or",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf069,i64_atomic_rmw8_s_or,"i64.atomic.rmw8_s.or",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf06a,i64_atomic_rmw8_u_or,"i64.atomic.rmw8_u.or",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf06b,i64_atomic_rmw16_s_or,"i64.atomic.rmw16_s.or",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf06c,i64_atomic_rmw16_u_or,"i64.atomic.rmw16_u.or",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf06d,i64_atomic_rmw32_s_or,"i64.atomic.rmw32_s.or",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		visitOp(0xf06e,i64_atomic_rmw32_u_or,"i64.atomic.rmw32_u.or",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		\
+		visitOp(0xf06f,i32_atomic_rmw_xor,"i32.atomic.rmw.xor",AtomicLoadOrStoreImm<2>,ATOMICRMW(i32)) \
+		visitOp(0xf070,i64_atomic_rmw_xor,"i64.atomic.rmw.xor",AtomicLoadOrStoreImm<3>,ATOMICRMW(i64)) \
+		visitOp(0xf071,i32_atomic_rmw8_s_xor,"i32.atomic.rmw8_s.xor",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf072,i32_atomic_rmw8_u_xor,"i32.atomic.rmw8_u.xor",AtomicLoadOrStoreImm<0>,ATOMICRMW(i32)) \
+		visitOp(0xf073,i32_atomic_rmw16_s_xor,"i32.atomic.rmw16_s.xor",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf074,i32_atomic_rmw16_u_xor,"i32.atomic.rmw16_u.xor",AtomicLoadOrStoreImm<1>,ATOMICRMW(i32)) \
+		visitOp(0xf075,i64_atomic_rmw8_s_xor,"i64.atomic.rmw8_s.xor",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf076,i64_atomic_rmw8_u_xor,"i64.atomic.rmw8_u.xor",AtomicLoadOrStoreImm<0>,ATOMICRMW(i64)) \
+		visitOp(0xf077,i64_atomic_rmw16_s_xor,"i64.atomic.rmw16_s.xor",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf078,i64_atomic_rmw16_u_xor,"i64.atomic.rmw16_u.xor",AtomicLoadOrStoreImm<1>,ATOMICRMW(i64)) \
+		visitOp(0xf079,i64_atomic_rmw32_s_xor,"i64.atomic.rmw32_s.xor",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64)) \
+		visitOp(0xf07a,i64_atomic_rmw32_u_xor,"i64.atomic.rmw32_u.xor",AtomicLoadOrStoreImm<2>,ATOMICRMW(i64))
 	#endif
 
 	#define ENUM_NONCONTROL_OPERATORS(visitOp) \

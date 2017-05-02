@@ -1,36 +1,18 @@
 #if _WIN32
 
-#include "Core.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Platform.h"
-#include <Windows.h>
+
 #include <inttypes.h>
+#include <algorithm>
+#include <Windows.h>
 #include <DbgHelp.h>
 
 #undef min
 
 namespace Platform
 {
-	Mutex::Mutex()
-	{
-		handle = new CRITICAL_SECTION();
-		InitializeCriticalSection((CRITICAL_SECTION*)handle);
-	}
-
-	Mutex::~Mutex()
-	{
-		DeleteCriticalSection((CRITICAL_SECTION*)handle);
-	}
-
-	void Mutex::Lock()
-	{
-		EnterCriticalSection((CRITICAL_SECTION*)handle);
-	}
-
-	void Mutex::Unlock()
-	{
-		LeaveCriticalSection((CRITICAL_SECTION*)handle);
-	}
-
 	static size_t internalGetPreferredVirtualPageSizeLog2()
 	{
 		SYSTEM_INFO systemInfo;
@@ -71,7 +53,6 @@ namespace Platform
 		auto result = VirtualAlloc(nullptr,numBytes,MEM_RESERVE,PAGE_NOACCESS);
 		if(result == NULL)
 		{
-			Log::printf(Log::Category::error,"VirtualAlloc(%" PRIuPTR " KB) failed: GetLastError=%u\n",numBytes/1024,GetLastError());
 			return nullptr;
 		}
 		return (uint8*)result;
@@ -94,14 +75,14 @@ namespace Platform
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,numPages << getPageSizeLog2(),MEM_DECOMMIT);
-		if(baseVirtualAddress && !result) { Core::error("VirtualFree(MEM_DECOMMIT) failed"); }
+		if(baseVirtualAddress && !result) { Errors::fatal("VirtualFree(MEM_DECOMMIT) failed"); }
 	}
 
 	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		auto result = VirtualFree(baseVirtualAddress,0/*numPages << getPageSizeLog2()*/,MEM_RELEASE);
-		if(baseVirtualAddress && !result) { Core::error("VirtualFree(MEM_RELEASE) failed"); }
+		if(baseVirtualAddress && !result) { Errors::fatal("VirtualFree(MEM_RELEASE) failed"); }
 	}
 
 	// The interface to the DbgHelp DLL
@@ -157,7 +138,7 @@ namespace Platform
 		// Register our manually fixed up copy of the function table.
 		if(!RtlAddFunctionTable(reinterpret_cast<RUNTIME_FUNCTION*>(pdataAddress),numFunctions,imageLoadAddress))
 		{
-			Core::error("RtlAddFunctionTable failed");
+			Errors::fatal("RtlAddFunctionTable failed");
 		}
 	}
 	void deregisterSEHUnwindInfo(uintp pdataAddress)
@@ -228,7 +209,7 @@ namespace Platform
 	THREAD_LOCAL bool isReentrantException = false;
 	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,HardwareTrapType& outType,uintp& outTrapOperand,CallStack& outCallStack)
 	{
-		if(isReentrantException) { Core::error("reentrant exception"); }
+		if(isReentrantException) { Errors::fatal("reentrant exception"); }
 		else
 		{
 			// Decide how to handle this exception code.
@@ -251,16 +232,18 @@ namespace Platform
 			return EXCEPTION_EXECUTE_HANDLER;
 		}
 	}
-
+	
 	THREAD_LOCAL bool isThreadInitialized = false;
 	void initThread()
 	{
-		errorUnless(!isThreadInitialized);
-		isThreadInitialized = true;
+		if(!isThreadInitialized)
+		{
+			isThreadInitialized = true;
 
-		// Ensure that there's enough space left on the stack in the case of a stack overflow to prepare the stack trace.
-		ULONG stackOverflowReserveBytes = 32768;
-		SetThreadStackGuarantee(&stackOverflowReserveBytes);
+			// Ensure that there's enough space left on the stack in the case of a stack overflow to prepare the stack trace.
+			ULONG stackOverflowReserveBytes = 32768;
+			SetThreadStackGuarantee(&stackOverflowReserveBytes);
+		}
 	}
 
 	HardwareTrapType catchHardwareTraps(
@@ -269,7 +252,7 @@ namespace Platform
 		const std::function<void()>& thunk
 		)
 	{
-		errorUnless(isThreadInitialized);
+		initThread();
 
 		HardwareTrapType result = HardwareTrapType::none;
 		__try
@@ -284,6 +267,93 @@ namespace Platform
 			if(result == HardwareTrapType::stackOverflow) { _resetstkoflw(); }
 		}
 		return result;
+	}
+	
+	uint64 getMonotonicClock()
+	{
+		LARGE_INTEGER performanceCounter;
+		LARGE_INTEGER performanceCounterFrequency;
+		QueryPerformanceCounter(&performanceCounter);
+		QueryPerformanceFrequency(&performanceCounterFrequency);
+
+		const uint64 wavmFrequency = 1000000;
+
+		return performanceCounterFrequency.QuadPart > wavmFrequency
+			? performanceCounter.QuadPart / (performanceCounterFrequency.QuadPart / wavmFrequency)
+			: performanceCounter.QuadPart * (wavmFrequency / performanceCounterFrequency.QuadPart);
+	}
+
+	struct Mutex
+	{
+		CRITICAL_SECTION criticalSection;
+	};
+
+	Mutex* createMutex()
+	{
+		auto mutex = new Mutex();
+		InitializeCriticalSection(&mutex->criticalSection);
+		return mutex;
+	}
+
+	void destroyMutex(Mutex* mutex)
+	{
+		DeleteCriticalSection(&mutex->criticalSection);
+		delete mutex;
+	}
+
+	void lockMutex(Mutex* mutex)
+	{
+		EnterCriticalSection(&mutex->criticalSection);
+	}
+
+	void unlockMutex(Mutex* mutex)
+	{
+		LeaveCriticalSection(&mutex->criticalSection);
+	}
+
+	Event* createEvent()
+	{
+		return reinterpret_cast<Event*>(CreateEvent(nullptr,FALSE,FALSE,nullptr));
+	}
+
+	void destroyEvent(Event* event)
+	{
+		CloseHandle(reinterpret_cast<HANDLE>(event));
+	}
+
+	bool waitForEvent(Event* event,uint64 untilTime)
+	{
+		uint64 currentTime = getMonotonicClock();
+		const uint64 startProcessTime = currentTime;
+		while(true)
+		{
+			const uint64 timeoutMicroseconds = currentTime > untilTime ? 0 : (untilTime - currentTime);
+			const uint64 timeoutMilliseconds64 = timeoutMicroseconds / 1000;
+			const uint32 timeoutMilliseconds32 =
+				timeoutMilliseconds64 > UINT32_MAX
+				? (UINT32_MAX - 1)
+				: uint32(timeoutMilliseconds64);
+		
+			const uint32 waitResult = WaitForSingleObject(reinterpret_cast<HANDLE>(event),timeoutMilliseconds32);
+			if(waitResult != WAIT_TIMEOUT)
+			{
+				errorUnless(waitResult == WAIT_OBJECT_0);
+				return true;
+			}
+			else
+			{
+				currentTime = getMonotonicClock();
+				if(currentTime >= untilTime)
+				{
+					return false;
+				}
+			}
+		};
+	}
+
+	void signalEvent(Event* event)
+	{
+		errorUnless(SetEvent(reinterpret_cast<HANDLE>(event)));
 	}
 }
 

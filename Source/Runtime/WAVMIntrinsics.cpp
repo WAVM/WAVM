@@ -1,5 +1,6 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
+#include "Logging/Logging.h"
 #include "Intrinsics.h"
 #include "RuntimePrivate.h"
 
@@ -158,19 +159,21 @@ namespace Runtime
 	{
 		MemoryInstance* memory = reinterpret_cast<MemoryInstance*>(memoryBits);
 		assert(memory);
-		if(memory->numPages + (uintp)deltaPages > 65536) { return -1; }
-		else { return (int32)growMemory(memory,(uintp)deltaPages); }
+		const intp numPreviousMemoryPages = growMemory(memory,(uintp)deltaPages);
+		if(numPreviousMemoryPages + (uintp)deltaPages > IR::maxMemoryPages) { return -1; }
+		else { return (int32)numPreviousMemoryPages; }
 	}
 	
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryBits)
 	{
 		MemoryInstance* memory = reinterpret_cast<MemoryInstance*>(memoryBits);
 		assert(memory);
-		if(memory->numPages > 65536) { return -1; }
-		else { return (uint32)getMemoryNumPages(memory); }
+		uintp numMemoryPages = getMemoryNumPages(memory);
+		if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }
+		return (uint32)numMemoryPages;
 	}
 
-	uintp indentLevel = 0;
+	thread_local uintp indentLevel = 0;
 
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,debugEnterFunction,none,i64,functionInstanceBits)
 	{

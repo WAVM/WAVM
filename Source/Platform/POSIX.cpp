@@ -1,7 +1,8 @@
 #ifndef _WIN32
 
-#include "Core/Core.h"
-#include "Core/Platform.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
+#include "Platform/Platform.h"
 
 #include <pthread.h>
 #include <unistd.h>
@@ -12,6 +13,8 @@
 #include <setjmp.h>
 #include <sys/resource.h>
 #include <string.h>
+
+#include <sys/time.h>
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
@@ -27,27 +30,6 @@
 
 namespace Platform
 {
-	Mutex::Mutex()
-	{
-		handle = new pthread_mutex_t();
-		if(pthread_mutex_init((pthread_mutex_t*)handle,nullptr)) { Core::error("pthread_mutex_init failed"); }
-	}
-
-	Mutex::~Mutex()
-	{
-		if(pthread_mutex_destroy((pthread_mutex_t*)handle)) { Core::error("pthread_mutex_destroy failed"); }
-	}
-
-	void Mutex::Lock()
-	{
-		if(pthread_mutex_lock((pthread_mutex_t*)handle)) { Core::error("pthread_mutex_lock failed"); }
-	}
-
-	void Mutex::Unlock()
-	{
-		if(pthread_mutex_unlock((pthread_mutex_t*)handle)) { Core::error("pthread_mutex_unlock failed"); }
-	}
-
 	static size_t internalGetPreferredVirtualPageSizeLog2()
 	{
 		uint32 preferredVirtualPageSize = sysconf(_SC_PAGESIZE);
@@ -86,7 +68,6 @@ namespace Platform
 		auto result = mmap(nullptr,numBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 		if(result == MAP_FAILED)
 		{
-			Log::printf(Log::Category::error,"mmap(%" PRIuPTR " KB) failed: errno=%s\n",numBytes/1024,strerror(errno));
 			return nullptr;
 		}
 		return (uint8*)result;
@@ -108,14 +89,14 @@ namespace Platform
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		auto numBytes = numPages << getPageSizeLog2();
-		if(madvise(baseVirtualAddress,numBytes,MADV_DONTNEED)) { Core::error("madvise failed"); }
-		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { Core::error("mprotect failed"); }
+		if(madvise(baseVirtualAddress,numBytes,MADV_DONTNEED)) { Errors::fatal("madvise failed"); }
+		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { Errors::fatal("mprotect failed"); }
 	}
 
 	void freeVirtualPages(uint8* baseVirtualAddress,size_t numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
-		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Core::error("munmap failed"); }
+		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Errors::fatal("munmap failed"); }
 	}
 
 	bool describeInstructionPointer(uintp ip,std::string& outDescription)
@@ -131,12 +112,6 @@ namespace Platform
 		#endif
 		return false;
 	}
-
-	THREAD_LOCAL jmp_buf signalReturnEnv;
-	THREAD_LOCAL HardwareTrapType signalType = HardwareTrapType::none;
-	THREAD_LOCAL CallStack* signalCallStack = nullptr;
-	THREAD_LOCAL uintp* signalOperand = nullptr;
-	THREAD_LOCAL bool isReentrantSignal = false;
 
 	enum { signalStackNumBytes = 65536 };
 	THREAD_LOCAL uint8* signalStack = nullptr;
@@ -155,7 +130,7 @@ namespace Platform
 			signalStackInfo.ss_flags = 0;
 			if(sigaltstack(&signalStackInfo,nullptr) < 0)
 			{
-				Core::error("sigaltstack failed");
+				Errors::fatal("sigaltstack failed");
 			}
 
 			// Get the stack address from pthreads, but use getrlimit to find the maximum size of the stack instead of the current.
@@ -183,16 +158,23 @@ namespace Platform
 		}
 	}
 
+	THREAD_LOCAL jmp_buf signalReturnEnv;
+	THREAD_LOCAL HardwareTrapType signalType = HardwareTrapType::none;
+	THREAD_LOCAL CallStack* signalCallStack = nullptr;
+	THREAD_LOCAL uintp* signalOperand = nullptr;
+	THREAD_LOCAL bool isReentrantSignal = false;
+	THREAD_LOCAL bool isCatchingSignals = false;
+
 	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
 	{
-		if(isReentrantSignal) { Core::error("reentrant signal handler"); }
+		if(isReentrantSignal) { Errors::fatal("reentrant signal handler"); }
 		isReentrantSignal = true;
 
 		// Derive the exception cause the from signal that was received.
 		switch(signalNumber)
 		{
 		case SIGFPE:
-			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Core::error("unknown SIGFPE code"); }
+			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Errors::fatal("unknown SIGFPE code"); }
 			signalType = HardwareTrapType::intDivideByZeroOrOverflow;
 			break;
 		case SIGSEGV:
@@ -203,7 +185,7 @@ namespace Platform
 			*signalOperand = reinterpret_cast<uintp>(signalInfo->si_addr);
 			break;
 		default:
-			Core::errorf("unknown signal number: %i",signalNumber);
+			Errors::fatalf("unknown signal number: %i",signalNumber);
 			break;
 		};
 
@@ -211,8 +193,39 @@ namespace Platform
 		// so the top of the callstack is the function that triggered the signal.
 		*signalCallStack = captureCallStack(2);
 
-		// Jump back to the setjmp in catchRuntimeExceptions.
+		// If the signal occurred outside of a catchHardwareTraps call, just treat it as a fatal error.
+		if(!isCatchingSignals)
+		{
+			switch(signalNumber)
+			{
+			case SIGFPE: Errors::fatalf("unhandled SIGFPE\n");
+			case SIGSEGV: Errors::fatalf("unhandled SIGSEGV\n");
+			case SIGBUS: Errors::fatalf("unhandled SIGBUS\n");
+			default: Errors::unreachable();
+			};
+		}
+
+		// Jump back to the setjmp in catchHardwareTraps.
 		siglongjmp(signalReturnEnv,1);
+	}
+
+	THREAD_LOCAL bool hasInitializedSignalHandlers = false;
+
+	void initSignals()
+	{
+		if(!hasInitializedSignalHandlers)
+		{
+			hasInitializedSignalHandlers = true;
+
+			// Set a signal handler for the signals we want to intercept.
+			struct sigaction signalAction;
+			signalAction.sa_sigaction = signalHandler;
+			sigemptyset(&signalAction.sa_mask);
+			signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
+			sigaction(SIGSEGV,&signalAction,nullptr);
+			sigaction(SIGBUS,&signalAction,nullptr);
+			sigaction(SIGFPE,&signalAction,nullptr);
+		}
 	}
 
 	HardwareTrapType catchHardwareTraps(
@@ -221,11 +234,12 @@ namespace Platform
 		const std::function<void()>& thunk
 		)
 	{
-		errorUnless(signalStack);
+		initThread();
+		initSignals();
 		
-		struct sigaction oldSignalActionSEGV;
-		struct sigaction oldSignalActionBUS;
-		struct sigaction oldSignalActionFPE;
+		jmp_buf oldSignalReturnEnv;
+		memcpy(&oldSignalReturnEnv,&signalReturnEnv,sizeof(jmp_buf));
+		const bool oldIsCatchingSignals = isCatchingSignals;
 
 		// Use setjmp to allow signals to jump back to this point.
 		bool isReturningFromSignalHandler = sigsetjmp(signalReturnEnv,1);
@@ -234,27 +248,18 @@ namespace Platform
 			signalType = HardwareTrapType::none;
 			signalCallStack = &outTrapCallStack;
 			signalOperand = &outTrapOperand;
-
-			// Set a signal handler for the signals we want to intercept.
-			struct sigaction signalAction;
-			signalAction.sa_sigaction = signalHandler;
-			sigemptyset(&signalAction.sa_mask);
-			signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
-			sigaction(SIGSEGV,&signalAction,&oldSignalActionSEGV);
-			sigaction(SIGBUS,&signalAction,&oldSignalActionBUS);
-			sigaction(SIGFPE,&signalAction,&oldSignalActionFPE);
+			isCatchingSignals = true;
 
 			// Call the thunk.
 			thunk();
 		}
 
 		// Reset the signal state.
+		memcpy(&signalReturnEnv,&oldSignalReturnEnv,sizeof(jmp_buf));
+		isCatchingSignals = oldIsCatchingSignals;
 		isReentrantSignal = false;
 		signalCallStack = nullptr;
 		signalOperand = nullptr;
-		sigaction(SIGSEGV,&oldSignalActionSEGV,nullptr);
-		sigaction(SIGBUS,&oldSignalActionBUS,nullptr);
-		sigaction(SIGFPE,&oldSignalActionFPE,nullptr);
 
 		return signalType;
 	}
@@ -279,6 +284,116 @@ namespace Platform
 		#else
 			return CallStack();
 		#endif
+	}
+
+	uint64 getMonotonicClock()
+	{
+		#ifdef __APPLE__
+			timeval timeVal;
+			gettimeofday(&timeVal, nullptr);
+			return uint64(timeVal.tv_sec) * 1000000 + uint64(timeVal.tv_usec);
+		#else
+			timespec monotonicClock;
+			clock_gettime(CLOCK_MONOTONIC,&monotonicClock);
+			return uint64(monotonicClock.tv_sec) * 1000000 + uint64(monotonicClock.tv_nsec) / 1000;
+		#endif
+	}
+	
+	struct Mutex
+	{
+		pthread_mutex_t pthreadMutex;
+	};
+
+	Mutex* createMutex()
+	{
+		auto mutex = new Mutex();
+		errorUnless(!pthread_mutex_init(&mutex->pthreadMutex,nullptr));
+		return mutex;
+	}
+
+	void destroyMutex(Mutex* mutex)
+	{
+		errorUnless(!pthread_mutex_destroy(&mutex->pthreadMutex));
+		delete mutex;
+	}
+
+	void lockMutex(Mutex* mutex)
+	{
+		errorUnless(!pthread_mutex_lock(&mutex->pthreadMutex));
+	}
+
+	void unlockMutex(Mutex* mutex)
+	{
+		errorUnless(!pthread_mutex_unlock(&mutex->pthreadMutex));
+	}
+
+	struct Event
+	{
+		pthread_cond_t conditionVariable;
+		pthread_mutex_t mutex;
+	};
+
+	Event* createEvent()
+	{
+		auto event = new Event();
+
+		pthread_condattr_t conditionVariableAttr;
+		errorUnless(!pthread_condattr_init(&conditionVariableAttr));
+
+		// Set the condition variable to use the monotonic clock for wait timeouts.
+		#ifndef __APPLE__
+			errorUnless(!pthread_condattr_setclock(&conditionVariableAttr,CLOCK_MONOTONIC));
+		#endif
+
+		errorUnless(!pthread_cond_init(&event->conditionVariable,nullptr));
+		errorUnless(!pthread_mutex_init(&event->mutex,nullptr));
+
+		errorUnless(!pthread_condattr_destroy(&conditionVariableAttr));
+
+		return event;
+	}
+
+	void destroyEvent(Event* event)
+	{
+		pthread_cond_destroy(&event->conditionVariable);
+		errorUnless(!pthread_mutex_destroy(&event->mutex));
+		delete event;
+	}
+	
+	bool waitForEvent(Event* event,uint64 untilTime)
+	{
+		errorUnless(!pthread_mutex_lock(&event->mutex));
+
+		int result;
+		if(untilTime == UINT64_MAX)
+		{
+			result = pthread_cond_wait(&event->conditionVariable,&event->mutex);
+		}
+		else
+		{
+			timespec untilTimeSpec;
+			untilTimeSpec.tv_sec = untilTime / 1000000;
+			untilTimeSpec.tv_nsec = (untilTime % 1000000) * 1000;
+
+			result = pthread_cond_timedwait(&event->conditionVariable,&event->mutex,&untilTimeSpec);
+		}
+
+		errorUnless(!pthread_mutex_unlock(&event->mutex));
+
+		if(result == ETIMEDOUT)
+		{
+			return false;
+		}
+		else
+		{
+			errorUnless(!result);
+			return true;
+		}
+	}
+
+	void signalEvent(Event* event)
+	{
+		errorUnless(!pthread_cond_signal(&event->conditionVariable));
 	}
 }
 

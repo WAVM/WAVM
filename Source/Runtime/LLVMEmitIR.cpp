@@ -1,7 +1,9 @@
 #include "LLVMJIT.h"
 #include "llvm/ADT/SmallVector.h"
+#include "Inline/Timing.h"
 #include "IR/Operators.h"
 #include "IR/OperatorPrinter.h"
+#include "Logging/Logging.h"
 
 #define ENABLE_LOGGING 0
 #define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
@@ -184,7 +186,7 @@ namespace LLVMJIT
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
-					default: Core::unreachable();
+					default: Errors::unreachable();
 					};
 					if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 				}
@@ -283,7 +285,7 @@ namespace LLVMJIT
 		//
 
 		void nop(NoImm) {}
-		void unknown(Opcode opcode) { Core::unreachable(); }
+		void unknown(Opcode opcode) { Errors::unreachable(); }
 		
 		//
 		// Control structure operators
@@ -665,30 +667,30 @@ namespace LLVMJIT
 		// Local/global operators
 		//
 
-		void get_local(GetOrSetVariableImm imm)
+		void get_local(GetOrSetVariableImm<false> imm)
 		{
 			assert(imm.variableIndex < localPointers.size());
 			push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
 		}
-		void set_local(GetOrSetVariableImm imm)
+		void set_local(GetOrSetVariableImm<false> imm)
 		{
 			assert(imm.variableIndex < localPointers.size());
 			auto value = irBuilder.CreateBitCast(pop(),localPointers[imm.variableIndex]->getType()->getPointerElementType());
 			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
 		}
-		void tee_local(GetOrSetVariableImm imm)
+		void tee_local(GetOrSetVariableImm<false> imm)
 		{
 			assert(imm.variableIndex < localPointers.size());
 			auto value = irBuilder.CreateBitCast(getTopValue(),localPointers[imm.variableIndex]->getType()->getPointerElementType());
 			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
 		}
 		
-		void get_global(GetOrSetVariableImm imm)
+		void get_global(GetOrSetVariableImm<true> imm)
 		{
 			assert(imm.variableIndex < moduleContext.globalPointers.size());
 			push(irBuilder.CreateLoad(moduleContext.globalPointers[imm.variableIndex]));
 		}
-		void set_global(GetOrSetVariableImm imm)
+		void set_global(GetOrSetVariableImm<true> imm)
 		{
 			assert(imm.variableIndex < moduleContext.globalPointers.size());
 			auto value = irBuilder.CreateBitCast(pop(),moduleContext.globalPointers[imm.variableIndex]->getType()->getPointerElementType());
@@ -970,7 +972,7 @@ namespace LLVMJIT
 
 		llvm::Value* unimplemented()
 		{
-			Core::unreachable();
+			Errors::unreachable();
 		}
 
 		#define EMIT_SIMD_SPLAT(vectorType,coerceScalar,numLanes) \
@@ -1257,6 +1259,260 @@ namespace LLVMJIT
 		EMIT_SIMD_SELECT(v32x4,llvmI32x4Type)
 		EMIT_SIMD_SELECT(v64x2,llvmI64x2Type)
 		#endif
+
+		#if ENABLE_THREADING_PROTOTYPE
+		void is_lock_free(NoImm)
+		{
+			auto numBytes = pop();
+			push(emitRuntimeIntrinsic(
+				"wavmIntrinsics.isLockFree",
+				FunctionType::get(ResultType::i32,{ValueType::i32}),
+				{numBytes}));
+		}
+		void wake(AtomicLoadOrStoreImm<2>)
+		{
+			auto numWaiters = pop();
+			auto address = pop();
+			auto defaultMemoryObjectAsI64 = emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory));
+			push(emitRuntimeIntrinsic(
+				"wavmIntrinsics.wake",
+				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i32,ValueType::i64}),
+				{address,numWaiters,defaultMemoryObjectAsI64}));
+		}
+		void i32_wait(AtomicLoadOrStoreImm<2>)
+		{
+			auto timeout = pop();
+			auto expectedValue = pop();
+			auto address = pop();
+			auto defaultMemoryObjectAsI64 = emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory));
+			push(emitRuntimeIntrinsic(
+				"wavmIntrinsics.wait",
+				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i32,ValueType::f64,ValueType::i64}),
+				{address,expectedValue,timeout,defaultMemoryObjectAsI64}));
+		}
+		void i64_wait(AtomicLoadOrStoreImm<3>)
+		{
+			auto timeout = pop();
+			auto expectedValue = pop();
+			auto address = pop();
+			auto defaultMemoryObjectAsI64 = emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultMemory));
+			push(emitRuntimeIntrinsic(
+				"wavmIntrinsics.wait",
+				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i64,ValueType::f64,ValueType::i64}),
+				{address,expectedValue,timeout,defaultMemoryObjectAsI64}));
+		}
+
+		void launch_thread(LaunchThreadImm)
+		{
+			assert(moduleContext.moduleInstance->defaultTable);
+			auto errorFunctionIndex = pop();
+			auto argument = pop();
+			auto functionIndex = pop();
+			auto defaultTableAsI64 = emitLiteral(reinterpret_cast<uint64>(moduleContext.moduleInstance->defaultTable));
+			emitRuntimeIntrinsic(
+				"wavmIntrinsics.launchThread",
+				FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i32,ValueType::i32,ValueType::i64}),
+				{functionIndex,argument,errorFunctionIndex,defaultTableAsI64});
+		}
+		
+		void trapIfMisalignedAtomic(llvm::Value* address,uint32 naturalAlignmentLog2)
+		{
+			if(naturalAlignmentLog2 > 0)
+			{
+				emitConditionalTrapIntrinsic(
+					irBuilder.CreateICmpNE(
+						typedZeroConstants[(uintp)ValueType::i32],
+						irBuilder.CreateAnd(address,emitLiteral((uint32(1) << naturalAlignmentLog2) - 1))),
+					"wavmIntrinsics.misalignedAtomicTrap",
+					FunctionType::get(ResultType::none,{ValueType::i32}),
+					{address});
+			}
+		}
+
+		#define EMIT_ATOMIC_LOAD_OP(valueTypeId,name,llvmMemoryType,naturalAlignmentLog2,conversionOp) \
+			void valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
+			{ \
+				auto byteIndex = pop(); \
+				trapIfMisalignedAtomic(byteIndex,naturalAlignmentLog2); \
+				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
+				auto load = irBuilder.CreateLoad(pointer); \
+				load->setAlignment(1<<imm.alignmentLog2); \
+				load->setVolatile(true); \
+				load->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent); \
+				push(conversionOp(load,asLLVMType(ValueType::valueTypeId))); \
+			}
+		#define EMIT_ATOMIC_STORE_OP(valueTypeId,name,llvmMemoryType,naturalAlignmentLog2,conversionOp) \
+			void valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
+			{ \
+				auto value = pop(); \
+				auto byteIndex = pop(); \
+				trapIfMisalignedAtomic(byteIndex,naturalAlignmentLog2); \
+				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
+				auto memoryValue = conversionOp(value,llvmMemoryType); \
+				auto store = irBuilder.CreateStore(memoryValue,pointer); \
+				store->setVolatile(true); \
+				store->setAlignment(1<<imm.alignmentLog2); \
+				store->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent); \
+			}
+		EMIT_ATOMIC_LOAD_OP(i32,atomic_load,llvmI32Type,2,identityConversion)
+		EMIT_ATOMIC_LOAD_OP(i64,atomic_load,llvmI64Type,3,identityConversion)
+		EMIT_ATOMIC_LOAD_OP(f32,atomic_load,llvmF32Type,2,identityConversion)
+		EMIT_ATOMIC_LOAD_OP(f64,atomic_load,llvmF64Type,3,identityConversion)
+
+		EMIT_ATOMIC_LOAD_OP(i32,atomic_load8_s,llvmI8Type,0,irBuilder.CreateSExt)
+		EMIT_ATOMIC_LOAD_OP(i32,atomic_load8_u,llvmI8Type,0,irBuilder.CreateZExt)
+		EMIT_ATOMIC_LOAD_OP(i32,atomic_load16_s,llvmI16Type,1,irBuilder.CreateSExt)
+		EMIT_ATOMIC_LOAD_OP(i32,atomic_load16_u,llvmI16Type,1,irBuilder.CreateZExt)
+		EMIT_ATOMIC_LOAD_OP(i64,atomic_load8_s,llvmI8Type,0,irBuilder.CreateSExt)
+		EMIT_ATOMIC_LOAD_OP(i64,atomic_load8_u,llvmI8Type,0,irBuilder.CreateZExt)
+		EMIT_ATOMIC_LOAD_OP(i64,atomic_load16_s,llvmI16Type,1,irBuilder.CreateSExt)
+		EMIT_ATOMIC_LOAD_OP(i64,atomic_load16_u,llvmI16Type,1,irBuilder.CreateZExt)
+		EMIT_ATOMIC_LOAD_OP(i64,atomic_load32_s,llvmI32Type,2,irBuilder.CreateSExt)
+		EMIT_ATOMIC_LOAD_OP(i64,atomic_load32_u,llvmI32Type,2,irBuilder.CreateZExt)
+
+		EMIT_ATOMIC_STORE_OP(i32,atomic_store,llvmI32Type,2,identityConversion)
+		EMIT_ATOMIC_STORE_OP(i64,atomic_store,llvmI64Type,3,identityConversion)
+		EMIT_ATOMIC_STORE_OP(f32,atomic_store,llvmF32Type,2,identityConversion)
+		EMIT_ATOMIC_STORE_OP(f64,atomic_store,llvmF64Type,3,identityConversion)
+			
+		EMIT_ATOMIC_STORE_OP(i32,atomic_store8,llvmI8Type,0,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_STORE_OP(i32,atomic_store16,llvmI16Type,1,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_STORE_OP(i64,atomic_store8,llvmI8Type,0,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_STORE_OP(i64,atomic_store16,llvmI16Type,1,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_STORE_OP(i64,atomic_store32,llvmI32Type,2,irBuilder.CreateTrunc)
+
+		#define EMIT_ATOMIC_CMPXCHG(valueTypeId,name,llvmMemoryType,naturalAlignmentLog2,memoryToValueConversion,valueToMemoryConversion) \
+			void valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
+			{ \
+				auto replacementValue = valueToMemoryConversion(pop(),llvmMemoryType); \
+				auto expectedValue = valueToMemoryConversion(pop(),llvmMemoryType); \
+				auto byteIndex = pop(); \
+				trapIfMisalignedAtomic(byteIndex,naturalAlignmentLog2); \
+				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
+				auto atomicCmpXchg = irBuilder.CreateAtomicCmpXchg( \
+					pointer, \
+					expectedValue, \
+					replacementValue, \
+					llvm::AtomicOrdering::SequentiallyConsistent, \
+					llvm::AtomicOrdering::SequentiallyConsistent); \
+				atomicCmpXchg->setVolatile(true); \
+				push(memoryToValueConversion(atomicCmpXchg,asLLVMType(ValueType::valueTypeId))); \
+			}
+
+		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw8_s_cmpxchg,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw8_u_cmpxchg,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw16_s_cmpxchg,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw16_u_cmpxchg,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw_cmpxchg,llvmI32Type,2,identityConversion,identityConversion)
+			
+		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw8_s_cmpxchg,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw8_u_cmpxchg,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw16_s_cmpxchg,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw16_u_cmpxchg,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw32_s_cmpxchg,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw32_u_cmpxchg,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw_cmpxchg,llvmI64Type,3,identityConversion,identityConversion)
+			
+		#define EMIT_ATOMIC_RMW(valueTypeId,name,rmwOpId,llvmMemoryType,naturalAlignmentLog2,memoryToValueConversion,valueToMemoryConversion) \
+			void valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
+			{ \
+				auto value = valueToMemoryConversion(pop(),llvmMemoryType); \
+				auto byteIndex = pop(); \
+				trapIfMisalignedAtomic(byteIndex,naturalAlignmentLog2); \
+				auto pointer = coerceByteIndexToPointer(byteIndex,imm.offset,llvmMemoryType); \
+				auto atomicRMW = irBuilder.CreateAtomicRMW( \
+					llvm::AtomicRMWInst::BinOp::rmwOpId, \
+					pointer, \
+					value, \
+					llvm::AtomicOrdering::SequentiallyConsistent); \
+				atomicRMW->setVolatile(true); \
+				push(memoryToValueConversion(atomicRMW,asLLVMType(ValueType::valueTypeId))); \
+			}
+
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_xchg,Xchg,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_xchg,Xchg,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_xchg,Xchg,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_xchg,Xchg,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw_xchg,Xchg,llvmI32Type,2,identityConversion,identityConversion)
+
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_xchg,Xchg,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_xchg,Xchg,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_xchg,Xchg,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_xchg,Xchg,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_xchg,Xchg,llvmI16Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_xchg,Xchg,llvmI16Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw_xchg,Xchg,llvmI64Type,3,identityConversion,identityConversion)
+
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_add,Add,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_add,Add,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_add,Add,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_add,Add,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw_add,Add,llvmI32Type,2,identityConversion,identityConversion)
+
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_add,Add,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_add,Add,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_add,Add,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_add,Add,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_add,Add,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_add,Add,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw_add,Add,llvmI64Type,3,identityConversion,identityConversion)
+			
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_sub,Sub,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_sub,Sub,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_sub,Sub,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_sub,Sub,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw_sub,Sub,llvmI32Type,2,identityConversion,identityConversion)
+
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_sub,Sub,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_sub,Sub,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_sub,Sub,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_sub,Sub,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_sub,Sub,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_sub,Sub,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw_sub,Sub,llvmI64Type,3,identityConversion,identityConversion)
+			
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_and,And,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_and,And,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_and,And,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_and,And,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw_and,And,llvmI32Type,2,identityConversion,identityConversion)
+
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_and,And,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_and,And,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_and,And,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_and,And,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_and,And,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_and,And,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw_and,And,llvmI64Type,3,identityConversion,identityConversion)
+			
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_or,Or,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_or,Or,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_or,Or,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_or,Or,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw_or,Or,llvmI32Type,2,identityConversion,identityConversion)
+
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_or,Or,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_or,Or,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_or,Or,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_or,Or,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_or,Or,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_or,Or,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw_or,Or,llvmI64Type,3,identityConversion,identityConversion)
+			
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_xor,Xor,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_xor,Xor,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_xor,Xor,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_xor,Xor,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i32,atomic_rmw_xor,Xor,llvmI32Type,2,identityConversion,identityConversion)
+
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_xor,Xor,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_xor,Xor,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_xor,Xor,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_xor,Xor,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_xor,Xor,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_xor,Xor,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
+		EMIT_ATOMIC_RMW(i64,atomic_rmw_xor,Xor,llvmI64Type,3,identityConversion,identityConversion)
+		#endif
 	};
 	
 	// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end operator through).
@@ -1387,7 +1643,7 @@ namespace LLVMJIT
 
 	llvm::Module* EmitModuleContext::emit()
 	{
-		Core::Timer emitTimer;
+		Timing::Timer emitTimer;
 
 		// Create literals for the default memory base and mask.
 		if(moduleInstance->defaultMemory)
@@ -1440,7 +1696,7 @@ namespace LLVMJIT
 		// Finalize the debug info.
 		diBuilder.finalize();
 
-		Log::logRatePerSecond("Emitted LLVM IR",emitTimer,(float64)llvmModule->size(),"functions");
+		Timing::logRatePerSecond("Emitted LLVM IR",emitTimer,(float64)llvmModule->size(),"functions");
 
 		return llvmModule;
 	}

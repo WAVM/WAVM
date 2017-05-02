@@ -1,6 +1,9 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Regexp.h"
 #include "NFA.h"
+
+#include <assert.h>
 
 enum class NodeType : uint8
 {
@@ -77,16 +80,16 @@ static char parseChar(const char*& nextChar)
 		++nextChar;
 		if(!isMetachar<inSet>(*nextChar))
 		{
-			Core::errorf("'%c' is not a metachar in this context",*nextChar);
+			Errors::fatalf("'%c' is not a metachar in this context",*nextChar);
 		}
 	}
 	else if(isMetachar<inSet>(*nextChar))
 	{
-		Core::errorf("'%c' is a metachar in this context",*nextChar);
+		Errors::fatalf("'%c' is a metachar in this context",*nextChar);
 	}
 	else if(*nextChar == 0)
 	{
-		Core::errorf("unexpected end of string");
+		Errors::fatalf("unexpected end of string");
 	}
 	return *nextChar++;
 }
@@ -121,7 +124,7 @@ static NFA::CharSet parseCharClass(const char*& nextChar)
 		default:
 			if(!isMetachar<inSet>(nextChar[1]))
 			{
-				Core::errorf("'%c' is not a metachar in this context",*nextChar);
+				Errors::fatalf("'%c' is not a metachar in this context",*nextChar);
 			}
 			result.add(nextChar[1]);
 			break;
@@ -230,10 +233,10 @@ static Node* parseSeq(const char*& nextChar,uintp groupDepth)
 		switch(*nextChar)
 		{
 		case ')':
-			if(groupDepth == 0) { Core::errorf("unexpected ')'"); }
+			if(groupDepth == 0) { Errors::fatalf("unexpected ')'"); }
 			return result;
 		case 0:
-			if(groupDepth != 0) { Core::errorf("unexpected end of string"); }
+			if(groupDepth != 0) { Errors::fatalf("unexpected end of string"); }
 			return result;
 		case '|':
 			return result;
@@ -252,16 +255,16 @@ static Node* parseUnion(const char*& nextChar,uintp groupDepth)
 		switch(*nextChar)
 		{
 		case ')':
-			if(groupDepth == 0) { Core::errorf("unexpected ')'"); }
+			if(groupDepth == 0) { Errors::fatalf("unexpected ')'"); }
 			return result;
 		case 0:
-			if(groupDepth != 0) { Core::errorf("unexpected end of string"); }
+			if(groupDepth != 0) { Errors::fatalf("unexpected end of string"); }
 			return result;
 		case '|':
 			++nextChar;
 			break;
 		default:
-			Core::errorf("unrecognized input");
+			Errors::fatalf("unrecognized input");
 		};
 	};
 }
@@ -270,7 +273,7 @@ static Node* parse(const char* string)
 {
 	const char* nextChar = string;
 	Node* node = parseUnion(nextChar,0);
-	if(*nextChar != 0) { Core::errorf("failed to parse entire regexp"); }
+	if(*nextChar != 0) { Errors::fatalf("failed to parse entire regexp"); }
 	return node;
 }
 
@@ -323,7 +326,7 @@ static void createNFA(NFA::Builder* nfaBuilder,Node* node,NFA::StateIndex initia
 		break;
 	}
 	default:
-		Core::unreachable();
+		Errors::unreachable();
 	};
 }
 

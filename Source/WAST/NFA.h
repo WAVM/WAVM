@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/DenseStaticIntSet.h"
+
+#include <string>
 
 namespace NFA
 {

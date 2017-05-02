@@ -1,10 +1,13 @@
-#include "Core/Core.h"
-#include "Core/Platform.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
+#include "Inline/Timing.h"
+#include "Platform/Platform.h"
 #include "NFA.h"
 #include <set>
 #include <map>
 #include <string>
 #include <string.h>
+#include <algorithm>
 
 namespace NFA
 {
@@ -86,7 +89,7 @@ namespace NFA
 
 	std::vector<DFAState> convertToDFA(Builder* builder)
 	{
-		Core::Timer timer;
+		Timing::Timer timer;
 
 		std::vector<DFAState> dfaStates;
 		std::map<StateSet,StateIndex> nfaStateSetToDFAStateMap;
@@ -136,7 +139,7 @@ namespace NFA
 				{
 					if(hasCurrentTerminalState)
 					{
-						Core::errorf("NFA has multiple possible terminal states for the same input");
+						Errors::fatalf("NFA has multiple possible terminal states for the same input");
 					}
 					hasCurrentTerminalState = true;
 					currentTerminalState = stateIndex | edgeDoesntConsumeInputFlag;
@@ -272,7 +275,7 @@ namespace NFA
 			maxDFANextStates = std::max(maxDFANextStates,uniqueLocalNextStateSets.size());
 		};
 		
-		Log::logTimer("translated NFA->DFA",timer);
+		Timing::logTimer("translated NFA->DFA",timer);
 		Log::printf(Log::Category::metrics,"  translated NFA with %u states to DFA with %u states\n",builder->nfaStates.size(),dfaStates.size());
 		Log::printf(Log::Category::metrics,"  maximum number of states following a NFA state set: %u\n",maxLocalStates);
 		Log::printf(Log::Category::metrics,"  maximum number of states following a DFA state: %u\n",maxDFANextStates);
@@ -320,7 +323,7 @@ namespace NFA
 		assert(dfaStates.size() <= internalMaxStates);
 		delete builder;
 		
-		Core::Timer timer;
+		Timing::Timer timer;
 
 		// Transpose the [state][character] transition map to [character][state].
 		std::vector<StateTransitionsByChar> stateTransitionsByChar;
@@ -369,7 +372,7 @@ namespace NFA
 			charToOffsetMap[charIndex] = uint32(numStates * characterToClassMap[charIndex]);
 		}
 
-		Log::logTimer("reduced DFA character classes",timer);
+		Timing::logTimer("reduced DFA character classes",timer);
 		Log::printf(Log::Category::metrics,"  reduced DFA character classes to %u\n",numClasses);
 	}
 

@@ -1,4 +1,5 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
+#include "Logging/Logging.h"
 #include "IR/IR.h"
 #include "IR/Module.h"
 #include "Runtime/Runtime.h"
@@ -34,8 +35,8 @@ namespace Emscripten
 	DEFINE_INTRINSIC_GLOBAL(env,_stdin,_stdin,i32,false,0);
 	DEFINE_INTRINSIC_GLOBAL(env,_stdout,_stdout,i32,false,0);
 
-	DEFINE_INTRINSIC_MEMORY(env,emscriptenMemory,memory,MemoryType({SizeConstraints({256,UINT64_MAX})}));
-	DEFINE_INTRINSIC_TABLE(env,table,table,TableType({TableElementType::anyfunc,SizeConstraints({1024*1024,UINT64_MAX})}));
+	DEFINE_INTRINSIC_MEMORY(env,emscriptenMemory,memory,MemoryType(false,SizeConstraints({256,UINT64_MAX})));
+	DEFINE_INTRINSIC_TABLE(env,table,table,TableType(TableElementType::anyfunc,false,SizeConstraints({1024*1024,UINT64_MAX})));
 
 	DEFINE_INTRINSIC_GLOBAL(env,memoryBase,memoryBase,i32,false,1024);
 	DEFINE_INTRINSIC_GLOBAL(env,tableBase,tableBase,i32,false,0);
@@ -46,6 +47,7 @@ namespace Emscripten
 	DEFINE_INTRINSIC_GLOBAL(env,EMT_STACK_MAX,EMT_STACK_MAX,i32,false,0)
 	DEFINE_INTRINSIC_GLOBAL(env,eb,eb,i32,false,0)
 
+	Platform::Mutex* sbrkMutex = Platform::createMutex();
 	bool hasSbrkBeenCalled = false;
 	size_t sbrkNumPages = 0;
 	uint32_t sbrkMinBytes = 0;
@@ -53,6 +55,8 @@ namespace Emscripten
 
 	static uint32_t sbrk(int32 numBytes)
 	{
+		Platform::Lock sbrkLock(sbrkMutex);
+
 		if(!hasSbrkBeenCalled)
 		{
 			// Do some first time initialization.

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Core/Core.h"
-#include "Core/Platform.h"
+#include "Platform/Platform.h"
 
 #include <string>
 #include <vector>
 #include <string.h>
+#include <algorithm>
 
 namespace Serialization
 {

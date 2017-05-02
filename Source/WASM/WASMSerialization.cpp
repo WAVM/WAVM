@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "WASM.h"
 #include "IR/Module.h"
@@ -43,12 +43,10 @@ namespace IR
 	}
 	
 	template<typename Stream>
-	void serialize(Stream& stream,SizeConstraints& sizeConstraints)
+	void serialize(Stream& stream,SizeConstraints& sizeConstraints,bool hasMax)
 	{
-		uintp flags = sizeConstraints.max != UINT64_MAX ? 1 : 0;
-		serializeVarUInt32(stream,flags);
 		serializeVarUInt32(stream,sizeConstraints.min);
-		if(flags) { serializeVarUInt32(stream,sizeConstraints.max); }
+		if(hasMax) { serializeVarUInt32(stream,sizeConstraints.max); }
 		else if(Stream::isInput) { sizeConstraints.max = UINT64_MAX; }
 	}
 	
@@ -62,13 +60,32 @@ namespace IR
 	void serialize(Stream& stream,TableType& tableType)
 	{
 		serialize(stream,tableType.elementType);
-		serialize(stream,tableType.size);
+		
+		uintp flags = 0;
+		if(!Stream::isInput && tableType.size.max != UINT64_MAX) { flags |= 1; }
+		#if ENABLE_THREADING_PROTOTYPE
+		if(!Stream::isInput && tableType.isShared) { flags |= 2; }
+		serializeVarUInt32(stream,flags);
+		if(Stream::isInput) { tableType.isShared = (flags & 2) != 0; }
+		#else
+		serializeVarUInt32(stream,flags);
+		#endif
+		serialize(stream,tableType.size,flags & 1);
 	}
 
 	template<typename Stream>
 	void serialize(Stream& stream,MemoryType& memoryType)
 	{
-		serialize(stream,memoryType.size);
+		uintp flags = 0;
+		if(!Stream::isInput && memoryType.size.max != UINT64_MAX) { flags |= 1; }
+		#if ENABLE_THREADING_PROTOTYPE
+		if(!Stream::isInput && memoryType.isShared) { flags |= 2; }
+		serializeVarUInt32(stream,flags);
+		if(Stream::isInput) { memoryType.isShared = (flags & 2) != 0; }
+		#else
+		serializeVarUInt32(stream,flags);
+		#endif
+		serialize(stream,memoryType.size,flags & 1);
 	}
 
 	template<typename Stream>
@@ -217,20 +234,14 @@ namespace WASM
 		serializeArray(stream,branchTable,[](InputStream& stream,uint32& targetDepth){serializeVarUInt32(stream,targetDepth);});
 		imm.branchTableIndex = functionDef.branchTables.size();
 		functionDef.branchTables.push_back(std::move(branchTable));
-		// Work around GCC "cannot bind packed field" error.
-		// This will break on architectures that require distinguishing unaligned memory accesses!
-		uint32* defaultTargetDepth = &imm.defaultTargetDepth;
-		serializeVarUInt32(stream,*defaultTargetDepth);
+		serializeVarUInt32(stream,imm.defaultTargetDepth);
 	}
 	void serialize(OutputStream& stream,BranchTableImm& imm,FunctionDef& functionDef)
 	{
 		assert(imm.branchTableIndex < functionDef.branchTables.size());
 		std::vector<uint32>& branchTable = functionDef.branchTables[imm.branchTableIndex];
 		serializeArray(stream,branchTable,[](OutputStream& stream,uint32& targetDepth){serializeVarUInt32(stream,targetDepth);});
-		// Work around GCC "cannot bind packed field" error.
-		// This will break on architectures that require distinguishing unaligned memory accesses!
-		uint32* defaultTargetDepth = &imm.defaultTargetDepth;
-		serializeVarUInt32(stream,*defaultTargetDepth);
+		serializeVarUInt32(stream,imm.defaultTargetDepth);
 	}
 
 	template<typename Stream,typename Value>
@@ -245,8 +256,8 @@ namespace WASM
 	void serialize(Stream& stream,LiteralImm<int64>& imm,const FunctionDef&)
 	{ serializeVarInt64(stream,imm.value); }
 
-	template<typename Stream>
-	void serialize(Stream& stream,GetOrSetVariableImm& imm,const FunctionDef&)
+	template<typename Stream,bool isGlobal>
+	void serialize(Stream& stream,GetOrSetVariableImm<isGlobal>& imm,const FunctionDef&)
 	{ serializeVarUInt32(stream,imm.variableIndex); }
 
 	template<typename Stream>
@@ -267,11 +278,8 @@ namespace WASM
 	template<typename Stream,size_t naturalAlignmentLog2>
 	void serialize(Stream& stream,LoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
 	{
-		// Work around GCC "cannot bind packed field" error.
-		// This will break on architectures that require distinguishing unaligned memory accesses!
-		uint32* offset = &imm.offset;
 		serializeVarUInt7(stream,imm.alignmentLog2);
-		serializeVarUInt32(stream,*offset);
+		serializeVarUInt32(stream,imm.offset);
 	}
 	template<typename Stream>
 	void serialize(Stream& stream,MemoryImm& imm,const FunctionDef&)
@@ -301,6 +309,18 @@ namespace WASM
 			{
 				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
 			}
+		}
+	#endif
+
+	#if ENABLE_THREADING_PROTOTYPE
+		template<typename Stream>
+		void serialize(Stream& stream,LaunchThreadImm& imm,const FunctionDef&) {}
+		
+		template<typename Stream,size_t naturalAlignmentLog2>
+		void serialize(Stream& stream,AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
+		{
+			serializeVarUInt7(stream,imm.alignmentLog2);
+			serializeVarUInt32(stream,imm.offset);
 		}
 	#endif
 

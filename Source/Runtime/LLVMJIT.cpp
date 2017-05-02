@@ -1,11 +1,22 @@
 #include "LLVMJIT.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Timing.h"
+#include "Logging/Logging.h"
+#include "RuntimePrivate.h"
 
-// This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through the JITed code.
-#define USE_WRITEABLE_JIT_CODE_PAGES _DEBUG
+#ifdef _DEBUG
+	// This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through the JITed code.
+	#define USE_WRITEABLE_JIT_CODE_PAGES 1
 
-#define DUMP_UNOPTIMIZED_MODULE _DEBUG
-#define VERIFY_MODULE _DEBUG
-#define DUMP_OPTIMIZED_MODULE _DEBUG
+	#define DUMP_UNOPTIMIZED_MODULE 1
+	#define VERIFY_MODULE 1
+	#define DUMP_OPTIMIZED_MODULE 1
+#else
+	#define USE_WRITEABLE_JIT_CODE_PAGES 0
+	#define DUMP_UNOPTIMIZED_MODULE 0
+	#define VERIFY_MODULE 0
+	#define DUMP_OPTIMIZED_MODULE 0
+#endif
 
 namespace LLVMJIT
 {
@@ -39,6 +50,7 @@ namespace LLVMJIT
 	llvm::Constant* typedZeroConstants[(size_t)ValueType::num];
 	
 	// A map from address to loaded JIT symbols.
+	Platform::Mutex* addressToSymbolMapMutex = Platform::createMutex();
 	std::map<uintp,struct JITSymbol*> addressToSymbolMap;
 
 	// A map from function types to function indices in the invoke thunk unit.
@@ -118,7 +130,7 @@ namespace LLVMJIT
 			{
 				// Reserve enough contiguous pages for all sections.
 				imageBaseAddress = Platform::allocateVirtualPages(numAllocatedImagePages);
-				if(!imageBaseAddress || !Platform::commitVirtualPages(imageBaseAddress,numAllocatedImagePages)) { Core::error("memory allocation for JIT code failed"); }
+				if(!imageBaseAddress || !Platform::commitVirtualPages(imageBaseAddress,numAllocatedImagePages)) { Errors::fatal("memory allocation for JIT code failed"); }
 				codeSection.baseAddress = imageBaseAddress;
 				readOnlySection.baseAddress = codeSection.baseAddress + (codeSection.numPages << Platform::getPageSizeLog2());
 				readWriteSection.baseAddress = readOnlySection.baseAddress + (readOnlySection.numPages << Platform::getPageSizeLog2());
@@ -184,7 +196,7 @@ namespace LLVMJIT
 			section.numCommittedBytes = align(section.numCommittedBytes,alignment) + align(numBytes,alignment);
 
 			// Check that enough space was reserved in the section.
-			if(section.numCommittedBytes > (section.numPages << Platform::getPageSizeLog2())) { Core::error("didn't reserve enough space in section"); }
+			if(section.numCommittedBytes > (section.numPages << Platform::getPageSizeLog2())) { Errors::fatal("didn't reserve enough space in section"); }
 
 			return allocationBaseAddress;
 		}
@@ -276,6 +288,7 @@ namespace LLVMJIT
 		~JITModule() override
 		{
 			// Delete the module's symbols, and remove them from the global address-to-symbol map.
+			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
 			for(auto symbol : functionDefSymbols)
 			{
 				addressToSymbolMap.erase(addressToSymbolMap.find(symbol->baseAddress + symbol->numBytes));
@@ -294,8 +307,12 @@ namespace LLVMJIT
 				FunctionInstance* functionInstance = moduleInstance->functionDefs[functionDefIndex];
 				auto symbol = new JITSymbol(functionInstance,baseAddress,numBytes,std::move(offsetToOpIndexMap));
 				functionDefSymbols.push_back(symbol);
-				addressToSymbolMap[baseAddress + numBytes] = symbol;
 				functionInstance->nativeFunction = reinterpret_cast<void*>(baseAddress);
+
+				{
+					Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+					addressToSymbolMap[baseAddress + numBytes] = symbol;
+				}
 			}
 		}
 	};
@@ -335,7 +352,7 @@ namespace LLVMJIT
 		}
 
 		Log::printf(Log::Category::error,"LLVM generated code referenced external symbol: %s\n",name.c_str());
-		Core::unreachable();
+		Errors::unreachable();
 	}
 	llvm::JITSymbol NullResolver::findSymbolInLogicalDylib(const std::string& name) { return llvm::JITSymbol(nullptr); }
 
@@ -384,7 +401,7 @@ namespace LLVMJIT
 					for(auto pdataRelocIt : pdataSection.relocations())
 					{
 						// Only handle type 3 (IMAGE_REL_AMD64_ADDR32NB).
-						if(pdataRelocIt.getType() != 3) { Core::unreachable(); }
+						if(pdataRelocIt.getType() != 3) { Errors::unreachable(); }
 
 						const auto symbol = pdataRelocIt.getSymbol();
 						const uint64 symbolAddress = symbol->getAddress().get();
@@ -395,7 +412,7 @@ namespace LLVMJIT
 							+ loadedObject->getSectionLoadAddress(*symbolSection)
 							+ *valueToRelocate
 							- imageBaseAddress;
-						if(relocatedValue64 > UINT32_MAX) { Core::unreachable(); }
+						if(relocatedValue64 > UINT32_MAX) { Errors::unreachable(); }
 						*valueToRelocate = (uint32)relocatedValue64;
 					}
 
@@ -471,12 +488,12 @@ namespace LLVMJIT
 			std::string verifyOutputString;
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
 			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
-			{ Core::errorf("LLVM verification errors:\n%s\n",verifyOutputString.c_str()); }
+			{ Errors::fatalf("LLVM verification errors:\n%s\n",verifyOutputString.c_str()); }
 			Log::printf(Log::Category::debug,"Verified LLVM module\n");
 		}
 
 		// Run some optimization on the module's functions.
-		Core::Timer optimizationTimer;
+		Timing::Timer optimizationTimer;
 
 		auto fpm = new llvm::legacy::FunctionPassManager(llvmModule);
 		fpm->add(llvm::createPromoteMemoryToRegisterPass());
@@ -491,13 +508,13 @@ namespace LLVMJIT
 		
 		if(shouldLogMetrics)
 		{
-			Log::logRatePerSecond("Optimized LLVM module",optimizationTimer,(float64)llvmModule->size(),"functions");
+			Timing::logRatePerSecond("Optimized LLVM module",optimizationTimer,(float64)llvmModule->size(),"functions");
 		}
 
 		if(DUMP_OPTIMIZED_MODULE) { printModule(llvmModule,"llvmOptimizedDump"); }
 
 		// Pass the module to the JIT compiler.
-		Core::Timer machineCodeTimer;
+		Timing::Timer machineCodeTimer;
 		handle = compileLayer->addModuleSet(
 			std::vector<llvm::Module*>{llvmModule},
 			&memoryManager,
@@ -506,7 +523,7 @@ namespace LLVMJIT
 
 		if(shouldLogMetrics)
 		{
-			Log::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
+			Timing::logRatePerSecond("Generated machine code",machineCodeTimer,(float64)llvmModule->size(),"functions");
 		}
 		
 		delete llvmModule;
@@ -545,10 +562,13 @@ namespace LLVMJIT
 
 	bool describeInstructionPointer(uintp ip,std::string& outDescription)
 	{
-		auto symbolIt = addressToSymbolMap.upper_bound(ip);
-		if(symbolIt == addressToSymbolMap.end()) { return false; }
-
-		JITSymbol* symbol = symbolIt->second;
+		JITSymbol* symbol;
+		{
+			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+			auto symbolIt = addressToSymbolMap.upper_bound(ip);
+			if(symbolIt == addressToSymbolMap.end()) { return false; }
+			symbol = symbolIt->second;
+		}
 		if(ip < symbol->baseAddress || ip >= symbol->baseAddress + symbol->numBytes) { return false; }
 
 		switch(symbol->type)
@@ -560,7 +580,7 @@ namespace LLVMJIT
 		case JITSymbol::Type::invokeThunk:
 			outDescription = "<invoke thunk : " + asString(symbol->invokeThunkType) + ">";
 			break;
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 		
 		// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
@@ -629,7 +649,12 @@ namespace LLVMJIT
 
 		assert(jitUnit->symbol);
 		invokeThunkTypeToSymbolMap[functionType] = jitUnit->symbol;
-		addressToSymbolMap[jitUnit->symbol->baseAddress + jitUnit->symbol->numBytes] = jitUnit->symbol;
+
+		{
+			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+			addressToSymbolMap[jitUnit->symbol->baseAddress + jitUnit->symbol->numBytes] = jitUnit->symbol;
+		}
+
 		return reinterpret_cast<InvokeFunctionPointer>(jitUnit->symbol->baseAddress);
 	}
 	

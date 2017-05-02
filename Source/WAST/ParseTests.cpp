@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "WAST.h"
 #include "TestScript.h"
 #include "Lexer.h"

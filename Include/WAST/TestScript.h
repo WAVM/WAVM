@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "WAST.h"
 #include "Runtime/TaggedValue.h"
 

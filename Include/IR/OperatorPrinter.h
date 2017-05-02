@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "IR.h"
 #include "Module.h"
@@ -45,7 +45,8 @@ namespace IR
 		}
 		template<typename NativeValue>
 		std::string describeImm(LiteralImm<NativeValue> imm) { return " " + std::to_string(imm.value); }
-		std::string describeImm(GetOrSetVariableImm imm) { return " " + std::to_string(imm.variableIndex); }
+		template<bool isGlobal>
+		std::string describeImm(GetOrSetVariableImm<isGlobal> imm) { return " " + std::to_string(imm.variableIndex); }
 		std::string describeImm(CallImm imm)
 		{
 			const std::string typeString = imm.functionIndex >= module.functions.size()
@@ -61,7 +62,10 @@ namespace IR
 			return " " + typeString;
 		}
 		template<size_t naturalAlignmentLog2>
-		std::string describeImm(LoadOrStoreImm<naturalAlignmentLog2> imm) { return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset); }
+		std::string describeImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
+		{
+			return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset);
+		}
 		std::string describeImm(MemoryImm) { return ""; }
 
 		#if ENABLE_SIMD_PROTOTYPE
@@ -92,6 +96,16 @@ namespace IR
 				prefix = ",";
 			}
 			return result;
+		}
+		#endif
+
+		#if ENABLE_THREADING_PROTOTYPE
+		std::string describeImm(LaunchThreadImm) { return ""; }
+		
+		template<size_t naturalAlignmentLog2>
+		std::string describeImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
+		{
+			return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset);
 		}
 		#endif
 	};

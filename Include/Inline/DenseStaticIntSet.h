@@ -1,8 +1,11 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
+#include "Platform/Platform.h"
 
 #include <string.h>
+#include <assert.h>
 
 // Encapsulates a set of integers that are in the range 0 to maxIndexPlusOne (excluding maxIndexPlusOne).
 // It uses 1 bit of storage for each integer in the range, and many operations look at all bits, so it's best suited to small ranges.

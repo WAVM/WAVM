@@ -4,7 +4,7 @@
 	#define WEBASSEMBLY_API DLL_IMPORT
 #endif
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 
 namespace IR { struct Module; struct DisassemblyNames; }
 namespace Serialization { struct InputStream; struct OutputStream; }

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 
 #include <string>
 #include <cstdio>
@@ -111,7 +112,7 @@ namespace Floats
 			auto numChars = std::sprintf(buffer,FloatComponents<Float>::numSignificandHexits == 6 ? "%.6a" : "%.13a",f);
 			if(unsigned(numChars) + 1 > sizeof(buffer))
 			{
-				Core::error("not enough space in Floats::asString buffer");
+				Errors::fatal("not enough space in Floats::asString buffer");
 			}
 			return buffer;
 		}

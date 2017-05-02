@@ -1,5 +1,6 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
+#include "Logging/Logging.h"
 #include "IR.h"
 #include "Module.h"
 

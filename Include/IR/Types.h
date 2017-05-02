@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "IR.h"
 
 #include <vector>
@@ -93,7 +94,7 @@ namespace IR
 		case ValueType::b32x4: return 128;
 		case ValueType::b64x2: return 128;
 		#endif
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 	}
 	
@@ -113,7 +114,7 @@ namespace IR
 		case ValueType::b32x4: return "b32x4";
 		case ValueType::b64x2: return "b64x2";
 		#endif
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 	}
 
@@ -154,7 +155,7 @@ namespace IR
 		case ResultType::b64x2: return "b64x2";
 		#endif
 		case ResultType::none: return "()";
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 	}
 
@@ -234,29 +235,33 @@ namespace IR
 	struct TableType
 	{
 		TableElementType elementType;
+		bool isShared;
 		SizeConstraints size;
-
-		TableType(): elementType(TableElementType::anyfunc), size({0,UINT64_MAX}) {}
-		TableType(TableElementType inElementType,SizeConstraints inSize): elementType(inElementType), size(inSize) {}
-
-		friend bool operator==(const TableType& left,const TableType& right) { return left.elementType == right.elementType && left.size == right.size; }
-		friend bool operator!=(const TableType& left,const TableType& right) { return left.elementType != right.elementType || left.size != right.size; }
-		friend bool operator<=(const TableType& left,const TableType& right) { return left.elementType == right.elementType && isSubset(left.size,right.size); }
-		friend bool operator>(const TableType& left,const TableType& right) { return !(left <= right); }
+		
+		TableType(): elementType(TableElementType::anyfunc), isShared(false), size({0,UINT64_MAX}) {}
+		TableType(TableElementType inElementType,bool inIsShared,SizeConstraints inSize)
+		: elementType(inElementType), isShared(inIsShared), size(inSize) {}
+		
+		friend bool operator==(const TableType& left,const TableType& right)
+		{ return left.elementType == right.elementType && left.isShared == right.isShared && left.size == right.size; }
+		friend bool operator!=(const TableType& left,const TableType& right)
+		{ return left.elementType != right.elementType || left.isShared != right.isShared || left.size != right.size; }
+		friend bool isSubset(const TableType& super,const TableType& sub)
+		{ return super.elementType == sub.elementType && super.isShared == sub.isShared && isSubset(super.size,sub.size); }
 	};
 
 	// The type of a memory
 	struct MemoryType
 	{
+		bool isShared;
 		SizeConstraints size;
-		
-		MemoryType(): size({0,UINT64_MAX}) {}
-		MemoryType(const SizeConstraints& inSize): size(inSize) {}
 
-		friend bool operator==(const MemoryType& left,const MemoryType& right) { return left.size == right.size; }
-		friend bool operator!=(const MemoryType& left,const MemoryType& right) { return left.size != right.size; }
-		friend bool operator<=(const MemoryType& left,const MemoryType& right) { return isSubset(left.size,right.size); }
-		friend bool operator>(const MemoryType& left,const MemoryType& right) { return !(left <= right); }
+		MemoryType(): isShared(false), size({0,UINT64_MAX}) {}
+		MemoryType(bool inIsShared,const SizeConstraints& inSize): isShared(inIsShared), size(inSize) {}
+		
+		friend bool operator==(const MemoryType& left,const MemoryType& right) { return left.isShared == right.isShared && left.size == right.size; }
+		friend bool operator!=(const MemoryType& left,const MemoryType& right) { return left.isShared != right.isShared || left.size != right.size; }
+		friend bool isSubset(const MemoryType& super,const MemoryType& sub) { return super.isShared == sub.isShared && isSubset(super.size,sub.size); }
 	};
 
 	// The type of a global
@@ -341,7 +346,7 @@ namespace IR
 		case ObjectKind::table: return "table";
 		case ObjectKind::memory: return "memory";
 		case ObjectKind::global: return asString(asGlobalType(objectType));
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 	}
 }

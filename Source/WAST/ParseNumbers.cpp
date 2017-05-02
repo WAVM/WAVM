@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
 #include "WAST.h"
 #include "Lexer.h"
@@ -164,7 +164,7 @@ Float parseDecimalFloat(const char*& nextChar,ParseState& state)
 	if(nextChar == firstChar)
 	{
 		++nextChar;
-		Core::errorf("strtod failed to parse number accepted by lexer");
+		Errors::fatalf("strtod failed to parse number accepted by lexer");
 	}
 	if(f64 < std::numeric_limits<Float>::lowest() || f64 > std::numeric_limits<Float>::max())
 	{

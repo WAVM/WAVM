@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "WAST.h"
 #include "Lexer.h"
 #include "IR/Module.h"
@@ -46,7 +46,7 @@ namespace WAST
 		// Format the message.
 		char messageBuffer[1024];
 		int numPrintedChars = std::vsnprintf(messageBuffer,sizeof(messageBuffer),messageFormat,messageArguments);
-		if(numPrintedChars >= 1023 || numPrintedChars < 0) { Core::unreachable(); }
+		if(numPrintedChars >= 1023 || numPrintedChars < 0) { Errors::unreachable(); }
 		messageBuffer[numPrintedChars] = 0;
 
 		// Add the error to the state's error list.
@@ -310,7 +310,7 @@ namespace WAST
 				return nameToIndexMapIt->second;
 			}
 		}
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 	}
 	

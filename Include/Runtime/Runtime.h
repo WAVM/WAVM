@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "TaggedValue.h"
 #include "IR/Types.h"
 
@@ -33,7 +33,8 @@ namespace Runtime
 			calledAbort,
 			calledUnimplementedIntrinsic,
 			outOfMemory,
-			invalidSegmentOffset
+			invalidSegmentOffset,
+			misalignedAtomicMemoryAccess
 		};
 
 		Cause cause;
@@ -57,6 +58,7 @@ namespace Runtime
 		case Exception::Cause::calledUnimplementedIntrinsic: return "called unimplemented intrinsic";
 		case Exception::Cause::outOfMemory: return "out of memory";
 		case Exception::Cause::invalidSegmentOffset: return "invalid segment offset";
+		case Exception::Cause::misalignedAtomicMemoryAccess: return "misaligned atomic memory access";
 		default: return "unknown";
 		}
 	}
@@ -112,7 +114,7 @@ namespace Runtime
 	inline ModuleInstance* asModuleNullable(ObjectInstance* object)	{ return object && object->kind == IR::ObjectKind::module ? (ModuleInstance*)object : nullptr; }
 	
 	// Frees unreferenced Objects, using the provided array of Objects as the root set.
-	RUNTIME_API void freeUnreferencedObjects(const std::vector<ObjectInstance*>& rootObjectReferences);
+	RUNTIME_API void freeUnreferencedObjects(std::vector<ObjectInstance*>&& rootObjectReferences);
 
 	//
 	// Functions

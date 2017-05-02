@@ -75,7 +75,7 @@ namespace Runtime
 			case IR::ValueType::b32x4: return "b32x4(" + IR::asString(value.b32x4) + ')';
 			case IR::ValueType::b64x2: return "b64x2(" + IR::asString(value.b64x2) + ')';
 			#endif
-			default: Core::unreachable();
+			default: Errors::unreachable();
 			}
 		}
 	};
@@ -114,7 +114,7 @@ namespace Runtime
 			case IR::ResultType::b32x4: return "b32x4(" + IR::asString(result.b32x4) + ')';
 			case IR::ResultType::b64x2: return "b64x2(" + IR::asString(result.b64x2) + ')';
 			#endif
-			default: Core::unreachable();
+			default: Errors::unreachable();
 			}
 		}
 	};
@@ -132,7 +132,7 @@ namespace Runtime
 		case IR::ResultType::v128: return a.v128.u64[0] == b.v128.u64[0] && a.v128.u64[1] == b.v128.u64[1];
 		#endif
 		case IR::ResultType::none: return true;
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 	}
 

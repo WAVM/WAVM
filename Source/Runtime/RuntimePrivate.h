@@ -1,11 +1,12 @@
 #pragma once
 
-#include "Core/Core.h"
-#include "Core/Platform.h"
+#include "Inline/BasicTypes.h"
+#include "Platform/Platform.h"
 #include "Runtime.h"
 
 #include <functional>
 #include <map>
+#include <atomic>
 
 #define HAS_64BIT_ADDRESS_SPACE (sizeof(uintp) == 8 && !PRETEND_32BIT_ADDRESS_SPACE)
 
@@ -81,7 +82,7 @@ namespace Runtime
 		MemoryType type;
 
 		uint8* baseAddress;
-		size_t numPages;
+		std::atomic<size_t> numPages;
 		size_t endOffset;
 
 		uint8* reservedBaseAddress;
@@ -146,4 +147,10 @@ namespace Runtime
 	// Allocates virtual pages with alignBytes of padding, and returns an aligned base address.
 	// The unaligned allocation address and size are written to outUnalignedBaseAddress and outUnalignedNumPlatformPages.
 	uint8* allocateVirtualPagesAligned(size_t numBytes,size_t alignmentBytes,uint8*& outUnalignedBaseAddress,size_t& outUnalignedNumPlatformPages);
+
+	// Turns a hardware trap that occurred in WASM code into a runtime exception or fatal error.
+	[[noreturn]] void handleHardwareTrap(Platform::HardwareTrapType trapType,Platform::CallStack&& trapCallStack,uintp trapOperand);
+
+	// Adds GC roots from WASM threads to the provided array.
+	void getThreadGCRoots(std::vector<ObjectInstance*>& outGCRoots);
 }

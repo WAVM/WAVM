@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 #include "IR/Module.h"
@@ -24,7 +24,7 @@ namespace Runtime
 			GlobalInstance* globalInstance = moduleInstance->globals[expression.globalIndex];
 			return Runtime::Value(globalInstance->type.valueType,globalInstance->value);
 		}
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 	}
 
@@ -157,7 +157,7 @@ namespace Runtime
 			case ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
 			case ObjectKind::memory: exportedObject = moduleInstance->memories[exportIt.index]; break;
 			case ObjectKind::global: exportedObject = moduleInstance->globals[exportIt.index]; break;
-			default: Core::unreachable();
+			default: Errors::unreachable();
 			}
 			moduleInstance->exportMap[exportIt.name] = exportedObject;
 		}

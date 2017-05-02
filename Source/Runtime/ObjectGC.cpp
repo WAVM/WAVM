@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 #include "Intrinsics.h"
@@ -35,10 +35,13 @@ namespace Runtime
 		GCGlobals::get().allObjects.erase(this);
 	}
 
-	void freeUnreferencedObjects(const std::vector<ObjectInstance*>& rootObjectReferences)
+	void freeUnreferencedObjects(std::vector<ObjectInstance*>&& rootObjectReferences)
 	{
 		std::set<ObjectInstance*> referencedObjects;
 		std::vector<ObjectInstance*> pendingScanObjects;
+
+		// Gather GC roots from running WASM threads.
+		getThreadGCRoots(rootObjectReferences);
 
 		// Initialize the referencedObjects set from the rootObjectReferences and intrinsic objects.
 		for(auto object : rootObjectReferences)
@@ -96,7 +99,7 @@ namespace Runtime
 			}
 			case ObjectKind::memory:
 			case ObjectKind::global: break;
-			default: Core::unreachable();
+			default: Errors::unreachable();
 			};
 
 			// Add the object's child references to the referenced set, and enqueue them for scanning.

@@ -1,6 +1,6 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Intrinsics.h"
-#include "Core/Platform.h"
+#include "Platform/Platform.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
@@ -14,9 +14,9 @@ namespace Intrinsics
 		std::map<std::string,Intrinsics::Global*> variableMap;
 		std::map<std::string,Intrinsics::Memory*> memoryMap;
 		std::map<std::string,Intrinsics::Table*> tableMap;
-		Platform::Mutex mutex;
+		Platform::Mutex* mutex;
 
-		Singleton() {}
+		Singleton(): mutex(Platform::createMutex()) {}
 		Singleton(const Singleton&) = delete;
 
 		static Singleton& get()
@@ -82,7 +82,7 @@ namespace Intrinsics
 	: name(inName)
 	, table(Runtime::createTable(type))
 	{
-		if(!table) { Core::error("failed to create intrinsic table"); }
+		if(!table) { Errors::fatal("failed to create intrinsic table"); }
 
 		Platform::Lock lock(Singleton::get().mutex);
 		Singleton::get().tableMap[getDecoratedName(inName,type)] = this;
@@ -101,7 +101,7 @@ namespace Intrinsics
 	: name(inName)
 	, memory(Runtime::createMemory(type))
 	{
-		if(!memory) { Core::error("failed to create intrinsic memory"); }
+		if(!memory) { Errors::fatal("failed to create intrinsic memory"); }
 
 		Platform::Lock lock(Singleton::get().mutex);
 		Singleton::get().memoryMap[getDecoratedName(inName,type)] = this;
@@ -147,7 +147,7 @@ namespace Intrinsics
 			result = keyValue == Singleton::get().variableMap.end() ? nullptr : asObject(keyValue->second->global);
 			break;
 		}
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 		if(result && !isA(result,type)) { result = nullptr; }
 		return result;

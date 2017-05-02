@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "IR/Operators.h"
 #include "WAST.h"
 
@@ -43,6 +43,7 @@
 	VISIT_LITERAL_TOKEN(f32) \
 	VISIT_LITERAL_TOKEN(f64) \
 	VISIT_LITERAL_TOKEN(anyfunc) \
+	VISIT_LITERAL_TOKEN(shared) \
 	ENUM_SIMD_LITERAL_TOKENS()
 
 #if !ENABLE_SIMD_PROTOTYPE

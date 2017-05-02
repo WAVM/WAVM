@@ -15,4 +15,4 @@ include_directories(${WAVM_INCLUDE_DIR}/IR)
 
 add_library(IR SHARED ${Sources} ${PublicHeaders})
 add_definitions(-DIR_API=DLL_EXPORT)
-target_link_libraries(IR Core)
+target_link_libraries(IR Logging)

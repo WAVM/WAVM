@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "CLI.h"
 #include "WAST/WAST.h"
 #include "WASM/WASM.h"

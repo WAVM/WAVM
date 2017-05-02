@@ -2,6 +2,8 @@
 #include "IR/Operators.h"
 #include "IR/OperatorPrinter.h"
 #include "IR/Validate.h"
+#include "Logging/Logging.h"
+#include "Inline/Timing.h"
 
 #include <set>
 
@@ -51,6 +53,25 @@ namespace IR
 	void validate(TableElementType type)
 	{
 		if(type != TableElementType::anyfunc) { throw ValidationException("invalid table element type (" + std::to_string((uintp)type) + ")"); }
+	}
+
+	void validate(TableType type)
+	{
+		validate(type.elementType);
+		validate(type.size,UINT32_MAX);
+		if(ENABLE_THREADING_PROTOTYPE)
+		{
+			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.isShared && type.size.max == UINT64_MAX);
+		}
+	}
+
+	void validate(MemoryType type)
+	{
+		validate(type.size,IR::maxMemoryPages);
+		if(ENABLE_THREADING_PROTOTYPE)
+		{
+			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.isShared && type.size.max == UINT64_MAX);
+		}
 	}
 
 	void validate(GlobalType type)
@@ -158,7 +179,7 @@ namespace IR
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
-					default: Core::unreachable();
+					default: Errors::unreachable();
 					};
 					if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 				}
@@ -262,26 +283,26 @@ namespace IR
 			pushOperand(falseType);
 		}
 
-		void get_local(GetOrSetVariableImm imm)
+		void get_local(GetOrSetVariableImm<false> imm)
 		{
 			pushOperand(validateLocalIndex(imm.variableIndex));
 		}
-		void set_local(GetOrSetVariableImm imm)
+		void set_local(GetOrSetVariableImm<false> imm)
 		{
 			popAndValidateOperand("set_local",validateLocalIndex(imm.variableIndex));
 		}
-		void tee_local(GetOrSetVariableImm imm)
+		void tee_local(GetOrSetVariableImm<false> imm)
 		{
 			const ValueType localType = validateLocalIndex(imm.variableIndex);
 			popAndValidateOperand("tee_local",localType);
 			pushOperand(localType);
 		}
 		
-		void get_global(GetOrSetVariableImm imm)
+		void get_global(GetOrSetVariableImm<true> imm)
 		{
 			pushOperand(validateGlobalIndex(module,imm.variableIndex,false,false,false,"get_global"));
 		}
-		void set_global(GetOrSetVariableImm imm)
+		void set_global(GetOrSetVariableImm<true> imm)
 		{
 			popAndValidateOperand("set_global",validateGlobalIndex(module,imm.variableIndex,true,false,false,"set_global"));
 		}
@@ -312,7 +333,6 @@ namespace IR
 		{
 			VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",imm.alignmentLog2>naturalAlignmentLog2);
 			VALIDATE_UNLESS("load or store in module without default memory: ",module.memories.size()==0);
-			VALIDATE_UNLESS("load or store offset too large: ",imm.offset > UINT32_MAX);
 		}
 		
 		void validateImm(MemoryImm)
@@ -346,6 +366,23 @@ namespace IR
 		}
 		#endif
 
+		#if ENABLE_THREADING_PROTOTYPE
+		void validateImm(LaunchThreadImm)
+		{
+			VALIDATE_UNLESS("launch_thread is only valid if there is a default table",module.tables.size() == 0);
+		}
+		template<size_t naturalAlignmentLog2>
+		void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
+		{
+			VALIDATE_UNLESS("atomic memory operator in module without default memory: ",module.memories.size()==0);
+			if(requireSharedFlagForAtomicOperators)
+			{
+				VALIDATE_UNLESS("atomic memory operators require a memory with the shared flag: ",!module.memories.getType(0).isShared);
+			}
+			VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",imm.alignmentLog2 != naturalAlignmentLog2);
+		}
+		#endif
+
 		#define LOAD(resultTypeId) \
 			popAndValidateOperand(operatorName,ValueType::i32); \
 			pushOperand(ResultType::resultTypeId);
@@ -373,6 +410,20 @@ namespace IR
 		#define REPLACELANE(scalarTypeId,vectorTypeId) \
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::scalarTypeId); \
 			pushOperand(ValueType::vectorTypeId);
+		#endif
+
+		#if ENABLE_THREADING_PROTOTYPE
+		#define LAUNCHTHREAD \
+			popAndValidateOperands(operatorName,ValueType::i32,ValueType::i32,ValueType::i32);
+		#define COMPAREEXCHANGE(valueTypeId) \
+			popAndValidateOperands(operatorName,ValueType::i32,ValueType::valueTypeId,ValueType::valueTypeId); \
+			pushOperand(ValueType::valueTypeId);
+		#define WAIT(valueTypeId) \
+			popAndValidateOperands(operatorName,ValueType::i32,ValueType::valueTypeId,ValueType::f64); \
+			pushOperand(ValueType::i32);
+		#define ATOMICRMW(valueTypeId) \
+			popAndValidateOperands(operatorName,ValueType::i32,ValueType::valueTypeId); \
+			pushOperand(ValueType::valueTypeId);
 		#endif
 
 		#define VALIDATE_OP(opcode,name,nameString,Imm,validateOperands) \
@@ -527,7 +578,7 @@ namespace IR
 	
 	void validateDefinitions(const Module& module)
 	{
-		Core::Timer timer;
+		Timing::Timer timer;
 		
 		for(uintp typeIndex = 0;typeIndex < module.types.size();++typeIndex)
 		{
@@ -540,15 +591,8 @@ namespace IR
 		{
 			VALIDATE_INDEX(functionImport.type.index,module.types.size());
 		}
-		for(auto& tableImport : module.tables.imports)
-		{
-			validate(tableImport.type.elementType);
-			validate(tableImport.type.size,UINTPTR_MAX);
-		}
-		for(auto& memoryImport : module.memories.imports)
-		{
-			validate(memoryImport.type.size,IR::maxMemoryPages);
-		}
+		for(auto& tableImport : module.tables.imports) { validate(tableImport.type); }
+		for(auto& memoryImport : module.memories.imports) { validate(memoryImport.type); }
 		for(auto& globalImport : module.globals.imports)
 		{
 			validate(globalImport.type);
@@ -568,10 +612,10 @@ namespace IR
 			validateInitializer(module,globalDef.initializer,globalDef.type.valueType,"global initializer expression");
 		}
 		
-		for(auto& tableDef : module.tables.defs) { validate(tableDef.type.size,UINT32_MAX); }
+		for(auto& tableDef : module.tables.defs) { validate(tableDef.type); }
 		VALIDATE_UNLESS("too many tables: ",module.tables.size()>1);
 
-		for(auto& memoryDef : module.memories.defs) { validate(memoryDef.type.size,IR::maxMemoryPages); }
+		for(auto& memoryDef : module.memories.defs) { validate(memoryDef.type); }
 		VALIDATE_UNLESS("too many memories: ",module.memories.size()>1);
 
 		std::set<std::string> exportNameMap;

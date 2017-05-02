@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Core/Core.h"
-#include "Core/Platform.h"
+#include "Inline/BasicTypes.h"
+#include "Platform/Platform.h"
 #include "RuntimePrivate.h"
 #include "Intrinsics.h"
 

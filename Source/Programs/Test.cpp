@@ -1,6 +1,6 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
-#include "Core/Platform.h"
+#include "Platform/Platform.h"
 #include "WAST/WAST.h"
 #include "WAST/TestScript.h"
 #include "WASM/WASM.h"
@@ -60,7 +60,7 @@ void testErrorf(TestScriptState& state,const TextFileLocus& locus,const char* me
 	va_start(messageArguments,messageFormat);
 	char messageBuffer[1024];
 	int numPrintedChars = std::vsnprintf(messageBuffer,sizeof(messageBuffer),messageFormat,messageArguments);
-	if(numPrintedChars >= 1023 || numPrintedChars < 0) { Core::unreachable(); }
+	if(numPrintedChars >= 1023 || numPrintedChars < 0) { Errors::unreachable(); }
 	messageBuffer[numPrintedChars] = 0;
 	va_end(messageArguments);
 		
@@ -73,7 +73,7 @@ void collectGarbage(TestScriptState& state)
 	rootObjects.push_back(asObject(state.lastModuleInstance));
 	for(auto& mapIt : state.moduleInternalNameToInstanceMap) { rootObjects.push_back(asObject(mapIt.second)); }
 	for(auto& mapIt : state.moduleNameToInstanceMap) { rootObjects.push_back(asObject(mapIt.second)); }
-	freeUnreferencedObjects(rootObjects);
+	freeUnreferencedObjects(std::move(rootObjects));
 }
 
 ModuleInstance* getModuleContextByInternalName(TestScriptState& state,const TextFileLocus& locus,const char* context,const std::string& internalName)
@@ -179,7 +179,7 @@ bool processAction(TestScriptState& state,Action* action,Result& outResult)
 		return true;
 	}
 	default:
-		Core::unreachable();
+		Errors::unreachable();
 	}
 }
 
@@ -322,8 +322,8 @@ DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI64,global,i64,false,0)
 DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF32,global,f32,false,0.0f)
 DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF64,global,f64,false,0.0)
 
-DEFINE_INTRINSIC_TABLE(spectest,spectest_table,table,TableType(TableElementType::anyfunc,SizeConstraints {10,20}))
-DEFINE_INTRINSIC_MEMORY(spectest,spectest_memory,memory,MemoryType(SizeConstraints {1,2}))
+DEFINE_INTRINSIC_TABLE(spectest,spectest_table,table,TableType(TableElementType::anyfunc,false,SizeConstraints {10,20}))
+DEFINE_INTRINSIC_MEMORY(spectest,spectest_memory,memory,MemoryType(false,SizeConstraints {1,2}))
 
 int commandMain(int argc,char** argv)
 {

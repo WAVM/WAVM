@@ -1,4 +1,5 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Timing.h"
 #include "WAST.h"
 #include "Lexer.h"
 #include "IR/Module.h"
@@ -115,6 +116,12 @@ static void createImport(
 	indexSpace.imports.push_back({type,std::move(moduleName),std::move(exportName)});
 }
 
+static bool parseOptionalSharedDeclaration(ModuleParseState& state)
+{
+	if(ENABLE_THREADING_PROTOTYPE && state.nextToken->type == t_shared) { ++state.nextToken; return true; }
+	else { return false; }
+}
+
 static void parseImport(ModuleParseState& state)
 {
 	errorIfFollowsDefinitions(state);
@@ -161,17 +168,19 @@ static void parseImport(ModuleParseState& state)
 			const SizeConstraints sizeConstraints = parseSizeConstraints(state,UINT32_MAX);
 			const TableElementType elementType = TableElementType::anyfunc;
 			require(state,t_anyfunc);
+			const bool isShared = parseOptionalSharedDeclaration(state);
 			createImport(state,name,std::move(moduleName),std::move(exportName),
 				state.tableNameToIndexMap,state.module.tables,state.disassemblyNames.tables,
-				{elementType,sizeConstraints});
+				{elementType,isShared,sizeConstraints});
 			break;
 		}
 		case t_memory:
 		{
 			const SizeConstraints sizeConstraints = parseSizeConstraints(state,IR::maxMemoryPages);
+			const bool isShared = parseOptionalSharedDeclaration(state);
 			createImport(state,name,std::move(moduleName),std::move(exportName),
 				state.memoryNameToIndexMap,state.module.memories,state.disassemblyNames.memories,
-				MemoryType{sizeConstraints});
+				MemoryType{isShared,sizeConstraints});
 			break;
 		}
 		case t_global:
@@ -182,7 +191,7 @@ static void parseImport(ModuleParseState& state)
 				globalType);
 			break;
 		}
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 	});
 }
@@ -228,7 +237,7 @@ static void parseExport(ModuleParseState& state)
 			case ObjectKind::memory: exportedObjectIndex = resolveRef(state,state.memoryNameToIndexMap,exportRef); break;
 			case ObjectKind::global: exportedObjectIndex = resolveRef(state,state.globalNameToIndexMap,exportRef); break;
 			default:
-				Core::unreachable();
+				Errors::unreachable();
 			}
 		});
 	});
@@ -417,7 +426,8 @@ static void parseTable(ModuleParseState& state)
 			const SizeConstraints sizeConstraints = parseSizeConstraints(state,UINT32_MAX);
 			const TableElementType elementType = TableElementType::anyfunc;
 			require(state,t_anyfunc);
-			return TableType {elementType,sizeConstraints};
+			const bool isShared = parseOptionalSharedDeclaration(state);
+			return TableType {elementType,isShared,sizeConstraints};
 		},
 		// Parse a table definition.
 		[](ModuleParseState& state,const Token*)
@@ -442,8 +452,9 @@ static void parseTable(ModuleParseState& state)
 					sizeConstraints.min = sizeConstraints.max = numElements;
 				});
 			}
-
-			return TableDef {{elementType,sizeConstraints}};
+			
+			const bool isShared = parseOptionalSharedDeclaration(state);
+			return TableDef {TableType(elementType,isShared,sizeConstraints)};
 		});
 }
 
@@ -451,7 +462,12 @@ static void parseMemory(ModuleParseState& state)
 {
 	parseObjectDefOrImport(state,state.memoryNameToIndexMap,state.module.memories,state.disassemblyNames.memories,t_memory,ObjectKind::memory,
 		// Parse a memory import.
-		[](ModuleParseState& state) { return MemoryType {parseSizeConstraints(state,IR::maxMemoryPages)}; },
+		[](ModuleParseState& state)
+		{
+			const SizeConstraints sizeConstraints = parseSizeConstraints(state,IR::maxMemoryPages);
+			const bool isShared = parseOptionalSharedDeclaration(state);
+			return MemoryType {isShared,sizeConstraints};
+		},
 		// Parse a memory definition
 		[](ModuleParseState& state,const Token*)
 		{
@@ -472,7 +488,8 @@ static void parseMemory(ModuleParseState& state)
 				state.module.dataSegments.push_back({state.module.memories.size(),InitializerExpression(int32(0)),std::move(dataVector)});
 			}
 
-			return MemoryDef {sizeConstraints};
+			const bool isShared = parseOptionalSharedDeclaration(state);
+			return MemoryDef {MemoryType(isShared,sizeConstraints)};
 		});
 }
 
@@ -573,7 +590,7 @@ namespace WAST
 
 	bool parseModule(const char* string,size_t stringLength,IR::Module& outModule,std::vector<Error>& outErrors)
 	{
-		Core::Timer timer;
+		Timing::Timer timer;
 		
 		// Lex the string.
 		LineInfo* lineInfo = nullptr;
@@ -605,8 +622,7 @@ namespace WAST
 		freeTokens(tokens);
 		freeLineInfo(lineInfo);
 
-		timer.stop();
-		Log::logRatePerSecond("lexed and parsed WAST",timer,stringLength / 1024.0 / 1024.0,"MB");
+		Timing::logRatePerSecond("lexed and parsed WAST",timer,stringLength / 1024.0 / 1024.0,"MB");
 
 		return outErrors.size() == 0;
 	}

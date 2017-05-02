@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "WAST.h"
 #include "Lexer.h"
 #include "Parse.h"
@@ -118,7 +118,7 @@ static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state,uint32& 
 			}
 			break;
 		}
-		default: Core::unreachable();
+		default: Errors::unreachable();
 		};
 		return true;
 	}
@@ -134,15 +134,15 @@ static void parseAndValidateRedundantBranchTargetName(ParseState& state,Name bra
 	}
 }
 
-static void parseImm(FunctionParseState& state,NoImm&,Opcode) {}
-static void parseImm(FunctionParseState& state,MemoryImm& outImm,Opcode) {}
+static void parseImm(FunctionParseState& state,NoImm&) {}
+static void parseImm(FunctionParseState& state,MemoryImm& outImm) {}
 
-static void parseImm(FunctionParseState& state,LiteralImm<int32>& outImm,Opcode) { outImm.value = (int32)parseI32(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<int64>& outImm,Opcode) { outImm.value = (int64)parseI64(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<float32>& outImm,Opcode) { outImm.value = parseF32(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<float64>& outImm,Opcode) { outImm.value = parseF64(state); }
+static void parseImm(FunctionParseState& state,LiteralImm<int32>& outImm) { outImm.value = (int32)parseI32(state); }
+static void parseImm(FunctionParseState& state,LiteralImm<int64>& outImm) { outImm.value = (int64)parseI64(state); }
+static void parseImm(FunctionParseState& state,LiteralImm<float32>& outImm) { outImm.value = parseF32(state); }
+static void parseImm(FunctionParseState& state,LiteralImm<float64>& outImm) { outImm.value = parseF64(state); }
 
-static void parseImm(FunctionParseState& state,BranchImm& outImm,Opcode)
+static void parseImm(FunctionParseState& state,BranchImm& outImm)
 {
 	if(!tryParseAndResolveBranchTargetRef(state,outImm.targetDepth))
 	{
@@ -151,7 +151,7 @@ static void parseImm(FunctionParseState& state,BranchImm& outImm,Opcode)
 	}
 }
 
-static void parseImm(FunctionParseState& state,BranchTableImm& outImm,Opcode)
+static void parseImm(FunctionParseState& state,BranchTableImm& outImm)
 {
 	std::vector<uint32> targetDepths;
 	uint32 targetDepth = 0;
@@ -174,27 +174,27 @@ static void parseImm(FunctionParseState& state,BranchTableImm& outImm,Opcode)
 	}
 }
 
-static void parseImm(FunctionParseState& state,GetOrSetVariableImm& outImm,Opcode opcode)
+template<bool isGlobal>
+static void parseImm(FunctionParseState& state,GetOrSetVariableImm<isGlobal>& outImm)
 {
-	const bool isGlobal = opcode == Opcode::get_global || opcode == Opcode::set_global;
 	outImm.variableIndex = parseAndResolveNameOrIndexRef(
 		state,
 		isGlobal ? state.moduleState.globalNameToIndexMap : *state.localNameToIndexMap,
 		isGlobal ? "global" : "local");
 }
 
-static void parseImm(FunctionParseState& state,CallImm& outImm,Opcode)
+static void parseImm(FunctionParseState& state,CallImm& outImm)
 {
 	outImm.functionIndex = parseAndResolveNameOrIndexRef(state,state.moduleState.functionNameToIndexMap,"function");
 }
 
-static void parseImm(FunctionParseState& state,CallIndirectImm& outImm,Opcode)
+static void parseImm(FunctionParseState& state,CallIndirectImm& outImm)
 {
 	outImm.type.index = parseAndResolveNameOrIndexRef(state,state.moduleState.typeNameToIndexMap,"type");
 }
 
 template<size_t naturalAlignmentLog2>
-static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLog2>& outImm,Opcode opcode)
+static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.offset = 0;
 	if(state.nextToken->type == t_offset)
@@ -227,7 +227,7 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 
 #if ENABLE_SIMD_PROTOTYPE
 template<size_t numLanes>
-static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm,Opcode)
+static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm)
 {
 	const uint64 u64 = parseI64(state);
 	if(u64 > numLanes)
@@ -238,7 +238,7 @@ static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm,Op
 }
 
 template<size_t numLanes>
-static void parseImm(FunctionParseState& state,SwizzleImm<numLanes>& outImm,Opcode)
+static void parseImm(FunctionParseState& state,SwizzleImm<numLanes>& outImm)
 {
 	parseParenthesized(state,[&]
 	{
@@ -255,7 +255,7 @@ static void parseImm(FunctionParseState& state,SwizzleImm<numLanes>& outImm,Opco
 }
 
 template<size_t numLanes>
-static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm,Opcode)
+static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm)
 {
 	parseParenthesized(state,[&]
 	{
@@ -269,6 +269,19 @@ static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm,Opco
 			outImm.laneIndices[laneIndex] = uint8(u64);
 		}
 	});
+}
+#endif
+
+#if ENABLE_THREADING_PROTOTYPE
+static void parseImm(FunctionParseState& state,LaunchThreadImm& outImm) {}
+
+template<size_t naturalAlignmentLog2>
+static void parseImm(FunctionParseState& state,AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
+{
+	LoadOrStoreImm<naturalAlignmentLog2> loadOrStoreImm;
+	parseImm(state,loadOrStoreImm);
+	outImm.alignmentLog2 = loadOrStoreImm.alignmentLog2;
+	outImm.offset = loadOrStoreImm.offset;
 }
 #endif
 
@@ -320,6 +333,21 @@ static void parseExprSequence(FunctionParseState& state)
 		parseExpr(state);
 	};
 }
+
+#define VISIT_OP(opcode,name,nameString,Imm,...) \
+	static void parseOp_##name(FunctionParseState& state,bool isExpression) \
+	{ \
+		++state.nextToken; \
+		Imm imm; \
+		parseImm(state,imm); \
+		if(isExpression) \
+		{ \
+			parseExprSequence(state); \
+		} \
+		state.validatingCodeStream.name(imm); \
+	}
+ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+#undef VISIT_OP
 
 static void parseExpr(FunctionParseState& state)
 {
@@ -392,20 +420,9 @@ static void parseExpr(FunctionParseState& state)
 				state.validatingCodeStream.end();
 				break;
 			}
-			#define VISIT_OPCODE_TOKEN(name,Imm) \
-				case t_##name: \
-				{ \
-					++state.nextToken; \
-					Imm imm; \
-					parseImm(state,imm,Opcode::name); \
-					parseExprSequence(state); \
-					state.validatingCodeStream.name(imm); \
-					break; \
-				}
-			#define VISIT_OP(opcode,name,nameString,Imm,...) VISIT_OPCODE_TOKEN(name,Imm)
+			#define VISIT_OP(opcode,name,nameString,Imm,...) case t_##name: parseOp_##name(state,true); break;
 			ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 			#undef VISIT_OP
-			#undef VISIT_OPCODE_TOKEN
 			default:
 				parseErrorf(state,state.nextToken,"expected opcode");
 				throw RecoverParseException();
@@ -481,19 +498,9 @@ static void parseInstrSequence(FunctionParseState& state)
 
 				break;
 			}
-			#define VISIT_OPCODE_TOKEN(name,Imm) \
-				case t_##name: \
-				{ \
-					++state.nextToken; \
-					Imm imm; \
-					parseImm(state,imm,Opcode::name); \
-					state.validatingCodeStream.name(imm); \
-					break; \
-				}
-			#define VISIT_OP(opcode,name,nameString,Imm,...) VISIT_OPCODE_TOKEN(name,Imm)
+			#define VISIT_OP(opcode,name,nameString,Imm,...) case t_##name: parseOp_##name(state,false); break;
 			ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 			#undef VISIT_OP
-			#undef VISIT_OPCODE_TOKEN
 			default:
 				parseErrorf(state,state.nextToken,"expected opcode");
 				throw RecoverParseException();

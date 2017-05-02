@@ -1,6 +1,6 @@
-#include "Core/Core.h"
-#include "Inline/Serialization.h"
-#include "Core/Platform.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Timing.h"
+#include "Platform/Platform.h"
 #include "WAST/WAST.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/Linker.h"
@@ -183,16 +183,16 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 			case ValueType::i64: value = (uint64)atol(args[i]); break;
 			case ValueType::f32: value = (float32)atof(args[i]); break;
 			case ValueType::f64: value = atof(args[i]); break;
-			default: Core::unreachable();
+			default: Errors::unreachable();
 			}
 			invokeArgs.push_back(value);
 		}
 	}
 
 	// Invoke the function.
-	Core::Timer executionTimer;
+	Timing::Timer executionTimer;
 	auto functionResult = invokeFunction(functionInstance,invokeArgs);
-	Log::logTimer("Invoked function",executionTimer);
+	Timing::logTimer("Invoked function",executionTimer);
 
 	if(functionName)
 	{

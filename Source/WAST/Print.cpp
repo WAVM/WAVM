@@ -1,4 +1,4 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
 #include "WAST.h"
 #include "IR/Module.h"
@@ -193,7 +193,7 @@ namespace WAST
 			case InitializerExpression::Type::f32_const: string += "(f32.const " + Floats::asString(expression.f32) + ')'; break;
 			case InitializerExpression::Type::f64_const: string += "(f64.const " + Floats::asString(expression.f64) + ')'; break;
 			case InitializerExpression::Type::get_global: string += "(get_global " + names.globals[expression.globalIndex] + ')'; break;
-			default: Core::unreachable();
+			default: Errors::unreachable();
 			};
 		}
 	};
@@ -225,7 +225,7 @@ namespace WAST
 		
 		void unknown(Opcode)
 		{
-			Core::unreachable();
+			Errors::unreachable();
 		}
 		void block(ControlStructureImm imm)
 		{
@@ -300,24 +300,24 @@ namespace WAST
 			string += "\nselect";
 		}
 
-		void get_local(GetOrSetVariableImm imm)
+		void get_local(GetOrSetVariableImm<false> imm)
 		{
 			string += "\nget_local " + localNames[imm.variableIndex];
 		}
-		void set_local(GetOrSetVariableImm imm)
+		void set_local(GetOrSetVariableImm<false> imm)
 		{
 			string += "\nset_local " + localNames[imm.variableIndex];
 		}
-		void tee_local(GetOrSetVariableImm imm)
+		void tee_local(GetOrSetVariableImm<false> imm)
 		{
 			string += "\ntee_local " + localNames[imm.variableIndex];
 		}
 		
-		void get_global(GetOrSetVariableImm imm)
+		void get_global(GetOrSetVariableImm<true> imm)
 		{
 			string += "\nget_global " + moduleContext.names.globals[imm.variableIndex];
 		}
-		void set_global(GetOrSetVariableImm imm)
+		void set_global(GetOrSetVariableImm<true> imm)
 		{
 			string += "\nset_global " + moduleContext.names.globals[imm.variableIndex];
 		}
@@ -384,6 +384,21 @@ namespace WAST
 				string += std::to_string(imm.laneIndices[laneIndex]);
 			}
 			string += ')';
+		}
+		#endif
+
+		#if ENABLE_THREADING_PROTOTYPE
+		void printImm(LaunchThreadImm) {}
+		
+		template<size_t naturalAlignmentLog2>
+		void printImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
+		{
+			if(imm.offset != 0)
+			{
+				string += " offset=";
+				string += std::to_string(imm.offset);
+			}
+			assert(imm.alignmentLog2 == naturalAlignmentLog2);
 		}
 		#endif
 
@@ -514,7 +529,7 @@ namespace WAST
 			case ObjectKind::table: string += "table " + names.tables[export_.index]; break;
 			case ObjectKind::memory: string += "memory " + names.memories[export_.index]; break;
 			case ObjectKind::global: string += "global " + names.globals[export_.index]; break;
-			default: Core::unreachable();
+			default: Errors::unreachable();
 			};
 			string += ')';
 		}

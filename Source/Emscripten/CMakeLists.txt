@@ -6,4 +6,4 @@ add_library(Emscripten SHARED ${Sources} ${PublicHeaders})
 
 add_definitions(-DEMSCRIPTEN_API=DLL_EXPORT)
 
-target_link_libraries(Emscripten Core Runtime)
+target_link_libraries(Emscripten Logging Platform Runtime)

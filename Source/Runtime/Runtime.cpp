@@ -1,5 +1,6 @@
-#include "Core/Core.h"
-#include "Core/Platform.h"
+#include "Inline/BasicTypes.h"
+#include "Platform/Platform.h"
+#include "Logging/Logging.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
@@ -45,19 +46,37 @@ namespace Runtime
 		{
 		case ObjectKind::function: return asFunctionType(type) == asFunction(object)->type;
 		case ObjectKind::global: return asGlobalType(type) == asGlobal(object)->type;
-		case ObjectKind::table:
+		case ObjectKind::table: return isSubset(asTableType(type),asTable(object)->type);
+		case ObjectKind::memory: return isSubset(asMemoryType(type),asMemory(object)->type);
+		default: Errors::unreachable();
+		}
+	}
+
+	[[noreturn]] void handleHardwareTrap(Platform::HardwareTrapType trapType,Platform::CallStack&& trapCallStack,uintp trapOperand)
+	{
+		std::vector<std::string> callStackDescription = describeCallStack(trapCallStack);
+
+		switch(trapType)
 		{
-			auto table = asTable(object);
-			return asTableType(type).elementType == table->type.elementType
-				&&	isSubset(asTableType(type).size,table->type.size);
-		}
-		case ObjectKind::memory:
+		case Platform::HardwareTrapType::accessViolation:
 		{
-			auto memory = asMemory(object);
-			return isSubset(asMemoryType(type).size,memory->type.size);
+			// If the access violation occured in a Table's reserved pages, treat it as an undefined table element runtime error.
+			if(isAddressOwnedByTable(reinterpret_cast<uint8*>(trapOperand))) { throw Exception { Exception::Cause::undefinedTableElement, callStackDescription }; }
+			// If the access violation occured in a Memory's reserved pages, treat it as an access violation runtime error.
+			else if(isAddressOwnedByMemory(reinterpret_cast<uint8*>(trapOperand))) { throw Exception { Exception::Cause::accessViolation, callStackDescription }; }
+			else
+			{
+				// If the access violation occured outside of a Table or Memory, treat it as a bug (possibly a security hole)
+				// rather than a runtime error in the WebAssembly code.
+				Log::printf(Log::Category::error,"Access violation outside of table or memory reserved addresses. Call stack:\n");
+				for(auto calledFunction : callStackDescription) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
+				Errors::fatalf("unsandboxed access violation");
+			}
 		}
-		default: Core::unreachable();
-		}
+		case Platform::HardwareTrapType::stackOverflow: throw Exception { Exception::Cause::stackOverflow, callStackDescription };
+		case Platform::HardwareTrapType::intDivideByZeroOrOverflow: throw Exception { Exception::Cause::integerDivideByZeroOrIntegerOverflow, callStackDescription };
+		default: Errors::unreachable();
+		};
 	}
 
 	Result invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters)
@@ -86,13 +105,10 @@ namespace Runtime
 		Result result;
 		Platform::HardwareTrapType trapType;
 		Platform::CallStack trapCallStack;
-		Platform::CallStack callerStack;
 		uintp trapOperand;
 		trapType = Platform::catchHardwareTraps(trapCallStack,trapOperand,
 			[&]
 			{
-				callerStack = Platform::captureCallStack();
-
 				// Call the invoke thunk.
 				(*invokeFunctionPointer)(function->nativeFunction,thunkMemory);
 
@@ -106,38 +122,7 @@ namespace Runtime
 
 		// If there was no hardware trap, just return the result.
 		if(trapType == Platform::HardwareTrapType::none) { return result; }
-		else
-		{		
-			// Truncate the stack frame to the native code invoking the function.
-			if(trapCallStack.stackFrames.size() >= callerStack.stackFrames.size() + 1)
-			{
-				trapCallStack.stackFrames.resize(trapCallStack.stackFrames.size() - callerStack.stackFrames.size() -1);
-			}
-
-			std::vector<std::string> callStackDescription = describeCallStack(trapCallStack);
-
-			switch(trapType)
-			{
-			case Platform::HardwareTrapType::accessViolation:
-			{
-				// If the access violation occured in a Table's reserved pages, treat it as an undefined table element runtime error.
-				if(isAddressOwnedByTable(reinterpret_cast<uint8*>(trapOperand))) { throw Exception { Exception::Cause::undefinedTableElement, callStackDescription }; }
-				// If the access violation occured in a Memory's reserved pages, treat it as an access violation runtime error.
-				else if(isAddressOwnedByMemory(reinterpret_cast<uint8*>(trapOperand))) { throw Exception { Exception::Cause::accessViolation, callStackDescription }; }
-				else
-				{
-					// If the access violation occured outside of a Table or Memory, treat it as a bug (possibly a security hole)
-					// rather than a runtime error in the WebAssembly code.
-					Log::printf(Log::Category::error,"Access violation outside of table or memory reserved addresses. Call stack:\n");
-					for(auto calledFunction : callStackDescription) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
-					Core::errorf("");
-				}
-			}
-			case Platform::HardwareTrapType::stackOverflow: throw Exception { Exception::Cause::stackOverflow, callStackDescription };
-			case Platform::HardwareTrapType::intDivideByZeroOrOverflow: throw Exception { Exception::Cause::integerDivideByZeroOrIntegerOverflow, callStackDescription };
-			default: Core::unreachable();
-			};
-		}
+		else { handleHardwareTrap(trapType,std::move(trapCallStack),trapOperand); }
 	}
 
 	const FunctionType* getFunctionType(FunctionInstance* function)

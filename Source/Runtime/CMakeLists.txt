@@ -10,6 +10,7 @@ set(Sources
 	Runtime.cpp
 	RuntimePrivate.h
 	Table.cpp
+	Threads.cpp
 	WAVMIntrinsics.cpp)
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Runtime/Intrinsics.h
@@ -31,4 +32,4 @@ add_definitions(-DRUNTIME_API=DLL_EXPORT)
 
 # Link against the LLVM libraries
 llvm_map_components_to_libnames(LLVM_LIBS support core passes mcjit native DebugInfoDWARF)
-target_link_libraries(Runtime Core IR ${LLVM_LIBS})
+target_link_libraries(Runtime Platform Logging IR ${LLVM_LIBS})

@@ -1,13 +1,13 @@
-#include "Core/Core.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Timing.h"
+#include "Inline/Errors.h"
 #include "NFA.h"
 #include "Regexp.h"
 #include "WAST.h"
 #include "Lexer.h"
 #include "IR/Operators.h"
 
-#ifdef _DEBUG
-	#include <fstream>
-#endif
+#include <fstream>
 
 namespace WAST
 {
@@ -81,7 +81,7 @@ namespace WAST
 			#undef VISIT_OPERATOR_TOKEN
 		};
 	
-		Core::Timer timer;
+		Timing::Timer timer;
 
 		NFA::Builder* nfaBuilder = NFA::createBuilder();
 		
@@ -95,7 +95,9 @@ namespace WAST
 			addLiteralToNFA(literalTokenPair.second,nfaBuilder,0,NFA::maximumTerminalStateIndex - (NFA::StateIndex)literalTokenPair.first);
 		}
 
-		if(_DEBUG)
+		#ifndef _DEBUG
+		if(false)
+		#endif
 		{
 			std::ofstream debugGraphStream("nfaGraph.dot");
 			debugGraphStream << NFA::dumpNFAGraphViz(nfaBuilder).c_str();
@@ -104,14 +106,16 @@ namespace WAST
 
 		nfaMachine = NFA::Machine(nfaBuilder);
 
-		if(_DEBUG)
+		#ifndef _DEBUG
+		if(false)
+		#endif
 		{
 			std::ofstream debugGraphStream("dfaGraph.dot");
 			debugGraphStream << nfaMachine.dumpDFAGraphViz().c_str();
 			debugGraphStream.close();
 		}
 
-		Log::logTimer("built lexer tables",timer);
+		Timing::logTimer("built lexer tables",timer);
 	}
 
 	struct LineInfo
@@ -137,11 +141,11 @@ namespace WAST
 	{
 		static StaticData staticData;
 		
-		Core::Timer timer;
+		Timing::Timer timer;
 
 		if(stringLength > UINT32_MAX)
 		{
-			Core::errorf("cannot lex strings with more than %u characters",UINT32_MAX);
+			Errors::fatalf("cannot lex strings with more than %u characters",UINT32_MAX);
 		}
 		
 		// Allocate enough memory up front for a token and newline for each character in the input string.
@@ -275,7 +279,7 @@ namespace WAST
 		// Create the LineInfo object that encapsulates the line start information.
 		outLineInfo = new LineInfo {lineStarts,uint32(numLineStarts)};
 
-		Log::logRatePerSecond("lexed WAST file",timer,stringLength/1024.0/1024.0,"MB");
+		Timing::logRatePerSecond("lexed WAST file",timer,stringLength/1024.0/1024.0,"MB");
 		Log::printf(Log::Category::metrics,"lexer produced %u tokens (%.1fMB)\n",numTokens,numTokens*sizeof(Token)/1024.0/1024.0);
 
 		return tokens;

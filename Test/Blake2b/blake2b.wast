@@ -6,6 +6,11 @@
 	(import "env" "memory" (memory 1))
 	(import "env" "_sbrk" (func $sbrk (param i32) (result i32)))
 	(export "main" (func $main))
+	
+	(table anyfunc (elem $threadEntry $threadError))
+
+	(global $numThreads i32 (i32.const 8))
+	(global $numIterationsPerThread i32 (i32.const 10))
 
 	;; IV array
 	(global $ivAddress i32 (i32.const 0))	;; 64 byte IV array
@@ -36,15 +41,20 @@
 		"\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00" ;; personal
 		)
 
-	(global $hashAddress i32 (i32.const 128))	;; 64 byte hash
-	(global $tAddress i32 (i32.const 192))		;; 16 byte 't' hash state
-	(global $fAddress i32 (i32.const 208))		;; 16 byte 'f' hash state
-
 	;; lookup table for converting a nibble to a hexit
-	(global $hexitTable i32 (i32.const 224))
-	(data (i32.const 224) "0123456789abcdef")
+	(global $hexitTable i32 (i32.const 128))
+	(data (i32.const 128) "0123456789abcdef")
+	
+	(global $dataAddress (mut i32) (i32.const 0))
+	(global $dataNumBytes (mut i32) (i32.const 134217728))
+	
+	(global $numPendingThreadsAddress i32 (i32.const 144)) ;; 4 bytes
+	(global $outputStringAddress i32 (i32.const 148)) ;; 129 bytes
+	
+	(global $statesArrayAddress i32 (i32.const 1024))	;; 128*N per-thread state blocks.
 
 	(func $compress
+		(param $threadStateAddress i32)
 		(param $blockAddress i32)
 
 		(local $row1l v128)
@@ -62,14 +72,14 @@
 
 		;; Initialize the state
 
-		(set_local $row1l (v128.load offset=0 (get_global $hashAddress)))
-		(set_local $row1h (v128.load offset=16 (get_global $hashAddress)))
-		(set_local $row2l (v128.load offset=32 (get_global $hashAddress)))
-		(set_local $row2h (v128.load offset=48 (get_global $hashAddress)))
+		(set_local $row1l (v128.load offset=0 (get_local $threadStateAddress)))
+		(set_local $row1h (v128.load offset=16 (get_local $threadStateAddress)))
+		(set_local $row2l (v128.load offset=32 (get_local $threadStateAddress)))
+		(set_local $row2h (v128.load offset=48 (get_local $threadStateAddress)))
 		(set_local $row3l (v128.load offset=0 (get_global $ivAddress)))
 		(set_local $row3h (v128.load offset=16 (get_global $ivAddress)))
-		(set_local $row4l (v128.xor (v128.load offset=32 (get_global $ivAddress)) (v128.load offset=64 (get_global $hashAddress))))
-		(set_local $row4h (v128.xor (v128.load offset=48 (get_global $ivAddress)) (v128.load offset=0 (get_global $fAddress))))
+		(set_local $row4l (v128.xor (v128.load offset=32 (get_global $ivAddress)) (v128.load offset=64 (get_local $threadStateAddress))))
+		(set_local $row4h (v128.xor (v128.load offset=48 (get_global $ivAddress)) (v128.load offset=80 (get_local $threadStateAddress))))
 		
 		;; Round 0
 
@@ -1155,12 +1165,12 @@
 
 		(set_local $row1l (v128.xor (get_local $row3l) (get_local $row1l)))
 		(set_local $row1h (v128.xor (get_local $row3h) (get_local $row1h)))
-		(v128.store offset=0 (get_global $hashAddress) (v128.xor (v128.load offset=0 (get_global $hashAddress)) (get_local $row1l)))
-		(v128.store offset=16 (get_global $hashAddress) (v128.xor (v128.load offset=16 (get_global $hashAddress)) (get_local $row1h)))
+		(v128.store offset=0 (get_local $threadStateAddress) (v128.xor (v128.load offset=0 (get_local $threadStateAddress)) (get_local $row1l)))
+		(v128.store offset=16 (get_local $threadStateAddress) (v128.xor (v128.load offset=16 (get_local $threadStateAddress)) (get_local $row1h)))
 		(set_local $row2l (v128.xor (get_local $row4l) (get_local $row2l)))
 		(set_local $row2h (v128.xor (get_local $row4h) (get_local $row2h)))
-		(v128.store offset=32 (get_global $hashAddress) (v128.xor (v128.load offset=32 (get_global $hashAddress)) (get_local $row2l)))
-		(v128.store offset=48 (get_global $hashAddress) (v128.xor (v128.load offset=48 (get_global $hashAddress)) (get_local $row2h)))
+		(v128.store offset=32 (get_local $threadStateAddress) (v128.xor (v128.load offset=32 (get_local $threadStateAddress)) (get_local $row2l)))
+		(v128.store offset=48 (get_local $threadStateAddress) (v128.xor (v128.load offset=48 (get_local $threadStateAddress)) (get_local $row2h)))
 	)
 
 	(func $memsetAligned
@@ -1195,50 +1205,47 @@
 		end
 	)
 
-	(func $init
-		
-		;; Zero the state.
-		(call $memsetAligned (get_global $hashAddress) (i32.const 0) (i32.const 64))
-		(call $memsetAligned (get_global $tAddress) (i32.const 0) (i32.const 16))
-		(call $memsetAligned (get_global $fAddress) (i32.const 0) (i32.const 16))
-
-		;; initialize the hash to the first 64 bytes of the param struct XORed with the contents of IV
-		(v128.store offset=0 (get_global $hashAddress) (v128.xor
-			(v128.load offset=0 (get_global $pAddress))
-			(v128.load offset=0 (get_global $ivAddress))))
-		(v128.store offset=16 (get_global $hashAddress) (v128.xor
-			(v128.load offset=16 (get_global $pAddress))
-			(v128.load offset=16 (get_global $ivAddress))))
-		(v128.store offset=32 (get_global $hashAddress) (v128.xor
-			(v128.load offset=32 (get_global $pAddress))
-			(v128.load offset=32 (get_global $ivAddress))))
-		(v128.store offset=48 (get_global $hashAddress) (v128.xor
-			(v128.load offset=48 (get_global $pAddress))
-			(v128.load offset=48 (get_global $ivAddress))))
-	)
-
 	(func $blake2b
+		(param $threadIndex i32)
 		(param $inputAddress i32)
 		(param $numBytes i32)
 
+		(local $threadStateAddress i32)
 		(local $temp i64)
 		
-		(call $init)
+		(set_local $threadStateAddress (i32.add (get_global $statesArrayAddress) (i32.mul (get_local $threadIndex) (i32.const 128))))
+		
+		;; zero the state
+		(call $memsetAligned (get_local $threadStateAddress) (i32.const 0) (i32.const 128))
+
+		;; initialize the hash to the first 64 bytes of the param struct XORed with the contents of IV
+		(v128.store offset=0 (get_local $threadStateAddress) (v128.xor
+			(v128.load offset=0 (get_global $pAddress))
+			(v128.load offset=0 (get_global $ivAddress))))
+		(v128.store offset=16 (get_local $threadStateAddress) (v128.xor
+			(v128.load offset=16 (get_global $pAddress))
+			(v128.load offset=16 (get_global $ivAddress))))
+		(v128.store offset=32 (get_local $threadStateAddress) (v128.xor
+			(v128.load offset=32 (get_global $pAddress))
+			(v128.load offset=32 (get_global $ivAddress))))
+		(v128.store offset=48 (get_local $threadStateAddress) (v128.xor
+			(v128.load offset=48 (get_global $pAddress))
+			(v128.load offset=48 (get_global $ivAddress))))
 
 		block $loopEnd
 			loop $loop
 				(br_if $loopEnd (i32.lt_u (get_local $numBytes) (i32.const 128)))
 
-				(set_local $temp (i64.add (i64.load (get_global $tAddress)) (i64.const 128)))
-				(i64.store offset=0 (get_global $tAddress) (get_local $temp))
-				(i64.store offset=8 (get_global $tAddress) (i64.add
-					(i64.load offset=8 (get_global $tAddress))
+				(set_local $temp (i64.add (i64.load offset=64 (get_local $threadStateAddress)) (i64.const 128)))
+				(i64.store offset=64 (get_local $threadStateAddress) (get_local $temp))
+				(i64.store offset=72 (get_local $threadStateAddress) (i64.add
+					(i64.load offset=72 (get_local $threadStateAddress))
 					(i64.extend_u/i32 (i64.lt_u (get_local $temp) (i64.const 128)))))
 
 				(if (i32.eq (get_local $numBytes) (i32.const 128))
-					(i64.store offset=0 (get_global $fAddress) (i64.const 0xffffffffffffffff)))
+					(i64.store offset=80 (get_local $threadStateAddress) (i64.const 0xffffffffffffffff)))
 
-				(call $compress (get_local $inputAddress))
+				(call $compress (get_local $threadStateAddress) (get_local $inputAddress))
 
 				(set_local $inputAddress (i32.add (get_local $inputAddress) (i32.const 128)))
 				(set_local $numBytes (i32.sub (get_local $numBytes) (i32.const 128)))
@@ -1247,50 +1254,90 @@
 		end
 	)
 
+	(func $threadEntry
+		(param $threadIndex i32)
+		
+		(local $i i32)
+
+		;; Hash the test data enough times to dilute all the non-hash components of the timing.
+		(set_local $i (i32.const 0))
+		loop $iterLoop
+			(call $blake2b (get_local $threadIndex) (get_global $dataAddress) (get_global $dataNumBytes))
+			(set_local $i (i32.add (get_local $i) (i32.const 1)))
+			(br_if $iterLoop (i32.lt_u (get_local $i) (get_global $numIterationsPerThread)))
+		end
+
+		(i32.eq (i32.const 1) (i32.atomic.rmw.sub (get_global $numPendingThreadsAddress) (i32.const 1)))
+		if
+			(drop (wake (get_global $numPendingThreadsAddress) (i32.const 1)))
+		end
+	)
+
+	(func $threadError
+		(param $threadIndex i32)
+
+		;; Set the thread error flag and wake the main thread.
+		(i32.atomic.store (get_global $numPendingThreadsAddress) (i32.const -1))
+		(drop (wake (get_global $numPendingThreadsAddress) (i32.const 1)))
+	)
+
 	(func $main
 		(result i32)
 		(local $stdout i32)
 		(local $i i32)
 		(local $byte i32)		
-		(local $dataAddress i32)
-		(local $dataNumBytes i32)
-				
-		;;  Initialize the test data.
-		(set_local $dataNumBytes (i32.const 134217728))
-		(set_local $dataAddress (call $sbrk (get_local $dataNumBytes)))
+
+		;; Initialize the test data.
+		(set_global $dataAddress (call $sbrk (get_global $dataNumBytes)))
 		(set_local $i (i32.const 0))
 		loop $initDataLoop
-			(i32.store (i32.add (get_local $dataAddress) (get_local $i)) (get_local $i))
+			(i32.store (i32.add (get_global $dataAddress) (get_local $i)) (get_local $i))
 			(set_local $i (i32.add (get_local $i) (i32.const 4)))
-			(br_if $initDataLoop (i32.lt_u (get_local $i) (get_local $dataNumBytes)))
+			(br_if $initDataLoop (i32.lt_u (get_local $i) (get_global $dataNumBytes)))
 		end
 		
-		;; Hash the test data enough times to dilute all the non-hash components of the timing.
+		;; Launch the threads.
+		(i32.atomic.store (get_global $numPendingThreadsAddress) (get_global $numThreads))
 		(set_local $i (i32.const 0))
-		loop $iterLoop
-			(call $blake2b (get_local $dataAddress) (get_local $dataNumBytes))
+		loop $threadLoop
+			(launch_thread (i32.const 0) (get_local $i) (i32.const 1))
 			(set_local $i (i32.add (get_local $i) (i32.const 1)))
-			(br_if $iterLoop (i32.lt_u (get_local $i) (i32.const 100)))
+			(br_if $threadLoop (i32.lt_u (get_local $i) (get_global $numThreads)))
 		end
 
-		;; Create a hexadecimal string from the hash.
-		(set_local $i (i32.const 0))
-		loop $loop
-			(set_local $byte (i32.load8_u (i32.add (get_global $hashAddress) (get_local $i))))
-			(i32.store8 offset=0
-				(i32.add (get_local $dataAddress) (i32.shl (get_local $i) (i32.const 1)))
-				(i32.load8_u (i32.add (get_global $hexitTable) (i32.and (get_local $byte) (i32.const 0x0f)))))
-			(i32.store8 offset=1
-				(i32.add (get_local $dataAddress) (i32.shl (get_local $i) (i32.const 1)))
-				(i32.load8_u (i32.add (get_global $hexitTable) (i32.shr_u (get_local $byte) (i32.const 4)))))
-			(set_local $i (i32.add (get_local $i) (i32.const 1)))
-			(br_if $loop (i32.lt_u (get_local $i) (i32.const 64)))
+		;; Wait for the threads to finish.
+		block $waitLoopEnd
+			loop $waitLoop
+				(set_local $i (i32.atomic.load (get_global $numPendingThreadsAddress)))
+				(br_if $waitLoopEnd (i32.le_s (get_local $i) (i32.const 0)))
+				(drop (i32.wait (get_global $numPendingThreadsAddress) (get_local $i) (f64.const +inf)))
+				(br $waitLoop)
+			end
 		end
-		(i32.store8 offset=128 (get_local $dataAddress) (i32.const 10))
 
-		;; Print the string to the output.
-		(set_local $stdout (i32.load align=4 (get_global $stdoutPtr)))
-		(return (call $__fwrite (get_local $dataAddress) (i32.const 1) (i32.const 129) (get_local $stdout)))
+		(i32.eq (i32.atomic.load (get_global $numPendingThreadsAddress)) (i32.const 0))
+		if
+			;; Create a hexadecimal string from the hash.
+			(set_local $i (i32.const 0))
+			loop $loop
+				(set_local $byte (i32.load8_u (i32.add (get_global $statesArrayAddress) (get_local $i))))
+				(i32.store8 offset=0
+					(i32.add (get_global $outputStringAddress) (i32.shl (get_local $i) (i32.const 1)))
+					(i32.load8_u (i32.add (get_global $hexitTable) (i32.and (get_local $byte) (i32.const 0x0f)))))
+				(i32.store8 offset=1
+					(i32.add (get_global $outputStringAddress) (i32.shl (get_local $i) (i32.const 1)))
+					(i32.load8_u (i32.add (get_global $hexitTable) (i32.shr_u (get_local $byte) (i32.const 4)))))
+				(set_local $i (i32.add (get_local $i) (i32.const 1)))
+				(br_if $loop (i32.lt_u (get_local $i) (i32.const 64)))
+			end
+			(i32.store8 offset=128 (get_global $outputStringAddress) (i32.const 10))
+
+			;; Print the string to the output.
+			(set_local $stdout (i32.load align=4 (get_global $stdoutPtr)))
+			(return (call $__fwrite (get_global $outputStringAddress) (i32.const 1) (i32.const 129) (get_local $stdout)))
+		end
+
+		(return (i32.const 1))
 	)
 
 	(func (export "establishStackSpace") (param i32 i32) (nop))
