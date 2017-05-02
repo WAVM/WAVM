@@ -105,7 +105,7 @@ namespace LLVMJIT
 			Platform::decommitVirtualPages(imageBaseAddress,numAllocatedImagePages);
 		}
 		
-		void registerEHFrames(U8* addr, U64 loadAddr,Uptr numBytes) override
+		void registerEHFrames(U8* addr, U64 loadAddr,uintptr_t numBytes) override
 		{
 			llvm::RTDyldMemoryManager::registerEHFrames(addr,loadAddr,numBytes);
 			hasRegisteredEHFrames = true;
@@ -113,7 +113,7 @@ namespace LLVMJIT
 			ehFramesLoadAddr = loadAddr;
 			ehFramesNumBytes = numBytes;
 		}
-		void deregisterEHFrames(U8* addr, U64 loadAddr,Uptr numBytes) override
+		void deregisterEHFrames(U8* addr, U64 loadAddr,uintptr_t numBytes) override
 		{
 			llvm::RTDyldMemoryManager::deregisterEHFrames(addr,loadAddr,numBytes);
 		}

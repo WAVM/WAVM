@@ -310,7 +310,7 @@ namespace IR
 		void call(CallImm imm)
 		{
 			const FunctionType* calleeType = validateFunctionIndex(module,imm.functionIndex);
-			popAndValidateOperands("call arguments",calleeType->parameters.data(),calleeType->parameters.size());
+			popAndValidateOperands("call arguments",calleeType->parameters.data(),(Uptr)calleeType->parameters.size());
 			pushOperand(calleeType->ret);
 		}
 		void call_indirect(CallIndirectImm imm)
@@ -319,7 +319,7 @@ namespace IR
 			VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",module.tables.size()==0);
 			const FunctionType* calleeType = module.types[imm.type.index];
 			popAndValidateOperand("call_indirect function index",ValueType::i32);
-			popAndValidateOperands("call_indirect arguments",calleeType->parameters.data(),calleeType->parameters.size());
+			popAndValidateOperands("call_indirect arguments",calleeType->parameters.data(),(Uptr)calleeType->parameters.size());
 			pushOperand(calleeType->ret);
 		}
 		

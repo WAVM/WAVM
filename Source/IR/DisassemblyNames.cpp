@@ -102,7 +102,7 @@ namespace IR
 
 				Uptr numFunctionNames = 0;
 				serializeVarUInt32(stream,numFunctionNames);
-				numFunctionNames = std::min(numFunctionNames,outNames.functions.size());
+				numFunctionNames = std::min(numFunctionNames,(Uptr)outNames.functions.size());
 
 				for(Uptr functionIndex = 0;functionIndex < numFunctionNames;++functionIndex)
 				{

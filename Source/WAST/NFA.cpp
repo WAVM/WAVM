@@ -272,7 +272,7 @@ namespace NFA
 					}
 				}
 			}
-			maxDFANextStates = std::max(maxDFANextStates,uniqueLocalNextStateSets.size());
+			maxDFANextStates = std::max(maxDFANextStates,(Uptr)uniqueLocalNextStateSets.size());
 		};
 		
 		Timing::logTimer("translated NFA->DFA",timer);

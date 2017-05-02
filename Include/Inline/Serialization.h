@@ -71,7 +71,7 @@ namespace Serialization
 
 			// Grow the array by larger and larger increments, so the time spent growing
 			// the buffer is O(1).
-			bytes.resize(std::max((Uptr)nextIndex+numBytes,bytes.size() * 7 / 5 + 32));
+			bytes.resize(std::max((Uptr)nextIndex+numBytes,(Uptr)bytes.size() * 7 / 5 + 32));
 
 			next = bytes.data() + nextIndex;
 			end = bytes.data() + bytes.size();
