@@ -434,7 +434,6 @@ namespace WASM
 		}
 	private:
 		Serialization::OutputStream& byteStream;
-		Serialization::OutputStream immStream;
 		FunctionDef& functionDef;
 	};
 
