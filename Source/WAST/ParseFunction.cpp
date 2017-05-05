@@ -226,6 +226,42 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 }
 
 #if ENABLE_SIMD_PROTOTYPE
+
+static void parseImm(FunctionParseState& state,LiteralImm<V128>& outImm)
+{
+	parseParenthesized(state,[&]
+	{
+		for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
+		{
+			outImm.value.i8[laneIndex] = parseI8(state);
+		}
+	});
+}
+
+static bool parseBool(ParseState& state)
+{
+	const Token* boolToken = state.nextToken;
+	U64 i64 = parseI64(state);
+	if(i64 > 1)
+	{
+		parseErrorf(state,boolToken,"expected 0 or 1");
+		throw RecoverParseException();
+	}
+	return i64 != 0;
+}
+
+template<Uptr numLanes>
+static void parseImm(FunctionParseState& state,LiteralImm<BoolVector<numLanes>>& outImm)
+{
+	parseParenthesized(state,[&]
+	{
+		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		{
+			outImm.value.b[laneIndex] = parseBool(state);
+		}
+	});
+}
+
 template<Uptr numLanes>
 static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm)
 {

@@ -355,6 +355,12 @@ namespace WAST
 		}
 
 		#if ENABLE_SIMD_PROTOTYPE
+		
+		void printImm(LiteralImm<V128> imm) { string += ' '; string += asString(imm.value); }
+
+		template<Uptr numLanes>
+		void printImm(LiteralImm<BoolVector<numLanes>> imm) { string += ' '; string += asString(imm.value); }
+
 		template<Uptr numLanes>
 		void printImm(LaneIndexImm<numLanes> imm)
 		{

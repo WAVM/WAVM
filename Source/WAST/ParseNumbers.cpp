@@ -340,6 +340,17 @@ namespace WAST
 	{
 		return tryParseInt<U64>(state,outI64,INT64_MIN,UINT64_MAX);
 	}
+	
+	U8 parseI8(ParseState& state)
+	{
+		U32 result;
+		if(!tryParseInt<U32>(state,result,INT8_MIN,UINT8_MAX))
+		{
+			parseErrorf(state,state.nextToken,"expected i8 literal");
+			throw RecoverParseException();
+		}
+		return U8(result);
+	}
 
 	U32 parseI32(ParseState& state)
 	{

@@ -280,7 +280,7 @@
 		(set_local $row2h (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2h)))
 
 		(set_local $b0 (v64x2.shuffle (0 2) (v128.load offset=64 (get_local $blockAddress)) (v128.load offset=0 (get_local $blockAddress))))
-		(set_local $b1 (v64x2.select (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=96 (get_local $blockAddress)) (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=96 (get_local $blockAddress)) (b64x2.const (1 0))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))
@@ -307,7 +307,7 @@
 		(set_local $row4l (get_local $t1))
 		(set_local $row4h (get_local $t0))
 
-		(set_local $b0 (v64x2.select (v128.load offset=80 (get_local $blockAddress)) (v128.load offset=16 (get_local $blockAddress)) (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b0 (v64x2.select (v128.load offset=80 (get_local $blockAddress)) (v128.load offset=16 (get_local $blockAddress)) (b64x2.const (1 0))))
 		(set_local $b1 (v64x2.shuffle (1 3) (v128.load offset=48 (get_local $blockAddress)) (v128.load offset=64 (get_local $blockAddress))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
@@ -397,8 +397,8 @@
 		(set_local $row4l (get_local $t1))
 		(set_local $row4h (get_local $t0))
 
-		(set_local $b0 (v64x2.select (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=32 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
-		(set_local $b1 (v64x2.select (v128.load offset=32 (get_local $blockAddress)) (v128.load offset=112 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b0 (v64x2.select (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=32 (get_local $blockAddress))  (b64x2.const (1 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=32 (get_local $blockAddress)) (v128.load offset=112 (get_local $blockAddress))  (b64x2.const (1 0))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))
@@ -459,8 +459,8 @@
 		(set_local $row2l (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2l)))
 		(set_local $row2h (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2h)))
 
-		(set_local $b0 (v64x2.select (v128.load offset=0 (get_local $blockAddress)) (v128.load offset=48 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
-		(set_local $b1 (v64x2.select (v128.load offset=32 (get_local $blockAddress)) (v128.load offset=112 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b0 (v64x2.select (v128.load offset=0 (get_local $blockAddress)) (v128.load offset=48 (get_local $blockAddress))  (b64x2.const (1 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=32 (get_local $blockAddress)) (v128.load offset=112 (get_local $blockAddress))  (b64x2.const (1 0))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))
@@ -487,8 +487,8 @@
 		(set_local $row4l (get_local $t1))
 		(set_local $row4h (get_local $t0))
 
-		(set_local $b0 (v64x2.select (v128.load offset=112 (get_local $blockAddress)) (v128.load offset=80 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
-		(set_local $b1 (v64x2.select (v128.load offset=48 (get_local $blockAddress)) (v128.load offset=16 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b0 (v64x2.select (v128.load offset=112 (get_local $blockAddress)) (v128.load offset=80 (get_local $blockAddress))  (b64x2.const (1 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=48 (get_local $blockAddress)) (v128.load offset=16 (get_local $blockAddress))  (b64x2.const (1 0))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))
@@ -504,7 +504,7 @@
 		(set_local $row2h (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2h)))
 
 		(set_local $b0 (v64x2.shuffle (3 0) (v128.load offset=96 (get_local $blockAddress)) (v128.load offset=0 (get_local $blockAddress))))
-		(set_local $b1 (v64x2.select (v128.load offset=64 (get_local $blockAddress)) (v128.load offset=96 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=64 (get_local $blockAddress)) (v128.load offset=96 (get_local $blockAddress))  (b64x2.const (1 0))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))
@@ -577,7 +577,7 @@
 		(set_local $row4l (get_local $t1))
 		(set_local $row4h (get_local $t0))
 
-		(set_local $b0 (v64x2.select (v128.load offset=32 (get_local $blockAddress)) (v128.load offset=48 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b0 (v64x2.select (v128.load offset=32 (get_local $blockAddress)) (v128.load offset=48 (get_local $blockAddress))  (b64x2.const (1 0))))
 		(set_local $b1 (v64x2.shuffle (1 3) (v128.load offset=112 (get_local $blockAddress)) (v128.load offset=0 (get_local $blockAddress))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
@@ -594,7 +594,7 @@
 		(set_local $row2h (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2h)))
 
 		(set_local $b0 (v64x2.shuffle (1 3) (v128.load offset=96 (get_local $blockAddress)) (v128.load offset=32 (get_local $blockAddress))))
-		(set_local $b1 (v64x2.select (v128.load offset=112 (get_local $blockAddress)) (v128.load offset=64 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=112 (get_local $blockAddress)) (v128.load offset=64 (get_local $blockAddress))  (b64x2.const (1 0))))
 		
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))
@@ -623,7 +623,7 @@
 			
 		;; Round 6
 
-		(set_local $b0 (v64x2.select (v128.load offset=96 (get_local $blockAddress)) (v128.load offset=0 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b0 (v64x2.select (v128.load offset=96 (get_local $blockAddress)) (v128.load offset=0 (get_local $blockAddress))  (b64x2.const (1 0))))
 		(set_local $b1 (v64x2.shuffle (0 2) (v128.load offset=112 (get_local $blockAddress)) (v128.load offset=32 (get_local $blockAddress))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
@@ -684,7 +684,7 @@
 		(set_local $row2h (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2h)))
 
 		(set_local $b0 (v64x2.shuffle (1 3) (v128.load offset=48 (get_local $blockAddress)) (v128.load offset=16 (get_local $blockAddress))))
-		(set_local $b1 (v64x2.select (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=80 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=80 (get_local $blockAddress))  (b64x2.const (1 0))))
 		
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))
@@ -714,7 +714,7 @@
 		;; Round 7
 
 		(set_local $b0 (v64x2.shuffle (1 3) (v128.load offset=96 (get_local $blockAddress)) (v128.load offset=48 (get_local $blockAddress))))
-		(set_local $b1 (v64x2.select (v128.load offset=96 (get_local $blockAddress)) (v128.load offset=16 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=96 (get_local $blockAddress)) (v128.load offset=16 (get_local $blockAddress))  (b64x2.const (1 0))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))
@@ -863,7 +863,7 @@
 		(set_local $row2l (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2l)))
 		(set_local $row2h (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2h)))
 
-		(set_local $b0 (v64x2.select (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=48 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b0 (v64x2.select (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=48 (get_local $blockAddress))  (b64x2.const (1 0))))
 		(set_local $b1 (v128.load offset=32 (get_local $blockAddress)))
 		
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
@@ -910,7 +910,7 @@
 		(set_local $row2h (v8x16.swizzle (3 4 5 6 7 0 1 2 11 12 13 14 15 8 9 10) (get_local $row2h)))
 
 		(set_local $b0 (v64x2.shuffle (0 2) (v128.load offset=16 (get_local $blockAddress)) (v128.load offset=32 (get_local $blockAddress))))
-		(set_local $b1 (v64x2.select (v128.load offset=48 (get_local $blockAddress)) (v128.load offset=32 (get_local $blockAddress))  (b64x2.build (i32.const 1) (i32.const 0))))
+		(set_local $b1 (v64x2.select (v128.load offset=48 (get_local $blockAddress)) (v128.load offset=32 (get_local $blockAddress))  (b64x2.const (1 0))))
 
 		(set_local $row1l (i64x2.add (i64x2.add (get_local $row1l) (get_local $b0)) (get_local $row2l)))
 		(set_local $row1h (i64x2.add (i64x2.add (get_local $row1h) (get_local $b1)) (get_local $row2h)))

@@ -1224,27 +1224,25 @@ namespace LLVMJIT
 		EMIT_SIMD_SWIZZLE_AND_SHUFFLE_OPS(v32x4,llvmI32x4Type,4)
 		EMIT_SIMD_SWIZZLE_AND_SHUFFLE_OPS(v64x2,llvmI64x2Type,2)
 		
-		#define EMIT_SIMD_BUILD_OP(vectorType,llvmType,coerceScalar,numLanes) \
-			void vectorType##_build(NoImm) \
+		void v128_const(LiteralImm<V128> imm)
+		{
+			push(llvm::ConstantVector::get({emitLiteral(imm.value.u64[0]),emitLiteral(imm.value.u64[1])}));
+		}
+
+		#define EMIT_SIMD_BOOL_CONST_OP(vectorType,llvmType,numLanes) \
+			void vectorType##_const(LiteralImm<BoolVector<numLanes>> imm) \
 			{ \
-				llvm::Value* result = llvm::UndefValue::get(llvmType); \
+				llvm::Constant* elements[numLanes]; \
 				for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex) \
 				{ \
-					llvm::Value* scalar = pop(); \
-					result = irBuilder.CreateInsertElement(result,coerceScalar,numLanes - laneIndex - 1); \
+					elements[laneIndex] = emitLiteral(imm.value.b[laneIndex]); \
 				} \
-				push(result); \
+				push(llvm::ConstantVector::get(llvm::ArrayRef<llvm::Constant*>(elements,elements + numLanes))); \
 			}
-		EMIT_SIMD_BUILD_OP(i8x16,llvmI8x16Type,irBuilder.CreateTrunc(scalar,llvmI8Type),16)
-		EMIT_SIMD_BUILD_OP(i16x8,llvmI16x8Type,irBuilder.CreateTrunc(scalar,llvmI16Type),8)
-		EMIT_SIMD_BUILD_OP(i32x4,llvmI32x4Type,scalar,4)
-		EMIT_SIMD_BUILD_OP(i64x2,llvmI64x2Type,scalar,2)
-		EMIT_SIMD_BUILD_OP(f32x4,llvmF32x4Type,scalar,4)
-		EMIT_SIMD_BUILD_OP(f64x2,llvmF64x2Type,scalar,2)
-		EMIT_SIMD_BUILD_OP(b8x16,llvmB8x16Type,coerceI32ToBool(scalar),16)
-		EMIT_SIMD_BUILD_OP(b16x8,llvmB16x8Type,coerceI32ToBool(scalar),8)
-		EMIT_SIMD_BUILD_OP(b32x4,llvmB32x4Type,coerceI32ToBool(scalar),4)
-		EMIT_SIMD_BUILD_OP(b64x2,llvmB64x2Type,coerceI32ToBool(scalar),2)
+		EMIT_SIMD_BOOL_CONST_OP(b8x16,llvmB8x16Type,16)
+		EMIT_SIMD_BOOL_CONST_OP(b16x8,llvmB16x8Type,8)
+		EMIT_SIMD_BOOL_CONST_OP(b32x4,llvmB32x4Type,4)
+		EMIT_SIMD_BOOL_CONST_OP(b64x2,llvmB64x2Type,2)
 
 		#define EMIT_SIMD_SELECT(vectorType,llvmType) \
 			void vectorType##_select(NoImm) \

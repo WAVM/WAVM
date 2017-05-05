@@ -36,6 +36,11 @@ namespace IR
 	template<> struct ValueTypeInfo<ValueType::f32> { typedef F32 Value; };
 	template<> struct ValueTypeInfo<ValueType::f64> { typedef F64 Value; };
 
+	inline std::string asString(I32 value) { return std::to_string(value); }
+	inline std::string asString(I64 value) { return std::to_string(value); }
+	inline std::string asString(F32 value) { return std::to_string(value); }
+	inline std::string asString(F64 value) { return std::to_string(value); }
+
 	#if ENABLE_SIMD_PROTOTYPE
 	union V128
 	{
@@ -48,6 +53,18 @@ namespace IR
 		U64 u64[2];
 		I64 i64[2];
 	};
+	
+	inline std::string asString(const V128& v128)
+	{
+		std::string result = "(";
+		for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
+		{
+			if(laneIndex != 0) { result += ' '; }
+			result += std::to_string(v128.u8[laneIndex]);
+		}
+		result += ")";
+		return result;
+	}
 
 	template<Uptr numLanes>
 	struct BoolVector
@@ -58,12 +75,13 @@ namespace IR
 	template<Uptr numLanes>
 	std::string asString(const BoolVector<numLanes>& boolVector)
 	{
-		std::string result;
+		std::string result = "(";
 		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 		{
-			if(laneIndex != 0) { result += ','; }
+			if(laneIndex != 0) { result += ' '; }
 			result += boolVector.b[laneIndex] ? '1' : '0';
 		}
+		result += ")";
 		return result;
 	}
 

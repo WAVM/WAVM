@@ -44,7 +44,7 @@ namespace IR
 			return result;
 		}
 		template<typename NativeValue>
-		std::string describeImm(LiteralImm<NativeValue> imm) { return " " + std::to_string(imm.value); }
+		std::string describeImm(LiteralImm<NativeValue> imm) { return " " + asString(imm.value); }
 		template<bool isGlobal>
 		std::string describeImm(GetOrSetVariableImm<isGlobal> imm) { return " " + std::to_string(imm.variableIndex); }
 		std::string describeImm(CallImm imm)

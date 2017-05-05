@@ -401,12 +401,6 @@ namespace IR
 		#define VECTORSELECT(vectorTypeId,scalarTypeId) \
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::vectorTypeId,ValueType::scalarTypeId); \
 			pushOperand(ValueType::vectorTypeId);
-		#define BUILDVECTOR(scalarTypeId,numLanes,vectorTypeId) \
-			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex) \
-			{ \
-				popAndValidateOperand(operatorName,ValueType::scalarTypeId); \
-			} \
-			pushOperand(ValueType::vectorTypeId);
 		#define REPLACELANE(scalarTypeId,vectorTypeId) \
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::scalarTypeId); \
 			pushOperand(ValueType::vectorTypeId);

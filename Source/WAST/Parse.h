@@ -150,6 +150,7 @@ namespace WAST
 	bool tryParseI32(ParseState& state,U32& outI32);
 	bool tryParseI64(ParseState& state,U64& outI64);
 
+	U8 parseI8(ParseState& state);
 	U32 parseI32(ParseState& state);
 	U64 parseI64(ParseState& state);
 	F32 parseF32(ParseState& state);

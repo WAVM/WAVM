@@ -122,7 +122,6 @@ namespace IR
 		LOAD(T) : i32 -> T
 		STORE(T) : (i32,T) -> ()
 		VECTORSELECT(V,B) : (V,V,B) -> V
-        BUILDVECTOR(S,N,V) : S{N} -> V
         REPLACELANE(S,V) : (V,S) -> V
 		COMPAREEXCHANGE(T) : (i32,T,T) -> T
 		WAIT(T) : (i32,T,f64) -> i32
@@ -308,6 +307,8 @@ namespace IR
 	#define ENUM_SIMD_OPERATORS(visitOp)
 	#else
 	#define ENUM_SIMD_OPERATORS(visitOp) \
+		visitOp(0xd000,v128_const,"v128.const",LiteralImm<V128>,NULLARY(v128)) \
+		\
 		visitOp(0xd001,v128_and,"v128.and",NoImm,BINARY(v128,v128)) \
 		visitOp(0xd002,v128_or,"v128.or",NoImm,BINARY(v128,v128)) \
 		visitOp(0xd003,v128_xor,"v128.xor",NoImm,BINARY(v128,v128)) \
@@ -319,7 +320,6 @@ namespace IR
 		visitOp(0xd008,v8x16_swizzle,"v8x16.swizzle",SwizzleImm<16>,UNARY(v128,v128)) \
 		visitOp(0xd009,v8x16_shuffle,"v8x16.shuffle",ShuffleImm<16>,BINARY(v128,v128)) \
 		\
-		visitOp(0xd00a,i8x16_build,"i8x16.build",NoImm,BUILDVECTOR(i32,16,v128)) \
 		visitOp(0xd00b,i8x16_splat,"i8x16.splat",NoImm,UNARY(i32,v128)) \
 		visitOp(0xd00c,i8x16_extract_lane_s,"i8x16.extract_lane_s",LaneIndexImm<16>,UNARY(v128,i32)) \
 		visitOp(0xd00d,i8x16_extract_lane_u,"i8x16.extract_lane_u",LaneIndexImm<16>,UNARY(v128,i32)) \
@@ -350,7 +350,6 @@ namespace IR
 		visitOp(0xd025,v16x8_swizzle,"v16x8.swizzle",SwizzleImm<8>,UNARY(v128,v128)) \
 		visitOp(0xd026,v16x8_shuffle,"v16x8.shuffle",ShuffleImm<8>,BINARY(v128,v128)) \
 		\
-		visitOp(0xd027,i16x8_build,"i16x8.build",NoImm,BUILDVECTOR(i32,8,v128)) \
 		visitOp(0xd028,i16x8_splat,"i16x8.splat",NoImm,UNARY(i32,v128)) \
 		visitOp(0xd029,i16x8_extract_lane_s,"i16x8.extract_lane_s",LaneIndexImm<8>,UNARY(v128,i32)) \
 		visitOp(0xd02a,i16x8_extract_lane_u,"i16x8.extract_lane_u",LaneIndexImm<8>,UNARY(v128,i32)) \
@@ -388,7 +387,6 @@ namespace IR
 		visitOp(0xd048,v32x4_store2,"v32x4.store2",LoadOrStoreImm<2>,STORE(v128)) \
 		visitOp(0xd049,v32x4_store3,"v32x4.store3",LoadOrStoreImm<2>,STORE(v128)) \
 		\
-		visitOp(0xd04a,i32x4_build,"i32x4.build",NoImm,BUILDVECTOR(i32,4,v128)) \
 		visitOp(0xd04b,i32x4_splat,"i32x4.splat",NoImm,UNARY(i32,v128)) \
 		visitOp(0xd04c,i32x4_extract_lane,"i32x4.extract_lane",LaneIndexImm<4>,UNARY(v128,i32)) \
 		visitOp(0xd04d,i32x4_replace_lane,"i32x4.replace_lane",LaneIndexImm<4>,REPLACELANE(i32,v128)) \
@@ -412,7 +410,6 @@ namespace IR
 		visitOp(0xd05f,i32x4_trunc_s_f32x4,"i32x4.trunc_s/f32x4",NoImm,UNARY(v128,v128)) \
 		visitOp(0xd060,i32x4_trunc_u_f32x4,"i32x4.trunc_u/f32x4",NoImm,UNARY(v128,v128)) \
 		\
-		visitOp(0xd061,f32x4_build,"f32x4.build",NoImm,BUILDVECTOR(f32,4,v128)) \
 		visitOp(0xd062,f32x4_splat,"f32x4.splat",NoImm,UNARY(f32,v128)) \
 		visitOp(0xd063,f32x4_extract_lane,"f32x4.extract_lane",LaneIndexImm<4>,UNARY(v128,f32)) \
 		visitOp(0xd064,f32x4_replace_lane,"f32x4.replace_lane",LaneIndexImm<4>,REPLACELANE(f32,v128)) \
@@ -438,7 +435,6 @@ namespace IR
 		visitOp(0xd077,v64x2_swizzle,"v64x2.swizzle",SwizzleImm<2>,UNARY(v128,v128)) \
 		visitOp(0xd078,v64x2_shuffle,"v64x2.shuffle",ShuffleImm<2>,BINARY(v128,v128)) \
 		\
-		visitOp(0xd079,i64x2_build,"i64x2.build",NoImm,BUILDVECTOR(i64,2,v128)) \
 		visitOp(0xd07a,i64x2_splat,"i64x2.splat",NoImm,UNARY(i64,v128)) \
 		visitOp(0xd07b,i64x2_extract_lane,"i64x2.extract_lane",LaneIndexImm<2>,UNARY(v128,i64)) \
 		visitOp(0xd07c,i64x2_replace_lane,"i64x2.replace_lane",LaneIndexImm<2>,REPLACELANE(i64,v128)) \
@@ -462,7 +458,6 @@ namespace IR
 		visitOp(0xd08e,i64x2_trunc_s_f64x2,"i64x2.trunc_s/f64x2",NoImm,UNARY(v128,v128)) \
 		visitOp(0xd08f,i64x2_trunc_u_f64x2,"i64x2.trunc_u/f64x2",NoImm,UNARY(v128,v128)) \
 		\
-		visitOp(0xd090,f64x2_build,"f64x2.build",NoImm,BUILDVECTOR(f64,2,v128)) \
 		visitOp(0xd091,f64x2_splat,"f64x2.splat",NoImm,UNARY(f64,v128)) \
 		visitOp(0xd092,f64x2_extract_lane,"f64x2.extract_lane",LaneIndexImm<2>,UNARY(v128,f64)) \
 		visitOp(0xd093,f64x2_replace_lane,"f64x2.replace_lane",LaneIndexImm<2>,REPLACELANE(f64,v128)) \
@@ -484,7 +479,7 @@ namespace IR
 		visitOp(0xd0a3,f64x2_convert_s_i64x2,"f64x2.convert_s/i64x2",NoImm,UNARY(v128,v128)) \
 		visitOp(0xd0a4,f64x2_convert_u_i64x2,"f64x2.convert_u/i64x2",NoImm,UNARY(v128,v128)) \
 		\
-		visitOp(0xd0a5,b8x16_build,"b8x16.build",NoImm,BUILDVECTOR(i32,16,b8x16)) \
+		visitOp(0xd0a5,b8x16_const,"b8x16.const",LiteralImm<B8x16>,NULLARY(b8x16)) \
 		visitOp(0xd0a6,b8x16_splat,"b8x16.splat",NoImm,UNARY(i32,b8x16)) \
 		visitOp(0xd0a7,b8x16_extract_lane,"b8x16.extract_lane",LaneIndexImm<16>,UNARY(b8x16,i32)) \
 		visitOp(0xd0a8,b8x16_replace_lane,"b8x16.replace_lane",LaneIndexImm<16>,REPLACELANE(i32,b8x16)) \
@@ -495,7 +490,7 @@ namespace IR
 		visitOp(0xd0ad,b8x16_any_true,"b8x16.any_true",NoImm,UNARY(b8x16,i32)) \
 		visitOp(0xd0ae,b8x16_all_true,"b8x16.all_true",NoImm,UNARY(b8x16,i32)) \
 		\
-		visitOp(0xd0af,b16x8_build,"b16x8.build",NoImm,BUILDVECTOR(i32,8,b16x8)) \
+		visitOp(0xd0af,b16x8_const,"b16x8.const",LiteralImm<B16x8>,NULLARY(b16x8)) \
 		visitOp(0xd0b0,b16x8_splat,"b16x8.splat",NoImm,UNARY(i32,b16x8)) \
 		visitOp(0xd0b1,b16x8_extract_lane,"b16x8.extract_lane",LaneIndexImm<8>,UNARY(b16x8,i32)) \
 		visitOp(0xd0b2,b16x8_replace_lane,"b16x8.replace_lane",LaneIndexImm<8>,REPLACELANE(i32,b16x8)) \
@@ -506,7 +501,7 @@ namespace IR
 		visitOp(0xd0b7,b16x8_any_true,"b16x8.any_true",NoImm,UNARY(b16x8,i32)) \
 		visitOp(0xd0b8,b16x8_all_true,"b16x8.all_true",NoImm,UNARY(b16x8,i32)) \
 		\
-		visitOp(0xd0b9,b32x4_build,"b32x4.build",NoImm,BUILDVECTOR(i32,4,b32x4)) \
+		visitOp(0xd0b9,b32x4_const,"b32x4.const",LiteralImm<B32x4>,NULLARY(b32x4)) \
 		visitOp(0xd0ba,b32x4_splat,"b32x4.splat",NoImm,UNARY(i32,b32x4)) \
 		visitOp(0xd0bb,b32x4_extract_lane,"b32x4.extract_lane",LaneIndexImm<4>,UNARY(b32x4,i32)) \
 		visitOp(0xd0bc,b32x4_replace_lane,"b32x4.replace_lane",LaneIndexImm<4>,REPLACELANE(i32,b32x4)) \
@@ -517,7 +512,7 @@ namespace IR
 		visitOp(0xd0c1,b32x4_any_true,"b32x4.any_true",NoImm,UNARY(b32x4,i32)) \
 		visitOp(0xd0c2,b32x4_all_true,"b32x4.all_true",NoImm,UNARY(b32x4,i32)) \
 		\
-		visitOp(0xd0c3,b64x2_build,"b64x2.build",NoImm,BUILDVECTOR(i32,2,b64x2)) \
+		visitOp(0xd0c3,b64x2_const,"b64x2.const",LiteralImm<B64x2>,NULLARY(b64x2)) \
 		visitOp(0xd0c4,b64x2_splat,"b64x2.splat",NoImm,UNARY(i32,b64x2)) \
 		visitOp(0xd0c5,b64x2_extract_lane,"b64x2.extract_lane",LaneIndexImm<2>,UNARY(b64x2,i32)) \
 		visitOp(0xd0c6,b64x2_replace_lane,"b64x2.replace_lane",LaneIndexImm<2>,REPLACELANE(i32,b64x2)) \
