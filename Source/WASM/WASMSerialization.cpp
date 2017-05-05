@@ -244,10 +244,6 @@ namespace WASM
 		serializeVarUInt32(stream,imm.defaultTargetDepth);
 	}
 
-	template<typename Stream,typename Value>
-	void serialize(Stream& stream,LiteralImm<Value>& imm,const FunctionDef&)
-	{ serialize(stream,imm.value); }
-		
 	template<typename Stream>
 	void serialize(Stream& stream,LiteralImm<I32>& imm,const FunctionDef&)
 	{ serializeVarInt32(stream,imm.value); }
@@ -351,7 +347,11 @@ namespace WASM
 			serializeVarUInt32(stream,imm.offset);
 		}
 	#endif
-
+		
+	template<typename Stream,typename Value>
+	void serialize(Stream& stream,LiteralImm<Value>& imm,const FunctionDef&)
+	{ serialize(stream,imm.value); }
+		
 	template<typename SerializeSection>
 	void serializeSection(OutputStream& stream,SectionType type,SerializeSection serializeSectionBody)
 	{
