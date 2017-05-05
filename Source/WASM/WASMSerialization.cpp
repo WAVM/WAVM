@@ -1,5 +1,6 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
+#include "Inline/UTF8.h"
 #include "WASM.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
@@ -8,6 +9,15 @@
 
 using namespace Serialization;
 
+static void throwIfNotValidUTF8(const std::string& string)
+{
+	const U8* endChar = (const U8*)string.data() + string.size();
+	if(UTF8::validateString((const U8*)string.data(),endChar) != endChar)
+	{
+		throw FatalSerializationException("invalid UTF-8 encoding");
+	}
+}
+	
 // These serialization functions need to be declared in the IR namespace for the array serializer in the Serialization namespace to find them.
 namespace IR
 {
@@ -107,6 +117,7 @@ namespace IR
 	void serialize(Stream& stream,Export& e)
 	{
 		serialize(stream,e.name);
+		throwIfNotValidUTF8(e.name);
 		serialize(stream,e.kind);
 		serializeVarUInt32(stream,e.index);
 	}
@@ -374,7 +385,7 @@ namespace WASM
 		serializeSectionBody(sectionStream);
 		if(sectionStream.capacity()) { throw FatalSerializationException("section contained more data than expected"); }
 	}
-	
+
 	void serialize(OutputStream& stream,UserSection& userSection)
 	{
 		serializeConstant(stream,"expected user section (section ID 0)",(U8)SectionType::user);
@@ -393,6 +404,7 @@ namespace WASM
 		
 		MemoryInputStream sectionStream(stream.advance(numSectionBytes),numSectionBytes);
 		serialize(sectionStream,userSection.name);
+		throwIfNotValidUTF8(userSection.name);
 		userSection.data.resize(sectionStream.capacity());
 		serializeBytes(sectionStream,userSection.data.data(),userSection.data.size());
 		assert(!sectionStream.capacity());
@@ -563,6 +575,8 @@ namespace WASM
 					ObjectKind kind = ObjectKind::invalid;
 					serialize(sectionStream,moduleName);
 					serialize(sectionStream,exportName);
+					throwIfNotValidUTF8(moduleName);
+					throwIfNotValidUTF8(exportName);
 					serialize(sectionStream,kind);
 					switch(kind)
 					{

@@ -1,4 +1,5 @@
 #include "Inline/BasicTypes.h"
+#include "Inline/UTF8.h"
 #include "WAST.h"
 #include "Lexer.h"
 #include "IR/Module.h"
@@ -402,72 +403,14 @@ namespace WAST
 		}
 
 		// Check that the string is a valid UTF-8 encoding.
-		// The valid ranges are taken from table 3-7 in the Unicode Standard 9.0:
-		// "Well-Formed UTF-8 Byte Sequences"
 		const U8* endChar = (const U8*)result.data() + result.size();
-		const U8* nextChar = (const U8*)result.data();
-		while(nextChar != endChar)
+		const U8* nextChar = UTF8::validateString((const U8*)result.data(),endChar);
+		if(nextChar != endChar)
 		{
-			if(*nextChar < 0x80) { ++nextChar; }
-			else if(*nextChar >= 0xc2 && *nextChar <= 0xdf)
-			{
-				if(nextChar + 1 >= endChar
-				|| nextChar[1] < 0x80 || nextChar[1] > 0xbf) { goto invalid; }
-				nextChar += 2;
-			}
-			else if(*nextChar == 0xe0)
-			{
-				if(nextChar + 2 >= endChar
-				|| nextChar[1] < 0xa0 || nextChar[1] > 0xbf
-				|| nextChar[2] < 0x80 || nextChar[2] > 0xbf) { goto invalid; }
-				nextChar += 3;
-			}
-			else if(*nextChar == 0xed)
-			{
-				if(nextChar + 2 >= endChar
-				|| nextChar[1] < 0xa0 || nextChar[1] > 0x9f
-				|| nextChar[2] < 0x80 || nextChar[2] > 0xbf) { goto invalid; }
-				nextChar += 3;
-			}
-			else if(*nextChar >= 0xe1 && *nextChar <= 0xef)
-			{
-				if(nextChar + 2 >= endChar
-				|| nextChar[1] < 0x80 || nextChar[1] > 0xbf
-				|| nextChar[2] < 0x80 || nextChar[2] > 0xbf) { goto invalid; }
-				nextChar += 3;
-			}
-			else if(*nextChar == 0xf0)
-			{
-				if(nextChar + 3 >= endChar
-				|| nextChar[1] < 0x90 || nextChar[1] > 0xbf
-				|| nextChar[2] < 0x80 || nextChar[2] > 0xbf
-				|| nextChar[3] < 0x80 || nextChar[3] > 0xbf) { goto invalid; }
-				nextChar += 4;
-			}
-			else if(*nextChar >= 0xf1 && *nextChar <= 0xf3)
-			{
-				if(nextChar + 3 >= endChar
-				|| nextChar[1] < 0x90 || nextChar[1] > 0xbf
-				|| nextChar[2] < 0x80 || nextChar[2] > 0xbf
-				|| nextChar[3] < 0x80 || nextChar[3] > 0xbf) { goto invalid; }
-				nextChar += 4;
-			}
-			else if(*nextChar == 0xf4)
-			{
-				if(nextChar + 3 >= endChar
-				|| nextChar[1] < 0x80 || nextChar[1] > 0x8f
-				|| nextChar[2] < 0x80 || nextChar[2] > 0xbf
-				|| nextChar[3] < 0x80 || nextChar[3] > 0xbf) { goto invalid; }
-				nextChar += 4;
-			}
-			else { goto invalid; }
+			const Uptr charOffset = stringToken->begin + (nextChar - (const U8*)result.data()) + 1;
+			parseErrorf(state,charOffset,"invalid UTF-8 encoding");
 		}
-		
-		return result;
 
-	invalid:
-		const Uptr charOffset = stringToken->begin + (nextChar - (const U8*)result.data()) + 1;
-		parseErrorf(state,charOffset,"invalid UTF-8 encoding");
 		return result;
 	}
 }

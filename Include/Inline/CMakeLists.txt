@@ -4,5 +4,6 @@ set(PublicHeaders
 	Errors.h
 	Floats.h
 	Serialization.h
-	Timing.h)
+	Timing.h
+	UTF8.h)
 add_custom_target(Inline SOURCES ${PublicHeaders})
