@@ -124,7 +124,7 @@ static NFA::CharSet parseCharClass(const char*& nextChar)
 		default:
 			if(!isMetachar<inSet>(nextChar[1]))
 			{
-				Errors::fatalf("'%c' is not a metachar in this context",*nextChar);
+				Errors::fatalf("'%c' is not a metachar in this context",nextChar[1]);
 			}
 			result.add(nextChar[1]);
 			break;
