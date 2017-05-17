@@ -84,16 +84,16 @@ namespace WAST
 
 		static const std::tuple<TokenType,const char*,bool> literalTokenTuples[] =
 		{
-			{t_leftParenthesis,"(",true},
-			{t_rightParenthesis,")",true},
-			{t_equals,"=",true},
+			std::make_tuple(t_leftParenthesis,"(",true),
+			std::make_tuple(t_rightParenthesis,")",true),
+			std::make_tuple(t_equals,"=",true),
 
-			#define VISIT_TOKEN(name,description) {t_##name,#name,false},
+			#define VISIT_TOKEN(name,description) std::make_tuple(t_##name,#name,false),
 			ENUM_LITERAL_TOKENS()
 			#undef VISIT_TOKEN
 
 			#undef VISIT_OPERATOR_TOKEN
-			#define VISIT_OPERATOR_TOKEN(_,name,nameString,...) {t_##name,nameString,false},
+			#define VISIT_OPERATOR_TOKEN(_,name,nameString,...) std::make_tuple(t_##name,nameString,false),
 			ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
 			#undef VISIT_OPERATOR_TOKEN
 		};
