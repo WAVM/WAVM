@@ -199,7 +199,7 @@ namespace Runtime
 	MemoryInstance* getDefaultMemory(ModuleInstance* moduleInstance) { return moduleInstance->defaultMemory; }
 	TableInstance* getDefaultTable(ModuleInstance* moduleInstance) { return moduleInstance->defaultTable; }
 	
-	ObjectInstance* getInstanceExport(ModuleInstance* moduleInstance,const char* name)
+	ObjectInstance* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name)
 	{
 		auto mapIt = moduleInstance->exportMap.find(name);
 		return mapIt == moduleInstance->exportMap.end() ? nullptr : mapIt->second;

@@ -31,7 +31,7 @@ struct RootResolver : Resolver
 {
 	std::map<std::string,Resolver*> moduleNameToResolverMap;
 
-	bool resolve(const char* moduleName,const char* exportName,ObjectType type,ObjectInstance*& outObject) override
+	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,ObjectInstance*& outObject) override
 	{
 		// Try to resolve an intrinsic first.
 		if(IntrinsicResolver::singleton.resolve(moduleName,exportName,type,outObject)) { return true; }
@@ -65,25 +65,25 @@ struct RootResolver : Resolver
 			// Instantiate the module and return the stub function instance.
 			auto stubModuleInstance = instantiateModule(stubModule,{});
 			outObject = getInstanceExport(stubModuleInstance,"importStub");
-			Log::printf(Log::Category::error,"Generated stub for missing function import %s.%s : %s\n",moduleName,exportName,asString(type).c_str());
+			Log::printf(Log::Category::error,"Generated stub for missing function import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
 		else if(type.kind == ObjectKind::memory)
 		{
 			outObject = asObject(Runtime::createMemory(asMemoryType(type)));
-			Log::printf(Log::Category::error,"Generated stub for missing memory import %s.%s : %s\n",moduleName,exportName,asString(type).c_str());
+			Log::printf(Log::Category::error,"Generated stub for missing memory import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
 		else if(type.kind == ObjectKind::table)
 		{
 			outObject = asObject(Runtime::createTable(asTableType(type)));
-			Log::printf(Log::Category::error,"Generated stub for missing table import %s.%s : %s\n",moduleName,exportName,asString(type).c_str());
+			Log::printf(Log::Category::error,"Generated stub for missing table import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
 		else if(type.kind == ObjectKind::global)
 		{
 			outObject = asObject(Runtime::createGlobal(asGlobalType(type),Runtime::Value(asGlobalType(type).valueType,Runtime::UntaggedValue())));
-			Log::printf(Log::Category::error,"Generated stub for missing global import %s.%s : %s\n",moduleName,exportName,asString(type).c_str());
+			Log::printf(Log::Category::error,"Generated stub for missing global import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
 

@@ -210,5 +210,5 @@ namespace Runtime
 	RUNTIME_API TableInstance* getDefaultTable(ModuleInstance* moduleInstance);
 
 	// Gets an object exported by a ModuleInstance by name.
-	RUNTIME_API ObjectInstance* getInstanceExport(ModuleInstance* moduleInstance,const char* exportName);
+	RUNTIME_API ObjectInstance* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name);
 }

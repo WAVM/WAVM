@@ -12,12 +12,12 @@ namespace Runtime
 {
 	RUNTIME_API IntrinsicResolver IntrinsicResolver::singleton;
 
-	bool IntrinsicResolver::resolve(const char* moduleName,const char* exportName,ObjectType type,ObjectInstance*& outObject)
+	bool IntrinsicResolver::resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,ObjectInstance*& outObject)
 	{
 		// Make sure the wavmIntrinsics module can't be directly imported.
-		if(!strcmp(moduleName,"wavmIntrinsics")) { return false; }
+		if(moduleName == "wavmIntrinsics") { return false; }
 
-		outObject = Intrinsics::find((std::string(moduleName) + "." + exportName).c_str(),type);
+		outObject = Intrinsics::find(moduleName + "." + exportName,type);
 		return outObject != nullptr;
 	}
 
@@ -34,7 +34,7 @@ namespace Runtime
 	{
 		// Ask the resolver for a value for this import.
 		ObjectInstance* importValue;
-		if(resolver.resolve(import.moduleName.c_str(),import.exportName.c_str(),resolveImportType(module,import.type),importValue))
+		if(resolver.resolve(import.moduleName,import.exportName,resolveImportType(module,import.type),importValue))
 		{
 			// Sanity check that the resolver returned an object of the right type.
 			assert(isA(importValue,resolveImportType(module,import.type)));

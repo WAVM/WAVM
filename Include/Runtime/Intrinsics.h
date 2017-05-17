@@ -91,7 +91,7 @@ namespace Intrinsics
 	};
 
 	// Finds an intrinsic object by name and type.
-	RUNTIME_API Runtime::ObjectInstance* find(const char* name,const IR::ObjectType& type);
+	RUNTIME_API Runtime::ObjectInstance* find(const std::string& name,const IR::ObjectType& type);
 
 	// Returns an array of all intrinsic runtime Objects; used as roots for garbage collection.
 	RUNTIME_API std::vector<Runtime::ObjectInstance*> getAllIntrinsicObjects();

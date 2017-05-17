@@ -426,7 +426,7 @@ namespace Emscripten
 				const Export& functionExport = module.exports[exportIndex];
 				if(functionExport.kind == ObjectKind::function && !strncmp(functionExport.name.c_str(),"__GLOBAL__",10))
 				{
-					FunctionInstance* functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,functionExport.name.c_str()));
+					FunctionInstance* functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,functionExport.name));
 					if(functionInstance) { Runtime::invokeFunction(functionInstance,{}); }
 				}
 			}

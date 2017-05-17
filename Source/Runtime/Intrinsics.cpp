@@ -26,7 +26,7 @@ namespace Intrinsics
 		}
 	};
 	
-	std::string getDecoratedName(const char* name,const IR::ObjectType& type)
+	std::string getDecoratedName(const std::string& name,const IR::ObjectType& type)
 	{
 		std::string decoratedName = name;
 		decoratedName += " : ";
@@ -116,7 +116,7 @@ namespace Intrinsics
 		delete memory;
 	}
 
-	Runtime::ObjectInstance* find(const char* name,const IR::ObjectType& type)
+	Runtime::ObjectInstance* find(const std::string& name,const IR::ObjectType& type)
 	{
 		std::string decoratedName = getDecoratedName(name,type);
 		Platform::Lock Lock(Singleton::get().mutex);

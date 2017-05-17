@@ -35,7 +35,7 @@ struct TestScriptState
 struct TestScriptResolver : Resolver
 {
 	TestScriptResolver(const TestScriptState& inState): state(inState) {}
-	bool resolve(const char* moduleName,const char* exportName,ObjectType type,ObjectInstance*& outObject) override
+	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,ObjectInstance*& outObject) override
 	{
 		// Try to resolve an intrinsic first.
 		if(IntrinsicResolver::singleton.resolve(moduleName,exportName,type,outObject)) { return true; }
@@ -151,7 +151,7 @@ bool processAction(TestScriptState& state,Action* action,Result& outResult)
 		if(moduleInstance)
 		{
 			// Find the named export in the module instance.
-			auto functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,invokeAction->exportName.c_str()));
+			auto functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,invokeAction->exportName));
 			if(!functionInstance) { testErrorf(state,invokeAction->locus,"couldn't find exported function with name: %s",invokeAction->exportName.c_str()); return false; }
 
 			// Execute the invoke
@@ -170,7 +170,7 @@ bool processAction(TestScriptState& state,Action* action,Result& outResult)
 		if(!moduleInstance) { return false; }
 
 		// Find the named export in the module instance.
-		auto globalInstance = asGlobalNullable(getInstanceExport(moduleInstance,getAction->exportName.c_str()));
+		auto globalInstance = asGlobalNullable(getInstanceExport(moduleInstance,getAction->exportName));
 		if(!globalInstance) { testErrorf(state,getAction->locus,"couldn't find exported global with name: %s",getAction->exportName.c_str()); return false; }
 
 		// Get the value of the specified global.
