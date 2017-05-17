@@ -50,7 +50,7 @@ namespace UTF8
 			else if(*nextChar >= 0xf1 && *nextChar <= 0xf3)
 			{
 				if(nextChar + 3 >= endChar
-				|| nextChar[1] < 0x90 || nextChar[1] > 0xbf
+				|| nextChar[1] < 0x80 || nextChar[1] > 0xbf
 				|| nextChar[2] < 0x80 || nextChar[2] > 0xbf
 				|| nextChar[3] < 0x80 || nextChar[3] > 0xbf) { break; }
 				nextChar += 4;
