@@ -30,6 +30,23 @@ namespace WAST
 		StaticData();
 	};
 
+	static NFA::StateIndex createTokenSeparatorPeekState(NFA::Builder* builder,NFA::StateIndex finalState)
+	{
+		NFA::CharSet tokenSeparatorCharSet;
+		tokenSeparatorCharSet.add(U8(' '));
+		tokenSeparatorCharSet.add(U8('\t'));
+		tokenSeparatorCharSet.add(U8('\r'));
+		tokenSeparatorCharSet.add(U8('\n'));
+		tokenSeparatorCharSet.add(U8('='));
+		tokenSeparatorCharSet.add(U8('('));
+		tokenSeparatorCharSet.add(U8(')'));
+		tokenSeparatorCharSet.add(U8(';'));
+		tokenSeparatorCharSet.add(0);
+		auto separatorState = addState(builder);
+		NFA::addEdge(builder,separatorState,tokenSeparatorCharSet,finalState | NFA::edgeDoesntConsumeInputFlag);
+		return separatorState;
+	}
+	
 	static void addLiteralToNFA(const char* string,NFA::Builder* builder,NFA::StateIndex initialState,NFA::StateIndex finalState)
 	{
 		// Add the literal to the NFA, one character at a time, reusing existing states that are reachable by the same string.
@@ -65,18 +82,18 @@ namespace WAST
 			{t_name,"\\$[a-zA-Z0-9\'_+*/~=<>!?@#$%&|:`.\\-\\^\\\\]+"},
 		};
 
-		static const std::pair<TokenType,const char*> literalTokenPairs[] =
+		static const std::tuple<TokenType,const char*,bool> literalTokenTuples[] =
 		{
-			{t_leftParenthesis,"("},
-			{t_rightParenthesis,")"},
-			{t_equals,"="},
+			{t_leftParenthesis,"(",true},
+			{t_rightParenthesis,")",true},
+			{t_equals,"=",true},
 
-			#define VISIT_TOKEN(name,description) {t_##name,#name},
+			#define VISIT_TOKEN(name,description) {t_##name,#name,false},
 			ENUM_LITERAL_TOKENS()
 			#undef VISIT_TOKEN
 
 			#undef VISIT_OPERATOR_TOKEN
-			#define VISIT_OPERATOR_TOKEN(_,name,nameString,...) {t_##name,nameString},
+			#define VISIT_OPERATOR_TOKEN(_,name,nameString,...) {t_##name,nameString,false},
 			ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
 			#undef VISIT_OPERATOR_TOKEN
 		};
@@ -87,12 +104,21 @@ namespace WAST
 		
 		for(auto regexpTokenPair : regexpTokenPairs)
 		{
-			Regexp::addToNFA(regexpTokenPair.second,nfaBuilder,0,NFA::maximumTerminalStateIndex - (NFA::StateIndex)regexpTokenPair.first);
+			NFA::StateIndex finalState = NFA::maximumTerminalStateIndex - (NFA::StateIndex)regexpTokenPair.first;
+			finalState = createTokenSeparatorPeekState(nfaBuilder,finalState);
+			Regexp::addToNFA(regexpTokenPair.second,nfaBuilder,0,finalState);
 		}
 		
-		for(auto literalTokenPair : literalTokenPairs)
+		for(auto literalTokenTuple : literalTokenTuples)
 		{
-			addLiteralToNFA(literalTokenPair.second,nfaBuilder,0,NFA::maximumTerminalStateIndex - (NFA::StateIndex)literalTokenPair.first);
+			const TokenType tokenType = std::get<0>(literalTokenTuple);
+			const char* literalString = std::get<1>(literalTokenTuple);
+			const bool isTokenSeparator = std::get<2>(literalTokenTuple);
+
+			NFA::StateIndex finalState = NFA::maximumTerminalStateIndex - (NFA::StateIndex)tokenType;
+			if(!isTokenSeparator) { finalState = createTokenSeparatorPeekState(nfaBuilder,finalState); }
+
+			addLiteralToNFA(literalString,nfaBuilder,0,finalState);
 		}
 
 		#ifndef _DEBUG
