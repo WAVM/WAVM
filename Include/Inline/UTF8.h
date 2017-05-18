@@ -2,6 +2,8 @@
 
 #include "BasicTypes.h"
 
+#include <assert.h>
+
 namespace UTF8
 {
 	inline const U8* validateString(const U8* nextChar,const U8* endChar)
@@ -66,5 +68,33 @@ namespace UTF8
 			else { break; }
 		}
 		return nextChar;
+	}
+
+	template<typename String>
+	inline void encodeCodepoint(U32 codepoint,String& outString)
+	{
+		if(codepoint < 0x80)
+		{
+			outString += char(codepoint);
+		}
+		else if(codepoint < 0x800)
+		{
+			outString += char((codepoint >> 6) & 0x1F) | 0xC0;
+			outString += char((codepoint & 0x3F) | 0x80);
+		}
+		else if(codepoint < 0x10000)
+		{
+			outString += char((codepoint >> 12) & 0x0F) | 0xE0;
+			outString += char((codepoint >> 6) & 0x3F) | 0x80;
+			outString += char((codepoint & 0x3F) | 0x80);
+		}
+		else
+		{
+			assert(codepoint < 0x200000);
+			outString += char((codepoint >> 18) & 0x07) | 0xF0;
+			outString += char((codepoint >> 12) & 0x3F) | 0x80;
+			outString += char((codepoint >> 6) & 0x3F) | 0x80;
+			outString += char((codepoint & 0x3F) | 0x80);
+		}
 	}
 }

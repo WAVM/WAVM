@@ -329,7 +329,7 @@ namespace WAST
 		return true;
 	}
 	
-	static void parseCharEscapeCode(const char*& nextChar,ParseState& state,char& outEscapedChar)
+	static void parseCharEscapeCode(const char*& nextChar,ParseState& state,std::string& outString)
 	{
 		U8 firstNibble;
 		if(tryParseHexit(nextChar,firstNibble))
@@ -337,19 +337,57 @@ namespace WAST
 			// Parse an 8-bit literal from two hexits.
 			U8 secondNibble;
 			if(!tryParseHexit(nextChar,secondNibble)) { parseErrorf(state,nextChar,"expected hexit"); }
-			outEscapedChar = firstNibble * 16 + secondNibble;
+			outString += char(firstNibble * 16 + secondNibble);
 		}
 		else
 		{
 			switch(*nextChar)
 			{
-			case 'n':	outEscapedChar = '\n'; ++nextChar; break;
-			case 't': outEscapedChar = '\t'; ++nextChar; break;
-			case '\\': outEscapedChar = '\\'; ++nextChar; break;
-			case '\'': outEscapedChar = '\''; ++nextChar; break;
-			case '\"': outEscapedChar = '\"'; ++nextChar; break;
+			case 't':	outString += '\t'; ++nextChar; break;
+			case 'n':	outString += '\n'; ++nextChar; break;
+			case 'r':	outString += '\r'; ++nextChar; break;
+			case '\"':	outString += '\"'; ++nextChar; break;
+			case '\'':	outString += '\''; ++nextChar; break;
+			case '\\':	outString += '\\'; ++nextChar; break;
+			case 'u':
+			{
+				// \u{...} - Unicode codepoint from hexadecimal number
+				if(nextChar[1] != '{') { parseErrorf(state,nextChar,"expected '{'"); }
+				nextChar += 2;
+				
+				// Parse the hexadecimal number.
+				const char* firstHexit = nextChar;
+				U32 codepoint = 0;
+				U8 hexit = 0;
+				while(tryParseHexit(nextChar,hexit))
+				{
+					if(codepoint > (UINT32_MAX - hexit) / 16)
+					{
+						codepoint = UINT32_MAX;
+						while(tryParseHexit(nextChar,hexit)) {};
+						break;
+					}
+					assert(codepoint * 16 + hexit >= codepoint);
+					codepoint = codepoint * 16 + hexit;
+				}
+
+				// Check that it denotes a valid Unicode codepoint.
+				if((codepoint >= 0xD800 && codepoint <= 0xDFFF)
+				|| codepoint >= 0x110000)
+				{
+					parseErrorf(state,firstHexit,"invalid Unicode codepoint");
+					codepoint = 0x1F642;
+				}
+
+				// Encode the codepoint as UTF-8.
+				UTF8::encodeCodepoint(codepoint,outString);
+
+				if(*nextChar != '}') { parseErrorf(state,nextChar,"expected '}'"); }
+				++nextChar;
+				break;
+			}
 			default:
-				outEscapedChar = '\\';
+				outString += '\\';
 				++nextChar;
 				parseErrorf(state,nextChar,"invalid escape code");
 				break;
@@ -376,9 +414,7 @@ namespace WAST
 			case '\\':
 			{
 				++nextChar;
-				char escapedChar = 0;
-				parseCharEscapeCode(nextChar,state,escapedChar);
-				outString += escapedChar;
+				parseCharEscapeCode(nextChar,state,outString);
 				break;
 			}
 			case '\"':

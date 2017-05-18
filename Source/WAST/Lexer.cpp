@@ -77,7 +77,7 @@ namespace WAST
 			{t_floatNaN,"[+\\-]?nan(:0[xX][\\da-fA-F]+)?"},
 			{t_floatInf,"[+\\-]?inf(inity)?"},
 
-			{t_string,"\"([^\"\n\\\\]*(\\\\([^0-9a-fA-F]|[0-9a-fA-F][0-9a-fA-F])))*\""},
+			{t_string,"\"([^\"\n\\\\]*(\\\\([^0-9a-fA-Fu]|[0-9a-fA-F][0-9a-fA-F]|u\\{[0-9a-fA-F]+})))*\""},
 
 			{t_name,"\\$[a-zA-Z0-9\'_+*/~=<>!?@#$%&|:`.\\-\\^\\\\]+"},
 		};
