@@ -133,8 +133,9 @@ namespace WAST
 	{
 		if(resultType != ResultType::none)
 		{
-			string += ' ';
+			string += " (result ";
 			print(string,resultType);
+			string += ')';
 		}
 	}
 

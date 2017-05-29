@@ -324,13 +324,33 @@ static void parseImm(FunctionParseState& state,AtomicLoadOrStoreImm<naturalAlign
 static void parseInstrSequence(FunctionParseState& state);
 static void parseExpr(FunctionParseState& state);
 
+static void parseControlImm(FunctionParseState& state,Name& outBranchTargetName,ControlStructureImm& imm)
+{
+	tryParseName(state,outBranchTargetName);
+	
+	imm.resultType = ResultType::none;
+	if(state.nextToken[0].type == t_leftParenthesis && state.nextToken[1].type == t_result)
+	{
+		state.nextToken += 2;
+		if(!tryParseResultType(state,imm.resultType))
+		{
+			parseErrorf(state,state.nextToken,"expected value type");
+		}
+		require(state,t_rightParenthesis);
+	}
+	else
+	{
+		// For backward compatibility, also handle just a result type.
+		tryParseResultType(state,imm.resultType);
+	}
+}
+
 static void parseBlock(FunctionParseState& state,bool isExpr)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
-	tryParseName(state,branchTargetName);
-	tryParseResultType(state,imm.resultType);
-				
+	parseControlImm(state,branchTargetName,imm);
+
 	ScopedBranchTarget branchTarget(state,branchTargetName);
 	state.validatingCodeStream.block(imm);
 	parseInstrSequence(state);
@@ -347,8 +367,7 @@ static void parseLoop(FunctionParseState& state,bool isExpr)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
-	tryParseName(state,branchTargetName);
-	tryParseResultType(state,imm.resultType);
+	parseControlImm(state,branchTargetName,imm);
 			
 	ScopedBranchTarget branchTarget(state,branchTargetName);
 	state.validatingCodeStream.loop(imm);
@@ -412,8 +431,7 @@ static void parseExpr(FunctionParseState& state)
 
 				Name branchTargetName;
 				ControlStructureImm imm;
-				tryParseName(state,branchTargetName);
-				tryParseResultType(state,imm.resultType);
+				parseControlImm(state,branchTargetName,imm);
 
 				// Parse an optional condition expression.
 				if(state.nextToken[0].type != t_leftParenthesis || state.nextToken[1].type != t_then)
@@ -509,8 +527,7 @@ static void parseInstrSequence(FunctionParseState& state)
 
 				Name branchTargetName;
 				ControlStructureImm imm;
-				tryParseName(state,branchTargetName);
-				tryParseResultType(state,imm.resultType);
+				parseControlImm(state,branchTargetName,imm);
 				
 				ScopedBranchTarget branchTarget(state,branchTargetName);
 				state.validatingCodeStream.if_(imm);
