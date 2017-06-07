@@ -1255,6 +1255,11 @@ namespace LLVMJIT
 			}
 		}
 
+		EMIT_UNARY_OP(i32,extend_s_i8,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI8Type),llvmI32Type))
+		EMIT_UNARY_OP(i32,extend_s_i16,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI16Type),llvmI32Type))
+		EMIT_UNARY_OP(i64,extend_s_i8,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI8Type),llvmI64Type))
+		EMIT_UNARY_OP(i64,extend_s_i16,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI16Type),llvmI64Type))
+
 		#define EMIT_ATOMIC_LOAD_OP(valueTypeId,name,llvmMemoryType,naturalAlignmentLog2,conversionOp) \
 			void valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
 			{ \
@@ -1325,17 +1330,12 @@ namespace LLVMJIT
 				push(memoryToValueConversion(atomicCmpXchg,asLLVMType(ValueType::valueTypeId))); \
 			}
 
-		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw8_s_cmpxchg,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw8_u_cmpxchg,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw16_s_cmpxchg,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw16_u_cmpxchg,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_CMPXCHG(i32,atomic_rmw_cmpxchg,llvmI32Type,2,identityConversion,identityConversion)
 			
-		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw8_s_cmpxchg,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw8_u_cmpxchg,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw16_s_cmpxchg,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw16_u_cmpxchg,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw32_s_cmpxchg,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw32_u_cmpxchg,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_CMPXCHG(i64,atomic_rmw_cmpxchg,llvmI64Type,3,identityConversion,identityConversion)
 			
@@ -1355,87 +1355,57 @@ namespace LLVMJIT
 				push(memoryToValueConversion(atomicRMW,asLLVMType(ValueType::valueTypeId))); \
 			}
 
-		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_xchg,Xchg,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_xchg,Xchg,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_xchg,Xchg,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_xchg,Xchg,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw_xchg,Xchg,llvmI32Type,2,identityConversion,identityConversion)
 
-		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_xchg,Xchg,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_xchg,Xchg,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_xchg,Xchg,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_xchg,Xchg,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_xchg,Xchg,llvmI16Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_xchg,Xchg,llvmI16Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw_xchg,Xchg,llvmI64Type,3,identityConversion,identityConversion)
 
-		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_add,Add,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_add,Add,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_add,Add,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_add,Add,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw_add,Add,llvmI32Type,2,identityConversion,identityConversion)
 
-		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_add,Add,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_add,Add,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_add,Add,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_add,Add,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_add,Add,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_add,Add,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw_add,Add,llvmI64Type,3,identityConversion,identityConversion)
 			
-		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_sub,Sub,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_sub,Sub,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_sub,Sub,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_sub,Sub,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw_sub,Sub,llvmI32Type,2,identityConversion,identityConversion)
 
-		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_sub,Sub,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_sub,Sub,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_sub,Sub,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_sub,Sub,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_sub,Sub,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_sub,Sub,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw_sub,Sub,llvmI64Type,3,identityConversion,identityConversion)
 			
-		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_and,And,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_and,And,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_and,And,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_and,And,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw_and,And,llvmI32Type,2,identityConversion,identityConversion)
 
-		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_and,And,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_and,And,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_and,And,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_and,And,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_and,And,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_and,And,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw_and,And,llvmI64Type,3,identityConversion,identityConversion)
 			
-		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_or,Or,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_or,Or,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_or,Or,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_or,Or,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw_or,Or,llvmI32Type,2,identityConversion,identityConversion)
 
-		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_or,Or,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_or,Or,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_or,Or,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_or,Or,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_or,Or,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_or,Or,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw_or,Or,llvmI64Type,3,identityConversion,identityConversion)
 			
-		EMIT_ATOMIC_RMW(i32,atomic_rmw8_s_xor,Xor,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw8_u_xor,Xor,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i32,atomic_rmw16_s_xor,Xor,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw16_u_xor,Xor,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i32,atomic_rmw_xor,Xor,llvmI32Type,2,identityConversion,identityConversion)
 
-		EMIT_ATOMIC_RMW(i64,atomic_rmw8_s_xor,Xor,llvmI8Type,0,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw8_u_xor,Xor,llvmI8Type,0,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw16_s_xor,Xor,llvmI16Type,1,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_xor,Xor,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
-		EMIT_ATOMIC_RMW(i64,atomic_rmw32_s_xor,Xor,llvmI32Type,2,irBuilder.CreateSExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_xor,Xor,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw_xor,Xor,llvmI64Type,3,identityConversion,identityConversion)
 		#endif
