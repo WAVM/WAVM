@@ -163,38 +163,45 @@ namespace WAST
 		return FunctionType::get(ret,parameters);
 	}
 	
-	IndexedFunctionType parseFunctionTypeRef(ModuleParseState& state)
+	IndexedFunctionType parseFunctionTypeRef(ModuleParseState& state,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames)
 	{
+		// Parse an optional function type reference.
+		const Token* typeReferenceToken = state.nextToken;
+		IndexedFunctionType referencedFunctionType = {UINT32_MAX};
 		if(state.nextToken[0].type == t_leftParenthesis
 		&& state.nextToken[1].type == t_type)
 		{
 			// Parse a reference by name or index to some type in the module's type table.
-			IndexedFunctionType result = {UINT32_MAX};
 			parseParenthesized(state,[&]
 			{
 				require(state,t_type);
-
-				const Token* refToken = state.nextToken;
-				result.index = parseAndResolveNameOrIndexRef(state,state.typeNameToIndexMap,"type");
-
-				// Callers may use the returned index to look up a FunctionType from the module's type table,
-				// so make sure that the index is valid.
-				if(result.index != UINT32_MAX && result.index >= state.module.types.size())
-				{
-					parseErrorf(state,refToken,"invalid type reference");
-					result = getUniqueFunctionTypeIndex(state,FunctionType::get());
-				}
+				referencedFunctionType.index = parseAndResolveNameOrIndexRef(state,state.typeNameToIndexMap,state.module.types.size(),"type");
 			});
-			assert(result.index < state.module.types.size());
-			return result;
+		}
+
+		// Parse the explicit function parameters and result type.
+		const FunctionType* directFunctionType = parseFunctionType(state,outLocalNameToIndexMap,outLocalDisassemblyNames);
+		const bool hasNoDirectType = directFunctionType == FunctionType::get();
+
+		// Validate that if the function definition has both a type reference, and explicit parameter/result type declarations, that they match.
+		IndexedFunctionType functionType;
+		if(referencedFunctionType.index != UINT32_MAX && hasNoDirectType)
+		{
+			functionType = referencedFunctionType;
 		}
 		else
 		{
-			// Parse an inline function type: (param ...)* (result ...)?
-			NameToIndexMap parameterNameToIndexMap;
-			std::vector<std::string> localDisassemblyNames;
-			return getUniqueFunctionTypeIndex(state,parseFunctionType(state,parameterNameToIndexMap,localDisassemblyNames));
+			functionType = getUniqueFunctionTypeIndex(state,directFunctionType);
+			if(referencedFunctionType.index != UINT32_MAX && state.module.types[referencedFunctionType.index] != directFunctionType)
+			{
+				parseErrorf(state,typeReferenceToken,"referenced function type (%s) does not match declared parameters and results (%s)",
+					asString(state.module.types[referencedFunctionType.index]).c_str(),
+					asString(directFunctionType).c_str()
+					);
+			}
 		}
+
+		return functionType;
 	}
 
 	IndexedFunctionType getUniqueFunctionTypeIndex(ModuleParseState& state,const FunctionType* functionType)

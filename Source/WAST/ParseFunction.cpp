@@ -599,7 +599,7 @@ namespace WAST
 		if(state.nextToken[0].type == t_leftParenthesis
 		&& state.nextToken[1].type == t_type)
 		{
-			referencedFunctionType = parseFunctionTypeRef(state);
+			referencedFunctionType = parseFunctionTypeRef(state,*localNameToIndexMap,*localDisassemblyNames);
 		}
 
 		// Parse the explicit function parameters and result type.

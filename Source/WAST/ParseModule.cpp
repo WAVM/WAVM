@@ -162,10 +162,13 @@ static void parseImport(ModuleParseState& state)
 		{
 		case t_func:
 		{
-			const IndexedFunctionType functionType = parseFunctionTypeRef(state);
+			NameToIndexMap localNameToIndexMap;
+			std::vector<std::string> localDissassemblyNames;
+			const IndexedFunctionType functionType = parseFunctionTypeRef(state,localNameToIndexMap,localDissassemblyNames);
 			createImport(state,name,std::move(moduleName),std::move(exportName),
 				state.functionNameToIndexMap,state.module.functions,state.disassemblyNames.functions,
 				functionType);
+			state.disassemblyNames.functions.back().locals = localDissassemblyNames;
 			break;
 		}
 		case t_table:
@@ -379,8 +382,8 @@ static void parseObjectDefOrImport(
 	std::vector<DisassemblyName>& disassemblyNameArray,
 	TokenType declarationTag,
 	IR::ObjectKind kind,
-	ParseImport parseImport,
-	ParseDef parseDef)
+	ParseImport parseImportFunc,
+	ParseDef parseDefFunc)
 {
 	const Token* declarationTagToken = state.nextToken;
 	require(state,declarationTag);
@@ -400,7 +403,7 @@ static void parseObjectDefOrImport(
 	});
 	if(isImport)
 	{
-		Type importType = parseImport(state);
+		Type importType = parseImportFunc(state);
 		createImport(state,name,std::move(importModuleName),std::move(exportName),
 			nameToIndexMap,indexSpace,disassemblyNameArray,
 			importType);
@@ -413,7 +416,7 @@ static void parseObjectDefOrImport(
 			state.module.exports.push_back({parseUTF8String(state),kind,indexSpace.size()});
 		});
 
-		Def def = parseDef(state,declarationTagToken);
+		Def def = parseDefFunc(state,declarationTagToken);
 		bindName(state,nameToIndexMap,name,indexSpace.size());
 		indexSpace.defs.push_back(std::move(def));
 		disassemblyNameArray.push_back({name.getString()});
@@ -423,7 +426,12 @@ static void parseObjectDefOrImport(
 static void parseFunc(ModuleParseState& state)
 {
 	parseObjectDefOrImport(state,state.functionNameToIndexMap,state.module.functions,state.disassemblyNames.functions,t_func,ObjectKind::function,
-		parseFunctionTypeRef,
+		[&](ModuleParseState& state)
+		{
+			NameToIndexMap localNameToIndexMap;
+			std::vector<std::string> localDisassemblyNames;
+			return parseFunctionTypeRef(state,localNameToIndexMap,localDisassemblyNames);
+		},
 		parseFunctionDef);
 }
 
