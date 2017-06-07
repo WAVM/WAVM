@@ -163,10 +163,10 @@ namespace WAST
 	// Name parsing and resolution.
 	bool tryParseName(ParseState& state,Name& outName);
 	bool tryParseNameOrIndexRef(ParseState& state,Reference& outRef);
-	U32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context);
+	U32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const char* context);
 
 	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index);
-	U32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref);
+	U32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
 	void findClosingParenthesis(ParseState& state,const Token* openingParenthesisToken);

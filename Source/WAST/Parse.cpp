@@ -266,7 +266,7 @@ namespace WAST
 		return false;
 	}
 
-	U32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const char* context)
+	U32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const char* context)
 	{
 		Reference ref;
 		if(!tryParseNameOrIndexRef(state,ref))
@@ -274,7 +274,7 @@ namespace WAST
 			parseErrorf(state,state.nextToken,"expected %s name or index",context);
 			throw RecoverParseException();
 		}
-		return resolveRef(state,nameToIndexMap,ref);
+		return resolveRef(state,nameToIndexMap,maxIndex,ref);
 	}
 
 	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index)
@@ -293,11 +293,19 @@ namespace WAST
 		}
 	}
 
-	U32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,const Reference& ref)
+	U32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const Reference& ref)
 	{
 		switch(ref.type)
 		{
-		case Reference::Type::index: return ref.index;
+		case Reference::Type::index:
+		{
+			if(ref.index >= maxIndex)
+			{
+				parseErrorf(state,ref.token,"invalid index");
+				return UINT32_MAX;
+			}
+			return ref.index;
+		}
 		case Reference::Type::name:
 		{
 			auto nameToIndexMapIt = nameToIndexMap.find(ref.name);

@@ -81,7 +81,12 @@ static InitializerExpression parseInitializerExpression(ModuleParseState& state)
 		{
 			++state.nextToken;
 			result.type = InitializerExpression::Type::get_global;
-			result.globalIndex = parseAndResolveNameOrIndexRef(state,state.globalNameToIndexMap,"global");
+			result.globalIndex = parseAndResolveNameOrIndexRef(
+				state,
+				state.globalNameToIndexMap,
+				state.module.globals.size(),
+				"global"
+				);
 			break;
 		}
 		default:
@@ -232,10 +237,10 @@ static void parseExport(ModuleParseState& state)
 			Uptr& exportedObjectIndex = state.module.exports[exportIndex].index;
 			switch(exportKind)
 			{
-			case ObjectKind::function: exportedObjectIndex = resolveRef(state,state.functionNameToIndexMap,exportRef); break;
-			case ObjectKind::table: exportedObjectIndex = resolveRef(state,state.tableNameToIndexMap,exportRef); break;
-			case ObjectKind::memory: exportedObjectIndex = resolveRef(state,state.memoryNameToIndexMap,exportRef); break;
-			case ObjectKind::global: exportedObjectIndex = resolveRef(state,state.globalNameToIndexMap,exportRef); break;
+			case ObjectKind::function: exportedObjectIndex = resolveRef(state,state.functionNameToIndexMap,state.module.functions.size(),exportRef); break;
+			case ObjectKind::table: exportedObjectIndex = resolveRef(state,state.tableNameToIndexMap,state.module.tables.size(),exportRef); break;
+			case ObjectKind::memory: exportedObjectIndex = resolveRef(state,state.memoryNameToIndexMap,state.module.memories.size(),exportRef); break;
+			case ObjectKind::global: exportedObjectIndex = resolveRef(state,state.globalNameToIndexMap,state.module.globals.size(),exportRef); break;
 			default:
 				Errors::unreachable();
 			}
@@ -299,7 +304,7 @@ static void parseData(ModuleParseState& state)
 		else
 		{
 			state.module.dataSegments[dataSegmentIndex].memoryIndex =
-				hasMemoryRef ? resolveRef(state,state.memoryNameToIndexMap,memoryRef) : 0;
+				hasMemoryRef ? resolveRef(state,state.memoryNameToIndexMap,state.module.memories.size(),memoryRef) : 0;
 		}
 	});
 }
@@ -329,12 +334,17 @@ static Uptr parseElemSegmentBody(ModuleParseState& state,Reference tableRef,Init
 		else
 		{
 			TableSegment& tableSegment = state.module.tableSegments[tableSegmentIndex];
-			tableSegment.tableIndex = tableRef ? resolveRef(state,state.tableNameToIndexMap,tableRef) : 0;
+			tableSegment.tableIndex = tableRef ? resolveRef(state,state.tableNameToIndexMap,state.module.tables.size(),tableRef) : 0;
 
 			tableSegment.indices.resize(elementReferences->size());
 			for(Uptr elementIndex = 0;elementIndex < elementReferences->size();++elementIndex)
 			{
-				tableSegment.indices[elementIndex] = resolveRef(state,state.functionNameToIndexMap,(*elementReferences)[elementIndex]);
+				tableSegment.indices[elementIndex] = resolveRef(
+					state,
+					state.functionNameToIndexMap,
+					state.module.functions.size(),
+					(*elementReferences)[elementIndex]
+					);
 			}
 		}
 		
@@ -519,7 +529,7 @@ static void parseStart(ModuleParseState& state)
 
 	state.postDeclarationCallbacks.push_back([functionRef](ModuleParseState& state)
 	{
-		state.module.startFunctionIndex = resolveRef(state,state.functionNameToIndexMap,functionRef);
+		state.module.startFunctionIndex = resolveRef(state,state.functionNameToIndexMap,state.module.functions.size(),functionRef);
 	});
 }
 

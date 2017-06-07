@@ -23,8 +23,9 @@ namespace
 		FunctionDef& functionDef;
 
 		std::unique_ptr<NameToIndexMap> localNameToIndexMap;
-		NameToIndexMap branchTargetNameToIndexMap;
+		Uptr numLocals;
 
+		NameToIndexMap branchTargetNameToIndexMap;
 		U32 branchTargetDepth;
 
 		Serialization::ArrayOutputStream codeByteStream;
@@ -36,6 +37,7 @@ namespace
 		, moduleState(inModuleState)
 		, functionDef(inFunctionDef)
 		, localNameToIndexMap(inLocalNameToIndexMap)
+		, numLocals(inFunctionDef.nonParameterLocalTypes.size() + inModuleState.module.types[inFunctionDef.type.index]->parameters.size())
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
 		, validatingCodeStream(inModuleState.module,functionDef,operationEncoder)
@@ -180,17 +182,28 @@ static void parseImm(FunctionParseState& state,GetOrSetVariableImm<isGlobal>& ou
 	outImm.variableIndex = parseAndResolveNameOrIndexRef(
 		state,
 		isGlobal ? state.moduleState.globalNameToIndexMap : *state.localNameToIndexMap,
+		isGlobal ? state.moduleState.module.globals.size() : state.numLocals,
 		isGlobal ? "global" : "local");
 }
 
 static void parseImm(FunctionParseState& state,CallImm& outImm)
 {
-	outImm.functionIndex = parseAndResolveNameOrIndexRef(state,state.moduleState.functionNameToIndexMap,"function");
+	outImm.functionIndex = parseAndResolveNameOrIndexRef(
+		state,
+		state.moduleState.functionNameToIndexMap,
+		state.moduleState.module.functions.size(),
+		"function"
+		);
 }
 
 static void parseImm(FunctionParseState& state,CallIndirectImm& outImm)
 {
-	outImm.type.index = parseAndResolveNameOrIndexRef(state,state.moduleState.typeNameToIndexMap,"type");
+	outImm.type.index = parseAndResolveNameOrIndexRef(
+		state,
+		state.moduleState.typeNameToIndexMap,
+		state.moduleState.module.types.size(),
+		"type"
+		);
 }
 
 template<Uptr naturalAlignmentLog2>
