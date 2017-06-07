@@ -53,8 +53,14 @@ namespace NFA
 			Iptr state = 0;
 			do
 			{
-				const U8 character = (U8)*nextChar++;
-				state = stateAndOffsetToNextStateMap[state + charToOffsetMap[character]];
+				state = stateAndOffsetToNextStateMap[state + charToOffsetMap[(U8)nextChar[0]]];
+				if(state < 0) { nextChar += 1; break; }
+				state = stateAndOffsetToNextStateMap[state + charToOffsetMap[(U8)nextChar[1]]];
+				if(state < 0) { nextChar += 2; break; }
+				state = stateAndOffsetToNextStateMap[state + charToOffsetMap[(U8)nextChar[2]]];
+				if(state < 0) { nextChar += 3; break; }
+				state = stateAndOffsetToNextStateMap[state + charToOffsetMap[(U8)nextChar[3]]];
+				nextChar += 4;
 			}
 			while(state >= 0);
 			if(state & edgeDoesntConsumeInputFlag)
