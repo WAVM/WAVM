@@ -20,10 +20,6 @@ namespace IR
 
 	#if ENABLE_SIMD_PROTOTYPE
 		v128 = 5,
-		b8x16 = 6,
-		b16x8 = 7,
-		b32x4 = 8,
-		b64x2 = 9,
 	#endif
 
 		num,
@@ -56,13 +52,12 @@ namespace IR
 	
 	inline std::string asString(const V128& v128)
 	{
-		std::string result = "(";
+		std::string result;
 		for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
 		{
 			if(laneIndex != 0) { result += ' '; }
 			result += std::to_string(v128.u8[laneIndex]);
 		}
-		result += ")";
 		return result;
 	}
 
@@ -85,16 +80,7 @@ namespace IR
 		return result;
 	}
 
-	typedef BoolVector<16> B8x16;
-	typedef BoolVector<8> B16x8;
-	typedef BoolVector<4> B32x4;
-	typedef BoolVector<2> B64x2;
-
 	template<> struct ValueTypeInfo<ValueType::v128> { typedef V128 Value; };
-	template<> struct ValueTypeInfo<ValueType::b8x16> { typedef B8x16 Value; };
-	template<> struct ValueTypeInfo<ValueType::b16x8> { typedef B16x8 Value; };
-	template<> struct ValueTypeInfo<ValueType::b32x4> { typedef B32x4 Value; };
-	template<> struct ValueTypeInfo<ValueType::b64x2> { typedef B64x2 Value; };
 	#endif
 	
 	inline U8 getTypeBitWidth(ValueType type)
@@ -107,10 +93,6 @@ namespace IR
 		case ValueType::f64: return 64;
 		#if ENABLE_SIMD_PROTOTYPE
 		case ValueType::v128: return 128;
-		case ValueType::b8x16: return 128;
-		case ValueType::b16x8: return 128;
-		case ValueType::b32x4: return 128;
-		case ValueType::b64x2: return 128;
 		#endif
 		default: Errors::unreachable();
 		};
@@ -127,10 +109,6 @@ namespace IR
 		case ValueType::f64: return "f64";
 		#if ENABLE_SIMD_PROTOTYPE
 		case ValueType::v128: return "v128";
-		case ValueType::b8x16: return "b8x16";
-		case ValueType::b16x8: return "b16x8";
-		case ValueType::b32x4: return "b32x4";
-		case ValueType::b64x2: return "b64x2";
 		#endif
 		default: Errors::unreachable();
 		};
@@ -146,10 +124,6 @@ namespace IR
 		f64 = (U8)ValueType::f64,
 		#if ENABLE_SIMD_PROTOTYPE
 		v128 = (U8)ValueType::v128,
-		b8x16 = (U8)ValueType::b8x16,
-		b16x8 = (U8)ValueType::b16x8,
-		b32x4 = (U8)ValueType::b32x4,
-		b64x2 = (U8)ValueType::b64x2,
 		#endif
 		num,
 		max = num-1,
@@ -167,10 +141,6 @@ namespace IR
 		case ResultType::f64: return "f64";
 		#if ENABLE_SIMD_PROTOTYPE
 		case ResultType::v128: return "v128";
-		case ResultType::b8x16: return "b8x16";
-		case ResultType::b16x8: return "b16x8";
-		case ResultType::b32x4: return "b32x4";
-		case ResultType::b64x2: return "b64x2";
 		#endif
 		case ResultType::none: return "()";
 		default: Errors::unreachable();

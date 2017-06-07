@@ -72,18 +72,6 @@ namespace IR
 		template<Uptr numLanes>
 		std::string describeImm(LaneIndexImm<numLanes> imm) { return " " + std::to_string(imm.laneIndex); }
 		template<Uptr numLanes>
-		std::string describeImm(SwizzleImm<numLanes> imm)
-		{
-			std::string result = " [";
-			const char* prefix = "";
-			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-			{
-				result += prefix + std::to_string(imm.laneIndices[laneIndex]);
-				prefix = ",";
-			}
-			return result;
-		}
-		template<Uptr numLanes>
 		std::string describeImm(ShuffleImm<numLanes> imm)
 		{
 			std::string result = " [";

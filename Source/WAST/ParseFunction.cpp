@@ -242,39 +242,10 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 
 static void parseImm(FunctionParseState& state,LiteralImm<V128>& outImm)
 {
-	memset(&outImm,0,sizeof(LiteralImm<V128>));
-	parseParenthesized(state,[&]
+	for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
 	{
-		for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
-		{
-			outImm.value.i8[laneIndex] = parseI8(state);
-		}
-	});
-}
-
-static bool parseBool(ParseState& state)
-{
-	const Token* boolToken = state.nextToken;
-	U64 i64 = parseI64(state);
-	if(i64 > 1)
-	{
-		parseErrorf(state,boolToken,"expected 0 or 1");
-		throw RecoverParseException();
+		outImm.value.i8[laneIndex] = parseI8(state);
 	}
-	return i64 != 0;
-}
-
-template<Uptr numLanes>
-static void parseImm(FunctionParseState& state,LiteralImm<BoolVector<numLanes>>& outImm)
-{
-	memset(&outImm,0,sizeof(LiteralImm<BoolVector<numLanes>>));
-	parseParenthesized(state,[&]
-	{
-		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-		{
-			outImm.value.b[laneIndex] = parseBool(state);
-		}
-	});
 }
 
 template<Uptr numLanes>
@@ -286,23 +257,6 @@ static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm)
 		parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes);
 	}
 	outImm.laneIndex = U8(u64);
-}
-
-template<Uptr numLanes>
-static void parseImm(FunctionParseState& state,SwizzleImm<numLanes>& outImm)
-{
-	parseParenthesized(state,[&]
-	{
-		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-		{
-			const U64 u64 = parseI64(state);
-			if(u64 >= numLanes)
-			{
-				parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes);
-			}
-			outImm.laneIndices[laneIndex] = U8(u64);
-		}
-	});
 }
 
 template<Uptr numLanes>

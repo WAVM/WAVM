@@ -20,10 +20,6 @@ namespace Runtime
 			F64 f64;
 			#if ENABLE_SIMD_PROTOTYPE
 			IR::V128 v128;
-			IR::B8x16 b8x16;
-			IR::B16x8 b16x8;
-			IR::B32x4 b32x4;
-			IR::B64x2 b64x2;
 			#endif
 		};
 		
@@ -35,10 +31,6 @@ namespace Runtime
 		UntaggedValue(F64 inF64) { f64 = inF64; }
 		#if ENABLE_SIMD_PROTOTYPE
 		UntaggedValue(IR::V128 inV128) { v128 = inV128; }
-		UntaggedValue(IR::B8x16 inB8x16) { b8x16 = inB8x16; }
-		UntaggedValue(IR::B16x8 inB16x8) { b16x8 = inB16x8; }
-		UntaggedValue(IR::B32x4 inB32x4) { b32x4 = inB32x4; }
-		UntaggedValue(IR::B64x2 inB64x2) { b64x2 = inB64x2; }
 		#endif
 		UntaggedValue() {memset(this,0,sizeof(*this));}
 	};
@@ -70,10 +62,6 @@ namespace Runtime
 			case IR::ValueType::f64: return "f64(" + Floats::asString(value.f64) + ")";
 			#if ENABLE_SIMD_PROTOTYPE
 			case IR::ValueType::v128: return "v128(" + std::to_string(value.v128.u64[0]) + "," + std::to_string(value.v128.u64[1]) + ")";
-			case IR::ValueType::b8x16: return "b8x16(" + IR::asString(value.b8x16) + ')';
-			case IR::ValueType::b16x8: return "b16x8(" + IR::asString(value.b16x8) + ')';
-			case IR::ValueType::b32x4: return "b32x4(" + IR::asString(value.b32x4) + ')';
-			case IR::ValueType::b64x2: return "b64x2(" + IR::asString(value.b64x2) + ')';
 			#endif
 			default: Errors::unreachable();
 			}
@@ -109,10 +97,6 @@ namespace Runtime
 			case IR::ResultType::f64: return "f64(" + Floats::asString(result.f64) + ")";
 			#if ENABLE_SIMD_PROTOTYPE
 			case IR::ResultType::v128: return "v128(" + std::to_string(result.v128.u64[0]) + "," + std::to_string(result.v128.u64[1]) + ")";
-			case IR::ResultType::b8x16: return "b8x16(" + IR::asString(result.b8x16) + ')';
-			case IR::ResultType::b16x8: return "b16x8(" + IR::asString(result.b16x8) + ')';
-			case IR::ResultType::b32x4: return "b32x4(" + IR::asString(result.b32x4) + ')';
-			case IR::ResultType::b64x2: return "b64x2(" + IR::asString(result.b64x2) + ')';
 			#endif
 			default: Errors::unreachable();
 			}

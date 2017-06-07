@@ -346,15 +346,6 @@ namespace IR
 		{
 			VALIDATE_UNLESS("swizzle invalid lane index",imm.laneIndex>=numLanes);
 		}
-		
-		template<Uptr numLanes>
-		void validateImm(SwizzleImm<numLanes> imm)
-		{
-			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-			{
-				VALIDATE_UNLESS("swizzle invalid lane index",imm.laneIndices[laneIndex]>=numLanes);
-			}
-		}
 
 		template<Uptr numLanes>
 		void validateImm(ShuffleImm<numLanes> imm)
@@ -398,8 +389,8 @@ namespace IR
 			pushOperand(ResultType::resultTypeId)
 
 		#if ENABLE_SIMD_PROTOTYPE
-		#define VECTORSELECT(vectorTypeId,scalarTypeId) \
-			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::vectorTypeId,ValueType::scalarTypeId); \
+		#define VECTORSELECT(vectorTypeId) \
+			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::vectorTypeId,ValueType::vectorTypeId); \
 			pushOperand(ValueType::vectorTypeId);
 		#define REPLACELANE(scalarTypeId,vectorTypeId) \
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::scalarTypeId); \

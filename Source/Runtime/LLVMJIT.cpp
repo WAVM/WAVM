@@ -704,10 +704,6 @@ namespace LLVMJIT
 
 		#if ENABLE_SIMD_PROTOTYPE
 		llvmResultTypes[(Uptr)ResultType::v128] = llvmI64x2Type;
-		llvmResultTypes[(Uptr)ResultType::b8x16] = llvm::VectorType::get(llvmBoolType,16);
-		llvmResultTypes[(Uptr)ResultType::b16x8] = llvm::VectorType::get(llvmBoolType,8);
-		llvmResultTypes[(Uptr)ResultType::b32x4] = llvm::VectorType::get(llvmBoolType,4);
-		llvmResultTypes[(Uptr)ResultType::b64x2] = llvm::VectorType::get(llvmBoolType,2);
 		#endif
 
 		// Create zero constants of each type.
@@ -719,13 +715,6 @@ namespace LLVMJIT
 
 		#if ENABLE_SIMD_PROTOTYPE
 		typedZeroConstants[(Uptr)ValueType::v128] = llvm::ConstantVector::get({typedZeroConstants[(Uptr)ValueType::i64],typedZeroConstants[(Uptr)ValueType::i64]});
-
-		llvm::Constant* llvmFalse = emitLiteral(false);
-		typedZeroConstants[(Uptr)ValueType::b8x16] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,
-																	llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse});
-		typedZeroConstants[(Uptr)ValueType::b16x8] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse,llvmFalse});
-		typedZeroConstants[(Uptr)ValueType::b32x4] = llvm::ConstantVector::get({llvmFalse,llvmFalse,llvmFalse,llvmFalse});
-		typedZeroConstants[(Uptr)ValueType::b64x2] = llvm::ConstantVector::get({llvmFalse,llvmFalse});
 		#endif
 	}
 }

@@ -52,10 +52,6 @@ namespace LLVMJIT
 			diValueTypes[(Uptr)ValueType::f64] = diBuilder.createBasicType("f64",64,llvm::dwarf::DW_ATE_float);
 			#if ENABLE_SIMD_PROTOTYPE
 			diValueTypes[(Uptr)ValueType::v128] = diBuilder.createBasicType("v128",128,llvm::dwarf::DW_ATE_signed);
-			diValueTypes[(Uptr)ValueType::b8x16] = diBuilder.createBasicType("b8x16",128,llvm::dwarf::DW_ATE_boolean);
-			diValueTypes[(Uptr)ValueType::b16x8] = diBuilder.createBasicType("b16x8",128,llvm::dwarf::DW_ATE_boolean);
-			diValueTypes[(Uptr)ValueType::b32x4] = diBuilder.createBasicType("b32x4",128,llvm::dwarf::DW_ATE_boolean);
-			diValueTypes[(Uptr)ValueType::b64x2] = diBuilder.createBasicType("b64x2",128,llvm::dwarf::DW_ATE_boolean);
 			#endif
 			
 			auto zeroAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(0)));
@@ -1016,11 +1012,6 @@ namespace LLVMJIT
 		#define EMIT_SIMD_FP_BINARY_OP(name,emitCode) \
 			EMIT_SIMD_BINARY_OP(f32x4##_##name,llvmF32x4Type,emitCode) \
 			EMIT_SIMD_BINARY_OP(f64x2##_##name,llvmF64x2Type,emitCode)
-		#define EMIT_SIMD_BOOL_BINARY_OP(name,emitCode) \
-			EMIT_SIMD_BINARY_OP(b8x16##_##name,llvmB8x16Type,emitCode) \
-			EMIT_SIMD_BINARY_OP(b16x8##_##name,llvmB16x8Type,emitCode) \
-			EMIT_SIMD_BINARY_OP(b32x4##_##name,llvmB32x4Type,emitCode) \
-			EMIT_SIMD_BINARY_OP(b64x2##_##name,llvmB64x2Type,emitCode)
 		#define EMIT_SIMD_INT_UNARY_OP(name,emitCode) \
 			EMIT_SIMD_UNARY_OP(i8x16##_##name,llvmI8x16Type,emitCode) \
 			EMIT_SIMD_UNARY_OP(i16x8##_##name,llvmI16x8Type,emitCode) \
@@ -1029,11 +1020,6 @@ namespace LLVMJIT
 		#define EMIT_SIMD_FP_UNARY_OP(name,emitCode) \
 			EMIT_SIMD_UNARY_OP(f32x4##_##name,llvmF32x4Type,emitCode) \
 			EMIT_SIMD_UNARY_OP(f64x2##_##name,llvmF64x2Type,emitCode)
-		#define EMIT_SIMD_BOOL_UNARY_OP(name,emitCode) \
-			EMIT_SIMD_UNARY_OP(b8x16##_##name,llvmB8x16Type,emitCode) \
-			EMIT_SIMD_UNARY_OP(b16x8##_##name,llvmB16x8Type,emitCode) \
-			EMIT_SIMD_UNARY_OP(b32x4##_##name,llvmB32x4Type,emitCode) \
-			EMIT_SIMD_UNARY_OP(b64x2##_##name,llvmB64x2Type,emitCode)			
 		EMIT_SIMD_INT_BINARY_OP(add,irBuilder.CreateAdd(left,right))
 		EMIT_SIMD_INT_BINARY_OP(sub,irBuilder.CreateSub(left,right))
 
@@ -1057,19 +1043,19 @@ namespace LLVMJIT
 
 		EMIT_SIMD_INT_UNARY_OP(neg,irBuilder.CreateNeg(operand))
 
-		EMIT_SIMD_BINARY_OP(i8x16_add_sat_s,llvmI8x16Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i8x16_add_sat_u,llvmI16x8Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i8x16_sub_sat_s,llvmI8x16Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i8x16_sub_sat_u,llvmI16x8Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i16x8_add_sat_s,llvmI8x16Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i16x8_add_sat_u,llvmI16x8Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i16x8_sub_sat_s,llvmI8x16Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i16x8_sub_sat_u,llvmI16x8Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,llvmI8x16Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i8x16_add_saturate_u,llvmI16x8Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,llvmI8x16Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_u,llvmI16x8Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,llvmI8x16Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i16x8_add_saturate_u,llvmI16x8Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,llvmI8x16Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_u,llvmI16x8Type,unimplemented())
 
-		EMIT_SIMD_UNARY_OP(i32x4_trunc_s_f32x4,llvmF32x4Type,irBuilder.CreateFPToSI(operand,llvmI32x4Type));
-		EMIT_SIMD_UNARY_OP(i32x4_trunc_u_f32x4,llvmF32x4Type,irBuilder.CreateFPToUI(operand,llvmI32x4Type));
-		EMIT_SIMD_UNARY_OP(i64x2_trunc_s_f64x2,llvmF64x2Type,irBuilder.CreateFPToSI(operand,llvmI64x2Type));
-		EMIT_SIMD_UNARY_OP(i64x2_trunc_u_f64x2,llvmF64x2Type,irBuilder.CreateFPToUI(operand,llvmI64x2Type));
+		EMIT_SIMD_UNARY_OP(i32x4_trunc_s_f32x4_sat,llvmF32x4Type,unimplemented());
+		EMIT_SIMD_UNARY_OP(i32x4_trunc_u_f32x4_sat,llvmF32x4Type,unimplemented());
+		EMIT_SIMD_UNARY_OP(i64x2_trunc_s_f64x2_sat,llvmF64x2Type,unimplemented());
+		EMIT_SIMD_UNARY_OP(i64x2_trunc_u_f64x2_sat,llvmF64x2Type,unimplemented());
 
 		EMIT_SIMD_FP_BINARY_OP(add,irBuilder.CreateFAdd(left,right))
 		EMIT_SIMD_FP_BINARY_OP(sub,irBuilder.CreateFSub(left,right))
@@ -1094,16 +1080,15 @@ namespace LLVMJIT
 		EMIT_SIMD_UNARY_OP(f64x2_convert_s_i64x2,llvmI64x2Type,irBuilder.CreateSIToFP(operand,llvmF64x2Type));
 		EMIT_SIMD_UNARY_OP(f64x2_convert_u_i64x2,llvmI64x2Type,irBuilder.CreateUIToFP(operand,llvmF64x2Type));
 
-		EMIT_SIMD_BOOL_BINARY_OP(and,irBuilder.CreateAnd(left,right))
-		EMIT_SIMD_BOOL_BINARY_OP(or,irBuilder.CreateAnd(left,right))
-		EMIT_SIMD_BOOL_BINARY_OP(xor,irBuilder.CreateAnd(left,right))
+		EMIT_SIMD_UNARY_OP(i8x16_any_true,llvmI8x16Type,emitAnyTrue(operand))
+		EMIT_SIMD_UNARY_OP(i16x8_any_true,llvmI16x8Type,emitAnyTrue(operand))
+		EMIT_SIMD_UNARY_OP(i32x4_any_true,llvmI32x4Type,emitAnyTrue(operand))
+		EMIT_SIMD_UNARY_OP(i64x2_any_true,llvmI64x2Type,emitAnyTrue(operand))
 
-		EMIT_SIMD_UNARY_OP(b8x16_not,llvmB8x16Type,irBuilder.CreateNot(operand))
-		EMIT_SIMD_UNARY_OP(b16x8_not,llvmB16x8Type,irBuilder.CreateNot(operand))
-		EMIT_SIMD_UNARY_OP(b32x4_not,llvmB32x4Type,irBuilder.CreateNot(operand))
-		EMIT_SIMD_UNARY_OP(b64x2_not,llvmB64x2Type,irBuilder.CreateNot(operand))
-		EMIT_SIMD_BOOL_UNARY_OP(any_true,emitAnyTrue(operand))
-		EMIT_SIMD_BOOL_UNARY_OP(all_true,emitAllTrue(operand))
+		EMIT_SIMD_UNARY_OP(i8x16_all_true,llvmI8x16Type,emitAllTrue(operand))
+		EMIT_SIMD_UNARY_OP(i16x8_all_true,llvmI16x8Type,emitAllTrue(operand))
+		EMIT_SIMD_UNARY_OP(i32x4_all_true,llvmI32x4Type,emitAllTrue(operand))
+		EMIT_SIMD_UNARY_OP(i64x2_all_true,llvmI64x2Type,emitAllTrue(operand))
 
 		void v128_and(NoImm)
 		{
@@ -1127,31 +1112,6 @@ namespace LLVMJIT
 		{
 			auto operand = pop();
 			push(irBuilder.CreateNot(operand));
-		}
-
-		void v32x4_load1(LoadOrStoreImm<2> imm)
-		{
-			unimplemented();
-		}
-		void v32x4_load2(LoadOrStoreImm<2> imm)
-		{
-			unimplemented();
-		}
-		void v32x4_load3(LoadOrStoreImm<2> imm)
-		{
-			unimplemented();
-		}
-		void v32x4_store1(LoadOrStoreImm<2> imm)
-		{
-			unimplemented();
-		}
-		void v32x4_store2(LoadOrStoreImm<2> imm)
-		{
-			unimplemented();
-		}
-		void v32x4_store3(LoadOrStoreImm<2> imm)
-		{
-			unimplemented();
 		}
 
 		#define EMIT_SIMD_EXTRACT_LANE_OP(name,llvmType,numLanes,coerceScalar) \
@@ -1197,65 +1157,33 @@ namespace LLVMJIT
 		EMIT_SIMD_REPLACE_LANE_OP(b32x4,llvmB32x4Type,4,coerceI32ToBool(scalar))
 		EMIT_SIMD_REPLACE_LANE_OP(b64x2,llvmB64x2Type,2,coerceI32ToBool(scalar))
 
-		#define EMIT_SIMD_SWIZZLE_AND_SHUFFLE_OPS(vectorType,llvmType,numLanes) \
-			void vectorType##_swizzle(SwizzleImm<numLanes> imm) \
-			{ \
-				auto operand = irBuilder.CreateBitCast(pop(),llvmType); \
-				unsigned int laneIndices[numLanes]; \
-				for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex) \
-				{ \
-					laneIndices[laneIndex] = imm.laneIndices[laneIndex]; \
-				} \
-				push(irBuilder.CreateShuffleVector(operand,operand,llvm::ArrayRef<unsigned int>(laneIndices,numLanes))); \
-			} \
-			void vectorType##_shuffle(ShuffleImm<numLanes> imm) \
-			{ \
-				auto right = irBuilder.CreateBitCast(pop(),llvmType); \
-				auto left = irBuilder.CreateBitCast(pop(),llvmType); \
-				unsigned int laneIndices[numLanes]; \
-				for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex) \
-				{ \
-					laneIndices[laneIndex] = imm.laneIndices[laneIndex]; \
-				} \
-				push(irBuilder.CreateShuffleVector(left,right,llvm::ArrayRef<unsigned int>(laneIndices,numLanes))); \
+		void v8x16_shuffle(ShuffleImm<16> imm)
+		{
+			auto right = irBuilder.CreateBitCast(pop(),llvmI8x16Type);
+			auto left = irBuilder.CreateBitCast(pop(),llvmI8x16Type);
+			unsigned int laneIndices[16];
+			for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
+			{
+				laneIndices[laneIndex] = imm.laneIndices[laneIndex];
 			}
-		EMIT_SIMD_SWIZZLE_AND_SHUFFLE_OPS(v8x16,llvmI8x16Type,16)
-		EMIT_SIMD_SWIZZLE_AND_SHUFFLE_OPS(v16x8,llvmI16x8Type,8)
-		EMIT_SIMD_SWIZZLE_AND_SHUFFLE_OPS(v32x4,llvmI32x4Type,4)
-		EMIT_SIMD_SWIZZLE_AND_SHUFFLE_OPS(v64x2,llvmI64x2Type,2)
+			push(irBuilder.CreateShuffleVector(left,right,llvm::ArrayRef<unsigned int>(laneIndices,16)));
+		}
 		
 		void v128_const(LiteralImm<V128> imm)
 		{
 			push(llvm::ConstantVector::get({emitLiteral(imm.value.u64[0]),emitLiteral(imm.value.u64[1])}));
 		}
 
-		#define EMIT_SIMD_BOOL_CONST_OP(vectorType,llvmType,numLanes) \
-			void vectorType##_const(LiteralImm<BoolVector<numLanes>> imm) \
-			{ \
-				llvm::Constant* elements[numLanes]; \
-				for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex) \
-				{ \
-					elements[laneIndex] = emitLiteral(imm.value.b[laneIndex]); \
-				} \
-				push(llvm::ConstantVector::get(llvm::ArrayRef<llvm::Constant*>(elements,elements + numLanes))); \
-			}
-		EMIT_SIMD_BOOL_CONST_OP(b8x16,llvmB8x16Type,16)
-		EMIT_SIMD_BOOL_CONST_OP(b16x8,llvmB16x8Type,8)
-		EMIT_SIMD_BOOL_CONST_OP(b32x4,llvmB32x4Type,4)
-		EMIT_SIMD_BOOL_CONST_OP(b64x2,llvmB64x2Type,2)
-
-		#define EMIT_SIMD_SELECT(vectorType,llvmType) \
-			void vectorType##_select(NoImm) \
-			{ \
-				auto mask = pop(); \
-				auto falseValue = irBuilder.CreateBitCast(pop(),llvmType); \
-				auto trueValue = irBuilder.CreateBitCast(pop(),llvmType); \
-				push(irBuilder.CreateSelect(mask,trueValue,falseValue)); \
-			}
-		EMIT_SIMD_SELECT(v8x16,llvmI8x16Type)
-		EMIT_SIMD_SELECT(v16x8,llvmI16x8Type)
-		EMIT_SIMD_SELECT(v32x4,llvmI32x4Type)
-		EMIT_SIMD_SELECT(v64x2,llvmI64x2Type)
+		void v128_bitselect(NoImm)
+		{
+			auto mask = irBuilder.CreateBitCast(pop(),llvmI64x2Type);
+			auto falseValue = irBuilder.CreateBitCast(pop(),llvmI64x2Type);
+			auto trueValue = irBuilder.CreateBitCast(pop(),llvmI64x2Type);
+			push(irBuilder.CreateOr(
+				irBuilder.CreateAnd(trueValue,mask),
+				irBuilder.CreateAnd(falseValue,irBuilder.CreateNot(mask))
+				));
+		}
 		#endif
 
 		#if ENABLE_THREADING_PROTOTYPE

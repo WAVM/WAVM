@@ -360,27 +360,12 @@ namespace WAST
 		void printImm(LiteralImm<V128> imm) { string += ' '; string += asString(imm.value); }
 
 		template<Uptr numLanes>
-		void printImm(LiteralImm<BoolVector<numLanes>> imm) { string += ' '; string += asString(imm.value); }
-
-		template<Uptr numLanes>
 		void printImm(LaneIndexImm<numLanes> imm)
 		{
 			string += ' ';
 			string += imm.laneIndex;
 		}
 		
-		template<Uptr numLanes>
-		void printImm(SwizzleImm<numLanes> imm)
-		{
-			string += " (";
-			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-			{
-				if(laneIndex != 0) { string += ' '; }
-				string += std::to_string(imm.laneIndices[laneIndex]);
-			}
-			string += ')';
-		}
-
 		template<Uptr numLanes>
 		void printImm(ShuffleImm<numLanes> imm)
 		{

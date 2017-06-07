@@ -330,14 +330,6 @@ namespace WASM
 			serializeVarUInt7(stream,imm.laneIndex);
 		}
 		template<typename Stream,Uptr numLanes>
-		void serialize(Stream& stream,SwizzleImm<numLanes>& imm,const FunctionDef&)
-		{
-			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-			{
-				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
-			}
-		}
-		template<typename Stream,Uptr numLanes>
 		void serialize(Stream& stream,ShuffleImm<numLanes>& imm,const FunctionDef&)
 		{
 			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
