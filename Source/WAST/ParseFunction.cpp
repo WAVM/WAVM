@@ -242,6 +242,7 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 
 static void parseImm(FunctionParseState& state,LiteralImm<V128>& outImm)
 {
+	memset(&outImm,0,sizeof(LiteralImm<V128>));
 	parseParenthesized(state,[&]
 	{
 		for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
@@ -266,6 +267,7 @@ static bool parseBool(ParseState& state)
 template<Uptr numLanes>
 static void parseImm(FunctionParseState& state,LiteralImm<BoolVector<numLanes>>& outImm)
 {
+	memset(&outImm,0,sizeof(LiteralImm<BoolVector<numLanes>>));
 	parseParenthesized(state,[&]
 	{
 		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
