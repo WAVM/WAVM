@@ -345,10 +345,7 @@ static void parseControlImm(FunctionParseState& state,Name& outBranchTargetName,
 	if(state.nextToken[0].type == t_leftParenthesis && state.nextToken[1].type == t_result)
 	{
 		state.nextToken += 2;
-		if(!tryParseResultType(state,imm.resultType))
-		{
-			parseErrorf(state,state.nextToken,"expected value type");
-		}
+		tryParseResultType(state,imm.resultType);
 		require(state,t_rightParenthesis);
 	}
 	else

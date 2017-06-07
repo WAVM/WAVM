@@ -153,11 +153,7 @@ namespace WAST
 		// Parse an optional result type.
 		tryParseParenthesizedTagged(state,t_result,[&]
 		{
-			if(!tryParseResultType(state,ret))
-			{
-				parseErrorf(state,state.nextToken,"expected result type");
-				throw RecoverParseException();
-			}
+			tryParseResultType(state,ret);
 		});
 
 		return FunctionType::get(ret,parameters);
