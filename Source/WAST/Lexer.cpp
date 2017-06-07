@@ -175,8 +175,8 @@ namespace WAST
 		}
 		
 		// Allocate enough memory up front for a token and newline for each character in the input string.
-		Token* tokens = (Token*)malloc(sizeof(Token) * stringLength);
-		U32* lineStarts = (U32*)malloc(sizeof(U32) * (stringLength + 1));
+		Token* tokens = (Token*)malloc(sizeof(Token) * (stringLength + 1));
+		U32* lineStarts = (U32*)malloc(sizeof(U32) * (stringLength + 2));
 
 		Token* nextToken = tokens;
 		U32* nextLineStart = lineStarts;
