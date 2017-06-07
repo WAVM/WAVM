@@ -63,24 +63,48 @@ static void parseTestScriptModule(ParseState& state,IR::Module& outModule,std::v
 	
 	outInternalModuleName = parseOptionalNameAsString(moduleState);
 	
-	const Token* firstBinaryToken = moduleState.nextToken;
-	std::string moduleBinaryString;
-	if(tryParseString(moduleState,moduleBinaryString))
+	if(moduleState.nextToken->type == t_quote || moduleState.nextToken->type == t_binary)
 	{
-		while(tryParseString(moduleState,moduleBinaryString)) {};
+		// Parse a quoted module: (module quote|binary "...")
+		const Token* quoteToken = moduleState.nextToken;
+		++moduleState.nextToken;
 
-		try
+		std::string moduleQuotedString;
+		if(!tryParseString(moduleState,moduleQuotedString))
 		{
-			Serialization::MemoryInputStream wasmInputStream((const U8*)moduleBinaryString.data(),moduleBinaryString.size());
-			WASM::serialize(wasmInputStream,outModule);
+			parseErrorf(moduleState,moduleState.nextToken,"expected string");
 		}
-		catch(Serialization::FatalSerializationException exception)
+		else
 		{
-			parseErrorf(moduleState,firstBinaryToken,"error deserializing binary module: %s",exception.message.c_str());
+			while(tryParseString(moduleState,moduleQuotedString)) {};
 		}
-		catch(ValidationException exception)
+
+		if(quoteToken->type == t_quote)
 		{
-			parseErrorf(moduleState,firstBinaryToken,"error validating binary module: %s",exception.message.c_str());
+			moduleQuotedString = "(module " + moduleQuotedString + ")";
+
+			std::vector<Error> quotedErrors;
+			parseModule(moduleQuotedString.c_str(),moduleQuotedString.size(),outModule,quotedErrors);
+			for(auto&& error : quotedErrors)
+			{
+				outErrors.emplace_back(quoteToken->begin,std::move(error.message));
+			}
+		}
+		else
+		{
+			try
+			{
+				Serialization::MemoryInputStream wasmInputStream((const U8*)moduleQuotedString.data(),moduleQuotedString.size());
+				WASM::serialize(wasmInputStream,outModule);
+			}
+			catch(Serialization::FatalSerializationException exception)
+			{
+				parseErrorf(moduleState,quoteToken,"error deserializing binary module: %s",exception.message.c_str());
+			}
+			catch(ValidationException exception)
+			{
+				parseErrorf(moduleState,quoteToken,"error validating binary module: %s",exception.message.c_str());
+			}
 		}
 	}
 	else
