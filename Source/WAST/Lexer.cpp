@@ -229,7 +229,7 @@ namespace WAST
 								++commentDepth;
 								nextChar += 2;
 							}
-							else if(*nextChar == 0)
+							else if(nextChar == string + stringLength)
 							{
 								// Emit an unterminated comment token.
 								nextToken->type = t_unterminatedComment;
@@ -273,7 +273,7 @@ namespace WAST
 			}
 			else
 			{
-				if(*(string + nextToken->begin) != 0)
+				if(nextToken->begin < stringLength)
 				{
 					// Emit an unrecognized token.
 					nextToken->type = t_unrecognized;
