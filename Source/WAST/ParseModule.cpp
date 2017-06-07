@@ -391,6 +391,16 @@ static void parseObjectDefOrImport(
 	Name name;
 	tryParseName(state,name);
 	
+	// Handle inline export declarations.
+	while(true)
+	{
+		const bool isExport = tryParseParenthesizedTagged(state,t_export,[&]
+		{
+			state.module.exports.push_back({parseUTF8String(state),kind,indexSpace.size()});
+		});
+		if(!isExport) { break; }
+	};
+
 	// Handle an inline import declaration.
 	std::string importModuleName;
 	std::string exportName;
@@ -410,12 +420,6 @@ static void parseObjectDefOrImport(
 	}
 	else
 	{
-		// Handle an inline export declaration.
-		tryParseParenthesizedTagged(state,t_export,[&]
-		{
-			state.module.exports.push_back({parseUTF8String(state),kind,indexSpace.size()});
-		});
-
 		Def def = parseDefFunc(state,declarationTagToken);
 		bindName(state,nameToIndexMap,name,indexSpace.size());
 		indexSpace.defs.push_back(std::move(def));
