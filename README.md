@@ -8,7 +8,38 @@ This is a standalone VM for WebAssembly. It can load both the standard binary fo
 
 # Building and running it
 
-To build it, you'll need CMake and [LLVM 4.0](http://llvm.org/releases/download.html#4.0.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable. Note that on Windows, you must compile LLVM from source, and manually point the LLVM_DIR configuration variable at `<LLVM build directory>/share/llvm/cmake`.
+To build it, you'll need CMake and [LLVM 4.0](http://llvm.org/releases/download.html#4.0.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable. Note that on Windows, you must compile LLVM from source, and manually point the LLVM_DIR configuration variable at `<LLVM build directory>\lib\cmake\llvm`.
+
+### Building WAVM on Windows 
+
+**1.) Install the [Visual Studio C++ Build Tools for Visual Studio 2015 or 2017](http://landinghub.visualstudio.com/visual-cpp-build-tools)**
+
+Take note of which version you have installed:
+
+- If using Visual Studio 2015, use `-G"Visual Studio 14 Win64"` for the `<VS Generator Directive>` placeholder below
+- If using Visual Studio 2017, use `-G"Visual Studio 15 Win64"` for the `<VS Generator Directive>` placeholder below
+
+**2.) Build LLVM x64 on Windows with Visual Studio**
+
+Create an llvm_build directory, navigate to that directory and run:
+
+    cmake -Thost=x64 <VS Generator Directive> -DCMAKE_INSTALL_PREFIX=<desired install path for LLVM> <path to LLVM source>
+
+Open the generated LLVM.sln locateed within the 'llvm_build' directory in Visual Studio and build the "INSTALL" Project
+
+The output binaries should be located in `<desired install path for LLVM>`
+
+**3.) Build WAVM x64 on Windows with Visual Studio against LLVM x64**
+
+Create a wavm_build directory, navigate to that directory and run:
+
+    cmake -Thost=x64 <VS Generator Directive> -DLLVM_DIR=<LLVM build directory>\lib\cmake\llvm <path to WAVM source>
+
+Open the generated WAVM.sln located within the 'wavm_build' directory in Visual Studio and build the "ALL_BUILD" Project
+
+The output binaries should be located in `wavm_build\bin`
+
+# Usage
 
 I've tested it on Windows with Visual C++ 2015/2017, Linux with GCC and clang, and MacOS with Xcode/clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
 
