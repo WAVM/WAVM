@@ -757,7 +757,7 @@ namespace LLVMJIT
 			targetTriple += "-elf";
 		#endif
 		targetMachine = llvm::EngineBuilder().selectTarget(
-			llvm::Triple(targetTriple),"","",
+			llvm::Triple(targetTriple),"",llvm::sys::getHostCPUName(),
 			#if defined(_WIN32) && !defined(_WIN64)
 				// Use SSE2 instead of the FPU on x86 for more control over how intermediate results are rounded.
 				llvm::SmallVector<std::string,1>({"+sse2"})
