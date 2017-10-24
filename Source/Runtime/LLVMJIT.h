@@ -29,7 +29,7 @@
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
 #include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
-#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
@@ -51,6 +51,7 @@
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
+#include "llvm/Support/Memory.h"
 #include <cctype>
 #include <string>
 #include <vector>
@@ -126,5 +127,5 @@ namespace LLVMJIT
 	bool getFunctionIndexFromExternalName(const char* externalName,Uptr& outFunctionDefIndex);
 
 	// Emits LLVM IR for a module.
-	llvm::Module* emitModule(const IR::Module& module,ModuleInstance* moduleInstance);
+	std::shared_ptr<llvm::Module> emitModule(const IR::Module& module,ModuleInstance* moduleInstance);
 }

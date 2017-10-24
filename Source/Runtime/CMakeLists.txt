@@ -22,7 +22,7 @@ include_directories(${WAVM_INCLUDE_DIR}/Runtime)
 add_library(Runtime SHARED ${Sources} ${PublicHeaders})
 
 # Find an installed build of LLVM
-find_package(LLVM 4.0 REQUIRED CONFIG)
+find_package(LLVM 5.0 REQUIRED CONFIG)
 
 # Include the LLVM headers
 include_directories(${LLVM_INCLUDE_DIRS})

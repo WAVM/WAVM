@@ -18,6 +18,7 @@ namespace LLVMJIT
 		const Module& module;
 		ModuleInstance* moduleInstance;
 
+		std::shared_ptr<llvm::Module> llvmModuleSharedPtr;
 		llvm::Module* llvmModule;
 		std::vector<llvm::Function*> functionDefs;
 		std::vector<llvm::Constant*> importedFunctionPointers;
@@ -27,7 +28,7 @@ namespace LLVMJIT
 		llvm::Constant* defaultMemoryBase;
 		llvm::Constant* defaultMemoryEndOffset;
 		
-		llvm::DIBuilder diBuilder;
+		std::unique_ptr<llvm::DIBuilder> diBuilder;
 		llvm::DICompileUnit* diCompileUnit;
 		llvm::DIFile* diModuleScope;
 
@@ -39,19 +40,21 @@ namespace LLVMJIT
 		EmitModuleContext(const Module& inModule,ModuleInstance* inModuleInstance)
 		: module(inModule)
 		, moduleInstance(inModuleInstance)
-		, llvmModule(new llvm::Module("",context))
-		, diBuilder(*llvmModule)
 		{
-			diModuleScope = diBuilder.createFile("unknown","unknown");
-			diCompileUnit = diBuilder.createCompileUnit(0xffff,diModuleScope,"WAVM",true,"",0);
+			llvmModuleSharedPtr = std::make_shared<llvm::Module>("",context);
+			llvmModule = llvmModuleSharedPtr.get();
+			diBuilder = llvm::make_unique<llvm::DIBuilder>(*llvmModule);
+
+			diModuleScope = diBuilder->createFile("unknown","unknown");
+			diCompileUnit = diBuilder->createCompileUnit(0xffff,diModuleScope,"WAVM",true,"",0);
 
 			diValueTypes[(Uptr)ValueType::any] = nullptr;
-			diValueTypes[(Uptr)ValueType::i32] = diBuilder.createBasicType("i32",32,llvm::dwarf::DW_ATE_signed);
-			diValueTypes[(Uptr)ValueType::i64] = diBuilder.createBasicType("i64",64,llvm::dwarf::DW_ATE_signed);
-			diValueTypes[(Uptr)ValueType::f32] = diBuilder.createBasicType("f32",32,llvm::dwarf::DW_ATE_float);
-			diValueTypes[(Uptr)ValueType::f64] = diBuilder.createBasicType("f64",64,llvm::dwarf::DW_ATE_float);
+			diValueTypes[(Uptr)ValueType::i32] = diBuilder->createBasicType("i32",32,llvm::dwarf::DW_ATE_signed);
+			diValueTypes[(Uptr)ValueType::i64] = diBuilder->createBasicType("i64",64,llvm::dwarf::DW_ATE_signed);
+			diValueTypes[(Uptr)ValueType::f32] = diBuilder->createBasicType("f32",32,llvm::dwarf::DW_ATE_float);
+			diValueTypes[(Uptr)ValueType::f64] = diBuilder->createBasicType("f64",64,llvm::dwarf::DW_ATE_float);
 			#if ENABLE_SIMD_PROTOTYPE
-			diValueTypes[(Uptr)ValueType::v128] = diBuilder.createBasicType("v128",128,llvm::dwarf::DW_ATE_signed);
+			diValueTypes[(Uptr)ValueType::v128] = diBuilder->createBasicType("v128",128,llvm::dwarf::DW_ATE_signed);
 			#endif
 			
 			auto zeroAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(0)));
@@ -60,7 +63,7 @@ namespace LLVMJIT
 			likelyTrueBranchWeights = llvm::MDTuple::getDistinct(context,{llvm::MDString::get(context,"branch_weights"),i32MaxAsMetadata,zeroAsMetadata});
 		}
 
-		llvm::Module* emit();
+		std::shared_ptr<llvm::Module> emit();
 	};
 
 	// The context used by functions involved in JITing a single AST function.
@@ -1495,8 +1498,8 @@ namespace LLVMJIT
 		// Create debug info for the function.
 		llvm::SmallVector<llvm::Metadata*,10> diFunctionParameterTypes;
 		for(auto parameterType : functionType->parameters) { diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]); }
-		auto diFunctionType = moduleContext.diBuilder.createSubroutineType(moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes));
-		diFunction = moduleContext.diBuilder.createFunction(
+		auto diFunctionType = moduleContext.diBuilder->createSubroutineType(moduleContext.diBuilder->getOrCreateTypeArray(diFunctionParameterTypes));
+		diFunction = moduleContext.diBuilder->createFunction(
 			moduleContext.diModuleScope,
 			functionInstance->debugName,
 			llvmFunction->getName(),
@@ -1584,7 +1587,7 @@ namespace LLVMJIT
 		else { irBuilder.CreateRet(pop()); }
 	}
 
-	llvm::Module* EmitModuleContext::emit()
+	std::shared_ptr<llvm::Module> EmitModuleContext::emit()
 	{
 		Timing::Timer emitTimer;
 
@@ -1637,14 +1640,14 @@ namespace LLVMJIT
 		{ EmitFunctionContext(*this,module,module.functions.defs[functionDefIndex],moduleInstance->functionDefs[functionDefIndex],functionDefs[functionDefIndex]).emit(); }
 		
 		// Finalize the debug info.
-		diBuilder.finalize();
+		diBuilder->finalize();
 
 		Timing::logRatePerSecond("Emitted LLVM IR",emitTimer,(F64)llvmModule->size(),"functions");
 
-		return llvmModule;
+		return llvmModuleSharedPtr;
 	}
 
-	llvm::Module* emitModule(const Module& module,ModuleInstance* moduleInstance)
+	std::shared_ptr<llvm::Module> emitModule(const Module& module,ModuleInstance* moduleInstance)
 	{
 		return EmitModuleContext(module,moduleInstance).emit();
 	}

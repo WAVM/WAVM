@@ -1205,7 +1205,7 @@
   )
 )
 
-;;(assert_return (invoke "llvm_pr27153" (i32.const 33554434)) (f32.const 25165824.000000))
+(assert_return (invoke "llvm_pr27153" (i32.const 33554434)) (f32.const 25165824.000000))
 
 ;; Test that (float)x + (float)y is not optimized to (float)(x + y) when unsafe.
 ;; https://llvm.org/bugs/show_bug.cgi?id=27036
@@ -1217,7 +1217,7 @@
   )
 )
 
-;;(assert_return (invoke "llvm_pr27036" (i32.const -25034805) (i32.const 14942208)) (f32.const -0x1.340068p+23))
+(assert_return (invoke "llvm_pr27036" (i32.const -25034805) (i32.const 14942208)) (f32.const -0x1.340068p+23))
 
 ;; Test for bugs in old versions of historic IEEE 754 platforms as reported in:
 ;;
