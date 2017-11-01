@@ -166,6 +166,22 @@ namespace LLVMJIT
 			}
 		}
 
+		// Bitcasts a LLVM value to a canonical type for the corresponding WebAssembly type.
+		// This is currently just used to map all the various vector types to a canonical type for the
+		// vector width.
+		llvm::Value* coerceToCanonicalType(llvm::Value* value)
+		{
+			return value->getType()->isVectorTy()
+				? irBuilder.CreateBitCast(value,llvmI64x2Type)
+				: value;
+		}
+
+		// Adds an incoming value to a PHI node, coercing it to a canonical type if it's a vector.
+		void addIncomingToPHI(llvm::Value* incomingValue,llvm::PHINode* PHI)
+		{
+			PHI->addIncoming(coerceToCanonicalType(incomingValue),irBuilder.GetInsertBlock());
+		}
+
 		// Debug logging.
 		void logOperator(const std::string& operatorDescription)
 		{
@@ -522,7 +538,7 @@ namespace LLVMJIT
 			{
 				// Use the stack top as the branch argument (don't pop it) and add it to the target phi's incoming values.
 				llvm::Value* argument = getTopValue();
-				target.phi->addIncoming(argument,irBuilder.GetInsertBlock());
+				target.phi->addIncoming(coerceToCanonicalType(argument),irBuilder.GetInsertBlock());
 			}
 
 			// Create a new basic block for the case where the branch is not taken.
@@ -542,7 +558,7 @@ namespace LLVMJIT
 			{
 				// Pop the branch argument from the stack and add it to the target phi's incoming values.
 				llvm::Value* argument = pop();
-				target.phi->addIncoming(argument,irBuilder.GetInsertBlock());
+				target.phi->addIncoming(coerceToCanonicalType(argument),irBuilder.GetInsertBlock());
 			}
 
 			// Branch to the target block.
@@ -564,7 +580,7 @@ namespace LLVMJIT
 			{
 				// Pop the branch argument from the stack and add it to the default target phi's incoming values.
 				argument = pop();
-				defaultTarget.phi->addIncoming(argument,irBuilder.GetInsertBlock());
+				defaultTarget.phi->addIncoming(coerceToCanonicalType(argument),irBuilder.GetInsertBlock());
 			}
 
 			// Create a LLVM switch instruction.
@@ -583,7 +599,7 @@ namespace LLVMJIT
 				{
 					// If this is the first case in the table for this branch target, add the branch argument to
 					// the target phi's incoming values.
-					target.phi->addIncoming(argument,irBuilder.GetInsertBlock());
+					target.phi->addIncoming(coerceToCanonicalType(argument),irBuilder.GetInsertBlock());
 				}
 			}
 
@@ -595,7 +611,7 @@ namespace LLVMJIT
 			{
 				// Pop the return value from the stack and add it to the return phi's incoming values.
 				llvm::Value* result = pop();
-				controlStack[0].endPHI->addIncoming(result,irBuilder.GetInsertBlock());
+				controlStack[0].endPHI->addIncoming(coerceToCanonicalType(result),irBuilder.GetInsertBlock());
 			}
 
 			// Branch to the return block.
