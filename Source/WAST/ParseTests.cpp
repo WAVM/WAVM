@@ -43,6 +43,16 @@ static Runtime::Value parseConstExpression(ParseState& state)
 			result = parseF64(state);
 			break;
 		}
+		case t_v128_const:
+		{
+			++state.nextToken;
+			result.type = ValueType::v128;
+			for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
+			{
+				result.v128.i8[laneIndex] = parseI8(state);
+			}
+			break;
+		}
 		default:
 			parseErrorf(state,state.nextToken,"expected const expression");
 			throw RecoverParseException();
