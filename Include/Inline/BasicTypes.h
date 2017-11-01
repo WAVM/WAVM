@@ -21,3 +21,23 @@ template<> struct PointerIntHelper<4> { typedef I32 IntType; typedef U32 Unsigne
 template<> struct PointerIntHelper<8> { typedef I64 IntType; typedef U64 UnsignedIntType; };
 typedef PointerIntHelper<sizeof(size_t)>::UnsignedIntType Uptr;
 typedef PointerIntHelper<sizeof(size_t)>::IntType Iptr;
+
+#if ENABLE_SIMD_PROTOTYPE
+union V128
+{
+	U8 u8[16];
+	I8 i8[16];
+	U16 u16[8];
+	I16 i16[8];
+	U32 u32[4];
+	I32 i32[4];
+	U64 u64[2];
+	I64 i64[2];
+};
+
+template<Uptr numLanes>
+struct BoolVector
+{
+	bool b[numLanes];
+};
+#endif

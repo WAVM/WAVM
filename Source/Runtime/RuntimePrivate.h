@@ -23,7 +23,7 @@ namespace LLVMJIT
 	void instantiateModule(const IR::Module& module,Runtime::ModuleInstance* moduleInstance);
 	bool describeInstructionPointer(Uptr ip,std::string& outDescription);
 	
-	typedef void (*InvokeFunctionPointer)(void*,U64*);
+	typedef void (*InvokeFunctionPointer)(void*,V128*);
 
 	// Generates an invoke thunk for a specific function type.
 	InvokeFunctionPointer getInvokeThunk(const IR::FunctionType* functionType);

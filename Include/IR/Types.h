@@ -37,19 +37,7 @@ namespace IR
 	inline std::string asString(F32 value) { return std::to_string(value); }
 	inline std::string asString(F64 value) { return std::to_string(value); }
 
-	#if ENABLE_SIMD_PROTOTYPE
-	union V128
-	{
-		U8 u8[16];
-		I8 i8[16];
-		U16 u16[8];
-		I16 i16[8];
-		U32 u32[4];
-		I32 i32[4];
-		U64 u64[2];
-		I64 i64[2];
-	};
-	
+	#if ENABLE_SIMD_PROTOTYPE	
 	inline std::string asString(const V128& v128)
 	{
 		std::string result;
@@ -60,12 +48,6 @@ namespace IR
 		}
 		return result;
 	}
-
-	template<Uptr numLanes>
-	struct BoolVector
-	{
-		bool b[numLanes];
-	};
 
 	template<Uptr numLanes>
 	std::string asString(const BoolVector<numLanes>& boolVector)

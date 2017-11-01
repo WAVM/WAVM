@@ -87,7 +87,7 @@ namespace Runtime
 		if(parameters.size() != functionType->parameters.size())
 		{ throw Exception {Exception::Cause::invokeSignatureMismatch}; }
 
-		U64* thunkMemory = (U64*)alloca((functionType->parameters.size() + getArity(functionType->ret)) * sizeof(U64));
+		V128* thunkMemory = (V128*)alloca((functionType->parameters.size() + getArity(functionType->ret)) * sizeof(V128));
 		for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 		{
 			if(functionType->parameters[parameterIndex] != parameters[parameterIndex].type)
@@ -95,7 +95,7 @@ namespace Runtime
 				throw Exception {Exception::Cause::invokeSignatureMismatch};
 			}
 
-			thunkMemory[parameterIndex] = parameters[parameterIndex].i64;
+			thunkMemory[parameterIndex] = parameters[parameterIndex].v128;
 		}
 		
 		// Get the invoke thunk for this function type.
@@ -116,7 +116,7 @@ namespace Runtime
 				if(functionType->ret != ResultType::none)
 				{
 					result.type = functionType->ret;
-					result.i64 = thunkMemory[functionType->parameters.size()];
+					result.v128 = thunkMemory[functionType->parameters.size()];
 				}
 			});
 

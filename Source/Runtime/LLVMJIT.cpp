@@ -684,7 +684,7 @@ namespace LLVMJIT
 		auto llvmModule = new llvm::Module("",context);
 		auto llvmFunctionType = llvm::FunctionType::get(
 			llvmVoidType,
-			{asLLVMType(functionType)->getPointerTo(),llvmI64Type->getPointerTo()},
+			{asLLVMType(functionType)->getPointerTo(),llvmI64x2Type->getPointerTo()},
 			false);
 		auto llvmFunction = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,"invokeThunk",llvmModule);
 		auto argIt = llvmFunction->args().begin();
