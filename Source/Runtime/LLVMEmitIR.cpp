@@ -7,7 +7,7 @@
 
 #define ENABLE_LOGGING 0
 #define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
-#define ENABLE_FAST_MATH 1
+#define ENABLE_FAST_MATH 0
 
 using namespace IR;
 
