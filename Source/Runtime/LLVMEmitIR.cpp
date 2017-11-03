@@ -7,6 +7,7 @@
 
 #define ENABLE_LOGGING 0
 #define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
+#define ENABLE_FAST_MATH 0
 
 using namespace IR;
 
@@ -285,6 +286,47 @@ namespace LLVMJIT
 			auto bytePointer = irBuilder.CreateInBoundsGEP(moduleContext.defaultMemoryBase,byteIndex);
 			return irBuilder.CreatePointerCast(bytePointer,memoryType->getPointerTo());
 		}
+
+#if !ENABLE_FAST_MATH
+		// This code is used to set the highest bit of the significand, after some FP instr, if we had a NaN as result
+		llvm::Value* cleanNaNInternal(llvm::Type* inputType, llvm::Type* intType, llvm::Value* input,
+																	llvm::Value* constMaskSignificand, llvm::Value* constMaskExponent,
+																	llvm::Value* constNanBit, llvm::Value* zero) {
+			llvm::Value* raw = irBuilder.CreateBitCast(input, intType, "raw");
+			// Tests if pInput is NaN or inf (input & constMaskExponent == constMaskExponent)
+			llvm::Value* exponent = irBuilder.CreateAnd(raw, constMaskExponent, "exponent");
+			llvm::Value* maxExp = irBuilder.CreateICmp(llvm::CmpInst::ICMP_EQ, exponent, constMaskExponent, "maxExp");
+			// Tests if pInput isn't inf (input & constMaskSignificand != 0)
+			llvm::Value* significand = irBuilder.CreateAnd(raw, constMaskSignificand, "significand");
+			llvm::Value* notInf = irBuilder.CreateICmp(llvm::CmpInst::ICMP_NE, significand, zero, "notInf");
+			// If both tests are true, we have a NaN
+			llvm::Value* isNan = irBuilder.CreateAnd(notInf, maxExp, "isNan");
+			// The cleaned nan is input | constNanBit (which is the MSB of the significand)
+			llvm::Value* cleanedNan = irBuilder.CreateOr(raw, constNanBit, "cleanedNan");
+			// If NaN, select cleanedNan, otherwise input
+			llvm::Value* rawResult = irBuilder.CreateSelect(isNan, cleanedNan, raw, "select_nan");
+			return irBuilder.CreateBitCast(rawResult, inputType, "result");
+		}
+
+		llvm::Value* cleanNaN(llvm::Value* input) {
+			llvm::Type* inputType = input->getType();
+			if (inputType == llvmF32Type) {
+				llvm::Value* significandMask = emitLiteral(U32(8388607ULL));
+				llvm::Value* exponentMask = emitLiteral(U32(2139095040ULL));
+				llvm::Value* constNanBit = emitLiteral(U32(4194304ULL));
+				llvm::Value* zero = typedZeroConstants[(Uptr)ValueType::i32];
+				return cleanNaNInternal(inputType, llvmI32Type, input, significandMask, exponentMask, constNanBit, zero);
+			}
+			else if (inputType == llvmF64Type) {
+				llvm::Value* significandMask = emitLiteral(U64(4503599627370495ULL));
+				llvm::Value* exponentMask = emitLiteral(U64(9218868437227405312ULL));
+				llvm::Value* constNanBit = emitLiteral(U64(2251799813685248ULL));
+				llvm::Value* zero = typedZeroConstants[(Uptr)ValueType::i64];
+				return cleanNaNInternal(inputType, llvmI64Type, input, significandMask, exponentMask, constNanBit, zero);
+			}
+			throw std::runtime_error("wrong type while cleaning nan");
+		}
+#endif
 
 		// Traps a divide-by-zero
 		void trapDivideByZero(ValueType type,llvm::Value* divisor)
@@ -959,11 +1001,18 @@ namespace LLVMJIT
 		//
 		// FP operators
 		//
-
+#if ENABLE_FAST_MATH
 		EMIT_FP_BINARY_OP(add,irBuilder.CreateFAdd(left,right))
 		EMIT_FP_BINARY_OP(sub,irBuilder.CreateFSub(left,right))
 		EMIT_FP_BINARY_OP(mul,irBuilder.CreateFMul(left,right))
 		EMIT_FP_BINARY_OP(div,irBuilder.CreateFDiv(left,right))
+#else
+		EMIT_FP_BINARY_OP(add,cleanNaN(irBuilder.CreateFAdd(left,right)))
+		EMIT_FP_BINARY_OP(sub,cleanNaN(irBuilder.CreateFSub(left,right)))
+		EMIT_FP_BINARY_OP(mul,cleanNaN(irBuilder.CreateFMul(left,right)))
+		EMIT_FP_BINARY_OP(div,cleanNaN(irBuilder.CreateFDiv(left,right)))
+#endif
+
 		EMIT_FP_BINARY_OP(copysign,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::copysign),llvm::ArrayRef<llvm::Value*>({left,right})))
 
 		EMIT_FP_UNARY_OP(neg,irBuilder.CreateFNeg(operand))
@@ -986,20 +1035,34 @@ namespace LLVMJIT
 		EMIT_FP_UNARY_OP(convert_u_i32,irBuilder.CreateUIToFP(operand,asLLVMType(type)))
 		EMIT_FP_UNARY_OP(convert_u_i64,irBuilder.CreateUIToFP(operand,asLLVMType(type)))
 
+#if ENABLE_FAST_MATH
 		EMIT_UNARY_OP(f32,demote_f64,irBuilder.CreateFPTrunc(operand,llvmF32Type))
 		EMIT_UNARY_OP(f64,promote_f32,irBuilder.CreateFPExt(operand,llvmF64Type))
-		EMIT_UNARY_OP(f32,reinterpret_i32,irBuilder.CreateBitCast(operand,llvmF32Type))
-		EMIT_UNARY_OP(f64,reinterpret_i64,irBuilder.CreateBitCast(operand,llvmF64Type))
-		EMIT_UNARY_OP(i32,reinterpret_f32,irBuilder.CreateBitCast(operand,llvmI32Type))
-		EMIT_UNARY_OP(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
 
-		// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
+		EMIT_FP_BINARY_OP(min,irBuilder.CreateCall(getLLVMIntrinsic({left->getType(),right->getType()},llvm::Intrinsic::minnum),llvm::ArrayRef<llvm::Value*>({left,right})))
+		EMIT_FP_BINARY_OP(max,irBuilder.CreateCall(getLLVMIntrinsic({left->getType(),right->getType()},llvm::Intrinsic::maxnum),llvm::ArrayRef<llvm::Value*>({left,right})))
+		EMIT_FP_UNARY_OP(ceil,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ceil),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_FP_UNARY_OP(floor,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::floor),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_FP_UNARY_OP(trunc,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::trunc),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_FP_UNARY_OP(nearest,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::nearbyint),llvm::ArrayRef<llvm::Value*>({operand})))
+#else
+		EMIT_UNARY_OP(f32,demote_f64,cleanNaN(irBuilder.CreateFPTrunc(operand,llvmF32Type)))
+		EMIT_UNARY_OP(f64,promote_f32,cleanNaN(irBuilder.CreateFPExt(operand,llvmF64Type)))
+
 		EMIT_FP_BINARY_OP(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asResultType(type),{type,type}),{left,right}))
 		EMIT_FP_BINARY_OP(max,emitRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType::get(asResultType(type),{type,type}),{left,right}))
 		EMIT_FP_UNARY_OP(ceil,emitRuntimeIntrinsic("wavmIntrinsics.floatCeil",FunctionType::get(asResultType(type),{type}),{operand}))
 		EMIT_FP_UNARY_OP(floor,emitRuntimeIntrinsic("wavmIntrinsics.floatFloor",FunctionType::get(asResultType(type),{type}),{operand}))
 		EMIT_FP_UNARY_OP(trunc,emitRuntimeIntrinsic("wavmIntrinsics.floatTrunc",FunctionType::get(asResultType(type),{type}),{operand}))
 		EMIT_FP_UNARY_OP(nearest,emitRuntimeIntrinsic("wavmIntrinsics.floatNearest",FunctionType::get(asResultType(type),{type}),{operand}))
+#endif
+
+		EMIT_UNARY_OP(f32,reinterpret_i32,irBuilder.CreateBitCast(operand,llvmF32Type))
+		EMIT_UNARY_OP(f64,reinterpret_i64,irBuilder.CreateBitCast(operand,llvmF64Type))
+		EMIT_UNARY_OP(i32,reinterpret_f32,irBuilder.CreateBitCast(operand,llvmI32Type))
+		EMIT_UNARY_OP(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
+
+		// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
 		EMIT_INT_UNARY_OP(trunc_s_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
 		EMIT_INT_UNARY_OP(trunc_s_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
 		EMIT_INT_UNARY_OP(trunc_u_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
