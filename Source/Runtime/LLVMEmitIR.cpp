@@ -1038,9 +1038,23 @@ namespace LLVMJIT
 #if ENABLE_FAST_MATH
 		EMIT_UNARY_OP(f32,demote_f64,irBuilder.CreateFPTrunc(operand,llvmF32Type))
 		EMIT_UNARY_OP(f64,promote_f32,irBuilder.CreateFPExt(operand,llvmF64Type))
+
+		EMIT_FP_BINARY_OP(min,irBuilder.CreateCall(getLLVMIntrinsic({left->getType(),right->getType()},llvm::Intrinsic::minnum),llvm::ArrayRef<llvm::Value*>({left,right})))
+		EMIT_FP_BINARY_OP(max,irBuilder.CreateCall(getLLVMIntrinsic({left->getType(),right->getType()},llvm::Intrinsic::maxnum),llvm::ArrayRef<llvm::Value*>({left,right})))
+		EMIT_FP_UNARY_OP(ceil,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ceil),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_FP_UNARY_OP(floor,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::floor),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_FP_UNARY_OP(trunc,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::trunc),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_FP_UNARY_OP(nearest,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::nearbyint),llvm::ArrayRef<llvm::Value*>({operand})))
 #else
 		EMIT_UNARY_OP(f32,demote_f64,cleanNaN(irBuilder.CreateFPTrunc(operand,llvmF32Type)))
 		EMIT_UNARY_OP(f64,promote_f32,cleanNaN(irBuilder.CreateFPExt(operand,llvmF64Type)))
+
+		EMIT_FP_BINARY_OP(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asResultType(type),{type,type}),{left,right}))
+		EMIT_FP_BINARY_OP(max,emitRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType::get(asResultType(type),{type,type}),{left,right}))
+		EMIT_FP_UNARY_OP(ceil,emitRuntimeIntrinsic("wavmIntrinsics.floatCeil",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OP(floor,emitRuntimeIntrinsic("wavmIntrinsics.floatFloor",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OP(trunc,emitRuntimeIntrinsic("wavmIntrinsics.floatTrunc",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_UNARY_OP(nearest,emitRuntimeIntrinsic("wavmIntrinsics.floatNearest",FunctionType::get(asResultType(type),{type}),{operand}))
 #endif
 
 		EMIT_UNARY_OP(f32,reinterpret_i32,irBuilder.CreateBitCast(operand,llvmF32Type))
@@ -1049,12 +1063,6 @@ namespace LLVMJIT
 		EMIT_UNARY_OP(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
 
 		// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
-		EMIT_FP_BINARY_OP(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asResultType(type),{type,type}),{left,right}))
-		EMIT_FP_BINARY_OP(max,emitRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType::get(asResultType(type),{type,type}),{left,right}))
-		EMIT_FP_UNARY_OP(ceil,emitRuntimeIntrinsic("wavmIntrinsics.floatCeil",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OP(floor,emitRuntimeIntrinsic("wavmIntrinsics.floatFloor",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OP(trunc,emitRuntimeIntrinsic("wavmIntrinsics.floatTrunc",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OP(nearest,emitRuntimeIntrinsic("wavmIntrinsics.floatNearest",FunctionType::get(asResultType(type),{type}),{operand}))
 		EMIT_INT_UNARY_OP(trunc_s_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
 		EMIT_INT_UNARY_OP(trunc_s_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
 		EMIT_INT_UNARY_OP(trunc_u_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
