@@ -36,6 +36,9 @@ namespace LLVMJIT
 
 		llvm::MDNode* likelyFalseBranchWeights;
 		llvm::MDNode* likelyTrueBranchWeights;
+		
+		llvm::Value* fpRoundingModeMetadata;
+		llvm::Value* fpExceptionMetadata;
 
 		EmitModuleContext(const Module& inModule,ModuleInstance* inModuleInstance)
 		: module(inModule)
@@ -61,6 +64,9 @@ namespace LLVMJIT
 			auto i32MaxAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(INT32_MAX)));
 			likelyFalseBranchWeights = llvm::MDTuple::getDistinct(context,{llvm::MDString::get(context,"branch_weights"),zeroAsMetadata,i32MaxAsMetadata});
 			likelyTrueBranchWeights = llvm::MDTuple::getDistinct(context,{llvm::MDString::get(context,"branch_weights"),i32MaxAsMetadata,zeroAsMetadata});
+
+			fpRoundingModeMetadata = llvm::MetadataAsValue::get(context,llvm::MDString::get(context,"round.tonearest"));
+			fpExceptionMetadata = llvm::MetadataAsValue::get(context,llvm::MDString::get(context,"fpexcept.strict"));
 		}
 
 		std::shared_ptr<llvm::Module> emit();
@@ -963,15 +969,15 @@ namespace LLVMJIT
 		// FP operators
 		//
 
-		EMIT_FP_BINARY_OP(add,irBuilder.CreateFAdd(left,right))
-		EMIT_FP_BINARY_OP(sub,irBuilder.CreateFSub(left,right))
-		EMIT_FP_BINARY_OP(mul,irBuilder.CreateFMul(left,right))
-		EMIT_FP_BINARY_OP(div,irBuilder.CreateFDiv(left,right))
+		EMIT_FP_BINARY_OP(add,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fadd),llvm::ArrayRef<llvm::Value*>({left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
+		EMIT_FP_BINARY_OP(sub,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fsub),llvm::ArrayRef<llvm::Value*>({left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
+		EMIT_FP_BINARY_OP(mul,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fmul),llvm::ArrayRef<llvm::Value*>({left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
+		EMIT_FP_BINARY_OP(div,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fdiv),llvm::ArrayRef<llvm::Value*>({left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
 		EMIT_FP_BINARY_OP(copysign,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::copysign),llvm::ArrayRef<llvm::Value*>({left,right})))
 
 		EMIT_FP_UNARY_OP(neg,irBuilder.CreateFNeg(operand))
 		EMIT_FP_UNARY_OP(abs,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::fabs),llvm::ArrayRef<llvm::Value*>({operand})))
-		EMIT_FP_UNARY_OP(sqrt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::sqrt),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_FP_UNARY_OP(sqrt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::experimental_constrained_sqrt),llvm::ArrayRef<llvm::Value*>({operand,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
 
 		EMIT_FP_BINARY_OP(eq,coerceBoolToI32(irBuilder.CreateFCmpOEQ(left,right)))
 		EMIT_FP_BINARY_OP(ne,coerceBoolToI32(irBuilder.CreateFCmpUNE(left,right)))
