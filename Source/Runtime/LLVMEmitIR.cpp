@@ -1304,10 +1304,11 @@ namespace LLVMJIT
 			}
 		}
 
-		EMIT_UNARY_OP(i32,extend_s_i8,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI8Type),llvmI32Type))
-		EMIT_UNARY_OP(i32,extend_s_i16,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI16Type),llvmI32Type))
-		EMIT_UNARY_OP(i64,extend_s_i8,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI8Type),llvmI64Type))
-		EMIT_UNARY_OP(i64,extend_s_i16,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI16Type),llvmI64Type))
+		EMIT_UNARY_OP(i32,extend8_s,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI8Type),llvmI32Type))
+		EMIT_UNARY_OP(i32,extend16_s,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI16Type),llvmI32Type))
+		EMIT_UNARY_OP(i64,extend8_s,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI8Type),llvmI64Type))
+		EMIT_UNARY_OP(i64,extend16_s,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI16Type),llvmI64Type))
+		EMIT_UNARY_OP(i64,extend32_s,irBuilder.CreateSExt(irBuilder.CreateTrunc(operand,llvmI32Type),llvmI64Type))
 
 		#define EMIT_ATOMIC_LOAD_OP(valueTypeId,name,llvmMemoryType,naturalAlignmentLog2,conversionOp) \
 			void valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
@@ -1336,8 +1337,6 @@ namespace LLVMJIT
 			}
 		EMIT_ATOMIC_LOAD_OP(i32,atomic_load,llvmI32Type,2,identityConversion)
 		EMIT_ATOMIC_LOAD_OP(i64,atomic_load,llvmI64Type,3,identityConversion)
-		EMIT_ATOMIC_LOAD_OP(f32,atomic_load,llvmF32Type,2,identityConversion)
-		EMIT_ATOMIC_LOAD_OP(f64,atomic_load,llvmF64Type,3,identityConversion)
 
 		EMIT_ATOMIC_LOAD_OP(i32,atomic_load8_s,llvmI8Type,0,irBuilder.CreateSExt)
 		EMIT_ATOMIC_LOAD_OP(i32,atomic_load8_u,llvmI8Type,0,irBuilder.CreateZExt)
@@ -1352,8 +1351,6 @@ namespace LLVMJIT
 
 		EMIT_ATOMIC_STORE_OP(i32,atomic_store,llvmI32Type,2,identityConversion)
 		EMIT_ATOMIC_STORE_OP(i64,atomic_store,llvmI64Type,3,identityConversion)
-		EMIT_ATOMIC_STORE_OP(f32,atomic_store,llvmF32Type,2,identityConversion)
-		EMIT_ATOMIC_STORE_OP(f64,atomic_store,llvmF64Type,3,identityConversion)
 			
 		EMIT_ATOMIC_STORE_OP(i32,atomic_store8,llvmI8Type,0,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_STORE_OP(i32,atomic_store16,llvmI16Type,1,irBuilder.CreateTrunc)

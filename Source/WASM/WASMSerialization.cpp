@@ -74,9 +74,9 @@ namespace IR
 		Uptr flags = 0;
 		if(!Stream::isInput && tableType.size.max != UINT64_MAX) { flags |= 0x01; }
 		#if ENABLE_THREADING_PROTOTYPE
-		if(!Stream::isInput && tableType.isShared) { flags |= 0x10; }
+		if(!Stream::isInput && tableType.isShared) { flags |= 0x02; }
 		serializeVarUInt32(stream,flags);
-		if(Stream::isInput) { tableType.isShared = (flags & 0x10) != 0; }
+		if(Stream::isInput) { tableType.isShared = (flags & 0x02) != 0; }
 		#else
 		serializeVarUInt32(stream,flags);
 		#endif
@@ -89,9 +89,9 @@ namespace IR
 		Uptr flags = 0;
 		if(!Stream::isInput && memoryType.size.max != UINT64_MAX) { flags |= 0x01; }
 		#if ENABLE_THREADING_PROTOTYPE
-		if(!Stream::isInput && memoryType.isShared) { flags |= 0x10; }
+		if(!Stream::isInput && memoryType.isShared) { flags |= 0x02; }
 		serializeVarUInt32(stream,flags);
-		if(Stream::isInput) { memoryType.isShared = (flags & 0x10) != 0; }
+		if(Stream::isInput) { memoryType.isShared = (flags & 0x02) != 0; }
 		#else
 		serializeVarUInt32(stream,flags);
 		#endif
