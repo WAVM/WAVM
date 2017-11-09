@@ -34,10 +34,4 @@ union V128
 	U64 u64[2];
 	I64 i64[2];
 };
-
-template<Uptr numLanes>
-struct BoolVector
-{
-	bool b[numLanes];
-};
 #endif

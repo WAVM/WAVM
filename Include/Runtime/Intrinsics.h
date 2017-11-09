@@ -106,10 +106,6 @@ namespace NativeTypes
 	typedef void none;
 	#if ENABLE_SIMD_PROTOTYPE
 	typedef V128 v128;
-	typedef V128 b8x16;
-	typedef V128 b16x8;
-	typedef V128 b32x4;
-	typedef V128 b64x2;
 	#endif
 };
 

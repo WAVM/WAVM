@@ -49,19 +49,6 @@ namespace IR
 		return result;
 	}
 
-	template<Uptr numLanes>
-	std::string asString(const BoolVector<numLanes>& boolVector)
-	{
-		std::string result = "(";
-		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-		{
-			if(laneIndex != 0) { result += ' '; }
-			result += boolVector.b[laneIndex] ? '1' : '0';
-		}
-		result += ")";
-		return result;
-	}
-
 	template<> struct ValueTypeInfo<ValueType::v128> { typedef V128 Value; };
 	#endif
 	

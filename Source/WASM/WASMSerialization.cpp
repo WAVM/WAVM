@@ -302,28 +302,6 @@ namespace WASM
 			serializeNativeValue(stream,v128);
 		}
 	
-		template<Uptr numLanes>
-		void serialize(InputStream& stream,BoolVector<numLanes>& boolVector)
-		{
-			U64 mask = 0;
-			serializeBytes(stream,(U8*)&mask,(numLanes + 7) / 8);
-			for(Uptr index = 0;index < numLanes;++index)
-			{
-				boolVector.b[index] = (mask & (U64(1) << index)) != 0;
-			}
-		}
-	
-		template<Uptr numLanes>
-		void serialize(OutputStream& stream,BoolVector<numLanes>& boolVector)
-		{
-			U64 mask = 0;
-			for(Uptr index = 0;index < numLanes;++index)
-			{
-				if(boolVector.b[index]) { mask |= U64(1) << index; }
-			}
-			serializeBytes(stream,(U8*)&mask,(numLanes + 7) / 8);
-		}
-
 		template<typename Stream,Uptr numLanes>
 		void serialize(Stream& stream,LaneIndexImm<numLanes>& imm,const FunctionDef&)
 		{
