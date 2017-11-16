@@ -493,7 +493,11 @@ namespace LLVMJIT
 			const llvm::LoadedObjectInfo* loadedObject = jitUnit->loadedObjects[objectIndex].loadedObject;
 
 			// Create a DWARF context to interpret the debug information in this compilation unit.
+#if LLVM_VERSION_MAJOR < 6
 			auto dwarfContext = llvm::make_unique<llvm::DWARFContextInMemory>(*object,loadedObject);
+#else
+			auto dwarfContext = llvm::DWARFContext::create(*object,loadedObject);
+#endif
 
 			// Iterate over the functions in the loaded object.
 			for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object))

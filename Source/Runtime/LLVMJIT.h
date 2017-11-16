@@ -23,6 +23,7 @@
 	#pragma warning(disable:4702) // unreachable code
 #endif
 
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/RTDyldMemoryManager.h"
