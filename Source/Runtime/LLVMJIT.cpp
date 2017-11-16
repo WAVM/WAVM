@@ -438,8 +438,8 @@ namespace LLVMJIT
 					if(pdataRelocIt.getType() != 3) { Errors::unreachable(); }
 
 					const auto symbol = pdataRelocIt.getSymbol();
-					const U64 symbolAddress = symbol->getAddress().get();
-					const llvm::object::section_iterator symbolSection = symbol->getSection().get();
+					const U64 symbolAddress = llvm::cantFail(symbol->getAddress());
+					const llvm::object::section_iterator symbolSection = llvm::cantFail(symbol->getSection());
 					U32* valueToRelocate = (U32*)(jitUnit->pdataCopy + pdataRelocIt.getOffset());
 					const U64 relocatedValue64 =
 						+ (symbolAddress - symbolSection->getAddress())
@@ -499,39 +499,42 @@ namespace LLVMJIT
 			for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object))
 			{
 				auto symbol = symbolSizePair.first;
+
+				// Get the type, name, and address of the symbol. Need to be careful not to get the
+				// Expected<T> for each value unless it will be checked for success before continuing.
+				auto type = symbol.getType();
+				if(!type || *type != llvm::object::SymbolRef::ST_Function) { continue; }
 				auto name = symbol.getName();
+				if(!name) { continue; }
 				auto address = symbol.getAddress();
-				if(	symbol.getType() && symbol.getType().get() == llvm::object::SymbolRef::ST_Function
-				&&	name
-				&&	address)
+				if(!address) { continue; }
+
+				// Compute the address the functions was loaded at.
+				assert(*address <= UINTPTR_MAX);
+				Uptr loadedAddress = Uptr(*address);
+				auto symbolSection = symbol.getSection();
+				if(symbolSection)
 				{
-					// Compute the address the functions was loaded at.
-					assert(*address <= UINTPTR_MAX);
-					Uptr loadedAddress = Uptr(*address);
-					auto symbolSection = symbol.getSection();
-					if(symbolSection)
-					{
-						loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
-					}
-
-					// Get the DWARF line info for this symbol, which maps machine code addresses to WebAssembly op indices.
-					llvm::DILineInfoTable lineInfoTable = dwarfContext->getLineInfoForAddressRange(loadedAddress,symbolSizePair.second);
-					std::map<U32,U32> offsetToOpIndexMap;
-					for(auto lineInfo : lineInfoTable) { offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress),lineInfo.second.Line); }
-					
-					#if PRINT_DISASSEMBLY
-					Log::printf(Log::Category::error,"Disassembly for function %s\n",name.get().data());
-					disassembleFunction(reinterpret_cast<U8*>(loadedAddress),Uptr(symbolSizePair.second));
-					#endif
-
-					// Notify the JIT unit that the symbol was loaded.
-					assert(symbolSizePair.second <= UINTPTR_MAX);
-					jitUnit->notifySymbolLoaded(
-						name->data(),loadedAddress,
-						Uptr(symbolSizePair.second),
-						std::move(offsetToOpIndexMap)
-						);
+					loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get());
 				}
+
+				// Get the DWARF line info for this symbol, which maps machine code addresses to WebAssembly op indices.
+				llvm::DILineInfoTable lineInfoTable = dwarfContext->getLineInfoForAddressRange(loadedAddress, symbolSizePair.second);
+				std::map<U32, U32> offsetToOpIndexMap;
+				for (auto lineInfo : lineInfoTable) { offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
+
+#if PRINT_DISASSEMBLY
+				Log::printf(Log::Category::error, "Disassembly for function %s\n", name.get().data());
+				disassembleFunction(reinterpret_cast<U8*>(loadedAddress), Uptr(symbolSizePair.second));
+#endif
+
+				// Notify the JIT unit that the symbol was loaded.
+				assert(symbolSizePair.second <= UINTPTR_MAX);
+				jitUnit->notifySymbolLoaded(
+					name->data(), loadedAddress,
+					Uptr(symbolSizePair.second),
+					std::move(offsetToOpIndexMap)
+					);
 			}
 		}
 
