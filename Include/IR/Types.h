@@ -2,6 +2,7 @@
 
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
+#include "Inline/Floats.h"
 #include "IR.h"
 
 #include <vector>
@@ -34,19 +35,17 @@ namespace IR
 
 	inline std::string asString(I32 value) { return std::to_string(value); }
 	inline std::string asString(I64 value) { return std::to_string(value); }
-	inline std::string asString(F32 value) { return std::to_string(value); }
-	inline std::string asString(F64 value) { return std::to_string(value); }
+	inline std::string asString(F32 value) { return Floats::asString(value); }
+	inline std::string asString(F64 value) { return Floats::asString(value); }
 
 	#if ENABLE_SIMD_PROTOTYPE	
 	inline std::string asString(const V128& v128)
 	{
-		std::string result;
-		for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
-		{
-			if(laneIndex != 0) { result += ' '; }
-			result += std::to_string(v128.u8[laneIndex]);
-		}
-		return result;
+		// buffer needs 44 characters:
+		// 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH\0
+		char buffer[44];
+		snprintf(buffer,sizeof(buffer),"0x%.8x 0x%.8x 0x%.8x 0x%.8x",v128.u32[0],v128.u32[1],v128.u32[2],v128.u32[3]);
+		return std::string(buffer);
 	}
 
 	template<> struct ValueTypeInfo<ValueType::v128> { typedef V128 Value; };

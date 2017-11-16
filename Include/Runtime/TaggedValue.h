@@ -1,7 +1,6 @@
 #pragma once
 
 #include "IR/Types.h"
-#include "Inline/Floats.h"
 
 #include <string.h>
 
@@ -56,12 +55,12 @@ namespace Runtime
 		{
 			switch(value.type)
 			{
-			case IR::ValueType::i32: return "i32(" + std::to_string(value.i32) + ")";
-			case IR::ValueType::i64: return "i64(" + std::to_string(value.i64) + ")";
-			case IR::ValueType::f32: return "f32(" + Floats::asString(value.f32) + ")";
-			case IR::ValueType::f64: return "f64(" + Floats::asString(value.f64) + ")";
+			case IR::ValueType::i32: return "(i32.const " + IR::asString(value.i32) + ')';
+			case IR::ValueType::i64: return "(i64.const " + IR::asString(value.i64) + ')';
+			case IR::ValueType::f32: return "(f32.const " + IR::asString(value.f32) + ')';
+			case IR::ValueType::f64: return "(f64.const " + IR::asString(value.f64) + ')';
 			#if ENABLE_SIMD_PROTOTYPE
-			case IR::ValueType::v128: return "v128(" + std::to_string(value.v128.u64[0]) + "," + std::to_string(value.v128.u64[1]) + ")";
+			case IR::ValueType::v128: return "(v128.const " + IR::asString(value.v128) + ')';
 			#endif
 			default: Errors::unreachable();
 			}
@@ -91,12 +90,12 @@ namespace Runtime
 			switch(result.type)
 			{
 			case IR::ResultType::none: return "()";
-			case IR::ResultType::i32: return "i32(" + std::to_string(result.i32) + ")";
-			case IR::ResultType::i64: return "i64(" + std::to_string(result.i64) + ")";
-			case IR::ResultType::f32: return "f32(" + Floats::asString(result.f32) + ")";
-			case IR::ResultType::f64: return "f64(" + Floats::asString(result.f64) + ")";
+			case IR::ResultType::i32: return "(i32.const " + IR::asString(result.i32) + ')';
+			case IR::ResultType::i64: return "(i64.const " + IR::asString(result.i64) + ')';
+			case IR::ResultType::f32: return "(f32.const " + IR::asString(result.f32) + ')';
+			case IR::ResultType::f64: return "(f64.const " + IR::asString(result.f64) + ')';
 			#if ENABLE_SIMD_PROTOTYPE
-			case IR::ResultType::v128: return "v128(" + std::to_string(result.v128.u64[0]) + "," + std::to_string(result.v128.u64[1]) + ")";
+			case IR::ResultType::v128: return "(v128.const " + IR::asString(result.v128) + ')';
 			#endif
 			default: Errors::unreachable();
 			}
