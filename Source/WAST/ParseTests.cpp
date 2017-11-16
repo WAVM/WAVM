@@ -47,10 +47,7 @@ static Runtime::Value parseConstExpression(ParseState& state)
 		{
 			++state.nextToken;
 			result.type = ValueType::v128;
-			for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
-			{
-				result.v128.i8[laneIndex] = parseI8(state);
-			}
+			result.v128 = parseV128(state);
 			break;
 		}
 		default:

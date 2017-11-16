@@ -240,10 +240,7 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 
 static void parseImm(FunctionParseState& state,LiteralImm<V128>& outImm)
 {
-	for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
-	{
-		outImm.value.i8[laneIndex] = parseI8(state);
-	}
+	outImm.value = parseV128(state);
 }
 
 template<Uptr numLanes>

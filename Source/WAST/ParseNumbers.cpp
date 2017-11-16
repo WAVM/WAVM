@@ -293,6 +293,17 @@ namespace WAST
 		}
 		return U8(result);
 	}
+	
+	U16 parseI16(ParseState& state)
+	{
+		U32 result;
+		if(!tryParseInt<U32>(state,result,INT16_MIN,UINT8_MAX))
+		{
+			parseErrorf(state,state.nextToken,"expected i16 literal");
+			throw RecoverParseException();
+		}
+		return U16(result);
+	}
 
 	U32 parseI32(ParseState& state)
 	{
@@ -334,6 +345,42 @@ namespace WAST
 		{
 			parseErrorf(state,state.nextToken,"expected f64 literal");
 			throw RecoverParseException();
+		}
+		return result;
+	}
+
+	V128 parseV128(ParseState& state)
+	{
+		const Token* peekToken = state.nextToken;
+		while(peekToken->type == t_decimalInt || peekToken->type == t_hexInt)
+		{
+			++peekToken;
+		};
+	
+		if(peekToken - state.nextToken > 16)
+		{
+			parseErrorf(state,state.nextToken + 16,"v128.const must not have more than 16 operands");
+			throw RecoverParseException();
+		}
+
+		const Uptr numLanes = peekToken - state.nextToken;
+		if(numLanes != 2 && numLanes != 4 && numLanes != 8 && numLanes != 16)
+		{
+			parseErrorf(state,state.nextToken,"v128.const must have 2, 4, 8, or 16 operands");
+			throw RecoverParseException();
+		}
+
+		V128 result = {};
+		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		{
+			switch(numLanes)
+			{
+			case 2: result.i64[laneIndex] = parseI64(state); break;
+			case 4: result.i32[laneIndex] = parseI32(state); break;
+			case 8: result.i16[laneIndex] = parseI16(state); break;
+			case 16: result.i8[laneIndex] = parseI8(state); break;
+			default: break;
+			}
 		}
 		return result;
 	}

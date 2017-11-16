@@ -162,10 +162,12 @@ namespace WAST
 	bool tryParseI64(ParseState& state,U64& outI64);
 
 	U8 parseI8(ParseState& state);
+	U16 parseI16(ParseState& state);
 	U32 parseI32(ParseState& state);
 	U64 parseI64(ParseState& state);
 	F32 parseF32(ParseState& state);
 	F64 parseF64(ParseState& state);
+	V128 parseV128(ParseState& state);
 
 	bool tryParseString(ParseState& state,std::string& outString);
 
