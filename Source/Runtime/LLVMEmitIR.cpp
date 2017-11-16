@@ -185,12 +185,6 @@ namespace LLVMJIT
 				: value;
 		}
 
-		// Adds an incoming value to a PHI node, coercing it to a canonical type if it's a vector.
-		void addIncomingToPHI(llvm::Value* incomingValue,llvm::PHINode* PHI)
-		{
-			PHI->addIncoming(coerceToCanonicalType(incomingValue),irBuilder.GetInsertBlock());
-		}
-
 		// Debug logging.
 		void logOperator(const std::string& operatorDescription)
 		{
@@ -442,7 +436,7 @@ namespace LLVMJIT
 				if(currentContext.resultType != ResultType::none)
 				{
 					llvm::Value* result = pop();
-					currentContext.endPHI->addIncoming(result,irBuilder.GetInsertBlock());
+					currentContext.endPHI->addIncoming(coerceToCanonicalType(result),irBuilder.GetInsertBlock());
 				}
 
 				// Branch to the control context's end.
@@ -473,7 +467,7 @@ namespace LLVMJIT
 				if(currentContext.resultType != ResultType::none)
 				{
 					llvm::Value* result = pop();
-					currentContext.endPHI->addIncoming(result,irBuilder.GetInsertBlock());
+					currentContext.endPHI->addIncoming(coerceToCanonicalType(result),irBuilder.GetInsertBlock());
 				}
 
 				// Branch to the control context's end.
