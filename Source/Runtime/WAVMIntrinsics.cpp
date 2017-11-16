@@ -99,30 +99,6 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f32,f32,value) { return floatNearest(value); }
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f64,f64,value) { return floatNearest(value); }
 
-	template<typename Dest,typename Source,bool isMinInclusive>
-	Dest floatToInt(Source sourceValue,Source minValue,Source maxValue)
-	{
-		if(sourceValue != sourceValue)
-		{
-			causeException(Exception::Cause::invalidFloatOperation);
-		}
-		else if(sourceValue >= maxValue || (isMinInclusive ? sourceValue <= minValue : sourceValue < minValue))
-		{
-			causeException(Exception::Cause::integerDivideByZeroOrIntegerOverflow);
-		}
-		return (Dest)sourceValue;
-	}
-
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i32,f32,source) { return floatToInt<I32,F32,false>(source,(F32)INT32_MIN,-(F32)INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i32,f64,source) { return floatToInt<I32,F64,false>(source,(F64)INT32_MIN,-(F64)INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i64,f32,source) { return floatToInt<I64,F32,false>(source,(F32)INT64_MIN,-(F32)INT64_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToSignedInt,floatToSignedInt,i64,f64,source) { return floatToInt<I64,F64,false>(source,(F64)INT64_MIN,-(F64)INT64_MIN); }
-	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i32,f32,source) { return floatToInt<U32,F32,true>(source,-1.0f,-2.0f * INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i32,f64,source) { return floatToInt<U32,F64,true>(source,-1.0,-2.0 * INT32_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f32,source) { return floatToInt<U64,F32,true>(source,-1.0f,-2.0f * INT64_MIN); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatToUnsignedInt,floatToUnsignedInt,i64,f64,source) { return floatToInt<U64,F64,true>(source,-1.0,-2.0 * INT64_MIN); }
-
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroOrIntegerOverflowTrap,divideByZeroOrIntegerOverflowTrap,none)
 	{
 		causeException(Exception::Cause::integerDivideByZeroOrIntegerOverflow);
@@ -136,6 +112,16 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,accessViolationTrap,accessViolationTrap,none)
 	{
 		causeException(Exception::Cause::accessViolation);
+	}
+	
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,invalidFloatOperationTrap,invalidFloatOperationTrap,none)
+	{
+		causeException(Exception::Cause::invalidFloatOperation);
+	}
+	
+	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,integerOverflowTrap,integerOverflowTrap,none)
+	{
+		causeException(Exception::Cause::integerDivideByZeroOrIntegerOverflow);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableBits)

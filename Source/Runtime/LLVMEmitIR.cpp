@@ -180,7 +180,7 @@ namespace LLVMJIT
 		// vector width.
 		llvm::Value* coerceToCanonicalType(llvm::Value* value)
 		{
-			return value->getType()->isVectorTy()
+			return value->getType()->isVectorTy() || value->getType()->isX86_MMXTy()
 				? irBuilder.CreateBitCast(value,llvmI64x2Type)
 				: value;
 		}
@@ -260,8 +260,9 @@ namespace LLVMJIT
 				llvm::Value* overflowed = emitLiteral(false);
 				if(offset)
 				{
-					auto offsetByteIndexWithOverflow = irBuilder.CreateCall(
-						getLLVMIntrinsic({llvmI32Type},llvm::Intrinsic::uadd_with_overflow),
+					auto offsetByteIndexWithOverflow = callLLVMIntrinsic(
+						{llvmI32Type},
+						llvm::Intrinsic::uadd_with_overflow,
 						{byteIndex,emitLiteral(U32(offset))}
 						);
 					byteIndex = irBuilder.CreateExtractValue(offsetByteIndexWithOverflow,{0});
@@ -311,9 +312,19 @@ namespace LLVMJIT
 				"wavmIntrinsics.divideByZeroOrIntegerOverflowTrap",FunctionType::get(),{});
 		}
 
-		llvm::Value* getLLVMIntrinsic(const std::initializer_list<llvm::Type*>& argTypes,llvm::Intrinsic::ID id)
+		llvm::Value* callLLVMIntrinsic(
+			const std::initializer_list<llvm::Type*>& typeArguments,
+			llvm::Intrinsic::ID id,
+			const std::initializer_list<llvm::Value*>& arguments)
 		{
-			return llvm::Intrinsic::getDeclaration(moduleContext.llvmModule,id,llvm::ArrayRef<llvm::Type*>(argTypes.begin(),argTypes.end()));
+			return irBuilder.CreateCall(
+				llvm::Intrinsic::getDeclaration(
+					moduleContext.llvmModule,
+					id,
+					llvm::ArrayRef<llvm::Type*>(typeArguments.begin(),typeArguments.end())
+					),
+				llvm::ArrayRef<llvm::Value*>(arguments)
+				);
 		}
 		
 		// Emits a call to a WAVM intrinsic function.
@@ -954,24 +965,24 @@ namespace LLVMJIT
 		EMIT_INT_BINARY_OP(ge_s,coerceBoolToI32(irBuilder.CreateICmpSGE(left,right)))
 		EMIT_INT_BINARY_OP(ge_u,coerceBoolToI32(irBuilder.CreateICmpUGE(left,right)))
 
-		EMIT_INT_UNARY_OP(clz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctlz),llvm::ArrayRef<llvm::Value*>({operand,emitLiteral(false)})))
-		EMIT_INT_UNARY_OP(ctz,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::cttz),llvm::ArrayRef<llvm::Value*>({operand,emitLiteral(false)})))
-		EMIT_INT_UNARY_OP(popcnt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctpop),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_INT_UNARY_OP(clz,callLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctlz,{operand,emitLiteral(false)}))
+		EMIT_INT_UNARY_OP(ctz,callLLVMIntrinsic({operand->getType()},llvm::Intrinsic::cttz,{operand,emitLiteral(false)}))
+		EMIT_INT_UNARY_OP(popcnt,callLLVMIntrinsic({operand->getType()},llvm::Intrinsic::ctpop,{operand}))
 		EMIT_INT_UNARY_OP(eqz,coerceBoolToI32(irBuilder.CreateICmpEQ(operand,typedZeroConstants[(Uptr)type])))
 
 		//
 		// FP operators
 		//
 
-		EMIT_FP_BINARY_OP(add,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fadd),llvm::ArrayRef<llvm::Value*>({left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
-		EMIT_FP_BINARY_OP(sub,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fsub),llvm::ArrayRef<llvm::Value*>({left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
-		EMIT_FP_BINARY_OP(mul,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fmul),llvm::ArrayRef<llvm::Value*>({left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
-		EMIT_FP_BINARY_OP(div,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fdiv),llvm::ArrayRef<llvm::Value*>({left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
-		EMIT_FP_BINARY_OP(copysign,irBuilder.CreateCall(getLLVMIntrinsic({left->getType()},llvm::Intrinsic::copysign),llvm::ArrayRef<llvm::Value*>({left,right})))
+		EMIT_FP_BINARY_OP(add,callLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fadd,{left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata}))
+		EMIT_FP_BINARY_OP(sub,callLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fsub,{left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata}))
+		EMIT_FP_BINARY_OP(mul,callLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fmul,{left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata}))
+		EMIT_FP_BINARY_OP(div,callLLVMIntrinsic({left->getType()},llvm::Intrinsic::experimental_constrained_fdiv,{left,right,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata}))
+		EMIT_FP_BINARY_OP(copysign,callLLVMIntrinsic({left->getType()},llvm::Intrinsic::copysign,{left,right}))
 
 		EMIT_FP_UNARY_OP(neg,irBuilder.CreateFNeg(operand))
-		EMIT_FP_UNARY_OP(abs,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::fabs),llvm::ArrayRef<llvm::Value*>({operand})))
-		EMIT_FP_UNARY_OP(sqrt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::experimental_constrained_sqrt),llvm::ArrayRef<llvm::Value*>({operand,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata})))
+		EMIT_FP_UNARY_OP(abs,callLLVMIntrinsic({operand->getType()},llvm::Intrinsic::fabs,{operand}))
+		EMIT_FP_UNARY_OP(sqrt,callLLVMIntrinsic({operand->getType()},llvm::Intrinsic::experimental_constrained_sqrt,{operand,moduleContext.fpRoundingModeMetadata,moduleContext.fpExceptionMetadata}))
 
 		EMIT_FP_BINARY_OP(eq,coerceBoolToI32(irBuilder.CreateFCmpOEQ(left,right)))
 		EMIT_FP_BINARY_OP(ne,coerceBoolToI32(irBuilder.CreateFCmpUNE(left,right)))
@@ -996,6 +1007,54 @@ namespace LLVMJIT
 		EMIT_UNARY_OP(i32,reinterpret_f32,irBuilder.CreateBitCast(operand,llvmI32Type))
 		EMIT_UNARY_OP(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
 
+		llvm::Value* emitTruncFloatToInt(ValueType destType,bool isSigned,llvm::Value* minBounds,llvm::Value* maxBounds,llvm::Value* operand)
+		{
+			auto nanBlock = llvm::BasicBlock::Create(context,"FPToUI_nan",llvmFunction);
+			auto notNaNBlock = llvm::BasicBlock::Create(context,"FPToUI_notNaN",llvmFunction);
+			auto overflowBlock = llvm::BasicBlock::Create(context,"FPToUI_overflow",llvmFunction);
+			auto noOverflowBlock = llvm::BasicBlock::Create(context,"FPToUI_noOverflow",llvmFunction);
+
+			auto isNaN = irBuilder.CreateFCmpUNE(operand,operand);
+			irBuilder.CreateCondBr(isNaN,nanBlock,notNaNBlock,moduleContext.likelyFalseBranchWeights);
+
+			irBuilder.SetInsertPoint(nanBlock);
+			emitRuntimeIntrinsic("wavmIntrinsics.invalidFloatOperationTrap",FunctionType::get(),{});
+			irBuilder.CreateUnreachable();
+
+			irBuilder.SetInsertPoint(notNaNBlock);
+			auto isOverflow = irBuilder.CreateOr(
+				irBuilder.CreateFCmpOGE(operand,maxBounds),
+				(isSigned
+					? irBuilder.CreateFCmpOLT(operand,minBounds)
+					: irBuilder.CreateFCmpOLE(operand,minBounds))
+				);
+			irBuilder.CreateCondBr(isOverflow,overflowBlock,noOverflowBlock,moduleContext.likelyFalseBranchWeights);
+
+			irBuilder.SetInsertPoint(overflowBlock);
+			emitRuntimeIntrinsic("wavmIntrinsics.integerOverflowTrap",FunctionType::get(),{});
+			irBuilder.CreateUnreachable();
+
+			irBuilder.SetInsertPoint(noOverflowBlock);
+			return isSigned
+				? irBuilder.CreateFPToSI(operand,asLLVMType(destType))
+				: irBuilder.CreateFPToUI(operand,asLLVMType(destType));
+		}
+
+		static I64 getIntMin(ValueType type)
+		{
+			switch(type)
+			{
+			case ValueType::i32: return INT32_MIN;
+			case ValueType::i64: return INT64_MIN;
+			default: Errors::unreachable();
+			}
+		}
+
+		EMIT_INT_UNARY_OP(trunc_s_f32,emitTruncFloatToInt(type,true,emitLiteral(F32(getIntMin(type))),emitLiteral(-F32(getIntMin(type))),operand))
+		EMIT_INT_UNARY_OP(trunc_s_f64,emitTruncFloatToInt(type,true,emitLiteral(F64(getIntMin(type))),emitLiteral(-F64(getIntMin(type))),operand))
+		EMIT_INT_UNARY_OP(trunc_u_f32,emitTruncFloatToInt(type,false,emitLiteral(-1.0f),emitLiteral(-2.0f * getIntMin(type)),operand))
+		EMIT_INT_UNARY_OP(trunc_u_f64,emitTruncFloatToInt(type,false,emitLiteral(-1.0),emitLiteral(-2.0 * getIntMin(type)),operand))
+
 		// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
 		EMIT_FP_BINARY_OP(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asResultType(type),{type,type}),{left,right}))
 		EMIT_FP_BINARY_OP(max,emitRuntimeIntrinsic("wavmIntrinsics.floatMax",FunctionType::get(asResultType(type),{type,type}),{left,right}))
@@ -1003,10 +1062,6 @@ namespace LLVMJIT
 		EMIT_FP_UNARY_OP(floor,emitRuntimeIntrinsic("wavmIntrinsics.floatFloor",FunctionType::get(asResultType(type),{type}),{operand}))
 		EMIT_FP_UNARY_OP(trunc,emitRuntimeIntrinsic("wavmIntrinsics.floatTrunc",FunctionType::get(asResultType(type),{type}),{operand}))
 		EMIT_FP_UNARY_OP(nearest,emitRuntimeIntrinsic("wavmIntrinsics.floatNearest",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_INT_UNARY_OP(trunc_s_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
-		EMIT_INT_UNARY_OP(trunc_s_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToSignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
-		EMIT_INT_UNARY_OP(trunc_u_f32,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f32}),{operand}))
-		EMIT_INT_UNARY_OP(trunc_u_f64,emitRuntimeIntrinsic("wavmIntrinsics.floatToUnsignedInt",FunctionType::get(asResultType(type),{ValueType::f64}),{operand}))
 
 		#if ENABLE_SIMD_PROTOTYPE
 		llvm::Value* emitAnyTrue(llvm::Value* boolVector)
@@ -1030,11 +1085,6 @@ namespace LLVMJIT
 				result = result ? irBuilder.CreateAnd(result,scalar) : scalar;
 			}
 			return result;
-		}
-
-		llvm::Value* unimplemented()
-		{
-			Errors::unreachable();
 		}
 
 		#define EMIT_SIMD_SPLAT(vectorType,coerceScalar,numLanes) \
@@ -1105,19 +1155,57 @@ namespace LLVMJIT
 
 		EMIT_SIMD_INT_UNARY_OP(neg,irBuilder.CreateNeg(operand))
 
-		EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,llvmI8x16Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i8x16_add_saturate_u,llvmI16x8Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,llvmI8x16Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_u,llvmI16x8Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,llvmI8x16Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i16x8_add_saturate_u,llvmI16x8Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,llvmI8x16Type,unimplemented())
-		EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_u,llvmI16x8Type,unimplemented())
+		EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,llvmI8x16Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_padds_b,{left,right}))
+		EMIT_SIMD_BINARY_OP(i8x16_add_saturate_u,llvmI8x16Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_paddus_b,{left,right}))
+		EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,llvmI8x16Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_psubs_b,{left,right}))
+		EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_u,llvmI8x16Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_psubus_b,{left,right}))
+		EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,llvmI16x8Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_padds_w,{left,right}))
+		EMIT_SIMD_BINARY_OP(i16x8_add_saturate_u,llvmI16x8Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_paddus_w,{left,right}))
+		EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,llvmI16x8Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_psubs_w,{left,right}))
+		EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_u,llvmI16x8Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_psubus_w,{left,right}))
 
-		EMIT_SIMD_UNARY_OP(i32x4_trunc_s_f32x4_sat,llvmF32x4Type,unimplemented());
-		EMIT_SIMD_UNARY_OP(i32x4_trunc_u_f32x4_sat,llvmF32x4Type,unimplemented());
-		EMIT_SIMD_UNARY_OP(i64x2_trunc_s_f64x2_sat,llvmF64x2Type,unimplemented());
-		EMIT_SIMD_UNARY_OP(i64x2_trunc_u_f64x2_sat,llvmF64x2Type,unimplemented());
+		llvm::Value* emitTruncFloatToIntSat(
+			llvm::Type* destType,
+			bool isSigned,
+			llvm::Intrinsic::ID minIntrinsicID,
+			llvm::Intrinsic::ID maxIntrinsicID,
+			llvm::Value* minBounds,
+			llvm::Value* maxBounds,
+			llvm::Value* operand)
+		{
+			auto clampedValue = callLLVMIntrinsic({},maxIntrinsicID,{
+				minBounds,
+				callLLVMIntrinsic({},minIntrinsicID,{maxBounds,operand})
+				});
+			return isSigned
+				? irBuilder.CreateFPToSI(clampedValue,destType)
+				: irBuilder.CreateFPToUI(clampedValue,destType);
+		}
+
+		EMIT_SIMD_UNARY_OP(i32x4_trunc_s_f32x4_sat,llvmF32x4Type,emitTruncFloatToIntSat(
+			llvmI32x4Type, true, llvm::Intrinsic::x86_sse_min_ps, llvm::Intrinsic::x86_sse_max_ps,
+			irBuilder.CreateVectorSplat(4,emitLiteral(F32(INT32_MIN))),
+			irBuilder.CreateVectorSplat(4,emitLiteral(F32(INT32_MAX))),
+			operand
+			));
+		EMIT_SIMD_UNARY_OP(i32x4_trunc_u_f32x4_sat,llvmF32x4Type,emitTruncFloatToIntSat(
+			llvmI32x4Type, false, llvm::Intrinsic::x86_sse_min_ps, llvm::Intrinsic::x86_sse_max_ps,
+			irBuilder.CreateVectorSplat(4,emitLiteral(F32(0.0f))),
+			irBuilder.CreateVectorSplat(4,emitLiteral(F32(UINT32_MAX))),
+			operand
+			));
+		EMIT_SIMD_UNARY_OP(i64x2_trunc_s_f64x2_sat,llvmF64x2Type,emitTruncFloatToIntSat(
+			llvmI64x2Type, true, llvm::Intrinsic::x86_sse2_min_pd, llvm::Intrinsic::x86_sse2_max_pd,
+			irBuilder.CreateVectorSplat(2,emitLiteral(F64(INT64_MIN))),
+			irBuilder.CreateVectorSplat(2,emitLiteral(F64(INT64_MAX))),
+			operand
+			));
+		EMIT_SIMD_UNARY_OP(i64x2_trunc_u_f64x2_sat,llvmF64x2Type,emitTruncFloatToIntSat(
+			llvmI64x2Type, false, llvm::Intrinsic::x86_sse2_min_pd, llvm::Intrinsic::x86_sse2_max_pd,
+			irBuilder.CreateVectorSplat(2,emitLiteral(F64(0.0))),
+			irBuilder.CreateVectorSplat(2,emitLiteral(F64(UINT64_MAX))),
+			operand
+			));
 
 		EMIT_SIMD_FP_BINARY_OP(add,irBuilder.CreateFAdd(left,right))
 		EMIT_SIMD_FP_BINARY_OP(sub,irBuilder.CreateFSub(left,right))
@@ -1130,12 +1218,14 @@ namespace LLVMJIT
 		EMIT_SIMD_FP_BINARY_OP(le,irBuilder.CreateFCmpOLE(left,right))
 		EMIT_SIMD_FP_BINARY_OP(gt,irBuilder.CreateFCmpOGT(left,right))
 		EMIT_SIMD_FP_BINARY_OP(ge,irBuilder.CreateFCmpOGE(left,right))
-		EMIT_SIMD_FP_BINARY_OP(min,unimplemented());
-		EMIT_SIMD_FP_BINARY_OP(max,unimplemented());
+		EMIT_SIMD_BINARY_OP(f32x4_min,llvmF32x4Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse_min_ps,{left,right}))
+		EMIT_SIMD_BINARY_OP(f64x2_min,llvmF64x2Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_min_pd,{left,right}))
+		EMIT_SIMD_BINARY_OP(f32x4_max,llvmF32x4Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse_max_ps,{left,right}))
+		EMIT_SIMD_BINARY_OP(f64x2_max,llvmF64x2Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_max_pd,{left,right}))
 
 		EMIT_SIMD_FP_UNARY_OP(neg,irBuilder.CreateFNeg(operand))
-		EMIT_SIMD_FP_UNARY_OP(abs,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::fabs),llvm::ArrayRef<llvm::Value*>({operand})))
-		EMIT_SIMD_FP_UNARY_OP(sqrt,irBuilder.CreateCall(getLLVMIntrinsic({operand->getType()},llvm::Intrinsic::sqrt),llvm::ArrayRef<llvm::Value*>({operand})))
+		EMIT_SIMD_FP_UNARY_OP(abs,callLLVMIntrinsic({operand->getType()},llvm::Intrinsic::fabs,{operand}))
+		EMIT_SIMD_FP_UNARY_OP(sqrt,callLLVMIntrinsic({operand->getType()},llvm::Intrinsic::sqrt,{operand}))
 
 		EMIT_SIMD_UNARY_OP(f32x4_convert_s_i32x4,llvmI32x4Type,irBuilder.CreateSIToFP(operand,llvmF32x4Type));
 		EMIT_SIMD_UNARY_OP(f32x4_convert_u_i32x4,llvmI32x4Type,irBuilder.CreateUIToFP(operand,llvmF32x4Type));
