@@ -25,6 +25,7 @@ namespace
 
 		NameToIndexMap branchTargetNameToIndexMap;
 		U32 branchTargetDepth;
+		std::vector<std::string> labelDisassemblyNames;
 
 		Serialization::ArrayOutputStream codeByteStream;
 		OperatorEncoderStream operationEncoder;
@@ -291,6 +292,7 @@ static void parseExpr(FunctionParseState& state);
 static void parseControlImm(FunctionParseState& state,Name& outBranchTargetName,ControlStructureImm& imm)
 {
 	tryParseName(state,outBranchTargetName);
+	state.labelDisassemblyNames.push_back(outBranchTargetName.getString());
 	
 	imm.resultType = ResultType::none;
 	if(state.nextToken[0].type == t_leftParenthesis && state.nextToken[1].type == t_result)
@@ -607,6 +609,7 @@ namespace WAST
 				catch(RecoverParseException) {}
 				catch(FatalParseException) {}
 				functionDef.code = std::move(functionState.codeByteStream.getBytes());
+				state.disassemblyNames.functions[functionIndex].labels = std::move(functionState.labelDisassemblyNames);
 			});
 		});
 

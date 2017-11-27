@@ -129,16 +129,6 @@ namespace WAST
 		if(type.isMutable) { string += ")"; }
 	}
 
-	void printControlSignature(std::string& string,ResultType resultType)
-	{
-		if(resultType != ResultType::none)
-		{
-			string += " (result ";
-			print(string,resultType);
-			string += ')';
-		}
-	}
-
 	struct NameScope
 	{
 		NameScope(const char inSigil): sigil(inSigil) { nameToCountMap[""] = 0; }
@@ -209,8 +199,10 @@ namespace WAST
 		const FunctionType* functionType;
 		std::string& string;
 
+		const std::vector<std::string>& labelNames;
 		const std::vector<std::string>& localNames;
 		NameScope labelNameScope;
+		Uptr labelIndex;
 
 		FunctionPrintContext(ModulePrintContext& inModuleContext,Uptr functionDefIndex)
 		: moduleContext(inModuleContext)
@@ -218,8 +210,10 @@ namespace WAST
 		, functionDef(inModuleContext.module.functions.defs[functionDefIndex])
 		, functionType(inModuleContext.module.types[functionDef.type.index])
 		, string(inModuleContext.string)
+		, labelNames(inModuleContext.names.functions[module.functions.imports.size() + functionDefIndex].labels)
 		, localNames(inModuleContext.names.functions[module.functions.imports.size() + functionDefIndex].locals)
 		, labelNameScope('$')
+		, labelIndex(0)
 		{}
 
 		void printFunctionBody();
@@ -231,20 +225,23 @@ namespace WAST
 		void block(ControlStructureImm imm)
 		{
 			string += "\nblock";
-			pushControlStack(ControlContext::Type::block,"block");
-			printControlSignature(string,imm.resultType);
+			std::string labelId = printControlLabel("block");
+			printControlSignature(imm.resultType);
+			pushControlStack(ControlContext::Type::block,labelId);
 		}
 		void loop(ControlStructureImm imm)
 		{
 			string += "\nloop";
-			pushControlStack(ControlContext::Type::loop,"loop");
-			printControlSignature(string,imm.resultType);
+			std::string labelId = printControlLabel("loop");
+			printControlSignature(imm.resultType);
+			pushControlStack(ControlContext::Type::loop,labelId);
 		}
 		void if_(ControlStructureImm imm)
 		{
 			string += "\nif";
-			pushControlStack(ControlContext::Type::ifThen,"if");
-			printControlSignature(string,imm.resultType);
+			std::string labelId = printControlLabel("if");
+			printControlSignature(imm.resultType);
+			pushControlStack(ControlContext::Type::ifThen,labelId);
 		}
 		void else_(NoImm imm)
 		{
@@ -330,6 +327,16 @@ namespace WAST
 		void call_indirect(CallIndirectImm imm)
 		{
 			string += "\ncall_indirect " + moduleContext.names.types[imm.type.index];
+		}
+	
+		void printControlSignature(ResultType resultType)
+		{
+			if(resultType != ResultType::none)
+			{
+				string += " (result ";
+				print(string,resultType);
+				string += ')';
+			}
 		}
 
 		void printImm(NoImm) {}
@@ -426,16 +433,18 @@ namespace WAST
 			return controlContext.type == ControlContext::Type::function ? std::to_string(depth) : controlContext.labelId;
 		}
 
-		void pushControlStack(ControlContext::Type type,const char* labelIdBase)
+		std::string printControlLabel(const char* labelIdBase)
 		{
-			std::string labelId;
-			if(type != ControlContext::Type::function)
-			{
-				labelId = labelIdBase;
-				labelNameScope.map(labelId);
-				string += ' ';
-				string += labelId;
-			}
+			std::string labelId = labelIndex < labelNames.size() ? labelNames[labelIndex] : labelIdBase;
+			labelNameScope.map(labelId);
+			string += ' ';
+			string += labelId;
+			++labelIndex;
+			return labelId;
+		}
+
+		void pushControlStack(ControlContext::Type type,std::string labelId)
+		{
 			controlStack.push_back({type,labelId});
 			string += INDENT_STRING;
 		}
@@ -610,6 +619,11 @@ namespace WAST
 			string += ' ';
 			string += names.functions[functionIndex].name;
 			
+			// Print the function's type.
+			string += " (type ";
+			string += names.types[functionDef.type.index];
+			string += ')';
+
 			// Print the function parameters.
 			if(functionType->parameters.size())
 			{
@@ -671,7 +685,7 @@ namespace WAST
 	void FunctionPrintContext::printFunctionBody()
 	{
 		//string += "(";
-		pushControlStack(ControlContext::Type::function,nullptr);
+		pushControlStack(ControlContext::Type::function,"");
 		string += DEDENT_STRING;
 
 		OperatorDecoderStream decoder(functionDef.code);

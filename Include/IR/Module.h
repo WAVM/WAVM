@@ -166,8 +166,10 @@ namespace IR
 		{
 			std::string name;
 			std::vector<std::string> locals;
+			std::vector<std::string> labels;
 		};
 
+		std::string moduleName;
 		std::vector<std::string> types;
 		std::vector<Function> functions;
 		std::vector<std::string> tables;
