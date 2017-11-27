@@ -19,9 +19,10 @@ namespace WAST
 			assert_return_canonical_nan,
 			assert_return_arithmetic_nan,
 			assert_trap,
+			assert_throws,
 			assert_invalid,
 			assert_malformed,
-			assert_unlinkable
+			assert_unlinkable,
 		};
 		const Type type;
 		const TextFileLocus locus;
@@ -116,9 +117,29 @@ namespace WAST
 	struct AssertTrapCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		Runtime::Exception::Cause expectedCause;
-		AssertTrapCommand(TextFileLocus&& inLocus,Action* inAction,Runtime::Exception::Cause inExpectedCause)
-		: Command(Command::assert_trap,std::move(inLocus)), action(inAction), expectedCause(inExpectedCause) {}
+		Runtime::ExceptionTypeInstance* expectedType;
+		AssertTrapCommand(TextFileLocus&& inLocus,Action* inAction,Runtime::ExceptionTypeInstance* inExpectedType)
+		: Command(Command::assert_trap,std::move(inLocus)), action(inAction), expectedType(inExpectedType) {}
+	};
+
+	struct AssertThrowsCommand : Command
+	{
+		std::unique_ptr<Action> action;
+		std::string exceptionTypeInternalModuleName;
+		std::string exceptionTypeExportName;
+		std::vector<Runtime::Value> expectedArguments;
+		AssertThrowsCommand(
+			TextFileLocus&& inLocus,
+			Action* inAction,
+			std::string&& inExceptionTypeInternalModuleName,
+			std::string&& inExceptionTypeExportName,
+			std::vector<Runtime::Value>&& inExpectedArguments)
+		: Command(Command::assert_throws,std::move(inLocus))
+		, action(inAction)
+		, exceptionTypeInternalModuleName(inExceptionTypeInternalModuleName)
+		, exceptionTypeExportName(inExceptionTypeExportName)
+		, expectedArguments(inExpectedArguments)
+		{}
 	};
 
 	struct AssertInvalidOrMalformedCommand : Command

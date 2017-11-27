@@ -101,27 +101,27 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroOrIntegerOverflowTrap,divideByZeroOrIntegerOverflowTrap,none)
 	{
-		causeException(Exception::Cause::integerDivideByZeroOrIntegerOverflow);
+		throwException(Exception::integerDivideByZeroOrIntegerOverflowType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,unreachableTrap,unreachableTrap,none)
 	{
-		causeException(Exception::Cause::reachedUnreachable);
+		throwException(Exception::reachedUnreachableType);
 	}
 	
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,accessViolationTrap,accessViolationTrap,none)
 	{
-		causeException(Exception::Cause::accessViolation);
+		throwException(Exception::accessViolationType);
 	}
 	
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,invalidFloatOperationTrap,invalidFloatOperationTrap,none)
 	{
-		causeException(Exception::Cause::invalidFloatOperation);
+		throwException(Exception::invalidFloatOperationType);
 	}
 	
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,integerOverflowTrap,integerOverflowTrap,none)
 	{
-		causeException(Exception::Cause::integerDivideByZeroOrIntegerOverflow);
+		throwException(Exception::integerDivideByZeroOrIntegerOverflowType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableBits)
@@ -138,12 +138,12 @@ namespace Runtime
 			actualSignature ? asString(actualSignature).c_str() : "nullptr",
 			ipDescription.c_str()
 			);
-		causeException(elementValue == nullptr ? Exception::Cause::undefinedTableElement : Exception::Cause::indirectCallSignatureMismatch);
+		throwException(elementValue == nullptr ? Exception::undefinedTableElementType : Exception::indirectCallSignatureMismatchType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallIndexOutOfBounds,indirectCallIndexOutOfBounds,none)
 	{
-		causeException(Exception::Cause::undefinedTableElement);
+		throwException(Exception::undefinedTableElementType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,_growMemory,growMemory,i32,i32,deltaPages,i64,memoryBits)

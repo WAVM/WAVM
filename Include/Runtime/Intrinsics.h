@@ -9,30 +9,32 @@ namespace Intrinsics
 	// An intrinsic function.
 	struct Function
 	{
-		Runtime::FunctionInstance* function;
-
 		RUNTIME_API Function(const char* inName,const IR::FunctionType* type,void* nativeFunction);
 		RUNTIME_API ~Function();
+		
+		Runtime::FunctionInstance* getObject() const { return function; }
 
 	private:
 		const char* name;
+		Runtime::GCPointer<Runtime::FunctionInstance> function;
 	};
 	
 	// The base class of Intrinsic globals.
 	struct Global
 	{
-		Runtime::GlobalInstance* global;
-
 		RUNTIME_API Global(const char* inName,IR::GlobalType inType);
 		RUNTIME_API ~Global();
 		
 		RUNTIME_API void reset();
+
+		Runtime::GlobalInstance* getObject() const { return global; }
 
 	protected:
 		void* value;
 	private:
 		const char* name;
 		IR::GlobalType globalType;
+		Runtime::GCPointer<Runtime::GlobalInstance> global;
 	};
 	
 	// A partially specialized template for Intrinsic globals:
@@ -75,7 +77,7 @@ namespace Intrinsics
 
 	private:
 		const char* name;
-		Runtime::MemoryInstance* const memory;
+		Runtime::GCPointer<Runtime::MemoryInstance> const memory;
 	};
 
 	struct Table
@@ -87,14 +89,11 @@ namespace Intrinsics
 
 	private:
 		const char* name;
-		Runtime::TableInstance* const table;
+		Runtime::GCPointer<Runtime::TableInstance> const table;
 	};
 
 	// Finds an intrinsic object by name and type.
 	RUNTIME_API Runtime::ObjectInstance* find(const std::string& name,const IR::ObjectType& type);
-
-	// Returns an array of all intrinsic runtime Objects; used as roots for garbage collection.
-	RUNTIME_API std::vector<Runtime::ObjectInstance*> getAllIntrinsicObjects();
 }
 
 namespace NativeTypes

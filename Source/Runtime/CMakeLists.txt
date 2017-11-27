@@ -1,9 +1,11 @@
 set(Sources
+	Exception.cpp
 	Intrinsics.cpp
 	Linker.cpp
 	LLVMEmitIR.cpp
 	LLVMJIT.cpp
 	LLVMJIT.h
+	LLVMWin64EH.cpp
 	Memory.cpp
 	ModuleInstance.cpp
 	ObjectGC.cpp

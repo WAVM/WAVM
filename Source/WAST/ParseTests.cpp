@@ -204,8 +204,11 @@ static Command* parseCommand(ParseState& state)
 		|| state.nextToken[1].type == t_get))
 	{
 		Action* action = parseAction(state);
-		TextFileLocus locus = action->locus;
-		result = new ActionCommand(std::move(locus),action);
+		if(action)
+		{
+			TextFileLocus locus = action->locus;
+			result = new ActionCommand(std::move(locus),action);
+		}
 	}
 	else
 	{
@@ -253,25 +256,50 @@ static Command* parseCommand(ParseState& state)
 
 				Action* action = parseAction(state);
 
+				const Token* errorToken = state.nextToken;
 				std::string expectedErrorMessage;
 				if(!tryParseString(state,expectedErrorMessage))
 				{
 					parseErrorf(state,state.nextToken,"expected string literal");
 					throw RecoverParseException();
 				}
-				Runtime::Exception::Cause expectedCause = Runtime::Exception::Cause::unknown;
-				if(!strcmp(expectedErrorMessage.c_str(),"out of bounds memory access")) { expectedCause = Runtime::Exception::Cause::accessViolation; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"call stack exhausted")) { expectedCause = Runtime::Exception::Cause::stackOverflow; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"integer overflow")) { expectedCause = Runtime::Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"integer divide by zero")) { expectedCause = Runtime::Exception::Cause::integerDivideByZeroOrIntegerOverflow; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"invalid conversion to integer")) { expectedCause = Runtime::Exception::Cause::invalidFloatOperation; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"unaligned atomic")) { expectedCause = Runtime::Exception::Cause::misalignedAtomicMemoryAccess; }
-				else if(stringStartsWith(expectedErrorMessage.c_str(),"unreachable")) { expectedCause = Runtime::Exception::Cause::reachedUnreachable; }
-				else if(stringStartsWith(expectedErrorMessage.c_str(),"indirect call")) { expectedCause = Runtime::Exception::Cause::indirectCallSignatureMismatch; }
-				else if(stringStartsWith(expectedErrorMessage.c_str(),"undefined")) { expectedCause = Runtime::Exception::Cause::undefinedTableElement; }
-				else if(stringStartsWith(expectedErrorMessage.c_str(),"uninitialized")) { expectedCause = Runtime::Exception::Cause::undefinedTableElement; }
+				Runtime::ExceptionTypeInstance* expectedType = nullptr;
+				if(!strcmp(expectedErrorMessage.c_str(),"out of bounds memory access")) { expectedType = Runtime::Exception::accessViolationType; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"call stack exhausted")) { expectedType = Runtime::Exception::stackOverflowType; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"integer overflow")) { expectedType = Runtime::Exception::integerDivideByZeroOrIntegerOverflowType; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"integer divide by zero")) { expectedType = Runtime::Exception::integerDivideByZeroOrIntegerOverflowType; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"invalid conversion to integer")) { expectedType = Runtime::Exception::invalidFloatOperationType; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"unaligned atomic")) { expectedType = Runtime::Exception::misalignedAtomicMemoryAccessType; }
+				else if(stringStartsWith(expectedErrorMessage.c_str(),"unreachable")) { expectedType = Runtime::Exception::reachedUnreachableType; }
+				else if(stringStartsWith(expectedErrorMessage.c_str(),"indirect call")) { expectedType = Runtime::Exception::indirectCallSignatureMismatchType; }
+				else if(stringStartsWith(expectedErrorMessage.c_str(),"undefined")) { expectedType = Runtime::Exception::undefinedTableElementType; }
+				else if(stringStartsWith(expectedErrorMessage.c_str(),"uninitialized")) { expectedType = Runtime::Exception::undefinedTableElementType; }
+				else { parseErrorf(state,errorToken,"unrecognized trap type"); throw RecoverParseException(); }
 
-				result = new AssertTrapCommand(std::move(locus),action,expectedCause);
+				result = new AssertTrapCommand(std::move(locus),action,expectedType);
+				break;
+			}
+			case t_assert_throws:
+			{
+				++state.nextToken;
+
+				Action* action = parseAction(state);
+
+				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(state);
+				std::string exceptionTypeExportName = parseUTF8String(state);
+
+				std::vector<Runtime::Value> expectedArguments;
+				while(state.nextToken->type == t_leftParenthesis)
+				{
+					expectedArguments.push_back(parseConstExpression(state));
+				};
+
+				result = new AssertThrowsCommand(
+					std::move(locus),
+					action,
+					std::move(exceptionTypeInternalModuleName),
+					std::move(exceptionTypeExportName),
+					std::move(expectedArguments));
 				break;
 			}
 			case t_assert_unlinkable:

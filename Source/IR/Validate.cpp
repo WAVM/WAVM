@@ -179,6 +179,8 @@ namespace IR
 					case ControlContext::Type::ifThen: controlStackString += "T"; break;
 					case ControlContext::Type::ifElse: controlStackString += "E"; break;
 					case ControlContext::Type::loop: controlStackString += "L"; break;
+					case ControlContext::Type::try_: controlStackString += "R"; break;
+					case ControlContext::Type::catch_: controlStackString += "C"; break;
 					default: Errors::unreachable();
 					};
 					if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
@@ -229,6 +231,29 @@ namespace IR
 			popAndValidateResultType("end result",controlStack.back().resultType);
 			popControlStack();
 		}
+
+		#if ENABLE_EXCEPTION_PROTOTYPE
+		void try_(ControlStructureImm imm)
+		{
+			validate(imm.resultType);
+			pushControlStack(ControlContext::Type::try_,imm.resultType,imm.resultType);
+		}
+		void catch_(CatchImm imm)
+		{
+			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
+			const TupleType& tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+
+			popAndValidateResultType("try result",controlStack.back().resultType);
+			popControlStack(false,true);
+
+			for(auto parameterType : tupleType.elements) { pushOperand(parameterType); }
+		}
+		void catch_all(NoImm)
+		{
+			popAndValidateResultType("try result",controlStack.back().resultType);
+			popControlStack(false,true);
+		}
+		#endif
 		
 		void return_(NoImm)
 		{
@@ -373,6 +398,23 @@ namespace IR
 			VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",imm.alignmentLog2 != naturalAlignmentLog2);
 		}
 		#endif
+		
+		#if ENABLE_EXCEPTION_PROTOTYPE
+		void validateImm(ThrowImm imm)
+		{
+			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
+			const TupleType& tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+			popAndValidateOperands("exception arguments",tupleType.elements.data(),(Uptr)tupleType.elements.size());
+			enterUnreachable();
+		}
+		void validateImm(RethrowImm imm)
+		{
+			VALIDATE_UNLESS(
+				"rethrow must target a catch: ",
+				getBranchTargetByDepth(imm.catchDepth).type != ControlContext::Type::catch_);
+			enterUnreachable();
+		}
+		#endif
 
 		#define LOAD(resultTypeId) \
 			popAndValidateOperand(operatorName,ValueType::i32); \
@@ -411,6 +453,11 @@ namespace IR
 			pushOperand(ValueType::valueTypeId);
 		#endif
 
+		#if ENABLE_EXCEPTION_PROTOTYPE
+		#define THROW
+		#define RETHROW
+		#endif
+
 		#define VALIDATE_OP(opcode,name,nameString,Imm,validateOperands) \
 			void name(Imm imm) \
 			{ \
@@ -432,7 +479,9 @@ namespace IR
 				ifWithoutElse,
 				ifThen,
 				ifElse,
-				loop
+				loop,
+				try_,
+				catch_
 			};
 
 			Type type;
@@ -456,7 +505,7 @@ namespace IR
 			controlStack.push_back({type,stack.size(),branchArgumentType,resultType,true});
 		}
 
-		void popControlStack(bool isElse = false)
+		void popControlStack(bool isElse = false,bool isCatch = false)
 		{
 			VALIDATE_UNLESS("stack was not empty at end of control structure: ",stack.size() > controlStack.back().outerStackSize);
 
@@ -465,9 +514,17 @@ namespace IR
 				controlStack.back().type = ControlContext::Type::ifElse;
 				controlStack.back().isReachable = true;
 			}
+			else if(isCatch &&
+					(controlStack.back().type == ControlContext::Type::try_
+					|| controlStack.back().type == ControlContext::Type::catch_))
+			{
+				controlStack.back().type = ControlContext::Type::catch_;
+				controlStack.back().isReachable = true;
+			}
 			else
 			{
 				VALIDATE_UNLESS("else only allowed in if context: ",isElse);
+				VALIDATE_UNLESS("catch only allowed in try context: ",isCatch);
 				const ResultType resultType = controlStack.back().resultType;
 				if(controlStack.back().type == ControlContext::Type::ifThen && resultType != ResultType::none)
 				{
@@ -619,6 +676,9 @@ namespace IR
 				break;
 			case ObjectKind::global:
 				validateGlobalIndex(module,exportIt.index,false,true,false,"exported global index");
+				break;
+			case ObjectKind::exceptionType:
+				VALIDATE_INDEX(exportIt.index,module.exceptionTypes.size());
 				break;
 			default: throw ValidationException("unknown export kind");
 			};

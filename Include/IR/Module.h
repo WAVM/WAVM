@@ -65,6 +65,12 @@ namespace IR
 		InitializerExpression initializer;
 	};
 
+	// A tagged tuple type definition
+	struct ExceptionTypeDef
+	{
+		TupleType type;
+	};
+
 	// Describes an object imported into a module or a specific type
 	template<typename Type>
 	struct Import
@@ -78,6 +84,7 @@ namespace IR
 	typedef Import<TableType> TableImport;
 	typedef Import<MemoryType> MemoryImport;
 	typedef Import<GlobalType> GlobalImport;
+	typedef Import<TupleType> ExceptionTypeImport;
 
 	// Describes an export from a module. The interpretation of index depends on kind
 	struct Export
@@ -134,6 +141,7 @@ namespace IR
 		IndexSpace<TableDef,TableType> tables;
 		IndexSpace<MemoryDef,MemoryType> memories;
 		IndexSpace<GlobalDef,GlobalType> globals;
+		IndexSpace<ExceptionTypeDef,TupleType> exceptionTypes;
 
 		std::vector<Export> exports;
 		std::vector<DataSegment> dataSegments;
@@ -175,6 +183,7 @@ namespace IR
 		std::vector<std::string> tables;
 		std::vector<std::string> memories;
 		std::vector<std::string> globals;
+		std::vector<std::string> exceptionTypes;
 	};
 	
 	// Looks for a name section in a module. If it exists, deserialize it into outNames.

@@ -1,4 +1,6 @@
 #include "Inline/BasicTypes.h"
+#include "Inline/Timing.h"
+#include "Logging/Logging.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 #include "Intrinsics.h"
@@ -11,6 +13,7 @@ namespace Runtime
 	// Keep a global list of all objects.
 	struct GCGlobals
 	{
+		Platform::Mutex* mutex;
 		std::set<GCObject*> allObjects;
 
 		static GCGlobals& get()
@@ -20,46 +23,46 @@ namespace Runtime
 		}
 		
 	private:
-		GCGlobals() {}
+		GCGlobals(): mutex(Platform::createMutex()) {}
 	};
 
-	GCObject::GCObject(ObjectKind inKind): ObjectInstance(inKind)
+	GCObject::GCObject(ObjectKind inKind)
+	: ObjectInstance(inKind), numRootReferences(0)
 	{
 		// Add the object to the global array.
+		Platform::Lock lock(GCGlobals::get().mutex);
 		GCGlobals::get().allObjects.insert(this);
 	}
 
-	GCObject::~GCObject()
+	void addGCRoot(ObjectInstance* object)
 	{
-		// Remove the object from the global array.
-		GCGlobals::get().allObjects.erase(this);
+		GCObject* gcObject = (GCObject*)object;
+		++gcObject->numRootReferences;
 	}
 
-	void freeUnreferencedObjects(std::vector<ObjectInstance*>&& rootObjectReferences)
+	void removeGCRoot(ObjectInstance* object)
 	{
+		GCObject* gcObject = (GCObject*)object;
+		--gcObject->numRootReferences;
+	}
+
+	void collectGarbage()
+	{
+		Platform::Lock lock(GCGlobals::get().mutex);
+		Timing::Timer timer;
+
 		std::set<ObjectInstance*> referencedObjects;
 		std::vector<ObjectInstance*> pendingScanObjects;
-
-		// Gather GC roots from running WASM threads.
-		getThreadGCRoots(rootObjectReferences);
-
-		// Initialize the referencedObjects set from the rootObjectReferences and intrinsic objects.
-		for(auto object : rootObjectReferences)
+		
+		// Initialize the referencedObjects set from the rooted object set.
+		Uptr numRoots = 0;
+		for(auto object : GCGlobals::get().allObjects)
 		{
-			if(object && !referencedObjects.count(object))
+			if(object && object->numRootReferences > 0)
 			{
 				referencedObjects.insert(object);
 				pendingScanObjects.push_back(object);
-			}
-		}
-
-		const std::vector<ObjectInstance*> intrinsicObjects = Intrinsics::getAllIntrinsicObjects();
-		for(auto object : intrinsicObjects)
-		{
-			if(object && !referencedObjects.count(object))
-			{
-				referencedObjects.insert(object);
-				pendingScanObjects.push_back(object);
+				++numRoots;
 			}
 		}
 
@@ -98,7 +101,9 @@ namespace Runtime
 				break;
 			}
 			case ObjectKind::memory:
-			case ObjectKind::global: break;
+			case ObjectKind::global:
+			case ObjectKind::exceptionType:
+				break;
 			default: Errors::unreachable();
 			};
 
@@ -116,6 +121,7 @@ namespace Runtime
 		// Iterate over all objects, and delete objects that weren't referenced directly or indirectly by the root set.
 		GCGlobals& gcGlobals = GCGlobals::get();
 		auto objectIt = gcGlobals.allObjects.begin();
+		const Uptr originalNumObjects = gcGlobals.allObjects.size();
 		while(objectIt != gcGlobals.allObjects.end())
 		{
 			if(referencedObjects.count(*objectIt)) { ++objectIt; }
@@ -126,5 +132,9 @@ namespace Runtime
 				delete object;
 			}
 		}
+
+		Log::printf(Log::Category::metrics,"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
+			timer.getMilliseconds(),
+			numRoots,originalNumObjects,originalNumObjects - gcGlobals.allObjects.size());
 	}
 }

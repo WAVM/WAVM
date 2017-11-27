@@ -34,7 +34,8 @@ namespace Runtime
 			std::move(imports.functions),
 			std::move(imports.tables),
 			std::move(imports.memories),
-			std::move(imports.globals)
+			std::move(imports.globals),
+			std::move(imports.exceptionTypes)
 			);
 		
 		// Get disassembly names for the module's objects.
@@ -62,18 +63,23 @@ namespace Runtime
 		{
 			errorUnless(isA(moduleInstance->globals[importIndex],module.globals.imports[importIndex].type));
 		}
+		errorUnless(moduleInstance->exceptionTypes.size() == module.exceptionTypes.imports.size());
+		for(Uptr importIndex = 0;importIndex < module.exceptionTypes.imports.size();++importIndex)
+		{
+			errorUnless(moduleInstance->exceptionTypes[importIndex]->parameters == module.exceptionTypes.imports[importIndex].type);
+		}
 
 		// Instantiate the module's memory and table definitions.
 		for(const TableDef& tableDef : module.tables.defs)
 		{
 			auto table = createTable(tableDef.type);
-			if(!table) { causeException(Exception::Cause::outOfMemory); }
+			if(!table) { throwException(Exception::outOfMemoryType); }
 			moduleInstance->tables.push_back(table);
 		}
 		for(const MemoryDef& memoryDef : module.memories.defs)
 		{
 			auto memory = createMemory(memoryDef.type);
-			if(!memory) { causeException(Exception::Cause::outOfMemory); }
+			if(!memory) { throwException(Exception::outOfMemoryType); }
 			moduleInstance->memories.push_back(memory);
 		}
 
@@ -98,7 +104,7 @@ namespace Runtime
 			const U32 baseOffset = baseOffsetValue.i32;
 			if(baseOffset > table->elements.size()
 			|| table->elements.size() - baseOffset < tableSegment.indices.size())
-			{ causeException(Exception::Cause::invalidSegmentOffset); }
+			{ throwException(Exception::invalidSegmentOffsetType); }
 		}
 		for(auto& dataSegment : module.dataSegments)
 		{
@@ -110,7 +116,7 @@ namespace Runtime
 			const Uptr numMemoryBytes = (memory->numPages << IR::numBytesPerPageLog2);
 			if(baseOffset > numMemoryBytes
 			|| numMemoryBytes - baseOffset < dataSegment.data.size())
-			{ causeException(Exception::Cause::invalidSegmentOffset); }
+			{ throwException(Exception::invalidSegmentOffsetType); }
 		}
 
 		// Copy the module's data segments into the module's default memory.
@@ -133,6 +139,12 @@ namespace Runtime
 			const Value initialValue = evaluateInitializer(moduleInstance,globalDef.initializer);
 			errorUnless(initialValue.type == globalDef.type.valueType);
 			moduleInstance->globals.push_back(new GlobalInstance(globalDef.type,initialValue));
+		}
+
+		// Instantiate the module's exception types.
+		for(const ExceptionTypeDef& exceptionTypeDef : module.exceptionTypes.defs)
+		{
+			moduleInstance->exceptionTypes.push_back(new ExceptionTypeInstance(exceptionTypeDef.type));
 		}
 		
 		// Create the FunctionInstance objects for the module's function definitions.
@@ -160,6 +172,7 @@ namespace Runtime
 			case ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
 			case ObjectKind::memory: exportedObject = moduleInstance->memories[exportIt.index]; break;
 			case ObjectKind::global: exportedObject = moduleInstance->globals[exportIt.index]; break;
+			case ObjectKind::exceptionType: exportedObject = moduleInstance->exceptionTypes[exportIt.index]; break;
 			default: Errors::unreachable();
 			}
 			moduleInstance->exportMap[exportIt.name] = exportedObject;

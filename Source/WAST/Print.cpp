@@ -400,6 +400,32 @@ namespace WAST
 		}
 		#endif
 
+		#if ENABLE_EXCEPTION_PROTOTYPE
+		void printImm(ThrowImm) {}
+		void printImm(RethrowImm) {}
+
+		void try_(ControlStructureImm imm)
+		{
+			string += "\ntry";
+			pushControlStack(ControlContext::Type::try_,"try");
+			printControlSignature(imm.resultType);
+		}
+		void catch_(CatchImm imm)
+		{
+			string += DEDENT_STRING;
+			controlStack.back().type = ControlContext::Type::catch_;
+			string += "\ncatch ";
+			string += moduleContext.names.functions[imm.exceptionTypeIndex].name;
+			string += INDENT_STRING;
+		}
+		void catch_all(NoImm)
+		{
+			string += DEDENT_STRING;
+			controlStack.back().type = ControlContext::Type::catch_;
+			string += "\ncatch_all" INDENT_STRING;
+		}
+		#endif
+
 		#define PRINT_OP(opcode,name,nameString,Imm,printOperands) \
 			void name(Imm imm) \
 			{ \
@@ -419,7 +445,9 @@ namespace WAST
 				block,
 				ifThen,
 				ifElse,
-				loop
+				loop,
+				try_,
+				catch_,
 			};
 			Type type;
 			std::string labelId;

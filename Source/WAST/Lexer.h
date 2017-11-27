@@ -27,6 +27,7 @@
 	VISIT_LITERAL_TOKEN(assert_return_canonical_nan) \
 	VISIT_LITERAL_TOKEN(assert_return_arithmetic_nan) \
 	VISIT_LITERAL_TOKEN(assert_trap) \
+	VISIT_LITERAL_TOKEN(assert_throws) \
 	VISIT_LITERAL_TOKEN(assert_invalid) \
 	VISIT_LITERAL_TOKEN(assert_unlinkable) \
 	VISIT_LITERAL_TOKEN(assert_malformed) \
@@ -46,8 +47,9 @@
 	VISIT_LITERAL_TOKEN(shared) \
 	VISIT_LITERAL_TOKEN(quote) \
 	VISIT_LITERAL_TOKEN(binary) \
-	VISIT_LITERAL_TOKEN(v128)
-	
+	VISIT_LITERAL_TOKEN(v128) \
+	VISIT_LITERAL_TOKEN(exception_type)
+
 #define ENUM_TOKENS() \
 	VISIT_TOKEN(eof,"eof") \
 	\

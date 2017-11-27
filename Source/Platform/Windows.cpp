@@ -5,6 +5,7 @@
 #include "Platform.h"
 
 #include <inttypes.h>
+#include <map>
 #include <algorithm>
 #include <Windows.h>
 #include <DbgHelp.h>
@@ -146,7 +147,6 @@ namespace Platform
 		{
 			auto functionTable = reinterpret_cast<RUNTIME_FUNCTION*>(pdataAddress);
 			RtlDeleteFunctionTable(functionTable);
-			delete [] functionTable;
 		}
 	#endif
 	
@@ -209,34 +209,39 @@ namespace Platform
 
 		return result;
 	}
-
-	THREAD_LOCAL bool isReentrantException = false;
-	LONG CALLBACK sehFilterFunction(EXCEPTION_POINTERS* exceptionPointers,HardwareTrapType& outType,Uptr& outTrapOperand,CallStack& outCallStack)
+	
+	THREAD_LOCAL bool isReentrantSignal = false;
+	LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointers,SignalType& outType,void*& outSignalData,CallStack*& outCallStack)
 	{
-		if(isReentrantException) { Errors::fatal("reentrant exception"); }
+		if(isReentrantSignal) { Errors::fatal("reentrant exception"); }
 		else
 		{
 			// Decide how to handle this exception code.
 			switch(exceptionPointers->ExceptionRecord->ExceptionCode)
 			{
 			case EXCEPTION_ACCESS_VIOLATION:
-				outType = HardwareTrapType::accessViolation;
-				outTrapOperand = exceptionPointers->ExceptionRecord->ExceptionInformation[1];
+			{
+				outType = SignalType::accessViolation;
+				AccessViolationSignalData* accessViolationData = new AccessViolationSignalData;
+				accessViolationData->address = exceptionPointers->ExceptionRecord->ExceptionInformation[1];
+				outSignalData = accessViolationData;
 				break;
-			case EXCEPTION_STACK_OVERFLOW: outType = HardwareTrapType::stackOverflow; break;
-			case STATUS_INTEGER_DIVIDE_BY_ZERO: outType = HardwareTrapType::intDivideByZeroOrOverflow; break;
-			case STATUS_INTEGER_OVERFLOW: outType = HardwareTrapType::intDivideByZeroOrOverflow; break;
+			}
+			case EXCEPTION_STACK_OVERFLOW: outType = SignalType::stackOverflow; break;
+			case STATUS_INTEGER_DIVIDE_BY_ZERO: outType = SignalType::intDivideByZeroOrOverflow; break;
+			case STATUS_INTEGER_OVERFLOW: outType = SignalType::intDivideByZeroOrOverflow; break;
 			default: return EXCEPTION_CONTINUE_SEARCH;
 			}
-			isReentrantException = true;
+			isReentrantSignal = true;
 
 			// Unwind the stack frames from the context of the exception.
-			outCallStack = unwindStack(*exceptionPointers->ContextRecord);
+			outCallStack = new CallStack();
+			*outCallStack = unwindStack(*exceptionPointers->ContextRecord);
 
 			return EXCEPTION_EXECUTE_HANDLER;
 		}
 	}
-	
+
 	THREAD_LOCAL bool isThreadInitialized = false;
 	void initThread()
 	{
@@ -249,30 +254,72 @@ namespace Platform
 			SetThreadStackGuarantee(&stackOverflowReserveBytes);
 		}
 	}
-
-	HardwareTrapType catchHardwareTraps(
-		CallStack& outTrapCallStack,
-		Uptr& outTrapOperand,
-		const std::function<void()>& thunk
+	
+	bool catchSignals(
+		const std::function<void()>& thunk,
+		const std::function<void(SignalType,void*,const CallStack&)>& handler
 		)
 	{
 		initThread();
 
-		HardwareTrapType result = HardwareTrapType::none;
+		SignalType signalType = SignalType::accessViolation;
+		void* signalData = nullptr;
+		CallStack* callStack = nullptr;
 		__try
 		{
 			thunk();
+			return false;
 		}
-		__except(sehFilterFunction(GetExceptionInformation(),result,outTrapOperand,outTrapCallStack))
+		__except(sehSignalFilterFunction(GetExceptionInformation(),signalType,signalData,callStack))
 		{
-			isReentrantException = false;
+			isReentrantSignal = false;
 			
+			handler(signalType,signalData,*callStack);
+
+			if(signalData) { delete signalData; }
+
 			// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
-			if(result == HardwareTrapType::stackOverflow) { _resetstkoflw(); }
+			if(signalType == SignalType::stackOverflow) { _resetstkoflw(); }
+
+			return true;
 		}
-		return result;
+	}
+
+	bool catchPlatformExceptions(
+		const std::function<void()>& thunk,
+		const std::function<void(void*)>& handler
+		)
+	{
+		EXCEPTION_POINTERS* exceptionPointers = nullptr;
+		__try
+		{
+			thunk();
+			return false;
+		}
+		__except(exceptionPointers = GetExceptionInformation(), GetExceptionCode() == SEH_WAVM_EXCEPTION)
+		{
+			auto exceptionData = reinterpret_cast<void*>(exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
+			
+			handler(exceptionData);
+
+			if(exceptionData) { delete [] (U8*)exceptionData; }
+
+			return true;
+		}
 	}
 	
+	void* allocateExceptionData(Uptr numBytes)
+	{
+		return new U8[numBytes];
+	}
+
+	[[noreturn]] void raisePlatformException(void* data)
+	{
+		Uptr arguments[1] = { reinterpret_cast<Uptr>(data) };
+		RaiseException(U32(SEH_WAVM_EXCEPTION),0,1,arguments);
+		Errors::unreachable();
+	}
+
 	U64 getMonotonicClock()
 	{
 		LARGE_INTEGER performanceCounter;

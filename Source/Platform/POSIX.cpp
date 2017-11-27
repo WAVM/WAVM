@@ -28,6 +28,14 @@
 	#include <dlfcn.h>
 #endif
 
+extern "C"
+{
+	extern void* __cxa_allocate_exception(size_t numBytes) throw();
+	extern void __cxa_free_exception(void* exception) throw();
+	extern void __cxa_throw(void* exception,void* exceptionTypeInfo,void (*dest)(void*));
+	extern std::type_info* __cxa_current_exception_type();
+}
+
 namespace Platform
 {
 	static Uptr internalGetPreferredVirtualPageSizeLog2()
@@ -158,43 +166,25 @@ namespace Platform
 		}
 	}
 
-	THREAD_LOCAL jmp_buf signalReturnEnv;
-	THREAD_LOCAL HardwareTrapType signalType = HardwareTrapType::none;
-	THREAD_LOCAL CallStack* signalCallStack = nullptr;
-	THREAD_LOCAL Uptr* signalOperand = nullptr;
-	THREAD_LOCAL bool isReentrantSignal = false;
-	THREAD_LOCAL bool isCatchingSignals = false;
+	struct SignalContext
+	{
+		SignalContext* outerContext;
+		jmp_buf returnEnv;
+		SignalType outSignalType;
+		void* outSignalData;
+		CallStack outCallStack;
+	};
 
-	void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
+	THREAD_LOCAL SignalContext* innermostSignalContext = nullptr;
+	THREAD_LOCAL bool isReentrantSignal = false;
+
+	[[noreturn]] void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
 	{
 		if(isReentrantSignal) { Errors::fatal("reentrant signal handler"); }
 		isReentrantSignal = true;
 
-		// Derive the exception cause the from signal that was received.
-		switch(signalNumber)
-		{
-		case SIGFPE:
-			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Errors::fatal("unknown SIGFPE code"); }
-			signalType = HardwareTrapType::intDivideByZeroOrOverflow;
-			break;
-		case SIGSEGV:
-		case SIGBUS:
-			signalType = signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
-				? HardwareTrapType::stackOverflow
-				: HardwareTrapType::accessViolation;
-			*signalOperand = reinterpret_cast<Uptr>(signalInfo->si_addr);
-			break;
-		default:
-			Errors::fatalf("unknown signal number: %i",signalNumber);
-			break;
-		};
-
-		// Capture the execution context, omitting this function and the function that called it,
-		// so the top of the callstack is the function that triggered the signal.
-		*signalCallStack = captureCallStack(2);
-
-		// If the signal occurred outside of a catchHardwareTraps call, just treat it as a fatal error.
-		if(!isCatchingSignals)
+		// If the signal occurred outside of a catchPlatformExceptions call, just treat it as a fatal error.
+		if(!innermostSignalContext)
 		{
 			switch(signalNumber)
 			{
@@ -205,8 +195,36 @@ namespace Platform
 			};
 		}
 
-		// Jump back to the setjmp in catchHardwareTraps.
-		siglongjmp(signalReturnEnv,1);
+		// Derive the exception cause the from signal that was received.
+		switch(signalNumber)
+		{
+		case SIGFPE:
+			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Errors::fatal("unknown SIGFPE code"); }
+			innermostSignalContext->outSignalType = SignalType::intDivideByZeroOrOverflow;
+			break;
+		case SIGSEGV:
+		case SIGBUS:
+		{
+			innermostSignalContext->outSignalType
+				= signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
+					? SignalType::stackOverflow
+					: SignalType::accessViolation;
+			auto accessViolationSignalData = new AccessViolationSignalData;
+			accessViolationSignalData->address = reinterpret_cast<Uptr>(signalInfo->si_addr);
+			innermostSignalContext->outSignalData = accessViolationSignalData;
+			break;
+		}
+		default:
+			Errors::fatalf("unknown signal number: %i",signalNumber);
+			break;
+		};
+
+		// Capture the execution context, omitting this function and the function that called it,
+		// so the top of the callstack is the function that triggered the signal.
+		innermostSignalContext->outCallStack = captureCallStack(2);
+
+		// Jump back to the setjmp in catchPlatformExceptions.
+		siglongjmp(innermostSignalContext->returnEnv,1);
 	}
 
 	THREAD_LOCAL bool hasInitializedSignalHandlers = false;
@@ -228,40 +246,41 @@ namespace Platform
 		}
 	}
 
-	HardwareTrapType catchHardwareTraps(
-		CallStack& outTrapCallStack,
-		Uptr& outTrapOperand,
-		const std::function<void()>& thunk
+	bool catchSignals(
+		const std::function<void()>& thunk,
+		const std::function<void(SignalType,void*,const CallStack&)>& handler
 		)
 	{
 		initThread();
 		initSignals();
-		
-		jmp_buf oldSignalReturnEnv;
-		memcpy(&oldSignalReturnEnv,&signalReturnEnv,sizeof(jmp_buf));
-		const bool oldIsCatchingSignals = isCatchingSignals;
+
+		SignalContext signalContext;
+		signalContext.outerContext = innermostSignalContext;
+		signalContext.outSignalData = nullptr;
+		signalContext.outSignalType = SignalType::accessViolation;
 
 		// Use setjmp to allow signals to jump back to this point.
-		bool isReturningFromSignalHandler = sigsetjmp(signalReturnEnv,1);
+		bool isReturningFromSignalHandler = sigsetjmp(signalContext.returnEnv,1);
 		if(!isReturningFromSignalHandler)
 		{
-			signalType = HardwareTrapType::none;
-			signalCallStack = &outTrapCallStack;
-			signalOperand = &outTrapOperand;
-			isCatchingSignals = true;
+			innermostSignalContext = &signalContext;
 
 			// Call the thunk.
 			thunk();
 		}
+		else
+		{
+			handler(
+				innermostSignalContext->outSignalType,
+				innermostSignalContext->outSignalData,
+				innermostSignalContext->outCallStack
+				);
+		}
 
-		// Reset the signal state.
-		memcpy(&signalReturnEnv,&oldSignalReturnEnv,sizeof(jmp_buf));
-		isCatchingSignals = oldIsCatchingSignals;
+		innermostSignalContext = signalContext.outerContext;
 		isReentrantSignal = false;
-		signalCallStack = nullptr;
-		signalOperand = nullptr;
 
-		return signalType;
+		return isReturningFromSignalHandler;
 	}
 
 	CallStack captureCallStack(Uptr numOmittedFramesFromTop)
@@ -284,6 +303,57 @@ namespace Platform
 		#else
 			return CallStack();
 		#endif
+	}
+
+	struct PlatformException
+	{
+		void* data;
+	};
+	
+	bool catchPlatformExceptions(
+		const std::function<void()>& thunk,
+		const std::function<void(void*)>& handler
+		)
+	{
+		try
+		{
+			thunk();
+			return false;
+		}
+		catch(PlatformException exception)
+		{
+			handler(exception.data);
+			return true;
+		}
+	}
+	
+	void* allocateExceptionData(Uptr numBytes)
+	{
+		return __cxa_allocate_exception(numBytes);
+	}
+	
+	std::type_info* getUserExceptionTypeInfo()
+	{
+		static std::type_info* typeInfo = nullptr;
+		if(!typeInfo)
+		{
+			try
+			{
+				throw PlatformException {nullptr};
+			}
+			catch(PlatformException)
+			{
+				typeInfo = __cxa_current_exception_type();
+			}
+		}
+		assert(typeInfo);
+		return typeInfo;
+	}
+
+	[[noreturn]] void raisePlatformException(void* data)
+	{
+		throw PlatformException {data};
+		Errors::unreachable();
 	}
 
 	U64 getMonotonicClock()

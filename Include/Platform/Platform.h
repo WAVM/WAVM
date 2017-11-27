@@ -24,6 +24,8 @@
 	#define PACKED_STRUCT(definition) definition __attribute__((packed));
 #endif
 
+#define STRUCT_OFFSET(type,field) Uptr((U8*)&((type*)nullptr)->field - (U8*)nullptr)
+
 #ifndef PLATFORM_API
 	#define PLATFORM_API DLL_IMPORT
 #endif
@@ -120,20 +122,37 @@ namespace Platform
 		PLATFORM_API void deregisterSEHUnwindInfo(Uptr pdataAddress);
 	#endif
 
-	// Calls a thunk, and if it causes any of some specific hardware traps, returns true.
-	// If a trap was caught, the outCause, outContext, and outOperand parameters are set to describe the trap.
-	enum HardwareTrapType
+	struct AccessViolationSignalData
 	{
-		none,
+		Uptr address;
+	};
+
+	enum SignalType
+	{
 		accessViolation,
 		stackOverflow,
-		intDivideByZeroOrOverflow
+		intDivideByZeroOrOverflow,
 	};
-	PLATFORM_API HardwareTrapType catchHardwareTraps(
-		CallStack& outTrapCallStack,
-		Uptr& outTrapOperand,
-		const std::function<void()>& thunk
+	PLATFORM_API bool catchSignals(
+		const std::function<void()>& thunk,
+		const std::function<void(SignalType,void*,const CallStack&)>& handler
 		);
+	
+	// Calls a thunk, catching any platform exceptions raised.
+	// If a platform exception is caught, the exception is passed to the handler function, and true is returned.
+	// If no exceptions are caught, false is returned.
+	PLATFORM_API bool catchPlatformExceptions(
+		const std::function<void()>& thunk,
+		const std::function<void(void*)>& handler
+		);
+
+	[[noreturn]] PLATFORM_API void raisePlatformException(void* data);
+
+	#ifdef _WIN64
+		enum { SEH_WAVM_EXCEPTION = 0xE0000001 };
+	#else
+		PLATFORM_API std::type_info* getUserExceptionTypeInfo();
+	#endif
 
 	//
 	// Threading

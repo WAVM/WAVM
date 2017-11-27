@@ -141,7 +141,7 @@ namespace Runtime
 		||	address + numBytes < address
 		||	address + numBytes >= memory->reservedBaseAddress + (memory->reservedNumPlatformPages << Platform::getPageSizeLog2()))
 		{
-			causeException(Exception::Cause::accessViolation);
+			throwException(Exception::accessViolationType,{});
 		}
 		return address;
 	}

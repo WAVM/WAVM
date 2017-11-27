@@ -3,8 +3,6 @@ add_custom_target(SpecTests SOURCES ${Sources})
 
 set(TEST_BIN ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CONFIGURATION}/Test)
 
-add_test(WAVM_known_failures ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/WAVM_known_failures.wast)
-
 add_test(address ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/address.wast)
 add_test(align ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/align.wast)
 add_test(atomic ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/atomic.wast)

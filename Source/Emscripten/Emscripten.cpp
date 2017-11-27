@@ -21,7 +21,7 @@ namespace Emscripten
 
 	static U32 coerce32bitAddress(Uptr address)
 	{
-		if(address >= UINT32_MAX) { causeException(Exception::Cause::accessViolation); }
+		if(address >= UINT32_MAX) { throwException(Exception::accessViolationType); }
 		return (U32)address;
 	}
 
@@ -68,15 +68,15 @@ namespace Emscripten
 		{
 			// Ensure that nothing else is calling growMemory/shrinkMemory.
 			if(getMemoryNumPages(emscriptenMemory) != sbrkNumPages)
-			{ causeException(Exception::Cause::unknown); }
+			{ throwException(Exception::outOfMemoryType); }
 		}
 		
 		const U32 previousNumBytes = sbrkNumBytes;
 		
 		// Round the absolute value of numBytes to an alignment boundary, and ensure it won't allocate too much or too little memory.
 		numBytes = (numBytes + 7) & ~7;
-		if(numBytes > 0 && previousNumBytes > UINT32_MAX - numBytes) { causeException(Exception::Cause::accessViolation); }
-		else if(numBytes < 0 && previousNumBytes < sbrkMinBytes - numBytes) { causeException(Exception::Cause::accessViolation); }
+		if(numBytes > 0 && previousNumBytes > UINT32_MAX - numBytes) { throwException(Exception::accessViolationType); }
+		else if(numBytes < 0 && previousNumBytes < sbrkMinBytes - numBytes) { throwException(Exception::accessViolationType); }
 
 		// Update the number of bytes allocated, and compute the number of pages needed for it.
 		sbrkNumBytes += numBytes;
@@ -116,18 +116,18 @@ namespace Emscripten
 		switch(a)
 		{
 		case sysConfPageSize: return IR::numBytesPerPage;
-		default: causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
+		default: throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 		}
 	}
 
 	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_cond_wait,_pthread_cond_wait,i32,i32,a,i32,b) { return 0; }
 	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_cond_broadcast,_pthread_cond_broadcast,i32,i32,a) { return 0; }
-	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_key_create,_pthread_key_create,i32,i32,a,i32,b) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
+	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_key_create,_pthread_key_create,i32,i32,a,i32,b) { throwException(Runtime::Exception::calledUnimplementedIntrinsicType); }
 	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_mutex_lock,_pthread_mutex_lock,i32,i32,a) { return 0; }
 	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_mutex_unlock,_pthread_mutex_unlock,i32,i32,a) { return 0; }
-	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_setspecific,_pthread_setspecific,i32,i32,a,i32,b) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
-	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_getspecific,_pthread_getspecific,i32,i32,a) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
-	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_once,_pthread_once,i32,i32,a,i32,b) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
+	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_setspecific,_pthread_setspecific,i32,i32,a,i32,b) { throwException(Runtime::Exception::calledUnimplementedIntrinsicType); }
+	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_getspecific,_pthread_getspecific,i32,i32,a) { throwException(Runtime::Exception::calledUnimplementedIntrinsicType); }
+	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_once,_pthread_once,i32,i32,a,i32,b) { throwException(Runtime::Exception::calledUnimplementedIntrinsicType); }
 	DEFINE_INTRINSIC_FUNCTION2(env,_pthread_cleanup_push,_pthread_cleanup_push,none,i32,a,i32,b) { }
 	DEFINE_INTRINSIC_FUNCTION1(env,_pthread_cleanup_pop,_pthread_cleanup_pop,none,i32,a) { }
 	DEFINE_INTRINSIC_FUNCTION0(env,_pthread_self,_pthread_self,i32) { return 0; }
@@ -167,7 +167,7 @@ namespace Emscripten
 	}
 	DEFINE_INTRINSIC_FUNCTION4(env,___assert_fail,___assert_fail,none,i32,condition,i32,filename,i32,line,i32,function)
 	{
-		causeException(Runtime::Exception::Cause::calledAbort);
+		throwException(Runtime::Exception::calledAbortType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION3(env,___cxa_atexit,___cxa_atexit,i32,i32,a,i32,b,i32,c)
@@ -190,11 +190,11 @@ namespace Emscripten
 	{}
 	DEFINE_INTRINSIC_FUNCTION3(env,___cxa_throw,___cxa_throw,none,i32,a,i32,b,i32,c)
 	{
-		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
+		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
 	DEFINE_INTRINSIC_FUNCTION1(env,___cxa_begin_catch,___cxa_begin_catch,i32,i32,a)
 	{
-		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
+		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
 	DEFINE_INTRINSIC_FUNCTION1(env,___cxa_allocate_exception,___cxa_allocate_exception,i32,i32,size)
 	{
@@ -202,20 +202,20 @@ namespace Emscripten
 	}
 	DEFINE_INTRINSIC_FUNCTION0(env,__ZSt18uncaught_exceptionv,__ZSt18uncaught_exceptionv,i32)
 	{
-		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
+		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
 	DEFINE_INTRINSIC_FUNCTION0(env,_abort,_abort,none)
 	{
-		causeException(Runtime::Exception::Cause::calledAbort);
+		throwException(Runtime::Exception::calledAbortType);
 	}
 	DEFINE_INTRINSIC_FUNCTION1(env,_exit,_exit,none,i32,code)
 	{
-		causeException(Runtime::Exception::Cause::calledAbort);
+		throwException(Runtime::Exception::calledAbortType);
 	}
 	DEFINE_INTRINSIC_FUNCTION1(env,abort,abort,none,i32,code)
 	{
 		Log::printf(Log::Category::error,"env.abort(%i)\n",code);
-		causeException(Runtime::Exception::Cause::calledAbort);
+		throwException(Runtime::Exception::calledAbortType);
 	}
 
 	static U32 currentLocale = 0;
@@ -236,8 +236,8 @@ namespace Emscripten
 	DEFINE_INTRINSIC_FUNCTION1(env,_freelocale,_freelocale,none,i32,a)
 	{}
 
-	DEFINE_INTRINSIC_FUNCTION5(env,_strftime_l,_strftime_l,i32,i32,a,i32,b,i32,c,i32,d,i32,e) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
-	DEFINE_INTRINSIC_FUNCTION1(env,_strerror,_strerror,i32,i32,a) { causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic); }
+	DEFINE_INTRINSIC_FUNCTION5(env,_strftime_l,_strftime_l,i32,i32,a,i32,b,i32,c,i32,d,i32,e) { throwException(Runtime::Exception::calledUnimplementedIntrinsicType); }
+	DEFINE_INTRINSIC_FUNCTION1(env,_strerror,_strerror,i32,i32,a) { throwException(Runtime::Exception::calledUnimplementedIntrinsicType); }
 
 	DEFINE_INTRINSIC_FUNCTION2(env,_catopen,_catopen,i32,i32,a,i32,b) { return (U32)-1; }
 	DEFINE_INTRINSIC_FUNCTION4(env,_catgets,_catgets,i32,i32,catd,i32,set_id,i32,msg_id,i32,s) { return s; }
@@ -268,7 +268,7 @@ namespace Emscripten
 
 	DEFINE_INTRINSIC_FUNCTION3(env,_vfprintf,_vfprintf,i32,i32,file,i32,formatPointer,i32,argList)
 	{
-		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
+		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
 	DEFINE_INTRINSIC_FUNCTION1(env,_getc,_getc,i32,i32,file)
 	{
@@ -312,7 +312,7 @@ namespace Emscripten
 	DEFINE_INTRINSIC_FUNCTION2(env,___syscall6,___syscall6,i32,i32,a,i32,b)
 	{
 		// close
-		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
+		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION2(env,___syscall54,___syscall54,i32,i32,a,i32,b)
@@ -324,13 +324,13 @@ namespace Emscripten
 	DEFINE_INTRINSIC_FUNCTION2(env,___syscall140,___syscall140,i32,i32,a,i32,b)
 	{
 		// llseek
-		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
+		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION2(env,___syscall145,___syscall145,i32,i32,file,i32,argsPtr)
 	{
 		// readv
-		causeException(Runtime::Exception::Cause::calledUnimplementedIntrinsic);
+		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION2(env,___syscall146,___syscall146,i32,i32,file,i32,argsPtr)

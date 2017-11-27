@@ -14,8 +14,8 @@
 // Used to find garbage collection roots.
 struct Thread
 {
-	Runtime::FunctionInstance* entryFunction;
-	Runtime::FunctionInstance* errorFunction;
+	Runtime::GCPointer<Runtime::FunctionInstance> entryFunction;
+	Runtime::GCPointer<Runtime::FunctionInstance> errorFunction;
 };
 
 // Holds a list of threads (in the form of events that will wake them) that
@@ -205,7 +205,7 @@ namespace Runtime
 {
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,misalignedAtomicTrap,misalignedAtomicTrap,none,i32,address)
 	{
-		causeException(Exception::Cause::misalignedAtomicMemoryAccess);
+		throwException(Exception::misalignedAtomicMemoryAccessType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,isLockFree,isLockFree,i32,i32,numBytes)
@@ -223,8 +223,8 @@ namespace Runtime
 		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
 
 		// Validate that the address is within the memory's bounds and 4-byte aligned.
-		if(U32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
-		if(addressOffset & 3) { causeException(Exception::Cause::misalignedAtomicMemoryAccess); }
+		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
+		if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
 		const Uptr address = reinterpret_cast<Uptr>(getMemoryBaseAddress(memoryInstance)) + addressOffset;
 		return wakeAddress(address,numToWake);
@@ -235,8 +235,8 @@ namespace Runtime
 		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
 
 		// Validate that the address is within the memory's bounds and naturally aligned.
-		if(U32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
-		if(addressOffset & 3) { causeException(Exception::Cause::misalignedAtomicMemoryAccess); }
+		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
+		if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
 		I32* valuePointer = reinterpret_cast<I32*>(getMemoryBaseAddress(memoryInstance) + addressOffset);
 		return waitOnAddress(valuePointer,expectedValue,timeout);
@@ -246,8 +246,8 @@ namespace Runtime
 		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
 
 		// Validate that the address is within the memory's bounds and naturally aligned.
-		if(U32(addressOffset) > memoryInstance->endOffset) { causeException(Exception::Cause::accessViolation); }
-		if(addressOffset & 7) { causeException(Exception::Cause::misalignedAtomicMemoryAccess); }
+		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
+		if(addressOffset & 7) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
 		I64* valuePointer = reinterpret_cast<I64*>(getMemoryBaseAddress(memoryInstance) + addressOffset);
 		return waitOnAddress(valuePointer,expectedValue,timeout);
@@ -258,58 +258,43 @@ namespace Runtime
 		// Validate that the index is valid.
 		if(elementIndex * sizeof(TableInstance::FunctionElement) >= table->endOffset)
 		{
-			causeException(Runtime::Exception::Cause::undefinedTableElement);
+			throwException(Runtime::Exception::undefinedTableElementType);
 		}
 		// Validate  that the indexed function's type matches the expected type.
 		const FunctionType* actualSignature = table->baseAddress[elementIndex].type;
 		if(actualSignature != expectedType)
 		{
-			causeException(Runtime::Exception::Cause::indirectCallSignatureMismatch);
+			throwException(Runtime::Exception::indirectCallSignatureMismatchType);
 		}
 		return asFunction(table->elements[elementIndex]);
-	}
-
-	void callAndTurnHardwareTrapsIntoRuntimeExceptions(void (*function)(I32),I32 argument)
-	{
-		Platform::CallStack trapCallStack;
-		Uptr trapOperand;
-		const Platform::HardwareTrapType trapType = Platform::catchHardwareTraps(
-			trapCallStack,trapOperand,
-			[function,argument]{(*function)(argument);}
-			);
-		if(trapType != Platform::HardwareTrapType::none)
-		{
-			handleHardwareTrap(trapType,std::move(trapCallStack),trapOperand);
-		}
 	}
 	
 	static void threadFunc(Thread* thread,I32 argument)
 	{
-		try
-		{
-			// Call the thread entry function.
-			callAndTurnHardwareTrapsIntoRuntimeExceptions((void(*)(I32))thread->entryFunction->nativeFunction,argument);
-		}
-		catch(Runtime::Exception exception)
-		{
-			// Log that a runtime exception was handled by a thread error function.
-			Log::printf(Log::Category::error,"Runtime exception in thread: %s\n",describeExceptionCause(exception.cause));
-			for(auto calledFunction : exception.callStack) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
-			Log::printf(Log::Category::error,"Passing exception on to thread error handler\n");
+		catchRuntimeExceptions(
+			[&]
+			{
+				((void(*)(I32))thread->entryFunction->nativeFunction)(argument);
+			},
+			[&](Exception&& exception)
+			{
+				// Log that a runtime exception was handled by a thread error function.
+				Log::printf(Log::Category::error,"Runtime exception in thread: %s\n",describeException(exception).c_str());
+				Log::printf(Log::Category::error,"Passing exception on to thread error handler\n");
 
-			try
-			{
-				// Call the thread error function.
-				callAndTurnHardwareTrapsIntoRuntimeExceptions((void(*)(I32))thread->errorFunction->nativeFunction,argument);
-			}
-			catch(Runtime::Exception secondException)
-			{
-				// Log that the thread error function caused a runtime exception, and exit with a fatal error.
-				Log::printf(Log::Category::error,"Runtime exception in thread error handler: %s\n",describeExceptionCause(secondException.cause));
-				for(auto calledFunction : secondException.callStack) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
-				Errors::fatalf("double fault");
-			}
-		}
+				catchRuntimeExceptions(
+					[&]
+					{
+						// Call the thread error function.
+						((void(*)(I32))thread->errorFunction->nativeFunction)(argument);
+					},
+					[&](Exception&& secondException)
+					{
+						// Log that the thread error function caused a runtime exception, and exit with a fatal error.
+						Log::printf(Log::Category::error,"Runtime exception in thread error handler: %s\n",describeException(secondException).c_str());
+						Errors::fatalf("double fault");
+					});
+			});
 
 		// Destroy the thread wake event before exiting the thread.
 		if(threadWakeEvent)
@@ -355,20 +340,5 @@ namespace Runtime
 		// Detach the std::thread from the underlying thread.
 		stdThread.detach();
 	}
-
-	void getThreadGCRoots(std::vector<ObjectInstance*>& outGCRoots)
-	{
-		Platform::Lock threadsLock(threadsMutex);
-		for(auto thread : threads)
-		{
-			outGCRoots.push_back(thread->entryFunction);
-			outGCRoots.push_back(thread->errorFunction);
-		}
-	}
-}
-#else
-namespace Runtime
-{
-	void getThreadGCRoots(std::vector<ObjectInstance*>& outGCRoots) {}
 }
 #endif

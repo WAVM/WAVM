@@ -96,5 +96,11 @@ namespace IR
 			return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset);
 		}
 		#endif
+
+		#if ENABLE_EXCEPTION_PROTOTYPE
+		std::string describeImm(CatchImm) { return ""; }
+		std::string describeImm(ThrowImm) { return ""; }
+		std::string describeImm(RethrowImm) { return ""; }
+		#endif
 	};
 }

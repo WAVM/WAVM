@@ -126,7 +126,7 @@ namespace Intrinsics
 		case IR::ObjectKind::function:
 		{
 			auto keyValue = Singleton::get().functionMap.find(decoratedName);
-			result = keyValue == Singleton::get().functionMap.end() ? nullptr : asObject(keyValue->second->function);
+			result = keyValue == Singleton::get().functionMap.end() ? nullptr : asObject(keyValue->second->getObject());
 			break;
 		}
 		case IR::ObjectKind::table:
@@ -144,23 +144,12 @@ namespace Intrinsics
 		case IR::ObjectKind::global:
 		{
 			auto keyValue = Singleton::get().variableMap.find(decoratedName);
-			result = keyValue == Singleton::get().variableMap.end() ? nullptr : asObject(keyValue->second->global);
+			result = keyValue == Singleton::get().variableMap.end() ? nullptr : asObject(keyValue->second->getObject());
 			break;
 		}
 		default: Errors::unreachable();
 		};
 		if(result && !isA(result,type)) { result = nullptr; }
-		return result;
-	}
-	
-	std::vector<Runtime::ObjectInstance*> getAllIntrinsicObjects()
-	{
-		Platform::Lock lock(Singleton::get().mutex);
-		std::vector<Runtime::ObjectInstance*> result;
-		for(auto mapIt : Singleton::get().functionMap) { result.push_back(mapIt.second->function); }
-		for(auto mapIt : Singleton::get().tableMap) { result.push_back((Runtime::TableInstance*)*mapIt.second); }
-		for(auto mapIt : Singleton::get().memoryMap) { result.push_back((Runtime::MemoryInstance*)*mapIt.second); }
-		for(auto mapIt : Singleton::get().variableMap) { result.push_back(mapIt.second->global); }
 		return result;
 	}
 }

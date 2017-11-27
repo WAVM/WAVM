@@ -11,13 +11,15 @@
 	#define DUMP_UNOPTIMIZED_MODULE 1
 	#define VERIFY_MODULE 1
 	#define DUMP_OPTIMIZED_MODULE 1
-	#define PRINT_DISASSEMBLY 0
+	#define PRINT_DISASSEMBLY 1
+	#define PRINT_SEH_TABLES 0
 #else
 	#define USE_WRITEABLE_JIT_CODE_PAGES 0
 	#define DUMP_UNOPTIMIZED_MODULE 0
 	#define VERIFY_MODULE 0
 	#define DUMP_OPTIMIZED_MODULE 0
 	#define PRINT_DISASSEMBLY 0
+	#define PRINT_SEH_TABLES 0
 #endif
 
 #if PRINT_DISASSEMBLY
@@ -46,6 +48,10 @@ namespace LLVMJIT
 	llvm::Type* llvmI64x2Type;
 	llvm::Type* llvmF32x4Type;
 	llvm::Type* llvmF64x2Type;
+
+	#if defined(_WIN64) && ENABLE_EXCEPTION_PROTOTYPE
+	llvm::Type* llvmExceptionPointersStructType;
+	#endif
 
 	llvm::Constant* typedZeroConstants[(Uptr)ValueType::num];
 	
@@ -121,6 +127,9 @@ namespace LLVMJIT
 		virtual bool needsToReserveAllocationSpace() override { return true; }
 		virtual void reserveAllocationSpace(uintptr_t numCodeBytes,U32 codeAlignment,uintptr_t numReadOnlyBytes,U32 readOnlyAlignment,uintptr_t numReadWriteBytes,U32 readWriteAlignment) override
 		{
+			// Pad the code section to allow for the SEH trampoline.
+			numCodeBytes += 32;
+
 			// Calculate the number of pages to be used by each section.
 			codeSection.numPages = shrAndRoundUp(numCodeBytes,Platform::getPageSizeLog2());
 			readOnlySection.numPages = shrAndRoundUp(numReadOnlyBytes,Platform::getPageSizeLog2());
@@ -149,10 +158,17 @@ namespace LLVMJIT
 			assert(!isFinalized);
 			isFinalized = true;
 			// Set the requested final memory access for each section's pages.
+			#if 0
 			const Platform::MemoryAccess codeAccess = USE_WRITEABLE_JIT_CODE_PAGES ? Platform::MemoryAccess::ReadWriteExecute : Platform::MemoryAccess::Execute;
 			if(codeSection.numPages && !Platform::setVirtualPageAccess(codeSection.baseAddress,codeSection.numPages,codeAccess)) { return false; }
 			if(readOnlySection.numPages && !Platform::setVirtualPageAccess(readOnlySection.baseAddress,readOnlySection.numPages,Platform::MemoryAccess::ReadOnly)) { return false; }
 			if(readWriteSection.numPages && !Platform::setVirtualPageAccess(readWriteSection.baseAddress,readWriteSection.numPages,Platform::MemoryAccess::ReadWrite)) { return false; }
+			#else
+			const Platform::MemoryAccess codeAccess = Platform::MemoryAccess::ReadWriteExecute;
+			if(codeSection.numPages && !Platform::setVirtualPageAccess(codeSection.baseAddress,codeSection.numPages,codeAccess)) { return false; }
+			if(readOnlySection.numPages && !Platform::setVirtualPageAccess(readOnlySection.baseAddress,readOnlySection.numPages,Platform::MemoryAccess::ReadWrite)) { return false; }
+			if(readWriteSection.numPages && !Platform::setVirtualPageAccess(readWriteSection.baseAddress,readWriteSection.numPages,Platform::MemoryAccess::ReadWrite)) { return false; }
+			#endif
 			return true;
 		}
 		virtual void invalidateInstructionCache()
@@ -216,6 +232,7 @@ namespace LLVMJIT
 		: shouldLogMetrics(inShouldLogMetrics)
 		#ifdef _WIN32
 			, pdataCopy(nullptr)
+			, xdataCopy(nullptr)
 		#endif
 		{
 			memoryManager = std::make_shared<UnitMemoryManager>();
@@ -281,7 +298,15 @@ namespace LLVMJIT
 		std::vector<LoadedObject> loadedObjects;
 
 		#ifdef _WIN32
+			llvm::object::SectionRef pdataSection;
 			U8* pdataCopy;
+			Uptr pdataNumBytes;
+			
+			llvm::object::SectionRef xdataSection;
+			U8* xdataCopy;
+			Uptr xdataNumBytes;
+
+			Uptr sehTrampolineAddress;
 		#endif
 	};
 
@@ -345,25 +370,22 @@ namespace LLVMJIT
 		}
 	};
 	
-	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
-	struct NullResolver : llvm::JITSymbolResolver
-	{
-		static std::shared_ptr<NullResolver> singleton;
-		virtual llvm::JITSymbol findSymbol(const std::string& name) override;
-		virtual llvm::JITSymbol findSymbolInLogicalDylib(const std::string& name) override;
-	};
-
 	static std::map<std::string,const char*> runtimeSymbolMap =
 	{
 		#ifdef _WIN32
 			// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 			{"__chkstk","__chkstk"},
+			{"__C_specific_handler","__C_specific_handler"},
 			#ifndef _WIN64
 			{"__aullrem","_aullrem"},
 			{"__allrem","_allrem"},
 			{"__aulldiv","_aulldiv"},
 			{"__alldiv","_alldiv"},
 			#endif
+		#else
+			{"__CxxFrameHandler3","__CxxFrameHandler3"},
+			{"__cxa_begin_catch","__cxa_begin_catch"},
+			{"__gxx_personality_v0","__gxx_personality_v0"},
 		#endif
 		#ifdef __arm__
 		{"__aeabi_uidiv","__aeabi_uidiv"},
@@ -393,7 +415,7 @@ namespace LLVMJIT
 		Errors::fatalf("LLVM generated code references disallowed external symbol: %s\n",name.c_str());
 	}
 	llvm::JITSymbol NullResolver::findSymbolInLogicalDylib(const std::string& name) { return llvm::JITSymbol(nullptr); }
-
+	
 	void JITUnit::NotifyLoadedFunctor::operator()(
 		llvm::orc::RTDyldObjectLinkingLayerBase::ObjHandleT objectHandle,
 		const std::shared_ptr<llvm::object::OwningBinary<llvm::object::ObjectFile>>& object,
@@ -404,52 +426,41 @@ namespace LLVMJIT
 		jitUnit->loadedObjects.push_back(LoadedObject {object.get()->getBinary(),&loadedObject});
 
 		#ifdef _WIN64
-			// On Windows, look for .pdata and .xdata sections containing information about how to unwind the stack.
-			// This needs to be done before the below emitAndFinalize call, which will incorrectly apply relocations to the unwind info.
-			
-			// Find the pdata section.
-			llvm::object::SectionRef pdataSection;
+			// The LLVM dynamic loader doesn't correctly apply the IMAGE_REL_AMD64_ADDR32NB relocations
+			// in the pdata and xdata sections (https://github.com/llvm-mirror/llvm/blob/e84d8c12d5157a926db15976389f703809c49aa5/lib/ExecutionEngine/RuntimeDyld/Targets/RuntimeDyldCOFFX86_64.h#L96)
+			// Make a copy of those sections before they are clobbered, so we can do the fixup ourselves later.
 			for(auto section : object->getBinary()->sections())
 			{
 				llvm::StringRef sectionName;
 				if(!section.getName(sectionName))
 				{
-					if(sectionName == ".pdata") { pdataSection = section; break; }
+					const U8* loadedSection = reinterpret_cast<U8*>(Uptr(loadedObject.getSectionLoadAddress(section)));
+					if(sectionName == ".pdata")
+					{
+						jitUnit->pdataCopy = new U8[section.getSize()];
+						jitUnit->pdataNumBytes = section.getSize();
+						jitUnit->pdataSection = section;
+						memcpy(jitUnit->pdataCopy,loadedSection,section.getSize());
+				}
+					else if(sectionName == ".xdata")
+					{
+						jitUnit->xdataCopy = new U8[section.getSize()];
+						jitUnit->xdataNumBytes = section.getSize();
+						jitUnit->xdataSection = section;
+						memcpy(jitUnit->xdataCopy,loadedSection,section.getSize());
+			}
 				}
 			}
-
-			// Pass the pdata section to the platform to register unwind info.
-			if(pdataSection.getObject())
-			{
-				const Uptr imageBaseAddress = reinterpret_cast<Uptr>(jitUnit->memoryManager->getImageBaseAddress());
-				const Uptr pdataSectionLoadAddress = (Uptr)loadedObject.getSectionLoadAddress(pdataSection);
 				
-				// The LLVM COFF dynamic loader doesn't handle the image-relative relocations used by the pdata section,
-				// and overwrites those values with o: https://github.com/llvm-mirror/llvm/blob/e84d8c12d5157a926db15976389f703809c49aa5/lib/ExecutionEngine/RuntimeDyld/Targets/RuntimeDyldCOFFX86_64.h#L96
-				// This works around that by making a copy of the pdata section and doing the pdata relocations manually.
-				jitUnit->pdataCopy = new U8[pdataSection.getSize()];
-				memcpy(jitUnit->pdataCopy,reinterpret_cast<U8*>(pdataSectionLoadAddress),pdataSection.getSize());
-
-				for(auto pdataRelocIt : pdataSection.relocations())
-				{
-					// Only handle type 3 (IMAGE_REL_AMD64_ADDR32NB).
-					if(pdataRelocIt.getType() != 3) { Errors::unreachable(); }
-
-					const auto symbol = pdataRelocIt.getSymbol();
-					const U64 symbolAddress = llvm::cantFail(symbol->getAddress());
-					const llvm::object::section_iterator symbolSection = llvm::cantFail(symbol->getSection());
-					U32* valueToRelocate = (U32*)(jitUnit->pdataCopy + pdataRelocIt.getOffset());
-					const U64 relocatedValue64 =
-						+ (symbolAddress - symbolSection->getAddress())
-						+ loadedObject.getSectionLoadAddress(*symbolSection)
-						+ *valueToRelocate
-						- imageBaseAddress;
-					if(relocatedValue64 > UINT32_MAX) { Errors::unreachable(); }
-					*valueToRelocate = (U32)relocatedValue64;
-				}
-
-				Platform::registerSEHUnwindInfo(imageBaseAddress,reinterpret_cast<Uptr>(jitUnit->pdataCopy),pdataSection.getSize());
-			}
+			// Create a trampoline within the image's 2GB address space that jumps to __C_specific_handler.
+			// jmp [rip+0]
+			// <64-bit address>
+			U8* trampolineBytes = jitUnit->memoryManager->allocateCodeSection(16,16,0,"seh_trampoline");
+			trampolineBytes[0] = 0xff;
+			trampolineBytes[1] = 0x25;
+			*(U32*)&trampolineBytes[2] = 0;
+			*(U64*)&trampolineBytes[6] = U64(NullResolver::singleton->findSymbol("__C_specific_handler").getAddress().get());
+			jitUnit->sehTrampolineAddress = reinterpret_cast<Uptr>(trampolineBytes);
 		#endif
 	}
 
@@ -476,7 +487,7 @@ namespace LLVMJIT
 			numBytesRemaining -= numInstructionBytes;
 			nextByte += numInstructionBytes;
 
-			Log::printf(Log::Category::debug,"\t\t%s\n",instructionBuffer);
+			Log::printf(Log::Category::debug,"\t\t0x%04x %s\n",(nextByte - bytes - numInstructionBytes),instructionBuffer);
 		};
 
 		LLVMDisasmDispose(disasmRef);
@@ -525,19 +536,34 @@ namespace LLVMJIT
 				std::map<U32, U32> offsetToOpIndexMap;
 				for (auto lineInfo : lineInfoTable) { offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
 
-#if PRINT_DISASSEMBLY
-				Log::printf(Log::Category::error, "Disassembly for function %s\n", name.get().data());
-				disassembleFunction(reinterpret_cast<U8*>(loadedAddress), Uptr(symbolSizePair.second));
-#endif
+				#if PRINT_DISASSEMBLY
+				if(jitUnit->shouldLogMetrics)
+				{
+					Log::printf(Log::Category::error,"Disassembly for function %s\n",name.get().data());
+					disassembleFunction(reinterpret_cast<U8*>(loadedAddress),Uptr(symbolSizePair.second));
+				}
+				#endif
 
 				// Notify the JIT unit that the symbol was loaded.
 				assert(symbolSizePair.second <= UINTPTR_MAX);
 				jitUnit->notifySymbolLoaded(
-					name->data(), loadedAddress,
+				name->data(), loadedAddress,
 					Uptr(symbolSizePair.second),
 					std::move(offsetToOpIndexMap)
 					);
 			}
+		
+			#ifdef _WIN64
+			processSEHTables(
+				reinterpret_cast<Uptr>(jitUnit->memoryManager->getImageBaseAddress()),
+				loadedObject,
+				jitUnit->pdataSection,jitUnit->pdataCopy,jitUnit->pdataNumBytes,
+				jitUnit->xdataSection,jitUnit->xdataCopy,
+				jitUnit->sehTrampolineAddress
+				);
+			if(jitUnit->pdataCopy) { delete [] jitUnit->pdataCopy; jitUnit->pdataCopy = nullptr; }
+			if(jitUnit->xdataCopy) { delete [] jitUnit->xdataCopy; jitUnit->xdataCopy = nullptr; }
+			#endif
 		}
 
 		jitUnit->loadedObjects.clear();
@@ -566,7 +592,7 @@ namespace LLVMJIT
 			std::string verifyOutputString;
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
 			if(llvm::verifyModule(*llvmModule,&verifyOutputStream))
-			{ Errors::fatalf("LLVM verification errors:\n%s\n",verifyOutputString.c_str()); }
+			{ verifyOutputStream.flush(); Errors::fatalf("LLVM verification errors:\n%s\n",verifyOutputString.c_str()); }
 			Log::printf(Log::Category::debug,"Verified LLVM module\n");
 		}
 
@@ -775,6 +801,19 @@ namespace LLVMJIT
 		llvmVoidType = llvm::Type::getVoidTy(context);
 		llvmBoolType = llvm::Type::getInt1Ty(context);
 		llvmI8PtrType = llvmI8Type->getPointerTo();
+		
+		#if defined(_WIN64) && ENABLE_EXCEPTION_PROTOTYPE
+		auto llvmExceptionRecordStructType = llvm::StructType::create({
+			llvmI32Type, // DWORD ExceptionCode
+			llvmI32Type, // DWORD ExceptionFlags
+			llvmI8PtrType, // _EXCEPTION_RECORD* ExceptionRecord
+			llvmI8PtrType, // PVOID ExceptionAddress
+			llvmI32Type, // DWORD NumParameters
+			llvm::ArrayType::get(llvmI64Type,15) // ULONG_PTR ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS]
+			});
+		llvmExceptionPointersStructType = llvm::StructType::create(
+			{llvmExceptionRecordStructType->getPointerTo(),llvmI8PtrType});
+		#endif
 		
 		llvmI8x16Type = llvm::VectorType::get(llvmI8Type,16);
 		llvmI16x8Type = llvm::VectorType::get(llvmI16Type,8);

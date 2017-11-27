@@ -36,8 +36,9 @@ namespace Runtime
 	// A private root for all runtime objects that handles garbage collection.
 	struct GCObject : ObjectInstance
 	{
+		std::atomic<Uptr> numRootReferences;
+
 		GCObject(ObjectKind inKind);
-		~GCObject() override;
 	};
 
 	// An instance of a function: a function defined in an instantiated module, or an intrinsic function.
@@ -101,6 +102,28 @@ namespace Runtime
 		GlobalInstance(GlobalType inType,UntaggedValue inValue): GCObject(ObjectKind::global), type(inType), value(inValue) {}
 	};
 
+	struct ExceptionData
+	{
+		ExceptionTypeInstance* typeInstance;
+		U8 isUserException;
+		UntaggedValue arguments[1];
+
+		static Uptr calcNumBytes(Uptr numArguments)
+		{
+			return sizeof(ExceptionData) + (numArguments - 1) * sizeof(UntaggedValue);
+		}
+	};
+
+	// An instance of a WebAssembly exception type.
+	struct ExceptionTypeInstance : GCObject
+	{
+		TupleType parameters;
+
+		ExceptionTypeInstance(const TupleType& inParameters)
+		: GCObject(ObjectKind::exceptionType), parameters(inParameters)
+		{}
+	};
+
 	// An instance of a WebAssembly module.
 	struct ModuleInstance : GCObject
 	{
@@ -112,6 +135,7 @@ namespace Runtime
 		std::vector<TableInstance*> tables;
 		std::vector<MemoryInstance*> memories;
 		std::vector<GlobalInstance*> globals;
+		std::vector<ExceptionTypeInstance*> exceptionTypes;
 
 		MemoryInstance* defaultMemory;
 		TableInstance* defaultTable;
@@ -122,13 +146,15 @@ namespace Runtime
 			std::vector<FunctionInstance*>&& inFunctionImports,
 			std::vector<TableInstance*>&& inTableImports,
 			std::vector<MemoryInstance*>&& inMemoryImports,
-			std::vector<GlobalInstance*>&& inGlobalImports
+			std::vector<GlobalInstance*>&& inGlobalImports,
+			std::vector<ExceptionTypeInstance*>&& inExceptionTypeImports
 			)
 		: GCObject(ObjectKind::module)
 		, functions(inFunctionImports)
 		, tables(inTableImports)
 		, memories(inMemoryImports)
 		, globals(inGlobalImports)
+		, exceptionTypes(inExceptionTypeImports)
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
 		, jitModule(nullptr)
@@ -147,10 +173,4 @@ namespace Runtime
 	// Allocates virtual pages with alignBytes of padding, and returns an aligned base address.
 	// The unaligned allocation address and size are written to outUnalignedBaseAddress and outUnalignedNumPlatformPages.
 	U8* allocateVirtualPagesAligned(Uptr numBytes,Uptr alignmentBytes,U8*& outUnalignedBaseAddress,Uptr& outUnalignedNumPlatformPages);
-
-	// Turns a hardware trap that occurred in WASM code into a runtime exception or fatal error.
-	[[noreturn]] void handleHardwareTrap(Platform::HardwareTrapType trapType,Platform::CallStack&& trapCallStack,Uptr trapOperand);
-
-	// Adds GC roots from WASM threads to the provided array.
-	void getThreadGCRoots(std::vector<ObjectInstance*>& outGCRoots);
 }

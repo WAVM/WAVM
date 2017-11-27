@@ -250,7 +250,7 @@ int commandMain(int argc,char** argv)
 	#endif
 	{
 		returnCode = mainBody(filename,functionName,onlyCheck,args);
-		Runtime::freeUnreferencedObjects({});
+		Runtime::collectGarbage();
 	}
 	return returnCode;
 }

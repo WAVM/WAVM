@@ -123,6 +123,7 @@ namespace WAST
 		NameToIndexMap tableNameToIndexMap;
 		NameToIndexMap memoryNameToIndexMap;
 		NameToIndexMap globalNameToIndexMap;
+		NameToIndexMap exceptionTypeNameToIndexMap;
 
 		IR::DisassemblyNames disassemblyNames;
 

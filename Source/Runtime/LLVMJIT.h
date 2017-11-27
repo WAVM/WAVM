@@ -88,6 +88,10 @@ namespace LLVMJIT
 	extern llvm::Type* llvmF32x4Type;
 	extern llvm::Type* llvmF64x2Type;
 
+	#if defined(_WIN64) && ENABLE_EXCEPTION_PROTOTYPE
+	extern llvm::Type* llvmExceptionPointersStructType;
+	#endif
+
 	// Zero constants of each type.
 	extern llvm::Constant* typedZeroConstants[(Uptr)ValueType::num];
 
@@ -127,4 +131,22 @@ namespace LLVMJIT
 
 	// Emits LLVM IR for a module.
 	std::shared_ptr<llvm::Module> emitModule(const IR::Module& module,ModuleInstance* moduleInstance);
+	
+	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
+	struct NullResolver : llvm::JITSymbolResolver
+	{
+		static std::shared_ptr<NullResolver> singleton;
+		virtual llvm::JITSymbol findSymbol(const std::string& name) override;
+		virtual llvm::JITSymbol findSymbolInLogicalDylib(const std::string& name) override;
+	};
+	
+	#ifdef _WIN64
+	extern void processSEHTables(
+		Uptr imageBaseAddress,
+		const llvm::LoadedObjectInfo* loadedObject,
+		const llvm::object::SectionRef& pdataSection,const U8* pdataCopy,Uptr pdataNumBytes,
+		const llvm::object::SectionRef& xdataSection,const U8* xdataCopy,
+		Uptr sehTrampolineAddress
+		);
+	#endif
 }

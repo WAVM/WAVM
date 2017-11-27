@@ -19,4 +19,4 @@ include_directories(${WAVM_INCLUDE_DIR}/WAST)
 
 add_library(WAST SHARED ${Sources} ${PublicHeaders})
 add_definitions(-DWAST_API=DLL_EXPORT)
-target_link_libraries(WAST Logging IR WASM)
+target_link_libraries(WAST Logging IR WASM Runtime)

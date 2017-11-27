@@ -66,6 +66,14 @@ static GlobalType parseGlobalType(ParseState& state)
 	return result;
 }
 
+static TupleType parseTupleType(ParseState& state)
+{
+	TupleType result;
+	ValueType elementType;
+	while(tryParseValueType(state,elementType)) { result.elements.push_back(elementType); }
+	return result;
+}
+
 static InitializerExpression parseInitializerExpression(ModuleParseState& state)
 {
 	InitializerExpression result;
@@ -148,6 +156,7 @@ static void parseImport(ModuleParseState& state)
 		case t_table:
 		case t_memory:
 		case t_global:
+		case t_exception_type:
 			++state.nextToken;
 			break;
 		default:
@@ -205,6 +214,14 @@ static void parseImport(ModuleParseState& state)
 			createImport(state,name,std::move(moduleName),std::move(exportName),
 				state.globalNameToIndexMap,state.module.globals,state.disassemblyNames.globals,
 				globalType);
+			break;
+		}
+		case t_exception_type:
+		{
+			const TupleType tupleType = parseTupleType(state);
+			createImport(state,name,std::move(moduleName),std::move(exportName),
+				state.exceptionTypeNameToIndexMap,state.module.exceptionTypes,state.disassemblyNames.exceptionTypes,
+				tupleType);
 			break;
 		}
 		default: Errors::unreachable();
@@ -545,6 +562,24 @@ static void parseGlobal(ModuleParseState& state)
 		});
 }
 
+static void parseExceptionType(ModuleParseState& state)
+{
+	parseObjectDefOrImport(state,
+		state.exceptionTypeNameToIndexMap,
+		state.module.exceptionTypes,
+		state.disassemblyNames.exceptionTypes,
+		t_exception_type,
+		ObjectKind::exceptionType,
+		// Parse a global import.
+		parseTupleType,
+		// Parse a global definition
+		[](ModuleParseState& state,const Token*)
+		{
+			const TupleType tupleType = parseTupleType(state);
+			return ExceptionTypeDef {tupleType};
+		});
+}
+
 static void parseStart(ModuleParseState& state)
 {
 	require(state,t_start);
@@ -569,6 +604,7 @@ static void parseDeclaration(ModuleParseState& state)
 		{
 		case t_import: parseImport(state); return true;
 		case t_export: parseExport(state); return true;
+		case t_exception_type: parseExceptionType(state); return true;
 		case t_global: parseGlobal(state); return true;
 		case t_memory: parseMemory(state); return true;
 		case t_table: parseTable(state); return true;

@@ -81,6 +81,21 @@ namespace IR
 		U32 offset;
 	};
 	#endif
+	
+	#if ENABLE_EXCEPTION_PROTOTYPE
+	struct CatchImm
+	{
+		U32 exceptionTypeIndex;
+	};
+	struct ThrowImm
+	{
+		U32 exceptionTypeIndex;
+	};
+	struct RethrowImm
+	{
+		U32 catchDepth;
+	};
+	#endif
 
 	// Enumate the WebAssembly operators
 
@@ -89,7 +104,8 @@ namespace IR
 		visitOp(0x03,loop,"loop",ControlStructureImm,CONTROL) \
 		visitOp(0x04,if_,"if",ControlStructureImm,CONTROL) \
 		visitOp(0x05,else_,"else",NoImm,CONTROL) \
-		visitOp(0x0b,end,"end",NoImm,CONTROL)
+		visitOp(0x0b,end,"end",NoImm,CONTROL) \
+		ENUM_EXCEPTION_CONTROL_OPERATORS(visitOp)
 
 	#define ENUM_PARAMETRIC_OPERATORS(visitOp) \
 		visitOp(0x00,unreachable,"unreachable",NoImm,UNREACHABLE) \
@@ -295,7 +311,21 @@ namespace IR
 		visitOp(0xbe,f32_reinterpret_i32,"f32.reinterpret/i32",NoImm,UNARY(i32,f32)) \
 		visitOp(0xbf,f64_reinterpret_i64,"f64.reinterpret/i64",NoImm,UNARY(i64,f64)) \
 		ENUM_SIMD_OPERATORS(visitOp) \
-		ENUM_THREADING_OPERATORS(visitOp)
+		ENUM_THREADING_OPERATORS(visitOp) \
+		ENUM_EXCEPTION_OPERATORS(visitOp)
+
+	#if !ENABLE_EXCEPTION_PROTOTYPE
+	#define ENUM_EXCEPTION_CONTROL_OPERATORS(visitOp)
+	#define ENUM_EXCEPTION_OPERATORS(visitOp)
+	#else
+	#define ENUM_EXCEPTION_OPERATORS(visitOp) \
+		visitOp(0xfc00,throw_,"throw",ThrowImm,THROW) \
+		visitOp(0xfc01,rethrow,"rethrow",RethrowImm,RETHROW)
+	#define ENUM_EXCEPTION_CONTROL_OPERATORS(visitOp) \
+		visitOp(0xfc02,try_,"try",ControlStructureImm,CONTROL) \
+		visitOp(0xfc03,catch_,"catch",CatchImm,CONTROL) \
+		visitOp(0xfc04,catch_all,"catch_all",NoImm,CONTROL)
+	#endif
 
 	#if !ENABLE_SIMD_PROTOTYPE
 	#define ENUM_SIMD_OPERATORS(visitOp)
