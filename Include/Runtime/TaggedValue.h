@@ -17,9 +17,7 @@ namespace Runtime
 			U64 u64;
 			F32 f32;
 			F64 f64;
-			#if ENABLE_SIMD_PROTOTYPE
 			V128 v128;
-			#endif
 		};
 		
 		UntaggedValue(I32 inI32) { i32 = inI32; }
@@ -28,9 +26,7 @@ namespace Runtime
 		UntaggedValue(U64 inU64) { u64 = inU64; }
 		UntaggedValue(F32 inF32) { f32 = inF32; }
 		UntaggedValue(F64 inF64) { f64 = inF64; }
-		#if ENABLE_SIMD_PROTOTYPE
 		UntaggedValue(V128 inV128) { v128 = inV128; }
-		#endif
 		UntaggedValue() {memset(this,0,sizeof(*this));}
 	};
 

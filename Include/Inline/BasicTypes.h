@@ -22,7 +22,6 @@ template<> struct PointerIntHelper<8> { typedef I64 IntType; typedef U64 Unsigne
 typedef PointerIntHelper<sizeof(size_t)>::UnsignedIntType Uptr;
 typedef PointerIntHelper<sizeof(size_t)>::IntType Iptr;
 
-#if ENABLE_SIMD_PROTOTYPE
 union V128
 {
 	U8 u8[16];
@@ -34,4 +33,3 @@ union V128
 	U64 u64[2];
 	I64 i64[2];
 };
-#endif

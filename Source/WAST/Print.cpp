@@ -355,10 +355,9 @@ namespace WAST
 			}
 		}
 
-		#if ENABLE_SIMD_PROTOTYPE
-		
 		void printImm(LiteralImm<V128> imm) { string += ' '; string += asString(imm.value); }
 
+		#if ENABLE_SIMD_PROTOTYPE
 		template<Uptr numLanes>
 		void printImm(LaneIndexImm<numLanes> imm)
 		{

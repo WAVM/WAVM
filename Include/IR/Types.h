@@ -38,7 +38,6 @@ namespace IR
 	inline std::string asString(F32 value) { return Floats::asString(value); }
 	inline std::string asString(F64 value) { return Floats::asString(value); }
 
-	#if ENABLE_SIMD_PROTOTYPE	
 	inline std::string asString(const V128& v128)
 	{
 		// buffer needs 44 characters:
@@ -48,6 +47,7 @@ namespace IR
 		return std::string(buffer);
 	}
 
+	#if ENABLE_SIMD_PROTOTYPE
 	template<> struct ValueTypeInfo<ValueType::v128> { typedef V128 Value; };
 	#endif
 	

@@ -295,13 +295,13 @@ namespace WASM
 		serializeVarUInt1(stream,reserved);
 	}
 
+	template<typename Stream>
+	void serialize(Stream& stream,V128& v128)
+	{
+		serializeNativeValue(stream,v128);
+	}
+
 	#if ENABLE_SIMD_PROTOTYPE
-		template<typename Stream>
-		void serialize(Stream& stream,V128& v128)
-		{
-			serializeNativeValue(stream,v128);
-		}
-	
 		template<typename Stream,Uptr numLanes>
 		void serialize(Stream& stream,LaneIndexImm<numLanes>& imm,const FunctionDef&)
 		{

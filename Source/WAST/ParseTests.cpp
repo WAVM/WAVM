@@ -43,6 +43,7 @@ static Runtime::Value parseConstExpression(ParseState& state)
 			result = parseF64(state);
 			break;
 		}
+		#if ENABLE_SIMD_PROTOTYPE
 		case t_v128_const:
 		{
 			++state.nextToken;
@@ -50,6 +51,7 @@ static Runtime::Value parseConstExpression(ParseState& state)
 			result.v128 = parseV128(state);
 			break;
 		}
+		#endif
 		default:
 			parseErrorf(state,state.nextToken,"expected const expression");
 			throw RecoverParseException();

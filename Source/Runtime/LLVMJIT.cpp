@@ -40,14 +40,12 @@ namespace LLVMJIT
 	llvm::Type* llvmBoolType;
 	llvm::Type* llvmI8PtrType;
 	
-	#if ENABLE_SIMD_PROTOTYPE
 	llvm::Type* llvmI8x16Type;
 	llvm::Type* llvmI16x8Type;
 	llvm::Type* llvmI32x4Type;
 	llvm::Type* llvmI64x2Type;
 	llvm::Type* llvmF32x4Type;
 	llvm::Type* llvmF64x2Type;
-	#endif
 
 	llvm::Constant* typedZeroConstants[(Uptr)ValueType::num];
 	
@@ -778,24 +776,18 @@ namespace LLVMJIT
 		llvmBoolType = llvm::Type::getInt1Ty(context);
 		llvmI8PtrType = llvmI8Type->getPointerTo();
 		
-		#if ENABLE_SIMD_PROTOTYPE
 		llvmI8x16Type = llvm::VectorType::get(llvmI8Type,16);
 		llvmI16x8Type = llvm::VectorType::get(llvmI16Type,8);
 		llvmI32x4Type = llvm::VectorType::get(llvmI32Type,4);
 		llvmI64x2Type = llvm::VectorType::get(llvmI64Type,2);
 		llvmF32x4Type = llvm::VectorType::get(llvmF32Type,4);
 		llvmF64x2Type = llvm::VectorType::get(llvmF64Type,2);
-		#endif
 
 		llvmResultTypes[(Uptr)ResultType::none] = llvm::Type::getVoidTy(context);
 		llvmResultTypes[(Uptr)ResultType::i32] = llvmI32Type;
 		llvmResultTypes[(Uptr)ResultType::i64] = llvmI64Type;
 		llvmResultTypes[(Uptr)ResultType::f32] = llvmF32Type;
 		llvmResultTypes[(Uptr)ResultType::f64] = llvmF64Type;
-
-		#if ENABLE_SIMD_PROTOTYPE
-		llvmResultTypes[(Uptr)ResultType::v128] = llvmI64x2Type;
-		#endif
 
 		// Create zero constants of each type.
 		typedZeroConstants[(Uptr)ValueType::any] = nullptr;
@@ -805,6 +797,7 @@ namespace LLVMJIT
 		typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral((F64)0.0);
 
 		#if ENABLE_SIMD_PROTOTYPE
+		llvmResultTypes[(Uptr)ResultType::v128] = llvmI64x2Type;
 		typedZeroConstants[(Uptr)ValueType::v128] = llvm::ConstantVector::get({typedZeroConstants[(Uptr)ValueType::i64],typedZeroConstants[(Uptr)ValueType::i64]});
 		#endif
 	}
