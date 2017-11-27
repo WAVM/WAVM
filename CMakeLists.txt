@@ -25,6 +25,9 @@ if(MSVC)
 	add_definitions(-D__STDC_FORMAT_MACROS)
 	add_definitions(-D__STDC_LIMIT_MACROS)
 
+	# Compile files in parallel.
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+
 	# Compile with all warnings and fatal warnings
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
 	if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
