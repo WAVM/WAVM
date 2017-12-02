@@ -76,7 +76,6 @@ namespace Serialization
 			next = bytes.data() + nextIndex;
 			end = bytes.data() + bytes.size();
 		}
-		virtual bool canExtendBuffer(Uptr numBytes) const { return true; }
 	};
 
 	// An abstract input stream.
