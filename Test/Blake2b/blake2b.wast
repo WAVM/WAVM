@@ -51,7 +51,9 @@
 	(global $numPendingThreadsAddress i32 (i32.const 144)) ;; 4 bytes
 	(global $outputStringAddress i32 (i32.const 148)) ;; 129 bytes
 	
-	(global $statesArrayAddress i32 (i32.const 1024))	;; 128*N per-thread state blocks.
+	(global $statesArrayAddressAddress i32 (i32.const 1024))	;; 4 bytes
+	(global $statesArrayAlignment i32 (i32.const 256))
+	(global $statesArrayStride i32 (i32.const 256))				;; must be at least 128 bytes. Anecdotally, 256 bytes performs substantially better.
 
 	(func $compress
 		(param $threadStateAddress i32)
@@ -1213,10 +1215,13 @@
 		(local $threadStateAddress i32)
 		(local $temp i64)
 		
-		(set_local $threadStateAddress (i32.add (get_global $statesArrayAddress) (i32.mul (get_local $threadIndex) (i32.const 128))))
+		(set_local $threadStateAddress
+			(i32.add
+				(i32.atomic.load (get_global $statesArrayAddressAddress))
+				(i32.mul (get_local $threadIndex) (get_global $statesArrayStride))))
 		
 		;; zero the state
-		(call $memsetAligned (get_local $threadStateAddress) (i32.const 0) (i32.const 128))
+		(call $memsetAligned (get_local $threadStateAddress) (i32.const 0) (get_global $statesArrayStride))
 
 		;; initialize the hash to the first 64 bytes of the param struct XORed with the contents of IV
 		(v128.store offset=0 (get_local $threadStateAddress) (v128.xor
@@ -1286,6 +1291,18 @@
 		(local $stdout i32)
 		(local $i i32)
 		(local $byte i32)		
+		
+		;; Allocate the thread state array, aligned to a page boundary.
+		(i32.atomic.store
+			(get_global $statesArrayAddressAddress)
+			(i32.and 
+				(i32.xor (i32.const 0xffffffff) (i32.sub (get_global $statesArrayAlignment) (i32.const 1)))
+				(i32.add
+					(get_global $statesArrayAlignment)
+					(call $sbrk (i32.add (get_global $statesArrayAlignment) (i32.mul (get_global $numThreads) (get_global $statesArrayStride))))
+					)
+				)
+			)
 
 		;; Initialize the test data.
 		(set_global $dataAddress (call $sbrk (get_global $dataNumBytes)))
@@ -1320,7 +1337,7 @@
 			;; Create a hexadecimal string from the hash.
 			(set_local $i (i32.const 0))
 			loop $loop
-				(set_local $byte (i32.load8_u (i32.add (get_global $statesArrayAddress) (get_local $i))))
+				(set_local $byte (i32.load8_u (i32.add (i32.atomic.load (get_global $statesArrayAddressAddress)) (get_local $i))))
 				(i32.store8 offset=0
 					(i32.add (get_global $outputStringAddress) (i32.shl (get_local $i) (i32.const 1)))
 					(i32.load8_u (i32.add (get_global $hexitTable) (i32.and (get_local $byte) (i32.const 0x0f)))))
