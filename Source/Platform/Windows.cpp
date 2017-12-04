@@ -326,11 +326,6 @@ namespace Platform
 		}
 	}
 	
-	void* allocateExceptionData(Uptr numBytes)
-	{
-		return new U8[numBytes];
-	}
-
 	[[noreturn]] void raisePlatformException(void* data)
 	{
 		Uptr arguments[1] = { reinterpret_cast<Uptr>(data) };

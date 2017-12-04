@@ -328,11 +328,6 @@ namespace Platform
 		}
 	}
 	
-	void* allocateExceptionData(Uptr numBytes)
-	{
-		return __cxa_allocate_exception(numBytes);
-	}
-	
 	std::type_info* getUserExceptionTypeInfo()
 	{
 		static std::type_info* typeInfo = nullptr;
