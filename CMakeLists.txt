@@ -112,6 +112,13 @@ else()
 	add_definitions("-DENABLE_EXCEPTION_PROTOTYPE=0")
 endif()
 
+option(ENABLE_NONTRAPPING_FPTOINT_PROTOTYPE "enables the prototype implementation of the proposed WebAssembly non-trapping float-to-int extension" ON)
+if(ENABLE_NONTRAPPING_FPTOINT_PROTOTYPE)
+	add_definitions("-DENABLE_NONTRAPPING_FPTOINT_PROTOTYPE=1")
+else()
+	add_definitions("-DENABLE_NONTRAPPING_FPTOINT_PROTOTYPE=0")
+endif()
+
 add_subdirectory(Include/Inline)
 
 add_subdirectory(Source/Emscripten)

@@ -361,13 +361,13 @@ void processCommand(TestScriptState& state,const Command* command)
 }
 
 DEFINE_INTRINSIC_FUNCTION0(spectest,spectest_print,print,none) {}
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i32,a) { std::cout << a << " : i32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i64,a) { std::cout << a << " : i64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f32,a) { std::cout << a << " : f32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f64,a) { std::cout << a << " : f64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,f64,a,f64,b) { std::cout << a << " : f64" << std::endl << b << " : f64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i32,a,f32,b) { std::cout << a << " : i32" << std::endl << b << " : f32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i64,a,f64,b) { std::cout << a << " : i64" << std::endl << b << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i32,a) { std::cout << asString(a) << " : i32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i64,a) { std::cout << asString(a) << " : i64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f32,a) { std::cout << asString(a) << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f64,a) { std::cout << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,f64,a,f64,b) { std::cout << asString(a) << " : f64" << std::endl << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i32,a,f32,b) { std::cout << asString(a) << " : i32" << std::endl << asString(a) << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i64,a,f64,b) { std::cout << asString(a) << " : i64" << std::endl << asString(a) << " : f64" << std::endl; }
 
 DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI32,global,i32,false,666)
 DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI64,global,i64,false,0)

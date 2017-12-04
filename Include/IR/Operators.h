@@ -312,19 +312,34 @@ namespace IR
 		visitOp(0xbf,f64_reinterpret_i64,"f64.reinterpret/i64",NoImm,UNARY(i64,f64)) \
 		ENUM_SIMD_OPERATORS(visitOp) \
 		ENUM_THREADING_OPERATORS(visitOp) \
-		ENUM_EXCEPTION_OPERATORS(visitOp)
+		ENUM_EXCEPTION_OPERATORS(visitOp) \
+		ENUM_NONTRAPPING_FPTOINT_OPERATORS(visitOp)
+
+	#if !ENABLE_NONTRAPPING_FPTOINT_PROTOTYPE
+	#define ENUM_NONTRAPPING_FPTOINT_OPERATORS(visitOp)
+	#else
+	#define ENUM_NONTRAPPING_FPTOINT_OPERATORS(visitOp) \
+		visitOp(0xfc00,i32_trunc_s_sat_f32,"i32.trunc_s:sat/f32",NoImm,UNARY(f32,i32)) \
+		visitOp(0xfc01,i32_trunc_u_sat_f32,"i32.trunc_u:sat/f32",NoImm,UNARY(f32,i32)) \
+		visitOp(0xfc02,i32_trunc_s_sat_f64,"i32.trunc_s:sat/f64",NoImm,UNARY(f64,i32)) \
+		visitOp(0xfc03,i32_trunc_u_sat_f64,"i32.trunc_u:sat/f64",NoImm,UNARY(f64,i32)) \
+		visitOp(0xfc04,i64_trunc_s_sat_f32,"i64.trunc_s:sat/f32",NoImm,UNARY(f32,i64)) \
+		visitOp(0xfc05,i64_trunc_u_sat_f32,"i64.trunc_u:sat/f32",NoImm,UNARY(f32,i64)) \
+		visitOp(0xfc06,i64_trunc_s_sat_f64,"i64.trunc_s:sat/f64",NoImm,UNARY(f64,i64)) \
+		visitOp(0xfc07,i64_trunc_u_sat_f64,"i64.trunc_u:sat/f64",NoImm,UNARY(f64,i64))
+	#endif
 
 	#if !ENABLE_EXCEPTION_PROTOTYPE
 	#define ENUM_EXCEPTION_CONTROL_OPERATORS(visitOp)
 	#define ENUM_EXCEPTION_OPERATORS(visitOp)
 	#else
 	#define ENUM_EXCEPTION_OPERATORS(visitOp) \
-		visitOp(0xfc00,throw_,"throw",ThrowImm,THROW) \
-		visitOp(0xfc01,rethrow,"rethrow",RethrowImm,RETHROW)
+		visitOp(0xfb00,throw_,"throw",ThrowImm,THROW) \
+		visitOp(0xfb01,rethrow,"rethrow",RethrowImm,RETHROW)
 	#define ENUM_EXCEPTION_CONTROL_OPERATORS(visitOp) \
-		visitOp(0xfc02,try_,"try",ControlStructureImm,CONTROL) \
-		visitOp(0xfc03,catch_,"catch",CatchImm,CONTROL) \
-		visitOp(0xfc04,catch_all,"catch_all",NoImm,CONTROL)
+		visitOp(0xfb02,try_,"try",ControlStructureImm,CONTROL) \
+		visitOp(0xfb03,catch_,"catch",CatchImm,CONTROL) \
+		visitOp(0xfb04,catch_all,"catch_all",NoImm,CONTROL)
 	#endif
 
 	#if !ENABLE_SIMD_PROTOTYPE
@@ -500,10 +515,10 @@ namespace IR
 		visitOp(SIMDOP(134),f64x2_convert_s_i64x2,"f64x2.convert_s/i64x2",NoImm,UNARY(v128,v128)) \
 		visitOp(SIMDOP(135),f64x2_convert_u_i64x2,"f64x2.convert_u/i64x2",NoImm,UNARY(v128,v128)) \
 		\
-		visitOp(SIMDOP(136),i32x4_trunc_s_f32x4_sat,"i32x4.trunc_s/f32x4:sat",NoImm,UNARY(v128,v128)) \
-		visitOp(SIMDOP(137),i32x4_trunc_u_f32x4_sat,"i32x4.trunc_u/f32x4:sat",NoImm,UNARY(v128,v128)) \
-		visitOp(SIMDOP(138),i64x2_trunc_s_f64x2_sat,"i64x2.trunc_s/f64x2:sat",NoImm,UNARY(v128,v128)) \
-		visitOp(SIMDOP(139),i64x2_trunc_u_f64x2_sat,"i64x2.trunc_u/f64x2:sat",NoImm,UNARY(v128,v128))
+		visitOp(SIMDOP(136),i32x4_trunc_s_sat_f32x4,"i32x4.trunc_s:sat/f32x4",NoImm,UNARY(v128,v128)) \
+		visitOp(SIMDOP(137),i32x4_trunc_u_sat_f32x4,"i32x4.trunc_u:sat/f32x4",NoImm,UNARY(v128,v128)) \
+		visitOp(SIMDOP(138),i64x2_trunc_s_sat_f64x2,"i64x2.trunc_s:sat/f64x2",NoImm,UNARY(v128,v128)) \
+		visitOp(SIMDOP(139),i64x2_trunc_u_sat_f64x2,"i64x2.trunc_u:sat/f64x2",NoImm,UNARY(v128,v128))
 	#endif
 
 	#if !ENABLE_THREADING_PROTOTYPE

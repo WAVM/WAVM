@@ -1040,14 +1040,15 @@ namespace LLVMJIT
 		EMIT_UNARY_OP(i32,reinterpret_f32,irBuilder.CreateBitCast(operand,llvmI32Type))
 		EMIT_UNARY_OP(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
 
-		llvm::Value* emitTruncFloatToInt(ValueType destType,bool isSigned,llvm::Value* minBounds,llvm::Value* maxBounds,llvm::Value* operand)
+		template<typename Float>
+		llvm::Value* emitTruncFloatToInt(ValueType destType,bool isSigned,Float minBounds,Float maxBounds,llvm::Value* operand)
 		{
-			auto nanBlock = llvm::BasicBlock::Create(context,"FPToUI_nan",llvmFunction);
-			auto notNaNBlock = llvm::BasicBlock::Create(context,"FPToUI_notNaN",llvmFunction);
-			auto overflowBlock = llvm::BasicBlock::Create(context,"FPToUI_overflow",llvmFunction);
-			auto noOverflowBlock = llvm::BasicBlock::Create(context,"FPToUI_noOverflow",llvmFunction);
+			auto nanBlock = llvm::BasicBlock::Create(context,"FPToInt_nan",llvmFunction);
+			auto notNaNBlock = llvm::BasicBlock::Create(context,"FPToInt_notNaN",llvmFunction);
+			auto overflowBlock = llvm::BasicBlock::Create(context,"FPToInt_overflow",llvmFunction);
+			auto noOverflowBlock = llvm::BasicBlock::Create(context,"FPToInt_noOverflow",llvmFunction);
 
-			auto isNaN = irBuilder.CreateFCmpUNE(operand,operand);
+			auto isNaN = irBuilder.CreateFCmpUNO(operand,operand);
 			irBuilder.CreateCondBr(isNaN,nanBlock,notNaNBlock,moduleContext.likelyFalseBranchWeights);
 
 			irBuilder.SetInsertPoint(nanBlock);
@@ -1056,15 +1057,13 @@ namespace LLVMJIT
 
 			irBuilder.SetInsertPoint(notNaNBlock);
 			auto isOverflow = irBuilder.CreateOr(
-				irBuilder.CreateFCmpOGE(operand,maxBounds),
-				(isSigned
-					? irBuilder.CreateFCmpOLT(operand,minBounds)
-					: irBuilder.CreateFCmpOLE(operand,minBounds))
+				irBuilder.CreateFCmpOGE(operand,emitLiteral(maxBounds)),
+				irBuilder.CreateFCmpOLE(operand,emitLiteral(minBounds))
 				);
 			irBuilder.CreateCondBr(isOverflow,overflowBlock,noOverflowBlock,moduleContext.likelyFalseBranchWeights);
 
 			irBuilder.SetInsertPoint(overflowBlock);
-			emitRuntimeIntrinsic("wavmIntrinsics.integerOverflowTrap",FunctionType::get(),{});
+			emitRuntimeIntrinsic("wavmIntrinsics.divideByZeroOrIntegerOverflowTrap",FunctionType::get(),{});
 			irBuilder.CreateUnreachable();
 
 			irBuilder.SetInsertPoint(noOverflowBlock);
@@ -1073,20 +1072,56 @@ namespace LLVMJIT
 				: irBuilder.CreateFPToUI(operand,asLLVMType(destType));
 		}
 
-		static I64 getIntMin(ValueType type)
-		{
-			switch(type)
-			{
-			case ValueType::i32: return INT32_MIN;
-			case ValueType::i64: return INT64_MIN;
-			default: Errors::unreachable();
-			}
-		}
+		// We want the widest floating point bounds that can't be truncated to an integer.
+		// This isn't simply the min/max integer values converted to float, but the next greater(or lesser) float that would be truncated
+		// to an integer out of range of the target type.
 
-		EMIT_INT_UNARY_OP(trunc_s_f32,emitTruncFloatToInt(type,true,emitLiteral(F32(getIntMin(type))),emitLiteral(-F32(getIntMin(type))),operand))
-		EMIT_INT_UNARY_OP(trunc_s_f64,emitTruncFloatToInt(type,true,emitLiteral(F64(getIntMin(type))),emitLiteral(-F64(getIntMin(type))),operand))
-		EMIT_INT_UNARY_OP(trunc_u_f32,emitTruncFloatToInt(type,false,emitLiteral(-1.0f),emitLiteral(-2.0f * getIntMin(type)),operand))
-		EMIT_INT_UNARY_OP(trunc_u_f64,emitTruncFloatToInt(type,false,emitLiteral(-1.0),emitLiteral(-2.0 * getIntMin(type)),operand))
+		EMIT_UNARY_OP(i32,trunc_s_f32,emitTruncFloatToInt<F32>(type,true,-2147483904.0f,2147483648.0f,operand))
+		EMIT_UNARY_OP(i32,trunc_s_f64,emitTruncFloatToInt<F64>(type,true,-2147483649.0, 2147483648.0,operand))
+		EMIT_UNARY_OP(i32,trunc_u_f32,emitTruncFloatToInt<F32>(type,false,-1.0f,4294967296.0f,operand))
+		EMIT_UNARY_OP(i32,trunc_u_f64,emitTruncFloatToInt<F64>(type,false,-1.0, 4294967296.0,operand))
+
+		EMIT_UNARY_OP(i64,trunc_s_f32,emitTruncFloatToInt<F32>(type,true,-9223373136366403584.0f,9223372036854775808.0f,operand))
+		EMIT_UNARY_OP(i64,trunc_s_f64,emitTruncFloatToInt<F64>(type,true,-9223372036854777856.0, 9223372036854775808.0,operand))
+		EMIT_UNARY_OP(i64,trunc_u_f32,emitTruncFloatToInt<F32>(type,false,-1.0f,18446744073709551616.0f,operand))
+		EMIT_UNARY_OP(i64,trunc_u_f64,emitTruncFloatToInt<F64>(type,false,-1.0, 18446744073709551616.0,operand))
+
+		#if ENABLE_NONTRAPPING_FPTOINT_PROTOTYPE
+		template<typename Int,typename Float>
+		llvm::Value* emitTruncFloatToIntSat(
+			llvm::Type* destType,
+			bool isSigned,
+			Float minFloatBounds, Float maxFloatBounds, 
+			Int minIntBounds, Int maxIntBounds,
+			Int nanResult,
+			llvm::Value* operand)
+		{
+			return irBuilder.CreateSelect(
+				irBuilder.CreateFCmpUNO(operand,operand),
+				emitLiteral(nanResult),
+				irBuilder.CreateSelect(
+					irBuilder.CreateFCmpOLE(operand,emitLiteral(minFloatBounds)),
+					emitLiteral(minIntBounds),
+					irBuilder.CreateSelect(
+						irBuilder.CreateFCmpOGE(operand,emitLiteral(maxFloatBounds)),
+						emitLiteral(maxIntBounds),
+						isSigned
+						? irBuilder.CreateFPToSI(operand,destType)
+						: irBuilder.CreateFPToUI(operand,destType)
+					)));
+		}
+		#endif
+
+		#if ENABLE_NONTRAPPING_FPTOINT_PROTOTYPE
+		EMIT_UNARY_OP(i32,trunc_s_sat_f32,(emitTruncFloatToIntSat<I32,F32>)(llvmI32Type,true,F32(INT32_MIN),F32(INT32_MAX),INT32_MIN,INT32_MAX,U32(0),operand))
+		EMIT_UNARY_OP(i32,trunc_s_sat_f64,(emitTruncFloatToIntSat<I32,F64>)(llvmI32Type,true,F64(INT32_MIN),F64(INT32_MAX),INT32_MIN,INT32_MAX,U32(0),operand))
+		EMIT_UNARY_OP(i32,trunc_u_sat_f32,(emitTruncFloatToIntSat<I32,F32>)(llvmI32Type,false,0.0f,F32(UINT32_MAX),U32(0),UINT32_MAX,U32(0),operand))
+		EMIT_UNARY_OP(i32,trunc_u_sat_f64,(emitTruncFloatToIntSat<I32,F64>)(llvmI32Type,false,0.0,F64(UINT32_MAX),U32(0),UINT32_MAX,U32(0),operand))
+		EMIT_UNARY_OP(i64,trunc_s_sat_f32,(emitTruncFloatToIntSat<I64,F32>)(llvmI64Type,true,F32(INT64_MIN),F32(INT64_MAX),INT64_MIN,INT64_MAX,U64(0),operand))
+		EMIT_UNARY_OP(i64,trunc_s_sat_f64,(emitTruncFloatToIntSat<I64,F64>)(llvmI64Type,true,F64(INT64_MIN),F64(INT64_MAX),INT64_MIN,INT64_MAX,U64(0),operand))
+		EMIT_UNARY_OP(i64,trunc_u_sat_f32,(emitTruncFloatToIntSat<I64,F32>)(llvmI64Type,false,0.0f,F32(UINT64_MAX),U64(0),UINT64_MAX,U64(0),operand))
+		EMIT_UNARY_OP(i64,trunc_u_sat_f64,(emitTruncFloatToIntSat<I64,F64>)(llvmI64Type,false,0.0,F64(UINT64_MAX),U64(0),UINT64_MAX,U64(0),operand))
+		#endif
 
 		// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
 		EMIT_FP_BINARY_OP(min,emitRuntimeIntrinsic("wavmIntrinsics.floatMin",FunctionType::get(asResultType(type),{type,type}),{left,right}))
@@ -1197,48 +1232,72 @@ namespace LLVMJIT
 		EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,llvmI16x8Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_psubs_w,{left,right}))
 		EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_u,llvmI16x8Type,callLLVMIntrinsic({},llvm::Intrinsic::x86_sse2_psubus_w,{left,right}))
 
-		llvm::Value* emitTruncFloatToIntSat(
-			llvm::Type* destType,
-			bool isSigned,
-			llvm::Intrinsic::ID minIntrinsicID,
-			llvm::Intrinsic::ID maxIntrinsicID,
-			llvm::Value* minBounds,
-			llvm::Value* maxBounds,
-			llvm::Value* operand)
+		llvm::Value* emitBitSelect(llvm::Value* mask,llvm::Value* trueValue,llvm::Value* falseValue)
 		{
-			auto clampedValue = callLLVMIntrinsic({},maxIntrinsicID,{
-				minBounds,
-				callLLVMIntrinsic({},minIntrinsicID,{maxBounds,operand})
-				});
-			return isSigned
-				? irBuilder.CreateFPToSI(clampedValue,destType)
-				: irBuilder.CreateFPToUI(clampedValue,destType);
+			return irBuilder.CreateOr(
+				irBuilder.CreateAnd(trueValue,mask),
+				irBuilder.CreateAnd(falseValue,irBuilder.CreateNot(mask))
+				);
 		}
 
-		EMIT_SIMD_UNARY_OP(i32x4_trunc_s_f32x4_sat,llvmF32x4Type,emitTruncFloatToIntSat(
-			llvmI32x4Type, true, llvm::Intrinsic::x86_sse_min_ps, llvm::Intrinsic::x86_sse_max_ps,
-			irBuilder.CreateVectorSplat(4,emitLiteral(F32(INT32_MIN))),
-			irBuilder.CreateVectorSplat(4,emitLiteral(F32(INT32_MAX))),
-			operand
-			));
-		EMIT_SIMD_UNARY_OP(i32x4_trunc_u_f32x4_sat,llvmF32x4Type,emitTruncFloatToIntSat(
-			llvmI32x4Type, false, llvm::Intrinsic::x86_sse_min_ps, llvm::Intrinsic::x86_sse_max_ps,
-			irBuilder.CreateVectorSplat(4,emitLiteral(F32(0.0f))),
-			irBuilder.CreateVectorSplat(4,emitLiteral(F32(UINT32_MAX))),
-			operand
-			));
-		EMIT_SIMD_UNARY_OP(i64x2_trunc_s_f64x2_sat,llvmF64x2Type,emitTruncFloatToIntSat(
-			llvmI64x2Type, true, llvm::Intrinsic::x86_sse2_min_pd, llvm::Intrinsic::x86_sse2_max_pd,
-			irBuilder.CreateVectorSplat(2,emitLiteral(F64(INT64_MIN))),
-			irBuilder.CreateVectorSplat(2,emitLiteral(F64(INT64_MAX))),
-			operand
-			));
-		EMIT_SIMD_UNARY_OP(i64x2_trunc_u_f64x2_sat,llvmF64x2Type,emitTruncFloatToIntSat(
-			llvmI64x2Type, false, llvm::Intrinsic::x86_sse2_min_pd, llvm::Intrinsic::x86_sse2_max_pd,
-			irBuilder.CreateVectorSplat(2,emitLiteral(F64(0.0))),
-			irBuilder.CreateVectorSplat(2,emitLiteral(F64(UINT64_MAX))),
-			operand
-			));
+		std::string getLLVMTypeName(llvm::Type* type)
+		{
+			std::string result;
+			llvm::raw_string_ostream typeStream(result);
+			type->print(typeStream,true);
+			typeStream.flush();
+			return result;
+		}
+
+		llvm::Value* emitVectorSelect(llvm::Value* condition,llvm::Value* trueValue,llvm::Value* falseValue)
+		{
+			llvm::Type* maskType;
+			switch(condition->getType()->getVectorNumElements())
+			{
+			case 2: maskType = llvmI64x2Type; break;
+			case 4: maskType = llvmI32x4Type; break;
+			case 8: maskType = llvmI16x8Type; break;
+			case 16: maskType = llvmI8x16Type; break;
+			default: Errors::fatalf("unsupported vector length %u",condition->getType()->getVectorNumElements());
+			};
+			llvm::Value* mask = irBuilder.CreateSExt(condition,maskType);
+
+			return irBuilder.CreateBitCast(
+				emitBitSelect(
+					mask,
+					irBuilder.CreateBitCast(trueValue,maskType),
+					irBuilder.CreateBitCast(falseValue,maskType)),
+				trueValue->getType());
+		}
+
+		template<typename Int,typename Float,Uptr numElements>
+		llvm::Value* emitTruncVectorFloatToIntSat(
+			llvm::Type* destType,
+			bool isSigned,
+			Float minFloatBounds, Float maxFloatBounds, 
+			Int minIntBounds, Int maxIntBounds,
+			Int nanResult,
+			llvm::Value* operand)
+		{
+			return emitVectorSelect(
+				irBuilder.CreateFCmpUNO(operand,operand),
+				irBuilder.CreateVectorSplat(numElements,emitLiteral(nanResult)),
+				emitVectorSelect(
+					irBuilder.CreateFCmpOLE(operand,irBuilder.CreateVectorSplat(numElements,emitLiteral(minFloatBounds))),
+					irBuilder.CreateVectorSplat(numElements,emitLiteral(minIntBounds)),
+					emitVectorSelect(
+						irBuilder.CreateFCmpOGE(operand,irBuilder.CreateVectorSplat(numElements,emitLiteral(maxFloatBounds))),
+						irBuilder.CreateVectorSplat(numElements,emitLiteral(maxIntBounds)),
+						isSigned
+							? irBuilder.CreateFPToSI(operand,destType)
+							: irBuilder.CreateFPToUI(operand,destType)
+					)));
+		}
+
+		EMIT_SIMD_UNARY_OP(i32x4_trunc_s_sat_f32x4,llvmF32x4Type,(emitTruncVectorFloatToIntSat<I32,F32,4>)(llvmI32x4Type,true,F32(INT32_MIN),F32(INT32_MAX),INT32_MIN,INT32_MAX,U32(0),operand))
+		EMIT_SIMD_UNARY_OP(i32x4_trunc_u_sat_f32x4,llvmF32x4Type,(emitTruncVectorFloatToIntSat<I32,F32,4>)(llvmI32x4Type,false,0.0f,F32(UINT32_MAX),U32(0),UINT32_MAX,U32(0),operand))
+		EMIT_SIMD_UNARY_OP(i64x2_trunc_s_sat_f64x2,llvmF64x2Type,(emitTruncVectorFloatToIntSat<I64,F64,2>)(llvmI64x2Type,true,F64(INT64_MIN),F64(INT64_MAX),INT64_MIN,INT64_MAX,U64(0),operand))
+		EMIT_SIMD_UNARY_OP(i64x2_trunc_u_sat_f64x2,llvmF64x2Type,(emitTruncVectorFloatToIntSat<I64,F64,2>)(llvmI64x2Type,false,0.0,F64(UINT64_MAX),U64(0),UINT64_MAX,U64(0),operand))
 
 		EMIT_SIMD_FP_BINARY_OP(add,irBuilder.CreateFAdd(left,right))
 		EMIT_SIMD_FP_BINARY_OP(sub,irBuilder.CreateFSub(left,right))
@@ -1354,10 +1413,7 @@ namespace LLVMJIT
 			auto mask = irBuilder.CreateBitCast(pop(),llvmI64x2Type);
 			auto falseValue = irBuilder.CreateBitCast(pop(),llvmI64x2Type);
 			auto trueValue = irBuilder.CreateBitCast(pop(),llvmI64x2Type);
-			push(irBuilder.CreateOr(
-				irBuilder.CreateAnd(trueValue,mask),
-				irBuilder.CreateAnd(falseValue,irBuilder.CreateNot(mask))
-				));
+			push(emitBitSelect(mask,trueValue,falseValue));
 		}
 		#endif
 

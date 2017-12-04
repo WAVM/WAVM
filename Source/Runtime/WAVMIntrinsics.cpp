@@ -119,11 +119,6 @@ namespace Runtime
 		throwException(Exception::invalidFloatOperationType);
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,integerOverflowTrap,integerOverflowTrap,none)
-	{
-		throwException(Exception::integerDivideByZeroOrIntegerOverflowType);
-	}
-
 	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableBits)
 	{
 		TableInstance* table = reinterpret_cast<TableInstance*>(tableBits);
