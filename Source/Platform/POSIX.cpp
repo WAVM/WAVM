@@ -324,6 +324,7 @@ namespace Platform
 		catch(PlatformException exception)
 		{
 			handler(exception.data,std::move(exception.callStack));
+			if(exception.data) { delete [] (U8*)exception.data; }
 			return true;
 		}
 	}
