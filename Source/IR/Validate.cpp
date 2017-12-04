@@ -638,7 +638,10 @@ namespace IR
 		for(auto& globalImport : module.globals.imports)
 		{
 			validate(globalImport.type);
-			VALIDATE_UNLESS("mutable globals cannot be imported: ",globalImport.type.isMutable);
+			if(!allowImportExportMutableGlobals)
+			{
+				VALIDATE_UNLESS("mutable globals cannot be imported: ",globalImport.type.isMutable);
+			}
 		}
 		
 		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
