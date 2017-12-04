@@ -273,7 +273,7 @@ namespace Platform
 			handler(
 				innermostSignalContext->outSignalType,
 				innermostSignalContext->outSignalData,
-				std::move(*innermostSignalContext->outCallStack)
+				std::move(innermostSignalContext->outCallStack)
 				);
 		}
 
@@ -313,7 +313,7 @@ namespace Platform
 	
 	bool catchPlatformExceptions(
 		const std::function<void()>& thunk,
-		const std::function<void(void*)>& handler
+		const std::function<void(void*,CallStack&&)>& handler
 		)
 	{
 		try
