@@ -164,14 +164,14 @@ namespace Runtime
 						}
 					});
 			},
-			[&](void* exceptionData)
+			[&](void* exceptionData,Platform::CallStack&& callStack)
 			{
 				ExceptionData* runtimeExceptionData = reinterpret_cast<ExceptionData*>(exceptionData);
 				ExceptionTypeInstance* runtimeType = runtimeExceptionData->typeInstance;
 				std::vector<UntaggedValue> arguments(
 					runtimeExceptionData->arguments,
 					runtimeExceptionData->arguments + runtimeExceptionData->typeInstance->parameters.elements.size());
-				catchThunk(Exception { runtimeType, std::move(arguments), Platform::CallStack() });
+				catchThunk(Exception { runtimeType, std::move(arguments), std::move(callStack) });
 			});
 	}
 }

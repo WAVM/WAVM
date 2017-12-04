@@ -135,7 +135,7 @@ namespace Platform
 	};
 	PLATFORM_API bool catchSignals(
 		const std::function<void()>& thunk,
-		const std::function<void(SignalType,void*,const CallStack&)>& handler
+		const std::function<void(SignalType,void*,CallStack&&)>& handler
 		);
 	
 	// Calls a thunk, catching any platform exceptions raised.
@@ -143,7 +143,7 @@ namespace Platform
 	// If no exceptions are caught, false is returned.
 	PLATFORM_API bool catchPlatformExceptions(
 		const std::function<void()>& thunk,
-		const std::function<void(void*)>& handler
+		const std::function<void(void*,CallStack&&)>& handler
 		);
 
 	[[noreturn]] PLATFORM_API void raisePlatformException(void* data);

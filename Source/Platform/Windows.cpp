@@ -257,7 +257,7 @@ namespace Platform
 	
 	bool catchSignals(
 		const std::function<void()>& thunk,
-		const std::function<void(SignalType,void*,const CallStack&)>& handler
+		const std::function<void(SignalType,void*,CallStack&&)>& handler
 		)
 	{
 		initThread();
@@ -274,8 +274,9 @@ namespace Platform
 		{
 			isReentrantSignal = false;
 			
-			handler(signalType,signalData,*callStack);
+			handler(signalType,signalData,std::move(*callStack));
 
+			delete callStack;
 			if(signalData) { delete signalData; }
 
 			// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
@@ -285,23 +286,40 @@ namespace Platform
 		}
 	}
 
+	LONG CALLBACK sehPlatformExceptionFilterFunction(EXCEPTION_POINTERS* exceptionPointers,CallStack*& outCallStack,void*& outExceptionData)
+	{
+		if(exceptionPointers->ExceptionRecord->ExceptionCode != SEH_WAVM_EXCEPTION)
+		{
+			return EXCEPTION_CONTINUE_SEARCH;
+		}
+		else
+		{
+			outExceptionData = reinterpret_cast<void*>(exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
+
+			// Unwind the stack frames from the context of the exception.
+			outCallStack = new CallStack();
+			*outCallStack = unwindStack(*exceptionPointers->ContextRecord);
+			return EXCEPTION_EXECUTE_HANDLER;
+		}
+	}
+
 	bool catchPlatformExceptions(
 		const std::function<void()>& thunk,
-		const std::function<void(void*)>& handler
+		const std::function<void(void*,CallStack&&)>& handler
 		)
 	{
-		EXCEPTION_POINTERS* exceptionPointers = nullptr;
+		CallStack* callStack = nullptr;
+		void* exceptionData = nullptr;
 		__try
 		{
 			thunk();
 			return false;
 		}
-		__except(exceptionPointers = GetExceptionInformation(), GetExceptionCode() == SEH_WAVM_EXCEPTION)
+		__except(sehPlatformExceptionFilterFunction(GetExceptionInformation(),callStack,exceptionData))
 		{
-			auto exceptionData = reinterpret_cast<void*>(exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
-			
-			handler(exceptionData);
+			handler(exceptionData,std::move(*callStack));
 
+			delete callStack;
 			if(exceptionData) { delete [] (U8*)exceptionData; }
 
 			return true;
