@@ -91,7 +91,7 @@ namespace Floats
 		if(components.bits.exponent == FloatComponents<Float>::maxExponentBits)
 		{
 			// Handle infinity.
-			if(components.bits.significand == 0) { return sign + "infinity"; }
+			if(components.bits.significand == 0) { return sign + "inf"; }
 			else
 			{
 				// Handle NaN.
