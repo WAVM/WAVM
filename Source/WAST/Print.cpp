@@ -4,7 +4,7 @@
 #include "IR/Module.h"
 #include "IR/Operators.h"
 
-#include <map>
+#include <set>
 
 using namespace IR;
 
@@ -131,20 +131,29 @@ namespace WAST
 
 	struct NameScope
 	{
-		NameScope(const char inSigil): sigil(inSigil) { nameToCountMap[""] = 0; }
+		NameScope(const char inSigil): sigil(inSigil) { nameSet.insert(""); }
 		
 		void map(std::string& name)
 		{
-			auto mapIt = nameToCountMap.find(name);
-			if(mapIt == nameToCountMap.end()) { nameToCountMap[name] = 1; }
-			else { name = name + std::to_string(mapIt->second++); }
+			if(nameSet.count(name))
+			{
+				std::string baseName = name;
+				Uptr uniqueIndex = 0;
+				do
+				{
+					++uniqueIndex;
+					name = baseName + '_' + std::to_string(uniqueIndex);
+				}
+				while(nameSet.count(name));
+			}
+			nameSet.insert(name);
 			name = sigil + name;
 		}
 
 	private:
 
 		char sigil;
-		std::map<std::string,Uptr> nameToCountMap;
+		std::set<std::string> nameSet;
 	};
 
 	struct ModulePrintContext
