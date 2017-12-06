@@ -114,12 +114,14 @@ namespace WAST
 	void print(std::string& string,const TableType& type)
 	{
 		print(string,type.size);
+		if(type.isShared) { string += " shared"; }
 		string += " anyfunc";
 	}
 
 	void print(std::string& string,const MemoryType& type)
 	{
 		print(string,type.size);
+		if(type.isShared) { string += " shared"; }
 	}
 
 	void print(std::string& string,GlobalType type)
