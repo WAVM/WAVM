@@ -176,13 +176,13 @@ static U32 wakeAddress(Uptr address,U32 numToWake)
 
 	// Open the wait list for this address.
 	WaitList* waitList = openWaitList(address);
+	Uptr actualNumToWake = numToWake;
 	{
 		Platform::Lock waitListLock(waitList->mutex);
 
 		// Determine how many threads to wake.
 		// numToWake==UINT32_MAX means wake all waiting threads.
-		Uptr actualNumToWake = numToWake;
-		if(numToWake == UINT32_MAX || numToWake > waitList->wakeEvents.size())
+		if(actualNumToWake == UINT32_MAX || actualNumToWake > waitList->wakeEvents.size())
 		{
 			actualNumToWake = waitList->wakeEvents.size();
 		}
@@ -198,7 +198,11 @@ static U32 wakeAddress(Uptr address,U32 numToWake)
 	}
 	closeWaitList(address,waitList);
 
-	return numToWake;
+	if(actualNumToWake > UINT32_MAX)
+	{
+		Runtime::throwException(Runtime::Exception::integerDivideByZeroOrIntegerOverflowType);
+	}
+	return U32(actualNumToWake);
 }
 
 namespace Runtime
