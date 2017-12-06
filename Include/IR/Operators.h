@@ -531,9 +531,9 @@ namespace IR
 		visitOp(0xc3,i64_extend16_s,"i64.extend16_s",NoImm,UNARY(i64,i64)) \
 		visitOp(0xc4,i64_extend32_s,"i64.extend32_s",NoImm,UNARY(i64,i64)) \
 		\
-		visitOp(0xfe00,wake,"wake",AtomicLoadOrStoreImm<2>,BINARY(i32,i32)) \
-		visitOp(0xfe01,i32_wait,"i32.wait",AtomicLoadOrStoreImm<2>,WAIT(i32)) \
-		visitOp(0xfe02,i64_wait,"i64.wait",AtomicLoadOrStoreImm<3>,WAIT(i64)) \
+		visitOp(0xfe00,atomic_wake,"atomic.wake",AtomicLoadOrStoreImm<2>,BINARY(i32,i32)) \
+		visitOp(0xfe01,i32_atomic_wait,"i32.atomic.wait",AtomicLoadOrStoreImm<2>,WAIT(i32)) \
+		visitOp(0xfe02,i64_atomic_wait,"i64.atomic.wait",AtomicLoadOrStoreImm<3>,WAIT(i64)) \
 		visitOp(0xfe03,launch_thread,"launch_thread",LaunchThreadImm,LAUNCHTHREAD) \
 		\
 		visitOp(0xfe10,i32_atomic_load,"i32.atomic.load",AtomicLoadOrStoreImm<2>,LOAD(i32)) \

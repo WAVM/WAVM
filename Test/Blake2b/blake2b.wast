@@ -1274,7 +1274,7 @@
 
 		(i32.eq (i32.const 1) (i32.atomic.rmw.sub (get_global $numPendingThreadsAddress) (i32.const 1)))
 		if
-			(drop (wake (get_global $numPendingThreadsAddress) (i32.const 1)))
+			(drop (atomic.wake (get_global $numPendingThreadsAddress) (i32.const 1)))
 		end
 	)
 
@@ -1283,7 +1283,7 @@
 
 		;; Set the thread error flag and wake the main thread.
 		(i32.atomic.store (get_global $numPendingThreadsAddress) (i32.const -1))
-		(drop (wake (get_global $numPendingThreadsAddress) (i32.const 1)))
+		(drop (atomic.wake (get_global $numPendingThreadsAddress) (i32.const 1)))
 	)
 
 	(func $main
@@ -1327,7 +1327,7 @@
 			loop $waitLoop
 				(set_local $i (i32.atomic.load (get_global $numPendingThreadsAddress)))
 				(br_if $waitLoopEnd (i32.le_s (get_local $i) (i32.const 0)))
-				(drop (i32.wait (get_global $numPendingThreadsAddress) (get_local $i) (f64.const +inf)))
+				(drop (i32.atomic.wait (get_global $numPendingThreadsAddress) (get_local $i) (f64.const +inf)))
 				(br $waitLoop)
 			end
 		end

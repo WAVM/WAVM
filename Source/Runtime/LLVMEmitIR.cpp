@@ -1426,35 +1426,35 @@ namespace LLVMJIT
 				FunctionType::get(ResultType::i32,{ValueType::i32}),
 				{numBytes}));
 		}
-		void wake(AtomicLoadOrStoreImm<2>)
+		void atomic_wake(AtomicLoadOrStoreImm<2>)
 		{
 			auto numWaiters = pop();
 			auto address = pop();
 			auto defaultMemoryObjectAsI64 = emitLiteral(reinterpret_cast<U64>(moduleContext.moduleInstance->defaultMemory));
 			push(emitRuntimeIntrinsic(
-				"wavmIntrinsics.wake",
+				"wavmIntrinsics.atomic_wake",
 				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i32,ValueType::i64}),
 				{address,numWaiters,defaultMemoryObjectAsI64}));
 		}
-		void i32_wait(AtomicLoadOrStoreImm<2>)
+		void i32_atomic_wait(AtomicLoadOrStoreImm<2>)
 		{
 			auto timeout = pop();
 			auto expectedValue = pop();
 			auto address = pop();
 			auto defaultMemoryObjectAsI64 = emitLiteral(reinterpret_cast<U64>(moduleContext.moduleInstance->defaultMemory));
 			push(emitRuntimeIntrinsic(
-				"wavmIntrinsics.wait",
+				"wavmIntrinsics.atomic_wait",
 				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i32,ValueType::f64,ValueType::i64}),
 				{address,expectedValue,timeout,defaultMemoryObjectAsI64}));
 		}
-		void i64_wait(AtomicLoadOrStoreImm<3>)
+		void i64_atomic_wait(AtomicLoadOrStoreImm<3>)
 		{
 			auto timeout = pop();
 			auto expectedValue = pop();
 			auto address = pop();
 			auto defaultMemoryObjectAsI64 = emitLiteral(reinterpret_cast<U64>(moduleContext.moduleInstance->defaultMemory));
 			push(emitRuntimeIntrinsic(
-				"wavmIntrinsics.wait",
+				"wavmIntrinsics.atomic_wait",
 				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i64,ValueType::f64,ValueType::i64}),
 				{address,expectedValue,timeout,defaultMemoryObjectAsI64}));
 		}
