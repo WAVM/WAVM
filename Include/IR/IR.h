@@ -13,5 +13,5 @@ namespace IR
 	enum { numBytesPerPageLog2 = (Uptr)16 };
 
 	enum { requireSharedFlagForAtomicOperators = false };
-	enum { allowImportExportMutableGlobals = true };
+	enum { allowImportExportMutableGlobals = false }; // This needs to stay off until the spec tests are updated
 }
