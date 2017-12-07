@@ -43,7 +43,7 @@ namespace IR
 		}
 	}
 
-	void validate(SizeConstraints size,Uptr maxMax)
+	void validate(SizeConstraints size,U64 maxMax)
 	{
 		U64 max = size.max == UINT64_MAX ? maxMax : size.max;
 		VALIDATE_UNLESS("disjoint size bounds: ",size.min>max);
@@ -58,7 +58,7 @@ namespace IR
 	void validate(TableType type)
 	{
 		validate(type.elementType);
-		validate(type.size,UINT32_MAX);
+		validate(type.size,U64(UINT32_MAX)+1);
 		if(ENABLE_THREADING_PROTOTYPE)
 		{
 			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.isShared && type.size.max == UINT64_MAX);

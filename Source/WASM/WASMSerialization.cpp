@@ -56,7 +56,7 @@ namespace IR
 	void serialize(Stream& stream,SizeConstraints& sizeConstraints,bool hasMax)
 	{
 		serializeVarUInt32(stream,sizeConstraints.min);
-		if(hasMax) { serializeVarUInt32(stream,sizeConstraints.max); }
+		if(hasMax) { serializeVarUInt64(stream,sizeConstraints.max); }
 		else if(Stream::isInput) { sizeConstraints.max = UINT64_MAX; }
 	}
 	
