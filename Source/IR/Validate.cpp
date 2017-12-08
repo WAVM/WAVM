@@ -678,7 +678,7 @@ namespace IR
 				VALIDATE_INDEX(exportIt.index,module.memories.size());
 				break;
 			case ObjectKind::global:
-				validateGlobalIndex(module,exportIt.index,false,true,false,"exported global index");
+				validateGlobalIndex(module,exportIt.index,false,!allowImportExportMutableGlobals,false,"exported global index");
 				break;
 			case ObjectKind::exceptionType:
 				VALIDATE_INDEX(exportIt.index,module.exceptionTypes.size());
