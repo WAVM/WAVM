@@ -459,7 +459,7 @@ namespace LLVMJIT
 			trampolineBytes[0] = 0xff;
 			trampolineBytes[1] = 0x25;
 			*(U32*)&trampolineBytes[2] = 0;
-			*(U64*)&trampolineBytes[6] = U64(NullResolver::singleton->findSymbol("__C_specific_handler").getAddress().get());
+			*(U64*)&trampolineBytes[6] = U64(cantFail(NullResolver::singleton->findSymbol("__C_specific_handler").getAddress()));
 			jitUnit->sehTrampolineAddress = reinterpret_cast<Uptr>(trampolineBytes);
 		#endif
 	}

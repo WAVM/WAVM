@@ -110,15 +110,15 @@ namespace LLVMJIT
 				if(symbol->getFlags() & llvm::object::SymbolRef::SF_Undefined)
 				{
 					// Resolve __C_specific_handler to the trampoline previously created in the image's 32-bit address space.
-					const std::string symbolName = symbol->getName().get().str();
+					const std::string symbolName = cantFail(symbol->getName()).str();
 					if(symbolName == "__C_specific_handler") { symbolAddress = sehTrampolineAddress; }
-					else { symbolAddress = U64(NullResolver::singleton->findSymbol(symbol->getName().get().str()).getAddress().get()); }
+					else { symbolAddress = U64(cantFail(NullResolver::singleton->findSymbol(cantFail(symbol->getName()).str()).getAddress())); }
 				}
 				else
 				{
-					const llvm::object::section_iterator symbolSection = symbol->getSection().get();
+					const llvm::object::section_iterator symbolSection = cantFail(symbol->getSection());
 					symbolAddress =
-						(symbol->getAddress().get() - symbolSection->getAddress())
+						(cantFail(symbol->getAddress()) - symbolSection->getAddress())
 						+ loadedObject->getSectionLoadAddress(*symbolSection);
 				}
 				
