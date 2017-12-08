@@ -66,7 +66,7 @@ namespace Runtime
 		errorUnless(moduleInstance->exceptionTypes.size() == module.exceptionTypes.imports.size());
 		for(Uptr importIndex = 0;importIndex < module.exceptionTypes.imports.size();++importIndex)
 		{
-			errorUnless(moduleInstance->exceptionTypes[importIndex]->parameters == module.exceptionTypes.imports[importIndex].type);
+			errorUnless(getExceptionTypeParameters(moduleInstance->exceptionTypes[importIndex]) == module.exceptionTypes.imports[importIndex].type);
 		}
 
 		// Instantiate the module's memory and table definitions.
@@ -144,7 +144,7 @@ namespace Runtime
 		// Instantiate the module's exception types.
 		for(const ExceptionTypeDef& exceptionTypeDef : module.exceptionTypes.defs)
 		{
-			moduleInstance->exceptionTypes.push_back(new ExceptionTypeInstance(exceptionTypeDef.type));
+			moduleInstance->exceptionTypes.push_back(createExceptionTypeInstance(exceptionTypeDef.type));
 		}
 		
 		// Create the FunctionInstance objects for the module's function definitions.

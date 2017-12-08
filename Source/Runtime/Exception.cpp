@@ -7,19 +7,19 @@
 
 namespace Runtime
 {
-	const GCPointer<ExceptionTypeInstance> Exception::accessViolationType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::stackOverflowType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::integerDivideByZeroOrIntegerOverflowType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::invalidFloatOperationType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::invokeSignatureMismatchType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::reachedUnreachableType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::indirectCallSignatureMismatchType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::undefinedTableElementType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::calledAbortType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::calledUnimplementedIntrinsicType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::outOfMemoryType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::invalidSegmentOffsetType = new ExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::misalignedAtomicMemoryAccessType = new ExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::accessViolationType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::stackOverflowType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::integerDivideByZeroOrIntegerOverflowType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::invalidFloatOperationType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::invokeSignatureMismatchType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::reachedUnreachableType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::indirectCallSignatureMismatchType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::undefinedTableElementType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::calledAbortType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::calledUnimplementedIntrinsicType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::outOfMemoryType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::invalidSegmentOffsetType = createExceptionTypeInstance(TupleType {{}});
+	const GCPointer<ExceptionTypeInstance> Exception::misalignedAtomicMemoryAccessType = createExceptionTypeInstance(TupleType {{}});
 	
 	// Returns a vector of strings, each element describing a frame of the call stack.
 	// If the frame is a JITed function, use the JIT's information about the function
@@ -41,6 +41,10 @@ namespace Runtime
 		return frameDescriptions;
 	}
 
+	ExceptionTypeInstance* createExceptionTypeInstance(const IR::TupleType& parameters)
+	{
+		return new ExceptionTypeInstance(parameters);
+	}
 	std::string describeExceptionType(const ExceptionTypeInstance* type)
 	{
 		assert(type);

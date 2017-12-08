@@ -161,6 +161,9 @@ namespace Runtime
 		Platform::CallStack callStack;
 	};
 
+	// Creates an exception type instance.
+	RUNTIME_API ExceptionTypeInstance* createExceptionTypeInstance(const IR::TupleType& parameters);
+
 	// Returns a string that describes the given exception cause.
 	RUNTIME_API std::string describeException(const Exception& exception);
 
