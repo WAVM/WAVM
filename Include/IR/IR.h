@@ -15,4 +15,5 @@ namespace IR
 
 	enum { requireSharedFlagForAtomicOperators = false };
 	enum { allowImportExportMutableGlobals = false }; // This needs to stay off until the spec tests are updated
+	enum { enableWritingExtendedNamesSection = true };
 }

@@ -240,39 +240,45 @@ namespace IR
 				serializeNameMap(subsectionStream,names.functions[functionIndex].locals);
 			}
 		});
-		
-		// Label names.
-		serializeNameSubsection(stream,NameSubsectionType::label,[names](OutputStream& subsectionStream)
-		{
-			Uptr numFunctionNames = names.functions.size();
-			serializeVarUInt32(subsectionStream,numFunctionNames);
-			for(Uptr functionIndex = 0;functionIndex < names.functions.size();++functionIndex)
-			{
-				serializeVarUInt32(subsectionStream,functionIndex);
-				serializeNameMap(subsectionStream,names.functions[functionIndex].labels);
-			}
-		});
-		
-		// Type names
-		serializeNameSubsection(stream,NameSubsectionType::type,[names](OutputStream& subsectionStream)
-		{
-			serializeNameMap(subsectionStream,names.types);
-		});
 
-		serializeNameSubsection(stream,NameSubsectionType::table,[names](OutputStream& subsectionStream)
+		if(enableWritingExtendedNamesSection)
 		{
-			serializeNameMap(subsectionStream,names.tables);
-		});
+			// Label names.
+			serializeNameSubsection(stream,NameSubsectionType::label,[names](OutputStream& subsectionStream)
+			{
+				Uptr numFunctionNames = names.functions.size();
+				serializeVarUInt32(subsectionStream,numFunctionNames);
+				for(Uptr functionIndex = 0;functionIndex < names.functions.size();++functionIndex)
+				{
+					serializeVarUInt32(subsectionStream,functionIndex);
+					serializeNameMap(subsectionStream,names.functions[functionIndex].labels);
+				}
+			});
 		
-		serializeNameSubsection(stream,NameSubsectionType::memory,[names](OutputStream& subsectionStream)
-		{
-			serializeNameMap(subsectionStream,names.memories);
-		});
+			// Type names
+			serializeNameSubsection(stream,NameSubsectionType::type,[names](OutputStream& subsectionStream)
+			{
+				serializeNameMap(subsectionStream,names.types);
+			});
+
+			// Table names
+			serializeNameSubsection(stream,NameSubsectionType::table,[names](OutputStream& subsectionStream)
+			{
+				serializeNameMap(subsectionStream,names.tables);
+			});
 		
-		serializeNameSubsection(stream,NameSubsectionType::global,[names](OutputStream& subsectionStream)
-		{
-			serializeNameMap(subsectionStream,names.globals);
-		});
+			// Memory names
+			serializeNameSubsection(stream,NameSubsectionType::memory,[names](OutputStream& subsectionStream)
+			{
+				serializeNameMap(subsectionStream,names.memories);
+			});
+		
+			//  Global names
+			serializeNameSubsection(stream,NameSubsectionType::global,[names](OutputStream& subsectionStream)
+			{
+				serializeNameMap(subsectionStream,names.globals);
+			});
+		}
 
 		module.userSections[userSectionIndex].data = stream.getBytes();
 	}
