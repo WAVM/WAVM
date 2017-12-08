@@ -474,7 +474,7 @@ namespace LLVMJIT
 		while(numBytesRemaining)
 		{
 			char instructionBuffer[256];
-			const Uptr numInstructionBytes = LLVMDisasmInstruction(
+			Uptr numInstructionBytes = LLVMDisasmInstruction(
 				disasmRef,
 				nextByte,
 				numBytesRemaining,
@@ -482,7 +482,7 @@ namespace LLVMJIT
 				instructionBuffer,
 				sizeof(instructionBuffer)
 				);
-			assert(numInstructionBytes > 0);
+			if(numInstructionBytes == 0) { numInstructionBytes = 1; }
 			assert(numInstructionBytes <= numBytesRemaining);
 			numBytesRemaining -= numInstructionBytes;
 			nextByte += numInstructionBytes;
