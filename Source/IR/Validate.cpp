@@ -58,7 +58,7 @@ namespace IR
 	void validate(TableType type)
 	{
 		validate(type.elementType);
-		validate(type.size,U64(UINT32_MAX)+1);
+		validate(type.size,IR::maxTableElems);
 		if(ENABLE_THREADING_PROTOTYPE)
 		{
 			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.isShared && type.size.max == UINT64_MAX);
