@@ -747,6 +747,13 @@ namespace WAST
 							dataSize = 3,
 							segmentInfo = 5,
 							initFuncs = 6,
+							comdatInfo = 7,
+						};
+
+						enum class COMDATKind
+						{
+							data = 0,
+							function = 1,
 						};
 
 						while(stream.capacity())
@@ -846,6 +853,70 @@ namespace WAST
 									{
 										linkingSectionString += " <invalid function index " + std::to_string(functionIndex) + ">";
 									}
+								}
+
+								linkingSectionString += DEDENT_STRING;
+								--indentDepth;
+								break;
+							}
+							case LinkingSubsectionType::comdatInfo:
+							{
+								linkingSectionString += "\nComdats:" INDENT_STRING;
+								++indentDepth;
+
+								Uptr numComdats = 0;
+								serializeVarUInt32(substream,numComdats);
+								for(Uptr comdatIndex = 0; comdatIndex < numComdats; ++comdatIndex)
+								{
+									std::string comdatName;
+									serialize(substream,comdatName);
+
+									U32 flags = 0;
+									serializeVarUInt32(substream,flags);
+
+									linkingSectionString += "\n";
+									linkingSectionString += comdatName;
+
+									if(flags) { linkingSectionString += " OtherFlags=" + std::to_string(flags); }
+
+									linkingSectionString += INDENT_STRING;
+									++indentDepth;
+
+									Uptr numSymbols = 0;
+									serializeVarUInt32(substream,numSymbols);
+									for(Uptr symbolIndex = 0; symbolIndex < numSymbols; ++symbolIndex)
+									{
+										U32 kind = 0;
+										U32 index = 0;
+										serializeVarUInt32(substream,kind);
+										serializeVarUInt32(substream,index);
+
+										linkingSectionString += "\nSymbol: ";
+										switch((COMDATKind)kind)
+										{
+										case COMDATKind::data:
+											linkingSectionString += "data segment ";
+											linkingSectionString += std::to_string(index);
+											break;
+										case COMDATKind::function:
+											linkingSectionString += "function ";
+											if(index >= names.functions.size())
+											{
+												linkingSectionString += "Invalid COMDAT function index " + std::to_string(index);
+												throw FatalSerializationException("Invalid COMDAT function index");
+											}
+											linkingSectionString += names.functions[index].name;
+											break;
+										default:
+											linkingSectionString += "\nUnknown comdat kind: " + std::to_string(kind);
+											throw FatalSerializationException("Unknown COMDAT kind");
+											break;
+										};
+
+									}
+
+									linkingSectionString += DEDENT_STRING;
+									--indentDepth;
 								}
 
 								linkingSectionString += DEDENT_STRING;
