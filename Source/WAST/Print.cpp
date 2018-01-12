@@ -648,6 +648,16 @@ namespace WAST
 			}
 		}
 
+		// Print the start function.
+		if(module.startFunctionIndex != UINTPTR_MAX)
+		{
+			string += '\n';
+			ScopedTagPrinter startTag(string,"start");
+			string += ' ';
+			string += names.functions[module.startFunctionIndex].name;
+		}
+
+		// Print the function definitions.
 		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
 			const Uptr functionIndex = module.functions.imports.size() + functionDefIndex;
