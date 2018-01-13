@@ -39,7 +39,12 @@ namespace Intrinsics
 	{
 		function = new Runtime::FunctionInstance(nullptr,type,nativeFunction);
 		Platform::Lock lock(Singleton::get().mutex);
-		Singleton::get().functionMap[getDecoratedName(inName,type)] = this;
+		const std::string decoratedName = getDecoratedName(inName,type);
+		if(Singleton::get().functionMap.count(decoratedName))
+		{
+			Errors::fatalf("Intrinsic function already registered: %s",decoratedName.c_str());
+		}
+		Singleton::get().functionMap[decoratedName] = this;
 	}
 
 	Function::~Function()
@@ -59,7 +64,12 @@ namespace Intrinsics
 		value = &global->value;
 		{
 			Platform::Lock lock(Singleton::get().mutex);
-			Singleton::get().variableMap[getDecoratedName(inName,inType)] = this;
+			const std::string decoratedName = getDecoratedName(inName,inType);
+			if(Singleton::get().variableMap.count(decoratedName))
+			{
+				Errors::fatalf("Intrinsic global already registered: %s",decoratedName.c_str());
+			}
+			Singleton::get().variableMap[decoratedName] = this;
 		}
 	}
 
@@ -85,7 +95,12 @@ namespace Intrinsics
 		if(!table) { Errors::fatal("failed to create intrinsic table"); }
 
 		Platform::Lock lock(Singleton::get().mutex);
-		Singleton::get().tableMap[getDecoratedName(inName,type)] = this;
+		const std::string decoratedName = getDecoratedName(inName,type);
+		if(Singleton::get().tableMap.count(decoratedName))
+		{
+			Errors::fatalf("Intrinsic table already registered: %s",decoratedName.c_str());
+		}
+		Singleton::get().tableMap[decoratedName] = this;
 	}
 	
 	Table::~Table()
@@ -104,7 +119,12 @@ namespace Intrinsics
 		if(!memory) { Errors::fatal("failed to create intrinsic memory"); }
 
 		Platform::Lock lock(Singleton::get().mutex);
-		Singleton::get().memoryMap[getDecoratedName(inName,type)] = this;
+		const std::string decoratedName = getDecoratedName(inName,type);
+		if(Singleton::get().memoryMap.count(decoratedName))
+		{
+			Errors::fatalf("Intrinsic memory already registered: %s",decoratedName.c_str());
+		}
+		Singleton::get().memoryMap[decoratedName] = this;
 	}
 	
 	Memory::~Memory()
