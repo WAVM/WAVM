@@ -11,6 +11,7 @@
 	#define DUMP_UNOPTIMIZED_MODULE 1
 	#define VERIFY_MODULE 1
 	#define DUMP_OPTIMIZED_MODULE 1
+	#define DUMP_OBJECT 1
 	#define PRINT_DISASSEMBLY 1
 	#define PRINT_SEH_TABLES 0
 #else
@@ -18,6 +19,7 @@
 	#define DUMP_UNOPTIMIZED_MODULE 0
 	#define VERIFY_MODULE 0
 	#define DUMP_OPTIMIZED_MODULE 0
+	#define DUMP_OBJECT 0
 	#define PRINT_DISASSEMBLY 0
 	#define PRINT_SEH_TABLES 0
 #endif
@@ -424,6 +426,20 @@ namespace LLVMJIT
 	{
 		// Make a copy of the loaded object info for use by the finalizer.
 		jitUnit->loadedObjects.push_back(LoadedObject {object.get()->getBinary(),&loadedObject});
+
+		#if DUMP_OBJECT
+		{
+			// Dump the object file.
+			std::error_code errorCode;
+			static Uptr dumpedObjectId = 0;
+			std::string augmentedFilename = std::string("jitObject") + std::to_string(dumpedObjectId++) + ".o";
+			llvm::raw_fd_ostream dumpFileStream(augmentedFilename,errorCode,llvm::sys::fs::OpenFlags::F_None);
+			dumpFileStream.write(
+				(const char*)object->getBinary()->getData().bytes_begin(),
+				object->getBinary()->getData().size());
+			Log::printf(Log::Category::debug,"Dumped object file to: %s\n",augmentedFilename.c_str()); 
+		}
+		#endif
 
 		#ifdef _WIN64
 			// The LLVM dynamic loader doesn't correctly apply the IMAGE_REL_AMD64_ADDR32NB relocations
