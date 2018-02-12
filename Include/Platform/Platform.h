@@ -57,6 +57,16 @@ namespace Platform
 	inline U64 ceilLogTwo(U64 value) { return floorLogTwo(value * 2 - 1); }
 	inline U32 ceilLogTwo(U32 value) { return floorLogTwo(value * 2 - 1); }
 
+	inline U64 saturateToBounds(U64 value,U64 maxValue)
+	{
+		return U64(value + ((I64(maxValue - value) >> 63) & (maxValue - value)));
+	}
+
+	inline U32 saturateToBounds(U32 value,U32 maxValue)
+	{
+		return U32(value + ((I32(maxValue - value) >> 31) & (maxValue - value)));
+	}
+
 	//
 	// Memory
 	//

@@ -135,7 +135,7 @@ namespace Runtime
 	U8* getValidatedMemoryOffsetRange(MemoryInstance* memory,Uptr offset,Uptr numBytes)
 	{
 		// Validate that the range [offset..offset+numBytes) is contained by the memory's reserved pages.
-		U8* address = memory->baseAddress + offset;
+		U8* address = memory->baseAddress + Platform::saturateToBounds(offset,memory->endOffset);
 		if(	!memory
 		||	address < memory->reservedBaseAddress
 		||	address + numBytes < address
