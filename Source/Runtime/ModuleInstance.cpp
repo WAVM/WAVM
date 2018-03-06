@@ -196,7 +196,7 @@ namespace Runtime
 			}
 		}
 
-		// Call the module's start function.
+		// Look up the module's start function.
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
 			moduleInstance->startFunction = moduleInstance->functions[module.startFunctionIndex];
