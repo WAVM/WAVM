@@ -6,7 +6,7 @@ compiler:
  - gcc
 
 install:
- - if [ "$CXX" = "g++" ]; then export CXX="g++-6" CC="gcc-6"; fi
+ - if [ "$CXX" = "g++" ]; then export CXX="g++-7" CC="gcc-7"; fi
  - if [ "$CXX" = "clang++" ] && [ "$TRAVIS_OS_NAME" != "osx" ]; then export CXX="clang++-5.0" CC="clang-5.0"; fi
 
 script: ./travis-build.sh
@@ -26,7 +26,7 @@ addons:
    - llvm-toolchain-trusty-5.0
    - ubuntu-toolchain-r-test
   packages:
-   - gcc-6
-   - g++-6
+   - gcc-7
+   - g++-7
    - libedit-dev
    - clang-5.0
