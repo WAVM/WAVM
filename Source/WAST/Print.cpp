@@ -340,7 +340,7 @@ namespace WAST
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
-			string += "\ncall_indirect " + moduleContext.names.types[imm.type.index];
+			string += "\ncall_indirect (type " + moduleContext.names.types[imm.type.index] + ')';
 		}
 	
 		void printControlSignature(ResultType resultType)

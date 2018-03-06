@@ -12,12 +12,11 @@
 using namespace WAST;
 using namespace IR;
 
-namespace
+namespace WAST
 {
 	// State associated with parsing a function.
-	struct FunctionParseState : ParseState
+	struct FunctionState
 	{
-		const ModuleParseState& moduleState;
 		FunctionDef& functionDef;
 
 		std::unique_ptr<NameToIndexMap> localNameToIndexMap;
@@ -31,30 +30,36 @@ namespace
 		OperatorEncoderStream operationEncoder;
 		CodeValidationProxyStream<OperatorEncoderStream> validatingCodeStream;
 
-		FunctionParseState(const ModuleParseState& inModuleState,NameToIndexMap* inLocalNameToIndexMap,const Token* firstBodyToken,FunctionDef& inFunctionDef)
-		: ParseState(inModuleState.string,inModuleState.lineInfo,inModuleState.errors,firstBodyToken)
-		, moduleState(inModuleState)
-		, functionDef(inFunctionDef)
+		FunctionState(
+			NameToIndexMap* inLocalNameToIndexMap,
+			FunctionDef& inFunctionDef,
+			Module& module)
+		: functionDef(inFunctionDef)
 		, localNameToIndexMap(inLocalNameToIndexMap)
-		, numLocals(inFunctionDef.nonParameterLocalTypes.size() + inModuleState.module.types[inFunctionDef.type.index]->parameters.size())
+		, numLocals(
+			  inFunctionDef.nonParameterLocalTypes.size()
+			+ module.types[inFunctionDef.type.index]->parameters.size())
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
-		, validatingCodeStream(inModuleState.module,functionDef,operationEncoder)
+		, validatingCodeStream(module,functionDef,operationEncoder)
 		{}
 	};
+}
 
+namespace
+{
 	// While in scope, pushes a branch target onto the branch target stack.
 	// Also maintains the branchTargetNameToIndexMap 
 	struct ScopedBranchTarget
 	{
-		ScopedBranchTarget(FunctionParseState& inState,Name inName)
-		: state(inState), name(inName), previousBranchTargetIndex(UINT32_MAX)
+		ScopedBranchTarget(FunctionState* inFunctionState,Name inName)
+		: functionState(inFunctionState), name(inName), previousBranchTargetIndex(UINT32_MAX)
 		{
-			branchTargetIndex = ++state.branchTargetDepth;
+			branchTargetIndex = ++functionState->branchTargetDepth;
 			if(name)
 			{
-				auto previousIt = state.branchTargetNameToIndexMap.find(name);
-				if(previousIt != state.branchTargetNameToIndexMap.end())
+				auto previousIt = functionState->branchTargetNameToIndexMap.find(name);
+				if(previousIt != functionState->branchTargetNameToIndexMap.end())
 				{
 					// If the name was already bound to a branch target, remember the
 					// previously bound branch target.
@@ -63,59 +68,59 @@ namespace
 				}
 				else
 				{
-					state.branchTargetNameToIndexMap.emplace(name,branchTargetIndex);
+					functionState->branchTargetNameToIndexMap.emplace(name,branchTargetIndex);
 				}
 			}
 		}
 
 		~ScopedBranchTarget()
 		{
-			assert(branchTargetIndex == state.branchTargetDepth);
-			--state.branchTargetDepth;
+			assert(branchTargetIndex == functionState->branchTargetDepth);
+			--functionState->branchTargetDepth;
 			if(name)
 			{
-				assert(state.branchTargetNameToIndexMap.count(name) == 1);
-				assert(state.branchTargetNameToIndexMap.at(name) == branchTargetIndex);
+				assert(functionState->branchTargetNameToIndexMap.count(name) == 1);
+				assert(functionState->branchTargetNameToIndexMap.at(name) == branchTargetIndex);
 				if(previousBranchTargetIndex == UINT32_MAX)
 				{
-					state.branchTargetNameToIndexMap.erase(name);
+					functionState->branchTargetNameToIndexMap.erase(name);
 				}
 				else
 				{
 					// If hte name was previously bound to an outer branch target, restore it.
-					state.branchTargetNameToIndexMap[name] = previousBranchTargetIndex;
+					functionState->branchTargetNameToIndexMap[name] = previousBranchTargetIndex;
 				}
 			}
 		}
 
 	private:
 
-		FunctionParseState& state;
+		FunctionState* functionState;
 		Name name;
 		U32 branchTargetIndex;
 		U32 previousBranchTargetIndex;
 	};
 }
 
-static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state,U32& outTargetDepth)
+static bool tryParseAndResolveBranchTargetRef(CursorState* cursor,U32& outTargetDepth)
 {
 	Reference branchTargetRef;
-	if(tryParseNameOrIndexRef(state,branchTargetRef))
+	if(tryParseNameOrIndexRef(cursor,branchTargetRef))
 	{
 		switch(branchTargetRef.type)
 		{
 		case Reference::Type::index: outTargetDepth = branchTargetRef.index; break;
 		case Reference::Type::name:
 		{
-			auto nameToIndexMapIt = state.branchTargetNameToIndexMap.find(branchTargetRef.name);
-			if(nameToIndexMapIt == state.branchTargetNameToIndexMap.end())
+			auto nameToIndexMapIt = cursor->functionState->branchTargetNameToIndexMap.find(branchTargetRef.name);
+			if(nameToIndexMapIt == cursor->functionState->branchTargetNameToIndexMap.end())
 			{
-				parseErrorf(state,branchTargetRef.token,"unknown name");
+				parseErrorf(cursor->parseState,branchTargetRef.token,"unknown name");
 				outTargetDepth = UINT32_MAX;
 			}
 			else
 			{
-				outTargetDepth = state.branchTargetDepth - nameToIndexMapIt->second;
+				outTargetDepth = cursor->functionState->branchTargetDepth - nameToIndexMapIt->second;
 			}
 			break;
 		}
@@ -126,106 +131,134 @@ static bool tryParseAndResolveBranchTargetRef(FunctionParseState& state,U32& out
 	return false;
 }
 
-static void parseAndValidateRedundantBranchTargetName(ParseState& state,Name branchTargetName,const char* context,const char* redundantContext)
+static void parseAndValidateRedundantBranchTargetName(CursorState* cursor,Name branchTargetName,const char* context,const char* redundantContext)
 {
 	Name redundantName;
-	if(tryParseName(state,redundantName) && branchTargetName != redundantName)
+	if(tryParseName(cursor,redundantName) && branchTargetName != redundantName)
 	{
-		parseErrorf(state,state.nextToken-1,"%s label doesn't match %s label",redundantContext,context);
+		parseErrorf(cursor->parseState,cursor->nextToken-1,"%s label doesn't match %s label",redundantContext,context);
 	}
 }
 
-static void parseImm(FunctionParseState& state,NoImm&) {}
-static void parseImm(FunctionParseState& state,MemoryImm& outImm) {}
+static void parseImm(CursorState* cursor,NoImm&) {}
+static void parseImm(CursorState* cursor,MemoryImm& outImm) {}
 
-static void parseImm(FunctionParseState& state,LiteralImm<I32>& outImm) { outImm.value = (I32)parseI32(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<I64>& outImm) { outImm.value = (I64)parseI64(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<F32>& outImm) { outImm.value = parseF32(state); }
-static void parseImm(FunctionParseState& state,LiteralImm<F64>& outImm) { outImm.value = parseF64(state); }
+static void parseImm(CursorState* cursor,LiteralImm<I32>& outImm) { outImm.value = (I32)parseI32(cursor); }
+static void parseImm(CursorState* cursor,LiteralImm<I64>& outImm) { outImm.value = (I64)parseI64(cursor); }
+static void parseImm(CursorState* cursor,LiteralImm<F32>& outImm) { outImm.value = parseF32(cursor); }
+static void parseImm(CursorState* cursor,LiteralImm<F64>& outImm) { outImm.value = parseF64(cursor); }
 
-static void parseImm(FunctionParseState& state,BranchImm& outImm)
+static void parseImm(CursorState* cursor,BranchImm& outImm)
 {
-	if(!tryParseAndResolveBranchTargetRef(state,outImm.targetDepth))
+	if(!tryParseAndResolveBranchTargetRef(cursor,outImm.targetDepth))
 	{
-		parseErrorf(state,state.nextToken,"expected branch target name or index");
+		parseErrorf(cursor->parseState,cursor->nextToken,"expected branch target name or index");
 		throw RecoverParseException();
 	}
 }
 
-static void parseImm(FunctionParseState& state,BranchTableImm& outImm)
+static void parseImm(CursorState* cursor,BranchTableImm& outImm)
 {
 	std::vector<U32> targetDepths;
 	U32 targetDepth = 0;
-	while(tryParseAndResolveBranchTargetRef(state,targetDepth))
+	while(tryParseAndResolveBranchTargetRef(cursor,targetDepth))
 	{
 		targetDepths.push_back(targetDepth);
 	};
 
 	if(!targetDepths.size())
 	{
-		parseErrorf(state,state.nextToken,"expected branch target name or index");
+		parseErrorf(cursor->parseState,cursor->nextToken,"expected branch target name or index");
 		throw RecoverParseException();
 	}
 	else
 	{
 		outImm.defaultTargetDepth = targetDepths.back();
 		targetDepths.pop_back();
-		outImm.branchTableIndex = (U32)state.functionDef.branchTables.size();
-		state.functionDef.branchTables.push_back(std::move(targetDepths));
+		outImm.branchTableIndex = (U32)cursor->functionState->functionDef.branchTables.size();
+		cursor->functionState->functionDef.branchTables.push_back(std::move(targetDepths));
 	}
 }
 
 template<bool isGlobal>
-static void parseImm(FunctionParseState& state,GetOrSetVariableImm<isGlobal>& outImm)
+static void parseImm(CursorState* cursor,GetOrSetVariableImm<isGlobal>& outImm)
 {
 	outImm.variableIndex = parseAndResolveNameOrIndexRef(
-		state,
-		isGlobal ? state.moduleState.globalNameToIndexMap : *state.localNameToIndexMap,
-		isGlobal ? state.moduleState.module.globals.size() : state.numLocals,
+		cursor,
+		isGlobal ? cursor->moduleState->globalNameToIndexMap : *cursor->functionState->localNameToIndexMap,
+		isGlobal ? cursor->moduleState->module.globals.size() : cursor->functionState->numLocals,
 		isGlobal ? "global" : "local");
 }
 
-static void parseImm(FunctionParseState& state,CallImm& outImm)
+static void parseImm(CursorState* cursor,CallImm& outImm)
 {
 	outImm.functionIndex = parseAndResolveNameOrIndexRef(
-		state,
-		state.moduleState.functionNameToIndexMap,
-		state.moduleState.module.functions.size(),
+		cursor,
+		cursor->moduleState->functionNameToIndexMap,
+		cursor->moduleState->module.functions.size(),
 		"function"
 		);
 }
 
-static void parseImm(FunctionParseState& state,CallIndirectImm& outImm)
+static void parseImm(CursorState* cursor,CallIndirectImm& outImm)
 {
-	outImm.type.index = parseAndResolveNameOrIndexRef(
-		state,
-		state.moduleState.typeNameToIndexMap,
-		state.moduleState.module.types.size(),
-		"type"
-		);
+	if(cursor->nextToken->type == t_name
+	|| cursor->nextToken->type == t_decimalInt
+	|| cursor->nextToken->type == t_hexInt)
+	{
+		// Parse the callee type as a legacy naked name or index referring to a type declaration.
+		outImm.type.index = parseAndResolveNameOrIndexRef(
+			cursor,
+			cursor->moduleState->typeNameToIndexMap,
+			cursor->moduleState->module.types.size(),
+			"type");
+	}
+	else
+	{
+		// Parse the callee type, as a reference or explicit declaration.
+		const Token* firstTypeToken = cursor->nextToken;
+		std::vector<std::string> paramDisassemblyNames;
+		NameToIndexMap paramNameToIndexMap;
+		const UnresolvedFunctionType unresolvedFunctionType = parseFunctionTypeRefAndOrDecl(
+			cursor,
+			paramNameToIndexMap,
+			paramDisassemblyNames);
+		outImm.type.index = resolveFunctionType(cursor->moduleState,unresolvedFunctionType).index;
+
+		// Disallow named parameters.
+		if(paramNameToIndexMap.size())
+		{
+			auto paramNameIt = paramNameToIndexMap.begin();
+			parseErrorf(
+				cursor->parseState,
+				firstTypeToken,
+				"call_indirect callee type declaration may not declare parameter names ($%s)",
+				paramNameIt->first.getString().c_str());
+		}
+	}
 }
 
 template<Uptr naturalAlignmentLog2>
-static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLog2>& outImm)
+static void parseImm(CursorState* cursor,LoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.offset = 0;
-	if(state.nextToken->type == t_offset)
+	if(cursor->nextToken->type == t_offset)
 	{
-		++state.nextToken;
-		require(state,t_equals);
-		outImm.offset = parseI32(state);
+		++cursor->nextToken;
+		require(cursor,t_equals);
+		outImm.offset = parseI32(cursor);
 	}
 
 	const U32 naturalAlignment = 1 << naturalAlignmentLog2;
 	U32 alignment = naturalAlignment;
-	if(state.nextToken->type == t_align)
+	if(cursor->nextToken->type == t_align)
 	{
-		++state.nextToken;
-		require(state,t_equals);
-		alignment = parseI32(state);
+		++cursor->nextToken;
+		require(cursor,t_equals);
+		alignment = parseI32(cursor);
 		if(alignment > naturalAlignment)
 		{
-			parseErrorf(state,state.nextToken,"alignment must be <= natural alignment");
+			parseErrorf(cursor->parseState,cursor->nextToken,"alignment must be <= natural alignment");
 			alignment = naturalAlignment;
 		}
 	}
@@ -233,39 +266,39 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 	outImm.alignmentLog2 = (U8)Platform::floorLogTwo(alignment);
 	if(!alignment || alignment & (alignment - 1))
 	{
-		parseErrorf(state,state.nextToken,"alignment must be power of 2");
+		parseErrorf(cursor->parseState,cursor->nextToken,"alignment must be power of 2");
 	}
 }
 
 #if ENABLE_SIMD_PROTOTYPE
 
-static void parseImm(FunctionParseState& state,LiteralImm<V128>& outImm)
+static void parseImm(CursorState* cursor,LiteralImm<V128>& outImm)
 {
-	outImm.value = parseV128(state);
+	outImm.value = parseV128(cursor);
 }
 
 template<Uptr numLanes>
-static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm)
+static void parseImm(CursorState* cursor,LaneIndexImm<numLanes>& outImm)
 {
-	const U64 u64 = parseI64(state);
+	const U64 u64 = parseI64(cursor);
 	if(u64 > numLanes)
 	{
-		parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes);
+		parseErrorf(cursor->parseState,cursor->nextToken-1,"lane index must be in the range 0..%u",numLanes);
 	}
 	outImm.laneIndex = U8(u64);
 }
 
 template<Uptr numLanes>
-static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm)
+static void parseImm(CursorState* cursor,ShuffleImm<numLanes>& outImm)
 {
-	parseParenthesized(state,[&]
+	parseParenthesized(cursor,[&]
 	{
 		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
 		{
-			const U64 u64 = parseI64(state);
+			const U64 u64 = parseI64(cursor);
 			if(u64 >= numLanes * 2)
 			{
-				parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes * 2);
+				parseErrorf(cursor->parseState,cursor->nextToken-1,"lane index must be in the range 0..%u",numLanes * 2);
 			}
 			outImm.laneIndices[laneIndex] = U8(u64);
 		}
@@ -274,337 +307,337 @@ static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm)
 #endif
 
 #if ENABLE_THREADING_PROTOTYPE
-static void parseImm(FunctionParseState& state,LaunchThreadImm& outImm) {}
+static void parseImm(CursorState* cursor,LaunchThreadImm& outImm) {}
 
 template<Uptr naturalAlignmentLog2>
-static void parseImm(FunctionParseState& state,AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
+static void parseImm(CursorState* cursor,AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	LoadOrStoreImm<naturalAlignmentLog2> loadOrStoreImm;
-	parseImm(state,loadOrStoreImm);
+	parseImm(cursor,loadOrStoreImm);
 	outImm.alignmentLog2 = loadOrStoreImm.alignmentLog2;
 	outImm.offset = loadOrStoreImm.offset;
 }
 #endif
 
 #if ENABLE_EXCEPTION_PROTOTYPE
-static void parseImm(FunctionParseState& state,CatchImm& outImm)
+static void parseImm(CursorState* cursor,CatchImm& outImm)
 {
 	outImm.exceptionTypeIndex = parseAndResolveNameOrIndexRef(
-		state,
-		state.moduleState.exceptionTypeNameToIndexMap,
-		state.moduleState.module.exceptionTypes.size(),
+		cursor,
+		cursor->moduleState->exceptionTypeNameToIndexMap,
+		cursor->moduleState->module.exceptionTypes.size(),
 		"exception type"
 		);
 }
-static void parseImm(FunctionParseState& state,ThrowImm& outImm)
+static void parseImm(CursorState* cursor,ThrowImm& outImm)
 {
 	outImm.exceptionTypeIndex = parseAndResolveNameOrIndexRef(
-		state,
-		state.moduleState.exceptionTypeNameToIndexMap,
-		state.moduleState.module.exceptionTypes.size(),
+		cursor,
+		cursor->moduleState->exceptionTypeNameToIndexMap,
+		cursor->moduleState->module.exceptionTypes.size(),
 		"exception type"
 		);
 }
-static void parseImm(FunctionParseState& state,RethrowImm& outImm)
+static void parseImm(CursorState* cursor,RethrowImm& outImm)
 {
-	if(!tryParseAndResolveBranchTargetRef(state,outImm.catchDepth))
+	if(!tryParseAndResolveBranchTargetRef(cursor,outImm.catchDepth))
 	{
-		parseErrorf(state,state.nextToken,"expected try label or index");
+		parseErrorf(cursor->parseState,cursor->nextToken,"expected try label or index");
 		throw RecoverParseException();
 	}
 }
 #endif
 
-static void parseInstrSequence(FunctionParseState& state);
-static void parseExpr(FunctionParseState& state);
+static void parseInstrSequence(CursorState* cursor);
+static void parseExpr(CursorState* cursor);
 
-static void parseControlImm(FunctionParseState& state,Name& outBranchTargetName,ControlStructureImm& imm)
+static void parseControlImm(CursorState* cursor,Name& outBranchTargetName,ControlStructureImm& imm)
 {
-	tryParseName(state,outBranchTargetName);
-	state.labelDisassemblyNames.push_back(outBranchTargetName.getString());
+	tryParseName(cursor,outBranchTargetName);
+	cursor->functionState->labelDisassemblyNames.push_back(outBranchTargetName.getString());
 	
 	imm.resultType = ResultType::none;
-	if(state.nextToken[0].type == t_leftParenthesis && state.nextToken[1].type == t_result)
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
 	{
-		state.nextToken += 2;
-		tryParseResultType(state,imm.resultType);
-		require(state,t_rightParenthesis);
+		cursor->nextToken += 2;
+		tryParseResultType(cursor,imm.resultType);
+		require(cursor,t_rightParenthesis);
 	}
 	else
 	{
 		// For backward compatibility, also handle just a result type.
-		tryParseResultType(state,imm.resultType);
+		tryParseResultType(cursor,imm.resultType);
 	}
 }
 
-static void parseBlock(FunctionParseState& state,bool isExpr)
+static void parseBlock(CursorState* cursor,bool isExpr)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
-	parseControlImm(state,branchTargetName,imm);
+	parseControlImm(cursor,branchTargetName,imm);
 
-	ScopedBranchTarget branchTarget(state,branchTargetName);
-	state.validatingCodeStream.block(imm);
-	parseInstrSequence(state);
-	state.validatingCodeStream.end();
+	ScopedBranchTarget branchTarget(cursor->functionState,branchTargetName);
+	cursor->functionState->validatingCodeStream.block(imm);
+	parseInstrSequence(cursor);
+	cursor->functionState->validatingCodeStream.end();
 
 	if(!isExpr)
 	{
-		require(state,t_end);
-		parseAndValidateRedundantBranchTargetName(state,branchTargetName,"block","end");
+		require(cursor,t_end);
+		parseAndValidateRedundantBranchTargetName(cursor,branchTargetName,"block","end");
 	}
 }
 
-static void parseLoop(FunctionParseState& state,bool isExpr)
+static void parseLoop(CursorState* cursor,bool isExpr)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
-	parseControlImm(state,branchTargetName,imm);
-			
-	ScopedBranchTarget branchTarget(state,branchTargetName);
-	state.validatingCodeStream.loop(imm);
-	parseInstrSequence(state);
-	state.validatingCodeStream.end();
+	parseControlImm(cursor,branchTargetName,imm);
+
+	ScopedBranchTarget branchTarget(cursor->functionState,branchTargetName);
+	cursor->functionState->validatingCodeStream.loop(imm);
+	parseInstrSequence(cursor);
+	cursor->functionState->validatingCodeStream.end();
 	
 	if(!isExpr)
 	{
-		require(state,t_end);
-		parseAndValidateRedundantBranchTargetName(state,branchTargetName,"loop","end");
+		require(cursor,t_end);
+		parseAndValidateRedundantBranchTargetName(cursor,branchTargetName,"loop","end");
 	}
 }
 
-static void parseExprSequence(FunctionParseState& state)
+static void parseExprSequence(CursorState* cursor)
 {
-	while(state.nextToken->type != t_rightParenthesis)
+	while(cursor->nextToken->type != t_rightParenthesis)
 	{
-		parseExpr(state);
+		parseExpr(cursor);
 	};
 }
 
 #define VISIT_OP(opcode,name,nameString,Imm,...) \
-	static void parseOp_##name(FunctionParseState& state,bool isExpression) \
+	static void parseOp_##name(CursorState* cursor,bool isExpression) \
 	{ \
-		++state.nextToken; \
+		++cursor->nextToken; \
 		Imm imm; \
-		parseImm(state,imm); \
+		parseImm(cursor,imm); \
 		if(isExpression) \
 		{ \
-			parseExprSequence(state); \
+			parseExprSequence(cursor); \
 		} \
-		state.validatingCodeStream.name(imm); \
+		cursor->functionState->validatingCodeStream.name(imm); \
 	}
 ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 
-static void parseExpr(FunctionParseState& state)
+static void parseExpr(CursorState* cursor)
 {
-	parseParenthesized(state,[&]
+	parseParenthesized(cursor,[&]
 	{
-		const Token* opcodeToken = state.nextToken;
+		const Token* opcodeToken = cursor->nextToken;
 		try
 		{
-			switch(state.nextToken->type)
+			switch(cursor->nextToken->type)
 			{
 			case t_block:
 			{
-				++state.nextToken;
-				parseBlock(state,true);
+				++cursor->nextToken;
+				parseBlock(cursor,true);
 				break;
 			}
 			case t_loop:
 			{
-				++state.nextToken;
-				parseLoop(state,true);
+				++cursor->nextToken;
+				parseLoop(cursor,true);
 				break;
 			}
 			case t_if_:
 			{
-				++state.nextToken;
+				++cursor->nextToken;
 
 				Name branchTargetName;
 				ControlStructureImm imm;
-				parseControlImm(state,branchTargetName,imm);
+				parseControlImm(cursor,branchTargetName,imm);
 
 				// Parse an optional condition expression.
-				if(state.nextToken[0].type != t_leftParenthesis || state.nextToken[1].type != t_then)
+				if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_then)
 				{
-					parseExpr(state);
+					parseExpr(cursor);
 				}
 
-				ScopedBranchTarget branchTarget(state,branchTargetName);
-				state.validatingCodeStream.if_(imm);
+				ScopedBranchTarget branchTarget(cursor->functionState,branchTargetName);
+				cursor->functionState->validatingCodeStream.if_(imm);
 
 				// Parse the if clauses.
-				if(state.nextToken[0].type == t_leftParenthesis && state.nextToken[1].type == t_then)
+				if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_then)
 				{
 					// First syntax: (then <instr>)* (else <instr>*)?
-					parseParenthesized(state,[&]
+					parseParenthesized(cursor,[&]
 					{
-						require(state,t_then);
-						parseInstrSequence(state);
+						require(cursor,t_then);
+						parseInstrSequence(cursor);
 					});
-					if(state.nextToken->type == t_leftParenthesis)
+					if(cursor->nextToken->type == t_leftParenthesis)
 					{
-						parseParenthesized(state,[&]
+						parseParenthesized(cursor,[&]
 						{
-							require(state,t_else_);
-							state.validatingCodeStream.else_();
-							parseInstrSequence(state);
+							require(cursor,t_else_);
+							cursor->functionState->validatingCodeStream.else_();
+							parseInstrSequence(cursor);
 						});
 					}
 				}
 				else
 				{
 					// Second syntax option: <expr> <expr>?
-					parseExpr(state);
-					if(state.nextToken->type != t_rightParenthesis)
+					parseExpr(cursor);
+					if(cursor->nextToken->type != t_rightParenthesis)
 					{
-						state.validatingCodeStream.else_();
-						parseExpr(state);
+						cursor->functionState->validatingCodeStream.else_();
+						parseExpr(cursor);
 					}
 				}
-				state.validatingCodeStream.end();
+				cursor->functionState->validatingCodeStream.end();
 				break;
 			}
-			#define VISIT_OP(opcode,name,nameString,Imm,...) case t_##name: parseOp_##name(state,true); break;
+			#define VISIT_OP(opcode,name,nameString,Imm,...) case t_##name: parseOp_##name(cursor,true); break;
 			ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 			#undef VISIT_OP
 			default:
-				parseErrorf(state,state.nextToken,"expected opcode");
+				parseErrorf(cursor->parseState,cursor->nextToken,"expected opcode");
 				throw RecoverParseException();
 			}
 		}
 		catch(RecoverParseException)
 		{
-			state.validatingCodeStream.unreachable();
+			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 		catch(ValidationException exception)
 		{
-			parseErrorf(state,opcodeToken,"%s",exception.message.c_str());
-			state.validatingCodeStream.unreachable();
+			parseErrorf(cursor->parseState,opcodeToken,"%s",exception.message.c_str());
+			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 	});
 }
 
-static void parseInstrSequence(FunctionParseState& state)
+static void parseInstrSequence(CursorState* cursor)
 {
 	while(true)
 	{
-		const Token* opcodeToken = state.nextToken;
+		const Token* opcodeToken = cursor->nextToken;
 		try
 		{
-			switch(state.nextToken->type)
+			switch(cursor->nextToken->type)
 			{
-			case t_leftParenthesis: parseExpr(state); break;
+			case t_leftParenthesis: parseExpr(cursor); break;
 			case t_rightParenthesis: return;
 			case t_else_: return;
 			case t_end: return;
 			case t_block:
 			{
-				++state.nextToken;
-				parseBlock(state,false);
+				++cursor->nextToken;
+				parseBlock(cursor,false);
 				break;
 			}
 			case t_loop:
 			{
-				++state.nextToken;
-				parseLoop(state,false);
+				++cursor->nextToken;
+				parseLoop(cursor,false);
 				break;
 			}
 			case t_if_:
 			{
-				++state.nextToken;
+				++cursor->nextToken;
 
 				Name branchTargetName;
 				ControlStructureImm imm;
-				parseControlImm(state,branchTargetName,imm);
+				parseControlImm(cursor,branchTargetName,imm);
 				
-				ScopedBranchTarget branchTarget(state,branchTargetName);
-				state.validatingCodeStream.if_(imm);
+				ScopedBranchTarget branchTarget(cursor->functionState,branchTargetName);
+				cursor->functionState->validatingCodeStream.if_(imm);
 
 				// Parse the then clause.
-				parseInstrSequence(state);
+				parseInstrSequence(cursor);
 
 				// Parse the else clause.
-				if(state.nextToken->type == t_else_)
+				if(cursor->nextToken->type == t_else_)
 				{
-					++state.nextToken;
-					parseAndValidateRedundantBranchTargetName(state,branchTargetName,"if","else");
+					++cursor->nextToken;
+					parseAndValidateRedundantBranchTargetName(cursor,branchTargetName,"if","else");
 
-					state.validatingCodeStream.else_();
-					parseInstrSequence(state);
+					cursor->functionState->validatingCodeStream.else_();
+					parseInstrSequence(cursor);
 				}
-				state.validatingCodeStream.end();
+				cursor->functionState->validatingCodeStream.end();
 		
-				require(state,t_end);
-				parseAndValidateRedundantBranchTargetName(state,branchTargetName,"if","end");
+				require(cursor,t_end);
+				parseAndValidateRedundantBranchTargetName(cursor,branchTargetName,"if","end");
 
 				break;
 			}
 			case t_try_:
 			{
-				++state.nextToken;
+				++cursor->nextToken;
 
 				Name branchTargetName;
 				ControlStructureImm imm;
-				parseControlImm(state,branchTargetName,imm);
+				parseControlImm(cursor,branchTargetName,imm);
 				
-				ScopedBranchTarget branchTarget(state,branchTargetName);
-				state.validatingCodeStream.try_(imm);
+				ScopedBranchTarget branchTarget(cursor->functionState,branchTargetName);
+				cursor->functionState->validatingCodeStream.try_(imm);
 
 				// Parse the try clause.
-				parseInstrSequence(state);
+				parseInstrSequence(cursor);
 
 				// Parse catch clauses.
-				while(state.nextToken->type != t_end)
+				while(cursor->nextToken->type != t_end)
 				{
-					if(state.nextToken->type == t_catch_)
+					if(cursor->nextToken->type == t_catch_)
 					{
-						++state.nextToken;
+						++cursor->nextToken;
 						CatchImm catchImm;
-						parseImm(state,catchImm);
-						state.validatingCodeStream.catch_(catchImm);
-						parseInstrSequence(state);
+						parseImm(cursor,catchImm);
+						cursor->functionState->validatingCodeStream.catch_(catchImm);
+						parseInstrSequence(cursor);
 					}
-					else if(state.nextToken->type == t_catch_all)
+					else if(cursor->nextToken->type == t_catch_all)
 					{
-						++state.nextToken;
-						state.validatingCodeStream.catch_all();
-						parseInstrSequence(state);
+						++cursor->nextToken;
+						cursor->functionState->validatingCodeStream.catch_all();
+						parseInstrSequence(cursor);
 					}
 					else
 					{
-						parseErrorf(state,state.nextToken,"expected 'catch', 'catch_all', or 'end' following 'try'");
+						parseErrorf(cursor->parseState,cursor->nextToken,"expected 'catch', 'catch_all', or 'end' following 'try'");
 					}
 				};
 
-				require(state,t_end);
-				parseAndValidateRedundantBranchTargetName(state,branchTargetName,"try","end");
-				state.validatingCodeStream.end();
+				require(cursor,t_end);
+				parseAndValidateRedundantBranchTargetName(cursor,branchTargetName,"try","end");
+				cursor->functionState->validatingCodeStream.end();
 
 				break;
 			}
 			case t_catch_: return;
 			case t_catch_all: return;
-			#define VISIT_OP(opcode,name,nameString,Imm,...) case t_##name: parseOp_##name(state,false); break;
+			#define VISIT_OP(opcode,name,nameString,Imm,...) case t_##name: parseOp_##name(cursor,false); break;
 			ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 			#undef VISIT_OP
 			default:
-				parseErrorf(state,state.nextToken,"expected opcode");
+				parseErrorf(cursor->parseState,cursor->nextToken,"expected opcode");
 				throw RecoverParseException();
 			}
 		}
 		catch(RecoverParseException)
 		{
-			state.validatingCodeStream.unreachable();
+			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 		catch(ValidationException exception)
 		{
-			parseErrorf(state,opcodeToken,"%s",exception.message.c_str());
-			state.validatingCodeStream.unreachable();
+			parseErrorf(cursor->parseState,opcodeToken,"%s",exception.message.c_str());
+			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
 	};
@@ -612,65 +645,70 @@ static void parseInstrSequence(FunctionParseState& state)
 
 namespace WAST
 {
-	FunctionDef parseFunctionDef(ModuleParseState& state,const Token* funcToken)
+	FunctionDef parseFunctionDef(CursorState* cursor,const Token* funcToken)
 	{
 		std::vector<std::string>* localDisassemblyNames = new std::vector<std::string>;
 		NameToIndexMap* localNameToIndexMap = new NameToIndexMap();
 
 		// Parse the function type, as a reference or explicit declaration.
-		const UnresolvedFunctionType unresolvedFunctionType = parseFunctionTypeRefAndOrDecl(state,*localNameToIndexMap,*localDisassemblyNames);
+		const UnresolvedFunctionType unresolvedFunctionType = parseFunctionTypeRefAndOrDecl(cursor,*localNameToIndexMap,*localDisassemblyNames);
 		
 		// Defer resolving the function type until all type declarations have been parsed.
-		const Uptr functionIndex = state.module.functions.size();
-		const Uptr functionDefIndex = state.module.functions.defs.size();
-		const Token* firstBodyToken = state.nextToken;
-		state.postTypeCallbacks.push_back(
+		const Uptr functionIndex = cursor->moduleState->module.functions.size();
+		const Uptr functionDefIndex = cursor->moduleState->module.functions.defs.size();
+		const Token* firstBodyToken = cursor->nextToken;
+		cursor->moduleState->postTypeCallbacks.push_back(
 		[functionIndex,functionDefIndex,firstBodyToken,localNameToIndexMap,localDisassemblyNames,unresolvedFunctionType]
-		(ModuleParseState& state)
+		(ModuleState* moduleState)
 		{
 			// Resolve the function type and set it on the FunctionDef.
-			const IndexedFunctionType functionTypeIndex = resolveFunctionType(state,unresolvedFunctionType);
-			state.module.functions.defs[functionDefIndex].type = functionTypeIndex;
+			const IndexedFunctionType functionTypeIndex = resolveFunctionType(moduleState,unresolvedFunctionType);
+			moduleState->module.functions.defs[functionDefIndex].type = functionTypeIndex;
 			
 			// Defer parsing the body of the function until all function types have been resolved.
-			state.postDeclarationCallbacks.push_back(
+			moduleState->postDeclarationCallbacks.push_back(
 			[functionIndex,functionDefIndex,firstBodyToken,localNameToIndexMap,localDisassemblyNames,functionTypeIndex]
-			(ModuleParseState& state)
+			(ModuleState* moduleState)
 			{
-				FunctionDef& functionDef = state.module.functions.defs[functionDefIndex];
+				FunctionDef& functionDef = moduleState->module.functions.defs[functionDefIndex];
 				const FunctionType* functionType = functionTypeIndex.index == UINT32_MAX
 					? FunctionType::get()
-					: state.module.types[functionTypeIndex.index];
+					: moduleState->module.types[functionTypeIndex.index];
 
 				// Parse the function's local variables.
-				ParseState localParseState(state.string,state.lineInfo,state.errors,firstBodyToken);
-				while(tryParseParenthesizedTagged(localParseState,t_local,[&]
+				CursorState functionCursorState(firstBodyToken,moduleState->parseState,moduleState);
+				while(tryParseParenthesizedTagged(&functionCursorState,t_local,[&]
 				{
 					Name localName;
-					if(tryParseName(localParseState,localName))
+					if(tryParseName(&functionCursorState,localName))
 					{
-						bindName(localParseState,*localNameToIndexMap,localName,functionType->parameters.size() + functionDef.nonParameterLocalTypes.size());
+						bindName(
+							moduleState->parseState,
+							*localNameToIndexMap,
+							localName,
+							functionType->parameters.size() + functionDef.nonParameterLocalTypes.size());
 						localDisassemblyNames->push_back(localName.getString());
-						functionDef.nonParameterLocalTypes.push_back(parseValueType(localParseState));
+						functionDef.nonParameterLocalTypes.push_back(parseValueType(&functionCursorState));
 					}
 					else
 					{
-						while(localParseState.nextToken->type != t_rightParenthesis)
+						while(functionCursorState.nextToken->type != t_rightParenthesis)
 						{
 							localDisassemblyNames->push_back(std::string());
-							functionDef.nonParameterLocalTypes.push_back(parseValueType(localParseState));
+							functionDef.nonParameterLocalTypes.push_back(parseValueType(&functionCursorState));
 						};
 					}
 				}));
-				state.disassemblyNames.functions[functionIndex].locals = std::move(*localDisassemblyNames);
+				moduleState->disassemblyNames.functions[functionIndex].locals = std::move(*localDisassemblyNames);
 				delete localDisassemblyNames;
 
 				// Parse the function's code.
-				FunctionParseState functionState(state,localNameToIndexMap,localParseState.nextToken,functionDef);
+				FunctionState functionState(localNameToIndexMap,functionDef,moduleState->module);
+				functionCursorState.functionState = &functionState;
 				try
 				{
-					parseInstrSequence(functionState);
-					if(!functionState.errors.size())
+					parseInstrSequence(&functionCursorState);
+					if(!moduleState->parseState->unresolvedErrors.size())
 					{
 						functionState.validatingCodeStream.end();
 						functionState.validatingCodeStream.finishValidation();
@@ -678,18 +716,18 @@ namespace WAST
 				}
 				catch(ValidationException exception)
 				{
-					parseErrorf(state,firstBodyToken,"%s",exception.message.c_str());
+					parseErrorf(moduleState->parseState,firstBodyToken,"%s",exception.message.c_str());
 				}
 				catch(RecoverParseException) {}
 				catch(FatalParseException) {}
 				functionDef.code = std::move(functionState.codeByteStream.getBytes());
-				state.disassemblyNames.functions[functionIndex].labels = std::move(functionState.labelDisassemblyNames);
+				moduleState->disassemblyNames.functions[functionIndex].labels = std::move(functionState.labelDisassemblyNames);
 			});
 		});
 
 		// Continue parsing after the closing parenthesis.
-		findClosingParenthesis(state,funcToken-1);
-		--state.nextToken;
+		findClosingParenthesis(cursor,funcToken-1);
+		--cursor->nextToken;
 	
 		return {{UINT32_MAX},{},{}};
 	}

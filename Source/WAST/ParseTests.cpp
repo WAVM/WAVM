@@ -12,80 +12,78 @@
 using namespace WAST;
 using namespace IR;
 
-static Runtime::Value parseConstExpression(ParseState& state)
+static Runtime::Value parseConstExpression(CursorState* cursor)
 {
 	Runtime::Value result;
-	parseParenthesized(state,[&]
+	parseParenthesized(cursor,[&]
 	{
-		switch(state.nextToken->type)
+		switch(cursor->nextToken->type)
 		{
 		case t_i32_const:
 		{
-			++state.nextToken;
-			result = parseI32(state);
+			++cursor->nextToken;
+			result = parseI32(cursor);
 			break;
 		}
 		case t_i64_const:
 		{
-			++state.nextToken;
-			result = parseI64(state);
+			++cursor->nextToken;
+			result = parseI64(cursor);
 			break;
 		}
 		case t_f32_const:
 		{
-			++state.nextToken;
-			result = parseF32(state);
+			++cursor->nextToken;
+			result = parseF32(cursor);
 			break;
 		}
 		case t_f64_const:
 		{
-			++state.nextToken;
-			result = parseF64(state);
+			++cursor->nextToken;
+			result = parseF64(cursor);
 			break;
 		}
 		#if ENABLE_SIMD_PROTOTYPE
 		case t_v128_const:
 		{
-			++state.nextToken;
+			++cursor->nextToken;
 			result.type = ValueType::v128;
-			result.v128 = parseV128(state);
+			result.v128 = parseV128(cursor);
 			break;
 		}
 		#endif
 		default:
-			parseErrorf(state,state.nextToken,"expected const expression");
+			parseErrorf(cursor->parseState,cursor->nextToken,"expected const expression");
 			throw RecoverParseException();
 		};
 	});
 	return result;
 }
 
-static std::string parseOptionalNameAsString(ParseState& state)
+static std::string parseOptionalNameAsString(CursorState* cursor)
 {
 	Name name;
-	return tryParseName(state,name) ? name.getString() : std::string();
+	return tryParseName(cursor,name) ? name.getString() : std::string();
 }
 
-static void parseTestScriptModule(ParseState& state,IR::Module& outModule,std::vector<UnresolvedError>& outErrors,std::string& outInternalModuleName)
+static void parseTestScriptModule(CursorState* cursor,IR::Module& outModule,std::string& outInternalModuleName)
 {
-	ModuleParseState moduleState(state.string,state.lineInfo,outErrors,state.nextToken,outModule);
+	outInternalModuleName = parseOptionalNameAsString(cursor);
 	
-	outInternalModuleName = parseOptionalNameAsString(moduleState);
-	
-	if(moduleState.nextToken->type == t_quote || moduleState.nextToken->type == t_binary)
+	if(cursor->nextToken->type == t_quote || cursor->nextToken->type == t_binary)
 	{
 		// Parse a quoted module: (module quote|binary "...")
-		const Token* quoteToken = moduleState.nextToken;
-		++moduleState.nextToken;
+		const Token* quoteToken = cursor->nextToken;
+		++cursor->nextToken;
 
 		std::string moduleQuotedString;
-		if(!tryParseString(moduleState,moduleQuotedString))
+		if(!tryParseString(cursor,moduleQuotedString))
 		{
-			parseErrorf(moduleState,moduleState.nextToken,"expected string");
+			parseErrorf(cursor->parseState,cursor->nextToken,"expected string");
 		}
 		else
 		{
-			while(tryParseString(moduleState,moduleQuotedString)) {};
+			while(tryParseString(cursor,moduleQuotedString)) {};
 		}
 
 		if(quoteToken->type == t_quote)
@@ -96,7 +94,7 @@ static void parseTestScriptModule(ParseState& state,IR::Module& outModule,std::v
 			parseModule(moduleQuotedString.c_str(),moduleQuotedString.size(),outModule,quotedErrors);
 			for(auto&& error : quotedErrors)
 			{
-				outErrors.emplace_back(quoteToken->begin,std::move(error.message));
+				cursor->parseState->unresolvedErrors.emplace_back(quoteToken->begin,std::move(error.message));
 			}
 		}
 		else
@@ -108,61 +106,50 @@ static void parseTestScriptModule(ParseState& state,IR::Module& outModule,std::v
 			}
 			catch(Serialization::FatalSerializationException exception)
 			{
-				parseErrorf(moduleState,quoteToken,"error deserializing binary module: %s",exception.message.c_str());
+				parseErrorf(cursor->parseState,quoteToken,"error deserializing binary module: %s",exception.message.c_str());
 			}
 			catch(ValidationException exception)
 			{
-				parseErrorf(moduleState,quoteToken,"error validating binary module: %s",exception.message.c_str());
+				parseErrorf(cursor->parseState,quoteToken,"error validating binary module: %s",exception.message.c_str());
 			}
 		}
 	}
 	else
 	{
-		try
-		{
-			parseModuleBody(moduleState);
-		}
-		catch(RecoverParseException)
-		{
-			outErrors.insert(outErrors.end(),std::make_move_iterator(moduleState.errors.begin()),std::make_move_iterator(moduleState.errors.end()));
-			state.nextToken = moduleState.nextToken;
-			throw RecoverParseException();
-		}
+		parseModuleBody(cursor,outModule);
 	}
-
-	state.nextToken = moduleState.nextToken;
 }
 
-static Action* parseAction(ParseState& state)
+static Action* parseAction(CursorState* cursor)
 {
 	Action* result = nullptr;
-	parseParenthesized(state,[&]
+	parseParenthesized(cursor,[&]
 	{
-		TextFileLocus locus = calcLocusFromOffset(state.string,state.lineInfo,state.nextToken->begin);
+		TextFileLocus locus = calcLocusFromOffset(cursor->parseState->string,cursor->parseState->lineInfo,cursor->nextToken->begin);
 
-		switch(state.nextToken->type)
+		switch(cursor->nextToken->type)
 		{
 		case t_get:
 		{
-			++state.nextToken;
+			++cursor->nextToken;
 
-			std::string nameString = parseOptionalNameAsString(state);
-			std::string exportName = parseUTF8String(state);
+			std::string nameString = parseOptionalNameAsString(cursor);
+			std::string exportName = parseUTF8String(cursor);
 			
 			result = new GetAction(std::move(locus),std::move(nameString),std::move(exportName));
 			break;
 		}
 		case t_invoke:
 		{
-			++state.nextToken;
+			++cursor->nextToken;
 
-			std::string nameString = parseOptionalNameAsString(state);
-			std::string exportName = parseUTF8String(state);
+			std::string nameString = parseOptionalNameAsString(cursor);
+			std::string exportName = parseUTF8String(cursor);
 
 			std::vector<Runtime::Value> arguments;
-			while(state.nextToken->type == t_leftParenthesis)
+			while(cursor->nextToken->type == t_leftParenthesis)
 			{
-				arguments.push_back(parseConstExpression(state));
+				arguments.push_back(parseConstExpression(cursor));
 			};
 
 			result = new InvokeAction(std::move(locus),std::move(nameString),std::move(exportName),std::move(arguments));
@@ -170,17 +157,17 @@ static Action* parseAction(ParseState& state)
 		}
 		case t_module:
 		{
-			++state.nextToken;
+			++cursor->nextToken;
 
 			std::string internalModuleName;
 			Module* module = new Module;
-			parseTestScriptModule(state,*module,state.errors,internalModuleName);
+			parseTestScriptModule(cursor,*module,internalModuleName);
 
 			result = new ModuleAction(std::move(locus),std::move(internalModuleName),module);
 			break;
 		}
 		default:
-			parseErrorf(state,state.nextToken,"expected 'get' or 'invoke'");
+			parseErrorf(cursor->parseState,cursor->nextToken,"expected 'get' or 'invoke'");
 			throw RecoverParseException();
 		};
 	});
@@ -194,16 +181,16 @@ static bool stringStartsWith(const char* string,const char (&prefix)[numPrefixCh
 	return !strncmp(string,prefix,numPrefixChars - 1);
 }
 
-static Command* parseCommand(ParseState& state)
+static Command* parseCommand(CursorState* cursor)
 {
 	Command* result = nullptr;
 
-	if(state.nextToken[0].type == t_leftParenthesis
-	&& (state.nextToken[1].type == t_module
-		|| state.nextToken[1].type == t_invoke
-		|| state.nextToken[1].type == t_get))
+	if(cursor->nextToken[0].type == t_leftParenthesis
+	&& (cursor->nextToken[1].type == t_module
+		|| cursor->nextToken[1].type == t_invoke
+		|| cursor->nextToken[1].type == t_get))
 	{
-		Action* action = parseAction(state);
+		Action* action = parseAction(cursor);
 		if(action)
 		{
 			TextFileLocus locus = action->locus;
@@ -212,55 +199,55 @@ static Command* parseCommand(ParseState& state)
 	}
 	else
 	{
-		parseParenthesized(state,[&]
+		parseParenthesized(cursor,[&]
 		{
-			TextFileLocus locus = calcLocusFromOffset(state.string,state.lineInfo,state.nextToken->begin);
+			TextFileLocus locus = calcLocusFromOffset(cursor->parseState->string,cursor->parseState->lineInfo,cursor->nextToken->begin);
 
-			switch(state.nextToken->type)
+			switch(cursor->nextToken->type)
 			{
 			case t_register:
 			{
-				++state.nextToken;
+				++cursor->nextToken;
 
-				std::string moduleName = parseUTF8String(state);
-				std::string nameString = parseOptionalNameAsString(state);
+				std::string moduleName = parseUTF8String(cursor);
+				std::string nameString = parseOptionalNameAsString(cursor);
 
 				result = new RegisterCommand(std::move(locus),std::move(moduleName),std::move(nameString));
 				break;
 			}
 			case t_assert_return:
 			{
-				++state.nextToken;
+				++cursor->nextToken;
 
-				Action* action = parseAction(state);
-				Runtime::Result expectedReturn = state.nextToken->type == t_leftParenthesis ? parseConstExpression(state) : Runtime::Result();
+				Action* action = parseAction(cursor);
+				Runtime::Result expectedReturn = cursor->nextToken->type == t_leftParenthesis ? parseConstExpression(cursor) : Runtime::Result();
 				result = new AssertReturnCommand(std::move(locus),action,expectedReturn);
 				break;
 			}
 			case t_assert_return_canonical_nan:
 			case t_assert_return_arithmetic_nan:
 			{
-				const Command::Type commandType = state.nextToken->type == t_assert_return_canonical_nan
+				const Command::Type commandType = cursor->nextToken->type == t_assert_return_canonical_nan
 					? Command::assert_return_canonical_nan
 					: Command::assert_return_arithmetic_nan;
-				++state.nextToken;
+				++cursor->nextToken;
 
-				Action* action = parseAction(state);
+				Action* action = parseAction(cursor);
 				result = new AssertReturnNaNCommand(commandType,std::move(locus),action);
 				break;
 			}
 			case t_assert_exhaustion:
 			case t_assert_trap:
 			{
-				++state.nextToken;
+				++cursor->nextToken;
 
-				Action* action = parseAction(state);
+				Action* action = parseAction(cursor);
 
-				const Token* errorToken = state.nextToken;
+				const Token* errorToken = cursor->nextToken;
 				std::string expectedErrorMessage;
-				if(!tryParseString(state,expectedErrorMessage))
+				if(!tryParseString(cursor,expectedErrorMessage))
 				{
-					parseErrorf(state,state.nextToken,"expected string literal");
+					parseErrorf(cursor->parseState,cursor->nextToken,"expected string literal");
 					throw RecoverParseException();
 				}
 				Runtime::ExceptionTypeInstance* expectedType = nullptr;
@@ -274,24 +261,24 @@ static Command* parseCommand(ParseState& state)
 				else if(stringStartsWith(expectedErrorMessage.c_str(),"indirect call")) { expectedType = Runtime::Exception::indirectCallSignatureMismatchType; }
 				else if(stringStartsWith(expectedErrorMessage.c_str(),"undefined")) { expectedType = Runtime::Exception::undefinedTableElementType; }
 				else if(stringStartsWith(expectedErrorMessage.c_str(),"uninitialized")) { expectedType = Runtime::Exception::undefinedTableElementType; }
-				else { parseErrorf(state,errorToken,"unrecognized trap type"); throw RecoverParseException(); }
+				else { parseErrorf(cursor->parseState,errorToken,"unrecognized trap type"); throw RecoverParseException(); }
 
 				result = new AssertTrapCommand(std::move(locus),action,expectedType);
 				break;
 			}
 			case t_assert_throws:
 			{
-				++state.nextToken;
+				++cursor->nextToken;
 
-				Action* action = parseAction(state);
+				Action* action = parseAction(cursor);
 
-				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(state);
-				std::string exceptionTypeExportName = parseUTF8String(state);
+				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(cursor);
+				std::string exceptionTypeExportName = parseUTF8String(cursor);
 
 				std::vector<Runtime::Value> expectedArguments;
-				while(state.nextToken->type == t_leftParenthesis)
+				while(cursor->nextToken->type == t_leftParenthesis)
 				{
-					expectedArguments.push_back(parseConstExpression(state));
+					expectedArguments.push_back(parseConstExpression(cursor));
 				};
 
 				result = new AssertThrowsCommand(
@@ -304,20 +291,20 @@ static Command* parseCommand(ParseState& state)
 			}
 			case t_assert_unlinkable:
 			{
-				++state.nextToken;
+				++cursor->nextToken;
 
-				if(state.nextToken[0].type != t_leftParenthesis || state.nextToken[1].type != t_module)
+				if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_module)
 				{
-					parseErrorf(state,state.nextToken,"expected module");
+					parseErrorf(cursor->parseState,cursor->nextToken,"expected module");
 					throw RecoverParseException();
 				}
 
-				ModuleAction* moduleAction = (ModuleAction*)parseAction(state);
+				ModuleAction* moduleAction = (ModuleAction*)parseAction(cursor);
 						
 				std::string expectedErrorMessage;
-				if(!tryParseString(state,expectedErrorMessage))
+				if(!tryParseString(cursor,expectedErrorMessage))
 				{
-					parseErrorf(state,state.nextToken,"expected string literal");
+					parseErrorf(cursor->parseState,cursor->nextToken,"expected string literal");
 					throw RecoverParseException();
 				}
 
@@ -327,34 +314,48 @@ static Command* parseCommand(ParseState& state)
 			case t_assert_invalid:
 			case t_assert_malformed:
 			{
-				const Command::Type commandType = state.nextToken->type == t_assert_invalid
+				const Command::Type commandType = cursor->nextToken->type == t_assert_invalid
 					? Command::assert_invalid
 					: Command::assert_malformed;
-				++state.nextToken;
+				++cursor->nextToken;
 
 				std::string internalModuleName;
 				Module module;
-				std::vector<UnresolvedError> moduleErrors;
+				ParseState* outerParseState = cursor->parseState;
+				ParseState malformedModuleParseState(outerParseState->string,outerParseState->lineInfo);
 
-				parseParenthesized(state,[&]
+				try
 				{
-					require(state,t_module);
+					cursor->parseState = &malformedModuleParseState;
+					parseParenthesized(cursor,[&]
+					{
+						require(cursor,t_module);
 
-					parseTestScriptModule(state,module,moduleErrors,internalModuleName);
-				});
+						parseTestScriptModule(cursor,module,internalModuleName);
+					});
+				}
+				catch(RecoverParseException)
+				{
+					cursor->parseState = outerParseState;
+					throw RecoverParseException();
+				}
+				cursor->parseState = outerParseState;
 
 				std::string expectedErrorMessage;
-				if(!tryParseString(state,expectedErrorMessage))
+				if(!tryParseString(cursor,expectedErrorMessage))
 				{
-					parseErrorf(state,state.nextToken,"expected string literal");
+					parseErrorf(cursor->parseState,cursor->nextToken,"expected string literal");
 					throw RecoverParseException();
 				}
 
-				result = new AssertInvalidOrMalformedCommand(commandType,std::move(locus),moduleErrors.size() != 0);
+				result = new AssertInvalidOrMalformedCommand(
+					commandType,
+					std::move(locus),
+					malformedModuleParseState.unresolvedErrors.size() != 0);
 				break;
 			};
 			default:
-				parseErrorf(state,state.nextToken,"unknown script command");
+				parseErrorf(cursor->parseState,cursor->nextToken,"unknown script command");
 				throw RecoverParseException();
 			};
 		});
@@ -369,26 +370,26 @@ namespace WAST
 	{
 		// Lex the input string.
 		LineInfo* lineInfo = nullptr;
-		std::vector<UnresolvedError> unresolvedErrors;
 		Token* tokens = lex(string,stringLength,lineInfo);
-		ParseState state(string,lineInfo,unresolvedErrors,tokens);
+		ParseState parseState(string,lineInfo);
+		CursorState cursor(tokens,&parseState);
 
 		try
 		{
 			// (command)*<eof>
-			while(state.nextToken->type == t_leftParenthesis)
+			while(cursor.nextToken->type == t_leftParenthesis)
 			{
-				outTestCommands.emplace_back(parseCommand(state));
+				outTestCommands.emplace_back(parseCommand(&cursor));
 			};
-			require(state,t_eof);
+			require(&cursor,t_eof);
 		}
 		catch(RecoverParseException) {}
 		catch(FatalParseException) {}
 		
 		// Resolve line information for any errors, and write them to outErrors.
-		for(auto& unresolvedError : unresolvedErrors)
+		for(auto& unresolvedError : parseState.unresolvedErrors)
 		{
-			TextFileLocus locus = calcLocusFromOffset(state.string,lineInfo,unresolvedError.charOffset);
+			TextFileLocus locus = calcLocusFromOffset(string,lineInfo,unresolvedError.charOffset);
 			outErrors.push_back({std::move(locus),std::move(unresolvedError.message)});
 		}
 

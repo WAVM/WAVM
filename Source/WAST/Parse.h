@@ -21,22 +21,17 @@ namespace WAST
 		Uptr charOffset;
 		std::string message;
 		UnresolvedError(Uptr inCharOffset,std::string&& inMessage)
-		: charOffset(inCharOffset), message(inMessage) {}
+			: charOffset(inCharOffset),message(inMessage) {}
 	};
 
-	// The state that's threaded through the various parsers.
 	struct ParseState
 	{
 		const char* string;
 		const LineInfo* lineInfo;
-		std::vector<UnresolvedError>& errors;
-		const Token* nextToken;
-		
-		ParseState(const char* inString,const LineInfo* inLineInfo,std::vector<UnresolvedError>& inErrors,const Token* inNextToken)
-		: string(inString)
-		, lineInfo(inLineInfo)
-		, errors(inErrors)
-		, nextToken(inNextToken)
+		std::vector<UnresolvedError> unresolvedErrors;
+
+		ParseState(const char* inString,const LineInfo* inLineInfo)
+		: string(inString), lineInfo(inLineInfo)
 		{}
 	};
 
@@ -112,8 +107,10 @@ namespace WAST
 	};
 
 	// State associated with parsing a module.
-	struct ModuleParseState : ParseState
+	struct ModuleState
 	{
+		ParseState* parseState;
+
 		IR::Module& module;
 
 		std::map<const IR::FunctionType*,U32> functionTypeToIndexMap;
@@ -128,106 +125,126 @@ namespace WAST
 		IR::DisassemblyNames disassemblyNames;
 
 		// Thunks that are called after parsing all types.
-		std::vector<std::function<void(ModuleParseState&)>> postTypeCallbacks;
+		std::vector<std::function<void(ModuleState*)>> postTypeCallbacks;
 
 		// Thunks that are called after parsing all declarations.
-		std::vector<std::function<void(ModuleParseState&)>> postDeclarationCallbacks;
+		std::vector<std::function<void(ModuleState*)>> postDeclarationCallbacks;
 
-		ModuleParseState(const char* inString,const LineInfo* inLineInfo,std::vector<UnresolvedError>& inErrors,const Token* inNextToken,IR::Module& inModule)
-		: ParseState(inString,inLineInfo,inErrors,inNextToken)
-		, module(inModule)
+		ModuleState(ParseState* inParseState,IR::Module& inModule)
+		: parseState(inParseState), module(inModule)
 		{}
 	};
-	
-	// Error handling.
-	void parseErrorf(ParseState& state,Uptr charOffset,const char* messageFormat,...);
-	void parseErrorf(ParseState& state,const char* nextChar,const char* messageFormat,...);
-	void parseErrorf(ParseState& state,const Token* nextToken,const char* messageFormat,...);
 
-	void require(ParseState& state,TokenType type);
+	// The state that's threaded through the various parsers.
+	struct CursorState
+	{
+		const Token* nextToken;
+
+		ParseState* parseState;
+		ModuleState* moduleState;
+		struct FunctionState* functionState;
+
+		CursorState(
+			const Token* inNextToken,
+			ParseState* inParseState,
+			ModuleState* inModuleState = nullptr,
+			struct FunctionState* inFunctionState = nullptr)
+		: nextToken(inNextToken)
+		, parseState(inParseState)
+		, moduleState(inModuleState)
+		, functionState(inFunctionState)
+		{}
+	};
+
+	// Error handling.
+	void parseErrorf(ParseState* parseState,Uptr charOffset,const char* messageFormat,...);
+	void parseErrorf(ParseState* parseState,const char* nextChar,const char* messageFormat,...);
+	void parseErrorf(ParseState* parseState,const Token* nextToken,const char* messageFormat,...);
+
+	void require(CursorState* cursor,TokenType type);
 
 	// Type parsing and uniqueing
-	bool tryParseValueType(ParseState& state,IR::ValueType& outValueType);
-	bool tryParseResultType(ParseState& state,IR::ResultType& outResultType);
-	IR::ValueType parseValueType(ParseState& state);
+	bool tryParseValueType(CursorState* cursor,IR::ValueType& outValueType);
+	bool tryParseResultType(CursorState* cursor,IR::ResultType& outResultType);
+	IR::ValueType parseValueType(CursorState* cursor);
 
-	const IR::FunctionType* parseFunctionType(ModuleParseState& state,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
-	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(ModuleParseState& state,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
-	IR::IndexedFunctionType resolveFunctionType(ModuleParseState& state,const UnresolvedFunctionType& unresolvedType);
-	IR::IndexedFunctionType getUniqueFunctionTypeIndex(ModuleParseState& state,const IR::FunctionType* functionType);
+	const IR::FunctionType* parseFunctionType(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
+	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
+	IR::IndexedFunctionType resolveFunctionType(ModuleState* moduleState,const UnresolvedFunctionType& unresolvedType);
+	IR::IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,const IR::FunctionType* functionType);
 
 	// Literal parsing.
 	bool tryParseHexit(const char*& nextChar,U8& outValue);
 	
-	bool tryParseI32(ParseState& state,U32& outI32);
-	bool tryParseI64(ParseState& state,U64& outI64);
+	bool tryParseI32(CursorState* cursor,U32& outI32);
+	bool tryParseI64(CursorState* cursor,U64& outI64);
 
-	U8 parseI8(ParseState& state);
-	U16 parseI16(ParseState& state);
-	U32 parseI32(ParseState& state);
-	U64 parseI64(ParseState& state);
-	F32 parseF32(ParseState& state);
-	F64 parseF64(ParseState& state);
-	V128 parseV128(ParseState& state);
+	U8 parseI8(CursorState* cursor);
+	U16 parseI16(CursorState* cursor);
+	U32 parseI32(CursorState* cursor);
+	U64 parseI64(CursorState* cursor);
+	F32 parseF32(CursorState* cursor);
+	F64 parseF64(CursorState* cursor);
+	V128 parseV128(CursorState* cursor);
 
-	bool tryParseString(ParseState& state,std::string& outString);
+	bool tryParseString(CursorState* cursor,std::string& outString);
 
-	std::string parseUTF8String(ParseState& state);
+	std::string parseUTF8String(CursorState* cursor);
 
 	// Name parsing and resolution.
-	bool tryParseName(ParseState& state,Name& outName);
-	bool tryParseNameOrIndexRef(ParseState& state,Reference& outRef);
-	U32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const char* context);
+	bool tryParseName(CursorState* cursor,Name& outName);
+	bool tryParseNameOrIndexRef(CursorState* cursor,Reference& outRef);
+	U32 parseAndResolveNameOrIndexRef(CursorState* cursor,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const char* context);
 
-	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index);
-	U32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const Reference& ref);
+	void bindName(ParseState* parseState,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index);
+	U32 resolveRef(ParseState* parseState,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
-	void findClosingParenthesis(ParseState& state,const Token* openingParenthesisToken);
+	void findClosingParenthesis(CursorState* cursor,const Token* openingParenthesisToken);
 
 	// Parses the surrounding parentheses for an inner parser, and handles recovery at the closing parenthesis.
 	template<typename ParseInner>
-	static void parseParenthesized(ParseState& state,ParseInner parseInner)
+	static void parseParenthesized(CursorState* cursor,ParseInner parseInner)
 	{
-		const Token* openingParenthesisToken = state.nextToken;
-		require(state,t_leftParenthesis);
+		const Token* openingParenthesisToken = cursor->nextToken;
+		require(cursor,t_leftParenthesis);
 		try
 		{
 			parseInner();
-			require(state,t_rightParenthesis);
+			require(cursor,t_rightParenthesis);
 		}
 		catch(RecoverParseException)
 		{
-			findClosingParenthesis(state,openingParenthesisToken);
+			findClosingParenthesis(cursor,openingParenthesisToken);
 		}
 	}
 
 	// Tries to parse '(' tagType parseInner ')', handling recovery at the closing parenthesis.
 	// Returns true if any tokens were consumed.
 	template<typename ParseInner>
-	static bool tryParseParenthesizedTagged(ParseState& state,TokenType tagType,ParseInner parseInner)
+	static bool tryParseParenthesizedTagged(CursorState* cursor,TokenType tagType,ParseInner parseInner)
 	{
-		const Token* openingParenthesisToken = state.nextToken;
-		if(state.nextToken[0].type != t_leftParenthesis || state.nextToken[1].type != tagType)
+		const Token* openingParenthesisToken = cursor->nextToken;
+		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != tagType)
 		{
 			return false;
 		}
 		try
 		{
-			state.nextToken += 2;
+			cursor->nextToken += 2;
 			parseInner();
-			require(state,t_rightParenthesis);
+			require(cursor,t_rightParenthesis);
 		}
 		catch(RecoverParseException)
 		{
-			findClosingParenthesis(state,openingParenthesisToken);
+			findClosingParenthesis(cursor,openingParenthesisToken);
 		}
 		return true;
 	}
 
 	// Function parsing.
-	IR::FunctionDef parseFunctionDef(ModuleParseState& state,const Token* funcToken);
+	IR::FunctionDef parseFunctionDef(CursorState* cursor,const Token* funcToken);
 
 	// Module parsing.
-	void parseModuleBody(ModuleParseState& state);
+	void parseModuleBody(CursorState* cursor,IR::Module& outModule);
 };

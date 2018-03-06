@@ -16,33 +16,33 @@ using namespace IR;
 
 namespace WAST
 {
-	void findClosingParenthesis(ParseState& state,const Token* openingParenthesisToken)
+	void findClosingParenthesis(CursorState* cursor,const Token* openingParenthesisToken)
 	{
 		// Skip over tokens until the ')' closing the current parentheses nesting depth is found.
 		Uptr depth = 1;
 		while(depth > 0)
 		{
-			switch(state.nextToken->type)
+			switch(cursor->nextToken->type)
 			{
 			default:
-				++state.nextToken;
+				++cursor->nextToken;
 				break;
 			case t_leftParenthesis:
-				++state.nextToken;
+				++cursor->nextToken;
 				++depth;
 				break;
 			case t_rightParenthesis:
-				++state.nextToken;
+				++cursor->nextToken;
 				--depth;
 				break;
 			case t_eof:
-				parseErrorf(state,openingParenthesisToken,"reached end of input while trying to find closing parenthesis");
+				parseErrorf(cursor->parseState,openingParenthesisToken,"reached end of input while trying to find closing parenthesis");
 				throw FatalParseException();
 			}
 		}
 	}
 
-	void parseErrorf(ParseState& state,Uptr charOffset,const char* messageFormat,va_list messageArguments)
+	static void parseErrorf(ParseState* parseState,Uptr charOffset,const char* messageFormat,va_list messageArguments)
 	{
 		// Format the message.
 		char messageBuffer[1024];
@@ -50,51 +50,51 @@ namespace WAST
 		if(numPrintedChars >= 1023 || numPrintedChars < 0) { Errors::unreachable(); }
 		messageBuffer[numPrintedChars] = 0;
 
-		// Add the error to the state's error list.
-		state.errors.emplace_back(charOffset,messageBuffer);
+		// Add the error to the cursor's error list.
+		parseState->unresolvedErrors.emplace_back(charOffset,messageBuffer);
 	}
-	void parseErrorf(ParseState& state,Uptr charOffset,const char* messageFormat,...)
+	void parseErrorf(ParseState* parseState,Uptr charOffset,const char* messageFormat,...)
 	{
 		va_list messageArguments;
 		va_start(messageArguments,messageFormat);
-		parseErrorf(state,charOffset,messageFormat,messageArguments);
+		parseErrorf(parseState,charOffset,messageFormat,messageArguments);
 		va_end(messageArguments);
 	}
-	void parseErrorf(ParseState& state,const char* nextChar,const char* messageFormat,...)
+	void parseErrorf(ParseState* parseState,const char* nextChar,const char* messageFormat,...)
 	{
 		va_list messageArguments;
 		va_start(messageArguments,messageFormat);
-		parseErrorf(state,nextChar - state.string,messageFormat,messageArguments);
+		parseErrorf(parseState,nextChar - parseState->string,messageFormat,messageArguments);
 		va_end(messageArguments);
 	}
-	void parseErrorf(ParseState& state,const Token* nextToken,const char* messageFormat,...)
+	void parseErrorf(ParseState* parseState,const Token* nextToken,const char* messageFormat,...)
 	{
 		va_list messageArguments;
 		va_start(messageArguments,messageFormat);
-		parseErrorf(state,nextToken->begin,messageFormat,messageArguments);
+		parseErrorf(parseState,nextToken->begin,messageFormat,messageArguments);
 		va_end(messageArguments);
 	}
 
-	void require(ParseState& state,TokenType type)
+	void require(CursorState* cursor,TokenType type)
 	{
-		if(state.nextToken->type != type)
+		if(cursor->nextToken->type != type)
 		{
-			parseErrorf(state,state.nextToken,"expected %s",describeToken(type));
+			parseErrorf(cursor->parseState,cursor->nextToken,"expected %s",describeToken(type));
 			throw RecoverParseException();
 		}
-		++state.nextToken;
+		++cursor->nextToken;
 	}
 	
-	bool tryParseValueType(ParseState& state,ValueType& outValueType)
+	bool tryParseValueType(CursorState* cursor,ValueType& outValueType)
 	{
-		switch(state.nextToken->type)
+		switch(cursor->nextToken->type)
 		{
-		case t_i32: ++state.nextToken; outValueType = ValueType::i32; return true;
-		case t_i64: ++state.nextToken; outValueType = ValueType::i64; return true;
-		case t_f32: ++state.nextToken; outValueType = ValueType::f32; return true;
-		case t_f64: ++state.nextToken; outValueType = ValueType::f64; return true;
+		case t_i32: ++cursor->nextToken; outValueType = ValueType::i32; return true;
+		case t_i64: ++cursor->nextToken; outValueType = ValueType::i64; return true;
+		case t_f32: ++cursor->nextToken; outValueType = ValueType::f32; return true;
+		case t_f64: ++cursor->nextToken; outValueType = ValueType::f64; return true;
 		#if ENABLE_SIMD_PROTOTYPE
-		case t_v128: ++state.nextToken; outValueType = ValueType::v128; return true;
+		case t_v128: ++cursor->nextToken; outValueType = ValueType::v128; return true;
 		#endif
 		default:
 			outValueType = ValueType::any;
@@ -102,43 +102,43 @@ namespace WAST
 		};
 	}
 	
-	bool tryParseResultType(ParseState& state,ResultType& outResultType)
+	bool tryParseResultType(CursorState* cursor,ResultType& outResultType)
 	{
-		return tryParseValueType(state,*(ValueType*)&outResultType);
+		return tryParseValueType(cursor,*(ValueType*)&outResultType);
 	}
 
-	ValueType parseValueType(ParseState& state)
+	ValueType parseValueType(CursorState* cursor)
 	{
 		ValueType result;
-		if(!tryParseValueType(state,result))
+		if(!tryParseValueType(cursor,result))
 		{
-			parseErrorf(state,state.nextToken,"expected value type");
+			parseErrorf(cursor->parseState,cursor->nextToken,"expected value type");
 			throw RecoverParseException();
 		}
 		return result;
 	}
 
-	const FunctionType* parseFunctionType(ModuleParseState& state,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames)
+	const FunctionType* parseFunctionType(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames)
 	{
 		std::vector<ValueType> parameters;
 		ResultType ret = ResultType::none;
 
 		// Parse the function parameters.
-		while(tryParseParenthesizedTagged(state,t_param,[&]
+		while(tryParseParenthesizedTagged(cursor,t_param,[&]
 		{
 			Name parameterName;
-			if(tryParseName(state,parameterName))
+			if(tryParseName(cursor,parameterName))
 			{
 				// (param <name> <type>)
-				bindName(state,outLocalNameToIndexMap,parameterName,parameters.size());
-				parameters.push_back(parseValueType(state));
+				bindName(cursor->parseState,outLocalNameToIndexMap,parameterName,parameters.size());
+				parameters.push_back(parseValueType(cursor));
 				outLocalDisassemblyNames.push_back(parameterName.getString());
 			}
 			else
 			{
 				// (param <type>*)
 				ValueType parameterType;
-				while(tryParseValueType(state,parameterType))
+				while(tryParseValueType(cursor,parameterType))
 				{
 					parameters.push_back(parameterType);
 					outLocalDisassemblyNames.push_back(std::string());
@@ -147,18 +147,18 @@ namespace WAST
 		}));
 
 		// Parse <= 1 result type: (result <value type>*)*
-		while(state.nextToken[0].type == t_leftParenthesis
-		&& state.nextToken[1].type == t_result)
+		while(cursor->nextToken[0].type == t_leftParenthesis
+		&& cursor->nextToken[1].type == t_result)
 		{
-			parseParenthesized(state,[&]
+			parseParenthesized(cursor,[&]
 			{
-				require(state,t_result);
+				require(cursor,t_result);
 
 				ResultType resultElementType;
-				const Token* elementToken = state.nextToken;
-				while(tryParseResultType(state,resultElementType))
+				const Token* elementToken = cursor->nextToken;
+				while(tryParseResultType(cursor,resultElementType))
 				{
-					if(ret != ResultType::none) { parseErrorf(state,elementToken,"function type cannot have more than 1 result element"); }
+					if(ret != ResultType::none) { parseErrorf(cursor->parseState,elementToken,"function type cannot have more than 1 result element"); }
 					ret = resultElementType;
 				};
 			});
@@ -167,26 +167,26 @@ namespace WAST
 		return FunctionType::get(ret,parameters);
 	}
 	
-	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(ModuleParseState& state,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames)
+	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames)
 	{
 		// Parse an optional function type reference.
 		Reference functionTypeRef;
-		if(state.nextToken[0].type == t_leftParenthesis
-		&& state.nextToken[1].type == t_type)
+		if(cursor->nextToken[0].type == t_leftParenthesis
+		&& cursor->nextToken[1].type == t_type)
 		{
-			parseParenthesized(state,[&]
+			parseParenthesized(cursor,[&]
 			{
-				require(state,t_type);
-				if(!tryParseNameOrIndexRef(state,functionTypeRef))
+				require(cursor,t_type);
+				if(!tryParseNameOrIndexRef(cursor,functionTypeRef))
 				{
-					parseErrorf(state,state.nextToken,"expected type name or index");
+					parseErrorf(cursor->parseState,cursor->nextToken,"expected type name or index");
 					throw RecoverParseException();
 				}
 			});
 		}
 
 		// Parse the explicit function parameters and result type.
-		const FunctionType* explicitFunctionType = parseFunctionType(state,outLocalNameToIndexMap,outLocalDisassemblyNames);
+		const FunctionType* explicitFunctionType = parseFunctionType(cursor,outLocalNameToIndexMap,outLocalDisassemblyNames);
 
 		UnresolvedFunctionType result;
 		result.reference = functionTypeRef;
@@ -194,28 +194,34 @@ namespace WAST
 		return result;
 	}
 
-	IndexedFunctionType resolveFunctionType(ModuleParseState& state,const UnresolvedFunctionType& unresolvedType)
+	IndexedFunctionType resolveFunctionType(ModuleState* moduleState,const UnresolvedFunctionType& unresolvedType)
 	{
 		if(!unresolvedType.reference)
 		{
-			return getUniqueFunctionTypeIndex(state,unresolvedType.explicitType);
+			return getUniqueFunctionTypeIndex(moduleState,unresolvedType.explicitType);
 		}
 		else
 		{
 			// Resolve the referenced type.
-			const U32 referencedFunctionTypeIndex = resolveRef(state,state.typeNameToIndexMap,state.module.types.size(),unresolvedType.reference);
+			const U32 referencedFunctionTypeIndex = resolveRef(
+				moduleState->parseState,
+				moduleState->typeNameToIndexMap,
+				moduleState->module.types.size(),
+				unresolvedType.reference);
 
 			// Validate that if the function definition has both a type reference and explicit parameter/result type declarations, they match.
 			const bool hasExplicitParametersOrResultType = unresolvedType.explicitType != FunctionType::get();
 			if(hasExplicitParametersOrResultType)
 			{
 				if(referencedFunctionTypeIndex != UINT32_MAX
-				&& state.module.types[referencedFunctionTypeIndex] != unresolvedType.explicitType)
+				&& moduleState->module.types[referencedFunctionTypeIndex] != unresolvedType.explicitType)
 				{
-					parseErrorf(state,unresolvedType.reference.token,"referenced function type (%s) does not match declared parameters and results (%s)",
-						asString(state.module.types[referencedFunctionTypeIndex]).c_str(),
-						asString(unresolvedType.explicitType).c_str()
-						);
+					parseErrorf(
+						moduleState->parseState,
+						unresolvedType.reference.token,
+						"referenced function type (%s) does not match declared parameters and results (%s)",
+						asString(moduleState->module.types[referencedFunctionTypeIndex]).c_str(),
+						asString(unresolvedType.explicitType).c_str());
 				}
 			}
 
@@ -223,21 +229,21 @@ namespace WAST
 		}
 	}
 
-	IndexedFunctionType getUniqueFunctionTypeIndex(ModuleParseState& state,const FunctionType* functionType)
+	IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,const FunctionType* functionType)
 	{
 		// If this type is not in the module's type table yet, add it.
-		auto functionTypeToIndexMapIt = state.functionTypeToIndexMap.find(functionType);
-		if(functionTypeToIndexMapIt != state.functionTypeToIndexMap.end())
+		auto functionTypeToIndexMapIt = moduleState->functionTypeToIndexMap.find(functionType);
+		if(functionTypeToIndexMapIt != moduleState->functionTypeToIndexMap.end())
 		{
 			return IndexedFunctionType {functionTypeToIndexMapIt->second};
 		}
 		else
 		{
-			const Uptr functionTypeIndex = state.module.types.size();
-			state.module.types.push_back(functionType);
-			state.disassemblyNames.types.push_back(std::string());
+			const Uptr functionTypeIndex = moduleState->module.types.size();
+			moduleState->module.types.push_back(functionType);
+			moduleState->disassemblyNames.types.push_back(std::string());
 			errorUnless(functionTypeIndex < UINT32_MAX);
-			state.functionTypeToIndexMap.emplace(functionType,(U32)functionTypeIndex);
+			moduleState->functionTypeToIndexMap.emplace(functionType,(U32)functionTypeIndex);
 			return IndexedFunctionType {(U32)functionTypeIndex};
 		}
 	}
@@ -249,12 +255,12 @@ namespace WAST
 		return XXH32(begin,numChars,0);
 	}
 
-	bool tryParseName(ParseState& state,Name& outName)
+	bool tryParseName(CursorState* cursor,Name& outName)
 	{
-		if(state.nextToken->type != t_name) { return false; }
+		if(cursor->nextToken->type != t_name) { return false; }
 
 		// Find the first non-name character.
-		const char* firstChar = state.string + state.nextToken->begin;;
+		const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;;
 		const char* nextChar = firstChar;
 		assert(*nextChar == '$');
 		++nextChar;
@@ -276,34 +282,34 @@ namespace WAST
 			}
 		};
 
-		assert(U32(nextChar - state.string) > state.nextToken->begin + 1);
-		++state.nextToken;
-		assert(U32(nextChar - state.string) <= state.nextToken->begin);
+		assert(U32(nextChar - cursor->parseState->string) > cursor->nextToken->begin + 1);
+		++cursor->nextToken;
+		assert(U32(nextChar - cursor->parseState->string) <= cursor->nextToken->begin);
 		assert(U32(nextChar - firstChar) <= UINT32_MAX);
 		outName = Name(firstChar,U32(nextChar - firstChar));
 		return true;
 	}
 
-	bool tryParseNameOrIndexRef(ParseState& state,Reference& outRef)
+	bool tryParseNameOrIndexRef(CursorState* cursor,Reference& outRef)
 	{
-		outRef.token = state.nextToken;
-		if(tryParseName(state,outRef.name)) { outRef.type = Reference::Type::name; return true; }
-		else if(tryParseI32(state,outRef.index)) { outRef.type = Reference::Type::index; return true; }
+		outRef.token = cursor->nextToken;
+		if(tryParseName(cursor,outRef.name)) { outRef.type = Reference::Type::name; return true; }
+		else if(tryParseI32(cursor,outRef.index)) { outRef.type = Reference::Type::index; return true; }
 		return false;
 	}
 
-	U32 parseAndResolveNameOrIndexRef(ParseState& state,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const char* context)
+	U32 parseAndResolveNameOrIndexRef(CursorState* cursor,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const char* context)
 	{
 		Reference ref;
-		if(!tryParseNameOrIndexRef(state,ref))
+		if(!tryParseNameOrIndexRef(cursor,ref))
 		{
-			parseErrorf(state,state.nextToken,"expected %s name or index",context);
+			parseErrorf(cursor->parseState,cursor->nextToken,"expected %s name or index",context);
 			throw RecoverParseException();
 		}
-		return resolveRef(state,nameToIndexMap,maxIndex,ref);
+		return resolveRef(cursor->parseState,nameToIndexMap,maxIndex,ref);
 	}
 
-	void bindName(ParseState& state,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index)
+	void bindName(ParseState* parseState,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index)
 	{
 		errorUnless(index <= UINT32_MAX);
 
@@ -312,14 +318,21 @@ namespace WAST
 			auto mapIt = nameToIndexMap.find(name);
 			if(mapIt != nameToIndexMap.end())
 			{
-				const TextFileLocus previousDefinitionLocus = calcLocusFromOffset(state.string,	state.lineInfo,mapIt->first.getCharOffset(state.string));
-				parseErrorf(state,name.getCharOffset(state.string),"redefinition of name defined at %s",previousDefinitionLocus.describe().c_str());
+				const TextFileLocus previousDefinitionLocus = calcLocusFromOffset(
+					parseState->string,
+					parseState->lineInfo,
+					mapIt->first.getCharOffset(parseState->string));
+				parseErrorf(
+					parseState,
+					name.getCharOffset(parseState->string),
+					"redefinition of name defined at %s",
+					previousDefinitionLocus.describe().c_str());
 			}
 			nameToIndexMap.emplace(name,U32(index));
 		}
 	}
 
-	U32 resolveRef(ParseState& state,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const Reference& ref)
+	U32 resolveRef(ParseState* parseState,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const Reference& ref)
 	{
 		switch(ref.type)
 		{
@@ -327,7 +340,7 @@ namespace WAST
 		{
 			if(ref.index >= maxIndex)
 			{
-				parseErrorf(state,ref.token,"invalid index");
+				parseErrorf(parseState,ref.token,"invalid index");
 				return UINT32_MAX;
 			}
 			return ref.index;
@@ -337,7 +350,7 @@ namespace WAST
 			auto nameToIndexMapIt = nameToIndexMap.find(ref.name);
 			if(nameToIndexMapIt == nameToIndexMap.end())
 			{
-				parseErrorf(state,ref.token,"unknown name");
+				parseErrorf(parseState,ref.token,"unknown name");
 				return UINT32_MAX;
 			}
 			else
@@ -363,14 +376,14 @@ namespace WAST
 		return true;
 	}
 	
-	static void parseCharEscapeCode(const char*& nextChar,ParseState& state,std::string& outString)
+	static void parseCharEscapeCode(const char*& nextChar,ParseState* parseState,std::string& outString)
 	{
 		U8 firstNibble;
 		if(tryParseHexit(nextChar,firstNibble))
 		{
 			// Parse an 8-bit literal from two hexits.
 			U8 secondNibble;
-			if(!tryParseHexit(nextChar,secondNibble)) { parseErrorf(state,nextChar,"expected hexit"); }
+			if(!tryParseHexit(nextChar,secondNibble)) { parseErrorf(parseState,nextChar,"expected hexit"); }
 			outString += char(firstNibble * 16 + secondNibble);
 		}
 		else
@@ -386,7 +399,7 @@ namespace WAST
 			case 'u':
 			{
 				// \u{...} - Unicode codepoint from hexadecimal number
-				if(nextChar[1] != '{') { parseErrorf(state,nextChar,"expected '{'"); }
+				if(nextChar[1] != '{') { parseErrorf(parseState,nextChar,"expected '{'"); }
 				nextChar += 2;
 				
 				// Parse the hexadecimal number.
@@ -409,36 +422,36 @@ namespace WAST
 				if((codepoint >= 0xD800 && codepoint <= 0xDFFF)
 				|| codepoint >= 0x110000)
 				{
-					parseErrorf(state,firstHexit,"invalid Unicode codepoint");
+					parseErrorf(parseState,firstHexit,"invalid Unicode codepoint");
 					codepoint = 0x1F642;
 				}
 
 				// Encode the codepoint as UTF-8.
 				UTF8::encodeCodepoint(codepoint,outString);
 
-				if(*nextChar != '}') { parseErrorf(state,nextChar,"expected '}'"); }
+				if(*nextChar != '}') { parseErrorf(parseState,nextChar,"expected '}'"); }
 				++nextChar;
 				break;
 			}
 			default:
 				outString += '\\';
 				++nextChar;
-				parseErrorf(state,nextChar,"invalid escape code");
+				parseErrorf(parseState,nextChar,"invalid escape code");
 				break;
 			}
 		}
 	}
 
-	bool tryParseString(ParseState& state,std::string& outString)
+	bool tryParseString(CursorState* cursor,std::string& outString)
 	{
-		if(state.nextToken->type != t_string)
+		if(cursor->nextToken->type != t_string)
 		{
 			return false;
 		}
 
 		// Parse a string literal; the lexer has already rejected unterminated strings,
 		// so this just needs to copy the characters and evaluate escape codes.
-		const char* nextChar = state.string + state.nextToken->begin;
+		const char* nextChar = cursor->parseState->string + cursor->nextToken->begin;
 		assert(*nextChar == '\"');
 		++nextChar;
 		while(true)
@@ -448,12 +461,12 @@ namespace WAST
 			case '\\':
 			{
 				++nextChar;
-				parseCharEscapeCode(nextChar,state,outString);
+				parseCharEscapeCode(nextChar,cursor->parseState,outString);
 				break;
 			}
 			case '\"':
-				++state.nextToken;
-				assert(state.string + state.nextToken->begin > nextChar);
+				++cursor->nextToken;
+				assert(cursor->parseState->string + cursor->nextToken->begin > nextChar);
 				return true;
 			default:
 				outString += *nextChar++;
@@ -462,13 +475,13 @@ namespace WAST
 		};
 	}
 
-	std::string parseUTF8String(ParseState& state)
+	std::string parseUTF8String(CursorState* cursor)
 	{
-		const Token* stringToken = state.nextToken;
+		const Token* stringToken = cursor->nextToken;
 		std::string result;
-		if(!tryParseString(state,result))
+		if(!tryParseString(cursor,result))
 		{
-			parseErrorf(state,stringToken,"expected string literal");
+			parseErrorf(cursor->parseState,stringToken,"expected string literal");
 			throw RecoverParseException();
 		}
 
@@ -478,7 +491,7 @@ namespace WAST
 		if(nextChar != endChar)
 		{
 			const Uptr charOffset = stringToken->begin + (nextChar - (const U8*)result.data()) + 1;
-			parseErrorf(state,charOffset,"invalid UTF-8 encoding");
+			parseErrorf(cursor->parseState,charOffset,"invalid UTF-8 encoding");
 		}
 
 		return result;
