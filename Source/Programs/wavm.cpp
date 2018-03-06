@@ -29,10 +29,10 @@ void showHelp()
 
 struct RootResolver : Resolver
 {
-	Context* context;
+	Compartment* compartment;
 	std::map<std::string,ModuleInstance*> moduleNameToInstanceMap;
 
-	RootResolver(Context* inContext): context(inContext) {}
+	RootResolver(Compartment* inCompartment): compartment(inCompartment) {}
 
 	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,Object*& outObject) override
 	{
@@ -75,27 +75,27 @@ struct RootResolver : Resolver
 			IR::validateDefinitions(stubModule);
 
 			// Instantiate the module and return the stub function instance.
-			auto stubModuleInstance = instantiateModule(context,stubModule,{});
+			auto stubModuleInstance = instantiateModule(compartment,stubModule,{});
 			outObject = getInstanceExport(stubModuleInstance,"importStub");
 			Log::printf(Log::Category::error,"Generated stub for missing function import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
 		else if(type.kind == IR::ObjectKind::memory)
 		{
-			outObject = asObject(Runtime::createMemory(Runtime::getCompartmentFromContext(context),asMemoryType(type)));
+			outObject = asObject(Runtime::createMemory(compartment,asMemoryType(type)));
 			Log::printf(Log::Category::error,"Generated stub for missing memory import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
 		else if(type.kind == IR::ObjectKind::table)
 		{
-			outObject = asObject(Runtime::createTable(Runtime::getCompartmentFromContext(context),asTableType(type)));
+			outObject = asObject(Runtime::createTable(compartment,asTableType(type)));
 			Log::printf(Log::Category::error,"Generated stub for missing table import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
 		else if(type.kind == IR::ObjectKind::global)
 		{
 			outObject = asObject(Runtime::createGlobal(
-				Runtime::getCompartmentFromContext(context),
+				compartment,
 				asGlobalType(type),
 				Runtime::Value(asGlobalType(type).valueType,Runtime::UntaggedValue())));
 			Log::printf(Log::Category::error,"Generated stub for missing global import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
@@ -121,15 +121,14 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 
 	if(onlyCheck) { return EXIT_SUCCESS; }
 
-	// Link and instantiate the module.
+	// Link the module with the intrinsic modules.
 	Compartment* compartment = Runtime::createCompartment();
 	Context* context = Runtime::createContext(compartment);
 	Emscripten::Instance* emscriptenInstance = Emscripten::instantiate(compartment);
-	RootResolver rootResolver(context);
+	RootResolver rootResolver(compartment);
 	rootResolver.moduleNameToInstanceMap["env"] = emscriptenInstance->env;
 	rootResolver.moduleNameToInstanceMap["asm2wasm"] = emscriptenInstance->asm2wasm;
 	rootResolver.moduleNameToInstanceMap["global"] = emscriptenInstance->global;
-
 	LinkResult linkResult = linkModule(module,rootResolver);
 	if(!linkResult.success)
 	{
@@ -142,8 +141,17 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 		}
 		return EXIT_FAILURE;
 	}
-	ModuleInstance* moduleInstance = instantiateModule(context,module,std::move(linkResult.resolvedImports));
+
+	// Instantiate the module.
+	ModuleInstance* moduleInstance = instantiateModule(compartment,module,std::move(linkResult.resolvedImports));
 	if(!moduleInstance) { return EXIT_FAILURE; }
+
+	// Call the module start function, if it has one.
+	FunctionInstance* startFunction = getStartFunction(moduleInstance);
+	if(startFunction)
+	{
+		invokeFunction(context,startFunction,{});
+	}
 
 	// Call the Emscripten global initalizers.
 	Emscripten::initializeGlobals(context,module,moduleInstance);

@@ -27,10 +27,10 @@ namespace Runtime
 		};
 	}
 
-	ModuleInstance* instantiateModule(Context* context,const IR::Module& module,ImportBindings&& imports)
+	ModuleInstance* instantiateModule(Compartment* compartment,const IR::Module& module,ImportBindings&& imports)
 	{
 		ModuleInstance* moduleInstance = new ModuleInstance(
-			context->compartment,
+			compartment,
 			std::move(imports.functions),
 			std::move(imports.tables),
 			std::move(imports.memories),
@@ -72,13 +72,13 @@ namespace Runtime
 		// Instantiate the module's memory and table definitions.
 		for(const TableDef& tableDef : module.tables.defs)
 		{
-			auto table = createTable(context->compartment,tableDef.type);
+			auto table = createTable(compartment,tableDef.type);
 			if(!table) { throwException(Exception::outOfMemoryType); }
 			moduleInstance->tables.push_back(table);
 		}
 		for(const MemoryDef& memoryDef : module.memories.defs)
 		{
-			auto memory = createMemory(context->compartment,memoryDef.type);
+			auto memory = createMemory(compartment,memoryDef.type);
 			if(!memory) { throwException(Exception::outOfMemoryType); }
 			moduleInstance->memories.push_back(memory);
 		}
@@ -138,7 +138,7 @@ namespace Runtime
 		{
 			const Value initialValue = evaluateInitializer(moduleInstance,globalDef.initializer);
 			errorUnless(initialValue.type == globalDef.type.valueType);
-			moduleInstance->globals.push_back(createGlobal(context->compartment,globalDef.type,initialValue));
+			moduleInstance->globals.push_back(createGlobal(compartment,globalDef.type,initialValue));
 		}
 
 		// Instantiate the module's exception types.
@@ -199,8 +199,8 @@ namespace Runtime
 		// Call the module's start function.
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
-			assert(moduleInstance->functions[module.startFunctionIndex]->type == IR::FunctionType::get());
-			invokeFunction(context,moduleInstance->functions[module.startFunctionIndex],{});
+			moduleInstance->startFunction = moduleInstance->functions[module.startFunctionIndex];
+			assert(moduleInstance->startFunction->type == IR::FunctionType::get());
 		}
 
 		return moduleInstance;
@@ -210,6 +210,8 @@ namespace Runtime
 	{
 		if(jitModule) { delete jitModule; }
 	}
+
+	FunctionInstance* getStartFunction(ModuleInstance* moduleInstance) { return moduleInstance->startFunction; }
 
 	MemoryInstance* getDefaultMemory(ModuleInstance* moduleInstance) { return moduleInstance->defaultMemory; }
 	TableInstance* getDefaultTable(ModuleInstance* moduleInstance) { return moduleInstance->defaultTable; }

@@ -277,7 +277,10 @@ namespace Runtime
 	};
 
 	// Instantiates a module, bindings its imports to the specified objects. May throw InstantiationException.
-	RUNTIME_API ModuleInstance* instantiateModule(Context* context,const IR::Module& module,ImportBindings&& imports);
+	RUNTIME_API ModuleInstance* instantiateModule(Compartment* compartment,const IR::Module& module,ImportBindings&& imports);
+
+	// Gets the start function of a ModuleInstance.
+	RUNTIME_API FunctionInstance* getStartFunction(ModuleInstance* moduleInstance);
 
 	// Gets the default table/memory for a ModuleInstance.
 	RUNTIME_API MemoryInstance* getDefaultMemory(ModuleInstance* moduleInstance);

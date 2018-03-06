@@ -114,7 +114,14 @@ bool processAction(TestScriptState& state,Action* action,Result& outResult)
 		if(linkResult.success)
 		{
 			state.hasInstantiatedModule = true;
-			state.lastModuleInstance = instantiateModule(state.context,*moduleAction->module,std::move(linkResult.resolvedImports));
+			state.lastModuleInstance = instantiateModule(state.compartment,*moduleAction->module,std::move(linkResult.resolvedImports));
+
+			// Call the module start function, if it has one.
+			FunctionInstance* startFunction = getStartFunction(state.lastModuleInstance);
+			if(startFunction)
+			{
+				invokeFunction(state.context,startFunction,{});
+			}
 		}
 		else
 		{
@@ -351,7 +358,18 @@ void processCommand(TestScriptState& state,const Command* command)
 						LinkResult linkResult = linkModule(*assertCommand->moduleAction->module,resolver);
 						if(linkResult.success)
 						{
-							instantiateModule(state.context,*assertCommand->moduleAction->module,std::move(linkResult.resolvedImports));
+							auto moduleInstance = instantiateModule(
+								state.compartment,
+								*assertCommand->moduleAction->module,
+								std::move(linkResult.resolvedImports));
+
+							// Call the module start function, if it has one.
+							FunctionInstance* startFunction = getStartFunction(moduleInstance);
+							if(startFunction)
+							{
+								invokeFunction(state.context,startFunction,{});
+							}
+
 							testErrorf(state,assertCommand->locus,"module was linkable");
 						}
 					},

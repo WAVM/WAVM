@@ -173,6 +173,7 @@ namespace Runtime
 		std::vector<GlobalInstance*> globals;
 		std::vector<ExceptionTypeInstance*> exceptionTypes;
 
+		FunctionInstance* startFunction;
 		MemoryInstance* defaultMemory;
 		TableInstance* defaultTable;
 
@@ -193,6 +194,7 @@ namespace Runtime
 		, memories(inMemoryImports)
 		, globals(inGlobalImports)
 		, exceptionTypes(inExceptionTypeImports)
+		, startFunction(nullptr)
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
 		, jitModule(nullptr)
