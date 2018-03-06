@@ -246,7 +246,7 @@ namespace Runtime
 
 	struct ContextRuntimeData
 	{
-		alignas(contextRuntimeDataAlignment) U8 globalData[maxGlobalBytes];
+		U8 globalData[maxGlobalBytes];
 	};
 
 	struct CompartmentRuntimeData
