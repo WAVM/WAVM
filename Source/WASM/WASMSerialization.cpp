@@ -1,6 +1,6 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
-#include "Inline/UTF8.h"
+#include "Inline/Unicode.h"
 #include "WASM.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
@@ -12,7 +12,7 @@ using namespace Serialization;
 static void throwIfNotValidUTF8(const std::string& string)
 {
 	const U8* endChar = (const U8*)string.data() + string.size();
-	if(UTF8::validateString((const U8*)string.data(),endChar) != endChar)
+	if(Unicode::validateUTF8String((const U8*)string.data(),endChar) != endChar)
 	{
 		throw FatalSerializationException("invalid UTF-8 encoding");
 	}

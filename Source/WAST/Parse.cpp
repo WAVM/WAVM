@@ -1,5 +1,5 @@
 #include "Inline/BasicTypes.h"
-#include "Inline/UTF8.h"
+#include "Inline/Unicode.h"
 #include "WAST.h"
 #include "Lexer.h"
 #include "IR/Module.h"
@@ -427,7 +427,7 @@ namespace WAST
 				}
 
 				// Encode the codepoint as UTF-8.
-				UTF8::encodeCodepoint(codepoint,outString);
+				Unicode::encodeUTF8CodePoint(codepoint,outString);
 
 				if(*nextChar != '}') { parseErrorf(parseState,nextChar,"expected '}'"); }
 				++nextChar;
@@ -487,7 +487,7 @@ namespace WAST
 
 		// Check that the string is a valid UTF-8 encoding.
 		const U8* endChar = (const U8*)result.data() + result.size();
-		const U8* nextChar = UTF8::validateString((const U8*)result.data(),endChar);
+		const U8* nextChar = Unicode::validateUTF8String((const U8*)result.data(),endChar);
 		if(nextChar != endChar)
 		{
 			const Uptr charOffset = stringToken->begin + (nextChar - (const U8*)result.data()) + 1;
