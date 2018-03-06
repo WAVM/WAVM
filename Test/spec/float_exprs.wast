@@ -2358,7 +2358,7 @@
 (assert_return (invoke "f64.no_fold_neg1_mul" (i64.const 0x7ff4000000000000)) (i64.const 0x7ff8000000000000))
 (assert_return (invoke "f64.no_fold_div_one" (i64.const 0x7ff4000000000000)) (i64.const 0x7ff8000000000000))
 (assert_return (invoke "f64.no_fold_div_neg1" (i64.const 0x7ff4000000000000)) (i64.const 0x7ff8000000000000))
-;;(assert_return (invoke "no_fold_promote_demote" (i32.const 0x7fa00000)) (i32.const 0x7fc00000))
+(assert_return (invoke "no_fold_promote_demote" (i32.const 0x7fa00000)) (i32.const 0x7fc00000))
 
 ;; Test that IEEE 754 double precision does, in fact, compute a certain dot
 ;; product correctly.

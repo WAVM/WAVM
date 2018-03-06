@@ -1115,11 +1115,26 @@ namespace LLVMJIT
 		EMIT_FP_UNARY_OP(convert_u_i64,irBuilder.CreateUIToFP(operand,asLLVMType(type)))
 
 		EMIT_UNARY_OP(f32,demote_f64,irBuilder.CreateFPTrunc(operand,llvmF32Type))
-		EMIT_UNARY_OP(f64,promote_f32,irBuilder.CreateFPExt(operand,llvmF64Type))
+		EMIT_UNARY_OP(f64,promote_f32,emitF64Promote(operand))
 		EMIT_UNARY_OP(f32,reinterpret_i32,irBuilder.CreateBitCast(operand,llvmF32Type))
 		EMIT_UNARY_OP(f64,reinterpret_i64,irBuilder.CreateBitCast(operand,llvmF64Type))
 		EMIT_UNARY_OP(i32,reinterpret_f32,irBuilder.CreateBitCast(operand,llvmI32Type))
 		EMIT_UNARY_OP(i64,reinterpret_f64,irBuilder.CreateBitCast(operand,llvmI64Type))
+
+		llvm::Value* emitF64Promote(llvm::Value* operand)
+		{
+			// Emit an nop experimental.constrained.fadd intrinsic on the result of the promote to make sure
+			// the promote can't be optimized away.
+			llvm::Value* f64Operand = irBuilder.CreateFPExt(operand,llvmF64Type);
+			return callLLVMIntrinsic(
+				{llvmF64Type}, llvm::Intrinsic::experimental_constrained_fmul,
+				{
+					f64Operand,
+					emitLiteral(F64(1.0)),
+					moduleContext.fpRoundingModeMetadata,
+					moduleContext.fpExceptionMetadata
+				});
+		}
 
 		template<typename Float>
 		llvm::Value* emitTruncFloatToInt(ValueType destType,bool isSigned,Float minBounds,Float maxBounds,llvm::Value* operand)
