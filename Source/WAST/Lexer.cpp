@@ -121,9 +121,7 @@ namespace WAST
 			addLiteralToNFA(literalString,nfaBuilder,0,finalState);
 		}
 
-		#ifndef _DEBUG
-		if(false)
-		#endif
+		if(WAVM_DEBUG)
 		{
 			std::ofstream debugGraphStream("nfaGraph.dot");
 			debugGraphStream << NFA::dumpNFAGraphViz(nfaBuilder).c_str();
@@ -132,9 +130,7 @@ namespace WAST
 
 		nfaMachine = NFA::Machine(nfaBuilder);
 
-		#ifndef _DEBUG
-		if(false)
-		#endif
+		if(WAVM_DEBUG)
 		{
 			std::ofstream debugGraphStream("dfaGraph.dot");
 			debugGraphStream << nfaMachine.dumpDFAGraphViz().c_str();
