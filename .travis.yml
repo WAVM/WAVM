@@ -13,7 +13,6 @@ script: ./travis-build.sh
 
 os:
  - linux
-   dist: trusty
 # - osx
 
 matrix:
