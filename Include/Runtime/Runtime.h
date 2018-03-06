@@ -243,11 +243,11 @@ namespace Runtime
 	RUNTIME_API U8* getValidatedMemoryOffsetRange(MemoryInstance* memory,Uptr offset,Uptr numBytes);
 	
 	// Validates an access to a single element of memory at the given offset, and returns a reference to it.
-	template<typename Value> Value& memoryRef(MemoryInstance* memory,U32 offset)
+	template<typename Value> Value& memoryRef(MemoryInstance* memory,Uptr offset)
 	{ return *(Value*)getValidatedMemoryOffsetRange(memory,offset,sizeof(Value)); }
 
 	// Validates an access to multiple elements of memory at the given offset, and returns a pointer to it.
-	template<typename Value> Value* memoryArrayPtr(MemoryInstance* memory,U32 offset,U32 numElements)
+	template<typename Value> Value* memoryArrayPtr(MemoryInstance* memory,Uptr offset,Uptr numElements)
 	{ return (Value*)getValidatedMemoryOffsetRange(memory,offset,numElements * sizeof(Value)); }
 
 	//
