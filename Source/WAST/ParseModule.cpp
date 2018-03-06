@@ -324,7 +324,21 @@ static void parseData(CursorState* cursor)
 	bool hasMemoryRef = tryParseNameOrIndexRef(cursor,memoryRef);
 
 	// Parse an initializer expression for the base address of the data.
-	const InitializerExpression baseAddress = parseInitializerExpression(cursor);
+	InitializerExpression baseAddress;
+	if(cursor->nextToken[0].type == t_leftParenthesis
+	&& cursor->nextToken[1].type == t_offset)
+	{
+		// The initializer expression can optionally be wrapped in (offset ...)
+		parseParenthesized(cursor,[&]
+		{
+			require(cursor,t_offset);
+			baseAddress = parseInitializerExpression(cursor);
+		});
+	}
+	else
+	{
+		baseAddress = parseInitializerExpression(cursor);
+	}
 
 	// Parse a list of strings that contains the segment's data.
 	std::string dataString;
@@ -416,8 +430,22 @@ static void parseElem(CursorState* cursor)
 	Reference tableRef;
 	tryParseNameOrIndexRef(cursor,tableRef);
 
-	// Parse an initializer expression for the base index of the elements.
-	const InitializerExpression baseIndex = parseInitializerExpression(cursor);
+	// Parse an initializer expression for the base index of the table segment.
+	InitializerExpression baseIndex;
+	if(cursor->nextToken[0].type == t_leftParenthesis
+		&& cursor->nextToken[1].type == t_offset)
+	{
+		// The initializer expression can optionally be wrapped in (offset ...)
+		parseParenthesized(cursor,[&]
+		{
+			require(cursor,t_offset);
+			baseIndex = parseInitializerExpression(cursor);
+		});
+	}
+	else
+	{
+		baseIndex = parseInitializerExpression(cursor);
+	}
 
 	parseElemSegmentBody(cursor,tableRef,baseIndex,elemToken);
 }
