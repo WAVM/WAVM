@@ -121,9 +121,11 @@ namespace Runtime
 		throwException(Exception::invalidFloatOperationType);
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableBits)
+	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableId)
 	{
-		TableInstance* table = reinterpret_cast<TableInstance*>(tableBits);
+		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
+		TableInstance* table = compartment->tables[tableId];
+		assert(table);
 		void* elementValue = table->baseAddress[index].value;
 		const FunctionType* actualSignature = table->baseAddress[index].type;
 		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((Uptr)expectedSignatureBits);

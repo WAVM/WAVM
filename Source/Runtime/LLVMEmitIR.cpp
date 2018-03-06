@@ -794,7 +794,7 @@ namespace LLVMJIT
 				FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i64,ValueType::i64}),
 				{	tableElementIndex,
 					irBuilder.CreatePtrToInt(llvmCalleeType,llvmI64Type),
-					emitLiteral(reinterpret_cast<U64>(moduleContext.moduleInstance->defaultTable))	}
+					emitLiteral(U64(moduleContext.moduleInstance->defaultTable->id))	}
 				);
 
 			// Call the function loaded from the table.
