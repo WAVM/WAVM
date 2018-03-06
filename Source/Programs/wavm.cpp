@@ -29,22 +29,34 @@ void showHelp()
 
 struct RootResolver : Resolver
 {
-	std::map<std::string,Resolver*> moduleNameToResolverMap;
+	Context* context;
+	std::map<std::string,ModuleInstance*> moduleNameToInstanceMap;
 
-	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,ObjectInstance*& outObject) override
+	RootResolver(Context* inContext): context(inContext) {}
+
+	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,Object*& outObject) override
 	{
-		// Try to resolve an intrinsic first.
-		if(IntrinsicResolver::singleton.resolve(moduleName,exportName,type,outObject)) { return true; }
-
-		// Then look for a named module.
-		auto namedResolverIt = moduleNameToResolverMap.find(moduleName);
-		if(namedResolverIt != moduleNameToResolverMap.end())
+		auto namedInstanceIt = moduleNameToInstanceMap.find(moduleName);
+		if(namedInstanceIt != moduleNameToInstanceMap.end())
 		{
-			return namedResolverIt->second->resolve(moduleName,exportName,type,outObject);
+			outObject = getInstanceExport(namedInstanceIt->second,exportName);
+			if(outObject)
+			{
+				if(isA(outObject,type)) { return true; }
+				else
+				{
+					Log::printf(Log::Category::error,"Resolved import %s.%s to a %s, but was expecting %s",
+						moduleName.c_str(),
+						exportName.c_str(),
+						asString(getObjectType(outObject)).c_str(),
+						asString(type).c_str());
+					return false;
+				}
+			}
 		}
 
-		// Finally, stub in missing function imports.
-		if(type.kind == ObjectKind::function)
+		// If the import couldn't be resolved, stub it in.
+		if(type.kind == IR::ObjectKind::function)
 		{
 			// Generate a function body that just uses the unreachable op to fault if called.
 			Serialization::ArrayOutputStream codeStream;
@@ -57,32 +69,35 @@ struct RootResolver : Resolver
 			DisassemblyNames stubModuleNames;
 			stubModule.types.push_back(asFunctionType(type));
 			stubModule.functions.defs.push_back({{0},{},std::move(codeStream.getBytes()),{}});
-			stubModule.exports.push_back({"importStub",ObjectKind::function,0});
+			stubModule.exports.push_back({"importStub",IR::ObjectKind::function,0});
 			stubModuleNames.functions.push_back({std::string(moduleName) + "." + exportName,{}});
 			IR::setDisassemblyNames(stubModule,stubModuleNames);
 			IR::validateDefinitions(stubModule);
 
 			// Instantiate the module and return the stub function instance.
-			auto stubModuleInstance = instantiateModule(stubModule,{});
+			auto stubModuleInstance = instantiateModule(context,stubModule,{});
 			outObject = getInstanceExport(stubModuleInstance,"importStub");
 			Log::printf(Log::Category::error,"Generated stub for missing function import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
-		else if(type.kind == ObjectKind::memory)
+		else if(type.kind == IR::ObjectKind::memory)
 		{
-			outObject = asObject(Runtime::createMemory(asMemoryType(type)));
+			outObject = asObject(Runtime::createMemory(Runtime::getCompartmentFromContext(context),asMemoryType(type)));
 			Log::printf(Log::Category::error,"Generated stub for missing memory import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
-		else if(type.kind == ObjectKind::table)
+		else if(type.kind == IR::ObjectKind::table)
 		{
-			outObject = asObject(Runtime::createTable(asTableType(type)));
+			outObject = asObject(Runtime::createTable(Runtime::getCompartmentFromContext(context),asTableType(type)));
 			Log::printf(Log::Category::error,"Generated stub for missing table import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
-		else if(type.kind == ObjectKind::global)
+		else if(type.kind == IR::ObjectKind::global)
 		{
-			outObject = asObject(Runtime::createGlobal(asGlobalType(type),Runtime::Value(asGlobalType(type).valueType,Runtime::UntaggedValue())));
+			outObject = asObject(Runtime::createGlobal(
+				Runtime::getCompartmentFromContext(context),
+				asGlobalType(type),
+				Runtime::Value(asGlobalType(type).valueType,Runtime::UntaggedValue())));
 			Log::printf(Log::Category::error,"Generated stub for missing global import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
 			return true;
 		}
@@ -107,7 +122,14 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 	if(onlyCheck) { return EXIT_SUCCESS; }
 
 	// Link and instantiate the module.
-	RootResolver rootResolver;
+	Compartment* compartment = Runtime::createCompartment();
+	Context* context = Runtime::createContext(compartment);
+	Emscripten::Instance* emscriptenInstance = Emscripten::instantiate(compartment);
+	RootResolver rootResolver(context);
+	rootResolver.moduleNameToInstanceMap["env"] = emscriptenInstance->env;
+	rootResolver.moduleNameToInstanceMap["asm2wasm"] = emscriptenInstance->asm2wasm;
+	rootResolver.moduleNameToInstanceMap["global"] = emscriptenInstance->global;
+
 	LinkResult linkResult = linkModule(module,rootResolver);
 	if(!linkResult.success)
 	{
@@ -120,9 +142,11 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 		}
 		return EXIT_FAILURE;
 	}
-	ModuleInstance* moduleInstance = instantiateModule(module,std::move(linkResult.resolvedImports));
+	ModuleInstance* moduleInstance = instantiateModule(context,module,std::move(linkResult.resolvedImports));
 	if(!moduleInstance) { return EXIT_FAILURE; }
-	Emscripten::initInstance(module,moduleInstance);
+
+	// Call the Emscripten global initalizers.
+	Emscripten::initializeGlobals(context,module,moduleInstance);
 
 	// Look up the function export to call.
 	FunctionInstance* functionInstance;
@@ -164,7 +188,7 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 			argStrings.push_back(filename);
 			while(*args) { argStrings.push_back(*args++); };
 
-			Emscripten::injectCommandArgs(argStrings,invokeArgs);
+			Emscripten::injectCommandArgs(emscriptenInstance,argStrings,invokeArgs);
 		}
 		else if(functionType->parameters.size() > 0)
 		{
@@ -191,7 +215,7 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 
 	// Invoke the function.
 	Timing::Timer executionTimer;
-	auto functionResult = invokeFunction(functionInstance,invokeArgs);
+	auto functionResult = invokeFunction(context,functionInstance,invokeArgs);
 	Timing::logTimer("Invoked function",executionTimer);
 
 	if(functionName)

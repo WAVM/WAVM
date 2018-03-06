@@ -68,7 +68,7 @@ namespace IR
 	// A tagged tuple type definition
 	struct ExceptionTypeDef
 	{
-		TupleType type;
+		const TupleType* type;
 	};
 
 	// Describes an object imported into a module or a specific type
@@ -80,11 +80,11 @@ namespace IR
 		std::string exportName;
 	};
 
-	typedef Import<Uptr> FunctionImport;
+	typedef Import<IndexedFunctionType> FunctionImport;
 	typedef Import<TableType> TableImport;
 	typedef Import<MemoryType> MemoryImport;
 	typedef Import<GlobalType> GlobalImport;
-	typedef Import<TupleType> ExceptionTypeImport;
+	typedef Import<const TupleType*> ExceptionTypeImport;
 
 	// Describes an export from a module. The interpretation of index depends on kind
 	struct Export
@@ -141,7 +141,7 @@ namespace IR
 		IndexSpace<TableDef,TableType> tables;
 		IndexSpace<MemoryDef,MemoryType> memories;
 		IndexSpace<GlobalDef,GlobalType> globals;
-		IndexSpace<ExceptionTypeDef,TupleType> exceptionTypes;
+		IndexSpace<ExceptionTypeDef,const TupleType*> exceptionTypes;
 
 		std::vector<Export> exports;
 		std::vector<DataSegment> dataSegments;

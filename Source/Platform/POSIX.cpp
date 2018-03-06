@@ -73,12 +73,39 @@ namespace Platform
 	U8* allocateVirtualPages(Uptr numPages)
 	{
 		Uptr numBytes = numPages << getPageSizeLog2();
-		auto result = mmap(nullptr,numBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
-		if(result == MAP_FAILED)
-		{
-			return nullptr;
-		}
+		void* result = mmap(nullptr,numBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
+		if(result == MAP_FAILED) { return nullptr; }
 		return (U8*)result;
+	}
+
+	U8* allocateAlignedVirtualPages(Uptr numPages,Uptr alignmentLog2,U8*& outUnalignedBaseAddress)
+	{
+		const Uptr pageSizeLog2 = getPageSizeLog2();
+		const Uptr numBytes = numPages << pageSizeLog2;
+		if(alignmentLog2 > pageSizeLog2)
+		{
+			// Call mmap with enough padding added to the size to align the allocation within the unaligned mapping.
+			const Uptr alignmentBytes = 1ull << alignmentLog2;
+			U8* unalignedBaseAddress = (U8*)mmap(nullptr,numBytes + alignmentBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
+			if(unalignedBaseAddress == MAP_FAILED) { return nullptr; }
+
+			const Uptr address = reinterpret_cast<Uptr>(unalignedBaseAddress);
+			const Uptr alignedAddress = (address + alignmentBytes - 1) & ~(alignmentBytes - 1);
+			U8* result = reinterpret_cast<U8*>(alignedAddress);
+
+			// Unmap the start and end of the unaligned mapping, leaving the aligned mapping in the middle.
+			errorUnless(!munmap(unalignedBaseAddress,alignedAddress - address));
+			errorUnless(!munmap(
+				result + (numPages << pageSizeLog2),
+				alignmentBytes - (alignedAddress - address)));
+
+			return result;
+		}
+		else
+		{
+			outUnalignedBaseAddress = allocateVirtualPages(numPages);
+			return outUnalignedBaseAddress;
+		}
 	}
 
 	bool commitVirtualPages(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access)
@@ -105,6 +132,12 @@ namespace Platform
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Errors::fatal("munmap failed"); }
+	}
+
+	void freeAlignedVirtualPages(U8* unalignedBaseAddress,Uptr numPages,Uptr alignmentLog2)
+	{
+		errorUnless(isPageAligned(unalignedBaseAddress));
+		if(munmap(unalignedBaseAddress,numPages << getPageSizeLog2())) { Errors::fatal("munmap failed"); }
 	}
 
 	bool describeInstructionPointer(Uptr ip,std::string& outDescription)

@@ -7,10 +7,22 @@
 #include <vector>
 
 namespace IR { struct Module; }
-namespace Runtime { struct ModuleInstance; }
+namespace Runtime { struct ModuleInstance; struct Context; struct Compartment; }
 
 namespace Emscripten
 {
-	EMSCRIPTEN_API void initInstance(const IR::Module& module,Runtime::ModuleInstance* moduleInstance);
-	EMSCRIPTEN_API void injectCommandArgs(const std::vector<const char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs);
+	using namespace Runtime;
+
+	struct Instance
+	{
+		GCPointer<ModuleInstance> env;
+		GCPointer<ModuleInstance> asm2wasm;
+		GCPointer<ModuleInstance> global;
+
+		GCPointer<MemoryInstance> emscriptenMemory;
+	};
+
+	EMSCRIPTEN_API Instance* instantiate(Compartment* compartment);
+	EMSCRIPTEN_API void initializeGlobals(Context* context,const IR::Module& module,ModuleInstance* moduleInstance);
+	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,const std::vector<const char*>& argStrings,std::vector<Value>& outInvokeArgs);
 }

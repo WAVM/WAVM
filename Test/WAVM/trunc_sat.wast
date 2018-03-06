@@ -1,8 +1,8 @@
 (module
-  (import "spectest" "print" (func $spectest_print_f32 (param f32)))
-  (import "spectest" "print" (func $spectest_print_f64 (param f64)))
-  (import "spectest" "print" (func $spectest_print_i32 (param i32)))
-  (import "spectest" "print" (func $spectest_print_i64 (param i64)))
+  (import "spectest" "print_f32" (func $spectest_print_f32 (param f32)))
+  (import "spectest" "print_f64" (func $spectest_print_f64 (param f64)))
+  (import "spectest" "print_i32" (func $spectest_print_i32 (param i32)))
+  (import "spectest" "print_i64" (func $spectest_print_i64 (param i64)))
 
   (table 4 anyfunc)
   (elem (i32.const 0)

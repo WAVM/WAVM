@@ -7,19 +7,20 @@
 
 namespace Runtime
 {
-	const GCPointer<ExceptionTypeInstance> Exception::accessViolationType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::stackOverflowType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::integerDivideByZeroOrIntegerOverflowType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::invalidFloatOperationType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::invokeSignatureMismatchType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::reachedUnreachableType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::indirectCallSignatureMismatchType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::undefinedTableElementType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::calledAbortType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::calledUnimplementedIntrinsicType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::outOfMemoryType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::invalidSegmentOffsetType = createExceptionTypeInstance(TupleType {{}});
-	const GCPointer<ExceptionTypeInstance> Exception::misalignedAtomicMemoryAccessType = createExceptionTypeInstance(TupleType {{}});
+	static const TupleType* unitTupleType = TupleType::get({});
+	const GCPointer<ExceptionTypeInstance> Exception::accessViolationType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::stackOverflowType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::integerDivideByZeroOrIntegerOverflowType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::invalidFloatOperationType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::invokeSignatureMismatchType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::reachedUnreachableType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::indirectCallSignatureMismatchType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::undefinedTableElementType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::calledAbortType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::calledUnimplementedIntrinsicType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::outOfMemoryType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::invalidSegmentOffsetType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::misalignedAtomicMemoryAccessType = createExceptionTypeInstance(unitTupleType);
 	
 	// Returns a vector of strings, each element describing a frame of the call stack.
 	// If the frame is a JITed function, use the JIT's information about the function
@@ -41,7 +42,7 @@ namespace Runtime
 		return frameDescriptions;
 	}
 
-	ExceptionTypeInstance* createExceptionTypeInstance(const IR::TupleType& parameters)
+	ExceptionTypeInstance* createExceptionTypeInstance(const IR::TupleType* parameters)
 	{
 		return new ExceptionTypeInstance(parameters);
 	}
@@ -64,17 +65,17 @@ namespace Runtime
 		else
 		{
 			std::string result = "user exception<" + std::to_string(reinterpret_cast<Uptr>(type)) + ">(";
-			for(Uptr parameterIndex = 0;parameterIndex < type->parameters.elements.size();++parameterIndex)
+			for(Uptr parameterIndex = 0;parameterIndex < type->parameters->elements.size();++parameterIndex)
 			{
 				if(parameterIndex != 0) { result += ','; }
-				result += asString(type->parameters.elements[parameterIndex]);
+				result += asString(type->parameters->elements[parameterIndex]);
 			}
 			result += ')';
 			return result;
 		}
 	}
 	
-	IR::TupleType getExceptionTypeParameters(const ExceptionTypeInstance* type)
+	const IR::TupleType* getExceptionTypeParameters(const ExceptionTypeInstance* type)
 	{
 		return type->parameters;
 	}
@@ -82,14 +83,14 @@ namespace Runtime
 	std::string describeException(const Exception& exception)
 	{
 		std::string result = describeExceptionType(exception.type);
-		assert(exception.arguments.size() == exception.type->parameters.elements.size());
+		assert(exception.arguments.size() == exception.type->parameters->elements.size());
 		if(exception.arguments.size())
 		{
 			result += '(';
 			for(Uptr argumentIndex = 0;argumentIndex < exception.arguments.size();++argumentIndex)
 			{
 				if(argumentIndex != 0) { result += ','; }
-				result += asString(Value(exception.type->parameters.elements[argumentIndex],exception.arguments[argumentIndex]));
+				result += asString(Value(exception.type->parameters->elements[argumentIndex],exception.arguments[argumentIndex]));
 			}
 			result += ')';
 		}
@@ -101,8 +102,8 @@ namespace Runtime
 
 	[[noreturn]] void throwException(ExceptionTypeInstance* type,std::vector<UntaggedValue>&& arguments)
 	{
-		assert(arguments.size() == type->parameters.elements.size());
-		ExceptionData* exceptionData = (ExceptionData*)malloc(ExceptionData::calcNumBytes(type->parameters.elements.size()));
+		assert(arguments.size() == type->parameters->elements.size());
+		ExceptionData* exceptionData = (ExceptionData*)malloc(ExceptionData::calcNumBytes(type->parameters->elements.size()));
 		exceptionData->typeInstance = type;
 		exceptionData->isUserException = 0;
 		memcpy(exceptionData->arguments,arguments.data(),sizeof(UntaggedValue) * arguments.size());
@@ -118,10 +119,10 @@ namespace Runtime
 		auto typeInstance = reinterpret_cast<ExceptionTypeInstance*>(Uptr(exceptionTypeInstanceBits));
 		auto args = reinterpret_cast<const UntaggedValue*>(Uptr(argsBits));
 		
-		ExceptionData* exceptionData = (ExceptionData*)malloc(ExceptionData::calcNumBytes(typeInstance->parameters.elements.size()));
+		ExceptionData* exceptionData = (ExceptionData*)malloc(ExceptionData::calcNumBytes(typeInstance->parameters->elements.size()));
 		exceptionData->typeInstance = typeInstance;
 		exceptionData->isUserException = isUserException ? 1 : 0;
-		memcpy(exceptionData->arguments,args,sizeof(UntaggedValue) * typeInstance->parameters.elements.size());
+		memcpy(exceptionData->arguments,args,sizeof(UntaggedValue) * typeInstance->parameters->elements.size());
 		Platform::raisePlatformException(exceptionData);
 	}
 
@@ -174,7 +175,7 @@ namespace Runtime
 				ExceptionTypeInstance* runtimeType = runtimeExceptionData->typeInstance;
 				std::vector<UntaggedValue> arguments(
 					runtimeExceptionData->arguments,
-					runtimeExceptionData->arguments + runtimeExceptionData->typeInstance->parameters.elements.size());
+					runtimeExceptionData->arguments + runtimeExceptionData->typeInstance->parameters->elements.size());
 				catchThunk(Exception { runtimeType, std::move(arguments), std::move(callStack) });
 			});
 	}

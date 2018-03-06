@@ -95,22 +95,6 @@ namespace LLVMJIT
 	// Zero constants of each type.
 	extern llvm::Constant* typedZeroConstants[(Uptr)ValueType::num];
 
-	// Converts a WebAssembly type to a LLVM type.
-	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(Uptr)asResultType(type)]; }
-	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(Uptr)type]; }
-
-	// Converts a WebAssembly function type to a LLVM type.
-	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType)
-	{
-		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * functionType->parameters.size());
-		for(Uptr argIndex = 0;argIndex < functionType->parameters.size();++argIndex)
-		{
-			llvmArgTypes[argIndex] = asLLVMType(functionType->parameters[argIndex]);
-		}
-		auto llvmResultType = asLLVMType(functionType->ret);
-		return llvm::FunctionType::get(llvmResultType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,functionType->parameters.size()),false);
-	}
-
 	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
 	inline llvm::ConstantInt* emitLiteral(U32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(U64)value,false)); }
 	inline llvm::ConstantInt* emitLiteral(I32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(I64)value,false)); }
@@ -119,10 +103,58 @@ namespace LLVMJIT
 	inline llvm::Constant* emitLiteral(F32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	inline llvm::Constant* emitLiteral(F64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
 	inline llvm::Constant* emitLiteral(bool value) { return llvm::ConstantInt::get(llvmBoolType,llvm::APInt(1,value ? 1 : 0,false)); }
+	inline llvm::Constant* emitLiteral(V128 value)
+	{
+		return llvm::ConstantVector::get({
+			llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value.i64[0],false)),
+			llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value.i64[1],false))
+			});
+	}
 	inline llvm::Constant* emitLiteralPointer(const void* pointer,llvm::Type* type)
 	{
 		auto pointerInt = llvm::APInt(sizeof(Uptr) == 8 ? 64 : 32,reinterpret_cast<Uptr>(pointer));
 		return llvm::Constant::getIntegerValue(type,pointerInt);
+	}
+
+	// Converts a WebAssembly type to a LLVM type.
+	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(Uptr)asResultType(type)]; }
+	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(Uptr)type]; }
+
+	inline llvm::StructType* getLLVMReturnStructType(ResultType resultType)
+	{
+		if(resultType == ResultType::none)
+		{
+			return llvm::StructType::get(llvmI8PtrType);
+		}
+		else
+		{
+			llvm::Type* llvmResultType = asLLVMType(resultType);
+			return llvm::StructType::get(llvmI8PtrType,llvmResultType);
+		}
+	}
+
+	inline llvm::Constant* getZeroedLLVMReturnStruct(ResultType resultType)
+	{
+		return llvm::Constant::getNullValue(getLLVMReturnStructType(resultType));
+	}
+
+	// Converts a WebAssembly function type to a LLVM type.
+	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType,bool isIntrinsicFunction)
+	{
+		const Uptr numImplicitParameters = 1;
+		const Uptr numParameters = numImplicitParameters + functionType->parameters.size();
+		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
+		llvmArgTypes[0] = isIntrinsicFunction
+			? llvmI8PtrType->getPointerTo()
+			: llvmI8PtrType;
+		for(Uptr argIndex = 0; argIndex < functionType->parameters.size(); ++argIndex)
+		{
+			llvmArgTypes[argIndex + numImplicitParameters] = asLLVMType(functionType->parameters[argIndex]);
+		}
+		llvm::Type* llvmResultType = isIntrinsicFunction
+			? asLLVMType(functionType->ret)
+			: getLLVMReturnStructType(functionType->ret);
+		return llvm::FunctionType::get(llvmResultType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,numParameters),false);
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function

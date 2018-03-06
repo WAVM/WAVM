@@ -8,36 +8,25 @@ namespace Runtime
 	// Global lists of memories; used to query whether an address is reserved by one of them.
 	std::vector<MemoryInstance*> memories;
 
+	enum { numGuardPages = 1 };
+
 	static Uptr getPlatformPagesPerWebAssemblyPageLog2()
 	{
 		errorUnless(Platform::getPageSizeLog2() <= IR::numBytesPerPageLog2);
 		return IR::numBytesPerPageLog2 - Platform::getPageSizeLog2();
 	}
 
-	U8* allocateVirtualPagesAligned(Uptr numBytes,Uptr alignmentBytes,U8*& outUnalignedBaseAddress,Uptr& outUnalignedNumPlatformPages)
+	MemoryInstance* createMemory(Compartment* compartment,MemoryType type)
 	{
-		const Uptr numAllocatedVirtualPages = numBytes >> Platform::getPageSizeLog2();
-		const Uptr alignmentPages = alignmentBytes >> Platform::getPageSizeLog2();
-		outUnalignedNumPlatformPages = numAllocatedVirtualPages + alignmentPages;
-		outUnalignedBaseAddress = Platform::allocateVirtualPages(outUnalignedNumPlatformPages);
-		if(!outUnalignedBaseAddress) { outUnalignedNumPlatformPages = 0; return nullptr; }
-		else { return (U8*)((Uptr)(outUnalignedBaseAddress + alignmentBytes - 1) & ~(alignmentBytes - 1)); }
-	}
-
-	MemoryInstance* createMemory(MemoryType type)
-	{
-		MemoryInstance* memory = new MemoryInstance(type);
+		MemoryInstance* memory = new MemoryInstance(compartment,type);
 
 		// On a 64-bit runtime, allocate 8GB of address space for the memory.
 		// This allows eliding bounds checks on memory accesses, since a 32-bit index + 32-bit offset will always be within the reserved address-space.
-		// On a 32-bit runtime, allocate 256MB.
-		const Uptr memoryMaxBytes = HAS_64BIT_ADDRESS_SPACE ? Uptr(8ull*1024*1024*1024) : 0x10000000;
+		const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
+		const Uptr memoryMaxBytes = Uptr(8ull * 1024 * 1024 * 1024);
+		const Uptr memoryMaxPages = memoryMaxBytes >> pageBytesLog2;
 		
-		// On a 64 bit runtime, align the instance memory base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
-		// Note that this reserves a full extra 4GB, but only uses (4GB-1 page) for alignment, so there will always be a guard page at the end to
-		// protect against unaligned loads/stores that straddle the end of the address-space.
-		const Uptr alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? Uptr(4ull*1024*1024*1024) : ((Uptr)1 << Platform::getPageSizeLog2());
-		memory->baseAddress = allocateVirtualPagesAligned(memoryMaxBytes,alignmentBytes,memory->reservedBaseAddress,memory->reservedNumPlatformPages);
+		memory->baseAddress = Platform::allocateVirtualPages(memoryMaxPages + numGuardPages);
 		memory->endOffset = memoryMaxBytes;
 		if(!memory->baseAddress) { delete memory; return nullptr; }
 
@@ -45,9 +34,33 @@ namespace Runtime
 		assert(type.size.min <= UINTPTR_MAX);
 		if(growMemory(memory,Uptr(type.size.min)) == -1) { delete memory; return nullptr; }
 
+		// Add the memory to the compartment.
+		if(compartment)
+		{
+			Platform::Lock compartmentLock(compartment->mutex);
+
+			if(compartment->memories.size() >= maxMemories) { delete memory; return nullptr; }
+
+			memory->id = compartment->memories.size();
+			compartment->memories.push_back(memory);
+			compartment->runtimeData->memories[memory->id] = memory->baseAddress;
+		}
+
 		// Add the memory to the global array.
 		memories.push_back(memory);
 		return memory;
+	}
+
+	void MemoryInstance::finalize()
+	{
+		if(compartment)
+		{
+			Platform::Lock compartmentLock(compartment->mutex);
+			assert(compartment->memories[id] == this);
+			assert(compartment->runtimeData->memories[id] == baseAddress);
+			compartment->memories[id] = nullptr;
+			compartment->runtimeData->memories[id] = nullptr;
+		}
 	}
 
 	MemoryInstance::~MemoryInstance()
@@ -56,9 +69,12 @@ namespace Runtime
 		if(numPages > 0) { Platform::decommitVirtualPages(baseAddress,numPages << getPlatformPagesPerWebAssemblyPageLog2()); }
 
 		// Free the virtual address space.
-		if(reservedNumPlatformPages > 0) { Platform::freeVirtualPages(reservedBaseAddress,reservedNumPlatformPages); }
-		reservedBaseAddress = baseAddress = nullptr;
-		reservedNumPlatformPages = 0;
+		const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
+		if(endOffset > 0)
+		{
+			Platform::freeVirtualPages(baseAddress,(endOffset >> pageBytesLog2) + numGuardPages);
+		}
+		baseAddress = nullptr;
 
 		// Remove the memory from the global array.
 		for(Uptr memoryIndex = 0;memoryIndex < memories.size();++memoryIndex)
@@ -72,8 +88,8 @@ namespace Runtime
 		// Iterate over all memories and check if the address is within the reserved address space for each.
 		for(auto memory : memories)
 		{
-			U8* startAddress = memory->reservedBaseAddress;
-			U8* endAddress = memory->reservedBaseAddress + (memory->reservedNumPlatformPages << Platform::getPageSizeLog2());
+			U8* startAddress = memory->baseAddress;
+			U8* endAddress = memory->baseAddress + memory->endOffset;
 			if(address >= startAddress && address < endAddress) { return true; }
 		}
 		return false;
@@ -137,9 +153,9 @@ namespace Runtime
 		// Validate that the range [offset..offset+numBytes) is contained by the memory's reserved pages.
 		U8* address = memory->baseAddress + Platform::saturateToBounds(offset,memory->endOffset);
 		if(	!memory
-		||	address < memory->reservedBaseAddress
+		||	address < memory->baseAddress
 		||	address + numBytes < address
-		||	address + numBytes >= memory->reservedBaseAddress + (memory->reservedNumPlatformPages << Platform::getPageSizeLog2()))
+		||	address + numBytes > memory->baseAddress + memory->endOffset)
 		{
 			throwException(Exception::accessViolationType,{});
 		}

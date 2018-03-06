@@ -52,6 +52,8 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4702")
 	# disable warning: The result of the unary '&' operator may be unaligned
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4366")
+	# disable warning: structure was padded due to alignment specifier
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4324")
 else()
 	# Use C++11
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -82,13 +84,6 @@ if(WAVM_METRICS_OUTPUT)
 	add_definitions("-DWAVM_METRICS_OUTPUT=1")
 else()
 	add_definitions("-DWAVM_METRICS_OUTPUT=0")
-endif()
-
-option(PRETEND_32BIT_ADDRESS_SPACE "forces 64-bit WAVM to reserve address-space as it would in a 32-bit process" OFF)
-if(PRETEND_32BIT_ADDRESS_SPACE)
-	add_definitions("-DPRETEND_32BIT_ADDRESS_SPACE=1")
-else()
-	add_definitions("-DPRETEND_32BIT_ADDRESS_SPACE=0")
 endif()
 
 option(ENABLE_SIMD_PROTOTYPE "enables the prototype implementation of the proposed WebAssembly SIMD extension" ON)

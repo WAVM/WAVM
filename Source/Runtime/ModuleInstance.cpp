@@ -7,8 +7,6 @@
 
 namespace Runtime
 {
-	std::vector<ModuleInstance*> moduleInstances;
-	
 	Value evaluateInitializer(ModuleInstance* moduleInstance,InitializerExpression expression)
 	{
 		switch(expression.type)
@@ -22,22 +20,24 @@ namespace Runtime
 			// Find the import this refers to.
 			errorUnless(expression.globalIndex < moduleInstance->globals.size());
 			GlobalInstance* globalInstance = moduleInstance->globals[expression.globalIndex];
-			return Runtime::Value(globalInstance->type.valueType,globalInstance->value);
+			errorUnless(!globalInstance->type.isMutable);
+			return Runtime::Value(globalInstance->type.valueType,globalInstance->immutableValue);
 		}
 		default: Errors::unreachable();
 		};
 	}
 
-	ModuleInstance* instantiateModule(const IR::Module& module,ImportBindings&& imports)
+	ModuleInstance* instantiateModule(Context* context,const IR::Module& module,ImportBindings&& imports)
 	{
 		ModuleInstance* moduleInstance = new ModuleInstance(
+			context->compartment,
 			std::move(imports.functions),
 			std::move(imports.tables),
 			std::move(imports.memories),
 			std::move(imports.globals),
 			std::move(imports.exceptionTypes)
 			);
-		
+
 		// Get disassembly names for the module's objects.
 		DisassemblyNames disassemblyNames;
 		IR::getDisassemblyNames(module,disassemblyNames);
@@ -66,24 +66,24 @@ namespace Runtime
 		errorUnless(moduleInstance->exceptionTypes.size() == module.exceptionTypes.imports.size());
 		for(Uptr importIndex = 0;importIndex < module.exceptionTypes.imports.size();++importIndex)
 		{
-			errorUnless(getExceptionTypeParameters(moduleInstance->exceptionTypes[importIndex]) == module.exceptionTypes.imports[importIndex].type);
+			errorUnless(isA(moduleInstance->exceptionTypes[importIndex],module.exceptionTypes.imports[importIndex].type));
 		}
 
 		// Instantiate the module's memory and table definitions.
 		for(const TableDef& tableDef : module.tables.defs)
 		{
-			auto table = createTable(tableDef.type);
+			auto table = createTable(context->compartment,tableDef.type);
 			if(!table) { throwException(Exception::outOfMemoryType); }
 			moduleInstance->tables.push_back(table);
 		}
 		for(const MemoryDef& memoryDef : module.memories.defs)
 		{
-			auto memory = createMemory(memoryDef.type);
+			auto memory = createMemory(context->compartment,memoryDef.type);
 			if(!memory) { throwException(Exception::outOfMemoryType); }
 			moduleInstance->memories.push_back(memory);
 		}
 
-		// Find the default memory and table for the module.
+		// Find the default memory and table for the module and initialize the runtime data memory/table base pointers.
 		if(moduleInstance->memories.size() != 0)
 		{
 			assert(moduleInstance->memories.size() == 1);
@@ -138,7 +138,7 @@ namespace Runtime
 		{
 			const Value initialValue = evaluateInitializer(moduleInstance,globalDef.initializer);
 			errorUnless(initialValue.type == globalDef.type.valueType);
-			moduleInstance->globals.push_back(new GlobalInstance(globalDef.type,initialValue));
+			moduleInstance->globals.push_back(createGlobal(context->compartment,globalDef.type,initialValue));
 		}
 
 		// Instantiate the module's exception types.
@@ -165,14 +165,14 @@ namespace Runtime
 		// Set up the instance's exports.
 		for(const Export& exportIt : module.exports)
 		{
-			ObjectInstance* exportedObject = nullptr;
+			Object* exportedObject = nullptr;
 			switch(exportIt.kind)
 			{
-			case ObjectKind::function: exportedObject = moduleInstance->functions[exportIt.index]; break;
-			case ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
-			case ObjectKind::memory: exportedObject = moduleInstance->memories[exportIt.index]; break;
-			case ObjectKind::global: exportedObject = moduleInstance->globals[exportIt.index]; break;
-			case ObjectKind::exceptionType: exportedObject = moduleInstance->exceptionTypes[exportIt.index]; break;
+			case IR::ObjectKind::function: exportedObject = moduleInstance->functions[exportIt.index]; break;
+			case IR::ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
+			case IR::ObjectKind::memory: exportedObject = moduleInstance->memories[exportIt.index]; break;
+			case IR::ObjectKind::global: exportedObject = moduleInstance->globals[exportIt.index]; break;
+			case IR::ObjectKind::exceptionType: exportedObject = moduleInstance->exceptionTypes[exportIt.index]; break;
 			default: Errors::unreachable();
 			}
 			moduleInstance->exportMap[exportIt.name] = exportedObject;
@@ -200,23 +200,23 @@ namespace Runtime
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
 			assert(moduleInstance->functions[module.startFunctionIndex]->type == IR::FunctionType::get());
-			invokeFunction(moduleInstance->functions[module.startFunctionIndex],{});
+			invokeFunction(context,moduleInstance->functions[module.startFunctionIndex],{});
 		}
 
-		moduleInstances.push_back(moduleInstance);
 		return moduleInstance;
 	}
 
 	ModuleInstance::~ModuleInstance()
 	{
-		delete jitModule;
+		if(jitModule) { delete jitModule; }
 	}
 
 	MemoryInstance* getDefaultMemory(ModuleInstance* moduleInstance) { return moduleInstance->defaultMemory; }
 	TableInstance* getDefaultTable(ModuleInstance* moduleInstance) { return moduleInstance->defaultTable; }
 	
-	ObjectInstance* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name)
+	Object* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name)
 	{
+		assert(moduleInstance);
 		auto mapIt = moduleInstance->exportMap.find(name);
 		return mapIt == moduleInstance->exportMap.end() ? nullptr : mapIt->second;
 	}

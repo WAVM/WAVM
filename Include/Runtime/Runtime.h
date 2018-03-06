@@ -16,60 +16,68 @@ namespace Runtime
 	// Initializes the runtime. Should only be called once per process.
 	RUNTIME_API void init();
 
-	// These are subclasses of Object, but are only defined within Runtime, so other modules must
-	// use these forward declarations as opaque pointers.
-	struct FunctionInstance;
-	struct TableInstance;
-	struct MemoryInstance;
-	struct GlobalInstance;
-	struct ModuleInstance;
-	struct ExceptionTypeInstance;
+	// Runtime object types. This must be a superset of IR::ObjectKind, with IR::ObjectKind
+	// values having the same representation in Runtime::ObjectKind.
+	enum class ObjectKind : U8
+	{
+		// Standard object kinds that may be imported/exported from WebAssembly modules.
+		function = 0,
+		table = 1,
+		memory = 2,
+		global = 3,
+		exceptionType = 4,
+
+		// Runtime-specific object kinds that are only used by transient runtime objects.
+		module = 5,
+		context = 6,
+		compartment = 7,
+
+		invalid = 0xff,
+	};
 
 	// A runtime object of any type.
-	struct ObjectInstance
+	struct Object
 	{
-		const IR::ObjectKind kind;
+		const ObjectKind kind;
 
-		ObjectInstance(IR::ObjectKind inKind): kind(inKind) {}
-		virtual ~ObjectInstance() {}
+		Object(ObjectKind inKind): kind(inKind) {}
+		virtual ~Object() {}
 	};
 	
 	// Tests whether an object is of the given type.
-	RUNTIME_API bool isA(ObjectInstance* object,const IR::ObjectType& type);
+	RUNTIME_API bool isA(Object* object,const IR::ObjectType& type);
+	RUNTIME_API IR::ObjectType getObjectType(Object* object);
 
-	// Casts from object to subclasses, and vice versa.
-	inline FunctionInstance* asFunction(ObjectInstance* object)				{ assert(object && object->kind == IR::ObjectKind::function); return (FunctionInstance*)object; }
-	inline TableInstance* asTable(ObjectInstance* object)					{ assert(object && object->kind == IR::ObjectKind::table); return (TableInstance*)object; }
-	inline MemoryInstance* asMemory(ObjectInstance* object)				{ assert(object && object->kind == IR::ObjectKind::memory); return (MemoryInstance*)object; }
-	inline GlobalInstance* asGlobal(ObjectInstance* object)				{ assert(object && object->kind == IR::ObjectKind::global); return (GlobalInstance*)object; }
-	inline ModuleInstance* asModule(ObjectInstance* object)				{ assert(object && object->kind == IR::ObjectKind::module); return (ModuleInstance*)object; }
-	inline ExceptionTypeInstance* asExceptionType(ObjectInstance* object)	{ assert(object && object->kind == IR::ObjectKind::exceptionType); return (ExceptionTypeInstance*)object; }
-	
-	inline ObjectInstance* asObject(ObjectInstance* object) { return object; }
-	inline ObjectInstance* asObject(FunctionInstance* function) { return (ObjectInstance*)function; }
-	inline ObjectInstance* asObject(TableInstance* table) { return (ObjectInstance*)table; }
-	inline ObjectInstance* asObject(MemoryInstance* memory) { return (ObjectInstance*)memory; }
-	inline ObjectInstance* asObject(GlobalInstance* global) { return (ObjectInstance*)global; }
-	inline ObjectInstance* asObject(ModuleInstance* module) { return (ObjectInstance*)module; }
-	inline ObjectInstance* asObject(ExceptionTypeInstance* exceptionType) { return (ObjectInstance*)exceptionType; }
+	inline Object* asObject(Object* object) { return object; }
+	template<typename Type> Type* as(Object* object);
+	template<> inline Object* as<Object>(Object* object) { return asObject(object); }
 
-	template<typename Instance> Instance* as(ObjectInstance* object);
-	template<> inline ObjectInstance* as<ObjectInstance>(ObjectInstance* object) { return asObject(object); }
-	template<> inline FunctionInstance* as<FunctionInstance>(ObjectInstance* object) { return asFunction(object); }
-	template<> inline TableInstance* as<TableInstance>(ObjectInstance* object) { return asTable(object); }
-	template<> inline MemoryInstance* as<MemoryInstance>(ObjectInstance* object) { return asMemory(object); }
-	template<> inline GlobalInstance* as<GlobalInstance>(ObjectInstance* object) { return asGlobal(object); }
-	template<> inline ModuleInstance* as<ModuleInstance>(ObjectInstance* object) { return asModule(object); }
-	template<> inline ExceptionTypeInstance* as<ExceptionTypeInstance>(ObjectInstance* object) { return asExceptionType(object); }
+	// Declare the different kinds of objects.
+	// They are only declared as incomplete struct types here, and Runtime clients
+	// will only handle opaque pointers to them.
+	#define DECLARE_OBJECT_TYPE(kindId,kindName,Type) \
+		struct Type; \
+		inline Type* as##kindName(Object* object) \
+		{ \
+			assert(!object || object->kind == kindId); \
+			return (Type*)object; \
+		} \
+		inline Type* as##kindName##Nullable(Object* object) \
+		{ \
+			return object && object->kind == kindId ? (Type*)object : nullptr; \
+		} \
+		inline Object* asObject(Type* object) { return (Object*)object; } \
+		template<> inline Type* as<Type>(Object* object) { return as##kindName(object); }
 
-	// Casts from object to subclass that checks that the object is the right kind and returns null if not.
-	inline FunctionInstance* asFunctionNullable(ObjectInstance* object)			{ return object && object->kind == IR::ObjectKind::function ? (FunctionInstance*)object : nullptr; }
-	inline TableInstance* asTableNullable(ObjectInstance* object)				{ return object && object->kind == IR::ObjectKind::table ? (TableInstance*)object : nullptr; }
-	inline MemoryInstance* asMemoryNullable(ObjectInstance* object)			{ return object && object->kind == IR::ObjectKind::memory ? (MemoryInstance*)object : nullptr; }
-	inline GlobalInstance* asGlobalNullable(ObjectInstance* object)				{ return object && object->kind == IR::ObjectKind::global ? (GlobalInstance*)object : nullptr; }
-	inline ModuleInstance* asModuleNullable(ObjectInstance* object)			{ return object && object->kind == IR::ObjectKind::module ? (ModuleInstance*)object : nullptr; }
-	inline ExceptionTypeInstance* asExceptionTypeNullable(ObjectInstance* object)	{ return object && object->kind == IR::ObjectKind::exceptionType ? (ExceptionTypeInstance*)object : nullptr; }
-	
+	DECLARE_OBJECT_TYPE(ObjectKind::function,Function,FunctionInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::table,Table,TableInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::memory,Memory,MemoryInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::global,Global,GlobalInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::module,Module,ModuleInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::exceptionType,ExceptionType,ExceptionTypeInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::context,Context,Context);
+	DECLARE_OBJECT_TYPE(ObjectKind::compartment,Compartment,Compartment);
+
 	//
 	// Garbage collection
 	//
@@ -127,10 +135,10 @@ namespace Runtime
 	};
 
 	// Increments the object's counter of root references.
-	RUNTIME_API void addGCRoot(ObjectInstance* object);
+	RUNTIME_API void addGCRoot(Object* object);
 
 	// Decrements the object's counter of root referencers.
-	RUNTIME_API void removeGCRoot(ObjectInstance* object);
+	RUNTIME_API void removeGCRoot(Object* object);
 
 	// Frees objects that are unreachable from root object references.
 	RUNTIME_API void collectGarbage();
@@ -162,7 +170,7 @@ namespace Runtime
 	};
 
 	// Creates an exception type instance.
-	RUNTIME_API ExceptionTypeInstance* createExceptionTypeInstance(const IR::TupleType& parameters);
+	RUNTIME_API ExceptionTypeInstance* createExceptionTypeInstance(const IR::TupleType* parameters);
 
 	// Returns a string that describes the given exception cause.
 	RUNTIME_API std::string describeException(const Exception& exception);
@@ -171,7 +179,7 @@ namespace Runtime
 	RUNTIME_API std::string describeExceptionType(const ExceptionTypeInstance* type);
 
 	// Returns the parameter types for an exception type instance.
-	RUNTIME_API IR::TupleType getExceptionTypeParameters(const ExceptionTypeInstance* type);
+	RUNTIME_API const IR::TupleType* getExceptionTypeParameters(const ExceptionTypeInstance* type);
 
 	// Throws a runtime exception.
 	[[noreturn]] RUNTIME_API void throwException(ExceptionTypeInstance* type,std::vector<UntaggedValue>&& arguments = {});
@@ -187,7 +195,7 @@ namespace Runtime
 	//
 
 	// Invokes a FunctionInstance with the given parameters, and returns the result.
-	RUNTIME_API Result invokeFunction(FunctionInstance* function,const std::vector<Value>& parameters);
+	RUNTIME_API Result invokeFunction(Context* context,FunctionInstance* function,const std::vector<Value>& parameters);
 
 	// Returns the type of a FunctionInstance.
 	RUNTIME_API const IR::FunctionType* getFunctionType(FunctionInstance* function);
@@ -197,13 +205,13 @@ namespace Runtime
 	//
 
 	// Creates a Table. May return null if the memory allocation fails.
-	RUNTIME_API TableInstance* createTable(IR::TableType type);
+	RUNTIME_API TableInstance* createTable(Compartment* compartment,IR::TableType type);
 
 	// Reads an element from the table. Assumes that index is in bounds.
-	RUNTIME_API ObjectInstance* getTableElement(TableInstance* table,Uptr index);
+	RUNTIME_API Object* getTableElement(TableInstance* table,Uptr index);
 
 	// Writes an element to the table. Assumes that index is in bounds, and returns a pointer to the previous value of the element.
-	RUNTIME_API ObjectInstance* setTableElement(TableInstance* table,Uptr index,ObjectInstance* newValue);
+	RUNTIME_API Object* setTableElement(TableInstance* table,Uptr index,Object* newValue);
 
 	// Gets the current or maximum size of the table.
 	RUNTIME_API Uptr getTableNumElements(TableInstance* table);
@@ -218,7 +226,7 @@ namespace Runtime
 	//
 
 	// Creates a Memory. May return null if the memory allocation fails.
-	RUNTIME_API MemoryInstance* createMemory(IR::MemoryType type);
+	RUNTIME_API MemoryInstance* createMemory(Compartment* compartment,IR::MemoryType type);
 
 	// Gets the base address of the memory's data.
 	RUNTIME_API U8* getMemoryBaseAddress(MemoryInstance* memory);
@@ -247,13 +255,13 @@ namespace Runtime
 	//
 
 	// Creates a GlobalInstance with the specified type and initial value.
-	RUNTIME_API GlobalInstance* createGlobal(IR::GlobalType type,Value initialValue);
+	RUNTIME_API GlobalInstance* createGlobal(Compartment* compartment,IR::GlobalType type,Value initialValue);
 
 	// Reads the current value of a global.
-	RUNTIME_API Value getGlobalValue(GlobalInstance* global);
+	RUNTIME_API Value getGlobalValue(Context* context,GlobalInstance* global);
 
 	// Writes a new value to a global, and returns the previous value.
-	RUNTIME_API Value setGlobalValue(GlobalInstance* global,Value newValue);
+	RUNTIME_API Value setGlobalValue(Context* context,GlobalInstance* global,Value newValue);
 
 	//
 	// Modules
@@ -269,12 +277,25 @@ namespace Runtime
 	};
 
 	// Instantiates a module, bindings its imports to the specified objects. May throw InstantiationException.
-	RUNTIME_API ModuleInstance* instantiateModule(const IR::Module& module,ImportBindings&& imports);
+	RUNTIME_API ModuleInstance* instantiateModule(Context* context,const IR::Module& module,ImportBindings&& imports);
 
 	// Gets the default table/memory for a ModuleInstance.
 	RUNTIME_API MemoryInstance* getDefaultMemory(ModuleInstance* moduleInstance);
 	RUNTIME_API TableInstance* getDefaultTable(ModuleInstance* moduleInstance);
 
 	// Gets an object exported by a ModuleInstance by name.
-	RUNTIME_API ObjectInstance* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name);
+	RUNTIME_API Object* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name);
+
+	//
+	// Compartments
+	//
+
+	RUNTIME_API Compartment* createCompartment();
+
+	//
+	// Contexts
+	//
+
+	RUNTIME_API Context* createContext(Compartment* compartment);
+	RUNTIME_API Compartment* getCompartmentFromContext(Context* context);
 }

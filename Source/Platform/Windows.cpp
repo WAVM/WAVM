@@ -50,13 +50,57 @@ namespace Platform
 
 	U8* allocateVirtualPages(Uptr numPages)
 	{
-		Uptr numBytes = numPages << getPageSizeLog2();
-		auto result = VirtualAlloc(nullptr,numBytes,MEM_RESERVE,PAGE_NOACCESS);
-		if(result == NULL)
+		const Uptr pageSizeLog2 = getPageSizeLog2();
+		const Uptr numBytes = numPages << pageSizeLog2;
+		void* result = VirtualAlloc(nullptr,numBytes,MEM_RESERVE,PAGE_NOACCESS);
+		if(result == nullptr)
 		{
 			return nullptr;
 		}
 		return (U8*)result;
+	}
+
+	U8* allocateAlignedVirtualPages(Uptr numPages,Uptr alignmentLog2,U8*& outUnalignedBaseAddress)
+	{
+		const Uptr pageSizeLog2 = getPageSizeLog2();
+		const Uptr numBytes = numPages << pageSizeLog2;
+		if(alignmentLog2 > pageSizeLog2)
+		{
+			Uptr numTries = 0;
+			while(true)
+			{
+				// Call VirtualAlloc with enough padding added to the size to align the allocation within the unaligned mapping.
+				const Uptr alignmentBytes = 1ull << alignmentLog2;
+				void* probeResult = VirtualAlloc(nullptr,numBytes + alignmentBytes,MEM_RESERVE,PAGE_NOACCESS);
+				if(!probeResult) { return nullptr; }
+
+				const Uptr address = reinterpret_cast<Uptr>(probeResult);
+				const Uptr alignedAddress = (address + alignmentBytes - 1) & ~(alignmentBytes - 1);
+
+				if(numTries < 10)
+				{
+					// Free the unaligned+padded allocation, and try to immediately reserve just the aligned middle part again.
+					// This can fail due to races with other threads, so handle the VirtualAlloc failing by just retrying with
+					// a new unaligned+padded allocation.
+					errorUnless(VirtualFree(probeResult,0,MEM_RELEASE));
+					outUnalignedBaseAddress = (U8*)VirtualAlloc(reinterpret_cast<void*>(alignedAddress),numBytes,MEM_RESERVE,PAGE_NOACCESS);
+					if(outUnalignedBaseAddress) { return outUnalignedBaseAddress; }
+
+					++numTries;
+				}
+				else
+				{
+					// If the below free and re-alloc of the aligned address fails too many times, just return the padded allocation.
+					outUnalignedBaseAddress = (U8*)probeResult;
+					return reinterpret_cast<U8*>(alignedAddress);
+				}
+			}
+		}
+		else
+		{
+			outUnalignedBaseAddress = allocateVirtualPages(numPages);
+			return outUnalignedBaseAddress;
+		}
 	}
 
 	bool commitVirtualPages(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access)
@@ -82,8 +126,15 @@ namespace Platform
 	void freeVirtualPages(U8* baseVirtualAddress,Uptr numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
-		auto result = VirtualFree(baseVirtualAddress,0/*numPages << getPageSizeLog2()*/,MEM_RELEASE);
+		auto result = VirtualFree(baseVirtualAddress,0,MEM_RELEASE);
 		if(baseVirtualAddress && !result) { Errors::fatal("VirtualFree(MEM_RELEASE) failed"); }
+	}
+
+	void freeAlignedVirtualPages(U8* unalignedBaseAddress,Uptr numPages,Uptr alignmentLog2)
+	{
+		errorUnless(isPageAligned(unalignedBaseAddress));
+		auto result = VirtualFree(unalignedBaseAddress,0,MEM_RELEASE);
+		if(unalignedBaseAddress && !result) { Errors::fatal("VirtualFree(MEM_RELEASE) failed"); }
 	}
 
 	// The interface to the DbgHelp DLL

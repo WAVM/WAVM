@@ -241,12 +241,12 @@ namespace IR
 		void catch_(CatchImm imm)
 		{
 			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
-			const TupleType& tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+			const TupleType* tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
 
 			popAndValidateResultType("try result",controlStack.back().resultType);
 			popControlStack(false,true);
 
-			for(auto parameterType : tupleType.elements) { pushOperand(parameterType); }
+			for(auto parameterType : tupleType->elements) { pushOperand(parameterType); }
 		}
 		void catch_all(NoImm)
 		{
@@ -403,8 +403,8 @@ namespace IR
 		void validateImm(ThrowImm imm)
 		{
 			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
-			const TupleType& tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
-			popAndValidateOperands("exception arguments",tupleType.elements.data(),(Uptr)tupleType.elements.size());
+			const TupleType* tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+			popAndValidateOperands("exception arguments",tupleType->elements.data(),(Uptr)tupleType->elements.size());
 			enterUnreachable();
 		}
 		void validateImm(RethrowImm imm)

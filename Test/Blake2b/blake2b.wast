@@ -45,11 +45,11 @@
 	(global $hexitTable i32 (i32.const 128))
 	(data (i32.const 128) "0123456789abcdef")
 	
-	(global $dataAddress (mut i32) (i32.const 0))
-	(global $dataNumBytes (mut i32) (i32.const 134217728))
+	(global $dataAddressAddress i32 (i32.const 144)) ;; 8 bytes
+	(global $dataNumBytes i32 (i32.const 134217728))
 	
-	(global $numPendingThreadsAddress i32 (i32.const 144)) ;; 4 bytes
-	(global $outputStringAddress i32 (i32.const 148)) ;; 129 bytes
+	(global $numPendingThreadsAddress i32 (i32.const 152)) ;; 4 bytes
+	(global $outputStringAddress i32 (i32.const 156)) ;; 129 bytes
 	
 	(global $statesArrayAddressAddress i32 (i32.const 1024))	;; 4 bytes
 	(global $statesArrayAlignment i32 (i32.const 256))
@@ -1267,7 +1267,7 @@
 		;; Hash the test data enough times to dilute all the non-hash components of the timing.
 		(set_local $i (i32.const 0))
 		loop $iterLoop
-			(call $blake2b (get_local $threadIndex) (get_global $dataAddress) (get_global $dataNumBytes))
+			(call $blake2b (get_local $threadIndex) (i32.load (get_global $dataAddressAddress)) (get_global $dataNumBytes))
 			(set_local $i (i32.add (get_local $i) (i32.const 1)))
 			(br_if $iterLoop (i32.lt_u (get_local $i) (get_global $numIterationsPerThread)))
 		end
@@ -1305,10 +1305,10 @@
 			)
 
 		;; Initialize the test data.
-		(set_global $dataAddress (call $sbrk (get_global $dataNumBytes)))
+		(i32.store (get_global $dataAddressAddress) (call $sbrk (get_global $dataNumBytes)))
 		(set_local $i (i32.const 0))
 		loop $initDataLoop
-			(i32.store (i32.add (get_global $dataAddress) (get_local $i)) (get_local $i))
+			(i32.store (i32.add (i32.load (get_global $dataAddressAddress)) (get_local $i)) (get_local $i))
 			(set_local $i (i32.add (get_local $i) (i32.const 4)))
 			(br_if $initDataLoop (i32.lt_u (get_local $i) (get_global $dataNumBytes)))
 		end

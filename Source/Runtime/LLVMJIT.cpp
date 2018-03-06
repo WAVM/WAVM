@@ -30,6 +30,8 @@
 
 namespace LLVMJIT
 {
+	Platform::Mutex* llvmMutex = Platform::createMutex();
+	bool isLLVMInitialized = false;
 	llvm::LLVMContext context;
 	llvm::TargetMachine* targetMachine = nullptr;
 	llvm::Type* llvmResultTypes[(Uptr)ResultType::num];
@@ -61,8 +63,13 @@ namespace LLVMJIT
 	Platform::Mutex* addressToSymbolMapMutex = Platform::createMutex();
 	std::map<Uptr,struct JITSymbol*> addressToSymbolMap;
 
-	// A map from function types to function indices in the invoke thunk unit.
+	// A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
 	std::map<const FunctionType*,struct JITSymbol*> invokeThunkTypeToSymbolMap;
+
+	// A map from function types to JIT symbols for cached native thunks (WASM -> C++)
+	std::map<void*,struct JITSymbol*> intrinsicFunctionToThunkSymbolMap;
+
+	void initLLVM();
 
 	// Information about a JIT symbol, used to map instruction pointers to descriptive names.
 	struct JITSymbol
@@ -353,20 +360,20 @@ namespace LLVMJIT
 	};
 
 	// The JIT compilation unit for a single invoke thunk.
-	struct JITInvokeThunkUnit : JITUnit
+	struct JITThunkUnit : JITUnit
 	{
 		const FunctionType* functionType;
 
 		JITSymbol* symbol;
 
-		JITInvokeThunkUnit(const FunctionType* inFunctionType): JITUnit(false), functionType(inFunctionType), symbol(nullptr) {}
+		JITThunkUnit(const FunctionType* inFunctionType): JITUnit(false), functionType(inFunctionType), symbol(nullptr) {}
 
 		void notifySymbolLoaded(const char* name,Uptr baseAddress,Uptr numBytes,std::map<U32,U32>&& offsetToOpIndexMap) override
 		{
 			#if defined(_WIN32) && !defined(_WIN64)
-				assert(!strcmp(name,"_invokeThunk"));
+				assert(!strcmp(name,"_thunk"));
 			#else
-				assert(!strcmp(name,"invokeThunk"));
+				assert(!strcmp(name,"thunk"));
 			#endif
 			symbol = new JITSymbol(functionType,baseAddress,numBytes,std::move(offsetToOpIndexMap));
 		}
@@ -427,7 +434,7 @@ namespace LLVMJIT
 		// Make a copy of the loaded object info for use by the finalizer.
 		jitUnit->loadedObjects.push_back(LoadedObject {object.get()->getBinary(),&loadedObject});
 
-		#if DUMP_OBJECT
+		if(jitUnit->shouldLogMetrics && DUMP_OBJECT)
 		{
 			// Dump the object file.
 			std::error_code errorCode;
@@ -439,7 +446,6 @@ namespace LLVMJIT
 				object->getBinary()->getData().size());
 			Log::printf(Log::Category::debug,"Dumped object file to: %s\n",augmentedFilename.c_str()); 
 		}
-		#endif
 
 		#ifdef _WIN64
 			// The LLVM dynamic loader doesn't correctly apply the IMAGE_REL_AMD64_ADDR32NB relocations
@@ -503,7 +509,7 @@ namespace LLVMJIT
 			numBytesRemaining -= numInstructionBytes;
 			nextByte += numInstructionBytes;
 
-			Log::printf(Log::Category::debug,"\t\t0x%04x %s\n",(nextByte - bytes - numInstructionBytes),instructionBuffer);
+			Log::printf(Log::Category::error,"\t\t0x%04x %s\n",(nextByte - bytes - numInstructionBytes),instructionBuffer);
 		};
 
 		LLVMDisasmDispose(disasmRef);
@@ -602,8 +608,8 @@ namespace LLVMJIT
 		llvmModule->setDataLayout(targetMachine->createDataLayout());
 
 		// Verify the module.
-		if(DUMP_UNOPTIMIZED_MODULE) { printModule(llvmModule.get(),"llvmDump"); }
-		if(VERIFY_MODULE)
+		if(shouldLogMetrics && DUMP_UNOPTIMIZED_MODULE) { printModule(llvmModule.get(),"llvmDump"); }
+		if(shouldLogMetrics && VERIFY_MODULE)
 		{
 			std::string verifyOutputString;
 			llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
@@ -631,7 +637,7 @@ namespace LLVMJIT
 			Timing::logRatePerSecond("Optimized LLVM module",optimizationTimer,(F64)llvmModule->size(),"functions");
 		}
 
-		if(DUMP_OPTIMIZED_MODULE) { printModule(llvmModule.get(),"llvmOptimizedDump"); }
+		if(shouldLogMetrics && DUMP_OPTIMIZED_MODULE) { printModule(llvmModule.get(),"llvmOptimizedDump"); }
 
 		// Pass the module to the JIT compiler.
 		Timing::Timer machineCodeTimer;
@@ -648,6 +654,10 @@ namespace LLVMJIT
 
 	void instantiateModule(const IR::Module& module,ModuleInstance* moduleInstance)
 	{
+		Platform::Lock llvmLock(llvmMutex);
+
+		initLLVM();
+
 		// Emit LLVM IR for the module.
 		auto llvmModule = emitModule(module,moduleInstance);
 
@@ -722,6 +732,10 @@ namespace LLVMJIT
 
 	InvokeFunctionPointer getInvokeThunk(const FunctionType* functionType)
 	{
+		Platform::Lock llvmLock(llvmMutex);
+
+		initLLVM();
+
 		// Reuse cached invoke thunks for the same function type.
 		auto mapIt = invokeThunkTypeToSymbolMap.find(functionType);
 		if(mapIt != invokeThunkTypeToSymbolMap.end()) { return reinterpret_cast<InvokeFunctionPointer>(mapIt->second->baseAddress); }
@@ -730,20 +744,22 @@ namespace LLVMJIT
 		auto llvmModule = llvmModuleSharedPtr.get();
 		auto llvmFunctionType = llvm::FunctionType::get(
 			llvmVoidType,
-			{asLLVMType(functionType)->getPointerTo(),llvmI64x2Type->getPointerTo()},
+			{asLLVMType(functionType,false)->getPointerTo(),llvmI8PtrType,llvmI64x2Type->getPointerTo()},
 			false);
-		auto llvmFunction = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,"invokeThunk",llvmModule);
+		auto llvmFunction = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,"thunk",llvmModule);
 		auto argIt = llvmFunction->args().begin();
 		llvm::Value* functionPointer = &*argIt++;
+		llvm::Value* contextPointer = &*argIt++;
 		llvm::Value* argBaseAddress = &*argIt;
 		auto entryBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
 		llvm::IRBuilder<> irBuilder(entryBlock);
 
 		// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
-		std::vector<llvm::Value*> structArgLoads;
+		std::vector<llvm::Value*> arguments;
+		arguments.push_back(contextPointer);
 		for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
 		{
-			structArgLoads.push_back(irBuilder.CreateLoad(
+			arguments.push_back(irBuilder.CreateLoad(
 				irBuilder.CreatePointerCast(
 					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((Uptr)parameterIndex)}),
 					asLLVMType(functionType->parameters[parameterIndex])->getPointerTo()
@@ -752,14 +768,15 @@ namespace LLVMJIT
 		}
 
 		// Call the llvm function with the actual implementation.
-		auto returnValue = irBuilder.CreateCall(functionPointer,structArgLoads);
+		auto call = irBuilder.CreateCall(functionPointer,arguments);
+		call->setCallingConv(llvm::CallingConv::Fast);
 
 		// If the function has a return value, write it to the end of the argument array.
 		if(functionType->ret != ResultType::none)
 		{
 			auto llvmResultType = asLLVMType(functionType->ret);
 			irBuilder.CreateStore(
-				returnValue,
+				irBuilder.CreateExtractValue(call,{1}),
 				irBuilder.CreatePointerCast(
 					irBuilder.CreateInBoundsGEP(argBaseAddress,{emitLiteral((Uptr)functionType->parameters.size())}),
 					llvmResultType->getPointerTo()
@@ -770,7 +787,7 @@ namespace LLVMJIT
 		irBuilder.CreateRetVoid();
 
 		// Compile the invoke thunk.
-		auto jitUnit = new JITInvokeThunkUnit(functionType);
+		auto jitUnit = new JITThunkUnit(functionType);
 		jitUnit->compile(llvmModuleSharedPtr);
 
 		assert(jitUnit->symbol);
@@ -783,9 +800,70 @@ namespace LLVMJIT
 
 		return reinterpret_cast<InvokeFunctionPointer>(jitUnit->symbol->baseAddress);
 	}
-	
-	void init()
+
+	void* getIntrinsicThunk(void* nativeFunction,const FunctionType* functionType)
 	{
+		Platform::Lock llvmLock(llvmMutex);
+
+		initLLVM();
+
+		// Reuse cached intrinsic thunks for the same function type.
+		auto mapIt = intrinsicFunctionToThunkSymbolMap.find(nativeFunction);
+		if(mapIt != intrinsicFunctionToThunkSymbolMap.end()) { return reinterpret_cast<void*>(mapIt->second->baseAddress); }
+
+		// Create a LLVM module containing a single function with the same signature as the native
+		// function, but with fast calling convention.
+		auto llvmModuleSharedPtr = std::make_shared<llvm::Module>("",context);
+		auto llvmModule = llvmModuleSharedPtr.get();
+		auto llvmFunctionType = asLLVMType(functionType,false);
+		auto llvmFunction = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,"thunk",llvmModule);
+		llvmFunction->setCallingConv(llvm::CallingConv::Fast);
+		auto entryBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
+		llvm::IRBuilder<> irBuilder(entryBlock);
+		auto argIt = llvmFunction->args().begin();
+		llvm::SmallVector<llvm::Value*,8> nativeArgs;
+
+		// Save the memory and table base pointers in local variables that will be passed by reference to the native function.
+		auto contextPointerVariable = irBuilder.CreateAlloca(llvmI8PtrType,nullptr,"context");
+		irBuilder.CreateStore(&*argIt++,contextPointerVariable);
+		nativeArgs.push_back(contextPointerVariable);
+
+		// Emit LLVM IR to call the native function.
+		for(;argIt != llvmFunction->args().end();++argIt)
+		{
+			nativeArgs.push_back(&*argIt);
+		}
+
+		auto nativeFunctionAddress = emitLiteralPointer(nativeFunction,asLLVMType(functionType,true)->getPointerTo());
+		auto call = irBuilder.CreateCall(nativeFunctionAddress,nativeArgs);
+
+		// Package the result in a struct with the potentially modified memory and table base address.
+		llvm::Value* returnStruct = getZeroedLLVMReturnStruct(functionType->ret);
+		returnStruct = irBuilder.CreateInsertValue(returnStruct,irBuilder.CreateLoad(contextPointerVariable),{ 0 });
+		if(functionType->ret != ResultType::none) { returnStruct = irBuilder.CreateInsertValue(returnStruct,call,{ 1 }); }
+
+		irBuilder.CreateRet(returnStruct);
+
+		// Compile the LLVM IR to machine code.
+		auto jitUnit = new JITThunkUnit(functionType);
+		jitUnit->compile(llvmModuleSharedPtr);
+
+		assert(jitUnit->symbol);
+		intrinsicFunctionToThunkSymbolMap[nativeFunction] = jitUnit->symbol;
+
+		{
+			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+			addressToSymbolMap[jitUnit->symbol->baseAddress + jitUnit->symbol->numBytes] = jitUnit->symbol;
+		}
+
+		return reinterpret_cast<void*>(jitUnit->symbol->baseAddress);
+	}
+
+	void initLLVM()
+	{
+		if(isLLVMInitialized) { return; }
+		isLLVMInitialized = true;
+
 		llvm::InitializeNativeTarget();
 		llvm::InitializeNativeTargetAsmPrinter();
 		llvm::InitializeNativeTargetAsmParser();
@@ -798,15 +876,9 @@ namespace LLVMJIT
 			// our symbols can't be found in the JITed object file.
 			targetTriple += "-elf";
 		#endif
+		llvm::SmallVector<std::string,0> machineAttrs = { LLVM_TARGET_ATTRIBUTES };
 		targetMachine = llvm::EngineBuilder().selectTarget(
-			llvm::Triple(targetTriple),"",llvm::sys::getHostCPUName(),
-			#if defined(_WIN32) && !defined(_WIN64)
-				// Use SSE2 instead of the FPU on x86 for more control over how intermediate results are rounded.
-				llvm::SmallVector<std::string,1>({"+sse2"})
-			#else
-				llvm::SmallVector<std::string,0>()
-			#endif
-			);
+			llvm::Triple(targetTriple),"",llvm::sys::getHostCPUName(),machineAttrs);
 
 		llvmI8Type = llvm::Type::getInt8Ty(context);
 		llvmI16Type = llvm::Type::getInt16Ty(context);

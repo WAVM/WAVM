@@ -11,13 +11,49 @@ namespace IR
 			ResultType ret;
 			std::vector<ValueType> parameters;
 
-			friend bool operator==(const Key& left,const Key& right) { return left.ret == right.ret && left.parameters == right.parameters; }
-			friend bool operator!=(const Key& left,const Key& right) { return left.ret != right.ret || left.parameters != right.parameters; }
-			friend bool operator<(const Key& left,const Key& right) { return left.ret < right.ret || (left.ret == right.ret && left.parameters < right.parameters); }
+			friend bool operator==(const Key& left,const Key& right)
+			{
+				return left.ret == right.ret && left.parameters == right.parameters;
+			}
+			friend bool operator!=(const Key& left,const Key& right)
+			{
+				return left.ret != right.ret || left.parameters != right.parameters;
+			}
+			friend bool operator<(const Key& left,const Key& right)
+			{
+				if(left.ret != right.ret) { return left.ret < right.ret; }
+				else { return left.parameters < right.parameters; }
+			}
 		};
-		static std::map<Key,FunctionType*>& get()
+		static std::map<Key,const FunctionType*>& get()
 		{
-			static std::map<Key,FunctionType*> map;
+			static std::map<Key,const FunctionType*> map;
+			return map;
+		}
+	};
+
+	struct TupleTypeMap
+	{
+		struct Key
+		{
+			std::vector<ValueType> elements;
+
+			friend bool operator==(const Key& left,const Key& right)
+			{
+				return left.elements == right.elements;
+			}
+			friend bool operator!=(const Key& left,const Key& right)
+			{
+				return left.elements != right.elements;
+			}
+			friend bool operator<(const Key& left,const Key& right)
+			{
+				return left.elements < right.elements;
+			}
+		};
+		static std::map<Key,const TupleType*>& get()
+		{
+			static std::map<Key,const TupleType*> map;
 			return map;
 		}
 	};
@@ -41,4 +77,9 @@ namespace IR
 	{ return findExistingOrCreateNew(FunctionTypeMap::get(),FunctionTypeMap::Key {ret,parameters},[=]{return new FunctionType(ret,parameters);}); }
 	const FunctionType* FunctionType::get(ResultType ret)
 	{ return findExistingOrCreateNew(FunctionTypeMap::get(),FunctionTypeMap::Key {ret,{}},[=]{return new FunctionType(ret,{});}); }
+
+	const TupleType* TupleType::get(const std::initializer_list<ValueType>& elements)
+	{ return findExistingOrCreateNew(TupleTypeMap::get(),TupleTypeMap::Key {elements},[=]{return new TupleType(elements);}); }
+	const TupleType* TupleType::get(const std::vector<ValueType>& elements)
+	{ return findExistingOrCreateNew(TupleTypeMap::get(),TupleTypeMap::Key {elements},[=]{return new TupleType(elements);}); }
 }

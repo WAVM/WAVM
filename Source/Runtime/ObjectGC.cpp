@@ -14,7 +14,7 @@ namespace Runtime
 	struct GCGlobals
 	{
 		Platform::Mutex* mutex;
-		std::set<GCObject*> allObjects;
+		std::set<ObjectImpl*> allObjects;
 
 		static GCGlobals& get()
 		{
@@ -26,37 +26,38 @@ namespace Runtime
 		GCGlobals(): mutex(Platform::createMutex()) {}
 	};
 
-	GCObject::GCObject(ObjectKind inKind)
-	: ObjectInstance(inKind), numRootReferences(0)
+	ObjectImpl::ObjectImpl(ObjectKind inKind)
+	: Object(inKind), numRootReferences(0)
 	{
 		// Add the object to the global array.
 		Platform::Lock lock(GCGlobals::get().mutex);
 		GCGlobals::get().allObjects.insert(this);
 	}
 
-	void addGCRoot(ObjectInstance* object)
+	void addGCRoot(Object* object)
 	{
-		GCObject* gcObject = (GCObject*)object;
+		ObjectImpl* gcObject = (ObjectImpl*)object;
 		++gcObject->numRootReferences;
 	}
 
-	void removeGCRoot(ObjectInstance* object)
+	void removeGCRoot(Object* object)
 	{
-		GCObject* gcObject = (GCObject*)object;
+		ObjectImpl* gcObject = (ObjectImpl*)object;
 		--gcObject->numRootReferences;
 	}
 
 	void collectGarbage()
 	{
-		Platform::Lock lock(GCGlobals::get().mutex);
+		GCGlobals& gcGlobals = GCGlobals::get();
+		Platform::Lock lock(gcGlobals.mutex);
 		Timing::Timer timer;
 
-		std::set<ObjectInstance*> referencedObjects;
-		std::vector<ObjectInstance*> pendingScanObjects;
+		std::set<Object*> referencedObjects;
+		std::vector<Object*> pendingScanObjects;
 		
 		// Initialize the referencedObjects set from the rooted object set.
 		Uptr numRoots = 0;
-		for(auto object : GCGlobals::get().allObjects)
+		for(auto object : gcGlobals.allObjects)
 		{
 			if(object && object->numRootReferences > 0)
 			{
@@ -69,11 +70,11 @@ namespace Runtime
 		// Scan the objects added to the referenced set so far: gather their child references and recurse.
 		while(pendingScanObjects.size())
 		{
-			ObjectInstance* scanObject = pendingScanObjects.back();
+			Object* scanObject = pendingScanObjects.back();
 			pendingScanObjects.pop_back();
 
 			// Gather the child references for this object based on its kind.
-			std::vector<ObjectInstance*> childReferences;
+			std::vector<Object*> childReferences;
 			switch(scanObject->kind)
 			{
 			case ObjectKind::function:
@@ -82,9 +83,29 @@ namespace Runtime
 				childReferences.push_back(function->moduleInstance);
 				break;
 			}
+			case ObjectKind::table:
+			{
+				TableInstance* table = asTable(scanObject);
+				childReferences.push_back(table->compartment);
+				childReferences.insert(childReferences.end(),table->elements.begin(),table->elements.end());
+				break;
+			}
+			case ObjectKind::memory:
+			{
+				MemoryInstance* memory = asMemory(scanObject);
+				childReferences.push_back(memory->compartment);
+				break;
+			}
+			case ObjectKind::global:
+			{
+				GlobalInstance* global = asGlobal(scanObject);
+				childReferences.push_back(global->compartment);
+				break;
+			}
 			case ObjectKind::module:
 			{
 				ModuleInstance* moduleInstance = asModule(scanObject);
+				childReferences.push_back(moduleInstance->compartment);
 				childReferences.insert(childReferences.begin(),moduleInstance->functionDefs.begin(),moduleInstance->functionDefs.end());
 				childReferences.insert(childReferences.begin(),moduleInstance->functions.begin(),moduleInstance->functions.end());
 				childReferences.insert(childReferences.begin(),moduleInstance->tables.begin(),moduleInstance->tables.end());
@@ -94,16 +115,22 @@ namespace Runtime
 				childReferences.push_back(moduleInstance->defaultTable);
 				break;
 			}
-			case ObjectKind::table:
+			case ObjectKind::context:
 			{
-				TableInstance* table = asTable(scanObject);
-				childReferences.insert(childReferences.end(),table->elements.begin(),table->elements.end());
+				Context* context = asContext(scanObject);
+				childReferences.push_back(context->compartment);
 				break;
 			}
-			case ObjectKind::memory:
-			case ObjectKind::global:
+			case ObjectKind::compartment:
+			{
+				Compartment* compartment = asCompartment(scanObject);
+				childReferences.push_back(compartment->wavmIntrinsics);
+				break;
+			}
+
 			case ObjectKind::exceptionType:
 				break;
+
 			default: Errors::unreachable();
 			};
 
@@ -118,23 +145,29 @@ namespace Runtime
 			}
 		};
 
-		// Iterate over all objects, and delete objects that weren't referenced directly or indirectly by the root set.
-		GCGlobals& gcGlobals = GCGlobals::get();
+		// Find the objects that weren't reached, and call finalize on each of them.
+		std::vector<ObjectImpl*> finalizedObjects;
 		auto objectIt = gcGlobals.allObjects.begin();
-		const Uptr originalNumObjects = gcGlobals.allObjects.size();
 		while(objectIt != gcGlobals.allObjects.end())
 		{
 			if(referencedObjects.count(*objectIt)) { ++objectIt; }
 			else
 			{
-				ObjectInstance* object = *objectIt;
+				ObjectImpl* object = *objectIt;
 				objectIt = gcGlobals.allObjects.erase(objectIt);
-				delete object;
+				object->finalize();
+				finalizedObjects.push_back(object);
 			}
+		}
+
+		// Delete all the finalized objects.
+		for(ObjectImpl* object : finalizedObjects)
+		{
+			delete object;
 		}
 
 		Log::printf(Log::Category::metrics,"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
 			timer.getMilliseconds(),
-			numRoots,originalNumObjects,originalNumObjects - gcGlobals.allObjects.size());
+			numRoots,gcGlobals.allObjects.size() + finalizedObjects.size(),finalizedObjects.size());
 	}
 }

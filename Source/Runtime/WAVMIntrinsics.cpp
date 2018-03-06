@@ -8,6 +8,8 @@
 
 namespace Runtime
 {
+	DEFINE_INTRINSIC_MODULE(wavmIntrinsics)
+
 	template<typename Float>
 	Float quietNaN(Float value)
 	{
@@ -85,19 +87,19 @@ namespace Runtime
 		else { return nearbyint(value); }
 	}
 
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,f32,f32,left,f32,right) { return floatMin(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,floatMin,f64,f64,left,f64,right) { return floatMin(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,f32,f32,left,f32,right) { return floatMax(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,floatMax,f64,f64,left,f64,right) { return floatMax(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,f32.min,f32,f32,left,f32,right) { return floatMin(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMin,f64.min,f64,f64,left,f64,right) { return floatMin(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,f32.max,f32,f32,left,f32,right) { return floatMax(left,right); }
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,floatMax,f64.max,f64,f64,left,f64,right) { return floatMax(left,right); }
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,f32,f32,value) { return floatCeil(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,floatCeil,f64,f64,value) { return floatCeil(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,f32,f32,value) { return floatFloor(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,floatFloor,f64,f64,value) { return floatFloor(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,f32,f32,value) { return floatTrunc(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,floatTrunc,f64,f64,value) { return floatTrunc(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f32,f32,value) { return floatNearest(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,floatNearest,f64,f64,value) { return floatNearest(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,f32.ceil,f32,f32,value) { return floatCeil(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatCeil,f64.ceil,f64,f64,value) { return floatCeil(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,f32.floor,f32,f32,value) { return floatFloor(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatFloor,f64.floor,f64,f64,value) { return floatFloor(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,f32.trunc,f32,f32,value) { return floatTrunc(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatTrunc,f64.trunc,f64,f64,value) { return floatTrunc(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,f32.nearest,f32,f32,value) { return floatNearest(value); }
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,floatNearest,f64.nearest,f64,f64,value) { return floatNearest(value); }
 
 	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroOrIntegerOverflowTrap,divideByZeroOrIntegerOverflowTrap,none)
 	{
@@ -141,18 +143,20 @@ namespace Runtime
 		throwException(Exception::undefinedTableElementType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,_growMemory,growMemory,i32,i32,deltaPages,i64,memoryBits)
+	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,_growMemory,growMemory,i32,i32,deltaPages,i64,memoryId)
 	{
-		MemoryInstance* memory = reinterpret_cast<MemoryInstance*>(memoryBits);
+		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
+		MemoryInstance* memory = compartment->memories[memoryId];
 		assert(memory);
 		const Iptr numPreviousMemoryPages = growMemory(memory,(Uptr)deltaPages);
 		if(numPreviousMemoryPages + (Uptr)deltaPages > IR::maxMemoryPages) { return -1; }
 		else { return (I32)numPreviousMemoryPages; }
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryBits)
+	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryId)
 	{
-		MemoryInstance* memory = reinterpret_cast<MemoryInstance*>(memoryBits);
+		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
+		MemoryInstance* memory = compartment->memories[memoryId];
 		assert(memory);
 		Uptr numMemoryPages = getMemoryNumPages(memory);
 		if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }
@@ -180,7 +184,8 @@ namespace Runtime
 		Log::printf(Log::Category::debug,"================== wavmIntrinsics.debugBreak\n");
 	}
 
-	void initWAVMIntrinsics()
+	Runtime::ModuleInstance* instantiateWAVMIntrinsics(Compartment* compartment)
 	{
+		return Intrinsics::instantiateModule(compartment,wavmIntrinsics);
 	}
 }

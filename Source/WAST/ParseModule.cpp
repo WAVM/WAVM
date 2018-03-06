@@ -66,12 +66,12 @@ static GlobalType parseGlobalType(ParseState& state)
 	return result;
 }
 
-static TupleType parseTupleType(ParseState& state)
+static const TupleType* parseTupleType(ParseState& state)
 {
-	TupleType result;
+	std::vector<ValueType> parameters;
 	ValueType elementType;
-	while(tryParseValueType(state,elementType)) { result.elements.push_back(elementType); }
-	return result;
+	while(tryParseValueType(state,elementType)) { parameters.push_back(elementType); }
+	return TupleType::get(parameters);
 }
 
 static InitializerExpression parseInitializerExpression(ModuleParseState& state)
@@ -218,7 +218,7 @@ static void parseImport(ModuleParseState& state)
 		}
 		case t_exception_type:
 		{
-			const TupleType tupleType = parseTupleType(state);
+			const TupleType* tupleType = parseTupleType(state);
 			createImport(state,name,std::move(moduleName),std::move(exportName),
 				state.exceptionTypeNameToIndexMap,state.module.exceptionTypes,state.disassemblyNames.exceptionTypes,
 				tupleType);
@@ -575,7 +575,7 @@ static void parseExceptionType(ModuleParseState& state)
 		// Parse a global definition
 		[](ModuleParseState& state,const Token*)
 		{
-			const TupleType tupleType = parseTupleType(state);
+			const TupleType* tupleType = parseTupleType(state);
 			return ExceptionTypeDef {tupleType};
 		});
 }

@@ -9,11 +9,11 @@
 #include <cmath>
 #include <algorithm>
 
-#if ENABLE_THREADING_PROTOTYPE
 // Keeps track of the entry and error functions used by a running WebAssembly-spawned thread.
 // Used to find garbage collection roots.
 struct Thread
 {
+	Runtime::GCPointer<Runtime::Context> context;
 	Runtime::GCPointer<Runtime::FunctionInstance> entryFunction;
 	Runtime::GCPointer<Runtime::FunctionInstance> errorFunction;
 };
@@ -212,48 +212,41 @@ namespace Runtime
 		throwException(Exception::misalignedAtomicMemoryAccessType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,isLockFree,isLockFree,i32,i32,numBytes)
+	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,atomic_wake,atomic_wake,i32,i32,addressOffset,i32,numToWake,i64,memoryId)
 	{
-		// Assume we're running on X86.
-		switch(numBytes)
-		{
-		case 1: case 2: case 4: case 8: return true;
-		default: return false;
-		};
-	}
-
-	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,atomic_wake,atomic_wake,i32,i32,addressOffset,i32,numToWake,i64,memoryInstanceBits)
-	{
-		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
+		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
+		MemoryInstance* memoryInstance = compartment->memories[memoryId];
 
 		// Validate that the address is within the memory's bounds and 4-byte aligned.
 		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
 		if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
-		const Uptr address = reinterpret_cast<Uptr>(getMemoryBaseAddress(memoryInstance)) + addressOffset;
+		const Uptr address = reinterpret_cast<Uptr>(&memoryRef<U8>(memoryInstance,addressOffset));
 		return wakeAddress(address,numToWake);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION4(wavmIntrinsics,atomic_wait,atomic_wait,i32,i32,addressOffset,i32,expectedValue,f64,timeout,i64,memoryInstanceBits)
+	DEFINE_INTRINSIC_FUNCTION4(wavmIntrinsics,atomic_wait,atomic_wait_i32,i32,i32,addressOffset,i32,expectedValue,f64,timeout,i64,memoryId)
 	{
-		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
+		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
+		MemoryInstance* memoryInstance = compartment->memories[memoryId];
 
 		// Validate that the address is within the memory's bounds and naturally aligned.
 		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
 		if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
-		I32* valuePointer = reinterpret_cast<I32*>(getMemoryBaseAddress(memoryInstance) + addressOffset);
+		I32* valuePointer = &memoryRef<I32>(memoryInstance,addressOffset);
 		return waitOnAddress(valuePointer,expectedValue,timeout);
 	}
-	DEFINE_INTRINSIC_FUNCTION4(wavmIntrinsics,atomic_wait,atomic_wait,i32,i32,addressOffset,i64,expectedValue,f64,timeout,i64,memoryInstanceBits)
+	DEFINE_INTRINSIC_FUNCTION4(wavmIntrinsics,atomic_wait,atomic_wait_i64,i32,i32,addressOffset,i64,expectedValue,f64,timeout,i64,memoryId)
 	{
-		MemoryInstance* memoryInstance = reinterpret_cast<MemoryInstance*>(memoryInstanceBits);
+		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
+		MemoryInstance* memoryInstance = compartment->memories[memoryId];
 
 		// Validate that the address is within the memory's bounds and naturally aligned.
 		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
 		if(addressOffset & 7) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
-		I64* valuePointer = reinterpret_cast<I64*>(getMemoryBaseAddress(memoryInstance) + addressOffset);
+		I64* valuePointer = &memoryRef<I64>(memoryInstance,addressOffset);
 		return waitOnAddress(valuePointer,expectedValue,timeout);
 	}
 
@@ -278,7 +271,7 @@ namespace Runtime
 		catchRuntimeExceptions(
 			[&]
 			{
-				((void(*)(I32))thread->entryFunction->nativeFunction)(argument);
+				invokeFunction(thread->context,thread->entryFunction,{ argument });
 			},
 			[&](Exception&& exception)
 			{
@@ -290,7 +283,7 @@ namespace Runtime
 					[&]
 					{
 						// Call the thread error function.
-						((void(*)(I32))thread->errorFunction->nativeFunction)(argument);
+						invokeFunction(thread->context,thread->errorFunction,{argument});
 					},
 					[&](Exception&& secondException)
 					{
@@ -321,13 +314,15 @@ namespace Runtime
 		i32,entryFunctionIndex,
 		i32,argument,
 		i32,errorFunctionIndex,
-		i64,functionTablePointer)
+		i64,tableId)
 	{
-		TableInstance* defaultTable = reinterpret_cast<TableInstance*>(functionTablePointer);
+		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
+		TableInstance* defaultTable = compartment->tables[tableId];
 		const FunctionType* functionType = FunctionType::get(ResultType::none,{ValueType::i32});
 
 		// Create a thread object that will expose its entry and error functions to the garbage collector as roots.
 		Thread* thread = new Thread();
+		thread->context = createContext(compartment);
 		thread->entryFunction = getFunctionFromTable(defaultTable,functionType,entryFunctionIndex);
 		thread->errorFunction = getFunctionFromTable(defaultTable,functionType,errorFunctionIndex);
 		{
@@ -345,4 +340,3 @@ namespace Runtime
 		stdThread.detach();
 	}
 }
-#endif

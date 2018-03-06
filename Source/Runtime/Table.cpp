@@ -8,44 +8,67 @@ namespace Runtime
 	// Global lists of tables; used to query whether an address is reserved by one of them.
 	std::vector<TableInstance*> tables;
 
+	enum { numGuardPages = 1 };
+
 	static Uptr getNumPlatformPages(Uptr numBytes)
 	{
 		return (numBytes + (Uptr(1)<<Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 	}
 
-	TableInstance* createTable(TableType type)
+	TableInstance* createTable(Compartment* compartment,TableType type)
 	{
-		TableInstance* table = new TableInstance(type);
+		TableInstance* table = new TableInstance(compartment,type);
 
 		// In 64-bit, allocate enough address-space to safely access 32-bit table indices without bounds checking, or 16MB (4M elements) if the host is 32-bit.
-		const Uptr tableMaxBytes = HAS_64BIT_ADDRESS_SPACE ? Uptr(U64(sizeof(TableInstance::FunctionElement)) << 32) : 16*1024*1024;
+		const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
+		const Uptr tableMaxBytes = Uptr(U64(sizeof(TableInstance::FunctionElement)) << 32);
+		const Uptr tableMaxPages = tableMaxBytes >> pageBytesLog2;
 		
-		// On a 64 bit runtime, align the table base to a 4GB boundary, so the lower 32-bits will all be zero. Maybe it will allow better code generation?
-		// Note that this reserves a full extra 4GB, but only uses (4GB-1 page) for alignment, so there will always be a guard page at the end to
-		// protect against unaligned loads/stores that straddle the end of the address-space.
-		const Uptr alignmentBytes = HAS_64BIT_ADDRESS_SPACE ? Uptr(4ull*1024*1024*1024) : (Uptr(1) << Platform::getPageSizeLog2());
-		table->baseAddress = (TableInstance::FunctionElement*)allocateVirtualPagesAligned(tableMaxBytes,alignmentBytes,table->reservedBaseAddress,table->reservedNumPlatformPages);
+		table->baseAddress = (TableInstance::FunctionElement*)Platform::allocateVirtualPages(tableMaxPages + numGuardPages);
 		table->endOffset = tableMaxBytes;
 		if(!table->baseAddress) { delete table; return nullptr; }
 		
 		// Grow the table to the type's minimum size.
 		assert(type.size.min <= UINTPTR_MAX);
 		if(growTable(table,Uptr(type.size.min)) == -1) { delete table; return nullptr; }
-		
+
+		// Add the table to the compartment.
+		if(compartment)
+		{
+			Platform::Lock compartmentLock(compartment->mutex);
+
+			if(compartment->tables.size() >= maxTables) { delete table; return nullptr; }
+
+			table->id = compartment->tables.size();
+			compartment->tables.push_back(table);
+			compartment->runtimeData->tables[table->id] = table->baseAddress;
+		}
+
 		// Add the table to the global array.
 		tables.push_back(table);
 		return table;
 	}
 	
+	void TableInstance::finalize()
+	{
+		Platform::Lock compartmentLock(compartment->mutex);
+		assert(compartment->tables[id] == this);
+		assert(compartment->runtimeData->tables[id] == baseAddress);
+		compartment->tables[id] = nullptr;
+		compartment->runtimeData->tables[id] = nullptr;
+	}
+
 	TableInstance::~TableInstance()
 	{
 		// Decommit all pages.
 		if(elements.size() > 0) { Platform::decommitVirtualPages((U8*)baseAddress,getNumPlatformPages(elements.size() * sizeof(TableInstance::FunctionElement))); }
 
 		// Free the virtual address space.
-		if(reservedNumPlatformPages > 0) { Platform::freeVirtualPages((U8*)reservedBaseAddress,reservedNumPlatformPages); }
-		reservedBaseAddress = nullptr;
-		reservedNumPlatformPages = 0;
+		const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
+		if(endOffset > 0)
+		{
+			Platform::freeVirtualPages((U8*)baseAddress,(endOffset >> pageBytesLog2) + numGuardPages);
+		}
 		baseAddress = nullptr;
 		
 		// Remove the table from the global array.
@@ -60,14 +83,14 @@ namespace Runtime
 		// Iterate over all tables and check if the address is within the reserved address space for each.
 		for(auto table : tables)
 		{
-			U8* startAddress = (U8*)table->reservedBaseAddress;
-			U8* endAddress = ((U8*)table->reservedBaseAddress) + (table->reservedNumPlatformPages << Platform::getPageSizeLog2());
+			U8* startAddress = (U8*)table->baseAddress;
+			U8* endAddress = ((U8*)table->baseAddress) + table->endOffset;
 			if(address >= startAddress && address < endAddress) { return true; }
 		}
 		return false;
 	}
 
-	ObjectInstance* setTableElement(TableInstance* table,Uptr index,ObjectInstance* newValue)
+	Object* setTableElement(TableInstance* table,Uptr index,Object* newValue)
 	{
 		// Write the new table element to both the table's elements array and its indirect function call data.
 		assert(index < table->elements.size());

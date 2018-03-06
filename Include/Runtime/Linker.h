@@ -10,14 +10,7 @@ namespace Runtime
 	// An abstract resolver: maps module+export name pairs to a Runtime::Object.
 	struct Resolver
 	{
-		virtual bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,ObjectInstance*& outObject) = 0;
-	};
-
-	// A resolver for intrinsics.
-	struct IntrinsicResolver : Resolver
-	{
-		static RUNTIME_API IntrinsicResolver singleton;
-		RUNTIME_API bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,ObjectInstance*& outObject) override;
+		virtual bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,Object*& outObject) = 0;
 	};
 
 	// A resolver that ignores the moduleName, and looks for the exportName in a single module.
@@ -25,7 +18,7 @@ namespace Runtime
 	{
 		ModuleExportResolver(const IR::Module& inModule,ModuleInstance* inModuleInstance): module(inModule), moduleInstance(inModuleInstance) {}
 
-		bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,ObjectInstance*& outObject) override;
+		bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,Object*& outObject) override;
 	private:
 		const IR::Module& module;
 		ModuleInstance* moduleInstance;
@@ -37,7 +30,7 @@ namespace Runtime
 		LazyResolver(std::function<Resolver*()>& inInnerResolverThunk)
 		: innerResolverThunk(std::move(inInnerResolverThunk)), innerResolver(nullptr) {}
 
-		bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,Runtime::ObjectInstance*& outObject) override
+		bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,Runtime::Object*& outObject) override
 		{
 			if(!innerResolver) { innerResolver = innerResolverThunk(); }
 			return innerResolver->resolve(moduleName,exportName,type,outObject);		
@@ -52,7 +45,7 @@ namespace Runtime
 	// A resolver that always returns failure.
 	struct NullResolver : Resolver
 	{
-		bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,Runtime::ObjectInstance*& outObject) override
+		bool resolve(const std::string& moduleName,const std::string& exportName,IR::ObjectType type,Runtime::Object*& outObject) override
 		{
 			return false; 
 		}

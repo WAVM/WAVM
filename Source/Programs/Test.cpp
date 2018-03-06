@@ -19,30 +19,39 @@ using namespace WAST;
 using namespace IR;
 using namespace Runtime;
 
+DEFINE_INTRINSIC_MODULE(spectest);
+
 struct TestScriptState
 {
 	bool hasInstantiatedModule;
 	GCPointer<ModuleInstance> lastModuleInstance;
+	GCPointer<Compartment> compartment;
+	GCPointer<Context> context;
 	
+	GCPointer<ModuleInstance> intrinsicsModule;
+
 	std::map<std::string,GCPointer<ModuleInstance>> moduleInternalNameToInstanceMap;
 	std::map<std::string,GCPointer<ModuleInstance>> moduleNameToInstanceMap;
 	
 	std::vector<WAST::Error> errors;
 	
-	TestScriptState() : hasInstantiatedModule(false), lastModuleInstance(nullptr) {}
+	TestScriptState()
+	: hasInstantiatedModule(false)
+	, compartment(Runtime::createCompartment())
+	, context(Runtime::createContext(compartment))
+	{
+		intrinsicsModule = Intrinsics::instantiateModule(compartment,spectest);
+		moduleNameToInstanceMap["spectest"] = intrinsicsModule;
+	}
 };
 
 struct TestScriptResolver : Resolver
 {
 	TestScriptResolver(const TestScriptState& inState): state(inState) {}
-	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,ObjectInstance*& outObject) override
+	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,Object*& outObject) override
 	{
-		// Try to resolve an intrinsic first.
-		if(IntrinsicResolver::singleton.resolve(moduleName,exportName,type,outObject)) { return true; }
-
-		// Then look for a named module.
 		auto mapIt = state.moduleNameToInstanceMap.find(moduleName);
-		if(mapIt != state.moduleNameToInstanceMap.end())
+		if(mapIt != state.moduleNameToInstanceMap.end() && mapIt->second != nullptr)
 		{
 			outObject = getInstanceExport(mapIt->second,exportName);
 			return outObject != nullptr && isA(outObject,type);
@@ -63,7 +72,7 @@ void testErrorf(TestScriptState& state,const TextFileLocus& locus,const char* me
 	if(numPrintedChars >= 1023 || numPrintedChars < 0) { Errors::unreachable(); }
 	messageBuffer[numPrintedChars] = 0;
 	va_end(messageArguments);
-		
+
 	state.errors.push_back({locus,messageBuffer});
 }
 
@@ -105,7 +114,7 @@ bool processAction(TestScriptState& state,Action* action,Result& outResult)
 		if(linkResult.success)
 		{
 			state.hasInstantiatedModule = true;
-			state.lastModuleInstance = instantiateModule(*moduleAction->module,std::move(linkResult.resolvedImports));
+			state.lastModuleInstance = instantiateModule(state.context,*moduleAction->module,std::move(linkResult.resolvedImports));
 		}
 		else
 		{
@@ -146,7 +155,7 @@ bool processAction(TestScriptState& state,Action* action,Result& outResult)
 		if(!functionInstance) { testErrorf(state,invokeAction->locus,"couldn't find exported function with name: %s",invokeAction->exportName.c_str()); return false; }
 
 		// Execute the invoke
-		outResult = invokeFunction(functionInstance,invokeAction->arguments);
+		outResult = invokeFunction(state.context,functionInstance,invokeAction->arguments);
 
 		return true;
 	}
@@ -165,7 +174,7 @@ bool processAction(TestScriptState& state,Action* action,Result& outResult)
 		if(!globalInstance) { testErrorf(state,getAction->locus,"couldn't find exported global with name: %s",getAction->exportName.c_str()); return false; }
 
 		// Get the value of the specified global.
-		outResult = getGlobalValue(globalInstance);
+		outResult = getGlobalValue(state.context,globalInstance);
 			
 		return true;
 	}
@@ -300,13 +309,13 @@ void processCommand(TestScriptState& state,const Command* command)
 						}
 						else
 						{
-							TupleType exceptionParameterTypes = getExceptionTypeParameters(expectedExceptionType);
-							assert(exception.arguments.size() == exceptionParameterTypes.elements.size());
+							const TupleType* exceptionParameterTypes = getExceptionTypeParameters(expectedExceptionType);
+							assert(exception.arguments.size() == exceptionParameterTypes->elements.size());
 
 							for(Uptr argumentIndex = 0;argumentIndex < exception.arguments.size();++argumentIndex)
 							{
 								Runtime::Value argumentValue = Runtime::Value(
-									exceptionParameterTypes.elements[argumentIndex],
+									exceptionParameterTypes->elements[argumentIndex],
 									exception.arguments[argumentIndex]
 									);
 								if(!areBitsEqual(argumentValue,assertCommand->expectedArguments[argumentIndex]))
@@ -342,7 +351,7 @@ void processCommand(TestScriptState& state,const Command* command)
 						LinkResult linkResult = linkModule(*assertCommand->moduleAction->module,resolver);
 						if(linkResult.success)
 						{
-							instantiateModule(*assertCommand->moduleAction->module,std::move(linkResult.resolvedImports));
+							instantiateModule(state.context,*assertCommand->moduleAction->module,std::move(linkResult.resolvedImports));
 							testErrorf(state,assertCommand->locus,"module was linkable");
 						}
 					},
@@ -361,18 +370,18 @@ void processCommand(TestScriptState& state,const Command* command)
 }
 
 DEFINE_INTRINSIC_FUNCTION0(spectest,spectest_print,print,none) {}
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i32,a) { std::cout << asString(a) << " : i32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,i64,a) { std::cout << asString(a) << " : i64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f32,a) { std::cout << asString(a) << " : f32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print,none,f64,a) { std::cout << asString(a) << " : f64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,f64,a,f64,b) { std::cout << asString(a) << " : f64" << std::endl << asString(a) << " : f64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i32,a,f32,b) { std::cout << asString(a) << " : i32" << std::endl << asString(a) << " : f32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print,none,i64,a,f64,b) { std::cout << asString(a) << " : i64" << std::endl << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print_i32,none,i32,a) { std::cout << asString(a) << " : i32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print_i64,none,i64,a) { std::cout << asString(a) << " : i64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print_f32,none,f32,a) { std::cout << asString(a) << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print_f64,none,f64,a) { std::cout << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print_f64_f64,none,f64,a,f64,b) { std::cout << asString(a) << " : f64" << std::endl << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print_i32_f32,none,i32,a,f32,b) { std::cout << asString(a) << " : i32" << std::endl << asString(a) << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print_i64_f64,none,i64,a,f64,b) { std::cout << asString(a) << " : i64" << std::endl << asString(a) << " : f64" << std::endl; }
 
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI32,global,i32,false,666)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI64,global,i64,false,0)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF32,global,f32,false,0.0f)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF64,global,f64,false,0.0)
+DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI32,global_i32,i32,666)
+DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI64,global_i64,i64,0)
+DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF32,global_f32,f32,0.0f)
+DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF64,global_f64,f64,0.0)
 
 DEFINE_INTRINSIC_TABLE(spectest,spectest_table,table,TableType(TableElementType::anyfunc,false,SizeConstraints {10,20}))
 DEFINE_INTRINSIC_MEMORY(spectest,spectest_memory,memory,MemoryType(false,SizeConstraints {1,2}))

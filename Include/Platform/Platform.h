@@ -24,8 +24,6 @@
 	#define PACKED_STRUCT(definition) definition __attribute__((packed));
 #endif
 
-#define STRUCT_OFFSET(type,field) Uptr((U8*)&((type*)nullptr)->field - (U8*)nullptr)
-
 #ifndef PLATFORM_API
 	#define PLATFORM_API DLL_IMPORT
 #endif
@@ -88,6 +86,10 @@ namespace Platform
 	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual address space has been exhausted.
 	PLATFORM_API U8* allocateVirtualPages(Uptr numPages);
 
+	// Allocates virtual addresses without commiting physical pages to them.
+	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual address space has been exhausted.
+	PLATFORM_API U8* allocateAlignedVirtualPages(Uptr numPages,Uptr alignmentLog2,U8*& outUnalignedBaseAddress);
+
 	// Commits physical memory to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	// Return true if successful, or false if physical memory has been exhausted.
@@ -103,8 +105,12 @@ namespace Platform
 	PLATFORM_API void decommitVirtualPages(U8* baseVirtualAddress,Uptr numPages);
 
 	// Frees virtual addresses. Any physical memory committed to the addresses must have already been decommitted.
-	// baseVirtualAddress must be a multiple of the preferred page size.
+	// baseVirtualAddress must also be an address returned by allocateVirtualPages.
 	PLATFORM_API void freeVirtualPages(U8* baseVirtualAddress,Uptr numPages);
+
+	// Frees an aligned virtual address block. Any physical memory committed to the addresses must have already been decommitted.
+	// unalignedBaseAddress must be the unaligned base address returned by allocateAlignedVirtualPages.
+	PLATFORM_API void freeAlignedVirtualPages(U8* unalignedBaseAddress,Uptr numPages,Uptr alignmentLog2);
 
 	//
 	// Call stack and exceptions

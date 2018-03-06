@@ -10,17 +10,6 @@
 
 namespace Runtime
 {
-	RUNTIME_API IntrinsicResolver IntrinsicResolver::singleton;
-
-	bool IntrinsicResolver::resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,ObjectInstance*& outObject)
-	{
-		// Make sure the wavmIntrinsics module can't be directly imported.
-		if(moduleName == "wavmIntrinsics") { return false; }
-
-		outObject = Intrinsics::find(moduleName + "." + exportName,type);
-		return outObject != nullptr;
-	}
-
 	const FunctionType* resolveImportType(const IR::Module& module,IndexedFunctionType type)
 	{
 		return module.types[type.index];
@@ -33,7 +22,7 @@ namespace Runtime
 	void linkImport(const IR::Module& module,const Import<Type>& import,Resolver& resolver,LinkResult& linkResult,std::vector<Instance*>& resolvedImports)
 	{
 		// Ask the resolver for a value for this import.
-		ObjectInstance* importValue;
+		Object* importValue;
 		if(resolver.resolve(import.moduleName,import.exportName,resolveImportType(module,import.type),importValue))
 		{
 			// Sanity check that the resolver returned an object of the right type.
