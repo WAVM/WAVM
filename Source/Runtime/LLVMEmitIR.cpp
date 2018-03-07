@@ -57,9 +57,7 @@ namespace LLVMJIT
 			diValueTypes[(Uptr)ValueType::i64] = diBuilder->createBasicType("i64",64,llvm::dwarf::DW_ATE_signed);
 			diValueTypes[(Uptr)ValueType::f32] = diBuilder->createBasicType("f32",32,llvm::dwarf::DW_ATE_float);
 			diValueTypes[(Uptr)ValueType::f64] = diBuilder->createBasicType("f64",64,llvm::dwarf::DW_ATE_float);
-			#if ENABLE_SIMD_PROTOTYPE
 			diValueTypes[(Uptr)ValueType::v128] = diBuilder->createBasicType("v128",128,llvm::dwarf::DW_ATE_signed);
-			#endif
 			
 			auto zeroAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(0)));
 			auto i32MaxAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(INT32_MAX)));
@@ -130,10 +128,8 @@ namespace LLVMJIT
 			Uptr outerBranchTargetStackSize;
 			bool isReachable;
 			
-			#if ENABLE_EXCEPTION_PROTOTYPE
 			llvm::Value* outerCatchpadToken;
 			llvm::BasicBlock* catchBlock;
-			#endif
 		};
 
 		struct BranchTarget
@@ -547,10 +543,8 @@ namespace LLVMJIT
 				irBuilder.CreateBr(currentContext.endBlock);
 			}
 
-			#if ENABLE_EXCEPTION_PROTOTYPE
 			if(currentContext.type == ControlContext::Type::try_) { endTry(); }
 			else if(currentContext.type == ControlContext::Type::catch_) { endCatch(); }
-			#endif
 
 			// Switch the IR emitter to the end block.
 			currentContext.endBlock->moveAfter(irBuilder.GetInsertBlock());
@@ -1182,7 +1176,6 @@ namespace LLVMJIT
 		EMIT_UNARY_OP(i64,trunc_u_f32,emitTruncFloatToInt<F32>(type,false,-1.0f,18446744073709551616.0f,operand))
 		EMIT_UNARY_OP(i64,trunc_u_f64,emitTruncFloatToInt<F64>(type,false,-1.0, 18446744073709551616.0,operand))
 
-		#if ENABLE_NONTRAPPING_FPTOINT_PROTOTYPE
 		template<typename Int,typename Float>
 		llvm::Value* emitTruncFloatToIntSat(
 			llvm::Type* destType,
@@ -1206,9 +1199,7 @@ namespace LLVMJIT
 						: irBuilder.CreateFPToUI(operand,destType)
 					)));
 		}
-		#endif
 
-		#if ENABLE_NONTRAPPING_FPTOINT_PROTOTYPE
 		EMIT_UNARY_OP(i32,trunc_s_sat_f32,(emitTruncFloatToIntSat<I32,F32>)(llvmI32Type,true,F32(INT32_MIN),F32(INT32_MAX),INT32_MIN,INT32_MAX,U32(0),operand))
 		EMIT_UNARY_OP(i32,trunc_s_sat_f64,(emitTruncFloatToIntSat<I32,F64>)(llvmI32Type,true,F64(INT32_MIN),F64(INT32_MAX),INT32_MIN,INT32_MAX,U32(0),operand))
 		EMIT_UNARY_OP(i32,trunc_u_sat_f32,(emitTruncFloatToIntSat<I32,F32>)(llvmI32Type,false,0.0f,F32(UINT32_MAX),U32(0),UINT32_MAX,U32(0),operand))
@@ -1217,7 +1208,6 @@ namespace LLVMJIT
 		EMIT_UNARY_OP(i64,trunc_s_sat_f64,(emitTruncFloatToIntSat<I64,F64>)(llvmI64Type,true,F64(INT64_MIN),F64(INT64_MAX),INT64_MIN,INT64_MAX,U64(0),operand))
 		EMIT_UNARY_OP(i64,trunc_u_sat_f32,(emitTruncFloatToIntSat<I64,F32>)(llvmI64Type,false,0.0f,F32(UINT64_MAX),U64(0),UINT64_MAX,U64(0),operand))
 		EMIT_UNARY_OP(i64,trunc_u_sat_f64,(emitTruncFloatToIntSat<I64,F64>)(llvmI64Type,false,0.0,F64(UINT64_MAX),U64(0),UINT64_MAX,U64(0),operand))
-		#endif
 
 		// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
 		EMIT_FP_BINARY_OP(min   ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.min"     : "f64.min",FunctionType::get(asResultType(type),{type,type}),{left,right}))
@@ -1227,7 +1217,6 @@ namespace LLVMJIT
 		EMIT_FP_UNARY_OP(trunc  ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.trunc"   : "f64.trunc",FunctionType::get(asResultType(type),{type}),{operand}))
 		EMIT_FP_UNARY_OP(nearest,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.nearest" : "f64.nearest",FunctionType::get(asResultType(type),{type}),{operand}))
 
-		#if ENABLE_SIMD_PROTOTYPE
 		llvm::Value* emitAnyTrue(llvm::Value* boolVector)
 		{
 			const Uptr numLanes = boolVector->getType()->getVectorNumElements();
@@ -1511,9 +1500,7 @@ namespace LLVMJIT
 			auto trueValue = irBuilder.CreateBitCast(pop(),llvmI64x2Type);
 			push(emitBitSelect(mask,trueValue,falseValue));
 		}
-		#endif
 
-		#if ENABLE_THREADING_PROTOTYPE
 		void atomic_wake(AtomicLoadOrStoreImm<2>)
 		{
 			auto numWaiters = pop();
@@ -1724,7 +1711,6 @@ namespace LLVMJIT
 		EMIT_ATOMIC_RMW(i64,atomic_rmw16_u_xor,Xor,llvmI16Type,1,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_xor,Xor,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw_xor,Xor,llvmI64Type,3,identityConversion,identityConversion)
-		#endif
 
 		// Creates either a call or an invoke if the call occurs inside a try.
 		llvm::Value* emitCallOrInvoke(
@@ -1732,15 +1718,12 @@ namespace LLVMJIT
 			llvm::ArrayRef<llvm::Value*> args,
 			llvm::CallingConv::ID callingConv = llvm::CallingConv::Fast)
 		{
-			#if ENABLE_EXCEPTION_PROTOTYPE
 			if(tryStack.size() == 0)
-			#endif
 			{
 				auto call = irBuilder.CreateCall(callee,args);
 				call->setCallingConv(callingConv);
 				return call;
 			}
-			#if ENABLE_EXCEPTION_PROTOTYPE
 			else
 			{
 				TryContext& tryContext = tryStack.back();
@@ -1751,10 +1734,7 @@ namespace LLVMJIT
 				irBuilder.SetInsertPoint(returnBlock);
 				return invoke;
 			}
-			#endif
 		}
-
-		#if ENABLE_EXCEPTION_PROTOTYPE
 
 		struct TryContext
 		{
@@ -2210,7 +2190,6 @@ namespace LLVMJIT
 			irBuilder.CreateUnreachable();
 			enterUnreachable();
 		}
-		#endif
 	};
 	
 	// A do-nothing visitor used to decode past unreachable operators (but supporting logging, and passing the end operator through).
@@ -2240,7 +2219,6 @@ namespace LLVMJIT
 			else { --unreachableControlDepth; }
 		}
 		
-		#if ENABLE_EXCEPTION_PROTOTYPE
 		void try_(ControlStructureImm imm)
 		{
 			++unreachableControlDepth;
@@ -2253,7 +2231,6 @@ namespace LLVMJIT
 		{
 			if(!unreachableControlDepth) { context.catch_all(imm); }
 		}
-		#endif
 
 	private:
 		EmitFunctionContext& context;

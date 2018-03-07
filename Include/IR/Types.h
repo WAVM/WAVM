@@ -18,10 +18,7 @@ namespace IR
 		i64 = 2,
 		f32 = 3,
 		f64 = 4,
-
-	#if ENABLE_SIMD_PROTOTYPE
 		v128 = 5,
-	#endif
 
 		num,
 		max = num-1
@@ -47,9 +44,7 @@ namespace IR
 		return std::string(buffer);
 	}
 
-	#if ENABLE_SIMD_PROTOTYPE
 	template<> struct ValueTypeInfo<ValueType::v128> { typedef V128 Value; };
-	#endif
 
 	inline U8 getTypeByteWidth(ValueType type)
 	{
@@ -59,9 +54,7 @@ namespace IR
 		case ValueType::i64: return 8;
 		case ValueType::f32: return 4;
 		case ValueType::f64: return 8;
-#if ENABLE_SIMD_PROTOTYPE
 		case ValueType::v128: return 16;
-#endif
 		default: Errors::unreachable();
 		};
 	}
@@ -80,9 +73,7 @@ namespace IR
 		case ValueType::i64: return "i64";
 		case ValueType::f32: return "f32";
 		case ValueType::f64: return "f64";
-		#if ENABLE_SIMD_PROTOTYPE
 		case ValueType::v128: return "v128";
-		#endif
 		default: Errors::unreachable();
 		};
 	}
@@ -95,9 +86,7 @@ namespace IR
 		i64 = (U8)ValueType::i64,
 		f32 = (U8)ValueType::f32,
 		f64 = (U8)ValueType::f64,
-		#if ENABLE_SIMD_PROTOTYPE
 		v128 = (U8)ValueType::v128,
-		#endif
 		num,
 		max = num-1,
 	};
@@ -112,9 +101,7 @@ namespace IR
 		case ResultType::i64: return "i64";
 		case ResultType::f32: return "f32";
 		case ResultType::f64: return "f64";
-		#if ENABLE_SIMD_PROTOTYPE
 		case ResultType::v128: return "v128";
-		#endif
 		case ResultType::none: return "()";
 		default: Errors::unreachable();
 		};

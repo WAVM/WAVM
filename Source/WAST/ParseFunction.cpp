@@ -270,8 +270,6 @@ static void parseImm(CursorState* cursor,LoadOrStoreImm<naturalAlignmentLog2>& o
 	}
 }
 
-#if ENABLE_SIMD_PROTOTYPE
-
 static void parseImm(CursorState* cursor,LiteralImm<V128>& outImm)
 {
 	outImm.value = parseV128(cursor);
@@ -304,9 +302,7 @@ static void parseImm(CursorState* cursor,ShuffleImm<numLanes>& outImm)
 		}
 	});
 }
-#endif
 
-#if ENABLE_THREADING_PROTOTYPE
 static void parseImm(CursorState* cursor,LaunchThreadImm& outImm) {}
 
 template<Uptr naturalAlignmentLog2>
@@ -317,9 +313,7 @@ static void parseImm(CursorState* cursor,AtomicLoadOrStoreImm<naturalAlignmentLo
 	outImm.alignmentLog2 = loadOrStoreImm.alignmentLog2;
 	outImm.offset = loadOrStoreImm.offset;
 }
-#endif
 
-#if ENABLE_EXCEPTION_PROTOTYPE
 static void parseImm(CursorState* cursor,CatchImm& outImm)
 {
 	outImm.exceptionTypeIndex = parseAndResolveNameOrIndexRef(
@@ -346,7 +340,6 @@ static void parseImm(CursorState* cursor,RethrowImm& outImm)
 		throw RecoverParseException();
 	}
 }
-#endif
 
 static void parseInstrSequence(CursorState* cursor);
 static void parseExpr(CursorState* cursor);

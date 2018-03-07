@@ -133,7 +133,7 @@ static Uptr createImport(
 
 static bool parseOptionalSharedDeclaration(CursorState* cursor)
 {
-	if(ENABLE_THREADING_PROTOTYPE && cursor->nextToken->type == t_shared) { ++cursor->nextToken; return true; }
+	if(cursor->nextToken->type == t_shared) { ++cursor->nextToken; return true; }
 	else { return false; }
 }
 

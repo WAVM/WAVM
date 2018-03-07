@@ -148,6 +148,11 @@ namespace IR
 					}
 					case NameSubsectionType::label:
 					{
+						if(!module.featureSpec.extendedNamesSection)
+						{
+							throw FatalSerializationException("label name subsection requires extendedNamesSection feature");
+						}
+
 						U32 numFunctionLabelNameMaps = 0;
 						serializeVarUInt32(substream,numFunctionLabelNameMaps);
 						for(Uptr functionNameIndex = 0;functionNameIndex < numFunctionLabelNameMaps;++functionNameIndex)
@@ -170,10 +175,34 @@ namespace IR
 
 						break;
 					}
-					case NameSubsectionType::type: deserializeNameMap(substream,outNames.types); break;
-					case NameSubsectionType::table: deserializeNameMap(substream,outNames.tables); break;
-					case NameSubsectionType::memory: deserializeNameMap(substream,outNames.memories); break;
-					case NameSubsectionType::global: deserializeNameMap(substream,outNames.globals); break;
+					case NameSubsectionType::type:
+						if(!module.featureSpec.extendedNamesSection)
+						{
+							throw FatalSerializationException("type name subsection requires extendedNamesSection feature");
+						}
+						deserializeNameMap(substream,outNames.types);
+						break;
+					case NameSubsectionType::table:
+						if(!module.featureSpec.extendedNamesSection)
+						{
+							throw FatalSerializationException("table name subsection requires extendedNamesSection feature");
+						}
+						deserializeNameMap(substream,outNames.tables);
+						break;
+					case NameSubsectionType::memory:
+						if(!module.featureSpec.extendedNamesSection)
+						{
+							throw FatalSerializationException("memory name subsection requires extendedNamesSection feature");
+						}
+						deserializeNameMap(substream,outNames.memories);
+						break;
+					case NameSubsectionType::global:
+						if(!module.featureSpec.extendedNamesSection)
+						{
+							throw FatalSerializationException("global name subsection requires extendedNamesSection feature");
+						}
+						deserializeNameMap(substream,outNames.globals);
+						break;
 					default:
 						Log::printf(Log::Category::error,"Unknown WASM binary name subsection type: %u\n",Uptr(subsectionType));
 						break;
@@ -241,7 +270,7 @@ namespace IR
 			}
 		});
 
-		if(enableWritingExtendedNamesSection)
+		if(module.featureSpec.extendedNamesSection)
 		{
 			// Label names.
 			serializeNameSubsection(stream,NameSubsectionType::label,[names](OutputStream& subsectionStream)

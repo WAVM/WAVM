@@ -95,9 +95,7 @@ namespace NativeTypes
 	typedef F32 f32;
 	typedef F64 f64;
 	typedef void none;
-	#if ENABLE_SIMD_PROTOTYPE
 	typedef V128 v128;
-	#endif
 };
 
 #define DEFINE_INTRINSIC_MODULE(cName) \

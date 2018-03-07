@@ -108,16 +108,14 @@ struct RootResolver : Resolver
 static int run(const char* filename,const char* functionName,bool onlyCheck,char** args)
 {
 	Module module;
-	if(filename)
-	{
-		if(!loadModule(filename,module)) { return EXIT_FAILURE; }
-	}
-	else
-	{
-		showHelp();
-		return EXIT_FAILURE;
-	}
 
+	// Enable some additional "features" in WAVM that are disabled by default.
+	module.featureSpec.importExportMutableGlobals = true;
+	module.featureSpec.launchThread = true;
+	module.featureSpec.sharedTables = true;
+
+	// Load the module.
+	if(!loadModule(filename,module)) { return EXIT_FAILURE; }
 	if(onlyCheck) { return EXIT_SUCCESS; }
 
 	// Link the module with the intrinsic modules.
@@ -271,6 +269,12 @@ int main(int argc,char** argv)
 			filename = *args;
 		}
 		else { break; }
+	}
+
+	if(!filename)
+	{
+		showHelp();
+		return EXIT_FAILURE;
 	}
 
 	int returnCode = EXIT_FAILURE;

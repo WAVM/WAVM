@@ -68,7 +68,6 @@ namespace IR
 		}
 		std::string describeImm(MemoryImm) { return ""; }
 
-		#if ENABLE_SIMD_PROTOTYPE
 		template<Uptr numLanes>
 		std::string describeImm(LaneIndexImm<numLanes> imm) { return " " + std::to_string(imm.laneIndex); }
 		template<Uptr numLanes>
@@ -85,9 +84,6 @@ namespace IR
 			}
 			return result;
 		}
-		#endif
-
-		#if ENABLE_THREADING_PROTOTYPE
 		std::string describeImm(LaunchThreadImm) { return ""; }
 		
 		template<Uptr naturalAlignmentLog2>
@@ -95,12 +91,8 @@ namespace IR
 		{
 			return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset);
 		}
-		#endif
-
-		#if ENABLE_EXCEPTION_PROTOTYPE
 		std::string describeImm(CatchImm) { return ""; }
 		std::string describeImm(ThrowImm) { return ""; }
 		std::string describeImm(RethrowImm) { return ""; }
-		#endif
 	};
 }

@@ -378,7 +378,6 @@ namespace WAST
 
 		void printImm(LiteralImm<V128> imm) { string += ' '; string += asString(imm.value); }
 
-		#if ENABLE_SIMD_PROTOTYPE
 		template<Uptr numLanes>
 		void printImm(LaneIndexImm<numLanes> imm)
 		{
@@ -397,9 +396,7 @@ namespace WAST
 			}
 			string += ')';
 		}
-		#endif
 
-		#if ENABLE_THREADING_PROTOTYPE
 		void printImm(LaunchThreadImm) {}
 		
 		template<Uptr naturalAlignmentLog2>
@@ -412,9 +409,7 @@ namespace WAST
 			}
 			assert(imm.alignmentLog2 == naturalAlignmentLog2);
 		}
-		#endif
 
-		#if ENABLE_EXCEPTION_PROTOTYPE
 		void printImm(ThrowImm) {}
 		void printImm(RethrowImm) {}
 
@@ -438,11 +433,11 @@ namespace WAST
 			controlStack.back().type = ControlContext::Type::catch_;
 			string += "\ncatch_all" INDENT_STRING;
 		}
-		#endif
 
-		#define PRINT_OP(opcode,name,nameString,Imm,printOperands) \
+		#define PRINT_OP(opcode,name,nameString,Imm,printOperands,requiredFeature) \
 			void name(Imm imm) \
 			{ \
+				assert(module.featureSpec.requiredFeature); \
 				string += "\n" nameString; \
 				printImm(imm); \
 			}

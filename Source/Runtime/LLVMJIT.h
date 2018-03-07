@@ -87,7 +87,7 @@ namespace LLVMJIT
 	extern llvm::Type* llvmF32x4Type;
 	extern llvm::Type* llvmF64x2Type;
 
-	#if defined(_WIN64) && ENABLE_EXCEPTION_PROTOTYPE
+	#if defined(_WIN64)
 	extern llvm::Type* llvmExceptionPointersStructType;
 	#endif
 

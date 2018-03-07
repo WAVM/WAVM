@@ -135,6 +135,8 @@ namespace IR
 	// A WebAssembly module definition
 	struct Module
 	{
+		FeatureSpec featureSpec;
+
 		std::vector<const FunctionType*> types;
 
 		IndexSpace<FunctionDef,IndexedFunctionType> functions;

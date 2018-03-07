@@ -73,13 +73,9 @@ namespace IR
 		
 		Uptr flags = 0;
 		if(!Stream::isInput && tableType.size.max != UINT64_MAX) { flags |= 0x01; }
-		#if ENABLE_THREADING_PROTOTYPE
 		if(!Stream::isInput && tableType.isShared) { flags |= 0x02; }
 		serializeVarUInt32(stream,flags);
 		if(Stream::isInput) { tableType.isShared = (flags & 0x02) != 0; }
-		#else
-		serializeVarUInt32(stream,flags);
-		#endif
 		serialize(stream,tableType.size,flags & 0x01);
 	}
 
@@ -88,13 +84,9 @@ namespace IR
 	{
 		Uptr flags = 0;
 		if(!Stream::isInput && memoryType.size.max != UINT64_MAX) { flags |= 0x01; }
-		#if ENABLE_THREADING_PROTOTYPE
 		if(!Stream::isInput && memoryType.isShared) { flags |= 0x02; }
 		serializeVarUInt32(stream,flags);
 		if(Stream::isInput) { memoryType.isShared = (flags & 0x02) != 0; }
-		#else
-		serializeVarUInt32(stream,flags);
-		#endif
 		serialize(stream,memoryType.size,flags & 0x01);
 	}
 
@@ -304,51 +296,48 @@ namespace WASM
 		serializeNativeValue(stream,v128);
 	}
 
-	#if ENABLE_SIMD_PROTOTYPE
-		template<typename Stream,Uptr numLanes>
-		void serialize(Stream& stream,LaneIndexImm<numLanes>& imm,const FunctionDef&)
-		{
-			serializeVarUInt7(stream,imm.laneIndex);
-		}
-		template<typename Stream,Uptr numLanes>
-		void serialize(Stream& stream,ShuffleImm<numLanes>& imm,const FunctionDef&)
-		{
-			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-			{
-				serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
-			}
-		}
-	#endif
+	template<typename Stream,Uptr numLanes>
+	void serialize(Stream& stream,LaneIndexImm<numLanes>& imm,const FunctionDef&)
+	{
+		serializeVarUInt7(stream,imm.laneIndex);
+	}
 
-	#if ENABLE_THREADING_PROTOTYPE
-		template<typename Stream>
-		void serialize(Stream& stream,LaunchThreadImm& imm,const FunctionDef&) {}
+	template<typename Stream,Uptr numLanes>
+	void serialize(Stream& stream,ShuffleImm<numLanes>& imm,const FunctionDef&)
+	{
+		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
+		{
+			serializeVarUInt7(stream,imm.laneIndices[laneIndex]);
+		}
+	}
+
+	template<typename Stream>
+	void serialize(Stream& stream,LaunchThreadImm& imm,const FunctionDef&) {}
 		
-		template<typename Stream,Uptr naturalAlignmentLog2>
-		void serialize(Stream& stream,AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
-		{
-			serializeVarUInt7(stream,imm.alignmentLog2);
-			serializeVarUInt32(stream,imm.offset);
-		}
-	#endif
+	template<typename Stream,Uptr naturalAlignmentLog2>
+	void serialize(Stream& stream,AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
+	{
+		serializeVarUInt7(stream,imm.alignmentLog2);
+		serializeVarUInt32(stream,imm.offset);
+	}
 
-	#if ENABLE_EXCEPTION_PROTOTYPE
-		template<typename Stream>
-		void serialize(Stream& stream,CatchImm& imm,const FunctionDef&)
-		{
-			serializeVarUInt32(stream,imm.exceptionTypeIndex);
-		}
-		template<typename Stream>
-		void serialize(Stream& stream,ThrowImm& imm,const FunctionDef&)
-		{
-			serializeVarUInt32(stream,imm.exceptionTypeIndex);
-		}
-		template<typename Stream>
-		void serialize(Stream& stream,RethrowImm& imm,const FunctionDef&)
-		{
-			serializeVarUInt32(stream,imm.catchDepth);
-		}
-	#endif
+	template<typename Stream>
+	void serialize(Stream& stream,CatchImm& imm,const FunctionDef&)
+	{
+		serializeVarUInt32(stream,imm.exceptionTypeIndex);
+	}
+
+	template<typename Stream>
+	void serialize(Stream& stream,ThrowImm& imm,const FunctionDef&)
+	{
+		serializeVarUInt32(stream,imm.exceptionTypeIndex);
+	}
+
+	template<typename Stream>
+	void serialize(Stream& stream,RethrowImm& imm,const FunctionDef&)
+	{
+		serializeVarUInt32(stream,imm.catchDepth);
+	}
 
 	template<typename Stream,typename Value>
 	void serialize(Stream& stream,LiteralImm<Value>& imm,const FunctionDef&)

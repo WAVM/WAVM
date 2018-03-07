@@ -41,9 +41,7 @@ namespace Runtime
 		Value(U64 inU64): UntaggedValue(inU64), type(IR::ValueType::i64) {}
 		Value(F32 inF32): UntaggedValue(inF32), type(IR::ValueType::f32) {}
 		Value(F64 inF64): UntaggedValue(inF64), type(IR::ValueType::f64) {}
-		#if ENABLE_SIMD_PROTOTYPE
 		Value(const V128& inV128): UntaggedValue(inV128), type(IR::ValueType::v128) {}
-		#endif
 		Value(IR::ValueType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
 		Value(): type(IR::ValueType::any) {}
 		
@@ -55,9 +53,7 @@ namespace Runtime
 			case IR::ValueType::i64: return "(i64.const " + IR::asString(value.i64) + ')';
 			case IR::ValueType::f32: return "(f32.const " + IR::asString(value.f32) + ')';
 			case IR::ValueType::f64: return "(f64.const " + IR::asString(value.f64) + ')';
-			#if ENABLE_SIMD_PROTOTYPE
 			case IR::ValueType::v128: return "(v128.const " + IR::asString(value.v128) + ')';
-			#endif
 			default: Errors::unreachable();
 			}
 		}
@@ -74,9 +70,7 @@ namespace Runtime
 		Result(U64 inU64): UntaggedValue(inU64), type(IR::ResultType::i64) {}
 		Result(F32 inF32): UntaggedValue(inF32), type(IR::ResultType::f32) {}
 		Result(F64 inF64): UntaggedValue(inF64), type(IR::ResultType::f64) {}
-		#if ENABLE_SIMD_PROTOTYPE
 		Result(const V128& inV128): UntaggedValue(inV128), type(IR::ResultType::v128) {}
-		#endif
 		Result(IR::ResultType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
 		Result(const Value& inValue): UntaggedValue(inValue), type(asResultType(inValue.type)) {}
 		Result(): type(IR::ResultType::none) {}
@@ -90,9 +84,7 @@ namespace Runtime
 			case IR::ResultType::i64: return "(i64.const " + IR::asString(result.i64) + ')';
 			case IR::ResultType::f32: return "(f32.const " + IR::asString(result.f32) + ')';
 			case IR::ResultType::f64: return "(f64.const " + IR::asString(result.f64) + ')';
-			#if ENABLE_SIMD_PROTOTYPE
 			case IR::ResultType::v128: return "(v128.const " + IR::asString(result.v128) + ')';
-			#endif
 			default: Errors::unreachable();
 			}
 		}
@@ -107,9 +99,7 @@ namespace Runtime
 		case IR::ResultType::f32: return a.i32 == b.i32;
 		case IR::ResultType::i64:
 		case IR::ResultType::f64: return a.i64 == b.i64;
-		#if ENABLE_SIMD_PROTOTYPE
 		case IR::ResultType::v128: return a.v128.u64[0] == b.v128.u64[0] && a.v128.u64[1] == b.v128.u64[1];
-		#endif
 		case IR::ResultType::none: return true;
 		default: Errors::unreachable();
 		};

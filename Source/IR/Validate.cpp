@@ -17,7 +17,19 @@ namespace IR
 			throw ValidationException(reason #comparison); \
 		}
 
-	#define VALIDATE_INDEX(index,arraySize) VALIDATE_UNLESS("invalid index: ",index>=arraySize)
+	#define VALIDATE_INDEX(index,arraySize) \
+		if(index >= arraySize) \
+		{ \
+			throw ValidationException( \
+				std::string("invalid index: " #index " must be less than " #arraySize " (" #index "=") \
+				+ std::to_string(index) + (", " #arraySize "=") + std::to_string(arraySize) + ')'); \
+		}
+
+	#define VALIDATE_FEATURE(context,feature) \
+		if(!module.featureSpec.feature) \
+		{ \
+			throw ValidationException(context " requires " #feature " feature"); \
+		}
 
 	void validate(ValueType valueType)
 	{
@@ -55,22 +67,24 @@ namespace IR
 		if(type != TableElementType::anyfunc) { throw ValidationException("invalid table element type (" + std::to_string((Uptr)type) + ")"); }
 	}
 
-	void validate(TableType type)
+	void validate(const Module& module,TableType type)
 	{
 		validate(type.elementType);
 		validate(type.size,IR::maxTableElems);
-		if(ENABLE_THREADING_PROTOTYPE)
+		if(type.isShared)
 		{
-			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.isShared && type.size.max == UINT64_MAX);
+			VALIDATE_FEATURE("shared table",sharedTables);
+			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.size.max == UINT64_MAX);
 		}
 	}
 
-	void validate(MemoryType type)
+	void validate(const Module& module,MemoryType type)
 	{
 		validate(type.size,IR::maxMemoryPages);
-		if(ENABLE_THREADING_PROTOTYPE)
+		if(type.isShared)
 		{
-			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.isShared && type.size.max == UINT64_MAX);
+			VALIDATE_FEATURE("shared memory",atomics);
+			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.size.max == UINT64_MAX);
 		}
 	}
 
@@ -231,15 +245,15 @@ namespace IR
 			popAndValidateResultType("end result",controlStack.back().resultType);
 			popControlStack();
 		}
-
-		#if ENABLE_EXCEPTION_PROTOTYPE
 		void try_(ControlStructureImm imm)
 		{
+			VALIDATE_FEATURE("try",exceptionHandling);
 			validate(imm.resultType);
 			pushControlStack(ControlContext::Type::try_,imm.resultType,imm.resultType);
 		}
 		void catch_(CatchImm imm)
 		{
+			VALIDATE_FEATURE("try",exceptionHandling);
 			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
 			const TupleType* tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
 
@@ -250,11 +264,11 @@ namespace IR
 		}
 		void catch_all(NoImm)
 		{
+			VALIDATE_FEATURE("try",exceptionHandling);
 			popAndValidateResultType("try result",controlStack.back().resultType);
 			popControlStack(false,true);
 		}
-		#endif
-		
+
 		void return_(NoImm)
 		{
 			popAndValidateResultType("ret",functionType->ret);
@@ -365,7 +379,6 @@ namespace IR
 			VALIDATE_UNLESS("current_memory and grow_memory are only valid if there is a default memory",module.memories.size() == 0);
 		}
 
-		#if ENABLE_SIMD_PROTOTYPE
 		template<Uptr numLanes>
 		void validateImm(LaneIndexImm<numLanes> imm)
 		{
@@ -380,26 +393,23 @@ namespace IR
 				VALIDATE_UNLESS("shuffle invalid lane index",imm.laneIndices[laneIndex]>=numLanes*2);
 			}
 		}
-		#endif
 
-		#if ENABLE_THREADING_PROTOTYPE
 		void validateImm(LaunchThreadImm)
 		{
 			VALIDATE_UNLESS("launch_thread is only valid if there is a default table",module.tables.size() == 0);
 		}
+
 		template<Uptr naturalAlignmentLog2>
 		void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
 			VALIDATE_UNLESS("atomic memory operator in module without default memory: ",module.memories.size()==0);
-			if(requireSharedFlagForAtomicOperators)
+			if(module.featureSpec.requireSharedFlagForAtomicOperators)
 			{
 				VALIDATE_UNLESS("atomic memory operators require a memory with the shared flag: ",!module.memories.getType(0).isShared);
 			}
 			VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",imm.alignmentLog2 != naturalAlignmentLog2);
 		}
-		#endif
 		
-		#if ENABLE_EXCEPTION_PROTOTYPE
 		void validateImm(ThrowImm imm)
 		{
 			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
@@ -407,6 +417,7 @@ namespace IR
 			popAndValidateOperands("exception arguments",tupleType->elements.data(),(Uptr)tupleType->elements.size());
 			enterUnreachable();
 		}
+
 		void validateImm(RethrowImm imm)
 		{
 			VALIDATE_UNLESS(
@@ -414,7 +425,6 @@ namespace IR
 				getBranchTargetByDepth(imm.catchDepth).type != ControlContext::Type::catch_);
 			enterUnreachable();
 		}
-		#endif
 
 		#define LOAD(resultTypeId) \
 			popAndValidateOperand(operatorName,ValueType::i32); \
@@ -429,17 +439,12 @@ namespace IR
 		#define UNARY(operandTypeId,resultTypeId) \
 			popAndValidateOperand(operatorName,ValueType::operandTypeId); \
 			pushOperand(ResultType::resultTypeId)
-
-		#if ENABLE_SIMD_PROTOTYPE
 		#define VECTORSELECT(vectorTypeId) \
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::vectorTypeId,ValueType::vectorTypeId); \
 			pushOperand(ValueType::vectorTypeId);
 		#define REPLACELANE(scalarTypeId,vectorTypeId) \
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::scalarTypeId); \
 			pushOperand(ValueType::vectorTypeId);
-		#endif
-
-		#if ENABLE_THREADING_PROTOTYPE
 		#define LAUNCHTHREAD \
 			popAndValidateOperands(operatorName,ValueType::i32,ValueType::i32,ValueType::i32);
 		#define COMPAREEXCHANGE(valueTypeId) \
@@ -451,16 +456,13 @@ namespace IR
 		#define ATOMICRMW(valueTypeId) \
 			popAndValidateOperands(operatorName,ValueType::i32,ValueType::valueTypeId); \
 			pushOperand(ValueType::valueTypeId);
-		#endif
-
-		#if ENABLE_EXCEPTION_PROTOTYPE
 		#define THROW
 		#define RETHROW
-		#endif
 
-		#define VALIDATE_OP(opcode,name,nameString,Imm,validateOperands) \
+		#define VALIDATE_OP(opcode,name,nameString,Imm,validateOperands,requiredFeature) \
 			void name(Imm imm) \
 			{ \
+				VALIDATE_FEATURE(nameString,requiredFeature); \
 				const char* operatorName = nameString; SUPPRESS_UNUSED(operatorName); \
 				validateImm(imm); \
 				validateOperands; \
@@ -633,12 +635,12 @@ namespace IR
 		{
 			VALIDATE_INDEX(functionImport.type.index,module.types.size());
 		}
-		for(auto& tableImport : module.tables.imports) { validate(tableImport.type); }
-		for(auto& memoryImport : module.memories.imports) { validate(memoryImport.type); }
+		for(auto& tableImport : module.tables.imports) { validate(module,tableImport.type); }
+		for(auto& memoryImport : module.memories.imports) { validate(module,memoryImport.type); }
 		for(auto& globalImport : module.globals.imports)
 		{
 			validate(globalImport.type);
-			if(!allowImportExportMutableGlobals)
+			if(!module.featureSpec.importExportMutableGlobals)
 			{
 				VALIDATE_UNLESS("mutable globals cannot be imported: ",globalImport.type.isMutable);
 			}
@@ -657,10 +659,10 @@ namespace IR
 			validateInitializer(module,globalDef.initializer,globalDef.type.valueType,"global initializer expression");
 		}
 		
-		for(auto& tableDef : module.tables.defs) { validate(tableDef.type); }
+		for(auto& tableDef : module.tables.defs) { validate(module,tableDef.type); }
 		VALIDATE_UNLESS("too many tables: ",module.tables.size()>1);
 
-		for(auto& memoryDef : module.memories.defs) { validate(memoryDef.type); }
+		for(auto& memoryDef : module.memories.defs) { validate(module,memoryDef.type); }
 		VALIDATE_UNLESS("too many memories: ",module.memories.size()>1);
 
 		std::set<std::string> exportNameMap;
@@ -678,7 +680,10 @@ namespace IR
 				VALIDATE_INDEX(exportIt.index,module.memories.size());
 				break;
 			case ObjectKind::global:
-				validateGlobalIndex(module,exportIt.index,false,!allowImportExportMutableGlobals,false,"exported global index");
+				validateGlobalIndex(
+					module, exportIt.index,
+					false, !module.featureSpec.importExportMutableGlobals, false,
+					"exported global index");
 				break;
 			case ObjectKind::exceptionType:
 				VALIDATE_INDEX(exportIt.index,module.exceptionTypes.size());

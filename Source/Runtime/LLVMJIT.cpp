@@ -53,7 +53,7 @@ namespace LLVMJIT
 	llvm::Type* llvmF32x4Type;
 	llvm::Type* llvmF64x2Type;
 
-	#if defined(_WIN64) && ENABLE_EXCEPTION_PROTOTYPE
+	#if defined(_WIN64)
 	llvm::Type* llvmExceptionPointersStructType;
 	#endif
 
@@ -890,7 +890,7 @@ namespace LLVMJIT
 		llvmBoolType = llvm::Type::getInt1Ty(context);
 		llvmI8PtrType = llvmI8Type->getPointerTo();
 		
-		#if defined(_WIN64) && ENABLE_EXCEPTION_PROTOTYPE
+		#if defined(_WIN64)
 		auto llvmExceptionRecordStructType = llvm::StructType::create({
 			llvmI32Type, // DWORD ExceptionCode
 			llvmI32Type, // DWORD ExceptionFlags
@@ -915,6 +915,7 @@ namespace LLVMJIT
 		llvmResultTypes[(Uptr)ResultType::i64] = llvmI64Type;
 		llvmResultTypes[(Uptr)ResultType::f32] = llvmF32Type;
 		llvmResultTypes[(Uptr)ResultType::f64] = llvmF64Type;
+		llvmResultTypes[(Uptr)ResultType::v128] = llvmI64x2Type;
 
 		// Create zero constants of each type.
 		typedZeroConstants[(Uptr)ValueType::any] = nullptr;
@@ -922,10 +923,6 @@ namespace LLVMJIT
 		typedZeroConstants[(Uptr)ValueType::i64] = emitLiteral((U64)0);
 		typedZeroConstants[(Uptr)ValueType::f32] = emitLiteral((F32)0.0f);
 		typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral((F64)0.0);
-
-		#if ENABLE_SIMD_PROTOTYPE
-		llvmResultTypes[(Uptr)ResultType::v128] = llvmI64x2Type;
 		typedZeroConstants[(Uptr)ValueType::v128] = llvm::ConstantVector::get({typedZeroConstants[(Uptr)ValueType::i64],typedZeroConstants[(Uptr)ValueType::i64]});
-		#endif
 	}
 }
