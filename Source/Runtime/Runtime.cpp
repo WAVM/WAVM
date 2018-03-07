@@ -85,10 +85,11 @@ namespace Runtime
 		U32 dataOffset = U32(-1);
 		if(type.isMutable)
 		{
+			Platform::Lock compartmentLock(compartment->mutex);
+
 			// Allocate a naturally aligned address to store the global at in the per-context data.
 			const U32 numBytes = getTypeByteWidth(type.valueType);
 			{
-				Platform::Lock compartmentLock(compartment->mutex);
 				dataOffset = (compartment->numGlobalBytes + numBytes - 1) & ~(numBytes - 1);
 				if(dataOffset + numBytes >= maxGlobalBytes) { return nullptr; }
 				compartment->numGlobalBytes = dataOffset + numBytes;

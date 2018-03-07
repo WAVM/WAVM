@@ -123,8 +123,7 @@ namespace Runtime
 	
 	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableId)
 	{
-		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
-		TableInstance* table = compartment->tables[tableId];
+		TableInstance* table = getTableFromRuntimeData(*_context,tableId);
 		assert(table);
 		void* elementValue = table->baseAddress[index].value;
 		const FunctionType* actualSignature = table->baseAddress[index].type;
@@ -147,8 +146,7 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,_growMemory,growMemory,i32,i32,deltaPages,i64,memoryId)
 	{
-		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
-		MemoryInstance* memory = compartment->memories[memoryId];
+		MemoryInstance* memory = getMemoryFromRuntimeData(*_context,memoryId);
 		assert(memory);
 		const Iptr numPreviousMemoryPages = growMemory(memory,(Uptr)deltaPages);
 		if(numPreviousMemoryPages + (Uptr)deltaPages > IR::maxMemoryPages) { return -1; }
@@ -157,8 +155,7 @@ namespace Runtime
 	
 	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryId)
 	{
-		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
-		MemoryInstance* memory = compartment->memories[memoryId];
+		MemoryInstance* memory = getMemoryFromRuntimeData(*_context,memoryId);
 		assert(memory);
 		Uptr numMemoryPages = getMemoryNumPages(memory);
 		if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }

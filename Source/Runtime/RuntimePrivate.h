@@ -269,6 +269,20 @@ namespace Runtime
 		return reinterpret_cast<CompartmentRuntimeData*>(reinterpret_cast<Uptr>(contextRuntimeData) & 0xffffffff00000000);
 	}
 
+	inline MemoryInstance* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData,Uptr memoryId)
+	{
+		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
+		Platform::Lock compartmentLock(compartment->mutex);
+		return compartment->memories[memoryId];
+	}
+
+	inline TableInstance* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData,Uptr tableId)
+	{
+		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
+		Platform::Lock compartmentLock(compartment->mutex);
+		return compartment->tables[tableId];
+	}
+
 	extern Intrinsics::Module* wavmIntrinsics;
 
 	// Initializes global state used by the WAVM intrinsics.

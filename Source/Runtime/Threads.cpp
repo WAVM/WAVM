@@ -214,8 +214,7 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,atomic_wake,atomic_wake,i32,i32,addressOffset,i32,numToWake,i64,memoryId)
 	{
-		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
-		MemoryInstance* memoryInstance = compartment->memories[memoryId];
+		MemoryInstance* memoryInstance = getMemoryFromRuntimeData(*_context,memoryId);
 
 		// Validate that the address is within the memory's bounds and 4-byte aligned.
 		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
@@ -227,8 +226,7 @@ namespace Runtime
 
 	DEFINE_INTRINSIC_FUNCTION4(wavmIntrinsics,atomic_wait,atomic_wait_i32,i32,i32,addressOffset,i32,expectedValue,f64,timeout,i64,memoryId)
 	{
-		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
-		MemoryInstance* memoryInstance = compartment->memories[memoryId];
+		MemoryInstance* memoryInstance = getMemoryFromRuntimeData(*_context,memoryId);
 
 		// Validate that the address is within the memory's bounds and naturally aligned.
 		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
@@ -239,8 +237,7 @@ namespace Runtime
 	}
 	DEFINE_INTRINSIC_FUNCTION4(wavmIntrinsics,atomic_wait,atomic_wait_i64,i32,i32,addressOffset,i64,expectedValue,f64,timeout,i64,memoryId)
 	{
-		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
-		MemoryInstance* memoryInstance = compartment->memories[memoryId];
+		MemoryInstance* memoryInstance = getMemoryFromRuntimeData(*_context,memoryId);
 
 		// Validate that the address is within the memory's bounds and naturally aligned.
 		if(U32(addressOffset) > memoryInstance->endOffset) { throwException(Exception::accessViolationType); }
@@ -316,8 +313,7 @@ namespace Runtime
 		i32,errorFunctionIndex,
 		i64,tableId)
 	{
-		Compartment* compartment = getCompartmentRuntimeData(*_context)->compartment;
-		TableInstance* defaultTable = compartment->tables[tableId];
+		TableInstance* defaultTable = getTableFromRuntimeData(*_context,tableId);
 		const FunctionType* functionType = FunctionType::get(ResultType::none,{ValueType::i32});
 
 		// Create a thread object that will expose its entry and error functions to the garbage collector as roots.
