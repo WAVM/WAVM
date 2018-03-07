@@ -5,7 +5,8 @@
 namespace Runtime
 {
 	// Global lists of memories; used to query whether an address is reserved by one of them.
-	std::vector<MemoryInstance*> memories;
+	static Platform::Mutex* memoriesMutex = Platform::createMutex();
+	static std::vector<MemoryInstance*> memories;
 
 	enum { numGuardPages = 1 };
 
@@ -46,20 +47,20 @@ namespace Runtime
 		}
 
 		// Add the memory to the global array.
-		memories.push_back(memory);
+		{
+			Platform::Lock memoriesLock(memoriesMutex);
+			memories.push_back(memory);
+		}
 		return memory;
 	}
 
 	void MemoryInstance::finalize()
 	{
-		if(compartment)
-		{
-			Platform::Lock compartmentLock(compartment->mutex);
-			assert(compartment->memories[id] == this);
-			assert(compartment->runtimeData->memories[id] == baseAddress);
-			compartment->memories[id] = nullptr;
-			compartment->runtimeData->memories[id] = nullptr;
-		}
+		Platform::Lock compartmentLock(compartment->mutex);
+		assert(compartment->memories[id] == this);
+		assert(compartment->runtimeData->memories[id] == baseAddress);
+		compartment->memories[id] = nullptr;
+		compartment->runtimeData->memories[id] = nullptr;
 	}
 
 	MemoryInstance::~MemoryInstance()
@@ -76,15 +77,19 @@ namespace Runtime
 		baseAddress = nullptr;
 
 		// Remove the memory from the global array.
-		for(Uptr memoryIndex = 0;memoryIndex < memories.size();++memoryIndex)
 		{
-			if(memories[memoryIndex] == this) { memories.erase(memories.begin() + memoryIndex); break; }
+			Platform::Lock memoriesLock(memoriesMutex);
+			for(Uptr memoryIndex = 0;memoryIndex < memories.size();++memoryIndex)
+			{
+				if(memories[memoryIndex] == this) { memories.erase(memories.begin() + memoryIndex); break; }
+			}
 		}
 	}
 	
 	bool isAddressOwnedByMemory(U8* address)
 	{
 		// Iterate over all memories and check if the address is within the reserved address space for each.
+		Platform::Lock memoriesLock(memoriesMutex);
 		for(auto memory : memories)
 		{
 			U8* startAddress = memory->baseAddress;

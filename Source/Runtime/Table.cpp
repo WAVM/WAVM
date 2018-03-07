@@ -5,7 +5,8 @@
 namespace Runtime
 {
 	// Global lists of tables; used to query whether an address is reserved by one of them.
-	std::vector<TableInstance*> tables;
+	static Platform::Mutex* tablesMutex = Platform::createMutex();
+	static std::vector<TableInstance*> tables;
 
 	enum { numGuardPages = 1 };
 
@@ -44,7 +45,10 @@ namespace Runtime
 		}
 
 		// Add the table to the global array.
-		tables.push_back(table);
+		{
+			Platform::Lock tablesLock(tablesMutex);
+			tables.push_back(table);
+		}
 		return table;
 	}
 	
@@ -71,15 +75,19 @@ namespace Runtime
 		baseAddress = nullptr;
 		
 		// Remove the table from the global array.
-		for(Uptr tableIndex = 0;tableIndex < tables.size();++tableIndex)
 		{
-			if(tables[tableIndex] == this) { tables.erase(tables.begin() + tableIndex); break; }
+			Platform::Lock tablesLock(tablesMutex);
+			for(Uptr tableIndex = 0;tableIndex < tables.size();++tableIndex)
+			{
+				if(tables[tableIndex] == this) { tables.erase(tables.begin() + tableIndex); break; }
+			}
 		}
 	}
 
 	bool isAddressOwnedByTable(U8* address)
 	{
 		// Iterate over all tables and check if the address is within the reserved address space for each.
+		Platform::Lock tablesLock(tablesMutex);
 		for(auto table : tables)
 		{
 			U8* startAddress = (U8*)table->baseAddress;
@@ -138,7 +146,7 @@ namespace Runtime
 		const Uptr previousNumElements = table->elements.size();
 		if(numElementsToShrink > 0)
 		{
-			// If the number of elements to shrink would cause the tables's size to drop below its minimum, return -1.
+			// If the number of elements to shrink would cause the table's size to drop below its minimum, return -1.
 			if(numElementsToShrink > table->elements.size()
 			|| table->elements.size() - numElementsToShrink < table->type.size.min) { return -1; }
 
