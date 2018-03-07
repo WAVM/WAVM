@@ -299,4 +299,7 @@ namespace Runtime
 
 	RUNTIME_API Context* createContext(Compartment* compartment);
 	RUNTIME_API Compartment* getCompartmentFromContext(Context* context);
+
+	// Creates a new context, initializing its mutable global state from the given context.
+	RUNTIME_API Context* cloneContext(Context* context);
 }

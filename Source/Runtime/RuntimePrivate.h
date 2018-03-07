@@ -269,6 +269,14 @@ namespace Runtime
 		return reinterpret_cast<CompartmentRuntimeData*>(reinterpret_cast<Uptr>(contextRuntimeData) & 0xffffffff00000000);
 	}
 
+	inline Context* getContextFromRuntimeData(ContextRuntimeData* contextRuntimeData)
+	{
+		const CompartmentRuntimeData* compartmentRuntimeData = getCompartmentRuntimeData(contextRuntimeData);
+		const Uptr contextId = contextRuntimeData - compartmentRuntimeData->contexts;
+		Platform::Lock compartmentLock(compartmentRuntimeData->compartment->mutex);
+		return compartmentRuntimeData->compartment->contexts[contextId];
+	}
+
 	inline MemoryInstance* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData,Uptr memoryId)
 	{
 		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;

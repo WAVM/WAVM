@@ -318,7 +318,7 @@ namespace Runtime
 
 		// Create a thread object that will expose its entry and error functions to the garbage collector as roots.
 		Thread* thread = new Thread();
-		thread->context = createContext(compartment);
+		thread->context = cloneContext(getContextFromRuntimeData(*_context));
 		thread->entryFunction = getFunctionFromTable(defaultTable,functionType,entryFunctionIndex);
 		thread->errorFunction = getFunctionFromTable(defaultTable,functionType,errorFunctionIndex);
 		{

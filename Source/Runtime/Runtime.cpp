@@ -189,4 +189,12 @@ namespace Runtime
 	{
 		return context->compartment;
 	}
+
+	Context* cloneContext(Context* context)
+	{
+		// Create a new context and initialize its runtime data with the values from the source context.
+		Context* clonedContext = createContext(context->compartment);
+		memcpy(clonedContext->runtimeData,context->runtimeData,sizeof(ContextRuntimeData));
+		return clonedContext;
+	}
 }
