@@ -4,7 +4,7 @@
 #include "Lexer.h"
 #include "IR/Module.h"
 #include "IR/Validate.h"
-#include "Runtime/TaggedValue.h"
+#include "IR/TaggedValue.h"
 #include "Parse.h"
 #include "Inline/Serialization.h"
 #include "WASM/WASM.h"
@@ -250,17 +250,17 @@ static Command* parseCommand(CursorState* cursor)
 					parseErrorf(cursor->parseState,cursor->nextToken,"expected string literal");
 					throw RecoverParseException();
 				}
-				Runtime::ExceptionTypeInstance* expectedType = nullptr;
-				if(!strcmp(expectedErrorMessage.c_str(),"out of bounds memory access")) { expectedType = Runtime::Exception::accessViolationType; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"call stack exhausted")) { expectedType = Runtime::Exception::stackOverflowType; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"integer overflow")) { expectedType = Runtime::Exception::integerDivideByZeroOrIntegerOverflowType; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"integer divide by zero")) { expectedType = Runtime::Exception::integerDivideByZeroOrIntegerOverflowType; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"invalid conversion to integer")) { expectedType = Runtime::Exception::invalidFloatOperationType; }
-				else if(!strcmp(expectedErrorMessage.c_str(),"unaligned atomic")) { expectedType = Runtime::Exception::misalignedAtomicMemoryAccessType; }
-				else if(stringStartsWith(expectedErrorMessage.c_str(),"unreachable")) { expectedType = Runtime::Exception::reachedUnreachableType; }
-				else if(stringStartsWith(expectedErrorMessage.c_str(),"indirect call")) { expectedType = Runtime::Exception::indirectCallSignatureMismatchType; }
-				else if(stringStartsWith(expectedErrorMessage.c_str(),"undefined")) { expectedType = Runtime::Exception::undefinedTableElementType; }
-				else if(stringStartsWith(expectedErrorMessage.c_str(),"uninitialized")) { expectedType = Runtime::Exception::undefinedTableElementType; }
+				ExpectedTrapType expectedType;
+				if(!strcmp(expectedErrorMessage.c_str(),"out of bounds memory access")) { expectedType = ExpectedTrapType::accessViolation; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"call stack exhausted")) { expectedType = ExpectedTrapType::stackOverflow; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"integer overflow")) { expectedType = ExpectedTrapType::integerDivideByZeroOrIntegerOverflow; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"integer divide by zero")) { expectedType = ExpectedTrapType::integerDivideByZeroOrIntegerOverflow; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"invalid conversion to integer")) { expectedType = ExpectedTrapType::invalidFloatOperation; }
+				else if(!strcmp(expectedErrorMessage.c_str(),"unaligned atomic")) { expectedType = ExpectedTrapType::misalignedAtomicMemoryAccess; }
+				else if(stringStartsWith(expectedErrorMessage.c_str(),"unreachable")) { expectedType = ExpectedTrapType::reachedUnreachable; }
+				else if(stringStartsWith(expectedErrorMessage.c_str(),"indirect call")) { expectedType = ExpectedTrapType::indirectCallSignatureMismatch; }
+				else if(stringStartsWith(expectedErrorMessage.c_str(),"undefined")) { expectedType = ExpectedTrapType::undefinedTableElement; }
+				else if(stringStartsWith(expectedErrorMessage.c_str(),"uninitialized")) { expectedType = ExpectedTrapType::undefinedTableElement; }
 				else { parseErrorf(cursor->parseState,errorToken,"unrecognized trap type"); throw RecoverParseException(); }
 
 				result = new AssertTrapCommand(std::move(locus),action,expectedType);

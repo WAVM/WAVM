@@ -1,6 +1,5 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Timing.h"
-#include "Platform/Platform.h"
 #include "WAST/WAST.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/Linker.h"
@@ -106,7 +105,7 @@ struct RootResolver : Resolver
 	}
 };
 
-int mainBody(const char* filename,const char* functionName,bool onlyCheck,char** args)
+static int run(const char* filename,const char* functionName,bool onlyCheck,char** args)
 {
 	Module module;
 	if(filename)
@@ -235,7 +234,7 @@ int mainBody(const char* filename,const char* functionName,bool onlyCheck,char**
 	else { return EXIT_SUCCESS; }
 }
 
-int commandMain(int argc,char** argv)
+int main(int argc,char** argv)
 {
 	const char* filename = nullptr;
 	const char* functionName = nullptr;
@@ -274,15 +273,22 @@ int commandMain(int argc,char** argv)
 		else { break; }
 	}
 
-	Runtime::init();
-
 	int returnCode = EXIT_FAILURE;
 	#ifdef __AFL_LOOP
 	while(__AFL_LOOP(2000))
 	#endif
 	{
-		returnCode = mainBody(filename,functionName,onlyCheck,args);
-		Runtime::collectGarbage();
+		Runtime::catchRuntimeExceptions(
+			[&]
+			{
+				returnCode = run(filename,functionName,onlyCheck,args);
+				Runtime::collectGarbage();
+			},
+			[&](Runtime::Exception&& exception)
+			{
+				std::cerr << "Runtime exception: " << describeException(exception) << std::endl;
+				returnCode = EXIT_FAILURE;
+			});
 	}
 	return returnCode;
 }

@@ -1,15 +1,10 @@
 #include "Inline/BasicTypes.h"
-#include "Platform/Platform.h"
 #include "Logging/Logging.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
 namespace Runtime
 {
-	void init()
-	{
-	}
-	
 	bool isA(Object* object,const ObjectType& type)
 	{
 		if(Runtime::ObjectKind(type.kind) != object->kind) { return false; }

@@ -1,6 +1,5 @@
 #include "Inline/BasicTypes.h"
 #include "Runtime.h"
-#include "Platform/Platform.h"
 #include "RuntimePrivate.h"
 #include "Linker.h"
 #include "Intrinsics.h"

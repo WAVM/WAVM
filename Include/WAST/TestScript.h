@@ -2,7 +2,7 @@
 
 #include "Inline/BasicTypes.h"
 #include "WAST.h"
-#include "Runtime/TaggedValue.h"
+#include "IR/TaggedValue.h"
 
 #include <vector>
 #include <memory>
@@ -44,6 +44,23 @@ namespace WAST
 		_module,
 		invoke,
 		get,
+	};
+
+	enum class ExpectedTrapType
+	{
+		accessViolation,
+		stackOverflow,
+		integerDivideByZeroOrIntegerOverflow,
+		invalidFloatOperation,
+		invokeSignatureMismatch,
+		reachedUnreachable,
+		indirectCallSignatureMismatch,
+		undefinedTableElement,
+		calledAbort,
+		calledUnimplementedIntrinsic,
+		outOfMemory,
+		invalidSegmentOffset,
+		misalignedAtomicMemoryAccess
 	};
 
 	struct Action
@@ -117,8 +134,8 @@ namespace WAST
 	struct AssertTrapCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		Runtime::ExceptionTypeInstance* expectedType;
-		AssertTrapCommand(TextFileLocus&& inLocus,Action* inAction,Runtime::ExceptionTypeInstance* inExpectedType)
+		ExpectedTrapType expectedType;
+		AssertTrapCommand(TextFileLocus&& inLocus,Action* inAction,ExpectedTrapType inExpectedType)
 		: Command(Command::assert_trap,std::move(inLocus)), action(inAction), expectedType(inExpectedType) {}
 	};
 

@@ -2,8 +2,8 @@
 
 #include "Inline/BasicTypes.h"
 #include "IR/IR.h"
+#include "IR/TaggedValue.h"
 #include "Runtime.h"
-#include "TaggedValue.h"
 
 namespace Runtime { struct ContextRuntimeData; }
 

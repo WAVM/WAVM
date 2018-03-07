@@ -3,7 +3,7 @@
 #include "WAST/WAST.h"
 #include "WASM/WASM.h"
 
-int commandMain(int argc,char** argv)
+int main(int argc,char** argv)
 {
 	if(argc != 3)
 	{

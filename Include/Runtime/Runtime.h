@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Inline/BasicTypes.h"
-#include "TaggedValue.h"
+#include "IR/TaggedValue.h"
 #include "IR/Types.h"
+#include "Platform/Platform.h"
 
 #ifndef RUNTIME_API
 	#define RUNTIME_API DLL_IMPORT
@@ -13,9 +14,6 @@ namespace IR { struct Module; }
 
 namespace Runtime
 {
-	// Initializes the runtime. Should only be called once per process.
-	RUNTIME_API void init();
-
 	// Runtime object types. This must be a superset of IR::ObjectKind, with IR::ObjectKind
 	// values having the same representation in Runtime::ObjectKind.
 	enum class ObjectKind : U8

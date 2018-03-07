@@ -14,6 +14,9 @@ set(WAVM_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/Include)
 include_directories(${WAVM_INCLUDE_DIR})
 
 if(MSVC)
+	add_definitions("-DDLL_EXPORT=__declspec(dllexport)")
+	add_definitions("-DDLL_IMPORT=__declspec(dllimport)")
+
 	# Taken out of the VC projects to avoid the compiler complaining about POSIX code
 	add_definitions(-D_SCL_SECURE_NO_WARNINGS)
 	add_definitions(-D_SCL_SECURE_NO_DEPRECATE)
@@ -55,6 +58,9 @@ if(MSVC)
 	# disable warning: structure was padded due to alignment specifier
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4324")
 else()
+	add_definitions(-DDLL_EXPORT=)
+	add_definitions(-DDLL_IMPORT=)
+
 	# Use C++11
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
@@ -119,16 +125,21 @@ else()
 	add_definitions("-DENABLE_NONTRAPPING_FPTOINT_PROTOTYPE=0")
 endif()
 
+option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
+
 add_subdirectory(Include/Inline)
 
-add_subdirectory(Source/Emscripten)
 add_subdirectory(Source/IR)
 add_subdirectory(Source/Logging)
 add_subdirectory(Source/Platform)
 add_subdirectory(Source/Programs)
-add_subdirectory(Source/Runtime)
+
 add_subdirectory(Source/WASM)
 add_subdirectory(Source/WAST)
 
-add_subdirectory(Test/spec)
-add_subdirectory(Test/WAVM)
+if(ENABLE_RUNTIME)
+	add_subdirectory(Source/Emscripten)
+	add_subdirectory(Source/Runtime)
+	add_subdirectory(Test/spec)
+	add_subdirectory(Test/WAVM)
+endif()

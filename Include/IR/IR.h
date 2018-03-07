@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Platform/Platform.h"
-
 #ifndef IR_API
 	#define IR_API DLL_IMPORT
 #endif

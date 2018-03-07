@@ -17,8 +17,7 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Runtime/Intrinsics.h
 	${WAVM_INCLUDE_DIR}/Runtime/Linker.h
-	${WAVM_INCLUDE_DIR}/Runtime/Runtime.h
-	${WAVM_INCLUDE_DIR}/Runtime/TaggedValue.h)
+	${WAVM_INCLUDE_DIR}/Runtime/Runtime.h)
 include_directories(${WAVM_INCLUDE_DIR}/Runtime)
 
 add_library(Runtime SHARED ${Sources} ${PublicHeaders})

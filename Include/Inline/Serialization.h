@@ -6,6 +6,7 @@
 #include <vector>
 #include <string.h>
 #include <algorithm>
+#include <assert.h>
 
 namespace Serialization
 {

@@ -5,8 +5,10 @@
 #endif
 
 #include "Inline/BasicTypes.h"
-#include "Runtime/Runtime.h"
-#include "WASM/WASM.h"
+#include <string>
+#include <vector>
+
+namespace IR { struct Module; }
 
 namespace WAST
 {

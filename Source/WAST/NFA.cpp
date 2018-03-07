@@ -1,13 +1,13 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Timing.h"
-#include "Platform/Platform.h"
 #include "NFA.h"
 #include <set>
 #include <map>
 #include <string>
 #include <string.h>
 #include <algorithm>
+#include <vector>
 
 namespace NFA
 {

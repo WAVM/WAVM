@@ -1,6 +1,5 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
-#include "Platform/Platform.h"
 #include "WAST/WAST.h"
 #include "WAST/TestScript.h"
 #include "WASM/WASM.h"
@@ -63,7 +62,7 @@ private:
 	const TestScriptState& state;
 };
 
-void testErrorf(TestScriptState& state,const TextFileLocus& locus,const char* messageFormat,...)
+static void testErrorf(TestScriptState& state,const TextFileLocus& locus,const char* messageFormat,...)
 {
 	va_list messageArguments;
 	va_start(messageArguments,messageFormat);
@@ -76,7 +75,7 @@ void testErrorf(TestScriptState& state,const TextFileLocus& locus,const char* me
 	state.errors.push_back({locus,messageBuffer});
 }
 
-ModuleInstance* getModuleContextByInternalName(TestScriptState& state,const TextFileLocus& locus,const char* context,const std::string& internalName)
+static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,const TextFileLocus& locus,const char* context,const std::string& internalName)
 {
 	// Look up the module this invoke uses.
 	if(!state.hasInstantiatedModule) { testErrorf(state,locus,"no module to use in %s",context); return nullptr; }
@@ -94,7 +93,28 @@ ModuleInstance* getModuleContextByInternalName(TestScriptState& state,const Text
 	return moduleInstance;
 }
 
-bool processAction(TestScriptState& state,Action* action,Result& outResult)
+static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTrapType expectedType)
+{
+	switch(expectedType)
+	{
+		case WAST::ExpectedTrapType::accessViolation: return Runtime::Exception::accessViolationType;
+		case WAST::ExpectedTrapType::stackOverflow: return Runtime::Exception::stackOverflowType;
+		case WAST::ExpectedTrapType::integerDivideByZeroOrIntegerOverflow: return Runtime::Exception::integerDivideByZeroOrIntegerOverflowType;
+		case WAST::ExpectedTrapType::invalidFloatOperation: return Runtime::Exception::invalidFloatOperationType;
+		case WAST::ExpectedTrapType::invokeSignatureMismatch: return Runtime::Exception::invokeSignatureMismatchType;
+		case WAST::ExpectedTrapType::reachedUnreachable: return Runtime::Exception::reachedUnreachableType;
+		case WAST::ExpectedTrapType::indirectCallSignatureMismatch: return Runtime::Exception::indirectCallSignatureMismatchType;
+		case WAST::ExpectedTrapType::undefinedTableElement: return Runtime::Exception::undefinedTableElementType;
+		case WAST::ExpectedTrapType::calledAbort: return Runtime::Exception::calledAbortType;
+		case WAST::ExpectedTrapType::calledUnimplementedIntrinsic: return Runtime::Exception::calledUnimplementedIntrinsicType;
+		case WAST::ExpectedTrapType::outOfMemory: return Runtime::Exception::outOfMemoryType;
+		case WAST::ExpectedTrapType::invalidSegmentOffset: return Runtime::Exception::invalidSegmentOffsetType;
+		case WAST::ExpectedTrapType::misalignedAtomicMemoryAccess: return Runtime::Exception::misalignedAtomicMemoryAccessType;
+		default: Errors::unreachable();
+	};
+}
+
+static bool processAction(TestScriptState& state,Action* action,Result& outResult)
 {
 	outResult = Result();
 
@@ -270,10 +290,11 @@ void processCommand(TestScriptState& state,const Command* command)
 					},
 					[&](Runtime::Exception&& exception)
 					{
-						if(exception.type != assertCommand->expectedType)
+						Runtime::ExceptionTypeInstance* expectedType = getExpectedExceptionType(assertCommand->expectedType);
+						if(exception.type != expectedType)
 						{
 							testErrorf(state,assertCommand->action->locus,"expected %s trap but got %s trap",
-								describeExceptionType(assertCommand->expectedType).c_str(),
+								describeExceptionType(expectedType).c_str(),
 								describeExceptionType(exception.type).c_str());
 						}
 					});
@@ -404,7 +425,7 @@ DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF64,global_f64,f64,0.0)
 DEFINE_INTRINSIC_TABLE(spectest,spectest_table,table,TableType(TableElementType::anyfunc,false,SizeConstraints {10,20}))
 DEFINE_INTRINSIC_MEMORY(spectest,spectest_memory,memory,MemoryType(false,SizeConstraints {1,2}))
 
-int commandMain(int argc,char** argv)
+int main(int argc,char** argv)
 {
 	if(argc != 2)
 	{
@@ -416,8 +437,6 @@ int commandMain(int argc,char** argv)
 	// Always enable debug logging for tests.
 	Log::setCategoryEnabled(Log::Category::debug,true);
 
-	Runtime::init();
-	
 	// Read the file into a string.
 	const std::string testScriptString = loadFile(filename);
 	if(!testScriptString.size()) { return EXIT_FAILURE; }

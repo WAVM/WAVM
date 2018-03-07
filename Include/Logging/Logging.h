@@ -5,7 +5,6 @@
 #endif
 
 #include "Inline/BasicTypes.h"
-#include "Platform/Platform.h"
 
 // Debug logging.
 namespace Log
