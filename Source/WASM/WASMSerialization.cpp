@@ -283,7 +283,7 @@ namespace WASM
 	void serialize(Stream& stream,CallIndirectImm& imm,const FunctionDef&)
 	{
 		serializeVarUInt32(stream,imm.type.index);
-		serializeConstant(stream,"call_indirect immediate reserved field must be 0",0);
+		serializeConstant(stream,"call_indirect immediate reserved field must be 0",U8(0));
 	}
 
 	template<typename Stream,Uptr naturalAlignmentLog2>
@@ -295,7 +295,7 @@ namespace WASM
 	template<typename Stream>
 	void serialize(Stream& stream,MemoryImm& imm,const FunctionDef&)
 	{
-		serializeConstant(stream,"grow_memory/current_memory immediate reserved field must be 0",0);
+		serializeConstant(stream,"grow_memory/current_memory immediate reserved field must be 0",U8(0));
 	}
 
 	template<typename Stream>
