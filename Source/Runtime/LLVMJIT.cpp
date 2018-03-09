@@ -4,25 +4,14 @@
 #include "Logging/Logging.h"
 #include "RuntimePrivate.h"
 
-#ifdef _DEBUG
-	// This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through the JITed code.
-	#define USE_WRITEABLE_JIT_CODE_PAGES 1
+// This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through the JITed code.
+#define USE_WRITEABLE_JIT_CODE_PAGES WAVM_DEBUG
 
-	#define DUMP_UNOPTIMIZED_MODULE 1
-	#define VERIFY_MODULE 1
-	#define DUMP_OPTIMIZED_MODULE 1
-	#define DUMP_OBJECT 1
-	#define PRINT_DISASSEMBLY 1
-	#define PRINT_SEH_TABLES 0
-#else
-	#define USE_WRITEABLE_JIT_CODE_PAGES 0
-	#define DUMP_UNOPTIMIZED_MODULE 0
-	#define VERIFY_MODULE 0
-	#define DUMP_OPTIMIZED_MODULE 0
-	#define DUMP_OBJECT 0
-	#define PRINT_DISASSEMBLY 0
-	#define PRINT_SEH_TABLES 0
-#endif
+#define DUMP_UNOPTIMIZED_MODULE WAVM_DEBUG
+#define VERIFY_MODULE WAVM_DEBUG
+#define DUMP_OPTIMIZED_MODULE WAVM_DEBUG
+#define DUMP_OBJECT WAVM_DEBUG
+#define PRINT_DISASSEMBLY 0
 
 #if PRINT_DISASSEMBLY
 #include "llvm-c/Disassembler.h"
