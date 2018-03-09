@@ -13,7 +13,7 @@ script: ./travis-build.sh
 
 os:
  - linux
-# - osx
+ - osx
 
 matrix:
   exclude:
