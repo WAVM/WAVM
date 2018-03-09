@@ -66,7 +66,7 @@
 namespace LLVMJIT
 {
 	// The global LLVM context.
-	extern llvm::LLVMContext context;
+	extern llvm::LLVMContext* llvmContext;
 	
 	// Maps a type ID to the corresponding LLVM type.
 	extern llvm::Type* llvmResultTypes[(Uptr)ResultType::num];
@@ -99,8 +99,8 @@ namespace LLVMJIT
 	inline llvm::ConstantInt* emitLiteral(I32 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,llvm::APInt(32,(I64)value,false)); }
 	inline llvm::ConstantInt* emitLiteral(U64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
 	inline llvm::ConstantInt* emitLiteral(I64 value) { return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,llvm::APInt(64,value,false)); }
-	inline llvm::Constant* emitLiteral(F32 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
-	inline llvm::Constant* emitLiteral(F64 value) { return llvm::ConstantFP::get(context,llvm::APFloat(value)); }
+	inline llvm::Constant* emitLiteral(F32 value) { return llvm::ConstantFP::get(*llvmContext,llvm::APFloat(value)); }
+	inline llvm::Constant* emitLiteral(F64 value) { return llvm::ConstantFP::get(*llvmContext,llvm::APFloat(value)); }
 	inline llvm::Constant* emitLiteral(bool value) { return llvm::ConstantInt::get(llvmBoolType,llvm::APInt(1,value ? 1 : 0,false)); }
 	inline llvm::Constant* emitLiteral(V128 value)
 	{

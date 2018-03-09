@@ -31,8 +31,7 @@
 namespace LLVMJIT
 {
 	Platform::Mutex* llvmMutex = Platform::createMutex();
-	bool isLLVMInitialized = false;
-	llvm::LLVMContext context;
+	llvm::LLVMContext* llvmContext = nullptr;
 	llvm::TargetMachine* targetMachine = nullptr;
 	llvm::Type* llvmResultTypes[(Uptr)ResultType::num];
 
@@ -740,7 +739,7 @@ namespace LLVMJIT
 		auto mapIt = invokeThunkTypeToSymbolMap.find(functionType);
 		if(mapIt != invokeThunkTypeToSymbolMap.end()) { return reinterpret_cast<InvokeFunctionPointer>(mapIt->second->baseAddress); }
 
-		auto llvmModuleSharedPtr = std::make_shared<llvm::Module>("",context);
+		auto llvmModuleSharedPtr = std::make_shared<llvm::Module>("",*llvmContext);
 		auto llvmModule = llvmModuleSharedPtr.get();
 		auto llvmFunctionType = llvm::FunctionType::get(
 			llvmVoidType,
@@ -751,7 +750,7 @@ namespace LLVMJIT
 		llvm::Value* functionPointer = &*argIt++;
 		llvm::Value* contextPointer = &*argIt++;
 		llvm::Value* argBaseAddress = &*argIt;
-		auto entryBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
+		auto entryBlock = llvm::BasicBlock::Create(*llvmContext,"entry",llvmFunction);
 		llvm::IRBuilder<> irBuilder(entryBlock);
 
 		// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
@@ -813,12 +812,12 @@ namespace LLVMJIT
 
 		// Create a LLVM module containing a single function with the same signature as the native
 		// function, but with fast calling convention.
-		auto llvmModuleSharedPtr = std::make_shared<llvm::Module>("",context);
+		auto llvmModuleSharedPtr = std::make_shared<llvm::Module>("",*llvmContext);
 		auto llvmModule = llvmModuleSharedPtr.get();
 		auto llvmFunctionType = asLLVMType(functionType,false);
 		auto llvmFunction = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,"thunk",llvmModule);
 		llvmFunction->setCallingConv(llvm::CallingConv::Fast);
-		auto entryBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
+		auto entryBlock = llvm::BasicBlock::Create(*llvmContext,"entry",llvmFunction);
 		llvm::IRBuilder<> irBuilder(entryBlock);
 		auto argIt = llvmFunction->args().begin();
 		llvm::SmallVector<llvm::Value*,8> nativeArgs;
@@ -861,8 +860,8 @@ namespace LLVMJIT
 
 	void initLLVM()
 	{
-		if(isLLVMInitialized) { return; }
-		isLLVMInitialized = true;
+		if(llvmContext) { return; }
+		llvmContext = new llvm::LLVMContext();
 
 		llvm::InitializeNativeTarget();
 		llvm::InitializeNativeTargetAsmPrinter();
@@ -880,14 +879,14 @@ namespace LLVMJIT
 		targetMachine = llvm::EngineBuilder().selectTarget(
 			llvm::Triple(targetTriple),"",llvm::sys::getHostCPUName(),machineAttrs);
 
-		llvmI8Type = llvm::Type::getInt8Ty(context);
-		llvmI16Type = llvm::Type::getInt16Ty(context);
-		llvmI32Type = llvm::Type::getInt32Ty(context);
-		llvmI64Type = llvm::Type::getInt64Ty(context);
-		llvmF32Type = llvm::Type::getFloatTy(context);
-		llvmF64Type = llvm::Type::getDoubleTy(context);
-		llvmVoidType = llvm::Type::getVoidTy(context);
-		llvmBoolType = llvm::Type::getInt1Ty(context);
+		llvmI8Type = llvm::Type::getInt8Ty(*llvmContext);
+		llvmI16Type = llvm::Type::getInt16Ty(*llvmContext);
+		llvmI32Type = llvm::Type::getInt32Ty(*llvmContext);
+		llvmI64Type = llvm::Type::getInt64Ty(*llvmContext);
+		llvmF32Type = llvm::Type::getFloatTy(*llvmContext);
+		llvmF64Type = llvm::Type::getDoubleTy(*llvmContext);
+		llvmVoidType = llvm::Type::getVoidTy(*llvmContext);
+		llvmBoolType = llvm::Type::getInt1Ty(*llvmContext);
 		llvmI8PtrType = llvmI8Type->getPointerTo();
 		
 		#if defined(_WIN64)
@@ -910,7 +909,7 @@ namespace LLVMJIT
 		llvmF32x4Type = llvm::VectorType::get(llvmF32Type,4);
 		llvmF64x2Type = llvm::VectorType::get(llvmF64Type,2);
 
-		llvmResultTypes[(Uptr)ResultType::none] = llvm::Type::getVoidTy(context);
+		llvmResultTypes[(Uptr)ResultType::none] = llvm::Type::getVoidTy(*llvmContext);
 		llvmResultTypes[(Uptr)ResultType::i32] = llvmI32Type;
 		llvmResultTypes[(Uptr)ResultType::i64] = llvmI64Type;
 		llvmResultTypes[(Uptr)ResultType::f32] = llvmF32Type;

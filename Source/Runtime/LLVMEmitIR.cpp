@@ -45,7 +45,7 @@ namespace LLVMJIT
 		: module(inModule)
 		, moduleInstance(inModuleInstance)
 		{
-			llvmModuleSharedPtr = std::make_shared<llvm::Module>("",context);
+			llvmModuleSharedPtr = std::make_shared<llvm::Module>("",*llvmContext);
 			llvmModule = llvmModuleSharedPtr.get();
 			diBuilder = llvm::make_unique<llvm::DIBuilder>(*llvmModule);
 
@@ -61,11 +61,11 @@ namespace LLVMJIT
 			
 			auto zeroAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(0)));
 			auto i32MaxAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(INT32_MAX)));
-			likelyFalseBranchWeights = llvm::MDTuple::getDistinct(context,{llvm::MDString::get(context,"branch_weights"),zeroAsMetadata,i32MaxAsMetadata});
-			likelyTrueBranchWeights = llvm::MDTuple::getDistinct(context,{llvm::MDString::get(context,"branch_weights"),i32MaxAsMetadata,zeroAsMetadata});
+			likelyFalseBranchWeights = llvm::MDTuple::getDistinct(*llvmContext,{llvm::MDString::get(*llvmContext,"branch_weights"),zeroAsMetadata,i32MaxAsMetadata});
+			likelyTrueBranchWeights = llvm::MDTuple::getDistinct(*llvmContext,{llvm::MDString::get(*llvmContext,"branch_weights"),i32MaxAsMetadata,zeroAsMetadata});
 
-			fpRoundingModeMetadata = llvm::MetadataAsValue::get(context,llvm::MDString::get(context,"round.tonearest"));
-			fpExceptionMetadata = llvm::MetadataAsValue::get(context,llvm::MDString::get(context,"fpexcept.strict"));
+			fpRoundingModeMetadata = llvm::MetadataAsValue::get(*llvmContext,llvm::MDString::get(*llvmContext,"round.tonearest"));
+			fpExceptionMetadata = llvm::MetadataAsValue::get(*llvmContext,llvm::MDString::get(*llvmContext,"fpexcept.strict"));
 
 			#ifdef _WIN32
 				tryPrologueDummyFunction = nullptr;
@@ -150,7 +150,7 @@ namespace LLVMJIT
 		, functionType(inModule.types[inFunctionDef.type.index])
 		, functionInstance(inFunctionInstance)
 		, llvmFunction(inLLVMFunction)
-		, irBuilder(context)
+		, irBuilder(*llvmContext)
 		, localEscapeBlock(nullptr)
 		{}
 
@@ -396,8 +396,8 @@ namespace LLVMJIT
 		// A helper function to emit a conditional call to a non-returning intrinsic function.
 		void emitConditionalTrapIntrinsic(llvm::Value* booleanCondition,const char* intrinsicName,const FunctionType* intrinsicType,const std::initializer_list<llvm::Value*>& args)
 		{
-			auto trueBlock = llvm::BasicBlock::Create(context,llvm::Twine(intrinsicName) + "Trap",llvmFunction);
-			auto endBlock = llvm::BasicBlock::Create(context,llvm::Twine(intrinsicName) + "Skip",llvmFunction);
+			auto trueBlock = llvm::BasicBlock::Create(*llvmContext,llvm::Twine(intrinsicName) + "Trap",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(*llvmContext,llvm::Twine(intrinsicName) + "Skip",llvmFunction);
 
 			irBuilder.CreateCondBr(booleanCondition,trueBlock,endBlock,moduleContext.likelyFalseBranchWeights);
 
@@ -461,7 +461,7 @@ namespace LLVMJIT
 		void block(ControlStructureImm imm)
 		{
 			// Create an end block+phi for the block result.
-			auto endBlock = llvm::BasicBlock::Create(context,"blockEnd",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(*llvmContext,"blockEnd",llvmFunction);
 			auto endPHI = createPHI(endBlock,imm.resultType);
 
 			// Push a control context that ends at the end block/phi.
@@ -473,8 +473,8 @@ namespace LLVMJIT
 		void loop(ControlStructureImm imm)
 		{
 			// Create a loop block, and an end block+phi for the loop result.
-			auto loopBodyBlock = llvm::BasicBlock::Create(context,"loopBody",llvmFunction);
-			auto endBlock = llvm::BasicBlock::Create(context,"loopEnd",llvmFunction);
+			auto loopBodyBlock = llvm::BasicBlock::Create(*llvmContext,"loopBody",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(*llvmContext,"loopEnd",llvmFunction);
 			auto endPHI = createPHI(endBlock,imm.resultType);
 			
 			// Branch to the loop body and switch the IR builder to emit there.
@@ -490,9 +490,9 @@ namespace LLVMJIT
 		void if_(ControlStructureImm imm)
 		{
 			// Create a then block and else block for the if, and an end block+phi for the if result.
-			auto thenBlock = llvm::BasicBlock::Create(context,"ifThen",llvmFunction);
-			auto elseBlock = llvm::BasicBlock::Create(context,"ifElse",llvmFunction);
-			auto endBlock = llvm::BasicBlock::Create(context,"ifElseEnd",llvmFunction);
+			auto thenBlock = llvm::BasicBlock::Create(*llvmContext,"ifThen",llvmFunction);
+			auto elseBlock = llvm::BasicBlock::Create(*llvmContext,"ifElse",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(*llvmContext,"ifElseEnd",llvmFunction);
 			auto endPHI = createPHI(endBlock,imm.resultType);
 
 			// Pop the if condition from the operand stack.
@@ -608,7 +608,7 @@ namespace LLVMJIT
 			}
 
 			// Create a new basic block for the case where the branch is not taken.
-			auto falseBlock = llvm::BasicBlock::Create(context,"br_ifElse",llvmFunction);
+			auto falseBlock = llvm::BasicBlock::Create(*llvmContext,"br_ifElse",llvmFunction);
 
 			// Emit a conditional branch to either the falseBlock or the target block.
 			irBuilder.CreateCondBr(coerceI32ToBool(condition),target.block,falseBlock);
@@ -768,7 +768,7 @@ namespace LLVMJIT
 			// Zero extend the function index to the pointer size.
 			auto functionIndexZExt = irBuilder.CreateZExt(tableElementIndex,sizeof(Uptr) == 4 ? llvmI32Type : llvmI64Type);
 
-			auto tableElementType = llvm::StructType::get(context,{
+			auto tableElementType = llvm::StructType::get(*llvmContext,{
 				llvmI8PtrType,
 				llvmI8PtrType
 				});
@@ -990,8 +990,8 @@ namespace LLVMJIT
 			// division would overflow a signed integer. To avoid this case, we just branch around the srem if the INT_MAX%-1 case
 			// that overflows is detected.
 			auto preOverflowBlock = irBuilder.GetInsertBlock();
-			auto noOverflowBlock = llvm::BasicBlock::Create(context,"sremNoOverflow",llvmFunction);
-			auto endBlock = llvm::BasicBlock::Create(context,"sremEnd",llvmFunction);
+			auto noOverflowBlock = llvm::BasicBlock::Create(*llvmContext,"sremNoOverflow",llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(*llvmContext,"sremEnd",llvmFunction);
 			auto noOverflow = irBuilder.CreateOr(
 				irBuilder.CreateICmpNE(left,type == ValueType::i32 ? emitLiteral((U32)INT32_MIN) : emitLiteral((U64)INT64_MIN)),
 				irBuilder.CreateICmpNE(right,type == ValueType::i32 ? emitLiteral((U32)-1) : emitLiteral((U64)-1))
@@ -1133,10 +1133,10 @@ namespace LLVMJIT
 		template<typename Float>
 		llvm::Value* emitTruncFloatToInt(ValueType destType,bool isSigned,Float minBounds,Float maxBounds,llvm::Value* operand)
 		{
-			auto nanBlock = llvm::BasicBlock::Create(context,"FPToInt_nan",llvmFunction);
-			auto notNaNBlock = llvm::BasicBlock::Create(context,"FPToInt_notNaN",llvmFunction);
-			auto overflowBlock = llvm::BasicBlock::Create(context,"FPToInt_overflow",llvmFunction);
-			auto noOverflowBlock = llvm::BasicBlock::Create(context,"FPToInt_noOverflow",llvmFunction);
+			auto nanBlock = llvm::BasicBlock::Create(*llvmContext,"FPToInt_nan",llvmFunction);
+			auto notNaNBlock = llvm::BasicBlock::Create(*llvmContext,"FPToInt_notNaN",llvmFunction);
+			auto overflowBlock = llvm::BasicBlock::Create(*llvmContext,"FPToInt_overflow",llvmFunction);
+			auto noOverflowBlock = llvm::BasicBlock::Create(*llvmContext,"FPToInt_noOverflow",llvmFunction);
 
 			auto isNaN = irBuilder.CreateFCmpUNO(operand,operand);
 			irBuilder.CreateCondBr(isNaN,nanBlock,notNaNBlock,moduleContext.likelyFalseBranchWeights);
@@ -1728,7 +1728,7 @@ namespace LLVMJIT
 			{
 				TryContext& tryContext = tryStack.back();
 
-				auto returnBlock = llvm::BasicBlock::Create(context,"invokeReturn",llvmFunction);
+				auto returnBlock = llvm::BasicBlock::Create(*llvmContext,"invokeReturn",llvmFunction);
 				auto invoke = irBuilder.CreateInvoke(callee,returnBlock,tryContext.unwindToBlock,args);
 				invoke->setCallingConv(callingConv);
 				irBuilder.SetInsertPoint(returnBlock);
@@ -1789,11 +1789,11 @@ namespace LLVMJIT
 
 			void try_(ControlStructureImm imm)
 			{
-				auto catchSwitchBlock = llvm::BasicBlock::Create(context,"catchSwitch",llvmFunction);
+				auto catchSwitchBlock = llvm::BasicBlock::Create(*llvmContext,"catchSwitch",llvmFunction);
 				auto originalInsertBlock = irBuilder.GetInsertBlock();
 				irBuilder.SetInsertPoint(catchSwitchBlock);
 				auto catchSwitchInst = irBuilder.CreateCatchSwitch(
-					llvm::ConstantTokenNone::get(context),
+					llvm::ConstantTokenNone::get(*llvmContext),
 					nullptr,
 					1
 					);
@@ -1802,7 +1802,7 @@ namespace LLVMJIT
 				catchStack.push_back(CatchContext {catchSwitchInst,nullptr});
 
 				// Create an end try+phi for the try result.
-				auto endBlock = llvm::BasicBlock::Create(context,"tryEnd",llvmFunction);
+				auto endBlock = llvm::BasicBlock::Create(*llvmContext,"tryEnd",llvmFunction);
 				auto endPHI = createPHI(endBlock,imm.resultType);
 
 				// Push a control context that ends at the end block/phi.
@@ -1821,8 +1821,8 @@ namespace LLVMJIT
 						"__try_prologue",
 						moduleContext.llvmModule
 						);
-					auto entryBasicBlock = llvm::BasicBlock::Create(context,"entry",moduleContext.tryPrologueDummyFunction);
-					llvm::IRBuilder<> dummyIRBuilder(context);
+					auto entryBasicBlock = llvm::BasicBlock::Create(*llvmContext,"entry",moduleContext.tryPrologueDummyFunction);
+					llvm::IRBuilder<> dummyIRBuilder(*llvmContext);
 					dummyIRBuilder.SetInsertPoint(entryBasicBlock);
 					dummyIRBuilder.CreateRetVoid();
 				}
@@ -1836,7 +1836,7 @@ namespace LLVMJIT
 			{
 				// Insert an alloca for the exception point at the beginning of the function, and add it as a localescape.
 				llvm::BasicBlock* savedInsertBlock = irBuilder.GetInsertBlock();
-				if(!localEscapeBlock) { localEscapeBlock = llvm::BasicBlock::Create(context,"alloca",llvmFunction); }
+				if(!localEscapeBlock) { localEscapeBlock = llvm::BasicBlock::Create(*llvmContext,"alloca",llvmFunction); }
 				irBuilder.SetInsertPoint(localEscapeBlock);
 				const Uptr exceptionDataLocalEscapeIndex = pendingLocalEscapes.size();
 				outExceptionDataAlloca = irBuilder.CreateAlloca(llvmI8PtrType);
@@ -1846,7 +1846,7 @@ namespace LLVMJIT
 				// Create a SEH filter function that decides whether to handle an exception.
 				llvm::FunctionType* filterFunctionType = llvm::FunctionType::get(llvmI32Type,{llvmI8PtrType,llvmI8PtrType},false);
 				auto filterFunction = llvm::Function::Create(filterFunctionType,llvm::GlobalValue::LinkageTypes::InternalLinkage,"sehFilter",moduleContext.llvmModule);
-				auto filterEntryBasicBlock = llvm::BasicBlock::Create(context,"entry",filterFunction);
+				auto filterEntryBasicBlock = llvm::BasicBlock::Create(*llvmContext,"entry",filterFunction);
 				auto argIt = filterFunction->arg_begin();
 				llvm::IRBuilder<> filterIRBuilder(filterEntryBasicBlock);
 
@@ -1874,8 +1874,8 @@ namespace LLVMJIT
 
 				// Check if the exception code is SEH_WAVM_EXCEPTION
 				// If it does not match, return 0 from the filter function.
-				auto nonWebAssemblyExceptionBlock = llvm::BasicBlock::Create(context,"nonWebAssemblyException",filterFunction);
-				auto exceptionTypeCheckBlock = llvm::BasicBlock::Create(context,"exceptionTypeCheck",filterFunction);
+				auto nonWebAssemblyExceptionBlock = llvm::BasicBlock::Create(*llvmContext,"nonWebAssemblyException",filterFunction);
+				auto exceptionTypeCheckBlock = llvm::BasicBlock::Create(*llvmContext,"exceptionTypeCheck",filterFunction);
 				auto exceptionCode = filterIRBuilder.CreateLoad(filterIRBuilder.CreateInBoundsGEP(
 					exceptionRecordPointer,
 					{emitLiteral(0),emitLiteral(0)}));
@@ -1941,13 +1941,13 @@ namespace LLVMJIT
 				auto filterFunction = createSEHFilterFunction(catchTypeInstance,exceptionDataAlloca);
 
 				// Create a block+catchpad that the catchswitch will transfer control to if the filter function returns 1.
-				auto catchPadBlock = llvm::BasicBlock::Create(context,"catchPad",llvmFunction);
+				auto catchPadBlock = llvm::BasicBlock::Create(*llvmContext,"catchPad",llvmFunction);
 				catchContext.catchSwitchInst->addHandler(catchPadBlock);
 				irBuilder.SetInsertPoint(catchPadBlock);
 				auto catchPadInst = irBuilder.CreateCatchPad(catchContext.catchSwitchInst,{filterFunction});
 
 				// Create a catchret that immediately returns from the catch "funclet" to a new non-funclet basic block.
-				auto catchBlock = llvm::BasicBlock::Create(context,"catch",llvmFunction);
+				auto catchBlock = llvm::BasicBlock::Create(*llvmContext,"catch",llvmFunction);
 				irBuilder.CreateCatchRet(catchPadInst,catchBlock);
 				irBuilder.SetInsertPoint(catchBlock);
 
@@ -1987,13 +1987,13 @@ namespace LLVMJIT
 				auto filterFunction = createSEHFilterFunction(nullptr,exceptionDataAlloca);
 
 				// Create a block+catchpad that the catchswitch will transfer control to if the filter function returns 1.
-				auto catchPadBlock = llvm::BasicBlock::Create(context,"catchPad",llvmFunction);
+				auto catchPadBlock = llvm::BasicBlock::Create(*llvmContext,"catchPad",llvmFunction);
 				catchContext.catchSwitchInst->addHandler(catchPadBlock);
 				irBuilder.SetInsertPoint(catchPadBlock);
 				auto catchPadInst = irBuilder.CreateCatchPad(catchContext.catchSwitchInst,{filterFunction});
 
 				// Create a catchret that immediately returns from the catch "funclet" to a new non-funclet basic block.
-				auto catchBlock = llvm::BasicBlock::Create(context,"catch",llvmFunction);
+				auto catchBlock = llvm::BasicBlock::Create(*llvmContext,"catch",llvmFunction);
 				irBuilder.CreateCatchRet(catchPadInst,catchBlock);
 				irBuilder.SetInsertPoint(catchBlock);
 
@@ -2006,11 +2006,11 @@ namespace LLVMJIT
 		#else
 			void try_(ControlStructureImm imm)
 			{
-				auto landingPadBlock = llvm::BasicBlock::Create(context,"landingPad",llvmFunction);
+				auto landingPadBlock = llvm::BasicBlock::Create(*llvmContext,"landingPad",llvmFunction);
 				auto originalInsertBlock = irBuilder.GetInsertBlock();
 				irBuilder.SetInsertPoint(landingPadBlock);
 				auto landingPadInst = irBuilder.CreateLandingPad(
-					llvm::StructType::get(context,{llvmI8PtrType,llvmI32Type}),
+					llvm::StructType::get(*llvmContext,{llvmI8PtrType,llvmI32Type}),
 					1
 					);
 				auto exceptionPointer = loadFromUntypedPointer(
@@ -2035,7 +2035,7 @@ namespace LLVMJIT
 				landingPadInst->addClause(platformExceptionTypeInfo);
 
 				// Create an end try+phi for the try result.
-				auto endBlock = llvm::BasicBlock::Create(context,"tryEnd",llvmFunction);
+				auto endBlock = llvm::BasicBlock::Create(*llvmContext,"tryEnd",llvmFunction);
 				auto endPHI = createPHI(endBlock,imm.resultType);
 
 				// Push a control context that ends at the end block/phi.
@@ -2071,8 +2071,8 @@ namespace LLVMJIT
 					catchContext.exceptionTypeInstance,
 					emitLiteral(reinterpret_cast<Uptr>(catchTypeInstance)));
 
-				auto catchBlock = llvm::BasicBlock::Create(context,"catch",llvmFunction);
-				auto unhandledBlock = llvm::BasicBlock::Create(context,"unhandled",llvmFunction);
+				auto catchBlock = llvm::BasicBlock::Create(*llvmContext,"catch",llvmFunction);
+				auto unhandledBlock = llvm::BasicBlock::Create(*llvmContext,"unhandled",llvmFunction);
 				irBuilder.CreateCondBr(isExceptionType,catchBlock,unhandledBlock);
 				catchContext.nextHandlerBlock = unhandledBlock;
 				irBuilder.SetInsertPoint(catchBlock);
@@ -2120,8 +2120,8 @@ namespace LLVMJIT
 						llvmI8Type),
 					llvm::ConstantInt::get(llvmI8Type,llvm::APInt(8,0,false)));
 
-				auto catchBlock = llvm::BasicBlock::Create(context,"catch",llvmFunction);
-				auto unhandledBlock = llvm::BasicBlock::Create(context,"unhandled",llvmFunction);
+				auto catchBlock = llvm::BasicBlock::Create(*llvmContext,"catch",llvmFunction);
+				auto unhandledBlock = llvm::BasicBlock::Create(*llvmContext,"unhandled",llvmFunction);
 				irBuilder.CreateCondBr(isUserExceptionType,catchBlock,unhandledBlock);
 				catchContext.nextHandlerBlock = unhandledBlock;
 				irBuilder.SetInsertPoint(catchBlock);
@@ -2256,13 +2256,13 @@ namespace LLVMJIT
 		llvmFunction->setSubprogram(diFunction);
 
 		// Create the return basic block, and push the root control context for the function.
-		auto returnBlock = llvm::BasicBlock::Create(context,"return",llvmFunction);
+		auto returnBlock = llvm::BasicBlock::Create(*llvmContext,"return",llvmFunction);
 		auto returnPHI = createPHI(returnBlock,functionType->ret);
 		pushControlStack(ControlContext::Type::function,functionType->ret,returnBlock,returnPHI);
 		pushBranchTarget(functionType->ret,returnBlock,returnPHI);
 
 		// Create an initial basic block for the function.
-		auto entryBasicBlock = llvm::BasicBlock::Create(context,"entry",llvmFunction);
+		auto entryBasicBlock = llvm::BasicBlock::Create(*llvmContext,"entry",llvmFunction);
 		irBuilder.SetInsertPoint(entryBasicBlock);
 
 		// Create and initialize allocas for the memory and table base parameters.
@@ -2312,7 +2312,7 @@ namespace LLVMJIT
 		Uptr opIndex = 0;
 		while(decoder && controlStack.size())
 		{
-			irBuilder.SetCurrentDebugLocation(llvm::DILocation::get(context,(unsigned int)opIndex++,0,diFunction));
+			irBuilder.SetCurrentDebugLocation(llvm::DILocation::get(*llvmContext,(unsigned int)opIndex++,0,diFunction));
 			if(ENABLE_LOGGING)
 			{
 				logOperator(decoder.decodeOpWithoutConsume(operatorPrinter));
