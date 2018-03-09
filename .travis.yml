@@ -14,6 +14,8 @@ script: ./travis-build.sh
 os:
  - linux
  - osx
+ 
+osx_image: xcode9.3beta
 
 matrix:
   exclude:
