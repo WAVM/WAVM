@@ -874,7 +874,7 @@ namespace LLVMJIT
 			llvm::Value* globalPointer = irBuilder.CreatePointerCast(
 				irBuilder.CreateInBoundsGEP(
 					irBuilder.CreateLoad(contextPointerVariable),
-					{ emitLiteral(U64(offsetof(ContextRuntimeData,globalData)) + global->mutableDataOffset) }),
+					{ emitLiteral(Uptr(offsetof(ContextRuntimeData,globalData) + global->mutableDataOffset)) }),
 				llvmValueType->getPointerTo());
 			auto value = irBuilder.CreateBitCast(pop(),llvmValueType);
 			irBuilder.CreateStore(value,globalPointer);
@@ -2021,7 +2021,7 @@ namespace LLVMJIT
 				auto exceptionTypeInstance = loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(
 							exceptionPointer,
-							{emitLiteral(offsetof(ExceptionData,typeInstance))}),
+							{emitLiteral(Uptr(offsetof(ExceptionData,typeInstance)))}),
 						llvmI64Type);
 
 				irBuilder.SetInsertPoint(originalInsertBlock);
@@ -2116,7 +2116,7 @@ namespace LLVMJIT
 					loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(
 							catchContext.exceptionPointer,
-							{emitLiteral(offsetof(ExceptionData,isUserException))}),
+							{emitLiteral(Uptr(offsetof(ExceptionData,isUserException)))}),
 						llvmI8Type),
 					llvm::ConstantInt::get(llvmI8Type,llvm::APInt(8,0,false)));
 
