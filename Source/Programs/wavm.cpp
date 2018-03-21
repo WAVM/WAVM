@@ -113,6 +113,8 @@ static int run(const char* filename,const char* functionName,bool onlyCheck,char
 	module.featureSpec.importExportMutableGlobals = true;
 	module.featureSpec.launchThread = true;
 	module.featureSpec.sharedTables = true;
+	// Allow atomics on unshared memories to accomodate atomics on the Emscripten memory.
+	module.featureSpec.requireSharedFlagForAtomicOperators = false;
 
 	// Load the module.
 	if(!loadModule(filename,module)) { return EXIT_FAILURE; }

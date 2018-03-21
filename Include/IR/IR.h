@@ -28,6 +28,6 @@ namespace IR
 		// WAVM-specific extensions
 		bool launchThread = false;
 		bool sharedTables = false;
-		bool requireSharedFlagForAtomicOperators = false; // (true is standard)
+		bool requireSharedFlagForAtomicOperators = true; // (true is standard)
 	};
 }
