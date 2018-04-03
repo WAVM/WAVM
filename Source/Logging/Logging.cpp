@@ -31,11 +31,21 @@ namespace Log
 		Platform::Lock lock(categoryEnabledMutex);
 		if(categoryEnabled[(Uptr)category])
 		{
-			va_list varArgs;
-			va_start(varArgs,format);
-			vfprintf(stdout,format,varArgs);
+			va_list argList;
+			va_start(argList,format);
+			vfprintf(stdout,format,argList);
 			fflush(stdout);
-			va_end(varArgs);
+			va_end(argList);
+		}
+	}
+
+	void vprintf(Category category,const char* format,va_list argList)
+	{
+		Platform::Lock lock(categoryEnabledMutex);
+		if(categoryEnabled[(Uptr)category])
+		{
+			vfprintf(stdout,format,argList);
+			fflush(stdout);
 		}
 	}
 }

@@ -16,18 +16,6 @@
 using namespace IR;
 using namespace Runtime;
 
-void showHelp()
-{
-	std::cerr << "Usage: wavm [switches] [programfile] [--] [arguments]" << std::endl;
-	std::cerr << "  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)" << std::endl;
-	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main" << std::endl;
-	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
-	std::cerr << "  -d|--debug\t\t\tWrite additional debug information to stdout" << std::endl;
-	std::cerr << "  --disable-emscripten\t\tDisable Emscripten intrinsics" << std::endl;
-	std::cerr << "  --enable-thread-test\t\tEnable ThreadTest intrinsics" << std::endl;
-	std::cerr << "  --\t\t\t\tStop parsing arguments" << std::endl;
-}
-
 struct RootResolver : Resolver
 {
 	Compartment* compartment;
@@ -268,6 +256,18 @@ static int run(const CommandLineOptions& options)
 	}
 	else if(functionResult.type == ResultType::i32) { return functionResult.i32; }
 	else { return EXIT_SUCCESS; }
+}
+
+void showHelp()
+{
+	std::cerr << "Usage: wavm [switches] [programfile] [--] [arguments]" << std::endl;
+	std::cerr << "  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)" << std::endl;
+	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main" << std::endl;
+	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
+	std::cerr << "  -d|--debug\t\t\tWrite additional debug information to stdout" << std::endl;
+	std::cerr << "  --disable-emscripten\t\tDisable Emscripten intrinsics" << std::endl;
+	std::cerr << "  --enable-thread-test\t\tEnable ThreadTest intrinsics" << std::endl;
+	std::cerr << "  --\t\t\t\tStop parsing arguments" << std::endl;
 }
 
 int main(int argc,char** argv)

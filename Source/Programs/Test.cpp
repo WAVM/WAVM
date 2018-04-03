@@ -38,7 +38,7 @@ struct TestScriptState
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
 	{
-		moduleNameToInstanceMap["spectest"] = Intrinsics::instantiateModule(compartment,spectest);
+		moduleNameToInstanceMap["spectest"] = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(spectest));
 		moduleNameToInstanceMap["threadTest"] = ThreadTest::instantiate(compartment);
 	}
 };

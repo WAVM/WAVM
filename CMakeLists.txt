@@ -116,6 +116,7 @@ add_subdirectory(Source/Programs)
 
 add_subdirectory(Source/WASM)
 add_subdirectory(Source/WAST)
+add_subdirectory(Source/Wavix)
 
 if(ENABLE_RUNTIME)
 	add_subdirectory(Source/Emscripten)

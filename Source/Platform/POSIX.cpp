@@ -3,9 +3,12 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Platform/Platform.h"
+#include "Logging/Logging.h"
 
 #include <atomic>
+#include <errno.h>
 #include <exception>
+#include <fcntl.h>
 #include <limits.h>
 #include <memory>
 #include <pthread.h>
@@ -14,6 +17,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -787,6 +792,111 @@ namespace Platform
 	void signalEvent(Event* event)
 	{
 		errorUnless(!pthread_cond_signal(&event->conditionVariable));
+	}
+	
+	// Instead of just reinterpreting the file descriptor as a pointer, use
+	// -fd - 1, which maps fd=0 to a non-null value, and fd=-1 to null.
+	I32 filePtrToIndex(File* ptr)
+	{
+		return I32(-reinterpret_cast<Iptr>(ptr) - 1);
+	}
+
+	File* fileIndexToPtr(int index)
+	{
+		return reinterpret_cast<File*>(-Iptr(index) - 1);
+	}
+
+	File* openFile(const std::string& pathName, FileAccessMode accessMode, FileCreateMode createMode)
+	{
+		U32 flags = 0;
+		mode_t mode = 0;
+		switch(accessMode)
+		{
+		case FileAccessMode::readOnly: flags = O_RDONLY; break;
+		case FileAccessMode::writeOnly: flags = O_WRONLY; break;
+		case FileAccessMode::readWrite: flags = O_RDWR; break;
+		default: Errors::unreachable();
+		};
+
+		switch(createMode)
+		{
+		case FileCreateMode::createAlways: flags |= O_CREAT | O_TRUNC; break;
+		case FileCreateMode::createNew: flags |= O_CREAT | O_EXCL; break;
+		case FileCreateMode::openAlways: flags |= O_CREAT; break;
+		case FileCreateMode::openExisting: break;
+		case FileCreateMode::truncateExisting: flags |= O_TRUNC; break;
+		default: Errors::unreachable();
+		};
+
+		switch(createMode)
+		{
+		case FileCreateMode::createAlways:
+		case FileCreateMode::createNew:
+		case FileCreateMode::openAlways: mode = S_IRWXU; break;
+		default: break;
+		};
+
+		const I32 result = open(pathName.c_str(), flags, mode);
+		return fileIndexToPtr(result);
+	}
+
+	bool closeFile(File* file)
+	{
+		return close(filePtrToIndex(file)) == 0;
+	}
+
+	File* getStdFile(StdDevice device)
+	{
+		switch(device)
+		{
+		case StdDevice::in: return fileIndexToPtr(0);
+		case StdDevice::out: return fileIndexToPtr(1);
+		case StdDevice::err: return fileIndexToPtr(2);
+		default: Errors::unreachable();
+		};
+	}
+
+	bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64& outAbsoluteOffset)
+	{
+		I32 whence = 0;
+		switch(origin)
+		{
+		case FileSeekOrigin::begin: whence = SEEK_SET; break;
+		case FileSeekOrigin::cur: whence = SEEK_CUR; break;
+		case FileSeekOrigin::end: whence = SEEK_END; break;
+		default: Errors::unreachable();
+		};
+
+		I64 result = lseek64(filePtrToIndex(file), offset, whence);
+		outAbsoluteOffset = U64(result);
+		return result != -1;
+	}
+
+	bool readFile(File* file, U8* outData,Uptr numBytes,Uptr& outNumBytesRead)
+	{
+		ssize_t result = read(filePtrToIndex(file),outData,numBytes);
+		outNumBytesRead = result;
+		return result == Iptr(numBytes);
+	}
+
+	bool writeFile(File* file,const U8* data,Uptr numBytes,Uptr& outNumBytesWritten)
+	{
+		ssize_t result = write(filePtrToIndex(file),data,numBytes);
+		outNumBytesWritten = result;
+		return result == Iptr(numBytes);
+	}
+
+	bool flushFileWrites(File* file)
+	{
+		return fsync(filePtrToIndex(file)) == 0;
+	}
+
+	std::string getCurrentWorkingDirectory()
+	{
+		const Uptr maxPathBytes = pathconf(".", _PC_PATH_MAX);
+		char* buffer = (char*)alloca(maxPathBytes);
+		errorUnless(getcwd(buffer,maxPathBytes) == buffer);
+		return std::string(buffer);
 	}
 }
 

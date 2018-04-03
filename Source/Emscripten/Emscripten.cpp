@@ -414,9 +414,9 @@ namespace Emscripten
 	EMSCRIPTEN_API Instance* instantiate(Compartment* compartment)
 	{
 		Instance* instance = new Instance;
-		instance->env = Intrinsics::instantiateModule(compartment,env);
-		instance->asm2wasm = Intrinsics::instantiateModule(compartment,asm2wasm);
-		instance->global = Intrinsics::instantiateModule(compartment,global);
+		instance->env = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(env));
+		instance->asm2wasm = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(asm2wasm));
+		instance->global = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(global));
 
 		MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(
 			emscriptenMemory.getInstance(instance->env),

@@ -188,6 +188,6 @@ namespace Runtime
 	Runtime::ModuleInstance* instantiateWAVMIntrinsics(Compartment* compartment)
 	{
 		dummyReferenceAtomics();
-		return Intrinsics::instantiateModule(compartment,wavmIntrinsics);
+		return Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(wavmIntrinsics));
 	}
 }

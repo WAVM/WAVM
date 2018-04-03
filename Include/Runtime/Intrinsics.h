@@ -128,56 +128,62 @@ namespace NativeTypes
 #define SET_INTRINSIC_RESULT_v128(value) V128 result = value; *(V128*)contextRuntimeData = result;
 #define SET_INTRINSIC_RESULT_none(value) value;
 
-#define DEFINE_INTRINSIC_MODULE(cName) \
-	Intrinsics::Module cName;
+#define DEFINE_INTRINSIC_MODULE(name) \
+	Intrinsics::Module& getIntrinsicModule_##name() \
+	{ \
+		static Intrinsics::Module module; \
+		return module; \
+	}
 
-#define DECLARE_INTRINSIC_MODULE(cName) \
-	extern Intrinsics::Module cName;
+#define DECLARE_INTRINSIC_MODULE(name) \
+	extern Intrinsics::Module& getIntrinsicModule_##name();
+
+#define INTRINSIC_MODULE_REF(name) getIntrinsicModule_##name()
 
 // Macros for defining intrinsic functions of various arities.
 #define DEFINE_INTRINSIC_FUNCTION0(module,cName,name,returnType) \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData*); \
-	static Intrinsics::Function cName##Intrinsic(module,#name,IR::FunctionType::get(IR::ResultType::returnType),(void*)&cName); \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),#name,IR::FunctionType::get(IR::ResultType::returnType),(void*)&cName); \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData* contextRuntimeData)
 
 #define DEFINE_INTRINSIC_FUNCTION1(module,cName,name,returnType,arg0Type,arg0Name) \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData*,NativeTypes::arg0Type); \
-	static Intrinsics::Function cName##Intrinsic(module,#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type}),(void*)&cName); \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type}),(void*)&cName); \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData* contextRuntimeData,NativeTypes::arg0Type arg0Name)
 
 #define DEFINE_INTRINSIC_FUNCTION2(module,cName,name,returnType,arg0Type,arg0Name,arg1Type,arg1Name) \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData*,NativeTypes::arg0Type,NativeTypes::arg1Type); \
-	static Intrinsics::Function cName##Intrinsic(module,#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type}),(void*)&cName); \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type}),(void*)&cName); \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData* contextRuntimeData,NativeTypes::arg0Type arg0Name,NativeTypes::arg1Type arg1Name)
 
 #define DEFINE_INTRINSIC_FUNCTION3(module,cName,name,returnType,arg0Type,arg0Name,arg1Type,arg1Name,arg2Type,arg2Name) \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData*,NativeTypes::arg0Type,NativeTypes::arg1Type,NativeTypes::arg2Type); \
-	static Intrinsics::Function cName##Intrinsic(module,#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type}),(void*)&cName); \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type}),(void*)&cName); \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData* contextRuntimeData,NativeTypes::arg0Type arg0Name,NativeTypes::arg1Type arg1Name,NativeTypes::arg2Type arg2Name)
 
 #define DEFINE_INTRINSIC_FUNCTION4(module,cName,name,returnType,arg0Type,arg0Name,arg1Type,arg1Name,arg2Type,arg2Name,arg3Type,arg3Name) \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData*,NativeTypes::arg0Type,NativeTypes::arg1Type,NativeTypes::arg2Type,NativeTypes::arg3Type); \
-	static Intrinsics::Function cName##Intrinsic(module,#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type,IR::ValueType::arg3Type}),(void*)&cName); \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type,IR::ValueType::arg3Type}),(void*)&cName); \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData* contextRuntimeData,NativeTypes::arg0Type arg0Name,NativeTypes::arg1Type arg1Name,NativeTypes::arg2Type arg2Name,NativeTypes::arg3Type arg3Name)
 
 #define DEFINE_INTRINSIC_FUNCTION5(module,cName,name,returnType,arg0Type,arg0Name,arg1Type,arg1Name,arg2Type,arg2Name,arg3Type,arg3Name,arg4Type,arg4Name) \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData*,NativeTypes::arg0Type,NativeTypes::arg1Type,NativeTypes::arg2Type,NativeTypes::arg3Type,NativeTypes::arg4Type); \
-	static Intrinsics::Function cName##Intrinsic(module,#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type,IR::ValueType::arg3Type,IR::ValueType::arg4Type}),(void*)&cName); \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type,IR::ValueType::arg3Type,IR::ValueType::arg4Type}),(void*)&cName); \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData* contextRuntimeData,NativeTypes::arg0Type arg0Name,NativeTypes::arg1Type arg1Name,NativeTypes::arg2Type arg2Name,NativeTypes::arg3Type arg3Name,NativeTypes::arg4Type arg4Name)
 
 #define DEFINE_INTRINSIC_FUNCTION6(module,cName,name,returnType,arg0Type,arg0Name,arg1Type,arg1Name,arg2Type,arg2Name,arg3Type,arg3Name,arg4Type,arg4Name,arg5Type,arg5Name) \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData*,NativeTypes::arg0Type,NativeTypes::arg1Type,NativeTypes::arg2Type,NativeTypes::arg3Type,NativeTypes::arg4Type,NativeTypes::arg5Type); \
-	static Intrinsics::Function cName##Intrinsic(module,#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type,IR::ValueType::arg3Type,IR::ValueType::arg4Type,IR::ValueType::arg5Type}),(void*)&cName); \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type,IR::ValueType::arg3Type,IR::ValueType::arg4Type,IR::ValueType::arg5Type}),(void*)&cName); \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData* contextRuntimeData,NativeTypes::arg0Type arg0Name,NativeTypes::arg1Type arg1Name,NativeTypes::arg2Type arg2Name,NativeTypes::arg3Type arg3Name,NativeTypes::arg4Type arg4Name,NativeTypes::arg5Type arg5Name)
 
 #define DEFINE_INTRINSIC_FUNCTION7(module,cName,name,returnType,arg0Type,arg0Name,arg1Type,arg1Name,arg2Type,arg2Name,arg3Type,arg3Name,arg4Type,arg4Name,arg5Type,arg5Name,arg6Type,arg6Name) \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData*,NativeTypes::arg0Type,NativeTypes::arg1Type,NativeTypes::arg2Type,NativeTypes::arg3Type,NativeTypes::arg4Type,NativeTypes::arg5Type,NativeTypes::arg6Type); \
-	static Intrinsics::Function cName##Intrinsic(module,#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type,IR::ValueType::arg3Type,IR::ValueType::arg4Type,IR::ValueType::arg5Type,IR::ValueType::arg6Type}),(void*)&cName); \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),#name,IR::FunctionType::get(IR::ResultType::returnType,{IR::ValueType::arg0Type,IR::ValueType::arg1Type,IR::ValueType::arg2Type,IR::ValueType::arg3Type,IR::ValueType::arg4Type,IR::ValueType::arg5Type,IR::ValueType::arg6Type}),(void*)&cName); \
 	NativeTypes::returnType cName(Runtime::ContextRuntimeData* contextRuntimeData,NativeTypes::arg0Type arg0Name,NativeTypes::arg1Type arg1Name,NativeTypes::arg2Type arg2Name,NativeTypes::arg3Type arg3Name,NativeTypes::arg4Type arg4Name,NativeTypes::arg5Type arg5Name,NativeTypes::arg6Type arg6Name)
 
 // Macros for defining intrinsic globals, memories, and tables.
 #define DEFINE_INTRINSIC_GLOBAL(module,cName,name,valueType,initializer) \
-	static Intrinsics::GenericGlobal<IR::ValueType::valueType> cName(module,#name,initializer);
+	static Intrinsics::GenericGlobal<IR::ValueType::valueType> cName(getIntrinsicModule_##module(),#name,initializer);
 
-#define DEFINE_INTRINSIC_MEMORY(module,cName,name,type) static Intrinsics::Memory cName(module,#name,type);
-#define DEFINE_INTRINSIC_TABLE(module,cName,name,type) static Intrinsics::Table cName(module,#name,type);
+#define DEFINE_INTRINSIC_MEMORY(module,cName,name,type) static Intrinsics::Memory cName(getIntrinsicModule_##module(),#name,type);
+#define DEFINE_INTRINSIC_TABLE(module,cName,name,type) static Intrinsics::Table cName(getIntrinsicModule_##module(),#name,type);

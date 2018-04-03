@@ -131,6 +131,28 @@ namespace Unicode
 		else { return false; }
 	}
 
+	inline bool decodeUTF16CodePoint(const U16*& nextChar16,const U16* endChar16,U32& outCodePoint)
+	{
+		// Decode a UTF-16 byte sequence to a Unicode codepoint.
+		if(nextChar16[0] < 0xd800)
+		{
+			outCodePoint = nextChar16[0];
+			++nextChar16;
+			return true;
+		}
+		else if(nextChar16[0] <= 0xdbff)
+		{
+			if(nextChar16[1] >= 0xdc00 && nextChar16[1] <= 0xdfff)
+			{
+				outCodePoint = ((nextChar16[0] - 0xd800) << 10) + (nextChar16[1] - 0xdc00) + 0x10000;
+				nextChar16 += 2;
+				return true;
+			}
+			else { return false; }
+		}
+		else { return false; }
+	}
+
 	inline const U8* validateUTF8String(const U8* nextChar,const U8* endChar)
 	{
 		U32 codePoint;
@@ -160,6 +182,17 @@ namespace Unicode
 		while(nextChar != endChar && decodeUTF8CodePoint(nextChar,endChar,codePoint))
 		{
 			encodeUTF16CodePoint(codePoint,outString);
+		};
+		return nextChar;
+	}
+
+	template<typename String>
+	const U16* transcodeUTF16ToUTF8(const U16* nextChar,const U16* endChar,String& outString)
+	{
+		U32 codePoint;
+		while(nextChar != endChar && decodeUTF16CodePoint(nextChar,endChar,codePoint))
+		{
+			encodeUTF8CodePoint(codePoint,outString);
 		};
 		return nextChar;
 	}

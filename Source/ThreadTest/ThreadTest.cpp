@@ -148,7 +148,8 @@ namespace ThreadTest
 		return thread->id;
 	}
 	static Intrinsics::Function createThreadIntrinsic(
-		threadTest, "createThread", IR::FunctionType::get(IR::ResultType::i64,{IR::ValueType::i32,IR::ValueType::i32}),
+		INTRINSIC_MODULE_REF(threadTest), "createThread",
+		IR::FunctionType::get(IR::ResultType::i64,{IR::ValueType::i32,IR::ValueType::i32}),
 		(void*)&createThread, Runtime::CallingConvention::intrinsicWithDefaultTableAndMemory);
 
 	static Runtime::ContextRuntimeData* forkThread(Runtime::ContextRuntimeData* contextRuntimeData)
@@ -191,7 +192,8 @@ namespace ThreadTest
 		return contextRuntimeData;
 	}
 	static Intrinsics::Function forkThreadIntrinsic(
-		threadTest, "forkThread", IR::FunctionType::get(IR::ResultType::i64), (void*)&forkThread,
+		INTRINSIC_MODULE_REF(threadTest), "forkThread",
+		IR::FunctionType::get(IR::ResultType::i64), (void*)&forkThread,
 		Runtime::CallingConvention::intrinsicWithContextSwitch);
 
 	DEFINE_INTRINSIC_FUNCTION1(threadTest,exitThread,exitThread,none,i64,code)
@@ -234,6 +236,6 @@ namespace ThreadTest
 
 	ModuleInstance* instantiate(Compartment* compartment)
 	{
-		return Intrinsics::instantiateModule(compartment,threadTest);
+		return Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(threadTest));
 	}
 }
