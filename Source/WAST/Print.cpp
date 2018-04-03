@@ -6,7 +6,7 @@
 #include "IR/Operators.h"
 #include "Logging/Logging.h"
 
-#include <set>
+#include <unordered_set>
 
 using namespace IR;
 using namespace Serialization;
@@ -158,7 +158,7 @@ namespace WAST
 	private:
 
 		char sigil;
-		std::set<std::string> nameSet;
+		std::unordered_set<std::string> nameSet;
 	};
 
 	struct ModulePrintContext
