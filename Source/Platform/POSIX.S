@@ -118,7 +118,7 @@ forkedStackTrampolineExit:
 	   in switchToForkedStackContext as a return from that function. Load it and return 1. */
 	movq %rsp, %rdi
 	movq %rax, %rsi
-	jmp C_NAME(loadExecutionState)
+	jmp C_NAME_PLT(loadExecutionState)
 END_FUNC(forkedStackTrampoline)
 
 // extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,U8* trampolineFramePointer) noexcept(false);
@@ -142,7 +142,7 @@ BEGIN_FUNC(switchToForkedStackContext)
 	/* Load the forked context. */
 	movq (%rsp), %rdi
 	movq $1, %rsi
-	jmp C_NAME(loadExecutionState)
+	jmp C_NAME_PLT(loadExecutionState)
 
 END_FUNC(switchToForkedStackContext)
 
