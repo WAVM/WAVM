@@ -114,8 +114,10 @@ BEGIN_FUNC(forkedStackTrampoline,simple)
 	nop
 	nop
 forkedStackTrampolineExit:
-	/* Upon return to the trampoline, rsp points to an ExecutionContext that was set up
-	   in switchToForkedStackContext as a return from that function. Load it and return 1. */
+	/* Upon return to the trampoline, rsp points to an ExecutionContext that
+	   was set up in switchToForkedStackContext to return to that function's
+	   caller. Load it, passing through the value returned to this trampoline
+	   as the return value. */
 	movq %rsp, %rdi
 	movq %rax, %rsi
 	jmp C_NAME_PLT(loadExecutionState)
