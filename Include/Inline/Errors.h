@@ -4,12 +4,15 @@
 #include <assert.h>
 #include <cstdio>
 #include <cstdlib>
+#include <mutex>
 
 namespace Errors
 {
 	// Fatal error handling.
 	[[noreturn]] inline void fatalf(const char* messageFormat,...)
 	{
+		static std::mutex mutex;
+		std::lock_guard<std::mutex> lock(mutex);
 		va_list varArgs;
 		va_start(varArgs,messageFormat);
 		std::vfprintf(stderr,messageFormat,varArgs);
