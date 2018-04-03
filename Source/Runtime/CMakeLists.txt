@@ -20,7 +20,7 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Runtime/Runtime.h)
 include_directories(${WAVM_INCLUDE_DIR}/Runtime)
 
-add_library(Runtime SHARED ${Sources} ${PublicHeaders})
+WAVM_ADD_LIBRARY(Runtime ${Sources} ${PublicHeaders})
 
 # Find an installed build of LLVM
 find_package(LLVM 6.0 REQUIRED CONFIG)

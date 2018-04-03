@@ -98,6 +98,10 @@ endif()
 
 option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 
+function(WAVM_ADD_LIBRARY TARGET_NAME)
+	add_library(${TARGET_NAME} SHARED ${ARGN})
+endfunction(WAVM_ADD_LIBRARY)
+
 add_subdirectory(Include/Inline)
 
 add_subdirectory(Source/IR)

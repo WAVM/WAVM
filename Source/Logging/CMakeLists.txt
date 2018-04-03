@@ -6,7 +6,7 @@ include_directories(${WAVM_INCLUDE_DIR}/Logging)
 
 add_definitions(-DLOGGING_API=DLL_EXPORT)
 
-add_library(Logging SHARED ${Sources} ${PublicHeaders})
+WAVM_ADD_LIBRARY(Logging ${Sources} ${PublicHeaders})
 target_link_libraries(Logging Platform)
 
 # Link with dl on Linux for dladdr.
