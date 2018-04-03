@@ -33,7 +33,7 @@ namespace Unicode
 		}
 	}
 
-	bool decodeUTF8CodePoint(const U8*& nextChar,const U8* endChar,U32& outCodePoint)
+	inline bool decodeUTF8CodePoint(const U8*& nextChar,const U8* endChar,U32& outCodePoint)
 	{
 		// Decode a UTF-8 byte sequence to a Unicode codepoint.
 		// The valid ranges are taken from table 3-7 in the Unicode Standard 9.0:
@@ -131,7 +131,7 @@ namespace Unicode
 		else { return false; }
 	}
 
-	const U8* validateUTF8String(const U8* nextChar,const U8* endChar)
+	inline const U8* validateUTF8String(const U8* nextChar,const U8* endChar)
 	{
 		U32 codePoint;
 		while(nextChar != endChar && decodeUTF8CodePoint(nextChar,endChar,codePoint)) {};
