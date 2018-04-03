@@ -77,7 +77,7 @@ BEGIN_FUNC(saveExecutionState)
 	/* Save the non-volatile registers and the RIP/RSP of the caller.  */
 	movq (%rsp), %rdx
 	lea 8(%rsp), %rcx
-	jmp C_NAME(saveExecutionStateImpl)
+	jmp C_NAME_PLT(saveExecutionStateImpl)
 END_FUNC(saveExecutionState)
 
 BEGIN_FUNC(loadExecutionState)
