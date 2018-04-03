@@ -1,13 +1,16 @@
 #pragma once
 
 #include "Inline/BasicTypes.h"
-#include "Runtime.h"
+#include "Runtime/Intrinsics.h"
+#include "Runtime/Runtime.h"
 
 #include <functional>
 #include <map>
 #include <atomic>
 
 namespace Intrinsics { struct Module; }
+
+namespace Runtime { enum class CallingConvention; }
 
 namespace LLVMJIT
 {
@@ -21,13 +24,18 @@ namespace LLVMJIT
 	void instantiateModule(const IR::Module& module,Runtime::ModuleInstance* moduleInstance);
 	bool describeInstructionPointer(Uptr ip,std::string& outDescription);
 	
-	typedef void (*InvokeFunctionPointer)(void*,void*,V128*);
+	typedef Runtime::ContextRuntimeData* (*InvokeFunctionPointer)(void*,Runtime::ContextRuntimeData*);
 
 	// Generates an invoke thunk for a specific function type.
-	InvokeFunctionPointer getInvokeThunk(const IR::FunctionType* functionType);
+	InvokeFunctionPointer getInvokeThunk(
+		const IR::FunctionType* functionType,
+		Runtime::CallingConvention callingConvention);
 
 	// Generates a thunk to call a native function from generated code.
-	void* getIntrinsicThunk(void* nativeFunction,const IR::FunctionType* functionType);
+	void* getIntrinsicThunk(
+		void* nativeFunction,
+		const IR::FunctionType* functionType,
+		Runtime::CallingConvention callingConvention);
 }
 
 namespace Runtime
@@ -51,17 +59,20 @@ namespace Runtime
 		ModuleInstance* moduleInstance;
 		const FunctionType* type;
 		void* nativeFunction;
+		CallingConvention callingConvention;
 		std::string debugName;
 
 		FunctionInstance(
 			ModuleInstance* inModuleInstance,
 			const FunctionType* inType,
 			void* inNativeFunction = nullptr,
+			CallingConvention inCallingConvention = CallingConvention::wasm,
 			const char* inDebugName = "<unidentified FunctionInstance>")
 		: ObjectImpl(ObjectKind::function)
 		, moduleInstance(inModuleInstance)
 		, type(inType)
 		, nativeFunction(inNativeFunction)
+		, callingConvention(inCallingConvention)
 		, debugName(inDebugName)
 		{}
 	};
@@ -215,9 +226,17 @@ namespace Runtime
 		, runtimeData(nullptr)
 		{}
 
-		~Context() override;
+		virtual void finalize() override;
 	};
-	
+
+	#define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
+	enum { maxThunkArgAndReturnBytes = 128 };
+	enum { maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes };
+	enum { maxMemories = 255 };
+	enum { maxTables = 256 };
+	enum { compartmentRuntimeDataAlignmentLog2 = 32 };
+	enum { contextRuntimeDataAlignment = 4096 };
+
 	struct Compartment : ObjectImpl
 	{
 		Platform::Mutex* mutex;
@@ -232,21 +251,17 @@ namespace Runtime
 		std::vector<TableInstance*> tables;
 		std::vector<Context*> contexts;
 
+		U8 initialContextGlobalData[maxGlobalBytes];
+
 		ModuleInstance* wavmIntrinsics;
 
 		Compartment();
 		~Compartment() override;
 	};
 
-	#define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
-	enum { maxGlobalBytes = 4096 };
-	enum { maxMemories = 255 };
-	enum { maxTables = 256 };
-	enum { compartmentRuntimeDataAlignmentLog2 = 32 };
-	enum { contextRuntimeDataAlignment = 4096 };
-
 	struct ContextRuntimeData
 	{
+		U8 thunkArgAndReturnData[maxThunkArgAndReturnBytes];
 		U8 globalData[maxGlobalBytes];
 	};
 
@@ -269,29 +284,7 @@ namespace Runtime
 		return reinterpret_cast<CompartmentRuntimeData*>(reinterpret_cast<Uptr>(contextRuntimeData) & 0xffffffff00000000);
 	}
 
-	inline Context* getContextFromRuntimeData(ContextRuntimeData* contextRuntimeData)
-	{
-		const CompartmentRuntimeData* compartmentRuntimeData = getCompartmentRuntimeData(contextRuntimeData);
-		const Uptr contextId = contextRuntimeData - compartmentRuntimeData->contexts;
-		Platform::Lock compartmentLock(compartmentRuntimeData->compartment->mutex);
-		return compartmentRuntimeData->compartment->contexts[contextId];
-	}
-
-	inline MemoryInstance* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData,Uptr memoryId)
-	{
-		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-		Platform::Lock compartmentLock(compartment->mutex);
-		return compartment->memories[memoryId];
-	}
-
-	inline TableInstance* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData,Uptr tableId)
-	{
-		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-		Platform::Lock compartmentLock(compartment->mutex);
-		return compartment->tables[tableId];
-	}
-
-	extern Intrinsics::Module* wavmIntrinsics;
+	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
 
 	// Initializes global state used by the WAVM intrinsics.
 	Runtime::ModuleInstance* instantiateWAVMIntrinsics(Compartment* compartment);

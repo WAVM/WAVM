@@ -69,8 +69,6 @@ namespace IR
 		U8 laneIndices[numLanes];
 	};
 
-	struct LaunchThreadImm {};
-	
 	template<Uptr naturalAlignmentLog2>
 	struct AtomicLoadOrStoreImm
 	{
@@ -137,7 +135,7 @@ namespace IR
         REPLACELANE(S,V) : (V,S) -> V
 		COMPAREEXCHANGE(T) : (i32,T,T) -> T
 		WAIT(T) : (i32,T,f64) -> i32
-		LAUNCHTHREAD : (i32,i32,i32) -> ()
+		LAUNCHTHREAD : (i32,i32) -> ()
 		ATOMICRMW : (i32,T) -> T
 	*/
 
@@ -498,7 +496,6 @@ namespace IR
 		visitOp(ATOMICOP(0x00),atomic_wake,"atomic.wake",AtomicLoadOrStoreImm<2>,BINARY(i32,i32),atomics) \
 		visitOp(ATOMICOP(0x01),i32_atomic_wait,"i32.atomic.wait",AtomicLoadOrStoreImm<2>,WAIT(i32),atomics) \
 		visitOp(ATOMICOP(0x02),i64_atomic_wait,"i64.atomic.wait",AtomicLoadOrStoreImm<3>,WAIT(i64),atomics) \
-		visitOp(ATOMICOP(0x03),launch_thread,"launch_thread",LaunchThreadImm,LAUNCHTHREAD,launchThread) \
 		\
 		visitOp(ATOMICOP(0x10),i32_atomic_load,"i32.atomic.load",AtomicLoadOrStoreImm<2>,LOAD(i32),atomics) \
 		visitOp(ATOMICOP(0x11),i64_atomic_load,"i64.atomic.load",AtomicLoadOrStoreImm<3>,LOAD(i64),atomics) \

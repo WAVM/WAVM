@@ -84,7 +84,6 @@ namespace IR
 			}
 			return result;
 		}
-		std::string describeImm(LaunchThreadImm) { return ""; }
 		
 		template<Uptr naturalAlignmentLog2>
 		std::string describeImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)

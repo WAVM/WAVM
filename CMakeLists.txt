@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 2.7.0)
-project (WAVM)
+project (WAVM C CXX ASM)
+
+# Enable MAXOSX_RPATH by default
+cmake_policy(SET CMP0042 NEW)
 
 enable_testing()
 
@@ -82,6 +85,8 @@ else()
 	if(ENABLE_ASAN)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 	endif()
+
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer")
 endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DWAVM_DEBUG=1")
@@ -115,6 +120,7 @@ add_subdirectory(Source/WAST)
 if(ENABLE_RUNTIME)
 	add_subdirectory(Source/Emscripten)
 	add_subdirectory(Source/Runtime)
+	add_subdirectory(Source/ThreadTest)
 	add_subdirectory(Test/spec)
 	add_subdirectory(Test/WAVM)
 endif()

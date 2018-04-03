@@ -6,6 +6,7 @@
 #include "Runtime/Runtime.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Intrinsics.h"
+#include "ThreadTest/ThreadTest.h"
 
 #include "CLI.h"
 
@@ -27,8 +28,6 @@ struct TestScriptState
 	GCPointer<Compartment> compartment;
 	GCPointer<Context> context;
 	
-	GCPointer<ModuleInstance> intrinsicsModule;
-
 	std::map<std::string,GCPointer<ModuleInstance>> moduleInternalNameToInstanceMap;
 	std::map<std::string,GCPointer<ModuleInstance>> moduleNameToInstanceMap;
 	
@@ -39,8 +38,8 @@ struct TestScriptState
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
 	{
-		intrinsicsModule = Intrinsics::instantiateModule(compartment,spectest);
-		moduleNameToInstanceMap["spectest"] = intrinsicsModule;
+		moduleNameToInstanceMap["spectest"] = Intrinsics::instantiateModule(compartment,spectest);
+		moduleNameToInstanceMap["threadTest"] = ThreadTest::instantiate(compartment);
 	}
 };
 
@@ -140,7 +139,7 @@ static bool processAction(TestScriptState& state,Action* action,Result& outResul
 			FunctionInstance* startFunction = getStartFunction(state.lastModuleInstance);
 			if(startFunction)
 			{
-				invokeFunction(state.context,startFunction,{});
+				invokeFunctionChecked(state.context,startFunction,{});
 			}
 		}
 		else
@@ -182,7 +181,7 @@ static bool processAction(TestScriptState& state,Action* action,Result& outResul
 		if(!functionInstance) { testErrorf(state,invokeAction->locus,"couldn't find exported function with name: %s",invokeAction->exportName.c_str()); return false; }
 
 		// Execute the invoke
-		outResult = invokeFunction(state.context,functionInstance,invokeAction->arguments);
+		outResult = invokeFunctionChecked(state.context,functionInstance,invokeAction->arguments);
 
 		return true;
 	}
@@ -388,7 +387,7 @@ void processCommand(TestScriptState& state,const Command* command)
 							FunctionInstance* startFunction = getStartFunction(moduleInstance);
 							if(startFunction)
 							{
-								invokeFunction(state.context,startFunction,{});
+								invokeFunctionChecked(state.context,startFunction,{});
 							}
 
 							testErrorf(state,assertCommand->locus,"module was linkable");
@@ -409,18 +408,18 @@ void processCommand(TestScriptState& state,const Command* command)
 }
 
 DEFINE_INTRINSIC_FUNCTION0(spectest,spectest_print,print,none) {}
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print_i32,none,i32,a) { std::cout << asString(a) << " : i32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print_i64,none,i64,a) { std::cout << asString(a) << " : i64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print_f32,none,f32,a) { std::cout << asString(a) << " : f32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print,print_f64,none,f64,a) { std::cout << asString(a) << " : f64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print_f64_f64,none,f64,a,f64,b) { std::cout << asString(a) << " : f64" << std::endl << asString(a) << " : f64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print_i32_f32,none,i32,a,f32,b) { std::cout << asString(a) << " : i32" << std::endl << asString(a) << " : f32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print,print_i64_f64,none,i64,a,f64,b) { std::cout << asString(a) << " : i64" << std::endl << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print_i32,print_i32,none,i32,a) { std::cout << asString(a) << " : i32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print_i64,print_i64,none,i64,a) { std::cout << asString(a) << " : i64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print_f32,print_f32,none,f32,a) { std::cout << asString(a) << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print_f64,print_f64,none,f64,a) { std::cout << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print_f64_f64,print_f64_f64,none,f64,a,f64,b) { std::cout << asString(a) << " : f64" << std::endl << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print_i32_f32,print_i32_f32,none,i32,a,f32,b) { std::cout << asString(a) << " : i32" << std::endl << asString(a) << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print_i64_f64,print_i64_f64,none,i64,a,f64,b) { std::cout << asString(a) << " : i64" << std::endl << asString(a) << " : f64" << std::endl; }
 
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI32,global_i32,i32,666)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalI64,global_i64,i64,0)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF32,global_f32,f32,0.0f)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_globalF64,global_f64,f64,0.0)
+DEFINE_INTRINSIC_GLOBAL(spectest,spectest_global_i32,global_i32,i32,666)
+DEFINE_INTRINSIC_GLOBAL(spectest,spectest_global_i64,global_i64,i64,0)
+DEFINE_INTRINSIC_GLOBAL(spectest,spectest_global_f32,global_f32,f32,0.0f)
+DEFINE_INTRINSIC_GLOBAL(spectest,spectest_global_f64,global_f64,f64,0.0)
 
 DEFINE_INTRINSIC_TABLE(spectest,spectest_table,table,TableType(TableElementType::anyfunc,false,SizeConstraints {10,20}))
 DEFINE_INTRINSIC_MEMORY(spectest,spectest_memory,memory,MemoryType(false,SizeConstraints {1,2}))
@@ -433,7 +432,13 @@ int main(int argc,char** argv)
 		return EXIT_FAILURE;
 	}
 	const char* filename = argv[1];
-	
+
+	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
+	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception)
+	{
+		Errors::fatalf("Unhandled runtime exception: %s\n",describeException(exception).c_str());
+	});
+
 	// Always enable debug logging for tests.
 	Log::setCategoryEnabled(Log::Category::debug,true);
 
@@ -442,24 +447,29 @@ int main(int argc,char** argv)
 	if(!testScriptString.size()) { return EXIT_FAILURE; }
 
 	// Process the test script.
-	TestScriptState testScriptState;
+	TestScriptState* testScriptState = new TestScriptState();
 	std::vector<std::unique_ptr<Command>> testCommands;
 	
 	// Parse the test script.
-	WAST::parseTestCommands(testScriptString.c_str(),testScriptString.size(),testCommands,testScriptState.errors);
-	if(!testScriptState.errors.size())
+	WAST::parseTestCommands(testScriptString.c_str(),testScriptString.size(),testCommands,testScriptState->errors);
+	if(!testScriptState->errors.size())
 	{
 		// Process the test script commands.
 		for(auto& command : testCommands)
 		{
-			processCommand(testScriptState,command.get());
+			processCommand(*testScriptState,command.get());
 		}
 	}
-	
-	if(testScriptState.errors.size())
+
+	int exitCode = EXIT_SUCCESS;
+	if(!testScriptState->errors.size())
+	{
+		std::cout << filename << ": all tests passed." << std::endl;
+	}
+	else
 	{
 		// Print any errors;
-		for(auto& error : testScriptState.errors)
+		for(auto& error : testScriptState->errors)
 		{
 			std::cerr << filename << ":" << error.locus.describe() << ": " << error.message.c_str() << std::endl;
 			std::cerr << error.locus.sourceLine << std::endl;
@@ -467,11 +477,12 @@ int main(int argc,char** argv)
 		}
 
 		std::cerr << filename << ": testing failed!" << std::endl;
-		return EXIT_FAILURE;
+		exitCode = EXIT_FAILURE;
 	}
-	else
-	{
-		std::cout << filename << ": all tests passed." << std::endl;
-		return EXIT_SUCCESS;
-	}
+
+	delete testScriptState;
+	testCommands.clear();
+	collectGarbage();
+
+	return exitCode;
 }

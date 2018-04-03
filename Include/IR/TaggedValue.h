@@ -18,6 +18,7 @@ namespace Runtime
 			F32 f32;
 			F64 f64;
 			V128 v128;
+			U8 bytes[16];
 		};
 		
 		UntaggedValue(I32 inI32) { i32 = inI32; }

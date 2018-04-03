@@ -303,8 +303,6 @@ static void parseImm(CursorState* cursor,ShuffleImm<numLanes>& outImm)
 	});
 }
 
-static void parseImm(CursorState* cursor,LaunchThreadImm& outImm) {}
-
 template<Uptr naturalAlignmentLog2>
 static void parseImm(CursorState* cursor,AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {

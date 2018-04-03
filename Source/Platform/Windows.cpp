@@ -4,16 +4,68 @@
 #include "Inline/Errors.h"
 #include "Platform.h"
 
+#include <algorithm>
+#include <atomic>
 #include <inttypes.h>
 #include <map>
-#include <algorithm>
+
+#define NOMINMAX
 #include <Windows.h>
 #include <DbgHelp.h>
 
-#undef min
+#define POISON_FORKED_STACK_SELF_POINTERS 0
+
+// An execution context containing all non-volatile registers that will be preserved across calls.
+// The layout is mirrored in Windows.asm, so keep them in sync!
+struct ExecutionContext
+{
+	U64 rip;
+	U16 cs;
+	U64 rflags;
+	U64 rsp;
+	U16 ss;
+
+	U64 r12;
+	U64 r13;
+	U64 r14;
+	U64 r15;
+	U64 rdi;
+	U64 rsi;
+	U64 rbx;
+	U64 rbp;
+
+	__m128 xmm6;
+	__m128 xmm7;
+	__m128 xmm8;
+	__m128 xmm9;
+	__m128 xmm10;
+	__m128 xmm11;
+	__m128 xmm12;
+	__m128 xmm13;
+	__m128 xmm14;
+	__m128 xmm15;
+};
+
+static_assert(offsetof(ExecutionContext,rip)       == 0,"unexpected offset");
+static_assert(offsetof(ExecutionContext,cs)        == 8,"unexpected offset");
+static_assert(offsetof(ExecutionContext,rflags)    == 16,"unexpected offset");
+static_assert(offsetof(ExecutionContext,rsp)       == 24,"unexpected offset");
+static_assert(offsetof(ExecutionContext,ss)        == 32,"unexpected offset");
+static_assert(offsetof(ExecutionContext,r12)       == 40,"unexpected offset");
+static_assert(offsetof(ExecutionContext,rbp)       == 96,"unexpected offset");
+static_assert(offsetof(ExecutionContext,xmm6)      == 112,"unexpected offset");
+static_assert(offsetof(ExecutionContext,xmm15)     == 256,"unexpected offset");
+static_assert(sizeof(ExecutionContext)             == 272,"unexpected size");
+
+extern "C" I64 saveExecutionState(ExecutionContext* outContext,I64 returnCode);
+extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,U8* trampolineFramePointer) noexcept(false);
+extern "C" U8* getStackPointer();
 
 namespace Platform
 {
+	// Defined in WindowsThreads.cpp
+	extern void initThread();
+
 	static Uptr internalGetPreferredVirtualPageSizeLog2()
 	{
 		SYSTEM_INFO systemInfo;
@@ -29,7 +81,7 @@ namespace Platform
 		return preferredVirtualPageSizeLog2;
 	}
 
-	U32 memoryAccessAsWin32Flag(MemoryAccess access)
+	static U32 memoryAccessAsWin32Flag(MemoryAccess access)
 	{
 		switch(access)
 		{
@@ -142,6 +194,24 @@ namespace Platform
 	{
 		typedef BOOL (WINAPI* SymFromAddr)(HANDLE,U64,U64*,SYMBOL_INFO*);
 		SymFromAddr symFromAddr;
+
+		static DbgHelp* get()
+		{
+			static Platform::Mutex* dbgHelpMutex = Platform::createMutex();
+			static DbgHelp* dbgHelp = nullptr;
+			if(!dbgHelp)
+			{
+				Platform::Lock dbgHelpLock(dbgHelpMutex);
+				if(!dbgHelp)
+				{
+					dbgHelp = new DbgHelp();
+				}
+			}
+			return dbgHelp;
+		}
+
+	private:
+
 		DbgHelp()
 		{
 			HMODULE dbgHelpModule = ::LoadLibraryA("Dbghelp.dll");
@@ -159,12 +229,11 @@ namespace Platform
 			}
 		}
 	};
-	DbgHelp* dbgHelp = nullptr;
 
 	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
 	{
 		// Initialize DbgHelp.
-		if(!dbgHelp) { dbgHelp = new DbgHelp(); }
+		DbgHelp* dbgHelp = DbgHelp::get();
 
 		// Allocate up a SYMBOL_INFO struct to receive information about the symbol for this instruction pointer.
 		const Uptr maxSymbolNameChars = 256;
@@ -201,7 +270,7 @@ namespace Platform
 		}
 	#endif
 	
-	CallStack unwindStack(const CONTEXT& immutableContext)
+	static CallStack unwindStack(const CONTEXT& immutableContext)
 	{
 		// Make a mutable copy of the context.
 		CONTEXT context;
@@ -252,7 +321,7 @@ namespace Platform
 		RtlCaptureContext(&context);
 
 		// Unwind the stack.
-		auto result = unwindStack(context);
+		CallStack result = unwindStack(context);
 
 		// Remote the requested number of omitted frames, +1 for this function.
 		const Uptr numOmittedFrames = std::min(result.stackFrames.size(),numOmittedFramesFromTop + 1);
@@ -260,84 +329,119 @@ namespace Platform
 
 		return result;
 	}
-	
-	THREAD_LOCAL bool isReentrantSignal = false;
-	LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointers,SignalType& outType,void*& outSignalData,CallStack*& outCallStack)
+
+	static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers,Signal& outSignal)
 	{
-		if(isReentrantSignal) { Errors::fatal("reentrant exception"); }
+		// Decide how to handle this exception code.
+		switch(exceptionPointers->ExceptionRecord->ExceptionCode)
+		{
+		case EXCEPTION_ACCESS_VIOLATION:
+		{
+			outSignal.type = Signal::Type::accessViolation;
+			outSignal.accessViolation.address = exceptionPointers->ExceptionRecord->ExceptionInformation[1];
+			return true;
+		}
+		case EXCEPTION_STACK_OVERFLOW: outSignal.type = Signal::Type::stackOverflow; return true;
+		case STATUS_INTEGER_DIVIDE_BY_ZERO: outSignal.type = Signal::Type::intDivideByZeroOrOverflow; return true;
+		case STATUS_INTEGER_OVERFLOW: outSignal.type = Signal::Type::intDivideByZeroOrOverflow; return true;
+		default: return false;
+		}
+	}
+	
+	// __try/__except doesn't support locals with destructors in the same function, so this is just the body of the
+	// sehSignalFilterFunction __try pulled out into a function.
+	static LONG CALLBACK sehSignalFilterFunctionNonReentrant(
+		EXCEPTION_POINTERS* exceptionPointers,
+		const std::function<bool(Signal,const CallStack&)>& filter)
+	{
+		Signal signal;
+		if(!translateSEHToSignal(exceptionPointers,signal)) { return EXCEPTION_CONTINUE_SEARCH; }
 		else
 		{
-			// Decide how to handle this exception code.
-			switch(exceptionPointers->ExceptionRecord->ExceptionCode)
-			{
-			case EXCEPTION_ACCESS_VIOLATION:
-			{
-				outType = SignalType::accessViolation;
-				AccessViolationSignalData* accessViolationData = new AccessViolationSignalData;
-				accessViolationData->address = exceptionPointers->ExceptionRecord->ExceptionInformation[1];
-				outSignalData = accessViolationData;
-				break;
-			}
-			case EXCEPTION_STACK_OVERFLOW: outType = SignalType::stackOverflow; break;
-			case STATUS_INTEGER_DIVIDE_BY_ZERO: outType = SignalType::intDivideByZeroOrOverflow; break;
-			case STATUS_INTEGER_OVERFLOW: outType = SignalType::intDivideByZeroOrOverflow; break;
-			default: return EXCEPTION_CONTINUE_SEARCH;
-			}
-			isReentrantSignal = true;
-
 			// Unwind the stack frames from the context of the exception.
-			outCallStack = new CallStack();
-			*outCallStack = unwindStack(*exceptionPointers->ContextRecord);
+			CallStack callStack = unwindStack(*exceptionPointers->ContextRecord);
 
-			return EXCEPTION_EXECUTE_HANDLER;
+			if(filter(signal,callStack)) { return EXCEPTION_EXECUTE_HANDLER; }
+			else { return EXCEPTION_CONTINUE_SEARCH; }
 		}
 	}
 
-	THREAD_LOCAL bool isThreadInitialized = false;
-	void initThread()
+	static LONG CALLBACK sehSignalFilterFunction(
+		EXCEPTION_POINTERS* exceptionPointers,
+		const std::function<bool(Signal,const CallStack&)>& filter)
 	{
-		if(!isThreadInitialized)
-		{
-			isThreadInitialized = true;
-
-			// Ensure that there's enough space left on the stack in the case of a stack overflow to prepare the stack trace.
-			ULONG stackOverflowReserveBytes = 32768;
-			SetThreadStackGuarantee(&stackOverflowReserveBytes);
-		}
+		__try { return sehSignalFilterFunctionNonReentrant(exceptionPointers,filter); }
+		__except(Errors::fatal("reentrant exception"), true) { Errors::unreachable(); }
 	}
-	
+
 	bool catchSignals(
 		const std::function<void()>& thunk,
-		const std::function<void(SignalType,void*,CallStack&&)>& handler
+		const std::function<bool(Signal,const CallStack&)>& filter
 		)
 	{
 		initThread();
 
-		SignalType signalType = SignalType::accessViolation;
-		void* signalData = nullptr;
-		CallStack* callStack = nullptr;
 		__try
 		{
 			thunk();
 			return false;
 		}
-		__except(sehSignalFilterFunction(GetExceptionInformation(),signalType,signalData,callStack))
+		__except(sehSignalFilterFunction(GetExceptionInformation(),filter))
 		{
-			isReentrantSignal = false;
-			
-			handler(signalType,signalData,std::move(*callStack));
-
-			delete callStack;
-			if(signalData) { delete signalData; }
-
 			// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
-			if(signalType == SignalType::stackOverflow) { _resetstkoflw(); }
+			errorUnless(_resetstkoflw());
 
 			return true;
 		}
 	}
 
-	LONG CALLBACK sehPlatformExceptionFilterFunction(EXCEPTION_POINTERS* exceptionPointers,CallStack*& outCallStack,void*& outExceptionData)
+	static std::atomic<SignalHandler> signalHandler;
+
+	// __try/__except doesn't support locals with destructors in the same function, so this is just the body of the
+	// unhandledExceptionFilter __try pulled out into a function.
+	static LONG NTAPI unhandledExceptionFilterNonRentrant(struct _EXCEPTION_POINTERS* exceptionPointers)
+	{
+		Signal signal;
+
+		if(!translateSEHToSignal(exceptionPointers,signal))
+		{
+			if(exceptionPointers->ExceptionRecord->ExceptionCode == SEH_WAVM_EXCEPTION)
+			{
+				signal.type = Signal::Type::unhandledException;
+				signal.unhandledException.data = reinterpret_cast<void*>(
+					exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
+			}
+			else { return EXCEPTION_CONTINUE_SEARCH; }
+		}
+
+		// Unwind the stack frames from the context of the exception.
+		CallStack callStack = unwindStack(*exceptionPointers->ContextRecord);
+
+		(signalHandler.load())(signal,callStack);
+
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
+
+	static LONG NTAPI unhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionPointers)
+	{
+		__try { return unhandledExceptionFilterNonRentrant(exceptionPointers); }
+		__except(Errors::fatal("reentrant exception"), true) { Errors::unreachable(); }
+	}
+
+	void setSignalHandler(SignalHandler handler)
+	{
+		struct UnhandledExceptionFilterRegistrar
+		{
+			UnhandledExceptionFilterRegistrar()
+			{
+				SetUnhandledExceptionFilter(unhandledExceptionFilter);
+			}
+		} unhandledExceptionFilterRegistrar;
+
+		signalHandler.store(handler);
+	}
+
+	static LONG CALLBACK sehPlatformExceptionFilterFunction(EXCEPTION_POINTERS* exceptionPointers,CallStack*& outCallStack,void*& outExceptionData)
 	{
 		if(exceptionPointers->ExceptionRecord->ExceptionCode != SEH_WAVM_EXCEPTION)
 		{
@@ -348,15 +452,14 @@ namespace Platform
 			outExceptionData = reinterpret_cast<void*>(exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
 
 			// Unwind the stack frames from the context of the exception.
-			outCallStack = new CallStack();
-			*outCallStack = unwindStack(*exceptionPointers->ContextRecord);
+			outCallStack = new CallStack(unwindStack(*exceptionPointers->ContextRecord));
 			return EXCEPTION_EXECUTE_HANDLER;
 		}
 	}
 
 	bool catchPlatformExceptions(
 		const std::function<void()>& thunk,
-		const std::function<void(void*,CallStack&&)>& handler
+		const std::function<void(void*,const CallStack&)>& handler
 		)
 	{
 		CallStack* callStack = nullptr;
@@ -368,7 +471,7 @@ namespace Platform
 		}
 		__except(sehPlatformExceptionFilterFunction(GetExceptionInformation(),callStack,exceptionData))
 		{
-			handler(exceptionData,std::move(*callStack));
+			handler(exceptionData,*callStack);
 
 			delete callStack;
 			if(exceptionData) { delete [] (U8*)exceptionData; }
@@ -382,6 +485,273 @@ namespace Platform
 		Uptr arguments[1] = { reinterpret_cast<Uptr>(data) };
 		RaiseException(U32(SEH_WAVM_EXCEPTION),0,1,arguments);
 		Errors::unreachable();
+	}
+
+	struct Mutex
+	{
+		CRITICAL_SECTION criticalSection;
+	};
+
+	struct Thread
+	{
+		HANDLE handle = INVALID_HANDLE_VALUE;
+		DWORD id = 0xffffffff;
+		std::atomic<I32> numRefs = 2;
+		I64 result = -1;
+
+		void releaseRef()
+		{
+			if(--numRefs == 0)
+			{
+				delete this;
+			}
+		}
+
+	private:
+
+		~Thread()
+		{
+			errorUnless(CloseHandle(handle));
+			handle = nullptr;
+			id = 0;
+		}
+	};
+
+	struct ThreadArgs
+	{
+		Thread* thread;
+
+		ThreadArgs(): thread(nullptr) {}
+
+		~ThreadArgs()
+		{
+			if(thread)
+			{
+				thread->releaseRef();
+				thread = nullptr;
+			}
+		}
+	};
+
+	struct CreateThreadArgs : ThreadArgs
+	{
+		I64 (*entry)(void*);
+		void* entryArgument;
+	};
+
+	struct ForkThreadArgs : ThreadArgs
+	{
+		ExecutionContext forkContext;
+		U8* threadEntryFramePointer;
+	};
+
+	struct ExitThreadException
+	{
+		I64 exitCode;
+	};
+
+	static thread_local bool isThreadInitialized = false;
+	static thread_local U8* threadEntryFramePointer = nullptr;
+
+	void initThread()
+	{
+		if(!isThreadInitialized)
+		{
+			isThreadInitialized = true;
+
+			// Ensure that there's enough space left on the stack in the case of a stack overflow to prepare the stack trace.
+			ULONG stackOverflowReserveBytes = 32768;
+			SetThreadStackGuarantee(&stackOverflowReserveBytes);
+		}
+	}
+
+	static DWORD WINAPI createThreadEntry(void* argsVoid)
+	{
+		initThread();
+
+		std::unique_ptr<CreateThreadArgs> args((CreateThreadArgs*)argsVoid);
+
+		try
+		{
+			threadEntryFramePointer = getStackPointer();
+
+			args->thread->result = (*args->entry)(args->entryArgument);
+		}
+		catch(ExitThreadException exception)
+		{
+			args->thread->result = exception.exitCode;
+		}
+
+		return 0;
+	}
+
+	Thread* createThread(Uptr numStackBytes,I64 (*entry)(void*),void* entryArgument)
+	{
+		CreateThreadArgs* args = new CreateThreadArgs;
+		auto thread = new Thread;
+		args->thread = thread;
+		args->entry = entry;
+		args->entryArgument = entryArgument;
+
+		thread->handle = CreateThread(
+			nullptr,
+			numStackBytes,
+			createThreadEntry,
+			args,
+			0,
+			&args->thread->id);
+		return args->thread;
+	}
+
+	void detachThread(Thread* thread)
+	{
+		assert(thread);
+		thread->releaseRef();
+	}
+
+	I64 joinThread(Thread* thread)
+	{
+		errorUnless(WaitForSingleObject(thread->handle,INFINITE) == WAIT_OBJECT_0);
+		const I64 result = thread->result;
+		thread->releaseRef();
+		return result;
+	}
+
+	void exitThread(I64 code)
+	{
+		throw ExitThreadException {code};
+		Errors::unreachable();
+	}
+
+	static DWORD WINAPI forkThreadEntry(void* argsVoid)
+	{
+		std::unique_ptr<ForkThreadArgs> args((ForkThreadArgs*)argsVoid);
+
+		try
+		{
+			threadEntryFramePointer = args->threadEntryFramePointer;
+
+			args->thread->result = switchToForkedStackContext(
+				&args->forkContext,
+				args->threadEntryFramePointer);
+		}
+		catch(ExitThreadException exception)
+		{
+			args->thread->result = exception.exitCode;
+		}
+
+		return 0;
+	}
+
+	Thread* forkCurrentThread()
+	{
+		auto forkThreadArgs = new ForkThreadArgs;
+		auto thread = new Thread;
+		forkThreadArgs->thread = thread;
+
+		if(!threadEntryFramePointer)
+		{
+			Errors::fatal("Cannot fork a thread that wasn't created by Platform::createThread");
+		}
+
+		// Capture the current execution state in forkThreadArgs->forkContext.
+		// The forked thread will load this execution context, and "return" from this function on the forked stack.
+		const I64 isExecutingInFork = saveExecutionState(&forkThreadArgs->forkContext,0);
+		if(isExecutingInFork)
+		{
+			initThread();
+
+			return nullptr;
+		}
+		else
+		{
+			// Compute the address extent of this thread's stack.
+			const U8* minStackAddr;
+			const U8* maxStackAddr;
+			GetCurrentThreadStackLimits(
+				reinterpret_cast<ULONG_PTR*>(&minStackAddr),
+				reinterpret_cast<ULONG_PTR*>(&maxStackAddr));
+			const Uptr numStackBytes = maxStackAddr - minStackAddr;
+
+			// Use the current stack pointer derive a conservative bounds on the area of this thread's stack that is active.
+			const U8* minActiveStackAddr = getStackPointer() - 128;
+			const U8* maxActiveStackAddr = threadEntryFramePointer;
+			const Uptr numActiveStackBytes = maxActiveStackAddr - minActiveStackAddr;
+
+			if(numActiveStackBytes + 65536 + 4096 > numStackBytes)
+			{
+				Errors::fatal("not enough stack space to fork thread");
+			}
+
+			// Create a suspended thread.
+			forkThreadArgs->thread->handle = CreateThread(
+				nullptr,
+				numStackBytes,
+				forkThreadEntry,
+				forkThreadArgs,
+				/*STACK_SIZE_PARAM_IS_A_RESERVATION |*/ CREATE_SUSPENDED,
+				&forkThreadArgs->thread->id);
+
+			// Read the thread's initial stack pointer.
+			CONTEXT* threadContext = new CONTEXT;
+			threadContext->ContextFlags = CONTEXT_FULL;
+			errorUnless(GetThreadContext(forkThreadArgs->thread->handle,threadContext));
+
+			// Query the virtual address range allocated for the thread's stack.
+			auto forkedStackInfo = new MEMORY_BASIC_INFORMATION;
+			errorUnless(VirtualQuery(
+				reinterpret_cast<void*>(threadContext->Rsp),
+				forkedStackInfo,
+				sizeof(MEMORY_BASIC_INFORMATION)
+			) == sizeof(MEMORY_BASIC_INFORMATION));
+			U8* forkedStackMinAddr = reinterpret_cast<U8*>(forkedStackInfo->AllocationBase);
+			U8* forkedStackMaxAddr = reinterpret_cast<U8*>(threadContext->Rsp & -16) - 4096;
+			delete threadContext;
+			delete forkedStackInfo;
+
+			errorUnless(numActiveStackBytes < Uptr(forkedStackMaxAddr - forkedStackMinAddr));
+
+			// Copy the forked stack data.
+			if(POISON_FORKED_STACK_SELF_POINTERS)
+			{
+				const Uptr* source = (const Uptr*)minActiveStackAddr;
+				const Uptr* sourceEnd = (const Uptr*)maxActiveStackAddr;
+				Uptr* dest = (Uptr*)(forkedStackMaxAddr - numActiveStackBytes);
+				assert(!(reinterpret_cast<Uptr>(source) & 7));
+				assert(!(reinterpret_cast<Uptr>(dest) & 7));
+				while(source < sourceEnd)
+				{
+					if(*source >= reinterpret_cast<Uptr>(minStackAddr)
+						&& *source < reinterpret_cast<Uptr>(maxStackAddr))
+					{
+						*dest++ = 0xCCCCCCCCCCCCCCCC;
+						source++;
+					}
+					else
+					{
+						*dest++ = *source++;
+					}
+				};
+			}
+			else
+			{
+				memcpy(forkedStackMaxAddr - numActiveStackBytes,minActiveStackAddr,numActiveStackBytes);
+			}
+
+			// Compute the offset to add to stack pointers to translate them to the forked thread's stack.
+			const Iptr forkedStackOffset = forkedStackMaxAddr - maxActiveStackAddr;
+			assert(!(forkedStackOffset & 15));
+
+			// Translate this thread's captured stack and frame pointers to the forked stack.
+			forkThreadArgs->forkContext.rsp += forkedStackOffset;
+
+			// Translate this thread's entry stack pointer to the forked stack.
+			forkThreadArgs->threadEntryFramePointer = threadEntryFramePointer + forkedStackOffset;
+
+			ResumeThread(forkThreadArgs->thread->handle);
+
+			return forkThreadArgs->thread;
+		}
 	}
 
 	U64 getMonotonicClock()
@@ -398,11 +768,6 @@ namespace Platform
 			: performanceCounter.QuadPart * (wavmFrequency / performanceCounterFrequency.QuadPart);
 	}
 
-	struct Mutex
-	{
-		CRITICAL_SECTION criticalSection;
-	};
-
 	Mutex* createMutex()
 	{
 		auto mutex = new Mutex();
@@ -416,14 +781,19 @@ namespace Platform
 		delete mutex;
 	}
 
-	void lockMutex(Mutex* mutex)
+	Lock::Lock(Mutex* inMutex)
+		: mutex(inMutex)
 	{
 		EnterCriticalSection(&mutex->criticalSection);
 	}
 
-	void unlockMutex(Mutex* mutex)
+	void Lock::unlock()
 	{
-		LeaveCriticalSection(&mutex->criticalSection);
+		if(mutex)
+		{
+			LeaveCriticalSection(&mutex->criticalSection);
+			mutex = nullptr;
+		}
 	}
 
 	Event* createEvent()
@@ -448,7 +818,7 @@ namespace Platform
 				timeoutMilliseconds64 > UINT32_MAX
 				? (UINT32_MAX - 1)
 				: U32(timeoutMilliseconds64);
-		
+
 			const U32 waitResult = WaitForSingleObject(reinterpret_cast<HANDLE>(event),timeoutMilliseconds32);
 			if(waitResult != WAIT_TIMEOUT)
 			{

@@ -311,9 +311,6 @@ namespace WASM
 		}
 	}
 
-	template<typename Stream>
-	void serialize(Stream& stream,LaunchThreadImm& imm,const FunctionDef&) {}
-		
 	template<typename Stream,Uptr naturalAlignmentLog2>
 	void serialize(Stream& stream,AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm,const FunctionDef&)
 	{

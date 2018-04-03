@@ -1,4 +1,5 @@
 set(Sources
+	Atomics.cpp
 	Exception.cpp
 	Intrinsics.cpp
 	Linker.cpp
@@ -12,7 +13,6 @@ set(Sources
 	Runtime.cpp
 	RuntimePrivate.h
 	Table.cpp
-	Threads.cpp
 	WAVMIntrinsics.cpp)
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Runtime/Intrinsics.h

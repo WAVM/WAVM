@@ -3,6 +3,7 @@ set(PublicHeaders
 	DenseStaticIntSet.h
 	Errors.h
 	Floats.h
+	IntrusiveSharedPtr.h
 	Serialization.h
 	Timing.h
 	Unicode.h)

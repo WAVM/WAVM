@@ -4,36 +4,76 @@
 #include "Inline/Errors.h"
 #include "Platform/Platform.h"
 
+#include <atomic>
+#include <exception>
+#include <limits.h>
+#include <memory>
 #include <pthread.h>
-#include <unistd.h>
-#include <sys/mman.h>
-
-#include <errno.h>
-#include <signal.h>
 #include <setjmp.h>
-#include <sys/resource.h>
+#include <signal.h>
 #include <string.h>
-
+#include <sys/mman.h>
+#include <sys/resource.h>
 #include <sys/time.h>
+#include <unistd.h>
 
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
+#ifdef __linux__
+	#include <dlfcn.h>
+	#include <execinfo.h>
+#endif
 
 #ifdef __APPLE__
-    #define MAP_ANONYMOUS MAP_ANON
+	#define MAP_ANONYMOUS MAP_ANON
+	#define UC_RESET_ALT_STACK	0x80000000			
+	extern "C" int __sigreturn(ucontext_t *, int);
 #endif
 
 #ifdef __linux__
-	#include <execinfo.h>
-	#include <dlfcn.h>
+	#define MAP_STACK_FLAGS (MAP_STACK)
+#else
+	#define MAP_STACK_FLAGS 0
 #endif
+
+// This struct layout is replicated in POSIX.S
+struct ExecutionContext
+{
+	U64 rbx;
+	U64 rsp;
+	U64 rbp;
+	U64 r12;
+	U64 r13;
+	U64 r14;
+	U64 r15;
+	U64 rip;
+};
+static_assert(offsetof(ExecutionContext,rbx) == 0,  "unexpected offset");
+static_assert(offsetof(ExecutionContext,rsp) == 8,  "unexpected offset");
+static_assert(offsetof(ExecutionContext,rbp) == 16, "unexpected offset");
+static_assert(offsetof(ExecutionContext,r12) == 24, "unexpected offset");
+static_assert(offsetof(ExecutionContext,r13) == 32, "unexpected offset");
+static_assert(offsetof(ExecutionContext,r14) == 40, "unexpected offset");
+static_assert(offsetof(ExecutionContext,r15) == 48, "unexpected offset");
+static_assert(offsetof(ExecutionContext,rip) == 56, "unexpected offset");
+static_assert(sizeof(ExecutionContext)       == 64, "unexpected size");
 
 extern "C"
 {
+	// C++ ABI exception handling functions
 	extern void* __cxa_allocate_exception(size_t numBytes) throw();
 	extern void __cxa_free_exception(void* exception) throw();
 	extern void __cxa_throw(void* exception,void* exceptionTypeInfo,void (*dest)(void*));
 	extern std::type_info* __cxa_current_exception_type();
+
+	// Defined in POSIX.S
+	extern I64 saveExecutionState(ExecutionContext* outContext,I64 returnCode) noexcept(false);
+	[[noreturn]] extern void loadExecutionState(ExecutionContext* context,I64 returnCode);
+	extern I64 switchToForkedStackContext(ExecutionContext* forkedContext,U8* trampolineFramePointer) noexcept(false);
+	extern U8* getStackPointer();
+
+	const char *__asan_default_options()
+	{
+		return "handle_segv=false:handle_sigbus=false:handle_sigfpe=false:replace_intrin=false";
+	}
 }
 
 namespace Platform
@@ -99,6 +139,7 @@ namespace Platform
 				result + (numPages << pageSizeLog2),
 				alignmentBytes - (alignedAddress - address)));
 
+			outUnalignedBaseAddress = unalignedBaseAddress;
 			return result;
 		}
 		else
@@ -154,97 +195,140 @@ namespace Platform
 		return false;
 	}
 
-	enum { signalStackNumBytes = 65536 };
-	THREAD_LOCAL U8* signalStack = nullptr;
-	THREAD_LOCAL U8* stackMinAddr = nullptr;
-	THREAD_LOCAL U8* stackMaxAddr = nullptr;
-
-	void initThread()
+	void getCurrentThreadStack(U8*& outMinAddr,U8*& outMaxAddr)
 	{
-		if(!signalStack)
-		{
-			// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
-			signalStack = new U8[signalStackNumBytes];
-			stack_t signalStackInfo;
-			signalStackInfo.ss_size = signalStackNumBytes;
-			signalStackInfo.ss_sp = signalStack;
-			signalStackInfo.ss_flags = 0;
-			if(sigaltstack(&signalStackInfo,nullptr) < 0)
-			{
-				Errors::fatal("sigaltstack failed");
-			}
+		// Get the stack address from pthreads, but use getrlimit to find the maximum size of the stack instead of the current.
+		struct rlimit stackLimit;
+		getrlimit(RLIMIT_STACK,&stackLimit);
 
-			// Get the stack address from pthreads, but use getrlimit to find the maximum size of the stack instead of the current.
-			struct rlimit stackLimit;
-			getrlimit(RLIMIT_STACK,&stackLimit);
-			#ifdef __linux__
-				// Linux uses pthread_getattr_np/pthread_attr_getstack, and returns a pointer to the minimum address of the stack.
-				pthread_attr_t threadAttributes;
-				memset(&threadAttributes,0,sizeof(threadAttributes));
-				pthread_getattr_np(pthread_self(),&threadAttributes);
-				Uptr stackSize;
-				pthread_attr_getstack(&threadAttributes,(void**)&stackMinAddr,&stackSize);
-				pthread_attr_destroy(&threadAttributes);
-				stackMaxAddr = stackMinAddr + stackSize;
-				stackMinAddr = stackMaxAddr - stackLimit.rlim_cur;
-			#else
-				// MacOS uses pthread_getstackaddr_np, and returns a pointer to the maximum address of the stack.
-				stackMaxAddr = (U8*)pthread_get_stackaddr_np(pthread_self());
-				stackMinAddr = stackMaxAddr - stackLimit.rlim_cur;
-			#endif
+#ifdef __linux__
+		// Linux uses pthread_getattr_np/pthread_attr_getstack, and returns a pointer to the minimum address of the stack.
+		pthread_attr_t threadAttributes;
+		memset(&threadAttributes,0,sizeof(threadAttributes));
+		pthread_getattr_np(pthread_self(),&threadAttributes);
+		Uptr numStackBytes;
+		pthread_attr_getstack(&threadAttributes,(void**)&outMinAddr,&numStackBytes);
+		pthread_attr_destroy(&threadAttributes);
+		outMaxAddr = outMinAddr + numStackBytes;
+#else
+		// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the stack.
+		outMaxAddr = (U8*)pthread_get_stackaddr_np(pthread_self());
+#endif
 
-			// Include an extra page below the stack's usable address range to distinguish stack overflows from general SIGSEGV.
-			const Uptr pageSize = sysconf(_SC_PAGESIZE);
-			stackMinAddr -= pageSize;
-		}
+		outMinAddr = outMaxAddr - stackLimit.rlim_cur;
 	}
 
 	struct SignalContext
 	{
 		SignalContext* outerContext;
-		jmp_buf returnEnv;
-		SignalType outSignalType;
-		void* outSignalData;
-		CallStack outCallStack;
+		jmp_buf catchJump;
+		std::function<bool(Platform::Signal,const Platform::CallStack&)> filter;
 	};
 
-	THREAD_LOCAL SignalContext* innermostSignalContext = nullptr;
-	THREAD_LOCAL bool isReentrantSignal = false;
 
-	[[noreturn]] void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
+	// Define a unique_ptr to a Platform::Event.
+	struct SigAltStack
 	{
-		if(isReentrantSignal) { Errors::fatal("reentrant signal handler"); }
-		isReentrantSignal = true;
+		enum { numBytes = 65536 };
 
-		// If the signal occurred outside of a catchPlatformExceptions call, just treat it as a fatal error.
-		if(!innermostSignalContext)
+		U8* base = nullptr;
+
+		~SigAltStack()
 		{
-			switch(signalNumber)
+			if(base)
 			{
-			case SIGFPE: Errors::fatalf("unhandled SIGFPE\n");
-			case SIGSEGV: Errors::fatalf("unhandled SIGSEGV\n");
-			case SIGBUS: Errors::fatalf("unhandled SIGBUS\n");
-			default: Errors::unreachable();
-			};
+				// Disable the sig alt stack.
+				// According to the docs, ss_size is ignored if SS_DISABLE is set, but MacOS returns
+				// an ENOMEM error if ss_size is too small regardless of whether SS_DISABLE is set.
+				stack_t disableAltStack;
+				memset(&disableAltStack,0,sizeof(stack_t));
+				disableAltStack.ss_flags = SS_DISABLE;
+				disableAltStack.ss_size = SigAltStack::numBytes;
+				errorUnless(!sigaltstack(&disableAltStack,nullptr));
+
+				// Free the alt stack's memory.
+				errorUnless(!munmap(base,SigAltStack::numBytes));
+				base = nullptr;
+			}
 		}
+
+		void init()
+		{
+			if(!base)
+			{
+				// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
+				base = (U8*)mmap(
+					nullptr,SigAltStack::numBytes,
+					PROT_READ | PROT_WRITE,
+					MAP_PRIVATE | MAP_ANONYMOUS,
+					-1,0);
+				errorUnless(base != MAP_FAILED);
+				stack_t sigAltStackInfo;
+				sigAltStackInfo.ss_size = SigAltStack::numBytes;
+				sigAltStackInfo.ss_sp = base;
+				sigAltStackInfo.ss_flags = 0;
+				errorUnless(!sigaltstack(&sigAltStackInfo,nullptr));
+			}
+		}
+	};
+
+	struct PlatformException
+	{
+		void* data;
+		CallStack callStack;
+	};
+
+	thread_local SigAltStack sigAltStack;
+	thread_local SignalContext* innermostSignalContext = nullptr;
+	static std::atomic<SignalHandler> portableSignalHandler;
+
+	static void deliverSignal(Signal signal,const CallStack& callStack)
+	{
+		// Call the signal handlers, from innermost to outermost, until one returns true.
+		for(SignalContext* signalContext = innermostSignalContext;
+			signalContext;
+			signalContext = signalContext->outerContext)
+		{
+			if(signalContext->filter(signal,callStack))
+			{
+				// Jump back to the execution context that was saved in catchSignals.
+				siglongjmp(signalContext->catchJump,1);
+			}
+		}
+
+		// If the signal wasn't handled by a catchSignals call, call the portable signal handler.
+		SignalHandler portableSignalHandlerSnapshot = portableSignalHandler.load();
+		if(portableSignalHandlerSnapshot)
+		{
+			portableSignalHandlerSnapshot(signal,callStack);
+		}
+	}
+
+	[[noreturn]] static void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
+	{
+		Signal signal;
 
 		// Derive the exception cause the from signal that was received.
 		switch(signalNumber)
 		{
 		case SIGFPE:
 			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Errors::fatal("unknown SIGFPE code"); }
-			innermostSignalContext->outSignalType = SignalType::intDivideByZeroOrOverflow;
+			signal.type = Signal::Type::intDivideByZeroOrOverflow;
 			break;
 		case SIGSEGV:
 		case SIGBUS:
 		{
-			innermostSignalContext->outSignalType
+			// Determine whether the faulting address was an address reserved by the stack.
+			U8* stackMinAddr;
+			U8* stackMaxAddr;
+			getCurrentThreadStack(stackMinAddr,stackMaxAddr);
+			stackMinAddr -= sysconf(_SC_PAGESIZE);
+			signal.type
 				= signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
-					? SignalType::stackOverflow
-					: SignalType::accessViolation;
-			auto accessViolationSignalData = new AccessViolationSignalData;
-			accessViolationSignalData->address = reinterpret_cast<Uptr>(signalInfo->si_addr);
-			innermostSignalContext->outSignalData = accessViolationSignalData;
+					? Signal::Type::stackOverflow
+					: Signal::Type::accessViolation;
+			signal.accessViolation.address
+				= reinterpret_cast<Uptr>(signalInfo->si_addr);
 			break;
 		}
 		default:
@@ -254,24 +338,35 @@ namespace Platform
 
 		// Capture the execution context, omitting this function and the function that called it,
 		// so the top of the callstack is the function that triggered the signal.
-		innermostSignalContext->outCallStack = captureCallStack(2);
+		CallStack callStack = captureCallStack(2);
 
-		// Jump back to the setjmp in catchPlatformExceptions.
-		siglongjmp(innermostSignalContext->returnEnv,1);
+		deliverSignal(signal,callStack);
+
+		switch(signalNumber)
+		{
+		case SIGFPE: Errors::fatalf("unhandled SIGFPE\n");
+		case SIGSEGV: Errors::fatalf("unhandled SIGSEGV\n");
+		case SIGBUS: Errors::fatalf("unhandled SIGBUS\n");
+		default: Errors::unreachable();
+		};
 	}
-
-	THREAD_LOCAL bool hasInitializedSignalHandlers = false;
 
 	void initSignals()
 	{
+		static bool hasInitializedSignalHandlers = false;
 		if(!hasInitializedSignalHandlers)
 		{
 			hasInitializedSignalHandlers = true;
 
-			// Set a signal handler for the signals we want to intercept.
+			// Set up a signal mask for the signals we handle that will disable them inside the handler.
 			struct sigaction signalAction;
-			signalAction.sa_sigaction = signalHandler;
 			sigemptyset(&signalAction.sa_mask);
+			sigaddset(&signalAction.sa_mask,SIGFPE);
+			sigaddset(&signalAction.sa_mask,SIGSEGV);
+			sigaddset(&signalAction.sa_mask,SIGBUS);
+
+			// Set the signal handler for the signals we want to intercept.
+			signalAction.sa_sigaction = signalHandler;
 			signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
 			sigaction(SIGSEGV,&signalAction,nullptr);
 			sigaction(SIGBUS,&signalAction,nullptr);
@@ -281,19 +376,19 @@ namespace Platform
 
 	bool catchSignals(
 		const std::function<void()>& thunk,
-		const std::function<void(SignalType,void*,CallStack&&)>& handler
+		const std::function<bool(Signal,const CallStack&)>& filter
 		)
 	{
-		initThread();
 		initSignals();
+		sigAltStack.init();
 
 		SignalContext signalContext;
 		signalContext.outerContext = innermostSignalContext;
-		signalContext.outSignalData = nullptr;
-		signalContext.outSignalType = SignalType::accessViolation;
+		signalContext.filter = filter;
 
-		// Use setjmp to allow signals to jump back to this point.
-		bool isReturningFromSignalHandler = sigsetjmp(signalContext.returnEnv,1);
+		// Use saveExecutionState to capture the execution state into the signal context. If a signal is raised,
+		// the signal handler will jump back to here.
+		bool isReturningFromSignalHandler = sigsetjmp(signalContext.catchJump,1) != 0;
 		if(!isReturningFromSignalHandler)
 		{
 			innermostSignalContext = &signalContext;
@@ -301,30 +396,50 @@ namespace Platform
 			// Call the thunk.
 			thunk();
 		}
-		else
-		{
-			handler(
-				innermostSignalContext->outSignalType,
-				innermostSignalContext->outSignalData,
-				std::move(innermostSignalContext->outCallStack)
-				);
-		}
-
 		innermostSignalContext = signalContext.outerContext;
-		isReentrantSignal = false;
 
 		return isReturningFromSignalHandler;
+	}
+
+	void terminateHandler()
+	{
+		try
+		{
+			std::rethrow_exception(std::current_exception());
+		}
+		catch(PlatformException exception)
+		{
+			Signal signal;
+			signal.type = Signal::Type::unhandledException;
+			signal.unhandledException.data = exception.data;
+			deliverSignal(signal,exception.callStack);
+			Errors::fatal("Unhandled runtime exception");
+		}
+		catch(...)
+		{
+			Errors::fatal("Unhandled C++ exception");
+		}
+	}
+
+	void setSignalHandler(SignalHandler handler)
+	{
+		initSignals();
+		sigAltStack.init();
+
+		std::set_terminate(terminateHandler);
+
+		portableSignalHandler.store(handler);
 	}
 
 	CallStack captureCallStack(Uptr numOmittedFramesFromTop)
 	{
 		#ifdef __linux__
 			// Unwind the callstack.
-			enum { maxCallStackSize = signalStackNumBytes / sizeof(void*) / 8 };
+			enum { maxCallStackSize = SigAltStack::numBytes / sizeof(void*) / 8 };
 			void* callstackAddresses[maxCallStackSize];
 			auto numCallStackEntries = backtrace(callstackAddresses,maxCallStackSize);
 
-			// Copy the return pointers into the stack frames of the resulting ExecutionContext.
+			// Copy the return pointers into the stack frames of the resulting CallStack.
 			// Skip the first numOmittedFramesFromTop+1 frames, which correspond to this function
 			// and others that the caller would like to omit.
 			CallStack result;
@@ -338,15 +453,9 @@ namespace Platform
 		#endif
 	}
 
-	struct PlatformException
-	{
-		void* data;
-		CallStack callStack;
-	};
-	
 	bool catchPlatformExceptions(
 		const std::function<void()>& thunk,
-		const std::function<void(void*,CallStack&&)>& handler
+		const std::function<void(void*,const CallStack&)>& handler
 		)
 	{
 		try
@@ -356,7 +465,7 @@ namespace Platform
 		}
 		catch(PlatformException exception)
 		{
-			handler(exception.data,std::move(exception.callStack));
+			handler(exception.data,exception.callStack);
 			if(exception.data) { delete [] (U8*)exception.data; }
 			return true;
 		}
@@ -383,7 +492,186 @@ namespace Platform
 	[[noreturn]] void raisePlatformException(void* data)
 	{
 		throw PlatformException {data,captureCallStack(1)};
+		printf("unhandled PlatformException\n");
 		Errors::unreachable();
+	}
+
+	struct Thread
+	{
+		pthread_t id;
+	};
+
+	struct CreateThreadArgs
+	{
+		I64 (*entry)(void*);
+		void* entryArgument;
+	};
+
+	struct ForkThreadArgs
+	{
+		ExecutionContext forkContext;
+		U8* threadEntryFramePointer;
+	};
+
+	struct ExitThreadException
+	{
+		I64 exitCode;
+	};
+
+	static thread_local U8* threadEntryFramePointer = nullptr;
+
+	NO_ASAN static void* createThreadEntry(void* argsVoid)
+	{
+		std::unique_ptr<CreateThreadArgs> args((CreateThreadArgs*)argsVoid);
+		I64 result = 0;
+		try
+		{
+			sigAltStack.init();
+
+			threadEntryFramePointer = getStackPointer();
+
+			result = (*args->entry)(args->entryArgument);
+		}
+		catch(ExitThreadException exception)
+		{
+			result = exception.exitCode;
+		}
+
+		return reinterpret_cast<void*>(result);
+	}
+
+	Thread* createThread(Uptr numStackBytes,I64 (*threadEntry)(void*),void* argument)
+	{
+		auto thread = new Thread;
+		auto createArgs = new CreateThreadArgs;
+		createArgs->entry = threadEntry;
+		createArgs->entryArgument = argument;
+
+		pthread_attr_t threadAttr;
+		errorUnless(!pthread_attr_init(&threadAttr));
+		errorUnless(!pthread_attr_setstacksize(&threadAttr,numStackBytes));
+
+		// Create a new pthread.
+		errorUnless(!pthread_create(&thread->id,&threadAttr,createThreadEntry,createArgs));
+		errorUnless(!pthread_attr_destroy(&threadAttr));
+
+		return thread;
+	}
+
+	void detachThread(Thread* thread)
+	{
+		errorUnless(!pthread_detach(thread->id));
+		delete thread;
+	}
+
+	I64 joinThread(Thread* thread)
+	{
+		void* returnValue = nullptr;
+		errorUnless(!pthread_join(thread->id,&returnValue));
+		delete thread;
+		return reinterpret_cast<I64>(returnValue);
+	}
+
+	void exitThread(I64 argument)
+	{
+		throw ExitThreadException {argument};
+		Errors::unreachable();
+	}
+
+	NO_ASAN static void* forkThreadEntry(void* argsVoid)
+	{
+		std::unique_ptr<ForkThreadArgs> args((ForkThreadArgs*)argsVoid);
+		I64 result = 0;
+		try
+		{
+			threadEntryFramePointer = args->threadEntryFramePointer;
+
+			result = switchToForkedStackContext(
+				&args->forkContext,
+				args->threadEntryFramePointer);
+		}
+		catch(ExitThreadException exception)
+		{
+			result = exception.exitCode;
+		}
+
+		return reinterpret_cast<void*>(result);
+	}
+
+	NO_ASAN Thread* forkCurrentThread()
+	{
+		auto forkThreadArgs = new ForkThreadArgs;
+
+		if(!threadEntryFramePointer)
+		{
+			Errors::fatal("Cannot fork a thread that wasn't created by Platform::createThread");
+		}
+		if(innermostSignalContext)
+		{
+			Errors::fatal("Cannot fork a thread with catchSignals on the stack");
+		}
+
+		// Capture the current execution state in forkThreadArgs->forkContext.
+		// The forked thread will load this execution context, and "return" from this function on the forked stack.
+		const I64 isExecutingInFork = saveExecutionState(&forkThreadArgs->forkContext,0);
+		if(isExecutingInFork)
+		{
+			// Allocate a sigaltstack for the new thread.
+			sigAltStack.init();
+
+			return nullptr;
+		}
+		else
+		{
+			// Compute the address extent of this thread's stack.
+			U8* minStackAddr;
+			U8* maxStackAddr;
+			getCurrentThreadStack(minStackAddr,maxStackAddr);
+			const Uptr numStackBytes = maxStackAddr - minStackAddr;
+
+			// Use the current stack pointer derive a conservative bounds on the area of the stack that is active.
+			const U8* minActiveStackAddr = getStackPointer() - 128;
+			const U8* maxActiveStackAddr = threadEntryFramePointer;
+			const Uptr numActiveStackBytes = maxActiveStackAddr - minActiveStackAddr;
+
+			if(numActiveStackBytes + PTHREAD_STACK_MIN > numStackBytes)
+			{
+				Errors::fatal("not enough stack space to fork thread");
+			}
+
+			// Allocate a stack for the forked thread, and copy this thread's stack to it.
+			U8* forkedMinStackAddr = (U8*)mmap(
+				nullptr, numStackBytes,
+				PROT_READ | PROT_WRITE,
+				MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK_FLAGS,
+				-1, 0);
+			errorUnless(forkedMinStackAddr != MAP_FAILED);
+			U8* forkedMaxStackAddr = forkedMinStackAddr + numStackBytes - PTHREAD_STACK_MIN;
+			memcpy(forkedMaxStackAddr - numActiveStackBytes,minActiveStackAddr,numActiveStackBytes);
+
+			// Compute the offset to add to stack pointers to translate them to the forked thread's stack.
+			const Iptr forkedStackOffset = forkedMaxStackAddr - maxActiveStackAddr;
+
+			// Translate this thread's saved stack pointer to the forked stack.
+			forkThreadArgs->forkContext.rsp += forkedStackOffset;
+
+			// Translate this thread's entry stack pointer to the forked stack.
+			forkThreadArgs->threadEntryFramePointer = threadEntryFramePointer + forkedStackOffset;
+
+			// Create a pthread with a small temp stack that will just load forkThreadArgs->forkContext.m
+			// Allocate the pthread_attr_t on the heap try to avoid the stack cookie check.
+			pthread_attr_t* threadAttr = new pthread_attr_t;
+			errorUnless(!pthread_attr_init(threadAttr));
+			errorUnless(!pthread_attr_setstack(threadAttr,forkedMinStackAddr,numStackBytes));
+
+			auto thread = new Thread;
+			errorUnless(!pthread_create(&thread->id,threadAttr,(void*(*)(void*))forkThreadEntry,forkThreadArgs));
+
+			errorUnless(!pthread_attr_destroy(threadAttr));
+			delete threadAttr;
+
+			return thread;
+		}
 	}
 
 	U64 getMonotonicClock()
@@ -398,7 +686,7 @@ namespace Platform
 			return U64(monotonicClock.tv_sec) * 1000000 + U64(monotonicClock.tv_nsec) / 1000;
 		#endif
 	}
-	
+
 	struct Mutex
 	{
 		pthread_mutex_t pthreadMutex;
@@ -417,14 +705,19 @@ namespace Platform
 		delete mutex;
 	}
 
-	void lockMutex(Mutex* mutex)
+	Lock::Lock(Mutex* inMutex)
+		: mutex(inMutex)
 	{
 		errorUnless(!pthread_mutex_lock(&mutex->pthreadMutex));
 	}
 
-	void unlockMutex(Mutex* mutex)
+	void Lock::unlock()
 	{
-		errorUnless(!pthread_mutex_unlock(&mutex->pthreadMutex));
+		if(mutex)
+		{
+			errorUnless(!pthread_mutex_unlock(&mutex->pthreadMutex));
+			mutex = nullptr;
+		}
 	}
 
 	struct Event
@@ -459,7 +752,7 @@ namespace Platform
 		errorUnless(!pthread_mutex_destroy(&event->mutex));
 		delete event;
 	}
-	
+
 	bool waitForEvent(Event* event,U64 untilTime)
 	{
 		errorUnless(!pthread_mutex_lock(&event->mutex));

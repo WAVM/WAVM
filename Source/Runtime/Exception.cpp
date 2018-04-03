@@ -20,6 +20,7 @@ namespace Runtime
 	const GCPointer<ExceptionTypeInstance> Exception::outOfMemoryType = createExceptionTypeInstance(unitTupleType);
 	const GCPointer<ExceptionTypeInstance> Exception::invalidSegmentOffsetType = createExceptionTypeInstance(unitTupleType);
 	const GCPointer<ExceptionTypeInstance> Exception::misalignedAtomicMemoryAccessType = createExceptionTypeInstance(unitTupleType);
+	const GCPointer<ExceptionTypeInstance> Exception::invalidArgumentType = createExceptionTypeInstance(unitTupleType);
 	
 	// Returns a vector of strings, each element describing a frame of the call stack.
 	// If the frame is a JITed function, use the JIT's information about the function
@@ -61,6 +62,7 @@ namespace Runtime
 		else if(type == Exception::outOfMemoryType) { return "out of memory"; }
 		else if(type == Exception::invalidSegmentOffsetType) { return "invalid segment offset"; }
 		else if(type == Exception::misalignedAtomicMemoryAccessType) { return "misaligned atomic memory access"; }
+		else if(type == Exception::invalidArgumentType) { return "invalid argument"; }
 		else
 		{
 			std::string result = "user exception<" + std::to_string(reinterpret_cast<Uptr>(type)) + ">(";
@@ -110,7 +112,7 @@ namespace Runtime
 	}
 	
 	DEFINE_INTRINSIC_FUNCTION3(
-		wavmIntrinsics,throwException,throwException,none,
+		wavmIntrinsics,throwExceptionIntrinsic,throwException,none,
 		i64,exceptionTypeInstanceBits,
 		i64,argsBits,
 		i32,isUserException)
@@ -125,6 +127,55 @@ namespace Runtime
 		Platform::raisePlatformException(exceptionData);
 	}
 
+	static Exception translateExceptionDataToException(
+		const ExceptionData* exceptionData,
+		const Platform::CallStack& callStack)
+	{
+		ExceptionTypeInstance* runtimeType = exceptionData->typeInstance;
+		std::vector<UntaggedValue> arguments(
+			exceptionData->arguments,
+			exceptionData->arguments + exceptionData->typeInstance->parameters->elements.size());
+		return Exception { runtimeType, std::move(arguments), callStack };
+	}
+
+	static bool translateSignalToRuntimeException(
+		const Platform::Signal& signal,
+		const Platform::CallStack& callStack,
+		Runtime::Exception& outException)
+	{
+		switch(signal.type)
+		{
+		case Platform::Signal::Type::accessViolation:
+		{
+			// If the access violation occured in a Table's reserved pages, treat it as an undefined table element runtime error.
+			if(isAddressOwnedByTable(reinterpret_cast<U8*>(signal.accessViolation.address)))
+			{
+				outException = Exception { Exception::undefinedTableElementType, {}, callStack };
+				return true;
+			}
+			// If the access violation occured in a Memory's reserved pages, treat it as an access violation runtime error.
+			else if(isAddressOwnedByMemory(reinterpret_cast<U8*>(signal.accessViolation.address)))
+			{
+				outException = Exception { Exception::accessViolationType, {}, callStack };
+				return true;
+			}
+			return false;
+		}
+		case Platform::Signal::Type::stackOverflow:
+			outException = Exception { Exception::stackOverflowType, {}, callStack };
+			return true;
+		case Platform::Signal::Type::intDivideByZeroOrOverflow:
+			outException = Exception { Exception::integerDivideByZeroOrIntegerOverflowType, {}, callStack };
+			return true;
+		case Platform::Signal::Type::unhandledException:
+			outException = translateExceptionDataToException(
+				reinterpret_cast<const ExceptionData*>(signal.unhandledException.data),
+				callStack);
+			return true;
+		default: Errors::unreachable();
+		}
+	}
+
 	void catchRuntimeExceptions(
 		const std::function<void()>& thunk,
 		const std::function<void(Exception&&)>& catchThunk
@@ -133,49 +184,54 @@ namespace Runtime
 		// Catch platform exceptions and translate them into C++ exceptions.
 		Result result;
 		Platform::catchPlatformExceptions(
-			[&]
+			[thunk,catchThunk]
 			{
 				Platform::catchSignals(
 					thunk,
-					[&](Platform::SignalType signalType,void* signalData,const Platform::CallStack& callStack)
+					[catchThunk](Platform::Signal signal,const Platform::CallStack& callStack) -> bool
 					{
-						switch(signalType)
+						Exception exception;
+						if(translateSignalToRuntimeException(signal,callStack,exception))
 						{
-						case Platform::SignalType::accessViolation:
-						{
-							auto accessViolationData = (Platform::AccessViolationSignalData*)signalData;
-							// If the access violation occured in a Table's reserved pages, treat it as an undefined table element runtime error.
-							if(isAddressOwnedByTable(reinterpret_cast<U8*>(accessViolationData->address))) { catchThunk(Exception { Exception::undefinedTableElementType, {}, std::move(callStack) }); }
-							// If the access violation occured in a Memory's reserved pages, treat it as an access violation runtime error.
-							else if(isAddressOwnedByMemory(reinterpret_cast<U8*>(accessViolationData->address))) { catchThunk(Exception { Exception::accessViolationType, {}, std::move(callStack) }); }
-							else
-							{
-								// If the access violation occured outside of a Table or Memory, treat it as a bug (possibly a security hole)
-								// rather than a runtime error in the WebAssembly code.
-								std::vector<std::string> callStackDescription = describeCallStack(callStack);
-								Log::printf(Log::Category::error,"Access violation outside of table or memory reserved addresses. Call stack:\n");
-								for(auto calledFunction : callStackDescription) { Log::printf(Log::Category::error,"  %s\n",calledFunction.c_str()); }
-								Errors::fatalf("Unsandboxed access violation!\n");
-							}
-							break;
+							catchThunk(std::move(exception));
+							return true;
 						}
-						case Platform::SignalType::stackOverflow:
-							catchThunk(Exception { Exception::stackOverflowType, {}, std::move(callStack) });
-							break;
-						case Platform::SignalType::intDivideByZeroOrOverflow:
-							catchThunk(Exception { Exception::integerDivideByZeroOrIntegerOverflowType, {}, std::move(callStack) });
-							break;
-						}
+						else { return false; }
 					});
 			},
-			[&](void* exceptionData,Platform::CallStack&& callStack)
+			[catchThunk](void* exceptionData,const Platform::CallStack& callStack)
 			{
-				ExceptionData* runtimeExceptionData = reinterpret_cast<ExceptionData*>(exceptionData);
-				ExceptionTypeInstance* runtimeType = runtimeExceptionData->typeInstance;
-				std::vector<UntaggedValue> arguments(
-					runtimeExceptionData->arguments,
-					runtimeExceptionData->arguments + runtimeExceptionData->typeInstance->parameters->elements.size());
-				catchThunk(Exception { runtimeType, std::move(arguments), std::move(callStack) });
+				catchThunk(translateExceptionDataToException(
+					reinterpret_cast<ExceptionData*>(exceptionData),
+					callStack));
 			});
+	}
+
+	static std::atomic<UnhandledExceptionHandler> unhandledExceptionHandler;
+
+	static bool globalSignalHandler(
+		Platform::Signal signal,
+		const Platform::CallStack& callStack)
+	{
+		Exception exception;
+		if(translateSignalToRuntimeException(signal,callStack,exception))
+		{
+			(unhandledExceptionHandler.load())(std::move(exception));
+			return true;
+		}
+		else { return false; }
+	}
+
+	void setUnhandledExceptionHandler(UnhandledExceptionHandler handler)
+	{
+		struct SignalHandlerRegistrar
+		{
+			SignalHandlerRegistrar()
+			{
+				Platform::setSignalHandler(globalSignalHandler);
+			}
+		} signalHandlerRegistrar;
+
+		unhandledExceptionHandler.store(handler);
 	}
 }

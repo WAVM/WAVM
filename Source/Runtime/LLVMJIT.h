@@ -138,23 +138,235 @@ namespace LLVMJIT
 	}
 
 	// Converts a WebAssembly function type to a LLVM type.
-	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType,bool isIntrinsicFunction)
+	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType,Runtime::CallingConvention callingConvention)
 	{
-		const Uptr numImplicitParameters = 1;
+		const Uptr numImplicitParameters =
+			  callingConvention == CallingConvention::intrinsicWithDefaultTableAndMemory ? 3
+			: callingConvention == CallingConvention::c                                  ? 0
+			:                                                                              1;
 		const Uptr numParameters = numImplicitParameters + functionType->parameters.size();
 		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
-		llvmArgTypes[0] = isIntrinsicFunction
-			? llvmI8PtrType->getPointerTo()
-			: llvmI8PtrType;
+		if(callingConvention == CallingConvention::intrinsicWithDefaultTableAndMemory)
+		{
+			llvmArgTypes[0] = llvmI8PtrType;
+			llvmArgTypes[1] = llvmI64Type;
+			llvmArgTypes[2] = llvmI64Type;
+		}
+		else if(callingConvention != CallingConvention::c)
+		{
+			llvmArgTypes[0] = llvmI8PtrType;
+		}
 		for(Uptr argIndex = 0; argIndex < functionType->parameters.size(); ++argIndex)
 		{
 			llvmArgTypes[argIndex + numImplicitParameters] = asLLVMType(functionType->parameters[argIndex]);
 		}
-		llvm::Type* llvmResultType = isIntrinsicFunction
-			? asLLVMType(functionType->ret)
-			: getLLVMReturnStructType(functionType->ret);
-		return llvm::FunctionType::get(llvmResultType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,numParameters),false);
+
+		llvm::Type* llvmReturnType;
+		switch(callingConvention)
+		{
+		case CallingConvention::wasm:
+			llvmReturnType = getLLVMReturnStructType(functionType->ret);
+			break;
+
+		case CallingConvention::intrinsicWithContextSwitch:
+			llvmReturnType = llvmI8PtrType;
+			break;
+
+		case CallingConvention::intrinsicWithDefaultTableAndMemory:
+		case CallingConvention::intrinsic:
+		case CallingConvention::c:
+			llvmReturnType = asLLVMType(functionType->ret);
+			break;
+
+		default: Errors::unreachable();
+		};
+		return llvm::FunctionType::get(llvmReturnType,llvm::ArrayRef<llvm::Type*>(llvmArgTypes,numParameters),false);
 	}
+
+	inline llvm::CallingConv::ID asLLVMCallingConv(Runtime::CallingConvention callingConvention)
+	{
+		switch(callingConvention)
+		{
+		case CallingConvention::wasm:
+			return llvm::CallingConv::Fast;
+
+		case CallingConvention::intrinsic:
+		case CallingConvention::intrinsicWithContextSwitch:
+		case CallingConvention::intrinsicWithDefaultTableAndMemory:
+		case CallingConvention::c:
+			return llvm::CallingConv::C;
+
+		default: Errors::unreachable();
+		}
+	}
+
+	// Code and state that is used for generating IR for both thunks and WASM functions.
+	struct EmitContext
+	{
+		llvm::IRBuilder<> irBuilder;
+
+		llvm::Value* contextPointerVariable;
+		llvm::Value* memoryBasePointerVariable;
+		llvm::Value* tableBasePointerVariable;
+
+		EmitContext(MemoryInstance* inDefaultMemory,TableInstance* inDefaultTable)
+		: irBuilder(*llvmContext)
+		, contextPointerVariable(nullptr)
+		, memoryBasePointerVariable(nullptr)
+		, tableBasePointerVariable(nullptr)
+		, defaultMemory(inDefaultMemory)
+		, defaultTable(inDefaultTable)
+		{}
+
+		llvm::Value* loadFromUntypedPointer(llvm::Value* pointer,llvm::Type* valueType)
+		{
+			return irBuilder.CreateLoad(irBuilder.CreatePointerCast(pointer,valueType->getPointerTo()));
+		}
+
+		void reloadMemoryAndTableBase()
+		{
+			// Derive the compartment runtime data from the context address by masking off the lower 32 bits.
+			llvm::Value* compartmentAddress = irBuilder.CreateIntToPtr(
+				irBuilder.CreateAnd(
+					irBuilder.CreatePtrToInt(irBuilder.CreateLoad(contextPointerVariable),llvmI64Type),
+					emitLiteral(~((U64(1) << 32) - 1))),
+				llvmI8PtrType);
+
+			// Load the defaultMemoryBase and defaultTableBase values from the runtime data for this module instance.
+
+			if(defaultMemory)
+			{
+				const Uptr defaultMemoryBaseOffset =
+					offsetof(CompartmentRuntimeData,memories)
+					+ sizeof(U8*) * defaultMemory->id;
+				irBuilder.CreateStore(
+					loadFromUntypedPointer(
+						irBuilder.CreateInBoundsGEP(compartmentAddress,{emitLiteral(defaultMemoryBaseOffset)}),
+						llvmI8PtrType),
+					memoryBasePointerVariable);
+			}
+
+			if(defaultTable)
+			{
+				const Uptr defaultTableBaseOffset =
+					offsetof(CompartmentRuntimeData,tables)
+					+ sizeof(TableInstance::FunctionElement*) * defaultTable->id;
+				irBuilder.CreateStore(
+					loadFromUntypedPointer(
+						irBuilder.CreateInBoundsGEP(compartmentAddress,{emitLiteral(defaultTableBaseOffset)}),
+						llvmI8PtrType),
+					tableBasePointerVariable);
+			}
+		}
+
+
+		// Creates either a call or an invoke if the call occurs inside a try.
+		llvm::Value* emitCallOrInvoke(
+			llvm::Value* callee,
+			llvm::ArrayRef<llvm::Value*> args,
+			const FunctionType* calleeType,
+			CallingConvention callingConvention,
+			llvm::BasicBlock* unwindToBlock = nullptr)
+		{
+			llvm::ArrayRef<llvm::Value*> augmentedArgs = args;
+
+			if(callingConvention == CallingConvention::intrinsicWithDefaultTableAndMemory)
+			{
+				// Augment the argument list with the context pointer, and the default memory and table IDs.
+				auto augmentedArgsAlloca = (llvm::Value**)alloca(sizeof(llvm::Value*) * (args.size() + 3));
+				augmentedArgs = llvm::ArrayRef<llvm::Value*>(augmentedArgsAlloca,args.size() + 3);
+				augmentedArgsAlloca[0] = irBuilder.CreateLoad(contextPointerVariable);
+				augmentedArgsAlloca[1] = defaultMemory ? emitLiteral(I64(defaultMemory->id)) : emitLiteral(I64(-1));
+				augmentedArgsAlloca[2] = defaultTable  ? emitLiteral(I64(defaultTable->id))  : emitLiteral(I64(-1));
+				for(Uptr argIndex = 0;argIndex < args.size();++argIndex)
+				{
+					augmentedArgsAlloca[3 + argIndex] = args[argIndex];
+				}
+			}
+			else if(callingConvention != CallingConvention::c)
+			{
+				// Augment the argument list with the context pointer.
+				auto augmentedArgsAlloca = (llvm::Value**)alloca(sizeof(llvm::Value*) * (args.size() + 1));
+				augmentedArgs = llvm::ArrayRef<llvm::Value*>(augmentedArgsAlloca,args.size() + 1);
+				augmentedArgsAlloca[0] = irBuilder.CreateLoad(contextPointerVariable);
+				for(Uptr argIndex = 0;argIndex < args.size();++argIndex)
+				{
+					augmentedArgsAlloca[1 + argIndex] = args[argIndex];
+				}
+			}
+
+			// Call or invoke the callee.
+			llvm::Value* returnValue;
+			if(!unwindToBlock)
+			{
+				auto call = irBuilder.CreateCall(callee,augmentedArgs);
+				call->setCallingConv(asLLVMCallingConv(callingConvention));
+				returnValue = call;
+			}
+			else
+			{
+				auto returnBlock = llvm::BasicBlock::Create(*llvmContext,"invokeReturn",irBuilder.GetInsertBlock()->getParent());
+				auto invoke = irBuilder.CreateInvoke(callee,returnBlock,unwindToBlock,augmentedArgs);
+				invoke->setCallingConv(asLLVMCallingConv(callingConvention));
+				irBuilder.SetInsertPoint(returnBlock);
+				returnValue = invoke;
+			}
+
+			llvm::Value* result = nullptr;
+			switch(callingConvention)
+			{
+			case CallingConvention::wasm:
+			{
+				// Destructure the return value.
+				auto newContextPointer = irBuilder.CreateExtractValue(returnValue,{0});
+				if(calleeType->ret != ResultType::none)
+				{
+					result = irBuilder.CreateExtractValue(returnValue,{1});
+				}
+
+				// Update the context variable.
+				irBuilder.CreateStore(newContextPointer,contextPointerVariable);
+
+				// Reload the memory/table base pointers.
+				reloadMemoryAndTableBase();
+
+				break;
+			}
+			case CallingConvention::intrinsicWithContextSwitch:
+			{
+				auto newContextPointer = returnValue;
+
+				// Update the context variable.
+				irBuilder.CreateStore(newContextPointer,contextPointerVariable);
+
+				// Reload the memory/table base pointers.
+				reloadMemoryAndTableBase();
+
+				// Load the call result from the returned context.
+				if(calleeType->ret != ResultType::none)
+				{
+					result = loadFromUntypedPointer(newContextPointer,asLLVMType(calleeType->ret));
+				}
+
+				break;
+			}
+			case CallingConvention::intrinsicWithDefaultTableAndMemory:
+			case CallingConvention::intrinsic:
+			case CallingConvention::c:
+			{
+				result = returnValue;
+				break;
+			}
+			default: Errors::unreachable();
+			};
+
+			return result;
+		}
+
+	private:
+		MemoryInstance* defaultMemory;
+		TableInstance* defaultTable;
+	};
 
 	// Functions that map between the symbols used for externally visible functions and the function
 	std::string getExternalFunctionName(ModuleInstance* moduleInstance,Uptr functionDefIndex);

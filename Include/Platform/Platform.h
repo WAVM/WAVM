@@ -7,17 +7,20 @@
 #include "Inline/BasicTypes.h"
 
 #ifdef _WIN32
-	#define THREAD_LOCAL thread_local
 	#define FORCEINLINE __forceinline
+	#define FORCENOINLINE __declspec(noinline)
 	#define SUPPRESS_UNUSED(variable) (void)(variable);
 	#include <intrin.h>
 	#define PACKED_STRUCT(definition) __pragma(pack(push, 1)) definition; __pragma(pack(pop))
+	#define NO_ASAN
+	#define RETURNS_TWICE
 #else
-	// Use __thread instead of the C++11 thread_local because Apple's clang doesn't support thread_local yet.
-	#define THREAD_LOCAL __thread
 	#define FORCEINLINE inline __attribute__((always_inline))
+	#define FORCENOINLINE __attribute__((noinline))
 	#define SUPPRESS_UNUSED(variable) (void)(variable);
 	#define PACKED_STRUCT(definition) definition __attribute__((packed));
+	#define NO_ASAN __attribute__((no_sanitize_address))
+	#define RETURNS_TWICE __attribute__((returns_twice))
 #endif
 
 #ifndef PLATFORM_API
@@ -134,28 +137,48 @@ namespace Platform
 		PLATFORM_API void deregisterSEHUnwindInfo(Uptr pdataAddress);
 	#endif
 
-	struct AccessViolationSignalData
+	struct Signal
 	{
-		Uptr address;
+		enum class Type
+		{
+			invalid = 0,
+			accessViolation,
+			stackOverflow,
+			intDivideByZeroOrOverflow,
+			unhandledException
+		};
+
+		Type type = Type::invalid;
+
+		union
+		{
+			struct
+			{
+				Uptr address;
+			} accessViolation;
+
+			struct
+			{
+				void* data;
+			} unhandledException;
+		};
 	};
 
-	enum SignalType
-	{
-		accessViolation,
-		stackOverflow,
-		intDivideByZeroOrOverflow,
-	};
 	PLATFORM_API bool catchSignals(
 		const std::function<void()>& thunk,
-		const std::function<void(SignalType,void*,CallStack&&)>& handler
+		const std::function<bool(Signal signal,const CallStack&)>& filter
 		);
-	
+
+	typedef bool (*SignalHandler)(Signal,const CallStack&);
+
+	PLATFORM_API void setSignalHandler(SignalHandler handler);
+
 	// Calls a thunk, catching any platform exceptions raised.
 	// If a platform exception is caught, the exception is passed to the handler function, and true is returned.
 	// If no exceptions are caught, false is returned.
 	PLATFORM_API bool catchPlatformExceptions(
 		const std::function<void()>& thunk,
-		const std::function<void(void*,CallStack&&)>& handler
+		const std::function<void(void*,const CallStack&)>& handler
 		);
 
 	[[noreturn]] PLATFORM_API void raisePlatformException(void* data);
@@ -170,6 +193,14 @@ namespace Platform
 	// Threading
 	//
 
+	struct Thread;
+	PLATFORM_API Thread* createThread(Uptr numStackBytes,I64 (*threadEntry)(void*),void* argument);
+	PLATFORM_API void detachThread(Thread* thread);
+	PLATFORM_API I64 joinThread(Thread* thread);
+	[[noreturn]] PLATFORM_API void exitThread(I64 code);
+	
+	RETURNS_TWICE PLATFORM_API Thread* forkCurrentThread();
+
 	// Returns the current value of a clock that may be used as an absolute time for wait timeouts.
 	// The resolution is microseconds, and the origin is arbitrary.
 	PLATFORM_API U64 getMonotonicClock();
@@ -178,29 +209,14 @@ namespace Platform
 	struct Mutex;
 	PLATFORM_API Mutex* createMutex();
 	PLATFORM_API void destroyMutex(Mutex* mutex);
-	PLATFORM_API void lockMutex(Mutex* mutex);
-	PLATFORM_API void unlockMutex(Mutex* mutex);
 
 	// RAII-style lock for Mutex.
 	struct Lock
 	{
-		Lock(Mutex* inMutex) : mutex(inMutex) { lockMutex(mutex); }
-		~Lock() { unlockMutex(mutex); }
+		PLATFORM_API Lock(Mutex* inMutex);
+		~Lock() { unlock(); }
 
-		void release()
-		{
-			if(mutex)
-			{
-				unlockMutex(mutex);
-			}
-			mutex = nullptr;
-		}
-
-		void detach()
-		{
-			assert(mutex);
-			mutex = nullptr;
-		}
+		PLATFORM_API void unlock();
 
 	private:
 		Mutex* mutex;

@@ -17,7 +17,7 @@ namespace IR
 		const bool mvp = true;
 
 		// Proposed standard extensions
-		bool importExportMutableGlobals = false;
+		bool importExportMutableGlobals = true;
 		bool extendedNamesSection = true;
 		bool simd = true;
 		bool atomics = true;
@@ -26,8 +26,7 @@ namespace IR
 		bool extendedSignExtension = true;
 
 		// WAVM-specific extensions
-		bool launchThread = false;
-		bool sharedTables = false;
+		bool sharedTables = true;
 		bool requireSharedFlagForAtomicOperators = true; // (true is standard)
 	};
 }

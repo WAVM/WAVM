@@ -397,8 +397,6 @@ namespace WAST
 			string += ')';
 		}
 
-		void printImm(LaunchThreadImm) {}
-		
 		template<Uptr naturalAlignmentLog2>
 		void printImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 		{

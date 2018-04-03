@@ -68,6 +68,8 @@ static void parseTestScriptModule(CursorState* cursor,IR::Module& outModule,std:
 {
 	outInternalModuleName = parseOptionalNameAsString(cursor);
 	
+	outModule.featureSpec.importExportMutableGlobals = false;
+
 	if(cursor->nextToken->type == t_quote || cursor->nextToken->type == t_binary)
 	{
 		// Parse a quoted module: (module quote|binary "...")

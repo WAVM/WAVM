@@ -7,33 +7,45 @@
 
 namespace Intrinsics
 {
-	struct Module
+	struct ModuleImpl
 	{
 		std::map<std::string,Intrinsics::Function*> functionMap;
 		std::map<std::string,Intrinsics::Global*> globalMap;
 		std::map<std::string,Intrinsics::Memory*> memoryMap;
 		std::map<std::string,Intrinsics::Table*> tableMap;
-
-		~Module() = delete;
 	};
 
-	static void initializeModuleRef(Intrinsics::Module*& moduleRef)
+	Module::~Module()
 	{
-		if(!moduleRef) { moduleRef = new Intrinsics::Module(); }
+		if(impl)
+		{
+			delete impl;
+		}
 	}
 
-	Function::Function(Intrinsics::Module*& moduleRef,const char* inName,const IR::FunctionType* inType,void* inNativeFunction)
+	static void initializeModule(Intrinsics::Module& moduleRef)
+	{
+		if(!moduleRef.impl) { moduleRef.impl = new Intrinsics::ModuleImpl; }
+	}
+
+	Function::Function(
+		Intrinsics::Module& moduleRef,
+		const char* inName,
+		const IR::FunctionType* inType,
+		void* inNativeFunction,
+		Runtime::CallingConvention inCallingConvention)
 	: name(inName)
 	, type(inType)
 	, nativeFunction(inNativeFunction)
+	, callingConvention(inCallingConvention)
 	{
-		initializeModuleRef(moduleRef);
+		initializeModule(moduleRef);
 
-		if(moduleRef->functionMap.count(name))
+		if(moduleRef.impl->functionMap.count(name))
 		{
 			Errors::fatalf("Intrinsic function already registered: %s",name);
 		}
-		moduleRef->functionMap[name] = this;
+		moduleRef.impl->functionMap[name] = this;
 	}
 
 	Runtime::FunctionInstance* Function::instantiate(Runtime::Compartment* compartment)
@@ -41,21 +53,22 @@ namespace Intrinsics
 		return new Runtime::FunctionInstance(
 			nullptr,
 			IR::FunctionType::get(type->ret,type->parameters),
-			LLVMJIT::getIntrinsicThunk(nativeFunction,type));
+			nativeFunction,
+			callingConvention);
 	}
 
-	Global::Global(Intrinsics::Module*& moduleRef,const char* inName,IR::ValueType inType,Runtime::Value inValue)
+	Global::Global(Intrinsics::Module& moduleRef,const char* inName,IR::ValueType inType,Runtime::Value inValue)
 	: name(inName)
 	, type(inType)
 	, value(inValue)
 	{
-		initializeModuleRef(moduleRef);
+		initializeModule(moduleRef);
 
-		if(moduleRef->globalMap.count(name))
+		if(moduleRef.impl->globalMap.count(name))
 		{
 			Errors::fatalf("Intrinsic global already registered: %s",name);
 		}
-		moduleRef->globalMap[name] = this;
+		moduleRef.impl->globalMap[name] = this;
 	}
 
 	Runtime::GlobalInstance* Global::instantiate(Runtime::Compartment* compartment)
@@ -63,17 +76,17 @@ namespace Intrinsics
 		return Runtime::createGlobal(compartment,IR::GlobalType(type,false),value);
 	}
 
-	Table::Table(Intrinsics::Module*& moduleRef,const char* inName,const IR::TableType& inType)
+	Table::Table(Intrinsics::Module& moduleRef,const char* inName,const IR::TableType& inType)
 	: name(inName)
 	, type(inType)
 	{
-		initializeModuleRef(moduleRef);
+		initializeModule(moduleRef);
 
-		if(moduleRef->tableMap.count(name))
+		if(moduleRef.impl->tableMap.count(name))
 		{
 			Errors::fatalf("Intrinsic table already registered: %s",name);
 		}
-		moduleRef->tableMap[name] = this;
+		moduleRef.impl->tableMap[name] = this;
 	}
 
 	Runtime::TableInstance* Table::instantiate(Runtime::Compartment* compartment)
@@ -81,17 +94,17 @@ namespace Intrinsics
 		return Runtime::createTable(compartment,type);
 	}
 	
-	Memory::Memory(Intrinsics::Module*& moduleRef,const char* inName,const IR::MemoryType& inType)
+	Memory::Memory(Intrinsics::Module& moduleRef,const char* inName,const IR::MemoryType& inType)
 	: name(inName)
 	, type(inType)
 	{
-		initializeModuleRef(moduleRef);
+		initializeModule(moduleRef);
 
-		if(moduleRef->memoryMap.count(name))
+		if(moduleRef.impl->memoryMap.count(name))
 		{
 			Errors::fatalf("Intrinsic memory already registered: %s",name);
 		}
-		moduleRef->memoryMap[name] = this;
+		moduleRef.impl->memoryMap[name] = this;
 	}
 
 	Runtime::MemoryInstance* Memory::instantiate(Runtime::Compartment* compartment)
@@ -99,36 +112,41 @@ namespace Intrinsics
 		return Runtime::createMemory(compartment,type);
 	}
 
-	Runtime::ModuleInstance* instantiateModule(Runtime::Compartment* compartment,Intrinsics::Module* module)
+	Runtime::ModuleInstance* instantiateModule(
+		Runtime::Compartment* compartment,
+		const Intrinsics::Module& moduleRef)
 	{
 		auto moduleInstance = new Runtime::ModuleInstance(compartment,{},{},{},{},{});
-		
-		for(const auto& pair : module->functionMap)
-		{
-			auto functionInstance = pair.second->instantiate(compartment);
-			moduleInstance->functions.push_back(functionInstance);
-			moduleInstance->exportMap[pair.first] = functionInstance;
-		}
 
-		for(const auto& pair : module->tableMap)
+		if(moduleRef.impl)
 		{
-			auto tableInstance = pair.second->instantiate(compartment);
-			moduleInstance->tables.push_back(tableInstance);
-			moduleInstance->exportMap[pair.first] = tableInstance;
-		}
+			for(const auto& pair : moduleRef.impl->functionMap)
+			{
+				auto functionInstance = pair.second->instantiate(compartment);
+				moduleInstance->functions.push_back(functionInstance);
+				moduleInstance->exportMap[pair.first] = functionInstance;
+			}
 
-		for(const auto& pair : module->memoryMap)
-		{
-			auto memoryInstance = pair.second->instantiate(compartment);
-			moduleInstance->memories.push_back(memoryInstance);
-			moduleInstance->exportMap[pair.first] = memoryInstance;
-		}
+			for(const auto& pair : moduleRef.impl->tableMap)
+			{
+				auto tableInstance = pair.second->instantiate(compartment);
+				moduleInstance->tables.push_back(tableInstance);
+				moduleInstance->exportMap[pair.first] = tableInstance;
+			}
 
-		for(const auto& pair : module->globalMap)
-		{
-			auto globalInstance = pair.second->instantiate(compartment);
-			moduleInstance->globals.push_back(globalInstance);
-			moduleInstance->exportMap[pair.first] = globalInstance;
+			for(const auto& pair : moduleRef.impl->memoryMap)
+			{
+				auto memoryInstance = pair.second->instantiate(compartment);
+				moduleInstance->memories.push_back(memoryInstance);
+				moduleInstance->exportMap[pair.first] = memoryInstance;
+			}
+
+			for(const auto& pair : moduleRef.impl->globalMap)
+			{
+				auto globalInstance = pair.second->instantiate(compartment);
+				moduleInstance->globals.push_back(globalInstance);
+				moduleInstance->exportMap[pair.first] = globalInstance;
+			}
 		}
 
 		return moduleInstance;

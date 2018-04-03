@@ -5,9 +5,10 @@
 	(import "env" "_stdout" (global $stdoutPtr i32))
 	(import "env" "memory" (memory 1))
 	(import "env" "_sbrk" (func $sbrk (param i32) (result i32)))
+	(import "threadTest" "createThread" (func $threadTest.createThread (param i32 i32) (result i64)))
 	(export "main" (func $main))
 	
-	(table anyfunc (elem $threadEntry $threadError))
+	(table anyfunc (elem $threadEntry))
 
 	(global $numThreads i32 (i32.const 8))
 	(global $numIterationsPerThread i32 (i32.const 10))
@@ -1261,6 +1262,7 @@
 
 	(func $threadEntry
 		(param $threadIndex i32)
+		(result i64)
 		
 		(local $i i32)
 
@@ -1276,14 +1278,8 @@
 		if
 			(drop (atomic.wake (get_global $numPendingThreadsAddress) (i32.const 1)))
 		end
-	)
 
-	(func $threadError
-		(param $threadIndex i32)
-
-		;; Set the thread error flag and wake the main thread.
-		(i32.atomic.store (get_global $numPendingThreadsAddress) (i32.const -1))
-		(drop (atomic.wake (get_global $numPendingThreadsAddress) (i32.const 1)))
+		i64.const 0
 	)
 
 	(func $main
@@ -1317,7 +1313,7 @@
 		(i32.atomic.store (get_global $numPendingThreadsAddress) (get_global $numThreads))
 		(set_local $i (i32.const 0))
 		loop $threadLoop
-			(launch_thread (i32.const 0) (get_local $i) (i32.const 1))
+			(drop (call $threadTest.createThread (i32.const 0) (get_local $i)))
 			(set_local $i (i32.add (get_local $i) (i32.const 1)))
 			(br_if $threadLoop (i32.lt_u (get_local $i) (get_global $numThreads)))
 		end

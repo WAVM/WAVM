@@ -84,7 +84,7 @@ namespace IR
 		if(type.isShared)
 		{
 			VALIDATE_FEATURE("shared memory",atomics);
-			VALIDATE_UNLESS("shared tables must have a maximum size: ",type.size.max == UINT64_MAX);
+			VALIDATE_UNLESS("shared memories must have a maximum size: ",type.size.max == UINT64_MAX);
 		}
 	}
 
@@ -394,11 +394,6 @@ namespace IR
 			}
 		}
 
-		void validateImm(LaunchThreadImm)
-		{
-			VALIDATE_UNLESS("launch_thread is only valid if there is a default table",module.tables.size() == 0);
-		}
-
 		template<Uptr naturalAlignmentLog2>
 		void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
@@ -445,8 +440,6 @@ namespace IR
 		#define REPLACELANE(scalarTypeId,vectorTypeId) \
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::scalarTypeId); \
 			pushOperand(ValueType::vectorTypeId);
-		#define LAUNCHTHREAD \
-			popAndValidateOperands(operatorName,ValueType::i32,ValueType::i32,ValueType::i32);
 		#define COMPAREEXCHANGE(valueTypeId) \
 			popAndValidateOperands(operatorName,ValueType::i32,ValueType::valueTypeId,ValueType::valueTypeId); \
 			pushOperand(ValueType::valueTypeId);

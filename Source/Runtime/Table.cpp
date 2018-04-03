@@ -99,15 +99,46 @@ namespace Runtime
 
 	Object* setTableElement(TableInstance* table,Uptr index,Object* newValue)
 	{
-		// Write the new table element to both the table's elements array and its indirect function call data.
-		assert(index < table->elements.size());
+		// Look up the new function's code pointer.
 		FunctionInstance* functionInstance = asFunction(newValue);
-		assert(functionInstance->nativeFunction);
-		table->baseAddress[index].type = functionInstance->type;
-		table->baseAddress[index].value = functionInstance->nativeFunction;
-		auto oldValue = table->elements[index];
-		table->elements[index] = newValue;
+		void* nativeFunction = functionInstance->nativeFunction;
+		assert(nativeFunction);
+
+		// If the function isn't a WASM function, generate a thunk for it.
+		if(functionInstance->callingConvention != CallingConvention::wasm)
+		{
+			nativeFunction = LLVMJIT::getIntrinsicThunk(
+				nativeFunction,
+				functionInstance->type,
+				functionInstance->callingConvention);
+		}
+
+		// Verify the index is within the table's bounds.
+		if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
+		
+		// Use a saturated index to access the table data to ensure that it's harmless for the CPU to speculate past
+		// the above bounds check.
+		const Uptr saturatedIndex = Platform::saturateToBounds(index,table->elements.size());
+
+		// Write the new table element to both the table's elements array and its indirect function call data.
+		table->baseAddress[saturatedIndex].type = functionInstance->type;
+		table->baseAddress[saturatedIndex].value = nativeFunction;
+		auto oldValue = table->elements[saturatedIndex];
+		table->elements[saturatedIndex] = newValue;
 		return oldValue;
+	}
+
+	Object* getTableElement(TableInstance* table,Uptr index)
+	{
+		// Verify the index is within the table's bounds.
+		if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
+
+		// Use a saturated index to access the table data to ensure that it's harmless for the CPU to speculate past
+		// the above bounds check.
+		const Uptr saturatedIndex = Platform::saturateToBounds(index,table->elements.size());
+
+		// Read from the table's elements array.
+		return table->elements[saturatedIndex];
 	}
 
 	Uptr getTableNumElements(TableInstance* table)

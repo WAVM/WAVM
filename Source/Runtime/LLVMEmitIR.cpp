@@ -21,7 +21,6 @@ namespace LLVMJIT
 		std::shared_ptr<llvm::Module> llvmModuleSharedPtr;
 		llvm::Module* llvmModule;
 		std::vector<llvm::Function*> functionDefs;
-		std::vector<llvm::Constant*> importedFunctionPointers;
 		
 		std::unique_ptr<llvm::DIBuilder> diBuilder;
 		llvm::DICompileUnit* diCompileUnit;
@@ -83,7 +82,7 @@ namespace LLVMJIT
 	};
 
 	// The context used by functions involved in JITing a single AST function.
-	struct EmitFunctionContext
+	struct EmitFunctionContext : EmitContext
 	{
 		typedef void Result;
 
@@ -93,11 +92,7 @@ namespace LLVMJIT
 		const FunctionType* functionType;
 		FunctionInstance* functionInstance;
 		llvm::Function* llvmFunction;
-		llvm::IRBuilder<> irBuilder;
 
-		llvm::Value* memoryBasePointerVariable;
-		llvm::Value* tableBasePointerVariable;
-		llvm::Value* contextPointerVariable;
 		std::vector<llvm::Value*> localPointers;
 		
 		llvm::DISubprogram* diFunction;
@@ -143,57 +138,21 @@ namespace LLVMJIT
 		std::vector<BranchTarget> branchTargetStack;
 		std::vector<llvm::Value*> stack;
 
-		EmitFunctionContext(EmitModuleContext& inEmitModuleContext,const Module& inModule,const FunctionDef& inFunctionDef,FunctionInstance* inFunctionInstance,llvm::Function* inLLVMFunction)
-		: moduleContext(inEmitModuleContext)
+		EmitFunctionContext(
+			EmitModuleContext& inModuleContext,
+			const Module& inModule,
+			const FunctionDef& inFunctionDef,
+			FunctionInstance* inFunctionInstance,
+			llvm::Function* inLLVMFunction)
+		: EmitContext(inModuleContext.moduleInstance->defaultMemory, inModuleContext.moduleInstance->defaultTable)
+		, moduleContext(inModuleContext)
 		, module(inModule)
 		, functionDef(inFunctionDef)
 		, functionType(inModule.types[inFunctionDef.type.index])
 		, functionInstance(inFunctionInstance)
 		, llvmFunction(inLLVMFunction)
-		, irBuilder(*llvmContext)
 		, localEscapeBlock(nullptr)
 		{}
-
-		llvm::Value* loadFromUntypedPointer(llvm::Value* pointer,llvm::Type* valueType)
-		{
-			return irBuilder.CreateLoad(irBuilder.CreatePointerCast(pointer,valueType->getPointerTo()));
-		}
-
-		void reloadMemoryAndTableBase()
-		{
-			// Derive the compartment runtime data from the context address by masking off the lower 32 bits.
-			llvm::Value* compartmentAddress = irBuilder.CreateIntToPtr(
-				irBuilder.CreateAnd(
-					irBuilder.CreatePtrToInt(irBuilder.CreateLoad(contextPointerVariable),llvmI64Type),
-					emitLiteral(~((U64(1) << 32) - 1))),
-				llvmI8PtrType);
-
-			// Load the defaultMemoryBase and defaultTableBase values from the runtime data for this module instance.
-
-			if(moduleContext.moduleInstance->defaultMemory)
-			{
-				const Uptr defaultMemoryBaseOffset =
-					offsetof(CompartmentRuntimeData,memories)
-					+ sizeof(U8*) * moduleContext.moduleInstance->defaultMemory->id;
-				irBuilder.CreateStore(
-					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(compartmentAddress,{emitLiteral(defaultMemoryBaseOffset)}),
-						llvmI8PtrType),
-					memoryBasePointerVariable);
-			}
-
-			if(moduleContext.moduleInstance->defaultTable)
-			{
-				const Uptr defaultTableBaseOffset =
-					offsetof(CompartmentRuntimeData,tables)
-					+ sizeof(TableInstance::FunctionElement*) * moduleContext.moduleInstance->defaultTable->id;
-				irBuilder.CreateStore(
-					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(compartmentAddress,{emitLiteral(defaultTableBaseOffset)}),
-						llvmI8PtrType),
-					tableBasePointerVariable);
-			}
-		}
 
 		void emit();
 
@@ -375,22 +334,14 @@ namespace LLVMJIT
 			assert(intrinsicFunction->type == intrinsicType);
 			auto intrinsicFunctionPointer = emitLiteralPointer(
 				intrinsicFunction->nativeFunction,
-				asLLVMType(intrinsicType,false)->getPointerTo());
+				asLLVMType(intrinsicType,intrinsicFunction->callingConvention)->getPointerTo());
 
-			const Uptr numImplicitArguments = 1;
-			const Uptr numArguments = numImplicitArguments + args.size();
-			auto arguments = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
-			arguments[0] = irBuilder.CreateLoad(contextPointerVariable);
-			std::uninitialized_copy(args.begin(),args.end(),arguments + numImplicitArguments);
-			auto resultStruct = emitCallOrInvoke(intrinsicFunctionPointer,llvm::ArrayRef<llvm::Value*>(arguments,numArguments));
-
-			// Update the context pointer variable with the values returned from the callee, and reload the memory/table base.
-			irBuilder.CreateStore(irBuilder.CreateExtractValue(resultStruct,0),contextPointerVariable);
-			reloadMemoryAndTableBase();
-
-			llvm::Value* result = nullptr;
-			if(intrinsicType->ret != ResultType::none) { result = irBuilder.CreateExtractValue(resultStruct,1); }
-			return result;
+			return emitCallOrInvoke(
+				intrinsicFunctionPointer,
+				args,
+				intrinsicType,
+				intrinsicFunction->callingConvention,
+				getInnermostUnwindToBlock());
 		}
 
 		// A helper function to emit a conditional call to a non-returning intrinsic function.
@@ -718,36 +669,41 @@ namespace LLVMJIT
 			// Map the callee function index to either an imported function pointer or a function in this module.
 			llvm::Value* callee;
 			const FunctionType* calleeType;
-			if(imm.functionIndex < moduleContext.importedFunctionPointers.size())
+			CallingConvention callingConvention;
+			if(imm.functionIndex < module.functions.imports.size())
 			{
 				assert(imm.functionIndex < moduleContext.moduleInstance->functions.size());
-				callee = moduleContext.importedFunctionPointers[imm.functionIndex];
-				calleeType = moduleContext.moduleInstance->functions[imm.functionIndex]->type;
+				FunctionInstance* importedCallee = moduleContext.moduleInstance->functions[imm.functionIndex];
+				calleeType = importedCallee->type;
+				callee = emitLiteralPointer(
+					importedCallee->nativeFunction,
+					asLLVMType(importedCallee->type,importedCallee->callingConvention)->getPointerTo());
+				callingConvention = importedCallee->callingConvention;
 			}
 			else
 			{
-				const Uptr calleeIndex = imm.functionIndex - moduleContext.importedFunctionPointers.size();
-				assert(calleeIndex < moduleContext.functionDefs.size());
-				callee = moduleContext.functionDefs[calleeIndex];
-				calleeType = module.types[module.functions.defs[calleeIndex].type.index];
+				const Uptr functionDefIndex = imm.functionIndex - module.functions.imports.size();
+				assert(functionDefIndex < moduleContext.functionDefs.size());
+				callee = moduleContext.functionDefs[functionDefIndex];
+				calleeType = module.types[module.functions.defs[functionDefIndex].type.index];
+				callingConvention = CallingConvention::wasm;
 			}
 
 			// Pop the call arguments from the operand stack.
-			const Uptr numImplicitArguments = 1;
-			const Uptr numArguments = numImplicitArguments + calleeType->parameters.size();
+			const Uptr numArguments = calleeType->parameters.size();
 			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
-			llvmArgs[0] = irBuilder.CreateLoad(contextPointerVariable);
-			popMultiple(llvmArgs + numImplicitArguments,calleeType->parameters.size());
+			popMultiple(llvmArgs,numArguments);
 
 			// Call the function.
-			auto resultStruct = emitCallOrInvoke(callee,llvm::ArrayRef<llvm::Value*>(llvmArgs,numArguments));
-
-			// Update the memory base and table base variables with the values returned from the callee.
-			irBuilder.CreateStore(irBuilder.CreateExtractValue(resultStruct,0),contextPointerVariable);
-			reloadMemoryAndTableBase();
+			auto result = emitCallOrInvoke(
+				callee,
+				llvm::ArrayRef<llvm::Value*>(llvmArgs,numArguments),
+				calleeType,
+				callingConvention,
+				getInnermostUnwindToBlock());
 
 			// Push the result on the operand stack.
-			if(calleeType->ret != ResultType::none) { push(irBuilder.CreateExtractValue(resultStruct,{1})); }
+			if(calleeType->ret != ResultType::none) { push(result); }
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
@@ -759,11 +715,9 @@ namespace LLVMJIT
 			auto tableElementIndex = pop();
 
 			// Pop the call arguments from the operand stack.
-			const Uptr numImplicitArguments = 1;
-			const Uptr numArguments = numImplicitArguments + calleeType->parameters.size();
+			const Uptr numArguments = calleeType->parameters.size();
 			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
-			llvmArgs[0] = irBuilder.CreateLoad(contextPointerVariable);
-			popMultiple(llvmArgs + numImplicitArguments,calleeType->parameters.size());
+			popMultiple(llvmArgs,numArguments);
 
 			// Zero extend the function index to the pointer size.
 			auto functionIndexZExt = irBuilder.CreateZExt(tableElementIndex,sizeof(Uptr) == 4 ? llvmI32Type : llvmI64Type);
@@ -795,15 +749,16 @@ namespace LLVMJIT
 			auto functionPointerPointer = irBuilder.CreateInBoundsGEP(typedTableBasePointer,{functionIndexZExt,emitLiteral((U32)1)});
 			auto functionPointer = loadFromUntypedPointer(
 				functionPointerPointer,
-				asLLVMType(calleeType,false)->getPointerTo());
-			auto resultStruct = emitCallOrInvoke(functionPointer,llvm::ArrayRef<llvm::Value*>(llvmArgs,numArguments));
-
-			// Update the memory base and table base variables with the values returned from the callee.
-			irBuilder.CreateStore(irBuilder.CreateExtractValue(resultStruct,0),contextPointerVariable);
-			reloadMemoryAndTableBase();
+				asLLVMType(calleeType,CallingConvention::wasm)->getPointerTo());
+			auto result = emitCallOrInvoke(
+				functionPointer,
+				llvm::ArrayRef<llvm::Value*>(llvmArgs,numArguments),
+				calleeType,
+				CallingConvention::wasm,
+				getInnermostUnwindToBlock());
 
 			// Push the result on the operand stack.
-			if(calleeType->ret != ResultType::none) { push(irBuilder.CreateExtractValue(resultStruct,{1})); }
+			if(calleeType->ret != ResultType::none) { push(result); }
 		}
 		
 		//
@@ -1534,18 +1489,6 @@ namespace LLVMJIT
 				{address,expectedValue,timeout,memoryId}));
 		}
 
-		void launch_thread(LaunchThreadImm)
-		{
-			assert(moduleContext.moduleInstance->defaultTable);
-			auto errorFunctionIndex = pop();
-			auto argument = pop();
-			auto functionIndex = pop();
-			emitRuntimeIntrinsic(
-				"launchThread",
-				FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i32,ValueType::i32,ValueType::i64}),
-				{functionIndex,argument,errorFunctionIndex,emitLiteral(U64(moduleContext.moduleInstance->defaultTable->id)) });
-		}
-		
 		void trapIfMisalignedAtomic(llvm::Value* address,U32 naturalAlignmentLog2)
 		{
 			if(naturalAlignmentLog2 > 0)
@@ -1712,30 +1655,6 @@ namespace LLVMJIT
 		EMIT_ATOMIC_RMW(i64,atomic_rmw32_u_xor,Xor,llvmI32Type,2,irBuilder.CreateZExt,irBuilder.CreateTrunc)
 		EMIT_ATOMIC_RMW(i64,atomic_rmw_xor,Xor,llvmI64Type,3,identityConversion,identityConversion)
 
-		// Creates either a call or an invoke if the call occurs inside a try.
-		llvm::Value* emitCallOrInvoke(
-			llvm::Value* callee,
-			llvm::ArrayRef<llvm::Value*> args,
-			llvm::CallingConv::ID callingConv = llvm::CallingConv::Fast)
-		{
-			if(tryStack.size() == 0)
-			{
-				auto call = irBuilder.CreateCall(callee,args);
-				call->setCallingConv(callingConv);
-				return call;
-			}
-			else
-			{
-				TryContext& tryContext = tryStack.back();
-
-				auto returnBlock = llvm::BasicBlock::Create(*llvmContext,"invokeReturn",llvmFunction);
-				auto invoke = irBuilder.CreateInvoke(callee,returnBlock,tryContext.unwindToBlock,args);
-				invoke->setCallingConv(callingConv);
-				irBuilder.SetInsertPoint(returnBlock);
-				return invoke;
-			}
-		}
-
 		struct TryContext
 		{
 			llvm::BasicBlock* unwindToBlock;
@@ -1784,6 +1703,12 @@ namespace LLVMJIT
 
 			catchStack.pop_back();
 		}
+
+		llvm::BasicBlock* getInnermostUnwindToBlock()
+		{
+			if(tryStack.size()) { return tryStack.back().unwindToBlock; }
+			else { return nullptr; }
+		}
 		
 		#ifdef _WIN32
 
@@ -1826,7 +1751,12 @@ namespace LLVMJIT
 					dummyIRBuilder.SetInsertPoint(entryBasicBlock);
 					dummyIRBuilder.CreateRetVoid();
 				}
-				emitCallOrInvoke(moduleContext.tryPrologueDummyFunction,{},llvm::CallingConv::C);
+				emitCallOrInvoke(
+					moduleContext.tryPrologueDummyFunction,
+					{},
+					FunctionType::get(),
+					CallingConvention::c,
+					getInnermostUnwindToBlock());
 			}
 
 			llvm::Function* createSEHFilterFunction(
@@ -2355,15 +2285,6 @@ namespace LLVMJIT
 	{
 		Timing::Timer emitTimer;
 
-		// Create LLVM pointer constants for the module's imported functions.
-		for(Uptr functionIndex = 0;functionIndex < module.functions.imports.size();++functionIndex)
-		{
-			const FunctionInstance* functionInstance = moduleInstance->functions[functionIndex];
-			importedFunctionPointers.push_back(emitLiteralPointer(
-				functionInstance->nativeFunction,
-				asLLVMType(functionInstance->type,false)->getPointerTo()));
-		}
-
 		// Create an external reference to the appropriate exception personality function.
 		auto personalityFunction = llvm::Function::Create(
 			llvm::FunctionType::get(llvmI32Type,{},false),
@@ -2381,11 +2302,11 @@ namespace LLVMJIT
 		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
 			const FunctionType* functionType = module.types[module.functions.defs[functionDefIndex].type.index];
-			auto llvmFunctionType = asLLVMType(functionType,false);
+			auto llvmFunctionType = asLLVMType(functionType,CallingConvention::wasm);
 			auto externalName = getExternalFunctionName(moduleInstance,functionDefIndex);
 			functionDefs[functionDefIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,externalName,llvmModule);
 			functionDefs[functionDefIndex]->setPersonalityFn(personalityFunction);
-			functionDefs[functionDefIndex]->setCallingConv(llvm::CallingConv::Fast);
+			functionDefs[functionDefIndex]->setCallingConv(asLLVMCallingConv(CallingConvention::wasm));
 		}
 
 		// Compile each function in the module.

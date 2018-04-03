@@ -161,6 +161,7 @@ namespace Runtime
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> outOfMemoryType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidSegmentOffsetType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> misalignedAtomicMemoryAccessType;
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidArgumentType;
 
 		GCPointer<ExceptionTypeInstance> type;
 		std::vector<UntaggedValue> arguments;
@@ -188,12 +189,35 @@ namespace Runtime
 		const std::function<void(Exception&&)>& catchThunk
 		);
 
+	typedef void (*UnhandledExceptionHandler)(Exception&&);
+	RUNTIME_API void setUnhandledExceptionHandler(UnhandledExceptionHandler handler);
+
 	//
 	// Functions
 	//
 
-	// Invokes a FunctionInstance with the given parameters, and returns the result.
-	RUNTIME_API Result invokeFunction(Context* context,FunctionInstance* function,const std::vector<Value>& parameters);
+	// The calling convention for a FunctionInstance.
+	enum class CallingConvention
+	{
+		wasm,
+		intrinsic,
+		intrinsicWithContextSwitch,
+		intrinsicWithDefaultTableAndMemory,
+		c
+	};
+
+	// Invokes a FunctionInstance with the given arguments, and returns the result. The result is returned as a pointer
+	// to an untagged value that is stored in the Context that will be overwritten by subsequent calls to
+	// invokeFunctionUnchecked. This allows using this function in a call stack that will be forked, since returning
+	// the result as a value will be lowered to passing in a pointer to stack memory for most calling conventions.
+	RUNTIME_API UntaggedValue* invokeFunctionUnchecked(Context* context,FunctionInstance* function,const UntaggedValue* arguments);
+
+	// Like invokeFunctionUnchecked, but returns a result tagged with its type, and takes arguments as tagged values.
+	// If the wrong number or types or arguments are provided, a runtime exception is thrown.
+	RUNTIME_API Result invokeFunctionChecked(
+		Context* context,
+		FunctionInstance* function,
+		const std::vector<Value>& arguments);
 
 	// Returns the type of a FunctionInstance.
 	RUNTIME_API const IR::FunctionType* getFunctionType(FunctionInstance* function);
@@ -302,4 +326,9 @@ namespace Runtime
 
 	// Creates a new context, initializing its mutable global state from the given context.
 	RUNTIME_API Context* cloneContext(Context* context);
+
+	RUNTIME_API Context* getContextFromRuntimeData(struct ContextRuntimeData* contextRuntimeData);
+	RUNTIME_API struct ContextRuntimeData* getContextRuntimeData(Context* context);
+	RUNTIME_API TableInstance* getTableFromRuntimeData(struct ContextRuntimeData* contextRuntimeData,Uptr tableId);
+	RUNTIME_API MemoryInstance* getMemoryFromRuntimeData(struct ContextRuntimeData* contextRuntimeData,Uptr memoryId);
 }

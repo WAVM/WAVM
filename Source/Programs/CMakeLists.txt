@@ -8,10 +8,10 @@ set_target_properties(Disassemble PROPERTIES FOLDER Programs)
 
 if(ENABLE_RUNTIME)
 	add_executable(Test Test.cpp CLI.h)
-	target_link_libraries(Test Logging IR WAST Runtime)
+	target_link_libraries(Test Logging IR WAST Runtime ThreadTest)
 	set_target_properties(Test PROPERTIES FOLDER Programs)
 
 	add_executable(wavm wavm.cpp CLI.h)
-	target_link_libraries(wavm Logging IR WAST WASM Runtime Emscripten)
+	target_link_libraries(wavm Logging IR WAST WASM Runtime Emscripten ThreadTest)
 	set_target_properties(wavm PROPERTIES FOLDER Programs)
 endif()

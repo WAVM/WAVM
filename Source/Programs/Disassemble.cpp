@@ -1,4 +1,5 @@
 #include "Inline/BasicTypes.h"
+#include "Inline/Timing.h"
 #include "CLI.h"
 #include "WAST/WAST.h"
 #include "WASM/WASM.h"
@@ -18,7 +19,9 @@ int main(int argc,char** argv)
 	if(!loadBinaryModule(inputFilename,module)) { return EXIT_FAILURE; }
 
 	// Print the module to WAST.
+	Timing::Timer printTimer;
 	const std::string wastString = WAST::print(module);
+	Timing::logTimer("Printed WAST",printTimer);
 	
 	// Write the serialized data to the output file.
 	std::ofstream outputStream(outputFilename);
