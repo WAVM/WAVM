@@ -489,15 +489,15 @@ struct wavix_stat
 	wavix_nlink_t st_nlink;
 	wavix_uid_t st_uid;
 	wavix_gid_t st_gid;
-	dev_t st_rdev;
+	wavix_dev_t st_rdev;
 	I32 __st_rdev_padding;
-	off_t st_size;
+	wavix_off_t st_size;
 	wavix_blksize_t st_blksize;
 	wavix_blkcnt_t st_blocks;
 	wavix_timespec st_atim;
 	wavix_timespec st_mtim;
 	wavix_timespec st_ctim;
-	ino_t st_ino;
+	wavix_ino_t st_ino;
 };
 
 DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_stat64,__syscall_stat64,i32,i32,pathAddress,i32,resultAddress)

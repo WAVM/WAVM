@@ -69,8 +69,8 @@ DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_sched_getaffinity,__syscall_sched_get
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-#define WNOHANG    1
-#define WUNTRACED  2
+#define WAVIX_WNOHANG    1
+#define WAVIX_WUNTRACED  2
 
 DEFINE_INTRINSIC_FUNCTION4(wavix,__syscall_wait4,__syscall_wait4,i32,i32,pid,i32,statusAddress,i32,options,i32,rusageAddress)
 {

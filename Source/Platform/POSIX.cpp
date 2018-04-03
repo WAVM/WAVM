@@ -867,7 +867,11 @@ namespace Platform
 		default: Errors::unreachable();
 		};
 
-		I64 result = lseek64(filePtrToIndex(file), offset, whence);
+		#ifdef __linux__
+			const I64 result = lseek64(filePtrToIndex(file), offset, whence);
+		#else
+			const I64 result = lseek(filePtrToIndex(file), reinterpret_cast<off_t>(offset), whence);
+		#endif
 		outAbsoluteOffset = U64(result);
 		return result != -1;
 	}

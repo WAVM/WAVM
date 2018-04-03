@@ -1,10 +1,11 @@
 #pragma once
 
-#include <assert.h>
-#include <vector>
-#include <functional>
-
 #include "Inline/BasicTypes.h"
+
+#include <assert.h>
+#include <functional>
+#include <string>
+#include <vector>
 
 #ifdef _WIN32
 	#define FORCEINLINE __forceinline
