@@ -144,7 +144,8 @@ static std::string readPathString(I32 pathAddress)
 	return pathString;
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_open,__syscall_open,i32,i32,pathAddress,i32,flags,i32,mode)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_open",I32,__syscall_open,
+	I32 pathAddress, I32 flags, I32 mode)
 {
 	traceSyscallf("open","");
 
@@ -209,19 +210,21 @@ DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_open,__syscall_open,i32,i32,pathAddre
 	return fd;
 }
 
-DEFINE_INTRINSIC_FUNCTION4(wavix,__syscall_openat,__syscall_openat,i32,i32,dirfd,i32,pathName,i32,flags,i32,mode)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_openat",I32,__syscall_openat,
+	I32 dirfd, I32 pathName, I32 flags, I32 mode)
 {
 	traceSyscallf("openat","");
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_creat,__syscall_creat,i32,i32,pathName,i32,mode)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_creat",I32,__syscall_creat,
+	I32 pathName, I32 mode)
 {
 	traceSyscallf("creat","");
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_close,__syscall_close,i32,i32,fd)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_close",I32,__syscall_close,I32 fd)
 {
 	traceSyscallf("close","");
 
@@ -236,12 +239,8 @@ DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_close,__syscall_close,i32,i32,fd)
 	else { return -1; }
 }
 
-DEFINE_INTRINSIC_FUNCTION5(wavix,__syscall_llseek,__syscall_llseek,i32,
-	i32,fd,
-	i32,offsetHigh,
-	i32,offsetLow,
-	i32,resultAddress,
-	i32,whence)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_llseek",I32,__syscall_llseek,
+	I32 fd, I32 offsetHigh, I32 offsetLow, I32 resultAddress, I32 whence)
 {
 	traceSyscallf("llseek","");
 
@@ -267,8 +266,8 @@ DEFINE_INTRINSIC_FUNCTION5(wavix,__syscall_llseek,__syscall_llseek,i32,
 	return 0;
 }
 
-
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_read,__syscall_read,i32,i32,fd,i32,bufferAddress,i32,numBytes)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_read",I32,__syscall_read,
+	I32 fd, I32 bufferAddress, I32 numBytes)
 {
 	traceSyscallf("read","");
 
@@ -294,10 +293,8 @@ DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_read,__syscall_read,i32,i32,fd,i32,bu
 	return coerce32bitAddress(numReadBytes);
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_readv,__syscall_readv,i32,
-	i32,fd,
-	i32,iosAddress,
-	i32,numIos)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_readv",I32,__syscall_readv,
+	I32 fd, I32 iosAddress, I32 numIos)
 {
 	traceSyscallf("readv","");
 
@@ -338,10 +335,8 @@ DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_readv,__syscall_readv,i32,
 	return coerce32bitAddress(numReadBytes);
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_writev,__syscall_writev,i32,
-	i32,fd,
-	i32,iosAddress,
-	i32,numIOs)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_writev",I32,__syscall_writev,
+	I32 fd, I32 iosAddress, I32 numIOs)
 {
 	traceSyscallf("writev","");
 
@@ -382,7 +377,7 @@ DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_writev,__syscall_writev,i32,
 	return coerce32bitAddress(numWrittenBytes);
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_fsync,__syscall_fsync,i32,i32,fd)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_fsync",I32,__syscall_fsync,I32 fd)
 {
 	traceSyscallf("fsync","");
 
@@ -401,7 +396,7 @@ DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_fsync,__syscall_fsync,i32,i32,fd)
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_fdatasync,__syscall_fdatasync,i32,i32,fd)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_fdatasync",I32,__syscall_fdatasync,I32 fd)
 {
 	traceSyscallf("fdatasync","");
 
@@ -451,10 +446,8 @@ DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_fdatasync,__syscall_fdatasync,i32,i32
 #define WAVIX_O_RDWR 02
 #define WAVIX_O_WRONLY 01
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_fcntl64,__syscall_fcntl64,i32,
-	i32,fd,
-	i32,cmd,
-	i32,arg)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_fcntl64",I32,__syscall_fcntl64, 
+	I32 fd, I32 cmd, I32 arg)
 {
 	traceSyscallf("fnctl64","(%i,%i,%i)",fd,cmd,arg);
 	switch(cmd)
@@ -500,7 +493,8 @@ struct wavix_stat
 	wavix_ino_t st_ino;
 };
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_stat64,__syscall_stat64,i32,i32,pathAddress,i32,resultAddress)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_stat64",I32,__syscall_stat64,
+	I32 pathAddress, I32 resultAddress)
 {
 	std::string pathString = readPathString(pathAddress);
 	Path path;
@@ -514,7 +508,8 @@ DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_stat64,__syscall_stat64,i32,i32,pathA
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_lstat64,__syscall_lstat64,i32,i32,pathAddress,i32,resultAddress)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_lstat64",I32,__syscall_lstat64,
+	I32 pathAddress, I32 resultAddress)
 {
 	std::string pathString = readPathString(pathAddress);
 	Path path;
@@ -527,7 +522,9 @@ DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_lstat64,__syscall_lstat64,i32,i32,pat
 
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_fstat64,__syscall_fstat64,i32,i32,fd,i32,resultAddress)
+
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_fstat64",I32,__syscall_fstat64,
+	I32 fd, I32 resultAddress)
 {
 	traceSyscallf("fstat64","(%i,0x%08x)",fd,resultAddress);
 
@@ -537,7 +534,8 @@ DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_fstat64,__syscall_fstat64,i32,i32,fd,
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION4(wavix,__syscall_faccessat,__syscall_faccessat,i32,i32,dirfd,i32,pathAddress,i32,mode,i32,flags)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_faccessat",I32,__syscall_faccessat,
+	I32 dirfd, I32 pathAddress, I32 mode, I32 flags)
 {
 	std::string pathString = readPathString(pathAddress);
 	Path path;
@@ -547,13 +545,14 @@ DEFINE_INTRINSIC_FUNCTION4(wavix,__syscall_faccessat,__syscall_faccessat,i32,i32
 	return -1;
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_unlink,__syscall_unlink,i32,i32,a)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_unlink",I32,__syscall_unlink,I32 a)
 {
 	traceSyscallf("unlink","(%i)",a);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_chdir,__syscall_chdir,i32,i32,pathAddress)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_chdir",I32,__syscall_chdir,
+	I32 pathAddress)
 {
 	std::string pathString = readPathString(pathAddress);
 	Path path;
@@ -567,85 +566,77 @@ DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_chdir,__syscall_chdir,i32,i32,pathAdd
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_access,__syscall_access,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_access",I32,__syscall_access,I32 a,I32 b)
 {
 	traceSyscallf("access","(%i,%i)",a,b);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_dup,__syscall_dup,i32,i32,a)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_dup",I32,__syscall_dup,I32 a)
 {
 	traceSyscallf("dup","(%i)",a);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_dup2,__syscall_dup2,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_dup2",I32,__syscall_dup2,I32 a,I32 b)
 {
 	traceSyscallf("dup2","(%i,%i)",a,b);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_readlink,__syscall_readlink,i32,i32,a,i32,b,i32,c)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_readlink",I32,__syscall_readlink,
+	I32 pathAddress, I32 bufferAddress, U32 numBufferBytes)
 {
 	traceSyscallf("readlink","(%i,%i,%i)",a,b,c);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_umask,__syscall_umask,i32,i32,a)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_umask",I32,__syscall_umask,I32 a)
 {
 	traceSyscallf("umask","(%i,%i)",a);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_rename,__syscall_rename,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_rename",I32,__syscall_rename,I32 a,I32 b)
 {
 	traceSyscallf("rename","(%i,%i)",a,b);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_chown32,__syscall_chown32,i32,i32,a,i32,b,i32,c)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_chown32",I32,__syscall_chown32,I32 a,I32 b,I32 c)
 {
 	traceSyscallf("chown32","(%i,%i,%i)",a,b,c);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_getdents64,__syscall_getdents64,i32,i32,a,i32,b,i32,c)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_getdents64",I32,__syscall_getdents64,I32 a,I32 b,I32 c)
 {
 	traceSyscallf("getdents64","(%i,%i,%i)",a,b,c);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_pipe,__syscall_pipe,i32,i32,a)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_pipe",I32,__syscall_pipe,I32 a)
 {
 	traceSyscallf("pipe","(%i)",a);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_poll,__syscall_poll,i32,i32,a,i32,b,i32,c)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_poll",I32,__syscall_poll,I32 a,I32 b,I32 c)
 {
 	traceSyscallf("poll","(%i,%i,%i)",a,b,c);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION6(wavix,__syscall_pselect6,__syscall_pselect6,i32,
-	i32,a,
-	i32,b,
-	i32,c,
-	i32,d,
-	i32,e,
-	i32,f)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_pselect6",I32,__syscall_pselect6, 
+	I32 a, I32 b, I32 c, I32 d, I32 e, I32 f)
 {
 	traceSyscallf("pselect","(%i,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x)",a,b,c,d,e,f);
 	//throwException(Exception::calledUnimplementedIntrinsicType);
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION5(wavix,__syscall__newselect,__syscall__newselect,i32,
-	i32,a,
-	i32,b,
-	i32,c,
-	i32,d,
-	i32,e)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall__newselect",I32,__syscall__newselect,
+	I32 a, I32 b, I32 c, I32 d, I32 e)
 {
 	traceSyscallf("_newselect","(%i,0x%08x,0x%08x,0x%08x,0x%08x)",a,b,c,d,e);
 	//throwException(Exception::calledUnimplementedIntrinsicType);
@@ -654,13 +645,8 @@ DEFINE_INTRINSIC_FUNCTION5(wavix,__syscall__newselect,__syscall__newselect,i32,
 
 #define TIOCGWINSZ	0x5413
 
-DEFINE_INTRINSIC_FUNCTION6(wavix,__syscall_ioctl,__syscall_ioctl,i32,
-	i32,fd,
-	i32,request,
-	i32,arg0,
-	i32,arg1,
-	i32,arg2,
-	i32,arg3)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_ioctl",I32,__syscall_ioctl,
+	I32 fd, I32 request, I32 arg0, I32 arg1, I32 arg2, I32 arg3)
 {
 	traceSyscallf("ioctl","");
 	switch(request)

@@ -120,6 +120,19 @@ namespace IR
 		return (ResultType)type;
 	}
 
+	// Infer value and result types from a C type.
+
+	template<typename> constexpr IR::ValueType inferValueType() = delete;
+	template<> constexpr IR::ValueType inferValueType<I32>()  { return IR::ValueType::i32; }
+	template<> constexpr IR::ValueType inferValueType<U32>()  { return IR::ValueType::i32; }
+	template<> constexpr IR::ValueType inferValueType<I64>()  { return IR::ValueType::i64; }
+	template<> constexpr IR::ValueType inferValueType<U64>()  { return IR::ValueType::i64; }
+	template<> constexpr IR::ValueType inferValueType<F32>()  { return IR::ValueType::f32; }
+	template<> constexpr IR::ValueType inferValueType<F64>()  { return IR::ValueType::f64; }
+
+	template<typename T> constexpr IR::ResultType inferResultType() { return IR::ResultType(inferValueType<T>()); }
+	template<> constexpr IR::ResultType inferResultType<void>() { return IR::ResultType::none; }
+
 	// The type of a WebAssembly function
 	struct FunctionType
 	{

@@ -141,12 +141,12 @@ namespace LLVMJIT
 	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType,Runtime::CallingConvention callingConvention)
 	{
 		const Uptr numImplicitParameters =
-			  callingConvention == CallingConvention::intrinsicWithDefaultTableAndMemory ? 3
+			  callingConvention == CallingConvention::intrinsicWithMemAndTable ? 3
 			: callingConvention == CallingConvention::c                                  ? 0
 			:                                                                              1;
 		const Uptr numParameters = numImplicitParameters + functionType->parameters.size();
 		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
-		if(callingConvention == CallingConvention::intrinsicWithDefaultTableAndMemory)
+		if(callingConvention == CallingConvention::intrinsicWithMemAndTable)
 		{
 			llvmArgTypes[0] = llvmI8PtrType;
 			llvmArgTypes[1] = llvmI64Type;
@@ -172,7 +172,7 @@ namespace LLVMJIT
 			llvmReturnType = llvmI8PtrType;
 			break;
 
-		case CallingConvention::intrinsicWithDefaultTableAndMemory:
+		case CallingConvention::intrinsicWithMemAndTable:
 		case CallingConvention::intrinsic:
 		case CallingConvention::c:
 			llvmReturnType = asLLVMType(functionType->ret);
@@ -192,7 +192,7 @@ namespace LLVMJIT
 
 		case CallingConvention::intrinsic:
 		case CallingConvention::intrinsicWithContextSwitch:
-		case CallingConvention::intrinsicWithDefaultTableAndMemory:
+		case CallingConvention::intrinsicWithMemAndTable:
 		case CallingConvention::c:
 			return llvm::CallingConv::C;
 
@@ -270,7 +270,7 @@ namespace LLVMJIT
 		{
 			llvm::ArrayRef<llvm::Value*> augmentedArgs = args;
 
-			if(callingConvention == CallingConvention::intrinsicWithDefaultTableAndMemory)
+			if(callingConvention == CallingConvention::intrinsicWithMemAndTable)
 			{
 				// Augment the argument list with the context pointer, and the default memory and table IDs.
 				auto augmentedArgsAlloca = (llvm::Value**)alloca(sizeof(llvm::Value*) * (args.size() + 3));
@@ -350,7 +350,7 @@ namespace LLVMJIT
 
 				break;
 			}
-			case CallingConvention::intrinsicWithDefaultTableAndMemory:
+			case CallingConvention::intrinsicWithMemAndTable:
 			case CallingConvention::intrinsic:
 			case CallingConvention::c:
 			{

@@ -24,48 +24,48 @@ bool isTracingSyscalls = false;
 
 DEFINE_INTRINSIC_MODULE(wavix);
 
-DEFINE_INTRINSIC_FUNCTION7(wavix,__invalid_syscall,__invalid_syscall,i32,
-	i32,n,
-	i32,a,
-	i32,b,
-	i32,c,
-	i32,d,
-	i32,e,
-	i32,f)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__invalid_syscall",I32,__invalid_syscall,
+	I32 n,
+	I32 a,
+	I32 b,
+	I32 c,
+	I32 d,
+	I32 e,
+	I32 f)
 {
 	std::cerr << "__invalid_syscall: " << n << std::endl;
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_membarrier,__syscall_membarrier,i32,i32,dummy)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_membarrier",I32,__syscall_membarrier,I32 dummy)
 {
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,wavix_setjmp,setjmp,i32,i32,bufferAddress)
+DEFINE_INTRINSIC_FUNCTION(wavix,"setjmp",I32,wavix_setjmp,I32 bufferAddress)
 {
 	traceSyscallf("setjmp","(0x%08x)",bufferAddress);
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,wavix_longjmp,longjmp,none,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"longjmp",void,wavix_longjmp,I32 a,I32 b)
 {
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION6(wavix,__syscall_futex,__syscall_futex,i32,i32,a,i32,b,i32,c,i32,d,i32,e,i32,f)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_futex",I32,__syscall_futex,I32 a,I32 b,I32 c,I32 d,I32 e,I32 f)
 {
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
 // Command-line arguments
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__wavix_get_num_args,__wavix_get_num_args,i32,i32,a)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__wavix_get_num_args",I32,__wavix_get_num_args,I32 a)
 {
 	return coerce32bitAddress(currentThread->process->args.size());
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__wavix_get_arg_length,__wavix_get_arg_length,i32,i32,argIndex)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__wavix_get_arg_length",I32,__wavix_get_arg_length,I32 argIndex)
 {
 	if(U32(argIndex) < currentThread->process->args.size())
 	{
@@ -78,7 +78,8 @@ DEFINE_INTRINSIC_FUNCTION1(wavix,__wavix_get_arg_length,__wavix_get_arg_length,i
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__wavix_get_arg,__wavix_get_arg,none,i32,argIndex,i32,bufferAddress,i32,numCharsInBuffer)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__wavix_get_arg",void,__wavix_get_arg,
+	I32 argIndex, I32 bufferAddress, I32 numCharsInBuffer)
 {
 	if(U32(argIndex) < currentThread->process->args.size())
 	{
@@ -105,27 +106,27 @@ DEFINE_INTRINSIC_FUNCTION3(wavix,__wavix_get_arg,__wavix_get_arg,none,i32,argInd
 
 // Resource limits/usage
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_setrlimit,__syscall_setrlimit,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_setrlimit",I32,__syscall_setrlimit,I32 a,I32 b)
 {
 	traceSyscallf("setrlimit","(%i,%i)",a,b);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_getrlimit,__syscall_getrlimit,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_getrlimit",I32,__syscall_getrlimit,I32 a,I32 b)
 {
 	traceSyscallf("getrlimit","(%i,%i)",a,b);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_ugetrlimit,__syscall_ugetrlimit,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_ugetrlimit",I32,__syscall_ugetrlimit,I32 a,I32 b)
 {
 	traceSyscallf("ugetrlimit","(%i,%i)",a,b);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
-DEFINE_INTRINSIC_FUNCTION4(wavix,__syscall_prlimit64,__syscall_prlimit64,i32,i32,a,i32,b,i32,c,i32,d)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_prlimit64",I32,__syscall_prlimit64,I32 a,I32 b,I32 c,I32 d)
 {
 	traceSyscallf("prlimit64","(%i,%i,%i,%i)",a,b,c,d);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_getrusage,__syscall_getrusage,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_getrusage",I32,__syscall_getrusage,I32 a,I32 b)
 {
 	traceSyscallf("getrusage","(%i,%i)",a,b);
 	throwException(Exception::calledUnimplementedIntrinsicType);
@@ -133,7 +134,7 @@ DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_getrusage,__syscall_getrusage,i32,i32
 
 // Sockets
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_socketcall,__syscall_socketcall,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_socketcall",I32,__syscall_socketcall,I32 a,I32 b)
 {
 	traceSyscallf("socketcall","(%i,%i)",a,b);
 		return -1;
@@ -152,7 +153,7 @@ struct wavix_utsname
 	char domainName[65];
 };
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_uname,__syscall_uname,i32,i32,resultAddress)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_uname",I32,__syscall_uname,I32 resultAddress)
 {
 	traceSyscallf("uname","(0x%08x)",resultAddress);
 	wavix_utsname& result = memoryRef<wavix_utsname>(currentThread->process->memory,resultAddress);
@@ -164,7 +165,8 @@ DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_uname,__syscall_uname,i32,i32,resultA
 	strcpy(result.domainName,"utsname::domainname");
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_sysinfo,__syscall_sysinfo,i32,i32,a)
+
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_sysinfo",I32,__syscall_sysinfo,I32 a)
 {
 	traceSyscallf("sysinfo","(%i)",a);
 	throwException(Exception::calledUnimplementedIntrinsicType);
@@ -172,14 +174,14 @@ DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_sysinfo,__syscall_sysinfo,i32,i32,a)
 
 // Signals
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_rt_sigaction,__syscall_rt_sigaction,i32,i32,a,i32,b,i32,c)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_rt_sigaction",I32,__syscall_rt_sigaction,I32 a,I32 b,I32 c)
 {
 	traceSyscallf("rt_sigaction","(%u,%u,%u)",a,b,c);
 	//throwException(Exception::calledUnimplementedIntrinsicType);
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_tgkill,__syscall_tgkill,i32,i32,a,i32,b,i32,c)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_tgkill",I32,__syscall_tgkill,I32 a,I32 b,I32 c)
 {
 		throwException(Exception::calledUnimplementedIntrinsicType);
 }
@@ -192,7 +194,8 @@ enum class ClockId : I32
 	monotonic = 1,
 };
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_clock_gettime,__syscall_clock_gettime,i32,i32,clockId,i32,resultAddress)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_clock_gettime",I32,__syscall_clock_gettime,
+	I32 clockId, I32 resultAddress)
 {
 	traceSyscallf("clock_gettime","(%u,0x%08x)",clockId,resultAddress);
 
@@ -216,13 +219,13 @@ DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_clock_gettime,__syscall_clock_gettime
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_gettimeofday,__syscall_gettimeofday,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_gettimeofday",I32,__syscall_gettimeofday,I32 a,I32 b)
 {
 	traceSyscallf("gettimeofday","(%i,%i)",a,b);
 		throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_setitimer,__syscall_setitimer,i32,i32,a,i32,b,i32,c)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_setitimer",I32,__syscall_setitimer,I32 a,I32 b,I32 c)
 {
 	traceSyscallf("setitimer","(%i,%i,%i)",a,b,c);
 	throwException(Exception::calledUnimplementedIntrinsicType);
@@ -230,40 +233,40 @@ DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_setitimer,__syscall_setitimer,i32,i32
 
 // Users/groups
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_getuid32,__syscall_getuid32,i32,i32,dummy)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_getuid32",I32,__syscall_getuid32,I32 dummy)
 {
 	traceSyscallf("getuid32","");
 	return 1;
 }
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_getgid32,__syscall_getgid32,i32,i32,dummy)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_getgid32",I32,__syscall_getgid32,I32 dummy)
 {
 	traceSyscallf("getgid32","");
 	return 1;
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_geteuid32,__syscall_geteuid32,i32,i32,)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_geteuid32",I32,__syscall_geteuid32,I32 dummy)
 {
 	traceSyscallf("geteuid32","");
 	return 1;
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_getegid32,__syscall_getegid32,i32,i32,)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_getegid32",I32,__syscall_getegid32,I32 dummy)
 {
 	traceSyscallf("geteuid32","");
 	return 1;
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_setreuid32,__syscall_setreuid32,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_setreuid32",I32,__syscall_setreuid32,I32 a,I32 b)
 {
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_setregid32,__syscall_setregid32,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_setregid32",I32,__syscall_setregid32,I32 a,I32 b)
 {
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_getgroups32,__syscall_getgroups32,i32,i32,a,i32,b)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_getgroups32",I32,__syscall_getgroups32,I32 a,I32 b)
 {
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }

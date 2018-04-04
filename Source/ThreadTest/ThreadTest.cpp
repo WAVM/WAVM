@@ -110,19 +110,18 @@ namespace ThreadTest
 		return invokeFunctionUnchecked(thread->context,thread->entryFunction,&thread->argument)->i64;
 	}
 
-	static I64 createThread(
-		Runtime::ContextRuntimeData* contextRuntimeData, I64 memoryId, I64 tableId,
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(threadTest,"createThread",I64,createThread,
 		I32 entryFunctionIndex,
 		I32 entryArgument)
 	{
-		if(tableId == -1)
+		if(defaultTableId.id == -1)
 		{
 			// If createThread is called from a module that doesn't handle a default table, throw an exception.
 			throwException(Exception::undefinedTableElementType);
 		}
 
 		// Look up the index provided in the default table to get the thread entry function.
-		TableInstance* defaultTable = getTableFromRuntimeData(contextRuntimeData,tableId);
+		TableInstance* defaultTable = getTableFromRuntimeData(contextRuntimeData,defaultTableId.id);
 		FunctionInstance* entryFunction = asFunctionNullable(Runtime::getTableElement(defaultTable,entryFunctionIndex));
 
 		// Validate that the entry function wasn't null, and it has the correct type (i32)->i64
@@ -147,12 +146,8 @@ namespace ThreadTest
 
 		return thread->id;
 	}
-	static Intrinsics::Function createThreadIntrinsic(
-		INTRINSIC_MODULE_REF(threadTest), "createThread",
-		IR::FunctionType::get(IR::ResultType::i64,{IR::ValueType::i32,IR::ValueType::i32}),
-		(void*)&createThread, Runtime::CallingConvention::intrinsicWithDefaultTableAndMemory);
-
-	static Runtime::ContextRuntimeData* forkThread(Runtime::ContextRuntimeData* contextRuntimeData)
+	
+	DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest,"forkThread",I64,forkThread)
 	{
 		auto newContext = cloneContext(getContextFromRuntimeData(contextRuntimeData));
 
@@ -171,7 +166,7 @@ namespace ThreadTest
 			const Uptr threadId = allocateThreadId(childThread);
 			childThread->removeRef();
 
-			SET_INTRINSIC_RESULT_i64(threadId);
+			return Intrinsics::resultInContextRuntimeData<I64>(contextRuntimeData,threadId);
 		}
 		else
 		{
@@ -187,16 +182,11 @@ namespace ThreadTest
 			// Switch the contextRuntimeData to point to the new context's runtime data.
 			contextRuntimeData = getContextRuntimeData(newContext);
 
-			SET_INTRINSIC_RESULT_i64(0);
+			return Intrinsics::resultInContextRuntimeData<I64>(contextRuntimeData,0);
 		}
-		return contextRuntimeData;
 	}
-	static Intrinsics::Function forkThreadIntrinsic(
-		INTRINSIC_MODULE_REF(threadTest), "forkThread",
-		IR::FunctionType::get(IR::ResultType::i64), (void*)&forkThread,
-		Runtime::CallingConvention::intrinsicWithContextSwitch);
 
-	DEFINE_INTRINSIC_FUNCTION1(threadTest,exitThread,exitThread,none,i64,code)
+	DEFINE_INTRINSIC_FUNCTION(threadTest,"exitThread",void,exitThread,I64 code)
 	{
 		Platform::exitThread(code);
 		Errors::unreachable();
@@ -219,7 +209,7 @@ namespace ThreadTest
 		return thread;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(threadTest,joinThread,joinThread,i64,i64,threadId)
+	DEFINE_INTRINSIC_FUNCTION(threadTest,"joinThread",I64,joinThread,I64 threadId)
 	{
 		IntrusiveSharedPtr<Thread> thread = removeThreadById(threadId);
 		const I64 result = Platform::joinThread(thread->platformThread);
@@ -227,7 +217,7 @@ namespace ThreadTest
 		return result;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION1(threadTest,detachThread,detachThread,none,i64,threadId)
+	DEFINE_INTRINSIC_FUNCTION(threadTest,"detachThread",void,detachThread,I64 threadId)
 	{
 		IntrusiveSharedPtr<Thread> thread = removeThreadById(threadId);
 		Platform::detachThread(thread->platformThread);

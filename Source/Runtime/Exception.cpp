@@ -111,11 +111,8 @@ namespace Runtime
 		Platform::raisePlatformException(exceptionData);
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION3(
-		wavmIntrinsics,throwExceptionIntrinsic,throwException,none,
-		i64,exceptionTypeInstanceBits,
-		i64,argsBits,
-		i32,isUserException)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"throwException",void,intrinsicThrowException,
+		I64 exceptionTypeInstanceBits, I64 argsBits, I32 isUserException)
 	{
 		auto typeInstance = reinterpret_cast<ExceptionTypeInstance*>(Uptr(exceptionTypeInstanceBits));
 		auto args = reinterpret_cast<const UntaggedValue*>(Uptr(argsBits));

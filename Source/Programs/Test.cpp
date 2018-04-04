@@ -407,19 +407,19 @@ void processCommand(TestScriptState& state,const Command* command)
 		});
 }
 
-DEFINE_INTRINSIC_FUNCTION0(spectest,spectest_print,print,none) {}
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print_i32,print_i32,none,i32,a) { std::cout << asString(a) << " : i32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print_i64,print_i64,none,i64,a) { std::cout << asString(a) << " : i64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print_f32,print_f32,none,f32,a) { std::cout << asString(a) << " : f32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION1(spectest,spectest_print_f64,print_f64,none,f64,a) { std::cout << asString(a) << " : f64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print_f64_f64,print_f64_f64,none,f64,a,f64,b) { std::cout << asString(a) << " : f64" << std::endl << asString(a) << " : f64" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print_i32_f32,print_i32_f32,none,i32,a,f32,b) { std::cout << asString(a) << " : i32" << std::endl << asString(a) << " : f32" << std::endl; }
-DEFINE_INTRINSIC_FUNCTION2(spectest,spectest_print_i64_f64,print_i64_f64,none,i64,a,f64,b) { std::cout << asString(a) << " : i64" << std::endl << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION(spectest,"print",void,spectest_print) {}
+DEFINE_INTRINSIC_FUNCTION(spectest,"print_i32",void,spectest_print_i32,I32 a) { std::cout << asString(a) << " : i32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION(spectest,"print_i64",void,spectest_print_i64,I64 a) { std::cout << asString(a) << " : i64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION(spectest,"print_f32",void,spectest_print_f32,F32 a) { std::cout << asString(a) << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION(spectest,"print_f64",void,spectest_print_f64,F64 a) { std::cout << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION(spectest,"print_f64_f64",void,spectest_print_f64_f64,F64 a,F64 b) { std::cout << asString(a) << " : f64" << std::endl << asString(a) << " : f64" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION(spectest,"print_i32_f32",void,spectest_print_i32_f32,I32 a,F32 b) { std::cout << asString(a) << " : i32" << std::endl << asString(a) << " : f32" << std::endl; }
+DEFINE_INTRINSIC_FUNCTION(spectest,"print_i64_f64",void,spectest_print_i64_f64,I64 a,F64 b) { std::cout << asString(a) << " : i64" << std::endl << asString(a) << " : f64" << std::endl; }
 
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_global_i32,global_i32,i32,666)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_global_i64,global_i64,i64,0)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_global_f32,global_f32,f32,0.0f)
-DEFINE_INTRINSIC_GLOBAL(spectest,spectest_global_f64,global_f64,f64,0.0)
+DEFINE_INTRINSIC_GLOBAL(spectest,"global_i32",I32,spectest_global_i32,666)
+DEFINE_INTRINSIC_GLOBAL(spectest,"global_i64",I64,spectest_global_i64,0)
+DEFINE_INTRINSIC_GLOBAL(spectest,"global_f32",F32,spectest_global_f32,0.0f)
+DEFINE_INTRINSIC_GLOBAL(spectest,"global_f64",F64,spectest_global_f64,0.0)
 
 DEFINE_INTRINSIC_TABLE(spectest,spectest_table,table,TableType(TableElementType::anyfunc,false,SizeConstraints {10,20}))
 DEFINE_INTRINSIC_MEMORY(spectest,spectest_memory,memory,MemoryType(false,SizeConstraints {1,2}))

@@ -814,7 +814,7 @@ namespace LLVMJIT
 	{
 		assert(callingConvention == CallingConvention::intrinsic
 		|| callingConvention == CallingConvention::intrinsicWithContextSwitch
-		|| callingConvention == CallingConvention::intrinsicWithDefaultTableAndMemory);
+		|| callingConvention == CallingConvention::intrinsicWithMemAndTable);
 
 		Platform::Lock llvmLock(llvmMutex);
 

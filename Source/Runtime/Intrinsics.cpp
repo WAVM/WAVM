@@ -31,8 +31,8 @@ namespace Intrinsics
 	Function::Function(
 		Intrinsics::Module& moduleRef,
 		const char* inName,
-		const IR::FunctionType* inType,
 		void* inNativeFunction,
+		const IR::FunctionType* inType,
 		Runtime::CallingConvention inCallingConvention)
 	: name(inName)
 	, type(inType)

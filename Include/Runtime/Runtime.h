@@ -202,7 +202,7 @@ namespace Runtime
 		wasm,
 		intrinsic,
 		intrinsicWithContextSwitch,
-		intrinsicWithDefaultTableAndMemory,
+		intrinsicWithMemAndTable,
 		c
 	};
 

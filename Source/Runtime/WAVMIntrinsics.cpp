@@ -87,41 +87,42 @@ namespace Runtime
 		else { return nearbyint(value); }
 	}
 
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,f32Min,f32.min,f32,f32,left,f32,right) { return floatMin(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,f64Min,f64.min,f64,f64,left,f64,right) { return floatMin(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,f32Max,f32.max,f32,f32,left,f32,right) { return floatMax(left,right); }
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,f64Max,f64.max,f64,f64,left,f64,right) { return floatMax(left,right); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f32.min",F32,f32Min,F32 left,F32 right) { return floatMin(left,right); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f64.min",F64,f64Min,F64 left,F64 right) { return floatMin(left,right); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f32.max",F32,f32Max,F32 left,F32 right) { return floatMax(left,right); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f64.max",F64,f64Max,F64 left,F64 right) { return floatMax(left,right); }
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,f32Ceil,f32.ceil,f32,f32,value) { return floatCeil(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,f64Ceil,f64.ceil,f64,f64,value) { return floatCeil(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,f32Floor,f32.floor,f32,f32,value) { return floatFloor(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,f64Floor,f64.floor,f64,f64,value) { return floatFloor(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,f32Trunc,f32.trunc,f32,f32,value) { return floatTrunc(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,f64Trunc,f64.trunc,f64,f64,value) { return floatTrunc(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,f32Nearest,f32.nearest,f32,f32,value) { return floatNearest(value); }
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,f64Nearest,f64.nearest,f64,f64,value) { return floatNearest(value); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f32.ceil",F32,f32Ceil,F32 value) { return floatCeil(value); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f64.ceil",F64,f64Ceil,F64 value) { return floatCeil(value); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f32.floor",F32,f32Floor,F32 value) { return floatFloor(value); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f64.floor",F64,f64Floor,F64 value) { return floatFloor(value); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f32.trunc",F32,f32Trunc,F32 value) { return floatTrunc(value); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f64.trunc",F64,f64Trunc,F64 value) { return floatTrunc(value); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f32.nearest",F32,f32Nearest,F32 value) { return floatNearest(value); }
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"f64.nearest",F64,f64Nearest,F64 value) { return floatNearest(value); }
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,divideByZeroOrIntegerOverflowTrap,divideByZeroOrIntegerOverflowTrap,none)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"divideByZeroOrIntegerOverflowTrap",void,divideByZeroOrIntegerOverflowTrap)
 	{
 		throwException(Exception::integerDivideByZeroOrIntegerOverflowType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,unreachableTrap,unreachableTrap,none)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"unreachableTrap",void,unreachableTrap)
 	{
 		throwException(Exception::reachedUnreachableType);
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,accessViolationTrap,accessViolationTrap,none)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"accessViolationTrap",void,accessViolationTrap)
 	{
 		throwException(Exception::accessViolationType);
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,invalidFloatOperationTrap,invalidFloatOperationTrap,none)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"invalidFloatOperationTrap",void,invalidFloatOperationTrap)
 	{
 		throwException(Exception::invalidFloatOperationType);
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION3(wavmIntrinsics,indirectCallSignatureMismatch,indirectCallSignatureMismatch,none,i32,index,i64,expectedSignatureBits,i64,tableId)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"indirectCallSignatureMismatch",void,indirectCallSignatureMismatch,
+		I32 index, I64 expectedSignatureBits, I64 tableId)
 	{
 		TableInstance* table = getTableFromRuntimeData(contextRuntimeData,tableId);
 		assert(table);
@@ -139,12 +140,12 @@ namespace Runtime
 		throwException(elementValue == nullptr ? Exception::undefinedTableElementType : Exception::indirectCallSignatureMismatchType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,indirectCallIndexOutOfBounds,indirectCallIndexOutOfBounds,none)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"indirectCallIndexOutOfBounds",void,indirectCallIndexOutOfBounds)
 	{
 		throwException(Exception::undefinedTableElementType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION2(wavmIntrinsics,_growMemory,growMemory,i32,i32,deltaPages,i64,memoryId)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"growMemory",I32,_growMemory,I32 deltaPages,I64 memoryId)
 	{
 		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData,memoryId);
 		assert(memory);
@@ -153,7 +154,7 @@ namespace Runtime
 		else { return (I32)numPreviousMemoryPages; }
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,_currentMemory,currentMemory,i32,i64,memoryId)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"currentMemory",I32,_currentMemory,I64 memoryId)
 	{
 		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData,memoryId);
 		assert(memory);
@@ -164,21 +165,21 @@ namespace Runtime
 
 	thread_local Uptr indentLevel = 0;
 
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugEnterFunction,debugEnterFunction,none,i64,functionInstanceBits)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"debugEnterFunction",void,debugEnterFunction,I64 functionInstanceBits)
 	{
 		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 		Log::printf(Log::Category::debug,"ENTER: %s\n",function->debugName.c_str());
 		++indentLevel;
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION1(wavmIntrinsics,debugExitFunction,debugExitFunction,none,i64,functionInstanceBits)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"debugExitFunction",void,debugExitFunction,I64 functionInstanceBits)
 	{
 		FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 		--indentLevel;
 		Log::printf(Log::Category::debug,"EXIT:  %s\n",function->debugName.c_str());
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION0(wavmIntrinsics,debugBreak,debugBreak,none)
+	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"debugBreak",void,debugBreak)
 	{
 		Log::printf(Log::Category::debug,"================== wavmIntrinsics.debugBreak\n");
 	}

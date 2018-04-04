@@ -4,13 +4,13 @@
 #include "Runtime/Intrinsics.h"
 #include "wavix.h"
 
-DEFINE_INTRINSIC_FUNCTION6(wavix,__syscall_mmap,__syscall_mmap,i32,
-	i32,address,
-	i32,numBytes,
-	i32,prot,
-	i32,flags,
-	i32,fd,
-	i32,offset)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_mmap",I32,__syscall_mmap,
+	I32 address,
+	I32 numBytes,
+	I32 prot,
+	I32 flags,
+	I32 fd,
+	I32 offset)
 {
 	const Uptr numPages = (Uptr(numBytes) + IR::numBytesPerPage - 1) >> IR::numBytesPerPageLog2;
 
@@ -28,28 +28,31 @@ DEFINE_INTRINSIC_FUNCTION6(wavix,__syscall_mmap,__syscall_mmap,i32,
 	return coerce32bitAddress(basePageIndex << IR::numBytesPerPageLog2);
 }
 
-DEFINE_INTRINSIC_FUNCTION2(wavix,__syscall_munmap,__syscall_munmap,i32,i32,address,i32,numBytes)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_munmap",I32,__syscall_munmap,
+	I32 address, I32 numBytes)
 {
 	traceSyscallf("munmap","(0x%08x,%u)",address,numBytes);
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION5(wavix,__syscall_mremap,__syscall_mremap,i32,
-	i32,oldAddress,
-	i32,oldNumBytes,
-	i32,newNumBytes,
-	i32,flags,
-	i32,newAddress)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_mremap",I32,__syscall_mremap,
+	I32 oldAddress,
+	I32 oldNumBytes,
+	I32 newNumBytes,
+	I32 flags,
+	I32 newAddress)
 {
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION3(wavix,__syscall_madvise,__syscall_madvise,i32,i32,address,i32,numBytes,i32,advice)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_madvise",I32,__syscall_madvise,
+	I32 address, I32 numBytes, I32 advice)
 {
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION1(wavix,__syscall_brk,__syscall_brk,i32,i32,address)
+DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_brk",I32,__syscall_brk,
+	I32 address)
 {
 	traceSyscallf("brk","(0x%08x)",address);
 	//throwException(Exception::calledUnimplementedIntrinsicType);
