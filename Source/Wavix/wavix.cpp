@@ -306,7 +306,7 @@ static I64 mainThreadEntry(void* argsVoid)
 	if(args->startFunction)
 	{
 		// Validation should reject the module if the start function isn't ()->()
-		assert(getFunctionType(startFunction) == FunctionType::get());
+		assert(getFunctionType(args->startFunction) == FunctionType::get());
 		invokeFunctionUnchecked(currentThread->context,args->startFunction,nullptr);
 	}
 
