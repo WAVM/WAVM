@@ -95,14 +95,18 @@ namespace Runtime
 		Uptr endOffset;
 
 		// The Objects corresponding to the FunctionElements at baseAddress.
+		Platform::Mutex* elementsMutex;
 		std::vector<Object*> elements;
 
 		TableInstance(Compartment* inCompartment,const TableType& inType)
 		: ObjectImpl(ObjectKind::table)
 		, compartment(inCompartment)
+		, id(UINTPTR_MAX)
 		, type(inType)
 		, baseAddress(nullptr)
-		, endOffset(0) {}
+		, endOffset(0)
+		, elementsMutex(Platform::createMutex())
+		{}
 		~TableInstance() override;
 		virtual void finalize() override;
 	};
@@ -122,6 +126,7 @@ namespace Runtime
 		MemoryInstance(Compartment* inCompartment,const MemoryType& inType)
 		: ObjectImpl(ObjectKind::memory)
 		, compartment(inCompartment)
+		, id(UINTPTR_MAX)
 		, type(inType)
 		, baseAddress(nullptr)
 		, numPages(0)
@@ -134,16 +139,20 @@ namespace Runtime
 	struct GlobalInstance : ObjectImpl
 	{
 		Compartment* const compartment;
+		Uptr id;
+
 		const GlobalType type;
 		const U32 mutableDataOffset;
-		const UntaggedValue immutableValue;
+		const UntaggedValue initialValue;
 
-		GlobalInstance(Compartment* inCompartment,GlobalType inType,U32 inMutableDataOffset,UntaggedValue inImmutableValue)
+		GlobalInstance(Compartment* inCompartment,GlobalType inType,U32 inMutableDataOffset,UntaggedValue inInitialValue)
 		: ObjectImpl(ObjectKind::global)
 		, compartment(inCompartment)
+		, id(UINTPTR_MAX)
 		, type(inType)
 		, mutableDataOffset(inMutableDataOffset)
-		, immutableValue(inImmutableValue) {}
+		, initialValue(inInitialValue) {}
+		virtual void finalize() override;
 	};
 
 	struct ExceptionData
@@ -243,10 +252,11 @@ namespace Runtime
 
 		struct CompartmentRuntimeData* runtimeData;
 		U8* unalignedRuntimeData;
-		U32 numGlobalBytes;
+		std::atomic<U32> numGlobalBytes;
 
 		// These are weak references that aren't followed by the garbage collector.
 		// If the referenced object is deleted, it will null the reference here.
+		std::vector<GlobalInstance*> globals;
 		std::vector<MemoryInstance*> memories;
 		std::vector<TableInstance*> tables;
 		std::vector<Context*> contexts;

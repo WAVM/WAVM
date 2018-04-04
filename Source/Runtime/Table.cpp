@@ -52,6 +52,19 @@ namespace Runtime
 		return table;
 	}
 	
+	TableInstance* cloneTable(TableInstance* table,Compartment* newCompartment)
+	{
+		Platform::Lock elementsLock(table->elementsMutex);
+		TableInstance* newTable = createTable(newCompartment,table->type);
+		growTable(newTable,table->elements.size());
+		newTable->elements = table->elements;
+		memcpy(
+			newTable->baseAddress,
+			table->baseAddress,
+			table->elements.size() * sizeof(TableInstance::FunctionElement));
+		return newTable;
+	}
+
 	void TableInstance::finalize()
 	{
 		Platform::Lock compartmentLock(compartment->mutex);
@@ -63,6 +76,8 @@ namespace Runtime
 
 	TableInstance::~TableInstance()
 	{
+		Platform::destroyMutex(elementsMutex);
+
 		// Decommit all pages.
 		if(elements.size() > 0) { Platform::decommitVirtualPages((U8*)baseAddress,getNumPlatformPages(elements.size() * sizeof(TableInstance::FunctionElement))); }
 
@@ -113,6 +128,9 @@ namespace Runtime
 				functionInstance->callingConvention);
 		}
 
+		// Lock the table's elements array.
+		Platform::Lock elementsLock(table->elementsMutex);
+
 		// Verify the index is within the table's bounds.
 		if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
 		
@@ -123,6 +141,7 @@ namespace Runtime
 		// Write the new table element to both the table's elements array and its indirect function call data.
 		table->baseAddress[saturatedIndex].type = functionInstance->type;
 		table->baseAddress[saturatedIndex].value = nativeFunction;
+
 		auto oldValue = table->elements[saturatedIndex];
 		table->elements[saturatedIndex] = newValue;
 		return oldValue;
@@ -138,7 +157,10 @@ namespace Runtime
 		const Uptr saturatedIndex = Platform::saturateToBounds(index,table->elements.size());
 
 		// Read from the table's elements array.
-		return table->elements[saturatedIndex];
+		{
+			Platform::Lock elementsLock(table->elementsMutex);
+			return table->elements[saturatedIndex];
+		}
 	}
 
 	Uptr getTableNumElements(TableInstance* table)
@@ -167,7 +189,10 @@ namespace Runtime
 			}
 
 			// Also grow the table's elements array.
-			table->elements.insert(table->elements.end(),numNewElements,nullptr);
+			{
+				Platform::Lock elementsLock(table->elementsMutex);
+				table->elements.insert(table->elements.end(),numNewElements,nullptr);
+			}
 		}
 		return previousNumElements;
 	}
@@ -182,7 +207,10 @@ namespace Runtime
 			|| table->elements.size() - numElementsToShrink < table->type.size.min) { return -1; }
 
 			// Shrink the table's elements array.
-			table->elements.resize(table->elements.size() - numElementsToShrink);
+			{
+				Platform::Lock elementsLock(table->elementsMutex);
+				table->elements.resize(table->elements.size() - numElementsToShrink);
+			}
 			
 			// Decommit the pages that were shrunk off the end of the table's indirect function call data.
 			const Uptr previousNumPlatformPages = getNumPlatformPages(previousNumElements * sizeof(TableInstance::FunctionElement));

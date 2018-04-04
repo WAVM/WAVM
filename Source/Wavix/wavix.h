@@ -22,9 +22,6 @@ struct Process
 {
 	GCPointer<Compartment> compartment;
 
-	GCPointer<MemoryInstance> memory;
-	GCPointer<TableInstance> table;
-
 	Platform::Mutex* cwdMutex;
 	std::string cwd;
 
@@ -77,3 +74,19 @@ inline U32 coerce32bitAddress(Uptr address)
 	if(address >= UINT32_MAX) { Runtime::throwException(Runtime::Exception::integerDivideByZeroOrIntegerOverflowType); }
 	return (U32)address;
 }
+
+inline std::string readUserString(MemoryInstance* memory,I32 stringAddress)
+{
+	// Validate the path name and make a local copy of it.
+	std::string pathString;
+	while(true)
+	{
+		const char c = memoryRef<char>(memory,stringAddress + pathString.size());
+		if(c == 0) { break; }
+		else { pathString += c; }
+	};
+
+	return pathString;
+}
+
+extern Process* spawnProcess(const char* filename,std::vector<std::string>&& args,std::vector<std::string>&& env);

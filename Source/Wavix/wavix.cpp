@@ -81,6 +81,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix,"__wavix_get_arg_length",I32,__wavix_get_arg_len
 DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__wavix_get_arg",void,__wavix_get_arg,
 	I32 argIndex, I32 bufferAddress, I32 numCharsInBuffer)
 {
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData,defaultMemoryId.id);
 	if(U32(argIndex) < currentThread->process->args.size())
 	{
 		const Uptr safeArgIndex = Platform::saturateToBounds((Uptr)argIndex,currentThread->process->args.size());
@@ -88,10 +89,10 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__wavix_get_arg",void,__wavi
 		if(numChars + 1 <= Uptr(numCharsInBuffer))
 		{
 			memcpy(
-				memoryArrayPtr<char>(currentThread->process->memory,bufferAddress,numCharsInBuffer),
+				memoryArrayPtr<char>(memory,bufferAddress,numCharsInBuffer),
 				currentThread->process->args[safeArgIndex].c_str(),
 				numChars);
-			memoryRef<char>(currentThread->process->memory,bufferAddress + numChars) = 0;
+			memoryRef<char>(memory,bufferAddress + numChars) = 0;
 		}
 		else
 		{
@@ -155,8 +156,9 @@ struct wavix_utsname
 
 DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_uname",I32,__syscall_uname,I32 resultAddress)
 {
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData,defaultMemoryId.id);
 	traceSyscallf("uname","(0x%08x)",resultAddress);
-	wavix_utsname& result = memoryRef<wavix_utsname>(currentThread->process->memory,resultAddress);
+	wavix_utsname& result = memoryRef<wavix_utsname>(memory,resultAddress);
 	strcpy(result.sysName,"Wavix");
 	strcpy(result.nodeName,"utsname::nodename");
 	strcpy(result.release,"utsname::release");
@@ -199,7 +201,8 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_clock_gettime",I32
 {
 	traceSyscallf("clock_gettime","(%u,0x%08x)",clockId,resultAddress);
 
-	wavix_timespec& result = memoryRef<wavix_timespec>(currentThread->process->memory,resultAddress);
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData,defaultMemoryId.id);
+	wavix_timespec& result = memoryRef<wavix_timespec>(memory,resultAddress);
 
 	static std::atomic<U64> hackedClock;
 	const U64 currentClock = hackedClock;
@@ -287,49 +290,28 @@ struct RootResolver : Resolver
 	}
 };
 
-struct CommandLineOptions
-{
-	const char* filename = nullptr;
-	char** args = nullptr;
-	bool onlyCheck = false;
-};
-
 struct MainThreadArgs
 {
 	Thread* thread;
-	ModuleInstance* moduleInstance;
+	GCPointer<FunctionInstance> startFunction;
+	GCPointer<FunctionInstance> mainFunction;
 };
 
-static I64 mainThreadEntry(const MainThreadArgs* args)
+static I64 mainThreadEntry(void* argsVoid)
 {
+	auto args = (const MainThreadArgs*)argsVoid;
 	currentThread = args->thread;
 
 	// Call the module start function, if it has one.
-	FunctionInstance* startFunction = getStartFunction(args->moduleInstance);
-	if(startFunction)
+	if(args->startFunction)
 	{
 		// Validation should reject the module if the start function isn't ()->()
 		assert(getFunctionType(startFunction) == FunctionType::get());
-		invokeFunctionUnchecked(currentThread->context,startFunction,nullptr);
-	}
-
-	// Look up the module's exported main function (called _start).
-	FunctionInstance* functionInstance = asFunctionNullable(getInstanceExport(args->moduleInstance,"_start"));
-	if(!functionInstance)
-	{
-		std::cerr << "Module does not export _start function" << std::endl;
-		return EXIT_FAILURE;
-	}
-	const FunctionType* functionType = getFunctionType(functionInstance);
-
-	if(functionType != FunctionType::get())
-	{
-		std::cerr << "Module _start signature is " << asString(functionType) << ", but ()->() was expected." << std::endl;
-		return EXIT_FAILURE;
+		invokeFunctionUnchecked(currentThread->context,args->startFunction,nullptr);
 	}
 
 	// Call the main function.
-	return invokeFunctionUnchecked(currentThread->context,functionInstance,nullptr)->i64;
+	return invokeFunctionUnchecked(currentThread->context,args->mainFunction,nullptr)->i64;
 }
 
 static void unhandledExceptionHandler(Exception&& exception)
@@ -337,9 +319,9 @@ static void unhandledExceptionHandler(Exception&& exception)
 	Errors::fatalf("Unhandled runtime exception: %s\n",describeException(exception).c_str());
 }
 
-static I64 run(const CommandLineOptions& options)
+Process* spawnProcess(const char* filename,std::vector<std::string>&& args,std::vector<std::string>&& env)
 {
-	std::string hostFilename = sysroot + options.filename;
+	std::string hostFilename = sysroot + filename;
 	Module module;
 
 	// Enable some additional "features" in WAVM that are disabled by default.
@@ -349,16 +331,14 @@ static I64 run(const CommandLineOptions& options)
 	module.featureSpec.requireSharedFlagForAtomicOperators = false;
 
 	// Load the module.
-	if(!loadBinaryModule(hostFilename.c_str(),module)) { return EXIT_FAILURE; }
-	if(options.onlyCheck) { return EXIT_SUCCESS; }
+	if(!loadBinaryModule(hostFilename.c_str(),module)) { return nullptr; }
 
 	// Create the process and compartment.
 	Process* process = new Process;
 	process->compartment = Runtime::createCompartment();
 
-	process->args.push_back(options.filename);
-	char** args = options.args;
-	while(*args) { process->args.push_back(*args++); };
+	process->args = std::move(args);
+	process->args.insert(process->args.begin(),filename);
 
 	// Link the module with the Wavix intrinsics.
 	RootResolver rootResolver;
@@ -377,50 +357,51 @@ static I64 run(const CommandLineOptions& options)
 				<< "\" export=\"" << missingImport.exportName
 				<< "\" type=\"" << asString(missingImport.type) << "\"" << std::endl;
 		}
-		return EXIT_FAILURE;
+		return nullptr;
 	}
 
 	// Instantiate the module.
 	ModuleInstance* moduleInstance = instantiateModule(process->compartment,module,std::move(linkResult.resolvedImports));
-	if(!moduleInstance) { return EXIT_FAILURE; }
+	if(!moduleInstance) { return nullptr; }
 
-	process->memory = asMemoryNullable(getInstanceExport(moduleInstance,"__memory"));
-	process->table = asTableNullable(getInstanceExport(moduleInstance,"__table"));
-	if(!process->memory || !process->table)
+	// Look up the module's start, and main functions.
+	MainThreadArgs* mainThreadArgs = new MainThreadArgs;
+	mainThreadArgs->startFunction = getStartFunction(moduleInstance);
+	mainThreadArgs->mainFunction = asFunctionNullable(getInstanceExport(moduleInstance,"_start"));;
+
+	// Validate that the module exported a main function, and that it is the expected type.
+	if(!mainThreadArgs->mainFunction)
 	{
-		std::cerr << "Module does not export memory and table" << std::endl;
-		return EXIT_FAILURE;
+		std::cerr << "Module does not export _start function" << std::endl;
+		return nullptr;
+	}
+
+	const FunctionType* functionType = getFunctionType(mainThreadArgs->mainFunction);
+	if(functionType != FunctionType::get())
+	{
+		std::cerr << "Module _start signature is " << asString(functionType) << ", but ()->() was expected." << std::endl;
+		return nullptr;
 	}
 
 	// Create the context and Wavix Thread object for the main thread.
 	Context* mainContext = Runtime::createContext(process->compartment);
-	Thread* mainThread = new Thread(process,mainContext);
-	process->threads.push_back(mainThread);
+	mainThreadArgs->thread = new Thread(process,mainContext);
+	process->threads.push_back(mainThreadArgs->thread);
 
-	// Start the main thread, and wait for it to exit.
-	MainThreadArgs mainThreadArgs;
-	mainThreadArgs.thread = mainThread;
-	mainThreadArgs.moduleInstance = moduleInstance;
+	// Start the process's main thread.
 	enum { mainThreadNumStackBytes = 1*1024*1024 };
-	Platform::Thread* mainPlatformThread = Platform::createThread(
+	Platform::createThread(
 		mainThreadNumStackBytes,
-		(I64(*)(void*))&mainThreadEntry,
-		&mainThreadArgs);
-	const I64 result = Platform::joinThread(mainPlatformThread);
+		&mainThreadEntry,
+		mainThreadArgs);
 
-	// Clean up the process.
-	delete process;
-	process = nullptr;
-
-	return result;
+	return process;
 }
 
 void showHelp()
 {
 	std::cerr << "Usage: wavix [options] <executable module path> [--] [arguments]" << std::endl;
 	std::cerr << "  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)" << std::endl;
-	std::cerr << "  -c|--check        Exit after checking that the program is valid" << std::endl;
-	std::cerr << "  -d|--debug        Write additional debug information to stdout" << std::endl;
 	std::cerr << "  --trace-syscalls  Trace Wavix syscalls to stdout" << std::endl;
 	std::cerr << "  --sysroot <path>  Sets the system root directory to the given path." << std::endl;
 	std::cerr << "                      Defaults to the CWD. All Wavix file accesses will be" << std::endl;
@@ -433,7 +414,7 @@ extern void staticInitializeFile();
 extern void staticInitializeMemory();
 extern void staticInitializeProcess();
 
-int main(int argc,char** argv)
+int main(int argc,const char** argv)
 {
 	staticInitializeFile();
 	staticInitializeMemory();
@@ -441,49 +422,43 @@ int main(int argc,char** argv)
 
 	sysroot = Platform::getCurrentWorkingDirectory();
 
-	CommandLineOptions options;
-	options.args = argv;
-	while(*++options.args)
+	const char* filename = nullptr;
+	while(*++argv)
 	{
-		if(!strcmp(*options.args, "--sysroot"))
+		if(!strcmp(*argv, "--sysroot"))
 		{
-			if(*++options.args == nullptr)
+			if(*++argv == nullptr)
 			{
 				std::cerr << "Expected path following '--sysroot', but it was the last argument." << std::endl;
 				return EXIT_FAILURE;
 			}
-			sysroot = *options.args;
+			sysroot = *argv;
 		}
-		else if(!strcmp(*options.args, "--check") || !strcmp(*options.args, "-c"))
-		{
-			options.onlyCheck = true;
-		}
-		else if(!strcmp(*options.args, "--debug") || !strcmp(*options.args, "-d"))
-		{
-			Log::setCategoryEnabled(Log::Category::debug,true);
-		}
-		else if(!strcmp(*options.args, "--trace-syscalls"))
+		else if(!strcmp(*argv, "--trace-syscalls"))
 		{
 			isTracingSyscalls = true;
 		}
-		else if(!strcmp(*options.args, "--"))
+		else if(!strcmp(*argv, "--"))
 		{
-			++options.args;
+			++argv;
 			break;
 		}
-		else if(!strcmp(*options.args, "--help") || !strcmp(*options.args, "-h"))
+		else if(!strcmp(*argv, "--help") || !strcmp(*argv, "-h"))
 		{
 			showHelp();
 			return EXIT_SUCCESS;
 		}
-		else if(!options.filename)
+		else if(!filename)
 		{
-			options.filename = *options.args;
+			filename = *argv;
 		}
 		else { break; }
 	}
 
-	if(!options.filename)
+	std::vector<std::string> processArgs;
+	while(*argv) { processArgs.push_back(*argv++); };
+
+	if(!filename)
 	{
 		showHelp();
 		return EXIT_FAILURE;
@@ -492,13 +467,10 @@ int main(int argc,char** argv)
 	// Instead of catching unhandled exceptions/signals, register a global handler.
 	Runtime::setUnhandledExceptionHandler(unhandledExceptionHandler);
 
-	I64 returnCode = EXIT_FAILURE;
-#ifdef __AFL_LOOP
-	while(__AFL_LOOP(2000))
-#endif
-	{
-		returnCode = run(options);
-		Runtime::collectGarbage();
-	}
-	return (int)returnCode;
+	Process* process = spawnProcess(filename,std::move(processArgs),{});
+	if(!process) { return EXIT_FAILURE; }
+
+	while(true) {};
+
+	return EXIT_SUCCESS;
 }

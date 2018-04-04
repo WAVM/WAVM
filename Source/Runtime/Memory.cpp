@@ -54,6 +54,15 @@ namespace Runtime
 		return memory;
 	}
 
+	MemoryInstance* cloneMemory(MemoryInstance* memory,Compartment* newCompartment)
+	{
+		MemoryInstance* newMemory = createMemory(newCompartment,memory->type);
+		const Uptr numPages = memory->numPages;
+		growMemory(newMemory,numPages);
+		memcpy(newMemory->baseAddress,memory->baseAddress,numPages * IR::numBytesPerPage);
+		return newMemory;
+	}
+
 	void MemoryInstance::finalize()
 	{
 		Platform::Lock compartmentLock(compartment->mutex);

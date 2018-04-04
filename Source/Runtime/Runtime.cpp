@@ -106,18 +106,16 @@ namespace Runtime
 		// Allow immutable globals to be created without a compartment.
 		errorUnless(!type.isMutable || compartment);
 
-		U32 dataOffset = U32(-1);
-		if(type.isMutable)
+		Platform::Lock compartmentLock(compartment->mutex);
+		GlobalInstance* globalInstance;
+		if(!type.isMutable) { globalInstance = new GlobalInstance(compartment,type,UINT32_MAX,initialValue); }
+		else
 		{
-			Platform::Lock compartmentLock(compartment->mutex);
-
 			// Allocate a naturally aligned address to store the global at in the per-context data.
 			const U32 numBytes = getTypeByteWidth(type.valueType);
-			{
-				dataOffset = (compartment->numGlobalBytes + numBytes - 1) & ~(numBytes - 1);
-				if(dataOffset + numBytes >= maxGlobalBytes) { return nullptr; }
-				compartment->numGlobalBytes = dataOffset + numBytes;
-			}
+			U32 dataOffset = (compartment->numGlobalBytes + numBytes - 1) & ~(numBytes - 1);
+			if(dataOffset + numBytes >= maxGlobalBytes) { return nullptr; }
+			compartment->numGlobalBytes = dataOffset + numBytes;
 
 			// Initialize the global value for each context, and the data used to initialize new contexts.
 			memcpy(compartment->initialContextGlobalData + dataOffset,&initialValue,numBytes);
@@ -125,9 +123,25 @@ namespace Runtime
 			{
 				memcpy(context->runtimeData->globalData + dataOffset,&initialValue,numBytes);
 			}
+
+			globalInstance = new GlobalInstance(compartment,type,dataOffset,initialValue);
 		}
 
-		return new GlobalInstance(compartment,type,dataOffset,initialValue);
+		globalInstance->id = compartment->globals.size();
+		compartment->globals.push_back(globalInstance);
+
+		return globalInstance;
+	}
+
+	GlobalInstance* cloneGlobal(GlobalInstance* global,Compartment* newCompartment)
+	{
+		return createGlobal(newCompartment,global->type,Value(global->type.valueType,global->initialValue));
+	}
+
+	void GlobalInstance::finalize()
+	{
+		Platform::Lock compartmentLock(compartment->mutex);
+		compartment->globals[id] = nullptr;
 	}
 
 	Value getGlobalValue(Context* context,GlobalInstance* global)
@@ -137,7 +151,7 @@ namespace Runtime
 			global->type.valueType,
 			global->type.isMutable
 			? *(UntaggedValue*)(context->runtimeData->globalData + global->mutableDataOffset)
-			: global->immutableValue);
+			: global->initialValue);
 	}
 
 	Value setGlobalValue(Context* context,GlobalInstance* global,Value newValue)
@@ -187,6 +201,44 @@ namespace Runtime
 		return new Compartment();
 	}
 
+	Compartment* cloneCompartment(Compartment* compartment)
+	{
+		Compartment* newCompartment = new Compartment;
+
+		Platform::Lock lock(compartment->mutex);
+		
+		// Clone globals.
+		for(Uptr globalIndex = 0;globalIndex < compartment->globals.size();++globalIndex)
+		{
+			GlobalInstance* global = compartment->globals[globalIndex];
+			GlobalInstance* newGlobal = cloneGlobal(global,newCompartment);
+			SUPPRESS_UNUSED(newGlobal);
+			assert(newGlobal->id == global->id);
+			assert(newGlobal->mutableDataOffset == global->mutableDataOffset);
+		}
+		assert(newCompartment->numGlobalBytes == compartment->numGlobalBytes);
+
+		// Clone memories.
+		for(Uptr memoryIndex = 0;memoryIndex < compartment->memories.size();++memoryIndex)
+		{
+			MemoryInstance* memory = compartment->memories[memoryIndex];
+			MemoryInstance* newMemory = cloneMemory(memory,newCompartment);
+			SUPPRESS_UNUSED(newMemory);
+			assert(newMemory->id == memory->id);
+		}
+
+		// Clone tables.
+		for(Uptr tableIndex = 0;tableIndex < compartment->tables.size();++tableIndex)
+		{
+			TableInstance* table = compartment->tables[tableIndex];
+			TableInstance* newTable = cloneTable(table,newCompartment);
+			SUPPRESS_UNUSED(newTable);
+			assert(newTable->id == table->id);
+		}
+
+		return newCompartment;
+	}
+
 	Context* createContext(Compartment* compartment)
 	{
 		assert(compartment);
@@ -225,14 +277,16 @@ namespace Runtime
 		return context->compartment;
 	}
 
-	Context* cloneContext(Context* context)
+	Context* cloneContext(Context* context,Compartment* newCompartment)
 	{
 		// Create a new context and initialize its runtime data with the values from the source context.
-		Context* clonedContext = createContext(context->compartment);
+		Context* clonedContext = createContext(newCompartment);
+		const Uptr numGlobalBytes = context->compartment->numGlobalBytes;
+		assert(numGlobalBytes <= newCompartment->numGlobalBytes);
 		memcpy(
 			clonedContext->runtimeData->globalData,
 			context->runtimeData->globalData,
-			context->compartment->numGlobalBytes);
+			numGlobalBytes);
 		return clonedContext;
 	}
 

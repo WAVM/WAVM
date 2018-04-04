@@ -802,7 +802,7 @@ namespace LLVMJIT
 			{
 				if(getTypeByteWidth(global->type.valueType) > sizeof(void*))
 				{
-					llvm::Value* globalPointer = emitLiteralPointer(&global->immutableValue,llvmValueType->getPointerTo());
+					llvm::Value* globalPointer = emitLiteralPointer(&global->initialValue,llvmValueType->getPointerTo());
 					push(irBuilder.CreateLoad(globalPointer));
 				}
 				else
@@ -810,10 +810,10 @@ namespace LLVMJIT
 					llvm::Constant* immutableValue;
 					switch(global->type.valueType)
 					{
-					case ValueType::i32: immutableValue = emitLiteral(global->immutableValue.i32); break;
-					case ValueType::i64: immutableValue = emitLiteral(global->immutableValue.i64); break;
-					case ValueType::f32: immutableValue = emitLiteral(global->immutableValue.f32); break;
-					case ValueType::f64: immutableValue = emitLiteral(global->immutableValue.f64); break;
+					case ValueType::i32: immutableValue = emitLiteral(global->initialValue.i32); break;
+					case ValueType::i64: immutableValue = emitLiteral(global->initialValue.i64); break;
+					case ValueType::f32: immutableValue = emitLiteral(global->initialValue.f32); break;
+					case ValueType::f64: immutableValue = emitLiteral(global->initialValue.f64); break;
 					default: Errors::unreachable();
 					};
 					push(immutableValue);

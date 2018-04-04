@@ -796,12 +796,12 @@ namespace Platform
 	
 	// Instead of just reinterpreting the file descriptor as a pointer, use
 	// -fd - 1, which maps fd=0 to a non-null value, and fd=-1 to null.
-	I32 filePtrToIndex(File* ptr)
+	static I32 filePtrToIndex(File* ptr)
 	{
 		return I32(-reinterpret_cast<Iptr>(ptr) - 1);
 	}
 
-	File* fileIndexToPtr(int index)
+	static File* fileIndexToPtr(int index)
 	{
 		return reinterpret_cast<File*>(-Iptr(index) - 1);
 	}

@@ -21,7 +21,7 @@ namespace Runtime
 			errorUnless(expression.globalIndex < moduleInstance->globals.size());
 			GlobalInstance* globalInstance = moduleInstance->globals[expression.globalIndex];
 			errorUnless(!globalInstance->type.isMutable);
-			return Runtime::Value(globalInstance->type.valueType,globalInstance->immutableValue);
+			return Runtime::Value(globalInstance->type.valueType,globalInstance->initialValue);
 		}
 		default: Errors::unreachable();
 		};

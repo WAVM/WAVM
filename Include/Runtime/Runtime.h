@@ -229,6 +229,8 @@ namespace Runtime
 	// Creates a Table. May return null if the memory allocation fails.
 	RUNTIME_API TableInstance* createTable(Compartment* compartment,IR::TableType type);
 
+	RUNTIME_API TableInstance* cloneTable(TableInstance* table,Compartment* newCompartment);
+
 	// Reads an element from the table. Assumes that index is in bounds.
 	RUNTIME_API Object* getTableElement(TableInstance* table,Uptr index);
 
@@ -249,6 +251,8 @@ namespace Runtime
 
 	// Creates a Memory. May return null if the memory allocation fails.
 	RUNTIME_API MemoryInstance* createMemory(Compartment* compartment,IR::MemoryType type);
+
+	RUNTIME_API MemoryInstance* cloneMemory(MemoryInstance* memory,Compartment* newCompartment);
 
 	// Gets the base address of the memory's data.
 	RUNTIME_API U8* getMemoryBaseAddress(MemoryInstance* memory);
@@ -278,6 +282,8 @@ namespace Runtime
 
 	// Creates a GlobalInstance with the specified type and initial value.
 	RUNTIME_API GlobalInstance* createGlobal(Compartment* compartment,IR::GlobalType type,Value initialValue);
+
+	RUNTIME_API GlobalInstance* cloneGlobal(GlobalInstance* global,Compartment* newCompartment);
 
 	// Reads the current value of a global.
 	RUNTIME_API Value getGlobalValue(Context* context,GlobalInstance* global);
@@ -317,6 +323,8 @@ namespace Runtime
 
 	RUNTIME_API Compartment* createCompartment();
 
+	RUNTIME_API Compartment* cloneCompartment(Compartment* compartment);
+
 	//
 	// Contexts
 	//
@@ -325,7 +333,7 @@ namespace Runtime
 	RUNTIME_API Compartment* getCompartmentFromContext(Context* context);
 
 	// Creates a new context, initializing its mutable global state from the given context.
-	RUNTIME_API Context* cloneContext(Context* context);
+	RUNTIME_API Context* cloneContext(Context* context,Compartment* newCompartment);
 
 	RUNTIME_API Context* getContextFromRuntimeData(struct ContextRuntimeData* contextRuntimeData);
 	RUNTIME_API struct ContextRuntimeData* getContextRuntimeData(Context* context);

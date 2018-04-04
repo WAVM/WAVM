@@ -19,7 +19,8 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_mmap",I32,__syscal
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 
-	Iptr basePageIndex = growMemory(currentThread->process->memory,numPages);
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData,defaultMemoryId.id);
+	Iptr basePageIndex = growMemory(memory,numPages);
 	if(basePageIndex == -1)
 	{
 		return -1;

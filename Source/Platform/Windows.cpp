@@ -432,7 +432,7 @@ namespace Platform
 
 	void setSignalHandler(SignalHandler handler)
 	{
-		struct UnhandledExceptionFilterRegistrar
+		static struct UnhandledExceptionFilterRegistrar
 		{
 			UnhandledExceptionFilterRegistrar()
 			{
@@ -567,7 +567,7 @@ namespace Platform
 		}
 	}
 
-	static DWORD WINAPI createThreadEntry(void* argsVoid)
+	static DWORD createThreadEntry2(void* argsVoid)
 	{
 		initThread();
 
@@ -585,6 +585,12 @@ namespace Platform
 		}
 
 		return 0;
+	}
+
+	static DWORD WINAPI createThreadEntry(void* argsVoid)
+	{
+		__try { return createThreadEntry2(argsVoid); }
+		__except(unhandledExceptionFilter(GetExceptionInformation())) { Errors::unreachable(); }
 	}
 
 	Thread* createThread(Uptr numStackBytes,I64 (*entry)(void*),void* entryArgument)
@@ -625,7 +631,7 @@ namespace Platform
 		Errors::unreachable();
 	}
 
-	static DWORD WINAPI forkThreadEntry(void* argsVoid)
+	static DWORD forkThreadEntry2(void* argsVoid)
 	{
 		std::unique_ptr<ForkThreadArgs> args((ForkThreadArgs*)argsVoid);
 
@@ -643,6 +649,12 @@ namespace Platform
 		}
 
 		return 0;
+	}
+
+	static DWORD WINAPI forkThreadEntry(void* argsVoid)
+	{
+		__try { return forkThreadEntry2(argsVoid); }
+		__except(unhandledExceptionFilter(GetExceptionInformation())) { Errors::unreachable(); }
 	}
 
 	Thread* forkCurrentThread()
@@ -843,6 +855,16 @@ namespace Platform
 		errorUnless(SetEvent(reinterpret_cast<HANDLE>(event)));
 	}
 
+	static File* fileHandleToPointer(HANDLE handle)
+	{
+		return reinterpret_cast<File*>(reinterpret_cast<Uptr>(handle) + 1);
+	}
+
+	static HANDLE filePointerToHandle(File* file)
+	{
+		return reinterpret_cast<HANDLE>(reinterpret_cast<Uptr>(file) - 1);
+	}
+
 	File* openFile(const std::string& pathName, FileAccessMode accessMode, FileCreateMode createMode)
 	{
 		DWORD desiredAccess = 0;
@@ -878,12 +900,12 @@ namespace Platform
 
 		HANDLE handle = CreateFileW(pathNameW.c_str(),desiredAccess,shareMode,nullptr,creationDisposition,flagsAndAttributes,nullptr);
 
-		return reinterpret_cast<File*>(handle);
+		return fileHandleToPointer(handle);
 	}
 
 	bool closeFile(File* file)
 	{
-		return CloseHandle(reinterpret_cast<HANDLE>(file)) != 0;
+		return CloseHandle(filePointerToHandle(file)) != 0;
 	}
 
 	File* getStdFile(StdDevice device)
@@ -897,13 +919,13 @@ namespace Platform
 		default: Errors::unreachable();
 		};
 
-		return reinterpret_cast<File*>(GetStdHandle(StdHandle));
+		return fileHandleToPointer(GetStdHandle(StdHandle));
 	}
 
 	bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64& outAbsoluteOffset)
 	{
 		LONG offsetHigh = LONG((offset >> 32) & 0xffffffff);
-		LONG result = SetFilePointer(reinterpret_cast<HANDLE>(file),U32(offset & 0xffffffff),&offsetHigh,DWORD(origin));
+		LONG result = SetFilePointer(filePointerToHandle(file),U32(offset & 0xffffffff),&offsetHigh,DWORD(origin));
 		if(result == INVALID_SET_FILE_POINTER) { return false; }
 		outAbsoluteOffset = (U64(offsetHigh) << 32) | result;
 		return true;
@@ -915,7 +937,7 @@ namespace Platform
 		if(numBytes > Uptr(UINT32_MAX)) { return false; }
 
 		DWORD windowsNumBytesRead = 0;
-		const BOOL result = ReadFile(reinterpret_cast<HANDLE>(file),outData,U32(numBytes),&windowsNumBytesRead,nullptr);
+		const BOOL result = ReadFile(filePointerToHandle(file),outData,U32(numBytes),&windowsNumBytesRead,nullptr);
 
 		outNumBytesRead = Uptr(windowsNumBytesRead);
 
@@ -928,7 +950,7 @@ namespace Platform
 		if(numBytes > Uptr(UINT32_MAX)) { return false; }
 
 		DWORD windowsNumBytesWritten = 0;
-		const BOOL result = WriteFile(reinterpret_cast<HANDLE>(file),data, U32(numBytes),&windowsNumBytesWritten,nullptr);
+		const BOOL result = WriteFile(filePointerToHandle(file),data, U32(numBytes),&windowsNumBytesWritten,nullptr);
 
 		outNumBytesWritten = Uptr(windowsNumBytesWritten);
 
@@ -937,7 +959,7 @@ namespace Platform
 
 	bool flushFileWrites(File* file)
 	{
-		return FlushFileBuffers(reinterpret_cast<HANDLE>(file)) != 0;
+		return FlushFileBuffers(filePointerToHandle(file)) != 0;
 	}
 
 	std::string getCurrentWorkingDirectory()

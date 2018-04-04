@@ -149,7 +149,9 @@ namespace ThreadTest
 	
 	DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest,"forkThread",I64,forkThread)
 	{
-		auto newContext = cloneContext(getContextFromRuntimeData(contextRuntimeData));
+		auto oldContext = getContextFromRuntimeData(contextRuntimeData);
+		auto compartment = getCompartmentFromContext(oldContext);
+		auto newContext = cloneContext(oldContext,compartment);
 
 		assert(currentThread);
 		Thread* childThread = new Thread(newContext,currentThread->entryFunction,currentThread->argument);
