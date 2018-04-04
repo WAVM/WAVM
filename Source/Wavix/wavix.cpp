@@ -86,7 +86,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__wavix_get_arg",void,__wavi
 		const Uptr safeArgIndex = Platform::saturateToBounds((Uptr)argIndex,currentThread->process->args.size());
 		const Uptr numChars = currentThread->process->args[safeArgIndex].size();
 		if(numChars + 1 <= Uptr(numCharsInBuffer))
-	{
+		{
 			memcpy(
 				memoryArrayPtr<char>(currentThread->process->memory,bufferAddress,numCharsInBuffer),
 				currentThread->process->args[safeArgIndex].c_str(),
@@ -94,14 +94,14 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__wavix_get_arg",void,__wavi
 			memoryRef<char>(currentThread->process->memory,bufferAddress + numChars) = 0;
 		}
 		else
-	{
+		{
 			throwException(Exception::accessViolationType);
 		}
-		}
+	}
 	else
-		{
+	{
 		throwException(Exception::accessViolationType);
-		}
+	}
 }
 
 // Resource limits/usage
@@ -137,7 +137,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_getrusage",I32,__syscall_getrusage,I3
 DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_socketcall",I32,__syscall_socketcall,I32 a,I32 b)
 {
 	traceSyscallf("socketcall","(%i,%i)",a,b);
-		return -1;
+	return -1;
 	//throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
@@ -205,13 +205,13 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,"__syscall_clock_gettime",I32
 	const U64 currentClock = hackedClock;
 
 	switch((ClockId)clockId)
-			{
+	{
 	case ClockId::realtime:
 	case ClockId::monotonic:
 		result.tv_sec = I32(currentClock / 1000000000);
 		result.tv_nsec = I32(currentClock % 1000000000);
 		++hackedClock;
-				break;
+		break;
 	default:
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	};
