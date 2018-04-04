@@ -114,7 +114,7 @@ namespace ThreadTest
 		I32 entryFunctionIndex,
 		I32 entryArgument)
 	{
-		if(defaultTableId.id == -1)
+		if(defaultTableId.id == UINT32_MAX)
 		{
 			// If createThread is called from a module that doesn't handle a default table, throw an exception.
 			throwException(Exception::undefinedTableElementType);
