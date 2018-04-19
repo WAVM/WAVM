@@ -122,7 +122,7 @@ namespace IR
 
 	// Infer value and result types from a C type.
 
-	template<typename> constexpr IR::ValueType inferValueType() = delete;
+	template<typename> constexpr IR::ValueType inferValueType();
 	template<> constexpr IR::ValueType inferValueType<I32>()  { return IR::ValueType::i32; }
 	template<> constexpr IR::ValueType inferValueType<U32>()  { return IR::ValueType::i32; }
 	template<> constexpr IR::ValueType inferValueType<I64>()  { return IR::ValueType::i64; }
