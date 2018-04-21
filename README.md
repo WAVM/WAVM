@@ -4,7 +4,7 @@ Primary repo: https://github.com/AndrewScheidecker/WAVM
 
 # Overview
 
-This is a standalone VM for WebAssembly. It can load both the standard binary format, and the text format defined by the [WebAssembly reference interpreter](https://github.com/WebAssembly/spec/tree/master/ml-proto). For the text format, it can load both the standard stack machine syntax and the old-fashioned AST syntax used by the reference interpreter, and all of the testing commands.
+This is a standalone VM for WebAssembly. It can load both the standard binary format, and the text format defined by the [WebAssembly reference interpreter](https://github.com/WebAssembly/spec/tree/master/interpreter). For the text format, it can load both the standard stack machine syntax and the old-fashioned AST syntax used by the reference interpreter, and all of the testing commands.
 
 # Building and running it
 
