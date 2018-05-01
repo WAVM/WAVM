@@ -24,7 +24,6 @@
 
 #ifdef __linux__
 	#include <dlfcn.h>
-	#include <execinfo.h>
 #endif
 
 #ifdef __APPLE__
@@ -438,24 +437,7 @@ namespace Platform
 
 	CallStack captureCallStack(Uptr numOmittedFramesFromTop)
 	{
-		#ifdef __linux__
-			// Unwind the callstack.
-			enum { maxCallStackSize = SigAltStack::numBytes / sizeof(void*) / 8 };
-			void* callstackAddresses[maxCallStackSize];
-			auto numCallStackEntries = backtrace(callstackAddresses,maxCallStackSize);
-
-			// Copy the return pointers into the stack frames of the resulting CallStack.
-			// Skip the first numOmittedFramesFromTop+1 frames, which correspond to this function
-			// and others that the caller would like to omit.
-			CallStack result;
-			for(Iptr index = numOmittedFramesFromTop + 1;index < numCallStackEntries;++index)
-			{
-				result.stackFrames.push_back({(Uptr)callstackAddresses[index]});
-			}
-			return result;
-		#else
-			return CallStack();
-		#endif
+		return CallStack();
 	}
 
 	bool catchPlatformExceptions(
