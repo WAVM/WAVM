@@ -114,7 +114,8 @@ namespace Intrinsics
 
 	Runtime::ModuleInstance* instantiateModule(
 		Runtime::Compartment* compartment,
-		const Intrinsics::Module& moduleRef)
+		const Intrinsics::Module& moduleRef,
+		const std::map<std::string,Runtime::Object*>& extraExports)
 	{
 		auto moduleInstance = new Runtime::ModuleInstance(compartment,{},{},{},{},{});
 
@@ -146,6 +147,22 @@ namespace Intrinsics
 				auto globalInstance = pair.second->instantiate(compartment);
 				moduleInstance->globals.push_back(globalInstance);
 				moduleInstance->exportMap[pair.first] = globalInstance;
+			}
+
+			for(const auto& pair : extraExports)
+			{
+				Runtime::Object* object = pair.second;
+				moduleInstance->exportMap[pair.first] = object;
+
+				switch(object->kind)
+				{
+				case Runtime::ObjectKind::function: moduleInstance->functions.push_back(asFunction(object)); break;
+				case Runtime::ObjectKind::table: moduleInstance->tables.push_back(asTable(object)); break;
+				case Runtime::ObjectKind::memory: moduleInstance->memories.push_back(asMemory(object)); break;
+				case Runtime::ObjectKind::global: moduleInstance->globals.push_back(asGlobal(object)); break;
+				case Runtime::ObjectKind::exceptionType: moduleInstance->exceptionTypes.push_back(asExceptionType(object)); break;
+				default: Errors::unreachable();
+				};
 			}
 		}
 

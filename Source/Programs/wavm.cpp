@@ -34,7 +34,7 @@ struct RootResolver : Resolver
 				if(isA(outObject,type)) { return true; }
 				else
 				{
-					Log::printf(Log::Category::error,"Resolved import %s.%s to a %s, but was expecting %s",
+					Log::printf(Log::Category::error,"Resolved import %s.%s to a %s, but was expecting %s\n",
 						moduleName.c_str(),
 						exportName.c_str(),
 						asString(getObjectType(outObject)).c_str(),
@@ -45,11 +45,11 @@ struct RootResolver : Resolver
 		}
 
 		Log::printf(Log::Category::error,"Generated stub for missing import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
-		outObject = getStubObject(type);
+		outObject = getStubObject(exportName, type);
 		return true;
 	}
 
-	Object* getStubObject(ObjectType type) const
+	Object* getStubObject(const std::string& exportName, ObjectType type) const
 	{
 		// If the import couldn't be resolved, stub it in.
 		switch(type.kind)
@@ -68,7 +68,7 @@ struct RootResolver : Resolver
 			stubModule.types.push_back(asFunctionType(type));
 			stubModule.functions.defs.push_back({{0},{},std::move(codeStream.getBytes()),{}});
 			stubModule.exports.push_back({"importStub",IR::ObjectKind::function,0});
-			stubModuleNames.functions.push_back({"importStub <" + asString(type) + ">",{},{}});
+			stubModuleNames.functions.push_back({"importStub: " + exportName,{},{}});
 			IR::setDisassemblyNames(stubModule,stubModuleNames);
 			IR::validateDefinitions(stubModule);
 
@@ -132,7 +132,23 @@ static int run(const CommandLineOptions& options)
 	Emscripten::Instance* emscriptenInstance = nullptr;
 	if(options.enableEmscripten)
 	{
-		emscriptenInstance = Emscripten::instantiate(compartment);
+		MemoryType memoryType(false, SizeConstraints {0,0});
+		if(module.memories.imports.size()
+			&& module.memories.imports[0].moduleName == "env"
+			&& module.memories.imports[0].exportName == "memory")
+		{
+			memoryType = module.memories.imports[0].type;
+		}
+
+		TableType tableType(TableElementType::anyfunc, false, SizeConstraints {0,0});
+		if(module.tables.imports.size()
+			&& module.tables.imports[0].moduleName == "env"
+			&& module.tables.imports[0].exportName == "table")
+		{
+			tableType = module.tables.imports[0].type;
+		}
+
+		emscriptenInstance = Emscripten::instantiate(compartment, memoryType, tableType);
 		rootResolver.moduleNameToInstanceMap["env"] = emscriptenInstance->env;
 		rootResolver.moduleNameToInstanceMap["asm2wasm"] = emscriptenInstance->asm2wasm;
 		rootResolver.moduleNameToInstanceMap["global"] = emscriptenInstance->global;

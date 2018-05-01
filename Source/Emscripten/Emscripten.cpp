@@ -5,10 +5,12 @@
 #include "Runtime/Runtime.h"
 #include "Runtime/Intrinsics.h"
 #include "Emscripten.h"
-#include <time.h>
-#include <stdio.h>
+
 #include <limits.h>
+#include <map>
+#include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #ifndef _WIN32
 #include <sys/uio.h>
@@ -23,103 +25,79 @@ namespace Emscripten
 	DEFINE_INTRINSIC_MODULE(asm2wasm)
 	DEFINE_INTRINSIC_MODULE(global)
 
-	MemoryInstance* emscriptenMemoryInstance = nullptr;
-
 	static U32 coerce32bitAddress(Uptr address)
 	{
 		if(address >= UINT32_MAX) { throwException(Exception::accessViolationType); }
 		return (U32)address;
 	}
 
-	enum { initialNumPages = 256 };
-	enum { initialNumTableElements = 1024 * 1024 };
-
 	struct MutableGlobals
 	{
-		enum { address = 127 * IR::numBytesPerPage };
+		enum { address = 63 * IR::numBytesPerPage };
 
+		U32 DYNAMICTOP_PTR;
 		F64 tempDoublePtr;
 		I32 _stderr;
 		I32 _stdin;
 		I32 _stdout;
 	};
 
-	DEFINE_INTRINSIC_MEMORY(env,emscriptenMemory,memory,MemoryType(false,SizeConstraints({initialNumPages,UINT64_MAX })));
-	DEFINE_INTRINSIC_TABLE(env,table,table,TableType(TableElementType::anyfunc,false,SizeConstraints({initialNumTableElements,UINT64_MAX})));
-
-	DEFINE_INTRINSIC_GLOBAL(env,"STACKTOP",I32,STACKTOP          ,128 * IR::numBytesPerPage);
-	DEFINE_INTRINSIC_GLOBAL(env,"STACK_MAX",I32,STACK_MAX        ,256 * IR::numBytesPerPage);
-	DEFINE_INTRINSIC_GLOBAL(env,"tempDoublePtr",I32,tempDoublePtr,127 * IR::numBytesPerPage + offsetof(MutableGlobals,tempDoublePtr));
+	DEFINE_INTRINSIC_GLOBAL(env,"STACKTOP",I32,STACKTOP          ,64 * IR::numBytesPerPage);
+	DEFINE_INTRINSIC_GLOBAL(env,"STACK_MAX",I32,STACK_MAX        ,128 * IR::numBytesPerPage);
+	DEFINE_INTRINSIC_GLOBAL(env,"tempDoublePtr",I32,tempDoublePtr,MutableGlobals::address + offsetof(MutableGlobals,tempDoublePtr));
 	DEFINE_INTRINSIC_GLOBAL(env,"ABORT",I32,ABORT                ,0);
 	DEFINE_INTRINSIC_GLOBAL(env,"cttz_i8",I32,cttz_i8            ,0);
 	DEFINE_INTRINSIC_GLOBAL(env,"___dso_handle",I32,___dso_handle,0);
-	DEFINE_INTRINSIC_GLOBAL(env,"_stderr",I32,_stderr            ,127 * IR::numBytesPerPage + offsetof(MutableGlobals,_stderr));
-	DEFINE_INTRINSIC_GLOBAL(env,"_stdin",I32,_stdin              ,127 * IR::numBytesPerPage + offsetof(MutableGlobals,_stdin));
-	DEFINE_INTRINSIC_GLOBAL(env,"_stdout",I32,_stdout            ,127 * IR::numBytesPerPage + offsetof(MutableGlobals,_stdout));
+	DEFINE_INTRINSIC_GLOBAL(env,"_stderr",I32,_stderr            ,MutableGlobals::address + offsetof(MutableGlobals,_stderr));
+	DEFINE_INTRINSIC_GLOBAL(env,"_stdin",I32,_stdin              ,MutableGlobals::address + offsetof(MutableGlobals,_stdin));
+	DEFINE_INTRINSIC_GLOBAL(env,"_stdout",I32,_stdout            ,MutableGlobals::address + offsetof(MutableGlobals,_stdout));
 
 	DEFINE_INTRINSIC_GLOBAL(env,"memoryBase",I32,emscriptenMemoryBase,1024);
 	DEFINE_INTRINSIC_GLOBAL(env,"tableBase",I32,emscriptenTableBase,0);
 
-	DEFINE_INTRINSIC_GLOBAL(env,"DYNAMICTOP_PTR",I32,DYNAMICTOP_PTR,0)
+	DEFINE_INTRINSIC_GLOBAL(env,"DYNAMICTOP_PTR",I32,DYNAMICTOP_PTR,MutableGlobals::address + offsetof(MutableGlobals,DYNAMICTOP_PTR))
 	DEFINE_INTRINSIC_GLOBAL(env,"_environ",I32,em_environ,0)
 	DEFINE_INTRINSIC_GLOBAL(env,"EMTSTACKTOP",I32,EMTSTACKTOP,0)
 	DEFINE_INTRINSIC_GLOBAL(env,"EMT_STACK_MAX",I32,EMT_STACK_MAX,0)
 	DEFINE_INTRINSIC_GLOBAL(env,"eb",I32,eb,0)
 
-	Platform::Mutex* sbrkMutex = Platform::createMutex();
-	bool hasSbrkBeenCalled = false;
-	Uptr sbrkNumPages = 0;
-	U32 sbrkMinBytes = 0;
-	U32 sbrkNumBytes = 0;
-
-	static U32 sbrk(I32 numBytes)
+	static U32 dynamicAlloc(MemoryInstance* memory, U32 numBytes)
 	{
-		Platform::Lock sbrkLock(sbrkMutex);
-
-		if(!hasSbrkBeenCalled)
-		{
-			// Do some first time initialization.
-			sbrkNumPages = getMemoryNumPages(emscriptenMemoryInstance);
-			sbrkMinBytes = sbrkNumBytes = coerce32bitAddress(sbrkNumPages << numBytesPerPageLog2);
-			hasSbrkBeenCalled = true;
-		}
-		else
-		{
-			// Ensure that nothing else is calling growMemory/shrinkMemory.
-			if(getMemoryNumPages(emscriptenMemoryInstance) != sbrkNumPages)
-			{ throwException(Exception::outOfMemoryType); }
-		}
+		MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
 		
-		const U32 previousNumBytes = sbrkNumBytes;
-		
-		// Round the absolute value of numBytes to an alignment boundary, and ensure it won't allocate too much or too little memory.
-		numBytes = (numBytes + 7) & ~7;
-		if(numBytes > 0 && previousNumBytes > UINT32_MAX - numBytes) { throwException(Exception::accessViolationType); }
-		else if(numBytes < 0 && previousNumBytes < sbrkMinBytes - numBytes) { throwException(Exception::accessViolationType); }
+		const U32 allocationAddress = mutableGlobals.DYNAMICTOP_PTR;
+		const U32 endAddress = (allocationAddress + numBytes + 15) & -16;
 
-		// Update the number of bytes allocated, and compute the number of pages needed for it.
-		sbrkNumBytes += numBytes;
-		const Uptr numDesiredPages = (sbrkNumBytes + numBytesPerPage - 1) >> numBytesPerPageLog2;
+		mutableGlobals.DYNAMICTOP_PTR = endAddress;
 
-		// Grow or shrink the memory object to the desired number of pages.
-		if(numDesiredPages > sbrkNumPages) { growMemory(emscriptenMemoryInstance,numDesiredPages - sbrkNumPages); }
-		else if(numDesiredPages < sbrkNumPages) { shrinkMemory(emscriptenMemoryInstance,sbrkNumPages - numDesiredPages); }
-		sbrkNumPages = numDesiredPages;
+		const Uptr TOTAL_MEMORY = Runtime::getMemoryNumPages(memory) << IR::numBytesPerPageLog2;
+		errorUnless(endAddress <= TOTAL_MEMORY);
 
-		return previousNumBytes;
+		return allocationAddress;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION(env,"_sbrk",I32,_sbrk,I32 numBytes)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"getTotalMemory",I32,getTotalMemory)
 	{
-		return sbrk(numBytes);
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		return coerce32bitAddress(Runtime::getMemoryMaxPages(memory) << IR::numBytesPerPageLog2);
+	}
+	
+	DEFINE_INTRINSIC_FUNCTION(env,"abortOnCannotGrowMemory",I32,abortOnCannotGrowMemory)
+	{
+		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
+	}
+	DEFINE_INTRINSIC_FUNCTION(env,"enlargeMemory",I32,enlargeMemory)
+	{
+		return abortOnCannotGrowMemory(contextRuntimeData);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION(env,"_time",I32,_time,I32 address)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"_time",I32,_time,I32 address)
 	{
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 		time_t t = time(nullptr);
 		if(address)
 		{
-			memoryRef<I32>(emscriptenMemoryInstance,address) = (I32)t;
+			memoryRef<I32>(memory,address) = (I32)t;
 		}
 		return (I32)t;
 	}
@@ -151,36 +129,39 @@ namespace Emscripten
 	DEFINE_INTRINSIC_FUNCTION(env,"_pthread_cleanup_pop",void,_pthread_cleanup_pop,I32 a) { }
 	DEFINE_INTRINSIC_FUNCTION(env,"_pthread_self",I32,_pthread_self) { return 0; }
 
-	DEFINE_INTRINSIC_FUNCTION(env,"___ctype_b_loc",I32,___ctype_b_loc)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"___ctype_b_loc",I32,___ctype_b_loc)
 	{
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 		unsigned short data[384] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2,2,8195,8194,8194,8194,8194,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,24577,49156,49156,49156,49156,49156,49156,49156,49156,49156,49156,49156,49156,49156,49156,49156,55304,55304,55304,55304,55304,55304,55304,55304,55304,55304,49156,49156,49156,49156,49156,49156,49156,54536,54536,54536,54536,54536,54536,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,50440,49156,49156,49156,49156,49156,49156,54792,54792,54792,54792,54792,54792,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,50696,49156,49156,49156,49156,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 		static U32 vmAddress = 0;
 		if(vmAddress == 0)
 		{
-			vmAddress = coerce32bitAddress(sbrk(sizeof(data)));
-			memcpy(memoryArrayPtr<U8>(emscriptenMemoryInstance,vmAddress,sizeof(data)),data,sizeof(data));
+			vmAddress = coerce32bitAddress(dynamicAlloc(memory,sizeof(data)));
+			memcpy(memoryArrayPtr<U8>(memory,vmAddress,sizeof(data)),data,sizeof(data));
 		}
 		return vmAddress + sizeof(short)*128;
 	}
-	DEFINE_INTRINSIC_FUNCTION(env,"___ctype_toupper_loc",I32,___ctype_toupper_loc)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"___ctype_toupper_loc",I32,___ctype_toupper_loc)
 	{
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 		I32 data[384] = {128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,-1,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255};
 		static U32 vmAddress = 0;
 		if(vmAddress == 0)
 		{
-			vmAddress = coerce32bitAddress(sbrk(sizeof(data)));
-			memcpy(memoryArrayPtr<U8>(emscriptenMemoryInstance,vmAddress,sizeof(data)),data,sizeof(data));
+			vmAddress = coerce32bitAddress(dynamicAlloc(memory,sizeof(data)));
+			memcpy(memoryArrayPtr<U8>(memory,vmAddress,sizeof(data)),data,sizeof(data));
 		}
 		return vmAddress + sizeof(I32)*128;
 	}
-	DEFINE_INTRINSIC_FUNCTION(env,"___ctype_tolower_loc",I32,___ctype_tolower_loc)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"___ctype_tolower_loc",I32,___ctype_tolower_loc)
 	{
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 		I32 data[384] = {128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,-1,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,249,250,251,252,253,254,255};
 		static U32 vmAddress = 0;
 		if(vmAddress == 0)
 		{
-			vmAddress = coerce32bitAddress(sbrk(sizeof(data)));
-			memcpy(memoryArrayPtr<U8>(emscriptenMemoryInstance,vmAddress,sizeof(data)),data,sizeof(data));
+			vmAddress = coerce32bitAddress(dynamicAlloc(memory,sizeof(data)));
+			memcpy(memoryArrayPtr<U8>(memory,vmAddress,sizeof(data)),data,sizeof(data));
 		}
 		return vmAddress + sizeof(I32)*128;
 	}
@@ -193,11 +174,12 @@ namespace Emscripten
 	{
 		return 0;
 	}
-	DEFINE_INTRINSIC_FUNCTION(env,"___cxa_guard_acquire",I32,___cxa_guard_acquire,I32 address)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"___cxa_guard_acquire",I32,___cxa_guard_acquire,I32 address)
 	{
-		if(!memoryRef<U8>(emscriptenMemoryInstance,address))
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		if(!memoryRef<U8>(memory,address))
 		{
-			memoryRef<U8>(emscriptenMemoryInstance,address) = 1;
+			memoryRef<U8>(memory,address) = 1;
 			return 1;
 		}
 		else
@@ -215,9 +197,10 @@ namespace Emscripten
 	{
 		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
-	DEFINE_INTRINSIC_FUNCTION(env,"___cxa_allocate_exception",I32,___cxa_allocate_exception,I32 size)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"___cxa_allocate_exception",I32,___cxa_allocate_exception,I32 size)
 	{
-		return coerce32bitAddress(sbrk(size));
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		return coerce32bitAddress(dynamicAlloc(memory,size));
 	}
 	DEFINE_INTRINSIC_FUNCTION(env,"__ZSt18uncaught_exceptionv",I32,__ZSt18uncaught_exceptionv)
 	{
@@ -244,11 +227,12 @@ namespace Emscripten
 		currentLocale = locale;
 		return oldLocale;
 	}
-	DEFINE_INTRINSIC_FUNCTION(env,"_newlocale",I32,_newlocale,I32 mask,I32 locale,I32 base)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"_newlocale",I32,_newlocale,I32 mask,I32 locale,I32 base)
 	{
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 		if(!base)
 		{
-			base = coerce32bitAddress(sbrk(4));
+			base = coerce32bitAddress(dynamicAlloc(memory,4));
 		}
 		return base;
 	}
@@ -262,9 +246,10 @@ namespace Emscripten
 	DEFINE_INTRINSIC_FUNCTION(env,"_catgets",I32,_catgets,I32 catd,I32 set_id,I32 msg_id,I32 s) { return s; }
 	DEFINE_INTRINSIC_FUNCTION(env,"_catclose",I32,_catclose,I32 a) { return 0; }
 
-	DEFINE_INTRINSIC_FUNCTION(env,"_emscripten_memcpy_big",I32,_emscripten_memcpy_big,I32 a,I32 b,I32 c)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"_emscripten_memcpy_big",I32,_emscripten_memcpy_big,I32 a,I32 b,I32 c)
 	{
-		memcpy(memoryArrayPtr<U8>(emscriptenMemoryInstance,a,c),memoryArrayPtr<U8>(emscriptenMemoryInstance,b,c),U32(c));
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		memcpy(memoryArrayPtr<U8>(memory,a,c),memoryArrayPtr<U8>(memory,b,c),U32(c));
 		return a;
 	}
 
@@ -297,13 +282,15 @@ namespace Emscripten
 	{
 		return ungetc(character,vmFile(file));
 	}
-	DEFINE_INTRINSIC_FUNCTION(env,"_fread",I32,_fread,I32 pointer,I32 size,I32 count,I32 file)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"_fread",I32,_fread,I32 pointer,I32 size,I32 count,I32 file)
 	{
-		return (I32)fread(memoryArrayPtr<U8>(emscriptenMemoryInstance,pointer,U64(size) * U64(count)),U64(size),U64(count),vmFile(file));
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		return (I32)fread(memoryArrayPtr<U8>(memory,pointer,U64(size) * U64(count)),U64(size),U64(count),vmFile(file));
 	}
-	DEFINE_INTRINSIC_FUNCTION(env,"_fwrite",I32,_fwrite,I32 pointer,I32 size,I32 count,I32 file)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"_fwrite",I32,_fwrite,I32 pointer,I32 size,I32 count,I32 file)
 	{
-		return (I32)fwrite(memoryArrayPtr<U8>(emscriptenMemoryInstance,pointer,U64(size) * U64(count)),U64(size),U64(count),vmFile(file));
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		return (I32)fwrite(memoryArrayPtr<U8>(memory,pointer,U64(size) * U64(count)),U64(size),U64(count),vmFile(file));
 	}
 	DEFINE_INTRINSIC_FUNCTION(env,"_fputc",I32,_fputc,I32 character,I32 file)
 	{
@@ -352,19 +339,21 @@ namespace Emscripten
 		throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION(env,"___syscall146",I32,___syscall146,I32 file,I32 argsPtr)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,"___syscall146",I32,___syscall146,I32 file,I32 argsPtr)
 	{
+		MemoryInstance* memory = Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+
 		// writev
-		U32* args = memoryArrayPtr<U32>(emscriptenMemoryInstance,argsPtr,3);
+		U32* args = memoryArrayPtr<U32>(memory,argsPtr,3);
 		U32 iov = args[1];
 		U32 iovcnt = args[2];
 #ifdef _WIN32
 		U32 count = 0;
 		for(U32 i = 0; i < iovcnt; i++)
 		{
-			U32 base = memoryRef<U32>(emscriptenMemoryInstance,iov + i * 8);
-			U32 len = memoryRef<U32>(emscriptenMemoryInstance,iov + i * 8 + 4);
-			U32 size = (U32)fwrite(memoryArrayPtr<U8>(emscriptenMemoryInstance,base,len), 1, len, vmFile(file));
+			U32 base = memoryRef<U32>(memory,iov + i * 8);
+			U32 len = memoryRef<U32>(memory,iov + i * 8 + 4);
+			U32 size = (U32)fwrite(memoryArrayPtr<U8>(memory,base,len), 1, len, vmFile(file));
 			count += size;
 			if (size < len)
 				break;
@@ -373,10 +362,10 @@ namespace Emscripten
 		struct iovec *native_iovec = new(alloca(sizeof(iovec)*iovcnt)) struct iovec [iovcnt];
 		for(U32 i = 0; i < iovcnt; i++)
 		{
-			U32 base = memoryRef<U32>(emscriptenMemoryInstance,iov + i * 8);
-			U32 len = memoryRef<U32>(emscriptenMemoryInstance,iov + i * 8 + 4);
+			U32 base = memoryRef<U32>(memory,iov + i * 8);
+			U32 len = memoryRef<U32>(memory,iov + i * 8 + 4);
 
-			native_iovec[i].iov_base = memoryArrayPtr<U8>(emscriptenMemoryInstance,base,len);
+			native_iovec[i].iov_base = memoryArrayPtr<U8>(memory,base,len);
 			native_iovec[i].iov_len = len;
 		}
 		Iptr count = writev(fileno(vmFile(file)), native_iovec, iovcnt);
@@ -411,22 +400,32 @@ namespace Emscripten
 		return left / right;
 	}
 
-	EMSCRIPTEN_API Instance* instantiate(Compartment* compartment)
+	EMSCRIPTEN_API Instance* instantiate(
+		Compartment* compartment,
+		const MemoryType& memoryType,
+		const TableType& tableType
+		)
 	{
+		MemoryInstance* memory = Runtime::createMemory(compartment,memoryType);
+		TableInstance* table = Runtime::createTable(compartment,tableType);
+
+		std::map<std::string, Runtime::Object*> extraEnvExports;
+		extraEnvExports["memory"] = Runtime::asObject(memory);
+		extraEnvExports["table"] = Runtime::asObject(table);
+
 		Instance* instance = new Instance;
-		instance->env = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(env));
+		instance->env = Intrinsics::instantiateModule(compartment, INTRINSIC_MODULE_REF(env), extraEnvExports);
 		instance->asm2wasm = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(asm2wasm));
 		instance->global = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(global));
 
-		MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(
-			emscriptenMemory.getInstance(instance->env),
-			MutableGlobals::address);
+		MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
 
+		mutableGlobals.DYNAMICTOP_PTR = STACK_MAX.getValue().i32;
 		mutableGlobals._stderr = (U32)ioStreamVMHandle::StdErr;
 		mutableGlobals._stdin = (U32)ioStreamVMHandle::StdIn;
 		mutableGlobals._stdout = (U32)ioStreamVMHandle::StdOut;
 
-		emscriptenMemoryInstance = emscriptenMemory.getInstance(instance->env);
+		instance->emscriptenMemory = memory;
 
 		return instance;
 	}
@@ -460,13 +459,14 @@ namespace Emscripten
 
 	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,const std::vector<const char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs)
 	{
-		U8* emscriptenMemoryBaseAdress = getMemoryBaseAddress(emscriptenMemoryInstance);
+		MemoryInstance* memory = instance->emscriptenMemory;
+		U8* emscriptenMemoryBaseAdress = getMemoryBaseAddress(memory);
 
-		U32* argvOffsets = (U32*)(emscriptenMemoryBaseAdress + sbrk((U32)(sizeof(U32) * (argStrings.size() + 1))));
+		U32* argvOffsets = (U32*)(emscriptenMemoryBaseAdress + dynamicAlloc(memory, (U32)(sizeof(U32) * (argStrings.size() + 1))));
 		for(Uptr argIndex = 0;argIndex < argStrings.size();++argIndex)
 		{
 			auto stringSize = strlen(argStrings[argIndex])+1;
-			auto stringMemory = emscriptenMemoryBaseAdress + sbrk((U32)stringSize);
+			auto stringMemory = emscriptenMemoryBaseAdress + dynamicAlloc(memory, (U32)stringSize);
 			memcpy(stringMemory,argStrings[argIndex],stringSize);
 			argvOffsets[argIndex] = (U32)(stringMemory - emscriptenMemoryBaseAdress);
 		}

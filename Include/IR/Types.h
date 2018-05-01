@@ -186,6 +186,12 @@ namespace IR
 		}
 	};
 	
+	inline std::string asString(const SizeConstraints& sizeConstraints)
+	{
+		return std::to_string(sizeConstraints.min)
+			+ (sizeConstraints.max == UINT64_MAX ? ".." : ".." + std::to_string(sizeConstraints.max));
+	}
+
 	// The type of element a table contains: for now can only be anyfunc, meaning any function type.
 	enum class TableElementType : U8
 	{
@@ -211,6 +217,11 @@ namespace IR
 		{ return super.elementType == sub.elementType && super.isShared == sub.isShared && isSubset(super.size,sub.size); }
 	};
 
+	inline std::string asString(const TableType& tableType)
+	{
+		return asString(tableType.size) + (tableType.isShared ? " shared anyfunc" : " anyfunc");
+	}
+
 	// The type of a memory
 	struct MemoryType
 	{
@@ -224,6 +235,11 @@ namespace IR
 		friend bool operator!=(const MemoryType& left,const MemoryType& right) { return left.isShared != right.isShared || left.size != right.size; }
 		friend bool isSubset(const MemoryType& super,const MemoryType& sub) { return super.isShared == sub.isShared && isSubset(super.size,sub.size); }
 	};
+	
+	inline std::string asString(const MemoryType& memoryType)
+	{
+		return asString(memoryType.size) + (memoryType.isShared ? " shared" : "");
+	}
 
 	// The type of a global
 	struct GlobalType
@@ -332,8 +348,8 @@ namespace IR
 		switch(objectType.kind)
 		{
 		case ObjectKind::function: return "func " + asString(asFunctionType(objectType));
-		case ObjectKind::table: return "table";
-		case ObjectKind::memory: return "memory";
+		case ObjectKind::table: return "table " + asString(asTableType(objectType));
+		case ObjectKind::memory: return "memory " + asString(asMemoryType(objectType));
 		case ObjectKind::global: return asString(asGlobalType(objectType));
 		case ObjectKind::exceptionType: return "exception_type " + asString(asExceptionTypeType(objectType));
 		default: Errors::unreachable();

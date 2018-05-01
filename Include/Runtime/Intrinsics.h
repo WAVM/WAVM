@@ -5,6 +5,8 @@
 #include "IR/TaggedValue.h"
 #include "Runtime.h"
 
+#include <map>
+
 namespace Intrinsics
 {
 	struct ModuleImpl;
@@ -18,7 +20,9 @@ namespace Intrinsics
 
 	RUNTIME_API Runtime::ModuleInstance* instantiateModule(
 		Runtime::Compartment* compartment,
-		const Intrinsics::Module& moduleRef);
+		const Intrinsics::Module& moduleRef,
+		const std::map<std::string,Runtime::Object*>& extraExports = {}
+		);
 
 	// An intrinsic function.
 	struct Function
