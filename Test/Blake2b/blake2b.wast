@@ -3,8 +3,8 @@
 (module
 	(import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
 	(import "env" "_stdout" (global $stdoutPtr i32))
-	(import "env" "memory" (memory 1))
-	(import "env" "_sbrk" (func $sbrk (param i32) (result i32)))
+	(import "env" "memory" (memory 4096))
+	(import "env" "DYNAMICTOP_PTR" (global $DYNAMICTOP_PTR i32))
 	(import "threadTest" "createThread" (func $threadTest.createThread (param i32 i32) (result i64)))
 	(export "main" (func $main))
 	
@@ -55,6 +55,16 @@
 	(global $statesArrayAddressAddress i32 (i32.const 1024))	;; 4 bytes
 	(global $statesArrayAlignment i32 (i32.const 256))
 	(global $statesArrayStride i32 (i32.const 256))				;; must be at least 128 bytes. Anecdotally, 256 bytes performs substantially better.
+
+	(func $sbrk (param $numBytes i32) (result i32)
+		(local $resultAddress i32)
+		(set_local $resultAddress (i32.load (get_global $DYNAMICTOP_PTR)))
+		(i32.store
+			(get_global $DYNAMICTOP_PTR)
+			(i32.add (get_local $resultAddress) (get_local $numBytes))
+			)
+		(get_local $resultAddress)
+		)
 
 	(func $compress
 		(param $threadStateAddress i32)
