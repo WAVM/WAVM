@@ -266,6 +266,9 @@ namespace Runtime
 	RUNTIME_API Iptr growMemory(MemoryInstance* memory,Uptr numPages);
 	RUNTIME_API Iptr shrinkMemory(MemoryInstance* memory,Uptr numPages);
 
+	// Unmaps a range of memory pages within the memory's address-space.
+	RUNTIME_API void unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numPages);
+
 	// Validates that an offset range is wholly inside a Memory's virtual address range.
 	RUNTIME_API U8* getValidatedMemoryOffsetRange(MemoryInstance* memory,Uptr offset,Uptr numBytes);
 	

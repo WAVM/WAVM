@@ -156,6 +156,19 @@ namespace Runtime
 		}
 		return previousNumPages;
 	}
+	
+	void unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numPages)
+	{
+		wavmAssert(pageIndex < memory->numPages);
+		wavmAssert(pageIndex + numPages > pageIndex);
+		wavmAssert(pageIndex + numPages < memory->numPages);
+
+		// Decommit the pages.
+		Platform::decommitVirtualPages(
+			memory->baseAddress + (pageIndex << IR::numBytesPerPageLog2),
+			numPages << getPlatformPagesPerWebAssemblyPageLog2()
+			);
+	}
 
 	U8* getMemoryBaseAddress(MemoryInstance* memory)
 	{
