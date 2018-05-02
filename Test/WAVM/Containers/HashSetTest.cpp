@@ -155,6 +155,10 @@ static void testSetCopy()
 	errorUnless(!b.contains(1000));
 }
 
+#if defined(__clang__)
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wself-move"
+#endif
 static void testSetMove()
 {
 	// Add 1000..1999 to a HashSet.
@@ -186,6 +190,9 @@ static void testSetMove()
 		errorUnless(!b.contains(i + 2000));
 	}
 }
+#if defined(__clang__)
+	#pragma clang diagnostic pop
+#endif
 
 static void testSetInitializerList()
 {

@@ -135,7 +135,7 @@ static void testMapCopy()
 		a.add(i + 1000,i);
 	}
 
-	// Copy the set to a new HashMap.
+	// Copy the map to a new HashMap.
 	HashMap<Uptr, Uptr> b {a};
 
 	// Test that both the new and old HashMap contain the expected numbers.
@@ -150,10 +150,10 @@ static void testMapCopy()
 		errorUnless(!b.get(i + 2000));
 	}
 	
-	// Test copying a set from itself.
+	// Test copying a map from itself.
 	b = b;
 	
-	// Test that the set wasn't changed by the copy-to-self.
+	// Test that the map wasn't changed by the copy-to-self.
 	for(Uptr i = 0;i < 1000;++i)
 	{
 		errorUnless(!b.get(i));
@@ -161,12 +161,16 @@ static void testMapCopy()
 		errorUnless(!b.get(i + 2000));
 	}
 
-	// Test removing an element from the set.
+	// Test removing an element from the map.
 	b.remove(1000);
 	errorUnless(*a.get(1000) == 0);
 	errorUnless(!b.get(1000));
 }
 
+#if defined(__clang__)
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wself-move"
+#endif
 static void testMapMove()
 {
 	// Add 1000..1999 to a HashMap.
@@ -176,7 +180,7 @@ static void testMapMove()
 		a.add(i + 1000, i);
 	}
 
-	// Move the set to a new HashMap.
+	// Move the map to a new HashMap.
 	HashMap<Uptr, Uptr> b {std::move(a)};
 
 	// Test that the new HashMap contains the expected numbers.
@@ -187,10 +191,10 @@ static void testMapMove()
 		errorUnless(!b.get(i + 2000));
 	}
 
-	// Test moving the set to itself.
+	// Test moving the map to itself.
 	b = std::move(b);
 	
-	// Test that the set wasn't changed by the move-to-self.
+	// Test that the map wasn't changed by the move-to-self.
 	for(Uptr i = 0;i < 1000;++i)
 	{
 		errorUnless(!b.get(i));
@@ -198,6 +202,9 @@ static void testMapMove()
 		errorUnless(!b.get(i + 2000));
 	}
 }
+#if defined(__clang__)
+	#pragma clang diagnostic pop
+#endif
 
 static void testMapInitializerList()
 {
