@@ -82,7 +82,7 @@
 
 ;; i32.trunc_s:sat/f32
 
-(assert_return (invoke "test all i32.trunc_s:sat/f32") (i32.const 1))
+;;(assert_return (invoke "test all i32.trunc_s:sat/f32") (i32.const 1))
 
 (assert_return (invoke "i32.trunc_s:sat/f32" (f32.const 0.0)) (i32.const 0))
 (assert_return (invoke "i32.trunc_s:sat/f32" (f32.const -0.0)) (i32.const 0))
@@ -109,7 +109,7 @@
 
 ;; i32.trunc_u:sat/f32
 
-(assert_return (invoke "test all i32.trunc_u:sat/f32") (i32.const 1))
+;;(assert_return (invoke "test all i32.trunc_u:sat/f32") (i32.const 1))
 
 (assert_return (invoke "i32.trunc_u:sat/f32" (f32.const 0.0)) (i32.const 0))
 (assert_return (invoke "i32.trunc_u:sat/f32" (f32.const -0.0)) (i32.const 0))
