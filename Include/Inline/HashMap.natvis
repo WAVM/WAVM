@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <Type Name="HashMapPair&lt;*,*&gt;">
+    <DisplayString>{key} => {value}</DisplayString>
+    <Expand>
+      <Item Name="key">key</Item>
+      <Item Name="value">value</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="HashMap&lt;*,*,*&gt;">
+    <DisplayString>{table.numElements} pairs</DisplayString>
+    <Expand>
+      <CustomListItems>
+        <Variable Name="bucketIndex" InitialValue="0"/>
+        <Loop>
+          <Break Condition="bucketIndex > table.hashToBucketIndexMask" />
+          <If Condition="table.buckets[bucketIndex].hashAndOccupancy">
+            <Item Name="{table.buckets[bucketIndex].storage.contents.key}">
+              table.buckets[bucketIndex].storage.contents.value
+            </Item>
+          </If>
+          <Exec>++bucketIndex</Exec>
+        </Loop>
+      </CustomListItems>
+    </Expand>
+  </Type>
+</AutoVisualizer>

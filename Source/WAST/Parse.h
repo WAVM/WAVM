@@ -1,14 +1,14 @@
 #pragma once
 
 #include "Inline/BasicTypes.h"
+#include "Inline/Hash.h"
+#include "Inline/HashMap.h"
 #include "WAST.h"
 #include "Lexer.h"
 #include "IR/Types.h"
 #include "IR/Module.h"
 
 #include <functional>
-#include <map>
-#include <unordered_map>
 
 namespace WAST
 {
@@ -42,45 +42,48 @@ namespace WAST
 	// Includes a hash of the name's characters.
 	struct Name
 	{
-		Name(): begin(nullptr), numChars(0), hash(0) {}
-		Name(const char* inBegin,U32 inNumChars)
+		constexpr Name(): begin(nullptr), numChars(0), sourceOffset(0) {}
+		Name(const char* inBegin,U32 inNumChars,U32 inSourceOffset)
 		: begin(inBegin)
 		, numChars(inNumChars)
-		, hash(calcHash(inBegin,inNumChars))
+		, sourceOffset(inSourceOffset)
 		{}
 
-		operator bool() const { return begin != nullptr; }
-		std::string getString() const { return begin ? std::string(begin + 1,numChars - 1) : std::string(); }
-		Uptr getCharOffset(const char* string) const { return begin - string; }
+		constexpr operator bool() const { return begin != nullptr; }
+		std::string getString() const { return begin ? std::string(begin,numChars) : std::string(); }
+		constexpr Uptr getSourceOffset()  const { return sourceOffset; }
+		Uptr getHash() const { return XXH<Uptr>(begin, numChars, 0); }
 
-		friend bool operator==(const Name& a,const Name& b)
+		void reset()
 		{
-			return a.hash == b.hash && a.numChars == b.numChars && memcmp(a.begin,b.begin,a.numChars) == 0;
+			begin = nullptr;
+			numChars = 0;
 		}
-		friend bool operator!=(const Name& a,const Name& b)
+
+		friend constexpr bool operator==(const Name& a,const Name& b)
+		{
+			return a.numChars == b.numChars && memcmp(a.begin,b.begin,a.numChars) == 0;
+		}
+		friend constexpr bool operator!=(const Name& a,const Name& b)
 		{
 			return !(a == b);
 		}
-	
-		struct Hasher
+
+		struct HashPolicy
 		{
-			Uptr operator()(const Name& name) const
-			{
-				return name.hash;
-			}
+			static bool areKeysEqual(const Name& left,const Name& right) { return left == right; }
+			static Uptr getKeyHash(const Name& name) { return name.getHash(); }
 		};
 
 	private:
 
 		const char* begin;
 		U32 numChars;
-		U32 hash;
-
-		static U32 calcHash(const char* begin,U32 numChars);
+		U32 sourceOffset;
 	};
-	
+
 	// A map from Name to index using a hash table.
-	typedef std::unordered_map<Name,U32,Name::Hasher> NameToIndexMap;
+	typedef HashMap<Name, U32, Name::HashPolicy> NameToIndexMap;
 	
 	// Represents a yet-to-be-resolved reference, parsed as either a name or an index.
 	struct Reference
@@ -113,7 +116,7 @@ namespace WAST
 
 		IR::Module& module;
 
-		std::map<const IR::FunctionType*,U32> functionTypeToIndexMap;
+		HashMap<const IR::FunctionType*,U32> functionTypeToIndexMap;
 		NameToIndexMap typeNameToIndexMap;
 
 		NameToIndexMap functionNameToIndexMap;

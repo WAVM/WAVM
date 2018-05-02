@@ -1,16 +1,16 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Hash.h"
+#include "Inline/HashMap.h"
 #include "Inline/Unicode.h"
-#include "WAST.h"
-#include "Lexer.h"
 #include "IR/Module.h"
+#include "Lexer.h"
 #include "Parse.h"
+#include "WAST.h"
 
 #include <cstdarg>
 #include <cstdio>
-
-#define XXH_FORCE_NATIVE_FORMAT 1
-#define XXH_PRIVATE_API
-#include "../ThirdParty/xxhash/xxhash.h"
+#include <string>
 
 using namespace IR;
 
@@ -230,38 +230,27 @@ namespace WAST
 	IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,const FunctionType* functionType)
 	{
 		// If this type is not in the module's type table yet, add it.
-		auto functionTypeToIndexMapIt = moduleState->functionTypeToIndexMap.find(functionType);
-		if(functionTypeToIndexMapIt != moduleState->functionTypeToIndexMap.end())
+		U32& functionTypeIndex = moduleState->functionTypeToIndexMap.getOrAdd(functionType,UINT32_MAX);
+		if(functionTypeIndex == UINT32_MAX)
 		{
-			return IndexedFunctionType {functionTypeToIndexMapIt->second};
-		}
-		else
-		{
-			const Uptr functionTypeIndex = moduleState->module.types.size();
+			errorUnless(moduleState->module.types.size() < UINT32_MAX);
+			functionTypeIndex = U32(moduleState->module.types.size());
 			moduleState->module.types.push_back(functionType);
 			moduleState->disassemblyNames.types.push_back(std::string());
-			errorUnless(functionTypeIndex < UINT32_MAX);
-			moduleState->functionTypeToIndexMap.emplace(functionType,(U32)functionTypeIndex);
-			return IndexedFunctionType {(U32)functionTypeIndex};
 		}
+		return IndexedFunctionType {functionTypeIndex};
 	}
-
-	U32 Name::calcHash(const char* begin,U32 numChars)
-	{
-		// Use xxHash32 to hash names. xxHash64 is theoretically faster for long strings on 64-bit machines,
-		// but I did not find it to be faster for typical name lengths.
-		return XXH32(begin,numChars,0);
-	}
-
+	
 	bool tryParseName(CursorState* cursor,Name& outName)
 	{
 		if(cursor->nextToken->type != t_name) { return false; }
 
-		// Find the first non-name character.
-		const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;;
+		const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;
 		const char* nextChar = firstChar;
-		assert(*nextChar == '$');
+		wavmAssert(*nextChar == '$');
 		++nextChar;
+
+		// Find the first non-name character.
 		while(true)
 		{
 			const char c = *nextChar;
@@ -279,12 +268,13 @@ namespace WAST
 				break;
 			}
 		};
+				
+		outName = Name(firstChar + 1,U32(nextChar - firstChar - 1), cursor->nextToken->begin);
 
-		assert(U32(nextChar - cursor->parseState->string) > cursor->nextToken->begin + 1);
+		wavmAssert(U32(nextChar - cursor->parseState->string) > cursor->nextToken->begin + 1);
 		++cursor->nextToken;
-		assert(U32(nextChar - cursor->parseState->string) <= cursor->nextToken->begin);
-		assert(U32(nextChar - firstChar) <= UINT32_MAX);
-		outName = Name(firstChar,U32(nextChar - firstChar));
+		wavmAssert(U32(nextChar - cursor->parseState->string) <= cursor->nextToken->begin);
+		wavmAssert(U32(nextChar - firstChar) <= UINT32_MAX);
 		return true;
 	}
 
@@ -313,20 +303,22 @@ namespace WAST
 
 		if(name)
 		{
-			auto mapIt = nameToIndexMap.find(name);
-			if(mapIt != nameToIndexMap.end())
+			if(!nameToIndexMap.add(name, U32(index)))
 			{
+				const HashMapPair<Name, U32>* nameIndexPair = nameToIndexMap.getPair(name);
+				wavmAssert(nameIndexPair);
 				const TextFileLocus previousDefinitionLocus = calcLocusFromOffset(
 					parseState->string,
 					parseState->lineInfo,
-					mapIt->first.getCharOffset(parseState->string));
+					nameIndexPair->key.getSourceOffset()
+					);
 				parseErrorf(
 					parseState,
-					name.getCharOffset(parseState->string),
+					name.getSourceOffset(),
 					"redefinition of name defined at %s",
 					previousDefinitionLocus.describe().c_str());
+				nameToIndexMap.set(name,U32(index));
 			}
-			nameToIndexMap.emplace(name,U32(index));
 		}
 	}
 
@@ -345,15 +337,15 @@ namespace WAST
 		}
 		case Reference::Type::name:
 		{
-			auto nameToIndexMapIt = nameToIndexMap.find(ref.name);
-			if(nameToIndexMapIt == nameToIndexMap.end())
+			const HashMapPair<Name, U32>* nameIndexPair = nameToIndexMap.getPair(ref.name);
+			if(!nameIndexPair)
 			{
 				parseErrorf(parseState,ref.token,"unknown name");
 				return UINT32_MAX;
 			}
 			else
 			{
-				return nameToIndexMapIt->second;
+				return nameIndexPair->value;
 			}
 		}
 		default: Errors::unreachable();
@@ -412,7 +404,7 @@ namespace WAST
 						while(tryParseHexit(nextChar,hexit)) {};
 						break;
 					}
-					assert(codepoint * 16 + hexit >= codepoint);
+					wavmAssert(codepoint * 16 + hexit >= codepoint);
 					codepoint = codepoint * 16 + hexit;
 				}
 

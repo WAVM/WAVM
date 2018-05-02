@@ -1,13 +1,13 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
+#include "Inline/HashMap.h"
+#include "Inline/HashSet.h"
 #include "Inline/Serialization.h"
 #include "WAST.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
 #include "Logging/Logging.h"
-
-#include <unordered_set>
 
 using namespace IR;
 using namespace Serialization;
@@ -45,6 +45,7 @@ namespace WAST
 		paddedInput += '\0';
 
 		std::string result;
+		result.reserve(paddedInput.size() * 2);
 		const char* next = paddedInput.data();
 		const char* end = paddedInput.data() + paddedInput.size() - 1;
 		Uptr indentDepth = 0;
@@ -57,7 +58,7 @@ namespace WAST
 			else if(*next == '\n')
 			{
 				result += '\n';
-				result.insert(result.end(),indentDepth*2,' ');
+				result.insert(result.end(),indentDepth * spacesPerIndentLevel,' ');
 				++next;
 			}
 			else { result += *next++; }
@@ -137,29 +138,37 @@ namespace WAST
 
 	struct NameScope
 	{
-		NameScope(const char inSigil): sigil(inSigil) { nameSet.insert(""); }
+		NameScope(const char inSigil,Uptr estimatedNumElements)
+		: sigil(inSigil)
+		, nameSet(estimatedNumElements)
+		, nameToUniqueIndexMap()
+		{}
 		
 		void map(std::string& name)
 		{
-			if(nameSet.count(name))
+			std::string baseName = name.size() ? name + '_' : name;
+
+			// If the name hasn't been taken yet, use it without a suffix.
+			// Otherwise, find the first instance of the name with a numeric suffix that isn't taken.
+			if(!name.size() || !nameSet.add(name))
 			{
-				std::string baseName = name;
-				Uptr uniqueIndex = 0;
+				Uptr& numPrecedingDuplicates = nameToUniqueIndexMap.getOrAdd(name, 0);
 				do
 				{
-					++uniqueIndex;
-					name = baseName + '_' + std::to_string(uniqueIndex);
+					name = baseName + std::to_string(numPrecedingDuplicates);
+					++numPrecedingDuplicates;
 				}
-				while(nameSet.count(name));
+				while(!nameSet.add(name));
 			}
-			nameSet.insert(name);
+			
 			name = sigil + name;
 		}
 
 	private:
 
 		char sigil;
-		std::unordered_set<std::string> nameSet;
+		HashSet<std::string> nameSet;
+		HashMap<std::string,Uptr> nameToUniqueIndexMap;
 	};
 
 	struct ModulePrintContext
@@ -174,7 +183,12 @@ namespace WAST
 		{
 			// Start with the names from the module's user name section, but make sure they are unique, and add the "$" sigil.
 			IR::getDisassemblyNames(module,names);
-			NameScope globalNameScope('$');
+			const Uptr numGlobalNames =
+				  names.types.size()
+				+ names.tables.size()
+				+ names.memories.size()
+				+ names.globals.size();
+			NameScope globalNameScope('$',numGlobalNames);
 			for(auto& name : names.types) { globalNameScope.map(name); }
 			for(auto& name : names.tables) { globalNameScope.map(name); }
 			for(auto& name : names.memories) { globalNameScope.map(name); }
@@ -183,7 +197,7 @@ namespace WAST
 			{
 				globalNameScope.map(function.name);
 
-				NameScope localNameScope('$');
+				NameScope localNameScope('$',function.locals.size());
 				for(auto& name : function.locals) { localNameScope.map(name); }
 			}
 		}
@@ -227,7 +241,7 @@ namespace WAST
 		, string(inModuleContext.string)
 		, labelNames(inModuleContext.names.functions[module.functions.imports.size() + functionDefIndex].labels)
 		, localNames(inModuleContext.names.functions[module.functions.imports.size() + functionDefIndex].locals)
-		, labelNameScope('$')
+		, labelNameScope('$',4)
 		, labelIndex(0)
 		{}
 

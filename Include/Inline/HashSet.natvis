@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="HashSet&lt;*,*&gt;">
+    <DisplayString>{table.numElements} elements</DisplayString>
+    <Expand>
+      <CustomListItems>
+        <Variable Name="bucketIndex" InitialValue="0"/>
+        <Loop>
+          <Break Condition="bucketIndex > table.hashToBucketIndexMask" />
+          <If Condition="table.buckets[bucketIndex].hashAndOccupancy">
+            <Item>table.buckets[bucketIndex].storage.contents</Item>
+          </If>
+          <Exec>++bucketIndex</Exec>
+        </Loop>
+      </CustomListItems>
+    </Expand>
+  </Type>
+</AutoVisualizer>

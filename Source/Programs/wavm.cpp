@@ -1,6 +1,7 @@
 #include "CLI.h"
 #include "Emscripten/Emscripten.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/HashMap.h"
 #include "Inline/Timing.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
@@ -11,24 +12,22 @@
 #include "ThreadTest/ThreadTest.h"
 #include "WAST/WAST.h"
 
-#include <map>
-
 using namespace IR;
 using namespace Runtime;
 
 struct RootResolver : Resolver
 {
 	Compartment* compartment;
-	std::map<std::string,ModuleInstance*> moduleNameToInstanceMap;
+	HashMap<std::string,ModuleInstance*> moduleNameToInstanceMap;
 
 	RootResolver(Compartment* inCompartment): compartment(inCompartment) {}
 
 	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,Object*& outObject) override
 	{
-		auto namedInstanceIt = moduleNameToInstanceMap.find(moduleName);
-		if(namedInstanceIt != moduleNameToInstanceMap.end())
+		auto namedInstance = moduleNameToInstanceMap.get(moduleName);
+		if(namedInstance)
 		{
-			outObject = getInstanceExport(namedInstanceIt->second,exportName);
+			outObject = getInstanceExport(*namedInstance,exportName);
 			if(outObject)
 			{
 				if(isA(outObject,type)) { return true; }
@@ -149,15 +148,15 @@ static int run(const CommandLineOptions& options)
 		}
 
 		emscriptenInstance = Emscripten::instantiate(compartment, memoryType, tableType);
-		rootResolver.moduleNameToInstanceMap["env"] = emscriptenInstance->env;
-		rootResolver.moduleNameToInstanceMap["asm2wasm"] = emscriptenInstance->asm2wasm;
-		rootResolver.moduleNameToInstanceMap["global"] = emscriptenInstance->global;
+		rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
+		rootResolver.moduleNameToInstanceMap.set("asm2wasm", emscriptenInstance->asm2wasm);
+		rootResolver.moduleNameToInstanceMap.set("global", emscriptenInstance->global);
 	}
 
 	if(options.enableThreadTest)
 	{
 		ModuleInstance* threadTestInstance = ThreadTest::instantiate(compartment);
-		rootResolver.moduleNameToInstanceMap["threadTest"] = threadTestInstance;
+		rootResolver.moduleNameToInstanceMap.set("threadTest", threadTestInstance);
 	}
 
 	LinkResult linkResult = linkModule(module,rootResolver);

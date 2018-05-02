@@ -1,85 +1,89 @@
-#include "Types.h"
-
-#include <map>
+#include "Inline/Hash.h"
+#include "Inline/HashSet.h"
+#include "IR/Types.h"
 
 namespace IR
 {
-	struct FunctionTypeMap
+	struct FunctionTypeHashPolicy
 	{
-		struct Key
+		static bool areKeysEqual(const IR::FunctionType* left, const IR::FunctionType* right)
 		{
-			ResultType ret;
-			std::vector<ValueType> parameters;
-
-			friend bool operator==(const Key& left,const Key& right)
-			{
-				return left.ret == right.ret && left.parameters == right.parameters;
-			}
-			friend bool operator!=(const Key& left,const Key& right)
-			{
-				return left.ret != right.ret || left.parameters != right.parameters;
-			}
-			friend bool operator<(const Key& left,const Key& right)
-			{
-				if(left.ret != right.ret) { return left.ret < right.ret; }
-				else { return left.parameters < right.parameters; }
-			}
-		};
-		static std::map<Key,const FunctionType*>& get()
+			return left->ret == right->ret && left->parameters == right->parameters;
+		}
+		static Uptr getKeyHash(const IR::FunctionType* functionType)
 		{
-			static std::map<Key,const FunctionType*> map;
-			return map;
+			return functionType->hash;
 		}
 	};
 
-	struct TupleTypeMap
+	struct TupleTypeHashPolicy
 	{
-		struct Key
+		static bool areKeysEqual(const IR::TupleType* left, const IR::TupleType* right)
 		{
-			std::vector<ValueType> elements;
-
-			friend bool operator==(const Key& left,const Key& right)
-			{
-				return left.elements == right.elements;
-			}
-			friend bool operator!=(const Key& left,const Key& right)
-			{
-				return left.elements != right.elements;
-			}
-			friend bool operator<(const Key& left,const Key& right)
-			{
-				return left.elements < right.elements;
-			}
-		};
-		static std::map<Key,const TupleType*>& get()
+			return left->elements == right->elements;
+		}
+		static Uptr getKeyHash(const IR::TupleType* tupleType)
 		{
-			static std::map<Key,const TupleType*> map;
-			return map;
+			return tupleType->hash;
 		}
 	};
 
-	template<typename Key,typename Value,typename CreateValueThunk>
-	Value findExistingOrCreateNew(std::map<Key,Value>& map,Key&& key,CreateValueThunk createValueThunk)
+	struct FunctionTypeSet
 	{
-		auto mapIt = map.find(key);
-		if(mapIt != map.end()) { return mapIt->second; }
+		static HashSet<const FunctionType*,FunctionTypeHashPolicy>& get()
+		{
+			static HashSet<const FunctionType*,FunctionTypeHashPolicy> set;
+			return set;
+		}
+	};
+
+	struct TupleTypeSet
+	{
+		static HashSet<const TupleType*,TupleTypeHashPolicy>& get()
+		{
+			static HashSet<const TupleType*,TupleTypeHashPolicy> set;
+			return set;
+		}
+	};
+
+	FunctionType::FunctionType(ResultType inRet,const std::vector<ValueType>& inParameters)
+	: ret(inRet)
+	, parameters(inParameters)
+	{
+		const U32 hash32 = XXH32_fixed(U32(inRet),0);
+		hash = XXH32(parameters.data(), parameters.size() * sizeof(ValueType), hash32);
+	}
+
+	TupleType::TupleType(const std::vector<ValueType>& inElements)
+	: elements(inElements)
+	{
+		hash = XXH32(elements.data(), elements.size() * sizeof(ValueType), 0);
+	}
+
+	template<typename Element, typename ElementHashPolicy>
+	const Element* findExistingOrCreateNew(
+		HashSet<const Element*, ElementHashPolicy>& set,
+		Element&& element)
+	{
+		auto existingType = set.get(&element);
+		if(existingType) { return *existingType; }
 		else
 		{
-			Value value = createValueThunk();
-			map.insert({std::move(key),value});
-			return value;
+			const Element* newType = new Element(std::move(element));
+			errorUnless(set.add(newType));
+			return newType;
 		}
 	}
 
 	const FunctionType* FunctionType::get(ResultType ret,const std::initializer_list<ValueType>& parameters)
-	{ return findExistingOrCreateNew(FunctionTypeMap::get(),FunctionTypeMap::Key {ret,parameters},[=]{return new FunctionType(ret,parameters);}); }
+	{ return findExistingOrCreateNew(FunctionTypeSet::get(),FunctionType {ret,parameters}); }
 	const FunctionType* FunctionType::get(ResultType ret,const std::vector<ValueType>& parameters)
-	{ return findExistingOrCreateNew(FunctionTypeMap::get(),FunctionTypeMap::Key {ret,parameters},[=]{return new FunctionType(ret,parameters);}); }
+	{ return findExistingOrCreateNew(FunctionTypeSet::get(),FunctionType {ret,parameters}); }
 	const FunctionType* FunctionType::get(ResultType ret)
-	{ return findExistingOrCreateNew(FunctionTypeMap::get(),FunctionTypeMap::Key {ret,{}},[=]{return new FunctionType(ret,{});}); }
+	{ return findExistingOrCreateNew(FunctionTypeSet::get(),FunctionType {ret,{}}); }
 
 	const TupleType* TupleType::get(const std::initializer_list<ValueType>& elements)
-	{ return findExistingOrCreateNew(TupleTypeMap::get(),TupleTypeMap::Key {elements},[=]{return new TupleType(elements);}); }
+	{ return findExistingOrCreateNew(TupleTypeSet::get(),TupleType {elements}); }
 	const TupleType* TupleType::get(const std::vector<ValueType>& elements)
-	{ return findExistingOrCreateNew(TupleTypeMap::get(),TupleTypeMap::Key {elements},[=]{return new TupleType(elements);}); }
+	{ return findExistingOrCreateNew(TupleTypeSet::get(),TupleType {elements}); }
 }

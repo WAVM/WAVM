@@ -181,7 +181,7 @@ namespace Runtime
 			case IR::ObjectKind::exceptionType: exportedObject = moduleInstance->exceptionTypes[exportIt.index]; break;
 			default: Errors::unreachable();
 			}
-			moduleInstance->exportMap[exportIt.name] = exportedObject;
+			errorUnless(moduleInstance->exportMap.add(exportIt.name, exportedObject));
 		}
 		
 		// Copy the module's table segments into the module's default table.
@@ -225,7 +225,7 @@ namespace Runtime
 	Object* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name)
 	{
 		wavmAssert(moduleInstance);
-		auto mapIt = moduleInstance->exportMap.find(name);
-		return mapIt == moduleInstance->exportMap.end() ? nullptr : mapIt->second;
+		Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
+		return exportedObjectPtr ? *exportedObjectPtr : nullptr;
 	}
 }

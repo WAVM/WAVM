@@ -1,11 +1,11 @@
 #pragma once
 
 #include "Inline/BasicTypes.h"
+#include "Inline/HashMap.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 
 #include <functional>
-#include <map>
 #include <atomic>
 
 namespace Intrinsics { struct Module; }
@@ -181,7 +181,7 @@ namespace Runtime
 	{
 		Compartment* compartment;
 
-		std::map<std::string,Object*> exportMap;
+		HashMap<std::string, Object*> exportMap;
 
 		std::vector<FunctionInstance*> functionDefs;
 

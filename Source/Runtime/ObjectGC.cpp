@@ -1,4 +1,5 @@
 #include "Inline/BasicTypes.h"
+#include "Inline/HashSet.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
 #include "Runtime.h"
@@ -14,7 +15,7 @@ namespace Runtime
 	struct GCGlobals
 	{
 		Platform::Mutex mutex;
-		std::set<ObjectImpl*> allObjects;
+		HashSet<ObjectImpl*> allObjects;
 
 		static GCGlobals& get()
 		{
@@ -31,7 +32,7 @@ namespace Runtime
 	{
 		// Add the object to the global array.
 		Platform::Lock lock(GCGlobals::get().mutex);
-		GCGlobals::get().allObjects.insert(this);
+		GCGlobals::get().allObjects.add(this);
 	}
 
 	void addGCRoot(Object* object)
@@ -52,16 +53,16 @@ namespace Runtime
 		Platform::Lock lock(gcGlobals.mutex);
 		Timing::Timer timer;
 
-		std::set<Object*> referencedObjects;
+		HashSet<ObjectImpl*> referencedObjects;
 		std::vector<Object*> pendingScanObjects;
 		
 		// Initialize the referencedObjects set from the rooted object set.
 		Uptr numRoots = 0;
-		for(auto object : gcGlobals.allObjects)
+		for(ObjectImpl* object : gcGlobals.allObjects)
 		{
 			if(object && object->numRootReferences > 0)
 			{
-				referencedObjects.insert(object);
+				referencedObjects.add(object);
 				pendingScanObjects.push_back(object);
 				++numRoots;
 			}
@@ -135,11 +136,10 @@ namespace Runtime
 			};
 
 			// Add the object's child references to the referenced set, and enqueue them for scanning.
-			for(auto reference : childReferences)
+			for(Object* reference : childReferences)
 			{
-				if(reference && !referencedObjects.count(reference))
+				if(reference && referencedObjects.add((ObjectImpl*)reference))
 				{
-					referencedObjects.insert(reference);
 					pendingScanObjects.push_back(reference);
 				}
 			}
@@ -147,18 +147,15 @@ namespace Runtime
 
 		// Find the objects that weren't reached, and call finalize on each of them.
 		std::vector<ObjectImpl*> finalizedObjects;
-		auto objectIt = gcGlobals.allObjects.begin();
-		while(objectIt != gcGlobals.allObjects.end())
+		for(ObjectImpl* object : gcGlobals.allObjects)
 		{
-			if(referencedObjects.count(*objectIt)) { ++objectIt; }
-			else
+			if(!referencedObjects.contains(object))
 			{
-				ObjectImpl* object = *objectIt;
-				objectIt = gcGlobals.allObjects.erase(objectIt);
 				object->finalize();
 				finalizedObjects.push_back(object);
 			}
 		}
+		gcGlobals.allObjects = std::move(referencedObjects);
 
 		// Delete all the finalized objects.
 		for(ObjectImpl* object : finalizedObjects)
@@ -168,6 +165,9 @@ namespace Runtime
 
 		Log::printf(Log::Category::metrics,"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
 			timer.getMilliseconds(),
-			numRoots,gcGlobals.allObjects.size() + finalizedObjects.size(),finalizedObjects.size());
+			numRoots,
+			gcGlobals.allObjects.num() + finalizedObjects.size(),
+			finalizedObjects.size()
+			);
 	}
 }

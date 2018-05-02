@@ -33,6 +33,9 @@
 
 namespace Platform
 {
+	// The number of bytes in a cache line: assume 64 for now.
+	enum { numCacheLineBytes = 64 };
+
 	// countLeadingZeroes/countTrailingZeroes returns the number of leading/trailing zeroes, or the bit width of the input if no bits are set.
 	#ifdef _WIN32
 		// BitScanReverse/BitScanForward return 0 if the input is 0.

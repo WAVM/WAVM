@@ -1,4 +1,5 @@
 #include "Inline/BasicTypes.h"
+#include "Inline/HashMap.h"
 #include "Logging/Logging.h"
 #include "IR/IR.h"
 #include "IR/Module.h"
@@ -7,7 +8,6 @@
 #include "Emscripten.h"
 
 #include <limits.h>
-#include <map>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -409,9 +409,11 @@ namespace Emscripten
 		MemoryInstance* memory = Runtime::createMemory(compartment,memoryType);
 		TableInstance* table = Runtime::createTable(compartment,tableType);
 
-		std::map<std::string, Runtime::Object*> extraEnvExports;
-		extraEnvExports["memory"] = Runtime::asObject(memory);
-		extraEnvExports["table"] = Runtime::asObject(table);
+		HashMap<std::string, Runtime::Object*> extraEnvExports =
+		{
+			{ "memory", Runtime::asObject(memory) },
+			{ "table", Runtime::asObject(table) },
+		};
 
 		Instance* instance = new Instance;
 		instance->env = Intrinsics::instantiateModule(compartment, INTRINSIC_MODULE_REF(env), extraEnvExports);

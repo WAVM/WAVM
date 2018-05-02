@@ -2,6 +2,7 @@
 
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Hash.h"
 #include "Inline/Errors.h"
 #include "Platform/Platform.h"
 
@@ -133,9 +134,23 @@ struct DenseStaticIntSet
 		return memcmp(left.elements,right.elements,sizeof(DenseStaticIntSet::elements)) < 0;
 	}
 
+	Uptr getHash(Uptr seed = 0) const
+	{
+		return XXH<Uptr>(elements, sizeof(elements), seed);
+	}
+
 private:
 	typedef Uptr Element;
 	enum { indicesPerElement = sizeof(Element) * 8 };
 	enum { numElements = (maxIndexPlusOne + indicesPerElement - 1) / indicesPerElement };
 	Element elements[numElements];
+};
+
+template<typename Index,Uptr maxIndexPlusOne>
+struct Hash<DenseStaticIntSet<Index, maxIndexPlusOne>>
+{
+	Uptr operator()(const DenseStaticIntSet<Index, maxIndexPlusOne>& set, Uptr seed = 0) const
+	{
+		return set.getHash(seed);
+	}
 };

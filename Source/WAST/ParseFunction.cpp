@@ -59,17 +59,16 @@ namespace
 			branchTargetIndex = ++functionState->branchTargetDepth;
 			if(name)
 			{
-				auto previousIt = functionState->branchTargetNameToIndexMap.find(name);
-				if(previousIt != functionState->branchTargetNameToIndexMap.end())
+				U32& mapValueRef = functionState->branchTargetNameToIndexMap.getOrAdd(name, UINT32_MAX);
+				if(mapValueRef != UINT32_MAX)
 				{
-					// If the name was already bound to a branch target, remember the
-					// previously bound branch target.
-					previousBranchTargetIndex = previousIt->second;
-					previousIt->second = branchTargetIndex;
+					// If the name was already bound to a branch target, remember the previously bound branch target.
+					previousBranchTargetIndex = mapValueRef;
+					mapValueRef = branchTargetIndex;
 				}
 				else
 				{
-					functionState->branchTargetNameToIndexMap.emplace(name,branchTargetIndex);
+					mapValueRef = branchTargetIndex;
 				}
 			}
 		}
@@ -84,12 +83,11 @@ namespace
 				wavmAssert(functionState->branchTargetNameToIndexMap[name] == branchTargetIndex);
 				if(previousBranchTargetIndex == UINT32_MAX)
 				{
-					functionState->branchTargetNameToIndexMap.erase(name);
+					errorUnless(functionState->branchTargetNameToIndexMap.remove(name));
 				}
 				else
 				{
-					// If hte name was previously bound to an outer branch target, restore it.
-					functionState->branchTargetNameToIndexMap[name] = previousBranchTargetIndex;
+					functionState->branchTargetNameToIndexMap.set(name, previousBranchTargetIndex);
 				}
 			}
 		}
@@ -113,15 +111,18 @@ static bool tryParseAndResolveBranchTargetRef(CursorState* cursor,U32& outTarget
 		case Reference::Type::index: outTargetDepth = branchTargetRef.index; break;
 		case Reference::Type::name:
 		{
-			auto nameToIndexMapIt = cursor->functionState->branchTargetNameToIndexMap.find(branchTargetRef.name);
-			if(nameToIndexMapIt == cursor->functionState->branchTargetNameToIndexMap.end())
+			const HashMapPair<Name, U32>* nameIndexPair
+				= cursor->functionState->branchTargetNameToIndexMap.getPair(
+					branchTargetRef.name
+					);
+			if(!nameIndexPair)
 			{
 				parseErrorf(cursor->parseState,branchTargetRef.token,"unknown name");
 				outTargetDepth = UINT32_MAX;
 			}
 			else
 			{
-				outTargetDepth = cursor->functionState->branchTargetDepth - nameToIndexMapIt->second;
+				outTargetDepth = cursor->functionState->branchTargetDepth - nameIndexPair->value;
 			}
 			break;
 		}
@@ -227,14 +228,14 @@ static void parseImm(CursorState* cursor,CallIndirectImm& outImm)
 		outImm.type.index = resolveFunctionType(cursor->moduleState,unresolvedFunctionType).index;
 
 		// Disallow named parameters.
-		if(paramNameToIndexMap.size())
+		if(paramNameToIndexMap.num())
 		{
 			auto paramNameIt = paramNameToIndexMap.begin();
 			parseErrorf(
 				cursor->parseState,
 				firstTypeToken,
 				"call_indirect callee type declaration may not declare parameter names ($%s)",
-				paramNameIt->first.getString().c_str());
+				paramNameIt->key.getString().c_str());
 		}
 	}
 }

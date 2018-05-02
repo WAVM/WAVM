@@ -1,5 +1,6 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/HashMap.h"
 #include "Inline/Serialization.h"
 #include "WAST/WAST.h"
 #include "WAST/TestScript.h"
@@ -11,7 +12,6 @@
 
 #include "CLI.h"
 
-#include <map>
 #include <vector>
 #include <cstdio>
 #include <cstdarg>
@@ -29,8 +29,8 @@ struct TestScriptState
 	GCPointer<Compartment> compartment;
 	GCPointer<Context> context;
 	
-	std::map<std::string,GCPointer<ModuleInstance>> moduleInternalNameToInstanceMap;
-	std::map<std::string,GCPointer<ModuleInstance>> moduleNameToInstanceMap;
+	HashMap<std::string,GCPointer<ModuleInstance>> moduleInternalNameToInstanceMap;
+	HashMap<std::string,GCPointer<ModuleInstance>> moduleNameToInstanceMap;
 	
 	std::vector<WAST::Error> errors;
 	
@@ -39,8 +39,8 @@ struct TestScriptState
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
 	{
-		moduleNameToInstanceMap["spectest"] = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(spectest));
-		moduleNameToInstanceMap["threadTest"] = ThreadTest::instantiate(compartment);
+		moduleNameToInstanceMap.set("spectest", Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(spectest)));
+		moduleNameToInstanceMap.set("threadTest", ThreadTest::instantiate(compartment));
 	}
 };
 
@@ -49,10 +49,10 @@ struct TestScriptResolver : Resolver
 	TestScriptResolver(const TestScriptState& inState): state(inState) {}
 	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,Object*& outObject) override
 	{
-		auto mapIt = state.moduleNameToInstanceMap.find(moduleName);
-		if(mapIt != state.moduleNameToInstanceMap.end() && mapIt->second != nullptr)
+		auto namedModule = state.moduleNameToInstanceMap.get(moduleName);
+		if(namedModule && *namedModule)
 		{
-			outObject = getInstanceExport(mapIt->second,exportName);
+			outObject = getInstanceExport(*namedModule,exportName);
 			return outObject != nullptr && isA(outObject,type);
 		}
 
@@ -82,13 +82,13 @@ static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,con
 	ModuleInstance* moduleInstance = state.lastModuleInstance;
 	if(internalName.size())
 	{
-		auto mapIt = state.moduleInternalNameToInstanceMap.find(internalName);
-		if(mapIt == state.moduleInternalNameToInstanceMap.end())
+		auto namedModule = state.moduleInternalNameToInstanceMap.get(internalName);
+		if(!namedModule)
 		{
 			testErrorf(state,locus,"unknown %s module name: %s",context,internalName.c_str());
 			return nullptr;
 		}
-		moduleInstance = mapIt->second;
+		moduleInstance = *namedModule;
 	}
 	return moduleInstance;
 }
@@ -162,7 +162,7 @@ static bool processAction(TestScriptState& state,Action* action,Result& outResul
 		// Register the module under its internal name.
 		if(moduleAction->internalModuleName.size())
 		{
-			state.moduleInternalNameToInstanceMap[moduleAction->internalModuleName] = state.lastModuleInstance;
+			state.moduleInternalNameToInstanceMap.set(moduleAction->internalModuleName, state.lastModuleInstance);
 		}
 
 		return true;
@@ -232,7 +232,7 @@ void processCommand(TestScriptState& state,const Command* command)
 
 				// Look up a module by internal name, and bind the result to the public name.
 				ModuleInstance* moduleInstance = getModuleContextByInternalName(state,registerCommand->locus,"register",registerCommand->internalModuleName);
-				state.moduleNameToInstanceMap[registerCommand->moduleName] = moduleInstance;
+				state.moduleNameToInstanceMap.set(registerCommand->moduleName, moduleInstance);
 				break;
 			}
 			case Command::action:

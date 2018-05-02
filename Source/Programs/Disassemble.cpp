@@ -21,7 +21,7 @@ int main(int argc,char** argv)
 	// Print the module to WAST.
 	Timing::Timer printTimer;
 	const std::string wastString = WAST::print(module);
-	Timing::logTimer("Printed WAST",printTimer);
+	Timing::logRatePerSecond("Printed WAST",printTimer,F64(wastString.size()) / 1024.0 / 1024.0,"MB");
 	
 	// Write the serialized data to the output file.
 	std::ofstream outputStream(outputFilename);

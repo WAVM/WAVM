@@ -1,10 +1,11 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Timing.h"
-#include "WAST.h"
-#include "Lexer.h"
 #include "IR/Module.h"
 #include "IR/Validate.h"
+#include "Lexer.h"
+#include "Logging/Logging.h"
 #include "Parse.h"
+#include "WAST.h"
 
 using namespace WAST;
 using namespace IR;
@@ -304,10 +305,10 @@ static void parseType(CursorState* cursor)
 		std::vector<std::string> localDisassemblyNames;
 		const FunctionType* functionType = parseFunctionType(cursor,parameterNameToIndexMap,localDisassemblyNames);
 
-		Uptr functionTypeIndex = cursor->moduleState->module.types.size();
+		errorUnless(cursor->moduleState->module.types.size() < UINT32_MAX);
+		const U32 functionTypeIndex = U32(cursor->moduleState->module.types.size());
 		cursor->moduleState->module.types.push_back(functionType);
-		errorUnless(functionTypeIndex < UINT32_MAX);
-		cursor->moduleState->functionTypeToIndexMap[functionType] = (U32)functionTypeIndex;
+		cursor->moduleState->functionTypeToIndexMap.set(functionType,functionTypeIndex);
 
 		bindName(cursor->parseState,cursor->moduleState->typeNameToIndexMap,name,functionTypeIndex);
 		cursor->moduleState->disassemblyNames.types.push_back(name.getString());
@@ -701,6 +702,27 @@ static void parseDeclaration(CursorState* cursor)
 	});
 }
 
+template<typename Map>
+void dumpHashMapSpaceAnalysis(const Map& map, const char* description)
+{
+	Uptr totalMemoryBytes = 0;
+	Uptr maxProbeCount = 0;
+	F32 occupancy = 0.0f;
+	F32 averageProbeCount = 0.0f;
+	map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
+	Log::printf(
+		Log::Category::metrics,
+		"%s used %.1fKB for %u elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%u\n",
+		description,
+		totalMemoryBytes / 1024.0f,
+		map.num(),
+		occupancy * 100.0f,
+		F32(totalMemoryBytes) / map.num(),
+		averageProbeCount,
+		maxProbeCount
+		);
+}
+
 namespace WAST
 {
 	void parseModuleBody(CursorState* cursor,IR::Module& outModule)
@@ -754,6 +776,15 @@ namespace WAST
 			wavmAssert(outModule.memories.size() == moduleState.disassemblyNames.memories.size());
 			wavmAssert(outModule.globals.size() == moduleState.disassemblyNames.globals.size());
 			IR::setDisassemblyNames(outModule,moduleState.disassemblyNames);
+			
+			// If metrics logging is enabled, log some statistics about the module's name maps.
+			if(Log::isCategoryEnabled(Log::Category::metrics))
+			{
+				dumpHashMapSpaceAnalysis(moduleState.functionNameToIndexMap, "functionNameToIndexMap");
+				dumpHashMapSpaceAnalysis(moduleState.globalNameToIndexMap, "globalNameToIndexMap");
+				dumpHashMapSpaceAnalysis(moduleState.functionTypeToIndexMap, "functionTypeToIndexMap");
+				dumpHashMapSpaceAnalysis(moduleState.typeNameToIndexMap, "typeNameToIndexMap");
+			}
 		}
 		catch(RecoverParseException)
 		{

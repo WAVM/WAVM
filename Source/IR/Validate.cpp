@@ -1,10 +1,11 @@
 #include "Inline/Assert.h"
+#include "Inline/HashSet.h"
+#include "Inline/Timing.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
 #include "IR/OperatorPrinter.h"
 #include "IR/Validate.h"
 #include "Logging/Logging.h"
-#include "Inline/Timing.h"
 
 #include <set>
 
@@ -659,7 +660,7 @@ namespace IR
 		for(auto& memoryDef : module.memories.defs) { validate(module,memoryDef.type); }
 		VALIDATE_UNLESS("too many memories: ",module.memories.size()>1);
 
-		std::set<std::string> exportNameMap;
+		HashSet<std::string> exportNameSet;
 		for(auto& exportIt : module.exports)
 		{
 			switch(exportIt.kind)
@@ -685,8 +686,8 @@ namespace IR
 			default: throw ValidationException("unknown export kind");
 			};
 
-			VALIDATE_UNLESS("duplicate export: ",exportNameMap.count(exportIt.name));
-			exportNameMap.emplace(exportIt.name);
+			VALIDATE_UNLESS("duplicate export: ",exportNameSet.contains(exportIt.name));
+			exportNameSet.add(exportIt.name);
 		}
 
 		if(module.startFunctionIndex != UINTPTR_MAX)

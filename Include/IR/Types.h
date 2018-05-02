@@ -4,6 +4,7 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Floats.h"
+#include "Inline/Hash.h"
 #include "IR.h"
 
 #include <vector>
@@ -139,6 +140,7 @@ namespace IR
 	{
 		ResultType ret;
 		std::vector<ValueType> parameters;
+		U64 hash;
 
 		IR_API static const FunctionType* get(ResultType ret,const std::initializer_list<ValueType>& parameters);
 		IR_API static const FunctionType* get(ResultType ret,const std::vector<ValueType>& parameters);
@@ -146,8 +148,7 @@ namespace IR
 
 	private:
 
-		FunctionType(ResultType inRet,const std::vector<ValueType>& inParameters)
-		: ret(inRet), parameters(inParameters) {}
+		FunctionType(ResultType inRet,const std::vector<ValueType>& inParameters);
 	};
 	
 	struct IndexedFunctionType
@@ -267,14 +268,14 @@ namespace IR
 	struct TupleType
 	{
 		std::vector<ValueType> elements;
+		U64 hash;
 
 		IR_API static const TupleType* get(const std::initializer_list<ValueType>& elements);
 		IR_API static const TupleType* get(const std::vector<ValueType>& elements);
 
 	private:
 
-		TupleType(const std::vector<ValueType>& inElements)
-			: elements(inElements) {}
+		TupleType(const std::vector<ValueType>& inElements);
 	};
 
 	inline std::string asString(const TupleType* tupleType)

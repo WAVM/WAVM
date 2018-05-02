@@ -1,6 +1,7 @@
 #include "LLVMJIT.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/HashMap.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
 #include "RuntimePrivate.h"
@@ -56,10 +57,10 @@ namespace LLVMJIT
 	std::map<Uptr,struct JITSymbol*> addressToSymbolMap;
 
 	// A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
-	std::map<const FunctionType*,struct JITSymbol*> invokeThunkTypeToSymbolMap;
+	HashMap<const FunctionType*,struct JITSymbol*> invokeThunkTypeToSymbolMap;
 
 	// A map from function types to JIT symbols for cached native thunks (WASM -> C++)
-	std::map<void*,struct JITSymbol*> intrinsicFunctionToThunkSymbolMap;
+	HashMap<void*,struct JITSymbol*> intrinsicFunctionToThunkSymbolMap;
 
 	void initLLVM();
 
@@ -732,8 +733,8 @@ namespace LLVMJIT
 		initLLVM();
 
 		// Reuse cached invoke thunks for the same function type.
-		auto mapIt = invokeThunkTypeToSymbolMap.find(functionType);
-		if(mapIt != invokeThunkTypeToSymbolMap.end()) { return reinterpret_cast<InvokeFunctionPointer>(mapIt->second->baseAddress); }
+		JITSymbol*& invokeThunkSymbol = invokeThunkTypeToSymbolMap.getOrAdd(functionType,nullptr);
+		if(invokeThunkSymbol) { return reinterpret_cast<InvokeFunctionPointer>(invokeThunkSymbol->baseAddress); }
 
 		auto llvmModuleSharedPtr = std::make_shared<llvm::Module>("",*llvmContext);
 		auto llvmModule = llvmModuleSharedPtr.get();
@@ -800,20 +801,20 @@ namespace LLVMJIT
 		auto jitUnit = new JITThunkUnit(functionType);
 		jitUnit->compile(llvmModuleSharedPtr);
 
-		invokeThunkTypeToSymbolMap[functionType] = jitUnit->symbol;
 		wavmAssert(jitUnit->symbol);
+		invokeThunkSymbol = jitUnit->symbol;
 
 		{
 			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
 			addressToSymbolMap[jitUnit->symbol->baseAddress + jitUnit->symbol->numBytes] = jitUnit->symbol;
 		}
 
-		return reinterpret_cast<InvokeFunctionPointer>(jitUnit->symbol->baseAddress);
+		return reinterpret_cast<InvokeFunctionPointer>(invokeThunkSymbol->baseAddress);
 	}
 
 	void* getIntrinsicThunk(void* nativeFunction,const FunctionType* functionType,CallingConvention callingConvention)
 	{
-		assert(callingConvention == CallingConvention::intrinsic
+		wavmAssert(callingConvention == CallingConvention::intrinsic
 		|| callingConvention == CallingConvention::intrinsicWithContextSwitch
 		|| callingConvention == CallingConvention::intrinsicWithMemAndTable);
 
@@ -822,8 +823,8 @@ namespace LLVMJIT
 		initLLVM();
 
 		// Reuse cached intrinsic thunks for the same function type.
-		auto mapIt = intrinsicFunctionToThunkSymbolMap.find(nativeFunction);
-		if(mapIt != intrinsicFunctionToThunkSymbolMap.end()) { return reinterpret_cast<void*>(mapIt->second->baseAddress); }
+		JITSymbol*& intrinsicThunkSymbol = intrinsicFunctionToThunkSymbolMap.getOrAdd(nativeFunction, nullptr);
+		if(intrinsicThunkSymbol) { return reinterpret_cast<void*>(intrinsicThunkSymbol->baseAddress); }
 
 		// Create a LLVM module containing a single function with the same signature as the native
 		// function, but with the WASM calling convention.
@@ -866,15 +867,15 @@ namespace LLVMJIT
 		auto jitUnit = new JITThunkUnit(functionType);
 		jitUnit->compile(llvmModuleSharedPtr);
 
-		intrinsicFunctionToThunkSymbolMap[nativeFunction] = jitUnit->symbol;
 		wavmAssert(jitUnit->symbol);
+		intrinsicThunkSymbol = jitUnit->symbol;
 
 		{
 			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
 			addressToSymbolMap[jitUnit->symbol->baseAddress + jitUnit->symbol->numBytes] = jitUnit->symbol;
 		}
 
-		return reinterpret_cast<void*>(jitUnit->symbol->baseAddress);
+		return reinterpret_cast<void*>(intrinsicThunkSymbol->baseAddress);
 	}
 
 	void initLLVM()
