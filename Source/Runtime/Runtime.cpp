@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Logging/Logging.h"
 #include "Runtime.h"
@@ -101,7 +102,7 @@ namespace Runtime
 
 	GlobalInstance* createGlobal(Compartment* compartment,GlobalType type,Value initialValue)
 	{
-		assert(initialValue.type == type.valueType);
+		wavmAssert(initialValue.type == type.valueType);
 
 		// Allow immutable globals to be created without a compartment.
 		errorUnless(!type.isMutable || compartment);
@@ -146,7 +147,7 @@ namespace Runtime
 
 	Value getGlobalValue(Context* context,GlobalInstance* global)
 	{
-		assert(context || !global->type.isMutable);
+		wavmAssert(context || !global->type.isMutable);
 		return Value(
 			global->type.valueType,
 			global->type.isMutable
@@ -156,9 +157,9 @@ namespace Runtime
 
 	Value setGlobalValue(Context* context,GlobalInstance* global,Value newValue)
 	{
-		assert(context);
-		assert(newValue.type == global->type.valueType);
-		assert(global->type.isMutable);
+		wavmAssert(context);
+		wavmAssert(newValue.type == global->type.valueType);
+		wavmAssert(global->type.isMutable);
 		UntaggedValue& value = *(UntaggedValue*)(context->runtimeData->globalData + global->mutableDataOffset);
 		const Value previousValue = Value(global->type.valueType,value);
 		value = newValue;
@@ -167,7 +168,6 @@ namespace Runtime
 
 	Compartment::Compartment()
 	: ObjectImpl(ObjectKind::compartment)
-	, mutex(Platform::createMutex())
 	, unalignedRuntimeData(nullptr)
 	, numGlobalBytes(0)
 	{
@@ -187,7 +187,6 @@ namespace Runtime
 
 	Compartment::~Compartment()
 	{
-		Platform::destroyMutex(mutex);
 		Platform::decommitVirtualPages((U8*)runtimeData,compartmentReservedBytes >> Platform::getPageSizeLog2());
 		Platform::freeAlignedVirtualPages(unalignedRuntimeData,
 			compartmentReservedBytes >> Platform::getPageSizeLog2(),
@@ -213,10 +212,10 @@ namespace Runtime
 			GlobalInstance* global = compartment->globals[globalIndex];
 			GlobalInstance* newGlobal = cloneGlobal(global,newCompartment);
 			SUPPRESS_UNUSED(newGlobal);
-			assert(newGlobal->id == global->id);
-			assert(newGlobal->mutableDataOffset == global->mutableDataOffset);
+			wavmAssert(newGlobal->id == global->id);
+			wavmAssert(newGlobal->mutableDataOffset == global->mutableDataOffset);
 		}
-		assert(newCompartment->numGlobalBytes == compartment->numGlobalBytes);
+		wavmAssert(newCompartment->numGlobalBytes == compartment->numGlobalBytes);
 
 		// Clone memories.
 		for(Uptr memoryIndex = 0;memoryIndex < compartment->memories.size();++memoryIndex)
@@ -224,7 +223,7 @@ namespace Runtime
 			MemoryInstance* memory = compartment->memories[memoryIndex];
 			MemoryInstance* newMemory = cloneMemory(memory,newCompartment);
 			SUPPRESS_UNUSED(newMemory);
-			assert(newMemory->id == memory->id);
+			wavmAssert(newMemory->id == memory->id);
 		}
 
 		// Clone tables.
@@ -233,7 +232,7 @@ namespace Runtime
 			TableInstance* table = compartment->tables[tableIndex];
 			TableInstance* newTable = cloneTable(table,newCompartment);
 			SUPPRESS_UNUSED(newTable);
-			assert(newTable->id == table->id);
+			wavmAssert(newTable->id == table->id);
 		}
 
 		return newCompartment;
@@ -241,7 +240,7 @@ namespace Runtime
 
 	Context* createContext(Compartment* compartment)
 	{
-		assert(compartment);
+		wavmAssert(compartment);
 		Context* context = new Context(compartment);
 		{
 			Platform::Lock lock(compartment->mutex);
@@ -282,7 +281,7 @@ namespace Runtime
 		// Create a new context and initialize its runtime data with the values from the source context.
 		Context* clonedContext = createContext(newCompartment);
 		const Uptr numGlobalBytes = context->compartment->numGlobalBytes;
-		assert(numGlobalBytes <= newCompartment->numGlobalBytes);
+		wavmAssert(numGlobalBytes <= newCompartment->numGlobalBytes);
 		memcpy(
 			clonedContext->runtimeData->globalData,
 			context->runtimeData->globalData,
@@ -307,7 +306,7 @@ namespace Runtime
 	{
 		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 		Platform::Lock compartmentLock(compartment->mutex);
-		assert(tableId < compartment->tables.size());
+		wavmAssert(tableId < compartment->tables.size());
 		return compartment->tables[tableId];
 	}
 

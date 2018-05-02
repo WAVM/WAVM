@@ -749,10 +749,10 @@ namespace WAST
 			}
 
 			// Set the module's disassembly names.
-			assert(outModule.functions.size() == moduleState.disassemblyNames.functions.size());
-			assert(outModule.tables.size() == moduleState.disassemblyNames.tables.size());
-			assert(outModule.memories.size() == moduleState.disassemblyNames.memories.size());
-			assert(outModule.globals.size() == moduleState.disassemblyNames.globals.size());
+			wavmAssert(outModule.functions.size() == moduleState.disassemblyNames.functions.size());
+			wavmAssert(outModule.tables.size() == moduleState.disassemblyNames.tables.size());
+			wavmAssert(outModule.memories.size() == moduleState.disassemblyNames.memories.size());
+			wavmAssert(outModule.globals.size() == moduleState.disassemblyNames.globals.size());
 			IR::setDisassemblyNames(outModule,moduleState.disassemblyNames);
 		}
 		catch(RecoverParseException)

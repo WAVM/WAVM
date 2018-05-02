@@ -1,5 +1,6 @@
 #include "LLVMJIT.h"
 #include "llvm/ADT/SmallVector.h"
+#include "Inline/Assert.h"
 #include "Inline/Timing.h"
 #include "IR/Operators.h"
 #include "IR/OperatorPrinter.h"
@@ -159,7 +160,7 @@ namespace LLVMJIT
 		// Operand stack manipulation
 		llvm::Value* pop()
 		{
-			assert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0) >= 1);
+			wavmAssert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0) >= 1);
 			llvm::Value* result = stack.back();
 			stack.pop_back();
 			return result;
@@ -167,7 +168,7 @@ namespace LLVMJIT
 
 		void popMultiple(llvm::Value** outValues,Uptr num)
 		{
-			assert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0) >= num);
+			wavmAssert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0) >= num);
 			std::copy(stack.end() - num,stack.end(),outValues);
 			stack.resize(stack.size() - num);
 		}
@@ -328,10 +329,10 @@ namespace LLVMJIT
 			Object* intrinsicObject = Runtime::getInstanceExport(
 				moduleContext.moduleInstance->compartment->wavmIntrinsics,
 				intrinsicName);
-			assert(intrinsicObject);
-			assert(isA(intrinsicObject,intrinsicType));
+			wavmAssert(intrinsicObject);
+			wavmAssert(isA(intrinsicObject,intrinsicType));
 			FunctionInstance* intrinsicFunction = asFunction(intrinsicObject);
-			assert(intrinsicFunction->type == intrinsicType);
+			wavmAssert(intrinsicFunction->type == intrinsicType);
 			auto intrinsicFunctionPointer = emitLiteralPointer(
 				intrinsicFunction->nativeFunction,
 				asLLVMType(intrinsicType,intrinsicFunction->callingConvention)->getPointerTo());
@@ -406,7 +407,7 @@ namespace LLVMJIT
 				// Branch to the control context's end.
 				irBuilder.CreateBr(currentContext.endBlock);
 			}
-			assert(stack.size() == currentContext.outerStackSize);
+			wavmAssert(stack.size() == currentContext.outerStackSize);
 		}
 
 		void block(ControlStructureImm imm)
@@ -463,14 +464,14 @@ namespace LLVMJIT
 		}
 		void else_(NoImm imm)
 		{
-			assert(controlStack.size());
+			wavmAssert(controlStack.size());
 			ControlContext& currentContext = controlStack.back();
 			
 			branchToEndOfControlContext();
 
 			// Switch the IR emitter to the else block.
-			assert(currentContext.elseBlock);
-			assert(currentContext.type == ControlContext::Type::ifThen);
+			wavmAssert(currentContext.elseBlock);
+			wavmAssert(currentContext.type == ControlContext::Type::ifThen);
 			currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
 			irBuilder.SetInsertPoint(currentContext.elseBlock);
 
@@ -481,7 +482,7 @@ namespace LLVMJIT
 		}
 		void end(NoImm)
 		{
-			assert(controlStack.size());
+			wavmAssert(controlStack.size());
 			ControlContext& currentContext = controlStack.back();
 
 			branchToEndOfControlContext();
@@ -510,13 +511,13 @@ namespace LLVMJIT
 				{
 					// If there weren't any incoming values for the end PHI, remove it and push a dummy value.
 					currentContext.endPHI->eraseFromParent();
-					assert(currentContext.resultType != ResultType::none);
+					wavmAssert(currentContext.resultType != ResultType::none);
 					push(typedZeroConstants[(Uptr)asValueType(currentContext.resultType)]);
 				}
 			}
 
 			// Pop and branch targets introduced by this control context.
-			assert(currentContext.outerBranchTargetStackSize <= branchTargetStack.size());
+			wavmAssert(currentContext.outerBranchTargetStackSize <= branchTargetStack.size());
 			branchTargetStack.resize(currentContext.outerBranchTargetStackSize);
 
 			// Pop this control context.
@@ -529,7 +530,7 @@ namespace LLVMJIT
 		
 		BranchTarget& getBranchTargetByDepth(Uptr depth)
 		{
-			assert(depth < branchTargetStack.size());
+			wavmAssert(depth < branchTargetStack.size());
 			return branchTargetStack[branchTargetStack.size() - depth - 1];
 		}
 		
@@ -537,7 +538,7 @@ namespace LLVMJIT
 		void enterUnreachable()
 		{
 			// Unwind the operand stack to the outer control context.
-			assert(controlStack.back().outerStackSize <= stack.size());
+			wavmAssert(controlStack.back().outerStackSize <= stack.size());
 			stack.resize(controlStack.back().outerStackSize);
 
 			// Mark the current control context as unreachable: this will cause the outer loop to stop dispatching operators to us
@@ -601,7 +602,7 @@ namespace LLVMJIT
 			}
 
 			// Create a LLVM switch instruction.
-			assert(imm.branchTableIndex < functionDef.branchTables.size());
+			wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
 			const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 			auto llvmSwitch = irBuilder.CreateSwitch(index,defaultTarget.block,(unsigned int)targetDepths.size());
 
@@ -672,7 +673,7 @@ namespace LLVMJIT
 			CallingConvention callingConvention;
 			if(imm.functionIndex < module.functions.imports.size())
 			{
-				assert(imm.functionIndex < moduleContext.moduleInstance->functions.size());
+				wavmAssert(imm.functionIndex < moduleContext.moduleInstance->functions.size());
 				FunctionInstance* importedCallee = moduleContext.moduleInstance->functions[imm.functionIndex];
 				calleeType = importedCallee->type;
 				callee = emitLiteralPointer(
@@ -683,7 +684,7 @@ namespace LLVMJIT
 			else
 			{
 				const Uptr functionDefIndex = imm.functionIndex - module.functions.imports.size();
-				assert(functionDefIndex < moduleContext.functionDefs.size());
+				wavmAssert(functionDefIndex < moduleContext.functionDefs.size());
 				callee = moduleContext.functionDefs[functionDefIndex];
 				calleeType = module.types[module.functions.defs[functionDefIndex].type.index];
 				callingConvention = CallingConvention::wasm;
@@ -707,7 +708,7 @@ namespace LLVMJIT
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
-			assert(imm.type.index < module.types.size());
+			wavmAssert(imm.type.index < module.types.size());
 			
 			auto calleeType = module.types[imm.type.index];
 
@@ -767,25 +768,25 @@ namespace LLVMJIT
 
 		void get_local(GetOrSetVariableImm<false> imm)
 		{
-			assert(imm.variableIndex < localPointers.size());
+			wavmAssert(imm.variableIndex < localPointers.size());
 			push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
 		}
 		void set_local(GetOrSetVariableImm<false> imm)
 		{
-			assert(imm.variableIndex < localPointers.size());
+			wavmAssert(imm.variableIndex < localPointers.size());
 			auto value = irBuilder.CreateBitCast(pop(),localPointers[imm.variableIndex]->getType()->getPointerElementType());
 			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
 		}
 		void tee_local(GetOrSetVariableImm<false> imm)
 		{
-			assert(imm.variableIndex < localPointers.size());
+			wavmAssert(imm.variableIndex < localPointers.size());
 			auto value = irBuilder.CreateBitCast(getTopValue(),localPointers[imm.variableIndex]->getType()->getPointerElementType());
 			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
 		}
 		
 		void get_global(GetOrSetVariableImm<true> imm)
 		{
-			assert(imm.variableIndex < moduleContext.moduleInstance->globals.size());
+			wavmAssert(imm.variableIndex < moduleContext.moduleInstance->globals.size());
 			GlobalInstance* global = moduleContext.moduleInstance->globals[imm.variableIndex];
 			llvm::Type* llvmValueType = asLLVMType(global->type.valueType);
 			
@@ -822,9 +823,9 @@ namespace LLVMJIT
 		}
 		void set_global(GetOrSetVariableImm<true> imm)
 		{
-			assert(imm.variableIndex < moduleContext.moduleInstance->globals.size());
+			wavmAssert(imm.variableIndex < moduleContext.moduleInstance->globals.size());
 			GlobalInstance* global = moduleContext.moduleInstance->globals[imm.variableIndex];
-			assert(global->type.isMutable);
+			wavmAssert(global->type.isMutable);
 			llvm::Type* llvmValueType = asLLVMType(global->type.valueType);
 			llvm::Value* globalPointer = irBuilder.CreatePointerCast(
 				irBuilder.CreateInBoundsGEP(
@@ -1677,14 +1678,14 @@ namespace LLVMJIT
 
 		void endTry()
 		{
-			assert(tryStack.size());
+			wavmAssert(tryStack.size());
 			tryStack.pop_back();
 			catchStack.pop_back();
 		}
 		
 		void endCatch()
 		{
-			assert(catchStack.size());
+			wavmAssert(catchStack.size());
 			#ifndef _WIN64
 				CatchContext& catchContext = catchStack.back();
 
@@ -1847,22 +1848,22 @@ namespace LLVMJIT
 
 			void catch_(CatchImm imm)
 			{
-				assert(controlStack.size());
-				assert(catchStack.size());
+				wavmAssert(controlStack.size());
+				wavmAssert(catchStack.size());
 				ControlContext& controlContext = controlStack.back();
 				CatchContext& catchContext = catchStack.back();
-				assert(controlContext.type == ControlContext::Type::try_
+				wavmAssert(controlContext.type == ControlContext::Type::try_
 					|| controlContext.type == ControlContext::Type::catch_);
 				if(controlContext.type == ControlContext::Type::try_)
 				{
-					assert(tryStack.size());
+					wavmAssert(tryStack.size());
 					tryStack.pop_back();
 				}
 
 				branchToEndOfControlContext();
 
 				// Look up the exception type instance to be caught
-				assert(imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypes.size());
+				wavmAssert(imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypes.size());
 				const Runtime::ExceptionTypeInstance* catchTypeInstance
 					= moduleContext.moduleInstance->exceptionTypes[imm.exceptionTypeIndex];
 				
@@ -1898,15 +1899,15 @@ namespace LLVMJIT
 			}
 			void catch_all(NoImm)
 			{
-				assert(controlStack.size());
-				assert(catchStack.size());
+				wavmAssert(controlStack.size());
+				wavmAssert(catchStack.size());
 				ControlContext& controlContext = controlStack.back();
 				CatchContext& catchContext = catchStack.back();
-				assert(controlContext.type == ControlContext::Type::try_
+				wavmAssert(controlContext.type == ControlContext::Type::try_
 					|| controlContext.type == ControlContext::Type::catch_);
 				if(controlContext.type == ControlContext::Type::try_)
 				{
-					assert(tryStack.size());
+					wavmAssert(tryStack.size());
 					tryStack.pop_back();
 				}
 
@@ -1977,22 +1978,22 @@ namespace LLVMJIT
 
 			void catch_(CatchImm imm)
 			{
-				assert(controlStack.size());
-				assert(catchStack.size());
+				wavmAssert(controlStack.size());
+				wavmAssert(catchStack.size());
 				ControlContext& controlContext = controlStack.back();
 				CatchContext& catchContext = catchStack.back();
-				assert(controlContext.type == ControlContext::Type::try_
+				wavmAssert(controlContext.type == ControlContext::Type::try_
 					|| controlContext.type == ControlContext::Type::catch_);
 				if(controlContext.type == ControlContext::Type::try_)
 				{
-					assert(tryStack.size());
+					wavmAssert(tryStack.size());
 					tryStack.pop_back();
 				}
 
 				branchToEndOfControlContext();
 
 				// Look up the exception type instance to be caught
-				assert(imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypes.size());
+				wavmAssert(imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypes.size());
 				const Runtime::ExceptionTypeInstance* catchTypeInstance
 					= moduleContext.moduleInstance->exceptionTypes[imm.exceptionTypeIndex];
 
@@ -2027,15 +2028,15 @@ namespace LLVMJIT
 			}
 			void catch_all(NoImm)
 			{
-				assert(controlStack.size());
-				assert(catchStack.size());
+				wavmAssert(controlStack.size());
+				wavmAssert(catchStack.size());
 				ControlContext& controlContext = controlStack.back();
 				CatchContext& catchContext = catchStack.back();
-				assert(controlContext.type == ControlContext::Type::try_
+				wavmAssert(controlContext.type == ControlContext::Type::try_
 					|| controlContext.type == ControlContext::Type::catch_);
 				if(controlContext.type == ControlContext::Type::try_)
 				{
-					assert(tryStack.size());
+					wavmAssert(tryStack.size());
 					tryStack.pop_back();
 				}
 
@@ -2104,7 +2105,7 @@ namespace LLVMJIT
 		}
 		void rethrow(RethrowImm imm)
 		{
-			assert(imm.catchDepth < catchStack.size());
+			wavmAssert(imm.catchDepth < catchStack.size());
 			CatchContext& catchContext = catchStack[catchStack.size() - imm.catchDepth - 1];
 			emitThrow(
 				loadFromUntypedPointer(catchContext.exceptionPointer,llvmI64Type),
@@ -2251,7 +2252,7 @@ namespace LLVMJIT
 			if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
 			else { decoder.decodeOp(unreachableOpVisitor); }
 		};
-		assert(irBuilder.GetInsertBlock() == returnBlock);
+		wavmAssert(irBuilder.GetInsertBlock() == returnBlock);
 		
 		// If enabled, emit a call to the WAVM function enter hook (for debugging).
 		if(ENABLE_FUNCTION_ENTER_EXIT_HOOKS)

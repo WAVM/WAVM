@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Floats.h"
@@ -110,13 +111,13 @@ namespace IR
 	// Conversion between ValueType and ResultType.
 	inline ValueType asValueType(ResultType type)
 	{
-		assert(type != ResultType::none);
+		wavmAssert(type != ResultType::none);
 		return (ValueType)type;
 	}
 
 	inline ResultType asResultType(ValueType type)
 	{
-		assert(type != ValueType::any);
+		wavmAssert(type != ValueType::any);
 		return (ResultType)type;
 	}
 
@@ -307,27 +308,27 @@ namespace IR
 
 		friend const FunctionType* asFunctionType(const ObjectType& objectType)
 		{
-			assert(objectType.kind == ObjectKind::function);
+			wavmAssert(objectType.kind == ObjectKind::function);
 			return objectType.function;
 		}
 		friend TableType asTableType(const ObjectType& objectType)
 		{
-			assert(objectType.kind == ObjectKind::table);
+			wavmAssert(objectType.kind == ObjectKind::table);
 			return objectType.table;
 		}
 		friend MemoryType asMemoryType(const ObjectType& objectType)
 		{
-			assert(objectType.kind == ObjectKind::memory);
+			wavmAssert(objectType.kind == ObjectKind::memory);
 			return objectType.memory;
 		}
 		friend GlobalType asGlobalType(const ObjectType& objectType)
 		{
-			assert(objectType.kind == ObjectKind::global);
+			wavmAssert(objectType.kind == ObjectKind::global);
 			return objectType.global;
 		}
 		friend const TupleType* asExceptionTypeType(const ObjectType& objectType)
 		{
-			assert(objectType.kind == ObjectKind::exceptionType);
+			wavmAssert(objectType.kind == ObjectKind::exceptionType);
 			return objectType.exceptionType;
 		}
 

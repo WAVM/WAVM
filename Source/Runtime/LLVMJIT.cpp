@@ -1,4 +1,5 @@
 #include "LLVMJIT.h"
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
@@ -21,7 +22,7 @@
 
 namespace LLVMJIT
 {
-	Platform::Mutex* llvmMutex = Platform::createMutex();
+	Platform::Mutex llvmMutex;
 	llvm::LLVMContext* llvmContext = nullptr;
 	llvm::TargetMachine* targetMachine = nullptr;
 	llvm::Type* llvmResultTypes[(Uptr)ResultType::num];
@@ -51,7 +52,7 @@ namespace LLVMJIT
 	llvm::Constant* typedZeroConstants[(Uptr)ValueType::num];
 	
 	// A map from address to loaded JIT symbols.
-	Platform::Mutex* addressToSymbolMapMutex = Platform::createMutex();
+	Platform::Mutex addressToSymbolMapMutex;
 	std::map<Uptr,struct JITSymbol*> addressToSymbolMap;
 
 	// A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
@@ -155,7 +156,7 @@ namespace LLVMJIT
 		}
 		virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
 		{
-			assert(!isFinalized);
+			wavmAssert(!isFinalized);
 			isFinalized = true;
 			// Set the requested final memory access for each section's pages.
 			#if 0
@@ -202,13 +203,13 @@ namespace LLVMJIT
 
 		U8* allocateBytes(Uptr numBytes,Uptr alignment,Section& section)
 		{
-			assert(section.baseAddress);
-			assert(!(alignment & (alignment - 1)));
-			assert(!isFinalized);
+			wavmAssert(section.baseAddress);
+			wavmAssert(!(alignment & (alignment - 1)));
+			wavmAssert(!isFinalized);
 			
 			// Allocate the section at the lowest uncommitted byte of image memory.
 			U8* allocationBaseAddress = section.baseAddress + align(section.numCommittedBytes,alignment);
-			assert(!(reinterpret_cast<Uptr>(allocationBaseAddress) & (alignment-1)));
+			wavmAssert(!(reinterpret_cast<Uptr>(allocationBaseAddress) & (alignment-1)));
 			section.numCommittedBytes = align(section.numCommittedBytes,alignment) + align(numBytes,alignment);
 
 			// Check that enough space was reserved in the section.
@@ -335,8 +336,8 @@ namespace LLVMJIT
 			Uptr functionDefIndex;
 			if(getFunctionIndexFromExternalName(name,functionDefIndex))
 			{
-				assert(moduleInstance);
-				assert(functionDefIndex < moduleInstance->functionDefs.size());
+				wavmAssert(moduleInstance);
+				wavmAssert(functionDefIndex < moduleInstance->functionDefs.size());
 				FunctionInstance* functionInstance = moduleInstance->functionDefs[functionDefIndex];
 				auto symbol = new JITSymbol(functionInstance,baseAddress,numBytes,std::move(offsetToOpIndexMap));
 				functionDefSymbols.push_back(symbol);
@@ -362,9 +363,9 @@ namespace LLVMJIT
 		void notifySymbolLoaded(const char* name,Uptr baseAddress,Uptr numBytes,std::map<U32,U32>&& offsetToOpIndexMap) override
 		{
 			#if (defined(_WIN32) && !defined(_WIN64))
-				assert(!strcmp(name,"_thunk"));
+				wavmAssert(!strcmp(name,"_thunk"));
 			#else
-				assert(!strcmp(name,"thunk"));
+				wavmAssert(!strcmp(name,"thunk"));
 			#endif
 			symbol = new JITSymbol(functionType,baseAddress,numBytes,std::move(offsetToOpIndexMap));
 		}
@@ -496,7 +497,7 @@ namespace LLVMJIT
 				sizeof(instructionBuffer)
 				);
 			if(numInstructionBytes == 0) { numInstructionBytes = 1; }
-			assert(numInstructionBytes <= numBytesRemaining);
+			wavmAssert(numInstructionBytes <= numBytesRemaining);
 			numBytesRemaining -= numInstructionBytes;
 			nextByte += numInstructionBytes;
 
@@ -539,7 +540,7 @@ namespace LLVMJIT
 				if(!address) { continue; }
 
 				// Compute the address the functions was loaded at.
-				assert(*address <= UINTPTR_MAX);
+				wavmAssert(*address <= UINTPTR_MAX);
 				Uptr loadedAddress = Uptr(*address);
 				auto symbolSection = symbol.getSection();
 				if(symbolSection)
@@ -561,7 +562,7 @@ namespace LLVMJIT
 				#endif
 
 				// Notify the JIT unit that the symbol was loaded.
-				assert(symbolSizePair.second <= UINTPTR_MAX);
+				wavmAssert(symbolSizePair.second <= UINTPTR_MAX);
 				jitUnit->notifySymbolLoaded(
 				name->data(), loadedAddress,
 					Uptr(symbolSizePair.second),
@@ -665,7 +666,7 @@ namespace LLVMJIT
 
 	std::string getExternalFunctionName(ModuleInstance* moduleInstance,Uptr functionDefIndex)
 	{
-		assert(functionDefIndex < moduleInstance->functionDefs.size());
+		wavmAssert(functionDefIndex < moduleInstance->functionDefs.size());
 		return "wasmFunc" + std::to_string(functionDefIndex)
 			+ "_" + moduleInstance->functionDefs[functionDefIndex]->debugName;
 	}
@@ -799,8 +800,8 @@ namespace LLVMJIT
 		auto jitUnit = new JITThunkUnit(functionType);
 		jitUnit->compile(llvmModuleSharedPtr);
 
-		assert(jitUnit->symbol);
 		invokeThunkTypeToSymbolMap[functionType] = jitUnit->symbol;
+		wavmAssert(jitUnit->symbol);
 
 		{
 			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
@@ -865,8 +866,8 @@ namespace LLVMJIT
 		auto jitUnit = new JITThunkUnit(functionType);
 		jitUnit->compile(llvmModuleSharedPtr);
 
-		assert(jitUnit->symbol);
 		intrinsicFunctionToThunkSymbolMap[nativeFunction] = jitUnit->symbol;
+		wavmAssert(jitUnit->symbol);
 
 		{
 			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);

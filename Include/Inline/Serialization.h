@@ -1,12 +1,12 @@
 #pragma once
 
+#include "Inline/Assert.h"
 #include "Platform/Platform.h"
 
 #include <string>
 #include <vector>
 #include <string.h>
 #include <algorithm>
-#include <assert.h>
 
 namespace Serialization
 {
@@ -32,7 +32,7 @@ namespace Serialization
 		inline U8* advance(Uptr numBytes)
 		{
 			if(next + numBytes > end) { extendBuffer(numBytes); }
-			assert(next + numBytes <= end);
+			wavmAssert(next + numBytes <= end);
 
 			U8* data = next;
 			next += numBytes;

@@ -2,7 +2,6 @@
 
 #include "Inline/BasicTypes.h"
 
-#include <assert.h>
 #include <functional>
 #include <string>
 #include <vector>
@@ -15,6 +14,8 @@
 	#define PACKED_STRUCT(definition) __pragma(pack(push, 1)) definition; __pragma(pack(pop))
 	#define NO_ASAN
 	#define RETURNS_TWICE
+	#define UNLIKELY(condition) (condition)
+	#define DEBUG_TRAP() __debugbreak()
 #else
 	#define FORCEINLINE inline __attribute__((always_inline))
 	#define FORCENOINLINE __attribute__((noinline))
@@ -22,6 +23,8 @@
 	#define PACKED_STRUCT(definition) definition __attribute__((packed));
 	#define NO_ASAN __attribute__((no_sanitize_address))
 	#define RETURNS_TWICE __attribute__((returns_twice))
+	#define UNLIKELY(condition) __builtin_expect(condition,0)
+	#define DEBUG_TRAP() __asm__ __volatile__ ("int3")
 #endif
 
 #ifndef PLATFORM_API
@@ -111,6 +114,20 @@ namespace Platform
 	// Frees an aligned virtual address block. Any physical memory committed to the addresses must have already been decommitted.
 	// unalignedBaseAddress must be the unaligned base address returned by allocateAlignedVirtualPages.
 	PLATFORM_API void freeAlignedVirtualPages(U8* unalignedBaseAddress,Uptr numPages,Uptr alignmentLog2);
+
+	//
+	// Error reporting
+	//
+
+	PACKED_STRUCT(struct AssertMetadata
+	{
+		const char* condition;
+		const char* file;
+		U32 line;
+	});
+
+	PLATFORM_API void handleAssertionFailure(const AssertMetadata& metadata);
+	[[noreturn]] PLATFORM_API void handleFatalError(const char* messageFormat,va_list varArgs);
 
 	//
 	// Call stack and exceptions
@@ -207,17 +224,60 @@ namespace Platform
 	PLATFORM_API U64 getMonotonicClock();
 
 	// Platform-independent mutexes.
-	struct Mutex;
-	PLATFORM_API Mutex* createMutex();
-	PLATFORM_API void destroyMutex(Mutex* mutex);
+	struct Mutex
+	{
+		PLATFORM_API Mutex();
+		PLATFORM_API ~Mutex();
+
+		Mutex(const Mutex&) = delete;
+		Mutex(Mutex&&) = delete;
+
+		void operator=(const Mutex&) = delete;
+		void operator=(Mutex&&) = delete;
+
+		PLATFORM_API void lock();
+		PLATFORM_API void unlock();
+
+	private:
+		#ifdef WIN32
+		struct CriticalSection
+		{
+			struct _RTL_CRITICAL_SECTION_DEBUG* debugInfo;
+			I32 lockCount;
+			I32 recursionCount;
+			Uptr owningThreadHandle;
+			Uptr lockSemaphoreHandle;
+			Uptr spinCount;
+		} criticalSection;
+		#elif defined(__linux__)
+		struct PthreadMutex
+		{
+			Uptr data[5];
+		} pthreadMutex;
+		#elif defined(__APPLE__)
+		struct PthreadMutex
+		{
+			Uptr data[8];
+		} pthreadMutex;
+		#else
+			#error unsupported platform
+		#endif
+	};
 
 	// RAII-style lock for Mutex.
 	struct Lock
 	{
-		PLATFORM_API Lock(Mutex* inMutex);
+		Lock(Mutex& inMutex): mutex(&inMutex) { mutex->lock(); }
 		~Lock() { unlock(); }
 
-		PLATFORM_API void unlock();
+		void unlock()
+		{
+			if(mutex)
+			{
+				mutex->unlock();
+				mutex = nullptr;
+			}
+		}
 
 	private:
 		Mutex* mutex;

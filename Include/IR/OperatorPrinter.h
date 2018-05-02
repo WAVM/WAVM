@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "IR.h"
@@ -38,7 +39,7 @@ namespace IR
 		{
 			std::string result = " " + std::to_string(imm.defaultTargetDepth);
 			const char* prefix = " [";
-			assert(imm.branchTableIndex < functionDef.branchTables.size());
+			wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
 			for(auto depth : functionDef.branchTables[imm.branchTableIndex]) { result += prefix + std::to_string(depth); prefix = ","; }
 			result += "]";
 			return result;

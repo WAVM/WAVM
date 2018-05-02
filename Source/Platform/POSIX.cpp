@@ -1,5 +1,6 @@
 #ifndef _WIN32
 
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Platform/Platform.h"
@@ -86,7 +87,7 @@ namespace Platform
 	{
 		U32 preferredVirtualPageSize = sysconf(_SC_PAGESIZE);
 		// Verify our assumption that the virtual page size is a power of two.
-		assert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
+		wavmAssert(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 		return floorLogTwo(preferredVirtualPageSize);
 	}
 	Uptr getPageSizeLog2()
@@ -183,6 +184,32 @@ namespace Platform
 	{
 		errorUnless(isPageAligned(unalignedBaseAddress));
 		if(munmap(unalignedBaseAddress,numPages << getPageSizeLog2())) { Errors::fatal("munmap failed"); }
+	}
+
+	Mutex& getErrorReportingMutex()
+	{
+		static Platform::Mutex mutex;
+		return mutex;
+	}
+
+	void handleFatalError(const char* messageFormat,va_list varArgs)
+	{
+		Lock lock(getErrorReportingMutex());
+		std::vfprintf(stderr,messageFormat,varArgs);
+		std::fflush(stderr);
+		std::abort();
+	}
+
+	void handleAssertionFailure(const AssertMetadata& metadata)
+	{
+		Lock lock(getErrorReportingMutex());
+		std::fprintf(
+			stderr,
+			"Assertion failed at %s(%u): %s\n",
+			metadata.file,
+			metadata.line,
+			metadata.condition
+		);
 	}
 
 	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
@@ -472,7 +499,7 @@ namespace Platform
 				typeInfo = __cxa_current_exception_type();
 			}
 		}
-		assert(typeInfo);
+		wavmAssert(typeInfo);
 		return typeInfo;
 	}
 
@@ -674,37 +701,26 @@ namespace Platform
 		#endif
 	}
 
-	struct Mutex
+	Mutex::Mutex()
 	{
-		pthread_mutex_t pthreadMutex;
-	};
-
-	Mutex* createMutex()
-	{
-		auto mutex = new Mutex();
-		errorUnless(!pthread_mutex_init(&mutex->pthreadMutex,nullptr));
-		return mutex;
+		static_assert(sizeof(pthreadMutex) == sizeof(pthread_mutex_t), "");
+		static_assert(alignof(PthreadMutex) >= alignof(pthread_mutex_t), "");
+		errorUnless(!pthread_mutex_init((pthread_mutex_t*)&pthreadMutex,nullptr));
 	}
 
-	void destroyMutex(Mutex* mutex)
+	Mutex::~Mutex()
 	{
-		errorUnless(!pthread_mutex_destroy(&mutex->pthreadMutex));
-		delete mutex;
+		errorUnless(!pthread_mutex_destroy((pthread_mutex_t*)&pthreadMutex));
 	}
 
-	Lock::Lock(Mutex* inMutex)
-		: mutex(inMutex)
+	void Mutex::lock()
 	{
-		errorUnless(!pthread_mutex_lock(&mutex->pthreadMutex));
+		errorUnless(!pthread_mutex_lock((pthread_mutex_t*)&pthreadMutex));
 	}
 
-	void Lock::unlock()
+	void Mutex::unlock()
 	{
-		if(mutex)
-		{
-			errorUnless(!pthread_mutex_unlock(&mutex->pthreadMutex));
-			mutex = nullptr;
-		}
+		errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));
 	}
 
 	struct Event

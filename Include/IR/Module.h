@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "IR.h"
 #include "Types.h"
@@ -34,7 +35,11 @@ namespace IR
 		InitializerExpression(I64 inI64): type(Type::i64_const), i64(inI64) {}
 		InitializerExpression(F32 inF32): type(Type::f32_const), f32(inF32) {}
 		InitializerExpression(F64 inF64): type(Type::f64_const), f64(inF64) {}
-		InitializerExpression(Type inType,Uptr inGlobalIndex): type(inType), globalIndex(inGlobalIndex) { assert(inType == Type::get_global); }
+		InitializerExpression(Type inType,Uptr inGlobalIndex)
+		: type(inType), globalIndex(inGlobalIndex)
+		{
+			wavmAssert(inType == Type::get_global);
+		}
 	};
 
 	// A function definition

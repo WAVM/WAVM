@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
 #include "IR/OperatorPrinter.h"
@@ -286,7 +287,7 @@ namespace IR
 			const ResultType defaultTargetArgumentType = getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
 			popAndValidateResultType("br_table argument",defaultTargetArgumentType);
 
-			assert(imm.branchTableIndex < functionDef.branchTables.size());
+			wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
 			const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 			for(Uptr targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
 			{

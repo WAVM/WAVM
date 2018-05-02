@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Timing.h"
 #include "Inline/Errors.h"
@@ -13,7 +14,7 @@ namespace WAST
 {
 	const char* describeToken(TokenType tokenType)
 	{
-		assert(tokenType < numTokenTypes);
+		wavmAssert(tokenType < numTokenTypes);
 		static const char* tokenDescriptions[] =
 		{
 			// This ENUM_TOKENS must come before the literalTokenPairs definition that redefines VISIT_OPERATOR_TOKEN.

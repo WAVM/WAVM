@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
 #include "Inline/Serialization.h"
@@ -285,7 +286,7 @@ namespace WAST
 		{
 			string += "\nbr_table" INDENT_STRING;
 			enum { numTargetsPerLine = 16 };
-			assert(imm.branchTableIndex < functionDef.branchTables.size());
+			wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
 			const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 			for(Uptr targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
 			{
@@ -405,7 +406,7 @@ namespace WAST
 				string += " offset=";
 				string += std::to_string(imm.offset);
 			}
-			assert(imm.alignmentLog2 == naturalAlignmentLog2);
+			wavmAssert(imm.alignmentLog2 == naturalAlignmentLog2);
 		}
 
 		void printImm(ThrowImm) {}
@@ -435,7 +436,7 @@ namespace WAST
 		#define PRINT_OP(opcode,name,nameString,Imm,printOperands,requiredFeature) \
 			void name(Imm imm) \
 			{ \
-				assert(module.featureSpec.requiredFeature); \
+				wavmAssert(module.featureSpec.requiredFeature); \
 				string += "\n" nameString; \
 				printImm(imm); \
 			}
@@ -932,7 +933,7 @@ namespace WAST
 							--indentDepth;
 						};
 					}
-					assert(indentDepth == 1);
+					wavmAssert(indentDepth == 1);
 					linkingSectionString += DEDENT_STRING "\n;)";
 
 					string += linkingSectionString;

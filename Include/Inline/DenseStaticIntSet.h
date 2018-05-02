@@ -1,11 +1,11 @@
 #pragma once
 
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Platform/Platform.h"
 
 #include <string.h>
-#include <assert.h>
 
 // Encapsulates a set of integers that are in the range 0 to maxIndexPlusOne (excluding maxIndexPlusOne).
 // It uses 1 bit of storage for each integer in the range, and many operations look at all bits, so it's best suited to small ranges.
@@ -27,7 +27,7 @@ struct DenseStaticIntSet
 
 	inline bool contains(Index index) const
 	{
-		assert((Uptr)index < maxIndexPlusOne);
+		wavmAssert((Uptr)index < maxIndexPlusOne);
 		return (elements[index / indicesPerElement] & (Element(1) << (index % indicesPerElement))) != 0;
 	}
 	bool isEmpty() const
@@ -48,7 +48,7 @@ struct DenseStaticIntSet
 			{
 				// Find the index of the lowest set bit in the element using countTrailingZeroes.
 				const Index result = (Index)(elementIndex * indicesPerElement + Platform::countTrailingZeroes(elements[elementIndex]));
-				assert(contains(result));
+				wavmAssert(contains(result));
 				return result;
 			}
 		}
@@ -59,13 +59,13 @@ struct DenseStaticIntSet
 
 	inline void add(Index index)
 	{
-		assert((Uptr)index < maxIndexPlusOne);
+		wavmAssert((Uptr)index < maxIndexPlusOne);
 		elements[index / indicesPerElement] |= Element(1) << (index % indicesPerElement);
 	}
 	inline void addRange(Index rangeMin,Index rangeMax)
 	{
-		assert(rangeMin <= rangeMax);
-		assert((Uptr)rangeMax < maxIndexPlusOne);
+		wavmAssert(rangeMin <= rangeMax);
+		wavmAssert((Uptr)rangeMax < maxIndexPlusOne);
 		for(Index index = rangeMin;index <= rangeMax;++index)
 		{
 			add(index);

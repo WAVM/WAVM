@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Logging.h"
 #include "Platform/Platform.h"
 
@@ -7,7 +8,7 @@
 
 namespace Log
 {
-	static Platform::Mutex* categoryEnabledMutex = Platform::createMutex();
+	static Platform::Mutex categoryEnabledMutex;
 	static bool categoryEnabled[(Uptr)Category::num] =
 	{
 		true, // error
@@ -17,13 +18,13 @@ namespace Log
 	void setCategoryEnabled(Category category,bool enable)
 	{
 		Platform::Lock lock(categoryEnabledMutex);
-		assert(category < Category::num);
+		wavmAssert(category < Category::num);
 		categoryEnabled[(Uptr)category] = enable;
 	}
 	bool isCategoryEnabled(Category category)
 	{
 		Platform::Lock lock(categoryEnabledMutex);
-		assert(category < Category::num);
+		wavmAssert(category < Category::num);
 		return categoryEnabled[(Uptr)category];
 	}
 	void printf(Category category,const char* format,...)

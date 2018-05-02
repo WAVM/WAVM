@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
@@ -25,7 +26,7 @@ namespace Runtime
 		if(resolver.resolve(import.moduleName,import.exportName,resolveImportType(module,import.type),importValue))
 		{
 			// Sanity check that the resolver returned an object of the right type.
-			assert(isA(importValue,resolveImportType(module,import.type)));
+			wavmAssert(isA(importValue,resolveImportType(module,import.type)));
 			resolvedImports.push_back(as<Instance>(importValue));
 		}
 		else { linkResult.missingImports.push_back({import.moduleName,import.exportName,resolveImportType(module,import.type)}); }

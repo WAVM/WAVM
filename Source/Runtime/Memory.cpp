@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
@@ -5,7 +6,7 @@
 namespace Runtime
 {
 	// Global lists of memories; used to query whether an address is reserved by one of them.
-	static Platform::Mutex* memoriesMutex = Platform::createMutex();
+	static Platform::Mutex memoriesMutex;
 	static std::vector<MemoryInstance*> memories;
 
 	enum { numGuardPages = 1 };
@@ -31,7 +32,7 @@ namespace Runtime
 		if(!memory->baseAddress) { delete memory; return nullptr; }
 
 		// Grow the memory to the type's minimum size.
-		assert(type.size.min <= UINTPTR_MAX);
+		wavmAssert(type.size.min <= UINTPTR_MAX);
 		if(growMemory(memory,Uptr(type.size.min)) == -1) { delete memory; return nullptr; }
 
 		// Add the memory to the compartment.
@@ -66,8 +67,8 @@ namespace Runtime
 	void MemoryInstance::finalize()
 	{
 		Platform::Lock compartmentLock(compartment->mutex);
-		assert(compartment->memories[id] == this);
-		assert(compartment->runtimeData->memories[id] == baseAddress);
+		wavmAssert(compartment->memories[id] == this);
+		wavmAssert(compartment->runtimeData->memories[id] == baseAddress);
 		compartment->memories[id] = nullptr;
 		compartment->runtimeData->memories[id] = nullptr;
 	}
@@ -111,7 +112,7 @@ namespace Runtime
 	Uptr getMemoryNumPages(MemoryInstance* memory) { return memory->numPages; }
 	Uptr getMemoryMaxPages(MemoryInstance* memory)
 	{
-		assert(memory->type.size.max <= UINTPTR_MAX);
+		wavmAssert(memory->type.size.max <= UINTPTR_MAX);
 		return Uptr(memory->type.size.max);
 	}
 

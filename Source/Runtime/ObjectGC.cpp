@@ -13,7 +13,7 @@ namespace Runtime
 	// Keep a global list of all objects.
 	struct GCGlobals
 	{
-		Platform::Mutex* mutex;
+		Platform::Mutex mutex;
 		std::set<ObjectImpl*> allObjects;
 
 		static GCGlobals& get()
@@ -23,7 +23,7 @@ namespace Runtime
 		}
 		
 	private:
-		GCGlobals(): mutex(Platform::createMutex()) {}
+		GCGlobals() {}
 	};
 
 	ObjectImpl::ObjectImpl(ObjectKind inKind)

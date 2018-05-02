@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "IR/TaggedValue.h"
 #include "IR/Types.h"
@@ -57,7 +58,7 @@ namespace Runtime
 		struct Type; \
 		inline Type* as##kindName(Object* object) \
 		{ \
-			assert(!object || object->kind == kindId); \
+			wavmAssert(!object || object->kind == kindId); \
 			return (Type*)object; \
 		} \
 		inline Type* as##kindName##Nullable(Object* object) \

@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
@@ -86,12 +87,12 @@ namespace Runtime
 		// Find the default memory and table for the module and initialize the runtime data memory/table base pointers.
 		if(moduleInstance->memories.size() != 0)
 		{
-			assert(moduleInstance->memories.size() == 1);
+			wavmAssert(moduleInstance->memories.size() == 1);
 			moduleInstance->defaultMemory = moduleInstance->memories[0];
 		}
 		if(moduleInstance->tables.size() != 0)
 		{
-			assert(moduleInstance->tables.size() == 1);
+			wavmAssert(moduleInstance->tables.size() == 1);
 			moduleInstance->defaultTable = moduleInstance->tables[0];
 		}
 
@@ -128,7 +129,7 @@ namespace Runtime
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
-			assert(baseOffset + dataSegment.data.size() <= (memory->numPages << IR::numBytesPerPageLog2));
+			wavmAssert(baseOffset + dataSegment.data.size() <= (memory->numPages << IR::numBytesPerPageLog2));
 
 			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
 		}
@@ -191,12 +192,12 @@ namespace Runtime
 			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
-			assert(baseOffset + tableSegment.indices.size() <= table->elements.size());
+			wavmAssert(baseOffset + tableSegment.indices.size() <= table->elements.size());
 
 			for(Uptr index = 0;index < tableSegment.indices.size();++index)
 			{
 				const Uptr functionIndex = tableSegment.indices[index];
-				assert(functionIndex < moduleInstance->functions.size());
+				wavmAssert(functionIndex < moduleInstance->functions.size());
 				setTableElement(table,baseOffset + index,moduleInstance->functions[functionIndex]);
 			}
 		}
@@ -205,7 +206,7 @@ namespace Runtime
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
 			moduleInstance->startFunction = moduleInstance->functions[module.startFunctionIndex];
-			assert(moduleInstance->startFunction->type == IR::FunctionType::get());
+			wavmAssert(moduleInstance->startFunction->type == IR::FunctionType::get());
 		}
 
 		return moduleInstance;
@@ -223,7 +224,7 @@ namespace Runtime
 	
 	Object* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name)
 	{
-		assert(moduleInstance);
+		wavmAssert(moduleInstance);
 		auto mapIt = moduleInstance->exportMap.find(name);
 		return mapIt == moduleInstance->exportMap.end() ? nullptr : mapIt->second;
 	}

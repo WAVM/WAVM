@@ -1,7 +1,7 @@
 #pragma once
 
+#include "Inline/Assert.h"
 #include "BasicTypes.h"
-#include <assert.h>
 
 namespace Unicode
 {
@@ -25,7 +25,7 @@ namespace Unicode
 		}
 		else
 		{
-			assert(codePoint < 0x200000);
+			wavmAssert(codePoint < 0x200000);
 			outString += char((codePoint >> 18) & 0x07) | 0xF0;
 			outString += char((codePoint >> 12) & 0x3F) | 0x80;
 			outString += char((codePoint >> 6) & 0x3F) | 0x80;
@@ -169,7 +169,7 @@ namespace Unicode
 		}
 		else
 		{
-			assert(codePoint < 0x110000);
+			wavmAssert(codePoint < 0x110000);
 			outString += U16(((codePoint - 0x10000) >> 10) & 0x3ff) | 0xd800;
 			outString += U16((codePoint - 0x10000) & 0x3ff) | 0xdc00;
 		}

@@ -1,5 +1,6 @@
-#include "LLVMJIT.h"
+#include "Inline/Assert.h"
 #include "IR/Operators.h"
+#include "LLVMJIT.h"
 #include "Logging/Logging.h"
 
 #ifdef _WIN64
@@ -144,7 +145,7 @@ namespace LLVMJIT
 	{
 		if(pdataCopy)
 		{
-			assert(xdataCopy);
+			wavmAssert(xdataCopy);
 			applyImageRelativeRelocations(loadedObject,pdataSection,pdataCopy,imageBaseAddress,sehTrampolineAddress);
 			applyImageRelativeRelocations(loadedObject,xdataSection,xdataCopy,imageBaseAddress,sehTrampolineAddress);
 			

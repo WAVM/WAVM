@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
 #include "Logging/Logging.h"
@@ -125,7 +126,7 @@ namespace Runtime
 		I32 index, I64 expectedSignatureBits, I64 tableId)
 	{
 		TableInstance* table = getTableFromRuntimeData(contextRuntimeData,tableId);
-		assert(table);
+		wavmAssert(table);
 		void* elementValue = table->baseAddress[index].value;
 		const FunctionType* actualSignature = table->baseAddress[index].type;
 		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((Uptr)expectedSignatureBits);
@@ -148,7 +149,7 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"growMemory",I32,_growMemory,I32 deltaPages,I64 memoryId)
 	{
 		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData,memoryId);
-		assert(memory);
+		wavmAssert(memory);
 		const Iptr numPreviousMemoryPages = growMemory(memory,(Uptr)deltaPages);
 		if(numPreviousMemoryPages + (Uptr)deltaPages > IR::maxMemoryPages) { return -1; }
 		else { return (I32)numPreviousMemoryPages; }
@@ -157,7 +158,7 @@ namespace Runtime
 	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"currentMemory",I32,_currentMemory,I64 memoryId)
 	{
 		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData,memoryId);
-		assert(memory);
+		wavmAssert(memory);
 		Uptr numMemoryPages = getMemoryNumPages(memory);
 		if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }
 		return (U32)numMemoryPages;

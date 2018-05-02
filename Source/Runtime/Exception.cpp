@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Logging/Logging.h"
 #include "Runtime.h"
@@ -48,7 +49,7 @@ namespace Runtime
 	}
 	std::string describeExceptionType(const ExceptionTypeInstance* type)
 	{
-		assert(type);
+		wavmAssert(type);
 		if(type == Exception::accessViolationType) { return "access violation"; }
 		else if(type == Exception::stackOverflowType) { return "stack overflow"; }
 		else if(type == Exception::integerDivideByZeroOrIntegerOverflowType) { return "integer divide-by-zero or overflow"; }
@@ -84,7 +85,7 @@ namespace Runtime
 	std::string describeException(const Exception& exception)
 	{
 		std::string result = describeExceptionType(exception.type);
-		assert(exception.arguments.size() == exception.type->parameters->elements.size());
+		wavmAssert(exception.arguments.size() == exception.type->parameters->elements.size());
 		if(exception.arguments.size())
 		{
 			result += '(';
@@ -103,7 +104,7 @@ namespace Runtime
 
 	[[noreturn]] void throwException(ExceptionTypeInstance* type,std::vector<UntaggedValue>&& arguments)
 	{
-		assert(arguments.size() == type->parameters->elements.size());
+		wavmAssert(arguments.size() == type->parameters->elements.size());
 		ExceptionData* exceptionData = (ExceptionData*)malloc(ExceptionData::calcNumBytes(type->parameters->elements.size()));
 		exceptionData->typeInstance = type;
 		exceptionData->isUserException = 0;

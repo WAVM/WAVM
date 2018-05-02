@@ -1,4 +1,5 @@
 set(PublicHeaders
+	Assert.h
 	BasicTypes.h
 	DenseStaticIntSet.h
 	Errors.h

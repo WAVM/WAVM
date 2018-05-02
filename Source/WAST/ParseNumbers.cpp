@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
 #include "WAST.h"
@@ -63,7 +64,7 @@ static bool parseSign(const char*& nextChar)
 static U64 parseHexUnsignedInt(const char*& nextChar,ParseState* parseState,U64 maxValue)
 {
 	const char* firstHexit = nextChar;
-	assert(nextChar[0] == '0' && (nextChar[1] == 'x' || nextChar[1] == 'X'));
+	wavmAssert(nextChar[0] == '0' && (nextChar[1] == 'x' || nextChar[1] == 'X'));
 	nextChar += 2;
 	
 	U64 result = 0;
@@ -79,7 +80,7 @@ static U64 parseHexUnsignedInt(const char*& nextChar,ParseState* parseState,U64 
 			while(tryParseHexit(nextChar,hexit)) {};
 			break;
 		}
-		assert(result * 16 + hexit >= result);
+		wavmAssert(result * 16 + hexit >= result);
 		result = result * 16 + hexit;
 	}
 	return result;
@@ -106,7 +107,7 @@ static U64 parseDecimalUnsignedInt(const char*& nextChar,ParseState* parseState,
 			while((*nextChar >= '0' && *nextChar <= '9') || *nextChar == '_') { ++nextChar; };
 			break;
 		}
-		assert(result * 10 + digit >= result);
+		wavmAssert(result * 10 + digit >= result);
 		result = result * 10 + digit;
 	};
 	return result;
@@ -122,7 +123,7 @@ Float parseNaN(const char*& nextChar,ParseState* parseState)
 	resultComponents.bits.sign = parseSign(nextChar) ? 1 : 0;
 	resultComponents.bits.exponent = FloatComponents::maxExponentBits;
 
-	assert(nextChar[0] == 'n'
+	wavmAssert(nextChar[0] == 'n'
 	&& nextChar[1] == 'a'
 	&& nextChar[2] == 'n');
 	nextChar += 3;
@@ -241,7 +242,7 @@ bool tryParseInt(CursorState* cursor,UnsignedInt& outUnsignedInt,I64 minSignedVa
 	outUnsignedInt = isNegative ? UnsignedInt(-I64(u64)) : UnsignedInt(u64);
 		
 	++cursor->nextToken;
-	assert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
+	wavmAssert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
 
 	return true;
 }
@@ -266,7 +267,7 @@ bool tryParseFloat(CursorState* cursor,Float& outFloat)
 	};
 
 	++cursor->nextToken;
-	assert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
+	wavmAssert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
 
 	return true;
 }

@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "WAST.h"
 #include "Lexer.h"
@@ -75,12 +76,12 @@ namespace
 
 		~ScopedBranchTarget()
 		{
-			assert(branchTargetIndex == functionState->branchTargetDepth);
+			wavmAssert(branchTargetIndex == functionState->branchTargetDepth);
 			--functionState->branchTargetDepth;
 			if(name)
 			{
-				assert(functionState->branchTargetNameToIndexMap.count(name) == 1);
-				assert(functionState->branchTargetNameToIndexMap.at(name) == branchTargetIndex);
+				wavmAssert(functionState->branchTargetNameToIndexMap.contains(name));
+				wavmAssert(functionState->branchTargetNameToIndexMap[name] == branchTargetIndex);
 				if(previousBranchTargetIndex == UINT32_MAX)
 				{
 					functionState->branchTargetNameToIndexMap.erase(name);

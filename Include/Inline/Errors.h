@@ -1,29 +1,20 @@
 #pragma once
 
-#include <stdarg.h>
-#include <assert.h>
-#include <cstdio>
-#include <cstdlib>
-#include <mutex>
+#include "Platform/Platform.h"
+
+#include <cstdarg>
 
 namespace Errors
 {
 	// Fatal error handling.
 	[[noreturn]] inline void fatalf(const char* messageFormat,...)
 	{
-		static std::mutex mutex;
-		std::lock_guard<std::mutex> lock(mutex);
 		va_list varArgs;
 		va_start(varArgs,messageFormat);
-		std::vfprintf(stderr,messageFormat,varArgs);
-		std::fflush(stderr);
-		va_end(varArgs);
-		std::abort();
+		Platform::handleFatalError(messageFormat,varArgs);
 	}
 	[[noreturn]] inline void fatal(const char* message) { fatalf("%s\n",message); }
 	[[noreturn]] inline void unreachable() { fatalf("reached unreachable code\n"); }
 	[[noreturn]] inline void unimplemented(const char* context) { fatalf("unimplemented: %s\n",context); }
 }
 
-// Like assert, but is never removed in any build configuration.
-#define errorUnless(condition) if(!(condition)) { Errors::fatalf("errorUnless(%s) failed\n",#condition); }

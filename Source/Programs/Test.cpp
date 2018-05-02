@@ -1,3 +1,4 @@
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "WAST/WAST.h"
@@ -337,7 +338,7 @@ void processCommand(TestScriptState& state,const Command* command)
 						else
 						{
 							const TupleType* exceptionParameterTypes = getExceptionTypeParameters(expectedExceptionType);
-							assert(exception.arguments.size() == exceptionParameterTypes->elements.size());
+							wavmAssert(exception.arguments.size() == exceptionParameterTypes->elements.size());
 
 							for(Uptr argumentIndex = 0;argumentIndex < exception.arguments.size();++argumentIndex)
 							{

@@ -95,7 +95,7 @@ namespace Runtime
 		Uptr endOffset;
 
 		// The Objects corresponding to the FunctionElements at baseAddress.
-		Platform::Mutex* elementsMutex;
+		Platform::Mutex elementsMutex;
 		std::vector<Object*> elements;
 
 		TableInstance(Compartment* inCompartment,const TableType& inType)
@@ -105,7 +105,6 @@ namespace Runtime
 		, type(inType)
 		, baseAddress(nullptr)
 		, endOffset(0)
-		, elementsMutex(Platform::createMutex())
 		{}
 		~TableInstance() override;
 		virtual void finalize() override;
@@ -248,7 +247,7 @@ namespace Runtime
 
 	struct Compartment : ObjectImpl
 	{
-		Platform::Mutex* mutex;
+		Platform::Mutex mutex;
 
 		struct CompartmentRuntimeData* runtimeData;
 		U8* unalignedRuntimeData;
