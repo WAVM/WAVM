@@ -55,8 +55,8 @@ namespace Platform
 	#endif
 	inline U64 floorLogTwo(U64 value) { return value <= 1 ? 0 : 63 - countLeadingZeroes(value); }
 	inline U32 floorLogTwo(U32 value) { return value <= 1 ? 0 : 31 - countLeadingZeroes(value); }
-	inline U64 ceilLogTwo(U64 value) { return floorLogTwo(value * 2 - 1); }
-	inline U32 ceilLogTwo(U32 value) { return floorLogTwo(value * 2 - 1); }
+	inline U64 ceilLogTwo(U64 value) { return value <= 1 ? 0 : 63 - countLeadingZeroes(value * 2 - 1); }
+	inline U32 ceilLogTwo(U32 value) { return value <= 1 ? 0 : 31 - countLeadingZeroes(value * 2 - 1); }
 
 	inline U64 saturateToBounds(U64 value,U64 maxValue)
 	{
