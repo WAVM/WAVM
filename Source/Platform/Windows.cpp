@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <atomic>
 #include <inttypes.h>
-#include <map>
+#include <memory>
 
 #define NOMINMAX
 #include <Windows.h>
@@ -503,7 +503,7 @@ namespace Platform
 			handler(exceptionData,*callStack);
 
 			delete callStack;
-			if(exceptionData) { delete [] (U8*)exceptionData; }
+			if(exceptionData) { free(exceptionData); }
 
 			return true;
 		}

@@ -480,7 +480,7 @@ namespace Platform
 		catch(PlatformException exception)
 		{
 			handler(exception.data,exception.callStack);
-			if(exception.data) { delete [] (U8*)exception.data; }
+			if(exception.data) { free(exception.data); }
 			return true;
 		}
 	}
