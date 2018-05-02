@@ -4,6 +4,7 @@ set(Sources
 	threads.wast
 	trunc_sat.wast)
 add_custom_target(WAVMTests SOURCES ${Sources})
+set_target_properties(WAVMTests PROPERTIES FOLDER Testing)
 
 set(TEST_BIN ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CONFIGURATION}/Test)
 

@@ -1,5 +1,6 @@
 file(GLOB Sources "*.wast")
 add_custom_target(SpecTests SOURCES ${Sources})
+set_target_properties(SpecTests PROPERTIES FOLDER Testing)
 
 set(TEST_BIN ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CONFIGURATION}/Test)
 
