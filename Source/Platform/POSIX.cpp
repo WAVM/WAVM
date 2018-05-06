@@ -854,7 +854,7 @@ namespace Platform
 		};
 	}
 
-	bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64& outAbsoluteOffset)
+	bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64* outAbsoluteOffset)
 	{
 		I32 whence = 0;
 		switch(origin)
@@ -870,22 +870,31 @@ namespace Platform
 		#else
 			const I64 result = lseek(filePtrToIndex(file), reinterpret_cast<off_t>(offset), whence);
 		#endif
-		outAbsoluteOffset = U64(result);
+		if(outAbsoluteOffset)
+		{
+			*outAbsoluteOffset = U64(result);
+		}
 		return result != -1;
 	}
 
-	bool readFile(File* file, U8* outData,Uptr numBytes,Uptr& outNumBytesRead)
+	bool readFile(File* file, U8* outData,Uptr numBytes,Uptr* outNumBytesRead)
 	{
 		ssize_t result = read(filePtrToIndex(file),outData,numBytes);
-		outNumBytesRead = result;
-		return result == Iptr(numBytes);
+		if(outNumBytesRead)
+		{
+			*outNumBytesRead = result;
+		}
+		return result >= 0;
 	}
 
-	bool writeFile(File* file,const U8* data,Uptr numBytes,Uptr& outNumBytesWritten)
+	bool writeFile(File* file,const U8* data,Uptr numBytes,Uptr* outNumBytesWritten)
 	{
 		ssize_t result = write(filePtrToIndex(file),data,numBytes);
-		outNumBytesWritten = result;
-		return result == Iptr(numBytes);
+		if(outNumBytesWritten)
+		{
+			*outNumBytesWritten = result;
+		}
+		return result >= 0;
 	}
 
 	bool flushFileWrites(File* file)

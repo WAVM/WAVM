@@ -331,9 +331,9 @@ namespace Platform
 	PLATFORM_API File* openFile(const std::string& pathName,FileAccessMode accessMode,FileCreateMode createMode);
 	PLATFORM_API bool closeFile(File* file);
 	PLATFORM_API File* getStdFile(StdDevice device);
-	PLATFORM_API bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64& outAbsoluteOffset);
-	PLATFORM_API bool readFile(File* file,U8* outData,Uptr numBytes,Uptr& outNumBytesRead);
-	PLATFORM_API bool writeFile(File* file,const U8* data,Uptr numBytes,Uptr& outNumBytesWritten);
+	PLATFORM_API bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64* outAbsoluteOffset = nullptr);
+	PLATFORM_API bool readFile(File* file,U8* outData,Uptr numBytes,Uptr* outNumBytesRead = nullptr);
+	PLATFORM_API bool writeFile(File* file,const U8* data,Uptr numBytes,Uptr* outNumBytesWritten = nullptr);
 	PLATFORM_API bool flushFileWrites(File* file);
 	PLATFORM_API std::string getCurrentWorkingDirectory();
 }

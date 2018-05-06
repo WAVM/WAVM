@@ -255,7 +255,7 @@ namespace Wavix
 			platformFile,
 			offset,
 			(Platform::FileSeekOrigin)whence,
-			memoryRef<U64>(memory,resultAddress)))
+			&memoryRef<U64>(memory,resultAddress)))
 		{
 			return -1;
 		}
@@ -283,7 +283,7 @@ namespace Wavix
 		U8* buffer = memoryArrayPtr<U8>(memory,bufferAddress,numBytes);
 
 		Uptr numReadBytes = 0;
-		const bool result = Platform::readFile(platformFile,buffer,numBytes,numReadBytes);
+		const bool result = Platform::readFile(platformFile,buffer,numBytes,&numReadBytes);
 		if(!result)
 		{
 			return -1;
@@ -324,7 +324,7 @@ namespace Wavix
 			{
 				U8* ioData = memoryArrayPtr<U8>(memory,io.address,io.numBytes);
 				Uptr ioNumReadBytes = 0;
-				const bool ioResult = Platform::readFile(platformFile,ioData,io.numBytes,ioNumReadBytes);
+				const bool ioResult = Platform::readFile(platformFile,ioData,io.numBytes,&ioNumReadBytes);
 				numReadBytes += ioNumReadBytes;
 				if(!ioResult || ioNumReadBytes != io.numBytes)
 				{
@@ -368,7 +368,7 @@ namespace Wavix
 			{
 				const U8* ioData = memoryArrayPtr<U8>(memory,io.address,io.numBytes);
 				Uptr ioNumWrittenBytes = 0;
-				const bool ioResult = Platform::writeFile(platformFile,ioData,io.numBytes,ioNumWrittenBytes);
+				const bool ioResult = Platform::writeFile(platformFile,ioData,io.numBytes,&ioNumWrittenBytes);
 				numWrittenBytes += ioNumWrittenBytes;
 				if(!ioResult || ioNumWrittenBytes != io.numBytes)
 				{

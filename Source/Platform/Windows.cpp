@@ -938,37 +938,52 @@ namespace Platform
 		return fileHandleToPointer(GetStdHandle(StdHandle));
 	}
 
-	bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64& outAbsoluteOffset)
+	bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64* outAbsoluteOffset)
 	{
 		LONG offsetHigh = LONG((offset >> 32) & 0xffffffff);
 		LONG result = SetFilePointer(filePointerToHandle(file),U32(offset & 0xffffffff),&offsetHigh,DWORD(origin));
 		if(result == INVALID_SET_FILE_POINTER) { return false; }
-		outAbsoluteOffset = (U64(offsetHigh) << 32) | result;
+		if(outAbsoluteOffset)
+		{
+			*outAbsoluteOffset = (U64(offsetHigh) << 32) | result;
+		}
 		return true;
 	}
 
-	bool readFile(File* file, U8* outData,Uptr numBytes,Uptr& outNumBytesRead)
+	bool readFile(File* file, U8* outData,Uptr numBytes,Uptr* outNumBytesRead)
 	{
-		outNumBytesRead = 0;
+		if(outNumBytesRead)
+		{
+			*outNumBytesRead = 0;
+		}
 		if(numBytes > Uptr(UINT32_MAX)) { return false; }
 
 		DWORD windowsNumBytesRead = 0;
 		const BOOL result = ReadFile(filePointerToHandle(file),outData,U32(numBytes),&windowsNumBytesRead,nullptr);
-
-		outNumBytesRead = Uptr(windowsNumBytesRead);
+		
+		if(outNumBytesRead)
+		{
+			*outNumBytesRead = Uptr(windowsNumBytesRead);
+		}
 
 		return result != 0;
 	}
 
-	bool writeFile(File* file,const U8* data,Uptr numBytes,Uptr& outNumBytesWritten)
+	bool writeFile(File* file,const U8* data,Uptr numBytes,Uptr* outNumBytesWritten)
 	{
-		outNumBytesWritten = 0;
+		if(outNumBytesWritten)
+		{
+			*outNumBytesWritten = 0;
+		}
 		if(numBytes > Uptr(UINT32_MAX)) { return false; }
 
 		DWORD windowsNumBytesWritten = 0;
 		const BOOL result = WriteFile(filePointerToHandle(file),data, U32(numBytes),&windowsNumBytesWritten,nullptr);
-
-		outNumBytesWritten = Uptr(windowsNumBytesWritten);
+		
+		if(outNumBytesWritten)
+		{
+			*outNumBytesWritten = Uptr(windowsNumBytesWritten);
+		}
 
 		return result != 0;
 	}
