@@ -400,12 +400,25 @@ namespace Emscripten
 		return left / right;
 	}
 
-	EMSCRIPTEN_API Instance* instantiate(
-		Compartment* compartment,
-		const MemoryType& memoryType,
-		const TableType& tableType
-		)
+	EMSCRIPTEN_API Instance* instantiate(Compartment* compartment, const Module& module)
 	{
+		MemoryType memoryType(false, SizeConstraints {0,0});
+		if(module.memories.imports.size()
+			&& module.memories.imports[0].moduleName == "env"
+			&& module.memories.imports[0].exportName == "memory")
+		{
+			memoryType = module.memories.imports[0].type;
+		}
+		else { return nullptr; }
+
+		TableType tableType(TableElementType::anyfunc, false, SizeConstraints {0,0});
+		if(module.tables.imports.size()
+			&& module.tables.imports[0].moduleName == "env"
+			&& module.tables.imports[0].exportName == "table")
+		{
+			tableType = module.tables.imports[0].type;
+		}
+
 		MemoryInstance* memory = Runtime::createMemory(compartment,memoryType);
 		TableInstance* table = Runtime::createTable(compartment,tableType);
 

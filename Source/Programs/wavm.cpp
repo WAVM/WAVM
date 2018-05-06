@@ -131,26 +131,13 @@ static int run(const CommandLineOptions& options)
 	Emscripten::Instance* emscriptenInstance = nullptr;
 	if(options.enableEmscripten)
 	{
-		MemoryType memoryType(false, SizeConstraints {0,0});
-		if(module.memories.imports.size()
-			&& module.memories.imports[0].moduleName == "env"
-			&& module.memories.imports[0].exportName == "memory")
+		emscriptenInstance = Emscripten::instantiate(compartment, module);
+		if(emscriptenInstance)
 		{
-			memoryType = module.memories.imports[0].type;
+			rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
+			rootResolver.moduleNameToInstanceMap.set("asm2wasm", emscriptenInstance->asm2wasm);
+			rootResolver.moduleNameToInstanceMap.set("global", emscriptenInstance->global);
 		}
-
-		TableType tableType(TableElementType::anyfunc, false, SizeConstraints {0,0});
-		if(module.tables.imports.size()
-			&& module.tables.imports[0].moduleName == "env"
-			&& module.tables.imports[0].exportName == "table")
-		{
-			tableType = module.tables.imports[0].type;
-		}
-
-		emscriptenInstance = Emscripten::instantiate(compartment, memoryType, tableType);
-		rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
-		rootResolver.moduleNameToInstanceMap.set("asm2wasm", emscriptenInstance->asm2wasm);
-		rootResolver.moduleNameToInstanceMap.set("global", emscriptenInstance->global);
 	}
 
 	if(options.enableThreadTest)
