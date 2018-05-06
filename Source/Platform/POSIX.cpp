@@ -7,6 +7,7 @@
 #include "Logging/Logging.h"
 
 #include <atomic>
+#include <cxxabi.h>
 #include <errno.h>
 #include <exception>
 #include <fcntl.h>
@@ -211,18 +212,41 @@ namespace Platform
 			metadata.condition
 		);
 	}
-
+	
 	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
 	{
-		#ifdef __linux__
-			// Look up static symbol information for the address.
-			Dl_info symbolInfo;
-			if(dladdr((void*)ip,&symbolInfo) && symbolInfo.dli_sname)
+		// Look up static symbol information for the address.
+		Dl_info symbolInfo;
+		if(dladdr((void*)(ip-1),&symbolInfo))
+		{
+			wavmAssert(symbolInfo.dli_fname);
+			outDescription = "host!";
+			outDescription += symbolInfo.dli_fname;
+			outDescription += '!';
+			if(!symbolInfo.dli_sname) { outDescription += "<unknown>"; }
+			else
 			{
-				outDescription = symbolInfo.dli_sname;
-				return true;
+				char demangledBuffer[1024];
+				const char* demangledSymbolName = symbolInfo.dli_sname;
+				if(symbolInfo.dli_sname[0] == '_')
+				{
+					Uptr numDemangledChars = sizeof(demangledBuffer);
+					I32 demangleStatus = 0;
+					if(abi::__cxa_demangle(
+						symbolInfo.dli_sname,
+						demangledBuffer,
+						&numDemangledChars,
+						&demangleStatus))
+					{
+						demangledSymbolName = demangledBuffer;
+					}
+				}
+				outDescription += demangledSymbolName;
+				outDescription += '+';
+				outDescription += std::to_string(ip - reinterpret_cast<Uptr>(symbolInfo.dli_saddr));
 			}
-		#endif
+			return true;
+		}
 		return false;
 	}
 

@@ -20,6 +20,7 @@ namespace Intrinsics
 	RUNTIME_API Runtime::ModuleInstance* instantiateModule(
 		Runtime::Compartment* compartment,
 		const Intrinsics::Module& moduleRef,
+		std::string&& debugName,
 		const HashMap<std::string, Runtime::Object*>& extraExports = {}
 		);
 

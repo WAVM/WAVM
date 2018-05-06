@@ -55,7 +55,8 @@ namespace Intrinsics
 			nullptr,
 			IR::FunctionType::get(type->ret,type->parameters),
 			nativeFunction,
-			callingConvention);
+			callingConvention,
+			name);
 	}
 
 	Global::Global(Intrinsics::Module& moduleRef,const char* inName,IR::ValueType inType,Runtime::Value inValue)
@@ -116,9 +117,10 @@ namespace Intrinsics
 	Runtime::ModuleInstance* instantiateModule(
 		Runtime::Compartment* compartment,
 		const Intrinsics::Module& moduleRef,
+		std::string&& debugName,
 		const HashMap<std::string,Runtime::Object*>& extraExports)
 	{
-		auto moduleInstance = new Runtime::ModuleInstance(compartment,{},{},{},{},{});
+		auto moduleInstance = new Runtime::ModuleInstance(compartment,{},{},{},{},{},std::move(debugName));
 
 		if(moduleRef.impl)
 		{

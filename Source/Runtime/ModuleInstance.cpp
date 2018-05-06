@@ -28,7 +28,11 @@ namespace Runtime
 		};
 	}
 
-	ModuleInstance* instantiateModule(Compartment* compartment,const IR::Module& module,ImportBindings&& imports)
+	ModuleInstance* instantiateModule(
+		Compartment* compartment,
+		const IR::Module& module,
+		ImportBindings&& imports,
+		std::string&& moduleDebugName)
 	{
 		ModuleInstance* moduleInstance = new ModuleInstance(
 			compartment,
@@ -36,7 +40,8 @@ namespace Runtime
 			std::move(imports.tables),
 			std::move(imports.memories),
 			std::move(imports.globals),
-			std::move(imports.exceptionTypes)
+			std::move(imports.exceptionTypes),
+			std::move(moduleDebugName)
 			);
 
 		// Get disassembly names for the module's objects.
@@ -160,7 +165,7 @@ namespace Runtime
 				module.types[module.functions.defs[functionDefIndex].type.index],
 				nullptr,
 				CallingConvention::wasm,
-				debugName.c_str());
+				std::move(debugName));
 			moduleInstance->functionDefs.push_back(functionInstance);
 			moduleInstance->functions.push_back(functionInstance);
 		}

@@ -229,6 +229,6 @@ namespace ThreadTest
 
 	ModuleInstance* instantiate(Compartment* compartment)
 	{
-		return Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(threadTest));
+		return Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(threadTest),"threadTest");
 	}
 }

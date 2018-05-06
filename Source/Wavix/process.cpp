@@ -128,7 +128,8 @@ namespace Wavix
 		RootResolver rootResolver;
 		ModuleInstance* wavixIntrinsicModuleInstance = Intrinsics::instantiateModule(
 			process->compartment,
-			INTRINSIC_MODULE_REF(wavix));
+			INTRINSIC_MODULE_REF(wavix),
+			"WavixIntrinsics");
 		rootResolver.moduleNameToInstanceMap.set("env", wavixIntrinsicModuleInstance);
 
 		LinkResult linkResult = linkModule(module,rootResolver);
@@ -145,7 +146,11 @@ namespace Wavix
 		}
 
 		// Instantiate the module.
-		ModuleInstance* moduleInstance = instantiateModule(process->compartment,module,std::move(linkResult.resolvedImports));
+		ModuleInstance* moduleInstance = instantiateModule(
+			process->compartment,
+			module,
+			std::move(linkResult.resolvedImports),
+			filename);
 		if(!moduleInstance) { return nullptr; }
 
 		// Look up the module's start, and main functions.

@@ -429,9 +429,9 @@ namespace Emscripten
 		};
 
 		Instance* instance = new Instance;
-		instance->env = Intrinsics::instantiateModule(compartment, INTRINSIC_MODULE_REF(env), extraEnvExports);
-		instance->asm2wasm = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(asm2wasm));
-		instance->global = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(global));
+		instance->env = Intrinsics::instantiateModule(compartment, INTRINSIC_MODULE_REF(env), "env", extraEnvExports);
+		instance->asm2wasm = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(asm2wasm), "asm2wasm");
+		instance->global = Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(global), "global");
 
 		MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
 

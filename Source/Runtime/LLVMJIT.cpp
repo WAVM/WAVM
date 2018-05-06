@@ -705,25 +705,33 @@ namespace LLVMJIT
 		switch(symbol->type)
 		{
 		case JITSymbol::Type::functionInstance:
-			outDescription = symbol->functionInstance->debugName;
-			if(!outDescription.size()) { outDescription = "<unnamed function>"; }
-			break;
+		{
+			outDescription = "wasm!";
+			outDescription += symbol->functionInstance->moduleInstance->debugName;
+			outDescription += '!';
+			outDescription += symbol->functionInstance->debugName;
+			outDescription += '+';
+			
+			// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
+			U32 ipOffset = (U32)(ip - symbol->baseAddress);
+			Iptr opIndex = -1;
+			for(auto offsetMapIt : symbol->offsetToOpIndexMap)
+			{
+				if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
+				else { break; }
+			}
+			outDescription += std::to_string(opIndex >= 0 ? opIndex : 0);
+
+			return true;
+		}
 		case JITSymbol::Type::invokeThunk:
-			outDescription = "<invoke thunk : " + asString(symbol->invokeThunkType) + ">";
-			break;
+			outDescription = "thnk!";
+			outDescription += asString(symbol->invokeThunkType);
+			outDescription += '+';
+			outDescription += std::to_string(ip - symbol->baseAddress);
+			return true;
 		default: Errors::unreachable();
 		};
-		
-		// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
-		U32 ipOffset = (U32)(ip - symbol->baseAddress);
-		Iptr opIndex = -1;
-		for(auto offsetMapIt : symbol->offsetToOpIndexMap)
-		{
-			if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
-			else { break; }
-		}
-		if(opIndex >= 0) { outDescription += " (op " + std::to_string(opIndex) + ")"; }
-		return true;
 	}
 
 	InvokeFunctionPointer getInvokeThunk(const FunctionType* functionType,CallingConvention callingConvention)

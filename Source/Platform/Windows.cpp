@@ -259,6 +259,41 @@ namespace Platform
 		}
 	};
 
+	static HMODULE getCurrentModule()
+	{
+		HMODULE module = nullptr;
+		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCTSTR)getCurrentModule, &module);
+		return module;
+	}
+
+	static HMODULE getModuleFromBaseAddress(Uptr baseAddress)
+	{
+		return reinterpret_cast<HMODULE>(baseAddress);
+	}
+
+	static std::string getModuleName(HMODULE module)
+	{
+		char moduleFilename[MAX_PATH+1];
+		U32 moduleFilenameResult = GetModuleFileNameA(module, moduleFilename, MAX_PATH+1);
+		return std::string(moduleFilename,moduleFilenameResult);
+	}
+
+	static std::string trimModuleName(std::string moduleName)
+	{
+		const std::string thisModuleName = getModuleName(getCurrentModule());
+		Uptr lastBackslashOffset = thisModuleName.find_last_of("\\");
+		if(lastBackslashOffset != UINTPTR_MAX
+			&& moduleName.size() >= lastBackslashOffset
+			&& moduleName.substr(0,lastBackslashOffset) == thisModuleName.substr(0,lastBackslashOffset))
+		{
+			return moduleName.substr(lastBackslashOffset + 1);
+		}
+		else
+		{
+			return moduleName;
+		}
+	}
+
 	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
 	{
 		// Initialize DbgHelp.
@@ -273,10 +308,15 @@ namespace Platform
 		symbolInfo->MaxNameLen = maxSymbolNameChars;
 
 		// Call DbgHelp::SymFromAddr to try to find any debug symbol containing this address.
-		if(!dbgHelp->symFromAddr(GetCurrentProcess(),ip,nullptr,symbolInfo)) { return false; }
+		U64 displacement;
+		if(!dbgHelp->symFromAddr(GetCurrentProcess(),ip,&displacement,symbolInfo)) { return false; }
 		else
 		{
-			outDescription = symbolInfo->Name;
+			outDescription = "host!";
+			outDescription += trimModuleName(getModuleName(getModuleFromBaseAddress(symbolInfo->ModBase)));
+			outDescription += '!';
+			outDescription += std::string(symbolInfo->Name, symbolInfo->NameLen);
+			outDescription += '+' + std::to_string(displacement);
 			return true;
 		}
 	}

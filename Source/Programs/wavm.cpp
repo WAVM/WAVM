@@ -72,7 +72,7 @@ struct RootResolver : Resolver
 			IR::validateDefinitions(stubModule);
 
 			// Instantiate the module and return the stub function instance.
-			auto stubModuleInstance = instantiateModule(compartment,stubModule,{});
+			auto stubModuleInstance = instantiateModule(compartment,stubModule,{},"importStub");
 			return getInstanceExport(stubModuleInstance,"importStub");
 		}
 		case IR::ObjectKind::memory:
@@ -160,7 +160,11 @@ static int run(const CommandLineOptions& options)
 	}
 
 	// Instantiate the module.
-	ModuleInstance* moduleInstance = instantiateModule(compartment,module,std::move(linkResult.resolvedImports));
+	ModuleInstance* moduleInstance = instantiateModule(
+		compartment,
+		module,
+		std::move(linkResult.resolvedImports),
+		options.filename);
 	if(!moduleInstance) { return EXIT_FAILURE; }
 
 	// Call the module start function, if it has one.

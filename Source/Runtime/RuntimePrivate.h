@@ -65,15 +65,15 @@ namespace Runtime
 		FunctionInstance(
 			ModuleInstance* inModuleInstance,
 			const FunctionType* inType,
-			void* inNativeFunction = nullptr,
-			CallingConvention inCallingConvention = CallingConvention::wasm,
-			const char* inDebugName = "<unidentified FunctionInstance>")
+			void* inNativeFunction,
+			CallingConvention inCallingConvention,
+			std::string&& inDebugName)
 		: ObjectImpl(ObjectKind::function)
 		, moduleInstance(inModuleInstance)
 		, type(inType)
 		, nativeFunction(inNativeFunction)
 		, callingConvention(inCallingConvention)
-		, debugName(inDebugName)
+		, debugName(std::move(inDebugName))
 		{}
 	};
 
@@ -197,13 +197,16 @@ namespace Runtime
 
 		LLVMJIT::JITModuleBase* jitModule;
 
+		std::string debugName;
+
 		ModuleInstance(
 			Compartment* inCompartment,
 			std::vector<FunctionInstance*>&& inFunctionImports,
 			std::vector<TableInstance*>&& inTableImports,
 			std::vector<MemoryInstance*>&& inMemoryImports,
 			std::vector<GlobalInstance*>&& inGlobalImports,
-			std::vector<ExceptionTypeInstance*>&& inExceptionTypeImports
+			std::vector<ExceptionTypeInstance*>&& inExceptionTypeImports,
+			std::string&& inDebugName
 			)
 		: ObjectImpl(ObjectKind::module)
 		, compartment(inCompartment)
@@ -216,6 +219,7 @@ namespace Runtime
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
 		, jitModule(nullptr)
+		, debugName(std::move(inDebugName))
 		{}
 
 		~ModuleInstance() override;
