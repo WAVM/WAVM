@@ -78,11 +78,11 @@ namespace Platform
 	// Describes allowed memory accesses.
 	enum class MemoryAccess
 	{
-		None,
-		ReadOnly,
-		ReadWrite,
-		Execute,
-		ReadWriteExecute
+		none,
+		readOnly,
+		readWrite,
+		execute,
+		readWriteExecute
 	};
 
 	// Returns the base 2 logarithm of the smallest virtual page size.
@@ -99,7 +99,7 @@ namespace Platform
 	// Commits physical memory to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	// Return true if successful, or false if physical memory has been exhausted.
-	PLATFORM_API bool commitVirtualPages(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access = MemoryAccess::ReadWrite);
+	PLATFORM_API bool commitVirtualPages(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access = MemoryAccess::readWrite);
 
 	// Changes the allowed access to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.

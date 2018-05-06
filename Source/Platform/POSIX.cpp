@@ -101,11 +101,11 @@ namespace Platform
 		switch(access)
 		{
 		default:
-		case MemoryAccess::None: return PROT_NONE;
-		case MemoryAccess::ReadOnly: return PROT_READ;
-		case MemoryAccess::ReadWrite: return PROT_READ | PROT_WRITE;
-		case MemoryAccess::Execute: return PROT_EXEC;
-		case MemoryAccess::ReadWriteExecute: return PROT_EXEC | PROT_READ | PROT_WRITE;
+		case MemoryAccess::none: return PROT_NONE;
+		case MemoryAccess::readOnly: return PROT_READ;
+		case MemoryAccess::readWrite: return PROT_READ | PROT_WRITE;
+		case MemoryAccess::execute: return PROT_EXEC;
+		case MemoryAccess::readWriteExecute: return PROT_EXEC | PROT_READ | PROT_WRITE;
 		}
 	}
 

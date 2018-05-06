@@ -89,11 +89,11 @@ namespace Platform
 		switch(access)
 		{
 		default:
-		case MemoryAccess::None: return PAGE_NOACCESS;
-		case MemoryAccess::ReadOnly: return PAGE_READONLY;
-		case MemoryAccess::ReadWrite: return PAGE_READWRITE;
-		case MemoryAccess::Execute: return PAGE_EXECUTE_READ;
-		case MemoryAccess::ReadWriteExecute: return PAGE_EXECUTE_READWRITE;
+		case MemoryAccess::none: return PAGE_NOACCESS;
+		case MemoryAccess::readOnly: return PAGE_READONLY;
+		case MemoryAccess::readWrite: return PAGE_READWRITE;
+		case MemoryAccess::execute: return PAGE_EXECUTE_READ;
+		case MemoryAccess::readWriteExecute: return PAGE_EXECUTE_READWRITE;
 		}
 	}
 
