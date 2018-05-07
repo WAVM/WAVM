@@ -378,7 +378,7 @@ namespace IR
 		
 		void validateImm(MemoryImm)
 		{
-			VALIDATE_UNLESS("current_memory and grow_memory are only valid if there is a default memory",module.memories.size() == 0);
+			VALIDATE_UNLESS("memory.size and memory.grow are only valid if there is a default memory",module.memories.size() == 0);
 		}
 
 		template<Uptr numLanes>

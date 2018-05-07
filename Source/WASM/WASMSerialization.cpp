@@ -287,7 +287,7 @@ namespace WASM
 	template<typename Stream>
 	void serialize(Stream& stream,MemoryImm& imm,const FunctionDef&)
 	{
-		serializeConstant(stream,"grow_memory/current_memory immediate reserved field must be 0",U8(0));
+		serializeConstant(stream,"memory.grow/memory.size immediate reserved field must be 0",U8(0));
 	}
 
 	template<typename Stream>

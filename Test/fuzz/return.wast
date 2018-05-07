@@ -179,7 +179,7 @@
   )
 
   (func $as-grow_memory-size (result i32)
-    (grow_memory (return (i32.const 40)))
+    (memory.grow (return (i32.const 40)))
   )
 
   (func (export "main")

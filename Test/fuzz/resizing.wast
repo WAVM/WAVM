@@ -7,8 +7,8 @@
   (func $load_at_page_size (result i32) (i32.load (i32.const 0x10000)))
   (func $store_at_page_size (i32.store (i32.const 0x10000) (i32.const 3)))
 
-  (func $grow (param $sz i32) (result i32) (grow_memory (get_local $sz)))
-  (func $size (result i32) (current_memory))
+  (func $grow (param $sz i32) (result i32) (memory.grow (get_local $sz)))
+  (func $size (result i32) (memory.size))
 
   (func (export "main")
     (drop (call $size))

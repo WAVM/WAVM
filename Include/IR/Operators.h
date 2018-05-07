@@ -143,8 +143,8 @@ namespace IR
 	#define ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp) \
 		visitOp(0x01,nop,"nop",NoImm,NULLARY(none),mvp) \
 		\
-		visitOp(0x3f,current_memory,"current_memory",MemoryImm,NULLARY(i32),mvp) \
-		visitOp(0x40,grow_memory,"grow_memory",MemoryImm,UNARY(i32,i32),mvp) \
+		visitOp(0x3f,memory_size,"memory.size",MemoryImm,NULLARY(i32),mvp) \
+		visitOp(0x40,memory_grow,"memory.grow",MemoryImm,UNARY(i32,i32),mvp) \
 		\
 		visitOp(0x28,i32_load,"i32.load",LoadOrStoreImm<2>,LOAD(i32),mvp) \
 		visitOp(0x29,i64_load,"i64.load",LoadOrStoreImm<3>,LOAD(i64),mvp) \

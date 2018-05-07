@@ -841,7 +841,7 @@ namespace LLVMJIT
 		// These just call out to wavmIntrinsics.growMemory/currentMemory, passing a pointer to the default memory for the module.
 		//
 
-		void grow_memory(MemoryImm)
+		void memory_grow(MemoryImm)
 		{
 			llvm::Value* deltaNumPages = pop();
 			llvm::Value* previousNumPages = emitRuntimeIntrinsic(
@@ -850,7 +850,7 @@ namespace LLVMJIT
 				{deltaNumPages,emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id))});
 			push(previousNumPages);
 		}
-		void current_memory(MemoryImm)
+		void memory_size(MemoryImm)
 		{
 			llvm::Value* currentNumPages = emitRuntimeIntrinsic(
 				"currentMemory",

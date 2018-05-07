@@ -87,6 +87,14 @@
 (assert_return (invoke "print32" (i32.const 13)))
 (assert_return (invoke "print64" (i64.const 24)))
 
+(assert_invalid
+  (module 
+    (type (func (result i32)))
+    (import "test" "func" (func (type 1)))
+  )
+  "unknown type"
+)
+
 (module (import "test" "func" (func)))
 (module (import "test" "func-i32" (func (param i32))))
 (module (import "test" "func-f32" (func (param f32))))
@@ -478,7 +486,7 @@
 
 (module
   (import "spectest" "memory" (memory 0 3))  ;; actual has max size 2
-  (func (export "grow") (param i32) (result i32) (grow_memory (get_local 0)))
+  (func (export "grow") (param i32) (result i32) (memory.grow (get_local 0)))
 )
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 1))
 (assert_return (invoke "grow" (i32.const 1)) (i32.const 1))
