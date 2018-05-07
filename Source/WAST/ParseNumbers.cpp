@@ -352,37 +352,59 @@ namespace WAST
 
 	V128 parseV128(CursorState* cursor)
 	{
-		const Token* peekToken = cursor->nextToken;
-		while(peekToken->type == t_decimalInt || peekToken->type == t_hexInt)
+		V128 result;
+		switch(cursor->nextToken->type)
 		{
-			++peekToken;
-		};
-	
-		if(peekToken - cursor->nextToken > 16)
-		{
-			parseErrorf(cursor->parseState,cursor->nextToken + 16,"v128.const must not have more than 16 operands");
-			throw RecoverParseException();
-		}
-
-		const Uptr numLanes = peekToken - cursor->nextToken;
-		if(numLanes != 2 && numLanes != 4 && numLanes != 8 && numLanes != 16)
-		{
-			parseErrorf(cursor->parseState,cursor->nextToken,"v128.const must have 2, 4, 8, or 16 operands");
-			throw RecoverParseException();
-		}
-
-		V128 result = {};
-		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-		{
-			switch(numLanes)
+		case t_i8:
+			++cursor->nextToken;
+			for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
 			{
-			case 2: result.i64[laneIndex] = parseI64(cursor); break;
-			case 4: result.i32[laneIndex] = parseI32(cursor); break;
-			case 8: result.i16[laneIndex] = parseI16(cursor); break;
-			case 16: result.i8[laneIndex] = parseI8(cursor); break;
-			default: break;
+				result.i8[laneIndex] = parseI8(cursor);
 			}
-		}
+			break;
+		case t_i16:
+			++cursor->nextToken;
+			for(Uptr laneIndex = 0;laneIndex < 8;++laneIndex)
+			{
+				result.i16[laneIndex] = parseI16(cursor);
+			}
+			break;
+		case t_i32:
+			++cursor->nextToken;
+			for(Uptr laneIndex = 0;laneIndex < 4;++laneIndex)
+			{
+				result.i32[laneIndex] = parseI32(cursor);
+			}
+			break;
+		case t_i64:
+			++cursor->nextToken;
+			for(Uptr laneIndex = 0;laneIndex < 2;++laneIndex)
+			{
+				result.i64[laneIndex] = parseI64(cursor);
+			}
+			break;
+		case t_f32:
+			++cursor->nextToken;
+			for(Uptr laneIndex = 0;laneIndex < 4;++laneIndex)
+			{
+				result.f32[laneIndex] = parseF32(cursor);
+			}
+			break;
+		case t_f64:
+			++cursor->nextToken;
+			for(Uptr laneIndex = 0;laneIndex < 2;++laneIndex)
+			{
+				result.f64[laneIndex] = parseF64(cursor);
+			}
+			break;
+		default:
+			parseErrorf(
+				cursor->parseState, cursor->nextToken,
+				"expected 'i8', 'i16', 'i32', 'i64', 'f32', or 'f64'"
+				);
+			throw RecoverParseException();
+		};
+
 		return result;
 	}
 }
