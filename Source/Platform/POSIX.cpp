@@ -24,14 +24,14 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#ifdef __linux__
-	#include <dlfcn.h>
-#endif
+#define UNW_LOCAL_ONLY
+#include "libunwind.h"
+
+#include <dlfcn.h>
 
 #ifdef __APPLE__
 	#define MAP_ANONYMOUS MAP_ANON
 	#define UC_RESET_ALT_STACK	0x80000000			
-	extern "C" int __sigreturn(ucontext_t *, int);
 #endif
 
 #ifdef __linux__
@@ -64,12 +64,6 @@ static_assert(sizeof(ExecutionContext)       == 64, "unexpected size");
 
 extern "C"
 {
-	// C++ ABI exception handling functions
-	extern void* __cxa_allocate_exception(size_t numBytes) throw();
-	extern void __cxa_free_exception(void* exception) throw();
-	extern void __cxa_throw(void* exception,void* exceptionTypeInfo,void (*dest)(void*));
-	extern std::type_info* __cxa_current_exception_type();
-
 	// Defined in POSIX.S
 	extern I64 saveExecutionState(ExecutionContext* outContext,I64 returnCode) noexcept(false);
 	[[noreturn]] extern void loadExecutionState(ExecutionContext* context,I64 returnCode);
@@ -80,6 +74,10 @@ extern "C"
 	{
 		return "handle_segv=false:handle_sigbus=false:handle_sigfpe=false:replace_intrin=false";
 	}
+
+	// libunwind dynamic frame registration
+	void __register_frame(const void* fde);
+	void __deregister_frame(const void* fde);
 }
 
 namespace Platform
@@ -193,11 +191,28 @@ namespace Platform
 		return mutex;
 	}
 
+	void dumpErrorCallStack(Uptr numOmittedFramesFromTop)
+	{
+		std::fprintf(stderr, "Call stack:\n");
+		CallStack callStack = captureCallStack(numOmittedFramesFromTop);
+		for(auto frame : callStack.stackFrames)
+		{
+			std::string frameDescription;
+			if(!Platform::describeInstructionPointer(frame.ip,frameDescription))
+			{
+				frameDescription = "<unknown function>";
+			}
+			std::fprintf(stderr, "  %s\n", frameDescription.c_str());
+		}
+		std::fflush(stderr);
+	}
+
 	void handleFatalError(const char* messageFormat,va_list varArgs)
 	{
 		Lock lock(getErrorReportingMutex());
 		std::vfprintf(stderr,messageFormat,varArgs);
 		std::fflush(stderr);
+		dumpErrorCallStack(3);
 		std::abort();
 	}
 
@@ -210,7 +225,9 @@ namespace Platform
 			metadata.file,
 			metadata.line,
 			metadata.condition
-		);
+			);
+		dumpErrorCallStack(2);
+		std::fflush(stderr);
 	}
 	
 	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
@@ -235,7 +252,7 @@ namespace Platform
 					if(abi::__cxa_demangle(
 						symbolInfo.dli_sname,
 						demangledBuffer,
-						&numDemangledChars,
+						(size_t*)&numDemangledChars,
 						&demangleStatus))
 					{
 						demangledSymbolName = demangledBuffer;
@@ -488,7 +505,69 @@ namespace Platform
 
 	CallStack captureCallStack(Uptr numOmittedFramesFromTop)
 	{
-		return CallStack();
+		CallStack result;
+		
+		unw_context_t context;
+		errorUnless(!unw_getcontext(&context));
+
+		unw_cursor_t cursor;
+
+		errorUnless(!unw_init_local(&cursor, &context));
+		while(unw_step(&cursor) > 0)
+		{
+			if(numOmittedFramesFromTop)
+			{
+				--numOmittedFramesFromTop;
+			}
+			else
+			{
+				unw_word_t ip;
+				errorUnless(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
+
+				result.stackFrames.push_back(CallStack::Frame {ip});
+			}
+		}
+
+		return result;
+	}
+
+	void visitFDEs(U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*))
+	{
+		// The LLVM project libunwind implementation that WAVM uses expects __register_frame and
+		// __deregister_frame to be called for each FDE in the .eh_frame section.
+		const U8* next = ehFrames;
+		const U8* end = ehFrames + numBytes;
+		do
+		{
+			const U8* cfi = next;
+			Uptr numCFIBytes = *((const U32*)next);
+			next += 4;
+			if(numBytes == 0xffffffff)
+			{
+				const U64 numCFIBytes64 = *((const U64*)next);
+				errorUnless(numCFIBytes64 <= UINTPTR_MAX);
+				numCFIBytes = Uptr(numCFIBytes64);
+				next += 8;
+			}
+			const U32 cieOffset = *((const U32*)next);
+			if(cieOffset != 0)
+			{
+				visitFDE(cfi);
+			}
+
+			next += numCFIBytes;
+		}
+		while(next < end);
+	}
+
+	void registerEHFrames(U8* ehFrames, Uptr numBytes)
+	{
+		visitFDEs(ehFrames, numBytes, __register_frame);
+	}
+
+	void deregisterEHFrames(U8* ehFrames, Uptr numBytes)
+	{
+		visitFDEs(ehFrames, numBytes, __deregister_frame);
 	}
 
 	bool catchPlatformExceptions(
@@ -520,7 +599,7 @@ namespace Platform
 			}
 			catch(PlatformException)
 			{
-				typeInfo = __cxa_current_exception_type();
+				typeInfo = __cxxabiv1::__cxa_current_exception_type();
 			}
 		}
 		wavmAssert(typeInfo);

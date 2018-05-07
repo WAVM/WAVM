@@ -158,6 +158,9 @@ namespace Platform
 		PLATFORM_API void deregisterSEHUnwindInfo(Uptr pdataAddress);
 	#endif
 
+	PLATFORM_API void registerEHFrames(U8* ehFrames, Uptr numBytes);
+	PLATFORM_API void deregisterEHFrames(U8* ehFrames, Uptr numBytes);
+
 	struct Signal
 	{
 		enum class Type

@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.7.0)
 project (WAVM C CXX ASM)
 
+set(WAVM_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/Source)
+set(WAVM_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/Include)
+
 # Enable MAXOSX_RPATH by default
 cmake_policy(SET CMP0042 NEW)
 
@@ -13,7 +16,6 @@ SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
 # Allow includes relative to the source path.
-set(WAVM_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/Include)
 include_directories(${WAVM_INCLUDE_DIR})
 
 if(MSVC)
@@ -113,6 +115,8 @@ add_subdirectory(Source/IR)
 add_subdirectory(Source/Logging)
 add_subdirectory(Source/Platform)
 add_subdirectory(Source/Programs)
+
+add_subdirectory(Source/ThirdParty/libunwind)
 
 add_subdirectory(Source/WASM)
 add_subdirectory(Source/WAST)

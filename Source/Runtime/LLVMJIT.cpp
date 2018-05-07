@@ -103,27 +103,26 @@ namespace LLVMJIT
 		virtual ~UnitMemoryManager() override
 		{
 			// Deregister the exception handling frame info.
-			if(hasRegisteredEHFrames)
-			{
-				hasRegisteredEHFrames = false;
-				deregisterEHFrames();
-			}
+			deregisterEHFrames();
 
 			// Decommit the image pages, but leave them reserved to catch any references to them that might erroneously remain.
 			Platform::decommitVirtualPages(imageBaseAddress,numAllocatedImagePages);
 		}
 		
-		void registerEHFrames(U8* addr, U64 loadAddr,uintptr_t numBytes) override
+		void registerEHFrames(U8* addr, U64 loadAddr, uintptr_t numBytes) override
 		{
-			llvm::RTDyldMemoryManager::registerEHFrames(addr,loadAddr,numBytes);
+			Platform::registerEHFrames(addr, numBytes);
 			hasRegisteredEHFrames = true;
 			ehFramesAddr = addr;
-			ehFramesLoadAddr = loadAddr;
 			ehFramesNumBytes = numBytes;
 		}
 		void deregisterEHFrames() override
 		{
-			llvm::RTDyldMemoryManager::deregisterEHFrames();
+			if(hasRegisteredEHFrames)
+			{
+				hasRegisteredEHFrames = false;
+				Platform::deregisterEHFrames(ehFramesAddr, ehFramesNumBytes);
+			}
 		}
 		
 		virtual bool needsToReserveAllocationSpace() override { return true; }
@@ -199,7 +198,6 @@ namespace LLVMJIT
 
 		bool hasRegisteredEHFrames;
 		U8* ehFramesAddr;
-		U64 ehFramesLoadAddr;
 		Uptr ehFramesNumBytes;
 
 		U8* allocateBytes(Uptr numBytes,Uptr alignment,Section& section)

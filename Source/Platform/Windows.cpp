@@ -66,8 +66,7 @@ extern "C" U8* getStackPointer();
 
 namespace Platform
 {
-	// Defined in WindowsThreads.cpp
-	extern void initThread();
+	void initThread();
 
 	static Uptr internalGetPreferredVirtualPageSizeLog2()
 	{
@@ -339,7 +338,7 @@ namespace Platform
 		}
 	#endif
 	
-	static CallStack unwindStack(const CONTEXT& immutableContext)
+	static CallStack unwindStack(const CONTEXT& immutableContext, Uptr numOmittedFramesFromTop)
 	{
 		// Make a mutable copy of the context.
 		CONTEXT context;
@@ -350,7 +349,14 @@ namespace Platform
 		#ifdef _WIN64
 		while(context.Rip)
 		{
-			callStack.stackFrames.push_back({context.Rip});
+			if(numOmittedFramesFromTop)
+			{
+				--numOmittedFramesFromTop;
+			}
+			else
+			{
+				callStack.stackFrames.push_back({context.Rip});
+			}
 
 			// Look up the SEH unwind information for this function.
 			U64 imageBase;
@@ -390,13 +396,14 @@ namespace Platform
 		RtlCaptureContext(&context);
 
 		// Unwind the stack.
-		CallStack result = unwindStack(context);
+		return unwindStack(context, numOmittedFramesFromTop + 1);
+	}
 
-		// Remote the requested number of omitted frames, +1 for this function.
-		const Uptr numOmittedFrames = std::min(result.stackFrames.size(),numOmittedFramesFromTop + 1);
-		result.stackFrames.erase(result.stackFrames.begin(),result.stackFrames.begin() + numOmittedFrames);
-
-		return result;
+	void registerEHFrames(U8* ehFrames, Uptr numBytes)
+	{
+	}
+	void deregisterEHFrames(U8* ehFrames, Uptr numBytes)
+	{
 	}
 
 	static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers,Signal& outSignal)
@@ -428,7 +435,7 @@ namespace Platform
 		else
 		{
 			// Unwind the stack frames from the context of the exception.
-			CallStack callStack = unwindStack(*exceptionPointers->ContextRecord);
+			CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
 
 			if(filter(signal,callStack)) { return EXCEPTION_EXECUTE_HANDLER; }
 			else { return EXCEPTION_CONTINUE_SEARCH; }
@@ -484,7 +491,7 @@ namespace Platform
 		}
 
 		// Unwind the stack frames from the context of the exception.
-		CallStack callStack = unwindStack(*exceptionPointers->ContextRecord);
+		CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
 
 		(signalHandler.load())(signal,callStack);
 
@@ -521,7 +528,7 @@ namespace Platform
 			outExceptionData = reinterpret_cast<void*>(exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
 
 			// Unwind the stack frames from the context of the exception.
-			outCallStack = new CallStack(unwindStack(*exceptionPointers->ContextRecord));
+			outCallStack = new CallStack(unwindStack(*exceptionPointers->ContextRecord, 0));
 			return EXCEPTION_EXECUTE_HANDLER;
 		}
 	}

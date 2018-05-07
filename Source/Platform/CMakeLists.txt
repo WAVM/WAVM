@@ -10,10 +10,6 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Platform/Platform.h)
 include_directories(${WAVM_INCLUDE_DIR}/Platform)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-	include_directories(${CMAKE_PROJECT_DIR}/Source/ThirdParty/libunwind/include)
-endif()
-
 if(MSVC)
 	set(Sources ${POSIXSources} ${WindowsSources})
 	enable_language(ASM_MASM)
@@ -27,5 +23,15 @@ WAVM_ADD_LIBRARY(Platform ${Sources} ${PublicHeaders})
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	# Link with dl on Linux for dladdr.
-	target_link_libraries(Platform dl pthread rt)
+	target_link_libraries(Platform pthread rt)
+endif()
+
+if(NOT MSVC)
+	include_directories(${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
+	target_link_libraries(Platform dl WAVMUnwind)
+endif()
+
+if(NOT MSVC)
+	include_directories(${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
+	target_link_libraries(Platform WAVMUnwind)
 endif()
