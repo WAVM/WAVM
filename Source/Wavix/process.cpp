@@ -3,16 +3,20 @@
 #include "Inline/ConcurrentHashMap.h"
 #include "Inline/HashMap.h"
 #include "Inline/IndexAllocator.h"
+#include "Inline/Serialization.h"
+#include "Inline/Timing.h"
 #include "IR/Module.h"
 #include "IR/Types.h"
+#include "IR/Validate.h"
 #include "Platform/Platform.h"
 #include "process.h"
 #include "Runtime/Linker.h"
 #include "Logging/Logging.h"
 #include "Runtime/Intrinsics.h"
 #include "wavix.h"
+#include "WASM/WASM.h"
 
-#include "../Programs/CLI.h"
+#include <memory>
 
 using namespace IR;
 using namespace Runtime;
@@ -97,6 +101,59 @@ namespace Wavix
 		return invokeFunctionUnchecked(args->thread->context,args->mainFunction,nullptr)->i64;
 	}
 
+	inline bool loadBinaryModule(const char* wasmFilename, IR::Module& outModule)
+	{
+		try
+		{
+			Platform::File* file = Platform::openFile(
+				wasmFilename,
+				Platform::FileAccessMode::readOnly,
+				Platform::FileCreateMode::openExisting
+				);
+			if(!file) { return false; }
+
+			U64 numFileBytes = 0;
+			errorUnless(Platform::seekFile(file, 0, Platform::FileSeekOrigin::end, &numFileBytes));
+			if(numFileBytes > UINTPTR_MAX) { Platform::closeFile(file); return false; }
+
+			std::unique_ptr<U8[]> fileContents {new U8[numFileBytes]};
+			errorUnless(Platform::seekFile(file, 0, Platform::FileSeekOrigin::begin));
+			errorUnless(Platform::readFile(file, fileContents.get(), numFileBytes));
+			Platform::closeFile(file);
+
+			Serialization::MemoryInputStream stream(fileContents.get(), numFileBytes);
+			WASM::serialize(stream,outModule);
+
+			return true;
+		}
+		catch(Serialization::FatalSerializationException exception)
+		{
+			Log::printf(
+				Log::Category::error,
+				"Error deserializing WebAssembly binary file:\n%s\n",
+				exception.message.c_str()
+				);
+			return false;
+		}
+		catch(IR::ValidationException exception)
+		{
+			Log::printf(
+				Log::Category::error,
+				"Error validating WebAssembly binary file:\n%s\n",
+				exception.message.c_str()
+				);
+			return false;
+		}
+		catch(std::bad_alloc)
+		{
+			Log::printf(
+				Log::Category::error,
+				"Failed to allocate memory during WASM module load: input is likely malformed.\n"
+				);
+			return false;
+		}
+	}
+
 	Process* spawnProcess(
 		const char* filename,
 		const std::vector<std::string>& args,
@@ -135,12 +192,16 @@ namespace Wavix
 		LinkResult linkResult = linkModule(module,rootResolver);
 		if(!linkResult.success)
 		{
-			std::cerr << "Failed to link module:" << std::endl;
+			Log::printf(Log::Category::error, "Failed to link module:\n");
 			for(auto& missingImport : linkResult.missingImports)
 			{
-				std::cerr << "Missing import: module=\"" << missingImport.moduleName
-					<< "\" export=\"" << missingImport.exportName
-					<< "\" type=\"" << asString(missingImport.type) << "\"" << std::endl;
+				Log::printf(
+					Log::Category::error,
+					"Missing import: module=\"%s\" export=\"%s\" type=\"%s\"\n",
+					missingImport.moduleName.c_str(),
+					missingImport.exportName.c_str(),
+					asString(missingImport.type).c_str()
+					);
 			}
 			return nullptr;
 		}
@@ -161,14 +222,18 @@ namespace Wavix
 		// Validate that the module exported a main function, and that it is the expected type.
 		if(!mainThreadArgs->mainFunction)
 		{
-			std::cerr << "Module does not export _start function" << std::endl;
+			Log::printf(Log::Category::error,"Module does not export _start function");
 			return nullptr;
 		}
 
 		const FunctionType* functionType = getFunctionType(mainThreadArgs->mainFunction);
 		if(functionType != FunctionType::get())
 		{
-			std::cerr << "Module _start signature is " << asString(functionType) << ", but ()->() was expected." << std::endl;
+			Log::printf(
+				Log::Category::error,
+				"Module _start signature is %s, but ()->() was expected.\n",
+				asString(functionType).c_str()
+				);
 			return nullptr;
 		}
 
