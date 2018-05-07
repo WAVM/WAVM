@@ -156,21 +156,19 @@ namespace LLVMJIT
 		}
 		virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
 		{
+			// finalizeMemory is called before we manually apply SEH relocations, so don't do
+			// anything here and let the finalize callback call reallyFinalizeMemory when it's done
+			// applying the SEH relocations.
+			return true;
+		}
+		void reallyFinalizeMemory()
+		{
 			wavmAssert(!isFinalized);
 			isFinalized = true;
-			// Set the requested final memory access for each section's pages.
-			#if 0
 			const Platform::MemoryAccess codeAccess = USE_WRITEABLE_JIT_CODE_PAGES ? Platform::MemoryAccess::readWriteExecute : Platform::MemoryAccess::execute;
-			if(codeSection.numPages && !Platform::setVirtualPageAccess(codeSection.baseAddress,codeSection.numPages,codeAccess)) { return false; }
-			if(readOnlySection.numPages && !Platform::setVirtualPageAccess(readOnlySection.baseAddress,readOnlySection.numPages,Platform::MemoryAccess::readOnly)) { return false; }
-			if(readWriteSection.numPages && !Platform::setVirtualPageAccess(readWriteSection.baseAddress,readWriteSection.numPages,Platform::MemoryAccess::readWrite)) { return false; }
-			#else
-			const Platform::MemoryAccess codeAccess = Platform::MemoryAccess::readWriteExecute;
-			if(codeSection.numPages && !Platform::setVirtualPageAccess(codeSection.baseAddress,codeSection.numPages,codeAccess)) { return false; }
-			if(readOnlySection.numPages && !Platform::setVirtualPageAccess(readOnlySection.baseAddress,readOnlySection.numPages,Platform::MemoryAccess::readWrite)) { return false; }
-			if(readWriteSection.numPages && !Platform::setVirtualPageAccess(readWriteSection.baseAddress,readWriteSection.numPages,Platform::MemoryAccess::readWrite)) { return false; }
-			#endif
-			return true;
+			if(codeSection.numPages) { errorUnless(Platform::setVirtualPageAccess(codeSection.baseAddress,codeSection.numPages,codeAccess)); }
+			if(readOnlySection.numPages) { errorUnless(Platform::setVirtualPageAccess(readOnlySection.baseAddress,readOnlySection.numPages,Platform::MemoryAccess::readOnly)); }
+			if(readWriteSection.numPages) { errorUnless(Platform::setVirtualPageAccess(readWriteSection.baseAddress,readWriteSection.numPages,Platform::MemoryAccess::readWrite)); }
 		}
 		virtual void invalidateInstructionCache()
 		{
@@ -563,12 +561,12 @@ namespace LLVMJIT
 				// Notify the JIT unit that the symbol was loaded.
 				wavmAssert(symbolSizePair.second <= UINTPTR_MAX);
 				jitUnit->notifySymbolLoaded(
-				name->data(), loadedAddress,
+					name->data(), loadedAddress,
 					Uptr(symbolSizePair.second),
 					std::move(offsetToOpIndexMap)
 					);
 			}
-		
+
 			#ifdef _WIN64
 			processSEHTables(
 				reinterpret_cast<Uptr>(jitUnit->memoryManager->getImageBaseAddress()),
@@ -582,6 +580,7 @@ namespace LLVMJIT
 			#endif
 		}
 
+		jitUnit->memoryManager->reallyFinalizeMemory();
 		jitUnit->loadedObjects.clear();
 	}
 
