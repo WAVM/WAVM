@@ -143,7 +143,7 @@ namespace Platform
 				result + (numPages << pageSizeLog2),
 				alignmentBytes - (alignedAddress - address)));
 
-			outUnalignedBaseAddress = unalignedBaseAddress;
+			outUnalignedBaseAddress = result;
 			return result;
 		}
 		else
