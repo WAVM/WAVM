@@ -486,13 +486,13 @@ int main(int argc,char** argv)
 	else
 	{
 		filename = argv[1];
-		if(!stricmp(argv[1], "--help"))
+		if(!strcmp(argv[1], "--help"))
 		{
 			showHelp = true;
 		}
 		else if(argc == 3)
 		{
-			if(!stricmp(argv[2], "--enable-multivalue"))
+			if(!strcmp(argv[2], "--enable-multivalue"))
 			{
 				// Let the user provide the --enable-multi-value argument for tests that need it.
 				featureSpec.multipleResultsAndBlockParams = true;
