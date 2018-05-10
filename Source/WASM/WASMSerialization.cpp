@@ -255,6 +255,7 @@ namespace WASM
 		case IndexedBlockType::noParametersOrResult: encodedBlockType = -64; break;
 		case IndexedBlockType::oneResult:            encodedBlockType = -Iptr(imm.type.resultType); break;
 		case IndexedBlockType::functionType:         encodedBlockType = imm.type.index; break;
+		default: Errors::unreachable();
 		};
 		serializeVarInt32(stream, encodedBlockType);
 	}
