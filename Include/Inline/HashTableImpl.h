@@ -297,7 +297,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::analyzeSpaceUsage(
 	) const
 {
 	outTotalMemoryBytes = sizeof(Bucket) * numBuckets() + sizeof(*this);
-	outOccupancy = num() / F32(numBuckets());
+	outOccupancy = size() / F32(numBuckets());
 
 	outMaxProbeCount = 0;
 	outAverageProbeCount = 0.0f;

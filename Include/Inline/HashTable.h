@@ -113,7 +113,7 @@ struct HashTable
 	Bucket* getBucketForModify(Uptr hash, const Key& key);
 	Bucket& getBucketForAdd(Uptr hash, const Key& key);
 
-	Uptr num() const { return numElements; }
+	Uptr size() const { return numElements; }
 	Uptr numBuckets() const { return hashToBucketIndexMask + 1; }
 
 	Bucket* getBuckets() const { return buckets; }

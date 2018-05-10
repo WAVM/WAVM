@@ -166,7 +166,7 @@ namespace Runtime
 		Log::printf(Log::Category::metrics,"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
 			timer.getMilliseconds(),
 			numRoots,
-			gcGlobals.allObjects.num() + finalizedObjects.size(),
+			gcGlobals.allObjects.size() + finalizedObjects.size(),
 			finalizedObjects.size()
 			);
 	}

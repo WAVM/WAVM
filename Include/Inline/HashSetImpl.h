@@ -143,7 +143,7 @@ HashSetIterator<Element> HashSet<Element,ElementHashPolicy>::end() const
 }
 
 template<typename Element, typename ElementHashPolicy>
-Uptr HashSet<Element,ElementHashPolicy>::num() const { return table.num(); }
+Uptr HashSet<Element,ElementHashPolicy>::size() const { return table.size(); }
 	
 template<typename Element, typename ElementHashPolicy>
 void HashSet<Element,ElementHashPolicy>::analyzeSpaceUsage(

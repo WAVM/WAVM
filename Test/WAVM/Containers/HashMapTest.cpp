@@ -100,7 +100,7 @@ static void testU32Map()
 		errorUnless(!map.contains(U32(i)));
 	}
 
-	errorUnless(map.num() == 0);
+	errorUnless(map.size() == 0);
 	for(Uptr i = 0;i < maxI;++i)
 	{
 		errorUnless(!map.contains(U32(i)));
@@ -109,7 +109,7 @@ static void testU32Map()
 		errorUnless(map.contains(U32(i)));
 		errorUnless(map.get(U32(i)));
 		errorUnless(*map.get(U32(i)) == U32(i * 2));
-		errorUnless(map.num() == i + 1);
+		errorUnless(map.size() == i + 1);
 	}
 
 	for(Uptr i = 0;i < maxI;++i)
@@ -117,7 +117,7 @@ static void testU32Map()
 		errorUnless(map.contains(U32(i)));
 		errorUnless(map.remove(U32(i)));
 		errorUnless(!map.contains(U32(i)));
-		errorUnless(map.num() == maxI - i - 1);
+		errorUnless(map.size() == maxI - i - 1);
 	}
 
 	for(Uptr i = 0;i < maxI;++i)

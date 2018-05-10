@@ -62,7 +62,7 @@ struct HashSet
 	HashSetIterator<Element> begin() const;
 	HashSetIterator<Element> end() const;
 
-	Uptr num() const;
+	Uptr size() const;
 	
 	// Compute some statistics about the space usage of this set.
 	void analyzeSpaceUsage(

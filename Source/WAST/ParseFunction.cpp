@@ -228,7 +228,7 @@ static void parseImm(CursorState* cursor,CallIndirectImm& outImm)
 		outImm.type.index = resolveFunctionType(cursor->moduleState,unresolvedFunctionType).index;
 
 		// Disallow named parameters.
-		if(paramNameToIndexMap.num())
+		if(paramNameToIndexMap.size())
 		{
 			auto paramNameIt = paramNameToIndexMap.begin();
 			parseErrorf(

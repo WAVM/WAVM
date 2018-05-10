@@ -151,7 +151,7 @@ HashMapIterator<Key, Value> HashMap<HASHMAP_ARGUMENTS>::end() const
 }
 
 template<HASHMAP_PARAMETERS>
-Uptr HashMap<HASHMAP_ARGUMENTS>::num() const { return table.num(); }
+Uptr HashMap<HASHMAP_ARGUMENTS>::size() const { return table.size(); }
 
 template<HASHMAP_PARAMETERS>
 void HashMap<HASHMAP_ARGUMENTS>::analyzeSpaceUsage(

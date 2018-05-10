@@ -89,7 +89,7 @@ static void testU32Set()
 		errorUnless(!set.contains(U32(i)));
 	}
 
-	errorUnless(set.num() == 0);
+	errorUnless(set.size() == 0);
 	for(Uptr i = 0;i < maxI;++i)
 	{
 		errorUnless(!set.contains(U32(i)));
@@ -97,7 +97,7 @@ static void testU32Set()
 		errorUnless(set.add(U32(i)));
 		errorUnless(set.contains(U32(i)));
 		errorUnless(set.get(U32(i)));
-		errorUnless(set.num() == i + 1);
+		errorUnless(set.size() == i + 1);
 	}
 
 	for(Uptr i = 0;i < maxI;++i)
@@ -105,7 +105,7 @@ static void testU32Set()
 		errorUnless(set.contains(U32(i)));
 		errorUnless(set.remove(U32(i)));
 		errorUnless(!set.contains(U32(i)));
-		errorUnless(set.num() == maxI - i - 1);
+		errorUnless(set.size() == maxI - i - 1);
 	}
 
 	for(Uptr i = 0;i < maxI;++i)

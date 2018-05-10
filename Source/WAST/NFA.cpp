@@ -175,7 +175,7 @@ namespace NFA
 			enum { numSupportedLocalStates = 64 };
 			typedef DenseStaticIntSet<StateIndex,numSupportedLocalStates> LocalStateSet;
 
-			const Uptr numLocalStates = stateIndexToLocalStateIndexMap.num();
+			const Uptr numLocalStates = stateIndexToLocalStateIndexMap.size();
 			wavmAssert(numLocalStates <= numSupportedLocalStates);
 			maxLocalStates = std::max<Uptr>(maxLocalStates,numLocalStates);
 

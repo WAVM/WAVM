@@ -715,9 +715,9 @@ void dumpHashMapSpaceAnalysis(const Map& map, const char* description)
 		"%s used %.1fKB for %u elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%u\n",
 		description,
 		totalMemoryBytes / 1024.0f,
-		map.num(),
+		map.size(),
 		occupancy * 100.0f,
-		F32(totalMemoryBytes) / map.num(),
+		F32(totalMemoryBytes) / map.size(),
 		averageProbeCount,
 		maxProbeCount
 		);

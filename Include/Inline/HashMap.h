@@ -95,7 +95,7 @@ struct HashMap
 	Iterator begin() const;
 	Iterator end() const;
 
-	Uptr num() const;
+	Uptr size() const;
 
 	// Compute some statistics about the space usage of this map.
 	void analyzeSpaceUsage(
