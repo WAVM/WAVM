@@ -420,8 +420,11 @@ namespace Emscripten
 			memoryType = module.memories.imports[0].type;
 			if(memoryType.size.max >= minStaticEmscriptenMemoryPages)
 			{
-				// Enlarge the initial memory to make space for the stack and mutable globals.
-				memoryType.size.min = minStaticEmscriptenMemoryPages;
+				if(memoryType.size.min <= minStaticEmscriptenMemoryPages)
+				{
+					// Enlarge the initial memory to make space for the stack and mutable globals.
+					memoryType.size.min = minStaticEmscriptenMemoryPages;
+				}
 			}
 			else
 			{
