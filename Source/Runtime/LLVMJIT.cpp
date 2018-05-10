@@ -355,7 +355,7 @@ namespace LLVMJIT
 
 		JITSymbol* symbol;
 
-		JITThunkUnit(FunctionType inFunctionType): JITUnit(true), functionType(inFunctionType), symbol(nullptr) {}
+		JITThunkUnit(FunctionType inFunctionType): JITUnit(false), functionType(inFunctionType), symbol(nullptr) {}
 
 		void notifySymbolLoaded(const char* name,Uptr baseAddress,Uptr numBytes,std::map<U32,U32>&& offsetToOpIndexMap) override
 		{
