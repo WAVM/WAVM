@@ -67,12 +67,12 @@ static GlobalType parseGlobalType(CursorState* cursor)
 	return result;
 }
 
-static const TupleType* parseTupleType(CursorState* cursor)
+static TypeTuple parseTypeTuple(CursorState* cursor)
 {
 	std::vector<ValueType> parameters;
 	ValueType elementType;
 	while(tryParseValueType(cursor,elementType)) { parameters.push_back(elementType); }
-	return TupleType::get(parameters);
+	return TypeTuple(parameters);
 }
 
 static InitializerExpression parseInitializerExpression(CursorState* cursor)
@@ -230,12 +230,12 @@ static void parseImport(CursorState* cursor)
 		}
 		case t_exception_type:
 		{
-			const TupleType* tupleType = parseTupleType(cursor);
+			TypeTuple params = parseTypeTuple(cursor);
 			createImport(cursor,name,std::move(moduleName),std::move(exportName),
 				cursor->moduleState->exceptionTypeNameToIndexMap,
 				cursor->moduleState->module.exceptionTypes,
 				cursor->moduleState->disassemblyNames.exceptionTypes,
-				tupleType);
+				ExceptionType {params});
 			break;
 		}
 		default: Errors::unreachable();
@@ -303,7 +303,7 @@ static void parseType(CursorState* cursor)
 		
 		NameToIndexMap parameterNameToIndexMap;
 		std::vector<std::string> localDisassemblyNames;
-		const FunctionType* functionType = parseFunctionType(cursor,parameterNameToIndexMap,localDisassemblyNames);
+		FunctionType functionType = parseFunctionType(cursor,parameterNameToIndexMap,localDisassemblyNames);
 
 		errorUnless(cursor->moduleState->module.types.size() < UINT32_MAX);
 		const U32 functionTypeIndex = U32(cursor->moduleState->module.types.size());
@@ -648,13 +648,17 @@ static void parseExceptionType(CursorState* cursor)
 		cursor->moduleState->disassemblyNames.exceptionTypes,
 		t_exception_type,
 		ObjectKind::exceptionType,
-		// Parse a global import.
-		parseTupleType,
-		// Parse a global definition
+		// Parse an exception type import.
+		[](CursorState* cursor)
+		{
+			TypeTuple params = parseTypeTuple(cursor);
+			return ExceptionType {params};
+		},
+		// Parse an exception type definition
 		[](CursorState* cursor,const Token*)
 		{
-			const TupleType* tupleType = parseTupleType(cursor);
-			return ExceptionTypeDef {tupleType};
+			TypeTuple params = parseTypeTuple(cursor);
+			return ExceptionTypeDef {ExceptionType {params}};
 		});
 }
 

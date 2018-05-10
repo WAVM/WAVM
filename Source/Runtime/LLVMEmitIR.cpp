@@ -90,7 +90,7 @@ namespace LLVMJIT
 		EmitModuleContext& moduleContext;
 		const Module& module;
 		const FunctionDef& functionDef;
-		const FunctionType* functionType;
+		FunctionType functionType;
 		FunctionInstance* functionInstance;
 		llvm::Function* llvmFunction;
 
@@ -117,9 +117,10 @@ namespace LLVMJIT
 
 			Type type;
 			llvm::BasicBlock* endBlock;
-			llvm::PHINode* endPHI;
+			PHIVector endPHIs;
 			llvm::BasicBlock* elseBlock;
-			ResultType resultType;
+			ValueVector elseArgs;
+			TypeTuple resultTypes;
 			Uptr outerStackSize;
 			Uptr outerBranchTargetStackSize;
 			bool isReachable;
@@ -130,9 +131,9 @@ namespace LLVMJIT
 
 		struct BranchTarget
 		{
-			ResultType argumentType;
+			TypeTuple params;
 			llvm::BasicBlock* block;
-			llvm::PHINode* phi;
+			PHIVector phis;
 		};
 
 		std::vector<ControlContext> controlStack;
@@ -173,9 +174,9 @@ namespace LLVMJIT
 			stack.resize(stack.size() - num);
 		}
 
-		llvm::Value* getTopValue() const
+		llvm::Value* getValueFromTop(Uptr offset = 0) const
 		{
-			return stack.back();
+			return stack[stack.size() - offset - 1];
 		}
 
 		void push(llvm::Value* value)
@@ -183,18 +184,29 @@ namespace LLVMJIT
 			stack.push_back(value);
 		}
 
-		// Creates a PHI node for the argument of branches to a basic block.
-		llvm::PHINode* createPHI(llvm::BasicBlock* basicBlock,ResultType type)
+		void pushMultiple(llvm::Value** values, Uptr numValues)
 		{
-			if(type == ResultType::none) { return nullptr; }
-			else
+			for(Uptr valueIndex = 0;valueIndex < numValues;++valueIndex)
 			{
-				auto originalBlock = irBuilder.GetInsertBlock();
-				irBuilder.SetInsertPoint(basicBlock);
-				auto phi = irBuilder.CreatePHI(asLLVMType(type),2);
-				if(originalBlock) { irBuilder.SetInsertPoint(originalBlock); }
-				return phi;
+				push(values[valueIndex]);
 			}
+		}
+
+		// Creates a PHI node for the argument of branches to a basic block.
+		PHIVector createPHIs(llvm::BasicBlock* basicBlock,TypeTuple type)
+		{
+			auto originalBlock = irBuilder.GetInsertBlock();
+			irBuilder.SetInsertPoint(basicBlock);
+
+			PHIVector result;
+			for(Uptr elementIndex = 0;elementIndex < type.size();++elementIndex)
+			{
+				result.push_back(irBuilder.CreatePHI(asLLVMType(type[elementIndex]),2));
+			}
+			
+			if(originalBlock) { irBuilder.SetInsertPoint(originalBlock); }
+
+			return result;
 		}
 
 		// Bitcasts a LLVM value to a canonical type for the corresponding WebAssembly type.
@@ -286,7 +298,7 @@ namespace LLVMJIT
 		{
 			emitConditionalTrapIntrinsic(
 				irBuilder.CreateICmpEQ(divisor,typedZeroConstants[(Uptr)type]),
-				"divideByZeroOrIntegerOverflowTrap",FunctionType::get(),{});
+				"divideByZeroOrIntegerOverflowTrap",FunctionType(),{});
 		}
 
 		// Traps on (x / 0) or (INT_MIN / -1).
@@ -300,7 +312,7 @@ namespace LLVMJIT
 						),
 					irBuilder.CreateICmpEQ(right,typedZeroConstants[(Uptr)type])
 					),
-				"divideByZeroOrIntegerOverflowTrap",FunctionType::get(),{});
+				"divideByZeroOrIntegerOverflowTrap",FunctionType(),{});
 		}
 
 		llvm::Function* getLLVMIntrinsic(llvm::ArrayRef<llvm::Type*> typeArguments,llvm::Intrinsic::ID id)
@@ -321,9 +333,9 @@ namespace LLVMJIT
 		}
 		
 		// Emits a call to a WAVM intrinsic function.
-		llvm::Value* emitRuntimeIntrinsic(
+		ValueVector emitRuntimeIntrinsic(
 			const char* intrinsicName,
-			const FunctionType* intrinsicType,
+			FunctionType intrinsicType,
 			const std::initializer_list<llvm::Value*>& args)
 		{
 			Object* intrinsicObject = Runtime::getInstanceExport(
@@ -342,11 +354,12 @@ namespace LLVMJIT
 				args,
 				intrinsicType,
 				intrinsicFunction->callingConvention,
-				getInnermostUnwindToBlock());
+				getInnermostUnwindToBlock()
+				);
 		}
 
 		// A helper function to emit a conditional call to a non-returning intrinsic function.
-		void emitConditionalTrapIntrinsic(llvm::Value* booleanCondition,const char* intrinsicName,const FunctionType* intrinsicType,const std::initializer_list<llvm::Value*>& args)
+		void emitConditionalTrapIntrinsic(llvm::Value* booleanCondition,const char* intrinsicName,FunctionType intrinsicType,const std::initializer_list<llvm::Value*>& args)
 		{
 			auto trueBlock = llvm::BasicBlock::Create(*llvmContext,llvm::Twine(intrinsicName) + "Trap",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(*llvmContext,llvm::Twine(intrinsicName) + "Skip",llvmFunction);
@@ -373,21 +386,40 @@ namespace LLVMJIT
 		
 		void pushControlStack(
 			ControlContext::Type type,
-			ResultType resultType,
+			TypeTuple resultTypes,
 			llvm::BasicBlock* endBlock,
-			llvm::PHINode* endPHI,
-			llvm::BasicBlock* elseBlock = nullptr
+			const PHIVector& endPHIs,
+			llvm::BasicBlock* elseBlock = nullptr,
+			const ValueVector& elseArgs = {}
 			)
 		{
 			// The unreachable operator filtering should filter out any opcodes that call pushControlStack.
 			if(controlStack.size()) { errorUnless(controlStack.back().isReachable); }
 
-			controlStack.push_back({type,endBlock,endPHI,elseBlock,resultType,stack.size(),branchTargetStack.size(),true});
+			controlStack.push_back({
+				type,
+				endBlock,
+				endPHIs,
+				elseBlock,
+				elseArgs,
+				resultTypes,
+				stack.size(),
+				branchTargetStack.size(),
+				true
+				});
 		}
 
-		void pushBranchTarget(ResultType branchArgumentType,llvm::BasicBlock* branchTargetBlock,llvm::PHINode* branchTargetPHI)
+		void pushBranchTarget(
+			TypeTuple branchArgumentType,
+			llvm::BasicBlock* branchTargetBlock,
+			const PHIVector& branchTargetPHIs
+		)
 		{
-			branchTargetStack.push_back({branchArgumentType,branchTargetBlock,branchTargetPHI});
+			branchTargetStack.push_back({
+				branchArgumentType,
+				branchTargetBlock,
+				branchTargetPHIs
+				});
 		}
 
 		void branchToEndOfControlContext()
@@ -398,10 +430,15 @@ namespace LLVMJIT
 			{
 				// If the control context expects a result, take it from the operand stack and add it to the
 				// control context's end PHI.
-				if(currentContext.resultType != ResultType::none)
+				for(Iptr resultIndex = currentContext.resultTypes.size() - 1;
+					resultIndex >= 0;
+					--resultIndex)
 				{
 					llvm::Value* result = pop();
-					currentContext.endPHI->addIncoming(coerceToCanonicalType(result),irBuilder.GetInsertBlock());
+					currentContext.endPHIs[resultIndex]->addIncoming(
+						coerceToCanonicalType(result),
+						irBuilder.GetInsertBlock()
+						);
 				}
 
 				// Branch to the control context's end.
@@ -412,55 +449,108 @@ namespace LLVMJIT
 
 		void block(ControlStructureImm imm)
 		{
+			FunctionType blockType = resolveBlockType(module, imm.type);
+
 			// Create an end block+phi for the block result.
 			auto endBlock = llvm::BasicBlock::Create(*llvmContext,"blockEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,imm.resultType);
+			auto endPHIs = createPHIs(endBlock, blockType.results());
+
+			// Pop the block arguments.
+			llvm::Value** blockArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * blockType.params().size());
+			popMultiple(blockArgs, blockType.params().size());
 
 			// Push a control context that ends at the end block/phi.
-			pushControlStack(ControlContext::Type::block,imm.resultType,endBlock,endPHI);
+			pushControlStack(
+				ControlContext::Type::block,
+				blockType.results(),
+				endBlock,
+				endPHIs
+				);
 			
 			// Push a branch target for the end block/phi.
-			pushBranchTarget(imm.resultType,endBlock,endPHI);
+			pushBranchTarget(blockType.results(),endBlock,endPHIs);
+
+			// Repush the block arguments.
+			pushMultiple(blockArgs, blockType.params().size());
 		}
 		void loop(ControlStructureImm imm)
 		{
-			// Create a loop block, and an end block+phi for the loop result.
-			auto loopBodyBlock = llvm::BasicBlock::Create(*llvmContext,"loopBody",llvmFunction);
-			auto endBlock = llvm::BasicBlock::Create(*llvmContext,"loopEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,imm.resultType);
-			
+			FunctionType blockType = resolveBlockType(module, imm.type);
+			llvm::BasicBlock* loopEntryBlock = irBuilder.GetInsertBlock();
+
+			// Create a loop block, and an end block for the loop result.
+			auto loopBodyBlock = llvm::BasicBlock::Create(*llvmContext, "loopBody", llvmFunction);
+			auto endBlock = llvm::BasicBlock::Create(*llvmContext, "loopEnd", llvmFunction);
+
+			// Create PHIs for the loop's parameters, and PHIs for the loop result.
+			auto parameterPHIs = createPHIs(loopBodyBlock, blockType.params());
+			auto endPHIs = createPHIs(endBlock, blockType.results());
+
 			// Branch to the loop body and switch the IR builder to emit there.
 			irBuilder.CreateBr(loopBodyBlock);
 			irBuilder.SetInsertPoint(loopBodyBlock);
 
+			// Pop the initial values of the loop's parameters from the stack.
+			for(Iptr elementIndex = blockType.params().size() - 1;
+				elementIndex >= 0;
+				--elementIndex)
+			{
+				parameterPHIs[elementIndex]->addIncoming(pop(), loopEntryBlock);
+			}
+
 			// Push a control context that ends at the end block/phi.
-			pushControlStack(ControlContext::Type::loop,imm.resultType,endBlock,endPHI);
+			pushControlStack(
+				ControlContext::Type::loop,
+				blockType.results(),
+				endBlock,
+				endPHIs
+				);
 			
 			// Push a branch target for the loop body start.
-			pushBranchTarget(ResultType::none,loopBodyBlock,nullptr);
+			pushBranchTarget(blockType.params(), loopBodyBlock, parameterPHIs);
+
+			// Push the loop argument PHIs on the stack.
+			pushMultiple((llvm::Value**)parameterPHIs.data(), parameterPHIs.size());
 		}
 		void if_(ControlStructureImm imm)
 		{
+			FunctionType blockType = resolveBlockType(module, imm.type);
+
 			// Create a then block and else block for the if, and an end block+phi for the if result.
 			auto thenBlock = llvm::BasicBlock::Create(*llvmContext,"ifThen",llvmFunction);
 			auto elseBlock = llvm::BasicBlock::Create(*llvmContext,"ifElse",llvmFunction);
 			auto endBlock = llvm::BasicBlock::Create(*llvmContext,"ifElseEnd",llvmFunction);
-			auto endPHI = createPHI(endBlock,imm.resultType);
+			auto endPHIs = createPHIs(endBlock, blockType.results());
 
 			// Pop the if condition from the operand stack.
 			auto condition = pop();
 			irBuilder.CreateCondBr(coerceI32ToBool(condition),thenBlock,elseBlock);
 			
+			// Pop the arguments from the operand stack.
+			ValueVector args;
+			wavmAssert(stack.size() >= blockType.params().size());
+			args.resize(blockType.params().size());
+			popMultiple(args.data(), args.size());
+
 			// Switch the IR builder to emit the then block.
 			irBuilder.SetInsertPoint(thenBlock);
 
 			// Push an ifThen control context that ultimately ends at the end block/phi, but may
 			// be terminated by an else operator that changes the control context to the else block.
-			pushControlStack(ControlContext::Type::ifThen,imm.resultType,endBlock,endPHI,elseBlock);
+			pushControlStack(
+				ControlContext::Type::ifThen,
+				blockType.results(),
+				endBlock,
+				endPHIs,
+				elseBlock,
+				args
+				);
 			
 			// Push a branch target for the if end.
-			pushBranchTarget(imm.resultType,endBlock,endPHI);
+			pushBranchTarget(blockType.results(),endBlock,endPHIs);
 			
+			// Repush the if arguments on the stack.
+			pushMultiple(args.data(), args.size());
 		}
 		void else_(NoImm imm)
 		{
@@ -474,6 +564,12 @@ namespace LLVMJIT
 			wavmAssert(currentContext.type == ControlContext::Type::ifThen);
 			currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
 			irBuilder.SetInsertPoint(currentContext.elseBlock);
+
+			// Push the if arguments back on the operand stack.
+			for(llvm::Value* argument : currentContext.elseArgs)
+			{
+				push(argument);
+			}
 
 			// Change the top of the control stack to an else clause.
 			currentContext.type = ControlContext::Type::ifElse;
@@ -502,17 +598,24 @@ namespace LLVMJIT
 			currentContext.endBlock->moveAfter(irBuilder.GetInsertBlock());
 			irBuilder.SetInsertPoint(currentContext.endBlock);
 
-			if(currentContext.endPHI)
+			if(currentContext.endPHIs.size())
 			{
-				// If the control context yields a result, take the PHI that merges all the control flow
-				// to the end and push it onto the operand stack.
-				if(currentContext.endPHI->getNumIncomingValues()) { push(currentContext.endPHI); }
-				else
+				// If the control context yields results, take the PHIs that merges all the control
+				// flow to the end and push their values onto the operand stack.
+				wavmAssert(currentContext.endPHIs.size() == currentContext.resultTypes.size());
+				for(Uptr elementIndex = 0;elementIndex < currentContext.endPHIs.size();++elementIndex)
 				{
-					// If there weren't any incoming values for the end PHI, remove it and push a dummy value.
-					currentContext.endPHI->eraseFromParent();
-					wavmAssert(currentContext.resultType != ResultType::none);
-					push(typedZeroConstants[(Uptr)asValueType(currentContext.resultType)]);
+					if(currentContext.endPHIs[elementIndex]->getNumIncomingValues())
+					{
+						push(currentContext.endPHIs[elementIndex]);
+					}
+					else
+					{
+						// If there weren't any incoming values for the end PHI, remove it and push
+						// a dummy value.
+						currentContext.endPHIs[elementIndex]->eraseFromParent();
+						push(typedZeroConstants[(Uptr)currentContext.resultTypes[elementIndex]]);
+					}
 				}
 			}
 
@@ -552,11 +655,18 @@ namespace LLVMJIT
 			auto condition = pop();
 
 			BranchTarget& target = getBranchTargetByDepth(imm.targetDepth);
-			if(target.argumentType != ResultType::none)
+			wavmAssert(target.params.size() == target.phis.size());
+			for(Uptr argIndex = 0;
+				argIndex < target.params.size();
+				++argIndex)
 			{
-				// Use the stack top as the branch argument (don't pop it) and add it to the target phi's incoming values.
-				llvm::Value* argument = getTopValue();
-				target.phi->addIncoming(coerceToCanonicalType(argument),irBuilder.GetInsertBlock());
+				// Take the branch target operands from the stack (without popping them) and add
+				// them to the target's incoming value PHIs.
+				llvm::Value* argument = getValueFromTop(target.params.size() - argIndex - 1);
+				target.phis[argIndex]->addIncoming(
+					coerceToCanonicalType(argument),
+					irBuilder.GetInsertBlock()
+					);
 			}
 
 			// Create a new basic block for the case where the branch is not taken.
@@ -572,11 +682,19 @@ namespace LLVMJIT
 		void br(BranchImm imm)
 		{
 			BranchTarget& target = getBranchTargetByDepth(imm.targetDepth);
-			if(target.argumentType != ResultType::none)
+			wavmAssert(target.params.size() == target.phis.size());
+			
+			// Pop the branch target operands from the stack and add them to the target's incoming
+			// value PHIs.
+			for(Iptr argIndex = target.params.size() - 1;
+				argIndex >= 0;
+				--argIndex)
 			{
-				// Pop the branch argument from the stack and add it to the target phi's incoming values.
 				llvm::Value* argument = pop();
-				target.phi->addIncoming(coerceToCanonicalType(argument),irBuilder.GetInsertBlock());
+				target.phis[argIndex]->addIncoming(
+					coerceToCanonicalType(argument),
+					irBuilder.GetInsertBlock()
+					);
 			}
 
 			// Branch to the target block.
@@ -592,13 +710,19 @@ namespace LLVMJIT
 			// Look up the default branch target, and assume its argument type applies to all targets.
 			// (this is guaranteed by the validator)
 			BranchTarget& defaultTarget = getBranchTargetByDepth(imm.defaultTargetDepth);
-			const ResultType argumentType = defaultTarget.argumentType;
-			llvm::Value* argument = nullptr;
-			if(argumentType != ResultType::none)
+			
+			// Pop the branch arguments from the stack.
+			const Uptr numArgs = defaultTarget.params.size();
+			llvm::Value** args = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArgs);
+			popMultiple(args, numArgs);
+
+			// Add the branch arguments to the default target's parameter PHI nodes.
+			for(Uptr argIndex = 0;argIndex < numArgs;++argIndex)
 			{
-				// Pop the branch argument from the stack and add it to the default target phi's incoming values.
-				argument = pop();
-				defaultTarget.phi->addIncoming(coerceToCanonicalType(argument),irBuilder.GetInsertBlock());
+				defaultTarget.phis[argIndex]->addIncoming(
+					coerceToCanonicalType(args[argIndex]),
+					irBuilder.GetInsertBlock()
+					);
 			}
 
 			// Create a LLVM switch instruction.
@@ -613,11 +737,14 @@ namespace LLVMJIT
 				// Add this target to the switch instruction.
 				llvmSwitch->addCase(emitLiteral((U32)targetIndex),target.block);
 
-				if(argumentType != ResultType::none)
+				// Add the branch arguments to the PHI nodes for the branch target's parameters.
+				wavmAssert(target.phis.size() == numArgs);
+				for(Uptr argIndex = 0;argIndex < numArgs;++argIndex)
 				{
-					// If this is the first case in the table for this branch target, add the branch argument to
-					// the target phi's incoming values.
-					target.phi->addIncoming(coerceToCanonicalType(argument),irBuilder.GetInsertBlock());
+					target.phis[argIndex]->addIncoming(
+						coerceToCanonicalType(args[argIndex]),
+						irBuilder.GetInsertBlock()
+						);
 				}
 			}
 
@@ -625,11 +752,17 @@ namespace LLVMJIT
 		}
 		void return_(NoImm)
 		{
-			if(functionType->ret != ResultType::none)
+			// Pop the branch target operands from the stack and add them to the target's incoming
+			// value PHIs.
+			for(Iptr argIndex = functionType.results().size() - 1;
+				argIndex >= 0;
+				--argIndex)
 			{
-				// Pop the return value from the stack and add it to the return phi's incoming values.
-				llvm::Value* result = pop();
-				controlStack[0].endPHI->addIncoming(coerceToCanonicalType(result),irBuilder.GetInsertBlock());
+				llvm::Value* argument = pop();
+				controlStack[0].endPHIs[argIndex]->addIncoming(
+					coerceToCanonicalType(argument),
+					irBuilder.GetInsertBlock()
+					);
 			}
 
 			// Branch to the return block.
@@ -641,7 +774,7 @@ namespace LLVMJIT
 		void unreachable(NoImm)
 		{
 			// Call an intrinsic that causes a trap, and insert the LLVM unreachable terminator.
-			emitRuntimeIntrinsic("unreachableTrap",FunctionType::get(ResultType::none),{});
+			emitRuntimeIntrinsic("unreachableTrap",FunctionType(),{});
 			irBuilder.CreateUnreachable();
 
 			enterUnreachable();
@@ -669,7 +802,7 @@ namespace LLVMJIT
 		{
 			// Map the callee function index to either an imported function pointer or a function in this module.
 			llvm::Value* callee;
-			const FunctionType* calleeType;
+			FunctionType calleeType;
 			CallingConvention callingConvention;
 			if(imm.functionIndex < module.functions.imports.size())
 			{
@@ -691,32 +824,35 @@ namespace LLVMJIT
 			}
 
 			// Pop the call arguments from the operand stack.
-			const Uptr numArguments = calleeType->parameters.size();
+			const Uptr numArguments = calleeType.params().size();
 			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
 			popMultiple(llvmArgs,numArguments);
 
 			// Call the function.
-			auto result = emitCallOrInvoke(
+			ValueVector results = emitCallOrInvoke(
 				callee,
 				llvm::ArrayRef<llvm::Value*>(llvmArgs,numArguments),
 				calleeType,
 				callingConvention,
 				getInnermostUnwindToBlock());
 
-			// Push the result on the operand stack.
-			if(calleeType->ret != ResultType::none) { push(result); }
+			// Push the results on the operand stack.
+			for(llvm::Value* result : results)
+			{
+				push(result);
+			}
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
 			wavmAssert(imm.type.index < module.types.size());
 			
-			auto calleeType = module.types[imm.type.index];
+			const FunctionType calleeType = module.types[imm.type.index];
 
 			// Compile the function index.
 			auto tableElementIndex = pop();
 
 			// Pop the call arguments from the operand stack.
-			const Uptr numArguments = calleeType->parameters.size();
+			const Uptr numArguments = calleeType.params().size();
 			auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
 			popMultiple(llvmArgs,numArguments);
 
@@ -732,34 +868,43 @@ namespace LLVMJIT
 				tableElementType->getPointerTo());
 
 			// Load the type for this table entry.
-			auto functionTypePointerPointer = irBuilder.CreateInBoundsGEP(typedTableBasePointer,{functionIndexZExt,emitLiteral((U32)0)});
+			auto functionTypePointerPointer = irBuilder.CreateInBoundsGEP(
+				typedTableBasePointer,
+				{functionIndexZExt,emitLiteral((U32)0)}
+				);
 			auto functionTypePointer = irBuilder.CreateLoad(functionTypePointerPointer);
-			auto llvmCalleeType = emitLiteralPointer(calleeType,llvmI8PtrType);
+			auto llvmCalleeType = emitLiteralPointer(
+				reinterpret_cast<void*>(calleeType.getEncoding().impl),
+				llvmI8PtrType
+				);
 			
 			// If the function type doesn't match, trap.
 			emitConditionalTrapIntrinsic(
 				irBuilder.CreateICmpNE(llvmCalleeType,functionTypePointer),
 				"indirectCallSignatureMismatch",
-				FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i64,ValueType::i64}),
-				{	tableElementIndex,
-					irBuilder.CreatePtrToInt(llvmCalleeType,llvmI64Type),
-					emitLiteral(U64(moduleContext.moduleInstance->defaultTable->id))	}
-				);
+				FunctionType(TypeTuple(),TypeTuple({ValueType::i32,ValueType::i64})),
+				{
+					tableElementIndex,
+					irBuilder.CreatePtrToInt(llvmCalleeType,llvmI64Type)
+				});
 
 			// Call the function loaded from the table.
 			auto functionPointerPointer = irBuilder.CreateInBoundsGEP(typedTableBasePointer,{functionIndexZExt,emitLiteral((U32)1)});
 			auto functionPointer = loadFromUntypedPointer(
 				functionPointerPointer,
 				asLLVMType(calleeType,CallingConvention::wasm)->getPointerTo());
-			auto result = emitCallOrInvoke(
+			ValueVector results = emitCallOrInvoke(
 				functionPointer,
 				llvm::ArrayRef<llvm::Value*>(llvmArgs,numArguments),
 				calleeType,
 				CallingConvention::wasm,
 				getInnermostUnwindToBlock());
-
-			// Push the result on the operand stack.
-			if(calleeType->ret != ResultType::none) { push(result); }
+			
+			// Push the results on the operand stack.
+			for(llvm::Value* result : results)
+			{
+				push(result);
+			}
 		}
 		
 		//
@@ -780,7 +925,7 @@ namespace LLVMJIT
 		void tee_local(GetOrSetVariableImm<false> imm)
 		{
 			wavmAssert(imm.variableIndex < localPointers.size());
-			auto value = irBuilder.CreateBitCast(getTopValue(),localPointers[imm.variableIndex]->getType()->getPointerElementType());
+			auto value = irBuilder.CreateBitCast(getValueFromTop(),localPointers[imm.variableIndex]->getType()->getPointerElementType());
 			irBuilder.CreateStore(value,localPointers[imm.variableIndex]);
 		}
 		
@@ -844,19 +989,21 @@ namespace LLVMJIT
 		void memory_grow(MemoryImm)
 		{
 			llvm::Value* deltaNumPages = pop();
-			llvm::Value* previousNumPages = emitRuntimeIntrinsic(
+			ValueVector previousNumPages = emitRuntimeIntrinsic(
 				"growMemory",
-				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i64}),
+				FunctionType(TypeTuple(ValueType::i32),TypeTuple({ValueType::i32,ValueType::i64})),
 				{deltaNumPages,emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id))});
-			push(previousNumPages);
+			wavmAssert(previousNumPages.size() == 1);
+			push(previousNumPages[0]);
 		}
 		void memory_size(MemoryImm)
 		{
-			llvm::Value* currentNumPages = emitRuntimeIntrinsic(
+			ValueVector currentNumPages = emitRuntimeIntrinsic(
 				"currentMemory",
-				FunctionType::get(ResultType::i32,{ValueType::i64}),
+				FunctionType(TypeTuple(ValueType::i32),TypeTuple(ValueType::i64)),
 				{ emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id))});
-			push(currentNumPages);
+			wavmAssert(currentNumPages.size() == 1);
+			push(currentNumPages[0]);
 		}
 
 		//
@@ -1098,7 +1245,7 @@ namespace LLVMJIT
 			irBuilder.CreateCondBr(isNaN,nanBlock,notNaNBlock,moduleContext.likelyFalseBranchWeights);
 
 			irBuilder.SetInsertPoint(nanBlock);
-			emitRuntimeIntrinsic("invalidFloatOperationTrap",FunctionType::get(),{});
+			emitRuntimeIntrinsic("invalidFloatOperationTrap",FunctionType(),{});
 			irBuilder.CreateUnreachable();
 
 			irBuilder.SetInsertPoint(notNaNBlock);
@@ -1109,7 +1256,7 @@ namespace LLVMJIT
 			irBuilder.CreateCondBr(isOverflow,overflowBlock,noOverflowBlock,moduleContext.likelyFalseBranchWeights);
 
 			irBuilder.SetInsertPoint(overflowBlock);
-			emitRuntimeIntrinsic("divideByZeroOrIntegerOverflowTrap",FunctionType::get(),{});
+			emitRuntimeIntrinsic("divideByZeroOrIntegerOverflowTrap",FunctionType(),{});
 			irBuilder.CreateUnreachable();
 
 			irBuilder.SetInsertPoint(noOverflowBlock);
@@ -1166,12 +1313,12 @@ namespace LLVMJIT
 		EMIT_UNARY_OP(i64,trunc_u_sat_f64,(emitTruncFloatToIntSat<I64,F64>)(llvmI64Type,false,0.0,F64(UINT64_MAX),U64(0),UINT64_MAX,U64(0),operand))
 
 		// These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
-		EMIT_FP_BINARY_OP(min   ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.min"     : "f64.min",FunctionType::get(asResultType(type),{type,type}),{left,right}))
-		EMIT_FP_BINARY_OP(max   ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.max"     : "f64.max",FunctionType::get(asResultType(type),{type,type}),{left,right}))
-		EMIT_FP_UNARY_OP(ceil   ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.ceil"    : "f64.ceil",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OP(floor  ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.floor"   : "f64.floor",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OP(trunc  ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.trunc"   : "f64.trunc",FunctionType::get(asResultType(type),{type}),{operand}))
-		EMIT_FP_UNARY_OP(nearest,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.nearest" : "f64.nearest",FunctionType::get(asResultType(type),{type}),{operand}))
+		EMIT_FP_BINARY_OP(min   ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.min"     : "f64.min",FunctionType(TypeTuple(type),TypeTuple {type,type}),{left,right})[0])
+		EMIT_FP_BINARY_OP(max   ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.max"     : "f64.max",FunctionType(TypeTuple(type),TypeTuple {type,type}),{left,right})[0])
+		EMIT_FP_UNARY_OP(ceil   ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.ceil"    : "f64.ceil",FunctionType(TypeTuple(type),TypeTuple {type}),{operand})[0])
+		EMIT_FP_UNARY_OP(floor  ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.floor"   : "f64.floor",FunctionType(TypeTuple(type),TypeTuple {type}),{operand})[0])
+		EMIT_FP_UNARY_OP(trunc  ,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.trunc"   : "f64.trunc",FunctionType(TypeTuple(type),TypeTuple {type}),{operand})[0])
+		EMIT_FP_UNARY_OP(nearest,emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.nearest" : "f64.nearest",FunctionType(TypeTuple(type),TypeTuple {type}),{operand})[0])
 
 		llvm::Value* emitAnyTrue(llvm::Value* boolVector)
 		{
@@ -1464,8 +1611,9 @@ namespace LLVMJIT
 			auto memoryId = emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id));
 			push(emitRuntimeIntrinsic(
 				"atomic_wake",
-				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i32,ValueType::i64}),
-				{address,numWaiters,memoryId}));
+				FunctionType(TypeTuple {ValueType::i32}, TypeTuple {ValueType::i32,ValueType::i32,ValueType::i64}),
+				{address,numWaiters,memoryId}
+				)[0]);
 		}
 		void i32_atomic_wait(AtomicLoadOrStoreImm<2>)
 		{
@@ -1475,8 +1623,9 @@ namespace LLVMJIT
 			auto memoryId = emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id));
 			push(emitRuntimeIntrinsic(
 				"atomic_wait_i32",
-				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i32,ValueType::f64,ValueType::i64}),
-				{address,expectedValue,timeout,memoryId}));
+				FunctionType(TypeTuple {ValueType::i32}, TypeTuple {ValueType::i32,ValueType::i32,ValueType::f64,ValueType::i64}),
+				{address,expectedValue,timeout,memoryId}
+				)[0]);
 		}
 		void i64_atomic_wait(AtomicLoadOrStoreImm<3>)
 		{
@@ -1486,8 +1635,8 @@ namespace LLVMJIT
 			auto memoryId = emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id));
 			push(emitRuntimeIntrinsic(
 				"atomic_wait_i64",
-				FunctionType::get(ResultType::i32,{ValueType::i32,ValueType::i64,ValueType::f64,ValueType::i64}),
-				{address,expectedValue,timeout,memoryId}));
+				FunctionType(TypeTuple {ValueType::i32}, TypeTuple {ValueType::i32,ValueType::i64,ValueType::f64,ValueType::i64}),
+				{address,expectedValue,timeout,memoryId})[0]);
 		}
 
 		void trapIfMisalignedAtomic(llvm::Value* address,U32 naturalAlignmentLog2)
@@ -1499,7 +1648,7 @@ namespace LLVMJIT
 						typedZeroConstants[(Uptr)ValueType::i32],
 						irBuilder.CreateAnd(address,emitLiteral((U32(1) << naturalAlignmentLog2) - 1))),
 					"misalignedAtomicTrap",
-					FunctionType::get(ResultType::none,{ValueType::i32}),
+					FunctionType(TypeTuple {},TypeTuple {ValueType::i32}),
 					{address});
 			}
 		}
@@ -1715,6 +1864,8 @@ namespace LLVMJIT
 
 			void try_(ControlStructureImm imm)
 			{
+				FunctionType blockType = resolveBlockType(module, imm.type);
+
 				auto catchSwitchBlock = llvm::BasicBlock::Create(*llvmContext,"catchSwitch",llvmFunction);
 				auto originalInsertBlock = irBuilder.GetInsertBlock();
 				irBuilder.SetInsertPoint(catchSwitchBlock);
@@ -1729,13 +1880,25 @@ namespace LLVMJIT
 
 				// Create an end try+phi for the try result.
 				auto endBlock = llvm::BasicBlock::Create(*llvmContext,"tryEnd",llvmFunction);
-				auto endPHI = createPHI(endBlock,imm.resultType);
+				auto endPHIs = createPHIs(endBlock, blockType.results());
+				
+				// Pop the try arguments.
+				llvm::Value** tryArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * blockType.params().size());
+				popMultiple(tryArgs, blockType.params().size());
 
 				// Push a control context that ends at the end block/phi.
-				pushControlStack(ControlContext::Type::try_,imm.resultType,endBlock,endPHI);
+				pushControlStack(
+					ControlContext::Type::try_,
+					blockType.results(),
+					endBlock,
+					endPHIs
+					);
 				
 				// Push a branch target for the end block/phi.
-				pushBranchTarget(imm.resultType,endBlock,endPHI);
+				pushBranchTarget(blockType.results(), endBlock, endPHIs);
+				
+				// Repush the try arguments.
+				pushMultiple(tryArgs, blockType.params().size());
 
 				// Call a dummy function to workaround a LLVM bug on Windows with the
 				// recoverfp intrinsic if the try block doesn't contain any calls.
@@ -1755,7 +1918,7 @@ namespace LLVMJIT
 				emitCallOrInvoke(
 					moduleContext.tryPrologueDummyFunction,
 					{},
-					FunctionType::get(),
+					FunctionType(),
 					CallingConvention::c,
 					getInnermostUnwindToBlock());
 			}
@@ -1786,7 +1949,7 @@ namespace LLVMJIT
 					(llvm::Argument*)&(*argIt++),llvmExceptionPointersStructType->getPointerTo());
 				auto exceptionRecordPointer = filterIRBuilder.CreateLoad(filterIRBuilder.CreateInBoundsGEP(
 					exceptionPointersArg,
-					{emitLiteral(0),emitLiteral(0)}));
+					{emitLiteral(U32(0)),emitLiteral(U32(0))}));
 				
 				// Recover the frame pointer of the catching frame, and the escaped local to write the exception pointer to.
 				auto framePointer = filterIRBuilder.CreateCall(
@@ -1809,7 +1972,7 @@ namespace LLVMJIT
 				auto exceptionTypeCheckBlock = llvm::BasicBlock::Create(*llvmContext,"exceptionTypeCheck",filterFunction);
 				auto exceptionCode = filterIRBuilder.CreateLoad(filterIRBuilder.CreateInBoundsGEP(
 					exceptionRecordPointer,
-					{emitLiteral(0),emitLiteral(0)}));
+					{emitLiteral(U32(0)),emitLiteral(U32(0))}));
 				auto isWebAssemblyException = filterIRBuilder.CreateICmpEQ(exceptionCode,emitLiteral(I32(Platform::SEH_WAVM_EXCEPTION)));
 				filterIRBuilder.CreateCondBr(isWebAssemblyException,exceptionTypeCheckBlock,nonWebAssemblyExceptionBlock);
 				filterIRBuilder.SetInsertPoint(nonWebAssemblyExceptionBlock);
@@ -1817,7 +1980,7 @@ namespace LLVMJIT
 				filterIRBuilder.SetInsertPoint(exceptionTypeCheckBlock);
 				
 				// Copy the pointer to the exception data to the alloca in the catch frame.
-				auto exceptionDataGEP = filterIRBuilder.CreateInBoundsGEP(exceptionRecordPointer,{emitLiteral(0),emitLiteral(5),emitLiteral(0)});
+				auto exceptionDataGEP = filterIRBuilder.CreateInBoundsGEP(exceptionRecordPointer,{emitLiteral(U32(0)),emitLiteral(U32(5)),emitLiteral(U32(0))});
 				auto exceptionData = filterIRBuilder.CreateLoad(exceptionDataGEP);
 				filterIRBuilder.CreateStore(
 					exceptionData,
@@ -1863,9 +2026,9 @@ namespace LLVMJIT
 				branchToEndOfControlContext();
 
 				// Look up the exception type instance to be caught
-				wavmAssert(imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypes.size());
+				wavmAssert(imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypeInstances.size());
 				const Runtime::ExceptionTypeInstance* catchTypeInstance
-					= moduleContext.moduleInstance->exceptionTypes[imm.exceptionTypeIndex];
+					= moduleContext.moduleInstance->exceptionTypeInstances[imm.exceptionTypeIndex];
 				
 				// Create a filter function that returns 1 for the specific exception type this instruction catches.
 				llvm::Value* exceptionDataAlloca = nullptr;
@@ -1883,13 +2046,13 @@ namespace LLVMJIT
 				irBuilder.SetInsertPoint(catchBlock);
 
 				catchContext.exceptionPointer = irBuilder.CreateLoad(exceptionDataAlloca);
-				for(Uptr argumentIndex = 0;argumentIndex < catchTypeInstance->parameters->elements.size();++argumentIndex)
+				for(Uptr argumentIndex = 0;argumentIndex < catchTypeInstance->type.params.size();++argumentIndex)
 				{
-					const ValueType argumentType = catchTypeInstance->parameters->elements[argumentIndex];
+					const ValueType parameters = catchTypeInstance->type.params[argumentIndex];
 					auto argument = loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(catchContext.exceptionPointer,
-							{emitLiteral(offsetof(ExceptionData,arguments[catchTypeInstance->parameters->elements.size() - argumentIndex - 1]))}),
-						asLLVMType(argumentType));
+							{emitLiteral(offsetof(ExceptionData,arguments[catchTypeInstance->type.params.size() - argumentIndex - 1]))}),
+						asLLVMType(parameters));
 					push(argument);
 				}
 
@@ -1937,6 +2100,8 @@ namespace LLVMJIT
 		#else
 			void try_(ControlStructureImm imm)
 			{
+				FunctionType blockType = resolveBlockType(module, imm.type);
+
 				auto landingPadBlock = llvm::BasicBlock::Create(*llvmContext,"landingPad",llvmFunction);
 				auto originalInsertBlock = irBuilder.GetInsertBlock();
 				irBuilder.SetInsertPoint(landingPadBlock);
@@ -1967,13 +2132,25 @@ namespace LLVMJIT
 
 				// Create an end try+phi for the try result.
 				auto endBlock = llvm::BasicBlock::Create(*llvmContext,"tryEnd",llvmFunction);
-				auto endPHI = createPHI(endBlock,imm.resultType);
+				auto endPHIs = createPHIs(endBlock, blockType.results());
+				
+				// Pop the try arguments.
+				llvm::Value** tryArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * blockType.params().size());
+				popMultiple(tryArgs, blockType.params().size());
 
 				// Push a control context that ends at the end block/phi.
-				pushControlStack(ControlContext::Type::try_,imm.resultType,endBlock,endPHI);
+				pushControlStack(
+					ControlContext::Type::try_,
+					blockType.results(),
+					endBlock,
+					endPHIs
+					);
 				
 				// Push a branch target for the end block/phi.
-				pushBranchTarget(imm.resultType,endBlock,endPHI);
+				pushBranchTarget(blockType.results(), endBlock, endPHIs);
+
+				// Repush the try arguments.
+				pushMultiple(tryArgs, blockType.params().size());
 			}
 
 			void catch_(CatchImm imm)
@@ -1993,9 +2170,9 @@ namespace LLVMJIT
 				branchToEndOfControlContext();
 
 				// Look up the exception type instance to be caught
-				wavmAssert(imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypes.size());
+				wavmAssert(imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypeInstances.size());
 				const Runtime::ExceptionTypeInstance* catchTypeInstance
-					= moduleContext.moduleInstance->exceptionTypes[imm.exceptionTypeIndex];
+					= moduleContext.moduleInstance->exceptionTypeInstances[imm.exceptionTypeIndex];
 
 				irBuilder.SetInsertPoint(catchContext.nextHandlerBlock);
 				auto isExceptionType = irBuilder.CreateICmpEQ(
@@ -2008,17 +2185,17 @@ namespace LLVMJIT
 				catchContext.nextHandlerBlock = unhandledBlock;
 				irBuilder.SetInsertPoint(catchBlock);
 
-				for(Iptr argumentIndex = catchTypeInstance->parameters->elements.size() - 1
+				for(Iptr argumentIndex = catchTypeInstance->type.params.size() - 1
 				   ;argumentIndex >= 0
 				   ;--argumentIndex)
 				{
-					const ValueType argumentType = catchTypeInstance->parameters->elements[argumentIndex];
+					const ValueType parameters = catchTypeInstance->type.params[argumentIndex];
 					const Uptr argumentOffset = 
 						  offsetof(ExceptionData,arguments)
 						+ sizeof(ExceptionData::arguments[0]) * argumentIndex;
 					auto argument = loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(catchContext.exceptionPointer,{emitLiteral(argumentOffset)}),
-						asLLVMType(argumentType));
+						asLLVMType(parameters));
 					push(argument);
 				}
 
@@ -2067,20 +2244,20 @@ namespace LLVMJIT
 		{
 			emitRuntimeIntrinsic(
 				"throwException",
-				FunctionType::get(ResultType::none,{ValueType::i64,ValueType::i64,ValueType::i32}),
+				FunctionType(TypeTuple {},TypeTuple {ValueType::i64,ValueType::i64,ValueType::i32}),
 				{exceptionTypeInstanceI64,argumentsPointerI64,emitLiteral(I32(isUserException ? 1 : 0))});
 		}
 
 		void throw_(ThrowImm imm)
 		{
 			const Runtime::ExceptionTypeInstance* exceptionTypeInstance
-				= moduleContext.moduleInstance->exceptionTypes[imm.exceptionTypeIndex];
+				= moduleContext.moduleInstance->exceptionTypeInstances[imm.exceptionTypeIndex];
 			
-			const Uptr numArgs = exceptionTypeInstance->parameters->elements.size();
+			const Uptr numArgs = exceptionTypeInstance->type.params.size();
 			const Uptr numArgBytes = numArgs * sizeof(UntaggedValue);
 			auto argBaseAddress = irBuilder.CreateAlloca(llvmI8Type,emitLiteral(numArgBytes));
 
-			for(Uptr argIndex = 0;argIndex < exceptionTypeInstance->parameters->elements.size();++argIndex)
+			for(Uptr argIndex = 0;argIndex < exceptionTypeInstance->type.params.size();++argIndex)
 			{
 				auto elementValue = pop();
 				irBuilder.CreateStore(
@@ -2172,8 +2349,12 @@ namespace LLVMJIT
 	{
 		// Create debug info for the function.
 		llvm::SmallVector<llvm::Metadata*,10> diFunctionParameterTypes;
-		for(auto parameterType : functionType->parameters) { diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]); }
-		auto diFunctionType = moduleContext.diBuilder->createSubroutineType(moduleContext.diBuilder->getOrCreateTypeArray(diFunctionParameterTypes));
+		for(auto parameterType : functionType.params())
+		{
+			diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]);
+		}
+		auto diParamArray = moduleContext.diBuilder->getOrCreateTypeArray(diFunctionParameterTypes);
+		auto diFunctionType = moduleContext.diBuilder->createSubroutineType(diParamArray);
 		diFunction = moduleContext.diBuilder->createFunction(
 			moduleContext.diModuleScope,
 			functionInstance->debugName,
@@ -2188,9 +2369,14 @@ namespace LLVMJIT
 
 		// Create the return basic block, and push the root control context for the function.
 		auto returnBlock = llvm::BasicBlock::Create(*llvmContext,"return",llvmFunction);
-		auto returnPHI = createPHI(returnBlock,functionType->ret);
-		pushControlStack(ControlContext::Type::function,functionType->ret,returnBlock,returnPHI);
-		pushBranchTarget(functionType->ret,returnBlock,returnPHI);
+		auto returnPHIs = createPHIs(returnBlock,functionType.results());
+		pushControlStack(
+			ControlContext::Type::function,
+			functionType.results(),
+			returnBlock,
+			returnPHIs
+			);
+		pushBranchTarget(functionType.results(),returnBlock,returnPHIs);
 
 		// Create an initial basic block for the function.
 		auto entryBasicBlock = llvm::BasicBlock::Create(*llvmContext,"entry",llvmFunction);
@@ -2205,15 +2391,15 @@ namespace LLVMJIT
 		reloadMemoryAndTableBase();
 
 		// Create and initialize allocas for all the locals and parameters.
-		for(Uptr localIndex = 0;localIndex < functionType->parameters.size() + functionDef.nonParameterLocalTypes.size();++localIndex)
+		for(Uptr localIndex = 0;localIndex < functionType.params().size() + functionDef.nonParameterLocalTypes.size();++localIndex)
 		{
-			auto localType = localIndex < functionType->parameters.size()
-				? functionType->parameters[localIndex]
-				: functionDef.nonParameterLocalTypes[localIndex - functionType->parameters.size()];
+			auto localType = localIndex < functionType.params().size()
+				? functionType.params()[localIndex]
+				: functionDef.nonParameterLocalTypes[localIndex - functionType.params().size()];
 			auto localPointer = irBuilder.CreateAlloca(asLLVMType(localType),nullptr,"");
 			localPointers.push_back(localPointer);
 
-			if(localIndex < functionType->parameters.size())
+			if(localIndex < functionType.params().size())
 			{
 				// Copy the parameter value into the local that stores it.
 				irBuilder.CreateStore(&*llvmArgIt,localPointer);
@@ -2231,7 +2417,7 @@ namespace LLVMJIT
 		{
 			emitRuntimeIntrinsic(
 				"debugEnterFunction",
-				FunctionType::get(ResultType::none,{ValueType::i64}),
+				FunctionType(TypeTuple {}, TypeTuple {ValueType::i64}),
 				{emitLiteral(reinterpret_cast<U64>(functionInstance))}
 				);
 		}
@@ -2259,17 +2445,13 @@ namespace LLVMJIT
 		{
 			emitRuntimeIntrinsic(
 				"debugExitFunction",
-				FunctionType::get(ResultType::none,{ValueType::i64}),
+				FunctionType(TypeTuple {}, TypeTuple {ValueType::i64}),
 				{emitLiteral(reinterpret_cast<U64>(functionInstance))}
 				);
 		}
 
 		// Emit the function return.
-		llvm::Value* returnStruct = getZeroedLLVMReturnStruct(functionType->ret);
-		returnStruct = irBuilder.CreateInsertValue(returnStruct,irBuilder.CreateLoad(contextPointerVariable),{0});
-		if(functionType->ret != ResultType::none) { returnStruct = irBuilder.CreateInsertValue(returnStruct,pop(),{1}); }
-
-		irBuilder.CreateRet(returnStruct);
+		emitReturn(functionType.results(), stack);
 
 		// If a local escape block was created, add a localescape intrinsic to it with the accumulated
 		// local escape allocas, and insert it before the function's entry block.
@@ -2302,7 +2484,7 @@ namespace LLVMJIT
 		functionDefs.resize(module.functions.defs.size());
 		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
-			const FunctionType* functionType = module.types[module.functions.defs[functionDefIndex].type.index];
+			FunctionType functionType = module.types[module.functions.defs[functionDefIndex].type.index];
 			auto llvmFunctionType = asLLVMType(functionType,CallingConvention::wasm);
 			auto externalName = getExternalFunctionName(moduleInstance,functionDefIndex);
 			functionDefs[functionDefIndex] = llvm::Function::Create(llvmFunctionType,llvm::Function::ExternalLinkage,externalName,llvmModule);

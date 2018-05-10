@@ -350,7 +350,11 @@ int main(int argc,const char** argv)
 	Runtime::setUnhandledExceptionHandler(unhandledExceptionHandler);
 
 	Wavix::Process* process = Wavix::spawnProcess(filename,processArgs,{},"/");
-	if(!process) { return EXIT_FAILURE; }
+	if(!process)
+	{
+		std::cerr << "Failed to spawn \"" << filename << "\"." << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	while(true) {};
 

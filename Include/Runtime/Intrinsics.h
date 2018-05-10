@@ -31,13 +31,13 @@ namespace Intrinsics
 			Intrinsics::Module& moduleRef,
 			const char* inName,
 			void* inNativeFunction,
-			const IR::FunctionType* type,
+			IR::FunctionType type,
 			Runtime::CallingConvention inCallingConvention);
 		RUNTIME_API Runtime::FunctionInstance* instantiate(Runtime::Compartment* compartment);
 
 	private:
 		const char* name;
-		const IR::FunctionType* type;
+		IR::FunctionType type;
 		void* nativeFunction;
 		Runtime::CallingConvention callingConvention;
 	};
@@ -127,22 +127,22 @@ namespace Intrinsics
 	}
 
 	template<typename R,typename... Args>
-	const IR::FunctionType* inferIntrinsicFunctionType(
+	IR::FunctionType inferIntrinsicFunctionType(
 		R (*)(Runtime::ContextRuntimeData*,Args...))
 	{
-		return IR::FunctionType::get(IR::inferResultType<R>(),{IR::inferValueType<Args>()...});
+		return IR::FunctionType(IR::inferResultType<R>(),IR::TypeTuple({IR::inferValueType<Args>()...}));
 	}
 	template<typename R,typename... Args>
-	const IR::FunctionType* inferIntrinsicWithMemAndTableFunctionType(
+	IR::FunctionType inferIntrinsicWithMemAndTableFunctionType(
 		R (*)(Runtime::ContextRuntimeData*,MemoryIdArg,TableIdArg,Args...))
 	{
-		return IR::FunctionType::get(IR::inferResultType<R>(),{IR::inferValueType<Args>()...});
+		return IR::FunctionType(IR::inferResultType<R>(),IR::TypeTuple({IR::inferValueType<Args>()...}));
 	}
 	template<typename R,typename... Args>
-	const IR::FunctionType* inferIntrinsicWithContextSwitchFunctionType(
+	IR::FunctionType inferIntrinsicWithContextSwitchFunctionType(
 		ResultInContextRuntimeData<R>* (*)(Runtime::ContextRuntimeData*,Args...))
 	{
-		return IR::FunctionType::get(IR::inferResultType<R>(),{IR::inferValueType<Args>()...});
+		return IR::FunctionType(IR::inferResultType<R>(),IR::TypeTuple({IR::inferValueType<Args>()...}));
 	}
 
 }

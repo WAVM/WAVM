@@ -122,20 +122,27 @@ namespace Runtime
 		throwException(Exception::invalidFloatOperationType);
 	}
 	
-	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,"indirectCallSignatureMismatch",void,indirectCallSignatureMismatch,
-		I32 index, I64 expectedSignatureBits, I64 tableId)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
+		wavmIntrinsics, "indirectCallSignatureMismatch",
+		void, indirectCallSignatureMismatch,
+		I32 index, Uptr expectedSignatureBits
+		)
 	{
-		TableInstance* table = getTableFromRuntimeData(contextRuntimeData,tableId);
+		TableInstance* table = getTableFromRuntimeData(contextRuntimeData, defaultTableId.id);
 		wavmAssert(table);
 		void* elementValue = table->baseAddress[index].value;
-		const FunctionType* actualSignature = table->baseAddress[index].type;
-		const FunctionType* expectedSignature = reinterpret_cast<const FunctionType*>((Uptr)expectedSignatureBits);
+		FunctionType actualSignature {table->baseAddress[index].typeEncoding};
+		FunctionType expectedSignature {FunctionType::Encoding {expectedSignatureBits}};
 		std::string ipDescription = "<unknown>";
 		LLVMJIT::describeInstructionPointer(reinterpret_cast<Uptr>(elementValue),ipDescription);
-		Log::printf(Log::Category::debug,"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",
+		Log::printf(
+			Log::Category::debug,
+			"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",
 			asString(expectedSignature).c_str(),
 			index,
-			actualSignature ? asString(actualSignature).c_str() : "nullptr",
+			table->baseAddress[index].typeEncoding.impl
+				? asString(actualSignature).c_str()
+				: "nullptr",
 			ipDescription.c_str()
 			);
 		throwException(elementValue == nullptr ? Exception::undefinedTableElementType : Exception::indirectCallSignatureMismatchType);

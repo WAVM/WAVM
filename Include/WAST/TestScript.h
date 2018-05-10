@@ -83,9 +83,17 @@ namespace WAST
 	{
 		std::string internalModuleName;
 		std::string exportName;
-		std::vector<IR::Value> arguments;
-		InvokeAction(TextFileLocus&& inLocus,std::string&& inInternalModuleName,std::string&& inExportName,std::vector<IR::Value>&& inArguments)
-		: Action(ActionType::invoke,std::move(inLocus)), internalModuleName(inInternalModuleName), exportName(inExportName), arguments(inArguments)
+		IR::ValueTuple arguments;
+		InvokeAction(
+			TextFileLocus&& inLocus,
+			std::string&& inInternalModuleName,
+			std::string&& inExportName,
+			IR::ValueTuple&& inArguments
+			)
+		: Action(ActionType::invoke,std::move(inLocus))
+		, internalModuleName(inInternalModuleName)
+		, exportName(inExportName)
+		, arguments(inArguments)
 		{}
 	};
 
@@ -119,9 +127,9 @@ namespace WAST
 	struct AssertReturnCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		IR::Result expectedReturn;
-		AssertReturnCommand(TextFileLocus&& inLocus,Action* inAction,IR::Result inExpectedReturn)
-		: Command(Command::assert_return,std::move(inLocus)), action(inAction), expectedReturn(inExpectedReturn) {}
+		IR::ValueTuple expectedResults;
+		AssertReturnCommand(TextFileLocus&& inLocus,Action* inAction,IR::ValueTuple inExpectedResults)
+		: Command(Command::assert_return,std::move(inLocus)), action(inAction), expectedResults(inExpectedResults) {}
 	};
 
 	struct AssertReturnNaNCommand : Command
@@ -144,13 +152,13 @@ namespace WAST
 		std::unique_ptr<Action> action;
 		std::string exceptionTypeInternalModuleName;
 		std::string exceptionTypeExportName;
-		std::vector<IR::Value> expectedArguments;
+		IR::ValueTuple expectedArguments;
 		AssertThrowsCommand(
 			TextFileLocus&& inLocus,
 			Action* inAction,
 			std::string&& inExceptionTypeInternalModuleName,
 			std::string&& inExceptionTypeExportName,
-			std::vector<IR::Value>&& inExpectedArguments)
+			IR::ValueTuple&& inExpectedArguments)
 		: Command(Command::assert_throws,std::move(inLocus))
 		, action(inAction)
 		, exceptionTypeInternalModuleName(inExceptionTypeInternalModuleName)

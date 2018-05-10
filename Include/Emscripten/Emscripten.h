@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace IR { struct Module; struct Value; }
+namespace IR { struct Module; }
 namespace Runtime { struct ModuleInstance; struct Context; struct Compartment; }
 
 namespace Emscripten
@@ -24,9 +24,5 @@ namespace Emscripten
 
 	EMSCRIPTEN_API Instance* instantiate(Compartment* compartment, const IR::Module& module);
 	EMSCRIPTEN_API void initializeGlobals(Context* context,const IR::Module& module,ModuleInstance* moduleInstance);
-	EMSCRIPTEN_API void injectCommandArgs(
-		Emscripten::Instance* instance,
-		const std::vector<const char*>& argStrings,
-		std::vector<IR::Value>& outInvokeArgs
-		);
+	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,const std::vector<const char*>& argStrings,std::vector<IR::Value>& outInvokeArgs);
 }

@@ -24,7 +24,7 @@ namespace Runtime
 		table = 1,
 		memory = 2,
 		global = 3,
-		exceptionType = 4,
+		exceptionTypeInstance = 4,
 
 		// Runtime-specific object kinds that are only used by transient runtime objects.
 		module = 5,
@@ -73,7 +73,7 @@ namespace Runtime
 	DECLARE_OBJECT_TYPE(ObjectKind::memory,Memory,MemoryInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::global,Global,GlobalInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::module,Module,ModuleInstance);
-	DECLARE_OBJECT_TYPE(ObjectKind::exceptionType,ExceptionType,ExceptionTypeInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::exceptionTypeInstance,ExceptionTypeInstance,ExceptionTypeInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::context,Context,Context);
 	DECLARE_OBJECT_TYPE(ObjectKind::compartment,Compartment,Compartment);
 
@@ -164,13 +164,16 @@ namespace Runtime
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> misalignedAtomicMemoryAccessType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidArgumentType;
 
-		GCPointer<ExceptionTypeInstance> type;
+		GCPointer<ExceptionTypeInstance> typeInstance;
 		std::vector<IR::UntaggedValue> arguments;
 		Platform::CallStack callStack;
 	};
 
 	// Creates an exception type instance.
-	RUNTIME_API ExceptionTypeInstance* createExceptionTypeInstance(const IR::TupleType* parameters);
+	RUNTIME_API ExceptionTypeInstance* createExceptionTypeInstance(
+		IR::ExceptionType type,
+		std::string&& debugName
+		);
 
 	// Returns a string that describes the given exception cause.
 	RUNTIME_API std::string describeException(const Exception& exception);
@@ -179,7 +182,7 @@ namespace Runtime
 	RUNTIME_API std::string describeExceptionType(const ExceptionTypeInstance* type);
 
 	// Returns the parameter types for an exception type instance.
-	RUNTIME_API const IR::TupleType* getExceptionTypeParameters(const ExceptionTypeInstance* type);
+	RUNTIME_API IR::TypeTuple getExceptionTypeParameters(const ExceptionTypeInstance* type);
 
 	// Throws a runtime exception.
 	[[noreturn]] RUNTIME_API void throwException(
@@ -222,13 +225,14 @@ namespace Runtime
 
 	// Like invokeFunctionUnchecked, but returns a result tagged with its type, and takes arguments as tagged values.
 	// If the wrong number or types or arguments are provided, a runtime exception is thrown.
-	RUNTIME_API IR::Result invokeFunctionChecked(
+	RUNTIME_API IR::ValueTuple invokeFunctionChecked(
 		Context* context,
 		FunctionInstance* function,
-		const std::vector<IR::Value>& arguments);
+		const std::vector<IR::Value>& arguments
+		);
 
 	// Returns the type of a FunctionInstance.
-	RUNTIME_API const IR::FunctionType* getFunctionType(FunctionInstance* function);
+	RUNTIME_API IR::FunctionType getFunctionType(FunctionInstance* function);
 
 	//
 	// Tables
@@ -292,19 +296,15 @@ namespace Runtime
 	//
 
 	// Creates a GlobalInstance with the specified type and initial value.
-	RUNTIME_API GlobalInstance* createGlobal(
-		Compartment* compartment,
-		IR::GlobalType type,
-		IR::Value initialValue
-		);
+	RUNTIME_API GlobalInstance* createGlobal(Compartment* compartment,IR::GlobalType type,IR::Value initialValue);
 
-	RUNTIME_API GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
+	RUNTIME_API GlobalInstance* cloneGlobal(GlobalInstance* global,Compartment* newCompartment);
 
 	// Reads the current value of a global.
-	RUNTIME_API IR::Value getGlobalValue(Context* context, GlobalInstance* global);
+	RUNTIME_API IR::Value getGlobalValue(Context* context,GlobalInstance* global);
 
 	// Writes a new value to a global, and returns the previous value.
-	RUNTIME_API IR::Value setGlobalValue(Context* context, GlobalInstance* global, IR::Value newValue);
+	RUNTIME_API IR::Value setGlobalValue(Context* context,GlobalInstance* global,IR::Value newValue);
 
 	//
 	// Modules

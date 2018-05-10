@@ -114,9 +114,9 @@ static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTr
 	};
 }
 
-static bool processAction(TestScriptState& state,Action* action,Result& outResult)
+static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple& outResults)
 {
-	outResult = Result();
+	outResults = IR::ValueTuple();
 
 	switch(action->type)
 	{
@@ -187,7 +187,11 @@ static bool processAction(TestScriptState& state,Action* action,Result& outResul
 		if(!functionInstance) { testErrorf(state,invokeAction->locus,"couldn't find exported function with name: %s",invokeAction->exportName.c_str()); return false; }
 
 		// Execute the invoke
-		outResult = invokeFunctionChecked(state.context,functionInstance,invokeAction->arguments);
+		outResults = invokeFunctionChecked(
+			state.context,
+			functionInstance,
+			invokeAction->arguments.values
+			);
 
 		return true;
 	}
@@ -206,7 +210,7 @@ static bool processAction(TestScriptState& state,Action* action,Result& outResul
 		if(!globalInstance) { testErrorf(state,getAction->locus,"couldn't find exported global with name: %s",getAction->exportName.c_str()); return false; }
 
 		// Get the value of the specified global.
-		outResult = getGlobalValue(state.context,globalInstance);
+		outResults = getGlobalValue(state.context,globalInstance);
 			
 		return true;
 	}
@@ -242,21 +246,21 @@ void processCommand(TestScriptState& state,const Command* command)
 			}
 			case Command::action:
 			{
-				Result result;
-				processAction(state,((ActionCommand*)command)->action.get(),result);
+				IR::ValueTuple results;
+				processAction(state, ((ActionCommand*)command)->action.get(), results);
 				break;
 			}
 			case Command::assert_return:
 			{
 				auto assertCommand = (AssertReturnCommand*)command;
 				// Execute the action and do a bitwise comparison of the result to the expected result.
-				Result actionResult;
-				if(processAction(state,assertCommand->action.get(),actionResult)
-				&& !areBitsEqual(actionResult,assertCommand->expectedReturn))
+				IR::ValueTuple actionResults;
+				if(processAction(state, assertCommand->action.get(), actionResults)
+				&& actionResults != assertCommand->expectedResults)
 				{
 					testErrorf(state,assertCommand->locus,"expected %s but got %s",
-						asString(assertCommand->expectedReturn).c_str(),
-						asString(actionResult).c_str());
+						asString(assertCommand->expectedResults).c_str(),
+						asString(actionResults).c_str());
 				}
 				break;
 			}
@@ -264,19 +268,35 @@ void processCommand(TestScriptState& state,const Command* command)
 			{
 				auto assertCommand = (AssertReturnNaNCommand*)command;
 				// Execute the action and check that the result is a NaN of the expected type.
-				Result actionResult;
-				if(processAction(state,assertCommand->action.get(),actionResult))
+				IR::ValueTuple actionResults;
+				if(processAction(state, assertCommand->action.get(), actionResults))
 				{
-					const bool requireCanonicalNaN = assertCommand->type == Command::assert_return_canonical_nan;
-					const bool isError =
-							actionResult.type == ResultType::f32 ? !isCanonicalOrArithmeticNaN(actionResult.f32,requireCanonicalNaN)
-						:	actionResult.type == ResultType::f64 ? !isCanonicalOrArithmeticNaN(actionResult.f64,requireCanonicalNaN)
-						:	true;
-					if(isError)
+					if(actionResults.size() != 1)
 					{
-						testErrorf(state,assertCommand->locus,
-							requireCanonicalNaN ? "expected canonical float NaN but got %s" : "expected float NaN but got %s",
-							asString(actionResult).c_str());
+						testErrorf(
+							state, assertCommand->locus,
+							"expected single floating-point result, but got %s",
+							asString(actionResults).c_str()
+							);
+					}
+					else
+					{
+						IR::Value actionResult = actionResults[0];
+						const bool requireCanonicalNaN = assertCommand->type == Command::assert_return_canonical_nan;
+						const bool isError =
+								actionResult.type == ValueType::f32 ? !isCanonicalOrArithmeticNaN(actionResult.f32,requireCanonicalNaN)
+							:	actionResult.type == ValueType::f64 ? !isCanonicalOrArithmeticNaN(actionResult.f64,requireCanonicalNaN)
+							:	true;
+						if(isError)
+						{
+							testErrorf(
+								state,assertCommand->locus,
+								requireCanonicalNaN
+									? "expected canonical float NaN but got %s"
+									: "expected float NaN but got %s",
+								asString(actionResult).c_str()
+								);
+						}
 					}
 				}
 				break;
@@ -287,20 +307,24 @@ void processCommand(TestScriptState& state,const Command* command)
 				Runtime::catchRuntimeExceptions(
 					[&]
 					{
-						Result actionResult;
-						if(processAction(state,assertCommand->action.get(),actionResult))
+						IR::ValueTuple actionResults;
+						if(processAction(state, assertCommand->action.get(), actionResults))
 						{
-							testErrorf(state,assertCommand->locus,"expected trap but got %s",asString(actionResult).c_str());
+							testErrorf(
+								state, assertCommand->locus,
+								"expected trap but got %s",
+								asString(actionResults).c_str()
+								);
 						}
 					},
 					[&](Runtime::Exception&& exception)
 					{
 						Runtime::ExceptionTypeInstance* expectedType = getExpectedExceptionType(assertCommand->expectedType);
-						if(exception.type != expectedType)
+						if(exception.typeInstance != expectedType)
 						{
 							testErrorf(state,assertCommand->action->locus,"expected %s trap but got %s trap",
 								describeExceptionType(expectedType).c_str(),
-								describeExceptionType(exception.type).c_str());
+								describeExceptionType(exception.typeInstance).c_str());
 						}
 					});
 				break;
@@ -316,7 +340,10 @@ void processCommand(TestScriptState& state,const Command* command)
 				if(!moduleInstance) { break; }
 
 				// Find the named export in the module instance.
-				auto expectedExceptionType = asExceptionTypeNullable(getInstanceExport(moduleInstance,assertCommand->exceptionTypeExportName));
+				auto expectedExceptionType = asExceptionTypeInstanceNullable(getInstanceExport(
+					moduleInstance,
+					assertCommand->exceptionTypeExportName
+					));
 				if(!expectedExceptionType)
 				{
 					testErrorf(state,assertCommand->locus,"couldn't find exported exception type with name: %s",assertCommand->exceptionTypeExportName.c_str());
@@ -326,32 +353,36 @@ void processCommand(TestScriptState& state,const Command* command)
 				Runtime::catchRuntimeExceptions(
 					[&]
 					{
-						Result actionResult;
-						if(processAction(state,assertCommand->action.get(),actionResult))
+						IR::ValueTuple actionResults;
+						if(processAction(state, assertCommand->action.get(), actionResults))
 						{
-							testErrorf(state,assertCommand->locus,"expected trap but got %s",asString(actionResult).c_str());
+							testErrorf(
+								state, assertCommand->locus,
+								"expected trap but got %s",
+								asString(actionResults).c_str()
+								);
 						}
 					},
 					[&](Runtime::Exception&& exception)
 					{
-						if(exception.type != expectedExceptionType)
+						if(exception.typeInstance != expectedExceptionType)
 						{
 							testErrorf(state,assertCommand->action->locus,"expected %s exception but got %s exception",
 								describeExceptionType(expectedExceptionType).c_str(),
-								describeExceptionType(exception.type).c_str());
+								describeExceptionType(exception.typeInstance).c_str());
 						}
 						else
 						{
-							const TupleType* exceptionParameterTypes = getExceptionTypeParameters(expectedExceptionType);
-							wavmAssert(exception.arguments.size() == exceptionParameterTypes->elements.size());
+							TypeTuple exceptionParameterTypes = getExceptionTypeParameters(expectedExceptionType);
+							wavmAssert(exception.arguments.size() == exceptionParameterTypes.size());
 
 							for(Uptr argumentIndex = 0;argumentIndex < exception.arguments.size();++argumentIndex)
 							{
-								IR::Value argumentValue = IR::Value(
-									exceptionParameterTypes->elements[argumentIndex],
+								IR::Value argumentValue(
+									exceptionParameterTypes[argumentIndex],
 									exception.arguments[argumentIndex]
 									);
-								if(!areBitsEqual(argumentValue,assertCommand->expectedArguments[argumentIndex]))
+								if(argumentValue != assertCommand->expectedArguments[argumentIndex])
 								{
 									testErrorf(state,assertCommand->locus,"expected %s for exception argument %u but got %s",
 										asString(assertCommand->expectedArguments[argumentIndex]).c_str(),
@@ -376,7 +407,6 @@ void processCommand(TestScriptState& state,const Command* command)
 			case Command::assert_unlinkable:
 			{
 				auto assertCommand = (AssertUnlinkableCommand*)command;
-				Result result;
 				Runtime::catchRuntimeExceptions(
 					[&]
 					{
@@ -411,7 +441,11 @@ void processCommand(TestScriptState& state,const Command* command)
 		},
 		[&](Runtime::Exception&& exception)
 		{
-			testErrorf(state,command->locus,"unexpected trap: %s",describeExceptionType(exception.type).c_str());
+			testErrorf(
+				state,command->locus,
+				"unexpected trap: %s",
+				describeExceptionType(exception.typeInstance).c_str()
+				);
 		});
 }
 

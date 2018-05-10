@@ -39,7 +39,7 @@ namespace WAST
 		, localNameToIndexMap(inLocalNameToIndexMap)
 		, numLocals(
 			  inFunctionDef.nonParameterLocalTypes.size()
-			+ module.types[inFunctionDef.type.index]->parameters.size())
+			+ module.types[inFunctionDef.type.index].params().size())
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
 		, validatingCodeStream(module,functionDef,operationEncoder)
@@ -349,17 +349,60 @@ static void parseControlImm(CursorState* cursor,Name& outBranchTargetName,Contro
 	tryParseName(cursor,outBranchTargetName);
 	cursor->functionState->labelDisassemblyNames.push_back(outBranchTargetName.getString());
 	
-	imm.resultType = ResultType::none;
+	std::vector<ValueType> params;
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_param)
+	{
+		cursor->nextToken += 2;
+
+		ValueType param;
+		while(tryParseValueType(cursor, param))
+		{
+			params.push_back(param);
+		};
+
+		require(cursor, t_rightParenthesis);
+	}
+
+	std::vector<ValueType> results;
 	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
 	{
 		cursor->nextToken += 2;
-		tryParseResultType(cursor,imm.resultType);
+
+		ValueType result;
+		while(tryParseValueType(cursor, result))
+		{
+			results.push_back(result);
+		};
+
 		require(cursor,t_rightParenthesis);
 	}
 	else
 	{
 		// For backward compatibility, also handle just a result type.
-		tryParseResultType(cursor,imm.resultType);
+		ValueType result;
+		if(tryParseValueType(cursor,result))
+		{
+			results.push_back(result);
+		}
+	}
+	
+	if(params.size() == 0 && results.size() == 0)
+	{
+		imm.type.format = IndexedBlockType::noParametersOrResult;
+		imm.type.resultType = ValueType::any;
+	}
+	else if(params.size() == 0 && results.size() == 1)
+	{
+		imm.type.format = IndexedBlockType::oneResult;
+		imm.type.resultType = results[0];
+	}
+	else
+	{
+		imm.type.format = IndexedBlockType::functionType;
+		imm.type.index = getUniqueFunctionTypeIndex(cursor->moduleState, FunctionType(
+			TypeTuple(results),
+			TypeTuple(params)
+			)).index;
 	}
 }
 
@@ -664,8 +707,8 @@ namespace WAST
 			(ModuleState* moduleState)
 			{
 				FunctionDef& functionDef = moduleState->module.functions.defs[functionDefIndex];
-				const FunctionType* functionType = functionTypeIndex.index == UINT32_MAX
-					? FunctionType::get()
+				FunctionType functionType = functionTypeIndex.index == UINT32_MAX
+					? FunctionType()
 					: moduleState->module.types[functionTypeIndex.index];
 
 				// Parse the function's local variables.
@@ -679,7 +722,7 @@ namespace WAST
 							moduleState->parseState,
 							*localNameToIndexMap,
 							localName,
-							functionType->parameters.size() + functionDef.nonParameterLocalTypes.size());
+							functionType.params().size() + functionDef.nonParameterLocalTypes.size());
 						localDisassemblyNames->push_back(localName.getString());
 						functionDef.nonParameterLocalTypes.push_back(parseValueType(&functionCursorState));
 					}
@@ -698,18 +741,20 @@ namespace WAST
 				// Parse the function's code.
 				FunctionState functionState(localNameToIndexMap,functionDef,moduleState->module);
 				functionCursorState.functionState = &functionState;
+				const Token* validationErrorToken = firstBodyToken;
 				try
 				{
 					parseInstrSequence(&functionCursorState);
 					if(!moduleState->parseState->unresolvedErrors.size())
 					{
+						validationErrorToken = functionCursorState.nextToken;
 						functionState.validatingCodeStream.end();
 						functionState.validatingCodeStream.finishValidation();
 					}
 				}
 				catch(ValidationException exception)
 				{
-					parseErrorf(moduleState->parseState,firstBodyToken,"%s",exception.message.c_str());
+					parseErrorf(moduleState->parseState,validationErrorToken,"%s",exception.message.c_str());
 				}
 				catch(RecoverParseException) {}
 				catch(FatalParseException) {}

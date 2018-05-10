@@ -138,7 +138,7 @@ namespace Runtime
 		const Uptr saturatedIndex = Platform::saturateToBounds(index,table->elements.size());
 
 		// Write the new table element to both the table's elements array and its indirect function call data.
-		table->baseAddress[saturatedIndex].type = functionInstance->type;
+		table->baseAddress[saturatedIndex].typeEncoding = functionInstance->type.getEncoding();
 		table->baseAddress[saturatedIndex].value = nativeFunction;
 
 		auto oldValue = table->elements[saturatedIndex];

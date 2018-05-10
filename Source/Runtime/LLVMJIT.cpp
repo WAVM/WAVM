@@ -26,7 +26,7 @@ namespace LLVMJIT
 	Platform::Mutex llvmMutex;
 	llvm::LLVMContext* llvmContext = nullptr;
 	llvm::TargetMachine* targetMachine = nullptr;
-	llvm::Type* llvmResultTypes[(Uptr)ResultType::num];
+	llvm::Type* llvmValueTypes[(Uptr)ValueType::num];
 	llvm::JITEventListener* gdbRegistrationListener = nullptr;
 
 	llvm::Type* llvmI8Type;
@@ -57,7 +57,7 @@ namespace LLVMJIT
 	std::map<Uptr,struct JITSymbol*> addressToSymbolMap;
 
 	// A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
-	HashMap<const FunctionType*,struct JITSymbol*> invokeThunkTypeToSymbolMap;
+	HashMap<FunctionType,struct JITSymbol*> invokeThunkTypeToSymbolMap;
 
 	// A map from function types to JIT symbols for cached native thunks (WASM -> C++)
 	HashMap<void*,struct JITSymbol*> intrinsicFunctionToThunkSymbolMap;
@@ -76,7 +76,7 @@ namespace LLVMJIT
 		union
 		{
 			FunctionInstance* functionInstance;
-			const FunctionType* invokeThunkType;
+			FunctionType invokeThunkType;
 		};
 		Uptr baseAddress;
 		Uptr numBytes;
@@ -85,7 +85,7 @@ namespace LLVMJIT
 		JITSymbol(FunctionInstance* inFunctionInstance,Uptr inBaseAddress,Uptr inNumBytes,std::map<U32,U32>&& inOffsetToOpIndexMap)
 		: type(Type::functionInstance), functionInstance(inFunctionInstance), baseAddress(inBaseAddress), numBytes(inNumBytes), offsetToOpIndexMap(inOffsetToOpIndexMap) {}
 
-		JITSymbol(const FunctionType* inInvokeThunkType,Uptr inBaseAddress,Uptr inNumBytes,std::map<U32,U32>&& inOffsetToOpIndexMap)
+		JITSymbol(FunctionType inInvokeThunkType,Uptr inBaseAddress,Uptr inNumBytes,std::map<U32,U32>&& inOffsetToOpIndexMap)
 		: type(Type::invokeThunk), invokeThunkType(inInvokeThunkType), baseAddress(inBaseAddress), numBytes(inNumBytes), offsetToOpIndexMap(inOffsetToOpIndexMap) {}
 	};
 
@@ -351,11 +351,11 @@ namespace LLVMJIT
 	// The JIT compilation unit for a single invoke thunk.
 	struct JITThunkUnit : JITUnit
 	{
-		const FunctionType* functionType;
+		FunctionType functionType;
 
 		JITSymbol* symbol;
 
-		JITThunkUnit(const FunctionType* inFunctionType): JITUnit(false), functionType(inFunctionType), symbol(nullptr) {}
+		JITThunkUnit(FunctionType inFunctionType): JITUnit(true), functionType(inFunctionType), symbol(nullptr) {}
 
 		void notifySymbolLoaded(const char* name,Uptr baseAddress,Uptr numBytes,std::map<U32,U32>&& offsetToOpIndexMap) override
 		{
@@ -731,7 +731,7 @@ namespace LLVMJIT
 		};
 	}
 
-	InvokeFunctionPointer getInvokeThunk(const FunctionType* functionType,CallingConvention callingConvention)
+	InvokeFunctionPointer getInvokeThunk(FunctionType functionType,CallingConvention callingConvention)
 	{
 		Platform::Lock llvmLock(llvmMutex);
 
@@ -763,9 +763,8 @@ namespace LLVMJIT
 		// Load the function's arguments from an array of 64-bit values at an address provided by the caller.
 		std::vector<llvm::Value*> arguments;
 		Uptr argDataOffset = 0;
-		for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+		for(ValueType parameterType : functionType.params())
 		{
-			ValueType parameterType = functionType->parameters[parameterIndex];
 			if(parameterType == ValueType::v128)
 			{
 				// Use 16-byte alignment for V128 arguments.
@@ -782,20 +781,27 @@ namespace LLVMJIT
 		}
 
 		// Call the function.
-		llvm::Value* result = emitContext.emitCallOrInvoke(functionPointer,arguments,functionType,callingConvention);
+		ValueVector results = emitContext.emitCallOrInvoke(
+			functionPointer,
+			arguments,
+			functionType,
+			callingConvention
+			);
 
 		// If the function has a return value, write it to the context invoke return memory.
-		if(functionType->ret != ResultType::none)
+		wavmAssert(results.size() == functionType.results().size());
+		llvm::Type* llvmResultStructType = asLLVMType(functionType.results());
+		auto newContextPointer = emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable);
+		for(Uptr resultIndex = 0;resultIndex < results.size();++resultIndex)
 		{
-			auto llvmResultType = asLLVMType(functionType->ret);
 			emitContext.irBuilder.CreateStore(
-				result,
-				emitContext.irBuilder.CreatePointerCast(
-					emitContext.irBuilder.CreateInBoundsGEP(
-						emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable),
-						{emitLiteral(U64(offsetof(ContextRuntimeData,thunkArgAndReturnData)))}
+				results[resultIndex],
+				emitContext.irBuilder.CreateInBoundsGEP(
+					emitContext.irBuilder.CreatePointerCast(
+						newContextPointer,
+						llvmResultStructType->getPointerTo()
 						),
-					llvmResultType->getPointerTo()
+					{emitLiteral(U32(0)), emitLiteral(U32(resultIndex))}
 					)
 				);
 		}
@@ -817,7 +823,7 @@ namespace LLVMJIT
 		return reinterpret_cast<InvokeFunctionPointer>(invokeThunkSymbol->baseAddress);
 	}
 
-	void* getIntrinsicThunk(void* nativeFunction,const FunctionType* functionType,CallingConvention callingConvention)
+	void* getIntrinsicThunk(void* nativeFunction,FunctionType functionType,CallingConvention callingConvention)
 	{
 		wavmAssert(callingConvention == CallingConvention::intrinsic
 		|| callingConvention == CallingConvention::intrinsicWithContextSwitch
@@ -855,18 +861,15 @@ namespace LLVMJIT
 
 		llvm::Type* llvmNativeFunctionType = asLLVMType(functionType,callingConvention)->getPointerTo();
 		llvm::Value* llvmNativeFunction = emitLiteralPointer(nativeFunction,llvmNativeFunctionType);
-		llvm::Value* result = emitContext.emitCallOrInvoke(llvmNativeFunction,args,functionType,callingConvention);
-
-		// Package the context pointer and result in a struct.
-		llvm::Value* thunkReturnStruct = getZeroedLLVMReturnStruct(functionType->ret);
-		llvm::Value* contextPointer = emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable);
-		thunkReturnStruct = emitContext.irBuilder.CreateInsertValue(thunkReturnStruct,contextPointer,{0});
-		if(functionType->ret != ResultType::none)
-		{
-			thunkReturnStruct = emitContext.irBuilder.CreateInsertValue(thunkReturnStruct,result,{1});
-		}
-
-		emitContext.irBuilder.CreateRet(thunkReturnStruct);
+		ValueVector results = emitContext.emitCallOrInvoke(
+			llvmNativeFunction,
+			args,
+			functionType,
+			callingConvention
+			);
+		
+		// Emit the function return.
+		emitContext.emitReturn(functionType.results(), results);
 
 		// Compile the LLVM IR to machine code.
 		auto jitUnit = new JITThunkUnit(functionType);
@@ -934,12 +937,11 @@ namespace LLVMJIT
 		llvmF32x4Type = llvm::VectorType::get(llvmF32Type,4);
 		llvmF64x2Type = llvm::VectorType::get(llvmF64Type,2);
 
-		llvmResultTypes[(Uptr)ResultType::none] = llvm::Type::getVoidTy(*llvmContext);
-		llvmResultTypes[(Uptr)ResultType::i32] = llvmI32Type;
-		llvmResultTypes[(Uptr)ResultType::i64] = llvmI64Type;
-		llvmResultTypes[(Uptr)ResultType::f32] = llvmF32Type;
-		llvmResultTypes[(Uptr)ResultType::f64] = llvmF64Type;
-		llvmResultTypes[(Uptr)ResultType::v128] = llvmI64x2Type;
+		llvmValueTypes[(Uptr)ValueType::i32] = llvmI32Type;
+		llvmValueTypes[(Uptr)ValueType::i64] = llvmI64Type;
+		llvmValueTypes[(Uptr)ValueType::f32] = llvmF32Type;
+		llvmValueTypes[(Uptr)ValueType::f64] = llvmF64Type;
+		llvmValueTypes[(Uptr)ValueType::v128] = llvmI64x2Type;
 
 		// Create zero constants of each type.
 		typedZeroConstants[(Uptr)ValueType::any] = nullptr;

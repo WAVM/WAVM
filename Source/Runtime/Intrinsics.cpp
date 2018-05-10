@@ -33,7 +33,7 @@ namespace Intrinsics
 		Intrinsics::Module& moduleRef,
 		const char* inName,
 		void* inNativeFunction,
-		const IR::FunctionType* inType,
+		IR::FunctionType inType,
 		Runtime::CallingConvention inCallingConvention)
 	: name(inName)
 	, type(inType)
@@ -53,7 +53,7 @@ namespace Intrinsics
 	{
 		return new Runtime::FunctionInstance(
 			nullptr,
-			IR::FunctionType::get(type->ret,type->parameters),
+			type,
 			nativeFunction,
 			callingConvention,
 			name);
@@ -163,7 +163,7 @@ namespace Intrinsics
 				case Runtime::ObjectKind::table: moduleInstance->tables.push_back(asTable(object)); break;
 				case Runtime::ObjectKind::memory: moduleInstance->memories.push_back(asMemory(object)); break;
 				case Runtime::ObjectKind::global: moduleInstance->globals.push_back(asGlobal(object)); break;
-				case Runtime::ObjectKind::exceptionType: moduleInstance->exceptionTypes.push_back(asExceptionType(object)); break;
+				case Runtime::ObjectKind::exceptionTypeInstance: moduleInstance->exceptionTypeInstances.push_back(asExceptionTypeInstance(object)); break;
 				default: Errors::unreachable();
 				};
 			}

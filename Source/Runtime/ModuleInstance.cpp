@@ -69,10 +69,13 @@ namespace Runtime
 		{
 			errorUnless(isA(moduleInstance->globals[importIndex],module.globals.imports[importIndex].type));
 		}
-		errorUnless(moduleInstance->exceptionTypes.size() == module.exceptionTypes.imports.size());
+		errorUnless(moduleInstance->exceptionTypeInstances.size() == module.exceptionTypes.imports.size());
 		for(Uptr importIndex = 0;importIndex < module.exceptionTypes.imports.size();++importIndex)
 		{
-			errorUnless(isA(moduleInstance->exceptionTypes[importIndex],module.exceptionTypes.imports[importIndex].type));
+			errorUnless(isA(
+				moduleInstance->exceptionTypeInstances[importIndex],
+				module.exceptionTypes.imports[importIndex].type
+				));
 		}
 
 		// Instantiate the module's memory and table definitions.
@@ -150,7 +153,10 @@ namespace Runtime
 		// Instantiate the module's exception types.
 		for(const ExceptionTypeDef& exceptionTypeDef : module.exceptionTypes.defs)
 		{
-			moduleInstance->exceptionTypes.push_back(createExceptionTypeInstance(exceptionTypeDef.type));
+			moduleInstance->exceptionTypeInstances.push_back(createExceptionTypeInstance(
+				exceptionTypeDef.type,
+				"wasmException"
+				));
 		}
 		
 		// Create the FunctionInstance objects for the module's function definitions.
@@ -183,7 +189,7 @@ namespace Runtime
 			case IR::ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
 			case IR::ObjectKind::memory: exportedObject = moduleInstance->memories[exportIt.index]; break;
 			case IR::ObjectKind::global: exportedObject = moduleInstance->globals[exportIt.index]; break;
-			case IR::ObjectKind::exceptionType: exportedObject = moduleInstance->exceptionTypes[exportIt.index]; break;
+			case IR::ObjectKind::exceptionType: exportedObject = moduleInstance->exceptionTypeInstances[exportIt.index]; break;
 			default: Errors::unreachable();
 			}
 			errorUnless(moduleInstance->exportMap.add(exportIt.name, exportedObject));
@@ -211,7 +217,7 @@ namespace Runtime
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
 			moduleInstance->startFunction = moduleInstance->functions[module.startFunctionIndex];
-			wavmAssert(moduleInstance->startFunction->type == IR::FunctionType::get());
+			wavmAssert(moduleInstance->startFunction->type == IR::FunctionType());
 		}
 
 		return moduleInstance;

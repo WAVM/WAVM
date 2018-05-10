@@ -476,7 +476,10 @@ namespace Emscripten
 		// Call the establishStackSpace function to set the Emscripten module's internal stack pointers.
 		FunctionInstance* establishStackSpace = asFunctionNullable(getInstanceExport(moduleInstance,"establishStackSpace"));
 		if(establishStackSpace
-		&& getFunctionType(establishStackSpace) == FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i64}))
+			&& getFunctionType(establishStackSpace) == FunctionType(
+				TypeTuple {},
+				TypeTuple {ValueType::i32,ValueType::i64}
+				))
 		{
 			std::vector<IR::Value> parameters =
 			{
@@ -498,7 +501,11 @@ namespace Emscripten
 		}
 	}
 
-	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,const std::vector<const char*>& argStrings,std::vector<IR::Value>& outInvokeArgs)
+	EMSCRIPTEN_API void injectCommandArgs(
+		Emscripten::Instance* instance,
+		const std::vector<const char*>& argStrings,
+		std::vector<IR::Value>& outInvokeArgs
+		)
 	{
 		MemoryInstance* memory = instance->emscriptenMemory;
 		U8* emscriptenMemoryBaseAdress = getMemoryBaseAddress(memory);

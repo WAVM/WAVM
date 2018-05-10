@@ -129,7 +129,7 @@ namespace Runtime
 				break;
 			}
 
-			case ObjectKind::exceptionType:
+			case ObjectKind::exceptionTypeInstance:
 				break;
 
 			default: Errors::unreachable();

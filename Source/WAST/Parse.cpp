@@ -99,11 +99,6 @@ namespace WAST
 			return false;
 		};
 	}
-	
-	bool tryParseResultType(CursorState* cursor,ResultType& outResultType)
-	{
-		return tryParseValueType(cursor,*(ValueType*)&outResultType);
-	}
 
 	ValueType parseValueType(CursorState* cursor)
 	{
@@ -116,10 +111,10 @@ namespace WAST
 		return result;
 	}
 
-	const FunctionType* parseFunctionType(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames)
+	FunctionType parseFunctionType(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames)
 	{
 		std::vector<ValueType> parameters;
-		ResultType ret = ResultType::none;
+		std::vector<ValueType> results;
 
 		// Parse the function parameters.
 		while(tryParseParenthesizedTagged(cursor,t_param,[&]
@@ -152,17 +147,15 @@ namespace WAST
 			{
 				require(cursor,t_result);
 
-				ResultType resultElementType;
-				const Token* elementToken = cursor->nextToken;
-				while(tryParseResultType(cursor,resultElementType))
+				ValueType result;
+				while(tryParseValueType(cursor, result))
 				{
-					if(ret != ResultType::none) { parseErrorf(cursor->parseState,elementToken,"function type cannot have more than 1 result element"); }
-					ret = resultElementType;
+					results.push_back(result);
 				};
 			});
 		};
 
-		return FunctionType::get(ret,parameters);
+		return FunctionType(TypeTuple(results),TypeTuple(parameters));
 	}
 	
 	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames)
@@ -184,7 +177,7 @@ namespace WAST
 		}
 
 		// Parse the explicit function parameters and result type.
-		const FunctionType* explicitFunctionType = parseFunctionType(cursor,outLocalNameToIndexMap,outLocalDisassemblyNames);
+		FunctionType explicitFunctionType = parseFunctionType(cursor,outLocalNameToIndexMap,outLocalDisassemblyNames);
 
 		UnresolvedFunctionType result;
 		result.reference = functionTypeRef;
@@ -208,7 +201,7 @@ namespace WAST
 				unresolvedType.reference);
 
 			// Validate that if the function definition has both a type reference and explicit parameter/result type declarations, they match.
-			const bool hasExplicitParametersOrResultType = unresolvedType.explicitType != FunctionType::get();
+			const bool hasExplicitParametersOrResultType = unresolvedType.explicitType != FunctionType();
 			if(hasExplicitParametersOrResultType)
 			{
 				if(referencedFunctionTypeIndex != UINT32_MAX
@@ -227,7 +220,7 @@ namespace WAST
 		}
 	}
 
-	IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,const FunctionType* functionType)
+	IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,FunctionType functionType)
 	{
 		// If this type is not in the module's type table yet, add it.
 		U32& functionTypeIndex = moduleState->functionTypeToIndexMap.getOrAdd(functionType,UINT32_MAX);

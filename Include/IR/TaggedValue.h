@@ -50,65 +50,81 @@ namespace IR
 		{
 			switch(value.type)
 			{
-			case IR::ValueType::i32: return "(i32.const " + IR::asString(value.i32) + ')';
-			case IR::ValueType::i64: return "(i64.const " + IR::asString(value.i64) + ')';
-			case IR::ValueType::f32: return "(f32.const " + IR::asString(value.f32) + ')';
-			case IR::ValueType::f64: return "(f64.const " + IR::asString(value.f64) + ')';
-			case IR::ValueType::v128: return "(v128.const " + IR::asString(value.v128) + ')';
+			case IR::ValueType::i32: return "i32.const " + IR::asString(value.i32);
+			case IR::ValueType::i64: return "i64.const " + IR::asString(value.i64);
+			case IR::ValueType::f32: return "f32.const " + IR::asString(value.f32);
+			case IR::ValueType::f64: return "f64.const " + IR::asString(value.f64);
+			case IR::ValueType::v128: return "v128.const " + IR::asString(value.v128);
 			default: Errors::unreachable();
 			}
+		}
+
+		friend bool operator==(const Value& left, const Value& right)
+		{
+			if(left.type != right.type) { return false; }
+			switch(left.type)
+			{
+			case IR::ValueType::i32:
+			case IR::ValueType::f32: return left.i32 == right.i32;
+			case IR::ValueType::i64:
+			case IR::ValueType::f64: return left.i64 == right.i64;
+			case IR::ValueType::v128: return left.v128 == right.v128;
+			default: Errors::unreachable();
+			};
+		}
+		
+		friend bool operator!=(const Value& left, const Value& right)
+		{
+			return !(left == right);
 		}
 	};
 
 	// A boxed value: may hold any value that can be returned from a function invoked through the runtime.
-	struct Result : UntaggedValue
+	struct ValueTuple
 	{
-		IR::ResultType type;
+		std::vector<Value> values;
 
-		Result(I32 inI32): UntaggedValue(inI32), type(IR::ResultType::i32) {}
-		Result(I64 inI64): UntaggedValue(inI64), type(IR::ResultType::i64) {}
-		Result(U32 inU32): UntaggedValue(inU32), type(IR::ResultType::i32) {}
-		Result(U64 inU64): UntaggedValue(inU64), type(IR::ResultType::i64) {}
-		Result(F32 inF32): UntaggedValue(inF32), type(IR::ResultType::f32) {}
-		Result(F64 inF64): UntaggedValue(inF64), type(IR::ResultType::f64) {}
-		Result(const V128& inV128): UntaggedValue(inV128), type(IR::ResultType::v128) {}
-		Result(IR::ResultType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
-		Result(const Value& inValue): UntaggedValue(inValue), type(asResultType(inValue.type)) {}
-		Result(): type(IR::ResultType::none) {}
-
-		friend std::string asString(const Result& result)
+		ValueTuple(IR::ValueType inType, UntaggedValue inValue): values({Value(inType, inValue)}) {}
+		ValueTuple(IR::TypeTuple types, UntaggedValue* inValues)
 		{
-			switch(result.type)
+			values.reserve(types.size());
+			for(IR::ValueType type : types)
 			{
-			case IR::ResultType::none: return "()";
-			case IR::ResultType::i32: return "(i32.const " + IR::asString(result.i32) + ')';
-			case IR::ResultType::i64: return "(i64.const " + IR::asString(result.i64) + ')';
-			case IR::ResultType::f32: return "(f32.const " + IR::asString(result.f32) + ')';
-			case IR::ResultType::f64: return "(f64.const " + IR::asString(result.f64) + ')';
-			case IR::ResultType::v128: return "(v128.const " + IR::asString(result.v128) + ')';
-			default: Errors::unreachable();
+				values.push_back(Value(type,*inValues++));
 			}
 		}
-	};
+		ValueTuple(const Value& inValue): values({inValue}) {}
+		ValueTuple() {}
 
-	// Compares whether two UntaggedValue of the same type have identical bits.
-	inline bool areBitsEqual(IR::ResultType type,UntaggedValue a,UntaggedValue b)
-	{
-		switch(type)
+		Uptr size() const { return values.size(); }
+		      Value& operator[](Uptr index)       { return values[index]; }
+		const Value& operator[](Uptr index) const { return values[index]; }
+
+		friend std::string asString(const ValueTuple& valueTuple)
 		{
-		case IR::ResultType::i32:
-		case IR::ResultType::f32: return a.i32 == b.i32;
-		case IR::ResultType::i64:
-		case IR::ResultType::f64: return a.i64 == b.i64;
-		case IR::ResultType::v128: return a.v128.u64[0] == b.v128.u64[0] && a.v128.u64[1] == b.v128.u64[1];
-		case IR::ResultType::none: return true;
-		default: Errors::unreachable();
-		};
-	}
-
-	// Compares whether two Value/Result have the same type and bits.
-	inline bool areBitsEqual(const Value& a,const Value& b) { return a.type == b.type && areBitsEqual(asResultType(a.type),a,b); }
-	inline bool areBitsEqual(const Result& a,const Result& b) { return a.type == b.type && areBitsEqual(a.type,a,b); }
-	inline bool areBitsEqual(const Result& a,const Value& b) { return a.type == asResultType(b.type) && areBitsEqual(a.type,a,b); }
-	inline bool areBitsEqual(const Value& a,const Result& b) { return asResultType(a.type) == b.type && areBitsEqual(b.type,a,b); }
+			std::string result = "(";
+			for(Uptr elementIndex = 0;elementIndex < valueTuple.size();++elementIndex)
+			{
+				if(elementIndex != 0) { result += ", "; }
+				result += asString(valueTuple[elementIndex]);
+			}
+			result += ")";
+			return result;
+		}
+		
+		friend bool operator==(const ValueTuple& left, const ValueTuple& right)
+		{
+			if(left.size() != right.size()) { return false; }
+			for(Uptr valueIndex = 0;valueIndex < left.size();++valueIndex)
+			{
+				if(left[valueIndex] != right[valueIndex]) { return false; }
+			}
+			return true;
+		}
+		
+		friend bool operator!=(const ValueTuple& left, const ValueTuple& right)
+		{
+			return !(left == right);
+		}
+	};
 }

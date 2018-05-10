@@ -93,7 +93,7 @@ namespace Wavix
 		if(args->startFunction)
 		{
 			// Validation should reject the module if the start function isn't ()->()
-			wavmAssert(getFunctionType(args->startFunction) == FunctionType::get());
+			wavmAssert(getFunctionType(args->startFunction) == FunctionType());
 			invokeFunctionUnchecked(args->thread->context,args->startFunction,nullptr);
 		}
 
@@ -226,8 +226,8 @@ namespace Wavix
 			return nullptr;
 		}
 
-		const FunctionType* functionType = getFunctionType(mainThreadArgs->mainFunction);
-		if(functionType != FunctionType::get())
+		FunctionType functionType = getFunctionType(mainThreadArgs->mainFunction);
+		if(functionType != FunctionType())
 		{
 			Log::printf(
 				Log::Category::error,
@@ -339,7 +339,7 @@ namespace Wavix
 			std::string argsString;
 			for(const auto& argString : args)
 			{
-				if(argsString.size()) { argsString += ','; }
+				if(argsString.size()) { argsString += ", "; }
 				argsString += '\"';
 				argsString += argString;
 				argsString += '\"';
@@ -347,7 +347,7 @@ namespace Wavix
 			std::string envsString;
 			for(const auto& envString : args)
 			{
-				if(envsString.size()) { envsString += ','; }
+				if(envsString.size()) { envsString += ", "; }
 				envsString += '\"';
 				envsString += envString;
 				envsString += '\"';

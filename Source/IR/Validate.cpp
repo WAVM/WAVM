@@ -41,14 +41,6 @@ namespace IR
 		}
 	}
 
-	void validate(ResultType returnType)
-	{
-		if(returnType > ResultType::max)
-		{
-			throw ValidationException("invalid return type (" + std::to_string((Uptr)returnType) + ")");
-		}
-	}
-
 	void validate(ObjectKind kind)
 	{
 		if(kind > ObjectKind::max)
@@ -116,19 +108,6 @@ namespace IR
 		}
 	}
 
-	void validateOperandType(ValueType expectedType,ValueType actualType,const char* context)
-	{
-		// Handle polymorphic values popped off the operand stack after unconditional branches.
-		if(expectedType != actualType && expectedType != ValueType::any && actualType != ValueType::any)
-		{
-			throw ValidationException(
-				std::string("type mismatch: expected ") + asString(expectedType)
-				+ " but got " + asString(actualType)
-				+ " in " + context + " operand"
-				);
-		}
-	}
-
 	ValueType validateGlobalIndex(const Module& module,Uptr globalIndex,bool mustBeMutable,bool mustBeImmutable,bool mustBeImport,const char* context)
 	{
 		VALIDATE_INDEX(globalIndex,module.globals.size());
@@ -139,10 +118,43 @@ namespace IR
 		return globalType.valueType;
 	}
 
-	const FunctionType* validateFunctionIndex(const Module& module,Uptr functionIndex)
+	FunctionType validateFunctionIndex(const Module& module,Uptr functionIndex)
 	{
 		VALIDATE_INDEX(functionIndex,module.functions.size());
 		return module.types[module.functions.getType(functionIndex).index];
+	}
+
+	FunctionType validateBlockType(const Module& module, const IndexedBlockType& type)
+	{
+		switch(type.format)
+		{
+		case IndexedBlockType::noParametersOrResult: return FunctionType();
+		case IndexedBlockType::oneResult:
+			validate(type.resultType);
+			return FunctionType(TypeTuple(type.resultType));
+		case IndexedBlockType::functionType:
+		{
+			VALIDATE_INDEX(type.index, module.types.size());
+			FunctionType functionType = module.types[type.index];
+			if(functionType.params().size() > 0
+				&& !module.featureSpec.multipleResultsAndBlockParams)
+			{
+				throw ValidationException(
+					"block has params, but \"multivalue\" extension is disabled"
+					);
+			}
+			else if(functionType.results().size() > 1
+				&& !module.featureSpec.multipleResultsAndBlockParams)
+			{
+				throw ValidationException(
+					"block has multiple results, but \"multivalue\" extension is disabled"
+					);
+			}
+			return functionType;
+		}
+		default:
+			Errors::unreachable();
+		}
 	}
 		
 	void validateInitializer(const Module& module,const InitializerExpression& expression,ValueType expectedType,const char* context)
@@ -170,12 +182,12 @@ namespace IR
 		: module(inModule), functionDef(inFunctionDef), functionType(inModule.types[inFunctionDef.type.index])
 		{
 			// Initialize the local types.
-			locals.reserve(functionType->parameters.size() + functionDef.nonParameterLocalTypes.size());
-			locals = functionType->parameters;
-			locals.insert(locals.end(),functionDef.nonParameterLocalTypes.begin(),functionDef.nonParameterLocalTypes.end());
+			locals.reserve(functionType.params().size() + functionDef.nonParameterLocalTypes.size());
+			locals.insert(locals.end(), functionType.params().begin(), functionType.params().end());
+			locals.insert(locals.end(), functionDef.nonParameterLocalTypes.begin(), functionDef.nonParameterLocalTypes.end());
 
 			// Push the function context onto the control stack.
-			pushControlStack(ControlContext::Type::function,functionType->ret,functionType->ret);
+			pushControlStack(ControlContext::Type::function,functionType.results(),functionType.results());
 		}
 
 		Uptr getControlStackSize() { return controlStack.size(); }
@@ -223,86 +235,98 @@ namespace IR
 		}
 		void block(ControlStructureImm imm)
 		{
-			validate(imm.resultType);
-			pushControlStack(ControlContext::Type::block,imm.resultType,imm.resultType);
+			const FunctionType type = validateBlockType(module, imm.type);
+			popAndValidateTypeTuple("block arguments", type.params());
+			pushControlStack(ControlContext::Type::block, type.results(), type.results());
+			
+			pushOperandTuple(type.params());
 		}
 		void loop(ControlStructureImm imm)
 		{
-			validate(imm.resultType);
-			pushControlStack(ControlContext::Type::loop,ResultType::none,imm.resultType);
+			const FunctionType type = validateBlockType(module, imm.type);
+			popAndValidateTypeTuple("loop arguments", type.params());
+			pushControlStack(ControlContext::Type::loop, type.params(), type.results());
+			pushOperandTuple(type.params());
 		}
 		void if_(ControlStructureImm imm)
 		{
-			validate(imm.resultType);
+			const FunctionType type = validateBlockType(module, imm.type);
 			popAndValidateOperand("if condition",ValueType::i32);
-			pushControlStack(ControlContext::Type::ifThen,imm.resultType,imm.resultType);
+			popAndValidateTypeTuple("if arguments", type.params());
+			pushControlStack(ControlContext::Type::ifThen, type.results(), type.results(), type.params());
+			pushOperandTuple(type.params());
 		}
 		void else_(NoImm imm)
 		{
-			popAndValidateResultType("if result",controlStack.back().resultType);
+			TypeTuple params = controlStack.back().elseParams;
+			popAndValidateTypeTuple("if result",controlStack.back().results);
 			popControlStack(true);
+			pushOperandTuple(params);
 		}
 		void end(NoImm)
 		{
-			popAndValidateResultType("end result",controlStack.back().resultType);
+			popAndValidateTypeTuple("end result",controlStack.back().results);
 			popControlStack();
 		}
 		void try_(ControlStructureImm imm)
 		{
+			const FunctionType type = validateBlockType(module, imm.type);
 			VALIDATE_FEATURE("try",exceptionHandling);
-			validate(imm.resultType);
-			pushControlStack(ControlContext::Type::try_,imm.resultType,imm.resultType);
+			popAndValidateTypeTuple("try arguments", type.params());
+			pushControlStack(ControlContext::Type::try_, type.results(), type.results());
+			pushOperandTuple(type.params());
 		}
 		void catch_(CatchImm imm)
 		{
 			VALIDATE_FEATURE("try",exceptionHandling);
 			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
-			const TupleType* tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+			ExceptionType type = module.exceptionTypes.getType(imm.exceptionTypeIndex);
 
-			popAndValidateResultType("try result",controlStack.back().resultType);
+			popAndValidateTypeTuple("try result",controlStack.back().results);
 			popControlStack(false,true);
 
-			for(auto parameterType : tupleType->elements) { pushOperand(parameterType); }
+			for(auto param : type.params) { pushOperand(param); }
 		}
 		void catch_all(NoImm)
 		{
 			VALIDATE_FEATURE("try",exceptionHandling);
-			popAndValidateResultType("try result",controlStack.back().resultType);
+			popAndValidateTypeTuple("try result",controlStack.back().results);
 			popControlStack(false,true);
 		}
 
 		void return_(NoImm)
 		{
-			popAndValidateResultType("ret",functionType->ret);
+			popAndValidateTypeTuple("ret",functionType.results());
 			enterUnreachable();
 		}
 
 		void br(BranchImm imm)
 		{
-			popAndValidateResultType("br argument",getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
+			popAndValidateTypeTuple("br argument",getBranchTargetByDepth(imm.targetDepth).params);
 			enterUnreachable();
 		}
 		void br_table(BranchTableImm imm)
 		{
 			popAndValidateOperand("br_table index",ValueType::i32);
-			const ResultType defaultTargetArgumentType = getBranchTargetByDepth(imm.defaultTargetDepth).branchArgumentType;
-			popAndValidateResultType("br_table argument",defaultTargetArgumentType);
+			const TypeTuple defaultTargetParams = getBranchTargetByDepth(imm.defaultTargetDepth).params;
+			popAndValidateTypeTuple("br_table argument",defaultTargetParams);
 
 			wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
 			const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 			for(Uptr targetIndex = 0;targetIndex < targetDepths.size();++targetIndex)
 			{
-				const ResultType targetArgumentType = getBranchTargetByDepth(targetDepths[targetIndex]).branchArgumentType;
-				VALIDATE_UNLESS("br_table target argument must match default target argument: ",targetArgumentType != defaultTargetArgumentType);
+				const TypeTuple targetParams = getBranchTargetByDepth(targetDepths[targetIndex]).params;
+				VALIDATE_UNLESS("br_table target argument must match default target argument: ",targetParams != defaultTargetParams);
 			}
 
 			enterUnreachable();
 		}
 		void br_if(BranchImm imm)
 		{
+			const TypeTuple targetParams = getBranchTargetByDepth(imm.targetDepth).params;
 			popAndValidateOperand("br_if condition",ValueType::i32);
-			popAndValidateResultType("br_if argument",getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
-			pushOperand(getBranchTargetByDepth(imm.targetDepth).branchArgumentType);
+			popAndValidateTypeTuple("br_if argument", targetParams);
+			pushOperandTuple(targetParams);
 		}
 
 		void unreachable(NoImm)
@@ -311,16 +335,14 @@ namespace IR
 		}
 		void drop(NoImm)
 		{
-			popOperand();
+			popAndValidateOperand("drop", ValueType::any);
 		}
 
 		void select(NoImm)
 		{
-			const ValueType condition = popOperand();
-			const ValueType falseType = popOperand();
-			const ValueType trueType = popOperand();
-			validateOperandType(ValueType::i32,condition,"select condition");
-			validateOperandType(falseType,trueType,"select operands");
+			popAndValidateOperand("select condition", ValueType::i32);
+			const ValueType falseType = popAndValidateOperand("select false value", ValueType::any);
+			popAndValidateOperand("select true value", falseType);
 			pushOperand(falseType);
 		}
 
@@ -350,18 +372,18 @@ namespace IR
 
 		void call(CallImm imm)
 		{
-			const FunctionType* calleeType = validateFunctionIndex(module,imm.functionIndex);
-			popAndValidateOperands("call arguments",calleeType->parameters.data(),(Uptr)calleeType->parameters.size());
-			pushOperand(calleeType->ret);
+			FunctionType calleeType = validateFunctionIndex(module,imm.functionIndex);
+			popAndValidateTypeTuple("call arguments",calleeType.params());
+			pushOperandTuple(calleeType.results());
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
 			VALIDATE_INDEX(imm.type.index,module.types.size());
 			VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",module.tables.size()==0);
-			const FunctionType* calleeType = module.types[imm.type.index];
+			FunctionType calleeType = module.types[imm.type.index];
 			popAndValidateOperand("call_indirect function index",ValueType::i32);
-			popAndValidateOperands("call_indirect arguments",calleeType->parameters.data(),(Uptr)calleeType->parameters.size());
-			pushOperand(calleeType->ret);
+			popAndValidateTypeTuple("call_indirect arguments",calleeType.params());
+			pushOperandTuple(calleeType.results());
 		}
 		
 		void validateImm(NoImm) {}
@@ -410,8 +432,8 @@ namespace IR
 		void validateImm(ThrowImm imm)
 		{
 			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
-			const TupleType* tupleType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
-			popAndValidateOperands("exception arguments",tupleType->elements.data(),(Uptr)tupleType->elements.size());
+			ExceptionType exceptionType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+			popAndValidateTypeTuple("exception arguments", exceptionType.params);
 			enterUnreachable();
 		}
 
@@ -425,17 +447,18 @@ namespace IR
 
 		#define LOAD(resultTypeId) \
 			popAndValidateOperand(operatorName,ValueType::i32); \
-			pushOperand(ResultType::resultTypeId);
+			pushOperand(ValueType::resultTypeId);
 		#define STORE(valueTypeId) \
 			popAndValidateOperands(operatorName,ValueType::i32,ValueType::valueTypeId);
+		#define NONE
 		#define NULLARY(resultTypeId) \
-			pushOperand(ResultType::resultTypeId);
+			pushOperand(ValueType::resultTypeId);
 		#define BINARY(operandTypeId,resultTypeId) \
 			popAndValidateOperands(operatorName,ValueType::operandTypeId,ValueType::operandTypeId); \
-			pushOperand(ResultType::resultTypeId)
+			pushOperand(ValueType::resultTypeId)
 		#define UNARY(operandTypeId,resultTypeId) \
 			popAndValidateOperand(operatorName,ValueType::operandTypeId); \
-			pushOperand(ResultType::resultTypeId)
+			pushOperand(ValueType::resultTypeId)
 		#define VECTORSELECT(vectorTypeId) \
 			popAndValidateOperands(operatorName,ValueType::vectorTypeId,ValueType::vectorTypeId,ValueType::vectorTypeId); \
 			pushOperand(ValueType::vectorTypeId);
@@ -484,27 +507,45 @@ namespace IR
 			Type type;
 			Uptr outerStackSize;
 			
-			ResultType branchArgumentType;
-			ResultType resultType;
+			TypeTuple params;
+			TypeTuple results;
 			bool isReachable;
+
+			TypeTuple elseParams;
 		};
 
 		const Module& module;
 		const FunctionDef& functionDef;
-		const FunctionType* functionType;
+		FunctionType functionType;
 
 		std::vector<ValueType> locals;
 		std::vector<ControlContext> controlStack;
 		std::vector<ValueType> stack;
 
-		void pushControlStack(ControlContext::Type type,ResultType branchArgumentType,ResultType resultType)
+		void pushControlStack(
+			ControlContext::Type type,
+			TypeTuple params,
+			TypeTuple results,
+			TypeTuple elseParams = TypeTuple()
+			)
 		{
-			controlStack.push_back({type,stack.size(),branchArgumentType,resultType,true});
+			controlStack.push_back({type,stack.size(), params, results, true, elseParams});
 		}
 
 		void popControlStack(bool isElse = false,bool isCatch = false)
 		{
-			VALIDATE_UNLESS("stack was not empty at end of control structure: ",stack.size() > controlStack.back().outerStackSize);
+			if(stack.size() != controlStack.back().outerStackSize)
+			{
+				std::string message = "stack was not empty at end of control structure: ";
+				for(Uptr stackIndex = controlStack.back().outerStackSize;
+					stackIndex < stack.size();
+					++stackIndex)
+				{
+					if(stackIndex != controlStack.back().outerStackSize) { message += ", "; }
+					message += asString(stack[stackIndex]);
+				}
+				throw ValidationException(std::move(message));
+			}
 
 			if(isElse && controlStack.back().type == ControlContext::Type::ifThen)
 			{
@@ -522,13 +563,13 @@ namespace IR
 			{
 				VALIDATE_UNLESS("else only allowed in if context: ",isElse);
 				VALIDATE_UNLESS("catch only allowed in try context: ",isCatch);
-				const ResultType resultType = controlStack.back().resultType;
-				if(controlStack.back().type == ControlContext::Type::ifThen && resultType != ResultType::none)
+				TypeTuple results = controlStack.back().results;
+				if(controlStack.back().type == ControlContext::Type::ifThen && results.size())
 				{
 					throw ValidationException("else-less if may not yield a result");
 				}
 				controlStack.pop_back();
-				if(controlStack.size()) { pushOperand(resultType); }
+				if(controlStack.size()) { pushOperandTuple(results); }
 			}
 		}
 
@@ -556,31 +597,12 @@ namespace IR
 			return locals[localIndex];
 		}
 		
-		ValueType popOperand()
-		{
-			if(stack.size() > controlStack.back().outerStackSize)
-			{
-				const ValueType result = stack.back();
-				stack.pop_back();
-				return result;
-			}
-			else if(controlStack.back().isReachable)
-			{
-				throw ValidationException("invalid stack access");
-			}
-			else
-			{
-				return ValueType::any;
-			}
-		}
-
 		void popAndValidateOperands(const char* context,const ValueType* expectedTypes,Uptr num)
 		{
 			for(Uptr operandIndexFromEnd = 0;operandIndexFromEnd < num;++operandIndexFromEnd)
 			{
 				const Uptr operandIndex = num - operandIndexFromEnd - 1;
-				const ValueType actualType = popOperand();
-				validateOperandType(expectedTypes[operandIndex],actualType,context);
+				popAndValidateOperand(context, expectedTypes[operandIndex]);
 			}
 		}
 
@@ -594,24 +616,57 @@ namespace IR
 			popAndValidateOperands(context,operandTypes);
 		}
 
-		void popAndValidateOperand(const char* context,const ValueType expectedType)
+		ValueType popAndValidateOperand(const char* context,const ValueType expectedType)
 		{
-			const ValueType actualType = popOperand();
-			validateOperandType(expectedType,actualType,context);
+			ValueType actualType;
+			if(stack.size() > controlStack.back().outerStackSize)
+			{
+				actualType = stack.back();
+				stack.pop_back();
+			}
+			else if(!controlStack.back().isReachable)
+			{
+				// If the current instruction is unreachable, then pop a polymorphic type that will
+				// match any expected type.
+				actualType = ValueType::any;
+			}
+			else
+			{
+				// If the current instruction is reachable, but the operand stack is empty, then
+				// throw a validation exception.
+				throw ValidationException(
+					std::string("type mismatch: expected ") + asString(expectedType)
+					+ " but stack was empty"
+					+ " in " + context + " operand"
+					);
+			}
+			
+			if(expectedType != actualType
+				&& expectedType != ValueType::any
+				&& actualType != ValueType::any)
+			{
+				throw ValidationException(
+					std::string("type mismatch: expected ") + asString(expectedType)
+					+ " but got " + asString(actualType)
+					+ " in " + context + " operand"
+					);
+			}
+
+			return actualType;
 		}
 
-		void popAndValidateResultType(const char* context,ResultType expectedType)
+		void popAndValidateTypeTuple(const char* context,TypeTuple expectedType)
 		{
-			if(expectedType != ResultType::none) { popAndValidateOperand(context,asValueType(expectedType)); }
+			popAndValidateOperands(context, expectedType.data(), expectedType.size());
 		}
 
 		void pushOperand(ValueType type)
 		{
 			stack.push_back(type);
 		}
-		void pushOperand(ResultType type)
+		void pushOperandTuple(TypeTuple typeTuple)
 		{
-			if(type != ResultType::none) { pushOperand(asValueType(type)); }
+			for(ValueType type : typeTuple) { pushOperand(type); }
 		}
 	};
 	
@@ -621,9 +676,16 @@ namespace IR
 		
 		for(Uptr typeIndex = 0;typeIndex < module.types.size();++typeIndex)
 		{
-			const FunctionType* functionType = module.types[typeIndex];
-			for(auto parameterType : functionType->parameters) { validate(parameterType); }
-			validate(functionType->ret);
+			FunctionType functionType = module.types[typeIndex];
+			for(auto parameterType : functionType.params()) { validate(parameterType); }
+			
+			if(functionType.results().size() > 1
+				&& !module.featureSpec.multipleResultsAndBlockParams)
+			{
+				throw ValidationException(
+					"function has multiple results, but \"multivalue\" extension is disabled"
+					);
+			}
 		}
 
 		for(auto& functionImport : module.functions.imports)
@@ -693,8 +755,8 @@ namespace IR
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
 			VALIDATE_INDEX(module.startFunctionIndex,module.functions.size());
-			const FunctionType* startFunctionType = module.types[module.functions.getType(module.startFunctionIndex).index];
-			VALIDATE_UNLESS("start function must not have any parameters or results: ",startFunctionType != FunctionType::get());
+			FunctionType startFunctionType = module.types[module.functions.getType(module.startFunctionIndex).index];
+			VALIDATE_UNLESS("start function must not have any parameters or results: ",startFunctionType != FunctionType());
 		}
 			
 		for(auto& dataSegment : module.dataSegments)

@@ -15,7 +15,7 @@ namespace IR
 
 	struct ControlStructureImm
 	{
-		ResultType resultType;
+		IndexedBlockType type;
 	};
 
 	struct BranchImm
@@ -127,6 +127,7 @@ namespace IR
 	
 	/*
 		Possible signatures used by ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS:
+		NONE : () -> ()
 		NULLARY(T) : () -> T
 		UNARY(T,U) : T -> U
 		BINARY(T,U) : (T,T) -> U
@@ -141,7 +142,7 @@ namespace IR
 	*/
 
 	#define ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp) \
-		visitOp(0x01,nop,"nop",NoImm,NULLARY(none),mvp) \
+		visitOp(0x01,nop,"nop",NoImm,NONE,mvp) \
 		\
 		visitOp(0x3f,memory_size,"memory.size",MemoryImm,NULLARY(i32),mvp) \
 		visitOp(0x40,memory_grow,"memory.grow",MemoryImm,UNARY(i32,i32),mvp) \

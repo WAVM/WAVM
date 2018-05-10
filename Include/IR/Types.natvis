@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="IR::TypeTuple">
+    <DisplayString>{impl->numElems} types</DisplayString>
+    <Expand>
+      <ArrayItems>
+        <Size>impl->numElems</Size>
+        <ValuePointer>impl->elems</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+</AutoVisualizer>

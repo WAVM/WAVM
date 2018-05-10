@@ -16,7 +16,7 @@ namespace Runtime
 		case IR::ObjectKind::global: return asGlobalType(type) == asGlobal(object)->type;
 		case IR::ObjectKind::table: return isSubset(asTableType(type),asTable(object)->type);
 		case IR::ObjectKind::memory: return isSubset(asMemoryType(type),asMemory(object)->type);
-		case IR::ObjectKind::exceptionType: return asExceptionTypeType(type) == asExceptionType(object)->parameters;
+		case IR::ObjectKind::exceptionType: return asExceptionType(type) == asExceptionTypeInstance(object)->type;
 		default: Errors::unreachable();
 		}
 	}
@@ -29,14 +29,14 @@ namespace Runtime
 		case Runtime::ObjectKind::global: return asGlobal(object)->type;
 		case Runtime::ObjectKind::table: return asTable(object)->type;
 		case Runtime::ObjectKind::memory: return asMemory(object)->type;
-		case Runtime::ObjectKind::exceptionType: return asExceptionType(object)->parameters;
+		case Runtime::ObjectKind::exceptionTypeInstance: return asExceptionTypeInstance(object)->type;
 		default: Errors::unreachable();
 		};
 	}
 
 	UntaggedValue* invokeFunctionUnchecked(Context* context,FunctionInstance* function,const UntaggedValue* arguments)
 	{
-		const FunctionType* functionType = function->type;
+		FunctionType functionType = function->type;
 		
 		// Get the invoke thunk for this function type.
 		auto invokeFunctionPointer = LLVMJIT::getInvokeThunk(functionType,function->callingConvention);
@@ -45,9 +45,9 @@ namespace Runtime
 		ContextRuntimeData* contextRuntimeData = &context->compartment->runtimeData->contexts[context->id];
 		U8* argData = contextRuntimeData->thunkArgAndReturnData;
 		Uptr argDataOffset = 0;
-		for(Uptr argumentIndex = 0;argumentIndex < functionType->parameters.size();++argumentIndex)
+		for(Uptr argumentIndex = 0;argumentIndex < functionType.params().size();++argumentIndex)
 		{
-			const ValueType type = functionType->parameters[argumentIndex];
+			const ValueType type = functionType.params()[argumentIndex];
 			const UntaggedValue& argument = arguments[argumentIndex];
 			if(type == ValueType::v128)
 			{
@@ -72,19 +72,19 @@ namespace Runtime
 		return (UntaggedValue*)contextRuntimeData->thunkArgAndReturnData;
 	}
 
-	Result invokeFunctionChecked(Context* context,FunctionInstance* function,const std::vector<Value>& arguments)
+	ValueTuple invokeFunctionChecked(Context* context,FunctionInstance* function,const std::vector<Value>& arguments)
 	{
-		const FunctionType* functionType = function->type;
+		FunctionType functionType = function->type;
 
 		// Check that the parameter types match the function, and copy them into a memory block that stores each as a 64-bit value.
-		if(arguments.size() != functionType->parameters.size())
+		if(arguments.size() != functionType.params().size())
 		{ throwException(Exception::invokeSignatureMismatchType); }
 
 		// Convert the arguments from a vector of TaggedValues to a stack-allocated block of UntaggedValues.
 		UntaggedValue* untaggedArguments = (UntaggedValue*)alloca(arguments.size() * sizeof(UntaggedValue));
 		for(Uptr argumentIndex = 0;argumentIndex < arguments.size();++argumentIndex)
 		{
-			if(functionType->parameters[argumentIndex] != arguments[argumentIndex].type)
+			if(functionType.params()[argumentIndex] != arguments[argumentIndex].type)
 			{
 				throwException(Exception::invokeSignatureMismatchType);
 			}
@@ -92,10 +92,25 @@ namespace Runtime
 			untaggedArguments[argumentIndex] = arguments[argumentIndex];
 		}
 
-		return Result(functionType->ret,*invokeFunctionUnchecked(context,function,untaggedArguments));
+		U8* resultStructBase = (U8*)invokeFunctionUnchecked(context,function,untaggedArguments);
+
+		ValueTuple results;
+		Uptr resultOffset = 0;
+		for(ValueType resultType : functionType.results())
+		{
+			const U8 resultNumBytes = getTypeByteWidth(resultType);
+
+			resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
+
+			UntaggedValue* result = (UntaggedValue*)(resultStructBase + resultOffset);
+			results.values.push_back(Value(resultType, *result));
+
+			resultOffset += resultNumBytes;
+		}
+		return results;
 	}
 	
-	const FunctionType* getFunctionType(FunctionInstance* function)
+	FunctionType getFunctionType(FunctionInstance* function)
 	{
 		return function->type;
 	}

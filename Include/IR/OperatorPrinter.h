@@ -33,7 +33,11 @@ namespace IR
 		const FunctionDef& functionDef;
 
 		std::string describeImm(NoImm) { return ""; }
-		std::string describeImm(ControlStructureImm imm) { return std::string(" : ") + asString(imm.resultType); }
+		std::string describeImm(ControlStructureImm imm)
+		{
+			const FunctionType type = resolveBlockType(module, imm.type);
+			return std::string(" : ") + asString(type.params()) + " -> " + asString(type.results());
+		}
 		std::string describeImm(BranchImm imm) { return " " + std::to_string(imm.targetDepth); }
 		std::string describeImm(BranchTableImm imm)
 		{

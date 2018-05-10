@@ -59,6 +59,16 @@ static IR::Value parseConstExpression(CursorState* cursor)
 	return result;
 }
 
+static IR::ValueTuple parseConstExpressionTuple(CursorState* cursor)
+{
+	IR::ValueTuple tuple;
+	while(cursor->nextToken->type == t_leftParenthesis)
+	{
+		tuple.values.push_back(parseConstExpression(cursor));
+	};
+	return tuple;
+}
+
 static std::string parseOptionalNameAsString(CursorState* cursor)
 {
 	Name name;
@@ -147,12 +157,7 @@ static Action* parseAction(CursorState* cursor)
 			std::string nameString = parseOptionalNameAsString(cursor);
 			std::string exportName = parseUTF8String(cursor);
 
-			std::vector<IR::Value> arguments;
-			while(cursor->nextToken->type == t_leftParenthesis)
-			{
-				arguments.push_back(parseConstExpression(cursor));
-			};
-
+			IR::ValueTuple arguments = parseConstExpressionTuple(cursor);
 			result = new InvokeAction(std::move(locus),std::move(nameString),std::move(exportName),std::move(arguments));
 			break;
 		}
@@ -221,8 +226,8 @@ static Command* parseCommand(CursorState* cursor)
 				++cursor->nextToken;
 
 				Action* action = parseAction(cursor);
-				IR::Result expectedReturn = cursor->nextToken->type == t_leftParenthesis ? parseConstExpression(cursor) : IR::Result();
-				result = new AssertReturnCommand(std::move(locus),action,expectedReturn);
+				IR::ValueTuple expectedResults = parseConstExpressionTuple(cursor);
+				result = new AssertReturnCommand(std::move(locus),action,expectedResults);
 				break;
 			}
 			case t_assert_return_canonical_nan:
@@ -276,12 +281,7 @@ static Command* parseCommand(CursorState* cursor)
 				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(cursor);
 				std::string exceptionTypeExportName = parseUTF8String(cursor);
 
-				std::vector<IR::Value> expectedArguments;
-				while(cursor->nextToken->type == t_leftParenthesis)
-				{
-					expectedArguments.push_back(parseConstExpression(cursor));
-				};
-
+				IR::ValueTuple expectedArguments = parseConstExpressionTuple(cursor);
 				result = new AssertThrowsCommand(
 					std::move(locus),
 					action,

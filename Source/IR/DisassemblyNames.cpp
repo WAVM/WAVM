@@ -65,14 +65,14 @@ namespace IR
 		for(const auto& functionImport : module.functions.imports)
 		{
 			DisassemblyNames::Function functionNames;
-			functionNames.locals.resize(module.types[functionImport.type.index]->parameters.size());
+			functionNames.locals.resize(module.types[functionImport.type.index].params().size());
 			outNames.functions.push_back(std::move(functionNames));
 		}
 		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
 			const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
 			DisassemblyNames::Function functionNames;
-			functionNames.locals.insert(functionNames.locals.begin(),module.types[functionDef.type.index]->parameters.size() + functionDef.nonParameterLocalTypes.size(),"");
+			functionNames.locals.insert(functionNames.locals.begin(),module.types[functionDef.type.index].params().size() + functionDef.nonParameterLocalTypes.size(),"");
 			outNames.functions.push_back(std::move(functionNames));
 		}
 		

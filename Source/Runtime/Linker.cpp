@@ -10,7 +10,7 @@
 
 namespace Runtime
 {
-	const FunctionType* resolveImportType(const IR::Module& module,IndexedFunctionType type)
+	FunctionType resolveImportType(const IR::Module& module,IndexedFunctionType type)
 	{
 		return module.types[type.index];
 	}

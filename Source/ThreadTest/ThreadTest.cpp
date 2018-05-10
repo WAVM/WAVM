@@ -127,7 +127,9 @@ namespace ThreadTest
 
 		// Validate that the entry function wasn't null, and it has the correct type (i32)->i64
 		if(!entryFunction) { throwException(Runtime::Exception::undefinedTableElementType); }
-		else if(Runtime::getFunctionType(entryFunction) != FunctionType::get(ResultType::i64,{ValueType::i32}))
+		else if(Runtime::getFunctionType(entryFunction) != FunctionType(
+			TypeTuple {ValueType::i64},
+			TypeTuple {ValueType::i32}))
 		{
 			throwException(Runtime::Exception::indirectCallSignatureMismatchType);
 		}

@@ -106,7 +106,7 @@ namespace WAST
 	struct UnresolvedFunctionType
 	{
 		Reference reference;
-		const IR::FunctionType* explicitType;
+		IR::FunctionType explicitType;
 	};
 
 	// State associated with parsing a module.
@@ -116,7 +116,7 @@ namespace WAST
 
 		IR::Module& module;
 
-		HashMap<const IR::FunctionType*,U32> functionTypeToIndexMap;
+		HashMap<IR::FunctionType,U32> functionTypeToIndexMap;
 		NameToIndexMap typeNameToIndexMap;
 
 		NameToIndexMap functionNameToIndexMap;
@@ -168,13 +168,12 @@ namespace WAST
 
 	// Type parsing and uniqueing
 	bool tryParseValueType(CursorState* cursor,IR::ValueType& outValueType);
-	bool tryParseResultType(CursorState* cursor,IR::ResultType& outResultType);
 	IR::ValueType parseValueType(CursorState* cursor);
 
-	const IR::FunctionType* parseFunctionType(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
+	IR::FunctionType parseFunctionType(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
 	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
 	IR::IndexedFunctionType resolveFunctionType(ModuleState* moduleState,const UnresolvedFunctionType& unresolvedType);
-	IR::IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,const IR::FunctionType* functionType);
+	IR::IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,IR::FunctionType functionType);
 
 	// Literal parsing.
 	bool tryParseHexit(const char*& nextChar,U8& outValue);

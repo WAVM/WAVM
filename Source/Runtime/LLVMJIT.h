@@ -65,11 +65,15 @@
 
 namespace LLVMJIT
 {
+	typedef llvm::SmallVector<llvm::Value*, 1> ValueVector;
+	typedef llvm::SmallVector<llvm::PHINode*, 1> PHIVector;
+
 	// The global LLVM context.
 	extern llvm::LLVMContext* llvmContext;
 	
 	// Maps a type ID to the corresponding LLVM type.
-	extern llvm::Type* llvmResultTypes[(Uptr)ResultType::num];
+	extern llvm::Type* llvmValueTypes[Uptr(ValueType::num)];
+
 	extern llvm::Type* llvmI8Type;
 	extern llvm::Type* llvmI16Type;
 	extern llvm::Type* llvmI32Type;
@@ -116,35 +120,62 @@ namespace LLVMJIT
 	}
 
 	// Converts a WebAssembly type to a LLVM type.
-	inline llvm::Type* asLLVMType(ValueType type) { return llvmResultTypes[(Uptr)asResultType(type)]; }
-	inline llvm::Type* asLLVMType(ResultType type) { return llvmResultTypes[(Uptr)type]; }
-
-	inline llvm::StructType* getLLVMReturnStructType(ResultType resultType)
+	inline llvm::Type* asLLVMType(ValueType type)
 	{
-		if(resultType == ResultType::none)
+		wavmAssert(type < ValueType::num);
+		return llvmValueTypes[Uptr(type)];
+	}
+	
+	inline llvm::Type* asLLVMType(TypeTuple typeTuple)
+	{
+		llvm::Type** llvmTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * typeTuple.size());
+		for(Uptr typeIndex = 0;typeIndex < typeTuple.size();++typeIndex)
 		{
-			return llvm::StructType::get(llvmI8PtrType);
+			llvmTypes[typeIndex] = asLLVMType(typeTuple[typeIndex]);
+		}
+		return llvm::StructType::get(
+			*llvmContext,
+			llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size())
+			);
+	}
+
+	inline bool areResultsReturnedDirectly(TypeTuple results)
+	{
+		// On X64, the calling conventions can return up to 3 i64s and 4 float/vectors.
+		// For simplicity, just allow up to 3 values to be returned, including the implicitly
+		// returned context pointer.
+		enum { maxDirectlyReturnedValues = 3 };
+		return results.size() + 1 <= maxDirectlyReturnedValues;
+	}
+
+	inline llvm::StructType* getLLVMReturnStructType(TypeTuple results)
+	{
+		if(areResultsReturnedDirectly(results))
+		{
+			// A limited number of results can be packed into a struct and returned directly.
+			return llvm::StructType::get(llvmI8PtrType, asLLVMType(results));
 		}
 		else
 		{
-			llvm::Type* llvmResultType = asLLVMType(resultType);
-			return llvm::StructType::get(llvmI8PtrType,llvmResultType);
+			// If there are too many results to be returned directly, they will be returned in
+			// the context arg/return memory block.
+			return llvm::StructType::get(llvmI8PtrType);
 		}
 	}
 
-	inline llvm::Constant* getZeroedLLVMReturnStruct(ResultType resultType)
+	inline llvm::Constant* getZeroedLLVMReturnStruct(TypeTuple resultType)
 	{
 		return llvm::Constant::getNullValue(getLLVMReturnStructType(resultType));
 	}
 
 	// Converts a WebAssembly function type to a LLVM type.
-	inline llvm::FunctionType* asLLVMType(const FunctionType* functionType,Runtime::CallingConvention callingConvention)
+	inline llvm::FunctionType* asLLVMType(FunctionType functionType,Runtime::CallingConvention callingConvention)
 	{
 		const Uptr numImplicitParameters =
 			  callingConvention == CallingConvention::intrinsicWithMemAndTable ? 3
 			: callingConvention == CallingConvention::c                                  ? 0
 			:                                                                              1;
-		const Uptr numParameters = numImplicitParameters + functionType->parameters.size();
+		const Uptr numParameters = numImplicitParameters + functionType.params().size();
 		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 		if(callingConvention == CallingConvention::intrinsicWithMemAndTable)
 		{
@@ -156,16 +187,16 @@ namespace LLVMJIT
 		{
 			llvmArgTypes[0] = llvmI8PtrType;
 		}
-		for(Uptr argIndex = 0; argIndex < functionType->parameters.size(); ++argIndex)
+		for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 		{
-			llvmArgTypes[argIndex + numImplicitParameters] = asLLVMType(functionType->parameters[argIndex]);
+			llvmArgTypes[argIndex + numImplicitParameters] = asLLVMType(functionType.params()[argIndex]);
 		}
 
 		llvm::Type* llvmReturnType;
 		switch(callingConvention)
 		{
 		case CallingConvention::wasm:
-			llvmReturnType = getLLVMReturnStructType(functionType->ret);
+			llvmReturnType = getLLVMReturnStructType(functionType.results());
 			break;
 
 		case CallingConvention::intrinsicWithContextSwitch:
@@ -175,7 +206,12 @@ namespace LLVMJIT
 		case CallingConvention::intrinsicWithMemAndTable:
 		case CallingConvention::intrinsic:
 		case CallingConvention::c:
-			llvmReturnType = asLLVMType(functionType->ret);
+			switch(functionType.results().size())
+			{
+			case 0: llvmReturnType = llvmVoidType; break;
+			case 1: llvmReturnType = asLLVMType(functionType.results()[0]); break;
+			default: Errors::fatal("intrinsics/C functions returning >1 result isn't supported");
+			}
 			break;
 
 		default: Errors::unreachable();
@@ -261,10 +297,10 @@ namespace LLVMJIT
 
 
 		// Creates either a call or an invoke if the call occurs inside a try.
-		llvm::Value* emitCallOrInvoke(
+		ValueVector emitCallOrInvoke(
 			llvm::Value* callee,
 			llvm::ArrayRef<llvm::Value*> args,
-			const FunctionType* calleeType,
+			FunctionType calleeType,
 			CallingConvention callingConvention,
 			llvm::BasicBlock* unwindToBlock = nullptr)
 		{
@@ -312,23 +348,44 @@ namespace LLVMJIT
 				returnValue = invoke;
 			}
 
-			llvm::Value* result = nullptr;
+			ValueVector results;
 			switch(callingConvention)
 			{
 			case CallingConvention::wasm:
 			{
-				// Destructure the return value.
-				auto newContextPointer = irBuilder.CreateExtractValue(returnValue,{0});
-				if(calleeType->ret != ResultType::none)
-				{
-					result = irBuilder.CreateExtractValue(returnValue,{1});
-				}
-
 				// Update the context variable.
+				auto newContextPointer = irBuilder.CreateExtractValue(returnValue,{0});
 				irBuilder.CreateStore(newContextPointer,contextPointerVariable);
 
 				// Reload the memory/table base pointers.
 				reloadMemoryAndTableBase();
+				
+				if(areResultsReturnedDirectly(calleeType.results()))
+				{
+					// If the results are returned directly, extract them from the returned struct.
+					for(Uptr resultIndex = 0;resultIndex < calleeType.results().size();++resultIndex)
+					{
+						results.push_back(irBuilder.CreateExtractValue(
+							returnValue,
+							{U32(1), U32(resultIndex)}
+							));
+					}
+				}
+				else
+				{
+					// Otherwise, load them from the context.
+					llvm::Type* resultStructType = asLLVMType(calleeType.results());
+					for(Uptr resultIndex = 0;resultIndex < calleeType.results().size();++resultIndex)
+					{
+						results.push_back(irBuilder.CreateLoad(irBuilder.CreateInBoundsGEP(
+							irBuilder.CreatePointerCast(
+								newContextPointer,
+								resultStructType->getPointerTo()
+								),
+							{emitLiteral(U32(0)), emitLiteral(U32(resultIndex))}
+							)));
+					}
+				}
 
 				break;
 			}
@@ -343,9 +400,11 @@ namespace LLVMJIT
 				reloadMemoryAndTableBase();
 
 				// Load the call result from the returned context.
-				if(calleeType->ret != ResultType::none)
+				wavmAssert(calleeType.results().size() <= 1);
+				if(calleeType.results().size() == 1)
 				{
-					result = loadFromUntypedPointer(newContextPointer,asLLVMType(calleeType->ret));
+					llvm::Type* llvmResultType = asLLVMType(calleeType.results()[0]);
+					results.push_back(loadFromUntypedPointer(newContextPointer,llvmResultType));
 				}
 
 				break;
@@ -354,13 +413,62 @@ namespace LLVMJIT
 			case CallingConvention::intrinsic:
 			case CallingConvention::c:
 			{
-				result = returnValue;
+				wavmAssert(calleeType.results().size() <= 1);
+				if(calleeType.results().size() == 1)
+				{
+					results.push_back(returnValue);
+				}
 				break;
 			}
 			default: Errors::unreachable();
 			};
 
-			return result;
+			return results;
+		}
+
+		void emitReturn(TypeTuple resultTypes, const llvm::ArrayRef<llvm::Value*>& results)
+		{
+			llvm::Value* returnStruct = getZeroedLLVMReturnStruct(resultTypes);
+			returnStruct = irBuilder.CreateInsertValue(
+				returnStruct,
+				irBuilder.CreateLoad(contextPointerVariable),
+				{U32(0)}
+				);
+
+			wavmAssert(resultTypes.size() == results.size());
+			if(areResultsReturnedDirectly(resultTypes))
+			{
+				// If the results are returned directly, insert them into the return struct.
+				for(Uptr resultIndex = 0;resultIndex < results.size();++resultIndex)
+				{
+					llvm::Value* result = results[resultIndex];
+					returnStruct = irBuilder.CreateInsertValue(
+						returnStruct,
+						result,
+						{U32(1), U32(resultIndex)}
+						);
+				}
+			}
+			else
+			{
+				// Otherwise, store them in the context.
+				llvm::Type* resultStructType = asLLVMType(resultTypes);
+				for(Uptr resultIndex = 0;resultIndex < results.size();++resultIndex)
+				{
+					irBuilder.CreateStore(
+						results[resultIndex],
+						irBuilder.CreateInBoundsGEP(
+							irBuilder.CreatePointerCast(
+								irBuilder.CreateLoad(contextPointerVariable),
+								resultStructType->getPointerTo()
+								),
+							{emitLiteral(U32(0)), emitLiteral(U32(resultIndex))}
+							)
+						);
+				}
+			}
+
+			irBuilder.CreateRet(returnStruct);
 		}
 
 	private:

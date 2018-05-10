@@ -85,7 +85,14 @@ namespace WAST
 	};
 
 	void print(std::string& string,ValueType type) { string += asString(type); }
-	void print(std::string& string,ResultType type) { string += asString(type); }
+	void print(std::string& string,TypeTuple types)
+	{
+		for(Uptr typeIndex = 0;typeIndex < types.size();++typeIndex)
+		{
+			if(typeIndex != 0) { string += ' '; }
+			string += asString(types[typeIndex]);
+		}
+	}
 	
 	void print(std::string& string,const SizeConstraints& size)
 	{
@@ -93,26 +100,28 @@ namespace WAST
 		if(size.max != UINT64_MAX) { string += ' '; string += std::to_string(size.max); }
 	}
 
-	void print(std::string& string,const FunctionType* functionType)
+	void print(std::string& string,FunctionType functionType)
 	{
 		// Print the function parameters.
-		if(functionType->parameters.size())
+		if(functionType.params().size())
 		{
 			ScopedTagPrinter paramTag(string,"param");
-			for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+			for(Uptr paramIndex = 0;paramIndex < functionType.params().size();++paramIndex)
 			{
 				string += ' ';
-				print(string,functionType->parameters[parameterIndex]);
+				print(string, functionType.params()[paramIndex]);
 			}
 		}
 
-		// Print the function return type.
-		if(functionType->ret != ResultType::none)
+		// Print the function return types.
+		if(functionType.results().size())
 		{
-			string += ' ';
-			ScopedTagPrinter resultTag(string,"result");
-			string += ' ';
-			print(string,functionType->ret);
+			ScopedTagPrinter paramTag(string,"result");
+			for(Uptr resultIndex = 0;resultIndex < functionType.results().size();++resultIndex)
+			{
+				string += ' ';
+				print(string, functionType.results()[resultIndex]);
+			}
 		}
 	}
 
@@ -225,7 +234,7 @@ namespace WAST
 		ModulePrintContext& moduleContext;
 		const Module& module;
 		const FunctionDef& functionDef;
-		const FunctionType* functionType;
+		FunctionType functionType;
 		std::string& string;
 
 		const std::vector<std::string>& labelNames;
@@ -255,21 +264,21 @@ namespace WAST
 		{
 			string += "\nblock";
 			std::string labelId = printControlLabel("block");
-			printControlSignature(imm.resultType);
+			printControlSignature(imm.type);
 			pushControlStack(ControlContext::Type::block,labelId);
 		}
 		void loop(ControlStructureImm imm)
 		{
 			string += "\nloop";
 			std::string labelId = printControlLabel("loop");
-			printControlSignature(imm.resultType);
+			printControlSignature(imm.type);
 			pushControlStack(ControlContext::Type::loop,labelId);
 		}
 		void if_(ControlStructureImm imm)
 		{
 			string += "\nif";
 			std::string labelId = printControlLabel("if");
-			printControlSignature(imm.resultType);
+			printControlSignature(imm.type);
 			pushControlStack(ControlContext::Type::ifThen,labelId);
 		}
 		void else_(NoImm imm)
@@ -358,14 +367,10 @@ namespace WAST
 			string += "\ncall_indirect (type " + moduleContext.names.types[imm.type.index] + ')';
 		}
 	
-		void printControlSignature(ResultType resultType)
+		void printControlSignature(IndexedBlockType indexedSignature)
 		{
-			if(resultType != ResultType::none)
-			{
-				string += " (result ";
-				print(string,resultType);
-				string += ')';
-			}
+			FunctionType signature = resolveBlockType(module, indexedSignature);
+			print(string, signature);
 		}
 
 		void printImm(NoImm) {}
@@ -430,7 +435,7 @@ namespace WAST
 		{
 			string += "\ntry";
 			pushControlStack(ControlContext::Type::try_,"try");
-			printControlSignature(imm.resultType);
+			printControlSignature(imm.type);
 		}
 		void catch_(CatchImm imm)
 		{
@@ -670,7 +675,7 @@ namespace WAST
 		{
 			const Uptr functionIndex = module.functions.imports.size() + functionDefIndex;
 			const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
-			const FunctionType* functionType = module.types[functionDef.type.index];
+			FunctionType functionType = module.types[functionDef.type.index];
 			FunctionPrintContext functionContext(*this,functionDefIndex);
 		
 			string += "\n\n";
@@ -685,26 +690,29 @@ namespace WAST
 			string += ')';
 
 			// Print the function parameters.
-			if(functionType->parameters.size())
+			if(functionType.params().size())
 			{
-				for(Uptr parameterIndex = 0;parameterIndex < functionType->parameters.size();++parameterIndex)
+				for(Uptr parameterIndex = 0;parameterIndex < functionType.params().size();++parameterIndex)
 				{
 					string += '\n';
 					ScopedTagPrinter paramTag(string,"param");
 					string += ' ';
 					string += functionContext.localNames[parameterIndex];
 					string += ' ';
-					print(string,functionType->parameters[parameterIndex]);
+					print(string,functionType.params()[parameterIndex]);
 				}
 			}
 
 			// Print the function return type.
-			if(functionType->ret != ResultType::none)
+			if(functionType.results().size())
 			{
 				string += '\n';
 				ScopedTagPrinter resultTag(string,"result");
-				string += ' ';
-				print(string,functionType->ret);
+				for(Uptr resultIndex = 0;resultIndex < functionType.results().size();++resultIndex)
+				{
+					string += ' ';
+					print(string, functionType.results()[resultIndex]);
+				}
 			}
 
 			// Print the function's locals.
@@ -713,7 +721,7 @@ namespace WAST
 				string += '\n';
 				ScopedTagPrinter localTag(string,"local");
 				string += ' ';
-				string += functionContext.localNames[functionType->parameters.size() + localIndex];
+				string += functionContext.localNames[functionType.params().size() + localIndex];
 				string += ' ';
 				print(string,functionDef.nonParameterLocalTypes[localIndex]);
 			}

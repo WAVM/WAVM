@@ -38,3 +38,9 @@ union V128
 	I64 i64[2];
 	F64 f64[2];
 };
+
+inline bool operator==(const V128& left, const V128& right)
+{
+	return left.i64[0] == right.i64[0]
+		&& left.i64[1] == right.i64[1];
+}

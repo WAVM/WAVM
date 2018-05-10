@@ -92,7 +92,7 @@ struct RootResolver : Resolver
 		}
 		case IR::ObjectKind::exceptionType:
 		{
-			return asObject(Runtime::createExceptionTypeInstance(asExceptionTypeType(type)));
+			return asObject(Runtime::createExceptionTypeInstance(asExceptionType(type), "importStub"));
 		}
 		default: Errors::unreachable();
 		};
@@ -201,13 +201,13 @@ static int run(const CommandLineOptions& options)
 			return EXIT_FAILURE;
 		}
 	}
-	const FunctionType* functionType = getFunctionType(functionInstance);
+	FunctionType functionType = getFunctionType(functionInstance);
 
 	// Set up the arguments for the invoke.
 	std::vector<Value> invokeArgs;
 	if(!options.functionName)
 	{
-		if(functionType->parameters.size() == 2)
+		if(functionType.params().size() == 2)
 		{
 			MemoryInstance* defaultMemory = Runtime::getDefaultMemory(moduleInstance);
 			if(!defaultMemory)
@@ -223,9 +223,9 @@ static int run(const CommandLineOptions& options)
 
 			Emscripten::injectCommandArgs(emscriptenInstance,argStrings,invokeArgs);
 		}
-		else if(functionType->parameters.size() > 0)
+		else if(functionType.params().size() > 0)
 		{
-			std::cerr << "WebAssembly function requires " << functionType->parameters.size() << " argument(s), but only 0 or 2 can be passed!" << std::endl;
+			std::cerr << "WebAssembly function requires " << functionType.params().size() << " argument(s), but only 0 or 2 can be passed!" << std::endl;
 			return EXIT_FAILURE;
 		}
 	}
@@ -234,7 +234,7 @@ static int run(const CommandLineOptions& options)
 		for(U32 i = 0; options.args[i]; ++i)
 		{
 			Value value;
-			switch(functionType->parameters[i])
+			switch(functionType.params()[i])
 			{
 			case ValueType::i32: value = (U32)atoi(options.args[i]); break;
 			case ValueType::i64: value = (U64)atol(options.args[i]); break;
@@ -248,7 +248,7 @@ static int run(const CommandLineOptions& options)
 
 	// Invoke the function.
 	Timing::Timer executionTimer;
-	Result functionResult = invokeFunctionChecked(context,functionInstance,invokeArgs);
+	IR::ValueTuple functionResults = invokeFunctionChecked(context, functionInstance, invokeArgs);
 	Timing::logTimer("Invoked function",executionTimer);
 
 	if(options.functionName)
@@ -257,10 +257,14 @@ static int run(const CommandLineOptions& options)
 			Log::Category::debug,
 			"%s returned: %s\n",
 			options.functionName,
-			asString(functionResult).c_str());
+			asString(functionResults).c_str());
 		return EXIT_SUCCESS;
 	}
-	else if(functionResult.type == ResultType::i32) { return functionResult.i32; }
+	else if(functionResults.size() == 1
+		&& functionResults[0].type == ValueType::i32)
+	{
+		return functionResults[0].i32;
+	}
 	else { return EXIT_SUCCESS; }
 }
 
