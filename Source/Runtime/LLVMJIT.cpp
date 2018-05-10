@@ -790,20 +790,28 @@ namespace LLVMJIT
 
 		// If the function has a return value, write it to the context invoke return memory.
 		wavmAssert(results.size() == functionType.results().size());
-		llvm::Type* llvmResultStructType = asLLVMType(functionType.results());
 		auto newContextPointer = emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable);
+		Uptr resultOffset = 0;
 		for(Uptr resultIndex = 0;resultIndex < results.size();++resultIndex)
 		{
+			const ValueType resultType = functionType.results()[resultIndex];
+			const U8 resultNumBytes = getTypeByteWidth(resultType);
+
+			resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
+			wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
+
 			emitContext.irBuilder.CreateStore(
 				results[resultIndex],
-				emitContext.irBuilder.CreateInBoundsGEP(
-					emitContext.irBuilder.CreatePointerCast(
+				emitContext.irBuilder.CreatePointerCast(
+					emitContext.irBuilder.CreateInBoundsGEP(
 						newContextPointer,
-						llvmResultStructType->getPointerTo()
+						{emitLiteral(resultOffset)}
 						),
-					{emitLiteral(U32(0)), emitLiteral(U32(resultIndex))}
+					asLLVMType(resultType)->getPointerTo()
 					)
 				);
+			
+			resultOffset += resultNumBytes;
 		}
 
 		emitContext.irBuilder.CreateRet(emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable));

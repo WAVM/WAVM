@@ -374,16 +374,25 @@ namespace LLVMJIT
 				else
 				{
 					// Otherwise, load them from the context.
-					llvm::Type* resultStructType = asLLVMType(calleeType.results());
-					for(Uptr resultIndex = 0;resultIndex < calleeType.results().size();++resultIndex)
+					Uptr resultOffset = 0;
+					for(ValueType resultType : calleeType.results())
 					{
-						results.push_back(irBuilder.CreateLoad(irBuilder.CreateInBoundsGEP(
+						const U8 resultNumBytes = getTypeByteWidth(resultType);
+
+						resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
+						wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
+
+						results.push_back(irBuilder.CreateLoad(
 							irBuilder.CreatePointerCast(
-								newContextPointer,
-								resultStructType->getPointerTo()
-								),
-							{emitLiteral(U32(0)), emitLiteral(U32(resultIndex))}
-							)));
+								irBuilder.CreateInBoundsGEP(
+									newContextPointer,
+									{emitLiteral(resultOffset)}
+									),
+								asLLVMType(resultType)->getPointerTo()
+								)
+							));
+
+						resultOffset += resultNumBytes;
 					}
 				}
 
@@ -452,19 +461,27 @@ namespace LLVMJIT
 			else
 			{
 				// Otherwise, store them in the context.
-				llvm::Type* resultStructType = asLLVMType(resultTypes);
+				Uptr resultOffset = 0;
 				for(Uptr resultIndex = 0;resultIndex < results.size();++resultIndex)
 				{
+					const ValueType resultType = resultTypes[resultIndex];
+					const U8 resultNumBytes = getTypeByteWidth(resultType);
+					
+					resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
+					wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
+
 					irBuilder.CreateStore(
 						results[resultIndex],
-						irBuilder.CreateInBoundsGEP(
-							irBuilder.CreatePointerCast(
+						irBuilder.CreatePointerCast(
+							irBuilder.CreateInBoundsGEP(
 								irBuilder.CreateLoad(contextPointerVariable),
-								resultStructType->getPointerTo()
+								{emitLiteral(resultOffset)}
 								),
-							{emitLiteral(U32(0)), emitLiteral(U32(resultIndex))}
+							asLLVMType(resultType)->getPointerTo()
 							)
 						);
+					
+					resultOffset += resultNumBytes;
 				}
 			}
 

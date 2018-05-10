@@ -92,8 +92,10 @@ namespace Runtime
 			untaggedArguments[argumentIndex] = arguments[argumentIndex];
 		}
 
+		// Call the unchecked version of this function to do the actual invoke.
 		U8* resultStructBase = (U8*)invokeFunctionUnchecked(context,function,untaggedArguments);
 
+		// Read the return values out of the context's scratch memory.
 		ValueTuple results;
 		Uptr resultOffset = 0;
 		for(ValueType resultType : functionType.results())
@@ -101,6 +103,7 @@ namespace Runtime
 			const U8 resultNumBytes = getTypeByteWidth(resultType);
 
 			resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
+			wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
 
 			UntaggedValue* result = (UntaggedValue*)(resultStructBase + resultOffset);
 			results.values.push_back(Value(resultType, *result));
