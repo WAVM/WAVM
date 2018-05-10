@@ -683,8 +683,13 @@ namespace IR
 				&& !module.featureSpec.multipleResultsAndBlockParams)
 			{
 				throw ValidationException(
-					"function has multiple results, but \"multivalue\" extension is disabled"
+					"function has multiple return values, but \"multivalue\" extension is disabled"
 					);
+			}
+
+			if(functionType.results().size() > IR::maxReturnValues)
+			{
+				throw ValidationException("function has more return values than WAVM can support");
 			}
 		}
 

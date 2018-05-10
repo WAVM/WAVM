@@ -252,6 +252,11 @@ namespace Runtime
 	enum { compartmentRuntimeDataAlignmentLog2 = 32 };
 	enum { contextRuntimeDataAlignment = 4096 };
 
+	static_assert(
+		sizeof(UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
+		"maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * sizeof(UntaggedValue)"
+		);
+
 	struct Compartment : ObjectImpl
 	{
 		Platform::Mutex mutex;
