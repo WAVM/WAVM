@@ -131,7 +131,7 @@ static void parseTestScriptModule(CursorState* cursor,IR::Module& outModule,std:
 	}
 }
 
-static Action* parseAction(CursorState* cursor)
+static Action* parseAction(CursorState* cursor, const IR::FeatureSpec& featureSpec)
 {
 	Action* result = nullptr;
 	parseParenthesized(cursor,[&]
@@ -167,6 +167,7 @@ static Action* parseAction(CursorState* cursor)
 
 			std::string internalModuleName;
 			Module* module = new Module;
+			module->featureSpec = featureSpec;
 			parseTestScriptModule(cursor,*module,internalModuleName);
 
 			result = new ModuleAction(std::move(locus),std::move(internalModuleName),module);
@@ -187,7 +188,7 @@ static bool stringStartsWith(const char* string,const char (&prefix)[numPrefixCh
 	return !strncmp(string,prefix,numPrefixChars - 1);
 }
 
-static Command* parseCommand(CursorState* cursor)
+static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& featureSpec)
 {
 	Command* result = nullptr;
 
@@ -196,7 +197,7 @@ static Command* parseCommand(CursorState* cursor)
 		|| cursor->nextToken[1].type == t_invoke
 		|| cursor->nextToken[1].type == t_get))
 	{
-		Action* action = parseAction(cursor);
+		Action* action = parseAction(cursor, featureSpec);
 		if(action)
 		{
 			TextFileLocus locus = action->locus;
@@ -225,7 +226,7 @@ static Command* parseCommand(CursorState* cursor)
 			{
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor);
+				Action* action = parseAction(cursor, featureSpec);
 				IR::ValueTuple expectedResults = parseConstExpressionTuple(cursor);
 				result = new AssertReturnCommand(std::move(locus),action,expectedResults);
 				break;
@@ -238,7 +239,7 @@ static Command* parseCommand(CursorState* cursor)
 					: Command::assert_return_arithmetic_nan;
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor);
+				Action* action = parseAction(cursor, featureSpec);
 				result = new AssertReturnNaNCommand(commandType,std::move(locus),action);
 				break;
 			}
@@ -247,7 +248,7 @@ static Command* parseCommand(CursorState* cursor)
 			{
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor);
+				Action* action = parseAction(cursor, featureSpec);
 
 				const Token* errorToken = cursor->nextToken;
 				std::string expectedErrorMessage;
@@ -276,7 +277,7 @@ static Command* parseCommand(CursorState* cursor)
 			{
 				++cursor->nextToken;
 
-				Action* action = parseAction(cursor);
+				Action* action = parseAction(cursor, featureSpec);
 
 				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(cursor);
 				std::string exceptionTypeExportName = parseUTF8String(cursor);
@@ -300,7 +301,7 @@ static Command* parseCommand(CursorState* cursor)
 					throw RecoverParseException();
 				}
 
-				ModuleAction* moduleAction = (ModuleAction*)parseAction(cursor);
+				ModuleAction* moduleAction = (ModuleAction*)parseAction(cursor, featureSpec);
 						
 				std::string expectedErrorMessage;
 				if(!tryParseString(cursor,expectedErrorMessage))
@@ -322,6 +323,7 @@ static Command* parseCommand(CursorState* cursor)
 
 				std::string internalModuleName;
 				Module module;
+				module.featureSpec = featureSpec;
 				ParseState* outerParseState = cursor->parseState;
 				ParseState malformedModuleParseState(outerParseState->string,outerParseState->lineInfo);
 
@@ -367,7 +369,13 @@ static Command* parseCommand(CursorState* cursor)
 
 namespace WAST
 {
-	void parseTestCommands(const char* string,Uptr stringLength,std::vector<std::unique_ptr<Command>>& outTestCommands,std::vector<Error>& outErrors)
+	void parseTestCommands(
+		const char* string,
+		Uptr stringLength,
+		const IR::FeatureSpec& featureSpec,
+		std::vector<std::unique_ptr<Command>>& outTestCommands,
+		std::vector<Error>& outErrors
+		)
 	{
 		// Lex the input string.
 		LineInfo* lineInfo = nullptr;
@@ -380,7 +388,7 @@ namespace WAST
 			// (command)*<eof>
 			while(cursor.nextToken->type == t_leftParenthesis)
 			{
-				outTestCommands.emplace_back(parseCommand(&cursor));
+				outTestCommands.emplace_back(parseCommand(&cursor, featureSpec));
 			};
 			require(&cursor,t_eof);
 		}

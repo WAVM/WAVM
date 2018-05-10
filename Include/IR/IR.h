@@ -14,7 +14,7 @@ namespace IR
 	struct FeatureSpec
 	{
 		// A feature flag for the MVP, just so the MVP operators can reference it as the required feature flag.
-		const bool mvp = true;
+		bool mvp = true;
 
 		// Proposed standard extensions
 		bool importExportMutableGlobals = true;

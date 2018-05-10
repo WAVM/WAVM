@@ -39,7 +39,11 @@ struct TestScriptState
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
 	{
-		moduleNameToInstanceMap.set("spectest", Intrinsics::instantiateModule(compartment,INTRINSIC_MODULE_REF(spectest),"spectest"));
+		moduleNameToInstanceMap.set("spectest", Intrinsics::instantiateModule(
+			compartment,
+			INTRINSIC_MODULE_REF(spectest),
+			"spectest"
+			));
 		moduleNameToInstanceMap.set("threadTest", ThreadTest::instantiate(compartment));
 	}
 };
@@ -468,12 +472,43 @@ DEFINE_INTRINSIC_MEMORY(spectest,spectest_memory,memory,MemoryType(false,SizeCon
 
 int main(int argc,char** argv)
 {
-	if(argc != 2)
+	bool showHelp = false;
+	IR::FeatureSpec featureSpec;
+	const char* filename = nullptr;
+	
+	// Disable the multi-value extension by default since some spec tests prohibit it.
+	featureSpec.multipleResultsAndBlockParams = false;
+
+	if(argc < 2 || argc > 3)
 	{
-		std::cerr <<  "Usage: Test in.wast" << std::endl;
+		showHelp = true;
+	}
+	else
+	{
+		filename = argv[1];
+		if(!stricmp(argv[1], "--help"))
+		{
+			showHelp = true;
+		}
+		else if(argc == 3)
+		{
+			if(!stricmp(argv[2], "--enable-multivalue"))
+			{
+				// Let the user provide the --enable-multi-value argument for tests that need it.
+				featureSpec.multipleResultsAndBlockParams = true;
+			}
+			else
+			{
+				showHelp = true;
+			}
+		}
+	}
+	
+	if(showHelp)
+	{
+		std::cerr <<  "Usage: Test in.wast [--enable-multivalue]" << std::endl;
 		return EXIT_FAILURE;
 	}
-	const char* filename = argv[1];
 
 	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
 	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception)
@@ -493,7 +528,13 @@ int main(int argc,char** argv)
 	std::vector<std::unique_ptr<Command>> testCommands;
 	
 	// Parse the test script.
-	WAST::parseTestCommands(testScriptString.c_str(),testScriptString.size(),testCommands,testScriptState->errors);
+	WAST::parseTestCommands(
+		testScriptString.c_str(),
+		testScriptString.size(),
+		featureSpec,
+		testCommands,
+		testScriptState->errors
+		);
 	if(!testScriptState->errors.size())
 	{
 		// Process the test script commands.
