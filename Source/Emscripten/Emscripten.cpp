@@ -31,6 +31,12 @@ namespace Emscripten
 		return (U32)address;
 	}
 
+	//  0..62  = static data
+	// 63..63  = MutableGlobals
+	// 64..128 = aliased stack
+	// 129..   = dynamic memory
+	enum { minStaticEmscriptenMemoryPages = 128 };
+
 	struct MutableGlobals
 	{
 		enum { address = 63 * IR::numBytesPerPage };
@@ -70,8 +76,12 @@ namespace Emscripten
 
 		mutableGlobals.DYNAMICTOP_PTR = endAddress;
 
-		const Uptr TOTAL_MEMORY = Runtime::getMemoryNumPages(memory) << IR::numBytesPerPageLog2;
-		errorUnless(endAddress <= TOTAL_MEMORY);
+		const Uptr endPage = (endAddress + IR::numBytesPerPage - 1) >> IR::numBytesPerPageLog2;
+		if(endPage >= getMemoryNumPages(memory)
+			&& endPage < getMemoryMaxPages(memory))
+		{
+			growMemory(memory, endPage - getMemoryNumPages(memory) + 1);
+		}
 
 		return allocationAddress;
 	}
@@ -408,6 +418,19 @@ namespace Emscripten
 			&& module.memories.imports[0].exportName == "memory")
 		{
 			memoryType = module.memories.imports[0].type;
+			if(memoryType.size.max >= minStaticEmscriptenMemoryPages)
+			{
+				// Enlarge the initial memory to make space for the stack and mutable globals.
+				memoryType.size.min = minStaticEmscriptenMemoryPages;
+			}
+			else
+			{
+				Log::printf(
+					Log::Category::error,
+					"module's memory is too small for Emscripten emulation"
+					);
+				return nullptr;
+			}
 		}
 		else { return nullptr; }
 
