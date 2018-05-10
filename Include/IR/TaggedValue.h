@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-namespace Runtime
+namespace IR
 {
 	// A runtime value of any type.
 	struct UntaggedValue

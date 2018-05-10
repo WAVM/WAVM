@@ -88,7 +88,7 @@ struct RootResolver : Resolver
 			return asObject(Runtime::createGlobal(
 				compartment,
 				asGlobalType(type),
-				Runtime::Value(asGlobalType(type).valueType,Runtime::UntaggedValue())));
+				IR::Value(asGlobalType(type).valueType,IR::UntaggedValue())));
 		}
 		case IR::ObjectKind::exceptionType:
 		{

@@ -83,8 +83,8 @@ namespace WAST
 	{
 		std::string internalModuleName;
 		std::string exportName;
-		std::vector<Runtime::Value> arguments;
-		InvokeAction(TextFileLocus&& inLocus,std::string&& inInternalModuleName,std::string&& inExportName,std::vector<Runtime::Value>&& inArguments)
+		std::vector<IR::Value> arguments;
+		InvokeAction(TextFileLocus&& inLocus,std::string&& inInternalModuleName,std::string&& inExportName,std::vector<IR::Value>&& inArguments)
 		: Action(ActionType::invoke,std::move(inLocus)), internalModuleName(inInternalModuleName), exportName(inExportName), arguments(inArguments)
 		{}
 	};
@@ -119,8 +119,8 @@ namespace WAST
 	struct AssertReturnCommand : Command
 	{
 		std::unique_ptr<Action> action;
-		Runtime::Result expectedReturn;
-		AssertReturnCommand(TextFileLocus&& inLocus,Action* inAction,Runtime::Result inExpectedReturn)
+		IR::Result expectedReturn;
+		AssertReturnCommand(TextFileLocus&& inLocus,Action* inAction,IR::Result inExpectedReturn)
 		: Command(Command::assert_return,std::move(inLocus)), action(inAction), expectedReturn(inExpectedReturn) {}
 	};
 
@@ -144,13 +144,13 @@ namespace WAST
 		std::unique_ptr<Action> action;
 		std::string exceptionTypeInternalModuleName;
 		std::string exceptionTypeExportName;
-		std::vector<Runtime::Value> expectedArguments;
+		std::vector<IR::Value> expectedArguments;
 		AssertThrowsCommand(
 			TextFileLocus&& inLocus,
 			Action* inAction,
 			std::string&& inExceptionTypeInternalModuleName,
 			std::string&& inExceptionTypeExportName,
-			std::vector<Runtime::Value>&& inExpectedArguments)
+			std::vector<IR::Value>&& inExpectedArguments)
 		: Command(Command::assert_throws,std::move(inLocus))
 		, action(inAction)
 		, exceptionTypeInternalModuleName(inExceptionTypeInternalModuleName)

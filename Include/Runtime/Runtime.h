@@ -165,7 +165,7 @@ namespace Runtime
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidArgumentType;
 
 		GCPointer<ExceptionTypeInstance> type;
-		std::vector<UntaggedValue> arguments;
+		std::vector<IR::UntaggedValue> arguments;
 		Platform::CallStack callStack;
 	};
 
@@ -182,7 +182,10 @@ namespace Runtime
 	RUNTIME_API const IR::TupleType* getExceptionTypeParameters(const ExceptionTypeInstance* type);
 
 	// Throws a runtime exception.
-	[[noreturn]] RUNTIME_API void throwException(ExceptionTypeInstance* type,std::vector<UntaggedValue>&& arguments = {});
+	[[noreturn]] RUNTIME_API void throwException(
+		ExceptionTypeInstance* type,
+		std::vector<IR::UntaggedValue>&& arguments = {}
+		);
 
 	// Calls a thunk and catches any runtime exceptions that occur within it.
 	RUNTIME_API void catchRuntimeExceptions(
@@ -211,14 +214,18 @@ namespace Runtime
 	// to an untagged value that is stored in the Context that will be overwritten by subsequent calls to
 	// invokeFunctionUnchecked. This allows using this function in a call stack that will be forked, since returning
 	// the result as a value will be lowered to passing in a pointer to stack memory for most calling conventions.
-	RUNTIME_API UntaggedValue* invokeFunctionUnchecked(Context* context,FunctionInstance* function,const UntaggedValue* arguments);
+	RUNTIME_API IR::UntaggedValue* invokeFunctionUnchecked(
+		Context* context,
+		FunctionInstance* function,
+		const IR::UntaggedValue* arguments
+		);
 
 	// Like invokeFunctionUnchecked, but returns a result tagged with its type, and takes arguments as tagged values.
 	// If the wrong number or types or arguments are provided, a runtime exception is thrown.
-	RUNTIME_API Result invokeFunctionChecked(
+	RUNTIME_API IR::Result invokeFunctionChecked(
 		Context* context,
 		FunctionInstance* function,
-		const std::vector<Value>& arguments);
+		const std::vector<IR::Value>& arguments);
 
 	// Returns the type of a FunctionInstance.
 	RUNTIME_API const IR::FunctionType* getFunctionType(FunctionInstance* function);
@@ -285,15 +292,19 @@ namespace Runtime
 	//
 
 	// Creates a GlobalInstance with the specified type and initial value.
-	RUNTIME_API GlobalInstance* createGlobal(Compartment* compartment,IR::GlobalType type,Value initialValue);
+	RUNTIME_API GlobalInstance* createGlobal(
+		Compartment* compartment,
+		IR::GlobalType type,
+		IR::Value initialValue
+		);
 
-	RUNTIME_API GlobalInstance* cloneGlobal(GlobalInstance* global,Compartment* newCompartment);
+	RUNTIME_API GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
 
 	// Reads the current value of a global.
-	RUNTIME_API Value getGlobalValue(Context* context,GlobalInstance* global);
+	RUNTIME_API IR::Value getGlobalValue(Context* context, GlobalInstance* global);
 
 	// Writes a new value to a global, and returns the previous value.
-	RUNTIME_API Value setGlobalValue(Context* context,GlobalInstance* global,Value newValue);
+	RUNTIME_API IR::Value setGlobalValue(Context* context, GlobalInstance* global, IR::Value newValue);
 
 	//
 	// Modules

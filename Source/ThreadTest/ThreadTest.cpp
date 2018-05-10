@@ -26,12 +26,12 @@ namespace ThreadTest
 		Runtime::GCPointer<Runtime::Context> context;
 		Runtime::GCPointer<Runtime::FunctionInstance> entryFunction;
 
-		Runtime::Value argument;
+		IR::Value argument;
 
 		FORCENOINLINE Thread(
 			Runtime::Context* inContext,
 			Runtime::FunctionInstance* inEntryFunction,
-			const Runtime::Value& inArgument)
+			const IR::Value& inArgument)
 		: context(inContext)
 		, entryFunction(inEntryFunction)
 		, argument(inArgument)

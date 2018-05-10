@@ -478,10 +478,10 @@ namespace Emscripten
 		if(establishStackSpace
 		&& getFunctionType(establishStackSpace) == FunctionType::get(ResultType::none,{ValueType::i32,ValueType::i64}))
 		{
-			std::vector<Runtime::Value> parameters =
+			std::vector<IR::Value> parameters =
 			{
-				Runtime::Value(STACKTOP.getValue().i32),
-				Runtime::Value(STACK_MAX.getValue().i32)
+				IR::Value(STACKTOP.getValue().i32),
+				IR::Value(STACK_MAX.getValue().i32)
 			};
 			Runtime::invokeFunctionChecked(context,establishStackSpace,parameters);
 		}
@@ -498,7 +498,7 @@ namespace Emscripten
 		}
 	}
 
-	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,const std::vector<const char*>& argStrings,std::vector<Runtime::Value>& outInvokeArgs)
+	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,const std::vector<const char*>& argStrings,std::vector<IR::Value>& outInvokeArgs)
 	{
 		MemoryInstance* memory = instance->emscriptenMemory;
 		U8* emscriptenMemoryBaseAdress = getMemoryBaseAddress(memory);

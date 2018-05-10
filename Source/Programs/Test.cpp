@@ -347,7 +347,7 @@ void processCommand(TestScriptState& state,const Command* command)
 
 							for(Uptr argumentIndex = 0;argumentIndex < exception.arguments.size();++argumentIndex)
 							{
-								Runtime::Value argumentValue = Runtime::Value(
+								IR::Value argumentValue = IR::Value(
 									exceptionParameterTypes->elements[argumentIndex],
 									exception.arguments[argumentIndex]
 									);

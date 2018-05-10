@@ -49,15 +49,15 @@ namespace Intrinsics
 			Intrinsics::Module& moduleRef,
 			const char* inName,
 			IR::ValueType inType,
-			Runtime::Value inValue);
+			IR::Value inValue);
 		RUNTIME_API Runtime::GlobalInstance* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::Value getValue() const { return value; }
+		IR::Value getValue() const { return value; }
 
 	private:
 		const char* name;
 		IR::ValueType type;
-		Runtime::Value value;
+		IR::Value value;
 	};
 	
 	// An immutable global that provides typed initialization and reading of the global's value.
@@ -67,7 +67,7 @@ namespace Intrinsics
 		GenericGlobal(Intrinsics::Module& moduleRef,const char* inName,Value inValue)
 		: Global(
 			moduleRef, inName, IR::inferValueType<Value>(),
-			Runtime::Value(IR::inferValueType<Value>(),inValue))
+			IR::Value(IR::inferValueType<Value>(),inValue))
 		{}
 	};
 

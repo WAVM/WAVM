@@ -13,9 +13,9 @@
 using namespace WAST;
 using namespace IR;
 
-static Runtime::Value parseConstExpression(CursorState* cursor)
+static IR::Value parseConstExpression(CursorState* cursor)
 {
-	Runtime::Value result;
+	IR::Value result;
 	parseParenthesized(cursor,[&]
 	{
 		switch(cursor->nextToken->type)
@@ -147,7 +147,7 @@ static Action* parseAction(CursorState* cursor)
 			std::string nameString = parseOptionalNameAsString(cursor);
 			std::string exportName = parseUTF8String(cursor);
 
-			std::vector<Runtime::Value> arguments;
+			std::vector<IR::Value> arguments;
 			while(cursor->nextToken->type == t_leftParenthesis)
 			{
 				arguments.push_back(parseConstExpression(cursor));
@@ -221,7 +221,7 @@ static Command* parseCommand(CursorState* cursor)
 				++cursor->nextToken;
 
 				Action* action = parseAction(cursor);
-				Runtime::Result expectedReturn = cursor->nextToken->type == t_leftParenthesis ? parseConstExpression(cursor) : Runtime::Result();
+				IR::Result expectedReturn = cursor->nextToken->type == t_leftParenthesis ? parseConstExpression(cursor) : IR::Result();
 				result = new AssertReturnCommand(std::move(locus),action,expectedReturn);
 				break;
 			}
@@ -276,7 +276,7 @@ static Command* parseCommand(CursorState* cursor)
 				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(cursor);
 				std::string exceptionTypeExportName = parseUTF8String(cursor);
 
-				std::vector<Runtime::Value> expectedArguments;
+				std::vector<IR::Value> expectedArguments;
 				while(cursor->nextToken->type == t_leftParenthesis)
 				{
 					expectedArguments.push_back(parseConstExpression(cursor));

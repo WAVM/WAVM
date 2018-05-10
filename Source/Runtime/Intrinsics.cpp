@@ -59,7 +59,7 @@ namespace Intrinsics
 			name);
 	}
 
-	Global::Global(Intrinsics::Module& moduleRef,const char* inName,IR::ValueType inType,Runtime::Value inValue)
+	Global::Global(Intrinsics::Module& moduleRef,const char* inName,IR::ValueType inType,IR::Value inValue)
 	: name(inName)
 	, type(inType)
 	, value(inValue)
