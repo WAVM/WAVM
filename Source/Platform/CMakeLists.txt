@@ -30,8 +30,3 @@ if(NOT MSVC)
 	include_directories(${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
 	target_link_libraries(Platform dl WAVMUnwind)
 endif()
-
-if(NOT MSVC)
-	include_directories(${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
-	target_link_libraries(Platform WAVMUnwind)
-endif()
