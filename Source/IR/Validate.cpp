@@ -156,6 +156,17 @@ namespace IR
 			Errors::unreachable();
 		}
 	}
+
+	FunctionType validateFunctionType(const Module& module, const IndexedFunctionType& type)
+	{
+		VALIDATE_INDEX(type.index, module.types.size());
+		const FunctionType functionType = module.types[type.index];
+		if(functionType.results().size() > IR::maxReturnValues)
+		{
+			throw ValidationException("function has more return values than WAVM can support");
+		}
+		return functionType;
+	}
 		
 	void validateInitializer(const Module& module,const InitializerExpression& expression,ValueType expectedType,const char* context)
 	{
@@ -378,9 +389,8 @@ namespace IR
 		}
 		void call_indirect(CallIndirectImm imm)
 		{
-			VALIDATE_INDEX(imm.type.index,module.types.size());
 			VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",module.tables.size()==0);
-			FunctionType calleeType = module.types[imm.type.index];
+			FunctionType calleeType = validateFunctionType(module, imm.type);
 			popAndValidateOperand("call_indirect function index",ValueType::i32);
 			popAndValidateTypeTuple("call_indirect arguments",calleeType.params());
 			pushOperandTuple(calleeType.results());
@@ -677,25 +687,26 @@ namespace IR
 		for(Uptr typeIndex = 0;typeIndex < module.types.size();++typeIndex)
 		{
 			FunctionType functionType = module.types[typeIndex];
+
+			// Validate the function type parameters and results here, but don't check the limit on
+			// number of return values here, since they don't apply to block types that are also
+			// stored here. Instead, uses of a function type from the types array must call
+			// validateFunctionType to validate its use as a function type.
 			for(auto parameterType : functionType.params()) { validate(parameterType); }
+			for(auto resultType : functionType.results()) { validate(resultType); }
 			
 			if(functionType.results().size() > 1
 				&& !module.featureSpec.multipleResultsAndBlockParams)
 			{
 				throw ValidationException(
-					"function has multiple return values, but \"multivalue\" extension is disabled"
+					"function/block has multiple return values, but \"multivalue\" extension is disabled"
 					);
-			}
-
-			if(functionType.results().size() > IR::maxReturnValues)
-			{
-				throw ValidationException("function has more return values than WAVM can support");
 			}
 		}
 
 		for(auto& functionImport : module.functions.imports)
 		{
-			VALIDATE_INDEX(functionImport.type.index,module.types.size());
+			validateFunctionType(module, functionImport.type);
 		}
 		for(auto& tableImport : module.tables.imports) { validate(module,tableImport.type); }
 		for(auto& memoryImport : module.memories.imports) { validate(module,memoryImport.type); }
@@ -711,7 +722,7 @@ namespace IR
 		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
 			const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
-			VALIDATE_INDEX(functionDef.type.index,module.types.size());
+			validateFunctionType(module, functionDef.type);
 			for(auto localType : functionDef.nonParameterLocalTypes) { validate(localType); }
 		}
 
