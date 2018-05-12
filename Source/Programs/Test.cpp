@@ -472,43 +472,12 @@ DEFINE_INTRINSIC_MEMORY(spectest,spectest_memory,memory,MemoryType(false,SizeCon
 
 int main(int argc,char** argv)
 {
-	bool showHelp = false;
-	IR::FeatureSpec featureSpec;
-	const char* filename = nullptr;
-	
-	// Disable the multi-value extension by default since some spec tests prohibit it.
-	featureSpec.multipleResultsAndBlockParams = false;
-
-	if(argc < 2 || argc > 3)
+	if(argc != 2)
 	{
-		showHelp = true;
-	}
-	else
-	{
-		filename = argv[1];
-		if(!strcmp(argv[1], "--help"))
-		{
-			showHelp = true;
-		}
-		else if(argc == 3)
-		{
-			if(!strcmp(argv[2], "--enable-multivalue"))
-			{
-				// Let the user provide the --enable-multi-value argument for tests that need it.
-				featureSpec.multipleResultsAndBlockParams = true;
-			}
-			else
-			{
-				showHelp = true;
-			}
-		}
-	}
-	
-	if(showHelp)
-	{
-		std::cerr <<  "Usage: Test in.wast [--enable-multivalue]" << std::endl;
+		std::cerr <<  "Usage: Test in.wast" << std::endl;
 		return EXIT_FAILURE;
 	}
+	const char* filename = argv[1];
 
 	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
 	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception)
@@ -531,7 +500,7 @@ int main(int argc,char** argv)
 	WAST::parseTestCommands(
 		testScriptString.c_str(),
 		testScriptString.size(),
-		featureSpec,
+		IR::FeatureSpec(),
 		testCommands,
 		testScriptState->errors
 		);

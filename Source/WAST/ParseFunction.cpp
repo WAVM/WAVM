@@ -349,60 +349,68 @@ static void parseControlImm(CursorState* cursor,Name& outBranchTargetName,Contro
 	tryParseName(cursor,outBranchTargetName);
 	cursor->functionState->labelDisassemblyNames.push_back(outBranchTargetName.getString());
 	
-	std::vector<ValueType> params;
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_param)
+	FunctionType functionType;
+	
+	// For backward compatibility, handle a naked result type.
+	ValueType singleResultType;
+	if(tryParseValueType(cursor, singleResultType))
 	{
-		cursor->nextToken += 2;
-
-		ValueType param;
-		while(tryParseValueType(cursor, param))
-		{
-			params.push_back(param);
-		};
-
-		require(cursor, t_rightParenthesis);
-	}
-
-	std::vector<ValueType> results;
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
-	{
-		cursor->nextToken += 2;
-
-		ValueType result;
-		while(tryParseValueType(cursor, result))
-		{
-			results.push_back(result);
-		};
-
-		require(cursor,t_rightParenthesis);
+		functionType = FunctionType(TypeTuple(singleResultType));
 	}
 	else
 	{
-		// For backward compatibility, also handle just a result type.
-		ValueType result;
-		if(tryParseValueType(cursor,result))
+		// Parse the callee type, as a reference or explicit declaration.
+		const Token* firstTypeToken = cursor->nextToken;
+		std::vector<std::string> paramDisassemblyNames;
+		NameToIndexMap paramNameToIndexMap;
+		const UnresolvedFunctionType unresolvedFunctionType = parseFunctionTypeRefAndOrDecl(
+			cursor,
+			paramNameToIndexMap,
+			paramDisassemblyNames);
+		
+		// Disallow named parameters.
+		if(paramNameToIndexMap.size())
 		{
-			results.push_back(result);
+			auto paramNameIt = paramNameToIndexMap.begin();
+			parseErrorf(
+				cursor->parseState,
+				firstTypeToken,
+				"block type declaration may not declare parameter names ($%s)",
+				paramNameIt->key.getString().c_str());
+		}
+
+		if(!unresolvedFunctionType.reference)
+		{
+			// If there wasn't a type reference, just use the inline declared params and results.
+			functionType = unresolvedFunctionType.explicitType;
+		}
+		else
+		{
+			// If there was a type reference, resolve it. This also verifies that if there were also
+			// params and/or results declared inline that they match the resolved type reference.
+			const Uptr referencedFunctionTypeIndex = resolveFunctionType(
+				cursor->moduleState,
+				unresolvedFunctionType
+				).index;
+			functionType = cursor->moduleState->module.types[referencedFunctionTypeIndex];
 		}
 	}
-	
-	if(params.size() == 0 && results.size() == 0)
+
+	// Translate the function type into an indexed block type.
+	if(functionType.params().size() == 0 && functionType.results().size() == 0)
 	{
 		imm.type.format = IndexedBlockType::noParametersOrResult;
 		imm.type.resultType = ValueType::any;
 	}
-	else if(params.size() == 0 && results.size() == 1)
+	else if(functionType.params().size() == 0 && functionType.results().size() == 1)
 	{
 		imm.type.format = IndexedBlockType::oneResult;
-		imm.type.resultType = results[0];
+		imm.type.resultType = functionType.results()[0];
 	}
 	else
 	{
 		imm.type.format = IndexedBlockType::functionType;
-		imm.type.index = getUniqueFunctionTypeIndex(cursor->moduleState, FunctionType(
-			TypeTuple(results),
-			TypeTuple(params)
-			)).index;
+		imm.type.index = getUniqueFunctionTypeIndex(cursor->moduleState, functionType).index;
 	}
 }
 

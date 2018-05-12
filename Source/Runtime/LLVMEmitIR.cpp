@@ -124,9 +124,6 @@ namespace LLVMJIT
 			Uptr outerStackSize;
 			Uptr outerBranchTargetStackSize;
 			bool isReachable;
-			
-			llvm::Value* outerCatchpadToken;
-			llvm::BasicBlock* catchBlock;
 		};
 
 		struct BranchTarget
@@ -589,6 +586,17 @@ namespace LLVMJIT
 				currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
 				irBuilder.SetInsertPoint(currentContext.elseBlock);
 				irBuilder.CreateBr(currentContext.endBlock);
+				
+				// Add the if arguments to the end PHIs as if they just passed through the absent
+				// else block.
+				wavmAssert(currentContext.elseArgs.size() == currentContext.endPHIs.size());
+				for(Uptr argIndex = 0; argIndex < currentContext.elseArgs.size(); ++argIndex)
+				{
+					currentContext.endPHIs[argIndex]->addIncoming(
+						currentContext.elseArgs[argIndex],
+						currentContext.elseBlock
+						);
+				}
 			}
 
 			if(currentContext.type == ControlContext::Type::try_) { endTry(); }

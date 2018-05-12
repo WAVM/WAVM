@@ -574,9 +574,10 @@ namespace IR
 				VALIDATE_UNLESS("else only allowed in if context: ",isElse);
 				VALIDATE_UNLESS("catch only allowed in try context: ",isCatch);
 				TypeTuple results = controlStack.back().results;
-				if(controlStack.back().type == ControlContext::Type::ifThen && results.size())
+				if(controlStack.back().type == ControlContext::Type::ifThen
+					&& results != controlStack.back().elseParams)
 				{
-					throw ValidationException("else-less if may not yield a result");
+					throw ValidationException("else-less if must have identity signature");
 				}
 				controlStack.pop_back();
 				if(controlStack.size()) { pushOperandTuple(results); }
