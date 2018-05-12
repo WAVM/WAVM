@@ -245,7 +245,7 @@ namespace Runtime
 	};
 
 	#define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
-	enum { maxThunkArgAndReturnBytes = 128 };
+	enum { maxThunkArgAndReturnBytes = 256 };
 	enum { maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes };
 	enum { maxMemories = 255 };
 	enum { maxTables = 256 };
