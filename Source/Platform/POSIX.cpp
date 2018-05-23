@@ -7,7 +7,9 @@
 #include "Logging/Logging.h"
 
 #include <atomic>
+#include <cstdlib>
 #include <cxxabi.h>
+#include <dlfcn.h>
 #include <errno.h>
 #include <exception>
 #include <fcntl.h>
@@ -26,8 +28,6 @@
 
 #define UNW_LOCAL_ONLY
 #include "libunwind.h"
-
-#include <dlfcn.h>
 
 #ifdef __APPLE__
 	#define MAP_ANONYMOUS MAP_ANON
