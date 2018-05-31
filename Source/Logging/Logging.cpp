@@ -2,35 +2,32 @@
 #include "Logging.h"
 #include "Platform/Platform.h"
 
+#include <atomic>
 #include <cstdio>
 #include <cstdarg>
 #include <cstdlib>
 
 namespace Log
 {
-	static Platform::Mutex categoryEnabledMutex;
-	static bool categoryEnabled[(Uptr)Category::num] =
+	static std::atomic<bool> categoryEnabled[(Uptr)Category::num] =
 	{
-		true, // error
-		WAVM_DEBUG,
-		WAVM_METRICS_OUTPUT != 0 // metrics
+		{true}, // error
+		{WAVM_DEBUG != 0},
+		{WAVM_METRICS_OUTPUT != 0} // metrics
 	};
 	void setCategoryEnabled(Category category,bool enable)
 	{
-		Platform::Lock lock(categoryEnabledMutex);
 		wavmAssert(category < Category::num);
-		categoryEnabled[(Uptr)category] = enable;
+		categoryEnabled[(Uptr)category].store(enable);
 	}
 	bool isCategoryEnabled(Category category)
 	{
-		Platform::Lock lock(categoryEnabledMutex);
 		wavmAssert(category < Category::num);
-		return categoryEnabled[(Uptr)category];
+		return categoryEnabled[(Uptr)category].load();
 	}
 	void printf(Category category,const char* format,...)
 	{
-		Platform::Lock lock(categoryEnabledMutex);
-		if(categoryEnabled[(Uptr)category])
+		if(categoryEnabled[(Uptr)category].load())
 		{
 			va_list argList;
 			va_start(argList,format);
@@ -42,8 +39,7 @@ namespace Log
 
 	void vprintf(Category category,const char* format,va_list argList)
 	{
-		Platform::Lock lock(categoryEnabledMutex);
-		if(categoryEnabled[(Uptr)category])
+		if(categoryEnabled[(Uptr)category].load())
 		{
 			vfprintf(stdout,format,argList);
 			fflush(stdout);
