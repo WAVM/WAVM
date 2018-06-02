@@ -826,16 +826,14 @@ namespace Platform
 	{
 		errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));
 	}
-
-	struct Event
+	
+	Event::Event()
 	{
-		pthread_cond_t conditionVariable;
-		pthread_mutex_t mutex;
-	};
-
-	Event* createEvent()
-	{
-		auto event = new Event();
+		static_assert(sizeof(pthreadMutex) == sizeof(pthread_mutex_t), "");
+		static_assert(alignof(PthreadMutex) >= alignof(pthread_mutex_t), "");
+		
+		static_assert(sizeof(pthreadCond) == sizeof(pthread_cond_t), "");
+		static_assert(alignof(PthreadCond) >= alignof(pthread_cond_t), "");
 
 		pthread_condattr_t conditionVariableAttr;
 		errorUnless(!pthread_condattr_init(&conditionVariableAttr));
@@ -845,29 +843,26 @@ namespace Platform
 			errorUnless(!pthread_condattr_setclock(&conditionVariableAttr,CLOCK_MONOTONIC));
 		#endif
 
-		errorUnless(!pthread_cond_init(&event->conditionVariable,nullptr));
-		errorUnless(!pthread_mutex_init(&event->mutex,nullptr));
+		errorUnless(!pthread_cond_init((pthread_cond_t*)&pthreadCond,nullptr));
+		errorUnless(!pthread_mutex_init((pthread_mutex_t*)&pthreadMutex,nullptr));
 
 		errorUnless(!pthread_condattr_destroy(&conditionVariableAttr));
-
-		return event;
 	}
 
-	void destroyEvent(Event* event)
+	Event::~Event()
 	{
-		pthread_cond_destroy(&event->conditionVariable);
-		errorUnless(!pthread_mutex_destroy(&event->mutex));
-		delete event;
+		pthread_cond_destroy((pthread_cond_t*)&pthreadCond);
+		errorUnless(!pthread_mutex_destroy((pthread_mutex_t*)&pthreadMutex));
 	}
 
-	bool waitForEvent(Event* event,U64 untilTime)
+	bool Event::wait(U64 untilTime)
 	{
-		errorUnless(!pthread_mutex_lock(&event->mutex));
+		errorUnless(!pthread_mutex_lock((pthread_mutex_t*)&pthreadMutex));
 
 		int result;
 		if(untilTime == UINT64_MAX)
 		{
-			result = pthread_cond_wait(&event->conditionVariable,&event->mutex);
+			result = pthread_cond_wait((pthread_cond_t*)&pthreadCond,(pthread_mutex_t*)&pthreadMutex);
 		}
 		else
 		{
@@ -875,10 +870,14 @@ namespace Platform
 			untilTimeSpec.tv_sec = untilTime / 1000000;
 			untilTimeSpec.tv_nsec = (untilTime % 1000000) * 1000;
 
-			result = pthread_cond_timedwait(&event->conditionVariable,&event->mutex,&untilTimeSpec);
+			result = pthread_cond_timedwait(
+				(pthread_cond_t*)&pthreadCond,
+				(pthread_mutex_t*)&pthreadMutex,
+				&untilTimeSpec
+				);
 		}
 
-		errorUnless(!pthread_mutex_unlock(&event->mutex));
+		errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));
 
 		if(result == ETIMEDOUT)
 		{
@@ -891,9 +890,9 @@ namespace Platform
 		}
 	}
 
-	void signalEvent(Event* event)
+	void Event::signal()
 	{
-		errorUnless(!pthread_cond_signal(&event->conditionVariable));
+		errorUnless(!pthread_cond_signal((pthread_cond_t*)&pthreadCond));
 	}
 	
 	// Instead of just reinterpreting the file descriptor as a pointer, use

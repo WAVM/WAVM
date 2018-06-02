@@ -234,10 +234,10 @@ namespace Platform
 	{
 		PLATFORM_API Mutex();
 		PLATFORM_API ~Mutex();
-
+		
+		// Don't allow copying or moving a Mutex.
 		Mutex(const Mutex&) = delete;
 		Mutex(Mutex&&) = delete;
-
 		void operator=(const Mutex&) = delete;
 		void operator=(Mutex&&) = delete;
 
@@ -246,36 +246,71 @@ namespace Platform
 
 	private:
 		#ifdef WIN32
-		struct CriticalSection
-		{
-			struct _RTL_CRITICAL_SECTION_DEBUG* debugInfo;
-			I32 lockCount;
-			I32 recursionCount;
-			Uptr owningThreadHandle;
-			Uptr lockSemaphoreHandle;
-			Uptr spinCount;
-		} criticalSection;
+			struct CriticalSection
+			{
+				struct _RTL_CRITICAL_SECTION_DEBUG* debugInfo;
+				I32 lockCount;
+				I32 recursionCount;
+				void* owningThreadHandle;
+				void* lockSemaphoreHandle;
+				Uptr spinCount;
+			} criticalSection;
 		#elif defined(__linux__)
-		struct PthreadMutex
-		{
-			Uptr data[5];
-		} pthreadMutex;
+			struct PthreadMutex
+			{
+				Uptr data[5];
+			} pthreadMutex;
 		#elif defined(__APPLE__)
-		struct PthreadMutex
-		{
-			Uptr data[8];
-		} pthreadMutex;
+			struct PthreadMutex
+			{
+				Uptr data[8];
+			} pthreadMutex;
 		#else
 			#error unsupported platform
 		#endif
 	};
 
 	// Platform-independent events.
-	struct Event;
-	PLATFORM_API Event* createEvent();
-	PLATFORM_API void destroyEvent(Event* event);
-	PLATFORM_API bool waitForEvent(Event* event,U64 untilClock);
-	PLATFORM_API void signalEvent(Event* event);
+	struct Event
+	{
+		PLATFORM_API Event();
+		PLATFORM_API ~Event();
+		
+		// Don't allow copying or moving an Event.
+		Event(const Event&) = delete;
+		Event(Event&&) = delete;
+		void operator=(const Event&) = delete;
+		void operator=(Event&&) = delete;
+
+		PLATFORM_API bool wait(U64 untilClock);
+		PLATFORM_API void signal();
+
+	private:
+
+		#ifdef WIN32
+			void* handle;
+		#elif defined(__linux__)
+			struct PthreadMutex
+			{
+				Uptr data[5];
+			} pthreadMutex;
+			struct PthreadCond
+			{
+				Uptr data[6];
+			} pthreadCond;
+		#elif defined(__APPLE__)
+			struct PthreadMutex
+			{
+				Uptr data[8];
+			} pthreadMutex;
+			struct PthreadCond
+			{
+				Uptr data[6];
+			} pthreadCond;
+		#else
+			#error unsupported platform
+		#endif
+	};
 
 	//
 	// File I/O

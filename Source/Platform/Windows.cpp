@@ -874,17 +874,18 @@ namespace Platform
 		LeaveCriticalSection((CRITICAL_SECTION*)&criticalSection);
 	}
 
-	Event* createEvent()
+	Event::Event()
 	{
-		return reinterpret_cast<Event*>(CreateEvent(nullptr,FALSE,FALSE,nullptr));
+		handle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		errorUnless(handle);
 	}
 
-	void destroyEvent(Event* event)
+	Event::~Event()
 	{
-		CloseHandle(reinterpret_cast<HANDLE>(event));
+		errorUnless(CloseHandle(handle));
 	}
 
-	bool waitForEvent(Event* event,U64 untilTime)
+	bool Event::wait(U64 untilTime)
 	{
 		U64 currentTime = getMonotonicClock();
 		const U64 startProcessTime = currentTime;
@@ -897,7 +898,7 @@ namespace Platform
 				? (UINT32_MAX - 1)
 				: U32(timeoutMilliseconds64);
 
-			const U32 waitResult = WaitForSingleObject(reinterpret_cast<HANDLE>(event),timeoutMilliseconds32);
+			const U32 waitResult = WaitForSingleObject(handle,timeoutMilliseconds32);
 			if(waitResult != WAIT_TIMEOUT)
 			{
 				errorUnless(waitResult == WAIT_OBJECT_0);
@@ -914,9 +915,9 @@ namespace Platform
 		};
 	}
 
-	void signalEvent(Event* event)
+	void Event::signal()
 	{
-		errorUnless(SetEvent(reinterpret_cast<HANDLE>(event)));
+		errorUnless(SetEvent(handle));
 	}
 
 	static File* fileHandleToPointer(HANDLE handle)

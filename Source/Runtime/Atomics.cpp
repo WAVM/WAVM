@@ -23,15 +23,8 @@ struct WaitList
 	WaitList(): numReferences(1) {}
 };
 
-// Define a unique_ptr to a Platform::Event.
-struct EventDeleter
-{
-	void operator()(Platform::Event* event) { Platform::destroyEvent(event); }
-};
-typedef std::unique_ptr<Platform::Event,EventDeleter> UniqueEventPtr;
-
 // An event that is reused within a thread when it waits on a WaitList.
-thread_local UniqueEventPtr threadWakeEvent = nullptr;
+thread_local std::unique_ptr<Platform::Event> threadWakeEvent = nullptr;
 
 // A map from address to a list of threads waiting on that address.
 static Platform::Mutex addressToWaitListMapMutex;
@@ -135,7 +128,10 @@ static U32 waitOnAddress(Value* valuePointer,Value expectedValue,F64 timeout)
 		else
 		{
 			// If the thread hasn't yet created a wake event, do so.
-			if(!threadWakeEvent) { threadWakeEvent = UniqueEventPtr(Platform::createEvent()); }
+			if(!threadWakeEvent)
+			{
+				threadWakeEvent = std::unique_ptr<Platform::Event>(new Platform::Event());
+			}
 
 			// Add the wake event to the wait list, and unlock the wait list.
 			waitList->wakeEvents.push_back(threadWakeEvent.get());
@@ -145,7 +141,7 @@ static U32 waitOnAddress(Value* valuePointer,Value expectedValue,F64 timeout)
 
 	// Wait for the thread's wake event to be signaled.
 	bool timedOut = false;
-	if(!Platform::waitForEvent(threadWakeEvent.get(),endTime))
+	if(!threadWakeEvent->wait(endTime))
 	{
 		// If the wait timed out, lock the wait list and check if the thread's wake event is still in the wait list.
 		Lock<Platform::Mutex> waitListLock(waitList->mutex);
@@ -160,7 +156,7 @@ static U32 waitOnAddress(Value* valuePointer,Value expectedValue,F64 timeout)
 		{
 			// In between the wait timing out and locking the wait list, some other thread tried to wake this thread.
 			// The event will now be signaled, so use an immediately expiring wait on it to reset it.
-			errorUnless(Platform::waitForEvent(threadWakeEvent.get(),Platform::getMonotonicClock()));
+			errorUnless(threadWakeEvent->wait(Platform::getMonotonicClock()));
 		}
 	}
 
@@ -188,7 +184,7 @@ static U32 wakeAddress(Uptr address,U32 numToWake)
 		// Signal the events corresponding to the oldest waiting threads.
 		for(Uptr wakeIndex = 0;wakeIndex < actualNumToWake;++wakeIndex)
 		{
-			signalEvent(waitList->wakeEvents[wakeIndex]);
+			waitList->wakeEvents[wakeIndex]->signal();
 		}
 
 		// Remove the events from the wait list.
