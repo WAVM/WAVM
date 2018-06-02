@@ -856,7 +856,7 @@ namespace Platform
 	{
 		static_assert(sizeof(criticalSection) == sizeof(CRITICAL_SECTION), "");
 		static_assert(alignof(CriticalSection) >= alignof(CRITICAL_SECTION), "");
-		InitializeCriticalSection((CRITICAL_SECTION*)&criticalSection);
+		InitializeCriticalSectionAndSpinCount((CRITICAL_SECTION*)&criticalSection, 4000);
 	}
 
 	Mutex::~Mutex()
