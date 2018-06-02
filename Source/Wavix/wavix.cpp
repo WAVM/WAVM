@@ -349,7 +349,13 @@ int main(int argc,const char** argv)
 	// Instead of catching unhandled exceptions/signals, register a global handler.
 	Runtime::setUnhandledExceptionHandler(unhandledExceptionHandler);
 
-	Wavix::Process* process = Wavix::spawnProcess(filename,processArgs,{},"/");
+	Wavix::Process* process = Wavix::spawnProcess(
+		nullptr,
+		filename,
+		processArgs,
+		{},
+		"/"
+		);
 	if(!process)
 	{
 		std::cerr << "Failed to spawn \"" << filename << "\"." << std::endl;

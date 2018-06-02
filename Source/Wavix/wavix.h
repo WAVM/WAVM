@@ -27,6 +27,8 @@ namespace Wavix
 		Process* process;
 		Runtime::GCPointer<Runtime::Context> context;
 
+		Platform::Event wakeEvent;
+
 		Thread(Process* inProcess,Runtime::Context* inContext)
 		: process(inProcess)
 		, context(inContext)
@@ -35,6 +37,7 @@ namespace Wavix
 
 	DECLARE_INTRINSIC_MODULE(wavix);
 
+	extern thread_local Thread* currentThread;
 	extern thread_local Process* currentProcess;
 
 	extern std::string sysroot;
@@ -46,7 +49,7 @@ namespace Wavix
 		{
 			va_list argList;
 			va_start(argList,argFormat);
-			Log::printf(Log::Category::error,"SYSCALL: %s",syscallName);
+			Log::printf(Log::Category::error, "SYSCALL(%llx): %s", currentThread, syscallName);
 			Log::vprintf(Log::Category::error,argFormat,argList);
 			Log::printf(Log::Category::error,"\n");
 			va_end(argList);

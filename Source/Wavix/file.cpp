@@ -1,4 +1,5 @@
 #include "errno.h"
+#include "file.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Lock.h"
@@ -19,24 +20,22 @@ namespace Wavix
 
 	static I32 allocateFD()
 	{
-		if(currentProcess->freeFileIndices.size())
+		const I32 index = currentProcess->filesAllocator.alloc();
+		if(Uptr(index) >= currentProcess->files.size())
 		{
-			const I32 result = currentProcess->freeFileIndices.back();
-			currentProcess->freeFileIndices.pop_back();
-			return result;
+			currentProcess->files.insert(
+				currentProcess->files.end(),
+				Uptr(index) + 1 - currentProcess->files.size(),
+				nullptr
+				);
 		}
-		else
-		{
-			if(currentProcess->files.size() >= Uptr(INT32_MAX)) { return 0; }
-			currentProcess->files.push_back(nullptr);
-			return I32(currentProcess->files.size() - 1);
-		}
+		return index;
 	}
 
 	static void freeFD(I32 index)
 	{
 		wavmAssert(validateFD(index));
-		currentProcess->freeFileIndices.push_back(index);
+		currentProcess->filesAllocator.free(index);
 	}
 
 	struct Path

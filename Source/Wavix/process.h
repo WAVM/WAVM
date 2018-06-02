@@ -1,6 +1,8 @@
 #pragma once
 
+#include "file.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/IndexAllocator.h"
 #include "Platform/Platform.h"
 #include "Runtime/Runtime.h"
 #include "wavix.h"
@@ -13,35 +15,35 @@ namespace Wavix
 	struct Process
 	{
 		Runtime::GCPointer<Runtime::Compartment> compartment;
-
-		Uptr id;
-
+		Process* parent;
+		I32 id;
+		
 		Platform::Mutex cwdMutex;
 		std::string cwd;
 
-		Platform::Mutex fileMutex;
+		Platform::Mutex filesMutex;
 		std::vector<Platform::File*> files;
-		std::vector<I32> freeFileIndices;
+		IndexAllocator<I32, INT32_MAX> filesAllocator;
 
+		Platform::Mutex childrenMutex;
+		std::vector<Process*> children;
+		
+		Platform::Mutex argsEnvMutex;
 		std::vector<std::string> args;
 		std::vector<std::string> envs;
 
 		Platform::Mutex threadsMutex;
 		std::vector<Thread*> threads;
 
-		Process(
-			Runtime::Compartment* inCompartment,
-			const std::vector<std::string>& inArgs,
-			const std::vector<std::string>& inEnvs,
-			const std::string& inCWD
-			);
-		~Process();
+		Platform::Mutex waitersMutex;
+		std::vector<Thread*> waiters;
 	};
 
 	extern Process* spawnProcess(
+		Process* parent,
 		const char* filename,
 		const std::vector<std::string>& args,
-		const std::vector<std::string>& env,
+		const std::vector<std::string>& envs,
 		const std::string& cwd
 		);
 }
