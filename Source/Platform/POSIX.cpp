@@ -3,6 +3,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
+#include "Inline/Lock.h"
 #include "Platform/Platform.h"
 #include "Logging/Logging.h"
 
@@ -209,7 +210,7 @@ namespace Platform
 
 	void handleFatalError(const char* messageFormat,va_list varArgs)
 	{
-		Lock lock(getErrorReportingMutex());
+		Lock<Platform::Mutex> lock(getErrorReportingMutex());
 		std::vfprintf(stderr,messageFormat,varArgs);
 		std::fflush(stderr);
 		dumpErrorCallStack(3);
@@ -218,7 +219,7 @@ namespace Platform
 
 	void handleAssertionFailure(const AssertMetadata& metadata)
 	{
-		Lock lock(getErrorReportingMutex());
+		Lock<Platform::Mutex> lock(getErrorReportingMutex());
 		std::fprintf(
 			stderr,
 			"Assertion failed at %s(%u): %s\n",

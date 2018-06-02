@@ -1,5 +1,6 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Lock.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
@@ -36,7 +37,7 @@ namespace Runtime
 		// Add the table to the compartment.
 		if(compartment)
 		{
-			Platform::Lock compartmentLock(compartment->mutex);
+			Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 
 			if(compartment->tables.size() >= maxTables) { delete table; return nullptr; }
 
@@ -47,7 +48,7 @@ namespace Runtime
 
 		// Add the table to the global array.
 		{
-			Platform::Lock tablesLock(tablesMutex);
+			Lock<Platform::Mutex> tablesLock(tablesMutex);
 			tables.push_back(table);
 		}
 		return table;
@@ -55,7 +56,7 @@ namespace Runtime
 	
 	TableInstance* cloneTable(TableInstance* table,Compartment* newCompartment)
 	{
-		Platform::Lock elementsLock(table->elementsMutex);
+		Lock<Platform::Mutex> elementsLock(table->elementsMutex);
 		TableInstance* newTable = createTable(newCompartment,table->type);
 		growTable(newTable,table->elements.size());
 		newTable->elements = table->elements;
@@ -68,7 +69,7 @@ namespace Runtime
 
 	void TableInstance::finalize()
 	{
-		Platform::Lock compartmentLock(compartment->mutex);
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		wavmAssert(compartment->tables[id] == this);
 		wavmAssert(compartment->runtimeData->tables[id] == baseAddress);
 		compartment->tables[id] = nullptr;
@@ -90,7 +91,7 @@ namespace Runtime
 		
 		// Remove the table from the global array.
 		{
-			Platform::Lock tablesLock(tablesMutex);
+			Lock<Platform::Mutex> tablesLock(tablesMutex);
 			for(Uptr tableIndex = 0;tableIndex < tables.size();++tableIndex)
 			{
 				if(tables[tableIndex] == this) { tables.erase(tables.begin() + tableIndex); break; }
@@ -101,7 +102,7 @@ namespace Runtime
 	bool isAddressOwnedByTable(U8* address)
 	{
 		// Iterate over all tables and check if the address is within the reserved address space for each.
-		Platform::Lock tablesLock(tablesMutex);
+		Lock<Platform::Mutex> tablesLock(tablesMutex);
 		for(auto table : tables)
 		{
 			U8* startAddress = (U8*)table->baseAddress;
@@ -128,7 +129,7 @@ namespace Runtime
 		}
 
 		// Lock the table's elements array.
-		Platform::Lock elementsLock(table->elementsMutex);
+		Lock<Platform::Mutex> elementsLock(table->elementsMutex);
 
 		// Verify the index is within the table's bounds.
 		if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
@@ -157,7 +158,7 @@ namespace Runtime
 
 		// Read from the table's elements array.
 		{
-			Platform::Lock elementsLock(table->elementsMutex);
+			Lock<Platform::Mutex> elementsLock(table->elementsMutex);
 			return table->elements[saturatedIndex];
 		}
 	}
@@ -189,7 +190,7 @@ namespace Runtime
 
 			// Also grow the table's elements array.
 			{
-				Platform::Lock elementsLock(table->elementsMutex);
+				Lock<Platform::Mutex> elementsLock(table->elementsMutex);
 				table->elements.insert(table->elements.end(),numNewElements,nullptr);
 			}
 		}
@@ -207,7 +208,7 @@ namespace Runtime
 
 			// Shrink the table's elements array.
 			{
-				Platform::Lock elementsLock(table->elementsMutex);
+				Lock<Platform::Mutex> elementsLock(table->elementsMutex);
 				table->elements.resize(table->elements.size() - numElementsToShrink);
 			}
 			

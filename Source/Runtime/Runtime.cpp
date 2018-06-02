@@ -1,5 +1,6 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Lock.h"
 #include "Logging/Logging.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
@@ -125,7 +126,7 @@ namespace Runtime
 		// Allow immutable globals to be created without a compartment.
 		errorUnless(!type.isMutable || compartment);
 
-		Platform::Lock compartmentLock(compartment->mutex);
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		GlobalInstance* globalInstance;
 		if(!type.isMutable) { globalInstance = new GlobalInstance(compartment,type,UINT32_MAX,initialValue); }
 		else
@@ -159,7 +160,7 @@ namespace Runtime
 
 	void GlobalInstance::finalize()
 	{
-		Platform::Lock compartmentLock(compartment->mutex);
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		compartment->globals[id] = nullptr;
 	}
 
@@ -222,7 +223,7 @@ namespace Runtime
 	{
 		Compartment* newCompartment = new Compartment;
 
-		Platform::Lock lock(compartment->mutex);
+		Lock<Platform::Mutex> lock(compartment->mutex);
 		
 		// Clone globals.
 		for(Uptr globalIndex = 0;globalIndex < compartment->globals.size();++globalIndex)
@@ -261,7 +262,7 @@ namespace Runtime
 		wavmAssert(compartment);
 		Context* context = new Context(compartment);
 		{
-			Platform::Lock lock(compartment->mutex);
+			Lock<Platform::Mutex> lock(compartment->mutex);
 
 			// Allocate an ID for the context in the compartment.
 			context->id = compartment->contexts.size();
@@ -285,7 +286,7 @@ namespace Runtime
 
 	void Context::finalize()
 	{
-		Platform::Lock compartmentLock(compartment->mutex);
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		compartment->contexts[id] = nullptr;
 	}
 
@@ -311,7 +312,7 @@ namespace Runtime
 	{
 		const CompartmentRuntimeData* compartmentRuntimeData = getCompartmentRuntimeData(contextRuntimeData);
 		const Uptr contextId = contextRuntimeData - compartmentRuntimeData->contexts;
-		Platform::Lock compartmentLock(compartmentRuntimeData->compartment->mutex);
+		Lock<Platform::Mutex> compartmentLock(compartmentRuntimeData->compartment->mutex);
 		return compartmentRuntimeData->compartment->contexts[contextId];
 	}
 
@@ -323,7 +324,7 @@ namespace Runtime
 	TableInstance* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData,Uptr tableId)
 	{
 		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-		Platform::Lock compartmentLock(compartment->mutex);
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		wavmAssert(tableId < compartment->tables.size());
 		return compartment->tables[tableId];
 	}
@@ -331,7 +332,7 @@ namespace Runtime
 	MemoryInstance* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData,Uptr memoryId)
 	{
 		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
-		Platform::Lock compartmentLock(compartment->mutex);
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		return compartment->memories[memoryId];
 	}
 }

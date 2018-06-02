@@ -3,6 +3,7 @@
 #include "Inline/ConcurrentHashMap.h"
 #include "Inline/HashMap.h"
 #include "Inline/IndexAllocator.h"
+#include "Inline/Lock.h"
 #include "Inline/Serialization.h"
 #include "Inline/Timing.h"
 #include "IR/Module.h"
@@ -47,7 +48,7 @@ namespace Wavix
 	
 		// Allocate a PID for the process.
 		{
-			Platform::Lock pidAllocatorLock(pidAllocatorMutex);
+			Lock<Platform::Mutex> pidAllocatorLock(pidAllocatorMutex);
 			id = pidAllocator.alloc();
 		}
 

@@ -1,6 +1,7 @@
 #include "errno.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Lock.h"
 #include "Inline/Unicode.h"
 #include "Platform/Platform.h"
 #include "process.h"
@@ -150,7 +151,7 @@ namespace Wavix
 
 		std::string cwd;
 		{
-			Platform::Lock cwdLock(currentProcess->cwdMutex);
+			Lock<Platform::Mutex> cwdLock(currentProcess->cwdMutex);
 			cwd = currentProcess->cwd;
 		}
 		pathString = sysroot + resolvePath(cwd,"/home",path);
@@ -198,7 +199,7 @@ namespace Wavix
 		Platform::File* platformFile = Platform::openFile(pathString,platformAccessMode,platformCreateMode);
 		if(!platformFile) { return -1; }
 
-		Platform::Lock fileLock(currentProcess->fileMutex);
+		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 		I32 fd = allocateFD();
 		currentProcess->files[fd] = platformFile;
 
@@ -223,7 +224,7 @@ namespace Wavix
 	{
 		traceSyscallf("close","");
 
-		Platform::Lock fileLock(currentProcess->fileMutex);
+		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 
 		if(!validateFD(fd)) { return -1; }
 
@@ -245,7 +246,7 @@ namespace Wavix
 
 		if(whence < 0 || whence > 2) { return -1; }
 
-		Platform::Lock fileLock(currentProcess->fileMutex);
+		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 
 		if(!validateFD(fd)) { return -1; }
 
@@ -270,7 +271,7 @@ namespace Wavix
 
 		traceSyscallf("read","(%i,0x%08x,%u)",fd,bufferAddress,numBytes);
 
-		Platform::Lock fileLock(currentProcess->fileMutex);
+		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 
 		if(!validateFD(fd)) { return -1; }
 
@@ -305,7 +306,7 @@ namespace Wavix
 			U32 numBytes;
 		};
 
-		Platform::Lock fileLock(currentProcess->fileMutex);
+		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 
 		if(!validateFD(fd)) { return -1; }
 
@@ -349,7 +350,7 @@ namespace Wavix
 			U32 numBytes;
 		};
 
-		Platform::Lock fileLock(currentProcess->fileMutex);
+		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 
 		if(!validateFD(fd)) { return -1; }
 
@@ -384,7 +385,7 @@ namespace Wavix
 	{
 		traceSyscallf("fsync","");
 
-		Platform::Lock fileLock(currentProcess->fileMutex);
+		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 
 		if(!validateFD(fd)) { return -1; }
 
@@ -403,7 +404,7 @@ namespace Wavix
 	{
 		traceSyscallf("fdatasync","");
 
-		Platform::Lock fileLock(currentProcess->fileMutex);
+		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 
 		if(!validateFD(fd)) { return -1; }
 
@@ -574,7 +575,7 @@ namespace Wavix
 		Path path;
 		if(!parsePath(pathString,path)) { return -1; }
 
-		Platform::Lock cwdLock(currentProcess->cwdMutex);
+		Lock<Platform::Mutex> cwdLock(currentProcess->cwdMutex);
 		currentProcess->cwd = resolvePath(currentProcess->cwd,"/home",path);
 
 		return 0;

@@ -1,6 +1,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
+#include "Inline/Lock.h"
 #include "Logging/Logging.h"
 #include "Intrinsics.h"
 #include "RuntimePrivate.h"
@@ -42,7 +43,7 @@ static HashMap<Uptr,WaitList*> addressToWaitListMap;
 // A call to openWaitList should be followed by a call to closeWaitList to avoid leaks.
 static WaitList* openWaitList(Uptr address)
 {
-	Platform::Lock mapLock(addressToWaitListMapMutex);
+	Lock<Platform::Mutex> mapLock(addressToWaitListMapMutex);
 	auto waitListPtr = addressToWaitListMap.get(address);
 	if(waitListPtr)
 	{
@@ -62,7 +63,7 @@ static void closeWaitList(Uptr address,WaitList* waitList)
 {
 	if(--waitList->numReferences == 0)
 	{
-		Platform::Lock mapLock(addressToWaitListMapMutex);
+		Lock<Platform::Mutex> mapLock(addressToWaitListMapMutex);
 		if(!waitList->numReferences)
 		{
 			wavmAssert(!waitList->wakeEvents.size());
@@ -123,7 +124,7 @@ static U32 waitOnAddress(Value* valuePointer,Value expectedValue,F64 timeout)
 
 	// Lock the wait list, and check that *valuePointer is still what the caller expected it to be.
 	{
-		Platform::Lock waitListLock(waitList->mutex);
+		Lock<Platform::Mutex> waitListLock(waitList->mutex);
 		if(atomicLoad(valuePointer) != expectedValue)
 		{
 			// If *valuePointer wasn't the expected value, unlock the wait list and return.
@@ -147,7 +148,7 @@ static U32 waitOnAddress(Value* valuePointer,Value expectedValue,F64 timeout)
 	if(!Platform::waitForEvent(threadWakeEvent.get(),endTime))
 	{
 		// If the wait timed out, lock the wait list and check if the thread's wake event is still in the wait list.
-		Platform::Lock waitListLock(waitList->mutex);
+		Lock<Platform::Mutex> waitListLock(waitList->mutex);
 		auto wakeEventIt = std::find(waitList->wakeEvents.begin(),waitList->wakeEvents.end(),threadWakeEvent.get());
 		if(wakeEventIt != waitList->wakeEvents.end())
 		{
@@ -175,7 +176,7 @@ static U32 wakeAddress(Uptr address,U32 numToWake)
 	WaitList* waitList = openWaitList(address);
 	Uptr actualNumToWake = numToWake;
 	{
-		Platform::Lock waitListLock(waitList->mutex);
+		Lock<Platform::Mutex> waitListLock(waitList->mutex);
 
 		// Determine how many threads to wake.
 		// numToWake==UINT32_MAX means wake all waiting threads.

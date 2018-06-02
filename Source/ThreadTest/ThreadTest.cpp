@@ -1,5 +1,6 @@
 #include "Inline/Assert.h"
 #include "Inline/IntrusiveSharedPtr.h"
+#include "Inline/Lock.h"
 #include "IR/Types.h"
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
@@ -60,7 +61,7 @@ namespace ThreadTest
 	// Adds the thread to the global thread array, assigning it an ID corresponding to its index in the array.
 	FORCENOINLINE static Uptr allocateThreadId(Thread* thread)
 	{
-		Platform::Lock threadsLock(threadsMutex);
+		Lock<Platform::Mutex> threadsLock(threadsMutex);
 		wavmAssert(threads.size() > 0);
 		if(freeThreadIds.size())
 		{
@@ -202,7 +203,7 @@ namespace ThreadTest
 	{
 		IntrusiveSharedPtr<Thread> thread;
 
-		Platform::Lock threadsLock(threadsMutex);
+		Lock<Platform::Mutex> threadsLock(threadsMutex);
 		validateThreadId(threadId);
 		thread = std::move(threads[threadId]);
 		threads[threadId] = nullptr;

@@ -1,5 +1,6 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/HashSet.h"
+#include "Inline/Lock.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
 #include "Runtime.h"
@@ -31,7 +32,7 @@ namespace Runtime
 	: Object(inKind), numRootReferences(0)
 	{
 		// Add the object to the global array.
-		Platform::Lock lock(GCGlobals::get().mutex);
+		Lock<Platform::Mutex> lock(GCGlobals::get().mutex);
 		GCGlobals::get().allObjects.add(this);
 	}
 
@@ -50,7 +51,7 @@ namespace Runtime
 	void collectGarbage()
 	{
 		GCGlobals& gcGlobals = GCGlobals::get();
-		Platform::Lock lock(gcGlobals.mutex);
+		Lock<Platform::Mutex> lock(gcGlobals.mutex);
 		Timing::Timer timer;
 
 		HashSet<ObjectImpl*> referencedObjects;

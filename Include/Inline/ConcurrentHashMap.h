@@ -4,6 +4,7 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
+#include "Inline/Lock.h"
 
 template<typename Key, typename Value, typename KeyHashPolicy = DefaultHashPolicy<Key>, Uptr numStripes = 64>
 struct ConcurrentHashMap
@@ -12,7 +13,7 @@ struct ConcurrentHashMap
 	Value getOrAdd(const Key& key, ValueArgs&&... valueArgs)
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
-		Platform::Lock stripeLock(stripe.mutex);
+		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		return stripe.map.getOrAdd(key, std::forward<ValueArgs>(valueArgs)...);
 	}
 	
@@ -20,7 +21,7 @@ struct ConcurrentHashMap
 	bool add(const Key& key, ValueArgs&&... valueArgs)
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
-		Platform::Lock stripeLock(stripe.mutex);
+		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		return stripe.map.add(key, std::forward<ValueArgs>(valueArgs)...);
 	}
 	
@@ -28,35 +29,35 @@ struct ConcurrentHashMap
 	void set(const Key& key, ValueArgs&&... valueArgs)
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
-		Platform::Lock stripeLock(stripe.mutex);
+		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		stripe.map.set(key, std::forward<ValueArgs>(valueArgs)...);
 	}
 
 	bool remove(const Key& key)
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
-		Platform::Lock stripeLock(stripe.mutex);
+		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		return stripe.map.remove(key);
 	}
 
 	bool contains(const Key& key) const
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
-		Platform::Lock stripeLock(stripe.mutex);
+		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		return stripe.map.contains(key);
 	}
 
 	const Value operator[](const Key& key) const
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
-		Platform::Lock stripeLock(stripe.mutex);
+		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		return stripe.map[key];
 	}
 	
 	Value get(const Key& key, Value&& nullValue) const
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
-		Platform::Lock stripeLock(stripe.mutex);
+		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		Value* value = stripe.map.get(key);
 		if(value) { return *value; }
 		else { return nullValue; }

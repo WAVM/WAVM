@@ -11,6 +11,7 @@ set(PublicHeaders
 	HashTable.h HashTableImpl.h HashTable.natvis
 	IndexAllocator.h
 	IntrusiveSharedPtr.h
+	Lock.h
 	OptionalStorage.h
 	Serialization.h
 	Timing.h

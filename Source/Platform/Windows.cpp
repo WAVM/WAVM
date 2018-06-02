@@ -3,6 +3,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
+#include "Inline/Lock.h"
 #include "Inline/Unicode.h"
 #include "Platform.h"
 
@@ -199,7 +200,7 @@ namespace Platform
 
 	void handleFatalError(const char* messageFormat,va_list varArgs)
 	{
-		Lock lock(getErrorReportingMutex());
+		Lock<Platform::Mutex> lock(getErrorReportingMutex());
 		std::vfprintf(stderr,messageFormat,varArgs);
 		std::fflush(stderr);
 		std::abort();
@@ -207,7 +208,7 @@ namespace Platform
 
 	void handleAssertionFailure(const AssertMetadata& metadata)
 	{
-		Lock lock(getErrorReportingMutex());
+		Lock<Platform::Mutex> lock(getErrorReportingMutex());
 		std::fprintf(
 			stderr,
 			"Assertion failed at %s(%u): %s\n",
@@ -229,7 +230,7 @@ namespace Platform
 			static DbgHelp* dbgHelp = nullptr;
 			if(!dbgHelp)
 			{
-				Platform::Lock dbgHelpLock(dbgHelpMutex);
+				Lock<Platform::Mutex> dbgHelpLock(dbgHelpMutex);
 				if(!dbgHelp)
 				{
 					dbgHelp = new DbgHelp();

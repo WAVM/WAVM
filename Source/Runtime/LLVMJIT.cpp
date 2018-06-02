@@ -2,6 +2,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
+#include "Inline/Lock.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
 #include "RuntimePrivate.h"
@@ -319,7 +320,7 @@ namespace LLVMJIT
 		~JITModule() override
 		{
 			// Delete the module's symbols, and remove them from the global address-to-symbol map.
-			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+			Lock<Platform::Mutex> addressToSymbolMapLock(addressToSymbolMapMutex);
 			for(auto symbol : functionDefSymbols)
 			{
 				addressToSymbolMap.erase(addressToSymbolMap.find(symbol->baseAddress + symbol->numBytes));
@@ -341,7 +342,7 @@ namespace LLVMJIT
 				functionInstance->nativeFunction = reinterpret_cast<void*>(baseAddress);
 
 				{
-					Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+					Lock<Platform::Mutex> addressToSymbolMapLock(addressToSymbolMapMutex);
 					addressToSymbolMap[baseAddress + numBytes] = symbol;
 				}
 			}
@@ -647,7 +648,7 @@ namespace LLVMJIT
 
 	void instantiateModule(const IR::Module& module,ModuleInstance* moduleInstance)
 	{
-		Platform::Lock llvmLock(llvmMutex);
+		Lock<Platform::Mutex> llvmLock(llvmMutex);
 
 		initLLVM();
 
@@ -692,7 +693,7 @@ namespace LLVMJIT
 	{
 		JITSymbol* symbol;
 		{
-			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+			Lock<Platform::Mutex> addressToSymbolMapLock(addressToSymbolMapMutex);
 			auto symbolIt = addressToSymbolMap.upper_bound(ip);
 			if(symbolIt == addressToSymbolMap.end()) { return false; }
 			symbol = symbolIt->second;
@@ -733,7 +734,7 @@ namespace LLVMJIT
 
 	InvokeFunctionPointer getInvokeThunk(FunctionType functionType,CallingConvention callingConvention)
 	{
-		Platform::Lock llvmLock(llvmMutex);
+		Lock<Platform::Mutex> llvmLock(llvmMutex);
 
 		initLLVM();
 
@@ -824,7 +825,7 @@ namespace LLVMJIT
 		invokeThunkSymbol = jitUnit->symbol;
 
 		{
-			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+			Lock<Platform::Mutex> addressToSymbolMapLock(addressToSymbolMapMutex);
 			addressToSymbolMap[jitUnit->symbol->baseAddress + jitUnit->symbol->numBytes] = jitUnit->symbol;
 		}
 
@@ -837,7 +838,7 @@ namespace LLVMJIT
 		|| callingConvention == CallingConvention::intrinsicWithContextSwitch
 		|| callingConvention == CallingConvention::intrinsicWithMemAndTable);
 
-		Platform::Lock llvmLock(llvmMutex);
+		Lock<Platform::Mutex> llvmLock(llvmMutex);
 
 		initLLVM();
 
@@ -887,7 +888,7 @@ namespace LLVMJIT
 		intrinsicThunkSymbol = jitUnit->symbol;
 
 		{
-			Platform::Lock addressToSymbolMapLock(addressToSymbolMapMutex);
+			Lock<Platform::Mutex> addressToSymbolMapLock(addressToSymbolMapMutex);
 			addressToSymbolMap[jitUnit->symbol->baseAddress + jitUnit->symbol->numBytes] = jitUnit->symbol;
 		}
 

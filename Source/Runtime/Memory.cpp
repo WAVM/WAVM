@@ -1,5 +1,6 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Lock.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
@@ -38,7 +39,7 @@ namespace Runtime
 		// Add the memory to the compartment.
 		if(compartment)
 		{
-			Platform::Lock compartmentLock(compartment->mutex);
+			Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 
 			if(compartment->memories.size() >= maxMemories) { delete memory; return nullptr; }
 
@@ -49,7 +50,7 @@ namespace Runtime
 
 		// Add the memory to the global array.
 		{
-			Platform::Lock memoriesLock(memoriesMutex);
+			Lock<Platform::Mutex> memoriesLock(memoriesMutex);
 			memories.push_back(memory);
 		}
 		return memory;
@@ -66,7 +67,7 @@ namespace Runtime
 
 	void MemoryInstance::finalize()
 	{
-		Platform::Lock compartmentLock(compartment->mutex);
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		wavmAssert(compartment->memories[id] == this);
 		wavmAssert(compartment->runtimeData->memories[id] == baseAddress);
 		compartment->memories[id] = nullptr;
@@ -88,7 +89,7 @@ namespace Runtime
 
 		// Remove the memory from the global array.
 		{
-			Platform::Lock memoriesLock(memoriesMutex);
+			Lock<Platform::Mutex> memoriesLock(memoriesMutex);
 			for(Uptr memoryIndex = 0;memoryIndex < memories.size();++memoryIndex)
 			{
 				if(memories[memoryIndex] == this) { memories.erase(memories.begin() + memoryIndex); break; }
@@ -99,7 +100,7 @@ namespace Runtime
 	bool isAddressOwnedByMemory(U8* address)
 	{
 		// Iterate over all memories and check if the address is within the reserved address space for each.
-		Platform::Lock memoriesLock(memoriesMutex);
+		Lock<Platform::Mutex> memoriesLock(memoriesMutex);
 		for(auto memory : memories)
 		{
 			U8* startAddress = memory->baseAddress;
