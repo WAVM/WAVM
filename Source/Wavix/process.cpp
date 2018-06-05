@@ -140,12 +140,11 @@ namespace Wavix
 		}
 	}
 
-	ModuleInstance* loadModule(Process* process, const char* filename)
+	ModuleInstance* loadModule(Process* process, const char* hostFilename)
 	{
 		// Load the module.
-		std::string hostFilename = sysroot + "/" + filename;
 		Module module;
-		if(!loadBinaryModule(hostFilename.c_str(),module)) { return nullptr; }
+		if(!loadBinaryModule(hostFilename, module)) { return nullptr; }
 
 		// Link the module with the Wavix intrinsics.
 		RootResolver rootResolver;
@@ -177,7 +176,7 @@ namespace Wavix
 			process->compartment,
 			module,
 			std::move(linkResult.resolvedImports),
-			filename
+			hostFilename
 			);
 	}
 
@@ -223,7 +222,7 @@ namespace Wavix
 
 	Process* spawnProcess(
 		Process* parent,
-		const char* filename,
+		const char* hostFilename,
 		const std::vector<std::string>& args,
 		const std::vector<std::string>& envs,
 		const std::string& cwd
@@ -234,7 +233,7 @@ namespace Wavix
 		process->compartment = Runtime::createCompartment();
 		process->envs = envs;
 		process->args = args;
-		process->args.insert(process->args.begin(),filename);
+		process->args.insert(process->args.begin(), hostFilename);
 		
 		process->cwd = cwd;
 		
@@ -260,7 +259,7 @@ namespace Wavix
 		errorUnless(pidToProcessMap.add(process->id, process));
 		
 		// Load the module.
-		ModuleInstance* moduleInstance = loadModule(process, filename);
+		ModuleInstance* moduleInstance = loadModule(process, hostFilename);
 		if(!moduleInstance) { return nullptr; }
 
 		Thread* mainThread = executeModule(process, moduleInstance);
@@ -420,7 +419,10 @@ namespace Wavix
 		}
 
 		// Load the module.
-		ModuleInstance* moduleInstance = loadModule(currentProcess, pathString.c_str());
+		ModuleInstance* moduleInstance = loadModule(
+			currentProcess,
+			(sysroot + "/" + pathString).c_str()
+			);
 		if(!moduleInstance) { return Wavix::ErrNo::enoent; }
 
 		// Execute the module in a new thread.

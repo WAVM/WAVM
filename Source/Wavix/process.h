@@ -41,7 +41,7 @@ namespace Wavix
 
 	extern Process* spawnProcess(
 		Process* parent,
-		const char* filename,
+		const char* hostFilename,
 		const std::vector<std::string>& args,
 		const std::vector<std::string>& envs,
 		const std::string& cwd

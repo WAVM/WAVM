@@ -1,5 +1,6 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Lock.h"
 #include "Inline/Timing.h"
 #include "Platform/Platform.h"
 #include "process.h"
@@ -349,20 +350,34 @@ int main(int argc,const char** argv)
 	// Instead of catching unhandled exceptions/signals, register a global handler.
 	Runtime::setUnhandledExceptionHandler(unhandledExceptionHandler);
 
-	Wavix::Process* process = Wavix::spawnProcess(
-		nullptr,
-		filename,
-		processArgs,
-		{},
-		"/"
-		);
+	// Create a dummy root process+thread.
+	Wavix::Process* initProcess = new Wavix::Process;
+	Wavix::Thread* initThread = new Wavix::Thread(initProcess,nullptr);
+
+	// Spawn a process to execute the specified binary.
+	Wavix::Process* process = Wavix::spawnProcess(initProcess, filename, processArgs, {}, "/");
 	if(!process)
 	{
 		std::cerr << "Failed to spawn \"" << filename << "\"." << std::endl;
 		return EXIT_FAILURE;
 	}
+	
+	// Wait for the process to exit.
+	{
+		Lock<Platform::Mutex> waiterLock(process->waitersMutex);
+		process->waiters.push_back(initThread);
+	}
 
-	while(true) {};
+	while(!initThread->wakeEvent.wait(UINT64_MAX)) {};
+
+	{
+		Lock<Platform::Mutex> waiterLock(process->waitersMutex);
+		auto waiterIt = std::find(process->waiters.begin(), process->waiters.end(), initThread);
+		if(waiterIt != process->waiters.end())
+		{
+			process->waiters.erase(waiterIt);
+		}
+	}
 
 	return EXIT_SUCCESS;
 }
