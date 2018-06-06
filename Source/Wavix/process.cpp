@@ -547,8 +547,11 @@ namespace Wavix
 	DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_tkill",I32,__syscall_tkill,U32 threadId,I32 signalNumber)
 	{
 		traceSyscallf("tkill", "(%i,%i)", threadId, signalNumber);
+
+		// Wake any threads waiting for this process to exit.
+		signalProcessWaiters(currentProcess);
+
 		Platform::exitThread(-1);
-		Errors::unreachable();
 	}
 
 	DEFINE_INTRINSIC_FUNCTION(wavix,"__syscall_rt_sigprocmask",I32,__syscall_rt_sigprocmask,
