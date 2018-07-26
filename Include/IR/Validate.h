@@ -58,5 +58,28 @@ namespace IR
 		InnerStream& innerStream;
 	};
 
-	IR_API void validateDefinitions(const IR::Module& module);
+	IR_API void validateTypes(const IR::Module& module);
+	IR_API void validateImports(const IR::Module& module);
+	IR_API void validateFunctionDeclarations(const IR::Module& module);
+	IR_API void validateTables(const IR::Module& module);
+	IR_API void validateMemories(const IR::Module& module);
+	IR_API void validateGlobals(const IR::Module& module);
+	IR_API void validateExports(const IR::Module& module);
+	IR_API void validateStartFunction(const IR::Module& module);
+	IR_API void validateElemSegments(const IR::Module& module);
+	IR_API void validateDataSegments(const IR::Module& module);
+
+	inline void validateDefinitions(const IR::Module& module)
+	{
+		validateTypes(module);
+		validateImports(module);
+		validateFunctionDeclarations(module);
+		validateTables(module);
+		validateMemories(module);
+		validateGlobals(module);
+		validateExports(module);
+		validateStartFunction(module);
+		validateElemSegments(module);
+		validateDataSegments(module);
+	}
 }

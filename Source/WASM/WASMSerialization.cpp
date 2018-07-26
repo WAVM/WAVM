@@ -810,17 +810,49 @@ namespace WASM
 			}
 			switch(sectionType)
 			{
-			case SectionType::type: serializeTypeSection(moduleStream,module); break;
-			case SectionType::import: serializeImportSection(moduleStream,module); break;
-			case SectionType::functionDeclarations: serializeFunctionSection(moduleStream,module); break;
-			case SectionType::table: serializeTableSection(moduleStream,module); break;
-			case SectionType::memory: serializeMemorySection(moduleStream,module); break;
-			case SectionType::global: serializeGlobalSection(moduleStream,module); break;
-			case SectionType::export_: serializeExportSection(moduleStream,module); break;
-			case SectionType::start: serializeStartSection(moduleStream,module); break;
-			case SectionType::elem: serializeElementSection(moduleStream,module); break;
-			case SectionType::functionDefinitions: serializeCodeSection(moduleStream,module); break;
-			case SectionType::data: serializeDataSection(moduleStream,module); break;
+			case SectionType::type:
+				serializeTypeSection(moduleStream,module);
+				IR::validateTypes(module);
+				break;
+			case SectionType::import:
+				serializeImportSection(moduleStream,module);
+				IR::validateImports(module);
+				break;
+			case SectionType::functionDeclarations:
+				serializeFunctionSection(moduleStream,module);
+				IR::validateFunctionDeclarations(module);
+				break;
+			case SectionType::table:
+				serializeTableSection(moduleStream,module);
+				IR::validateTables(module);
+				break;
+			case SectionType::memory:
+				serializeMemorySection(moduleStream,module);
+				IR::validateMemories(module);
+				break;
+			case SectionType::global:
+				serializeGlobalSection(moduleStream,module);
+				IR::validateGlobals(module);
+				break;
+			case SectionType::export_:
+				serializeExportSection(moduleStream,module);
+				IR::validateExports(module);
+				break;
+			case SectionType::start: 
+				serializeStartSection(moduleStream,module);
+				IR::validateStartFunction(module);
+				break;
+			case SectionType::elem:
+				serializeElementSection(moduleStream,module);
+				IR::validateElemSegments(module);
+				break;
+			case SectionType::functionDefinitions:
+				serializeCodeSection(moduleStream,module);
+				hadFunctionDefinitions = true;				break;
+			case SectionType::data:
+				serializeDataSection(moduleStream,module);
+				IR::validateDataSegments(module);
+				break;
 			case SectionType::user:
 			{
 				UserSection& userSection = *module.userSections.insert(module.userSections.end(),UserSection());
@@ -835,7 +867,6 @@ namespace WASM
 	void serialize(Serialization::InputStream& stream,Module& module)
 	{
 		serializeModule(stream,module);
-		IR::validateDefinitions(module);
 	}
 	void serialize(Serialization::OutputStream& stream,const Module& module)
 	{

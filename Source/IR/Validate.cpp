@@ -192,6 +192,9 @@ namespace IR
 		FunctionValidationContext(const Module& inModule,const FunctionDef& inFunctionDef)
 		: module(inModule), functionDef(inFunctionDef), functionType(inModule.types[inFunctionDef.type.index])
 		{
+			// Validate the function's local types.
+			for(auto localType : functionDef.nonParameterLocalTypes) { validate(localType); }
+
 			// Initialize the local types.
 			locals.reserve(functionType.params().size() + functionDef.nonParameterLocalTypes.size());
 			locals.insert(locals.end(), functionType.params().begin(), functionType.params().end());
@@ -705,10 +708,8 @@ namespace IR
 		}
 	};
 	
-	void validateDefinitions(const Module& module)
+	void validateTypes(const Module& module)
 	{
-		Timing::Timer timer;
-		
 		for(Uptr typeIndex = 0;typeIndex < module.types.size();++typeIndex)
 		{
 			FunctionType functionType = module.types[typeIndex];
@@ -728,7 +729,10 @@ namespace IR
 					);
 			}
 		}
+	}
 
+	void validateImports(const Module& module)
+	{
 		for(auto& functionImport : module.functions.imports)
 		{
 			validateFunctionType(module, functionImport.type);
@@ -743,26 +747,40 @@ namespace IR
 				VALIDATE_UNLESS("mutable globals cannot be imported: ",globalImport.type.isMutable);
 			}
 		}
-		
+	}
+
+	void validateFunctionDeclarations(const Module& module)
+	{		
 		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
 		{
 			const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
 			validateFunctionType(module, functionDef.type);
-			for(auto localType : functionDef.nonParameterLocalTypes) { validate(localType); }
 		}
+	}
 
+	void validateGlobals(const Module& module)
+	{
 		for(auto& globalDef : module.globals.defs)
 		{
 			validate(globalDef.type);
 			validateInitializer(module,globalDef.initializer,globalDef.type.valueType,"global initializer expression");
 		}
-		
+	}
+
+	void validateTables(const Module& module)
+	{		
 		for(auto& tableDef : module.tables.defs) { validate(module,tableDef.type); }
 		VALIDATE_UNLESS("too many tables: ",module.tables.size()>1);
+	}
 
+	void validateMemories(const Module& module)
+	{
 		for(auto& memoryDef : module.memories.defs) { validate(module,memoryDef.type); }
 		VALIDATE_UNLESS("too many memories: ",module.memories.size()>1);
+	}
 
+	void validateExports(const Module& module)
+	{
 		HashSet<std::string> exportNameSet;
 		for(auto& exportIt : module.exports)
 		{
@@ -792,28 +810,35 @@ namespace IR
 			VALIDATE_UNLESS("duplicate export: ",exportNameSet.contains(exportIt.name));
 			exportNameSet.add(exportIt.name);
 		}
+	}
 
+	void validateStartFunction(const Module& module)
+	{
 		if(module.startFunctionIndex != UINTPTR_MAX)
 		{
 			VALIDATE_INDEX(module.startFunctionIndex,module.functions.size());
 			FunctionType startFunctionType = module.types[module.functions.getType(module.startFunctionIndex).index];
 			VALIDATE_UNLESS("start function must not have any parameters or results: ",startFunctionType != FunctionType());
 		}
-			
-		for(auto& dataSegment : module.dataSegments)
-		{
-			VALIDATE_INDEX(dataSegment.memoryIndex,module.memories.size());
-			validateInitializer(module,dataSegment.baseOffset,ValueType::i32,"data segment base initializer");
-		}
-
+	}
+	
+	void validateElemSegments(const Module& module)
+	{
 		for(auto& tableSegment : module.tableSegments)
 		{
 			VALIDATE_INDEX(tableSegment.tableIndex,module.tables.size());
 			validateInitializer(module,tableSegment.baseOffset,ValueType::i32,"table segment base initializer");
 			for(auto functionIndex : tableSegment.indices) { VALIDATE_INDEX(functionIndex,module.functions.size()); }
 		}
+	}
 
-		Log::printf(Log::Category::metrics,"Validated WebAssembly module definitions in %.2fms\n",timer.getMilliseconds());
+	void validateDataSegments(const Module& module)
+	{
+		for(auto& dataSegment : module.dataSegments)
+		{
+			VALIDATE_INDEX(dataSegment.memoryIndex,module.memories.size());
+			validateInitializer(module,dataSegment.baseOffset,ValueType::i32,"data segment base initializer");
+		}
 	}
 
 	struct CodeValidationStreamImpl
