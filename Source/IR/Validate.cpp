@@ -203,6 +203,16 @@ namespace IR
 
 		Uptr getControlStackSize() { return controlStack.size(); }
 		
+		void validateNonEmptyControlStack(const char* context)
+		{
+			if(controlStack.size() == 0)
+			{
+				throw ValidationException(
+					std::string("Expected non-empty control stack in ")
+					+ context);
+			}
+		}
+
 		void logOperator(const std::string& operatorDescription)
 		{
 			if(ENABLE_LOGGING)
@@ -269,6 +279,8 @@ namespace IR
 		}
 		void else_(NoImm imm)
 		{
+			wavmAssert(controlStack.size());
+
 			TypeTuple params = controlStack.back().elseParams;
 			popAndValidateTypeTuple("if result",controlStack.back().results);
 			popControlStack(true);
@@ -276,6 +288,8 @@ namespace IR
 		}
 		void end(NoImm)
 		{
+			wavmAssert(controlStack.size());
+
 			popAndValidateTypeTuple("end result",controlStack.back().results);
 			popControlStack();
 		}
@@ -289,6 +303,8 @@ namespace IR
 		}
 		void catch_(CatchImm imm)
 		{
+			wavmAssert(controlStack.size());
+
 			VALIDATE_FEATURE("try",exceptionHandling);
 			VALIDATE_INDEX(imm.exceptionTypeIndex,module.exceptionTypes.size());
 			ExceptionType type = module.exceptionTypes.getType(imm.exceptionTypeIndex);
@@ -300,6 +316,8 @@ namespace IR
 		}
 		void catch_all(NoImm)
 		{
+			wavmAssert(controlStack.size());
+
 			VALIDATE_FEATURE("try",exceptionHandling);
 			popAndValidateTypeTuple("try result",controlStack.back().results);
 			popControlStack(false,true);
@@ -544,6 +562,8 @@ namespace IR
 
 		void popControlStack(bool isElse = false,bool isCatch = false)
 		{
+			wavmAssert(controlStack.size());
+
 			if(stack.size() != controlStack.back().outerStackSize)
 			{
 				std::string message = "stack was not empty at end of control structure: ";
@@ -586,6 +606,8 @@ namespace IR
 
 		void enterUnreachable()
 		{
+			wavmAssert(controlStack.size());
+
 			stack.resize(controlStack.back().outerStackSize);
 			controlStack.back().isReachable = false;
 		}
@@ -629,6 +651,8 @@ namespace IR
 
 		ValueType popAndValidateOperand(const char* context,const ValueType expectedType)
 		{
+			wavmAssert(controlStack.size());
+
 			ValueType actualType;
 			if(stack.size() > controlStack.back().outerStackSize)
 			{
@@ -823,6 +847,7 @@ namespace IR
 		void CodeValidationStream::name(Imm imm) \
 		{ \
 			if(ENABLE_LOGGING) { impl->functionContext.logOperator(impl->operatorPrinter.name(imm)); } \
+			impl->functionContext.validateNonEmptyControlStack(nameString); \
 			impl->functionContext.name(imm); \
 		}
 	ENUM_OPERATORS(VISIT_OPCODE)
