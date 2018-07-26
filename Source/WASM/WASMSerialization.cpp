@@ -800,6 +800,7 @@ namespace WASM
 		serializeConstant(moduleStream,"version",U32(currentVersion));
 
 		SectionType lastKnownSectionType = SectionType::unknown;
+		bool hadFunctionDefinitions = false;
 		while(moduleStream.capacity())
 		{
 			const SectionType sectionType = *(SectionType*)moduleStream.peek(sizeof(SectionType));
@@ -848,7 +849,8 @@ namespace WASM
 				break;
 			case SectionType::functionDefinitions:
 				serializeCodeSection(moduleStream,module);
-				hadFunctionDefinitions = true;				break;
+				hadFunctionDefinitions = true;
+				break;
 			case SectionType::data:
 				serializeDataSection(moduleStream,module);
 				IR::validateDataSegments(module);
@@ -862,6 +864,14 @@ namespace WASM
 			default: throw FatalSerializationException("unknown section ID");
 			};
 		};
+
+		if(module.functions.defs.size() && !hadFunctionDefinitions)
+		{
+			throw IR::ValidationException(
+				"Serialized module contained function declarations, but no "
+				"corresponding function definition section"
+				);
+		}
 	}
 
 	void serialize(Serialization::InputStream& stream,Module& module)
