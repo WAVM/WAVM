@@ -1,11 +1,11 @@
 #pragma once
 
 #ifndef LOGGING_API
-	#define LOGGING_API DLL_IMPORT
+#define LOGGING_API DLL_IMPORT
 #endif
 
-#include "Inline/BasicTypes.h"
 #include <stdarg.h>
+#include "Inline/BasicTypes.h"
 
 // Debug logging.
 namespace Log
@@ -18,10 +18,10 @@ namespace Log
 		metrics,
 		num
 	};
-	LOGGING_API void setCategoryEnabled(Category category,bool enable);
+	LOGGING_API void setCategoryEnabled(Category category, bool enable);
 	LOGGING_API bool isCategoryEnabled(Category category);
 
 	// Print some categorized, formatted string, and flush the output. Newline is not included.
-	LOGGING_API void printf(Category category,const char* format,...);
-	LOGGING_API void vprintf(Category category,const char* format,va_list argList);
-};
+	LOGGING_API void printf(Category category, const char* format, ...);
+	LOGGING_API void vprintf(Category category, const char* format, va_list argList);
+}; // namespace Log

@@ -5,7 +5,9 @@
 // A type that holds an optional instance of another type. The lifetime of the contained instance
 // is defined by the user of this type, and the user is responsible for calling construct and
 // destruct.
-template<typename Contents, bool hasTrivialDestructor = std::is_trivially_destructible<Contents>::value>
+template<
+	typename Contents,
+	bool hasTrivialDestructor = std::is_trivially_destructible<Contents>::value>
 struct OptionalStorage
 {
 	union
@@ -21,24 +23,20 @@ struct OptionalStorage
 	template<typename... Args>
 	OptionalStorage(Args&&... args)
 	: contents(std::forward<Args>(args)...)
-	{}
-
-	template<typename... Args>
-	void construct(Args&&... args)
 	{
-		memset(&contents,0,sizeof(Contents));
+	}
+
+	template<typename... Args> void construct(Args&&... args)
+	{
+		memset(&contents, 0, sizeof(Contents));
 		new(&contents) Contents(std::forward<Args>(args)...);
 	}
 
-	void destruct()
-	{
-		contents.~Contents();
-	}
+	void destruct() { contents.~Contents(); }
 };
 
 // Partial specialization for types with trivial destructors.
-template<typename Contents>
-struct OptionalStorage<Contents,true>
+template<typename Contents> struct OptionalStorage<Contents, true>
 {
 	union
 	{
@@ -50,12 +48,12 @@ struct OptionalStorage<Contents,true>
 	template<typename... Args>
 	OptionalStorage(Args&&... args)
 	: contents(std::forward<Args>(args)...)
-	{}
-
-	template<typename... Args>
-	void construct(Args&&... args)
 	{
-		memset(&contents,0,sizeof(Contents));
+	}
+
+	template<typename... Args> void construct(Args&&... args)
+	{
+		memset(&contents, 0, sizeof(Contents));
 		new(&contents) Contents(std::forward<Args>(args)...);
 	}
 

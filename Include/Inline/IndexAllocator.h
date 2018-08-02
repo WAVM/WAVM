@@ -2,12 +2,12 @@
 
 #include "Inline/Errors.h"
 
-template<typename Index, Index maxIndex>
-struct IndexAllocator
+template<typename Index, Index maxIndex> struct IndexAllocator
 {
 	IndexAllocator()
 	: minUnallocatedIndex()
-	{}
+	{
+	}
 
 	Index alloc()
 	{
@@ -20,18 +20,12 @@ struct IndexAllocator
 		else
 		{
 			const Index newIndex = minUnallocatedIndex++;
-			if(newIndex >= maxIndex)
-			{
-				Errors::fatal("Exhausted available indices");
-			}
+			if(newIndex >= maxIndex) { Errors::fatal("Exhausted available indices"); }
 			return newIndex;
 		}
 	}
 
-	void free(Index index)
-	{
-		freeIndices.push_back(index);
-	}
+	void free(Index index) { freeIndices.push_back(index); }
 
 private:
 	std::vector<Index> freeIndices;

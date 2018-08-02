@@ -4,18 +4,14 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Lock.h"
-#include "Platform/Platform.h"
 #include "Logging/Logging.h"
+#include "Platform/Platform.h"
 
-#include <atomic>
-#include <cstdlib>
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <errno.h>
-#include <exception>
 #include <fcntl.h>
 #include <limits.h>
-#include <memory>
 #include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -23,22 +19,26 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <atomic>
+#include <cstdlib>
+#include <exception>
+#include <memory>
 
 #define UNW_LOCAL_ONLY
 #include "libunwind.h"
 
 #ifdef __APPLE__
-	#define MAP_ANONYMOUS MAP_ANON
-	#define UC_RESET_ALT_STACK	0x80000000			
+#define MAP_ANONYMOUS MAP_ANON
+#define UC_RESET_ALT_STACK 0x80000000
 #endif
 
 #ifdef __linux__
-	#define MAP_STACK_FLAGS (MAP_STACK)
+#define MAP_STACK_FLAGS (MAP_STACK)
 #else
-	#define MAP_STACK_FLAGS 0
+#define MAP_STACK_FLAGS 0
 #endif
 
 // This struct layout is replicated in POSIX.S
@@ -53,32 +53,33 @@ struct ExecutionContext
 	U64 r15;
 	U64 rip;
 };
-static_assert(offsetof(ExecutionContext,rbx) == 0,  "unexpected offset");
-static_assert(offsetof(ExecutionContext,rsp) == 8,  "unexpected offset");
-static_assert(offsetof(ExecutionContext,rbp) == 16, "unexpected offset");
-static_assert(offsetof(ExecutionContext,r12) == 24, "unexpected offset");
-static_assert(offsetof(ExecutionContext,r13) == 32, "unexpected offset");
-static_assert(offsetof(ExecutionContext,r14) == 40, "unexpected offset");
-static_assert(offsetof(ExecutionContext,r15) == 48, "unexpected offset");
-static_assert(offsetof(ExecutionContext,rip) == 56, "unexpected offset");
-static_assert(sizeof(ExecutionContext)       == 64, "unexpected size");
+static_assert(offsetof(ExecutionContext, rbx) == 0, "unexpected offset");
+static_assert(offsetof(ExecutionContext, rsp) == 8, "unexpected offset");
+static_assert(offsetof(ExecutionContext, rbp) == 16, "unexpected offset");
+static_assert(offsetof(ExecutionContext, r12) == 24, "unexpected offset");
+static_assert(offsetof(ExecutionContext, r13) == 32, "unexpected offset");
+static_assert(offsetof(ExecutionContext, r14) == 40, "unexpected offset");
+static_assert(offsetof(ExecutionContext, r15) == 48, "unexpected offset");
+static_assert(offsetof(ExecutionContext, rip) == 56, "unexpected offset");
+static_assert(sizeof(ExecutionContext) == 64, "unexpected size");
 
-extern "C"
+extern "C" {
+// Defined in POSIX.S
+extern I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode) noexcept(false);
+[[noreturn]] extern void loadExecutionState(ExecutionContext* context, I64 returnCode);
+extern I64 switchToForkedStackContext(
+	ExecutionContext* forkedContext,
+	U8* trampolineFramePointer) noexcept(false);
+extern U8* getStackPointer();
+
+const char* __asan_default_options()
 {
-	// Defined in POSIX.S
-	extern I64 saveExecutionState(ExecutionContext* outContext,I64 returnCode) noexcept(false);
-	[[noreturn]] extern void loadExecutionState(ExecutionContext* context,I64 returnCode);
-	extern I64 switchToForkedStackContext(ExecutionContext* forkedContext,U8* trampolineFramePointer) noexcept(false);
-	extern U8* getStackPointer();
+	return "handle_segv=false:handle_sigbus=false:handle_sigfpe=false:replace_intrin=false";
+}
 
-	const char *__asan_default_options()
-	{
-		return "handle_segv=false:handle_sigbus=false:handle_sigfpe=false:replace_intrin=false";
-	}
-
-	// libunwind dynamic frame registration
-	void __register_frame(const void* fde);
-	void __deregister_frame(const void* fde);
+// libunwind dynamic frame registration
+void __register_frame(const void* fde);
+void __deregister_frame(const void* fde);
 }
 
 namespace Platform
@@ -95,7 +96,7 @@ namespace Platform
 		static Uptr preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
 		return preferredVirtualPageSizeLog2;
 	}
-	
+
 	U32 memoryAccessAsPOSIXFlag(MemoryAccess access)
 	{
 		switch(access)
@@ -118,31 +119,33 @@ namespace Platform
 	U8* allocateVirtualPages(Uptr numPages)
 	{
 		Uptr numBytes = numPages << getPageSizeLog2();
-		void* result = mmap(nullptr,numBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
+		void* result  = mmap(nullptr, numBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 		if(result == MAP_FAILED) { return nullptr; }
 		return (U8*)result;
 	}
 
-	U8* allocateAlignedVirtualPages(Uptr numPages,Uptr alignmentLog2,U8*& outUnalignedBaseAddress)
+	U8* allocateAlignedVirtualPages(Uptr numPages, Uptr alignmentLog2, U8*& outUnalignedBaseAddress)
 	{
 		const Uptr pageSizeLog2 = getPageSizeLog2();
-		const Uptr numBytes = numPages << pageSizeLog2;
+		const Uptr numBytes     = numPages << pageSizeLog2;
 		if(alignmentLog2 > pageSizeLog2)
 		{
-			// Call mmap with enough padding added to the size to align the allocation within the unaligned mapping.
+			// Call mmap with enough padding added to the size to align the allocation within the
+			// unaligned mapping.
 			const Uptr alignmentBytes = 1ull << alignmentLog2;
-			U8* unalignedBaseAddress = (U8*)mmap(nullptr,numBytes + alignmentBytes,PROT_NONE,MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
+			U8* unalignedBaseAddress  = (U8*)mmap(
+                nullptr, numBytes + alignmentBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 			if(unalignedBaseAddress == MAP_FAILED) { return nullptr; }
 
-			const Uptr address = reinterpret_cast<Uptr>(unalignedBaseAddress);
+			const Uptr address        = reinterpret_cast<Uptr>(unalignedBaseAddress);
 			const Uptr alignedAddress = (address + alignmentBytes - 1) & ~(alignmentBytes - 1);
-			U8* result = reinterpret_cast<U8*>(alignedAddress);
+			U8* result                = reinterpret_cast<U8*>(alignedAddress);
 
-			// Unmap the start and end of the unaligned mapping, leaving the aligned mapping in the middle.
-			errorUnless(!munmap(unalignedBaseAddress,alignedAddress - address));
+			// Unmap the start and end of the unaligned mapping, leaving the aligned mapping in the
+			// middle.
+			errorUnless(!munmap(unalignedBaseAddress, alignedAddress - address));
 			errorUnless(!munmap(
-				result + (numPages << pageSizeLog2),
-				alignmentBytes - (alignedAddress - address)));
+				result + (numPages << pageSizeLog2), alignmentBytes - (alignedAddress - address)));
 
 			outUnalignedBaseAddress = result;
 			return result;
@@ -154,36 +157,47 @@ namespace Platform
 		}
 	}
 
-	bool commitVirtualPages(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access)
+	bool commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
-		return mprotect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsPOSIXFlag(access)) == 0;
-	}
-	
-	bool setVirtualPageAccess(U8* baseVirtualAddress,Uptr numPages,MemoryAccess access)
-	{
-		errorUnless(isPageAligned(baseVirtualAddress));
-		return mprotect(baseVirtualAddress,numPages << getPageSizeLog2(),memoryAccessAsPOSIXFlag(access)) == 0;
+		return mprotect(
+				   baseVirtualAddress,
+				   numPages << getPageSizeLog2(),
+				   memoryAccessAsPOSIXFlag(access))
+			== 0;
 	}
 
-	void decommitVirtualPages(U8* baseVirtualAddress,Uptr numPages)
+	bool setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
+	{
+		errorUnless(isPageAligned(baseVirtualAddress));
+		return mprotect(
+				   baseVirtualAddress,
+				   numPages << getPageSizeLog2(),
+				   memoryAccessAsPOSIXFlag(access))
+			== 0;
+	}
+
+	void decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
 		auto numBytes = numPages << getPageSizeLog2();
-		if(madvise(baseVirtualAddress,numBytes,MADV_DONTNEED)) { Errors::fatal("madvise failed"); }
-		if(mprotect(baseVirtualAddress,numBytes,PROT_NONE)) { Errors::fatal("mprotect failed"); }
+		if(madvise(baseVirtualAddress, numBytes, MADV_DONTNEED))
+		{ Errors::fatal("madvise failed"); }
+		if(mprotect(baseVirtualAddress, numBytes, PROT_NONE)) { Errors::fatal("mprotect failed"); }
 	}
 
-	void freeVirtualPages(U8* baseVirtualAddress,Uptr numPages)
+	void freeVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 	{
 		errorUnless(isPageAligned(baseVirtualAddress));
-		if(munmap(baseVirtualAddress,numPages << getPageSizeLog2())) { Errors::fatal("munmap failed"); }
+		if(munmap(baseVirtualAddress, numPages << getPageSizeLog2()))
+		{ Errors::fatal("munmap failed"); }
 	}
 
-	void freeAlignedVirtualPages(U8* unalignedBaseAddress,Uptr numPages,Uptr alignmentLog2)
+	void freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, Uptr alignmentLog2)
 	{
 		errorUnless(isPageAligned(unalignedBaseAddress));
-		if(munmap(unalignedBaseAddress,numPages << getPageSizeLog2())) { Errors::fatal("munmap failed"); }
+		if(munmap(unalignedBaseAddress, numPages << getPageSizeLog2()))
+		{ Errors::fatal("munmap failed"); }
 	}
 
 	Mutex& getErrorReportingMutex()
@@ -199,19 +213,17 @@ namespace Platform
 		for(auto frame : callStack.stackFrames)
 		{
 			std::string frameDescription;
-			if(!Platform::describeInstructionPointer(frame.ip,frameDescription))
-			{
-				frameDescription = "<unknown function>";
-			}
+			if(!Platform::describeInstructionPointer(frame.ip, frameDescription))
+			{ frameDescription = "<unknown function>"; }
 			std::fprintf(stderr, "  %s\n", frameDescription.c_str());
 		}
 		std::fflush(stderr);
 	}
 
-	void handleFatalError(const char* messageFormat,va_list varArgs)
+	void handleFatalError(const char* messageFormat, va_list varArgs)
 	{
 		Lock<Platform::Mutex> lock(getErrorReportingMutex());
-		std::vfprintf(stderr,messageFormat,varArgs);
+		std::vfprintf(stderr, messageFormat, varArgs);
 		std::fflush(stderr);
 		dumpErrorCallStack(3);
 		std::abort();
@@ -225,17 +237,16 @@ namespace Platform
 			"Assertion failed at %s(%u): %s\n",
 			metadata.file,
 			metadata.line,
-			metadata.condition
-			);
+			metadata.condition);
 		dumpErrorCallStack(2);
 		std::fflush(stderr);
 	}
-	
-	bool describeInstructionPointer(Uptr ip,std::string& outDescription)
+
+	bool describeInstructionPointer(Uptr ip, std::string& outDescription)
 	{
 		// Look up static symbol information for the address.
 		Dl_info symbolInfo;
-		if(dladdr((void*)(ip-1),&symbolInfo))
+		if(dladdr((void*)(ip - 1), &symbolInfo))
 		{
 			wavmAssert(symbolInfo.dli_fname);
 			outDescription = "host!";
@@ -249,15 +260,13 @@ namespace Platform
 				if(symbolInfo.dli_sname[0] == '_')
 				{
 					Uptr numDemangledChars = sizeof(demangledBuffer);
-					I32 demangleStatus = 0;
+					I32 demangleStatus     = 0;
 					if(abi::__cxa_demangle(
-						symbolInfo.dli_sname,
-						demangledBuffer,
-						(size_t*)&numDemangledChars,
-						&demangleStatus))
-					{
-						demangledSymbolName = demangledBuffer;
-					}
+						   symbolInfo.dli_sname,
+						   demangledBuffer,
+						   (size_t*)&numDemangledChars,
+						   &demangleStatus))
+					{ demangledSymbolName = demangledBuffer; }
 				}
 				outDescription += demangledSymbolName;
 				outDescription += '+';
@@ -268,23 +277,26 @@ namespace Platform
 		return false;
 	}
 
-	void getCurrentThreadStack(U8*& outMinAddr,U8*& outMaxAddr)
+	void getCurrentThreadStack(U8*& outMinAddr, U8*& outMaxAddr)
 	{
-		// Get the stack address from pthreads, but use getrlimit to find the maximum size of the stack instead of the current.
+		// Get the stack address from pthreads, but use getrlimit to find the maximum size of the
+		// stack instead of the current.
 		struct rlimit stackLimit;
-		getrlimit(RLIMIT_STACK,&stackLimit);
+		getrlimit(RLIMIT_STACK, &stackLimit);
 
 #ifdef __linux__
-		// Linux uses pthread_getattr_np/pthread_attr_getstack, and returns a pointer to the minimum address of the stack.
+		// Linux uses pthread_getattr_np/pthread_attr_getstack, and returns a pointer to the minimum
+		// address of the stack.
 		pthread_attr_t threadAttributes;
-		memset(&threadAttributes,0,sizeof(threadAttributes));
-		pthread_getattr_np(pthread_self(),&threadAttributes);
+		memset(&threadAttributes, 0, sizeof(threadAttributes));
+		pthread_getattr_np(pthread_self(), &threadAttributes);
 		Uptr numStackBytes;
-		pthread_attr_getstack(&threadAttributes,(void**)&outMinAddr,&numStackBytes);
+		pthread_attr_getstack(&threadAttributes, (void**)&outMinAddr, &numStackBytes);
 		pthread_attr_destroy(&threadAttributes);
 		outMaxAddr = outMinAddr + numStackBytes;
 #else
-		// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the stack.
+		// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the
+		// stack.
 		outMaxAddr = (U8*)pthread_get_stackaddr_np(pthread_self());
 #endif
 
@@ -295,14 +307,16 @@ namespace Platform
 	{
 		SignalContext* outerContext;
 		jmp_buf catchJump;
-		std::function<bool(Platform::Signal,const Platform::CallStack&)> filter;
+		std::function<bool(Platform::Signal, const Platform::CallStack&)> filter;
 	};
-
 
 	// Define a unique_ptr to a Platform::Event.
 	struct SigAltStack
 	{
-		enum { numBytes = 65536 };
+		enum
+		{
+			numBytes = 65536
+		};
 
 		U8* base = nullptr;
 
@@ -314,13 +328,13 @@ namespace Platform
 				// According to the docs, ss_size is ignored if SS_DISABLE is set, but MacOS returns
 				// an ENOMEM error if ss_size is too small regardless of whether SS_DISABLE is set.
 				stack_t disableAltStack;
-				memset(&disableAltStack,0,sizeof(stack_t));
+				memset(&disableAltStack, 0, sizeof(stack_t));
 				disableAltStack.ss_flags = SS_DISABLE;
-				disableAltStack.ss_size = SigAltStack::numBytes;
-				errorUnless(!sigaltstack(&disableAltStack,nullptr));
+				disableAltStack.ss_size  = SigAltStack::numBytes;
+				errorUnless(!sigaltstack(&disableAltStack, nullptr));
 
 				// Free the alt stack's memory.
-				errorUnless(!munmap(base,SigAltStack::numBytes));
+				errorUnless(!munmap(base, SigAltStack::numBytes));
 				base = nullptr;
 			}
 		}
@@ -329,18 +343,21 @@ namespace Platform
 		{
 			if(!base)
 			{
-				// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
+				// Allocate a stack to use when handling signals, so stack overflow can be handled
+				// safely.
 				base = (U8*)mmap(
-					nullptr,SigAltStack::numBytes,
+					nullptr,
+					SigAltStack::numBytes,
 					PROT_READ | PROT_WRITE,
 					MAP_PRIVATE | MAP_ANONYMOUS,
-					-1,0);
+					-1,
+					0);
 				errorUnless(base != MAP_FAILED);
 				stack_t sigAltStackInfo;
-				sigAltStackInfo.ss_size = SigAltStack::numBytes;
-				sigAltStackInfo.ss_sp = base;
+				sigAltStackInfo.ss_size  = SigAltStack::numBytes;
+				sigAltStackInfo.ss_sp    = base;
 				sigAltStackInfo.ss_flags = 0;
-				errorUnless(!sigaltstack(&sigAltStackInfo,nullptr));
+				errorUnless(!sigaltstack(&sigAltStackInfo, nullptr));
 			}
 		}
 	};
@@ -355,29 +372,25 @@ namespace Platform
 	thread_local SignalContext* innermostSignalContext = nullptr;
 	static std::atomic<SignalHandler> portableSignalHandler;
 
-	static void deliverSignal(Signal signal,const CallStack& callStack)
+	static void deliverSignal(Signal signal, const CallStack& callStack)
 	{
 		// Call the signal handlers, from innermost to outermost, until one returns true.
-		for(SignalContext* signalContext = innermostSignalContext;
-			signalContext;
-			signalContext = signalContext->outerContext)
+		for(SignalContext* signalContext = innermostSignalContext; signalContext;
+			signalContext                = signalContext->outerContext)
 		{
-			if(signalContext->filter(signal,callStack))
+			if(signalContext->filter(signal, callStack))
 			{
 				// Jump back to the execution context that was saved in catchSignals.
-				siglongjmp(signalContext->catchJump,1);
+				siglongjmp(signalContext->catchJump, 1);
 			}
 		}
 
 		// If the signal wasn't handled by a catchSignals call, call the portable signal handler.
 		SignalHandler portableSignalHandlerSnapshot = portableSignalHandler.load();
-		if(portableSignalHandlerSnapshot)
-		{
-			portableSignalHandlerSnapshot(signal,callStack);
-		}
+		if(portableSignalHandlerSnapshot) { portableSignalHandlerSnapshot(signal, callStack); }
 	}
 
-	[[noreturn]] static void signalHandler(int signalNumber,siginfo_t* signalInfo,void*)
+	[[noreturn]] static void signalHandler(int signalNumber, siginfo_t* signalInfo, void*)
 	{
 		Signal signal;
 
@@ -385,7 +398,8 @@ namespace Platform
 		switch(signalNumber)
 		{
 		case SIGFPE:
-			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF) { Errors::fatal("unknown SIGFPE code"); }
+			if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF)
+			{ Errors::fatal("unknown SIGFPE code"); }
 			signal.type = Signal::Type::intDivideByZeroOrOverflow;
 			break;
 		case SIGSEGV:
@@ -394,26 +408,22 @@ namespace Platform
 			// Determine whether the faulting address was an address reserved by the stack.
 			U8* stackMinAddr;
 			U8* stackMaxAddr;
-			getCurrentThreadStack(stackMinAddr,stackMaxAddr);
+			getCurrentThreadStack(stackMinAddr, stackMaxAddr);
 			stackMinAddr -= sysconf(_SC_PAGESIZE);
-			signal.type
-				= signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
-					? Signal::Type::stackOverflow
-					: Signal::Type::accessViolation;
-			signal.accessViolation.address
-				= reinterpret_cast<Uptr>(signalInfo->si_addr);
+			signal.type = signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
+				? Signal::Type::stackOverflow
+				: Signal::Type::accessViolation;
+			signal.accessViolation.address = reinterpret_cast<Uptr>(signalInfo->si_addr);
 			break;
 		}
-		default:
-			Errors::fatalf("unknown signal number: %i",signalNumber);
-			break;
+		default: Errors::fatalf("unknown signal number: %i", signalNumber); break;
 		};
 
 		// Capture the execution context, omitting this function and the function that called it,
 		// so the top of the callstack is the function that triggered the signal.
 		CallStack callStack = captureCallStack(2);
 
-		deliverSignal(signal,callStack);
+		deliverSignal(signal, callStack);
 
 		switch(signalNumber)
 		{
@@ -431,37 +441,37 @@ namespace Platform
 		{
 			hasInitializedSignalHandlers = true;
 
-			// Set up a signal mask for the signals we handle that will disable them inside the handler.
+			// Set up a signal mask for the signals we handle that will disable them inside the
+			// handler.
 			struct sigaction signalAction;
 			sigemptyset(&signalAction.sa_mask);
-			sigaddset(&signalAction.sa_mask,SIGFPE);
-			sigaddset(&signalAction.sa_mask,SIGSEGV);
-			sigaddset(&signalAction.sa_mask,SIGBUS);
+			sigaddset(&signalAction.sa_mask, SIGFPE);
+			sigaddset(&signalAction.sa_mask, SIGSEGV);
+			sigaddset(&signalAction.sa_mask, SIGBUS);
 
 			// Set the signal handler for the signals we want to intercept.
 			signalAction.sa_sigaction = signalHandler;
-			signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
-			sigaction(SIGSEGV,&signalAction,nullptr);
-			sigaction(SIGBUS,&signalAction,nullptr);
-			sigaction(SIGFPE,&signalAction,nullptr);
+			signalAction.sa_flags     = SA_SIGINFO | SA_ONSTACK;
+			sigaction(SIGSEGV, &signalAction, nullptr);
+			sigaction(SIGBUS, &signalAction, nullptr);
+			sigaction(SIGFPE, &signalAction, nullptr);
 		}
 	}
 
 	bool catchSignals(
 		const std::function<void()>& thunk,
-		const std::function<bool(Signal,const CallStack&)>& filter
-		)
+		const std::function<bool(Signal, const CallStack&)>& filter)
 	{
 		initSignals();
 		sigAltStack.init();
 
 		SignalContext signalContext;
 		signalContext.outerContext = innermostSignalContext;
-		signalContext.filter = filter;
+		signalContext.filter       = filter;
 
-		// Use saveExecutionState to capture the execution state into the signal context. If a signal is raised,
-		// the signal handler will jump back to here.
-		bool isReturningFromSignalHandler = sigsetjmp(signalContext.catchJump,1) != 0;
+		// Use saveExecutionState to capture the execution state into the signal context. If a
+		// signal is raised, the signal handler will jump back to here.
+		bool isReturningFromSignalHandler = sigsetjmp(signalContext.catchJump, 1) != 0;
 		if(!isReturningFromSignalHandler)
 		{
 			innermostSignalContext = &signalContext;
@@ -483,9 +493,9 @@ namespace Platform
 		catch(PlatformException exception)
 		{
 			Signal signal;
-			signal.type = Signal::Type::unhandledException;
+			signal.type                    = Signal::Type::unhandledException;
 			signal.unhandledException.data = exception.data;
-			deliverSignal(signal,exception.callStack);
+			deliverSignal(signal, exception.callStack);
 			Errors::fatal("Unhandled runtime exception");
 		}
 		catch(...)
@@ -507,7 +517,7 @@ namespace Platform
 	CallStack captureCallStack(Uptr numOmittedFramesFromTop)
 	{
 		CallStack result;
-		
+
 		unw_context_t context;
 		errorUnless(!unw_getcontext(&context));
 
@@ -516,16 +526,13 @@ namespace Platform
 		errorUnless(!unw_init_local(&cursor, &context));
 		while(unw_step(&cursor) > 0)
 		{
-			if(numOmittedFramesFromTop)
-			{
-				--numOmittedFramesFromTop;
-			}
+			if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
 			else
 			{
 				unw_word_t ip;
 				errorUnless(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
 
-				result.stackFrames.push_back(CallStack::Frame {ip});
+				result.stackFrames.push_back(CallStack::Frame{ip});
 			}
 		}
 
@@ -537,10 +544,10 @@ namespace Platform
 		// The LLVM project libunwind implementation that WAVM uses expects __register_frame and
 		// __deregister_frame to be called for each FDE in the .eh_frame section.
 		const U8* next = ehFrames;
-		const U8* end = ehFrames + numBytes;
+		const U8* end  = ehFrames + numBytes;
 		do
 		{
-			const U8* cfi = next;
+			const U8* cfi    = next;
 			Uptr numCFIBytes = *((const U32*)next);
 			next += 4;
 			if(numBytes == 0xffffffff)
@@ -551,14 +558,10 @@ namespace Platform
 				next += 8;
 			}
 			const U32 cieOffset = *((const U32*)next);
-			if(cieOffset != 0)
-			{
-				visitFDE(cfi);
-			}
+			if(cieOffset != 0) { visitFDE(cfi); }
 
 			next += numCFIBytes;
-		}
-		while(next < end);
+		} while(next < end);
 	}
 
 	void registerEHFrames(U8* ehFrames, Uptr numBytes)
@@ -573,8 +576,7 @@ namespace Platform
 
 	bool catchPlatformExceptions(
 		const std::function<void()>& thunk,
-		const std::function<void(void*,const CallStack&)>& handler
-		)
+		const std::function<void(void*, const CallStack&)>& handler)
 	{
 		try
 		{
@@ -583,12 +585,12 @@ namespace Platform
 		}
 		catch(PlatformException exception)
 		{
-			handler(exception.data,exception.callStack);
+			handler(exception.data, exception.callStack);
 			if(exception.data) { free(exception.data); }
 			return true;
 		}
 	}
-	
+
 	std::type_info* getUserExceptionTypeInfo()
 	{
 		static std::type_info* typeInfo = nullptr;
@@ -596,7 +598,7 @@ namespace Platform
 		{
 			try
 			{
-				throw PlatformException {nullptr};
+				throw PlatformException{nullptr};
 			}
 			catch(PlatformException)
 			{
@@ -609,7 +611,7 @@ namespace Platform
 
 	[[noreturn]] void raisePlatformException(void* data)
 	{
-		throw PlatformException {data,captureCallStack(1)};
+		throw PlatformException{data, captureCallStack(1)};
 		printf("unhandled PlatformException\n");
 		Errors::unreachable();
 	}
@@ -658,19 +660,19 @@ namespace Platform
 		return reinterpret_cast<void*>(result);
 	}
 
-	Thread* createThread(Uptr numStackBytes,I64 (*threadEntry)(void*),void* argument)
+	Thread* createThread(Uptr numStackBytes, I64 (*threadEntry)(void*), void* argument)
 	{
-		auto thread = new Thread;
-		auto createArgs = new CreateThreadArgs;
-		createArgs->entry = threadEntry;
+		auto thread               = new Thread;
+		auto createArgs           = new CreateThreadArgs;
+		createArgs->entry         = threadEntry;
 		createArgs->entryArgument = argument;
 
 		pthread_attr_t threadAttr;
 		errorUnless(!pthread_attr_init(&threadAttr));
-		errorUnless(!pthread_attr_setstacksize(&threadAttr,numStackBytes));
+		errorUnless(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
 
 		// Create a new pthread.
-		errorUnless(!pthread_create(&thread->id,&threadAttr,createThreadEntry,createArgs));
+		errorUnless(!pthread_create(&thread->id, &threadAttr, createThreadEntry, createArgs));
 		errorUnless(!pthread_attr_destroy(&threadAttr));
 
 		return thread;
@@ -685,14 +687,14 @@ namespace Platform
 	I64 joinThread(Thread* thread)
 	{
 		void* returnValue = nullptr;
-		errorUnless(!pthread_join(thread->id,&returnValue));
+		errorUnless(!pthread_join(thread->id, &returnValue));
 		delete thread;
 		return reinterpret_cast<I64>(returnValue);
 	}
 
 	void exitThread(I64 argument)
 	{
-		throw ExitThreadException {argument};
+		throw ExitThreadException{argument};
 		Errors::unreachable();
 	}
 
@@ -704,9 +706,7 @@ namespace Platform
 		{
 			threadEntryFramePointer = args->threadEntryFramePointer;
 
-			result = switchToForkedStackContext(
-				&args->forkContext,
-				args->threadEntryFramePointer);
+			result = switchToForkedStackContext(&args->forkContext, args->threadEntryFramePointer);
 		}
 		catch(ExitThreadException exception)
 		{
@@ -721,17 +721,14 @@ namespace Platform
 		auto forkThreadArgs = new ForkThreadArgs;
 
 		if(!threadEntryFramePointer)
-		{
-			Errors::fatal("Cannot fork a thread that wasn't created by Platform::createThread");
-		}
+		{ Errors::fatal("Cannot fork a thread that wasn't created by Platform::createThread"); }
 		if(innermostSignalContext)
-		{
-			Errors::fatal("Cannot fork a thread with catchSignals on the stack");
-		}
+		{ Errors::fatal("Cannot fork a thread with catchSignals on the stack"); }
 
 		// Capture the current execution state in forkThreadArgs->forkContext.
-		// The forked thread will load this execution context, and "return" from this function on the forked stack.
-		const I64 isExecutingInFork = saveExecutionState(&forkThreadArgs->forkContext,0);
+		// The forked thread will load this execution context, and "return" from this function on
+		// the forked stack.
+		const I64 isExecutingInFork = saveExecutionState(&forkThreadArgs->forkContext, 0);
 		if(isExecutingInFork)
 		{
 			// Allocate a sigaltstack for the new thread.
@@ -744,30 +741,33 @@ namespace Platform
 			// Compute the address extent of this thread's stack.
 			U8* minStackAddr;
 			U8* maxStackAddr;
-			getCurrentThreadStack(minStackAddr,maxStackAddr);
+			getCurrentThreadStack(minStackAddr, maxStackAddr);
 			const Uptr numStackBytes = maxStackAddr - minStackAddr;
 
-			// Use the current stack pointer derive a conservative bounds on the area of the stack that is active.
-			const U8* minActiveStackAddr = getStackPointer() - 128;
-			const U8* maxActiveStackAddr = threadEntryFramePointer;
+			// Use the current stack pointer derive a conservative bounds on the area of the stack
+			// that is active.
+			const U8* minActiveStackAddr   = getStackPointer() - 128;
+			const U8* maxActiveStackAddr   = threadEntryFramePointer;
 			const Uptr numActiveStackBytes = maxActiveStackAddr - minActiveStackAddr;
 
 			if(numActiveStackBytes + PTHREAD_STACK_MIN > numStackBytes)
-			{
-				Errors::fatal("not enough stack space to fork thread");
-			}
+			{ Errors::fatal("not enough stack space to fork thread"); }
 
 			// Allocate a stack for the forked thread, and copy this thread's stack to it.
 			U8* forkedMinStackAddr = (U8*)mmap(
-				nullptr, numStackBytes,
+				nullptr,
+				numStackBytes,
 				PROT_READ | PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK_FLAGS,
-				-1, 0);
+				-1,
+				0);
 			errorUnless(forkedMinStackAddr != MAP_FAILED);
 			U8* forkedMaxStackAddr = forkedMinStackAddr + numStackBytes - PTHREAD_STACK_MIN;
-			memcpy(forkedMaxStackAddr - numActiveStackBytes,minActiveStackAddr,numActiveStackBytes);
+			memcpy(
+				forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
 
-			// Compute the offset to add to stack pointers to translate them to the forked thread's stack.
+			// Compute the offset to add to stack pointers to translate them to the forked thread's
+			// stack.
 			const Iptr forkedStackOffset = forkedMaxStackAddr - maxActiveStackAddr;
 
 			// Translate this thread's saved stack pointer to the forked stack.
@@ -776,14 +776,16 @@ namespace Platform
 			// Translate this thread's entry stack pointer to the forked stack.
 			forkThreadArgs->threadEntryFramePointer = threadEntryFramePointer + forkedStackOffset;
 
-			// Create a pthread with a small temp stack that will just load forkThreadArgs->forkContext.m
-			// Allocate the pthread_attr_t on the heap try to avoid the stack cookie check.
+			// Create a pthread with a small temp stack that will just load
+			// forkThreadArgs->forkContext.m Allocate the pthread_attr_t on the heap try to avoid
+			// the stack cookie check.
 			pthread_attr_t* threadAttr = new pthread_attr_t;
 			errorUnless(!pthread_attr_init(threadAttr));
-			errorUnless(!pthread_attr_setstack(threadAttr,forkedMinStackAddr,numStackBytes));
+			errorUnless(!pthread_attr_setstack(threadAttr, forkedMinStackAddr, numStackBytes));
 
 			auto thread = new Thread;
-			errorUnless(!pthread_create(&thread->id,threadAttr,(void*(*)(void*))forkThreadEntry,forkThreadArgs));
+			errorUnless(!pthread_create(
+				&thread->id, threadAttr, (void* (*)(void*))forkThreadEntry, forkThreadArgs));
 
 			errorUnless(!pthread_attr_destroy(threadAttr));
 			delete threadAttr;
@@ -794,57 +796,48 @@ namespace Platform
 
 	U64 getMonotonicClock()
 	{
-		#ifdef __APPLE__
-			timeval timeVal;
-			gettimeofday(&timeVal, nullptr);
-			return U64(timeVal.tv_sec) * 1000000 + U64(timeVal.tv_usec);
-		#else
-			timespec monotonicClock;
-			clock_gettime(CLOCK_MONOTONIC,&monotonicClock);
-			return U64(monotonicClock.tv_sec) * 1000000 + U64(monotonicClock.tv_nsec) / 1000;
-		#endif
+#ifdef __APPLE__
+		timeval timeVal;
+		gettimeofday(&timeVal, nullptr);
+		return U64(timeVal.tv_sec) * 1000000 + U64(timeVal.tv_usec);
+#else
+		timespec monotonicClock;
+		clock_gettime(CLOCK_MONOTONIC, &monotonicClock);
+		return U64(monotonicClock.tv_sec) * 1000000 + U64(monotonicClock.tv_nsec) / 1000;
+#endif
 	}
 
 	Mutex::Mutex()
 	{
 		static_assert(sizeof(pthreadMutex) == sizeof(pthread_mutex_t), "");
 		static_assert(alignof(PthreadMutex) >= alignof(pthread_mutex_t), "");
-		errorUnless(!pthread_mutex_init((pthread_mutex_t*)&pthreadMutex,nullptr));
+		errorUnless(!pthread_mutex_init((pthread_mutex_t*)&pthreadMutex, nullptr));
 	}
 
-	Mutex::~Mutex()
-	{
-		errorUnless(!pthread_mutex_destroy((pthread_mutex_t*)&pthreadMutex));
-	}
+	Mutex::~Mutex() { errorUnless(!pthread_mutex_destroy((pthread_mutex_t*)&pthreadMutex)); }
 
-	void Mutex::lock()
-	{
-		errorUnless(!pthread_mutex_lock((pthread_mutex_t*)&pthreadMutex));
-	}
+	void Mutex::lock() { errorUnless(!pthread_mutex_lock((pthread_mutex_t*)&pthreadMutex)); }
 
-	void Mutex::unlock()
-	{
-		errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));
-	}
-	
+	void Mutex::unlock() { errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex)); }
+
 	Event::Event()
 	{
 		static_assert(sizeof(pthreadMutex) == sizeof(pthread_mutex_t), "");
 		static_assert(alignof(PthreadMutex) >= alignof(pthread_mutex_t), "");
-		
+
 		static_assert(sizeof(pthreadCond) == sizeof(pthread_cond_t), "");
 		static_assert(alignof(PthreadCond) >= alignof(pthread_cond_t), "");
 
 		pthread_condattr_t conditionVariableAttr;
 		errorUnless(!pthread_condattr_init(&conditionVariableAttr));
 
-		// Set the condition variable to use the monotonic clock for wait timeouts.
-		#ifndef __APPLE__
-			errorUnless(!pthread_condattr_setclock(&conditionVariableAttr,CLOCK_MONOTONIC));
-		#endif
+// Set the condition variable to use the monotonic clock for wait timeouts.
+#ifndef __APPLE__
+		errorUnless(!pthread_condattr_setclock(&conditionVariableAttr, CLOCK_MONOTONIC));
+#endif
 
-		errorUnless(!pthread_cond_init((pthread_cond_t*)&pthreadCond,nullptr));
-		errorUnless(!pthread_mutex_init((pthread_mutex_t*)&pthreadMutex,nullptr));
+		errorUnless(!pthread_cond_init((pthread_cond_t*)&pthreadCond, nullptr));
+		errorUnless(!pthread_mutex_init((pthread_mutex_t*)&pthreadMutex, nullptr));
 
 		errorUnless(!pthread_condattr_destroy(&conditionVariableAttr));
 	}
@@ -862,27 +855,22 @@ namespace Platform
 		int result;
 		if(untilTime == UINT64_MAX)
 		{
-			result = pthread_cond_wait((pthread_cond_t*)&pthreadCond,(pthread_mutex_t*)&pthreadMutex);
+			result
+				= pthread_cond_wait((pthread_cond_t*)&pthreadCond, (pthread_mutex_t*)&pthreadMutex);
 		}
 		else
 		{
 			timespec untilTimeSpec;
-			untilTimeSpec.tv_sec = untilTime / 1000000;
+			untilTimeSpec.tv_sec  = untilTime / 1000000;
 			untilTimeSpec.tv_nsec = (untilTime % 1000000) * 1000;
 
 			result = pthread_cond_timedwait(
-				(pthread_cond_t*)&pthreadCond,
-				(pthread_mutex_t*)&pthreadMutex,
-				&untilTimeSpec
-				);
+				(pthread_cond_t*)&pthreadCond, (pthread_mutex_t*)&pthreadMutex, &untilTimeSpec);
 		}
 
 		errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));
 
-		if(result == ETIMEDOUT)
-		{
-			return false;
-		}
+		if(result == ETIMEDOUT) { return false; }
 		else
 		{
 			errorUnless(!result);
@@ -890,26 +878,18 @@ namespace Platform
 		}
 	}
 
-	void Event::signal()
-	{
-		errorUnless(!pthread_cond_signal((pthread_cond_t*)&pthreadCond));
-	}
-	
+	void Event::signal() { errorUnless(!pthread_cond_signal((pthread_cond_t*)&pthreadCond)); }
+
 	// Instead of just reinterpreting the file descriptor as a pointer, use
 	// -fd - 1, which maps fd=0 to a non-null value, and fd=-1 to null.
-	static I32 filePtrToIndex(File* ptr)
-	{
-		return I32(-reinterpret_cast<Iptr>(ptr) - 1);
-	}
+	static I32 filePtrToIndex(File* ptr) { return I32(-reinterpret_cast<Iptr>(ptr) - 1); }
 
-	static File* fileIndexToPtr(int index)
-	{
-		return reinterpret_cast<File*>(-Iptr(index) - 1);
-	}
+	static File* fileIndexToPtr(int index) { return reinterpret_cast<File*>(-Iptr(index) - 1); }
 
-	File* openFile(const std::string& pathName, FileAccessMode accessMode, FileCreateMode createMode)
+	File*
+	openFile(const std::string& pathName, FileAccessMode accessMode, FileCreateMode createMode)
 	{
-		U32 flags = 0;
+		U32 flags   = 0;
 		mode_t mode = 0;
 		switch(accessMode)
 		{
@@ -941,10 +921,7 @@ namespace Platform
 		return fileIndexToPtr(result);
 	}
 
-	bool closeFile(File* file)
-	{
-		return close(filePtrToIndex(file)) == 0;
-	}
+	bool closeFile(File* file) { return close(filePtrToIndex(file)) == 0; }
 
 	File* getStdFile(StdDevice device)
 	{
@@ -957,7 +934,7 @@ namespace Platform
 		};
 	}
 
-	bool seekFile(File* file,I64 offset,FileSeekOrigin origin,U64* outAbsoluteOffset)
+	bool seekFile(File* file, I64 offset, FileSeekOrigin origin, U64* outAbsoluteOffset)
 	{
 		I32 whence = 0;
 		switch(origin)
@@ -968,50 +945,38 @@ namespace Platform
 		default: Errors::unreachable();
 		};
 
-		#ifdef __linux__
-			const I64 result = lseek64(filePtrToIndex(file), offset, whence);
-		#else
-			const I64 result = lseek(filePtrToIndex(file), reinterpret_cast<off_t>(offset), whence);
-		#endif
-		if(outAbsoluteOffset)
-		{
-			*outAbsoluteOffset = U64(result);
-		}
+#ifdef __linux__
+		const I64 result = lseek64(filePtrToIndex(file), offset, whence);
+#else
+		const I64 result = lseek(filePtrToIndex(file), reinterpret_cast<off_t>(offset), whence);
+#endif
+		if(outAbsoluteOffset) { *outAbsoluteOffset = U64(result); }
 		return result != -1;
 	}
 
-	bool readFile(File* file, U8* outData,Uptr numBytes,Uptr* outNumBytesRead)
+	bool readFile(File* file, U8* outData, Uptr numBytes, Uptr* outNumBytesRead)
 	{
-		ssize_t result = read(filePtrToIndex(file),outData,numBytes);
-		if(outNumBytesRead)
-		{
-			*outNumBytesRead = result;
-		}
+		ssize_t result = read(filePtrToIndex(file), outData, numBytes);
+		if(outNumBytesRead) { *outNumBytesRead = result; }
 		return result >= 0;
 	}
 
-	bool writeFile(File* file,const U8* data,Uptr numBytes,Uptr* outNumBytesWritten)
+	bool writeFile(File* file, const U8* data, Uptr numBytes, Uptr* outNumBytesWritten)
 	{
-		ssize_t result = write(filePtrToIndex(file),data,numBytes);
-		if(outNumBytesWritten)
-		{
-			*outNumBytesWritten = result;
-		}
+		ssize_t result = write(filePtrToIndex(file), data, numBytes);
+		if(outNumBytesWritten) { *outNumBytesWritten = result; }
 		return result >= 0;
 	}
 
-	bool flushFileWrites(File* file)
-	{
-		return fsync(filePtrToIndex(file)) == 0;
-	}
+	bool flushFileWrites(File* file) { return fsync(filePtrToIndex(file)) == 0; }
 
 	std::string getCurrentWorkingDirectory()
 	{
 		const Uptr maxPathBytes = pathconf(".", _PC_PATH_MAX);
-		char* buffer = (char*)alloca(maxPathBytes);
-		errorUnless(getcwd(buffer,maxPathBytes) == buffer);
+		char* buffer            = (char*)alloca(maxPathBytes);
+		errorUnless(getcwd(buffer, maxPathBytes) == buffer);
 		return std::string(buffer);
 	}
-}
+} // namespace Platform
 
 #endif

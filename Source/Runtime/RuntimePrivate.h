@@ -5,26 +5,33 @@
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 
-#include <functional>
 #include <atomic>
+#include <functional>
 
-namespace Intrinsics { struct Module; }
+namespace Intrinsics
+{
+	struct Module;
+}
 
-namespace Runtime { enum class CallingConvention; }
+namespace Runtime
+{
+	enum class CallingConvention;
+}
 
 namespace LLVMJIT
 {
 	using namespace Runtime;
-	
+
 	struct JITModuleBase
 	{
 		virtual ~JITModuleBase() {}
 	};
 
-	void instantiateModule(const IR::Module& module,Runtime::ModuleInstance* moduleInstance);
-	bool describeInstructionPointer(Uptr ip,std::string& outDescription);
-	
-	typedef Runtime::ContextRuntimeData* (*InvokeFunctionPointer)(void*,Runtime::ContextRuntimeData*);
+	void instantiateModule(const IR::Module& module, Runtime::ModuleInstance* moduleInstance);
+	bool describeInstructionPointer(Uptr ip, std::string& outDescription);
+
+	typedef Runtime::ContextRuntimeData* (
+		*InvokeFunctionPointer)(void*, Runtime::ContextRuntimeData*);
 
 	// Generates an invoke thunk for a specific function type.
 	InvokeFunctionPointer getInvokeThunk(
@@ -36,7 +43,7 @@ namespace LLVMJIT
 		void* nativeFunction,
 		IR::FunctionType functionType,
 		Runtime::CallingConvention callingConvention);
-}
+} // namespace LLVMJIT
 
 namespace Runtime
 {
@@ -53,7 +60,8 @@ namespace Runtime
 		virtual void finalize() {}
 	};
 
-	// An instance of a function: a function defined in an instantiated module, or an intrinsic function.
+	// An instance of a function: a function defined in an instantiated module, or an intrinsic
+	// function.
 	struct FunctionInstance : ObjectImpl
 	{
 		ModuleInstance* moduleInstance;
@@ -74,7 +82,8 @@ namespace Runtime
 		, nativeFunction(inNativeFunction)
 		, callingConvention(inCallingConvention)
 		, debugName(std::move(inDebugName))
-		{}
+		{
+		}
 	};
 
 	// An instance of a WebAssembly Table.
@@ -98,14 +107,15 @@ namespace Runtime
 		Platform::Mutex elementsMutex;
 		std::vector<Object*> elements;
 
-		TableInstance(Compartment* inCompartment,const TableType& inType)
+		TableInstance(Compartment* inCompartment, const TableType& inType)
 		: ObjectImpl(ObjectKind::table)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, type(inType)
 		, baseAddress(nullptr)
 		, endOffset(0)
-		{}
+		{
+		}
 		~TableInstance() override;
 		virtual void finalize() override;
 	};
@@ -122,14 +132,16 @@ namespace Runtime
 		std::atomic<Uptr> numPages;
 		Uptr endOffset;
 
-		MemoryInstance(Compartment* inCompartment,const MemoryType& inType)
+		MemoryInstance(Compartment* inCompartment, const MemoryType& inType)
 		: ObjectImpl(ObjectKind::memory)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, type(inType)
 		, baseAddress(nullptr)
 		, numPages(0)
-		, endOffset(0) {}
+		, endOffset(0)
+		{
+		}
 		~MemoryInstance() override;
 		virtual void finalize() override;
 	};
@@ -144,13 +156,19 @@ namespace Runtime
 		const U32 mutableDataOffset;
 		const UntaggedValue initialValue;
 
-		GlobalInstance(Compartment* inCompartment,GlobalType inType,U32 inMutableDataOffset,UntaggedValue inInitialValue)
+		GlobalInstance(
+			Compartment* inCompartment,
+			GlobalType inType,
+			U32 inMutableDataOffset,
+			UntaggedValue inInitialValue)
 		: ObjectImpl(ObjectKind::global)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, type(inType)
 		, mutableDataOffset(inMutableDataOffset)
-		, initialValue(inInitialValue) {}
+		, initialValue(inInitialValue)
+		{
+		}
 		virtual void finalize() override;
 	};
 
@@ -176,7 +194,8 @@ namespace Runtime
 		: ObjectImpl(ObjectKind::exceptionTypeInstance)
 		, type(inType)
 		, debugName(std::move(inDebugName))
-		{}
+		{
+		}
 	};
 
 	// An instance of a WebAssembly module.
@@ -209,8 +228,7 @@ namespace Runtime
 			std::vector<MemoryInstance*>&& inMemoryImports,
 			std::vector<GlobalInstance*>&& inGlobalImports,
 			std::vector<ExceptionTypeInstance*>&& inExceptionTypeInstanceImports,
-			std::string&& inDebugName
-			)
+			std::string&& inDebugName)
 		: ObjectImpl(ObjectKind::module)
 		, compartment(inCompartment)
 		, functions(inFunctionImports)
@@ -223,7 +241,8 @@ namespace Runtime
 		, defaultTable(nullptr)
 		, jitModule(nullptr)
 		, debugName(std::move(inDebugName))
-		{}
+		{
+		}
 
 		~ModuleInstance() override;
 	};
@@ -239,23 +258,42 @@ namespace Runtime
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, runtimeData(nullptr)
-		{}
+		{
+		}
 
 		virtual void finalize() override;
 	};
 
-	#define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
-	enum { maxThunkArgAndReturnBytes = 256 };
-	enum { maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes };
-	enum { maxMemories = 255 };
-	enum { maxTables = 256 };
-	enum { compartmentRuntimeDataAlignmentLog2 = 32 };
-	enum { contextRuntimeDataAlignment = 4096 };
+#define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
+	enum
+	{
+		maxThunkArgAndReturnBytes = 256
+	};
+	enum
+	{
+		maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes
+	};
+	enum
+	{
+		maxMemories = 255
+	};
+	enum
+	{
+		maxTables = 256
+	};
+	enum
+	{
+		compartmentRuntimeDataAlignmentLog2 = 32
+	};
+	enum
+	{
+		contextRuntimeDataAlignment = 4096
+	};
 
 	static_assert(
 		sizeof(UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
-		"maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * sizeof(UntaggedValue)"
-		);
+		"maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
+		"sizeof(UntaggedValue)");
 
 	struct Compartment : ObjectImpl
 	{
@@ -291,18 +329,28 @@ namespace Runtime
 		Compartment* compartment;
 		U8* memories[maxMemories];
 		TableInstance::FunctionElement* tables[maxTables];
-		ContextRuntimeData contexts[1]; // Actually [maxContexts], but at least MSVC doesn't allow declaring arrays that large.
+		ContextRuntimeData contexts[1]; // Actually [maxContexts], but at least MSVC doesn't allow
+										// declaring arrays that large.
 	};
 
-	enum { maxContexts = 1024 * 1024 - offsetof(CompartmentRuntimeData,contexts) / sizeof(ContextRuntimeData) };
+	enum
+	{
+		maxContexts
+		= 1024 * 1024 - offsetof(CompartmentRuntimeData, contexts) / sizeof(ContextRuntimeData)
+	};
 
-	static_assert(sizeof(ContextRuntimeData) == 4096,"");
-	static_assert(offsetof(CompartmentRuntimeData,contexts) % 4096 == 0,"CompartmentRuntimeData::contexts isn't page-aligned");
-	static_assert(offsetof(CompartmentRuntimeData,contexts[maxContexts]) == 4ull * 1024 * 1024 * 1024,"CompartmentRuntimeData isn't the expected size");
+	static_assert(sizeof(ContextRuntimeData) == 4096, "");
+	static_assert(
+		offsetof(CompartmentRuntimeData, contexts) % 4096 == 0,
+		"CompartmentRuntimeData::contexts isn't page-aligned");
+	static_assert(
+		offsetof(CompartmentRuntimeData, contexts[maxContexts]) == 4ull * 1024 * 1024 * 1024,
+		"CompartmentRuntimeData isn't the expected size");
 
 	inline CompartmentRuntimeData* getCompartmentRuntimeData(ContextRuntimeData* contextRuntimeData)
 	{
-		return reinterpret_cast<CompartmentRuntimeData*>(reinterpret_cast<Uptr>(contextRuntimeData) & 0xffffffff00000000);
+		return reinterpret_cast<CompartmentRuntimeData*>(
+			reinterpret_cast<Uptr>(contextRuntimeData) & 0xffffffff00000000);
 	}
 
 	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
@@ -313,4 +361,4 @@ namespace Runtime
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(U8* address);
 	bool isAddressOwnedByMemory(U8* address);
-}
+} // namespace Runtime

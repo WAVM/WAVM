@@ -1,17 +1,21 @@
 #pragma once
 
+#include "IR.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "IR.h"
-#include "Types.h"
 #include "Inline/Serialization.h"
+#include "Types.h"
 
 namespace IR
 {
 	// Structures for operator immediates
 
-	struct NoImm {};
-	struct MemoryImm {};
+	struct NoImm
+	{
+	};
+	struct MemoryImm
+	{
+	};
 
 	struct ControlStructureImm
 	{
@@ -26,17 +30,17 @@ namespace IR
 	struct BranchTableImm
 	{
 		Uptr defaultTargetDepth;
-		Uptr branchTableIndex; // An index into the FunctionDef's branchTables array.
+
+		// An index into the FunctionDef's branchTables array.
+		Uptr branchTableIndex;
 	};
 
-	template<typename Value>
-	struct LiteralImm
+	template<typename Value> struct LiteralImm
 	{
 		Value value;
 	};
 
-	template<bool isGlobal>
-	struct GetOrSetVariableImm
+	template<bool isGlobal> struct GetOrSetVariableImm
 	{
 		U32 variableIndex;
 	};
@@ -51,32 +55,28 @@ namespace IR
 		IndexedFunctionType type;
 	};
 
-	template<Uptr naturalAlignmentLog2>
-	struct LoadOrStoreImm
+	template<Uptr naturalAlignmentLog2> struct LoadOrStoreImm
 	{
 		U8 alignmentLog2;
 		U32 offset;
 	};
 
-	template<Uptr numLanes>
-	struct LaneIndexImm
+	template<Uptr numLanes> struct LaneIndexImm
 	{
 		U8 laneIndex;
 	};
-	
-	template<Uptr numLanes>
-	struct ShuffleImm
+
+	template<Uptr numLanes> struct ShuffleImm
 	{
 		U8 laneIndices[numLanes];
 	};
 
-	template<Uptr naturalAlignmentLog2>
-	struct AtomicLoadOrStoreImm
+	template<Uptr naturalAlignmentLog2> struct AtomicLoadOrStoreImm
 	{
 		U8 alignmentLog2;
 		U32 offset;
 	};
-	
+
 	struct CatchImm
 	{
 		U32 exceptionTypeIndex;
@@ -90,11 +90,13 @@ namespace IR
 		U32 catchDepth;
 	};
 
+	// clang-format off
+
 	// Opcode encoding helpers
-	#define SIMDOP(simdOpIndex) (0xfd00|simdOpIndex)
-	#define ATOMICOP(atomicOpIndex) (0xfe00|atomicOpIndex)
-	#define EXCEPTIONOP(exceptionOpIndex) (0xfb00|exceptionOpIndex)
-	#define TRUNCSATOP(truncSatOpIndex) (0xfc00|truncSatOpIndex)
+	#define SIMDOP(simdOpIndex) (0xfd00 | simdOpIndex)
+	#define ATOMICOP(atomicOpIndex) (0xfe00 | atomicOpIndex)
+	#define EXCEPTIONOP(exceptionOpIndex) (0xfb00 | exceptionOpIndex)
+	#define TRUNCSATOP(truncSatOpIndex) (0xfc00 | truncSatOpIndex)
 
 	// Enumerate the WebAssembly operators
 
@@ -134,7 +136,7 @@ namespace IR
 		LOAD(T) : i32 -> T
 		STORE(T) : (i32,T) -> ()
 		VECTORSELECT(V) : (V,V,V) -> V
-        REPLACELANE(S,V) : (V,S) -> V
+		REPLACELANE(S,V) : (V,S) -> V
 		COMPAREEXCHANGE(T) : (i32,T,T) -> T
 		WAIT(T) : (i32,T,f64) -> i32
 		LAUNCHTHREAD : (i32,i32) -> ()
@@ -584,34 +586,33 @@ namespace IR
 		visitOp(TRUNCSATOP(6),i64_trunc_s_sat_f64,"i64.trunc_s:sat/f64",NoImm,UNARY(f64,i64),nonTrappingFloatToInt) \
 		visitOp(TRUNCSATOP(7),i64_trunc_u_sat_f64,"i64.trunc_u:sat/f64",NoImm,UNARY(f64,i64),nonTrappingFloatToInt)
 
-	#define ENUM_NONCONTROL_OPERATORS(visitOp) \
-		ENUM_PARAMETRIC_OPERATORS(visitOp) \
-		ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)
+	// clang-format on
 
-	#define ENUM_OPERATORS(visitOp) \
-		ENUM_NONCONTROL_OPERATORS(visitOp) \
-		ENUM_CONTROL_OPERATORS(visitOp)
+#define ENUM_NONCONTROL_OPERATORS(visitOp) \
+	ENUM_PARAMETRIC_OPERATORS(visitOp)     \
+	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)
+
+#define ENUM_OPERATORS(visitOp)        \
+	ENUM_NONCONTROL_OPERATORS(visitOp) \
+	ENUM_CONTROL_OPERATORS(visitOp)
 
 	enum class Opcode : U16
 	{
-		#define VISIT_OPCODE(opcode,name,...) name = opcode,
+#define VISIT_OPCODE(opcode, name, ...) name = opcode,
 		ENUM_OPERATORS(VISIT_OPCODE)
-		#undef VISIT_OPCODE
+#undef VISIT_OPCODE
 
-		maxSingleByteOpcode = 0xcf,
+			maxSingleByteOpcode
+		= 0xcf,
 	};
 
-	PACKED_STRUCT(
-	template<typename Imm>
-	struct OpcodeAndImm
-	{
+	PACKED_STRUCT(template<typename Imm> struct OpcodeAndImm {
 		Opcode opcode;
 		Imm imm;
 	});
 
 	// Specialize for the empty immediate structs so they don't take an extra byte of space.
-	template<>
-	struct OpcodeAndImm<NoImm>
+	template<> struct OpcodeAndImm<NoImm>
 	{
 		union
 		{
@@ -619,8 +620,7 @@ namespace IR
 			NoImm imm;
 		};
 	};
-	template<>
-	struct OpcodeAndImm<MemoryImm>
+	template<> struct OpcodeAndImm<MemoryImm>
 	{
 		union
 		{
@@ -633,44 +633,42 @@ namespace IR
 	struct OperatorDecoderStream
 	{
 		OperatorDecoderStream(const std::vector<U8>& codeBytes)
-		: nextByte(codeBytes.data()), end(codeBytes.data()+codeBytes.size()) {}
+		: nextByte(codeBytes.data())
+		, end(codeBytes.data() + codeBytes.size())
+		{
+		}
 
 		operator bool() const { return nextByte < end; }
 
-		template<typename Visitor>
-		typename Visitor::Result decodeOp(Visitor& visitor)
+		template<typename Visitor> typename Visitor::Result decodeOp(Visitor& visitor)
 		{
 			wavmAssert(nextByte + sizeof(Opcode) <= end);
 			Opcode opcode = *(Opcode*)nextByte;
 			switch(opcode)
 			{
-			#define VISIT_OPCODE(opcode,name,nameString,Imm,...) \
-				case Opcode::name: \
-				{ \
-					wavmAssert(nextByte + sizeof(OpcodeAndImm<Imm>) <= end); \
-					OpcodeAndImm<Imm>* encodedOperator = (OpcodeAndImm<Imm>*)nextByte; \
-					nextByte += sizeof(OpcodeAndImm<Imm>); \
-					return visitor.name(encodedOperator->imm); \
-				}
-			ENUM_OPERATORS(VISIT_OPCODE)
-			#undef VISIT_OPCODE
-			default:
-				nextByte += sizeof(Opcode);
-				return visitor.unknown(opcode);
+#define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                   \
+	case Opcode::name:                                                     \
+	{                                                                      \
+		wavmAssert(nextByte + sizeof(OpcodeAndImm<Imm>) <= end);           \
+		OpcodeAndImm<Imm>* encodedOperator = (OpcodeAndImm<Imm>*)nextByte; \
+		nextByte += sizeof(OpcodeAndImm<Imm>);                             \
+		return visitor.name(encodedOperator->imm);                         \
+	}
+				ENUM_OPERATORS(VISIT_OPCODE)
+#undef VISIT_OPCODE
+			default: nextByte += sizeof(Opcode); return visitor.unknown(opcode);
 			}
 		}
 
-		template<typename Visitor>
-		typename Visitor::Result decodeOpWithoutConsume(Visitor& visitor)
+		template<typename Visitor> typename Visitor::Result decodeOpWithoutConsume(Visitor& visitor)
 		{
-			const U8* savedNextByte = nextByte;
+			const U8* savedNextByte         = nextByte;
 			typename Visitor::Result result = decodeOp(visitor);
-			nextByte = savedNextByte;
+			nextByte                        = savedNextByte;
 			return result;
 		}
 
 	private:
-
 		const U8* nextByte;
 		const U8* end;
 	};
@@ -678,21 +676,25 @@ namespace IR
 	// Encodes an operator to an output stream.
 	struct OperatorEncoderStream
 	{
-		OperatorEncoderStream(Serialization::OutputStream& inByteStream): byteStream(inByteStream) {}
+		OperatorEncoderStream(Serialization::OutputStream& inByteStream)
+		: byteStream(inByteStream)
+		{
+		}
 
-		#define VISIT_OPCODE(_,name,nameString,Imm,...) \
-			void name(Imm imm = {}) \
-			{ \
-				OpcodeAndImm<Imm>* encodedOperator = (OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)); \
-				encodedOperator->opcode = Opcode::name; \
-				encodedOperator->imm = imm; \
-			}
+#define VISIT_OPCODE(_, name, nameString, Imm, ...)                              \
+	void name(Imm imm = {})                                                      \
+	{                                                                            \
+		OpcodeAndImm<Imm>* encodedOperator                                       \
+			= (OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)); \
+		encodedOperator->opcode = Opcode::name;                                  \
+		encodedOperator->imm    = imm;                                           \
+	}
 		ENUM_OPERATORS(VISIT_OPCODE)
-		#undef VISIT_OPCODE
+#undef VISIT_OPCODE
 
 	private:
 		Serialization::OutputStream& byteStream;
 	};
 
 	IR_API const char* getOpcodeName(Opcode opcode);
-}
+} // namespace IR

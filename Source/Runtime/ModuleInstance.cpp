@@ -1,14 +1,14 @@
+#include "IR/Module.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
-#include "IR/Module.h"
 
 #include <string.h>
 
 namespace Runtime
 {
-	Value evaluateInitializer(ModuleInstance* moduleInstance,InitializerExpression expression)
+	Value evaluateInitializer(ModuleInstance* moduleInstance, InitializerExpression expression)
 	{
 		switch(expression.type)
 		{
@@ -22,7 +22,7 @@ namespace Runtime
 			errorUnless(expression.globalIndex < moduleInstance->globals.size());
 			GlobalInstance* globalInstance = moduleInstance->globals[expression.globalIndex];
 			errorUnless(!globalInstance->type.isMutable);
-			return IR::Value(globalInstance->type.valueType,globalInstance->initialValue);
+			return IR::Value(globalInstance->type.valueType, globalInstance->initialValue);
 		}
 		default: Errors::unreachable();
 		};
@@ -41,58 +41,63 @@ namespace Runtime
 			std::move(imports.memories),
 			std::move(imports.globals),
 			std::move(imports.exceptionTypes),
-			std::move(moduleDebugName)
-			);
+			std::move(moduleDebugName));
 
 		// Get disassembly names for the module's objects.
 		DisassemblyNames disassemblyNames;
-		IR::getDisassemblyNames(module,disassemblyNames);
+		IR::getDisassemblyNames(module, disassemblyNames);
 
 		// Check the type of the ModuleInstance's imports.
 		errorUnless(moduleInstance->functions.size() == module.functions.imports.size());
-		for(Uptr importIndex = 0;importIndex < module.functions.imports.size();++importIndex)
+		for(Uptr importIndex = 0; importIndex < module.functions.imports.size(); ++importIndex)
 		{
-			errorUnless(isA(moduleInstance->functions[importIndex],module.types[module.functions.imports[importIndex].type.index]));
+			errorUnless(
+				isA(moduleInstance->functions[importIndex],
+					module.types[module.functions.imports[importIndex].type.index]));
 		}
 		errorUnless(moduleInstance->tables.size() == module.tables.imports.size());
-		for(Uptr importIndex = 0;importIndex < module.tables.imports.size();++importIndex)
+		for(Uptr importIndex = 0; importIndex < module.tables.imports.size(); ++importIndex)
 		{
-			errorUnless(isA(moduleInstance->tables[importIndex],module.tables.imports[importIndex].type));
+			errorUnless(
+				isA(moduleInstance->tables[importIndex], module.tables.imports[importIndex].type));
 		}
 		errorUnless(moduleInstance->memories.size() == module.memories.imports.size());
-		for(Uptr importIndex = 0;importIndex < module.memories.imports.size();++importIndex)
-		{
-			errorUnless(isA(moduleInstance->memories[importIndex],module.memories.imports[importIndex].type));
-		}
-		errorUnless(moduleInstance->globals.size() == module.globals.imports.size());
-		for(Uptr importIndex = 0;importIndex < module.globals.imports.size();++importIndex)
-		{
-			errorUnless(isA(moduleInstance->globals[importIndex],module.globals.imports[importIndex].type));
-		}
-		errorUnless(moduleInstance->exceptionTypeInstances.size() == module.exceptionTypes.imports.size());
-		for(Uptr importIndex = 0;importIndex < module.exceptionTypes.imports.size();++importIndex)
+		for(Uptr importIndex = 0; importIndex < module.memories.imports.size(); ++importIndex)
 		{
 			errorUnless(isA(
-				moduleInstance->exceptionTypeInstances[importIndex],
-				module.exceptionTypes.imports[importIndex].type
-				));
+				moduleInstance->memories[importIndex], module.memories.imports[importIndex].type));
+		}
+		errorUnless(moduleInstance->globals.size() == module.globals.imports.size());
+		for(Uptr importIndex = 0; importIndex < module.globals.imports.size(); ++importIndex)
+		{
+			errorUnless(isA(
+				moduleInstance->globals[importIndex], module.globals.imports[importIndex].type));
+		}
+		errorUnless(
+			moduleInstance->exceptionTypeInstances.size() == module.exceptionTypes.imports.size());
+		for(Uptr importIndex = 0; importIndex < module.exceptionTypes.imports.size(); ++importIndex)
+		{
+			errorUnless(
+				isA(moduleInstance->exceptionTypeInstances[importIndex],
+					module.exceptionTypes.imports[importIndex].type));
 		}
 
 		// Instantiate the module's memory and table definitions.
 		for(const TableDef& tableDef : module.tables.defs)
 		{
-			auto table = createTable(compartment,tableDef.type);
+			auto table = createTable(compartment, tableDef.type);
 			if(!table) { throwException(Exception::outOfMemoryType); }
 			moduleInstance->tables.push_back(table);
 		}
 		for(const MemoryDef& memoryDef : module.memories.defs)
 		{
-			auto memory = createMemory(compartment,memoryDef.type);
+			auto memory = createMemory(compartment, memoryDef.type);
 			if(!memory) { throwException(Exception::outOfMemoryType); }
 			moduleInstance->memories.push_back(memory);
 		}
 
-		// Find the default memory and table for the module and initialize the runtime data memory/table base pointers.
+		// Find the default memory and table for the module and initialize the runtime data
+		// memory/table base pointers.
 		if(moduleInstance->memories.size() != 0)
 		{
 			wavmAssert(moduleInstance->memories.size() == 1);
@@ -104,27 +109,29 @@ namespace Runtime
 			moduleInstance->defaultTable = moduleInstance->tables[0];
 		}
 
-		// If any memory or table segment doesn't fit, throw an exception before mutating any memory/table.
+		// If any memory or table segment doesn't fit, throw an exception before mutating any
+		// memory/table.
 		for(auto& tableSegment : module.tableSegments)
 		{
 			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
-			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 			if(baseOffset > table->elements.size()
-			|| table->elements.size() - baseOffset < tableSegment.indices.size())
+			   || table->elements.size() - baseOffset < tableSegment.indices.size())
 			{ throwException(Exception::invalidSegmentOffsetType); }
 		}
 		for(auto& dataSegment : module.dataSegments)
 		{
 			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
-			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
+			const U32 baseOffset      = baseOffsetValue.i32;
 			const Uptr numMemoryBytes = (memory->numPages << IR::numBytesPerPageLog2);
-			if(baseOffset > numMemoryBytes
-			|| numMemoryBytes - baseOffset < dataSegment.data.size())
+			if(baseOffset > numMemoryBytes || numMemoryBytes - baseOffset < dataSegment.data.size())
 			{ throwException(Exception::invalidSegmentOffsetType); }
 		}
 
@@ -133,39 +140,45 @@ namespace Runtime
 		{
 			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
-			const Value baseOffsetValue = evaluateInitializer(moduleInstance,dataSegment.baseOffset);
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
-			wavmAssert(baseOffset + dataSegment.data.size() <= (memory->numPages << IR::numBytesPerPageLog2));
+			wavmAssert(
+				baseOffset + dataSegment.data.size()
+				<= (memory->numPages << IR::numBytesPerPageLog2));
 
-			memcpy(memory->baseAddress + baseOffset,dataSegment.data.data(),dataSegment.data.size());
+			memcpy(
+				memory->baseAddress + baseOffset, dataSegment.data.data(), dataSegment.data.size());
 		}
-		
+
 		// Instantiate the module's global definitions.
 		for(const GlobalDef& globalDef : module.globals.defs)
 		{
-			const Value initialValue = evaluateInitializer(moduleInstance,globalDef.initializer);
+			const Value initialValue = evaluateInitializer(moduleInstance, globalDef.initializer);
 			errorUnless(initialValue.type == globalDef.type.valueType);
-			moduleInstance->globals.push_back(createGlobal(compartment,globalDef.type,initialValue));
+			moduleInstance->globals.push_back(
+				createGlobal(compartment, globalDef.type, initialValue));
 		}
 
 		// Instantiate the module's exception types.
 		for(const ExceptionTypeDef& exceptionTypeDef : module.exceptionTypes.defs)
 		{
-			moduleInstance->exceptionTypeInstances.push_back(createExceptionTypeInstance(
-				exceptionTypeDef.type,
-				"wasmException"
-				));
+			moduleInstance->exceptionTypeInstances.push_back(
+				createExceptionTypeInstance(exceptionTypeDef.type, "wasmException"));
 		}
-		
+
 		// Create the FunctionInstance objects for the module's function definitions.
-		for(Uptr functionDefIndex = 0;functionDefIndex < module.functions.defs.size();++functionDefIndex)
+		for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
+			++functionDefIndex)
 		{
 			const Uptr functionIndex = moduleInstance->functions.size();
-			const DisassemblyNames::Function& functionNames = disassemblyNames.functions[functionIndex];
+			const DisassemblyNames::Function& functionNames
+				= disassemblyNames.functions[functionIndex];
 			std::string debugName = functionNames.name;
-			if(!debugName.size()) { debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
+			if(!debugName.size())
+			{ debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
 			auto functionInstance = new FunctionInstance(
 				moduleInstance,
 				module.types[module.functions.defs[functionDefIndex].type.index],
@@ -177,7 +190,7 @@ namespace Runtime
 		}
 
 		// Generate machine code for the module.
-		LLVMJIT::instantiateModule(module,moduleInstance);
+		LLVMJIT::instantiateModule(module, moduleInstance);
 
 		// Set up the instance's exports.
 		for(const Export& exportIt : module.exports)
@@ -185,31 +198,43 @@ namespace Runtime
 			Object* exportedObject = nullptr;
 			switch(exportIt.kind)
 			{
-			case IR::ObjectKind::function: exportedObject = moduleInstance->functions[exportIt.index]; break;
-			case IR::ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
-			case IR::ObjectKind::memory: exportedObject = moduleInstance->memories[exportIt.index]; break;
-			case IR::ObjectKind::global: exportedObject = moduleInstance->globals[exportIt.index]; break;
-			case IR::ObjectKind::exceptionType: exportedObject = moduleInstance->exceptionTypeInstances[exportIt.index]; break;
+			case IR::ObjectKind::function:
+				exportedObject = moduleInstance->functions[exportIt.index];
+				break;
+			case IR::ObjectKind::table:
+				exportedObject = moduleInstance->tables[exportIt.index];
+				break;
+			case IR::ObjectKind::memory:
+				exportedObject = moduleInstance->memories[exportIt.index];
+				break;
+			case IR::ObjectKind::global:
+				exportedObject = moduleInstance->globals[exportIt.index];
+				break;
+			case IR::ObjectKind::exceptionType:
+				exportedObject = moduleInstance->exceptionTypeInstances[exportIt.index];
+				break;
 			default: Errors::unreachable();
 			}
 			errorUnless(moduleInstance->exportMap.add(exportIt.name, exportedObject));
 		}
-		
+
 		// Copy the module's table segments into the module's default table.
 		for(const TableSegment& tableSegment : module.tableSegments)
 		{
 			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
-			
-			const Value baseOffsetValue = evaluateInitializer(moduleInstance,tableSegment.baseOffset);
+
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 			wavmAssert(baseOffset + tableSegment.indices.size() <= table->elements.size());
 
-			for(Uptr index = 0;index < tableSegment.indices.size();++index)
+			for(Uptr index = 0; index < tableSegment.indices.size(); ++index)
 			{
 				const Uptr functionIndex = tableSegment.indices[index];
 				wavmAssert(functionIndex < moduleInstance->functions.size());
-				setTableElement(table,baseOffset + index,moduleInstance->functions[functionIndex]);
+				setTableElement(
+					table, baseOffset + index, moduleInstance->functions[functionIndex]);
 			}
 		}
 
@@ -228,15 +253,24 @@ namespace Runtime
 		if(jitModule) { delete jitModule; }
 	}
 
-	FunctionInstance* getStartFunction(ModuleInstance* moduleInstance) { return moduleInstance->startFunction; }
+	FunctionInstance* getStartFunction(ModuleInstance* moduleInstance)
+	{
+		return moduleInstance->startFunction;
+	}
 
-	MemoryInstance* getDefaultMemory(ModuleInstance* moduleInstance) { return moduleInstance->defaultMemory; }
-	TableInstance* getDefaultTable(ModuleInstance* moduleInstance) { return moduleInstance->defaultTable; }
-	
-	Object* getInstanceExport(ModuleInstance* moduleInstance,const std::string& name)
+	MemoryInstance* getDefaultMemory(ModuleInstance* moduleInstance)
+	{
+		return moduleInstance->defaultMemory;
+	}
+	TableInstance* getDefaultTable(ModuleInstance* moduleInstance)
+	{
+		return moduleInstance->defaultTable;
+	}
+
+	Object* getInstanceExport(ModuleInstance* moduleInstance, const std::string& name)
 	{
 		wavmAssert(moduleInstance);
 		Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
 		return exportedObjectPtr ? *exportedObjectPtr : nullptr;
 	}
-}
+} // namespace Runtime

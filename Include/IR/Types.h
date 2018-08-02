@@ -1,36 +1,48 @@
 #pragma once
 
+#include "IR.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Floats.h"
 #include "Inline/Hash.h"
-#include "IR.h"
 
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace IR
 {
 	// The type of a WebAssembly operand
 	enum class ValueType : U8
 	{
-		any = 0,
-		i32 = 1,
-		i64 = 2,
-		f32 = 3,
-		f64 = 4,
+		any  = 0,
+		i32  = 1,
+		i64  = 2,
+		f32  = 3,
+		f64  = 4,
 		v128 = 5,
 
 		num,
-		max = num-1
+		max = num - 1
 	};
 
 	template<ValueType type> struct ValueTypeInfo;
-	template<> struct ValueTypeInfo<ValueType::i32> { typedef I32 Value; };
-	template<> struct ValueTypeInfo<ValueType::i64> { typedef I64 Value; };
-	template<> struct ValueTypeInfo<ValueType::f32> { typedef F32 Value; };
-	template<> struct ValueTypeInfo<ValueType::f64> { typedef F64 Value; };
+	template<> struct ValueTypeInfo<ValueType::i32>
+	{
+		typedef I32 Value;
+	};
+	template<> struct ValueTypeInfo<ValueType::i64>
+	{
+		typedef I64 Value;
+	};
+	template<> struct ValueTypeInfo<ValueType::f32>
+	{
+		typedef F32 Value;
+	};
+	template<> struct ValueTypeInfo<ValueType::f64>
+	{
+		typedef F64 Value;
+	};
 
 	inline std::string asString(I32 value) { return std::to_string(value); }
 	inline std::string asString(I64 value) { return std::to_string(value); }
@@ -42,11 +54,21 @@ namespace IR
 		// buffer needs 44 characters:
 		// 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH\0
 		char buffer[44];
-		snprintf(buffer,sizeof(buffer),"0x%.8x 0x%.8x 0x%.8x 0x%.8x",v128.u32[0],v128.u32[1],v128.u32[2],v128.u32[3]);
+		snprintf(
+			buffer,
+			sizeof(buffer),
+			"0x%.8x 0x%.8x 0x%.8x 0x%.8x",
+			v128.u32[0],
+			v128.u32[1],
+			v128.u32[2],
+			v128.u32[3]);
 		return std::string(buffer);
 	}
 
-	template<> struct ValueTypeInfo<ValueType::v128> { typedef V128 Value; };
+	template<> struct ValueTypeInfo<ValueType::v128>
+	{
+		typedef V128 Value;
+	};
 
 	inline U8 getTypeByteWidth(ValueType type)
 	{
@@ -61,11 +83,8 @@ namespace IR
 		};
 	}
 
-	inline U8 getTypeBitWidth(ValueType type)
-	{
-		return getTypeByteWidth(type) * 8;
-	}
-	
+	inline U8 getTypeBitWidth(ValueType type) { return getTypeByteWidth(type) * 8; }
+
 	inline const char* asString(ValueType type)
 	{
 		switch(type)
@@ -79,7 +98,7 @@ namespace IR
 		default: Errors::unreachable();
 		};
 	}
-	
+
 	// The tuple of value types.
 	struct TypeTuple
 	{
@@ -100,50 +119,46 @@ namespace IR
 
 		Uptr getHash() const { return impl->hash; }
 		Uptr size() const { return impl->numElems; }
-		
-		friend bool operator==(const TypeTuple& left,const TypeTuple& right)
+
+		friend bool operator==(const TypeTuple& left, const TypeTuple& right)
 		{
 			return left.impl == right.impl;
 		}
-		friend bool operator!=(const TypeTuple& left,const TypeTuple& right)
+		friend bool operator!=(const TypeTuple& left, const TypeTuple& right)
 		{
 			return left.impl != right.impl;
 		}
 
 	private:
-
 		struct Impl
 		{
 			Uptr hash;
 			Uptr numElems;
 			ValueType elems[1];
 
-			Impl(Uptr inNumElems,const ValueType* inElems);
+			Impl(Uptr inNumElems, const ValueType* inElems);
 			Impl(const Impl& inCopy);
 
-			static Uptr calcNumBytes(Uptr numElems)
-			{
-				return sizeof(Impl) + (numElems - 1);
-			}
+			static Uptr calcNumBytes(Uptr numElems) { return sizeof(Impl) + (numElems - 1); }
 		};
 
 		const Impl* impl;
 
-		TypeTuple(const Impl* inImpl): impl(inImpl) {}
-	
+		TypeTuple(const Impl* inImpl)
+		: impl(inImpl)
+		{
+		}
+
 		IR_API static const Impl* getUniqueImpl(Uptr numElems, const ValueType* inElems);
 	};
 
 	inline std::string asString(TypeTuple typeTuple)
 	{
-		if(typeTuple.size() == 1)
-		{
-			return asString(typeTuple[0]);
-		}
+		if(typeTuple.size() == 1) { return asString(typeTuple[0]); }
 		else
 		{
 			std::string result = "(";
-			for(Uptr elementIndex = 0;elementIndex < typeTuple.size();++elementIndex)
+			for(Uptr elementIndex = 0; elementIndex < typeTuple.size(); ++elementIndex)
 			{
 				if(elementIndex != 0) { result += ", "; }
 				result += asString(typeTuple[elementIndex]);
@@ -156,14 +171,17 @@ namespace IR
 	// Infer value and result types from a C type.
 
 	template<typename> constexpr ValueType inferValueType();
-	template<> constexpr ValueType inferValueType<I32>()  { return ValueType::i32; }
-	template<> constexpr ValueType inferValueType<U32>()  { return ValueType::i32; }
-	template<> constexpr ValueType inferValueType<I64>()  { return ValueType::i64; }
-	template<> constexpr ValueType inferValueType<U64>()  { return ValueType::i64; }
-	template<> constexpr ValueType inferValueType<F32>()  { return ValueType::f32; }
-	template<> constexpr ValueType inferValueType<F64>()  { return ValueType::f64; }
+	template<> constexpr ValueType inferValueType<I32>() { return ValueType::i32; }
+	template<> constexpr ValueType inferValueType<U32>() { return ValueType::i32; }
+	template<> constexpr ValueType inferValueType<I64>() { return ValueType::i64; }
+	template<> constexpr ValueType inferValueType<U64>() { return ValueType::i64; }
+	template<> constexpr ValueType inferValueType<F32>() { return ValueType::f32; }
+	template<> constexpr ValueType inferValueType<F64>() { return ValueType::f64; }
 
-	template<typename T> inline TypeTuple inferResultType() { return TypeTuple(inferValueType<T>()); }
+	template<typename T> inline TypeTuple inferResultType()
+	{
+		return TypeTuple(inferValueType<T>());
+	}
 	template<> inline TypeTuple inferResultType<void>() { return TypeTuple(); }
 
 	// The type of a WebAssembly function
@@ -175,29 +193,32 @@ namespace IR
 			Uptr impl;
 		};
 
-		FunctionType(TypeTuple inResults = TypeTuple(),TypeTuple inParams = TypeTuple())
+		FunctionType(TypeTuple inResults = TypeTuple(), TypeTuple inParams = TypeTuple())
 		: impl(getUniqueImpl(inResults, inParams))
-		{}
+		{
+		}
 
-		FunctionType(Encoding encoding): impl(reinterpret_cast<const Impl*>(encoding.impl)) {}
+		FunctionType(Encoding encoding)
+		: impl(reinterpret_cast<const Impl*>(encoding.impl))
+		{
+		}
 
 		TypeTuple results() const { return impl->results; }
 		TypeTuple params() const { return impl->params; }
 		Uptr getHash() const { return impl->hash; }
-		Encoding getEncoding() const { return Encoding { reinterpret_cast<Uptr>(impl) }; }
+		Encoding getEncoding() const { return Encoding{reinterpret_cast<Uptr>(impl)}; }
 
-		friend bool operator==(const FunctionType& left,const FunctionType& right)
+		friend bool operator==(const FunctionType& left, const FunctionType& right)
 		{
 			return left.impl == right.impl;
 		}
 
-		friend bool operator!=(const FunctionType& left,const FunctionType& right)
+		friend bool operator!=(const FunctionType& left, const FunctionType& right)
 		{
 			return left.impl != right.impl;
 		}
 
 	private:
-		
 		struct Impl
 		{
 			Uptr hash;
@@ -208,12 +229,15 @@ namespace IR
 		};
 
 		const Impl* impl;
-	
-		FunctionType(const Impl* inImpl): impl(inImpl) {}
+
+		FunctionType(const Impl* inImpl)
+		: impl(inImpl)
+		{
+		}
 
 		IR_API static const Impl* getUniqueImpl(TypeTuple results, TypeTuple params);
 	};
-	
+
 	struct IndexedFunctionType
 	{
 		Uptr index;
@@ -247,18 +271,25 @@ namespace IR
 		U64 min;
 		U64 max;
 
-		friend bool operator==(const SizeConstraints& left,const SizeConstraints& right) { return left.min == right.min && left.max == right.max; }
-		friend bool operator!=(const SizeConstraints& left,const SizeConstraints& right) { return left.min != right.min || left.max != right.max; }
-		friend bool isSubset(const SizeConstraints& super,const SizeConstraints& sub)
+		friend bool operator==(const SizeConstraints& left, const SizeConstraints& right)
+		{
+			return left.min == right.min && left.max == right.max;
+		}
+		friend bool operator!=(const SizeConstraints& left, const SizeConstraints& right)
+		{
+			return left.min != right.min || left.max != right.max;
+		}
+		friend bool isSubset(const SizeConstraints& super, const SizeConstraints& sub)
 		{
 			return sub.min >= super.min && sub.max <= super.max;
 		}
 	};
-	
+
 	inline std::string asString(const SizeConstraints& sizeConstraints)
 	{
 		return std::to_string(sizeConstraints.min)
-			+ (sizeConstraints.max == UINT64_MAX ? ".." : ".." + std::to_string(sizeConstraints.max));
+			+ (sizeConstraints.max == UINT64_MAX ? ".."
+												 : ".." + std::to_string(sizeConstraints.max));
 	}
 
 	// The type of element a table contains: for now can only be anyfunc, meaning any function type.
@@ -273,17 +304,35 @@ namespace IR
 		TableElementType elementType;
 		bool isShared;
 		SizeConstraints size;
-		
-		TableType(): elementType(TableElementType::anyfunc), isShared(false), size({0,UINT64_MAX}) {}
-		TableType(TableElementType inElementType,bool inIsShared,SizeConstraints inSize)
-		: elementType(inElementType), isShared(inIsShared), size(inSize) {}
-		
-		friend bool operator==(const TableType& left,const TableType& right)
-		{ return left.elementType == right.elementType && left.isShared == right.isShared && left.size == right.size; }
-		friend bool operator!=(const TableType& left,const TableType& right)
-		{ return left.elementType != right.elementType || left.isShared != right.isShared || left.size != right.size; }
-		friend bool isSubset(const TableType& super,const TableType& sub)
-		{ return super.elementType == sub.elementType && super.isShared == sub.isShared && isSubset(super.size,sub.size); }
+
+		TableType()
+		: elementType(TableElementType::anyfunc)
+		, isShared(false)
+		, size({0, UINT64_MAX})
+		{
+		}
+		TableType(TableElementType inElementType, bool inIsShared, SizeConstraints inSize)
+		: elementType(inElementType)
+		, isShared(inIsShared)
+		, size(inSize)
+		{
+		}
+
+		friend bool operator==(const TableType& left, const TableType& right)
+		{
+			return left.elementType == right.elementType && left.isShared == right.isShared
+				&& left.size == right.size;
+		}
+		friend bool operator!=(const TableType& left, const TableType& right)
+		{
+			return left.elementType != right.elementType || left.isShared != right.isShared
+				|| left.size != right.size;
+		}
+		friend bool isSubset(const TableType& super, const TableType& sub)
+		{
+			return super.elementType == sub.elementType && super.isShared == sub.isShared
+				&& isSubset(super.size, sub.size);
+		}
 	};
 
 	inline std::string asString(const TableType& tableType)
@@ -297,14 +346,31 @@ namespace IR
 		bool isShared;
 		SizeConstraints size;
 
-		MemoryType(): isShared(false), size({0,UINT64_MAX}) {}
-		MemoryType(bool inIsShared,const SizeConstraints& inSize): isShared(inIsShared), size(inSize) {}
-		
-		friend bool operator==(const MemoryType& left,const MemoryType& right) { return left.isShared == right.isShared && left.size == right.size; }
-		friend bool operator!=(const MemoryType& left,const MemoryType& right) { return left.isShared != right.isShared || left.size != right.size; }
-		friend bool isSubset(const MemoryType& super,const MemoryType& sub) { return super.isShared == sub.isShared && isSubset(super.size,sub.size); }
+		MemoryType()
+		: isShared(false)
+		, size({0, UINT64_MAX})
+		{
+		}
+		MemoryType(bool inIsShared, const SizeConstraints& inSize)
+		: isShared(inIsShared)
+		, size(inSize)
+		{
+		}
+
+		friend bool operator==(const MemoryType& left, const MemoryType& right)
+		{
+			return left.isShared == right.isShared && left.size == right.size;
+		}
+		friend bool operator!=(const MemoryType& left, const MemoryType& right)
+		{
+			return left.isShared != right.isShared || left.size != right.size;
+		}
+		friend bool isSubset(const MemoryType& super, const MemoryType& sub)
+		{
+			return super.isShared == sub.isShared && isSubset(super.size, sub.size);
+		}
 	};
-	
+
 	inline std::string asString(const MemoryType& memoryType)
 	{
 		return asString(memoryType.size) + (memoryType.isShared ? " shared" : "");
@@ -315,22 +381,45 @@ namespace IR
 	{
 		ValueType valueType;
 		bool isMutable;
-	
-		GlobalType(): valueType(ValueType::any), isMutable(false) {}
-		GlobalType(ValueType inValueType,bool inIsMutable): valueType(inValueType), isMutable(inIsMutable) {}
 
-		friend bool operator==(const GlobalType& left,const GlobalType& right) { return left.valueType == right.valueType && left.isMutable == right.isMutable; }
-		friend bool operator!=(const GlobalType& left,const GlobalType& right) { return left.valueType != right.valueType || left.isMutable != right.isMutable; }
-		friend bool operator<=(const GlobalType& left,const GlobalType& right) { return left.valueType == right.valueType && left.isMutable == right.isMutable; }
-		friend bool operator>(const GlobalType& left,const GlobalType& right) { return !(left <= right); }
+		GlobalType()
+		: valueType(ValueType::any)
+		, isMutable(false)
+		{
+		}
+		GlobalType(ValueType inValueType, bool inIsMutable)
+		: valueType(inValueType)
+		, isMutable(inIsMutable)
+		{
+		}
+
+		friend bool operator==(const GlobalType& left, const GlobalType& right)
+		{
+			return left.valueType == right.valueType && left.isMutable == right.isMutable;
+		}
+		friend bool operator!=(const GlobalType& left, const GlobalType& right)
+		{
+			return left.valueType != right.valueType || left.isMutable != right.isMutable;
+		}
+		friend bool operator<=(const GlobalType& left, const GlobalType& right)
+		{
+			return left.valueType == right.valueType && left.isMutable == right.isMutable;
+		}
+		friend bool operator>(const GlobalType& left, const GlobalType& right)
+		{
+			return !(left <= right);
+		}
 	};
 
 	inline std::string asString(const GlobalType& globalType)
 	{
 		if(globalType.isMutable) { return std::string("global ") + asString(globalType.valueType); }
-		else { return std::string("immutable ") + asString(globalType.valueType); }
+		else
+		{
+			return std::string("immutable ") + asString(globalType.valueType);
+		}
 	}
-	
+
 	struct ExceptionType
 	{
 		TypeTuple params;
@@ -349,25 +438,51 @@ namespace IR
 	enum class ObjectKind : U8
 	{
 		// Standard object kinds that may be imported/exported from WebAssembly modules.
-		function = 0,
-		table = 1,
-		memory = 2,
-		global = 3,
+		function      = 0,
+		table         = 1,
+		memory        = 2,
+		global        = 3,
 		exceptionType = 4,
-		max = 4,
-		invalid = 0xff,
+		max           = 4,
+		invalid       = 0xff,
 	};
 	struct ObjectType
 	{
 		const ObjectKind kind;
 
-		ObjectType()								: kind(ObjectKind::invalid) {}
-		ObjectType(FunctionType inFunction)			: kind(ObjectKind::function), function(inFunction) {}
-		ObjectType(TableType inTable)				: kind(ObjectKind::table), table(inTable) {}
-		ObjectType(MemoryType inMemory)				: kind(ObjectKind::memory), memory(inMemory) {}
-		ObjectType(GlobalType inGlobal)				: kind(ObjectKind::global), global(inGlobal) {}
-		ObjectType(ExceptionType inExceptionType)	: kind(ObjectKind::exceptionType), exceptionType(inExceptionType) {}
-		ObjectType(ObjectKind inKind)				: kind(inKind) {}
+		ObjectType()
+		: kind(ObjectKind::invalid)
+		{
+		}
+		ObjectType(FunctionType inFunction)
+		: kind(ObjectKind::function)
+		, function(inFunction)
+		{
+		}
+		ObjectType(TableType inTable)
+		: kind(ObjectKind::table)
+		, table(inTable)
+		{
+		}
+		ObjectType(MemoryType inMemory)
+		: kind(ObjectKind::memory)
+		, memory(inMemory)
+		{
+		}
+		ObjectType(GlobalType inGlobal)
+		: kind(ObjectKind::global)
+		, global(inGlobal)
+		{
+		}
+		ObjectType(ExceptionType inExceptionType)
+		: kind(ObjectKind::exceptionType)
+		, exceptionType(inExceptionType)
+		{
+		}
+		ObjectType(ObjectKind inKind)
+		: kind(inKind)
+		{
+		}
 
 		friend FunctionType asFunctionType(const ObjectType& objectType)
 		{
@@ -396,7 +511,6 @@ namespace IR
 		}
 
 	private:
-
 		union
 		{
 			FunctionType function;
@@ -415,11 +529,12 @@ namespace IR
 		case ObjectKind::table: return "table " + asString(asTableType(objectType));
 		case ObjectKind::memory: return "memory " + asString(asMemoryType(objectType));
 		case ObjectKind::global: return asString(asGlobalType(objectType));
-		case ObjectKind::exceptionType: return "exception_type " + asString(asExceptionType(objectType));
+		case ObjectKind::exceptionType:
+			return "exception_type " + asString(asExceptionType(objectType));
 		default: Errors::unreachable();
 		};
 	}
-}
+} // namespace IR
 
 template<> struct Hash<IR::TypeTuple>
 {

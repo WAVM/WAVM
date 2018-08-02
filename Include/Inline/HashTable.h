@@ -7,7 +7,10 @@
 
 struct DefaultHashTableAllocPolicy
 {
-	enum { minBuckets = 4 };
+	enum
+	{
+		minBuckets = 4
+	};
 
 	static Uptr divideAndRoundUp(Uptr numerator, Uptr denominator)
 	{
@@ -16,13 +19,15 @@ struct DefaultHashTableAllocPolicy
 
 	static Uptr getMaxDesiredBuckets(Uptr numDesiredElements)
 	{
-		const Uptr maxDesiredBuckets = Uptr(1) << Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20,7));
+		const Uptr maxDesiredBuckets = Uptr(1)
+			<< Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 7));
 		return maxDesiredBuckets < minBuckets ? minBuckets : maxDesiredBuckets;
 	}
 
 	static Uptr getMinDesiredBuckets(Uptr numDesiredElements)
 	{
-		const Uptr minDesiredBuckets = Uptr(1) << Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20,16));
+		const Uptr minDesiredBuckets = Uptr(1)
+			<< Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 16));
 		return minDesiredBuckets < minBuckets ? minBuckets : minDesiredBuckets;
 	}
 };
@@ -35,14 +40,13 @@ struct HashTablePolicy
 };
 */
 
-template<typename Element>
-struct HashTableBucket
+template<typename Element> struct HashTableBucket
 {
 	OptionalStorage<Element> storage;
 	Uptr hashAndOccupancy;
 
-	static constexpr Uptr isOccupiedMask = Uptr(1) << (sizeof(Uptr)*8-1);
-	static constexpr Uptr hashMask = ~isOccupiedMask;
+	static constexpr Uptr isOccupiedMask = Uptr(1) << (sizeof(Uptr) * 8 - 1);
+	static constexpr Uptr hashMask       = ~isOccupiedMask;
 };
 
 // A lightly encapsulated hash table, used internally by HashMap and HashSet.
@@ -91,8 +95,7 @@ template<
 	typename Key,
 	typename Element,
 	typename HashTablePolicy,
-	typename AllocPolicy = DefaultHashTableAllocPolicy
-	>
+	typename AllocPolicy = DefaultHashTableAllocPolicy>
 struct HashTable
 {
 	typedef HashTableBucket<Element> Bucket;
@@ -102,13 +105,13 @@ struct HashTable
 	HashTable(HashTable&& movee);
 	~HashTable();
 
-	HashTable& operator=(const HashTable& copyee);	
+	HashTable& operator=(const HashTable& copyee);
 	HashTable& operator=(HashTable&& movee);
 
 	void resize(Uptr newNumBuckets);
 
 	bool remove(Uptr hash, const Key& key);
-	
+
 	const Bucket* getBucketForRead(Uptr hash, const Key& key) const;
 	Bucket* getBucketForModify(Uptr hash, const Key& key);
 	Bucket& getBucketForAdd(Uptr hash, const Key& key);
@@ -123,11 +126,9 @@ struct HashTable
 		Uptr& outTotalMemoryBytes,
 		Uptr& outMaxProbeCount,
 		F32& outOccupancy,
-		F32& outAverageProbeCount
-		) const;
+		F32& outAverageProbeCount) const;
 
 private:
-
 	Bucket* buckets;
 	Uptr numElements;
 	Uptr hashToBucketIndexMask;
@@ -138,11 +139,10 @@ private:
 	Bucket& getBucketForWrite(Uptr hash, const Key& key);
 	void evictHashBucket(Uptr bucketIndex);
 	void eraseHashBucket(Uptr eraseBucketIndex);
-	
+
 	void destruct();
-	void copyFrom(const HashTable& copy);	
+	void copyFrom(const HashTable& copy);
 	void moveFrom(HashTable&& movee);
-	
 };
 
 // The implementation is defined in a separate file.

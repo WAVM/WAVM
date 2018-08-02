@@ -1,0 +1,1 @@
+find . \( -iname *.h -o -iname *.cpp \) -not -path "./Source/ThirdParty/*" | xargs clang-format-7 -i

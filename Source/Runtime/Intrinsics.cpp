@@ -1,6 +1,6 @@
+#include "Intrinsics.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
-#include "Intrinsics.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
@@ -18,10 +18,7 @@ namespace Intrinsics
 
 	Module::~Module()
 	{
-		if(impl)
-		{
-			delete impl;
-		}
+		if(impl) { delete impl; }
 	}
 
 	static void initializeModule(Intrinsics::Module& moduleRef)
@@ -43,23 +40,21 @@ namespace Intrinsics
 		initializeModule(moduleRef);
 
 		if(moduleRef.impl->functionMap.contains(name))
-		{
-			Errors::fatalf("Intrinsic function already registered: %s",name);
-		}
+		{ Errors::fatalf("Intrinsic function already registered: %s", name); }
 		moduleRef.impl->functionMap.set(name, this);
 	}
 
 	Runtime::FunctionInstance* Function::instantiate(Runtime::Compartment* compartment)
 	{
 		return new Runtime::FunctionInstance(
-			nullptr,
-			type,
-			nativeFunction,
-			callingConvention,
-			name);
+			nullptr, type, nativeFunction, callingConvention, name);
 	}
 
-	Global::Global(Intrinsics::Module& moduleRef,const char* inName,IR::ValueType inType,IR::Value inValue)
+	Global::Global(
+		Intrinsics::Module& moduleRef,
+		const char* inName,
+		IR::ValueType inType,
+		IR::Value inValue)
 	: name(inName)
 	, type(inType)
 	, value(inValue)
@@ -67,60 +62,55 @@ namespace Intrinsics
 		initializeModule(moduleRef);
 
 		if(moduleRef.impl->globalMap.contains(name))
-		{
-			Errors::fatalf("Intrinsic global already registered: %s",name);
-		}
+		{ Errors::fatalf("Intrinsic global already registered: %s", name); }
 		moduleRef.impl->globalMap.set(name, this);
 	}
 
 	Runtime::GlobalInstance* Global::instantiate(Runtime::Compartment* compartment)
 	{
-		return Runtime::createGlobal(compartment,IR::GlobalType(type,false),value);
+		return Runtime::createGlobal(compartment, IR::GlobalType(type, false), value);
 	}
 
-	Table::Table(Intrinsics::Module& moduleRef,const char* inName,const IR::TableType& inType)
+	Table::Table(Intrinsics::Module& moduleRef, const char* inName, const IR::TableType& inType)
 	: name(inName)
 	, type(inType)
 	{
 		initializeModule(moduleRef);
 
 		if(moduleRef.impl->tableMap.contains(name))
-		{
-			Errors::fatalf("Intrinsic table already registered: %s",name);
-		}
+		{ Errors::fatalf("Intrinsic table already registered: %s", name); }
 		moduleRef.impl->tableMap.set(name, this);
 	}
 
 	Runtime::TableInstance* Table::instantiate(Runtime::Compartment* compartment)
 	{
-		return Runtime::createTable(compartment,type);
+		return Runtime::createTable(compartment, type);
 	}
-	
-	Memory::Memory(Intrinsics::Module& moduleRef,const char* inName,const IR::MemoryType& inType)
+
+	Memory::Memory(Intrinsics::Module& moduleRef, const char* inName, const IR::MemoryType& inType)
 	: name(inName)
 	, type(inType)
 	{
 		initializeModule(moduleRef);
 
 		if(moduleRef.impl->memoryMap.contains(name))
-		{
-			Errors::fatalf("Intrinsic memory already registered: %s",name);
-		}
+		{ Errors::fatalf("Intrinsic memory already registered: %s", name); }
 		moduleRef.impl->memoryMap.set(name, this);
 	}
 
 	Runtime::MemoryInstance* Memory::instantiate(Runtime::Compartment* compartment)
 	{
-		return Runtime::createMemory(compartment,type);
+		return Runtime::createMemory(compartment, type);
 	}
 
 	Runtime::ModuleInstance* instantiateModule(
 		Runtime::Compartment* compartment,
 		const Intrinsics::Module& moduleRef,
 		std::string&& debugName,
-		const HashMap<std::string,Runtime::Object*>& extraExports)
+		const HashMap<std::string, Runtime::Object*>& extraExports)
 	{
-		auto moduleInstance = new Runtime::ModuleInstance(compartment,{},{},{},{},{},std::move(debugName));
+		auto moduleInstance
+			= new Runtime::ModuleInstance(compartment, {}, {}, {}, {}, {}, std::move(debugName));
 
 		if(moduleRef.impl)
 		{
@@ -159,11 +149,22 @@ namespace Intrinsics
 
 				switch(object->kind)
 				{
-				case Runtime::ObjectKind::function: moduleInstance->functions.push_back(asFunction(object)); break;
-				case Runtime::ObjectKind::table: moduleInstance->tables.push_back(asTable(object)); break;
-				case Runtime::ObjectKind::memory: moduleInstance->memories.push_back(asMemory(object)); break;
-				case Runtime::ObjectKind::global: moduleInstance->globals.push_back(asGlobal(object)); break;
-				case Runtime::ObjectKind::exceptionTypeInstance: moduleInstance->exceptionTypeInstances.push_back(asExceptionTypeInstance(object)); break;
+				case Runtime::ObjectKind::function:
+					moduleInstance->functions.push_back(asFunction(object));
+					break;
+				case Runtime::ObjectKind::table:
+					moduleInstance->tables.push_back(asTable(object));
+					break;
+				case Runtime::ObjectKind::memory:
+					moduleInstance->memories.push_back(asMemory(object));
+					break;
+				case Runtime::ObjectKind::global:
+					moduleInstance->globals.push_back(asGlobal(object));
+					break;
+				case Runtime::ObjectKind::exceptionTypeInstance:
+					moduleInstance->exceptionTypeInstances.push_back(
+						asExceptionTypeInstance(object));
+					break;
 				default: Errors::unreachable();
 				};
 			}
@@ -171,4 +172,4 @@ namespace Intrinsics
 
 		return moduleInstance;
 	}
-}
+} // namespace Intrinsics

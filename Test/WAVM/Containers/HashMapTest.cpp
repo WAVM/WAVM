@@ -1,32 +1,36 @@
-#include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
 
 static std::string generateRandomString()
 {
-	enum { maxChars = 16 };
+	enum
+	{
+		maxChars = 16
+	};
 
 	const Uptr numChars = rand() % maxChars;
-	char* buffer = (char*)alloca(numChars + 1);
-	for(Uptr charIndex = 0;charIndex < numChars;++charIndex)
-	{
-		buffer[charIndex] = 0x20 + (rand() % (0x7E - 0x20));
-	}
+	char* buffer        = (char*)alloca(numChars + 1);
+	for(Uptr charIndex = 0; charIndex < numChars; ++charIndex)
+	{ buffer[charIndex] = 0x20 + (rand() % (0x7E - 0x20)); }
 	buffer[numChars] = 0;
 	return std::string(buffer);
 }
 
 static void testStringMap()
 {
-	enum { numStrings = 1000 };
+	enum
+	{
+		numStrings = 1000
+	};
 
 	HashMap<std::string, U32> map;
 	std::vector<HashMapPair<std::string, U32>> pairs;
 
 	srand(0);
 
-	for(Uptr i = 0;i < numStrings;++i)
+	for(Uptr i = 0; i < numStrings; ++i)
 	{
 		while(true)
 		{
@@ -50,18 +54,15 @@ static void testStringMap()
 		};
 	}
 
-	for(Uptr i = 0;i < pairs.size();++i)
+	for(Uptr i = 0; i < pairs.size(); ++i)
 	{
 		errorUnless(map.add(pairs[i].key, pairs[i].value));
 		errorUnless(!map.add(pairs[i].key, pairs[i].value));
 
-		for(Uptr j = 0;j < pairs.size();++j)
+		for(Uptr j = 0; j < pairs.size(); ++j)
 		{
 			const U32* valuePtr = map.get(pairs[j].key);
-			if(j <= i)
-			{
-				errorUnless(valuePtr && *valuePtr == pairs[j].value);
-			}
+			if(j <= i) { errorUnless(valuePtr && *valuePtr == pairs[j].value); }
 			else
 			{
 				errorUnless(!valuePtr);
@@ -69,18 +70,15 @@ static void testStringMap()
 		}
 	}
 
-	for(Uptr i = 0;i < pairs.size();++i)
+	for(Uptr i = 0; i < pairs.size(); ++i)
 	{
 		errorUnless(map.remove(pairs[i].key));
 		errorUnless(!map.remove(pairs[i].key));
 
-		for(Uptr j = 0;j < pairs.size();++j)
+		for(Uptr j = 0; j < pairs.size(); ++j)
 		{
 			const U32* valuePtr = map.get(pairs[j].key);
-			if(j > i)
-			{
-				errorUnless(valuePtr && *valuePtr == pairs[j].value);
-			}
+			if(j > i) { errorUnless(valuePtr && *valuePtr == pairs[j].value); }
 			else
 			{
 				errorUnless(!valuePtr);
@@ -93,26 +91,26 @@ static void testU32Map()
 {
 	HashMap<U32, U32> map;
 
-	enum { maxI = 1024 * 1024 };
-
-	for(Uptr i = 0;i < maxI;++i)
+	enum
 	{
-		errorUnless(!map.contains(U32(i)));
-	}
+		maxI = 1024 * 1024
+	};
+
+	for(Uptr i = 0; i < maxI; ++i) { errorUnless(!map.contains(U32(i))); }
 
 	errorUnless(map.size() == 0);
-	for(Uptr i = 0;i < maxI;++i)
+	for(Uptr i = 0; i < maxI; ++i)
 	{
 		errorUnless(!map.contains(U32(i)));
 		errorUnless(!map.get(U32(i)));
-		errorUnless(map.add(U32(i),U32(i * 2)));
+		errorUnless(map.add(U32(i), U32(i * 2)));
 		errorUnless(map.contains(U32(i)));
 		errorUnless(map.get(U32(i)));
 		errorUnless(*map.get(U32(i)) == U32(i * 2));
 		errorUnless(map.size() == i + 1);
 	}
 
-	for(Uptr i = 0;i < maxI;++i)
+	for(Uptr i = 0; i < maxI; ++i)
 	{
 		errorUnless(map.contains(U32(i)));
 		errorUnless(map.remove(U32(i)));
@@ -120,41 +118,35 @@ static void testU32Map()
 		errorUnless(map.size() == maxI - i - 1);
 	}
 
-	for(Uptr i = 0;i < maxI;++i)
-	{
-		errorUnless(!map.contains(U32(i)));
-	}
+	for(Uptr i = 0; i < maxI; ++i) { errorUnless(!map.contains(U32(i))); }
 }
 
 static void testMapCopy()
 {
 	// Add 1000..1999 to a HashMap.
 	HashMap<Uptr, Uptr> a;
-	for(Uptr i = 0;i < 1000;++i)
-	{
-		a.add(i + 1000,i);
-	}
+	for(Uptr i = 0; i < 1000; ++i) { a.add(i + 1000, i); }
 
 	// Copy the map to a new HashMap.
-	HashMap<Uptr, Uptr> b {a};
+	HashMap<Uptr, Uptr> b{a};
 
 	// Test that both the new and old HashMap contain the expected numbers.
-	for(Uptr i = 0;i < 1000;++i)
+	for(Uptr i = 0; i < 1000; ++i)
 	{
 		errorUnless(!a.get(i));
 		errorUnless(*a.get(i + 1000) == i);
 		errorUnless(!a.get(i + 2000));
-		
+
 		errorUnless(!b.get(i));
 		errorUnless(*b.get(i + 1000) == i);
 		errorUnless(!b.get(i + 2000));
 	}
-	
+
 	// Test copying a map from itself.
 	b = b;
-	
+
 	// Test that the map wasn't changed by the copy-to-self.
-	for(Uptr i = 0;i < 1000;++i)
+	for(Uptr i = 0; i < 1000; ++i)
 	{
 		errorUnless(!b.get(i));
 		errorUnless(*b.get(i + 1000) == i);
@@ -168,23 +160,20 @@ static void testMapCopy()
 }
 
 #if defined(__clang__)
-	#pragma clang diagnostic push
-	#pragma clang diagnostic ignored "-Wself-move"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-move"
 #endif
 static void testMapMove()
 {
 	// Add 1000..1999 to a HashMap.
 	HashMap<Uptr, Uptr> a;
-	for(Uptr i = 0;i < 1000;++i)
-	{
-		a.add(i + 1000, i);
-	}
+	for(Uptr i = 0; i < 1000; ++i) { a.add(i + 1000, i); }
 
 	// Move the map to a new HashMap.
-	HashMap<Uptr, Uptr> b {std::move(a)};
+	HashMap<Uptr, Uptr> b{std::move(a)};
 
 	// Test that the new HashMap contains the expected numbers.
-	for(Uptr i = 0;i < 1000;++i)
+	for(Uptr i = 0; i < 1000; ++i)
 	{
 		errorUnless(!b.get(i));
 		errorUnless(*b.get(i + 1000) == i);
@@ -193,9 +182,9 @@ static void testMapMove()
 
 	// Test moving the map to itself.
 	b = std::move(b);
-	
+
 	// Test that the map wasn't changed by the move-to-self.
-	for(Uptr i = 0;i < 1000;++i)
+	for(Uptr i = 0; i < 1000; ++i)
 	{
 		errorUnless(!b.get(i));
 		errorUnless(*b.get(i + 1000) == i);
@@ -203,12 +192,12 @@ static void testMapMove()
 	}
 }
 #if defined(__clang__)
-	#pragma clang diagnostic pop
+#pragma clang diagnostic pop
 #endif
 
 static void testMapInitializerList()
 {
-	HashMap<Uptr, Uptr> map {{1,1},{3,2},{5,3},{7,4},{11,5},{13,6},{17,7}};
+	HashMap<Uptr, Uptr> map{{1, 1}, {3, 2}, {5, 3}, {7, 4}, {11, 5}, {13, 6}, {17, 7}};
 	errorUnless(!map.get(0));
 	errorUnless(*map.get(1) == 1);
 	errorUnless(!map.get(2));
@@ -233,14 +222,11 @@ static void testMapIterator()
 {
 	// Add 1..9 to a HashMap.
 	HashMap<Uptr, Uptr> a;
-	for(Uptr i = 1;i < 10;++i)
-	{
-		a.add(i, i * 2);
-	}
+	for(Uptr i = 1; i < 10; ++i) { a.add(i, i * 2); }
 
 	// 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 = 45
 	{
-		Uptr keySum = 0;
+		Uptr keySum   = 0;
 		Uptr valueSum = 0;
 		for(const auto& pair : a)
 		{
@@ -253,10 +239,10 @@ static void testMapIterator()
 
 	// Remove 5.
 	a.remove(5);
-	
+
 	// 1 + 2 + 3 + 4 + 6 + 7 + 8 + 9 = 40
 	{
-		Uptr keySum = 0;
+		Uptr keySum   = 0;
 		Uptr valueSum = 0;
 		for(const auto& pair : a)
 		{
@@ -284,7 +270,7 @@ static void testMapGetOrAdd()
 static void testMapSet()
 {
 	HashMap<Uptr, Uptr> map;
-	
+
 	errorUnless(!map.get(0));
 	errorUnless(map.set(0, 1) == 1);
 	errorUnless(*map.get(0) == 1);
@@ -297,9 +283,11 @@ struct EmplacedValue
 	std::string a;
 	std::string b;
 
-	EmplacedValue(const std::string& inA,const std::string& inB)
-	: a(inA), b(inB)
-	{}
+	EmplacedValue(const std::string& inA, const std::string& inB)
+	: a(inA)
+	, b(inB)
+	{
+	}
 };
 
 static void testMapEmplace()
@@ -309,16 +297,16 @@ static void testMapEmplace()
 	EmplacedValue& a = map.getOrAdd(0, "a", "b");
 	errorUnless(a.a == "a");
 	errorUnless(a.b == "b");
-	
+
 	errorUnless(map.add(1, "c", "d"));
 	const EmplacedValue& b = *map.get(1);
 	errorUnless(b.a == "c");
 	errorUnless(b.b == "d");
-	
+
 	EmplacedValue& c = map.set(2, "e", "f");
 	errorUnless(c.a == "e");
 	errorUnless(c.b == "f");
-	
+
 	EmplacedValue& d = map.getOrAdd(2, "g", "h");
 	errorUnless(d.a == "e");
 	errorUnless(d.b == "f");
@@ -326,7 +314,7 @@ static void testMapEmplace()
 
 static void testMapBracketOperator()
 {
-	HashMap<Uptr, Uptr> map {{1,1},{3,2},{5,3},{7,4},{11,5},{13,6},{17,7}};
+	HashMap<Uptr, Uptr> map{{1, 1}, {3, 2}, {5, 3}, {7, 4}, {11, 5}, {13, 6}, {17, 7}};
 	errorUnless(map[1] == 1);
 	errorUnless(map[3] == 2);
 	errorUnless(map[5] == 3);
@@ -349,6 +337,6 @@ I32 main()
 	testMapSet();
 	testMapEmplace();
 	testMapBracketOperator();
-	Timing::logTimer("HashMapTest",timer);
+	Timing::logTimer("HashMapTest", timer);
 	return 0;
 }

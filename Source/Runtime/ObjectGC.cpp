@@ -2,10 +2,10 @@
 #include "Inline/HashSet.h"
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
+#include "Intrinsics.h"
 #include "Logging/Logging.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
-#include "Intrinsics.h"
 
 #include <set>
 #include <vector>
@@ -23,13 +23,14 @@ namespace Runtime
 			static GCGlobals globals;
 			return globals;
 		}
-		
+
 	private:
 		GCGlobals() {}
 	};
 
 	ObjectImpl::ObjectImpl(ObjectKind inKind)
-	: Object(inKind), numRootReferences(0)
+	: Object(inKind)
+	, numRootReferences(0)
 	{
 		// Add the object to the global array.
 		Lock<Platform::Mutex> lock(GCGlobals::get().mutex);
@@ -56,7 +57,7 @@ namespace Runtime
 
 		HashSet<ObjectImpl*> referencedObjects;
 		std::vector<Object*> pendingScanObjects;
-		
+
 		// Initialize the referencedObjects set from the rooted object set.
 		Uptr numRoots = 0;
 		for(ObjectImpl* object : gcGlobals.allObjects)
@@ -69,7 +70,8 @@ namespace Runtime
 			}
 		}
 
-		// Scan the objects added to the referenced set so far: gather their child references and recurse.
+		// Scan the objects added to the referenced set so far: gather their child references and
+		// recurse.
 		while(pendingScanObjects.size())
 		{
 			Object* scanObject = pendingScanObjects.back();
@@ -89,7 +91,8 @@ namespace Runtime
 			{
 				TableInstance* table = asTable(scanObject);
 				childReferences.push_back(table->compartment);
-				childReferences.insert(childReferences.end(),table->elements.begin(),table->elements.end());
+				childReferences.insert(
+					childReferences.end(), table->elements.begin(), table->elements.end());
 				break;
 			}
 			case ObjectKind::memory:
@@ -108,11 +111,26 @@ namespace Runtime
 			{
 				ModuleInstance* moduleInstance = asModule(scanObject);
 				childReferences.push_back(moduleInstance->compartment);
-				childReferences.insert(childReferences.begin(),moduleInstance->functionDefs.begin(),moduleInstance->functionDefs.end());
-				childReferences.insert(childReferences.begin(),moduleInstance->functions.begin(),moduleInstance->functions.end());
-				childReferences.insert(childReferences.begin(),moduleInstance->tables.begin(),moduleInstance->tables.end());
-				childReferences.insert(childReferences.begin(),moduleInstance->memories.begin(),moduleInstance->memories.end());
-				childReferences.insert(childReferences.begin(),moduleInstance->globals.begin(),moduleInstance->globals.end());
+				childReferences.insert(
+					childReferences.begin(),
+					moduleInstance->functionDefs.begin(),
+					moduleInstance->functionDefs.end());
+				childReferences.insert(
+					childReferences.begin(),
+					moduleInstance->functions.begin(),
+					moduleInstance->functions.end());
+				childReferences.insert(
+					childReferences.begin(),
+					moduleInstance->tables.begin(),
+					moduleInstance->tables.end());
+				childReferences.insert(
+					childReferences.begin(),
+					moduleInstance->memories.begin(),
+					moduleInstance->memories.end());
+				childReferences.insert(
+					childReferences.begin(),
+					moduleInstance->globals.begin(),
+					moduleInstance->globals.end());
 				childReferences.push_back(moduleInstance->defaultMemory);
 				childReferences.push_back(moduleInstance->defaultTable);
 				break;
@@ -130,19 +148,17 @@ namespace Runtime
 				break;
 			}
 
-			case ObjectKind::exceptionTypeInstance:
-				break;
+			case ObjectKind::exceptionTypeInstance: break;
 
 			default: Errors::unreachable();
 			};
 
-			// Add the object's child references to the referenced set, and enqueue them for scanning.
+			// Add the object's child references to the referenced set, and enqueue them for
+			// scanning.
 			for(Object* reference : childReferences)
 			{
 				if(reference && referencedObjects.add((ObjectImpl*)reference))
-				{
-					pendingScanObjects.push_back(reference);
-				}
+				{ pendingScanObjects.push_back(reference); }
 			}
 		};
 
@@ -159,16 +175,14 @@ namespace Runtime
 		gcGlobals.allObjects = std::move(referencedObjects);
 
 		// Delete all the finalized objects.
-		for(ObjectImpl* object : finalizedObjects)
-		{
-			delete object;
-		}
+		for(ObjectImpl* object : finalizedObjects) { delete object; }
 
-		Log::printf(Log::Category::metrics,"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
+		Log::printf(
+			Log::Category::metrics,
+			"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
 			timer.getMilliseconds(),
 			numRoots,
 			gcGlobals.allObjects.size() + finalizedObjects.size(),
-			finalizedObjects.size()
-			);
+			finalizedObjects.size());
 	}
-}
+} // namespace Runtime

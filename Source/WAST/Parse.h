@@ -1,27 +1,34 @@
 #pragma once
 
+#include "IR/Module.h"
+#include "IR/Types.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
-#include "WAST.h"
 #include "Lexer.h"
-#include "IR/Types.h"
-#include "IR/Module.h"
+#include "WAST.h"
 
 #include <functional>
 
 namespace WAST
 {
-	struct FatalParseException {};
-	struct RecoverParseException {};
+	struct FatalParseException
+	{
+	};
+	struct RecoverParseException
+	{
+	};
 
 	// Like WAST::Error, but only has an offset in the input string instead of a full TextFileLocus.
 	struct UnresolvedError
 	{
 		Uptr charOffset;
 		std::string message;
-		UnresolvedError(Uptr inCharOffset,std::string&& inMessage)
-			: charOffset(inCharOffset),message(inMessage) {}
+		UnresolvedError(Uptr inCharOffset, std::string&& inMessage)
+		: charOffset(inCharOffset)
+		, message(inMessage)
+		{
+		}
 	};
 
 	struct ParseState
@@ -30,9 +37,11 @@ namespace WAST
 		const LineInfo* lineInfo;
 		std::vector<UnresolvedError> unresolvedErrors;
 
-		ParseState(const char* inString,const LineInfo* inLineInfo)
-		: string(inString), lineInfo(inLineInfo)
-		{}
+		ParseState(const char* inString, const LineInfo* inLineInfo)
+		: string(inString)
+		, lineInfo(inLineInfo)
+		{
+		}
 	};
 
 	// Encapsulates a name ($whatever) parsed from the WAST file.
@@ -42,41 +51,46 @@ namespace WAST
 	// Includes a hash of the name's characters.
 	struct Name
 	{
-		constexpr Name(): begin(nullptr), numChars(0), sourceOffset(0) {}
-		Name(const char* inBegin,U32 inNumChars,U32 inSourceOffset)
+		constexpr Name()
+		: begin(nullptr)
+		, numChars(0)
+		, sourceOffset(0)
+		{
+		}
+		Name(const char* inBegin, U32 inNumChars, U32 inSourceOffset)
 		: begin(inBegin)
 		, numChars(inNumChars)
 		, sourceOffset(inSourceOffset)
-		{}
+		{
+		}
 
 		constexpr operator bool() const { return begin != nullptr; }
-		std::string getString() const { return begin ? std::string(begin,numChars) : std::string(); }
-		constexpr Uptr getSourceOffset()  const { return sourceOffset; }
+		std::string getString() const
+		{
+			return begin ? std::string(begin, numChars) : std::string();
+		}
+		constexpr Uptr getSourceOffset() const { return sourceOffset; }
 		Uptr getHash() const { return XXH<Uptr>(begin, numChars, 0); }
 
 		void reset()
 		{
-			begin = nullptr;
+			begin    = nullptr;
 			numChars = 0;
 		}
 
-		friend constexpr bool operator==(const Name& a,const Name& b)
+		friend constexpr bool operator==(const Name& a, const Name& b)
 		{
-			return a.numChars == b.numChars && memcmp(a.begin,b.begin,a.numChars) == 0;
+			return a.numChars == b.numChars && memcmp(a.begin, b.begin, a.numChars) == 0;
 		}
-		friend constexpr bool operator!=(const Name& a,const Name& b)
-		{
-			return !(a == b);
-		}
+		friend constexpr bool operator!=(const Name& a, const Name& b) { return !(a == b); }
 
 		struct HashPolicy
 		{
-			static bool areKeysEqual(const Name& left,const Name& right) { return left == right; }
+			static bool areKeysEqual(const Name& left, const Name& right) { return left == right; }
 			static Uptr getKeyHash(const Name& name) { return name.getHash(); }
 		};
 
 	private:
-
 		const char* begin;
 		U32 numChars;
 		U32 sourceOffset;
@@ -84,11 +98,16 @@ namespace WAST
 
 	// A map from Name to index using a hash table.
 	typedef HashMap<Name, U32, Name::HashPolicy> NameToIndexMap;
-	
+
 	// Represents a yet-to-be-resolved reference, parsed as either a name or an index.
 	struct Reference
 	{
-		enum class Type { invalid, name, index };
+		enum class Type
+		{
+			invalid,
+			name,
+			index
+		};
 		Type type;
 		union
 		{
@@ -96,13 +115,26 @@ namespace WAST
 			U32 index;
 		};
 		const Token* token;
-		Reference(const Name& inName): type(Type::name), name(inName) {}
-		Reference(U32 inIndex): type(Type::index), index(inIndex) {}
-		Reference(): type(Type::invalid), token(nullptr) {}
+		Reference(const Name& inName)
+		: type(Type::name)
+		, name(inName)
+		{
+		}
+		Reference(U32 inIndex)
+		: type(Type::index)
+		, index(inIndex)
+		{
+		}
+		Reference()
+		: type(Type::invalid)
+		, token(nullptr)
+		{
+		}
 		operator bool() const { return type != Type::invalid; }
 	};
 
-	// Represents a function type, either as an unresolved name/index, or as an explicit type, or both.
+	// Represents a function type, either as an unresolved name/index, or as an explicit type, or
+	// both.
 	struct UnresolvedFunctionType
 	{
 		Reference reference;
@@ -116,7 +148,7 @@ namespace WAST
 
 		IR::Module& module;
 
-		HashMap<IR::FunctionType,U32> functionTypeToIndexMap;
+		HashMap<IR::FunctionType, U32> functionTypeToIndexMap;
 		NameToIndexMap typeNameToIndexMap;
 
 		NameToIndexMap functionNameToIndexMap;
@@ -133,9 +165,11 @@ namespace WAST
 		// Thunks that are called after parsing all declarations.
 		std::vector<std::function<void(ModuleState*)>> postDeclarationCallbacks;
 
-		ModuleState(ParseState* inParseState,IR::Module& inModule)
-		: parseState(inParseState), module(inModule)
-		{}
+		ModuleState(ParseState* inParseState, IR::Module& inModule)
+		: parseState(inParseState)
+		, module(inModule)
+		{
+		}
 	};
 
 	// The state that's threaded through the various parsers.
@@ -150,36 +184,48 @@ namespace WAST
 		CursorState(
 			const Token* inNextToken,
 			ParseState* inParseState,
-			ModuleState* inModuleState = nullptr,
+			ModuleState* inModuleState            = nullptr,
 			struct FunctionState* inFunctionState = nullptr)
 		: nextToken(inNextToken)
 		, parseState(inParseState)
 		, moduleState(inModuleState)
 		, functionState(inFunctionState)
-		{}
+		{
+		}
 	};
 
 	// Error handling.
-	void parseErrorf(ParseState* parseState,Uptr charOffset,const char* messageFormat,...);
-	void parseErrorf(ParseState* parseState,const char* nextChar,const char* messageFormat,...);
-	void parseErrorf(ParseState* parseState,const Token* nextToken,const char* messageFormat,...);
+	void parseErrorf(ParseState* parseState, Uptr charOffset, const char* messageFormat, ...);
+	void parseErrorf(ParseState* parseState, const char* nextChar, const char* messageFormat, ...);
+	void
+	parseErrorf(ParseState* parseState, const Token* nextToken, const char* messageFormat, ...);
 
-	void require(CursorState* cursor,TokenType type);
+	void require(CursorState* cursor, TokenType type);
 
 	// Type parsing and uniqueing
-	bool tryParseValueType(CursorState* cursor,IR::ValueType& outValueType);
+	bool tryParseValueType(CursorState* cursor, IR::ValueType& outValueType);
 	IR::ValueType parseValueType(CursorState* cursor);
 
-	IR::FunctionType parseFunctionType(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
-	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(CursorState* cursor,NameToIndexMap& outLocalNameToIndexMap,std::vector<std::string>& outLocalDisassemblyNames);
-	IR::IndexedFunctionType resolveFunctionType(ModuleState* moduleState,const UnresolvedFunctionType& unresolvedType);
-	IR::IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,IR::FunctionType functionType);
+	IR::FunctionType parseFunctionType(
+		CursorState* cursor,
+		NameToIndexMap& outLocalNameToIndexMap,
+		std::vector<std::string>& outLocalDisassemblyNames);
+	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(
+		CursorState* cursor,
+		NameToIndexMap& outLocalNameToIndexMap,
+		std::vector<std::string>& outLocalDisassemblyNames);
+	IR::IndexedFunctionType resolveFunctionType(
+		ModuleState* moduleState,
+		const UnresolvedFunctionType& unresolvedType);
+	IR::IndexedFunctionType getUniqueFunctionTypeIndex(
+		ModuleState* moduleState,
+		IR::FunctionType functionType);
 
 	// Literal parsing.
-	bool tryParseHexit(const char*& nextChar,U8& outValue);
-	
-	bool tryParseI32(CursorState* cursor,U32& outI32);
-	bool tryParseI64(CursorState* cursor,U64& outI64);
+	bool tryParseHexit(const char*& nextChar, U8& outValue);
+
+	bool tryParseI32(CursorState* cursor, U32& outI32);
+	bool tryParseI64(CursorState* cursor, U64& outI64);
 
 	U8 parseI8(CursorState* cursor);
 	U16 parseI16(CursorState* cursor);
@@ -189,64 +235,73 @@ namespace WAST
 	F64 parseF64(CursorState* cursor);
 	V128 parseV128(CursorState* cursor);
 
-	bool tryParseString(CursorState* cursor,std::string& outString);
+	bool tryParseString(CursorState* cursor, std::string& outString);
 
 	std::string parseUTF8String(CursorState* cursor);
 
 	// Name parsing and resolution.
-	bool tryParseName(CursorState* cursor,Name& outName);
-	bool tryParseNameOrIndexRef(CursorState* cursor,Reference& outRef);
-	U32 parseAndResolveNameOrIndexRef(CursorState* cursor,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const char* context);
+	bool tryParseName(CursorState* cursor, Name& outName);
+	bool tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef);
+	U32 parseAndResolveNameOrIndexRef(
+		CursorState* cursor,
+		const NameToIndexMap& nameToIndexMap,
+		Uptr maxIndex,
+		const char* context);
 
-	void bindName(ParseState* parseState,NameToIndexMap& nameToIndexMap,const Name& name,Uptr index);
-	U32 resolveRef(ParseState* parseState,const NameToIndexMap& nameToIndexMap,Uptr maxIndex,const Reference& ref);
+	void
+	bindName(ParseState* parseState, NameToIndexMap& nameToIndexMap, const Name& name, Uptr index);
+	U32 resolveRef(
+		ParseState* parseState,
+		const NameToIndexMap& nameToIndexMap,
+		Uptr maxIndex,
+		const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
-	void findClosingParenthesis(CursorState* cursor,const Token* openingParenthesisToken);
+	void findClosingParenthesis(CursorState* cursor, const Token* openingParenthesisToken);
 
-	// Parses the surrounding parentheses for an inner parser, and handles recovery at the closing parenthesis.
+	// Parses the surrounding parentheses for an inner parser, and handles recovery at the closing
+	// parenthesis.
 	template<typename ParseInner>
-	static void parseParenthesized(CursorState* cursor,ParseInner parseInner)
+	static void parseParenthesized(CursorState* cursor, ParseInner parseInner)
 	{
 		const Token* openingParenthesisToken = cursor->nextToken;
-		require(cursor,t_leftParenthesis);
+		require(cursor, t_leftParenthesis);
 		try
 		{
 			parseInner();
-			require(cursor,t_rightParenthesis);
+			require(cursor, t_rightParenthesis);
 		}
 		catch(RecoverParseException)
 		{
-			findClosingParenthesis(cursor,openingParenthesisToken);
+			findClosingParenthesis(cursor, openingParenthesisToken);
 		}
 	}
 
 	// Tries to parse '(' tagType parseInner ')', handling recovery at the closing parenthesis.
 	// Returns true if any tokens were consumed.
 	template<typename ParseInner>
-	static bool tryParseParenthesizedTagged(CursorState* cursor,TokenType tagType,ParseInner parseInner)
+	static bool
+	tryParseParenthesizedTagged(CursorState* cursor, TokenType tagType, ParseInner parseInner)
 	{
 		const Token* openingParenthesisToken = cursor->nextToken;
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != tagType)
-		{
-			return false;
-		}
+		{ return false; }
 		try
 		{
 			cursor->nextToken += 2;
 			parseInner();
-			require(cursor,t_rightParenthesis);
+			require(cursor, t_rightParenthesis);
 		}
 		catch(RecoverParseException)
 		{
-			findClosingParenthesis(cursor,openingParenthesisToken);
+			findClosingParenthesis(cursor, openingParenthesisToken);
 		}
 		return true;
 	}
 
 	// Function parsing.
-	IR::FunctionDef parseFunctionDef(CursorState* cursor,const Token* funcToken);
+	IR::FunctionDef parseFunctionDef(CursorState* cursor, const Token* funcToken);
 
 	// Module parsing.
-	void parseModuleBody(CursorState* cursor,IR::Module& outModule);
-};
+	void parseModuleBody(CursorState* cursor, IR::Module& outModule);
+}; // namespace WAST

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "file.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/IndexAllocator.h"
 #include "Platform/Platform.h"
 #include "Runtime/Runtime.h"
+#include "file.h"
 #include "wavix.h"
 
 #include <string>
@@ -17,7 +17,7 @@ namespace Wavix
 		Runtime::GCPointer<Runtime::Compartment> compartment;
 		Process* parent;
 		I32 id;
-		
+
 		Platform::Mutex cwdMutex;
 		std::string cwd;
 
@@ -27,7 +27,7 @@ namespace Wavix
 
 		Platform::Mutex childrenMutex;
 		std::vector<Process*> children;
-		
+
 		Platform::Mutex argsEnvMutex;
 		std::vector<std::string> args;
 		std::vector<std::string> envs;
@@ -44,6 +44,5 @@ namespace Wavix
 		const char* hostFilename,
 		const std::vector<std::string>& args,
 		const std::vector<std::string>& envs,
-		const std::string& cwd
-		);
-}
+		const std::string& cwd);
+} // namespace Wavix

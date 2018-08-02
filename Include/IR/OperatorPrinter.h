@@ -1,9 +1,9 @@
 #pragma once
 
+#include "IR.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
-#include "IR.h"
 #include "Module.h"
 #include "Operators.h"
 
@@ -13,21 +13,22 @@ namespace IR
 	{
 		typedef std::string Result;
 
-		OperatorPrinter(const Module& inModule,const FunctionDef& inFunctionDef)
-		: module(inModule), functionDef(inFunctionDef) {}
+		OperatorPrinter(const Module& inModule, const FunctionDef& inFunctionDef)
+		: module(inModule)
+		, functionDef(inFunctionDef)
+		{
+		}
 
-		#define VISIT_OPCODE(encoding,name,nameString,Imm,...) \
-			std::string name(Imm imm = {}) \
-			{ \
-				return std::string(nameString) + describeImm(imm); \
-			}
+#define VISIT_OPCODE(encoding, name, nameString, Imm, ...) \
+	std::string name(Imm imm = {}) { return std::string(nameString) + describeImm(imm); }
 		ENUM_OPERATORS(VISIT_OPCODE)
-		#undef VISIT_OPCODE
+#undef VISIT_OPCODE
 
 		std::string unknown(Opcode opcode)
 		{
 			return "<unknown opcode " + std::to_string((Uptr)opcode) + ">";
 		}
+
 	private:
 		const Module& module;
 		const FunctionDef& functionDef;
@@ -44,14 +45,22 @@ namespace IR
 			std::string result = " " + std::to_string(imm.defaultTargetDepth);
 			const char* prefix = " [";
 			wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
-			for(auto depth : functionDef.branchTables[imm.branchTableIndex]) { result += prefix + std::to_string(depth); prefix = ","; }
+			for(auto depth : functionDef.branchTables[imm.branchTableIndex])
+			{
+				result += prefix + std::to_string(depth);
+				prefix = ",";
+			}
 			result += "]";
 			return result;
 		}
-		template<typename NativeValue>
-		std::string describeImm(LiteralImm<NativeValue> imm) { return " " + asString(imm.value); }
-		template<bool isGlobal>
-		std::string describeImm(GetOrSetVariableImm<isGlobal> imm) { return " " + std::to_string(imm.variableIndex); }
+		template<typename NativeValue> std::string describeImm(LiteralImm<NativeValue> imm)
+		{
+			return " " + asString(imm.value);
+		}
+		template<bool isGlobal> std::string describeImm(GetOrSetVariableImm<isGlobal> imm)
+		{
+			return " " + std::to_string(imm.variableIndex);
+		}
 		std::string describeImm(CallImm imm)
 		{
 			const std::string typeString = imm.functionIndex >= module.functions.size()
@@ -69,34 +78,36 @@ namespace IR
 		template<Uptr naturalAlignmentLog2>
 		std::string describeImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
-			return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset);
+			return " align=" + std::to_string(1 << imm.alignmentLog2)
+				+ " offset=" + std::to_string(imm.offset);
 		}
 		std::string describeImm(MemoryImm) { return ""; }
 
-		template<Uptr numLanes>
-		std::string describeImm(LaneIndexImm<numLanes> imm) { return " " + std::to_string(imm.laneIndex); }
-		template<Uptr numLanes>
-		std::string describeImm(ShuffleImm<numLanes> imm)
+		template<Uptr numLanes> std::string describeImm(LaneIndexImm<numLanes> imm)
+		{
+			return " " + std::to_string(imm.laneIndex);
+		}
+		template<Uptr numLanes> std::string describeImm(ShuffleImm<numLanes> imm)
 		{
 			std::string result = " [";
 			const char* prefix = "";
-			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
+			for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 			{
-				result += prefix
-					+ (imm.laneIndices[laneIndex] < numLanes ? 'a' : 'b')
+				result += prefix + (imm.laneIndices[laneIndex] < numLanes ? 'a' : 'b')
 					+ std::to_string(imm.laneIndices[laneIndex]);
 				prefix = ",";
 			}
 			return result;
 		}
-		
+
 		template<Uptr naturalAlignmentLog2>
 		std::string describeImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
-			return " align=" + std::to_string(1<<imm.alignmentLog2) + " offset=" + std::to_string(imm.offset);
+			return " align=" + std::to_string(1 << imm.alignmentLog2)
+				+ " offset=" + std::to_string(imm.offset);
 		}
 		std::string describeImm(CatchImm) { return ""; }
 		std::string describeImm(ThrowImm) { return ""; }
 		std::string describeImm(RethrowImm) { return ""; }
 	};
-}
+} // namespace IR

@@ -1,25 +1,26 @@
 #pragma once
 
+#include "IR.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "IR.h"
 #include "Types.h"
 
 #include <vector>
 
 namespace IR
 {
-	// An initializer expression: serialized like any other code, but may only be a constant or immutable global
+	// An initializer expression: serialized like any other code, but may only be a constant or
+	// immutable global
 	struct InitializerExpression
 	{
 		enum class Type : U8
 		{
-			i32_const = 0x41,
-			i64_const = 0x42,
-			f32_const = 0x43,
-			f64_const = 0x44,
+			i32_const  = 0x41,
+			i64_const  = 0x42,
+			f32_const  = 0x43,
+			f64_const  = 0x44,
 			get_global = 0x23,
-			error = 0xff
+			error      = 0xff
 		};
 		Type type;
 		union
@@ -30,13 +31,33 @@ namespace IR
 			F64 f64;
 			Uptr globalIndex;
 		};
-		InitializerExpression(): type(Type::error) {}
-		InitializerExpression(I32 inI32): type(Type::i32_const), i32(inI32) {}
-		InitializerExpression(I64 inI64): type(Type::i64_const), i64(inI64) {}
-		InitializerExpression(F32 inF32): type(Type::f32_const), f32(inF32) {}
-		InitializerExpression(F64 inF64): type(Type::f64_const), f64(inF64) {}
-		InitializerExpression(Type inType,Uptr inGlobalIndex)
-		: type(inType), globalIndex(inGlobalIndex)
+		InitializerExpression()
+		: type(Type::error)
+		{
+		}
+		InitializerExpression(I32 inI32)
+		: type(Type::i32_const)
+		, i32(inI32)
+		{
+		}
+		InitializerExpression(I64 inI64)
+		: type(Type::i64_const)
+		, i64(inI64)
+		{
+		}
+		InitializerExpression(F32 inF32)
+		: type(Type::f32_const)
+		, f32(inF32)
+		{
+		}
+		InitializerExpression(F64 inF64)
+		: type(Type::f64_const)
+		, f64(inF64)
+		{
+		}
+		InitializerExpression(Type inType, Uptr inGlobalIndex)
+		: type(inType)
+		, globalIndex(inGlobalIndex)
 		{
 			wavmAssert(inType == Type::get_global);
 		}
@@ -56,7 +77,7 @@ namespace IR
 	{
 		TableType type;
 	};
-	
+
 	// A memory definition
 	struct MemoryDef
 	{
@@ -77,8 +98,7 @@ namespace IR
 	};
 
 	// Describes an object imported into a module or a specific type
-	template<typename Type>
-	struct Import
+	template<typename Type> struct Import
 	{
 		Type type;
 		std::string moduleName;
@@ -98,8 +118,9 @@ namespace IR
 		ObjectKind kind;
 		Uptr index;
 	};
-	
-	// A data segment: a literal sequence of bytes that is copied into a Runtime::Memory when instantiating a module
+
+	// A data segment: a literal sequence of bytes that is copied into a Runtime::Memory when
+	// instantiating a module
 	struct DataSegment
 	{
 		Uptr memoryIndex;
@@ -107,7 +128,8 @@ namespace IR
 		std::vector<U8> data;
 	};
 
-	// A table segment: a literal sequence of function indices that is copied into a Runtime::Table when instantiating a module
+	// A table segment: a literal sequence of function indices that is copied into a Runtime::Table
+	// when instantiating a module
 	struct TableSegment
 	{
 		Uptr tableIndex;
@@ -123,8 +145,7 @@ namespace IR
 	};
 
 	// An index-space for imports and definitions of a specific kind.
-	template<typename Definition,typename Type>
-	struct IndexSpace
+	template<typename Definition, typename Type> struct IndexSpace
 	{
 		std::vector<Import<Type>> imports;
 		std::vector<Definition> defs;
@@ -133,7 +154,10 @@ namespace IR
 		Type getType(Uptr index) const
 		{
 			if(index < imports.size()) { return imports[index].type; }
-			else { return defs[index - imports.size()].type; }
+			else
+			{
+				return defs[index - imports.size()].type;
+			}
 		}
 	};
 
@@ -144,11 +168,11 @@ namespace IR
 
 		std::vector<FunctionType> types;
 
-		IndexSpace<FunctionDef,IndexedFunctionType> functions;
-		IndexSpace<TableDef,TableType> tables;
-		IndexSpace<MemoryDef,MemoryType> memories;
-		IndexSpace<GlobalDef,GlobalType> globals;
-		IndexSpace<ExceptionTypeDef,ExceptionType> exceptionTypes;
+		IndexSpace<FunctionDef, IndexedFunctionType> functions;
+		IndexSpace<TableDef, TableType> tables;
+		IndexSpace<MemoryDef, MemoryType> memories;
+		IndexSpace<GlobalDef, GlobalType> globals;
+		IndexSpace<ExceptionTypeDef, ExceptionType> exceptionTypes;
 
 		std::vector<Export> exports;
 		std::vector<DataSegment> dataSegments;
@@ -157,13 +181,17 @@ namespace IR
 
 		Uptr startFunctionIndex;
 
-		Module() : startFunctionIndex(UINTPTR_MAX) {}
+		Module()
+		: startFunctionIndex(UINTPTR_MAX)
+		{
+		}
 	};
-	
+
 	// Finds a named user section in a module.
-	inline bool findUserSection(const Module& module,const char* userSectionName,Uptr& outUserSectionIndex)
+	inline bool
+	findUserSection(const Module& module, const char* userSectionName, Uptr& outUserSectionIndex)
 	{
-		for(Uptr sectionIndex = 0;sectionIndex < module.userSections.size();++sectionIndex)
+		for(Uptr sectionIndex = 0; sectionIndex < module.userSections.size(); ++sectionIndex)
 		{
 			if(module.userSections[sectionIndex].name == userSectionName)
 			{
@@ -204,11 +232,11 @@ namespace IR
 		std::vector<std::string> globals;
 		std::vector<std::string> exceptionTypes;
 	};
-	
+
 	// Looks for a name section in a module. If it exists, deserialize it into outNames.
 	// If it doesn't exist, fill outNames with sensible defaults.
-	IR_API void getDisassemblyNames(const Module& module,DisassemblyNames& outNames);
+	IR_API void getDisassemblyNames(const Module& module, DisassemblyNames& outNames);
 
 	// Serializes a DisassemblyNames structure and adds it to the module as a name section.
-	IR_API void setDisassemblyNames(Module& module,const DisassemblyNames& names);
-}
+	IR_API void setDisassemblyNames(Module& module, const DisassemblyNames& names);
+} // namespace IR

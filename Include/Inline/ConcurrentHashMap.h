@@ -6,27 +6,28 @@
 #include "Inline/HashMap.h"
 #include "Inline/Lock.h"
 
-template<typename Key, typename Value, typename KeyHashPolicy = DefaultHashPolicy<Key>, Uptr numStripes = 64>
+template<
+	typename Key,
+	typename Value,
+	typename KeyHashPolicy = DefaultHashPolicy<Key>,
+	Uptr numStripes        = 64>
 struct ConcurrentHashMap
 {
-	template<typename... ValueArgs>
-	Value getOrAdd(const Key& key, ValueArgs&&... valueArgs)
+	template<typename... ValueArgs> Value getOrAdd(const Key& key, ValueArgs&&... valueArgs)
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
 		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		return stripe.map.getOrAdd(key, std::forward<ValueArgs>(valueArgs)...);
 	}
-	
-	template<typename... ValueArgs>
-	bool add(const Key& key, ValueArgs&&... valueArgs)
+
+	template<typename... ValueArgs> bool add(const Key& key, ValueArgs&&... valueArgs)
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
 		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		return stripe.map.add(key, std::forward<ValueArgs>(valueArgs)...);
 	}
-	
-	template<typename... ValueArgs>
-	void set(const Key& key, ValueArgs&&... valueArgs)
+
+	template<typename... ValueArgs> void set(const Key& key, ValueArgs&&... valueArgs)
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
 		Lock<Platform::Mutex> stripeLock(stripe.mutex);
@@ -53,18 +54,20 @@ struct ConcurrentHashMap
 		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		return stripe.map[key];
 	}
-	
+
 	Value get(const Key& key, Value&& nullValue) const
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];
 		Lock<Platform::Mutex> stripeLock(stripe.mutex);
 		Value* value = stripe.map.get(key);
 		if(value) { return *value; }
-		else { return nullValue; }
+		else
+		{
+			return nullValue;
+		}
 	}
 
 private:
-
 	struct alignas(Platform::numCacheLineBytes) Stripe
 	{
 		Platform::Mutex mutex;

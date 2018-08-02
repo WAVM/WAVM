@@ -1,14 +1,17 @@
 #pragma once
 
 #ifndef WAST_API
-	#define WAST_API DLL_IMPORT
+#define WAST_API DLL_IMPORT
 #endif
 
-#include "Inline/BasicTypes.h"
 #include <string>
 #include <vector>
+#include "Inline/BasicTypes.h"
 
-namespace IR { struct Module; }
+namespace IR
+{
+	struct Module;
+}
 
 namespace WAST
 {
@@ -20,7 +23,12 @@ namespace WAST
 		U32 tabs;
 		U32 characters;
 
-		TextFileLocus(): newlines(0), tabs(0), characters(0) {}
+		TextFileLocus()
+		: newlines(0)
+		, tabs(0)
+		, characters(0)
+		{
+		}
 
 		U32 lineNumber() const { return newlines + 1; }
 		U32 column(U32 spacesPerTab = 4) const { return tabs * spacesPerTab + characters + 1; }
@@ -38,10 +46,14 @@ namespace WAST
 		std::string message;
 	};
 
-	// Parse a module from a string. Returns true if it succeeds, and writes the module to outModule.
-	// If it fails, returns false and appends a list of errors to outErrors.
-	WAST_API bool parseModule(const char* string,Uptr stringLength,IR::Module& outModule,std::vector<Error>& outErrors);
+	// Parse a module from a string. Returns true if it succeeds, and writes the module to
+	// outModule. If it fails, returns false and appends a list of errors to outErrors.
+	WAST_API bool parseModule(
+		const char* string,
+		Uptr stringLength,
+		IR::Module& outModule,
+		std::vector<Error>& outErrors);
 
 	// Prints a module in WAST format.
 	WAST_API std::string print(const IR::Module& module);
-}
+} // namespace WAST

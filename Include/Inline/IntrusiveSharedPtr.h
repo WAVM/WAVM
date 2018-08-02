@@ -4,11 +4,13 @@
 // Needs Pointee to define memory functions to manipulate the reference count:
 //   void addRef();
 //   void removeRef();
-template<typename Pointee>
-struct IntrusiveSharedPtr
+template<typename Pointee> struct IntrusiveSharedPtr
 {
 	// Constructors/destructor
-	IntrusiveSharedPtr(): value(nullptr) {}
+	IntrusiveSharedPtr()
+	: value(nullptr)
+	{
+	}
 	IntrusiveSharedPtr(Pointee* inValue)
 	{
 		value = inValue;
@@ -21,7 +23,7 @@ struct IntrusiveSharedPtr
 	}
 	IntrusiveSharedPtr(IntrusiveSharedPtr<Pointee>&& inMove)
 	{
-		value = inMove.value;
+		value        = inMove.value;
 		inMove.value = nullptr;
 	}
 
@@ -34,22 +36,22 @@ struct IntrusiveSharedPtr
 	void operator=(Pointee* inValue)
 	{
 		auto oldValue = value;
-		value = inValue;
+		value         = inValue;
 		if(value) { value->addRef(); }
 		if(oldValue) { oldValue->removeRef(); }
 	}
 	void operator=(const IntrusiveSharedPtr<Pointee>& inCopy)
 	{
 		auto oldValue = value;
-		value = inCopy.value;
+		value         = inCopy.value;
 		if(value) { value->addRef(); }
 		if(oldValue) { oldValue->removeRef(); }
 	}
 	void operator=(IntrusiveSharedPtr<Pointee>&& inMove)
 	{
 		auto oldValue = value;
-		value = inMove.value;
-		inMove.value = nullptr;
+		value         = inMove.value;
+		inMove.value  = nullptr;
 		if(oldValue) { oldValue->removeRef(); }
 	}
 

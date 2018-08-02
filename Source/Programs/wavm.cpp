@@ -1,14 +1,14 @@
 #include "CLI.h"
 #include "Emscripten/Emscripten.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/HashMap.h"
-#include "Inline/Timing.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
 #include "IR/Validate.h"
-#include "Runtime/Runtime.h"
-#include "Runtime/Linker.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/HashMap.h"
+#include "Inline/Timing.h"
 #include "Runtime/Intrinsics.h"
+#include "Runtime/Linker.h"
+#include "Runtime/Runtime.h"
 #include "ThreadTest/ThreadTest.h"
 #include "WAST/WAST.h"
 
@@ -18,22 +18,31 @@ using namespace Runtime;
 struct RootResolver : Resolver
 {
 	Compartment* compartment;
-	HashMap<std::string,ModuleInstance*> moduleNameToInstanceMap;
+	HashMap<std::string, ModuleInstance*> moduleNameToInstanceMap;
 
-	RootResolver(Compartment* inCompartment): compartment(inCompartment) {}
+	RootResolver(Compartment* inCompartment)
+	: compartment(inCompartment)
+	{
+	}
 
-	bool resolve(const std::string& moduleName,const std::string& exportName,ObjectType type,Object*& outObject) override
+	bool resolve(
+		const std::string& moduleName,
+		const std::string& exportName,
+		ObjectType type,
+		Object*& outObject) override
 	{
 		auto namedInstance = moduleNameToInstanceMap.get(moduleName);
 		if(namedInstance)
 		{
-			outObject = getInstanceExport(*namedInstance,exportName);
+			outObject = getInstanceExport(*namedInstance, exportName);
 			if(outObject)
 			{
-				if(isA(outObject,type)) { return true; }
+				if(isA(outObject, type)) { return true; }
 				else
 				{
-					Log::printf(Log::Category::error,"Resolved import %s.%s to a %s, but was expecting %s\n",
+					Log::printf(
+						Log::Category::error,
+						"Resolved import %s.%s to a %s, but was expecting %s\n",
 						moduleName.c_str(),
 						exportName.c_str(),
 						asString(getObjectType(outObject)).c_str(),
@@ -43,7 +52,12 @@ struct RootResolver : Resolver
 			}
 		}
 
-		Log::printf(Log::Category::error,"Generated stub for missing import %s.%s : %s\n",moduleName.c_str(),exportName.c_str(),asString(type).c_str());
+		Log::printf(
+			Log::Category::error,
+			"Generated stub for missing import %s.%s : %s\n",
+			moduleName.c_str(),
+			exportName.c_str(),
+			asString(type).c_str());
 		outObject = getStubObject(exportName, type);
 		return true;
 	}
@@ -65,34 +79,35 @@ struct RootResolver : Resolver
 			Module stubModule;
 			DisassemblyNames stubModuleNames;
 			stubModule.types.push_back(asFunctionType(type));
-			stubModule.functions.defs.push_back({{0},{},std::move(codeStream.getBytes()),{}});
-			stubModule.exports.push_back({"importStub",IR::ObjectKind::function,0});
-			stubModuleNames.functions.push_back({"importStub: " + exportName,{},{}});
-			IR::setDisassemblyNames(stubModule,stubModuleNames);
+			stubModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
+			stubModule.exports.push_back({"importStub", IR::ObjectKind::function, 0});
+			stubModuleNames.functions.push_back({"importStub: " + exportName, {}, {}});
+			IR::setDisassemblyNames(stubModule, stubModuleNames);
 			IR::validateDefinitions(stubModule);
 
 			// Instantiate the module and return the stub function instance.
-			auto stubModuleInstance = instantiateModule(compartment,stubModule,{},"importStub");
-			return getInstanceExport(stubModuleInstance,"importStub");
+			auto stubModuleInstance = instantiateModule(compartment, stubModule, {}, "importStub");
+			return getInstanceExport(stubModuleInstance, "importStub");
 		}
 		case IR::ObjectKind::memory:
 		{
-			return asObject(Runtime::createMemory(compartment,asMemoryType(type)));
+			return asObject(Runtime::createMemory(compartment, asMemoryType(type)));
 		}
 		case IR::ObjectKind::table:
 		{
-			return asObject(Runtime::createTable(compartment,asTableType(type)));
+			return asObject(Runtime::createTable(compartment, asTableType(type)));
 		}
 		case IR::ObjectKind::global:
 		{
 			return asObject(Runtime::createGlobal(
 				compartment,
 				asGlobalType(type),
-				IR::Value(asGlobalType(type).valueType,IR::UntaggedValue())));
+				IR::Value(asGlobalType(type).valueType, IR::UntaggedValue())));
 		}
 		case IR::ObjectKind::exceptionType:
 		{
-			return asObject(Runtime::createExceptionTypeInstance(asExceptionType(type), "importStub"));
+			return asObject(
+				Runtime::createExceptionTypeInstance(asExceptionType(type), "importStub"));
 		}
 		default: Errors::unreachable();
 		};
@@ -101,12 +116,12 @@ struct RootResolver : Resolver
 
 struct CommandLineOptions
 {
-	const char* filename = nullptr;
+	const char* filename     = nullptr;
 	const char* functionName = nullptr;
-	char** args = nullptr;
-	bool onlyCheck = false;
-	bool enableEmscripten = true;
-	bool enableThreadTest = false;
+	char** args              = nullptr;
+	bool onlyCheck           = false;
+	bool enableEmscripten    = true;
+	bool enableThreadTest    = false;
 };
 
 static int run(const CommandLineOptions& options)
@@ -115,17 +130,17 @@ static int run(const CommandLineOptions& options)
 
 	// Enable some additional "features" in WAVM that are disabled by default.
 	module.featureSpec.importExportMutableGlobals = true;
-	module.featureSpec.sharedTables = true;
+	module.featureSpec.sharedTables               = true;
 	// Allow atomics on unshared memories to accomodate atomics on the Emscripten memory.
 	module.featureSpec.requireSharedFlagForAtomicOperators = false;
 
 	// Load the module.
-	if(!loadModule(options.filename,module)) { return EXIT_FAILURE; }
+	if(!loadModule(options.filename, module)) { return EXIT_FAILURE; }
 	if(options.onlyCheck) { return EXIT_SUCCESS; }
 
 	// Link the module with the intrinsic modules.
 	Compartment* compartment = Runtime::createCompartment();
-	Context* context = Runtime::createContext(compartment);
+	Context* context         = Runtime::createContext(compartment);
 	RootResolver rootResolver(compartment);
 
 	Emscripten::Instance* emscriptenInstance = nullptr;
@@ -146,46 +161,41 @@ static int run(const CommandLineOptions& options)
 		rootResolver.moduleNameToInstanceMap.set("threadTest", threadTestInstance);
 	}
 
-	LinkResult linkResult = linkModule(module,rootResolver);
+	LinkResult linkResult = linkModule(module, rootResolver);
 	if(!linkResult.success)
 	{
 		std::cerr << "Failed to link module:" << std::endl;
 		for(auto& missingImport : linkResult.missingImports)
 		{
-			std::cerr << "Missing import: module=\"" << missingImport.moduleName
-				<< "\" export=\"" << missingImport.exportName
-				<< "\" type=\"" << asString(missingImport.type) << "\"" << std::endl;
+			std::cerr << "Missing import: module=\"" << missingImport.moduleName << "\" export=\""
+					  << missingImport.exportName << "\" type=\"" << asString(missingImport.type)
+					  << "\"" << std::endl;
 		}
 		return EXIT_FAILURE;
 	}
 
 	// Instantiate the module.
 	ModuleInstance* moduleInstance = instantiateModule(
-		compartment,
-		module,
-		std::move(linkResult.resolvedImports),
-		options.filename);
+		compartment, module, std::move(linkResult.resolvedImports), options.filename);
 	if(!moduleInstance) { return EXIT_FAILURE; }
 
 	// Call the module start function, if it has one.
 	FunctionInstance* startFunction = getStartFunction(moduleInstance);
-	if(startFunction)
-	{
-		invokeFunctionChecked(context,startFunction,{});
-	}
+	if(startFunction) { invokeFunctionChecked(context, startFunction, {}); }
 
 	if(options.enableEmscripten)
 	{
 		// Call the Emscripten global initalizers.
-		Emscripten::initializeGlobals(context,module,moduleInstance);
+		Emscripten::initializeGlobals(context, module, moduleInstance);
 	}
 
 	// Look up the function export to call.
 	FunctionInstance* functionInstance;
 	if(!options.functionName)
 	{
-		functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,"main"));
-		if(!functionInstance) { functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,"_main")); }
+		functionInstance = asFunctionNullable(getInstanceExport(moduleInstance, "main"));
+		if(!functionInstance)
+		{ functionInstance = asFunctionNullable(getInstanceExport(moduleInstance, "_main")); }
 		if(!functionInstance)
 		{
 			std::cerr << "Module does not export main function" << std::endl;
@@ -194,7 +204,8 @@ static int run(const CommandLineOptions& options)
 	}
 	else
 	{
-		functionInstance = asFunctionNullable(getInstanceExport(moduleInstance,options.functionName));
+		functionInstance
+			= asFunctionNullable(getInstanceExport(moduleInstance, options.functionName));
 		if(!functionInstance)
 		{
 			std::cerr << "Module does not export '" << options.functionName << "'" << std::endl;
@@ -212,7 +223,8 @@ static int run(const CommandLineOptions& options)
 			MemoryInstance* defaultMemory = Runtime::getDefaultMemory(moduleInstance);
 			if(!defaultMemory)
 			{
-				std::cerr << "Module does not declare a default memory object to put arguments in." << std::endl;
+				std::cerr << "Module does not declare a default memory object to put arguments in."
+						  << std::endl;
 				return EXIT_FAILURE;
 			}
 
@@ -221,11 +233,12 @@ static int run(const CommandLineOptions& options)
 			char** args = options.args;
 			while(*args) { argStrings.push_back(*args++); };
 
-			Emscripten::injectCommandArgs(emscriptenInstance,argStrings,invokeArgs);
+			Emscripten::injectCommandArgs(emscriptenInstance, argStrings, invokeArgs);
 		}
 		else if(functionType.params().size() > 0)
 		{
-			std::cerr << "WebAssembly function requires " << functionType.params().size() << " argument(s), but only 0 or 2 can be passed!" << std::endl;
+			std::cerr << "WebAssembly function requires " << functionType.params().size()
+					  << " argument(s), but only 0 or 2 can be passed!" << std::endl;
 			return EXIT_FAILURE;
 		}
 	}
@@ -249,7 +262,7 @@ static int run(const CommandLineOptions& options)
 	// Invoke the function.
 	Timing::Timer executionTimer;
 	IR::ValueTuple functionResults = invokeFunctionChecked(context, functionInstance, invokeArgs);
-	Timing::logTimer("Invoked function",executionTimer);
+	Timing::logTimer("Invoked function", executionTimer);
 
 	if(options.functionName)
 	{
@@ -260,19 +273,22 @@ static int run(const CommandLineOptions& options)
 			asString(functionResults).c_str());
 		return EXIT_SUCCESS;
 	}
-	else if(functionResults.size() == 1
-		&& functionResults[0].type == ValueType::i32)
+	else if(functionResults.size() == 1 && functionResults[0].type == ValueType::i32)
 	{
 		return functionResults[0].i32;
 	}
-	else { return EXIT_SUCCESS; }
+	else
+	{
+		return EXIT_SUCCESS;
+	}
 }
 
 void showHelp()
 {
 	std::cerr << "Usage: wavm [switches] [programfile] [--] [arguments]" << std::endl;
 	std::cerr << "  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)" << std::endl;
-	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main" << std::endl;
+	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main"
+			  << std::endl;
 	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
 	std::cerr << "  -d|--debug\t\t\tWrite additional debug information to stdout" << std::endl;
 	std::cerr << "  --disable-emscripten\t\tDisable Emscripten intrinsics" << std::endl;
@@ -280,7 +296,7 @@ void showHelp()
 	std::cerr << "  --\t\t\t\tStop parsing arguments" << std::endl;
 }
 
-int main(int argc,char** argv)
+int main(int argc, char** argv)
 {
 	CommandLineOptions options;
 	options.args = argv;
@@ -288,7 +304,11 @@ int main(int argc,char** argv)
 	{
 		if(!strcmp(*options.args, "--function") || !strcmp(*options.args, "-f"))
 		{
-			if(!*++options.args) { showHelp(); return EXIT_FAILURE; }
+			if(!*++options.args)
+			{
+				showHelp();
+				return EXIT_FAILURE;
+			}
 			options.functionName = *options.args;
 		}
 		else if(!strcmp(*options.args, "--check") || !strcmp(*options.args, "-c"))
@@ -297,7 +317,7 @@ int main(int argc,char** argv)
 		}
 		else if(!strcmp(*options.args, "--debug") || !strcmp(*options.args, "-d"))
 		{
-			Log::setCategoryEnabled(Log::Category::debug,true);
+			Log::setCategoryEnabled(Log::Category::debug, true);
 		}
 		else if(!strcmp(*options.args, "--disable-emscripten"))
 		{
@@ -321,7 +341,10 @@ int main(int argc,char** argv)
 		{
 			options.filename = *options.args;
 		}
-		else { break; }
+		else
+		{
+			break;
+		}
 	}
 
 	if(!options.filename)
@@ -331,15 +354,14 @@ int main(int argc,char** argv)
 	}
 
 	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
-	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception)
-	{
-		Errors::fatalf("Unhandled runtime exception: %s\n",describeException(exception).c_str());
+	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception) {
+		Errors::fatalf("Unhandled runtime exception: %s\n", describeException(exception).c_str());
 	});
 
 	int returnCode = EXIT_FAILURE;
-	#ifdef __AFL_LOOP
+#ifdef __AFL_LOOP
 	while(__AFL_LOOP(2000))
-	#endif
+#endif
 	{
 		returnCode = run(options);
 		Runtime::collectGarbage();

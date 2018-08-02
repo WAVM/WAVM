@@ -3,33 +3,31 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 
-#include <string>
 #include <cstdio>
+#include <string>
 
 namespace Floats
-{	
-	template<typename Float>
-	struct FloatComponents;
+{
+	template<typename Float> struct FloatComponents;
 
 	// The components of a 64-bit float
-	template<>
-	struct FloatComponents<F64>
+	template<> struct FloatComponents<F64>
 	{
 		typedef U64 Bits;
 		typedef F64 Float;
 
 		enum Constants : I64
 		{
-			maxSignificand = 0xfffffffffffff,
-			numSignificandBits = 52,
+			maxSignificand       = 0xfffffffffffff,
+			numSignificandBits   = 52,
 			numSignificandHexits = 13,
 			canonicalSignificand = 0x8000000000000ull,
 
-			denormalExponent = -1023,
+			denormalExponent  = -1023,
 			minNormalExponent = -1022,
 			maxNormalExponent = 1023,
-			exponentBias = 1023,
-			maxExponentBits = 0x7ff,
+			exponentBias      = 1023,
+			maxExponentBits   = 0x7ff,
 		};
 
 		union
@@ -46,24 +44,23 @@ namespace Floats
 	};
 
 	// The components of a 32-bit float.
-	template<>
-	struct FloatComponents<F32>
+	template<> struct FloatComponents<F32>
 	{
 		typedef U32 Bits;
 		typedef F32 Float;
-		
+
 		enum Constants : I32
 		{
-			maxSignificand = 0x7fffff,
-			numSignificandBits = 23,
+			maxSignificand       = 0x7fffff,
+			numSignificandBits   = 23,
 			numSignificandHexits = 6,
 			canonicalSignificand = 0x400000,
 
-			denormalExponent = -127,
+			denormalExponent  = -127,
 			minNormalExponent = -126,
 			maxNormalExponent = 127,
-			exponentBias = 127,
-			maxExponentBits = 0xff,
+			exponentBias      = 127,
+			maxExponentBits   = 0xff,
 		};
 
 		union
@@ -80,12 +77,11 @@ namespace Floats
 	};
 
 	// Prints a floating point value to a string, using the WebAssembly syntax for text floats.
-	template<typename Float>
-	std::string asString(Float f)
+	template<typename Float> std::string asString(Float f)
 	{
 		FloatComponents<Float> components;
 		components.value = f;
-	
+
 		auto sign = std::string(components.bits.sign ? "-" : "+");
 
 		if(components.bits.exponent == FloatComponents<Float>::maxExponentBits)
@@ -96,10 +92,15 @@ namespace Floats
 			{
 				// Handle NaN.
 				char significandString[FloatComponents<Float>::numSignificandHexits + 1];
-				for(Uptr hexitIndex = 0;hexitIndex < FloatComponents<Float>::numSignificandHexits;++hexitIndex)
+				for(Uptr hexitIndex = 0; hexitIndex < FloatComponents<Float>::numSignificandHexits;
+					++hexitIndex)
 				{
-					auto hexitValue = char((components.bits.significand >> ((FloatComponents<Float>::numSignificandHexits - hexitIndex - 1) * 4)) & 0xf);
-					significandString[hexitIndex] = hexitValue >= 10 ? ('a' + hexitValue - 10) : ('0' + hexitValue);
+					auto hexitValue = char(
+						(components.bits.significand
+						 >> ((FloatComponents<Float>::numSignificandHexits - hexitIndex - 1) * 4))
+						& 0xf);
+					significandString[hexitIndex]
+						= hexitValue >= 10 ? ('a' + hexitValue - 10) : ('0' + hexitValue);
 				}
 				significandString[FloatComponents<Float>::numSignificandHexits] = 0;
 				return sign + "nan:0x" + significandString + "";
@@ -109,12 +110,11 @@ namespace Floats
 		{
 			// If it's not infinite or NaN, just use the STL hexadecimal float printing.
 			char buffer[32];
-			auto numChars = std::sprintf(buffer,FloatComponents<Float>::numSignificandHexits == 6 ? "%.6a" : "%.13a",f);
+			auto numChars = std::sprintf(
+				buffer, FloatComponents<Float>::numSignificandHexits == 6 ? "%.6a" : "%.13a", f);
 			if(unsigned(numChars) + 1 > sizeof(buffer))
-			{
-				Errors::fatal("not enough space in Floats::asString buffer");
-			}
+			{ Errors::fatal("not enough space in Floats::asString buffer"); }
 			return buffer;
 		}
 	}
-}
+} // namespace Floats
