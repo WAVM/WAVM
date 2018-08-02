@@ -120,7 +120,7 @@ static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTr
 	case WAST::ExpectedTrapType::accessViolation: return Runtime::Exception::accessViolationType;
 	case WAST::ExpectedTrapType::stackOverflow: return Runtime::Exception::stackOverflowType;
 	case WAST::ExpectedTrapType::integerDivideByZeroOrIntegerOverflow:
-		return Runtime::Exception::integerDivideByZeroOrIntegerOverflowType;
+		return Runtime::Exception::integerDivideByZeroOrOverflowType;
 	case WAST::ExpectedTrapType::invalidFloatOperation:
 		return Runtime::Exception::invalidFloatOperationType;
 	case WAST::ExpectedTrapType::invokeSignatureMismatch:

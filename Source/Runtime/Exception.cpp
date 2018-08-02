@@ -13,7 +13,7 @@ namespace Runtime
 
 	DEFINE_STATIC_EXCEPTION_TYPE(accessViolation)
 	DEFINE_STATIC_EXCEPTION_TYPE(stackOverflow)
-	DEFINE_STATIC_EXCEPTION_TYPE(integerDivideByZeroOrIntegerOverflow)
+	DEFINE_STATIC_EXCEPTION_TYPE(integerDivideByZeroOrOverflow)
 	DEFINE_STATIC_EXCEPTION_TYPE(invalidFloatOperation)
 	DEFINE_STATIC_EXCEPTION_TYPE(invokeSignatureMismatch)
 	DEFINE_STATIC_EXCEPTION_TYPE(reachedUnreachable)
@@ -171,8 +171,7 @@ namespace Runtime
 			outException = Exception{Exception::stackOverflowType, {}, callStack};
 			return true;
 		case Platform::Signal::Type::intDivideByZeroOrOverflow:
-			outException
-				= Exception{Exception::integerDivideByZeroOrIntegerOverflowType, {}, callStack};
+			outException = Exception{Exception::integerDivideByZeroOrOverflowType, {}, callStack};
 			return true;
 		case Platform::Signal::Type::unhandledException:
 			outException = translateExceptionDataToException(

@@ -170,7 +170,7 @@ namespace Runtime
 		void,
 		divideByZeroOrIntegerOverflowTrap)
 	{
-		throwException(Exception::integerDivideByZeroOrIntegerOverflowType);
+		throwException(Exception::integerDivideByZeroOrOverflowType);
 	}
 
 	DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "unreachableTrap", void, unreachableTrap)

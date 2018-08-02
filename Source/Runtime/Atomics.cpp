@@ -190,7 +190,7 @@ static U32 wakeAddress(Uptr address, U32 numToWake)
 	closeWaitList(address, waitList);
 
 	if(actualNumToWake > UINT32_MAX)
-	{ Runtime::throwException(Runtime::Exception::integerDivideByZeroOrIntegerOverflowType); }
+	{ Runtime::throwException(Runtime::Exception::integerDivideByZeroOrOverflowType); }
 	return U32(actualNumToWake);
 }
 

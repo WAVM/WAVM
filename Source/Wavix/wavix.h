@@ -60,7 +60,7 @@ namespace Wavix
 	inline U32 coerce32bitAddress(Uptr address)
 	{
 		if(address >= UINT32_MAX)
-		{ Runtime::throwException(Runtime::Exception::integerDivideByZeroOrIntegerOverflowType); }
+		{ Runtime::throwException(Runtime::Exception::integerDivideByZeroOrOverflowType); }
 		return (U32)address;
 	}
 

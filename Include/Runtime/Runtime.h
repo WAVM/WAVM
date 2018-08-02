@@ -162,8 +162,7 @@ namespace Runtime
 	{
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> accessViolationType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> stackOverflowType;
-		RUNTIME_API static const GCPointer<ExceptionTypeInstance>
-			integerDivideByZeroOrIntegerOverflowType;
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> integerDivideByZeroOrOverflowType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidFloatOperationType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invokeSignatureMismatchType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> reachedUnreachableType;

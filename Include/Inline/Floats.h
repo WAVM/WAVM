@@ -79,6 +79,11 @@ namespace Floats
 	// Prints a floating point value to a string, using the WebAssembly syntax for text floats.
 	template<typename Float> std::string asString(Float f)
 	{
+		enum
+		{
+			numSignificandHexits = FloatComponents<Float>::numSignificandHexits
+		};
+
 		FloatComponents<Float> components;
 		components.value = f;
 
@@ -91,18 +96,17 @@ namespace Floats
 			else
 			{
 				// Handle NaN.
-				char significandString[FloatComponents<Float>::numSignificandHexits + 1];
-				for(Uptr hexitIndex = 0; hexitIndex < FloatComponents<Float>::numSignificandHexits;
-					++hexitIndex)
+				char significandString[numSignificandHexits + 1];
+				for(Uptr hexitIndex = 0; hexitIndex < numSignificandHexits; ++hexitIndex)
 				{
 					auto hexitValue = char(
 						(components.bits.significand
-						 >> ((FloatComponents<Float>::numSignificandHexits - hexitIndex - 1) * 4))
+						 >> ((numSignificandHexits - hexitIndex - 1) * 4))
 						& 0xf);
 					significandString[hexitIndex]
 						= hexitValue >= 10 ? ('a' + hexitValue - 10) : ('0' + hexitValue);
 				}
-				significandString[FloatComponents<Float>::numSignificandHexits] = 0;
+				significandString[numSignificandHexits] = 0;
 				return sign + "nan:0x" + significandString + "";
 			}
 		}
@@ -110,8 +114,7 @@ namespace Floats
 		{
 			// If it's not infinite or NaN, just use the STL hexadecimal float printing.
 			char buffer[32];
-			auto numChars = std::sprintf(
-				buffer, FloatComponents<Float>::numSignificandHexits == 6 ? "%.6a" : "%.13a", f);
+			auto numChars = std::sprintf(buffer, numSignificandHexits == 6 ? "%.6a" : "%.13a", f);
 			if(unsigned(numChars) + 1 > sizeof(buffer))
 			{ Errors::fatal("not enough space in Floats::asString buffer"); }
 			return buffer;
