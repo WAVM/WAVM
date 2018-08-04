@@ -172,4 +172,4 @@ namespace Intrinsics
 
 		return moduleInstance;
 	}
-} // namespace Intrinsics
+}

@@ -755,4 +755,4 @@ namespace Emscripten
 		outInvokeArgs
 			= {(U32)argStrings.size(), (U32)((U8*)argvOffsets - emscriptenMemoryBaseAdress)};
 	}
-} // namespace Emscripten
+}

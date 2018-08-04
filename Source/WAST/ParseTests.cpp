@@ -454,4 +454,4 @@ namespace WAST
 		freeTokens(tokens);
 		freeLineInfo(lineInfo);
 	}
-} // namespace WAST
+}

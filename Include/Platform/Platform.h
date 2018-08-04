@@ -398,4 +398,4 @@ namespace Platform
 	writeFile(File* file, const U8* data, Uptr numBytes, Uptr* outNumBytesWritten = nullptr);
 	PLATFORM_API bool flushFileWrites(File* file);
 	PLATFORM_API std::string getCurrentWorkingDirectory();
-} // namespace Platform
+}

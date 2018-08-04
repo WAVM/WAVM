@@ -534,7 +534,7 @@ namespace IR
 		default: Errors::unreachable();
 		};
 	}
-} // namespace IR
+}
 
 template<> struct Hash<IR::TypeTuple>
 {

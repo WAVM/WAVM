@@ -1223,4 +1223,4 @@ namespace WAST
 		context.printModule();
 		return expandIndentation(std::move(string));
 	}
-} // namespace WAST
+}

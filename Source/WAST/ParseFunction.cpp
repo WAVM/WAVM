@@ -46,7 +46,7 @@ namespace WAST
 		{
 		}
 	};
-} // namespace WAST
+}
 
 namespace
 {
@@ -811,4 +811,4 @@ namespace WAST
 
 		return {{UINT32_MAX}, {}, {}};
 	}
-} // namespace WAST
+}

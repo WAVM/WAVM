@@ -174,4 +174,4 @@ namespace Unicode
 		{ encodeUTF8CodePoint(codePoint, outString); };
 		return nextChar;
 	}
-} // namespace Unicode
+}

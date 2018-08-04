@@ -164,4 +164,4 @@ namespace IR
 			return !(left == right);
 		}
 	};
-} // namespace IR
+}

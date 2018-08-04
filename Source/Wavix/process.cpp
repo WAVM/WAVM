@@ -596,4 +596,4 @@ namespace Wavix
 	}
 
 	void staticInitializeProcess() {}
-} // namespace Wavix
+}

@@ -697,4 +697,4 @@ namespace IR
 	};
 
 	IR_API const char* getOpcodeName(Opcode opcode);
-} // namespace IR
+}

@@ -43,7 +43,7 @@ namespace LLVMJIT
 		void* nativeFunction,
 		IR::FunctionType functionType,
 		Runtime::CallingConvention callingConvention);
-} // namespace LLVMJIT
+}
 
 namespace Runtime
 {
@@ -361,4 +361,4 @@ namespace Runtime
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(U8* address);
 	bool isAddressOwnedByMemory(U8* address);
-} // namespace Runtime
+}

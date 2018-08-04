@@ -372,7 +372,7 @@ namespace Wavix
 	{
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
-} // namespace Wavix
+}
 
 static void unhandledExceptionHandler(Exception&& exception)
 {

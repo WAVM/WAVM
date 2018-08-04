@@ -87,4 +87,4 @@ namespace IR
 		validateElemSegments(module);
 		validateDataSegments(module);
 	}
-} // namespace IR
+}

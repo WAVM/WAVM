@@ -166,7 +166,7 @@ namespace IR
 			serializeVarUInt32(stream, functionIndex);
 		});
 	}
-} // namespace IR
+}
 
 namespace WASM
 {
@@ -880,4 +880,4 @@ namespace WASM
 	{
 		serializeModule(stream, const_cast<Module&>(module));
 	}
-} // namespace WASM
+}

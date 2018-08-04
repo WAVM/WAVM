@@ -185,4 +185,4 @@ namespace Runtime
 			gcGlobals.allObjects.size() + finalizedObjects.size(),
 			finalizedObjects.size());
 	}
-} // namespace Runtime
+}

@@ -104,4 +104,4 @@ namespace WAST
 
 	TextFileLocus
 	calcLocusFromOffset(const char* string, const LineInfo* lineInfo, Uptr charOffset);
-} // namespace WAST
+}

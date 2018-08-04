@@ -1126,4 +1126,4 @@ namespace LLVMJIT
 
 		gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
 	}
-} // namespace LLVMJIT
+}

@@ -295,4 +295,4 @@ namespace Runtime
 		return Intrinsics::instantiateModule(
 			compartment, INTRINSIC_MODULE_REF(wavmIntrinsics), "WAVMIntrinsics");
 	}
-} // namespace Runtime
+}

@@ -80,4 +80,4 @@ namespace Wavix
 
 		return pathString;
 	}
-} // namespace Wavix
+}

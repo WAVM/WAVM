@@ -273,4 +273,4 @@ namespace Runtime
 		Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
 		return exportedObjectPtr ? *exportedObjectPtr : nullptr;
 	}
-} // namespace Runtime
+}

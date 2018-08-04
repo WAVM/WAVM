@@ -14,10 +14,10 @@ namespace Serialization
 {
 	struct InputStream;
 	struct OutputStream;
-} // namespace Serialization
+}
 
 namespace WASM
 {
 	WASM_API void serialize(Serialization::InputStream& stream, IR::Module& module);
 	WASM_API void serialize(Serialization::OutputStream& stream, const IR::Module& module);
-} // namespace WASM
+}

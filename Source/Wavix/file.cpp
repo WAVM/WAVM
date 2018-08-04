@@ -799,4 +799,4 @@ namespace Wavix
 	}
 
 	void staticInitializeFile() {}
-} // namespace Wavix
+}

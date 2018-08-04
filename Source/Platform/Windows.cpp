@@ -1064,6 +1064,6 @@ namespace Platform
 
 		return result;
 	}
-} // namespace Platform
+}
 
 #endif

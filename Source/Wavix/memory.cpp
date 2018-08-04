@@ -93,4 +93,4 @@ namespace Wavix
 	}
 
 	void staticInitializeMemory() {}
-} // namespace Wavix
+}

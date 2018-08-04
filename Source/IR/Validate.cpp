@@ -928,4 +928,4 @@ namespace IR
 	}
 	ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
-} // namespace IR
+}

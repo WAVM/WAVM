@@ -56,4 +56,4 @@ namespace WAST
 
 	// Prints a module in WAST format.
 	WAST_API std::string print(const IR::Module& module);
-} // namespace WAST
+}

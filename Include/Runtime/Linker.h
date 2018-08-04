@@ -93,4 +93,4 @@ namespace Runtime
 	};
 
 	RUNTIME_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);
-} // namespace Runtime
+}

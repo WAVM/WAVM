@@ -98,4 +98,4 @@ namespace IR
 			return globalImpl;
 		}
 	}
-} // namespace IR
+}

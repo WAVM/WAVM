@@ -239,4 +239,4 @@ namespace IR
 
 	// Serializes a DisassemblyNames structure and adds it to the module as a name section.
 	IR_API void setDisassemblyNames(Module& module, const DisassemblyNames& names);
-} // namespace IR
+}

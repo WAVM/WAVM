@@ -33,4 +33,4 @@ namespace Emscripten
 		Emscripten::Instance* instance,
 		const std::vector<const char*>& argStrings,
 		std::vector<IR::Value>& outInvokeArgs);
-} // namespace Emscripten
+}

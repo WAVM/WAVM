@@ -29,4 +29,4 @@ namespace Wavix
 
 		virtual ~File() {}
 	};
-} // namespace Wavix
+}

@@ -977,6 +977,6 @@ namespace Platform
 		errorUnless(getcwd(buffer, maxPathBytes) == buffer);
 		return std::string(buffer);
 	}
-} // namespace Platform
+}
 
 #endif

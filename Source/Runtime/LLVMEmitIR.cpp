@@ -1433,20 +1433,23 @@ namespace LLVMJIT
 			Float maxFloatBounds,
 			Int minIntBounds,
 			Int maxIntBounds,
-			Int nanResult,
 			llvm::Value* operand)
 		{
-			return irBuilder.CreateSelect(
-				irBuilder.CreateFCmpUNO(operand, operand),
-				emitLiteral(nanResult),
-				irBuilder.CreateSelect(
-					irBuilder.CreateFCmpOLE(operand, emitLiteral(minFloatBounds)),
-					emitLiteral(minIntBounds),
-					irBuilder.CreateSelect(
-						irBuilder.CreateFCmpOGE(operand, emitLiteral(maxFloatBounds)),
-						emitLiteral(maxIntBounds),
-						isSigned ? irBuilder.CreateFPToSI(operand, destType)
-								 : irBuilder.CreateFPToUI(operand, destType))));
+			llvm::Value* result = isSigned ? irBuilder.CreateFPToSI(operand, destType)
+										   : irBuilder.CreateFPToUI(operand, destType);
+
+			result = irBuilder.CreateSelect(
+				irBuilder.CreateFCmpOGE(operand, emitLiteral(maxFloatBounds)),
+				emitLiteral(maxIntBounds),
+				result);
+			result = irBuilder.CreateSelect(
+				irBuilder.CreateFCmpOLE(operand, emitLiteral(minFloatBounds)),
+				emitLiteral(minIntBounds),
+				result);
+			result = irBuilder.CreateSelect(
+				irBuilder.CreateFCmpUNO(operand, operand), emitLiteral(Int(0)), result);
+
+			return result;
 		}
 
 		EMIT_UNARY_OP(
@@ -1459,7 +1462,6 @@ namespace LLVMJIT
 				F32(INT32_MAX),
 				INT32_MIN,
 				INT32_MAX,
-				I32(0),
 				operand))
 		EMIT_UNARY_OP(
 			i32,
@@ -1471,7 +1473,6 @@ namespace LLVMJIT
 				F64(INT32_MAX),
 				INT32_MIN,
 				INT32_MAX,
-				I32(0),
 				operand))
 		EMIT_UNARY_OP(
 			i32,
@@ -1483,7 +1484,6 @@ namespace LLVMJIT
 				F32(UINT32_MAX),
 				U32(0),
 				UINT32_MAX,
-				U32(0),
 				operand))
 		EMIT_UNARY_OP(
 			i32,
@@ -1495,7 +1495,6 @@ namespace LLVMJIT
 				F64(UINT32_MAX),
 				U32(0),
 				UINT32_MAX,
-				U32(0),
 				operand))
 		EMIT_UNARY_OP(
 			i64,
@@ -1507,7 +1506,6 @@ namespace LLVMJIT
 				F32(INT64_MAX),
 				INT64_MIN,
 				INT64_MAX,
-				I64(0),
 				operand))
 		EMIT_UNARY_OP(
 			i64,
@@ -1519,7 +1517,6 @@ namespace LLVMJIT
 				F64(INT64_MAX),
 				INT64_MIN,
 				INT64_MAX,
-				I64(0),
 				operand))
 		EMIT_UNARY_OP(
 			i64,
@@ -1531,7 +1528,6 @@ namespace LLVMJIT
 				F32(UINT64_MAX),
 				U64(0),
 				UINT64_MAX,
-				U64(0),
 				operand))
 		EMIT_UNARY_OP(
 			i64,
@@ -1543,7 +1539,6 @@ namespace LLVMJIT
 				F64(UINT64_MAX),
 				U64(0),
 				UINT64_MAX,
-				U64(0),
 				operand))
 
 		// These operations don't match LLVM's semantics exactly, so just call out to C++
@@ -2928,4 +2923,4 @@ namespace LLVMJIT
 	{
 		return EmitModuleContext(module, moduleInstance).emit();
 	}
-} // namespace LLVMJIT
+}

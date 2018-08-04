@@ -44,4 +44,4 @@ namespace Log
 			fflush(stdout);
 		}
 	}
-} // namespace Log
+}

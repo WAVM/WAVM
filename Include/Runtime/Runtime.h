@@ -382,4 +382,4 @@ namespace Runtime
 	RUNTIME_API MemoryInstance* getMemoryFromRuntimeData(
 		struct ContextRuntimeData* contextRuntimeData,
 		Uptr memoryId);
-} // namespace Runtime
+}

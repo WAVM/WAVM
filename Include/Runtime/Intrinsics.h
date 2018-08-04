@@ -150,7 +150,7 @@ namespace Intrinsics
 			IR::inferResultType<R>(), IR::TypeTuple({IR::inferValueType<Args>()...}));
 	}
 
-} // namespace Intrinsics
+}
 
 #define DEFINE_INTRINSIC_MODULE(name)               \
 	Intrinsics::Module& getIntrinsicModule_##name() \

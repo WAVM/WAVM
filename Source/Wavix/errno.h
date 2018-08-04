@@ -142,4 +142,4 @@ namespace Wavix
 			ehwpoison       = 133,
 		};
 	}
-} // namespace Wavix
+}

@@ -45,4 +45,4 @@ namespace Wavix
 		const std::vector<std::string>& args,
 		const std::vector<std::string>& envs,
 		const std::string& cwd);
-} // namespace Wavix
+}

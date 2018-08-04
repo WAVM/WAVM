@@ -19,4 +19,4 @@ namespace Errors
 	{
 		fatalf("unimplemented: %s\n", context);
 	}
-} // namespace Errors
+}

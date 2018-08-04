@@ -46,4 +46,4 @@ namespace Timing
 			numerator / timer.getSeconds(),
 			numeratorUnit);
 	}
-} // namespace Timing
+}

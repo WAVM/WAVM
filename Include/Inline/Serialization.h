@@ -412,4 +412,4 @@ namespace Serialization
 		serializeArray(
 			stream, vector, [](Stream& stream, Element& element) { serialize(stream, element); });
 	}
-} // namespace Serialization
+}

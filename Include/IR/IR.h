@@ -49,4 +49,4 @@ namespace IR
 		bool sharedTables                        = true;
 		bool requireSharedFlagForAtomicOperators = true; // (true is standard)
 	};
-} // namespace IR
+}

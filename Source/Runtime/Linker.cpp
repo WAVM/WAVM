@@ -62,4 +62,4 @@ namespace Runtime
 		linkResult.success = linkResult.missingImports.size() == 0;
 		return linkResult;
 	}
-} // namespace Runtime
+}

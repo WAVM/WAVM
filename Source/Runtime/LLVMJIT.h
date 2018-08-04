@@ -535,4 +535,4 @@ namespace LLVMJIT
 		const U8* xdataCopy,
 		Uptr sehTrampolineAddress);
 #endif
-} // namespace LLVMJIT
+}

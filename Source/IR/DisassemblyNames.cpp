@@ -351,4 +351,4 @@ namespace IR
 
 		module.userSections[userSectionIndex].data = stream.getBytes();
 	}
-} // namespace IR
+}

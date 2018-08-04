@@ -272,4 +272,4 @@ namespace Runtime
 		// This is just here make sure the static initializers for the intrinsic function
 		// registrations aren't removed as dead code.
 	}
-} // namespace Runtime
+}

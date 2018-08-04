@@ -339,4 +339,4 @@ namespace Runtime
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		return compartment->memories[memoryId];
 	}
-} // namespace Runtime
+}

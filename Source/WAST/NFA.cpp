@@ -653,4 +653,4 @@ namespace NFA
 		result += "}\n";
 		return result;
 	}
-} // namespace NFA
+}

@@ -239,4 +239,4 @@ namespace WAST
 		{
 		}
 	};
-} // namespace WAST
+}

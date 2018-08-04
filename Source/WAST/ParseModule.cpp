@@ -934,4 +934,4 @@ namespace WAST
 
 		return outErrors.size() == 0;
 	}
-} // namespace WAST
+}

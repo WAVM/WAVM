@@ -246,4 +246,4 @@ namespace ThreadTest
 		return Intrinsics::instantiateModule(
 			compartment, INTRINSIC_MODULE_REF(threadTest), "threadTest");
 	}
-} // namespace ThreadTest
+}

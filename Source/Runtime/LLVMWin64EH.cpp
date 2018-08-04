@@ -339,6 +339,6 @@ namespace LLVMJIT
 			}
 		}
 	}
-} // namespace LLVMJIT
+}
 
 #endif

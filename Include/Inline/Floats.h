@@ -120,4 +120,4 @@ namespace Floats
 			return buffer;
 		}
 	}
-} // namespace Floats
+}

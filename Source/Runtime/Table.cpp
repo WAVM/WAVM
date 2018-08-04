@@ -258,4 +258,4 @@ namespace Runtime
 		}
 		return previousNumElements;
 	}
-} // namespace Runtime
+}

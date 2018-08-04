@@ -445,4 +445,4 @@ namespace WAST
 
 		return result;
 	}
-} // namespace WAST
+}

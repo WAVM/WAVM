@@ -113,4 +113,4 @@ namespace NFA
 
 		void moveFrom(Machine&& inMachine);
 	};
-} // namespace NFA
+}

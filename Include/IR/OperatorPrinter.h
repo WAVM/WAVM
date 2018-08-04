@@ -110,4 +110,4 @@ namespace IR
 		std::string describeImm(ThrowImm) { return ""; }
 		std::string describeImm(RethrowImm) { return ""; }
 	};
-} // namespace IR
+}
