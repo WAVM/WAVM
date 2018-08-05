@@ -1,5 +1,7 @@
 #pragma once
 
+#include "IR/Module.h"
+#include "IR/Operators.h"
 #include "Inline/BasicTypes.h"
 #include "Intrinsics.h"
 #include "RuntimePrivate.h"
@@ -27,6 +29,7 @@
 #include <cctype>
 #include <string>
 #include <vector>
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/DebugInfo/DIContext.h"

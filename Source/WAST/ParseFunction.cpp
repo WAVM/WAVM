@@ -726,7 +726,8 @@ namespace WAST
 				= resolveFunctionType(moduleState, unresolvedFunctionType);
 			moduleState->module.functions.defs[functionDefIndex].type = functionTypeIndex;
 
-			// Defer parsing the body of the function until all function types have been resolved.
+			// Defer parsing the body of the function until all function types have been
+			// resolved.
 			moduleState->postDeclarationCallbacks.push_back([functionIndex,
 															 functionDefIndex,
 															 firstBodyToken,

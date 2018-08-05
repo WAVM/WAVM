@@ -3,7 +3,16 @@ set(Sources
 	Exception.cpp
 	Intrinsics.cpp
 	Linker.cpp
-	LLVMEmitIR.cpp
+	LLVMEmitConvert.cpp
+	LLVMEmitCore.cpp
+	LLVMEmitExceptions.cpp
+	LLVMEmitFunction.cpp
+	LLVMEmitFunctionContext.h
+	LLVMEmitMem.cpp
+	LLVMEmitModule.cpp
+	LLVMEmitModuleContext.h
+	LLVMEmitNumeric.cpp
+	LLVMEmitVar.cpp
 	LLVMJIT.cpp
 	LLVMJIT.h
 	LLVMWin64EH.cpp
