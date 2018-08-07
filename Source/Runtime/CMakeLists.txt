@@ -15,6 +15,8 @@ set(Sources
 	LLVMEmitVar.cpp
 	LLVMJIT.cpp
 	LLVMJIT.h
+	LLVMPreInclude.h
+	LLVMPostInclude.h
 	LLVMWin64EH.cpp
 	Memory.cpp
 	ModuleInstance.cpp

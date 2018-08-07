@@ -1,16 +1,13 @@
 #include "Operators.h"
 
-namespace IR
+const char* IR::getOpcodeName(Opcode opcode)
 {
-	const char* getOpcodeName(Opcode opcode)
+	switch(opcode)
 	{
-		switch(opcode)
-		{
 #define VISIT_OPCODE(encoding, name, nameString, Imm, ...) \
 	case Opcode::name: return nameString;
-			ENUM_OPERATORS(VISIT_OPCODE)
+		ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
-		default: return "unknown";
-		};
-	}
+	default: return "unknown";
+	};
 }

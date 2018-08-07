@@ -2,6 +2,12 @@
 
 #include "LLVMJIT.h"
 
+#include "LLVMPreInclude.h"
+
+#include "llvm/IR/DIBuilder.h"
+
+#include "LLVMPostInclude.h"
+
 namespace LLVMJIT
 {
 	struct EmitModuleContext

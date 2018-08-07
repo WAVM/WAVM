@@ -3,6 +3,7 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJIT.h"
 
+using namespace LLVMJIT;
 using namespace IR;
 
 //
@@ -11,7 +12,7 @@ using namespace IR;
 // memory for the module.
 //
 
-void LLVMJIT::EmitFunctionContext::memory_grow(MemoryImm)
+void EmitFunctionContext::memory_grow(MemoryImm)
 {
 	llvm::Value* deltaNumPages   = pop();
 	ValueVector previousNumPages = emitRuntimeIntrinsic(
@@ -21,7 +22,7 @@ void LLVMJIT::EmitFunctionContext::memory_grow(MemoryImm)
 	wavmAssert(previousNumPages.size() == 1);
 	push(previousNumPages[0]);
 }
-void LLVMJIT::EmitFunctionContext::memory_size(MemoryImm)
+void EmitFunctionContext::memory_size(MemoryImm)
 {
 	ValueVector currentNumPages = emitRuntimeIntrinsic(
 		"currentMemory",
@@ -35,20 +36,18 @@ void LLVMJIT::EmitFunctionContext::memory_size(MemoryImm)
 // Load/store operators
 //
 
-#define EMIT_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp) \
-	void LLVMJIT::EmitFunctionContext::valueTypeId##_##name(                                \
-		LoadOrStoreImm<naturalAlignmentLog2> imm)                                           \
-	{                                                                                       \
-		auto byteIndex = pop();                                                             \
-		auto pointer   = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);   \
-		auto load      = irBuilder.CreateLoad(pointer);                                     \
-		load->setAlignment(1 << imm.alignmentLog2);                                         \
-		load->setVolatile(true);                                                            \
-		push(conversionOp(load, asLLVMType(ValueType::valueTypeId)));                       \
+#define EMIT_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp)  \
+	void EmitFunctionContext::valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) \
+	{                                                                                        \
+		auto byteIndex = pop();                                                              \
+		auto pointer   = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);    \
+		auto load      = irBuilder.CreateLoad(pointer);                                      \
+		load->setAlignment(1 << imm.alignmentLog2);                                          \
+		load->setVolatile(true);                                                             \
+		push(conversionOp(load, asLLVMType(ValueType::valueTypeId)));                        \
 	}
 #define EMIT_STORE_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, conversionOp) \
-	void LLVMJIT::EmitFunctionContext::valueTypeId##_##name(                                 \
-		LoadOrStoreImm<naturalAlignmentLog2> imm)                                            \
+	void EmitFunctionContext::valueTypeId##_##name(LoadOrStoreImm<naturalAlignmentLog2> imm) \
 	{                                                                                        \
 		auto value       = pop();                                                            \
 		auto byteIndex   = pop();                                                            \
@@ -88,7 +87,7 @@ EMIT_STORE_OP(f64, store, llvmF64Type, 3, identity)
 EMIT_STORE_OP(v128, store, value->getType(), 4, identity)
 EMIT_LOAD_OP(v128, load, llvmI64x2Type, 4, identity)
 
-void LLVMJIT::EmitFunctionContext::atomic_wake(AtomicLoadOrStoreImm<2>)
+void EmitFunctionContext::atomic_wake(AtomicLoadOrStoreImm<2>)
 {
 	auto numWaiters = pop();
 	auto address    = pop();
@@ -99,7 +98,7 @@ void LLVMJIT::EmitFunctionContext::atomic_wake(AtomicLoadOrStoreImm<2>)
 			TypeTuple{ValueType::i32}, TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64}),
 		{address, numWaiters, memoryId})[0]);
 }
-void LLVMJIT::EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2>)
+void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2>)
 {
 	auto timeout       = pop();
 	auto expectedValue = pop();
@@ -112,7 +111,7 @@ void LLVMJIT::EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2>)
 			TypeTuple{ValueType::i32, ValueType::i32, ValueType::f64, ValueType::i64}),
 		{address, expectedValue, timeout, memoryId})[0]);
 }
-void LLVMJIT::EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3>)
+void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3>)
 {
 	auto timeout       = pop();
 	auto expectedValue = pop();
@@ -126,7 +125,7 @@ void LLVMJIT::EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3>)
 		{address, expectedValue, timeout, memoryId})[0]);
 }
 
-void LLVMJIT::EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
+void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {
 	if(alignmentLog2 > 0)
 	{
@@ -140,32 +139,30 @@ void LLVMJIT::EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, 
 	}
 }
 
-#define EMIT_ATOMIC_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, memToValue) \
-	void LLVMJIT::EmitFunctionContext::valueTypeId##_##name(                                     \
-		AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)                                          \
-	{                                                                                            \
-		auto byteIndex = pop();                                                                  \
-		trapIfMisalignedAtomic(byteIndex, naturalAlignmentLog2);                                 \
-		auto pointer = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);          \
-		auto load    = irBuilder.CreateLoad(pointer);                                            \
-		load->setAlignment(1 << imm.alignmentLog2);                                              \
-		load->setVolatile(true);                                                                 \
-		load->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);                           \
-		push(memToValue(load, asLLVMType(ValueType::valueTypeId)));                              \
+#define EMIT_ATOMIC_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, memToValue)   \
+	void EmitFunctionContext::valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
+	{                                                                                              \
+		auto byteIndex = pop();                                                                    \
+		trapIfMisalignedAtomic(byteIndex, naturalAlignmentLog2);                                   \
+		auto pointer = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);            \
+		auto load    = irBuilder.CreateLoad(pointer);                                              \
+		load->setAlignment(1 << imm.alignmentLog2);                                                \
+		load->setVolatile(true);                                                                   \
+		load->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);                             \
+		push(memToValue(load, asLLVMType(ValueType::valueTypeId)));                                \
 	}
-#define EMIT_ATOMIC_STORE_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, valueToMem) \
-	void LLVMJIT::EmitFunctionContext::valueTypeId##_##name(                                      \
-		AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)                                           \
-	{                                                                                             \
-		auto value     = pop();                                                                   \
-		auto byteIndex = pop();                                                                   \
-		trapIfMisalignedAtomic(byteIndex, naturalAlignmentLog2);                                  \
-		auto pointer     = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);       \
-		auto memoryValue = valueToMem(value, llvmMemoryType);                                     \
-		auto store       = irBuilder.CreateStore(memoryValue, pointer);                           \
-		store->setVolatile(true);                                                                 \
-		store->setAlignment(1 << imm.alignmentLog2);                                              \
-		store->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);                           \
+#define EMIT_ATOMIC_STORE_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, valueToMem)  \
+	void EmitFunctionContext::valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
+	{                                                                                              \
+		auto value     = pop();                                                                    \
+		auto byteIndex = pop();                                                                    \
+		trapIfMisalignedAtomic(byteIndex, naturalAlignmentLog2);                                   \
+		auto pointer     = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);        \
+		auto memoryValue = valueToMem(value, llvmMemoryType);                                      \
+		auto store       = irBuilder.CreateStore(memoryValue, pointer);                            \
+		store->setVolatile(true);                                                                  \
+		store->setAlignment(1 << imm.alignmentLog2);                                               \
+		store->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);                            \
 	}
 EMIT_ATOMIC_LOAD_OP(i32, atomic_load, llvmI32Type, 2, identity)
 EMIT_ATOMIC_LOAD_OP(i64, atomic_load, llvmI64Type, 3, identity)
@@ -187,8 +184,7 @@ EMIT_ATOMIC_STORE_OP(i64, atomic_store32, llvmI32Type, 2, trunc)
 
 #define EMIT_ATOMIC_CMPXCHG(                                                                  \
 	valueTypeId, name, llvmMemoryType, alignmentLog2, memToValue, valueToMem)                 \
-	void LLVMJIT::EmitFunctionContext::valueTypeId##_##name(                                  \
-		AtomicLoadOrStoreImm<alignmentLog2> imm)                                              \
+	void EmitFunctionContext::valueTypeId##_##name(AtomicLoadOrStoreImm<alignmentLog2> imm)   \
 	{                                                                                         \
 		auto replacementValue = valueToMem(pop(), llvmMemoryType);                            \
 		auto expectedValue    = valueToMem(pop(), llvmMemoryType);                            \
@@ -215,22 +211,21 @@ EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw16_u_cmpxchg, llvmI16Type, 1, zext, trunc)
 EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw32_u_cmpxchg, llvmI32Type, 2, zext, trunc)
 EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw_cmpxchg, llvmI64Type, 3, identity, identity)
 
-#define EMIT_ATOMIC_RMW(                                                                  \
-	valueTypeId, name, rmwOpId, llvmMemoryType, alignmentLog2, memToValue, valueToMem)    \
-	void LLVMJIT::EmitFunctionContext::valueTypeId##_##name(                              \
-		AtomicLoadOrStoreImm<alignmentLog2> imm)                                          \
-	{                                                                                     \
-		auto value     = valueToMem(pop(), llvmMemoryType);                               \
-		auto byteIndex = pop();                                                           \
-		trapIfMisalignedAtomic(byteIndex, alignmentLog2);                                 \
-		auto pointer   = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType); \
-		auto atomicRMW = irBuilder.CreateAtomicRMW(                                       \
-			llvm::AtomicRMWInst::BinOp::rmwOpId,                                          \
-			pointer,                                                                      \
-			value,                                                                        \
-			llvm::AtomicOrdering::SequentiallyConsistent);                                \
-		atomicRMW->setVolatile(true);                                                     \
-		push(memToValue(atomicRMW, asLLVMType(ValueType::valueTypeId)));                  \
+#define EMIT_ATOMIC_RMW(                                                                    \
+	valueTypeId, name, rmwOpId, llvmMemoryType, alignmentLog2, memToValue, valueToMem)      \
+	void EmitFunctionContext::valueTypeId##_##name(AtomicLoadOrStoreImm<alignmentLog2> imm) \
+	{                                                                                       \
+		auto value     = valueToMem(pop(), llvmMemoryType);                                 \
+		auto byteIndex = pop();                                                             \
+		trapIfMisalignedAtomic(byteIndex, alignmentLog2);                                   \
+		auto pointer   = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);   \
+		auto atomicRMW = irBuilder.CreateAtomicRMW(                                         \
+			llvm::AtomicRMWInst::BinOp::rmwOpId,                                            \
+			pointer,                                                                        \
+			value,                                                                          \
+			llvm::AtomicOrdering::SequentiallyConsistent);                                  \
+		atomicRMW->setVolatile(true);                                                       \
+		push(memToValue(atomicRMW, asLLVMType(ValueType::valueTypeId)));                    \
 	}
 
 EMIT_ATOMIC_RMW(i32, atomic_rmw8_u_xchg, Xchg, llvmI8Type, 0, zext, trunc)

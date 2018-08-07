@@ -414,44 +414,41 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 	return result;
 }
 
-namespace WAST
+void WAST::parseTestCommands(
+	const char* string,
+	Uptr stringLength,
+	const IR::FeatureSpec& featureSpec,
+	std::vector<std::unique_ptr<Command>>& outTestCommands,
+	std::vector<Error>& outErrors)
 {
-	void parseTestCommands(
-		const char* string,
-		Uptr stringLength,
-		const IR::FeatureSpec& featureSpec,
-		std::vector<std::unique_ptr<Command>>& outTestCommands,
-		std::vector<Error>& outErrors)
+	// Lex the input string.
+	LineInfo* lineInfo = nullptr;
+	Token* tokens      = lex(string, stringLength, lineInfo);
+	ParseState parseState(string, lineInfo);
+	CursorState cursor(tokens, &parseState);
+
+	try
 	{
-		// Lex the input string.
-		LineInfo* lineInfo = nullptr;
-		Token* tokens      = lex(string, stringLength, lineInfo);
-		ParseState parseState(string, lineInfo);
-		CursorState cursor(tokens, &parseState);
-
-		try
-		{
-			// (command)*<eof>
-			while(cursor.nextToken->type == t_leftParenthesis)
-			{ outTestCommands.emplace_back(parseCommand(&cursor, featureSpec)); };
-			require(&cursor, t_eof);
-		}
-		catch(RecoverParseException)
-		{
-		}
-		catch(FatalParseException)
-		{
-		}
-
-		// Resolve line information for any errors, and write them to outErrors.
-		for(auto& unresolvedError : parseState.unresolvedErrors)
-		{
-			TextFileLocus locus = calcLocusFromOffset(string, lineInfo, unresolvedError.charOffset);
-			outErrors.push_back({std::move(locus), std::move(unresolvedError.message)});
-		}
-
-		// Free the tokens and line info.
-		freeTokens(tokens);
-		freeLineInfo(lineInfo);
+		// (command)*<eof>
+		while(cursor.nextToken->type == t_leftParenthesis)
+		{ outTestCommands.emplace_back(parseCommand(&cursor, featureSpec)); };
+		require(&cursor, t_eof);
 	}
+	catch(RecoverParseException)
+	{
+	}
+	catch(FatalParseException)
+	{
+	}
+
+	// Resolve line information for any errors, and write them to outErrors.
+	for(auto& unresolvedError : parseState.unresolvedErrors)
+	{
+		TextFileLocus locus = calcLocusFromOffset(string, lineInfo, unresolvedError.charOffset);
+		outErrors.push_back({std::move(locus), std::move(unresolvedError.message)});
+	}
+
+	// Free the tokens and line info.
+	freeTokens(tokens);
+	freeLineInfo(lineInfo);
 }

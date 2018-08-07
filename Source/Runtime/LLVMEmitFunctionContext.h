@@ -3,6 +3,12 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJIT.h"
 
+#include "LLVMPreInclude.h"
+
+#include "llvm/IR/Intrinsics.h"
+
+#include "LLVMPostInclude.h"
+
 namespace LLVMJIT
 {
 	struct EmitFunctionContext : EmitContext

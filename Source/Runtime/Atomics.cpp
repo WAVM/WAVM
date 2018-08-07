@@ -12,6 +12,8 @@
 #include <memory>
 #include <vector>
 
+using namespace Runtime;
+
 // Holds a list of threads (in the form of events that will wake them) that
 // are waiting on a specific address.
 struct WaitList
@@ -194,82 +196,79 @@ static U32 wakeAddress(Uptr address, U32 numToWake)
 	return U32(actualNumToWake);
 }
 
-namespace Runtime
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
+	wavmIntrinsics,
+	"misalignedAtomicTrap",
+	void,
+	misalignedAtomicTrap,
+	I32 address)
 {
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
-		wavmIntrinsics,
-		"misalignedAtomicTrap",
-		void,
-		misalignedAtomicTrap,
-		I32 address)
-	{
-		throwException(Exception::misalignedAtomicMemoryAccessType);
-	}
+	throwException(Exception::misalignedAtomicMemoryAccessType);
+}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
-		wavmIntrinsics,
-		"atomic_wake",
-		I32,
-		atomic_wake,
-		I32 addressOffset,
-		I32 numToWake,
-		I64 memoryId)
-	{
-		MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
+	wavmIntrinsics,
+	"atomic_wake",
+	I32,
+	atomic_wake,
+	I32 addressOffset,
+	I32 numToWake,
+	I64 memoryId)
+{
+	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-		// Validate that the address is within the memory's bounds and 4-byte aligned.
-		if(U32(addressOffset) > memoryInstance->endOffset)
-		{ throwException(Exception::accessViolationType); }
-		if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
+	// Validate that the address is within the memory's bounds and 4-byte aligned.
+	if(U32(addressOffset) > memoryInstance->endOffset)
+	{ throwException(Exception::accessViolationType); }
+	if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
-		const Uptr address = reinterpret_cast<Uptr>(&memoryRef<U8>(memoryInstance, addressOffset));
-		return wakeAddress(address, numToWake);
-	}
+	const Uptr address = reinterpret_cast<Uptr>(&memoryRef<U8>(memoryInstance, addressOffset));
+	return wakeAddress(address, numToWake);
+}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
-		wavmIntrinsics,
-		"atomic_wait_i32",
-		I32,
-		atomic_wait_I32,
-		I32 addressOffset,
-		I32 expectedValue,
-		F64 timeout,
-		I64 memoryId)
-	{
-		MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
+	wavmIntrinsics,
+	"atomic_wait_i32",
+	I32,
+	atomic_wait_I32,
+	I32 addressOffset,
+	I32 expectedValue,
+	F64 timeout,
+	I64 memoryId)
+{
+	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-		// Validate that the address is within the memory's bounds and naturally aligned.
-		if(U32(addressOffset) > memoryInstance->endOffset)
-		{ throwException(Exception::accessViolationType); }
-		if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
+	// Validate that the address is within the memory's bounds and naturally aligned.
+	if(U32(addressOffset) > memoryInstance->endOffset)
+	{ throwException(Exception::accessViolationType); }
+	if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
-		I32* valuePointer = &memoryRef<I32>(memoryInstance, addressOffset);
-		return waitOnAddress(valuePointer, expectedValue, timeout);
-	}
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
-		wavmIntrinsics,
-		"atomic_wait_i64",
-		I32,
-		atomic_wait_i64,
-		I32 addressOffset,
-		I64 expectedValue,
-		F64 timeout,
-		I64 memoryId)
-	{
-		MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+	I32* valuePointer = &memoryRef<I32>(memoryInstance, addressOffset);
+	return waitOnAddress(valuePointer, expectedValue, timeout);
+}
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
+	wavmIntrinsics,
+	"atomic_wait_i64",
+	I32,
+	atomic_wait_i64,
+	I32 addressOffset,
+	I64 expectedValue,
+	F64 timeout,
+	I64 memoryId)
+{
+	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-		// Validate that the address is within the memory's bounds and naturally aligned.
-		if(U32(addressOffset) > memoryInstance->endOffset)
-		{ throwException(Exception::accessViolationType); }
-		if(addressOffset & 7) { throwException(Exception::misalignedAtomicMemoryAccessType); }
+	// Validate that the address is within the memory's bounds and naturally aligned.
+	if(U32(addressOffset) > memoryInstance->endOffset)
+	{ throwException(Exception::accessViolationType); }
+	if(addressOffset & 7) { throwException(Exception::misalignedAtomicMemoryAccessType); }
 
-		I64* valuePointer = &memoryRef<I64>(memoryInstance, addressOffset);
-		return waitOnAddress(valuePointer, expectedValue, timeout);
-	}
+	I64* valuePointer = &memoryRef<I64>(memoryInstance, addressOffset);
+	return waitOnAddress(valuePointer, expectedValue, timeout);
+}
 
-	void dummyReferenceAtomics()
-	{
-		// This is just here make sure the static initializers for the intrinsic function
-		// registrations aren't removed as dead code.
-	}
+void Runtime::dummyReferenceAtomics()
+{
+	// This is just here make sure the static initializers for the intrinsic function registrations
+	// aren't removed as dead code.
 }

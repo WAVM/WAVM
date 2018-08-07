@@ -5,13 +5,14 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJIT.h"
 
+using namespace LLVMJIT;
 using namespace IR;
 
-#define EMIT_UNARY_OP(name, emitCode)              \
-	void LLVMJIT::EmitFunctionContext::name(NoImm) \
-	{                                              \
-		auto operand = pop();                      \
-		push(emitCode);                            \
+#define EMIT_UNARY_OP(name, emitCode)     \
+	void EmitFunctionContext::name(NoImm) \
+	{                                     \
+		auto operand = pop();             \
+		push(emitCode);                   \
 	}
 
 EMIT_UNARY_OP(i32_wrap_i64, trunc(operand, llvmI32Type))
@@ -34,7 +35,7 @@ EMIT_UNARY_OP(f64_reinterpret_i64, irBuilder.CreateBitCast(operand, llvmF64Type)
 EMIT_UNARY_OP(i32_reinterpret_f32, irBuilder.CreateBitCast(operand, llvmI32Type))
 EMIT_UNARY_OP(i64_reinterpret_f64, irBuilder.CreateBitCast(operand, llvmI64Type))
 
-llvm::Value* LLVMJIT::EmitFunctionContext::emitF64Promote(llvm::Value* operand)
+llvm::Value* EmitFunctionContext::emitF64Promote(llvm::Value* operand)
 {
 	// Emit an nop experimental.constrained.fadd intrinsic on the result of the promote to make sure
 	// the promote can't be optimized away.
@@ -49,7 +50,7 @@ llvm::Value* LLVMJIT::EmitFunctionContext::emitF64Promote(llvm::Value* operand)
 }
 
 template<typename Float>
-llvm::Value* LLVMJIT::EmitFunctionContext::emitTruncFloatToInt(
+llvm::Value* EmitFunctionContext::emitTruncFloatToInt(
 	ValueType destType,
 	bool isSigned,
 	Float minBounds,
@@ -118,7 +119,7 @@ EMIT_UNARY_OP(
 	emitTruncFloatToInt<F64>(ValueType::i64, false, -1.0, 18446744073709551616.0, operand))
 
 template<typename Int, typename Float>
-llvm::Value* LLVMJIT::EmitFunctionContext::emitTruncFloatToIntSat(
+llvm::Value* EmitFunctionContext::emitTruncFloatToIntSat(
 	llvm::Type* destType,
 	bool isSigned,
 	Float minFloatBounds,
@@ -198,7 +199,7 @@ EMIT_UNARY_OP(
 	emitTruncFloatToIntSat(llvmI64Type, false, 0.0, F64(UINT64_MAX), U64(0), UINT64_MAX, operand))
 
 template<typename Int, typename Float, Uptr numElements>
-llvm::Value* LLVMJIT::EmitFunctionContext::emitTruncVectorFloatToIntSat(
+llvm::Value* EmitFunctionContext::emitTruncVectorFloatToIntSat(
 	llvm::Type* destType,
 	bool isSigned,
 	Float minFloatBounds,
@@ -248,11 +249,11 @@ EMIT_UNARY_OP(i64_extend8_s, sext(trunc(operand, llvmI8Type), llvmI64Type))
 EMIT_UNARY_OP(i64_extend16_s, sext(trunc(operand, llvmI16Type), llvmI64Type))
 EMIT_UNARY_OP(i64_extend32_s, sext(trunc(operand, llvmI32Type), llvmI64Type))
 
-#define EMIT_SIMD_SPLAT(vectorType, coerceScalar, numLanes)          \
-	void LLVMJIT::EmitFunctionContext::vectorType##_splat(IR::NoImm) \
-	{                                                                \
-		auto scalar = pop();                                         \
-		push(irBuilder.CreateVectorSplat(numLanes, coerceScalar));   \
+#define EMIT_SIMD_SPLAT(vectorType, coerceScalar, numLanes)        \
+	void EmitFunctionContext::vectorType##_splat(IR::NoImm)        \
+	{                                                              \
+		auto scalar = pop();                                       \
+		push(irBuilder.CreateVectorSplat(numLanes, coerceScalar)); \
 	}
 EMIT_SIMD_SPLAT(i8x16, trunc(scalar, llvmI8Type), 16)
 EMIT_SIMD_SPLAT(i16x8, trunc(scalar, llvmI16Type), 8)

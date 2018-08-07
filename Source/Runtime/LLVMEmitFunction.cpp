@@ -6,7 +6,13 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJIT.h"
 #include "Logging/Logging.h"
+
+#include "LLVMPreInclude.h"
+
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/raw_ostream.h"
+
+#include "LLVMPostInclude.h"
 
 #define ENABLE_LOGGING 0
 #define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
@@ -15,7 +21,7 @@ using namespace LLVMJIT;
 using namespace IR;
 
 // Creates a PHI node for the argument of branches to a basic block.
-PHIVector LLVMJIT::EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::TypeTuple type)
+PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::TypeTuple type)
 {
 	auto originalBlock = irBuilder.GetInsertBlock();
 	irBuilder.SetInsertPoint(basicBlock);
@@ -32,7 +38,7 @@ PHIVector LLVMJIT::EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock,
 // Bitcasts a LLVM value to a canonical type for the corresponding WebAssembly type.
 // This is currently just used to map all the various vector types to a canonical type for the
 // vector width.
-llvm::Value* LLVMJIT::EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
+llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 {
 	return value->getType()->isVectorTy() || value->getType()->isX86_MMXTy()
 		? irBuilder.CreateBitCast(value, llvmI64x2Type)
@@ -40,7 +46,7 @@ llvm::Value* LLVMJIT::EmitFunctionContext::coerceToCanonicalType(llvm::Value* va
 }
 
 // Debug logging.
-void LLVMJIT::EmitFunctionContext::logOperator(const std::string& operatorDescription)
+void EmitFunctionContext::logOperator(const std::string& operatorDescription)
 {
 	if(ENABLE_LOGGING)
 	{
@@ -85,7 +91,7 @@ void LLVMJIT::EmitFunctionContext::logOperator(const std::string& operatorDescri
 }
 
 // Bounds checks and converts a memory operation I32 address operand to a LLVM pointer.
-llvm::Value* LLVMJIT::EmitFunctionContext::coerceByteIndexToPointer(
+llvm::Value* EmitFunctionContext::coerceByteIndexToPointer(
 	llvm::Value* byteIndex,
 	U32 offset,
 	llvm::Type* memoryType)
@@ -111,7 +117,7 @@ llvm::Value* LLVMJIT::EmitFunctionContext::coerceByteIndexToPointer(
 }
 
 // Traps a divide-by-zero
-void LLVMJIT::EmitFunctionContext::trapDivideByZero(ValueType type, llvm::Value* divisor)
+void EmitFunctionContext::trapDivideByZero(ValueType type, llvm::Value* divisor)
 {
 	emitConditionalTrapIntrinsic(
 		irBuilder.CreateICmpEQ(divisor, typedZeroConstants[(Uptr)type]),
@@ -121,7 +127,7 @@ void LLVMJIT::EmitFunctionContext::trapDivideByZero(ValueType type, llvm::Value*
 }
 
 // Traps on (x / 0) or (INT_MIN / -1).
-void LLVMJIT::EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(
+void EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(
 	ValueType type,
 	llvm::Value* left,
 	llvm::Value* right)
@@ -142,7 +148,7 @@ void LLVMJIT::EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(
 }
 
 // Emits a call to a WAVM intrinsic function.
-ValueVector LLVMJIT::EmitFunctionContext::emitRuntimeIntrinsic(
+ValueVector EmitFunctionContext::emitRuntimeIntrinsic(
 	const char* intrinsicName,
 	FunctionType intrinsicType,
 	const std::initializer_list<llvm::Value*>& args)
@@ -166,7 +172,7 @@ ValueVector LLVMJIT::EmitFunctionContext::emitRuntimeIntrinsic(
 }
 
 // A helper function to emit a conditional call to a non-returning intrinsic function.
-void LLVMJIT::EmitFunctionContext::emitConditionalTrapIntrinsic(
+void EmitFunctionContext::emitConditionalTrapIntrinsic(
 	llvm::Value* booleanCondition,
 	const char* intrinsicName,
 	FunctionType intrinsicType,
@@ -191,7 +197,7 @@ void LLVMJIT::EmitFunctionContext::emitConditionalTrapIntrinsic(
 // Control structure operators
 //
 
-void LLVMJIT::EmitFunctionContext::pushControlStack(
+void EmitFunctionContext::pushControlStack(
 	ControlContext::Type type,
 	TypeTuple resultTypes,
 	llvm::BasicBlock* endBlock,
@@ -213,7 +219,7 @@ void LLVMJIT::EmitFunctionContext::pushControlStack(
 							true});
 }
 
-void LLVMJIT::EmitFunctionContext::pushBranchTarget(
+void EmitFunctionContext::pushBranchTarget(
 	TypeTuple branchArgumentType,
 	llvm::BasicBlock* branchTargetBlock,
 	const PHIVector& branchTargetPHIs)
@@ -221,7 +227,7 @@ void LLVMJIT::EmitFunctionContext::pushBranchTarget(
 	branchTargetStack.push_back({branchArgumentType, branchTargetBlock, branchTargetPHIs});
 }
 
-void LLVMJIT::EmitFunctionContext::branchToEndOfControlContext()
+void EmitFunctionContext::branchToEndOfControlContext()
 {
 	ControlContext& currentContext = controlStack.back();
 
@@ -243,7 +249,7 @@ void LLVMJIT::EmitFunctionContext::branchToEndOfControlContext()
 	wavmAssert(stack.size() == currentContext.outerStackSize);
 }
 
-void LLVMJIT::EmitFunctionContext::enterUnreachable()
+void EmitFunctionContext::enterUnreachable()
 {
 	// Unwind the operand stack to the outer control context.
 	wavmAssert(controlStack.back().outerStackSize <= stack.size());
@@ -307,7 +313,7 @@ private:
 	Uptr unreachableControlDepth;
 };
 
-void LLVMJIT::EmitFunctionContext::emit()
+void EmitFunctionContext::emit()
 {
 	// Create debug info for the function.
 	llvm::SmallVector<llvm::Metadata*, 10> diFunctionParameterTypes;

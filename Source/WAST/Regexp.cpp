@@ -356,16 +356,13 @@ static void createNFA(
 	};
 }
 
-namespace Regexp
+void Regexp::addToNFA(
+	const char* regexpString,
+	NFA::Builder* nfaBuilder,
+	NFA::StateIndex initialState,
+	NFA::StateIndex finalState)
 {
-	void addToNFA(
-		const char* regexpString,
-		NFA::Builder* nfaBuilder,
-		NFA::StateIndex initialState,
-		NFA::StateIndex finalState)
-	{
-		Node* rootNode = parse(regexpString);
-		createNFA(nfaBuilder, rootNode, initialState, finalState);
-		delete rootNode;
-	}
-}; // namespace Regexp
+	Node* rootNode = parse(regexpString);
+	createNFA(nfaBuilder, rootNode, initialState, finalState);
+	delete rootNode;
+}

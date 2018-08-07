@@ -19,7 +19,5 @@ namespace Runtime
 
 namespace ThreadTest
 {
-	using namespace Runtime;
-
-	THREADTEST_API ModuleInstance* instantiate(Compartment* compartment);
+	THREADTEST_API Runtime::ModuleInstance* instantiate(Runtime::Compartment* compartment);
 }

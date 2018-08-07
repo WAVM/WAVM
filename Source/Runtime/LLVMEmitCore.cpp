@@ -7,7 +7,7 @@
 using namespace LLVMJIT;
 using namespace IR;
 
-void LLVMJIT::EmitFunctionContext::block(ControlStructureImm imm)
+void EmitFunctionContext::block(ControlStructureImm imm)
 {
 	FunctionType blockType = resolveBlockType(module, imm.type);
 
@@ -29,7 +29,7 @@ void LLVMJIT::EmitFunctionContext::block(ControlStructureImm imm)
 	// Repush the block arguments.
 	pushMultiple(blockArgs, blockType.params().size());
 }
-void LLVMJIT::EmitFunctionContext::loop(ControlStructureImm imm)
+void EmitFunctionContext::loop(ControlStructureImm imm)
 {
 	FunctionType blockType           = resolveBlockType(module, imm.type);
 	llvm::BasicBlock* loopEntryBlock = irBuilder.GetInsertBlock();
@@ -59,7 +59,7 @@ void LLVMJIT::EmitFunctionContext::loop(ControlStructureImm imm)
 	// Push the loop argument PHIs on the stack.
 	pushMultiple((llvm::Value**)parameterPHIs.data(), parameterPHIs.size());
 }
-void LLVMJIT::EmitFunctionContext::if_(ControlStructureImm imm)
+void EmitFunctionContext::if_(ControlStructureImm imm)
 {
 	FunctionType blockType = resolveBlockType(module, imm.type);
 
@@ -93,7 +93,7 @@ void LLVMJIT::EmitFunctionContext::if_(ControlStructureImm imm)
 	// Repush the if arguments on the stack.
 	pushMultiple(args.data(), args.size());
 }
-void LLVMJIT::EmitFunctionContext::else_(NoImm imm)
+void EmitFunctionContext::else_(NoImm imm)
 {
 	wavmAssert(controlStack.size());
 	ControlContext& currentContext = controlStack.back();
@@ -114,7 +114,7 @@ void LLVMJIT::EmitFunctionContext::else_(NoImm imm)
 	currentContext.isReachable = true;
 	currentContext.elseBlock   = nullptr;
 }
-void LLVMJIT::EmitFunctionContext::end(NoImm)
+void EmitFunctionContext::end(NoImm)
 {
 	wavmAssert(controlStack.size());
 	ControlContext& currentContext = controlStack.back();
@@ -175,7 +175,7 @@ void LLVMJIT::EmitFunctionContext::end(NoImm)
 	controlStack.pop_back();
 }
 
-void LLVMJIT::EmitFunctionContext::br_if(BranchImm imm)
+void EmitFunctionContext::br_if(BranchImm imm)
 {
 	// Pop the condition from operand stack.
 	auto condition = pop();
@@ -201,7 +201,7 @@ void LLVMJIT::EmitFunctionContext::br_if(BranchImm imm)
 	irBuilder.SetInsertPoint(falseBlock);
 }
 
-void LLVMJIT::EmitFunctionContext::br(BranchImm imm)
+void EmitFunctionContext::br(BranchImm imm)
 {
 	BranchTarget& target = getBranchTargetByDepth(imm.targetDepth);
 	wavmAssert(target.params.size() == target.phis.size());
@@ -220,7 +220,7 @@ void LLVMJIT::EmitFunctionContext::br(BranchImm imm)
 
 	enterUnreachable();
 }
-void LLVMJIT::EmitFunctionContext::br_table(BranchTableImm imm)
+void EmitFunctionContext::br_table(BranchTableImm imm)
 {
 	// Pop the table index from the operand stack.
 	auto index = pop();
@@ -265,7 +265,7 @@ void LLVMJIT::EmitFunctionContext::br_table(BranchTableImm imm)
 
 	enterUnreachable();
 }
-void LLVMJIT::EmitFunctionContext::return_(NoImm)
+void EmitFunctionContext::return_(NoImm)
 {
 	// Pop the branch target operands from the stack and add them to the target's incoming value
 	// PHIs.
@@ -282,7 +282,7 @@ void LLVMJIT::EmitFunctionContext::return_(NoImm)
 	enterUnreachable();
 }
 
-void LLVMJIT::EmitFunctionContext::unreachable(NoImm)
+void EmitFunctionContext::unreachable(NoImm)
 {
 	// Call an intrinsic that causes a trap, and insert the LLVM unreachable terminator.
 	emitRuntimeIntrinsic("unreachableTrap", FunctionType(), {});
@@ -295,7 +295,7 @@ void LLVMJIT::EmitFunctionContext::unreachable(NoImm)
 // Call operators
 //
 
-void LLVMJIT::EmitFunctionContext::call(CallImm imm)
+void EmitFunctionContext::call(CallImm imm)
 {
 	// Map the callee function index to either an imported function pointer or a function in this
 	// module.
@@ -338,7 +338,7 @@ void LLVMJIT::EmitFunctionContext::call(CallImm imm)
 	// Push the results on the operand stack.
 	for(llvm::Value* result : results) { push(result); }
 }
-void LLVMJIT::EmitFunctionContext::call_indirect(CallIndirectImm imm)
+void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 {
 	wavmAssert(imm.type.index < module.types.size());
 
@@ -389,9 +389,9 @@ void LLVMJIT::EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	for(llvm::Value* result : results) { push(result); }
 }
 
-void LLVMJIT::EmitFunctionContext::nop(IR::NoImm) {}
-void LLVMJIT::EmitFunctionContext::drop(IR::NoImm) { stack.pop_back(); }
-void LLVMJIT::EmitFunctionContext::select(IR::NoImm)
+void EmitFunctionContext::nop(IR::NoImm) {}
+void EmitFunctionContext::drop(IR::NoImm) { stack.pop_back(); }
+void EmitFunctionContext::select(IR::NoImm)
 {
 	auto condition  = pop();
 	auto falseValue = pop();

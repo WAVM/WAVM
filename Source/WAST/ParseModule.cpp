@@ -817,121 +817,115 @@ template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char*
 		maxProbeCount);
 }
 
-namespace WAST
+void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 {
-	void parseModuleBody(CursorState* cursor, IR::Module& outModule)
+	try
 	{
-		try
+		const Token* firstToken = cursor->nextToken;
+		ModuleState moduleState(cursor->parseState, outModule);
+		cursor->moduleState = &moduleState;
+
+		// Parse the module's declarations.
+		while(cursor->nextToken->type != t_rightParenthesis) { parseDeclaration(cursor); };
+
+		// Process the callbacks requested after all type declarations have been parsed.
+		if(!cursor->parseState->unresolvedErrors.size())
 		{
-			const Token* firstToken = cursor->nextToken;
-			ModuleState moduleState(cursor->parseState, outModule);
-			cursor->moduleState = &moduleState;
+			for(const auto& callback : cursor->moduleState->postTypeCallbacks)
+			{ callback(&moduleState); }
+		}
 
-			// Parse the module's declarations.
-			while(cursor->nextToken->type != t_rightParenthesis) { parseDeclaration(cursor); };
+		// Process the callbacks requested after all declarations have been parsed.
+		if(!cursor->parseState->unresolvedErrors.size())
+		{
+			for(const auto& callback : cursor->moduleState->postDeclarationCallbacks)
+			{ callback(&moduleState); }
+		}
 
-			// Process the callbacks requested after all type declarations have been parsed.
-			if(!cursor->parseState->unresolvedErrors.size())
+		// Validate the module's definitions (excluding function code, which is validated as it is
+		// parsed).
+		if(!cursor->parseState->unresolvedErrors.size())
+		{
+			try
 			{
-				for(const auto& callback : cursor->moduleState->postTypeCallbacks)
-				{ callback(&moduleState); }
+				IR::validateDefinitions(outModule);
 			}
-
-			// Process the callbacks requested after all declarations have been parsed.
-			if(!cursor->parseState->unresolvedErrors.size())
+			catch(ValidationException validationException)
 			{
-				for(const auto& callback : cursor->moduleState->postDeclarationCallbacks)
-				{ callback(&moduleState); }
-			}
-
-			// Validate the module's definitions (excluding function code, which is validated as it
-			// is parsed).
-			if(!cursor->parseState->unresolvedErrors.size())
-			{
-				try
-				{
-					IR::validateDefinitions(outModule);
-				}
-				catch(ValidationException validationException)
-				{
-					parseErrorf(
-						cursor->parseState,
-						firstToken,
-						"validation exception: %s",
-						validationException.message.c_str());
-				}
-			}
-
-			// Set the module's disassembly names.
-			wavmAssert(outModule.functions.size() == moduleState.disassemblyNames.functions.size());
-			wavmAssert(outModule.tables.size() == moduleState.disassemblyNames.tables.size());
-			wavmAssert(outModule.memories.size() == moduleState.disassemblyNames.memories.size());
-			wavmAssert(outModule.globals.size() == moduleState.disassemblyNames.globals.size());
-			IR::setDisassemblyNames(outModule, moduleState.disassemblyNames);
-
-			// If metrics logging is enabled, log some statistics about the module's name maps.
-			if(Log::isCategoryEnabled(Log::Category::metrics))
-			{
-				dumpHashMapSpaceAnalysis(
-					moduleState.functionNameToIndexMap, "functionNameToIndexMap");
-				dumpHashMapSpaceAnalysis(moduleState.globalNameToIndexMap, "globalNameToIndexMap");
-				dumpHashMapSpaceAnalysis(
-					moduleState.functionTypeToIndexMap, "functionTypeToIndexMap");
-				dumpHashMapSpaceAnalysis(moduleState.typeNameToIndexMap, "typeNameToIndexMap");
+				parseErrorf(
+					cursor->parseState,
+					firstToken,
+					"validation exception: %s",
+					validationException.message.c_str());
 			}
 		}
-		catch(RecoverParseException)
+
+		// Set the module's disassembly names.
+		wavmAssert(outModule.functions.size() == moduleState.disassemblyNames.functions.size());
+		wavmAssert(outModule.tables.size() == moduleState.disassemblyNames.tables.size());
+		wavmAssert(outModule.memories.size() == moduleState.disassemblyNames.memories.size());
+		wavmAssert(outModule.globals.size() == moduleState.disassemblyNames.globals.size());
+		IR::setDisassemblyNames(outModule, moduleState.disassemblyNames);
+
+		// If metrics logging is enabled, log some statistics about the module's name maps.
+		if(Log::isCategoryEnabled(Log::Category::metrics))
 		{
-			cursor->moduleState = nullptr;
-			throw RecoverParseException();
+			dumpHashMapSpaceAnalysis(moduleState.functionNameToIndexMap, "functionNameToIndexMap");
+			dumpHashMapSpaceAnalysis(moduleState.globalNameToIndexMap, "globalNameToIndexMap");
+			dumpHashMapSpaceAnalysis(moduleState.functionTypeToIndexMap, "functionTypeToIndexMap");
+			dumpHashMapSpaceAnalysis(moduleState.typeNameToIndexMap, "typeNameToIndexMap");
 		}
+	}
+	catch(RecoverParseException)
+	{
 		cursor->moduleState = nullptr;
+		throw RecoverParseException();
 	}
+	cursor->moduleState = nullptr;
+}
 
-	bool parseModule(
-		const char* string,
-		Uptr stringLength,
-		IR::Module& outModule,
-		std::vector<Error>& outErrors)
+bool WAST::parseModule(
+	const char* string,
+	Uptr stringLength,
+	IR::Module& outModule,
+	std::vector<Error>& outErrors)
+{
+	Timing::Timer timer;
+
+	// Lex the string.
+	LineInfo* lineInfo = nullptr;
+	Token* tokens      = lex(string, stringLength, lineInfo);
+	ParseState parseState(string, lineInfo);
+	CursorState cursor(tokens, &parseState);
+
+	try
 	{
-		Timing::Timer timer;
-
-		// Lex the string.
-		LineInfo* lineInfo = nullptr;
-		Token* tokens      = lex(string, stringLength, lineInfo);
-		ParseState parseState(string, lineInfo);
-		CursorState cursor(tokens, &parseState);
-
-		try
-		{
-			// Parse (module ...)<eof>
-			parseParenthesized(&cursor, [&] {
-				require(&cursor, t_module);
-				parseModuleBody(&cursor, outModule);
-			});
-			require(&cursor, t_eof);
-		}
-		catch(RecoverParseException)
-		{
-		}
-		catch(FatalParseException)
-		{
-		}
-
-		// Resolve line information for any errors, and write them to outErrors.
-		for(const auto& unresolvedError : parseState.unresolvedErrors)
-		{
-			TextFileLocus locus = calcLocusFromOffset(string, lineInfo, unresolvedError.charOffset);
-			outErrors.push_back({std::move(locus), std::move(unresolvedError.message)});
-		}
-
-		// Free the tokens and line info.
-		freeTokens(tokens);
-		freeLineInfo(lineInfo);
-
-		Timing::logRatePerSecond(
-			"lexed and parsed WAST", timer, stringLength / 1024.0 / 1024.0, "MB");
-
-		return outErrors.size() == 0;
+		// Parse (module ...)<eof>
+		parseParenthesized(&cursor, [&] {
+			require(&cursor, t_module);
+			parseModuleBody(&cursor, outModule);
+		});
+		require(&cursor, t_eof);
 	}
+	catch(RecoverParseException)
+	{
+	}
+	catch(FatalParseException)
+	{
+	}
+
+	// Resolve line information for any errors, and write them to outErrors.
+	for(const auto& unresolvedError : parseState.unresolvedErrors)
+	{
+		TextFileLocus locus = calcLocusFromOffset(string, lineInfo, unresolvedError.charOffset);
+		outErrors.push_back({std::move(locus), std::move(unresolvedError.message)});
+	}
+
+	// Free the tokens and line info.
+	freeTokens(tokens);
+	freeLineInfo(lineInfo);
+
+	Timing::logRatePerSecond("lexed and parsed WAST", timer, stringLength / 1024.0 / 1024.0, "MB");
+
+	return outErrors.size() == 0;
 }

@@ -4,23 +4,26 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJIT.h"
 
+using namespace LLVMJIT;
+using namespace IR;
+
 //
 // Local variables
 //
 
-void LLVMJIT::EmitFunctionContext::get_local(IR::GetOrSetVariableImm<false> imm)
+void EmitFunctionContext::get_local(GetOrSetVariableImm<false> imm)
 {
 	wavmAssert(imm.variableIndex < localPointers.size());
 	push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
 }
-void LLVMJIT::EmitFunctionContext::set_local(IR::GetOrSetVariableImm<false> imm)
+void EmitFunctionContext::set_local(GetOrSetVariableImm<false> imm)
 {
 	wavmAssert(imm.variableIndex < localPointers.size());
 	auto value = irBuilder.CreateBitCast(
 		pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
 	irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
 }
-void LLVMJIT::EmitFunctionContext::tee_local(IR::GetOrSetVariableImm<false> imm)
+void EmitFunctionContext::tee_local(GetOrSetVariableImm<false> imm)
 {
 	wavmAssert(imm.variableIndex < localPointers.size());
 	auto value = irBuilder.CreateBitCast(
@@ -32,7 +35,7 @@ void LLVMJIT::EmitFunctionContext::tee_local(IR::GetOrSetVariableImm<false> imm)
 // Global variables
 //
 
-void LLVMJIT::EmitFunctionContext::get_global(IR::GetOrSetVariableImm<true> imm)
+void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 {
 	wavmAssert(imm.variableIndex < moduleContext.moduleInstance->globals.size());
 	GlobalInstance* global    = moduleContext.moduleInstance->globals[imm.variableIndex];
@@ -71,7 +74,7 @@ void LLVMJIT::EmitFunctionContext::get_global(IR::GetOrSetVariableImm<true> imm)
 		}
 	}
 }
-void LLVMJIT::EmitFunctionContext::set_global(IR::GetOrSetVariableImm<true> imm)
+void EmitFunctionContext::set_global(GetOrSetVariableImm<true> imm)
 {
 	wavmAssert(imm.variableIndex < moduleContext.moduleInstance->globals.size());
 	GlobalInstance* global = moduleContext.moduleInstance->globals[imm.variableIndex];

@@ -273,7 +273,7 @@ template<typename Float> bool isCanonicalOrArithmeticNaN(Float value, bool requi
 			|| components.bits.significand == Floats::FloatComponents<Float>::canonicalSignificand);
 }
 
-void processCommand(TestScriptState& state, const Command* command)
+static void processCommand(TestScriptState& state, const Command* command)
 {
 	catchRuntimeExceptions(
 		[&] {

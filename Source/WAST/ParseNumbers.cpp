@@ -322,127 +322,124 @@ template<typename Float> bool tryParseFloat(CursorState* cursor, Float& outFloat
 	return true;
 }
 
-namespace WAST
+bool WAST::tryParseI32(CursorState* cursor, U32& outI32)
 {
-	bool tryParseI32(CursorState* cursor, U32& outI32)
-	{
-		return tryParseInt<U32>(cursor, outI32, INT32_MIN, UINT32_MAX);
-	}
+	return tryParseInt<U32>(cursor, outI32, INT32_MIN, UINT32_MAX);
+}
 
-	bool tryParseI64(CursorState* cursor, U64& outI64)
-	{
-		return tryParseInt<U64>(cursor, outI64, INT64_MIN, UINT64_MAX);
-	}
+bool WAST::tryParseI64(CursorState* cursor, U64& outI64)
+{
+	return tryParseInt<U64>(cursor, outI64, INT64_MIN, UINT64_MAX);
+}
 
-	U8 parseI8(CursorState* cursor)
+U8 WAST::parseI8(CursorState* cursor)
+{
+	U32 result;
+	if(!tryParseInt<U32>(cursor, result, INT8_MIN, UINT8_MAX))
 	{
-		U32 result;
-		if(!tryParseInt<U32>(cursor, result, INT8_MIN, UINT8_MAX))
-		{
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected i8 literal");
-			throw RecoverParseException();
-		}
-		return U8(result);
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected i8 literal");
+		throw RecoverParseException();
 	}
+	return U8(result);
+}
 
-	U16 parseI16(CursorState* cursor)
+U16 WAST::parseI16(CursorState* cursor)
+{
+	U32 result;
+	if(!tryParseInt<U32>(cursor, result, INT16_MIN, UINT8_MAX))
 	{
-		U32 result;
-		if(!tryParseInt<U32>(cursor, result, INT16_MIN, UINT8_MAX))
-		{
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected i16 literal");
-			throw RecoverParseException();
-		}
-		return U16(result);
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected i16 literal");
+		throw RecoverParseException();
 	}
+	return U16(result);
+}
 
-	U32 parseI32(CursorState* cursor)
+U32 WAST::parseI32(CursorState* cursor)
+{
+	U32 result;
+	if(!tryParseI32(cursor, result))
 	{
-		U32 result;
-		if(!tryParseI32(cursor, result))
-		{
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected i32 literal");
-			throw RecoverParseException();
-		}
-		return result;
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected i32 literal");
+		throw RecoverParseException();
 	}
+	return result;
+}
 
-	U64 parseI64(CursorState* cursor)
+U64 WAST::parseI64(CursorState* cursor)
+{
+	U64 result;
+	if(!tryParseI64(cursor, result))
 	{
-		U64 result;
-		if(!tryParseI64(cursor, result))
-		{
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected i64 literal");
-			throw RecoverParseException();
-		}
-		return result;
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected i64 literal");
+		throw RecoverParseException();
 	}
+	return result;
+}
 
-	F32 parseF32(CursorState* cursor)
+F32 WAST::parseF32(CursorState* cursor)
+{
+	F32 result;
+	if(!tryParseFloat(cursor, result))
 	{
-		F32 result;
-		if(!tryParseFloat(cursor, result))
-		{
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected f32 literal");
-			throw RecoverParseException();
-		}
-		return result;
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected f32 literal");
+		throw RecoverParseException();
 	}
+	return result;
+}
 
-	F64 parseF64(CursorState* cursor)
+F64 WAST::parseF64(CursorState* cursor)
+{
+	F64 result;
+	if(!tryParseFloat(cursor, result))
 	{
-		F64 result;
-		if(!tryParseFloat(cursor, result))
-		{
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected f64 literal");
-			throw RecoverParseException();
-		}
-		return result;
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected f64 literal");
+		throw RecoverParseException();
 	}
+	return result;
+}
 
-	V128 parseV128(CursorState* cursor)
+V128 WAST::parseV128(CursorState* cursor)
+{
+	V128 result;
+	switch(cursor->nextToken->type)
 	{
-		V128 result;
-		switch(cursor->nextToken->type)
-		{
-		case t_i8:
-			++cursor->nextToken;
-			for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
-			{ result.i8[laneIndex] = parseI8(cursor); }
-			break;
-		case t_i16:
-			++cursor->nextToken;
-			for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
-			{ result.i16[laneIndex] = parseI16(cursor); }
-			break;
-		case t_i32:
-			++cursor->nextToken;
-			for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
-			{ result.i32[laneIndex] = parseI32(cursor); }
-			break;
-		case t_i64:
-			++cursor->nextToken;
-			for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
-			{ result.i64[laneIndex] = parseI64(cursor); }
-			break;
-		case t_f32:
-			++cursor->nextToken;
-			for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
-			{ result.f32[laneIndex] = parseF32(cursor); }
-			break;
-		case t_f64:
-			++cursor->nextToken;
-			for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
-			{ result.f64[laneIndex] = parseF64(cursor); }
-			break;
-		default:
-			parseErrorf(
-				cursor->parseState,
-				cursor->nextToken,
-				"expected 'i8', 'i16', 'i32', 'i64', 'f32', or 'f64'");
-			throw RecoverParseException();
-		};
+	case t_i8:
+		++cursor->nextToken;
+		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
+		{ result.i8[laneIndex] = parseI8(cursor); }
+		break;
+	case t_i16:
+		++cursor->nextToken;
+		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
+		{ result.i16[laneIndex] = parseI16(cursor); }
+		break;
+	case t_i32:
+		++cursor->nextToken;
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{ result.i32[laneIndex] = parseI32(cursor); }
+		break;
+	case t_i64:
+		++cursor->nextToken;
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{ result.i64[laneIndex] = parseI64(cursor); }
+		break;
+	case t_f32:
+		++cursor->nextToken;
+		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
+		{ result.f32[laneIndex] = parseF32(cursor); }
+		break;
+	case t_f64:
+		++cursor->nextToken;
+		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
+		{ result.f64[laneIndex] = parseF64(cursor); }
+		break;
+	default:
+		parseErrorf(
+			cursor->parseState,
+			cursor->nextToken,
+			"expected 'i8', 'i16', 'i32', 'i64', 'f32', or 'f64'");
+		throw RecoverParseException();
+	};
 
-		return result;
-	}
+	return result;
 }

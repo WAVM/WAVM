@@ -7,14 +7,14 @@
 using namespace LLVMJIT;
 using namespace IR;
 
-void LLVMJIT::EmitFunctionContext::endTry()
+void EmitFunctionContext::endTry()
 {
 	wavmAssert(tryStack.size());
 	tryStack.pop_back();
 	catchStack.pop_back();
 }
 
-void LLVMJIT::EmitFunctionContext::endCatch()
+void EmitFunctionContext::endCatch()
 {
 	wavmAssert(catchStack.size());
 #ifndef _WIN64
@@ -35,7 +35,7 @@ void LLVMJIT::EmitFunctionContext::endCatch()
 	catchStack.pop_back();
 }
 
-llvm::BasicBlock* LLVMJIT::EmitFunctionContext::getInnermostUnwindToBlock()
+llvm::BasicBlock* EmitFunctionContext::getInnermostUnwindToBlock()
 {
 	if(tryStack.size()) { return tryStack.back().unwindToBlock; }
 	else
@@ -46,7 +46,7 @@ llvm::BasicBlock* LLVMJIT::EmitFunctionContext::getInnermostUnwindToBlock()
 
 #ifdef _WIN32
 
-void LLVMJIT::EmitFunctionContext::try_(ControlStructureImm imm)
+void EmitFunctionContext::try_(ControlStructureImm imm)
 {
 	FunctionType blockType = resolveBlockType(module, imm.type);
 
@@ -100,7 +100,7 @@ void LLVMJIT::EmitFunctionContext::try_(ControlStructureImm imm)
 }
 
 static llvm::Function* createSEHFilterFunction(
-	LLVMJIT::EmitFunctionContext& functionContext,
+	EmitFunctionContext& functionContext,
 	const Runtime::ExceptionTypeInstance* catchTypeInstance,
 	llvm::Value*& outExceptionDataAlloca)
 {
@@ -195,7 +195,7 @@ static llvm::Function* createSEHFilterFunction(
 	return filterFunction;
 }
 
-void LLVMJIT::EmitFunctionContext::catch_(CatchImm imm)
+void EmitFunctionContext::catch_(CatchImm imm)
 {
 	wavmAssert(controlStack.size());
 	wavmAssert(catchStack.size());
@@ -255,7 +255,7 @@ void LLVMJIT::EmitFunctionContext::catch_(CatchImm imm)
 	controlContext.type        = ControlContext::Type::catch_;
 	controlContext.isReachable = true;
 }
-void LLVMJIT::EmitFunctionContext::catch_all(NoImm)
+void EmitFunctionContext::catch_all(NoImm)
 {
 	wavmAssert(controlStack.size());
 	wavmAssert(catchStack.size());
@@ -296,7 +296,7 @@ void LLVMJIT::EmitFunctionContext::catch_all(NoImm)
 	controlContext.isReachable = true;
 }
 #else
-void LLVMJIT::EmitFunctionContext::try_(ControlStructureImm imm)
+void EmitFunctionContext::try_(ControlStructureImm imm)
 {
 	FunctionType blockType = resolveBlockType(module, imm.type);
 
@@ -343,7 +343,7 @@ void LLVMJIT::EmitFunctionContext::try_(ControlStructureImm imm)
 	pushMultiple(tryArgs, blockType.params().size());
 }
 
-void LLVMJIT::EmitFunctionContext::catch_(CatchImm imm)
+void EmitFunctionContext::catch_(CatchImm imm)
 {
 	wavmAssert(controlStack.size());
 	wavmAssert(catchStack.size());
@@ -393,7 +393,7 @@ void LLVMJIT::EmitFunctionContext::catch_(CatchImm imm)
 	controlContext.type        = ControlContext::Type::catch_;
 	controlContext.isReachable = true;
 }
-void LLVMJIT::EmitFunctionContext::catch_all(NoImm)
+void EmitFunctionContext::catch_all(NoImm)
 {
 	wavmAssert(controlStack.size());
 	wavmAssert(catchStack.size());
@@ -431,7 +431,7 @@ void LLVMJIT::EmitFunctionContext::catch_all(NoImm)
 }
 #endif
 
-void LLVMJIT::EmitFunctionContext::emitThrow(
+void EmitFunctionContext::emitThrow(
 	llvm::Value* exceptionTypeInstanceI64,
 	llvm::Value* argumentsPointerI64,
 	bool isUserException)
@@ -442,7 +442,7 @@ void LLVMJIT::EmitFunctionContext::emitThrow(
 		{exceptionTypeInstanceI64, argumentsPointerI64, emitLiteral(I32(isUserException ? 1 : 0))});
 }
 
-void LLVMJIT::EmitFunctionContext::throw_(ThrowImm imm)
+void EmitFunctionContext::throw_(ThrowImm imm)
 {
 	const Runtime::ExceptionTypeInstance* exceptionTypeInstance
 		= moduleContext.moduleInstance->exceptionTypeInstances[imm.exceptionTypeIndex];
@@ -473,7 +473,7 @@ void LLVMJIT::EmitFunctionContext::throw_(ThrowImm imm)
 	irBuilder.CreateUnreachable();
 	enterUnreachable();
 }
-void LLVMJIT::EmitFunctionContext::rethrow(RethrowImm imm)
+void EmitFunctionContext::rethrow(RethrowImm imm)
 {
 	wavmAssert(imm.catchDepth < catchStack.size());
 	CatchContext& catchContext = catchStack[catchStack.size() - imm.catchDepth - 1];

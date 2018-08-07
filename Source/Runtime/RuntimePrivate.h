@@ -355,6 +355,8 @@ namespace Runtime
 
 	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
 
+	void dummyReferenceAtomics();
+
 	// Initializes global state used by the WAVM intrinsics.
 	Runtime::ModuleInstance* instantiateWAVMIntrinsics(Compartment* compartment);
 

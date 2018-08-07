@@ -6,67 +6,32 @@
 #include "Intrinsics.h"
 #include "RuntimePrivate.h"
 
-#ifdef _WIN32
-#pragma warning(push)
-#pragma warning(disable : 4267)
-#pragma warning(disable : 4800)
-#pragma warning(disable : 4291)
-#pragma warning(disable : 4244)
-#pragma warning(disable : 4351)
-#pragma warning(disable : 4065)
-#pragma warning(disable : 4624)
-#pragma warning(disable : 4245) // conversion from 'int' to 'unsigned int', signed/unsigned mismatch
-#pragma warning( \
-	disable : 4146) // unary minus operator applied to unsigned type, result is still unsigned
-#pragma warning(disable : 4458) // declaration of 'x' hides class member
-#pragma warning(disable : 4510) // default constructor could not be generated
-#pragma warning( \
-	disable : 4610) // struct can never be instantiated - user defined constructor required
-#pragma warning(disable : 4324) // structure was padded due to alignment specifier
-#pragma warning(disable : 4702) // unreachable code
-#endif
-
 #include <cctype>
 #include <string>
 #include <vector>
+
+#include "LLVMPreInclude.h"
+
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/Passes.h"
 #include "llvm/Config/llvm-config.h"
-#include "llvm/DebugInfo/DIContext.h"
-#include "llvm/DebugInfo/DWARF/DWARFContext.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ExecutionEngine/Orc/CompileUtils.h"
-#include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
-#include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
-#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
-#include "llvm/ExecutionEngine/RTDyldMemoryManager.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/Object/ObjectFile.h"
-#include "llvm/Object/SymbolSize.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/DataTypes.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/DynamicLibrary.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/Memory.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Transforms/Scalar.h"
 
-#ifdef _WIN32
-#undef and
-#undef or
-#undef xor
-#pragma warning(pop)
-#endif
+#include "LLVMPostInclude.h"
+
+namespace llvm
+{
+	class LoadedObjectInfo;
+
+	namespace object
+	{
+		class SectionRef;
+	}
+}
 
 namespace LLVMJIT
 {
@@ -518,14 +483,6 @@ namespace LLVMJIT
 	std::shared_ptr<llvm::Module> emitModule(
 		const IR::Module& module,
 		ModuleInstance* moduleInstance);
-
-	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
-	struct NullResolver : llvm::JITSymbolResolver
-	{
-		static std::shared_ptr<NullResolver> singleton;
-		virtual llvm::JITSymbol findSymbol(const std::string& name) override;
-		virtual llvm::JITSymbol findSymbolInLogicalDylib(const std::string& name) override;
-	};
 
 #ifdef _WIN64
 	extern void processSEHTables(
