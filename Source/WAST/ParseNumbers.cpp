@@ -215,40 +215,11 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 	while(true)
 	{
 		// Determine whether the next character is still part of the number.
-		bool isNumericChar = false;
-		switch(*nextChar)
-		{
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
-		case 'a':
-		case 'b':
-		case 'c':
-		case 'd':
-		case 'e':
-		case 'f':
-		case 'A':
-		case 'B':
-		case 'C':
-		case 'D':
-		case 'E':
-		case 'F':
-		case '+':
-		case '-':
-		case 'x':
-		case 'X':
-		case '.':
-		case 'p':
-		case 'P':
-		case '_': isNumericChar = true; break;
-		};
+		const bool isNumericChar = (*nextChar >= '0' && *nextChar <= '9')
+			|| (*nextChar >= 'a' && *nextChar <= 'f') || (*nextChar >= 'A' && *nextChar <= 'F')
+			|| *nextChar == 'x' || *nextChar == 'X' || *nextChar == 'p' || *nextChar == 'P'
+			|| *nextChar == '+' || *nextChar == '-' || *nextChar == '.' || *nextChar == '_';
+
 		if(!isNumericChar) { break; }
 
 		if(*nextChar == '_' && !hasUnderscores)
