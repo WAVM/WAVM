@@ -237,6 +237,13 @@ void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
 				"FatalSerializationException while deserializing WASM user name section: %s\n",
 				exception.message.c_str());
 		}
+		catch(std::bad_alloc)
+		{
+			Log::printf(
+				Log::Category::debug,
+				"Memory allocation failed while deserializing WASM user name section. Input is "
+				"likely malformed.");
+		}
 	}
 }
 
