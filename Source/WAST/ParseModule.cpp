@@ -799,22 +799,25 @@ static void parseDeclaration(CursorState* cursor)
 
 template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char* description)
 {
-	Uptr totalMemoryBytes = 0;
-	Uptr maxProbeCount    = 0;
-	F32 occupancy         = 0.0f;
-	F32 averageProbeCount = 0.0f;
-	map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
-	Log::printf(
-		Log::Category::metrics,
-		"%s used %.1fKB for %u elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe "
-		"length: %f/%u\n",
-		description,
-		totalMemoryBytes / 1024.0f,
-		map.size(),
-		occupancy * 100.0f,
-		F32(totalMemoryBytes) / map.size(),
-		averageProbeCount,
-		maxProbeCount);
+	if(map.size())
+	{
+		Uptr totalMemoryBytes = 0;
+		Uptr maxProbeCount    = 0;
+		F32 occupancy         = 0.0f;
+		F32 averageProbeCount = 0.0f;
+		map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
+		Log::printf(
+			Log::Category::metrics,
+			"%s used %.1fKB for %u elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe "
+			"length: %f/%u\n",
+			description,
+			totalMemoryBytes / 1024.0f,
+			map.size(),
+			occupancy * 100.0f,
+			F32(totalMemoryBytes) / map.size(),
+			averageProbeCount,
+			maxProbeCount);
+	}
 }
 
 void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)

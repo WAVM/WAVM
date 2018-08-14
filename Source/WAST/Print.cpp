@@ -60,12 +60,12 @@ static std::string expandIndentation(std::string&& inString, U8 spacesPerIndentL
 	{
 		// Absorb INDENT_STRING and DEDENT_STRING, but keep track of the indentation depth, and
 		// insert a proportional number of spaces following newlines.
-		if(*(U16*)next == *(U16*)INDENT_STRING)
+		if(next[0] == INDENT_STRING[0] && next[1] == INDENT_STRING[1])
 		{
 			++indentDepth;
 			next += 2;
 		}
-		else if(*(U16*)next == *(U16*)DEDENT_STRING)
+		else if(next[0] == DEDENT_STRING[0] && next[1] == DEDENT_STRING[1])
 		{
 			errorUnless(indentDepth > 0);
 			--indentDepth;

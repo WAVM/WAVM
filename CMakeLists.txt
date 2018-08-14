@@ -62,6 +62,8 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4366")
 	# disable warning: structure was padded due to alignment specifier
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4324")
+	# disable warning: unary minus operator applied to unsigned type, result still unsigned
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4146")
 else()
 	add_definitions(-DDLL_EXPORT=)
 	add_definitions(-DDLL_IMPORT=)

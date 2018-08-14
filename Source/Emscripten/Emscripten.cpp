@@ -596,8 +596,8 @@ DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-to-int", I32, f64_to_int, F64 f) { retu
 
 static F64 zero = 0.0;
 
-static F64 makeNaN() { return zero / zero; }
-static F64 makeInf() { return 1.0 / zero; }
+static NO_UBSAN F64 makeNaN() { return zero / zero; }
+static NO_UBSAN F64 makeInf() { return 1.0 / zero; }
 
 DEFINE_INTRINSIC_GLOBAL(global, "NaN", F64, NaN, makeNaN())
 DEFINE_INTRINSIC_GLOBAL(global, "Infinity", F64, Infinity, makeInf())

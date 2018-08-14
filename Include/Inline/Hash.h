@@ -27,7 +27,7 @@ inline U32 XXH32_fixed(U32 data, U32 seed)
 	const U32 g = f * I32(0x85EBCA77);
 	const U32 h = g >> 13;
 	const U32 i = g ^ h;
-	const I32 j = i * I32(0xC2B2AE3D);
+	const U32 j = i * I32(0xC2B2AE3D);
 	const U32 k = j << 16;
 	const U32 l = j ^ k;
 	return l;

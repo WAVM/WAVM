@@ -15,6 +15,7 @@
 	__pragma(pack(push, 1)) definition; \
 	__pragma(pack(pop))
 #define NO_ASAN
+#define NO_UBSAN
 #define RETURNS_TWICE
 #define UNLIKELY(condition) (condition)
 #define DEBUG_TRAP() __debugbreak()
@@ -24,6 +25,7 @@
 #define SUPPRESS_UNUSED(variable) (void)(variable);
 #define PACKED_STRUCT(definition) definition __attribute__((packed));
 #define NO_ASAN __attribute__((no_sanitize_address))
+#define NO_UBSAN __attribute__((no_sanitize("undefined")))
 #define RETURNS_TWICE __attribute__((returns_twice))
 #define UNLIKELY(condition) __builtin_expect(condition, 0)
 #define DEBUG_TRAP() __asm__ __volatile__("int3")

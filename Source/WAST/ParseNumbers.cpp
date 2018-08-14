@@ -179,9 +179,32 @@ template<typename Float> Float parseInfinity(const char* nextChar)
 	return resultComponents.value;
 }
 
-// Parses a decimal floating point literal, advancing nextChar past the parsed characters.
-// Assumes it will only be called for input that's already been accepted by the lexer as a decimal
-// float literal.
+template<typename Float> static NO_UBSAN Float uncheckedCast(F64 f64) { return Float(f64); }
+
+template<typename DestFloat> static F64 getMaxCastableF64()
+{
+	typedef typename Floats::FloatComponents<F64> F64Components;
+	typedef typename Floats::FloatComponents<DestFloat> DestComponents;
+
+	F64Components f64Components;
+	f64Components.bits.sign = 0;
+
+	// Set the F64 exponent to the maximum exponent of the destination type.
+	f64Components.bits.exponent
+		= U64(DestComponents::maxNormalExponent) + F64Components::exponentBias;
+
+	// Set the F64 significand to the highest value that rounds to the maximum normal significand of
+	// the destination type.
+	const Uptr deltaSignificandBits
+		= F64Components::numSignificandBits - DestComponents::numSignificandBits;
+	f64Components.bits.significand = U64(DestComponents::maxSignificand) << deltaSignificandBits;
+	f64Components.bits.significand |= ((U64(1) << deltaSignificandBits) - 1) >> 1;
+
+	return f64Components.value;
+}
+
+// Parses a floating point literal, advancing nextChar past the parsed characters. Assumes it will
+// only be called for input that's already been accepted by the lexer as a float literal.
 template<typename Float> Float parseFloat(const char*& nextChar, ParseState* parseState)
 {
 	// Scan the token's characters for underscores, and make a copy of it without the underscores
@@ -252,11 +275,12 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 	char* endChar = nullptr;
 	F64 f64       = parseNonSpecialF64(firstChar, &endChar);
 	if(endChar == firstChar) { Errors::fatalf("strtod failed to parse number accepted by lexer"); }
-	if(Float(f64) < std::numeric_limits<Float>::lowest()
-	   || Float(f64) > std::numeric_limits<Float>::max())
+
+	const F64 maxCastableF64 = getMaxCastableF64<Float>();
+	if(f64 < -maxCastableF64 || f64 > maxCastableF64)
 	{ parseErrorf(parseState, firstChar, "float literal is too large"); }
 
-	return (Float)f64;
+	return uncheckedCast<Float>(f64);
 }
 
 // Tries to parse an numeric literal token as an integer, advancing cursor->nextToken.
@@ -279,18 +303,18 @@ bool tryParseInt(
 		u64        = parseDecimalUnsignedInt(
             nextChar,
             cursor->parseState,
-            isNegative ? U64(-minSignedValue) : maxUnsignedValue,
+            isNegative ? -U64(minSignedValue) : maxUnsignedValue,
             "int literal");
 		break;
 	case t_hexInt:
 		isNegative = parseSign(nextChar);
 		u64        = parseHexUnsignedInt(
-            nextChar, cursor->parseState, isNegative ? U64(-minSignedValue) : maxUnsignedValue);
+            nextChar, cursor->parseState, isNegative ? -U64(minSignedValue) : maxUnsignedValue);
 		break;
 	default: return false;
 	};
 
-	outUnsignedInt = isNegative ? UnsignedInt(-I64(u64)) : UnsignedInt(u64);
+	outUnsignedInt = isNegative ? UnsignedInt(-u64) : UnsignedInt(u64);
 
 	++cursor->nextToken;
 	wavmAssert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);

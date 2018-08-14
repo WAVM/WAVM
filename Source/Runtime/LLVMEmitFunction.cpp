@@ -235,7 +235,7 @@ void EmitFunctionContext::branchToEndOfControlContext()
 	{
 		// If the control context expects a result, take it from the operand stack and add it to the
 		// control context's end PHI.
-		for(Iptr resultIndex = currentContext.resultTypes.size() - 1; resultIndex >= 0;
+		for(Iptr resultIndex = Iptr(currentContext.resultTypes.size()) - 1; resultIndex >= 0;
 			--resultIndex)
 		{
 			llvm::Value* result = pop();

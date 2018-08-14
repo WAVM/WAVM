@@ -47,7 +47,7 @@ void EmitFunctionContext::loop(ControlStructureImm imm)
 	irBuilder.SetInsertPoint(loopBodyBlock);
 
 	// Pop the initial values of the loop's parameters from the stack.
-	for(Iptr elementIndex = blockType.params().size() - 1; elementIndex >= 0; --elementIndex)
+	for(Iptr elementIndex = Iptr(blockType.params().size()) - 1; elementIndex >= 0; --elementIndex)
 	{ parameterPHIs[elementIndex]->addIncoming(pop(), loopEntryBlock); }
 
 	// Push a control context that ends at the end block/phi.
@@ -208,7 +208,7 @@ void EmitFunctionContext::br(BranchImm imm)
 
 	// Pop the branch target operands from the stack and add them to the target's incoming value
 	// PHIs.
-	for(Iptr argIndex = target.params.size() - 1; argIndex >= 0; --argIndex)
+	for(Iptr argIndex = Iptr(target.params.size()) - 1; argIndex >= 0; --argIndex)
 	{
 		llvm::Value* argument = pop();
 		target.phis[argIndex]->addIncoming(
