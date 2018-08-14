@@ -338,8 +338,8 @@ namespace Runtime
 		std::vector<ExceptionTypeInstance*> exceptionTypes;
 	};
 
-	// Instantiates a module, bindings its imports to the specified objects. May throw
-	// InstantiationException.
+	// Instantiates a module, bindings its imports to the specified objects. May throw a runtime
+	// exception for bad segment offsets.
 	RUNTIME_API ModuleInstance* instantiateModule(
 		Compartment* compartment,
 		const IR::Module& module,
