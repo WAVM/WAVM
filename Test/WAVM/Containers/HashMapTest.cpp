@@ -121,6 +121,10 @@ static void testU32Map()
 	for(Uptr i = 0; i < maxI; ++i) { errorUnless(!map.contains(U32(i))); }
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-assign"
+#endif
 static void testMapCopy()
 {
 	// Add 1000..1999 to a HashMap.
@@ -158,6 +162,9 @@ static void testMapCopy()
 	errorUnless(*a.get(1000) == 0);
 	errorUnless(!b.get(1000));
 }
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #if defined(__clang__)
 #pragma clang diagnostic push

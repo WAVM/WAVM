@@ -115,6 +115,10 @@ static void testU32Set()
 	for(Uptr i = 0; i < maxI; ++i) { errorUnless(!set.contains(U32(i))); }
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-assign"
+#endif
 static void testSetCopy()
 {
 	// Add 1000..1999 to a HashSet.
@@ -152,6 +156,9 @@ static void testSetCopy()
 	errorUnless(a.contains(1000));
 	errorUnless(!b.contains(1000));
 }
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #if defined(__clang__)
 #pragma clang diagnostic push
