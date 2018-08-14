@@ -32,6 +32,8 @@ namespace WAST
 		, locus(inLocus)
 		{
 		}
+
+		virtual ~Command() {}
 	};
 
 	// Parse a test script from a string. Returns true if it succeeds, and writes the test commands
@@ -79,6 +81,8 @@ namespace WAST
 		, locus(inLocus)
 		{
 		}
+
+		virtual ~Action() {}
 	};
 
 	struct ModuleAction : Action
