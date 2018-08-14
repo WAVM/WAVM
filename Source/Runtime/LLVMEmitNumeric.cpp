@@ -346,6 +346,31 @@ EMIT_SIMD_SUB64_INT_BINARY_OP(ge_u, irBuilder.CreateICmpUGE(left, right))
 
 EMIT_SIMD_INT_UNARY_OP(neg, irBuilder.CreateNeg(operand))
 
+static llvm::Value* emitAddUnsignedSaturated(
+	llvm::IRBuilder<>& irBuilder,
+	llvm::Value* left,
+	llvm::Value* right,
+	llvm::Type* type)
+{
+	left             = irBuilder.CreateBitCast(left, type);
+	right            = irBuilder.CreateBitCast(right, type);
+	llvm::Value* add = irBuilder.CreateAdd(left, right);
+	return irBuilder.CreateSelect(
+		irBuilder.CreateICmpUGT(left, add), llvm::Constant::getAllOnesValue(left->getType()), add);
+}
+
+static llvm::Value* emitSubUnsignedSaturated(
+	llvm::IRBuilder<>& irBuilder,
+	llvm::Value* left,
+	llvm::Value* right,
+	llvm::Type* type)
+{
+	left  = irBuilder.CreateBitCast(left, type);
+	right = irBuilder.CreateBitCast(right, type);
+	return irBuilder.CreateSub(
+		irBuilder.CreateSelect(irBuilder.CreateICmpUGT(left, right), left, right), right);
+}
+
 EMIT_SIMD_BINARY_OP(
 	i8x16_add_saturate_s,
 	llvmI8x16Type,
@@ -353,7 +378,7 @@ EMIT_SIMD_BINARY_OP(
 EMIT_SIMD_BINARY_OP(
 	i8x16_add_saturate_u,
 	llvmI8x16Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_paddus_b, {left, right}))
+	emitAddUnsignedSaturated(irBuilder, left, right, llvmI8x16Type))
 EMIT_SIMD_BINARY_OP(
 	i8x16_sub_saturate_s,
 	llvmI8x16Type,
@@ -361,7 +386,7 @@ EMIT_SIMD_BINARY_OP(
 EMIT_SIMD_BINARY_OP(
 	i8x16_sub_saturate_u,
 	llvmI8x16Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubus_b, {left, right}))
+	emitSubUnsignedSaturated(irBuilder, left, right, llvmI8x16Type))
 EMIT_SIMD_BINARY_OP(
 	i16x8_add_saturate_s,
 	llvmI16x8Type,
@@ -369,7 +394,7 @@ EMIT_SIMD_BINARY_OP(
 EMIT_SIMD_BINARY_OP(
 	i16x8_add_saturate_u,
 	llvmI16x8Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_paddus_w, {left, right}))
+	emitAddUnsignedSaturated(irBuilder, left, right, llvmI16x8Type))
 EMIT_SIMD_BINARY_OP(
 	i16x8_sub_saturate_s,
 	llvmI16x8Type,
@@ -377,7 +402,7 @@ EMIT_SIMD_BINARY_OP(
 EMIT_SIMD_BINARY_OP(
 	i16x8_sub_saturate_u,
 	llvmI16x8Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubus_w, {left, right}))
+	emitSubUnsignedSaturated(irBuilder, left, right, llvmI16x8Type))
 
 llvm::Value* EmitFunctionContext::emitBitSelect(
 	llvm::Value* mask,
