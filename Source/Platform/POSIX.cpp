@@ -466,8 +466,8 @@ bool Platform::catchSignals(
 	signalContext.outerContext = innermostSignalContext;
 	signalContext.filter       = filter;
 
-	// Use saveExecutionState to capture the execution state into the signal context. If a
-	// signal is raised, the signal handler will jump back to here.
+	// Use sigsetjmp to capture the execution state into the signal context. If a signal is raised,
+	// the signal handler will jump back to here.
 	bool isReturningFromSignalHandler = sigsetjmp(signalContext.catchJump, 1) != 0;
 	if(!isReturningFromSignalHandler)
 	{
