@@ -30,7 +30,7 @@ struct FunctionTypeHashPolicy
 IR::TypeTuple::Impl::Impl(Uptr inNumElems, const ValueType* inElems)
 : numElems(inNumElems)
 {
-	memcpy(elems, inElems, sizeof(ValueType) * numElems);
+	if(numElems) { memcpy(elems, inElems, sizeof(ValueType) * numElems); }
 	hash = XXH64(elems, numElems * sizeof(ValueType), 0);
 }
 
@@ -38,7 +38,7 @@ IR::TypeTuple::Impl::Impl(const Impl& inCopy)
 : hash(inCopy.hash)
 , numElems(inCopy.numElems)
 {
-	memcpy(elems, inCopy.elems, numElems * sizeof(ValueType));
+	if(numElems) { memcpy(elems, inCopy.elems, numElems * sizeof(ValueType)); }
 }
 
 IR::TypeTuple::TypeTuple()

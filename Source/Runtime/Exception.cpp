@@ -101,7 +101,11 @@ std::string Runtime::describeException(const Exception& exception)
 		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(typeInstance->type.params.size()));
 	exceptionData->typeInstance    = typeInstance;
 	exceptionData->isUserException = 0;
-	memcpy(exceptionData->arguments, arguments.data(), sizeof(UntaggedValue) * arguments.size());
+	if(arguments.size())
+	{
+		memcpy(
+			exceptionData->arguments, arguments.data(), sizeof(UntaggedValue) * arguments.size());
+	}
 	Platform::raisePlatformException(exceptionData);
 }
 

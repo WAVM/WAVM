@@ -150,11 +150,11 @@ namespace Serialization
 	// Serialize raw byte sequences.
 	FORCEINLINE void serializeBytes(OutputStream& stream, const U8* bytes, Uptr numBytes)
 	{
-		memcpy(stream.advance(numBytes), bytes, numBytes);
+		if(numBytes) { memcpy(stream.advance(numBytes), bytes, numBytes); }
 	}
 	FORCEINLINE void serializeBytes(InputStream& stream, U8* bytes, Uptr numBytes)
 	{
-		memcpy(bytes, stream.advance(numBytes), numBytes);
+		if(numBytes) { memcpy(bytes, stream.advance(numBytes), numBytes); }
 	}
 
 	// Serialize basic C++ types.

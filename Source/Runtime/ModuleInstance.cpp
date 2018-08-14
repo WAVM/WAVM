@@ -145,7 +145,11 @@ ModuleInstance* Runtime::instantiateModule(
 		wavmAssert(
 			baseOffset + dataSegment.data.size() <= (memory->numPages << IR::numBytesPerPageLog2));
 
-		memcpy(memory->baseAddress + baseOffset, dataSegment.data.data(), dataSegment.data.size());
+		if(dataSegment.data.size())
+		{
+			memcpy(
+				memory->baseAddress + baseOffset, dataSegment.data.data(), dataSegment.data.size());
+		}
 	}
 
 	// Instantiate the module's global definitions.
