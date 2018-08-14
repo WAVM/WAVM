@@ -139,7 +139,10 @@ namespace IR
 			Impl(Uptr inNumElems, const ValueType* inElems);
 			Impl(const Impl& inCopy);
 
-			static Uptr calcNumBytes(Uptr numElems) { return sizeof(Impl) + (numElems - 1); }
+			static Uptr calcNumBytes(Uptr numElems)
+			{
+				return offsetof(Impl, elems) + numElems * sizeof(ValueType);
+			}
 		};
 
 		const Impl* impl;
