@@ -217,6 +217,7 @@ void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
 	outNames.tables.insert(outNames.tables.end(), module.tables.size(), "");
 	outNames.memories.insert(outNames.memories.end(), module.memories.size(), "");
 	outNames.globals.insert(outNames.globals.end(), module.globals.size(), "");
+	outNames.exceptionTypes.insert(outNames.exceptionTypes.end(), module.exceptionTypes.size(), "");
 
 	// Deserialize the name section, if it is present.
 	Uptr userSectionIndex = 0;

@@ -158,6 +158,15 @@ static void print(std::string& string, GlobalType type)
 	if(type.isMutable) { string += ")"; }
 }
 
+static void print(std::string& string, const ExceptionType& type)
+{
+	for(ValueType param : type.params)
+	{
+		string += ' ';
+		print(string, param);
+	}
+}
+
 struct NameScope
 {
 	NameScope(const char inSigil, Uptr estimatedNumElements)
@@ -649,6 +658,16 @@ void ModulePrintContext::printModule()
 			names.globals[importIndex].c_str(),
 			"global");
 	}
+	for(Uptr importIndex = 0; importIndex < module.exceptionTypes.imports.size(); ++importIndex)
+	{
+		printImport(
+			string,
+			module,
+			module.exceptionTypes.imports[importIndex],
+			importIndex,
+			names.exceptionTypes[importIndex].c_str(),
+			"exception_type");
+	}
 	// Print the module exports.
 	for(auto export_ : module.exports)
 	{
@@ -663,47 +682,61 @@ void ModulePrintContext::printModule()
 		case ObjectKind::table: string += "table " + names.tables[export_.index]; break;
 		case ObjectKind::memory: string += "memory " + names.memories[export_.index]; break;
 		case ObjectKind::global: string += "global " + names.globals[export_.index]; break;
+		case ObjectKind::exceptionType:
+			string += "exception_type " + names.exceptionTypes[export_.index];
+			break;
 		default: Errors::unreachable();
 		};
 		string += ')';
 	}
 
 	// Print the module memory definitions.
-	for(Uptr memoryDefIndex = 0; memoryDefIndex < module.memories.defs.size(); ++memoryDefIndex)
+	for(Uptr defIndex = 0; defIndex < module.memories.defs.size(); ++defIndex)
 	{
-		const MemoryDef& memoryDef = module.memories.defs[memoryDefIndex];
+		const MemoryDef& memoryDef = module.memories.defs[defIndex];
 		string += '\n';
 		ScopedTagPrinter memoryTag(string, "memory");
 		string += ' ';
-		string += names.memories[module.memories.imports.size() + memoryDefIndex];
+		string += names.memories[module.memories.imports.size() + defIndex];
 		string += ' ';
 		print(string, memoryDef.type);
 	}
 
 	// Print the module table definitions and elem segments.
-	for(Uptr tableDefIndex = 0; tableDefIndex < module.tables.defs.size(); ++tableDefIndex)
+	for(Uptr defIndex = 0; defIndex < module.tables.defs.size(); ++defIndex)
 	{
-		const TableDef& tableDef = module.tables.defs[tableDefIndex];
+		const TableDef& tableDef = module.tables.defs[defIndex];
 		string += '\n';
 		ScopedTagPrinter memoryTag(string, "table");
 		string += ' ';
-		string += names.tables[module.tables.imports.size() + tableDefIndex];
+		string += names.tables[module.tables.imports.size() + defIndex];
 		string += ' ';
 		print(string, tableDef.type);
 	}
 
 	// Print the module global definitions.
-	for(Uptr globalDefIndex = 0; globalDefIndex < module.globals.defs.size(); ++globalDefIndex)
+	for(Uptr defIndex = 0; defIndex < module.globals.defs.size(); ++defIndex)
 	{
-		const GlobalDef& globalDef = module.globals.defs[globalDefIndex];
+		const GlobalDef& globalDef = module.globals.defs[defIndex];
 		string += '\n';
 		ScopedTagPrinter memoryTag(string, "global");
 		string += ' ';
-		string += names.globals[module.globals.imports.size() + globalDefIndex];
+		string += names.globals[module.globals.imports.size() + defIndex];
 		string += ' ';
 		print(string, globalDef.type);
 		string += ' ';
 		printInitializerExpression(globalDef.initializer);
+	}
+
+	// Print the module exception type definitions.
+	for(Uptr defIndex = 0; defIndex < module.exceptionTypes.defs.size(); ++defIndex)
+	{
+		const ExceptionTypeDef& exceptionTypeDef = module.exceptionTypes.defs[defIndex];
+		string += '\n';
+		ScopedTagPrinter exceptionTypeTag(string, "exception_type");
+		string += ' ';
+		string += names.exceptionTypes[module.exceptionTypes.imports.size() + defIndex];
+		print(string, exceptionTypeDef.type);
 	}
 
 	// Print the data and table segment definitions.
