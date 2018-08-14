@@ -97,9 +97,10 @@ static void validateThreadId(Uptr threadId)
 
 DEFINE_INTRINSIC_MODULE(threadTest);
 
-static I64 threadEntry(Thread* thread)
+static I64 threadEntry(void* threadVoid)
 {
-	currentThread = thread;
+	Thread* thread = (Thread*)threadVoid;
+	currentThread  = thread;
 	thread->removeRef();
 
 	return invokeFunctionUnchecked(thread->context, thread->entryFunction, &thread->argument)->i64;
@@ -147,8 +148,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
 	thread->addRef();
 
 	// Spawn and detach a platform thread that calls threadFunc.
-	thread->platformThread
-		= Platform::createThread(numStackBytes, (I64(*)(void*))threadEntry, thread);
+	thread->platformThread = Platform::createThread(numStackBytes, threadEntry, thread);
 
 	return thread->id;
 }
