@@ -9,6 +9,7 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/IR/Module.h
 	${WAVM_INCLUDE_DIR}/IR/OperatorPrinter.h
 	${WAVM_INCLUDE_DIR}/IR/Operators.h
+	${WAVM_INCLUDE_DIR}/IR/OperatorTable.h
 	${WAVM_INCLUDE_DIR}/IR/TaggedValue.h
 	${WAVM_INCLUDE_DIR}/IR/Types.h
 	${WAVM_INCLUDE_DIR}/IR/Types.natvis
