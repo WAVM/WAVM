@@ -6,6 +6,10 @@ add_executable(Disassemble Disassemble.cpp CLI.h)
 target_link_libraries(Disassemble Logging IR WAST WASM)
 set_target_properties(Disassemble PROPERTIES FOLDER Programs)
 
+add_executable(DumpTestModules DumpTestModules.cpp CLI.h)
+target_link_libraries(DumpTestModules Logging IR WAST)
+set_target_properties(DumpTestModules PROPERTIES FOLDER Testing)
+
 if(ENABLE_RUNTIME)
 	add_executable(Test Test.cpp CLI.h)
 	target_link_libraries(Test Logging IR WAST Runtime ThreadTest)
