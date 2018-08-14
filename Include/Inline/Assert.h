@@ -4,7 +4,7 @@
 
 #include <cstdarg>
 
-#if WAVM_DEBUG
+#if WAVM_DEBUG || ENABLE_RELEASE_ASSERTS
 #define wavmAssert(condition)                                                                 \
 	if(!(condition))                                                                          \
 	{                                                                                         \
