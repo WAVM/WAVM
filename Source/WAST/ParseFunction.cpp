@@ -20,7 +20,7 @@ namespace WAST
 	{
 		FunctionDef& functionDef;
 
-		std::unique_ptr<NameToIndexMap> localNameToIndexMap;
+		std::shared_ptr<NameToIndexMap> localNameToIndexMap;
 		Uptr numLocals;
 
 		NameToIndexMap branchTargetNameToIndexMap;
@@ -32,7 +32,7 @@ namespace WAST
 		CodeValidationProxyStream<OperatorEncoderStream> validatingCodeStream;
 
 		FunctionState(
-			NameToIndexMap* inLocalNameToIndexMap,
+			const std::shared_ptr<NameToIndexMap>& inLocalNameToIndexMap,
 			FunctionDef& inFunctionDef,
 			Module& module)
 		: functionDef(inFunctionDef)
@@ -701,8 +701,9 @@ static void parseInstrSequence(CursorState* cursor)
 
 FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 {
-	std::vector<std::string>* localDisassemblyNames = new std::vector<std::string>;
-	NameToIndexMap* localNameToIndexMap             = new NameToIndexMap();
+	std::shared_ptr<std::vector<std::string>> localDisassemblyNames
+		= std::make_shared<std::vector<std::string>>();
+	std::shared_ptr<NameToIndexMap> localNameToIndexMap = std::make_shared<NameToIndexMap>();
 
 	// Parse the function type, as a reference or explicit declaration.
 	const UnresolvedFunctionType unresolvedFunctionType
@@ -765,7 +766,6 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 				;
 			moduleState->disassemblyNames.functions[functionIndex].locals
 				= std::move(*localDisassemblyNames);
-			delete localDisassemblyNames;
 
 			// Parse the function's code.
 			FunctionState functionState(localNameToIndexMap, functionDef, moduleState->module);

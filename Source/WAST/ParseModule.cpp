@@ -7,6 +7,8 @@
 #include "Parse.h"
 #include "WAST.h"
 
+#include <memory>
+
 using namespace WAST;
 using namespace IR;
 
@@ -455,7 +457,8 @@ static Uptr parseElemSegmentBody(
 {
 	// Allocate the elementReferences array on the heap so it doesn't need to be copied for the
 	// post-declaration callback.
-	std::vector<Reference>* elementReferences = new std::vector<Reference>();
+	std::shared_ptr<std::vector<Reference>> elementReferences
+		= std::make_shared<std::vector<Reference>>();
 
 	Reference elementRef;
 	while(tryParseNameOrIndexRef(cursor, elementRef)) { elementReferences->push_back(elementRef); };
@@ -496,9 +499,6 @@ static Uptr parseElemSegmentBody(
 						(*elementReferences)[elementIndex]);
 				}
 			}
-
-			// Free the elementReferences array that was allocated on the heap.
-			delete elementReferences;
 		});
 
 	return elementReferences->size();
