@@ -858,13 +858,14 @@ void ModulePrintContext::printModule()
 	// Print user sections (other than the name section).
 	for(const auto& userSection : module.userSections)
 	{
-		if(userSection.name != "name")
+		if(userSection.name == "linking") { printLinkingSection(userSection); }
+		else if(userSection.name != "name")
 		{
 			string += '\n';
-			ScopedTagPrinter dataTag(string, "user_section");
+			string += "(; User section ";
 			string += " \"";
 			string += escapeString(userSection.name.c_str(), userSection.name.length());
-			string += "\" ";
+			string += "\":";
 			enum
 			{
 				numBytesPerLine = 64
@@ -877,7 +878,7 @@ void ModulePrintContext::printModule()
 					std::min(userSection.data.size() - offset, (Uptr)numBytesPerLine));
 				string += "\"";
 			}
-			if(userSection.name == "linking") { printLinkingSection(userSection); }
+			string += "\n;)";
 		}
 	}
 }
