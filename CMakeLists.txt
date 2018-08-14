@@ -64,6 +64,8 @@ if(MSVC)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4324")
 	# disable warning: unary minus operator applied to unsigned type, result still unsigned
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4146")
+
+	add_definitions(-DENABLE_UBSAN=0)
 else()
 	add_definitions(-DDLL_EXPORT=)
 	add_definitions(-DDLL_IMPORT=)
@@ -94,6 +96,9 @@ else()
 	option(ENABLE_UBSAN "enable UBSAN" OFF)
 	if(ENABLE_UBSAN)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+		add_definitions(-DENABLE_UBSAN=1)
+	else()
+		add_definitions(-DENABLE_UBSAN=0)
 	endif()
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer")
