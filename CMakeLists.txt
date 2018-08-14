@@ -80,7 +80,7 @@ else()
 	# Ensure that even static libraries are relocatable so they can be linked into a .so
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-	# Enable asan in debug builds.
+	# Enable asan by default in debug builds.
 	if(CMAKE_BUILD_TYPE MATCHES "Debug")
 		option(ENABLE_ASAN "enable ASAN" ON)
 	else()
@@ -90,7 +90,20 @@ else()
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 	endif()
 
+	# Optionally enable the undefined-behavior sanitizer.
+	option(ENABLE_UBSAN "enable UBSAN" OFF)
+	if(ENABLE_UBSAN)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+	endif()
+
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	option(ENABLE_LIBFUZZER "compile WAVM for use by clang/LLVM's libfuzzer")
+	if(ENABLE_LIBFUZZER)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=fuzzer-no-link")
+	endif()
 endif()
 
 option(ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
