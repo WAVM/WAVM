@@ -1878,6 +1878,10 @@ gethex( CONST char **sp, U *rvp, int rounding, int sign)
 			if (e1 & 0xf8000000)
 				big = 1;
 			e1 = 10*e1 + n - 0x10;
+			if(e1 < -262144)
+				e1 = -262144;
+			else if(e1 > +262144)
+				e1 = +262144;
 			}
 		if (esign)
 			e1 = -e1;
@@ -2653,8 +2657,11 @@ strtod
 			if (c > '0' && c <= '9') {
 				L = c - '0';
 				s1 = s;
-				while((c = *++s) >= '0' && c <= '9')
+				while((c = *++s) >= '0' && c <= '9') {
 					L = 10*L + c - '0';
+					if(L > 20000)
+						L = 20000;
+					}
 				if (s - s1 > 8 || L > 19999)
 					/* Avoid confusion from exponents
 					 * so large that e might overflow.
