@@ -240,12 +240,14 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 	};
 
 	// Pass the underscore-free string to parseNonSpecialF64 instead of the original input string.
-	if(hasUnderscores) { firstChar = noUnderscoreString.c_str(); }
+	const char* noUnderscoreFirstChar = firstChar;
+	if(hasUnderscores) { noUnderscoreFirstChar = noUnderscoreString.c_str(); }
 
 	// Use David Gay's strtod to parse a floating point number.
 	char* endChar = nullptr;
-	F64 f64       = parseNonSpecialF64(firstChar, &endChar);
-	if(endChar == firstChar) { Errors::fatalf("strtod failed to parse number accepted by lexer"); }
+	F64 f64       = parseNonSpecialF64(noUnderscoreFirstChar, &endChar);
+	if(endChar == noUnderscoreFirstChar)
+	{ Errors::fatalf("strtod failed to parse number accepted by lexer"); }
 
 	const F64 maxCastableF64 = getMaxCastableF64<Float>();
 	if(f64 < -maxCastableF64 || f64 > maxCastableF64)

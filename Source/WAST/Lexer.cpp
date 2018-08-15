@@ -351,6 +351,11 @@ static Uptr getLineOffset(const LineInfo* lineInfo, Uptr lineIndex)
 TextFileLocus
 WAST::calcLocusFromOffset(const char* string, const LineInfo* lineInfo, Uptr charOffset)
 {
+	// The last line start is at the end of the string, so use it to sanity check that the
+	// charOffset isn't past the end of the string.
+	const Uptr numChars = lineInfo->lineStarts[lineInfo->numLineStarts - 1];
+	wavmAssert(charOffset <= numChars);
+
 	// Binary search the line starts for the last one before charIndex.
 	Uptr minLineIndex = 0;
 	Uptr maxLineIndex = lineInfo->numLineStarts - 1;
