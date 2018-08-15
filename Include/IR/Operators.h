@@ -142,13 +142,14 @@ namespace IR
 			Opcode opcode = *(Opcode*)nextByte;
 			switch(opcode)
 			{
-#define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                   \
-	case Opcode::name:                                                     \
-	{                                                                      \
-		wavmAssert(nextByte + sizeof(OpcodeAndImm<Imm>) <= end);           \
-		OpcodeAndImm<Imm>* encodedOperator = (OpcodeAndImm<Imm>*)nextByte; \
-		nextByte += sizeof(OpcodeAndImm<Imm>);                             \
-		return visitor.name(encodedOperator->imm);                         \
+#define VISIT_OPCODE(opcode, name, nameString, Imm, ...)               \
+	case Opcode::name:                                                 \
+	{                                                                  \
+		wavmAssert(nextByte + sizeof(OpcodeAndImm<Imm>) <= end);       \
+		OpcodeAndImm<Imm> encodedOperator;                             \
+		memcpy(&encodedOperator, nextByte, sizeof(OpcodeAndImm<Imm>)); \
+		nextByte += sizeof(OpcodeAndImm<Imm>);                         \
+		return visitor.name(encodedOperator.imm);                      \
 	}
 				ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
@@ -177,13 +178,16 @@ namespace IR
 		{
 		}
 
-#define VISIT_OPCODE(_, name, nameString, Imm, ...)                              \
-	void name(Imm imm = {})                                                      \
-	{                                                                            \
-		OpcodeAndImm<Imm>* encodedOperator                                       \
-			= (OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)); \
-		encodedOperator->opcode = Opcode::name;                                  \
-		encodedOperator->imm    = imm;                                           \
+#define VISIT_OPCODE(_, name, nameString, Imm, ...)                            \
+	void name(Imm imm = {})                                                    \
+	{                                                                          \
+		OpcodeAndImm<Imm> encodedOperator;                                     \
+		encodedOperator.opcode = Opcode::name;                                 \
+		encodedOperator.imm    = imm;                                          \
+		memcpy(                                                                \
+			(OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)), \
+			&encodedOperator,                                                  \
+			sizeof(OpcodeAndImm<Imm>));                                        \
 	}
 		ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
