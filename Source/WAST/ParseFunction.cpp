@@ -405,7 +405,11 @@ parseControlImm(CursorState* cursor, Name& outBranchTargetName, ControlStructure
 			// params and/or results declared inline that they match the resolved type reference.
 			const Uptr referencedFunctionTypeIndex
 				= resolveFunctionType(cursor->moduleState, unresolvedFunctionType).index;
-			functionType = cursor->moduleState->module.types[referencedFunctionTypeIndex];
+			if(referencedFunctionTypeIndex != UINT32_MAX)
+			{
+				wavmAssert(referencedFunctionTypeIndex < cursor->moduleState->module.types.size());
+				functionType = cursor->moduleState->module.types[referencedFunctionTypeIndex];
+			}
 		}
 	}
 
