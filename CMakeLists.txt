@@ -95,7 +95,7 @@ else()
 	# Optionally enable the undefined-behavior sanitizer.
 	option(ENABLE_UBSAN "enable UBSAN" OFF)
 	if(ENABLE_UBSAN)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize-recover=undefined")
 		add_definitions(-DENABLE_UBSAN=1)
 	else()
 		add_definitions(-DENABLE_UBSAN=0)
