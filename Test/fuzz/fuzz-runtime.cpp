@@ -9,7 +9,6 @@
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
-#include "ThreadTest/ThreadTest.h"
 #include "WASM/WASM.h"
 #include "WAST/TestScript.h"
 #include "WAST/WAST.h"

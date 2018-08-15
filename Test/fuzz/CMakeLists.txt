@@ -5,6 +5,10 @@ else()
 	add_definitions(-DENABLE_LIBFUZZER=0)
 endif()
 
-add_executable(fuzz fuzz.cpp)
-target_link_libraries(fuzz Logging IR WAST WASM Runtime Emscripten ThreadTest)
-set_target_properties(fuzz PROPERTIES FOLDER Testing)
+add_executable(fuzz-parser fuzz-parser.cpp)
+target_link_libraries(fuzz-parser Logging IR WAST WASM)
+set_target_properties(fuzz-parser PROPERTIES FOLDER Testing)
+
+add_executable(fuzz-runtime fuzz-runtime.cpp)
+target_link_libraries(fuzz-runtime Logging IR WAST WASM Runtime)
+set_target_properties(fuzz-runtime PROPERTIES FOLDER Testing)
