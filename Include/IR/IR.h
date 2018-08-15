@@ -10,23 +10,14 @@ namespace IR
 {
 	enum : U64
 	{
-		maxMemoryPages = 65536
+		maxMemoryPages = 65536,
+		maxTableElems  = U64(UINT32_MAX) + 1
 	};
-	enum : U64
+	enum : Uptr
 	{
-		maxTableElems = U64(UINT32_MAX) + 1
-	};
-	enum
-	{
-		numBytesPerPage = (Uptr)65536
-	};
-	enum
-	{
-		numBytesPerPageLog2 = (Uptr)16
-	};
-	enum
-	{
-		maxReturnValues = (Uptr)16
+		numBytesPerPage      = (Uptr)65536,
+		numBytesPerPageLog2  = (Uptr)16,
+		maxReturnValues      = (Uptr)16,
 	};
 
 	struct FeatureSpec
