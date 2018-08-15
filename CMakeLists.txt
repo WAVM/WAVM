@@ -89,7 +89,7 @@ else()
 		option(ENABLE_ASAN "enable ASAN" OFF)
 	endif()
 	if(ENABLE_ASAN)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -mllvm -asan-stack=0 -Wno-unused-command-line-argument")
 	endif()
 
 	# Optionally enable the undefined-behavior sanitizer.
