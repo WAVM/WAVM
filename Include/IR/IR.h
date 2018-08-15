@@ -19,6 +19,7 @@ namespace IR
 		numBytesPerPageLog2  = (Uptr)16,
 		maxReturnValues      = (Uptr)16,
 		maxLocals            = (Uptr)65536,
+		maxLabelsPerFunction = (Uptr)65536
 	};
 
 	struct FeatureSpec

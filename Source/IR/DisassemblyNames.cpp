@@ -20,7 +20,8 @@ enum class NameSubsectionType : U8
 	invalid  = 0xff
 };
 
-static void deserializeNameMap(InputStream& stream, std::vector<std::string>& outNames)
+static void
+deserializeNameMap(InputStream& stream, std::vector<std::string>& outNames, Uptr maxNames)
 {
 	Uptr numNames = 0;
 	serializeVarUInt32(stream, numNames);
@@ -32,7 +33,10 @@ static void deserializeNameMap(InputStream& stream, std::vector<std::string>& ou
 		std::string nameString;
 		serialize(stream, nameString);
 
+		if(nameIndex >= maxNames) { throw FatalSerializationException("out-of-bounds name index"); }
+
 		if(nameIndex >= outNames.size()) { outNames.resize(nameIndex + 1); }
+
 		outNames[nameIndex] = std::move(nameString);
 	}
 }
@@ -103,7 +107,12 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			serializeVarUInt32(substream, functionIndex);
 
 			if(functionIndex < outNames.functions.size())
-			{ deserializeNameMap(substream, outNames.functions[functionIndex].locals); }
+			{
+				deserializeNameMap(
+					substream,
+					outNames.functions[functionIndex].locals,
+					outNames.functions[functionIndex].locals.size());
+			}
 			else
 			{
 				Log::printf(
@@ -135,7 +144,10 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			serializeVarUInt32(substream, functionIndex);
 
 			if(functionIndex < outNames.functions.size())
-			{ deserializeNameMap(substream, outNames.functions[functionIndex].labels); }
+			{
+				deserializeNameMap(
+					substream, outNames.functions[functionIndex].labels, IR::maxLabelsPerFunction);
+			}
 			else
 			{
 				Log::printf(
@@ -156,7 +168,7 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			throw FatalSerializationException(
 				"type name subsection requires extendedNamesSection feature");
 		}
-		deserializeNameMap(substream, outNames.types);
+		deserializeNameMap(substream, outNames.types, outNames.types.size());
 		break;
 	case NameSubsectionType::table:
 		if(!module.featureSpec.extendedNamesSection)
@@ -164,7 +176,7 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			throw FatalSerializationException(
 				"table name subsection requires extendedNamesSection feature");
 		}
-		deserializeNameMap(substream, outNames.tables);
+		deserializeNameMap(substream, outNames.tables, outNames.tables.size());
 		break;
 	case NameSubsectionType::memory:
 		if(!module.featureSpec.extendedNamesSection)
@@ -172,7 +184,7 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			throw FatalSerializationException(
 				"memory name subsection requires extendedNamesSection feature");
 		}
-		deserializeNameMap(substream, outNames.memories);
+		deserializeNameMap(substream, outNames.memories, outNames.memories.size());
 		break;
 	case NameSubsectionType::global:
 		if(!module.featureSpec.extendedNamesSection)
@@ -180,7 +192,7 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			throw FatalSerializationException(
 				"global name subsection requires extendedNamesSection feature");
 		}
-		deserializeNameMap(substream, outNames.globals);
+		deserializeNameMap(substream, outNames.globals, outNames.globals.size());
 		break;
 	default:
 		Log::printf(
