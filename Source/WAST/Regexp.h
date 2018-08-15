@@ -13,4 +13,4 @@ namespace Regexp
 		NFA::Builder* nfaBuilder,
 		NFA::StateIndex initialState,
 		NFA::StateIndex finalState);
-}; // namespace Regexp
+}

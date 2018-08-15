@@ -304,4 +304,4 @@ namespace WAST
 
 	// Module parsing.
 	void parseModuleBody(CursorState* cursor, IR::Module& outModule);
-}; // namespace WAST
+}

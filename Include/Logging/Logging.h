@@ -24,4 +24,4 @@ namespace Log
 	// Print some categorized, formatted string, and flush the output. Newline is not included.
 	LOGGING_API void printf(Category category, const char* format, ...);
 	LOGGING_API void vprintf(Category category, const char* format, va_list argList);
-}; // namespace Log
+}
