@@ -505,6 +505,8 @@ serializeFunctionBody(InputStream& sectionStream, Module& module, FunctionDef& f
 	{
 		LocalSet localSet;
 		serialize(bodyStream, localSet);
+		if(functionDef.nonParameterLocalTypes.size() + localSet.num >= IR::maxLocals)
+		{ throw FatalSerializationException("too many locals"); }
 		for(Uptr index = 0; index < localSet.num; ++index)
 		{ functionDef.nonParameterLocalTypes.push_back(localSet.type); }
 	}
