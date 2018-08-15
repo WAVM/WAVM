@@ -665,6 +665,7 @@ static void parseInstrSequence(CursorState* cursor)
 							cursor->parseState,
 							cursor->nextToken,
 							"expected 'catch', 'catch_all', or 'end' following 'try'");
+						throw RecoverParseException();
 					}
 				};
 
