@@ -21,37 +21,51 @@ Uptr HashTable<HASHTABLE_ARGUMENTS>::calcProbeCount(Uptr bucketIndex) const
 
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::resize(Uptr newNumBuckets)
 {
-	wavmAssert(newNumBuckets > 1);
 	wavmAssert(!(newNumBuckets & (newNumBuckets - 1)));
 
 	const Uptr oldNumBuckets = numBuckets();
 	Bucket* oldBuckets       = buckets;
 
-	// Allocate the new buckets.
-	buckets               = new Bucket[newNumBuckets]();
-	hashToBucketIndexMask = newNumBuckets - 1;
-
-	// Iterate over the old buckets, and reinsert their contents in the new buckets.
-	for(Uptr bucketIndex = 0; bucketIndex < oldNumBuckets; ++bucketIndex)
+	if(!newNumBuckets)
 	{
-		if(oldBuckets[bucketIndex].hashAndOccupancy)
-		{
-			Bucket& oldBucket = oldBuckets[bucketIndex];
-			const Key& oldKey = HashTablePolicy::getKey(oldBucket.storage.contents);
-
-			// Find the new bucket to write the element to.
-			Bucket& newBucket = getBucketForWrite(oldBucket.hashAndOccupancy, oldKey);
-
-			// Move the element from the old bucket to the new.
-			newBucket.storage.construct(std::move(oldBucket.storage.contents));
-			newBucket.hashAndOccupancy = oldBucket.hashAndOccupancy;
-			oldBucket.storage.destruct();
-			oldBucket.hashAndOccupancy = 0;
-		}
+		wavmAssert(!numElements);
+		buckets = nullptr;
+	}
+	else
+	{
+		// Allocate the new buckets.
+		buckets = new Bucket[newNumBuckets]();
 	}
 
-	// Free the old buckets.
-	delete[] oldBuckets;
+	hashToBucketIndexMask = newNumBuckets - 1;
+
+	if(numElements)
+	{
+		wavmAssert(oldBuckets);
+		wavmAssert(buckets);
+
+		// Iterate over the old buckets, and reinsert their contents in the new buckets.
+		for(Uptr bucketIndex = 0; bucketIndex < oldNumBuckets; ++bucketIndex)
+		{
+			if(oldBuckets[bucketIndex].hashAndOccupancy)
+			{
+				Bucket& oldBucket = oldBuckets[bucketIndex];
+				const Key& oldKey = HashTablePolicy::getKey(oldBucket.storage.contents);
+
+				// Find the new bucket to write the element to.
+				Bucket& newBucket = getBucketForWrite(oldBucket.hashAndOccupancy, oldKey);
+
+				// Move the element from the old bucket to the new.
+				newBucket.storage.construct(std::move(oldBucket.storage.contents));
+				newBucket.hashAndOccupancy = oldBucket.hashAndOccupancy;
+				oldBucket.storage.destruct();
+				oldBucket.hashAndOccupancy = 0;
+			}
+		}
+
+		// Free the old buckets.
+		delete[] oldBuckets;
+	}
 }
 
 template<HASHTABLE_PARAMETERS>
@@ -80,6 +94,8 @@ const HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForRead
 	Uptr hash,
 	const Key& key) const
 {
+	if(!buckets) { return nullptr; }
+
 	// Start at the bucket indexed by the lower bits of the hash.
 	const Uptr hashAndOccupancy = hash | Bucket::isOccupiedMask;
 	Uptr probeCount             = 0;
@@ -154,6 +170,8 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(
 	Uptr hash,
 	const Key& key)
 {
+	wavmAssert(buckets);
+
 	// Start at the bucket indexed by the lower bits of the hash.
 	const Uptr hashAndOccupancy = hash | Bucket::isOccupiedMask;
 	Uptr probeCount             = 0;
@@ -198,6 +216,8 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(
 template<HASHTABLE_PARAMETERS>
 void HashTable<HASHTABLE_ARGUMENTS>::evictHashBucket(Uptr bucketIndex)
 {
+	wavmAssert(buckets);
+
 	// Move the bucket's element into a local variable and empty the bucket.
 	Bucket& evictedBucket = buckets[bucketIndex];
 	wavmAssert(evictedBucket.hashAndOccupancy);
@@ -232,6 +252,8 @@ void HashTable<HASHTABLE_ARGUMENTS>::evictHashBucket(Uptr bucketIndex)
 template<HASHTABLE_PARAMETERS>
 void HashTable<HASHTABLE_ARGUMENTS>::eraseHashBucket(Uptr eraseBucketIndex)
 {
+	wavmAssert(buckets);
+
 	while(true)
 	{
 		// Consider the bucket following the erase bucket
@@ -302,13 +324,18 @@ void HashTable<HASHTABLE_ARGUMENTS>::analyzeSpaceUsage(
 
 template<HASHTABLE_PARAMETERS>
 HashTable<HASHTABLE_ARGUMENTS>::HashTable(Uptr estimatedNumElements)
-: numElements(0)
+: buckets(nullptr)
+, numElements(0)
+, hashToBucketIndexMask(UINTPTR_MAX)
 {
-	// Allocate the initial buckets.
 	const Uptr numBuckets = AllocPolicy::getMinDesiredBuckets(estimatedNumElements);
-	hashToBucketIndexMask = numBuckets - 1;
-	wavmAssert((numBuckets & hashToBucketIndexMask) == 0);
-	buckets = new Bucket[numBuckets]();
+	if(numBuckets)
+	{
+		// Allocate the initial buckets.
+		hashToBucketIndexMask = numBuckets - 1;
+		wavmAssert((numBuckets & hashToBucketIndexMask) == 0);
+		buckets = new Bucket[numBuckets]();
+	}
 }
 
 template<HASHTABLE_PARAMETERS> HashTable<HASHTABLE_ARGUMENTS>::HashTable(const HashTable& copy)
@@ -351,38 +378,52 @@ HashTable<HASHTABLE_ARGUMENTS>& HashTable<HASHTABLE_ARGUMENTS>::operator=(
 
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::destruct()
 {
-	for(Uptr bucketIndex = 0; bucketIndex < numBuckets(); ++bucketIndex)
+	if(buckets)
 	{
-		if(buckets[bucketIndex].hashAndOccupancy) { buckets[bucketIndex].storage.destruct(); }
-	}
+		for(Uptr bucketIndex = 0; bucketIndex < numBuckets(); ++bucketIndex)
+		{
+			if(buckets[bucketIndex].hashAndOccupancy) { buckets[bucketIndex].storage.destruct(); }
+		}
 
-	delete[] buckets;
+		delete[] buckets;
+		buckets = nullptr;
+	}
 }
 
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::copyFrom(const HashTable& copy)
 {
-	buckets               = new Bucket[copy.numBuckets()];
 	numElements           = copy.numElements;
 	hashToBucketIndexMask = copy.hashToBucketIndexMask;
 
-	for(Uptr bucketIndex = 0; bucketIndex < numBuckets(); ++bucketIndex)
+	if(!copy.buckets) { buckets = nullptr; }
+	else
 	{
-		buckets[bucketIndex].hashAndOccupancy = copy.buckets[bucketIndex].hashAndOccupancy;
-		if(buckets[bucketIndex].hashAndOccupancy)
-		{ buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.contents); }
+		buckets = new Bucket[copy.numBuckets()];
+		for(Uptr bucketIndex = 0; bucketIndex < numBuckets(); ++bucketIndex)
+		{
+			buckets[bucketIndex].hashAndOccupancy = copy.buckets[bucketIndex].hashAndOccupancy;
+			if(buckets[bucketIndex].hashAndOccupancy)
+			{
+				buckets[bucketIndex].storage.construct(copy.buckets[bucketIndex].storage.contents);
+			}
+		}
 	}
 }
 
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::moveFrom(HashTable&& movee)
 {
-	buckets               = movee.buckets;
 	numElements           = movee.numElements;
 	hashToBucketIndexMask = movee.hashToBucketIndexMask;
 
-	const Uptr moveeNumBuckets  = AllocPolicy::getMaxDesiredBuckets(0);
-	movee.numElements           = 0;
-	movee.hashToBucketIndexMask = moveeNumBuckets - 1;
-	movee.buckets               = new Bucket[moveeNumBuckets]();
+	if(!movee.buckets) { buckets = nullptr; }
+	else
+	{
+		buckets = movee.buckets;
+
+		movee.numElements           = 0;
+		movee.hashToBucketIndexMask = 0;
+		movee.buckets               = nullptr;
+	}
 }
 
 #undef HASHTABLE_PARAMETERS

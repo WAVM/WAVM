@@ -9,7 +9,7 @@ struct DefaultHashTableAllocPolicy
 {
 	enum
 	{
-		minBuckets = 4
+		minBuckets = 8
 	};
 
 	static Uptr divideAndRoundUp(Uptr numerator, Uptr denominator)
@@ -26,9 +26,13 @@ struct DefaultHashTableAllocPolicy
 
 	static Uptr getMinDesiredBuckets(Uptr numDesiredElements)
 	{
-		const Uptr minDesiredBuckets = Uptr(1)
-			<< Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 16));
-		return minDesiredBuckets < minBuckets ? minBuckets : minDesiredBuckets;
+		if(numDesiredElements == 0) { return 0; }
+		else
+		{
+			const Uptr minDesiredBuckets = Uptr(1)
+				<< Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 16));
+			return minDesiredBuckets < minBuckets ? minBuckets : minDesiredBuckets;
+		}
 	}
 };
 
