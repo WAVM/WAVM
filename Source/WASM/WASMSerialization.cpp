@@ -432,12 +432,12 @@ struct OperatorSerializerStream
 	{
 	}
 
-#define VISIT_OPCODE(_, name, nameString, Imm, ...) \
-	void name(Imm imm) const                        \
-	{                                               \
-		Opcode opcode = Opcode::name;               \
-		serialize(byteStream, opcode);              \
-		serialize(byteStream, imm, functionDef);    \
+#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
+	void name(Imm imm) const                                                                       \
+	{                                                                                              \
+		Opcode opcode = Opcode::name;                                                              \
+		serialize(byteStream, opcode);                                                             \
+		serialize(byteStream, imm, functionDef);                                                   \
 	}
 	ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
@@ -520,14 +520,14 @@ serializeFunctionBody(InputStream& sectionStream, Module& module, FunctionDef& f
 		serialize(bodyStream, opcode);
 		switch(opcode)
 		{
-#define VISIT_OPCODE(_, name, nameString, Imm, ...) \
-	case Opcode::name:                              \
-	{                                               \
-		Imm imm;                                    \
-		serialize(bodyStream, imm, functionDef);    \
-		codeValidationStream.name(imm);             \
-		irEncoderStream.name(imm);                  \
-		break;                                      \
+#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
+	case Opcode::name:                                                                             \
+	{                                                                                              \
+		Imm imm;                                                                                   \
+		serialize(bodyStream, imm, functionDef);                                                   \
+		codeValidationStream.name(imm);                                                            \
+		irEncoderStream.name(imm);                                                                 \
+		break;                                                                                     \
 	}
 			ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE

@@ -7,8 +7,8 @@
 
 using namespace Runtime;
 
-#define DEFINE_STATIC_EXCEPTION_TYPE(name)                                \
-	const GCPointer<ExceptionTypeInstance> Runtime::Exception::name##Type \
+#define DEFINE_STATIC_EXCEPTION_TYPE(name)                                                         \
+	const GCPointer<ExceptionTypeInstance> Runtime::Exception::name##Type                          \
 		= createExceptionTypeInstance(IR::ExceptionType{TypeTuple()}, "wavm." #name);
 
 DEFINE_STATIC_EXCEPTION_TYPE(accessViolation)

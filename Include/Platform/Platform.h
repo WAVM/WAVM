@@ -11,8 +11,8 @@
 #define FORCENOINLINE __declspec(noinline)
 #define SUPPRESS_UNUSED(variable) (void)(variable);
 #include <intrin.h>
-#define PACKED_STRUCT(definition)       \
-	__pragma(pack(push, 1)) definition; \
+#define PACKED_STRUCT(definition)                                                                  \
+	__pragma(pack(push, 1)) definition;                                                            \
 	__pragma(pack(pop))
 #define NO_ASAN
 #define RETURNS_TWICE

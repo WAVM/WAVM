@@ -8,11 +8,11 @@
 using namespace LLVMJIT;
 using namespace IR;
 
-#define EMIT_UNARY_OP(name, emitCode)     \
-	void EmitFunctionContext::name(NoImm) \
-	{                                     \
-		auto operand = pop();             \
-		push(emitCode);                   \
+#define EMIT_UNARY_OP(name, emitCode)                                                              \
+	void EmitFunctionContext::name(NoImm)                                                          \
+	{                                                                                              \
+		auto operand = pop();                                                                      \
+		push(emitCode);                                                                            \
 	}
 
 EMIT_UNARY_OP(i32_wrap_i64, trunc(operand, llvmI32Type))
@@ -249,11 +249,11 @@ EMIT_UNARY_OP(i64_extend8_s, sext(trunc(operand, llvmI8Type), llvmI64Type))
 EMIT_UNARY_OP(i64_extend16_s, sext(trunc(operand, llvmI16Type), llvmI64Type))
 EMIT_UNARY_OP(i64_extend32_s, sext(trunc(operand, llvmI32Type), llvmI64Type))
 
-#define EMIT_SIMD_SPLAT(vectorType, coerceScalar, numLanes)        \
-	void EmitFunctionContext::vectorType##_splat(IR::NoImm)        \
-	{                                                              \
-		auto scalar = pop();                                       \
-		push(irBuilder.CreateVectorSplat(numLanes, coerceScalar)); \
+#define EMIT_SIMD_SPLAT(vectorType, coerceScalar, numLanes)                                        \
+	void EmitFunctionContext::vectorType##_splat(IR::NoImm)                                        \
+	{                                                                                              \
+		auto scalar = pop();                                                                       \
+		push(irBuilder.CreateVectorSplat(numLanes, coerceScalar));                                 \
 	}
 EMIT_SIMD_SPLAT(i8x16, trunc(scalar, llvmI8Type), 16)
 EMIT_SIMD_SPLAT(i16x8, trunc(scalar, llvmI16Type), 8)

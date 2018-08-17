@@ -270,7 +270,7 @@ struct UnreachableOpVisitor
 	: context(inContext), unreachableControlDepth(0)
 	{
 	}
-#define VISIT_OP(opcode, name, nameString, Imm, ...) \
+#define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
 	void name(Imm imm) {}
 	ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 	VISIT_OP(_, unknown, "unknown", Opcode)

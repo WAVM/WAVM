@@ -152,62 +152,62 @@ namespace Intrinsics
 
 }
 
-#define DEFINE_INTRINSIC_MODULE(name)               \
-	Intrinsics::Module& getIntrinsicModule_##name() \
-	{                                               \
-		static Intrinsics::Module module;           \
-		return module;                              \
+#define DEFINE_INTRINSIC_MODULE(name)                                                              \
+	Intrinsics::Module& getIntrinsicModule_##name()                                                \
+	{                                                                                              \
+		static Intrinsics::Module module;                                                          \
+		return module;                                                                             \
 	}
 
 #define DECLARE_INTRINSIC_MODULE(name) extern Intrinsics::Module& getIntrinsicModule_##name();
 
 #define INTRINSIC_MODULE_REF(name) getIntrinsicModule_##name()
 
-#define DEFINE_INTRINSIC_FUNCTION(module, nameString, Result, cName, ...)                \
-	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__); \
-	static Intrinsics::Function cName##Intrinsic(                                        \
-		getIntrinsicModule_##module(),                                                   \
-		nameString,                                                                      \
-		(void*)&cName,                                                                   \
-		Intrinsics::inferIntrinsicFunctionType(&cName),                                  \
-		Runtime::CallingConvention::intrinsic);                                          \
+#define DEFINE_INTRINSIC_FUNCTION(module, nameString, Result, cName, ...)                          \
+	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__);           \
+	static Intrinsics::Function cName##Intrinsic(                                                  \
+		getIntrinsicModule_##module(),                                                             \
+		nameString,                                                                                \
+		(void*)&cName,                                                                             \
+		Intrinsics::inferIntrinsicFunctionType(&cName),                                            \
+		Runtime::CallingConvention::intrinsic);                                                    \
 	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__)
 
-#define DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(module, nameString, Result, cName, ...) \
-	static Result cName(                                                                     \
-		Runtime::ContextRuntimeData* contextRuntimeData,                                     \
-		Intrinsics::MemoryIdArg defaultMemoryId,                                             \
-		Intrinsics::TableIdArg defaultTableId,                                               \
-		##__VA_ARGS__);                                                                      \
-	static Intrinsics::Function cName##Intrinsic(                                            \
-		getIntrinsicModule_##module(),                                                       \
-		nameString,                                                                          \
-		(void*)&cName,                                                                       \
-		Intrinsics::inferIntrinsicWithMemAndTableFunctionType(&cName),                       \
-		Runtime::CallingConvention::intrinsicWithMemAndTable);                               \
-	static Result cName(                                                                     \
-		Runtime::ContextRuntimeData* contextRuntimeData,                                     \
-		Intrinsics::MemoryIdArg defaultMemoryId,                                             \
-		Intrinsics::TableIdArg defaultTableId,                                               \
+#define DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(module, nameString, Result, cName, ...)       \
+	static Result cName(                                                                           \
+		Runtime::ContextRuntimeData* contextRuntimeData,                                           \
+		Intrinsics::MemoryIdArg defaultMemoryId,                                                   \
+		Intrinsics::TableIdArg defaultTableId,                                                     \
+		##__VA_ARGS__);                                                                            \
+	static Intrinsics::Function cName##Intrinsic(                                                  \
+		getIntrinsicModule_##module(),                                                             \
+		nameString,                                                                                \
+		(void*)&cName,                                                                             \
+		Intrinsics::inferIntrinsicWithMemAndTableFunctionType(&cName),                             \
+		Runtime::CallingConvention::intrinsicWithMemAndTable);                                     \
+	static Result cName(                                                                           \
+		Runtime::ContextRuntimeData* contextRuntimeData,                                           \
+		Intrinsics::MemoryIdArg defaultMemoryId,                                                   \
+		Intrinsics::TableIdArg defaultTableId,                                                     \
 		##__VA_ARGS__)
 
-#define DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(module, nameString, Result, cName, ...) \
-	static Intrinsics::ResultInContextRuntimeData<Result>* cName(                             \
-		Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__);                      \
-	static Intrinsics::Function cName##Intrinsic(                                             \
-		getIntrinsicModule_##module(),                                                        \
-		nameString,                                                                           \
-		(void*)&cName,                                                                        \
-		Intrinsics::inferIntrinsicWithContextSwitchFunctionType(&cName),                      \
-		Runtime::CallingConvention::intrinsicWithContextSwitch);                              \
-	static Intrinsics::ResultInContextRuntimeData<Result>* cName(                             \
+#define DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(module, nameString, Result, cName, ...)      \
+	static Intrinsics::ResultInContextRuntimeData<Result>* cName(                                  \
+		Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__);                           \
+	static Intrinsics::Function cName##Intrinsic(                                                  \
+		getIntrinsicModule_##module(),                                                             \
+		nameString,                                                                                \
+		(void*)&cName,                                                                             \
+		Intrinsics::inferIntrinsicWithContextSwitchFunctionType(&cName),                           \
+		Runtime::CallingConvention::intrinsicWithContextSwitch);                                   \
+	static Intrinsics::ResultInContextRuntimeData<Result>* cName(                                  \
 		Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__)
 
 // Macros for defining intrinsic globals, memories, and tables.
-#define DEFINE_INTRINSIC_GLOBAL(module, name, Value, cName, initializer) \
+#define DEFINE_INTRINSIC_GLOBAL(module, name, Value, cName, initializer)                           \
 	static Intrinsics::GenericGlobal<Value> cName(getIntrinsicModule_##module(), name, initializer);
 
-#define DEFINE_INTRINSIC_MEMORY(module, cName, name, type) \
+#define DEFINE_INTRINSIC_MEMORY(module, cName, name, type)                                         \
 	static Intrinsics::Memory cName(getIntrinsicModule_##module(), #name, type);
-#define DEFINE_INTRINSIC_TABLE(module, cName, name, type) \
+#define DEFINE_INTRINSIC_TABLE(module, cName, name, type)                                          \
 	static Intrinsics::Table cName(getIntrinsicModule_##module(), #name, type);

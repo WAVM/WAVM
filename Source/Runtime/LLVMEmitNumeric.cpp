@@ -12,10 +12,10 @@ using namespace IR;
 // Constant operators
 //
 
-#define EMIT_CONST(typeId, NativeType)                                   \
-	void EmitFunctionContext::typeId##_const(LiteralImm<NativeType> imm) \
-	{                                                                    \
-		push(emitLiteral(imm.value));                                    \
+#define EMIT_CONST(typeId, NativeType)                                                             \
+	void EmitFunctionContext::typeId##_const(LiteralImm<NativeType> imm)                           \
+	{                                                                                              \
+		push(emitLiteral(imm.value));                                                              \
 	}
 EMIT_CONST(i32, I32)
 EMIT_CONST(i64, I64)
@@ -27,83 +27,83 @@ EMIT_CONST(v128, V128)
 // Numeric operator macros
 //
 
-#define EMIT_BINARY_OP(typeId, name, emitCode)       \
-	void EmitFunctionContext::typeId##_##name(NoImm) \
-	{                                                \
-		const ValueType type = ValueType::typeId;    \
-		SUPPRESS_UNUSED(type);                       \
-		auto right = pop();                          \
-		auto left  = pop();                          \
-		push(emitCode);                              \
+#define EMIT_BINARY_OP(typeId, name, emitCode)                                                     \
+	void EmitFunctionContext::typeId##_##name(NoImm)                                               \
+	{                                                                                              \
+		const ValueType type = ValueType::typeId;                                                  \
+		SUPPRESS_UNUSED(type);                                                                     \
+		auto right = pop();                                                                        \
+		auto left  = pop();                                                                        \
+		push(emitCode);                                                                            \
 	}
 
-#define EMIT_INT_BINARY_OP(name, emitCode) \
-	EMIT_BINARY_OP(i32, name, emitCode)    \
+#define EMIT_INT_BINARY_OP(name, emitCode)                                                         \
+	EMIT_BINARY_OP(i32, name, emitCode)                                                            \
 	EMIT_BINARY_OP(i64, name, emitCode)
 
-#define EMIT_FP_BINARY_OP(name, emitCode) \
-	EMIT_BINARY_OP(f32, name, emitCode)   \
+#define EMIT_FP_BINARY_OP(name, emitCode)                                                          \
+	EMIT_BINARY_OP(f32, name, emitCode)                                                            \
 	EMIT_BINARY_OP(f64, name, emitCode)
 
-#define EMIT_UNARY_OP(typeId, name, emitCode)        \
-	void EmitFunctionContext::typeId##_##name(NoImm) \
-	{                                                \
-		const ValueType type = ValueType::typeId;    \
-		SUPPRESS_UNUSED(type);                       \
-		auto operand = pop();                        \
-		push(emitCode);                              \
+#define EMIT_UNARY_OP(typeId, name, emitCode)                                                      \
+	void EmitFunctionContext::typeId##_##name(NoImm)                                               \
+	{                                                                                              \
+		const ValueType type = ValueType::typeId;                                                  \
+		SUPPRESS_UNUSED(type);                                                                     \
+		auto operand = pop();                                                                      \
+		push(emitCode);                                                                            \
 	}
 
-#define EMIT_INT_UNARY_OP(name, emitCode) \
-	EMIT_UNARY_OP(i32, name, emitCode)    \
+#define EMIT_INT_UNARY_OP(name, emitCode)                                                          \
+	EMIT_UNARY_OP(i32, name, emitCode)                                                             \
 	EMIT_UNARY_OP(i64, name, emitCode)
 
-#define EMIT_FP_UNARY_OP(name, emitCode) \
-	EMIT_UNARY_OP(f32, name, emitCode)   \
+#define EMIT_FP_UNARY_OP(name, emitCode)                                                           \
+	EMIT_UNARY_OP(f32, name, emitCode)                                                             \
 	EMIT_UNARY_OP(f64, name, emitCode)
 
-#define EMIT_SIMD_BINARY_OP(name, llvmType, emitCode)          \
-	void EmitFunctionContext::name(IR::NoImm)                  \
-	{                                                          \
-		auto right = irBuilder.CreateBitCast(pop(), llvmType); \
-		SUPPRESS_UNUSED(right);                                \
-		auto left = irBuilder.CreateBitCast(pop(), llvmType);  \
-		SUPPRESS_UNUSED(left);                                 \
-		push(emitCode);                                        \
+#define EMIT_SIMD_BINARY_OP(name, llvmType, emitCode)                                              \
+	void EmitFunctionContext::name(IR::NoImm)                                                      \
+	{                                                                                              \
+		auto right = irBuilder.CreateBitCast(pop(), llvmType);                                     \
+		SUPPRESS_UNUSED(right);                                                                    \
+		auto left = irBuilder.CreateBitCast(pop(), llvmType);                                      \
+		SUPPRESS_UNUSED(left);                                                                     \
+		push(emitCode);                                                                            \
 	}
-#define EMIT_SIMD_UNARY_OP(name, llvmType, emitCode)             \
-	void EmitFunctionContext::name(IR::NoImm)                    \
-	{                                                            \
-		auto operand = irBuilder.CreateBitCast(pop(), llvmType); \
-		SUPPRESS_UNUSED(operand);                                \
-		push(emitCode);                                          \
+#define EMIT_SIMD_UNARY_OP(name, llvmType, emitCode)                                               \
+	void EmitFunctionContext::name(IR::NoImm)                                                      \
+	{                                                                                              \
+		auto operand = irBuilder.CreateBitCast(pop(), llvmType);                                   \
+		SUPPRESS_UNUSED(operand);                                                                  \
+		push(emitCode);                                                                            \
 	}
 
-#define EMIT_SIMD_INT_BINARY_OP(name, emitCode)                  \
-	EMIT_SIMD_BINARY_OP(i8x16##_##name, llvmI8x16Type, emitCode) \
-	EMIT_SIMD_BINARY_OP(i16x8##_##name, llvmI16x8Type, emitCode) \
-	EMIT_SIMD_BINARY_OP(i32x4##_##name, llvmI32x4Type, emitCode) \
+#define EMIT_SIMD_INT_BINARY_OP(name, emitCode)                                                    \
+	EMIT_SIMD_BINARY_OP(i8x16##_##name, llvmI8x16Type, emitCode)                                   \
+	EMIT_SIMD_BINARY_OP(i16x8##_##name, llvmI16x8Type, emitCode)                                   \
+	EMIT_SIMD_BINARY_OP(i32x4##_##name, llvmI32x4Type, emitCode)                                   \
 	EMIT_SIMD_BINARY_OP(i64x2##_##name, llvmI64x2Type, emitCode)
 
-#define EMIT_SIMD_FP_BINARY_OP(name, emitCode)                   \
-	EMIT_SIMD_BINARY_OP(f32x4##_##name, llvmF32x4Type, emitCode) \
+#define EMIT_SIMD_FP_BINARY_OP(name, emitCode)                                                     \
+	EMIT_SIMD_BINARY_OP(f32x4##_##name, llvmF32x4Type, emitCode)                                   \
 	EMIT_SIMD_BINARY_OP(f64x2##_##name, llvmF64x2Type, emitCode)
 
-#define EMIT_SIMD_INT_UNARY_OP(name, emitCode)                  \
-	EMIT_SIMD_UNARY_OP(i8x16##_##name, llvmI8x16Type, emitCode) \
-	EMIT_SIMD_UNARY_OP(i16x8##_##name, llvmI16x8Type, emitCode) \
-	EMIT_SIMD_UNARY_OP(i32x4##_##name, llvmI32x4Type, emitCode) \
+#define EMIT_SIMD_INT_UNARY_OP(name, emitCode)                                                     \
+	EMIT_SIMD_UNARY_OP(i8x16##_##name, llvmI8x16Type, emitCode)                                    \
+	EMIT_SIMD_UNARY_OP(i16x8##_##name, llvmI16x8Type, emitCode)                                    \
+	EMIT_SIMD_UNARY_OP(i32x4##_##name, llvmI32x4Type, emitCode)                                    \
 	EMIT_SIMD_UNARY_OP(i64x2##_##name, llvmI64x2Type, emitCode)
 
-#define EMIT_SIMD_FP_UNARY_OP(name, emitCode)                   \
-	EMIT_SIMD_UNARY_OP(f32x4##_##name, llvmF32x4Type, emitCode) \
+#define EMIT_SIMD_FP_UNARY_OP(name, emitCode)                                                      \
+	EMIT_SIMD_UNARY_OP(f32x4##_##name, llvmF32x4Type, emitCode)                                    \
 	EMIT_SIMD_UNARY_OP(f64x2##_##name, llvmF64x2Type, emitCode)
 
 // The WebAssembly extension doesn't implement some operators for i64x2, so provide a macro that
 // only implements an operator for the <64-bit/scalar types.
-#define EMIT_SIMD_SUB64_INT_BINARY_OP(name, emitCode)            \
-	EMIT_SIMD_BINARY_OP(i8x16##_##name, llvmI8x16Type, emitCode) \
-	EMIT_SIMD_BINARY_OP(i16x8##_##name, llvmI16x8Type, emitCode) \
+#define EMIT_SIMD_SUB64_INT_BINARY_OP(name, emitCode)                                              \
+	EMIT_SIMD_BINARY_OP(i8x16##_##name, llvmI8x16Type, emitCode)                                   \
+	EMIT_SIMD_BINARY_OP(i16x8##_##name, llvmI16x8Type, emitCode)                                   \
 	EMIT_SIMD_BINARY_OP(i32x4##_##name, llvmI32x4Type, emitCode)
 
 //
@@ -531,12 +531,12 @@ void EmitFunctionContext::v128_not(IR::NoImm)
 // SIMD extract_lane
 //
 
-#define EMIT_SIMD_EXTRACT_LANE_OP(name, llvmType, numLanes, coerceScalar)      \
-	void EmitFunctionContext::name(IR::LaneIndexImm<numLanes> imm)             \
-	{                                                                          \
-		auto operand = irBuilder.CreateBitCast(pop(), llvmType);               \
-		auto scalar  = irBuilder.CreateExtractElement(operand, imm.laneIndex); \
-		push(coerceScalar);                                                    \
+#define EMIT_SIMD_EXTRACT_LANE_OP(name, llvmType, numLanes, coerceScalar)                          \
+	void EmitFunctionContext::name(IR::LaneIndexImm<numLanes> imm)                                 \
+	{                                                                                              \
+		auto operand = irBuilder.CreateBitCast(pop(), llvmType);                                   \
+		auto scalar  = irBuilder.CreateExtractElement(operand, imm.laneIndex);                     \
+		push(coerceScalar);                                                                        \
 	}
 EMIT_SIMD_EXTRACT_LANE_OP(i8x16_extract_lane_s, llvmI8x16Type, 16, sext(scalar, llvmI32Type))
 EMIT_SIMD_EXTRACT_LANE_OP(i8x16_extract_lane_u, llvmI8x16Type, 16, zext(scalar, llvmI32Type))
@@ -552,12 +552,12 @@ EMIT_SIMD_EXTRACT_LANE_OP(f64x2_extract_lane, llvmF64x2Type, 2, scalar)
 // SIMD replace_lane
 //
 
-#define EMIT_SIMD_REPLACE_LANE_OP(typePrefix, llvmType, numLanes, coerceScalar)         \
-	void EmitFunctionContext::typePrefix##_replace_lane(IR::LaneIndexImm<numLanes> imm) \
-	{                                                                                   \
-		auto vector = irBuilder.CreateBitCast(pop(), llvmType);                         \
-		auto scalar = pop();                                                            \
-		push(irBuilder.CreateInsertElement(vector, coerceScalar, imm.laneIndex));       \
+#define EMIT_SIMD_REPLACE_LANE_OP(typePrefix, llvmType, numLanes, coerceScalar)                    \
+	void EmitFunctionContext::typePrefix##_replace_lane(IR::LaneIndexImm<numLanes> imm)            \
+	{                                                                                              \
+		auto vector = irBuilder.CreateBitCast(pop(), llvmType);                                    \
+		auto scalar = pop();                                                                       \
+		push(irBuilder.CreateInsertElement(vector, coerceScalar, imm.laneIndex));                  \
 	}
 
 EMIT_SIMD_REPLACE_LANE_OP(i8x16, llvmI8x16Type, 16, trunc(scalar, llvmI8Type))

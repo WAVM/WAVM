@@ -498,10 +498,10 @@
 
 // clang-format on
 
-#define ENUM_NONCONTROL_OPERATORS(visitOp) \
-	ENUM_PARAMETRIC_OPERATORS(visitOp)     \
+#define ENUM_NONCONTROL_OPERATORS(visitOp)                                                         \
+	ENUM_PARAMETRIC_OPERATORS(visitOp)                                                             \
 	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)
 
-#define ENUM_OPERATORS(visitOp)        \
-	ENUM_NONCONTROL_OPERATORS(visitOp) \
+#define ENUM_OPERATORS(visitOp)                                                                    \
+	ENUM_NONCONTROL_OPERATORS(visitOp)                                                             \
 	ENUM_CONTROL_OPERATORS(visitOp)

@@ -45,11 +45,11 @@ namespace IR
 
 		void finishValidation() { codeValidationStream.finish(); }
 
-#define VISIT_OPCODE(_, name, nameString, Imm, ...) \
-	void name(Imm imm = {})                         \
-	{                                               \
-		codeValidationStream.name(imm);             \
-		innerStream.name(imm);                      \
+#define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
+	void name(Imm imm = {})                                                                        \
+	{                                                                                              \
+		codeValidationStream.name(imm);                                                            \
+		innerStream.name(imm);                                                                     \
 	}
 		ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE

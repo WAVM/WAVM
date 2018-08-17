@@ -57,18 +57,18 @@ namespace Runtime
 // Declare the different kinds of objects.
 // They are only declared as incomplete struct types here, and Runtime clients
 // will only handle opaque pointers to them.
-#define DECLARE_OBJECT_TYPE(kindId, kindName, Type)                        \
-	struct Type;                                                           \
-	inline Type* as##kindName(Object* object)                              \
-	{                                                                      \
-		wavmAssert(!object || object->kind == kindId);                     \
-		return (Type*)object;                                              \
-	}                                                                      \
-	inline Type* as##kindName##Nullable(Object* object)                    \
-	{                                                                      \
-		return object && object->kind == kindId ? (Type*)object : nullptr; \
-	}                                                                      \
-	inline Object* asObject(Type* object) { return (Object*)object; }      \
+#define DECLARE_OBJECT_TYPE(kindId, kindName, Type)                                                \
+	struct Type;                                                                                   \
+	inline Type* as##kindName(Object* object)                                                      \
+	{                                                                                              \
+		wavmAssert(!object || object->kind == kindId);                                             \
+		return (Type*)object;                                                                      \
+	}                                                                                              \
+	inline Type* as##kindName##Nullable(Object* object)                                            \
+	{                                                                                              \
+		return object && object->kind == kindId ? (Type*)object : nullptr;                         \
+	}                                                                                              \
+	inline Object* asObject(Type* object) { return (Object*)object; }                              \
 	template<> inline Type* as<Type>(Object * object) { return as##kindName(object); }
 
 	DECLARE_OBJECT_TYPE(ObjectKind::function, Function, FunctionInstance);

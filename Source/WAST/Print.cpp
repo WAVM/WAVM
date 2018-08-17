@@ -505,12 +505,12 @@ struct FunctionPrintContext
 		string += "\ncatch_all" INDENT_STRING;
 	}
 
-#define PRINT_OP(opcode, name, nameString, Imm, printOperands, requiredFeature) \
-	void name(Imm imm)                                                          \
-	{                                                                           \
-		wavmAssert(module.featureSpec.requiredFeature);                         \
-		string += "\n" nameString;                                              \
-		printImm(imm);                                                          \
+#define PRINT_OP(opcode, name, nameString, Imm, printOperands, requiredFeature)                    \
+	void name(Imm imm)                                                                             \
+	{                                                                                              \
+		wavmAssert(module.featureSpec.requiredFeature);                                            \
+		string += "\n" nameString;                                                                 \
+		printImm(imm);                                                                             \
 	}
 	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(PRINT_OP)
 #undef VALIDATE_OP

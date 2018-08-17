@@ -470,14 +470,14 @@ static void parseExprSequence(CursorState* cursor)
 	while(cursor->nextToken->type != t_rightParenthesis) { parseExpr(cursor); };
 }
 
-#define VISIT_OP(opcode, name, nameString, Imm, ...)                   \
-	static void parseOp_##name(CursorState* cursor, bool isExpression) \
-	{                                                                  \
-		++cursor->nextToken;                                           \
-		Imm imm;                                                       \
-		parseImm(cursor, imm);                                         \
-		if(isExpression) { parseExprSequence(cursor); }                \
-		cursor->functionState->validatingCodeStream.name(imm);         \
+#define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
+	static void parseOp_##name(CursorState* cursor, bool isExpression)                             \
+	{                                                                                              \
+		++cursor->nextToken;                                                                       \
+		Imm imm;                                                                                   \
+		parseImm(cursor, imm);                                                                     \
+		if(isExpression) { parseExprSequence(cursor); }                                            \
+		cursor->functionState->validatingCodeStream.name(imm);                                     \
 	}
 ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
@@ -549,9 +549,9 @@ static void parseExpr(CursorState* cursor)
 				cursor->functionState->validatingCodeStream.end();
 				break;
 			}
-#define VISIT_OP(opcode, name, nameString, Imm, ...) \
-	case t_##name:                                   \
-		parseOp_##name(cursor, true);                \
+#define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
+	case t_##name:                                                                                 \
+		parseOp_##name(cursor, true);                                                              \
 		break;
 				ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
@@ -679,7 +679,7 @@ static void parseInstrSequence(CursorState* cursor)
 			}
 			case t_catch_: return;
 			case t_catch_all: return;
-#define VISIT_OP(opcode, name, nameString, Imm, ...) \
+#define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
 	case t_##name: parseOp_##name(cursor, false); break;
 				ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP

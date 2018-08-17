@@ -2,7 +2,7 @@
 
 // Use these macros to compress the boilerplate template declarations in a non-inline member
 // function definition for HashTable.
-#define HASHTABLE_PARAMETERS \
+#define HASHTABLE_PARAMETERS                                                                       \
 	typename Key, typename Element, typename HashTablePolicy, typename AllocPolicy
 #define HASHTABLE_ARGUMENTS Key, Element, HashTablePolicy, AllocPolicy
 

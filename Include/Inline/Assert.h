@@ -5,28 +5,28 @@
 #include <cstdarg>
 
 #if WAVM_DEBUG || ENABLE_RELEASE_ASSERTS
-#define wavmAssert(condition)                                                                 \
-	if(!(condition))                                                                          \
-	{                                                                                         \
-		for(static const Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};;) \
-		{                                                                                     \
-			Platform::handleAssertionFailure(metadata);                                       \
-			DEBUG_TRAP();                                                                     \
-			break;                                                                            \
-		}                                                                                     \
+#define wavmAssert(condition)                                                                      \
+	if(!(condition))                                                                               \
+	{                                                                                              \
+		for(static const Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};;)      \
+		{                                                                                          \
+			Platform::handleAssertionFailure(metadata);                                            \
+			DEBUG_TRAP();                                                                          \
+			break;                                                                                 \
+		}                                                                                          \
 	}
 #else
-#define wavmAssert(condition) \
+#define wavmAssert(condition)                                                                      \
 	if(false && !(condition)) {}
 #endif
 
-#define errorUnless(condition)                                                                \
-	if(!(condition))                                                                          \
-	{                                                                                         \
-		for(static const Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};;) \
-		{                                                                                     \
-			Platform::handleAssertionFailure(metadata);                                       \
-			DEBUG_TRAP();                                                                     \
-			break;                                                                            \
-		}                                                                                     \
+#define errorUnless(condition)                                                                     \
+	if(!(condition))                                                                               \
+	{                                                                                              \
+		for(static const Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};;)      \
+		{                                                                                          \
+			Platform::handleAssertionFailure(metadata);                                            \
+			DEBUG_TRAP();                                                                          \
+			break;                                                                                 \
+		}                                                                                          \
 	}

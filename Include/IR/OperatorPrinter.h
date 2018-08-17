@@ -18,7 +18,7 @@ namespace IR
 		{
 		}
 
-#define VISIT_OPCODE(encoding, name, nameString, Imm, ...) \
+#define VISIT_OPCODE(encoding, name, nameString, Imm, ...)                                         \
 	std::string name(Imm imm = {}) { return std::string(nameString) + describeImm(imm); }
 		ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
