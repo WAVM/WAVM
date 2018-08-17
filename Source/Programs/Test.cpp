@@ -556,6 +556,11 @@ DEFINE_INTRINSIC_TABLE(
 	table,
 	TableType(TableElementType::anyfunc, false, SizeConstraints{10, 20}))
 DEFINE_INTRINSIC_MEMORY(spectest, spectest_memory, memory, MemoryType(false, SizeConstraints{1, 2}))
+DEFINE_INTRINSIC_MEMORY(
+	spectest,
+	spectest_shared_memory,
+	shared_memory,
+	MemoryType(true, SizeConstraints{1, 2}))
 
 int main(int argc, char** argv)
 {

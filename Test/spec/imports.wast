@@ -494,6 +494,18 @@
 (assert_return (invoke "grow" (i32.const 1)) (i32.const -1))
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 2))
 
+;; Shared Memory
+
+(module (import "spectest" "shared_memory" (memory 1 2 shared)))
+
+(assert_unlinkable
+  (module (import "spectest" "shared_memory" (memory 1 2)))
+  "incompatible import type")
+
+(assert_unlinkable
+  (module (import "spectest" "memory" (memory 1 2 shared)))
+  "incompatible import type")
+
 
 ;; Syntax errors
 
