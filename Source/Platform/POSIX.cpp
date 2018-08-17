@@ -146,9 +146,13 @@ U8* Platform::allocateAlignedVirtualPages(
 
 		// Unmap the start and end of the unaligned mapping, leaving the aligned mapping in the
 		// middle.
-		errorUnless(!munmap(unalignedBaseAddress, alignedAddress - address));
-		errorUnless(!munmap(
-			result + (numPages << pageSizeLog2), alignmentBytes - (alignedAddress - address)));
+		const Uptr numHeadPaddingBytes = alignedAddress - address;
+		if(numHeadPaddingBytes > 0)
+		{ errorUnless(!munmap(unalignedBaseAddress, numHeadPaddingBytes)); }
+
+		const Uptr numTailPaddingBytes = alignmentBytes - (alignedAddress - address);
+		if(numTailPaddingBytes > 0)
+		{ errorUnless(!munmap(result + (numPages << pageSizeLog2), numTailPaddingBytes)); }
 
 		outUnalignedBaseAddress = result;
 		return result;
