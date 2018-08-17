@@ -351,13 +351,5 @@ int main(int argc, char** argv)
 		Errors::fatalf("Unhandled runtime exception: %s\n", describeException(exception).c_str());
 	});
 
-	int returnCode = EXIT_FAILURE;
-#ifdef __AFL_LOOP
-	while(__AFL_LOOP(2000))
-#endif
-	{
-		returnCode = run(options);
-		Runtime::collectGarbage();
-	}
-	return returnCode;
+	return run(options);
 }
