@@ -143,19 +143,13 @@ inline bool loadTextModule(const std::string& wastString, IR::Module& outModule)
 
 inline bool loadModule(const std::string& dataString, IR::Module& outModule)
 {
-	// If the file starts with the WASM binary magic number, load it as a binary module.
-	if(*(U32*)dataString.data() == 0x6d736100) { return loadBinaryModule(dataString, outModule); }
-	else
-	{
-		// Otherwise, load it as a text module.
-		return loadTextModule(dataString, outModule);
-	}
+	return loadBinaryModule(dataString, outModule);
 }
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	Module module;
-	if(!loadModule(std::string((const char*)data, numBytes), module)) { return 0; }
+	if(!loadBinaryModule(std::string((const char*)data, numBytes), module)) { return 0; }
 
 	Compartment* compartment = createCompartment();
 	StubResolver stubResolver(compartment);
