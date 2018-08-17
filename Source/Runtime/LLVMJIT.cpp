@@ -1142,5 +1142,34 @@ static void initLLVM()
 	typedZeroConstants[(Uptr)ValueType::v128] = llvm::ConstantVector::get(
 		{typedZeroConstants[(Uptr)ValueType::i64], typedZeroConstants[(Uptr)ValueType::i64]});
 
-	gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
+	if(!gdbRegistrationListener)
+	{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }
+}
+
+namespace LLVMJIT
+{
+	RUNTIME_API void deinit()
+	{
+		Lock<Platform::Mutex> llvmLock(llvmMutex);
+
+		if(llvmContext)
+		{
+			delete llvmContext;
+			llvmContext = nullptr;
+
+			delete targetMachine;
+			targetMachine = nullptr;
+
+			llvmI8Type = llvmI16Type = llvmI32Type = llvmI64Type = nullptr;
+			llvmF32Type = llvmF64Type = nullptr;
+			llvmVoidType = llvmBoolType = llvmI8PtrType = nullptr;
+	#if defined(_WIN64)
+			llvmExceptionPointersStructType = nullptr;
+	#endif
+			llvmI8x16Type = llvmI16x8Type = llvmI32x4Type = llvmI64x2Type = nullptr;
+
+			memset(llvmValueTypes, 0, sizeof(llvmValueTypes));
+			memset(typedZeroConstants, 0, sizeof(typedZeroConstants));
+		}
+	}
 }

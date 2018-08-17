@@ -21,6 +21,11 @@ using namespace WAST;
 using namespace IR;
 using namespace Runtime;
 
+namespace LLVMJIT
+{
+	RUNTIME_API void deinit();
+}
+
 struct StubResolver : Resolver
 {
 	Compartment* compartment;
@@ -165,6 +170,9 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 		collectGarbage();
 	}
+
+	// De-initialize LLVM to avoid the accumulation of de-duped debug metadata in the LLVMContext.
+	LLVMJIT::deinit();
 
 	return 0;
 }
