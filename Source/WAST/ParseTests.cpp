@@ -196,7 +196,7 @@ static Action* parseAction(CursorState* cursor, const IR::FeatureSpec& featureSp
 		}
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "expected 'get' or 'invoke'");
-			resumeParsingAfterError();
+			throw RecoverParseException();
 		};
 	});
 
