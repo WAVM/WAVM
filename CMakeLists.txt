@@ -153,3 +153,7 @@ if(ENABLE_RUNTIME)
 	add_subdirectory(Test/spec)
 	add_subdirectory(Test/WAVM)
 endif()
+
+# Create a dummy target to hold the .clang-format file in any generated Visual Studio solution.
+add_custom_target(ClangFormatSpec SOURCES .clang-format)
+set_target_properties(ClangFormatSpec PROPERTIES FOLDER Testing)
