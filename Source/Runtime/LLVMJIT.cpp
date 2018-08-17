@@ -113,11 +113,10 @@ struct JITSymbol
 	Uptr numBytes;
 	std::map<U32, U32> offsetToOpIndexMap;
 
-	JITSymbol(
-		FunctionInstance* inFunctionInstance,
-		Uptr inBaseAddress,
-		Uptr inNumBytes,
-		std::map<U32, U32>&& inOffsetToOpIndexMap)
+	JITSymbol(FunctionInstance* inFunctionInstance,
+			  Uptr inBaseAddress,
+			  Uptr inNumBytes,
+			  std::map<U32, U32>&& inOffsetToOpIndexMap)
 	: type(Type::functionInstance)
 	, functionInstance(inFunctionInstance)
 	, baseAddress(inBaseAddress)
@@ -126,11 +125,10 @@ struct JITSymbol
 	{
 	}
 
-	JITSymbol(
-		FunctionType inInvokeThunkType,
-		Uptr inBaseAddress,
-		Uptr inNumBytes,
-		std::map<U32, U32>&& inOffsetToOpIndexMap)
+	JITSymbol(FunctionType inInvokeThunkType,
+			  Uptr inBaseAddress,
+			  Uptr inNumBytes,
+			  std::map<U32, U32>&& inOffsetToOpIndexMap)
 	: type(Type::invokeThunk)
 	, invokeThunkType(inInvokeThunkType)
 	, baseAddress(inBaseAddress)
@@ -179,13 +177,12 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
 	}
 
 	virtual bool needsToReserveAllocationSpace() override { return true; }
-	virtual void reserveAllocationSpace(
-		uintptr_t numCodeBytes,
-		U32 codeAlignment,
-		uintptr_t numReadOnlyBytes,
-		U32 readOnlyAlignment,
-		uintptr_t numReadWriteBytes,
-		U32 readWriteAlignment) override
+	virtual void reserveAllocationSpace(uintptr_t numCodeBytes,
+										U32 codeAlignment,
+										uintptr_t numReadOnlyBytes,
+										U32 readOnlyAlignment,
+										uintptr_t numReadWriteBytes,
+										U32 readWriteAlignment) override
 	{
 		// Pad the code section to allow for the SEH trampoline.
 		numCodeBytes += 32;
@@ -211,20 +208,18 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
 				  + (readOnlySection.numPages << Platform::getPageSizeLog2());
 		}
 	}
-	virtual U8* allocateCodeSection(
-		uintptr_t numBytes,
-		U32 alignment,
-		U32 sectionID,
-		llvm::StringRef sectionName) override
+	virtual U8* allocateCodeSection(uintptr_t numBytes,
+									U32 alignment,
+									U32 sectionID,
+									llvm::StringRef sectionName) override
 	{
 		return allocateBytes((Uptr)numBytes, alignment, codeSection);
 	}
-	virtual U8* allocateDataSection(
-		uintptr_t numBytes,
-		U32 alignment,
-		U32 sectionID,
-		llvm::StringRef SectionName,
-		bool isReadOnly) override
+	virtual U8* allocateDataSection(uintptr_t numBytes,
+									U32 alignment,
+									U32 sectionID,
+									llvm::StringRef SectionName,
+									bool isReadOnly) override
 	{
 		return allocateBytes(
 			(Uptr)numBytes, alignment, isReadOnly ? readOnlySection : readWriteSection);
@@ -250,17 +245,15 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
 		}
 		if(readOnlySection.numPages)
 		{
-			errorUnless(Platform::setVirtualPageAccess(
-				readOnlySection.baseAddress,
-				readOnlySection.numPages,
-				Platform::MemoryAccess::readOnly));
+			errorUnless(Platform::setVirtualPageAccess(readOnlySection.baseAddress,
+													   readOnlySection.numPages,
+													   Platform::MemoryAccess::readOnly));
 		}
 		if(readWriteSection.numPages)
 		{
-			errorUnless(Platform::setVirtualPageAccess(
-				readWriteSection.baseAddress,
-				readWriteSection.numPages,
-				Platform::MemoryAccess::readWrite));
+			errorUnless(Platform::setVirtualPageAccess(readWriteSection.baseAddress,
+													   readWriteSection.numPages,
+													   Platform::MemoryAccess::readWrite));
 		}
 	}
 	virtual void invalidateInstructionCache()
@@ -338,15 +331,14 @@ struct JITUnit
 #endif
 	{
 		memoryManager = std::make_shared<UnitMemoryManager>();
-		objectLayer   = llvm::make_unique<ObjectLayer>(
-            [this]() { return this->memoryManager; },
-            NotifyLoadedFunctor(this),
-            NotifyFinalizedFunctor(this));
+		objectLayer   = llvm::make_unique<ObjectLayer>([this]() { return this->memoryManager; },
+                                                     NotifyLoadedFunctor(this),
+                                                     NotifyFinalizedFunctor(this));
 #ifndef _WIN64
 		objectLayer->setProcessAllSections(true);
 #endif
-		compileLayer = llvm::make_unique<CompileLayer>(
-			*objectLayer, llvm::orc::SimpleCompiler(*targetMachine));
+		compileLayer = llvm::make_unique<CompileLayer>(*objectLayer,
+													   llvm::orc::SimpleCompiler(*targetMachine));
 	}
 	~JITUnit()
 	{
@@ -358,11 +350,10 @@ struct JITUnit
 
 	void compile(const std::shared_ptr<llvm::Module>& llvmModule);
 
-	virtual void notifySymbolLoaded(
-		const char* name,
-		Uptr baseAddress,
-		Uptr numBytes,
-		std::map<U32, U32>&& offsetToOpIndexMap)
+	virtual void notifySymbolLoaded(const char* name,
+									Uptr baseAddress,
+									Uptr numBytes,
+									std::map<U32, U32>&& offsetToOpIndexMap)
 		= 0;
 
 private:
@@ -434,11 +425,10 @@ struct JITModule : JITUnit, JITModuleBase
 		}
 	}
 
-	void notifySymbolLoaded(
-		const char* name,
-		Uptr baseAddress,
-		Uptr numBytes,
-		std::map<U32, U32>&& offsetToOpIndexMap) override
+	void notifySymbolLoaded(const char* name,
+							Uptr baseAddress,
+							Uptr numBytes,
+							std::map<U32, U32>&& offsetToOpIndexMap) override
 	{
 		// Save the address range this function was loaded at for future address->symbol lookups.
 		Uptr functionDefIndex;
@@ -472,11 +462,10 @@ struct JITThunkUnit : JITUnit
 	{
 	}
 
-	void notifySymbolLoaded(
-		const char* name,
-		Uptr baseAddress,
-		Uptr numBytes,
-		std::map<U32, U32>&& offsetToOpIndexMap) override
+	void notifySymbolLoaded(const char* name,
+							Uptr baseAddress,
+							Uptr numBytes,
+							std::map<U32, U32>&& offsetToOpIndexMap) override
 	{
 #if(defined(_WIN32) && !defined(_WIN64))
 		wavmAssert(!strcmp(name, "_thunk"));
@@ -534,8 +523,8 @@ llvm::JITSymbol NullResolver::findSymbol(const std::string& name)
 		void* addr             = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(lookupName);
 		if(!addr)
 		{
-			Errors::fatalf(
-				"LLVM generated code references undefined external symbol: %s\n", lookupName);
+			Errors::fatalf("LLVM generated code references undefined external symbol: %s\n",
+						   lookupName);
 		}
 		return llvm::JITSymbol(reinterpret_cast<Uptr>(addr), llvm::JITSymbolFlags::None);
 	}
@@ -564,9 +553,8 @@ void JITUnit::NotifyLoadedFunctor::operator()(
 			= std::string("jitObject") + std::to_string(dumpedObjectId++) + ".o";
 		llvm::raw_fd_ostream dumpFileStream(
 			augmentedFilename, errorCode, llvm::sys::fs::OpenFlags::F_None);
-		dumpFileStream.write(
-			(const char*)object->getBinary()->getData().bytes_begin(),
-			object->getBinary()->getData().size());
+		dumpFileStream.write((const char*)object->getBinary()->getData().bytes_begin(),
+							 object->getBinary()->getData().size());
 		Log::printf(Log::debug, "Dumped object file to: %s\n", augmentedFilename.c_str());
 	}
 
@@ -623,23 +611,21 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 	while(numBytesRemaining)
 	{
 		char instructionBuffer[256];
-		Uptr numInstructionBytes = LLVMDisasmInstruction(
-			disasmRef,
-			nextByte,
-			numBytesRemaining,
-			reinterpret_cast<Uptr>(nextByte),
-			instructionBuffer,
-			sizeof(instructionBuffer));
+		Uptr numInstructionBytes = LLVMDisasmInstruction(disasmRef,
+														 nextByte,
+														 numBytesRemaining,
+														 reinterpret_cast<Uptr>(nextByte),
+														 instructionBuffer,
+														 sizeof(instructionBuffer));
 		if(numInstructionBytes == 0) { numInstructionBytes = 1; }
 		wavmAssert(numInstructionBytes <= numBytesRemaining);
 		numBytesRemaining -= numInstructionBytes;
 		nextByte += numInstructionBytes;
 
-		Log::printf(
-			Log::error,
-			"\t\t0x%04x %s\n",
-			(nextByte - bytes - numInstructionBytes),
-			instructionBuffer);
+		Log::printf(Log::error,
+					"\t\t0x%04x %s\n",
+					(nextByte - bytes - numInstructionBytes),
+					instructionBuffer);
 	};
 
 	LLVMDisasmDispose(disasmRef);
@@ -693,38 +679,36 @@ void JITUnit::NotifyFinalizedFunctor::operator()(
 			std::map<U32, U32> offsetToOpIndexMap;
 			for(auto lineInfo : lineInfoTable)
 			{
-				offsetToOpIndexMap.emplace(
-					U32(lineInfo.first - loadedAddress), lineInfo.second.Line);
+				offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress),
+										   lineInfo.second.Line);
 			}
 
 #if PRINT_DISASSEMBLY
 			if(jitUnit->shouldLogMetrics)
 			{
 				Log::printf(Log::error, "Disassembly for function %s\n", name.get().data());
-				disassembleFunction(
-					reinterpret_cast<U8*>(loadedAddress), Uptr(symbolSizePair.second));
+				disassembleFunction(reinterpret_cast<U8*>(loadedAddress),
+									Uptr(symbolSizePair.second));
 			}
 #endif
 
 			// Notify the JIT unit that the symbol was loaded.
 			wavmAssert(symbolSizePair.second <= UINTPTR_MAX);
-			jitUnit->notifySymbolLoaded(
-				name->data(),
-				loadedAddress,
-				Uptr(symbolSizePair.second),
-				std::move(offsetToOpIndexMap));
+			jitUnit->notifySymbolLoaded(name->data(),
+										loadedAddress,
+										Uptr(symbolSizePair.second),
+										std::move(offsetToOpIndexMap));
 		}
 
 #ifdef _WIN64
-		processSEHTables(
-			reinterpret_cast<Uptr>(jitUnit->memoryManager->getImageBaseAddress()),
-			loadedObject,
-			jitUnit->pdataSection,
-			jitUnit->pdataCopy,
-			jitUnit->pdataNumBytes,
-			jitUnit->xdataSection,
-			jitUnit->xdataCopy,
-			jitUnit->sehTrampolineAddress);
+		processSEHTables(reinterpret_cast<Uptr>(jitUnit->memoryManager->getImageBaseAddress()),
+						 loadedObject,
+						 jitUnit->pdataSection,
+						 jitUnit->pdataCopy,
+						 jitUnit->pdataNumBytes,
+						 jitUnit->xdataSection,
+						 jitUnit->xdataCopy,
+						 jitUnit->sehTrampolineAddress);
 		if(jitUnit->pdataCopy)
 		{
 			delete[] jitUnit->pdataCopy;
@@ -902,9 +886,8 @@ bool LLVMJIT::describeInstructionPointer(Uptr ip, std::string& outDescription)
 	};
 }
 
-InvokeFunctionPointer LLVMJIT::getInvokeThunk(
-	FunctionType functionType,
-	CallingConvention callingConvention)
+InvokeFunctionPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
+											  CallingConvention callingConvention)
 {
 	Lock<Platform::Mutex> llvmLock(llvmMutex);
 
@@ -970,12 +953,11 @@ InvokeFunctionPointer LLVMJIT::getInvokeThunk(
 		resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 		wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
 
-		emitContext.irBuilder.CreateStore(
-			results[resultIndex],
-			emitContext.irBuilder.CreatePointerCast(
-				emitContext.irBuilder.CreateInBoundsGEP(
-					newContextPointer, {emitLiteral(resultOffset)}),
-				asLLVMType(resultType)->getPointerTo()));
+		emitContext.irBuilder.CreateStore(results[resultIndex],
+										  emitContext.irBuilder.CreatePointerCast(
+											  emitContext.irBuilder.CreateInBoundsGEP(
+												  newContextPointer, {emitLiteral(resultOffset)}),
+											  asLLVMType(resultType)->getPointerTo()));
 
 		resultOffset += resultNumBytes;
 	}
@@ -999,15 +981,13 @@ InvokeFunctionPointer LLVMJIT::getInvokeThunk(
 	return reinterpret_cast<InvokeFunctionPointer>(invokeThunkSymbol->baseAddress);
 }
 
-void* LLVMJIT::getIntrinsicThunk(
-	void* nativeFunction,
-	FunctionType functionType,
-	CallingConvention callingConvention)
+void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
+								 FunctionType functionType,
+								 CallingConvention callingConvention)
 {
-	wavmAssert(
-		callingConvention == CallingConvention::intrinsic
-		|| callingConvention == CallingConvention::intrinsicWithContextSwitch
-		|| callingConvention == CallingConvention::intrinsicWithMemAndTable);
+	wavmAssert(callingConvention == CallingConvention::intrinsic
+			   || callingConvention == CallingConvention::intrinsicWithContextSwitch
+			   || callingConvention == CallingConvention::intrinsicWithMemAndTable);
 
 	Lock<Platform::Mutex> llvmLock(llvmMutex);
 
@@ -1032,8 +1012,8 @@ void* LLVMJIT::getIntrinsicThunk(
 		llvm::BasicBlock::Create(*llvmContext, "entry", llvmFunction));
 
 	emitContext.contextPointerVariable = emitContext.irBuilder.CreateAlloca(llvmI8PtrType);
-	emitContext.irBuilder.CreateStore(
-		&*llvmFunction->args().begin(), emitContext.contextPointerVariable);
+	emitContext.irBuilder.CreateStore(&*llvmFunction->args().begin(),
+									  emitContext.contextPointerVariable);
 
 	llvm::SmallVector<llvm::Value*, 8> args;
 	for(auto argIt = llvmFunction->args().begin() + 1; argIt != llvmFunction->args().end(); ++argIt)
@@ -1102,9 +1082,8 @@ static void initLLVM()
 		llvmI8PtrType, // _EXCEPTION_RECORD* ExceptionRecord
 		llvmI8PtrType, // PVOID ExceptionAddress
 		llvmI32Type,   // DWORD NumParameters
-		llvm::ArrayType::get(
-			llvmI64Type,
-			15) // ULONG_PTR ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS]
+		llvm::ArrayType::get(llvmI64Type,
+							 15) // ULONG_PTR ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS]
 	});
 	llvmExceptionPointersStructType
 		= llvm::StructType::create({llvmExceptionRecordStructType->getPointerTo(), llvmI8PtrType});

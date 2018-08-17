@@ -565,22 +565,20 @@ template<typename Type> void printImportType(std::string& string, const Module& 
 	print(string, type);
 }
 template<>
-void printImportType<IndexedFunctionType>(
-	std::string& string,
-	const Module& module,
-	IndexedFunctionType type)
+void printImportType<IndexedFunctionType>(std::string& string,
+										  const Module& module,
+										  IndexedFunctionType type)
 {
 	print(string, module.types[type.index]);
 }
 
 template<typename Type>
-void printImport(
-	std::string& string,
-	const Module& module,
-	const Import<Type>& import,
-	Uptr importIndex,
-	const char* name,
-	const char* typeTag)
+void printImport(std::string& string,
+				 const Module& module,
+				 const Import<Type>& import,
+				 Uptr importIndex,
+				 const char* name,
+				 const char* typeTag)
 {
 	string += '\n';
 	ScopedTagPrinter importTag(string, "import");
@@ -616,53 +614,48 @@ void ModulePrintContext::printModule()
 	// Print the module imports.
 	for(Uptr importIndex = 0; importIndex < module.functions.imports.size(); ++importIndex)
 	{
-		printImport(
-			string,
-			module,
-			module.functions.imports[importIndex],
-			importIndex,
-			names.functions[importIndex].name.c_str(),
-			"func");
+		printImport(string,
+					module,
+					module.functions.imports[importIndex],
+					importIndex,
+					names.functions[importIndex].name.c_str(),
+					"func");
 	}
 	for(Uptr importIndex = 0; importIndex < module.tables.imports.size(); ++importIndex)
 	{
-		printImport(
-			string,
-			module,
-			module.tables.imports[importIndex],
-			importIndex,
-			names.tables[importIndex].c_str(),
-			"table");
+		printImport(string,
+					module,
+					module.tables.imports[importIndex],
+					importIndex,
+					names.tables[importIndex].c_str(),
+					"table");
 	}
 	for(Uptr importIndex = 0; importIndex < module.memories.imports.size(); ++importIndex)
 	{
-		printImport(
-			string,
-			module,
-			module.memories.imports[importIndex],
-			importIndex,
-			names.memories[importIndex].c_str(),
-			"memory");
+		printImport(string,
+					module,
+					module.memories.imports[importIndex],
+					importIndex,
+					names.memories[importIndex].c_str(),
+					"memory");
 	}
 	for(Uptr importIndex = 0; importIndex < module.globals.imports.size(); ++importIndex)
 	{
-		printImport(
-			string,
-			module,
-			module.globals.imports[importIndex],
-			importIndex,
-			names.globals[importIndex].c_str(),
-			"global");
+		printImport(string,
+					module,
+					module.globals.imports[importIndex],
+					importIndex,
+					names.globals[importIndex].c_str(),
+					"global");
 	}
 	for(Uptr importIndex = 0; importIndex < module.exceptionTypes.imports.size(); ++importIndex)
 	{
-		printImport(
-			string,
-			module,
-			module.exceptionTypes.imports[importIndex],
-			importIndex,
-			names.exceptionTypes[importIndex].c_str(),
-			"exception_type");
+		printImport(string,
+					module,
+					module.exceptionTypes.imports[importIndex],
+					importIndex,
+					names.exceptionTypes[importIndex].c_str(),
+					"exception_type");
 	}
 	// Print the module exports.
 	for(auto export_ : module.exports)
@@ -773,9 +766,9 @@ void ModulePrintContext::printModule()
 		for(Uptr offset = 0; offset < dataSegment.data.size(); offset += numBytesPerLine)
 		{
 			string += "\n\"";
-			string += escapeString(
-				(const char*)dataSegment.data.data() + offset,
-				std::min(dataSegment.data.size() - offset, (Uptr)numBytesPerLine));
+			string
+				+= escapeString((const char*)dataSegment.data.data() + offset,
+								std::min(dataSegment.data.size() - offset, (Uptr)numBytesPerLine));
 			string += "\"";
 		}
 	}

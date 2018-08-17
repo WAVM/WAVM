@@ -44,9 +44,9 @@ template<typename Index, Uptr maxIndexPlusOne> struct DenseStaticIntSet
 			if(elements[elementIndex])
 			{
 				// Find the index of the lowest set bit in the element using countTrailingZeroes.
-				const Index result = (Index)(
-					elementIndex * indicesPerElement
-					+ Platform::countTrailingZeroes(elements[elementIndex]));
+				const Index result
+					= (Index)(elementIndex * indicesPerElement
+							  + Platform::countTrailingZeroes(elements[elementIndex]));
 				wavmAssert(contains(result));
 				return result;
 			}
@@ -84,9 +84,8 @@ template<typename Index, Uptr maxIndexPlusOne> struct DenseStaticIntSet
 		{ result.elements[elementIndex] = ~set.elements[elementIndex]; }
 		return result;
 	}
-	friend DenseStaticIntSet operator|(
-		const DenseStaticIntSet& left,
-		const DenseStaticIntSet& right)
+	friend DenseStaticIntSet operator|(const DenseStaticIntSet& left,
+									   const DenseStaticIntSet& right)
 	{
 		DenseStaticIntSet result;
 		for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
@@ -96,9 +95,8 @@ template<typename Index, Uptr maxIndexPlusOne> struct DenseStaticIntSet
 		}
 		return result;
 	}
-	friend DenseStaticIntSet operator&(
-		const DenseStaticIntSet& left,
-		const DenseStaticIntSet& right)
+	friend DenseStaticIntSet operator&(const DenseStaticIntSet& left,
+									   const DenseStaticIntSet& right)
 	{
 		DenseStaticIntSet result;
 		for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
@@ -108,9 +106,8 @@ template<typename Index, Uptr maxIndexPlusOne> struct DenseStaticIntSet
 		}
 		return result;
 	}
-	friend DenseStaticIntSet operator^(
-		const DenseStaticIntSet& left,
-		const DenseStaticIntSet& right)
+	friend DenseStaticIntSet operator^(const DenseStaticIntSet& left,
+									   const DenseStaticIntSet& right)
 	{
 		DenseStaticIntSet result;
 		for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)

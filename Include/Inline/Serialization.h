@@ -185,8 +185,10 @@ namespace Serialization
 
 	// LEB128 variable-length integer serialization.
 	template<typename Value, Uptr maxBits>
-	FORCEINLINE void
-	serializeVarInt(OutputStream& stream, Value& inValue, Value minValue, Value maxValue)
+	FORCEINLINE void serializeVarInt(OutputStream& stream,
+									 Value& inValue,
+									 Value minValue,
+									 Value maxValue)
 	{
 		Value value = inValue;
 
@@ -212,8 +214,10 @@ namespace Serialization
 	}
 
 	template<typename Value, Uptr maxBits>
-	FORCEINLINE void
-	serializeVarInt(InputStream& stream, Value& value, Value minValue, Value maxValue)
+	FORCEINLINE void serializeVarInt(InputStream& stream,
+									 Value& value,
+									 Value minValue,
+									 Value maxValue)
 	{
 		// First, read the variable number of input bytes into a fixed size buffer.
 		enum
@@ -325,21 +329,23 @@ namespace Serialization
 	// Serializes a constant. If deserializing, throws a FatalSerializationException if the
 	// deserialized value doesn't match the constant.
 	template<typename Constant>
-	void
-	serializeConstant(InputStream& stream, const char* constantMismatchMessage, Constant constant)
+	void serializeConstant(InputStream& stream,
+						   const char* constantMismatchMessage,
+						   Constant constant)
 	{
 		Constant savedConstant;
 		serialize(stream, savedConstant);
 		if(savedConstant != constant)
 		{
-			throw FatalSerializationException(
-				std::string(constantMismatchMessage) + ": loaded " + std::to_string(savedConstant)
-				+ " but was expecting " + std::to_string(constant));
+			throw FatalSerializationException(std::string(constantMismatchMessage) + ": loaded "
+											  + std::to_string(savedConstant)
+											  + " but was expecting " + std::to_string(constant));
 		}
 	}
 	template<typename Constant>
-	void
-	serializeConstant(OutputStream& stream, const char* constantMismatchMessage, Constant constant)
+	void serializeConstant(OutputStream& stream,
+						   const char* constantMismatchMessage,
+						   Constant constant)
 	{
 		serialize(stream, constant);
 	}
@@ -366,10 +372,9 @@ namespace Serialization
 	}
 
 	template<typename Stream, typename Element, typename Allocator, typename SerializeElement>
-	void serializeArray(
-		Stream& stream,
-		std::vector<Element, Allocator>& vector,
-		SerializeElement serializeElement)
+	void serializeArray(Stream& stream,
+						std::vector<Element, Allocator>& vector,
+						SerializeElement serializeElement)
 	{
 		Uptr size = vector.size();
 		serializeVarUInt32(stream, size);

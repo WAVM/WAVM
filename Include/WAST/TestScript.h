@@ -34,12 +34,11 @@ namespace WAST
 
 	// Parse a test script from a string. Returns true if it succeeds, and writes the test commands
 	// to outTestCommands.
-	WAST_API void parseTestCommands(
-		const char* string,
-		Uptr stringLength,
-		const IR::FeatureSpec& featureSpec,
-		std::vector<std::unique_ptr<Command>>& outTestCommands,
-		std::vector<Error>& outErrors);
+	WAST_API void parseTestCommands(const char* string,
+									Uptr stringLength,
+									const IR::FeatureSpec& featureSpec,
+									std::vector<std::unique_ptr<Command>>& outTestCommands,
+									std::vector<Error>& outErrors);
 
 	// Actions
 
@@ -81,10 +80,9 @@ namespace WAST
 	{
 		std::string internalModuleName;
 		std::unique_ptr<IR::Module> module;
-		ModuleAction(
-			TextFileLocus&& inLocus,
-			std::string&& inInternalModuleName,
-			IR::Module* inModule)
+		ModuleAction(TextFileLocus&& inLocus,
+					 std::string&& inInternalModuleName,
+					 IR::Module* inModule)
 		: Action(ActionType::_module, std::move(inLocus))
 		, internalModuleName(inInternalModuleName)
 		, module(inModule)
@@ -97,11 +95,10 @@ namespace WAST
 		std::string internalModuleName;
 		std::string exportName;
 		IR::ValueTuple arguments;
-		InvokeAction(
-			TextFileLocus&& inLocus,
-			std::string&& inInternalModuleName,
-			std::string&& inExportName,
-			IR::ValueTuple&& inArguments)
+		InvokeAction(TextFileLocus&& inLocus,
+					 std::string&& inInternalModuleName,
+					 std::string&& inExportName,
+					 IR::ValueTuple&& inArguments)
 		: Action(ActionType::invoke, std::move(inLocus))
 		, internalModuleName(inInternalModuleName)
 		, exportName(inExportName)
@@ -114,10 +111,9 @@ namespace WAST
 	{
 		std::string internalModuleName;
 		std::string exportName;
-		GetAction(
-			TextFileLocus&& inLocus,
-			std::string&& inInternalModuleName,
-			std::string&& inExportName)
+		GetAction(TextFileLocus&& inLocus,
+				  std::string&& inInternalModuleName,
+				  std::string&& inExportName)
 		: Action(ActionType::get, std::move(inLocus))
 		, internalModuleName(inInternalModuleName)
 		, exportName(inExportName)
@@ -131,10 +127,9 @@ namespace WAST
 	{
 		std::string moduleName;
 		std::string internalModuleName;
-		RegisterCommand(
-			TextFileLocus&& inLocus,
-			std::string&& inModuleName,
-			std::string&& inInternalModuleName)
+		RegisterCommand(TextFileLocus&& inLocus,
+						std::string&& inModuleName,
+						std::string&& inInternalModuleName)
 		: Command(Command::_register, std::move(inLocus))
 		, moduleName(inModuleName)
 		, internalModuleName(inInternalModuleName)
@@ -155,10 +150,9 @@ namespace WAST
 	{
 		std::unique_ptr<Action> action;
 		IR::ValueTuple expectedResults;
-		AssertReturnCommand(
-			TextFileLocus&& inLocus,
-			Action* inAction,
-			IR::ValueTuple inExpectedResults)
+		AssertReturnCommand(TextFileLocus&& inLocus,
+							Action* inAction,
+							IR::ValueTuple inExpectedResults)
 		: Command(Command::assert_return, std::move(inLocus))
 		, action(inAction)
 		, expectedResults(inExpectedResults)
@@ -179,10 +173,9 @@ namespace WAST
 	{
 		std::unique_ptr<Action> action;
 		ExpectedTrapType expectedType;
-		AssertTrapCommand(
-			TextFileLocus&& inLocus,
-			Action* inAction,
-			ExpectedTrapType inExpectedType)
+		AssertTrapCommand(TextFileLocus&& inLocus,
+						  Action* inAction,
+						  ExpectedTrapType inExpectedType)
 		: Command(Command::assert_trap, std::move(inLocus))
 		, action(inAction)
 		, expectedType(inExpectedType)
@@ -196,12 +189,11 @@ namespace WAST
 		std::string exceptionTypeInternalModuleName;
 		std::string exceptionTypeExportName;
 		IR::ValueTuple expectedArguments;
-		AssertThrowsCommand(
-			TextFileLocus&& inLocus,
-			Action* inAction,
-			std::string&& inExceptionTypeInternalModuleName,
-			std::string&& inExceptionTypeExportName,
-			IR::ValueTuple&& inExpectedArguments)
+		AssertThrowsCommand(TextFileLocus&& inLocus,
+							Action* inAction,
+							std::string&& inExceptionTypeInternalModuleName,
+							std::string&& inExceptionTypeExportName,
+							IR::ValueTuple&& inExpectedArguments)
 		: Command(Command::assert_throws, std::move(inLocus))
 		, action(inAction)
 		, exceptionTypeInternalModuleName(inExceptionTypeInternalModuleName)
@@ -223,12 +215,11 @@ namespace WAST
 		bool wasInvalidOrMalformed;
 		QuotedModuleType quotedModuleType;
 		std::string quotedModuleString;
-		AssertInvalidOrMalformedCommand(
-			Command::Type inType,
-			TextFileLocus&& inLocus,
-			bool inWasInvalidOrMalformed,
-			QuotedModuleType inQuotedModuleType,
-			std::string&& inQuotedModuleString)
+		AssertInvalidOrMalformedCommand(Command::Type inType,
+										TextFileLocus&& inLocus,
+										bool inWasInvalidOrMalformed,
+										QuotedModuleType inQuotedModuleType,
+										std::string&& inQuotedModuleString)
 		: Command(inType, std::move(inLocus))
 		, wasInvalidOrMalformed(inWasInvalidOrMalformed)
 		, quotedModuleType(inQuotedModuleType)

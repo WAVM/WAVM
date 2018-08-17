@@ -179,9 +179,9 @@ EMIT_INT_BINARY_OP(rotr, emitRotr(type, left, right))
 EMIT_INT_BINARY_OP(rotl, emitRotl(type, left, right))
 
 // Divides use trapDivideByZero to avoid the undefined behavior in LLVM's division instructions.
-EMIT_INT_BINARY_OP(
-	div_s,
-	(trapDivideByZeroOrIntegerOverflow(type, left, right), irBuilder.CreateSDiv(left, right)))
+EMIT_INT_BINARY_OP(div_s,
+				   (trapDivideByZeroOrIntegerOverflow(type, left, right),
+					irBuilder.CreateSDiv(left, right)))
 EMIT_INT_BINARY_OP(rem_s, emitSRem(type, left, right))
 EMIT_INT_BINARY_OP(div_u, (trapDivideByZero(type, right), irBuilder.CreateUDiv(left, right)))
 EMIT_INT_BINARY_OP(rem_u, (trapDivideByZero(type, right), irBuilder.CreateURem(left, right)))
@@ -202,59 +202,62 @@ EMIT_INT_BINARY_OP(gt_u, coerceBoolToI32(irBuilder.CreateICmpUGT(left, right)))
 EMIT_INT_BINARY_OP(ge_s, coerceBoolToI32(irBuilder.CreateICmpSGE(left, right)))
 EMIT_INT_BINARY_OP(ge_u, coerceBoolToI32(irBuilder.CreateICmpUGE(left, right)))
 
-EMIT_INT_UNARY_OP(
-	clz,
-	callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::ctlz, {operand, emitLiteral(false)}))
-EMIT_INT_UNARY_OP(
-	ctz,
-	callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::cttz, {operand, emitLiteral(false)}))
-EMIT_INT_UNARY_OP(
-	popcnt,
-	callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::ctpop, {operand}))
-EMIT_INT_UNARY_OP(
-	eqz,
-	coerceBoolToI32(irBuilder.CreateICmpEQ(operand, typedZeroConstants[(Uptr)type])))
+EMIT_INT_UNARY_OP(clz,
+				  callLLVMIntrinsic({operand->getType()},
+									llvm::Intrinsic::ctlz,
+									{operand, emitLiteral(false)}))
+EMIT_INT_UNARY_OP(ctz,
+				  callLLVMIntrinsic({operand->getType()},
+									llvm::Intrinsic::cttz,
+									{operand, emitLiteral(false)}))
+EMIT_INT_UNARY_OP(popcnt,
+				  callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::ctpop, {operand}))
+EMIT_INT_UNARY_OP(eqz,
+				  coerceBoolToI32(irBuilder.CreateICmpEQ(operand, typedZeroConstants[(Uptr)type])))
 
 //
 // FP operators
 //
 
-EMIT_FP_BINARY_OP(
-	add,
-	callLLVMIntrinsic(
-		{left->getType()},
-		llvm::Intrinsic::experimental_constrained_fadd,
-		{left, right, moduleContext.fpRoundingModeMetadata, moduleContext.fpExceptionMetadata}))
-EMIT_FP_BINARY_OP(
-	sub,
-	callLLVMIntrinsic(
-		{left->getType()},
-		llvm::Intrinsic::experimental_constrained_fsub,
-		{left, right, moduleContext.fpRoundingModeMetadata, moduleContext.fpExceptionMetadata}))
-EMIT_FP_BINARY_OP(
-	mul,
-	callLLVMIntrinsic(
-		{left->getType()},
-		llvm::Intrinsic::experimental_constrained_fmul,
-		{left, right, moduleContext.fpRoundingModeMetadata, moduleContext.fpExceptionMetadata}))
-EMIT_FP_BINARY_OP(
-	div,
-	callLLVMIntrinsic(
-		{left->getType()},
-		llvm::Intrinsic::experimental_constrained_fdiv,
-		{left, right, moduleContext.fpRoundingModeMetadata, moduleContext.fpExceptionMetadata}))
-EMIT_FP_BINARY_OP(
-	copysign,
-	callLLVMIntrinsic({left->getType()}, llvm::Intrinsic::copysign, {left, right}))
+EMIT_FP_BINARY_OP(add,
+				  callLLVMIntrinsic({left->getType()},
+									llvm::Intrinsic::experimental_constrained_fadd,
+									{left,
+									 right,
+									 moduleContext.fpRoundingModeMetadata,
+									 moduleContext.fpExceptionMetadata}))
+EMIT_FP_BINARY_OP(sub,
+				  callLLVMIntrinsic({left->getType()},
+									llvm::Intrinsic::experimental_constrained_fsub,
+									{left,
+									 right,
+									 moduleContext.fpRoundingModeMetadata,
+									 moduleContext.fpExceptionMetadata}))
+EMIT_FP_BINARY_OP(mul,
+				  callLLVMIntrinsic({left->getType()},
+									llvm::Intrinsic::experimental_constrained_fmul,
+									{left,
+									 right,
+									 moduleContext.fpRoundingModeMetadata,
+									 moduleContext.fpExceptionMetadata}))
+EMIT_FP_BINARY_OP(div,
+				  callLLVMIntrinsic({left->getType()},
+									llvm::Intrinsic::experimental_constrained_fdiv,
+									{left,
+									 right,
+									 moduleContext.fpRoundingModeMetadata,
+									 moduleContext.fpExceptionMetadata}))
+EMIT_FP_BINARY_OP(copysign,
+				  callLLVMIntrinsic({left->getType()}, llvm::Intrinsic::copysign, {left, right}))
 
 EMIT_FP_UNARY_OP(neg, irBuilder.CreateFNeg(operand))
 EMIT_FP_UNARY_OP(abs, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::fabs, {operand}))
-EMIT_FP_UNARY_OP(
-	sqrt,
-	callLLVMIntrinsic(
-		{operand->getType()},
-		llvm::Intrinsic::experimental_constrained_sqrt,
-		{operand, moduleContext.fpRoundingModeMetadata, moduleContext.fpExceptionMetadata}))
+EMIT_FP_UNARY_OP(sqrt,
+				 callLLVMIntrinsic({operand->getType()},
+								   llvm::Intrinsic::experimental_constrained_sqrt,
+								   {operand,
+									moduleContext.fpRoundingModeMetadata,
+									moduleContext.fpExceptionMetadata}))
 
 EMIT_FP_BINARY_OP(eq, coerceBoolToI32(irBuilder.CreateFCmpOEQ(left, right)))
 EMIT_FP_BINARY_OP(ne, coerceBoolToI32(irBuilder.CreateFCmpUNE(left, right)))
@@ -264,42 +267,30 @@ EMIT_FP_BINARY_OP(gt, coerceBoolToI32(irBuilder.CreateFCmpOGT(left, right)))
 EMIT_FP_BINARY_OP(ge, coerceBoolToI32(irBuilder.CreateFCmpOGE(left, right)))
 
 // These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
-EMIT_FP_BINARY_OP(
-	min,
-	emitRuntimeIntrinsic(
-		type == ValueType::f32 ? "f32.min" : "f64.min",
-		FunctionType(TypeTuple(type), TypeTuple{type, type}),
-		{left, right})[0])
-EMIT_FP_BINARY_OP(
-	max,
-	emitRuntimeIntrinsic(
-		type == ValueType::f32 ? "f32.max" : "f64.max",
-		FunctionType(TypeTuple(type), TypeTuple{type, type}),
-		{left, right})[0])
-EMIT_FP_UNARY_OP(
-	ceil,
-	emitRuntimeIntrinsic(
-		type == ValueType::f32 ? "f32.ceil" : "f64.ceil",
-		FunctionType(TypeTuple(type), TypeTuple{type}),
-		{operand})[0])
-EMIT_FP_UNARY_OP(
-	floor,
-	emitRuntimeIntrinsic(
-		type == ValueType::f32 ? "f32.floor" : "f64.floor",
-		FunctionType(TypeTuple(type), TypeTuple{type}),
-		{operand})[0])
-EMIT_FP_UNARY_OP(
-	trunc,
-	emitRuntimeIntrinsic(
-		type == ValueType::f32 ? "f32.trunc" : "f64.trunc",
-		FunctionType(TypeTuple(type), TypeTuple{type}),
-		{operand})[0])
-EMIT_FP_UNARY_OP(
-	nearest,
-	emitRuntimeIntrinsic(
-		type == ValueType::f32 ? "f32.nearest" : "f64.nearest",
-		FunctionType(TypeTuple(type), TypeTuple{type}),
-		{operand})[0])
+EMIT_FP_BINARY_OP(min,
+				  emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.min" : "f64.min",
+									   FunctionType(TypeTuple(type), TypeTuple{type, type}),
+									   {left, right})[0])
+EMIT_FP_BINARY_OP(max,
+				  emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.max" : "f64.max",
+									   FunctionType(TypeTuple(type), TypeTuple{type, type}),
+									   {left, right})[0])
+EMIT_FP_UNARY_OP(ceil,
+				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.ceil" : "f64.ceil",
+									  FunctionType(TypeTuple(type), TypeTuple{type}),
+									  {operand})[0])
+EMIT_FP_UNARY_OP(floor,
+				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.floor" : "f64.floor",
+									  FunctionType(TypeTuple(type), TypeTuple{type}),
+									  {operand})[0])
+EMIT_FP_UNARY_OP(trunc,
+				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.trunc" : "f64.trunc",
+									  FunctionType(TypeTuple(type), TypeTuple{type}),
+									  {operand})[0])
+EMIT_FP_UNARY_OP(nearest,
+				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.nearest" : "f64.nearest",
+									  FunctionType(TypeTuple(type), TypeTuple{type}),
+									  {operand})[0])
 
 llvm::Value* EmitFunctionContext::emitAnyTrue(llvm::Value* boolVector)
 {
@@ -346,11 +337,10 @@ EMIT_SIMD_SUB64_INT_BINARY_OP(ge_u, irBuilder.CreateICmpUGE(left, right))
 
 EMIT_SIMD_INT_UNARY_OP(neg, irBuilder.CreateNeg(operand))
 
-static llvm::Value* emitAddUnsignedSaturated(
-	llvm::IRBuilder<>& irBuilder,
-	llvm::Value* left,
-	llvm::Value* right,
-	llvm::Type* type)
+static llvm::Value* emitAddUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
+											 llvm::Value* left,
+											 llvm::Value* right,
+											 llvm::Type* type)
 {
 	left             = irBuilder.CreateBitCast(left, type);
 	right            = irBuilder.CreateBitCast(right, type);
@@ -359,11 +349,10 @@ static llvm::Value* emitAddUnsignedSaturated(
 		irBuilder.CreateICmpUGT(left, add), llvm::Constant::getAllOnesValue(left->getType()), add);
 }
 
-static llvm::Value* emitSubUnsignedSaturated(
-	llvm::IRBuilder<>& irBuilder,
-	llvm::Value* left,
-	llvm::Value* right,
-	llvm::Type* type)
+static llvm::Value* emitSubUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
+											 llvm::Value* left,
+											 llvm::Value* right,
+											 llvm::Type* type)
 {
 	left  = irBuilder.CreateBitCast(left, type);
 	right = irBuilder.CreateBitCast(right, type);
@@ -371,53 +360,42 @@ static llvm::Value* emitSubUnsignedSaturated(
 		irBuilder.CreateSelect(irBuilder.CreateICmpUGT(left, right), left, right), right);
 }
 
-EMIT_SIMD_BINARY_OP(
-	i8x16_add_saturate_s,
-	llvmI8x16Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_b, {left, right}))
-EMIT_SIMD_BINARY_OP(
-	i8x16_add_saturate_u,
-	llvmI8x16Type,
-	emitAddUnsignedSaturated(irBuilder, left, right, llvmI8x16Type))
-EMIT_SIMD_BINARY_OP(
-	i8x16_sub_saturate_s,
-	llvmI8x16Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_b, {left, right}))
-EMIT_SIMD_BINARY_OP(
-	i8x16_sub_saturate_u,
-	llvmI8x16Type,
-	emitSubUnsignedSaturated(irBuilder, left, right, llvmI8x16Type))
-EMIT_SIMD_BINARY_OP(
-	i16x8_add_saturate_s,
-	llvmI16x8Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_w, {left, right}))
-EMIT_SIMD_BINARY_OP(
-	i16x8_add_saturate_u,
-	llvmI16x8Type,
-	emitAddUnsignedSaturated(irBuilder, left, right, llvmI16x8Type))
-EMIT_SIMD_BINARY_OP(
-	i16x8_sub_saturate_s,
-	llvmI16x8Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_w, {left, right}))
-EMIT_SIMD_BINARY_OP(
-	i16x8_sub_saturate_u,
-	llvmI16x8Type,
-	emitSubUnsignedSaturated(irBuilder, left, right, llvmI16x8Type))
+EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
+					llvmI8x16Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_b, {left, right}))
+EMIT_SIMD_BINARY_OP(i8x16_add_saturate_u,
+					llvmI8x16Type,
+					emitAddUnsignedSaturated(irBuilder, left, right, llvmI8x16Type))
+EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,
+					llvmI8x16Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_b, {left, right}))
+EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_u,
+					llvmI8x16Type,
+					emitSubUnsignedSaturated(irBuilder, left, right, llvmI8x16Type))
+EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,
+					llvmI16x8Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_w, {left, right}))
+EMIT_SIMD_BINARY_OP(i16x8_add_saturate_u,
+					llvmI16x8Type,
+					emitAddUnsignedSaturated(irBuilder, left, right, llvmI16x8Type))
+EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,
+					llvmI16x8Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_w, {left, right}))
+EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_u,
+					llvmI16x8Type,
+					emitSubUnsignedSaturated(irBuilder, left, right, llvmI16x8Type))
 
-llvm::Value* EmitFunctionContext::emitBitSelect(
-	llvm::Value* mask,
-	llvm::Value* trueValue,
-	llvm::Value* falseValue)
+llvm::Value* EmitFunctionContext::emitBitSelect(llvm::Value* mask,
+												llvm::Value* trueValue,
+												llvm::Value* falseValue)
 {
-	return irBuilder.CreateOr(
-		irBuilder.CreateAnd(trueValue, mask),
-		irBuilder.CreateAnd(falseValue, irBuilder.CreateNot(mask)));
+	return irBuilder.CreateOr(irBuilder.CreateAnd(trueValue, mask),
+							  irBuilder.CreateAnd(falseValue, irBuilder.CreateNot(mask)));
 }
 
-llvm::Value* EmitFunctionContext::emitVectorSelect(
-	llvm::Value* condition,
-	llvm::Value* trueValue,
-	llvm::Value* falseValue)
+llvm::Value* EmitFunctionContext::emitVectorSelect(llvm::Value* condition,
+												   llvm::Value* trueValue,
+												   llvm::Value* falseValue)
 {
 	llvm::Type* maskType;
 	switch(condition->getType()->getVectorNumElements())
@@ -427,17 +405,15 @@ llvm::Value* EmitFunctionContext::emitVectorSelect(
 	case 8: maskType = llvmI16x8Type; break;
 	case 16: maskType = llvmI8x16Type; break;
 	default:
-		Errors::fatalf(
-			"unsupported vector length %u", condition->getType()->getVectorNumElements());
+		Errors::fatalf("unsupported vector length %u",
+					   condition->getType()->getVectorNumElements());
 	};
 	llvm::Value* mask = sext(condition, maskType);
 
-	return irBuilder.CreateBitCast(
-		emitBitSelect(
-			mask,
-			irBuilder.CreateBitCast(trueValue, maskType),
-			irBuilder.CreateBitCast(falseValue, maskType)),
-		trueValue->getType());
+	return irBuilder.CreateBitCast(emitBitSelect(mask,
+												 irBuilder.CreateBitCast(trueValue, maskType),
+												 irBuilder.CreateBitCast(falseValue, maskType)),
+								   trueValue->getType());
 }
 
 EMIT_SIMD_FP_BINARY_OP(add, irBuilder.CreateFAdd(left, right))
@@ -451,47 +427,37 @@ EMIT_SIMD_FP_BINARY_OP(lt, irBuilder.CreateFCmpOLT(left, right))
 EMIT_SIMD_FP_BINARY_OP(le, irBuilder.CreateFCmpOLE(left, right))
 EMIT_SIMD_FP_BINARY_OP(gt, irBuilder.CreateFCmpOGT(left, right))
 EMIT_SIMD_FP_BINARY_OP(ge, irBuilder.CreateFCmpOGE(left, right))
-EMIT_SIMD_BINARY_OP(
-	f32x4_min,
-	llvmF32x4Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse_min_ps, {left, right}))
-EMIT_SIMD_BINARY_OP(
-	f64x2_min,
-	llvmF64x2Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_min_pd, {left, right}))
-EMIT_SIMD_BINARY_OP(
-	f32x4_max,
-	llvmF32x4Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse_max_ps, {left, right}))
-EMIT_SIMD_BINARY_OP(
-	f64x2_max,
-	llvmF64x2Type,
-	callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_max_pd, {left, right}))
+EMIT_SIMD_BINARY_OP(f32x4_min,
+					llvmF32x4Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse_min_ps, {left, right}))
+EMIT_SIMD_BINARY_OP(f64x2_min,
+					llvmF64x2Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_min_pd, {left, right}))
+EMIT_SIMD_BINARY_OP(f32x4_max,
+					llvmF32x4Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse_max_ps, {left, right}))
+EMIT_SIMD_BINARY_OP(f64x2_max,
+					llvmF64x2Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_max_pd, {left, right}))
 
 EMIT_SIMD_FP_UNARY_OP(neg, irBuilder.CreateFNeg(operand))
-EMIT_SIMD_FP_UNARY_OP(
-	abs,
-	callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::fabs, {operand}))
-EMIT_SIMD_FP_UNARY_OP(
-	sqrt,
-	callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::sqrt, {operand}))
+EMIT_SIMD_FP_UNARY_OP(abs,
+					  callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::fabs, {operand}))
+EMIT_SIMD_FP_UNARY_OP(sqrt,
+					  callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::sqrt, {operand}))
 
-EMIT_SIMD_UNARY_OP(
-	f32x4_convert_s_i32x4,
-	llvmI32x4Type,
-	irBuilder.CreateSIToFP(operand, llvmF32x4Type));
-EMIT_SIMD_UNARY_OP(
-	f32x4_convert_u_i32x4,
-	llvmI32x4Type,
-	irBuilder.CreateUIToFP(operand, llvmF32x4Type));
-EMIT_SIMD_UNARY_OP(
-	f64x2_convert_s_i64x2,
-	llvmI64x2Type,
-	irBuilder.CreateSIToFP(operand, llvmF64x2Type));
-EMIT_SIMD_UNARY_OP(
-	f64x2_convert_u_i64x2,
-	llvmI64x2Type,
-	irBuilder.CreateUIToFP(operand, llvmF64x2Type));
+EMIT_SIMD_UNARY_OP(f32x4_convert_s_i32x4,
+				   llvmI32x4Type,
+				   irBuilder.CreateSIToFP(operand, llvmF32x4Type));
+EMIT_SIMD_UNARY_OP(f32x4_convert_u_i32x4,
+				   llvmI32x4Type,
+				   irBuilder.CreateUIToFP(operand, llvmF32x4Type));
+EMIT_SIMD_UNARY_OP(f64x2_convert_s_i64x2,
+				   llvmI64x2Type,
+				   irBuilder.CreateSIToFP(operand, llvmF64x2Type));
+EMIT_SIMD_UNARY_OP(f64x2_convert_u_i64x2,
+				   llvmI64x2Type,
+				   irBuilder.CreateUIToFP(operand, llvmF64x2Type));
 
 EMIT_SIMD_UNARY_OP(i8x16_any_true, llvmI8x16Type, emitAnyTrue(operand))
 EMIT_SIMD_UNARY_OP(i16x8_any_true, llvmI16x8Type, emitAnyTrue(operand))

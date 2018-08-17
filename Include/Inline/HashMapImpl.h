@@ -83,8 +83,8 @@ template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::contains(const Key
 {
 	const Uptr hash                     = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
-	wavmAssert(
-		!bucket || bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+	wavmAssert(!bucket
+			   || bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 	return bucket != nullptr;
 }
 
@@ -140,18 +140,17 @@ template<HASHMAP_PARAMETERS> HashMapIterator<Key, Value> HashMap<HASHMAP_ARGUMEN
 
 template<HASHMAP_PARAMETERS> HashMapIterator<Key, Value> HashMap<HASHMAP_ARGUMENTS>::end() const
 {
-	return HashMapIterator<Key, Value>(
-		table.getBuckets() + table.numBuckets(), table.getBuckets() + table.numBuckets());
+	return HashMapIterator<Key, Value>(table.getBuckets() + table.numBuckets(),
+									   table.getBuckets() + table.numBuckets());
 }
 
 template<HASHMAP_PARAMETERS> Uptr HashMap<HASHMAP_ARGUMENTS>::size() const { return table.size(); }
 
 template<HASHMAP_PARAMETERS>
-void HashMap<HASHMAP_ARGUMENTS>::analyzeSpaceUsage(
-	Uptr& outTotalMemoryBytes,
-	Uptr& outMaxProbeCount,
-	F32& outOccupancy,
-	F32& outAverageProbeCount) const
+void HashMap<HASHMAP_ARGUMENTS>::analyzeSpaceUsage(Uptr& outTotalMemoryBytes,
+												   Uptr& outMaxProbeCount,
+												   F32& outOccupancy,
+												   F32& outAverageProbeCount) const
 {
 	return table.analyzeSpaceUsage(
 		outTotalMemoryBytes, outMaxProbeCount, outOccupancy, outAverageProbeCount);

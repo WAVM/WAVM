@@ -5,9 +5,8 @@
 // A type that holds an optional instance of another type. The lifetime of the contained instance
 // is defined by the user of this type, and the user is responsible for calling construct and
 // destruct.
-template<
-	typename Contents,
-	bool hasTrivialDestructor = std::is_trivially_destructible<Contents>::value>
+template<typename Contents,
+		 bool hasTrivialDestructor = std::is_trivially_destructible<Contents>::value>
 struct OptionalStorage
 {
 	union

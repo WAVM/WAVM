@@ -99,10 +99,9 @@ namespace Floats
 				char significandString[numSignificandHexits + 1];
 				for(Uptr hexitIndex = 0; hexitIndex < numSignificandHexits; ++hexitIndex)
 				{
-					auto hexitValue = char(
-						(components.bits.significand
-						 >> ((numSignificandHexits - hexitIndex - 1) * 4))
-						& 0xf);
+					auto hexitValue = char((components.bits.significand
+											>> ((numSignificandHexits - hexitIndex - 1) * 4))
+										   & 0xf);
 					significandString[hexitIndex]
 						= hexitValue >= 10 ? ('a' + hexitValue - 10) : ('0' + hexitValue);
 				}

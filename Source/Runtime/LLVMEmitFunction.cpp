@@ -81,20 +81,18 @@ void EmitFunctionContext::logOperator(const std::string& operatorDescription)
 		}
 		if(stack.size() == stackBase) { stackString += "|"; }
 
-		Log::printf(
-			Log::debug,
-			"%-50s %-50s %-50s\n",
-			controlStackString.c_str(),
-			operatorDescription.c_str(),
-			stackString.c_str());
+		Log::printf(Log::debug,
+					"%-50s %-50s %-50s\n",
+					controlStackString.c_str(),
+					operatorDescription.c_str(),
+					stackString.c_str());
 	}
 }
 
 // Bounds checks and converts a memory operation I32 address operand to a LLVM pointer.
-llvm::Value* EmitFunctionContext::coerceByteIndexToPointer(
-	llvm::Value* byteIndex,
-	U32 offset,
-	llvm::Type* memoryType)
+llvm::Value* EmitFunctionContext::coerceByteIndexToPointer(llvm::Value* byteIndex,
+														   U32 offset,
+														   llvm::Type* memoryType)
 {
 	// zext the 32-bit address to 64-bits.
 	// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in
@@ -119,26 +117,23 @@ llvm::Value* EmitFunctionContext::coerceByteIndexToPointer(
 // Traps a divide-by-zero
 void EmitFunctionContext::trapDivideByZero(ValueType type, llvm::Value* divisor)
 {
-	emitConditionalTrapIntrinsic(
-		irBuilder.CreateICmpEQ(divisor, typedZeroConstants[(Uptr)type]),
-		"divideByZeroOrIntegerOverflowTrap",
-		FunctionType(),
-		{});
+	emitConditionalTrapIntrinsic(irBuilder.CreateICmpEQ(divisor, typedZeroConstants[(Uptr)type]),
+								 "divideByZeroOrIntegerOverflowTrap",
+								 FunctionType(),
+								 {});
 }
 
 // Traps on (x / 0) or (INT_MIN / -1).
-void EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(
-	ValueType type,
-	llvm::Value* left,
-	llvm::Value* right)
+void EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(ValueType type,
+															llvm::Value* left,
+															llvm::Value* right)
 {
 	emitConditionalTrapIntrinsic(
 		irBuilder.CreateOr(
 			irBuilder.CreateAnd(
-				irBuilder.CreateICmpEQ(
-					left,
-					type == ValueType::i32 ? emitLiteral((U32)INT32_MIN)
-										   : emitLiteral((U64)INT64_MIN)),
+				irBuilder.CreateICmpEQ(left,
+									   type == ValueType::i32 ? emitLiteral((U32)INT32_MIN)
+															  : emitLiteral((U64)INT64_MIN)),
 				irBuilder.CreateICmpEQ(
 					right, type == ValueType::i32 ? emitLiteral((U32)-1) : emitLiteral((U64)-1))),
 			irBuilder.CreateICmpEQ(right, typedZeroConstants[(Uptr)type])),
@@ -163,12 +158,11 @@ ValueVector EmitFunctionContext::emitRuntimeIntrinsic(
 		intrinsicFunction->nativeFunction,
 		asLLVMType(intrinsicType, intrinsicFunction->callingConvention)->getPointerTo());
 
-	return emitCallOrInvoke(
-		intrinsicFunctionPointer,
-		args,
-		intrinsicType,
-		intrinsicFunction->callingConvention,
-		getInnermostUnwindToBlock());
+	return emitCallOrInvoke(intrinsicFunctionPointer,
+							args,
+							intrinsicType,
+							intrinsicFunction->callingConvention,
+							getInnermostUnwindToBlock());
 }
 
 // A helper function to emit a conditional call to a non-returning intrinsic function.
@@ -197,13 +191,12 @@ void EmitFunctionContext::emitConditionalTrapIntrinsic(
 // Control structure operators
 //
 
-void EmitFunctionContext::pushControlStack(
-	ControlContext::Type type,
-	TypeTuple resultTypes,
-	llvm::BasicBlock* endBlock,
-	const PHIVector& endPHIs,
-	llvm::BasicBlock* elseBlock,
-	const ValueVector& elseArgs)
+void EmitFunctionContext::pushControlStack(ControlContext::Type type,
+										   TypeTuple resultTypes,
+										   llvm::BasicBlock* endBlock,
+										   const PHIVector& endPHIs,
+										   llvm::BasicBlock* elseBlock,
+										   const ValueVector& elseArgs)
 {
 	// The unreachable operator filtering should filter out any opcodes that call pushControlStack.
 	if(controlStack.size()) { errorUnless(controlStack.back().isReachable); }
@@ -219,10 +212,9 @@ void EmitFunctionContext::pushControlStack(
 							true});
 }
 
-void EmitFunctionContext::pushBranchTarget(
-	TypeTuple branchArgumentType,
-	llvm::BasicBlock* branchTargetBlock,
-	const PHIVector& branchTargetPHIs)
+void EmitFunctionContext::pushBranchTarget(TypeTuple branchArgumentType,
+										   llvm::BasicBlock* branchTargetBlock,
+										   const PHIVector& branchTargetPHIs)
 {
 	branchTargetStack.push_back({branchArgumentType, branchTargetBlock, branchTargetPHIs});
 }
@@ -239,8 +231,8 @@ void EmitFunctionContext::branchToEndOfControlContext()
 			--resultIndex)
 		{
 			llvm::Value* result = pop();
-			currentContext.endPHIs[resultIndex]->addIncoming(
-				coerceToCanonicalType(result), irBuilder.GetInsertBlock());
+			currentContext.endPHIs[resultIndex]->addIncoming(coerceToCanonicalType(result),
+															 irBuilder.GetInsertBlock());
 		}
 
 		// Branch to the control context's end.
@@ -320,16 +312,15 @@ void EmitFunctionContext::emit()
 	{ diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]); }
 	auto diParamArray   = moduleContext.diBuilder->getOrCreateTypeArray(diFunctionParameterTypes);
 	auto diFunctionType = moduleContext.diBuilder->createSubroutineType(diParamArray);
-	diFunction          = moduleContext.diBuilder->createFunction(
-        moduleContext.diModuleScope,
-        functionInstance->debugName,
-        llvmFunction->getName(),
-        moduleContext.diModuleScope,
-        0,
-        diFunctionType,
-        false,
-        true,
-        0);
+	diFunction          = moduleContext.diBuilder->createFunction(moduleContext.diModuleScope,
+                                                         functionInstance->debugName,
+                                                         llvmFunction->getName(),
+                                                         moduleContext.diModuleScope,
+                                                         0,
+                                                         diFunctionType,
+                                                         false,
+                                                         true,
+                                                         0);
 	llvmFunction->setSubprogram(diFunction);
 
 	// Create the return basic block, and push the root control context for the function.
@@ -379,10 +370,9 @@ void EmitFunctionContext::emit()
 	// If enabled, emit a call to the WAVM function enter hook (for debugging).
 	if(ENABLE_FUNCTION_ENTER_EXIT_HOOKS)
 	{
-		emitRuntimeIntrinsic(
-			"debugEnterFunction",
-			FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}),
-			{emitLiteral(reinterpret_cast<U64>(functionInstance))});
+		emitRuntimeIntrinsic("debugEnterFunction",
+							 FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}),
+							 {emitLiteral(reinterpret_cast<U64>(functionInstance))});
 	}
 
 	// Decode the WebAssembly opcodes and emit LLVM IR for them.
@@ -407,10 +397,9 @@ void EmitFunctionContext::emit()
 	// If enabled, emit a call to the WAVM function enter hook (for debugging).
 	if(ENABLE_FUNCTION_ENTER_EXIT_HOOKS)
 	{
-		emitRuntimeIntrinsic(
-			"debugExitFunction",
-			FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}),
-			{emitLiteral(reinterpret_cast<U64>(functionInstance))});
+		emitRuntimeIntrinsic("debugExitFunction",
+							 FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}),
+							 {emitLiteral(reinterpret_cast<U64>(functionInstance))});
 	}
 
 	// Emit the function return.

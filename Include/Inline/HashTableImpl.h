@@ -109,10 +109,9 @@ const HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForRead
 			// If the bucket is empty, return null.
 			return nullptr;
 		}
-		else if(
-			bucket.hashAndOccupancy == hashAndOccupancy
-			&& HashTablePolicy::areKeysEqual(
-				   HashTablePolicy::getKey(buckets[bucketIndex].storage.contents), key))
+		else if(bucket.hashAndOccupancy == hashAndOccupancy
+				&& HashTablePolicy::areKeysEqual(
+					   HashTablePolicy::getKey(buckets[bucketIndex].storage.contents), key))
 		{
 			// If the bucket holds the specified key, return null.
 			return &bucket;
@@ -137,9 +136,8 @@ const HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForRead
 }
 
 template<HASHTABLE_PARAMETERS>
-HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForModify(
-	Uptr hash,
-	const Key& key)
+HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForModify(Uptr hash,
+																			 const Key& key)
 {
 	return const_cast<Bucket*>(getBucketForRead(hash, key));
 }
@@ -166,9 +164,8 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForAdd(Uptr h
 }
 
 template<HASHTABLE_PARAMETERS>
-HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(
-	Uptr hash,
-	const Key& key)
+HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(Uptr hash,
+																			const Key& key)
 {
 	wavmAssert(buckets);
 
@@ -185,9 +182,9 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(
 			// If the bucket is empty, return it.
 			return bucket;
 		}
-		else if(
-			bucket.hashAndOccupancy == hashAndOccupancy
-			&& HashTablePolicy::areKeysEqual(HashTablePolicy::getKey(bucket.storage.contents), key))
+		else if(bucket.hashAndOccupancy == hashAndOccupancy
+				&& HashTablePolicy::areKeysEqual(HashTablePolicy::getKey(bucket.storage.contents),
+												 key))
 		{
 			// If the bucket already holds the specified key, return it.
 			return bucket;
@@ -295,11 +292,10 @@ void HashTable<HASHTABLE_ARGUMENTS>::eraseHashBucket(Uptr eraseBucketIndex)
 }
 
 template<HASHTABLE_PARAMETERS>
-void HashTable<HASHTABLE_ARGUMENTS>::analyzeSpaceUsage(
-	Uptr& outTotalMemoryBytes,
-	Uptr& outMaxProbeCount,
-	F32& outOccupancy,
-	F32& outAverageProbeCount) const
+void HashTable<HASHTABLE_ARGUMENTS>::analyzeSpaceUsage(Uptr& outTotalMemoryBytes,
+													   Uptr& outMaxProbeCount,
+													   F32& outOccupancy,
+													   F32& outAverageProbeCount) const
 {
 	outTotalMemoryBytes = sizeof(Bucket) * numBuckets() + sizeof(*this);
 	outOccupancy        = size() / F32(numBuckets());

@@ -40,9 +40,8 @@ struct StaticData
 	StaticData();
 };
 
-static NFA::StateIndex createTokenSeparatorPeekState(
-	NFA::Builder* builder,
-	NFA::StateIndex finalState)
+static NFA::StateIndex createTokenSeparatorPeekState(NFA::Builder* builder,
+													 NFA::StateIndex finalState)
 {
 	NFA::CharSet tokenSeparatorCharSet;
 	tokenSeparatorCharSet.add(U8(' '));
@@ -55,19 +54,17 @@ static NFA::StateIndex createTokenSeparatorPeekState(
 	tokenSeparatorCharSet.add(U8(';'));
 	tokenSeparatorCharSet.add(0);
 	auto separatorState = addState(builder);
-	NFA::addEdge(
-		builder,
-		separatorState,
-		tokenSeparatorCharSet,
-		finalState | NFA::edgeDoesntConsumeInputFlag);
+	NFA::addEdge(builder,
+				 separatorState,
+				 tokenSeparatorCharSet,
+				 finalState | NFA::edgeDoesntConsumeInputFlag);
 	return separatorState;
 }
 
-static void addLiteralToNFA(
-	const char* string,
-	NFA::Builder* builder,
-	NFA::StateIndex initialState,
-	NFA::StateIndex finalState)
+static void addLiteralToNFA(const char* string,
+							NFA::Builder* builder,
+							NFA::StateIndex initialState,
+							NFA::StateIndex finalState)
 {
 	// Add the literal to the NFA, one character at a time, reusing existing states that are
 	// reachable by the same string.
@@ -325,11 +322,10 @@ Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 	outLineInfo = new LineInfo{lineStarts, U32(numLineStarts)};
 
 	Timing::logRatePerSecond("lexed WAST file", timer, stringLength / 1024.0 / 1024.0, "MB");
-	Log::printf(
-		Log::metrics,
-		"lexer produced %u tokens (%.1fMB)\n",
-		numTokens,
-		numTokens * sizeof(Token) / 1024.0 / 1024.0);
+	Log::printf(Log::metrics,
+				"lexer produced %u tokens (%.1fMB)\n",
+				numTokens,
+				numTokens * sizeof(Token) / 1024.0 / 1024.0);
 
 	return tokens;
 }
@@ -348,8 +344,9 @@ static Uptr getLineOffset(const LineInfo* lineInfo, Uptr lineIndex)
 	return lineInfo->lineStarts[lineIndex];
 }
 
-TextFileLocus
-WAST::calcLocusFromOffset(const char* string, const LineInfo* lineInfo, Uptr charOffset)
+TextFileLocus WAST::calcLocusFromOffset(const char* string,
+										const LineInfo* lineInfo,
+										Uptr charOffset)
 {
 	// The last line start is at the end of the string, so use it to sanity check that the
 	// charOffset isn't past the end of the string.

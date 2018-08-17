@@ -69,9 +69,8 @@ extern "C" {
 // Defined in POSIX.S
 extern I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode) noexcept(false);
 [[noreturn]] extern void loadExecutionState(ExecutionContext* context, I64 returnCode);
-extern I64 switchToForkedStackContext(
-	ExecutionContext* forkedContext,
-	U8* trampolineFramePointer) noexcept(false);
+extern I64 switchToForkedStackContext(ExecutionContext* forkedContext,
+									  U8* trampolineFramePointer) noexcept(false);
 extern U8* getStackPointer();
 
 const char* __asan_default_options()
@@ -124,10 +123,9 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 	return (U8*)result;
 }
 
-U8* Platform::allocateAlignedVirtualPages(
-	Uptr numPages,
-	Uptr alignmentLog2,
-	U8*& outUnalignedBaseAddress)
+U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
+										  Uptr alignmentLog2,
+										  U8*& outUnalignedBaseAddress)
 {
 	const Uptr pageSizeLog2 = getPageSizeLog2();
 	const Uptr numBytes     = numPages << pageSizeLog2;
@@ -234,12 +232,11 @@ void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
 void Platform::handleAssertionFailure(const AssertMetadata& metadata)
 {
 	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::fprintf(
-		stderr,
-		"Assertion failed at %s(%u): %s\n",
-		metadata.file,
-		metadata.line,
-		metadata.condition);
+	std::fprintf(stderr,
+				 "Assertion failed at %s(%u): %s\n",
+				 metadata.file,
+				 metadata.line,
+				 metadata.condition);
 	dumpErrorCallStack(2);
 	std::fflush(stderr);
 }
@@ -263,11 +260,10 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 			{
 				Uptr numDemangledChars = sizeof(demangledBuffer);
 				I32 demangleStatus     = 0;
-				if(abi::__cxa_demangle(
-					   symbolInfo.dli_sname,
-					   demangledBuffer,
-					   (size_t*)&numDemangledChars,
-					   &demangleStatus))
+				if(abi::__cxa_demangle(symbolInfo.dli_sname,
+									   demangledBuffer,
+									   (size_t*)&numDemangledChars,
+									   &demangleStatus))
 				{ demangledSymbolName = demangledBuffer; }
 			}
 			outDescription += demangledSymbolName;
@@ -347,13 +343,12 @@ struct SigAltStack
 		{
 			// Allocate a stack to use when handling signals, so stack overflow can be handled
 			// safely.
-			base = (U8*)mmap(
-				nullptr,
-				SigAltStack::numBytes,
-				PROT_READ | PROT_WRITE,
-				MAP_PRIVATE | MAP_ANONYMOUS,
-				-1,
-				0);
+			base = (U8*)mmap(nullptr,
+							 SigAltStack::numBytes,
+							 PROT_READ | PROT_WRITE,
+							 MAP_PRIVATE | MAP_ANONYMOUS,
+							 -1,
+							 0);
 			errorUnless(base != MAP_FAILED);
 			stack_t sigAltStackInfo;
 			sigAltStackInfo.ss_size  = SigAltStack::numBytes;
@@ -459,9 +454,8 @@ static void initSignals()
 	}
 }
 
-bool Platform::catchSignals(
-	const std::function<void()>& thunk,
-	const std::function<bool(Signal, const CallStack&)>& filter)
+bool Platform::catchSignals(const std::function<void()>& thunk,
+							const std::function<bool(Signal, const CallStack&)>& filter)
 {
 	initSignals();
 	sigAltStack.init();
@@ -575,9 +569,8 @@ void Platform::deregisterEHFrames(U8* ehFrames, Uptr numBytes)
 	visitFDEs(ehFrames, numBytes, __deregister_frame);
 }
 
-bool Platform::catchPlatformExceptions(
-	const std::function<void()>& thunk,
-	const std::function<void(void*, const CallStack&)>& handler)
+bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
+									   const std::function<void(void*, const CallStack&)>& handler)
 {
 	try
 	{
@@ -664,8 +657,9 @@ NO_ASAN static void* createThreadEntry(void* argsVoid)
 	return reinterpret_cast<void*>(result);
 }
 
-Platform::Thread*
-Platform::createThread(Uptr numStackBytes, I64 (*threadEntry)(void*), void* argument)
+Platform::Thread* Platform::createThread(Uptr numStackBytes,
+										 I64 (*threadEntry)(void*),
+										 void* argument)
 {
 	auto thread               = new Thread;
 	auto createArgs           = new CreateThreadArgs;
@@ -759,13 +753,12 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 		{ Errors::fatal("not enough stack space to fork thread"); }
 
 		// Allocate a stack for the forked thread, and copy this thread's stack to it.
-		U8* forkedMinStackAddr = (U8*)mmap(
-			nullptr,
-			numStackBytes,
-			PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK_FLAGS,
-			-1,
-			0);
+		U8* forkedMinStackAddr = (U8*)mmap(nullptr,
+										   numStackBytes,
+										   PROT_READ | PROT_WRITE,
+										   MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK_FLAGS,
+										   -1,
+										   0);
 		errorUnless(forkedMinStackAddr != MAP_FAILED);
 		U8* forkedMaxStackAddr = forkedMinStackAddr + numStackBytes - PTHREAD_STACK_MIN;
 		memcpy(forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
@@ -892,10 +885,9 @@ static I32 filePtrToIndex(File* ptr) { return I32(-reinterpret_cast<Iptr>(ptr) -
 
 static File* fileIndexToPtr(int index) { return reinterpret_cast<File*>(-Iptr(index) - 1); }
 
-File* Platform::openFile(
-	const std::string& pathName,
-	FileAccessMode accessMode,
-	FileCreateMode createMode)
+File* Platform::openFile(const std::string& pathName,
+						 FileAccessMode accessMode,
+						 FileCreateMode createMode)
 {
 	U32 flags   = 0;
 	mode_t mode = 0;

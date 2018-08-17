@@ -43,11 +43,10 @@ namespace WAST
 
 	// Parse a module from a string. Returns true if it succeeds, and writes the module to
 	// outModule. If it fails, returns false and appends a list of errors to outErrors.
-	WAST_API bool parseModule(
-		const char* string,
-		Uptr stringLength,
-		IR::Module& outModule,
-		std::vector<Error>& outErrors);
+	WAST_API bool parseModule(const char* string,
+							  Uptr stringLength,
+							  IR::Module& outModule,
+							  std::vector<Error>& outErrors);
 
 	// Prints a module in WAST format.
 	WAST_API std::string print(const IR::Module& module);

@@ -27,10 +27,10 @@ static void dumpWAST(const std::string& wastString, const char* outputDir)
 {
 	const Uptr wastHash = Hash<std::string>()(wastString);
 
-	Platform::File* wastFile = Platform::openFile(
-		std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast",
-		Platform::FileAccessMode::writeOnly,
-		Platform::FileCreateMode::createAlways);
+	Platform::File* wastFile
+		= Platform::openFile(std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast",
+							 Platform::FileAccessMode::writeOnly,
+							 Platform::FileCreateMode::createAlways);
 	errorUnless(Platform::writeFile(wastFile, (const U8*)wastString.c_str(), wastString.size()));
 	Platform::closeFile(wastFile);
 }
@@ -39,10 +39,10 @@ static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
 {
 	const Uptr wasmHash = XXH64(wasmBytes, numBytes, 0);
 
-	Platform::File* wasmFile = Platform::openFile(
-		std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",
-		Platform::FileAccessMode::writeOnly,
-		Platform::FileCreateMode::createAlways);
+	Platform::File* wasmFile
+		= Platform::openFile(std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",
+							 Platform::FileAccessMode::writeOnly,
+							 Platform::FileCreateMode::createAlways);
 	errorUnless(Platform::writeFile(wasmFile, wasmBytes, numBytes));
 	Platform::closeFile(wasmFile);
 }
@@ -108,14 +108,12 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 		if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::text
 		   && (dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both))
 		{ dumpWAST(assertInvalidOrMalformedCommand->quotedModuleString, outputDir); }
-		else if(
-			assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::binary
-			&& (dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both))
+		else if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::binary
+				&& (dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both))
 		{
-			dumpWASM(
-				(const U8*)assertInvalidOrMalformedCommand->quotedModuleString.data(),
-				assertInvalidOrMalformedCommand->quotedModuleString.size(),
-				outputDir);
+			dumpWASM((const U8*)assertInvalidOrMalformedCommand->quotedModuleString.data(),
+					 assertInvalidOrMalformedCommand->quotedModuleString.size(),
+					 outputDir);
 		}
 
 		break;
@@ -196,12 +194,11 @@ int main(int argc, char** argv)
 	std::vector<WAST::Error> testErrors;
 
 	// Parse the test script.
-	WAST::parseTestCommands(
-		testScriptString.c_str(),
-		testScriptString.size(),
-		IR::FeatureSpec(),
-		testCommands,
-		testErrors);
+	WAST::parseTestCommands(testScriptString.c_str(),
+							testScriptString.size(),
+							IR::FeatureSpec(),
+							testCommands,
+							testErrors);
 	if(!testErrors.size())
 	{
 		for(auto& command : testCommands)

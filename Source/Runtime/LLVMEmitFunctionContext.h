@@ -65,15 +65,13 @@ namespace LLVMJIT
 		std::vector<BranchTarget> branchTargetStack;
 		std::vector<llvm::Value*> stack;
 
-		EmitFunctionContext(
-			EmitModuleContext& inModuleContext,
-			const Module& inModule,
-			const FunctionDef& inFunctionDef,
-			FunctionInstance* inFunctionInstance,
-			llvm::Function* inLLVMFunction)
-		: EmitContext(
-			  inModuleContext.moduleInstance->defaultMemory,
-			  inModuleContext.moduleInstance->defaultTable)
+		EmitFunctionContext(EmitModuleContext& inModuleContext,
+							const Module& inModule,
+							const FunctionDef& inFunctionDef,
+							FunctionInstance* inFunctionInstance,
+							llvm::Function* inLLVMFunction)
+		: EmitContext(inModuleContext.moduleInstance->defaultMemory,
+					  inModuleContext.moduleInstance->defaultTable)
 		, moduleContext(inModuleContext)
 		, module(inModule)
 		, functionDef(inFunctionDef)
@@ -89,8 +87,8 @@ namespace LLVMJIT
 		// Operand stack manipulation
 		llvm::Value* pop()
 		{
-			wavmAssert(
-				stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0) >= 1);
+			wavmAssert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0)
+					   >= 1);
 			llvm::Value* result = stack.back();
 			stack.pop_back();
 			return result;
@@ -98,9 +96,8 @@ namespace LLVMJIT
 
 		void popMultiple(llvm::Value** outValues, Uptr num)
 		{
-			wavmAssert(
-				stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0)
-				>= num);
+			wavmAssert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0)
+					   >= num);
 			std::copy(stack.end() - num, stack.end(), outValues);
 			stack.resize(stack.size() - num);
 		}
@@ -141,50 +138,47 @@ namespace LLVMJIT
 		}
 
 		// Bounds checks and converts a memory operation I32 address operand to a LLVM pointer.
-		llvm::Value*
-		coerceByteIndexToPointer(llvm::Value* byteIndex, U32 offset, llvm::Type* memoryType);
+		llvm::Value* coerceByteIndexToPointer(llvm::Value* byteIndex,
+											  U32 offset,
+											  llvm::Type* memoryType);
 
 		// Traps a divide-by-zero
 		void trapDivideByZero(ValueType type, llvm::Value* divisor);
 
 		// Traps on (x / 0) or (INT_MIN / -1).
-		void
-		trapDivideByZeroOrIntegerOverflow(ValueType type, llvm::Value* left, llvm::Value* right);
+		void trapDivideByZeroOrIntegerOverflow(ValueType type,
+											   llvm::Value* left,
+											   llvm::Value* right);
 
-		llvm::Value* callLLVMIntrinsic(
-			const std::initializer_list<llvm::Type*>& typeArguments,
-			llvm::Intrinsic::ID id,
-			llvm::ArrayRef<llvm::Value*> arguments)
+		llvm::Value* callLLVMIntrinsic(const std::initializer_list<llvm::Type*>& typeArguments,
+									   llvm::Intrinsic::ID id,
+									   llvm::ArrayRef<llvm::Value*> arguments)
 		{
-			return irBuilder.CreateCall(
-				moduleContext.getLLVMIntrinsic(typeArguments, id), arguments);
+			return irBuilder.CreateCall(moduleContext.getLLVMIntrinsic(typeArguments, id),
+										arguments);
 		}
 
 		// Emits a call to a WAVM intrinsic function.
-		ValueVector emitRuntimeIntrinsic(
-			const char* intrinsicName,
-			FunctionType intrinsicType,
-			const std::initializer_list<llvm::Value*>& args);
+		ValueVector emitRuntimeIntrinsic(const char* intrinsicName,
+										 FunctionType intrinsicType,
+										 const std::initializer_list<llvm::Value*>& args);
 
 		// A helper function to emit a conditional call to a non-returning intrinsic function.
-		void emitConditionalTrapIntrinsic(
-			llvm::Value* booleanCondition,
-			const char* intrinsicName,
-			FunctionType intrinsicType,
-			const std::initializer_list<llvm::Value*>& args);
+		void emitConditionalTrapIntrinsic(llvm::Value* booleanCondition,
+										  const char* intrinsicName,
+										  FunctionType intrinsicType,
+										  const std::initializer_list<llvm::Value*>& args);
 
-		void pushControlStack(
-			ControlContext::Type type,
-			TypeTuple resultTypes,
-			llvm::BasicBlock* endBlock,
-			const PHIVector& endPHIs,
-			llvm::BasicBlock* elseBlock = nullptr,
-			const ValueVector& elseArgs = {});
+		void pushControlStack(ControlContext::Type type,
+							  TypeTuple resultTypes,
+							  llvm::BasicBlock* endBlock,
+							  const PHIVector& endPHIs,
+							  llvm::BasicBlock* elseBlock = nullptr,
+							  const ValueVector& elseArgs = {});
 
-		void pushBranchTarget(
-			TypeTuple branchArgumentType,
-			llvm::BasicBlock* branchTargetBlock,
-			const PHIVector& branchTargetPHIs);
+		void pushBranchTarget(TypeTuple branchArgumentType,
+							  llvm::BasicBlock* branchTargetBlock,
+							  const PHIVector& branchTargetPHIs);
 
 		void branchToEndOfControlContext();
 
@@ -222,42 +216,41 @@ namespace LLVMJIT
 		llvm::Value* emitF64Promote(llvm::Value* operand);
 
 		template<typename Float>
-		llvm::Value* emitTruncFloatToInt(
-			ValueType destType,
-			bool isSigned,
-			Float minBounds,
-			Float maxBounds,
-			llvm::Value* operand);
+		llvm::Value* emitTruncFloatToInt(ValueType destType,
+										 bool isSigned,
+										 Float minBounds,
+										 Float maxBounds,
+										 llvm::Value* operand);
 
 		template<typename Int, typename Float>
-		llvm::Value* emitTruncFloatToIntSat(
-			llvm::Type* destType,
-			bool isSigned,
-			Float minFloatBounds,
-			Float maxFloatBounds,
-			Int minIntBounds,
-			Int maxIntBounds,
-			llvm::Value* operand);
+		llvm::Value* emitTruncFloatToIntSat(llvm::Type* destType,
+											bool isSigned,
+											Float minFloatBounds,
+											Float maxFloatBounds,
+											Int minIntBounds,
+											Int maxIntBounds,
+											llvm::Value* operand);
 
 		template<typename Int, typename Float, Uptr numElements>
-		llvm::Value* emitTruncVectorFloatToIntSat(
-			llvm::Type* destType,
-			bool isSigned,
-			Float minFloatBounds,
-			Float maxFloatBounds,
-			Int minIntBounds,
-			Int maxIntBounds,
-			Int nanResult,
-			llvm::Value* operand);
+		llvm::Value* emitTruncVectorFloatToIntSat(llvm::Type* destType,
+												  bool isSigned,
+												  Float minFloatBounds,
+												  Float maxFloatBounds,
+												  Int minIntBounds,
+												  Int maxIntBounds,
+												  Int nanResult,
+												  llvm::Value* operand);
 
 		llvm::Value* emitAnyTrue(llvm::Value* boolVector);
 		llvm::Value* emitAllTrue(llvm::Value* boolVector);
 
-		llvm::Value*
-		emitBitSelect(llvm::Value* mask, llvm::Value* trueValue, llvm::Value* falseValue);
+		llvm::Value* emitBitSelect(llvm::Value* mask,
+								   llvm::Value* trueValue,
+								   llvm::Value* falseValue);
 
-		llvm::Value*
-		emitVectorSelect(llvm::Value* condition, llvm::Value* trueValue, llvm::Value* falseValue);
+		llvm::Value* emitVectorSelect(llvm::Value* condition,
+									  llvm::Value* trueValue,
+									  llvm::Value* falseValue);
 
 		void trapIfMisalignedAtomic(llvm::Value* address, U32 naturalAlignmentLog2);
 
@@ -286,10 +279,9 @@ namespace LLVMJIT
 
 		llvm::BasicBlock* getInnermostUnwindToBlock();
 
-		void emitThrow(
-			llvm::Value* exceptionTypeInstanceI64,
-			llvm::Value* argumentsPointerI64,
-			bool isUserException);
+		void emitThrow(llvm::Value* exceptionTypeInstanceI64,
+					   llvm::Value* argumentsPointerI64,
+					   bool isUserException);
 
 #define VISIT_OPCODE(encoding, name, nameString, Imm, ...) void name(Imm imm);
 		ENUM_OPERATORS(VISIT_OPCODE)

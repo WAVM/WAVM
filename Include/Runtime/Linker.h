@@ -10,11 +10,10 @@ namespace Runtime
 	// An abstract resolver: maps module+export name pairs to a Runtime::Object.
 	struct Resolver
 	{
-		virtual bool resolve(
-			const std::string& moduleName,
-			const std::string& exportName,
-			IR::ObjectType type,
-			Object*& outObject)
+		virtual bool resolve(const std::string& moduleName,
+							 const std::string& exportName,
+							 IR::ObjectType type,
+							 Object*& outObject)
 			= 0;
 	};
 
@@ -26,11 +25,10 @@ namespace Runtime
 		{
 		}
 
-		bool resolve(
-			const std::string& moduleName,
-			const std::string& exportName,
-			IR::ObjectType type,
-			Object*& outObject) override;
+		bool resolve(const std::string& moduleName,
+					 const std::string& exportName,
+					 IR::ObjectType type,
+					 Object*& outObject) override;
 
 	private:
 		const IR::Module& module;
@@ -46,11 +44,10 @@ namespace Runtime
 		{
 		}
 
-		bool resolve(
-			const std::string& moduleName,
-			const std::string& exportName,
-			IR::ObjectType type,
-			Runtime::Object*& outObject) override
+		bool resolve(const std::string& moduleName,
+					 const std::string& exportName,
+					 IR::ObjectType type,
+					 Runtime::Object*& outObject) override
 		{
 			if(!innerResolver) { innerResolver = innerResolverThunk(); }
 			return innerResolver->resolve(moduleName, exportName, type, outObject);
@@ -64,11 +61,10 @@ namespace Runtime
 	// A resolver that always returns failure.
 	struct NullResolver : Resolver
 	{
-		bool resolve(
-			const std::string& moduleName,
-			const std::string& exportName,
-			IR::ObjectType type,
-			Runtime::Object*& outObject) override
+		bool resolve(const std::string& moduleName,
+					 const std::string& exportName,
+					 IR::ObjectType type,
+					 Runtime::Object*& outObject) override
 		{
 			return false;
 		}

@@ -77,10 +77,9 @@ TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompart
 	TableInstance* newTable = createTable(newCompartment, table->type);
 	growTable(newTable, table->elements.size());
 	newTable->elements = table->elements;
-	memcpy(
-		newTable->baseAddress,
-		table->baseAddress,
-		table->elements.size() * sizeof(TableInstance::FunctionElement));
+	memcpy(newTable->baseAddress,
+		   table->baseAddress,
+		   table->elements.size() * sizeof(TableInstance::FunctionElement));
 	return newTable;
 }
 

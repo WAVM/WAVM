@@ -33,8 +33,9 @@ inline std::string loadFile(const char* filename)
 	return data;
 }
 
-inline bool
-loadTextModule(const char* filename, const std::string& wastString, IR::Module& outModule)
+inline bool loadTextModule(const char* filename,
+						   const std::string& wastString,
+						   IR::Module& outModule)
 {
 	std::vector<WAST::Error> parseErrors;
 	WAST::parseModule(wastString.c_str(), wastString.size(), outModule, parseErrors);

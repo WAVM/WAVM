@@ -26,12 +26,11 @@ namespace Intrinsics
 	// An intrinsic function.
 	struct Function
 	{
-		RUNTIME_API Function(
-			Intrinsics::Module& moduleRef,
-			const char* inName,
-			void* inNativeFunction,
-			IR::FunctionType type,
-			Runtime::CallingConvention inCallingConvention);
+		RUNTIME_API Function(Intrinsics::Module& moduleRef,
+							 const char* inName,
+							 void* inNativeFunction,
+							 IR::FunctionType type,
+							 Runtime::CallingConvention inCallingConvention);
 		RUNTIME_API Runtime::FunctionInstance* instantiate(Runtime::Compartment* compartment);
 
 	private:
@@ -44,11 +43,10 @@ namespace Intrinsics
 	// The base class of Intrinsic globals.
 	struct Global
 	{
-		RUNTIME_API Global(
-			Intrinsics::Module& moduleRef,
-			const char* inName,
-			IR::ValueType inType,
-			IR::Value inValue);
+		RUNTIME_API Global(Intrinsics::Module& moduleRef,
+						   const char* inName,
+						   IR::ValueType inType,
+						   IR::Value inValue);
 		RUNTIME_API Runtime::GlobalInstance* instantiate(Runtime::Compartment* compartment);
 
 		IR::Value getValue() const { return value; }
@@ -63,11 +61,10 @@ namespace Intrinsics
 	template<typename Value> struct GenericGlobal : Global
 	{
 		GenericGlobal(Intrinsics::Module& moduleRef, const char* inName, Value inValue)
-		: Global(
-			  moduleRef,
-			  inName,
-			  IR::inferValueType<Value>(),
-			  IR::Value(IR::inferValueType<Value>(), inValue))
+		: Global(moduleRef,
+				 inName,
+				 IR::inferValueType<Value>(),
+				 IR::Value(IR::inferValueType<Value>(), inValue))
 		{
 		}
 	};
@@ -132,22 +129,22 @@ namespace Intrinsics
 	template<typename R, typename... Args>
 	IR::FunctionType inferIntrinsicFunctionType(R (*)(Runtime::ContextRuntimeData*, Args...))
 	{
-		return IR::FunctionType(
-			IR::inferResultType<R>(), IR::TypeTuple({IR::inferValueType<Args>()...}));
+		return IR::FunctionType(IR::inferResultType<R>(),
+								IR::TypeTuple({IR::inferValueType<Args>()...}));
 	}
 	template<typename R, typename... Args>
 	IR::FunctionType inferIntrinsicWithMemAndTableFunctionType(
 		R (*)(Runtime::ContextRuntimeData*, MemoryIdArg, TableIdArg, Args...))
 	{
-		return IR::FunctionType(
-			IR::inferResultType<R>(), IR::TypeTuple({IR::inferValueType<Args>()...}));
+		return IR::FunctionType(IR::inferResultType<R>(),
+								IR::TypeTuple({IR::inferValueType<Args>()...}));
 	}
 	template<typename R, typename... Args>
 	IR::FunctionType inferIntrinsicWithContextSwitchFunctionType(
 		ResultInContextRuntimeData<R>* (*)(Runtime::ContextRuntimeData*, Args...))
 	{
-		return IR::FunctionType(
-			IR::inferResultType<R>(), IR::TypeTuple({IR::inferValueType<Args>()...}));
+		return IR::FunctionType(IR::inferResultType<R>(),
+								IR::TypeTuple({IR::inferValueType<Args>()...}));
 	}
 
 }
@@ -165,31 +162,28 @@ namespace Intrinsics
 
 #define DEFINE_INTRINSIC_FUNCTION(module, nameString, Result, cName, ...)                          \
 	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__);           \
-	static Intrinsics::Function cName##Intrinsic(                                                  \
-		getIntrinsicModule_##module(),                                                             \
-		nameString,                                                                                \
-		(void*)&cName,                                                                             \
-		Intrinsics::inferIntrinsicFunctionType(&cName),                                            \
-		Runtime::CallingConvention::intrinsic);                                                    \
+	static Intrinsics::Function cName##Intrinsic(getIntrinsicModule_##module(),                    \
+												 nameString,                                       \
+												 (void*)&cName,                                    \
+												 Intrinsics::inferIntrinsicFunctionType(&cName),   \
+												 Runtime::CallingConvention::intrinsic);           \
 	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__)
 
 #define DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(module, nameString, Result, cName, ...)       \
-	static Result cName(                                                                           \
-		Runtime::ContextRuntimeData* contextRuntimeData,                                           \
-		Intrinsics::MemoryIdArg defaultMemoryId,                                                   \
-		Intrinsics::TableIdArg defaultTableId,                                                     \
-		##__VA_ARGS__);                                                                            \
+	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData,                           \
+						Intrinsics::MemoryIdArg defaultMemoryId,                                   \
+						Intrinsics::TableIdArg defaultTableId,                                     \
+						##__VA_ARGS__);                                                            \
 	static Intrinsics::Function cName##Intrinsic(                                                  \
 		getIntrinsicModule_##module(),                                                             \
 		nameString,                                                                                \
 		(void*)&cName,                                                                             \
 		Intrinsics::inferIntrinsicWithMemAndTableFunctionType(&cName),                             \
 		Runtime::CallingConvention::intrinsicWithMemAndTable);                                     \
-	static Result cName(                                                                           \
-		Runtime::ContextRuntimeData* contextRuntimeData,                                           \
-		Intrinsics::MemoryIdArg defaultMemoryId,                                                   \
-		Intrinsics::TableIdArg defaultTableId,                                                     \
-		##__VA_ARGS__)
+	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData,                           \
+						Intrinsics::MemoryIdArg defaultMemoryId,                                   \
+						Intrinsics::TableIdArg defaultTableId,                                     \
+						##__VA_ARGS__)
 
 #define DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(module, nameString, Result, cName, ...)      \
 	static Intrinsics::ResultInContextRuntimeData<Result>* cName(                                  \

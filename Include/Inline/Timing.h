@@ -31,15 +31,16 @@ namespace Timing
 	{
 		Log::printf(Log::metrics, "%s in %.2fms\n", context, timer.getMilliseconds());
 	}
-	inline void
-	logRatePerSecond(const char* context, Timer& timer, F64 numerator, const char* numeratorUnit)
+	inline void logRatePerSecond(const char* context,
+								 Timer& timer,
+								 F64 numerator,
+								 const char* numeratorUnit)
 	{
-		Log::printf(
-			Log::metrics,
-			"%s in %.2fms (%f %s/s)\n",
-			context,
-			timer.getMilliseconds(),
-			numerator / timer.getSeconds(),
-			numeratorUnit);
+		Log::printf(Log::metrics,
+					"%s in %.2fms (%f %s/s)\n",
+					context,
+					timer.getMilliseconds(),
+					numerator / timer.getSeconds(),
+					numeratorUnit);
 	}
 }

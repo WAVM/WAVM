@@ -36,11 +36,10 @@ namespace Wavix
 	{
 		HashMap<std::string, ModuleInstance*> moduleNameToInstanceMap;
 
-		bool resolve(
-			const std::string& moduleName,
-			const std::string& exportName,
-			ObjectType type,
-			Object*& outObject) override
+		bool resolve(const std::string& moduleName,
+					 const std::string& exportName,
+					 ObjectType type,
+					 Object*& outObject) override
 		{
 			auto namedInstance = moduleNameToInstanceMap.get(moduleName);
 			if(namedInstance)
@@ -93,10 +92,9 @@ namespace Wavix
 	{
 		try
 		{
-			Platform::File* file = Platform::openFile(
-				wasmFilename,
-				Platform::FileAccessMode::readOnly,
-				Platform::FileCreateMode::openExisting);
+			Platform::File* file = Platform::openFile(wasmFilename,
+													  Platform::FileAccessMode::readOnly,
+													  Platform::FileCreateMode::openExisting);
 			if(!file) { return false; }
 
 			U64 numFileBytes = 0;
@@ -119,18 +117,16 @@ namespace Wavix
 		}
 		catch(Serialization::FatalSerializationException exception)
 		{
-			Log::printf(
-				Log::error,
-				"Error deserializing WebAssembly binary file:\n%s\n",
-				exception.message.c_str());
+			Log::printf(Log::error,
+						"Error deserializing WebAssembly binary file:\n%s\n",
+						exception.message.c_str());
 			return false;
 		}
 		catch(IR::ValidationException exception)
 		{
-			Log::printf(
-				Log::error,
-				"Error validating WebAssembly binary file:\n%s\n",
-				exception.message.c_str());
+			Log::printf(Log::error,
+						"Error validating WebAssembly binary file:\n%s\n",
+						exception.message.c_str());
 			return false;
 		}
 		catch(std::bad_alloc)
@@ -160,12 +156,11 @@ namespace Wavix
 			Log::printf(Log::error, "Failed to link module:\n");
 			for(auto& missingImport : linkResult.missingImports)
 			{
-				Log::printf(
-					Log::error,
-					"Missing import: module=\"%s\" export=\"%s\" type=\"%s\"\n",
-					missingImport.moduleName.c_str(),
-					missingImport.exportName.c_str(),
-					asString(missingImport.type).c_str());
+				Log::printf(Log::error,
+							"Missing import: module=\"%s\" export=\"%s\" type=\"%s\"\n",
+							missingImport.moduleName.c_str(),
+							missingImport.exportName.c_str(),
+							asString(missingImport.type).c_str());
 			}
 			return nullptr;
 		}
@@ -194,10 +189,9 @@ namespace Wavix
 		FunctionType mainFunctionType = getFunctionType(mainThreadArgs->mainFunction);
 		if(mainFunctionType != FunctionType())
 		{
-			Log::printf(
-				Log::error,
-				"Module _start signature is %s, but ()->() was expected.\n",
-				asString(mainFunctionType).c_str());
+			Log::printf(Log::error,
+						"Module _start signature is %s, but ()->() was expected.\n",
+						asString(mainFunctionType).c_str());
 			return nullptr;
 		}
 
@@ -216,12 +210,11 @@ namespace Wavix
 		return mainThread;
 	}
 
-	Process* spawnProcess(
-		Process* parent,
-		const char* hostFilename,
-		const std::vector<std::string>& args,
-		const std::vector<std::string>& envs,
-		const std::string& cwd)
+	Process* spawnProcess(Process* parent,
+						  const char* hostFilename,
+						  const std::vector<std::string>& args,
+						  const std::vector<std::string>& envs,
+						  const std::string& cwd)
 	{
 		// Create the process and compartment.
 		Process* process     = new Process;
@@ -276,12 +269,11 @@ namespace Wavix
 		Platform::exitThread(exitCode);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION(
-		wavix,
-		"__syscall_exit_group",
-		I32,
-		__syscall_exit_group,
-		I32 exitCode)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_exit_group",
+							  I32,
+							  __syscall_exit_group,
+							  I32 exitCode)
 	{
 		traceSyscallf("exit_group", "(%i)", exitCode);
 
@@ -297,12 +289,11 @@ namespace Wavix
 		currentProcess = newThread->process;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(
-		wavix,
-		"__syscall_fork",
-		I32,
-		__syscall_fork,
-		I32 dummy)
+	DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(wavix,
+												  "__syscall_fork",
+												  I32,
+												  __syscall_fork,
+												  I32 dummy)
 	{
 		Process* originalProcess = currentProcess;
 		wavmAssert(originalProcess);
@@ -368,14 +359,13 @@ namespace Wavix
 		}
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
-		wavix,
-		"__syscall_execve",
-		I32,
-		__syscall_execve,
-		U32 pathAddress,
-		U32 argsAddress,
-		U32 envsAddress)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
+												 "__syscall_execve",
+												 I32,
+												 __syscall_execve,
+												 U32 pathAddress,
+												 U32 argsAddress,
+												 U32 envsAddress)
 	{
 		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 
@@ -415,12 +405,11 @@ namespace Wavix
 				envsString += envString;
 				envsString += '\"';
 			}
-			traceSyscallf(
-				"execve",
-				"(\"%s\", {%s}, {%s})",
-				pathString.c_str(),
-				argsString.c_str(),
-				envsString.c_str());
+			traceSyscallf("execve",
+						  "(\"%s\", {%s}, {%s})",
+						  pathString.c_str(),
+						  argsString.c_str(),
+						  envsString.c_str());
 		}
 
 		// Update the process args/envs.
@@ -471,14 +460,13 @@ namespace Wavix
 		}
 	}
 
-	DEFINE_INTRINSIC_FUNCTION(
-		wavix,
-		"__syscall_sched_getaffinity",
-		I32,
-		__syscall_sched_getaffinity,
-		I32 a,
-		I32 b,
-		I32 c)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_sched_getaffinity",
+							  I32,
+							  __syscall_sched_getaffinity,
+							  I32 a,
+							  I32 b,
+							  I32 c)
 	{
 		traceSyscallf("sched_getaffinity", "(%i,%i,%i,%i)", a, b, c);
 		throwException(Exception::calledUnimplementedIntrinsicType);
@@ -492,15 +480,14 @@ namespace Wavix
 #define WAVIX_WCONTINUED 8
 #define WAVIX_WNOWAIT 0x1000000
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
-		wavix,
-		"__syscall_wait4",
-		I32,
-		__syscall_wait4,
-		I32 pid,
-		U32 statusAddress,
-		U32 options,
-		U32 rusageAddress)
+	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
+												 "__syscall_wait4",
+												 I32,
+												 __syscall_wait4,
+												 I32 pid,
+												 U32 statusAddress,
+												 U32 options,
+												 U32 rusageAddress)
 	{
 		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 
@@ -566,13 +553,12 @@ namespace Wavix
 		return 1;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION(
-		wavix,
-		"__syscall_tkill",
-		I32,
-		__syscall_tkill,
-		U32 threadId,
-		I32 signalNumber)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_tkill",
+							  I32,
+							  __syscall_tkill,
+							  U32 threadId,
+							  I32 signalNumber)
 	{
 		traceSyscallf("tkill", "(%i,%i)", threadId, signalNumber);
 
@@ -582,14 +568,13 @@ namespace Wavix
 		Platform::exitThread(-1);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION(
-		wavix,
-		"__syscall_rt_sigprocmask",
-		I32,
-		__syscall_rt_sigprocmask,
-		I32 how,
-		U32 setAddress,
-		U32 oldSetAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_rt_sigprocmask",
+							  I32,
+							  __syscall_rt_sigprocmask,
+							  I32 how,
+							  U32 setAddress,
+							  U32 oldSetAddress)
 	{
 		traceSyscallf("rt_sigprocmask", "(%i, 0x%08x, 0x%08x)", how, setAddress, oldSetAddress);
 		return 0;

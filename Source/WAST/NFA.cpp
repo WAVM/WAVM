@@ -53,11 +53,10 @@ StateIndex NFA::addState(Builder* builder)
 	return StateIndex(builder->nfaStates.size() - 1);
 }
 
-void NFA::addEdge(
-	Builder* builder,
-	StateIndex initialState,
-	const CharSet& predicate,
-	StateIndex nextState)
+void NFA::addEdge(Builder* builder,
+				  StateIndex initialState,
+				  const CharSet& predicate,
+				  StateIndex nextState)
 {
 	CharSet& transitionPredicate
 		= builder->nfaStates[initialState].nextStateToPredicateMap.getOrAdd(nextState, CharSet{});
@@ -165,8 +164,8 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 
 		if(!stateIndexToLocalStateIndexMap.contains(currentTerminalState))
 		{
-			stateIndexToLocalStateIndexMap.set(
-				currentTerminalState, (StateIndex)localStateIndexToStateIndexMap.size());
+			stateIndexToLocalStateIndexMap.set(currentTerminalState,
+											   (StateIndex)localStateIndexToStateIndexMap.size());
 			localStateIndexToStateIndexMap.emplace_back(currentTerminalState);
 		}
 
@@ -273,11 +272,10 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 	};
 
 	Timing::logTimer("translated NFA->DFA", timer);
-	Log::printf(
-		Log::metrics,
-		"  translated NFA with %u states to DFA with %u states\n",
-		builder->nfaStates.size(),
-		dfaStates.size());
+	Log::printf(Log::metrics,
+				"  translated NFA with %u states to DFA with %u states\n",
+				builder->nfaStates.size(),
+				dfaStates.size());
 	Log::printf(
 		Log::metrics, "  maximum number of states following a NFA state set: %u\n", maxLocalStates);
 	Log::printf(
@@ -318,19 +316,17 @@ struct StateTransitionsByChar
 	bool operator<(const StateTransitionsByChar& right) const
 	{
 		wavmAssert(numStates == right.numStates);
-		return memcmp(
-				   nextStateByInitialState,
-				   right.nextStateByInitialState,
-				   sizeof(StateIndex) * numStates)
+		return memcmp(nextStateByInitialState,
+					  right.nextStateByInitialState,
+					  sizeof(StateIndex) * numStates)
 			   < 0;
 	}
 	bool operator!=(const StateTransitionsByChar& right) const
 	{
 		wavmAssert(numStates == right.numStates);
-		return memcmp(
-				   nextStateByInitialState,
-				   right.nextStateByInitialState,
-				   sizeof(StateIndex) * numStates)
+		return memcmp(nextStateByInitialState,
+					  right.nextStateByInitialState,
+					  sizeof(StateIndex) * numStates)
 			   != 0;
 	}
 };
@@ -635,8 +631,8 @@ std::string NFA::Machine::dumpDFAGraphViz() const
 	{
 		result += "terminal" + std::to_string(-(terminalState & ~edgeDoesntConsumeInputFlag))
 				  + "[shape=octagon label=\""
-				  + std::to_string(
-						maximumTerminalStateIndex - (terminalState & ~edgeDoesntConsumeInputFlag))
+				  + std::to_string(maximumTerminalStateIndex
+								   - (terminalState & ~edgeDoesntConsumeInputFlag))
 				  + "\"];\n";
 	}
 	result += "}\n";

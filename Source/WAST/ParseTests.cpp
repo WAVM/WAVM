@@ -72,12 +72,11 @@ static std::string parseOptionalNameAsString(CursorState* cursor)
 	return tryParseName(cursor, name) ? name.getString() : std::string();
 }
 
-static void parseTestScriptModule(
-	CursorState* cursor,
-	IR::Module& outModule,
-	std::string& outInternalModuleName,
-	QuotedModuleType& outQuotedModuleType,
-	std::string& outQuotedModuleString)
+static void parseTestScriptModule(CursorState* cursor,
+								  IR::Module& outModule,
+								  std::string& outInternalModuleName,
+								  QuotedModuleType& outQuotedModuleType,
+								  std::string& outQuotedModuleString)
 {
 	outInternalModuleName = parseOptionalNameAsString(cursor);
 
@@ -99,15 +98,14 @@ static void parseTestScriptModule(
 			outQuotedModuleType = QuotedModuleType::text;
 
 			std::vector<Error> quotedErrors;
-			parseModule(
-				outQuotedModuleString.c_str(),
-				outQuotedModuleString.size(),
-				outModule,
-				quotedErrors);
+			parseModule(outQuotedModuleString.c_str(),
+						outQuotedModuleString.size(),
+						outModule,
+						quotedErrors);
 			for(auto&& error : quotedErrors)
 			{
-				cursor->parseState->unresolvedErrors.emplace_back(
-					quoteToken->begin, std::move(error.message));
+				cursor->parseState->unresolvedErrors.emplace_back(quoteToken->begin,
+																  std::move(error.message));
 			}
 		}
 		else
@@ -122,19 +120,17 @@ static void parseTestScriptModule(
 			}
 			catch(Serialization::FatalSerializationException exception)
 			{
-				parseErrorf(
-					cursor->parseState,
-					quoteToken,
-					"error deserializing binary module: %s",
-					exception.message.c_str());
+				parseErrorf(cursor->parseState,
+							quoteToken,
+							"error deserializing binary module: %s",
+							exception.message.c_str());
 			}
 			catch(ValidationException exception)
 			{
-				parseErrorf(
-					cursor->parseState,
-					quoteToken,
-					"error validating binary module: %s",
-					exception.message.c_str());
+				parseErrorf(cursor->parseState,
+							quoteToken,
+							"error validating binary module: %s",
+							exception.message.c_str());
 			}
 		}
 	}
@@ -172,11 +168,10 @@ static Action* parseAction(CursorState* cursor, const IR::FeatureSpec& featureSp
 			std::string exportName = parseUTF8String(cursor);
 
 			IR::ValueTuple arguments = parseConstExpressionTuple(cursor);
-			result                   = new InvokeAction(
-                std::move(locus),
-                std::move(nameString),
-                std::move(exportName),
-                std::move(arguments));
+			result                   = new InvokeAction(std::move(locus),
+                                      std::move(nameString),
+                                      std::move(exportName),
+                                      std::move(arguments));
 			break;
 		}
 		case t_module:
@@ -337,12 +332,11 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				std::string exceptionTypeExportName         = parseUTF8String(cursor);
 
 				IR::ValueTuple expectedArguments = parseConstExpressionTuple(cursor);
-				result                           = new AssertThrowsCommand(
-                    std::move(locus),
-                    action,
-                    std::move(exceptionTypeInternalModuleName),
-                    std::move(exceptionTypeExportName),
-                    std::move(expectedArguments));
+				result                           = new AssertThrowsCommand(std::move(locus),
+                                                 action,
+                                                 std::move(exceptionTypeInternalModuleName),
+                                                 std::move(exceptionTypeExportName),
+                                                 std::move(expectedArguments));
 				break;
 			}
 			case t_assert_unlinkable:
@@ -380,8 +374,8 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				Module module;
 				module.featureSpec          = featureSpec;
 				ParseState* outerParseState = cursor->parseState;
-				ParseState malformedModuleParseState(
-					outerParseState->string, outerParseState->lineInfo);
+				ParseState malformedModuleParseState(outerParseState->string,
+													 outerParseState->lineInfo);
 
 				QuotedModuleType quotedModuleType = QuotedModuleType::none;
 				std::string quotedModuleString;
@@ -391,12 +385,11 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					parseParenthesized(cursor, [&] {
 						require(cursor, t_module);
 
-						parseTestScriptModule(
-							cursor,
-							module,
-							internalModuleName,
-							quotedModuleType,
-							quotedModuleString);
+						parseTestScriptModule(cursor,
+											  module,
+											  internalModuleName,
+											  quotedModuleType,
+											  quotedModuleString);
 					});
 				}
 				catch(RecoverParseException)
@@ -431,12 +424,11 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 	return result;
 }
 
-void WAST::parseTestCommands(
-	const char* string,
-	Uptr stringLength,
-	const IR::FeatureSpec& featureSpec,
-	std::vector<std::unique_ptr<Command>>& outTestCommands,
-	std::vector<Error>& outErrors)
+void WAST::parseTestCommands(const char* string,
+							 Uptr stringLength,
+							 const IR::FeatureSpec& featureSpec,
+							 std::vector<std::unique_ptr<Command>>& outTestCommands,
+							 std::vector<Error>& outErrors)
 {
 	// Lex the input string.
 	LineInfo* lineInfo = nullptr;

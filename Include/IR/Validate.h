@@ -35,10 +35,9 @@ namespace IR
 
 	template<typename InnerStream> struct CodeValidationProxyStream
 	{
-		CodeValidationProxyStream(
-			const Module& module,
-			const FunctionDef& function,
-			InnerStream& inInnerStream)
+		CodeValidationProxyStream(const Module& module,
+								  const FunctionDef& function,
+								  InnerStream& inInnerStream)
 		: codeValidationStream(module, function), innerStream(inInnerStream)
 		{
 		}

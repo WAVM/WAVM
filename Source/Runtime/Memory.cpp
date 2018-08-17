@@ -95,8 +95,8 @@ Runtime::MemoryInstance::~MemoryInstance()
 	// Decommit all default memory pages.
 	if(numPages > 0)
 	{
-		Platform::decommitVirtualPages(
-			baseAddress, numPages << getPlatformPagesPerWebAssemblyPageLog2());
+		Platform::decommitVirtualPages(baseAddress,
+									   numPages << getPlatformPagesPerWebAssemblyPageLog2());
 	}
 
 	// Free the virtual address space.
@@ -188,9 +188,8 @@ void Runtime::unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numP
 	wavmAssert(pageIndex + numPages < memory->numPages);
 
 	// Decommit the pages.
-	Platform::decommitVirtualPages(
-		memory->baseAddress + (pageIndex << IR::numBytesPerPageLog2),
-		numPages << getPlatformPagesPerWebAssemblyPageLog2());
+	Platform::decommitVirtualPages(memory->baseAddress + (pageIndex << IR::numBytesPerPageLog2),
+								   numPages << getPlatformPagesPerWebAssemblyPageLog2());
 }
 
 U8* Runtime::getMemoryBaseAddress(MemoryInstance* memory) { return memory->baseAddress; }

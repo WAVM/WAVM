@@ -24,10 +24,10 @@ void EmitFunctionContext::memory_grow(MemoryImm)
 }
 void EmitFunctionContext::memory_size(MemoryImm)
 {
-	ValueVector currentNumPages = emitRuntimeIntrinsic(
-		"currentMemory",
-		FunctionType(TypeTuple(ValueType::i32), TypeTuple(ValueType::i64)),
-		{emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id))});
+	ValueVector currentNumPages
+		= emitRuntimeIntrinsic("currentMemory",
+							   FunctionType(TypeTuple(ValueType::i32), TypeTuple(ValueType::i64)),
+							   {emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id))});
 	wavmAssert(currentNumPages.size() == 1);
 	push(currentNumPages[0]);
 }
@@ -94,8 +94,8 @@ void EmitFunctionContext::atomic_wake(AtomicLoadOrStoreImm<2>)
 	auto memoryId   = emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id));
 	push(emitRuntimeIntrinsic(
 		"atomic_wake",
-		FunctionType(
-			TypeTuple{ValueType::i32}, TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64}),
+		FunctionType(TypeTuple{ValueType::i32},
+					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64}),
 		{address, numWaiters, memoryId})[0]);
 }
 void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2>)
@@ -106,9 +106,8 @@ void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2>)
 	auto memoryId      = emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id));
 	push(emitRuntimeIntrinsic(
 		"atomic_wait_i32",
-		FunctionType(
-			TypeTuple{ValueType::i32},
-			TypeTuple{ValueType::i32, ValueType::i32, ValueType::f64, ValueType::i64}),
+		FunctionType(TypeTuple{ValueType::i32},
+					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::f64, ValueType::i64}),
 		{address, expectedValue, timeout, memoryId})[0]);
 }
 void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3>)
@@ -119,9 +118,8 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3>)
 	auto memoryId      = emitLiteral(U64(moduleContext.moduleInstance->defaultMemory->id));
 	push(emitRuntimeIntrinsic(
 		"atomic_wait_i64",
-		FunctionType(
-			TypeTuple{ValueType::i32},
-			TypeTuple{ValueType::i32, ValueType::i64, ValueType::f64, ValueType::i64}),
+		FunctionType(TypeTuple{ValueType::i32},
+					 TypeTuple{ValueType::i32, ValueType::i64, ValueType::f64, ValueType::i64}),
 		{address, expectedValue, timeout, memoryId})[0]);
 }
 
@@ -190,13 +188,13 @@ EMIT_ATOMIC_STORE_OP(i64, atomic_store32, llvmI32Type, 2, trunc)
 		auto expectedValue    = valueToMem(pop(), llvmMemoryType);                                 \
 		auto byteIndex        = pop();                                                             \
 		trapIfMisalignedAtomic(byteIndex, alignmentLog2);                                          \
-		auto pointer       = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);      \
-		auto atomicCmpXchg = irBuilder.CreateAtomicCmpXchg(                                        \
-			pointer,                                                                               \
-			expectedValue,                                                                         \
-			replacementValue,                                                                      \
-			llvm::AtomicOrdering::SequentiallyConsistent,                                          \
-			llvm::AtomicOrdering::SequentiallyConsistent);                                         \
+		auto pointer = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);            \
+		auto atomicCmpXchg                                                                         \
+			= irBuilder.CreateAtomicCmpXchg(pointer,                                               \
+											expectedValue,                                         \
+											replacementValue,                                      \
+											llvm::AtomicOrdering::SequentiallyConsistent,          \
+											llvm::AtomicOrdering::SequentiallyConsistent);         \
 		atomicCmpXchg->setVolatile(true);                                                          \
 		auto previousValue = irBuilder.CreateExtractValue(atomicCmpXchg, {0});                     \
 		push(memToValue(previousValue, asLLVMType(ValueType::valueTypeId)));                       \
@@ -219,11 +217,10 @@ EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw_cmpxchg, llvmI64Type, 3, identity, identity)
 		auto byteIndex = pop();                                                                    \
 		trapIfMisalignedAtomic(byteIndex, alignmentLog2);                                          \
 		auto pointer   = coerceByteIndexToPointer(byteIndex, imm.offset, llvmMemoryType);          \
-		auto atomicRMW = irBuilder.CreateAtomicRMW(                                                \
-			llvm::AtomicRMWInst::BinOp::rmwOpId,                                                   \
-			pointer,                                                                               \
-			value,                                                                                 \
-			llvm::AtomicOrdering::SequentiallyConsistent);                                         \
+		auto atomicRMW = irBuilder.CreateAtomicRMW(llvm::AtomicRMWInst::BinOp::rmwOpId,            \
+												   pointer,                                        \
+												   value,                                          \
+												   llvm::AtomicOrdering::SequentiallyConsistent);  \
 		atomicRMW->setVolatile(true);                                                              \
 		push(memToValue(atomicRMW, asLLVMType(ValueType::valueTypeId)));                           \
 	}

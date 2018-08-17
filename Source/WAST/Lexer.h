@@ -102,6 +102,7 @@ namespace WAST
 
 	const char* describeToken(TokenType tokenType);
 
-	TextFileLocus
-	calcLocusFromOffset(const char* string, const LineInfo* lineInfo, Uptr charOffset);
+	TextFileLocus calcLocusFromOffset(const char* string,
+									  const LineInfo* lineInfo,
+									  Uptr charOffset);
 }

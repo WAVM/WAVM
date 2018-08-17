@@ -95,11 +95,10 @@ template<typename Element> struct HashTableBucket
 //   The table is dynamically resized as dictated by the AllocPolicy. The default
 // policy keeps the table between 35% and 80% occupied. This gives an average occupancy of 65%, or
 // about 2x space usage compared to just storing an array of the elements.
-template<
-	typename Key,
-	typename Element,
-	typename HashTablePolicy,
-	typename AllocPolicy = DefaultHashTableAllocPolicy>
+template<typename Key,
+		 typename Element,
+		 typename HashTablePolicy,
+		 typename AllocPolicy = DefaultHashTableAllocPolicy>
 struct HashTable
 {
 	typedef HashTableBucket<Element> Bucket;
@@ -126,11 +125,10 @@ struct HashTable
 	Bucket* getBuckets() const { return buckets; }
 
 	// Compute some statistics about the space usage of this hash table.
-	void analyzeSpaceUsage(
-		Uptr& outTotalMemoryBytes,
-		Uptr& outMaxProbeCount,
-		F32& outOccupancy,
-		F32& outAverageProbeCount) const;
+	void analyzeSpaceUsage(Uptr& outTotalMemoryBytes,
+						   Uptr& outMaxProbeCount,
+						   F32& outOccupancy,
+						   F32& outAverageProbeCount) const;
 
 private:
 	Bucket* buckets;

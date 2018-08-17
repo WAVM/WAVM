@@ -44,10 +44,9 @@ void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 	if(global->type.isMutable)
 	{
 		llvm::Value* globalPointer = irBuilder.CreatePointerCast(
-			irBuilder.CreateInBoundsGEP(
-				irBuilder.CreateLoad(contextPointerVariable),
-				{emitLiteral(
-					Uptr(offsetof(ContextRuntimeData, globalData)) + global->mutableDataOffset)}),
+			irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(contextPointerVariable),
+										{emitLiteral(Uptr(offsetof(ContextRuntimeData, globalData))
+													 + global->mutableDataOffset)}),
 			llvmValueType->getPointerTo());
 		push(irBuilder.CreateLoad(globalPointer));
 	}
@@ -81,10 +80,9 @@ void EmitFunctionContext::set_global(GetOrSetVariableImm<true> imm)
 	wavmAssert(global->type.isMutable);
 	llvm::Type* llvmValueType  = asLLVMType(global->type.valueType);
 	llvm::Value* globalPointer = irBuilder.CreatePointerCast(
-		irBuilder.CreateInBoundsGEP(
-			irBuilder.CreateLoad(contextPointerVariable),
-			{emitLiteral(
-				Uptr(offsetof(ContextRuntimeData, globalData) + global->mutableDataOffset))}),
+		irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(contextPointerVariable),
+									{emitLiteral(Uptr(offsetof(ContextRuntimeData, globalData)
+													  + global->mutableDataOffset))}),
 		llvmValueType->getPointerTo());
 	auto value = irBuilder.CreateBitCast(pop(), llvmValueType);
 	irBuilder.CreateStore(value, globalPointer);

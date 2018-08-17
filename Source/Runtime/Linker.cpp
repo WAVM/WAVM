@@ -19,20 +19,18 @@ static MemoryType resolveImportType(const IR::Module& module, MemoryType type) {
 static GlobalType resolveImportType(const IR::Module& module, GlobalType type) { return type; }
 
 template<typename Instance, typename Type>
-void linkImport(
-	const IR::Module& module,
-	const Import<Type>& import,
-	Resolver& resolver,
-	LinkResult& linkResult,
-	std::vector<Instance*>& resolvedImports)
+void linkImport(const IR::Module& module,
+				const Import<Type>& import,
+				Resolver& resolver,
+				LinkResult& linkResult,
+				std::vector<Instance*>& resolvedImports)
 {
 	// Ask the resolver for a value for this import.
 	Object* importValue;
-	if(resolver.resolve(
-		   import.moduleName,
-		   import.exportName,
-		   resolveImportType(module, import.type),
-		   importValue))
+	if(resolver.resolve(import.moduleName,
+						import.exportName,
+						resolveImportType(module, import.type),
+						importValue))
 	{
 		// Sanity check that the resolver returned an object of the right type.
 		wavmAssert(isA(importValue, resolveImportType(module, import.type)));

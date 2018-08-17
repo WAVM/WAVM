@@ -31,15 +31,13 @@ namespace WAST
 		OperatorEncoderStream operationEncoder;
 		CodeValidationProxyStream<OperatorEncoderStream> validatingCodeStream;
 
-		FunctionState(
-			const std::shared_ptr<NameToIndexMap>& inLocalNameToIndexMap,
-			FunctionDef& inFunctionDef,
-			Module& module)
+		FunctionState(const std::shared_ptr<NameToIndexMap>& inLocalNameToIndexMap,
+					  FunctionDef& inFunctionDef,
+					  Module& module)
 		: functionDef(inFunctionDef)
 		, localNameToIndexMap(inLocalNameToIndexMap)
-		, numLocals(
-			  inFunctionDef.nonParameterLocalTypes.size()
-			  + module.types[inFunctionDef.type.index].params().size())
+		, numLocals(inFunctionDef.nonParameterLocalTypes.size()
+					+ module.types[inFunctionDef.type.index].params().size())
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
 		, validatingCodeStream(module, functionDef, operationEncoder)
@@ -131,21 +129,19 @@ static bool tryParseAndResolveBranchTargetRef(CursorState* cursor, U32& outTarge
 	return false;
 }
 
-static void parseAndValidateRedundantBranchTargetName(
-	CursorState* cursor,
-	Name branchTargetName,
-	const char* context,
-	const char* redundantContext)
+static void parseAndValidateRedundantBranchTargetName(CursorState* cursor,
+													  Name branchTargetName,
+													  const char* context,
+													  const char* redundantContext)
 {
 	Name redundantName;
 	if(tryParseName(cursor, redundantName) && branchTargetName != redundantName)
 	{
-		parseErrorf(
-			cursor->parseState,
-			cursor->nextToken - 1,
-			"%s label doesn't match %s label",
-			redundantContext,
-			context);
+		parseErrorf(cursor->parseState,
+					cursor->nextToken - 1,
+					"%s label doesn't match %s label",
+					redundantContext,
+					context);
 	}
 }
 
@@ -212,11 +208,11 @@ static void parseImm(CursorState* cursor, GetOrSetVariableImm<isGlobal>& outImm)
 
 static void parseImm(CursorState* cursor, CallImm& outImm)
 {
-	outImm.functionIndex = parseAndResolveNameOrIndexRef(
-		cursor,
-		cursor->moduleState->functionNameToIndexMap,
-		cursor->moduleState->module.functions.size(),
-		"function");
+	outImm.functionIndex
+		= parseAndResolveNameOrIndexRef(cursor,
+										cursor->moduleState->functionNameToIndexMap,
+										cursor->moduleState->module.functions.size(),
+										"function");
 }
 
 static void parseImm(CursorState* cursor, CallIndirectImm& outImm)
@@ -225,11 +221,10 @@ static void parseImm(CursorState* cursor, CallIndirectImm& outImm)
 	   || cursor->nextToken->type == t_hexInt)
 	{
 		// Parse the callee type as a legacy naked name or index referring to a type declaration.
-		outImm.type.index = parseAndResolveNameOrIndexRef(
-			cursor,
-			cursor->moduleState->typeNameToIndexMap,
-			cursor->moduleState->module.types.size(),
-			"type");
+		outImm.type.index = parseAndResolveNameOrIndexRef(cursor,
+														  cursor->moduleState->typeNameToIndexMap,
+														  cursor->moduleState->module.types.size(),
+														  "type");
 	}
 	else
 	{
@@ -295,11 +290,10 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, LaneIndexImm<n
 	const U64 u64 = parseI64(cursor);
 	if(u64 > numLanes)
 	{
-		parseErrorf(
-			cursor->parseState,
-			cursor->nextToken - 1,
-			"lane index must be in the range 0..%u",
-			numLanes);
+		parseErrorf(cursor->parseState,
+					cursor->nextToken - 1,
+					"lane index must be in the range 0..%u",
+					numLanes);
 	}
 	outImm.laneIndex = U8(u64);
 }
@@ -312,11 +306,10 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, ShuffleImm<num
 			const U64 u64 = parseI64(cursor);
 			if(u64 >= numLanes * 2)
 			{
-				parseErrorf(
-					cursor->parseState,
-					cursor->nextToken - 1,
-					"lane index must be in the range 0..%u",
-					numLanes * 2);
+				parseErrorf(cursor->parseState,
+							cursor->nextToken - 1,
+							"lane index must be in the range 0..%u",
+							numLanes * 2);
 			}
 			outImm.laneIndices[laneIndex] = U8(u64);
 		}
@@ -334,19 +327,19 @@ static void parseImm(CursorState* cursor, AtomicLoadOrStoreImm<naturalAlignmentL
 
 static void parseImm(CursorState* cursor, CatchImm& outImm)
 {
-	outImm.exceptionTypeIndex = parseAndResolveNameOrIndexRef(
-		cursor,
-		cursor->moduleState->exceptionTypeNameToIndexMap,
-		cursor->moduleState->module.exceptionTypes.size(),
-		"exception type");
+	outImm.exceptionTypeIndex
+		= parseAndResolveNameOrIndexRef(cursor,
+										cursor->moduleState->exceptionTypeNameToIndexMap,
+										cursor->moduleState->module.exceptionTypes.size(),
+										"exception type");
 }
 static void parseImm(CursorState* cursor, ThrowImm& outImm)
 {
-	outImm.exceptionTypeIndex = parseAndResolveNameOrIndexRef(
-		cursor,
-		cursor->moduleState->exceptionTypeNameToIndexMap,
-		cursor->moduleState->module.exceptionTypes.size(),
-		"exception type");
+	outImm.exceptionTypeIndex
+		= parseAndResolveNameOrIndexRef(cursor,
+										cursor->moduleState->exceptionTypeNameToIndexMap,
+										cursor->moduleState->module.exceptionTypes.size(),
+										"exception type");
 }
 static void parseImm(CursorState* cursor, RethrowImm& outImm)
 {
@@ -360,8 +353,9 @@ static void parseImm(CursorState* cursor, RethrowImm& outImm)
 static void parseInstrSequence(CursorState* cursor);
 static void parseExpr(CursorState* cursor);
 
-static void
-parseControlImm(CursorState* cursor, Name& outBranchTargetName, ControlStructureImm& imm)
+static void parseControlImm(CursorState* cursor,
+							Name& outBranchTargetName,
+							ControlStructureImm& imm)
 {
 	tryParseName(cursor, outBranchTargetName);
 	cursor->functionState->labelDisassemblyNames.push_back(outBranchTargetName.getString());
@@ -385,11 +379,10 @@ parseControlImm(CursorState* cursor, Name& outBranchTargetName, ControlStructure
 		if(paramNameToIndexMap.size())
 		{
 			auto paramNameIt = paramNameToIndexMap.begin();
-			parseErrorf(
-				cursor->parseState,
-				firstTypeToken,
-				"block type declaration may not declare parameter names ($%s)",
-				paramNameIt->key.getString().c_str());
+			parseErrorf(cursor->parseState,
+						firstTypeToken,
+						"block type declaration may not declare parameter names ($%s)",
+						paramNameIt->key.getString().c_str());
 		}
 
 		if(!unresolvedFunctionType.reference)
@@ -663,10 +656,9 @@ static void parseInstrSequence(CursorState* cursor)
 					}
 					else
 					{
-						parseErrorf(
-							cursor->parseState,
-							cursor->nextToken,
-							"expected 'catch', 'catch_all', or 'end' following 'try'");
+						parseErrorf(cursor->parseState,
+									cursor->nextToken,
+									"expected 'catch', 'catch_all', or 'end' following 'try'");
 						throw RecoverParseException();
 					}
 				};

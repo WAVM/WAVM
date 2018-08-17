@@ -30,19 +30,17 @@ namespace LLVMJIT
 	void instantiateModule(const IR::Module& module, Runtime::ModuleInstance* moduleInstance);
 	bool describeInstructionPointer(Uptr ip, std::string& outDescription);
 
-	typedef Runtime::ContextRuntimeData* (
-		*InvokeFunctionPointer)(void*, Runtime::ContextRuntimeData*);
+	typedef Runtime::ContextRuntimeData* (*InvokeFunctionPointer)(void*,
+																  Runtime::ContextRuntimeData*);
 
 	// Generates an invoke thunk for a specific function type.
-	InvokeFunctionPointer getInvokeThunk(
-		IR::FunctionType functionType,
-		Runtime::CallingConvention callingConvention);
+	InvokeFunctionPointer getInvokeThunk(IR::FunctionType functionType,
+										 Runtime::CallingConvention callingConvention);
 
 	// Generates a thunk to call a native function from generated code.
-	void* getIntrinsicThunk(
-		void* nativeFunction,
-		IR::FunctionType functionType,
-		Runtime::CallingConvention callingConvention);
+	void* getIntrinsicThunk(void* nativeFunction,
+							IR::FunctionType functionType,
+							Runtime::CallingConvention callingConvention);
 }
 
 namespace Runtime
@@ -70,12 +68,11 @@ namespace Runtime
 		CallingConvention callingConvention;
 		std::string debugName;
 
-		FunctionInstance(
-			ModuleInstance* inModuleInstance,
-			FunctionType inType,
-			void* inNativeFunction,
-			CallingConvention inCallingConvention,
-			std::string&& inDebugName)
+		FunctionInstance(ModuleInstance* inModuleInstance,
+						 FunctionType inType,
+						 void* inNativeFunction,
+						 CallingConvention inCallingConvention,
+						 std::string&& inDebugName)
 		: ObjectImpl(ObjectKind::function)
 		, moduleInstance(inModuleInstance)
 		, type(inType)
@@ -156,11 +153,10 @@ namespace Runtime
 		const U32 mutableDataOffset;
 		const UntaggedValue initialValue;
 
-		GlobalInstance(
-			Compartment* inCompartment,
-			GlobalType inType,
-			U32 inMutableDataOffset,
-			UntaggedValue inInitialValue)
+		GlobalInstance(Compartment* inCompartment,
+					   GlobalType inType,
+					   U32 inMutableDataOffset,
+					   UntaggedValue inInitialValue)
 		: ObjectImpl(ObjectKind::global)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
@@ -221,14 +217,13 @@ namespace Runtime
 
 		std::string debugName;
 
-		ModuleInstance(
-			Compartment* inCompartment,
-			std::vector<FunctionInstance*>&& inFunctionImports,
-			std::vector<TableInstance*>&& inTableImports,
-			std::vector<MemoryInstance*>&& inMemoryImports,
-			std::vector<GlobalInstance*>&& inGlobalImports,
-			std::vector<ExceptionTypeInstance*>&& inExceptionTypeInstanceImports,
-			std::string&& inDebugName)
+		ModuleInstance(Compartment* inCompartment,
+					   std::vector<FunctionInstance*>&& inFunctionImports,
+					   std::vector<TableInstance*>&& inTableImports,
+					   std::vector<MemoryInstance*>&& inMemoryImports,
+					   std::vector<GlobalInstance*>&& inGlobalImports,
+					   std::vector<ExceptionTypeInstance*>&& inExceptionTypeInstanceImports,
+					   std::string&& inDebugName)
 		: ObjectImpl(ObjectKind::module)
 		, compartment(inCompartment)
 		, functions(inFunctionImports)
@@ -290,10 +285,9 @@ namespace Runtime
 		contextRuntimeDataAlignment = 4096
 	};
 
-	static_assert(
-		sizeof(UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
-		"maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
-		"sizeof(UntaggedValue)");
+	static_assert(sizeof(UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
+				  "maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
+				  "sizeof(UntaggedValue)");
 
 	struct Compartment : ObjectImpl
 	{
@@ -340,17 +334,16 @@ namespace Runtime
 	};
 
 	static_assert(sizeof(ContextRuntimeData) == 4096, "");
-	static_assert(
-		offsetof(CompartmentRuntimeData, contexts) % 4096 == 0,
-		"CompartmentRuntimeData::contexts isn't page-aligned");
-	static_assert(
-		offsetof(CompartmentRuntimeData, contexts[maxContexts]) == 4ull * 1024 * 1024 * 1024,
-		"CompartmentRuntimeData isn't the expected size");
+	static_assert(offsetof(CompartmentRuntimeData, contexts) % 4096 == 0,
+				  "CompartmentRuntimeData::contexts isn't page-aligned");
+	static_assert(offsetof(CompartmentRuntimeData, contexts[maxContexts])
+					  == 4ull * 1024 * 1024 * 1024,
+				  "CompartmentRuntimeData isn't the expected size");
 
 	inline CompartmentRuntimeData* getCompartmentRuntimeData(ContextRuntimeData* contextRuntimeData)
 	{
-		return reinterpret_cast<CompartmentRuntimeData*>(
-			reinterpret_cast<Uptr>(contextRuntimeData) & 0xffffffff00000000);
+		return reinterpret_cast<CompartmentRuntimeData*>(reinterpret_cast<Uptr>(contextRuntimeData)
+														 & 0xffffffff00000000);
 	}
 
 	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);

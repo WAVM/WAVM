@@ -65,9 +65,8 @@ static_assert(offsetof(ExecutionContext, xmm15) == 256, "unexpected offset");
 static_assert(sizeof(ExecutionContext) == 272, "unexpected size");
 
 extern "C" I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode);
-extern "C" I64 switchToForkedStackContext(
-	ExecutionContext* forkedContext,
-	U8* trampolineFramePointer) noexcept(false);
+extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,
+										  U8* trampolineFramePointer) noexcept(false);
 extern "C" U8* getStackPointer();
 
 static void initThread();
@@ -115,10 +114,9 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 	return (U8*)result;
 }
 
-U8* Platform::allocateAlignedVirtualPages(
-	Uptr numPages,
-	Uptr alignmentLog2,
-	U8*& outUnalignedBaseAddress)
+U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
+										  Uptr alignmentLog2,
+										  U8*& outUnalignedBaseAddress)
 {
 	const Uptr pageSizeLog2 = getPageSizeLog2();
 	const Uptr numBytes     = numPages << pageSizeLog2;
@@ -170,22 +168,20 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 {
 	errorUnless(isPageAligned(baseVirtualAddress));
 	return baseVirtualAddress
-		   == VirtualAlloc(
-				  baseVirtualAddress,
-				  numPages << getPageSizeLog2(),
-				  MEM_COMMIT,
-				  memoryAccessAsWin32Flag(access));
+		   == VirtualAlloc(baseVirtualAddress,
+						   numPages << getPageSizeLog2(),
+						   MEM_COMMIT,
+						   memoryAccessAsWin32Flag(access));
 }
 
 bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
 {
 	errorUnless(isPageAligned(baseVirtualAddress));
 	DWORD oldProtection = 0;
-	return VirtualProtect(
-			   baseVirtualAddress,
-			   numPages << getPageSizeLog2(),
-			   memoryAccessAsWin32Flag(access),
-			   &oldProtection)
+	return VirtualProtect(baseVirtualAddress,
+						  numPages << getPageSizeLog2(),
+						  memoryAccessAsWin32Flag(access),
+						  &oldProtection)
 		   != 0;
 }
 
@@ -227,12 +223,11 @@ void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
 void Platform::handleAssertionFailure(const AssertMetadata& metadata)
 {
 	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::fprintf(
-		stderr,
-		"Assertion failed at %s(%u): %s\n",
-		metadata.file,
-		metadata.line,
-		metadata.condition);
+	std::fprintf(stderr,
+				 "Assertion failed at %s(%u): %s\n",
+				 metadata.file,
+				 metadata.line,
+				 metadata.condition);
 }
 
 // The interface to the DbgHelp DLL
@@ -382,15 +377,14 @@ static CallStack unwindStack(const CONTEXT& immutableContext, Uptr numOmittedFra
 			// Use the SEH information to unwind to the next stack frame.
 			void* handlerData;
 			U64 establisherFrame;
-			RtlVirtualUnwind(
-				UNW_FLAG_NHANDLER,
-				imageBase,
-				context.Rip,
-				runtimeFunction,
-				&context,
-				&handlerData,
-				&establisherFrame,
-				nullptr);
+			RtlVirtualUnwind(UNW_FLAG_NHANDLER,
+							 imageBase,
+							 context.Rip,
+							 runtimeFunction,
+							 &context,
+							 &handlerData,
+							 &establisherFrame,
+							 nullptr);
 		}
 	}
 #endif
@@ -436,9 +430,9 @@ static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& 
 
 // __try/__except doesn't support locals with destructors in the same function, so this is just
 // the body of the sehSignalFilterFunction __try pulled out into a function.
-static LONG CALLBACK sehSignalFilterFunctionNonReentrant(
-	EXCEPTION_POINTERS* exceptionPointers,
-	const std::function<bool(Signal, const CallStack&)>& filter)
+static LONG CALLBACK
+sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
+									const std::function<bool(Signal, const CallStack&)>& filter)
 {
 	Signal signal;
 	if(!translateSEHToSignal(exceptionPointers, signal)) { return EXCEPTION_CONTINUE_SEARCH; }
@@ -455,9 +449,9 @@ static LONG CALLBACK sehSignalFilterFunctionNonReentrant(
 	}
 }
 
-static LONG CALLBACK sehSignalFilterFunction(
-	EXCEPTION_POINTERS* exceptionPointers,
-	const std::function<bool(Signal, const CallStack&)>& filter)
+static LONG CALLBACK
+sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointers,
+						const std::function<bool(Signal, const CallStack&)>& filter)
 {
 	__try
 	{
@@ -469,9 +463,8 @@ static LONG CALLBACK sehSignalFilterFunction(
 	}
 }
 
-bool Platform::catchSignals(
-	const std::function<void()>& thunk,
-	const std::function<bool(Signal, const CallStack&)>& filter)
+bool Platform::catchSignals(const std::function<void()>& thunk,
+							const std::function<bool(Signal, const CallStack&)>& filter)
 {
 	initThread();
 
@@ -545,10 +538,9 @@ void Platform::setSignalHandler(SignalHandler handler)
 	signalHandler.store(handler);
 }
 
-static LONG CALLBACK sehPlatformExceptionFilterFunction(
-	EXCEPTION_POINTERS* exceptionPointers,
-	CallStack*& outCallStack,
-	void*& outExceptionData)
+static LONG CALLBACK sehPlatformExceptionFilterFunction(EXCEPTION_POINTERS* exceptionPointers,
+														CallStack*& outCallStack,
+														void*& outExceptionData)
 {
 	if(exceptionPointers->ExceptionRecord->ExceptionCode != SEH_WAVM_EXCEPTION)
 	{ return EXCEPTION_CONTINUE_SEARCH; }
@@ -563,9 +555,8 @@ static LONG CALLBACK sehPlatformExceptionFilterFunction(
 	}
 }
 
-bool Platform::catchPlatformExceptions(
-	const std::function<void()>& thunk,
-	const std::function<void(void*, const CallStack&)>& handler)
+bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
+									   const std::function<void(void*, const CallStack&)>& handler)
 {
 	CallStack* callStack = nullptr;
 	void* exceptionData  = nullptr;
@@ -698,8 +689,9 @@ static DWORD WINAPI createThreadEntry(void* argsVoid)
 	}
 }
 
-Platform::Thread*
-Platform::createThread(Uptr numStackBytes, I64 (*entry)(void*), void* entryArgument)
+Platform::Thread* Platform::createThread(Uptr numStackBytes,
+										 I64 (*entry)(void*),
+										 void* entryArgument)
 {
 	CreateThreadArgs* args = new CreateThreadArgs;
 	auto thread            = new Thread;
@@ -787,9 +779,8 @@ Thread* Platform::forkCurrentThread()
 		// Compute the address extent of this thread's stack.
 		const U8* minStackAddr;
 		const U8* maxStackAddr;
-		GetCurrentThreadStackLimits(
-			reinterpret_cast<ULONG_PTR*>(&minStackAddr),
-			reinterpret_cast<ULONG_PTR*>(&maxStackAddr));
+		GetCurrentThreadStackLimits(reinterpret_cast<ULONG_PTR*>(&minStackAddr),
+									reinterpret_cast<ULONG_PTR*>(&maxStackAddr));
 		const Uptr numStackBytes = maxStackAddr - minStackAddr;
 
 		// Use the current stack pointer derive a conservative bounds on the area of this thread's
@@ -802,13 +793,13 @@ Thread* Platform::forkCurrentThread()
 		{ Errors::fatal("not enough stack space to fork thread"); }
 
 		// Create a suspended thread.
-		forkThreadArgs->thread->handle = CreateThread(
-			nullptr,
-			numStackBytes,
-			forkThreadEntry,
-			forkThreadArgs,
-			/*STACK_SIZE_PARAM_IS_A_RESERVATION |*/ CREATE_SUSPENDED,
-			&forkThreadArgs->thread->id);
+		forkThreadArgs->thread->handle
+			= CreateThread(nullptr,
+						   numStackBytes,
+						   forkThreadEntry,
+						   forkThreadArgs,
+						   /*STACK_SIZE_PARAM_IS_A_RESERVATION |*/ CREATE_SUSPENDED,
+						   &forkThreadArgs->thread->id);
 
 		// Read the thread's initial stack pointer.
 		CONTEXT* threadContext      = new CONTEXT;
@@ -817,12 +808,10 @@ Thread* Platform::forkCurrentThread()
 
 		// Query the virtual address range allocated for the thread's stack.
 		auto forkedStackInfo = new MEMORY_BASIC_INFORMATION;
-		errorUnless(
-			VirtualQuery(
-				reinterpret_cast<void*>(threadContext->Rsp),
-				forkedStackInfo,
-				sizeof(MEMORY_BASIC_INFORMATION))
-			== sizeof(MEMORY_BASIC_INFORMATION));
+		errorUnless(VirtualQuery(reinterpret_cast<void*>(threadContext->Rsp),
+								 forkedStackInfo,
+								 sizeof(MEMORY_BASIC_INFORMATION))
+					== sizeof(MEMORY_BASIC_INFORMATION));
 		U8* forkedStackMinAddr = reinterpret_cast<U8*>(forkedStackInfo->AllocationBase);
 		U8* forkedStackMaxAddr = reinterpret_cast<U8*>(threadContext->Rsp & -16) - 4096;
 		delete threadContext;
@@ -949,10 +938,9 @@ static HANDLE filePointerToHandle(File* file)
 	return reinterpret_cast<HANDLE>(reinterpret_cast<Uptr>(file) - 1);
 }
 
-File* Platform::openFile(
-	const std::string& pathName,
-	FileAccessMode accessMode,
-	FileCreateMode createMode)
+File* Platform::openFile(const std::string& pathName,
+						 FileAccessMode accessMode,
+						 FileCreateMode createMode)
 {
 	DWORD desiredAccess       = 0;
 	DWORD shareMode           = 0;
@@ -983,14 +971,13 @@ File* Platform::openFile(
 	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
 	{ return nullptr; }
 
-	HANDLE handle = CreateFileW(
-		pathNameW.c_str(),
-		desiredAccess,
-		shareMode,
-		nullptr,
-		creationDisposition,
-		flagsAndAttributes,
-		nullptr);
+	HANDLE handle = CreateFileW(pathNameW.c_str(),
+								desiredAccess,
+								shareMode,
+								nullptr,
+								creationDisposition,
+								flagsAndAttributes,
+								nullptr);
 
 	return fileHandleToPointer(handle);
 }

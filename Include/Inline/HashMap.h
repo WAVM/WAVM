@@ -38,9 +38,8 @@ private:
 	const HashTableBucket<Pair>* bucket;
 	const HashTableBucket<Pair>* endBucket;
 
-	HashMapIterator(
-		const HashTableBucket<Pair>* inBucket,
-		const HashTableBucket<Pair>* inEndBucket);
+	HashMapIterator(const HashTableBucket<Pair>* inBucket,
+					const HashTableBucket<Pair>* inEndBucket);
 };
 
 template<typename Key, typename Value, typename KeyHashPolicy = DefaultHashPolicy<Key>>
@@ -92,11 +91,10 @@ struct HashMap
 	Uptr size() const;
 
 	// Compute some statistics about the space usage of this map.
-	void analyzeSpaceUsage(
-		Uptr& outTotalMemoryBytes,
-		Uptr& outMaxProbeCount,
-		F32& outOccupancy,
-		F32& outAverageProbeCount) const;
+	void analyzeSpaceUsage(Uptr& outTotalMemoryBytes,
+						   Uptr& outMaxProbeCount,
+						   F32& outOccupancy,
+						   F32& outAverageProbeCount) const;
 
 private:
 	struct HashTablePolicy

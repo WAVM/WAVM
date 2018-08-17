@@ -41,9 +41,8 @@ namespace LLVMJIT
 
 		std::shared_ptr<llvm::Module> emit();
 
-		inline llvm::Function* getLLVMIntrinsic(
-			llvm::ArrayRef<llvm::Type*> typeArguments,
-			llvm::Intrinsic::ID id)
+		inline llvm::Function* getLLVMIntrinsic(llvm::ArrayRef<llvm::Type*> typeArguments,
+												llvm::Intrinsic::ID id)
 		{
 			return llvm::Intrinsic::getDeclaration(llvmModule, id, typeArguments);
 		}

@@ -49,11 +49,10 @@ struct TestScriptState
 struct TestScriptResolver : Resolver
 {
 	TestScriptResolver(const TestScriptState& inState) : state(inState) {}
-	bool resolve(
-		const std::string& moduleName,
-		const std::string& exportName,
-		ObjectType type,
-		Object*& outObject) override
+	bool resolve(const std::string& moduleName,
+				 const std::string& exportName,
+				 ObjectType type,
+				 Object*& outObject) override
 	{
 		auto namedModule = state.moduleNameToInstanceMap.get(moduleName);
 		if(namedModule && *namedModule)
@@ -69,8 +68,10 @@ private:
 	const TestScriptState& state;
 };
 
-static void
-testErrorf(TestScriptState& state, const TextFileLocus& locus, const char* messageFormat, ...)
+static void testErrorf(TestScriptState& state,
+					   const TextFileLocus& locus,
+					   const char* messageFormat,
+					   ...)
 {
 	va_list messageArguments;
 	va_start(messageArguments, messageFormat);
@@ -84,11 +85,10 @@ testErrorf(TestScriptState& state, const TextFileLocus& locus, const char* messa
 	state.errors.push_back({locus, messageBuffer});
 }
 
-static ModuleInstance* getModuleContextByInternalName(
-	TestScriptState& state,
-	const TextFileLocus& locus,
-	const char* context,
-	const std::string& internalName)
+static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
+													  const TextFileLocus& locus,
+													  const char* context,
+													  const std::string& internalName)
 {
 	// Look up the module this invoke uses.
 	if(!state.hasInstantiatedModule)
@@ -160,11 +160,10 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 		if(linkResult.success)
 		{
 			state.hasInstantiatedModule = true;
-			state.lastModuleInstance    = instantiateModule(
-                state.compartment,
-                *moduleAction->module,
-                std::move(linkResult.resolvedImports),
-                "test module");
+			state.lastModuleInstance    = instantiateModule(state.compartment,
+                                                         *moduleAction->module,
+                                                         std::move(linkResult.resolvedImports),
+                                                         "test module");
 
 			// Call the module start function, if it has one.
 			FunctionInstance* startFunction = getStartFunction(state.lastModuleInstance);
@@ -175,21 +174,20 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 			// Create an error for each import that couldn't be linked.
 			for(auto& missingImport : linkResult.missingImports)
 			{
-				testErrorf(
-					state,
-					moduleAction->locus,
-					"missing import module=\"%s\" export=\"%s\" type=\"%s\"",
-					missingImport.moduleName.c_str(),
-					missingImport.exportName.c_str(),
-					asString(missingImport.type).c_str());
+				testErrorf(state,
+						   moduleAction->locus,
+						   "missing import module=\"%s\" export=\"%s\" type=\"%s\"",
+						   missingImport.moduleName.c_str(),
+						   missingImport.exportName.c_str(),
+						   asString(missingImport.type).c_str());
 			}
 		}
 
 		// Register the module under its internal name.
 		if(moduleAction->internalModuleName.size())
 		{
-			state.moduleInternalNameToInstanceMap.set(
-				moduleAction->internalModuleName, state.lastModuleInstance);
+			state.moduleInternalNameToInstanceMap.set(moduleAction->internalModuleName,
+													  state.lastModuleInstance);
 		}
 
 		return true;
@@ -211,11 +209,10 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 			= asFunctionNullable(getInstanceExport(moduleInstance, invokeAction->exportName));
 		if(!functionInstance)
 		{
-			testErrorf(
-				state,
-				invokeAction->locus,
-				"couldn't find exported function with name: %s",
-				invokeAction->exportName.c_str());
+			testErrorf(state,
+					   invokeAction->locus,
+					   "couldn't find exported function with name: %s",
+					   invokeAction->exportName.c_str());
 			return false;
 		}
 
@@ -242,11 +239,10 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 			= asGlobalNullable(getInstanceExport(moduleInstance, getAction->exportName));
 		if(!globalInstance)
 		{
-			testErrorf(
-				state,
-				getAction->locus,
-				"couldn't find exported global with name: %s",
-				getAction->exportName.c_str());
+			testErrorf(state,
+					   getAction->locus,
+					   "couldn't find exported global with name: %s",
+					   getAction->exportName.c_str());
 			return false;
 		}
 
@@ -302,12 +298,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 				if(processAction(state, assertCommand->action.get(), actionResults)
 				   && actionResults != assertCommand->expectedResults)
 				{
-					testErrorf(
-						state,
-						assertCommand->locus,
-						"expected %s but got %s",
-						asString(assertCommand->expectedResults).c_str(),
-						asString(actionResults).c_str());
+					testErrorf(state,
+							   assertCommand->locus,
+							   "expected %s but got %s",
+							   asString(assertCommand->expectedResults).c_str(),
+							   asString(actionResults).c_str());
 				}
 				break;
 			}
@@ -321,11 +316,10 @@ static void processCommand(TestScriptState& state, const Command* command)
 				{
 					if(actionResults.size() != 1)
 					{
-						testErrorf(
-							state,
-							assertCommand->locus,
-							"expected single floating-point result, but got %s",
-							asString(actionResults).c_str());
+						testErrorf(state,
+								   assertCommand->locus,
+								   "expected single floating-point result, but got %s",
+								   asString(actionResults).c_str());
 					}
 					else
 					{
@@ -333,20 +327,20 @@ static void processCommand(TestScriptState& state, const Command* command)
 						const bool requireCanonicalNaN
 							= assertCommand->type == Command::assert_return_canonical_nan;
 						const bool isError = actionResult.type == ValueType::f32
-												 ? !isCanonicalOrArithmeticNaN(
-													   actionResult.f32, requireCanonicalNaN)
+												 ? !isCanonicalOrArithmeticNaN(actionResult.f32,
+																			   requireCanonicalNaN)
 												 : actionResult.type == ValueType::f64
 													   ? !isCanonicalOrArithmeticNaN(
 															 actionResult.f64, requireCanonicalNaN)
 													   : true;
 						if(isError)
 						{
-							testErrorf(
-								state,
-								assertCommand->locus,
-								requireCanonicalNaN ? "expected canonical float NaN but got %s"
-													: "expected float NaN but got %s",
-								asString(actionResult).c_str());
+							testErrorf(state,
+									   assertCommand->locus,
+									   requireCanonicalNaN
+										   ? "expected canonical float NaN but got %s"
+										   : "expected float NaN but got %s",
+									   asString(actionResult).c_str());
 						}
 					}
 				}
@@ -360,11 +354,10 @@ static void processCommand(TestScriptState& state, const Command* command)
 						IR::ValueTuple actionResults;
 						if(processAction(state, assertCommand->action.get(), actionResults))
 						{
-							testErrorf(
-								state,
-								assertCommand->locus,
-								"expected trap but got %s",
-								asString(actionResults).c_str());
+							testErrorf(state,
+									   assertCommand->locus,
+									   "expected trap but got %s",
+									   asString(actionResults).c_str());
 						}
 					},
 					[&](Runtime::Exception&& exception) {
@@ -372,12 +365,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 							= getExpectedExceptionType(assertCommand->expectedType);
 						if(exception.typeInstance != expectedType)
 						{
-							testErrorf(
-								state,
-								assertCommand->action->locus,
-								"expected %s trap but got %s trap",
-								describeExceptionType(expectedType).c_str(),
-								describeExceptionType(exception.typeInstance).c_str());
+							testErrorf(state,
+									   assertCommand->action->locus,
+									   "expected %s trap but got %s trap",
+									   describeExceptionType(expectedType).c_str(),
+									   describeExceptionType(exception.typeInstance).c_str());
 						}
 					});
 				break;
@@ -402,11 +394,10 @@ static void processCommand(TestScriptState& state, const Command* command)
 					getInstanceExport(moduleInstance, assertCommand->exceptionTypeExportName));
 				if(!expectedExceptionType)
 				{
-					testErrorf(
-						state,
-						assertCommand->locus,
-						"couldn't find exported exception type with name: %s",
-						assertCommand->exceptionTypeExportName.c_str());
+					testErrorf(state,
+							   assertCommand->locus,
+							   "couldn't find exported exception type with name: %s",
+							   assertCommand->exceptionTypeExportName.c_str());
 					break;
 				}
 
@@ -415,36 +406,33 @@ static void processCommand(TestScriptState& state, const Command* command)
 						IR::ValueTuple actionResults;
 						if(processAction(state, assertCommand->action.get(), actionResults))
 						{
-							testErrorf(
-								state,
-								assertCommand->locus,
-								"expected trap but got %s",
-								asString(actionResults).c_str());
+							testErrorf(state,
+									   assertCommand->locus,
+									   "expected trap but got %s",
+									   asString(actionResults).c_str());
 						}
 					},
 					[&](Runtime::Exception&& exception) {
 						if(exception.typeInstance != expectedExceptionType)
 						{
-							testErrorf(
-								state,
-								assertCommand->action->locus,
-								"expected %s exception but got %s exception",
-								describeExceptionType(expectedExceptionType).c_str(),
-								describeExceptionType(exception.typeInstance).c_str());
+							testErrorf(state,
+									   assertCommand->action->locus,
+									   "expected %s exception but got %s exception",
+									   describeExceptionType(expectedExceptionType).c_str(),
+									   describeExceptionType(exception.typeInstance).c_str());
 						}
 						else
 						{
 							TypeTuple exceptionParameterTypes
 								= getExceptionTypeParameters(expectedExceptionType);
-							wavmAssert(
-								exception.arguments.size() == exceptionParameterTypes.size());
+							wavmAssert(exception.arguments.size()
+									   == exceptionParameterTypes.size());
 
 							for(Uptr argumentIndex = 0; argumentIndex < exception.arguments.size();
 								++argumentIndex)
 							{
-								IR::Value argumentValue(
-									exceptionParameterTypes[argumentIndex],
-									exception.arguments[argumentIndex]);
+								IR::Value argumentValue(exceptionParameterTypes[argumentIndex],
+														exception.arguments[argumentIndex]);
 								if(argumentValue != assertCommand->expectedArguments[argumentIndex])
 								{
 									testErrorf(
@@ -485,11 +473,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 							= linkModule(*assertCommand->moduleAction->module, resolver);
 						if(linkResult.success)
 						{
-							auto moduleInstance = instantiateModule(
-								state.compartment,
-								*assertCommand->moduleAction->module,
-								std::move(linkResult.resolvedImports),
-								"test module");
+							auto moduleInstance
+								= instantiateModule(state.compartment,
+													*assertCommand->moduleAction->module,
+													std::move(linkResult.resolvedImports),
+													"test module");
 
 							// Call the module start function, if it has one.
 							FunctionInstance* startFunction = getStartFunction(moduleInstance);
@@ -507,11 +495,10 @@ static void processCommand(TestScriptState& state, const Command* command)
 			};
 		},
 		[&](Runtime::Exception&& exception) {
-			testErrorf(
-				state,
-				command->locus,
-				"unexpected trap: %s",
-				describeExceptionType(exception.typeInstance).c_str());
+			testErrorf(state,
+					   command->locus,
+					   "unexpected trap: %s",
+					   describeExceptionType(exception.typeInstance).c_str());
 		});
 }
 
@@ -550,17 +537,15 @@ DEFINE_INTRINSIC_GLOBAL(spectest, "global_i64", I64, spectest_global_i64, 0)
 DEFINE_INTRINSIC_GLOBAL(spectest, "global_f32", F32, spectest_global_f32, 0.0f)
 DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 0.0)
 
-DEFINE_INTRINSIC_TABLE(
-	spectest,
-	spectest_table,
-	table,
-	TableType(TableElementType::anyfunc, false, SizeConstraints{10, 20}))
+DEFINE_INTRINSIC_TABLE(spectest,
+					   spectest_table,
+					   table,
+					   TableType(TableElementType::anyfunc, false, SizeConstraints{10, 20}))
 DEFINE_INTRINSIC_MEMORY(spectest, spectest_memory, memory, MemoryType(false, SizeConstraints{1, 2}))
-DEFINE_INTRINSIC_MEMORY(
-	spectest,
-	spectest_shared_memory,
-	shared_memory,
-	MemoryType(true, SizeConstraints{1, 2}))
+DEFINE_INTRINSIC_MEMORY(spectest,
+						spectest_shared_memory,
+						shared_memory,
+						MemoryType(true, SizeConstraints{1, 2}))
 
 int main(int argc, char** argv)
 {
@@ -588,12 +573,11 @@ int main(int argc, char** argv)
 	std::vector<std::unique_ptr<Command>> testCommands;
 
 	// Parse the test script.
-	WAST::parseTestCommands(
-		testScriptString.c_str(),
-		testScriptString.size(),
-		IR::FeatureSpec(),
-		testCommands,
-		testScriptState->errors);
+	WAST::parseTestCommands(testScriptString.c_str(),
+							testScriptString.size(),
+							IR::FeatureSpec(),
+							testCommands,
+							testScriptState->errors);
 	if(!testScriptState->errors.size())
 	{
 		// Process the test script commands.

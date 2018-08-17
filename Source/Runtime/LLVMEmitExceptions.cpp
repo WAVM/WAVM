@@ -21,14 +21,12 @@ void EmitFunctionContext::endCatch()
 	CatchContext& catchContext = catchStack.back();
 
 	irBuilder.SetInsertPoint(catchContext.nextHandlerBlock);
-	emitThrow(
-		loadFromUntypedPointer(catchContext.exceptionPointer, llvmI64Type),
-		irBuilder.CreatePtrToInt(
-			irBuilder.CreateInBoundsGEP(
-				catchContext.exceptionPointer,
-				{emitLiteral(I32(offsetof(ExceptionData, arguments)))}),
-			llvmI64Type),
-		false);
+	emitThrow(loadFromUntypedPointer(catchContext.exceptionPointer, llvmI64Type),
+			  irBuilder.CreatePtrToInt(irBuilder.CreateInBoundsGEP(
+										   catchContext.exceptionPointer,
+										   {emitLiteral(I32(offsetof(ExceptionData, arguments)))}),
+									   llvmI64Type),
+			  false);
 	irBuilder.CreateUnreachable();
 #endif
 
@@ -80,23 +78,22 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 	// try block doesn't contain any calls.
 	if(!moduleContext.tryPrologueDummyFunction)
 	{
-		moduleContext.tryPrologueDummyFunction = llvm::Function::Create(
-			llvm::FunctionType::get(llvmVoidType, false),
-			llvm::GlobalValue::LinkageTypes::InternalLinkage,
-			"__try_prologue",
-			moduleContext.llvmModule);
+		moduleContext.tryPrologueDummyFunction
+			= llvm::Function::Create(llvm::FunctionType::get(llvmVoidType, false),
+									 llvm::GlobalValue::LinkageTypes::InternalLinkage,
+									 "__try_prologue",
+									 moduleContext.llvmModule);
 		auto entryBasicBlock = llvm::BasicBlock::Create(
 			*llvmContext, "entry", moduleContext.tryPrologueDummyFunction);
 		llvm::IRBuilder<> dummyIRBuilder(*llvmContext);
 		dummyIRBuilder.SetInsertPoint(entryBasicBlock);
 		dummyIRBuilder.CreateRetVoid();
 	}
-	emitCallOrInvoke(
-		moduleContext.tryPrologueDummyFunction,
-		{},
-		FunctionType(),
-		CallingConvention::c,
-		getInnermostUnwindToBlock());
+	emitCallOrInvoke(moduleContext.tryPrologueDummyFunction,
+					 {},
+					 FunctionType(),
+					 CallingConvention::c,
+					 getInnermostUnwindToBlock());
 }
 
 static llvm::Function* createSEHFilterFunction(
@@ -121,11 +118,10 @@ static llvm::Function* createSEHFilterFunction(
 	// Create a SEH filter function that decides whether to handle an exception.
 	llvm::FunctionType* filterFunctionType
 		= llvm::FunctionType::get(llvmI32Type, {llvmI8PtrType, llvmI8PtrType}, false);
-	auto filterFunction = llvm::Function::Create(
-		filterFunctionType,
-		llvm::GlobalValue::LinkageTypes::InternalLinkage,
-		"sehFilter",
-		functionContext.moduleContext.llvmModule);
+	auto filterFunction        = llvm::Function::Create(filterFunctionType,
+                                                 llvm::GlobalValue::LinkageTypes::InternalLinkage,
+                                                 "sehFilter",
+                                                 functionContext.moduleContext.llvmModule);
 	auto filterEntryBasicBlock = llvm::BasicBlock::Create(*llvmContext, "entry", filterFunction);
 	auto argIt                 = filterFunction->arg_begin();
 	llvm::IRBuilder<> filterIRBuilder(filterEntryBasicBlock);
@@ -201,9 +197,8 @@ void EmitFunctionContext::catch_(CatchImm imm)
 	wavmAssert(catchStack.size());
 	ControlContext& controlContext = controlStack.back();
 	CatchContext& catchContext     = catchStack.back();
-	wavmAssert(
-		controlContext.type == ControlContext::Type::try_
-		|| controlContext.type == ControlContext::Type::catch_);
+	wavmAssert(controlContext.type == ControlContext::Type::try_
+			   || controlContext.type == ControlContext::Type::catch_);
 	if(controlContext.type == ControlContext::Type::try_)
 	{
 		wavmAssert(tryStack.size());
@@ -213,8 +208,8 @@ void EmitFunctionContext::catch_(CatchImm imm)
 	branchToEndOfControlContext();
 
 	// Look up the exception type instance to be caught
-	wavmAssert(
-		imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypeInstances.size());
+	wavmAssert(imm.exceptionTypeIndex
+			   < moduleContext.moduleInstance->exceptionTypeInstances.size());
 	const Runtime::ExceptionTypeInstance* catchTypeInstance
 		= moduleContext.moduleInstance->exceptionTypeInstances[imm.exceptionTypeIndex];
 
@@ -261,9 +256,8 @@ void EmitFunctionContext::catch_all(NoImm)
 	wavmAssert(catchStack.size());
 	ControlContext& controlContext = controlStack.back();
 	CatchContext& catchContext     = catchStack.back();
-	wavmAssert(
-		controlContext.type == ControlContext::Type::try_
-		|| controlContext.type == ControlContext::Type::catch_);
+	wavmAssert(controlContext.type == ControlContext::Type::try_
+			   || controlContext.type == ControlContext::Type::catch_);
 	if(controlContext.type == ControlContext::Type::try_)
 	{
 		wavmAssert(tryStack.size());
@@ -306,13 +300,12 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 	auto landingPadInst = irBuilder.CreateLandingPad(
 		llvm::StructType::get(*llvmContext, {llvmI8PtrType, llvmI32Type}), 1);
 	auto exceptionPointer = loadFromUntypedPointer(
-		irBuilder.CreateCall(
-			moduleContext.cxaBeginCatchFunction,
-			{irBuilder.CreateExtractValue(landingPadInst, {0})}),
+		irBuilder.CreateCall(moduleContext.cxaBeginCatchFunction,
+							 {irBuilder.CreateExtractValue(landingPadInst, {0})}),
 		llvmI8Type->getPointerTo());
 	auto exceptionTypeInstance = loadFromUntypedPointer(
-		irBuilder.CreateInBoundsGEP(
-			exceptionPointer, {emitLiteral(Uptr(offsetof(ExceptionData, typeInstance)))}),
+		irBuilder.CreateInBoundsGEP(exceptionPointer,
+									{emitLiteral(Uptr(offsetof(ExceptionData, typeInstance)))}),
 		llvmI64Type);
 
 	irBuilder.SetInsertPoint(originalInsertBlock);
@@ -349,9 +342,8 @@ void EmitFunctionContext::catch_(CatchImm imm)
 	wavmAssert(catchStack.size());
 	ControlContext& controlContext = controlStack.back();
 	CatchContext& catchContext     = catchStack.back();
-	wavmAssert(
-		controlContext.type == ControlContext::Type::try_
-		|| controlContext.type == ControlContext::Type::catch_);
+	wavmAssert(controlContext.type == ControlContext::Type::try_
+			   || controlContext.type == ControlContext::Type::catch_);
 	if(controlContext.type == ControlContext::Type::try_)
 	{
 		wavmAssert(tryStack.size());
@@ -361,8 +353,8 @@ void EmitFunctionContext::catch_(CatchImm imm)
 	branchToEndOfControlContext();
 
 	// Look up the exception type instance to be caught
-	wavmAssert(
-		imm.exceptionTypeIndex < moduleContext.moduleInstance->exceptionTypeInstances.size());
+	wavmAssert(imm.exceptionTypeIndex
+			   < moduleContext.moduleInstance->exceptionTypeInstances.size());
 	const Runtime::ExceptionTypeInstance* catchTypeInstance
 		= moduleContext.moduleInstance->exceptionTypeInstances[imm.exceptionTypeIndex];
 
@@ -382,10 +374,10 @@ void EmitFunctionContext::catch_(CatchImm imm)
 		const ValueType parameters = catchTypeInstance->type.params[argumentIndex];
 		const Uptr argumentOffset  = offsetof(ExceptionData, arguments)
 									+ sizeof(ExceptionData::arguments[0]) * argumentIndex;
-		auto argument = loadFromUntypedPointer(
-			irBuilder.CreateInBoundsGEP(
-				catchContext.exceptionPointer, {emitLiteral(argumentOffset)}),
-			asLLVMType(parameters));
+		auto argument
+			= loadFromUntypedPointer(irBuilder.CreateInBoundsGEP(catchContext.exceptionPointer,
+																 {emitLiteral(argumentOffset)}),
+									 asLLVMType(parameters));
 		push(argument);
 	}
 
@@ -399,9 +391,8 @@ void EmitFunctionContext::catch_all(NoImm)
 	wavmAssert(catchStack.size());
 	ControlContext& controlContext = controlStack.back();
 	CatchContext& catchContext     = catchStack.back();
-	wavmAssert(
-		controlContext.type == ControlContext::Type::try_
-		|| controlContext.type == ControlContext::Type::catch_);
+	wavmAssert(controlContext.type == ControlContext::Type::try_
+			   || controlContext.type == ControlContext::Type::catch_);
 	if(controlContext.type == ControlContext::Type::try_)
 	{
 		wavmAssert(tryStack.size());
@@ -412,11 +403,10 @@ void EmitFunctionContext::catch_all(NoImm)
 
 	irBuilder.SetInsertPoint(catchContext.nextHandlerBlock);
 	auto isUserExceptionType = irBuilder.CreateICmpNE(
-		loadFromUntypedPointer(
-			irBuilder.CreateInBoundsGEP(
-				catchContext.exceptionPointer,
-				{emitLiteral(Uptr(offsetof(ExceptionData, isUserException)))}),
-			llvmI8Type),
+		loadFromUntypedPointer(irBuilder.CreateInBoundsGEP(
+								   catchContext.exceptionPointer,
+								   {emitLiteral(Uptr(offsetof(ExceptionData, isUserException)))}),
+							   llvmI8Type),
 		llvm::ConstantInt::get(llvmI8Type, llvm::APInt(8, 0, false)));
 
 	auto catchBlock     = llvm::BasicBlock::Create(*llvmContext, "catch", llvmFunction);
@@ -431,10 +421,9 @@ void EmitFunctionContext::catch_all(NoImm)
 }
 #endif
 
-void EmitFunctionContext::emitThrow(
-	llvm::Value* exceptionTypeInstanceI64,
-	llvm::Value* argumentsPointerI64,
-	bool isUserException)
+void EmitFunctionContext::emitThrow(llvm::Value* exceptionTypeInstanceI64,
+									llvm::Value* argumentsPointerI64,
+									bool isUserException)
 {
 	emitRuntimeIntrinsic(
 		"throwException",
@@ -463,12 +452,11 @@ void EmitFunctionContext::throw_(ThrowImm imm)
 				elementValue->getType()->getPointerTo()));
 	}
 
-	emitThrow(
-		emitLiteral((U64) reinterpret_cast<Uptr>(exceptionTypeInstance)),
-		sizeof(Uptr) == 8
-			? irBuilder.CreatePtrToInt(argBaseAddress, llvmI64Type)
-			: zext(irBuilder.CreatePtrToInt(argBaseAddress, llvmI32Type), llvmI64Type),
-		true);
+	emitThrow(emitLiteral((U64) reinterpret_cast<Uptr>(exceptionTypeInstance)),
+			  sizeof(Uptr) == 8
+				  ? irBuilder.CreatePtrToInt(argBaseAddress, llvmI64Type)
+				  : zext(irBuilder.CreatePtrToInt(argBaseAddress, llvmI32Type), llvmI64Type),
+			  true);
 
 	irBuilder.CreateUnreachable();
 	enterUnreachable();
@@ -477,14 +465,12 @@ void EmitFunctionContext::rethrow(RethrowImm imm)
 {
 	wavmAssert(imm.catchDepth < catchStack.size());
 	CatchContext& catchContext = catchStack[catchStack.size() - imm.catchDepth - 1];
-	emitThrow(
-		loadFromUntypedPointer(catchContext.exceptionPointer, llvmI64Type),
-		irBuilder.CreatePtrToInt(
-			irBuilder.CreateInBoundsGEP(
-				catchContext.exceptionPointer,
-				{emitLiteral(I32(offsetof(ExceptionData, arguments)))}),
-			llvmI64Type),
-		true);
+	emitThrow(loadFromUntypedPointer(catchContext.exceptionPointer, llvmI64Type),
+			  irBuilder.CreatePtrToInt(irBuilder.CreateInBoundsGEP(
+										   catchContext.exceptionPointer,
+										   {emitLiteral(I32(offsetof(ExceptionData, arguments)))}),
+									   llvmI64Type),
+			  true);
 
 	irBuilder.CreateUnreachable();
 	enterUnreachable();

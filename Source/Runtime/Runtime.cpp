@@ -36,10 +36,9 @@ IR::ObjectType Runtime::getObjectType(Object* object)
 	};
 }
 
-UntaggedValue* Runtime::invokeFunctionUnchecked(
-	Context* context,
-	FunctionInstance* function,
-	const UntaggedValue* arguments)
+UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
+												FunctionInstance* function,
+												const UntaggedValue* arguments)
 {
 	FunctionType functionType = function->type;
 
@@ -70,17 +69,16 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(
 	}
 
 	// Call the invoke thunk.
-	contextRuntimeData = (ContextRuntimeData*)(*invokeFunctionPointer)(
-		function->nativeFunction, contextRuntimeData);
+	contextRuntimeData = (ContextRuntimeData*)(*invokeFunctionPointer)(function->nativeFunction,
+																	   contextRuntimeData);
 
 	// Return a pointer to the return value that was written to the ContextRuntimeData.
 	return (UntaggedValue*)contextRuntimeData->thunkArgAndReturnData;
 }
 
-ValueTuple Runtime::invokeFunctionChecked(
-	Context* context,
-	FunctionInstance* function,
-	const std::vector<Value>& arguments)
+ValueTuple Runtime::invokeFunctionChecked(Context* context,
+										  FunctionInstance* function,
+										  const std::vector<Value>& arguments)
 {
 	FunctionType functionType = function->type;
 
@@ -173,11 +171,10 @@ void Runtime::GlobalInstance::finalize()
 Value Runtime::getGlobalValue(Context* context, GlobalInstance* global)
 {
 	wavmAssert(context || !global->type.isMutable);
-	return Value(
-		global->type.valueType,
-		global->type.isMutable
-			? *(UntaggedValue*)(context->runtimeData->globalData + global->mutableDataOffset)
-			: global->initialValue);
+	return Value(global->type.valueType,
+				 global->type.isMutable ? *(UntaggedValue*)(context->runtimeData->globalData
+															+ global->mutableDataOffset)
+										: global->initialValue);
 }
 
 Value Runtime::setGlobalValue(Context* context, GlobalInstance* global, Value newValue)
@@ -211,12 +208,11 @@ Runtime::Compartment::Compartment()
 
 Runtime::Compartment::~Compartment()
 {
-	Platform::decommitVirtualPages(
-		(U8*)runtimeData, compartmentReservedBytes >> Platform::getPageSizeLog2());
-	Platform::freeAlignedVirtualPages(
-		unalignedRuntimeData,
-		compartmentReservedBytes >> Platform::getPageSizeLog2(),
-		compartmentRuntimeDataAlignmentLog2);
+	Platform::decommitVirtualPages((U8*)runtimeData,
+								   compartmentReservedBytes >> Platform::getPageSizeLog2());
+	Platform::freeAlignedVirtualPages(unalignedRuntimeData,
+									  compartmentReservedBytes >> Platform::getPageSizeLog2(),
+									  compartmentRuntimeDataAlignmentLog2);
 	runtimeData          = nullptr;
 	unalignedRuntimeData = nullptr;
 }
@@ -278,10 +274,9 @@ Context* Runtime::createContext(Compartment* compartment)
 			(U8*)context->runtimeData, sizeof(ContextRuntimeData) >> Platform::getPageSizeLog2()));
 
 		// Initialize the context's global data.
-		memcpy(
-			context->runtimeData->globalData,
-			compartment->initialContextGlobalData,
-			compartment->numGlobalBytes);
+		memcpy(context->runtimeData->globalData,
+			   compartment->initialContextGlobalData,
+			   compartment->numGlobalBytes);
 	}
 
 	return context;
@@ -320,9 +315,8 @@ ContextRuntimeData* Runtime::getContextRuntimeData(Context* context)
 	return context->runtimeData;
 }
 
-TableInstance* Runtime::getTableFromRuntimeData(
-	ContextRuntimeData* contextRuntimeData,
-	Uptr tableId)
+TableInstance* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData,
+												Uptr tableId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
@@ -330,9 +324,8 @@ TableInstance* Runtime::getTableFromRuntimeData(
 	return compartment->tables[tableId];
 }
 
-MemoryInstance* Runtime::getMemoryFromRuntimeData(
-	ContextRuntimeData* contextRuntimeData,
-	Uptr memoryId)
+MemoryInstance* Runtime::getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData,
+												  Uptr memoryId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);

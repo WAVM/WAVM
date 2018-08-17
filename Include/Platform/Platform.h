@@ -130,22 +130,23 @@ namespace Platform
 	// Allocates virtual addresses without commiting physical pages to them.
 	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual
 	// address space has been exhausted.
-	PLATFORM_API U8*
-	allocateAlignedVirtualPages(Uptr numPages, Uptr alignmentLog2, U8*& outUnalignedBaseAddress);
+	PLATFORM_API U8* allocateAlignedVirtualPages(Uptr numPages,
+												 Uptr alignmentLog2,
+												 U8*& outUnalignedBaseAddress);
 
 	// Commits physical memory to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	// Return true if successful, or false if physical memory has been exhausted.
-	PLATFORM_API bool commitVirtualPages(
-		U8* baseVirtualAddress,
-		Uptr numPages,
-		MemoryAccess access = MemoryAccess::readWrite);
+	PLATFORM_API bool commitVirtualPages(U8* baseVirtualAddress,
+										 Uptr numPages,
+										 MemoryAccess access = MemoryAccess::readWrite);
 
 	// Changes the allowed access to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	// Return true if successful, or false if the access-level could not be set.
-	PLATFORM_API bool
-	setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access);
+	PLATFORM_API bool setVirtualPageAccess(U8* baseVirtualAddress,
+										   Uptr numPages,
+										   MemoryAccess access);
 
 	// Decommits the physical memory that was committed to the specified virtual pages.
 	// baseVirtualAddress must be a multiple of the preferred page size.
@@ -159,8 +160,9 @@ namespace Platform
 	// Frees an aligned virtual address block. Any physical memory committed to the addresses must
 	// have already been decommitted. unalignedBaseAddress must be the unaligned base address
 	// returned by allocateAlignedVirtualPages.
-	PLATFORM_API void
-	freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, Uptr alignmentLog2);
+	PLATFORM_API void freeAlignedVirtualPages(U8* unalignedBaseAddress,
+											  Uptr numPages,
+											  Uptr alignmentLog2);
 
 	//
 	// Error reporting
@@ -197,8 +199,9 @@ namespace Platform
 
 #ifdef _WIN64
 	// Registers/deregisters the data used by Windows SEH to unwind stack frames.
-	PLATFORM_API void
-	registerSEHUnwindInfo(Uptr imageLoadAddress, Uptr pdataAddress, Uptr pdataNumBytes);
+	PLATFORM_API void registerSEHUnwindInfo(Uptr imageLoadAddress,
+											Uptr pdataAddress,
+											Uptr pdataNumBytes);
 	PLATFORM_API void deregisterSEHUnwindInfo(Uptr pdataAddress);
 #endif
 
@@ -263,8 +266,9 @@ namespace Platform
 	//
 
 	struct Thread;
-	PLATFORM_API Thread*
-	createThread(Uptr numStackBytes, I64 (*threadEntry)(void*), void* argument);
+	PLATFORM_API Thread* createThread(Uptr numStackBytes,
+									  I64 (*threadEntry)(void*),
+									  void* argument);
 	PLATFORM_API void detachThread(Thread* thread);
 	PLATFORM_API I64 joinThread(Thread* thread);
 	[[noreturn]] PLATFORM_API void exitThread(I64 code);
@@ -392,16 +396,23 @@ namespace Platform
 	};
 
 	struct File;
-	PLATFORM_API File*
-	openFile(const std::string& pathName, FileAccessMode accessMode, FileCreateMode createMode);
+	PLATFORM_API File* openFile(const std::string& pathName,
+								FileAccessMode accessMode,
+								FileCreateMode createMode);
 	PLATFORM_API bool closeFile(File* file);
 	PLATFORM_API File* getStdFile(StdDevice device);
-	PLATFORM_API bool
-	seekFile(File* file, I64 offset, FileSeekOrigin origin, U64* outAbsoluteOffset = nullptr);
-	PLATFORM_API bool
-	readFile(File* file, U8* outData, Uptr numBytes, Uptr* outNumBytesRead = nullptr);
-	PLATFORM_API bool
-	writeFile(File* file, const U8* data, Uptr numBytes, Uptr* outNumBytesWritten = nullptr);
+	PLATFORM_API bool seekFile(File* file,
+							   I64 offset,
+							   FileSeekOrigin origin,
+							   U64* outAbsoluteOffset = nullptr);
+	PLATFORM_API bool readFile(File* file,
+							   U8* outData,
+							   Uptr numBytes,
+							   Uptr* outNumBytesRead = nullptr);
+	PLATFORM_API bool writeFile(File* file,
+								const U8* data,
+								Uptr numBytes,
+								Uptr* outNumBytesWritten = nullptr);
 	PLATFORM_API bool flushFileWrites(File* file);
 	PLATFORM_API std::string getCurrentWorkingDirectory();
 }

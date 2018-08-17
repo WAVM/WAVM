@@ -39,10 +39,9 @@ namespace Wavix
 		std::vector<Thread*> waiters;
 	};
 
-	extern Process* spawnProcess(
-		Process* parent,
-		const char* hostFilename,
-		const std::vector<std::string>& args,
-		const std::vector<std::string>& envs,
-		const std::string& cwd);
+	extern Process* spawnProcess(Process* parent,
+								 const char* hostFilename,
+								 const std::vector<std::string>& args,
+								 const std::vector<std::string>& envs,
+								 const std::string& cwd);
 }

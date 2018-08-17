@@ -102,12 +102,11 @@ static const char* getUnwindRegisterName(U8 registerIndex)
 	return names[registerIndex];
 }
 
-static void applyImageRelativeRelocations(
-	const llvm::LoadedObjectInfo* loadedObject,
-	llvm::object::SectionRef section,
-	const U8* sectionCopy,
-	Uptr imageBaseAddress,
-	Uptr sehTrampolineAddress)
+static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo* loadedObject,
+										  llvm::object::SectionRef section,
+										  const U8* sectionCopy,
+										  Uptr imageBaseAddress,
+										  Uptr sehTrampolineAddress)
 {
 	U8* sectionData = reinterpret_cast<U8*>(Uptr(loadedObject->getSectionLoadAddress(section)));
 	for(auto relocIt : section.relocations())
@@ -157,10 +156,9 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 	Log::printf(Log::debug, "   version: %u\n", unwindInfoPrefix->version);
 	Log::printf(Log::debug, "   flags: %x\n", unwindInfoPrefix->flags);
 	Log::printf(Log::debug, "   prolog bytes: %u\n", unwindInfoPrefix->sizeOfProlog);
-	Log::printf(
-		Log::debug,
-		"   frame register: %s\n",
-		getUnwindRegisterName(unwindInfoPrefix->frameRegister));
+	Log::printf(Log::debug,
+				"   frame register: %s\n",
+				getUnwindRegisterName(unwindInfoPrefix->frameRegister));
 	Log::printf(Log::debug, "   frame offset: 0x%x\n", unwindInfoPrefix->frameOffset * 16);
 
 	UnwindCode* const unwindCodes = unwindInfoPrefix->unwindCodes;
@@ -173,40 +171,36 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 			switch(unwindCode->opcode)
 			{
 			case UnwindOpcode::UWOP_PUSH_NONVOL:
-				Log::printf(
-					Log::debug,
-					"    0x%02x UWOP_PUSH_NONVOL %s\n",
-					unwindCode->codeOffset,
-					getUnwindRegisterName(unwindCode->opInfo));
+				Log::printf(Log::debug,
+							"    0x%02x UWOP_PUSH_NONVOL %s\n",
+							unwindCode->codeOffset,
+							getUnwindRegisterName(unwindCode->opInfo));
 				++unwindCode;
 				break;
 			case UnwindOpcode::UWOP_ALLOC_LARGE:
 				if(unwindCode->opInfo == 0)
 				{
-					Log::printf(
-						Log::debug,
-						"    0x%02x UWOP_ALLOC_LARGE 0x%x\n",
-						unwindCode->codeOffset,
-						*(U16*)&unwindCode[1] * 8);
+					Log::printf(Log::debug,
+								"    0x%02x UWOP_ALLOC_LARGE 0x%x\n",
+								unwindCode->codeOffset,
+								*(U16*)&unwindCode[1] * 8);
 					unwindCode += 2;
 				}
 				else
 				{
 					errorUnless(unwindCode->opInfo == 1);
-					Log::printf(
-						Log::debug,
-						"    0x%02x UWOP_ALLOC_LARGE 0x%x\n",
-						unwindCode->codeOffset,
-						*(U32*)&unwindCode[1]);
+					Log::printf(Log::debug,
+								"    0x%02x UWOP_ALLOC_LARGE 0x%x\n",
+								unwindCode->codeOffset,
+								*(U32*)&unwindCode[1]);
 					unwindCode += 3;
 				}
 				break;
 			case UnwindOpcode::UWOP_ALLOC_SMALL:
-				Log::printf(
-					Log::debug,
-					"    0x%02x UWOP_ALLOC_SMALL 0x%x\n",
-					unwindCode->codeOffset,
-					unwindCode->opInfo * 8 + 8);
+				Log::printf(Log::debug,
+							"    0x%02x UWOP_ALLOC_SMALL 0x%x\n",
+							unwindCode->codeOffset,
+							unwindCode->opInfo * 8 + 8);
 				++unwindCode;
 				break;
 			case UnwindOpcode::UWOP_SET_FPREG:
@@ -214,47 +208,42 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 				++unwindCode;
 				break;
 			case UnwindOpcode::UWOP_SAVE_NONVOL:
-				Log::printf(
-					Log::debug,
-					"    0x%02x UWOP_SAVE_NONVOL %s 0x%x\n",
-					unwindCode->codeOffset,
-					getUnwindRegisterName(unwindCode->opInfo),
-					*(U16*)&unwindCode[1] * 8);
+				Log::printf(Log::debug,
+							"    0x%02x UWOP_SAVE_NONVOL %s 0x%x\n",
+							unwindCode->codeOffset,
+							getUnwindRegisterName(unwindCode->opInfo),
+							*(U16*)&unwindCode[1] * 8);
 				unwindCode += 2;
 				break;
 			case UnwindOpcode::UWOP_SAVE_NONVOL_FAR:
-				Log::printf(
-					Log::debug,
-					"    0x%02x UWOP_SAVE_NONVOL_FAR %s 0x%x\n",
-					unwindCode->codeOffset,
-					getUnwindRegisterName(unwindCode->opInfo),
-					*(U32*)&unwindCode[1]);
+				Log::printf(Log::debug,
+							"    0x%02x UWOP_SAVE_NONVOL_FAR %s 0x%x\n",
+							unwindCode->codeOffset,
+							getUnwindRegisterName(unwindCode->opInfo),
+							*(U32*)&unwindCode[1]);
 				unwindCode += 3;
 				break;
 			case UnwindOpcode::UWOP_SAVE_XMM128:
-				Log::printf(
-					Log::debug,
-					"    0x%02x UWOP_SAVE_XMM128 xmm%u 0x%x\n",
-					unwindCode->codeOffset,
-					unwindCode->opInfo,
-					*(U16*)&unwindCode[1] * 8);
+				Log::printf(Log::debug,
+							"    0x%02x UWOP_SAVE_XMM128 xmm%u 0x%x\n",
+							unwindCode->codeOffset,
+							unwindCode->opInfo,
+							*(U16*)&unwindCode[1] * 8);
 				unwindCode += 2;
 				break;
 			case UnwindOpcode::UWOP_SAVE_XMM128_FAR:
-				Log::printf(
-					Log::debug,
-					"    0x%02x UWOP_SAVE_XMM128_FAR xmm%u 0x%x\n",
-					unwindCode->codeOffset,
-					unwindCode->opInfo,
-					*(U32*)&unwindCode[1]);
+				Log::printf(Log::debug,
+							"    0x%02x UWOP_SAVE_XMM128_FAR xmm%u 0x%x\n",
+							unwindCode->codeOffset,
+							unwindCode->opInfo,
+							*(U32*)&unwindCode[1]);
 				unwindCode += 3;
 				break;
 			case UnwindOpcode::UWOP_PUSH_MACHFRAME:
-				Log::printf(
-					Log::debug,
-					"    0x%02x UWOP_PUSH_MACHFRAME %u\n",
-					unwindCode->codeOffset,
-					unwindCode->opInfo);
+				Log::printf(Log::debug,
+							"    0x%02x UWOP_PUSH_MACHFRAME %u\n",
+							unwindCode->codeOffset,
+							unwindCode->opInfo);
 				++unwindCode;
 				break;
 			}
@@ -282,15 +271,14 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 	}
 }
 
-void LLVMJIT::processSEHTables(
-	Uptr imageBaseAddress,
-	const llvm::LoadedObjectInfo* loadedObject,
-	const llvm::object::SectionRef& pdataSection,
-	const U8* pdataCopy,
-	Uptr pdataNumBytes,
-	const llvm::object::SectionRef& xdataSection,
-	const U8* xdataCopy,
-	Uptr sehTrampolineAddress)
+void LLVMJIT::processSEHTables(Uptr imageBaseAddress,
+							   const llvm::LoadedObjectInfo* loadedObject,
+							   const llvm::object::SectionRef& pdataSection,
+							   const U8* pdataCopy,
+							   Uptr pdataNumBytes,
+							   const llvm::object::SectionRef& xdataSection,
+							   const U8* xdataCopy,
+							   Uptr sehTrampolineAddress)
 {
 	if(pdataCopy)
 	{

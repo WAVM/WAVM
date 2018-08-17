@@ -101,11 +101,10 @@ static U64 parseHexUnsignedInt(const char*& nextChar, ParseState* parseState, U6
 // Parses an unsigned integer from digits, advancing nextChar past the parsed digits.
 // Assumes it will only be called for input that's already been accepted by the lexer as a decimal
 // integer.
-static U64 parseDecimalUnsignedInt(
-	const char*& nextChar,
-	ParseState* parseState,
-	U64 maxValue,
-	const char* context)
+static U64 parseDecimalUnsignedInt(const char*& nextChar,
+								   ParseState* parseState,
+								   U64 maxValue,
+								   const char* context)
 {
 	U64 result             = 0;
 	const char* firstDigit = nextChar;
@@ -260,11 +259,10 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 // Tries to parse an numeric literal token as an integer, advancing cursor->nextToken.
 // Returns true if it matched a token.
 template<typename UnsignedInt>
-bool tryParseInt(
-	CursorState* cursor,
-	UnsignedInt& outUnsignedInt,
-	I64 minSignedValue,
-	U64 maxUnsignedValue)
+bool tryParseInt(CursorState* cursor,
+				 UnsignedInt& outUnsignedInt,
+				 I64 minSignedValue,
+				 U64 maxUnsignedValue)
 {
 	bool isNegative = false;
 	U64 u64         = 0;
@@ -274,11 +272,10 @@ bool tryParseInt(
 	{
 	case t_decimalInt:
 		isNegative = parseSign(nextChar);
-		u64        = parseDecimalUnsignedInt(
-            nextChar,
-            cursor->parseState,
-            isNegative ? -U64(minSignedValue) : maxUnsignedValue,
-            "int literal");
+		u64        = parseDecimalUnsignedInt(nextChar,
+                                      cursor->parseState,
+                                      isNegative ? -U64(minSignedValue) : maxUnsignedValue,
+                                      "int literal");
 		break;
 	case t_hexInt:
 		isNegative = parseSign(nextChar);
@@ -432,10 +429,9 @@ V128 WAST::parseV128(CursorState* cursor)
 		{ result.f64[laneIndex] = parseF64(cursor); }
 		break;
 	default:
-		parseErrorf(
-			cursor->parseState,
-			cursor->nextToken,
-			"expected 'i8', 'i16', 'i32', 'i64', 'f32', or 'f64'");
+		parseErrorf(cursor->parseState,
+					cursor->nextToken,
+					"expected 'i8', 'i16', 'i32', 'i64', 'f32', or 'f64'");
 		throw RecoverParseException();
 	};
 

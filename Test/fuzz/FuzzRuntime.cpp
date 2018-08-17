@@ -32,11 +32,10 @@ struct StubResolver : Resolver
 
 	StubResolver(Compartment* inCompartment) : compartment(inCompartment) {}
 
-	bool resolve(
-		const std::string& moduleName,
-		const std::string& exportName,
-		ObjectType type,
-		Object*& outObject) override
+	bool resolve(const std::string& moduleName,
+				 const std::string& exportName,
+				 ObjectType type,
+				 Object*& outObject) override
 	{
 		outObject = getStubObject(exportName, type);
 		return true;
@@ -90,10 +89,10 @@ struct StubResolver : Resolver
 		}
 		case IR::ObjectKind::global:
 		{
-			return asObject(Runtime::createGlobal(
-				compartment,
-				asGlobalType(type),
-				Value(asGlobalType(type).valueType, UntaggedValue())));
+			return asObject(
+				Runtime::createGlobal(compartment,
+									  asGlobalType(type),
+									  Value(asGlobalType(type).valueType, UntaggedValue())));
 		}
 		case IR::ObjectKind::exceptionType:
 		{

@@ -41,9 +41,8 @@ template<typename Element> const Element* HashSetIterator<Element>::operator->()
 }
 
 template<typename Element>
-HashSetIterator<Element>::HashSetIterator(
-	const HashTableBucket<Element>* inBucket,
-	const HashTableBucket<Element>* inEndBucket)
+HashSetIterator<Element>::HashSetIterator(const HashTableBucket<Element>* inBucket,
+										  const HashTableBucket<Element>* inEndBucket)
 : bucket(inBucket), endBucket(inEndBucket)
 {
 }
@@ -99,8 +98,8 @@ bool HashSet<Element, ElementHashPolicy>::contains(const Element& element) const
 {
 	const Uptr hash                        = ElementHashPolicy::getKeyHash(element);
 	const HashTableBucket<Element>* bucket = table.getBucketForRead(hash, element);
-	wavmAssert(
-		!bucket || bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
+	wavmAssert(!bucket
+			   || bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
 	return bucket != nullptr;
 }
 
@@ -130,8 +129,8 @@ HashSetIterator<Element> HashSet<Element, ElementHashPolicy>::begin() const
 template<typename Element, typename ElementHashPolicy>
 HashSetIterator<Element> HashSet<Element, ElementHashPolicy>::end() const
 {
-	return HashSetIterator<Element>(
-		table.getBuckets() + table.numBuckets(), table.getBuckets() + table.numBuckets());
+	return HashSetIterator<Element>(table.getBuckets() + table.numBuckets(),
+									table.getBuckets() + table.numBuckets());
 }
 
 template<typename Element, typename ElementHashPolicy>
@@ -141,11 +140,10 @@ Uptr HashSet<Element, ElementHashPolicy>::size() const
 }
 
 template<typename Element, typename ElementHashPolicy>
-void HashSet<Element, ElementHashPolicy>::analyzeSpaceUsage(
-	Uptr& outTotalMemoryBytes,
-	Uptr& outMaxProbeCount,
-	F32& outOccupancy,
-	F32& outAverageProbeCount) const
+void HashSet<Element, ElementHashPolicy>::analyzeSpaceUsage(Uptr& outTotalMemoryBytes,
+															Uptr& outMaxProbeCount,
+															F32& outOccupancy,
+															F32& outAverageProbeCount) const
 {
 	return table.analyzeSpaceUsage(
 		outTotalMemoryBytes, outMaxProbeCount, outOccupancy, outAverageProbeCount);

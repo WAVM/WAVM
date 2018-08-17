@@ -28,20 +28,18 @@ static Value evaluateInitializer(ModuleInstance* moduleInstance, InitializerExpr
 	};
 }
 
-ModuleInstance* Runtime::instantiateModule(
-	Compartment* compartment,
-	const IR::Module& module,
-	ImportBindings&& imports,
-	std::string&& moduleDebugName)
+ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
+										   const IR::Module& module,
+										   ImportBindings&& imports,
+										   std::string&& moduleDebugName)
 {
-	ModuleInstance* moduleInstance = new ModuleInstance(
-		compartment,
-		std::move(imports.functions),
-		std::move(imports.tables),
-		std::move(imports.memories),
-		std::move(imports.globals),
-		std::move(imports.exceptionTypes),
-		std::move(moduleDebugName));
+	ModuleInstance* moduleInstance = new ModuleInstance(compartment,
+														std::move(imports.functions),
+														std::move(imports.tables),
+														std::move(imports.memories),
+														std::move(imports.globals),
+														std::move(imports.exceptionTypes),
+														std::move(moduleDebugName));
 
 	// Get disassembly names for the module's objects.
 	DisassemblyNames disassemblyNames;
@@ -51,9 +49,8 @@ ModuleInstance* Runtime::instantiateModule(
 	errorUnless(moduleInstance->functions.size() == module.functions.imports.size());
 	for(Uptr importIndex = 0; importIndex < module.functions.imports.size(); ++importIndex)
 	{
-		errorUnless(
-			isA(moduleInstance->functions[importIndex],
-				module.types[module.functions.imports[importIndex].type.index]));
+		errorUnless(isA(moduleInstance->functions[importIndex],
+						module.types[module.functions.imports[importIndex].type.index]));
 	}
 	errorUnless(moduleInstance->tables.size() == module.tables.imports.size());
 	for(Uptr importIndex = 0; importIndex < module.tables.imports.size(); ++importIndex)
@@ -73,13 +70,12 @@ ModuleInstance* Runtime::instantiateModule(
 		errorUnless(
 			isA(moduleInstance->globals[importIndex], module.globals.imports[importIndex].type));
 	}
-	errorUnless(
-		moduleInstance->exceptionTypeInstances.size() == module.exceptionTypes.imports.size());
+	errorUnless(moduleInstance->exceptionTypeInstances.size()
+				== module.exceptionTypes.imports.size());
 	for(Uptr importIndex = 0; importIndex < module.exceptionTypes.imports.size(); ++importIndex)
 	{
-		errorUnless(
-			isA(moduleInstance->exceptionTypeInstances[importIndex],
-				module.exceptionTypes.imports[importIndex].type));
+		errorUnless(isA(moduleInstance->exceptionTypeInstances[importIndex],
+						module.exceptionTypes.imports[importIndex].type));
 	}
 
 	// Instantiate the module's memory and table definitions.
@@ -142,8 +138,8 @@ ModuleInstance* Runtime::instantiateModule(
 		errorUnless(baseOffsetValue.type == ValueType::i32);
 		const U32 baseOffset = baseOffsetValue.i32;
 
-		wavmAssert(
-			baseOffset + dataSegment.data.size() <= (memory->numPages << IR::numBytesPerPageLog2));
+		wavmAssert(baseOffset + dataSegment.data.size()
+				   <= (memory->numPages << IR::numBytesPerPageLog2));
 
 		if(dataSegment.data.size())
 		{
@@ -176,12 +172,12 @@ ModuleInstance* Runtime::instantiateModule(
 		std::string debugName                           = functionNames.name;
 		if(!debugName.size())
 		{ debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-		auto functionInstance = new FunctionInstance(
-			moduleInstance,
-			module.types[module.functions.defs[functionDefIndex].type.index],
-			nullptr,
-			CallingConvention::wasm,
-			std::move(debugName));
+		auto functionInstance
+			= new FunctionInstance(moduleInstance,
+								   module.types[module.functions.defs[functionDefIndex].type.index],
+								   nullptr,
+								   CallingConvention::wasm,
+								   std::move(debugName));
 		moduleInstance->functionDefs.push_back(functionInstance);
 		moduleInstance->functions.push_back(functionInstance);
 	}

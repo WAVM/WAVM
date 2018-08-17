@@ -109,8 +109,9 @@ namespace Unicode
 		}
 	}
 
-	inline bool
-	decodeUTF16CodePoint(const U16*& nextChar16, const U16* endChar16, U32& outCodePoint)
+	inline bool decodeUTF16CodePoint(const U16*& nextChar16,
+									 const U16* endChar16,
+									 U32& outCodePoint)
 	{
 		// Decode a UTF-16 byte sequence to a Unicode codepoint.
 		if(nextChar16[0] < 0xd800)

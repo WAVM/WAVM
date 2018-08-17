@@ -54,14 +54,13 @@ namespace IR
 		// buffer needs 44 characters:
 		// 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH\0
 		char buffer[44];
-		snprintf(
-			buffer,
-			sizeof(buffer),
-			"0x%.8x 0x%.8x 0x%.8x 0x%.8x",
-			v128.u32[0],
-			v128.u32[1],
-			v128.u32[2],
-			v128.u32[3]);
+		snprintf(buffer,
+				 sizeof(buffer),
+				 "0x%.8x 0x%.8x 0x%.8x 0x%.8x",
+				 v128.u32[0],
+				 v128.u32[1],
+				 v128.u32[2],
+				 v128.u32[3]);
 		return std::string(buffer);
 	}
 

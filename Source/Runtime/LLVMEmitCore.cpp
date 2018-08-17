@@ -133,8 +133,8 @@ void EmitFunctionContext::end(NoImm)
 		wavmAssert(currentContext.elseArgs.size() == currentContext.endPHIs.size());
 		for(Uptr argIndex = 0; argIndex < currentContext.elseArgs.size(); ++argIndex)
 		{
-			currentContext.endPHIs[argIndex]->addIncoming(
-				currentContext.elseArgs[argIndex], currentContext.elseBlock);
+			currentContext.endPHIs[argIndex]->addIncoming(currentContext.elseArgs[argIndex],
+														  currentContext.elseBlock);
 		}
 	}
 
@@ -187,8 +187,8 @@ void EmitFunctionContext::br_if(BranchImm imm)
 		// Take the branch target operands from the stack (without popping them) and add them to the
 		// target's incoming value PHIs.
 		llvm::Value* argument = getValueFromTop(target.params.size() - argIndex - 1);
-		target.phis[argIndex]->addIncoming(
-			coerceToCanonicalType(argument), irBuilder.GetInsertBlock());
+		target.phis[argIndex]->addIncoming(coerceToCanonicalType(argument),
+										   irBuilder.GetInsertBlock());
 	}
 
 	// Create a new basic block for the case where the branch is not taken.
@@ -211,8 +211,8 @@ void EmitFunctionContext::br(BranchImm imm)
 	for(Iptr argIndex = Iptr(target.params.size()) - 1; argIndex >= 0; --argIndex)
 	{
 		llvm::Value* argument = pop();
-		target.phis[argIndex]->addIncoming(
-			coerceToCanonicalType(argument), irBuilder.GetInsertBlock());
+		target.phis[argIndex]->addIncoming(coerceToCanonicalType(argument),
+										   irBuilder.GetInsertBlock());
 	}
 
 	// Branch to the target block.
@@ -237,8 +237,8 @@ void EmitFunctionContext::br_table(BranchTableImm imm)
 	// Add the branch arguments to the default target's parameter PHI nodes.
 	for(Uptr argIndex = 0; argIndex < numArgs; ++argIndex)
 	{
-		defaultTarget.phis[argIndex]->addIncoming(
-			coerceToCanonicalType(args[argIndex]), irBuilder.GetInsertBlock());
+		defaultTarget.phis[argIndex]->addIncoming(coerceToCanonicalType(args[argIndex]),
+												  irBuilder.GetInsertBlock());
 	}
 
 	// Create a LLVM switch instruction.
@@ -258,8 +258,8 @@ void EmitFunctionContext::br_table(BranchTableImm imm)
 		wavmAssert(target.phis.size() == numArgs);
 		for(Uptr argIndex = 0; argIndex < numArgs; ++argIndex)
 		{
-			target.phis[argIndex]->addIncoming(
-				coerceToCanonicalType(args[argIndex]), irBuilder.GetInsertBlock());
+			target.phis[argIndex]->addIncoming(coerceToCanonicalType(args[argIndex]),
+											   irBuilder.GetInsertBlock());
 		}
 	}
 
@@ -272,8 +272,8 @@ void EmitFunctionContext::return_(NoImm)
 	for(Iptr argIndex = functionType.results().size() - 1; argIndex >= 0; --argIndex)
 	{
 		llvm::Value* argument = pop();
-		controlStack[0].endPHIs[argIndex]->addIncoming(
-			coerceToCanonicalType(argument), irBuilder.GetInsertBlock());
+		controlStack[0].endPHIs[argIndex]->addIncoming(coerceToCanonicalType(argument),
+													   irBuilder.GetInsertBlock());
 	}
 
 	// Branch to the return block.
@@ -328,12 +328,11 @@ void EmitFunctionContext::call(CallImm imm)
 	popMultiple(llvmArgs, numArguments);
 
 	// Call the function.
-	ValueVector results = emitCallOrInvoke(
-		callee,
-		llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
-		calleeType,
-		callingConvention,
-		getInnermostUnwindToBlock());
+	ValueVector results = emitCallOrInvoke(callee,
+										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
+										   calleeType,
+										   callingConvention,
+										   getInnermostUnwindToBlock());
 
 	// Push the results on the operand stack.
 	for(llvm::Value* result : results) { push(result); }
@@ -378,12 +377,11 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		typedTableBasePointer, {functionIndexZExt, emitLiteral((U32)1)});
 	auto functionPointer = loadFromUntypedPointer(
 		functionPointerPointer, asLLVMType(calleeType, CallingConvention::wasm)->getPointerTo());
-	ValueVector results = emitCallOrInvoke(
-		functionPointer,
-		llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
-		calleeType,
-		CallingConvention::wasm,
-		getInnermostUnwindToBlock());
+	ValueVector results = emitCallOrInvoke(functionPointer,
+										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
+										   calleeType,
+										   CallingConvention::wasm,
+										   getInnermostUnwindToBlock());
 
 	// Push the results on the operand stack.
 	for(llvm::Value* result : results) { push(result); }

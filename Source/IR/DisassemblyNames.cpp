@@ -20,8 +20,9 @@ enum class NameSubsectionType : U8
 	invalid  = 0xff
 };
 
-static void
-deserializeNameMap(InputStream& stream, std::vector<std::string>& outNames, Uptr maxNames)
+static void deserializeNameMap(InputStream& stream,
+							   std::vector<std::string>& outNames,
+							   Uptr maxNames)
 {
 	Uptr numNames = 0;
 	serializeVarUInt32(stream, numNames);
@@ -62,8 +63,9 @@ static void serializeNameMap(OutputStream& stream, const std::vector<std::string
 	}
 }
 
-static void
-deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, InputStream& stream)
+static void deserializeNameSubsection(const Module& module,
+									  DisassemblyNames& outNames,
+									  InputStream& stream)
 {
 	U8 subsectionType = (U8)NameSubsectionType::invalid;
 	serializeVarUInt7(stream, subsectionType);
@@ -108,19 +110,17 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 
 			if(functionIndex < outNames.functions.size())
 			{
-				deserializeNameMap(
-					substream,
-					outNames.functions[functionIndex].locals,
-					outNames.functions[functionIndex].locals.size());
+				deserializeNameMap(substream,
+								   outNames.functions[functionIndex].locals,
+								   outNames.functions[functionIndex].locals.size());
 			}
 			else
 			{
-				Log::printf(
-					Log::error,
-					"Invalid WASM binary local name section function index: %u >= "
-					"%u\n",
-					Uptr(functionIndex),
-					outNames.functions.size());
+				Log::printf(Log::error,
+							"Invalid WASM binary local name section function index: %u >= "
+							"%u\n",
+							Uptr(functionIndex),
+							outNames.functions.size());
 				break;
 			}
 		}
@@ -150,12 +150,11 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			}
 			else
 			{
-				Log::printf(
-					Log::error,
-					"Invalid WASM binary label name section function index: %u >= "
-					"%u\n",
-					Uptr(functionIndex),
-					outNames.functions.size());
+				Log::printf(Log::error,
+							"Invalid WASM binary label name section function index: %u >= "
+							"%u\n",
+							Uptr(functionIndex),
+							outNames.functions.size());
 				break;
 			}
 		}
@@ -215,11 +214,10 @@ void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
 	{
 		const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
 		DisassemblyNames::Function functionNames;
-		functionNames.locals.insert(
-			functionNames.locals.begin(),
-			module.types[functionDef.type.index].params().size()
-				+ functionDef.nonParameterLocalTypes.size(),
-			"");
+		functionNames.locals.insert(functionNames.locals.begin(),
+									module.types[functionDef.type.index].params().size()
+										+ functionDef.nonParameterLocalTypes.size(),
+									"");
 		outNames.functions.push_back(std::move(functionNames));
 	}
 
@@ -258,10 +256,9 @@ void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
 }
 
 template<typename SerializeBody>
-void serializeNameSubsection(
-	OutputStream& stream,
-	NameSubsectionType type,
-	SerializeBody serializeBody)
+void serializeNameSubsection(OutputStream& stream,
+							 NameSubsectionType type,
+							 SerializeBody serializeBody)
 {
 	ArrayOutputStream subsectionStream;
 	serializeBody(subsectionStream);

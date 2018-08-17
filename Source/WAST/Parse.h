@@ -159,11 +159,10 @@ namespace WAST
 		ModuleState* moduleState;
 		struct FunctionState* functionState;
 
-		CursorState(
-			const Token* inNextToken,
-			ParseState* inParseState,
-			ModuleState* inModuleState            = nullptr,
-			struct FunctionState* inFunctionState = nullptr)
+		CursorState(const Token* inNextToken,
+					ParseState* inParseState,
+					ModuleState* inModuleState            = nullptr,
+					struct FunctionState* inFunctionState = nullptr)
 		: nextToken(inNextToken)
 		, parseState(inParseState)
 		, moduleState(inModuleState)
@@ -175,8 +174,10 @@ namespace WAST
 	// Error handling.
 	void parseErrorf(ParseState* parseState, Uptr charOffset, const char* messageFormat, ...);
 	void parseErrorf(ParseState* parseState, const char* nextChar, const char* messageFormat, ...);
-	void
-	parseErrorf(ParseState* parseState, const Token* nextToken, const char* messageFormat, ...);
+	void parseErrorf(ParseState* parseState,
+					 const Token* nextToken,
+					 const char* messageFormat,
+					 ...);
 
 	void require(CursorState* cursor, TokenType type);
 
@@ -184,20 +185,17 @@ namespace WAST
 	bool tryParseValueType(CursorState* cursor, IR::ValueType& outValueType);
 	IR::ValueType parseValueType(CursorState* cursor);
 
-	IR::FunctionType parseFunctionType(
-		CursorState* cursor,
-		NameToIndexMap& outLocalNameToIndexMap,
-		std::vector<std::string>& outLocalDisassemblyNames);
+	IR::FunctionType parseFunctionType(CursorState* cursor,
+									   NameToIndexMap& outLocalNameToIndexMap,
+									   std::vector<std::string>& outLocalDisassemblyNames);
 	UnresolvedFunctionType parseFunctionTypeRefAndOrDecl(
 		CursorState* cursor,
 		NameToIndexMap& outLocalNameToIndexMap,
 		std::vector<std::string>& outLocalDisassemblyNames);
-	IR::IndexedFunctionType resolveFunctionType(
-		ModuleState* moduleState,
-		const UnresolvedFunctionType& unresolvedType);
-	IR::IndexedFunctionType getUniqueFunctionTypeIndex(
-		ModuleState* moduleState,
-		IR::FunctionType functionType);
+	IR::IndexedFunctionType resolveFunctionType(ModuleState* moduleState,
+												const UnresolvedFunctionType& unresolvedType);
+	IR::IndexedFunctionType getUniqueFunctionTypeIndex(ModuleState* moduleState,
+													   IR::FunctionType functionType);
 
 	// Literal parsing.
 	bool tryParseHexit(const char*& nextChar, U8& outValue);
@@ -220,19 +218,19 @@ namespace WAST
 	// Name parsing and resolution.
 	bool tryParseName(CursorState* cursor, Name& outName);
 	bool tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef);
-	U32 parseAndResolveNameOrIndexRef(
-		CursorState* cursor,
-		const NameToIndexMap& nameToIndexMap,
-		Uptr maxIndex,
-		const char* context);
+	U32 parseAndResolveNameOrIndexRef(CursorState* cursor,
+									  const NameToIndexMap& nameToIndexMap,
+									  Uptr maxIndex,
+									  const char* context);
 
-	void
-	bindName(ParseState* parseState, NameToIndexMap& nameToIndexMap, const Name& name, Uptr index);
-	U32 resolveRef(
-		ParseState* parseState,
-		const NameToIndexMap& nameToIndexMap,
-		Uptr maxIndex,
-		const Reference& ref);
+	void bindName(ParseState* parseState,
+				  NameToIndexMap& nameToIndexMap,
+				  const Name& name,
+				  Uptr index);
+	U32 resolveRef(ParseState* parseState,
+				   const NameToIndexMap& nameToIndexMap,
+				   Uptr maxIndex,
+				   const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
 	void findClosingParenthesis(CursorState* cursor, const Token* openingParenthesisToken);
@@ -258,8 +256,9 @@ namespace WAST
 	// Tries to parse '(' tagType parseInner ')', handling recovery at the closing parenthesis.
 	// Returns true if any tokens were consumed.
 	template<typename ParseInner>
-	static bool
-	tryParseParenthesizedTagged(CursorState* cursor, TokenType tagType, ParseInner parseInner)
+	static bool tryParseParenthesizedTagged(CursorState* cursor,
+											TokenType tagType,
+											ParseInner parseInner)
 	{
 		const Token* openingParenthesisToken = cursor->nextToken;
 		if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != tagType)

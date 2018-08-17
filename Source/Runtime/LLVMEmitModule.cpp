@@ -47,11 +47,11 @@ EmitModuleContext::EmitModuleContext(const Module& inModule, ModuleInstance* inM
 #ifdef _WIN32
 	tryPrologueDummyFunction = nullptr;
 #else
-	cxaBeginCatchFunction = llvm::Function::Create(
-		llvm::FunctionType::get(llvmI8PtrType, {llvmI8PtrType}, false),
-		llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-		"__cxa_begin_catch",
-		llvmModule);
+	cxaBeginCatchFunction
+		= llvm::Function::Create(llvm::FunctionType::get(llvmI8PtrType, {llvmI8PtrType}, false),
+								 llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+								 "__cxa_begin_catch",
+								 llvmModule);
 #endif
 }
 
@@ -60,15 +60,15 @@ std::shared_ptr<llvm::Module> EmitModuleContext::emit()
 	Timing::Timer emitTimer;
 
 	// Create an external reference to the appropriate exception personality function.
-	auto personalityFunction = llvm::Function::Create(
-		llvm::FunctionType::get(llvmI32Type, {}, false),
-		llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+	auto personalityFunction
+		= llvm::Function::Create(llvm::FunctionType::get(llvmI32Type, {}, false),
+								 llvm::GlobalValue::LinkageTypes::ExternalLinkage,
 #ifdef _WIN32
-		"__C_specific_handler",
+								 "__C_specific_handler",
 #else
-		"__gxx_personality_v0",
+								 "__gxx_personality_v0",
 #endif
-		llvmModule);
+								 llvmModule);
 
 	// Create the LLVM functions.
 	functionDefs.resize(module.functions.defs.size());
@@ -89,12 +89,11 @@ std::shared_ptr<llvm::Module> EmitModuleContext::emit()
 	for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
 		++functionDefIndex)
 	{
-		EmitFunctionContext(
-			*this,
-			module,
-			module.functions.defs[functionDefIndex],
-			moduleInstance->functionDefs[functionDefIndex],
-			functionDefs[functionDefIndex])
+		EmitFunctionContext(*this,
+							module,
+							module.functions.defs[functionDefIndex],
+							moduleInstance->functionDefs[functionDefIndex],
+							functionDefs[functionDefIndex])
 			.emit();
 	}
 
@@ -106,9 +105,8 @@ std::shared_ptr<llvm::Module> EmitModuleContext::emit()
 	return llvmModuleSharedPtr;
 }
 
-std::shared_ptr<llvm::Module> LLVMJIT::emitModule(
-	const Module& module,
-	ModuleInstance* moduleInstance)
+std::shared_ptr<llvm::Module> LLVMJIT::emitModule(const Module& module,
+												  ModuleInstance* moduleInstance)
 {
 	return EmitModuleContext(module, moduleInstance).emit();
 }

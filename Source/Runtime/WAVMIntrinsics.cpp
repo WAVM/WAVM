@@ -167,11 +167,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f64.nearest", F64, f64Nearest, F64 va
 	return floatNearest(value);
 }
 
-DEFINE_INTRINSIC_FUNCTION(
-	wavmIntrinsics,
-	"divideByZeroOrIntegerOverflowTrap",
-	void,
-	divideByZeroOrIntegerOverflowTrap)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "divideByZeroOrIntegerOverflowTrap",
+						  void,
+						  divideByZeroOrIntegerOverflowTrap)
 {
 	throwException(Exception::integerDivideByZeroOrOverflowType);
 }
@@ -186,22 +185,20 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "accessViolationTrap", void, accessVio
 	throwException(Exception::accessViolationType);
 }
 
-DEFINE_INTRINSIC_FUNCTION(
-	wavmIntrinsics,
-	"invalidFloatOperationTrap",
-	void,
-	invalidFloatOperationTrap)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "invalidFloatOperationTrap",
+						  void,
+						  invalidFloatOperationTrap)
 {
 	throwException(Exception::invalidFloatOperationType);
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
-	wavmIntrinsics,
-	"indirectCallSignatureMismatch",
-	void,
-	indirectCallSignatureMismatch,
-	I32 index,
-	Uptr expectedSignatureBits)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
+											 "indirectCallSignatureMismatch",
+											 void,
+											 indirectCallSignatureMismatch,
+											 I32 index,
+											 Uptr expectedSignatureBits)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, defaultTableId.id);
 	wavmAssert(table);
@@ -217,27 +214,24 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
 		index,
 		table->baseAddress[index].typeEncoding.impl ? asString(actualSignature).c_str() : "nullptr",
 		ipDescription.c_str());
-	throwException(
-		elementValue == nullptr ? Exception::undefinedTableElementType
-								: Exception::indirectCallSignatureMismatchType);
+	throwException(elementValue == nullptr ? Exception::undefinedTableElementType
+										   : Exception::indirectCallSignatureMismatchType);
 }
 
-DEFINE_INTRINSIC_FUNCTION(
-	wavmIntrinsics,
-	"indirectCallIndexOutOfBounds",
-	void,
-	indirectCallIndexOutOfBounds)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "indirectCallIndexOutOfBounds",
+						  void,
+						  indirectCallIndexOutOfBounds)
 {
 	throwException(Exception::undefinedTableElementType);
 }
 
-DEFINE_INTRINSIC_FUNCTION(
-	wavmIntrinsics,
-	"growMemory",
-	I32,
-	_growMemory,
-	I32 deltaPages,
-	I64 memoryId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "growMemory",
+						  I32,
+						  _growMemory,
+						  I32 deltaPages,
+						  I64 memoryId)
 {
 	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	wavmAssert(memory);
@@ -260,24 +254,22 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "currentMemory", I32, _currentMemory, 
 
 static thread_local Uptr indentLevel = 0;
 
-DEFINE_INTRINSIC_FUNCTION(
-	wavmIntrinsics,
-	"debugEnterFunction",
-	void,
-	debugEnterFunction,
-	I64 functionInstanceBits)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "debugEnterFunction",
+						  void,
+						  debugEnterFunction,
+						  I64 functionInstanceBits)
 {
 	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 	Log::printf(Log::debug, "ENTER: %s\n", function->debugName.c_str());
 	++indentLevel;
 }
 
-DEFINE_INTRINSIC_FUNCTION(
-	wavmIntrinsics,
-	"debugExitFunction",
-	void,
-	debugExitFunction,
-	I64 functionInstanceBits)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "debugExitFunction",
+						  void,
+						  debugExitFunction,
+						  I64 functionInstanceBits)
 {
 	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 	--indentLevel;

@@ -45,8 +45,8 @@ static void validate(TableElementType type)
 {
 	if(type != TableElementType::anyfunc)
 	{
-		throw ValidationException(
-			"invalid table element type (" + std::to_string((Uptr)type) + ")");
+		throw ValidationException("invalid table element type (" + std::to_string((Uptr)type)
+								  + ")");
 	}
 }
 
@@ -77,19 +77,17 @@ template<typename Type> void validateType(Type expectedType, Type actualType, co
 {
 	if(expectedType != actualType)
 	{
-		throw ValidationException(
-			std::string("type mismatch: expected ") + asString(expectedType) + " but got "
-			+ asString(actualType) + " in " + context);
+		throw ValidationException(std::string("type mismatch: expected ") + asString(expectedType)
+								  + " but got " + asString(actualType) + " in " + context);
 	}
 }
 
-static ValueType validateGlobalIndex(
-	const Module& module,
-	Uptr globalIndex,
-	bool mustBeMutable,
-	bool mustBeImmutable,
-	bool mustBeImport,
-	const char* context)
+static ValueType validateGlobalIndex(const Module& module,
+									 Uptr globalIndex,
+									 bool mustBeMutable,
+									 bool mustBeImmutable,
+									 bool mustBeImport,
+									 const char* context)
 {
 	VALIDATE_INDEX(globalIndex, module.globals.size());
 	const GlobalType& globalType = module.globals.getType(globalIndex);
@@ -130,8 +128,8 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 		{
 			throw ValidationException("block has params, but \"multivalue\" extension is disabled");
 		}
-		else if(
-			functionType.results().size() > 1 && !module.featureSpec.multipleResultsAndBlockParams)
+		else if(functionType.results().size() > 1
+				&& !module.featureSpec.multipleResultsAndBlockParams)
 		{
 			throw ValidationException(
 				"block has multiple results, but \"multivalue\" extension is disabled");
@@ -151,11 +149,10 @@ static FunctionType validateFunctionType(const Module& module, const IndexedFunc
 	return functionType;
 }
 
-static void validateInitializer(
-	const Module& module,
-	const InitializerExpression& expression,
-	ValueType expectedType,
-	const char* context)
+static void validateInitializer(const Module& module,
+								const InitializerExpression& expression,
+								ValueType expectedType,
+								const char* context)
 {
 	switch(expression.type)
 	{
@@ -173,13 +170,13 @@ static void validateInitializer(
 		break;
 	case InitializerExpression::Type::get_global:
 	{
-		const ValueType globalValueType = validateGlobalIndex(
-			module,
-			expression.globalIndex,
-			false,
-			true,
-			true,
-			"initializer expression global index");
+		const ValueType globalValueType
+			= validateGlobalIndex(module,
+								  expression.globalIndex,
+								  false,
+								  true,
+								  true,
+								  "initializer expression global index");
 		validateType(expectedType, globalValueType, context);
 		break;
 	}
@@ -200,10 +197,9 @@ struct FunctionValidationContext
 		// Initialize the local types.
 		locals.reserve(functionType.params().size() + functionDef.nonParameterLocalTypes.size());
 		locals.insert(locals.end(), functionType.params().begin(), functionType.params().end());
-		locals.insert(
-			locals.end(),
-			functionDef.nonParameterLocalTypes.begin(),
-			functionDef.nonParameterLocalTypes.end());
+		locals.insert(locals.end(),
+					  functionDef.nonParameterLocalTypes.begin(),
+					  functionDef.nonParameterLocalTypes.end());
 
 		// Push the function context onto the control stack.
 		pushControlStack(
@@ -216,8 +212,8 @@ struct FunctionValidationContext
 	{
 		if(controlStack.size() == 0)
 		{
-			throw ValidationException(
-				std::string("Expected non-empty control stack in ") + context);
+			throw ValidationException(std::string("Expected non-empty control stack in ")
+									  + context);
 		}
 	}
 
@@ -254,12 +250,11 @@ struct FunctionValidationContext
 			}
 			if(stack.size() == stackBase) { stackString += "|"; }
 
-			Log::printf(
-				Log::debug,
-				"%-50s %-50s %-50s\n",
-				controlStackString.c_str(),
-				operatorDescription.c_str(),
-				stackString.c_str());
+			Log::printf(Log::debug,
+						"%-50s %-50s %-50s\n",
+						controlStackString.c_str(),
+						operatorDescription.c_str(),
+						stackString.c_str());
 		}
 	}
 
@@ -360,9 +355,8 @@ struct FunctionValidationContext
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
 			const TypeTuple targetParams = getBranchTargetByDepth(targetDepths[targetIndex]).params;
-			VALIDATE_UNLESS(
-				"br_table target argument must match default target argument: ",
-				targetParams != defaultTargetParams);
+			VALIDATE_UNLESS("br_table target argument must match default target argument: ",
+							targetParams != defaultTargetParams);
 		}
 
 		enterUnreachable();
@@ -421,9 +415,8 @@ struct FunctionValidationContext
 	}
 	void call_indirect(CallIndirectImm imm)
 	{
-		VALIDATE_UNLESS(
-			"call_indirect is only valid if there is a default function table: ",
-			module.tables.size() == 0);
+		VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",
+						module.tables.size() == 0);
 		FunctionType calleeType = validateFunctionType(module, imm.type);
 		popAndValidateOperand("call_indirect function index", ValueType::i32);
 		popAndValidateTypeTuple("call_indirect arguments", calleeType.params());
@@ -436,18 +429,16 @@ struct FunctionValidationContext
 
 	template<Uptr naturalAlignmentLog2> void validateImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 	{
-		VALIDATE_UNLESS(
-			"load or store alignment greater than natural alignment: ",
-			imm.alignmentLog2 > naturalAlignmentLog2);
-		VALIDATE_UNLESS(
-			"load or store in module without default memory: ", module.memories.size() == 0);
+		VALIDATE_UNLESS("load or store alignment greater than natural alignment: ",
+						imm.alignmentLog2 > naturalAlignmentLog2);
+		VALIDATE_UNLESS("load or store in module without default memory: ",
+						module.memories.size() == 0);
 	}
 
 	void validateImm(MemoryImm)
 	{
-		VALIDATE_UNLESS(
-			"memory.size and memory.grow are only valid if there is a default memory",
-			module.memories.size() == 0);
+		VALIDATE_UNLESS("memory.size and memory.grow are only valid if there is a default memory",
+						module.memories.size() == 0);
 	}
 
 	template<Uptr numLanes> void validateImm(LaneIndexImm<numLanes> imm)
@@ -459,26 +450,23 @@ struct FunctionValidationContext
 	{
 		for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 		{
-			VALIDATE_UNLESS(
-				"shuffle invalid lane index", imm.laneIndices[laneIndex] >= numLanes * 2);
+			VALIDATE_UNLESS("shuffle invalid lane index",
+							imm.laneIndices[laneIndex] >= numLanes * 2);
 		}
 	}
 
 	template<Uptr naturalAlignmentLog2>
 	void validateImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
 	{
-		VALIDATE_UNLESS(
-			"atomic memory operator in module without default memory: ",
-			module.memories.size() == 0);
+		VALIDATE_UNLESS("atomic memory operator in module without default memory: ",
+						module.memories.size() == 0);
 		if(module.featureSpec.requireSharedFlagForAtomicOperators)
 		{
-			VALIDATE_UNLESS(
-				"atomic memory operators require a memory with the shared flag: ",
-				!module.memories.getType(0).isShared);
+			VALIDATE_UNLESS("atomic memory operators require a memory with the shared flag: ",
+							!module.memories.getType(0).isShared);
 		}
-		VALIDATE_UNLESS(
-			"atomic memory operators must have natural alignment: ",
-			imm.alignmentLog2 != naturalAlignmentLog2);
+		VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",
+						imm.alignmentLog2 != naturalAlignmentLog2);
 	}
 
 	void validateImm(ThrowImm imm)
@@ -575,11 +563,10 @@ private:
 	std::vector<ControlContext> controlStack;
 	std::vector<ValueType> stack;
 
-	void pushControlStack(
-		ControlContext::Type type,
-		TypeTuple params,
-		TypeTuple results,
-		TypeTuple elseParams = TypeTuple())
+	void pushControlStack(ControlContext::Type type,
+						  TypeTuple params,
+						  TypeTuple results,
+						  TypeTuple elseParams = TypeTuple())
 	{
 		controlStack.push_back({type, stack.size(), params, results, true, elseParams});
 	}
@@ -605,10 +592,9 @@ private:
 			controlStack.back().type        = ControlContext::Type::ifElse;
 			controlStack.back().isReachable = true;
 		}
-		else if(
-			isCatch
-			&& (controlStack.back().type == ControlContext::Type::try_
-				|| controlStack.back().type == ControlContext::Type::catch_))
+		else if(isCatch
+				&& (controlStack.back().type == ControlContext::Type::try_
+					|| controlStack.back().type == ControlContext::Type::catch_))
 		{
 			controlStack.back().type        = ControlContext::Type::catch_;
 			controlStack.back().isReachable = true;
@@ -694,17 +680,17 @@ private:
 		{
 			// If the current instruction is reachable, but the operand stack is empty, then throw a
 			// validation exception.
-			throw ValidationException(
-				std::string("type mismatch: expected ") + asString(expectedType)
-				+ " but stack was empty" + " in " + context + " operand");
+			throw ValidationException(std::string("type mismatch: expected ")
+									  + asString(expectedType) + " but stack was empty" + " in "
+									  + context + " operand");
 		}
 
 		if(expectedType != actualType && expectedType != ValueType::any
 		   && actualType != ValueType::any)
 		{
-			throw ValidationException(
-				std::string("type mismatch: expected ") + asString(expectedType) + " but got "
-				+ asString(actualType) + " in " + context + " operand");
+			throw ValidationException(std::string("type mismatch: expected ")
+									  + asString(expectedType) + " but got " + asString(actualType)
+									  + " in " + context + " operand");
 		}
 
 		return actualType;
@@ -773,11 +759,10 @@ void IR::validateGlobals(const Module& module)
 	for(auto& globalDef : module.globals.defs)
 	{
 		validate(globalDef.type);
-		validateInitializer(
-			module,
-			globalDef.initializer,
-			globalDef.type.valueType,
-			"global initializer expression");
+		validateInitializer(module,
+							globalDef.initializer,
+							globalDef.type.valueType,
+							"global initializer expression");
 	}
 }
 
@@ -804,13 +789,12 @@ void IR::validateExports(const Module& module)
 		case ObjectKind::table: VALIDATE_INDEX(exportIt.index, module.tables.size()); break;
 		case ObjectKind::memory: VALIDATE_INDEX(exportIt.index, module.memories.size()); break;
 		case ObjectKind::global:
-			validateGlobalIndex(
-				module,
-				exportIt.index,
-				false,
-				!module.featureSpec.importExportMutableGlobals,
-				false,
-				"exported global index");
+			validateGlobalIndex(module,
+								exportIt.index,
+								false,
+								!module.featureSpec.importExportMutableGlobals,
+								false,
+								"exported global index");
 			break;
 		case ObjectKind::exceptionType:
 			VALIDATE_INDEX(exportIt.index, module.exceptionTypes.size());
@@ -830,9 +814,8 @@ void IR::validateStartFunction(const Module& module)
 		VALIDATE_INDEX(module.startFunctionIndex, module.functions.size());
 		FunctionType startFunctionType
 			= module.types[module.functions.getType(module.startFunctionIndex).index];
-		VALIDATE_UNLESS(
-			"start function must not have any parameters or results: ",
-			startFunctionType != FunctionType());
+		VALIDATE_UNLESS("start function must not have any parameters or results: ",
+						startFunctionType != FunctionType());
 	}
 }
 

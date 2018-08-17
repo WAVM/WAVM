@@ -30,10 +30,9 @@ struct Thread
 
 	IR::Value argument;
 
-	FORCENOINLINE Thread(
-		Runtime::Context* inContext,
-		Runtime::FunctionInstance* inEntryFunction,
-		const IR::Value& inArgument)
+	FORCENOINLINE Thread(Runtime::Context* inContext,
+						 Runtime::FunctionInstance* inEntryFunction,
+						 const IR::Value& inArgument)
 	: context(inContext), entryFunction(inEntryFunction), argument(inArgument)
 	{
 	}
@@ -104,13 +103,12 @@ static I64 threadEntry(void* threadVoid)
 	return invokeFunctionUnchecked(thread->context, thread->entryFunction, &thread->argument)->i64;
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
-	threadTest,
-	"createThread",
-	I64,
-	createThread,
-	I32 entryFunctionIndex,
-	I32 entryArgument)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(threadTest,
+											 "createThread",
+											 I64,
+											 createThread,
+											 I32 entryFunctionIndex,
+											 I32 entryArgument)
 {
 	if(defaultTableId.id == UINT32_MAX)
 	{
@@ -126,9 +124,8 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
 
 	// Validate that the entry function wasn't null, and it has the correct type (i32)->i64
 	if(!entryFunction) { throwException(Runtime::Exception::undefinedTableElementType); }
-	else if(
-		Runtime::getFunctionType(entryFunction)
-		!= FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
+	else if(Runtime::getFunctionType(entryFunction)
+			!= FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
 	{
 		throwException(Runtime::Exception::indirectCallSignatureMismatchType);
 	}

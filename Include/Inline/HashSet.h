@@ -24,9 +24,8 @@ private:
 	const HashTableBucket<Element>* bucket;
 	const HashTableBucket<Element>* endBucket;
 
-	HashSetIterator(
-		const HashTableBucket<Element>* inBucket,
-		const HashTableBucket<Element>* inEndBucket);
+	HashSetIterator(const HashTableBucket<Element>* inBucket,
+					const HashTableBucket<Element>* inEndBucket);
 };
 
 template<typename Element, typename ElementHashPolicy = DefaultHashPolicy<Element>> struct HashSet
@@ -60,11 +59,10 @@ template<typename Element, typename ElementHashPolicy = DefaultHashPolicy<Elemen
 	Uptr size() const;
 
 	// Compute some statistics about the space usage of this set.
-	void analyzeSpaceUsage(
-		Uptr& outTotalMemoryBytes,
-		Uptr& outMaxProbeCount,
-		F32& outOccupancy,
-		F32& outAverageProbeCount) const;
+	void analyzeSpaceUsage(Uptr& outTotalMemoryBytes,
+						   Uptr& outMaxProbeCount,
+						   F32& outOccupancy,
+						   F32& outAverageProbeCount) const;
 
 private:
 	struct HashTablePolicy

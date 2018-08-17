@@ -71,23 +71,23 @@ namespace LLVMJIT
 	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
 	inline llvm::ConstantInt* emitLiteral(U32 value)
 	{
-		return (llvm::ConstantInt*)llvm::ConstantInt::get(
-			llvmI32Type, llvm::APInt(32, (U64)value, false));
+		return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,
+														  llvm::APInt(32, (U64)value, false));
 	}
 	inline llvm::ConstantInt* emitLiteral(I32 value)
 	{
-		return (llvm::ConstantInt*)llvm::ConstantInt::get(
-			llvmI32Type, llvm::APInt(32, (I64)value, false));
+		return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,
+														  llvm::APInt(32, (I64)value, false));
 	}
 	inline llvm::ConstantInt* emitLiteral(U64 value)
 	{
-		return (llvm::ConstantInt*)llvm::ConstantInt::get(
-			llvmI64Type, llvm::APInt(64, value, false));
+		return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,
+														  llvm::APInt(64, value, false));
 	}
 	inline llvm::ConstantInt* emitLiteral(I64 value)
 	{
-		return (llvm::ConstantInt*)llvm::ConstantInt::get(
-			llvmI64Type, llvm::APInt(64, value, false));
+		return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,
+														  llvm::APInt(64, value, false));
 	}
 	inline llvm::Constant* emitLiteral(F32 value)
 	{
@@ -125,8 +125,8 @@ namespace LLVMJIT
 		llvm::Type** llvmTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * typeTuple.size());
 		for(Uptr typeIndex = 0; typeIndex < typeTuple.size(); ++typeIndex)
 		{ llvmTypes[typeIndex] = asLLVMType(typeTuple[typeIndex]); }
-		return llvm::StructType::get(
-			*llvmContext, llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size()));
+		return llvm::StructType::get(*llvmContext,
+									 llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size()));
 	}
 
 	inline bool areResultsReturnedDirectly(TypeTuple results)
@@ -162,9 +162,8 @@ namespace LLVMJIT
 	}
 
 	// Converts a WebAssembly function type to a LLVM type.
-	inline llvm::FunctionType* asLLVMType(
-		FunctionType functionType,
-		Runtime::CallingConvention callingConvention)
+	inline llvm::FunctionType* asLLVMType(FunctionType functionType,
+										  Runtime::CallingConvention callingConvention)
 	{
 		const Uptr numImplicitParameters
 			= callingConvention == CallingConvention::intrinsicWithMemAndTable
@@ -259,10 +258,9 @@ namespace LLVMJIT
 			// Derive the compartment runtime data from the context address by masking off the lower
 			// 32 bits.
 			llvm::Value* compartmentAddress = irBuilder.CreateIntToPtr(
-				irBuilder.CreateAnd(
-					irBuilder.CreatePtrToInt(
-						irBuilder.CreateLoad(contextPointerVariable), llvmI64Type),
-					emitLiteral(~((U64(1) << 32) - 1))),
+				irBuilder.CreateAnd(irBuilder.CreatePtrToInt(
+										irBuilder.CreateLoad(contextPointerVariable), llvmI64Type),
+									emitLiteral(~((U64(1) << 32) - 1))),
 				llvmI8PtrType);
 
 			// Load the defaultMemoryBase and defaultTableBase values from the runtime data for this
@@ -274,8 +272,8 @@ namespace LLVMJIT
 					= offsetof(CompartmentRuntimeData, memories) + sizeof(U8*) * defaultMemory->id;
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(
-							compartmentAddress, {emitLiteral(defaultMemoryBaseOffset)}),
+						irBuilder.CreateInBoundsGEP(compartmentAddress,
+													{emitLiteral(defaultMemoryBaseOffset)}),
 						llvmI8PtrType),
 					memoryBasePointerVariable);
 			}
@@ -287,20 +285,19 @@ namespace LLVMJIT
 					  + sizeof(TableInstance::FunctionElement*) * defaultTable->id;
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(
-							compartmentAddress, {emitLiteral(defaultTableBaseOffset)}),
+						irBuilder.CreateInBoundsGEP(compartmentAddress,
+													{emitLiteral(defaultTableBaseOffset)}),
 						llvmI8PtrType),
 					tableBasePointerVariable);
 			}
 		}
 
 		// Creates either a call or an invoke if the call occurs inside a try.
-		ValueVector emitCallOrInvoke(
-			llvm::Value* callee,
-			llvm::ArrayRef<llvm::Value*> args,
-			FunctionType calleeType,
-			CallingConvention callingConvention,
-			llvm::BasicBlock* unwindToBlock = nullptr)
+		ValueVector emitCallOrInvoke(llvm::Value* callee,
+									 llvm::ArrayRef<llvm::Value*> args,
+									 FunctionType calleeType,
+									 CallingConvention callingConvention,
+									 llvm::BasicBlock* unwindToBlock = nullptr)
 		{
 			llvm::ArrayRef<llvm::Value*> augmentedArgs = args;
 
@@ -383,8 +380,8 @@ namespace LLVMJIT
 						wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
 
 						results.push_back(irBuilder.CreateLoad(irBuilder.CreatePointerCast(
-							irBuilder.CreateInBoundsGEP(
-								newContextPointer, {emitLiteral(resultOffset)}),
+							irBuilder.CreateInBoundsGEP(newContextPointer,
+														{emitLiteral(resultOffset)}),
 							asLLVMType(resultType)->getPointerTo())));
 
 						resultOffset += resultNumBytes;
@@ -456,13 +453,12 @@ namespace LLVMJIT
 					resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 					wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
 
-					irBuilder.CreateStore(
-						results[resultIndex],
-						irBuilder.CreatePointerCast(
-							irBuilder.CreateInBoundsGEP(
-								irBuilder.CreateLoad(contextPointerVariable),
-								{emitLiteral(resultOffset)}),
-							asLLVMType(resultType)->getPointerTo()));
+					irBuilder.CreateStore(results[resultIndex],
+										  irBuilder.CreatePointerCast(
+											  irBuilder.CreateInBoundsGEP(
+												  irBuilder.CreateLoad(contextPointerVariable),
+												  {emitLiteral(resultOffset)}),
+											  asLLVMType(resultType)->getPointerTo()));
 
 					resultOffset += resultNumBytes;
 				}
@@ -481,19 +477,17 @@ namespace LLVMJIT
 	bool getFunctionIndexFromExternalName(const char* externalName, Uptr& outFunctionDefIndex);
 
 	// Emits LLVM IR for a module.
-	std::shared_ptr<llvm::Module> emitModule(
-		const IR::Module& module,
-		ModuleInstance* moduleInstance);
+	std::shared_ptr<llvm::Module> emitModule(const IR::Module& module,
+											 ModuleInstance* moduleInstance);
 
 #ifdef _WIN64
-	extern void processSEHTables(
-		Uptr imageBaseAddress,
-		const llvm::LoadedObjectInfo* loadedObject,
-		const llvm::object::SectionRef& pdataSection,
-		const U8* pdataCopy,
-		Uptr pdataNumBytes,
-		const llvm::object::SectionRef& xdataSection,
-		const U8* xdataCopy,
-		Uptr sehTrampolineAddress);
+	extern void processSEHTables(Uptr imageBaseAddress,
+								 const llvm::LoadedObjectInfo* loadedObject,
+								 const llvm::object::SectionRef& pdataSection,
+								 const U8* pdataCopy,
+								 Uptr pdataNumBytes,
+								 const llvm::object::SectionRef& xdataSection,
+								 const U8* xdataCopy,
+								 Uptr sehTrampolineAddress);
 #endif
 }

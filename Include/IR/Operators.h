@@ -182,10 +182,9 @@ namespace IR
 		OpcodeAndImm<Imm> encodedOperator;                                                         \
 		encodedOperator.opcode = Opcode::name;                                                     \
 		encodedOperator.imm    = imm;                                                              \
-		memcpy(                                                                                    \
-			(OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)),                     \
-			&encodedOperator,                                                                      \
-			sizeof(OpcodeAndImm<Imm>));                                                            \
+		memcpy((OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)),                  \
+			   &encodedOperator,                                                                   \
+			   sizeof(OpcodeAndImm<Imm>));                                                         \
 	}
 		ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE

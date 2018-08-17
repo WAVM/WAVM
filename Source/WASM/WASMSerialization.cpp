@@ -372,10 +372,9 @@ void serializeSection(OutputStream& stream, SectionType type, SerializeSection s
 	serializeBytes(stream, sectionBytes.data(), sectionBytes.size());
 }
 template<typename SerializeSection>
-void serializeSection(
-	InputStream& stream,
-	SectionType expectedType,
-	SerializeSection serializeSectionBody)
+void serializeSection(InputStream& stream,
+					  SectionType expectedType,
+					  SerializeSection serializeSectionBody)
 {
 	wavmAssert((SectionType)*stream.peek(sizeof(SectionType)) == expectedType);
 	stream.advance(sizeof(SectionType));
@@ -449,8 +448,9 @@ private:
 	FunctionDef& functionDef;
 };
 
-static void
-serializeFunctionBody(OutputStream& sectionStream, Module& module, FunctionDef& functionDef)
+static void serializeFunctionBody(OutputStream& sectionStream,
+								  Module& module,
+								  FunctionDef& functionDef)
 {
 	ArrayOutputStream bodyStream;
 
@@ -489,8 +489,9 @@ serializeFunctionBody(OutputStream& sectionStream, Module& module, FunctionDef& 
 	serialize(sectionStream, bodyBytes);
 }
 
-static void
-serializeFunctionBody(InputStream& sectionStream, Module& module, FunctionDef& functionDef)
+static void serializeFunctionBody(InputStream& sectionStream,
+								  Module& module,
+								  FunctionDef& functionDef)
 {
 	Uptr numBodyBytes = 0;
 	serializeVarUInt32(sectionStream, numBodyBytes);

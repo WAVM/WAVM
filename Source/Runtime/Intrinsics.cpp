@@ -27,12 +27,11 @@ static void initializeModule(Intrinsics::Module& moduleRef)
 	if(!moduleRef.impl) { moduleRef.impl = new Intrinsics::ModuleImpl; }
 }
 
-Intrinsics::Function::Function(
-	Intrinsics::Module& moduleRef,
-	const char* inName,
-	void* inNativeFunction,
-	IR::FunctionType inType,
-	Runtime::CallingConvention inCallingConvention)
+Intrinsics::Function::Function(Intrinsics::Module& moduleRef,
+							   const char* inName,
+							   void* inNativeFunction,
+							   IR::FunctionType inType,
+							   Runtime::CallingConvention inCallingConvention)
 : name(inName)
 , type(inType)
 , nativeFunction(inNativeFunction)
@@ -50,11 +49,10 @@ Runtime::FunctionInstance* Intrinsics::Function::instantiate(Runtime::Compartmen
 	return new Runtime::FunctionInstance(nullptr, type, nativeFunction, callingConvention, name);
 }
 
-Intrinsics::Global::Global(
-	Intrinsics::Module& moduleRef,
-	const char* inName,
-	IR::ValueType inType,
-	IR::Value inValue)
+Intrinsics::Global::Global(Intrinsics::Module& moduleRef,
+						   const char* inName,
+						   IR::ValueType inType,
+						   IR::Value inValue)
 : name(inName), type(inType), value(inValue)
 {
 	initializeModule(moduleRef);
@@ -69,10 +67,9 @@ Runtime::GlobalInstance* Intrinsics::Global::instantiate(Runtime::Compartment* c
 	return Runtime::createGlobal(compartment, IR::GlobalType(type, false), value);
 }
 
-Intrinsics::Table::Table(
-	Intrinsics::Module& moduleRef,
-	const char* inName,
-	const IR::TableType& inType)
+Intrinsics::Table::Table(Intrinsics::Module& moduleRef,
+						 const char* inName,
+						 const IR::TableType& inType)
 : name(inName), type(inType)
 {
 	initializeModule(moduleRef);
@@ -87,10 +84,9 @@ Runtime::TableInstance* Intrinsics::Table::instantiate(Runtime::Compartment* com
 	return Runtime::createTable(compartment, type);
 }
 
-Intrinsics::Memory::Memory(
-	Intrinsics::Module& moduleRef,
-	const char* inName,
-	const IR::MemoryType& inType)
+Intrinsics::Memory::Memory(Intrinsics::Module& moduleRef,
+						   const char* inName,
+						   const IR::MemoryType& inType)
 : name(inName), type(inType)
 {
 	initializeModule(moduleRef);

@@ -76,10 +76,9 @@ namespace Runtime
 	DECLARE_OBJECT_TYPE(ObjectKind::memory, Memory, MemoryInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::global, Global, GlobalInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::module, Module, ModuleInstance);
-	DECLARE_OBJECT_TYPE(
-		ObjectKind::exceptionTypeInstance,
-		ExceptionTypeInstance,
-		ExceptionTypeInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::exceptionTypeInstance,
+						ExceptionTypeInstance,
+						ExceptionTypeInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::context, Context, Context);
 	DECLARE_OBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
 
@@ -175,9 +174,8 @@ namespace Runtime
 	};
 
 	// Creates an exception type instance.
-	RUNTIME_API ExceptionTypeInstance* createExceptionTypeInstance(
-		IR::ExceptionType type,
-		std::string&& debugName);
+	RUNTIME_API ExceptionTypeInstance* createExceptionTypeInstance(IR::ExceptionType type,
+																   std::string&& debugName);
 
 	// Returns a string that describes the given exception cause.
 	RUNTIME_API std::string describeException(const Exception& exception);
@@ -189,14 +187,12 @@ namespace Runtime
 	RUNTIME_API IR::TypeTuple getExceptionTypeParameters(const ExceptionTypeInstance* type);
 
 	// Throws a runtime exception.
-	[[noreturn]] RUNTIME_API void throwException(
-		ExceptionTypeInstance* type,
-		std::vector<IR::UntaggedValue>&& arguments = {});
+	[[noreturn]] RUNTIME_API void throwException(ExceptionTypeInstance* type,
+												 std::vector<IR::UntaggedValue>&& arguments = {});
 
 	// Calls a thunk and catches any runtime exceptions that occur within it.
-	RUNTIME_API void catchRuntimeExceptions(
-		const std::function<void()>& thunk,
-		const std::function<void(Exception&&)>& catchThunk);
+	RUNTIME_API void catchRuntimeExceptions(const std::function<void()>& thunk,
+											const std::function<void(Exception&&)>& catchThunk);
 
 	typedef void (*UnhandledExceptionHandler)(Exception&&);
 	RUNTIME_API void setUnhandledExceptionHandler(UnhandledExceptionHandler handler);
@@ -220,18 +216,16 @@ namespace Runtime
 	// overwritten by subsequent calls to invokeFunctionUnchecked. This allows using this function
 	// in a call stack that will be forked, since returning the result as a value will be lowered to
 	// passing in a pointer to stack memory for most calling conventions.
-	RUNTIME_API IR::UntaggedValue* invokeFunctionUnchecked(
-		Context* context,
-		FunctionInstance* function,
-		const IR::UntaggedValue* arguments);
+	RUNTIME_API IR::UntaggedValue* invokeFunctionUnchecked(Context* context,
+														   FunctionInstance* function,
+														   const IR::UntaggedValue* arguments);
 
 	// Like invokeFunctionUnchecked, but returns a result tagged with its type, and takes arguments
 	// as tagged values. If the wrong number or types or arguments are provided, a runtime exception
 	// is thrown.
-	RUNTIME_API IR::ValueTuple invokeFunctionChecked(
-		Context* context,
-		FunctionInstance* function,
-		const std::vector<IR::Value>& arguments);
+	RUNTIME_API IR::ValueTuple invokeFunctionChecked(Context* context,
+													 FunctionInstance* function,
+													 const std::vector<IR::Value>& arguments);
 
 	// Returns the type of a FunctionInstance.
 	RUNTIME_API IR::FunctionType getFunctionType(FunctionInstance* function);
@@ -284,8 +278,9 @@ namespace Runtime
 	RUNTIME_API void unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numPages);
 
 	// Validates that an offset range is wholly inside a Memory's virtual address range.
-	RUNTIME_API U8*
-	getValidatedMemoryOffsetRange(MemoryInstance* memory, Uptr offset, Uptr numBytes);
+	RUNTIME_API U8* getValidatedMemoryOffsetRange(MemoryInstance* memory,
+												  Uptr offset,
+												  Uptr numBytes);
 
 	// Validates an access to a single element of memory at the given offset, and returns a
 	// reference to it.
@@ -307,8 +302,9 @@ namespace Runtime
 	//
 
 	// Creates a GlobalInstance with the specified type and initial value.
-	RUNTIME_API GlobalInstance*
-	createGlobal(Compartment* compartment, IR::GlobalType type, IR::Value initialValue);
+	RUNTIME_API GlobalInstance* createGlobal(Compartment* compartment,
+											 IR::GlobalType type,
+											 IR::Value initialValue);
 
 	RUNTIME_API GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
 
@@ -316,8 +312,9 @@ namespace Runtime
 	RUNTIME_API IR::Value getGlobalValue(Context* context, GlobalInstance* global);
 
 	// Writes a new value to a global, and returns the previous value.
-	RUNTIME_API IR::Value
-	setGlobalValue(Context* context, GlobalInstance* global, IR::Value newValue);
+	RUNTIME_API IR::Value setGlobalValue(Context* context,
+										 GlobalInstance* global,
+										 IR::Value newValue);
 
 	//
 	// Modules
@@ -334,11 +331,10 @@ namespace Runtime
 
 	// Instantiates a module, bindings its imports to the specified objects. May throw a runtime
 	// exception for bad segment offsets.
-	RUNTIME_API ModuleInstance* instantiateModule(
-		Compartment* compartment,
-		const IR::Module& module,
-		ImportBindings&& imports,
-		std::string&& debugName);
+	RUNTIME_API ModuleInstance* instantiateModule(Compartment* compartment,
+												  const IR::Module& module,
+												  ImportBindings&& imports,
+												  std::string&& debugName);
 
 	// Gets the start function of a ModuleInstance.
 	RUNTIME_API FunctionInstance* getStartFunction(ModuleInstance* moduleInstance);

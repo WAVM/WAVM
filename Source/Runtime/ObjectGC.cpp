@@ -108,26 +108,21 @@ void Runtime::collectGarbage()
 		{
 			ModuleInstance* moduleInstance = asModule(scanObject);
 			childReferences.push_back(moduleInstance->compartment);
-			childReferences.insert(
-				childReferences.begin(),
-				moduleInstance->functionDefs.begin(),
-				moduleInstance->functionDefs.end());
-			childReferences.insert(
-				childReferences.begin(),
-				moduleInstance->functions.begin(),
-				moduleInstance->functions.end());
-			childReferences.insert(
-				childReferences.begin(),
-				moduleInstance->tables.begin(),
-				moduleInstance->tables.end());
-			childReferences.insert(
-				childReferences.begin(),
-				moduleInstance->memories.begin(),
-				moduleInstance->memories.end());
-			childReferences.insert(
-				childReferences.begin(),
-				moduleInstance->globals.begin(),
-				moduleInstance->globals.end());
+			childReferences.insert(childReferences.begin(),
+								   moduleInstance->functionDefs.begin(),
+								   moduleInstance->functionDefs.end());
+			childReferences.insert(childReferences.begin(),
+								   moduleInstance->functions.begin(),
+								   moduleInstance->functions.end());
+			childReferences.insert(childReferences.begin(),
+								   moduleInstance->tables.begin(),
+								   moduleInstance->tables.end());
+			childReferences.insert(childReferences.begin(),
+								   moduleInstance->memories.begin(),
+								   moduleInstance->memories.end());
+			childReferences.insert(childReferences.begin(),
+								   moduleInstance->globals.begin(),
+								   moduleInstance->globals.end());
 			childReferences.push_back(moduleInstance->defaultMemory);
 			childReferences.push_back(moduleInstance->defaultTable);
 			break;
@@ -174,11 +169,10 @@ void Runtime::collectGarbage()
 	// Delete all the finalized objects.
 	for(ObjectImpl* object : finalizedObjects) { delete object; }
 
-	Log::printf(
-		Log::metrics,
-		"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
-		timer.getMilliseconds(),
-		numRoots,
-		gcGlobals.allObjects.size() + finalizedObjects.size(),
-		finalizedObjects.size());
+	Log::printf(Log::metrics,
+				"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
+				timer.getMilliseconds(),
+				numRoots,
+				gcGlobals.allObjects.size() + finalizedObjects.size(),
+				finalizedObjects.size());
 }

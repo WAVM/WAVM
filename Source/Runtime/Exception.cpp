@@ -48,9 +48,8 @@ static std::vector<std::string> describeCallStack(const Platform::CallStack& cal
 	return frameDescriptions;
 }
 
-ExceptionTypeInstance* Runtime::createExceptionTypeInstance(
-	IR::ExceptionType type,
-	std::string&& debugName)
+ExceptionTypeInstance* Runtime::createExceptionTypeInstance(IR::ExceptionType type,
+															std::string&& debugName)
 {
 	return new ExceptionTypeInstance(type, std::move(debugName));
 }
@@ -75,9 +74,8 @@ std::string Runtime::describeException(const Exception& exception)
 		for(Uptr argumentIndex = 0; argumentIndex < exception.arguments.size(); ++argumentIndex)
 		{
 			if(argumentIndex != 0) { result += ", "; }
-			result += asString(Value(
-				exception.typeInstance->type.params[argumentIndex],
-				exception.arguments[argumentIndex]));
+			result += asString(Value(exception.typeInstance->type.params[argumentIndex],
+									 exception.arguments[argumentIndex]));
 		}
 		result += ')';
 	}
@@ -92,9 +90,8 @@ std::string Runtime::describeException(const Exception& exception)
 	return result;
 }
 
-[[noreturn]] void Runtime::throwException(
-	ExceptionTypeInstance* typeInstance,
-	std::vector<UntaggedValue>&& arguments)
+[[noreturn]] void Runtime::throwException(ExceptionTypeInstance* typeInstance,
+										  std::vector<UntaggedValue>&& arguments)
 {
 	wavmAssert(arguments.size() == typeInstance->type.params.size());
 	ExceptionData* exceptionData
@@ -109,14 +106,13 @@ std::string Runtime::describeException(const Exception& exception)
 	Platform::raisePlatformException(exceptionData);
 }
 
-DEFINE_INTRINSIC_FUNCTION(
-	wavmIntrinsics,
-	"throwException",
-	void,
-	intrinsicThrowException,
-	I64 exceptionTypeInstanceBits,
-	I64 argsBits,
-	I32 isUserException)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "throwException",
+						  void,
+						  intrinsicThrowException,
+						  I64 exceptionTypeInstanceBits,
+						  I64 argsBits,
+						  I32 isUserException)
 {
 	auto typeInstance = reinterpret_cast<ExceptionTypeInstance*>(Uptr(exceptionTypeInstanceBits));
 	auto args         = reinterpret_cast<const UntaggedValue*>(Uptr(argsBits));
@@ -130,9 +126,8 @@ DEFINE_INTRINSIC_FUNCTION(
 	Platform::raisePlatformException(exceptionData);
 }
 
-static Exception translateExceptionDataToException(
-	const ExceptionData* exceptionData,
-	const Platform::CallStack& callStack)
+static Exception translateExceptionDataToException(const ExceptionData* exceptionData,
+												   const Platform::CallStack& callStack)
 {
 	ExceptionTypeInstance* runtimeType = exceptionData->typeInstance;
 	std::vector<UntaggedValue> arguments(
@@ -141,10 +136,9 @@ static Exception translateExceptionDataToException(
 	return Exception{runtimeType, std::move(arguments), callStack};
 }
 
-static bool translateSignalToRuntimeException(
-	const Platform::Signal& signal,
-	const Platform::CallStack& callStack,
-	Runtime::Exception& outException)
+static bool translateSignalToRuntimeException(const Platform::Signal& signal,
+											  const Platform::CallStack& callStack,
+											  Runtime::Exception& outException)
 {
 	switch(signal.type)
 	{
@@ -180,17 +174,16 @@ static bool translateSignalToRuntimeException(
 	}
 }
 
-void Runtime::catchRuntimeExceptions(
-	const std::function<void()>& thunk,
-	const std::function<void(Exception&&)>& catchThunk)
+void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
+									 const std::function<void(Exception&&)>& catchThunk)
 {
 	// Catch platform exceptions and translate them into C++ exceptions.
 	Platform::catchPlatformExceptions(
 		[thunk, catchThunk] {
 			Platform::catchSignals(
 				thunk,
-				[catchThunk](
-					Platform::Signal signal, const Platform::CallStack& callStack) -> bool {
+				[catchThunk](Platform::Signal signal,
+							 const Platform::CallStack& callStack) -> bool {
 					Exception exception;
 					if(translateSignalToRuntimeException(signal, callStack, exception))
 					{

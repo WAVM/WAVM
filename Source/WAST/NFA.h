@@ -31,11 +31,10 @@ namespace NFA
 
 	// Functions to add states and edges to the under-construction DFA.
 	StateIndex addState(Builder* builder);
-	void addEdge(
-		Builder* builder,
-		StateIndex initialState,
-		const CharSet& predicate,
-		StateIndex nextState);
+	void addEdge(Builder* builder,
+				 StateIndex initialState,
+				 const CharSet& predicate,
+				 StateIndex nextState);
 	void addEpsilonEdge(Builder* builder, StateIndex initialState, StateIndex nextState);
 	StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c);
 

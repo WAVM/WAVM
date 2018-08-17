@@ -170,8 +170,9 @@ namespace IR
 	};
 
 	// Finds a named user section in a module.
-	inline bool
-	findUserSection(const Module& module, const char* userSectionName, Uptr& outUserSectionIndex)
+	inline bool findUserSection(const Module& module,
+								const char* userSectionName,
+								Uptr& outUserSectionIndex)
 	{
 		for(Uptr sectionIndex = 0; sectionIndex < module.userSections.size(); ++sectionIndex)
 		{
