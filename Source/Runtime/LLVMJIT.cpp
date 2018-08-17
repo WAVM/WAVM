@@ -1113,7 +1113,8 @@ static void initLLVM()
 		llvmI8PtrType, // PVOID ExceptionAddress
 		llvmI32Type,   // DWORD NumParameters
 		llvm::ArrayType::get(
-			llvmI64Type, 15) // ULONG_PTR ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS]
+			llvmI64Type,
+			15) // ULONG_PTR ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS]
 	});
 	llvmExceptionPointersStructType
 		= llvm::StructType::create({llvmExceptionRecordStructType->getPointerTo(), llvmI8PtrType});
@@ -1162,9 +1163,9 @@ namespace LLVMJIT
 			llvmI8Type = llvmI16Type = llvmI32Type = llvmI64Type = nullptr;
 			llvmF32Type = llvmF64Type = nullptr;
 			llvmVoidType = llvmBoolType = llvmI8PtrType = nullptr;
-	#if defined(_WIN64)
+#if defined(_WIN64)
 			llvmExceptionPointersStructType = nullptr;
-	#endif
+#endif
 			llvmI8x16Type = llvmI16x8Type = llvmI32x4Type = llvmI64x2Type = nullptr;
 
 			memset(llvmValueTypes, 0, sizeof(llvmValueTypes));

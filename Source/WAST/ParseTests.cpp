@@ -459,8 +459,7 @@ void WAST::parseTestCommands(
 				= calcLocusFromOffset(string, lineInfo, cursor.nextToken[0].begin);
 			Module* module = new Module(featureSpec);
 			parseModuleBody(&cursor, *module);
-			auto moduleAction
-				= new ModuleAction(TextFileLocus(locus), "", module);
+			auto moduleAction  = new ModuleAction(TextFileLocus(locus), "", module);
 			auto actionCommand = new ActionCommand(TextFileLocus(locus), moduleAction);
 			outTestCommands.emplace_back(actionCommand);
 		}
