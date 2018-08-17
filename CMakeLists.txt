@@ -107,7 +107,7 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	option(ENABLE_LIBFUZZER "compile WAVM for use by clang/LLVM's libfuzzer")
 	if(ENABLE_LIBFUZZER)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=fuzzer-no-link")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=fuzzer-no-link -fsanitize-coverage=trace-cmp")
 	endif()
 endif()
 
