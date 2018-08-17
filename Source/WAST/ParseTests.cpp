@@ -75,7 +75,9 @@ static std::string parseOptionalNameAsString(CursorState* cursor)
 static void parseTestScriptModule(
 	CursorState* cursor,
 	IR::Module& outModule,
-	std::string& outInternalModuleName)
+	std::string& outInternalModuleName,
+	QuotedModuleType& outQuotedModuleType,
+	std::string& outQuotedModuleString)
 {
 	outInternalModuleName = parseOptionalNameAsString(cursor);
 
@@ -87,20 +89,23 @@ static void parseTestScriptModule(
 		const Token* quoteToken = cursor->nextToken;
 		++cursor->nextToken;
 
-		std::string moduleQuotedString;
-		if(!tryParseString(cursor, moduleQuotedString))
+		if(!tryParseString(cursor, outQuotedModuleString))
 		{ parseErrorf(cursor->parseState, cursor->nextToken, "expected string"); }
 		else
 		{
-			while(tryParseString(cursor, moduleQuotedString)) {};
+			while(tryParseString(cursor, outQuotedModuleString)) {};
 		}
 
 		if(quoteToken->type == t_quote)
 		{
+			outQuotedModuleType = QuotedModuleType::text;
 
 			std::vector<Error> quotedErrors;
 			parseModule(
-				moduleQuotedString.c_str(), moduleQuotedString.size(), outModule, quotedErrors);
+				outQuotedModuleString.c_str(),
+				outQuotedModuleString.size(),
+				outModule,
+				quotedErrors);
 			for(auto&& error : quotedErrors)
 			{
 				cursor->parseState->unresolvedErrors.emplace_back(
@@ -109,10 +114,12 @@ static void parseTestScriptModule(
 		}
 		else
 		{
+			outQuotedModuleType = QuotedModuleType::binary;
+
 			try
 			{
 				Serialization::MemoryInputStream wasmInputStream(
-					(const U8*)moduleQuotedString.data(), moduleQuotedString.size());
+					(const U8*)outQuotedModuleString.data(), outQuotedModuleString.size());
 				WASM::serialize(wasmInputStream, outModule);
 			}
 			catch(Serialization::FatalSerializationException exception)
@@ -135,6 +142,7 @@ static void parseTestScriptModule(
 	}
 	else
 	{
+		outQuotedModuleType = QuotedModuleType::none;
 		parseModuleBody(cursor, outModule);
 	}
 }
@@ -178,16 +186,19 @@ static Action* parseAction(CursorState* cursor, const IR::FeatureSpec& featureSp
 			++cursor->nextToken;
 
 			std::string internalModuleName;
-			Module* module      = new Module;
-			module->featureSpec = featureSpec;
-			parseTestScriptModule(cursor, *module, internalModuleName);
+			Module* module = new Module(featureSpec);
+
+			QuotedModuleType quotedModuleType = QuotedModuleType::none;
+			std::string quotedModuleString;
+			parseTestScriptModule(
+				cursor, *module, internalModuleName, quotedModuleType, quotedModuleString);
 
 			result = new ModuleAction(std::move(locus), std::move(internalModuleName), module);
 			break;
 		}
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "expected 'get' or 'invoke'");
-			throw RecoverParseException();
+			resumeParsingAfterError();
 		};
 	});
 
@@ -374,13 +385,20 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				ParseState malformedModuleParseState(
 					outerParseState->string, outerParseState->lineInfo);
 
+				QuotedModuleType quotedModuleType = QuotedModuleType::none;
+				std::string quotedModuleString;
 				try
 				{
 					cursor->parseState = &malformedModuleParseState;
 					parseParenthesized(cursor, [&] {
 						require(cursor, t_module);
 
-						parseTestScriptModule(cursor, module, internalModuleName);
+						parseTestScriptModule(
+							cursor,
+							module,
+							internalModuleName,
+							quotedModuleType,
+							quotedModuleString);
 					});
 				}
 				catch(RecoverParseException)
@@ -400,7 +418,9 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				result = new AssertInvalidOrMalformedCommand(
 					commandType,
 					std::move(locus),
-					malformedModuleParseState.unresolvedErrors.size() != 0);
+					malformedModuleParseState.unresolvedErrors.size() != 0,
+					quotedModuleType,
+					std::move(quotedModuleString));
 				break;
 			};
 			default:
@@ -441,7 +461,8 @@ void WAST::parseTestCommands(
 				= calcLocusFromOffset(string, lineInfo, cursor.nextToken[0].begin);
 			Module* module = new Module(featureSpec);
 			parseModuleBody(&cursor, *module);
-			auto moduleAction  = new ModuleAction(TextFileLocus(locus), "", module);
+			auto moduleAction
+				= new ModuleAction(TextFileLocus(locus), "", module);
 			auto actionCommand = new ActionCommand(TextFileLocus(locus), moduleAction);
 			outTestCommands.emplace_back(actionCommand);
 		}

@@ -185,6 +185,12 @@ namespace IR
 		: startFunctionIndex(UINTPTR_MAX)
 		{
 		}
+
+		Module(const FeatureSpec& inFeatureSpec)
+		: featureSpec(inFeatureSpec)
+		, startFunctionIndex(UINTPTR_MAX)
+		{
+		}
 	};
 
 	// Finds a named user section in a module.

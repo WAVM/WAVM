@@ -221,15 +221,28 @@ namespace WAST
 		}
 	};
 
+	enum class QuotedModuleType
+	{
+		none,
+		text,
+		binary
+	};
+
 	struct AssertInvalidOrMalformedCommand : Command
 	{
 		bool wasInvalidOrMalformed;
+		QuotedModuleType quotedModuleType;
+		std::string quotedModuleString;
 		AssertInvalidOrMalformedCommand(
 			Command::Type inType,
 			TextFileLocus&& inLocus,
-			bool inWasInvalidOrMalformed)
+			bool inWasInvalidOrMalformed,
+			QuotedModuleType inQuotedModuleType,
+			std::string&& inQuotedModuleString)
 		: Command(inType, std::move(inLocus))
 		, wasInvalidOrMalformed(inWasInvalidOrMalformed)
+		, quotedModuleType(inQuotedModuleType)
+		, quotedModuleString(inQuotedModuleString)
 		{
 		}
 	};

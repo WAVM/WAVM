@@ -16,10 +16,16 @@
 using namespace WAST;
 using namespace IR;
 
-static void dumpModule(const Module& module, const char* outputDir)
+enum class DumpFormat
 {
-	const std::string wastString = WAST::print(module);
-	const Uptr wastHash          = Hash<std::string>()(wastString);
+	wast,
+	wasm,
+	both
+};
+
+static void dumpWAST(const std::string& wastString, const char* outputDir)
+{
+	const Uptr wastHash = Hash<std::string>()(wastString);
 
 	Platform::File* wastFile = Platform::openFile(
 		std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast",
@@ -27,12 +33,50 @@ static void dumpModule(const Module& module, const char* outputDir)
 		Platform::FileCreateMode::createAlways);
 	errorUnless(Platform::writeFile(wastFile, (const U8*)wastString.c_str(), wastString.size()));
 	Platform::closeFile(wastFile);
-
-	saveBinaryModule(
-		(std::string(outputDir) + "/" + std::to_string(wastHash) + ".wasm").c_str(), module);
 }
 
-static void dumpCommandModules(const Command* command, const char* outputDir)
+static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
+{
+	const Uptr wasmHash = XXH64(wasmBytes, numBytes, 0);
+
+	Platform::File* wasmFile = Platform::openFile(
+		std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",
+		Platform::FileAccessMode::writeOnly,
+		Platform::FileCreateMode::createAlways);
+	errorUnless(Platform::writeFile(wasmFile, wasmBytes, numBytes));
+	Platform::closeFile(wasmFile);
+}
+
+static void dumpModule(const Module& module, const char* outputDir, DumpFormat dumpFormat)
+{
+	if(dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both)
+	{
+		const std::string wastString = WAST::print(module);
+		dumpWAST(wastString, outputDir);
+	}
+
+	if(dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both)
+	{
+		std::vector<U8> wasmBytes;
+		try
+		{
+			// Serialize the WebAssembly module.
+			Serialization::ArrayOutputStream stream;
+			WASM::serialize(stream, module);
+			wasmBytes = stream.getBytes();
+		}
+		catch(Serialization::FatalSerializationException exception)
+		{
+			std::cerr << "Error serializing WebAssembly binary file:" << std::endl;
+			std::cerr << exception.message << std::endl;
+			return;
+		}
+
+		dumpWASM(wasmBytes.data(), wasmBytes.size(), outputDir);
+	}
+}
+
+static void dumpCommandModules(const Command* command, const char* outputDir, DumpFormat dumpFormat)
 {
 	switch(command->type)
 	{
@@ -44,7 +88,7 @@ static void dumpCommandModules(const Command* command, const char* outputDir)
 		case ActionType::_module:
 		{
 			auto moduleAction = (ModuleAction*)actionCommand->action.get();
-			dumpModule(*moduleAction->module, outputDir);
+			dumpModule(*moduleAction->module, outputDir, dumpFormat);
 			break;
 		}
 		default: break;
@@ -54,7 +98,26 @@ static void dumpCommandModules(const Command* command, const char* outputDir)
 	case Command::assert_unlinkable:
 	{
 		auto assertUnlinkableCommand = (AssertUnlinkableCommand*)command;
-		dumpModule(*assertUnlinkableCommand->moduleAction->module, outputDir);
+		dumpModule(*assertUnlinkableCommand->moduleAction->module, outputDir, dumpFormat);
+		break;
+	}
+	case Command::assert_invalid:
+	case Command::assert_malformed:
+	{
+		auto assertInvalidOrMalformedCommand = (AssertInvalidOrMalformedCommand*)command;
+		if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::text
+		   && (dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both))
+		{ dumpWAST(assertInvalidOrMalformedCommand->quotedModuleString, outputDir); }
+		else if(
+			assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::binary
+			&& (dumpFormat == DumpFormat::wasm || dumpFormat == DumpFormat::both))
+		{
+			dumpWASM(
+				(const U8*)assertInvalidOrMalformedCommand->quotedModuleString.data(),
+				assertInvalidOrMalformedCommand->quotedModuleString.size(),
+				outputDir);
+		}
+
 		break;
 	}
 	default: break;
@@ -65,6 +128,7 @@ int main(int argc, char** argv)
 {
 	const char* filename  = nullptr;
 	const char* outputDir = ".";
+	DumpFormat dumpFormat = DumpFormat::both;
 	bool showHelpAndExit  = false;
 	if(argc < 2) { showHelpAndExit = true; }
 	else
@@ -82,6 +146,22 @@ int main(int argc, char** argv)
 					break;
 				}
 			}
+			else if(!strcmp(argv[argumentIndex], "--wast"))
+			{
+				if(dumpFormat == DumpFormat::wasm) { dumpFormat = DumpFormat::both; }
+				else
+				{
+					dumpFormat = DumpFormat::wast;
+				}
+			}
+			else if(!strcmp(argv[argumentIndex], "--wasm"))
+			{
+				if(dumpFormat == DumpFormat::wast) { dumpFormat = DumpFormat::both; }
+				else
+				{
+					dumpFormat = DumpFormat::wasm;
+				}
+			}
 			else if(!filename)
 			{
 				filename = argv[argumentIndex];
@@ -97,7 +177,8 @@ int main(int argc, char** argv)
 
 	if(showHelpAndExit)
 	{
-		std::cerr << "Usage: Test [--output-dir <directory>] <input .wast>" << std::endl;
+		std::cerr << "Usage: Test [--output-dir <directory>] [--wast] [--wasm] <input .wast>"
+				  << std::endl;
 		return EXIT_FAILURE;
 	}
 
@@ -123,7 +204,8 @@ int main(int argc, char** argv)
 		testErrors);
 	if(!testErrors.size())
 	{
-		for(auto& command : testCommands) { dumpCommandModules(command.get(), outputDir); }
+		for(auto& command : testCommands)
+		{ dumpCommandModules(command.get(), outputDir, dumpFormat); }
 		return EXIT_SUCCESS;
 	}
 	else
