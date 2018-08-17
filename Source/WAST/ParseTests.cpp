@@ -97,7 +97,6 @@ static void parseTestScriptModule(
 
 		if(quoteToken->type == t_quote)
 		{
-			moduleQuotedString = "(module " + moduleQuotedString + ")";
 
 			std::vector<Error> quotedErrors;
 			parseModule(
@@ -429,9 +428,30 @@ void WAST::parseTestCommands(
 
 	try
 	{
-		// (command)*<eof>
-		while(cursor.nextToken->type == t_leftParenthesis)
-		{ outTestCommands.emplace_back(parseCommand(&cursor, featureSpec)); };
+		// Support test scripts that are just an inline module.
+		if(cursor.nextToken[0].type == t_leftParenthesis
+		   && (cursor.nextToken[1].type == t_import || cursor.nextToken[1].type == t_export
+			   || cursor.nextToken[1].type == t_exception_type
+			   || cursor.nextToken[1].type == t_global || cursor.nextToken[1].type == t_memory
+			   || cursor.nextToken[1].type == t_table || cursor.nextToken[1].type == t_type
+			   || cursor.nextToken[1].type == t_data || cursor.nextToken[1].type == t_elem
+			   || cursor.nextToken[1].type == t_func || cursor.nextToken[1].type == t_start))
+		{
+			const TextFileLocus locus
+				= calcLocusFromOffset(string, lineInfo, cursor.nextToken[0].begin);
+			Module* module = new Module(featureSpec);
+			parseModuleBody(&cursor, *module);
+			auto moduleAction  = new ModuleAction(TextFileLocus(locus), "", module);
+			auto actionCommand = new ActionCommand(TextFileLocus(locus), moduleAction);
+			outTestCommands.emplace_back(actionCommand);
+		}
+		else
+		{
+			// (command)*<eof>
+			while(cursor.nextToken->type == t_leftParenthesis)
+			{ outTestCommands.emplace_back(parseCommand(&cursor, featureSpec)); };
+		}
+
 		require(&cursor, t_eof);
 	}
 	catch(RecoverParseException)

@@ -829,7 +829,8 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 		cursor->moduleState = &moduleState;
 
 		// Parse the module's declarations.
-		while(cursor->nextToken->type != t_rightParenthesis) { parseDeclaration(cursor); };
+		while(cursor->nextToken->type != t_rightParenthesis && cursor->nextToken->type != t_eof)
+		{ parseDeclaration(cursor); };
 
 		// Process the callbacks requested after all type declarations have been parsed.
 		if(!cursor->parseState->unresolvedErrors.size())
@@ -903,11 +904,19 @@ bool WAST::parseModule(
 
 	try
 	{
-		// Parse (module ...)<eof>
-		parseParenthesized(&cursor, [&] {
-			require(&cursor, t_module);
+		if(cursor.nextToken[0].type == t_leftParenthesis && cursor.nextToken[1].type == t_module)
+		{
+			// Parse (module <module body>)
+			parseParenthesized(&cursor, [&] {
+				require(&cursor, t_module);
+				parseModuleBody(&cursor, outModule);
+			});
+		}
+		else
+		{
+			// Also allow a module body without any enclosing (module ...).
 			parseModuleBody(&cursor, outModule);
-		});
+		}
 		require(&cursor, t_eof);
 	}
 	catch(RecoverParseException)
