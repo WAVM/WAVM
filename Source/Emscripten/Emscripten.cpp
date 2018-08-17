@@ -689,7 +689,7 @@ void Emscripten::initializeGlobals(
 		= asFunctionNullable(getInstanceExport(moduleInstance, "establishStackSpace"));
 	if(establishStackSpace
 	   && getFunctionType(establishStackSpace)
-		   == FunctionType(TypeTuple{}, TypeTuple{ValueType::i32, ValueType::i64}))
+			  == FunctionType(TypeTuple{}, TypeTuple{ValueType::i32, ValueType::i64}))
 	{
 		std::vector<IR::Value> parameters
 			= {IR::Value(STACKTOP.getValue().i32), IR::Value(STACK_MAX.getValue().i32)};

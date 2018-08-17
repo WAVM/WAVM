@@ -212,7 +212,7 @@ struct ModulePrintContext
 		// and add the "$" sigil.
 		IR::getDisassemblyNames(module, names);
 		const Uptr numGlobalNames = names.types.size() + names.tables.size() + names.memories.size()
-			+ names.globals.size();
+									+ names.globals.size();
 		NameScope globalNameScope('$', numGlobalNames);
 		for(auto& name : names.types) { globalNameScope.map(name); }
 		for(auto& name : names.tables) { globalNameScope.map(name); }
@@ -1086,7 +1086,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						if(index < module.functions.imports.size())
 						{
 							symbolName = module.functions.imports[index].moduleName + "."
-								+ module.functions.imports[index].exportName;
+										 + module.functions.imports[index].exportName;
 						}
 						else
 						{
@@ -1101,7 +1101,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						if(index < module.globals.imports.size())
 						{
 							symbolName = module.globals.imports[index].moduleName + "."
-								+ module.globals.imports[index].exportName;
+										 + module.globals.imports[index].exportName;
 						}
 						else
 						{

@@ -170,11 +170,11 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 {
 	errorUnless(isPageAligned(baseVirtualAddress));
 	return baseVirtualAddress
-		== VirtualAlloc(
-			   baseVirtualAddress,
-			   numPages << getPageSizeLog2(),
-			   MEM_COMMIT,
-			   memoryAccessAsWin32Flag(access));
+		   == VirtualAlloc(
+				  baseVirtualAddress,
+				  numPages << getPageSizeLog2(),
+				  MEM_COMMIT,
+				  memoryAccessAsWin32Flag(access));
 }
 
 bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
@@ -186,7 +186,7 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 			   numPages << getPageSizeLog2(),
 			   memoryAccessAsWin32Flag(access),
 			   &oldProtection)
-		!= 0;
+		   != 0;
 }
 
 void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
@@ -295,7 +295,7 @@ static std::string trimModuleName(std::string moduleName)
 	Uptr lastBackslashOffset         = thisModuleName.find_last_of("\\");
 	if(lastBackslashOffset != UINTPTR_MAX && moduleName.size() >= lastBackslashOffset
 	   && moduleName.substr(0, lastBackslashOffset)
-		   == thisModuleName.substr(0, lastBackslashOffset))
+			  == thisModuleName.substr(0, lastBackslashOffset))
 	{ return moduleName.substr(lastBackslashOffset + 1); }
 	else
 	{
@@ -885,8 +885,10 @@ U64 Platform::getMonotonicClock()
 	const U64 wavmFrequency = 1000000;
 
 	return performanceCounterFrequency.QuadPart > wavmFrequency
-		? performanceCounter.QuadPart / (performanceCounterFrequency.QuadPart / wavmFrequency)
-		: performanceCounter.QuadPart * (wavmFrequency / performanceCounterFrequency.QuadPart);
+			   ? performanceCounter.QuadPart
+					 / (performanceCounterFrequency.QuadPart / wavmFrequency)
+			   : performanceCounter.QuadPart
+					 * (wavmFrequency / performanceCounterFrequency.QuadPart);
 }
 
 Platform::Mutex::Mutex()

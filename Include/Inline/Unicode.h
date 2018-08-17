@@ -70,7 +70,7 @@ namespace Unicode
 				{ return false; }
 			}
 			outCodePoint = (U32(nextChar[0] & 0x0F) << 12) | (U32(nextChar[1] & 0x3F) << 6)
-				| U32(nextChar[2] & 0x3F);
+						   | U32(nextChar[2] & 0x3F);
 			nextChar += 3;
 			return true;
 		}
@@ -99,7 +99,7 @@ namespace Unicode
 			}
 
 			outCodePoint = (U32(nextChar[0] & 0x07) << 18) | (U32(nextChar[1] & 0x3F) << 12)
-				| (U32(nextChar[2] & 0x3F) << 6) | U32(nextChar[3] & 0x3F);
+						   | (U32(nextChar[2] & 0x3F) << 6) | U32(nextChar[3] & 0x3F);
 			nextChar += 4;
 			return true;
 		}

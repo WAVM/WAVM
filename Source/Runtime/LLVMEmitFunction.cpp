@@ -41,8 +41,8 @@ PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::Type
 llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 {
 	return value->getType()->isVectorTy() || value->getType()->isX86_MMXTy()
-		? irBuilder.CreateBitCast(value, llvmI64x2Type)
-		: value;
+			   ? irBuilder.CreateBitCast(value, llvmI64x2Type)
+			   : value;
 }
 
 // Debug logging.
@@ -356,9 +356,10 @@ void EmitFunctionContext::emit()
 		localIndex < functionType.params().size() + functionDef.nonParameterLocalTypes.size();
 		++localIndex)
 	{
-		auto localType = localIndex < functionType.params().size()
-			? functionType.params()[localIndex]
-			: functionDef.nonParameterLocalTypes[localIndex - functionType.params().size()];
+		auto localType
+			= localIndex < functionType.params().size()
+				  ? functionType.params()[localIndex]
+				  : functionDef.nonParameterLocalTypes[localIndex - functionType.params().size()];
 		auto localPointer = irBuilder.CreateAlloca(asLLVMType(localType), nullptr, "");
 		localPointers.push_back(localPointer);
 

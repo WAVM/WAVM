@@ -27,7 +27,7 @@ template<typename Index, Uptr maxIndexPlusOne> struct DenseStaticIntSet
 	{
 		wavmAssert((Uptr)index < maxIndexPlusOne);
 		return (elements[index / indicesPerElement] & (Element(1) << (index % indicesPerElement)))
-			!= 0;
+			   != 0;
 	}
 	bool isEmpty() const
 	{

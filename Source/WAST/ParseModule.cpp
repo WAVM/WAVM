@@ -438,13 +438,13 @@ static void parseData(CursorState* cursor)
 		}
 		else
 		{
-			moduleState->module.dataSegments[dataSegmentIndex].memoryIndex = hasMemoryRef
-				? resolveRef(
-					  moduleState->parseState,
-					  moduleState->memoryNameToIndexMap,
-					  moduleState->module.memories.size(),
-					  memoryRef)
-				: 0;
+			moduleState->module.dataSegments[dataSegmentIndex].memoryIndex
+				= hasMemoryRef ? resolveRef(
+									 moduleState->parseState,
+									 moduleState->memoryNameToIndexMap,
+									 moduleState->module.memories.size(),
+									 memoryRef)
+							   : 0;
 		}
 	});
 }

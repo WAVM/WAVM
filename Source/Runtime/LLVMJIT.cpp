@@ -206,8 +206,9 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
 			codeSection.baseAddress = imageBaseAddress;
 			readOnlySection.baseAddress
 				= codeSection.baseAddress + (codeSection.numPages << Platform::getPageSizeLog2());
-			readWriteSection.baseAddress = readOnlySection.baseAddress
-				+ (readOnlySection.numPages << Platform::getPageSizeLog2());
+			readWriteSection.baseAddress
+				= readOnlySection.baseAddress
+				  + (readOnlySection.numPages << Platform::getPageSizeLog2());
 		}
 	}
 	virtual U8* allocateCodeSection(
@@ -240,8 +241,8 @@ struct UnitMemoryManager : llvm::RTDyldMemoryManager
 		wavmAssert(!isFinalized);
 		isFinalized                             = true;
 		const Platform::MemoryAccess codeAccess = USE_WRITEABLE_JIT_CODE_PAGES
-			? Platform::MemoryAccess::readWriteExecute
-			: Platform::MemoryAccess::execute;
+													  ? Platform::MemoryAccess::readWriteExecute
+													  : Platform::MemoryAccess::execute;
 		if(codeSection.numPages)
 		{
 			errorUnless(Platform::setVirtualPageAccess(
@@ -829,7 +830,7 @@ std::string LLVMJIT::getExternalFunctionName(ModuleInstance* moduleInstance, Upt
 {
 	wavmAssert(functionDefIndex < moduleInstance->functionDefs.size());
 	return "wasmFunc" + std::to_string(functionDefIndex) + "_"
-		+ moduleInstance->functionDefs[functionDefIndex]->debugName;
+		   + moduleInstance->functionDefs[functionDefIndex]->debugName;
 }
 
 bool LLVMJIT::getFunctionIndexFromExternalName(const char* externalName, Uptr& outFunctionDefIndex)

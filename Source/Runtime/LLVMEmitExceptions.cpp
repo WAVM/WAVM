@@ -381,7 +381,7 @@ void EmitFunctionContext::catch_(CatchImm imm)
 	{
 		const ValueType parameters = catchTypeInstance->type.params[argumentIndex];
 		const Uptr argumentOffset  = offsetof(ExceptionData, arguments)
-			+ sizeof(ExceptionData::arguments[0]) * argumentIndex;
+									+ sizeof(ExceptionData::arguments[0]) * argumentIndex;
 		auto argument = loadFromUntypedPointer(
 			irBuilder.CreateInBoundsGEP(
 				catchContext.exceptionPointer, {emitLiteral(argumentOffset)}),

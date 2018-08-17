@@ -257,8 +257,8 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 			{
 				const Command::Type commandType
 					= cursor->nextToken->type == t_assert_return_canonical_nan
-					? Command::assert_return_canonical_nan
-					: Command::assert_return_arithmetic_nan;
+						  ? Command::assert_return_canonical_nan
+						  : Command::assert_return_arithmetic_nan;
 				++cursor->nextToken;
 
 				Action* action = parseAction(cursor, featureSpec);
@@ -372,8 +372,8 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 			case t_assert_malformed:
 			{
 				const Command::Type commandType = cursor->nextToken->type == t_assert_invalid
-					? Command::assert_invalid
-					: Command::assert_malformed;
+													  ? Command::assert_invalid
+													  : Command::assert_malformed;
 				++cursor->nextToken;
 
 				std::string internalModuleName;

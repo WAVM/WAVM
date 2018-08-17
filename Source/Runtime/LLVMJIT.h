@@ -168,8 +168,8 @@ namespace LLVMJIT
 	{
 		const Uptr numImplicitParameters
 			= callingConvention == CallingConvention::intrinsicWithMemAndTable
-			? 3
-			: callingConvention == CallingConvention::c ? 0 : 1;
+				  ? 3
+				  : callingConvention == CallingConvention::c ? 0 : 1;
 		const Uptr numParameters = numImplicitParameters + functionType.params().size();
 		auto llvmArgTypes        = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 		if(callingConvention == CallingConvention::intrinsicWithMemAndTable)
@@ -282,8 +282,9 @@ namespace LLVMJIT
 
 			if(defaultTable)
 			{
-				const Uptr defaultTableBaseOffset = offsetof(CompartmentRuntimeData, tables)
-					+ sizeof(TableInstance::FunctionElement*) * defaultTable->id;
+				const Uptr defaultTableBaseOffset
+					= offsetof(CompartmentRuntimeData, tables)
+					  + sizeof(TableInstance::FunctionElement*) * defaultTable->id;
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(

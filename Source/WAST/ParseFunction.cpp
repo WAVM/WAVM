@@ -738,8 +738,8 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 															ModuleState* moduleState) {
 			FunctionDef& functionDef  = moduleState->module.functions.defs[functionDefIndex];
 			FunctionType functionType = functionTypeIndex.index == UINT32_MAX
-				? FunctionType()
-				: moduleState->module.types[functionTypeIndex.index];
+											? FunctionType()
+											: moduleState->module.types[functionTypeIndex.index];
 
 			// Parse the function's local variables.
 			CursorState functionCursorState(firstBodyToken, moduleState->parseState, moduleState);

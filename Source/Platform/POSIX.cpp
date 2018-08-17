@@ -169,7 +169,7 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 	errorUnless(isPageAligned(baseVirtualAddress));
 	return mprotect(
 			   baseVirtualAddress, numPages << getPageSizeLog2(), memoryAccessAsPOSIXFlag(access))
-		== 0;
+		   == 0;
 }
 
 bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
@@ -177,7 +177,7 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 	errorUnless(isPageAligned(baseVirtualAddress));
 	return mprotect(
 			   baseVirtualAddress, numPages << getPageSizeLog2(), memoryAccessAsPOSIXFlag(access))
-		== 0;
+		   == 0;
 }
 
 void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
@@ -413,8 +413,8 @@ static void deliverSignal(Signal signal, const CallStack& callStack)
 		getCurrentThreadStack(stackMinAddr, stackMaxAddr);
 		stackMinAddr -= sysconf(_SC_PAGESIZE);
 		signal.type = signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
-			? Signal::Type::stackOverflow
-			: Signal::Type::accessViolation;
+						  ? Signal::Type::stackOverflow
+						  : Signal::Type::accessViolation;
 		signal.accessViolation.address = reinterpret_cast<Uptr>(signalInfo->si_addr);
 		break;
 	}

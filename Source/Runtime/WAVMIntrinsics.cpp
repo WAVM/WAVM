@@ -19,7 +19,7 @@ template<typename Float> Float quietNaN(Float value)
 	Floats::FloatComponents<Float> components;
 	components.value = value;
 	components.bits.significand |= typename Floats::FloatComponents<Float>::Bits(1)
-		<< (Floats::FloatComponents<Float>::numSignificandBits - 1);
+								   << (Floats::FloatComponents<Float>::numSignificandBits - 1);
 	return components.value;
 }
 

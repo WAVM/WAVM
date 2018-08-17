@@ -19,8 +19,8 @@ struct DefaultHashTableAllocPolicy
 
 	static Uptr getMaxDesiredBuckets(Uptr numDesiredElements)
 	{
-		const Uptr maxDesiredBuckets = Uptr(1)
-			<< Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 7));
+		const Uptr maxDesiredBuckets
+			= Uptr(1) << Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 7));
 		return maxDesiredBuckets < minBuckets ? minBuckets : maxDesiredBuckets;
 	}
 
@@ -29,8 +29,8 @@ struct DefaultHashTableAllocPolicy
 		if(numDesiredElements == 0) { return 0; }
 		else
 		{
-			const Uptr minDesiredBuckets = Uptr(1)
-				<< Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 16));
+			const Uptr minDesiredBuckets
+				= Uptr(1) << Platform::ceilLogTwo(divideAndRoundUp(numDesiredElements * 20, 16));
 			return minDesiredBuckets < minBuckets ? minBuckets : minDesiredBuckets;
 		}
 	}

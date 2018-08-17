@@ -241,7 +241,7 @@ IndexedFunctionType WAST::resolveFunctionType(
 		{
 			if(referencedFunctionTypeIndex != UINT32_MAX
 			   && moduleState->module.types[referencedFunctionTypeIndex]
-				   != unresolvedType.explicitType)
+					  != unresolvedType.explicitType)
 			{
 				parseErrorf(
 					moduleState->parseState,

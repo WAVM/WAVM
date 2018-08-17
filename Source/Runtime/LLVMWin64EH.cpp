@@ -134,7 +134,7 @@ static void applyImageRelativeRelocations(
 			{
 				const llvm::object::section_iterator symbolSection = cantFail(symbol->getSection());
 				symbolAddress = (cantFail(symbol->getAddress()) - symbolSection->getAddress())
-					+ loadedObject->getSectionLoadAddress(*symbolSection);
+								+ loadedObject->getSectionLoadAddress(*symbolSection);
 			}
 
 			U32* valueToRelocate       = (U32*)(sectionData + relocIt.getOffset());

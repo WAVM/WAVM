@@ -159,7 +159,7 @@ template<typename Float> Float parseNaN(const char*& nextChar, ParseState* parse
 	{
 		// If the NaN's significand isn't specified, just set the top bit.
 		resultComponents.bits.significand = typename FloatComponents::Bits(1)
-			<< (FloatComponents::numSignificandBits - 1);
+											<< (FloatComponents::numSignificandBits - 1);
 	}
 
 	return resultComponents.value;
@@ -215,10 +215,11 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 	while(true)
 	{
 		// Determine whether the next character is still part of the number.
-		const bool isNumericChar = (*nextChar >= '0' && *nextChar <= '9')
-			|| (*nextChar >= 'a' && *nextChar <= 'f') || (*nextChar >= 'A' && *nextChar <= 'F')
-			|| *nextChar == 'x' || *nextChar == 'X' || *nextChar == 'p' || *nextChar == 'P'
-			|| *nextChar == '+' || *nextChar == '-' || *nextChar == '.' || *nextChar == '_';
+		const bool isNumericChar
+			= (*nextChar >= '0' && *nextChar <= '9') || (*nextChar >= 'a' && *nextChar <= 'f')
+			  || (*nextChar >= 'A' && *nextChar <= 'F') || *nextChar == 'x' || *nextChar == 'X'
+			  || *nextChar == 'p' || *nextChar == 'P' || *nextChar == '+' || *nextChar == '-'
+			  || *nextChar == '.' || *nextChar == '_';
 
 		if(!isNumericChar) { break; }
 

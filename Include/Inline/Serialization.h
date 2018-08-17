@@ -202,9 +202,10 @@ namespace Serialization
 		{
 			U8 outputByte = (U8)(value & 127);
 			value >>= 7;
-			more = std::is_signed<Value>::value ? (value != 0 && value != Value(-1))
-					|| (value >= 0 && (outputByte & 0x40)) || (value < 0 && !(outputByte & 0x40))
-												: (value != 0);
+			more = std::is_signed<Value>::value
+					   ? (value != 0 && value != Value(-1)) || (value >= 0 && (outputByte & 0x40))
+							 || (value < 0 && !(outputByte & 0x40))
+					   : (value != 0);
 			if(more) { outputByte |= 0x80; }
 			*stream.advance(1) = outputByte;
 		};

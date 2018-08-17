@@ -266,8 +266,9 @@ template<typename Float> bool isCanonicalOrArithmeticNaN(Float value, bool requi
 	Floats::FloatComponents<Float> components;
 	components.value = value;
 	return components.bits.exponent == Floats::FloatComponents<Float>::maxExponentBits
-		&& (!requireCanonical
-			|| components.bits.significand == Floats::FloatComponents<Float>::canonicalSignificand);
+		   && (!requireCanonical
+			   || components.bits.significand
+					  == Floats::FloatComponents<Float>::canonicalSignificand);
 }
 
 static void processCommand(TestScriptState& state, const Command* command)
@@ -332,10 +333,12 @@ static void processCommand(TestScriptState& state, const Command* command)
 						const bool requireCanonicalNaN
 							= assertCommand->type == Command::assert_return_canonical_nan;
 						const bool isError = actionResult.type == ValueType::f32
-							? !isCanonicalOrArithmeticNaN(actionResult.f32, requireCanonicalNaN)
-							: actionResult.type == ValueType::f64
-								? !isCanonicalOrArithmeticNaN(actionResult.f64, requireCanonicalNaN)
-								: true;
+												 ? !isCanonicalOrArithmeticNaN(
+													   actionResult.f32, requireCanonicalNaN)
+												 : actionResult.type == ValueType::f64
+													   ? !isCanonicalOrArithmeticNaN(
+															 actionResult.f64, requireCanonicalNaN)
+													   : true;
 						if(isError)
 						{
 							testErrorf(

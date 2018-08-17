@@ -282,8 +282,8 @@ namespace IR
 	inline std::string asString(const SizeConstraints& sizeConstraints)
 	{
 		return std::to_string(sizeConstraints.min)
-			+ (sizeConstraints.max == UINT64_MAX ? ".."
-												 : ".." + std::to_string(sizeConstraints.max));
+			   + (sizeConstraints.max == UINT64_MAX ? ".."
+													: ".." + std::to_string(sizeConstraints.max));
 	}
 
 	// The type of element a table contains: for now can only be anyfunc, meaning any function type.
@@ -310,17 +310,17 @@ namespace IR
 		friend bool operator==(const TableType& left, const TableType& right)
 		{
 			return left.elementType == right.elementType && left.isShared == right.isShared
-				&& left.size == right.size;
+				   && left.size == right.size;
 		}
 		friend bool operator!=(const TableType& left, const TableType& right)
 		{
 			return left.elementType != right.elementType || left.isShared != right.isShared
-				|| left.size != right.size;
+				   || left.size != right.size;
 		}
 		friend bool isSubset(const TableType& super, const TableType& sub)
 		{
 			return super.elementType == sub.elementType && super.isShared == sub.isShared
-				&& isSubset(super.size, sub.size);
+				   && isSubset(super.size, sub.size);
 		}
 	};
 
