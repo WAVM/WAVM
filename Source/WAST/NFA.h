@@ -45,12 +45,7 @@ namespace NFA
 	// Encapsulates a NFA that has been translated into a DFA that can be efficiently executed.
 	struct Machine
 	{
-		Machine()
-		: stateAndOffsetToNextStateMap(nullptr)
-		, numClasses(0)
-		, numStates(0)
-		{
-		}
+		Machine() : stateAndOffsetToNextStateMap(nullptr), numClasses(0), numStates(0) {}
 		~Machine();
 
 		Machine(Machine&& inMachine) { moveFrom(std::move(inMachine)); }

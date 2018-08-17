@@ -30,8 +30,7 @@ namespace Wavix
 		Platform::Event wakeEvent;
 
 		Thread(Process* inProcess, Runtime::Context* inContext)
-		: process(inProcess)
-		, context(inContext)
+		: process(inProcess), context(inContext)
 		{
 		}
 	};

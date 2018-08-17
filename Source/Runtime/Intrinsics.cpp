@@ -55,9 +55,7 @@ Intrinsics::Global::Global(
 	const char* inName,
 	IR::ValueType inType,
 	IR::Value inValue)
-: name(inName)
-, type(inType)
-, value(inValue)
+: name(inName), type(inType), value(inValue)
 {
 	initializeModule(moduleRef);
 
@@ -75,8 +73,7 @@ Intrinsics::Table::Table(
 	Intrinsics::Module& moduleRef,
 	const char* inName,
 	const IR::TableType& inType)
-: name(inName)
-, type(inType)
+: name(inName), type(inType)
 {
 	initializeModule(moduleRef);
 
@@ -94,8 +91,7 @@ Intrinsics::Memory::Memory(
 	Intrinsics::Module& moduleRef,
 	const char* inName,
 	const IR::MemoryType& inType)
-: name(inName)
-, type(inType)
+: name(inName), type(inType)
 {
 	initializeModule(moduleRef);
 

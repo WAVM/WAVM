@@ -292,9 +292,7 @@ struct StateTransitionsByChar
 	StateIndex* nextStateByInitialState;
 	Uptr numStates;
 	StateTransitionsByChar(U8 inC, Uptr inNumStates)
-	: c(inC)
-	, nextStateByInitialState(nullptr)
-	, numStates(inNumStates)
+	: c(inC), nextStateByInitialState(nullptr), numStates(inNumStates)
 	{
 	}
 	StateTransitionsByChar(StateTransitionsByChar&& inMove)

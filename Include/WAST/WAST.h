@@ -23,12 +23,7 @@ namespace WAST
 		U32 tabs;
 		U32 characters;
 
-		TextFileLocus()
-		: newlines(0)
-		, tabs(0)
-		, characters(0)
-		{
-		}
+		TextFileLocus() : newlines(0), tabs(0), characters(0) {}
 
 		U32 lineNumber() const { return newlines + 1; }
 		U32 column(U32 spacesPerTab = 4) const { return tabs * spacesPerTab + characters + 1; }

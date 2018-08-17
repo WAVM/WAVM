@@ -15,10 +15,7 @@ namespace Serialization
 	struct FatalSerializationException
 	{
 		std::string message;
-		FatalSerializationException(std::string&& inMessage)
-		: message(std::move(inMessage))
-		{
-		}
+		FatalSerializationException(std::string&& inMessage) : message(std::move(inMessage)) {}
 	};
 
 	// An abstract output stream.
@@ -29,11 +26,7 @@ namespace Serialization
 			isInput = false
 		};
 
-		OutputStream()
-		: next(nullptr)
-		, end(nullptr)
-		{
-		}
+		OutputStream() : next(nullptr), end(nullptr) {}
 
 		Uptr capacity() const { return SIZE_MAX; }
 
@@ -95,11 +88,7 @@ namespace Serialization
 			isInput = true
 		};
 
-		InputStream(const U8* inNext, const U8* inEnd)
-		: next(inNext)
-		, end(inEnd)
-		{
-		}
+		InputStream(const U8* inNext, const U8* inEnd) : next(inNext), end(inEnd) {}
 
 		virtual Uptr capacity() const = 0;
 
@@ -134,10 +123,7 @@ namespace Serialization
 	// An input stream that reads from a contiguous range of memory.
 	struct MemoryInputStream : InputStream
 	{
-		MemoryInputStream(const U8* begin, Uptr numBytes)
-		: InputStream(begin, begin + numBytes)
-		{
-		}
+		MemoryInputStream(const U8* begin, Uptr numBytes) : InputStream(begin, begin + numBytes) {}
 		virtual Uptr capacity() const { return end - next; }
 
 	private:

@@ -27,11 +27,7 @@ namespace WAST
 		const Type type;
 		const TextFileLocus locus;
 
-		Command(Type inType, TextFileLocus&& inLocus)
-		: type(inType)
-		, locus(inLocus)
-		{
-		}
+		Command(Type inType, TextFileLocus&& inLocus) : type(inType), locus(inLocus) {}
 
 		virtual ~Command() {}
 	};
@@ -76,11 +72,7 @@ namespace WAST
 		const ActionType type;
 		const TextFileLocus locus;
 
-		Action(ActionType inType, TextFileLocus&& inLocus)
-		: type(inType)
-		, locus(inLocus)
-		{
-		}
+		Action(ActionType inType, TextFileLocus&& inLocus) : type(inType), locus(inLocus) {}
 
 		virtual ~Action() {}
 	};
@@ -154,8 +146,7 @@ namespace WAST
 	{
 		std::unique_ptr<Action> action;
 		ActionCommand(TextFileLocus&& inLocus, Action* inAction)
-		: Command(Command::action, std::move(inLocus))
-		, action(inAction)
+		: Command(Command::action, std::move(inLocus)), action(inAction)
 		{
 		}
 	};
@@ -179,8 +170,7 @@ namespace WAST
 	{
 		std::unique_ptr<Action> action;
 		AssertReturnNaNCommand(Command::Type inType, TextFileLocus&& inLocus, Action* inAction)
-		: Command(inType, std::move(inLocus))
-		, action(inAction)
+		: Command(inType, std::move(inLocus)), action(inAction)
 		{
 		}
 	};
@@ -251,8 +241,7 @@ namespace WAST
 	{
 		std::unique_ptr<ModuleAction> moduleAction;
 		AssertUnlinkableCommand(TextFileLocus&& inLocus, ModuleAction* inModuleAction)
-		: Command(Command::assert_unlinkable, std::move(inLocus))
-		, moduleAction(inModuleAction)
+		: Command(Command::assert_unlinkable, std::move(inLocus)), moduleAction(inModuleAction)
 		{
 		}
 	};

@@ -324,9 +324,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::analyzeSpaceUsage(
 
 template<HASHTABLE_PARAMETERS>
 HashTable<HASHTABLE_ARGUMENTS>::HashTable(Uptr estimatedNumElements)
-: buckets(nullptr)
-, numElements(0)
-, hashToBucketIndexMask(UINTPTR_MAX)
+: buckets(nullptr), numElements(0), hashToBucketIndexMask(UINTPTR_MAX)
 {
 	const Uptr numBuckets = AllocPolicy::getMinDesiredBuckets(estimatedNumElements);
 	if(numBuckets)

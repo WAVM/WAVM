@@ -147,10 +147,7 @@ namespace IR
 
 		const Impl* impl;
 
-		TypeTuple(const Impl* inImpl)
-		: impl(inImpl)
-		{
-		}
+		TypeTuple(const Impl* inImpl) : impl(inImpl) {}
 
 		IR_API static const Impl* getUniqueImpl(Uptr numElems, const ValueType* inElems);
 	};
@@ -201,10 +198,7 @@ namespace IR
 		{
 		}
 
-		FunctionType(Encoding encoding)
-		: impl(reinterpret_cast<const Impl*>(encoding.impl))
-		{
-		}
+		FunctionType(Encoding encoding) : impl(reinterpret_cast<const Impl*>(encoding.impl)) {}
 
 		TypeTuple results() const { return impl->results; }
 		TypeTuple params() const { return impl->params; }
@@ -233,10 +227,7 @@ namespace IR
 
 		const Impl* impl;
 
-		FunctionType(const Impl* inImpl)
-		: impl(inImpl)
-		{
-		}
+		FunctionType(const Impl* inImpl) : impl(inImpl) {}
 
 		IR_API static const Impl* getUniqueImpl(TypeTuple results, TypeTuple params);
 	};
@@ -308,16 +299,11 @@ namespace IR
 		bool isShared;
 		SizeConstraints size;
 
-		TableType()
-		: elementType(TableElementType::anyfunc)
-		, isShared(false)
-		, size({0, UINT64_MAX})
+		TableType() : elementType(TableElementType::anyfunc), isShared(false), size({0, UINT64_MAX})
 		{
 		}
 		TableType(TableElementType inElementType, bool inIsShared, SizeConstraints inSize)
-		: elementType(inElementType)
-		, isShared(inIsShared)
-		, size(inSize)
+		: elementType(inElementType), isShared(inIsShared), size(inSize)
 		{
 		}
 
@@ -349,14 +335,9 @@ namespace IR
 		bool isShared;
 		SizeConstraints size;
 
-		MemoryType()
-		: isShared(false)
-		, size({0, UINT64_MAX})
-		{
-		}
+		MemoryType() : isShared(false), size({0, UINT64_MAX}) {}
 		MemoryType(bool inIsShared, const SizeConstraints& inSize)
-		: isShared(inIsShared)
-		, size(inSize)
+		: isShared(inIsShared), size(inSize)
 		{
 		}
 
@@ -385,14 +366,9 @@ namespace IR
 		ValueType valueType;
 		bool isMutable;
 
-		GlobalType()
-		: valueType(ValueType::any)
-		, isMutable(false)
-		{
-		}
+		GlobalType() : valueType(ValueType::any), isMutable(false) {}
 		GlobalType(ValueType inValueType, bool inIsMutable)
-		: valueType(inValueType)
-		, isMutable(inIsMutable)
+		: valueType(inValueType), isMutable(inIsMutable)
 		{
 		}
 
@@ -453,39 +429,16 @@ namespace IR
 	{
 		const ObjectKind kind;
 
-		ObjectType()
-		: kind(ObjectKind::invalid)
-		{
-		}
-		ObjectType(FunctionType inFunction)
-		: kind(ObjectKind::function)
-		, function(inFunction)
-		{
-		}
-		ObjectType(TableType inTable)
-		: kind(ObjectKind::table)
-		, table(inTable)
-		{
-		}
-		ObjectType(MemoryType inMemory)
-		: kind(ObjectKind::memory)
-		, memory(inMemory)
-		{
-		}
-		ObjectType(GlobalType inGlobal)
-		: kind(ObjectKind::global)
-		, global(inGlobal)
-		{
-		}
+		ObjectType() : kind(ObjectKind::invalid) {}
+		ObjectType(FunctionType inFunction) : kind(ObjectKind::function), function(inFunction) {}
+		ObjectType(TableType inTable) : kind(ObjectKind::table), table(inTable) {}
+		ObjectType(MemoryType inMemory) : kind(ObjectKind::memory), memory(inMemory) {}
+		ObjectType(GlobalType inGlobal) : kind(ObjectKind::global), global(inGlobal) {}
 		ObjectType(ExceptionType inExceptionType)
-		: kind(ObjectKind::exceptionType)
-		, exceptionType(inExceptionType)
+		: kind(ObjectKind::exceptionType), exceptionType(inExceptionType)
 		{
 		}
-		ObjectType(ObjectKind inKind)
-		: kind(inKind)
-		{
-		}
+		ObjectType(ObjectKind inKind) : kind(inKind) {}
 
 		friend FunctionType asFunctionType(const ObjectType& objectType)
 		{

@@ -55,9 +55,7 @@ namespace
 	struct ScopedBranchTarget
 	{
 		ScopedBranchTarget(FunctionState* inFunctionState, Name inName)
-		: functionState(inFunctionState)
-		, name(inName)
-		, previousBranchTargetIndex(UINT32_MAX)
+		: functionState(inFunctionState), name(inName), previousBranchTargetIndex(UINT32_MAX)
 		{
 			branchTargetIndex = ++functionState->branchTargetDepth;
 			if(name)

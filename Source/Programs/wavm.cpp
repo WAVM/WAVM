@@ -20,10 +20,7 @@ struct RootResolver : Resolver
 	Compartment* compartment;
 	HashMap<std::string, ModuleInstance*> moduleNameToInstanceMap;
 
-	RootResolver(Compartment* inCompartment)
-	: compartment(inCompartment)
-	{
-	}
+	RootResolver(Compartment* inCompartment) : compartment(inCompartment) {}
 
 	bool resolve(
 		const std::string& moduleName,

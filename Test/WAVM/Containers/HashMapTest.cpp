@@ -290,11 +290,7 @@ struct EmplacedValue
 	std::string a;
 	std::string b;
 
-	EmplacedValue(const std::string& inA, const std::string& inB)
-	: a(inA)
-	, b(inB)
-	{
-	}
+	EmplacedValue(const std::string& inA, const std::string& inB) : a(inA), b(inB) {}
 };
 
 static void testMapEmplace()

@@ -129,8 +129,7 @@ namespace IR
 	struct OperatorDecoderStream
 	{
 		OperatorDecoderStream(const std::vector<U8>& codeBytes)
-		: nextByte(codeBytes.data())
-		, end(codeBytes.data() + codeBytes.size())
+		: nextByte(codeBytes.data()), end(codeBytes.data() + codeBytes.size())
 		{
 		}
 
@@ -173,8 +172,7 @@ namespace IR
 	// Encodes an operator to an output stream.
 	struct OperatorEncoderStream
 	{
-		OperatorEncoderStream(Serialization::OutputStream& inByteStream)
-		: byteStream(inByteStream)
+		OperatorEncoderStream(Serialization::OutputStream& inByteStream) : byteStream(inByteStream)
 		{
 		}
 

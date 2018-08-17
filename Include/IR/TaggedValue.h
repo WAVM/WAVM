@@ -37,50 +37,15 @@ namespace IR
 	{
 		IR::ValueType type;
 
-		Value(I32 inI32)
-		: UntaggedValue(inI32)
-		, type(IR::ValueType::i32)
-		{
-		}
-		Value(I64 inI64)
-		: UntaggedValue(inI64)
-		, type(IR::ValueType::i64)
-		{
-		}
-		Value(U32 inU32)
-		: UntaggedValue(inU32)
-		, type(IR::ValueType::i32)
-		{
-		}
-		Value(U64 inU64)
-		: UntaggedValue(inU64)
-		, type(IR::ValueType::i64)
-		{
-		}
-		Value(F32 inF32)
-		: UntaggedValue(inF32)
-		, type(IR::ValueType::f32)
-		{
-		}
-		Value(F64 inF64)
-		: UntaggedValue(inF64)
-		, type(IR::ValueType::f64)
-		{
-		}
-		Value(const V128& inV128)
-		: UntaggedValue(inV128)
-		, type(IR::ValueType::v128)
-		{
-		}
-		Value(IR::ValueType inType, UntaggedValue inValue)
-		: UntaggedValue(inValue)
-		, type(inType)
-		{
-		}
-		Value()
-		: type(IR::ValueType::any)
-		{
-		}
+		Value(I32 inI32) : UntaggedValue(inI32), type(IR::ValueType::i32) {}
+		Value(I64 inI64) : UntaggedValue(inI64), type(IR::ValueType::i64) {}
+		Value(U32 inU32) : UntaggedValue(inU32), type(IR::ValueType::i32) {}
+		Value(U64 inU64) : UntaggedValue(inU64), type(IR::ValueType::i64) {}
+		Value(F32 inF32) : UntaggedValue(inF32), type(IR::ValueType::f32) {}
+		Value(F64 inF64) : UntaggedValue(inF64), type(IR::ValueType::f64) {}
+		Value(const V128& inV128) : UntaggedValue(inV128), type(IR::ValueType::v128) {}
+		Value(IR::ValueType inType, UntaggedValue inValue) : UntaggedValue(inValue), type(inType) {}
+		Value() : type(IR::ValueType::any) {}
 
 		friend std::string asString(const Value& value)
 		{
@@ -118,8 +83,7 @@ namespace IR
 	{
 		std::vector<Value> values;
 
-		ValueTuple(IR::ValueType inType, UntaggedValue inValue)
-		: values({Value(inType, inValue)})
+		ValueTuple(IR::ValueType inType, UntaggedValue inValue) : values({Value(inType, inValue)})
 		{
 		}
 		ValueTuple(IR::TypeTuple types, UntaggedValue* inValues)
@@ -127,10 +91,7 @@ namespace IR
 			values.reserve(types.size());
 			for(IR::ValueType type : types) { values.push_back(Value(type, *inValues++)); }
 		}
-		ValueTuple(const Value& inValue)
-		: values({inValue})
-		{
-		}
+		ValueTuple(const Value& inValue) : values({inValue}) {}
 		ValueTuple() {}
 
 		Uptr size() const { return values.size(); }

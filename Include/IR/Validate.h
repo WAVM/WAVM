@@ -13,10 +13,7 @@ namespace IR
 	struct ValidationException
 	{
 		std::string message;
-		ValidationException(std::string&& inMessage)
-		: message(inMessage)
-		{
-		}
+		ValidationException(std::string&& inMessage) : message(inMessage) {}
 	};
 
 	struct CodeValidationStreamImpl;
@@ -42,8 +39,7 @@ namespace IR
 			const Module& module,
 			const FunctionDef& function,
 			InnerStream& inInnerStream)
-		: codeValidationStream(module, function)
-		, innerStream(inInnerStream)
+		: codeValidationStream(module, function), innerStream(inInnerStream)
 		{
 		}
 

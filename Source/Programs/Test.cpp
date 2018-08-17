@@ -48,10 +48,7 @@ struct TestScriptState
 
 struct TestScriptResolver : Resolver
 {
-	TestScriptResolver(const TestScriptState& inState)
-	: state(inState)
-	{
-	}
+	TestScriptResolver(const TestScriptState& inState) : state(inState) {}
 	bool resolve(
 		const std::string& moduleName,
 		const std::string& exportName,

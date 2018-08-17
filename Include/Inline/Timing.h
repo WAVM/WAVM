@@ -9,11 +9,7 @@ namespace Timing
 	// Encapsulates a timer that starts when constructed and stops when read.
 	struct Timer
 	{
-		Timer()
-		: startTime(std::chrono::high_resolution_clock::now())
-		, isStopped(false)
-		{
-		}
+		Timer() : startTime(std::chrono::high_resolution_clock::now()), isStopped(false) {}
 		void stop() { endTime = std::chrono::high_resolution_clock::now(); }
 		U64 getMicroseconds()
 		{

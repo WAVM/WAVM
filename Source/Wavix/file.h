@@ -18,10 +18,7 @@ namespace Wavix
 	{
 		FileSystem* const fs;
 
-		File(FileSystem* inFS)
-		: fs(inFS)
-		{
-		}
+		File(FileSystem* inFS) : fs(inFS) {}
 
 		virtual U64 seek(U64 newPosition, Platform::FileSeekOrigin origin) = 0;
 		virtual Iptr read(U8* buffer, Uptr numBytes)                       = 0;

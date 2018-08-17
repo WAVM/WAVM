@@ -25,8 +25,7 @@ namespace WAST
 		Uptr charOffset;
 		std::string message;
 		UnresolvedError(Uptr inCharOffset, std::string&& inMessage)
-		: charOffset(inCharOffset)
-		, message(inMessage)
+		: charOffset(inCharOffset), message(inMessage)
 		{
 		}
 	};
@@ -38,8 +37,7 @@ namespace WAST
 		std::vector<UnresolvedError> unresolvedErrors;
 
 		ParseState(const char* inString, const LineInfo* inLineInfo)
-		: string(inString)
-		, lineInfo(inLineInfo)
+		: string(inString), lineInfo(inLineInfo)
 		{
 		}
 	};
@@ -51,16 +49,9 @@ namespace WAST
 	// Includes a hash of the name's characters.
 	struct Name
 	{
-		constexpr Name()
-		: begin(nullptr)
-		, numChars(0)
-		, sourceOffset(0)
-		{
-		}
+		constexpr Name() : begin(nullptr), numChars(0), sourceOffset(0) {}
 		Name(const char* inBegin, U32 inNumChars, U32 inSourceOffset)
-		: begin(inBegin)
-		, numChars(inNumChars)
-		, sourceOffset(inSourceOffset)
+		: begin(inBegin), numChars(inNumChars), sourceOffset(inSourceOffset)
 		{
 		}
 
@@ -115,21 +106,9 @@ namespace WAST
 			U32 index;
 		};
 		const Token* token;
-		Reference(const Name& inName)
-		: type(Type::name)
-		, name(inName)
-		{
-		}
-		Reference(U32 inIndex)
-		: type(Type::index)
-		, index(inIndex)
-		{
-		}
-		Reference()
-		: type(Type::invalid)
-		, token(nullptr)
-		{
-		}
+		Reference(const Name& inName) : type(Type::name), name(inName) {}
+		Reference(U32 inIndex) : type(Type::index), index(inIndex) {}
+		Reference() : type(Type::invalid), token(nullptr) {}
 		operator bool() const { return type != Type::invalid; }
 	};
 
@@ -166,8 +145,7 @@ namespace WAST
 		std::vector<std::function<void(ModuleState*)>> postDeclarationCallbacks;
 
 		ModuleState(ParseState* inParseState, IR::Module& inModule)
-		: parseState(inParseState)
-		, module(inModule)
+		: parseState(inParseState), module(inModule)
 		{
 		}
 	};

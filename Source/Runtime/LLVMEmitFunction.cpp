@@ -267,8 +267,7 @@ struct UnreachableOpVisitor
 	typedef void Result;
 
 	UnreachableOpVisitor(EmitFunctionContext& inContext)
-	: context(inContext)
-	, unreachableControlDepth(0)
+	: context(inContext), unreachableControlDepth(0)
 	{
 	}
 #define VISIT_OP(opcode, name, nameString, Imm, ...) \

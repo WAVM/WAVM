@@ -17,29 +17,18 @@ enum class NodeType : U8
 struct Node
 {
 	const NodeType type;
-	Node(NodeType inType)
-	: type(inType)
-	{
-	}
+	Node(NodeType inType) : type(inType) {}
 	virtual ~Node() {}
 };
 struct Lit : Node
 {
 	NFA::CharSet charSet;
-	Lit(const NFA::CharSet& inCharSet)
-	: Node(NodeType::lit)
-	, charSet(inCharSet)
-	{
-	}
+	Lit(const NFA::CharSet& inCharSet) : Node(NodeType::lit), charSet(inCharSet) {}
 };
 template<NodeType inType> struct Unary : Node
 {
 	Node* child;
-	Unary(Node* inChild)
-	: Node(inType)
-	, child(inChild)
-	{
-	}
+	Unary(Node* inChild) : Node(inType), child(inChild) {}
 	~Unary() { delete child; }
 };
 template<NodeType inType> struct Binary : Node
@@ -47,9 +36,7 @@ template<NodeType inType> struct Binary : Node
 	Node* firstChild;
 	Node* secondChild;
 	Binary(Node* inFirstChild, Node* inSecondChild)
-	: Node(inType)
-	, firstChild(inFirstChild)
-	, secondChild(inSecondChild)
+	: Node(inType), firstChild(inFirstChild), secondChild(inSecondChild)
 	{
 	}
 	~Binary()

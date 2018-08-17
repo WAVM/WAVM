@@ -6,8 +6,7 @@
 #define HASHMAP_ARGUMENTS Key, Value, KeyHashPolicy
 
 template<HASHMAP_PARAMETERS>
-HashMap<HASHMAP_ARGUMENTS>::HashMap(Uptr reserveNumPairs)
-: table(reserveNumPairs)
+HashMap<HASHMAP_ARGUMENTS>::HashMap(Uptr reserveNumPairs) : table(reserveNumPairs)
 {
 }
 
@@ -161,16 +160,14 @@ void HashMap<HASHMAP_ARGUMENTS>::analyzeSpaceUsage(
 template<typename Key, typename Value>
 template<typename... ValueArgs>
 HashMapPair<Key, Value>::HashMapPair(const Key& inKey, ValueArgs&&... valueArgs)
-: key(inKey)
-, value(std::forward<ValueArgs>(valueArgs)...)
+: key(inKey), value(std::forward<ValueArgs>(valueArgs)...)
 {
 }
 
 template<typename Key, typename Value>
 template<typename... ValueArgs>
 HashMapPair<Key, Value>::HashMapPair(Key&& inKey, ValueArgs&&... valueArgs)
-: key(std::move(inKey))
-, value(std::forward<ValueArgs>(valueArgs)...)
+: key(std::move(inKey)), value(std::forward<ValueArgs>(valueArgs)...)
 {
 }
 
@@ -231,8 +228,7 @@ template<typename Key, typename Value>
 HashMapIterator<Key, Value>::HashMapIterator(
 	const HashTableBucket<HashMapPair<Key, Value>>* inBucket,
 	const HashTableBucket<HashMapPair<Key, Value>>* inEndBucket)
-: bucket(inBucket)
-, endBucket(inEndBucket)
+: bucket(inBucket), endBucket(inEndBucket)
 {
 }
 

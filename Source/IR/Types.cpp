@@ -27,16 +27,13 @@ struct FunctionTypeHashPolicy
 	static Uptr getKeyHash(FunctionType functionType) { return functionType.getHash(); }
 };
 
-IR::TypeTuple::Impl::Impl(Uptr inNumElems, const ValueType* inElems)
-: numElems(inNumElems)
+IR::TypeTuple::Impl::Impl(Uptr inNumElems, const ValueType* inElems) : numElems(inNumElems)
 {
 	if(numElems) { memcpy(elems, inElems, sizeof(ValueType) * numElems); }
 	hash = XXH64(elems, numElems * sizeof(ValueType), 0);
 }
 
-IR::TypeTuple::Impl::Impl(const Impl& inCopy)
-: hash(inCopy.hash)
-, numElems(inCopy.numElems)
+IR::TypeTuple::Impl::Impl(const Impl& inCopy) : hash(inCopy.hash), numElems(inCopy.numElems)
 {
 	if(numElems) { memcpy(elems, inCopy.elems, numElems * sizeof(ValueType)); }
 }
@@ -77,8 +74,7 @@ const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueTy
 }
 
 IR::FunctionType::Impl::Impl(TypeTuple inResults, TypeTuple inParams)
-: results(inResults)
-, params(inParams)
+: results(inResults), params(inParams)
 {
 	hash = Hash<Uptr>()(results.getHash(), params.getHash());
 }

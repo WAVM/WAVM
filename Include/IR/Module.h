@@ -31,33 +31,13 @@ namespace IR
 			F64 f64;
 			Uptr globalIndex;
 		};
-		InitializerExpression()
-		: type(Type::error)
-		{
-		}
-		InitializerExpression(I32 inI32)
-		: type(Type::i32_const)
-		, i32(inI32)
-		{
-		}
-		InitializerExpression(I64 inI64)
-		: type(Type::i64_const)
-		, i64(inI64)
-		{
-		}
-		InitializerExpression(F32 inF32)
-		: type(Type::f32_const)
-		, f32(inF32)
-		{
-		}
-		InitializerExpression(F64 inF64)
-		: type(Type::f64_const)
-		, f64(inF64)
-		{
-		}
+		InitializerExpression() : type(Type::error) {}
+		InitializerExpression(I32 inI32) : type(Type::i32_const), i32(inI32) {}
+		InitializerExpression(I64 inI64) : type(Type::i64_const), i64(inI64) {}
+		InitializerExpression(F32 inF32) : type(Type::f32_const), f32(inF32) {}
+		InitializerExpression(F64 inF64) : type(Type::f64_const), f64(inF64) {}
 		InitializerExpression(Type inType, Uptr inGlobalIndex)
-		: type(inType)
-		, globalIndex(inGlobalIndex)
+		: type(inType), globalIndex(inGlobalIndex)
 		{
 			wavmAssert(inType == Type::get_global);
 		}
@@ -181,14 +161,10 @@ namespace IR
 
 		Uptr startFunctionIndex;
 
-		Module()
-		: startFunctionIndex(UINTPTR_MAX)
-		{
-		}
+		Module() : startFunctionIndex(UINTPTR_MAX) {}
 
 		Module(const FeatureSpec& inFeatureSpec)
-		: featureSpec(inFeatureSpec)
-		, startFunctionIndex(UINTPTR_MAX)
+		: featureSpec(inFeatureSpec), startFunctionIndex(UINTPTR_MAX)
 		{
 		}
 	};

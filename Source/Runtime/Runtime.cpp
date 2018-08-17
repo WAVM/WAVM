@@ -193,9 +193,7 @@ Value Runtime::setGlobalValue(Context* context, GlobalInstance* global, Value ne
 }
 
 Runtime::Compartment::Compartment()
-: ObjectImpl(ObjectKind::compartment)
-, unalignedRuntimeData(nullptr)
-, numGlobalBytes(0)
+: ObjectImpl(ObjectKind::compartment), unalignedRuntimeData(nullptr), numGlobalBytes(0)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
 		compartmentReservedBytes >> Platform::getPageSizeLog2(),

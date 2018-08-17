@@ -7,10 +7,7 @@
 template<typename Pointee> struct IntrusiveSharedPtr
 {
 	// Constructors/destructor
-	IntrusiveSharedPtr()
-	: value(nullptr)
-	{
-	}
+	IntrusiveSharedPtr() : value(nullptr) {}
 	IntrusiveSharedPtr(Pointee* inValue)
 	{
 		value = inValue;

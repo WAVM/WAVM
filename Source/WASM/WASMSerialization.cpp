@@ -428,8 +428,7 @@ struct OperatorSerializerStream
 	typedef void Result;
 
 	OperatorSerializerStream(Serialization::OutputStream& inByteStream, FunctionDef& inFunctionDef)
-	: byteStream(inByteStream)
-	, functionDef(inFunctionDef)
+	: byteStream(inByteStream), functionDef(inFunctionDef)
 	{
 	}
 

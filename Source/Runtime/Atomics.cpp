@@ -22,10 +22,7 @@ struct WaitList
 	std::vector<Platform::Event*> wakeEvents;
 	std::atomic<Uptr> numReferences;
 
-	WaitList()
-	: numReferences(1)
-	{
-	}
+	WaitList() : numReferences(1) {}
 };
 
 // An event that is reused within a thread when it waits on a WaitList.

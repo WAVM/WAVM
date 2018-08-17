@@ -87,8 +87,7 @@ static std::string expandIndentation(std::string&& inString, U8 spacesPerIndentL
 
 struct ScopedTagPrinter
 {
-	ScopedTagPrinter(std::string& inString, const char* tag)
-	: string(inString)
+	ScopedTagPrinter(std::string& inString, const char* tag) : string(inString)
 	{
 		string += "(";
 		string += tag;
@@ -170,9 +169,7 @@ static void print(std::string& string, const ExceptionType& type)
 struct NameScope
 {
 	NameScope(const char inSigil, Uptr estimatedNumElements)
-	: sigil(inSigil)
-	, nameSet(estimatedNumElements)
-	, nameToUniqueIndexMap()
+	: sigil(inSigil), nameSet(estimatedNumElements), nameToUniqueIndexMap()
 	{
 	}
 
@@ -209,8 +206,7 @@ struct ModulePrintContext
 	DisassemblyNames names;
 
 	ModulePrintContext(const Module& inModule, std::string& inString)
-	: module(inModule)
-	, string(inString)
+	: module(inModule), string(inString)
 	{
 		// Start with the names from the module's user name section, but make sure they are unique,
 		// and add the "$" sigil.

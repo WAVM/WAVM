@@ -9,8 +9,7 @@ using namespace LLVMJIT;
 using namespace IR;
 
 EmitModuleContext::EmitModuleContext(const Module& inModule, ModuleInstance* inModuleInstance)
-: module(inModule)
-, moduleInstance(inModuleInstance)
+: module(inModule), moduleInstance(inModuleInstance)
 {
 	llvmModuleSharedPtr = std::make_shared<llvm::Module>("", *llvmContext);
 	llvmModule          = llvmModuleSharedPtr.get();

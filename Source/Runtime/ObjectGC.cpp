@@ -27,9 +27,7 @@ private:
 	GCGlobals() {}
 };
 
-Runtime::ObjectImpl::ObjectImpl(ObjectKind inKind)
-: Object(inKind)
-, numRootReferences(0)
+Runtime::ObjectImpl::ObjectImpl(ObjectKind inKind) : Object(inKind), numRootReferences(0)
 {
 	// Add the object to the global array.
 	Lock<Platform::Mutex> lock(GCGlobals::get().mutex);

@@ -42,10 +42,7 @@ namespace Runtime
 	{
 		const ObjectKind kind;
 
-		Object(ObjectKind inKind)
-		: kind(inKind)
-		{
-		}
+		Object(ObjectKind inKind) : kind(inKind) {}
 		virtual ~Object() {}
 	};
 
@@ -93,10 +90,7 @@ namespace Runtime
 	// A GC root pointer.
 	template<typename ObjectType> struct GCPointer
 	{
-		GCPointer()
-		: value(nullptr)
-		{
-		}
+		GCPointer() : value(nullptr) {}
 		GCPointer(ObjectType* inValue)
 		{
 			value = inValue;

@@ -621,10 +621,7 @@ struct ThreadArgs
 {
 	Thread* thread;
 
-	ThreadArgs()
-	: thread(nullptr)
-	{
-	}
+	ThreadArgs() : thread(nullptr) {}
 
 	~ThreadArgs()
 	{

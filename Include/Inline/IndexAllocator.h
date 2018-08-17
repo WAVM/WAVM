@@ -4,10 +4,7 @@
 
 template<typename Index, Index maxIndex> struct IndexAllocator
 {
-	IndexAllocator()
-	: minUnallocatedIndex()
-	{
-	}
+	IndexAllocator() : minUnallocatedIndex() {}
 
 	Index alloc()
 	{

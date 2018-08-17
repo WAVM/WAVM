@@ -44,14 +44,12 @@ template<typename Element>
 HashSetIterator<Element>::HashSetIterator(
 	const HashTableBucket<Element>* inBucket,
 	const HashTableBucket<Element>* inEndBucket)
-: bucket(inBucket)
-, endBucket(inEndBucket)
+: bucket(inBucket), endBucket(inEndBucket)
 {
 }
 
 template<typename Element, typename ElementHashPolicy>
-HashSet<Element, ElementHashPolicy>::HashSet(Uptr reserveNumElements)
-: table(reserveNumElements)
+HashSet<Element, ElementHashPolicy>::HashSet(Uptr reserveNumElements) : table(reserveNumElements)
 {
 }
 

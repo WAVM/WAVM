@@ -14,8 +14,7 @@ namespace IR
 		typedef std::string Result;
 
 		OperatorPrinter(const Module& inModule, const FunctionDef& inFunctionDef)
-		: module(inModule)
-		, functionDef(inFunctionDef)
+		: module(inModule), functionDef(inFunctionDef)
 		{
 		}
 

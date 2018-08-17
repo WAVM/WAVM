@@ -22,8 +22,7 @@ namespace Runtime
 	struct ModuleExportResolver : Resolver
 	{
 		ModuleExportResolver(const IR::Module& inModule, ModuleInstance* inModuleInstance)
-		: module(inModule)
-		, moduleInstance(inModuleInstance)
+		: module(inModule), moduleInstance(inModuleInstance)
 		{
 		}
 
@@ -43,8 +42,7 @@ namespace Runtime
 	struct LazyResolver : Resolver
 	{
 		LazyResolver(std::function<Resolver*()>& inInnerResolverThunk)
-		: innerResolverThunk(std::move(inInnerResolverThunk))
-		, innerResolver(nullptr)
+		: innerResolverThunk(std::move(inInnerResolverThunk)), innerResolver(nullptr)
 		{
 		}
 

@@ -30,10 +30,7 @@ struct StubResolver : Resolver
 {
 	Compartment* compartment;
 
-	StubResolver(Compartment* inCompartment)
-	: compartment(inCompartment)
-	{
-	}
+	StubResolver(Compartment* inCompartment) : compartment(inCompartment) {}
 
 	bool resolve(
 		const std::string& moduleName,

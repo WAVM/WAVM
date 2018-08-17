@@ -369,10 +369,7 @@ private:
 	struct NotifyLoadedFunctor
 	{
 		JITUnit* jitUnit;
-		NotifyLoadedFunctor(JITUnit* inJITUnit)
-		: jitUnit(inJITUnit)
-		{
-		}
+		NotifyLoadedFunctor(JITUnit* inJITUnit) : jitUnit(inJITUnit) {}
 		void operator()(
 			llvm::orc::RTDyldObjectLinkingLayer::ObjHandleT objectHandle,
 			const std::shared_ptr<llvm::object::OwningBinary<llvm::object::ObjectFile>>& object,
@@ -383,10 +380,7 @@ private:
 	struct NotifyFinalizedFunctor
 	{
 		JITUnit* jitUnit;
-		NotifyFinalizedFunctor(JITUnit* inJITUnit)
-		: jitUnit(inJITUnit)
-		{
-		}
+		NotifyFinalizedFunctor(JITUnit* inJITUnit) : jitUnit(inJITUnit) {}
 		void operator()(const llvm::orc::RTDyldObjectLinkingLayerBase::ObjHandleT& objectHandle);
 	};
 	typedef llvm::orc::RTDyldObjectLinkingLayer ObjectLayer;
@@ -426,10 +420,7 @@ struct JITModule : JITUnit, JITModuleBase
 
 	std::vector<JITSymbol*> functionDefSymbols;
 
-	JITModule(ModuleInstance* inModuleInstance)
-	: moduleInstance(inModuleInstance)
-	{
-	}
+	JITModule(ModuleInstance* inModuleInstance) : moduleInstance(inModuleInstance) {}
 	~JITModule() override
 	{
 		// Delete the module's symbols, and remove them from the global address-to-symbol map.
@@ -476,9 +467,7 @@ struct JITThunkUnit : JITUnit
 	JITSymbol* symbol;
 
 	JITThunkUnit(FunctionType inFunctionType)
-	: JITUnit(false)
-	, functionType(inFunctionType)
-	, symbol(nullptr)
+	: JITUnit(false), functionType(inFunctionType), symbol(nullptr)
 	{
 	}
 

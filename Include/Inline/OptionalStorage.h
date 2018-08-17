@@ -21,8 +21,7 @@ struct OptionalStorage
 	~OptionalStorage() {}
 
 	template<typename... Args>
-	OptionalStorage(Args&&... args)
-	: contents(std::forward<Args>(args)...)
+	OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
 	{
 	}
 
@@ -46,8 +45,7 @@ template<typename Contents> struct OptionalStorage<Contents, true>
 	~OptionalStorage() {}
 
 	template<typename... Args>
-	OptionalStorage(Args&&... args)
-	: contents(std::forward<Args>(args)...)
+	OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
 	{
 	}
 

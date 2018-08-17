@@ -34,9 +34,7 @@ struct Thread
 		Runtime::Context* inContext,
 		Runtime::FunctionInstance* inEntryFunction,
 		const IR::Value& inArgument)
-	: context(inContext)
-	, entryFunction(inEntryFunction)
-	, argument(inArgument)
+	: context(inContext), entryFunction(inEntryFunction), argument(inArgument)
 	{
 	}
 

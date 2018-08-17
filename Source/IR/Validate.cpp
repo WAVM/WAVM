@@ -866,8 +866,7 @@ namespace IR
 		OperatorPrinter operatorPrinter;
 
 		CodeValidationStreamImpl(const Module& module, const FunctionDef& functionDef)
-		: functionContext(module, functionDef)
-		, operatorPrinter(module, functionDef)
+		: functionContext(module, functionDef), operatorPrinter(module, functionDef)
 		{
 		}
 	};
