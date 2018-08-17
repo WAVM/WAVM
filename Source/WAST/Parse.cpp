@@ -46,17 +46,28 @@ static void parseErrorfImpl(
 	ParseState* parseState,
 	Uptr charOffset,
 	const char* messageFormat,
-	va_list messageArguments)
+	va_list messageArgs)
 {
-	// Format the message.
-	char messageBuffer[1024];
-	int numPrintedChars
-		= std::vsnprintf(messageBuffer, sizeof(messageBuffer), messageFormat, messageArguments);
-	if(numPrintedChars >= 1023 || numPrintedChars < 0) { Errors::unreachable(); }
-	messageBuffer[numPrintedChars] = 0;
+	// Call vsnprintf to determine how many bytes the formatted string will be.
+	// vsnprintf consumes the va_list passed to it, so make a copy of it.
+	va_list messageArgsProbe;
+	va_copy(messageArgsProbe, messageArgs);
+	int numFormattedChars = std::vsnprintf(nullptr, 0, messageFormat, messageArgsProbe);
+	va_end(messageArgsProbe);
+
+	// Allocate a buffer for the formatted message.
+	errorUnless(numFormattedChars >= 0);
+	char* formattedMessage = new char[numFormattedChars + 1];
+
+	// Print the formatted message
+	int numWrittenChars
+		= std::vsnprintf(formattedMessage, numFormattedChars + 1, messageFormat, messageArgs);
+	wavmAssert(numWrittenChars == numFormattedChars);
 
 	// Add the error to the cursor's error list.
-	parseState->unresolvedErrors.emplace_back(charOffset, messageBuffer);
+	parseState->unresolvedErrors.emplace_back(charOffset, formattedMessage);
+
+	delete[] formattedMessage;
 }
 void WAST::parseErrorf(ParseState* parseState, Uptr charOffset, const char* messageFormat, ...)
 {
