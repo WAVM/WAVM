@@ -50,9 +50,9 @@ namespace Wavix
 		{
 			va_list argList;
 			va_start(argList, argFormat);
-			Log::printf(Log::Category::error, "SYSCALL(%llx): %s", currentThread, syscallName);
-			Log::vprintf(Log::Category::error, argFormat, argList);
-			Log::printf(Log::Category::error, "\n");
+			Log::printf(Log::error, "SYSCALL(%llx): %s", currentThread, syscallName);
+			Log::vprintf(Log::error, argFormat, argList);
+			Log::printf(Log::error, "\n");
 			va_end(argList);
 		}
 	}

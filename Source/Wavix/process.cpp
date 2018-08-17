@@ -120,7 +120,7 @@ namespace Wavix
 		catch(Serialization::FatalSerializationException exception)
 		{
 			Log::printf(
-				Log::Category::error,
+				Log::error,
 				"Error deserializing WebAssembly binary file:\n%s\n",
 				exception.message.c_str());
 			return false;
@@ -128,7 +128,7 @@ namespace Wavix
 		catch(IR::ValidationException exception)
 		{
 			Log::printf(
-				Log::Category::error,
+				Log::error,
 				"Error validating WebAssembly binary file:\n%s\n",
 				exception.message.c_str());
 			return false;
@@ -136,7 +136,7 @@ namespace Wavix
 		catch(std::bad_alloc)
 		{
 			Log::printf(
-				Log::Category::error,
+				Log::error,
 				"Failed to allocate memory during WASM module load: input is likely malformed.\n");
 			return false;
 		}
@@ -157,11 +157,11 @@ namespace Wavix
 		LinkResult linkResult = linkModule(module, rootResolver);
 		if(!linkResult.success)
 		{
-			Log::printf(Log::Category::error, "Failed to link module:\n");
+			Log::printf(Log::error, "Failed to link module:\n");
 			for(auto& missingImport : linkResult.missingImports)
 			{
 				Log::printf(
-					Log::Category::error,
+					Log::error,
 					"Missing import: module=\"%s\" export=\"%s\" type=\"%s\"\n",
 					missingImport.moduleName.c_str(),
 					missingImport.exportName.c_str(),
@@ -187,7 +187,7 @@ namespace Wavix
 		// Validate that the module exported a main function, and that it is the expected type.
 		if(!mainThreadArgs->mainFunction)
 		{
-			Log::printf(Log::Category::error, "Module does not export _start function");
+			Log::printf(Log::error, "Module does not export _start function");
 			return nullptr;
 		}
 
@@ -195,7 +195,7 @@ namespace Wavix
 		if(mainFunctionType != FunctionType())
 		{
 			Log::printf(
-				Log::Category::error,
+				Log::error,
 				"Module _start signature is %s, but ()->() was expected.\n",
 				asString(mainFunctionType).c_str());
 			return nullptr;

@@ -116,7 +116,7 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			else
 			{
 				Log::printf(
-					Log::Category::error,
+					Log::error,
 					"Invalid WASM binary local name section function index: %u >= "
 					"%u\n",
 					Uptr(functionIndex),
@@ -151,7 +151,7 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 			else
 			{
 				Log::printf(
-					Log::Category::error,
+					Log::error,
 					"Invalid WASM binary label name section function index: %u >= "
 					"%u\n",
 					Uptr(functionIndex),
@@ -196,9 +196,7 @@ deserializeNameSubsection(const Module& module, DisassemblyNames& outNames, Inpu
 		break;
 	default:
 		Log::printf(
-			Log::Category::error,
-			"Unknown WASM binary name subsection type: %u\n",
-			Uptr(subsectionType));
+			Log::error, "Unknown WASM binary name subsection type: %u\n", Uptr(subsectionType));
 		break;
 	};
 }
@@ -245,14 +243,14 @@ void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
 		catch(FatalSerializationException exception)
 		{
 			Log::printf(
-				Log::Category::debug,
+				Log::debug,
 				"FatalSerializationException while deserializing WASM user name section: %s\n",
 				exception.message.c_str());
 		}
 		catch(std::bad_alloc)
 		{
 			Log::printf(
-				Log::Category::debug,
+				Log::debug,
 				"Memory allocation failed while deserializing WASM user name section. Input is "
 				"likely malformed.");
 		}

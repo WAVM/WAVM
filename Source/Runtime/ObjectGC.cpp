@@ -177,7 +177,7 @@ void Runtime::collectGarbage()
 	for(ObjectImpl* object : finalizedObjects) { delete object; }
 
 	Log::printf(
-		Log::Category::metrics,
+		Log::metrics,
 		"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
 		timer.getMilliseconds(),
 		numRoots,

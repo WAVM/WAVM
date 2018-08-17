@@ -152,33 +152,29 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 	UnwindInfoPrefix* unwindInfoPrefix = (UnwindInfoPrefix*)unwindInfo;
 
 	Log::printf(
-		Log::Category::debug,
-		"  address: 0x%04x-0x%04x\n",
-		function.beginAddress,
-		function.endAddress);
-	Log::printf(Log::Category::debug, "  unwind info:\n");
-	Log::printf(Log::Category::debug, "   version: %u\n", unwindInfoPrefix->version);
-	Log::printf(Log::Category::debug, "   flags: %x\n", unwindInfoPrefix->flags);
-	Log::printf(Log::Category::debug, "   prolog bytes: %u\n", unwindInfoPrefix->sizeOfProlog);
+		Log::debug, "  address: 0x%04x-0x%04x\n", function.beginAddress, function.endAddress);
+	Log::printf(Log::debug, "  unwind info:\n");
+	Log::printf(Log::debug, "   version: %u\n", unwindInfoPrefix->version);
+	Log::printf(Log::debug, "   flags: %x\n", unwindInfoPrefix->flags);
+	Log::printf(Log::debug, "   prolog bytes: %u\n", unwindInfoPrefix->sizeOfProlog);
 	Log::printf(
-		Log::Category::debug,
+		Log::debug,
 		"   frame register: %s\n",
 		getUnwindRegisterName(unwindInfoPrefix->frameRegister));
-	Log::printf(
-		Log::Category::debug, "   frame offset: 0x%x\n", unwindInfoPrefix->frameOffset * 16);
+	Log::printf(Log::debug, "   frame offset: 0x%x\n", unwindInfoPrefix->frameOffset * 16);
 
 	UnwindCode* const unwindCodes = unwindInfoPrefix->unwindCodes;
 	UnwindCode* unwindCode        = unwindCodes;
 	if(unwindInfoPrefix->countOfCodes)
 	{
-		Log::printf(Log::Category::debug, "   prolog unwind codes:\n");
+		Log::printf(Log::debug, "   prolog unwind codes:\n");
 		while(unwindCode < unwindCodes + unwindInfoPrefix->countOfCodes)
 		{
 			switch(unwindCode->opcode)
 			{
 			case UnwindOpcode::UWOP_PUSH_NONVOL:
 				Log::printf(
-					Log::Category::debug,
+					Log::debug,
 					"    0x%02x UWOP_PUSH_NONVOL %s\n",
 					unwindCode->codeOffset,
 					getUnwindRegisterName(unwindCode->opInfo));
@@ -188,7 +184,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 				if(unwindCode->opInfo == 0)
 				{
 					Log::printf(
-						Log::Category::debug,
+						Log::debug,
 						"    0x%02x UWOP_ALLOC_LARGE 0x%x\n",
 						unwindCode->codeOffset,
 						*(U16*)&unwindCode[1] * 8);
@@ -198,7 +194,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 				{
 					errorUnless(unwindCode->opInfo == 1);
 					Log::printf(
-						Log::Category::debug,
+						Log::debug,
 						"    0x%02x UWOP_ALLOC_LARGE 0x%x\n",
 						unwindCode->codeOffset,
 						*(U32*)&unwindCode[1]);
@@ -207,20 +203,19 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 				break;
 			case UnwindOpcode::UWOP_ALLOC_SMALL:
 				Log::printf(
-					Log::Category::debug,
+					Log::debug,
 					"    0x%02x UWOP_ALLOC_SMALL 0x%x\n",
 					unwindCode->codeOffset,
 					unwindCode->opInfo * 8 + 8);
 				++unwindCode;
 				break;
 			case UnwindOpcode::UWOP_SET_FPREG:
-				Log::printf(
-					Log::Category::debug, "    0x%02x UWOP_SET_FPREG\n", unwindCode->codeOffset);
+				Log::printf(Log::debug, "    0x%02x UWOP_SET_FPREG\n", unwindCode->codeOffset);
 				++unwindCode;
 				break;
 			case UnwindOpcode::UWOP_SAVE_NONVOL:
 				Log::printf(
-					Log::Category::debug,
+					Log::debug,
 					"    0x%02x UWOP_SAVE_NONVOL %s 0x%x\n",
 					unwindCode->codeOffset,
 					getUnwindRegisterName(unwindCode->opInfo),
@@ -229,7 +224,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 				break;
 			case UnwindOpcode::UWOP_SAVE_NONVOL_FAR:
 				Log::printf(
-					Log::Category::debug,
+					Log::debug,
 					"    0x%02x UWOP_SAVE_NONVOL_FAR %s 0x%x\n",
 					unwindCode->codeOffset,
 					getUnwindRegisterName(unwindCode->opInfo),
@@ -238,7 +233,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 				break;
 			case UnwindOpcode::UWOP_SAVE_XMM128:
 				Log::printf(
-					Log::Category::debug,
+					Log::debug,
 					"    0x%02x UWOP_SAVE_XMM128 xmm%u 0x%x\n",
 					unwindCode->codeOffset,
 					unwindCode->opInfo,
@@ -247,7 +242,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 				break;
 			case UnwindOpcode::UWOP_SAVE_XMM128_FAR:
 				Log::printf(
-					Log::Category::debug,
+					Log::debug,
 					"    0x%02x UWOP_SAVE_XMM128_FAR xmm%u 0x%x\n",
 					unwindCode->codeOffset,
 					unwindCode->opInfo,
@@ -256,7 +251,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 				break;
 			case UnwindOpcode::UWOP_PUSH_MACHFRAME:
 				Log::printf(
-					Log::Category::debug,
+					Log::debug,
 					"    0x%02x UWOP_PUSH_MACHFRAME %u\n",
 					unwindCode->codeOffset,
 					unwindCode->opInfo);
@@ -273,24 +268,16 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 	{
 		UnwindInfoSuffix* suffix = (UnwindInfoSuffix*)unwindCode;
 		Log::printf(
-			Log::Category::debug,
-			"   exception handler address: 0x%x\n",
-			suffix->exceptionHandlerAddress);
+			Log::debug, "   exception handler address: 0x%x\n", suffix->exceptionHandlerAddress);
 		for(Uptr entryIndex = 0; entryIndex < suffix->sehLSDA.numEntries; ++entryIndex)
 		{
 			const SEHLanguageSpecificDataEntry& entry = suffix->sehLSDA.entries[entryIndex];
-			Log::printf(Log::Category::debug, "   LSDA entry %u:\n", entryIndex);
+			Log::printf(Log::debug, "   LSDA entry %u:\n", entryIndex);
 			Log::printf(
-				Log::Category::debug,
-				"    address: 0x%x-0x%x\n",
-				entry.startAddress,
-				entry.endAddress);
+				Log::debug, "    address: 0x%x-0x%x\n", entry.startAddress, entry.endAddress);
 			Log::printf(
-				Log::Category::debug,
-				"    filterOrFinally address: 0x%x\n",
-				entry.filterOrFinallyAddress);
-			Log::printf(
-				Log::Category::debug, "    landing pad address: 0x%x\n", entry.landingPadAddress);
+				Log::debug, "    filterOrFinally address: 0x%x\n", entry.filterOrFinallyAddress);
+			Log::printf(Log::debug, "    landing pad address: 0x%x\n", entry.landingPadAddress);
 		}
 	}
 }
@@ -321,12 +308,12 @@ void LLVMJIT::processSEHTables(
 
 		if(PRINT_SEH_TABLES)
 		{
-			Log::printf(Log::Category::debug, "Win64 SEH function table:\n");
+			Log::printf(Log::debug, "Win64 SEH function table:\n");
 
 			const Uptr numFunctions = pdataNumBytes / sizeof(RuntimeFunction);
 			for(Uptr functionIndex = 0; functionIndex < numFunctions; ++functionIndex)
 			{
-				Log::printf(Log::Category::debug, " Function %u\n", functionIndex);
+				Log::printf(Log::debug, " Function %u\n", functionIndex);
 				printFunctionSEH(imageBaseAddress, functionTable[functionIndex]);
 			}
 		}

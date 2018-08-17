@@ -211,7 +211,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(
 	std::string ipDescription = "<unknown>";
 	LLVMJIT::describeInstructionPointer(reinterpret_cast<Uptr>(elementValue), ipDescription);
 	Log::printf(
-		Log::Category::debug,
+		Log::debug,
 		"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",
 		asString(expectedSignature).c_str(),
 		index,
@@ -268,7 +268,7 @@ DEFINE_INTRINSIC_FUNCTION(
 	I64 functionInstanceBits)
 {
 	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
-	Log::printf(Log::Category::debug, "ENTER: %s\n", function->debugName.c_str());
+	Log::printf(Log::debug, "ENTER: %s\n", function->debugName.c_str());
 	++indentLevel;
 }
 
@@ -281,12 +281,12 @@ DEFINE_INTRINSIC_FUNCTION(
 {
 	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
 	--indentLevel;
-	Log::printf(Log::Category::debug, "EXIT:  %s\n", function->debugName.c_str());
+	Log::printf(Log::debug, "EXIT:  %s\n", function->debugName.c_str());
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)
 {
-	Log::printf(Log::Category::debug, "================== wavmIntrinsics.debugBreak\n");
+	Log::printf(Log::debug, "================== wavmIntrinsics.debugBreak\n");
 }
 
 Runtime::ModuleInstance* Runtime::instantiateWAVMIntrinsics(Compartment* compartment)

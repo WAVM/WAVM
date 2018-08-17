@@ -42,7 +42,7 @@ namespace Wavix
 		I32 e,
 		I32 f)
 	{
-		Log::printf(Log::Category::error, "__invalid_syscall: %i\n", n);
+		Log::printf(Log::error, "__invalid_syscall: %i\n", n);
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 

@@ -33,13 +33,13 @@ namespace Timing
 	// Helpers for printing timers.
 	inline void logTimer(const char* context, Timer& timer)
 	{
-		Log::printf(Log::Category::metrics, "%s in %.2fms\n", context, timer.getMilliseconds());
+		Log::printf(Log::metrics, "%s in %.2fms\n", context, timer.getMilliseconds());
 	}
 	inline void
 	logRatePerSecond(const char* context, Timer& timer, F64 numerator, const char* numeratorUnit)
 	{
 		Log::printf(
-			Log::Category::metrics,
+			Log::metrics,
 			"%s in %.2fms (%f %s/s)\n",
 			context,
 			timer.getMilliseconds(),

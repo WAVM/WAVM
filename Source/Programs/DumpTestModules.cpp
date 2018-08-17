@@ -185,7 +185,7 @@ int main(int argc, char** argv)
 	wavmAssert(filename);
 
 	// Always enable debug logging for tests.
-	Log::setCategoryEnabled(Log::Category::debug, true);
+	Log::setCategoryEnabled(Log::debug, true);
 
 	// Read the file into a string.
 	const std::string testScriptString = loadFile(filename);

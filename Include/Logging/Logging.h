@@ -11,7 +11,7 @@
 namespace Log
 {
 	// Allow filtering the logging by category.
-	enum class Category
+	enum Category
 	{
 		error,
 		debug,

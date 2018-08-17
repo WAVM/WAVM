@@ -807,7 +807,7 @@ template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char*
 		F32 averageProbeCount = 0.0f;
 		map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
 		Log::printf(
-			Log::Category::metrics,
+			Log::metrics,
 			"%s used %.1fKB for %u elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe "
 			"length: %f/%u\n",
 			description,
@@ -872,7 +872,7 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 		IR::setDisassemblyNames(outModule, moduleState.disassemblyNames);
 
 		// If metrics logging is enabled, log some statistics about the module's name maps.
-		if(Log::isCategoryEnabled(Log::Category::metrics))
+		if(Log::isCategoryEnabled(Log::metrics))
 		{
 			dumpHashMapSpaceAnalysis(moduleState.functionNameToIndexMap, "functionNameToIndexMap");
 			dumpHashMapSpaceAnalysis(moduleState.globalNameToIndexMap, "globalNameToIndexMap");

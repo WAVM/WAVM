@@ -41,7 +41,7 @@ struct RootResolver : Resolver
 				else
 				{
 					Log::printf(
-						Log::Category::error,
+						Log::error,
 						"Resolved import %s.%s to a %s, but was expecting %s\n",
 						moduleName.c_str(),
 						exportName.c_str(),
@@ -53,7 +53,7 @@ struct RootResolver : Resolver
 		}
 
 		Log::printf(
-			Log::Category::error,
+			Log::error,
 			"Generated stub for missing import %s.%s : %s\n",
 			moduleName.c_str(),
 			exportName.c_str(),
@@ -267,7 +267,7 @@ static int run(const CommandLineOptions& options)
 	if(options.functionName)
 	{
 		Log::printf(
-			Log::Category::debug,
+			Log::debug,
 			"%s returned: %s\n",
 			options.functionName,
 			asString(functionResults).c_str());
@@ -317,7 +317,7 @@ int main(int argc, char** argv)
 		}
 		else if(!strcmp(*options.args, "--debug") || !strcmp(*options.args, "-d"))
 		{
-			Log::setCategoryEnabled(Log::Category::debug, true);
+			Log::setCategoryEnabled(Log::debug, true);
 		}
 		else if(!strcmp(*options.args, "--disable-emscripten"))
 		{

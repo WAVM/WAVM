@@ -141,7 +141,7 @@ inline bool loadTextModule(const std::string& wastString, IR::Module& outModule)
 	}
 	catch(...)
 	{
-		Log::printf(Log::Category::error, "unknown exception!\n");
+		Log::printf(Log::error, "unknown exception!\n");
 		return false;
 	}
 }

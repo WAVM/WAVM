@@ -370,7 +370,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_exit", void, emscripten__exit, I32 code)
 }
 DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
 {
-	Log::printf(Log::Category::error, "env.abort(%i)\n", code);
+	Log::printf(Log::error, "env.abort(%i)\n", code);
 	throwException(Runtime::Exception::calledAbortType);
 }
 
@@ -636,8 +636,7 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const Mo
 		}
 		else
 		{
-			Log::printf(
-				Log::Category::error, "module's memory is too small for Emscripten emulation");
+			Log::printf(Log::error, "module's memory is too small for Emscripten emulation");
 			return nullptr;
 		}
 	}

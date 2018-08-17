@@ -577,7 +577,7 @@ void JITUnit::NotifyLoadedFunctor::operator()(
 		dumpFileStream.write(
 			(const char*)object->getBinary()->getData().bytes_begin(),
 			object->getBinary()->getData().size());
-		Log::printf(Log::Category::debug, "Dumped object file to: %s\n", augmentedFilename.c_str());
+		Log::printf(Log::debug, "Dumped object file to: %s\n", augmentedFilename.c_str());
 	}
 
 #ifdef _WIN64
@@ -646,7 +646,7 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 		nextByte += numInstructionBytes;
 
 		Log::printf(
-			Log::Category::error,
+			Log::error,
 			"\t\t0x%04x %s\n",
 			(nextByte - bytes - numInstructionBytes),
 			instructionBuffer);
@@ -710,8 +710,7 @@ void JITUnit::NotifyFinalizedFunctor::operator()(
 #if PRINT_DISASSEMBLY
 			if(jitUnit->shouldLogMetrics)
 			{
-				Log::printf(
-					Log::Category::error, "Disassembly for function %s\n", name.get().data());
+				Log::printf(Log::error, "Disassembly for function %s\n", name.get().data());
 				disassembleFunction(
 					reinterpret_cast<U8*>(loadedAddress), Uptr(symbolSizePair.second));
 			}
@@ -763,7 +762,7 @@ static void printModule(const llvm::Module* llvmModule, const char* filename)
 	llvm::raw_fd_ostream dumpFileStream(
 		augmentedFilename, errorCode, llvm::sys::fs::OpenFlags::F_Text);
 	llvmModule->print(dumpFileStream, nullptr);
-	Log::printf(Log::Category::debug, "Dumped LLVM module to: %s\n", augmentedFilename.c_str());
+	Log::printf(Log::debug, "Dumped LLVM module to: %s\n", augmentedFilename.c_str());
 }
 
 void JITUnit::compile(const std::shared_ptr<llvm::Module>& llvmModule)
@@ -782,7 +781,7 @@ void JITUnit::compile(const std::shared_ptr<llvm::Module>& llvmModule)
 			verifyOutputStream.flush();
 			Errors::fatalf("LLVM verification errors:\n%s\n", verifyOutputString.c_str());
 		}
-		Log::printf(Log::Category::debug, "Verified LLVM module\n");
+		Log::printf(Log::debug, "Verified LLVM module\n");
 	}
 
 	// Run some optimization on the module's functions.

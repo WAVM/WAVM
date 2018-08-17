@@ -82,7 +82,7 @@ void EmitFunctionContext::logOperator(const std::string& operatorDescription)
 		if(stack.size() == stackBase) { stackString += "|"; }
 
 		Log::printf(
-			Log::Category::debug,
+			Log::debug,
 			"%-50s %-50s %-50s\n",
 			controlStackString.c_str(),
 			operatorDescription.c_str(),
