@@ -292,29 +292,6 @@ EMIT_FP_UNARY_OP(nearest,
 									  FunctionType(TypeTuple(type), TypeTuple{type}),
 									  {operand})[0])
 
-llvm::Value* EmitFunctionContext::emitAnyTrue(llvm::Value* boolVector)
-{
-	const Uptr numLanes = boolVector->getType()->getVectorNumElements();
-	llvm::Value* result = nullptr;
-	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
-	{
-		llvm::Value* scalar = irBuilder.CreateExtractElement(boolVector, laneIndex);
-		result              = result ? irBuilder.CreateOr(result, scalar) : scalar;
-	}
-	return result;
-}
-llvm::Value* EmitFunctionContext::emitAllTrue(llvm::Value* boolVector)
-{
-	const Uptr numLanes = boolVector->getType()->getVectorNumElements();
-	llvm::Value* result = nullptr;
-	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
-	{
-		llvm::Value* scalar = irBuilder.CreateExtractElement(boolVector, laneIndex);
-		result              = result ? irBuilder.CreateAnd(result, scalar) : scalar;
-	}
-	return result;
-}
-
 EMIT_SIMD_INT_BINARY_OP(add, irBuilder.CreateAdd(left, right))
 EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
 
@@ -495,15 +472,59 @@ EMIT_SIMD_UNARY_OP(f64x2_convert_u_i64x2,
 				   llvmI64x2Type,
 				   irBuilder.CreateUIToFP(operand, llvmF64x2Type));
 
-EMIT_SIMD_UNARY_OP(i8x16_any_true, llvmI8x16Type, emitAnyTrue(operand))
-EMIT_SIMD_UNARY_OP(i16x8_any_true, llvmI16x8Type, emitAnyTrue(operand))
-EMIT_SIMD_UNARY_OP(i32x4_any_true, llvmI32x4Type, emitAnyTrue(operand))
-EMIT_SIMD_UNARY_OP(i64x2_any_true, llvmI64x2Type, emitAnyTrue(operand))
+static llvm::Value* emitAnyTrue(llvm::IRBuilder<>& irBuilder,
+								llvm::Value* vector,
+								llvm::Type* vectorType)
+{
+	vector = irBuilder.CreateBitCast(vector, vectorType);
 
-EMIT_SIMD_UNARY_OP(i8x16_all_true, llvmI8x16Type, emitAllTrue(operand))
-EMIT_SIMD_UNARY_OP(i16x8_all_true, llvmI16x8Type, emitAllTrue(operand))
-EMIT_SIMD_UNARY_OP(i32x4_all_true, llvmI32x4Type, emitAllTrue(operand))
-EMIT_SIMD_UNARY_OP(i64x2_all_true, llvmI64x2Type, emitAllTrue(operand))
+	const U32 numScalarBits = vectorType->getScalarSizeInBits();
+	const Uptr numLanes     = vectorType->getVectorNumElements();
+	llvm::Constant* zero
+		= llvm::ConstantInt::get(vectorType->getScalarType(), llvm::APInt(numScalarBits, 0));
+
+	llvm::Value* result = nullptr;
+	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
+	{
+		llvm::Value* scalar     = irBuilder.CreateExtractElement(vector, laneIndex);
+		llvm::Value* scalarBool = irBuilder.CreateICmpNE(scalar, zero);
+
+		result = result ? irBuilder.CreateOr(result, scalarBool) : scalarBool;
+	}
+	return irBuilder.CreateZExt(result, llvmI32Type);
+}
+
+static llvm::Value* emitAllTrue(llvm::IRBuilder<>& irBuilder,
+								llvm::Value* vector,
+								llvm::Type* vectorType)
+{
+	vector = irBuilder.CreateBitCast(vector, vectorType);
+
+	const U32 numScalarBits = vectorType->getScalarSizeInBits();
+	const Uptr numLanes     = vectorType->getVectorNumElements();
+	llvm::Constant* zero
+		= llvm::ConstantInt::get(vectorType->getScalarType(), llvm::APInt(numScalarBits, 0));
+
+	llvm::Value* result = nullptr;
+	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
+	{
+		llvm::Value* scalar     = irBuilder.CreateExtractElement(vector, laneIndex);
+		llvm::Value* scalarBool = irBuilder.CreateICmpNE(scalar, zero);
+
+		result = result ? irBuilder.CreateAnd(result, scalarBool) : scalarBool;
+	}
+	return irBuilder.CreateZExt(result, llvmI32Type);
+}
+
+EMIT_SIMD_UNARY_OP(i8x16_any_true, llvmI8x16Type, emitAnyTrue(irBuilder, operand, llvmI8x16Type))
+EMIT_SIMD_UNARY_OP(i16x8_any_true, llvmI16x8Type, emitAnyTrue(irBuilder, operand, llvmI16x8Type))
+EMIT_SIMD_UNARY_OP(i32x4_any_true, llvmI32x4Type, emitAnyTrue(irBuilder, operand, llvmI32x4Type))
+EMIT_SIMD_UNARY_OP(i64x2_any_true, llvmI64x2Type, emitAnyTrue(irBuilder, operand, llvmI64x2Type))
+
+EMIT_SIMD_UNARY_OP(i8x16_all_true, llvmI8x16Type, emitAllTrue(irBuilder, operand, llvmI8x16Type))
+EMIT_SIMD_UNARY_OP(i16x8_all_true, llvmI16x8Type, emitAllTrue(irBuilder, operand, llvmI16x8Type))
+EMIT_SIMD_UNARY_OP(i32x4_all_true, llvmI32x4Type, emitAllTrue(irBuilder, operand, llvmI32x4Type))
+EMIT_SIMD_UNARY_OP(i64x2_all_true, llvmI64x2Type, emitAllTrue(irBuilder, operand, llvmI64x2Type))
 
 void EmitFunctionContext::v128_and(IR::NoImm)
 {

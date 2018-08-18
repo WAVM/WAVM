@@ -241,9 +241,6 @@ namespace LLVMJIT
 												  Int nanResult,
 												  llvm::Value* operand);
 
-		llvm::Value* emitAnyTrue(llvm::Value* boolVector);
-		llvm::Value* emitAllTrue(llvm::Value* boolVector);
-
 		llvm::Value* emitBitSelect(llvm::Value* mask,
 								   llvm::Value* trueValue,
 								   llvm::Value* falseValue);
