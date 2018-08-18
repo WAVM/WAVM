@@ -324,16 +324,16 @@ EMIT_SIMD_INT_BINARY_OP(shr_u, irBuilder.CreateLShr(left, right))
 
 EMIT_SIMD_SUB64_INT_BINARY_OP(mul, irBuilder.CreateMul(left, right))
 
-EMIT_SIMD_SUB64_INT_BINARY_OP(eq, irBuilder.CreateICmpEQ(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(ne, irBuilder.CreateICmpNE(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(lt_s, irBuilder.CreateICmpSLT(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(lt_u, irBuilder.CreateICmpULT(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(le_s, irBuilder.CreateICmpSLE(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(le_u, irBuilder.CreateICmpULE(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(gt_s, irBuilder.CreateICmpSGT(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(gt_u, irBuilder.CreateICmpUGT(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(ge_s, irBuilder.CreateICmpSGE(left, right))
-EMIT_SIMD_SUB64_INT_BINARY_OP(ge_u, irBuilder.CreateICmpUGE(left, right))
+EMIT_SIMD_SUB64_INT_BINARY_OP(eq, zext(irBuilder.CreateICmpEQ(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(ne, zext(irBuilder.CreateICmpNE(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(lt_s, zext(irBuilder.CreateICmpSLT(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(lt_u, zext(irBuilder.CreateICmpULT(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(le_s, zext(irBuilder.CreateICmpSLE(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(le_u, zext(irBuilder.CreateICmpULE(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(gt_s, zext(irBuilder.CreateICmpSGT(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(gt_u, zext(irBuilder.CreateICmpUGT(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(ge_s, zext(irBuilder.CreateICmpSGE(left, right), left->getType()))
+EMIT_SIMD_SUB64_INT_BINARY_OP(ge_u, zext(irBuilder.CreateICmpUGE(left, right), left->getType()))
 
 EMIT_SIMD_INT_UNARY_OP(neg, irBuilder.CreateNeg(operand))
 
@@ -421,12 +421,48 @@ EMIT_SIMD_FP_BINARY_OP(sub, irBuilder.CreateFSub(left, right))
 EMIT_SIMD_FP_BINARY_OP(mul, irBuilder.CreateFMul(left, right))
 EMIT_SIMD_FP_BINARY_OP(div, irBuilder.CreateFDiv(left, right))
 
-EMIT_SIMD_FP_BINARY_OP(eq, irBuilder.CreateFCmpOEQ(left, right))
-EMIT_SIMD_FP_BINARY_OP(ne, irBuilder.CreateFCmpUNE(left, right))
-EMIT_SIMD_FP_BINARY_OP(lt, irBuilder.CreateFCmpOLT(left, right))
-EMIT_SIMD_FP_BINARY_OP(le, irBuilder.CreateFCmpOLE(left, right))
-EMIT_SIMD_FP_BINARY_OP(gt, irBuilder.CreateFCmpOGT(left, right))
-EMIT_SIMD_FP_BINARY_OP(ge, irBuilder.CreateFCmpOGE(left, right))
+EMIT_SIMD_BINARY_OP(f32x4_eq,
+					llvmF32x4Type,
+					zext(irBuilder.CreateFCmpOEQ(left, right), llvmI32x4Type))
+EMIT_SIMD_BINARY_OP(f64x2_eq,
+					llvmF64x2Type,
+					zext(irBuilder.CreateFCmpOEQ(left, right), llvmI64x2Type))
+
+EMIT_SIMD_BINARY_OP(f32x4_ne,
+					llvmF32x4Type,
+					zext(irBuilder.CreateFCmpUNE(left, right), llvmI32x4Type))
+EMIT_SIMD_BINARY_OP(f64x2_ne,
+					llvmF64x2Type,
+					zext(irBuilder.CreateFCmpUNE(left, right), llvmI64x2Type))
+
+EMIT_SIMD_BINARY_OP(f32x4_lt,
+					llvmF32x4Type,
+					zext(irBuilder.CreateFCmpOLT(left, right), llvmI32x4Type))
+EMIT_SIMD_BINARY_OP(f64x2_lt,
+					llvmF64x2Type,
+					zext(irBuilder.CreateFCmpOLT(left, right), llvmI64x2Type))
+
+EMIT_SIMD_BINARY_OP(f32x4_le,
+					llvmF32x4Type,
+					zext(irBuilder.CreateFCmpOLE(left, right), llvmI32x4Type))
+EMIT_SIMD_BINARY_OP(f64x2_le,
+					llvmF64x2Type,
+					zext(irBuilder.CreateFCmpOLE(left, right), llvmI64x2Type))
+
+EMIT_SIMD_BINARY_OP(f32x4_gt,
+					llvmF32x4Type,
+					zext(irBuilder.CreateFCmpOGT(left, right), llvmI32x4Type))
+EMIT_SIMD_BINARY_OP(f64x2_gt,
+					llvmF64x2Type,
+					zext(irBuilder.CreateFCmpOGT(left, right), llvmI64x2Type))
+
+EMIT_SIMD_BINARY_OP(f32x4_ge,
+					llvmF32x4Type,
+					zext(irBuilder.CreateFCmpOGE(left, right), llvmI32x4Type))
+EMIT_SIMD_BINARY_OP(f64x2_ge,
+					llvmF64x2Type,
+					zext(irBuilder.CreateFCmpOGE(left, right), llvmI64x2Type))
+
 EMIT_SIMD_BINARY_OP(f32x4_min,
 					llvmF32x4Type,
 					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse_min_ps, {left, right}))
