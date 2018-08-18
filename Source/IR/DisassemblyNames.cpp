@@ -116,7 +116,7 @@ static void deserializeNameSubsection(const Module& module,
 			}
 			else
 			{
-				Log::printf(Log::error,
+				Log::printf(Log::debug,
 							"Invalid WASM binary local name section function index: %u >= "
 							"%u\n",
 							Uptr(functionIndex),
@@ -150,7 +150,7 @@ static void deserializeNameSubsection(const Module& module,
 			}
 			else
 			{
-				Log::printf(Log::error,
+				Log::printf(Log::debug,
 							"Invalid WASM binary label name section function index: %u >= "
 							"%u\n",
 							Uptr(functionIndex),
@@ -195,7 +195,7 @@ static void deserializeNameSubsection(const Module& module,
 		break;
 	default:
 		Log::printf(
-			Log::error, "Unknown WASM binary name subsection type: %u\n", Uptr(subsectionType));
+			Log::debug, "Unknown WASM binary name subsection type: %u\n", Uptr(subsectionType));
 		break;
 	};
 }
