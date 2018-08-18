@@ -300,7 +300,7 @@
 	visitOp(SIMDOP(59),v128_and,"v128.and",NoImm,BINARY(v128,v128),simd) \
 	visitOp(SIMDOP(60),v128_or,"v128.or",NoImm,BINARY(v128,v128),simd) \
 	visitOp(SIMDOP(61),v128_xor,"v128.xor",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(62),v128_not,"v128.not",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(62),v128_not,"v128.not",NoImm,UNARY(v128,v128),simd) \
 	\
 	visitOp(SIMDOP(63),v128_bitselect,"v128.bitselect",NoImm,VECTORSELECT(v128),simd) \
 	\
