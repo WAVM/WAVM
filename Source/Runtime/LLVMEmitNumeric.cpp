@@ -521,8 +521,8 @@ EMIT_SIMD_EXTRACT_LANE_OP(f64x2_extract_lane, llvmF64x2Type, 2, scalar)
 #define EMIT_SIMD_REPLACE_LANE_OP(typePrefix, llvmType, numLanes, coerceScalar)                    \
 	void EmitFunctionContext::typePrefix##_replace_lane(IR::LaneIndexImm<numLanes> imm)            \
 	{                                                                                              \
-		auto vector = irBuilder.CreateBitCast(pop(), llvmType);                                    \
 		auto scalar = pop();                                                                       \
+		auto vector = irBuilder.CreateBitCast(pop(), llvmType);                                    \
 		push(irBuilder.CreateInsertElement(vector, coerceScalar, imm.laneIndex));                  \
 	}
 
