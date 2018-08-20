@@ -104,8 +104,8 @@ static void parseTestScriptModule(CursorState* cursor,
 						quotedErrors);
 			for(auto&& error : quotedErrors)
 			{
-				cursor->parseState->unresolvedErrors.emplace_back(quoteToken->begin,
-																  std::move(error.message));
+				cursor->parseState->unresolvedErrors.push_back(
+					{quoteToken->begin, std::move(error.message)});
 			}
 		}
 		else
