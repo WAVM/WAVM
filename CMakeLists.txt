@@ -4,6 +4,11 @@ project (WAVM C CXX ASM)
 set(WAVM_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/Source)
 set(WAVM_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/Include)
 
+# If no build type is specified, default to RelWithDebInfo
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "The type of build (Debug, Release, RelWithDebInfo, or MinSizeRel" FORCE)
+endif()
+
 # Enable MAXOSX_RPATH by default
 cmake_policy(SET CMP0042 NEW)
 
