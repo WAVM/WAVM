@@ -518,7 +518,8 @@ struct FunctionPrintContext
 	void try_(ControlStructureImm imm)
 	{
 		string += "\ntry";
-		pushControlStack(ControlContext::Type::try_, "try");
+		std::string labelId = printControlLabel("try");
+		pushControlStack(ControlContext::Type::try_, labelId);
 		printControlSignature(imm.type);
 	}
 	void catch_(CatchImm imm)
