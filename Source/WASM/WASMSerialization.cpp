@@ -812,11 +812,11 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			break;
 		case SectionType::table:
 			serializeTableSection(moduleStream, module);
-			IR::validateTables(module);
+			IR::validateTableDefs(module);
 			break;
 		case SectionType::memory:
 			serializeMemorySection(moduleStream, module);
-			IR::validateMemories(module);
+			IR::validateMemoryDefs(module);
 			break;
 		case SectionType::global:
 			serializeGlobalSection(moduleStream, module);

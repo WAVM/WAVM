@@ -61,8 +61,8 @@ namespace IR
 	IR_API void validateTypes(const IR::Module& module);
 	IR_API void validateImports(const IR::Module& module);
 	IR_API void validateFunctionDeclarations(const IR::Module& module);
-	IR_API void validateTables(const IR::Module& module);
-	IR_API void validateMemories(const IR::Module& module);
+	IR_API void validateTableDefs(const IR::Module& module);
+	IR_API void validateMemoryDefs(const IR::Module& module);
 	IR_API void validateGlobals(const IR::Module& module);
 	IR_API void validateExports(const IR::Module& module);
 	IR_API void validateStartFunction(const IR::Module& module);
@@ -74,8 +74,8 @@ namespace IR
 		validateTypes(module);
 		validateImports(module);
 		validateFunctionDeclarations(module);
-		validateTables(module);
-		validateMemories(module);
+		validateTableDefs(module);
+		validateMemoryDefs(module);
 		validateGlobals(module);
 		validateExports(module);
 		validateStartFunction(module);

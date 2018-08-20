@@ -742,6 +742,9 @@ void IR::validateImports(const Module& module)
 		if(!module.featureSpec.importExportMutableGlobals)
 		{ VALIDATE_UNLESS("mutable globals cannot be imported: ", globalImport.type.isMutable); }
 	}
+
+	VALIDATE_UNLESS("too many tables: ", module.tables.size() > 1);
+	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
 }
 
 void IR::validateFunctionDeclarations(const Module& module)
@@ -766,13 +769,13 @@ void IR::validateGlobals(const Module& module)
 	}
 }
 
-void IR::validateTables(const Module& module)
+void IR::validateTableDefs(const Module& module)
 {
 	for(auto& tableDef : module.tables.defs) { validate(module, tableDef.type); }
 	VALIDATE_UNLESS("too many tables: ", module.tables.size() > 1);
 }
 
-void IR::validateMemories(const Module& module)
+void IR::validateMemoryDefs(const Module& module)
 {
 	for(auto& memoryDef : module.memories.defs) { validate(module, memoryDef.type); }
 	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
