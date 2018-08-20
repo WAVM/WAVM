@@ -851,23 +851,22 @@ void ModulePrintContext::printModule()
 		else if(userSection.name != "name")
 		{
 			string += '\n';
-			string += "(; User section ";
-			string += " \"";
+			string += ";; User section \"";
 			string += escapeString(userSection.name.c_str(), userSection.name.length());
-			string += "\":";
+			string += "\":" INDENT_STRING;
 			enum
 			{
-				numBytesPerLine = 64
+				numBytesPerLine = 32
 			};
 			for(Uptr offset = 0; offset < userSection.data.size(); offset += numBytesPerLine)
 			{
-				string += "\n\"";
+				string += "\n;; \"";
 				string += escapeString(
 					(const char*)userSection.data.data() + offset,
 					std::min(userSection.data.size() - offset, (Uptr)numBytesPerLine));
 				string += "\"";
 			}
-			string += "\n;)";
+			string += DEDENT_STRING "\n";
 		}
 	}
 }
@@ -901,14 +900,14 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 	// Print a comment that describes the contents of the linking section.
 	std::string linkingSectionString;
 	Uptr indentDepth = 1;
-	linkingSectionString += "\n(; linking section:" INDENT_STRING;
+	linkingSectionString += "\n;; linking section:" INDENT_STRING;
 	try
 	{
 		MemoryInputStream stream(linkingSection.data.data(), linkingSection.data.size());
 
 		U32 version = 1;
 		serializeVarUInt32(stream, version);
-		linkingSectionString += "\nVersion: " + std::to_string(version);
+		linkingSectionString += "\n;; Version: " + std::to_string(version);
 
 		while(stream.capacity())
 		{
@@ -923,7 +922,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			{
 			case LinkingSubsectionType::segmentInfo:
 			{
-				linkingSectionString += "\nSegments:" INDENT_STRING;
+				linkingSectionString += "\n;; Segments:" INDENT_STRING;
 				++indentDepth;
 
 				Uptr numSegments = 0;
@@ -938,7 +937,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					serializeVarUInt32(substream, alignment);
 					serializeVarUInt32(substream, flags);
 
-					linkingSectionString += "\n";
+					linkingSectionString += "\n;; ";
 					linkingSectionString += segmentName;
 					linkingSectionString += " alignment=" + std::to_string(1 << alignment);
 					linkingSectionString += " flags=" + std::to_string(flags);
@@ -950,7 +949,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			}
 			case LinkingSubsectionType::initFuncs:
 			{
-				linkingSectionString += "\nInit funcs:" INDENT_STRING;
+				linkingSectionString += "\n;; Init funcs:" INDENT_STRING;
 				++indentDepth;
 
 				Uptr numInitFuncs = 0;
@@ -960,7 +959,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					Uptr functionIndex = 0;
 					serializeVarUInt32(substream, functionIndex);
 
-					linkingSectionString += "\n";
+					linkingSectionString += ";; \n";
 					if(functionIndex < names.functions.size())
 					{ linkingSectionString += ' ' + names.functions[functionIndex].name; }
 					else
@@ -976,7 +975,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			}
 			case LinkingSubsectionType::comdatInfo:
 			{
-				linkingSectionString += "\nComdats:" INDENT_STRING;
+				linkingSectionString += "\n;; Comdats:" INDENT_STRING;
 				++indentDepth;
 
 				Uptr numComdats = 0;
@@ -989,7 +988,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					U32 flags = 0;
 					serializeVarUInt32(substream, flags);
 
-					linkingSectionString += "\n";
+					linkingSectionString += "\n;; ";
 					linkingSectionString += comdatName;
 
 					if(flags) { linkingSectionString += " OtherFlags=" + std::to_string(flags); }
@@ -1006,7 +1005,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						serializeVarUInt32(substream, kind);
 						serializeVarUInt32(substream, index);
 
-						linkingSectionString += "\nSymbol: ";
+						linkingSectionString += "\n;; Symbol: ";
 						switch((COMDATKind)kind)
 						{
 						case COMDATKind::data:
@@ -1051,7 +1050,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			}
 			case LinkingSubsectionType::symbolTable:
 			{
-				linkingSectionString += "\nSymbols:" INDENT_STRING;
+				linkingSectionString += "\n;; Symbols:" INDENT_STRING;
 				++indentDepth;
 
 				Uptr numSymbols = 0;
@@ -1130,7 +1129,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						throw FatalSerializationException("Unknown symbol kind");
 					};
 
-					linkingSectionString += "\n";
+					linkingSectionString += "\n;; ";
 					linkingSectionString += kindName;
 					linkingSectionString += symbolName;
 
@@ -1191,7 +1190,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 	}
 	catch(FatalSerializationException)
 	{
-		linkingSectionString += "\nFatal serialization exception!";
+		linkingSectionString += "\n;; Fatal serialization exception!";
 		while(indentDepth > 1)
 		{
 			linkingSectionString += DEDENT_STRING;
@@ -1199,7 +1198,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 		};
 	}
 	wavmAssert(indentDepth == 1);
-	linkingSectionString += DEDENT_STRING "\n;)";
+	linkingSectionString += DEDENT_STRING "\n";
 
 	string += linkingSectionString;
 }
