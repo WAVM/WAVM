@@ -148,6 +148,7 @@ static void print(std::string& string, FunctionType functionType)
 	// Print the function parameters.
 	if(functionType.params().size())
 	{
+		string += ' ';
 		ScopedTagPrinter paramTag(string, "param");
 		for(Uptr paramIndex = 0; paramIndex < functionType.params().size(); ++paramIndex)
 		{
@@ -159,6 +160,7 @@ static void print(std::string& string, FunctionType functionType)
 	// Print the function return types.
 	if(functionType.results().size())
 	{
+		string += ' ';
 		ScopedTagPrinter paramTag(string, "result");
 		for(Uptr resultIndex = 0; resultIndex < functionType.results().size(); ++resultIndex)
 		{
@@ -170,6 +172,7 @@ static void print(std::string& string, FunctionType functionType)
 
 static void print(std::string& string, const TableType& type)
 {
+	string += ' ';
 	print(string, type.size);
 	if(type.isShared) { string += " shared"; }
 	string += " anyfunc";
@@ -177,12 +180,14 @@ static void print(std::string& string, const TableType& type)
 
 static void print(std::string& string, const MemoryType& type)
 {
+	string += ' ';
 	print(string, type.size);
 	if(type.isShared) { string += " shared"; }
 }
 
 static void print(std::string& string, GlobalType type)
 {
+	string += ' ';
 	if(type.isMutable) { string += "(mut "; }
 	print(string, type.valueType);
 	if(type.isMutable) { string += ")"; }
@@ -622,7 +627,6 @@ void printImport(std::string& string,
 	string += typeTag;
 	string += ' ';
 	string += name;
-	string += ' ';
 	printImportType(string, module, import.type);
 	string += ')';
 }
@@ -638,7 +642,7 @@ void ModulePrintContext::printModule()
 		ScopedTagPrinter typeTag(string, "type");
 		string += ' ';
 		string += names.types[typeIndex];
-		string += " (func ";
+		string += " (func";
 		print(string, module.types[typeIndex]);
 		string += ')';
 	}
