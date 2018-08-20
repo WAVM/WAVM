@@ -138,7 +138,8 @@ namespace IR
 		template<typename Visitor> typename Visitor::Result decodeOp(Visitor& visitor)
 		{
 			wavmAssert(nextByte + sizeof(Opcode) <= end);
-			Opcode opcode = *(Opcode*)nextByte;
+			Opcode opcode;
+			memcpy(&opcode, nextByte, sizeof(Opcode));
 			switch(opcode)
 			{
 #define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                                           \
