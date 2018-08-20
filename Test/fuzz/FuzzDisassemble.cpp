@@ -310,9 +310,9 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 #if !ENABLE_LIBFUZZER
 
+#include <cstring>
 #include <fstream>
 #include <iostream>
-#include <cstring>
 
 I32 main(int argc, char** argv)
 {
