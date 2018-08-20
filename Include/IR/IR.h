@@ -40,7 +40,7 @@ namespace IR
 		bool sharedTables                        = true;
 		bool requireSharedFlagForAtomicOperators = true; // (true is standard)
 
-		Uptr maxLocals            = UINTPTR_MAX;
+		Uptr maxLocals            = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;
 	};
 }
