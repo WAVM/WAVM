@@ -5,6 +5,7 @@
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/Unicode.h"
+#include "IsNameChar.h"
 #include "Lexer.h"
 #include "WAST.h"
 
@@ -279,12 +280,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 	while(true)
 	{
 		const char c = *nextChar;
-		if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
-		   || c == '\'' || c == '+' || c == '-' || c == '*' || c == '/' || c == '\\' || c == '^'
-		   || c == '~' || c == '=' || c == '<' || c == '>' || c == '!' || c == '?' || c == '@'
-		   || c == '#' || c == '$' || c == '%' || c == '&' || c == '|' || c == ':' || c == '`'
-		   || c == '.')
-		{ ++nextChar; }
+		if(isNameChar(c)) { ++nextChar; }
 		else
 		{
 			break;

@@ -6,6 +6,7 @@
 #include "Inline/HashMap.h"
 #include "Inline/HashSet.h"
 #include "Inline/Serialization.h"
+#include "IsNameChar.h"
 #include "Logging/Logging.h"
 #include "WAST.h"
 
@@ -44,6 +45,36 @@ static std::string escapeString(const char* string, Uptr numChars)
 		}
 	}
 	return result;
+}
+
+static std::string escapeName(const std::string& name)
+{
+	std::string escapedName;
+	for(char c : name)
+	{
+		if(c == '(') { escapedName += "_lparen_"; }
+		else if(c == ')')
+		{
+			escapedName += "_rparen_";
+		}
+		else if(c == ' ')
+		{
+			escapedName += '_';
+		}
+		else if(!isNameChar(c))
+		{
+			escapedName += '_';
+			escapedName += nibbleToHexChar((c & 0xf0) >> 4);
+			escapedName += nibbleToHexChar((c & 0x0f) >> 0);
+			escapedName += '_';
+		}
+		else
+		{
+			escapedName += c;
+		}
+	}
+
+	return escapedName;
 }
 
 static std::string expandIndentation(std::string&& inString, U8 spacesPerIndentLevel = 2)
@@ -189,7 +220,7 @@ struct NameScope
 			} while(!nameSet.add(name));
 		}
 
-		name = sigil + name;
+		name = sigil + escapeName(name);
 	}
 
 private:

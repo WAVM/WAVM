@@ -1,8 +1,9 @@
 set(Sources
-	NFA.cpp
-	NFA.h
+	IsNameChar.h
 	Lexer.cpp
 	Lexer.h
+	NFA.cpp
+	NFA.h
 	Parse.cpp
 	Parse.h
 	ParseFunction.cpp
