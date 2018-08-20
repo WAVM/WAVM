@@ -449,7 +449,7 @@ struct FunctionPrintContext
 
 	void printImm(LiteralImm<V128> imm)
 	{
-		string += ' ';
+		string += " i32 ";
 		string += asString(imm.value);
 	}
 

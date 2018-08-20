@@ -55,7 +55,7 @@ namespace IR
 			case IR::ValueType::i64: return "i64.const " + IR::asString(value.i64);
 			case IR::ValueType::f32: return "f32.const " + IR::asString(value.f32);
 			case IR::ValueType::f64: return "f64.const " + IR::asString(value.f64);
-			case IR::ValueType::v128: return "v128.const " + IR::asString(value.v128);
+			case IR::ValueType::v128: return "v128.const i32 " + IR::asString(value.v128);
 			default: Errors::unreachable();
 			}
 		}
