@@ -41,6 +41,28 @@ namespace IR
 		{
 			wavmAssert(inType == Type::get_global);
 		}
+
+		friend bool operator==(const InitializerExpression& a, const InitializerExpression& b)
+		{
+			if(a.type != b.type) { return false; }
+			switch(a.type)
+			{
+			case Type::i32_const: return a.i32 == b.i32;
+			case Type::i64_const: return a.i64 == b.i64;
+			// For FP constants, use integer comparison to test for bitwise equality. Using FP
+			// comparison can't distinguish when NaNs are identical.
+			case Type::f32_const: return a.i32 == b.i32;
+			case Type::f64_const: return a.i64 == b.i64;
+			case Type::get_global: return a.globalIndex == b.globalIndex;
+			case Type::error: return true;
+			default: Errors::unreachable();
+			};
+		}
+
+		friend bool operator!=(const InitializerExpression& a, const InitializerExpression& b)
+		{
+			return !(a == b);
+		}
 	};
 
 	// A function definition

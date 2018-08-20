@@ -16,3 +16,7 @@ set_target_properties(FuzzWASM PROPERTIES FOLDER Testing)
 add_executable(FuzzRuntime FuzzRuntime.cpp)
 target_link_libraries(FuzzRuntime Logging IR WAST WASM Runtime)
 set_target_properties(FuzzRuntime PROPERTIES FOLDER Testing)
+
+add_executable(FuzzDisassemble FuzzDisassemble.cpp)
+target_link_libraries(FuzzDisassemble Logging IR WAST WASM)
+set_target_properties(FuzzDisassemble PROPERTIES FOLDER Testing)
