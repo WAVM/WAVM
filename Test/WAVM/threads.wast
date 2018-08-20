@@ -193,6 +193,18 @@
 		(call $threadTest.joinThread
 			(call $threadTest.createThread (get_global $createThreadEntry7Index) (i32.const 200)))
 		)
+
+	(func (export "atomic.wake") (param $numWaiters i32) (param $address i32) (result i32)
+		(atomic.wake (get_local $numWaiters) (get_local $address))
+		)
+
+	(func (export "i32.atomic.wait") (param $address i32) (param $expectedValue i32) (param $timeout f64) (result i32)
+		(i32.atomic.wait (get_local $address) (get_local $expectedValue) (get_local $timeout))
+		)
+
+	(func (export "i64.atomic.wait") (param $address i32) (param $expectedValue i64) (param $timeout f64) (result i32)
+		(i64.atomic.wait (get_local $address) (get_local $expectedValue) (get_local $timeout))
+		)
 )
 
 (assert_return (invoke "createThreadWithReturn") (i64.const 11))
