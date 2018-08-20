@@ -106,11 +106,11 @@ namespace Intrinsics
 	// so inferFunctionType can recognize them
 	struct MemoryIdArg
 	{
-		uintptr_t id;
+		Uptr id;
 	};
 	struct TableIdArg
 	{
-		uintptr_t id;
+		Uptr id;
 	};
 
 	// Create a new return type for intrinsic functions that return their result in the
