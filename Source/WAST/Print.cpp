@@ -456,7 +456,7 @@ struct FunctionPrintContext
 	template<Uptr numLanes> void printImm(LaneIndexImm<numLanes> imm)
 	{
 		string += ' ';
-		string += imm.laneIndex;
+		string += std::to_string(imm.laneIndex);
 	}
 
 	template<Uptr numLanes> void printImm(ShuffleImm<numLanes> imm)
