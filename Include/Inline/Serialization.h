@@ -239,23 +239,11 @@ namespace Serialization
 		// Ensure that the input does not encode more than maxBits of data.
 		enum
 		{
-			numUsedBitsInLastByte = maxBits - (maxBytes - 1) * 7
-		};
-		enum
-		{
-			numUnusedBitsInLast = 8 - numUsedBitsInLastByte
-		};
-		enum
-		{
-			lastBitUsedMask = U8(1 << (numUsedBitsInLastByte - 1))
-		};
-		enum
-		{
-			lastByteUsedMask = U8(1 << numUsedBitsInLastByte) - U8(1)
-		};
-		enum
-		{
-			lastByteSignedMask = U8(~U8(lastByteUsedMask) & ~U8(0x80))
+			numUsedBitsInLastByte = maxBits - (maxBytes - 1) * 7,
+			numUnusedBitsInLast   = 8 - numUsedBitsInLastByte,
+			lastBitUsedMask       = U8(1 << (numUsedBitsInLastByte - 1)),
+			lastByteUsedMask      = U8(1 << numUsedBitsInLastByte) - U8(1),
+			lastByteSignedMask    = U8(~U8(lastByteUsedMask) & ~U8(0x80))
 		};
 		const U8 lastByte = bytes[maxBytes - 1];
 		if(!std::is_signed<Value>::value)
