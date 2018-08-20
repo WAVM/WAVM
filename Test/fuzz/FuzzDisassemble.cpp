@@ -312,6 +312,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 #include <fstream>
 #include <iostream>
+#include <cstring>
 
 I32 main(int argc, char** argv)
 {
