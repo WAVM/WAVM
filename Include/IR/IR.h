@@ -15,11 +15,9 @@ namespace IR
 	};
 	enum : Uptr
 	{
-		numBytesPerPage      = (Uptr)65536,
-		numBytesPerPageLog2  = (Uptr)16,
-		maxReturnValues      = (Uptr)16,
-		maxLocals            = (Uptr)65536,
-		maxLabelsPerFunction = (Uptr)65536
+		numBytesPerPage     = (Uptr)65536,
+		numBytesPerPageLog2 = (Uptr)16,
+		maxReturnValues     = (Uptr)16,
 	};
 
 	struct FeatureSpec
@@ -41,5 +39,8 @@ namespace IR
 		// WAVM-specific extensions
 		bool sharedTables                        = true;
 		bool requireSharedFlagForAtomicOperators = true; // (true is standard)
+
+		Uptr maxLocals            = UINTPTR_MAX;
+		Uptr maxLabelsPerFunction = UINTPTR_MAX;
 	};
 }

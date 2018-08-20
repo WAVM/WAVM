@@ -145,8 +145,9 @@ static void deserializeNameSubsection(const Module& module,
 
 			if(functionIndex < outNames.functions.size())
 			{
-				deserializeNameMap(
-					substream, outNames.functions[functionIndex].labels, IR::maxLabelsPerFunction);
+				deserializeNameMap(substream,
+								   outNames.functions[functionIndex].labels,
+								   module.featureSpec.maxLabelsPerFunction);
 			}
 			else
 			{

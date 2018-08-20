@@ -43,6 +43,8 @@ inline bool loadBinaryModule(const std::string& wasmBytes, Module& outModule)
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	Module module;
+	module.featureSpec.maxLabelsPerFunction = 65536;
+	module.featureSpec.maxLocals            = 1024;
 	loadBinaryModule(std::string((const char*)data, numBytes), module);
 	return 0;
 }

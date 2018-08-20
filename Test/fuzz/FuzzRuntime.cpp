@@ -150,6 +150,8 @@ inline bool loadModule(const std::string& dataString, IR::Module& outModule)
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	Module module;
+	module.featureSpec.maxLabelsPerFunction = 65536;
+	module.featureSpec.maxLocals            = 1024;
 	if(!loadBinaryModule(std::string((const char*)data, numBytes), module)) { return 0; }
 
 	Compartment* compartment = createCompartment();
