@@ -54,6 +54,7 @@ llvm::Type* LLVMJIT::llvmI8Type;
 llvm::Type* LLVMJIT::llvmI16Type;
 llvm::Type* LLVMJIT::llvmI32Type;
 llvm::Type* LLVMJIT::llvmI64Type;
+llvm::Type* LLVMJIT::llvmI128Type;
 llvm::Type* LLVMJIT::llvmF32Type;
 llvm::Type* LLVMJIT::llvmF64Type;
 llvm::Type* LLVMJIT::llvmVoidType;
@@ -64,6 +65,7 @@ llvm::Type* LLVMJIT::llvmI8x16Type;
 llvm::Type* LLVMJIT::llvmI16x8Type;
 llvm::Type* LLVMJIT::llvmI32x4Type;
 llvm::Type* LLVMJIT::llvmI64x2Type;
+llvm::Type* LLVMJIT::llvmI128x1Type;
 llvm::Type* LLVMJIT::llvmF32x4Type;
 llvm::Type* LLVMJIT::llvmF64x2Type;
 
@@ -1072,6 +1074,7 @@ static void initLLVM()
 	llvmI16Type   = llvm::Type::getInt16Ty(*llvmContext);
 	llvmI32Type   = llvm::Type::getInt32Ty(*llvmContext);
 	llvmI64Type   = llvm::Type::getInt64Ty(*llvmContext);
+	llvmI128Type  = llvm::Type::getInt128Ty(*llvmContext);
 	llvmF32Type   = llvm::Type::getFloatTy(*llvmContext);
 	llvmF64Type   = llvm::Type::getDoubleTy(*llvmContext);
 	llvmVoidType  = llvm::Type::getVoidTy(*llvmContext);
@@ -1092,27 +1095,30 @@ static void initLLVM()
 		= llvm::StructType::create({llvmExceptionRecordStructType->getPointerTo(), llvmI8PtrType});
 #endif
 
-	llvmI8x16Type = llvm::VectorType::get(llvmI8Type, 16);
-	llvmI16x8Type = llvm::VectorType::get(llvmI16Type, 8);
-	llvmI32x4Type = llvm::VectorType::get(llvmI32Type, 4);
-	llvmI64x2Type = llvm::VectorType::get(llvmI64Type, 2);
-	llvmF32x4Type = llvm::VectorType::get(llvmF32Type, 4);
-	llvmF64x2Type = llvm::VectorType::get(llvmF64Type, 2);
+	llvmI8x16Type  = llvm::VectorType::get(llvmI8Type, 16);
+	llvmI16x8Type  = llvm::VectorType::get(llvmI16Type, 8);
+	llvmI32x4Type  = llvm::VectorType::get(llvmI32Type, 4);
+	llvmI64x2Type  = llvm::VectorType::get(llvmI64Type, 2);
+	llvmI128x1Type = llvm::VectorType::get(llvmI128Type, 1);
+	llvmF32x4Type  = llvm::VectorType::get(llvmF32Type, 4);
+	llvmF64x2Type  = llvm::VectorType::get(llvmF64Type, 2);
 
 	llvmValueTypes[(Uptr)ValueType::i32]  = llvmI32Type;
 	llvmValueTypes[(Uptr)ValueType::i64]  = llvmI64Type;
 	llvmValueTypes[(Uptr)ValueType::f32]  = llvmF32Type;
 	llvmValueTypes[(Uptr)ValueType::f64]  = llvmF64Type;
-	llvmValueTypes[(Uptr)ValueType::v128] = llvmI64x2Type;
+	llvmValueTypes[(Uptr)ValueType::v128] = llvmI128x1Type;
 
 	// Create zero constants of each type.
-	typedZeroConstants[(Uptr)ValueType::any]  = nullptr;
-	typedZeroConstants[(Uptr)ValueType::i32]  = emitLiteral((U32)0);
-	typedZeroConstants[(Uptr)ValueType::i64]  = emitLiteral((U64)0);
-	typedZeroConstants[(Uptr)ValueType::f32]  = emitLiteral((F32)0.0f);
-	typedZeroConstants[(Uptr)ValueType::f64]  = emitLiteral((F64)0.0);
+	typedZeroConstants[(Uptr)ValueType::any] = nullptr;
+	typedZeroConstants[(Uptr)ValueType::i32] = emitLiteral((U32)0);
+	typedZeroConstants[(Uptr)ValueType::i64] = emitLiteral((U64)0);
+	typedZeroConstants[(Uptr)ValueType::f32] = emitLiteral((F32)0.0f);
+	typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral((F64)0.0);
+
+	U64 i64x2Zero[2]                          = {0, 0};
 	typedZeroConstants[(Uptr)ValueType::v128] = llvm::ConstantVector::get(
-		{typedZeroConstants[(Uptr)ValueType::i64], typedZeroConstants[(Uptr)ValueType::i64]});
+		{llvm::ConstantInt::get(llvmI128Type, llvm::APInt(128, 2, i64x2Zero))});
 
 	if(!gdbRegistrationListener)
 	{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }

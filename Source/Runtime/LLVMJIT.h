@@ -48,6 +48,7 @@ namespace LLVMJIT
 	extern llvm::Type* llvmI16Type;
 	extern llvm::Type* llvmI32Type;
 	extern llvm::Type* llvmI64Type;
+	extern llvm::Type* llvmI128Type;
 	extern llvm::Type* llvmF32Type;
 	extern llvm::Type* llvmF64Type;
 	extern llvm::Type* llvmVoidType;
@@ -58,6 +59,7 @@ namespace LLVMJIT
 	extern llvm::Type* llvmI16x8Type;
 	extern llvm::Type* llvmI32x4Type;
 	extern llvm::Type* llvmI64x2Type;
+	extern llvm::Type* llvmI128x1Type;
 	extern llvm::Type* llvmF32x4Type;
 	extern llvm::Type* llvmF64x2Type;
 
@@ -104,8 +106,7 @@ namespace LLVMJIT
 	inline llvm::Constant* emitLiteral(V128 value)
 	{
 		return llvm::ConstantVector::get(
-			{llvm::ConstantInt::get(llvmI64Type, llvm::APInt(64, value.i64[0], false)),
-			 llvm::ConstantInt::get(llvmI64Type, llvm::APInt(64, value.i64[1], false))});
+			{llvm::ConstantInt::get(llvmI128Type, llvm::APInt(128, 2, value.u64))});
 	}
 	inline llvm::Constant* emitLiteralPointer(const void* pointer, llvm::Type* type)
 	{

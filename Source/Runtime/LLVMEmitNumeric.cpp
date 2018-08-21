@@ -603,8 +603,8 @@ void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)
 
 void EmitFunctionContext::v128_bitselect(IR::NoImm)
 {
-	auto mask       = irBuilder.CreateBitCast(pop(), llvmI64x2Type);
-	auto falseValue = irBuilder.CreateBitCast(pop(), llvmI64x2Type);
-	auto trueValue  = irBuilder.CreateBitCast(pop(), llvmI64x2Type);
+	auto mask       = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto falseValue = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto trueValue  = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(emitBitSelect(mask, trueValue, falseValue));
 }

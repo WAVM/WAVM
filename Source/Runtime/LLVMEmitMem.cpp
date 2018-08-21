@@ -85,7 +85,7 @@ EMIT_STORE_OP(f32, store, llvmF32Type, 2, identity)
 EMIT_STORE_OP(f64, store, llvmF64Type, 3, identity)
 
 EMIT_STORE_OP(v128, store, value->getType(), 4, identity)
-EMIT_LOAD_OP(v128, load, llvmI64x2Type, 4, identity)
+EMIT_LOAD_OP(v128, load, llvmI128x1Type, 4, identity)
 
 void EmitFunctionContext::atomic_wake(AtomicLoadOrStoreImm<2>)
 {

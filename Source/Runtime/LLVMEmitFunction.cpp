@@ -35,13 +35,12 @@ PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::Type
 	return result;
 }
 
-// Bitcasts a LLVM value to a canonical type for the corresponding WebAssembly type.
-// This is currently just used to map all the various vector types to a canonical type for the
-// vector width.
+// Bitcasts a LLVM value to a canonical type for the corresponding WebAssembly type. This is
+// currently just used to map all the various vector types to a canonical type for the vector width.
 llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 {
 	return value->getType()->isVectorTy() || value->getType()->isX86_MMXTy()
-			   ? irBuilder.CreateBitCast(value, llvmI64x2Type)
+			   ? irBuilder.CreateBitCast(value, llvmI128x1Type)
 			   : value;
 }
 
