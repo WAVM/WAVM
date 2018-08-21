@@ -89,14 +89,18 @@ namespace IR
 		}
 		template<Uptr numLanes> std::string describeImm(ShuffleImm<numLanes> imm)
 		{
-			std::string result = " [";
-			const char* prefix = "";
+			std::string result = " ";
+			char prefix        = '[';
 			for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 			{
-				result += prefix + (imm.laneIndices[laneIndex] < numLanes ? 'a' : 'b')
-						  + std::to_string(imm.laneIndices[laneIndex]);
-				prefix = ",";
+				result += prefix;
+				result += imm.laneIndices[laneIndex] < numLanes ? 'a' : 'b';
+				result += imm.laneIndices[laneIndex] < numLanes
+							  ? std::to_string(imm.laneIndices[laneIndex])
+							  : std::to_string(imm.laneIndices[laneIndex] - numLanes);
+				prefix = ',';
 			}
+			result += ']';
 			return result;
 		}
 
