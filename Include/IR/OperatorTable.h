@@ -40,21 +40,18 @@
 	visitOp(EXCEPTIONOP(0),throw_,"throw",ExceptionTypeImm,THROW,exceptionHandling) \
 	visitOp(EXCEPTIONOP(1),rethrow,"rethrow",RethrowImm,RETHROW,exceptionHandling)
 
-/*
-	Possible signatures used by ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS:
-	NONE : () -> ()
-	NULLARY(T) : () -> T
-	UNARY(T,U) : T -> U
-	BINARY(T,U) : (T,T) -> U
-	LOAD(T) : i32 -> T
-	STORE(T) : (i32,T) -> ()
-	VECTORSELECT(V) : (V,V,V) -> V
-	REPLACELANE(S,V) : (V,S) -> V
-	COMPAREEXCHANGE(T) : (i32,T,T) -> T
-	WAIT(T) : (i32,T,f64) -> i32
-	LAUNCHTHREAD : (i32,i32) -> ()
-	ATOMICRMW : (i32,T) -> T
-*/
+// Maps an operator signature to a function type.
+#define NONE                                    FunctionType()
+#define LOAD(resultTypeId)                      FunctionType({ValueType::resultTypeId}, {ValueType::i32                                                            })
+#define STORE(valueTypeId)                      FunctionType({},                        {ValueType::i32,           ValueType::valueTypeId                          })
+#define NULLARY(resultTypeId)                   FunctionType({ValueType::resultTypeId}, {                                                                          })
+#define BINARY(operandTypeId, resultTypeId)     FunctionType({ValueType::resultTypeId}, {ValueType::operandTypeId, ValueType::operandTypeId                        })
+#define UNARY(operandTypeId, resultTypeId)      FunctionType({ValueType::resultTypeId}, {ValueType::operandTypeId                                                  })
+#define VECTORSELECT(vectorTypeId)              FunctionType({ValueType::vectorTypeId}, {ValueType::vectorTypeId,  ValueType::vectorTypeId, ValueType::vectorTypeId})
+#define REPLACELANE(scalarTypeId, vectorTypeId) FunctionType({ValueType::vectorTypeId}, {ValueType::vectorTypeId,  ValueType::scalarTypeId                         })
+#define COMPAREEXCHANGE(valueTypeId)            FunctionType({ValueType::valueTypeId},  {ValueType::i32,           ValueType::valueTypeId,  ValueType::valueTypeId })
+#define WAIT(valueTypeId)                       FunctionType({ValueType::i32},          {ValueType::i32,           ValueType::valueTypeId,  ValueType::f64         })
+#define ATOMICRMW(valueTypeId)                  FunctionType({ValueType::valueTypeId},  {ValueType::i32,           ValueType::valueTypeId                          })
 
 #define ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp) \
 	visitOp(0x01,nop,"nop",NoImm,NONE,mvp) \

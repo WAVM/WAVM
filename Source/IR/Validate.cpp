@@ -487,45 +487,16 @@ struct FunctionValidationContext
 						imm.alignmentLog2 != naturalAlignmentLog2);
 	}
 
-#define LOAD(resultTypeId)                                                                         \
-	popAndValidateOperand(operatorName, ValueType::i32);                                           \
-	pushOperand(ValueType::resultTypeId);
-#define STORE(valueTypeId)                                                                         \
-	popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId);
-#define NONE
-#define NULLARY(resultTypeId) pushOperand(ValueType::resultTypeId);
-#define BINARY(operandTypeId, resultTypeId)                                                        \
-	popAndValidateOperands(operatorName, ValueType::operandTypeId, ValueType::operandTypeId);      \
-	pushOperand(ValueType::resultTypeId)
-#define UNARY(operandTypeId, resultTypeId)                                                         \
-	popAndValidateOperand(operatorName, ValueType::operandTypeId);                                 \
-	pushOperand(ValueType::resultTypeId)
-#define VECTORSELECT(vectorTypeId)                                                                 \
-	popAndValidateOperands(                                                                        \
-		operatorName, ValueType::vectorTypeId, ValueType::vectorTypeId, ValueType::vectorTypeId);  \
-	pushOperand(ValueType::vectorTypeId);
-#define REPLACELANE(scalarTypeId, vectorTypeId)                                                    \
-	popAndValidateOperands(operatorName, ValueType::vectorTypeId, ValueType::scalarTypeId);        \
-	pushOperand(ValueType::vectorTypeId);
-#define COMPAREEXCHANGE(valueTypeId)                                                               \
-	popAndValidateOperands(                                                                        \
-		operatorName, ValueType::i32, ValueType::valueTypeId, ValueType::valueTypeId);             \
-	pushOperand(ValueType::valueTypeId);
-#define WAIT(valueTypeId)                                                                          \
-	popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId, ValueType::f64);  \
-	pushOperand(ValueType::i32);
-#define ATOMICRMW(valueTypeId)                                                                     \
-	popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId);                  \
-	pushOperand(ValueType::valueTypeId);
-
-#define VALIDATE_OP(opcode, name, nameString, Imm, validateOperands, requiredFeature)              \
+#define VALIDATE_OP(opcode, name, nameString, Imm, signatureInitializer, requiredFeature)          \
 	void name(Imm imm)                                                                             \
 	{                                                                                              \
 		VALIDATE_FEATURE(nameString, requiredFeature);                                             \
 		const char* operatorName = nameString;                                                     \
 		SUPPRESS_UNUSED(operatorName);                                                             \
 		validateImm(imm);                                                                          \
-		validateOperands;                                                                          \
+		static const FunctionType signature = signatureInitializer;                                \
+		popAndValidateTypeTuple("call arguments", signature.params());                             \
+		pushOperandTuple(signature.results());                                                     \
 	}
 	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
 #undef VALIDATE_OP

@@ -17,8 +17,11 @@ cd $BUILD_DIR/llvm6/build
 CC=clang CXX=clang++ cmake \
 	-G Ninja \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-	-DLLVM_USE_SANITIZER=Address \
+	-DLLVM_USE_SANITIZER=Address;Undefined \
+	-DLLVM_USE_SANITIZE_COVERAGE=1 \
 	-DLLVM_TARGETS_TO_BUILD=X86 \
+	-DLLVM_INCLUDE_TOOLS=0 \
+	-DLLVM_INCLUDE_TESTS=0 \
 	..
 ninja
 
