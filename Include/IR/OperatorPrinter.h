@@ -78,8 +78,8 @@ namespace IR
 		template<Uptr naturalAlignmentLog2>
 		std::string describeImm(LoadOrStoreImm<naturalAlignmentLog2> imm)
 		{
-			return " align=" + std::to_string(1 << imm.alignmentLog2)
-				   + " offset=" + std::to_string(imm.offset);
+			return " offset=" + std::to_string(imm.offset)
+				   + " align=" + std::to_string(1 << imm.alignmentLog2);
 		}
 		std::string describeImm(MemoryImm) { return ""; }
 
