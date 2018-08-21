@@ -528,25 +528,25 @@ EMIT_SIMD_UNARY_OP(i64x2_all_true, llvmI64x2Type, emitAllTrue(irBuilder, operand
 
 void EmitFunctionContext::v128_and(IR::NoImm)
 {
-	auto right = pop();
-	auto left  = irBuilder.CreateBitCast(pop(), right->getType());
+	auto right = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto left  = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(irBuilder.CreateAnd(left, right));
 }
 void EmitFunctionContext::v128_or(IR::NoImm)
 {
-	auto right = pop();
-	auto left  = irBuilder.CreateBitCast(pop(), right->getType());
+	auto right = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto left  = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(irBuilder.CreateOr(left, right));
 }
 void EmitFunctionContext::v128_xor(IR::NoImm)
 {
-	auto right = pop();
-	auto left  = irBuilder.CreateBitCast(pop(), right->getType());
+	auto right = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto left  = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(irBuilder.CreateXor(left, right));
 }
 void EmitFunctionContext::v128_not(IR::NoImm)
 {
-	auto operand = pop();
+	auto operand = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(irBuilder.CreateNot(operand));
 }
 
