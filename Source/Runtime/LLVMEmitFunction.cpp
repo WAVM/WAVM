@@ -290,7 +290,7 @@ struct UnreachableOpVisitor
 	}
 
 	void try_(ControlStructureImm imm) { ++unreachableControlDepth; }
-	void catch_(CatchImm imm)
+	void catch_(ExceptionTypeImm imm)
 	{
 		if(!unreachableControlDepth) { context.catch_(imm); }
 	}

@@ -430,6 +430,31 @@ struct FunctionPrintContext
 		string += "\nset_global " + moduleContext.names.globals[imm.variableIndex];
 	}
 
+	void throw_(ExceptionTypeImm imm)
+	{
+		string += "\nthrow " + moduleContext.names.exceptionTypes[imm.exceptionTypeIndex];
+	}
+
+	void rethrow(RethrowImm imm)
+	{
+		string += "\nrethrow ";
+
+		Uptr catchDepth = 0;
+		for(Uptr targetDepth = controlStack.size() - 1; targetDepth > 0; ++targetDepth)
+		{
+			if(controlStack[targetDepth].type == ControlContext::Type::catch_)
+			{
+				if(catchDepth == imm.catchDepth)
+				{
+					string += getBranchTargetId(targetDepth);
+					return;
+				}
+			}
+		}
+
+		Errors::unreachable();
+	}
+
 	void call(CallImm imm)
 	{
 		string += "\ncall " + moduleContext.names.functions[imm.functionIndex].name;
@@ -517,9 +542,6 @@ struct FunctionPrintContext
 		wavmAssert(imm.alignmentLog2 == naturalAlignmentLog2);
 	}
 
-	void printImm(ThrowImm) {}
-	void printImm(RethrowImm) {}
-
 	void try_(ControlStructureImm imm)
 	{
 		string += "\ntry";
@@ -527,7 +549,7 @@ struct FunctionPrintContext
 		pushControlStack(ControlContext::Type::try_, labelId);
 		printControlSignature(imm.type);
 	}
-	void catch_(CatchImm imm)
+	void catch_(ExceptionTypeImm imm)
 	{
 		string += DEDENT_STRING;
 		controlStack.back().type = ControlContext::Type::catch_;

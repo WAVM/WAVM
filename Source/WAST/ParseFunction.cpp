@@ -325,15 +325,7 @@ static void parseImm(CursorState* cursor, AtomicLoadOrStoreImm<naturalAlignmentL
 	outImm.offset        = loadOrStoreImm.offset;
 }
 
-static void parseImm(CursorState* cursor, CatchImm& outImm)
-{
-	outImm.exceptionTypeIndex
-		= parseAndResolveNameOrIndexRef(cursor,
-										cursor->moduleState->exceptionTypeNameToIndexMap,
-										cursor->moduleState->module.exceptionTypes.size(),
-										"exception type");
-}
-static void parseImm(CursorState* cursor, ThrowImm& outImm)
+static void parseImm(CursorState* cursor, ExceptionTypeImm& outImm)
 {
 	outImm.exceptionTypeIndex
 		= parseAndResolveNameOrIndexRef(cursor,
@@ -643,9 +635,9 @@ static void parseInstrSequence(CursorState* cursor)
 					if(cursor->nextToken->type == t_catch_)
 					{
 						++cursor->nextToken;
-						CatchImm catchImm;
-						parseImm(cursor, catchImm);
-						cursor->functionState->validatingCodeStream.catch_(catchImm);
+						ExceptionTypeImm exceptionTypeImm;
+						parseImm(cursor, exceptionTypeImm);
+						cursor->functionState->validatingCodeStream.catch_(exceptionTypeImm);
 						parseInstrSequence(cursor);
 					}
 					else if(cursor->nextToken->type == t_catch_all)

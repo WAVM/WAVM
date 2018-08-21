@@ -191,7 +191,7 @@ static llvm::Function* createSEHFilterFunction(
 	return filterFunction;
 }
 
-void EmitFunctionContext::catch_(CatchImm imm)
+void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 {
 	wavmAssert(controlStack.size());
 	wavmAssert(catchStack.size());
@@ -336,7 +336,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 	pushMultiple(tryArgs, blockType.params().size());
 }
 
-void EmitFunctionContext::catch_(CatchImm imm)
+void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 {
 	wavmAssert(controlStack.size());
 	wavmAssert(catchStack.size());
@@ -431,7 +431,7 @@ void EmitFunctionContext::emitThrow(llvm::Value* exceptionTypeInstanceI64,
 		{exceptionTypeInstanceI64, argumentsPointerI64, emitLiteral(I32(isUserException ? 1 : 0))});
 }
 
-void EmitFunctionContext::throw_(ThrowImm imm)
+void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 {
 	const Runtime::ExceptionTypeInstance* exceptionTypeInstance
 		= moduleContext.moduleInstance->exceptionTypeInstances[imm.exceptionTypeIndex];

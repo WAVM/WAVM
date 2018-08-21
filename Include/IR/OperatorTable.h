@@ -17,7 +17,7 @@
 	visitOp(0x05,else_,"else",NoImm,CONTROL,mvp) \
 	visitOp(0x0b,end,"end",NoImm,CONTROL,mvp) \
 	visitOp(EXCEPTIONOP(2),try_,"try",ControlStructureImm,CONTROL,exceptionHandling) \
-	visitOp(EXCEPTIONOP(3),catch_,"catch",CatchImm,CONTROL,exceptionHandling) \
+	visitOp(EXCEPTIONOP(3),catch_,"catch",ExceptionTypeImm,CONTROL,exceptionHandling) \
 	visitOp(EXCEPTIONOP(4),catch_all,"catch_all",NoImm,CONTROL,exceptionHandling)
 
 #define ENUM_PARAMETRIC_OPERATORS(visitOp) \
@@ -35,7 +35,10 @@
 	visitOp(0x21,set_local,"set_local",GetOrSetVariableImm<false>,SETLOCAL,mvp) \
 	visitOp(0x22,tee_local,"tee_local",GetOrSetVariableImm<false>,TEELOCAL,mvp) \
 	visitOp(0x23,get_global,"get_global",GetOrSetVariableImm<true>,GETGLOBAL,mvp) \
-	visitOp(0x24,set_global,"set_global",GetOrSetVariableImm<true>,SETGLOBAL,mvp)
+	visitOp(0x24,set_global,"set_global",GetOrSetVariableImm<true>,SETGLOBAL,mvp) \
+	\
+	visitOp(EXCEPTIONOP(0),throw_,"throw",ExceptionTypeImm,THROW,exceptionHandling) \
+	visitOp(EXCEPTIONOP(1),rethrow,"rethrow",RethrowImm,RETHROW,exceptionHandling)
 
 /*
 	Possible signatures used by ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS:
@@ -481,10 +484,6 @@
 	visitOp(ATOMICOP(0x4c),i64_atomic_rmw8_u_cmpxchg,"i64.atomic.rmw8_u.cmpxchg",AtomicLoadOrStoreImm<0>,COMPAREEXCHANGE(i64),atomics) \
 	visitOp(ATOMICOP(0x4d),i64_atomic_rmw16_u_cmpxchg,"i64.atomic.rmw16_u.cmpxchg",AtomicLoadOrStoreImm<1>,COMPAREEXCHANGE(i64),atomics) \
 	visitOp(ATOMICOP(0x4e),i64_atomic_rmw32_u_cmpxchg,"i64.atomic.rmw32_u.cmpxchg",AtomicLoadOrStoreImm<2>,COMPAREEXCHANGE(i64),atomics) \
-	\
-	/* Exception operators */ \
-	visitOp(EXCEPTIONOP(0),throw_,"throw",ThrowImm,THROW,exceptionHandling) \
-	visitOp(EXCEPTIONOP(1),rethrow,"rethrow",RethrowImm,RETHROW,exceptionHandling) \
 	\
 	/* Saturating float->int truncation operators */ \
 	visitOp(TRUNCSATOP(0),i32_trunc_s_sat_f32,"i32.trunc_s:sat/f32",NoImm,UNARY(f32,i32),nonTrappingFloatToInt) \

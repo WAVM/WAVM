@@ -79,11 +79,7 @@ namespace IR
 		U32 offset;
 	};
 
-	struct CatchImm
-	{
-		U32 exceptionTypeIndex;
-	};
-	struct ThrowImm
+	struct ExceptionTypeImm
 	{
 		U32 exceptionTypeIndex;
 	};

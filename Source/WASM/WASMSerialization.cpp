@@ -339,12 +339,7 @@ void serialize(Stream& stream, AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm, 
 	serializeVarUInt32(stream, imm.offset);
 }
 
-template<typename Stream> void serialize(Stream& stream, CatchImm& imm, const FunctionDef&)
-{
-	serializeVarUInt32(stream, imm.exceptionTypeIndex);
-}
-
-template<typename Stream> void serialize(Stream& stream, ThrowImm& imm, const FunctionDef&)
+template<typename Stream> void serialize(Stream& stream, ExceptionTypeImm& imm, const FunctionDef&)
 {
 	serializeVarUInt32(stream, imm.exceptionTypeIndex);
 }

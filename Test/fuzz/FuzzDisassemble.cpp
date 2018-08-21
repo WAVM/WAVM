@@ -179,12 +179,7 @@ private:
 		if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset) { failVerification(); }
 	}
 
-	void verifyMatches(CatchImm a, CatchImm b)
-	{
-		if(a.exceptionTypeIndex != b.exceptionTypeIndex) { failVerification(); }
-	}
-
-	void verifyMatches(ThrowImm a, ThrowImm b)
+	void verifyMatches(ExceptionTypeImm a, ExceptionTypeImm b)
 	{
 		if(a.exceptionTypeIndex != b.exceptionTypeIndex) { failVerification(); }
 	}

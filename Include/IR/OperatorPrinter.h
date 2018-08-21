@@ -110,8 +110,7 @@ namespace IR
 			return " align=" + std::to_string(1 << imm.alignmentLog2)
 				   + " offset=" + std::to_string(imm.offset);
 		}
-		std::string describeImm(CatchImm) { return ""; }
-		std::string describeImm(ThrowImm) { return ""; }
+		std::string describeImm(ExceptionTypeImm) { return ""; }
 		std::string describeImm(RethrowImm) { return ""; }
 	};
 }

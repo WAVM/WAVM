@@ -311,7 +311,7 @@ struct FunctionValidationContext
 		pushControlStack(ControlContext::Type::try_, type.results(), type.results());
 		pushOperandTuple(type.params());
 	}
-	void catch_(CatchImm imm)
+	void catch_(ExceptionTypeImm imm)
 	{
 		wavmAssert(controlStack.size());
 
@@ -407,6 +407,24 @@ struct FunctionValidationContext
 			validateGlobalIndex(module, imm.variableIndex, true, false, false, "set_global"));
 	}
 
+	void throw_(ExceptionTypeImm imm)
+	{
+		VALIDATE_FEATURE("throw", exceptionHandling);
+		VALIDATE_INDEX(imm.exceptionTypeIndex, module.exceptionTypes.size());
+		ExceptionType exceptionType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
+		popAndValidateTypeTuple("exception arguments", exceptionType.params);
+		enterUnreachable();
+	}
+
+	void rethrow(RethrowImm imm)
+	{
+		VALIDATE_FEATURE("rethrow", exceptionHandling);
+		VALIDATE_UNLESS(
+			"rethrow must target a catch: ",
+			getBranchTargetByDepth(imm.catchDepth).type != ControlContext::Type::catch_);
+		enterUnreachable();
+	}
+
 	void call(CallImm imm)
 	{
 		FunctionType calleeType = validateFunctionIndex(module, imm.functionIndex);
@@ -469,22 +487,6 @@ struct FunctionValidationContext
 						imm.alignmentLog2 != naturalAlignmentLog2);
 	}
 
-	void validateImm(ThrowImm imm)
-	{
-		VALIDATE_INDEX(imm.exceptionTypeIndex, module.exceptionTypes.size());
-		ExceptionType exceptionType = module.exceptionTypes.getType(imm.exceptionTypeIndex);
-		popAndValidateTypeTuple("exception arguments", exceptionType.params);
-		enterUnreachable();
-	}
-
-	void validateImm(RethrowImm imm)
-	{
-		VALIDATE_UNLESS(
-			"rethrow must target a catch: ",
-			getBranchTargetByDepth(imm.catchDepth).type != ControlContext::Type::catch_);
-		enterUnreachable();
-	}
-
 #define LOAD(resultTypeId)                                                                         \
 	popAndValidateOperand(operatorName, ValueType::i32);                                           \
 	pushOperand(ValueType::resultTypeId);
@@ -515,8 +517,6 @@ struct FunctionValidationContext
 #define ATOMICRMW(valueTypeId)                                                                     \
 	popAndValidateOperands(operatorName, ValueType::i32, ValueType::valueTypeId);                  \
 	pushOperand(ValueType::valueTypeId);
-#define THROW
-#define RETHROW
 
 #define VALIDATE_OP(opcode, name, nameString, Imm, validateOperands, requiredFeature)              \
 	void name(Imm imm)                                                                             \
