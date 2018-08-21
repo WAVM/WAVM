@@ -32,10 +32,6 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
 
-#if PRINT_DISASSEMBLY
-#include "llvm-c/Disassembler.h"
-#endif
-
 #include "LLVMPostInclude.h"
 
 // This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through
@@ -601,6 +597,13 @@ void JITUnit::NotifyLoadedFunctor::operator()(
 }
 
 #if PRINT_DISASSEMBLY
+
+#include "LLVMPreInclude.h"
+
+#include "llvm-c/Disassembler.h"
+
+#include "LLVMPostInclude.h"
+
 static void disassembleFunction(U8* bytes, Uptr numBytes)
 {
 	LLVMDisasmContextRef disasmRef
