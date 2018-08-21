@@ -191,17 +191,6 @@ EMIT_INT_BINARY_OP(shl, irBuilder.CreateShl(left, emitShiftCountMask(type, right
 EMIT_INT_BINARY_OP(shr_s, irBuilder.CreateAShr(left, emitShiftCountMask(type, right)))
 EMIT_INT_BINARY_OP(shr_u, irBuilder.CreateLShr(left, emitShiftCountMask(type, right)))
 
-EMIT_INT_BINARY_OP(eq, coerceBoolToI32(irBuilder.CreateICmpEQ(left, right)))
-EMIT_INT_BINARY_OP(ne, coerceBoolToI32(irBuilder.CreateICmpNE(left, right)))
-EMIT_INT_BINARY_OP(lt_s, coerceBoolToI32(irBuilder.CreateICmpSLT(left, right)))
-EMIT_INT_BINARY_OP(lt_u, coerceBoolToI32(irBuilder.CreateICmpULT(left, right)))
-EMIT_INT_BINARY_OP(le_s, coerceBoolToI32(irBuilder.CreateICmpSLE(left, right)))
-EMIT_INT_BINARY_OP(le_u, coerceBoolToI32(irBuilder.CreateICmpULE(left, right)))
-EMIT_INT_BINARY_OP(gt_s, coerceBoolToI32(irBuilder.CreateICmpSGT(left, right)))
-EMIT_INT_BINARY_OP(gt_u, coerceBoolToI32(irBuilder.CreateICmpUGT(left, right)))
-EMIT_INT_BINARY_OP(ge_s, coerceBoolToI32(irBuilder.CreateICmpSGE(left, right)))
-EMIT_INT_BINARY_OP(ge_u, coerceBoolToI32(irBuilder.CreateICmpUGE(left, right)))
-
 EMIT_INT_UNARY_OP(clz,
 				  callLLVMIntrinsic({operand->getType()},
 									llvm::Intrinsic::ctlz,
@@ -301,16 +290,44 @@ EMIT_SIMD_INT_BINARY_OP(shr_u, irBuilder.CreateLShr(left, right))
 
 EMIT_SIMD_SUB64_INT_BINARY_OP(mul, irBuilder.CreateMul(left, right))
 
-EMIT_SIMD_SUB64_INT_BINARY_OP(eq, zext(irBuilder.CreateICmpEQ(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(ne, zext(irBuilder.CreateICmpNE(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(lt_s, zext(irBuilder.CreateICmpSLT(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(lt_u, zext(irBuilder.CreateICmpULT(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(le_s, zext(irBuilder.CreateICmpSLE(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(le_u, zext(irBuilder.CreateICmpULE(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(gt_s, zext(irBuilder.CreateICmpSGT(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(gt_u, zext(irBuilder.CreateICmpUGT(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(ge_s, zext(irBuilder.CreateICmpSGE(left, right), left->getType()))
-EMIT_SIMD_SUB64_INT_BINARY_OP(ge_u, zext(irBuilder.CreateICmpUGE(left, right), left->getType()))
+static llvm::Value* getNonConstantZero(llvm::IRBuilder<>& irBuilder, llvm::Constant* zero)
+{
+	llvm::Value* zeroAlloca = irBuilder.CreateAlloca(zero->getType(), nullptr, "nonConstantZero");
+	irBuilder.CreateStore(zero, zeroAlloca);
+	return irBuilder.CreateLoad(zeroAlloca);
+}
+
+#define EMIT_INT_COMPARE_OP(name, llvmSourceType, llvmDestType, valueType, emitCode)               \
+	void EmitFunctionContext::name(IR::NoImm)                                                      \
+	{                                                                                              \
+		auto right = irBuilder.CreateOr(                                                           \
+			irBuilder.CreateBitCast(pop(), llvmSourceType),                                        \
+			irBuilder.CreateBitCast(                                                               \
+				getNonConstantZero(irBuilder, typedZeroConstants[Uptr(valueType)]),                \
+				llvmSourceType));                                                                  \
+		SUPPRESS_UNUSED(right);                                                                    \
+		auto left = irBuilder.CreateBitCast(pop(), llvmSourceType);                                \
+		SUPPRESS_UNUSED(left);                                                                     \
+		push(zext(emitCode, llvmDestType));                                                        \
+	}
+
+#define EMIT_INT_COMPARE(name, emitCode)                                                           \
+	EMIT_INT_COMPARE_OP(i32_##name, llvmI32Type, llvmI32Type, ValueType::i32, emitCode)            \
+	EMIT_INT_COMPARE_OP(i64_##name, llvmI64Type, llvmI32Type, ValueType::i64, emitCode)            \
+	EMIT_INT_COMPARE_OP(i8x16_##name, llvmI8x16Type, llvmI8x16Type, ValueType::v128, emitCode)     \
+	EMIT_INT_COMPARE_OP(i16x8_##name, llvmI16x8Type, llvmI16x8Type, ValueType::v128, emitCode)     \
+	EMIT_INT_COMPARE_OP(i32x4_##name, llvmI32x4Type, llvmI32x4Type, ValueType::v128, emitCode)
+
+EMIT_INT_COMPARE(eq, irBuilder.CreateICmpEQ(left, right))
+EMIT_INT_COMPARE(ne, irBuilder.CreateICmpNE(left, right))
+EMIT_INT_COMPARE(lt_s, irBuilder.CreateICmpSLT(left, right))
+EMIT_INT_COMPARE(lt_u, irBuilder.CreateICmpULT(left, right))
+EMIT_INT_COMPARE(le_s, irBuilder.CreateICmpSLE(left, right))
+EMIT_INT_COMPARE(le_u, irBuilder.CreateICmpULE(left, right))
+EMIT_INT_COMPARE(gt_s, irBuilder.CreateICmpSGT(left, right))
+EMIT_INT_COMPARE(gt_u, irBuilder.CreateICmpUGT(left, right))
+EMIT_INT_COMPARE(ge_s, irBuilder.CreateICmpSGE(left, right))
+EMIT_INT_COMPARE(ge_u, irBuilder.CreateICmpUGE(left, right))
 
 EMIT_SIMD_INT_UNARY_OP(neg, irBuilder.CreateNeg(operand))
 
@@ -332,7 +349,9 @@ static llvm::Value* emitSubUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
 											 llvm::Type* type)
 {
 	left  = irBuilder.CreateBitCast(left, type);
-	right = irBuilder.CreateBitCast(right, type);
+	right = irBuilder.CreateOr(
+		irBuilder.CreateBitCast(right, type),
+		getNonConstantZero(irBuilder, llvm::ConstantVector::getNullValue(type)));
 	return irBuilder.CreateSub(
 		irBuilder.CreateSelect(irBuilder.CreateICmpUGT(left, right), left, right), right);
 }
