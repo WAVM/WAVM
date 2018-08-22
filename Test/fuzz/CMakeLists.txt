@@ -1,8 +1,5 @@
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND ENABLE_LIBFUZZER)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=fuzzer")
-	add_definitions(-DENABLE_LIBFUZZER=1)
-else()
-	add_definitions(-DENABLE_LIBFUZZER=0)
 endif()
 
 add_executable(FuzzWAST FuzzWAST.cpp)

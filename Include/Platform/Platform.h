@@ -26,7 +26,14 @@
 #define NO_ASAN __attribute__((no_sanitize_address))
 #define RETURNS_TWICE __attribute__((returns_twice))
 #define UNLIKELY(condition) __builtin_expect(condition, 0)
+
+#if ENABLE_LIBFUZZER
+// Use abort() instead of int3 when fuzzing, since libfuzzer doesn't handle the breakpoint trap.
+#define DEBUG_TRAP() abort()
+#else
 #define DEBUG_TRAP() __asm__ __volatile__("int3")
+#endif
+
 #endif
 
 #if ENABLE_UBSAN
