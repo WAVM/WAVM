@@ -284,7 +284,7 @@ EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
 
 static llvm::Value* emitVectorShiftCountMask(llvm::IRBuilder<>& irBuilder,
 											 llvm::Type* scalarType,
-											 U8 numLanes,
+											 U32 numLanes,
 											 llvm::Value* shiftCount)
 {
 	// LLVM's shifts have undefined behavior where WebAssembly specifies that the shift count will
