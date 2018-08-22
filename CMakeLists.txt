@@ -94,7 +94,10 @@ else()
 		option(ENABLE_ASAN "enable ASAN" OFF)
 	endif()
 	if(ENABLE_ASAN)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -mllvm -asan-stack=0 -Wno-unused-command-line-argument")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -Wno-unused-command-line-argument")
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mllvm -asan-stack=0")
+		endif()
 	endif()
 
 	# Optionally enable the undefined-behavior sanitizer.
