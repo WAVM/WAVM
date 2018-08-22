@@ -440,7 +440,7 @@ struct FunctionPrintContext
 		string += "\nrethrow ";
 
 		Uptr catchDepth = 0;
-		for(Uptr targetDepth = controlStack.size() - 1; targetDepth > 0; ++targetDepth)
+		for(Uptr targetDepth = controlStack.size() - 1; targetDepth > 0; --targetDepth)
 		{
 			if(controlStack[targetDepth].type == ControlContext::Type::catch_)
 			{
@@ -449,6 +449,7 @@ struct FunctionPrintContext
 					string += getBranchTargetId(targetDepth);
 					return;
 				}
+				++catchDepth;
 			}
 		}
 
