@@ -9,7 +9,7 @@ cd $BUILD_DIR
 
 ninja
 
-mkdir runtime-corpus
+mkdir runtime-model-corpus
 
 ASAN_OPTIONS=detect_leaks=0 bin/FuzzRuntimeModel -use_value_profile=1 \
   -workers=18 \
