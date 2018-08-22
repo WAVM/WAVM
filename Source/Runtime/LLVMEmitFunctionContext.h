@@ -210,7 +210,6 @@ namespace LLVMJIT
 		}
 
 		llvm::Value* emitSRem(ValueType type, llvm::Value* left, llvm::Value* right);
-		llvm::Value* emitShiftCountMask(ValueType type, llvm::Value* shiftCount);
 		llvm::Value* emitRotl(ValueType type, llvm::Value* left, llvm::Value* right);
 		llvm::Value* emitRotr(ValueType type, llvm::Value* left, llvm::Value* right);
 		llvm::Value* emitF64Promote(llvm::Value* operand);
