@@ -329,9 +329,7 @@ void EmitFunctionContext::call(CallImm imm)
 
 	// Coerce the arguments to their canonical type.
 	for(Uptr argIndex = 0; argIndex < numArguments; ++argIndex)
-	{
-		llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]);
-	}
+	{ llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]); }
 
 	// Call the function.
 	ValueVector results = emitCallOrInvoke(callee,
@@ -359,9 +357,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 
 	// Coerce the arguments to their canonical type.
 	for(Uptr argIndex = 0; argIndex < numArguments; ++argIndex)
-	{
-		llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]);
-	}
+	{ llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]); }
 
 	// Zero extend the function index to the pointer size.
 	auto functionIndexZExt = zext(tableElementIndex, sizeof(Uptr) == 4 ? llvmI32Type : llvmI64Type);

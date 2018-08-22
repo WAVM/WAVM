@@ -136,13 +136,16 @@ llvm::Value* EmitFunctionContext::emitSRem(ValueType type, llvm::Value* left, ll
 	return phi;
 }
 
-static llvm::Value* emitShiftCountMask(llvm::IRBuilder<>& irBuilder, ValueType type, llvm::Value* shiftCount)
+static llvm::Value* emitShiftCountMask(llvm::IRBuilder<>& irBuilder,
+									   ValueType type,
+									   llvm::Value* shiftCount)
 {
 	// LLVM's shifts have undefined behavior where WebAssembly specifies that the shift count will
 	// wrap numbers grather than the bit count of the operands. This matches x86's native shift
 	// instructions, but explicitly mask the shift count anyway to support other platforms, and
 	// ensure the optimizer doesn't take advantage of the UB.
-	auto bitsMinusOne = irBuilder.CreateZExt(emitLiteral((U8)(getTypeBitWidth(type) - 1)), asLLVMType(type));
+	auto bitsMinusOne
+		= irBuilder.CreateZExt(emitLiteral((U8)(getTypeBitWidth(type) - 1)), asLLVMType(type));
 	return irBuilder.CreateAnd(shiftCount, bitsMinusOne);
 }
 
@@ -279,20 +282,42 @@ EMIT_FP_UNARY_OP(nearest,
 EMIT_SIMD_INT_BINARY_OP(add, irBuilder.CreateAdd(left, right))
 EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
 
-static llvm::Value* emitVectorShiftCountMask(llvm::IRBuilder<>& irBuilder, llvm::Type* scalarType, U8 numLanes, llvm::Value* shiftCount)
+static llvm::Value* emitVectorShiftCountMask(llvm::IRBuilder<>& irBuilder,
+											 llvm::Type* scalarType,
+											 U8 numLanes,
+											 llvm::Value* shiftCount)
 {
 	// LLVM's shifts have undefined behavior where WebAssembly specifies that the shift count will
 	// wrap numbers grather than the bit count of the operands. This matches x86's native shift
 	// instructions, but explicitly mask the shift count anyway to support other platforms, and
 	// ensure the optimizer doesn't take advantage of the UB.
-	llvm::Value* bitsMinusOne = irBuilder.CreateZExt(emitLiteral((U8)(scalarType->getPrimitiveSizeInBits() - 1)), scalarType);
+	llvm::Value* bitsMinusOne = irBuilder.CreateZExt(
+		emitLiteral((U8)(scalarType->getPrimitiveSizeInBits() - 1)), scalarType);
 	llvm::Value* bitsMinusOneSplat = irBuilder.CreateVectorSplat(numLanes, bitsMinusOne);
 	return irBuilder.CreateAnd(shiftCount, bitsMinusOneSplat);
 }
 
-EMIT_SIMD_INT_BINARY_OP(shl, irBuilder.CreateShl(left, emitVectorShiftCountMask(irBuilder, vectorType->getScalarType(), vectorType->getVectorNumElements(), right)))
-EMIT_SIMD_INT_BINARY_OP(shr_s, irBuilder.CreateAShr(left, emitVectorShiftCountMask(irBuilder, vectorType->getScalarType(), vectorType->getVectorNumElements(), right)))
-EMIT_SIMD_INT_BINARY_OP(shr_u, irBuilder.CreateLShr(left, emitVectorShiftCountMask(irBuilder, vectorType->getScalarType(), vectorType->getVectorNumElements(), right)))
+EMIT_SIMD_INT_BINARY_OP(
+	shl,
+	irBuilder.CreateShl(left,
+						emitVectorShiftCountMask(irBuilder,
+												 vectorType->getScalarType(),
+												 vectorType->getVectorNumElements(),
+												 right)))
+EMIT_SIMD_INT_BINARY_OP(
+	shr_s,
+	irBuilder.CreateAShr(left,
+						 emitVectorShiftCountMask(irBuilder,
+												  vectorType->getScalarType(),
+												  vectorType->getVectorNumElements(),
+												  right)))
+EMIT_SIMD_INT_BINARY_OP(
+	shr_u,
+	irBuilder.CreateLShr(left,
+						 emitVectorShiftCountMask(irBuilder,
+												  vectorType->getScalarType(),
+												  vectorType->getVectorNumElements(),
+												  right)))
 
 EMIT_SIMD_BINARY_OP(i8x16_mul, llvmI8x16Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i16x8_mul, llvmI16x8Type, irBuilder.CreateMul(left, right))
