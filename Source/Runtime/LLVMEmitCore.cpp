@@ -327,6 +327,12 @@ void EmitFunctionContext::call(CallImm imm)
 	auto llvmArgs           = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
 	popMultiple(llvmArgs, numArguments);
 
+	// Coerce the arguments to their canonical type.
+	for(Uptr argIndex = 0; argIndex < numArguments; ++argIndex)
+	{
+		llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]);
+	}
+
 	// Call the function.
 	ValueVector results = emitCallOrInvoke(callee,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
@@ -350,6 +356,12 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	const Uptr numArguments = calleeType.params().size();
 	auto llvmArgs           = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
 	popMultiple(llvmArgs, numArguments);
+
+	// Coerce the arguments to their canonical type.
+	for(Uptr argIndex = 0; argIndex < numArguments; ++argIndex)
+	{
+		llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]);
+	}
 
 	// Zero extend the function index to the pointer size.
 	auto functionIndexZExt = zext(tableElementIndex, sizeof(Uptr) == 4 ? llvmI32Type : llvmI64Type);
