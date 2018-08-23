@@ -508,7 +508,6 @@ private:
 		{
 			function,
 			block,
-			ifWithoutElse,
 			ifThen,
 			ifElse,
 			loop,
