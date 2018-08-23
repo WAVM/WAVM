@@ -216,7 +216,6 @@ namespace LLVMJIT
 
 		template<typename Float>
 		llvm::Value* emitTruncFloatToInt(ValueType destType,
-										 ValueType sourceType,
 										 bool isSigned,
 										 Float minBounds,
 										 Float maxBounds,

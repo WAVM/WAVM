@@ -13,6 +13,7 @@ set(Sources
 	LLVMEmitModuleContext.h
 	LLVMEmitNumeric.cpp
 	LLVMEmitVar.cpp
+	LLVMEmitWorkarounds.h
 	LLVMJIT.cpp
 	LLVMJIT.h
 	LLVMPreInclude.h

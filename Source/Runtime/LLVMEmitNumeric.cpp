@@ -3,6 +3,7 @@
 #include "Inline/Assert.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
+#include "LLVMEmitWorkarounds.h"
 #include "LLVMJIT.h"
 
 using namespace LLVMJIT;
@@ -246,12 +247,26 @@ EMIT_FP_UNARY_OP(sqrt,
 									moduleContext.fpRoundingModeMetadata,
 									moduleContext.fpExceptionMetadata}))
 
-EMIT_FP_BINARY_OP(eq, coerceBoolToI32(irBuilder.CreateFCmpOEQ(left, right)))
-EMIT_FP_BINARY_OP(ne, coerceBoolToI32(irBuilder.CreateFCmpUNE(left, right)))
-EMIT_FP_BINARY_OP(lt, coerceBoolToI32(irBuilder.CreateFCmpOLT(left, right)))
-EMIT_FP_BINARY_OP(le, coerceBoolToI32(irBuilder.CreateFCmpOLE(left, right)))
-EMIT_FP_BINARY_OP(gt, coerceBoolToI32(irBuilder.CreateFCmpOGT(left, right)))
-EMIT_FP_BINARY_OP(ge, coerceBoolToI32(irBuilder.CreateFCmpOGE(left, right)))
+#define EMIT_FP_COMPARE_OP(name, predicate, llvmOperandType, llvmResultType)                       \
+	void EmitFunctionContext::name(NoImm)                                                          \
+	{                                                                                              \
+		auto right = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
+		auto left  = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
+		push(zext(createFCmpWithWorkaround(irBuilder, predicate, left, right), llvmResultType));   \
+	}
+
+#define EMIT_FP_COMPARE(name, predicate)                                                           \
+	EMIT_FP_COMPARE_OP(f32_##name, predicate, llvmF32Type, llvmI32Type)                            \
+	EMIT_FP_COMPARE_OP(f64_##name, predicate, llvmF64Type, llvmI32Type)                            \
+	EMIT_FP_COMPARE_OP(f32x4_##name, predicate, llvmF32x4Type, llvmI32x4Type)                      \
+	EMIT_FP_COMPARE_OP(f64x2_##name, predicate, llvmF64x2Type, llvmI64x2Type)
+
+EMIT_FP_COMPARE(eq, llvm::CmpInst::FCMP_OEQ)
+EMIT_FP_COMPARE(ne, llvm::CmpInst::FCMP_UNE)
+EMIT_FP_COMPARE(lt, llvm::CmpInst::FCMP_OLT)
+EMIT_FP_COMPARE(le, llvm::CmpInst::FCMP_OLE)
+EMIT_FP_COMPARE(gt, llvm::CmpInst::FCMP_OGT)
+EMIT_FP_COMPARE(ge, llvm::CmpInst::FCMP_OGE)
 
 // These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
 EMIT_FP_BINARY_OP(min,
@@ -450,48 +465,6 @@ EMIT_SIMD_FP_BINARY_OP(add, irBuilder.CreateFAdd(left, right))
 EMIT_SIMD_FP_BINARY_OP(sub, irBuilder.CreateFSub(left, right))
 EMIT_SIMD_FP_BINARY_OP(mul, irBuilder.CreateFMul(left, right))
 EMIT_SIMD_FP_BINARY_OP(div, irBuilder.CreateFDiv(left, right))
-
-EMIT_SIMD_BINARY_OP(f32x4_eq,
-					llvmF32x4Type,
-					zext(irBuilder.CreateFCmpOEQ(left, right), llvmI32x4Type))
-EMIT_SIMD_BINARY_OP(f64x2_eq,
-					llvmF64x2Type,
-					zext(irBuilder.CreateFCmpOEQ(left, right), llvmI64x2Type))
-
-EMIT_SIMD_BINARY_OP(f32x4_ne,
-					llvmF32x4Type,
-					zext(irBuilder.CreateFCmpUNE(left, right), llvmI32x4Type))
-EMIT_SIMD_BINARY_OP(f64x2_ne,
-					llvmF64x2Type,
-					zext(irBuilder.CreateFCmpUNE(left, right), llvmI64x2Type))
-
-EMIT_SIMD_BINARY_OP(f32x4_lt,
-					llvmF32x4Type,
-					zext(irBuilder.CreateFCmpOLT(left, right), llvmI32x4Type))
-EMIT_SIMD_BINARY_OP(f64x2_lt,
-					llvmF64x2Type,
-					zext(irBuilder.CreateFCmpOLT(left, right), llvmI64x2Type))
-
-EMIT_SIMD_BINARY_OP(f32x4_le,
-					llvmF32x4Type,
-					zext(irBuilder.CreateFCmpOLE(left, right), llvmI32x4Type))
-EMIT_SIMD_BINARY_OP(f64x2_le,
-					llvmF64x2Type,
-					zext(irBuilder.CreateFCmpOLE(left, right), llvmI64x2Type))
-
-EMIT_SIMD_BINARY_OP(f32x4_gt,
-					llvmF32x4Type,
-					zext(irBuilder.CreateFCmpOGT(left, right), llvmI32x4Type))
-EMIT_SIMD_BINARY_OP(f64x2_gt,
-					llvmF64x2Type,
-					zext(irBuilder.CreateFCmpOGT(left, right), llvmI64x2Type))
-
-EMIT_SIMD_BINARY_OP(f32x4_ge,
-					llvmF32x4Type,
-					zext(irBuilder.CreateFCmpOGE(left, right), llvmI32x4Type))
-EMIT_SIMD_BINARY_OP(f64x2_ge,
-					llvmF64x2Type,
-					zext(irBuilder.CreateFCmpOGE(left, right), llvmI64x2Type))
 
 EMIT_SIMD_BINARY_OP(f32x4_min,
 					llvmF32x4Type,
