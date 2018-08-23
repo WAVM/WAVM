@@ -291,8 +291,9 @@ static llvm::Value* emitVectorShiftCountMask(llvm::IRBuilder<>& irBuilder,
 	// wrap numbers grather than the bit count of the operands. This matches x86's native shift
 	// instructions, but explicitly mask the shift count anyway to support other platforms, and
 	// ensure the optimizer doesn't take advantage of the UB.
-	llvm::Value* bitsMinusOne = irBuilder.CreateZExt(
-		emitLiteral((U8)(scalarType->getPrimitiveSizeInBits() - 1)), scalarType);
+	const U32 numScalarBits        = scalarType->getPrimitiveSizeInBits();
+	llvm::APInt bitsMinusOneInt    = llvm::APInt(numScalarBits, U64(numScalarBits - 1), false);
+	llvm::Value* bitsMinusOne      = llvm::ConstantInt::get(scalarType, bitsMinusOneInt);
 	llvm::Value* bitsMinusOneSplat = irBuilder.CreateVectorSplat(numLanes, bitsMinusOne);
 	return irBuilder.CreateAnd(shiftCount, bitsMinusOneSplat);
 }
