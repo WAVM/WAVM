@@ -223,9 +223,10 @@ llvm::Value* EmitFunctionContext::emitTruncVectorFloatToIntSat(llvm::Type* destT
 	result = emitVectorSelect(irBuilder.CreateFCmpOLE(operand, minFloatBoundsVec),
 							  irBuilder.CreateVectorSplat(numElements, emitLiteral(minIntBounds)),
 							  result);
-	result = emitVectorSelect(createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, operand, operand),
-							  irBuilder.CreateVectorSplat(numElements, emitLiteral(nanResult)),
-							  result);
+	result = emitVectorSelect(
+		createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, operand, operand),
+		irBuilder.CreateVectorSplat(numElements, emitLiteral(nanResult)),
+		result);
 	return result;
 }
 
