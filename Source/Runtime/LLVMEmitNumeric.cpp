@@ -339,44 +339,31 @@ EMIT_SIMD_BINARY_OP(i8x16_mul, llvmI8x16Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i16x8_mul, llvmI16x8Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i32x4_mul, llvmI32x4Type, irBuilder.CreateMul(left, right))
 
-static llvm::Value* getNonConstantZero(llvm::IRBuilder<>& irBuilder, llvm::Constant* zero)
-{
-	llvm::Value* zeroAlloca = irBuilder.CreateAlloca(zero->getType(), nullptr, "nonConstantZero");
-	irBuilder.CreateStore(zero, zeroAlloca);
-	return irBuilder.CreateLoad(zeroAlloca);
-}
-
-#define EMIT_INT_COMPARE_OP(name, llvmSourceType, llvmDestType, valueType, emitCode)               \
+#define EMIT_INT_COMPARE_OP(name, llvmOperandType, llvmDestType, predicate)                        \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
-		auto right = irBuilder.CreateOr(                                                           \
-			irBuilder.CreateBitCast(pop(), llvmSourceType),                                        \
-			irBuilder.CreateBitCast(                                                               \
-				getNonConstantZero(irBuilder, typedZeroConstants[Uptr(valueType)]),                \
-				llvmSourceType));                                                                  \
-		SUPPRESS_UNUSED(right);                                                                    \
-		auto left = irBuilder.CreateBitCast(pop(), llvmSourceType);                                \
-		SUPPRESS_UNUSED(left);                                                                     \
-		push(zext(emitCode, llvmDestType));                                                        \
+		auto right = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
+		auto left  = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
+		push(zext(createICmpWithWorkaround(irBuilder, predicate, left, right), llvmDestType));     \
 	}
 
 #define EMIT_INT_COMPARE(name, emitCode)                                                           \
-	EMIT_INT_COMPARE_OP(i32_##name, llvmI32Type, llvmI32Type, ValueType::i32, emitCode)            \
-	EMIT_INT_COMPARE_OP(i64_##name, llvmI64Type, llvmI32Type, ValueType::i64, emitCode)            \
-	EMIT_INT_COMPARE_OP(i8x16_##name, llvmI8x16Type, llvmI8x16Type, ValueType::v128, emitCode)     \
-	EMIT_INT_COMPARE_OP(i16x8_##name, llvmI16x8Type, llvmI16x8Type, ValueType::v128, emitCode)     \
-	EMIT_INT_COMPARE_OP(i32x4_##name, llvmI32x4Type, llvmI32x4Type, ValueType::v128, emitCode)
+	EMIT_INT_COMPARE_OP(i32_##name, llvmI32Type, llvmI32Type, emitCode)                            \
+	EMIT_INT_COMPARE_OP(i64_##name, llvmI64Type, llvmI32Type, emitCode)                            \
+	EMIT_INT_COMPARE_OP(i8x16_##name, llvmI8x16Type, llvmI8x16Type, emitCode)                      \
+	EMIT_INT_COMPARE_OP(i16x8_##name, llvmI16x8Type, llvmI16x8Type, emitCode)                      \
+	EMIT_INT_COMPARE_OP(i32x4_##name, llvmI32x4Type, llvmI32x4Type, emitCode)
 
-EMIT_INT_COMPARE(eq, irBuilder.CreateICmpEQ(left, right))
-EMIT_INT_COMPARE(ne, irBuilder.CreateICmpNE(left, right))
-EMIT_INT_COMPARE(lt_s, irBuilder.CreateICmpSLT(left, right))
-EMIT_INT_COMPARE(lt_u, irBuilder.CreateICmpULT(left, right))
-EMIT_INT_COMPARE(le_s, irBuilder.CreateICmpSLE(left, right))
-EMIT_INT_COMPARE(le_u, irBuilder.CreateICmpULE(left, right))
-EMIT_INT_COMPARE(gt_s, irBuilder.CreateICmpSGT(left, right))
-EMIT_INT_COMPARE(gt_u, irBuilder.CreateICmpUGT(left, right))
-EMIT_INT_COMPARE(ge_s, irBuilder.CreateICmpSGE(left, right))
-EMIT_INT_COMPARE(ge_u, irBuilder.CreateICmpUGE(left, right))
+EMIT_INT_COMPARE(eq, llvm::CmpInst::ICMP_EQ)
+EMIT_INT_COMPARE(ne, llvm::CmpInst::ICMP_NE)
+EMIT_INT_COMPARE(lt_s, llvm::CmpInst::ICMP_SLT)
+EMIT_INT_COMPARE(lt_u, llvm::CmpInst::ICMP_ULT)
+EMIT_INT_COMPARE(le_s, llvm::CmpInst::ICMP_SLE)
+EMIT_INT_COMPARE(le_u, llvm::CmpInst::ICMP_ULE)
+EMIT_INT_COMPARE(gt_s, llvm::CmpInst::ICMP_SGT)
+EMIT_INT_COMPARE(gt_u, llvm::CmpInst::ICMP_UGT)
+EMIT_INT_COMPARE(ge_s, llvm::CmpInst::ICMP_SGE)
+EMIT_INT_COMPARE(ge_u, llvm::CmpInst::ICMP_UGE)
 
 EMIT_SIMD_INT_UNARY_OP(neg, irBuilder.CreateNeg(operand))
 
@@ -398,11 +385,11 @@ static llvm::Value* emitSubUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
 											 llvm::Type* type)
 {
 	left  = irBuilder.CreateBitCast(left, type);
-	right = irBuilder.CreateOr(
-		irBuilder.CreateBitCast(right, type),
-		getNonConstantZero(irBuilder, llvm::ConstantVector::getNullValue(type)));
+	right = irBuilder.CreateBitCast(right, type);
 	return irBuilder.CreateSub(
-		irBuilder.CreateSelect(irBuilder.CreateICmpUGT(left, right), left, right), right);
+		irBuilder.CreateSelect(
+			createICmpWithWorkaround(irBuilder, llvm::CmpInst::ICMP_UGT, left, right), left, right),
+		right);
 }
 
 EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
