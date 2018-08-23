@@ -28,6 +28,19 @@ EMIT_UNARY_OP(f64_convert_u_i32, irBuilder.CreateUIToFP(operand, llvmF64Type))
 EMIT_UNARY_OP(f32_convert_u_i64, irBuilder.CreateUIToFP(operand, llvmF32Type))
 EMIT_UNARY_OP(f64_convert_u_i64, irBuilder.CreateUIToFP(operand, llvmF64Type))
 
+EMIT_UNARY_OP(f32x4_convert_s_i32x4,
+			  irBuilder.CreateSIToFP(irBuilder.CreateBitCast(operand, llvmI32x4Type),
+									 llvmF32x4Type));
+EMIT_UNARY_OP(f32x4_convert_u_i32x4,
+			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmI32x4Type),
+									 llvmF32x4Type));
+EMIT_UNARY_OP(f64x2_convert_s_i64x2,
+			  irBuilder.CreateSIToFP(irBuilder.CreateBitCast(operand, llvmI64x2Type),
+									 llvmF64x2Type));
+EMIT_UNARY_OP(f64x2_convert_u_i64x2,
+			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmI64x2Type),
+									 llvmF64x2Type));
+
 EMIT_UNARY_OP(f32_demote_f64, irBuilder.CreateFPTrunc(operand, llvmF32Type))
 EMIT_UNARY_OP(f64_promote_f32, emitF64Promote(operand))
 EMIT_UNARY_OP(f32_reinterpret_i32, irBuilder.CreateBitCast(operand, llvmF32Type))

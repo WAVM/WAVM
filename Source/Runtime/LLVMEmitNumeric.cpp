@@ -512,19 +512,6 @@ EMIT_SIMD_FP_UNARY_OP(abs,
 EMIT_SIMD_FP_UNARY_OP(sqrt,
 					  callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::sqrt, {operand}))
 
-EMIT_SIMD_UNARY_OP(f32x4_convert_s_i32x4,
-				   llvmI32x4Type,
-				   irBuilder.CreateSIToFP(operand, llvmF32x4Type));
-EMIT_SIMD_UNARY_OP(f32x4_convert_u_i32x4,
-				   llvmI32x4Type,
-				   irBuilder.CreateUIToFP(operand, llvmF32x4Type));
-EMIT_SIMD_UNARY_OP(f64x2_convert_s_i64x2,
-				   llvmI64x2Type,
-				   irBuilder.CreateSIToFP(operand, llvmF64x2Type));
-EMIT_SIMD_UNARY_OP(f64x2_convert_u_i64x2,
-				   llvmI64x2Type,
-				   irBuilder.CreateUIToFP(operand, llvmF64x2Type));
-
 static llvm::Value* emitAnyTrue(llvm::IRBuilder<>& irBuilder,
 								llvm::Value* vector,
 								llvm::Type* vectorType)
