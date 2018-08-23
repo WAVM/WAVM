@@ -467,3 +467,40 @@
 ;; i64x2.trunc_u:sat/f64x2
 
 (module (func (export "i64x2.trunc_u:sat/f64x2") (param $a f64) (result v128) (i64x2.trunc_u:sat/f64x2 (f64x2.splat (get_local $a)))))
+
+;; Test that LLVM undef isn't introduced by SIMD shifts greater than the scalar width.
+
+(module
+	(memory 1 1 shared)
+	(func (export "test-simd-shift-mask") (param $v v128) (result i32)
+		(block $0
+			(block $1
+				(block $2
+					(block $3
+						(block $default
+							;; If the table index is inferred to be undef, LLVM will branch to an
+							;; arbitrary successor of the basic block.
+							(br_table
+								$0 $1 $2 $3
+								$default
+								(i32x4.extract_lane 0 (i32x4.shr_s (get_local $v)
+								                                   (v128.const i32 32 32 32 32)))
+							)
+						)
+						(return (i32.const 100))
+					)
+					(return (i32.const 3))
+				)
+				(return (i32.const 2))
+			)
+			(return (i32.const 1))
+		)
+		(return (i32.const 0))
+	)
+)
+
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32 0 0 0 0)) (i32.const 0))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32 1 0 0 0)) (i32.const 1))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32 2 0 0 0)) (i32.const 2))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32 3 0 0 0)) (i32.const 3))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32 4 0 0 0)) (i32.const 100))
