@@ -141,7 +141,7 @@ static llvm::Value* emitShiftCountMask(llvm::IRBuilder<>& irBuilder,
 									   llvm::Value* shiftCount)
 {
 	// LLVM's shifts have undefined behavior where WebAssembly specifies that the shift count will
-	// wrap numbers grather than the bit count of the operands. This matches x86's native shift
+	// wrap numbers greater than the bit count of the operands. This matches x86's native shift
 	// instructions, but explicitly mask the shift count anyway to support other platforms, and
 	// ensure the optimizer doesn't take advantage of the UB.
 	auto bitsMinusOne
