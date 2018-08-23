@@ -48,8 +48,16 @@ llvm::Value* EmitFunctionContext::emitF64Promote(llvm::Value* operand)
 							  moduleContext.fpExceptionMetadata});
 }
 
+static llvm::Value* getNonConstantZero(llvm::IRBuilder<>& irBuilder, llvm::Constant* zero)
+{
+	llvm::Value* zeroAlloca = irBuilder.CreateAlloca(zero->getType(), nullptr, "nonConstantZero");
+	irBuilder.CreateStore(zero, zeroAlloca);
+	return irBuilder.CreateLoad(zeroAlloca);
+}
+
 template<typename Float>
 llvm::Value* EmitFunctionContext::emitTruncFloatToInt(ValueType destType,
+													  ValueType sourceType,
 													  bool isSigned,
 													  Float minBounds,
 													  Float maxBounds,
@@ -61,7 +69,14 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToInt(ValueType destType,
 	auto noOverflowBlock
 		= llvm::BasicBlock::Create(*llvmContext, "FPToInt_noOverflow", llvmFunction);
 
-	auto isNaN = irBuilder.CreateFCmpUNO(operand, operand);
+	// Test whether the operand is NaN. This requires working around a bug in the LLVM IRBuilder's
+	// constant folder that will fold FCmpUNO(X, X) where X is a constant expression to false, even
+	// though it would be true if X evaluates to a NaN. To work around the bug, add a constant zero
+	// to the operand in a way that can easily be elided in optimization, and use it as one of the
+	// operands: FCmpUNO(X, X+0).
+	auto nonConstantZero = getNonConstantZero(irBuilder, typedZeroConstants[Uptr(sourceType)]);
+	auto operandPlusZero = irBuilder.CreateFAdd(operand, nonConstantZero);
+	auto isNaN           = irBuilder.CreateFCmpUNO(operand, operandPlusZero);
 	irBuilder.CreateCondBr(isNaN, nanBlock, notNaNBlock, moduleContext.likelyFalseBranchWeights);
 
 	irBuilder.SetInsertPoint(nanBlock);
@@ -87,34 +102,55 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToInt(ValueType destType,
 // This isn't simply the min/max integer values converted to float, but the next greater(or lesser)
 // float that would be truncated to an integer out of range of the target type.
 
-EMIT_UNARY_OP(
-	i32_trunc_s_f32,
-	emitTruncFloatToInt<F32>(ValueType::i32, true, -2147483904.0f, 2147483648.0f, operand))
+EMIT_UNARY_OP(i32_trunc_s_f32,
+			  emitTruncFloatToInt<F32>(ValueType::i32,
+									   ValueType::f32,
+									   true,
+									   -2147483904.0f,
+									   2147483648.0f,
+									   operand))
 EMIT_UNARY_OP(i32_trunc_s_f64,
-			  emitTruncFloatToInt<F64>(ValueType::i32, true, -2147483649.0, 2147483648.0, operand))
-EMIT_UNARY_OP(i32_trunc_u_f32,
-			  emitTruncFloatToInt<F32>(ValueType::i32, false, -1.0f, 4294967296.0f, operand))
-EMIT_UNARY_OP(i32_trunc_u_f64,
-			  emitTruncFloatToInt<F64>(ValueType::i32, false, -1.0, 4294967296.0, operand))
+			  emitTruncFloatToInt<F64>(ValueType::i32,
+									   ValueType::f64,
+									   true,
+									   -2147483649.0,
+									   2147483648.0,
+									   operand))
+EMIT_UNARY_OP(
+	i32_trunc_u_f32,
+	emitTruncFloatToInt<F32>(ValueType::i32, ValueType::f32, false, -1.0f, 4294967296.0f, operand))
+EMIT_UNARY_OP(
+	i32_trunc_u_f64,
+	emitTruncFloatToInt<F64>(ValueType::i32, ValueType::f64, false, -1.0, 4294967296.0, operand))
 
 EMIT_UNARY_OP(i64_trunc_s_f32,
 			  emitTruncFloatToInt<F32>(ValueType::i64,
+									   ValueType::f32,
 									   true,
 									   -9223373136366403584.0f,
 									   9223372036854775808.0f,
 									   operand))
 EMIT_UNARY_OP(i64_trunc_s_f64,
 			  emitTruncFloatToInt<F64>(ValueType::i64,
+									   ValueType::f64,
 									   true,
 									   -9223372036854777856.0,
 									   9223372036854775808.0,
 									   operand))
-EMIT_UNARY_OP(
-	i64_trunc_u_f32,
-	emitTruncFloatToInt<F32>(ValueType::i64, false, -1.0f, 18446744073709551616.0f, operand))
-EMIT_UNARY_OP(
-	i64_trunc_u_f64,
-	emitTruncFloatToInt<F64>(ValueType::i64, false, -1.0, 18446744073709551616.0, operand))
+EMIT_UNARY_OP(i64_trunc_u_f32,
+			  emitTruncFloatToInt<F32>(ValueType::i64,
+									   ValueType::f32,
+									   false,
+									   -1.0f,
+									   18446744073709551616.0f,
+									   operand))
+EMIT_UNARY_OP(i64_trunc_u_f64,
+			  emitTruncFloatToInt<F64>(ValueType::i64,
+									   ValueType::f64,
+									   false,
+									   -1.0,
+									   18446744073709551616.0,
+									   operand))
 
 template<typename Int, typename Float>
 llvm::Value* EmitFunctionContext::emitTruncFloatToIntSat(llvm::Type* destType,
