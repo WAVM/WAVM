@@ -133,7 +133,7 @@ namespace IR
 
 	template<typename Stream> void serialize(Stream& stream, InitializerExpression& initializer)
 	{
-		serializeOpcode(stream, *(Opcode*)&initializer.type);
+		serializeOpcode(stream, initializer.typeOpcode);
 		switch(initializer.type)
 		{
 		case InitializerExpression::Type::i32_const:

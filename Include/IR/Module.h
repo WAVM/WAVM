@@ -9,6 +9,8 @@
 
 namespace IR
 {
+	enum class Opcode : U16;
+
 	// An initializer expression: serialized like any other code, but may only be a constant or
 	// immutable global
 	struct InitializerExpression
@@ -23,7 +25,11 @@ namespace IR
 			v128_const = 0xfd00,
 			error      = 0xffff
 		};
-		Type type;
+		union
+		{
+			Type type;
+			Opcode typeOpcode;
+		};
 		union
 		{
 			I32 i32;
