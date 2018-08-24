@@ -88,31 +88,6 @@ void EmitFunctionContext::logOperator(const std::string& operatorDescription)
 	}
 }
 
-// Bounds checks and converts a memory operation I32 address operand to a LLVM pointer.
-llvm::Value* EmitFunctionContext::coerceByteIndexToPointer(llvm::Value* byteIndex,
-														   U32 offset,
-														   llvm::Type* memoryType)
-{
-	// zext the 32-bit address to 64-bits.
-	// This is crucial for security, as LLVM will otherwise implicitly sign extend it to 64-bits in
-	// the GEP below, interpreting it as a signed offset and allowing access to memory outside the
-	// sandboxed memory range. There are no 'far addresses' in a 32 bit runtime.
-	byteIndex = zext(byteIndex, llvmI64Type);
-
-	// Add the offset to the byte index.
-	if(offset)
-	{ byteIndex = irBuilder.CreateAdd(byteIndex, zext(emitLiteral(offset), llvmI64Type)); }
-
-	// If HAS_64BIT_ADDRESS_SPACE, the memory has enough virtual address space allocated to ensure
-	// that any 32-bit byte index + 32-bit offset will fall within the virtual address sandbox, so
-	// no explicit bounds check is necessary.
-
-	// Cast the pointer to the appropriate type.
-	auto bytePointer
-		= irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(memoryBasePointerVariable), byteIndex);
-	return irBuilder.CreatePointerCast(bytePointer, memoryType->getPointerTo());
-}
-
 // Traps a divide-by-zero
 void EmitFunctionContext::trapDivideByZero(ValueType type, llvm::Value* divisor)
 {

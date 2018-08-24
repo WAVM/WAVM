@@ -137,10 +137,8 @@ namespace LLVMJIT
 			return zext(boolValue, llvmI32Type);
 		}
 
-		// Bounds checks and converts a memory operation I32 address operand to a LLVM pointer.
-		llvm::Value* coerceByteIndexToPointer(llvm::Value* byteIndex,
-											  U32 offset,
-											  llvm::Type* memoryType);
+		// Converts a bounded memory address to a LLVM pointer.
+		llvm::Value* coerceAddressToPointer(llvm::Value* boundedAddress, llvm::Type* memoryType);
 
 		// Traps a divide-by-zero
 		void trapDivideByZero(ValueType type, llvm::Value* divisor);

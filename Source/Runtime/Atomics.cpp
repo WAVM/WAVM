@@ -197,7 +197,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
 											 "misalignedAtomicTrap",
 											 void,
 											 misalignedAtomicTrap,
-											 I32 address)
+											 I64 address)
 {
 	throwException(Exception::misalignedAtomicMemoryAccessType);
 }
@@ -215,7 +215,9 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
 	// Validate that the address is within the memory's bounds and 4-byte aligned.
 	if(U32(addressOffset) > memoryInstance->endOffset)
 	{ throwException(Exception::accessViolationType); }
-	if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
+
+	// The alignment check is done by the caller.
+	wavmAssert(!(addressOffset & 3));
 
 	const Uptr address = reinterpret_cast<Uptr>(&memoryRef<U8>(memoryInstance, addressOffset));
 	return wakeAddress(address, numToWake);
@@ -235,7 +237,10 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
 	// Validate that the address is within the memory's bounds and naturally aligned.
 	if(U32(addressOffset) > memoryInstance->endOffset)
 	{ throwException(Exception::accessViolationType); }
-	if(addressOffset & 3) { throwException(Exception::misalignedAtomicMemoryAccessType); }
+	
+	// The alignment check is done by the caller.
+	wavmAssert(!(addressOffset & 3));
+
 
 	I32* valuePointer = &memoryRef<I32>(memoryInstance, addressOffset);
 	return waitOnAddress(valuePointer, expectedValue, timeout);
@@ -254,7 +259,9 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
 	// Validate that the address is within the memory's bounds and naturally aligned.
 	if(U32(addressOffset) > memoryInstance->endOffset)
 	{ throwException(Exception::accessViolationType); }
-	if(addressOffset & 7) { throwException(Exception::misalignedAtomicMemoryAccessType); }
+	
+	// The alignment check is done by the caller.
+	wavmAssert(!(addressOffset & 7));
 
 	I64* valuePointer = &memoryRef<I64>(memoryInstance, addressOffset);
 	return waitOnAddress(valuePointer, expectedValue, timeout);
