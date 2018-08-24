@@ -1,3 +1,90 @@
+;; v128 globals
+
+(module $M
+  (global (export "a") v128       (v128.const f32 0 1 2 3))
+  (global (export "b") (mut v128) (v128.const f32 4 5 6 7))
+)
+(register "M" $M)
+
+(module
+  (global $a (import "M" "a") v128)
+  (global $b (import "M" "b") (mut v128))
+  
+  (global $c v128       (get_global $a))
+  (global $d v128       (v128.const i32 8 9 10 11))
+  (global $e (mut v128) (get_global $a))
+  (global $f (mut v128) (v128.const i32 12 13 14 15))
+
+  (func (export "get-a") (result v128) (get_global $a))
+  (func (export "get-b") (result v128) (get_global $b))
+  (func (export "get-c") (result v128) (get_global $c))
+  (func (export "get-d") (result v128) (get_global $d))
+  (func (export "get-e") (result v128) (get_global $e))
+  (func (export "get-f") (result v128) (get_global $f))
+
+  (func (export "set-b") (param $value v128) (set_global $b (get_local $value)))
+  (func (export "set-e") (param $value v128) (set_global $e (get_local $value)))
+  (func (export "set-f") (param $value v128) (set_global $f (get_local $value)))
+)
+
+(assert_return (invoke "get-a") (v128.const f32 0 1 2 3))
+(assert_return (invoke "get-b") (v128.const f32 4 5 6 7))
+(assert_return (invoke "get-c") (v128.const f32 0 1 2 3))
+(assert_return (invoke "get-d") (v128.const i32 8 9 10 11))
+(assert_return (invoke "get-e") (v128.const f32 0 1 2 3))
+(assert_return (invoke "get-f") (v128.const i32 12 13 14 15))
+
+(invoke "set-b" (v128.const f64 nan:0x1 nan:0x2))
+(assert_return (invoke "get-b") (v128.const f64 nan:0x1 nan:0x2))
+
+(invoke "set-e" (v128.const f64 -nan:0x3 +inf))
+(assert_return (invoke "get-e") (v128.const f64 -nan:0x3 +inf))
+
+(invoke "set-f" (v128.const f32 -inf +3.14 10.0e30 +nan:0x42))
+(assert_return (invoke "get-f") (v128.const f32 -inf +3.14 10.0e30 +nan:0x42))
+
+(assert_invalid (module (global v128 (i32.const 0))) "invalid initializer expression")
+(assert_invalid (module (global v128 (i64.const 0))) "invalid initializer expression")
+(assert_invalid (module (global v128 (f32.const 0))) "invalid initializer expression")
+(assert_invalid (module (global v128 (f64.const 0))) "invalid initializer expression")
+(assert_invalid (module (global $i32 i32 (i32.const 0)) (global v128 (get_global $i32))) "invalid initializer expression")
+
+(module binary
+  "\00asm"
+  "\01\00\00\00"       ;; 1 section
+  "\06"                ;; global section
+  "\16"                ;; 22 bytes
+  "\01"                ;; 1 global
+  "\7b"                ;; v128
+  "\00"                ;; immutable
+  "\fd\00"             ;; v128.const
+  "\00\01\02\03"       ;; literal bytes 0-3
+  "\04\05\06\07"       ;; literal bytes 4-7
+  "\08\09\0a\0b"       ;; literal bytes 8-11
+  "\0c\0d\0e\0f"       ;; literal bytes 12-15
+  "\0b"                ;; end
+)
+
+(assert_invalid
+  (module binary
+    "\00asm"
+    "\01\00\00\00"       ;; 1 section
+    "\06\86\80\80\80\00" ;; global section
+    "\01"                ;; 1 global
+    "\7b"                ;; v128
+    "\00"                ;; immutable
+    "\fd\01"             ;; v128.load
+    "\0b"                ;; end
+  )
+  "invalid initializer expression"
+)
+
+;; TODO: v128 parameters
+
+;; TODO: v128 locals
+
+;; TODO: v128 results
+
 ;; v128.const
 
 (module
