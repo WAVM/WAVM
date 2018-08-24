@@ -7,6 +7,7 @@
 #include "Inline/Unicode.h"
 #include "WASM.h"
 
+using namespace IR;
 using namespace Serialization;
 
 static void throwIfNotValidUTF8(const std::string& string)
@@ -14,6 +15,27 @@ static void throwIfNotValidUTF8(const std::string& string)
 	const U8* endChar = (const U8*)string.data() + string.size();
 	if(Unicode::validateUTF8String((const U8*)string.data(), endChar) != endChar)
 	{ throw FatalSerializationException("invalid UTF-8 encoding"); }
+}
+
+FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
+{
+	opcode = (Opcode)0;
+	serializeNativeValue(stream, *(U8*)&opcode);
+	if(opcode > Opcode::maxSingleByteOpcode)
+	{
+		opcode = (Opcode)(U16(opcode) << 8);
+		serializeNativeValue(stream, *(U8*)&opcode);
+	}
+}
+FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
+{
+	if(opcode <= Opcode::maxSingleByteOpcode)
+	{ Serialization::serializeNativeValue(stream, *(U8*)&opcode); }
+	else
+	{
+		serializeNativeValue(stream, *(((U8*)&opcode) + 1));
+		serializeNativeValue(stream, *(((U8*)&opcode) + 0));
+	}
 }
 
 // These serialization functions need to be declared in the IR namespace for the array serializer in
@@ -111,7 +133,7 @@ namespace IR
 
 	template<typename Stream> void serialize(Stream& stream, InitializerExpression& initializer)
 	{
-		serializeNativeValue(stream, *(U8*)&initializer.type);
+		serializeOpcode(stream, *(Opcode*)&initializer.type);
 		switch(initializer.type)
 		{
 		case InitializerExpression::Type::i32_const:
@@ -122,6 +144,7 @@ namespace IR
 			break;
 		case InitializerExpression::Type::f32_const: serialize(stream, initializer.f32); break;
 		case InitializerExpression::Type::f64_const: serialize(stream, initializer.f64); break;
+		case InitializerExpression::Type::v128_const: serialize(stream, initializer.v128); break;
 		case InitializerExpression::Type::get_global:
 			serializeVarUInt32(stream, initializer.globalIndex);
 			break;
@@ -168,9 +191,6 @@ namespace IR
 	}
 }
 
-using namespace IR;
-using namespace Serialization;
-
 enum
 {
 	magicNumber    = 0x6d736100, // "\0asm"
@@ -193,27 +213,6 @@ enum class SectionType : U8
 	functionDefinitions  = 10,
 	data                 = 11
 };
-
-FORCEINLINE void serialize(InputStream& stream, Opcode& opcode)
-{
-	opcode = (Opcode)0;
-	Serialization::serializeNativeValue(stream, *(U8*)&opcode);
-	if(opcode > Opcode::maxSingleByteOpcode)
-	{
-		opcode = (Opcode)(U16(opcode) << 8);
-		Serialization::serializeNativeValue(stream, *(U8*)&opcode);
-	}
-}
-FORCEINLINE void serialize(OutputStream& stream, Opcode opcode)
-{
-	if(opcode <= Opcode::maxSingleByteOpcode)
-	{ Serialization::serializeNativeValue(stream, *(U8*)&opcode); }
-	else
-	{
-		serializeNativeValue(stream, *(((U8*)&opcode) + 1));
-		serializeNativeValue(stream, *(((U8*)&opcode) + 0));
-	}
-}
 
 template<typename Stream> void serialize(Stream& stream, NoImm&, const FunctionDef&) {}
 
@@ -430,7 +429,7 @@ struct OperatorSerializerStream
 	void name(Imm imm) const                                                                       \
 	{                                                                                              \
 		Opcode opcode = Opcode::name;                                                              \
-		serialize(byteStream, opcode);                                                             \
+		serializeOpcode(byteStream, opcode);                                                       \
 		serialize(byteStream, imm, functionDef);                                                   \
 	}
 	ENUM_OPERATORS(VISIT_OPCODE)
@@ -513,7 +512,7 @@ static void serializeFunctionBody(InputStream& sectionStream,
 	while(bodyStream.capacity())
 	{
 		Opcode opcode;
-		serialize(bodyStream, opcode);
+		serializeOpcode(bodyStream, opcode);
 		switch(opcode)
 		{
 #define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \

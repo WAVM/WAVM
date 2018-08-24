@@ -13,14 +13,15 @@ namespace IR
 	// immutable global
 	struct InitializerExpression
 	{
-		enum class Type : U8
+		enum class Type : U16
 		{
-			i32_const  = 0x41,
-			i64_const  = 0x42,
-			f32_const  = 0x43,
-			f64_const  = 0x44,
-			get_global = 0x23,
-			error      = 0xff
+			i32_const  = 0x0041,
+			i64_const  = 0x0042,
+			f32_const  = 0x0043,
+			f64_const  = 0x0044,
+			get_global = 0x0023,
+			v128_const = 0xfd00,
+			error      = 0xffff
 		};
 		Type type;
 		union
@@ -29,6 +30,7 @@ namespace IR
 			I64 i64;
 			F32 f32;
 			F64 f64;
+			V128 v128;
 			Uptr globalIndex;
 		};
 		InitializerExpression() : type(Type::error) {}
@@ -36,6 +38,7 @@ namespace IR
 		InitializerExpression(I64 inI64) : type(Type::i64_const), i64(inI64) {}
 		InitializerExpression(F32 inF32) : type(Type::f32_const), f32(inF32) {}
 		InitializerExpression(F64 inF64) : type(Type::f64_const), f64(inF64) {}
+		InitializerExpression(V128 inV128) : type(Type::v128_const), v128(inV128) {}
 		InitializerExpression(Type inType, Uptr inGlobalIndex)
 		: type(inType), globalIndex(inGlobalIndex)
 		{
@@ -53,6 +56,7 @@ namespace IR
 			// comparison can't distinguish when NaNs are identical.
 			case Type::f32_const: return a.i32 == b.i32;
 			case Type::f64_const: return a.i64 == b.i64;
+			case Type::v128_const: return a.v128 == b.v128;
 			case Type::get_global: return a.globalIndex == b.globalIndex;
 			case Type::error: return true;
 			default: Errors::unreachable();

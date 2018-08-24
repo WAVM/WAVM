@@ -16,6 +16,7 @@ static Value evaluateInitializer(ModuleInstance* moduleInstance, InitializerExpr
 	case InitializerExpression::Type::i64_const: return expression.i64;
 	case InitializerExpression::Type::f32_const: return expression.f32;
 	case InitializerExpression::Type::f64_const: return expression.f64;
+	case InitializerExpression::Type::v128_const: return expression.v128;
 	case InitializerExpression::Type::get_global:
 	{
 		// Find the import this refers to.

@@ -168,6 +168,9 @@ static void validateInitializer(const Module& module,
 	case InitializerExpression::Type::f64_const:
 		validateType(expectedType, ValueType::f64, context);
 		break;
+	case InitializerExpression::Type::v128_const:
+		validateType(expectedType, ValueType::v128, context);
+		break;
 	case InitializerExpression::Type::get_global:
 	{
 		const ValueType globalValueType

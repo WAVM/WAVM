@@ -108,6 +108,12 @@ static InitializerExpression parseInitializerExpression(CursorState* cursor)
 			result = parseF64(cursor);
 			break;
 		}
+		case t_v128_const:
+		{
+			++cursor->nextToken;
+			result = parseV128(cursor);
+			break;
+		}
 		case t_get_global:
 		{
 			++cursor->nextToken;
