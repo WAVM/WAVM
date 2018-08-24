@@ -11,6 +11,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <pthread.h>
 #include <setjmp.h>
@@ -163,7 +164,8 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 	if(result == MAP_FAILED)
 	{
 		fprintf(stderr,
-				"mmap(0, %lu, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
+				"mmap(0, %" PRIuPTR
+				", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
 				numBytes,
 				strerror(errno));
 		dumpErrorCallStack(0);
@@ -219,7 +221,7 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 	if(result != 0)
 	{
 		fprintf(stderr,
-				"mprotect(0x%lx, %lu, %u) failed! errno=%s\n",
+				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed! errno=%s\n",
 				reinterpret_cast<Uptr>(baseVirtualAddress),
 				numPages << getPageSizeLog2(),
 				memoryAccessAsPOSIXFlag(access),
@@ -237,7 +239,7 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 	if(result != 0)
 	{
 		fprintf(stderr,
-				"mprotect(0x%lx, %lu, %u) failed! errno=%s\n",
+				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed! errno=%s\n",
 				reinterpret_cast<Uptr>(baseVirtualAddress),
 				numPages << getPageSizeLog2(),
 				memoryAccessAsPOSIXFlag(access),
@@ -253,14 +255,14 @@ void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 	auto numBytes = numPages << getPageSizeLog2();
 	if(madvise(baseVirtualAddress, numBytes, MADV_DONTNEED))
 	{
-		Errors::fatalf("madvise(0x%lx, %u, MADV_DONTNEED) failed! errno=%s",
+		Errors::fatalf("madvise(0x%" PRIxPTR ", %u, MADV_DONTNEED) failed! errno=%s",
 					   reinterpret_cast<Uptr>(baseVirtualAddress),
 					   numBytes,
 					   strerror(errno));
 	}
 	if(mprotect(baseVirtualAddress, numBytes, PROT_NONE))
 	{
-		Errors::fatalf("mprotect(0x%lx, %u, PROT_NONE) failed! errno=%s",
+		Errors::fatalf("mprotect(0x%" PRIxPTR ", %u, PROT_NONE) failed! errno=%s",
 					   reinterpret_cast<Uptr>(baseVirtualAddress),
 					   numBytes,
 					   strerror(errno));
@@ -272,7 +274,7 @@ void Platform::freeVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 	errorUnless(isPageAligned(baseVirtualAddress));
 	if(munmap(baseVirtualAddress, numPages << getPageSizeLog2()))
 	{
-		Errors::fatalf("munmap(0x%lx, %u) failed! errno=%s",
+		Errors::fatalf("munmap(0x%" PRIxPTR ", %u) failed! errno=%s",
 					   reinterpret_cast<Uptr>(baseVirtualAddress),
 					   numPages << getPageSizeLog2(),
 					   strerror(errno));
@@ -284,7 +286,7 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 	errorUnless(isPageAligned(unalignedBaseAddress));
 	if(munmap(unalignedBaseAddress, numPages << getPageSizeLog2()))
 	{
-		Errors::fatalf("munmap(0x%lx, %u) failed! errno=%s",
+		Errors::fatalf("munmap(0x%" PRIxPTR ", %u) failed! errno=%s",
 					   reinterpret_cast<Uptr>(unalignedBaseAddress),
 					   numPages << getPageSizeLog2(),
 					   strerror(errno));
