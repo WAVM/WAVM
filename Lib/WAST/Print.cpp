@@ -283,6 +283,9 @@ struct ModulePrintContext
 		case InitializerExpression::Type::f64_const:
 			string += "(f64.const " + Floats::asString(expression.f64) + ')';
 			break;
+		case InitializerExpression::Type::v128_const:
+			string += "(v128.const " + asString(expression.v128) + ')';
+			break;
 		case InitializerExpression::Type::get_global:
 			string += "(get_global " + names.globals[expression.globalIndex] + ')';
 			break;
