@@ -1,6 +1,7 @@
 set(PublicHeaders
 	Assert.h
 	BasicTypes.h
+	CLI.h
 	ConcurrentHashMap.h
 	DenseStaticIntSet.h
 	Errors.h
@@ -17,3 +18,4 @@ set(PublicHeaders
 	Timing.h
 	Unicode.h)
 add_custom_target(Inline SOURCES ${PublicHeaders})
+set_target_properties(Inline PROPERTIES FOLDER Libraries)

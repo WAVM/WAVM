@@ -20,6 +20,7 @@ endif()
 add_definitions(-DPLATFORM_API=DLL_EXPORT)
 
 WAVM_ADD_LIBRARY(Platform ${Sources} ${PublicHeaders})
+set_target_properties(Platform PROPERTIES FOLDER Libraries)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	# Link with dl on Linux for dladdr.

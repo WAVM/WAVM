@@ -33,6 +33,7 @@ set(PublicHeaders
 include_directories(${WAVM_INCLUDE_DIR}/Runtime)
 
 WAVM_ADD_LIBRARY(Runtime ${Sources} ${PublicHeaders})
+set_target_properties(Runtime PROPERTIES FOLDER Libraries)
 
 # Find an installed build of LLVM
 find_package(LLVM 6.0 REQUIRED CONFIG)

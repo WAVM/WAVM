@@ -3,6 +3,7 @@ set(PublicHeaders ${WAVM_INCLUDE_DIR}/Emscripten/Emscripten.h)
 include_directories(${WAVM_INCLUDE_DIR}/Emscripten)
 
 WAVM_ADD_LIBRARY(Emscripten ${Sources} ${PublicHeaders})
+set_target_properties(Emscripten PROPERTIES FOLDER Libraries)
 
 add_definitions(-DEMSCRIPTEN_API=DLL_EXPORT)
 

@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 2.7.0)
 project (WAVM C CXX ASM)
 
-set(WAVM_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/Source)
-set(WAVM_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/Include)
+set(WAVM_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(WAVM_LIB_DIR ${WAVM_SOURCE_DIR}/Lib)
+set(WAVM_INCLUDE_DIR ${WAVM_SOURCE_DIR}/Include)
 
 # If no build type is specified, default to RelWithDebInfo
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -146,21 +147,27 @@ endfunction(WAVM_ADD_LIBRARY)
 
 add_subdirectory(Include/Inline)
 
-add_subdirectory(Source/IR)
-add_subdirectory(Source/Logging)
-add_subdirectory(Source/Platform)
-add_subdirectory(Source/Programs)
+add_subdirectory(Lib/IR)
+add_subdirectory(Lib/Logging)
+add_subdirectory(Lib/Platform)
 
-add_subdirectory(Source/ThirdParty/libunwind)
+add_subdirectory(ThirdParty)
+add_subdirectory(ThirdParty/libunwind)
 
-add_subdirectory(Source/WASM)
-add_subdirectory(Source/WAST)
-add_subdirectory(Source/Wavix)
+add_subdirectory(Lib/WASM)
+add_subdirectory(Lib/WAST)
+
+add_subdirectory(Programs/Assemble)
+add_subdirectory(Programs/Disassemble)
+add_subdirectory(Programs/DumpTestModules)
 
 if(ENABLE_RUNTIME)
-	add_subdirectory(Source/Emscripten)
-	add_subdirectory(Source/Runtime)
-	add_subdirectory(Source/ThreadTest)
+	add_subdirectory(Lib/Emscripten)
+	add_subdirectory(Lib/Runtime)
+	add_subdirectory(Lib/ThreadTest)
+	add_subdirectory(Programs/Test)
+	add_subdirectory(Programs/wavm)
+	add_subdirectory(Programs/wavix)
 	add_subdirectory(Test/fuzz)
 	add_subdirectory(Test/spec)
 	add_subdirectory(Test/WAVM)

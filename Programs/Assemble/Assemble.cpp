@@ -1,5 +1,5 @@
-#include "CLI.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/CLI.h"
 #include "WASM/WASM.h"
 #include "WAST/WAST.h"
 

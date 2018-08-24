@@ -48,3 +48,5 @@ else()
 	
 	WAVM_ADD_LIBRARY(WAVMUnwind ${Sources} ${PublicHeaders})
 endif()
+
+set_target_properties(WAVMUnwind PROPERTIES FOLDER "Third party")

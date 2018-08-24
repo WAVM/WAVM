@@ -10,7 +10,7 @@
 #include "WAST/TestScript.h"
 #include "WAST/WAST.h"
 
-#include "CLI.h"
+#include "Inline/CLI.h"
 
 #include <cstdarg>
 #include <cstdio>

@@ -19,5 +19,7 @@ set(PublicHeaders
 include_directories(${WAVM_INCLUDE_DIR}/WAST)
 
 WAVM_ADD_LIBRARY(WAST ${Sources} ${PublicHeaders})
+set_target_properties(WAST PROPERTIES FOLDER Libraries)
+
 add_definitions(-DWAST_API=DLL_EXPORT)
 target_link_libraries(WAST Logging IR WASM)

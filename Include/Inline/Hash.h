@@ -10,7 +10,7 @@
 
 #define XXH_FORCE_NATIVE_FORMAT 1
 #define XXH_INLINE_ALL
-#include "../../Source/ThirdParty/xxhash/xxhash.h"
+#include "../../ThirdParty/xxhash/xxhash.h"
 
 template<typename Key> struct Hash : std::hash<Key>
 {
