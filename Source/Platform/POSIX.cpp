@@ -115,11 +115,60 @@ static bool isPageAligned(U8* address)
 	return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
 }
 
+static Mutex& getErrorReportingMutex()
+{
+	static Platform::Mutex mutex;
+	return mutex;
+}
+
+static void dumpErrorCallStack(Uptr numOmittedFramesFromTop)
+{
+	std::fprintf(stderr, "Call stack:\n");
+	CallStack callStack = captureCallStack(numOmittedFramesFromTop);
+	for(auto frame : callStack.stackFrames)
+	{
+		std::string frameDescription;
+		if(!Platform::describeInstructionPointer(frame.ip, frameDescription))
+		{ frameDescription = "<unknown function>"; }
+		std::fprintf(stderr, "  %s\n", frameDescription.c_str());
+	}
+	std::fflush(stderr);
+}
+
+void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
+{
+	Lock<Platform::Mutex> lock(getErrorReportingMutex());
+	std::vfprintf(stderr, messageFormat, varArgs);
+	std::fflush(stderr);
+	dumpErrorCallStack(3);
+	std::abort();
+}
+
+void Platform::handleAssertionFailure(const AssertMetadata& metadata)
+{
+	Lock<Platform::Mutex> lock(getErrorReportingMutex());
+	std::fprintf(stderr,
+				 "Assertion failed at %s(%u): %s\n",
+				 metadata.file,
+				 metadata.line,
+				 metadata.condition);
+	dumpErrorCallStack(2);
+	std::fflush(stderr);
+}
+
 U8* Platform::allocateVirtualPages(Uptr numPages)
 {
 	Uptr numBytes = numPages << getPageSizeLog2();
 	void* result  = mmap(nullptr, numBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if(result == MAP_FAILED) { return nullptr; }
+	if(result == MAP_FAILED)
+	{
+		fprintf(stderr,
+				"mmap(0, %lu, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
+				numBytes,
+				strerror(errno));
+		dumpErrorCallStack(0);
+		return nullptr;
+	}
 	return (U8*)result;
 }
 
@@ -165,80 +214,81 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
 {
 	errorUnless(isPageAligned(baseVirtualAddress));
-	return mprotect(
-			   baseVirtualAddress, numPages << getPageSizeLog2(), memoryAccessAsPOSIXFlag(access))
-		   == 0;
+	int result = mprotect(
+		baseVirtualAddress, numPages << getPageSizeLog2(), memoryAccessAsPOSIXFlag(access));
+	if(result != 0)
+	{
+		fprintf(stderr,
+				"mprotect(0x%lx, %lu, %u) failed! errno=%s\n",
+				reinterpret_cast<Uptr>(baseVirtualAddress),
+				numPages << getPageSizeLog2(),
+				memoryAccessAsPOSIXFlag(access),
+				strerror(errno));
+		dumpErrorCallStack(0);
+	}
+	return result == 0;
 }
 
 bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
 {
 	errorUnless(isPageAligned(baseVirtualAddress));
-	return mprotect(
-			   baseVirtualAddress, numPages << getPageSizeLog2(), memoryAccessAsPOSIXFlag(access))
-		   == 0;
+	int result = mprotect(
+		baseVirtualAddress, numPages << getPageSizeLog2(), memoryAccessAsPOSIXFlag(access));
+	if(result != 0)
+	{
+		fprintf(stderr,
+				"mprotect(0x%lx, %lu, %u) failed! errno=%s\n",
+				reinterpret_cast<Uptr>(baseVirtualAddress),
+				numPages << getPageSizeLog2(),
+				memoryAccessAsPOSIXFlag(access),
+				strerror(errno));
+		dumpErrorCallStack(0);
+	}
+	return result == 0;
 }
 
 void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 {
 	errorUnless(isPageAligned(baseVirtualAddress));
 	auto numBytes = numPages << getPageSizeLog2();
-	if(madvise(baseVirtualAddress, numBytes, MADV_DONTNEED)) { Errors::fatal("madvise failed"); }
-	if(mprotect(baseVirtualAddress, numBytes, PROT_NONE)) { Errors::fatal("mprotect failed"); }
+	if(madvise(baseVirtualAddress, numBytes, MADV_DONTNEED))
+	{
+		Errors::fatalf("madvise(0x%lx, %u, MADV_DONTNEED) failed! errno=%s",
+					   reinterpret_cast<Uptr>(baseVirtualAddress),
+					   numBytes,
+					   strerror(errno));
+	}
+	if(mprotect(baseVirtualAddress, numBytes, PROT_NONE))
+	{
+		Errors::fatalf("mprotect(0x%lx, %u, PROT_NONE) failed! errno=%s",
+					   reinterpret_cast<Uptr>(baseVirtualAddress),
+					   numBytes,
+					   strerror(errno));
+	}
 }
 
 void Platform::freeVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 {
 	errorUnless(isPageAligned(baseVirtualAddress));
 	if(munmap(baseVirtualAddress, numPages << getPageSizeLog2()))
-	{ Errors::fatal("munmap failed"); }
+	{
+		Errors::fatalf("munmap(0x%lx, %u) failed! errno=%s",
+					   reinterpret_cast<Uptr>(baseVirtualAddress),
+					   numPages << getPageSizeLog2(),
+					   strerror(errno));
+	}
 }
 
 void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, Uptr alignmentLog2)
 {
 	errorUnless(isPageAligned(unalignedBaseAddress));
 	if(munmap(unalignedBaseAddress, numPages << getPageSizeLog2()))
-	{ Errors::fatal("munmap failed"); }
-}
-
-static Mutex& getErrorReportingMutex()
-{
-	static Platform::Mutex mutex;
-	return mutex;
-}
-
-static void dumpErrorCallStack(Uptr numOmittedFramesFromTop)
-{
-	std::fprintf(stderr, "Call stack:\n");
-	CallStack callStack = captureCallStack(numOmittedFramesFromTop);
-	for(auto frame : callStack.stackFrames)
 	{
-		std::string frameDescription;
-		if(!Platform::describeInstructionPointer(frame.ip, frameDescription))
-		{ frameDescription = "<unknown function>"; }
-		std::fprintf(stderr, "  %s\n", frameDescription.c_str());
+		Errors::fatalf("munmap(0x%lx, %u) failed! errno=%s",
+					   reinterpret_cast<Uptr>(unalignedBaseAddress),
+					   numPages << getPageSizeLog2(),
+					   strerror(errno));
 	}
-	std::fflush(stderr);
-}
-
-void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
-{
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::vfprintf(stderr, messageFormat, varArgs);
-	std::fflush(stderr);
-	dumpErrorCallStack(3);
-	std::abort();
-}
-
-void Platform::handleAssertionFailure(const AssertMetadata& metadata)
-{
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::fprintf(stderr,
-				 "Assertion failed at %s(%u): %s\n",
-				 metadata.file,
-				 metadata.line,
-				 metadata.condition);
-	dumpErrorCallStack(2);
-	std::fflush(stderr);
 }
 
 bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
