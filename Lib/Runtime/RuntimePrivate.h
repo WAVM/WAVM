@@ -260,29 +260,15 @@ namespace Runtime
 	};
 
 #define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
+
 	enum
 	{
-		maxThunkArgAndReturnBytes = 256
-	};
-	enum
-	{
-		maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes
-	};
-	enum
-	{
-		maxMemories = 255
-	};
-	enum
-	{
-		maxTables = 256
-	};
-	enum
-	{
-		compartmentRuntimeDataAlignmentLog2 = 32
-	};
-	enum
-	{
-		contextRuntimeDataAlignment = 4096
+		maxThunkArgAndReturnBytes           = 256,
+		maxGlobalBytes                      = 4096 - maxThunkArgAndReturnBytes,
+		maxMemories                         = 255,
+		maxTables                           = 256,
+		compartmentRuntimeDataAlignmentLog2 = 32,
+		contextRuntimeDataAlignment         = 4096
 	};
 
 	static_assert(sizeof(UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
