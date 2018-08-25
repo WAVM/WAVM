@@ -15,14 +15,14 @@ namespace NFA
 
 	enum
 	{
-		edgeDoesntConsumeInputFlag = (StateIndex)0x4000, // A flag that's set on terminal DFA state
-														 // transitions that don't consume any input
-		unmatchedCharacterTerminal
-		= (StateIndex)0x8000, // An implicit terminal state that indicates the DFA didn't
-							  // recognize the input
-		maximumTerminalStateIndex
-		= (StateIndex)0xbfff, // Should be the largest negative number that doesn't have
-							  // edgeDoesntConsumeInputFlag set.
+		// A flag that's set on terminal DFA state transitions that don't consume any input
+		edgeDoesntConsumeInputFlag = (StateIndex)0x4000,
+
+		// An implicit terminal state that indicates the DFA didn't recognize the input
+		unmatchedCharacterTerminal = (StateIndex)0x8000,
+
+		// Should be the largest negative number that doesn't have edgeDoesntConsumeInputFlag set.
+		maximumTerminalStateIndex = (StateIndex)0xbfff,
 	};
 
 	// Creates an abstract object that holds the state of an under-construction BFA.

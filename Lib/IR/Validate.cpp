@@ -75,10 +75,7 @@ static void validate(GlobalType type) { validate(type.valueType); }
 
 static void validate(TypeTuple typeTuple)
 {
-	for(ValueType valueType : typeTuple)
-	{
-		validate(valueType);
-	}
+	for(ValueType valueType : typeTuple) { validate(valueType); }
 }
 
 template<typename Type> void validateType(Type expectedType, Type actualType, const char* context)
@@ -728,9 +725,7 @@ void IR::validateImports(const Module& module)
 		{ VALIDATE_UNLESS("mutable globals cannot be imported: ", globalImport.type.isMutable); }
 	}
 	for(auto& exceptionTypeImport : module.exceptionTypes.imports)
-	{
-		validate(exceptionTypeImport.type.params);
-	}
+	{ validate(exceptionTypeImport.type.params); }
 
 	VALIDATE_UNLESS("too many tables: ", module.tables.size() > 1);
 	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
@@ -761,9 +756,7 @@ void IR::validateGlobalDefs(const Module& module)
 void IR::validateExceptionTypeDefs(const Module& module)
 {
 	for(auto& exceptionTypeDef : module.exceptionTypes.defs)
-	{
-		validate(exceptionTypeDef.type.params);
-	}
+	{ validate(exceptionTypeDef.type.params); }
 }
 
 void IR::validateTableDefs(const Module& module)

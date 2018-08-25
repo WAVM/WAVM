@@ -1,5 +1,6 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/CLI.h"
 #include "Inline/HashMap.h"
 #include "Inline/Serialization.h"
 #include "Runtime/Intrinsics.h"
@@ -9,8 +10,6 @@
 #include "WASM/WASM.h"
 #include "WAST/TestScript.h"
 #include "WAST/WAST.h"
-
-#include "Inline/CLI.h"
 
 #include <cstdarg>
 #include <cstdio>
