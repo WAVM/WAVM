@@ -17,6 +17,10 @@ static FunctionType resolveImportType(const IR::Module& module, IndexedFunctionT
 static TableType resolveImportType(const IR::Module& module, TableType type) { return type; }
 static MemoryType resolveImportType(const IR::Module& module, MemoryType type) { return type; }
 static GlobalType resolveImportType(const IR::Module& module, GlobalType type) { return type; }
+static ExceptionType resolveImportType(const IR::Module& module, ExceptionType type)
+{
+	return type;
+}
 
 template<typename Instance, typename Type>
 void linkImport(const IR::Module& module,
@@ -54,6 +58,10 @@ LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
 	{ linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.memories); }
 	for(const auto& import : module.globals.imports)
 	{ linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.globals); }
+	for(const auto& import : module.exceptionTypes.imports)
+	{
+		linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.exceptionTypes);
+	}
 
 	linkResult.success = linkResult.missingImports.size() == 0;
 	return linkResult;

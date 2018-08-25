@@ -159,3 +159,15 @@
 ;; try with multiple catch_alls
 ;; try with catch after catch_all
 ;; exception arguments
+
+(register "A" $A)
+
+(module
+  (exception_type $a (import "A" "a") i32)
+  (exception_type $b (import "A" "b") i32)
+  (exception_type $c (import "A" "c") i32 f64)
+  (exception_type $d (import "A" "d"))
+)
+
+(assert_unlinkable (module (exception_type (import "A" "a") i64)) "import type doesn't match")
+(assert_unlinkable (module (exception_type (import "A" "c") i32 i64)) "import type doesn't match")
