@@ -204,20 +204,69 @@ enum
 
 enum class SectionType : U8
 {
-	unknown              = 0,
-	user                 = 0,
-	type                 = 1,
-	import               = 2,
-	functionDeclarations = 3,
-	table                = 4,
-	memory               = 5,
-	global               = 6,
-	export_              = 7,
-	start                = 8,
-	elem                 = 9,
-	functionDefinitions  = 10,
-	data                 = 11
+	unknown,
+	user,
+	type,
+	import,
+	functionDeclarations,
+	table,
+	memory,
+	global,
+	exceptionTypes,
+	export_,
+	start,
+	elem,
+	functionDefinitions,
+	data
 };
+
+static void serialize(InputStream& stream, SectionType& sectionType)
+{
+	const U8 serializedSectionId = *stream.advance(1);
+	switch(serializedSectionId)
+	{
+	case 0: sectionType = SectionType::user; break;
+	case 1: sectionType = SectionType::type; break;
+	case 2: sectionType = SectionType::import; break;
+	case 3: sectionType = SectionType::functionDeclarations; break;
+	case 4: sectionType = SectionType::table; break;
+	case 5: sectionType = SectionType::memory; break;
+	case 6: sectionType = SectionType::global; break;
+	case 7: sectionType = SectionType::export_; break;
+	case 8: sectionType = SectionType::start; break;
+	case 9: sectionType = SectionType::elem; break;
+	case 10: sectionType = SectionType::functionDefinitions; break;
+	case 11: sectionType = SectionType::data; break;
+	case 0x7f: sectionType = SectionType::exceptionTypes; break;
+	default:
+		throw FatalSerializationException(std::string("invalid section type: ")
+										  + std::to_string(serializedSectionId));
+	};
+}
+
+static void serialize(OutputStream& stream, SectionType sectionType)
+{
+	U8 serializedSectionId;
+	switch(sectionType)
+	{
+	case SectionType::user: serializedSectionId = 0; break;
+	case SectionType::type: serializedSectionId = 1; break;
+	case SectionType::import: serializedSectionId = 2; break;
+	case SectionType::functionDeclarations: serializedSectionId = 3; break;
+	case SectionType::table: serializedSectionId = 4; break;
+	case SectionType::memory: serializedSectionId = 5; break;
+	case SectionType::global: serializedSectionId = 6; break;
+	case SectionType::export_: serializedSectionId = 7; break;
+	case SectionType::start: serializedSectionId = 8; break;
+	case SectionType::elem: serializedSectionId = 9; break;
+	case SectionType::functionDefinitions: serializedSectionId = 10; break;
+	case SectionType::data: serializedSectionId = 11; break;
+	case SectionType::exceptionTypes: serializedSectionId = 0x7f; break;
+	default: Errors::unreachable();
+	};
+
+	*stream.advance(1) = serializedSectionId;
+}
 
 template<typename Stream> void serialize(Stream& stream, NoImm&, const FunctionDef&) {}
 
@@ -362,7 +411,7 @@ void serialize(Stream& stream, LiteralImm<Value>& imm, const FunctionDef&)
 template<typename SerializeSection>
 void serializeSection(OutputStream& stream, SectionType type, SerializeSection serializeSectionBody)
 {
-	serializeNativeValue(stream, type);
+	serialize(stream, type);
 	ArrayOutputStream sectionStream;
 	serializeSectionBody(sectionStream);
 	std::vector<U8> sectionBytes = sectionStream.getBytes();
@@ -371,12 +420,8 @@ void serializeSection(OutputStream& stream, SectionType type, SerializeSection s
 	serializeBytes(stream, sectionBytes.data(), sectionBytes.size());
 }
 template<typename SerializeSection>
-void serializeSection(InputStream& stream,
-					  SectionType expectedType,
-					  SerializeSection serializeSectionBody)
+void serializeSection(InputStream& stream, SectionType type, SerializeSection serializeSectionBody)
 {
-	wavmAssert((SectionType)*stream.peek(sizeof(SectionType)) == expectedType);
-	stream.advance(sizeof(SectionType));
 	Uptr numSectionBytes = 0;
 	serializeVarUInt32(stream, numSectionBytes);
 	MemoryInputStream sectionStream(stream.advance(numSectionBytes), numSectionBytes);
@@ -728,6 +773,13 @@ template<typename Stream> void serializeGlobalSection(Stream& moduleStream, Modu
 	});
 }
 
+template<typename Stream> void serializeExceptionTypeSection(Stream& moduleStream, Module& module)
+{
+	serializeSection(moduleStream, SectionType::exceptionTypes, [&module](Stream& sectionStream) {
+		serialize(sectionStream, module.exceptionTypes.defs);
+	});
+}
+
 template<typename Stream> void serializeExportSection(Stream& moduleStream, Module& module)
 {
 	serializeSection(moduleStream, SectionType::export_, [&module](Stream& sectionStream) {
@@ -804,7 +856,9 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	bool hadFunctionDefinitions      = false;
 	while(moduleStream.capacity())
 	{
-		const SectionType sectionType = *(SectionType*)moduleStream.peek(sizeof(SectionType));
+		SectionType sectionType;
+		serialize(moduleStream, sectionType);
+
 		if(sectionType != SectionType::user)
 		{
 			if(sectionType > lastKnownSectionType) { lastKnownSectionType = sectionType; }
@@ -813,6 +867,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 				throw FatalSerializationException("incorrect order for known section");
 			}
 		}
+
 		switch(sectionType)
 		{
 		case SectionType::type:
@@ -837,7 +892,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			break;
 		case SectionType::global:
 			serializeGlobalSection(moduleStream, module);
-			IR::validateGlobals(module);
+			IR::validateGlobalDefs(module);
 			break;
 		case SectionType::export_:
 			serializeExportSection(moduleStream, module);
@@ -858,6 +913,10 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		case SectionType::data:
 			serializeDataSection(moduleStream, module);
 			IR::validateDataSegments(module);
+			break;
+		case SectionType::exceptionTypes:
+			serializeExceptionTypeSection(moduleStream, module);
+			IR::validateExceptionTypeDefs(module);
 			break;
 		case SectionType::user:
 		{

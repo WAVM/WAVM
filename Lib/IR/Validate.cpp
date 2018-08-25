@@ -73,6 +73,14 @@ static void validate(const Module& module, MemoryType type)
 
 static void validate(GlobalType type) { validate(type.valueType); }
 
+static void validate(TypeTuple typeTuple)
+{
+	for(ValueType valueType : typeTuple)
+	{
+		validate(valueType);
+	}
+}
+
 template<typename Type> void validateType(Type expectedType, Type actualType, const char* context)
 {
 	if(expectedType != actualType)
@@ -691,8 +699,8 @@ void IR::validateTypes(const Module& module)
 		// number of return values here, since they don't apply to block types that are also stored
 		// here. Instead, uses of a function type from the types array must call
 		// validateFunctionType to validate its use as a function type.
-		for(auto parameterType : functionType.params()) { validate(parameterType); }
-		for(auto resultType : functionType.results()) { validate(resultType); }
+		validate(functionType.params());
+		validate(functionType.results());
 
 		if(functionType.results().size() > 1 && !module.featureSpec.multipleResultsAndBlockParams)
 		{
@@ -715,6 +723,10 @@ void IR::validateImports(const Module& module)
 		if(!module.featureSpec.importExportMutableGlobals)
 		{ VALIDATE_UNLESS("mutable globals cannot be imported: ", globalImport.type.isMutable); }
 	}
+	for(auto& exceptionTypeImport : module.exceptionTypes.imports)
+	{
+		validate(exceptionTypeImport.type.params);
+	}
 
 	VALIDATE_UNLESS("too many tables: ", module.tables.size() > 1);
 	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
@@ -730,7 +742,7 @@ void IR::validateFunctionDeclarations(const Module& module)
 	}
 }
 
-void IR::validateGlobals(const Module& module)
+void IR::validateGlobalDefs(const Module& module)
 {
 	for(auto& globalDef : module.globals.defs)
 	{
@@ -739,6 +751,14 @@ void IR::validateGlobals(const Module& module)
 							globalDef.initializer,
 							globalDef.type.valueType,
 							"global initializer expression");
+	}
+}
+
+void IR::validateExceptionTypeDefs(const Module& module)
+{
+	for(auto& exceptionTypeDef : module.exceptionTypes.defs)
+	{
+		validate(exceptionTypeDef.type.params);
 	}
 }
 
