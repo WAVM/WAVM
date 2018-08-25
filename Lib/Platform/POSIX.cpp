@@ -1006,14 +1006,14 @@ bool Platform::seekFile(File* file, I64 offset, FileSeekOrigin origin, U64* outA
 	return result != -1;
 }
 
-bool Platform::readFile(File* file, U8* outData, Uptr numBytes, Uptr* outNumBytesRead)
+bool Platform::readFile(File* file, void* outData, Uptr numBytes, Uptr* outNumBytesRead)
 {
 	ssize_t result = read(filePtrToIndex(file), outData, numBytes);
 	if(outNumBytesRead) { *outNumBytesRead = result; }
 	return result >= 0;
 }
 
-bool Platform::writeFile(File* file, const U8* data, Uptr numBytes, Uptr* outNumBytesWritten)
+bool Platform::writeFile(File* file, const void* data, Uptr numBytes, Uptr* outNumBytesWritten)
 {
 	ssize_t result = write(filePtrToIndex(file), data, numBytes);
 	if(outNumBytesWritten) { *outNumBytesWritten = result; }

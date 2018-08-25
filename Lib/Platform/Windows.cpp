@@ -1008,7 +1008,7 @@ bool Platform::seekFile(File* file, I64 offset, FileSeekOrigin origin, U64* outA
 	return true;
 }
 
-bool Platform::readFile(File* file, U8* outData, Uptr numBytes, Uptr* outNumBytesRead)
+bool Platform::readFile(File* file, void* outData, Uptr numBytes, Uptr* outNumBytesRead)
 {
 	if(outNumBytesRead) { *outNumBytesRead = 0; }
 	if(numBytes > Uptr(UINT32_MAX)) { return false; }
@@ -1022,7 +1022,7 @@ bool Platform::readFile(File* file, U8* outData, Uptr numBytes, Uptr* outNumByte
 	return result != 0;
 }
 
-bool Platform::writeFile(File* file, const U8* data, Uptr numBytes, Uptr* outNumBytesWritten)
+bool Platform::writeFile(File* file, const void* data, Uptr numBytes, Uptr* outNumBytesWritten)
 {
 	if(outNumBytesWritten) { *outNumBytesWritten = 0; }
 	if(numBytes > Uptr(UINT32_MAX)) { return false; }

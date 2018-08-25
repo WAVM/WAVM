@@ -413,11 +413,11 @@ namespace Platform
 							   FileSeekOrigin origin,
 							   U64* outAbsoluteOffset = nullptr);
 	PLATFORM_API bool readFile(File* file,
-							   U8* outData,
+							   void* outData,
 							   Uptr numBytes,
 							   Uptr* outNumBytesRead = nullptr);
 	PLATFORM_API bool writeFile(File* file,
-								const U8* data,
+								const void* data,
 								Uptr numBytes,
 								Uptr* outNumBytesWritten = nullptr);
 	PLATFORM_API bool flushFileWrites(File* file);
