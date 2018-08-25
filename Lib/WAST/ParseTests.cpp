@@ -426,10 +426,13 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 
 void WAST::parseTestCommands(const char* string,
 							 Uptr stringLength,
-							 const IR::FeatureSpec& featureSpec,
 							 std::vector<std::unique_ptr<Command>>& outTestCommands,
 							 std::vector<Error>& outErrors)
 {
+	// Use a WebAssembly standard-compliant feature spec.
+	FeatureSpec featureSpec;
+	featureSpec.requireSharedFlagForAtomicOperators = true;
+
 	// Lex the input string.
 	LineInfo* lineInfo = nullptr;
 	Token* tokens      = lex(string, stringLength, lineInfo);

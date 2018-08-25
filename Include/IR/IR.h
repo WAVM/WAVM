@@ -38,7 +38,7 @@ namespace IR
 
 		// WAVM-specific extensions
 		bool sharedTables                        = true;
-		bool requireSharedFlagForAtomicOperators = true; // (true is standard)
+		bool requireSharedFlagForAtomicOperators = false; // (true is standard)
 
 		Uptr maxLocals            = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;

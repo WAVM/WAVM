@@ -36,7 +36,6 @@ namespace WAST
 	// to outTestCommands.
 	WAST_API void parseTestCommands(const char* string,
 									Uptr stringLength,
-									const IR::FeatureSpec& featureSpec,
 									std::vector<std::unique_ptr<Command>>& outTestCommands,
 									std::vector<Error>& outErrors);
 

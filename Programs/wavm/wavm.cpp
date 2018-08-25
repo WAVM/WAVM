@@ -122,12 +122,6 @@ static int run(const CommandLineOptions& options)
 {
 	Module module;
 
-	// Enable some additional "features" in WAVM that are disabled by default.
-	module.featureSpec.importExportMutableGlobals = true;
-	module.featureSpec.sharedTables               = true;
-	// Allow atomics on unshared memories to accomodate atomics on the Emscripten memory.
-	module.featureSpec.requireSharedFlagForAtomicOperators = false;
-
 	// Load the module.
 	if(!loadModule(options.filename, module)) { return EXIT_FAILURE; }
 	if(options.onlyCheck) { return EXIT_SUCCESS; }

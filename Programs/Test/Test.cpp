@@ -575,7 +575,6 @@ int main(int argc, char** argv)
 	// Parse the test script.
 	WAST::parseTestCommands(testScriptString.c_str(),
 							testScriptString.size(),
-							IR::FeatureSpec(),
 							testCommands,
 							testScriptState->errors);
 	if(!testScriptState->errors.size())
