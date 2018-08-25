@@ -412,6 +412,11 @@ namespace IR
 		}
 	};
 
+	inline std::string asString(const ExceptionType& exceptionType)
+	{
+		return asString(exceptionType.params);
+	}
+
 	// The type of an object
 	enum class ObjectKind : U8
 	{
