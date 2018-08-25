@@ -205,7 +205,6 @@ enum
 enum class SectionType : U8
 {
 	unknown,
-	user,
 	type,
 	import,
 	functionDeclarations,
@@ -217,7 +216,8 @@ enum class SectionType : U8
 	start,
 	elem,
 	functionDefinitions,
-	data
+	data,
+	user
 };
 
 static void serialize(InputStream& stream, SectionType& sectionType)
@@ -432,7 +432,7 @@ void serializeSection(InputStream& stream, SectionType type, SerializeSection se
 
 static void serialize(OutputStream& stream, UserSection& userSection)
 {
-	serializeConstant(stream, "expected user section (section ID 0)", (U8)SectionType::user);
+	serialize(stream, SectionType::user);
 	ArrayOutputStream sectionStream;
 	serialize(sectionStream, userSection.name);
 	serializeBytes(sectionStream, userSection.data.data(), userSection.data.size());
@@ -442,7 +442,6 @@ static void serialize(OutputStream& stream, UserSection& userSection)
 
 static void serialize(InputStream& stream, UserSection& userSection)
 {
-	serializeConstant(stream, "expected user section (section ID 0)", (U8)SectionType::user);
 	Uptr numSectionBytes = 0;
 	serializeVarUInt32(stream, numSectionBytes);
 
@@ -838,6 +837,8 @@ static void serializeModule(OutputStream& moduleStream, Module& module)
 	if(module.tables.defs.size() > 0) { serializeTableSection(moduleStream, module); }
 	if(module.memories.defs.size() > 0) { serializeMemorySection(moduleStream, module); }
 	if(module.globals.defs.size() > 0) { serializeGlobalSection(moduleStream, module); }
+	if(module.exceptionTypes.defs.size() > 0)
+	{ serializeExceptionTypeSection(moduleStream, module); }
 	if(module.exports.size() > 0) { serializeExportSection(moduleStream, module); }
 	if(module.startFunctionIndex != UINTPTR_MAX) { serializeStartSection(moduleStream, module); }
 	if(module.tableSegments.size() > 0) { serializeElementSection(moduleStream, module); }
