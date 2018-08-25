@@ -580,6 +580,10 @@ private:
 			controlStack.back().type        = ControlContext::Type::catch_;
 			controlStack.back().isReachable = true;
 		}
+		else if(controlStack.back().type == ControlContext::Type::try_ && !isCatch)
+		{
+			throw ValidationException("end may not occur in try context");
+		}
 		else
 		{
 			VALIDATE_UNLESS("else only allowed in if context: ", isElse);
