@@ -123,6 +123,9 @@ void Runtime::collectGarbage()
 			childReferences.insert(childReferences.begin(),
 								   moduleInstance->globals.begin(),
 								   moduleInstance->globals.end());
+			childReferences.insert(childReferences.begin(),
+								   moduleInstance->exceptionTypeInstances.begin(),
+								   moduleInstance->exceptionTypeInstances.end());
 			childReferences.push_back(moduleInstance->defaultMemory);
 			childReferences.push_back(moduleInstance->defaultTable);
 			break;
