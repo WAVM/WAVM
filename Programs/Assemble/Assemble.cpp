@@ -74,7 +74,7 @@ int main(int argc, char** argv)
 		Log::printf(Log::error,
 					"Error serializing WebAssembly binary file:\n%s\n",
 					exception.message.c_str());
-		return false;
+		return EXIT_FAILURE;
 	}
 
 	// Write the serialized data to the output file.
