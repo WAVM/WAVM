@@ -31,8 +31,9 @@ static void dumpWAST(const std::string& wastString, const char* outputDir)
 		= Platform::openFile(std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast",
 							 Platform::FileAccessMode::writeOnly,
 							 Platform::FileCreateMode::createAlways);
+	errorUnless(wastFile);
 	errorUnless(Platform::writeFile(wastFile, (const U8*)wastString.c_str(), wastString.size()));
-	Platform::closeFile(wastFile);
+	errorUnless(Platform::closeFile(wastFile));
 }
 
 static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
@@ -43,8 +44,9 @@ static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
 		= Platform::openFile(std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",
 							 Platform::FileAccessMode::writeOnly,
 							 Platform::FileCreateMode::createAlways);
+	errorUnless(wasmFile);
 	errorUnless(Platform::writeFile(wasmFile, wasmBytes, numBytes));
-	Platform::closeFile(wasmFile);
+	errorUnless(Platform::closeFile(wasmFile));
 }
 
 static void dumpModule(const Module& module, const char* outputDir, DumpFormat dumpFormat)
@@ -67,8 +69,9 @@ static void dumpModule(const Module& module, const char* outputDir, DumpFormat d
 		}
 		catch(Serialization::FatalSerializationException exception)
 		{
-			std::cerr << "Error serializing WebAssembly binary file:" << std::endl;
-			std::cerr << exception.message << std::endl;
+			Log::printf(Log::error,
+						"Error serializing WebAssembly binary file:\n%s\n",
+						exception.message.c_str());
 			return;
 		}
 
@@ -139,7 +142,7 @@ int main(int argc, char** argv)
 				if(argumentIndex < argc) { outputDir = argv[argumentIndex]; }
 				else
 				{
-					std::cerr << "Expected directory after '--output-dir'" << std::endl;
+					Log::printf(Log::error, "Expected directory after '--output-dir'\n");
 					showHelpAndExit = true;
 					break;
 				}
@@ -166,7 +169,7 @@ int main(int argc, char** argv)
 			}
 			else
 			{
-				std::cerr << "Unrecognized argument: " << argv[argumentIndex] << std::endl;
+				Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argumentIndex]);
 				showHelpAndExit = true;
 				break;
 			}
@@ -175,8 +178,9 @@ int main(int argc, char** argv)
 
 	if(showHelpAndExit)
 	{
-		std::cerr << "Usage: Test [--output-dir <directory>] [--wast] [--wasm] <input .wast>"
-				  << std::endl;
+		Log::printf(
+			Log::error,
+			"Usage: DumpTestModule [--output-dir <directory>] [--wast] [--wasm] <input .wast>\n");
 		return EXIT_FAILURE;
 	}
 
@@ -185,19 +189,20 @@ int main(int argc, char** argv)
 	// Always enable debug logging for tests.
 	Log::setCategoryEnabled(Log::debug, true);
 
-	// Read the file into a string.
-	const std::string testScriptString = loadFile(filename);
-	if(!testScriptString.size()) { return EXIT_FAILURE; }
+	// Read the file into a vector.
+	std::vector<U8> testScriptBytes;
+	if(!loadFile(filename, testScriptBytes)) { return EXIT_FAILURE; }
+
+	// Make sure the file is null terminated.
+	testScriptBytes.push_back(0);
 
 	// Process the test script.
 	std::vector<std::unique_ptr<Command>> testCommands;
 	std::vector<WAST::Error> testErrors;
 
 	// Parse the test script.
-	WAST::parseTestCommands(testScriptString.c_str(),
-							testScriptString.size(),
-							testCommands,
-							testErrors);
+	WAST::parseTestCommands(
+		(const char*)testScriptBytes.data(), testScriptBytes.size(), testCommands, testErrors);
 	if(!testErrors.size())
 	{
 		for(auto& command : testCommands)

@@ -12,6 +12,8 @@
 #include "ThreadTest/ThreadTest.h"
 #include "WAST/WAST.h"
 
+#include <inttypes.h>
+
 using namespace IR;
 using namespace Runtime;
 
@@ -108,6 +110,33 @@ struct RootResolver : Resolver
 	}
 };
 
+static bool loadModule(const char* filename, IR::Module& outModule)
+{
+	// Read the specified file into an array.
+	std::vector<U8> fileBytes;
+	if(!loadFile(filename, fileBytes)) { return false; }
+
+	// If the file starts with the WASM binary magic number, load it as a binary module.
+	if(*(U32*)fileBytes.data() == 0x6d736100)
+	{ return loadBinaryModule(fileBytes.data(), fileBytes.size(), outModule); }
+	else
+	{
+		// Make sure the WAST file is null terminated.
+		fileBytes.push_back(0);
+
+		// Load it as a text module.
+		std::vector<WAST::Error> parseErrors;
+		if(!WAST::parseModule(
+			   (const char*)fileBytes.data(), fileBytes.size(), outModule, parseErrors))
+		{
+			reportParseErrors(filename, parseErrors);
+			return false;
+		}
+
+		return true;
+	}
+}
+
 struct CommandLineOptions
 {
 	const char* filename     = nullptr;
@@ -152,12 +181,14 @@ static int run(const CommandLineOptions& options)
 	LinkResult linkResult = linkModule(module, rootResolver);
 	if(!linkResult.success)
 	{
-		std::cerr << "Failed to link module:" << std::endl;
+		Log::printf(Log::error, "Failed to link module:\n");
 		for(auto& missingImport : linkResult.missingImports)
 		{
-			std::cerr << "Missing import: module=\"" << missingImport.moduleName << "\" export=\""
-					  << missingImport.exportName << "\" type=\"" << asString(missingImport.type)
-					  << "\"" << std::endl;
+			Log::printf(Log::error,
+						"Missing import: module=\"%s\" export=\"%s\" type=\"%s\"\n",
+						missingImport.moduleName.c_str(),
+						missingImport.exportName.c_str(),
+						asString(missingImport.type).c_str());
 		}
 		return EXIT_FAILURE;
 	}
@@ -186,7 +217,7 @@ static int run(const CommandLineOptions& options)
 		{ functionInstance = asFunctionNullable(getInstanceExport(moduleInstance, "_main")); }
 		if(!functionInstance)
 		{
-			std::cerr << "Module does not export main function" << std::endl;
+			Log::printf(Log::error, "Module does not export main function\n");
 			return EXIT_FAILURE;
 		}
 	}
@@ -196,7 +227,7 @@ static int run(const CommandLineOptions& options)
 			= asFunctionNullable(getInstanceExport(moduleInstance, options.functionName));
 		if(!functionInstance)
 		{
-			std::cerr << "Module does not export '" << options.functionName << "'" << std::endl;
+			Log::printf(Log::error, "Module does not export '%s'\n", options.functionName);
 			return EXIT_FAILURE;
 		}
 	}
@@ -211,8 +242,9 @@ static int run(const CommandLineOptions& options)
 			MemoryInstance* defaultMemory = Runtime::getDefaultMemory(moduleInstance);
 			if(!defaultMemory)
 			{
-				std::cerr << "Module does not declare a default memory object to put arguments in."
-						  << std::endl;
+				Log::printf(
+					Log::error,
+					"Module does not declare a default memory object to put arguments in.\n");
 				return EXIT_FAILURE;
 			}
 
@@ -225,8 +257,10 @@ static int run(const CommandLineOptions& options)
 		}
 		else if(functionType.params().size() > 0)
 		{
-			std::cerr << "WebAssembly function requires " << functionType.params().size()
-					  << " argument(s), but only 0 or 2 can be passed!" << std::endl;
+			Log::printf(Log::error,
+						"WebAssembly function requires %" PRIu64
+						" argument(s), but only 0 or 2 can be passed!",
+						functionType.params().size());
 			return EXIT_FAILURE;
 		}
 	}
@@ -272,15 +306,15 @@ static int run(const CommandLineOptions& options)
 
 void showHelp()
 {
-	std::cerr << "Usage: wavm [switches] [programfile] [--] [arguments]" << std::endl;
-	std::cerr << "  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)" << std::endl;
-	std::cerr << "  -f|--function name\t\tSpecify function name to run in module rather than main"
-			  << std::endl;
-	std::cerr << "  -c|--check\t\t\tExit after checking that the program is valid" << std::endl;
-	std::cerr << "  -d|--debug\t\t\tWrite additional debug information to stdout" << std::endl;
-	std::cerr << "  --disable-emscripten\t\tDisable Emscripten intrinsics" << std::endl;
-	std::cerr << "  --enable-thread-test\t\tEnable ThreadTest intrinsics" << std::endl;
-	std::cerr << "  --\t\t\t\tStop parsing arguments" << std::endl;
+	Log::printf(Log::error,
+				"Usage: wavm [switches] [programfile] [--] [arguments]\n"
+				"  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)\n"
+				"  -f|--function name\t\tSpecify function name to run in module rather than main\n"
+				"  -c|--check\t\t\tExit after checking that the program is valid\n"
+				"  -d|--debug\t\t\tWrite additional debug information to stdout\n"
+				"  --disable-emscripten\t\tDisable Emscripten intrinsics\n"
+				"  --enable-thread-test\t\tEnable ThreadTest intrinsics\n"
+				"  --\t\t\t\tStop parsing arguments\n");
 }
 
 int main(int argc, char** argv)

@@ -88,7 +88,7 @@ namespace Wavix
 		return result;
 	}
 
-	inline bool loadBinaryModule(const char* wasmFilename, IR::Module& outModule)
+	inline bool loadBinaryModuleFromFile(const char* wasmFilename, IR::Module& outModule)
 	{
 		try
 		{
@@ -101,14 +101,14 @@ namespace Wavix
 			errorUnless(Platform::seekFile(file, 0, Platform::FileSeekOrigin::end, &numFileBytes));
 			if(numFileBytes > UINTPTR_MAX)
 			{
-				Platform::closeFile(file);
+				errorUnless(Platform::closeFile(file));
 				return false;
 			}
 
 			std::unique_ptr<U8[]> fileContents{new U8[numFileBytes]};
 			errorUnless(Platform::seekFile(file, 0, Platform::FileSeekOrigin::begin));
 			errorUnless(Platform::readFile(file, fileContents.get(), numFileBytes));
-			Platform::closeFile(file);
+			errorUnless(Platform::closeFile(file));
 
 			Serialization::MemoryInputStream stream(fileContents.get(), numFileBytes);
 			WASM::serialize(stream, outModule);
@@ -117,14 +117,14 @@ namespace Wavix
 		}
 		catch(Serialization::FatalSerializationException exception)
 		{
-			Log::printf(Log::error,
+			Log::printf(Log::debug,
 						"Error deserializing WebAssembly binary file:\n%s\n",
 						exception.message.c_str());
 			return false;
 		}
 		catch(IR::ValidationException exception)
 		{
-			Log::printf(Log::error,
+			Log::printf(Log::debug,
 						"Error validating WebAssembly binary file:\n%s\n",
 						exception.message.c_str());
 			return false;
@@ -132,7 +132,7 @@ namespace Wavix
 		catch(std::bad_alloc)
 		{
 			Log::printf(
-				Log::error,
+				Log::debug,
 				"Failed to allocate memory during WASM module load: input is likely malformed.\n");
 			return false;
 		}
@@ -142,7 +142,7 @@ namespace Wavix
 	{
 		// Load the module.
 		Module module;
-		if(!loadBinaryModule(hostFilename, module)) { return nullptr; }
+		if(!loadBinaryModuleFromFile(hostFilename, module)) { return nullptr; }
 
 		// Link the module with the Wavix intrinsics.
 		RootResolver rootResolver;

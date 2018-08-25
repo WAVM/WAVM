@@ -1,6 +1,7 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/CLI.h"
 #include "Inline/Timing.h"
+#include "Platform/Platform.h"
 #include "WASM/WASM.h"
 #include "WAST/WAST.h"
 
@@ -8,7 +9,7 @@ int main(int argc, char** argv)
 {
 	if(argc != 3)
 	{
-		std::cerr << "Usage: Disassemble in.wasm out.wast" << std::endl;
+		Log::printf(Log::error, "Usage: Disassemble in.wasm out.wast\n");
 		return EXIT_FAILURE;
 	}
 	const char* inputFilename  = argv[1];
@@ -16,7 +17,7 @@ int main(int argc, char** argv)
 
 	// Load the WASM file.
 	IR::Module module;
-	if(!loadBinaryModule(inputFilename, module)) { return EXIT_FAILURE; }
+	if(!loadBinaryModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 
 	// Print the module to WAST.
 	Timing::Timer printTimer;
@@ -25,9 +26,6 @@ int main(int argc, char** argv)
 		"Printed WAST", printTimer, F64(wastString.size()) / 1024.0 / 1024.0, "MB");
 
 	// Write the serialized data to the output file.
-	std::ofstream outputStream(outputFilename);
-	outputStream.write(wastString.data(), wastString.size());
-	outputStream.close();
-
-	return EXIT_SUCCESS;
+	return saveFile(outputFilename, wastString.data(), wastString.size()) ? EXIT_SUCCESS
+																		  : EXIT_FAILURE;
 }

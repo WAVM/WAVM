@@ -13,7 +13,6 @@
 #include "process.h"
 
 #include <atomic>
-#include <iostream>
 
 using namespace IR;
 using namespace Runtime;
@@ -365,18 +364,16 @@ static void unhandledExceptionHandler(Exception&& exception)
 
 void showHelp()
 {
-	std::cerr << "Usage: wavix [options] <executable module path> [--] [arguments]" << std::endl;
-	std::cerr << "  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)" << std::endl;
-	std::cerr << "  --trace-syscalls  Trace Wavix syscalls to stdout" << std::endl;
-	std::cerr << "  --sysroot <path>  Sets the system root directory to the given path."
-			  << std::endl;
-	std::cerr << "                      Defaults to the CWD. All Wavix file accesses will be"
-			  << std::endl;
-	std::cerr << "                      relative to sysroot, including the executable module path."
-			  << std::endl;
-	std::cerr << "  --                Stop parsing arguments" << std::endl;
-	//           "--------------------------------------------------------------------------------"
-	//           <- 80 chars wide
+	Log::printf(Log::error,
+				"Usage: wavix [options] <executable module path> [--] [arguments]\n"
+				"  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)\n"
+				"  --trace-syscalls  Trace Wavix syscalls to stdout\n"
+				"  --sysroot <path>  Sets the system root directory to the given path.\n"
+				"                      Defaults to the CWD. All Wavix file accesses will be\n"
+				"                      relative to sysroot, including the executable module path.\n"
+				"  --                Stop parsing arguments\n");
+	//          "--------------------------------------------------------------------------------"
+	//          <- 80 chars wide
 }
 
 int main(int argc, const char** argv)
@@ -394,8 +391,8 @@ int main(int argc, const char** argv)
 		{
 			if(*++argv == nullptr)
 			{
-				std::cerr << "Expected path following '--sysroot', but it was the last argument."
-						  << std::endl;
+				Log::printf(Log::error,
+							"Expected path following '--sysroot', but it was the last argument.\n");
 				return EXIT_FAILURE;
 			}
 			Wavix::sysroot = *argv;
@@ -444,7 +441,7 @@ int main(int argc, const char** argv)
 	Wavix::Process* process = Wavix::spawnProcess(initProcess, filename, processArgs, {}, "/");
 	if(!process)
 	{
-		std::cerr << "Failed to spawn \"" << filename << "\"." << std::endl;
+		Log::printf(Log::error, "Failed to spawn \"%s\".\n", filename);
 		return EXIT_FAILURE;
 	}
 

@@ -56,17 +56,16 @@ static void parseErrorfImpl(ParseState* parseState,
 
 	// Allocate a buffer for the formatted message.
 	errorUnless(numFormattedChars >= 0);
-	char* formattedMessage = new char[numFormattedChars + 1];
+	std::string formattedMessage;
+	formattedMessage.resize(numFormattedChars);
 
 	// Print the formatted message
-	int numWrittenChars
-		= std::vsnprintf(formattedMessage, numFormattedChars + 1, messageFormat, messageArgs);
+	int numWrittenChars = std::vsnprintf(
+		(char*)formattedMessage.data(), numFormattedChars + 1, messageFormat, messageArgs);
 	wavmAssert(numWrittenChars == numFormattedChars);
 
 	// Add the error to the cursor's error list.
-	parseState->unresolvedErrors.emplace_back(charOffset, formattedMessage);
-
-	delete[] formattedMessage;
+	parseState->unresolvedErrors.emplace_back(charOffset, std::move(formattedMessage));
 }
 void WAST::parseErrorf(ParseState* parseState, Uptr charOffset, const char* messageFormat, ...)
 {

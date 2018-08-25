@@ -99,7 +99,7 @@ static void parseTestScriptModule(CursorState* cursor,
 
 			std::vector<Error> quotedErrors;
 			parseModule(outQuotedModuleString.c_str(),
-						outQuotedModuleString.size(),
+						outQuotedModuleString.size() + 1,
 						outModule,
 						quotedErrors);
 			for(auto&& error : quotedErrors)

@@ -341,33 +341,21 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 #if !ENABLE_LIBFUZZER
 
-#include <cstring>
-#include <fstream>
-#include <iostream>
+#include "Inline/CLI.h"
 
 I32 main(int argc, char** argv)
 {
 	if(argc != 2)
 	{
-		std::cerr << "Usage: FuzzRuntimeModel in.wasm" << std::endl;
+		Log::printf(Log::error, "Usage: FuzzRuntimeModel in.wasm\n");
 		return EXIT_FAILURE;
 	}
 	const char* inputFilename = argv[1];
 
-	std::ifstream stream(inputFilename, std::ios::binary | std::ios::ate);
-	if(!stream.is_open())
-	{
-		std::cerr << "Failed to open " << inputFilename << ": " << std::strerror(errno)
-				  << std::endl;
-		return EXIT_FAILURE;
-	}
-	std::string data;
-	data.resize((unsigned int)stream.tellg());
-	stream.seekg(0);
-	stream.read(const_cast<char*>(data.data()), data.size());
-	stream.close();
+	std::vector<U8> inputBytes;
+	if(!loadFile(inputFilename, inputBytes)) { return EXIT_FAILURE; }
 
-	LLVMFuzzerTestOneInput((const U8*)data.c_str(), data.size());
+	LLVMFuzzerTestOneInput(inputBytes.data(), inputBytes.size());
 	return EXIT_SUCCESS;
 }
 #endif

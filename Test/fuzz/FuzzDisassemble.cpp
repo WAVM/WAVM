@@ -2,8 +2,7 @@
 #include "IR/Validate.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
+#include "Inline/CLI.h"
 #include "Inline/Serialization.h"
 #include "Logging/Logging.h"
 #include "WASM/WASM.h"
@@ -16,44 +15,6 @@
 
 using namespace WAST;
 using namespace IR;
-
-inline bool loadBinaryModule(const std::string& wasmBytes, Module& outModule)
-{
-	// Load the module from a binary WebAssembly file.
-	try
-	{
-		Serialization::MemoryInputStream stream((const U8*)wasmBytes.data(), wasmBytes.size());
-		WASM::serialize(stream, outModule);
-		return true;
-	}
-	catch(Serialization::FatalSerializationException exception)
-	{
-		return false;
-	}
-	catch(ValidationException exception)
-	{
-		return false;
-	}
-	catch(std::bad_alloc)
-	{
-		return false;
-	}
-}
-
-inline bool loadTextModule(const std::string& wastString, IR::Module& outModule)
-{
-	try
-	{
-		std::vector<WAST::Error> parseErrors;
-		WAST::parseModule(wastString.c_str(), wastString.size(), outModule, parseErrors);
-		return !parseErrors.size();
-	}
-	catch(...)
-	{
-		Log::printf(Log::error, "unknown exception!\n");
-		return false;
-	}
-}
 
 struct ModuleMatcher
 {
@@ -291,12 +252,18 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	Module module;
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals            = 1024;
-	if(loadBinaryModule(std::string((const char*)data, numBytes), module))
+	if(loadBinaryModule(data, numBytes, module, Log::debug))
 	{
 		const std::string wastString = WAST::print(module);
 
 		Module wastModule;
-		if(!loadTextModule(wastString, wastModule)) { Errors::unreachable(); }
+		std::vector<WAST::Error> parseErrors;
+		if(!WAST::parseModule(
+			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))
+		{
+			reportParseErrors("disassembly", parseErrors);
+			Errors::unreachable();
+		}
 
 		ModuleMatcher moduleMatcher(module, wastModule);
 		moduleMatcher.verify();
@@ -308,32 +275,20 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 #if !ENABLE_LIBFUZZER
 
 #include <cstring>
-#include <fstream>
-#include <iostream>
 
 I32 main(int argc, char** argv)
 {
 	if(argc != 2)
 	{
-		std::cerr << "Usage: FuzzDisassemble in.wasm" << std::endl;
+		Log::printf(Log::error, "Usage: FuzzDisassemble in.wasm\n");
 		return EXIT_FAILURE;
 	}
 	const char* inputFilename = argv[1];
 
-	std::ifstream stream(inputFilename, std::ios::binary | std::ios::ate);
-	if(!stream.is_open())
-	{
-		std::cerr << "Failed to open " << inputFilename << ": " << std::strerror(errno)
-				  << std::endl;
-		return EXIT_FAILURE;
-	}
-	std::string data;
-	data.resize((unsigned int)stream.tellg());
-	stream.seekg(0);
-	stream.read(const_cast<char*>(data.data()), data.size());
-	stream.close();
+	std::vector<U8> wasmBytes;
+	if(!loadFile(inputFilename, wasmBytes)) { return EXIT_FAILURE; }
 
-	LLVMFuzzerTestOneInput((const U8*)data.c_str(), data.size());
+	LLVMFuzzerTestOneInput(wasmBytes.data(), wasmBytes.size());
 	return EXIT_SUCCESS;
 }
 #endif

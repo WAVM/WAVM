@@ -2,13 +2,12 @@
 #include "IR/Operators.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/CLI.h"
 #include "Inline/Errors.h"
 #include "Inline/Timing.h"
 #include "NFA.h"
 #include "Regexp.h"
 #include "WAST.h"
-
-#include <fstream>
 
 using namespace WAST;
 
@@ -143,18 +142,16 @@ StaticData::StaticData()
 
 	if(WAVM_DEBUG)
 	{
-		std::ofstream debugGraphStream("nfaGraph.dot");
-		debugGraphStream << NFA::dumpNFAGraphViz(nfaBuilder).c_str();
-		debugGraphStream.close();
+		std::string nfaGraphVizString = NFA::dumpNFAGraphViz(nfaBuilder);
+		errorUnless(saveFile("nfaGraph.dot", nfaGraphVizString.data(), nfaGraphVizString.size()));
 	}
 
 	nfaMachine = NFA::Machine(nfaBuilder);
 
 	if(WAVM_DEBUG)
 	{
-		std::ofstream debugGraphStream("dfaGraph.dot");
-		debugGraphStream << nfaMachine.dumpDFAGraphViz().c_str();
-		debugGraphStream.close();
+		std::string dfaGraphVizString = nfaMachine.dumpDFAGraphViz().c_str();
+		errorUnless(saveFile("dfaGraph.dot", dfaGraphVizString.data(), dfaGraphVizString.size()));
 	}
 
 	Timing::logTimer("built lexer tables", timer);
@@ -178,6 +175,9 @@ inline bool isRecoveryPointChar(char c)
 
 Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 {
+	errorUnless(string);
+	errorUnless(string[stringLength - 1] == 0);
+
 	static StaticData staticData;
 
 	Timing::Timer timer;
@@ -241,7 +241,7 @@ Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 							++commentDepth;
 							nextChar += 2;
 						}
-						else if(nextChar == string + stringLength)
+						else if(nextChar == string + stringLength - 1)
 						{
 							// Emit an unterminated comment token.
 							nextToken->type  = t_unterminatedComment;
@@ -287,14 +287,14 @@ Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 		}
 		else
 		{
-			if(nextToken->begin < stringLength)
+			if(nextToken->begin < stringLength - 1)
 			{
 				// Emit an unrecognized token.
 				nextToken->type = t_unrecognized;
 				++nextToken;
 
 				// Advance until a recovery point or the end of the string.
-				const char* stringEnd = string + stringLength;
+				const char* stringEnd = string + stringLength - 1;
 				while(nextChar < stringEnd && !isRecoveryPointChar(*nextChar)) { ++nextChar; }
 			}
 			else

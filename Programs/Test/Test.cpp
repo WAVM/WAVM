@@ -73,16 +73,29 @@ static void testErrorf(TestScriptState& state,
 					   const char* messageFormat,
 					   ...)
 {
-	va_list messageArguments;
-	va_start(messageArguments, messageFormat);
-	char messageBuffer[1024];
-	int numPrintedChars
-		= std::vsnprintf(messageBuffer, sizeof(messageBuffer), messageFormat, messageArguments);
-	if(numPrintedChars >= 1023 || numPrintedChars < 0) { Errors::unreachable(); }
-	messageBuffer[numPrintedChars] = 0;
-	va_end(messageArguments);
+	va_list messageArgs;
+	va_start(messageArgs, messageFormat);
 
-	state.errors.push_back({locus, messageBuffer});
+	// Call vsnprintf to determine how many bytes the formatted string will be.
+	// vsnprintf consumes the va_list passed to it, so make a copy of it.
+	va_list messageArgsProbe;
+	va_copy(messageArgsProbe, messageArgs);
+	int numFormattedChars = std::vsnprintf(nullptr, 0, messageFormat, messageArgsProbe);
+	va_end(messageArgsProbe);
+
+	// Allocate a buffer for the formatted message.
+	errorUnless(numFormattedChars >= 0);
+	std::string formattedMessage;
+	formattedMessage.resize(numFormattedChars);
+
+	// Print the formatted message
+	int numWrittenChars = std::vsnprintf(
+		(char*)formattedMessage.data(), numFormattedChars + 1, messageFormat, messageArgs);
+	wavmAssert(numWrittenChars == numFormattedChars);
+	va_end(messageArgs);
+
+	// Add the error to the cursor's error list.
+	state.errors.push_back({locus, std::move(formattedMessage)});
 }
 
 static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
@@ -505,31 +518,31 @@ static void processCommand(TestScriptState& state, const Command* command)
 DEFINE_INTRINSIC_FUNCTION(spectest, "print", void, spectest_print) {}
 DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32", void, spectest_print_i32, I32 a)
 {
-	std::cout << asString(a) << " : i32" << std::endl;
+	Log::printf(Log::debug, "%s : i32\n", asString(a).c_str());
 }
 DEFINE_INTRINSIC_FUNCTION(spectest, "print_i64", void, spectest_print_i64, I64 a)
 {
-	std::cout << asString(a) << " : i64" << std::endl;
+	Log::printf(Log::debug, "%s : i64\n", asString(a).c_str());
 }
 DEFINE_INTRINSIC_FUNCTION(spectest, "print_f32", void, spectest_print_f32, F32 a)
 {
-	std::cout << asString(a) << " : f32" << std::endl;
+	Log::printf(Log::debug, "%s : f32\n", asString(a).c_str());
 }
 DEFINE_INTRINSIC_FUNCTION(spectest, "print_f64", void, spectest_print_f64, F64 a)
 {
-	std::cout << asString(a) << " : f64" << std::endl;
+	Log::printf(Log::debug, "%s : f64\n", asString(a).c_str());
 }
 DEFINE_INTRINSIC_FUNCTION(spectest, "print_f64_f64", void, spectest_print_f64_f64, F64 a, F64 b)
 {
-	std::cout << asString(a) << " : f64" << std::endl << asString(a) << " : f64" << std::endl;
+	Log::printf(Log::debug, "%s : f64\n%s : f64\n", asString(a).c_str(), asString(b).c_str());
 }
 DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32_f32", void, spectest_print_i32_f32, I32 a, F32 b)
 {
-	std::cout << asString(a) << " : i32" << std::endl << asString(a) << " : f32" << std::endl;
+	Log::printf(Log::debug, "%s : i32\n%s : f32\n", asString(a).c_str(), asString(b).c_str());
 }
 DEFINE_INTRINSIC_FUNCTION(spectest, "print_i64_f64", void, spectest_print_i64_f64, I64 a, F64 b)
 {
-	std::cout << asString(a) << " : i64" << std::endl << asString(a) << " : f64" << std::endl;
+	Log::printf(Log::debug, "%s : i64\n%s : f64\n", asString(a).c_str(), asString(b).c_str());
 }
 
 DEFINE_INTRINSIC_GLOBAL(spectest, "global_i32", I32, spectest_global_i32, 666)
@@ -551,7 +564,7 @@ int main(int argc, char** argv)
 {
 	if(argc != 2)
 	{
-		std::cerr << "Usage: Test in.wast" << std::endl;
+		Log::printf(Log::error, "Usage: Test in.wast\n");
 		return EXIT_FAILURE;
 	}
 	const char* filename = argv[1];
@@ -564,17 +577,20 @@ int main(int argc, char** argv)
 	// Always enable debug logging for tests.
 	Log::setCategoryEnabled(Log::debug, true);
 
-	// Read the file into a string.
-	const std::string testScriptString = loadFile(filename);
-	if(!testScriptString.size()) { return EXIT_FAILURE; }
+	// Read the file into a vector.
+	std::vector<U8> testScriptBytes;
+	if(!loadFile(filename, testScriptBytes)) { return EXIT_FAILURE; }
+
+	// Make sure the file is null terminated.
+	testScriptBytes.push_back(0);
 
 	// Process the test script.
 	TestScriptState* testScriptState = new TestScriptState();
 	std::vector<std::unique_ptr<Command>> testCommands;
 
 	// Parse the test script.
-	WAST::parseTestCommands(testScriptString.c_str(),
-							testScriptString.size(),
+	WAST::parseTestCommands((const char*)testScriptBytes.data(),
+							testScriptBytes.size(),
 							testCommands,
 							testScriptState->errors);
 	if(!testScriptState->errors.size())
@@ -584,20 +600,12 @@ int main(int argc, char** argv)
 	}
 
 	int exitCode = EXIT_SUCCESS;
-	if(!testScriptState->errors.size())
-	{ std::cout << filename << ": all tests passed." << std::endl; }
-	else
+	if(testScriptState->errors.size())
 	{
 		// Print any errors;
-		for(auto& error : testScriptState->errors)
-		{
-			std::cerr << filename << ":" << error.locus.describe() << ": " << error.message.c_str()
-					  << std::endl;
-			std::cerr << error.locus.sourceLine << std::endl;
-			std::cerr << std::setw(error.locus.column(8)) << "^" << std::endl;
-		}
+		reportParseErrors(filename, testScriptState->errors);
 
-		std::cerr << filename << ": testing failed!" << std::endl;
+		Log::printf(Log::error, "%s: testing failed!\n", filename);
 		exitCode = EXIT_FAILURE;
 	}
 

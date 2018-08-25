@@ -17,25 +17,15 @@
 using namespace WAST;
 using namespace IR;
 
-inline bool loadTextModule(const std::string& wastString, IR::Module& outModule)
-{
-	try
-	{
-		std::vector<WAST::Error> parseErrors;
-		WAST::parseModule(wastString.c_str(), wastString.size(), outModule, parseErrors);
-		return !parseErrors.size();
-	}
-	catch(...)
-	{
-		Log::printf(Log::error, "unknown exception!\n");
-		return false;
-	}
-}
-
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
+	// Copy the data to a std::vector and append a null terminator.
+	std::vector<U8> wastBytes(data, data + numBytes);
+	wastBytes.push_back(0);
+
 	Module module;
-	loadTextModule(std::string((const char*)data, numBytes), module);
+	std::vector<WAST::Error> parseErrors;
+	WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), module, parseErrors);
 	return 0;
 }
 

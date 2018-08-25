@@ -1,5 +1,6 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/CLI.h"
+#include "Platform/Platform.h"
 #include "WASM/WASM.h"
 #include "WAST/WAST.h"
 
@@ -7,11 +8,11 @@ int main(int argc, char** argv)
 {
 	if(argc < 3)
 	{
-		std::cerr << "Usage: Assemble in.wast out.wasm [switches]" << std::endl;
-		std::cerr << "  -n|--omit-names           Omits WAST names from the output" << std::endl;
-		std::cerr << "     --omit-extended-names  Omits only the non-standard WAVM extended"
-				  << std::endl;
-		std::cerr << "                              names from the output" << std::endl;
+		Log::printf(Log::error,
+					"Usage: Assemble in.wast out.wasm [switches]\n"
+					"  -n|--omit-names           Omits WAST names from the output\n"
+					"     --omit-extended-names  Omits only the non-standard WAVM extended\n"
+					"                              names from the output\n");
 		return EXIT_FAILURE;
 	}
 	const char* inputFilename  = argv[1];
@@ -30,7 +31,7 @@ int main(int argc, char** argv)
 			}
 			else
 			{
-				std::cerr << "Unrecognized argument: " << argv[argumentIndex] << std::endl;
+				Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argumentIndex]);
 				return EXIT_FAILURE;
 			}
 		}
@@ -39,7 +40,7 @@ int main(int argc, char** argv)
 	// Load the WAST module.
 	IR::Module module;
 	module.featureSpec.extendedNamesSection = !omitExtendedNames;
-	if(!loadTextModule(inputFilename, module)) { return EXIT_FAILURE; }
+	if(!loadTextModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 
 	// If the command-line switch to omit names was specified, strip the name section.
 	if(omitNames)
@@ -55,8 +56,28 @@ int main(int argc, char** argv)
 		}
 	}
 
-	// Write the binary module.
-	if(!saveBinaryModule(outputFilename, module)) { return EXIT_FAILURE; }
+	// Serialize the WASM module.
+	std::vector<U8> wasmBytes;
+	try
+	{
+		Timing::Timer saveTimer;
 
-	return EXIT_SUCCESS;
+		Serialization::ArrayOutputStream stream;
+		WASM::serialize(stream, module);
+		wasmBytes = stream.getBytes();
+
+		Timing::logRatePerSecond(
+			"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MB");
+	}
+	catch(Serialization::FatalSerializationException exception)
+	{
+		Log::printf(Log::error,
+					"Error serializing WebAssembly binary file:\n%s\n",
+					exception.message.c_str());
+		return false;
+	}
+
+	// Write the serialized data to the output file.
+	return saveFile(outputFilename, wasmBytes.data(), wasmBytes.size()) ? EXIT_SUCCESS
+																		: EXIT_FAILURE;
 }
