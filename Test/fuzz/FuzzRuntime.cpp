@@ -55,9 +55,19 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 }
 
 #if !ENABLE_LIBFUZZER
-I32 main()
+I32 main(int argc, char** argv)
 {
-	LLVMFuzzerTestOneInput((const U8*)"", 0);
+	if(argc != 2)
+	{
+		Log::printf(Log::error, "Usage: FuzzRuntime in.wasm\n");
+		return EXIT_FAILURE;
+	}
+	const char* inputFilename = argv[1];
+
+	std::vector<U8> wasmBytes;
+	if(!loadFile(inputFilename, wasmBytes)) { return EXIT_FAILURE; }
+
+	LLVMFuzzerTestOneInput(wasmBytes.data(), wasmBytes.size());
 	return EXIT_SUCCESS;
 }
 #endif
