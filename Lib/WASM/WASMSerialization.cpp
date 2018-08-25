@@ -118,6 +118,11 @@ namespace IR
 		if(Stream::isInput) { globalType.isMutable = isMutable != 0; }
 	}
 
+	template<typename Stream> void serialize(Stream& stream, ExceptionType& exceptionType)
+	{
+		serialize(stream, exceptionType.params);
+	}
+
 	template<typename Stream> void serialize(Stream& stream, ObjectKind& kind)
 	{
 		serializeNativeValue(stream, *(U8*)&kind);
@@ -564,7 +569,8 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 {
 	serializeSection(moduleStream, SectionType::import, [&module](Stream& sectionStream) {
 		Uptr size = module.functions.imports.size() + module.tables.imports.size()
-					+ module.memories.imports.size() + module.globals.imports.size();
+					+ module.memories.imports.size() + module.globals.imports.size()
+					+ module.exceptionTypes.size();
 		serializeVarUInt32(sectionStream, size);
 		if(Stream::isInput)
 		{
@@ -614,6 +620,14 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{globalType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
+				case ObjectKind::exceptionType:
+				{
+					ExceptionType exceptionType;
+					serialize(sectionStream, exceptionType);
+					module.exceptionTypes.imports.push_back(
+						{exceptionType, std::move(moduleName), std::move(exportName)});
+					break;
+				}
 				default: throw FatalSerializationException("invalid ObjectKind");
 				}
 			}
@@ -651,6 +665,14 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				ObjectKind kind = ObjectKind::global;
 				serialize(sectionStream, kind);
 				serialize(sectionStream, globalImport.type);
+			}
+			for(auto& exceptionTypeImport : module.exceptionTypes.imports)
+			{
+				serialize(sectionStream, exceptionTypeImport.moduleName);
+				serialize(sectionStream, exceptionTypeImport.exportName);
+				ObjectKind kind = ObjectKind::exceptionType;
+				serialize(sectionStream, kind);
+				serialize(sectionStream, exceptionTypeImport.type);
 			}
 		}
 	});
@@ -757,7 +779,8 @@ static void serializeModule(OutputStream& moduleStream, Module& module)
 
 	if(module.types.size() > 0) { serializeTypeSection(moduleStream, module); }
 	if(module.functions.imports.size() > 0 || module.tables.imports.size() > 0
-	   || module.memories.imports.size() > 0 || module.globals.imports.size() > 0)
+	   || module.memories.imports.size() > 0 || module.globals.imports.size() > 0
+	   || module.exceptionTypes.imports.size() > 0)
 	{ serializeImportSection(moduleStream, module); }
 	if(module.functions.defs.size() > 0) { serializeFunctionSection(moduleStream, module); }
 	if(module.tables.defs.size() > 0) { serializeTableSection(moduleStream, module); }
