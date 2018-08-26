@@ -17,6 +17,7 @@
 #include "WASM/WASM.h"
 #include "wavix.h"
 
+#include <inttypes.h>
 #include <memory>
 
 using namespace IR;
@@ -468,7 +469,7 @@ namespace Wavix
 							  I32 b,
 							  I32 c)
 	{
-		traceSyscallf("sched_getaffinity", "(%i,%i,%i,%i)", a, b, c);
+		traceSyscallf("sched_getaffinity", "(%i,%i,%i)", a, b, c);
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 

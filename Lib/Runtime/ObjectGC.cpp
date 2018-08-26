@@ -7,6 +7,7 @@
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
+#include <inttypes.h>
 #include <vector>
 
 using namespace Runtime;
@@ -173,7 +174,8 @@ void Runtime::collectGarbage()
 	for(ObjectImpl* object : finalizedObjects) { delete object; }
 
 	Log::printf(Log::metrics,
-				"Collected garbage in %.2fms: %u roots, %u objects, %u garbage\n",
+				"Collected garbage in %.2fms: %" PRIuPTR " roots, %" PRIuPTR " objects, %" PRIuPTR
+				" garbage\n",
 				timer.getMilliseconds(),
 				numRoots,
 				gcGlobals.allObjects.size() + finalizedObjects.size(),

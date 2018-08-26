@@ -18,6 +18,9 @@
 #define RETURNS_TWICE
 #define UNLIKELY(condition) (condition)
 #define DEBUG_TRAP() __debugbreak()
+
+#define VALIDATE_AS_PRINTF(formatStringIndex, firstFormatArgIndex)
+
 #else
 #define FORCEINLINE inline __attribute__((always_inline))
 #define FORCENOINLINE __attribute__((noinline))
@@ -33,6 +36,9 @@
 #else
 #define DEBUG_TRAP() __asm__ __volatile__("int3")
 #endif
+
+#define VALIDATE_AS_PRINTF(formatStringIndex, firstFormatArgIndex)                                 \
+	__attribute__((format(printf, formatStringIndex, firstFormatArgIndex)))
 
 #endif
 

@@ -11,6 +11,7 @@
 #include "WAST/TestScript.h"
 #include "WAST/WAST.h"
 
+#include <inttypes.h>
 #include <cstdarg>
 #include <cstdio>
 #include <vector>
@@ -67,6 +68,7 @@ private:
 	const TestScriptState& state;
 };
 
+VALIDATE_AS_PRINTF(3, 4)
 static void testErrorf(TestScriptState& state,
 					   const TextFileLocus& locus,
 					   const char* messageFormat,
@@ -450,7 +452,8 @@ static void processCommand(TestScriptState& state, const Command* command)
 									testErrorf(
 										state,
 										assertCommand->locus,
-										"expected %s for exception argument %u but got %s",
+										"expected %s for exception argument %" PRIuPTR
+										" but got %s",
 										asString(assertCommand->expectedArguments[argumentIndex])
 											.c_str(),
 										argumentIndex,

@@ -9,6 +9,8 @@
 #include "process.h"
 #include "wavix.h"
 
+#include <inttypes.h>
+
 using namespace Runtime;
 
 namespace Wavix
@@ -662,7 +664,7 @@ namespace Wavix
 
 	DEFINE_INTRINSIC_FUNCTION(wavix, "__syscall_umask", I32, __syscall_umask, I32 a)
 	{
-		traceSyscallf("umask", "(%i,%i)", a);
+		traceSyscallf("umask", "(%i)", a);
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 

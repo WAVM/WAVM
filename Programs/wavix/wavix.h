@@ -6,7 +6,8 @@
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
-
+		
+#include <inttypes.h>
 #include <string>
 
 namespace Wavix
@@ -43,13 +44,17 @@ namespace Wavix
 	extern std::string sysroot;
 	extern bool isTracingSyscalls;
 
+	VALIDATE_AS_PRINTF(2, 3)
 	inline void traceSyscallf(const char* syscallName, const char* argFormat, ...)
 	{
 		if(isTracingSyscalls)
 		{
 			va_list argList;
 			va_start(argList, argFormat);
-			Log::printf(Log::error, "SYSCALL(%llx): %s", currentThread, syscallName);
+			Log::printf(Log::error,
+						"SYSCALL(%" PRIxPTR "): %s",
+						reinterpret_cast<Uptr>(currentThread),
+						syscallName);
 			Log::vprintf(Log::error, argFormat, argList);
 			Log::printf(Log::error, "\n");
 			va_end(argList);

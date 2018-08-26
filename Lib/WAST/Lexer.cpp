@@ -9,6 +9,8 @@
 #include "Regexp.h"
 #include "WAST.h"
 
+#include <inttypes.h>
+
 using namespace WAST;
 
 namespace WAST
@@ -323,7 +325,7 @@ Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 
 	Timing::logRatePerSecond("lexed WAST file", timer, stringLength / 1024.0 / 1024.0, "MB");
 	Log::printf(Log::metrics,
-				"lexer produced %u tokens (%.1fMB)\n",
+				"lexer produced %" PRIuPTR " tokens (%.1fMB)\n",
 				numTokens,
 				numTokens * sizeof(Token) / 1024.0 / 1024.0);
 

@@ -18,7 +18,7 @@ inline bool loadFile(const char* filename, std::vector<U8>& outFileContents)
 		filename, Platform::FileAccessMode::readOnly, Platform::FileCreateMode::openExisting);
 	if(!file)
 	{
-		Log::printf(Log::error, "Couldn't read %s: couldn't open file.\n");
+		Log::printf(Log::error, "Couldn't read %s: couldn't open file.\n", filename);
 		return false;
 	}
 
@@ -26,7 +26,7 @@ inline bool loadFile(const char* filename, std::vector<U8>& outFileContents)
 	errorUnless(Platform::seekFile(file, 0, Platform::FileSeekOrigin::end, &numFileBytes));
 	if(numFileBytes > UINTPTR_MAX)
 	{
-		Log::printf(Log::error, "Couldn't read %s: file is too large.\n");
+		Log::printf(Log::error, "Couldn't read %s: file is too large.\n", filename);
 		errorUnless(Platform::closeFile(file));
 		return false;
 	}
@@ -46,7 +46,7 @@ inline bool saveFile(const char* filename, const void* fileBytes, Uptr numFileBy
 		filename, Platform::FileAccessMode::writeOnly, Platform::FileCreateMode::createAlways);
 	if(!file)
 	{
-		Log::printf(Log::error, "Couldn't write %s: couldn't open file.\n");
+		Log::printf(Log::error, "Couldn't write %s: couldn't open file.\n", filename);
 		return false;
 	}
 

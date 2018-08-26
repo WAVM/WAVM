@@ -7,6 +7,7 @@
 #include "Parse.h"
 #include "WAST.h"
 
+#include <inttypes.h>
 #include <memory>
 
 using namespace WAST;
@@ -33,7 +34,7 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							cursor->nextToken - 1,
-							"maximum size exceeds limit (%u>%u)",
+							"maximum size exceeds limit (%" PRIuPTR ">%" PRIuPTR ")",
 							outSizeConstraints.max,
 							maxMax);
 				outSizeConstraints.max = maxMax;
@@ -42,7 +43,7 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							cursor->nextToken - 1,
-							"maximum size is less than minimum size (%u<%u)",
+							"maximum size is less than minimum size (%" PRIuPTR "<%" PRIuPTR ")",
 							outSizeConstraints.max,
 							outSizeConstraints.min);
 				outSizeConstraints.max = outSizeConstraints.min;
@@ -792,8 +793,9 @@ template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char*
 		map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
 		Log::printf(
 			Log::metrics,
-			"%s used %.1fKB for %u elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe "
-			"length: %f/%u\n",
+			"%s used %.1fKB for %" PRIuPTR
+			" elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%" PRIuPTR
+			"\n",
 			description,
 			totalMemoryBytes / 1024.0f,
 			map.size(),
