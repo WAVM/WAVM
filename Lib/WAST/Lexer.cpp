@@ -9,8 +9,6 @@
 #include "Regexp.h"
 #include "WAST.h"
 
-#include <inttypes.h>
-
 using namespace WAST;
 
 namespace WAST

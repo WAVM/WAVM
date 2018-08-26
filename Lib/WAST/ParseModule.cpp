@@ -7,7 +7,6 @@
 #include "Parse.h"
 #include "WAST.h"
 
-#include <inttypes.h>
 #include <memory>
 
 using namespace WAST;

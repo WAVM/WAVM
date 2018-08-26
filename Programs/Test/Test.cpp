@@ -11,7 +11,6 @@
 #include "WAST/TestScript.h"
 #include "WAST/WAST.h"
 
-#include <inttypes.h>
 #include <cstdarg>
 #include <cstdio>
 #include <vector>

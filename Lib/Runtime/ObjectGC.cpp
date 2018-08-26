@@ -7,7 +7,6 @@
 #include "Runtime.h"
 #include "RuntimePrivate.h"
 
-#include <inttypes.h>
 #include <vector>
 
 using namespace Runtime;
@@ -178,6 +177,6 @@ void Runtime::collectGarbage()
 				" garbage\n",
 				timer.getMilliseconds(),
 				numRoots,
-				gcGlobals.allObjects.size() + finalizedObjects.size(),
-				finalizedObjects.size());
+				Uptr(gcGlobals.allObjects.size() + finalizedObjects.size()),
+				Uptr(finalizedObjects.size()));
 }

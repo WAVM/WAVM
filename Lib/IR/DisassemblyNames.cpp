@@ -4,8 +4,6 @@
 #include "Logging/Logging.h"
 #include "Module.h"
 
-#include <inttypes.h>
-
 using namespace IR;
 using namespace Serialization;
 
@@ -119,10 +117,10 @@ static void deserializeNameSubsection(const Module& module,
 			else
 			{
 				Log::printf(Log::debug,
-							"Invalid WASM binary local name section function index: %" PRIuPTR
-							" >= %" PRIuPTR "\n",
-							Uptr(functionIndex),
-							outNames.functions.size());
+							"Invalid WASM binary local name section function index: %u >= %" PRIuPTR
+							"\n",
+							functionIndex,
+							Uptr(outNames.functions.size()));
 				break;
 			}
 		}
@@ -154,10 +152,10 @@ static void deserializeNameSubsection(const Module& module,
 			else
 			{
 				Log::printf(Log::debug,
-							"Invalid WASM binary label name section function index: %" PRIuPTR
-							" >= %" PRIuPTR "\n",
-							Uptr(functionIndex),
-							outNames.functions.size());
+							"Invalid WASM binary label name section function index: %u >= %" PRIuPTR
+							"\n",
+							functionIndex,
+							Uptr(outNames.functions.size()));
 				break;
 			}
 		}

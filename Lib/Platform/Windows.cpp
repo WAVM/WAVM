@@ -7,7 +7,6 @@
 #include "Inline/Unicode.h"
 #include "Platform.h"
 
-#include <inttypes.h>
 #include <algorithm>
 #include <atomic>
 #include <memory>

@@ -9,8 +9,6 @@
 #include "process.h"
 #include "wavix.h"
 
-#include <inttypes.h>
-
 using namespace Runtime;
 
 namespace Wavix

@@ -12,8 +12,6 @@
 #include "ThreadTest/ThreadTest.h"
 #include "WAST/WAST.h"
 
-#include <inttypes.h>
-
 using namespace IR;
 using namespace Runtime;
 

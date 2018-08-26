@@ -11,7 +11,6 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <limits.h>
 #include <pthread.h>
 #include <setjmp.h>
@@ -166,7 +165,7 @@ U8* Platform::allocateVirtualPages(Uptr numPages)
 		fprintf(stderr,
 				"mmap(0, %" PRIuPTR
 				", PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s\n",
-				uintptr_t(numBytes),
+				numBytes,
 				strerror(errno));
 		dumpErrorCallStack(0);
 		return nullptr;
@@ -222,8 +221,8 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 	{
 		fprintf(stderr,
 				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed! errno=%s\n",
-				reinterpret_cast<uintptr_t>(baseVirtualAddress),
-				uintptr_t(numPages << getPageSizeLog2()),
+				reinterpret_cast<Uptr>(baseVirtualAddress),
+				numPages << getPageSizeLog2(),
 				memoryAccessAsPOSIXFlag(access),
 				strerror(errno));
 		dumpErrorCallStack(0);
@@ -240,8 +239,8 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 	{
 		fprintf(stderr,
 				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed! errno=%s\n",
-				reinterpret_cast<uintptr_t>(baseVirtualAddress),
-				uintptr_t(numPages << getPageSizeLog2()),
+				reinterpret_cast<Uptr>(baseVirtualAddress),
+				numPages << getPageSizeLog2(),
 				memoryAccessAsPOSIXFlag(access),
 				strerror(errno));
 		dumpErrorCallStack(0);

@@ -1,10 +1,4 @@
 #include "NFA.h"
-#include <string.h>
-#include <algorithm>
-#include <map>
-#include <set>
-#include <string>
-#include <vector>
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
@@ -12,7 +6,12 @@
 #include "Inline/HashSet.h"
 #include "Inline/Timing.h"
 
-#include <inttypes.h>
+#include <string.h>
+#include <algorithm>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
 
 using namespace NFA;
 
@@ -276,8 +275,8 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 	Timing::logTimer("translated NFA->DFA", timer);
 	Log::printf(Log::metrics,
 				"  translated NFA with %" PRIuPTR " states to DFA with %" PRIuPTR " states\n",
-				builder->nfaStates.size(),
-				dfaStates.size());
+				Uptr(builder->nfaStates.size()),
+				Uptr(dfaStates.size()));
 	Log::printf(Log::metrics,
 				"  maximum number of states following a NFA state set: %" PRIuPTR "\n",
 				maxLocalStates);

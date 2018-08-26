@@ -1,4 +1,5 @@
 #pragma once
+#include <inttypes.h>
 #include <cstddef>
 #include <cstdint>
 
@@ -29,6 +30,17 @@ template<> struct PointerIntHelper<8>
 };
 typedef PointerIntHelper<sizeof(size_t)>::UnsignedIntType Uptr;
 typedef PointerIntHelper<sizeof(size_t)>::IntType Iptr;
+
+// Redefine the PRI*PTR macros to match the type of Uptr.
+#undef PRIuPTR
+#undef PRIxPTR
+#if __SIZEOF_POINTER__ == 8
+#define PRIuPTR PRIu64
+#define PRIxPTR PRIx64
+#elif __SIZEOF_POINTER__ == 4
+#define PRIuPTR PRIu32
+#define PRIxPTR PRIx32
+#endif
 
 union V128
 {

@@ -6,8 +6,7 @@
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
-		
-#include <inttypes.h>
+
 #include <string>
 
 namespace Wavix

@@ -17,7 +17,6 @@
 #include "WASM/WASM.h"
 #include "wavix.h"
 
-#include <inttypes.h>
 #include <memory>
 
 using namespace IR;
