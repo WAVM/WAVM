@@ -32,6 +32,7 @@ typedef PointerIntHelper<sizeof(size_t)>::UnsignedIntType Uptr;
 typedef PointerIntHelper<sizeof(size_t)>::IntType Iptr;
 
 // Redefine the PRI*PTR macros to match the type of Uptr.
+#if defined(__APPLE__)
 #undef PRIuPTR
 #undef PRIxPTR
 #if __SIZEOF_POINTER__ == 8
@@ -40,6 +41,7 @@ typedef PointerIntHelper<sizeof(size_t)>::IntType Iptr;
 #elif __SIZEOF_POINTER__ == 4
 #define PRIuPTR PRIu32
 #define PRIxPTR PRIx32
+#endif
 #endif
 
 union V128
