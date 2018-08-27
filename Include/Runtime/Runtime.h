@@ -197,6 +197,9 @@ namespace Runtime
 	typedef void (*UnhandledExceptionHandler)(Exception&&);
 	RUNTIME_API void setUnhandledExceptionHandler(UnhandledExceptionHandler handler);
 
+	// Describes a call stack.
+	RUNTIME_API std::vector<std::string> describeCallStack(const Platform::CallStack& callStack);
+
 	//
 	// Functions
 	//

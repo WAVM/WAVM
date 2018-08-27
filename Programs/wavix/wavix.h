@@ -57,6 +57,13 @@ namespace Wavix
 			Log::vprintf(Log::debug, argFormat, argList);
 			Log::printf(Log::debug, "\n");
 			va_end(argList);
+
+			Platform::CallStack callStack = Platform::captureCallStack(2);
+			if(callStack.stackFrames.size() > 4) { callStack.stackFrames.resize(4); }
+			std::vector<std::string> callStackFrameDescriptions
+				= Runtime::describeCallStack(callStack);
+			for(const std::string& frameDescription : callStackFrameDescriptions)
+			{ Log::printf(Log::debug, "  %s\n", frameDescription.c_str()); }
 		}
 	}
 

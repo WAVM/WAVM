@@ -31,7 +31,7 @@ DEFINE_STATIC_EXCEPTION_TYPE(invalidArgument)
 // Returns a vector of strings, each element describing a frame of the call stack. If the frame is a
 // JITed function, use the JIT's information about the function to describe it, otherwise fallback
 // to whatever platform-specific symbol resolution is available.
-static std::vector<std::string> describeCallStack(const Platform::CallStack& callStack)
+std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& callStack)
 {
 	std::vector<std::string> frameDescriptions;
 	for(auto frame : callStack.stackFrames)
