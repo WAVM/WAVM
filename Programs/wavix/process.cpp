@@ -153,10 +153,10 @@ namespace Wavix
 		LinkResult linkResult = linkModule(module, rootResolver);
 		if(!linkResult.success)
 		{
-			Log::printf(Log::error, "Failed to link module:\n");
+			Log::printf(Log::debug, "Failed to link module:\n");
 			for(auto& missingImport : linkResult.missingImports)
 			{
-				Log::printf(Log::error,
+				Log::printf(Log::debug,
 							"Missing import: module=\"%s\" export=\"%s\" type=\"%s\"\n",
 							missingImport.moduleName.c_str(),
 							missingImport.exportName.c_str(),
@@ -182,14 +182,14 @@ namespace Wavix
 		// Validate that the module exported a main function, and that it is the expected type.
 		if(!mainThreadArgs->mainFunction)
 		{
-			Log::printf(Log::error, "Module does not export _start function");
+			Log::printf(Log::debug, "Module does not export _start function");
 			return nullptr;
 		}
 
 		FunctionType mainFunctionType = getFunctionType(mainThreadArgs->mainFunction);
 		if(mainFunctionType != FunctionType())
 		{
-			Log::printf(Log::error,
+			Log::printf(Log::debug,
 						"Module _start signature is %s, but ()->() was expected.\n",
 						asString(mainFunctionType).c_str());
 			return nullptr;

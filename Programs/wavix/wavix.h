@@ -50,12 +50,12 @@ namespace Wavix
 		{
 			va_list argList;
 			va_start(argList, argFormat);
-			Log::printf(Log::error,
+			Log::printf(Log::debug,
 						"SYSCALL(%" PRIxPTR "): %s",
 						reinterpret_cast<Uptr>(currentThread),
 						syscallName);
-			Log::vprintf(Log::error, argFormat, argList);
-			Log::printf(Log::error, "\n");
+			Log::vprintf(Log::debug, argFormat, argList);
+			Log::printf(Log::debug, "\n");
 			va_end(argList);
 		}
 	}

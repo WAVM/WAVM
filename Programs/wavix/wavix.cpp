@@ -76,7 +76,7 @@ namespace Wavix
 
 	// Command-line arguments
 
-	DEFINE_INTRINSIC_FUNCTION(wavix, "__wavix_get_num_args", I32, __wavix_get_num_args, I32 a)
+	DEFINE_INTRINSIC_FUNCTION(wavix, "__wavix_get_num_args", I32, __wavix_get_num_args)
 	{
 		return coerce32bitAddress(currentProcess->args.size());
 	}
@@ -399,6 +399,7 @@ int main(int argc, const char** argv)
 		}
 		else if(!strcmp(*argv, "--trace-syscalls"))
 		{
+			Log::setCategoryEnabled(Log::debug, true);
 			Wavix::isTracingSyscalls = true;
 		}
 		else if(!strcmp(*argv, "--"))
