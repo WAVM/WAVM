@@ -14,7 +14,6 @@
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
-#include "llvm/ExecutionEngine/ObjectMemoryBuffer.h"
 #include "llvm/ExecutionEngine/RTDyldMemoryManager.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugLoc.h"
@@ -26,10 +25,19 @@
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/Memory.h"
+#include "llvm/Support/SmallVectorMemoryBuffer.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
 
 #include "LLVMPostInclude.h"
+
+// Instead of including llvm/Transforms/InstCombine/InstCombine.h, which doesn't compile on Windows,
+// just declare the one function we call.
+namespace llvm
+{
+	FunctionPass* createInstructionCombiningPass(bool ExpensiveCombines = true);
+}
 
 // This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through
 // the JITed code.
@@ -588,7 +596,7 @@ void JITUnit::load(ObjectBytes&& objectBytes)
 {
 	Timing::Timer loadObjectTimer;
 
-	llvm::ObjectMemoryBuffer objectBuffer(std::move(objectBytes));
+	llvm::SmallVectorMemoryBuffer objectBuffer(std::move(objectBytes));
 
 	auto object
 		= cantFail(llvm::object::ObjectFile::createObjectFile(objectBuffer.getMemBufferRef()));
@@ -596,13 +604,21 @@ void JITUnit::load(ObjectBytes&& objectBytes)
 	// Create the LLVM object loader.
 	struct SymbolResolver : llvm::JITSymbolResolver
 	{
-		virtual llvm::JITSymbol findSymbolInLogicalDylib(const std::string& name) override
+		virtual llvm::Expected<std::map<llvm::StringRef, llvm::JITEvaluatedSymbol>> lookup(
+			const std::set<llvm::StringRef>& symbols) override
 		{
-			return resolveJITImport(name);
+			std::map<llvm::StringRef, llvm::JITEvaluatedSymbol> result;
+			for(auto symbol : symbols)
+			{ result.emplace(symbol, std::move(resolveJITImport(symbol))); }
+			return result;
 		}
-		virtual llvm::JITSymbol findSymbol(const std::string& name) override
+		virtual llvm::Expected<std::map<llvm::StringRef, llvm::JITSymbolFlags>> lookupFlags(
+			const std::set<llvm::StringRef>& symbols) override
 		{
-			return resolveJITImport(name);
+			std::map<llvm::StringRef, llvm::JITSymbolFlags> result;
+			for(auto symbol : symbols)
+			{ result.emplace(symbol, resolveJITImport(symbol).getFlags()); }
+			return result;
 		}
 	};
 	SymbolResolver symbolResolver;
