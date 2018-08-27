@@ -224,7 +224,7 @@ static llvm::Function* createSEHFilterFunction(
 		// return 1 from the filter function.
 		auto isUserExceptionI8 = filterIRBuilder.CreateLoad(filterIRBuilder.CreateInBoundsGEP(
 			filterIRBuilder.CreateIntToPtr(exceptionData, llvmI8Type->getPointerTo()),
-			{emitLiteral(offsetof(ExceptionData, isUserException))}));
+			{emitLiteral(Uptr(offsetof(ExceptionData, isUserException)))}));
 		filterIRBuilder.CreateRet(filterIRBuilder.CreateZExt(isUserExceptionI8, llvmI32Type));
 	}
 	else
