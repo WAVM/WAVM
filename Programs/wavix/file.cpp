@@ -152,7 +152,8 @@ namespace Wavix
 		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 		std::string pathString = readUserString(memory, pathAddress);
 
-		traceSyscallf("open", "(%s)", pathString.c_str());
+		traceSyscallf(
+			"open", "(%08x=>\"%s\", 0x%x, %u)", pathAddress, pathString.c_str(), flags, mode);
 
 		Path path;
 		if(!parsePath(pathString, path)) { return -1; }
@@ -525,10 +526,11 @@ namespace Wavix
 		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 
 		std::string pathString = readUserString(memory, pathAddress);
-		Path path;
-		if(!parsePath(pathString, path)) { return -1; }
 
 		traceSyscallf("stat64", "(\"%s\",0x%08x)", pathString.c_str(), resultAddress);
+
+		Path path;
+		if(!parsePath(pathString, path)) { return -1; }
 
 		wavix_stat& result = memoryRef<wavix_stat>(memory, resultAddress);
 		memset(&result, 0, sizeof(wavix_stat));
@@ -547,9 +549,10 @@ namespace Wavix
 
 		std::string pathString = readUserString(memory, pathAddress);
 		Path path;
-		if(!parsePath(pathString, path)) { return -1; }
 
 		traceSyscallf("lstat64", "(\"%s\",0x%08x)", pathString.c_str(), resultAddress);
+
+		if(!parsePath(pathString, path)) { return -1; }
 
 		wavix_stat& result = memoryRef<wavix_stat>(memory, resultAddress);
 		memset(&result, 0, sizeof(wavix_stat));
@@ -587,9 +590,11 @@ namespace Wavix
 
 		std::string pathString = readUserString(memory, pathAddress);
 		Path path;
-		if(!parsePath(pathString, path)) { return -1; }
 
 		traceSyscallf("faccessat", "(%i,\"%s\",%u,%u)", dirfd, pathString.c_str(), mode, flags);
+
+		if(!parsePath(pathString, path)) { return -1; }
+
 		return -1;
 	}
 

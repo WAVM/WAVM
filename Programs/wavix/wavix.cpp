@@ -40,7 +40,7 @@ namespace Wavix
 							  I32 e,
 							  I32 f)
 	{
-		Log::printf(Log::error, "__invalid_syscall: %i\n", n);
+		traceSyscallf("__invalid_syscall", "(%i, %i, %i, %i, %i, %i, %i)", n, a, b, c, d, e, f);
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 
@@ -55,8 +55,9 @@ namespace Wavix
 		return 0;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION(wavix, "longjmp", void, wavix_longjmp, I32 a, I32 b)
+	DEFINE_INTRINSIC_FUNCTION(wavix, "longjmp", void, wavix_longjmp, I32 bufferAddress, I32 value)
 	{
+		traceSyscallf("longjmp", "(0x%08x, %i)", bufferAddress, value);
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 
@@ -71,6 +72,7 @@ namespace Wavix
 							  I32 e,
 							  I32 f)
 	{
+		traceSyscallf("futex", "(%i, %i, %i, %i, %i, %i)", a, b, c, d, e, f);
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 
