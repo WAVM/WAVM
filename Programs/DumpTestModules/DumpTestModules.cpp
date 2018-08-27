@@ -131,50 +131,41 @@ int main(int argc, char** argv)
 	const char* outputDir = ".";
 	DumpFormat dumpFormat = DumpFormat::both;
 	bool showHelpAndExit  = false;
-	if(argc < 2) { showHelpAndExit = true; }
-	else
+
+	for(Iptr argumentIndex = 1; argumentIndex < argc; ++argumentIndex)
 	{
-		for(Iptr argumentIndex = 1; argumentIndex < argc; ++argumentIndex)
+		if(!strcmp(argv[argumentIndex], "--output-dir"))
 		{
-			if(!strcmp(argv[argumentIndex], "--output-dir"))
-			{
-				++argumentIndex;
-				if(argumentIndex < argc) { outputDir = argv[argumentIndex]; }
-				else
-				{
-					Log::printf(Log::error, "Expected directory after '--output-dir'\n");
-					showHelpAndExit = true;
-					break;
-				}
-			}
-			else if(!strcmp(argv[argumentIndex], "--wast"))
-			{
-				if(dumpFormat == DumpFormat::wasm) { dumpFormat = DumpFormat::both; }
-				else
-				{
-					dumpFormat = DumpFormat::wast;
-				}
-			}
-			else if(!strcmp(argv[argumentIndex], "--wasm"))
-			{
-				if(dumpFormat == DumpFormat::wast) { dumpFormat = DumpFormat::both; }
-				else
-				{
-					dumpFormat = DumpFormat::wasm;
-				}
-			}
-			else if(!filename)
-			{
-				filename = argv[argumentIndex];
-			}
+			++argumentIndex;
+			if(argumentIndex < argc) { outputDir = argv[argumentIndex]; }
 			else
 			{
-				Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argumentIndex]);
+				Log::printf(Log::error, "Expected directory after '--output-dir'\n");
 				showHelpAndExit = true;
 				break;
 			}
 		}
+		else if(!strcmp(argv[argumentIndex], "--wast"))
+		{
+			dumpFormat = dumpFormat == DumpFormat::wasm ? DumpFormat::both : DumpFormat::wast;
+		}
+		else if(!strcmp(argv[argumentIndex], "--wasm"))
+		{
+			dumpFormat = dumpFormat == DumpFormat::wast ? DumpFormat::both : DumpFormat::wasm;
+		}
+		else if(!filename)
+		{
+			filename = argv[argumentIndex];
+		}
+		else
+		{
+			Log::printf(Log::error, "Unrecognized argument: %s\n", argv[argumentIndex]);
+			showHelpAndExit = true;
+			break;
+		}
 	}
+
+	if(!filename) { showHelpAndExit = true; }
 
 	if(showHelpAndExit)
 	{
