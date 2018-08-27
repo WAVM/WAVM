@@ -327,23 +327,6 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 	}
 }
 
-#if defined(_WIN32) && defined(_AMD64_)
-void Platform::registerSEHUnwindInfo(Uptr imageLoadAddress, Uptr pdataAddress, Uptr pdataNumBytes)
-{
-	const U32 numFunctions = (U32)(pdataNumBytes / sizeof(RUNTIME_FUNCTION));
-
-	// Register our manually fixed up copy of the function table.
-	if(!RtlAddFunctionTable(
-		   reinterpret_cast<RUNTIME_FUNCTION*>(pdataAddress), numFunctions, imageLoadAddress))
-	{ Errors::fatal("RtlAddFunctionTable failed"); }
-}
-void Platform::deregisterSEHUnwindInfo(Uptr pdataAddress)
-{
-	auto functionTable = reinterpret_cast<RUNTIME_FUNCTION*>(pdataAddress);
-	RtlDeleteFunctionTable(functionTable);
-}
-#endif
-
 static CallStack unwindStack(const CONTEXT& immutableContext, Uptr numOmittedFramesFromTop)
 {
 	// Make a mutable copy of the context.
@@ -401,8 +384,19 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 	return unwindStack(context, numOmittedFramesFromTop + 1);
 }
 
-void Platform::registerEHFrames(U8* ehFrames, Uptr numBytes) {}
-void Platform::deregisterEHFrames(U8* ehFrames, Uptr numBytes) {}
+void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
+{
+	const U32 numFunctions = (U32)(numBytes / sizeof(RUNTIME_FUNCTION));
+
+	// Register our manually fixed up copy of the function table.
+	if(!RtlAddFunctionTable(
+		   (RUNTIME_FUNCTION*)ehFrames, numFunctions, reinterpret_cast<ULONG_PTR>(imageBase)))
+	{ Errors::fatal("RtlAddFunctionTable failed"); }
+}
+void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
+{
+	RtlDeleteFunctionTable((RUNTIME_FUNCTION*)ehFrames);
+}
 
 static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& outSignal)
 {
@@ -582,6 +576,8 @@ bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
 	RaiseException(U32(SEH_WAVM_EXCEPTION), 0, 1, arguments);
 	Errors::unreachable();
 }
+
+std::type_info* Platform::getUserExceptionTypeInfo() { return nullptr; }
 
 namespace Platform
 {

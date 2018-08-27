@@ -1,5 +1,3 @@
-#ifdef _WIN64
-
 #include "IR/Operators.h"
 #include "Inline/Assert.h"
 #include "LLVMJIT.h"
@@ -8,13 +6,12 @@
 #include "LLVMPreInclude.h"
 
 #include "llvm/DebugInfo/DIContext.h"
-#include "llvm/Support/DynamicLibrary.h"
 
 #include "LLVMPostInclude.h"
 
 #define PRINT_SEH_TABLES 0
 
-enum class UnwindOpcode : U8
+enum UnwindOpcode
 {
 	UWOP_PUSH_NONVOL     = 0,
 	UWOP_ALLOC_LARGE     = 1,
@@ -102,13 +99,13 @@ static const char* getUnwindRegisterName(U8 registerIndex)
 	return names[registerIndex];
 }
 
-static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo* loadedObject,
+static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo& loadedObject,
 										  llvm::object::SectionRef section,
 										  const U8* sectionCopy,
 										  Uptr imageBaseAddress,
 										  Uptr sehTrampolineAddress)
 {
-	U8* sectionData = reinterpret_cast<U8*>(Uptr(loadedObject->getSectionLoadAddress(section)));
+	U8* sectionData = reinterpret_cast<U8*>(Uptr(loadedObject.getSectionLoadAddress(section)));
 	for(auto relocIt : section.relocations())
 	{
 		// Only handle type 3 (IMAGE_REL_AMD64_ADDR32NB).
@@ -125,15 +122,16 @@ static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo* loadedOb
 				if(symbolName == "__C_specific_handler") { symbolAddress = sehTrampolineAddress; }
 				else
 				{
-					symbolAddress = reinterpret_cast<Uptr>(
-						llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(symbolName));
+					llvm::JITSymbol resolvedSymbol
+						= LLVMJIT::resolveJITImport(cantFail(symbol->getName()));
+					symbolAddress = U64(cantFail(resolvedSymbol.getAddress()));
 				}
 			}
 			else
 			{
 				const llvm::object::section_iterator symbolSection = cantFail(symbol->getSection());
 				symbolAddress = (cantFail(symbol->getAddress()) - symbolSection->getAddress())
-								+ loadedObject->getSectionLoadAddress(*symbolSection);
+								+ loadedObject.getSectionLoadAddress(*symbolSection);
 			}
 
 			U32* valueToRelocate       = (U32*)(sectionData + relocIt.getOffset());
@@ -145,9 +143,9 @@ static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo* loadedOb
 	}
 }
 
-static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& function)
+void printFunctionSEH(U8* imageBase, const RuntimeFunction& function)
 {
-	U8* unwindInfo = reinterpret_cast<U8*>(imageBaseAddress + function.unwindInfoAddress);
+	U8* unwindInfo = reinterpret_cast<U8*>(imageBase + function.unwindInfoAddress);
 	UnwindInfoPrefix* unwindInfoPrefix = (UnwindInfoPrefix*)unwindInfo;
 
 	Log::printf(
@@ -170,14 +168,14 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 		{
 			switch(unwindCode->opcode)
 			{
-			case UnwindOpcode::UWOP_PUSH_NONVOL:
+			case UWOP_PUSH_NONVOL:
 				Log::printf(Log::debug,
 							"    0x%02x UWOP_PUSH_NONVOL %s\n",
 							unwindCode->codeOffset,
 							getUnwindRegisterName(unwindCode->opInfo));
 				++unwindCode;
 				break;
-			case UnwindOpcode::UWOP_ALLOC_LARGE:
+			case UWOP_ALLOC_LARGE:
 				if(unwindCode->opInfo == 0)
 				{
 					Log::printf(Log::debug,
@@ -196,18 +194,18 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 					unwindCode += 3;
 				}
 				break;
-			case UnwindOpcode::UWOP_ALLOC_SMALL:
+			case UWOP_ALLOC_SMALL:
 				Log::printf(Log::debug,
 							"    0x%02x UWOP_ALLOC_SMALL 0x%x\n",
 							unwindCode->codeOffset,
 							unwindCode->opInfo * 8 + 8);
 				++unwindCode;
 				break;
-			case UnwindOpcode::UWOP_SET_FPREG:
+			case UWOP_SET_FPREG:
 				Log::printf(Log::debug, "    0x%02x UWOP_SET_FPREG\n", unwindCode->codeOffset);
 				++unwindCode;
 				break;
-			case UnwindOpcode::UWOP_SAVE_NONVOL:
+			case UWOP_SAVE_NONVOL:
 				Log::printf(Log::debug,
 							"    0x%02x UWOP_SAVE_NONVOL %s 0x%x\n",
 							unwindCode->codeOffset,
@@ -215,7 +213,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 							*(U16*)&unwindCode[1] * 8);
 				unwindCode += 2;
 				break;
-			case UnwindOpcode::UWOP_SAVE_NONVOL_FAR:
+			case UWOP_SAVE_NONVOL_FAR:
 				Log::printf(Log::debug,
 							"    0x%02x UWOP_SAVE_NONVOL_FAR %s 0x%x\n",
 							unwindCode->codeOffset,
@@ -223,7 +221,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 							*(U32*)&unwindCode[1]);
 				unwindCode += 3;
 				break;
-			case UnwindOpcode::UWOP_SAVE_XMM128:
+			case UWOP_SAVE_XMM128:
 				Log::printf(Log::debug,
 							"    0x%02x UWOP_SAVE_XMM128 xmm%u 0x%x\n",
 							unwindCode->codeOffset,
@@ -231,7 +229,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 							*(U16*)&unwindCode[1] * 8);
 				unwindCode += 2;
 				break;
-			case UnwindOpcode::UWOP_SAVE_XMM128_FAR:
+			case UWOP_SAVE_XMM128_FAR:
 				Log::printf(Log::debug,
 							"    0x%02x UWOP_SAVE_XMM128_FAR xmm%u 0x%x\n",
 							unwindCode->codeOffset,
@@ -239,7 +237,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 							*(U32*)&unwindCode[1]);
 				unwindCode += 3;
 				break;
-			case UnwindOpcode::UWOP_PUSH_MACHFRAME:
+			case UWOP_PUSH_MACHFRAME:
 				Log::printf(Log::debug,
 							"    0x%02x UWOP_PUSH_MACHFRAME %u\n",
 							unwindCode->codeOffset,
@@ -258,7 +256,7 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 		UnwindInfoSuffix* suffix = (UnwindInfoSuffix*)unwindCode;
 		Log::printf(
 			Log::debug, "   exception handler address: 0x%x\n", suffix->exceptionHandlerAddress);
-		for(Uptr entryIndex = 0; entryIndex < suffix->sehLSDA.numEntries; ++entryIndex)
+		for(U32 entryIndex = 0; entryIndex < suffix->sehLSDA.numEntries; ++entryIndex)
 		{
 			const SEHLanguageSpecificDataEntry& entry = suffix->sehLSDA.entries[entryIndex];
 			Log::printf(Log::debug, "   LSDA entry %u:\n", entryIndex);
@@ -271,8 +269,8 @@ static void printFunctionSEH(Uptr imageBaseAddress, const RuntimeFunction& funct
 	}
 }
 
-void LLVMJIT::processSEHTables(Uptr imageBaseAddress,
-							   const llvm::LoadedObjectInfo* loadedObject,
+void LLVMJIT::processSEHTables(U8* imageBase,
+							   const llvm::LoadedObjectInfo& loadedObject,
 							   const llvm::object::SectionRef& pdataSection,
 							   const U8* pdataCopy,
 							   Uptr pdataNumBytes,
@@ -280,32 +278,31 @@ void LLVMJIT::processSEHTables(Uptr imageBaseAddress,
 							   const U8* xdataCopy,
 							   Uptr sehTrampolineAddress)
 {
-	if(pdataCopy)
+	wavmAssert(pdataCopy);
+	wavmAssert(xdataCopy);
+
+	applyImageRelativeRelocations(loadedObject,
+								  pdataSection,
+								  pdataCopy,
+								  reinterpret_cast<Uptr>(imageBase),
+								  sehTrampolineAddress);
+	applyImageRelativeRelocations(loadedObject,
+								  xdataSection,
+								  xdataCopy,
+								  reinterpret_cast<Uptr>(imageBase),
+								  sehTrampolineAddress);
+
+	if(PRINT_SEH_TABLES)
 	{
-		wavmAssert(xdataCopy);
-		applyImageRelativeRelocations(
-			loadedObject, pdataSection, pdataCopy, imageBaseAddress, sehTrampolineAddress);
-		applyImageRelativeRelocations(
-			loadedObject, xdataSection, xdataCopy, imageBaseAddress, sehTrampolineAddress);
+		Log::printf(Log::debug, "Win64 SEH function table:\n");
 
 		const RuntimeFunction* functionTable = reinterpret_cast<const RuntimeFunction*>(
-			Uptr(loadedObject->getSectionLoadAddress(pdataSection)));
-
-		Platform::registerSEHUnwindInfo(
-			imageBaseAddress, reinterpret_cast<Uptr>(functionTable), pdataNumBytes);
-
-		if(PRINT_SEH_TABLES)
+			Uptr(loadedObject.getSectionLoadAddress(pdataSection)));
+		const Uptr numFunctions = pdataNumBytes / sizeof(RuntimeFunction);
+		for(Uptr functionIndex = 0; functionIndex < numFunctions; ++functionIndex)
 		{
-			Log::printf(Log::debug, "Win64 SEH function table:\n");
-
-			const Uptr numFunctions = pdataNumBytes / sizeof(RuntimeFunction);
-			for(Uptr functionIndex = 0; functionIndex < numFunctions; ++functionIndex)
-			{
-				Log::printf(Log::debug, " Function %u\n", functionIndex);
-				printFunctionSEH(imageBaseAddress, functionTable[functionIndex]);
-			}
+			Log::printf(Log::debug, " Function %" PRIuPTR "\n", functionIndex);
+			printFunctionSEH(imageBase, functionTable[functionIndex]);
 		}
 	}
 }
-
-#endif

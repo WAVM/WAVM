@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
@@ -22,6 +23,12 @@
 #include "llvm/Support/DataTypes.h"
 
 #include "LLVMPostInclude.h"
+
+#ifdef _WIN32
+#define USE_WINDOWS_SEH 1
+#else
+#define USE_WINDOWS_SEH 0
+#endif
 
 namespace llvm
 {
@@ -63,9 +70,7 @@ namespace LLVMJIT
 	extern llvm::Type* llvmF32x4Type;
 	extern llvm::Type* llvmF64x2Type;
 
-#if defined(_WIN64)
 	extern llvm::Type* llvmExceptionPointersStructType;
-#endif
 
 	// Zero constants of each type.
 	extern llvm::Constant* typedZeroConstants[(Uptr)ValueType::num];
@@ -478,17 +483,19 @@ namespace LLVMJIT
 	bool getFunctionIndexFromExternalName(const char* externalName, Uptr& outFunctionDefIndex);
 
 	// Emits LLVM IR for a module.
-	std::shared_ptr<llvm::Module> emitModule(const IR::Module& module,
-											 ModuleInstance* moduleInstance);
+	void emitModule(const IR::Module& module,
+					ModuleInstance* moduleInstance,
+					llvm::Module& outLLVMModule);
 
-#ifdef _WIN64
-	extern void processSEHTables(Uptr imageBaseAddress,
-								 const llvm::LoadedObjectInfo* loadedObject,
+	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
+	llvm::JITEvaluatedSymbol resolveJITImport(llvm::StringRef name);
+
+	extern void processSEHTables(U8* imageBase,
+								 const llvm::LoadedObjectInfo& loadedObject,
 								 const llvm::object::SectionRef& pdataSection,
 								 const U8* pdataCopy,
 								 Uptr pdataNumBytes,
 								 const llvm::object::SectionRef& xdataSection,
 								 const U8* xdataCopy,
 								 Uptr sehTrampolineAddress);
-#endif
 }

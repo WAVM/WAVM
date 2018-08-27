@@ -255,13 +255,15 @@ namespace LLVMJIT
 
 		struct CatchContext
 		{
-#ifdef _WIN64
+			// Only used for Windows SEH.
 			llvm::CatchSwitchInst* catchSwitchInst;
-#else
+
+			// Only used for non-Windows exceptions.
 			llvm::LandingPadInst* landingPadInst;
 			llvm::BasicBlock* nextHandlerBlock;
 			llvm::Value* exceptionTypeInstance;
-#endif
+
+			// Used for all platforms.
 			llvm::Value* exceptionPointer;
 		};
 

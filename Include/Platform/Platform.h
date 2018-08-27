@@ -210,16 +210,8 @@ namespace Platform
 	// Describes an instruction pointer.
 	PLATFORM_API bool describeInstructionPointer(Uptr ip, std::string& outDescription);
 
-#ifdef _WIN64
-	// Registers/deregisters the data used by Windows SEH to unwind stack frames.
-	PLATFORM_API void registerSEHUnwindInfo(Uptr imageLoadAddress,
-											Uptr pdataAddress,
-											Uptr pdataNumBytes);
-	PLATFORM_API void deregisterSEHUnwindInfo(Uptr pdataAddress);
-#endif
-
-	PLATFORM_API void registerEHFrames(U8* ehFrames, Uptr numBytes);
-	PLATFORM_API void deregisterEHFrames(U8* ehFrames, Uptr numBytes);
+	PLATFORM_API void registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes);
+	PLATFORM_API void deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes);
 
 	struct Signal
 	{
@@ -265,14 +257,11 @@ namespace Platform
 
 	[[noreturn]] PLATFORM_API void raisePlatformException(void* data);
 
-#ifdef _WIN64
 	enum
 	{
 		SEH_WAVM_EXCEPTION = 0xE0000001
 	};
-#else
 	PLATFORM_API std::type_info* getUserExceptionTypeInfo();
-#endif
 
 	//
 	// Threading

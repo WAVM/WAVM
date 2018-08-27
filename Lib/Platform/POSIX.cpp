@@ -585,7 +585,7 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 	return result;
 }
 
-static void visitFDEs(U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*))
+static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*))
 {
 	// The LLVM project libunwind implementation that WAVM uses expects __register_frame and
 	// __deregister_frame to be called for each FDE in the .eh_frame section.
@@ -610,12 +610,12 @@ static void visitFDEs(U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*)
 	} while(next < end);
 }
 
-void Platform::registerEHFrames(U8* ehFrames, Uptr numBytes)
+void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
 {
 	visitFDEs(ehFrames, numBytes, __register_frame);
 }
 
-void Platform::deregisterEHFrames(U8* ehFrames, Uptr numBytes)
+void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
 {
 	visitFDEs(ehFrames, numBytes, __deregister_frame);
 }
