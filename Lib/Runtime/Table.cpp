@@ -20,7 +20,7 @@ static Uptr getNumPlatformPages(Uptr numBytes)
 	return (numBytes + (Uptr(1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 }
 
-TableInstance* Runtime::createTable(Compartment* compartment, TableType type)
+TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type)
 {
 	TableInstance* table = new TableInstance(compartment, type);
 
@@ -60,7 +60,7 @@ TableInstance* Runtime::createTable(Compartment* compartment, TableType type)
 
 		table->id = compartment->tables.size();
 		compartment->tables.push_back(table);
-		compartment->runtimeData->tables[table->id] = table->baseAddress;
+		compartment->runtimeData->tableBases[table->id] = table->baseAddress;
 	}
 
 	// Add the table to the global array.
@@ -87,9 +87,9 @@ void TableInstance::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 	wavmAssert(compartment->tables[id] == this);
-	wavmAssert(compartment->runtimeData->tables[id] == baseAddress);
-	compartment->tables[id]              = nullptr;
-	compartment->runtimeData->tables[id] = nullptr;
+	wavmAssert(compartment->runtimeData->tableBases[id] == baseAddress);
+	compartment->tables[id]                  = nullptr;
+	compartment->runtimeData->tableBases[id] = nullptr;
 }
 
 TableInstance::~TableInstance()
@@ -138,8 +138,19 @@ bool Runtime::isAddressOwnedByTable(U8* address)
 	return false;
 }
 
-Object* Runtime::setTableElement(TableInstance* table, Uptr index, Object* newValue)
+Object* Runtime::setTableElement(TableInstance* table,
+								 Uptr index,
+								 Object* newValue,
+								 MemoryInstance* intrinsicDefaultMemory,
+								 TableInstance* intrinsicDefaultTable)
 {
+	Compartment* compartment = table->compartment;
+
+	// If a default memory or table are provided to bind to intrinsic functions, make sure they are
+	// in the same compartment as the table being modified.
+	wavmAssert(!intrinsicDefaultMemory || intrinsicDefaultMemory->compartment == compartment);
+	wavmAssert(!intrinsicDefaultTable || intrinsicDefaultTable->compartment == compartment);
+
 	// Look up the new function's code pointer.
 	FunctionInstance* functionInstance = asFunction(newValue);
 	void* nativeFunction               = functionInstance->nativeFunction;
@@ -148,8 +159,11 @@ Object* Runtime::setTableElement(TableInstance* table, Uptr index, Object* newVa
 	// If the function isn't a WASM function, generate a thunk for it.
 	if(functionInstance->callingConvention != CallingConvention::wasm)
 	{
-		nativeFunction = LLVMJIT::getIntrinsicThunk(
-			nativeFunction, functionInstance->type, functionInstance->callingConvention);
+		nativeFunction = LLVMJIT::getIntrinsicThunk(nativeFunction,
+													functionInstance->type,
+													functionInstance->callingConvention,
+													nullptr,
+													nullptr);
 	}
 
 	// Lock the table's elements array.

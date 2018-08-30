@@ -101,15 +101,15 @@ namespace Wavix
 		}
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__wavix_get_arg",
-												 void,
-												 __wavix_get_arg,
-												 I32 argIndex,
-												 I32 bufferAddress,
-												 I32 numCharsInBuffer)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__wavix_get_arg",
+							  void,
+							  __wavix_get_arg,
+							  I32 argIndex,
+							  I32 bufferAddress,
+							  I32 numCharsInBuffer)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 		if(U32(argIndex) < currentProcess->args.size())
 		{
 			const Uptr safeArgIndex
@@ -199,13 +199,9 @@ namespace Wavix
 		char domainName[65];
 	};
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_uname",
-												 I32,
-												 __syscall_uname,
-												 I32 resultAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix, "__syscall_uname", I32, __syscall_uname, I32 resultAddress)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 		traceSyscallf("uname", "(0x%08x)", resultAddress);
 		wavix_utsname& result = memoryRef<wavix_utsname>(memory, resultAddress);
 		strcpy(result.sysName, "Wavix");
@@ -251,16 +247,16 @@ namespace Wavix
 		monotonic = 1,
 	};
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_clock_gettime",
-												 I32,
-												 __syscall_clock_gettime,
-												 I32 clockId,
-												 I32 resultAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_clock_gettime",
+							  I32,
+							  __syscall_clock_gettime,
+							  I32 clockId,
+							  I32 resultAddress)
 	{
 		traceSyscallf("clock_gettime", "(%u,0x%08x)", clockId, resultAddress);
 
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 		wavix_timespec& result = memoryRef<wavix_timespec>(memory, resultAddress);
 
 		static std::atomic<U64> hackedClock;

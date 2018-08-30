@@ -8,7 +8,6 @@
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
-#include "StubResolver.h"
 #include "WASM/WASM.h"
 #include "WAST/TestScript.h"
 #include "WAST/WAST.h"
@@ -28,25 +27,13 @@ namespace LLVMJIT
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
-	Module module;
+	IR::Module module;
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals            = 1024;
 	if(!loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
 
-	Compartment* compartment = createCompartment();
-	StubResolver stubResolver(compartment);
-	LinkResult linkResult = linkModule(module, stubResolver);
-	if(linkResult.success)
-	{
-		catchRuntimeExceptions(
-			[&] {
-				instantiateModule(
-					compartment, module, std::move(linkResult.resolvedImports), "fuzz");
-			},
-			[&](Exception&& exception) {});
-
-		collectGarbage();
-	}
+	compileModule(module);
+	collectGarbage();
 
 	// De-initialize LLVM to avoid the accumulation of de-duped debug metadata in the LLVMContext.
 	LLVMJIT::deinit();
@@ -59,7 +46,7 @@ I32 main(int argc, char** argv)
 {
 	if(argc != 2)
 	{
-		Log::printf(Log::error, "Usage: FuzzRuntime in.wasm\n");
+		Log::printf(Log::error, "Usage: FuzzCompile in.wasm\n");
 		return EXIT_FAILURE;
 	}
 	const char* inputFilename = argv[1];

@@ -37,53 +37,43 @@ void EmitFunctionContext::tee_local(GetOrSetVariableImm<false> imm)
 
 void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 {
-	wavmAssert(imm.variableIndex < moduleContext.moduleInstance->globals.size());
-	GlobalInstance* global    = moduleContext.moduleInstance->globals[imm.variableIndex];
-	llvm::Type* llvmValueType = asLLVMType(global->type.valueType);
+	wavmAssert(imm.variableIndex < irModule.globals.size());
+	GlobalType globalType     = irModule.globals.getType(imm.variableIndex);
+	llvm::Type* llvmValueType = asLLVMType(globalType.valueType);
 
-	if(global->type.isMutable)
+	llvm::Value* value;
+	if(globalType.isMutable)
 	{
-		llvm::Value* globalPointer = irBuilder.CreatePointerCast(
-			irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(contextPointerVariable),
-										{emitLiteral(Uptr(offsetof(ContextRuntimeData, globalData))
-													 + global->mutableDataOffset)}),
-			llvmValueType->getPointerTo());
-		push(irBuilder.CreateLoad(globalPointer));
+		// If the global is mutable, the symbol will be bound to an offset into the
+		// ContextRuntimeData::globalData that its value is stored at.
+		llvm::Value* globalDataOffset
+			= irBuilder.CreatePtrToInt(moduleContext.globals[imm.variableIndex], llvmIptrType);
+		llvm::Value* globalPointer = irBuilder.CreateInBoundsGEP(
+			irBuilder.CreateLoad(contextPointerVariable), {globalDataOffset});
+		value = loadFromUntypedPointer(globalPointer, llvmValueType);
 	}
 	else
 	{
-		if(getTypeByteWidth(global->type.valueType) > sizeof(void*))
-		{
-			llvm::Value* globalPointer
-				= emitLiteralPointer(&global->initialValue, llvmValueType->getPointerTo());
-			push(irBuilder.CreateLoad(globalPointer));
-		}
-		else
-		{
-			llvm::Constant* immutableValue;
-			switch(global->type.valueType)
-			{
-			case ValueType::i32: immutableValue = emitLiteral(global->initialValue.i32); break;
-			case ValueType::i64: immutableValue = emitLiteral(global->initialValue.i64); break;
-			case ValueType::f32: immutableValue = emitLiteral(global->initialValue.f32); break;
-			case ValueType::f64: immutableValue = emitLiteral(global->initialValue.f64); break;
-			default: Errors::unreachable();
-			};
-			push(immutableValue);
-		}
+		// Otherwise, the symbol's value will point to the global's immutable value.
+		value = loadFromUntypedPointer(moduleContext.globals[imm.variableIndex], llvmValueType);
 	}
+
+	push(value);
 }
 void EmitFunctionContext::set_global(GetOrSetVariableImm<true> imm)
 {
-	wavmAssert(imm.variableIndex < moduleContext.moduleInstance->globals.size());
-	GlobalInstance* global = moduleContext.moduleInstance->globals[imm.variableIndex];
-	wavmAssert(global->type.isMutable);
-	llvm::Type* llvmValueType  = asLLVMType(global->type.valueType);
-	llvm::Value* globalPointer = irBuilder.CreatePointerCast(
-		irBuilder.CreateInBoundsGEP(irBuilder.CreateLoad(contextPointerVariable),
-									{emitLiteral(Uptr(offsetof(ContextRuntimeData, globalData)
-													  + global->mutableDataOffset))}),
-		llvmValueType->getPointerTo());
-	auto value = irBuilder.CreateBitCast(pop(), llvmValueType);
-	irBuilder.CreateStore(value, globalPointer);
+	wavmAssert(imm.variableIndex < irModule.globals.size());
+	GlobalType globalType = irModule.globals.getType(imm.variableIndex);
+	wavmAssert(globalType.isMutable);
+	llvm::Type* llvmValueType = asLLVMType(globalType.valueType);
+
+	llvm::Value* value = irBuilder.CreateBitCast(pop(), llvmValueType);
+
+	// If the global is mutable, the symbol will be bound to an offset into the
+	// ContextRuntimeData::globalData that its value is stored at.
+	llvm::Value* globalDataOffset
+		= irBuilder.CreatePtrToInt(moduleContext.globals[imm.variableIndex], llvmIptrType);
+	llvm::Value* globalPointer = irBuilder.CreateInBoundsGEP(
+		irBuilder.CreateLoad(contextPointerVariable), {globalDataOffset});
+	storeToUntypedPointer(value, globalPointer);
 }

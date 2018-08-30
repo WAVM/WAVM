@@ -12,8 +12,8 @@ ninja
 mkdir disassemble-corpus
 
 ASAN_OPTIONS=detect_leaks=0 bin/FuzzDisassemble -use_value_profile=1 \
-  -workers=18 \
-  -jobs=18 \
+  -workers=36 \
+  -jobs=36 \
   -detect_leaks=0 \
   disassemble-corpus \
     wasm-corpus \

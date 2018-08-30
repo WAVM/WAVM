@@ -193,18 +193,21 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	throwException(Exception::invalidFloatOperationType);
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
-											 "indirectCallSignatureMismatch",
-											 void,
-											 indirectCallSignatureMismatch,
-											 I32 index,
-											 Uptr expectedSignatureBits)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "indirectCallSignatureMismatch",
+						  void,
+						  indirectCallSignatureMismatch,
+						  I32 index,
+						  Uptr expectedSignatureBits,
+						  Uptr tableId)
 {
-	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, defaultTableId.id);
+	Compartment* compartment
+		= getCompartmentFromContext(getContextFromRuntimeData(contextRuntimeData));
+	TableInstance* table = compartment->tables[tableId];
 	wavmAssert(table);
 	void* elementValue = table->baseAddress[index].value;
-	FunctionType actualSignature{table->baseAddress[index].typeEncoding};
-	FunctionType expectedSignature{FunctionType::Encoding{expectedSignatureBits}};
+	IR::FunctionType actualSignature{table->baseAddress[index].typeEncoding};
+	IR::FunctionType expectedSignature{IR::FunctionType::Encoding{expectedSignatureBits}};
 	std::string ipDescription = "<unknown>";
 	LLVMJIT::describeInstructionPointer(reinterpret_cast<Uptr>(elementValue), ipDescription);
 	Log::printf(
@@ -248,30 +251,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "currentMemory", I32, _currentMemory, 
 	Uptr numMemoryPages = getMemoryNumPages(memory);
 	if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }
 	return (U32)numMemoryPages;
-}
-
-static thread_local Uptr indentLevel = 0;
-
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "debugEnterFunction",
-						  void,
-						  debugEnterFunction,
-						  I64 functionInstanceBits)
-{
-	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
-	Log::printf(Log::debug, "ENTER: %s\n", function->debugName.c_str());
-	++indentLevel;
-}
-
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "debugExitFunction",
-						  void,
-						  debugExitFunction,
-						  I64 functionInstanceBits)
-{
-	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(functionInstanceBits);
-	--indentLevel;
-	Log::printf(Log::debug, "EXIT:  %s\n", function->debugName.c_str());
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)

@@ -15,10 +15,10 @@
 #include "LLVMPostInclude.h"
 
 #define ENABLE_LOGGING 0
-#define ENABLE_FUNCTION_ENTER_EXIT_HOOKS 0
 
-using namespace LLVMJIT;
 using namespace IR;
+using namespace LLVMJIT;
+using namespace Runtime;
 
 // Creates a PHI node for the argument of branches to a basic block.
 PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::TypeTuple type)
@@ -122,20 +122,21 @@ ValueVector EmitFunctionContext::emitRuntimeIntrinsic(
 	FunctionType intrinsicType,
 	const std::initializer_list<llvm::Value*>& args)
 {
-	Object* intrinsicObject = Runtime::getInstanceExport(
-		moduleContext.moduleInstance->compartment->wavmIntrinsics, intrinsicName);
-	wavmAssert(intrinsicObject);
-	wavmAssert(isA(intrinsicObject, intrinsicType));
-	FunctionInstance* intrinsicFunction = asFunction(intrinsicObject);
-	wavmAssert(intrinsicFunction->type == intrinsicType);
-	auto intrinsicFunctionPointer = emitLiteralPointer(
-		intrinsicFunction->nativeFunction,
-		asLLVMType(intrinsicType, intrinsicFunction->callingConvention)->getPointerTo());
+	llvm::Function* llvmIntrinsicFunction = moduleContext.llvmModule->getFunction(intrinsicName);
+	if(!llvmIntrinsicFunction)
+	{
+		llvmIntrinsicFunction
+			= llvm::Function::Create(asLLVMType(intrinsicType, CallingConvention::intrinsic),
+									 llvm::Function::ExternalLinkage,
+									 intrinsicName,
+									 moduleContext.llvmModule);
+		llvmIntrinsicFunction->setCallingConv(asLLVMCallingConv(CallingConvention::intrinsic));
+	}
 
-	return emitCallOrInvoke(intrinsicFunctionPointer,
+	return emitCallOrInvoke(llvmIntrinsicFunction,
 							args,
 							intrinsicType,
-							intrinsicFunction->callingConvention,
+							CallingConvention::intrinsic,
 							getInnermostUnwindToBlock());
 }
 
@@ -287,7 +288,7 @@ void EmitFunctionContext::emit()
 	auto diParamArray   = moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes);
 	auto diFunctionType = moduleContext.diBuilder.createSubroutineType(diParamArray);
 	diFunction          = moduleContext.diBuilder.createFunction(moduleContext.diModuleScope,
-                                                        functionInstance->debugName,
+                                                        llvmFunction->getName(),
                                                         llvmFunction->getName(),
                                                         moduleContext.diModuleScope,
                                                         0,
@@ -309,12 +310,8 @@ void EmitFunctionContext::emit()
 	irBuilder.SetInsertPoint(entryBasicBlock);
 
 	// Create and initialize allocas for the memory and table base parameters.
-	auto llvmArgIt            = llvmFunction->arg_begin();
-	memoryBasePointerVariable = irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "memoryBase");
-	tableBasePointerVariable  = irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "tableBase");
-	contextPointerVariable    = irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "context");
-	irBuilder.CreateStore(&*llvmArgIt++, contextPointerVariable);
-	reloadMemoryAndTableBase();
+	auto llvmArgIt = llvmFunction->arg_begin();
+	initContextVariables(&*llvmArgIt++);
 
 	// Create and initialize allocas for all the locals and parameters.
 	for(Uptr localIndex = 0;
@@ -341,18 +338,10 @@ void EmitFunctionContext::emit()
 		}
 	}
 
-	// If enabled, emit a call to the WAVM function enter hook (for debugging).
-	if(ENABLE_FUNCTION_ENTER_EXIT_HOOKS)
-	{
-		emitRuntimeIntrinsic("debugEnterFunction",
-							 FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}),
-							 {emitLiteral(reinterpret_cast<U64>(functionInstance))});
-	}
-
 	// Decode the WebAssembly opcodes and emit LLVM IR for them.
 	OperatorDecoderStream decoder(functionDef.code);
 	UnreachableOpVisitor unreachableOpVisitor(*this);
-	OperatorPrinter operatorPrinter(module, functionDef);
+	OperatorPrinter operatorPrinter(irModule, functionDef);
 	Uptr opIndex = 0;
 	while(decoder && controlStack.size())
 	{
@@ -367,14 +356,6 @@ void EmitFunctionContext::emit()
 		}
 	};
 	wavmAssert(irBuilder.GetInsertBlock() == returnBlock);
-
-	// If enabled, emit a call to the WAVM function enter hook (for debugging).
-	if(ENABLE_FUNCTION_ENTER_EXIT_HOOKS)
-	{
-		emitRuntimeIntrinsic("debugExitFunction",
-							 FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}),
-							 {emitLiteral(reinterpret_cast<U64>(functionInstance))});
-	}
 
 	// Emit the function return.
 	emitReturn(functionType.results(), stack);

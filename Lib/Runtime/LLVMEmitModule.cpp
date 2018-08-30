@@ -5,15 +5,15 @@
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMJIT.h"
 
-using namespace LLVMJIT;
 using namespace IR;
+using namespace LLVMJIT;
+using namespace Runtime;
 
-EmitModuleContext::EmitModuleContext(const Module& inModule,
-									 ModuleInstance* inModuleInstance,
-									 llvm::Module* inLLVMModule)
-: module(inModule)
-, moduleInstance(inModuleInstance)
+EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule, llvm::Module* inLLVMModule)
+: irModule(inIRModule)
 , llvmModule(inLLVMModule)
+, defaultMemoryOffset(nullptr)
+, defaultTableOffset(nullptr)
 , diBuilder(*inLLVMModule)
 {
 	diModuleScope = diBuilder.createFile("unknown", "unknown");
@@ -57,12 +57,20 @@ EmitModuleContext::EmitModuleContext(const Module& inModule,
 	}
 }
 
-void LLVMJIT::emitModule(const Module& module,
-						 ModuleInstance* moduleInstance,
-						 llvm::Module& outLLVMModule)
+static llvm::Constant* createImportedConstant(llvm::Module& llvmModule, llvm::Twine externalName)
+{
+	return new llvm::GlobalVariable(llvmModule,
+									llvmI8Type,
+									false,
+									llvm::GlobalVariable::ExternalLinkage,
+									nullptr,
+									externalName);
+}
+
+void LLVMJIT::emitModule(const IR::Module& irModule, llvm::Module& outLLVMModule)
 {
 	Timing::Timer emitTimer;
-	EmitModuleContext moduleContext(module, moduleInstance, &outLLVMModule);
+	EmitModuleContext moduleContext(irModule, &outLLVMModule);
 
 	// Create an external reference to the appropriate exception personality function.
 	auto personalityFunction
@@ -75,31 +83,73 @@ void LLVMJIT::emitModule(const Module& module,
 #endif
 								 &outLLVMModule);
 
-	// Create the LLVM functions.
-	moduleContext.functionDefs.resize(module.functions.defs.size());
-	for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
-		++functionDefIndex)
+	// Create LLVM external globals corresponding to offsets to table base pointers in
+	// CompartmentRuntimeData for the module's declared table objects.
+	for(Uptr tableIndex = 0; tableIndex < irModule.tables.size(); ++tableIndex)
 	{
-		FunctionType functionType
-			= module.types[module.functions.defs[functionDefIndex].type.index];
-		auto llvmFunctionType = asLLVMType(functionType, CallingConvention::wasm);
-		auto externalName     = getExternalFunctionName(moduleInstance, functionDefIndex);
-		auto llvmFunction     = llvm::Function::Create(
-            llvmFunctionType, llvm::Function::ExternalLinkage, externalName, &outLLVMModule);
-		llvmFunction->setPersonalityFn(personalityFunction);
+		moduleContext.tableOffsets.push_back(llvm::ConstantExpr::getPtrToInt(
+			createImportedConstant(outLLVMModule,
+								   llvm::Twine("tableOffset") + llvm::Twine(tableIndex)),
+			llvmIptrType));
+	}
+	if(moduleContext.tableOffsets.size())
+	{ moduleContext.defaultTableOffset = moduleContext.tableOffsets[0]; }
+
+	// Create LLVM external globals corresponding to offsets to memory base pointers in
+	// CompartmentRuntimeData for the module's declared memory objects.
+	for(Uptr memoryIndex = 0; memoryIndex < irModule.memories.size(); ++memoryIndex)
+	{
+		moduleContext.memoryOffsets.push_back(llvm::ConstantExpr::getPtrToInt(
+			createImportedConstant(outLLVMModule,
+								   llvm::Twine("memoryOffset") + llvm::Twine(memoryIndex)),
+			llvmIptrType));
+	}
+	if(moduleContext.memoryOffsets.size())
+	{ moduleContext.defaultMemoryOffset = moduleContext.memoryOffsets[0]; }
+
+	// Create LLVM external globals for the module's globals.
+	for(Uptr globalIndex = 0; globalIndex < irModule.globals.size(); ++globalIndex)
+	{
+		moduleContext.globals.push_back(createImportedConstant(
+			outLLVMModule, llvm::Twine("global") + llvm::Twine(globalIndex)));
+	}
+
+	// Create LLVM external globals corresponding to pointers to ExceptionTypeInstances for the
+	// module's declared exception types.
+	for(Uptr exceptionTypeIndex = 0; exceptionTypeIndex < irModule.exceptionTypes.size();
+		++exceptionTypeIndex)
+	{
+		moduleContext.exceptionTypeInstances.push_back(createImportedConstant(
+			outLLVMModule, llvm::Twine("exceptionType") + llvm::Twine(exceptionTypeIndex)));
+	}
+
+	// Create the LLVM functions.
+	moduleContext.functions.resize(irModule.functions.size());
+	for(Uptr functionIndex = 0; functionIndex < irModule.functions.size(); ++functionIndex)
+	{
+		FunctionType functionType = irModule.types[irModule.functions.getType(functionIndex).index];
+
+		llvm::Function* llvmFunction
+			= llvm::Function::Create(asLLVMType(functionType, CallingConvention::wasm),
+									 llvm::Function::ExternalLinkage,
+									 getExternalFunctionName(functionIndex),
+									 &outLLVMModule);
 		llvmFunction->setCallingConv(asLLVMCallingConv(CallingConvention::wasm));
-		moduleContext.functionDefs[functionDefIndex] = llvmFunction;
+		moduleContext.functions[functionIndex] = llvmFunction;
+
+		if(functionIndex >= irModule.functions.imports.size())
+		{ llvmFunction->setPersonalityFn(personalityFunction); }
 	}
 
 	// Compile each function in the module.
-	for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
+	for(Uptr functionDefIndex = 0; functionDefIndex < irModule.functions.defs.size();
 		++functionDefIndex)
 	{
-		EmitFunctionContext(moduleContext,
-							module,
-							module.functions.defs[functionDefIndex],
-							moduleInstance->functionDefs[functionDefIndex],
-							moduleContext.functionDefs[functionDefIndex])
+		EmitFunctionContext(
+			moduleContext,
+			irModule,
+			irModule.functions.defs[functionDefIndex],
+			moduleContext.functions[irModule.functions.imports.size() + functionDefIndex])
 			.emit();
 	}
 

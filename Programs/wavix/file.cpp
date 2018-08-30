@@ -141,15 +141,15 @@ namespace Wavix
 		};
 	};
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_open",
-												 I32,
-												 __syscall_open,
-												 I32 pathAddress,
-												 I32 flags,
-												 I32 mode)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_open",
+							  I32,
+							  __syscall_open,
+							  I32 pathAddress,
+							  I32 flags,
+							  I32 mode)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 		std::string pathString = readUserString(memory, pathAddress);
 
 		traceSyscallf(
@@ -211,25 +211,25 @@ namespace Wavix
 		return fd;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_openat",
-												 I32,
-												 __syscall_openat,
-												 I32 dirfd,
-												 I32 pathName,
-												 I32 flags,
-												 I32 mode)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_openat",
+							  I32,
+							  __syscall_openat,
+							  I32 dirfd,
+							  I32 pathName,
+							  I32 flags,
+							  I32 mode)
 	{
 		traceSyscallf("openat", "");
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_creat",
-												 I32,
-												 __syscall_creat,
-												 I32 pathName,
-												 I32 mode)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_creat",
+							  I32,
+							  __syscall_creat,
+							  I32 pathName,
+							  I32 mode)
 	{
 		traceSyscallf("creat", "");
 		throwException(Exception::calledUnimplementedIntrinsicType);
@@ -253,17 +253,17 @@ namespace Wavix
 		}
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_llseek",
-												 I32,
-												 __syscall_llseek,
-												 I32 fd,
-												 I32 offsetHigh,
-												 I32 offsetLow,
-												 I32 resultAddress,
-												 I32 whence)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_llseek",
+							  I32,
+							  __syscall_llseek,
+							  I32 fd,
+							  I32 offsetHigh,
+							  I32 offsetLow,
+							  I32 resultAddress,
+							  I32 whence)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		traceSyscallf("llseek", "");
 
@@ -286,15 +286,15 @@ namespace Wavix
 		return 0;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_read",
-												 I32,
-												 __syscall_read,
-												 I32 fd,
-												 I32 bufferAddress,
-												 I32 numBytes)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_read",
+							  I32,
+							  __syscall_read,
+							  I32 fd,
+							  I32 bufferAddress,
+							  I32 numBytes)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		traceSyscallf("read", "(%i,0x%08x,%u)", fd, bufferAddress, numBytes);
 
@@ -314,15 +314,15 @@ namespace Wavix
 		return coerce32bitAddress(numReadBytes);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_readv",
-												 I32,
-												 __syscall_readv,
-												 I32 fd,
-												 I32 iosAddress,
-												 I32 numIos)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_readv",
+							  I32,
+							  __syscall_readv,
+							  I32 fd,
+							  I32 iosAddress,
+							  I32 numIos)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		traceSyscallf("readv", "");
 
@@ -358,15 +358,15 @@ namespace Wavix
 		return coerce32bitAddress(numReadBytes);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_writev",
-												 I32,
-												 __syscall_writev,
-												 I32 fd,
-												 I32 iosAddress,
-												 I32 numIOs)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_writev",
+							  I32,
+							  __syscall_writev,
+							  I32 fd,
+							  I32 iosAddress,
+							  I32 numIOs)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		traceSyscallf("writev", "");
 
@@ -516,14 +516,14 @@ namespace Wavix
 		wavix_ino_t st_ino;
 	};
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_stat64",
-												 I32,
-												 __syscall_stat64,
-												 I32 pathAddress,
-												 I32 resultAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_stat64",
+							  I32,
+							  __syscall_stat64,
+							  I32 pathAddress,
+							  I32 resultAddress)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		std::string pathString = readUserString(memory, pathAddress);
 
@@ -538,14 +538,14 @@ namespace Wavix
 		return 0;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_lstat64",
-												 I32,
-												 __syscall_lstat64,
-												 I32 pathAddress,
-												 I32 resultAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_lstat64",
+							  I32,
+							  __syscall_lstat64,
+							  I32 pathAddress,
+							  I32 resultAddress)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		std::string pathString = readUserString(memory, pathAddress);
 		Path path;
@@ -560,14 +560,14 @@ namespace Wavix
 		return 0;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_fstat64",
-												 I32,
-												 __syscall_fstat64,
-												 I32 fd,
-												 I32 resultAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_fstat64",
+							  I32,
+							  __syscall_fstat64,
+							  I32 fd,
+							  I32 resultAddress)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		traceSyscallf("fstat64", "(%i,0x%08x)", fd, resultAddress);
 
@@ -577,16 +577,16 @@ namespace Wavix
 		return 0;
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_faccessat",
-												 I32,
-												 __syscall_faccessat,
-												 I32 dirfd,
-												 I32 pathAddress,
-												 I32 mode,
-												 I32 flags)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_faccessat",
+							  I32,
+							  __syscall_faccessat,
+							  I32 dirfd,
+							  I32 pathAddress,
+							  I32 mode,
+							  I32 flags)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		std::string pathString = readUserString(memory, pathAddress);
 		Path path;
@@ -604,13 +604,9 @@ namespace Wavix
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_chdir",
-												 I32,
-												 __syscall_chdir,
-												 I32 pathAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix, "__syscall_chdir", I32, __syscall_chdir, I32 pathAddress)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		std::string pathString = readUserString(memory, pathAddress);
 
@@ -643,15 +639,15 @@ namespace Wavix
 		throwException(Exception::calledUnimplementedIntrinsicType);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_readlink",
-												 I32,
-												 __syscall_readlink,
-												 I32 pathAddress,
-												 I32 bufferAddress,
-												 U32 numBufferBytes)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_readlink",
+							  I32,
+							  __syscall_readlink,
+							  I32 pathAddress,
+							  I32 bufferAddress,
+							  U32 numBufferBytes)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		std::string pathString = readUserString(memory, pathAddress);
 
@@ -746,18 +742,18 @@ namespace Wavix
 
 #define TIOCGWINSZ 0x5413
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_ioctl",
-												 I32,
-												 __syscall_ioctl,
-												 I32 fd,
-												 I32 request,
-												 I32 arg0,
-												 I32 arg1,
-												 I32 arg2,
-												 I32 arg3)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_ioctl",
+							  I32,
+							  __syscall_ioctl,
+							  I32 fd,
+							  I32 request,
+							  I32 arg0,
+							  I32 arg1,
+							  I32 arg2,
+							  I32 arg3)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		traceSyscallf("ioctl", "(%i,%i)", fd, request);
 		switch(request)

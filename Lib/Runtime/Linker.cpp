@@ -9,6 +9,7 @@
 #include <string.h>
 
 using namespace Runtime;
+using namespace IR;
 
 static FunctionType resolveImportType(const IR::Module& module, IndexedFunctionType type)
 {

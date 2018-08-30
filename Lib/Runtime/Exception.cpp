@@ -9,7 +9,7 @@ using namespace Runtime;
 
 #define DEFINE_STATIC_EXCEPTION_TYPE(name)                                                         \
 	const GCPointer<ExceptionTypeInstance> Runtime::Exception::name##Type                          \
-		= createExceptionTypeInstance(IR::ExceptionType{TypeTuple()}, "wavm." #name);
+		= createExceptionTypeInstance(IR::ExceptionType{IR::TypeTuple()}, "wavm." #name);
 
 DEFINE_STATIC_EXCEPTION_TYPE(accessViolation)
 DEFINE_STATIC_EXCEPTION_TYPE(stackOverflow)
@@ -74,8 +74,8 @@ std::string Runtime::describeException(const Exception& exception)
 		for(Uptr argumentIndex = 0; argumentIndex < exception.arguments.size(); ++argumentIndex)
 		{
 			if(argumentIndex != 0) { result += ", "; }
-			result += asString(Value(exception.typeInstance->type.params[argumentIndex],
-									 exception.arguments[argumentIndex]));
+			result += asString(IR::Value(exception.typeInstance->type.params[argumentIndex],
+										 exception.arguments[argumentIndex]));
 		}
 		result += ')';
 	}
@@ -91,7 +91,7 @@ std::string Runtime::describeException(const Exception& exception)
 }
 
 [[noreturn]] void Runtime::throwException(ExceptionTypeInstance* typeInstance,
-										  std::vector<UntaggedValue>&& arguments)
+										  std::vector<IR::UntaggedValue>&& arguments)
 {
 	wavmAssert(arguments.size() == typeInstance->type.params.size());
 	ExceptionData* exceptionData
@@ -100,8 +100,9 @@ std::string Runtime::describeException(const Exception& exception)
 	exceptionData->isUserException = 0;
 	if(arguments.size())
 	{
-		memcpy(
-			exceptionData->arguments, arguments.data(), sizeof(UntaggedValue) * arguments.size());
+		memcpy(exceptionData->arguments,
+			   arguments.data(),
+			   sizeof(IR::UntaggedValue) * arguments.size());
 	}
 	Platform::raisePlatformException(exceptionData);
 }
@@ -110,19 +111,20 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "throwException",
 						  void,
 						  intrinsicThrowException,
-						  I64 exceptionTypeInstanceBits,
-						  I64 argsBits,
+						  Iptr exceptionTypeInstanceBits,
+						  Iptr argsBits,
 						  I32 isUserException)
 {
 	auto typeInstance = reinterpret_cast<ExceptionTypeInstance*>(Uptr(exceptionTypeInstanceBits));
-	auto args         = reinterpret_cast<const UntaggedValue*>(Uptr(argsBits));
+	auto args         = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));
 
 	ExceptionData* exceptionData
 		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(typeInstance->type.params.size()));
 	exceptionData->typeInstance    = typeInstance;
 	exceptionData->isUserException = isUserException ? 1 : 0;
-	memcpy(
-		exceptionData->arguments, args, sizeof(UntaggedValue) * typeInstance->type.params.size());
+	memcpy(exceptionData->arguments,
+		   args,
+		   sizeof(IR::UntaggedValue) * typeInstance->type.params.size());
 	Platform::raisePlatformException(exceptionData);
 }
 
@@ -130,7 +132,7 @@ static Exception translateExceptionDataToException(const ExceptionData* exceptio
 												   const Platform::CallStack& callStack)
 {
 	ExceptionTypeInstance* runtimeType = exceptionData->typeInstance;
-	std::vector<UntaggedValue> arguments(
+	std::vector<IR::UntaggedValue> arguments(
 		exceptionData->arguments,
 		exceptionData->arguments + exceptionData->typeInstance->type.params.size());
 	return Exception{runtimeType, std::move(arguments), callStack};

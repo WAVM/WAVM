@@ -193,22 +193,22 @@ static U32 wakeAddress(Uptr address, U32 numToWake)
 	return U32(actualNumToWake);
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
-											 "misalignedAtomicTrap",
-											 void,
-											 misalignedAtomicTrap,
-											 I64 address)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "misalignedAtomicTrap",
+						  void,
+						  misalignedAtomicTrap,
+						  I64 address)
 {
 	throwException(Exception::misalignedAtomicMemoryAccessType);
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
-											 "atomic_wake",
-											 I32,
-											 atomic_wake,
-											 I32 addressOffset,
-											 I32 numToWake,
-											 I64 memoryId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "atomic_wake",
+						  I32,
+						  atomic_wake,
+						  I32 addressOffset,
+						  I32 numToWake,
+						  Iptr memoryId)
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
@@ -223,14 +223,14 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
 	return wakeAddress(address, numToWake);
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
-											 "atomic_wait_i32",
-											 I32,
-											 atomic_wait_I32,
-											 I32 addressOffset,
-											 I32 expectedValue,
-											 F64 timeout,
-											 I64 memoryId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "atomic_wait_i32",
+						  I32,
+						  atomic_wait_I32,
+						  I32 addressOffset,
+						  I32 expectedValue,
+						  F64 timeout,
+						  Iptr memoryId)
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
@@ -244,14 +244,14 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
 	I32* valuePointer = &memoryRef<I32>(memoryInstance, addressOffset);
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavmIntrinsics,
-											 "atomic_wait_i64",
-											 I32,
-											 atomic_wait_i64,
-											 I32 addressOffset,
-											 I64 expectedValue,
-											 F64 timeout,
-											 I64 memoryId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "atomic_wait_i64",
+						  I32,
+						  atomic_wait_i64,
+						  I32 addressOffset,
+						  I64 expectedValue,
+						  F64 timeout,
+						  Iptr memoryId)
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 

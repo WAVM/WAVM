@@ -174,7 +174,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 		{
 			state.hasInstantiatedModule = true;
 			state.lastModuleInstance    = instantiateModule(state.compartment,
-                                                         *moduleAction->module,
+                                                         compileModule(*moduleAction->module),
                                                          std::move(linkResult.resolvedImports),
                                                          "test module");
 
@@ -487,11 +487,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 							= linkModule(*assertCommand->moduleAction->module, resolver);
 						if(linkResult.success)
 						{
-							auto moduleInstance
-								= instantiateModule(state.compartment,
-													*assertCommand->moduleAction->module,
-													std::move(linkResult.resolvedImports),
-													"test module");
+							auto moduleInstance = instantiateModule(
+								state.compartment,
+								compileModule(*assertCommand->moduleAction->module),
+								std::move(linkResult.resolvedImports),
+								"test module");
 
 							// Call the module start function, if it has one.
 							FunctionInstance* startFunction = getStartFunction(moduleInstance);

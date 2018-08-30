@@ -15,6 +15,8 @@ namespace Wavix
 	struct Process
 	{
 		Runtime::GCPointer<Runtime::Compartment> compartment;
+		Runtime::GCPointer<Runtime::MemoryInstance> memory;
+		Runtime::GCPointer<Runtime::TableInstance> table;
 		Process* parent;
 		I32 id;
 
