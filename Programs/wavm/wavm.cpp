@@ -70,7 +70,7 @@ struct RootResolver : Resolver
 			encoder.end();
 
 			// Generate a module for the stub function.
-			Module stubModule;
+			IR::Module stubModule;
 			DisassemblyNames stubModuleNames;
 			stubModule.types.push_back(asFunctionType(type));
 			stubModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
@@ -80,7 +80,8 @@ struct RootResolver : Resolver
 			IR::validateDefinitions(stubModule);
 
 			// Instantiate the module and return the stub function instance.
-			auto stubModuleInstance = instantiateModule(compartment, stubModule, {}, "importStub");
+			auto stubModuleInstance
+				= instantiateModule(compartment, compileModule(stubModule), {}, "importStub");
 			return getInstanceExport(stubModuleInstance, "importStub");
 		}
 		case IR::ObjectKind::memory:
@@ -147,7 +148,7 @@ struct CommandLineOptions
 
 static int run(const CommandLineOptions& options)
 {
-	Module module;
+	IR::Module module;
 
 	// Load the module.
 	if(!loadModule(options.filename, module)) { return EXIT_FAILURE; }
@@ -192,8 +193,10 @@ static int run(const CommandLineOptions& options)
 	}
 
 	// Instantiate the module.
-	ModuleInstance* moduleInstance = instantiateModule(
-		compartment, module, std::move(linkResult.resolvedImports), options.filename);
+	ModuleInstance* moduleInstance = instantiateModule(compartment,
+													   compileModule(module),
+													   std::move(linkResult.resolvedImports),
+													   options.filename);
 	if(!moduleInstance) { return EXIT_FAILURE; }
 
 	// Call the module start function, if it has one.

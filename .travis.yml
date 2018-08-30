@@ -32,3 +32,6 @@ addons:
    - g++-7
    - libedit-dev
    - clang-5.0
+
+notifications:
+ slack: wavm:XJj5kD0mDa4FMKLUz9laRC48

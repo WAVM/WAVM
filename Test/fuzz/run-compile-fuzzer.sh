@@ -9,13 +9,13 @@ cd $BUILD_DIR
 
 ninja
 
-mkdir runtime-corpus
+mkdir compile-corpus
 
-ASAN_OPTIONS=detect_leaks=0 bin/FuzzRuntime -use_value_profile=1 \
-  -workers=18 \
-  -jobs=18 \
+ASAN_OPTIONS=detect_leaks=0 bin/FuzzCompile -use_value_profile=1 \
+  -workers=36 \
+  -jobs=36 \
   -detect_leaks=0 \
   -rss_limit_mb=4096 \
-  runtime-corpus \
+  compile-corpus \
   	wasm-corpus \
 	wasm-seed-corpus

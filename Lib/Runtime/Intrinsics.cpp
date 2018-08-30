@@ -160,7 +160,7 @@ Runtime::ModuleInstance* Intrinsics::instantiateModule(
 				moduleInstance->globals.push_back(asGlobal(object));
 				break;
 			case Runtime::ObjectKind::exceptionTypeInstance:
-				moduleInstance->exceptionTypeInstances.push_back(asExceptionTypeInstance(object));
+				moduleInstance->exceptionTypes.push_back(asExceptionTypeInstance(object));
 				break;
 			default: Errors::unreachable();
 			};

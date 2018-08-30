@@ -601,7 +601,7 @@ DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32s-div", I32, I32_divs, I32 left, I32 rig
 	return left / right;
 }
 
-Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const Module& module)
+Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR::Module& module)
 {
 	MemoryType memoryType(false, SizeConstraints{0, 0});
 	if(module.memories.imports.size() && module.memories.imports[0].moduleName == "env"
@@ -661,7 +661,7 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const Mo
 }
 
 void Emscripten::initializeGlobals(Context* context,
-								   const Module& module,
+								   const IR::Module& module,
 								   ModuleInstance* moduleInstance)
 {
 	// Call the establishStackSpace function to set the Emscripten module's internal stack

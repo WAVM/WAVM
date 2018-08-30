@@ -104,9 +104,9 @@ void Runtime::collectGarbage()
 			childReferences.push_back(global->compartment);
 			break;
 		}
-		case ObjectKind::module:
+		case ObjectKind::moduleInstance:
 		{
-			ModuleInstance* moduleInstance = asModule(scanObject);
+			ModuleInstance* moduleInstance = asModuleInstance(scanObject);
 			childReferences.push_back(moduleInstance->compartment);
 			childReferences.insert(childReferences.begin(),
 								   moduleInstance->functionDefs.begin(),
@@ -124,8 +124,8 @@ void Runtime::collectGarbage()
 								   moduleInstance->globals.begin(),
 								   moduleInstance->globals.end());
 			childReferences.insert(childReferences.begin(),
-								   moduleInstance->exceptionTypeInstances.begin(),
-								   moduleInstance->exceptionTypeInstances.end());
+								   moduleInstance->exceptionTypes.begin(),
+								   moduleInstance->exceptionTypes.end());
 			childReferences.push_back(moduleInstance->defaultMemory);
 			childReferences.push_back(moduleInstance->defaultTable);
 			break;
@@ -143,6 +143,7 @@ void Runtime::collectGarbage()
 			break;
 		}
 
+		case ObjectKind::module:
 		case ObjectKind::exceptionTypeInstance: break;
 
 		default: Errors::unreachable();

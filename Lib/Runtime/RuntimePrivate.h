@@ -1,5 +1,6 @@
 #pragma once
 
+#include "IR/Module.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
 #include "Runtime/Intrinsics.h"
@@ -7,6 +8,7 @@
 
 #include <atomic>
 #include <functional>
+#include <memory>
 
 namespace Intrinsics
 {
@@ -20,14 +22,16 @@ namespace Runtime
 
 namespace LLVMJIT
 {
-	using namespace Runtime;
-
 	struct JITModuleBase
 	{
 		virtual ~JITModuleBase() {}
 	};
 
-	void instantiateModule(const IR::Module& module, Runtime::ModuleInstance* moduleInstance);
+	std::vector<U8> compileModule(const IR::Module& irModule);
+
+	std::shared_ptr<LLVMJIT::JITModuleBase> instantiateModule(
+		const Runtime::Module* module,
+		const Runtime::ModuleInstance* moduleInstance);
 	bool describeInstructionPointer(Uptr ip, std::string& outDescription);
 
 	typedef Runtime::ContextRuntimeData* (*InvokeFunctionPointer)(void*,
@@ -40,13 +44,13 @@ namespace LLVMJIT
 	// Generates a thunk to call a native function from generated code.
 	void* getIntrinsicThunk(void* nativeFunction,
 							IR::FunctionType functionType,
-							Runtime::CallingConvention callingConvention);
+							Runtime::CallingConvention callingConvention,
+							Runtime::MemoryInstance* defaultMemory,
+							Runtime::TableInstance* defaultTable);
 }
 
 namespace Runtime
 {
-	using namespace IR;
-
 	// A private root for all runtime objects that handles garbage collection.
 	struct ObjectImpl : Object
 	{
@@ -63,13 +67,13 @@ namespace Runtime
 	struct FunctionInstance : ObjectImpl
 	{
 		ModuleInstance* moduleInstance;
-		FunctionType type;
+		IR::FunctionType type;
 		void* nativeFunction;
 		CallingConvention callingConvention;
 		std::string debugName;
 
 		FunctionInstance(ModuleInstance* inModuleInstance,
-						 FunctionType inType,
+						 IR::FunctionType inType,
 						 void* inNativeFunction,
 						 CallingConvention inCallingConvention,
 						 std::string&& inDebugName)
@@ -88,14 +92,14 @@ namespace Runtime
 	{
 		struct FunctionElement
 		{
-			FunctionType::Encoding typeEncoding;
+			IR::FunctionType::Encoding typeEncoding;
 			void* value;
 		};
 
 		Compartment* compartment;
 		Uptr id;
 
-		TableType type;
+		IR::TableType type;
 
 		FunctionElement* baseAddress;
 		Uptr endOffset;
@@ -104,7 +108,7 @@ namespace Runtime
 		Platform::Mutex elementsMutex;
 		std::vector<Object*> elements;
 
-		TableInstance(Compartment* inCompartment, const TableType& inType)
+		TableInstance(Compartment* inCompartment, const IR::TableType& inType)
 		: ObjectImpl(ObjectKind::table)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
@@ -123,13 +127,13 @@ namespace Runtime
 		Compartment* compartment;
 		Uptr id;
 
-		MemoryType type;
+		IR::MemoryType type;
 
 		U8* baseAddress;
 		std::atomic<Uptr> numPages;
 		Uptr endOffset;
 
-		MemoryInstance(Compartment* inCompartment, const MemoryType& inType)
+		MemoryInstance(Compartment* inCompartment, const IR::MemoryType& inType)
 		: ObjectImpl(ObjectKind::memory)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
@@ -149,14 +153,14 @@ namespace Runtime
 		Compartment* const compartment;
 		Uptr id;
 
-		const GlobalType type;
+		const IR::GlobalType type;
 		const U32 mutableDataOffset;
-		const UntaggedValue initialValue;
+		const IR::UntaggedValue initialValue;
 
 		GlobalInstance(Compartment* inCompartment,
-					   GlobalType inType,
+					   IR::GlobalType inType,
 					   U32 inMutableDataOffset,
-					   UntaggedValue inInitialValue)
+					   IR::UntaggedValue inInitialValue)
 		: ObjectImpl(ObjectKind::global)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
@@ -172,24 +176,71 @@ namespace Runtime
 	{
 		ExceptionTypeInstance* typeInstance;
 		U8 isUserException;
-		UntaggedValue arguments[1];
+		IR::UntaggedValue arguments[1];
 
 		static Uptr calcNumBytes(Uptr numArguments)
 		{
-			return sizeof(ExceptionData) + (numArguments - 1) * sizeof(UntaggedValue);
+			return sizeof(ExceptionData) + (numArguments - 1) * sizeof(IR::UntaggedValue);
 		}
 	};
 
 	// An instance of a WebAssembly exception type.
 	struct ExceptionTypeInstance : ObjectImpl
 	{
-		ExceptionType type;
+		IR::ExceptionType type;
 		std::string debugName;
 
-		ExceptionTypeInstance(ExceptionType inType, std::string&& inDebugName)
+		ExceptionTypeInstance(IR::ExceptionType inType, std::string&& inDebugName)
 		: ObjectImpl(ObjectKind::exceptionTypeInstance)
 		, type(inType)
 		, debugName(std::move(inDebugName))
+		{
+		}
+	};
+
+	// A compiled WebAssembly module.
+	struct Module : ObjectImpl
+	{
+		IR::IndexSpace<IR::FunctionType, IR::FunctionType> functions;
+
+		IR::IndexSpace<IR::TableDef, IR::TableType> tables;
+		IR::IndexSpace<IR::MemoryDef, IR::MemoryType> memories;
+		IR::IndexSpace<IR::GlobalDef, IR::GlobalType> globals;
+		IR::IndexSpace<IR::ExceptionTypeDef, IR::ExceptionType> exceptionTypes;
+
+		std::vector<IR::Export> exports;
+		std::vector<IR::DataSegment> dataSegments;
+		std::vector<IR::TableSegment> tableSegments;
+
+		Uptr startFunctionIndex;
+
+		IR::DisassemblyNames disassemblyNames;
+
+		std::vector<U8> objectFileBytes;
+
+		Module(IR::IndexSpace<IR::FunctionType, IR::FunctionType>&& inFunctions,
+			   IR::IndexSpace<IR::TableDef, IR::TableType>&& inTables,
+			   IR::IndexSpace<IR::MemoryDef, IR::MemoryType>&& inMemories,
+			   IR::IndexSpace<IR::GlobalDef, IR::GlobalType>&& inGlobals,
+			   IR::IndexSpace<IR::ExceptionTypeDef, IR::ExceptionType>&& inExceptionTypes,
+			   std::vector<IR::Export>&& inExports,
+			   std::vector<IR::DataSegment>&& inDataSegments,
+			   std::vector<IR::TableSegment>&& inTableSegments,
+			   Uptr inStartFunctionIndex,
+			   IR::DisassemblyNames&& inDisassemblyNames,
+			   std::vector<U8>&& inObjectFileBytes)
+		: ObjectImpl(ObjectKind::module)
+		, functions(inFunctions)
+		, tables(inTables)
+		, memories(inMemories)
+		, globals(inGlobals)
+		, exceptionTypes(inExceptionTypes)
+		, exports(inExports)
+		, dataSegments(inDataSegments)
+		, tableSegments(inTableSegments)
+		, startFunctionIndex(inStartFunctionIndex)
+		, disassemblyNames(inDisassemblyNames)
+		, objectFileBytes(std::move(inObjectFileBytes))
 		{
 		}
 	};
@@ -207,13 +258,13 @@ namespace Runtime
 		std::vector<TableInstance*> tables;
 		std::vector<MemoryInstance*> memories;
 		std::vector<GlobalInstance*> globals;
-		std::vector<ExceptionTypeInstance*> exceptionTypeInstances;
+		std::vector<ExceptionTypeInstance*> exceptionTypes;
 
 		FunctionInstance* startFunction;
 		MemoryInstance* defaultMemory;
 		TableInstance* defaultTable;
 
-		LLVMJIT::JITModuleBase* jitModule;
+		std::shared_ptr<LLVMJIT::JITModuleBase> jitModule;
 
 		std::string debugName;
 
@@ -222,15 +273,15 @@ namespace Runtime
 					   std::vector<TableInstance*>&& inTableImports,
 					   std::vector<MemoryInstance*>&& inMemoryImports,
 					   std::vector<GlobalInstance*>&& inGlobalImports,
-					   std::vector<ExceptionTypeInstance*>&& inExceptionTypeInstanceImports,
+					   std::vector<ExceptionTypeInstance*>&& inExceptionTypeImports,
 					   std::string&& inDebugName)
-		: ObjectImpl(ObjectKind::module)
+		: ObjectImpl(ObjectKind::moduleInstance)
 		, compartment(inCompartment)
 		, functions(inFunctionImports)
 		, tables(inTableImports)
 		, memories(inMemoryImports)
 		, globals(inGlobalImports)
-		, exceptionTypeInstances(inExceptionTypeInstanceImports)
+		, exceptionTypes(inExceptionTypeImports)
 		, startFunction(nullptr)
 		, defaultMemory(nullptr)
 		, defaultTable(nullptr)
@@ -238,8 +289,6 @@ namespace Runtime
 		, debugName(std::move(inDebugName))
 		{
 		}
-
-		~ModuleInstance() override;
 	};
 
 	struct Context : ObjectImpl
@@ -271,7 +320,7 @@ namespace Runtime
 		contextRuntimeDataAlignment         = 4096
 	};
 
-	static_assert(sizeof(UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
+	static_assert(sizeof(IR::UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
 				  "maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
 				  "sizeof(UntaggedValue)");
 
@@ -307,8 +356,8 @@ namespace Runtime
 	struct CompartmentRuntimeData
 	{
 		Compartment* compartment;
-		U8* memories[maxMemories];
-		TableInstance::FunctionElement* tables[maxTables];
+		void* memoryBases[maxMemories];
+		void* tableBases[maxTables];
 		ContextRuntimeData contexts[1]; // Actually [maxContexts], but at least MSVC doesn't allow
 										// declaring arrays that large.
 	};

@@ -2,45 +2,46 @@
 #include "Logging/Logging.h"
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
+#include "process.h"
 #include "wavix.h"
 
 using namespace Runtime;
 
 namespace Wavix
 {
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_mmap",
-												 I32,
-												 __syscall_mmap,
-												 I32 address,
-												 I32 numBytes,
-												 I32 prot,
-												 I32 flags,
-												 I32 fd,
-												 I32 offset)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_mmap",
+							  I32,
+							  __syscall_mmap,
+							  I32 address,
+							  I32 numBytes,
+							  I32 prot,
+							  I32 flags,
+							  I32 fd,
+							  I32 offset)
 	{
 		const Uptr numPages = (Uptr(numBytes) + IR::numBytesPerPage - 1) >> IR::numBytesPerPageLog2;
 
 		if(address != 0 || fd != -1)
 		{ throwException(Exception::calledUnimplementedIntrinsicType); }
 
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 		Iptr basePageIndex     = growMemory(memory, numPages);
 		if(basePageIndex == -1) { return -1; }
 
 		return coerce32bitAddress(basePageIndex << IR::numBytesPerPageLog2);
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_munmap",
-												 I32,
-												 __syscall_munmap,
-												 I32 address,
-												 I32 numBytes)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_munmap",
+							  I32,
+							  __syscall_munmap,
+							  I32 address,
+							  I32 numBytes)
 	{
 		traceSyscallf("munmap", "(0x%08x,%u)", address, numBytes);
 
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		if(address & (IR::numBytesPerPage - 1) || numBytes == 0) { return ErrNo::einval; }
 

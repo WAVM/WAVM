@@ -30,9 +30,10 @@ namespace Runtime
 		exceptionTypeInstance = 4,
 
 		// Runtime-specific object kinds that are only used by transient runtime objects.
-		module      = 5,
-		context     = 6,
-		compartment = 7,
+		module         = 5,
+		moduleInstance = 6,
+		context        = 7,
+		compartment    = 8,
 
 		invalid = 0xff,
 	};
@@ -75,7 +76,8 @@ namespace Runtime
 	DECLARE_OBJECT_TYPE(ObjectKind::table, Table, TableInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::memory, Memory, MemoryInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::global, Global, GlobalInstance);
-	DECLARE_OBJECT_TYPE(ObjectKind::module, Module, ModuleInstance);
+	DECLARE_OBJECT_TYPE(ObjectKind::module, Module, Module);
+	DECLARE_OBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::exceptionTypeInstance,
 						ExceptionTypeInstance,
 						ExceptionTypeInstance);
@@ -197,6 +199,9 @@ namespace Runtime
 	typedef void (*UnhandledExceptionHandler)(Exception&&);
 	RUNTIME_API void setUnhandledExceptionHandler(UnhandledExceptionHandler handler);
 
+	// Describes a call stack.
+	RUNTIME_API std::vector<std::string> describeCallStack(const Platform::CallStack& callStack);
+
 	//
 	// Functions
 	//
@@ -244,7 +249,11 @@ namespace Runtime
 
 	// Writes an element to the table. Assumes that index is in bounds, and returns a pointer to the
 	// previous value of the element.
-	RUNTIME_API Object* setTableElement(TableInstance* table, Uptr index, Object* newValue);
+	RUNTIME_API Object* setTableElement(TableInstance* table,
+										Uptr index,
+										Object* newValue,
+										MemoryInstance* intrinsicDefaultMemory,
+										TableInstance* intrinsicDefaultTable);
 
 	// Gets the current or maximum size of the table.
 	RUNTIME_API Uptr getTableNumElements(TableInstance* table);
@@ -329,10 +338,13 @@ namespace Runtime
 		std::vector<ExceptionTypeInstance*> exceptionTypes;
 	};
 
-	// Instantiates a module, bindings its imports to the specified objects. May throw a runtime
-	// exception for bad segment offsets.
+	// Compiles an IR module to native code.
+	RUNTIME_API Module* compileModule(const IR::Module& irModule);
+
+	// Instantiates a compiled module, bindings its imports to the specified objects. May throw a
+	// runtime exception for bad segment offsets.
 	RUNTIME_API ModuleInstance* instantiateModule(Compartment* compartment,
-												  const IR::Module& module,
+												  Module* module,
 												  ImportBindings&& imports,
 												  std::string&& debugName);
 

@@ -4,12 +4,13 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJIT.h"
 
-using namespace LLVMJIT;
 using namespace IR;
+using namespace LLVMJIT;
+using namespace Runtime;
 
 void EmitFunctionContext::block(ControlStructureImm imm)
 {
-	FunctionType blockType = resolveBlockType(module, imm.type);
+	FunctionType blockType = resolveBlockType(irModule, imm.type);
 
 	// Create an end block+phi for the block result.
 	auto endBlock = llvm::BasicBlock::Create(*llvmContext, "blockEnd", llvmFunction);
@@ -31,7 +32,7 @@ void EmitFunctionContext::block(ControlStructureImm imm)
 }
 void EmitFunctionContext::loop(ControlStructureImm imm)
 {
-	FunctionType blockType           = resolveBlockType(module, imm.type);
+	FunctionType blockType           = resolveBlockType(irModule, imm.type);
 	llvm::BasicBlock* loopEntryBlock = irBuilder.GetInsertBlock();
 
 	// Create a loop block, and an end block for the loop result.
@@ -61,7 +62,7 @@ void EmitFunctionContext::loop(ControlStructureImm imm)
 }
 void EmitFunctionContext::if_(ControlStructureImm imm)
 {
-	FunctionType blockType = resolveBlockType(module, imm.type);
+	FunctionType blockType = resolveBlockType(irModule, imm.type);
 
 	// Create a then block and else block for the if, and an end block+phi for the if result.
 	auto thenBlock = llvm::BasicBlock::Create(*llvmContext, "ifThen", llvmFunction);
@@ -297,30 +298,11 @@ void EmitFunctionContext::unreachable(NoImm)
 
 void EmitFunctionContext::call(CallImm imm)
 {
-	// Map the callee function index to either an imported function pointer or a function in this
-	// module.
-	llvm::Value* callee;
-	FunctionType calleeType;
-	CallingConvention callingConvention;
-	if(imm.functionIndex < module.functions.imports.size())
-	{
-		wavmAssert(imm.functionIndex < moduleContext.moduleInstance->functions.size());
-		FunctionInstance* importedCallee
-			= moduleContext.moduleInstance->functions[imm.functionIndex];
-		calleeType = importedCallee->type;
-		callee     = emitLiteralPointer(
-            importedCallee->nativeFunction,
-            asLLVMType(importedCallee->type, importedCallee->callingConvention)->getPointerTo());
-		callingConvention = importedCallee->callingConvention;
-	}
-	else
-	{
-		const Uptr functionDefIndex = imm.functionIndex - module.functions.imports.size();
-		wavmAssert(functionDefIndex < moduleContext.functionDefs.size());
-		callee            = moduleContext.functionDefs[functionDefIndex];
-		calleeType        = module.types[module.functions.defs[functionDefIndex].type.index];
-		callingConvention = CallingConvention::wasm;
-	}
+	wavmAssert(imm.functionIndex < moduleContext.functions.size());
+	wavmAssert(imm.functionIndex < irModule.functions.size());
+
+	llvm::Value* callee     = moduleContext.functions[imm.functionIndex];
+	FunctionType calleeType = irModule.types[irModule.functions.getType(imm.functionIndex).index];
 
 	// Pop the call arguments from the operand stack.
 	const Uptr numArguments = calleeType.params().size();
@@ -335,7 +317,7 @@ void EmitFunctionContext::call(CallImm imm)
 	ValueVector results = emitCallOrInvoke(callee,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),
 										   calleeType,
-										   callingConvention,
+										   CallingConvention::wasm,
 										   getInnermostUnwindToBlock());
 
 	// Push the results on the operand stack.
@@ -343,9 +325,9 @@ void EmitFunctionContext::call(CallImm imm)
 }
 void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 {
-	wavmAssert(imm.type.index < module.types.size());
+	wavmAssert(imm.type.index < irModule.types.size());
 
-	const FunctionType calleeType = module.types[imm.type.index];
+	const FunctionType calleeType = irModule.types[imm.type.index];
 
 	// Compile the function index.
 	auto tableElementIndex = pop();
@@ -377,8 +359,11 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	emitConditionalTrapIntrinsic(
 		irBuilder.CreateICmpNE(llvmCalleeType, functionTypePointer),
 		"indirectCallSignatureMismatch",
-		FunctionType(TypeTuple(), TypeTuple({ValueType::i32, ValueType::i64})),
-		{tableElementIndex, irBuilder.CreatePtrToInt(llvmCalleeType, llvmI64Type)});
+		FunctionType(TypeTuple(),
+					 TypeTuple({ValueType::i32, inferValueType<Iptr>(), inferValueType<Iptr>()})),
+		{tableElementIndex,
+		 irBuilder.CreatePtrToInt(llvmCalleeType, llvmIptrType),
+		 getTableIdFromOffset(moduleContext.defaultTableOffset)});
 
 	// Call the function loaded from the table.
 	auto functionPointerPointer = irBuilder.CreateInBoundsGEP(

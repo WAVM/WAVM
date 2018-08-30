@@ -3,6 +3,7 @@ set(Sources
 	Exception.cpp
 	Intrinsics.cpp
 	Linker.cpp
+	LLVMEmitContext.h
 	LLVMEmitConvert.cpp
 	LLVMEmitCore.cpp
 	LLVMEmitExceptions.cpp
@@ -16,11 +17,13 @@ set(Sources
 	LLVMEmitWorkarounds.h
 	LLVMJIT.cpp
 	LLVMJIT.h
+	LLVMJITThunk.cpp
+	LLVMJITUnit.cpp
 	LLVMPreInclude.h
 	LLVMPostInclude.h
 	LLVMWin64EH.cpp
 	Memory.cpp
-	ModuleInstance.cpp
+	Module.cpp
 	ObjectGC.cpp
 	Runtime.cpp
 	RuntimePrivate.h

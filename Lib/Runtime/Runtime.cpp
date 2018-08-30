@@ -6,6 +6,7 @@
 #include "RuntimePrivate.h"
 
 using namespace Runtime;
+using namespace IR;
 
 bool Runtime::isA(Object* object, const ObjectType& type)
 {

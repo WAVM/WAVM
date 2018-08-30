@@ -1,6 +1,8 @@
 #pragma once
 
+#include "IR/Module.h"
 #include "LLVMJIT.h"
+#include "RuntimePrivate.h"
 
 #include "LLVMPreInclude.h"
 
@@ -12,17 +14,23 @@ namespace LLVMJIT
 {
 	struct EmitModuleContext
 	{
-		const IR::Module& module;
-		Runtime::ModuleInstance* moduleInstance;
+		const IR::Module& irModule;
 
 		llvm::Module* llvmModule;
-		std::vector<llvm::Function*> functionDefs;
+		std::vector<llvm::Function*> functions;
+		std::vector<llvm::Constant*> tableOffsets;
+		std::vector<llvm::Constant*> memoryOffsets;
+		std::vector<llvm::Constant*> globals;
+		std::vector<llvm::Constant*> exceptionTypeInstances;
+
+		llvm::Constant* defaultMemoryOffset;
+		llvm::Constant* defaultTableOffset;
 
 		llvm::DIBuilder diBuilder;
 		llvm::DICompileUnit* diCompileUnit;
 		llvm::DIFile* diModuleScope;
 
-		llvm::DIType* diValueTypes[(Uptr)ValueType::num];
+		llvm::DIType* diValueTypes[(Uptr)IR::ValueType::num];
 
 		llvm::MDNode* likelyFalseBranchWeights;
 		llvm::MDNode* likelyTrueBranchWeights;
@@ -33,9 +41,7 @@ namespace LLVMJIT
 		llvm::Function* tryPrologueDummyFunction;
 		llvm::Function* cxaBeginCatchFunction;
 
-		EmitModuleContext(const Module& inModule,
-						  ModuleInstance* inModuleInstance,
-						  llvm::Module* inLLVMModule);
+		EmitModuleContext(const IR::Module& inModule, llvm::Module* inLLVMModule);
 
 		inline llvm::Function* getLLVMIntrinsic(llvm::ArrayRef<llvm::Type*> typeArguments,
 												llvm::Intrinsic::ID id)

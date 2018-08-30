@@ -11,7 +11,6 @@
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
-#include "StubResolver.h"
 #include "WASM/WASM.h"
 #include "WAST/TestScript.h"
 #include "WAST/WAST.h"
@@ -90,32 +89,32 @@ private:
 	}
 };
 
-static void generateImm(RandomStream& random, const Module& module, NoImm& outImm) {}
-static void generateImm(RandomStream& random, const Module& module, MemoryImm& outImm) {}
+static void generateImm(RandomStream& random, const IR::Module& module, NoImm& outImm) {}
+static void generateImm(RandomStream& random, const IR::Module& module, MemoryImm& outImm) {}
 
-static void generateImm(RandomStream& random, const Module& module, LiteralImm<I32>& outImm)
+static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<I32>& outImm)
 {
 	outImm.value = I32(random.get(UINT32_MAX));
 }
 
-static void generateImm(RandomStream& random, const Module& module, LiteralImm<I64>& outImm)
+static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<I64>& outImm)
 {
 	outImm.value = I64(random.get(UINT64_MAX));
 }
 
-static void generateImm(RandomStream& random, const Module& module, LiteralImm<F32>& outImm)
+static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<F32>& outImm)
 {
 	const U32 u32 = random.get(UINT32_MAX);
 	memcpy(&outImm.value, &u32, sizeof(U32));
 }
 
-static void generateImm(RandomStream& random, const Module& module, LiteralImm<F64>& outImm)
+static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<F64>& outImm)
 {
 	const U64 u64 = random.get(UINT64_MAX);
 	memcpy(&outImm.value, &u64, sizeof(U64));
 }
 
-static void generateImm(RandomStream& random, const Module& module, LiteralImm<V128>& outImm)
+static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<V128>& outImm)
 {
 	outImm.value.u64[0] = random.get(UINT64_MAX);
 	outImm.value.u64[1] = random.get(UINT64_MAX);
@@ -123,7 +122,7 @@ static void generateImm(RandomStream& random, const Module& module, LiteralImm<V
 
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
-						const Module& module,
+						const IR::Module& module,
 						LoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
@@ -132,7 +131,7 @@ static void generateImm(RandomStream& random,
 
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
-						const Module& module,
+						const IR::Module& module,
 						AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.alignmentLog2 = naturalAlignmentLog2;
@@ -140,13 +139,17 @@ static void generateImm(RandomStream& random,
 }
 
 template<Uptr numLanes>
-static void generateImm(RandomStream& random, const Module& module, LaneIndexImm<numLanes>& outImm)
+static void generateImm(RandomStream& random,
+						const IR::Module& module,
+						LaneIndexImm<numLanes>& outImm)
 {
 	outImm.laneIndex = random.get<U8>(numLanes - 1);
 }
 
 template<Uptr numLanes>
-static void generateImm(RandomStream& random, const Module& module, ShuffleImm<numLanes>& outImm)
+static void generateImm(RandomStream& random,
+						const IR::Module& module,
+						ShuffleImm<numLanes>& outImm)
 {
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 	{ outImm.laneIndices[laneIndex] = random.get<U8>(numLanes * 2 - 1); }
@@ -155,7 +158,7 @@ static void generateImm(RandomStream& random, const Module& module, ShuffleImm<n
 // Build a table with information about non-parametric operators.
 
 typedef CodeValidationProxyStream<OperatorEncoderStream> CodeStream;
-typedef void OperatorEmitFunc(RandomStream&, const Module&, CodeStream&);
+typedef void OperatorEmitFunc(RandomStream&, const IR::Module&, CodeStream&);
 
 struct OperatorInfo
 {
@@ -167,7 +170,7 @@ struct OperatorInfo
 #define VISIT_OP(encoding, name, nameString, Imm, SIGNATURE, ...)                                  \
 	{nameString,                                                                                   \
 	 SIGNATURE,                                                                                    \
-	 [](RandomStream& random, const Module& module, CodeStream& codeStream) {                      \
+	 [](RandomStream& random, const IR::Module& module, CodeStream& codeStream) {                  \
 		 Imm imm;                                                                                  \
 		 generateImm(random, module, imm);                                                         \
 		 codeStream.name(imm);                                                                     \
@@ -180,7 +183,7 @@ enum
 	numNonParametricOps = sizeof(operatorInfos) / sizeof(OperatorInfo)
 };
 
-static void generateFunction(RandomStream& random, Module& module)
+static void generateFunction(RandomStream& random, IR::Module& module)
 {
 	FunctionDef functionDef;
 
@@ -284,7 +287,7 @@ static void generateFunction(RandomStream& random, Module& module)
 	module.functions.defs.push_back(std::move(functionDef));
 };
 
-void generateValidModule(Module& module, const U8* inputBytes, Uptr numBytes)
+void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes)
 {
 	RandomStream random(inputBytes, numBytes);
 
@@ -315,23 +318,10 @@ void generateValidModule(Module& module, const U8* inputBytes, Uptr numBytes)
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
-	Module module;
+	IR::Module module;
 	generateValidModule(module, data, numBytes);
-
-	Compartment* compartment = createCompartment();
-	StubResolver stubResolver(compartment);
-	LinkResult linkResult = linkModule(module, stubResolver);
-	if(linkResult.success)
-	{
-		catchRuntimeExceptions(
-			[&] {
-				instantiateModule(
-					compartment, module, std::move(linkResult.resolvedImports), "fuzz");
-			},
-			[&](Exception&& exception) {});
-
-		collectGarbage();
-	}
+	compileModule(module);
+	collectGarbage();
 
 	// De-initialize LLVM to avoid the accumulation of de-duped debug metadata in the LLVMContext.
 	LLVMJIT::deinit();
@@ -347,7 +337,7 @@ I32 main(int argc, char** argv)
 {
 	if(argc != 2)
 	{
-		Log::printf(Log::error, "Usage: FuzzRuntimeModel in.wasm\n");
+		Log::printf(Log::error, "Usage: FuzzCompileModel in.wasm\n");
 		return EXIT_FAILURE;
 	}
 	const char* inputFilename = argv[1];

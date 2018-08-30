@@ -1,12 +1,29 @@
-#pragma once
-
 #include "IR/Module.h"
-#include "IR/Operators.h"
-#include "IR/TaggedValue.h"
-#include "IR/Types.h"
 #include "IR/Validate.h"
+#include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/CLI.h"
+#include "Inline/Serialization.h"
+#include "Logging/Logging.h"
+#include "Runtime/Intrinsics.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
+#include "WASM/WASM.h"
+#include "WAST/TestScript.h"
+#include "WAST/WAST.h"
+
+#include <cstdarg>
+#include <cstdio>
+#include <vector>
+
+using namespace WAST;
+using namespace IR;
+using namespace Runtime;
+
+namespace LLVMJIT
+{
+	RUNTIME_API void deinit();
+}
 
 struct StubResolver : Runtime::Resolver
 {
@@ -58,7 +75,8 @@ struct StubResolver : Runtime::Resolver
 			IR::validateDefinitions(stubModule);
 
 			// Instantiate the module and return the stub function instance.
-			auto stubModuleInstance = instantiateModule(compartment, stubModule, {}, "importStub");
+			auto stubModuleInstance = Runtime::instantiateModule(
+				compartment, Runtime::compileModule(stubModule), {}, "importStub");
 			return getInstanceExport(stubModuleInstance, "importStub");
 		}
 		case IR::ObjectKind::memory:
@@ -85,3 +103,51 @@ struct StubResolver : Runtime::Resolver
 		};
 	}
 };
+
+extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
+{
+	IR::Module module;
+	module.featureSpec.maxLabelsPerFunction = 65536;
+	module.featureSpec.maxLocals            = 1024;
+	if(!loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
+
+	Compartment* compartment = createCompartment();
+	StubResolver stubResolver(compartment);
+	LinkResult linkResult = linkModule(module, stubResolver);
+	if(linkResult.success)
+	{
+		catchRuntimeExceptions(
+			[&] {
+				instantiateModule(compartment,
+								  compileModule(module),
+								  std::move(linkResult.resolvedImports),
+								  "fuzz");
+			},
+			[&](Exception&& exception) {});
+
+		collectGarbage();
+	}
+
+	// De-initialize LLVM to avoid the accumulation of de-duped debug metadata in the LLVMContext.
+	LLVMJIT::deinit();
+
+	return 0;
+}
+
+#if !ENABLE_LIBFUZZER
+I32 main(int argc, char** argv)
+{
+	if(argc != 2)
+	{
+		Log::printf(Log::error, "Usage: FuzzInstantiate in.wasm\n");
+		return EXIT_FAILURE;
+	}
+	const char* inputFilename = argv[1];
+
+	std::vector<U8> wasmBytes;
+	if(!loadFile(inputFilename, wasmBytes)) { return EXIT_FAILURE; }
+
+	LLVMFuzzerTestOneInput(wasmBytes.data(), wasmBytes.size());
+	return EXIT_SUCCESS;
+}
+#endif

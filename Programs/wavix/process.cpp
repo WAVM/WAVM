@@ -141,7 +141,7 @@ namespace Wavix
 	ModuleInstance* loadModule(Process* process, const char* hostFilename)
 	{
 		// Load the module.
-		Module module;
+		IR::Module module;
 		if(!loadBinaryModuleFromFile(hostFilename, module)) { return nullptr; }
 
 		// Link the module with the Wavix intrinsics.
@@ -166,8 +166,10 @@ namespace Wavix
 		}
 
 		// Instantiate the module.
-		return instantiateModule(
-			process->compartment, module, std::move(linkResult.resolvedImports), hostFilename);
+		return instantiateModule(process->compartment,
+								 compileModule(module),
+								 std::move(linkResult.resolvedImports),
+								 hostFilename);
 	}
 
 	Thread* executeModule(Process* process, ModuleInstance* moduleInstance)
@@ -249,6 +251,12 @@ namespace Wavix
 		// Load the module.
 		ModuleInstance* moduleInstance = loadModule(process, hostFilename);
 		if(!moduleInstance) { return nullptr; }
+
+		// Get the module's memory and table.
+		process->memory = asMemoryNullable(getInstanceExport(moduleInstance, "__memory"));
+		process->table  = asTableNullable(getInstanceExport(moduleInstance, "__table"));
+
+		if(!process->memory || !process->table) { return nullptr; }
 
 		Thread* mainThread = executeModule(process, moduleInstance);
 		{
@@ -359,15 +367,15 @@ namespace Wavix
 		}
 	}
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_execve",
-												 I32,
-												 __syscall_execve,
-												 U32 pathAddress,
-												 U32 argsAddress,
-												 U32 envsAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_execve",
+							  I32,
+							  __syscall_execve,
+							  U32 pathAddress,
+							  U32 argsAddress,
+							  U32 envsAddress)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		std::string pathString = readUserString(memory, pathAddress);
 		std::vector<std::string> args;
@@ -480,16 +488,16 @@ namespace Wavix
 #define WAVIX_WCONTINUED 8
 #define WAVIX_WNOWAIT 0x1000000
 
-	DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(wavix,
-												 "__syscall_wait4",
-												 I32,
-												 __syscall_wait4,
-												 I32 pid,
-												 U32 statusAddress,
-												 U32 options,
-												 U32 rusageAddress)
+	DEFINE_INTRINSIC_FUNCTION(wavix,
+							  "__syscall_wait4",
+							  I32,
+							  __syscall_wait4,
+							  I32 pid,
+							  U32 statusAddress,
+							  U32 options,
+							  U32 rusageAddress)
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+		MemoryInstance* memory = currentThread->process->memory;
 
 		traceSyscallf("wait4", "(%i,0x%08x,%i,0x%08x)", pid, statusAddress, options, rusageAddress);
 

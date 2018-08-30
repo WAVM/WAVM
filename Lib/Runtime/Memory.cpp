@@ -21,7 +21,7 @@ static Uptr getPlatformPagesPerWebAssemblyPageLog2()
 	return IR::numBytesPerPageLog2 - Platform::getPageSizeLog2();
 }
 
-MemoryInstance* Runtime::createMemory(Compartment* compartment, MemoryType type)
+MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType type)
 {
 	MemoryInstance* memory = new MemoryInstance(compartment, type);
 
@@ -61,7 +61,7 @@ MemoryInstance* Runtime::createMemory(Compartment* compartment, MemoryType type)
 
 		memory->id = compartment->memories.size();
 		compartment->memories.push_back(memory);
-		compartment->runtimeData->memories[memory->id] = memory->baseAddress;
+		compartment->runtimeData->memoryBases[memory->id] = memory->baseAddress;
 	}
 
 	// Add the memory to the global array.
@@ -85,9 +85,9 @@ void Runtime::MemoryInstance::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 	wavmAssert(compartment->memories[id] == this);
-	wavmAssert(compartment->runtimeData->memories[id] == baseAddress);
-	compartment->memories[id]              = nullptr;
-	compartment->runtimeData->memories[id] = nullptr;
+	wavmAssert(compartment->runtimeData->memoryBases[id] == baseAddress);
+	compartment->memories[id]                 = nullptr;
+	compartment->runtimeData->memoryBases[id] = nullptr;
 }
 
 Runtime::MemoryInstance::~MemoryInstance()

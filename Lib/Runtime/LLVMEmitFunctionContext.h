@@ -1,5 +1,8 @@
 #pragma once
 
+#include "IR/Module.h"
+#include "IR/Types.h"
+#include "LLVMEmitContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJIT.h"
 
@@ -16,10 +19,9 @@ namespace LLVMJIT
 		typedef void Result;
 
 		struct EmitModuleContext& moduleContext;
-		const IR::Module& module;
+		const IR::Module& irModule;
 		const IR::FunctionDef& functionDef;
 		IR::FunctionType functionType;
-		Runtime::FunctionInstance* functionInstance;
 		llvm::Function* llvmFunction;
 
 		std::vector<llvm::Value*> localPointers;
@@ -56,7 +58,7 @@ namespace LLVMJIT
 
 		struct BranchTarget
 		{
-			TypeTuple params;
+			IR::TypeTuple params;
 			llvm::BasicBlock* block;
 			PHIVector phis;
 		};
@@ -66,17 +68,14 @@ namespace LLVMJIT
 		std::vector<llvm::Value*> stack;
 
 		EmitFunctionContext(EmitModuleContext& inModuleContext,
-							const Module& inModule,
-							const FunctionDef& inFunctionDef,
-							FunctionInstance* inFunctionInstance,
+							const IR::Module& inIRModule,
+							const IR::FunctionDef& inFunctionDef,
 							llvm::Function* inLLVMFunction)
-		: EmitContext(inModuleContext.moduleInstance->defaultMemory,
-					  inModuleContext.moduleInstance->defaultTable)
+		: EmitContext(inModuleContext.defaultMemoryOffset, inModuleContext.defaultTableOffset)
 		, moduleContext(inModuleContext)
-		, module(inModule)
+		, irModule(inIRModule)
 		, functionDef(inFunctionDef)
-		, functionType(inModule.types[inFunctionDef.type.index])
-		, functionInstance(inFunctionInstance)
+		, functionType(inIRModule.types[inFunctionDef.type.index])
 		, llvmFunction(inLLVMFunction)
 		, localEscapeBlock(nullptr)
 		{
@@ -116,7 +115,7 @@ namespace LLVMJIT
 		}
 
 		// Creates a PHI node for the argument of branches to a basic block.
-		PHIVector createPHIs(llvm::BasicBlock* basicBlock, TypeTuple type);
+		PHIVector createPHIs(llvm::BasicBlock* basicBlock, IR::TypeTuple type);
 
 		// Bitcasts a LLVM value to a canonical type for the corresponding WebAssembly type.
 		// This is currently just used to map all the various vector types to a canonical type for
@@ -129,7 +128,7 @@ namespace LLVMJIT
 		// Coerces an I32 value to an I1, and vice-versa.
 		llvm::Value* coerceI32ToBool(llvm::Value* i32Value)
 		{
-			return irBuilder.CreateICmpNE(i32Value, typedZeroConstants[(Uptr)ValueType::i32]);
+			return irBuilder.CreateICmpNE(i32Value, typedZeroConstants[(Uptr)IR::ValueType::i32]);
 		}
 
 		llvm::Value* coerceBoolToI32(llvm::Value* boolValue)
@@ -141,10 +140,10 @@ namespace LLVMJIT
 		llvm::Value* coerceAddressToPointer(llvm::Value* boundedAddress, llvm::Type* memoryType);
 
 		// Traps a divide-by-zero
-		void trapDivideByZero(ValueType type, llvm::Value* divisor);
+		void trapDivideByZero(IR::ValueType type, llvm::Value* divisor);
 
 		// Traps on (x / 0) or (INT_MIN / -1).
-		void trapDivideByZeroOrIntegerOverflow(ValueType type,
+		void trapDivideByZeroOrIntegerOverflow(IR::ValueType type,
 											   llvm::Value* left,
 											   llvm::Value* right);
 
@@ -158,23 +157,23 @@ namespace LLVMJIT
 
 		// Emits a call to a WAVM intrinsic function.
 		ValueVector emitRuntimeIntrinsic(const char* intrinsicName,
-										 FunctionType intrinsicType,
+										 IR::FunctionType intrinsicType,
 										 const std::initializer_list<llvm::Value*>& args);
 
 		// A helper function to emit a conditional call to a non-returning intrinsic function.
 		void emitConditionalTrapIntrinsic(llvm::Value* booleanCondition,
 										  const char* intrinsicName,
-										  FunctionType intrinsicType,
+										  IR::FunctionType intrinsicType,
 										  const std::initializer_list<llvm::Value*>& args);
 
 		void pushControlStack(ControlContext::Type type,
-							  TypeTuple resultTypes,
+							  IR::TypeTuple resultTypes,
 							  llvm::BasicBlock* endBlock,
 							  const PHIVector& endPHIs,
 							  llvm::BasicBlock* elseBlock = nullptr,
 							  const ValueVector& elseArgs = {});
 
-		void pushBranchTarget(TypeTuple branchArgumentType,
+		void pushBranchTarget(IR::TypeTuple branchArgumentType,
 							  llvm::BasicBlock* branchTargetBlock,
 							  const PHIVector& branchTargetPHIs);
 
@@ -207,13 +206,13 @@ namespace LLVMJIT
 			return irBuilder.CreateTrunc(value, type);
 		}
 
-		llvm::Value* emitSRem(ValueType type, llvm::Value* left, llvm::Value* right);
-		llvm::Value* emitRotl(ValueType type, llvm::Value* left, llvm::Value* right);
-		llvm::Value* emitRotr(ValueType type, llvm::Value* left, llvm::Value* right);
+		llvm::Value* emitSRem(IR::ValueType type, llvm::Value* left, llvm::Value* right);
+		llvm::Value* emitRotl(IR::ValueType type, llvm::Value* left, llvm::Value* right);
+		llvm::Value* emitRotr(IR::ValueType type, llvm::Value* left, llvm::Value* right);
 		llvm::Value* emitF64Promote(llvm::Value* operand);
 
 		template<typename Float>
-		llvm::Value* emitTruncFloatToInt(ValueType destType,
+		llvm::Value* emitTruncFloatToInt(IR::ValueType destType,
 										 bool isSigned,
 										 Float minBounds,
 										 Float maxBounds,
@@ -275,14 +274,10 @@ namespace LLVMJIT
 
 		llvm::BasicBlock* getInnermostUnwindToBlock();
 
-		void emitThrow(llvm::Value* exceptionTypeInstanceI64,
-					   llvm::Value* argumentsPointerI64,
-					   bool isUserException);
-
-#define VISIT_OPCODE(encoding, name, nameString, Imm, ...) void name(Imm imm);
+#define VISIT_OPCODE(encoding, name, nameString, Imm, ...) void name(IR::Imm imm);
 		ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
-		void unknown(Opcode opcode) { Errors::unreachable(); }
+		void unknown(IR::Opcode opcode) { Errors::unreachable(); }
 	};
 }
