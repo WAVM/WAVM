@@ -66,6 +66,15 @@ Runtime::Module* Runtime::compileModule(const IR::Module& irModule)
 					  std::move(objectFileBytes));
 }
 
+ModuleInstance::~ModuleInstance()
+{
+	if(jitModule)
+	{
+		LLVMJIT::unloadModule(jitModule);
+		jitModule = nullptr;
+	}
+}
+
 ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 										   Module* module,
 										   ImportBindings&& imports,
@@ -196,27 +205,99 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			createExceptionTypeInstance(exceptionTypeDef.type, "wasmException"));
 	}
 
+	HashMap<std::string, LLVMJIT::FunctionBinding> wavmIntrinsicsExportMap;
+	for(auto intrinsicExport : compartment->wavmIntrinsics->exportMap)
+	{
+		FunctionInstance* intrinsicFunction = asFunction(intrinsicExport.value);
+		wavmAssert(intrinsicFunction);
+		wavmAssert(intrinsicFunction->callingConvention == IR::CallingConvention::intrinsic);
+		errorUnless(wavmIntrinsicsExportMap.add(
+			intrinsicExport.key, LLVMJIT::FunctionBinding{intrinsicFunction->nativeFunction}));
+	}
+
+	LLVMJIT::MemoryBinding jitDefaultMemory{
+		moduleInstance->defaultMemory ? moduleInstance->defaultMemory->id : UINTPTR_MAX};
+	LLVMJIT::TableBinding jitDefaultTable{
+		moduleInstance->defaultTable ? moduleInstance->defaultTable->id : UINTPTR_MAX};
+
+	std::vector<LLVMJIT::FunctionBinding> jitFunctionImports;
+	for(Uptr importIndex = 0; importIndex < module->functions.imports.size(); ++importIndex)
+	{
+		FunctionInstance* functionImport = moduleInstance->functions[importIndex];
+		void* nativeFunction             = functionImport->nativeFunction;
+		if(functionImport->callingConvention != IR::CallingConvention::wasm)
+		{
+			nativeFunction = LLVMJIT::getIntrinsicThunk(nativeFunction,
+														functionImport->type,
+														functionImport->callingConvention,
+														jitDefaultMemory,
+														jitDefaultTable);
+		}
+		jitFunctionImports.push_back({nativeFunction});
+	}
+
+	std::vector<LLVMJIT::TableBinding> jitTables;
+	for(TableInstance* table : moduleInstance->tables) { jitTables.push_back({table->id}); }
+
+	std::vector<LLVMJIT::MemoryBinding> jitMemories;
+	for(MemoryInstance* memory : moduleInstance->memories) { jitMemories.push_back({memory->id}); }
+
+	std::vector<LLVMJIT::GlobalBinding> jitGlobals;
+	for(GlobalInstance* global : moduleInstance->globals)
+	{
+		LLVMJIT::GlobalBinding globalSpec;
+		globalSpec.type = global->type;
+		if(global->type.isMutable) { globalSpec.mutableDataOffset = global->mutableDataOffset; }
+		else
+		{
+			globalSpec.immutableValuePointer = &global->initialValue;
+		}
+		jitGlobals.push_back(globalSpec);
+	}
+
+	std::vector<ExceptionTypeInstance*> jitExceptionTypes;
+	for(ExceptionTypeInstance* exceptionTypeInstance : moduleInstance->exceptionTypes)
+	{ jitExceptionTypes.push_back(exceptionTypeInstance); }
+
+	// Load the compiled module's object code with this module instance's imports.
+	std::vector<LLVMJIT::JITFunction*> jitFunctionDefs;
+	moduleInstance->jitModule = LLVMJIT::loadModule(module->objectFileBytes,
+													wavmIntrinsicsExportMap,
+													jitFunctionImports,
+													module->functions.defs.size(),
+													jitTables,
+													jitMemories,
+													jitGlobals,
+													jitExceptionTypes,
+													jitDefaultMemory,
+													jitDefaultTable,
+													jitFunctionDefs);
+
 	// Create the FunctionInstance objects for the module's function definitions.
 	for(Uptr functionDefIndex = 0; functionDefIndex < module->functions.defs.size();
 		++functionDefIndex)
 	{
-		const Uptr functionIndex = moduleInstance->functions.size();
 		const DisassemblyNames::Function& functionNames
-			= module->disassemblyNames.functions[functionIndex];
+			= module->disassemblyNames
+				  .functions[module->functions.imports.size() + functionDefIndex];
 		std::string debugName = functionNames.name;
 		if(!debugName.size())
 		{ debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-		auto functionInstance = new FunctionInstance(moduleInstance,
-													 module->functions.defs[functionDefIndex],
-													 nullptr,
-													 CallingConvention::wasm,
-													 std::move(debugName));
+
+		LLVMJIT::JITFunction* jitFunction = jitFunctionDefs[functionDefIndex];
+
+		auto functionInstance
+			= new FunctionInstance(moduleInstance,
+								   module->functions.defs[functionDefIndex],
+								   reinterpret_cast<void*>(jitFunction->baseAddress),
+								   IR::CallingConvention::wasm,
+								   std::move(debugName));
 		moduleInstance->functionDefs.push_back(functionInstance);
 		moduleInstance->functions.push_back(functionInstance);
-	}
 
-	// Load the compiled module's object code with this module instance's imports.
-	moduleInstance->jitModule = LLVMJIT::instantiateModule(module, moduleInstance);
+		jitFunction->type             = LLVMJIT::JITFunction::Type::wasmFunction;
+		jitFunction->functionInstance = functionInstance;
+	}
 
 	// Set up the instance's exports.
 	for(const Export& exportIt : module->exports)
@@ -239,7 +320,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			break;
 		default: Errors::unreachable();
 		}
-		errorUnless(moduleInstance->exportMap.add(exportIt.name, exportedObject));
+		moduleInstance->exportMap.addOrFail(exportIt.name, exportedObject);
 	}
 
 	// Copy the module's table segments into the module's default table.

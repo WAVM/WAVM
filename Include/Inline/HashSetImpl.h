@@ -78,6 +78,16 @@ bool HashSet<Element, ElementHashPolicy>::add(const Element& element)
 }
 
 template<typename Element, typename ElementHashPolicy>
+void HashSet<Element, ElementHashPolicy>::addOrFail(const Element& element)
+{
+	const Uptr hash                  = ElementHashPolicy::getKeyHash(element);
+	HashTableBucket<Element>& bucket = table.getBucketForAdd(hash, element);
+	wavmAssert(!bucket.hashAndOccupancy);
+	bucket.hashAndOccupancy = hash | HashTableBucket<Element>::isOccupiedMask;
+	bucket.storage.construct(element);
+}
+
+template<typename Element, typename ElementHashPolicy>
 bool HashSet<Element, ElementHashPolicy>::remove(const Element& element)
 {
 	return table.remove(ElementHashPolicy::getKeyHash(element), element);

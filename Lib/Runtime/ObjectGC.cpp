@@ -31,7 +31,7 @@ Runtime::ObjectImpl::ObjectImpl(ObjectKind inKind) : Object(inKind), numRootRefe
 {
 	// Add the object to the global array.
 	Lock<Platform::Mutex> lock(GCGlobals::get().mutex);
-	GCGlobals::get().allObjects.add(this);
+	GCGlobals::get().allObjects.addOrFail(this);
 }
 
 void Runtime::addGCRoot(Object* object)
@@ -61,7 +61,7 @@ void Runtime::collectGarbage()
 	{
 		if(object && object->numRootReferences > 0)
 		{
-			referencedObjects.add(object);
+			referencedObjects.addOrFail(object);
 			pendingScanObjects.push_back(object);
 			++numRoots;
 		}

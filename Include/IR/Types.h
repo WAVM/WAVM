@@ -494,6 +494,16 @@ namespace IR
 		default: Errors::unreachable();
 		};
 	}
+
+	// The calling convention for a function.
+	enum class CallingConvention
+	{
+		wasm,
+		intrinsic,
+		intrinsicWithContextSwitch,
+		intrinsicWithMemAndTable,
+		c
+	};
 }
 
 template<> struct Hash<IR::TypeTuple>

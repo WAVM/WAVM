@@ -2,7 +2,7 @@
 
 #include "IR/Module.h"
 #include "IR/Types.h"
-#include "LLVMJIT.h"
+#include "LLVMJITPrivate.h"
 
 #include "LLVMPreInclude.h"
 
@@ -93,12 +93,12 @@ namespace LLVMJIT
 		ValueVector emitCallOrInvoke(llvm::Value* callee,
 									 llvm::ArrayRef<llvm::Value*> args,
 									 IR::FunctionType calleeType,
-									 Runtime::CallingConvention callingConvention,
+									 IR::CallingConvention callingConvention,
 									 llvm::BasicBlock* unwindToBlock = nullptr)
 		{
 			llvm::ArrayRef<llvm::Value*> augmentedArgs = args;
 
-			if(callingConvention == Runtime::CallingConvention::intrinsicWithMemAndTable)
+			if(callingConvention == IR::CallingConvention::intrinsicWithMemAndTable)
 			{
 				// Augment the argument list with the context pointer, and the default memory and
 				// table IDs.
@@ -115,7 +115,7 @@ namespace LLVMJIT
 				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
 				{ augmentedArgsAlloca[3 + argIndex] = args[argIndex]; }
 			}
-			else if(callingConvention != Runtime::CallingConvention::c)
+			else if(callingConvention != IR::CallingConvention::c)
 			{
 				// Augment the argument list with the context pointer.
 				auto augmentedArgsAlloca
@@ -148,7 +148,7 @@ namespace LLVMJIT
 			ValueVector results;
 			switch(callingConvention)
 			{
-			case Runtime::CallingConvention::wasm:
+			case IR::CallingConvention::wasm:
 			{
 				// Update the context variable.
 				auto newContextPointer = irBuilder.CreateExtractValue(returnValue, {0});
@@ -189,7 +189,7 @@ namespace LLVMJIT
 
 				break;
 			}
-			case Runtime::CallingConvention::intrinsicWithContextSwitch:
+			case IR::CallingConvention::intrinsicWithContextSwitch:
 			{
 				auto newContextPointer = returnValue;
 
@@ -209,9 +209,9 @@ namespace LLVMJIT
 
 				break;
 			}
-			case Runtime::CallingConvention::intrinsicWithMemAndTable:
-			case Runtime::CallingConvention::intrinsic:
-			case Runtime::CallingConvention::c:
+			case IR::CallingConvention::intrinsicWithMemAndTable:
+			case IR::CallingConvention::intrinsic:
+			case IR::CallingConvention::c:
 			{
 				wavmAssert(calleeType.results().size() <= 1);
 				if(calleeType.results().size() == 1) { results.push_back(returnValue); }

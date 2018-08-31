@@ -2,9 +2,15 @@
 
 #include "IR/IR.h"
 #include "IR/TaggedValue.h"
+#include "IR/Types.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
-#include "Runtime.h"
+#include "Runtime/Runtime.h"
+
+namespace Runtime
+{
+	struct ContextRuntimeData;
+}
 
 namespace Intrinsics
 {
@@ -30,14 +36,14 @@ namespace Intrinsics
 							 const char* inName,
 							 void* inNativeFunction,
 							 IR::FunctionType type,
-							 Runtime::CallingConvention inCallingConvention);
+							 IR::CallingConvention inCallingConvention);
 		RUNTIME_API Runtime::FunctionInstance* instantiate(Runtime::Compartment* compartment);
 
 	private:
 		const char* name;
 		IR::FunctionType type;
 		void* nativeFunction;
-		Runtime::CallingConvention callingConvention;
+		IR::CallingConvention callingConvention;
 	};
 
 	// The base class of Intrinsic globals.
@@ -166,7 +172,7 @@ namespace Intrinsics
 												 nameString,                                       \
 												 (void*)&cName,                                    \
 												 Intrinsics::inferIntrinsicFunctionType(&cName),   \
-												 Runtime::CallingConvention::intrinsic);           \
+												 IR::CallingConvention::intrinsic);                \
 	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__)
 
 #define DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(module, nameString, Result, cName, ...)       \
@@ -179,7 +185,7 @@ namespace Intrinsics
 		nameString,                                                                                \
 		(void*)&cName,                                                                             \
 		Intrinsics::inferIntrinsicWithMemAndTableFunctionType(&cName),                             \
-		Runtime::CallingConvention::intrinsicWithMemAndTable);                                     \
+		IR::CallingConvention::intrinsicWithMemAndTable);                                          \
 	static Result cName(Runtime::ContextRuntimeData* contextRuntimeData,                           \
 						Intrinsics::MemoryIdArg defaultMemoryId,                                   \
 						Intrinsics::TableIdArg defaultTableId,                                     \
@@ -193,7 +199,7 @@ namespace Intrinsics
 		nameString,                                                                                \
 		(void*)&cName,                                                                             \
 		Intrinsics::inferIntrinsicWithContextSwitchFunctionType(&cName),                           \
-		Runtime::CallingConvention::intrinsicWithContextSwitch);                                   \
+		IR::CallingConvention::intrinsicWithContextSwitch);                                        \
 	static Intrinsics::ResultInContextRuntimeData<Result>* cName(                                  \
 		Runtime::ContextRuntimeData* contextRuntimeData, ##__VA_ARGS__)
 

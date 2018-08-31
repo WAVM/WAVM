@@ -3,7 +3,7 @@
 #include "Inline/Assert.h"
 #include "Inline/Timing.h"
 #include "LLVMEmitFunctionContext.h"
-#include "LLVMJIT.h"
+#include "LLVMJITPrivate.h"
 
 using namespace IR;
 using namespace LLVMJIT;
@@ -88,8 +88,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule, llvm::Module& outLLVMModule
 	for(Uptr tableIndex = 0; tableIndex < irModule.tables.size(); ++tableIndex)
 	{
 		moduleContext.tableOffsets.push_back(llvm::ConstantExpr::getPtrToInt(
-			createImportedConstant(outLLVMModule,
-								   llvm::Twine("tableOffset") + llvm::Twine(tableIndex)),
+			createImportedConstant(outLLVMModule, getExternalName("tableOffset", tableIndex)),
 			llvmIptrType));
 	}
 	if(moduleContext.tableOffsets.size())
@@ -100,8 +99,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule, llvm::Module& outLLVMModule
 	for(Uptr memoryIndex = 0; memoryIndex < irModule.memories.size(); ++memoryIndex)
 	{
 		moduleContext.memoryOffsets.push_back(llvm::ConstantExpr::getPtrToInt(
-			createImportedConstant(outLLVMModule,
-								   llvm::Twine("memoryOffset") + llvm::Twine(memoryIndex)),
+			createImportedConstant(outLLVMModule, getExternalName("memoryOffset", memoryIndex)),
 			llvmIptrType));
 	}
 	if(moduleContext.memoryOffsets.size())
@@ -110,8 +108,8 @@ void LLVMJIT::emitModule(const IR::Module& irModule, llvm::Module& outLLVMModule
 	// Create LLVM external globals for the module's globals.
 	for(Uptr globalIndex = 0; globalIndex < irModule.globals.size(); ++globalIndex)
 	{
-		moduleContext.globals.push_back(createImportedConstant(
-			outLLVMModule, llvm::Twine("global") + llvm::Twine(globalIndex)));
+		moduleContext.globals.push_back(
+			createImportedConstant(outLLVMModule, getExternalName("global", globalIndex)));
 	}
 
 	// Create LLVM external globals corresponding to pointers to ExceptionTypeInstances for the
@@ -120,7 +118,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule, llvm::Module& outLLVMModule
 		++exceptionTypeIndex)
 	{
 		moduleContext.exceptionTypeInstances.push_back(createImportedConstant(
-			outLLVMModule, llvm::Twine("exceptionType") + llvm::Twine(exceptionTypeIndex)));
+			outLLVMModule, getExternalName("exceptionType", exceptionTypeIndex)));
 	}
 
 	// Create the LLVM functions.
@@ -129,11 +127,13 @@ void LLVMJIT::emitModule(const IR::Module& irModule, llvm::Module& outLLVMModule
 	{
 		FunctionType functionType = irModule.types[irModule.functions.getType(functionIndex).index];
 
-		llvm::Function* llvmFunction
-			= llvm::Function::Create(asLLVMType(functionType, CallingConvention::wasm),
-									 llvm::Function::ExternalLinkage,
-									 getExternalFunctionName(functionIndex),
-									 &outLLVMModule);
+		llvm::Function* llvmFunction = llvm::Function::Create(
+			asLLVMType(functionType, CallingConvention::wasm),
+			llvm::Function::ExternalLinkage,
+			functionIndex >= irModule.functions.imports.size()
+				? getExternalName("functionDef", functionIndex - irModule.functions.imports.size())
+				: getExternalName("functionImport", functionIndex),
+			&outLLVMModule);
 		llvmFunction->setCallingConv(asLLVMCallingConv(CallingConvention::wasm));
 		moduleContext.functions[functionIndex] = llvmFunction;
 

@@ -199,22 +199,15 @@ namespace Runtime
 	typedef void (*UnhandledExceptionHandler)(Exception&&);
 	RUNTIME_API void setUnhandledExceptionHandler(UnhandledExceptionHandler handler);
 
+	// Describes an instruction pointer.
+	bool describeInstructionPointer(Uptr ip, std::string& outDescription);
+
 	// Describes a call stack.
 	RUNTIME_API std::vector<std::string> describeCallStack(const Platform::CallStack& callStack);
 
 	//
 	// Functions
 	//
-
-	// The calling convention for a FunctionInstance.
-	enum class CallingConvention
-	{
-		wasm,
-		intrinsic,
-		intrinsicWithContextSwitch,
-		intrinsicWithMemAndTable,
-		c
-	};
 
 	// Invokes a FunctionInstance with the given arguments, and returns the result. The result is
 	// returned as a pointer to an untagged value that is stored in the Context that will be
@@ -375,13 +368,4 @@ namespace Runtime
 
 	// Creates a new context, initializing its mutable global state from the given context.
 	RUNTIME_API Context* cloneContext(Context* context, Compartment* newCompartment);
-
-	RUNTIME_API Context* getContextFromRuntimeData(struct ContextRuntimeData* contextRuntimeData);
-	RUNTIME_API struct ContextRuntimeData* getContextRuntimeData(Context* context);
-	RUNTIME_API TableInstance* getTableFromRuntimeData(
-		struct ContextRuntimeData* contextRuntimeData,
-		Uptr tableId);
-	RUNTIME_API MemoryInstance* getMemoryFromRuntimeData(
-		struct ContextRuntimeData* contextRuntimeData,
-		Uptr memoryId);
 }

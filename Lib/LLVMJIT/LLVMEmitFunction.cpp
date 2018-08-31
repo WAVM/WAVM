@@ -4,7 +4,7 @@
 #include "Inline/Timing.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
-#include "LLVMJIT.h"
+#include "LLVMJITPrivate.h"
 #include "Logging/Logging.h"
 
 #include "LLVMPreInclude.h"

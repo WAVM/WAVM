@@ -37,6 +37,10 @@ template<typename Element, typename ElementHashPolicy = DefaultHashPolicy<Elemen
 	// If the set didn't contain the element, adds it and returns true.
 	bool add(const Element& element);
 
+	// Assuming the set doesn't contain the element, add it. Asserts if the set contained the
+	// element, or silently does nothing if assertions are disabled.
+	void addOrFail(const Element& element);
+
 	// If the set contains the element, removes it and returns true.
 	// If the set doesn't contain the element, returns false.
 	bool remove(const Element& element);

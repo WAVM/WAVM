@@ -4,7 +4,7 @@
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMEmitWorkarounds.h"
-#include "LLVMJIT.h"
+#include "LLVMJITPrivate.h"
 
 using namespace LLVMJIT;
 using namespace IR;

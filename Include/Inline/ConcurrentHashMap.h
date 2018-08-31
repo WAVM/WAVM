@@ -26,6 +26,13 @@ struct ConcurrentHashMap
 		return stripe.map.add(key, std::forward<ValueArgs>(valueArgs)...);
 	}
 
+	template<typename... ValueArgs> void addOrFail(const Key& key, ValueArgs&&... valueArgs)
+	{
+		Stripe& stripe = stripes[getStripeIndex(key)];
+		Lock<Platform::Mutex> stripeLock(stripe.mutex);
+		stripe.map.addOrFail(key, std::forward<ValueArgs>(valueArgs)...);
+	}
+
 	template<typename... ValueArgs> void set(const Key& key, ValueArgs&&... valueArgs)
 	{
 		Stripe& stripe = stripes[getStripeIndex(key)];

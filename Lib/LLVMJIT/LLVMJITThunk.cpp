@@ -5,9 +5,10 @@
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
 #include "LLVMEmitContext.h"
-#include "LLVMJIT.h"
+#include "LLVMJIT/LLVMJIT.h"
+#include "LLVMJITPrivate.h"
 #include "Logging/Logging.h"
-#include "RuntimePrivate.h"
+#include "Runtime/Runtime.h"
 
 #include "LLVMPreInclude.h"
 
@@ -22,7 +23,7 @@ using namespace LLVMJIT;
 using namespace Runtime;
 
 // A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
-static HashMap<FunctionType, struct JITSymbol*> invokeThunkTypeToSymbolMap;
+static HashMap<FunctionType, struct JITFunction*> invokeThunkTypeToFunctionMap;
 
 struct IntrinsicThunkKey
 {
@@ -50,44 +51,20 @@ inline bool operator==(const IntrinsicThunkKey& a, const IntrinsicThunkKey& b)
 }
 
 // A map from function types to JIT symbols for cached native thunks (WASM -> C++)
-static HashMap<IntrinsicThunkKey, struct JITSymbol*> intrinsicFunctionToThunkSymbolMap;
+static HashMap<IntrinsicThunkKey, struct JITFunction*> intrinsicFunctionToThunkFunctionMap;
 
-// The JIT compilation unit for a single invoke thunk.
-struct JITThunkUnit : JITUnit
-{
-	FunctionType functionType;
-
-	JITSymbol* symbol;
-
-	JITThunkUnit(FunctionType inFunctionType) : functionType(inFunctionType), symbol(nullptr) {}
-
-	virtual JITSymbol* notifySymbolLoaded(const char* name,
-										  Uptr baseAddress,
-										  Uptr numBytes,
-										  std::map<U32, U32>&& offsetToOpIndexMap) override
-	{
-#if(defined(_WIN32) && !defined(_WIN64))
-		wavmAssert(!strcmp(name, "_thunk"));
-#else
-		wavmAssert(!strcmp(name, "thunk"));
-#endif
-		wavmAssert(!symbol);
-		symbol = new JITSymbol(functionType, baseAddress, numBytes, std::move(offsetToOpIndexMap));
-		return symbol;
-	}
-};
-
-InvokeFunctionPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
-											  CallingConvention callingConvention)
+InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
+										   CallingConvention callingConvention)
 {
 	Lock<Platform::Mutex> llvmLock(llvmMutex);
 
 	initLLVM();
 
 	// Reuse cached invoke thunks for the same function type.
-	JITSymbol*& invokeThunkSymbol = invokeThunkTypeToSymbolMap.getOrAdd(functionType, nullptr);
-	if(invokeThunkSymbol)
-	{ return reinterpret_cast<InvokeFunctionPointer>(invokeThunkSymbol->baseAddress); }
+	JITFunction*& invokeThunkFunction
+		= invokeThunkTypeToFunctionMap.getOrAdd(functionType, nullptr);
+	if(invokeThunkFunction)
+	{ return reinterpret_cast<InvokeThunkPointer>(invokeThunkFunction->baseAddress); }
 
 	llvm::Module llvmModule("", *llvmContext);
 	auto llvmFunctionType = llvm::FunctionType::get(
@@ -158,40 +135,45 @@ InvokeFunctionPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 	std::vector<U8> objectBytes = compileLLVMModule(std::move(llvmModule), false);
 
 	// Load the object code.
-	auto jitUnit = new JITThunkUnit(functionType);
-	jitUnit->load(objectBytes, {}, false);
+	auto jitModule = new LoadedModule(objectBytes, {}, false);
 
-	wavmAssert(jitUnit->symbol);
-	invokeThunkSymbol = jitUnit->symbol;
+#if(defined(_WIN32) && !defined(_WIN64))
+	const char* thunkFunctionName = "_thunk";
+#else
+	const char* thunkFunctionName = "thunk";
+#endif
+	invokeThunkFunction                  = jitModule->nameToFunctionMap[thunkFunctionName];
+	invokeThunkFunction->type            = JITFunction::Type::invokeThunk;
+	invokeThunkFunction->invokeThunkType = functionType;
 
-	return reinterpret_cast<InvokeFunctionPointer>(invokeThunkSymbol->baseAddress);
+	return reinterpret_cast<InvokeThunkPointer>(invokeThunkFunction->baseAddress);
 }
 
 void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 								 FunctionType functionType,
 								 CallingConvention callingConvention,
-								 MemoryInstance* defaultMemory,
-								 TableInstance* defaultTable)
+								 MemoryBinding defaultMemory,
+								 TableBinding defaultTable)
 {
 	wavmAssert(callingConvention == CallingConvention::intrinsic
 			   || callingConvention == CallingConvention::intrinsicWithContextSwitch
 			   || callingConvention == CallingConvention::intrinsicWithMemAndTable);
 
-	// Lock<Platform::Mutex> llvmLock(llvmMutex);
+	Lock<Platform::Mutex> llvmLock(llvmMutex);
 
 	initLLVM();
 
 	// Reuse cached intrinsic thunks for the same function type.
 	const IntrinsicThunkKey key{
 		nativeFunction,
-		callingConvention == CallingConvention::intrinsicWithMemAndTable && defaultMemory
-			? defaultMemory->id
-			: UINT32_MAX,
-		callingConvention == CallingConvention::intrinsicWithMemAndTable && defaultTable
-			? defaultTable->id
-			: UINT32_MAX};
-	JITSymbol*& intrinsicThunkSymbol = intrinsicFunctionToThunkSymbolMap.getOrAdd(key, nullptr);
-	if(intrinsicThunkSymbol) { return reinterpret_cast<void*>(intrinsicThunkSymbol->baseAddress); }
+		callingConvention == CallingConvention::intrinsicWithMemAndTable ? defaultMemory.id
+																		 : UINTPTR_MAX,
+		callingConvention == CallingConvention::intrinsicWithMemAndTable ? defaultTable.id
+																		 : UINTPTR_MAX};
+	JITFunction*& intrinsicThunkFunction
+		= intrinsicFunctionToThunkFunctionMap.getOrAdd(key, nullptr);
+	if(intrinsicThunkFunction)
+	{ return reinterpret_cast<void*>(intrinsicThunkFunction->baseAddress); }
 
 	// Create a LLVM module containing a single function with the same signature as the native
 	// function, but with the WASM calling convention.
@@ -202,17 +184,17 @@ void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	llvmFunction->setCallingConv(asLLVMCallingConv(callingConvention));
 
 	llvm::Constant* defaultMemoryOffset = nullptr;
-	if(defaultMemory)
+	if(defaultMemory.id != UINTPTR_MAX)
 	{
 		defaultMemoryOffset = emitLiteral(offsetof(CompartmentRuntimeData, memoryBases)
-										  + sizeof(void*) * defaultMemory->id);
+										  + sizeof(void*) * defaultMemory.id);
 	}
 
 	llvm::Constant* defaultTableOffset = nullptr;
-	if(defaultTable)
+	if(defaultTable.id != UINTPTR_MAX)
 	{
 		defaultTableOffset = emitLiteral(offsetof(CompartmentRuntimeData, tableBases)
-										 + sizeof(void*) * defaultTable->id);
+										 + sizeof(void*) * defaultTable.id);
 	}
 
 	EmitContext emitContext(defaultMemoryOffset, defaultTableOffset);
@@ -238,11 +220,15 @@ void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	std::vector<U8> objectBytes = compileLLVMModule(std::move(llvmModule), false);
 
 	// Load the object code.
-	auto jitUnit = new JITThunkUnit(functionType);
-	jitUnit->load(objectBytes, {}, false);
+	auto jitModule = new LoadedModule(objectBytes, {}, false);
 
-	wavmAssert(jitUnit->symbol);
-	intrinsicThunkSymbol = jitUnit->symbol;
+#if(defined(_WIN32) && !defined(_WIN64))
+	const char* thunkFunctionName = "_thunk";
+#else
+	const char* thunkFunctionName = "thunk";
+#endif
+	intrinsicThunkFunction       = jitModule->nameToFunctionMap[thunkFunctionName];
+	intrinsicThunkFunction->type = JITFunction::Type::intrinsicThunk;
 
-	return reinterpret_cast<void*>(intrinsicThunkSymbol->baseAddress);
+	return reinterpret_cast<void*>(intrinsicThunkFunction->baseAddress);
 }

@@ -14,6 +14,7 @@
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Linker.h"
+#include "Runtime/RuntimeData.h"
 #include "WASM/WASM.h"
 #include "wavix.h"
 
@@ -246,7 +247,7 @@ namespace Wavix
 		}
 
 		// Add the process to the PID->process hash table.
-		errorUnless(pidToProcessMap.add(process->id, process));
+		pidToProcessMap.addOrFail(process->id, process);
 
 		// Load the module.
 		ModuleInstance* moduleInstance = loadModule(process, hostFilename);
@@ -338,7 +339,7 @@ namespace Wavix
 		}
 
 		// Add the process to the PID->process hash table.
-		errorUnless(pidToProcessMap.add(newProcess->id, newProcess));
+		pidToProcessMap.addOrFail(newProcess->id, newProcess);
 
 		// Create a new Wavix Thread with a clone of the original's runtime context.
 		auto newContext
