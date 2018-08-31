@@ -55,7 +55,7 @@ namespace Wavix
 		if(pathString.size() == 0) { return false; }
 
 		const U8* nextChar = (const U8*)pathString.c_str();
-		const U8* endChar  = nextChar + pathString.size();
+		const U8* endChar = nextChar + pathString.size();
 
 		switch(*nextChar)
 		{
@@ -84,7 +84,7 @@ namespace Wavix
 			}
 			default:
 			{
-				U32 codePoint            = 0;
+				U32 codePoint = 0;
 				const U8* codePointStart = nextChar;
 				if(!Unicode::decodeUTF8CodePoint(nextChar, endChar, codePoint)) { return false; }
 				while(codePointStart < nextChar) { nextComponent += *codePointStart++; }
@@ -125,14 +125,14 @@ namespace Wavix
 	{
 		enum
 		{
-			readOnly       = 0x0000,
-			writeOnly      = 0x0001,
-			readWrite      = 0x0002,
+			readOnly = 0x0000,
+			writeOnly = 0x0001,
+			readWrite = 0x0002,
 			accessModeMask = 0x0003,
 
-			create         = 0x0040,
-			exclusive      = 0x0080,
-			truncate       = 0x0200,
+			create = 0x0040,
+			exclusive = 0x0080,
+			truncate = 0x0200,
 			createModeMask = create | exclusive | truncate,
 
 			// noCTTY = 0x0100,
@@ -205,7 +205,7 @@ namespace Wavix
 		if(!platformFile) { return -1; }
 
 		Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
-		I32 fd                    = allocateFD();
+		I32 fd = allocateFD();
 		currentProcess->files[fd] = platformFile;
 
 		return fd;
@@ -339,14 +339,14 @@ namespace Wavix
 		Platform::File* platformFile = currentProcess->files[fd];
 		if(!platformFile) { throwException(Exception::calledUnimplementedIntrinsicType); }
 
-		const IoVec* ios  = memoryArrayPtr<const IoVec>(memory, iosAddress, numIos);
+		const IoVec* ios = memoryArrayPtr<const IoVec>(memory, iosAddress, numIos);
 		Uptr numReadBytes = 0;
 		for(U32 ioIndex = 0; ioIndex < U32(numIos); ++ioIndex)
 		{
 			const IoVec io = ios[ioIndex];
 			if(io.numBytes)
 			{
-				U8* ioData          = memoryArrayPtr<U8>(memory, io.address, io.numBytes);
+				U8* ioData = memoryArrayPtr<U8>(memory, io.address, io.numBytes);
 				Uptr ioNumReadBytes = 0;
 				const bool ioResult
 					= Platform::readFile(platformFile, ioData, io.numBytes, &ioNumReadBytes);
@@ -383,14 +383,14 @@ namespace Wavix
 		Platform::File* platformFile = currentProcess->files[fd];
 		if(!platformFile) { throwException(Exception::calledUnimplementedIntrinsicType); }
 
-		const IoVec* ios     = memoryArrayPtr<const IoVec>(memory, iosAddress, numIOs);
+		const IoVec* ios = memoryArrayPtr<const IoVec>(memory, iosAddress, numIOs);
 		Uptr numWrittenBytes = 0;
 		for(U32 ioIndex = 0; ioIndex < U32(numIOs); ++ioIndex)
 		{
 			const IoVec io = ios[ioIndex];
 			if(io.numBytes)
 			{
-				const U8* ioData       = memoryArrayPtr<U8>(memory, io.address, io.numBytes);
+				const U8* ioData = memoryArrayPtr<U8>(memory, io.address, io.numBytes);
 				Uptr ioNumWrittenBytes = 0;
 				const bool ioResult
 					= Platform::writeFile(platformFile, ioData, io.numBytes, &ioNumWrittenBytes);
@@ -768,9 +768,9 @@ namespace Wavix
 				unsigned short ws_ypixel; /* vertical size, pixels */
 			};
 
-			WinSize& winSize  = memoryRef<WinSize>(memory, arg0);
-			winSize.ws_row    = 43;
-			winSize.ws_col    = 80;
+			WinSize& winSize = memoryRef<WinSize>(memory, arg0);
+			winSize.ws_row = 43;
+			winSize.ws_col = 80;
 			winSize.ws_xpixel = 800;
 			winSize.ws_ypixel = 600;
 			return 0;

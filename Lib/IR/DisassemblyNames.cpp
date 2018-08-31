@@ -9,15 +9,15 @@ using namespace Serialization;
 
 enum class NameSubsectionType : U8
 {
-	module   = 0,
+	module = 0,
 	function = 1,
-	local    = 2,
-	label    = 3,
-	type     = 4,
-	table    = 5,
-	memory   = 6,
-	global   = 7,
-	invalid  = 0xff
+	local = 2,
+	label = 3,
+	type = 4,
+	table = 5,
+	memory = 6,
+	global = 7,
+	invalid = 0xff
 };
 
 static void deserializeNameMap(InputStream& stream,

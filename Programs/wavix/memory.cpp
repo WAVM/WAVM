@@ -26,7 +26,7 @@ namespace Wavix
 		{ throwException(Exception::calledUnimplementedIntrinsicType); }
 
 		MemoryInstance* memory = currentThread->process->memory;
-		Iptr basePageIndex     = growMemory(memory, numPages);
+		Iptr basePageIndex = growMemory(memory, numPages);
 		if(basePageIndex == -1) { return -1; }
 
 		return coerce32bitAddress(basePageIndex << IR::numBytesPerPageLog2);
@@ -46,7 +46,7 @@ namespace Wavix
 		if(address & (IR::numBytesPerPage - 1) || numBytes == 0) { return ErrNo::einval; }
 
 		const Uptr basePageIndex = address >> IR::numBytesPerPageLog2;
-		const Uptr numPages      = (numBytes + IR::numBytesPerPage - 1) >> IR::numBytesPerPageLog2;
+		const Uptr numPages = (numBytes + IR::numBytesPerPage - 1) >> IR::numBytesPerPageLog2;
 
 		if(basePageIndex + numPages > getMemoryMaxPages(memory)) { return ErrNo::einval; }
 

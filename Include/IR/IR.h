@@ -11,13 +11,13 @@ namespace IR
 	enum : U64
 	{
 		maxMemoryPages = 65536,
-		maxTableElems  = U64(UINT32_MAX) + 1
+		maxTableElems = U64(UINT32_MAX) + 1
 	};
 	enum : Uptr
 	{
-		numBytesPerPage     = (Uptr)65536,
+		numBytesPerPage = (Uptr)65536,
 		numBytesPerPageLog2 = (Uptr)16,
-		maxReturnValues     = (Uptr)16,
+		maxReturnValues = (Uptr)16,
 	};
 
 	struct FeatureSpec
@@ -27,20 +27,20 @@ namespace IR
 		bool mvp = true;
 
 		// Proposed standard extensions
-		bool importExportMutableGlobals    = true;
-		bool extendedNamesSection          = true;
-		bool simd                          = true;
-		bool atomics                       = true;
-		bool exceptionHandling             = true;
-		bool nonTrappingFloatToInt         = true;
-		bool extendedSignExtension         = true;
+		bool importExportMutableGlobals = true;
+		bool extendedNamesSection = true;
+		bool simd = true;
+		bool atomics = true;
+		bool exceptionHandling = true;
+		bool nonTrappingFloatToInt = true;
+		bool extendedSignExtension = true;
 		bool multipleResultsAndBlockParams = true;
 
 		// WAVM-specific extensions
-		bool sharedTables                        = true;
+		bool sharedTables = true;
 		bool requireSharedFlagForAtomicOperators = false; // (true is standard)
 
-		Uptr maxLocals            = 65536;
+		Uptr maxLocals = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;
 	};
 }

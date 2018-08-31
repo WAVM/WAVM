@@ -129,8 +129,8 @@ StaticData::StaticData()
 
 	for(auto literalTokenTuple : literalTokenTuples)
 	{
-		const TokenType tokenType   = std::get<0>(literalTokenTuple);
-		const char* literalString   = std::get<1>(literalTokenTuple);
+		const TokenType tokenType = std::get<0>(literalTokenTuple);
+		const char* literalString = std::get<1>(literalTokenTuple);
 		const bool isTokenSeparator = std::get<2>(literalTokenTuple);
 
 		NFA::StateIndex finalState = NFA::maximumTerminalStateIndex - (NFA::StateIndex)tokenType;
@@ -187,12 +187,12 @@ Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 
 	// Allocate enough memory up front for a token and newline for each character in the input
 	// string.
-	Token* tokens   = (Token*)malloc(sizeof(Token) * (stringLength + 1));
+	Token* tokens = (Token*)malloc(sizeof(Token) * (stringLength + 1));
 	U32* lineStarts = (U32*)malloc(sizeof(U32) * (stringLength + 2));
 
-	Token* nextToken   = tokens;
+	Token* nextToken = tokens;
 	U32* nextLineStart = lineStarts;
-	*nextLineStart++   = 0;
+	*nextLineStart++ = 0;
 
 	const char* nextChar = string;
 	while(true)
@@ -244,7 +244,7 @@ Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 						else if(nextChar == string + stringLength - 1)
 						{
 							// Emit an unterminated comment token.
-							nextToken->type  = t_unterminatedComment;
+							nextToken->type = t_unterminatedComment;
 							nextToken->begin = U32(firstCommentChar - string);
 							++nextToken;
 							goto doneSkippingWhitespace;
@@ -277,7 +277,7 @@ Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 
 		// Once we reach a non-whitespace, non-comment character, feed characters into the NFA
 		// until it reaches a terminal state.
-		nextToken->begin              = U32(nextChar - string);
+		nextToken->begin = U32(nextChar - string);
 		NFA::StateIndex terminalState = staticData.nfaMachine.feed(nextChar);
 		if(terminalState != NFA::unmatchedCharacterTerminal)
 		{
@@ -314,9 +314,9 @@ Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
 
 	// Shrink the line start and token arrays to the final number of tokens/lines.
 	const Uptr numLineStarts = nextLineStart - lineStarts;
-	const Uptr numTokens     = nextToken - tokens;
-	lineStarts               = (U32*)realloc(lineStarts, sizeof(U32) * numLineStarts);
-	tokens                   = (Token*)realloc(tokens, sizeof(Token) * numTokens);
+	const Uptr numTokens = nextToken - tokens;
+	lineStarts = (U32*)realloc(lineStarts, sizeof(U32) * numLineStarts);
+	tokens = (Token*)realloc(tokens, sizeof(Token) * numTokens);
 
 	// Create the LineInfo object that encapsulates the line start information.
 	outLineInfo = new LineInfo{lineStarts, U32(numLineStarts)};
@@ -385,7 +385,7 @@ TextFileLocus WAST::calcLocusFromOffset(const char* string,
 
 	// Copy the full source line into the TextFileLocus for context.
 	const Uptr lineStartOffset = getLineOffset(lineInfo, result.newlines);
-	Uptr lineEndOffset         = getLineOffset(lineInfo, result.newlines + 1) - 1;
+	Uptr lineEndOffset = getLineOffset(lineInfo, result.newlines + 1) - 1;
 	result.sourceLine = std::string(string + lineStartOffset, lineEndOffset - lineStartOffset);
 
 	return result;

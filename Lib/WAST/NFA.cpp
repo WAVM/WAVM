@@ -105,7 +105,7 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 	dfaStates.emplace_back();
 	pendingDFAStates.push_back((StateIndex)0);
 
-	Uptr maxLocalStates   = 0;
+	Uptr maxLocalStates = 0;
 	Uptr maxDFANextStates = 0;
 
 	while(pendingDFAStates.size())
@@ -131,7 +131,7 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 		// Find the subset of the non-terminal states in the current set.
 		StateSet nonTerminalCurrentStateSet;
 		StateIndex currentTerminalState = unmatchedCharacterTerminal | edgeDoesntConsumeInputFlag;
-		bool hasCurrentTerminalState    = false;
+		bool hasCurrentTerminalState = false;
 		for(auto stateIndex : epsilonClosureCurrentStateSet)
 		{
 			if(stateIndex >= 0) { addUnique(nonTerminalCurrentStateSet, stateIndex); }
@@ -142,7 +142,7 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 					Errors::fatalf("NFA has multiple possible terminal states for the same input");
 				}
 				hasCurrentTerminalState = true;
-				currentTerminalState    = stateIndex | edgeDoesntConsumeInputFlag;
+				currentTerminalState = stateIndex | edgeDoesntConsumeInputFlag;
 			}
 		}
 
@@ -310,9 +310,9 @@ struct StateTransitionsByChar
 
 	void operator=(StateTransitionsByChar&& inMove)
 	{
-		c                              = inMove.c;
-		nextStateByInitialState        = inMove.nextStateByInitialState;
-		numStates                      = inMove.numStates;
+		c = inMove.c;
+		nextStateByInitialState = inMove.nextStateByInitialState;
+		numStates = inMove.numStates;
 		inMove.nextStateByInitialState = nullptr;
 	}
 
@@ -365,9 +365,9 @@ NFA::Machine::Machine(Builder* builder)
 	// states.
 	U8 characterToClassMap[256];
 	U8 representativeCharsByClass[256];
-	numClasses                                       = 1;
+	numClasses = 1;
 	characterToClassMap[stateTransitionsByChar[0].c] = 0;
-	representativeCharsByClass[0]                    = stateTransitionsByChar[0].c;
+	representativeCharsByClass[0] = stateTransitionsByChar[0].c;
 	for(Uptr charIndex = 1; charIndex < stateTransitionsByChar.size(); ++charIndex)
 	{
 		if(stateTransitionsByChar[charIndex] != stateTransitionsByChar[charIndex - 1])
@@ -410,10 +410,10 @@ NFA::Machine::~Machine()
 void NFA::Machine::moveFrom(Machine&& inMachine)
 {
 	memcpy(charToOffsetMap, inMachine.charToOffsetMap, sizeof(charToOffsetMap));
-	stateAndOffsetToNextStateMap           = inMachine.stateAndOffsetToNextStateMap;
+	stateAndOffsetToNextStateMap = inMachine.stateAndOffsetToNextStateMap;
 	inMachine.stateAndOffsetToNextStateMap = nullptr;
-	numClasses                             = inMachine.numClasses;
-	numStates                              = inMachine.numStates;
+	numClasses = inMachine.numClasses;
+	numStates = inMachine.numStates;
 }
 
 static char nibbleToHexChar(U8 value) { return value < 10 ? ('0' + value) : 'a' + value - 10; }
@@ -509,7 +509,7 @@ std::string NFA::dumpNFAGraphViz(const Builder* builder)
 
 		for(const auto& statePredicatePair : nfaState.nextStateToPredicateMap)
 		{
-			std::string edgeLabel     = getGraphEdgeLabel(statePredicatePair.value);
+			std::string edgeLabel = getGraphEdgeLabel(statePredicatePair.value);
 			std::string nextStateName = statePredicatePair.key < 0
 											? "terminal" + std::to_string(-statePredicatePair.key)
 											: "state" + std::to_string(statePredicatePair.key);
@@ -557,7 +557,7 @@ std::string NFA::Machine::dumpDFAGraphViz() const
 			const InternalStateIndex nextState
 				= stateAndOffsetToNextStateMap[0 + classIndex * numStates];
 			CharSet& transitionPredicate = transitions.getOrAdd(nextState, CharSet{});
-			transitionPredicate          = classCharSets[classIndex] | transitionPredicate;
+			transitionPredicate = classCharSets[classIndex] | transitionPredicate;
 		}
 
 		Uptr startIndex = 0;
@@ -604,7 +604,7 @@ std::string NFA::Machine::dumpDFAGraphViz() const
 			const InternalStateIndex nextState
 				= stateAndOffsetToNextStateMap[stateIndex + classIndex * numStates];
 			CharSet& transitionPredicate = transitions.getOrAdd(nextState, CharSet{});
-			transitionPredicate          = classCharSets[classIndex] | transitionPredicate;
+			transitionPredicate = classCharSets[classIndex] | transitionPredicate;
 		}
 
 		for(auto transitionPair : transitions)

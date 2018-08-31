@@ -38,7 +38,7 @@ void EmitFunctionContext::tee_local(GetOrSetVariableImm<false> imm)
 void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 {
 	wavmAssert(imm.variableIndex < irModule.globals.size());
-	GlobalType globalType     = irModule.globals.getType(imm.variableIndex);
+	GlobalType globalType = irModule.globals.getType(imm.variableIndex);
 	llvm::Type* llvmValueType = asLLVMType(globalType.valueType);
 
 	llvm::Value* value;

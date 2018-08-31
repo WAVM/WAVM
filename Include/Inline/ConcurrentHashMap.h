@@ -9,7 +9,7 @@
 template<typename Key,
 		 typename Value,
 		 typename KeyHashPolicy = DefaultHashPolicy<Key>,
-		 Uptr numStripes        = 64>
+		 Uptr numStripes = 64>
 struct ConcurrentHashMap
 {
 	template<typename... ValueArgs> Value getOrAdd(const Key& key, ValueArgs&&... valueArgs)

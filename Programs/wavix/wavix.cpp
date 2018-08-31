@@ -243,7 +243,7 @@ namespace Wavix
 
 	enum class ClockId : I32
 	{
-		realtime  = 0,
+		realtime = 0,
 		monotonic = 1,
 	};
 
@@ -266,7 +266,7 @@ namespace Wavix
 		{
 		case ClockId::realtime:
 		case ClockId::monotonic:
-			result.tv_sec  = I32(currentClock / 1000000000);
+			result.tv_sec = I32(currentClock / 1000000000);
 			result.tv_nsec = I32(currentClock % 1000000000);
 			++hackedClock;
 			break;
@@ -434,7 +434,7 @@ int main(int argc, const char** argv)
 
 	// Create a dummy root process+thread.
 	Wavix::Process* initProcess = new Wavix::Process;
-	Wavix::Thread* initThread   = new Wavix::Thread(initProcess, nullptr);
+	Wavix::Thread* initThread = new Wavix::Thread(initProcess, nullptr);
 
 	// Spawn a process to execute the specified binary.
 	Wavix::Process* process = Wavix::spawnProcess(initProcess, filename, processArgs, {}, "/");

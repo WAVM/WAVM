@@ -17,13 +17,13 @@ namespace IR
 	{
 		enum class Type : U16
 		{
-			i32_const  = 0x0041,
-			i64_const  = 0x0042,
-			f32_const  = 0x0043,
-			f64_const  = 0x0044,
+			i32_const = 0x0041,
+			i64_const = 0x0042,
+			f32_const = 0x0043,
+			f64_const = 0x0044,
 			get_global = 0x0023,
 			v128_const = 0xfd00,
-			error      = 0xffff
+			error = 0xffff
 		};
 		union
 		{

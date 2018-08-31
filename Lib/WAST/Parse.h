@@ -65,7 +65,7 @@ namespace WAST
 
 		void reset()
 		{
-			begin    = nullptr;
+			begin = nullptr;
 			numChars = 0;
 		}
 
@@ -161,7 +161,7 @@ namespace WAST
 
 		CursorState(const Token* inNextToken,
 					ParseState* inParseState,
-					ModuleState* inModuleState            = nullptr,
+					ModuleState* inModuleState = nullptr,
 					struct FunctionState* inFunctionState = nullptr)
 		: nextToken(inNextToken)
 		, parseState(inParseState)

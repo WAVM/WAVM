@@ -198,7 +198,7 @@ namespace IR
 
 enum
 {
-	magicNumber    = 0x6d736100, // "\0asm"
+	magicNumber = 0x6d736100, // "\0asm"
 	currentVersion = 1
 };
 
@@ -277,16 +277,16 @@ static void serialize(InputStream& stream, ControlStructureImm& imm, const Funct
 	if(encodedBlockType >= 0)
 	{
 		imm.type.format = IndexedBlockType::functionType;
-		imm.type.index  = encodedBlockType;
+		imm.type.index = encodedBlockType;
 	}
 	else if(encodedBlockType == -64)
 	{
-		imm.type.format     = IndexedBlockType::noParametersOrResult;
+		imm.type.format = IndexedBlockType::noParametersOrResult;
 		imm.type.resultType = ValueType::any;
 	}
 	else
 	{
-		imm.type.format     = IndexedBlockType::oneResult;
+		imm.type.format = IndexedBlockType::oneResult;
 		imm.type.resultType = ValueType(-encodedBlockType);
 	}
 }
@@ -415,7 +415,7 @@ void serializeSection(OutputStream& stream, SectionType type, SerializeSection s
 	ArrayOutputStream sectionStream;
 	serializeSectionBody(sectionStream);
 	std::vector<U8> sectionBytes = sectionStream.getBytes();
-	Uptr sectionNumBytes         = sectionBytes.size();
+	Uptr sectionNumBytes = sectionBytes.size();
 	serializeVarUInt32(stream, sectionNumBytes);
 	serializeBytes(stream, sectionBytes.data(), sectionBytes.size());
 }
@@ -504,14 +504,14 @@ static void serializeFunctionBody(OutputStream& sectionStream,
 	if(functionDef.nonParameterLocalTypes.size())
 	{
 		localSets[0].type = ValueType::any;
-		localSets[0].num  = 0;
+		localSets[0].num = 0;
 		for(auto localType : functionDef.nonParameterLocalTypes)
 		{
 			if(localSets[numLocalSets].type != localType)
 			{
 				if(localSets[numLocalSets].type != ValueType::any) { ++numLocalSets; }
 				localSets[numLocalSets].type = localType;
-				localSets[numLocalSets].num  = 0;
+				localSets[numLocalSets].num = 0;
 			}
 			++localSets[numLocalSets].num;
 		}
@@ -854,7 +854,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	serializeConstant(moduleStream, "version", U32(currentVersion));
 
 	SectionType lastKnownSectionType = SectionType::unknown;
-	bool hadFunctionDefinitions      = false;
+	bool hadFunctionDefinitions = false;
 	while(moduleStream.capacity())
 	{
 		SectionType sectionType;

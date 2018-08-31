@@ -20,7 +20,7 @@ template<typename Pointee> struct IntrusiveSharedPtr
 	}
 	IntrusiveSharedPtr(IntrusiveSharedPtr<Pointee>&& inMove)
 	{
-		value        = inMove.value;
+		value = inMove.value;
 		inMove.value = nullptr;
 	}
 
@@ -33,22 +33,22 @@ template<typename Pointee> struct IntrusiveSharedPtr
 	void operator=(Pointee* inValue)
 	{
 		auto oldValue = value;
-		value         = inValue;
+		value = inValue;
 		if(value) { value->addRef(); }
 		if(oldValue) { oldValue->removeRef(); }
 	}
 	void operator=(const IntrusiveSharedPtr<Pointee>& inCopy)
 	{
 		auto oldValue = value;
-		value         = inCopy.value;
+		value = inCopy.value;
 		if(value) { value->addRef(); }
 		if(oldValue) { oldValue->removeRef(); }
 	}
 	void operator=(IntrusiveSharedPtr<Pointee>&& inMove)
 	{
 		auto oldValue = value;
-		value         = inMove.value;
-		inMove.value  = nullptr;
+		value = inMove.value;
+		inMove.value = nullptr;
 		if(oldValue) { oldValue->removeRef(); }
 	}
 

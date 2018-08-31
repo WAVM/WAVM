@@ -23,7 +23,7 @@ struct ModuleMatcher
 		if(aModule.dataSegments.size() != bModule.dataSegments.size()) { failVerification(); }
 		for(Uptr segmentIndex = 0; segmentIndex < aModule.dataSegments.size(); ++segmentIndex)
 		{
-			const DataSegment& segment     = aModule.dataSegments[segmentIndex];
+			const DataSegment& segment = aModule.dataSegments[segmentIndex];
 			const DataSegment& wastSegment = bModule.dataSegments[segmentIndex];
 			if(segment.memoryIndex != wastSegment.memoryIndex
 			   || segment.baseOffset != wastSegment.baseOffset || segment.data != wastSegment.data)
@@ -33,7 +33,7 @@ struct ModuleMatcher
 		if(aModule.tableSegments.size() != bModule.tableSegments.size()) { failVerification(); }
 		for(Uptr segmentIndex = 0; segmentIndex < aModule.tableSegments.size(); ++segmentIndex)
 		{
-			const TableSegment& segment     = aModule.tableSegments[segmentIndex];
+			const TableSegment& segment = aModule.tableSegments[segmentIndex];
 			const TableSegment& wastSegment = bModule.tableSegments[segmentIndex];
 			if(segment.tableIndex != wastSegment.tableIndex
 			   || segment.baseOffset != wastSegment.baseOffset
@@ -150,8 +150,8 @@ private:
 
 		const U8* aNextByte = a.code.data();
 		const U8* bNextByte = b.code.data();
-		const U8* aEnd      = a.code.data() + a.code.size();
-		const U8* bEnd      = b.code.data() + b.code.size();
+		const U8* aEnd = a.code.data() + a.code.size();
+		const U8* bEnd = b.code.data() + b.code.size();
 
 		while(aNextByte < aEnd && bNextByte < bEnd)
 		{

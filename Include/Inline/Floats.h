@@ -18,16 +18,16 @@ namespace Floats
 
 		enum Constants : I64
 		{
-			maxSignificand       = 0xfffffffffffff,
-			numSignificandBits   = 52,
+			maxSignificand = 0xfffffffffffff,
+			numSignificandBits = 52,
 			numSignificandHexits = 13,
 			canonicalSignificand = 0x8000000000000ull,
 
-			denormalExponent  = -1023,
+			denormalExponent = -1023,
 			minNormalExponent = -1022,
 			maxNormalExponent = 1023,
-			exponentBias      = 1023,
-			maxExponentBits   = 0x7ff,
+			exponentBias = 1023,
+			maxExponentBits = 0x7ff,
 		};
 
 		union
@@ -51,16 +51,16 @@ namespace Floats
 
 		enum Constants : I32
 		{
-			maxSignificand       = 0x7fffff,
-			numSignificandBits   = 23,
+			maxSignificand = 0x7fffff,
+			numSignificandBits = 23,
 			numSignificandHexits = 6,
 			canonicalSignificand = 0x400000,
 
-			denormalExponent  = -127,
+			denormalExponent = -127,
 			minNormalExponent = -126,
 			maxNormalExponent = 127,
-			exponentBias      = 127,
-			maxExponentBits   = 0xff,
+			exponentBias = 127,
+			maxExponentBits = 0xff,
 		};
 
 		union

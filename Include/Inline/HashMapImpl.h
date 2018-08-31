@@ -93,7 +93,7 @@ template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::remove(const Key& 
 
 template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::contains(const Key& key) const
 {
-	const Uptr hash                     = KeyHashPolicy::getKeyHash(key);
+	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
 	wavmAssert(!bucket
 			   || bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
@@ -103,7 +103,7 @@ template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::contains(const Key
 template<HASHMAP_PARAMETERS>
 const Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const Key& key) const
 {
-	const Uptr hash                     = KeyHashPolicy::getKeyHash(key);
+	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
 	wavmAssert(bucket);
 	wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
@@ -112,7 +112,7 @@ const Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const Key& key) const
 
 template<HASHMAP_PARAMETERS> const Value* HashMap<HASHMAP_ARGUMENTS>::get(const Key& key) const
 {
-	const Uptr hash                     = KeyHashPolicy::getKeyHash(key);
+	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
 	if(bucket)
 	{
@@ -128,7 +128,7 @@ template<HASHMAP_PARAMETERS> const Value* HashMap<HASHMAP_ARGUMENTS>::get(const 
 template<HASHMAP_PARAMETERS>
 const HashMapPair<Key, Value>* HashMap<HASHMAP_ARGUMENTS>::getPair(const Key& key) const
 {
-	const Uptr hash                     = KeyHashPolicy::getKeyHash(key);
+	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
 	if(bucket)
 	{
@@ -145,7 +145,7 @@ template<HASHMAP_PARAMETERS> HashMapIterator<Key, Value> HashMap<HASHMAP_ARGUMEN
 {
 	// Find the first occupied bucket.
 	HashTableBucket<Pair>* beginBucket = table.getBuckets();
-	HashTableBucket<Pair>* endBucket   = table.getBuckets() + table.numBuckets();
+	HashTableBucket<Pair>* endBucket = table.getBuckets() + table.numBuckets();
 	while(beginBucket < endBucket && !beginBucket->hashAndOccupancy) { ++beginBucket; };
 	return HashMapIterator<Key, Value>(beginBucket, endBucket);
 }

@@ -285,22 +285,22 @@ void EmitFunctionContext::emit()
 	llvm::SmallVector<llvm::Metadata*, 10> diFunctionParameterTypes;
 	for(auto parameterType : functionType.params())
 	{ diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]); }
-	auto diParamArray   = moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes);
+	auto diParamArray = moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes);
 	auto diFunctionType = moduleContext.diBuilder.createSubroutineType(diParamArray);
-	diFunction          = moduleContext.diBuilder.createFunction(moduleContext.diModuleScope,
-                                                        llvmFunction->getName(),
-                                                        llvmFunction->getName(),
-                                                        moduleContext.diModuleScope,
-                                                        0,
-                                                        diFunctionType,
-                                                        false,
-                                                        true,
-                                                        0);
+	diFunction = moduleContext.diBuilder.createFunction(moduleContext.diModuleScope,
+														llvmFunction->getName(),
+														llvmFunction->getName(),
+														moduleContext.diModuleScope,
+														0,
+														diFunctionType,
+														false,
+														true,
+														0);
 	llvmFunction->setSubprogram(diFunction);
 
 	// Create the return basic block, and push the root control context for the function.
 	auto returnBlock = llvm::BasicBlock::Create(*llvmContext, "return", llvmFunction);
-	auto returnPHIs  = createPHIs(returnBlock, functionType.results());
+	auto returnPHIs = createPHIs(returnBlock, functionType.results());
 	pushControlStack(
 		ControlContext::Type::function, functionType.results(), returnBlock, returnPHIs);
 	pushBranchTarget(functionType.results(), returnBlock, returnPHIs);

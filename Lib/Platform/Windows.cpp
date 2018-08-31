@@ -107,8 +107,8 @@ static bool isPageAligned(U8* address)
 U8* Platform::allocateVirtualPages(Uptr numPages)
 {
 	const Uptr pageSizeLog2 = getPageSizeLog2();
-	const Uptr numBytes     = numPages << pageSizeLog2;
-	void* result            = VirtualAlloc(nullptr, numBytes, MEM_RESERVE, PAGE_NOACCESS);
+	const Uptr numBytes = numPages << pageSizeLog2;
+	void* result = VirtualAlloc(nullptr, numBytes, MEM_RESERVE, PAGE_NOACCESS);
 	if(result == nullptr) { return nullptr; }
 	return (U8*)result;
 }
@@ -118,7 +118,7 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 										  U8*& outUnalignedBaseAddress)
 {
 	const Uptr pageSizeLog2 = getPageSizeLog2();
-	const Uptr numBytes     = numPages << pageSizeLog2;
+	const Uptr numBytes = numPages << pageSizeLog2;
 	if(alignmentLog2 > pageSizeLog2)
 	{
 		Uptr numTries = 0;
@@ -131,7 +131,7 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 				= VirtualAlloc(nullptr, numBytes + alignmentBytes, MEM_RESERVE, PAGE_NOACCESS);
 			if(!probeResult) { return nullptr; }
 
-			const Uptr address        = reinterpret_cast<Uptr>(probeResult);
+			const Uptr address = reinterpret_cast<Uptr>(probeResult);
 			const Uptr alignedAddress = (address + alignmentBytes - 1) & ~(alignmentBytes - 1);
 
 			if(numTries < 10)
@@ -286,7 +286,7 @@ static std::string getModuleName(HMODULE module)
 static std::string trimModuleName(std::string moduleName)
 {
 	const std::string thisModuleName = getModuleName(getCurrentModule());
-	Uptr lastBackslashOffset         = thisModuleName.find_last_of("\\");
+	Uptr lastBackslashOffset = thisModuleName.find_last_of("\\");
 	if(lastBackslashOffset != UINTPTR_MAX && moduleName.size() >= lastBackslashOffset
 	   && moduleName.substr(0, lastBackslashOffset)
 			  == thisModuleName.substr(0, lastBackslashOffset))
@@ -310,7 +310,7 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 	SYMBOL_INFO* symbolInfo = (SYMBOL_INFO*)alloca(symbolAllocationSize);
 	ZeroMemory(symbolInfo, symbolAllocationSize);
 	symbolInfo->SizeOfStruct = sizeof(SYMBOL_INFO);
-	symbolInfo->MaxNameLen   = maxSymbolNameChars;
+	symbolInfo->MaxNameLen = maxSymbolNameChars;
 
 	// Call DbgHelp::SymFromAddr to try to find any debug symbol containing this address.
 	U64 displacement;
@@ -488,7 +488,7 @@ static LONG NTAPI unhandledExceptionFilterNonRentrant(struct _EXCEPTION_POINTERS
 	{
 		if(exceptionPointers->ExceptionRecord->ExceptionCode == SEH_WAVM_EXCEPTION)
 		{
-			signal.type                    = Signal::Type::unhandledException;
+			signal.type = Signal::Type::unhandledException;
 			signal.unhandledException.data = reinterpret_cast<void*>(
 				exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
 		}
@@ -552,7 +552,7 @@ bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
 									   const std::function<void(void*, const CallStack&)>& handler)
 {
 	CallStack* callStack = nullptr;
-	void* exceptionData  = nullptr;
+	void* exceptionData = nullptr;
 	__try
 	{
 		thunk();
@@ -583,10 +583,10 @@ namespace Platform
 {
 	struct Thread
 	{
-		HANDLE handle            = INVALID_HANDLE_VALUE;
-		DWORD id                 = 0xffffffff;
+		HANDLE handle = INVALID_HANDLE_VALUE;
+		DWORD id = 0xffffffff;
 		std::atomic<I32> numRefs = 2;
-		I64 result               = -1;
+		I64 result = -1;
 
 		void releaseRef()
 		{
@@ -598,7 +598,7 @@ namespace Platform
 		{
 			errorUnless(CloseHandle(handle));
 			handle = nullptr;
-			id     = 0;
+			id = 0;
 		}
 	};
 }
@@ -636,7 +636,7 @@ struct ExitThreadException
 	I64 exitCode;
 };
 
-static thread_local bool isThreadInitialized    = false;
+static thread_local bool isThreadInitialized = false;
 static thread_local U8* threadEntryFramePointer = nullptr;
 
 static void initThread()
@@ -689,10 +689,10 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 										 void* entryArgument)
 {
 	CreateThreadArgs* args = new CreateThreadArgs;
-	auto thread            = new Thread;
-	args->thread           = thread;
-	args->entry            = entry;
-	args->entryArgument    = entryArgument;
+	auto thread = new Thread;
+	args->thread = thread;
+	args->entry = entry;
+	args->entryArgument = entryArgument;
 
 	thread->handle
 		= CreateThread(nullptr, numStackBytes, createThreadEntry, args, 0, &args->thread->id);
@@ -752,8 +752,8 @@ static DWORD WINAPI forkThreadEntry(void* argsVoid)
 
 Thread* Platform::forkCurrentThread()
 {
-	auto forkThreadArgs    = new ForkThreadArgs;
-	auto thread            = new Thread;
+	auto forkThreadArgs = new ForkThreadArgs;
+	auto thread = new Thread;
 	forkThreadArgs->thread = thread;
 
 	if(!threadEntryFramePointer)
@@ -780,8 +780,8 @@ Thread* Platform::forkCurrentThread()
 
 		// Use the current stack pointer derive a conservative bounds on the area of this thread's
 		// stack that is active.
-		const U8* minActiveStackAddr   = getStackPointer() - 128;
-		const U8* maxActiveStackAddr   = threadEntryFramePointer;
+		const U8* minActiveStackAddr = getStackPointer() - 128;
+		const U8* maxActiveStackAddr = threadEntryFramePointer;
 		const Uptr numActiveStackBytes = maxActiveStackAddr - minActiveStackAddr;
 
 		if(numActiveStackBytes + 65536 + 4096 > numStackBytes)
@@ -797,7 +797,7 @@ Thread* Platform::forkCurrentThread()
 						   &forkThreadArgs->thread->id);
 
 		// Read the thread's initial stack pointer.
-		CONTEXT* threadContext      = new CONTEXT;
+		CONTEXT* threadContext = new CONTEXT;
 		threadContext->ContextFlags = CONTEXT_FULL;
 		errorUnless(GetThreadContext(forkThreadArgs->thread->handle, threadContext));
 
@@ -817,9 +817,9 @@ Thread* Platform::forkCurrentThread()
 		// Copy the forked stack data.
 		if(POISON_FORKED_STACK_SELF_POINTERS)
 		{
-			const Uptr* source    = (const Uptr*)minActiveStackAddr;
+			const Uptr* source = (const Uptr*)minActiveStackAddr;
 			const Uptr* sourceEnd = (const Uptr*)maxActiveStackAddr;
-			Uptr* dest            = (Uptr*)(forkedStackMaxAddr - numActiveStackBytes);
+			Uptr* dest = (Uptr*)(forkedStackMaxAddr - numActiveStackBytes);
 			wavmAssert(!(reinterpret_cast<Uptr>(source) & 7));
 			wavmAssert(!(reinterpret_cast<Uptr>(dest) & 7));
 			while(source < sourceEnd)
@@ -898,11 +898,11 @@ Platform::Event::~Event() { errorUnless(CloseHandle(handle)); }
 
 bool Platform::Event::wait(U64 untilTime)
 {
-	U64 currentTime            = getMonotonicClock();
+	U64 currentTime = getMonotonicClock();
 	const U64 startProcessTime = currentTime;
 	while(true)
 	{
-		const U64 timeoutMicroseconds   = currentTime > untilTime ? 0 : (untilTime - currentTime);
+		const U64 timeoutMicroseconds = currentTime > untilTime ? 0 : (untilTime - currentTime);
 		const U64 timeoutMilliseconds64 = timeoutMicroseconds / 1000;
 		const U32 timeoutMilliseconds32
 			= timeoutMilliseconds64 > UINT32_MAX ? (UINT32_MAX - 1) : U32(timeoutMilliseconds64);
@@ -937,10 +937,10 @@ File* Platform::openFile(const std::string& pathName,
 						 FileAccessMode accessMode,
 						 FileCreateMode createMode)
 {
-	DWORD desiredAccess       = 0;
-	DWORD shareMode           = 0;
+	DWORD desiredAccess = 0;
+	DWORD shareMode = 0;
 	DWORD creationDisposition = 0;
-	DWORD flagsAndAttributes  = 0;
+	DWORD flagsAndAttributes = 0;
 
 	switch(accessMode)
 	{
@@ -961,7 +961,7 @@ File* Platform::openFile(const std::string& pathName,
 	};
 
 	const U8* pathNameStart = (const U8*)pathName.c_str();
-	const U8* pathNameEnd   = pathNameStart + pathName.size();
+	const U8* pathNameEnd = pathNameStart + pathName.size();
 	std::wstring pathNameW;
 	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
 	{ return nullptr; }
@@ -996,8 +996,8 @@ File* Platform::getStdFile(StdDevice device)
 bool Platform::seekFile(File* file, I64 offset, FileSeekOrigin origin, U64* outAbsoluteOffset)
 {
 	LONG offsetHigh = LONG((offset >> 32) & 0xffffffff);
-	LONG result     = SetFilePointer(
-        filePointerToHandle(file), U32(offset & 0xffffffff), &offsetHigh, DWORD(origin));
+	LONG result = SetFilePointer(
+		filePointerToHandle(file), U32(offset & 0xffffffff), &offsetHigh, DWORD(origin));
 	if(result == INVALID_SET_FILE_POINTER) { return false; }
 	if(outAbsoluteOffset) { *outAbsoluteOffset = (U64(offsetHigh) << 32) | result; }
 	return true;
@@ -1009,8 +1009,8 @@ bool Platform::readFile(File* file, void* outData, Uptr numBytes, Uptr* outNumBy
 	if(numBytes > Uptr(UINT32_MAX)) { return false; }
 
 	DWORD windowsNumBytesRead = 0;
-	const BOOL result         = ReadFile(
-        filePointerToHandle(file), outData, U32(numBytes), &windowsNumBytesRead, nullptr);
+	const BOOL result = ReadFile(
+		filePointerToHandle(file), outData, U32(numBytes), &windowsNumBytesRead, nullptr);
 
 	if(outNumBytesRead) { *outNumBytesRead = Uptr(windowsNumBytesRead); }
 
@@ -1023,8 +1023,8 @@ bool Platform::writeFile(File* file, const void* data, Uptr numBytes, Uptr* outN
 	if(numBytes > Uptr(UINT32_MAX)) { return false; }
 
 	DWORD windowsNumBytesWritten = 0;
-	const BOOL result            = WriteFile(
-        filePointerToHandle(file), data, U32(numBytes), &windowsNumBytesWritten, nullptr);
+	const BOOL result = WriteFile(
+		filePointerToHandle(file), data, U32(numBytes), &windowsNumBytesWritten, nullptr);
 
 	if(outNumBytesWritten) { *outNumBytesWritten = Uptr(windowsNumBytesWritten); }
 

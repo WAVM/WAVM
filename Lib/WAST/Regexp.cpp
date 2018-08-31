@@ -242,7 +242,7 @@ static Node* parseSeq(const char*& nextChar, Uptr groupDepth)
 	while(true)
 	{
 		Node* newNode = parseQuantifier(nextChar, groupDepth);
-		result        = result ? new Seq(result, newNode) : newNode;
+		result = result ? new Seq(result, newNode) : newNode;
 
 		switch(*nextChar)
 		{
@@ -263,7 +263,7 @@ static Node* parseUnion(const char*& nextChar, Uptr groupDepth)
 	while(true)
 	{
 		Node* newNode = parseSeq(nextChar, groupDepth);
-		result        = result ? new Alt(result, newNode) : newNode;
+		result = result ? new Alt(result, newNode) : newNode;
 
 		switch(*nextChar)
 		{
@@ -282,7 +282,7 @@ static Node* parseUnion(const char*& nextChar, Uptr groupDepth)
 static Node* parse(const char* string)
 {
 	const char* nextChar = string;
-	Node* node           = parseUnion(nextChar, 0);
+	Node* node = parseUnion(nextChar, 0);
 	if(*nextChar != 0) { Errors::fatalf("failed to parse entire regexp"); }
 	return node;
 }
@@ -309,7 +309,7 @@ static void createNFA(NFA::Builder* nfaBuilder,
 	};
 	case NodeType::oneOrMore:
 	{
-		auto oneOrMore         = (OneOrMore*)node;
+		auto oneOrMore = (OneOrMore*)node;
 		auto intermediateState = NFA::addState(nfaBuilder);
 		createNFA(nfaBuilder, oneOrMore->child, initialState, intermediateState);
 		createNFA(nfaBuilder, oneOrMore->child, intermediateState, intermediateState);
@@ -332,7 +332,7 @@ static void createNFA(NFA::Builder* nfaBuilder,
 	}
 	case NodeType::seq:
 	{
-		auto seq               = (Seq*)node;
+		auto seq = (Seq*)node;
 		auto intermediateState = NFA::addState(nfaBuilder);
 		createNFA(nfaBuilder, seq->firstChild, initialState, intermediateState);
 		createNFA(nfaBuilder, seq->secondChild, intermediateState, finalState);

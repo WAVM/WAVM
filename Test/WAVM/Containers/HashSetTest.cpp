@@ -14,7 +14,7 @@ static std::string generateRandomString()
 	};
 
 	const Uptr numChars = rand() % maxChars;
-	char* buffer        = (char*)alloca(numChars + 1);
+	char* buffer = (char*)alloca(numChars + 1);
 	for(Uptr charIndex = 0; charIndex < numChars; ++charIndex)
 	{ buffer[charIndex] = 0x20 + (rand() % (0x7E - 0x20)); }
 	buffer[numChars] = 0;

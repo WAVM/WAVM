@@ -90,7 +90,7 @@ template<typename Value> static void atomicStore(Value* valuePointer, Value newV
 static U64 getEndTimeFromTimeout(U64 startTime, F64 timeout)
 {
 	const F64 timeoutMicroseconds = timeout * 1000.0;
-	U64 endTime                   = UINT64_MAX;
+	U64 endTime = UINT64_MAX;
 	if(!std::isnan(timeoutMicroseconds) && std::isfinite(timeoutMicroseconds))
 	{
 		if(timeoutMicroseconds <= 0.0) { endTime = startTime; }
@@ -168,7 +168,7 @@ static U32 wakeAddress(Uptr address, U32 numToWake)
 	if(numToWake == 0) { return 0; }
 
 	// Open the wait list for this address.
-	WaitList* waitList   = openWaitList(address);
+	WaitList* waitList = openWaitList(address);
 	Uptr actualNumToWake = numToWake;
 	{
 		Lock<Platform::Mutex> waitListLock(waitList->mutex);

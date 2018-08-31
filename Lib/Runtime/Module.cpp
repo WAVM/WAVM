@@ -41,13 +41,13 @@ Runtime::Module* Runtime::compileModule(const IR::Module& irModule)
 	for(const FunctionDef& functionDef : irModule.functions.defs)
 	{ functions.defs.push_back(irModule.types[functionDef.type.index]); }
 
-	IndexSpace<TableDef, TableType> tables                     = irModule.tables;
-	IndexSpace<MemoryDef, MemoryType> memories                 = irModule.memories;
-	IndexSpace<GlobalDef, GlobalType> globals                  = irModule.globals;
+	IndexSpace<TableDef, TableType> tables = irModule.tables;
+	IndexSpace<MemoryDef, MemoryType> memories = irModule.memories;
+	IndexSpace<GlobalDef, GlobalType> globals = irModule.globals;
 	IndexSpace<ExceptionTypeDef, ExceptionType> exceptionTypes = irModule.exceptionTypes;
-	std::vector<Export> exports                                = irModule.exports;
-	std::vector<DataSegment> dataSegments                      = irModule.dataSegments;
-	std::vector<TableSegment> tableSegments                    = irModule.tableSegments;
+	std::vector<Export> exports = irModule.exports;
+	std::vector<DataSegment> dataSegments = irModule.dataSegments;
+	std::vector<TableSegment> tableSegments = irModule.tableSegments;
 
 	DisassemblyNames disassemblyNames;
 	getDisassemblyNames(irModule, disassemblyNames);
@@ -151,7 +151,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	// memory/table.
 	for(auto& tableSegment : module->tableSegments)
 	{
-		TableInstance* table        = moduleInstance->tables[tableSegment.tableIndex];
+		TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
 		const Value baseOffsetValue = evaluateInitializer(moduleInstance, tableSegment.baseOffset);
 		errorUnless(baseOffsetValue.type == ValueType::i32);
 		const U32 baseOffset = baseOffsetValue.i32;
@@ -165,7 +165,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 
 		const Value baseOffsetValue = evaluateInitializer(moduleInstance, dataSegment.baseOffset);
 		errorUnless(baseOffsetValue.type == ValueType::i32);
-		const U32 baseOffset      = baseOffsetValue.i32;
+		const U32 baseOffset = baseOffsetValue.i32;
 		const Uptr numMemoryBytes = (memory->numPages << IR::numBytesPerPageLog2);
 		if(baseOffset > numMemoryBytes || numMemoryBytes - baseOffset < dataSegment.data.size())
 		{ throwException(Exception::invalidSegmentOffsetType); }
@@ -224,7 +224,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	for(Uptr importIndex = 0; importIndex < module->functions.imports.size(); ++importIndex)
 	{
 		FunctionInstance* functionImport = moduleInstance->functions[importIndex];
-		void* nativeFunction             = functionImport->nativeFunction;
+		void* nativeFunction = functionImport->nativeFunction;
 		if(functionImport->callingConvention != IR::CallingConvention::wasm)
 		{
 			nativeFunction = LLVMJIT::getIntrinsicThunk(nativeFunction,
@@ -295,7 +295,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		moduleInstance->functionDefs.push_back(functionInstance);
 		moduleInstance->functions.push_back(functionInstance);
 
-		jitFunction->type             = LLVMJIT::JITFunction::Type::wasmFunction;
+		jitFunction->type = LLVMJIT::JITFunction::Type::wasmFunction;
 		jitFunction->functionInstance = functionInstance;
 	}
 

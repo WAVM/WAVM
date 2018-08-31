@@ -85,7 +85,7 @@ static std::string expandIndentation(std::string&& inString, U8 spacesPerIndentL
 	std::string result;
 	result.reserve(paddedInput.size() * 2);
 	const char* next = paddedInput.data();
-	const char* end  = paddedInput.data() + paddedInput.size() - 1;
+	const char* end = paddedInput.data() + paddedInput.size() - 1;
 	Uptr indentDepth = 0;
 	while(next < end)
 	{
@@ -848,9 +848,9 @@ void ModulePrintContext::printModule()
 	for(Uptr functionDefIndex = 0; functionDefIndex < module.functions.defs.size();
 		++functionDefIndex)
 	{
-		const Uptr functionIndex       = module.functions.imports.size() + functionDefIndex;
+		const Uptr functionIndex = module.functions.imports.size() + functionDefIndex;
 		const FunctionDef& functionDef = module.functions.defs[functionDefIndex];
-		FunctionType functionType      = module.types[functionDef.type.index];
+		FunctionType functionType = module.types[functionDef.type.index];
 		FunctionPrintContext functionContext(*this, functionDefIndex);
 
 		string += "\n\n";
@@ -937,26 +937,26 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 {
 	enum class LinkingSubsectionType
 	{
-		invalid     = 0,
+		invalid = 0,
 		segmentInfo = 5,
-		initFuncs   = 6,
-		comdatInfo  = 7,
+		initFuncs = 6,
+		comdatInfo = 7,
 		symbolTable = 8,
 	};
 
 	enum class COMDATKind
 	{
-		data     = 0,
+		data = 0,
 		function = 1,
-		global   = 2,
+		global = 2,
 	};
 
 	enum class SymbolKind
 	{
 		function = 0,
-		data     = 1,
-		global   = 2,
-		section  = 3,
+		data = 1,
+		global = 2,
+		section = 3,
 	};
 
 	// Print a comment that describes the contents of the linking section.
@@ -995,7 +995,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					serialize(substream, segmentName);
 
 					Uptr alignment = 0;
-					Uptr flags     = 0;
+					Uptr flags = 0;
 					serializeVarUInt32(substream, alignment);
 					serializeVarUInt32(substream, flags);
 
@@ -1062,7 +1062,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					serializeVarUInt32(substream, numSymbols);
 					for(Uptr symbolIndex = 0; symbolIndex < numSymbols; ++symbolIndex)
 					{
-						U32 kind  = 0;
+						U32 kind = 0;
 						U32 index = 0;
 						serializeVarUInt32(substream, kind);
 						serializeVarUInt32(substream, index);
@@ -1127,8 +1127,8 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 
 					const char* kindName = nullptr;
 					std::string symbolName;
-					U32 index    = 0;
-					U32 offset   = 0;
+					U32 index = 0;
+					U32 offset = 0;
 					U32 numBytes = 0;
 
 					switch(SymbolKind(kind))

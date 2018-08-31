@@ -142,7 +142,7 @@ std::string Runtime::describeException(const Exception& exception)
 	wavmAssert(arguments.size() == typeInstance->type.params.size());
 	ExceptionData* exceptionData
 		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(typeInstance->type.params.size()));
-	exceptionData->typeInstance    = typeInstance;
+	exceptionData->typeInstance = typeInstance;
 	exceptionData->isUserException = 0;
 	if(arguments.size())
 	{
@@ -162,11 +162,11 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  I32 isUserException)
 {
 	auto typeInstance = reinterpret_cast<ExceptionTypeInstance*>(Uptr(exceptionTypeInstanceBits));
-	auto args         = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));
+	auto args = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));
 
 	ExceptionData* exceptionData
 		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(typeInstance->type.params.size()));
-	exceptionData->typeInstance    = typeInstance;
+	exceptionData->typeInstance = typeInstance;
 	exceptionData->isUserException = isUserException ? 1 : 0;
 	memcpy(exceptionData->arguments,
 		   args,

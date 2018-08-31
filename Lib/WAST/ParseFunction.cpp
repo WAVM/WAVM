@@ -65,7 +65,7 @@ namespace
 					// If the name was already bound to a branch target, remember the previously
 					// bound branch target.
 					previousBranchTargetIndex = mapValueRef;
-					mapValueRef               = branchTargetIndex;
+					mapValueRef = branchTargetIndex;
 				}
 				else
 				{
@@ -261,7 +261,7 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	}
 
 	const U32 naturalAlignment = 1 << naturalAlignmentLog2;
-	U32 alignment              = naturalAlignment;
+	U32 alignment = naturalAlignment;
 	if(cursor->nextToken->type == t_align)
 	{
 		++cursor->nextToken;
@@ -322,7 +322,7 @@ static void parseImm(CursorState* cursor, AtomicLoadOrStoreImm<naturalAlignmentL
 	LoadOrStoreImm<naturalAlignmentLog2> loadOrStoreImm;
 	parseImm(cursor, loadOrStoreImm);
 	outImm.alignmentLog2 = loadOrStoreImm.alignmentLog2;
-	outImm.offset        = loadOrStoreImm.offset;
+	outImm.offset = loadOrStoreImm.offset;
 }
 
 static void parseImm(CursorState* cursor, ExceptionTypeImm& outImm)
@@ -399,18 +399,18 @@ static void parseControlImm(CursorState* cursor,
 	// Translate the function type into an indexed block type.
 	if(functionType.params().size() == 0 && functionType.results().size() == 0)
 	{
-		imm.type.format     = IndexedBlockType::noParametersOrResult;
+		imm.type.format = IndexedBlockType::noParametersOrResult;
 		imm.type.resultType = ValueType::any;
 	}
 	else if(functionType.params().size() == 0 && functionType.results().size() == 1)
 	{
-		imm.type.format     = IndexedBlockType::oneResult;
+		imm.type.format = IndexedBlockType::oneResult;
 		imm.type.resultType = functionType.results()[0];
 	}
 	else
 	{
 		imm.type.format = IndexedBlockType::functionType;
-		imm.type.index  = getUniqueFunctionTypeIndex(cursor->moduleState, functionType).index;
+		imm.type.index = getUniqueFunctionTypeIndex(cursor->moduleState, functionType).index;
 	}
 }
 
@@ -697,7 +697,7 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 		= parseFunctionTypeRefAndOrDecl(cursor, *localNameToIndexMap, *localDisassemblyNames);
 
 	// Defer resolving the function type until all type declarations have been parsed.
-	const Uptr functionIndex    = cursor->moduleState->module.functions.size();
+	const Uptr functionIndex = cursor->moduleState->module.functions.size();
 	const Uptr functionDefIndex = cursor->moduleState->module.functions.defs.size();
 	const Token* firstBodyToken = cursor->nextToken;
 	cursor->moduleState->postTypeCallbacks.push_back([functionIndex,
@@ -720,7 +720,7 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 														 localDisassemblyNames,
 														 functionTypeIndex](
 															ModuleState* moduleState) {
-			FunctionDef& functionDef  = moduleState->module.functions.defs[functionDefIndex];
+			FunctionDef& functionDef = moduleState->module.functions.defs[functionDefIndex];
 			FunctionType functionType = functionTypeIndex.index == UINT32_MAX
 											? FunctionType()
 											: moduleState->module.types[functionTypeIndex.index];

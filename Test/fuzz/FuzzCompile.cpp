@@ -29,7 +29,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	IR::Module module;
 	module.featureSpec.maxLabelsPerFunction = 65536;
-	module.featureSpec.maxLocals            = 1024;
+	module.featureSpec.maxLocals = 1024;
 	if(!loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
 
 	compileModule(module);

@@ -88,7 +88,7 @@ void TableInstance::finalize()
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 	wavmAssert(compartment->tables[id] == this);
 	wavmAssert(compartment->runtimeData->tableBases[id] == baseAddress);
-	compartment->tables[id]                  = nullptr;
+	compartment->tables[id] = nullptr;
 	compartment->runtimeData->tableBases[id] = nullptr;
 }
 
@@ -132,7 +132,7 @@ bool Runtime::isAddressOwnedByTable(U8* address)
 	for(auto table : tables)
 	{
 		U8* startAddress = (U8*)table->baseAddress;
-		U8* endAddress   = ((U8*)table->baseAddress) + table->endOffset;
+		U8* endAddress = ((U8*)table->baseAddress) + table->endOffset;
 		if(address >= startAddress && address < endAddress) { return true; }
 	}
 	return false;
@@ -153,7 +153,7 @@ Object* Runtime::setTableElement(TableInstance* table,
 
 	// Look up the new function's code pointer.
 	FunctionInstance* functionInstance = asFunction(newValue);
-	void* nativeFunction               = functionInstance->nativeFunction;
+	void* nativeFunction = functionInstance->nativeFunction;
 	wavmAssert(nativeFunction);
 
 	// If the function isn't a WASM function, generate a thunk for it.
@@ -181,9 +181,9 @@ Object* Runtime::setTableElement(TableInstance* table,
 	// Write the new table element to both the table's elements array and its indirect function call
 	// data.
 	table->baseAddress[saturatedIndex].typeEncoding = functionInstance->type.getEncoding();
-	table->baseAddress[saturatedIndex].value        = nativeFunction;
+	table->baseAddress[saturatedIndex].value = nativeFunction;
 
-	auto oldValue                   = table->elements[saturatedIndex];
+	auto oldValue = table->elements[saturatedIndex];
 	table->elements[saturatedIndex] = newValue;
 	return oldValue;
 }

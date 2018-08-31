@@ -31,8 +31,8 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule, llvm::Module*
 	diValueTypes[(Uptr)ValueType::v128]
 		= diBuilder.createBasicType("v128", 128, llvm::dwarf::DW_ATE_signed);
 
-	auto zeroAsMetadata      = llvm::ConstantAsMetadata::get(emitLiteral(I32(0)));
-	auto i32MaxAsMetadata    = llvm::ConstantAsMetadata::get(emitLiteral(I32(INT32_MAX)));
+	auto zeroAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(0)));
+	auto i32MaxAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(I32(INT32_MAX)));
 	likelyFalseBranchWeights = llvm::MDTuple::getDistinct(
 		*llvmContext,
 		{llvm::MDString::get(*llvmContext, "branch_weights"), zeroAsMetadata, i32MaxAsMetadata});
@@ -46,7 +46,7 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule, llvm::Module*
 		*llvmContext, llvm::MDString::get(*llvmContext, "fpexcept.strict"));
 
 	tryPrologueDummyFunction = nullptr;
-	cxaBeginCatchFunction    = nullptr;
+	cxaBeginCatchFunction = nullptr;
 	if(!USE_WINDOWS_SEH)
 	{
 		cxaBeginCatchFunction

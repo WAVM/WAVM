@@ -59,7 +59,7 @@ IR::TypeTuple::TypeTuple(const std::vector<ValueType>& inElems)
 const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueType* inElems)
 {
 	const Uptr numImplBytes = Impl::calcNumBytes(numElems);
-	Impl* localImpl         = new(alloca(numImplBytes)) Impl(numElems, inElems);
+	Impl* localImpl = new(alloca(numImplBytes)) Impl(numElems, inElems);
 
 	static HashSet<TypeTuple, TypeTupleHashPolicy> uniqueTypeTupleSet;
 

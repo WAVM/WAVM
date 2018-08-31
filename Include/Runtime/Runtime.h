@@ -23,17 +23,17 @@ namespace Runtime
 	enum class ObjectKind : U8
 	{
 		// Standard object kinds that may be imported/exported from WebAssembly modules.
-		function              = 0,
-		table                 = 1,
-		memory                = 2,
-		global                = 3,
+		function = 0,
+		table = 1,
+		memory = 2,
+		global = 3,
 		exceptionTypeInstance = 4,
 
 		// Runtime-specific object kinds that are only used by transient runtime objects.
-		module         = 5,
+		module = 5,
 		moduleInstance = 6,
-		context        = 7,
-		compartment    = 8,
+		context = 7,
+		compartment = 8,
 
 		invalid = 0xff,
 	};
@@ -104,7 +104,7 @@ namespace Runtime
 		}
 		GCPointer(GCPointer<ObjectType>&& inMove)
 		{
-			value        = inMove.value;
+			value = inMove.value;
 			inMove.value = nullptr;
 		}
 		~GCPointer()
@@ -127,7 +127,7 @@ namespace Runtime
 		void operator=(GCPointer<ObjectType>&& inMove)
 		{
 			if(value) { removeGCRoot(asObject(value)); }
-			value        = inMove.value;
+			value = inMove.value;
 			inMove.value = nullptr;
 		}
 

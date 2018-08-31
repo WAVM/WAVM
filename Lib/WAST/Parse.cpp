@@ -209,7 +209,7 @@ UnresolvedFunctionType WAST::parseFunctionTypeRefAndOrDecl(
 		= parseFunctionType(cursor, outLocalNameToIndexMap, outLocalDisassemblyNames);
 
 	UnresolvedFunctionType result;
-	result.reference    = functionTypeRef;
+	result.reference = functionTypeRef;
 	result.explicitType = explicitFunctionType;
 	return result;
 }
@@ -271,7 +271,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 	if(cursor->nextToken->type != t_name) { return false; }
 
 	const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;
-	const char* nextChar  = firstChar;
+	const char* nextChar = firstChar;
 	wavmAssert(*nextChar == '$');
 	++nextChar;
 
@@ -451,8 +451,8 @@ static void parseCharEscapeCode(const char*& nextChar,
 
 			// Parse the hexadecimal number.
 			const char* firstHexit = nextChar;
-			U32 codepoint          = 0;
-			U8 hexit               = 0;
+			U32 codepoint = 0;
+			U8 hexit = 0;
 			while(tryParseHexit(nextChar, hexit))
 			{
 				if(codepoint > (UINT32_MAX - hexit) / 16)
@@ -527,7 +527,7 @@ std::string WAST::parseUTF8String(CursorState* cursor)
 	}
 
 	// Check that the string is a valid UTF-8 encoding.
-	const U8* endChar  = (const U8*)result.data() + result.size();
+	const U8* endChar = (const U8*)result.data() + result.size();
 	const U8* nextChar = Unicode::validateUTF8String((const U8*)result.data(), endChar);
 	if(nextChar != endChar)
 	{

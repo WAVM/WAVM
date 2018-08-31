@@ -567,14 +567,14 @@ private:
 
 		if(isElse && controlStack.back().type == ControlContext::Type::ifThen)
 		{
-			controlStack.back().type        = ControlContext::Type::ifElse;
+			controlStack.back().type = ControlContext::Type::ifElse;
 			controlStack.back().isReachable = true;
 		}
 		else if(isCatch
 				&& (controlStack.back().type == ControlContext::Type::try_
 					|| controlStack.back().type == ControlContext::Type::catch_))
 		{
-			controlStack.back().type        = ControlContext::Type::catch_;
+			controlStack.back().type = ControlContext::Type::catch_;
 			controlStack.back().isReachable = true;
 		}
 		else if(controlStack.back().type == ControlContext::Type::try_ && !isCatch)
