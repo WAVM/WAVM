@@ -245,16 +245,18 @@ namespace LLVMJIT
 	{
 		return llvm::ConstantExpr::getExactUDiv(
 			llvm::ConstantExpr::getSub(
-				memoryOffset, emitLiteral(offsetof(Runtime::CompartmentRuntimeData, memoryBases))),
-			emitLiteral(sizeof(Uptr)));
+				memoryOffset,
+				emitLiteral(Uptr(offsetof(Runtime::CompartmentRuntimeData, memoryBases)))),
+			emitLiteral(Uptr(sizeof(Uptr))));
 	}
 
 	inline llvm::Constant* getTableIdFromOffset(llvm::Constant* tableOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(
 			llvm::ConstantExpr::getSub(
-				tableOffset, emitLiteral(offsetof(Runtime::CompartmentRuntimeData, tableBases))),
-			emitLiteral(sizeof(Uptr)));
+				tableOffset,
+				emitLiteral(Uptr(offsetof(Runtime::CompartmentRuntimeData, tableBases)))),
+			emitLiteral(Uptr(sizeof(Uptr))));
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function

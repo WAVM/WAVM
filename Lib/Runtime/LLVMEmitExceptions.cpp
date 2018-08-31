@@ -438,7 +438,7 @@ void EmitFunctionContext::rethrow(RethrowImm imm)
 		= loadFromUntypedPointer(catchContext.exceptionPointer, llvmIptrType);
 	llvm::Value* argsPointerAsInt = irBuilder.CreatePtrToInt(
 		irBuilder.CreateInBoundsGEP(catchContext.exceptionPointer,
-									{emitLiteral(offsetof(ExceptionData, arguments))}),
+									{emitLiteral(Uptr(offsetof(ExceptionData, arguments)))}),
 		llvmIptrType);
 
 	emitRuntimeIntrinsic(

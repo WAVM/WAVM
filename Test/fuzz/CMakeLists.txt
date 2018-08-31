@@ -10,18 +10,6 @@ add_executable(FuzzWASM FuzzWASM.cpp)
 target_link_libraries(FuzzWASM Logging IR WASM)
 set_target_properties(FuzzWASM PROPERTIES FOLDER Testing/Fuzzers)
 
-add_executable(FuzzCompile FuzzCompile.cpp)
-target_link_libraries(FuzzCompile Logging IR WAST WASM Runtime)
-set_target_properties(FuzzCompile PROPERTIES FOLDER Testing/Fuzzers)
-
-add_executable(FuzzInstantiate FuzzInstantiate.cpp)
-target_link_libraries(FuzzInstantiate Logging IR WAST WASM Runtime)
-set_target_properties(FuzzInstantiate PROPERTIES FOLDER Testing/Fuzzers)
-
-add_executable(FuzzCompileModel FuzzCompileModel.cpp)
-target_link_libraries(FuzzCompileModel Logging IR WAST WASM Runtime)
-set_target_properties(FuzzCompileModel PROPERTIES FOLDER Testing/Fuzzers)
-
 add_executable(FuzzDisassemble FuzzDisassemble.cpp ModuleMatcher.h)
 target_link_libraries(FuzzDisassemble Logging IR WAST WASM)
 set_target_properties(FuzzDisassemble PROPERTIES FOLDER Testing/Fuzzers)
@@ -29,3 +17,17 @@ set_target_properties(FuzzDisassemble PROPERTIES FOLDER Testing/Fuzzers)
 add_executable(FuzzAssemble FuzzAssemble.cpp ModuleMatcher.h)
 target_link_libraries(FuzzAssemble Logging IR WAST WASM)
 set_target_properties(FuzzAssemble PROPERTIES FOLDER Testing/Fuzzers)
+
+if(ENABLE_RUNTIME)
+	add_executable(FuzzCompile FuzzCompile.cpp)
+	target_link_libraries(FuzzCompile Logging IR WAST WASM Runtime)
+	set_target_properties(FuzzCompile PROPERTIES FOLDER Testing/Fuzzers)
+
+	add_executable(FuzzInstantiate FuzzInstantiate.cpp)
+	target_link_libraries(FuzzInstantiate Logging IR WAST WASM Runtime)
+	set_target_properties(FuzzInstantiate PROPERTIES FOLDER Testing/Fuzzers)
+
+	add_executable(FuzzCompileModel FuzzCompileModel.cpp)
+	target_link_libraries(FuzzCompileModel Logging IR WAST WASM Runtime)
+	set_target_properties(FuzzCompileModel PROPERTIES FOLDER Testing/Fuzzers)
+endif()
