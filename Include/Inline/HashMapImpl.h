@@ -57,6 +57,18 @@ bool HashMap<HASHMAP_ARGUMENTS>::add(const Key& key, ValueArgs&&... valueArgs)
 
 template<HASHMAP_PARAMETERS>
 template<typename... ValueArgs>
+void HashMap<HASHMAP_ARGUMENTS>::addOrFail(const Key& key, ValueArgs&&... valueArgs)
+{
+	const Uptr hashAndOccupancy
+		= KeyHashPolicy::getKeyHash(key) | HashTableBucket<Pair>::isOccupiedMask;
+	HashTableBucket<Pair>& bucket = table.getBucketForAdd(hashAndOccupancy, key);
+	wavmAssert(!bucket.hashAndOccupancy);
+	bucket.hashAndOccupancy = hashAndOccupancy;
+	bucket.storage.construct(key, std::forward<ValueArgs>(valueArgs)...);
+}
+
+template<HASHMAP_PARAMETERS>
+template<typename... ValueArgs>
 Value& HashMap<HASHMAP_ARGUMENTS>::set(const Key& key, ValueArgs&&... valueArgs)
 {
 	const Uptr hashAndOccupancy

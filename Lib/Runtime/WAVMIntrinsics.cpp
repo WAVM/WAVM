@@ -209,7 +209,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	IR::FunctionType actualSignature{table->baseAddress[index].typeEncoding};
 	IR::FunctionType expectedSignature{IR::FunctionType::Encoding{expectedSignatureBits}};
 	std::string ipDescription = "<unknown>";
-	LLVMJIT::describeInstructionPointer(reinterpret_cast<Uptr>(elementValue), ipDescription);
+	describeInstructionPointer(reinterpret_cast<Uptr>(elementValue), ipDescription);
 	Log::printf(
 		Log::debug,
 		"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",

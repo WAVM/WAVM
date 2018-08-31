@@ -6,6 +6,7 @@
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 
 #include <atomic>
 

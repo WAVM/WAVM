@@ -1,6 +1,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Intrinsics.h"
+#include "LLVMJIT/LLVMJIT.h"
 #include "Logging/Logging.h"
 #include "Runtime.h"
 #include "RuntimePrivate.h"
@@ -28,6 +29,52 @@ DEFINE_STATIC_EXCEPTION_TYPE(invalidArgument)
 
 #undef DEFINE_STATIC_EXCEPTION_TYPE
 
+bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
+{
+	LLVMJIT::JITFunction* jitFunction = LLVMJIT::getJITFunctionByAddress(ip);
+	if(!jitFunction) { return Platform::describeInstructionPointer(ip, outDescription); }
+	else
+	{
+		switch(jitFunction->type)
+		{
+		case LLVMJIT::JITFunction::Type::wasmFunction:
+		{
+			outDescription = "wasm!";
+			outDescription += jitFunction->functionInstance->moduleInstance->debugName;
+			outDescription += '!';
+			outDescription += jitFunction->functionInstance->debugName;
+			outDescription += '+';
+
+			// Find the highest entry in the offsetToOpIndexMap whose offset is <= the
+			// symbol-relative IP.
+			U32 ipOffset = (U32)(ip - jitFunction->baseAddress);
+			Iptr opIndex = -1;
+			for(auto offsetMapIt : jitFunction->offsetToOpIndexMap)
+			{
+				if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
+				else
+				{
+					break;
+				}
+			}
+			outDescription += std::to_string(opIndex >= 0 ? opIndex : 0);
+
+			return true;
+		}
+		case LLVMJIT::JITFunction::Type::invokeThunk:
+			outDescription = "thnk!";
+			outDescription += asString(jitFunction->invokeThunkType);
+			outDescription += '+';
+			outDescription += std::to_string(ip - jitFunction->baseAddress);
+			return true;
+		case LLVMJIT::JITFunction::Type::intrinsicThunk:
+			outDescription = "thnk!intrinsic+" + std::to_string(ip - jitFunction->baseAddress);
+			return true;
+		default: Errors::unreachable();
+		};
+	}
+}
+
 // Returns a vector of strings, each element describing a frame of the call stack. If the frame is a
 // JITed function, use the JIT's information about the function to describe it, otherwise fallback
 // to whatever platform-specific symbol resolution is available.
@@ -37,8 +84,7 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 	for(auto frame : callStack.stackFrames)
 	{
 		std::string frameDescription;
-		if(LLVMJIT::describeInstructionPointer(frame.ip, frameDescription)
-		   || Platform::describeInstructionPointer(frame.ip, frameDescription))
+		if(describeInstructionPointer(frame.ip, frameDescription))
 		{ frameDescriptions.push_back(frameDescription); }
 		else
 		{

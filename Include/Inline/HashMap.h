@@ -61,6 +61,10 @@ struct HashMap
 	// provided arguments, and returns true.
 	template<typename... ValueArgs> bool add(const Key& key, ValueArgs&&... valueArgs);
 
+	// Assuming the map doesn't contain the key, add it. Asserts if the map contained the key, or
+	// silently does nothing if assertions are disabled.
+	template<typename... ValueArgs> void addOrFail(const Key& key, ValueArgs&&... valueArgs);
+
 	// If the map contains the key already, replaces the value bound to it with a value constructed
 	// from the provided arguments.
 	// If the map doesn't contain the key, adds it to the map bound to a value constructed from the

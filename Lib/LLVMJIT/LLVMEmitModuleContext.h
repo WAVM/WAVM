@@ -1,8 +1,7 @@
 #pragma once
 
 #include "IR/Module.h"
-#include "LLVMJIT.h"
-#include "RuntimePrivate.h"
+#include "LLVMJITPrivate.h"
 
 #include "LLVMPreInclude.h"
 

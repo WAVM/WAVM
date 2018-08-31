@@ -796,7 +796,7 @@ void IR::validateExports(const Module& module)
 		};
 
 		VALIDATE_UNLESS("duplicate export: ", exportNameSet.contains(exportIt.name));
-		exportNameSet.add(exportIt.name);
+		exportNameSet.addOrFail(exportIt.name);
 	}
 }
 

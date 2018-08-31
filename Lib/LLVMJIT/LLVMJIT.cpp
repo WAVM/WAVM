@@ -1,17 +1,18 @@
-#include "LLVMJIT.h"
+#include "LLVMJIT/LLVMJIT.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
+#include "LLVMJITPrivate.h"
 #include "Logging/Logging.h"
-#include "RuntimePrivate.h"
 
 #include "LLVMPreInclude.h"
 
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/DynamicLibrary.h"
@@ -23,19 +24,13 @@
 
 #include "LLVMPostInclude.h"
 
-// This needs to be 1 to allow debuggers such as Visual Studio to place breakpoints and step through
-// the JITed code.
-#define USE_WRITEABLE_JIT_CODE_PAGES WAVM_DEBUG
-
 #define DUMP_UNOPTIMIZED_MODULE WAVM_DEBUG
 #define VERIFY_MODULE WAVM_DEBUG
 #define DUMP_OPTIMIZED_MODULE WAVM_DEBUG
 #define DUMP_OBJECT WAVM_DEBUG
-#define PRINT_DISASSEMBLY 0
 
 using namespace IR;
 using namespace LLVMJIT;
-using namespace Runtime;
 
 llvm::LLVMContext* LLVMJIT::llvmContext = nullptr;
 llvm::Type* LLVMJIT::llvmValueTypes[(Uptr)ValueType::num];
@@ -65,35 +60,6 @@ llvm::Type* LLVMJIT::llvmExceptionPointersStructType;
 llvm::Constant* LLVMJIT::typedZeroConstants[(Uptr)ValueType::num];
 
 Platform::Mutex LLVMJIT::llvmMutex;
-
-// The JIT compilation unit for a WebAssembly module instance.
-struct JITModule : JITUnit, JITModuleBase
-{
-	const ModuleInstance* moduleInstance;
-
-	JITModule(const ModuleInstance* inModuleInstance) : moduleInstance(inModuleInstance) {}
-
-	virtual JITSymbol* notifySymbolLoaded(const char* name,
-										  Uptr baseAddress,
-										  Uptr numBytes,
-										  std::map<U32, U32>&& offsetToOpIndexMap) override
-	{
-		// Save the address range this function was loaded at for future address->symbol lookups.
-		Uptr functionIndex;
-		if(!getFunctionIndexFromExternalName(name, functionIndex)) { return nullptr; }
-		else
-		{
-			wavmAssert(moduleInstance);
-			wavmAssert(functionIndex < moduleInstance->functions.size());
-			wavmAssert(functionIndex
-					   >= moduleInstance->functions.size() - moduleInstance->functionDefs.size());
-			FunctionInstance* function = moduleInstance->functions[functionIndex];
-			function->nativeFunction   = reinterpret_cast<void*>(baseAddress);
-
-			return new JITSymbol(function, baseAddress, numBytes, std::move(offsetToOpIndexMap));
-		}
-	}
-};
 
 static std::map<std::string, const char*> runtimeSymbolMap = {
 #ifdef _WIN32
@@ -288,131 +254,6 @@ std::vector<U8> LLVMJIT::compileModule(const IR::Module& irModule)
 	return compileLLVMModule(std::move(llvmModule), true);
 }
 
-std::shared_ptr<LLVMJIT::JITModuleBase> LLVMJIT::instantiateModule(
-	const Runtime::Module* module,
-	const Runtime::ModuleInstance* moduleInstance)
-{
-	// Bind undefined symbols in the compiled object to values.
-	HashMap<std::string, Uptr> importedSymbolMap;
-
-	// Bind the wavmIntrinsic function symbols; the compiled module assumes they have the intrinsic
-	// calling convention, so no thunking is necessary.
-	for(const auto& exportMapPair : moduleInstance->compartment->wavmIntrinsics->exportMap)
-	{
-		wavmAssert(exportMapPair.value->kind == Runtime::ObjectKind::function);
-		FunctionInstance* function = asFunction(exportMapPair.value);
-		wavmAssert(function->callingConvention == CallingConvention::intrinsic);
-		importedSymbolMap.add(exportMapPair.key, reinterpret_cast<Uptr>(function->nativeFunction));
-	}
-
-	// Bind imported function symbols.
-	for(Uptr functionIndex = 0;
-		functionIndex < moduleInstance->functions.size() - moduleInstance->functionDefs.size();
-		++functionIndex)
-	{
-		const FunctionInstance* functionInstance = moduleInstance->functions[functionIndex];
-
-		void* nativeFunction = functionInstance->nativeFunction;
-		if(functionInstance->callingConvention != CallingConvention::wasm)
-		{
-			// If trying to import an intrinsic function, import a thunk instead that calls the
-			// intrinsic function with the right calling convention.
-			nativeFunction = LLVMJIT::getIntrinsicThunk(nativeFunction,
-														functionInstance->type,
-														functionInstance->callingConvention,
-														moduleInstance->defaultMemory,
-														moduleInstance->defaultTable);
-		}
-
-		importedSymbolMap.add(getExternalFunctionName(functionIndex),
-							  reinterpret_cast<Uptr>(nativeFunction));
-	}
-
-	// Bind the table symbols. The compiled module uses the symbol's value as an offset into
-	// CompartmentRuntimeData to the table's entry in CompartmentRuntimeData::tableBases.
-	for(Uptr tableIndex = 0; tableIndex < moduleInstance->tables.size(); ++tableIndex)
-	{
-		const TableInstance* tableInstance = moduleInstance->tables[tableIndex];
-		importedSymbolMap.add(
-			"tableOffset" + std::to_string(tableIndex),
-			offsetof(CompartmentRuntimeData, tableBases) + sizeof(void*) * tableInstance->id);
-	}
-
-	// Bind the memory symbols. The compiled module uses the symbol's value as an offset into
-	// CompartmentRuntimeData to the memory's entry in CompartmentRuntimeData::memoryBases.
-	for(Uptr memoryIndex = 0; memoryIndex < moduleInstance->memories.size(); ++memoryIndex)
-	{
-		const MemoryInstance* memoryInstance = moduleInstance->memories[memoryIndex];
-		importedSymbolMap.add(
-			"memoryOffset" + std::to_string(memoryIndex),
-			offsetof(CompartmentRuntimeData, memoryBases) + sizeof(void*) * memoryInstance->id);
-	}
-
-	// Bind the globals symbols.
-	for(Uptr globalIndex = 0; globalIndex < moduleInstance->globals.size(); ++globalIndex)
-	{
-		const GlobalInstance* globalInstance = moduleInstance->globals[globalIndex];
-		Uptr value;
-		if(globalInstance->type.isMutable)
-		{
-			// If the global is mutable, bind the symbol to the offset into
-			// ContextRuntimeData::globalData where it is stored.
-			value = offsetof(ContextRuntimeData, globalData) + globalInstance->mutableDataOffset;
-		}
-		else
-		{
-			// Otherwise, bind the symbol to a pointer to the global's immutable value.
-			value = reinterpret_cast<Uptr>(&globalInstance->initialValue);
-		}
-		importedSymbolMap.add("global" + std::to_string(globalIndex), value);
-	}
-
-	// Bind exception type symbols to point to the exception type instance.
-	for(Uptr exceptionTypeIndex = 0; exceptionTypeIndex < moduleInstance->exceptionTypes.size();
-		++exceptionTypeIndex)
-	{
-		const ExceptionTypeInstance* exceptionTypeInstance
-			= moduleInstance->exceptionTypes[exceptionTypeIndex];
-		importedSymbolMap.add("exceptionType" + std::to_string(exceptionTypeIndex),
-							  reinterpret_cast<Uptr>(exceptionTypeInstance));
-	}
-
-	Lock<Platform::Mutex> llvmLock(llvmMutex);
-
-	initLLVM();
-
-	std::shared_ptr<JITModule> jitModule = std::make_shared<JITModule>(moduleInstance);
-	jitModule->load(module->objectFileBytes, importedSymbolMap, true);
-	return jitModule;
-}
-
-std::string LLVMJIT::getExternalFunctionName(Uptr functionIndex)
-{
-	return "function" + std::to_string(functionIndex);
-}
-
-bool LLVMJIT::getFunctionIndexFromExternalName(const char* externalName, Uptr& outFunctionDefIndex)
-{
-#if(defined(_WIN32) && !defined(_WIN64))
-	const char wasmFuncPrefix[] = "_function";
-#else
-	const char wasmFuncPrefix[] = "function";
-#endif
-	const Uptr numPrefixChars = sizeof(wasmFuncPrefix) - 1;
-	if(!strncmp(externalName, wasmFuncPrefix, numPrefixChars))
-	{
-		char* numberEnd        = nullptr;
-		U64 functionDefIndex64 = std::strtoull(externalName + numPrefixChars, &numberEnd, 10);
-		if(functionDefIndex64 > UINTPTR_MAX) { return false; }
-		outFunctionDefIndex = Uptr(functionDefIndex64);
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
 void LLVMJIT::initLLVM()
 {
 	if(llvmContext) { return; }
@@ -481,7 +322,7 @@ void LLVMJIT::initLLVM()
 
 namespace LLVMJIT
 {
-	RUNTIME_API void deinit()
+	LLVMJIT_API void deinit()
 	{
 		Lock<Platform::Mutex> llvmLock(llvmMutex);
 

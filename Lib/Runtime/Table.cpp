@@ -157,13 +157,15 @@ Object* Runtime::setTableElement(TableInstance* table,
 	wavmAssert(nativeFunction);
 
 	// If the function isn't a WASM function, generate a thunk for it.
-	if(functionInstance->callingConvention != CallingConvention::wasm)
+	if(functionInstance->callingConvention != IR::CallingConvention::wasm)
 	{
-		nativeFunction = LLVMJIT::getIntrinsicThunk(nativeFunction,
-													functionInstance->type,
-													functionInstance->callingConvention,
-													nullptr,
-													nullptr);
+		nativeFunction = LLVMJIT::getIntrinsicThunk(
+			nativeFunction,
+			functionInstance->type,
+			functionInstance->callingConvention,
+			LLVMJIT::MemoryBinding{intrinsicDefaultMemory ? intrinsicDefaultMemory->id
+														  : UINTPTR_MAX},
+			LLVMJIT::TableBinding{intrinsicDefaultTable ? intrinsicDefaultTable->id : UINTPTR_MAX});
 	}
 
 	// Lock the table's elements array.

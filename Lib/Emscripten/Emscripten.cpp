@@ -6,6 +6,7 @@
 #include "Logging/Logging.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 
 #include <limits.h>
 #include <stdio.h>

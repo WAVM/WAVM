@@ -168,6 +168,7 @@ add_subdirectory(Test/fuzz)
 
 if(ENABLE_RUNTIME)
 	add_subdirectory(Lib/Emscripten)
+	add_subdirectory(Lib/LLVMJIT)
 	add_subdirectory(Lib/Runtime)
 	add_subdirectory(Lib/ThreadTest)
 	add_subdirectory(Programs/Test)

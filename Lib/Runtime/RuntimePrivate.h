@@ -3,8 +3,10 @@
 #include "IR/Module.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
+#include "LLVMJIT/LLVMJIT.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 
 #include <atomic>
 #include <functional>
@@ -18,35 +20,6 @@ namespace Intrinsics
 namespace Runtime
 {
 	enum class CallingConvention;
-}
-
-namespace LLVMJIT
-{
-	struct JITModuleBase
-	{
-		virtual ~JITModuleBase() {}
-	};
-
-	std::vector<U8> compileModule(const IR::Module& irModule);
-
-	std::shared_ptr<LLVMJIT::JITModuleBase> instantiateModule(
-		const Runtime::Module* module,
-		const Runtime::ModuleInstance* moduleInstance);
-	bool describeInstructionPointer(Uptr ip, std::string& outDescription);
-
-	typedef Runtime::ContextRuntimeData* (*InvokeFunctionPointer)(void*,
-																  Runtime::ContextRuntimeData*);
-
-	// Generates an invoke thunk for a specific function type.
-	InvokeFunctionPointer getInvokeThunk(IR::FunctionType functionType,
-										 Runtime::CallingConvention callingConvention);
-
-	// Generates a thunk to call a native function from generated code.
-	void* getIntrinsicThunk(void* nativeFunction,
-							IR::FunctionType functionType,
-							Runtime::CallingConvention callingConvention,
-							Runtime::MemoryInstance* defaultMemory,
-							Runtime::TableInstance* defaultTable);
 }
 
 namespace Runtime
@@ -69,13 +42,13 @@ namespace Runtime
 		ModuleInstance* moduleInstance;
 		IR::FunctionType type;
 		void* nativeFunction;
-		CallingConvention callingConvention;
+		IR::CallingConvention callingConvention;
 		std::string debugName;
 
 		FunctionInstance(ModuleInstance* inModuleInstance,
 						 IR::FunctionType inType,
 						 void* inNativeFunction,
-						 CallingConvention inCallingConvention,
+						 IR::CallingConvention inCallingConvention,
 						 std::string&& inDebugName)
 		: ObjectImpl(ObjectKind::function)
 		, moduleInstance(inModuleInstance)
@@ -172,18 +145,6 @@ namespace Runtime
 		virtual void finalize() override;
 	};
 
-	struct ExceptionData
-	{
-		ExceptionTypeInstance* typeInstance;
-		U8 isUserException;
-		IR::UntaggedValue arguments[1];
-
-		static Uptr calcNumBytes(Uptr numArguments)
-		{
-			return sizeof(ExceptionData) + (numArguments - 1) * sizeof(IR::UntaggedValue);
-		}
-	};
-
 	// An instance of a WebAssembly exception type.
 	struct ExceptionTypeInstance : ObjectImpl
 	{
@@ -264,7 +225,7 @@ namespace Runtime
 		MemoryInstance* defaultMemory;
 		TableInstance* defaultTable;
 
-		std::shared_ptr<LLVMJIT::JITModuleBase> jitModule;
+		LLVMJIT::LoadedModule* jitModule;
 
 		std::string debugName;
 
@@ -289,6 +250,8 @@ namespace Runtime
 		, debugName(std::move(inDebugName))
 		{
 		}
+
+		virtual ~ModuleInstance() override;
 	};
 
 	struct Context : ObjectImpl
@@ -307,22 +270,6 @@ namespace Runtime
 
 		virtual void finalize() override;
 	};
-
-#define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
-
-	enum
-	{
-		maxThunkArgAndReturnBytes           = 256,
-		maxGlobalBytes                      = 4096 - maxThunkArgAndReturnBytes,
-		maxMemories                         = 255,
-		maxTables                           = 256,
-		compartmentRuntimeDataAlignmentLog2 = 32,
-		contextRuntimeDataAlignment         = 4096
-	};
-
-	static_assert(sizeof(IR::UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
-				  "maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
-				  "sizeof(UntaggedValue)");
 
 	struct Compartment : ObjectImpl
 	{
@@ -346,40 +293,6 @@ namespace Runtime
 		Compartment();
 		~Compartment() override;
 	};
-
-	struct ContextRuntimeData
-	{
-		U8 thunkArgAndReturnData[maxThunkArgAndReturnBytes];
-		U8 globalData[maxGlobalBytes];
-	};
-
-	struct CompartmentRuntimeData
-	{
-		Compartment* compartment;
-		void* memoryBases[maxMemories];
-		void* tableBases[maxTables];
-		ContextRuntimeData contexts[1]; // Actually [maxContexts], but at least MSVC doesn't allow
-										// declaring arrays that large.
-	};
-
-	enum
-	{
-		maxContexts
-		= 1024 * 1024 - offsetof(CompartmentRuntimeData, contexts) / sizeof(ContextRuntimeData)
-	};
-
-	static_assert(sizeof(ContextRuntimeData) == 4096, "");
-	static_assert(offsetof(CompartmentRuntimeData, contexts) % 4096 == 0,
-				  "CompartmentRuntimeData::contexts isn't page-aligned");
-	static_assert(offsetof(CompartmentRuntimeData, contexts[maxContexts])
-					  == 4ull * 1024 * 1024 * 1024,
-				  "CompartmentRuntimeData isn't the expected size");
-
-	inline CompartmentRuntimeData* getCompartmentRuntimeData(ContextRuntimeData* contextRuntimeData)
-	{
-		return reinterpret_cast<CompartmentRuntimeData*>(reinterpret_cast<Uptr>(contextRuntimeData)
-														 & 0xffffffff00000000);
-	}
 
 	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
 

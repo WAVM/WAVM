@@ -31,7 +31,7 @@ Intrinsics::Function::Function(Intrinsics::Module& moduleRef,
 							   const char* inName,
 							   void* inNativeFunction,
 							   IR::FunctionType inType,
-							   Runtime::CallingConvention inCallingConvention)
+							   IR::CallingConvention inCallingConvention)
 : name(inName)
 , type(inType)
 , nativeFunction(inNativeFunction)
@@ -116,28 +116,28 @@ Runtime::ModuleInstance* Intrinsics::instantiateModule(
 		{
 			auto functionInstance = pair.value->instantiate(compartment);
 			moduleInstance->functions.push_back(functionInstance);
-			errorUnless(moduleInstance->exportMap.add(pair.key, functionInstance));
+			moduleInstance->exportMap.addOrFail(pair.key, functionInstance);
 		}
 
 		for(const auto& pair : moduleRef.impl->tableMap)
 		{
 			auto tableInstance = pair.value->instantiate(compartment);
 			moduleInstance->tables.push_back(tableInstance);
-			errorUnless(moduleInstance->exportMap.add(pair.key, tableInstance));
+			moduleInstance->exportMap.addOrFail(pair.key, tableInstance);
 		}
 
 		for(const auto& pair : moduleRef.impl->memoryMap)
 		{
 			auto memoryInstance = pair.value->instantiate(compartment);
 			moduleInstance->memories.push_back(memoryInstance);
-			errorUnless(moduleInstance->exportMap.add(pair.key, memoryInstance));
+			moduleInstance->exportMap.addOrFail(pair.key, memoryInstance);
 		}
 
 		for(const auto& pair : moduleRef.impl->globalMap)
 		{
 			auto globalInstance = pair.value->instantiate(compartment);
 			moduleInstance->globals.push_back(globalInstance);
-			errorUnless(moduleInstance->exportMap.add(pair.key, globalInstance));
+			moduleInstance->exportMap.addOrFail(pair.key, globalInstance);
 		}
 
 		for(const auto& pair : extraExports)

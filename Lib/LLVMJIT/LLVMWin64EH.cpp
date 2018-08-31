@@ -1,6 +1,6 @@
 #include "IR/Operators.h"
 #include "Inline/Assert.h"
-#include "LLVMJIT.h"
+#include "LLVMJITPrivate.h"
 #include "Logging/Logging.h"
 
 #include "LLVMPreInclude.h"

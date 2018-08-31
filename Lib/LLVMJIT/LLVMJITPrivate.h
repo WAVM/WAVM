@@ -3,8 +3,8 @@
 #include "IR/Module.h"
 #include "IR/Operators.h"
 #include "Inline/BasicTypes.h"
-#include "Intrinsics.h"
-#include "RuntimePrivate.h"
+#include "LLVMJIT/LLVMJIT.h"
+#include "Runtime/RuntimeData.h"
 
 #include <cctype>
 #include <string>
@@ -174,21 +174,21 @@ namespace LLVMJIT
 
 	// Converts a WebAssembly function type to a LLVM type.
 	inline llvm::FunctionType* asLLVMType(IR::FunctionType functionType,
-										  Runtime::CallingConvention callingConvention)
+										  IR::CallingConvention callingConvention)
 	{
 		const Uptr numImplicitParameters
-			= callingConvention == Runtime::CallingConvention::intrinsicWithMemAndTable
+			= callingConvention == IR::CallingConvention::intrinsicWithMemAndTable
 				  ? 3
-				  : callingConvention == Runtime::CallingConvention::c ? 0 : 1;
+				  : callingConvention == IR::CallingConvention::c ? 0 : 1;
 		const Uptr numParameters = numImplicitParameters + functionType.params().size();
 		auto llvmArgTypes        = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
-		if(callingConvention == Runtime::CallingConvention::intrinsicWithMemAndTable)
+		if(callingConvention == IR::CallingConvention::intrinsicWithMemAndTable)
 		{
 			llvmArgTypes[0] = llvmI8PtrType;
 			llvmArgTypes[1] = llvmI64Type;
 			llvmArgTypes[2] = llvmI64Type;
 		}
-		else if(callingConvention != Runtime::CallingConvention::c)
+		else if(callingConvention != IR::CallingConvention::c)
 		{
 			llvmArgTypes[0] = llvmI8PtrType;
 		}
@@ -201,17 +201,17 @@ namespace LLVMJIT
 		llvm::Type* llvmReturnType;
 		switch(callingConvention)
 		{
-		case Runtime::CallingConvention::wasm:
+		case IR::CallingConvention::wasm:
 			llvmReturnType = getLLVMReturnStructType(functionType.results());
 			break;
 
-		case Runtime::CallingConvention::intrinsicWithContextSwitch:
+		case IR::CallingConvention::intrinsicWithContextSwitch:
 			llvmReturnType = llvmI8PtrType;
 			break;
 
-		case Runtime::CallingConvention::intrinsicWithMemAndTable:
-		case Runtime::CallingConvention::intrinsic:
-		case Runtime::CallingConvention::c:
+		case IR::CallingConvention::intrinsicWithMemAndTable:
+		case IR::CallingConvention::intrinsic:
+		case IR::CallingConvention::c:
 			switch(functionType.results().size())
 			{
 			case 0: llvmReturnType = llvmVoidType; break;
@@ -226,16 +226,16 @@ namespace LLVMJIT
 			llvmReturnType, llvm::ArrayRef<llvm::Type*>(llvmArgTypes, numParameters), false);
 	}
 
-	inline llvm::CallingConv::ID asLLVMCallingConv(Runtime::CallingConvention callingConvention)
+	inline llvm::CallingConv::ID asLLVMCallingConv(IR::CallingConvention callingConvention)
 	{
 		switch(callingConvention)
 		{
-		case Runtime::CallingConvention::wasm: return llvm::CallingConv::Fast;
+		case IR::CallingConvention::wasm: return llvm::CallingConv::Fast;
 
-		case Runtime::CallingConvention::intrinsic:
-		case Runtime::CallingConvention::intrinsicWithContextSwitch:
-		case Runtime::CallingConvention::intrinsicWithMemAndTable:
-		case Runtime::CallingConvention::c: return llvm::CallingConv::C;
+		case IR::CallingConvention::intrinsic:
+		case IR::CallingConvention::intrinsicWithContextSwitch:
+		case IR::CallingConvention::intrinsicWithMemAndTable:
+		case IR::CallingConvention::c: return llvm::CallingConv::C;
 
 		default: Errors::unreachable();
 		}
@@ -260,8 +260,10 @@ namespace LLVMJIT
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function
-	std::string getExternalFunctionName(Uptr functionDefIndex);
-	bool getFunctionIndexFromExternalName(const char* externalName, Uptr& outFunctionDefIndex);
+	inline std::string getExternalName(const char* baseName, Uptr index)
+	{
+		return std::string(baseName) + std::to_string(index);
+	}
 
 	// Emits LLVM IR for a module.
 	void emitModule(const IR::Module& irModule, llvm::Module& outLLVMModule);
@@ -269,71 +271,22 @@ namespace LLVMJIT
 	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
 	llvm::JITEvaluatedSymbol resolveJITImport(llvm::StringRef name);
 
-	// Information about a JIT symbol, used to map instruction pointers to descriptive names.
-	struct JITSymbol
+	struct ModuleMemoryManager;
+
+	// Encapsulates a loaded module.
+	struct LoadedModule
 	{
-		enum class Type
-		{
-			functionInstance,
-			invokeThunk
-		};
-		Type type;
-		union
-		{
-			Runtime::FunctionInstance* functionInstance;
-			IR::FunctionType invokeThunkType;
-		};
-		Uptr baseAddress;
-		Uptr numBytes;
-		std::map<U32, U32> offsetToOpIndexMap;
+		std::vector<std::unique_ptr<JITFunction>> functions;
+		std::map<Uptr, JITFunction*> addressToFunctionMap;
+		HashMap<std::string, JITFunction*> nameToFunctionMap;
 
-		JITSymbol(Runtime::FunctionInstance* inFunctionInstance,
-				  Uptr inBaseAddress,
-				  Uptr inNumBytes,
-				  std::map<U32, U32>&& inOffsetToOpIndexMap)
-		: type(Type::functionInstance)
-		, functionInstance(inFunctionInstance)
-		, baseAddress(inBaseAddress)
-		, numBytes(inNumBytes)
-		, offsetToOpIndexMap(inOffsetToOpIndexMap)
-		{
-		}
-
-		JITSymbol(IR::FunctionType inInvokeThunkType,
-				  Uptr inBaseAddress,
-				  Uptr inNumBytes,
-				  std::map<U32, U32>&& inOffsetToOpIndexMap)
-		: type(Type::invokeThunk)
-		, invokeThunkType(inInvokeThunkType)
-		, baseAddress(inBaseAddress)
-		, numBytes(inNumBytes)
-		, offsetToOpIndexMap(inOffsetToOpIndexMap)
-		{
-		}
-	};
-
-	struct UnitMemoryManager;
-
-	// A unit of JIT compilation. Encapsulates the LLVM JIT compilation pipeline but allows
-	// subclasses to define how the resulting code is used.
-	struct JITUnit
-	{
-		JITUnit();
-		~JITUnit();
-
-		void load(const std::vector<U8>& objectBytes,
-				  const HashMap<std::string, Uptr>& importedSymbolMap,
-				  bool shouldLogMetrics);
-
-		virtual JITSymbol* notifySymbolLoaded(const char* name,
-											  Uptr baseAddress,
-											  Uptr numBytes,
-											  std::map<U32, U32>&& offsetToOpIndexMap)
-			= 0;
+		LoadedModule(const std::vector<U8>& objectBytes,
+					 const HashMap<std::string, Uptr>& importedSymbolMap,
+					 bool shouldLogMetrics);
+		~LoadedModule();
 
 	private:
-		UnitMemoryManager* memoryManager;
-		std::vector<JITSymbol*> symbols;
+		ModuleMemoryManager* memoryManager;
 	};
 
 	extern std::vector<U8> compileLLVMModule(llvm::Module&& llvmModule, bool shouldLogMetrics);

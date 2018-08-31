@@ -3,9 +3,9 @@
 #include "Inline/HashMap.h"
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
-#include "LLVMJIT.h"
+#include "LLVMJIT/LLVMJIT.h"
+#include "LLVMJITPrivate.h"
 #include "Logging/Logging.h"
-#include "RuntimePrivate.h"
 
 #include "LLVMPreInclude.h"
 
@@ -70,56 +70,13 @@ using namespace Runtime;
 static llvm::JITEventListener* gdbRegistrationListener = nullptr;
 
 // A map from address to loaded JIT symbols.
-static Platform::Mutex addressToSymbolMapMutex;
-static std::map<Uptr, struct JITSymbol*> addressToSymbolMap;
-
-// Information about a JIT symbol, used to map instruction pointers to descriptive names.
-struct JITSymbol
-{
-	enum class Type
-	{
-		functionInstance,
-		invokeThunk
-	};
-	Type type;
-	union
-	{
-		FunctionInstance* functionInstance;
-		FunctionType invokeThunkType;
-	};
-	Uptr baseAddress;
-	Uptr numBytes;
-	std::map<U32, U32> offsetToOpIndexMap;
-
-	JITSymbol(FunctionInstance* inFunctionInstance,
-			  Uptr inBaseAddress,
-			  Uptr inNumBytes,
-			  std::map<U32, U32>&& inOffsetToOpIndexMap)
-	: type(Type::functionInstance)
-	, functionInstance(inFunctionInstance)
-	, baseAddress(inBaseAddress)
-	, numBytes(inNumBytes)
-	, offsetToOpIndexMap(inOffsetToOpIndexMap)
-	{
-	}
-
-	JITSymbol(FunctionType inInvokeThunkType,
-			  Uptr inBaseAddress,
-			  Uptr inNumBytes,
-			  std::map<U32, U32>&& inOffsetToOpIndexMap)
-	: type(Type::invokeThunk)
-	, invokeThunkType(inInvokeThunkType)
-	, baseAddress(inBaseAddress)
-	, numBytes(inNumBytes)
-	, offsetToOpIndexMap(inOffsetToOpIndexMap)
-	{
-	}
-};
+static Platform::Mutex addressToModuleMapMutex;
+static std::map<Uptr, LoadedModule*> addressToModuleMap;
 
 // Allocates memory for the LLVM object loader.
-struct LLVMJIT::UnitMemoryManager : llvm::RTDyldMemoryManager
+struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 {
-	UnitMemoryManager()
+	ModuleMemoryManager()
 	: imageBaseAddress(nullptr)
 	, isFinalized(false)
 	, codeSection({0})
@@ -128,7 +85,7 @@ struct LLVMJIT::UnitMemoryManager : llvm::RTDyldMemoryManager
 	, hasRegisteredEHFrames(false)
 	{
 	}
-	virtual ~UnitMemoryManager() override
+	virtual ~ModuleMemoryManager() override
 	{
 		// Deregister the exception handling frame info.
 		deregisterEHFrames();
@@ -246,6 +203,7 @@ struct LLVMJIT::UnitMemoryManager : llvm::RTDyldMemoryManager
 	}
 
 	U8* getImageBaseAddress() const { return imageBaseAddress; }
+	Uptr getNumImageBytes() const { return numAllocatedImagePages << Platform::getPageSizeLog2(); }
 
 private:
 	struct Section
@@ -296,30 +254,14 @@ private:
 		return (value + (Uptr(1) << shift) - 1) >> shift;
 	}
 
-	UnitMemoryManager(const UnitMemoryManager&) = delete;
-	void operator=(const UnitMemoryManager&) = delete;
+	ModuleMemoryManager(const ModuleMemoryManager&) = delete;
+	void operator=(const ModuleMemoryManager&) = delete;
 };
 
-LLVMJIT::JITUnit::JITUnit() : memoryManager(new UnitMemoryManager()) {}
-
-LLVMJIT::JITUnit::~JITUnit()
-{
-	// Delete the unit's symbols, and remove them from the global address-to-symbol map.
-	Lock<Platform::Mutex> addressToSymbolMapLock(addressToSymbolMapMutex);
-	for(auto symbol : symbols)
-	{
-		addressToSymbolMap.erase(addressToSymbolMap.find(symbol->baseAddress + symbol->numBytes));
-		delete symbol;
-	}
-	addressToSymbolMapLock.unlock();
-
-	// Delete the memory manager.
-	delete memoryManager;
-}
-
-void JITUnit::load(const std::vector<U8>& objectBytes,
-				   const HashMap<std::string, Uptr>& importedSymbolMap,
-				   bool shouldLogMetrics)
+LoadedModule::LoadedModule(const std::vector<U8>& objectBytes,
+						   const HashMap<std::string, Uptr>& importedSymbolMap,
+						   bool shouldLogMetrics)
+: memoryManager(new ModuleMemoryManager())
 {
 	Timing::Timer loadObjectTimer;
 
@@ -461,24 +403,24 @@ void JITUnit::load(const std::vector<U8>& objectBytes,
 	auto dwarfContext = llvm::DWARFContext::create(*object, &*loadedObject);
 
 	// Iterate over the functions in the loaded object.
-	for(auto symbolSizePair : llvm::object::computeSymbolSizes(*object))
+	for(std::pair<llvm::object::SymbolRef, U64> symbolSizePair :
+		llvm::object::computeSymbolSizes(*object))
 	{
-		auto symbol = symbolSizePair.first;
+		llvm::object::SymbolRef symbol = symbolSizePair.first;
 
 		// Get the type, name, and address of the symbol. Need to be careful not to get the
 		// Expected<T> for each value unless it will be checked for success before continuing.
-		auto type = symbol.getType();
+		llvm::Expected<llvm::object::SymbolRef::Type> type = symbol.getType();
 		if(!type || *type != llvm::object::SymbolRef::ST_Function) { continue; }
-		auto name = symbol.getName();
+		llvm::Expected<llvm::StringRef> name = symbol.getName();
 		if(!name) { continue; }
-		auto address = symbol.getAddress();
+		llvm::Expected<U64> address = symbol.getAddress();
 		if(!address) { continue; }
 
-		// Compute the address the functions was loaded at.
+		// Compute the address the function was loaded at.
 		wavmAssert(*address <= UINTPTR_MAX);
 		Uptr loadedAddress = Uptr(*address);
-		auto symbolSection = symbol.getSection();
-		if(symbolSection)
+		if(llvm::Expected<llvm::object::section_iterator> symbolSection = symbol.getSection())
 		{ loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get()); }
 
 		// Get the DWARF line info for this symbol, which maps machine code addresses to
@@ -499,19 +441,16 @@ void JITUnit::load(const std::vector<U8>& objectBytes,
 
 		// Notify the JIT unit that the symbol was loaded.
 		wavmAssert(symbolSizePair.second <= UINTPTR_MAX);
-		JITSymbol* jitSymbol = notifySymbolLoaded(name->data(),
-												  loadedAddress,
-												  Uptr(symbolSizePair.second),
-												  std::move(offsetToOpIndexMap));
-
-		if(jitSymbol)
-		{
-			symbols.push_back(jitSymbol);
-
-			Lock<Platform::Mutex> addressToSymbolMapLock(addressToSymbolMapMutex);
-			addressToSymbolMap[loadedAddress + symbolSizePair.second] = jitSymbol;
-		}
+		JITFunction* jitFunction = new JITFunction(
+			loadedAddress, Uptr(symbolSizePair.second), std::move(offsetToOpIndexMap));
+		functions.push_back(std::unique_ptr<JITFunction>(jitFunction));
+		nameToFunctionMap.addOrFail(*name, jitFunction);
+		addressToFunctionMap.emplace(jitFunction->baseAddress + jitFunction->numBytes, jitFunction);
 	}
+
+	addressToModuleMap.emplace(reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
+													  + memoryManager->getNumImageBytes()),
+							   this);
 
 	if(shouldLogMetrics)
 	{
@@ -520,49 +459,122 @@ void JITUnit::load(const std::vector<U8>& objectBytes,
 	}
 }
 
-bool LLVMJIT::describeInstructionPointer(Uptr ip, std::string& outDescription)
+LLVMJIT::LoadedModule::~LoadedModule()
 {
-	JITSymbol* symbol;
+	// Remove the module from the global address to module map.
+	Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
+	addressToModuleMap.erase(addressToModuleMap.find(reinterpret_cast<Uptr>(
+		memoryManager->getImageBaseAddress() + memoryManager->getNumImageBytes())));
+
+	// Delete the memory manager.
+	delete memoryManager;
+}
+
+LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
+								  HashMap<std::string, FunctionBinding> wavmIntrinsicsExportMap,
+								  std::vector<FunctionBinding> functionImports,
+								  Uptr numFunctionDefs,
+								  std::vector<TableBinding> tables,
+								  std::vector<MemoryBinding> memories,
+								  std::vector<GlobalBinding> globals,
+								  std::vector<Runtime::ExceptionTypeInstance*> exceptionTypes,
+								  MemoryBinding defaultMemory,
+								  TableBinding defaultTable,
+								  std::vector<JITFunction*>& outFunctionDefs)
+{
+	// Bind undefined symbols in the compiled object to values.
+	HashMap<std::string, Uptr> importedSymbolMap;
+
+	// Bind the wavmIntrinsic function symbols; the compiled module assumes they have the intrinsic
+	// calling convention, so no thunking is necessary.
+	for(auto exportMapPair : wavmIntrinsicsExportMap)
 	{
-		Lock<Platform::Mutex> addressToSymbolMapLock(addressToSymbolMapMutex);
-		auto symbolIt = addressToSymbolMap.upper_bound(ip);
-		if(symbolIt == addressToSymbolMap.end()) { return false; }
-		symbol = symbolIt->second;
+		importedSymbolMap.addOrFail(exportMapPair.key,
+									reinterpret_cast<Uptr>(exportMapPair.value.nativeFunction));
 	}
-	if(ip < symbol->baseAddress || ip >= symbol->baseAddress + symbol->numBytes) { return false; }
 
-	switch(symbol->type)
+	// Bind imported function symbols.
+	for(Uptr importIndex = 0; importIndex < functionImports.size(); ++importIndex)
 	{
-	case JITSymbol::Type::functionInstance:
-	{
-		outDescription = "wasm!";
-		outDescription += symbol->functionInstance->moduleInstance->debugName;
-		outDescription += '!';
-		outDescription += symbol->functionInstance->debugName;
-		outDescription += '+';
+		void* nativeFunction = functionImports[importIndex].nativeFunction;
+		importedSymbolMap.addOrFail(getExternalName("functionImport", importIndex),
+									reinterpret_cast<Uptr>(nativeFunction));
+	}
 
-		// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative
-		// IP.
-		U32 ipOffset = (U32)(ip - symbol->baseAddress);
-		Iptr opIndex = -1;
-		for(auto offsetMapIt : symbol->offsetToOpIndexMap)
+	// Bind the table symbols. The compiled module uses the symbol's value as an offset into
+	// CompartmentRuntimeData to the table's entry in CompartmentRuntimeData::tableBases.
+	for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
+	{
+		importedSymbolMap.addOrFail(
+			getExternalName("tableOffset", tableIndex),
+			offsetof(CompartmentRuntimeData, tableBases) + sizeof(void*) * tables[tableIndex].id);
+	}
+
+	// Bind the memory symbols. The compiled module uses the symbol's value as an offset into
+	// CompartmentRuntimeData to the memory's entry in CompartmentRuntimeData::memoryBases.
+	for(Uptr memoryIndex = 0; memoryIndex < memories.size(); ++memoryIndex)
+	{
+		importedSymbolMap.addOrFail(getExternalName("memoryOffset", memoryIndex),
+									offsetof(CompartmentRuntimeData, memoryBases)
+										+ sizeof(void*) * memories[memoryIndex].id);
+	}
+
+	// Bind the globals symbols.
+	for(Uptr globalIndex = 0; globalIndex < globals.size(); ++globalIndex)
+	{
+		const GlobalBinding& globalSpec = globals[globalIndex];
+		Uptr value;
+		if(globalSpec.type.isMutable)
 		{
-			if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
-			else
-			{
-				break;
-			}
+			// If the global is mutable, bind the symbol to the offset into
+			// ContextRuntimeData::globalData where it is stored.
+			value = offsetof(ContextRuntimeData, globalData) + globalSpec.mutableDataOffset;
 		}
-		outDescription += std::to_string(opIndex >= 0 ? opIndex : 0);
-
-		return true;
+		else
+		{
+			// Otherwise, bind the symbol to a pointer to the global's immutable value.
+			value = reinterpret_cast<Uptr>(globalSpec.immutableValuePointer);
+		}
+		importedSymbolMap.addOrFail(getExternalName("global", globalIndex), value);
 	}
-	case JITSymbol::Type::invokeThunk:
-		outDescription = "thnk!";
-		outDescription += asString(symbol->invokeThunkType);
-		outDescription += '+';
-		outDescription += std::to_string(ip - symbol->baseAddress);
-		return true;
-	default: Errors::unreachable();
-	};
+
+	// Bind exception type symbols to point to the exception type instance.
+	for(Uptr exceptionTypeIndex = 0; exceptionTypeIndex < exceptionTypes.size();
+		++exceptionTypeIndex)
+	{
+		importedSymbolMap.addOrFail(getExternalName("exceptionType", exceptionTypeIndex),
+									reinterpret_cast<Uptr>(exceptionTypes[exceptionTypeIndex]));
+	}
+
+	// Load the module.
+	LoadedModule* jitModule = new LoadedModule(objectFileBytes, importedSymbolMap, true);
+
+	// Look up the function definitions by name from the loaded module's functions.
+	for(Uptr functionDefIndex = 0; functionDefIndex < numFunctionDefs; ++functionDefIndex)
+	{
+		outFunctionDefs.push_back(
+			jitModule->nameToFunctionMap[getExternalName("functionDef", functionDefIndex)]);
+	}
+
+	return jitModule;
+}
+
+void LLVMJIT::unloadModule(LoadedModule* loadedModule) { delete loadedModule; }
+
+JITFunction* LLVMJIT::getJITFunctionByAddress(Uptr address)
+{
+	LoadedModule* jitModule;
+	{
+		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
+		auto moduleIt = addressToModuleMap.upper_bound(address);
+		if(moduleIt == addressToModuleMap.end()) { return nullptr; }
+		jitModule = moduleIt->second;
+	}
+
+	auto functionIt = jitModule->addressToFunctionMap.upper_bound(address);
+	if(functionIt == jitModule->addressToFunctionMap.end()) { return nullptr; }
+	JITFunction* function = functionIt->second;
+	return address >= function->baseAddress && address < function->baseAddress + function->numBytes
+			   ? function
+			   : nullptr;
 }

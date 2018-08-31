@@ -4,7 +4,7 @@
 #include "IR/Types.h"
 #include "LLVMEmitContext.h"
 #include "LLVMEmitModuleContext.h"
-#include "LLVMJIT.h"
+#include "LLVMJITPrivate.h"
 
 #include "LLVMPreInclude.h"
 
