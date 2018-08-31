@@ -84,7 +84,7 @@ namespace LLVMJIT
 			memoryBasePointerVariable
 				= irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "memoryBase");
 			tableBasePointerVariable = irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "tableBase");
-			contextPointerVariable   = irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "context");
+			contextPointerVariable = irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "context");
 			irBuilder.CreateStore(initialContextPointer, contextPointerVariable);
 			reloadMemoryAndTableBase();
 		}
@@ -226,8 +226,8 @@ namespace LLVMJIT
 		void emitReturn(IR::TypeTuple resultTypes, const llvm::ArrayRef<llvm::Value*>& results)
 		{
 			llvm::Value* returnStruct = getZeroedLLVMReturnStruct(resultTypes);
-			returnStruct              = irBuilder.CreateInsertValue(
-                returnStruct, irBuilder.CreateLoad(contextPointerVariable), {U32(0)});
+			returnStruct = irBuilder.CreateInsertValue(
+				returnStruct, irBuilder.CreateLoad(contextPointerVariable), {U32(0)});
 
 			wavmAssert(resultTypes.size() == results.size());
 			if(areResultsReturnedDirectly(resultTypes))
@@ -236,8 +236,8 @@ namespace LLVMJIT
 				for(Uptr resultIndex = 0; resultIndex < results.size(); ++resultIndex)
 				{
 					llvm::Value* result = results[resultIndex];
-					returnStruct        = irBuilder.CreateInsertValue(
-                        returnStruct, result, {U32(1), U32(resultIndex)});
+					returnStruct = irBuilder.CreateInsertValue(
+						returnStruct, result, {U32(1), U32(resultIndex)});
 				}
 			}
 			else
@@ -247,7 +247,7 @@ namespace LLVMJIT
 				for(Uptr resultIndex = 0; resultIndex < results.size(); ++resultIndex)
 				{
 					const IR::ValueType resultType = resultTypes[resultIndex];
-					const U8 resultNumBytes        = IR::getTypeByteWidth(resultType);
+					const U8 resultNumBytes = IR::getTypeByteWidth(resultType);
 
 					resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 					wavmAssert(resultOffset < Runtime::maxThunkArgAndReturnBytes);

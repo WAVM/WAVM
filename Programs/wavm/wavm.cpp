@@ -138,12 +138,12 @@ static bool loadModule(const char* filename, IR::Module& outModule)
 
 struct CommandLineOptions
 {
-	const char* filename     = nullptr;
+	const char* filename = nullptr;
 	const char* functionName = nullptr;
-	char** args              = nullptr;
-	bool onlyCheck           = false;
-	bool enableEmscripten    = true;
-	bool enableThreadTest    = false;
+	char** args = nullptr;
+	bool onlyCheck = false;
+	bool enableEmscripten = true;
+	bool enableThreadTest = false;
 };
 
 static int run(const CommandLineOptions& options)
@@ -156,7 +156,7 @@ static int run(const CommandLineOptions& options)
 
 	// Link the module with the intrinsic modules.
 	Compartment* compartment = Runtime::createCompartment();
-	Context* context         = Runtime::createContext(compartment);
+	Context* context = Runtime::createContext(compartment);
 	RootResolver rootResolver(compartment);
 
 	Emscripten::Instance* emscriptenInstance = nullptr;

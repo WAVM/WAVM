@@ -34,7 +34,7 @@ EMIT_CONST(v128, V128)
 		const ValueType type = ValueType::typeId;                                                  \
 		SUPPRESS_UNUSED(type);                                                                     \
 		auto right = pop();                                                                        \
-		auto left  = pop();                                                                        \
+		auto left = pop();                                                                         \
 		push(emitCode);                                                                            \
 	}
 
@@ -115,14 +115,14 @@ llvm::Value* EmitFunctionContext::emitSRem(ValueType type, llvm::Value* left, ll
 	// if the corresponding division would overflow a signed integer. To avoid this case, we just
 	// branch around the srem if the INT_MAX%-1 case that overflows is detected.
 	auto preOverflowBlock = irBuilder.GetInsertBlock();
-	auto noOverflowBlock  = llvm::BasicBlock::Create(*llvmContext, "sremNoOverflow", llvmFunction);
-	auto endBlock         = llvm::BasicBlock::Create(*llvmContext, "sremEnd", llvmFunction);
-	auto noOverflow       = irBuilder.CreateOr(
-        irBuilder.CreateICmpNE(
-            left,
-            type == ValueType::i32 ? emitLiteral((U32)INT32_MIN) : emitLiteral((U64)INT64_MIN)),
-        irBuilder.CreateICmpNE(
-            right, type == ValueType::i32 ? emitLiteral((U32)-1) : emitLiteral((U64)-1)));
+	auto noOverflowBlock = llvm::BasicBlock::Create(*llvmContext, "sremNoOverflow", llvmFunction);
+	auto endBlock = llvm::BasicBlock::Create(*llvmContext, "sremEnd", llvmFunction);
+	auto noOverflow = irBuilder.CreateOr(
+		irBuilder.CreateICmpNE(
+			left,
+			type == ValueType::i32 ? emitLiteral((U32)INT32_MIN) : emitLiteral((U64)INT64_MIN)),
+		irBuilder.CreateICmpNE(
+			right, type == ValueType::i32 ? emitLiteral((U32)-1) : emitLiteral((U64)-1)));
 	irBuilder.CreateCondBr(
 		noOverflow, noOverflowBlock, endBlock, moduleContext.likelyTrueBranchWeights);
 
@@ -251,7 +251,7 @@ EMIT_FP_UNARY_OP(sqrt,
 	void EmitFunctionContext::name(NoImm)                                                          \
 	{                                                                                              \
 		auto right = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
-		auto left  = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
+		auto left = irBuilder.CreateBitCast(pop(), llvmOperandType);                               \
 		push(zext(createFCmpWithWorkaround(irBuilder, predicate, left, right), llvmResultType));   \
 	}
 
@@ -306,9 +306,9 @@ static llvm::Value* emitVectorShiftCountMask(llvm::IRBuilder<>& irBuilder,
 	// wrap numbers grather than the bit count of the operands. This matches x86's native shift
 	// instructions, but explicitly mask the shift count anyway to support other platforms, and
 	// ensure the optimizer doesn't take advantage of the UB.
-	const U32 numScalarBits        = scalarType->getPrimitiveSizeInBits();
-	llvm::APInt bitsMinusOneInt    = llvm::APInt(numScalarBits, U64(numScalarBits - 1), false);
-	llvm::Value* bitsMinusOne      = llvm::ConstantInt::get(scalarType, bitsMinusOneInt);
+	const U32 numScalarBits = scalarType->getPrimitiveSizeInBits();
+	llvm::APInt bitsMinusOneInt = llvm::APInt(numScalarBits, U64(numScalarBits - 1), false);
+	llvm::Value* bitsMinusOne = llvm::ConstantInt::get(scalarType, bitsMinusOneInt);
 	llvm::Value* bitsMinusOneSplat = irBuilder.CreateVectorSplat(numLanes, bitsMinusOne);
 	return irBuilder.CreateAnd(shiftCount, bitsMinusOneSplat);
 }
@@ -343,7 +343,7 @@ EMIT_SIMD_BINARY_OP(i32x4_mul, llvmI32x4Type, irBuilder.CreateMul(left, right))
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
 		auto right = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
-		auto left  = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
+		auto left = irBuilder.CreateBitCast(pop(), llvmOperandType);                               \
 		push(zext(createICmpWithWorkaround(irBuilder, predicate, left, right), llvmDestType));     \
 	}
 
@@ -372,8 +372,8 @@ static llvm::Value* emitAddUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
 											 llvm::Value* right,
 											 llvm::Type* type)
 {
-	left             = irBuilder.CreateBitCast(left, type);
-	right            = irBuilder.CreateBitCast(right, type);
+	left = irBuilder.CreateBitCast(left, type);
+	right = irBuilder.CreateBitCast(right, type);
 	llvm::Value* add = irBuilder.CreateAdd(left, right);
 	return irBuilder.CreateSelect(
 		irBuilder.CreateICmpUGT(left, add), llvm::Constant::getAllOnesValue(left->getType()), add);
@@ -384,7 +384,7 @@ static llvm::Value* emitSubUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
 											 llvm::Value* right,
 											 llvm::Type* type)
 {
-	left  = irBuilder.CreateBitCast(left, type);
+	left = irBuilder.CreateBitCast(left, type);
 	right = irBuilder.CreateBitCast(right, type);
 	return irBuilder.CreateSub(
 		irBuilder.CreateSelect(
@@ -479,14 +479,14 @@ static llvm::Value* emitAnyTrue(llvm::IRBuilder<>& irBuilder,
 	vector = irBuilder.CreateBitCast(vector, vectorType);
 
 	const U32 numScalarBits = vectorType->getScalarSizeInBits();
-	const Uptr numLanes     = vectorType->getVectorNumElements();
+	const Uptr numLanes = vectorType->getVectorNumElements();
 	llvm::Constant* zero
 		= llvm::ConstantInt::get(vectorType->getScalarType(), llvm::APInt(numScalarBits, 0));
 
 	llvm::Value* result = nullptr;
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 	{
-		llvm::Value* scalar     = irBuilder.CreateExtractElement(vector, laneIndex);
+		llvm::Value* scalar = irBuilder.CreateExtractElement(vector, laneIndex);
 		llvm::Value* scalarBool = irBuilder.CreateICmpNE(scalar, zero);
 
 		result = result ? irBuilder.CreateOr(result, scalarBool) : scalarBool;
@@ -501,14 +501,14 @@ static llvm::Value* emitAllTrue(llvm::IRBuilder<>& irBuilder,
 	vector = irBuilder.CreateBitCast(vector, vectorType);
 
 	const U32 numScalarBits = vectorType->getScalarSizeInBits();
-	const Uptr numLanes     = vectorType->getVectorNumElements();
+	const Uptr numLanes = vectorType->getVectorNumElements();
 	llvm::Constant* zero
 		= llvm::ConstantInt::get(vectorType->getScalarType(), llvm::APInt(numScalarBits, 0));
 
 	llvm::Value* result = nullptr;
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 	{
-		llvm::Value* scalar     = irBuilder.CreateExtractElement(vector, laneIndex);
+		llvm::Value* scalar = irBuilder.CreateExtractElement(vector, laneIndex);
 		llvm::Value* scalarBool = irBuilder.CreateICmpNE(scalar, zero);
 
 		result = result ? irBuilder.CreateAnd(result, scalarBool) : scalarBool;
@@ -529,19 +529,19 @@ EMIT_SIMD_UNARY_OP(i64x2_all_true, llvmI64x2Type, emitAllTrue(irBuilder, operand
 void EmitFunctionContext::v128_and(IR::NoImm)
 {
 	auto right = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
-	auto left  = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto left = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(irBuilder.CreateAnd(left, right));
 }
 void EmitFunctionContext::v128_or(IR::NoImm)
 {
 	auto right = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
-	auto left  = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto left = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(irBuilder.CreateOr(left, right));
 }
 void EmitFunctionContext::v128_xor(IR::NoImm)
 {
 	auto right = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
-	auto left  = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto left = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(irBuilder.CreateXor(left, right));
 }
 void EmitFunctionContext::v128_not(IR::NoImm)
@@ -558,7 +558,7 @@ void EmitFunctionContext::v128_not(IR::NoImm)
 	void EmitFunctionContext::name(IR::LaneIndexImm<numLanes> imm)                                 \
 	{                                                                                              \
 		auto operand = irBuilder.CreateBitCast(pop(), llvmType);                                   \
-		auto scalar  = irBuilder.CreateExtractElement(operand, imm.laneIndex);                     \
+		auto scalar = irBuilder.CreateExtractElement(operand, imm.laneIndex);                      \
 		push(coerceScalar);                                                                        \
 	}
 EMIT_SIMD_EXTRACT_LANE_OP(i8x16_extract_lane_s, llvmI8x16Type, 16, sext(scalar, llvmI32Type))
@@ -594,7 +594,7 @@ EMIT_SIMD_REPLACE_LANE_OP(f64x2, llvmF64x2Type, 2, scalar)
 void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)
 {
 	auto right = irBuilder.CreateBitCast(pop(), llvmI8x16Type);
-	auto left  = irBuilder.CreateBitCast(pop(), llvmI8x16Type);
+	auto left = irBuilder.CreateBitCast(pop(), llvmI8x16Type);
 	unsigned int laneIndices[16];
 	for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
 	{ laneIndices[laneIndex] = imm.laneIndices[laneIndex]; }
@@ -603,8 +603,8 @@ void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)
 
 void EmitFunctionContext::v128_bitselect(IR::NoImm)
 {
-	auto mask       = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto mask = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	auto falseValue = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
-	auto trueValue  = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
+	auto trueValue = irBuilder.CreateBitCast(pop(), llvmI128x1Type);
 	push(emitBitSelect(mask, trueValue, falseValue));
 }

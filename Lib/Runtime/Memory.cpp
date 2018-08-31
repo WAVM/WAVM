@@ -28,12 +28,12 @@ MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType t
 	// On a 64-bit runtime, allocate 8GB of address space for the memory.
 	// This allows eliding bounds checks on memory accesses, since a 32-bit index + 32-bit offset
 	// will always be within the reserved address-space.
-	const Uptr pageBytesLog2  = Platform::getPageSizeLog2();
+	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
 	const Uptr memoryMaxBytes = Uptr(8ull * 1024 * 1024 * 1024);
 	const Uptr memoryMaxPages = memoryMaxBytes >> pageBytesLog2;
 
 	memory->baseAddress = Platform::allocateVirtualPages(memoryMaxPages + numGuardPages);
-	memory->endOffset   = memoryMaxBytes;
+	memory->endOffset = memoryMaxBytes;
 	if(!memory->baseAddress)
 	{
 		delete memory;
@@ -75,7 +75,7 @@ MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType t
 MemoryInstance* Runtime::cloneMemory(MemoryInstance* memory, Compartment* newCompartment)
 {
 	MemoryInstance* newMemory = createMemory(newCompartment, memory->type);
-	const Uptr numPages       = memory->numPages;
+	const Uptr numPages = memory->numPages;
 	growMemory(newMemory, numPages);
 	memcpy(newMemory->baseAddress, memory->baseAddress, numPages * IR::numBytesPerPage);
 	return newMemory;
@@ -86,7 +86,7 @@ void Runtime::MemoryInstance::finalize()
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 	wavmAssert(compartment->memories[id] == this);
 	wavmAssert(compartment->runtimeData->memoryBases[id] == baseAddress);
-	compartment->memories[id]                 = nullptr;
+	compartment->memories[id] = nullptr;
 	compartment->runtimeData->memoryBases[id] = nullptr;
 }
 
@@ -127,7 +127,7 @@ bool Runtime::isAddressOwnedByMemory(U8* address)
 	for(auto memory : memories)
 	{
 		U8* startAddress = memory->baseAddress;
-		U8* endAddress   = memory->baseAddress + memory->endOffset;
+		U8* endAddress = memory->baseAddress + memory->endOffset;
 		if(address >= startAddress && address < endAddress) { return true; }
 	}
 	return false;

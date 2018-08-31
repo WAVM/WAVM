@@ -97,7 +97,7 @@ static U32 dynamicAlloc(MemoryInstance* memory, U32 numBytes)
 	MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
 
 	const U32 allocationAddress = mutableGlobals.DYNAMICTOP_PTR;
-	const U32 endAddress        = (allocationAddress + numBytes + 15) & -16;
+	const U32 endAddress = (allocationAddress + numBytes + 15) & -16;
 
 	mutableGlobals.DYNAMICTOP_PTR = endAddress;
 
@@ -371,7 +371,7 @@ static U32 currentLocale = 0;
 DEFINE_INTRINSIC_FUNCTION(env, "_uselocale", I32, _uselocale, I32 locale)
 {
 	auto oldLocale = currentLocale;
-	currentLocale  = locale;
+	currentLocale = locale;
 	return oldLocale;
 }
 DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
@@ -440,7 +440,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
 enum class ioStreamVMHandle
 {
 	StdErr = 1,
-	StdIn  = 2,
+	StdIn = 2,
 	StdOut = 3
 };
 FILE* vmFile(U32 vmHandle)
@@ -547,15 +547,15 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
 		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
 
 	// writev
-	U32* args  = memoryArrayPtr<U32>(memory, argsPtr, 3);
-	U32 iov    = args[1];
+	U32* args = memoryArrayPtr<U32>(memory, argsPtr, 3);
+	U32 iov = args[1];
 	U32 iovcnt = args[2];
 #ifdef _WIN32
 	U32 count = 0;
 	for(U32 i = 0; i < iovcnt; i++)
 	{
 		U32 base = memoryRef<U32>(memory, iov + i * 8);
-		U32 len  = memoryRef<U32>(memory, iov + i * 8 + 4);
+		U32 len = memoryRef<U32>(memory, iov + i * 8 + 4);
 		U32 size = (U32)fwrite(memoryArrayPtr<U8>(memory, base, len), 1, len, vmFile(file));
 		count += size;
 		if(size < len) break;
@@ -565,10 +565,10 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
 	for(U32 i = 0; i < iovcnt; i++)
 	{
 		U32 base = memoryRef<U32>(memory, iov + i * 8);
-		U32 len  = memoryRef<U32>(memory, iov + i * 8 + 4);
+		U32 len = memoryRef<U32>(memory, iov + i * 8 + 4);
 
 		native_iovec[i].iov_base = memoryArrayPtr<U8>(memory, base, len);
-		native_iovec[i].iov_len  = len;
+		native_iovec[i].iov_len = len;
 	}
 	Iptr count = writev(fileno(vmFile(file)), native_iovec, iovcnt);
 #endif
@@ -634,7 +634,7 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 	{ tableType = module.tables.imports[0].type; }
 
 	MemoryInstance* memory = Runtime::createMemory(compartment, memoryType);
-	TableInstance* table   = Runtime::createTable(compartment, tableType);
+	TableInstance* table = Runtime::createTable(compartment, tableType);
 
 	HashMap<std::string, Runtime::Object*> extraEnvExports = {
 		{"memory", Runtime::asObject(memory)},
@@ -642,8 +642,8 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 	};
 
 	Instance* instance = new Instance;
-	instance->env      = Intrinsics::instantiateModule(
-        compartment, INTRINSIC_MODULE_REF(env), "env", extraEnvExports);
+	instance->env = Intrinsics::instantiateModule(
+		compartment, INTRINSIC_MODULE_REF(env), "env", extraEnvExports);
 	instance->asm2wasm
 		= Intrinsics::instantiateModule(compartment, INTRINSIC_MODULE_REF(asm2wasm), "asm2wasm");
 	instance->global
@@ -652,9 +652,9 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 	MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
 
 	mutableGlobals.DYNAMICTOP_PTR = STACK_MAX.getValue().i32;
-	mutableGlobals._stderr        = (U32)ioStreamVMHandle::StdErr;
-	mutableGlobals._stdin         = (U32)ioStreamVMHandle::StdIn;
-	mutableGlobals._stdout        = (U32)ioStreamVMHandle::StdOut;
+	mutableGlobals._stderr = (U32)ioStreamVMHandle::StdErr;
+	mutableGlobals._stdin = (U32)ioStreamVMHandle::StdIn;
+	mutableGlobals._stdout = (U32)ioStreamVMHandle::StdOut;
 
 	instance->emscriptenMemory = memory;
 
@@ -696,14 +696,14 @@ void Emscripten::injectCommandArgs(Emscripten::Instance* instance,
 								   const std::vector<const char*>& argStrings,
 								   std::vector<IR::Value>& outInvokeArgs)
 {
-	MemoryInstance* memory         = instance->emscriptenMemory;
+	MemoryInstance* memory = instance->emscriptenMemory;
 	U8* emscriptenMemoryBaseAdress = getMemoryBaseAddress(memory);
 
 	U32* argvOffsets = (U32*)(emscriptenMemoryBaseAdress
 							  + dynamicAlloc(memory, (U32)(sizeof(U32) * (argStrings.size() + 1))));
 	for(Uptr argIndex = 0; argIndex < argStrings.size(); ++argIndex)
 	{
-		auto stringSize   = strlen(argStrings[argIndex]) + 1;
+		auto stringSize = strlen(argStrings[argIndex]) + 1;
 		auto stringMemory = emscriptenMemoryBaseAdress + dynamicAlloc(memory, (U32)stringSize);
 		memcpy(stringMemory, argStrings[argIndex], stringSize);
 		argvOffsets[argIndex] = (U32)(stringMemory - emscriptenMemoryBaseAdress);

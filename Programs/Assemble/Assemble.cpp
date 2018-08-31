@@ -15,10 +15,10 @@ int main(int argc, char** argv)
 					"                              names from the output\n");
 		return EXIT_FAILURE;
 	}
-	const char* inputFilename  = argv[1];
+	const char* inputFilename = argv[1];
 	const char* outputFilename = argv[2];
-	bool omitNames             = false;
-	bool omitExtendedNames     = false;
+	bool omitNames = false;
+	bool omitExtendedNames = false;
 	if(argc > 3)
 	{
 		for(Iptr argumentIndex = 3; argumentIndex < argc; ++argumentIndex)

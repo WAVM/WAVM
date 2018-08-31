@@ -24,7 +24,7 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::resize(Uptr 
 	wavmAssert(!(newNumBuckets & (newNumBuckets - 1)));
 
 	const Uptr oldNumBuckets = numBuckets();
-	Bucket* oldBuckets       = buckets;
+	Bucket* oldBuckets = buckets;
 
 	if(!newNumBuckets)
 	{
@@ -72,7 +72,7 @@ template<HASHTABLE_PARAMETERS>
 bool HashTable<HASHTABLE_ARGUMENTS>::remove(Uptr hash, const Key& key)
 {
 	// Find the bucket (if any) holding the key.
-	const Uptr hashAndOccupancy            = hash | Bucket::isOccupiedMask;
+	const Uptr hashAndOccupancy = hash | Bucket::isOccupiedMask;
 	const HashTableBucket<Element>* bucket = getBucketForRead(hashAndOccupancy, key);
 	if(!bucket) { return false; }
 	else
@@ -98,11 +98,11 @@ const HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForRead
 
 	// Start at the bucket indexed by the lower bits of the hash.
 	const Uptr hashAndOccupancy = hash | Bucket::isOccupiedMask;
-	Uptr probeCount             = 0;
+	Uptr probeCount = 0;
 	while(true)
 	{
 		const Uptr bucketIndex = (hashAndOccupancy + probeCount) & hashToBucketIndexMask;
-		const Bucket& bucket   = buckets[bucketIndex];
+		const Bucket& bucket = buckets[bucketIndex];
 
 		if(!bucket.hashAndOccupancy)
 		{
@@ -171,11 +171,11 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(Uptr
 
 	// Start at the bucket indexed by the lower bits of the hash.
 	const Uptr hashAndOccupancy = hash | Bucket::isOccupiedMask;
-	Uptr probeCount             = 0;
+	Uptr probeCount = 0;
 	while(true)
 	{
 		const Uptr bucketIndex = (hashAndOccupancy + probeCount) & hashToBucketIndexMask;
-		Bucket& bucket         = buckets[bucketIndex];
+		Bucket& bucket = buckets[bucketIndex];
 
 		if(!bucket.hashAndOccupancy)
 		{
@@ -219,14 +219,14 @@ void HashTable<HASHTABLE_ARGUMENTS>::evictHashBucket(Uptr bucketIndex)
 	Bucket& evictedBucket = buckets[bucketIndex];
 	wavmAssert(evictedBucket.hashAndOccupancy);
 	Element evictedElement{std::move(evictedBucket.storage.contents)};
-	Uptr evictedHashAndOccupancy   = evictedBucket.hashAndOccupancy;
+	Uptr evictedHashAndOccupancy = evictedBucket.hashAndOccupancy;
 	evictedBucket.hashAndOccupancy = 0;
 	evictedBucket.storage.destruct();
 
 	while(true)
 	{
 		// Consider the next bucket
-		bucketIndex    = (bucketIndex + 1) & hashToBucketIndexMask;
+		bucketIndex = (bucketIndex + 1) & hashToBucketIndexMask;
 		Bucket& bucket = buckets[bucketIndex];
 
 		if(!bucket.hashAndOccupancy)
@@ -254,9 +254,9 @@ void HashTable<HASHTABLE_ARGUMENTS>::eraseHashBucket(Uptr eraseBucketIndex)
 	while(true)
 	{
 		// Consider the bucket following the erase bucket
-		Bucket& bucketToErase  = buckets[eraseBucketIndex];
+		Bucket& bucketToErase = buckets[eraseBucketIndex];
 		const Uptr bucketIndex = (eraseBucketIndex + 1) & hashToBucketIndexMask;
-		Bucket& bucket         = buckets[bucketIndex];
+		Bucket& bucket = buckets[bucketIndex];
 
 		if(!bucket.hashAndOccupancy)
 		{
@@ -285,7 +285,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::eraseHashBucket(Uptr eraseBucketIndex)
 				// and continue with the following bucket as the new erase bucket.
 				bucketToErase.storage.contents = std::move(bucket.storage.contents);
 				bucketToErase.hashAndOccupancy = bucket.hashAndOccupancy;
-				eraseBucketIndex               = bucketIndex;
+				eraseBucketIndex = bucketIndex;
 			}
 		}
 	};
@@ -298,9 +298,9 @@ void HashTable<HASHTABLE_ARGUMENTS>::analyzeSpaceUsage(Uptr& outTotalMemoryBytes
 													   F32& outAverageProbeCount) const
 {
 	outTotalMemoryBytes = sizeof(Bucket) * numBuckets() + sizeof(*this);
-	outOccupancy        = size() / F32(numBuckets());
+	outOccupancy = size() / F32(numBuckets());
 
-	outMaxProbeCount     = 0;
+	outMaxProbeCount = 0;
 	outAverageProbeCount = 0.0f;
 	for(Uptr idealBucketIndex = 0; idealBucketIndex < numBuckets(); ++idealBucketIndex)
 	{
@@ -386,7 +386,7 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::destruct()
 
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::copyFrom(const HashTable& copy)
 {
-	numElements           = copy.numElements;
+	numElements = copy.numElements;
 	hashToBucketIndexMask = copy.hashToBucketIndexMask;
 
 	if(!copy.buckets) { buckets = nullptr; }
@@ -406,7 +406,7 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::copyFrom(con
 
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::moveFrom(HashTable&& movee)
 {
-	numElements           = movee.numElements;
+	numElements = movee.numElements;
 	hashToBucketIndexMask = movee.hashToBucketIndexMask;
 
 	if(!movee.buckets) { buckets = nullptr; }
@@ -414,9 +414,9 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::moveFrom(Has
 	{
 		buckets = movee.buckets;
 
-		movee.numElements           = 0;
+		movee.numElements = 0;
 		movee.hashToBucketIndexMask = 0;
-		movee.buckets               = nullptr;
+		movee.buckets = nullptr;
 	}
 }
 

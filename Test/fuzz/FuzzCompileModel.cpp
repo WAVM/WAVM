@@ -73,7 +73,7 @@ private:
 
 		wavmAssert(denominator >= maxResult);
 		const U32 result = U32((numerator ^ seed) % (U64(maxResult) + 1));
-		seed             = 6364136223846793005 * seed + 1442695040888963407;
+		seed = 6364136223846793005 * seed + 1442695040888963407;
 		numerator /= (U64(maxResult) + 1);
 		denominator /= (U64(maxResult) + 1);
 		refill();
@@ -126,7 +126,7 @@ static void generateImm(RandomStream& random,
 						LoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
-	outImm.offset        = random.get(UINT32_MAX);
+	outImm.offset = random.get(UINT32_MAX);
 }
 
 template<Uptr naturalAlignmentLog2>
@@ -135,7 +135,7 @@ static void generateImm(RandomStream& random,
 						AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.alignmentLog2 = naturalAlignmentLog2;
-	outImm.offset        = random.get(UINT32_MAX);
+	outImm.offset = random.get(UINT32_MAX);
 }
 
 template<Uptr numLanes>
@@ -205,8 +205,8 @@ static void generateFunction(RandomStream& random, IR::Module& module)
 		for(Uptr opIndex = 0; opIndex < numNonParametricOps; ++opIndex)
 		{
 			const OperatorInfo* opInfo = &operatorInfos[opIndex];
-			const TypeTuple params     = opInfo->sig.params();
-			const TypeTuple results    = opInfo->sig.results();
+			const TypeTuple params = opInfo->sig.params();
+			const TypeTuple results = opInfo->sig.results();
 
 			// If the random stream has run out of entropy, don't consider operators that might
 			// result in a net increase in stack size.

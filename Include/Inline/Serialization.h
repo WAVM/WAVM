@@ -60,7 +60,7 @@ namespace Serialization
 		{
 			bytes.resize(next - bytes.data());
 			next = nullptr;
-			end  = nullptr;
+			end = nullptr;
 			return std::move(bytes);
 		}
 
@@ -76,7 +76,7 @@ namespace Serialization
 			bytes.resize(std::max((Uptr)nextIndex + numBytes, (Uptr)bytes.size() * 7 / 5 + 32));
 
 			next = bytes.data() + nextIndex;
-			end  = bytes.data() + bytes.size();
+			end = bytes.data() + bytes.size();
 		}
 	};
 
@@ -225,11 +225,11 @@ namespace Serialization
 			maxBytes = (maxBits + 6) / 7
 		};
 		U8 bytes[maxBytes] = {0};
-		Uptr numBytes      = 0;
+		Uptr numBytes = 0;
 		I8 signExtendShift = (I8)sizeof(Value) * 8;
 		while(numBytes < maxBytes)
 		{
-			U8 byte         = *stream.advance(1);
+			U8 byte = *stream.advance(1);
 			bytes[numBytes] = byte;
 			++numBytes;
 			signExtendShift -= 7;
@@ -240,10 +240,10 @@ namespace Serialization
 		enum
 		{
 			numUsedBitsInLastByte = maxBits - (maxBytes - 1) * 7,
-			numUnusedBitsInLast   = 8 - numUsedBitsInLastByte,
-			lastBitUsedMask       = U8(1 << (numUsedBitsInLastByte - 1)),
-			lastByteUsedMask      = U8(1 << numUsedBitsInLastByte) - U8(1),
-			lastByteSignedMask    = U8(~U8(lastByteUsedMask) & ~U8(0x80))
+			numUnusedBitsInLast = 8 - numUsedBitsInLastByte,
+			lastBitUsedMask = U8(1 << (numUsedBitsInLastByte - 1)),
+			lastByteUsedMask = U8(1 << numUsedBitsInLastByte) - U8(1),
+			lastByteSignedMask = U8(~U8(lastByteUsedMask) & ~U8(0x80))
 		};
 		const U8 lastByte = bytes[maxBytes - 1];
 		if(!std::is_signed<Value>::value)
@@ -256,7 +256,7 @@ namespace Serialization
 		}
 		else
 		{
-			const I8 signBit             = I8((lastByte & lastBitUsedMask) << numUnusedBitsInLast);
+			const I8 signBit = I8((lastByte & lastBitUsedMask) << numUnusedBitsInLast);
 			const I8 signExtendedLastBit = signBit >> numUnusedBitsInLast;
 			if((lastByte & ~lastByteUsedMask) != (signExtendedLastBit & lastByteSignedMask))
 			{

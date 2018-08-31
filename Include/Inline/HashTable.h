@@ -50,7 +50,7 @@ template<typename Element> struct HashTableBucket
 	Uptr hashAndOccupancy;
 
 	static constexpr Uptr isOccupiedMask = Uptr(1) << (sizeof(Uptr) * 8 - 1);
-	static constexpr Uptr hashMask       = ~isOccupiedMask;
+	static constexpr Uptr hashMask = ~isOccupiedMask;
 };
 
 // A lightly encapsulated hash table, used internally by HashMap and HashSet.

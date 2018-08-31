@@ -98,7 +98,7 @@ DEFINE_INTRINSIC_MODULE(threadTest);
 static I64 threadEntry(void* threadVoid)
 {
 	Thread* thread = (Thread*)threadVoid;
-	currentThread  = thread;
+	currentThread = thread;
 	thread->removeRef();
 
 	return invokeFunctionUnchecked(thread->context, thread->entryFunction, &thread->argument)->i64;
@@ -151,9 +151,9 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(threadTest,
 
 DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, forkThread)
 {
-	auto oldContext  = getContextFromRuntimeData(contextRuntimeData);
+	auto oldContext = getContextFromRuntimeData(contextRuntimeData);
 	auto compartment = getCompartmentFromContext(oldContext);
-	auto newContext  = cloneContext(oldContext, compartment);
+	auto newContext = cloneContext(oldContext, compartment);
 
 	wavmAssert(currentThread);
 	Thread* childThread
@@ -168,7 +168,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, for
 	{
 		// Initialize the child thread's platform thread pointer, and allocate a thread ID for it.
 		childThread->platformThread = platformThread;
-		const Uptr threadId         = allocateThreadId(childThread);
+		const Uptr threadId = allocateThreadId(childThread);
 		childThread->removeRef();
 
 		return Intrinsics::resultInContextRuntimeData<I64>(contextRuntimeData, threadId);
@@ -205,7 +205,7 @@ static IntrusiveSharedPtr<Thread> removeThreadById(Uptr threadId)
 
 	Lock<Platform::Mutex> threadsLock(threadsMutex);
 	validateThreadId(threadId);
-	thread            = std::move(threads[threadId]);
+	thread = std::move(threads[threadId]);
 	threads[threadId] = nullptr;
 	freeThreadIds.push_back(threadId);
 
@@ -218,8 +218,8 @@ static IntrusiveSharedPtr<Thread> removeThreadById(Uptr threadId)
 DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, I64 threadId)
 {
 	IntrusiveSharedPtr<Thread> thread = removeThreadById(threadId);
-	const I64 result                  = Platform::joinThread(thread->platformThread);
-	thread->platformThread            = nullptr;
+	const I64 result = Platform::joinThread(thread->platformThread);
+	thread->platformThread = nullptr;
 	return result;
 }
 

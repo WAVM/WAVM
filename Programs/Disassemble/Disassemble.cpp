@@ -12,7 +12,7 @@ int main(int argc, char** argv)
 		Log::printf(Log::error, "Usage: Disassemble in.wasm out.wast\n");
 		return EXIT_FAILURE;
 	}
-	const char* inputFilename  = argv[1];
+	const char* inputFilename = argv[1];
 	const char* outputFilename = argv[2];
 
 	// Load the WASM file.

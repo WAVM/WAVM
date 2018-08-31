@@ -155,9 +155,9 @@ namespace IR
 
 		template<typename Visitor> typename Visitor::Result decodeOpWithoutConsume(Visitor& visitor)
 		{
-			const U8* savedNextByte         = nextByte;
+			const U8* savedNextByte = nextByte;
 			typename Visitor::Result result = decodeOp(visitor);
-			nextByte                        = savedNextByte;
+			nextByte = savedNextByte;
 			return result;
 		}
 
@@ -178,7 +178,7 @@ namespace IR
 	{                                                                                              \
 		OpcodeAndImm<Imm> encodedOperator;                                                         \
 		encodedOperator.opcode = Opcode::name;                                                     \
-		encodedOperator.imm    = imm;                                                              \
+		encodedOperator.imm = imm;                                                                 \
 		memcpy((OpcodeAndImm<Imm>*)byteStream.advance(sizeof(OpcodeAndImm<Imm>)),                  \
 			   &encodedOperator,                                                                   \
 			   sizeof(OpcodeAndImm<Imm>));                                                         \

@@ -13,15 +13,15 @@
 
 enum UnwindOpcode
 {
-	UWOP_PUSH_NONVOL     = 0,
-	UWOP_ALLOC_LARGE     = 1,
-	UWOP_ALLOC_SMALL     = 2,
-	UWOP_SET_FPREG       = 3,
-	UWOP_SAVE_NONVOL     = 4,
+	UWOP_PUSH_NONVOL = 0,
+	UWOP_ALLOC_LARGE = 1,
+	UWOP_ALLOC_SMALL = 2,
+	UWOP_SET_FPREG = 3,
+	UWOP_SAVE_NONVOL = 4,
 	UWOP_SAVE_NONVOL_FAR = 5,
-	UWOP_SAVE_XMM128     = 6,
+	UWOP_SAVE_XMM128 = 6,
 	UWOP_SAVE_XMM128_FAR = 7,
-	UWOP_PUSH_MACHFRAME  = 8
+	UWOP_PUSH_MACHFRAME = 8
 };
 
 PACKED_STRUCT(struct SEHLanguageSpecificDataEntry {
@@ -51,8 +51,8 @@ namespace UnwindInfoFlags
 {
 	enum UnwindInfoFlags : U8
 	{
-		UNW_FLAG_EHANDLER  = 0x1,
-		UNW_FLAG_UHANDLER  = 0x2,
+		UNW_FLAG_EHANDLER = 0x1,
+		UNW_FLAG_UHANDLER = 0x2,
 		UNW_FLAG_CHAININFO = 0x4
 	};
 };
@@ -134,8 +134,8 @@ static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo& loadedOb
 								+ loadedObject.getSectionLoadAddress(*symbolSection);
 			}
 
-			U32* valueToRelocate       = (U32*)(sectionData + relocIt.getOffset());
-			const U32* originalValue   = (U32*)(sectionCopy + relocIt.getOffset());
+			U32* valueToRelocate = (U32*)(sectionData + relocIt.getOffset());
+			const U32* originalValue = (U32*)(sectionCopy + relocIt.getOffset());
 			const U64 relocatedValue64 = symbolAddress + *originalValue - imageBaseAddress;
 			errorUnless(relocatedValue64 <= UINT32_MAX);
 			*valueToRelocate = (U32)relocatedValue64;
@@ -160,7 +160,7 @@ void printFunctionSEH(U8* imageBase, const RuntimeFunction& function)
 	Log::printf(Log::debug, "   frame offset: 0x%x\n", unwindInfoPrefix->frameOffset * 16);
 
 	UnwindCode* const unwindCodes = unwindInfoPrefix->unwindCodes;
-	UnwindCode* unwindCode        = unwindCodes;
+	UnwindCode* unwindCode = unwindCodes;
 	if(unwindInfoPrefix->countOfCodes)
 	{
 		Log::printf(Log::debug, "   prolog unwind codes:\n");

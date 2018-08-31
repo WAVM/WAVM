@@ -14,7 +14,7 @@ void EmitFunctionContext::block(ControlStructureImm imm)
 
 	// Create an end block+phi for the block result.
 	auto endBlock = llvm::BasicBlock::Create(*llvmContext, "blockEnd", llvmFunction);
-	auto endPHIs  = createPHIs(endBlock, blockType.results());
+	auto endPHIs = createPHIs(endBlock, blockType.results());
 
 	// Pop the block arguments.
 	llvm::Value** blockArgs
@@ -32,16 +32,16 @@ void EmitFunctionContext::block(ControlStructureImm imm)
 }
 void EmitFunctionContext::loop(ControlStructureImm imm)
 {
-	FunctionType blockType           = resolveBlockType(irModule, imm.type);
+	FunctionType blockType = resolveBlockType(irModule, imm.type);
 	llvm::BasicBlock* loopEntryBlock = irBuilder.GetInsertBlock();
 
 	// Create a loop block, and an end block for the loop result.
 	auto loopBodyBlock = llvm::BasicBlock::Create(*llvmContext, "loopBody", llvmFunction);
-	auto endBlock      = llvm::BasicBlock::Create(*llvmContext, "loopEnd", llvmFunction);
+	auto endBlock = llvm::BasicBlock::Create(*llvmContext, "loopEnd", llvmFunction);
 
 	// Create PHIs for the loop's parameters, and PHIs for the loop result.
 	auto parameterPHIs = createPHIs(loopBodyBlock, blockType.params());
-	auto endPHIs       = createPHIs(endBlock, blockType.results());
+	auto endPHIs = createPHIs(endBlock, blockType.results());
 
 	// Branch to the loop body and switch the IR builder to emit there.
 	irBuilder.CreateBr(loopBodyBlock);
@@ -67,8 +67,8 @@ void EmitFunctionContext::if_(ControlStructureImm imm)
 	// Create a then block and else block for the if, and an end block+phi for the if result.
 	auto thenBlock = llvm::BasicBlock::Create(*llvmContext, "ifThen", llvmFunction);
 	auto elseBlock = llvm::BasicBlock::Create(*llvmContext, "ifElse", llvmFunction);
-	auto endBlock  = llvm::BasicBlock::Create(*llvmContext, "ifElseEnd", llvmFunction);
-	auto endPHIs   = createPHIs(endBlock, blockType.results());
+	auto endBlock = llvm::BasicBlock::Create(*llvmContext, "ifElseEnd", llvmFunction);
+	auto endPHIs = createPHIs(endBlock, blockType.results());
 
 	// Pop the if condition from the operand stack.
 	auto condition = pop();
@@ -111,9 +111,9 @@ void EmitFunctionContext::else_(NoImm imm)
 	for(llvm::Value* argument : currentContext.elseArgs) { push(argument); }
 
 	// Change the top of the control stack to an else clause.
-	currentContext.type        = ControlContext::Type::ifElse;
+	currentContext.type = ControlContext::Type::ifElse;
 	currentContext.isReachable = true;
-	currentContext.elseBlock   = nullptr;
+	currentContext.elseBlock = nullptr;
 }
 void EmitFunctionContext::end(NoImm)
 {
@@ -301,12 +301,12 @@ void EmitFunctionContext::call(CallImm imm)
 	wavmAssert(imm.functionIndex < moduleContext.functions.size());
 	wavmAssert(imm.functionIndex < irModule.functions.size());
 
-	llvm::Value* callee     = moduleContext.functions[imm.functionIndex];
+	llvm::Value* callee = moduleContext.functions[imm.functionIndex];
 	FunctionType calleeType = irModule.types[irModule.functions.getType(imm.functionIndex).index];
 
 	// Pop the call arguments from the operand stack.
 	const Uptr numArguments = calleeType.params().size();
-	auto llvmArgs           = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
+	auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
 	popMultiple(llvmArgs, numArguments);
 
 	// Coerce the arguments to their canonical type.
@@ -334,7 +334,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 
 	// Pop the call arguments from the operand stack.
 	const Uptr numArguments = calleeType.params().size();
-	auto llvmArgs           = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
+	auto llvmArgs = (llvm::Value**)alloca(sizeof(llvm::Value*) * numArguments);
 	popMultiple(llvmArgs, numArguments);
 
 	// Coerce the arguments to their canonical type.
@@ -384,8 +384,8 @@ void EmitFunctionContext::nop(IR::NoImm) {}
 void EmitFunctionContext::drop(IR::NoImm) { stack.pop_back(); }
 void EmitFunctionContext::select(IR::NoImm)
 {
-	auto condition  = pop();
+	auto condition = pop();
 	auto falseValue = pop();
-	auto trueValue  = pop();
+	auto trueValue = pop();
 	push(irBuilder.CreateSelect(coerceI32ToBool(condition), trueValue, falseValue));
 }

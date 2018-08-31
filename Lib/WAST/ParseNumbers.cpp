@@ -76,7 +76,7 @@ static U64 parseHexUnsignedInt(const char*& nextChar, ParseState* parseState, U6
 	nextChar += 2;
 
 	U64 result = 0;
-	U8 hexit   = 0;
+	U8 hexit = 0;
 	while(true)
 	{
 		if(*nextChar == '_')
@@ -106,7 +106,7 @@ static U64 parseDecimalUnsignedInt(const char*& nextChar,
 								   U64 maxValue,
 								   const char* context)
 {
-	U64 result             = 0;
+	U64 result = 0;
 	const char* firstDigit = nextChar;
 	while(true)
 	{
@@ -140,7 +140,7 @@ template<typename Float> Float parseNaN(const char*& nextChar, ParseState* parse
 {
 	typedef typename Floats::FloatComponents<Float> FloatComponents;
 	FloatComponents resultComponents;
-	resultComponents.bits.sign     = parseSign(nextChar) ? 1 : 0;
+	resultComponents.bits.sign = parseSign(nextChar) ? 1 : 0;
 	resultComponents.bits.exponent = FloatComponents::maxExponentBits;
 
 	wavmAssert(nextChar[0] == 'n' && nextChar[1] == 'a' && nextChar[2] == 'n');
@@ -172,8 +172,8 @@ template<typename Float> Float parseInfinity(const char* nextChar)
 	// Floating point infinite is represented by max exponent with a zero significand.
 	typedef typename Floats::FloatComponents<Float> FloatComponents;
 	FloatComponents resultComponents;
-	resultComponents.bits.sign        = parseSign(nextChar) ? 1 : 0;
-	resultComponents.bits.exponent    = FloatComponents::maxExponentBits;
+	resultComponents.bits.sign = parseSign(nextChar) ? 1 : 0;
+	resultComponents.bits.exponent = FloatComponents::maxExponentBits;
 	resultComponents.bits.significand = 0;
 	return resultComponents.value;
 }
@@ -227,7 +227,7 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 			// If this is the first underscore encountered, copy the preceding characters of the
 			// number to a std::string.
 			noUnderscoreString = std::string(firstChar, nextChar);
-			hasUnderscores     = true;
+			hasUnderscores = true;
 		}
 		else if(*nextChar != '_' && hasUnderscores)
 		{
@@ -245,7 +245,7 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 
 	// Use David Gay's strtod to parse a floating point number.
 	char* endChar = nullptr;
-	F64 f64       = parseNonSpecialF64(noUnderscoreFirstChar, &endChar);
+	F64 f64 = parseNonSpecialF64(noUnderscoreFirstChar, &endChar);
 	if(endChar == noUnderscoreFirstChar)
 	{ Errors::fatalf("strtod failed to parse number accepted by lexer"); }
 
@@ -265,22 +265,22 @@ bool tryParseInt(CursorState* cursor,
 				 U64 maxUnsignedValue)
 {
 	bool isNegative = false;
-	U64 u64         = 0;
+	U64 u64 = 0;
 
 	const char* nextChar = cursor->parseState->string + cursor->nextToken->begin;
 	switch(cursor->nextToken->type)
 	{
 	case t_decimalInt:
 		isNegative = parseSign(nextChar);
-		u64        = parseDecimalUnsignedInt(nextChar,
-                                      cursor->parseState,
-                                      isNegative ? -U64(minSignedValue) : maxUnsignedValue,
-                                      "int literal");
+		u64 = parseDecimalUnsignedInt(nextChar,
+									  cursor->parseState,
+									  isNegative ? -U64(minSignedValue) : maxUnsignedValue,
+									  "int literal");
 		break;
 	case t_hexInt:
 		isNegative = parseSign(nextChar);
-		u64        = parseHexUnsignedInt(
-            nextChar, cursor->parseState, isNegative ? -U64(minSignedValue) : maxUnsignedValue);
+		u64 = parseHexUnsignedInt(
+			nextChar, cursor->parseState, isNegative ? -U64(minSignedValue) : maxUnsignedValue);
 		break;
 	default: return false;
 	};

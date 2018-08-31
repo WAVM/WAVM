@@ -11,7 +11,7 @@ static std::string generateRandomString()
 	};
 
 	const Uptr numChars = rand() % maxChars;
-	char* buffer        = (char*)alloca(numChars + 1);
+	char* buffer = (char*)alloca(numChars + 1);
 	for(Uptr charIndex = 0; charIndex < numChars; ++charIndex)
 	{ buffer[charIndex] = 0x20 + (rand() % (0x7E - 0x20)); }
 	buffer[numChars] = 0;
@@ -233,7 +233,7 @@ static void testMapIterator()
 
 	// 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 = 45
 	{
-		Uptr keySum   = 0;
+		Uptr keySum = 0;
 		Uptr valueSum = 0;
 		for(const auto& pair : a)
 		{
@@ -249,7 +249,7 @@ static void testMapIterator()
 
 	// 1 + 2 + 3 + 4 + 6 + 7 + 8 + 9 = 40
 	{
-		Uptr keySum   = 0;
+		Uptr keySum = 0;
 		Uptr valueSum = 0;
 		for(const auto& pair : a)
 		{

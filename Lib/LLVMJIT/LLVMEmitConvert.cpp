@@ -69,8 +69,8 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToInt(ValueType destType,
 													  Float maxBounds,
 													  llvm::Value* operand)
 {
-	auto nanBlock      = llvm::BasicBlock::Create(*llvmContext, "FPToInt_nan", llvmFunction);
-	auto notNaNBlock   = llvm::BasicBlock::Create(*llvmContext, "FPToInt_notNaN", llvmFunction);
+	auto nanBlock = llvm::BasicBlock::Create(*llvmContext, "FPToInt_nan", llvmFunction);
+	auto notNaNBlock = llvm::BasicBlock::Create(*llvmContext, "FPToInt_notNaN", llvmFunction);
 	auto overflowBlock = llvm::BasicBlock::Create(*llvmContext, "FPToInt_overflow", llvmFunction);
 	auto noOverflowBlock
 		= llvm::BasicBlock::Create(*llvmContext, "FPToInt_noOverflow", llvmFunction);

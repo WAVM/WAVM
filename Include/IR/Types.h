@@ -15,11 +15,11 @@ namespace IR
 	// The type of a WebAssembly operand
 	enum class ValueType : U8
 	{
-		any  = 0,
-		i32  = 1,
-		i64  = 2,
-		f32  = 3,
-		f64  = 4,
+		any = 0,
+		i32 = 1,
+		i64 = 2,
+		f32 = 3,
+		f64 = 4,
 		v128 = 5,
 
 		num,
@@ -421,13 +421,13 @@ namespace IR
 	enum class ObjectKind : U8
 	{
 		// Standard object kinds that may be imported/exported from WebAssembly modules.
-		function      = 0,
-		table         = 1,
-		memory        = 2,
-		global        = 3,
+		function = 0,
+		table = 1,
+		memory = 2,
+		global = 3,
 		exceptionType = 4,
-		max           = 4,
-		invalid       = 0xff,
+		max = 4,
+		invalid = 0xff,
 	};
 	struct ObjectType
 	{

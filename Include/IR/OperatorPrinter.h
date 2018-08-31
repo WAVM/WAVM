@@ -90,7 +90,7 @@ namespace IR
 		template<Uptr numLanes> std::string describeImm(ShuffleImm<numLanes> imm)
 		{
 			std::string result = " ";
-			char prefix        = '[';
+			char prefix = '[';
 			for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 			{
 				result += prefix;

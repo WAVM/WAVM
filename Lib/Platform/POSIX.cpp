@@ -159,7 +159,7 @@ void Platform::handleAssertionFailure(const AssertMetadata& metadata)
 U8* Platform::allocateVirtualPages(Uptr numPages)
 {
 	Uptr numBytes = numPages << getPageSizeLog2();
-	void* result  = mmap(nullptr, numBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	void* result = mmap(nullptr, numBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if(result == MAP_FAILED)
 	{
 		fprintf(stderr,
@@ -178,19 +178,19 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 										  U8*& outUnalignedBaseAddress)
 {
 	const Uptr pageSizeLog2 = getPageSizeLog2();
-	const Uptr numBytes     = numPages << pageSizeLog2;
+	const Uptr numBytes = numPages << pageSizeLog2;
 	if(alignmentLog2 > pageSizeLog2)
 	{
 		// Call mmap with enough padding added to the size to align the allocation within the
 		// unaligned mapping.
 		const Uptr alignmentBytes = 1ull << alignmentLog2;
-		U8* unalignedBaseAddress  = (U8*)mmap(
-            nullptr, numBytes + alignmentBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		U8* unalignedBaseAddress = (U8*)mmap(
+			nullptr, numBytes + alignmentBytes, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 		if(unalignedBaseAddress == MAP_FAILED) { return nullptr; }
 
-		const Uptr address        = reinterpret_cast<Uptr>(unalignedBaseAddress);
+		const Uptr address = reinterpret_cast<Uptr>(unalignedBaseAddress);
 		const Uptr alignedAddress = (address + alignmentBytes - 1) & ~(alignmentBytes - 1);
-		U8* result                = reinterpret_cast<U8*>(alignedAddress);
+		U8* result = reinterpret_cast<U8*>(alignedAddress);
 
 		// Unmap the start and end of the unaligned mapping, leaving the aligned mapping in the
 		// middle.
@@ -310,7 +310,7 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 			if(symbolInfo.dli_sname[0] == '_')
 			{
 				Uptr numDemangledChars = sizeof(demangledBuffer);
-				I32 demangleStatus     = 0;
+				I32 demangleStatus = 0;
 				if(abi::__cxa_demangle(symbolInfo.dli_sname,
 									   demangledBuffer,
 									   (size_t*)&numDemangledChars,
@@ -379,7 +379,7 @@ struct SigAltStack
 			stack_t disableAltStack;
 			memset(&disableAltStack, 0, sizeof(stack_t));
 			disableAltStack.ss_flags = SS_DISABLE;
-			disableAltStack.ss_size  = SigAltStack::numBytes;
+			disableAltStack.ss_size = SigAltStack::numBytes;
 			errorUnless(!sigaltstack(&disableAltStack, nullptr));
 
 			// Free the alt stack's memory.
@@ -402,8 +402,8 @@ struct SigAltStack
 							 0);
 			errorUnless(base != MAP_FAILED);
 			stack_t sigAltStackInfo;
-			sigAltStackInfo.ss_size  = SigAltStack::numBytes;
-			sigAltStackInfo.ss_sp    = base;
+			sigAltStackInfo.ss_size = SigAltStack::numBytes;
+			sigAltStackInfo.ss_sp = base;
 			sigAltStackInfo.ss_flags = 0;
 			errorUnless(!sigaltstack(&sigAltStackInfo, nullptr));
 		}
@@ -424,7 +424,7 @@ static void deliverSignal(Signal signal, const CallStack& callStack)
 {
 	// Call the signal handlers, from innermost to outermost, until one returns true.
 	for(SignalContext* signalContext = innermostSignalContext; signalContext;
-		signalContext                = signalContext->outerContext)
+		signalContext = signalContext->outerContext)
 	{
 		if(signalContext->filter(signal, callStack))
 		{
@@ -498,7 +498,7 @@ static void initSignals()
 
 		// Set the signal handler for the signals we want to intercept.
 		signalAction.sa_sigaction = signalHandler;
-		signalAction.sa_flags     = SA_SIGINFO | SA_ONSTACK;
+		signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
 		sigaction(SIGSEGV, &signalAction, nullptr);
 		sigaction(SIGBUS, &signalAction, nullptr);
 		sigaction(SIGFPE, &signalAction, nullptr);
@@ -513,7 +513,7 @@ bool Platform::catchSignals(const std::function<void()>& thunk,
 
 	SignalContext signalContext;
 	signalContext.outerContext = innermostSignalContext;
-	signalContext.filter       = filter;
+	signalContext.filter = filter;
 
 	// Use sigsetjmp to capture the execution state into the signal context. If a signal is raised,
 	// the signal handler will jump back to here.
@@ -539,7 +539,7 @@ static void terminateHandler()
 	catch(PlatformException exception)
 	{
 		Signal signal;
-		signal.type                    = Signal::Type::unhandledException;
+		signal.type = Signal::Type::unhandledException;
 		signal.unhandledException.data = exception.data;
 		deliverSignal(signal, exception.callStack);
 		Errors::fatal("Unhandled runtime exception");
@@ -590,10 +590,10 @@ static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const 
 	// The LLVM project libunwind implementation that WAVM uses expects __register_frame and
 	// __deregister_frame to be called for each FDE in the .eh_frame section.
 	const U8* next = ehFrames;
-	const U8* end  = ehFrames + numBytes;
+	const U8* end = ehFrames + numBytes;
 	do
 	{
-		const U8* cfi    = next;
+		const U8* cfi = next;
 		Uptr numCFIBytes = *((const U32*)next);
 		next += 4;
 		if(numBytes == 0xffffffff)
@@ -712,9 +712,9 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 										 I64 (*threadEntry)(void*),
 										 void* argument)
 {
-	auto thread               = new Thread;
-	auto createArgs           = new CreateThreadArgs;
-	createArgs->entry         = threadEntry;
+	auto thread = new Thread;
+	auto createArgs = new CreateThreadArgs;
+	createArgs->entry = threadEntry;
 	createArgs->entryArgument = argument;
 
 	pthread_attr_t threadAttr;
@@ -796,8 +796,8 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 
 		// Use the current stack pointer derive a conservative bounds on the area of the stack that
 		// is active.
-		const U8* minActiveStackAddr   = getStackPointer() - 128;
-		const U8* maxActiveStackAddr   = threadEntryFramePointer;
+		const U8* minActiveStackAddr = getStackPointer() - 128;
+		const U8* maxActiveStackAddr = threadEntryFramePointer;
 		const Uptr numActiveStackBytes = maxActiveStackAddr - minActiveStackAddr;
 
 		if(numActiveStackBytes + PTHREAD_STACK_MIN > numStackBytes)
@@ -911,7 +911,7 @@ bool Platform::Event::wait(U64 untilTime)
 	else
 	{
 		timespec untilTimeSpec;
-		untilTimeSpec.tv_sec  = untilTime / 1000000;
+		untilTimeSpec.tv_sec = untilTime / 1000000;
 		untilTimeSpec.tv_nsec = (untilTime % 1000000) * 1000;
 
 		result = pthread_cond_timedwait(
@@ -940,7 +940,7 @@ File* Platform::openFile(const std::string& pathName,
 						 FileAccessMode accessMode,
 						 FileCreateMode createMode)
 {
-	U32 flags   = 0;
+	U32 flags = 0;
 	mode_t mode = 0;
 	switch(accessMode)
 	{
@@ -1024,7 +1024,7 @@ bool Platform::flushFileWrites(File* file) { return fsync(filePtrToIndex(file)) 
 std::string Platform::getCurrentWorkingDirectory()
 {
 	const Uptr maxPathBytes = pathconf(".", _PC_PATH_MAX);
-	char* buffer            = (char*)alloca(maxPathBytes);
+	char* buffer = (char*)alloca(maxPathBytes);
 	errorUnless(getcwd(buffer, maxPathBytes) == buffer);
 	return std::string(buffer);
 }

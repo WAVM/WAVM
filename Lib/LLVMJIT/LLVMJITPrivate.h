@@ -181,7 +181,7 @@ namespace LLVMJIT
 				  ? 3
 				  : callingConvention == IR::CallingConvention::c ? 0 : 1;
 		const Uptr numParameters = numImplicitParameters + functionType.params().size();
-		auto llvmArgTypes        = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
+		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 		if(callingConvention == IR::CallingConvention::intrinsicWithMemAndTable)
 		{
 			llvmArgTypes[0] = llvmI8PtrType;

@@ -22,12 +22,12 @@ namespace Runtime
 
 	enum
 	{
-		maxThunkArgAndReturnBytes           = 256,
-		maxGlobalBytes                      = 4096 - maxThunkArgAndReturnBytes,
-		maxMemories                         = 255,
-		maxTables                           = 256,
+		maxThunkArgAndReturnBytes = 256,
+		maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes,
+		maxMemories = 255,
+		maxTables = 256,
 		compartmentRuntimeDataAlignmentLog2 = 32,
-		contextRuntimeDataAlignment         = 4096
+		contextRuntimeDataAlignment = 4096
 	};
 
 	static_assert(sizeof(IR::UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,

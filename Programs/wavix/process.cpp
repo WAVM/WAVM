@@ -25,7 +25,7 @@ using namespace Runtime;
 
 namespace Wavix
 {
-	thread_local Thread* currentThread   = nullptr;
+	thread_local Thread* currentThread = nullptr;
 	thread_local Process* currentProcess = nullptr;
 
 	static ConcurrentHashMap<I32, Process*> pidToProcessMap;
@@ -67,8 +67,8 @@ namespace Wavix
 
 	static I64 mainThreadEntry(void* argsVoid)
 	{
-		auto args      = (const MainThreadArgs*)argsVoid;
-		currentThread  = args->thread;
+		auto args = (const MainThreadArgs*)argsVoid;
+		currentThread = args->thread;
 		currentProcess = args->thread->process;
 
 		// Call the module start function, if it has one.
@@ -177,7 +177,7 @@ namespace Wavix
 	{
 		// Look up the module's start, and main functions.
 		MainThreadArgs* mainThreadArgs = new MainThreadArgs;
-		mainThreadArgs->startFunction  = getStartFunction(moduleInstance);
+		mainThreadArgs->startFunction = getStartFunction(moduleInstance);
 		mainThreadArgs->mainFunction
 			= asFunctionNullable(getInstanceExport(moduleInstance, "_start"));
 		;
@@ -199,8 +199,8 @@ namespace Wavix
 		}
 
 		// Create the context and Wavix Thread object for the main thread.
-		Context* mainContext   = Runtime::createContext(process->compartment);
-		Thread* mainThread     = new Thread(process, mainContext);
+		Context* mainContext = Runtime::createContext(process->compartment);
+		Thread* mainThread = new Thread(process, mainContext);
 		mainThreadArgs->thread = mainThread;
 
 		// Start the process's main thread.
@@ -220,10 +220,10 @@ namespace Wavix
 						  const std::string& cwd)
 	{
 		// Create the process and compartment.
-		Process* process     = new Process;
+		Process* process = new Process;
 		process->compartment = Runtime::createCompartment();
-		process->envs        = envs;
-		process->args        = args;
+		process->envs = envs;
+		process->args = args;
 		process->args.insert(process->args.begin(), hostFilename);
 
 		process->cwd = cwd;
@@ -255,7 +255,7 @@ namespace Wavix
 
 		// Get the module's memory and table.
 		process->memory = asMemoryNullable(getInstanceExport(moduleInstance, "__memory"));
-		process->table  = asTableNullable(getInstanceExport(moduleInstance, "__table"));
+		process->table = asTableNullable(getInstanceExport(moduleInstance, "__table"));
 
 		if(!process->memory || !process->table) { return nullptr; }
 
@@ -294,7 +294,7 @@ namespace Wavix
 
 	FORCENOINLINE static void setCurrentThreadAndProcess(Thread* newThread)
 	{
-		currentThread  = newThread;
+		currentThread = newThread;
 		currentProcess = newThread->process;
 	}
 
@@ -310,10 +310,10 @@ namespace Wavix
 		traceSyscallf("fork", "");
 
 		// Create a new process with a clone of the original's runtime compartment.
-		auto newProcess         = new Process;
+		auto newProcess = new Process;
 		newProcess->compartment = cloneCompartment(originalProcess->compartment);
-		newProcess->args        = originalProcess->args;
-		newProcess->envs        = originalProcess->envs;
+		newProcess->args = originalProcess->args;
+		newProcess->envs = originalProcess->envs;
 
 		newProcess->parent = originalProcess;
 		{
@@ -328,7 +328,7 @@ namespace Wavix
 		}
 		{
 			Lock<Platform::Mutex> filesLock(originalProcess->filesMutex);
-			newProcess->files          = originalProcess->files;
+			newProcess->files = originalProcess->files;
 			newProcess->filesAllocator = originalProcess->filesAllocator;
 		}
 

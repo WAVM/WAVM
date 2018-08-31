@@ -70,7 +70,7 @@ template<typename Index, Uptr maxIndexPlusOne> struct DenseStaticIntSet
 	inline bool remove(Index index)
 	{
 		const Element elementMask = Element(1) << (index % indicesPerElement);
-		const bool hadIndex       = (elements[index / indicesPerElement] & elementMask) != 0;
+		const bool hadIndex = (elements[index / indicesPerElement] & elementMask) != 0;
 		elements[index / indicesPerElement] &= ~elementMask;
 		return hadIndex;
 	}

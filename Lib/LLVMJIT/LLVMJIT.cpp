@@ -81,7 +81,7 @@ llvm::JITEvaluatedSymbol LLVMJIT::resolveJITImport(llvm::StringRef name)
 	if(runtimeSymbolNameIt == runtimeSymbolMap.end()) { return llvm::JITEvaluatedSymbol(nullptr); }
 
 	const char* lookupName = runtimeSymbolNameIt->second;
-	void* addr             = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(lookupName);
+	void* addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(lookupName);
 	if(!addr)
 	{
 		Errors::fatalf("LLVM generated code references undefined external symbol: %s\n",
@@ -101,15 +101,15 @@ void LLVMJIT::initLLVM()
 	llvm::InitializeNativeTargetDisassembler();
 	llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
-	llvmI8Type    = llvm::Type::getInt8Ty(*llvmContext);
-	llvmI16Type   = llvm::Type::getInt16Ty(*llvmContext);
-	llvmI32Type   = llvm::Type::getInt32Ty(*llvmContext);
-	llvmI64Type   = llvm::Type::getInt64Ty(*llvmContext);
-	llvmI128Type  = llvm::Type::getInt128Ty(*llvmContext);
-	llvmF32Type   = llvm::Type::getFloatTy(*llvmContext);
-	llvmF64Type   = llvm::Type::getDoubleTy(*llvmContext);
-	llvmVoidType  = llvm::Type::getVoidTy(*llvmContext);
-	llvmBoolType  = llvm::Type::getInt1Ty(*llvmContext);
+	llvmI8Type = llvm::Type::getInt8Ty(*llvmContext);
+	llvmI16Type = llvm::Type::getInt16Ty(*llvmContext);
+	llvmI32Type = llvm::Type::getInt32Ty(*llvmContext);
+	llvmI64Type = llvm::Type::getInt64Ty(*llvmContext);
+	llvmI128Type = llvm::Type::getInt128Ty(*llvmContext);
+	llvmF32Type = llvm::Type::getFloatTy(*llvmContext);
+	llvmF64Type = llvm::Type::getDoubleTy(*llvmContext);
+	llvmVoidType = llvm::Type::getVoidTy(*llvmContext);
+	llvmBoolType = llvm::Type::getInt1Ty(*llvmContext);
 	llvmI8PtrType = llvmI8Type->getPointerTo();
 	switch(sizeof(Uptr))
 	{
@@ -130,18 +130,18 @@ void LLVMJIT::initLLVM()
 	llvmExceptionPointersStructType
 		= llvm::StructType::create({llvmExceptionRecordStructType->getPointerTo(), llvmI8PtrType});
 
-	llvmI8x16Type  = llvm::VectorType::get(llvmI8Type, 16);
-	llvmI16x8Type  = llvm::VectorType::get(llvmI16Type, 8);
-	llvmI32x4Type  = llvm::VectorType::get(llvmI32Type, 4);
-	llvmI64x2Type  = llvm::VectorType::get(llvmI64Type, 2);
+	llvmI8x16Type = llvm::VectorType::get(llvmI8Type, 16);
+	llvmI16x8Type = llvm::VectorType::get(llvmI16Type, 8);
+	llvmI32x4Type = llvm::VectorType::get(llvmI32Type, 4);
+	llvmI64x2Type = llvm::VectorType::get(llvmI64Type, 2);
 	llvmI128x1Type = llvm::VectorType::get(llvmI128Type, 1);
-	llvmF32x4Type  = llvm::VectorType::get(llvmF32Type, 4);
-	llvmF64x2Type  = llvm::VectorType::get(llvmF64Type, 2);
+	llvmF32x4Type = llvm::VectorType::get(llvmF32Type, 4);
+	llvmF64x2Type = llvm::VectorType::get(llvmF64Type, 2);
 
-	llvmValueTypes[(Uptr)ValueType::i32]  = llvmI32Type;
-	llvmValueTypes[(Uptr)ValueType::i64]  = llvmI64Type;
-	llvmValueTypes[(Uptr)ValueType::f32]  = llvmF32Type;
-	llvmValueTypes[(Uptr)ValueType::f64]  = llvmF64Type;
+	llvmValueTypes[(Uptr)ValueType::i32] = llvmI32Type;
+	llvmValueTypes[(Uptr)ValueType::i64] = llvmI64Type;
+	llvmValueTypes[(Uptr)ValueType::f32] = llvmF32Type;
+	llvmValueTypes[(Uptr)ValueType::f64] = llvmF64Type;
 	llvmValueTypes[(Uptr)ValueType::v128] = llvmI128x1Type;
 
 	// Create zero constants of each type.
@@ -151,7 +151,7 @@ void LLVMJIT::initLLVM()
 	typedZeroConstants[(Uptr)ValueType::f32] = emitLiteral((F32)0.0f);
 	typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral((F64)0.0);
 
-	U64 i64x2Zero[2]                          = {0, 0};
+	U64 i64x2Zero[2] = {0, 0};
 	typedZeroConstants[(Uptr)ValueType::v128] = llvm::ConstantVector::get(
 		{llvm::ConstantInt::get(llvmI128Type, llvm::APInt(128, 2, i64x2Zero))});
 }
@@ -170,7 +170,7 @@ namespace LLVMJIT
 			llvmI8Type = llvmI16Type = llvmI32Type = llvmI64Type = nullptr;
 			llvmF32Type = llvmF64Type = nullptr;
 			llvmVoidType = llvmBoolType = llvmI8PtrType = llvmIptrType = nullptr;
-			llvmExceptionPointersStructType                            = nullptr;
+			llvmExceptionPointersStructType = nullptr;
 			llvmI8x16Type = llvmI16x8Type = llvmI32x4Type = llvmI64x2Type = nullptr;
 
 			memset(llvmValueTypes, 0, sizeof(llvmValueTypes));

@@ -37,7 +37,7 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 	LLVMDisasmContextRef disasmRef
 		= LLVMCreateDisasm(llvm::sys::getProcessTriple().c_str(), nullptr, 0, nullptr, nullptr);
 
-	U8* nextByte           = bytes;
+	U8* nextByte = bytes;
 	Uptr numBytesRemaining = numBytes;
 	while(numBytesRemaining)
 	{
@@ -101,8 +101,8 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 		{
 			Platform::registerEHFrames(imageBaseAddress, addr, numBytes);
 			hasRegisteredEHFrames = true;
-			ehFramesAddr          = addr;
-			ehFramesNumBytes      = numBytes;
+			ehFramesAddr = addr;
+			ehFramesNumBytes = numBytes;
 		}
 	}
 	void deregisterEHFrames() override
@@ -129,8 +129,8 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 		}
 
 		// Calculate the number of pages to be used by each section.
-		codeSection.numPages      = shrAndRoundUp(numCodeBytes, Platform::getPageSizeLog2());
-		readOnlySection.numPages  = shrAndRoundUp(numReadOnlyBytes, Platform::getPageSizeLog2());
+		codeSection.numPages = shrAndRoundUp(numCodeBytes, Platform::getPageSizeLog2());
+		readOnlySection.numPages = shrAndRoundUp(numReadOnlyBytes, Platform::getPageSizeLog2());
 		readWriteSection.numPages = shrAndRoundUp(numReadWriteBytes, Platform::getPageSizeLog2());
 		numAllocatedImagePages
 			= codeSection.numPages + readOnlySection.numPages + readWriteSection.numPages;
@@ -175,7 +175,7 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 	void reallyFinalizeMemory()
 	{
 		wavmAssert(!isFinalized);
-		isFinalized                             = true;
+		isFinalized = true;
 		const Platform::MemoryAccess codeAccess = Platform::MemoryAccess::execute;
 		if(codeSection.numPages)
 		{
@@ -309,7 +309,7 @@ LoadedModule::LoadedModule(const std::vector<U8>& objectBytes,
 	// Make a copy of those sections before they are clobbered, so we can do the fixup ourselves
 	// later.
 	llvm::object::SectionRef pdataSection;
-	U8* pdataCopy      = nullptr;
+	U8* pdataCopy = nullptr;
 	Uptr pdataNumBytes = 0;
 	llvm::object::SectionRef xdataSection;
 	U8* xdataCopy = nullptr;
@@ -326,14 +326,14 @@ LoadedModule::LoadedModule(const std::vector<U8>& objectBytes,
 					const U8* loadedSection = (const U8*)sectionContents.data();
 					if(sectionName == ".pdata")
 					{
-						pdataCopy     = new U8[section.getSize()];
+						pdataCopy = new U8[section.getSize()];
 						pdataNumBytes = section.getSize();
-						pdataSection  = section;
+						pdataSection = section;
 						memcpy(pdataCopy, loadedSection, section.getSize());
 					}
 					else if(sectionName == ".xdata")
 					{
-						xdataCopy    = new U8[section.getSize()];
+						xdataCopy = new U8[section.getSize()];
 						xdataSection = section;
 						memcpy(xdataCopy, loadedSection, section.getSize());
 					}
@@ -358,8 +358,8 @@ LoadedModule::LoadedModule(const std::vector<U8>& objectBytes,
 		// Create a trampoline within the image's 2GB address space that jumps to
 		// __C_specific_handler. jmp [rip+0] <64-bit address>
 		U8* trampolineBytes = memoryManager->allocateCodeSection(16, 16, 0, "seh_trampoline");
-		trampolineBytes[0]  = 0xff;
-		trampolineBytes[1]  = 0x25;
+		trampolineBytes[0] = 0xff;
+		trampolineBytes[1] = 0x25;
 		memset(trampolineBytes + 2, 0, 4);
 		memcpy(trampolineBytes + 6, &sehHandlerAddress, sizeof(U64));
 

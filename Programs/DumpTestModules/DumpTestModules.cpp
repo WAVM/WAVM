@@ -127,10 +127,10 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 
 int main(int argc, char** argv)
 {
-	const char* filename  = nullptr;
+	const char* filename = nullptr;
 	const char* outputDir = ".";
 	DumpFormat dumpFormat = DumpFormat::both;
-	bool showHelpAndExit  = false;
+	bool showHelpAndExit = false;
 
 	for(Iptr argumentIndex = 1; argumentIndex < argc; ++argumentIndex)
 	{

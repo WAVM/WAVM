@@ -289,7 +289,7 @@ namespace Platform
 
 		// Don't allow copying or moving a Mutex.
 		Mutex(const Mutex&) = delete;
-		Mutex(Mutex&&)      = delete;
+		Mutex(Mutex&&) = delete;
 		void operator=(const Mutex&) = delete;
 		void operator=(Mutex&&) = delete;
 
@@ -330,7 +330,7 @@ namespace Platform
 
 		// Don't allow copying or moving an Event.
 		Event(const Event&) = delete;
-		Event(Event&&)      = delete;
+		Event(Event&&) = delete;
 		void operator=(const Event&) = delete;
 		void operator=(Event&&) = delete;
 
@@ -369,7 +369,7 @@ namespace Platform
 
 	enum class FileAccessMode
 	{
-		readOnly  = 0x1,
+		readOnly = 0x1,
 		writeOnly = 0x2,
 		readWrite = 0x1 | 0x2,
 	};
@@ -393,8 +393,8 @@ namespace Platform
 	enum class FileSeekOrigin
 	{
 		begin = 0,
-		cur   = 1,
-		end   = 2
+		cur = 1,
+		end = 2
 	};
 
 	struct File;

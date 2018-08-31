@@ -30,7 +30,7 @@ int main()
 	}
 
 	// Count the ratio of points inside the unit circle.
-	int numerator   = 0;
+	int numerator = 0;
 	int denominator = 0;
 	for(auto pointIt = points.begin(); pointIt != points.end(); ++pointIt)
 	{

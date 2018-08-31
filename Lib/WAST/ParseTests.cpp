@@ -168,10 +168,10 @@ static Action* parseAction(CursorState* cursor, const IR::FeatureSpec& featureSp
 			std::string exportName = parseUTF8String(cursor);
 
 			IR::ValueTuple arguments = parseConstExpressionTuple(cursor);
-			result                   = new InvokeAction(std::move(locus),
-                                      std::move(nameString),
-                                      std::move(exportName),
-                                      std::move(arguments));
+			result = new InvokeAction(std::move(locus),
+									  std::move(nameString),
+									  std::move(exportName),
+									  std::move(arguments));
 			break;
 		}
 		case t_module:
@@ -216,7 +216,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 		if(action)
 		{
 			TextFileLocus locus = action->locus;
-			result              = new ActionCommand(std::move(locus), action);
+			result = new ActionCommand(std::move(locus), action);
 		}
 	}
 	else
@@ -242,7 +242,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 			{
 				++cursor->nextToken;
 
-				Action* action                 = parseAction(cursor, featureSpec);
+				Action* action = parseAction(cursor, featureSpec);
 				IR::ValueTuple expectedResults = parseConstExpressionTuple(cursor);
 				result = new AssertReturnCommand(std::move(locus), action, expectedResults);
 				break;
@@ -257,7 +257,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				++cursor->nextToken;
 
 				Action* action = parseAction(cursor, featureSpec);
-				result         = new AssertReturnNaNCommand(commandType, std::move(locus), action);
+				result = new AssertReturnNaNCommand(commandType, std::move(locus), action);
 				break;
 			}
 			case t_assert_exhaustion:
@@ -329,14 +329,14 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				Action* action = parseAction(cursor, featureSpec);
 
 				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(cursor);
-				std::string exceptionTypeExportName         = parseUTF8String(cursor);
+				std::string exceptionTypeExportName = parseUTF8String(cursor);
 
 				IR::ValueTuple expectedArguments = parseConstExpressionTuple(cursor);
-				result                           = new AssertThrowsCommand(std::move(locus),
-                                                 action,
-                                                 std::move(exceptionTypeInternalModuleName),
-                                                 std::move(exceptionTypeExportName),
-                                                 std::move(expectedArguments));
+				result = new AssertThrowsCommand(std::move(locus),
+												 action,
+												 std::move(exceptionTypeInternalModuleName),
+												 std::move(exceptionTypeExportName),
+												 std::move(expectedArguments));
 				break;
 			}
 			case t_assert_unlinkable:
@@ -372,7 +372,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 
 				std::string internalModuleName;
 				Module module;
-				module.featureSpec          = featureSpec;
+				module.featureSpec = featureSpec;
 				ParseState* outerParseState = cursor->parseState;
 				ParseState malformedModuleParseState(outerParseState->string,
 													 outerParseState->lineInfo);
@@ -435,7 +435,7 @@ void WAST::parseTestCommands(const char* string,
 
 	// Lex the input string.
 	LineInfo* lineInfo = nullptr;
-	Token* tokens      = lex(string, stringLength, lineInfo);
+	Token* tokens = lex(string, stringLength, lineInfo);
 	ParseState parseState(string, lineInfo);
 	CursorState cursor(tokens, &parseState);
 
@@ -454,7 +454,7 @@ void WAST::parseTestCommands(const char* string,
 				= calcLocusFromOffset(string, lineInfo, cursor.nextToken[0].begin);
 			Module* module = new Module(featureSpec);
 			parseModuleBody(&cursor, *module);
-			auto moduleAction  = new ModuleAction(TextFileLocus(locus), "", module);
+			auto moduleAction = new ModuleAction(TextFileLocus(locus), "", module);
 			auto actionCommand = new ActionCommand(TextFileLocus(locus), moduleAction);
 			outTestCommands.emplace_back(actionCommand);
 		}

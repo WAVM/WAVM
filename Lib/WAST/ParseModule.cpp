@@ -215,14 +215,14 @@ static void parseImport(CursorState* cursor)
 			std::vector<std::string> localDissassemblyNames;
 			const UnresolvedFunctionType unresolvedFunctionType = parseFunctionTypeRefAndOrDecl(
 				cursor, localNameToIndexMap, localDissassemblyNames);
-			const Uptr importIndex                                        = createImport(cursor,
-                                                  name,
-                                                  std::move(moduleName),
-                                                  std::move(exportName),
-                                                  cursor->moduleState->functionNameToIndexMap,
-                                                  cursor->moduleState->module.functions,
-                                                  cursor->moduleState->disassemblyNames.functions,
-                                                  {UINT32_MAX});
+			const Uptr importIndex = createImport(cursor,
+												  name,
+												  std::move(moduleName),
+												  std::move(exportName),
+												  cursor->moduleState->functionNameToIndexMap,
+												  cursor->moduleState->module.functions,
+												  cursor->moduleState->disassemblyNames.functions,
+												  {UINT32_MAX});
 			cursor->moduleState->disassemblyNames.functions.back().locals = localDissassemblyNames;
 
 			// Resolve the function import type after all type declarations have been parsed.
@@ -236,8 +236,8 @@ static void parseImport(CursorState* cursor)
 		case t_table:
 		{
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
-			const bool isShared                   = parseOptionalSharedDeclaration(cursor);
-			const TableElementType elementType    = TableElementType::anyfunc;
+			const bool isShared = parseOptionalSharedDeclaration(cursor);
+			const TableElementType elementType = TableElementType::anyfunc;
 			require(cursor, t_anyfunc);
 			createImport(cursor,
 						 name,
@@ -473,10 +473,10 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 			else
 			{
 				TableSegment& tableSegment = moduleState->module.tableSegments[tableSegmentIndex];
-				tableSegment.tableIndex    = tableRef ? resolveRef(moduleState->parseState,
-                                                                moduleState->tableNameToIndexMap,
-                                                                moduleState->module.tables.size(),
-                                                                tableRef)
+				tableSegment.tableIndex = tableRef ? resolveRef(moduleState->parseState,
+																moduleState->tableNameToIndexMap,
+																moduleState->module.tables.size(),
+																tableRef)
 												   : 0;
 
 				tableSegment.indices.resize(elementReferences->size());
@@ -558,7 +558,7 @@ static void parseObjectDefOrImport(CursorState* cursor,
 		errorIfFollowsDefinitions(cursor);
 
 		importModuleName = parseUTF8String(cursor);
-		exportName       = parseUTF8String(cursor);
+		exportName = parseUTF8String(cursor);
 	});
 	if(isImport)
 	{
@@ -621,8 +621,8 @@ static void parseTable(CursorState* cursor)
 		// Parse a table import.
 		[](CursorState* cursor) {
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
-			const bool isShared                   = parseOptionalSharedDeclaration(cursor);
-			const TableElementType elementType    = TableElementType::anyfunc;
+			const bool isShared = parseOptionalSharedDeclaration(cursor);
+			const TableElementType elementType = TableElementType::anyfunc;
 			require(cursor, t_anyfunc);
 			return TableType{elementType, isShared, sizeConstraints};
 		},
@@ -786,8 +786,8 @@ template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char*
 	if(map.size())
 	{
 		Uptr totalMemoryBytes = 0;
-		Uptr maxProbeCount    = 0;
-		F32 occupancy         = 0.0f;
+		Uptr maxProbeCount = 0;
+		F32 occupancy = 0.0f;
 		F32 averageProbeCount = 0.0f;
 		map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
 		Log::printf(
@@ -881,7 +881,7 @@ bool WAST::parseModule(const char* string,
 
 	// Lex the string.
 	LineInfo* lineInfo = nullptr;
-	Token* tokens      = lex(string, stringLength, lineInfo);
+	Token* tokens = lex(string, stringLength, lineInfo);
 	ParseState parseState(string, lineInfo);
 	CursorState cursor(tokens, &parseState);
 

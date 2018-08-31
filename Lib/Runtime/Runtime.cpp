@@ -49,11 +49,11 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 	// Copy the arguments into the thunk arguments buffer in ContextRuntimeData.
 	ContextRuntimeData* contextRuntimeData
 		= &context->compartment->runtimeData->contexts[context->id];
-	U8* argData        = contextRuntimeData->thunkArgAndReturnData;
+	U8* argData = contextRuntimeData->thunkArgAndReturnData;
 	Uptr argDataOffset = 0;
 	for(Uptr argumentIndex = 0; argumentIndex < functionType.params().size(); ++argumentIndex)
 	{
-		const ValueType type          = functionType.params()[argumentIndex];
+		const ValueType type = functionType.params()[argumentIndex];
 		const UntaggedValue& argument = arguments[argumentIndex];
 		if(type == ValueType::v128)
 		{
@@ -138,7 +138,7 @@ GlobalInstance* Runtime::createGlobal(Compartment* compartment, GlobalType type,
 	{
 		// Allocate a naturally aligned address to store the global at in the per-context data.
 		const U32 numBytes = getTypeByteWidth(type.valueType);
-		U32 dataOffset     = (compartment->numGlobalBytes + numBytes - 1) & ~(numBytes - 1);
+		U32 dataOffset = (compartment->numGlobalBytes + numBytes - 1) & ~(numBytes - 1);
 		if(dataOffset + numBytes >= maxGlobalBytes) { return nullptr; }
 		compartment->numGlobalBytes = dataOffset + numBytes;
 
@@ -186,7 +186,7 @@ Value Runtime::setGlobalValue(Context* context, GlobalInstance* global, Value ne
 	UntaggedValue& value
 		= *(UntaggedValue*)(context->runtimeData->globalData + global->mutableDataOffset);
 	const Value previousValue = Value(global->type.valueType, value);
-	value                     = newValue;
+	value = newValue;
 	return previousValue;
 }
 
@@ -214,7 +214,7 @@ Runtime::Compartment::~Compartment()
 	Platform::freeAlignedVirtualPages(unalignedRuntimeData,
 									  compartmentReservedBytes >> Platform::getPageSizeLog2(),
 									  compartmentRuntimeDataAlignmentLog2);
-	runtimeData          = nullptr;
+	runtimeData = nullptr;
 	unalignedRuntimeData = nullptr;
 }
 
@@ -229,7 +229,7 @@ Compartment* Runtime::cloneCompartment(Compartment* compartment)
 	// Clone globals.
 	for(Uptr globalIndex = 0; globalIndex < compartment->globals.size(); ++globalIndex)
 	{
-		GlobalInstance* global    = compartment->globals[globalIndex];
+		GlobalInstance* global = compartment->globals[globalIndex];
 		GlobalInstance* newGlobal = cloneGlobal(global, newCompartment);
 		SUPPRESS_UNUSED(newGlobal);
 		wavmAssert(newGlobal->id == global->id);
@@ -240,7 +240,7 @@ Compartment* Runtime::cloneCompartment(Compartment* compartment)
 	// Clone memories.
 	for(Uptr memoryIndex = 0; memoryIndex < compartment->memories.size(); ++memoryIndex)
 	{
-		MemoryInstance* memory    = compartment->memories[memoryIndex];
+		MemoryInstance* memory = compartment->memories[memoryIndex];
 		MemoryInstance* newMemory = cloneMemory(memory, newCompartment);
 		SUPPRESS_UNUSED(newMemory);
 		wavmAssert(newMemory->id == memory->id);
@@ -249,7 +249,7 @@ Compartment* Runtime::cloneCompartment(Compartment* compartment)
 	// Clone tables.
 	for(Uptr tableIndex = 0; tableIndex < compartment->tables.size(); ++tableIndex)
 	{
-		TableInstance* table    = compartment->tables[tableIndex];
+		TableInstance* table = compartment->tables[tableIndex];
 		TableInstance* newTable = cloneTable(table, newCompartment);
 		SUPPRESS_UNUSED(newTable);
 		wavmAssert(newTable->id == table->id);
@@ -266,7 +266,7 @@ Context* Runtime::createContext(Compartment* compartment)
 		Lock<Platform::Mutex> lock(compartment->mutex);
 
 		// Allocate an ID for the context in the compartment.
-		context->id          = compartment->contexts.size();
+		context->id = compartment->contexts.size();
 		context->runtimeData = &compartment->runtimeData->contexts[context->id];
 		compartment->contexts.push_back(context);
 
@@ -294,7 +294,7 @@ Compartment* Runtime::getCompartmentFromContext(Context* context) { return conte
 Context* Runtime::cloneContext(Context* context, Compartment* newCompartment)
 {
 	// Create a new context and initialize its runtime data with the values from the source context.
-	Context* clonedContext    = createContext(newCompartment);
+	Context* clonedContext = createContext(newCompartment);
 	const Uptr numGlobalBytes = context->compartment->numGlobalBytes;
 	wavmAssert(numGlobalBytes <= newCompartment->numGlobalBytes);
 	memcpy(
