@@ -12,6 +12,7 @@ set(Sources
 	LLVMEmitVar.cpp
 	LLVMEmitWorkarounds.h
 	LLVMJIT.cpp
+	LLVMJITCompile.cpp
 	LLVMJITLoad.cpp
 	LLVMJITPrivate.h
 	LLVMJITThunk.cpp
