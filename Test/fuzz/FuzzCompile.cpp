@@ -20,11 +20,6 @@ using namespace IR;
 using namespace Runtime;
 using namespace WAST;
 
-namespace LLVMJIT
-{
-	RUNTIME_API void deinit();
-}
-
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	IR::Module module;
@@ -34,9 +29,6 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 	compileModule(module);
 	collectGarbage();
-
-	// De-initialize LLVM to avoid the accumulation of de-duped debug metadata in the LLVMContext.
-	LLVMJIT::deinit();
 
 	return 0;
 }

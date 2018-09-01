@@ -28,7 +28,7 @@ PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::Type
 
 	PHIVector result;
 	for(Uptr elementIndex = 0; elementIndex < type.size(); ++elementIndex)
-	{ result.push_back(irBuilder.CreatePHI(asLLVMType(type[elementIndex]), 2)); }
+	{ result.push_back(irBuilder.CreatePHI(asLLVMType(llvmContext, type[elementIndex]), 2)); }
 
 	if(originalBlock) { irBuilder.SetInsertPoint(originalBlock); }
 
@@ -40,7 +40,7 @@ PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::Type
 llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 {
 	return value->getType()->isVectorTy() || value->getType()->isX86_MMXTy()
-			   ? irBuilder.CreateBitCast(value, llvmI128x1Type)
+			   ? irBuilder.CreateBitCast(value, llvmContext.i128x1Type)
 			   : value;
 }
 
@@ -89,12 +89,13 @@ void EmitFunctionContext::logOperator(const std::string& operatorDescription)
 }
 
 // Traps a divide-by-zero
-void EmitFunctionContext::trapDivideByZero(ValueType type, llvm::Value* divisor)
+void EmitFunctionContext::trapDivideByZero(llvm::Value* divisor)
 {
-	emitConditionalTrapIntrinsic(irBuilder.CreateICmpEQ(divisor, typedZeroConstants[(Uptr)type]),
-								 "divideByZeroOrIntegerOverflowTrap",
-								 FunctionType(),
-								 {});
+	emitConditionalTrapIntrinsic(
+		irBuilder.CreateICmpEQ(divisor, llvm::Constant::getNullValue(divisor->getType())),
+		"divideByZeroOrIntegerOverflowTrap",
+		FunctionType(),
+		{});
 }
 
 // Traps on (x / 0) or (INT_MIN / -1).
@@ -106,11 +107,13 @@ void EmitFunctionContext::trapDivideByZeroOrIntegerOverflow(ValueType type,
 		irBuilder.CreateOr(
 			irBuilder.CreateAnd(
 				irBuilder.CreateICmpEQ(left,
-									   type == ValueType::i32 ? emitLiteral((U32)INT32_MIN)
-															  : emitLiteral((U64)INT64_MIN)),
-				irBuilder.CreateICmpEQ(
-					right, type == ValueType::i32 ? emitLiteral((U32)-1) : emitLiteral((U64)-1))),
-			irBuilder.CreateICmpEQ(right, typedZeroConstants[(Uptr)type])),
+									   type == ValueType::i32
+										   ? emitLiteral(llvmContext, (U32)INT32_MIN)
+										   : emitLiteral(llvmContext, (U64)INT64_MIN)),
+				irBuilder.CreateICmpEQ(right,
+									   type == ValueType::i32 ? emitLiteral(llvmContext, (U32)-1)
+															  : emitLiteral(llvmContext, (U64)-1))),
+			irBuilder.CreateICmpEQ(right, llvmContext.typedZeroConstants[(Uptr)type])),
 		"divideByZeroOrIntegerOverflowTrap",
 		FunctionType(),
 		{});
@@ -122,18 +125,18 @@ ValueVector EmitFunctionContext::emitRuntimeIntrinsic(
 	FunctionType intrinsicType,
 	const std::initializer_list<llvm::Value*>& args)
 {
-	llvm::Function* llvmIntrinsicFunction = moduleContext.llvmModule->getFunction(intrinsicName);
-	if(!llvmIntrinsicFunction)
+	llvm::Function* intrinsicFunction = moduleContext.llvmModule->getFunction(intrinsicName);
+	if(!intrinsicFunction)
 	{
-		llvmIntrinsicFunction
-			= llvm::Function::Create(asLLVMType(intrinsicType, CallingConvention::intrinsic),
-									 llvm::Function::ExternalLinkage,
-									 intrinsicName,
-									 moduleContext.llvmModule);
-		llvmIntrinsicFunction->setCallingConv(asLLVMCallingConv(CallingConvention::intrinsic));
+		intrinsicFunction = llvm::Function::Create(
+			asLLVMType(llvmContext, intrinsicType, CallingConvention::intrinsic),
+			llvm::Function::ExternalLinkage,
+			intrinsicName,
+			moduleContext.llvmModule);
+		intrinsicFunction->setCallingConv(asLLVMCallingConv(CallingConvention::intrinsic));
 	}
 
-	return emitCallOrInvoke(llvmIntrinsicFunction,
+	return emitCallOrInvoke(intrinsicFunction,
 							args,
 							intrinsicType,
 							CallingConvention::intrinsic,
@@ -148,9 +151,9 @@ void EmitFunctionContext::emitConditionalTrapIntrinsic(
 	const std::initializer_list<llvm::Value*>& args)
 {
 	auto trueBlock
-		= llvm::BasicBlock::Create(*llvmContext, llvm::Twine(intrinsicName) + "Trap", llvmFunction);
+		= llvm::BasicBlock::Create(llvmContext, llvm::Twine(intrinsicName) + "Trap", function);
 	auto endBlock
-		= llvm::BasicBlock::Create(*llvmContext, llvm::Twine(intrinsicName) + "Skip", llvmFunction);
+		= llvm::BasicBlock::Create(llvmContext, llvm::Twine(intrinsicName) + "Skip", function);
 
 	irBuilder.CreateCondBr(
 		booleanCondition, trueBlock, endBlock, moduleContext.likelyFalseBranchWeights);
@@ -288,29 +291,29 @@ void EmitFunctionContext::emit()
 	auto diParamArray = moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes);
 	auto diFunctionType = moduleContext.diBuilder.createSubroutineType(diParamArray);
 	diFunction = moduleContext.diBuilder.createFunction(moduleContext.diModuleScope,
-														llvmFunction->getName(),
-														llvmFunction->getName(),
+														function->getName(),
+														function->getName(),
 														moduleContext.diModuleScope,
 														0,
 														diFunctionType,
 														false,
 														true,
 														0);
-	llvmFunction->setSubprogram(diFunction);
+	function->setSubprogram(diFunction);
 
 	// Create the return basic block, and push the root control context for the function.
-	auto returnBlock = llvm::BasicBlock::Create(*llvmContext, "return", llvmFunction);
+	auto returnBlock = llvm::BasicBlock::Create(llvmContext, "return", function);
 	auto returnPHIs = createPHIs(returnBlock, functionType.results());
 	pushControlStack(
 		ControlContext::Type::function, functionType.results(), returnBlock, returnPHIs);
 	pushBranchTarget(functionType.results(), returnBlock, returnPHIs);
 
 	// Create an initial basic block for the function.
-	auto entryBasicBlock = llvm::BasicBlock::Create(*llvmContext, "entry", llvmFunction);
+	auto entryBasicBlock = llvm::BasicBlock::Create(llvmContext, "entry", function);
 	irBuilder.SetInsertPoint(entryBasicBlock);
 
 	// Create and initialize allocas for the memory and table base parameters.
-	auto llvmArgIt = llvmFunction->arg_begin();
+	auto llvmArgIt = function->arg_begin();
 	initContextVariables(&*llvmArgIt++);
 
 	// Create and initialize allocas for all the locals and parameters.
@@ -322,7 +325,7 @@ void EmitFunctionContext::emit()
 			= localIndex < functionType.params().size()
 				  ? functionType.params()[localIndex]
 				  : functionDef.nonParameterLocalTypes[localIndex - functionType.params().size()];
-		auto localPointer = irBuilder.CreateAlloca(asLLVMType(localType), nullptr, "");
+		auto localPointer = irBuilder.CreateAlloca(asLLVMType(llvmContext, localType), nullptr, "");
 		localPointers.push_back(localPointer);
 
 		if(localIndex < functionType.params().size())
@@ -334,7 +337,7 @@ void EmitFunctionContext::emit()
 		else
 		{
 			// Initialize non-parameter locals to zero.
-			irBuilder.CreateStore(typedZeroConstants[(Uptr)localType], localPointer);
+			irBuilder.CreateStore(llvmContext.typedZeroConstants[(Uptr)localType], localPointer);
 		}
 	}
 
@@ -346,7 +349,7 @@ void EmitFunctionContext::emit()
 	while(decoder && controlStack.size())
 	{
 		irBuilder.SetCurrentDebugLocation(
-			llvm::DILocation::get(*llvmContext, (unsigned int)opIndex++, 0, diFunction));
+			llvm::DILocation::get(llvmContext, (unsigned int)opIndex++, 0, diFunction));
 		if(ENABLE_LOGGING) { logOperator(decoder.decodeOpWithoutConsume(operatorPrinter)); }
 
 		if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
@@ -366,7 +369,7 @@ void EmitFunctionContext::emit()
 	{
 		irBuilder.SetInsertPoint(localEscapeBlock);
 		callLLVMIntrinsic({}, llvm::Intrinsic::localescape, pendingLocalEscapes);
-		irBuilder.CreateBr(&llvmFunction->getEntryBlock());
-		localEscapeBlock->moveBefore(&llvmFunction->getEntryBlock());
+		irBuilder.CreateBr(&function->getEntryBlock());
+		localEscapeBlock->moveBefore(&function->getEntryBlock());
 	}
 }

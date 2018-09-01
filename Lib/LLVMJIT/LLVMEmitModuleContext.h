@@ -15,6 +15,7 @@ namespace LLVMJIT
 	{
 		const IR::Module& irModule;
 
+		LLVMContext& llvmContext;
 		llvm::Module* llvmModule;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::Constant*> tableOffsets;
@@ -40,7 +41,9 @@ namespace LLVMJIT
 		llvm::Function* tryPrologueDummyFunction;
 		llvm::Function* cxaBeginCatchFunction;
 
-		EmitModuleContext(const IR::Module& inModule, llvm::Module* inLLVMModule);
+		EmitModuleContext(const IR::Module& inModule,
+						  LLVMContext& inLLVMContext,
+						  llvm::Module* inLLVMModule);
 
 		inline llvm::Function* getLLVMIntrinsic(llvm::ArrayRef<llvm::Type*> typeArguments,
 												llvm::Intrinsic::ID id)

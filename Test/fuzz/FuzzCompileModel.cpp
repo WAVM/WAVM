@@ -23,11 +23,6 @@ using namespace IR;
 using namespace Runtime;
 using namespace WAST;
 
-namespace LLVMJIT
-{
-	RUNTIME_API void deinit();
-}
-
 // A stream that uses a combination of a PRNG and input data to produce pseudo-random values.
 struct RandomStream
 {
@@ -325,9 +320,6 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	generateValidModule(module, data, numBytes);
 	compileModule(module);
 	collectGarbage();
-
-	// De-initialize LLVM to avoid the accumulation of de-duped debug metadata in the LLVMContext.
-	LLVMJIT::deinit();
 
 	return 0;
 }
