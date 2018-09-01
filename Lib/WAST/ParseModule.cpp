@@ -5,7 +5,7 @@
 #include "Lexer.h"
 #include "Logging/Logging.h"
 #include "Parse.h"
-#include "WAST.h"
+#include "WAST/WAST.h"
 
 #include <memory>
 

@@ -1,4 +1,4 @@
-#include "Logging.h"
+#include "Logging/Logging.h"
 #include "Inline/Assert.h"
 #include "Platform/Platform.h"
 

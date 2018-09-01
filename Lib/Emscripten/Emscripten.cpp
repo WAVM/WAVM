@@ -1,4 +1,4 @@
-#include "Emscripten.h"
+#include "Emscripten/Emscripten.h"
 #include "IR/IR.h"
 #include "IR/Module.h"
 #include "Inline/BasicTypes.h"

@@ -6,9 +6,9 @@
 #include "Inline/Serialization.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "TestScript.h"
 #include "WASM/WASM.h"
-#include "WAST.h"
+#include "WAST/TestScript.h"
+#include "WAST/WAST.h"
 
 using namespace WAST;
 using namespace IR;

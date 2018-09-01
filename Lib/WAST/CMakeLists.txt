@@ -16,7 +16,6 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/WAST/WAST.h
 	${WAVM_INCLUDE_DIR}/WAST/TestScript.h)
-include_directories(${WAVM_INCLUDE_DIR}/WAST)
 
 WAVM_ADD_LIBRARY(WAST ${Sources} ${PublicHeaders})
 set_target_properties(WAST PROPERTIES FOLDER Libraries)

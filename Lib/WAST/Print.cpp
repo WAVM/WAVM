@@ -8,7 +8,7 @@
 #include "Inline/Serialization.h"
 #include "IsNameChar.h"
 #include "Logging/Logging.h"
-#include "WAST.h"
+#include "WAST/WAST.h"
 
 using namespace IR;
 using namespace Serialization;

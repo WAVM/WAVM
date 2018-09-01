@@ -2,7 +2,7 @@
 
 #include "IR/TaggedValue.h"
 #include "Inline/BasicTypes.h"
-#include "WAST.h"
+#include "WAST/WAST.h"
 
 #include <memory>
 #include <vector>

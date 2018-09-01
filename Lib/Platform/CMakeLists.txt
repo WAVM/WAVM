@@ -8,7 +8,6 @@ set(WindowsSources
 
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Platform/Platform.h)
-include_directories(${WAVM_INCLUDE_DIR}/Platform)
 
 if(MSVC)
 	set(Sources ${POSIXSources} ${WindowsSources})

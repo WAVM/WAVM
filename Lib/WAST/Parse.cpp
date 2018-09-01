@@ -7,7 +7,7 @@
 #include "Inline/Unicode.h"
 #include "IsNameChar.h"
 #include "Lexer.h"
-#include "WAST.h"
+#include "WAST/WAST.h"
 
 #include <cstdarg>
 #include <cstdio>

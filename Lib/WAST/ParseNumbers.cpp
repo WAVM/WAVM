@@ -3,7 +3,7 @@
 #include "Inline/Floats.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "WAST.h"
+#include "WAST/WAST.h"
 
 #include <cerrno>
 #include <climits>

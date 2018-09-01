@@ -6,7 +6,7 @@
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Lexer.h"
-#include "WAST.h"
+#include "WAST/WAST.h"
 
 #include <functional>
 

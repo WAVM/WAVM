@@ -2,7 +2,6 @@ set(Sources
 	Logging.cpp)
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Logging/Logging.h)
-include_directories(${WAVM_INCLUDE_DIR}/Logging)
 
 add_definitions(-DLOGGING_API=DLL_EXPORT)
 

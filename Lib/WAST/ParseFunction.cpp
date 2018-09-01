@@ -6,7 +6,7 @@
 #include "Inline/Serialization.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "WAST.h"
+#include "WAST/WAST.h"
 
 #include <memory>
 
