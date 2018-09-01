@@ -1,7 +1,7 @@
 #pragma once
 
 #include "IR/IR.h"
-#include "IR/TaggedValue.h"
+#include "IR/Value.h"
 #include "IR/Types.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"

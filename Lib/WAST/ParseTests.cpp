@@ -1,5 +1,5 @@
 #include "IR/Module.h"
-#include "IR/TaggedValue.h"
+#include "IR/Value.h"
 #include "IR/Validate.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"

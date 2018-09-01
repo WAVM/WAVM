@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IR/TaggedValue.h"
+#include "IR/Value.h"
 #include "Inline/BasicTypes.h"
 #include "WAST/WAST.h"
 

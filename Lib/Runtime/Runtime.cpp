@@ -88,7 +88,7 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 	if(arguments.size() != functionType.params().size())
 	{ throwException(Exception::invokeSignatureMismatchType); }
 
-	// Convert the arguments from a vector of TaggedValues to a stack-allocated block of
+	// Convert the arguments from a vector of Values to a stack-allocated block of
 	// UntaggedValues.
 	UntaggedValue* untaggedArguments
 		= (UntaggedValue*)alloca(arguments.size() * sizeof(UntaggedValue));
