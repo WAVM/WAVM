@@ -163,13 +163,16 @@ typedef void OperatorEmitFunc(RandomStream&, const IR::Module&, CodeStream&);
 struct OperatorInfo
 {
 	const char* name;
-	FunctionType sig;
-	std::function<OperatorEmitFunc> emit;
+	FunctionType (*sig)();
+	OperatorEmitFunc* emit;
 };
 
 #define VISIT_OP(encoding, name, nameString, Imm, SIGNATURE, ...)                                  \
 	{nameString,                                                                                   \
-	 SIGNATURE,                                                                                    \
+	 []() {                                                                                        \
+		 static FunctionType sig = SIGNATURE;                                                      \
+		 return sig;                                                                               \
+	 },                                                                                            \
 	 [](RandomStream& random, const IR::Module& module, CodeStream& codeStream) {                  \
 		 Imm imm;                                                                                  \
 		 generateImm(random, module, imm);                                                         \
@@ -205,8 +208,8 @@ static void generateFunction(RandomStream& random, IR::Module& module)
 		for(Uptr opIndex = 0; opIndex < numNonParametricOps; ++opIndex)
 		{
 			const OperatorInfo* opInfo = &operatorInfos[opIndex];
-			const TypeTuple params = opInfo->sig.params();
-			const TypeTuple results = opInfo->sig.results();
+			const TypeTuple params = opInfo->sig().params();
+			const TypeTuple results = opInfo->sig().results();
 
 			// If the random stream has run out of entropy, don't consider operators that might
 			// result in a net increase in stack size.
@@ -273,10 +276,10 @@ static void generateFunction(RandomStream& random, IR::Module& module)
 			opInfo->emit(random, module, codeStream);
 
 			// Remove the operator's parameters from the top of the stack.
-			stack.resize(stack.size() - opInfo->sig.params().size());
+			stack.resize(stack.size() - opInfo->sig().params().size());
 
 			// Push the operator's results onto the stack.
-			for(ValueType result : opInfo->sig.results()) { stack.push_back(result); }
+			for(ValueType result : opInfo->sig().results()) { stack.push_back(result); }
 		}
 	};
 
