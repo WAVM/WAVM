@@ -150,22 +150,17 @@ endfunction(WAVM_ADD_LIBRARY)
 
 add_subdirectory(Examples)
 add_subdirectory(Include/Inline)
-
 add_subdirectory(Lib/IR)
 add_subdirectory(Lib/Logging)
 add_subdirectory(Lib/Platform)
-
-add_subdirectory(ThirdParty)
-add_subdirectory(ThirdParty/libunwind)
-
 add_subdirectory(Lib/WASM)
 add_subdirectory(Lib/WAST)
-
 add_subdirectory(Programs/Assemble)
 add_subdirectory(Programs/Disassemble)
 add_subdirectory(Programs/DumpTestModules)
-
 add_subdirectory(Test)
+add_subdirectory(ThirdParty/dtoa)
+add_subdirectory(ThirdParty/xxhash)
 
 if(ENABLE_RUNTIME)
 	add_subdirectory(Lib/Emscripten)
@@ -175,6 +170,7 @@ if(ENABLE_RUNTIME)
 	add_subdirectory(Programs/Test)
 	add_subdirectory(Programs/wavm)
 	add_subdirectory(Programs/wavix)
+	add_subdirectory(ThirdParty/libunwind)
 endif()
 
 # Create a dummy target to hold various files in the project root
