@@ -5,12 +5,12 @@
 #include "Lexer.h"
 #include "Logging/Logging.h"
 #include "Parse.h"
-#include "WAST.h"
+#include "WASTParse/WASTParse.h"
 
 #include <memory>
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 static bool tryParseSizeConstraints(CursorState* cursor,
 									U64 maxMax,

@@ -56,9 +56,7 @@ static HashMap<IntrinsicThunkKey, struct JITFunction*> intrinsicFunctionToThunkF
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 										   CallingConvention callingConvention)
 {
-	Lock<Platform::Mutex> llvmLock(llvmMutex);
-
-	initLLVM();
+	LLVMContext llvmContext;
 
 	// Reuse cached invoke thunks for the same function type.
 	JITFunction*& invokeThunkFunction
@@ -66,19 +64,19 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 	if(invokeThunkFunction)
 	{ return reinterpret_cast<InvokeThunkPointer>(invokeThunkFunction->baseAddress); }
 
-	llvm::Module llvmModule("", *llvmContext);
+	llvm::Module llvmModule("", llvmContext);
 	auto llvmFunctionType = llvm::FunctionType::get(
-		llvmI8PtrType,
-		{asLLVMType(functionType, callingConvention)->getPointerTo(), llvmI8PtrType},
+		llvmContext.i8PtrType,
+		{asLLVMType(llvmContext, functionType, callingConvention)->getPointerTo(),
+		 llvmContext.i8PtrType},
 		false);
-	auto llvmFunction = llvm::Function::Create(
+	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
-	llvm::Value* functionPointer = &*(llvmFunction->args().begin() + 0);
-	llvm::Value* contextPointer = &*(llvmFunction->args().begin() + 1);
+	llvm::Value* functionPointer = &*(function->args().begin() + 0);
+	llvm::Value* contextPointer = &*(function->args().begin() + 1);
 
-	EmitContext emitContext(nullptr, nullptr);
-	emitContext.irBuilder.SetInsertPoint(
-		llvm::BasicBlock::Create(*llvmContext, "entry", llvmFunction));
+	EmitContext emitContext(llvmContext, nullptr, nullptr);
+	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
 
 	emitContext.initContextVariables(contextPointer);
 
@@ -97,8 +95,9 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 		arguments.push_back(emitContext.loadFromUntypedPointer(
 			emitContext.irBuilder.CreateInBoundsGEP(
 				contextPointer,
-				{emitLiteral(argDataOffset + offsetof(ContextRuntimeData, thunkArgAndReturnData))}),
-			asLLVMType(parameterType)));
+				{emitLiteral(llvmContext,
+							 argDataOffset + offsetof(ContextRuntimeData, thunkArgAndReturnData))}),
+			asLLVMType(llvmContext, parameterType)));
 
 		argDataOffset += parameterType == ValueType::v128 ? 16 : 8;
 	}
@@ -119,11 +118,12 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 		resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 		wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
 
-		emitContext.irBuilder.CreateStore(results[resultIndex],
-										  emitContext.irBuilder.CreatePointerCast(
-											  emitContext.irBuilder.CreateInBoundsGEP(
-												  newContextPointer, {emitLiteral(resultOffset)}),
-											  asLLVMType(resultType)->getPointerTo()));
+		emitContext.irBuilder.CreateStore(
+			results[resultIndex],
+			emitContext.irBuilder.CreatePointerCast(
+				emitContext.irBuilder.CreateInBoundsGEP(newContextPointer,
+														{emitLiteral(llvmContext, resultOffset)}),
+				asLLVMType(llvmContext, resultType)->getPointerTo()));
 
 		resultOffset += resultNumBytes;
 	}
@@ -132,7 +132,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 		emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable));
 
 	// Compile the LLVM IR to object code.
-	std::vector<U8> objectBytes = compileLLVMModule(std::move(llvmModule), false);
+	std::vector<U8> objectBytes = compileLLVMModule(llvmContext, std::move(llvmModule), false);
 
 	// Load the object code.
 	auto jitModule = new LoadedModule(objectBytes, {}, false);
@@ -159,9 +159,7 @@ void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 			   || callingConvention == CallingConvention::intrinsicWithContextSwitch
 			   || callingConvention == CallingConvention::intrinsicWithMemAndTable);
 
-	Lock<Platform::Mutex> llvmLock(llvmMutex);
-
-	initLLVM();
+	LLVMContext llvmContext;
 
 	// Reuse cached intrinsic thunks for the same function type.
 	const IntrinsicThunkKey key{
@@ -177,38 +175,39 @@ void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 
 	// Create a LLVM module containing a single function with the same signature as the native
 	// function, but with the WASM calling convention.
-	llvm::Module llvmModule("", *llvmContext);
-	auto llvmFunctionType = asLLVMType(functionType, CallingConvention::wasm);
-	auto llvmFunction = llvm::Function::Create(
+	llvm::Module llvmModule("", llvmContext);
+	auto llvmFunctionType = asLLVMType(llvmContext, functionType, CallingConvention::wasm);
+	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
-	llvmFunction->setCallingConv(asLLVMCallingConv(callingConvention));
+	function->setCallingConv(asLLVMCallingConv(callingConvention));
 
 	llvm::Constant* defaultMemoryOffset = nullptr;
 	if(defaultMemory.id != UINTPTR_MAX)
 	{
-		defaultMemoryOffset = emitLiteral(offsetof(CompartmentRuntimeData, memoryBases)
-										  + sizeof(void*) * defaultMemory.id);
+		defaultMemoryOffset = emitLiteral(
+			llvmContext,
+			offsetof(CompartmentRuntimeData, memoryBases) + sizeof(void*) * defaultMemory.id);
 	}
 
 	llvm::Constant* defaultTableOffset = nullptr;
 	if(defaultTable.id != UINTPTR_MAX)
 	{
-		defaultTableOffset = emitLiteral(offsetof(CompartmentRuntimeData, tableBases)
-										 + sizeof(void*) * defaultTable.id);
+		defaultTableOffset = emitLiteral(
+			llvmContext,
+			offsetof(CompartmentRuntimeData, tableBases) + sizeof(void*) * defaultTable.id);
 	}
 
-	EmitContext emitContext(defaultMemoryOffset, defaultTableOffset);
-	emitContext.irBuilder.SetInsertPoint(
-		llvm::BasicBlock::Create(*llvmContext, "entry", llvmFunction));
+	EmitContext emitContext(llvmContext, defaultMemoryOffset, defaultTableOffset);
+	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
 
-	emitContext.initContextVariables(&*llvmFunction->args().begin());
+	emitContext.initContextVariables(&*function->args().begin());
 
 	llvm::SmallVector<llvm::Value*, 8> args;
-	for(auto argIt = llvmFunction->args().begin() + 1; argIt != llvmFunction->args().end(); ++argIt)
+	for(auto argIt = function->args().begin() + 1; argIt != function->args().end(); ++argIt)
 	{ args.push_back(&*argIt); }
 
 	llvm::Type* llvmNativeFunctionType
-		= asLLVMType(functionType, callingConvention)->getPointerTo();
+		= asLLVMType(llvmContext, functionType, callingConvention)->getPointerTo();
 	llvm::Value* llvmNativeFunction = emitLiteralPointer(nativeFunction, llvmNativeFunctionType);
 	ValueVector results
 		= emitContext.emitCallOrInvoke(llvmNativeFunction, args, functionType, callingConvention);
@@ -217,7 +216,7 @@ void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	emitContext.emitReturn(functionType.results(), results);
 
 	// Compile the LLVM IR to object code.
-	std::vector<U8> objectBytes = compileLLVMModule(std::move(llvmModule), false);
+	std::vector<U8> objectBytes = compileLLVMModule(llvmContext, std::move(llvmModule), false);
 
 	// Load the object code.
 	auto jitModule = new LoadedModule(objectBytes, {}, false);

@@ -5,9 +5,9 @@
 #include "Inline/CLI.h"
 #include "Inline/Errors.h"
 #include "Inline/Timing.h"
-#include "NFA.h"
-#include "Regexp.h"
-#include "WAST.h"
+#include "NFA/NFA.h"
+#include "RegExp/RegExp.h"
+#include "WASTParse/WASTParse.h"
 
 using namespace WAST;
 
@@ -124,7 +124,7 @@ StaticData::StaticData()
 		NFA::StateIndex finalState
 			= NFA::maximumTerminalStateIndex - (NFA::StateIndex)regexpTokenPair.first;
 		finalState = createTokenSeparatorPeekState(nfaBuilder, finalState);
-		Regexp::addToNFA(regexpTokenPair.second, nfaBuilder, 0, finalState);
+		RegExp::addToNFA(regexpTokenPair.second, nfaBuilder, 0, finalState);
 	}
 
 	for(auto literalTokenTuple : literalTokenTuples)

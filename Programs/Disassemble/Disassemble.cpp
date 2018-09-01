@@ -3,7 +3,7 @@
 #include "Inline/Timing.h"
 #include "Platform/Platform.h"
 #include "WASM/WASM.h"
-#include "WAST/WAST.h"
+#include "WASTPrint/WASTPrint.h"
 
 int main(int argc, char** argv)
 {

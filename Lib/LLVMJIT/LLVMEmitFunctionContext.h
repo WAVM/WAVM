@@ -22,7 +22,7 @@ namespace LLVMJIT
 		const IR::Module& irModule;
 		const IR::FunctionDef& functionDef;
 		IR::FunctionType functionType;
-		llvm::Function* llvmFunction;
+		llvm::Function* function;
 
 		std::vector<llvm::Value*> localPointers;
 
@@ -67,16 +67,19 @@ namespace LLVMJIT
 		std::vector<BranchTarget> branchTargetStack;
 		std::vector<llvm::Value*> stack;
 
-		EmitFunctionContext(EmitModuleContext& inModuleContext,
+		EmitFunctionContext(LLVMContext& inLLVMContext,
+							EmitModuleContext& inModuleContext,
 							const IR::Module& inIRModule,
 							const IR::FunctionDef& inFunctionDef,
 							llvm::Function* inLLVMFunction)
-		: EmitContext(inModuleContext.defaultMemoryOffset, inModuleContext.defaultTableOffset)
+		: EmitContext(inLLVMContext,
+					  inModuleContext.defaultMemoryOffset,
+					  inModuleContext.defaultTableOffset)
 		, moduleContext(inModuleContext)
 		, irModule(inIRModule)
 		, functionDef(inFunctionDef)
 		, functionType(inIRModule.types[inFunctionDef.type.index])
-		, llvmFunction(inLLVMFunction)
+		, function(inLLVMFunction)
 		, localEscapeBlock(nullptr)
 		{
 		}
@@ -128,19 +131,20 @@ namespace LLVMJIT
 		// Coerces an I32 value to an I1, and vice-versa.
 		llvm::Value* coerceI32ToBool(llvm::Value* i32Value)
 		{
-			return irBuilder.CreateICmpNE(i32Value, typedZeroConstants[(Uptr)IR::ValueType::i32]);
+			return irBuilder.CreateICmpNE(i32Value,
+										  llvmContext.typedZeroConstants[(Uptr)IR::ValueType::i32]);
 		}
 
 		llvm::Value* coerceBoolToI32(llvm::Value* boolValue)
 		{
-			return zext(boolValue, llvmI32Type);
+			return zext(boolValue, llvmContext.i32Type);
 		}
 
 		// Converts a bounded memory address to a LLVM pointer.
 		llvm::Value* coerceAddressToPointer(llvm::Value* boundedAddress, llvm::Type* memoryType);
 
 		// Traps a divide-by-zero
-		void trapDivideByZero(IR::ValueType type, llvm::Value* divisor);
+		void trapDivideByZero(llvm::Value* divisor);
 
 		// Traps on (x / 0) or (INT_MIN / -1).
 		void trapDivideByZeroOrIntegerOverflow(IR::ValueType type,
@@ -207,8 +211,6 @@ namespace LLVMJIT
 		}
 
 		llvm::Value* emitSRem(IR::ValueType type, llvm::Value* left, llvm::Value* right);
-		llvm::Value* emitRotl(IR::ValueType type, llvm::Value* left, llvm::Value* right);
-		llvm::Value* emitRotr(IR::ValueType type, llvm::Value* left, llvm::Value* right);
 		llvm::Value* emitF64Promote(llvm::Value* operand);
 
 		template<typename Float>

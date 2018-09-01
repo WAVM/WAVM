@@ -1,9 +1,9 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "Intrinsics.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "Logging/Logging.h"
-#include "Runtime.h"
+#include "Runtime/Intrinsics.h"
+#include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
 using namespace Runtime;

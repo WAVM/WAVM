@@ -8,16 +8,16 @@
 #include "Runtime/Runtime.h"
 #include "ThreadTest/ThreadTest.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <vector>
 
-using namespace WAST;
 using namespace IR;
 using namespace Runtime;
+using namespace WAST;
 
 DEFINE_INTRINSIC_MODULE(spectest);
 
@@ -282,238 +282,220 @@ template<typename Float> bool isCanonicalOrArithmeticNaN(Float value, bool requi
 
 static void processCommand(TestScriptState& state, const Command* command)
 {
-	catchRuntimeExceptions(
-		[&] {
-			switch(command->type)
-			{
-			case Command::_register:
-			{
-				auto registerCommand = (RegisterCommand*)command;
+	switch(command->type)
+	{
+	case Command::_register:
+	{
+		auto registerCommand = (RegisterCommand*)command;
 
-				// Look up a module by internal name, and bind the result to the public name.
-				ModuleInstance* moduleInstance = getModuleContextByInternalName(
-					state, registerCommand->locus, "register", registerCommand->internalModuleName);
-				state.moduleNameToInstanceMap.set(registerCommand->moduleName, moduleInstance);
-				break;
-			}
-			case Command::action:
+		// Look up a module by internal name, and bind the result to the public name.
+		ModuleInstance* moduleInstance = getModuleContextByInternalName(
+			state, registerCommand->locus, "register", registerCommand->internalModuleName);
+		state.moduleNameToInstanceMap.set(registerCommand->moduleName, moduleInstance);
+		break;
+	}
+	case Command::action:
+	{
+		IR::ValueTuple results;
+		processAction(state, ((ActionCommand*)command)->action.get(), results);
+		break;
+	}
+	case Command::assert_return:
+	{
+		auto assertCommand = (AssertReturnCommand*)command;
+		// Execute the action and do a bitwise comparison of the result to the expected result.
+		IR::ValueTuple actionResults;
+		if(processAction(state, assertCommand->action.get(), actionResults)
+		   && actionResults != assertCommand->expectedResults)
+		{
+			testErrorf(state,
+					   assertCommand->locus,
+					   "expected %s but got %s",
+					   asString(assertCommand->expectedResults).c_str(),
+					   asString(actionResults).c_str());
+		}
+		break;
+	}
+	case Command::assert_return_canonical_nan:
+	case Command::assert_return_arithmetic_nan:
+	{
+		auto assertCommand = (AssertReturnNaNCommand*)command;
+		// Execute the action and check that the result is a NaN of the expected type.
+		IR::ValueTuple actionResults;
+		if(processAction(state, assertCommand->action.get(), actionResults))
+		{
+			if(actionResults.size() != 1)
 			{
-				IR::ValueTuple results;
-				processAction(state, ((ActionCommand*)command)->action.get(), results);
-				break;
+				testErrorf(state,
+						   assertCommand->locus,
+						   "expected single floating-point result, but got %s",
+						   asString(actionResults).c_str());
 			}
-			case Command::assert_return:
+			else
 			{
-				auto assertCommand = (AssertReturnCommand*)command;
-				// Execute the action and do a bitwise comparison of the result to the expected
-				// result.
-				IR::ValueTuple actionResults;
-				if(processAction(state, assertCommand->action.get(), actionResults)
-				   && actionResults != assertCommand->expectedResults)
+				IR::Value actionResult = actionResults[0];
+				const bool requireCanonicalNaN
+					= assertCommand->type == Command::assert_return_canonical_nan;
+				const bool isError
+					= actionResult.type == ValueType::f32
+						  ? !isCanonicalOrArithmeticNaN(actionResult.f32, requireCanonicalNaN)
+						  : actionResult.type == ValueType::f64
+								? !isCanonicalOrArithmeticNaN(actionResult.f64, requireCanonicalNaN)
+								: true;
+				if(isError)
 				{
 					testErrorf(state,
 							   assertCommand->locus,
-							   "expected %s but got %s",
-							   asString(assertCommand->expectedResults).c_str(),
-							   asString(actionResults).c_str());
+							   requireCanonicalNaN ? "expected canonical float NaN but got %s"
+												   : "expected float NaN but got %s",
+							   asString(actionResult).c_str());
 				}
-				break;
 			}
-			case Command::assert_return_canonical_nan:
-			case Command::assert_return_arithmetic_nan:
-			{
-				auto assertCommand = (AssertReturnNaNCommand*)command;
-				// Execute the action and check that the result is a NaN of the expected type.
+		}
+		break;
+	}
+	case Command::assert_trap:
+	{
+		auto assertCommand = (AssertTrapCommand*)command;
+		Runtime::catchRuntimeExceptions(
+			[&] {
 				IR::ValueTuple actionResults;
 				if(processAction(state, assertCommand->action.get(), actionResults))
 				{
-					if(actionResults.size() != 1)
-					{
-						testErrorf(state,
-								   assertCommand->locus,
-								   "expected single floating-point result, but got %s",
-								   asString(actionResults).c_str());
-					}
-					else
-					{
-						IR::Value actionResult = actionResults[0];
-						const bool requireCanonicalNaN
-							= assertCommand->type == Command::assert_return_canonical_nan;
-						const bool isError = actionResult.type == ValueType::f32
-												 ? !isCanonicalOrArithmeticNaN(actionResult.f32,
-																			   requireCanonicalNaN)
-												 : actionResult.type == ValueType::f64
-													   ? !isCanonicalOrArithmeticNaN(
-															 actionResult.f64, requireCanonicalNaN)
-													   : true;
-						if(isError)
-						{
-							testErrorf(state,
-									   assertCommand->locus,
-									   requireCanonicalNaN
-										   ? "expected canonical float NaN but got %s"
-										   : "expected float NaN but got %s",
-									   asString(actionResult).c_str());
-						}
-					}
+					testErrorf(state,
+							   assertCommand->locus,
+							   "expected trap but got %s",
+							   asString(actionResults).c_str());
 				}
-				break;
-			}
-			case Command::assert_trap:
-			{
-				auto assertCommand = (AssertTrapCommand*)command;
-				Runtime::catchRuntimeExceptions(
-					[&] {
-						IR::ValueTuple actionResults;
-						if(processAction(state, assertCommand->action.get(), actionResults))
-						{
-							testErrorf(state,
-									   assertCommand->locus,
-									   "expected trap but got %s",
-									   asString(actionResults).c_str());
-						}
-					},
-					[&](Runtime::Exception&& exception) {
-						Runtime::ExceptionTypeInstance* expectedType
-							= getExpectedExceptionType(assertCommand->expectedType);
-						if(exception.typeInstance != expectedType)
-						{
-							testErrorf(state,
-									   assertCommand->action->locus,
-									   "expected %s trap but got %s trap",
-									   describeExceptionType(expectedType).c_str(),
-									   describeExceptionType(exception.typeInstance).c_str());
-						}
-					});
-				break;
-			}
-			case Command::assert_throws:
-			{
-				auto assertCommand = (AssertThrowsCommand*)command;
+			},
+			[&](Runtime::Exception&& exception) {
+				Runtime::ExceptionTypeInstance* expectedType
+					= getExpectedExceptionType(assertCommand->expectedType);
+				if(exception.typeInstance != expectedType)
+				{
+					testErrorf(state,
+							   assertCommand->action->locus,
+							   "expected %s trap but got %s trap",
+							   describeExceptionType(expectedType).c_str(),
+							   describeExceptionType(exception.typeInstance).c_str());
+				}
+			});
+		break;
+	}
+	case Command::assert_throws:
+	{
+		auto assertCommand = (AssertThrowsCommand*)command;
 
-				// Look up the module containing the expected exception type.
-				ModuleInstance* moduleInstance = getModuleContextByInternalName(
-					state,
-					assertCommand->locus,
-					"assert_throws",
-					assertCommand->exceptionTypeInternalModuleName);
+		// Look up the module containing the expected exception type.
+		ModuleInstance* moduleInstance
+			= getModuleContextByInternalName(state,
+											 assertCommand->locus,
+											 "assert_throws",
+											 assertCommand->exceptionTypeInternalModuleName);
 
-				// A null module instance at this point indicates a module that failed to link or
-				// instantiate, so don't produce further errors.
-				if(!moduleInstance) { break; }
+		// A null module instance at this point indicates a module that failed to link or
+		// instantiate, so don't produce further errors.
+		if(!moduleInstance) { break; }
 
-				// Find the named export in the module instance.
-				auto expectedExceptionType = asExceptionTypeInstanceNullable(
-					getInstanceExport(moduleInstance, assertCommand->exceptionTypeExportName));
-				if(!expectedExceptionType)
+		// Find the named export in the module instance.
+		auto expectedExceptionType = asExceptionTypeInstanceNullable(
+			getInstanceExport(moduleInstance, assertCommand->exceptionTypeExportName));
+		if(!expectedExceptionType)
+		{
+			testErrorf(state,
+					   assertCommand->locus,
+					   "couldn't find exported exception type with name: %s",
+					   assertCommand->exceptionTypeExportName.c_str());
+			break;
+		}
+
+		Runtime::catchRuntimeExceptions(
+			[&] {
+				IR::ValueTuple actionResults;
+				if(processAction(state, assertCommand->action.get(), actionResults))
 				{
 					testErrorf(state,
 							   assertCommand->locus,
-							   "couldn't find exported exception type with name: %s",
-							   assertCommand->exceptionTypeExportName.c_str());
-					break;
+							   "expected trap but got %s",
+							   asString(actionResults).c_str());
 				}
-
-				Runtime::catchRuntimeExceptions(
-					[&] {
-						IR::ValueTuple actionResults;
-						if(processAction(state, assertCommand->action.get(), actionResults))
-						{
-							testErrorf(state,
-									   assertCommand->locus,
-									   "expected trap but got %s",
-									   asString(actionResults).c_str());
-						}
-					},
-					[&](Runtime::Exception&& exception) {
-						if(exception.typeInstance != expectedExceptionType)
-						{
-							testErrorf(state,
-									   assertCommand->action->locus,
-									   "expected %s exception but got %s exception",
-									   describeExceptionType(expectedExceptionType).c_str(),
-									   describeExceptionType(exception.typeInstance).c_str());
-						}
-						else
-						{
-							TypeTuple exceptionParameterTypes
-								= getExceptionTypeParameters(expectedExceptionType);
-							wavmAssert(exception.arguments.size()
-									   == exceptionParameterTypes.size());
-
-							for(Uptr argumentIndex = 0; argumentIndex < exception.arguments.size();
-								++argumentIndex)
-							{
-								IR::Value argumentValue(exceptionParameterTypes[argumentIndex],
-														exception.arguments[argumentIndex]);
-								if(argumentValue != assertCommand->expectedArguments[argumentIndex])
-								{
-									testErrorf(
-										state,
-										assertCommand->locus,
-										"expected %s for exception argument %" PRIuPTR
-										" but got %s",
-										asString(assertCommand->expectedArguments[argumentIndex])
-											.c_str(),
-										argumentIndex,
-										asString(argumentValue).c_str());
-								}
-							}
-						}
-					});
-				break;
-			}
-			case Command::assert_invalid:
-			case Command::assert_malformed:
-			{
-				auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
-				if(!assertCommand->wasInvalidOrMalformed)
+			},
+			[&](Runtime::Exception&& exception) {
+				if(exception.typeInstance != expectedExceptionType)
 				{
-					testErrorf(
-						state,
-						assertCommand->locus,
-						"module was %s",
-						assertCommand->type == Command::assert_invalid ? "valid" : "well formed");
+					testErrorf(state,
+							   assertCommand->action->locus,
+							   "expected %s exception but got %s exception",
+							   describeExceptionType(expectedExceptionType).c_str(),
+							   describeExceptionType(exception.typeInstance).c_str());
 				}
-				break;
-			}
-			case Command::assert_unlinkable:
-			{
-				auto assertCommand = (AssertUnlinkableCommand*)command;
-				Runtime::catchRuntimeExceptions(
-					[&] {
-						TestScriptResolver resolver(state);
-						LinkResult linkResult
-							= linkModule(*assertCommand->moduleAction->module, resolver);
-						if(linkResult.success)
+				else
+				{
+					TypeTuple exceptionParameterTypes
+						= getExceptionTypeParameters(expectedExceptionType);
+					wavmAssert(exception.arguments.size() == exceptionParameterTypes.size());
+
+					for(Uptr argumentIndex = 0; argumentIndex < exception.arguments.size();
+						++argumentIndex)
+					{
+						IR::Value argumentValue(exceptionParameterTypes[argumentIndex],
+												exception.arguments[argumentIndex]);
+						if(argumentValue != assertCommand->expectedArguments[argumentIndex])
 						{
-							auto moduleInstance = instantiateModule(
-								state.compartment,
-								compileModule(*assertCommand->moduleAction->module),
-								std::move(linkResult.resolvedImports),
-								"test module");
-
-							// Call the module start function, if it has one.
-							FunctionInstance* startFunction = getStartFunction(moduleInstance);
-							if(startFunction)
-							{ invokeFunctionChecked(state.context, startFunction, {}); }
-
-							testErrorf(state, assertCommand->locus, "module was linkable");
+							testErrorf(
+								state,
+								assertCommand->locus,
+								"expected %s for exception argument %" PRIuPTR " but got %s",
+								asString(assertCommand->expectedArguments[argumentIndex]).c_str(),
+								argumentIndex,
+								asString(argumentValue).c_str());
 						}
-					},
-					[&](Runtime::Exception&& exception) {
-						// If the instantiation throws an exception, the assert_unlinkable succeeds.
-					});
-				break;
-			}
-			};
-		},
-		[&](Runtime::Exception&& exception) {
+					}
+				}
+			});
+		break;
+	}
+	case Command::assert_invalid:
+	case Command::assert_malformed:
+	{
+		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
+		if(!assertCommand->wasInvalidOrMalformed)
+		{
 			testErrorf(state,
-					   command->locus,
-					   "unexpected trap: %s",
-					   describeExceptionType(exception.typeInstance).c_str());
-		});
+					   assertCommand->locus,
+					   "module was %s",
+					   assertCommand->type == Command::assert_invalid ? "valid" : "well formed");
+		}
+		break;
+	}
+	case Command::assert_unlinkable:
+	{
+		auto assertCommand = (AssertUnlinkableCommand*)command;
+		Runtime::catchRuntimeExceptions(
+			[&] {
+				TestScriptResolver resolver(state);
+				LinkResult linkResult = linkModule(*assertCommand->moduleAction->module, resolver);
+				if(linkResult.success)
+				{
+					auto moduleInstance
+						= instantiateModule(state.compartment,
+											compileModule(*assertCommand->moduleAction->module),
+											std::move(linkResult.resolvedImports),
+											"test module");
+
+					// Call the module start function, if it has one.
+					FunctionInstance* startFunction = getStartFunction(moduleInstance);
+					if(startFunction) { invokeFunctionChecked(state.context, startFunction, {}); }
+
+					testErrorf(state, assertCommand->locus, "module was linkable");
+				}
+			},
+			[&](Runtime::Exception&& exception) {
+				// If the instantiation throws an exception, the assert_unlinkable succeeds.
+			});
+		break;
+	}
+	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(spectest, "print", void, spectest_print) {}
@@ -597,7 +579,17 @@ int main(int argc, char** argv)
 	if(!testScriptState->errors.size())
 	{
 		// Process the test script commands.
-		for(auto& command : testCommands) { processCommand(*testScriptState, command.get()); }
+		for(auto& command : testCommands)
+		{
+			catchRuntimeExceptions(
+				[testScriptState, &command] { processCommand(*testScriptState, command.get()); },
+				[testScriptState, &command](Runtime::Exception&& exception) {
+					testErrorf(*testScriptState,
+							   command->locus,
+							   "unexpected trap: %s",
+							   describeExceptionType(exception.typeInstance).c_str());
+				});
+		}
 	}
 
 	int exitCode = EXIT_SUCCESS;

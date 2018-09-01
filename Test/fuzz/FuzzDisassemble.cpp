@@ -7,14 +7,14 @@
 #include "Logging/Logging.h"
 #include "ModuleMatcher.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
+#include "WASTPrint/WASTPrint.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <vector>
 
-using namespace WAST;
 using namespace IR;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)

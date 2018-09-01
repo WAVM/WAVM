@@ -1,8 +1,8 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
-#include "Intrinsics.h"
 #include "Logging/Logging.h"
+#include "Runtime/Intrinsics.h"
 #include "RuntimePrivate.h"
 
 #include <math.h>

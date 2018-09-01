@@ -1,7 +1,11 @@
 set(Sources
 	Atomics.cpp
+	Compartment.cpp
+	Context.cpp
 	Exception.cpp
+	Global.cpp
 	Intrinsics.cpp
+	Invoke.cpp
 	Linker.cpp
 	Memory.cpp
 	Module.cpp
@@ -15,7 +19,6 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Runtime/Linker.h
 	${WAVM_INCLUDE_DIR}/Runtime/Runtime.h
 	${WAVM_INCLUDE_DIR}/Runtime/RuntimeData.h)
-include_directories(${WAVM_INCLUDE_DIR}/Runtime)
 
 WAVM_ADD_LIBRARY(Runtime ${Sources} ${PublicHeaders})
 set_target_properties(Runtime PROPERTIES FOLDER Libraries)

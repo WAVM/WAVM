@@ -8,7 +8,7 @@
 #include "Platform/Platform.h"
 #include "Runtime/Runtime.h"
 #include "WASM/WASM.h"
-#include "WAST/WAST.h"
+#include "WASTParse/WASTParse.h"
 
 #include <vector>
 

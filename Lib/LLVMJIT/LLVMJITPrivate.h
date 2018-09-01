@@ -45,78 +45,70 @@ namespace LLVMJIT
 	typedef llvm::SmallVector<llvm::Value*, 1> ValueVector;
 	typedef llvm::SmallVector<llvm::PHINode*, 1> PHIVector;
 
-	// The global LLVM context.
-	extern llvm::LLVMContext* llvmContext;
+	struct LLVMContext : llvm::LLVMContext
+	{
+		llvm::Type* i8Type;
+		llvm::Type* i16Type;
+		llvm::Type* i32Type;
+		llvm::Type* i64Type;
+		llvm::Type* i128Type;
+		llvm::Type* f32Type;
+		llvm::Type* f64Type;
+		llvm::Type* i8PtrType;
+		llvm::Type* iptrType;
 
-	// Maps a type ID to the corresponding LLVM type.
-	extern llvm::Type* llvmValueTypes[Uptr(IR::ValueType::num)];
+		llvm::Type* i8x16Type;
+		llvm::Type* i16x8Type;
+		llvm::Type* i32x4Type;
+		llvm::Type* i64x2Type;
+		llvm::Type* i128x1Type;
+		llvm::Type* f32x4Type;
+		llvm::Type* f64x2Type;
 
-	extern llvm::Type* llvmI8Type;
-	extern llvm::Type* llvmI16Type;
-	extern llvm::Type* llvmI32Type;
-	extern llvm::Type* llvmI64Type;
-	extern llvm::Type* llvmI128Type;
-	extern llvm::Type* llvmF32Type;
-	extern llvm::Type* llvmF64Type;
-	extern llvm::Type* llvmVoidType;
-	extern llvm::Type* llvmBoolType;
-	extern llvm::Type* llvmI8PtrType;
-	extern llvm::Type* llvmIptrType;
+		llvm::Type* exceptionPointersStructType;
 
-	extern llvm::Type* llvmI8x16Type;
-	extern llvm::Type* llvmI16x8Type;
-	extern llvm::Type* llvmI32x4Type;
-	extern llvm::Type* llvmI64x2Type;
-	extern llvm::Type* llvmI128x1Type;
-	extern llvm::Type* llvmF32x4Type;
-	extern llvm::Type* llvmF64x2Type;
+		// Zero constants of each type.
+		llvm::Constant* typedZeroConstants[(Uptr)IR::ValueType::num];
 
-	extern llvm::Type* llvmExceptionPointersStructType;
+		// Maps a type ID to the corresponding LLVM type.
+		llvm::Type* valueTypes[Uptr(IR::ValueType::num)];
 
-	// Zero constants of each type.
-	extern llvm::Constant* typedZeroConstants[(Uptr)IR::ValueType::num];
-
-	extern Platform::Mutex llvmMutex;
-
-	extern void initLLVM();
+		LLVMContext();
+	};
 
 	// Overloaded functions that compile a literal value to a LLVM constant of the right type.
-	inline llvm::ConstantInt* emitLiteral(U32 value)
+	inline llvm::ConstantInt* emitLiteral(llvm::LLVMContext& llvmContext, U32 value)
 	{
-		return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,
-														  llvm::APInt(32, (U64)value, false));
+		return llvm::ConstantInt::get(llvmContext, llvm::APInt(32, (U64)value, false));
 	}
-	inline llvm::ConstantInt* emitLiteral(I32 value)
+	inline llvm::ConstantInt* emitLiteral(llvm::LLVMContext& llvmContext, I32 value)
 	{
-		return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI32Type,
-														  llvm::APInt(32, (I64)value, false));
+		return llvm::ConstantInt::get(llvmContext, llvm::APInt(32, (I64)value, false));
 	}
-	inline llvm::ConstantInt* emitLiteral(U64 value)
+	inline llvm::ConstantInt* emitLiteral(llvm::LLVMContext& llvmContext, U64 value)
 	{
-		return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,
-														  llvm::APInt(64, value, false));
+		return llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value, false));
 	}
-	inline llvm::ConstantInt* emitLiteral(I64 value)
+	inline llvm::ConstantInt* emitLiteral(llvm::LLVMContext& llvmContext, I64 value)
 	{
-		return (llvm::ConstantInt*)llvm::ConstantInt::get(llvmI64Type,
-														  llvm::APInt(64, value, false));
+		return llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value, false));
 	}
-	inline llvm::Constant* emitLiteral(F32 value)
+	inline llvm::Constant* emitLiteral(llvm::LLVMContext& llvmContext, F32 value)
 	{
-		return llvm::ConstantFP::get(*llvmContext, llvm::APFloat(value));
+		return llvm::ConstantFP::get(llvmContext, llvm::APFloat(value));
 	}
-	inline llvm::Constant* emitLiteral(F64 value)
+	inline llvm::Constant* emitLiteral(llvm::LLVMContext& llvmContext, F64 value)
 	{
-		return llvm::ConstantFP::get(*llvmContext, llvm::APFloat(value));
+		return llvm::ConstantFP::get(llvmContext, llvm::APFloat(value));
 	}
-	inline llvm::Constant* emitLiteral(bool value)
+	inline llvm::Constant* emitLiteral(llvm::LLVMContext& llvmContext, bool value)
 	{
-		return llvm::ConstantInt::get(llvmBoolType, llvm::APInt(1, value ? 1 : 0, false));
+		return llvm::ConstantInt::get(llvmContext, llvm::APInt(1, value ? 1 : 0, false));
 	}
-	inline llvm::Constant* emitLiteral(V128 value)
+	inline llvm::Constant* emitLiteral(llvm::LLVMContext& llvmContext, V128 value)
 	{
 		return llvm::ConstantVector::get(
-			{llvm::ConstantInt::get(llvmI128Type, llvm::APInt(128, 2, value.u64))});
+			{llvm::ConstantInt::get(llvmContext, llvm::APInt(128, 2, value.u64))});
 	}
 	inline llvm::Constant* emitLiteralPointer(const void* pointer, llvm::Type* type)
 	{
@@ -125,18 +117,18 @@ namespace LLVMJIT
 	}
 
 	// Converts a WebAssembly type to a LLVM type.
-	inline llvm::Type* asLLVMType(IR::ValueType type)
+	inline llvm::Type* asLLVMType(LLVMContext& llvmContext, IR::ValueType type)
 	{
 		wavmAssert(type < IR::ValueType::num);
-		return llvmValueTypes[Uptr(type)];
+		return llvmContext.valueTypes[Uptr(type)];
 	}
 
-	inline llvm::Type* asLLVMType(IR::TypeTuple typeTuple)
+	inline llvm::Type* asLLVMType(LLVMContext& llvmContext, IR::TypeTuple typeTuple)
 	{
 		llvm::Type** llvmTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * typeTuple.size());
 		for(Uptr typeIndex = 0; typeIndex < typeTuple.size(); ++typeIndex)
-		{ llvmTypes[typeIndex] = asLLVMType(typeTuple[typeIndex]); }
-		return llvm::StructType::get(*llvmContext,
+		{ llvmTypes[typeIndex] = asLLVMType(llvmContext, typeTuple[typeIndex]); }
+		return llvm::StructType::get(llvmContext,
 									 llvm::ArrayRef<llvm::Type*>(llvmTypes, typeTuple.size()));
 	}
 
@@ -152,28 +144,31 @@ namespace LLVMJIT
 		return results.size() + 1 <= maxDirectlyReturnedValues;
 	}
 
-	inline llvm::StructType* getLLVMReturnStructType(IR::TypeTuple results)
+	inline llvm::StructType* getLLVMReturnStructType(LLVMContext& llvmContext,
+													 IR::TypeTuple results)
 	{
 		if(areResultsReturnedDirectly(results))
 		{
 			// A limited number of results can be packed into a struct and returned directly.
-			return llvm::StructType::get(llvmI8PtrType, asLLVMType(results));
+			return llvm::StructType::get(llvmContext.i8PtrType, asLLVMType(llvmContext, results));
 		}
 		else
 		{
-			// If there are too many results to be returned directly, they will be returned in
-			// the context arg/return memory block.
-			return llvm::StructType::get(llvmI8PtrType);
+			// If there are too many results to be returned directly, they will be returned in the
+			// context arg/return memory block.
+			return llvm::StructType::get(llvmContext.i8PtrType);
 		}
 	}
 
-	inline llvm::Constant* getZeroedLLVMReturnStruct(IR::TypeTuple resultType)
+	inline llvm::Constant* getZeroedLLVMReturnStruct(LLVMContext& llvmContext,
+													 IR::TypeTuple resultType)
 	{
-		return llvm::Constant::getNullValue(getLLVMReturnStructType(resultType));
+		return llvm::Constant::getNullValue(getLLVMReturnStructType(llvmContext, resultType));
 	}
 
 	// Converts a WebAssembly function type to a LLVM type.
-	inline llvm::FunctionType* asLLVMType(IR::FunctionType functionType,
+	inline llvm::FunctionType* asLLVMType(LLVMContext& llvmContext,
+										  IR::FunctionType functionType,
 										  IR::CallingConvention callingConvention)
 	{
 		const Uptr numImplicitParameters
@@ -184,29 +179,29 @@ namespace LLVMJIT
 		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
 		if(callingConvention == IR::CallingConvention::intrinsicWithMemAndTable)
 		{
-			llvmArgTypes[0] = llvmI8PtrType;
-			llvmArgTypes[1] = llvmI64Type;
-			llvmArgTypes[2] = llvmI64Type;
+			llvmArgTypes[0] = llvmContext.i8PtrType;
+			llvmArgTypes[1] = llvmContext.i64Type;
+			llvmArgTypes[2] = llvmContext.i64Type;
 		}
 		else if(callingConvention != IR::CallingConvention::c)
 		{
-			llvmArgTypes[0] = llvmI8PtrType;
+			llvmArgTypes[0] = llvmContext.i8PtrType;
 		}
 		for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 		{
 			llvmArgTypes[argIndex + numImplicitParameters]
-				= asLLVMType(functionType.params()[argIndex]);
+				= asLLVMType(llvmContext, functionType.params()[argIndex]);
 		}
 
 		llvm::Type* llvmReturnType;
 		switch(callingConvention)
 		{
 		case IR::CallingConvention::wasm:
-			llvmReturnType = getLLVMReturnStructType(functionType.results());
+			llvmReturnType = getLLVMReturnStructType(llvmContext, functionType.results());
 			break;
 
 		case IR::CallingConvention::intrinsicWithContextSwitch:
-			llvmReturnType = llvmI8PtrType;
+			llvmReturnType = llvmContext.i8PtrType;
 			break;
 
 		case IR::CallingConvention::intrinsicWithMemAndTable:
@@ -214,8 +209,8 @@ namespace LLVMJIT
 		case IR::CallingConvention::c:
 			switch(functionType.results().size())
 			{
-			case 0: llvmReturnType = llvmVoidType; break;
-			case 1: llvmReturnType = asLLVMType(functionType.results()[0]); break;
+			case 0: llvmReturnType = llvm::Type::getVoidTy(llvmContext); break;
+			case 1: llvmReturnType = asLLVMType(llvmContext, functionType.results()[0]); break;
 			default: Errors::fatal("intrinsics/C functions returning >1 result isn't supported");
 			}
 			break;
@@ -241,22 +236,26 @@ namespace LLVMJIT
 		}
 	}
 
-	inline llvm::Constant* getMemoryIdFromOffset(llvm::Constant* memoryOffset)
+	inline llvm::Constant* getMemoryIdFromOffset(LLVMContext& llvmContext,
+												 llvm::Constant* memoryOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(
 			llvm::ConstantExpr::getSub(
 				memoryOffset,
-				emitLiteral(Uptr(offsetof(Runtime::CompartmentRuntimeData, memoryBases)))),
-			emitLiteral(Uptr(sizeof(Uptr))));
+				emitLiteral(llvmContext,
+							Uptr(offsetof(Runtime::CompartmentRuntimeData, memoryBases)))),
+			emitLiteral(llvmContext, Uptr(sizeof(Uptr))));
 	}
 
-	inline llvm::Constant* getTableIdFromOffset(llvm::Constant* tableOffset)
+	inline llvm::Constant* getTableIdFromOffset(LLVMContext& llvmContext,
+												llvm::Constant* tableOffset)
 	{
 		return llvm::ConstantExpr::getExactUDiv(
 			llvm::ConstantExpr::getSub(
 				tableOffset,
-				emitLiteral(Uptr(offsetof(Runtime::CompartmentRuntimeData, tableBases)))),
-			emitLiteral(Uptr(sizeof(Uptr))));
+				emitLiteral(llvmContext,
+							Uptr(offsetof(Runtime::CompartmentRuntimeData, tableBases)))),
+			emitLiteral(llvmContext, Uptr(sizeof(Uptr))));
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function
@@ -266,7 +265,9 @@ namespace LLVMJIT
 	}
 
 	// Emits LLVM IR for a module.
-	void emitModule(const IR::Module& irModule, llvm::Module& outLLVMModule);
+	void emitModule(const IR::Module& irModule,
+					LLVMContext& llvmContext,
+					llvm::Module& outLLVMModule);
 
 	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
 	llvm::JITEvaluatedSymbol resolveJITImport(llvm::StringRef name);
@@ -289,7 +290,9 @@ namespace LLVMJIT
 		ModuleMemoryManager* memoryManager;
 	};
 
-	extern std::vector<U8> compileLLVMModule(llvm::Module&& llvmModule, bool shouldLogMetrics);
+	extern std::vector<U8> compileLLVMModule(LLVMContext& llvmContext,
+											 llvm::Module&& llvmModule,
+											 bool shouldLogMetrics);
 
 	extern void processSEHTables(U8* imageBase,
 								 const llvm::LoadedObjectInfo& loadedObject,

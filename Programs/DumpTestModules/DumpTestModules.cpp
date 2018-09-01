@@ -4,8 +4,9 @@
 #include "Inline/HashMap.h"
 #include "Inline/Serialization.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
+#include "WASTPrint/WASTPrint.h"
 
 #include "Inline/CLI.h"
 
@@ -13,8 +14,8 @@
 #include <cstdio>
 #include <vector>
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 enum class DumpFormat
 {

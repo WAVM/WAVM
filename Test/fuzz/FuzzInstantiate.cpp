@@ -9,21 +9,16 @@
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <vector>
 
-using namespace WAST;
 using namespace IR;
 using namespace Runtime;
-
-namespace LLVMJIT
-{
-	RUNTIME_API void deinit();
-}
+using namespace WAST;
 
 struct StubResolver : Runtime::Resolver
 {
@@ -127,9 +122,6 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 		collectGarbage();
 	}
-
-	// De-initialize LLVM to avoid the accumulation of de-duped debug metadata in the LLVMContext.
-	LLVMJIT::deinit();
 
 	return 0;
 }

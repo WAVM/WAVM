@@ -12,21 +12,16 @@
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <vector>
 
-using namespace WAST;
 using namespace IR;
 using namespace Runtime;
-
-namespace LLVMJIT
-{
-	RUNTIME_API void deinit();
-}
+using namespace WAST;
 
 // A stream that uses a combination of a PRNG and input data to produce pseudo-random values.
 struct RandomStream
@@ -89,32 +84,32 @@ private:
 	}
 };
 
-static void generateImm(RandomStream& random, const IR::Module& module, NoImm& outImm) {}
-static void generateImm(RandomStream& random, const IR::Module& module, MemoryImm& outImm) {}
+static void generateImm(RandomStream& random, IR::Module& module, NoImm& outImm) {}
+static void generateImm(RandomStream& random, IR::Module& module, MemoryImm& outImm) {}
 
-static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<I32>& outImm)
+static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<I32>& outImm)
 {
 	outImm.value = I32(random.get(UINT32_MAX));
 }
 
-static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<I64>& outImm)
+static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<I64>& outImm)
 {
 	outImm.value = I64(random.get(UINT64_MAX));
 }
 
-static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<F32>& outImm)
+static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<F32>& outImm)
 {
 	const U32 u32 = random.get(UINT32_MAX);
 	memcpy(&outImm.value, &u32, sizeof(U32));
 }
 
-static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<F64>& outImm)
+static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<F64>& outImm)
 {
 	const U64 u64 = random.get(UINT64_MAX);
 	memcpy(&outImm.value, &u64, sizeof(U64));
 }
 
-static void generateImm(RandomStream& random, const IR::Module& module, LiteralImm<V128>& outImm)
+static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<V128>& outImm)
 {
 	outImm.value.u64[0] = random.get(UINT64_MAX);
 	outImm.value.u64[1] = random.get(UINT64_MAX);
@@ -122,7 +117,7 @@ static void generateImm(RandomStream& random, const IR::Module& module, LiteralI
 
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
-						const IR::Module& module,
+						IR::Module& module,
 						LoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.alignmentLog2 = random.get<U8>(naturalAlignmentLog2);
@@ -131,7 +126,7 @@ static void generateImm(RandomStream& random,
 
 template<Uptr naturalAlignmentLog2>
 static void generateImm(RandomStream& random,
-						const IR::Module& module,
+						IR::Module& module,
 						AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
 {
 	outImm.alignmentLog2 = naturalAlignmentLog2;
@@ -139,17 +134,13 @@ static void generateImm(RandomStream& random,
 }
 
 template<Uptr numLanes>
-static void generateImm(RandomStream& random,
-						const IR::Module& module,
-						LaneIndexImm<numLanes>& outImm)
+static void generateImm(RandomStream& random, IR::Module& module, LaneIndexImm<numLanes>& outImm)
 {
 	outImm.laneIndex = random.get<U8>(numLanes - 1);
 }
 
 template<Uptr numLanes>
-static void generateImm(RandomStream& random,
-						const IR::Module& module,
-						ShuffleImm<numLanes>& outImm)
+static void generateImm(RandomStream& random, IR::Module& module, ShuffleImm<numLanes>& outImm)
 {
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 	{ outImm.laneIndices[laneIndex] = random.get<U8>(numLanes * 2 - 1); }
@@ -158,19 +149,22 @@ static void generateImm(RandomStream& random,
 // Build a table with information about non-parametric operators.
 
 typedef CodeValidationProxyStream<OperatorEncoderStream> CodeStream;
-typedef void OperatorEmitFunc(RandomStream&, const IR::Module&, CodeStream&);
+typedef void OperatorEmitFunc(RandomStream&, IR::Module&, CodeStream&);
 
 struct OperatorInfo
 {
 	const char* name;
-	FunctionType sig;
-	std::function<OperatorEmitFunc> emit;
+	FunctionType (*sig)();
+	OperatorEmitFunc* emit;
 };
 
 #define VISIT_OP(encoding, name, nameString, Imm, SIGNATURE, ...)                                  \
 	{nameString,                                                                                   \
-	 SIGNATURE,                                                                                    \
-	 [](RandomStream& random, const IR::Module& module, CodeStream& codeStream) {                  \
+	 []() {                                                                                        \
+		 static FunctionType sig = SIGNATURE;                                                      \
+		 return sig;                                                                               \
+	 },                                                                                            \
+	 [](RandomStream& random, IR::Module& module, CodeStream& codeStream) {                        \
 		 Imm imm;                                                                                  \
 		 generateImm(random, module, imm);                                                         \
 		 codeStream.name(imm);                                                                     \
@@ -183,37 +177,185 @@ enum
 	numNonParametricOps = sizeof(operatorInfos) / sizeof(OperatorInfo)
 };
 
-static void generateFunction(RandomStream& random, IR::Module& module)
+FunctionType generateBlockSig(RandomStream& random)
+{
+	// const ValueType resultType = ValueType(random.get(U32(ValueType::max)));
+	// return resultType == ValueType::any ? FunctionType() : FunctionType(TypeTuple{resultType});
+	return FunctionType();
+}
+
+IndexedBlockType getIndexedBlockType(IR::Module& module,
+									 HashMap<FunctionType, Uptr>& functionTypeMap,
+									 const FunctionType sig)
+{
+	if(sig.params().size() || sig.results().size() > 1)
+	{
+		IndexedBlockType result;
+		result.format = IndexedBlockType::functionType;
+		result.index = functionTypeMap.getOrAdd(sig, module.types.size());
+		if(result.index == module.types.size()) { module.types.push_back(sig); }
+		return result;
+	}
+	else
+	{
+		return sig.results().size() == 1
+				   ? IndexedBlockType{IndexedBlockType::Format::oneResult, {sig.results()[0]}}
+				   : IndexedBlockType{IndexedBlockType::Format::noParametersOrResult};
+	}
+}
+
+static void generateFunction(RandomStream& random,
+							 IR::Module& module,
+							 HashMap<FunctionType, Uptr>& functionTypeMap)
 {
 	FunctionDef functionDef;
 
-	// For now just use a ()->() signature.
-	functionDef.type.index = 0;
+	// Generate a signature.
+	std::vector<ValueType> functionParams;
+	while(true)
+	{
+		const ValueType paramType = ValueType(random.get(U32(ValueType::max)));
+		if(paramType == ValueType::any) { break; }
+
+		functionParams.push_back(paramType);
+	};
+
+	// const ValueType resultType = ValueType(random.get(U32(ValueType::max)));
+	// FunctionType functionType(resultType == ValueType::any ? TypeTuple() : TypeTuple{resultType},
+	//						  TypeTuple(functionParams));
+	FunctionType functionType({}, TypeTuple(functionParams));
+	functionDef.type.index = functionTypeMap.getOrAdd(functionType, module.types.size());
+	if(functionDef.type.index == module.types.size()) { module.types.push_back(functionType); }
+
+	// Generate locals.
+	while(true)
+	{
+		const ValueType localType = ValueType(random.get(U32(ValueType::max)));
+		if(localType == ValueType::any) { break; }
+
+		functionDef.nonParameterLocalTypes.push_back(localType);
+	};
+	const Uptr numLocals = functionType.params().size() + functionDef.nonParameterLocalTypes.size();
 
 	Serialization::ArrayOutputStream codeByteStream;
 	OperatorEncoderStream opEncoder(codeByteStream);
 	CodeValidationProxyStream<OperatorEncoderStream> codeStream(module, functionDef, opEncoder);
 
+	struct ControlContext
+	{
+		enum class Type : U8
+		{
+			function,
+			block,
+			ifThen,
+			ifElse,
+			loop,
+			try_,
+			catch_
+		};
+
+		Type type;
+		Uptr outerStackSize;
+
+		TypeTuple params;
+		TypeTuple results;
+
+		TypeTuple elseParams;
+	};
+
+	std::vector<ControlContext> controlStack;
+	controlStack.push_back({ControlContext::Type::function,
+							0,
+							functionType.results(),
+							functionType.results(),
+							TypeTuple()});
+
 	std::vector<ValueType> stack;
 
-	std::vector<const OperatorInfo*> validNonParametricOps;
-	while(true)
+	Uptr numInstructions = 0;
+
+	std::vector<std::function<OperatorEmitFunc>> validOpEmitters;
+	while(controlStack.size())
 	{
+		bool allowStackGrowth
+			= stack.size() - controlStack.back().outerStackSize <= 6 && numInstructions++ < 50;
+
+		if(stack.size() <= controlStack.back().outerStackSize + controlStack.back().results.size())
+		{
+			const ControlContext& controlContext = controlStack.back();
+
+			bool sigMatches = true;
+			for(Uptr resultIndex = 0; resultIndex < controlContext.results.size(); ++resultIndex)
+			{
+				if(controlContext.outerStackSize + resultIndex >= stack.size())
+				{
+					sigMatches = false;
+					allowStackGrowth = true;
+				}
+				else if(stack[controlContext.outerStackSize + resultIndex]
+						!= controlContext.results[resultIndex])
+				{
+					sigMatches = false;
+					break;
+				}
+			}
+
+			if(sigMatches)
+			{
+				if(controlContext.type == ControlContext::Type::ifThen)
+				{
+					// Enter an if-else clause.
+					validOpEmitters.push_back([&stack, &controlStack](RandomStream& random,
+																	  IR::Module& module,
+																	  CodeStream& codeStream) {
+						// Emit the else operator.
+						codeStream.else_();
+
+						stack.resize(controlStack.back().outerStackSize);
+						for(ValueType elseParam : controlStack.back().elseParams)
+						{ stack.push_back(elseParam); }
+
+						// Change the current control context type to an else clause.
+						controlStack.back().type = ControlContext::Type::ifElse;
+					});
+				}
+
+				if(controlContext.type != ControlContext::Type::try_
+				   && (controlContext.type != ControlContext::Type::ifThen
+					   || controlContext.elseParams == controlStack.back().results))
+				{
+					// End the current control structure.
+					validOpEmitters.push_back([&stack, &controlStack](RandomStream& random,
+																	  IR::Module& module,
+																	  CodeStream& codeStream) {
+						// Emit the end operator.
+						codeStream.end();
+
+						// Push the control context's results on the stack.
+						for(ValueType result : controlStack.back().results)
+						{ stack.push_back(result); }
+
+						// Pop the control stack.
+						controlStack.pop_back();
+					});
+				}
+			}
+		}
+
 		// Build a list of the non-parametric operators that are valid given the current state of
 		// the stack.
-		validNonParametricOps.clear();
 		for(Uptr opIndex = 0; opIndex < numNonParametricOps; ++opIndex)
 		{
-			const OperatorInfo* opInfo = &operatorInfos[opIndex];
-			const TypeTuple params = opInfo->sig.params();
-			const TypeTuple results = opInfo->sig.results();
+			const OperatorInfo& opInfo = operatorInfos[opIndex];
+			const TypeTuple params = opInfo.sig().params();
+			const TypeTuple results = opInfo.sig().results();
 
-			// If the random stream has run out of entropy, don't consider operators that might
-			// result in a net increase in stack size.
-			if(!random.hasMore() && results.size() > params.size()) { continue; }
+			// If the random stream has run out of entropy, only consider operators that result in
+			// fewer operands on the stack.
+			if(!allowStackGrowth && results.size() >= params.size()) { continue; }
 
 			// Ensure the stack has enough values for the operator's parameters.
-			if(params.size() > stack.size()) { continue; }
+			if(params.size() > stack.size() - controlStack.back().outerStackSize) { continue; }
 
 			// Check that the types of values on top of the stack are the right type for the
 			// operator's parameters.
@@ -229,55 +371,299 @@ static void generateFunction(RandomStream& random, IR::Module& module)
 			if(sigMatch)
 			{
 				// Add the operator to the list of valid operators.
-				validNonParametricOps.push_back(opInfo);
+				validOpEmitters.push_back([&stack, opInfo](RandomStream& random,
+														   IR::Module& module,
+														   CodeStream& codeStream) {
+					opInfo.emit(random, module, codeStream);
+
+					// Remove the operator's parameters from the top of the stack.
+					stack.resize(stack.size() - opInfo.sig().params().size());
+
+					// Push the operator's results onto the stack.
+					for(ValueType result : opInfo.sig().results()) { stack.push_back(result); }
+				});
 			}
 		}
 
-		// Count the number of possible parametric and non-parametric ops that could be emitted.
-		Uptr numValidOps = 0;
-		numValidOps += 1; // end
-		numValidOps += validNonParametricOps.size();
+		// Build a list of the parametric operators that are valid given the current state of the
+		// stack.
 
-		// Choose a random op to emit.
-		Uptr randomOpIndex = random.get(numValidOps - 1);
-		if(randomOpIndex == 0)
+		for(Uptr localIndex = 0; localIndex < numLocals; ++localIndex)
 		{
-			// Emit the function end.
+			const ValueType localType
+				= localIndex < functionType.params().size()
+					  ? functionType.params()[localIndex]
+					  : functionDef
+							.nonParameterLocalTypes[localIndex - functionType.params().size()];
 
-			// If anything is left on the stack, pass it to the pre-generated nop function with the
-			// right signature.
-			while(stack.size())
+			if(stack.size() > controlStack.back().outerStackSize && localType == stack.back())
 			{
-				ValueType type = stack.back();
-				stack.pop_back();
-				switch(type)
+				// set_local
+				validOpEmitters.push_back([&stack, localIndex](RandomStream& random,
+															   IR::Module& module,
+															   CodeStream& codeStream) {
+					codeStream.set_local({U32(localIndex)});
+					stack.pop_back();
+				});
+
+				// tee_local
+				if(allowStackGrowth)
 				{
-				case ValueType::i32: codeStream.call({0}); break;
-				case ValueType::i64: codeStream.call({1}); break;
-				case ValueType::f32: codeStream.call({2}); break;
-				case ValueType::f64: codeStream.call({3}); break;
-				case ValueType::v128: codeStream.call({4}); break;
-				default: Errors::unreachable();
-				};
+					validOpEmitters.push_back([localIndex](RandomStream& random,
+														   IR::Module& module,
+														   CodeStream& codeStream) {
+						codeStream.tee_local({U32(localIndex)});
+					});
+				}
 			}
 
-			// Emit the end operator and break out of the operator emitting loop.
-			codeStream.end();
-			break;
+			// get_local
+			if(allowStackGrowth)
+			{
+				validOpEmitters.push_back([&stack, localIndex, localType](RandomStream& random,
+																		  IR::Module& module,
+																		  CodeStream& codeStream) {
+					codeStream.get_local({U32(localIndex)});
+					stack.push_back(localType);
+				});
+			}
 		}
-		else
+
+		for(Uptr globalIndex = 0; globalIndex < module.globals.size(); ++globalIndex)
 		{
-			const OperatorInfo* opInfo = validNonParametricOps[randomOpIndex - 1];
+			const GlobalType globalType = module.globals.getType(globalIndex);
 
-			// Emit the operator.
-			opInfo->emit(random, module, codeStream);
+			if(stack.size() > controlStack.back().outerStackSize
+			   && globalType.valueType == stack.back() && globalType.isMutable)
+			{
+				// set_global
+				validOpEmitters.push_back([&stack, globalIndex](RandomStream& random,
+																IR::Module& module,
+																CodeStream& codeStream) {
+					codeStream.set_global({U32(globalIndex)});
+					stack.pop_back();
+				});
+			}
 
-			// Remove the operator's parameters from the top of the stack.
-			stack.resize(stack.size() - opInfo->sig.params().size());
-
-			// Push the operator's results onto the stack.
-			for(ValueType result : opInfo->sig.results()) { stack.push_back(result); }
+			// get_global
+			if(allowStackGrowth)
+			{
+				validOpEmitters.push_back(
+					[&stack, globalIndex, globalType](
+						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+						codeStream.get_global({U32(globalIndex)});
+						stack.push_back(globalType.valueType);
+					});
+			}
 		}
+
+		if(allowStackGrowth)
+		{
+			// Enter a block control structure.
+			validOpEmitters.push_back(
+				[&stack, &controlStack, &functionTypeMap](
+					RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+					const FunctionType blockSig = generateBlockSig(random);
+					codeStream.block({getIndexedBlockType(module, functionTypeMap, blockSig)});
+					controlStack.push_back({ControlContext::Type::block,
+											stack.size(),
+											blockSig.results(),
+											blockSig.results(),
+											TypeTuple()});
+				});
+
+			// Enter a loop control structure.
+			validOpEmitters.push_back(
+				[&stack, &controlStack, &functionTypeMap](
+					RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+					const FunctionType loopSig = generateBlockSig(random);
+					codeStream.loop({getIndexedBlockType(module, functionTypeMap, loopSig)});
+					controlStack.push_back({ControlContext::Type::loop,
+											stack.size(),
+											loopSig.params(),
+											loopSig.results(),
+											TypeTuple()});
+				});
+		}
+
+		// Enter an if control structure.
+		if(allowStackGrowth && stack.size() > controlStack.back().outerStackSize
+		   && stack.back() == ValueType::i32)
+		{
+			validOpEmitters.push_back(
+				[&stack, &controlStack, &functionTypeMap](
+					RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+					stack.pop_back();
+					const FunctionType ifSig = generateBlockSig(random);
+					codeStream.if_({getIndexedBlockType(module, functionTypeMap, ifSig)});
+					controlStack.push_back({ControlContext::Type::ifThen,
+											stack.size(),
+											ifSig.results(),
+											ifSig.results(),
+											ifSig.params()});
+				});
+		}
+
+		// TODO: try/catch/catch_all
+
+		// br
+		for(Uptr branchTargetDepth = 0; branchTargetDepth < controlStack.size();
+			++branchTargetDepth)
+		{
+			const ControlContext& targetContext
+				= controlStack[controlStack.size() - branchTargetDepth - 1];
+			const TypeTuple params = targetContext.params;
+
+			if(params.size() > stack.size() - controlStack.back().outerStackSize) { continue; }
+
+			// Check that the types of values on top of the stack are the right type for the
+			// operator's parameters.
+			bool sigMatch = true;
+			for(Uptr paramIndex = 0; paramIndex < params.size(); ++paramIndex)
+			{
+				if(stack[stack.size() - params.size() + paramIndex] != params[paramIndex])
+				{
+					sigMatch = false;
+					break;
+				}
+			}
+			if(sigMatch)
+			{
+				validOpEmitters.push_back(
+					[&controlStack, &stack, branchTargetDepth](
+						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+						codeStream.br({U32(branchTargetDepth)});
+						if(controlStack.back().type == ControlContext::Type::ifThen)
+						{
+							// Emit the else operator.
+							codeStream.else_();
+
+							stack.resize(controlStack.back().outerStackSize);
+							for(ValueType elseParam : controlStack.back().elseParams)
+							{ stack.push_back(elseParam); }
+
+							// Change the current control context type to an else clause.
+							controlStack.back().type = ControlContext::Type::ifElse;
+						}
+						else
+						{
+							codeStream.end();
+							stack.resize(controlStack.back().outerStackSize);
+							for(ValueType result : controlStack.back().results)
+							{ stack.push_back(result); }
+							controlStack.pop_back();
+						}
+					});
+			}
+		}
+
+		// br_if
+		if(stack.size() > controlStack.back().outerStackSize && stack.back() == ValueType::i32)
+		{
+			for(Uptr branchTargetDepth = 0; branchTargetDepth < controlStack.size();
+				++branchTargetDepth)
+			{
+				const ControlContext& targetContext
+					= controlStack[controlStack.size() - branchTargetDepth - 1];
+				const TypeTuple params = targetContext.params;
+
+				if(params.size() + 1 > stack.size() - controlStack.back().outerStackSize)
+				{ continue; }
+
+				// Check that the types of values on top of the stack are the right type for the
+				// operator's parameters.
+				bool sigMatch = true;
+				for(Uptr paramIndex = 0; paramIndex < params.size(); ++paramIndex)
+				{
+					if(stack[stack.size() - params.size() - 1 + paramIndex] != params[paramIndex])
+					{
+						sigMatch = false;
+						break;
+					}
+				}
+				if(sigMatch)
+				{
+					validOpEmitters.push_back(
+						[&stack, branchTargetDepth, params](
+							RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+							stack.resize(stack.size() - params.size() - 1);
+							codeStream.br_if({U32(branchTargetDepth)});
+						});
+				}
+			}
+		}
+
+		// TODO: br_table, unreachable, return
+
+		// TODO: select
+
+		if(stack.size() > controlStack.back().outerStackSize)
+		{
+			// drop
+			validOpEmitters.push_back(
+				[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+					codeStream.drop();
+					stack.pop_back();
+				});
+		}
+
+		// call
+		std::vector<Uptr> validFunctionIndices;
+		for(Uptr functionIndex = 0; functionIndex < module.functions.size(); ++functionIndex)
+		{
+			const FunctionType calleeType
+				= module.types[module.functions.getType(functionIndex).index];
+			const TypeTuple params = calleeType.params();
+			const TypeTuple results = calleeType.results();
+
+			// If the random stream has run out of entropy, only consider operators that result in
+			// fewer operands on the stack.
+			if(!allowStackGrowth && results.size() >= params.size()) { continue; }
+
+			// Ensure the stack has enough values for the operator's parameters.
+			if(params.size() > stack.size() - controlStack.back().outerStackSize) { continue; }
+
+			// Check that the types of values on top of the stack are the right type for the
+			// operator's parameters.
+			bool sigMatch = true;
+			for(Uptr paramIndex = 0; paramIndex < params.size(); ++paramIndex)
+			{
+				if(stack[stack.size() - params.size() + paramIndex] != params[paramIndex])
+				{
+					sigMatch = false;
+					break;
+				}
+			}
+			if(sigMatch) { validFunctionIndices.push_back(functionIndex); }
+		}
+
+		if(validFunctionIndices.size())
+		{
+			validOpEmitters.push_back([&stack, &validFunctionIndices](RandomStream& random,
+																	  IR::Module& module,
+																	  CodeStream& codeStream) {
+				const Uptr randomFunctionIndex = random.get(validFunctionIndices.size() - 1);
+				const Uptr functionIndex = validFunctionIndices[randomFunctionIndex];
+				const FunctionType calleeType
+					= module.types[module.functions.getType(functionIndex).index];
+
+				codeStream.call({U32(functionIndex)});
+
+				// Remove the functions's parameters from the top of the stack.
+				stack.resize(stack.size() - calleeType.params().size());
+
+				// Push the function's results onto the stack.
+				for(ValueType result : calleeType.results()) { stack.push_back(result); }
+			});
+		}
+
+		// TODO: call_indirect
+
+		// Emit a random operator.
+		wavmAssert(validOpEmitters.size());
+		const Uptr randomOpIndex = random.get(validOpEmitters.size() - 1);
+		validOpEmitters[randomOpIndex](random, module, codeStream);
+		validOpEmitters.clear();
 	};
 
 	codeStream.finishValidation();
@@ -291,29 +677,57 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 {
 	RandomStream random(inputBytes, numBytes);
 
+	HashMap<FunctionType, Uptr> functionTypeMap;
+
 	// Generate some standard definitions that are the same for all modules.
 
-	module.types.push_back(FunctionType());
+	module.memories.defs.push_back({{true, {1024, IR::maxMemoryPages}}});
+	module.tables.defs.push_back({{TableElementType::anyfunc, true, {1024, IR::maxTableElems}}});
 
-	module.types.push_back(FunctionType(TypeTuple{}, TypeTuple{ValueType::i32}));
-	module.types.push_back(FunctionType(TypeTuple{}, TypeTuple{ValueType::i64}));
-	module.types.push_back(FunctionType(TypeTuple{}, TypeTuple{ValueType::f32}));
-	module.types.push_back(FunctionType(TypeTuple{}, TypeTuple{ValueType::f64}));
-	module.types.push_back(FunctionType(TypeTuple{}, TypeTuple{ValueType::v128}));
+	while(true)
+	{
+		const ValueType globalValueType = ValueType(random.get(U32(ValueType::max)));
+		if(globalValueType == ValueType::any) { break; }
 
-	module.functions.defs.push_back({{1}, {}, {U8(Opcode::end), 0}, {}});
-	module.functions.defs.push_back({{2}, {}, {U8(Opcode::end), 0}, {}});
-	module.functions.defs.push_back({{3}, {}, {U8(Opcode::end), 0}, {}});
-	module.functions.defs.push_back({{4}, {}, {U8(Opcode::end), 0}, {}});
-	module.functions.defs.push_back({{5}, {}, {U8(Opcode::end), 0}, {}});
-
-	module.memories.imports.push_back(
-		{MemoryType{true, SizeConstraints{1024, IR::maxMemoryPages}}});
+		const bool isMutable = random.get(1);
+		const GlobalType globalType{globalValueType, isMutable};
+		if(random.get(1)) { module.globals.imports.push_back({globalType}); }
+		else
+		{
+			InitializerExpression initializer;
+			switch(globalValueType)
+			{
+			case ValueType::i32:
+				initializer.type = InitializerExpression::Type::i32_const;
+				initializer.i32 = I32(random.get(UINT32_MAX));
+				break;
+			case ValueType::i64:
+				initializer.type = InitializerExpression::Type::i64_const;
+				initializer.i64 = I64(random.get(UINT64_MAX));
+				break;
+			case ValueType::f32:
+				initializer.type = InitializerExpression::Type::f32_const;
+				initializer.f32 = F32(random.get(UINT32_MAX));
+				break;
+			case ValueType::f64:
+				initializer.type = InitializerExpression::Type::f64_const;
+				initializer.f64 = F64(random.get(UINT64_MAX));
+				break;
+			case ValueType::v128:
+				initializer.type = InitializerExpression::Type::v128_const;
+				initializer.v128.u64[0] = random.get(UINT64_MAX);
+				initializer.v128.u64[1] = random.get(UINT64_MAX);
+				break;
+			default: Errors::unreachable();
+			}
+			module.globals.defs.push_back({globalType, initializer});
+		}
+	};
 
 	validateDefinitions(module);
 
 	// Generate functions until the random stream runs out of entropy.
-	while(random.hasMore()) { generateFunction(random, module); };
+	while(module.functions.defs.size() < 5) { generateFunction(random, module, functionTypeMap); };
 }
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
@@ -322,9 +736,6 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	generateValidModule(module, data, numBytes);
 	compileModule(module);
 	collectGarbage();
-
-	// De-initialize LLVM to avoid the accumulation of de-duped debug metadata in the LLVMContext.
-	LLVMJIT::deinit();
 
 	return 0;
 }

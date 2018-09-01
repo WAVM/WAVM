@@ -5,7 +5,7 @@
 #include "Inline/Errors.h"
 #include "Inline/Lock.h"
 #include "Inline/Unicode.h"
-#include "Platform.h"
+#include "Platform/Platform.h"
 
 #include <algorithm>
 #include <atomic>

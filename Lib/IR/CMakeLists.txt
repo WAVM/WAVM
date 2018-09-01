@@ -10,11 +10,10 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/IR/OperatorPrinter.h
 	${WAVM_INCLUDE_DIR}/IR/Operators.h
 	${WAVM_INCLUDE_DIR}/IR/OperatorTable.h
-	${WAVM_INCLUDE_DIR}/IR/TaggedValue.h
+	${WAVM_INCLUDE_DIR}/IR/Value.h
 	${WAVM_INCLUDE_DIR}/IR/Types.h
 	${WAVM_INCLUDE_DIR}/IR/Types.natvis
 	${WAVM_INCLUDE_DIR}/IR/Validate.h)
-include_directories(${WAVM_INCLUDE_DIR}/IR)
 
 WAVM_ADD_LIBRARY(IR ${Sources} ${PublicHeaders})
 set_target_properties(IR PROPERTIES FOLDER Libraries)

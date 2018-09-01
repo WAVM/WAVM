@@ -2,9 +2,9 @@
 #include "Inline/HashSet.h"
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
-#include "Intrinsics.h"
 #include "Logging/Logging.h"
-#include "Runtime.h"
+#include "Runtime/Intrinsics.h"
+#include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
 #include <vector>

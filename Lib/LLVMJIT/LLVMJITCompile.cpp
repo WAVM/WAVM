@@ -105,7 +105,9 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 	if(shouldLogMetrics && DUMP_OPTIMIZED_MODULE) { printModule(llvmModule, "llvmOptimizedDump"); }
 }
 
-std::vector<U8> LLVMJIT::compileLLVMModule(llvm::Module&& llvmModule, bool shouldLogMetrics)
+std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
+										   llvm::Module&& llvmModule,
+										   bool shouldLogMetrics)
 {
 	auto targetTriple = llvm::sys::getProcessTriple();
 #ifdef __APPLE__
@@ -176,14 +178,12 @@ std::vector<U8> LLVMJIT::compileLLVMModule(llvm::Module&& llvmModule, bool shoul
 
 std::vector<U8> LLVMJIT::compileModule(const IR::Module& irModule)
 {
-	Lock<Platform::Mutex> llvmLock(llvmMutex);
-
-	initLLVM();
+	LLVMContext llvmContext;
 
 	// Emit LLVM IR for the module.
-	llvm::Module llvmModule("", *llvmContext);
-	emitModule(irModule, llvmModule);
+	llvm::Module llvmModule("", llvmContext);
+	emitModule(irModule, llvmContext, llvmModule);
 
 	// Compile the LLVM IR to object code.
-	return compileLLVMModule(std::move(llvmModule), true);
+	return compileLLVMModule(llvmContext, std::move(llvmModule), true);
 }

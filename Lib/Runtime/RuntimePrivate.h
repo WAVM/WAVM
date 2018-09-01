@@ -273,7 +273,7 @@ namespace Runtime
 
 	struct Compartment : ObjectImpl
 	{
-		Platform::Mutex mutex;
+		mutable Platform::Mutex mutex;
 
 		struct CompartmentRuntimeData* runtimeData;
 		U8* unalignedRuntimeData;

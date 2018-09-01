@@ -4,17 +4,17 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
+#include "Inline/IsNameChar.h"
 #include "Inline/Unicode.h"
-#include "IsNameChar.h"
 #include "Lexer.h"
-#include "WAST.h"
+#include "WASTParse/WASTParse.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <string>
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 void WAST::findClosingParenthesis(CursorState* cursor, const Token* openingParenthesisToken)
 {

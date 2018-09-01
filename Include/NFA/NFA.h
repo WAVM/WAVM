@@ -5,6 +5,10 @@
 
 #include <string>
 
+#ifndef NFA_API
+#define NFA_API DLL_IMPORT
+#endif
+
 namespace NFA
 {
 	// A set of characters.
@@ -27,22 +31,22 @@ namespace NFA
 
 	// Creates an abstract object that holds the state of an under-construction BFA.
 	struct Builder;
-	Builder* createBuilder();
+	NFA_API Builder* createBuilder();
 
 	// Functions to add states and edges to the under-construction DFA.
-	StateIndex addState(Builder* builder);
-	void addEdge(Builder* builder,
-				 StateIndex initialState,
-				 const CharSet& predicate,
-				 StateIndex nextState);
-	void addEpsilonEdge(Builder* builder, StateIndex initialState, StateIndex nextState);
-	StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c);
+	NFA_API StateIndex addState(Builder* builder);
+	NFA_API void addEdge(Builder* builder,
+						 StateIndex initialState,
+						 const CharSet& predicate,
+						 StateIndex nextState);
+	NFA_API void addEpsilonEdge(Builder* builder, StateIndex initialState, StateIndex nextState);
+	NFA_API StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c);
 
 	// Dumps the NFA's states and edges to the GraphViz .dot format.
 	std::string dumpNFAGraphViz(const Builder* builder);
 
 	// Encapsulates a NFA that has been translated into a DFA that can be efficiently executed.
-	struct Machine
+	struct NFA_API Machine
 	{
 		Machine() : stateAndOffsetToNextStateMap(nullptr), numClasses(0), numStates(0) {}
 		~Machine();

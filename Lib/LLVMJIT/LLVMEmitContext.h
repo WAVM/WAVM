@@ -19,14 +19,18 @@ namespace LLVMJIT
 	// Code and state that is used for generating IR for both thunks and WASM functions.
 	struct EmitContext
 	{
+		LLVMContext& llvmContext;
 		llvm::IRBuilder<> irBuilder;
 
 		llvm::Value* contextPointerVariable;
 		llvm::Value* memoryBasePointerVariable;
 		llvm::Value* tableBasePointerVariable;
 
-		EmitContext(llvm::Constant* inDefaultMemoryOffset, llvm::Constant* inDefaultTableOffset)
-		: irBuilder(*llvmContext)
+		EmitContext(LLVMContext& inLLVMContext,
+					llvm::Constant* inDefaultMemoryOffset,
+					llvm::Constant* inDefaultTableOffset)
+		: llvmContext(inLLVMContext)
+		, irBuilder(inLLVMContext)
 		, contextPointerVariable(nullptr)
 		, memoryBasePointerVariable(nullptr)
 		, tableBasePointerVariable(nullptr)
@@ -52,10 +56,11 @@ namespace LLVMJIT
 			// Derive the compartment runtime data from the context address by masking off the lower
 			// 32 bits.
 			llvm::Value* compartmentAddress = irBuilder.CreateIntToPtr(
-				irBuilder.CreateAnd(irBuilder.CreatePtrToInt(
-										irBuilder.CreateLoad(contextPointerVariable), llvmI64Type),
-									emitLiteral(~((U64(1) << 32) - 1))),
-				llvmI8PtrType);
+				irBuilder.CreateAnd(
+					irBuilder.CreatePtrToInt(irBuilder.CreateLoad(contextPointerVariable),
+											 llvmContext.i64Type),
+					emitLiteral(llvmContext, ~((U64(1) << 32) - 1))),
+				llvmContext.i8PtrType);
 
 			// Load the defaultMemoryBase and defaultTableBase values from the runtime data for this
 			// module instance.
@@ -65,7 +70,7 @@ namespace LLVMJIT
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(compartmentAddress, {defaultMemoryOffset}),
-						llvmI8PtrType),
+						llvmContext.i8PtrType),
 					memoryBasePointerVariable);
 			}
 
@@ -74,7 +79,7 @@ namespace LLVMJIT
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(compartmentAddress, {defaultTableOffset}),
-						llvmI8PtrType),
+						llvmContext.i8PtrType),
 					tableBasePointerVariable);
 			}
 		}
@@ -82,9 +87,11 @@ namespace LLVMJIT
 		void initContextVariables(llvm::Value* initialContextPointer)
 		{
 			memoryBasePointerVariable
-				= irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "memoryBase");
-			tableBasePointerVariable = irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "tableBase");
-			contextPointerVariable = irBuilder.CreateAlloca(llvmI8PtrType, nullptr, "context");
+				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "memoryBase");
+			tableBasePointerVariable
+				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "tableBase");
+			contextPointerVariable
+				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");
 			irBuilder.CreateStore(initialContextPointer, contextPointerVariable);
 			reloadMemoryAndTableBase();
 		}
@@ -106,12 +113,12 @@ namespace LLVMJIT
 					= (llvm::Value**)alloca(sizeof(llvm::Value*) * (args.size() + 3));
 				augmentedArgs = llvm::ArrayRef<llvm::Value*>(augmentedArgsAlloca, args.size() + 3);
 				augmentedArgsAlloca[0] = irBuilder.CreateLoad(contextPointerVariable);
-				augmentedArgsAlloca[1] = defaultMemoryOffset
-											 ? getMemoryIdFromOffset(defaultMemoryOffset)
-											 : emitLiteral(I64(-1));
+				augmentedArgsAlloca[1]
+					= defaultMemoryOffset ? getMemoryIdFromOffset(llvmContext, defaultMemoryOffset)
+										  : emitLiteral(llvmContext, I64(-1));
 				augmentedArgsAlloca[2] = defaultTableOffset
-											 ? getTableIdFromOffset(defaultTableOffset)
-											 : emitLiteral(I64(-1));
+											 ? getTableIdFromOffset(llvmContext, defaultTableOffset)
+											 : emitLiteral(llvmContext, I64(-1));
 				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
 				{ augmentedArgsAlloca[3 + argIndex] = args[argIndex]; }
 			}
@@ -137,7 +144,7 @@ namespace LLVMJIT
 			else
 			{
 				auto returnBlock = llvm::BasicBlock::Create(
-					*llvmContext, "invokeReturn", irBuilder.GetInsertBlock()->getParent());
+					llvmContext, "invokeReturn", irBuilder.GetInsertBlock()->getParent());
 				auto invoke
 					= irBuilder.CreateInvoke(callee, returnBlock, unwindToBlock, augmentedArgs);
 				invoke->setCallingConv(asLLVMCallingConv(callingConvention));
@@ -180,8 +187,8 @@ namespace LLVMJIT
 
 						results.push_back(irBuilder.CreateLoad(irBuilder.CreatePointerCast(
 							irBuilder.CreateInBoundsGEP(newContextPointer,
-														{emitLiteral(resultOffset)}),
-							asLLVMType(resultType)->getPointerTo())));
+														{emitLiteral(llvmContext, resultOffset)}),
+							asLLVMType(llvmContext, resultType)->getPointerTo())));
 
 						resultOffset += resultNumBytes;
 					}
@@ -203,7 +210,7 @@ namespace LLVMJIT
 				wavmAssert(calleeType.results().size() <= 1);
 				if(calleeType.results().size() == 1)
 				{
-					llvm::Type* llvmResultType = asLLVMType(calleeType.results()[0]);
+					llvm::Type* llvmResultType = asLLVMType(llvmContext, calleeType.results()[0]);
 					results.push_back(loadFromUntypedPointer(newContextPointer, llvmResultType));
 				}
 
@@ -225,7 +232,7 @@ namespace LLVMJIT
 
 		void emitReturn(IR::TypeTuple resultTypes, const llvm::ArrayRef<llvm::Value*>& results)
 		{
-			llvm::Value* returnStruct = getZeroedLLVMReturnStruct(resultTypes);
+			llvm::Value* returnStruct = getZeroedLLVMReturnStruct(llvmContext, resultTypes);
 			returnStruct = irBuilder.CreateInsertValue(
 				returnStruct, irBuilder.CreateLoad(contextPointerVariable), {U32(0)});
 
@@ -256,8 +263,8 @@ namespace LLVMJIT
 										  irBuilder.CreatePointerCast(
 											  irBuilder.CreateInBoundsGEP(
 												  irBuilder.CreateLoad(contextPointerVariable),
-												  {emitLiteral(resultOffset)}),
-											  asLLVMType(resultType)->getPointerTo()));
+												  {emitLiteral(llvmContext, resultOffset)}),
+											  asLLVMType(llvmContext, resultType)->getPointerTo()));
 
 					resultOffset += resultNumBytes;
 				}

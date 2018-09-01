@@ -1,13 +1,13 @@
 #include "IR/Module.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "Runtime.h"
+#include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
 #include <string.h>
 
-using namespace Runtime;
 using namespace IR;
+using namespace Runtime;
 
 static Value evaluateInitializer(ModuleInstance* moduleInstance, InitializerExpression expression)
 {

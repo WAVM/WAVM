@@ -1,17 +1,17 @@
 #include "IR/Module.h"
-#include "IR/TaggedValue.h"
 #include "IR/Validate.h"
+#include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "TestScript.h"
 #include "WASM/WASM.h"
-#include "WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 static IR::Value parseConstExpression(CursorState* cursor)
 {

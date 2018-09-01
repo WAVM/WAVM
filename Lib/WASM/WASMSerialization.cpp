@@ -5,7 +5,7 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "Inline/Unicode.h"
-#include "WASM.h"
+#include "WASM/WASM.h"
 
 using namespace IR;
 using namespace Serialization;

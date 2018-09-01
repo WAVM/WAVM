@@ -3,7 +3,7 @@
 #include "Inline/Floats.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "WAST.h"
+#include "WASTParse/WASTParse.h"
 
 #include <cerrno>
 #include <climits>
@@ -33,7 +33,7 @@
 #define Long int
 #endif
 
-#include "../ThirdParty/dtoa.c"
+#include "../ThirdParty/dtoa/dtoa.c"
 
 #ifdef _MSC_VER
 #pragma warning(pop)

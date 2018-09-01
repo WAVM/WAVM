@@ -1,8 +1,8 @@
-#include "IR.h"
+#include "IR/IR.h"
+#include "IR/Module.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "Logging/Logging.h"
-#include "Module.h"
 
 using namespace IR;
 using namespace Serialization;
