@@ -1,7 +1,7 @@
-#include "Regexp.h"
+#include "RegExp/RegExp.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
-#include "NFA.h"
+#include "NFA/NFA.h"
 
 #include <assert.h>
 
@@ -342,7 +342,7 @@ static void createNFA(NFA::Builder* nfaBuilder,
 	};
 }
 
-void Regexp::addToNFA(const char* regexpString,
+void RegExp::addToNFA(const char* regexpString,
 					  NFA::Builder* nfaBuilder,
 					  NFA::StateIndex initialState,
 					  NFA::StateIndex finalState)

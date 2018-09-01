@@ -1,4 +1,4 @@
-#include "NFA.h"
+#include "NFA/NFA.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
