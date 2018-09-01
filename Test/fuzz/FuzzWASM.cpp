@@ -13,8 +13,8 @@
 #include <cstdio>
 #include <vector>
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {

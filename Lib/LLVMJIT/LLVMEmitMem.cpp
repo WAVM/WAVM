@@ -3,8 +3,8 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
 
-using namespace LLVMJIT;
 using namespace IR;
+using namespace LLVMJIT;
 
 // Bounds checks a sandboxed memory address + offset, and returns an offset relative to the memory
 // base address that is guaranteed to be within the virtual address space allocated for the linear

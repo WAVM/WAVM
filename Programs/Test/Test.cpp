@@ -15,9 +15,9 @@
 #include <cstdio>
 #include <vector>
 
-using namespace WAST;
 using namespace IR;
 using namespace Runtime;
+using namespace WAST;
 
 DEFINE_INTRINSIC_MODULE(spectest);
 

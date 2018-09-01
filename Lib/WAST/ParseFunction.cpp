@@ -10,8 +10,8 @@
 
 #include <memory>
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 namespace WAST
 {

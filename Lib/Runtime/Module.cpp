@@ -6,8 +6,8 @@
 
 #include <string.h>
 
-using namespace Runtime;
 using namespace IR;
+using namespace Runtime;
 
 static Value evaluateInitializer(ModuleInstance* moduleInstance, InitializerExpression expression)
 {

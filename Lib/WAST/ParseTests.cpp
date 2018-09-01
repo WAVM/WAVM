@@ -10,8 +10,8 @@
 #include "WAST/TestScript.h"
 #include "WAST/WAST.h"
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 static IR::Value parseConstExpression(CursorState* cursor)
 {

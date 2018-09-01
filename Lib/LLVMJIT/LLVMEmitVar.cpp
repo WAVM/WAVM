@@ -4,8 +4,8 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
 
-using namespace LLVMJIT;
 using namespace IR;
+using namespace LLVMJIT;
 
 //
 // Local variables

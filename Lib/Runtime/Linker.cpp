@@ -8,8 +8,8 @@
 
 #include <string.h>
 
-using namespace Runtime;
 using namespace IR;
+using namespace Runtime;
 
 static FunctionType resolveImportType(const IR::Module& module, IndexedFunctionType type)
 {

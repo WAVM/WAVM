@@ -9,8 +9,8 @@
 
 #include <memory>
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 static bool tryParseSizeConstraints(CursorState* cursor,
 									U64 maxMax,

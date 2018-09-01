@@ -16,9 +16,9 @@
 #include <cstdio>
 #include <vector>
 
-using namespace WAST;
 using namespace IR;
 using namespace Runtime;
+using namespace WAST;
 
 namespace LLVMJIT
 {

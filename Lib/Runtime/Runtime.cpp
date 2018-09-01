@@ -4,8 +4,8 @@
 #include "Inline/Lock.h"
 #include "RuntimePrivate.h"
 
-using namespace Runtime;
 using namespace IR;
+using namespace Runtime;
 
 bool Runtime::isA(Object* object, const ObjectType& type)
 {

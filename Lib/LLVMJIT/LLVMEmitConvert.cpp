@@ -6,8 +6,8 @@
 #include "LLVMEmitWorkarounds.h"
 #include "LLVMJITPrivate.h"
 
-using namespace LLVMJIT;
 using namespace IR;
+using namespace LLVMJIT;
 
 #define EMIT_UNARY_OP(name, emitCode)                                                              \
 	void EmitFunctionContext::name(NoImm)                                                          \

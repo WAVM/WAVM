@@ -13,8 +13,8 @@
 #include <cstdio>
 #include <string>
 
-using namespace WAST;
 using namespace IR;
+using namespace WAST;
 
 void WAST::findClosingParenthesis(CursorState* cursor, const Token* openingParenthesisToken)
 {
