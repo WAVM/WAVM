@@ -7,7 +7,7 @@
 #include "Inline/Timing.h"
 #include "NFA/NFA.h"
 #include "RegExp/RegExp.h"
-#include "WAST/WAST.h"
+#include "WASTParse/WASTParse.h"
 
 using namespace WAST;
 

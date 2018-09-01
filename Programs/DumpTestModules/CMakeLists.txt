@@ -1,3 +1,3 @@
 add_executable(DumpTestModules DumpTestModules.cpp)
-target_link_libraries(DumpTestModules Logging IR WAST)
+target_link_libraries(DumpTestModules Logging IR WASTParse WASTPrint)
 set_target_properties(DumpTestModules PROPERTIES FOLDER Testing)

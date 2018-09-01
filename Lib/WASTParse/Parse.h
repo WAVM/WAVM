@@ -6,7 +6,7 @@
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Lexer.h"
-#include "WAST/WAST.h"
+#include "WASTParse/WASTParse.h"
 
 #include <functional>
 
@@ -19,7 +19,8 @@ namespace WAST
 	{
 	};
 
-	// Like WAST::Error, but only has an offset in the input string instead of a full TextFileLocus.
+	// Like WAST::Error, but only has an offset in the input string instead of a full
+	// TextFileLocus.
 	struct UnresolvedError
 	{
 		Uptr charOffset;

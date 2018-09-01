@@ -7,8 +7,8 @@
 #include "Lexer.h"
 #include "Parse.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
 
 using namespace IR;
 using namespace WAST;

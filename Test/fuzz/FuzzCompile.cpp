@@ -9,8 +9,8 @@
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
 
 #include <cstdarg>
 #include <cstdio>

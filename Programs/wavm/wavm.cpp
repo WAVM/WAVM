@@ -10,7 +10,7 @@
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
 #include "ThreadTest/ThreadTest.h"
-#include "WAST/WAST.h"
+#include "WASTParse/WASTParse.h"
 
 using namespace IR;
 using namespace Runtime;

@@ -2,7 +2,7 @@
 #include "Inline/CLI.h"
 #include "Platform/Platform.h"
 #include "WASM/WASM.h"
-#include "WAST/WAST.h"
+#include "WASTParse/WASTParse.h"
 
 int main(int argc, char** argv)
 {

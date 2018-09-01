@@ -5,10 +5,9 @@
 #include "Inline/Floats.h"
 #include "Inline/HashMap.h"
 #include "Inline/HashSet.h"
+#include "Inline/IsNameChar.h"
 #include "Inline/Serialization.h"
-#include "IsNameChar.h"
-#include "Logging/Logging.h"
-#include "WAST/WAST.h"
+#include "WASTPrint/WASTPrint.h"
 
 using namespace IR;
 using namespace Serialization;

@@ -7,15 +7,14 @@
 #include "Inline/Serialization.h"
 #include "Logging/Logging.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <vector>
 
 using namespace IR;
-using namespace WAST;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {

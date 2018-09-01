@@ -12,6 +12,7 @@ set(PublicHeaders
 	HashTable.h HashTableImpl.h HashTable.natvis
 	IndexAllocator.h
 	IntrusiveSharedPtr.h
+	IsNameChar.h
 	Lock.h
 	OptionalStorage.h
 	Serialization.h

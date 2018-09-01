@@ -8,8 +8,8 @@
 #include "Runtime/Runtime.h"
 #include "ThreadTest/ThreadTest.h"
 #include "WASM/WASM.h"
-#include "WAST/TestScript.h"
-#include "WAST/WAST.h"
+#include "WASTParse/TestScript.h"
+#include "WASTParse/WASTParse.h"
 
 #include <cstdarg>
 #include <cstdio>

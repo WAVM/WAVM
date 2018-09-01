@@ -9,7 +9,7 @@
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
-#include "WAST/WAST.h"
+#include "WASTParse/WASTParse.h"
 #include "process.h"
 
 #include <atomic>

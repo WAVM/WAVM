@@ -2,7 +2,7 @@
 
 #include "IR/Value.h"
 #include "Inline/BasicTypes.h"
-#include "WAST/WAST.h"
+#include "WASTParse/WASTParse.h"
 
 #include <memory>
 #include <vector>
@@ -34,10 +34,10 @@ namespace WAST
 
 	// Parse a test script from a string. Returns true if it succeeds, and writes the test commands
 	// to outTestCommands.
-	WAST_API void parseTestCommands(const char* string,
-									Uptr stringLength,
-									std::vector<std::unique_ptr<Command>>& outTestCommands,
-									std::vector<Error>& outErrors);
+	WASTPARSE_API void parseTestCommands(const char* string,
+										 Uptr stringLength,
+										 std::vector<std::unique_ptr<Command>>& outTestCommands,
+										 std::vector<Error>& outErrors);
 
 	// Actions
 
