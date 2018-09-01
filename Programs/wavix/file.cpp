@@ -368,7 +368,7 @@ namespace Wavix
 	{
 		MemoryInstance* memory = currentThread->process->memory;
 
-		traceSyscallf("writev", "");
+		traceSyscallf("writev", "(%i, 0x%x, %u)", fd, iosAddress, numIOs);
 
 		struct IoVec
 		{
@@ -383,11 +383,20 @@ namespace Wavix
 		Platform::File* platformFile = currentProcess->files[fd];
 		if(!platformFile) { throwException(Exception::calledUnimplementedIntrinsicType); }
 
+		if(isTracingSyscalls) { Log::printf(Log::debug, "IOVs:\n"); }
+
 		const IoVec* ios = memoryArrayPtr<const IoVec>(memory, iosAddress, numIOs);
 		Uptr numWrittenBytes = 0;
 		for(U32 ioIndex = 0; ioIndex < U32(numIOs); ++ioIndex)
 		{
 			const IoVec io = ios[ioIndex];
+
+			if(isTracingSyscalls)
+			{
+				Log::printf(
+					Log::debug, "  [%u] 0x%x, %u bytes\n", ioIndex, io.address, io.numBytes);
+			}
+
 			if(io.numBytes)
 			{
 				const U8* ioData = memoryArrayPtr<U8>(memory, io.address, io.numBytes);
