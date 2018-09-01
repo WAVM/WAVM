@@ -1,7 +1,11 @@
 set(Sources
 	Atomics.cpp
+	Compartment.cpp
+	Context.cpp
 	Exception.cpp
+	Global.cpp
 	Intrinsics.cpp
+	Invoke.cpp
 	Linker.cpp
 	Memory.cpp
 	Module.cpp
