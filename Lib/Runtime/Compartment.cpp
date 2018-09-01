@@ -74,3 +74,37 @@ Compartment* Runtime::cloneCompartment(Compartment* compartment)
 
 	return newCompartment;
 }
+
+Uptr Runtime::getCompartmentTableId(const TableInstance* table)
+{
+	return table->id;
+}
+
+Uptr Runtime::getCompartmentMemoryId(const MemoryInstance* memory)
+{
+	return memory->id;
+}
+
+Uptr Runtime::getCompartmentGlobalId(const GlobalInstance* global)
+{
+	return global->id;
+}
+
+TableInstance* Runtime::getCompartmentTableById(const Compartment* compartment,
+													Uptr tableId)
+{
+	Lock<Platform::Mutex> lock(compartment->mutex);
+	return compartment->tables[tableId];
+}
+MemoryInstance* Runtime::getCompartmentMemoryById(const Compartment* compartment,
+														Uptr memoryId)
+{
+	Lock<Platform::Mutex> lock(compartment->mutex);
+	return compartment->memories[memoryId];
+}
+GlobalInstance* Runtime::getCompartmentGlobalById(const Compartment* compartment,
+														Uptr globalId)
+{
+	Lock<Platform::Mutex> lock(compartment->mutex);
+	return compartment->globals[globalId];
+}

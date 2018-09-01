@@ -315,6 +315,17 @@ namespace Wavix
 		newProcess->args = originalProcess->args;
 		newProcess->envs = originalProcess->envs;
 
+		// Look up the new process's memory and table objects by finding the objects with the same
+		// IDs as the original process's memory and table objects in the cloned compartment.
+		wavmAssert(originalProcess->memory);
+		wavmAssert(originalProcess->table);
+		newProcess->memory = getCompartmentMemoryById(
+			newProcess->compartment, getCompartmentMemoryId(originalProcess->memory));
+		newProcess->table = getCompartmentTableById(newProcess->compartment,
+													getCompartmentTableId(originalProcess->table));
+		wavmAssert(newProcess->memory);
+		wavmAssert(newProcess->table);
+
 		newProcess->parent = originalProcess;
 		{
 			Lock<Platform::Mutex> childrenLock(originalProcess->childrenMutex);

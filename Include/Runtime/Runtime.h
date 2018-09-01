@@ -359,6 +359,17 @@ namespace Runtime
 
 	RUNTIME_API Compartment* cloneCompartment(Compartment* compartment);
 
+	RUNTIME_API Uptr getCompartmentTableId(const TableInstance* table);
+	RUNTIME_API Uptr getCompartmentMemoryId(const MemoryInstance* memory);
+	RUNTIME_API Uptr getCompartmentGlobalId(const GlobalInstance* global);
+
+	RUNTIME_API TableInstance* getCompartmentTableById(const Compartment* compartment,
+													   Uptr tableId);
+	RUNTIME_API MemoryInstance* getCompartmentMemoryById(const Compartment* compartment,
+														 Uptr memoryId);
+	RUNTIME_API GlobalInstance* getCompartmentGlobalById(const Compartment* compartment,
+														 Uptr globalId);
+
 	//
 	// Contexts
 	//
