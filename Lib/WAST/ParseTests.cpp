@@ -1,6 +1,6 @@
 #include "IR/Module.h"
-#include "IR/Value.h"
 #include "IR/Validate.h"
+#include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"

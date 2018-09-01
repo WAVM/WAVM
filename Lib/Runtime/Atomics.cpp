@@ -2,8 +2,8 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
 #include "Inline/Lock.h"
-#include "Intrinsics.h"
 #include "Logging/Logging.h"
+#include "Runtime/Intrinsics.h"
 #include "RuntimePrivate.h"
 
 #include <algorithm>

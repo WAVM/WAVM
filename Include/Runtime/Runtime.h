@@ -1,7 +1,7 @@
 #pragma once
 
-#include "IR/Value.h"
 #include "IR/Types.h"
+#include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Platform/Platform.h"

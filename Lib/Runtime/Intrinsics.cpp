@@ -1,7 +1,7 @@
-#include "Intrinsics.h"
+#include "Runtime/Intrinsics.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
-#include "Runtime.h"
+#include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
 #include <string>
