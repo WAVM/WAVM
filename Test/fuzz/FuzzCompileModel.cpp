@@ -32,10 +32,6 @@ struct RandomStream
 		refill();
 	}
 
-	// Returns true if the stream has more entropy from input data to use to generate random values.
-	// If it returns false, get() will only be using the PRNG to generate values.
-	bool hasMore() const { return next < end || numerator; }
-
 	// Returns a pseudo-random value between 0 and maxResult, inclusive.
 	template<typename Result> Result get(Result maxResult)
 	{
@@ -280,7 +276,7 @@ static void generateFunction(RandomStream& random,
 	while(controlStack.size())
 	{
 		bool allowStackGrowth
-			= stack.size() - controlStack.back().outerStackSize <= 6 && numInstructions++ < 50;
+			= stack.size() - controlStack.back().outerStackSize <= 6 && numInstructions++ < 30;
 
 		if(stack.size() <= controlStack.back().outerStackSize + controlStack.back().results.size())
 		{
@@ -728,8 +724,8 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 
 	validateDefinitions(module);
 
-	// Generate functions until the random stream runs out of entropy.
-	while(module.functions.defs.size() < 5) { generateFunction(random, module, functionTypeMap); };
+	// Generate a few functions.
+	while(module.functions.defs.size() < 3) { generateFunction(random, module, functionTypeMap); };
 }
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
