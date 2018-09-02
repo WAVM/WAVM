@@ -1,11 +1,18 @@
+#include <stdint.h>
+#include <cmath>
+#include <string>
+#include <vector>
+
+#include "IR/IR.h"
+#include "IR/Types.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
 #include "Logging/Logging.h"
 #include "Runtime/Intrinsics.h"
+#include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
-
-#include <math.h>
 
 using namespace Runtime;
 

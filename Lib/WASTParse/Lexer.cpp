@@ -1,10 +1,17 @@
-#include "Lexer.h"
-#include "IR/Operators.h"
+#include <inttypes.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string>
+#include <tuple>
+#include <utility>
+
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/CLI.h"
 #include "Inline/Errors.h"
 #include "Inline/Timing.h"
+#include "Lexer.h"
+#include "Logging/Logging.h"
 #include "NFA/NFA.h"
 #include "RegExp/RegExp.h"
 #include "WASTParse/WASTParse.h"

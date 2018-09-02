@@ -1,17 +1,19 @@
-#include "NFA/NFA.h"
+#include <inttypes.h>
+#include <string.h>
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
+#include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/HashSet.h"
 #include "Inline/Timing.h"
-
-#include <string.h>
-#include <algorithm>
-#include <map>
-#include <set>
-#include <string>
-#include <vector>
+#include "Logging/Logging.h"
+#include "NFA/NFA.h"
 
 using namespace NFA;
 

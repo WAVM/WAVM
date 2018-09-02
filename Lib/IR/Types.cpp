@@ -1,4 +1,10 @@
 #include "IR/Types.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <new>
+#include <utility>
+
 #include "Inline/Hash.h"
 #include "Inline/HashSet.h"
 #include "Inline/Lock.h"
@@ -90,7 +96,7 @@ const FunctionType::Impl* IR::FunctionType::getUniqueImpl(TypeTuple results, Typ
 {
 	if(results.size() == 0 && params.size() == 0)
 	{
-		static Impl emptyImpl {TypeTuple(), TypeTuple()};
+		static Impl emptyImpl{TypeTuple(), TypeTuple()};
 		return &emptyImpl;
 	}
 	else

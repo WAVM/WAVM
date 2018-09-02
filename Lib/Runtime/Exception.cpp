@@ -1,9 +1,21 @@
+#include <stdlib.h>
+#include <string.h>
+#include <atomic>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "IR/Types.h"
+#include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "LLVMJIT/LLVMJIT.h"
-#include "Logging/Logging.h"
+#include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
 using namespace Runtime;

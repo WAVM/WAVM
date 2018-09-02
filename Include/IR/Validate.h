@@ -1,14 +1,14 @@
 #pragma once
 
+#include <string>
+
 #include "IR.h"
 #include "IR/Operators.h"
 
-#include <string>
-
 namespace IR
 {
-	struct Module;
 	struct FunctionDef;
+	struct Module;
 
 	struct ValidationException
 	{

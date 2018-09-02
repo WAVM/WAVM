@@ -1,19 +1,28 @@
-#include "LLVMJIT/LLVMJIT.h"
+#include <utility>
+
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "Inline/HashMap.h"
-#include "Inline/Lock.h"
-#include "Inline/Timing.h"
+#include "Inline/Errors.h"
+#include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
-#include "Logging/Logging.h"
 
 #include "LLVMPreInclude.h"
 
-#include "llvm/IR/LLVMContext.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/TargetSelect.h"
 
 #include "LLVMPostInclude.h"
+
+namespace llvm
+{
+	class Constant;
+}
 
 using namespace IR;
 using namespace LLVMJIT;

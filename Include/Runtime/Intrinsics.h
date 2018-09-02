@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "IR/IR.h"
 #include "IR/Types.h"
 #include "IR/Value.h"

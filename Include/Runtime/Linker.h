@@ -1,9 +1,14 @@
 #pragma once
 
-#include "Inline/BasicTypes.h"
-#include "Runtime.h"
-
 #include <functional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "IR/Module.h"
+#include "IR/Types.h"
+#include "Inline/BasicTypes.h"
+#include "Runtime/Runtime.h"
 
 namespace Runtime
 {

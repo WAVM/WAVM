@@ -1,11 +1,22 @@
-#include "IR/Operators.h"
+#include <inttypes.h>
+#include <stdint.h>
+#include <string>
+
 #include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
 #include "LLVMJITPrivate.h"
 #include "Logging/Logging.h"
+#include "Platform/Platform.h"
 
 #include "LLVMPreInclude.h"
 
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/DebugInfo/DIContext.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/Object/ObjectFile.h"
+#include "llvm/Object/SymbolicFile.h"
+#include "llvm/Support/Error.h"
 
 #include "LLVMPostInclude.h"
 

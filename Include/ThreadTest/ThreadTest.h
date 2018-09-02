@@ -12,9 +12,9 @@ namespace IR
 }
 namespace Runtime
 {
-	struct ModuleInstance;
-	struct Context;
 	struct Compartment;
+	struct Context;
+	struct ModuleInstance;
 }
 
 namespace ThreadTest

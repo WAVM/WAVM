@@ -1,13 +1,17 @@
 #pragma once
 
+#include <inttypes.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <string>
+#include <vector>
+
 #include "./errno.h"
 #include "Inline/BasicTypes.h"
 #include "Logging/Logging.h"
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
-
-#include <string>
 
 namespace Wavix
 {
@@ -19,8 +23,8 @@ namespace Wavix
 		I32 tv_nsec;
 	};
 
-	struct Thread;
 	struct Process;
+	struct Thread;
 
 	struct Thread
 	{

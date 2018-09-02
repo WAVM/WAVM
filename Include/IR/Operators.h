@@ -1,9 +1,14 @@
 #pragma once
 
+#include <string.h>
+#include <vector>
+
 #include "IR.h"
+#include "IR/Operators.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
+#include "Platform/Platform.h"
 #include "Types.h"
 
 #include "OperatorTable.h"

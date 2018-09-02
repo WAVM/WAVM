@@ -1,10 +1,28 @@
+#include <stdint.h>
+
 #include "IR/Operators.h"
 #include "IR/Types.h"
-#include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMEmitWorkarounds.h"
 #include "LLVMJITPrivate.h"
+
+#include "LLVMPreInclude.h"
+
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Intrinsics.h"
+
+#include "LLVMPostInclude.h"
+
+namespace llvm
+{
+	class Type;
+	class Value;
+}
 
 using namespace IR;
 using namespace LLVMJIT;

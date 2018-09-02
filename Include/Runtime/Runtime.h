@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include "IR/Types.h"
 #include "IR/Value.h"
 #include "Inline/Assert.h"

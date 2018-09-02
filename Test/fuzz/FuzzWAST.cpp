@@ -1,18 +1,9 @@
-#include "IR/Module.h"
-#include "IR/Validate.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
-#include "Inline/Serialization.h"
-#include "Logging/Logging.h"
-#include "WASM/WASM.h"
-#include "WASTParse/TestScript.h"
-#include "WASTParse/WASTParse.h"
-
-#include <cstdarg>
-#include <cstdio>
+#include <stdlib.h>
 #include <vector>
+
+#include "IR/Module.h"
+#include "Inline/BasicTypes.h"
+#include "WASTParse/WASTParse.h"
 
 using namespace IR;
 

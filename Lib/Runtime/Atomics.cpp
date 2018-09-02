@@ -1,16 +1,21 @@
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/HashMap.h"
-#include "Inline/Lock.h"
-#include "Logging/Logging.h"
-#include "Runtime/Intrinsics.h"
-#include "RuntimePrivate.h"
-
+#include <stdint.h>
 #include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <memory>
+#include <utility>
 #include <vector>
+
+#include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Hash.h"
+#include "Inline/HashMap.h"
+#include "Inline/Lock.h"
+#include "Platform/Platform.h"
+#include "Runtime/Intrinsics.h"
+#include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
+#include "RuntimePrivate.h"
 
 using namespace Runtime;
 

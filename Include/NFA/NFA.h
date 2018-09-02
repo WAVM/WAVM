@@ -1,9 +1,11 @@
 #pragma once
 
+#include <stdint.h>
+#include <string>
+#include <utility>
+
 #include "Inline/BasicTypes.h"
 #include "Inline/DenseStaticIntSet.h"
-
-#include <string>
 
 #ifndef NFA_API
 #define NFA_API DLL_IMPORT

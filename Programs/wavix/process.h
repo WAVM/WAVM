@@ -1,17 +1,19 @@
 #pragma once
 
+#include <stdint.h>
+#include <string>
+#include <vector>
+
 #include "Inline/BasicTypes.h"
 #include "Inline/IndexAllocator.h"
 #include "Platform/Platform.h"
 #include "Runtime/Runtime.h"
 #include "file.h"
-#include "wavix.h"
-
-#include <string>
-#include <vector>
 
 namespace Wavix
 {
+	struct Thread;
+
 	struct Process
 	{
 		Runtime::GCPointer<Runtime::Compartment> compartment;

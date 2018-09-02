@@ -1,8 +1,16 @@
+#include <stdlib.h>
+#include <string.h>
+#include <string>
+#include <vector>
+
+#include "IR/IR.h"
+#include "IR/Module.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/CLI.h"
-#include "Platform/Platform.h"
+#include "Inline/Serialization.h"
+#include "Inline/Timing.h"
+#include "Logging/Logging.h"
 #include "WASM/WASM.h"
-#include "WASTParse/WASTParse.h"
 
 int main(int argc, char** argv)
 {

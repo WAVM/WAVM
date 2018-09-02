@@ -1,12 +1,13 @@
 #pragma once
 
+#include <vector>
+
+#include "IR/Value.h"
 #include "Runtime/Runtime.h"
 
 #ifndef EMSCRIPTEN_API
 #define EMSCRIPTEN_API DLL_IMPORT
 #endif
-
-#include <vector>
 
 namespace IR
 {

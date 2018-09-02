@@ -1,10 +1,19 @@
+#include <stdint.h>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
 #include "IR/Types.h"
 #include "IR/Validate.h"
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Inline/Serialization.h"
 #include "Inline/Unicode.h"
+#include "Platform/Platform.h"
 #include "WASM/WASM.h"
 
 using namespace IR;

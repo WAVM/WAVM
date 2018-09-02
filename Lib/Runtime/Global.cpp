@@ -1,9 +1,16 @@
+#include <stdint.h>
+#include <string.h>
+#include <atomic>
+#include <vector>
+
 #include "IR/Types.h"
 #include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Lock.h"
+#include "Platform/Platform.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
 using namespace IR;

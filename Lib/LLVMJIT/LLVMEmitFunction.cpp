@@ -1,7 +1,16 @@
+#include <stdint.h>
+#include <initializer_list>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "IR/Module.h"
 #include "IR/OperatorPrinter.h"
 #include "IR/Operators.h"
+#include "IR/Types.h"
 #include "Inline/Assert.h"
-#include "Inline/Timing.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
@@ -10,9 +19,30 @@
 #include "LLVMPreInclude.h"
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "LLVMPostInclude.h"
+
+namespace llvm
+{
+	class Metadata;
+}
 
 #define ENABLE_LOGGING 0
 

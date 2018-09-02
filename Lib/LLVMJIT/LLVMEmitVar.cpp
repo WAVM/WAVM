@@ -1,8 +1,23 @@
+#include <vector>
+
+#include "IR/Module.h"
 #include "IR/Operators.h"
+#include "IR/Types.h"
 #include "Inline/Assert.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+
+#include "LLVMPreInclude.h"
+
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
+
+#include "LLVMPostInclude.h"
 
 using namespace IR;
 using namespace LLVMJIT;

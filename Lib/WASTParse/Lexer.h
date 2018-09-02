@@ -2,6 +2,7 @@
 
 #include "IR/Operators.h"
 #include "Inline/BasicTypes.h"
+#include "Platform/Platform.h"
 #include "WASTParse/WASTParse.h"
 
 #define VISIT_OPERATOR_TOKEN(opcode, name, nameString, ...) VISIT_TOKEN(name, "'" #nameString "'")

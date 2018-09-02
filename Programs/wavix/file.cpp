@@ -1,11 +1,19 @@
-#include "file.h"
+#include <string.h>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/IndexAllocator.h"
 #include "Inline/Lock.h"
 #include "Inline/Unicode.h"
+#include "Logging/Logging.h"
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
+#include "Runtime/Runtime.h"
 #include "errno.h"
+#include "file.h"
 #include "process.h"
 #include "wavix.h"
 

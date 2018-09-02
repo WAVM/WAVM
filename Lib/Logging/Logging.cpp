@@ -1,11 +1,10 @@
 #include "Logging/Logging.h"
-#include "Inline/Assert.h"
-#include "Platform/Platform.h"
 
 #include <atomic>
-#include <cstdarg>
 #include <cstdio>
-#include <cstdlib>
+
+#include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
 
 using namespace Log;
 

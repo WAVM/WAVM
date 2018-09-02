@@ -1,14 +1,18 @@
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <initializer_list>
+#include <string>
+#include <vector>
+
 #include "IR.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Floats.h"
 #include "Inline/Hash.h"
-
-#include <string>
-#include <vector>
 
 namespace IR
 {
