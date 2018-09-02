@@ -209,6 +209,18 @@ struct FunctionValidationContext
 					  functionDef.nonParameterLocalTypes.begin(),
 					  functionDef.nonParameterLocalTypes.end());
 
+		// Log the start of the function and its signature+locals.
+		if(ENABLE_LOGGING)
+		{
+			logOperator("func");
+			for(auto param : functionType.params())
+			{ logOperator(std::string("param ") + asString(param)); }
+			for(auto result : functionType.results())
+			{ logOperator(std::string("result ") + asString(result)); }
+			for(auto local : functionDef.nonParameterLocalTypes)
+			{ logOperator(std::string("local ") + asString(local)); }
+		}
+
 		// Push the function context onto the control stack.
 		pushControlStack(
 			ControlContext::Type::function, functionType.results(), functionType.results());
