@@ -67,10 +67,12 @@ private:
 		if(maxResult == 0) { return 0; }
 
 		wavmAssert(denominator >= maxResult);
-		const U32 result = U32((numerator ^ seed) % (U64(maxResult) + 1));
-		seed = 6364136223846793005 * seed + 1442695040888963407;
+		seed ^= numerator;
+		const U32 result = U32(seed % (U64(maxResult) + 1));
+		seed /= (U64(maxResult) + 1);
 		numerator /= (U64(maxResult) + 1);
 		denominator /= (U64(maxResult) + 1);
+		seed = 6364136223846793005 * seed + 1442695040888963407;
 		refill();
 		return result;
 	}
