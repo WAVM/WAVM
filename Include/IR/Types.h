@@ -101,7 +101,7 @@ namespace IR
 	// The tuple of value types.
 	struct TypeTuple
 	{
-		IR_API TypeTuple();
+		TypeTuple() : impl(getUniqueImpl(0, nullptr)) {}
 		IR_API TypeTuple(ValueType inElem);
 		IR_API TypeTuple(const std::initializer_list<ValueType>& inElems);
 		IR_API TypeTuple(const std::vector<ValueType>& inElems);

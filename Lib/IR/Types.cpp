@@ -1,6 +1,8 @@
 #include "IR/Types.h"
 #include "Inline/Hash.h"
 #include "Inline/HashSet.h"
+#include "Inline/Lock.h"
+#include "Platform/Platform.h"
 
 using namespace IR;
 
@@ -38,12 +40,6 @@ IR::TypeTuple::Impl::Impl(const Impl& inCopy) : hash(inCopy.hash), numElems(inCo
 	if(numElems) { memcpy(elems, inCopy.elems, numElems * sizeof(ValueType)); }
 }
 
-IR::TypeTuple::TypeTuple()
-{
-	static TypeTuple emptyTuple(getUniqueImpl(0, nullptr));
-	impl = emptyTuple.impl;
-}
-
 IR::TypeTuple::TypeTuple(ValueType inElem) { impl = getUniqueImpl(1, &inElem); }
 
 IR::TypeTuple::TypeTuple(const std::initializer_list<ValueType>& inElems)
@@ -58,18 +54,29 @@ IR::TypeTuple::TypeTuple(const std::vector<ValueType>& inElems)
 
 const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueType* inElems)
 {
-	const Uptr numImplBytes = Impl::calcNumBytes(numElems);
-	Impl* localImpl = new(alloca(numImplBytes)) Impl(numElems, inElems);
-
-	static HashSet<TypeTuple, TypeTupleHashPolicy> uniqueTypeTupleSet;
-
-	const TypeTuple* typeTuple = uniqueTypeTupleSet.get(TypeTuple(localImpl));
-	if(typeTuple) { return typeTuple->impl; }
+	if(numElems == 0)
+	{
+		static Impl emptyImpl(0, nullptr);
+		return &emptyImpl;
+	}
 	else
 	{
-		Impl* globalImpl = new(malloc(numImplBytes)) Impl(*localImpl);
-		uniqueTypeTupleSet.addOrFail(TypeTuple(globalImpl));
-		return globalImpl;
+		const Uptr numImplBytes = Impl::calcNumBytes(numElems);
+		Impl* localImpl = new(alloca(numImplBytes)) Impl(numElems, inElems);
+
+		static Platform::Mutex uniqueTypeTupleSetMutex;
+		static HashSet<TypeTuple, TypeTupleHashPolicy> uniqueTypeTupleSet;
+
+		Lock<Platform::Mutex> uniqueTypeTupleSetLock(uniqueTypeTupleSetMutex);
+
+		const TypeTuple* typeTuple = uniqueTypeTupleSet.get(TypeTuple(localImpl));
+		if(typeTuple) { return typeTuple->impl; }
+		else
+		{
+			Impl* globalImpl = new(malloc(numImplBytes)) Impl(*localImpl);
+			uniqueTypeTupleSet.addOrFail(TypeTuple(globalImpl));
+			return globalImpl;
+		}
 	}
 }
 
@@ -81,16 +88,27 @@ IR::FunctionType::Impl::Impl(TypeTuple inResults, TypeTuple inParams)
 
 const FunctionType::Impl* IR::FunctionType::getUniqueImpl(TypeTuple results, TypeTuple params)
 {
-	Impl localImpl(results, params);
-
-	static HashSet<FunctionType, FunctionTypeHashPolicy> uniqueFunctionTypeSet;
-
-	const FunctionType* functionType = uniqueFunctionTypeSet.get(FunctionType(&localImpl));
-	if(functionType) { return functionType->impl; }
+	if(results.size() == 0 && params.size() == 0)
+	{
+		static Impl emptyImpl {TypeTuple(), TypeTuple()};
+		return &emptyImpl;
+	}
 	else
 	{
-		Impl* globalImpl = new Impl(localImpl);
-		uniqueFunctionTypeSet.addOrFail(FunctionType(globalImpl));
-		return globalImpl;
+		Impl localImpl(results, params);
+
+		static Platform::Mutex uniqueFunctionTypeSetMutex;
+		static HashSet<FunctionType, FunctionTypeHashPolicy> uniqueFunctionTypeSet;
+
+		Lock<Platform::Mutex> uniqueFunctionTypeSetLock(uniqueFunctionTypeSetMutex);
+
+		const FunctionType* functionType = uniqueFunctionTypeSet.get(FunctionType(&localImpl));
+		if(functionType) { return functionType->impl; }
+		else
+		{
+			Impl* globalImpl = new Impl(localImpl);
+			uniqueFunctionTypeSet.addOrFail(FunctionType(globalImpl));
+			return globalImpl;
+		}
 	}
 }
