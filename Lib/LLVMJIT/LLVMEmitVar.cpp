@@ -41,7 +41,7 @@ void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 	GlobalType globalType = irModule.globals.getType(imm.variableIndex);
 	llvm::Type* llvmValueType = asLLVMType(llvmContext, globalType.valueType);
 
-	llvm::Value* value;
+	llvm::Value* value = nullptr;
 	if(globalType.isMutable)
 	{
 		// If the global is mutable, the symbol will be bound to an offset into the
@@ -54,8 +54,37 @@ void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 	}
 	else
 	{
-		// Otherwise, the symbol's value will point to the global's immutable value.
-		value = loadFromUntypedPointer(moduleContext.globals[imm.variableIndex], llvmValueType);
+		// If the value is an immutable global definition with a literal value, emit the literal.
+		if(irModule.globals.isDef(imm.variableIndex))
+		{
+			const IR::GlobalDef& globalDef = irModule.globals.getDef(imm.variableIndex);
+
+			switch(globalDef.initializer.type)
+			{
+			case InitializerExpression::Type::i32_const:
+				value = emitLiteral(llvmContext, globalDef.initializer.i32);
+				break;
+			case InitializerExpression::Type::i64_const:
+				value = emitLiteral(llvmContext, globalDef.initializer.i64);
+				break;
+			case InitializerExpression::Type::f32_const:
+				value = emitLiteral(llvmContext, globalDef.initializer.f32);
+				break;
+			case InitializerExpression::Type::f64_const:
+				value = emitLiteral(llvmContext, globalDef.initializer.f64);
+				break;
+			case InitializerExpression::Type::v128_const:
+				value = emitLiteral(llvmContext, globalDef.initializer.v128);
+				break;
+			default: break;
+			};
+		}
+
+		if(!value)
+		{
+			// Otherwise, the symbol's value will point to the global's immutable value.
+			value = loadFromUntypedPointer(moduleContext.globals[imm.variableIndex], llvmValueType);
+		}
 	}
 
 	push(value);

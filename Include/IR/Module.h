@@ -171,6 +171,21 @@ namespace IR
 				return defs[index - imports.size()].type;
 			}
 		}
+		bool isImport(Uptr index) const
+		{
+			wavmAssert(index < size());
+			return index < imports.size();
+		}
+		bool isDef(Uptr index) const
+		{
+			wavmAssert(index < size());
+			return index >= imports.size();
+		}
+		const Definition& getDef(Uptr index) const
+		{
+			wavmAssert(isDef(index));
+			return defs[index - imports.size()];
+		}
 	};
 
 	// A WebAssembly module definition
