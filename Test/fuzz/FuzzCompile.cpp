@@ -1,20 +1,12 @@
+#include <stdlib.h>
+#include <vector>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
-#include "IR/Validate.h"
-#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/CLI.h"
-#include "Inline/Serialization.h"
 #include "Logging/Logging.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
-#include "WASM/WASM.h"
-#include "WASTParse/TestScript.h"
-#include "WASTParse/WASTParse.h"
-
-#include <cstdarg>
-#include <cstdio>
-#include <vector>
 
 using namespace IR;
 using namespace Runtime;

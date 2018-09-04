@@ -1,12 +1,13 @@
+#include <stdint.h>
+#include <string>
+
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Inline/Floats.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "WASTParse/WASTParse.h"
-
-#include <cerrno>
-#include <climits>
+#include "Platform/Platform.h"
 
 // Include the David Gay's dtoa code.
 // #define strtod and dtoa to avoid conflicting with the C standard library versions

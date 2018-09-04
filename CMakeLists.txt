@@ -25,9 +25,6 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 include_directories(${WAVM_INCLUDE_DIR})
 
 if(MSVC)
-	add_definitions("-DDLL_EXPORT=__declspec(dllexport)")
-	add_definitions("-DDLL_IMPORT=__declspec(dllimport)")
-
 	# Taken out of the VC projects to avoid the compiler complaining about POSIX code
 	add_definitions(-D_SCL_SECURE_NO_WARNINGS)
 	add_definitions(-D_SCL_SECURE_NO_DEPRECATE)
@@ -73,9 +70,6 @@ if(MSVC)
 
 	add_definitions(-DENABLE_UBSAN=0)
 else()
-	add_definitions(-DDLL_EXPORT=)
-	add_definitions(-DDLL_IMPORT=)
-
 	# Use C++11
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
@@ -144,8 +138,22 @@ endif()
 
 option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 
+option(USE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" ON)
+
+if(NOT USE_STATIC_LINKING AND MSVC)
+	add_definitions("-DDLL_EXPORT=__declspec(dllexport)")
+	add_definitions("-DDLL_IMPORT=__declspec(dllimport)")
+else()
+	add_definitions(-DDLL_EXPORT=)
+	add_definitions(-DDLL_IMPORT=)
+endif()
+
 function(WAVM_ADD_LIBRARY TARGET_NAME)
-	add_library(${TARGET_NAME} SHARED ${ARGN})
+	if(USE_STATIC_LINKING)
+		add_library(${TARGET_NAME} STATIC ${ARGN})
+	else()
+		add_library(${TARGET_NAME} SHARED ${ARGN})
+	endif()
 endfunction(WAVM_ADD_LIBRARY)
 
 add_subdirectory(Examples)
@@ -160,7 +168,6 @@ add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
 add_subdirectory(Programs/Assemble)
 add_subdirectory(Programs/Disassemble)
-add_subdirectory(Programs/DumpTestModules)
 add_subdirectory(Test)
 add_subdirectory(ThirdParty/dtoa)
 add_subdirectory(ThirdParty/xxhash)
@@ -170,7 +177,6 @@ if(ENABLE_RUNTIME)
 	add_subdirectory(Lib/LLVMJIT)
 	add_subdirectory(Lib/Runtime)
 	add_subdirectory(Lib/ThreadTest)
-	add_subdirectory(Programs/Test)
 	add_subdirectory(Programs/wavm)
 	add_subdirectory(Programs/wavix)
 	add_subdirectory(ThirdParty/libunwind)

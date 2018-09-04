@@ -1,8 +1,11 @@
+#include <stdlib.h>
+#include <string>
+
+#include "IR/Module.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/CLI.h"
 #include "Inline/Timing.h"
-#include "Platform/Platform.h"
-#include "WASM/WASM.h"
+#include "Logging/Logging.h"
 #include "WASTPrint/WASTPrint.h"
 
 int main(int argc, char** argv)

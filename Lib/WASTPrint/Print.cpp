@@ -1,8 +1,19 @@
+#include <stdint.h>
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
+#include "IR/Types.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Inline/Floats.h"
+#include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/HashSet.h"
 #include "Inline/IsNameChar.h"

@@ -1,21 +1,30 @@
-#include "Emscripten/Emscripten.h"
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/HashMap.h"
-#include "Logging/Logging.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Runtime.h"
-#include "Runtime/RuntimeData.h"
-
-#include <limits.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-
+#include <initializer_list>
+#include <memory>
+#include <new>
+#include <string>
+#include <utility>
 #ifndef _WIN32
 #include <sys/uio.h>
 #endif
+
+#include "Emscripten/Emscripten.h"
+#include "IR/IR.h"
+#include "IR/Module.h"
+#include "IR/Types.h"
+#include "IR/Value.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Hash.h"
+#include "Inline/HashMap.h"
+#include "Logging/Logging.h"
+#include "Platform/Platform.h"
+#include "Runtime/Intrinsics.h"
+#include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 
 using namespace IR;
 using namespace Runtime;

@@ -1,14 +1,22 @@
+#include <inttypes.h>
+#include <stdint.h>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "IR/Module.h"
 #include "IR/Operators.h"
+#include "IR/Types.h"
 #include "IR/Validate.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
+#include "Inline/HashMap.h"
 #include "Inline/Serialization.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "WASTParse/WASTParse.h"
-
-#include <memory>
+#include "Platform/Platform.h"
 
 using namespace IR;
 using namespace WAST;

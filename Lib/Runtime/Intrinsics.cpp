@@ -1,10 +1,13 @@
-#include "Runtime/Intrinsics.h"
-#include "Inline/BasicTypes.h"
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "Inline/Errors.h"
+#include "Inline/Hash.h"
 #include "Inline/HashMap.h"
+#include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
-
-#include <string>
 
 namespace Intrinsics
 {

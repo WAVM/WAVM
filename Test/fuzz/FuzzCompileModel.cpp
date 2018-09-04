@@ -1,27 +1,26 @@
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <memory>
+#include <utility>
+#include <vector>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
 #include "IR/Operators.h"
 #include "IR/Types.h"
 #include "IR/Validate.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/Serialization.h"
 #include "Logging/Logging.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
-#include "WASM/WASM.h"
-#include "WASTParse/TestScript.h"
-#include "WASTParse/WASTParse.h"
-
-#include <cstdarg>
-#include <cstdio>
-#include <vector>
 
 using namespace IR;
 using namespace Runtime;
-using namespace WAST;
 
 // A stream that uses a combination of a PRNG and input data to produce pseudo-random values.
 struct RandomStream
@@ -31,10 +30,6 @@ struct RandomStream
 	{
 		refill();
 	}
-
-	// Returns true if the stream has more entropy from input data to use to generate random values.
-	// If it returns false, get() will only be using the PRNG to generate values.
-	bool hasMore() const { return next < end || numerator; }
 
 	// Returns a pseudo-random value between 0 and maxResult, inclusive.
 	template<typename Result> Result get(Result maxResult)
@@ -67,10 +62,12 @@ private:
 		if(maxResult == 0) { return 0; }
 
 		wavmAssert(denominator >= maxResult);
-		const U32 result = U32((numerator ^ seed) % (U64(maxResult) + 1));
-		seed = 6364136223846793005 * seed + 1442695040888963407;
+		seed ^= numerator;
+		const U32 result = U32(seed % (U64(maxResult) + 1));
+		seed /= (U64(maxResult) + 1);
 		numerator /= (U64(maxResult) + 1);
 		denominator /= (U64(maxResult) + 1);
+		seed = 6364136223846793005 * seed + 1442695040888963407;
 		refill();
 		return result;
 	}
@@ -278,7 +275,7 @@ static void generateFunction(RandomStream& random,
 	while(controlStack.size())
 	{
 		bool allowStackGrowth
-			= stack.size() - controlStack.back().outerStackSize <= 6 && numInstructions++ < 50;
+			= stack.size() - controlStack.back().outerStackSize <= 6 && numInstructions++ < 30;
 
 		if(stack.size() <= controlStack.back().outerStackSize + controlStack.back().results.size())
 		{
@@ -726,8 +723,8 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 
 	validateDefinitions(module);
 
-	// Generate functions until the random stream runs out of entropy.
-	while(module.functions.defs.size() < 5) { generateFunction(random, module, functionTypeMap); };
+	// Generate a few functions.
+	while(module.functions.defs.size() < 3) { generateFunction(random, module, functionTypeMap); };
 }
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
@@ -743,6 +740,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 #if !ENABLE_LIBFUZZER
 
 #include "Inline/CLI.h"
+#include "WASTPrint/WASTPrint.h"
 
 I32 main(int argc, char** argv)
 {
@@ -756,7 +754,14 @@ I32 main(int argc, char** argv)
 	std::vector<U8> inputBytes;
 	if(!loadFile(inputFilename, inputBytes)) { return EXIT_FAILURE; }
 
-	LLVMFuzzerTestOneInput(inputBytes.data(), inputBytes.size());
+	IR::Module module;
+	generateValidModule(module, inputBytes.data(), inputBytes.size());
+
+	std::string wastString = WAST::print(module);
+	Log::printf(Log::Category::debug, "Generated module WAST:\n%s\n", wastString.c_str());
+	
+	compileModule(module);
+
 	return EXIT_SUCCESS;
 }
 #endif

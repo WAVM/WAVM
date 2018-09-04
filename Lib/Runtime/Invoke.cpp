@@ -1,9 +1,14 @@
+#include <string.h>
+#include <memory>
+#include <vector>
+
 #include "IR/Types.h"
 #include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
 using namespace IR;

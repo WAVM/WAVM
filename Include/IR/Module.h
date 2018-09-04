@@ -1,11 +1,15 @@
 #pragma once
 
+#include <stdint.h>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "IR.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Types.h"
-
-#include <vector>
 
 namespace IR
 {
@@ -170,6 +174,21 @@ namespace IR
 			{
 				return defs[index - imports.size()].type;
 			}
+		}
+		bool isImport(Uptr index) const
+		{
+			wavmAssert(index < size());
+			return index < imports.size();
+		}
+		bool isDef(Uptr index) const
+		{
+			wavmAssert(index < size());
+			return index >= imports.size();
+		}
+		const Definition& getDef(Uptr index) const
+		{
+			wavmAssert(isDef(index));
+			return defs[index - imports.size()];
 		}
 	};
 

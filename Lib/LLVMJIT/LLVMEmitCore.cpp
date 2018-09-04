@@ -1,8 +1,33 @@
+#include <memory>
+#include <vector>
+
+#include "IR/Module.h"
 #include "IR/Operators.h"
+#include "IR/Types.h"
 #include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+
+#include "LLVMPreInclude.h"
+
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+
+#include "LLVMPostInclude.h"
+
+namespace llvm
+{
+	class Value;
+}
 
 using namespace IR;
 using namespace LLVMJIT;

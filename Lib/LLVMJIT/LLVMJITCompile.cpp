@@ -1,7 +1,14 @@
+#include <string.h>
+#include <memory>
+#include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
+
+#include "IR/Module.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "Inline/HashMap.h"
-#include "Inline/Lock.h"
+#include "Inline/Errors.h"
 #include "Inline/Timing.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
@@ -9,24 +16,30 @@
 
 #include "LLVMPreInclude.h"
 
-#include "llvm/Analysis/Passes.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/ADT/ilist_iterator.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/Memory.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 
 #include "LLVMPostInclude.h"
 
-// Instead of including llvm/Transforms/InstCombine/InstCombine.h, which doesn't compile on Windows,
-// just declare the one function we call.
 namespace llvm
 {
+	class MCContext;
+
+	// Instead of including llvm/Transforms/InstCombine/InstCombine.h, which doesn't compile on
+	// Windows, just declare the one function we call.
 	FunctionPass* createInstructionCombiningPass(bool ExpensiveCombines = true);
 }
 

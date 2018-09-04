@@ -1,9 +1,8 @@
-#include "RegExp/RegExp.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/DenseStaticIntSet.h"
 #include "Inline/Errors.h"
 #include "NFA/NFA.h"
-
-#include <assert.h>
+#include "RegExp/RegExp.h"
 
 enum class NodeType : U8
 {
@@ -146,7 +145,7 @@ static NFA::CharSet parseSet(const char*& nextChar)
 {
 	NFA::CharSet result;
 
-	assert(*nextChar == '[');
+	wavmAssert(*nextChar == '[');
 	++nextChar;
 
 	bool isNegative = false;
@@ -207,7 +206,7 @@ static Node* parseGroup(const char*& nextChar, Uptr groupDepth)
 	{
 		++nextChar;
 		Node* result = parseUnion(nextChar, groupDepth + 1);
-		assert(*nextChar == ')');
+		wavmAssert(*nextChar == ')');
 		++nextChar;
 		return result;
 	}

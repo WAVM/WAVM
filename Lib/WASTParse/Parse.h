@@ -1,14 +1,18 @@
 #pragma once
 
+#include <string.h>
+#include <functional>
+#include <string>
+#include <vector>
+
 #include "IR/Module.h"
 #include "IR/Types.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Lexer.h"
+#include "Platform/Platform.h"
 #include "WASTParse/WASTParse.h"
-
-#include <functional>
 
 namespace WAST
 {

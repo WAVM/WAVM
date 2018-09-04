@@ -1,24 +1,30 @@
-#include "process.h"
+#include <algorithm>
+#include <memory>
+#include <new>
+#include <utility>
+
 #include "IR/Module.h"
 #include "IR/Types.h"
 #include "IR/Validate.h"
+#include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/ConcurrentHashMap.h"
+#include "Inline/Errors.h"
+#include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/IndexAllocator.h"
 #include "Inline/Lock.h"
 #include "Inline/Serialization.h"
-#include "Inline/Timing.h"
 #include "Logging/Logging.h"
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Linker.h"
 #include "Runtime/RuntimeData.h"
 #include "WASM/WASM.h"
+#include "errno.h"
+#include "process.h"
 #include "wavix.h"
-
-#include <memory>
 
 using namespace IR;
 using namespace Runtime;

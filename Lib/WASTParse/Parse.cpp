@@ -1,17 +1,21 @@
-#include "Parse.h"
+#include <assert.h>
+#include <stdint.h>
+#include <cstdarg>
+#include <cstdio>
+#include <string>
+#include <utility>
+
 #include "IR/Module.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/IsNameChar.h"
 #include "Inline/Unicode.h"
 #include "Lexer.h"
+#include "Parse.h"
 #include "WASTParse/WASTParse.h"
-
-#include <cstdarg>
-#include <cstdio>
-#include <string>
 
 using namespace IR;
 using namespace WAST;

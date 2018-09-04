@@ -1,36 +1,57 @@
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+#include <map>
+#include <memory>
+#include <string>
+#include <system_error>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#include "IR/Types.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
+#include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
-#include "Logging/Logging.h"
+#include "Platform/Platform.h"
+#include "Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"
 
+#include "llvm/ADT/StringRef.h"
+#include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/RTDyldMemoryManager.h"
-#include "llvm/IR/DebugLoc.h"
+#include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Object/SymbolSize.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/Object/SymbolicFile.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/Memory.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 #include "LLVMPostInclude.h"
 
-#include <map>
+namespace Runtime
+{
+	struct ExceptionTypeInstance;
+}
 
 #define PRINT_DISASSEMBLY 0
 
 #if PRINT_DISASSEMBLY
 
-#include "LLVMPreInclude.h"
-
-#include "llvm-c/Disassembler.h"
-
 #include "LLVMPostInclude.h"
+#include "LLVMPreInclude.h"
+#include "llvm-c/Disassembler.h"
 
 static void disassembleFunction(U8* bytes, Uptr numBytes)
 {

@@ -1,9 +1,35 @@
-#include "IR/OperatorPrinter.h"
-#include "IR/Operators.h"
-#include "Inline/Assert.h"
+#include <stdint.h>
+#include <vector>
+
+#include "IR/Module.h"
+#include "IR/Types.h"
+#include "Inline/BasicTypes.h"
 #include "Inline/Timing.h"
 #include "LLVMEmitFunctionContext.h"
+#include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+
+#include "LLVMPreInclude.h"
+
+#include "llvm/ADT/Twine.h"
+#include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+
+#include "LLVMPostInclude.h"
+
+namespace llvm
+{
+	class Constant;
+}
 
 using namespace IR;
 using namespace LLVMJIT;

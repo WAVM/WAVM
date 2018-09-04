@@ -1,13 +1,18 @@
+#include <inttypes.h>
+#include <atomic>
+#include <utility>
+#include <vector>
+
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
+#include "Inline/Hash.h"
 #include "Inline/HashSet.h"
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
-#include "Runtime/Intrinsics.h"
+#include "Platform/Platform.h"
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
-
-#include <vector>
 
 using namespace Runtime;
 

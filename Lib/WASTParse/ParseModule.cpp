@@ -1,13 +1,25 @@
+#include <inttypes.h>
+#include <stdint.h>
+#include <memory>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
+#include "IR/Types.h"
 #include "IR/Validate.h"
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
+#include "Inline/Hash.h"
+#include "Inline/HashMap.h"
 #include "Inline/Timing.h"
 #include "Lexer.h"
 #include "Logging/Logging.h"
 #include "Parse.h"
 #include "WASTParse/WASTParse.h"
-
-#include <memory>
 
 using namespace IR;
 using namespace WAST;

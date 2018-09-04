@@ -1,13 +1,22 @@
 #include "IR/Validate.h"
+
+#include <stdint.h>
+#include <memory>
+#include <utility>
+#include <vector>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
 #include "IR/OperatorPrinter.h"
 #include "IR/Operators.h"
+#include "IR/Types.h"
 #include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
+#include "Inline/Hash.h"
 #include "Inline/HashSet.h"
-#include "Inline/Timing.h"
 #include "Logging/Logging.h"
-
-#include <set>
+#include "Platform/Platform.h"
 
 #define ENABLE_LOGGING 0
 
@@ -208,6 +217,18 @@ struct FunctionValidationContext
 		locals.insert(locals.end(),
 					  functionDef.nonParameterLocalTypes.begin(),
 					  functionDef.nonParameterLocalTypes.end());
+
+		// Log the start of the function and its signature+locals.
+		if(ENABLE_LOGGING)
+		{
+			logOperator("func");
+			for(auto param : functionType.params())
+			{ logOperator(std::string("param ") + asString(param)); }
+			for(auto result : functionType.results())
+			{ logOperator(std::string("result ") + asString(result)); }
+			for(auto local : functionDef.nonParameterLocalTypes)
+			{ logOperator(std::string("local ") + asString(local)); }
+		}
 
 		// Push the function context onto the control stack.
 		pushControlStack(

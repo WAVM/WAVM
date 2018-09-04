@@ -1,7 +1,9 @@
 #include "Runtime/Runtime.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Inline/Lock.h"
+#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
 using namespace IR;

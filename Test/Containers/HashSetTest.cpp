@@ -1,10 +1,14 @@
-#include "Inline/HashSet.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Timing.h"
-#include "Logging/Logging.h"
-
 #include <stdlib.h>
+#include <initializer_list>
 #include <string>
+#include <utility>
+#include <vector>
+
+#include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Hash.h"
+#include "Inline/HashSet.h"
+#include "Inline/Timing.h"
 
 static std::string generateRandomString()
 {

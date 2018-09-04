@@ -1,7 +1,14 @@
+#include <string.h>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
+#include "IR/Types.h"
 #include "IR/Validate.h"
 #include "IR/Value.h"
-#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "Lexer.h"

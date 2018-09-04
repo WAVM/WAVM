@@ -1,18 +1,18 @@
 #include "wavix.h"
-#include "IR/Module.h"
-#include "IR/Operators.h"
-#include "IR/Validate.h"
-#include "Inline/Assert.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <algorithm>
+#include <atomic>
+#include <memory>
+
 #include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Inline/Lock.h"
-#include "Inline/Timing.h"
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
-#include "WASTParse/WASTParse.h"
 #include "process.h"
-
-#include <atomic>
 
 using namespace IR;
 using namespace Runtime;

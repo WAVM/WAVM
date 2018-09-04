@@ -1,7 +1,15 @@
+#include <stdint.h>
+#include <string.h>
+#include <vector>
+
+#include "IR/Types.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Lock.h"
+#include "LLVMJIT/LLVMJIT.h"
+#include "Platform/Platform.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
 using namespace Runtime;

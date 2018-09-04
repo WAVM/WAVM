@@ -1,10 +1,18 @@
+#include <string.h>
+#include <atomic>
+#include <utility>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
+#include "IR/Types.h"
+#include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Hash.h"
+#include "Inline/HashMap.h"
+#include "LLVMJIT/LLVMJIT.h"
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
-
-#include <string.h>
 
 using namespace IR;
 using namespace Runtime;

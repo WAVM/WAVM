@@ -1,5 +1,13 @@
+#include <inttypes.h>
+#include <memory>
+#include <new>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "IR/IR.h"
 #include "IR/Module.h"
+#include "IR/Types.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
 #include "Logging/Logging.h"

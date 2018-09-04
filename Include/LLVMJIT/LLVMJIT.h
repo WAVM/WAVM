@@ -1,11 +1,12 @@
 #pragma once
 
+#include <map>
+#include <string>
+#include <vector>
+
 #include "IR/Types.h"
-#include "IR/Value.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
-
-#include <map>
 
 #ifndef LLVMJIT_API
 #define LLVMJIT_API DLL_IMPORT
@@ -15,13 +16,15 @@
 namespace IR
 {
 	struct Module;
+	struct UntaggedValue;
+
 	enum class CallingConvention;
 }
 namespace Runtime
 {
+	struct ContextRuntimeData;
 	struct ExceptionTypeInstance;
 	struct FunctionInstance;
-	struct ContextRuntimeData;
 }
 
 namespace LLVMJIT

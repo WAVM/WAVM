@@ -1,7 +1,8 @@
+#include "IR/IR.h"
 #include "Inline/BasicTypes.h"
-#include "Logging/Logging.h"
-#include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
+#include "Runtime/Runtime.h"
+#include "errno.h"
 #include "process.h"
 #include "wavix.h"
 

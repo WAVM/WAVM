@@ -34,14 +34,14 @@ cd ..
 mkdir release
 cd release
 cmake .. -DCMAKE_BUILD_TYPE=RELEASE -DLLVM_DIR=${LLVM_DIR}
-make
-ctest -V
+make -j2
+ctest -V -j2
 cd ..
 
 # Build and test a debug build of WAVM.
 mkdir debug
 cd debug
 cmake .. -DCMAKE_BUILD_TYPE=DEBUG -DLLVM_DIR=${LLVM_DIR}
-make
-ASAN_OPTIONS=detect_leaks=0 ctest -V
+make -j2
+ASAN_OPTIONS=detect_leaks=0 ctest -V -j2
 cd ..

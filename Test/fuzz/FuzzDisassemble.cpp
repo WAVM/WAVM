@@ -1,19 +1,16 @@
+#include <stdlib.h>
+#include <string>
+#include <vector>
+
+#include "IR/IR.h"
 #include "IR/Module.h"
-#include "IR/Validate.h"
-#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/CLI.h"
-#include "Inline/Serialization.h"
+#include "Inline/Errors.h"
 #include "Logging/Logging.h"
 #include "ModuleMatcher.h"
-#include "WASM/WASM.h"
-#include "WASTParse/TestScript.h"
 #include "WASTParse/WASTParse.h"
 #include "WASTPrint/WASTPrint.h"
-
-#include <cstdarg>
-#include <cstdio>
-#include <vector>
 
 using namespace IR;
 
@@ -43,8 +40,6 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 }
 
 #if !ENABLE_LIBFUZZER
-
-#include <cstring>
 
 I32 main(int argc, char** argv)
 {

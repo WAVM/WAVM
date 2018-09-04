@@ -1,18 +1,21 @@
+#include <stdlib.h>
+#include <string.h>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "IR/Module.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/CLI.h"
 #include "Inline/Hash.h"
-#include "Inline/HashMap.h"
 #include "Inline/Serialization.h"
+#include "Logging/Logging.h"
+#include "Platform/Platform.h"
 #include "WASM/WASM.h"
 #include "WASTParse/TestScript.h"
 #include "WASTParse/WASTParse.h"
 #include "WASTPrint/WASTPrint.h"
-
-#include "Inline/CLI.h"
-
-#include <cstdarg>
-#include <cstdio>
-#include <vector>
 
 using namespace IR;
 using namespace WAST;

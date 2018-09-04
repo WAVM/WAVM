@@ -1,8 +1,36 @@
+#include <stddef.h>
+#include <memory>
+#include <vector>
+
+#include "IR/Module.h"
 #include "IR/Operators.h"
+#include "IR/Types.h"
+#include "IR/Value.h"
 #include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+#include "Platform/Platform.h"
+#include "Runtime/RuntimeData.h"
+
+#include "LLVMPreInclude.h"
+
+#include "llvm/ADT/APInt.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
+
+#include "LLVMPostInclude.h"
 
 using namespace IR;
 using namespace LLVMJIT;

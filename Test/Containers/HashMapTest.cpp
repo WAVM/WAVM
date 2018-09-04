@@ -1,7 +1,15 @@
-#include "Inline/HashMap.h"
+#include <stdlib.h>
+#include <initializer_list>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Hash.h"
+#include "Inline/HashMap.h"
 #include "Inline/Timing.h"
-#include "Logging/Logging.h"
 
 static std::string generateRandomString()
 {

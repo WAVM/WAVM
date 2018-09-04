@@ -28,6 +28,6 @@ if(ENABLE_RUNTIME)
 	set_target_properties(FuzzInstantiate PROPERTIES FOLDER Testing/Fuzzers)
 
 	add_executable(FuzzCompileModel FuzzCompileModel.cpp)
-	target_link_libraries(FuzzCompileModel Logging IR WASM Runtime)
+	target_link_libraries(FuzzCompileModel Logging IR WASTPrint Runtime)
 	set_target_properties(FuzzCompileModel PROPERTIES FOLDER Testing/Fuzzers)
 endif()

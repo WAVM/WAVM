@@ -1,12 +1,7 @@
 #include "Runtime/Linker.h"
 #include "IR/Module.h"
 #include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
-#include "RuntimePrivate.h"
-
-#include <string.h>
 
 using namespace IR;
 using namespace Runtime;

@@ -1,9 +1,11 @@
 #pragma once
 
+#include <stdint.h>
+#include <string>
+#include <utility>
+
 #include "Inline/BasicTypes.h"
 #include "Inline/DenseStaticIntSet.h"
-
-#include <string>
 
 #ifndef NFA_API
 #define NFA_API DLL_IMPORT
@@ -43,7 +45,7 @@ namespace NFA
 	NFA_API StateIndex getNonTerminalEdge(Builder* builder, StateIndex initialState, char c);
 
 	// Dumps the NFA's states and edges to the GraphViz .dot format.
-	std::string dumpNFAGraphViz(const Builder* builder);
+	NFA_API std::string dumpNFAGraphViz(const Builder* builder);
 
 	// Encapsulates a NFA that has been translated into a DFA that can be efficiently executed.
 	struct NFA_API Machine

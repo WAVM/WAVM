@@ -1,14 +1,21 @@
-#include "ThreadTest/ThreadTest.h"
+#include <stdint.h>
+#include <atomic>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "IR/Types.h"
+#include "IR/Value.h"
 #include "Inline/Assert.h"
+#include "Inline/BasicTypes.h"
+#include "Inline/Errors.h"
 #include "Inline/IntrusiveSharedPtr.h"
 #include "Inline/Lock.h"
 #include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"
-
-#include <atomic>
+#include "ThreadTest/ThreadTest.h"
 
 using namespace IR;
 using namespace Runtime;

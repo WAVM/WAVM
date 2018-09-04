@@ -4,6 +4,7 @@
 // Data structures that are used to share data between WAVM C++ code and the compiled WASM code.
 //
 
+#include "IR/Value.h"
 #include "Inline/BasicTypes.h"
 
 #ifndef RUNTIME_API
