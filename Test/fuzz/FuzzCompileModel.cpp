@@ -740,6 +740,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 #if !ENABLE_LIBFUZZER
 
 #include "Inline/CLI.h"
+#include "WASTPrint/WASTPrint.h"
 
 I32 main(int argc, char** argv)
 {
@@ -753,7 +754,14 @@ I32 main(int argc, char** argv)
 	std::vector<U8> inputBytes;
 	if(!loadFile(inputFilename, inputBytes)) { return EXIT_FAILURE; }
 
-	LLVMFuzzerTestOneInput(inputBytes.data(), inputBytes.size());
+	IR::Module module;
+	generateValidModule(module, inputBytes.data(), inputBytes.size());
+
+	std::string wastString = WAST::print(module);
+	Log::printf(Log::Category::debug, "Generated module WAST:\n%s\n", wastString.c_str());
+	
+	compileModule(module);
+
 	return EXIT_SUCCESS;
 }
 #endif
