@@ -684,6 +684,20 @@ static DWORD WINAPI createThreadEntry(void* argsVoid)
 	}
 }
 
+struct ProcessorGroupInfo
+{
+	U32 numProcessors;
+};
+
+static std::vector<ProcessorGroupInfo> getProcessorGroupInfos()
+{
+	std::vector<ProcessorGroupInfo> results;
+	const U16 numProcessorGroups = GetActiveProcessorGroupCount();
+	for(U16 groupIndex = 0; groupIndex < numProcessorGroups; ++groupIndex)
+	{ results.push_back({GetActiveProcessorCount(groupIndex)}); }
+	return results;
+}
+
 Platform::Thread* Platform::createThread(Uptr numStackBytes,
 										 I64 (*entry)(void*),
 										 void* entryArgument)
@@ -696,6 +710,23 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 
 	thread->handle
 		= CreateThread(nullptr, numStackBytes, createThreadEntry, args, 0, &args->thread->id);
+
+	// On systems with more than 64 logical processors, Windows splits them into processor groups,
+	// and a thread may only be assigned to run on a single processor group. By default, all threads
+	// in a process are assigned to a processor group that is chosen when creating the process.
+	// To allow running threads on all the processors in a system, assign new threads to processor
+	// groups in a round robin manner.
+
+	static std::vector<ProcessorGroupInfo> processorGroupInfos = getProcessorGroupInfos();
+	static std::atomic<U16> nextProcessorGroup{0};
+
+	GROUP_AFFINITY groupAffinity;
+	memset(&groupAffinity, 0, sizeof(groupAffinity));
+	groupAffinity.Group = nextProcessorGroup++ % processorGroupInfos.size();
+	groupAffinity.Mask = (1ull << U64(processorGroupInfos[groupAffinity.Group].numProcessors)) - 1;
+	if(!SetThreadGroupAffinity(thread->handle, &groupAffinity, nullptr))
+	{ Errors::fatalf("SetThreadGroupAffinity failed: GetLastError=%x", GetLastError()); }
+
 	return args->thread;
 }
 
