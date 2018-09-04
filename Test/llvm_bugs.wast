@@ -133,3 +133,67 @@
 (assert_return (invoke "test-misfold-FCmpUNO-self-simd" (i32.const 1)) (i32.const 1))
 (assert_return (invoke "test-misfold-FCmpEQ-self") (i32.const 0))
 (assert_return (invoke "test-misfold-FCmpNE-self") (i32.const 1))
+
+
+;; This module hangs X86Isel in LLVM 6.0, but not LLVM 7+
+(; (module
+   (type $0 (func (param i64 f64 i64 f32 i32)))
+   (type $1 (func (param v128)))
+   (type $2 (func (param v128 i32 f64 f32 i32)))
+   (memory $4  1024 65536 shared)
+   (table $3  1024 4294967296 shared anyfunc)
+   (global $5 (mut v128) (v128.const i32 0 1 2 3))
+   (global $7  (mut i32) (i32.const 1998782039))
+   (global $8  (mut i64) (i64.const 2173604684453082686))
+   (global $9  i32 (i32.const -2007124476))
+   (global $10  i64 (i64.const -2278033257057771354))
+
+   (func $13 (type $2)
+      (param $0 v128)
+      (param $1 i32)
+      (param $2 f64)
+      (param $3 f32)
+      (param $4 i32)
+      (local $5 i64)
+      (local $6 i64)
+      (local $7 v128)
+      (local $8 f32)
+      (local $9 f32)
+      (local $10 v128)
+      v128.const i32 1 1 1 1
+      i32x4.trunc_s:sat/f32x4
+      v128.const i32 1 1 1 1
+      get_local $1
+      get_local $8
+      f64.promote/f32
+      get_global $5
+      f64.const 0x1.8dc8cb3e84082p+523
+      f64.ceil
+      get_local $7
+      set_local $10
+      i32.trunc_s/f64
+      i8x16.splat
+      f32x4.lt
+      set_local $10
+      tee_local $2
+      f64.ceil
+      get_local $10
+      f32x4.convert_s/i32x4
+      get_local $5
+      get_global $10
+      i64.rotr
+      f64.convert_u/i64
+      i32.trunc_s/f64
+      i32.clz
+      i64.load8_u offset=3353026027
+      (v128.store (i32.const 10000) (get_local $10))
+      get_local $9
+      set_local $9
+      set_local $6
+      set_global $5
+      set_local $2
+      i32x4.replace_lane 2
+      i16x8.le_s
+      drop
+   )
+) ;)
