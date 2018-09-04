@@ -69,9 +69,22 @@ PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::Type
 // currently just used to map all the various vector types to a canonical type for the vector width.
 llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 {
-	return value->getType()->isVectorTy() || value->getType()->isX86_MMXTy()
-			   ? irBuilder.CreateBitCast(value, llvmContext.i128x1Type)
-			   : value;
+	if(value->getType()->isVectorTy())
+	{
+		switch(value->getType()->getScalarSizeInBits() * value->getType()->getVectorNumElements())
+		{
+		case 128: return irBuilder.CreateBitCast(value, llvmContext.i64x2Type);
+		default: Errors::unreachable();
+		};
+	}
+	else if(value->getType()->isX86_MMXTy())
+	{
+		return irBuilder.CreateBitCast(value, llvmContext.i64x2Type);
+	}
+	else
+	{
+		return value;
+	}
 }
 
 // Debug logging.

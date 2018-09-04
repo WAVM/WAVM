@@ -89,7 +89,6 @@ LLVMContext::LLVMContext()
 	i16Type = llvm::Type::getInt16Ty(*this);
 	i32Type = llvm::Type::getInt32Ty(*this);
 	i64Type = llvm::Type::getInt64Ty(*this);
-	i128Type = llvm::Type::getInt128Ty(*this);
 	f32Type = llvm::Type::getFloatTy(*this);
 	f64Type = llvm::Type::getDoubleTy(*this);
 	i8PtrType = i8Type->getPointerTo();
@@ -116,7 +115,6 @@ LLVMContext::LLVMContext()
 	i16x8Type = llvm::VectorType::get(i16Type, 8);
 	i32x4Type = llvm::VectorType::get(i32Type, 4);
 	i64x2Type = llvm::VectorType::get(i64Type, 2);
-	i128x1Type = llvm::VectorType::get(i128Type, 1);
 	f32x4Type = llvm::VectorType::get(f32Type, 4);
 	f64x2Type = llvm::VectorType::get(f64Type, 2);
 
@@ -124,7 +122,7 @@ LLVMContext::LLVMContext()
 	valueTypes[(Uptr)ValueType::i64] = i64Type;
 	valueTypes[(Uptr)ValueType::f32] = f32Type;
 	valueTypes[(Uptr)ValueType::f64] = f64Type;
-	valueTypes[(Uptr)ValueType::v128] = i128x1Type;
+	valueTypes[(Uptr)ValueType::v128] = i64x2Type;
 
 	// Create zero constants of each type.
 	typedZeroConstants[(Uptr)ValueType::any] = nullptr;
@@ -134,6 +132,6 @@ LLVMContext::LLVMContext()
 	typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral(*this, (F64)0.0);
 
 	U64 i64x2Zero[2] = {0, 0};
-	typedZeroConstants[(Uptr)ValueType::v128] = llvm::ConstantVector::get(
-		{llvm::ConstantInt::get(i128Type, llvm::APInt(128, 2, i64x2Zero))});
+	typedZeroConstants[(Uptr)ValueType::v128]
+		= llvm::ConstantDataVector::get(*this, llvm::ArrayRef<U64>(i64x2Zero, 2));
 }

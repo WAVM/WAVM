@@ -145,7 +145,7 @@ EMIT_STORE_OP(f32, store, llvmContext.f32Type, 2, identity)
 EMIT_STORE_OP(f64, store, llvmContext.f64Type, 3, identity)
 
 EMIT_STORE_OP(v128, store, value->getType(), 4, identity)
-EMIT_LOAD_OP(v128, load, llvmContext.i128x1Type, 4, identity)
+EMIT_LOAD_OP(v128, load, llvmContext.i64x2Type, 4, identity)
 
 void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {
