@@ -9,7 +9,7 @@ set(Sources
 add_custom_target(WAVMTests SOURCES ${Sources})
 set_target_properties(WAVMTests PROPERTIES FOLDER Testing)
 
-set(TEST_BIN ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CONFIGURATION}/Test)
+set(TEST_BIN ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CONFIGURATION}/RunTestScript)
 
 if(ENABLE_RUNTIME)
 	add_test(exceptions ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/exceptions.wast)
@@ -22,5 +22,7 @@ if(ENABLE_RUNTIME)
 endif()
 
 add_subdirectory(Containers)
+add_subdirectory(DumpTestModules)
 add_subdirectory(fuzz)
+add_subdirectory(RunTestScript)
 add_subdirectory(spec)
