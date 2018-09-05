@@ -31,9 +31,6 @@ template<typename Key, typename Value> struct HashMapIterator
 	const Pair& operator*() const;
 	const Pair* operator->() const;
 
-	const Key& key() const;
-	const Value& value() const;
-
 private:
 	const HashTableBucket<Pair>* bucket;
 	const HashTableBucket<Pair>* endBucket;

@@ -222,20 +222,6 @@ const HashMapPair<Key, Value>* HashMapIterator<Key, Value>::operator->() const
 	return &bucket->storage.contents;
 }
 
-template<typename Key, typename Value> const Key& HashMapIterator<Key, Value>::key() const
-{
-	wavmAssert(bucket);
-	wavmAssert(bucket->hashAndOccupancy);
-	return bucket->storage.contents.key;
-}
-
-template<typename Key, typename Value> const Value& HashMapIterator<Key, Value>::value() const
-{
-	wavmAssert(bucket);
-	wavmAssert(bucket->hashAndOccupancy);
-	return bucket->storage.contents.value;
-}
-
 template<typename Key, typename Value>
 HashMapIterator<Key, Value>::HashMapIterator(
 	const HashTableBucket<HashMapPair<Key, Value>>* inBucket,
