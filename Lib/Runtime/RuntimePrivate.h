@@ -304,4 +304,11 @@ namespace Runtime
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(U8* address);
 	bool isAddressOwnedByMemory(U8* address);
+
+	// Clones a memory or table with the same ID in a new compartment.
+	TableInstance* cloneTable(TableInstance* memory, Compartment* newCompartment);
+	MemoryInstance* cloneMemory(MemoryInstance* memory, Compartment* newCompartment);
+
+	// Clone a global with same ID and mutable data offset (if mutable) in a new compartment.
+	GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
 }
