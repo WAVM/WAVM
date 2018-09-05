@@ -32,18 +32,18 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 	{
 		const ValueType type = functionType.params()[argumentIndex];
 		const UntaggedValue& argument = arguments[argumentIndex];
-		if(type == ValueType::v128)
-		{
-			// Use 16-byte alignment for V128 arguments.
-			argDataOffset = (argDataOffset + 15) & ~15;
-		}
+
+		// Naturally align each argument.
+		const Uptr numArgBytes = getTypeByteWidth(type);
+		argDataOffset = (argDataOffset + numArgBytes - 1) & -numArgBytes;
+
 		if(argDataOffset >= maxThunkArgAndReturnBytes)
 		{
 			// Throw an exception if the invoke uses too much memory for arguments.
 			throwException(Exception::outOfMemoryType);
 		}
 		memcpy(argData + argDataOffset, argument.bytes, getTypeByteWidth(type));
-		argDataOffset += type == ValueType::v128 ? 16 : 8;
+		argDataOffset += numArgBytes;
 	}
 
 	// Call the invoke thunk.
