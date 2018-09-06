@@ -13,7 +13,7 @@
 using namespace Runtime;
 
 Runtime::Compartment::Compartment()
-: ObjectImpl(ObjectKind::compartment), unalignedRuntimeData(nullptr), numGlobalBytes(0)
+: ObjectImpl(ObjectKind::compartment), unalignedRuntimeData(nullptr)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
 		compartmentReservedBytes >> Platform::getPageSizeLog2(),
@@ -49,12 +49,12 @@ Compartment* Runtime::cloneCompartment(Compartment* compartment)
 	Lock<Platform::Mutex> lock(compartment->mutex);
 
 	// Clone globals.
+	newCompartment->globalDataAllocationMask = compartment->globalDataAllocationMask;
 	for(GlobalInstance* global : compartment->globals)
 	{
 		GlobalInstance* newGlobal = cloneGlobal(global, newCompartment);
-		wavmAssert(newGlobal->mutableDataOffset == global->mutableDataOffset);
+		wavmAssert(newGlobal->mutableGlobalId == global->mutableGlobalId);
 	}
-	wavmAssert(newCompartment->numGlobalBytes == compartment->numGlobalBytes);
 
 	// Clone memories.
 	for(Uptr memoryIndex = 0; memoryIndex < compartment->memories.size(); ++memoryIndex)

@@ -2,6 +2,7 @@
 
 #include "IR/Module.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/DenseStaticIntSet.h"
 #include "Inline/HashMap.h"
 #include "Inline/HashSet.h"
 #include "LLVMJIT/LLVMJIT.h"
@@ -127,17 +128,17 @@ namespace Runtime
 		Compartment* const compartment;
 
 		const IR::GlobalType type;
-		const U32 mutableDataOffset;
+		const U32 mutableGlobalId;
 		const IR::UntaggedValue initialValue;
 
 		GlobalInstance(Compartment* inCompartment,
 					   IR::GlobalType inType,
-					   U32 inMutableDataOffset,
+					   U32 inMutableGlobalId,
 					   IR::UntaggedValue inInitialValue)
 		: ObjectImpl(ObjectKind::global)
 		, compartment(inCompartment)
 		, type(inType)
-		, mutableDataOffset(inMutableDataOffset)
+		, mutableGlobalId(inMutableGlobalId)
 		, initialValue(inInitialValue)
 		{
 		}
@@ -276,7 +277,6 @@ namespace Runtime
 
 		struct CompartmentRuntimeData* runtimeData;
 		U8* unalignedRuntimeData;
-		std::atomic<U32> numGlobalBytes;
 
 		// These are weak references that aren't followed by the garbage collector.
 		// If the referenced object is deleted, it will null the reference here.
@@ -285,7 +285,9 @@ namespace Runtime
 		std::vector<TableInstance*> tables;
 		std::vector<Context*> contexts;
 
-		U8 initialContextGlobalData[maxGlobalBytes];
+		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
+
+		IR::UntaggedValue initialContextMutableGlobals[maxMutableGlobals];
 
 		ModuleInstance* wavmIntrinsics;
 

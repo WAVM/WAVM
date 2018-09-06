@@ -29,9 +29,9 @@ Context* Runtime::createContext(Compartment* compartment)
 			(U8*)context->runtimeData, sizeof(ContextRuntimeData) >> Platform::getPageSizeLog2()));
 
 		// Initialize the context's global data.
-		memcpy(context->runtimeData->globalData,
-			   compartment->initialContextGlobalData,
-			   compartment->numGlobalBytes);
+		memcpy(context->runtimeData->mutableGlobals,
+			   compartment->initialContextMutableGlobals,
+			   maxGlobalBytes);
 	}
 
 	return context;
@@ -49,9 +49,8 @@ Context* Runtime::cloneContext(Context* context, Compartment* newCompartment)
 {
 	// Create a new context and initialize its runtime data with the values from the source context.
 	Context* clonedContext = createContext(newCompartment);
-	const Uptr numGlobalBytes = context->compartment->numGlobalBytes;
-	wavmAssert(numGlobalBytes <= newCompartment->numGlobalBytes);
-	memcpy(
-		clonedContext->runtimeData->globalData, context->runtimeData->globalData, numGlobalBytes);
+	memcpy(clonedContext->runtimeData->mutableGlobals,
+		   context->runtimeData->mutableGlobals,
+		   maxGlobalBytes);
 	return clonedContext;
 }

@@ -25,6 +25,7 @@ namespace Runtime
 	{
 		maxThunkArgAndReturnBytes = 256,
 		maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes,
+		maxMutableGlobals = maxGlobalBytes / sizeof(IR::UntaggedValue),
 		maxMemories = 255,
 		maxTables = 256,
 		compartmentRuntimeDataAlignmentLog2 = 32,
@@ -38,7 +39,7 @@ namespace Runtime
 	struct ContextRuntimeData
 	{
 		U8 thunkArgAndReturnData[maxThunkArgAndReturnBytes];
-		U8 globalData[maxGlobalBytes];
+		IR::UntaggedValue mutableGlobals[maxMutableGlobals];
 	};
 
 	static_assert(sizeof(ContextRuntimeData) == 4096, "");

@@ -53,6 +53,27 @@ template<typename Index, Uptr maxIndexPlusOne> struct DenseStaticIntSet
 		}
 		return maxIndexPlusOne;
 	}
+	inline Index getSmallestNonMember() const
+	{
+		// Find the first element that doesn't have all bits set.
+		for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
+		{
+			if(~elements[elementIndex] != 0)
+			{
+				// Find the index of the lowest set bit in the element using countTrailingZeroes.
+				const Index result
+					= (Index)(elementIndex * indicesPerElement
+							  + Platform::countTrailingZeroes(~elements[elementIndex]));
+				if(result >= maxIndexPlusOne) { break; }
+				else
+				{
+					wavmAssert(!contains(result));
+					return result;
+				}
+			}
+		}
+		return maxIndexPlusOne;
+	}
 
 	// Adding/removing indices
 
