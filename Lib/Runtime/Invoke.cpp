@@ -32,18 +32,18 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 	{
 		const ValueType type = functionType.params()[argumentIndex];
 		const UntaggedValue& argument = arguments[argumentIndex];
-		if(type == ValueType::v128)
-		{
-			// Use 16-byte alignment for V128 arguments.
-			argDataOffset = (argDataOffset + 15) & ~15;
-		}
+
+		// Naturally align each argument.
+		const Uptr numArgBytes = getTypeByteWidth(type);
+		argDataOffset = (argDataOffset + numArgBytes - 1) & -numArgBytes;
+
 		if(argDataOffset >= maxThunkArgAndReturnBytes)
 		{
 			// Throw an exception if the invoke uses too much memory for arguments.
 			throwException(Exception::outOfMemoryType);
 		}
 		memcpy(argData + argDataOffset, argument.bytes, getTypeByteWidth(type));
-		argDataOffset += type == ValueType::v128 ? 16 : 8;
+		argDataOffset += numArgBytes;
 	}
 
 	// Call the invoke thunk.
@@ -90,8 +90,16 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 		wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
 
-		UntaggedValue* result = (UntaggedValue*)(resultStructBase + resultOffset);
-		results.values.push_back(Value(resultType, *result));
+		U8* result = resultStructBase + resultOffset;
+		switch(resultType)
+		{
+		case ValueType::i32: results.values.push_back(Value(*(I32*)result)); break;
+		case ValueType::i64: results.values.push_back(Value(*(I64*)result)); break;
+		case ValueType::f32: results.values.push_back(Value(*(F32*)result)); break;
+		case ValueType::f64: results.values.push_back(Value(*(F64*)result)); break;
+		case ValueType::v128: results.values.push_back(Value(*(V128*)result)); break;
+		default: Errors::unreachable();
+		};
 
 		resultOffset += resultNumBytes;
 	}

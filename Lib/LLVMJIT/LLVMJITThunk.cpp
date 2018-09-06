@@ -106,11 +106,9 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 	Uptr argDataOffset = 0;
 	for(ValueType parameterType : functionType.params())
 	{
-		if(parameterType == ValueType::v128)
-		{
-			// Use 16-byte alignment for V128 arguments.
-			argDataOffset = (argDataOffset + 15) & ~15;
-		}
+		// Naturally align each argument.
+		const Uptr numArgBytes = getTypeByteWidth(parameterType);
+		argDataOffset = (argDataOffset + numArgBytes - 1) & -numArgBytes;
 
 		arguments.push_back(emitContext.loadFromUntypedPointer(
 			emitContext.irBuilder.CreateInBoundsGEP(
@@ -119,7 +117,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 							 argDataOffset + offsetof(ContextRuntimeData, thunkArgAndReturnData))}),
 			asLLVMType(llvmContext, parameterType)));
 
-		argDataOffset += parameterType == ValueType::v128 ? 16 : 8;
+		argDataOffset += numArgBytes;
 	}
 
 	// Call the function.

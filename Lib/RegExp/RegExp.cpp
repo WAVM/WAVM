@@ -1,8 +1,8 @@
+#include "RegExp/RegExp.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/DenseStaticIntSet.h"
 #include "Inline/Errors.h"
 #include "NFA/NFA.h"
-#include "RegExp/RegExp.h"
 
 enum class NodeType : U8
 {

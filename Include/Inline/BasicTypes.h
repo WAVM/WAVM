@@ -44,7 +44,7 @@ typedef PointerIntHelper<sizeof(size_t)>::IntType Iptr;
 #endif
 #endif
 
-union V128
+union alignas(16) V128
 {
 	U8 u8[16];
 	I8 i8[16];

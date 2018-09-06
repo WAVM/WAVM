@@ -89,7 +89,7 @@ namespace LLVMJIT
 		union
 		{
 			const IR::UntaggedValue* immutableValuePointer;
-			Uptr mutableDataOffset;
+			Uptr mutableGlobalId;
 		};
 	};
 

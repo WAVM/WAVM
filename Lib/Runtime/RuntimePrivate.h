@@ -2,7 +2,10 @@
 
 #include "IR/Module.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/DenseStaticIntSet.h"
 #include "Inline/HashMap.h"
+#include "Inline/HashSet.h"
+#include "Inline/IndexMap.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
@@ -69,10 +72,10 @@ namespace Runtime
 			void* value;
 		};
 
-		Compartment* compartment;
+		Compartment* const compartment;
 		Uptr id;
 
-		IR::TableType type;
+		const IR::TableType type;
 
 		FunctionElement* baseAddress;
 		Uptr endOffset;
@@ -97,7 +100,7 @@ namespace Runtime
 	// An instance of a WebAssembly Memory.
 	struct MemoryInstance : ObjectImpl
 	{
-		Compartment* compartment;
+		Compartment* const compartment;
 		Uptr id;
 
 		IR::MemoryType type;
@@ -124,21 +127,19 @@ namespace Runtime
 	struct GlobalInstance : ObjectImpl
 	{
 		Compartment* const compartment;
-		Uptr id;
 
 		const IR::GlobalType type;
-		const U32 mutableDataOffset;
+		const U32 mutableGlobalId;
 		const IR::UntaggedValue initialValue;
 
 		GlobalInstance(Compartment* inCompartment,
 					   IR::GlobalType inType,
-					   U32 inMutableDataOffset,
+					   U32 inMutableGlobalId,
 					   IR::UntaggedValue inInitialValue)
 		: ObjectImpl(ObjectKind::global)
 		, compartment(inCompartment)
-		, id(UINTPTR_MAX)
 		, type(inType)
-		, mutableDataOffset(inMutableDataOffset)
+		, mutableGlobalId(inMutableGlobalId)
 		, initialValue(inInitialValue)
 		{
 		}
@@ -277,16 +278,17 @@ namespace Runtime
 
 		struct CompartmentRuntimeData* runtimeData;
 		U8* unalignedRuntimeData;
-		std::atomic<U32> numGlobalBytes;
 
 		// These are weak references that aren't followed by the garbage collector.
-		// If the referenced object is deleted, it will null the reference here.
-		std::vector<GlobalInstance*> globals;
-		std::vector<MemoryInstance*> memories;
-		std::vector<TableInstance*> tables;
-		std::vector<Context*> contexts;
+		// If the referenced object is deleted, it will remove the reference here.
+		HashSet<GlobalInstance*> globals;
+		IndexMap<Uptr, MemoryInstance*> memories;
+		IndexMap<Uptr, TableInstance*> tables;
+		IndexMap<Uptr, Context*> contexts;
 
-		U8 initialContextGlobalData[maxGlobalBytes];
+		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
+
+		IR::UntaggedValue initialContextMutableGlobals[maxMutableGlobals];
 
 		ModuleInstance* wavmIntrinsics;
 
@@ -304,4 +306,11 @@ namespace Runtime
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(U8* address);
 	bool isAddressOwnedByMemory(U8* address);
+
+	// Clones a memory or table with the same ID in a new compartment.
+	TableInstance* cloneTable(TableInstance* memory, Compartment* newCompartment);
+	MemoryInstance* cloneMemory(MemoryInstance* memory, Compartment* newCompartment);
+
+	// Clone a global with same ID and mutable data offset (if mutable) in a new compartment.
+	GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
 }

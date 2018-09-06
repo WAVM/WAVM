@@ -20,55 +20,57 @@ GlobalInstance* Runtime::createGlobal(Compartment* compartment, GlobalType type,
 {
 	wavmAssert(initialValue.type == type.valueType);
 
-	// Allow immutable globals to be created without a compartment.
-	errorUnless(!type.isMutable || compartment);
-
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	GlobalInstance* globalInstance;
-	if(!type.isMutable)
-	{ globalInstance = new GlobalInstance(compartment, type, UINT32_MAX, initialValue); }
-	else
+	U32 mutableGlobalId = UINT32_MAX;
+	if(type.isMutable)
 	{
-		// Allocate a naturally aligned address to store the global at in the per-context data.
-		const U32 numBytes = getTypeByteWidth(type.valueType);
-		U32 dataOffset = (compartment->numGlobalBytes + numBytes - 1) & ~(numBytes - 1);
-		if(dataOffset + numBytes >= maxGlobalBytes) { return nullptr; }
-		compartment->numGlobalBytes = dataOffset + numBytes;
+		mutableGlobalId = compartment->globalDataAllocationMask.getSmallestNonMember();
+		compartment->globalDataAllocationMask.add(mutableGlobalId);
 
 		// Initialize the global value for each context, and the data used to initialize new
 		// contexts.
-		memcpy(compartment->initialContextGlobalData + dataOffset, &initialValue, numBytes);
+		compartment->initialContextMutableGlobals[mutableGlobalId] = initialValue;
 		for(Context* context : compartment->contexts)
-		{ memcpy(context->runtimeData->globalData + dataOffset, &initialValue, numBytes); }
-
-		globalInstance = new GlobalInstance(compartment, type, dataOffset, initialValue);
+		{ context->runtimeData->mutableGlobals[mutableGlobalId] = initialValue; }
 	}
 
-	globalInstance->id = compartment->globals.size();
-	compartment->globals.push_back(globalInstance);
+	// Create the global and add it to the compartment's list of globals.
+	GlobalInstance* globalInstance
+		= new GlobalInstance(compartment, type, mutableGlobalId, initialValue);
+	{
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		compartment->globals.addOrFail(globalInstance);
+	}
 
 	return globalInstance;
 }
 
 GlobalInstance* Runtime::cloneGlobal(GlobalInstance* global, Compartment* newCompartment)
 {
-	return createGlobal(
-		newCompartment, global->type, Value(global->type.valueType, global->initialValue));
+	GlobalInstance* newGlobal = new GlobalInstance(
+		newCompartment, global->type, global->mutableGlobalId, global->initialValue);
+	newCompartment->globals.addOrFail(newGlobal);
+	return newGlobal;
 }
 
 void Runtime::GlobalInstance::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	compartment->globals[id] = nullptr;
+	compartment->globals.removeOrFail(this);
+	if(type.isMutable)
+	{
+		wavmAssert(mutableGlobalId < maxMutableGlobals);
+		wavmAssert(compartment->globalDataAllocationMask.contains(mutableGlobalId));
+		compartment->globalDataAllocationMask.remove(mutableGlobalId);
+	}
 }
 
 Value Runtime::getGlobalValue(Context* context, GlobalInstance* global)
 {
 	wavmAssert(context || !global->type.isMutable);
 	return Value(global->type.valueType,
-				 global->type.isMutable ? *(UntaggedValue*)(context->runtimeData->globalData
-															+ global->mutableDataOffset)
-										: global->initialValue);
+				 global->type.isMutable
+					 ? context->runtimeData->mutableGlobals[global->mutableGlobalId]
+					 : global->initialValue);
 }
 
 Value Runtime::setGlobalValue(Context* context, GlobalInstance* global, Value newValue)
@@ -76,8 +78,7 @@ Value Runtime::setGlobalValue(Context* context, GlobalInstance* global, Value ne
 	wavmAssert(context);
 	wavmAssert(newValue.type == global->type.valueType);
 	wavmAssert(global->type.isMutable);
-	UntaggedValue& value
-		= *(UntaggedValue*)(context->runtimeData->globalData + global->mutableDataOffset);
+	UntaggedValue& value = context->runtimeData->mutableGlobals[global->mutableGlobalId];
 	const Value previousValue = Value(global->type.valueType, value);
 	value = newValue;
 	return previousValue;

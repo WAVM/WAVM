@@ -561,7 +561,8 @@ LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 		{
 			// If the global is mutable, bind the symbol to the offset into
 			// ContextRuntimeData::globalData where it is stored.
-			value = offsetof(ContextRuntimeData, globalData) + globalSpec.mutableDataOffset;
+			value = offsetof(ContextRuntimeData, mutableGlobals)
+					+ globalSpec.mutableGlobalId * sizeof(IR::UntaggedValue);
 		}
 		else
 		{

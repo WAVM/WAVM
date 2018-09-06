@@ -92,6 +92,12 @@ template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::remove(const Key& 
 	return table.remove(KeyHashPolicy::getKeyHash(key), key);
 }
 
+template<HASHMAP_PARAMETERS> void HashMap<HASHMAP_ARGUMENTS>::removeOrFail(const Key& key)
+{
+	const bool removed = table.remove(KeyHashPolicy::getKeyHash(key), key);
+	wavmAssert(removed);
+}
+
 template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::contains(const Key& key) const
 {
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);
@@ -220,20 +226,6 @@ const HashMapPair<Key, Value>* HashMapIterator<Key, Value>::operator->() const
 {
 	wavmAssert(bucket->hashAndOccupancy);
 	return &bucket->storage.contents;
-}
-
-template<typename Key, typename Value> const Key& HashMapIterator<Key, Value>::key() const
-{
-	wavmAssert(bucket);
-	wavmAssert(bucket->hashAndOccupancy);
-	return bucket->storage.contents.key;
-}
-
-template<typename Key, typename Value> const Value& HashMapIterator<Key, Value>::value() const
-{
-	wavmAssert(bucket);
-	wavmAssert(bucket->hashAndOccupancy);
-	return bucket->storage.contents.value;
 }
 
 template<typename Key, typename Value>

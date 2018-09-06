@@ -45,6 +45,10 @@ template<typename Element, typename ElementHashPolicy = DefaultHashPolicy<Elemen
 	// If the set doesn't contain the element, returns false.
 	bool remove(const Element& element);
 
+	// Assuming the set contains the element, remove it. Asserts if the set didn't contain the
+	// element, or silently does nothing if assertions are disabled.
+	void removeOrFail(const Element& element);
+
 	// Returns a reference to the element in the set matching the given element. Assumes that the
 	// map contains the key. This is useful if the hash policy allows distinct elements to compare
 	// as equal; e.g. for deduplicating equivalent values.

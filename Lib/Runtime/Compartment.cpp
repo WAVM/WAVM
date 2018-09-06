@@ -13,7 +13,11 @@
 using namespace Runtime;
 
 Runtime::Compartment::Compartment()
-: ObjectImpl(ObjectKind::compartment), unalignedRuntimeData(nullptr), numGlobalBytes(0)
+: ObjectImpl(ObjectKind::compartment)
+, unalignedRuntimeData(nullptr)
+, memories(0, maxMemories)
+, tables(0, maxTables)
+, contexts(0, maxContexts)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
 		compartmentReservedBytes >> Platform::getPageSizeLog2(),
@@ -49,31 +53,24 @@ Compartment* Runtime::cloneCompartment(Compartment* compartment)
 	Lock<Platform::Mutex> lock(compartment->mutex);
 
 	// Clone globals.
-	for(Uptr globalIndex = 0; globalIndex < compartment->globals.size(); ++globalIndex)
+	newCompartment->globalDataAllocationMask = compartment->globalDataAllocationMask;
+	for(GlobalInstance* global : compartment->globals)
 	{
-		GlobalInstance* global = compartment->globals[globalIndex];
 		GlobalInstance* newGlobal = cloneGlobal(global, newCompartment);
-		SUPPRESS_UNUSED(newGlobal);
-		wavmAssert(newGlobal->id == global->id);
-		wavmAssert(newGlobal->mutableDataOffset == global->mutableDataOffset);
+		wavmAssert(newGlobal->mutableGlobalId == global->mutableGlobalId);
 	}
-	wavmAssert(newCompartment->numGlobalBytes == compartment->numGlobalBytes);
 
 	// Clone memories.
-	for(Uptr memoryIndex = 0; memoryIndex < compartment->memories.size(); ++memoryIndex)
+	for(MemoryInstance* memory : compartment->memories)
 	{
-		MemoryInstance* memory = compartment->memories[memoryIndex];
 		MemoryInstance* newMemory = cloneMemory(memory, newCompartment);
-		SUPPRESS_UNUSED(newMemory);
 		wavmAssert(newMemory->id == memory->id);
 	}
 
 	// Clone tables.
-	for(Uptr tableIndex = 0; tableIndex < compartment->tables.size(); ++tableIndex)
+	for(TableInstance* table : compartment->tables)
 	{
-		TableInstance* table = compartment->tables[tableIndex];
 		TableInstance* newTable = cloneTable(table, newCompartment);
-		SUPPRESS_UNUSED(newTable);
 		wavmAssert(newTable->id == table->id);
 	}
 
@@ -84,8 +81,6 @@ Uptr Runtime::getCompartmentTableId(const TableInstance* table) { return table->
 
 Uptr Runtime::getCompartmentMemoryId(const MemoryInstance* memory) { return memory->id; }
 
-Uptr Runtime::getCompartmentGlobalId(const GlobalInstance* global) { return global->id; }
-
 TableInstance* Runtime::getCompartmentTableById(const Compartment* compartment, Uptr tableId)
 {
 	Lock<Platform::Mutex> lock(compartment->mutex);
@@ -95,9 +90,4 @@ MemoryInstance* Runtime::getCompartmentMemoryById(const Compartment* compartment
 {
 	Lock<Platform::Mutex> lock(compartment->mutex);
 	return compartment->memories[memoryId];
-}
-GlobalInstance* Runtime::getCompartmentGlobalById(const Compartment* compartment, Uptr globalId)
-{
-	Lock<Platform::Mutex> lock(compartment->mutex);
-	return compartment->globals[globalId];
 }

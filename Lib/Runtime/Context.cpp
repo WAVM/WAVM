@@ -20,18 +20,22 @@ Context* Runtime::createContext(Compartment* compartment)
 		Lock<Platform::Mutex> lock(compartment->mutex);
 
 		// Allocate an ID for the context in the compartment.
-		context->id = compartment->contexts.size();
+		context->id = compartment->contexts.add(UINTPTR_MAX, context);
+		if(context->id == UINTPTR_MAX)
+		{
+			delete context;
+			return nullptr;
+		}
 		context->runtimeData = &compartment->runtimeData->contexts[context->id];
-		compartment->contexts.push_back(context);
 
 		// Commit the page(s) for the context's runtime data.
 		errorUnless(Platform::commitVirtualPages(
 			(U8*)context->runtimeData, sizeof(ContextRuntimeData) >> Platform::getPageSizeLog2()));
 
 		// Initialize the context's global data.
-		memcpy(context->runtimeData->globalData,
-			   compartment->initialContextGlobalData,
-			   compartment->numGlobalBytes);
+		memcpy(context->runtimeData->mutableGlobals,
+			   compartment->initialContextMutableGlobals,
+			   maxGlobalBytes);
 	}
 
 	return context;
@@ -40,7 +44,7 @@ Context* Runtime::createContext(Compartment* compartment)
 void Runtime::Context::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	compartment->contexts[id] = nullptr;
+	compartment->contexts.removeOrFail(id);
 }
 
 Compartment* Runtime::getCompartmentFromContext(Context* context) { return context->compartment; }
@@ -49,9 +53,8 @@ Context* Runtime::cloneContext(Context* context, Compartment* newCompartment)
 {
 	// Create a new context and initialize its runtime data with the values from the source context.
 	Context* clonedContext = createContext(newCompartment);
-	const Uptr numGlobalBytes = context->compartment->numGlobalBytes;
-	wavmAssert(numGlobalBytes <= newCompartment->numGlobalBytes);
-	memcpy(
-		clonedContext->runtimeData->globalData, context->runtimeData->globalData, numGlobalBytes);
+	memcpy(clonedContext->runtimeData->mutableGlobals,
+		   context->runtimeData->mutableGlobals,
+		   maxGlobalBytes);
 	return clonedContext;
 }

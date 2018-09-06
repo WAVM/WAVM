@@ -238,8 +238,6 @@ namespace Runtime
 	// Creates a Table. May return null if the memory allocation fails.
 	RUNTIME_API TableInstance* createTable(Compartment* compartment, IR::TableType type);
 
-	RUNTIME_API TableInstance* cloneTable(TableInstance* table, Compartment* newCompartment);
-
 	// Reads an element from the table. Assumes that index is in bounds.
 	RUNTIME_API Object* getTableElement(TableInstance* table, Uptr index);
 
@@ -265,8 +263,6 @@ namespace Runtime
 
 	// Creates a Memory. May return null if the memory allocation fails.
 	RUNTIME_API MemoryInstance* createMemory(Compartment* compartment, IR::MemoryType type);
-
-	RUNTIME_API MemoryInstance* cloneMemory(MemoryInstance* memory, Compartment* newCompartment);
 
 	// Gets the base address of the memory's data.
 	RUNTIME_API U8* getMemoryBaseAddress(MemoryInstance* memory);
@@ -310,8 +306,6 @@ namespace Runtime
 	RUNTIME_API GlobalInstance* createGlobal(Compartment* compartment,
 											 IR::GlobalType type,
 											 IR::Value initialValue);
-
-	RUNTIME_API GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
 
 	// Reads the current value of a global.
 	RUNTIME_API IR::Value getGlobalValue(Context* context, GlobalInstance* global);
@@ -364,14 +358,11 @@ namespace Runtime
 
 	RUNTIME_API Uptr getCompartmentTableId(const TableInstance* table);
 	RUNTIME_API Uptr getCompartmentMemoryId(const MemoryInstance* memory);
-	RUNTIME_API Uptr getCompartmentGlobalId(const GlobalInstance* global);
 
 	RUNTIME_API TableInstance* getCompartmentTableById(const Compartment* compartment,
 													   Uptr tableId);
 	RUNTIME_API MemoryInstance* getCompartmentMemoryById(const Compartment* compartment,
 														 Uptr memoryId);
-	RUNTIME_API GlobalInstance* getCompartmentGlobalById(const Compartment* compartment,
-														 Uptr globalId);
 
 	//
 	// Contexts

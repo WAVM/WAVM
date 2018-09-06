@@ -255,7 +255,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		LLVMJIT::GlobalBinding globalSpec;
 		globalSpec.type = global->type;
-		if(global->type.isMutable) { globalSpec.mutableDataOffset = global->mutableDataOffset; }
+		if(global->type.isMutable) { globalSpec.mutableGlobalId = global->mutableGlobalId; }
 		else
 		{
 			globalSpec.immutableValuePointer = &global->initialValue;

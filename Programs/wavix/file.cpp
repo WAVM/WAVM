@@ -5,7 +5,7 @@
 
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "Inline/IndexAllocator.h"
+#include "Inline/IndexMap.h"
 #include "Inline/Lock.h"
 #include "Inline/Unicode.h"
 #include "Logging/Logging.h"
@@ -27,24 +27,8 @@ namespace Wavix
 
 static bool validateFD(I32 index)
 {
-	return index >= 0 && Uptr(index) < currentProcess->files.size();
-}
-
-static I32 allocateFD()
-{
-	const I32 index = currentProcess->filesAllocator.alloc();
-	if(Uptr(index) >= currentProcess->files.size())
-	{
-		currentProcess->files.insert(
-			currentProcess->files.end(), Uptr(index) + 1 - currentProcess->files.size(), nullptr);
-	}
-	return index;
-}
-
-static void freeFD(I32 index)
-{
-	wavmAssert(validateFD(index));
-	currentProcess->filesAllocator.free(index);
+	return index >= 0 && index <= currentProcess->files.getMaxIndex()
+		   && currentProcess->files.contains(Uptr(index));
 }
 
 struct Path
@@ -212,9 +196,12 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 	if(!platformFile) { return -1; }
 
 	Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
-	I32 fd = allocateFD();
-	currentProcess->files[fd] = platformFile;
-
+	I32 fd = currentProcess->files.add(-1, platformFile);
+	if(fd == -1)
+	{
+		Platform::closeFile(platformFile);
+		return -1;
+	}
 	return fd;
 }
 
@@ -246,7 +233,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix, "__syscall_close", I32, __syscall_close, I32 fd
 	if(!validateFD(fd)) { return -1; }
 
 	Platform::File* platformFile = currentProcess->files[fd];
-	freeFD(fd);
+	currentProcess->files.removeOrFail(fd);
 
 	if(Platform::closeFile(platformFile)) { return 0; }
 	else

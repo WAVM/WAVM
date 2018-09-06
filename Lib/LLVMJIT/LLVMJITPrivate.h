@@ -51,7 +51,6 @@ namespace LLVMJIT
 		llvm::Type* i16Type;
 		llvm::Type* i32Type;
 		llvm::Type* i64Type;
-		llvm::Type* i128Type;
 		llvm::Type* f32Type;
 		llvm::Type* f64Type;
 		llvm::Type* i8PtrType;
@@ -61,7 +60,6 @@ namespace LLVMJIT
 		llvm::Type* i16x8Type;
 		llvm::Type* i32x4Type;
 		llvm::Type* i64x2Type;
-		llvm::Type* i128x1Type;
 		llvm::Type* f32x4Type;
 		llvm::Type* f64x2Type;
 

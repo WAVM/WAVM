@@ -31,9 +31,6 @@ template<typename Key, typename Value> struct HashMapIterator
 	const Pair& operator*() const;
 	const Pair* operator->() const;
 
-	const Key& key() const;
-	const Value& value() const;
-
 private:
 	const HashTableBucket<Pair>* bucket;
 	const HashTableBucket<Pair>* endBucket;
@@ -75,6 +72,10 @@ struct HashMap
 	// If the map contains the key, removes it and returns true.
 	// If the map doesn't contain the key, returns false.
 	bool remove(const Key& key);
+
+	// Assuming the map contains the key, remove it. Asserts if the map didn't contain the key, or
+	// silently does nothing if assertions are disabled.
+	void removeOrFail(const Key& key);
 
 	// Returns true if the map contains the key.
 	bool contains(const Key& key) const;

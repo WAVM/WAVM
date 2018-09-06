@@ -31,7 +31,9 @@ static Uptr getPlatformPagesPerWebAssemblyPageLog2()
 	return IR::numBytesPerPageLog2 - Platform::getPageSizeLog2();
 }
 
-MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType type)
+static MemoryInstance* createMemoryImpl(Compartment* compartment,
+										IR::MemoryType type,
+										Uptr numPages)
 {
 	MemoryInstance* memory = new MemoryInstance(compartment, type);
 
@@ -51,27 +53,10 @@ MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType t
 	}
 
 	// Grow the memory to the type's minimum size.
-	wavmAssert(type.size.min <= UINTPTR_MAX);
-	if(growMemory(memory, Uptr(type.size.min)) == -1)
+	if(growMemory(memory, numPages) == -1)
 	{
 		delete memory;
 		return nullptr;
-	}
-
-	// Add the memory to the compartment.
-	if(compartment)
-	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-
-		if(compartment->memories.size() >= maxMemories)
-		{
-			delete memory;
-			return nullptr;
-		}
-
-		memory->id = compartment->memories.size();
-		compartment->memories.push_back(memory);
-		compartment->runtimeData->memoryBases[memory->id] = memory->baseAddress;
 	}
 
 	// Add the memory to the global array.
@@ -79,24 +64,58 @@ MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType t
 		Lock<Platform::Mutex> memoriesLock(memoriesMutex);
 		memories.push_back(memory);
 	}
+
+	return memory;
+}
+
+MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType type)
+{
+	wavmAssert(type.size.min <= UINTPTR_MAX);
+	MemoryInstance* memory = createMemoryImpl(compartment, type, Uptr(type.size.min));
+	if(!memory) { return nullptr; }
+
+	// Add the memory to the compartment's memories IndexMap.
+	{
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+
+		memory->id = compartment->memories.add(UINTPTR_MAX, memory);
+		if(memory->id == UINTPTR_MAX)
+		{
+			delete memory;
+			return nullptr;
+		}
+		compartment->runtimeData->memoryBases[memory->id] = memory->baseAddress;
+	}
+
 	return memory;
 }
 
 MemoryInstance* Runtime::cloneMemory(MemoryInstance* memory, Compartment* newCompartment)
 {
-	MemoryInstance* newMemory = createMemory(newCompartment, memory->type);
-	const Uptr numPages = memory->numPages;
-	growMemory(newMemory, numPages);
-	memcpy(newMemory->baseAddress, memory->baseAddress, numPages * IR::numBytesPerPage);
+	MemoryInstance* newMemory = createMemoryImpl(newCompartment, memory->type, memory->numPages);
+	if(!newMemory) { return nullptr; }
+
+	// Insert the memory in the new compartment's memories array with the same index as it had in
+	// the original compartment's memories IndexMap.
+	{
+		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+
+		newMemory->id = memory->id;
+		newCompartment->memories.insertOrFail(newMemory->id, newMemory);
+		newCompartment->runtimeData->memoryBases[newMemory->id] = newMemory->baseAddress;
+	}
+
 	return newMemory;
 }
 
 void Runtime::MemoryInstance::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+
 	wavmAssert(compartment->memories[id] == this);
+	compartment->memories.removeOrFail(id);
+
 	wavmAssert(compartment->runtimeData->memoryBases[id] == baseAddress);
-	compartment->memories[id] = nullptr;
 	compartment->runtimeData->memoryBases[id] = nullptr;
 }
 

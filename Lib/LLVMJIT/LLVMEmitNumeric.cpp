@@ -572,25 +572,25 @@ EMIT_SIMD_UNARY_OP(i64x2_all_true,
 
 void EmitFunctionContext::v128_and(IR::NoImm)
 {
-	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
-	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
+	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
+	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
 	push(irBuilder.CreateAnd(left, right));
 }
 void EmitFunctionContext::v128_or(IR::NoImm)
 {
-	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
-	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
+	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
+	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
 	push(irBuilder.CreateOr(left, right));
 }
 void EmitFunctionContext::v128_xor(IR::NoImm)
 {
-	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
-	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
+	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
+	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
 	push(irBuilder.CreateXor(left, right));
 }
 void EmitFunctionContext::v128_not(IR::NoImm)
 {
-	auto operand = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
+	auto operand = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
 	push(irBuilder.CreateNot(operand));
 }
 
@@ -659,8 +659,8 @@ void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)
 
 void EmitFunctionContext::v128_bitselect(IR::NoImm)
 {
-	auto mask = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
-	auto falseValue = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
-	auto trueValue = irBuilder.CreateBitCast(pop(), llvmContext.i128x1Type);
+	auto mask = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
+	auto falseValue = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
+	auto trueValue = irBuilder.CreateBitCast(pop(), llvmContext.i64x2Type);
 	push(emitBitSelect(mask, trueValue, falseValue));
 }

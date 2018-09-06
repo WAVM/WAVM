@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "Inline/BasicTypes.h"
-#include "Inline/IndexAllocator.h"
+#include "Inline/IndexMap.h"
 #include "Platform/Platform.h"
 #include "Runtime/Runtime.h"
 #include "file.h"
@@ -26,8 +26,7 @@ namespace Wavix
 		std::string cwd;
 
 		Platform::Mutex filesMutex;
-		std::vector<Platform::File*> files;
-		IndexAllocator<I32, INT32_MAX> filesAllocator;
+		IndexMap<I32, Platform::File*> files;
 
 		Platform::Mutex childrenMutex;
 		std::vector<Process*> children;
@@ -41,6 +40,8 @@ namespace Wavix
 
 		Platform::Mutex waitersMutex;
 		std::vector<Thread*> waiters;
+
+		Process() : files(0, INT32_MAX) {}
 	};
 
 	extern Process* spawnProcess(Process* parent,
