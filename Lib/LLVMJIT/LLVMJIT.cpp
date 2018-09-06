@@ -3,6 +3,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
+#include "Inline/HashMap.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
 
@@ -27,7 +28,7 @@ namespace llvm
 using namespace IR;
 using namespace LLVMJIT;
 
-static std::map<std::string, const char*> runtimeSymbolMap = {
+static HashMap<std::string, const char*> runtimeSymbolMap = {
 #ifdef _WIN32
 	// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 	{"__chkstk", "__chkstk"},
@@ -57,15 +58,14 @@ static std::map<std::string, const char*> runtimeSymbolMap = {
 llvm::JITEvaluatedSymbol LLVMJIT::resolveJITImport(llvm::StringRef name)
 {
 	// Allow some intrinsics used by LLVM
-	auto runtimeSymbolNameIt = runtimeSymbolMap.find(name);
-	if(runtimeSymbolNameIt == runtimeSymbolMap.end()) { return llvm::JITEvaluatedSymbol(nullptr); }
+	const char* const* runtimeSymbolName = runtimeSymbolMap.get(name.str());
+	if(!runtimeSymbolName) { return llvm::JITEvaluatedSymbol(nullptr); }
 
-	const char* lookupName = runtimeSymbolNameIt->second;
-	void* addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(lookupName);
+	void* addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(*runtimeSymbolName);
 	if(!addr)
 	{
 		Errors::fatalf("LLVM generated code references undefined external symbol: %s\n",
-					   lookupName);
+					   *runtimeSymbolName);
 	}
 	return llvm::JITEvaluatedSymbol(reinterpret_cast<Uptr>(addr), llvm::JITSymbolFlags::None);
 }
