@@ -216,6 +216,7 @@ void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
 	Lock<Platform::Mutex> lock(getErrorReportingMutex());
 	std::vfprintf(stderr, messageFormat, varArgs);
 	std::fflush(stderr);
+	if(IsDebuggerPresent()) { DebugBreak(); }
 	TerminateProcess(GetCurrentProcess(), 1);
 }
 
