@@ -759,7 +759,7 @@ I32 main(int argc, char** argv)
 
 	std::string wastString = WAST::print(module);
 	Log::printf(Log::Category::debug, "Generated module WAST:\n%s\n", wastString.c_str());
-	
+
 	compileModule(module);
 
 	return EXIT_SUCCESS;

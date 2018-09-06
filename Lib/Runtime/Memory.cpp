@@ -73,7 +73,7 @@ MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType t
 	wavmAssert(type.size.min <= UINTPTR_MAX);
 	MemoryInstance* memory = createMemoryImpl(compartment, type, Uptr(type.size.min));
 	if(!memory) { return nullptr; }
-	
+
 	// Add the memory to the compartment's memories IndexMap.
 	{
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);

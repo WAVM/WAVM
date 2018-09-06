@@ -20,7 +20,7 @@ Context* Runtime::createContext(Compartment* compartment)
 		Lock<Platform::Mutex> lock(compartment->mutex);
 
 		// Allocate an ID for the context in the compartment.
-		context->id = compartment->contexts.add(UINTPTR_MAX,context);
+		context->id = compartment->contexts.add(UINTPTR_MAX, context);
 		if(context->id == UINTPTR_MAX)
 		{
 			delete context;
