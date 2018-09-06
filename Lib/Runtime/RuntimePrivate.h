@@ -3,6 +3,7 @@
 #include "IR/Module.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/HashMap.h"
+#include "Inline/HashSet.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
@@ -124,7 +125,6 @@ namespace Runtime
 	struct GlobalInstance : ObjectImpl
 	{
 		Compartment* const compartment;
-		Uptr id;
 
 		const IR::GlobalType type;
 		const U32 mutableDataOffset;
@@ -136,7 +136,6 @@ namespace Runtime
 					   IR::UntaggedValue inInitialValue)
 		: ObjectImpl(ObjectKind::global)
 		, compartment(inCompartment)
-		, id(UINTPTR_MAX)
 		, type(inType)
 		, mutableDataOffset(inMutableDataOffset)
 		, initialValue(inInitialValue)
@@ -281,7 +280,7 @@ namespace Runtime
 
 		// These are weak references that aren't followed by the garbage collector.
 		// If the referenced object is deleted, it will null the reference here.
-		std::vector<GlobalInstance*> globals;
+		HashSet<GlobalInstance*> globals;
 		std::vector<MemoryInstance*> memories;
 		std::vector<TableInstance*> tables;
 		std::vector<Context*> contexts;

@@ -44,8 +44,10 @@ GlobalInstance* Runtime::createGlobal(Compartment* compartment, GlobalType type,
 		globalInstance = new GlobalInstance(compartment, type, dataOffset, initialValue);
 	}
 
-	globalInstance->id = compartment->globals.size();
-	compartment->globals.push_back(globalInstance);
+	{
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		compartment->globals.addOrFail(globalInstance);
+	}
 
 	return globalInstance;
 }
@@ -59,7 +61,7 @@ GlobalInstance* Runtime::cloneGlobal(GlobalInstance* global, Compartment* newCom
 void Runtime::GlobalInstance::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	compartment->globals[id] = nullptr;
+	compartment->globals.removeOrFail(this);
 }
 
 Value Runtime::getGlobalValue(Context* context, GlobalInstance* global)

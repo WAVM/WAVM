@@ -95,6 +95,13 @@ bool HashSet<Element, ElementHashPolicy>::remove(const Element& element)
 }
 
 template<typename Element, typename ElementHashPolicy>
+void HashSet<Element, ElementHashPolicy>::removeOrFail(const Element& element)
+{
+    const bool removed = table.remove(ElementHashPolicy::getKeyHash(element), element);
+    wavmAssert(removed);
+}
+
+template<typename Element, typename ElementHashPolicy>
 const Element& HashSet<Element, ElementHashPolicy>::operator[](const Element& element) const
 {
 	const Uptr hash = ElementHashPolicy::getKeyHash(element);

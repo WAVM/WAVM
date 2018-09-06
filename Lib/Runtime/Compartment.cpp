@@ -49,12 +49,9 @@ Compartment* Runtime::cloneCompartment(Compartment* compartment)
 	Lock<Platform::Mutex> lock(compartment->mutex);
 
 	// Clone globals.
-	for(Uptr globalIndex = 0; globalIndex < compartment->globals.size(); ++globalIndex)
+	for(GlobalInstance* global : compartment->globals)
 	{
-		GlobalInstance* global = compartment->globals[globalIndex];
 		GlobalInstance* newGlobal = cloneGlobal(global, newCompartment);
-		SUPPRESS_UNUSED(newGlobal);
-		wavmAssert(newGlobal->id == global->id);
 		wavmAssert(newGlobal->mutableDataOffset == global->mutableDataOffset);
 	}
 	wavmAssert(newCompartment->numGlobalBytes == compartment->numGlobalBytes);
@@ -84,8 +81,6 @@ Uptr Runtime::getCompartmentTableId(const TableInstance* table) { return table->
 
 Uptr Runtime::getCompartmentMemoryId(const MemoryInstance* memory) { return memory->id; }
 
-Uptr Runtime::getCompartmentGlobalId(const GlobalInstance* global) { return global->id; }
-
 TableInstance* Runtime::getCompartmentTableById(const Compartment* compartment, Uptr tableId)
 {
 	Lock<Platform::Mutex> lock(compartment->mutex);
@@ -95,9 +90,4 @@ MemoryInstance* Runtime::getCompartmentMemoryById(const Compartment* compartment
 {
 	Lock<Platform::Mutex> lock(compartment->mutex);
 	return compartment->memories[memoryId];
-}
-GlobalInstance* Runtime::getCompartmentGlobalById(const Compartment* compartment, Uptr globalId)
-{
-	Lock<Platform::Mutex> lock(compartment->mutex);
-	return compartment->globals[globalId];
 }
