@@ -13,7 +13,11 @@
 using namespace Runtime;
 
 Runtime::Compartment::Compartment()
-: ObjectImpl(ObjectKind::compartment), unalignedRuntimeData(nullptr)
+: ObjectImpl(ObjectKind::compartment)
+, unalignedRuntimeData(nullptr)
+, memories(0, maxMemories)
+, tables(0, maxTables)
+, contexts(0, maxContexts)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
 		compartmentReservedBytes >> Platform::getPageSizeLog2(),
@@ -57,20 +61,16 @@ Compartment* Runtime::cloneCompartment(Compartment* compartment)
 	}
 
 	// Clone memories.
-	for(Uptr memoryIndex = 0; memoryIndex < compartment->memories.size(); ++memoryIndex)
+	for(MemoryInstance* memory : compartment->memories)
 	{
-		MemoryInstance* memory = compartment->memories[memoryIndex];
 		MemoryInstance* newMemory = cloneMemory(memory, newCompartment);
-		SUPPRESS_UNUSED(newMemory);
 		wavmAssert(newMemory->id == memory->id);
 	}
 
 	// Clone tables.
-	for(Uptr tableIndex = 0; tableIndex < compartment->tables.size(); ++tableIndex)
+	for(TableInstance* table : compartment->tables)
 	{
-		TableInstance* table = compartment->tables[tableIndex];
 		TableInstance* newTable = cloneTable(table, newCompartment);
-		SUPPRESS_UNUSED(newTable);
 		wavmAssert(newTable->id == table->id);
 	}
 

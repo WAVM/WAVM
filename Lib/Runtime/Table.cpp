@@ -28,7 +28,9 @@ static Uptr getNumPlatformPages(Uptr numBytes)
 	return (numBytes + (Uptr(1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 }
 
-TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type)
+static TableInstance* createTableImpl(Compartment* compartment,
+									  IR::TableType type,
+									  Uptr numElements)
 {
 	TableInstance* table = new TableInstance(compartment, type);
 
@@ -48,27 +50,10 @@ TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type
 	}
 
 	// Grow the table to the type's minimum size.
-	wavmAssert(type.size.min <= UINTPTR_MAX);
 	if(growTable(table, Uptr(type.size.min)) == -1)
 	{
 		delete table;
 		return nullptr;
-	}
-
-	// Add the table to the compartment.
-	if(compartment)
-	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-
-		if(compartment->tables.size() >= maxTables)
-		{
-			delete table;
-			return nullptr;
-		}
-
-		table->id = compartment->tables.size();
-		compartment->tables.push_back(table);
-		compartment->runtimeData->tableBases[table->id] = table->baseAddress;
 	}
 
 	// Add the table to the global array.
@@ -79,24 +64,62 @@ TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type
 	return table;
 }
 
+TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type)
+{
+	wavmAssert(type.size.min <= UINTPTR_MAX);
+	TableInstance* table = createTableImpl(compartment, type, Uptr(type.size.min));
+	if(!table) { return nullptr; }
+
+	// Add the table to the compartment's tables IndexMap.
+	{
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+
+		table->id = compartment->tables.add(UINTPTR_MAX, table);
+		if(table->id == UINTPTR_MAX)
+		{
+			delete table;
+			return nullptr;
+		}
+		compartment->runtimeData->tableBases[table->id] = table->baseAddress;
+	}
+
+	return table;
+}
+
 TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompartment)
 {
 	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
-	TableInstance* newTable = createTable(newCompartment, table->type);
-	growTable(newTable, table->elements.size());
+
+	TableInstance* newTable = createTableImpl(newCompartment, table->type, table->elements.size());
+	if(!newTable) { return nullptr; }
+
+	newTable->id = table->id;
 	newTable->elements = table->elements;
 	memcpy(newTable->baseAddress,
 		   table->baseAddress,
 		   table->elements.size() * sizeof(TableInstance::FunctionElement));
+
+	// Insert the table in the new compartment's tables array with the same index as it had in the
+	// original compartment's tables IndexMap.
+	{
+		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+
+		newTable->id = table->id;
+		newCompartment->tables.insertOrFail(newTable->id, newTable);
+		newCompartment->runtimeData->tableBases[newTable->id] = newTable->baseAddress;
+	}
+
 	return newTable;
 }
 
 void TableInstance::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+
 	wavmAssert(compartment->tables[id] == this);
+	compartment->tables.removeOrFail(id);
+
 	wavmAssert(compartment->runtimeData->tableBases[id] == baseAddress);
-	compartment->tables[id] = nullptr;
 	compartment->runtimeData->tableBases[id] = nullptr;
 }
 

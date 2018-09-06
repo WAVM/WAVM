@@ -10,7 +10,7 @@ set(PublicHeaders
 	HashMap.h HashMapImpl.h HashMap.natvis
 	HashSet.h HashSetImpl.h HashSet.natvis
 	HashTable.h HashTableImpl.h HashTable.natvis
-	IndexAllocator.h
+	IndexMap.h
 	IntrusiveSharedPtr.h
 	IsNameChar.h
 	Lock.h

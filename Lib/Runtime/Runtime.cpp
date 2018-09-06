@@ -59,7 +59,7 @@ TableInstance* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRunti
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	wavmAssert(tableId < compartment->tables.size());
+	wavmAssert(compartment->tables.contains(tableId));
 	return compartment->tables[tableId];
 }
 

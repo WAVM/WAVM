@@ -92,6 +92,12 @@ template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::remove(const Key& 
 	return table.remove(KeyHashPolicy::getKeyHash(key), key);
 }
 
+template<HASHMAP_PARAMETERS> void HashMap<HASHMAP_ARGUMENTS>::removeOrFail(const Key& key)
+{
+	const bool removed = table.remove(KeyHashPolicy::getKeyHash(key), key);
+	wavmAssert(removed);
+}
+
 template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::contains(const Key& key) const
 {
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);

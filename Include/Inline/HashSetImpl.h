@@ -97,8 +97,8 @@ bool HashSet<Element, ElementHashPolicy>::remove(const Element& element)
 template<typename Element, typename ElementHashPolicy>
 void HashSet<Element, ElementHashPolicy>::removeOrFail(const Element& element)
 {
-    const bool removed = table.remove(ElementHashPolicy::getKeyHash(element), element);
-    wavmAssert(removed);
+	const bool removed = table.remove(ElementHashPolicy::getKeyHash(element), element);
+	wavmAssert(removed);
 }
 
 template<typename Element, typename ElementHashPolicy>

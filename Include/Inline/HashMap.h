@@ -73,6 +73,10 @@ struct HashMap
 	// If the map doesn't contain the key, returns false.
 	bool remove(const Key& key);
 
+	// Assuming the map contains the key, remove it. Asserts if the map didn't contain the key, or
+	// silently does nothing if assertions are disabled.
+	void removeOrFail(const Key& key);
+
 	// Returns true if the map contains the key.
 	bool contains(const Key& key) const;
 

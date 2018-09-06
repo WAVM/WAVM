@@ -20,9 +20,13 @@ Context* Runtime::createContext(Compartment* compartment)
 		Lock<Platform::Mutex> lock(compartment->mutex);
 
 		// Allocate an ID for the context in the compartment.
-		context->id = compartment->contexts.size();
+		context->id = compartment->contexts.add(UINTPTR_MAX,context);
+		if(context->id == UINTPTR_MAX)
+		{
+			delete context;
+			return nullptr;
+		}
 		context->runtimeData = &compartment->runtimeData->contexts[context->id];
-		compartment->contexts.push_back(context);
 
 		// Commit the page(s) for the context's runtime data.
 		errorUnless(Platform::commitVirtualPages(
@@ -40,7 +44,7 @@ Context* Runtime::createContext(Compartment* compartment)
 void Runtime::Context::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	compartment->contexts[id] = nullptr;
+	compartment->contexts.removeOrFail(id);
 }
 
 Compartment* Runtime::getCompartmentFromContext(Context* context) { return context->compartment; }

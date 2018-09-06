@@ -56,6 +56,12 @@ void Runtime::GlobalInstance::finalize()
 {
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 	compartment->globals.removeOrFail(this);
+	if(type.isMutable)
+	{
+		wavmAssert(mutableGlobalId < maxMutableGlobals);
+		wavmAssert(compartment->globalDataAllocationMask.contains(mutableGlobalId));
+		compartment->globalDataAllocationMask.remove(mutableGlobalId);
+	}
 }
 
 Value Runtime::getGlobalValue(Context* context, GlobalInstance* global)

@@ -13,7 +13,7 @@
 #include "Inline/Errors.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
-#include "Inline/IndexAllocator.h"
+#include "Inline/IndexMap.h"
 #include "Inline/Lock.h"
 #include "Inline/Serialization.h"
 #include "Logging/Logging.h"
@@ -40,8 +40,8 @@ namespace Wavix
 
 static ConcurrentHashMap<I32, Process*> pidToProcessMap;
 
-static Platform::Mutex pidAllocatorMutex;
-static IndexAllocator<I32, INT32_MAX> pidAllocator;
+static Platform::Mutex processesMutex;
+static IndexMap<I32, Process*> processes(1, INT32_MAX);
 
 struct RootResolver : Resolver
 {
@@ -244,14 +244,15 @@ Process* Wavix::spawnProcess(Process* parent,
 	}
 
 	// Initialize the process's standard IO file descriptors.
-	process->files.push_back(Platform::getStdFile(Platform::StdDevice::in));
-	process->files.push_back(Platform::getStdFile(Platform::StdDevice::out));
-	process->files.push_back(Platform::getStdFile(Platform::StdDevice::err));
+	process->files.insertOrFail(0, Platform::getStdFile(Platform::StdDevice::in));
+	process->files.insertOrFail(1, Platform::getStdFile(Platform::StdDevice::out));
+	process->files.insertOrFail(2, Platform::getStdFile(Platform::StdDevice::err));
 
 	// Allocate a PID for the process.
 	{
-		Lock<Platform::Mutex> pidAllocatorLock(pidAllocatorMutex);
-		process->id = pidAllocator.alloc();
+		Lock<Platform::Mutex> processesLock(processesMutex);
+		process->id = processes.add(-1, process);
+		if(process->id == -1) { return nullptr; }
 	}
 
 	// Add the process to the PID->process hash table.
@@ -344,13 +345,13 @@ DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(wavix,
 	{
 		Lock<Platform::Mutex> filesLock(originalProcess->filesMutex);
 		newProcess->files = originalProcess->files;
-		newProcess->filesAllocator = originalProcess->filesAllocator;
 	}
 
 	// Allocate a PID for the new process.
 	{
-		Lock<Platform::Mutex> pidAllocatorLock(pidAllocatorMutex);
-		newProcess->id = pidAllocator.alloc();
+		Lock<Platform::Mutex> processesLock(processesMutex);
+		newProcess->id = processes.add(-1, newProcess);
+		if(newProcess->id == -1) { return nullptr; }
 	}
 
 	// Add the process to the PID->process hash table.

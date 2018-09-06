@@ -5,6 +5,7 @@
 #include "Inline/DenseStaticIntSet.h"
 #include "Inline/HashMap.h"
 #include "Inline/HashSet.h"
+#include "Inline/IndexMap.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
@@ -71,10 +72,10 @@ namespace Runtime
 			void* value;
 		};
 
-		Compartment* compartment;
+		Compartment* const compartment;
 		Uptr id;
 
-		IR::TableType type;
+		const IR::TableType type;
 
 		FunctionElement* baseAddress;
 		Uptr endOffset;
@@ -99,7 +100,7 @@ namespace Runtime
 	// An instance of a WebAssembly Memory.
 	struct MemoryInstance : ObjectImpl
 	{
-		Compartment* compartment;
+		Compartment* const compartment;
 		Uptr id;
 
 		IR::MemoryType type;
@@ -279,11 +280,11 @@ namespace Runtime
 		U8* unalignedRuntimeData;
 
 		// These are weak references that aren't followed by the garbage collector.
-		// If the referenced object is deleted, it will null the reference here.
+		// If the referenced object is deleted, it will remove the reference here.
 		HashSet<GlobalInstance*> globals;
-		std::vector<MemoryInstance*> memories;
-		std::vector<TableInstance*> tables;
-		std::vector<Context*> contexts;
+		IndexMap<Uptr, MemoryInstance*> memories;
+		IndexMap<Uptr, TableInstance*> tables;
+		IndexMap<Uptr, Context*> contexts;
 
 		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
 
