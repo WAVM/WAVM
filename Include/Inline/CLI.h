@@ -59,7 +59,6 @@ inline bool saveFile(const char* filename, const void* fileBytes, Uptr numFileBy
 inline void reportParseErrors(const char* filename, const std::vector<WAST::Error>& parseErrors)
 {
 	// Print any parse errors.
-	Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
 	for(auto& error : parseErrors)
 	{
 		Log::printf(Log::error,
@@ -86,6 +85,7 @@ inline bool loadTextModuleFromFile(const char* filename, IR::Module& outModule)
 	{ return true; }
 	else
 	{
+		Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
 		reportParseErrors(filename, parseErrors);
 		return false;
 	}

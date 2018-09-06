@@ -606,6 +606,7 @@ int main(int argc, char** argv)
 	if(testScriptState->errors.size())
 	{
 		// Print any errors;
+		Log::printf(Log::error, "Error running test script:\n");
 		reportParseErrors(filename, testScriptState->errors);
 
 		Log::printf(Log::error, "%s: testing failed!\n", filename);
