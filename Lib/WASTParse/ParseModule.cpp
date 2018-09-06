@@ -234,7 +234,7 @@ static void parseImport(CursorState* cursor)
 												  cursor->moduleState->functionNameToIndexMap,
 												  cursor->moduleState->module.functions,
 												  cursor->moduleState->disassemblyNames.functions,
-												  {UINT32_MAX});
+												  {UINTPTR_MAX});
 			cursor->moduleState->disassemblyNames.functions.back().locals = localDissassemblyNames;
 
 			// Resolve the function import type after all type declarations have been parsed.
@@ -386,8 +386,7 @@ static void parseType(CursorState* cursor)
 		FunctionType functionType
 			= parseFunctionType(cursor, parameterNameToIndexMap, localDisassemblyNames);
 
-		errorUnless(cursor->moduleState->module.types.size() < UINT32_MAX);
-		const U32 functionTypeIndex = U32(cursor->moduleState->module.types.size());
+		const Uptr functionTypeIndex = cursor->moduleState->module.types.size();
 		cursor->moduleState->module.types.push_back(functionType);
 		cursor->moduleState->functionTypeToIndexMap.set(functionType, functionTypeIndex);
 
@@ -616,7 +615,7 @@ static void parseFunc(CursorState* cursor)
 					moduleState->module.functions.imports[importIndex].type
 						= resolveFunctionType(moduleState, unresolvedFunctionType);
 				});
-			return IndexedFunctionType{UINT32_MAX};
+			return IndexedFunctionType{UINTPTR_MAX};
 		},
 		parseFunctionDef);
 }
@@ -657,9 +656,8 @@ static void parseTable(CursorState* cursor)
 					require(cursor, t_elem);
 
 					const Uptr tableIndex = cursor->moduleState->module.tables.size();
-					errorUnless(tableIndex < UINT32_MAX);
 					const Uptr numElements = parseElemSegmentBody(cursor,
-																  Reference(U32(tableIndex)),
+																  Reference(tableIndex),
 																  InitializerExpression((I32)0),
 																  cursor->nextToken - 1);
 					sizeConstraints.min = sizeConstraints.max = numElements;

@@ -328,6 +328,11 @@ bool WAST::tryParseI64(CursorState* cursor, U64& outI64)
 	return tryParseInt<U64>(cursor, outI64, INT64_MIN, UINT64_MAX);
 }
 
+bool WAST::tryParseIptr(CursorState* cursor, Uptr& outIptr)
+{
+	return tryParseInt<U64>(cursor, outIptr, INTPTR_MIN, UINTPTR_MAX);
+}
+
 U8 WAST::parseI8(CursorState* cursor)
 {
 	U32 result;
@@ -367,6 +372,17 @@ U64 WAST::parseI64(CursorState* cursor)
 	if(!tryParseI64(cursor, result))
 	{
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected i64 literal");
+		throw RecoverParseException();
+	}
+	return result;
+}
+
+Uptr WAST::parseIptr(CursorState* cursor)
+{
+	Uptr result;
+	if(!tryParseIptr(cursor, result))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected integer literal");
 		throw RecoverParseException();
 	}
 	return result;

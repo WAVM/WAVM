@@ -394,7 +394,7 @@ struct FunctionPrintContext
 			numTargetsPerLine = 16
 		};
 		wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
-		const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
 			if(targetIndex % numTargetsPerLine == 0) { string += '\n'; }

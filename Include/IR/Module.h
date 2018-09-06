@@ -85,7 +85,7 @@ namespace IR
 		IndexedFunctionType type;
 		std::vector<ValueType> nonParameterLocalTypes;
 		std::vector<U8> code;
-		std::vector<std::vector<U32>> branchTables;
+		std::vector<std::vector<Uptr>> branchTables;
 	};
 
 	// A table definition

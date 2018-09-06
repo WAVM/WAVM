@@ -31,7 +31,7 @@ namespace IR
 
 	struct BranchImm
 	{
-		U32 targetDepth;
+		Uptr targetDepth;
 	};
 
 	struct BranchTableImm
@@ -49,12 +49,12 @@ namespace IR
 
 	template<bool isGlobal> struct GetOrSetVariableImm
 	{
-		U32 variableIndex;
+		Uptr variableIndex;
 	};
 
 	struct CallImm
 	{
-		U32 functionIndex;
+		Uptr functionIndex;
 	};
 
 	struct CallIndirectImm
@@ -86,11 +86,11 @@ namespace IR
 
 	struct ExceptionTypeImm
 	{
-		U32 exceptionTypeIndex;
+		Uptr exceptionTypeIndex;
 	};
 	struct RethrowImm
 	{
-		U32 catchDepth;
+		Uptr catchDepth;
 	};
 
 	enum class Opcode : U16

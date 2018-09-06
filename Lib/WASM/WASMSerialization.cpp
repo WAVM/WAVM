@@ -320,8 +320,8 @@ template<typename Stream> void serialize(Stream& stream, BranchImm& imm, const F
 
 static void serialize(InputStream& stream, BranchTableImm& imm, FunctionDef& functionDef)
 {
-	std::vector<U32> branchTable;
-	serializeArray(stream, branchTable, [](InputStream& stream, U32& targetDepth) {
+	std::vector<Uptr> branchTable;
+	serializeArray(stream, branchTable, [](InputStream& stream, Uptr& targetDepth) {
 		serializeVarUInt32(stream, targetDepth);
 	});
 	imm.branchTableIndex = functionDef.branchTables.size();
@@ -331,8 +331,8 @@ static void serialize(InputStream& stream, BranchTableImm& imm, FunctionDef& fun
 static void serialize(OutputStream& stream, BranchTableImm& imm, FunctionDef& functionDef)
 {
 	wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
-	std::vector<U32>& branchTable = functionDef.branchTables[imm.branchTableIndex];
-	serializeArray(stream, branchTable, [](OutputStream& stream, U32& targetDepth) {
+	std::vector<Uptr>& branchTable = functionDef.branchTables[imm.branchTableIndex];
+	serializeArray(stream, branchTable, [](OutputStream& stream, Uptr& targetDepth) {
 		serializeVarUInt32(stream, targetDepth);
 	});
 	serializeVarUInt32(stream, imm.defaultTargetDepth);
