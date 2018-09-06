@@ -216,7 +216,7 @@ void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
 	Lock<Platform::Mutex> lock(getErrorReportingMutex());
 	std::vfprintf(stderr, messageFormat, varArgs);
 	std::fflush(stderr);
-	std::abort();
+	TerminateProcess(GetCurrentProcess(), 1);
 }
 
 void Platform::handleAssertionFailure(const AssertMetadata& metadata)
