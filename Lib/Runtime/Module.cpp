@@ -283,16 +283,16 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	// Load the compiled module's object code with this module instance's imports.
 	std::vector<LLVMJIT::JITFunction*> jitFunctionDefs;
 	moduleInstance->jitModule = LLVMJIT::loadModule(module->objectFileBytes,
-													wavmIntrinsicsExportMap,
-													jitFunctionImports,
-													module->functions.defs.size(),
-													jitTables,
-													jitMemories,
-													jitGlobals,
-													jitExceptionTypes,
+													std::move(wavmIntrinsicsExportMap),
+													std::move(jitFunctionImports),
+													std::move(jitTables),
+													std::move(jitMemories),
+													std::move(jitGlobals),
+													std::move(jitExceptionTypes),
 													jitDefaultMemory,
 													jitDefaultTable,
 													moduleInstance,
+													module->functions.defs.size(),
 													jitFunctionDefs);
 
 	// Create the FunctionInstance objects for the module's function definitions.

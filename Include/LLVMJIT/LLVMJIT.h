@@ -97,16 +97,16 @@ namespace LLVMJIT
 	// Loads a module from object code, and binds its undefined symbols to the provided bindings.
 	LLVMJIT_API LoadedModule* loadModule(
 		const std::vector<U8>& objectFileBytes,
-		HashMap<std::string, FunctionBinding> wavmIntrinsicsExportMap,
-		std::vector<FunctionBinding> functionImports,
-		Uptr numFunctionDefs,
-		std::vector<TableBinding> tableIds,
-		std::vector<MemoryBinding> memoryIds,
-		std::vector<GlobalBinding> globals,
-		std::vector<Runtime::ExceptionTypeInstance*> exceptionTypes,
+		HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
+		std::vector<FunctionBinding>&& functionImports,
+		std::vector<TableBinding>&& tables,
+		std::vector<MemoryBinding>&& memories,
+		std::vector<GlobalBinding>&& globals,
+		std::vector<Runtime::ExceptionTypeInstance*>&& exceptionTypes,
 		MemoryBinding defaultMemory,
 		TableBinding defaultTable,
 		Runtime::ModuleInstance* moduleInstance,
+		Uptr numFunctionDefs,
 		std::vector<JITFunction*>& outFunctionDefs);
 
 	// Unloads a JIT module, freeings its memory.

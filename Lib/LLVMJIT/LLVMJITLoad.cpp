@@ -492,16 +492,16 @@ LLVMJIT::LoadedModule::~LoadedModule()
 }
 
 LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
-								  HashMap<std::string, FunctionBinding> wavmIntrinsicsExportMap,
-								  std::vector<FunctionBinding> functionImports,
-								  Uptr numFunctionDefs,
-								  std::vector<TableBinding> tables,
-								  std::vector<MemoryBinding> memories,
-								  std::vector<GlobalBinding> globals,
-								  std::vector<Runtime::ExceptionTypeInstance*> exceptionTypes,
+								  HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
+								  std::vector<FunctionBinding>&& functionImports,
+								  std::vector<TableBinding>&& tables,
+								  std::vector<MemoryBinding>&& memories,
+								  std::vector<GlobalBinding>&& globals,
+								  std::vector<Runtime::ExceptionTypeInstance*>&& exceptionTypes,
 								  MemoryBinding defaultMemory,
 								  TableBinding defaultTable,
 								  ModuleInstance* moduleInstance,
+								  Uptr numFunctionDefs,
 								  std::vector<JITFunction*>& outFunctionDefs)
 {
 	// Bind undefined symbols in the compiled object to values.
