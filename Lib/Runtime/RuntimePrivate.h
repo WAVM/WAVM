@@ -227,7 +227,7 @@ namespace Runtime
 		TableInstance* defaultTable;
 
 		Platform::Mutex passiveDataSegmentsMutex;
-		HashMap<Uptr, std::vector<U8>> passiveDataSegments;
+		HashMap<Uptr, std::shared_ptr<std::vector<U8>>> passiveDataSegments;
 
 		Platform::Mutex passiveTableSegmentsMutex;
 		HashMap<Uptr, std::vector<Uptr>> passiveTableSegments;

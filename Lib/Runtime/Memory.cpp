@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <atomic>
+#include <memory>
 #include <vector>
 
 #include "IR/IR.h"
@@ -276,17 +277,20 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	{ throwException(Exception::invalidArgumentType); }
 	else
 	{
-		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
-
-		const std::vector<U8>& passiveDataSegmentBytes
+		// Copy the passive data segment shared_ptr, and unlock the mutex. It's important to
+		// explicitly unlock the mutex before calling memcpy, as memcpy might trigger a signal that
+		// will unwind the stack without calling the Lock destructor.
+		std::shared_ptr<std::vector<U8>> passiveDataSegmentBytes
 			= moduleInstance->passiveDataSegments[dataSegmentIndex];
+		passiveDataSegmentsLock.unlock();
 
+		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 		U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
 
-		if(U64(sourceOffset) + U64(numBytes) > passiveDataSegmentBytes.size())
+		if(U64(sourceOffset) + U64(numBytes) > passiveDataSegmentBytes->size())
 		{ throwException(Exception::accessViolationType); }
 
-		memcpy(destPointer, passiveDataSegmentBytes.data() + sourceOffset, numBytes);
+		memcpy(destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
 	}
 }
 

@@ -1,5 +1,6 @@
 #include <string.h>
 #include <atomic>
+#include <memory>
 #include <utility>
 
 #include "IR/IR.h"
@@ -376,7 +377,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		const DataSegment& dataSegment = module->dataSegments[segmentIndex];
 		if(!dataSegment.isActive)
-		{ moduleInstance->passiveDataSegments.add(segmentIndex, dataSegment.data); }
+		{
+			moduleInstance->passiveDataSegments.add(
+				segmentIndex, std::make_shared<std::vector<U8>>(dataSegment.data));
+		}
 	}
 	for(Uptr segmentIndex = 0; segmentIndex < module->tableSegments.size(); ++segmentIndex)
 	{
