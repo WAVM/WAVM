@@ -1,11 +1,9 @@
 ;; passive data segments and data segment encoding
 
+(module (data passive "test"))
+
 (assert_invalid
-	(module (data passive "test"))
-	"data segment without memory"
-)
-(assert_invalid
-	(module (memory $m 1) (data passive (i32.const 0) "test"))
+	(module (data passive (i32.const 0) "test"))
 	"unexpected expression"
 )
 
@@ -453,10 +451,7 @@
 
 ;; passive elem segments
 
-(assert_invalid
-	(module (elem passive $f) (func $f))
-	"elem segment without table"
-)
+(module (elem passive $f) (func $f))
 (assert_invalid
 	(module (table $t 1) (elem passive (i32.const 0) $f) (func $f))
 	"unexpected expression"

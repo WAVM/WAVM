@@ -443,7 +443,7 @@ static void parseData(CursorState* cursor)
 	// Enqueue a callback that is called after all declarations are parsed to resolve the memory to
 	// put the data segment in.
 	cursor->moduleState->postDeclarationCallbacks.push_back([=](ModuleState* moduleState) {
-		if(!moduleState->module.memories.size())
+		if(isActive && !moduleState->module.memories.size())
 		{
 			parseErrorf(moduleState->parseState,
 						firstToken,
@@ -483,8 +483,9 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table
 	// elements' references.
 	cursor->moduleState->postDeclarationCallbacks.push_back(
-		[tableRef, tableSegmentIndex, elementReferences, elemToken](ModuleState* moduleState) {
-			if(!moduleState->module.tables.size())
+		[isActive, tableRef, tableSegmentIndex, elementReferences, elemToken](
+			ModuleState* moduleState) {
+			if(isActive && !moduleState->module.tables.size())
 			{
 				parseErrorf(
 					moduleState->parseState,
