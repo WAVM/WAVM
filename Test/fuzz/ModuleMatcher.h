@@ -35,9 +35,11 @@ struct ModuleMatcher
 		{
 			const TableSegment& segment = aModule.tableSegments[segmentIndex];
 			const TableSegment& wastSegment = bModule.tableSegments[segmentIndex];
-			if(segment.tableIndex != wastSegment.tableIndex
-			   || segment.baseOffset != wastSegment.baseOffset
-			   || segment.indices != wastSegment.indices)
+			if(segment.isActive != wastSegment.isActive) { failVerification(); }
+			if(segment.isActive
+			   && (segment.tableIndex != wastSegment.tableIndex
+				   || segment.baseOffset != wastSegment.baseOffset
+				   || segment.indices != wastSegment.indices))
 			{ failVerification(); }
 		}
 	}
