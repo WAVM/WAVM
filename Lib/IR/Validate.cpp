@@ -37,9 +37,22 @@ using namespace IR;
 	if(!module.featureSpec.feature)                                                                \
 	{ throw ValidationException(context " requires " #feature " feature"); }
 
-static void validate(ValueType valueType)
+static void validate(const IR::FeatureSpec& featureSpec, IR::ValueType valueType)
 {
-	if(valueType == ValueType::any || valueType > ValueType::max)
+	bool isValid;
+	switch(valueType)
+	{
+	case ValueType::i32:
+	case ValueType::i64:
+	case ValueType::f32:
+	case ValueType::f64: isValid = featureSpec.mvp; break;
+	case ValueType::v128: isValid = featureSpec.simd; break;
+	case ValueType::anyref:
+	case ValueType::anyfunc: isValid = featureSpec.referenceTypes; break;
+	default: isValid = false;
+	};
+
+	if(!isValid)
 	{ throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")"); }
 }
 
@@ -50,18 +63,23 @@ static void validate(SizeConstraints size, U64 maxMax)
 	VALIDATE_UNLESS("maximum size exceeds limit: ", max > maxMax);
 }
 
-static void validate(ReferenceType type)
+static void validate(const IR::FeatureSpec& featureSpec, ReferenceType type)
 {
-	if(type != ReferenceType::anyfunc && type != ReferenceType::anyref)
+	bool isValid;
+	switch(type)
 	{
-		throw ValidationException("invalid table element type (" + std::to_string((Uptr)type)
-								  + ")");
+	case ReferenceType::anyfunc: isValid = featureSpec.mvp; break;
+	case ReferenceType::anyref: isValid = featureSpec.referenceTypes; break;
+	default: isValid = false;
 	}
+
+	if(!isValid)
+	{ throw ValidationException("invalid reference type (" + std::to_string((Uptr)type) + ")"); }
 }
 
 static void validate(const Module& module, TableType type)
 {
-	validate(type.elementType);
+	validate(module.featureSpec, type.elementType);
 	validate(type.size, IR::maxTableElems);
 	if(type.isShared)
 	{
@@ -80,11 +98,14 @@ static void validate(const Module& module, MemoryType type)
 	}
 }
 
-static void validate(GlobalType type) { validate(type.valueType); }
-
-static void validate(TypeTuple typeTuple)
+static void validate(const IR::FeatureSpec& featureSpec, GlobalType type)
 {
-	for(ValueType valueType : typeTuple) { validate(valueType); }
+	validate(featureSpec, type.valueType);
+}
+
+static void validate(const IR::FeatureSpec& featureSpec, TypeTuple typeTuple)
+{
+	for(ValueType valueType : typeTuple) { validate(featureSpec, valueType); }
 }
 
 template<typename Type> void validateType(Type expectedType, Type actualType, const char* context)
@@ -132,7 +153,7 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 	{
 	case IndexedBlockType::noParametersOrResult: return FunctionType();
 	case IndexedBlockType::oneResult:
-		validate(type.resultType);
+		validate(module.featureSpec, type.resultType);
 		return FunctionType(TypeTuple(type.resultType));
 	case IndexedBlockType::functionType:
 	{
@@ -212,7 +233,8 @@ struct FunctionValidationContext
 	, functionType(inModule.types[inFunctionDef.type.index])
 	{
 		// Validate the function's local types.
-		for(auto localType : functionDef.nonParameterLocalTypes) { validate(localType); }
+		for(auto localType : functionDef.nonParameterLocalTypes)
+		{ validate(module.featureSpec, localType); }
 
 		// Initialize the local types.
 		locals.reserve(functionType.params().size() + functionDef.nonParameterLocalTypes.size());
@@ -767,8 +789,8 @@ void IR::validateTypes(const Module& module)
 		// number of return values here, since they don't apply to block types that are also stored
 		// here. Instead, uses of a function type from the types array must call
 		// validateFunctionType to validate its use as a function type.
-		validate(functionType.params());
-		validate(functionType.results());
+		validate(module.featureSpec, functionType.params());
+		validate(module.featureSpec, functionType.results());
 
 		if(functionType.results().size() > 1 && !module.featureSpec.multipleResultsAndBlockParams)
 		{
@@ -787,12 +809,12 @@ void IR::validateImports(const Module& module)
 	for(auto& memoryImport : module.memories.imports) { validate(module, memoryImport.type); }
 	for(auto& globalImport : module.globals.imports)
 	{
-		validate(globalImport.type);
+		validate(module.featureSpec, globalImport.type);
 		if(!module.featureSpec.importExportMutableGlobals)
 		{ VALIDATE_UNLESS("mutable globals cannot be imported: ", globalImport.type.isMutable); }
 	}
 	for(auto& exceptionTypeImport : module.exceptionTypes.imports)
-	{ validate(exceptionTypeImport.type.params); }
+	{ validate(module.featureSpec, exceptionTypeImport.type.params); }
 
 	VALIDATE_UNLESS("too many tables: ",
 					!module.featureSpec.referenceTypes && module.tables.size() > 1);
@@ -813,7 +835,7 @@ void IR::validateGlobalDefs(const Module& module)
 {
 	for(auto& globalDef : module.globals.defs)
 	{
-		validate(globalDef.type);
+		validate(module.featureSpec, globalDef.type);
 		validateInitializer(module,
 							globalDef.initializer,
 							globalDef.type.valueType,
@@ -824,7 +846,7 @@ void IR::validateGlobalDefs(const Module& module)
 void IR::validateExceptionTypeDefs(const Module& module)
 {
 	for(auto& exceptionTypeDef : module.exceptionTypes.defs)
-	{ validate(exceptionTypeDef.type.params); }
+	{ validate(module.featureSpec, exceptionTypeDef.type.params); }
 }
 
 void IR::validateTableDefs(const Module& module)
