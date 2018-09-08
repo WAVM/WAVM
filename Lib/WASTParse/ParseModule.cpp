@@ -490,7 +490,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 				parseErrorf(
 					moduleState->parseState,
 					elemToken,
-					"data segments aren't allowed in modules without any memory declarations");
+					"elem segments aren't allowed in modules without any table declarations");
 			}
 			else
 			{
