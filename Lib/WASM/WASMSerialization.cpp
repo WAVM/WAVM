@@ -304,7 +304,7 @@ static void serialize(OutputStream& stream, SectionType sectionType)
 	case SectionType::elem: serializedSectionId = 9; break;
 	case SectionType::functionDefinitions: serializedSectionId = 10; break;
 	case SectionType::data: serializedSectionId = 11; break;
-	case SectionType::dataDeclarations: serializedSectionId = 12;
+	case SectionType::dataDeclarations: serializedSectionId = 12; break;
 	case SectionType::exceptionTypes: serializedSectionId = 0x7f; break;
 	default: Errors::unreachable();
 	};
@@ -894,7 +894,7 @@ template<typename Stream> void serializeCodeSection(Stream& moduleStream, Module
 template<typename Stream>
 void serializeDataDeclarationsSection(Stream& moduleStream, Module& module)
 {
-	serializeSection(moduleStream, SectionType::data, [&module](Stream& sectionStream) {
+	serializeSection(moduleStream, SectionType::dataDeclarations, [&module](Stream& sectionStream) {
 		serializeArray(
 			sectionStream, module.dataSegments, [](Stream& stream, DataSegment& dataSegment) {
 				U8 segmentType = dataSegment.isActive ? 0 : 1;
