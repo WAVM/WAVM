@@ -217,15 +217,13 @@ namespace IR
 		}
 		else
 		{
-			U8 flags = tableSegment.isActive ? 0 : 1;
-			serializeNativeValue(stream, flags);
-
-			if(tableSegment.isActive)
+			if(!tableSegment.isActive) { serializeConstant<U8>(stream, "", 1); }
+			else
 			{
-				if(tableSegment.tableIndex == 0) { serializeConstant(stream, "", 0); }
+				if(tableSegment.tableIndex == 0) { serializeConstant<U8>(stream, "", 0); }
 				else
 				{
-					serializeConstant(stream, "", 2);
+					serializeConstant<U8>(stream, "", 2);
 					serializeVarUInt32(stream, tableSegment.tableIndex);
 				}
 				serialize(stream, tableSegment.baseOffset);
