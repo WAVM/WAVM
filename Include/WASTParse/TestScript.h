@@ -62,7 +62,8 @@ namespace WAST
 		calledUnimplementedIntrinsic,
 		outOfMemory,
 		invalidSegmentOffset,
-		misalignedAtomicMemoryAccess
+		misalignedAtomicMemoryAccess,
+		invalidArgument
 	};
 
 	struct Action

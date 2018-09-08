@@ -18,7 +18,7 @@ using namespace Runtime;
 
 GlobalInstance* Runtime::createGlobal(Compartment* compartment, GlobalType type, Value initialValue)
 {
-	wavmAssert(initialValue.type == type.valueType);
+	wavmAssert(isSubtype(initialValue.type, type.valueType));
 
 	U32 mutableGlobalId = UINT32_MAX;
 	if(type.isMutable)

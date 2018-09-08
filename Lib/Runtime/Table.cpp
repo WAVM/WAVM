@@ -42,7 +42,7 @@ static TableInstance* createTableImpl(Compartment* compartment,
 
 	table->baseAddress = (TableInstance::FunctionElement*)Platform::allocateVirtualPages(
 		tableMaxPages + numGuardPages);
-	table->endOffset = tableMaxBytes;
+	table->numReservedBytes = tableMaxBytes;
 	if(!table->baseAddress)
 	{
 		delete table;
@@ -135,9 +135,10 @@ TableInstance::~TableInstance()
 
 	// Free the virtual address space.
 	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
-	if(endOffset > 0)
+	if(numReservedBytes > 0)
 	{
-		Platform::freeVirtualPages((U8*)baseAddress, (endOffset >> pageBytesLog2) + numGuardPages);
+		Platform::freeVirtualPages((U8*)baseAddress,
+								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
 	}
 	baseAddress = nullptr;
 
@@ -163,7 +164,7 @@ bool Runtime::isAddressOwnedByTable(U8* address)
 	for(auto table : tables)
 	{
 		U8* startAddress = (U8*)table->baseAddress;
-		U8* endAddress = ((U8*)table->baseAddress) + table->endOffset;
+		U8* endAddress = ((U8*)table->baseAddress) + table->numReservedBytes;
 		if(address >= startAddress && address < endAddress) { return true; }
 	}
 	return false;
@@ -300,4 +301,134 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 		}
 	}
 	return previousNumElements;
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.get",
+						  IR::AnyReferee*,
+						  table_get,
+						  U32 index,
+						  Uptr tableId)
+{
+	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
+	if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
+	return (IR::AnyReferee*)table->elements[index];
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.set",
+						  void,
+						  table_set,
+						  U32 index,
+						  IR::AnyReferee* value,
+						  Uptr tableId)
+{
+	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
+	if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
+	table->elements[index] = (Object*)value;
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.init",
+						  void,
+						  table_init,
+						  U32 destOffset,
+						  U32 sourceOffset,
+						  U32 numElements,
+						  Uptr moduleInstanceBits,
+						  Uptr tableId,
+						  Uptr elemSegmentIndex)
+{
+	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	Lock<Platform::Mutex> passiveTableSegmentsLock(moduleInstance->passiveTableSegmentsMutex);
+
+	if(!moduleInstance->passiveTableSegments.contains(elemSegmentIndex))
+	{ throwException(Exception::invalidArgumentType); }
+	else
+	{
+		TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+
+		const std::vector<Uptr>& passiveTableSegmentIndices
+			= moduleInstance->passiveTableSegments[elemSegmentIndex];
+
+		for(Uptr index = 0; index < numElements; ++index)
+		{
+			const U64 sourceIndex = U64(sourceOffset) + index;
+			const U64 destIndex = U64(destOffset) + index;
+			if(sourceIndex >= passiveTableSegmentIndices.size()
+			   || destIndex >= table->elements.size())
+			{ throwException(Exception::accessViolationType); }
+
+			const Uptr functionIndex = passiveTableSegmentIndices[sourceIndex];
+			setTableElement(table,
+							Uptr(destIndex),
+							moduleInstance->functions[functionIndex],
+							moduleInstance->defaultMemory,
+							moduleInstance->defaultTable);
+		}
+	}
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.drop",
+						  void,
+						  table_drop,
+						  Uptr moduleInstanceBits,
+						  Uptr elemSegmentIndex)
+{
+	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	Lock<Platform::Mutex> passiveTableSegmentsLock(moduleInstance->passiveTableSegmentsMutex);
+
+	if(!moduleInstance->passiveTableSegments.contains(elemSegmentIndex))
+	{ throwException(Exception::invalidArgumentType); }
+	else
+	{
+		moduleInstance->passiveTableSegments.removeOrFail(elemSegmentIndex);
+	}
+}
+
+static void copyTableElement(TableInstance* table, U64 destIndex, U64 sourceIndex)
+{
+	if(destIndex >= table->elements.size() || sourceIndex >= table->elements.size())
+	{ throwException(Exception::accessViolationType); }
+
+	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
+	// speculate past the outside bounds check.
+	sourceIndex = Platform::saturateToBounds(sourceIndex, U64(table->elements.size()));
+	destIndex = Platform::saturateToBounds(destIndex, U64(table->elements.size()));
+
+	table->baseAddress[destIndex].typeEncoding = table->baseAddress[sourceIndex].typeEncoding;
+	table->baseAddress[destIndex].value = table->baseAddress[sourceIndex].value;
+	table->elements[destIndex] = table->elements[sourceIndex];
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.copy",
+						  void,
+						  table_copy,
+						  U32 destOffset,
+						  U32 sourceOffset,
+						  U32 numElements,
+						  Uptr tableId)
+{
+	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
+
+	if(sourceOffset != destOffset)
+	{
+		const Uptr numNonOverlappingElements
+			= sourceOffset < destOffset && U64(sourceOffset) + U64(numElements) > destOffset
+				  ? destOffset - sourceOffset
+				  : numElements;
+
+		// If the end of the source overlaps the beginning of the destination, copy those elements
+		// before they are overwritten by the second part of the copy below.
+		for(Uptr index = numNonOverlappingElements; index < numElements; ++index)
+		{ copyTableElement(table, U64(destOffset) + U64(index), U64(sourceOffset) + U64(index)); }
+
+		for(Uptr index = 0; index < numNonOverlappingElements; ++index)
+		{ copyTableElement(table, U64(destOffset) + U64(index), U64(sourceOffset) + U64(index)); }
+	}
 }

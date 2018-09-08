@@ -2,7 +2,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND ENABLE_LIBFUZZER)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=fuzzer")
 endif()
 
-add_executable(FuzzWAST FuzzWAST.cpp)
+add_executable(FuzzWAST FuzzWAST.cpp wastFuzzDictionary.txt)
 target_link_libraries(FuzzWAST Logging IR WASTParse)
 set_target_properties(FuzzWAST PROPERTIES FOLDER Testing/Fuzzers)
 

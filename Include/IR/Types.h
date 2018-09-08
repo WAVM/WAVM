@@ -25,9 +25,52 @@ namespace IR
 		f32 = 3,
 		f64 = 4,
 		v128 = 5,
+		anyref = 6,
+		anyfunc = 7,
+		nullref = 8,
 
 		num,
 		max = num - 1
+	};
+
+	// The reference types subset of ValueType.
+	enum class ReferenceType : U8
+	{
+		invalid = 0,
+
+		anyref = 6,
+		anyfunc = 7,
+	};
+
+	inline ValueType asValueType(ReferenceType type) { return ValueType(type); }
+
+	inline bool isReferenceType(ValueType type)
+	{
+		return type == ValueType::anyref || type == ValueType::anyfunc
+			   || type == ValueType::nullref;
+	}
+
+	inline bool isSubtype(ValueType subtype, ValueType supertype)
+	{
+		if(subtype == supertype) { return true; }
+		else
+		{
+			switch(supertype)
+			{
+			case ValueType::any: return true;
+			case ValueType::anyref:
+				return subtype == ValueType::anyfunc || subtype == ValueType::nullref;
+			case ValueType::anyfunc: return subtype == ValueType::nullref;
+			default: return false;
+			}
+		}
+	}
+
+	struct AnyReferee
+	{
+	};
+	struct AnyFunc : AnyReferee
+	{
 	};
 
 	template<ValueType type> struct ValueTypeInfo;
@@ -46,6 +89,22 @@ namespace IR
 	template<> struct ValueTypeInfo<ValueType::f64>
 	{
 		typedef F64 Value;
+	};
+	template<> struct ValueTypeInfo<ValueType::v128>
+	{
+		typedef V128 Value;
+	};
+	template<> struct ValueTypeInfo<ValueType::anyref>
+	{
+		typedef AnyReferee* Value;
+	};
+	template<> struct ValueTypeInfo<ValueType::anyfunc>
+	{
+		typedef AnyReferee* Value;
+	};
+	template<> struct ValueTypeInfo<ValueType::nullref>
+	{
+		typedef AnyReferee* Value;
 	};
 
 	inline std::string asString(I32 value) { return std::to_string(value); }
@@ -68,10 +127,14 @@ namespace IR
 		return std::string(buffer);
 	}
 
-	template<> struct ValueTypeInfo<ValueType::v128>
+	inline std::string asString(AnyReferee* referee)
 	{
-		typedef V128 Value;
-	};
+		// buffer needs 19 characters:
+		// 0xHHHHHHHHHHHHHHHH\0
+		char buffer[19];
+		snprintf(buffer, sizeof(buffer), "0x%.16" PRIxPTR, reinterpret_cast<Uptr>(referee));
+		return std::string(buffer);
+	}
 
 	inline U8 getTypeByteWidth(ValueType type)
 	{
@@ -82,6 +145,9 @@ namespace IR
 		case ValueType::f32: return 4;
 		case ValueType::f64: return 8;
 		case ValueType::v128: return 16;
+		case ValueType::anyref:
+		case ValueType::anyfunc:
+		case ValueType::nullref: return 8;
 		default: Errors::unreachable();
 		};
 	}
@@ -98,6 +164,9 @@ namespace IR
 		case ValueType::f32: return "f32";
 		case ValueType::f64: return "f64";
 		case ValueType::v128: return "v128";
+		case ValueType::anyref: return "anyref";
+		case ValueType::anyfunc: return "anyfunc";
+		case ValueType::nullref: return "nullref";
 		default: Errors::unreachable();
 		};
 	}
@@ -180,6 +249,7 @@ namespace IR
 	template<> constexpr ValueType inferValueType<U64>() { return ValueType::i64; }
 	template<> constexpr ValueType inferValueType<F32>() { return ValueType::f32; }
 	template<> constexpr ValueType inferValueType<F64>() { return ValueType::f64; }
+	template<> constexpr ValueType inferValueType<AnyReferee*>() { return ValueType::anyref; }
 
 	template<typename T> inline TypeTuple inferResultType()
 	{
@@ -289,23 +359,15 @@ namespace IR
 													: ".." + std::to_string(sizeConstraints.max));
 	}
 
-	// The type of element a table contains: for now can only be anyfunc, meaning any function type.
-	enum class TableElementType : U8
-	{
-		anyfunc = 0x70
-	};
-
 	// The type of a table
 	struct TableType
 	{
-		TableElementType elementType;
+		ReferenceType elementType;
 		bool isShared;
 		SizeConstraints size;
 
-		TableType() : elementType(TableElementType::anyfunc), isShared(false), size({0, UINT64_MAX})
-		{
-		}
-		TableType(TableElementType inElementType, bool inIsShared, SizeConstraints inSize)
+		TableType() : elementType(ReferenceType::invalid) {}
+		TableType(ReferenceType inElementType, bool inIsShared, SizeConstraints inSize)
 		: elementType(inElementType), isShared(inIsShared), size(inSize)
 		{
 		}

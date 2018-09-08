@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <atomic>
+#include <memory>
 #include <vector>
 
 #include "IR/IR.h"
@@ -45,7 +46,7 @@ static MemoryInstance* createMemoryImpl(Compartment* compartment,
 	const Uptr memoryMaxPages = memoryMaxBytes >> pageBytesLog2;
 
 	memory->baseAddress = Platform::allocateVirtualPages(memoryMaxPages + numGuardPages);
-	memory->endOffset = memoryMaxBytes;
+	memory->numReservedBytes = memoryMaxBytes;
 	if(!memory->baseAddress)
 	{
 		delete memory;
@@ -130,8 +131,11 @@ Runtime::MemoryInstance::~MemoryInstance()
 
 	// Free the virtual address space.
 	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
-	if(endOffset > 0)
-	{ Platform::freeVirtualPages(baseAddress, (endOffset >> pageBytesLog2) + numGuardPages); }
+	if(numReservedBytes > 0)
+	{
+		Platform::freeVirtualPages(baseAddress,
+								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
+	}
 	baseAddress = nullptr;
 
 	// Remove the memory from the global array.
@@ -156,7 +160,7 @@ bool Runtime::isAddressOwnedByMemory(U8* address)
 	for(auto memory : memories)
 	{
 		U8* startAddress = memory->baseAddress;
-		U8* endAddress = memory->baseAddress + memory->endOffset;
+		U8* endAddress = memory->baseAddress + memory->numReservedBytes;
 		if(address >= startAddress && address < endAddress) { return true; }
 	}
 	return false;
@@ -223,13 +227,173 @@ void Runtime::unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numP
 
 U8* Runtime::getMemoryBaseAddress(MemoryInstance* memory) { return memory->baseAddress; }
 
-U8* Runtime::getValidatedMemoryOffsetRange(MemoryInstance* memory, Uptr offset, Uptr numBytes)
+static U8* getValidatedMemoryOffsetRangeImpl(U8* memoryBase,
+											 Uptr memoryNumBytes,
+											 Uptr address,
+											 Uptr numBytes)
 {
+	wavmAssert(memoryBase);
+
+	numBytes = Platform::saturateToBounds(numBytes, memoryNumBytes);
+	U8* pointer = memoryBase + Platform::saturateToBounds(address, memoryNumBytes - numBytes);
+	if(pointer < memoryBase || pointer + numBytes < pointer
+	   || pointer + numBytes > memoryBase + memoryNumBytes)
+	{ throwException(Exception::accessViolationType, {}); }
+	return pointer;
+}
+
+U8* Runtime::getReservedMemoryOffsetRange(MemoryInstance* memory, Uptr address, Uptr numBytes)
+{
+	wavmAssert(memory);
+
 	// Validate that the range [offset..offset+numBytes) is contained by the memory's reserved
 	// pages.
-	U8* address = memory->baseAddress + Platform::saturateToBounds(offset, memory->endOffset);
-	if(!memory || address < memory->baseAddress || address + numBytes < address
-	   || address + numBytes > memory->baseAddress + memory->endOffset)
-	{ throwException(Exception::accessViolationType, {}); }
-	return address;
+	return ::getValidatedMemoryOffsetRangeImpl(
+		memory->baseAddress, memory->numReservedBytes, address, numBytes);
+}
+
+U8* Runtime::getValidatedMemoryOffsetRange(MemoryInstance* memory, Uptr address, Uptr numBytes)
+{
+	wavmAssert(memory);
+
+	// Validate that the range [offset..offset+numBytes) is contained by the memory's committed
+	// pages.
+	return ::getValidatedMemoryOffsetRangeImpl(
+		memory->baseAddress, memory->numPages << IR::numBytesPerPageLog2, address, numBytes);
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.grow",
+						  I32,
+						  memory_grow,
+						  I32 deltaPages,
+						  I64 memoryId)
+{
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+	wavmAssert(memory);
+	if(getMemoryNumPages(memory) + Uptr(deltaPages) > IR::maxMemoryPages) { return -1; }
+	const Iptr numPreviousMemoryPages = growMemory(memory, (Uptr)deltaPages);
+	wavmAssert(numPreviousMemoryPages < INT32_MAX);
+	return I32(numPreviousMemoryPages);
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memory.size", I32, memory_size, I64 memoryId)
+{
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+	wavmAssert(memory);
+	Uptr numMemoryPages = getMemoryNumPages(memory);
+	if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }
+	return (U32)numMemoryPages;
+}
+
+static void bytewiseMemMove(U8* dest, U8* source, Uptr numBytes)
+{
+	const Uptr numNonOverlappingBytes
+		= source < dest && source + numBytes > dest ? dest - source : numBytes;
+
+	for(Uptr index = numNonOverlappingBytes; index < numBytes; ++index)
+	{ dest[index] = source[index]; }
+
+	for(Uptr index = 0; index < numNonOverlappingBytes; ++index) { dest[index] = source[index]; }
+}
+
+static void bytewiseMemSet(U8* dest, U8 value, Uptr numBytes)
+{
+	for(Uptr index = 0; index < numBytes; ++index) { dest[index] = value; }
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.init",
+						  void,
+						  memory_init,
+						  U32 destAddress,
+						  U32 sourceOffset,
+						  U32 numBytes,
+						  Uptr moduleInstanceBits,
+						  Uptr memoryId,
+						  Uptr dataSegmentIndex)
+{
+	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
+
+	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
+	{ throwException(Exception::invalidArgumentType); }
+	else
+	{
+		// Copy the passive data segment shared_ptr, and unlock the mutex. It's important to
+		// explicitly unlock the mutex before calling memcpy, as memcpy might trigger a signal that
+		// will unwind the stack without calling the Lock destructor.
+		std::shared_ptr<std::vector<U8>> passiveDataSegmentBytes
+			= moduleInstance->passiveDataSegments[dataSegmentIndex];
+		passiveDataSegmentsLock.unlock();
+
+		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+		U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
+
+		if(U64(sourceOffset) + U64(numBytes) > passiveDataSegmentBytes->size())
+		{
+			// If the source range is outside the bounds of the data segment, copy the part that is
+			// in range, then trap.
+			if(sourceOffset < passiveDataSegmentBytes->size())
+			{
+				bytewiseMemMove(destPointer,
+								passiveDataSegmentBytes->data() + sourceOffset,
+								passiveDataSegmentBytes->size() - sourceOffset);
+			}
+			throwException(Exception::accessViolationType);
+		}
+		else if(numBytes)
+		{
+			bytewiseMemMove(destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
+		}
+	}
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.drop",
+						  void,
+						  memory_drop,
+						  Uptr moduleInstanceBits,
+						  Uptr dataSegmentIndex)
+{
+	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
+
+	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
+	{ throwException(Exception::invalidArgumentType); }
+	else
+	{
+		moduleInstance->passiveDataSegments.removeOrFail(dataSegmentIndex);
+	}
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.copy",
+						  void,
+						  memory_copy,
+						  U32 destAddress,
+						  U32 sourceAddress,
+						  U32 numBytes,
+						  Uptr memoryId)
+{
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+
+	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
+	U8* sourcePointer = getReservedMemoryOffsetRange(memory, sourceAddress, numBytes);
+	if(numBytes) { bytewiseMemMove(destPointer, sourcePointer, numBytes); }
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.fill",
+						  void,
+						  memory_fill,
+						  U32 destAddress,
+						  U32 value,
+						  U32 numBytes,
+						  Uptr memoryId)
+{
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+
+	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
+	if(numBytes) { bytewiseMemSet(destPointer, U8(value), numBytes); }
 }

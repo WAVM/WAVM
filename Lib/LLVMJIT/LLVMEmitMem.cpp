@@ -69,25 +69,97 @@ llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAdd
 // memory for the module.
 //
 
-void EmitFunctionContext::memory_grow(MemoryImm)
+void EmitFunctionContext::memory_grow(MemoryImm imm)
 {
+	errorUnless(imm.memoryIndex == 0);
 	llvm::Value* deltaNumPages = pop();
 	ValueVector previousNumPages = emitRuntimeIntrinsic(
-		"growMemory",
+		"memory.grow",
 		FunctionType(TypeTuple(ValueType::i32),
 					 TypeTuple({ValueType::i32, inferValueType<Iptr>()})),
-		{deltaNumPages, getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)});
+		{deltaNumPages,
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
 	wavmAssert(previousNumPages.size() == 1);
 	push(previousNumPages[0]);
 }
-void EmitFunctionContext::memory_size(MemoryImm)
+void EmitFunctionContext::memory_size(MemoryImm imm)
 {
+	errorUnless(imm.memoryIndex == 0);
 	ValueVector currentNumPages = emitRuntimeIntrinsic(
-		"currentMemory",
+		"memory.size",
 		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Iptr>())),
-		{getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)});
+		{getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
 	wavmAssert(currentNumPages.size() == 1);
 	push(currentNumPages[0]);
+}
+
+//
+// Memory bulk operators.
+//
+
+void EmitFunctionContext::memory_init(DataSegmentAndMemImm imm)
+{
+	auto numBytes = pop();
+	auto sourceOffset = pop();
+	auto destAddress = pop();
+	emitRuntimeIntrinsic(
+		"memory.init",
+		FunctionType({},
+					 TypeTuple({ValueType::i32,
+								ValueType::i32,
+								ValueType::i32,
+								inferValueType<Uptr>(),
+								inferValueType<Uptr>(),
+								inferValueType<Uptr>()})),
+		{destAddress,
+		 sourceOffset,
+		 numBytes,
+		 irBuilder.CreatePointerCast(moduleContext.moduleInstancePointer, llvmContext.iptrType),
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex]),
+		 emitLiteral(llvmContext, imm.dataSegmentIndex)});
+}
+
+void EmitFunctionContext::memory_drop(DataSegmentImm imm)
+{
+	emitRuntimeIntrinsic(
+		"memory.drop",
+		FunctionType({}, TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()})),
+		{irBuilder.CreatePointerCast(moduleContext.moduleInstancePointer, llvmContext.iptrType),
+		 emitLiteral(llvmContext, imm.dataSegmentIndex)});
+}
+
+void EmitFunctionContext::memory_copy(MemoryImm imm)
+{
+	auto numBytes = pop();
+	auto sourceAddress = pop();
+	auto destAddress = pop();
+
+	emitRuntimeIntrinsic(
+		"memory.copy",
+		FunctionType(
+			{},
+			TypeTuple({ValueType::i32, ValueType::i32, ValueType::i32, inferValueType<Uptr>()})),
+		{destAddress,
+		 sourceAddress,
+		 numBytes,
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
+}
+
+void EmitFunctionContext::memory_fill(MemoryImm imm)
+{
+	auto numBytes = pop();
+	auto value = pop();
+	auto destAddress = pop();
+
+	emitRuntimeIntrinsic(
+		"memory.fill",
+		FunctionType(
+			{},
+			TypeTuple({ValueType::i32, ValueType::i32, ValueType::i32, inferValueType<Uptr>()})),
+		{destAddress,
+		 value,
+		 numBytes,
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
 }
 
 //

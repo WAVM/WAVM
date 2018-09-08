@@ -3,6 +3,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
+#include "Inline/HashMap.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
 
@@ -27,7 +28,7 @@ namespace llvm
 using namespace IR;
 using namespace LLVMJIT;
 
-static std::map<std::string, const char*> runtimeSymbolMap = {
+static HashMap<std::string, const char*> runtimeSymbolMap = {
 #ifdef _WIN32
 	// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 	{"__chkstk", "__chkstk"},
@@ -57,15 +58,14 @@ static std::map<std::string, const char*> runtimeSymbolMap = {
 llvm::JITEvaluatedSymbol LLVMJIT::resolveJITImport(llvm::StringRef name)
 {
 	// Allow some intrinsics used by LLVM
-	auto runtimeSymbolNameIt = runtimeSymbolMap.find(name);
-	if(runtimeSymbolNameIt == runtimeSymbolMap.end()) { return llvm::JITEvaluatedSymbol(nullptr); }
+	const char* const* runtimeSymbolName = runtimeSymbolMap.get(name.str());
+	if(!runtimeSymbolName) { return llvm::JITEvaluatedSymbol(nullptr); }
 
-	const char* lookupName = runtimeSymbolNameIt->second;
-	void* addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(lookupName);
+	void* addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(*runtimeSymbolName);
 	if(!addr)
 	{
 		Errors::fatalf("LLVM generated code references undefined external symbol: %s\n",
-					   lookupName);
+					   *runtimeSymbolName);
 	}
 	return llvm::JITEvaluatedSymbol(reinterpret_cast<Uptr>(addr), llvm::JITSymbolFlags::None);
 }
@@ -111,6 +111,8 @@ LLVMContext::LLVMContext()
 	exceptionPointersStructType
 		= llvm::StructType::create({llvmExceptionRecordStructType->getPointerTo(), i8PtrType});
 
+	anyrefType = llvm::StructType::create("AnyReferee", i8Type)->getPointerTo();
+
 	i8x16Type = llvm::VectorType::get(i8Type, 16);
 	i16x8Type = llvm::VectorType::get(i16Type, 8);
 	i32x4Type = llvm::VectorType::get(i32Type, 4);
@@ -123,6 +125,9 @@ LLVMContext::LLVMContext()
 	valueTypes[(Uptr)ValueType::f32] = f32Type;
 	valueTypes[(Uptr)ValueType::f64] = f64Type;
 	valueTypes[(Uptr)ValueType::v128] = i64x2Type;
+	valueTypes[(Uptr)ValueType::anyref] = anyrefType;
+	valueTypes[(Uptr)ValueType::anyfunc] = anyrefType;
+	valueTypes[(Uptr)ValueType::nullref] = anyrefType;
 
 	// Create zero constants of each type.
 	typedZeroConstants[(Uptr)ValueType::any] = nullptr;
@@ -130,8 +135,7 @@ LLVMContext::LLVMContext()
 	typedZeroConstants[(Uptr)ValueType::i64] = emitLiteral(*this, (U64)0);
 	typedZeroConstants[(Uptr)ValueType::f32] = emitLiteral(*this, (F32)0.0f);
 	typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral(*this, (F64)0.0);
-
-	U64 i64x2Zero[2] = {0, 0};
-	typedZeroConstants[(Uptr)ValueType::v128]
-		= llvm::ConstantDataVector::get(*this, llvm::ArrayRef<U64>(i64x2Zero, 2));
+	typedZeroConstants[(Uptr)ValueType::v128] = emitLiteral(*this, V128());
+	typedZeroConstants[(Uptr)ValueType::anyref] = typedZeroConstants[(Uptr)ValueType::anyfunc]
+		= typedZeroConstants[(Uptr)ValueType::nullref] = llvm::Constant::getNullValue(anyrefType);
 }

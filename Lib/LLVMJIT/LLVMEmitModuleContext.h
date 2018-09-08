@@ -26,6 +26,8 @@ namespace LLVMJIT
 		llvm::Constant* defaultMemoryOffset;
 		llvm::Constant* defaultTableOffset;
 
+		llvm::Constant* moduleInstancePointer;
+
 		llvm::DIBuilder diBuilder;
 		llvm::DICompileUnit* diCompileUnit;
 		llvm::DIFile* diModuleScope;

@@ -82,7 +82,14 @@ private:
 };
 
 static void generateImm(RandomStream& random, IR::Module& module, NoImm& outImm) {}
-static void generateImm(RandomStream& random, IR::Module& module, MemoryImm& outImm) {}
+static void generateImm(RandomStream& random, IR::Module& module, MemoryImm& outImm)
+{
+	outImm.memoryIndex = random.get(module.memories.size() - 1);
+}
+static void generateImm(RandomStream& random, IR::Module& module, TableImm& outImm)
+{
+	outImm.tableIndex = random.get(module.tables.size() - 1);
+}
 
 static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<I32>& outImm)
 {
@@ -141,6 +148,28 @@ static void generateImm(RandomStream& random, IR::Module& module, ShuffleImm<num
 {
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 	{ outImm.laneIndices[laneIndex] = random.get<U8>(numLanes * 2 - 1); }
+}
+
+static void generateImm(RandomStream& random, IR::Module& module, DataSegmentAndMemImm& outImm)
+{
+	outImm.dataSegmentIndex = random.get(module.dataSegments.size() - 1);
+	outImm.memoryIndex = random.get(module.memories.size() - 1);
+}
+
+static void generateImm(RandomStream& random, IR::Module& module, DataSegmentImm& outImm)
+{
+	outImm.dataSegmentIndex = random.get(module.dataSegments.size() - 1);
+}
+
+static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentAndTableImm& outImm)
+{
+	outImm.elemSegmentIndex = random.get(module.tableSegments.size() - 1);
+	outImm.tableIndex = random.get(module.tables.size() - 1);
+}
+
+static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentImm& outImm)
+{
+	outImm.elemSegmentIndex = random.get(module.tableSegments.size() - 1);
 }
 
 // Build a table with information about non-parametric operators.
@@ -454,6 +483,8 @@ static void generateFunction(RandomStream& random,
 			}
 		}
 
+		// TODO: table.get/table.set
+
 		if(allowStackGrowth)
 		{
 			// Enter a block control structure.
@@ -677,10 +708,10 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	HashMap<FunctionType, Uptr> functionTypeMap;
 
 	// Generate some standard definitions that are the same for all modules.
-
 	module.memories.defs.push_back({{true, {1024, IR::maxMemoryPages}}});
-	module.tables.defs.push_back({{TableElementType::anyfunc, true, {1024, IR::maxTableElems}}});
+	module.tables.defs.push_back({{ReferenceType::anyfunc, true, {1024, IR::maxTableElems}}});
 
+	// Generate some globals.
 	while(true)
 	{
 		const ValueType globalValueType = ValueType(random.get(U32(ValueType::max)));
@@ -715,16 +746,41 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 				initializer.v128.u64[0] = random.get(UINT64_MAX);
 				initializer.v128.u64[1] = random.get(UINT64_MAX);
 				break;
+			case ValueType::anyref: initializer.type = InitializerExpression::Type::ref_null; break;
 			default: Errors::unreachable();
 			}
 			module.globals.defs.push_back({globalType, initializer});
 		}
 	};
 
+	// Generate some data segments.
+	while(true)
+	{
+		const Uptr memoryIndex = random.get(module.memories.size());
+		if(memoryIndex == module.memories.size()) { break; }
+		std::vector<U8> bytes;
+		for(Uptr byteIndex = 0; byteIndex < 16; ++byteIndex)
+		{ bytes.push_back(random.get<U8>(255)); }
+		module.dataSegments.push_back({false, UINTPTR_MAX, {}, std::move(bytes)});
+	};
+
+	// Generate some elem segments.
+	const Uptr numFunctionDefs = 3;
+	while(true)
+	{
+		const Uptr tableIndex = random.get(module.tables.size());
+		if(tableIndex == module.tables.size()) { break; }
+		std::vector<Uptr> functionIndices;
+		for(Uptr index = 0; index < 16; ++index)
+		{ functionIndices.push_back(random.get(numFunctionDefs - 1)); }
+		module.tableSegments.push_back({false, UINTPTR_MAX, {}, std::move(functionIndices)});
+	};
+
 	validateDefinitions(module);
 
 	// Generate a few functions.
-	while(module.functions.defs.size() < 3) { generateFunction(random, module, functionTypeMap); };
+	while(module.functions.defs.size() < numFunctionDefs)
+	{ generateFunction(random, module, functionTypeMap); };
 }
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)

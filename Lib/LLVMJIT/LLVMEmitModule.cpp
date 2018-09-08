@@ -59,6 +59,12 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 		= diBuilder.createBasicType("f64", 64, llvm::dwarf::DW_ATE_float);
 	diValueTypes[(Uptr)ValueType::v128]
 		= diBuilder.createBasicType("v128", 128, llvm::dwarf::DW_ATE_signed);
+	diValueTypes[(Uptr)ValueType::anyref]
+		= diBuilder.createBasicType("anyref", 8, llvm::dwarf::DW_ATE_address);
+	diValueTypes[(Uptr)ValueType::anyfunc]
+		= diBuilder.createBasicType("anyfunc", 8, llvm::dwarf::DW_ATE_address);
+	diValueTypes[(Uptr)ValueType::nullref]
+		= diBuilder.createBasicType("nullref", 8, llvm::dwarf::DW_ATE_address);
 
 	auto zeroAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(llvmContext, I32(0)));
 	auto i32MaxAsMetadata = llvm::ConstantAsMetadata::get(emitLiteral(llvmContext, I32(INT32_MAX)));
@@ -151,6 +157,9 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		moduleContext.exceptionTypeInstances.push_back(createImportedConstant(
 			outLLVMModule, getExternalName("exceptionType", exceptionTypeIndex)));
 	}
+
+	// Create a LLVM external global that will point to the ModuleInstance.
+	moduleContext.moduleInstancePointer = createImportedConstant(outLLVMModule, "moduleInstance");
 
 	// Create the LLVM functions.
 	moduleContext.functions.resize(irModule.functions.size());

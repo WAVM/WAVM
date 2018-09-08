@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -25,8 +26,9 @@ namespace IR
 			i64_const = 0x0042,
 			f32_const = 0x0043,
 			f64_const = 0x0044,
-			get_global = 0x0023,
 			v128_const = 0xfd00,
+			get_global = 0x0023,
+			ref_null = 0x00D0,
 			error = 0xffff
 		};
 		union
@@ -54,6 +56,7 @@ namespace IR
 		{
 			wavmAssert(inType == Type::get_global);
 		}
+		InitializerExpression(std::nullptr_t) : type(Type::ref_null) {}
 
 		friend bool operator==(const InitializerExpression& a, const InitializerExpression& b)
 		{
@@ -68,6 +71,7 @@ namespace IR
 			case Type::f64_const: return a.i64 == b.i64;
 			case Type::v128_const: return a.v128 == b.v128;
 			case Type::get_global: return a.globalIndex == b.globalIndex;
+			case Type::ref_null: return true;
 			case Type::error: return true;
 			default: Errors::unreachable();
 			};
@@ -85,7 +89,7 @@ namespace IR
 		IndexedFunctionType type;
 		std::vector<ValueType> nonParameterLocalTypes;
 		std::vector<U8> code;
-		std::vector<std::vector<U32>> branchTables;
+		std::vector<std::vector<Uptr>> branchTables;
 	};
 
 	// A table definition
@@ -139,6 +143,7 @@ namespace IR
 	// instantiating a module
 	struct DataSegment
 	{
+		bool isActive;
 		Uptr memoryIndex;
 		InitializerExpression baseOffset;
 		std::vector<U8> data;
@@ -148,6 +153,7 @@ namespace IR
 	// when instantiating a module
 	struct TableSegment
 	{
+		bool isActive;
 		Uptr tableIndex;
 		InitializerExpression baseOffset;
 		std::vector<Uptr> indices;

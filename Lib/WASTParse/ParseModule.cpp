@@ -137,6 +137,12 @@ static InitializerExpression parseInitializerExpression(CursorState* cursor)
 												"global");
 			break;
 		}
+		case t_ref_null:
+		{
+			++cursor->nextToken;
+			result = nullptr;
+			break;
+		}
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
 			result.type = InitializerExpression::Type::error;
@@ -234,7 +240,7 @@ static void parseImport(CursorState* cursor)
 												  cursor->moduleState->functionNameToIndexMap,
 												  cursor->moduleState->module.functions,
 												  cursor->moduleState->disassemblyNames.functions,
-												  {UINT32_MAX});
+												  {UINTPTR_MAX});
 			cursor->moduleState->disassemblyNames.functions.back().locals = localDissassemblyNames;
 
 			// Resolve the function import type after all type declarations have been parsed.
@@ -249,8 +255,7 @@ static void parseImport(CursorState* cursor)
 		{
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			const TableElementType elementType = TableElementType::anyfunc;
-			require(cursor, t_anyfunc);
+			const ReferenceType elementType = parseReferenceType(cursor);
 			createImport(cursor,
 						 name,
 						 std::move(moduleName),
@@ -386,8 +391,7 @@ static void parseType(CursorState* cursor)
 		FunctionType functionType
 			= parseFunctionType(cursor, parameterNameToIndexMap, localDisassemblyNames);
 
-		errorUnless(cursor->moduleState->module.types.size() < UINT32_MAX);
-		const U32 functionTypeIndex = U32(cursor->moduleState->module.types.size());
+		const Uptr functionTypeIndex = cursor->moduleState->module.types.size();
 		cursor->moduleState->module.types.push_back(functionType);
 		cursor->moduleState->functionTypeToIndexMap.set(functionType, functionTypeIndex);
 
@@ -402,23 +406,32 @@ static void parseData(CursorState* cursor)
 	const Token* firstToken = cursor->nextToken;
 	require(cursor, t_data);
 
-	// Parse an optional memory name.
+	bool isActive = true;
 	Reference memoryRef;
-	bool hasMemoryRef = tryParseNameOrIndexRef(cursor, memoryRef);
-
-	// Parse an initializer expression for the base address of the data.
 	InitializerExpression baseAddress;
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+	if(cursor->nextToken->type == t_passive)
 	{
-		// The initializer expression can optionally be wrapped in (offset ...)
-		parseParenthesized(cursor, [&] {
-			require(cursor, t_offset);
-			baseAddress = parseInitializerExpression(cursor);
-		});
+		isActive = false;
+		++cursor->nextToken;
 	}
 	else
 	{
-		baseAddress = parseInitializerExpression(cursor);
+		// Parse an optional memory name.
+		tryParseNameOrIndexRef(cursor, memoryRef);
+
+		// Parse an initializer expression for the base address of the data.
+		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+		{
+			// The initializer expression can optionally be wrapped in (offset ...)
+			parseParenthesized(cursor, [&] {
+				require(cursor, t_offset);
+				baseAddress = parseInitializerExpression(cursor);
+			});
+		}
+		else
+		{
+			baseAddress = parseInitializerExpression(cursor);
+		}
 	}
 
 	// Parse a list of strings that contains the segment's data.
@@ -430,12 +443,12 @@ static void parseData(CursorState* cursor)
 							   (const U8*)dataString.data() + dataString.size());
 	const Uptr dataSegmentIndex = cursor->moduleState->module.dataSegments.size();
 	cursor->moduleState->module.dataSegments.push_back(
-		{UINTPTR_MAX, baseAddress, std::move(dataVector)});
+		{isActive, UINTPTR_MAX, baseAddress, std::move(dataVector)});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the memory to
 	// put the data segment in.
 	cursor->moduleState->postDeclarationCallbacks.push_back([=](ModuleState* moduleState) {
-		if(!moduleState->module.memories.size())
+		if(isActive && !moduleState->module.memories.size())
 		{
 			parseErrorf(moduleState->parseState,
 						firstToken,
@@ -444,16 +457,17 @@ static void parseData(CursorState* cursor)
 		else
 		{
 			moduleState->module.dataSegments[dataSegmentIndex].memoryIndex
-				= hasMemoryRef ? resolveRef(moduleState->parseState,
-											moduleState->memoryNameToIndexMap,
-											moduleState->module.memories.size(),
-											memoryRef)
-							   : 0;
+				= memoryRef ? resolveRef(moduleState->parseState,
+										 moduleState->memoryNameToIndexMap,
+										 moduleState->module.memories.size(),
+										 memoryRef)
+							: 0;
 		}
 	});
 }
 
 static Uptr parseElemSegmentBody(CursorState* cursor,
+								 bool isActive,
 								 Reference tableRef,
 								 InitializerExpression baseIndex,
 								 const Token* elemToken)
@@ -469,18 +483,19 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	// Create the table segment.
 	const Uptr tableSegmentIndex = cursor->moduleState->module.tableSegments.size();
 	cursor->moduleState->module.tableSegments.push_back(
-		{UINTPTR_MAX, baseIndex, std::vector<Uptr>()});
+		{isActive, UINTPTR_MAX, baseIndex, std::vector<Uptr>()});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table
 	// elements' references.
 	cursor->moduleState->postDeclarationCallbacks.push_back(
-		[tableRef, tableSegmentIndex, elementReferences, elemToken](ModuleState* moduleState) {
-			if(!moduleState->module.tables.size())
+		[isActive, tableRef, tableSegmentIndex, elementReferences, elemToken](
+			ModuleState* moduleState) {
+			if(isActive && !moduleState->module.tables.size())
 			{
 				parseErrorf(
 					moduleState->parseState,
 					elemToken,
-					"data segments aren't allowed in modules without any memory declarations");
+					"elem segments aren't allowed in modules without any table declarations");
 			}
 			else
 			{
@@ -511,26 +526,35 @@ static void parseElem(CursorState* cursor)
 	const Token* elemToken = cursor->nextToken;
 	require(cursor, t_elem);
 
-	// Parse an optional table name.
+	bool isActive = true;
 	Reference tableRef;
-	tryParseNameOrIndexRef(cursor, tableRef);
-
-	// Parse an initializer expression for the base index of the table segment.
 	InitializerExpression baseIndex;
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+	if(cursor->nextToken->type == t_passive)
 	{
-		// The initializer expression can optionally be wrapped in (offset ...)
-		parseParenthesized(cursor, [&] {
-			require(cursor, t_offset);
-			baseIndex = parseInitializerExpression(cursor);
-		});
+		isActive = false;
+		++cursor->nextToken;
 	}
 	else
 	{
-		baseIndex = parseInitializerExpression(cursor);
+		// Parse an optional table name.
+		tryParseNameOrIndexRef(cursor, tableRef);
+
+		// Parse an initializer expression for the base index of the table segment.
+		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+		{
+			// The initializer expression can optionally be wrapped in (offset ...)
+			parseParenthesized(cursor, [&] {
+				require(cursor, t_offset);
+				baseIndex = parseInitializerExpression(cursor);
+			});
+		}
+		else
+		{
+			baseIndex = parseInitializerExpression(cursor);
+		}
 	}
 
-	parseElemSegmentBody(cursor, tableRef, baseIndex, elemToken);
+	parseElemSegmentBody(cursor, isActive, tableRef, baseIndex, elemToken);
 }
 
 template<typename Def,
@@ -616,7 +640,7 @@ static void parseFunc(CursorState* cursor)
 					moduleState->module.functions.imports[importIndex].type
 						= resolveFunctionType(moduleState, unresolvedFunctionType);
 				});
-			return IndexedFunctionType{UINT32_MAX};
+			return IndexedFunctionType{UINTPTR_MAX};
 		},
 		parseFunctionDef);
 }
@@ -634,8 +658,7 @@ static void parseTable(CursorState* cursor)
 		[](CursorState* cursor) {
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			const TableElementType elementType = TableElementType::anyfunc;
-			require(cursor, t_anyfunc);
+			const ReferenceType elementType = parseReferenceType(cursor);
 			return TableType{elementType, isShared, sizeConstraints};
 		},
 		// Parse a table definition.
@@ -646,8 +669,7 @@ static void parseTable(CursorState* cursor)
 				= tryParseSizeConstraints(cursor, IR::maxTableElems, sizeConstraints);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 
-			const TableElementType elementType = TableElementType::anyfunc;
-			require(cursor, t_anyfunc);
+			const ReferenceType elementType = parseReferenceType(cursor);
 
 			// If we couldn't parse an explicit size constraints, the table definition must contain
 			// an table segment that implicitly defines the size.
@@ -657,9 +679,9 @@ static void parseTable(CursorState* cursor)
 					require(cursor, t_elem);
 
 					const Uptr tableIndex = cursor->moduleState->module.tables.size();
-					errorUnless(tableIndex < UINT32_MAX);
 					const Uptr numElements = parseElemSegmentBody(cursor,
-																  Reference(U32(tableIndex)),
+																  true,
+																  Reference(tableIndex),
 																  InitializerExpression((I32)0),
 																  cursor->nextToken - 1);
 					sizeConstraints.min = sizeConstraints.max = numElements;
@@ -704,7 +726,8 @@ static void parseMemory(CursorState* cursor)
 				sizeConstraints.min = sizeConstraints.max
 					= (dataVector.size() + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
 				cursor->moduleState->module.dataSegments.push_back(
-					{cursor->moduleState->module.memories.size(),
+					{true,
+					 cursor->moduleState->module.memories.size(),
 					 InitializerExpression(I32(0)),
 					 std::move(dataVector)});
 			}

@@ -93,7 +93,7 @@ namespace WAST
 	};
 
 	// A map from Name to index using a hash table.
-	typedef HashMap<Name, U32, Name::HashPolicy> NameToIndexMap;
+	typedef HashMap<Name, Uptr, Name::HashPolicy> NameToIndexMap;
 
 	// Represents a yet-to-be-resolved reference, parsed as either a name or an index.
 	struct Reference
@@ -108,11 +108,11 @@ namespace WAST
 		union
 		{
 			Name name;
-			U32 index;
+			Uptr index;
 		};
 		const Token* token;
 		Reference(const Name& inName) : type(Type::name), name(inName) {}
-		Reference(U32 inIndex) : type(Type::index), index(inIndex) {}
+		Reference(Uptr inIndex) : type(Type::index), index(inIndex) {}
 		Reference() : type(Type::invalid), token(nullptr) {}
 		operator bool() const { return type != Type::invalid; }
 	};
@@ -132,7 +132,7 @@ namespace WAST
 
 		IR::Module& module;
 
-		HashMap<IR::FunctionType, U32> functionTypeToIndexMap;
+		HashMap<IR::FunctionType, Uptr> functionTypeToIndexMap;
 		NameToIndexMap typeNameToIndexMap;
 
 		NameToIndexMap functionNameToIndexMap;
@@ -189,6 +189,7 @@ namespace WAST
 	// Type parsing and uniqueing
 	bool tryParseValueType(CursorState* cursor, IR::ValueType& outValueType);
 	IR::ValueType parseValueType(CursorState* cursor);
+	IR::ReferenceType parseReferenceType(CursorState* cursor);
 
 	IR::FunctionType parseFunctionType(CursorState* cursor,
 									   NameToIndexMap& outLocalNameToIndexMap,
@@ -207,11 +208,13 @@ namespace WAST
 
 	bool tryParseI32(CursorState* cursor, U32& outI32);
 	bool tryParseI64(CursorState* cursor, U64& outI64);
+	bool tryParseIptr(CursorState* cursor, Uptr& outIptr);
 
 	U8 parseI8(CursorState* cursor);
 	U16 parseI16(CursorState* cursor);
 	U32 parseI32(CursorState* cursor);
 	U64 parseI64(CursorState* cursor);
+	Uptr parseIptr(CursorState* cursor);
 	F32 parseF32(CursorState* cursor);
 	F64 parseF64(CursorState* cursor);
 	V128 parseV128(CursorState* cursor);
@@ -223,19 +226,24 @@ namespace WAST
 	// Name parsing and resolution.
 	bool tryParseName(CursorState* cursor, Name& outName);
 	bool tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef);
-	U32 parseAndResolveNameOrIndexRef(CursorState* cursor,
-									  const NameToIndexMap& nameToIndexMap,
-									  Uptr maxIndex,
-									  const char* context);
+	bool tryParseAndResolveNameOrIndexRef(CursorState* cursor,
+										  const NameToIndexMap& nameToIndexMap,
+										  Uptr maxIndex,
+										  const char* context,
+										  Uptr& outIndex);
+	Uptr parseAndResolveNameOrIndexRef(CursorState* cursor,
+									   const NameToIndexMap& nameToIndexMap,
+									   Uptr maxIndex,
+									   const char* context);
 
 	void bindName(ParseState* parseState,
 				  NameToIndexMap& nameToIndexMap,
 				  const Name& name,
 				  Uptr index);
-	U32 resolveRef(ParseState* parseState,
-				   const NameToIndexMap& nameToIndexMap,
-				   Uptr maxIndex,
-				   const Reference& ref);
+	Uptr resolveRef(ParseState* parseState,
+					const NameToIndexMap& nameToIndexMap,
+					Uptr maxIndex,
+					const Reference& ref);
 
 	// Finds the parenthesis closing the current s-expression.
 	void findClosingParenthesis(CursorState* cursor, const Token* openingParenthesisToken);

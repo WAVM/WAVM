@@ -217,8 +217,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-	// Validate that the address is within the memory's bounds and 4-byte aligned.
-	if(U32(addressOffset) > memoryInstance->endOffset)
+	// Validate that the address is within the memory's bounds.
+	if(U64(addressOffset) + 4 > (U64(memoryInstance->numPages) << IR::numBytesPerPageLog2))
 	{ throwException(Exception::accessViolationType); }
 
 	// The alignment check is done by the caller.
@@ -239,8 +239,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-	// Validate that the address is within the memory's bounds and naturally aligned.
-	if(U32(addressOffset) > memoryInstance->endOffset)
+	// Validate that the address is within the memory's bounds.
+	if(U64(addressOffset) + 4 > (U64(memoryInstance->numPages) << IR::numBytesPerPageLog2))
 	{ throwException(Exception::accessViolationType); }
 
 	// The alignment check is done by the caller.
@@ -260,8 +260,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-	// Validate that the address is within the memory's bounds and naturally aligned.
-	if(U32(addressOffset) > memoryInstance->endOffset)
+	// Validate that the address is within the memory's bounds.
+	if(U64(addressOffset) + 8 > (U64(memoryInstance->numPages) << IR::numBytesPerPageLog2))
 	{ throwException(Exception::accessViolationType); }
 
 	// The alignment check is done by the caller.

@@ -32,7 +32,7 @@ namespace WAST
 		Uptr numLocals;
 
 		NameToIndexMap branchTargetNameToIndexMap;
-		U32 branchTargetDepth;
+		Uptr branchTargetDepth;
 		std::vector<std::string> labelDisassemblyNames;
 
 		Serialization::ArrayOutputStream codeByteStream;
@@ -61,14 +61,14 @@ namespace
 	struct ScopedBranchTarget
 	{
 		ScopedBranchTarget(FunctionState* inFunctionState, Name inName)
-		: functionState(inFunctionState), name(inName), previousBranchTargetIndex(UINT32_MAX)
+		: functionState(inFunctionState), name(inName), previousBranchTargetIndex(UINTPTR_MAX)
 		{
 			branchTargetIndex = ++functionState->branchTargetDepth;
 			if(name)
 			{
-				U32& mapValueRef
-					= functionState->branchTargetNameToIndexMap.getOrAdd(name, UINT32_MAX);
-				if(mapValueRef != UINT32_MAX)
+				Uptr& mapValueRef
+					= functionState->branchTargetNameToIndexMap.getOrAdd(name, UINTPTR_MAX);
+				if(mapValueRef != UINTPTR_MAX)
 				{
 					// If the name was already bound to a branch target, remember the previously
 					// bound branch target.
@@ -90,7 +90,7 @@ namespace
 			{
 				wavmAssert(functionState->branchTargetNameToIndexMap.contains(name));
 				wavmAssert(functionState->branchTargetNameToIndexMap[name] == branchTargetIndex);
-				if(previousBranchTargetIndex == UINT32_MAX)
+				if(previousBranchTargetIndex == UINTPTR_MAX)
 				{ errorUnless(functionState->branchTargetNameToIndexMap.remove(name)); }
 				else
 				{
@@ -102,12 +102,12 @@ namespace
 	private:
 		FunctionState* functionState;
 		Name name;
-		U32 branchTargetIndex;
-		U32 previousBranchTargetIndex;
+		Uptr branchTargetIndex;
+		Uptr previousBranchTargetIndex;
 	};
 }
 
-static bool tryParseAndResolveBranchTargetRef(CursorState* cursor, U32& outTargetDepth)
+static bool tryParseAndResolveBranchTargetRef(CursorState* cursor, Uptr& outTargetDepth)
 {
 	Reference branchTargetRef;
 	if(tryParseNameOrIndexRef(cursor, branchTargetRef))
@@ -117,12 +117,12 @@ static bool tryParseAndResolveBranchTargetRef(CursorState* cursor, U32& outTarge
 		case Reference::Type::index: outTargetDepth = branchTargetRef.index; break;
 		case Reference::Type::name:
 		{
-			const HashMapPair<Name, U32>* nameIndexPair
+			const HashMapPair<Name, Uptr>* nameIndexPair
 				= cursor->functionState->branchTargetNameToIndexMap.getPair(branchTargetRef.name);
 			if(!nameIndexPair)
 			{
 				parseErrorf(cursor->parseState, branchTargetRef.token, "unknown name");
-				outTargetDepth = UINT32_MAX;
+				outTargetDepth = UINTPTR_MAX;
 			}
 			else
 			{
@@ -154,7 +154,16 @@ static void parseAndValidateRedundantBranchTargetName(CursorState* cursor,
 }
 
 static void parseImm(CursorState* cursor, NoImm&) {}
-static void parseImm(CursorState* cursor, MemoryImm& outImm) {}
+static void parseImm(CursorState* cursor, MemoryImm& outImm) { outImm.memoryIndex = 0; }
+static void parseImm(CursorState* cursor, TableImm& outImm)
+{
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->tableNameToIndexMap,
+										 cursor->moduleState->module.tables.size(),
+										 "table",
+										 outImm.tableIndex))
+	{ outImm.tableIndex = 0; }
+}
 
 static void parseImm(CursorState* cursor, LiteralImm<I32>& outImm)
 {
@@ -184,8 +193,8 @@ static void parseImm(CursorState* cursor, BranchImm& outImm)
 
 static void parseImm(CursorState* cursor, BranchTableImm& outImm)
 {
-	std::vector<U32> targetDepths;
-	U32 targetDepth = 0;
+	std::vector<Uptr> targetDepths;
+	Uptr targetDepth = 0;
 	while(tryParseAndResolveBranchTargetRef(cursor, targetDepth))
 	{ targetDepths.push_back(targetDepth); };
 
@@ -198,7 +207,7 @@ static void parseImm(CursorState* cursor, BranchTableImm& outImm)
 	{
 		outImm.defaultTargetDepth = targetDepths.back();
 		targetDepths.pop_back();
-		outImm.branchTableIndex = (U32)cursor->functionState->functionDef.branchTables.size();
+		outImm.branchTableIndex = cursor->functionState->functionDef.branchTables.size();
 		cursor->functionState->functionDef.branchTables.push_back(std::move(targetDepths));
 	}
 }
@@ -350,6 +359,38 @@ static void parseImm(CursorState* cursor, RethrowImm& outImm)
 	}
 }
 
+static void parseImm(CursorState* cursor, DataSegmentAndMemImm& outImm)
+{
+	outImm.dataSegmentIndex = parseIptr(cursor);
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->memoryNameToIndexMap,
+										 cursor->moduleState->module.memories.size(),
+										 "memory",
+										 outImm.memoryIndex))
+	{ outImm.memoryIndex = 0; }
+}
+
+static void parseImm(CursorState* cursor, DataSegmentImm& outImm)
+{
+	outImm.dataSegmentIndex = parseIptr(cursor);
+}
+
+static void parseImm(CursorState* cursor, ElemSegmentAndTableImm& outImm)
+{
+	outImm.elemSegmentIndex = parseIptr(cursor);
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->tableNameToIndexMap,
+										 cursor->moduleState->module.tables.size(),
+										 "table",
+										 outImm.tableIndex))
+	{ outImm.tableIndex = 0; }
+}
+
+static void parseImm(CursorState* cursor, ElemSegmentImm& outImm)
+{
+	outImm.elemSegmentIndex = parseIptr(cursor);
+}
+
 static void parseInstrSequence(CursorState* cursor);
 static void parseExpr(CursorState* cursor);
 
@@ -396,7 +437,7 @@ static void parseControlImm(CursorState* cursor,
 			// params and/or results declared inline that they match the resolved type reference.
 			const Uptr referencedFunctionTypeIndex
 				= resolveFunctionType(cursor->moduleState, unresolvedFunctionType).index;
-			if(referencedFunctionTypeIndex != UINT32_MAX)
+			if(referencedFunctionTypeIndex != UINTPTR_MAX)
 			{
 				wavmAssert(referencedFunctionTypeIndex < cursor->moduleState->module.types.size());
 				functionType = cursor->moduleState->module.types[referencedFunctionTypeIndex];
@@ -729,7 +770,7 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 														 functionTypeIndex](
 															ModuleState* moduleState) {
 			FunctionDef& functionDef = moduleState->module.functions.defs[functionDefIndex];
-			FunctionType functionType = functionTypeIndex.index == UINT32_MAX
+			FunctionType functionType = functionTypeIndex.index == UINTPTR_MAX
 											? FunctionType()
 											: moduleState->module.types[functionTypeIndex.index];
 
@@ -797,5 +838,5 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 	findClosingParenthesis(cursor, funcToken - 1);
 	--cursor->nextToken;
 
-	return {{UINT32_MAX}, {}, {}};
+	return {{UINTPTR_MAX}, {}, {}};
 }

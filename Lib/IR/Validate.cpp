@@ -50,9 +50,9 @@ static void validate(SizeConstraints size, U64 maxMax)
 	VALIDATE_UNLESS("maximum size exceeds limit: ", max > maxMax);
 }
 
-static void validate(TableElementType type)
+static void validate(ReferenceType type)
 {
-	if(type != TableElementType::anyfunc)
+	if(type != ReferenceType::anyfunc && type != ReferenceType::anyref)
 	{
 		throw ValidationException("invalid table element type (" + std::to_string((Uptr)type)
 								  + ")");
@@ -89,7 +89,7 @@ static void validate(TypeTuple typeTuple)
 
 template<typename Type> void validateType(Type expectedType, Type actualType, const char* context)
 {
-	if(expectedType != actualType)
+	if(!isSubtype(actualType, expectedType))
 	{
 		throw ValidationException(std::string("type mismatch: expected ") + asString(expectedType)
 								  + " but got " + asString(actualType) + " in " + context);
@@ -197,6 +197,9 @@ static void validateInitializer(const Module& module,
 		validateType(expectedType, globalValueType, context);
 		break;
 	}
+	case InitializerExpression::Type::ref_null:
+		validateType(expectedType, ValueType::nullref, context);
+		break;
 	default: throw ValidationException("invalid initializer expression");
 	};
 }
@@ -380,7 +383,7 @@ struct FunctionValidationContext
 		popAndValidateTypeTuple("br_table argument", defaultTargetParams);
 
 		wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
-		const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
 			const TypeTuple targetParams = getBranchTargetByDepth(targetDepths[targetIndex]).params;
@@ -436,6 +439,20 @@ struct FunctionValidationContext
 			validateGlobalIndex(module, imm.variableIndex, true, false, false, "set_global"));
 	}
 
+	void table_get(TableImm imm)
+	{
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+		const TableType& tableType = module.tables.getType(imm.tableIndex);
+		popAndValidateOperand("table.get", ValueType::i32);
+		pushOperand(asValueType(tableType.elementType));
+	}
+	void table_set(TableImm imm)
+	{
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+		const TableType& tableType = module.tables.getType(imm.tableIndex);
+		popAndValidateOperands("table.get", ValueType::i32, asValueType(tableType.elementType));
+	}
+
 	void throw_(ExceptionTypeImm imm)
 	{
 		VALIDATE_FEATURE("throw", exceptionHandling);
@@ -464,6 +481,8 @@ struct FunctionValidationContext
 	{
 		VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",
 						module.tables.size() == 0);
+		VALIDATE_UNLESS("call_indirect requires a table element type of anyfunc: ",
+						module.tables.getType(0).elementType != ReferenceType::anyfunc);
 		FunctionType calleeType = validateFunctionType(module, imm.type);
 		popAndValidateOperand("call_indirect function index", ValueType::i32);
 		popAndValidateTypeTuple("call_indirect arguments", calleeType.params());
@@ -482,11 +501,9 @@ struct FunctionValidationContext
 						module.memories.size() == 0);
 	}
 
-	void validateImm(MemoryImm)
-	{
-		VALIDATE_UNLESS("memory.size and memory.grow are only valid if there is a default memory",
-						module.memories.size() == 0);
-	}
+	void validateImm(MemoryImm imm) { VALIDATE_INDEX(imm.memoryIndex, module.memories.size()); }
+
+	void validateImm(TableImm imm) { VALIDATE_INDEX(imm.tableIndex, module.tables.size()); }
 
 	template<Uptr numLanes> void validateImm(LaneIndexImm<numLanes> imm)
 	{
@@ -514,6 +531,36 @@ struct FunctionValidationContext
 		}
 		VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",
 						imm.alignmentLog2 != naturalAlignmentLog2);
+	}
+
+	void validateImm(DataSegmentAndMemImm imm)
+	{
+		VALIDATE_INDEX(imm.dataSegmentIndex, module.dataSegments.size());
+		VALIDATE_UNLESS("active data segment can't be used as source for memory.init",
+						module.dataSegments[imm.dataSegmentIndex].isActive)
+		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
+	}
+
+	void validateImm(DataSegmentImm imm)
+	{
+		VALIDATE_INDEX(imm.dataSegmentIndex, module.dataSegments.size());
+		VALIDATE_UNLESS("active data segment can't be used as source for memory.drop",
+						module.dataSegments[imm.dataSegmentIndex].isActive)
+	}
+
+	void validateImm(ElemSegmentAndTableImm imm)
+	{
+		VALIDATE_INDEX(imm.elemSegmentIndex, module.tableSegments.size());
+		VALIDATE_UNLESS("active elem segment can't be used as source for table.init",
+						module.tableSegments[imm.elemSegmentIndex].isActive)
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+	}
+
+	void validateImm(ElemSegmentImm imm)
+	{
+		VALIDATE_INDEX(imm.elemSegmentIndex, module.tableSegments.size());
+		VALIDATE_UNLESS("active elem segment can't be used as source for table.init",
+						module.tableSegments[imm.elemSegmentIndex].isActive)
 	}
 
 #define VALIDATE_OP(opcode, name, nameString, Imm, signatureInitializer, requiredFeature)          \
@@ -688,8 +735,7 @@ private:
 									  + context + " operand");
 		}
 
-		if(expectedType != actualType && expectedType != ValueType::any
-		   && actualType != ValueType::any)
+		if(actualType != ValueType::any && !isSubtype(actualType, expectedType))
 		{
 			throw ValidationException(std::string("type mismatch: expected ")
 									  + asString(expectedType) + " but got " + asString(actualType)
@@ -748,7 +794,8 @@ void IR::validateImports(const Module& module)
 	for(auto& exceptionTypeImport : module.exceptionTypes.imports)
 	{ validate(exceptionTypeImport.type.params); }
 
-	VALIDATE_UNLESS("too many tables: ", module.tables.size() > 1);
+	VALIDATE_UNLESS("too many tables: ",
+					!module.featureSpec.referenceTypes && module.tables.size() > 1);
 	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
 }
 
@@ -783,7 +830,8 @@ void IR::validateExceptionTypeDefs(const Module& module)
 void IR::validateTableDefs(const Module& module)
 {
 	for(auto& tableDef : module.tables.defs) { validate(module, tableDef.type); }
-	VALIDATE_UNLESS("too many tables: ", module.tables.size() > 1);
+	VALIDATE_UNLESS("too many tables: ",
+					!module.featureSpec.referenceTypes && module.tables.size() > 1);
 }
 
 void IR::validateMemoryDefs(const Module& module)
@@ -837,9 +885,12 @@ void IR::validateElemSegments(const Module& module)
 {
 	for(auto& tableSegment : module.tableSegments)
 	{
-		VALIDATE_INDEX(tableSegment.tableIndex, module.tables.size());
-		validateInitializer(
-			module, tableSegment.baseOffset, ValueType::i32, "table segment base initializer");
+		if(tableSegment.isActive)
+		{
+			VALIDATE_INDEX(tableSegment.tableIndex, module.tables.size());
+			validateInitializer(
+				module, tableSegment.baseOffset, ValueType::i32, "table segment base initializer");
+		}
 		for(auto functionIndex : tableSegment.indices)
 		{ VALIDATE_INDEX(functionIndex, module.functions.size()); }
 	}
@@ -849,9 +900,12 @@ void IR::validateDataSegments(const Module& module)
 {
 	for(auto& dataSegment : module.dataSegments)
 	{
-		VALIDATE_INDEX(dataSegment.memoryIndex, module.memories.size());
-		validateInitializer(
-			module, dataSegment.baseOffset, ValueType::i32, "data segment base initializer");
+		if(dataSegment.isActive)
+		{
+			VALIDATE_INDEX(dataSegment.memoryIndex, module.memories.size());
+			validateInitializer(
+				module, dataSegment.baseOffset, ValueType::i32, "data segment base initializer");
+		}
 	}
 }
 

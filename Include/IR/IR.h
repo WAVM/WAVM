@@ -35,6 +35,8 @@ namespace IR
 		bool nonTrappingFloatToInt = true;
 		bool extendedSignExtension = true;
 		bool multipleResultsAndBlockParams = true;
+		bool bulkMemoryOperations = true;
+		bool referenceTypes = false;
 
 		// WAVM-specific extensions
 		bool sharedTables = true;

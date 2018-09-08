@@ -9,6 +9,7 @@ set(Sources
 	LLVMEmitModule.cpp
 	LLVMEmitModuleContext.h
 	LLVMEmitNumeric.cpp
+	LLVMEmitTable.cpp
 	LLVMEmitVar.cpp
 	LLVMEmitWorkarounds.h
 	LLVMJIT.cpp

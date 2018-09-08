@@ -22,6 +22,11 @@ namespace IR
 	};
 	struct MemoryImm
 	{
+		Uptr memoryIndex;
+	};
+	struct TableImm
+	{
+		Uptr tableIndex;
 	};
 
 	struct ControlStructureImm
@@ -31,7 +36,7 @@ namespace IR
 
 	struct BranchImm
 	{
-		U32 targetDepth;
+		Uptr targetDepth;
 	};
 
 	struct BranchTableImm
@@ -49,12 +54,12 @@ namespace IR
 
 	template<bool isGlobal> struct GetOrSetVariableImm
 	{
-		U32 variableIndex;
+		Uptr variableIndex;
 	};
 
 	struct CallImm
 	{
-		U32 functionIndex;
+		Uptr functionIndex;
 	};
 
 	struct CallIndirectImm
@@ -86,11 +91,33 @@ namespace IR
 
 	struct ExceptionTypeImm
 	{
-		U32 exceptionTypeIndex;
+		Uptr exceptionTypeIndex;
 	};
 	struct RethrowImm
 	{
-		U32 catchDepth;
+		Uptr catchDepth;
+	};
+
+	struct DataSegmentAndMemImm
+	{
+		Uptr dataSegmentIndex;
+		Uptr memoryIndex;
+	};
+
+	struct DataSegmentImm
+	{
+		Uptr dataSegmentIndex;
+	};
+
+	struct ElemSegmentAndTableImm
+	{
+		Uptr elemSegmentIndex;
+		Uptr tableIndex;
+	};
+
+	struct ElemSegmentImm
+	{
+		Uptr elemSegmentIndex;
 	};
 
 	enum class Opcode : U16
@@ -108,21 +135,13 @@ namespace IR
 		Imm imm;
 	});
 
-	// Specialize for the empty immediate structs so they don't take an extra byte of space.
+	// Specialize for the empty immediate struct so they don't take an extra byte of space.
 	template<> struct OpcodeAndImm<NoImm>
 	{
 		union
 		{
 			Opcode opcode;
 			NoImm imm;
-		};
-	};
-	template<> struct OpcodeAndImm<MemoryImm>
-	{
-		union
-		{
-			Opcode opcode;
-			MemoryImm imm;
 		};
 	};
 

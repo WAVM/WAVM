@@ -270,7 +270,7 @@ void EmitFunctionContext::br_table(BranchTableImm imm)
 
 	// Create a LLVM switch instruction.
 	wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
-	const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+	const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 	auto llvmSwitch
 		= irBuilder.CreateSwitch(index, defaultTarget.block, (unsigned int)targetDepths.size());
 
@@ -279,6 +279,7 @@ void EmitFunctionContext::br_table(BranchTableImm imm)
 		BranchTarget& target = getBranchTargetByDepth(targetDepths[targetIndex]);
 
 		// Add this target to the switch instruction.
+		errorUnless(targetIndex < UINT32_MAX);
 		llvmSwitch->addCase(emitLiteral(llvmContext, (U32)targetIndex), target.block);
 
 		// Add the branch arguments to the PHI nodes for the branch target's parameters.

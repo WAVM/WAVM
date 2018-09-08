@@ -78,7 +78,7 @@ namespace Runtime
 		const IR::TableType type;
 
 		FunctionElement* baseAddress;
-		Uptr endOffset;
+		Uptr numReservedBytes;
 
 		// The Objects corresponding to the FunctionElements at baseAddress.
 		Platform::Mutex elementsMutex;
@@ -90,7 +90,7 @@ namespace Runtime
 		, id(UINTPTR_MAX)
 		, type(inType)
 		, baseAddress(nullptr)
-		, endOffset(0)
+		, numReservedBytes(0)
 		{
 		}
 		~TableInstance() override;
@@ -107,7 +107,7 @@ namespace Runtime
 
 		U8* baseAddress;
 		std::atomic<Uptr> numPages;
-		Uptr endOffset;
+		Uptr numReservedBytes;
 
 		MemoryInstance(Compartment* inCompartment, const IR::MemoryType& inType)
 		: ObjectImpl(ObjectKind::memory)
@@ -116,7 +116,7 @@ namespace Runtime
 		, type(inType)
 		, baseAddress(nullptr)
 		, numPages(0)
-		, endOffset(0)
+		, numReservedBytes(0)
 		{
 		}
 		~MemoryInstance() override;
@@ -225,6 +225,12 @@ namespace Runtime
 		FunctionInstance* startFunction;
 		MemoryInstance* defaultMemory;
 		TableInstance* defaultTable;
+
+		Platform::Mutex passiveDataSegmentsMutex;
+		HashMap<Uptr, std::shared_ptr<std::vector<U8>>> passiveDataSegments;
+
+		Platform::Mutex passiveTableSegmentsMutex;
+		HashMap<Uptr, std::vector<Uptr>> passiveTableSegments;
 
 		LLVMJIT::LoadedModule* jitModule;
 

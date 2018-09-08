@@ -299,6 +299,7 @@ struct ModulePrintContext
 		case InitializerExpression::Type::get_global:
 			string += "(get_global " + names.globals[expression.globalIndex] + ')';
 			break;
+		case InitializerExpression::Type::ref_null: string += "(ref.null)"; break;
 		default: Errors::unreachable();
 		};
 	}
@@ -394,7 +395,7 @@ struct FunctionPrintContext
 			numTargetsPerLine = 16
 		};
 		wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
-		const std::vector<U32>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
+		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
 			if(targetIndex % numTargetsPerLine == 0) { string += '\n'; }
@@ -443,6 +444,9 @@ struct FunctionPrintContext
 		string += "\nset_global " + moduleContext.names.globals[imm.variableIndex];
 	}
 
+	void table_get(TableImm imm) { string += "\ntable.get"; }
+	void table_set(TableImm imm) { string += "\ntable.set"; }
+
 	void throw_(ExceptionTypeImm imm)
 	{
 		string += "\nthrow " + moduleContext.names.exceptionTypes[imm.exceptionTypeIndex];
@@ -485,7 +489,8 @@ struct FunctionPrintContext
 	}
 
 	void printImm(NoImm) {}
-	void printImm(MemoryImm) {}
+	void printImm(MemoryImm imm) { errorUnless(imm.memoryIndex == 0); }
+	void printImm(TableImm imm) { errorUnless(imm.tableIndex == 0); }
 
 	void printImm(LiteralImm<I32> imm)
 	{
@@ -555,6 +560,20 @@ struct FunctionPrintContext
 		}
 		wavmAssert(imm.alignmentLog2 == naturalAlignmentLog2);
 	}
+
+	void printImm(DataSegmentAndMemImm imm)
+	{
+		string += " " + std::to_string(imm.dataSegmentIndex);
+		string += " " + std::to_string(imm.memoryIndex);
+	}
+	void printImm(DataSegmentImm imm) { string += " " + std::to_string(imm.dataSegmentIndex); }
+
+	void printImm(ElemSegmentAndTableImm imm)
+	{
+		string += " " + std::to_string(imm.elemSegmentIndex);
+		string += " " + std::to_string(imm.tableIndex);
+	}
+	void printImm(ElemSegmentImm imm) { string += " " + std::to_string(imm.elemSegmentIndex); }
 
 	void try_(ControlStructureImm imm)
 	{
@@ -806,9 +825,13 @@ void ModulePrintContext::printModule()
 		string += '\n';
 		ScopedTagPrinter dataTag(string, "elem");
 		string += ' ';
-		string += names.tables[tableSegment.tableIndex];
-		string += ' ';
-		printInitializerExpression(tableSegment.baseOffset);
+		if(!tableSegment.isActive) { string += "passive"; }
+		else
+		{
+			string += names.tables[tableSegment.tableIndex];
+			string += ' ';
+			printInitializerExpression(tableSegment.baseOffset);
+		}
 		enum
 		{
 			numElemsPerLine = 8
@@ -828,9 +851,13 @@ void ModulePrintContext::printModule()
 		string += '\n';
 		ScopedTagPrinter dataTag(string, "data");
 		string += ' ';
-		string += names.memories[dataSegment.memoryIndex];
-		string += ' ';
-		printInitializerExpression(dataSegment.baseOffset);
+		if(!dataSegment.isActive) { string += "passive"; }
+		else
+		{
+			string += names.memories[dataSegment.memoryIndex];
+			string += ' ';
+			printInitializerExpression(dataSegment.baseOffset);
+		}
 		enum
 		{
 			numBytesPerLine = 64

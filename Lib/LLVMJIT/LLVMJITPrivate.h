@@ -65,6 +65,8 @@ namespace LLVMJIT
 
 		llvm::Type* exceptionPointersStructType;
 
+		llvm::Type* anyrefType;
+
 		// Zero constants of each type.
 		llvm::Constant* typedZeroConstants[(Uptr)IR::ValueType::num];
 

@@ -19,6 +19,8 @@ namespace IR
 			F64 f64;
 			V128 v128;
 			U8 bytes[16];
+			AnyReferee* anyref;
+			AnyFunc* anyfunc;
 		};
 
 		UntaggedValue(I32 inI32) { i32 = inI32; }
@@ -28,6 +30,8 @@ namespace IR
 		UntaggedValue(F32 inF32) { f32 = inF32; }
 		UntaggedValue(F64 inF64) { f64 = inF64; }
 		UntaggedValue(V128 inV128) { v128 = inV128; }
+		UntaggedValue(AnyReferee* inAnyref) { anyref = inAnyref; }
+		UntaggedValue(AnyFunc* inAnyfunc) { anyfunc = inAnyfunc; }
 		UntaggedValue() { memset(this, 0, sizeof(*this)); }
 	};
 
@@ -35,41 +39,52 @@ namespace IR
 	// runtime.
 	struct Value : UntaggedValue
 	{
-		IR::ValueType type;
+		ValueType type;
 
-		Value(I32 inI32) : UntaggedValue(inI32), type(IR::ValueType::i32) {}
-		Value(I64 inI64) : UntaggedValue(inI64), type(IR::ValueType::i64) {}
-		Value(U32 inU32) : UntaggedValue(inU32), type(IR::ValueType::i32) {}
-		Value(U64 inU64) : UntaggedValue(inU64), type(IR::ValueType::i64) {}
-		Value(F32 inF32) : UntaggedValue(inF32), type(IR::ValueType::f32) {}
-		Value(F64 inF64) : UntaggedValue(inF64), type(IR::ValueType::f64) {}
-		Value(const V128& inV128) : UntaggedValue(inV128), type(IR::ValueType::v128) {}
-		Value(IR::ValueType inType, UntaggedValue inValue) : UntaggedValue(inValue), type(inType) {}
-		Value() : type(IR::ValueType::any) {}
+		Value(I32 inI32) : UntaggedValue(inI32), type(ValueType::i32) {}
+		Value(I64 inI64) : UntaggedValue(inI64), type(ValueType::i64) {}
+		Value(U32 inU32) : UntaggedValue(inU32), type(ValueType::i32) {}
+		Value(U64 inU64) : UntaggedValue(inU64), type(ValueType::i64) {}
+		Value(F32 inF32) : UntaggedValue(inF32), type(ValueType::f32) {}
+		Value(F64 inF64) : UntaggedValue(inF64), type(ValueType::f64) {}
+		Value(const V128& inV128) : UntaggedValue(inV128), type(ValueType::v128) {}
+		Value(std::nullptr_t) : UntaggedValue((AnyReferee*)nullptr), type(ValueType::nullref) {}
+		Value(AnyReferee* inRef) : UntaggedValue(inRef), type(ValueType::anyref) {}
+		Value(AnyFunc* inRef) : UntaggedValue(inRef), type(ValueType::anyfunc) {}
+		Value(ValueType inType, UntaggedValue inValue) : UntaggedValue(inValue), type(inType) {}
+		Value() : type(ValueType::any) {}
 
 		friend std::string asString(const Value& value)
 		{
 			switch(value.type)
 			{
-			case IR::ValueType::i32: return "i32.const " + IR::asString(value.i32);
-			case IR::ValueType::i64: return "i64.const " + IR::asString(value.i64);
-			case IR::ValueType::f32: return "f32.const " + IR::asString(value.f32);
-			case IR::ValueType::f64: return "f64.const " + IR::asString(value.f64);
-			case IR::ValueType::v128: return "v128.const " + IR::asString(value.v128);
+			case ValueType::i32: return "i32.const " + asString(value.i32);
+			case ValueType::i64: return "i64.const " + asString(value.i64);
+			case ValueType::f32: return "f32.const " + asString(value.f32);
+			case ValueType::f64: return "f64.const " + asString(value.f64);
+			case ValueType::v128: return "v128.const " + asString(value.v128);
+			case ValueType::anyref: return "anyref " + asString(value.anyref);
+			case ValueType::anyfunc: return "anyfunc " + asString(value.anyref);
 			default: Errors::unreachable();
 			}
 		}
 
 		friend bool operator==(const Value& left, const Value& right)
 		{
-			if(left.type != right.type) { return false; }
+			if(left.type != right.type)
+			{
+				return isReferenceType(left.type) && isReferenceType(right.type)
+					   && left.anyref == right.anyref;
+			}
 			switch(left.type)
 			{
-			case IR::ValueType::i32:
-			case IR::ValueType::f32: return left.i32 == right.i32;
-			case IR::ValueType::i64:
-			case IR::ValueType::f64: return left.i64 == right.i64;
-			case IR::ValueType::v128: return left.v128 == right.v128;
+			case ValueType::i32:
+			case ValueType::f32: return left.i32 == right.i32;
+			case ValueType::i64:
+			case ValueType::f64: return left.i64 == right.i64;
+			case ValueType::v128: return left.v128 == right.v128;
+			case ValueType::anyref:
+			case ValueType::anyfunc: return left.anyref == right.anyref;
 			default: Errors::unreachable();
 			};
 		}
@@ -83,13 +98,11 @@ namespace IR
 	{
 		std::vector<Value> values;
 
-		ValueTuple(IR::ValueType inType, UntaggedValue inValue) : values({Value(inType, inValue)})
-		{
-		}
-		ValueTuple(IR::TypeTuple types, UntaggedValue* inValues)
+		ValueTuple(ValueType inType, UntaggedValue inValue) : values({Value(inType, inValue)}) {}
+		ValueTuple(TypeTuple types, UntaggedValue* inValues)
 		{
 			values.reserve(types.size());
-			for(IR::ValueType type : types) { values.push_back(Value(type, *inValues++)); }
+			for(ValueType type : types) { values.push_back(Value(type, *inValues++)); }
 		}
 		ValueTuple(const Value& inValue) : values({inValue}) {}
 		ValueTuple() {}

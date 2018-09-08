@@ -159,6 +159,7 @@ static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTr
 		return Runtime::Exception::invalidSegmentOffsetType;
 	case WAST::ExpectedTrapType::misalignedAtomicMemoryAccess:
 		return Runtime::Exception::misalignedAtomicMemoryAccessType;
+	case WAST::ExpectedTrapType::invalidArgument: return Runtime::Exception::invalidArgumentType;
 	default: Errors::unreachable();
 	};
 }
@@ -546,7 +547,7 @@ DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 0.0)
 DEFINE_INTRINSIC_TABLE(spectest,
 					   spectest_table,
 					   table,
-					   TableType(TableElementType::anyfunc, false, SizeConstraints{10, 20}))
+					   TableType(ReferenceType::anyfunc, false, SizeConstraints{10, 20}))
 DEFINE_INTRINSIC_MEMORY(spectest, spectest_memory, memory, MemoryType(false, SizeConstraints{1, 2}))
 DEFINE_INTRINSIC_MEMORY(spectest,
 						spectest_shared_memory,
@@ -591,6 +592,8 @@ int main(int argc, char** argv)
 		// Process the test script commands.
 		for(auto& command : testCommands)
 		{
+			Log::printf(
+				Log::debug, "Evaluating test command at %s\n", command->locus.describe().c_str());
 			catchRuntimeExceptions(
 				[testScriptState, &command] { processCommand(*testScriptState, command.get()); },
 				[testScriptState, &command](Runtime::Exception&& exception) {
@@ -606,6 +609,7 @@ int main(int argc, char** argv)
 	if(testScriptState->errors.size())
 	{
 		// Print any errors;
+		Log::printf(Log::error, "Error running test script:\n");
 		reportParseErrors(filename, testScriptState->errors);
 
 		Log::printf(Log::error, "%s: testing failed!\n", filename);

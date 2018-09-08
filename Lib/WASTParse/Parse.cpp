@@ -110,28 +110,18 @@ bool WAST::tryParseValueType(CursorState* cursor, ValueType& outValueType)
 {
 	switch(cursor->nextToken->type)
 	{
-	case t_i32:
-		++cursor->nextToken;
-		outValueType = ValueType::i32;
-		return true;
-	case t_i64:
-		++cursor->nextToken;
-		outValueType = ValueType::i64;
-		return true;
-	case t_f32:
-		++cursor->nextToken;
-		outValueType = ValueType::f32;
-		return true;
-	case t_f64:
-		++cursor->nextToken;
-		outValueType = ValueType::f64;
-		return true;
-	case t_v128:
-		++cursor->nextToken;
-		outValueType = ValueType::v128;
-		return true;
+	case t_i32: outValueType = ValueType::i32; break;
+	case t_i64: outValueType = ValueType::i64; break;
+	case t_f32: outValueType = ValueType::f32; break;
+	case t_f64: outValueType = ValueType::f64; break;
+	case t_v128: outValueType = ValueType::v128; break;
+	case t_anyref: outValueType = ValueType::anyref; break;
+	case t_anyfunc: outValueType = ValueType::anyfunc; break;
 	default: outValueType = ValueType::any; return false;
 	};
+
+	++cursor->nextToken;
+	return true;
 }
 
 ValueType WAST::parseValueType(CursorState* cursor)
@@ -142,6 +132,22 @@ ValueType WAST::parseValueType(CursorState* cursor)
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected value type");
 		throw RecoverParseException();
 	}
+	return result;
+}
+
+ReferenceType WAST::parseReferenceType(CursorState* cursor)
+{
+	ReferenceType result;
+	switch(cursor->nextToken->type)
+	{
+	case t_anyref: result = ReferenceType::anyref; break;
+	case t_anyfunc: result = ReferenceType::anyfunc; break;
+	default:
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected reference type");
+		throw RecoverParseException();
+	};
+
+	++cursor->nextToken;
 	return result;
 }
 
@@ -226,10 +232,10 @@ IndexedFunctionType WAST::resolveFunctionType(ModuleState* moduleState,
 	else
 	{
 		// Resolve the referenced type.
-		const U32 referencedFunctionTypeIndex = resolveRef(moduleState->parseState,
-														   moduleState->typeNameToIndexMap,
-														   moduleState->module.types.size(),
-														   unresolvedType.reference);
+		const Uptr referencedFunctionTypeIndex = resolveRef(moduleState->parseState,
+															moduleState->typeNameToIndexMap,
+															moduleState->module.types.size(),
+															unresolvedType.reference);
 
 		// Validate that if the function definition has both a type reference and explicit
 		// parameter/result type declarations, they match.
@@ -237,7 +243,7 @@ IndexedFunctionType WAST::resolveFunctionType(ModuleState* moduleState,
 			= unresolvedType.explicitType != FunctionType();
 		if(hasExplicitParametersOrResultType)
 		{
-			if(referencedFunctionTypeIndex != UINT32_MAX
+			if(referencedFunctionTypeIndex != UINTPTR_MAX
 			   && moduleState->module.types[referencedFunctionTypeIndex]
 					  != unresolvedType.explicitType)
 			{
@@ -259,11 +265,11 @@ IndexedFunctionType WAST::getUniqueFunctionTypeIndex(ModuleState* moduleState,
 													 FunctionType functionType)
 {
 	// If this type is not in the module's type table yet, add it.
-	U32& functionTypeIndex = moduleState->functionTypeToIndexMap.getOrAdd(functionType, UINT32_MAX);
-	if(functionTypeIndex == UINT32_MAX)
+	Uptr& functionTypeIndex
+		= moduleState->functionTypeToIndexMap.getOrAdd(functionType, UINTPTR_MAX);
+	if(functionTypeIndex == UINTPTR_MAX)
 	{
-		errorUnless(moduleState->module.types.size() < UINT32_MAX);
-		functionTypeIndex = U32(moduleState->module.types.size());
+		functionTypeIndex = moduleState->module.types.size();
 		moduleState->module.types.push_back(functionType);
 		moduleState->disassemblyNames.types.push_back(std::string());
 	}
@@ -307,7 +313,7 @@ bool WAST::tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef)
 		outRef.type = Reference::Type::name;
 		return true;
 	}
-	else if(tryParseI32(cursor, outRef.index))
+	else if(tryParseIptr(cursor, outRef.index))
 	{
 		outRef.type = Reference::Type::index;
 		return true;
@@ -315,18 +321,30 @@ bool WAST::tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef)
 	return false;
 }
 
-U32 WAST::parseAndResolveNameOrIndexRef(CursorState* cursor,
-										const NameToIndexMap& nameToIndexMap,
-										Uptr maxIndex,
-										const char* context)
+bool WAST::tryParseAndResolveNameOrIndexRef(CursorState* cursor,
+											const NameToIndexMap& nameToIndexMap,
+											Uptr maxIndex,
+											const char* context,
+											Uptr& outIndex)
 {
 	Reference ref;
-	if(!tryParseNameOrIndexRef(cursor, ref))
+	if(!tryParseNameOrIndexRef(cursor, ref)) { return false; }
+	outIndex = resolveRef(cursor->parseState, nameToIndexMap, maxIndex, ref);
+	return true;
+}
+
+Uptr WAST::parseAndResolveNameOrIndexRef(CursorState* cursor,
+										 const NameToIndexMap& nameToIndexMap,
+										 Uptr maxIndex,
+										 const char* context)
+{
+	Uptr resolvedIndex;
+	if(!tryParseAndResolveNameOrIndexRef(cursor, nameToIndexMap, maxIndex, context, resolvedIndex))
 	{
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected %s name or index", context);
 		throw RecoverParseException();
 	}
-	return resolveRef(cursor->parseState, nameToIndexMap, maxIndex, ref);
+	return resolvedIndex;
 }
 
 void WAST::bindName(ParseState* parseState,
@@ -334,13 +352,11 @@ void WAST::bindName(ParseState* parseState,
 					const Name& name,
 					Uptr index)
 {
-	errorUnless(index <= UINT32_MAX);
-
 	if(name)
 	{
-		if(!nameToIndexMap.add(name, U32(index)))
+		if(!nameToIndexMap.add(name, index))
 		{
-			const HashMapPair<Name, U32>* nameIndexPair = nameToIndexMap.getPair(name);
+			const HashMapPair<Name, Uptr>* nameIndexPair = nameToIndexMap.getPair(name);
 			wavmAssert(nameIndexPair);
 			const TextFileLocus previousDefinitionLocus = calcLocusFromOffset(
 				parseState->string, parseState->lineInfo, nameIndexPair->key.getSourceOffset());
@@ -348,15 +364,15 @@ void WAST::bindName(ParseState* parseState,
 						name.getSourceOffset(),
 						"redefinition of name defined at %s",
 						previousDefinitionLocus.describe().c_str());
-			nameToIndexMap.set(name, U32(index));
+			nameToIndexMap.set(name, index);
 		}
 	}
 }
 
-U32 WAST::resolveRef(ParseState* parseState,
-					 const NameToIndexMap& nameToIndexMap,
-					 Uptr maxIndex,
-					 const Reference& ref)
+Uptr WAST::resolveRef(ParseState* parseState,
+					  const NameToIndexMap& nameToIndexMap,
+					  Uptr maxIndex,
+					  const Reference& ref)
 {
 	switch(ref.type)
 	{
@@ -365,17 +381,17 @@ U32 WAST::resolveRef(ParseState* parseState,
 		if(ref.index >= maxIndex)
 		{
 			parseErrorf(parseState, ref.token, "invalid index");
-			return UINT32_MAX;
+			return UINTPTR_MAX;
 		}
 		return ref.index;
 	}
 	case Reference::Type::name:
 	{
-		const HashMapPair<Name, U32>* nameIndexPair = nameToIndexMap.getPair(ref.name);
+		const HashMapPair<Name, Uptr>* nameIndexPair = nameToIndexMap.getPair(ref.name);
 		if(!nameIndexPair)
 		{
 			parseErrorf(parseState, ref.token, "unknown name");
-			return UINT32_MAX;
+			return UINTPTR_MAX;
 		}
 		else
 		{

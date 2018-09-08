@@ -504,15 +504,16 @@ LLVMJIT::LoadedModule::~LoadedModule()
 }
 
 LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
-								  HashMap<std::string, FunctionBinding> wavmIntrinsicsExportMap,
-								  std::vector<FunctionBinding> functionImports,
-								  Uptr numFunctionDefs,
-								  std::vector<TableBinding> tables,
-								  std::vector<MemoryBinding> memories,
-								  std::vector<GlobalBinding> globals,
-								  std::vector<Runtime::ExceptionTypeInstance*> exceptionTypes,
+								  HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
+								  std::vector<FunctionBinding>&& functionImports,
+								  std::vector<TableBinding>&& tables,
+								  std::vector<MemoryBinding>&& memories,
+								  std::vector<GlobalBinding>&& globals,
+								  std::vector<Runtime::ExceptionTypeInstance*>&& exceptionTypes,
 								  MemoryBinding defaultMemory,
 								  TableBinding defaultTable,
+								  ModuleInstance* moduleInstance,
+								  Uptr numFunctionDefs,
 								  std::vector<JITFunction*>& outFunctionDefs)
 {
 	// Bind undefined symbols in the compiled object to values.
@@ -579,6 +580,9 @@ LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 		importedSymbolMap.addOrFail(getExternalName("exceptionType", exceptionTypeIndex),
 									reinterpret_cast<Uptr>(exceptionTypes[exceptionTypeIndex]));
 	}
+
+	// Bind the moduleInstance symbol to point to the ModuleInstance.
+	importedSymbolMap.addOrFail("moduleInstance", reinterpret_cast<Uptr>(moduleInstance));
 
 	// Load the module.
 	LoadedModule* jitModule = new LoadedModule(objectFileBytes, importedSymbolMap, true);
