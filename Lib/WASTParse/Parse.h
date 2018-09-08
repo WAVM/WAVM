@@ -189,6 +189,7 @@ namespace WAST
 	// Type parsing and uniqueing
 	bool tryParseValueType(CursorState* cursor, IR::ValueType& outValueType);
 	IR::ValueType parseValueType(CursorState* cursor);
+	IR::ReferenceType parseReferenceType(CursorState* cursor);
 
 	IR::FunctionType parseFunctionType(CursorState* cursor,
 									   NameToIndexMap& outLocalNameToIndexMap,

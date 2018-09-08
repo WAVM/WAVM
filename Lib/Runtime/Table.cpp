@@ -304,6 +304,33 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.get",
+						  IR::AnyReferee*,
+						  table_get,
+						  U32 index,
+						  Uptr tableId)
+{
+	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
+	if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
+	return (IR::AnyReferee*)table->elements[index];
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.set",
+						  void,
+						  table_set,
+						  U32 index,
+						  IR::AnyReferee* value,
+						  Uptr tableId)
+{
+	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
+	if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
+	table->elements[index] = (Object*)value;
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "table.init",
 						  void,
 						  table_init,

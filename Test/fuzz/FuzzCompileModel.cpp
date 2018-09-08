@@ -483,6 +483,8 @@ static void generateFunction(RandomStream& random,
 			}
 		}
 
+		// TODO: table.get/table.set
+
 		if(allowStackGrowth)
 		{
 			// Enter a block control structure.
@@ -707,7 +709,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 
 	// Generate some standard definitions that are the same for all modules.
 	module.memories.defs.push_back({{true, {1024, IR::maxMemoryPages}}});
-	module.tables.defs.push_back({{TableElementType::anyfunc, true, {1024, IR::maxTableElems}}});
+	module.tables.defs.push_back({{ReferenceType::anyfunc, true, {1024, IR::maxTableElems}}});
 
 	// Generate some globals.
 	while(true)
@@ -744,6 +746,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 				initializer.v128.u64[0] = random.get(UINT64_MAX);
 				initializer.v128.u64[1] = random.get(UINT64_MAX);
 				break;
+			case ValueType::anyref: initializer.type = InitializerExpression::Type::ref_null; break;
 			default: Errors::unreachable();
 			}
 			module.globals.defs.push_back({globalType, initializer});

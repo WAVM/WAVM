@@ -289,6 +289,11 @@ static int run(const CommandLineOptions& options)
 			case ValueType::i64: value = (U64)atol(options.args[i]); break;
 			case ValueType::f32: value = (F32)atof(options.args[i]); break;
 			case ValueType::f64: value = atof(options.args[i]); break;
+			case ValueType::v128:
+			case ValueType::anyref:
+			case ValueType::anyfunc:
+				Errors::fatalf("Cannot parse command-line argument for %s function parameter",
+							   asString(functionType.params()[i]));
 			default: Errors::unreachable();
 			}
 			invokeArgs.push_back(value);

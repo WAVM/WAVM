@@ -8,39 +8,7 @@
 
 // clang-format off
 
-// Enumerate the WebAssembly operators
-
-#define ENUM_CONTROL_OPERATORS(visitOp) \
-	visitOp(0x02,block,"block",ControlStructureImm,CONTROL,mvp) \
-	visitOp(0x03,loop,"loop",ControlStructureImm,CONTROL,mvp) \
-	visitOp(0x04,if_,"if",ControlStructureImm,CONTROL,mvp) \
-	visitOp(0x05,else_,"else",NoImm,CONTROL,mvp) \
-	visitOp(0x0b,end,"end",NoImm,CONTROL,mvp) \
-	visitOp(EXCEPTIONOP(2),try_,"try",ControlStructureImm,CONTROL,exceptionHandling) \
-	visitOp(EXCEPTIONOP(3),catch_,"catch",ExceptionTypeImm,CONTROL,exceptionHandling) \
-	visitOp(EXCEPTIONOP(4),catch_all,"catch_all",NoImm,CONTROL,exceptionHandling)
-
-#define ENUM_PARAMETRIC_OPERATORS(visitOp) \
-	visitOp(0x00,unreachable,"unreachable",NoImm,UNREACHABLE,mvp) \
-	visitOp(0x0c,br,"br",BranchImm,BR,mvp) \
-	visitOp(0x0d,br_if,"br_if",BranchImm,BR_IF,mvp) \
-	visitOp(0x0e,br_table,"br_table",BranchTableImm,BR_TABLE,mvp) \
-	visitOp(0x0f,return_,"return",NoImm,RETURN,mvp) \
-	visitOp(0x10,call,"call",CallImm,CALL,mvp) \
-	visitOp(0x11,call_indirect,"call_indirect",CallIndirectImm,CALLINDIRECT,mvp) \
-	visitOp(0x1a,drop,"drop",NoImm,DROP,mvp) \
-	visitOp(0x1b,select,"select",NoImm,SELECT,mvp) \
-	\
-	visitOp(0x20,get_local,"get_local",GetOrSetVariableImm<false>,GETLOCAL,mvp) \
-	visitOp(0x21,set_local,"set_local",GetOrSetVariableImm<false>,SETLOCAL,mvp) \
-	visitOp(0x22,tee_local,"tee_local",GetOrSetVariableImm<false>,TEELOCAL,mvp) \
-	visitOp(0x23,get_global,"get_global",GetOrSetVariableImm<true>,GETGLOBAL,mvp) \
-	visitOp(0x24,set_global,"set_global",GetOrSetVariableImm<true>,SETGLOBAL,mvp) \
-	\
-	visitOp(EXCEPTIONOP(0),throw_,"throw",ExceptionTypeImm,THROW,exceptionHandling) \
-	visitOp(EXCEPTIONOP(1),rethrow,"rethrow",RethrowImm,RETHROW,exceptionHandling)
-
-// Maps an operator signature to a function type.
+// Maps a non-parametric operator signature to a function type.
 #define NONE                                    FunctionType()
 #define LOAD(resultTypeId)                      FunctionType({ValueType::resultTypeId}, {ValueType::i32                                                            })
 #define STORE(valueTypeId)                      FunctionType({},                        {ValueType::i32,           ValueType::valueTypeId                          })
@@ -54,11 +22,42 @@
 #define ATOMICRMW(valueTypeId)                  FunctionType({ValueType::valueTypeId},  {ValueType::i32,           ValueType::valueTypeId                          })
 #define BULKCOPY                                FunctionType({},                        {ValueType::i32,           ValueType::i32,          ValueType::i32         })
 
+// Enumerate the WebAssembly operators
+
+#define ENUM_CONTROL_OPERATORS(visitOp) \
+	visitOp(0x02,block,"block",ControlStructureImm,,mvp) \
+	visitOp(0x03,loop,"loop",ControlStructureImm,,mvp) \
+	visitOp(0x04,if_,"if",ControlStructureImm,,mvp) \
+	visitOp(0x05,else_,"else",NoImm,,mvp) \
+	visitOp(0x0b,end,"end",NoImm,,mvp) \
+	visitOp(EXCEPTIONOP(2),try_,"try",ControlStructureImm,,exceptionHandling) \
+	visitOp(EXCEPTIONOP(3),catch_,"catch",ExceptionTypeImm,,exceptionHandling) \
+	visitOp(EXCEPTIONOP(4),catch_all,"catch_all",NoImm,,exceptionHandling)
+
+#define ENUM_PARAMETRIC_OPERATORS(visitOp) \
+	visitOp(0x00,unreachable,"unreachable",NoImm,,mvp) \
+	visitOp(0x0c,br,"br",BranchImm,,mvp) \
+	visitOp(0x0d,br_if,"br_if",BranchImm,,mvp) \
+	visitOp(0x0e,br_table,"br_table",BranchTableImm,,mvp) \
+	visitOp(0x0f,return_,"return",NoImm,,mvp) \
+	visitOp(0x10,call,"call",CallImm,,mvp) \
+	visitOp(0x11,call_indirect,"call_indirect",CallIndirectImm,,mvp) \
+	visitOp(0x1a,drop,"drop",NoImm,,mvp) \
+	visitOp(0x1b,select,"select",NoImm,,mvp) \
+	\
+	visitOp(0x20,get_local,"get_local",GetOrSetVariableImm<false>,,mvp) \
+	visitOp(0x21,set_local,"set_local",GetOrSetVariableImm<false>,,mvp) \
+	visitOp(0x22,tee_local,"tee_local",GetOrSetVariableImm<false>,,mvp) \
+	visitOp(0x23,get_global,"get_global",GetOrSetVariableImm<true>,,mvp) \
+	visitOp(0x24,set_global,"set_global",GetOrSetVariableImm<true>,,mvp) \
+	visitOp(0x25,table_get,"table.get",TableImm,,referenceTypes) \
+	visitOp(0x26,table_set,"table.set",TableImm,,referenceTypes) \
+	\
+	visitOp(EXCEPTIONOP(0),throw_,"throw",ExceptionTypeImm,,exceptionHandling) \
+	visitOp(EXCEPTIONOP(1),rethrow,"rethrow",RethrowImm,,exceptionHandling)
+
 #define ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp) \
 	visitOp(0x01,nop,"nop",NoImm,NONE,mvp) \
-	\
-	visitOp(0x3f,memory_size,"memory.size",MemoryImm,NULLARY(i32),mvp) \
-	visitOp(0x40,memory_grow,"memory.grow",MemoryImm,UNARY(i32,i32),mvp) \
 	\
 	visitOp(0x28,i32_load,"i32.load",LoadOrStoreImm<2>,LOAD(i32),mvp) \
 	visitOp(0x29,i64_load,"i64.load",LoadOrStoreImm<3>,LOAD(i64),mvp) \
@@ -84,6 +83,9 @@
 	visitOp(0x3c,i64_store8,"i64.store8",LoadOrStoreImm<0>,STORE(i64),mvp) \
 	visitOp(0x3d,i64_store16,"i64.store16",LoadOrStoreImm<1>,STORE(i64),mvp) \
 	visitOp(0x3e,i64_store32,"i64.store32",LoadOrStoreImm<2>,STORE(i64),mvp) \
+	\
+	visitOp(0x3f,memory_size,"memory.size",MemoryImm,NULLARY(i32),mvp) \
+	visitOp(0x40,memory_grow,"memory.grow",MemoryImm,UNARY(i32,i32),mvp) \
 	\
 	visitOp(0x41,i32_const,"i32.const",LiteralImm<I32>,NULLARY(i32),mvp) \
 	visitOp(0x42,i64_const,"i64.const",LiteralImm<I64>,NULLARY(i64),mvp) \
@@ -225,6 +227,17 @@
 	visitOp(0xbd,i64_reinterpret_f64,"i64.reinterpret/f64",NoImm,UNARY(f64,i64),mvp) \
 	visitOp(0xbe,f32_reinterpret_i32,"f32.reinterpret/i32",NoImm,UNARY(i32,f32),mvp) \
 	visitOp(0xbf,f64_reinterpret_i64,"f64.reinterpret/i64",NoImm,UNARY(i64,f64),mvp) \
+	\
+	/* Extended sign extension operators */ \
+	visitOp(0xc0,i32_extend8_s,"i32.extend8_s",NoImm,UNARY(i32,i32),extendedSignExtension) \
+	visitOp(0xc1,i32_extend16_s,"i32.extend16_s",NoImm,UNARY(i32,i32),extendedSignExtension) \
+	visitOp(0xc2,i64_extend8_s,"i64.extend8_s",NoImm,UNARY(i64,i64),extendedSignExtension) \
+	visitOp(0xc3,i64_extend16_s,"i64.extend16_s",NoImm,UNARY(i64,i64),extendedSignExtension) \
+	visitOp(0xc4,i64_extend32_s,"i64.extend32_s",NoImm,UNARY(i64,i64),extendedSignExtension) \
+	\
+	/* Reference type operators */ \
+	visitOp(0xd0,ref_null,"ref.null",NoImm,NULLARY(nullref),referenceTypes) \
+	visitOp(0xd1,ref_isnull,"ref.isnull",NoImm,UNARY(anyref,i32),referenceTypes) \
 	\
 	/* SIMD operators */ \
 	visitOp(SIMDOP(0),v128_const,"v128.const",LiteralImm<V128>,NULLARY(v128),simd) \
@@ -399,13 +412,6 @@
 	visitOp(SIMDOP(137),i32x4_trunc_u_sat_f32x4,"i32x4.trunc_u:sat/f32x4",NoImm,UNARY(v128,v128),simd) \
 	visitOp(SIMDOP(138),i64x2_trunc_s_sat_f64x2,"i64x2.trunc_s:sat/f64x2",NoImm,UNARY(v128,v128),simd) \
 	visitOp(SIMDOP(139),i64x2_trunc_u_sat_f64x2,"i64x2.trunc_u:sat/f64x2",NoImm,UNARY(v128,v128),simd) \
-	\
-	/* Extended sign extension operators */ \
-	visitOp(0xc0,i32_extend8_s,"i32.extend8_s",NoImm,UNARY(i32,i32),extendedSignExtension) \
-	visitOp(0xc1,i32_extend16_s,"i32.extend16_s",NoImm,UNARY(i32,i32),extendedSignExtension) \
-	visitOp(0xc2,i64_extend8_s,"i64.extend8_s",NoImm,UNARY(i64,i64),extendedSignExtension) \
-	visitOp(0xc3,i64_extend16_s,"i64.extend16_s",NoImm,UNARY(i64,i64),extendedSignExtension) \
-	visitOp(0xc4,i64_extend32_s,"i64.extend32_s",NoImm,UNARY(i64,i64),extendedSignExtension) \
 	\
 	/*  Threading operators */ \
 	visitOp(ATOMICOP(0x00),atomic_wake,"atomic.wake",AtomicLoadOrStoreImm<2>,BINARY(i32,i32),atomics) \

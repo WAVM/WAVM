@@ -91,6 +91,9 @@ void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 			case InitializerExpression::Type::v128_const:
 				value = emitLiteral(llvmContext, globalDef.initializer.v128);
 				break;
+			case InitializerExpression::Type::ref_null:
+				value = emitLiteralPointer(nullptr, llvmContext.anyrefType);
+				break;
 			default: break;
 			};
 		}

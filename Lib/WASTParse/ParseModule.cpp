@@ -137,6 +137,12 @@ static InitializerExpression parseInitializerExpression(CursorState* cursor)
 												"global");
 			break;
 		}
+		case t_ref_null:
+		{
+			++cursor->nextToken;
+			result = nullptr;
+			break;
+		}
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
 			result.type = InitializerExpression::Type::error;
@@ -249,8 +255,7 @@ static void parseImport(CursorState* cursor)
 		{
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			const TableElementType elementType = TableElementType::anyfunc;
-			require(cursor, t_anyfunc);
+			const ReferenceType elementType = parseReferenceType(cursor);
 			createImport(cursor,
 						 name,
 						 std::move(moduleName),
@@ -653,8 +658,7 @@ static void parseTable(CursorState* cursor)
 		[](CursorState* cursor) {
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			const TableElementType elementType = TableElementType::anyfunc;
-			require(cursor, t_anyfunc);
+			const ReferenceType elementType = parseReferenceType(cursor);
 			return TableType{elementType, isShared, sizeConstraints};
 		},
 		// Parse a table definition.
@@ -665,8 +669,7 @@ static void parseTable(CursorState* cursor)
 				= tryParseSizeConstraints(cursor, IR::maxTableElems, sizeConstraints);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 
-			const TableElementType elementType = TableElementType::anyfunc;
-			require(cursor, t_anyfunc);
+			const ReferenceType elementType = parseReferenceType(cursor);
 
 			// If we couldn't parse an explicit size constraints, the table definition must contain
 			// an table segment that implicitly defines the size.

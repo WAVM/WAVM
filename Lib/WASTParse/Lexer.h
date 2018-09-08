@@ -46,7 +46,9 @@
 	VISIT_LITERAL_TOKEN(i64)                                                                       \
 	VISIT_LITERAL_TOKEN(f32)                                                                       \
 	VISIT_LITERAL_TOKEN(f64)                                                                       \
+	VISIT_LITERAL_TOKEN(anyref)                                                                    \
 	VISIT_LITERAL_TOKEN(anyfunc)                                                                   \
+	VISIT_LITERAL_TOKEN(nullref)                                                                   \
 	VISIT_LITERAL_TOKEN(shared)                                                                    \
 	VISIT_LITERAL_TOKEN(quote)                                                                     \
 	VISIT_LITERAL_TOKEN(binary)                                                                    \

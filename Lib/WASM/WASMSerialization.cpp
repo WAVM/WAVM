@@ -51,11 +51,37 @@ FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 // the Serialization namespace to find them.
 namespace IR
 {
-	template<typename Stream> void serialize(Stream& stream, ValueType& type)
+	static void serialize(InputStream& stream, ValueType& type)
 	{
-		I8 encodedValueType = -(I8)type;
-		serializeVarInt7(stream, encodedValueType);
-		if(Stream::isInput) { type = (ValueType)-encodedValueType; }
+		U8 encodedValueType = 0;
+		serializeVarUInt7(stream, encodedValueType);
+		switch(encodedValueType)
+		{
+		case 0x7F: type = ValueType::i32; break;
+		case 0x7E: type = ValueType::i64; break;
+		case 0x7D: type = ValueType::f32; break;
+		case 0x7C: type = ValueType::f64; break;
+		case 0x7B: type = ValueType::v128; break;
+		case 0x70: type = ValueType::anyfunc; break;
+		case 0x6F: type = ValueType::anyref; break;
+		default: throw FatalSerializationException("invalid value type");
+		};
+	}
+	static void serialize(OutputStream& stream, ValueType type)
+	{
+		U8 encodedValueType;
+		switch(type)
+		{
+		case ValueType::i32: encodedValueType = 0x7F; break;
+		case ValueType::i64: encodedValueType = 0x7E; break;
+		case ValueType::f32: encodedValueType = 0x7D; break;
+		case ValueType::f64: encodedValueType = 0x7C; break;
+		case ValueType::v128: encodedValueType = 0x7B; break;
+		case ValueType::anyfunc: encodedValueType = 0x70; break;
+		case ValueType::anyref: encodedValueType = 0x6F; break;
+		default: throw FatalSerializationException("invalid value type");
+		};
+		serializeVarUInt7(stream, encodedValueType);
 	}
 
 	FORCEINLINE static void serialize(InputStream& stream, TypeTuple& typeTuple)
@@ -92,9 +118,30 @@ namespace IR
 		}
 	}
 
-	template<typename Stream> void serialize(Stream& stream, TableElementType& elementType)
+	template<typename Stream> void serialize(Stream& stream, ReferenceType& referenceType)
 	{
-		serializeNativeValue(stream, elementType);
+		if(Stream::isInput)
+		{
+			U8 encodedReferenceType = 0;
+			serializeNativeValue(stream, encodedReferenceType);
+			switch(encodedReferenceType)
+			{
+			case 0x70: referenceType = ReferenceType::anyfunc; break;
+			case 0x6F: referenceType = ReferenceType::anyref; break;
+			default: throw FatalSerializationException("invalid reference type encoding");
+			}
+		}
+		else
+		{
+			U8 encodedReferenceType;
+			switch(referenceType)
+			{
+			case ReferenceType::anyfunc: encodedReferenceType = 0x70; break;
+			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
+			default: Errors::unreachable();
+			}
+			serializeNativeValue(stream, encodedReferenceType);
+		}
 	}
 
 	template<typename Stream> void serialize(Stream& stream, TableType& tableType)
@@ -162,6 +209,7 @@ namespace IR
 		case InitializerExpression::Type::get_global:
 			serializeVarUInt32(stream, initializer.globalIndex);
 			break;
+		case InitializerExpression::Type::ref_null: break;
 		default: throw FatalSerializationException("invalid initializer expression opcode");
 		}
 		serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
@@ -412,8 +460,7 @@ template<typename Stream> void serialize(Stream& stream, MemoryImm& imm, const F
 }
 template<typename Stream> void serialize(Stream& stream, TableImm& imm, const FunctionDef&)
 {
-	serializeConstant(stream, "table.copy immediate reserved field must be 0", U8(0));
-	if(Stream::isInput) { imm.tableIndex = 0; }
+	serializeVarUInt32(stream, imm.tableIndex);
 }
 
 template<typename Stream> void serialize(Stream& stream, V128& v128)

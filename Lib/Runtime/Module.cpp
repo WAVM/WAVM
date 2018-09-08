@@ -35,6 +35,7 @@ static Value evaluateInitializer(ModuleInstance* moduleInstance, InitializerExpr
 		errorUnless(!globalInstance->type.isMutable);
 		return IR::Value(globalInstance->type.valueType, globalInstance->initialValue);
 	}
+	case InitializerExpression::Type::ref_null: return nullptr;
 	default: Errors::unreachable();
 	};
 }
@@ -151,10 +152,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		moduleInstance->defaultMemory = moduleInstance->memories[0];
 	}
 	if(moduleInstance->tables.size() != 0)
-	{
-		wavmAssert(moduleInstance->tables.size() == 1);
-		moduleInstance->defaultTable = moduleInstance->tables[0];
-	}
+	{ moduleInstance->defaultTable = moduleInstance->tables[0]; }
 
 	// If any memory or table segment doesn't fit, throw an exception before mutating any
 	// memory/table.
@@ -216,7 +214,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	for(const GlobalDef& globalDef : module->globals.defs)
 	{
 		const Value initialValue = evaluateInitializer(moduleInstance, globalDef.initializer);
-		errorUnless(initialValue.type == globalDef.type.valueType);
+		errorUnless(isSubtype(initialValue.type, globalDef.type.valueType));
 		moduleInstance->globals.push_back(createGlobal(compartment, globalDef.type, initialValue));
 	}
 

@@ -163,58 +163,6 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 }
 
 //
-// Table bulk operators.
-//
-
-void EmitFunctionContext::table_init(ElemSegmentAndTableImm imm)
-{
-	auto numElements = pop();
-	auto sourceOffset = pop();
-	auto destOffset = pop();
-	emitRuntimeIntrinsic(
-		"table.init",
-		FunctionType({},
-					 TypeTuple({ValueType::i32,
-								ValueType::i32,
-								ValueType::i32,
-								inferValueType<Uptr>(),
-								inferValueType<Uptr>(),
-								inferValueType<Uptr>()})),
-		{destOffset,
-		 sourceOffset,
-		 numElements,
-		 irBuilder.CreatePointerCast(moduleContext.moduleInstancePointer, llvmContext.iptrType),
-		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
-		 emitLiteral(llvmContext, imm.elemSegmentIndex)});
-}
-
-void EmitFunctionContext::table_drop(ElemSegmentImm imm)
-{
-	emitRuntimeIntrinsic(
-		"table.drop",
-		FunctionType({}, TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()})),
-		{irBuilder.CreatePointerCast(moduleContext.moduleInstancePointer, llvmContext.iptrType),
-		 emitLiteral(llvmContext, imm.elemSegmentIndex)});
-}
-
-void EmitFunctionContext::table_copy(TableImm imm)
-{
-	auto numElements = pop();
-	auto sourceOffset = pop();
-	auto destOffset = pop();
-
-	emitRuntimeIntrinsic(
-		"table.copy",
-		FunctionType(
-			{},
-			TypeTuple({ValueType::i32, ValueType::i32, ValueType::i32, inferValueType<Uptr>()})),
-		{destOffset,
-		 sourceOffset,
-		 numElements,
-		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
-}
-
-//
 // Load/store operators
 //
 

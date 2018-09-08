@@ -98,6 +98,8 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		case ValueType::f32: results.values.push_back(Value(*(F32*)result)); break;
 		case ValueType::f64: results.values.push_back(Value(*(F64*)result)); break;
 		case ValueType::v128: results.values.push_back(Value(*(V128*)result)); break;
+		case ValueType::anyref: results.values.push_back(Value(*(AnyFunc**)result)); break;
+		case ValueType::anyfunc: results.values.push_back(Value(*(AnyReferee**)result)); break;
 		default: Errors::unreachable();
 		};
 

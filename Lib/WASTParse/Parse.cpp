@@ -110,28 +110,18 @@ bool WAST::tryParseValueType(CursorState* cursor, ValueType& outValueType)
 {
 	switch(cursor->nextToken->type)
 	{
-	case t_i32:
-		++cursor->nextToken;
-		outValueType = ValueType::i32;
-		return true;
-	case t_i64:
-		++cursor->nextToken;
-		outValueType = ValueType::i64;
-		return true;
-	case t_f32:
-		++cursor->nextToken;
-		outValueType = ValueType::f32;
-		return true;
-	case t_f64:
-		++cursor->nextToken;
-		outValueType = ValueType::f64;
-		return true;
-	case t_v128:
-		++cursor->nextToken;
-		outValueType = ValueType::v128;
-		return true;
+	case t_i32: outValueType = ValueType::i32; break;
+	case t_i64: outValueType = ValueType::i64; break;
+	case t_f32: outValueType = ValueType::f32; break;
+	case t_f64: outValueType = ValueType::f64; break;
+	case t_v128: outValueType = ValueType::v128; break;
+	case t_anyref: outValueType = ValueType::anyref; break;
+	case t_anyfunc: outValueType = ValueType::anyfunc; break;
 	default: outValueType = ValueType::any; return false;
 	};
+
+	++cursor->nextToken;
+	return true;
 }
 
 ValueType WAST::parseValueType(CursorState* cursor)
@@ -142,6 +132,22 @@ ValueType WAST::parseValueType(CursorState* cursor)
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected value type");
 		throw RecoverParseException();
 	}
+	return result;
+}
+
+ReferenceType WAST::parseReferenceType(CursorState* cursor)
+{
+	ReferenceType result;
+	switch(cursor->nextToken->type)
+	{
+	case t_anyref: result = ReferenceType::anyref; break;
+	case t_anyfunc: result = ReferenceType::anyfunc; break;
+	default:
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected reference type");
+		throw RecoverParseException();
+	};
+
+	++cursor->nextToken;
 	return result;
 }
 

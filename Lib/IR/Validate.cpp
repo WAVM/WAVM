@@ -50,9 +50,9 @@ static void validate(SizeConstraints size, U64 maxMax)
 	VALIDATE_UNLESS("maximum size exceeds limit: ", max > maxMax);
 }
 
-static void validate(TableElementType type)
+static void validate(ReferenceType type)
 {
-	if(type != TableElementType::anyfunc)
+	if(type != ReferenceType::anyfunc && type != ReferenceType::anyref)
 	{
 		throw ValidationException("invalid table element type (" + std::to_string((Uptr)type)
 								  + ")");
@@ -89,7 +89,7 @@ static void validate(TypeTuple typeTuple)
 
 template<typename Type> void validateType(Type expectedType, Type actualType, const char* context)
 {
-	if(expectedType != actualType)
+	if(!isSubtype(actualType, expectedType))
 	{
 		throw ValidationException(std::string("type mismatch: expected ") + asString(expectedType)
 								  + " but got " + asString(actualType) + " in " + context);
@@ -197,6 +197,9 @@ static void validateInitializer(const Module& module,
 		validateType(expectedType, globalValueType, context);
 		break;
 	}
+	case InitializerExpression::Type::ref_null:
+		validateType(expectedType, ValueType::nullref, context);
+		break;
 	default: throw ValidationException("invalid initializer expression");
 	};
 }
@@ -436,6 +439,20 @@ struct FunctionValidationContext
 			validateGlobalIndex(module, imm.variableIndex, true, false, false, "set_global"));
 	}
 
+	void table_get(TableImm imm)
+	{
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+		const TableType& tableType = module.tables.getType(imm.tableIndex);
+		popAndValidateOperand("table.get", ValueType::i32);
+		pushOperand(asValueType(tableType.elementType));
+	}
+	void table_set(TableImm imm)
+	{
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+		const TableType& tableType = module.tables.getType(imm.tableIndex);
+		popAndValidateOperands("table.get", ValueType::i32, asValueType(tableType.elementType));
+	}
+
 	void throw_(ExceptionTypeImm imm)
 	{
 		VALIDATE_FEATURE("throw", exceptionHandling);
@@ -464,6 +481,8 @@ struct FunctionValidationContext
 	{
 		VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",
 						module.tables.size() == 0);
+		VALIDATE_UNLESS("call_indirect requires a table element type of anyfunc: ",
+						module.tables.getType(0).elementType != ReferenceType::anyfunc);
 		FunctionType calleeType = validateFunctionType(module, imm.type);
 		popAndValidateOperand("call_indirect function index", ValueType::i32);
 		popAndValidateTypeTuple("call_indirect arguments", calleeType.params());
@@ -716,8 +735,7 @@ private:
 									  + context + " operand");
 		}
 
-		if(expectedType != actualType && expectedType != ValueType::any
-		   && actualType != ValueType::any)
+		if(actualType != ValueType::any && !isSubtype(actualType, expectedType))
 		{
 			throw ValidationException(std::string("type mismatch: expected ")
 									  + asString(expectedType) + " but got " + asString(actualType)
@@ -776,7 +794,8 @@ void IR::validateImports(const Module& module)
 	for(auto& exceptionTypeImport : module.exceptionTypes.imports)
 	{ validate(exceptionTypeImport.type.params); }
 
-	VALIDATE_UNLESS("too many tables: ", module.tables.size() > 1);
+	VALIDATE_UNLESS("too many tables: ",
+					!module.featureSpec.referenceTypes && module.tables.size() > 1);
 	VALIDATE_UNLESS("too many memories: ", module.memories.size() > 1);
 }
 
@@ -811,7 +830,8 @@ void IR::validateExceptionTypeDefs(const Module& module)
 void IR::validateTableDefs(const Module& module)
 {
 	for(auto& tableDef : module.tables.defs) { validate(module, tableDef.type); }
-	VALIDATE_UNLESS("too many tables: ", module.tables.size() > 1);
+	VALIDATE_UNLESS("too many tables: ",
+					!module.featureSpec.referenceTypes && module.tables.size() > 1);
 }
 
 void IR::validateMemoryDefs(const Module& module)

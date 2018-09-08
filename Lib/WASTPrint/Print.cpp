@@ -299,6 +299,7 @@ struct ModulePrintContext
 		case InitializerExpression::Type::get_global:
 			string += "(get_global " + names.globals[expression.globalIndex] + ')';
 			break;
+		case InitializerExpression::Type::ref_null: string += "(ref.null)"; break;
 		default: Errors::unreachable();
 		};
 	}
@@ -442,6 +443,9 @@ struct FunctionPrintContext
 	{
 		string += "\nset_global " + moduleContext.names.globals[imm.variableIndex];
 	}
+
+	void table_get(TableImm imm) { string += "\ntable.get"; }
+	void table_set(TableImm imm) { string += "\ntable.set"; }
 
 	void throw_(ExceptionTypeImm imm)
 	{
