@@ -279,6 +279,13 @@ namespace Runtime
 	RUNTIME_API void unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numPages);
 
 	// Validates that an offset range is wholly inside a Memory's virtual address range.
+	// Note that this returns an address range that may fault on access, though it's guaranteed not
+	// to be mapped by anything other than the given MemoryInstance.
+	RUNTIME_API U8* getReservedMemoryOffsetRange(MemoryInstance* memory,
+												 Uptr offset,
+												 Uptr numBytes);
+
+	// Validates that an offset range is wholly inside a Memory's committed pages.
 	RUNTIME_API U8* getValidatedMemoryOffsetRange(MemoryInstance* memory,
 												  Uptr offset,
 												  Uptr numBytes);

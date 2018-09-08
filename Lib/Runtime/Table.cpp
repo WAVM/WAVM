@@ -42,7 +42,7 @@ static TableInstance* createTableImpl(Compartment* compartment,
 
 	table->baseAddress = (TableInstance::FunctionElement*)Platform::allocateVirtualPages(
 		tableMaxPages + numGuardPages);
-	table->endOffset = tableMaxBytes;
+	table->numReservedBytes = tableMaxBytes;
 	if(!table->baseAddress)
 	{
 		delete table;
@@ -135,9 +135,10 @@ TableInstance::~TableInstance()
 
 	// Free the virtual address space.
 	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
-	if(endOffset > 0)
+	if(numReservedBytes > 0)
 	{
-		Platform::freeVirtualPages((U8*)baseAddress, (endOffset >> pageBytesLog2) + numGuardPages);
+		Platform::freeVirtualPages((U8*)baseAddress,
+								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
 	}
 	baseAddress = nullptr;
 
@@ -163,7 +164,7 @@ bool Runtime::isAddressOwnedByTable(U8* address)
 	for(auto table : tables)
 	{
 		U8* startAddress = (U8*)table->baseAddress;
-		U8* endAddress = ((U8*)table->baseAddress) + table->endOffset;
+		U8* endAddress = ((U8*)table->baseAddress) + table->numReservedBytes;
 		if(address >= startAddress && address < endAddress) { return true; }
 	}
 	return false;
