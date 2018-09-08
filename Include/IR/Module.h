@@ -139,6 +139,7 @@ namespace IR
 	// instantiating a module
 	struct DataSegment
 	{
+		bool isActive;
 		Uptr memoryIndex;
 		InitializerExpression baseOffset;
 		std::vector<U8> data;
@@ -148,6 +149,7 @@ namespace IR
 	// when instantiating a module
 	struct TableSegment
 	{
+		bool isActive;
 		Uptr tableIndex;
 		InitializerExpression baseOffset;
 		std::vector<Uptr> indices;

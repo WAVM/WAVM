@@ -236,30 +236,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	throwException(Exception::undefinedTableElementType);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "growMemory",
-						  I32,
-						  _growMemory,
-						  I32 deltaPages,
-						  I64 memoryId)
-{
-	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
-	wavmAssert(memory);
-	if(getMemoryNumPages(memory) + Uptr(deltaPages) > IR::maxMemoryPages) { return -1; }
-	const Iptr numPreviousMemoryPages = growMemory(memory, (Uptr)deltaPages);
-	wavmAssert(numPreviousMemoryPages < INT32_MAX);
-	return I32(numPreviousMemoryPages);
-}
-
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "currentMemory", I32, _currentMemory, I64 memoryId)
-{
-	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
-	wavmAssert(memory);
-	Uptr numMemoryPages = getMemoryNumPages(memory);
-	if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }
-	return (U32)numMemoryPages;
-}
-
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)
 {
 	Log::printf(Log::debug, "================== wavmIntrinsics.debugBreak\n");

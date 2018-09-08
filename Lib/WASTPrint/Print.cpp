@@ -485,7 +485,8 @@ struct FunctionPrintContext
 	}
 
 	void printImm(NoImm) {}
-	void printImm(MemoryImm) {}
+	void printImm(MemoryImm imm) { errorUnless(imm.memoryIndex == 0); }
+	void printImm(TableImm imm) { errorUnless(imm.tableIndex == 0); }
 
 	void printImm(LiteralImm<I32> imm)
 	{
@@ -555,6 +556,20 @@ struct FunctionPrintContext
 		}
 		wavmAssert(imm.alignmentLog2 == naturalAlignmentLog2);
 	}
+
+	void printImm(DataSegmentAndMemImm imm)
+	{
+		string += " " + std::to_string(imm.dataSegmentIndex);
+		string += " " + std::to_string(imm.memoryIndex);
+	}
+	void printImm(DataSegmentImm imm) { string += " " + std::to_string(imm.dataSegmentIndex); }
+
+	void printImm(ElemSegmentAndTableImm imm)
+	{
+		string += " " + std::to_string(imm.elemSegmentIndex);
+		string += " " + std::to_string(imm.tableIndex);
+	}
+	void printImm(ElemSegmentImm imm) { string += " " + std::to_string(imm.elemSegmentIndex); }
 
 	void try_(ControlStructureImm imm)
 	{
@@ -806,9 +821,13 @@ void ModulePrintContext::printModule()
 		string += '\n';
 		ScopedTagPrinter dataTag(string, "elem");
 		string += ' ';
-		string += names.tables[tableSegment.tableIndex];
-		string += ' ';
-		printInitializerExpression(tableSegment.baseOffset);
+		if(!tableSegment.isActive) { string += "passive"; }
+		else
+		{
+			string += names.tables[tableSegment.tableIndex];
+			string += ' ';
+			printInitializerExpression(tableSegment.baseOffset);
+		}
 		enum
 		{
 			numElemsPerLine = 8
@@ -828,9 +847,13 @@ void ModulePrintContext::printModule()
 		string += '\n';
 		ScopedTagPrinter dataTag(string, "data");
 		string += ' ';
-		string += names.memories[dataSegment.memoryIndex];
-		string += ' ';
-		printInitializerExpression(dataSegment.baseOffset);
+		if(!dataSegment.isActive) { string += "passive"; }
+		else
+		{
+			string += names.memories[dataSegment.memoryIndex];
+			string += ' ';
+			printInitializerExpression(dataSegment.baseOffset);
+		}
 		enum
 		{
 			numBytesPerLine = 64

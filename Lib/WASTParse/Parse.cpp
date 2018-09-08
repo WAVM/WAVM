@@ -315,18 +315,30 @@ bool WAST::tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef)
 	return false;
 }
 
+bool WAST::tryParseAndResolveNameOrIndexRef(CursorState* cursor,
+											const NameToIndexMap& nameToIndexMap,
+											Uptr maxIndex,
+											const char* context,
+											Uptr& outIndex)
+{
+	Reference ref;
+	if(!tryParseNameOrIndexRef(cursor, ref)) { return false; }
+	outIndex = resolveRef(cursor->parseState, nameToIndexMap, maxIndex, ref);
+	return true;
+}
+
 Uptr WAST::parseAndResolveNameOrIndexRef(CursorState* cursor,
 										 const NameToIndexMap& nameToIndexMap,
 										 Uptr maxIndex,
 										 const char* context)
 {
-	Reference ref;
-	if(!tryParseNameOrIndexRef(cursor, ref))
+	Uptr resolvedIndex;
+	if(!tryParseAndResolveNameOrIndexRef(cursor, nameToIndexMap, maxIndex, context, resolvedIndex))
 	{
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected %s name or index", context);
 		throw RecoverParseException();
 	}
-	return resolveRef(cursor->parseState, nameToIndexMap, maxIndex, ref);
+	return resolvedIndex;
 }
 
 void WAST::bindName(ParseState* parseState,

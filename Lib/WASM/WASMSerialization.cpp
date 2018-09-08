@@ -188,17 +188,49 @@ namespace IR
 		serialize(stream, exceptionTypeDef.type);
 	}
 
-	template<typename Stream> void serialize(Stream& stream, DataSegment& dataSegment)
-	{
-		serializeVarUInt32(stream, dataSegment.memoryIndex);
-		serialize(stream, dataSegment.baseOffset);
-		serialize(stream, dataSegment.data);
-	}
-
 	template<typename Stream> void serialize(Stream& stream, TableSegment& tableSegment)
 	{
-		serializeVarUInt32(stream, tableSegment.tableIndex);
-		serialize(stream, tableSegment.baseOffset);
+		if(Stream::isInput)
+		{
+			U8 flags = 0;
+			serializeNativeValue(stream, flags);
+
+			switch(flags)
+			{
+			case 0:
+				tableSegment.isActive = true;
+				tableSegment.tableIndex = 0;
+				serialize(stream, tableSegment.baseOffset);
+				break;
+			case 1:
+				tableSegment.isActive = false;
+				tableSegment.tableIndex = UINTPTR_MAX;
+				tableSegment.baseOffset = {};
+				break;
+			case 2:
+				tableSegment.isActive = true;
+				serializeVarUInt32(stream, tableSegment.tableIndex);
+				serialize(stream, tableSegment.baseOffset);
+				break;
+			default: throw FatalSerializationException("invalid elem segment flags");
+			};
+		}
+		else
+		{
+			U8 flags = tableSegment.isActive ? 0 : 1;
+			serializeNativeValue(stream, flags);
+
+			if(tableSegment.isActive)
+			{
+				if(tableSegment.tableIndex == 0) { serializeConstant(stream, "", 0); }
+				else
+				{
+					serializeConstant(stream, "", 2);
+					serializeVarUInt32(stream, tableSegment.tableIndex);
+				}
+				serialize(stream, tableSegment.baseOffset);
+			}
+		}
 		serializeArray(stream, tableSegment.indices, [](Stream& stream, Uptr& functionIndex) {
 			serializeVarUInt32(stream, functionIndex);
 		});
@@ -224,6 +256,7 @@ enum class SectionType : U8
 	export_,
 	start,
 	elem,
+	dataDeclarations,
 	functionDefinitions,
 	data,
 	user
@@ -246,6 +279,7 @@ static void serialize(InputStream& stream, SectionType& sectionType)
 	case 9: sectionType = SectionType::elem; break;
 	case 10: sectionType = SectionType::functionDefinitions; break;
 	case 11: sectionType = SectionType::data; break;
+	case 12: sectionType = SectionType::dataDeclarations; break;
 	case 0x7f: sectionType = SectionType::exceptionTypes; break;
 	default:
 		throw FatalSerializationException(std::string("invalid section type: ")
@@ -270,6 +304,7 @@ static void serialize(OutputStream& stream, SectionType sectionType)
 	case SectionType::elem: serializedSectionId = 9; break;
 	case SectionType::functionDefinitions: serializedSectionId = 10; break;
 	case SectionType::data: serializedSectionId = 11; break;
+	case SectionType::dataDeclarations: serializedSectionId = 12;
 	case SectionType::exceptionTypes: serializedSectionId = 0x7f; break;
 	default: Errors::unreachable();
 	};
@@ -373,7 +408,14 @@ void serialize(Stream& stream, LoadOrStoreImm<naturalAlignmentLog2>& imm, const 
 }
 template<typename Stream> void serialize(Stream& stream, MemoryImm& imm, const FunctionDef&)
 {
-	serializeConstant(stream, "memory.grow/memory.size immediate reserved field must be 0", U8(0));
+	serializeConstant(
+		stream, "memory.(grow|size|copy|fill) immediate reserved field must be 0", U8(0));
+	if(Stream::isInput) { imm.memoryIndex = 0; }
+}
+template<typename Stream> void serialize(Stream& stream, TableImm& imm, const FunctionDef&)
+{
+	serializeConstant(stream, "table.copy immediate reserved field must be 0", U8(0));
+	if(Stream::isInput) { imm.tableIndex = 0; }
 }
 
 template<typename Stream> void serialize(Stream& stream, V128& v128)
@@ -409,6 +451,30 @@ template<typename Stream> void serialize(Stream& stream, ExceptionTypeImm& imm, 
 template<typename Stream> void serialize(Stream& stream, RethrowImm& imm, const FunctionDef&)
 {
 	serializeVarUInt32(stream, imm.catchDepth);
+}
+
+template<typename Stream>
+void serialize(Stream& stream, DataSegmentAndMemImm& imm, const FunctionDef&)
+{
+	serializeVarUInt32(stream, imm.dataSegmentIndex);
+	serializeVarUInt32(stream, imm.memoryIndex);
+}
+
+template<typename Stream> void serialize(Stream& stream, DataSegmentImm& imm, const FunctionDef&)
+{
+	serializeVarUInt32(stream, imm.dataSegmentIndex);
+}
+
+template<typename Stream>
+void serialize(Stream& stream, ElemSegmentAndTableImm& imm, const FunctionDef&)
+{
+	serializeVarUInt32(stream, imm.elemSegmentIndex);
+	serializeVarUInt32(stream, imm.tableIndex);
+}
+
+template<typename Stream> void serialize(Stream& stream, ElemSegmentImm& imm, const FunctionDef&)
+{
+	serializeVarUInt32(stream, imm.elemSegmentIndex);
 }
 
 template<typename Stream, typename Value>
@@ -825,10 +891,64 @@ template<typename Stream> void serializeCodeSection(Stream& moduleStream, Module
 		});
 }
 
+template<typename Stream>
+void serializeDataDeclarationsSection(Stream& moduleStream, Module& module)
+{
+	serializeSection(moduleStream, SectionType::data, [&module](Stream& sectionStream) {
+		serializeArray(
+			sectionStream, module.dataSegments, [](Stream& stream, DataSegment& dataSegment) {
+				U8 segmentType = dataSegment.isActive ? 0 : 1;
+				serializeNativeValue(stream, segmentType);
+				dataSegment.isActive = segmentType == 0;
+			});
+	});
+}
+
 template<typename Stream> void serializeDataSection(Stream& moduleStream, Module& module)
 {
 	serializeSection(moduleStream, SectionType::data, [&module](Stream& sectionStream) {
-		serialize(sectionStream, module.dataSegments);
+		Uptr numDataSegments = module.dataSegments.size();
+		serializeVarUInt32(sectionStream, numDataSegments);
+
+		// If there was a data declarations section that declared some data segments, the data
+		// section must define the same number of data segments as the data declarations section
+		// declares.
+		if(Stream::isInput && numDataSegments != module.dataSegments.size())
+		{
+			if(module.dataSegments.size() != 0)
+			{
+				throw FatalSerializationException(
+					"data section contains a different number of data segments than were "
+					"declared in the data declaration section");
+			}
+			else
+			{
+				// If there were no data segment declarations, then all segments are active.
+				for(Uptr segmentIndex = 0; segmentIndex < numDataSegments; ++segmentIndex)
+				{
+					DataSegment dataSegment {true, 0, {}, {}};
+					serializeVarUInt32(sectionStream, dataSegment.memoryIndex);
+					serialize(sectionStream, dataSegment.baseOffset);
+					serialize(sectionStream, dataSegment.data);
+					module.dataSegments.push_back(std::move(dataSegment));
+				}
+			}
+		}
+		else
+		{
+			// If there were data segment declarations, serialize a passive or active segment
+			// depending on the declared type.
+			for(Uptr segmentIndex = 0; segmentIndex < numDataSegments; ++segmentIndex)
+			{
+				DataSegment& dataSegment = module.dataSegments[segmentIndex];
+				if(dataSegment.isActive)
+				{
+					serializeVarUInt32(sectionStream, dataSegment.memoryIndex);
+					serialize(sectionStream, dataSegment.baseOffset);
+				}
+				serialize(sectionStream, dataSegment.data);
+			}
+		}
 	});
 }
 
@@ -851,6 +971,18 @@ static void serializeModule(OutputStream& moduleStream, Module& module)
 	if(module.exports.size() > 0) { serializeExportSection(moduleStream, module); }
 	if(module.startFunctionIndex != UINTPTR_MAX) { serializeStartSection(moduleStream, module); }
 	if(module.tableSegments.size() > 0) { serializeElementSection(moduleStream, module); }
+
+	bool hasPassiveDataSegment = false;
+	for(const DataSegment& dataSegment : module.dataSegments)
+	{
+		if(!dataSegment.isActive)
+		{
+			hasPassiveDataSegment = true;
+			break;
+		}
+	}
+	if(hasPassiveDataSegment) { serializeDataDeclarationsSection(moduleStream, module); }
+
 	if(module.functions.defs.size() > 0) { serializeCodeSection(moduleStream, module); }
 	if(module.dataSegments.size() > 0) { serializeDataSection(moduleStream, module); }
 
@@ -864,6 +996,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 
 	SectionType lastKnownSectionType = SectionType::unknown;
 	bool hadFunctionDefinitions = false;
+	bool hadDataSection = false;
 	while(moduleStream.capacity())
 	{
 		SectionType sectionType;
@@ -923,6 +1056,10 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		case SectionType::data:
 			serializeDataSection(moduleStream, module);
 			IR::validateDataSegments(module);
+			hadDataSection = true;
+			break;
+		case SectionType::dataDeclarations:
+			serializeDataDeclarationsSection(moduleStream, module);
 			break;
 		case SectionType::exceptionTypes:
 			serializeExceptionTypeSection(moduleStream, module);
@@ -942,8 +1079,15 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	if(module.functions.defs.size() && !hadFunctionDefinitions)
 	{
 		throw IR::ValidationException(
-			"Serialized module contained function declarations, but no "
-			"corresponding function definition section");
+			"module contained function declarations, but no corresponding "
+			"function definition section");
+	}
+
+	if(module.dataSegments.size() && !hadDataSection)
+	{
+		throw IR::ValidationException(
+			"module contained function declarations, but no corresponding "
+			"data section");
 	}
 }
 

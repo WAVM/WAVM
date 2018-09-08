@@ -25,6 +25,7 @@ namespace Runtime
 	struct ContextRuntimeData;
 	struct ExceptionTypeInstance;
 	struct FunctionInstance;
+	struct ModuleInstance;
 }
 
 namespace LLVMJIT
@@ -105,6 +106,7 @@ namespace LLVMJIT
 		std::vector<Runtime::ExceptionTypeInstance*> exceptionTypes,
 		MemoryBinding defaultMemory,
 		TableBinding defaultTable,
+		Runtime::ModuleInstance* moduleInstance,
 		std::vector<JITFunction*>& outFunctionDefs);
 
 	// Unloads a JIT module, freeings its memory.

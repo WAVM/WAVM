@@ -152,6 +152,9 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 			outLLVMModule, getExternalName("exceptionType", exceptionTypeIndex)));
 	}
 
+	// Create a LLVM external global that will point to the ModuleInstance.
+	moduleContext.moduleInstancePointer = createImportedConstant(outLLVMModule, "moduleInstance");
+
 	// Create the LLVM functions.
 	moduleContext.functions.resize(irModule.functions.size());
 	for(Uptr functionIndex = 0; functionIndex < irModule.functions.size(); ++functionIndex)

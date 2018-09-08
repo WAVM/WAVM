@@ -320,6 +320,10 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				{
 					expectedType = ExpectedTrapType::undefinedTableElement;
 				}
+				else if(stringStartsWith(expectedErrorMessage.c_str(), "invalid argument"))
+				{
+					expectedType = ExpectedTrapType::invalidArgument;
+				}
 				else
 				{
 					parseErrorf(cursor->parseState, errorToken, "unrecognized trap type");

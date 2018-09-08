@@ -233,3 +233,108 @@ U8* Runtime::getValidatedMemoryOffsetRange(MemoryInstance* memory, Uptr offset, 
 	{ throwException(Exception::accessViolationType, {}); }
 	return address;
 }
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.grow",
+						  I32,
+						  memory_grow,
+						  I32 deltaPages,
+						  I64 memoryId)
+{
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+	wavmAssert(memory);
+	if(getMemoryNumPages(memory) + Uptr(deltaPages) > IR::maxMemoryPages) { return -1; }
+	const Iptr numPreviousMemoryPages = growMemory(memory, (Uptr)deltaPages);
+	wavmAssert(numPreviousMemoryPages < INT32_MAX);
+	return I32(numPreviousMemoryPages);
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memory.size", I32, memory_size, I64 memoryId)
+{
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+	wavmAssert(memory);
+	Uptr numMemoryPages = getMemoryNumPages(memory);
+	if(numMemoryPages > UINT32_MAX) { numMemoryPages = UINT32_MAX; }
+	return (U32)numMemoryPages;
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.init",
+						  void,
+						  memory_init,
+						  U32 destAddress,
+						  U32 sourceOffset,
+						  U32 numBytes,
+						  Uptr moduleInstanceBits,
+						  Uptr memoryId,
+						  Uptr dataSegmentIndex)
+{
+	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
+
+	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
+	{ throwException(Exception::invalidArgumentType); }
+	else
+	{
+		MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+
+		const std::vector<U8>& passiveDataSegmentBytes
+			= moduleInstance->passiveDataSegments[dataSegmentIndex];
+
+		U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
+
+		if(U64(sourceOffset) + U64(numBytes) > passiveDataSegmentBytes.size())
+		{ throwException(Exception::accessViolationType); }
+
+		memcpy(destPointer, passiveDataSegmentBytes.data() + sourceOffset, numBytes);
+	}
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.drop",
+						  void,
+						  memory_drop,
+						  Uptr moduleInstanceBits,
+						  Uptr dataSegmentIndex)
+{
+	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
+
+	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
+	{ throwException(Exception::invalidArgumentType); }
+	else
+	{
+		moduleInstance->passiveDataSegments.removeOrFail(dataSegmentIndex);
+	}
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.copy",
+						  void,
+						  memory_copy,
+						  U32 destAddress,
+						  U32 sourceAddress,
+						  U32 numBytes,
+						  Uptr memoryId)
+{
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+
+	U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
+	U8* sourcePointer = getValidatedMemoryOffsetRange(memory, sourceAddress, numBytes);
+	if(numBytes) { memcpy(destPointer, sourcePointer, numBytes); }
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "memory.fill",
+						  void,
+						  memory_fill,
+						  U32 destAddress,
+						  U32 value,
+						  U32 numBytes,
+						  Uptr memoryId)
+{
+	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+
+	U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
+	if(numBytes) { memset(destPointer, value, numBytes); }
+}

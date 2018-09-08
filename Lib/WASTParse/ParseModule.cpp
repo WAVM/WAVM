@@ -401,23 +401,32 @@ static void parseData(CursorState* cursor)
 	const Token* firstToken = cursor->nextToken;
 	require(cursor, t_data);
 
-	// Parse an optional memory name.
+	bool isActive = true;
 	Reference memoryRef;
-	bool hasMemoryRef = tryParseNameOrIndexRef(cursor, memoryRef);
-
-	// Parse an initializer expression for the base address of the data.
 	InitializerExpression baseAddress;
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+	if(cursor->nextToken->type == t_passive)
 	{
-		// The initializer expression can optionally be wrapped in (offset ...)
-		parseParenthesized(cursor, [&] {
-			require(cursor, t_offset);
-			baseAddress = parseInitializerExpression(cursor);
-		});
+		isActive = false;
+		++cursor->nextToken;
 	}
 	else
 	{
-		baseAddress = parseInitializerExpression(cursor);
+		// Parse an optional memory name.
+		tryParseNameOrIndexRef(cursor, memoryRef);
+
+		// Parse an initializer expression for the base address of the data.
+		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+		{
+			// The initializer expression can optionally be wrapped in (offset ...)
+			parseParenthesized(cursor, [&] {
+				require(cursor, t_offset);
+				baseAddress = parseInitializerExpression(cursor);
+			});
+		}
+		else
+		{
+			baseAddress = parseInitializerExpression(cursor);
+		}
 	}
 
 	// Parse a list of strings that contains the segment's data.
@@ -429,7 +438,7 @@ static void parseData(CursorState* cursor)
 							   (const U8*)dataString.data() + dataString.size());
 	const Uptr dataSegmentIndex = cursor->moduleState->module.dataSegments.size();
 	cursor->moduleState->module.dataSegments.push_back(
-		{UINTPTR_MAX, baseAddress, std::move(dataVector)});
+		{isActive, UINTPTR_MAX, baseAddress, std::move(dataVector)});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the memory to
 	// put the data segment in.
@@ -443,16 +452,17 @@ static void parseData(CursorState* cursor)
 		else
 		{
 			moduleState->module.dataSegments[dataSegmentIndex].memoryIndex
-				= hasMemoryRef ? resolveRef(moduleState->parseState,
-											moduleState->memoryNameToIndexMap,
-											moduleState->module.memories.size(),
-											memoryRef)
-							   : 0;
+				= memoryRef ? resolveRef(moduleState->parseState,
+										 moduleState->memoryNameToIndexMap,
+										 moduleState->module.memories.size(),
+										 memoryRef)
+							: 0;
 		}
 	});
 }
 
 static Uptr parseElemSegmentBody(CursorState* cursor,
+								 bool isActive,
 								 Reference tableRef,
 								 InitializerExpression baseIndex,
 								 const Token* elemToken)
@@ -468,7 +478,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	// Create the table segment.
 	const Uptr tableSegmentIndex = cursor->moduleState->module.tableSegments.size();
 	cursor->moduleState->module.tableSegments.push_back(
-		{UINTPTR_MAX, baseIndex, std::vector<Uptr>()});
+		{isActive, UINTPTR_MAX, baseIndex, std::vector<Uptr>()});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table
 	// elements' references.
@@ -510,26 +520,35 @@ static void parseElem(CursorState* cursor)
 	const Token* elemToken = cursor->nextToken;
 	require(cursor, t_elem);
 
-	// Parse an optional table name.
+	bool isActive = true;
 	Reference tableRef;
-	tryParseNameOrIndexRef(cursor, tableRef);
-
-	// Parse an initializer expression for the base index of the table segment.
 	InitializerExpression baseIndex;
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+	if(cursor->nextToken->type == t_passive)
 	{
-		// The initializer expression can optionally be wrapped in (offset ...)
-		parseParenthesized(cursor, [&] {
-			require(cursor, t_offset);
-			baseIndex = parseInitializerExpression(cursor);
-		});
+		isActive = false;
+		++cursor->nextToken;
 	}
 	else
 	{
-		baseIndex = parseInitializerExpression(cursor);
+		// Parse an optional table name.
+		tryParseNameOrIndexRef(cursor, tableRef);
+
+		// Parse an initializer expression for the base index of the table segment.
+		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
+		{
+			// The initializer expression can optionally be wrapped in (offset ...)
+			parseParenthesized(cursor, [&] {
+				require(cursor, t_offset);
+				baseIndex = parseInitializerExpression(cursor);
+			});
+		}
+		else
+		{
+			baseIndex = parseInitializerExpression(cursor);
+		}
 	}
 
-	parseElemSegmentBody(cursor, tableRef, baseIndex, elemToken);
+	parseElemSegmentBody(cursor, isActive, tableRef, baseIndex, elemToken);
 }
 
 template<typename Def,
@@ -657,6 +676,7 @@ static void parseTable(CursorState* cursor)
 
 					const Uptr tableIndex = cursor->moduleState->module.tables.size();
 					const Uptr numElements = parseElemSegmentBody(cursor,
+																  true,
 																  Reference(tableIndex),
 																  InitializerExpression((I32)0),
 																  cursor->nextToken - 1);
@@ -702,7 +722,8 @@ static void parseMemory(CursorState* cursor)
 				sizeConstraints.min = sizeConstraints.max
 					= (dataVector.size() + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
 				cursor->moduleState->module.dataSegments.push_back(
-					{cursor->moduleState->module.memories.size(),
+					{true,
+					 cursor->moduleState->module.memories.size(),
 					 InitializerExpression(I32(0)),
 					 std::move(dataVector)});
 			}

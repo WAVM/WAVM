@@ -1,4 +1,5 @@
 set(Sources
+	bulk_memory_ops.wast
 	exceptions.wast
 	fuzz_regression.wast
 	llvm_bugs.wast

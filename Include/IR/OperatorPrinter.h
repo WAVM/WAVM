@@ -81,7 +81,8 @@ namespace IR
 			return " offset=" + std::to_string(imm.offset)
 				   + " align=" + std::to_string(1 << imm.alignmentLog2);
 		}
-		std::string describeImm(MemoryImm) { return ""; }
+		std::string describeImm(MemoryImm imm) { return " " + std::to_string(imm.memoryIndex); }
+		std::string describeImm(TableImm imm) { return " " + std::to_string(imm.tableIndex); }
 
 		template<Uptr numLanes> std::string describeImm(LaneIndexImm<numLanes> imm)
 		{
@@ -112,5 +113,16 @@ namespace IR
 		}
 		std::string describeImm(ExceptionTypeImm) { return ""; }
 		std::string describeImm(RethrowImm) { return ""; }
+
+		std::string describeImm(DataSegmentAndMemImm imm)
+		{
+			return std::to_string(imm.dataSegmentIndex) + " " + std::to_string(imm.memoryIndex);
+		}
+		std::string describeImm(DataSegmentImm imm) { return std::to_string(imm.dataSegmentIndex); }
+		std::string describeImm(ElemSegmentAndTableImm imm)
+		{
+			return std::to_string(imm.elemSegmentIndex);
+		}
+		std::string describeImm(ElemSegmentImm imm) { return std::to_string(imm.elemSegmentIndex); }
 	};
 }

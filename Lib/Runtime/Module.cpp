@@ -159,42 +159,55 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	// memory/table.
 	for(auto& tableSegment : module->tableSegments)
 	{
-		TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
-		const Value baseOffsetValue = evaluateInitializer(moduleInstance, tableSegment.baseOffset);
-		errorUnless(baseOffsetValue.type == ValueType::i32);
-		const U32 baseOffset = baseOffsetValue.i32;
-		if(baseOffset > table->elements.size()
-		   || table->elements.size() - baseOffset < tableSegment.indices.size())
-		{ throwException(Exception::invalidSegmentOffsetType); }
+		if(tableSegment.isActive)
+		{
+			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, tableSegment.baseOffset);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
+			const U32 baseOffset = baseOffsetValue.i32;
+			if(baseOffset > table->elements.size()
+			   || table->elements.size() - baseOffset < tableSegment.indices.size())
+			{ throwException(Exception::invalidSegmentOffsetType); }
+		}
 	}
 	for(auto& dataSegment : module->dataSegments)
 	{
-		MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
+		if(dataSegment.isActive)
+		{
+			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
-		const Value baseOffsetValue = evaluateInitializer(moduleInstance, dataSegment.baseOffset);
-		errorUnless(baseOffsetValue.type == ValueType::i32);
-		const U32 baseOffset = baseOffsetValue.i32;
-		const Uptr numMemoryBytes = (memory->numPages << IR::numBytesPerPageLog2);
-		if(baseOffset > numMemoryBytes || numMemoryBytes - baseOffset < dataSegment.data.size())
-		{ throwException(Exception::invalidSegmentOffsetType); }
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
+			const U32 baseOffset = baseOffsetValue.i32;
+			const Uptr numMemoryBytes = (memory->numPages << IR::numBytesPerPageLog2);
+			if(baseOffset > numMemoryBytes || numMemoryBytes - baseOffset < dataSegment.data.size())
+			{ throwException(Exception::invalidSegmentOffsetType); }
+		}
 	}
 
 	// Copy the module's data segments into the module's default memory.
 	for(const DataSegment& dataSegment : module->dataSegments)
 	{
-		MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
-
-		const Value baseOffsetValue = evaluateInitializer(moduleInstance, dataSegment.baseOffset);
-		errorUnless(baseOffsetValue.type == ValueType::i32);
-		const U32 baseOffset = baseOffsetValue.i32;
-
-		wavmAssert(baseOffset + dataSegment.data.size()
-				   <= (memory->numPages << IR::numBytesPerPageLog2));
-
-		if(dataSegment.data.size())
+		if(dataSegment.isActive)
 		{
-			memcpy(
-				memory->baseAddress + baseOffset, dataSegment.data.data(), dataSegment.data.size());
+			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
+
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
+			const U32 baseOffset = baseOffsetValue.i32;
+
+			wavmAssert(baseOffset + dataSegment.data.size()
+					   <= (memory->numPages << IR::numBytesPerPageLog2));
+
+			if(dataSegment.data.size())
+			{
+				memcpy(memory->baseAddress + baseOffset,
+					   dataSegment.data.data(),
+					   dataSegment.data.size());
+			}
 		}
 	}
 
@@ -279,6 +292,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 													jitExceptionTypes,
 													jitDefaultMemory,
 													jitDefaultTable,
+													moduleInstance,
 													jitFunctionDefs);
 
 	// Create the FunctionInstance objects for the module's function definitions.
@@ -334,23 +348,41 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	// Copy the module's table segments into the module's default table.
 	for(const TableSegment& tableSegment : module->tableSegments)
 	{
-		TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
-
-		const Value baseOffsetValue = evaluateInitializer(moduleInstance, tableSegment.baseOffset);
-		errorUnless(baseOffsetValue.type == ValueType::i32);
-		const U32 baseOffset = baseOffsetValue.i32;
-		wavmAssert(baseOffset + tableSegment.indices.size() <= table->elements.size());
-
-		for(Uptr index = 0; index < tableSegment.indices.size(); ++index)
+		if(tableSegment.isActive)
 		{
-			const Uptr functionIndex = tableSegment.indices[index];
-			wavmAssert(functionIndex < moduleInstance->functions.size());
-			setTableElement(table,
-							baseOffset + index,
-							moduleInstance->functions[functionIndex],
-							moduleInstance->defaultMemory,
-							moduleInstance->defaultTable);
+			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
+
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, tableSegment.baseOffset);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
+			const U32 baseOffset = baseOffsetValue.i32;
+			wavmAssert(baseOffset + tableSegment.indices.size() <= table->elements.size());
+
+			for(Uptr index = 0; index < tableSegment.indices.size(); ++index)
+			{
+				const Uptr functionIndex = tableSegment.indices[index];
+				wavmAssert(functionIndex < moduleInstance->functions.size());
+				setTableElement(table,
+								baseOffset + index,
+								moduleInstance->functions[functionIndex],
+								moduleInstance->defaultMemory,
+								moduleInstance->defaultTable);
+			}
 		}
+	}
+
+	// Copy the module's passive data and table segments into the ModuleInstance for later use.
+	for(Uptr segmentIndex = 0; segmentIndex < module->dataSegments.size(); ++segmentIndex)
+	{
+		const DataSegment& dataSegment = module->dataSegments[segmentIndex];
+		if(!dataSegment.isActive)
+		{ moduleInstance->passiveDataSegments.add(segmentIndex, dataSegment.data); }
+	}
+	for(Uptr segmentIndex = 0; segmentIndex < module->tableSegments.size(); ++segmentIndex)
+	{
+		const TableSegment& tableSegment = module->tableSegments[segmentIndex];
+		if(!tableSegment.isActive)
+		{ moduleInstance->passiveTableSegments.add(segmentIndex, tableSegment.indices); }
 	}
 
 	// Look up the module's start function.

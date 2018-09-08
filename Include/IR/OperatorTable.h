@@ -5,7 +5,6 @@
 #define SIMDOP(simdOpIndex) (0xfd00 | simdOpIndex)
 #define ATOMICOP(atomicOpIndex) (0xfe00 | atomicOpIndex)
 #define EXCEPTIONOP(exceptionOpIndex) (0xfb00 | exceptionOpIndex)
-#define TRUNCSATOP(truncSatOpIndex) (0xfc00 | truncSatOpIndex)
 
 // clang-format off
 
@@ -53,6 +52,7 @@
 #define COMPAREEXCHANGE(valueTypeId)            FunctionType({ValueType::valueTypeId},  {ValueType::i32,           ValueType::valueTypeId,  ValueType::valueTypeId })
 #define WAIT(valueTypeId)                       FunctionType({ValueType::i32},          {ValueType::i32,           ValueType::valueTypeId,  ValueType::f64         })
 #define ATOMICRMW(valueTypeId)                  FunctionType({ValueType::valueTypeId},  {ValueType::i32,           ValueType::valueTypeId                          })
+#define BULKCOPY                                FunctionType({},                        {ValueType::i32,           ValueType::i32,          ValueType::i32         })
 
 #define ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp) \
 	visitOp(0x01,nop,"nop",NoImm,NONE,mvp) \
@@ -484,14 +484,22 @@
 	visitOp(ATOMICOP(0x4e),i64_atomic_rmw32_u_cmpxchg,"i64.atomic.rmw32_u.cmpxchg",AtomicLoadOrStoreImm<2>,COMPAREEXCHANGE(i64),atomics) \
 	\
 	/* Saturating float->int truncation operators */ \
-	visitOp(TRUNCSATOP(0),i32_trunc_s_sat_f32,"i32.trunc_s:sat/f32",NoImm,UNARY(f32,i32),nonTrappingFloatToInt) \
-	visitOp(TRUNCSATOP(1),i32_trunc_u_sat_f32,"i32.trunc_u:sat/f32",NoImm,UNARY(f32,i32),nonTrappingFloatToInt) \
-	visitOp(TRUNCSATOP(2),i32_trunc_s_sat_f64,"i32.trunc_s:sat/f64",NoImm,UNARY(f64,i32),nonTrappingFloatToInt) \
-	visitOp(TRUNCSATOP(3),i32_trunc_u_sat_f64,"i32.trunc_u:sat/f64",NoImm,UNARY(f64,i32),nonTrappingFloatToInt) \
-	visitOp(TRUNCSATOP(4),i64_trunc_s_sat_f32,"i64.trunc_s:sat/f32",NoImm,UNARY(f32,i64),nonTrappingFloatToInt) \
-	visitOp(TRUNCSATOP(5),i64_trunc_u_sat_f32,"i64.trunc_u:sat/f32",NoImm,UNARY(f32,i64),nonTrappingFloatToInt) \
-	visitOp(TRUNCSATOP(6),i64_trunc_s_sat_f64,"i64.trunc_s:sat/f64",NoImm,UNARY(f64,i64),nonTrappingFloatToInt) \
-	visitOp(TRUNCSATOP(7),i64_trunc_u_sat_f64,"i64.trunc_u:sat/f64",NoImm,UNARY(f64,i64),nonTrappingFloatToInt)
+	visitOp(0xfc00,i32_trunc_s_sat_f32,"i32.trunc_s:sat/f32",NoImm,UNARY(f32,i32),nonTrappingFloatToInt) \
+	visitOp(0xfc01,i32_trunc_u_sat_f32,"i32.trunc_u:sat/f32",NoImm,UNARY(f32,i32),nonTrappingFloatToInt) \
+	visitOp(0xfc02,i32_trunc_s_sat_f64,"i32.trunc_s:sat/f64",NoImm,UNARY(f64,i32),nonTrappingFloatToInt) \
+	visitOp(0xfc03,i32_trunc_u_sat_f64,"i32.trunc_u:sat/f64",NoImm,UNARY(f64,i32),nonTrappingFloatToInt) \
+	visitOp(0xfc04,i64_trunc_s_sat_f32,"i64.trunc_s:sat/f32",NoImm,UNARY(f32,i64),nonTrappingFloatToInt) \
+	visitOp(0xfc05,i64_trunc_u_sat_f32,"i64.trunc_u:sat/f32",NoImm,UNARY(f32,i64),nonTrappingFloatToInt) \
+	visitOp(0xfc06,i64_trunc_s_sat_f64,"i64.trunc_s:sat/f64",NoImm,UNARY(f64,i64),nonTrappingFloatToInt) \
+	visitOp(0xfc07,i64_trunc_u_sat_f64,"i64.trunc_u:sat/f64",NoImm,UNARY(f64,i64),nonTrappingFloatToInt) \
+	/* Bulk memory operators */ \
+	visitOp(0xfc08,memory_init,"memory.init",DataSegmentAndMemImm,BULKCOPY,bulkMemoryOperations) \
+	visitOp(0xfc09,memory_drop,"memory.drop",DataSegmentImm,NONE,bulkMemoryOperations) \
+	visitOp(0xfc0a,memory_copy,"memory.copy",MemoryImm,BULKCOPY,bulkMemoryOperations) \
+	visitOp(0xfc0b,memory_fill,"memory.fill",MemoryImm,BULKCOPY,bulkMemoryOperations) \
+	visitOp(0xfc0c,table_init,"table.init",ElemSegmentAndTableImm,BULKCOPY,bulkMemoryOperations) \
+	visitOp(0xfc0d,table_drop,"table.drop",ElemSegmentImm,NONE,bulkMemoryOperations) \
+	visitOp(0xfc0e,table_copy,"table.copy",TableImm,BULKCOPY,bulkMemoryOperations)
 
 // clang-format on
 

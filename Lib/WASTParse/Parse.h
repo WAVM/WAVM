@@ -225,6 +225,11 @@ namespace WAST
 	// Name parsing and resolution.
 	bool tryParseName(CursorState* cursor, Name& outName);
 	bool tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef);
+	bool tryParseAndResolveNameOrIndexRef(CursorState* cursor,
+										  const NameToIndexMap& nameToIndexMap,
+										  Uptr maxIndex,
+										  const char* context,
+										  Uptr& outIndex);
 	Uptr parseAndResolveNameOrIndexRef(CursorState* cursor,
 									   const NameToIndexMap& nameToIndexMap,
 									   Uptr maxIndex,

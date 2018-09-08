@@ -18,6 +18,7 @@
 	VISIT_LITERAL_TOKEN(memory)                                                                    \
 	VISIT_LITERAL_TOKEN(data)                                                                      \
 	VISIT_LITERAL_TOKEN(elem)                                                                      \
+	VISIT_LITERAL_TOKEN(passive)                                                                   \
 	VISIT_LITERAL_TOKEN(start)                                                                     \
 	VISIT_LITERAL_TOKEN(param)                                                                     \
 	VISIT_LITERAL_TOKEN(result)                                                                    \

@@ -63,7 +63,14 @@ private:
 	}
 
 	void verifyMatches(NoImm, NoImm) {}
-	void verifyMatches(MemoryImm, MemoryImm) {}
+	void verifyMatches(MemoryImm a, MemoryImm b)
+	{
+		if(a.memoryIndex != b.memoryIndex) { failVerification(); }
+	}
+	void verifyMatches(TableImm a, TableImm b)
+	{
+		if(a.tableIndex != b.tableIndex) { failVerification(); }
+	}
 
 	void verifyMatches(ControlStructureImm a, ControlStructureImm b)
 	{
@@ -138,6 +145,28 @@ private:
 	void verifyMatches(RethrowImm a, RethrowImm b)
 	{
 		if(a.catchDepth != b.catchDepth) { failVerification(); }
+	}
+
+	void verifyMatches(DataSegmentAndMemImm a, DataSegmentAndMemImm b)
+	{
+		if(a.dataSegmentIndex != b.dataSegmentIndex) { failVerification(); }
+		if(a.memoryIndex != b.memoryIndex) { failVerification(); }
+	}
+
+	void verifyMatches(DataSegmentImm a, DataSegmentImm b)
+	{
+		if(a.dataSegmentIndex != b.dataSegmentIndex) { failVerification(); }
+	}
+
+	void verifyMatches(ElemSegmentAndTableImm a, ElemSegmentAndTableImm b)
+	{
+		if(a.elemSegmentIndex != b.elemSegmentIndex) { failVerification(); }
+		if(a.tableIndex != b.tableIndex) { failVerification(); }
+	}
+
+	void verifyMatches(ElemSegmentImm a, ElemSegmentImm b)
+	{
+		if(a.elemSegmentIndex != b.elemSegmentIndex) { failVerification(); }
 	}
 
 	void verifyMatches(const FunctionDef& a, const FunctionDef& b)

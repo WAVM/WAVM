@@ -159,6 +159,7 @@ static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTr
 		return Runtime::Exception::invalidSegmentOffsetType;
 	case WAST::ExpectedTrapType::misalignedAtomicMemoryAccess:
 		return Runtime::Exception::misalignedAtomicMemoryAccessType;
+	case WAST::ExpectedTrapType::invalidArgument: return Runtime::Exception::invalidArgumentType;
 	default: Errors::unreachable();
 	};
 }

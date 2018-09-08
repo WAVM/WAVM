@@ -226,6 +226,12 @@ namespace Runtime
 		MemoryInstance* defaultMemory;
 		TableInstance* defaultTable;
 
+		Platform::Mutex passiveDataSegmentsMutex;
+		HashMap<Uptr, std::vector<U8>> passiveDataSegments;
+
+		Platform::Mutex passiveTableSegmentsMutex;
+		HashMap<Uptr, std::vector<Uptr>> passiveTableSegments;
+
 		LLVMJIT::LoadedModule* jitModule;
 
 		std::string debugName;

@@ -482,11 +482,9 @@ struct FunctionValidationContext
 						module.memories.size() == 0);
 	}
 
-	void validateImm(MemoryImm)
-	{
-		VALIDATE_UNLESS("memory.size and memory.grow are only valid if there is a default memory",
-						module.memories.size() == 0);
-	}
+	void validateImm(MemoryImm imm) { VALIDATE_INDEX(imm.memoryIndex, module.memories.size()); }
+
+	void validateImm(TableImm imm) { VALIDATE_INDEX(imm.tableIndex, module.tables.size()); }
 
 	template<Uptr numLanes> void validateImm(LaneIndexImm<numLanes> imm)
 	{
@@ -514,6 +512,36 @@ struct FunctionValidationContext
 		}
 		VALIDATE_UNLESS("atomic memory operators must have natural alignment: ",
 						imm.alignmentLog2 != naturalAlignmentLog2);
+	}
+
+	void validateImm(DataSegmentAndMemImm imm)
+	{
+		VALIDATE_INDEX(imm.dataSegmentIndex, module.dataSegments.size());
+		VALIDATE_UNLESS("active data segment can't be used as source for memory.init",
+						module.dataSegments[imm.dataSegmentIndex].isActive)
+		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
+	}
+
+	void validateImm(DataSegmentImm imm)
+	{
+		VALIDATE_INDEX(imm.dataSegmentIndex, module.dataSegments.size());
+		VALIDATE_UNLESS("active data segment can't be used as source for memory.drop",
+						module.dataSegments[imm.dataSegmentIndex].isActive)
+	}
+
+	void validateImm(ElemSegmentAndTableImm imm)
+	{
+		VALIDATE_INDEX(imm.elemSegmentIndex, module.tableSegments.size());
+		VALIDATE_UNLESS("active elem segment can't be used as source for table.init",
+						module.tableSegments[imm.elemSegmentIndex].isActive)
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+	}
+
+	void validateImm(ElemSegmentImm imm)
+	{
+		VALIDATE_INDEX(imm.elemSegmentIndex, module.tableSegments.size());
+		VALIDATE_UNLESS("active elem segment can't be used as source for table.init",
+						module.tableSegments[imm.elemSegmentIndex].isActive)
 	}
 
 #define VALIDATE_OP(opcode, name, nameString, Imm, signatureInitializer, requiredFeature)          \
@@ -837,9 +865,12 @@ void IR::validateElemSegments(const Module& module)
 {
 	for(auto& tableSegment : module.tableSegments)
 	{
-		VALIDATE_INDEX(tableSegment.tableIndex, module.tables.size());
-		validateInitializer(
-			module, tableSegment.baseOffset, ValueType::i32, "table segment base initializer");
+		if(tableSegment.isActive)
+		{
+			VALIDATE_INDEX(tableSegment.tableIndex, module.tables.size());
+			validateInitializer(
+				module, tableSegment.baseOffset, ValueType::i32, "table segment base initializer");
+		}
 		for(auto functionIndex : tableSegment.indices)
 		{ VALIDATE_INDEX(functionIndex, module.functions.size()); }
 	}
@@ -849,9 +880,12 @@ void IR::validateDataSegments(const Module& module)
 {
 	for(auto& dataSegment : module.dataSegments)
 	{
-		VALIDATE_INDEX(dataSegment.memoryIndex, module.memories.size());
-		validateInitializer(
-			module, dataSegment.baseOffset, ValueType::i32, "data segment base initializer");
+		if(dataSegment.isActive)
+		{
+			VALIDATE_INDEX(dataSegment.memoryIndex, module.memories.size());
+			validateInitializer(
+				module, dataSegment.baseOffset, ValueType::i32, "data segment base initializer");
+		}
 	}
 }
 

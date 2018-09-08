@@ -154,7 +154,8 @@ static void parseAndValidateRedundantBranchTargetName(CursorState* cursor,
 }
 
 static void parseImm(CursorState* cursor, NoImm&) {}
-static void parseImm(CursorState* cursor, MemoryImm& outImm) {}
+static void parseImm(CursorState* cursor, MemoryImm& outImm) { outImm.memoryIndex = 0; }
+static void parseImm(CursorState* cursor, TableImm& outImm) { outImm.tableIndex = 0; }
 
 static void parseImm(CursorState* cursor, LiteralImm<I32>& outImm)
 {
@@ -348,6 +349,38 @@ static void parseImm(CursorState* cursor, RethrowImm& outImm)
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected try label or index");
 		throw RecoverParseException();
 	}
+}
+
+static void parseImm(CursorState* cursor, DataSegmentAndMemImm& outImm)
+{
+	outImm.dataSegmentIndex = parseIptr(cursor);
+	outImm.memoryIndex = 0;
+	tryParseAndResolveNameOrIndexRef(cursor,
+									 cursor->moduleState->memoryNameToIndexMap,
+									 cursor->moduleState->module.memories.size(),
+									 "memory",
+									 outImm.memoryIndex);
+}
+
+static void parseImm(CursorState* cursor, DataSegmentImm& outImm)
+{
+	outImm.dataSegmentIndex = parseIptr(cursor);
+}
+
+static void parseImm(CursorState* cursor, ElemSegmentAndTableImm& outImm)
+{
+	outImm.elemSegmentIndex = parseIptr(cursor);
+	outImm.tableIndex = 0;
+	tryParseAndResolveNameOrIndexRef(cursor,
+									 cursor->moduleState->tableNameToIndexMap,
+									 cursor->moduleState->module.tables.size(),
+									 "table",
+									 outImm.tableIndex);
+}
+
+static void parseImm(CursorState* cursor, ElemSegmentImm& outImm)
+{
+	outImm.elemSegmentIndex = parseIptr(cursor);
 }
 
 static void parseInstrSequence(CursorState* cursor);
