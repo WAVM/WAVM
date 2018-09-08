@@ -395,6 +395,17 @@
 (assert_return (invoke "i32.load8_u" (i32.const 21)) (i32.const 0x12))
 (assert_return (invoke "i32.load8_u" (i32.const 22)) (i32.const 0))
 
+(assert_return (invoke "memory.copy" (i32.const 4) (i32.const 0) (i32.const 8)))
+(assert_return (invoke "i32.load8_u" (i32.const 4)) (i32.const 0x14))
+(assert_return (invoke "i32.load8_u" (i32.const 5)) (i32.const 0x15))
+(assert_return (invoke "i32.load8_u" (i32.const 6)) (i32.const 0x16))
+(assert_return (invoke "i32.load8_u" (i32.const 7)) (i32.const 0x17))
+(assert_return (invoke "i32.load8_u" (i32.const 8)) (i32.const 0x10))
+(assert_return (invoke "i32.load8_u" (i32.const 9)) (i32.const 0x11))
+(assert_return (invoke "i32.load8_u" (i32.const 10)) (i32.const 0x12))
+(assert_return (invoke "i32.load8_u" (i32.const 11)) (i32.const 0x13))
+(assert_return (invoke "i32.load8_u" (i32.const 12)) (i32.const 0x14))
+
 (assert_return (invoke "memory.copy" (i32.const 65535) (i32.const 0)     (i32.const 1)))
 (assert_trap   (invoke "memory.copy" (i32.const 65535) (i32.const 0)     (i32.const 2)) "out of bounds memory access")
 (assert_trap   (invoke "memory.copy" (i32.const 65536) (i32.const 0)     (i32.const 1)) "out of bounds memory access")

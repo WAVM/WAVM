@@ -321,7 +321,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
 	U8* sourcePointer = getValidatedMemoryOffsetRange(memory, sourceAddress, numBytes);
-	if(numBytes) { memcpy(destPointer, sourcePointer, numBytes); }
+	if(numBytes) { memmove(destPointer, sourcePointer, numBytes); }
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
