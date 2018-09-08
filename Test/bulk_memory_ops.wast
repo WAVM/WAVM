@@ -8,9 +8,9 @@
 )
 
 (module binary
-    "\00asm" "\01\00\00\00"              ;; WebAssembly version 1
-    "\05\03\01"                          ;; memory section: 3 bytes, 1 entry
-    "\00\01"                             ;;   (memory 1)
+	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
+	"\00\01"                             ;;   (memory 1)
 	"\0b\07\01"                          ;; data section: 5 bytes, 1 entry
 	"\00"                                ;;   [0] active data segment, memory 0
 	"\41\00\0b"                          ;;     base offset (i32.const 0)
@@ -18,9 +18,9 @@
 )
 
 (module binary
-    "\00asm" "\01\00\00\00"              ;; WebAssembly version 1
-    "\05\03\01"                          ;; memory section: 3 bytes, 1 entry
-    "\00\01"                             ;;   (memory 1)
+	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
+	"\00\01"                             ;;   (memory 1)
 	"\0c\02\01"                          ;; data declaration section: 2 bytes, 1 entry
 	"\01"                                ;;   [0] passive data segment
 	"\0b\03\01"                          ;; data section: 3 bytes, 1 entry
@@ -28,9 +28,9 @@
 )
 
 (module binary
-    "\00asm" "\01\00\00\00"              ;; WebAssembly version 1
-    "\05\03\01"                          ;; memory section: 3 bytes, 1 entry
-    "\00\01"                             ;;   (memory 1)
+	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
+	"\00\01"                             ;;   (memory 1)
 	"\0c\03\02"                          ;; data declaration section: 3 bytes, 2 entries
 	"\00"                                ;;   [0] active data segment
 	"\01"                                ;;   [1] passive data segment
