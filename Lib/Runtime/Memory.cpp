@@ -259,6 +259,22 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memory.size", I32, memory_size, I64 m
 	return (U32)numMemoryPages;
 }
 
+static void bytewiseMemMove(U8* dest, U8* source, Uptr numBytes)
+{
+	const Uptr numNonOverlappingBytes
+		= source < dest && source + numBytes > dest ? dest - source : numBytes;
+
+	for(Uptr index = numNonOverlappingBytes; index < numBytes; ++index)
+	{ dest[index] = source[index]; }
+
+	for(Uptr index = 0; index < numNonOverlappingBytes; ++index) { dest[index] = source[index]; }
+}
+
+static void bytewiseMemSet(U8* dest, U8 value, Uptr numBytes)
+{
+	for(Uptr index = 0; index < numBytes; ++index) { dest[index] = value; }
+}
+
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "memory.init",
 						  void,
@@ -288,9 +304,21 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
 
 		if(U64(sourceOffset) + U64(numBytes) > passiveDataSegmentBytes->size())
-		{ throwException(Exception::accessViolationType); }
-
-		memcpy(destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
+		{
+			// If the source range is outside the bounds of the data segment, copy the part that is
+			// in range, then trap.
+			if(sourceOffset < passiveDataSegmentBytes->size())
+			{
+				bytewiseMemMove(destPointer,
+								passiveDataSegmentBytes->data() + sourceOffset,
+								passiveDataSegmentBytes->size() - sourceOffset);
+			}
+			throwException(Exception::accessViolationType);
+		}
+		else if(numBytes)
+		{
+			bytewiseMemMove(destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
+		}
 	}
 }
 
@@ -325,7 +353,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
 	U8* sourcePointer = getValidatedMemoryOffsetRange(memory, sourceAddress, numBytes);
-	if(numBytes) { memmove(destPointer, sourcePointer, numBytes); }
+	if(numBytes) { bytewiseMemMove(destPointer, sourcePointer, numBytes); }
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -340,5 +368,5 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	U8* destPointer = getValidatedMemoryOffsetRange(memory, destAddress, numBytes);
-	if(numBytes) { memset(destPointer, value, numBytes); }
+	if(numBytes) { bytewiseMemSet(destPointer, U8(value), numBytes); }
 }
