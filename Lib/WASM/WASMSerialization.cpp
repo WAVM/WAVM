@@ -926,7 +926,7 @@ template<typename Stream> void serializeDataSection(Stream& moduleStream, Module
 				// If there were no data segment declarations, then all segments are active.
 				for(Uptr segmentIndex = 0; segmentIndex < numDataSegments; ++segmentIndex)
 				{
-					DataSegment dataSegment {true, 0, {}, {}};
+					DataSegment dataSegment{true, 0, {}, {}};
 					serializeVarUInt32(sectionStream, dataSegment.memoryIndex);
 					serialize(sectionStream, dataSegment.baseOffset);
 					serialize(sectionStream, dataSegment.data);
