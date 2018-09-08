@@ -363,6 +363,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 static void copyTableElement(TableInstance* table, U64 destIndex, U64 sourceIndex)
 {
+	if(destIndex >= table->elements.size() || sourceIndex >= table->elements.size())
+	{ throwException(Exception::accessViolationType); }
+
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the outside bounds check.
 	sourceIndex = Platform::saturateToBounds(sourceIndex, U64(table->elements.size()));
@@ -384,10 +387,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
-
-	if(U64(sourceOffset) + U64(numElements) > table->elements.size()
-	   || U64(destOffset) + U64(numElements) > table->elements.size())
-	{ throwException(Exception::accessViolationType); }
 
 	if(sourceOffset != destOffset)
 	{
