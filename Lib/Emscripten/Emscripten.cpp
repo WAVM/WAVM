@@ -110,7 +110,7 @@ static U32 dynamicAlloc(MemoryInstance* memory, U32 numBytes)
 
 	mutableGlobals.DYNAMICTOP_PTR = endAddress;
 
-	const Uptr endPage = (endAddress + IR::numBytesPerPage - 1) >> IR::numBytesPerPageLog2;
+	const Uptr endPage = (endAddress + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
 	if(endPage >= getMemoryNumPages(memory) && endPage < getMemoryMaxPages(memory))
 	{ growMemory(memory, endPage - getMemoryNumPages(memory) + 1); }
 
@@ -121,7 +121,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "getTotalMemory", I32, getTota
 {
 	MemoryInstance* memory
 		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	return coerce32bitAddress(Runtime::getMemoryMaxPages(memory) << IR::numBytesPerPageLog2);
+	return coerce32bitAddress(Runtime::getMemoryMaxPages(memory) * IR::numBytesPerPage);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrowMemory)

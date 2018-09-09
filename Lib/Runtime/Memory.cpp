@@ -188,7 +188,7 @@ Iptr Runtime::growMemory(MemoryInstance* memory, Uptr numNewPages)
 
 		// Try to commit the new pages, and return -1 if the commit fails.
 		if(!Platform::commitVirtualPages(
-			   memory->baseAddress + (memory->numPages << IR::numBytesPerPageLog2),
+			   memory->baseAddress + memory->numPages * IR::numBytesPerPage,
 			   numNewPages << getPlatformPagesPerWebAssemblyPageLog2()))
 		{ return -1; }
 		memory->numPages += numNewPages;
@@ -210,7 +210,7 @@ Iptr Runtime::shrinkMemory(MemoryInstance* memory, Uptr numPagesToShrink)
 
 		// Decommit the pages that were shrunk off the end of the memory.
 		Platform::decommitVirtualPages(
-			memory->baseAddress + (memory->numPages << IR::numBytesPerPageLog2),
+			memory->baseAddress + memory->numPages * IR::numBytesPerPage,
 			numPagesToShrink << getPlatformPagesPerWebAssemblyPageLog2());
 	}
 	return previousNumPages;
@@ -223,7 +223,7 @@ void Runtime::unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numP
 	wavmAssert(pageIndex + numPages < memory->numPages);
 
 	// Decommit the pages.
-	Platform::decommitVirtualPages(memory->baseAddress + (pageIndex << IR::numBytesPerPageLog2),
+	Platform::decommitVirtualPages(memory->baseAddress + pageIndex * IR::numBytesPerPage,
 								   numPages << getPlatformPagesPerWebAssemblyPageLog2());
 }
 
@@ -261,7 +261,7 @@ U8* Runtime::getValidatedMemoryOffsetRange(MemoryInstance* memory, Uptr address,
 	// Validate that the range [offset..offset+numBytes) is contained by the memory's committed
 	// pages.
 	return ::getValidatedMemoryOffsetRangeImpl(
-		memory->baseAddress, memory->numPages << IR::numBytesPerPageLog2, address, numBytes);
+		memory->baseAddress, memory->numPages * IR::numBytesPerPage, address, numBytes);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
