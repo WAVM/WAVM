@@ -93,7 +93,7 @@ namespace Platform
 	// functions. On other architectures, it will fall back to a C loop, which is not likely to be
 	// competitive with the C library function.
 
-	inline void bytewiseMemCopy(U8* dest, U8* source, Uptr numBytes)
+	inline void bytewiseMemCopy(U8* dest, const U8* source, Uptr numBytes)
 	{
 #ifdef _WIN32
 		__movsb(dest, source, numBytes);
