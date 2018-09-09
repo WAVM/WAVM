@@ -60,43 +60,55 @@ namespace Platform
 		numCacheLineBytes = 64
 	};
 
-// countLeadingZeroes/countTrailingZeroes returns the number of leading/trailing zeroes, or the bit
-// width of the input if no bits are set.
-#ifdef _WIN32
-	// BitScanReverse/BitScanForward return 0 if the input is 0.
+	// countLeadingZeroes returns the number of leading zeroes, or the bit width of the input if no
+	// bits are set.
 	inline U32 countLeadingZeroes(U32 value)
 	{
+#ifdef _WIN32
+		// BitScanReverse returns 0 if the input is 0.
 		unsigned long result;
 		return _BitScanReverse(&result, value) ? (31 - result) : 32;
-	}
-	inline U32 countTrailingZeroes(U32 value)
-	{
-		unsigned long result;
-		return _BitScanForward(&result, value) ? result : 32;
+#else
+		return value == 0 ? 32 : __builtin_clz(value);
+#endif
 	}
 
-#ifdef _WIN64
 	inline U64 countLeadingZeroes(U64 value)
 	{
+#ifdef _WIN64
 		unsigned long result;
 		return _BitScanReverse64(&result, value) ? (63 - result) : 64;
+#elif defined(_WIN32)
+		DEBUG_TRAP();
+#else
+		return value == 0 ? 64 : __builtin_clzll(value);
+#endif
+	}
+
+	// countTrailingZeroes returns the number of trailing zeroes, or the bit width of the input if
+	// no bits are set.
+	inline U32 countTrailingZeroes(U32 value)
+	{
+#ifdef _WIN32
+		// BitScanForward returns 0 if the input is 0.
+		unsigned long result;
+		return _BitScanForward(&result, value) ? result : 32;
+#else
+		return value == 0 ? 32 : __builtin_ctz(value);
+#endif
 	}
 	inline U64 countTrailingZeroes(U64 value)
 	{
+#ifdef _WIN64
 		unsigned long result;
 		return _BitScanForward64(&result, value) ? result : 64;
+#elif defined(_WIN32)
+		DEBUG_TRAP();
+#else
+		return value == 0 ? 64 : __builtin_ctzll(value);
+#endif
 	}
-#else
-	inline U64 countLeadingZeroes(U64 value) { throw; }
-	inline U64 countTrailingZeroes(U64 value) { throw; }
-#endif
-#else
-	// __builtin_clz/__builtin_ctz are undefined if the input is 0.
-	inline U64 countLeadingZeroes(U64 value) { return value == 0 ? 64 : __builtin_clzll(value); }
-	inline U32 countLeadingZeroes(U32 value) { return value == 0 ? 32 : __builtin_clz(value); }
-	inline U64 countTrailingZeroes(U64 value) { return value == 0 ? 64 : __builtin_ctzll(value); }
-	inline U32 countTrailingZeroes(U32 value) { return value == 0 ? 32 : __builtin_ctz(value); }
-#endif
+
 	inline U64 floorLogTwo(U64 value) { return value <= 1 ? 0 : 63 - countLeadingZeroes(value); }
 	inline U32 floorLogTwo(U32 value) { return value <= 1 ? 0 : 31 - countLeadingZeroes(value); }
 	inline U64 ceilLogTwo(U64 value)
