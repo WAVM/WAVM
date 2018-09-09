@@ -4,7 +4,15 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Lock.h"
-#include "Platform/Platform.h"
+#include "Platform/Defines.h"
+#include "Platform/Diagnostics.h"
+#include "Platform/Event.h"
+#include "Platform/Exception.h"
+#include "Platform/File.h"
+#include "Platform/Intrinsic.h"
+#include "Platform/Memory.h"
+#include "Platform/Mutex.h"
+#include "Platform/Thread.h"
 
 #include <cxxabi.h>
 #include <dlfcn.h>

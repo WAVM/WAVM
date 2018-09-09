@@ -7,7 +7,7 @@
 #include "IR/Value.h"
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
-#include "Platform/Platform.h"
+#include "Platform/Diagnostics.h"
 
 #ifndef RUNTIME_API
 #define RUNTIME_API DLL_IMPORT

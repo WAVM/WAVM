@@ -5,6 +5,7 @@
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/Lock.h"
+#include "Platform/Mutex.h"
 
 template<typename Key,
 		 typename Value,

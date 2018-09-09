@@ -10,7 +10,7 @@
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 

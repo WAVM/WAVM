@@ -3,7 +3,7 @@
 #include "Assert.h"
 #include "BasicTypes.h"
 #include "OptionalStorage.h"
-#include "Platform/Platform.h"
+#include "Platform/Intrinsic.h"
 
 struct DefaultHashTableAllocPolicy
 {

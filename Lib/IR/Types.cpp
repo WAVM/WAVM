@@ -8,7 +8,7 @@
 #include "Inline/Hash.h"
 #include "Inline/HashSet.h"
 #include "Inline/Lock.h"
-#include "Platform/Platform.h"
+#include "Platform/Mutex.h"
 
 using namespace IR;
 

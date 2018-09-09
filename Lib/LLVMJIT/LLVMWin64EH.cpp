@@ -6,7 +6,7 @@
 #include "Inline/BasicTypes.h"
 #include "LLVMJITPrivate.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
+#include "Platform/Defines.h"
 
 #include "LLVMPreInclude.h"
 

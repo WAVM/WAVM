@@ -16,7 +16,7 @@
 #include "Inline/Serialization.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "Platform/Platform.h"
+#include "Platform/Intrinsic.h"
 
 using namespace IR;
 using namespace WAST;

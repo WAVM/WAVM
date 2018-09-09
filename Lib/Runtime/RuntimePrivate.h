@@ -7,6 +7,7 @@
 #include "Inline/HashSet.h"
 #include "Inline/IndexMap.h"
 #include "LLVMJIT/LLVMJIT.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"

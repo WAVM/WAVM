@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Inline/BasicTypes.h"
-#include "Platform/Platform.h"
+#include "Platform/File.h"
 #include "wavix.h"
 
 namespace Wavix

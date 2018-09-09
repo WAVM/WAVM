@@ -8,7 +8,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Lock.h"
-#include "Platform/Platform.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"

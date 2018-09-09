@@ -16,7 +16,6 @@
 #include "Inline/Hash.h"
 #include "Inline/HashSet.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
 
 #define ENABLE_LOGGING 0
 

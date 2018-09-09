@@ -17,7 +17,6 @@
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"

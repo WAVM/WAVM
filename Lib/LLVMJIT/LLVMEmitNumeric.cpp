@@ -9,7 +9,6 @@
 #include "LLVMEmitModuleContext.h"
 #include "LLVMEmitWorkarounds.h"
 #include "LLVMJITPrivate.h"
-#include "Platform/Platform.h"
 
 #include "LLVMPreInclude.h"
 

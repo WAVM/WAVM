@@ -19,7 +19,9 @@
 #include "Inline/Timing.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
-#include "Platform/Platform.h"
+#include "Platform/Exception.h"
+#include "Platform/Memory.h"
+#include "Platform/Mutex.h"
 #include "Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"

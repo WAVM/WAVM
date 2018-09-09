@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Platform/Platform.h"
+#include "Platform/Defines.h"
+#include "Platform/Diagnostics.h"
 
 #include <cstdarg>
 

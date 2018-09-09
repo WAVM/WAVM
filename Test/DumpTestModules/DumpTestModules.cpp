@@ -11,7 +11,7 @@
 #include "Inline/Hash.h"
 #include "Inline/Serialization.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
+#include "Platform/File.h"
 #include "WASM/WASM.h"
 #include "WASTParse/TestScript.h"
 #include "WASTParse/WASTParse.h"

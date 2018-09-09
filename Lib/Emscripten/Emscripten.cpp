@@ -21,7 +21,7 @@
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
+#include "Platform/Defines.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"
