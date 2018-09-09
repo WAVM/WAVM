@@ -444,8 +444,8 @@ struct FunctionValidationContext
 	void tee_local(GetOrSetVariableImm<false> imm)
 	{
 		const ValueType localType = validateLocalIndex(imm.variableIndex);
-		popAndValidateOperand("tee_local", localType);
-		pushOperand(localType);
+		const ValueType operandType = popAndValidateOperand("tee_local", localType);
+		pushOperand(operandType);
 	}
 
 	void get_global(GetOrSetVariableImm<true> imm)
