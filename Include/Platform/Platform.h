@@ -130,6 +130,62 @@ namespace Platform
 		return U32(value + ((I32(maxValue - value) >> 31) & (maxValue - value)));
 	}
 
+	// Byte-wise memcpy and memset: these are different from the C library versions because in the
+	// event of a trap while reading/writing memory, they guarantee that every byte preceding the
+	// byte that trapped will have been written.
+	// On X86 they use "rep movsb" (for copy) and "rep stosb" (for set) which are microcoded on
+	// Intel Ivy Bridge and later processors, and supposedly competitive with the C library
+	// functions. On other architectures, it will fall back to a C loop, which is not likely to be
+	// competitive with the C library function.
+
+	inline void bytewiseMemCopy(U8* dest, U8* source, Uptr numBytes)
+	{
+#ifdef _WIN32
+		__movsb(dest, source, numBytes);
+#elif defined(__i386__)
+		asm volatile("rep movsb"
+					 : "=D"(dest), "=S"(source), "=c"(numBytes)
+					 : "0"(dest), "1"(source), "2"(numBytes)
+					 : "memory");
+#else
+		for(Uptr index = 0; index < numBytes; ++index) { dest[index] = source[index]; }
+#endif
+	}
+
+	inline void bytewiseMemSet(U8* dest, U8 value, Uptr numBytes)
+	{
+#ifdef _WIN32
+		__stosb(dest, value, numBytes);
+#elif defined(__i386__)
+		asm volatile("rep stosb"
+					 : "=D"(dest), "=a"(value), "=c"(numBytes)
+					 : "0"(dest), "1"(value), "2"(numBytes)
+					 : "memory");
+#else
+		for(Uptr index = 0; index < numBytes; ++index) { dest[index] = value; }
+#endif
+	}
+
+	// Byte-wise memmove: this uses the above byte-wise memcpy, but if the source and destination
+	// buffers overlap so the copy would overwrite the end of the source buffer before it is copied
+	// from, then split the copy into two: the overlapping end of the source buffer is copied first,
+	// so it can be overwritten by the second copy safely.
+
+	inline void bytewiseMemMove(U8* dest, U8* source, Uptr numBytes)
+	{
+		const Uptr numNonOverlappingBytes
+			= source < dest && source + numBytes > dest ? dest - source : numBytes;
+
+		if(numNonOverlappingBytes != numBytes)
+		{
+			bytewiseMemCopy(dest + numNonOverlappingBytes,
+							source + numNonOverlappingBytes,
+							numBytes - numNonOverlappingBytes);
+		}
+
+		bytewiseMemCopy(dest, source, numNonOverlappingBytes);
+	}
+
 	//
 	// Memory
 	//
