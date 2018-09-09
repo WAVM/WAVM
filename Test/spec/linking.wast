@@ -233,7 +233,7 @@
   )
   "elements segment does not fit"
 )
-(assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
+;;(assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
 
 (assert_unlinkable
   (module
@@ -245,7 +245,7 @@
   )
   "data segment does not fit"
 )
-(assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
+;;(assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
 
 
 ;; Memories
@@ -339,7 +339,7 @@
   )
   "data segment does not fit"
 )
-(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
+;;(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
 
 (assert_unlinkable
   (module
@@ -351,4 +351,4 @@
   )
   "elements segment does not fit"
 )
-(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
+;;(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))

@@ -11,7 +11,10 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
+#include "Inline/Lock.h"
 #include "LLVMJIT/LLVMJIT.h"
+#include "Platform/Intrinsic.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
@@ -154,62 +157,6 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	if(moduleInstance->tables.size() != 0)
 	{ moduleInstance->defaultTable = moduleInstance->tables[0]; }
 
-	// If any memory or table segment doesn't fit, throw an exception before mutating any
-	// memory/table.
-	for(auto& tableSegment : module->tableSegments)
-	{
-		if(tableSegment.isActive)
-		{
-			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
-			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance, tableSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
-			if(baseOffset > table->elements.size()
-			   || table->elements.size() - baseOffset < tableSegment.indices.size())
-			{ throwException(Exception::invalidSegmentOffsetType); }
-		}
-	}
-	for(auto& dataSegment : module->dataSegments)
-	{
-		if(dataSegment.isActive)
-		{
-			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
-
-			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
-			const Uptr numMemoryBytes = (memory->numPages << IR::numBytesPerPageLog2);
-			if(baseOffset > numMemoryBytes || numMemoryBytes - baseOffset < dataSegment.data.size())
-			{ throwException(Exception::invalidSegmentOffsetType); }
-		}
-	}
-
-	// Copy the module's data segments into the module's default memory.
-	for(const DataSegment& dataSegment : module->dataSegments)
-	{
-		if(dataSegment.isActive)
-		{
-			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
-
-			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
-
-			wavmAssert(baseOffset + dataSegment.data.size()
-					   <= (memory->numPages << IR::numBytesPerPageLog2));
-
-			if(dataSegment.data.size())
-			{
-				memcpy(memory->baseAddress + baseOffset,
-					   dataSegment.data.data(),
-					   dataSegment.data.size());
-			}
-		}
-	}
-
 	// Instantiate the module's global definitions.
 	for(const GlobalDef& globalDef : module->globals.defs)
 	{
@@ -344,6 +291,34 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		moduleInstance->exportMap.addOrFail(exportIt.name, exportedObject);
 	}
 
+	// Copy the module's data segments into the module's default memory.
+	for(const DataSegment& dataSegment : module->dataSegments)
+	{
+		if(dataSegment.isActive)
+		{
+			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
+
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
+			const U32 baseOffset = baseOffsetValue.i32;
+
+			if(dataSegment.data.size())
+			{
+				Platform::bytewiseMemCopy(memory->baseAddress + baseOffset,
+										  dataSegment.data.data(),
+										  dataSegment.data.size());
+			}
+			else
+			{
+				// WebAssembly still expects out-of-bounds errors if the segment base offset is
+				// out-of-bounds, even if the segment is empty.
+				if(baseOffset > memory->numPages * IR::numBytesPerPage)
+				{ throwException(Runtime::Exception::accessViolationType); }
+			}
+		}
+	}
+
 	// Copy the module's table segments into the module's default table.
 	for(const TableSegment& tableSegment : module->tableSegments)
 	{
@@ -355,17 +330,27 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				= evaluateInitializer(moduleInstance, tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
-			wavmAssert(baseOffset + tableSegment.indices.size() <= table->elements.size());
 
-			for(Uptr index = 0; index < tableSegment.indices.size(); ++index)
+			if(tableSegment.indices.size())
 			{
-				const Uptr functionIndex = tableSegment.indices[index];
-				wavmAssert(functionIndex < moduleInstance->functions.size());
-				setTableElement(table,
-								baseOffset + index,
-								moduleInstance->functions[functionIndex],
-								moduleInstance->defaultMemory,
-								moduleInstance->defaultTable);
+				for(Uptr index = 0; index < tableSegment.indices.size(); ++index)
+				{
+					const Uptr functionIndex = tableSegment.indices[index];
+					wavmAssert(functionIndex < moduleInstance->functions.size());
+					setTableElement(table,
+									baseOffset + index,
+									moduleInstance->functions[functionIndex],
+									moduleInstance->defaultMemory,
+									moduleInstance->defaultTable);
+				}
+			}
+			else
+			{
+				// WebAssembly still expects out-of-bounds errors if the segment base offset is
+				// out-of-bounds, even if the segment is empty.
+				Lock<Platform::Mutex> elementsLock(table->elementsMutex);
+				if(baseOffset > table->elements.size())
+				{ throwException(Runtime::Exception::accessViolationType); }
 			}
 		}
 	}
