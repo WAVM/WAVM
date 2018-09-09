@@ -9,9 +9,11 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
+#include "Inline/Lock.h"
 #include "LLVMEmitContext.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
+#include "Platform/Mutex.h"
 #include "Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"
@@ -43,6 +45,7 @@ using namespace LLVMJIT;
 using namespace Runtime;
 
 // A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
+static Platform::Mutex invokeThunkMutex;
 static HashMap<FunctionType, struct JITFunction*> invokeThunkTypeToFunctionMap;
 
 struct IntrinsicThunkKey
@@ -71,11 +74,14 @@ inline bool operator==(const IntrinsicThunkKey& a, const IntrinsicThunkKey& b)
 }
 
 // A map from function types to JIT symbols for cached native thunks (WASM -> C++)
+static Platform::Mutex intrinsicThunkMutex;
 static HashMap<IntrinsicThunkKey, struct JITFunction*> intrinsicFunctionToThunkFunctionMap;
 
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 										   CallingConvention callingConvention)
 {
+	Lock<Platform::Mutex> invokeThunkLock(invokeThunkMutex);
+
 	LLVMContext llvmContext;
 
 	// Reuse cached invoke thunks for the same function type.
@@ -173,6 +179,8 @@ void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 								 MemoryBinding defaultMemory,
 								 TableBinding defaultTable)
 {
+	Lock<Platform::Mutex> intrinsicThunkLock(intrinsicThunkMutex);
+
 	wavmAssert(callingConvention == CallingConvention::intrinsic
 			   || callingConvention == CallingConvention::intrinsicWithContextSwitch
 			   || callingConvention == CallingConvention::intrinsicWithMemAndTable);
