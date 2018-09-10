@@ -20,6 +20,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/DataTypes.h"
 
 #include "LLVMPostInclude.h"
@@ -282,13 +283,18 @@ namespace LLVMJIT
 		std::map<Uptr, JITFunction*> addressToFunctionMap;
 		HashMap<std::string, JITFunction*> nameToFunctionMap;
 
-		LoadedModule(const std::vector<U8>& objectBytes,
+		LoadedModule(const std::vector<U8>& inObjectBytes,
 					 const HashMap<std::string, Uptr>& importedSymbolMap,
 					 bool shouldLogMetrics);
 		~LoadedModule();
 
 	private:
 		ModuleMemoryManager* memoryManager;
+
+		// Have to keep copies of these around because GDB registration listener uses their pointers
+		// as keys for deregistration.
+		std::vector<U8> objectBytes;
+		std::unique_ptr<llvm::object::ObjectFile> object;
 	};
 
 	extern std::vector<U8> compileLLVMModule(LLVMContext& llvmContext,

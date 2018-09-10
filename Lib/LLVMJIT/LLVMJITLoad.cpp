@@ -281,14 +281,15 @@ private:
 	void operator=(const ModuleMemoryManager&) = delete;
 };
 
-LoadedModule::LoadedModule(const std::vector<U8>& objectBytes,
+LoadedModule::LoadedModule(const std::vector<U8>& inObjectBytes,
 						   const HashMap<std::string, Uptr>& importedSymbolMap,
 						   bool shouldLogMetrics)
 : memoryManager(new ModuleMemoryManager())
+, objectBytes(inObjectBytes)
 {
 	Timing::Timer loadObjectTimer;
 
-	auto object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
+	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
 		llvm::StringRef((const char*)objectBytes.data(), objectBytes.size()), "memory")));
 
 	// Create the LLVM object loader.
@@ -484,6 +485,9 @@ LoadedModule::LoadedModule(const std::vector<U8>& objectBytes,
 
 LLVMJIT::LoadedModule::~LoadedModule()
 {
+	// Notify GDB that the object is being unloaded.
+	gdbRegistrationListener->NotifyFreeingObject(*object);
+
 	// Remove the module from the global address to module map.
 	Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
 	addressToModuleMap.erase(addressToModuleMap.find(reinterpret_cast<Uptr>(
