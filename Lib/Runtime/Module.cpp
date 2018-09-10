@@ -11,14 +11,18 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
+#include "Inline/Lock.h"
 #include "LLVMJIT/LLVMJIT.h"
+#include "Platform/Intrinsic.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
 using namespace IR;
 using namespace Runtime;
 
-static Value evaluateInitializer(ModuleInstance* moduleInstance, InitializerExpression expression)
+static Value evaluateInitializer(const std::vector<GlobalInstance*>& moduleGlobals,
+								 InitializerExpression expression)
 {
 	switch(expression.type)
 	{
@@ -30,8 +34,9 @@ static Value evaluateInitializer(ModuleInstance* moduleInstance, InitializerExpr
 	case InitializerExpression::Type::get_global:
 	{
 		// Find the import this refers to.
-		errorUnless(expression.globalIndex < moduleInstance->globals.size());
-		GlobalInstance* globalInstance = moduleInstance->globals[expression.globalIndex];
+		errorUnless(expression.globalIndex < moduleGlobals.size());
+		GlobalInstance* globalInstance = moduleGlobals[expression.globalIndex];
+		errorUnless(globalInstance);
 		errorUnless(!globalInstance->type.isMutable);
 		return IR::Value(globalInstance->type.valueType, globalInstance->initialValue);
 	}
@@ -51,6 +56,7 @@ Runtime::Module* Runtime::compileModule(const IR::Module& irModule)
 	for(const FunctionDef& functionDef : irModule.functions.defs)
 	{ functions.defs.push_back(irModule.types[functionDef.type.index]); }
 
+	std::vector<FunctionType> types = irModule.types;
 	IndexSpace<TableDef, TableType> tables = irModule.tables;
 	IndexSpace<MemoryDef, MemoryType> memories = irModule.memories;
 	IndexSpace<GlobalDef, GlobalType> globals = irModule.globals;
@@ -63,7 +69,8 @@ Runtime::Module* Runtime::compileModule(const IR::Module& irModule)
 	getDisassemblyNames(irModule, disassemblyNames);
 
 	std::vector<U8> objectFileBytes = LLVMJIT::compileModule(irModule);
-	return new Module(std::move(functions),
+	return new Module(std::move(types),
+					  std::move(functions),
 					  std::move(tables),
 					  std::move(memories),
 					  std::move(globals),
@@ -90,6 +97,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 										   ImportBindings&& imports,
 										   std::string&& moduleDebugName)
 {
+	// Create the ModuleInstance and add it to the compartment's modules list.
 	ModuleInstance* moduleInstance = new ModuleInstance(compartment,
 														std::move(imports.functions),
 														std::move(imports.tables),
@@ -97,6 +105,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 														std::move(imports.globals),
 														std::move(imports.exceptionTypes),
 														std::move(moduleDebugName));
+	{
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		compartment->modules.addOrFail(moduleInstance);
+	}
 
 	// Check the type of the ModuleInstance's imports.
 	errorUnless(moduleInstance->functions.size() == module->functions.imports.size());
@@ -154,66 +166,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	if(moduleInstance->tables.size() != 0)
 	{ moduleInstance->defaultTable = moduleInstance->tables[0]; }
 
-	// If any memory or table segment doesn't fit, throw an exception before mutating any
-	// memory/table.
-	for(auto& tableSegment : module->tableSegments)
-	{
-		if(tableSegment.isActive)
-		{
-			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
-			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance, tableSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
-			if(baseOffset > table->elements.size()
-			   || table->elements.size() - baseOffset < tableSegment.indices.size())
-			{ throwException(Exception::invalidSegmentOffsetType); }
-		}
-	}
-	for(auto& dataSegment : module->dataSegments)
-	{
-		if(dataSegment.isActive)
-		{
-			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
-
-			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
-			const Uptr numMemoryBytes = (memory->numPages << IR::numBytesPerPageLog2);
-			if(baseOffset > numMemoryBytes || numMemoryBytes - baseOffset < dataSegment.data.size())
-			{ throwException(Exception::invalidSegmentOffsetType); }
-		}
-	}
-
-	// Copy the module's data segments into the module's default memory.
-	for(const DataSegment& dataSegment : module->dataSegments)
-	{
-		if(dataSegment.isActive)
-		{
-			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
-
-			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance, dataSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
-			const U32 baseOffset = baseOffsetValue.i32;
-
-			wavmAssert(baseOffset + dataSegment.data.size()
-					   <= (memory->numPages << IR::numBytesPerPageLog2));
-
-			if(dataSegment.data.size())
-			{
-				memcpy(memory->baseAddress + baseOffset,
-					   dataSegment.data.data(),
-					   dataSegment.data.size());
-			}
-		}
-	}
-
 	// Instantiate the module's global definitions.
 	for(const GlobalDef& globalDef : module->globals.defs)
 	{
-		const Value initialValue = evaluateInitializer(moduleInstance, globalDef.initializer);
+		const Value initialValue
+			= evaluateInitializer(moduleInstance->globals, globalDef.initializer);
 		errorUnless(isSubtype(initialValue.type, globalDef.type.valueType));
 		moduleInstance->globals.push_back(createGlobal(compartment, globalDef.type, initialValue));
 	}
@@ -223,6 +180,26 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		moduleInstance->exceptionTypes.push_back(
 			createExceptionTypeInstance(exceptionTypeDef.type, "wasmException"));
+	}
+
+	// Instantiate the module's defined functions.
+	for(Uptr functionDefIndex = 0; functionDefIndex < module->functions.defs.size();
+		++functionDefIndex)
+	{
+		const DisassemblyNames::Function& functionNames
+			= module->disassemblyNames
+				  .functions[module->functions.imports.size() + functionDefIndex];
+		std::string debugName = functionNames.name;
+		if(!debugName.size())
+		{ debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
+
+		auto functionInstance = new FunctionInstance(moduleInstance,
+													 module->functions.defs[functionDefIndex],
+													 nullptr,
+													 IR::CallingConvention::wasm,
+													 std::move(debugName));
+		moduleInstance->functionDefs.push_back(functionInstance);
+		moduleInstance->functions.push_back(functionInstance);
 	}
 
 	HashMap<std::string, LLVMJIT::FunctionBinding> wavmIntrinsicsExportMap;
@@ -235,6 +212,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			intrinsicExport.key, LLVMJIT::FunctionBinding{intrinsicFunction->nativeFunction}));
 	}
 
+	std::vector<FunctionType> jitTypes = module->types;
 	LLVMJIT::MemoryBinding jitDefaultMemory{
 		moduleInstance->defaultMemory ? moduleInstance->defaultMemory->id : UINTPTR_MAX};
 	LLVMJIT::TableBinding jitDefaultTable{
@@ -248,6 +226,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		if(functionImport->callingConvention != IR::CallingConvention::wasm)
 		{
 			nativeFunction = LLVMJIT::getIntrinsicThunk(nativeFunction,
+														functionImport,
 														functionImport->type,
 														functionImport->callingConvention,
 														jitDefaultMemory,
@@ -283,6 +262,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	std::vector<LLVMJIT::JITFunction*> jitFunctionDefs;
 	moduleInstance->jitModule = LLVMJIT::loadModule(module->objectFileBytes,
 													std::move(wavmIntrinsicsExportMap),
+													std::move(jitTypes),
 													std::move(jitFunctionImports),
 													std::move(jitTables),
 													std::move(jitMemories),
@@ -291,31 +271,18 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 													jitDefaultMemory,
 													jitDefaultTable,
 													moduleInstance,
-													module->functions.defs.size(),
+													TableInstance::getReferenceBias(),
+													moduleInstance->functionDefs,
 													jitFunctionDefs);
 
-	// Create the FunctionInstance objects for the module's function definitions.
+	// Link the JITFunction to the corresponding FunctionInstance, and the FunctionInstance to the
+	// compiled machine code.
 	for(Uptr functionDefIndex = 0; functionDefIndex < module->functions.defs.size();
 		++functionDefIndex)
 	{
-		const DisassemblyNames::Function& functionNames
-			= module->disassemblyNames
-				  .functions[module->functions.imports.size() + functionDefIndex];
-		std::string debugName = functionNames.name;
-		if(!debugName.size())
-		{ debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-
 		LLVMJIT::JITFunction* jitFunction = jitFunctionDefs[functionDefIndex];
-
-		auto functionInstance
-			= new FunctionInstance(moduleInstance,
-								   module->functions.defs[functionDefIndex],
-								   reinterpret_cast<void*>(jitFunction->baseAddress),
-								   IR::CallingConvention::wasm,
-								   std::move(debugName));
-		moduleInstance->functionDefs.push_back(functionInstance);
-		moduleInstance->functions.push_back(functionInstance);
-
+		FunctionInstance* functionInstance = moduleInstance->functionDefs[functionDefIndex];
+		functionInstance->nativeFunction = reinterpret_cast<void*>(jitFunction->baseAddress);
 		jitFunction->type = LLVMJIT::JITFunction::Type::wasmFunction;
 		jitFunction->functionInstance = functionInstance;
 	}
@@ -344,6 +311,34 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		moduleInstance->exportMap.addOrFail(exportIt.name, exportedObject);
 	}
 
+	// Copy the module's data segments into the module's default memory.
+	for(const DataSegment& dataSegment : module->dataSegments)
+	{
+		if(dataSegment.isActive)
+		{
+			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
+
+			const Value baseOffsetValue
+				= evaluateInitializer(moduleInstance->globals, dataSegment.baseOffset);
+			errorUnless(baseOffsetValue.type == ValueType::i32);
+			const U32 baseOffset = baseOffsetValue.i32;
+
+			if(dataSegment.data.size())
+			{
+				Platform::bytewiseMemCopy(memory->baseAddress + baseOffset,
+										  dataSegment.data.data(),
+										  dataSegment.data.size());
+			}
+			else
+			{
+				// WebAssembly still expects out-of-bounds errors if the segment base offset is
+				// out-of-bounds, even if the segment is empty.
+				if(baseOffset > memory->numPages * IR::numBytesPerPage)
+				{ throwException(Runtime::Exception::memoryAddressOutOfBoundsType); }
+			}
+		}
+	}
+
 	// Copy the module's table segments into the module's default table.
 	for(const TableSegment& tableSegment : module->tableSegments)
 	{
@@ -352,20 +347,29 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
 
 			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance, tableSegment.baseOffset);
+				= evaluateInitializer(moduleInstance->globals, tableSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
-			wavmAssert(baseOffset + tableSegment.indices.size() <= table->elements.size());
 
-			for(Uptr index = 0; index < tableSegment.indices.size(); ++index)
+			if(tableSegment.indices.size())
 			{
-				const Uptr functionIndex = tableSegment.indices[index];
-				wavmAssert(functionIndex < moduleInstance->functions.size());
-				setTableElement(table,
-								baseOffset + index,
-								moduleInstance->functions[functionIndex],
-								moduleInstance->defaultMemory,
-								moduleInstance->defaultTable);
+				for(Uptr index = 0; index < tableSegment.indices.size(); ++index)
+				{
+					const Uptr functionIndex = tableSegment.indices[index];
+					wavmAssert(functionIndex < moduleInstance->functions.size());
+					setTableElement(table,
+									baseOffset + index,
+									moduleInstance->functions[functionIndex],
+									moduleInstance->defaultMemory,
+									moduleInstance->defaultTable);
+				}
+			}
+			else
+			{
+				// WebAssembly still expects out-of-bounds errors if the segment base offset is
+				// out-of-bounds, even if the segment is empty.
+				if(baseOffset > table->numElements)
+				{ throwException(Runtime::Exception::tableIndexOutOfBoundsType); }
 			}
 		}
 	}
@@ -384,7 +388,12 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		const TableSegment& tableSegment = module->tableSegments[segmentIndex];
 		if(!tableSegment.isActive)
-		{ moduleInstance->passiveTableSegments.add(segmentIndex, tableSegment.indices); }
+		{
+			auto passiveTableSegmentObjects = std::make_shared<std::vector<Object*>>();
+			for(Uptr functionIndex : tableSegment.indices)
+			{ passiveTableSegmentObjects->push_back(moduleInstance->functions[functionIndex]); }
+			moduleInstance->passiveTableSegments.add(segmentIndex, passiveTableSegmentObjects);
+		}
 	}
 
 	// Look up the module's start function.
@@ -395,6 +404,12 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	}
 
 	return moduleInstance;
+}
+
+void ModuleInstance::finalize()
+{
+	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	compartment->modules.removeOrFail(this);
 }
 
 FunctionInstance* Runtime::getStartFunction(ModuleInstance* moduleInstance)

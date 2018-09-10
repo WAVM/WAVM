@@ -9,9 +9,11 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
+#include "Inline/Lock.h"
 #include "LLVMEmitContext.h"
 #include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
+#include "Platform/Mutex.h"
 #include "Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"
@@ -43,6 +45,7 @@ using namespace LLVMJIT;
 using namespace Runtime;
 
 // A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
+static Platform::Mutex invokeThunkMutex;
 static HashMap<FunctionType, struct JITFunction*> invokeThunkTypeToFunctionMap;
 
 struct IntrinsicThunkKey
@@ -71,11 +74,14 @@ inline bool operator==(const IntrinsicThunkKey& a, const IntrinsicThunkKey& b)
 }
 
 // A map from function types to JIT symbols for cached native thunks (WASM -> C++)
+static Platform::Mutex intrinsicThunkMutex;
 static HashMap<IntrinsicThunkKey, struct JITFunction*> intrinsicFunctionToThunkFunctionMap;
 
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 										   CallingConvention callingConvention)
 {
+	Lock<Platform::Mutex> invokeThunkLock(invokeThunkMutex);
+
 	LLVMContext llvmContext;
 
 	// Reuse cached invoke thunks for the same function type.
@@ -168,11 +174,14 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 }
 
 void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
+								 FunctionInstance* functionInstance,
 								 FunctionType functionType,
 								 CallingConvention callingConvention,
 								 MemoryBinding defaultMemory,
 								 TableBinding defaultTable)
 {
+	Lock<Platform::Mutex> intrinsicThunkLock(intrinsicThunkMutex);
+
 	wavmAssert(callingConvention == CallingConvention::intrinsic
 			   || callingConvention == CallingConvention::intrinsicWithContextSwitch
 			   || callingConvention == CallingConvention::intrinsicWithMemAndTable);
@@ -198,6 +207,10 @@ void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
 	function->setCallingConv(asLLVMCallingConv(callingConvention));
+	function->setPrefixData(llvm::ConstantArray::get(
+		llvm::ArrayType::get(llvmContext.iptrType, 2),
+		{emitLiteral(llvmContext, reinterpret_cast<Uptr>(functionInstance)),
+		 emitLiteral(llvmContext, functionType.getEncoding().impl)}));
 
 	llvm::Constant* defaultMemoryOffset = nullptr;
 	if(defaultMemory.id != UINTPTR_MAX)

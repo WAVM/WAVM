@@ -8,7 +8,7 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Serialization.h"
-#include "Platform/Platform.h"
+#include "Platform/Defines.h"
 #include "Types.h"
 
 #include "OperatorTable.h"

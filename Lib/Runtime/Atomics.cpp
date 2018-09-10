@@ -11,7 +11,8 @@
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Inline/Lock.h"
-#include "Platform/Platform.h"
+#include "Platform/Event.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"
@@ -218,8 +219,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Validate that the address is within the memory's bounds.
-	if(U64(addressOffset) + 4 > (U64(memoryInstance->numPages) << IR::numBytesPerPageLog2))
-	{ throwException(Exception::accessViolationType); }
+	if(U64(addressOffset) + 4 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
+	{ throwException(Exception::memoryAddressOutOfBoundsType); }
 
 	// The alignment check is done by the caller.
 	wavmAssert(!(addressOffset & 3));
@@ -240,8 +241,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Validate that the address is within the memory's bounds.
-	if(U64(addressOffset) + 4 > (U64(memoryInstance->numPages) << IR::numBytesPerPageLog2))
-	{ throwException(Exception::accessViolationType); }
+	if(U64(addressOffset) + 4 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
+	{ throwException(Exception::memoryAddressOutOfBoundsType); }
 
 	// The alignment check is done by the caller.
 	wavmAssert(!(addressOffset & 3));
@@ -261,8 +262,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Validate that the address is within the memory's bounds.
-	if(U64(addressOffset) + 8 > (U64(memoryInstance->numPages) << IR::numBytesPerPageLog2))
-	{ throwException(Exception::accessViolationType); }
+	if(U64(addressOffset) + 8 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
+	{ throwException(Exception::memoryAddressOutOfBoundsType); }
 
 	// The alignment check is done by the caller.
 	wavmAssert(!(addressOffset & 7));

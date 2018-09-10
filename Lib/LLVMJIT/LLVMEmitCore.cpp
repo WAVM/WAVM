@@ -9,6 +9,7 @@
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+#include "Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"
 
@@ -369,36 +370,42 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	{ llvmArgs[argIndex] = coerceToCanonicalType(llvmArgs[argIndex]); }
 
 	// Zero extend the function index to the pointer size.
-	auto functionIndexZExt
-		= zext(tableElementIndex, sizeof(Uptr) == 4 ? llvmContext.i32Type : llvmContext.i64Type);
+	auto functionIndexZExt = zext(tableElementIndex, llvmContext.iptrType);
 
-	auto tableElementType
-		= llvm::StructType::get(llvmContext, {llvmContext.i8PtrType, llvmContext.i8PtrType});
-	auto typedTableBasePointer = irBuilder.CreatePointerCast(
-		irBuilder.CreateLoad(tableBasePointerVariable), tableElementType->getPointerTo());
+	auto tableBasePointer = irBuilder.CreatePointerCast(
+		irBuilder.CreateLoad(tableBasePointerVariable), llvmContext.iptrType->getPointerTo());
 
-	// Load the type for this table entry.
-	auto functionTypePointerPointer = irBuilder.CreateInBoundsGEP(
-		typedTableBasePointer, {functionIndexZExt, emitLiteral(llvmContext, (U32)0)});
-	auto functionTypePointer = irBuilder.CreateLoad(functionTypePointerPointer);
-	auto llvmCalleeType = emitLiteralPointer(reinterpret_cast<void*>(calleeType.getEncoding().impl),
-											 llvmContext.i8PtrType);
+	// Load the anyfunc referenced by the table.
+	auto elementPointer = irBuilder.CreateInBoundsGEP(tableBasePointer, {functionIndexZExt});
+	llvm::LoadInst* biasedValueLoad = irBuilder.CreateLoad(elementPointer);
+	biasedValueLoad->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);
+	biasedValueLoad->setAlignment(sizeof(Uptr));
+	auto anyfuncPointer = irBuilder.CreateIntToPtr(
+		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
+		llvmContext.i8PtrType);
+	auto elementTypeId = loadFromUntypedPointer(
+		irBuilder.CreateInBoundsGEP(
+			anyfuncPointer,
+			emitLiteral(llvmContext,
+						reinterpret_cast<Uptr>(&((AnyFunc*)nullptr)->functionTypeEncoding))),
+		llvmContext.iptrType);
+	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
 
 	// If the function type doesn't match, trap.
 	emitConditionalTrapIntrinsic(
-		irBuilder.CreateICmpNE(llvmCalleeType, functionTypePointer),
-		"indirectCallSignatureMismatch",
+		irBuilder.CreateICmpNE(calleeTypeId, elementTypeId),
+		"callIndirectFail",
 		FunctionType(TypeTuple(),
 					 TypeTuple({ValueType::i32, inferValueType<Iptr>(), inferValueType<Iptr>()})),
 		{tableElementIndex,
-		 irBuilder.CreatePtrToInt(llvmCalleeType, llvmContext.iptrType),
-		 getTableIdFromOffset(llvmContext, moduleContext.defaultTableOffset)});
+		 irBuilder.CreatePtrToInt(anyfuncPointer, llvmContext.iptrType),
+		 calleeTypeId});
 
 	// Call the function loaded from the table.
-	auto functionPointerPointer = irBuilder.CreateInBoundsGEP(
-		typedTableBasePointer, {functionIndexZExt, emitLiteral(llvmContext, (U32)1)});
-	auto functionPointer = loadFromUntypedPointer(
-		functionPointerPointer,
+	auto functionPointer = irBuilder.CreatePointerCast(
+		irBuilder.CreateInBoundsGEP(
+			anyfuncPointer,
+			emitLiteral(llvmContext, reinterpret_cast<Uptr>(((AnyFunc*)nullptr)->code))),
 		asLLVMType(llvmContext, calleeType, CallingConvention::wasm)->getPointerTo());
 	ValueVector results = emitCallOrInvoke(functionPointer,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),

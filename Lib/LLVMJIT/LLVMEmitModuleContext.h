@@ -17,6 +17,8 @@ namespace LLVMJIT
 
 		LLVMContext& llvmContext;
 		llvm::Module* llvmModule;
+		std::vector<llvm::Constant*> typeIds;
+		std::vector<llvm::Constant*> functionDefInstances;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::Constant*> tableOffsets;
 		std::vector<llvm::Constant*> memoryOffsets;
@@ -27,6 +29,7 @@ namespace LLVMJIT
 		llvm::Constant* defaultTableOffset;
 
 		llvm::Constant* moduleInstancePointer;
+		llvm::Constant* tableReferenceBias;
 
 		llvm::DIBuilder diBuilder;
 		llvm::DICompileUnit* diCompileUnit;

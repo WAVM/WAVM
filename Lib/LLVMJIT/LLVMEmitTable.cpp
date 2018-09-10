@@ -31,7 +31,9 @@ void EmitFunctionContext::ref_null(NoImm)
 void EmitFunctionContext::ref_isnull(NoImm)
 {
 	llvm::Value* reference = pop();
-	push(irBuilder.CreateICmpEQ(reference, llvm::Constant::getNullValue(llvmContext.anyrefType)));
+	llvm::Value* null = llvm::Constant::getNullValue(llvmContext.anyrefType);
+	llvm::Value* isNull = irBuilder.CreateICmpEQ(reference, null);
+	push(coerceBoolToI32(isNull));
 }
 
 void EmitFunctionContext::table_get(TableImm imm)

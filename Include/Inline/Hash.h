@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BasicTypes.h"
-#include "Platform/Platform.h"
 
 #include <functional>
 #include <string>

@@ -6,9 +6,14 @@
 
 #include "Inline/BasicTypes.h"
 #include "Inline/IndexMap.h"
-#include "Platform/Platform.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Runtime.h"
 #include "file.h"
+
+namespace Platform
+{
+	struct File;
+}
 
 namespace Wavix
 {

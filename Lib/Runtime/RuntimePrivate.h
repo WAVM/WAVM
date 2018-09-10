@@ -7,6 +7,7 @@
 #include "Inline/HashSet.h"
 #include "Inline/IndexMap.h"
 #include "LLVMJIT/LLVMJIT.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"
@@ -66,10 +67,9 @@ namespace Runtime
 	// An instance of a WebAssembly Table.
 	struct TableInstance : ObjectImpl
 	{
-		struct FunctionElement
+		struct Element
 		{
-			IR::FunctionType::Encoding typeEncoding;
-			void* value;
+			std::atomic<Uptr> biasedValue;
 		};
 
 		Compartment* const compartment;
@@ -77,24 +77,28 @@ namespace Runtime
 
 		const IR::TableType type;
 
-		FunctionElement* baseAddress;
+		Element* elements;
+		std::atomic<Uptr> numElements;
 		Uptr numReservedBytes;
+		Uptr numReservedElements;
 
-		// The Objects corresponding to the FunctionElements at baseAddress.
-		Platform::Mutex elementsMutex;
-		std::vector<Object*> elements;
+		Platform::Mutex resizingMutex;
 
 		TableInstance(Compartment* inCompartment, const IR::TableType& inType)
 		: ObjectImpl(ObjectKind::table)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, type(inType)
-		, baseAddress(nullptr)
+		, elements(nullptr)
+		, numElements(0)
 		, numReservedBytes(0)
+		, numReservedElements(0)
 		{
 		}
 		~TableInstance() override;
 		virtual void finalize() override;
+
+		static Uptr getReferenceBias();
 	};
 
 	// An instance of a WebAssembly Memory.
@@ -163,6 +167,8 @@ namespace Runtime
 	// A compiled WebAssembly module.
 	struct Module : ObjectImpl
 	{
+		std::vector<IR::FunctionType> types;
+
 		IR::IndexSpace<IR::FunctionType, IR::FunctionType> functions;
 
 		IR::IndexSpace<IR::TableDef, IR::TableType> tables;
@@ -180,7 +186,8 @@ namespace Runtime
 
 		std::vector<U8> objectFileBytes;
 
-		Module(IR::IndexSpace<IR::FunctionType, IR::FunctionType>&& inFunctions,
+		Module(std::vector<IR::FunctionType>&& inTypes,
+			   IR::IndexSpace<IR::FunctionType, IR::FunctionType>&& inFunctions,
 			   IR::IndexSpace<IR::TableDef, IR::TableType>&& inTables,
 			   IR::IndexSpace<IR::MemoryDef, IR::MemoryType>&& inMemories,
 			   IR::IndexSpace<IR::GlobalDef, IR::GlobalType>&& inGlobals,
@@ -192,16 +199,17 @@ namespace Runtime
 			   IR::DisassemblyNames&& inDisassemblyNames,
 			   std::vector<U8>&& inObjectFileBytes)
 		: ObjectImpl(ObjectKind::module)
-		, functions(inFunctions)
-		, tables(inTables)
-		, memories(inMemories)
-		, globals(inGlobals)
-		, exceptionTypes(inExceptionTypes)
-		, exports(inExports)
-		, dataSegments(inDataSegments)
-		, tableSegments(inTableSegments)
+		, types(std::move(inTypes))
+		, functions(std::move(inFunctions))
+		, tables(std::move(inTables))
+		, memories(std::move(inMemories))
+		, globals(std::move(inGlobals))
+		, exceptionTypes(std::move(inExceptionTypes))
+		, exports(std::move(inExports))
+		, dataSegments(std::move(inDataSegments))
+		, tableSegments(std::move(inTableSegments))
 		, startFunctionIndex(inStartFunctionIndex)
-		, disassemblyNames(inDisassemblyNames)
+		, disassemblyNames(std::move(inDisassemblyNames))
 		, objectFileBytes(std::move(inObjectFileBytes))
 		{
 		}
@@ -227,10 +235,10 @@ namespace Runtime
 		TableInstance* defaultTable;
 
 		Platform::Mutex passiveDataSegmentsMutex;
-		HashMap<Uptr, std::shared_ptr<std::vector<U8>>> passiveDataSegments;
+		HashMap<Uptr, std::shared_ptr<const std::vector<U8>>> passiveDataSegments;
 
 		Platform::Mutex passiveTableSegmentsMutex;
-		HashMap<Uptr, std::vector<Uptr>> passiveTableSegments;
+		HashMap<Uptr, std::shared_ptr<const std::vector<Object*>>> passiveTableSegments;
 
 		LLVMJIT::LoadedModule* jitModule;
 
@@ -259,6 +267,7 @@ namespace Runtime
 		}
 
 		virtual ~ModuleInstance() override;
+		virtual void finalize() override;
 	};
 
 	struct Context : ObjectImpl
@@ -287,6 +296,7 @@ namespace Runtime
 
 		// These are weak references that aren't followed by the garbage collector.
 		// If the referenced object is deleted, it will remove the reference here.
+		HashSet<ModuleInstance*> modules;
 		HashSet<GlobalInstance*> globals;
 		IndexMap<Uptr, MemoryInstance*> memories;
 		IndexMap<Uptr, TableInstance*> tables;

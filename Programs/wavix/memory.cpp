@@ -25,7 +25,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 						  I32 fd,
 						  I32 offset)
 {
-	const Uptr numPages = (Uptr(numBytes) + IR::numBytesPerPage - 1) >> IR::numBytesPerPageLog2;
+	const Uptr numPages = (Uptr(numBytes) + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
 
 	if(address != 0 || fd != -1) { throwException(Exception::calledUnimplementedIntrinsicType); }
 
@@ -33,7 +33,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 	Iptr basePageIndex = growMemory(memory, numPages);
 	if(basePageIndex == -1) { return -1; }
 
-	return coerce32bitAddress(basePageIndex << IR::numBytesPerPageLog2);
+	return coerce32bitAddress(basePageIndex * IR::numBytesPerPage);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavix,
@@ -49,8 +49,8 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 
 	if(address & (IR::numBytesPerPage - 1) || numBytes == 0) { return ErrNo::einval; }
 
-	const Uptr basePageIndex = address >> IR::numBytesPerPageLog2;
-	const Uptr numPages = (numBytes + IR::numBytesPerPage - 1) >> IR::numBytesPerPageLog2;
+	const Uptr basePageIndex = address / IR::numBytesPerPage;
+	const Uptr numPages = (numBytes + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
 
 	if(basePageIndex + numPages > getMemoryMaxPages(memory)) { return ErrNo::einval; }
 

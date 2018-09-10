@@ -4,7 +4,7 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Hash.h"
-#include "Platform/Platform.h"
+#include "Platform/Intrinsic.h"
 
 #include <string.h>
 

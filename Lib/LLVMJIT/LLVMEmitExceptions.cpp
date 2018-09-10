@@ -11,7 +11,7 @@
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
-#include "Platform/Platform.h"
+#include "Platform/Exception.h"
 #include "Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"

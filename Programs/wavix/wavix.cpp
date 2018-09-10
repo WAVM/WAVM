@@ -9,7 +9,9 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Errors.h"
 #include "Inline/Lock.h"
-#include "Platform/Platform.h"
+#include "Platform/File.h"
+#include "Platform/Intrinsic.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "process.h"
@@ -99,7 +101,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 	}
 	else
 	{
-		throwException(Exception::accessViolationType);
+		throwException(Exception::memoryAddressOutOfBoundsType);
 	}
 }
 
@@ -126,12 +128,12 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 		}
 		else
 		{
-			throwException(Exception::accessViolationType);
+			throwException(Exception::memoryAddressOutOfBoundsType);
 		}
 	}
 	else
 	{
-		throwException(Exception::accessViolationType);
+		throwException(Exception::memoryAddressOutOfBoundsType);
 	}
 }
 

@@ -118,11 +118,18 @@ namespace IR
 		{
 			return std::to_string(imm.dataSegmentIndex) + " " + std::to_string(imm.memoryIndex);
 		}
-		std::string describeImm(DataSegmentImm imm) { return std::to_string(imm.dataSegmentIndex); }
+		std::string describeImm(DataSegmentImm imm)
+		{
+			return " " + std::to_string(imm.dataSegmentIndex);
+		}
 		std::string describeImm(ElemSegmentAndTableImm imm)
 		{
-			return std::to_string(imm.elemSegmentIndex);
+			return " " + std::to_string(imm.elemSegmentIndex) + " "
+				   + std::to_string(imm.tableIndex);
 		}
-		std::string describeImm(ElemSegmentImm imm) { return std::to_string(imm.elemSegmentIndex); }
+		std::string describeImm(ElemSegmentImm imm)
+		{
+			return " " + std::to_string(imm.elemSegmentIndex);
+		}
 	};
 }

@@ -13,7 +13,7 @@
 #include "Inline/Errors.h"
 #include "Inline/Serialization.h"
 #include "Inline/Unicode.h"
-#include "Platform/Platform.h"
+#include "Platform/Defines.h"
 #include "WASM/WASM.h"
 
 using namespace IR;

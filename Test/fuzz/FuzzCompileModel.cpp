@@ -203,12 +203,22 @@ enum
 	numNonParametricOps = sizeof(operatorInfos) / sizeof(OperatorInfo)
 };
 
-FunctionType generateBlockSig(RandomStream& random)
+static ValueType generateValueType(RandomStream& random)
 {
-	// const ValueType resultType = ValueType(random.get(U32(ValueType::max)));
-	// return resultType == ValueType::any ? FunctionType() : FunctionType(TypeTuple{resultType});
-	return FunctionType();
+	switch(random.get(6))
+	{
+	case 0: return ValueType::i32;
+	case 1: return ValueType::i64;
+	case 2: return ValueType::f32;
+	case 3: return ValueType::f64;
+	case 4: return ValueType::v128;
+	case 5: return ValueType::anyref;
+	case 6: return ValueType::anyfunc;
+	default: Errors::unreachable();
+	}
 }
+
+FunctionType generateBlockSig(RandomStream& random) { return FunctionType(); }
 
 IndexedBlockType getIndexedBlockType(IR::Module& module,
 									 HashMap<FunctionType, Uptr>& functionTypeMap,
@@ -232,36 +242,16 @@ IndexedBlockType getIndexedBlockType(IR::Module& module,
 
 static void generateFunction(RandomStream& random,
 							 IR::Module& module,
+							 FunctionDef& functionDef,
 							 HashMap<FunctionType, Uptr>& functionTypeMap)
 {
-	FunctionDef functionDef;
-
-	// Generate a signature.
-	std::vector<ValueType> functionParams;
-	while(true)
-	{
-		const ValueType paramType = ValueType(random.get(U32(ValueType::max)));
-		if(paramType == ValueType::any) { break; }
-
-		functionParams.push_back(paramType);
-	};
-
-	// const ValueType resultType = ValueType(random.get(U32(ValueType::max)));
-	// FunctionType functionType(resultType == ValueType::any ? TypeTuple() : TypeTuple{resultType},
-	//						  TypeTuple(functionParams));
-	FunctionType functionType({}, TypeTuple(functionParams));
-	functionDef.type.index = functionTypeMap.getOrAdd(functionType, module.types.size());
-	if(functionDef.type.index == module.types.size()) { module.types.push_back(functionType); }
+	const FunctionType functionType = module.types[functionDef.type.index];
 
 	// Generate locals.
-	while(true)
-	{
-		const ValueType localType = ValueType(random.get(U32(ValueType::max)));
-		if(localType == ValueType::any) { break; }
-
-		functionDef.nonParameterLocalTypes.push_back(localType);
-	};
-	const Uptr numLocals = functionType.params().size() + functionDef.nonParameterLocalTypes.size();
+	const Uptr numNonParameterLocals = random.get(4);
+	for(Uptr localIndex = 0; localIndex < numNonParameterLocals; ++localIndex)
+	{ functionDef.nonParameterLocalTypes.push_back(generateValueType(random)); }
+	const Uptr numLocals = functionType.params().size() + numNonParameterLocals;
 
 	Serialization::ArrayOutputStream codeByteStream;
 	OperatorEncoderStream opEncoder(codeByteStream);
@@ -318,8 +308,8 @@ static void generateFunction(RandomStream& random,
 					sigMatches = false;
 					allowStackGrowth = true;
 				}
-				else if(stack[controlContext.outerStackSize + resultIndex]
-						!= controlContext.results[resultIndex])
+				else if(!isSubtype(stack[controlContext.outerStackSize + resultIndex],
+								   controlContext.results[resultIndex]))
 				{
 					sigMatches = false;
 					break;
@@ -388,7 +378,7 @@ static void generateFunction(RandomStream& random,
 			bool sigMatch = true;
 			for(Uptr paramIndex = 0; paramIndex < params.size(); ++paramIndex)
 			{
-				if(stack[stack.size() - params.size() + paramIndex] != params[paramIndex])
+				if(!isSubtype(stack[stack.size() - params.size() + paramIndex], params[paramIndex]))
 				{
 					sigMatch = false;
 					break;
@@ -422,7 +412,8 @@ static void generateFunction(RandomStream& random,
 					  : functionDef
 							.nonParameterLocalTypes[localIndex - functionType.params().size()];
 
-			if(stack.size() > controlStack.back().outerStackSize && localType == stack.back())
+			if(stack.size() > controlStack.back().outerStackSize
+			   && isSubtype(stack.back(), localType))
 			{
 				// set_local
 				validOpEmitters.push_back([&stack, localIndex](RandomStream& random,
@@ -460,7 +451,7 @@ static void generateFunction(RandomStream& random,
 			const GlobalType globalType = module.globals.getType(globalIndex);
 
 			if(stack.size() > controlStack.back().outerStackSize
-			   && globalType.valueType == stack.back() && globalType.isMutable)
+			   && isSubtype(stack.back(), globalType.valueType) && globalType.isMutable)
 			{
 				// set_global
 				validOpEmitters.push_back([&stack, globalIndex](RandomStream& random,
@@ -549,7 +540,7 @@ static void generateFunction(RandomStream& random,
 			bool sigMatch = true;
 			for(Uptr paramIndex = 0; paramIndex < params.size(); ++paramIndex)
 			{
-				if(stack[stack.size() - params.size() + paramIndex] != params[paramIndex])
+				if(!isSubtype(stack[stack.size() - params.size() + paramIndex], params[paramIndex]))
 				{
 					sigMatch = false;
 					break;
@@ -697,8 +688,6 @@ static void generateFunction(RandomStream& random,
 	codeStream.finishValidation();
 
 	functionDef.code = codeByteStream.getBytes();
-
-	module.functions.defs.push_back(std::move(functionDef));
 };
 
 void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes)
@@ -706,16 +695,20 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	RandomStream random(inputBytes, numBytes);
 
 	HashMap<FunctionType, Uptr> functionTypeMap;
+	
+	// Manually turn on the reference type feature until it's on by default.
+	errorUnless(!module.featureSpec.referenceTypes);
+	module.featureSpec.referenceTypes = true;
 
 	// Generate some standard definitions that are the same for all modules.
 	module.memories.defs.push_back({{true, {1024, IR::maxMemoryPages}}});
 	module.tables.defs.push_back({{ReferenceType::anyfunc, true, {1024, IR::maxTableElems}}});
 
 	// Generate some globals.
-	while(true)
+	const Uptr numGlobals = random.get(10);
+	for(Uptr globalIndex = 0; globalIndex < numGlobals; ++globalIndex)
 	{
-		const ValueType globalValueType = ValueType(random.get(U32(ValueType::max)));
-		if(globalValueType == ValueType::any) { break; }
+		const ValueType globalValueType = generateValueType(random);
 
 		const bool isMutable = random.get(1);
 		const GlobalType globalType{globalValueType, isMutable};
@@ -746,7 +739,10 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 				initializer.v128.u64[0] = random.get(UINT64_MAX);
 				initializer.v128.u64[1] = random.get(UINT64_MAX);
 				break;
-			case ValueType::anyref: initializer.type = InitializerExpression::Type::ref_null; break;
+			case ValueType::anyref:
+			case ValueType::anyfunc:
+				initializer.type = InitializerExpression::Type::ref_null;
+				break;
 			default: Errors::unreachable();
 			}
 			module.globals.defs.push_back({globalType, initializer});
@@ -754,24 +750,45 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	};
 
 	// Generate some data segments.
-	while(true)
+	Uptr numDataSegments = 1 + random.get(4);
+	for(Uptr segmentIndex = 0; segmentIndex < numDataSegments; ++segmentIndex)
 	{
-		const Uptr memoryIndex = random.get(module.memories.size());
-		if(memoryIndex == module.memories.size()) { break; }
+		const Uptr numSegmentBytes = 1 + random.get(100);
 		std::vector<U8> bytes;
-		for(Uptr byteIndex = 0; byteIndex < 16; ++byteIndex)
+		for(Uptr byteIndex = 0; byteIndex < numSegmentBytes; ++byteIndex)
 		{ bytes.push_back(random.get<U8>(255)); }
 		module.dataSegments.push_back({false, UINTPTR_MAX, {}, std::move(bytes)});
 	};
 
-	// Generate some elem segments.
+	// Create FunctionDefs for all the function we will generate, but don't yet generate their code.
 	const Uptr numFunctionDefs = 3;
-	while(true)
+	while(module.functions.defs.size() < numFunctionDefs)
 	{
-		const Uptr tableIndex = random.get(module.tables.size());
-		if(tableIndex == module.tables.size()) { break; }
+		// Generate a signature.
+		std::vector<ValueType> functionParams;
+		const Uptr numParams = random.get(4);
+		for(Uptr paramIndex = 0; paramIndex < numParams; ++paramIndex)
+		{ functionParams.push_back(generateValueType(random)); };
+
+		// const ValueType resultType = ValueType(random.get(U32(ValueType::max)));
+		// FunctionType functionType(resultType == ValueType::any ? TypeTuple() :
+		// TypeTuple{resultType},
+		//						  TypeTuple(functionParams));
+		FunctionType functionType({}, TypeTuple(functionParams));
+
+		FunctionDef functionDef;
+		functionDef.type.index = functionTypeMap.getOrAdd(functionType, module.types.size());
+		if(functionDef.type.index == module.types.size()) { module.types.push_back(functionType); }
+		module.functions.defs.push_back(std::move(functionDef));
+	};
+
+	// Generate some elem segments.
+	Uptr numElemSegments = 1 + random.get(4);
+	for(Uptr segmentIndex = 0; segmentIndex < numElemSegments; ++segmentIndex)
+	{
+		const Uptr numSegmentElements = 1 + random.get(100);
 		std::vector<Uptr> functionIndices;
-		for(Uptr index = 0; index < 16; ++index)
+		for(Uptr index = 0; index < numSegmentElements; ++index)
 		{ functionIndices.push_back(random.get(numFunctionDefs - 1)); }
 		module.tableSegments.push_back({false, UINTPTR_MAX, {}, std::move(functionIndices)});
 	};
@@ -779,8 +796,8 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	validateDefinitions(module);
 
 	// Generate a few functions.
-	while(module.functions.defs.size() < numFunctionDefs)
-	{ generateFunction(random, module, functionTypeMap); };
+	for(FunctionDef& functionDef : module.functions.defs)
+	{ generateFunction(random, module, functionDef, functionTypeMap); };
 }
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)

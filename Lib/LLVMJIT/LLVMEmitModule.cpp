@@ -120,6 +120,15 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 #endif
 								 &outLLVMModule);
 
+	// Create LLVM external globals corresponding to the encoded function types for the module's
+	// indexed function types.
+	for(Uptr typeIndex = 0; typeIndex < irModule.types.size(); ++typeIndex)
+	{
+		moduleContext.typeIds.push_back(llvm::ConstantExpr::getPtrToInt(
+			createImportedConstant(outLLVMModule, getExternalName("typeId", typeIndex)),
+			llvmContext.iptrType));
+	}
+
 	// Create LLVM external globals corresponding to offsets to table base pointers in
 	// CompartmentRuntimeData for the module's declared table objects.
 	for(Uptr tableIndex = 0; tableIndex < irModule.tables.size(); ++tableIndex)
@@ -161,6 +170,10 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	// Create a LLVM external global that will point to the ModuleInstance.
 	moduleContext.moduleInstancePointer = createImportedConstant(outLLVMModule, "moduleInstance");
 
+	// Create a LLVM external global that will be a bias applied to all references in a table.
+	moduleContext.tableReferenceBias = llvm::ConstantExpr::getPtrToInt(
+		createImportedConstant(outLLVMModule, "tableReferenceBias"), llvmContext.iptrType);
+
 	// Create the LLVM functions.
 	moduleContext.functions.resize(irModule.functions.size());
 	for(Uptr functionIndex = 0; functionIndex < irModule.functions.size(); ++functionIndex)
@@ -176,22 +189,28 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 			&outLLVMModule);
 		function->setCallingConv(asLLVMCallingConv(CallingConvention::wasm));
 		moduleContext.functions[functionIndex] = function;
-
-		if(functionIndex >= irModule.functions.imports.size())
-		{ function->setPersonalityFn(personalityFunction); }
 	}
 
 	// Compile each function in the module.
 	for(Uptr functionDefIndex = 0; functionDefIndex < irModule.functions.defs.size();
 		++functionDefIndex)
 	{
-		EmitFunctionContext(
-			llvmContext,
-			moduleContext,
-			irModule,
-			irModule.functions.defs[functionDefIndex],
-			moduleContext.functions[irModule.functions.imports.size() + functionDefIndex])
-			.emit();
+		const FunctionDef& functionDef = irModule.functions.defs[functionDefIndex];
+		llvm::Function* function
+			= moduleContext.functions[irModule.functions.imports.size() + functionDefIndex];
+
+		function->setPersonalityFn(personalityFunction);
+
+		llvm::Constant* functionInstance = llvm::ConstantExpr::getPtrToInt(
+			createImportedConstant(outLLVMModule,
+								   getExternalName("functionDefInstance", functionDefIndex)),
+			llvmContext.iptrType);
+
+		function->setPrefixData(llvm::ConstantArray::get(
+			llvm::ArrayType::get(llvmContext.iptrType, 2),
+			{functionInstance, moduleContext.typeIds[functionDef.type.index]}));
+
+		EmitFunctionContext(llvmContext, moduleContext, irModule, functionDef, function).emit();
 	}
 
 	// Finalize the debug info.

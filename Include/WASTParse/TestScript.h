@@ -50,18 +50,16 @@ namespace WAST
 
 	enum class ExpectedTrapType
 	{
-		accessViolation,
+		memoryAddressOutOfBounds,
+		tableIndexOutOfBounds,
 		stackOverflow,
 		integerDivideByZeroOrIntegerOverflow,
 		invalidFloatOperation,
 		invokeSignatureMismatch,
 		reachedUnreachable,
 		indirectCallSignatureMismatch,
-		undefinedTableElement,
-		calledAbort,
-		calledUnimplementedIntrinsic,
+		uninitializedTableElement,
 		outOfMemory,
-		invalidSegmentOffset,
 		misalignedAtomicMemoryAccess,
 		invalidArgument
 	};

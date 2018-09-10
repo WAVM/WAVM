@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Inline/Assert.h"
-#include "Platform/Platform.h"
 
 #include <string.h>
 #include <algorithm>

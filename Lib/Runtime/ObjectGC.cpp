@@ -10,7 +10,7 @@
 #include "Inline/Lock.h"
 #include "Inline/Timing.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
@@ -51,22 +51,39 @@ void Runtime::removeGCRoot(Object* object)
 	--gcObject->numRootReferences;
 }
 
+static void visitReference(HashSet<ObjectImpl*>& unreferencedObjects,
+						   std::vector<Object*>& pendingScanObjects,
+						   Object* reference)
+{
+	if(reference && unreferencedObjects.remove((ObjectImpl*)reference))
+	{ pendingScanObjects.push_back(reference); }
+}
+
+template<typename Array>
+static void visitReferenceArray(HashSet<ObjectImpl*>& unreferencedObjects,
+								std::vector<Object*>& pendingScanObjects,
+								const Array& array)
+{
+	for(auto reference : array)
+	{ visitReference(unreferencedObjects, pendingScanObjects, reference); }
+}
+
 void Runtime::collectGarbage()
 {
 	GCGlobals& gcGlobals = GCGlobals::get();
 	Lock<Platform::Mutex> lock(gcGlobals.mutex);
 	Timing::Timer timer;
 
-	HashSet<ObjectImpl*> referencedObjects;
+	HashSet<ObjectImpl*> unreferencedObjects = gcGlobals.allObjects;
 	std::vector<Object*> pendingScanObjects;
 
 	// Initialize the referencedObjects set from the rooted object set.
 	Uptr numRoots = 0;
 	for(ObjectImpl* object : gcGlobals.allObjects)
 	{
-		if(object && object->numRootReferences > 0)
+		if(object->numRootReferences > 0)
 		{
-			referencedObjects.addOrFail(object);
+			unreferencedObjects.removeOrFail(object);
 			pendingScanObjects.push_back(object);
 			++numRoots;
 		}
@@ -80,71 +97,73 @@ void Runtime::collectGarbage()
 		pendingScanObjects.pop_back();
 
 		// Gather the child references for this object based on its kind.
-		std::vector<Object*> childReferences;
 		switch(scanObject->kind)
 		{
 		case ObjectKind::function:
 		{
 			FunctionInstance* function = asFunction(scanObject);
-			childReferences.push_back(function->moduleInstance);
+			visitReference(unreferencedObjects, pendingScanObjects, function->moduleInstance);
 			break;
 		}
 		case ObjectKind::table:
 		{
 			TableInstance* table = asTable(scanObject);
-			childReferences.push_back(table->compartment);
-			childReferences.insert(
-				childReferences.end(), table->elements.begin(), table->elements.end());
+			visitReference(unreferencedObjects, pendingScanObjects, table->compartment);
+
+			Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+			const Uptr numElements = getTableNumElements(table);
+			for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
+			{
+				visitReference(
+					unreferencedObjects, pendingScanObjects, getTableElement(table, elementIndex));
+			}
 			break;
 		}
 		case ObjectKind::memory:
 		{
 			MemoryInstance* memory = asMemory(scanObject);
-			childReferences.push_back(memory->compartment);
+			visitReference(unreferencedObjects, pendingScanObjects, memory->compartment);
 			break;
 		}
 		case ObjectKind::global:
 		{
 			GlobalInstance* global = asGlobal(scanObject);
-			childReferences.push_back(global->compartment);
+			visitReference(unreferencedObjects, pendingScanObjects, global->compartment);
 			break;
 		}
 		case ObjectKind::moduleInstance:
 		{
 			ModuleInstance* moduleInstance = asModuleInstance(scanObject);
-			childReferences.push_back(moduleInstance->compartment);
-			childReferences.insert(childReferences.begin(),
-								   moduleInstance->functionDefs.begin(),
-								   moduleInstance->functionDefs.end());
-			childReferences.insert(childReferences.begin(),
-								   moduleInstance->functions.begin(),
-								   moduleInstance->functions.end());
-			childReferences.insert(childReferences.begin(),
-								   moduleInstance->tables.begin(),
-								   moduleInstance->tables.end());
-			childReferences.insert(childReferences.begin(),
-								   moduleInstance->memories.begin(),
-								   moduleInstance->memories.end());
-			childReferences.insert(childReferences.begin(),
-								   moduleInstance->globals.begin(),
-								   moduleInstance->globals.end());
-			childReferences.insert(childReferences.begin(),
-								   moduleInstance->exceptionTypes.begin(),
-								   moduleInstance->exceptionTypes.end());
-			childReferences.push_back(moduleInstance->defaultMemory);
-			childReferences.push_back(moduleInstance->defaultTable);
+			visitReference(unreferencedObjects, pendingScanObjects, moduleInstance->compartment);
+			visitReferenceArray(unreferencedObjects, pendingScanObjects, moduleInstance->functions);
+			visitReferenceArray(unreferencedObjects, pendingScanObjects, moduleInstance->tables);
+			visitReferenceArray(unreferencedObjects, pendingScanObjects, moduleInstance->memories);
+			visitReferenceArray(unreferencedObjects, pendingScanObjects, moduleInstance->globals);
+			visitReferenceArray(
+				unreferencedObjects, pendingScanObjects, moduleInstance->exceptionTypes);
+
+			{
+				Lock<Platform::Mutex> passiveTableSegmentLock(
+					moduleInstance->passiveTableSegmentsMutex);
+				for(const auto& passiveTableSegmentPair : moduleInstance->passiveTableSegments)
+				{
+					visitReferenceArray(
+						unreferencedObjects, pendingScanObjects, *passiveTableSegmentPair.value);
+				}
+			}
+
 			break;
 		}
 		case ObjectKind::context:
 		{
 			Context* context = asContext(scanObject);
-			childReferences.push_back(context->compartment);
+			visitReference(unreferencedObjects, pendingScanObjects, context->compartment);
 			break;
 		}
 		case ObjectKind::compartment:
 		{
 			Compartment* compartment = asCompartment(scanObject);
-			childReferences.push_back(compartment->wavmIntrinsics);
+			visitReference(unreferencedObjects, pendingScanObjects, compartment->wavmIntrinsics);
 			break;
 		}
 
@@ -153,36 +172,26 @@ void Runtime::collectGarbage()
 
 		default: Errors::unreachable();
 		};
-
-		// Add the object's child references to the referenced set, and enqueue them for
-		// scanning.
-		for(Object* reference : childReferences)
-		{
-			if(reference && referencedObjects.add((ObjectImpl*)reference))
-			{ pendingScanObjects.push_back(reference); }
-		}
 	};
 
-	// Find the objects that weren't reached, and call finalize on each of them.
-	std::vector<ObjectImpl*> finalizedObjects;
-	for(ObjectImpl* object : gcGlobals.allObjects)
+	// Call finalize on each unreferenced object.
+	for(ObjectImpl* object : unreferencedObjects)
 	{
-		if(!referencedObjects.contains(object))
-		{
-			object->finalize();
-			finalizedObjects.push_back(object);
-		}
+		if(unreferencedObjects.contains(object)) { object->finalize(); }
 	}
-	gcGlobals.allObjects = std::move(referencedObjects);
 
-	// Delete all the finalized objects.
-	for(ObjectImpl* object : finalizedObjects) { delete object; }
+	// Delete each unreferenced object.
+	for(ObjectImpl* object : unreferencedObjects)
+	{
+		gcGlobals.allObjects.removeOrFail(object);
+		delete object;
+	}
 
 	Log::printf(Log::metrics,
 				"Collected garbage in %.2fms: %" PRIuPTR " roots, %" PRIuPTR " objects, %" PRIuPTR
 				" garbage\n",
 				timer.getMilliseconds(),
 				numRoots,
-				Uptr(gcGlobals.allObjects.size() + finalizedObjects.size()),
-				Uptr(finalizedObjects.size()));
+				Uptr(gcGlobals.allObjects.size() + unreferencedObjects.size()),
+				Uptr(unreferencedObjects.size()));
 }

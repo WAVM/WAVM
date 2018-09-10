@@ -11,7 +11,8 @@
 #include "Inline/Errors.h"
 #include "Inline/IntrusiveSharedPtr.h"
 #include "Inline/Lock.h"
-#include "Platform/Platform.h"
+#include "Platform/Mutex.h"
+#include "Platform/Thread.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"
@@ -122,18 +123,19 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(threadTest,
 	{
 		// If createThread is called from a module that doesn't handle a default table, throw an
 		// exception.
-		throwException(Exception::undefinedTableElementType);
+		throwException(Exception::tableIndexOutOfBoundsType);
 	}
 
 	// Look up the index provided in the default table to get the thread entry function.
 	TableInstance* defaultTable = getTableFromRuntimeData(contextRuntimeData, defaultTableId.id);
-	FunctionInstance* entryFunction
-		= asFunctionNullable(Runtime::getTableElement(defaultTable, entryFunctionIndex));
+	Object* entryObject = Runtime::getTableElement(defaultTable, entryFunctionIndex);
+	FunctionInstance* entryFunction = asFunctionNullable(entryObject);
 
 	// Validate that the entry function wasn't null, and it has the correct type (i32)->i64
-	if(!entryFunction) { throwException(Runtime::Exception::undefinedTableElementType); }
-	else if(Runtime::getFunctionType(entryFunction)
-			!= FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
+	if(!entryObject) { throwException(Runtime::Exception::uninitializedTableElementType); }
+	else if(!entryFunction
+			|| Runtime::getFunctionType(entryFunction)
+				   != FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
 	{
 		throwException(Runtime::Exception::indirectCallSignatureMismatchType);
 	}

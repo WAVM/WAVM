@@ -11,7 +11,6 @@
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Lexer.h"
-#include "Platform/Platform.h"
 #include "WASTParse/WASTParse.h"
 
 namespace WAST

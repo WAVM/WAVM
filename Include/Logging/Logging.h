@@ -7,7 +7,7 @@
 #include <stdarg.h>
 
 #include "Inline/BasicTypes.h"
-#include "Platform/Platform.h"
+#include "Platform/Defines.h"
 
 // Debug logging.
 namespace Log

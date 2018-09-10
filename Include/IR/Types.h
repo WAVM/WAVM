@@ -14,6 +14,12 @@
 #include "Inline/Floats.h"
 #include "Inline/Hash.h"
 
+namespace Runtime
+{
+	struct AnyReferee;
+	struct AnyFunc;
+}
+
 namespace IR
 {
 	// The type of a WebAssembly operand
@@ -66,47 +72,6 @@ namespace IR
 		}
 	}
 
-	struct AnyReferee
-	{
-	};
-	struct AnyFunc : AnyReferee
-	{
-	};
-
-	template<ValueType type> struct ValueTypeInfo;
-	template<> struct ValueTypeInfo<ValueType::i32>
-	{
-		typedef I32 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::i64>
-	{
-		typedef I64 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::f32>
-	{
-		typedef F32 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::f64>
-	{
-		typedef F64 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::v128>
-	{
-		typedef V128 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::anyref>
-	{
-		typedef AnyReferee* Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::anyfunc>
-	{
-		typedef AnyReferee* Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::nullref>
-	{
-		typedef AnyReferee* Value;
-	};
-
 	inline std::string asString(I32 value) { return std::to_string(value); }
 	inline std::string asString(I64 value) { return std::to_string(value); }
 	inline std::string asString(F32 value) { return Floats::asString(value); }
@@ -124,15 +89,6 @@ namespace IR
 				 v128.u32[1],
 				 v128.u32[2],
 				 v128.u32[3]);
-		return std::string(buffer);
-	}
-
-	inline std::string asString(AnyReferee* referee)
-	{
-		// buffer needs 19 characters:
-		// 0xHHHHHHHHHHHHHHHH\0
-		char buffer[19];
-		snprintf(buffer, sizeof(buffer), "0x%.16" PRIxPTR, reinterpret_cast<Uptr>(referee));
 		return std::string(buffer);
 	}
 
@@ -249,7 +205,14 @@ namespace IR
 	template<> constexpr ValueType inferValueType<U64>() { return ValueType::i64; }
 	template<> constexpr ValueType inferValueType<F32>() { return ValueType::f32; }
 	template<> constexpr ValueType inferValueType<F64>() { return ValueType::f64; }
-	template<> constexpr ValueType inferValueType<AnyReferee*>() { return ValueType::anyref; }
+	template<> constexpr ValueType inferValueType<Runtime::AnyReferee*>()
+	{
+		return ValueType::anyref;
+	}
+	template<> constexpr ValueType inferValueType<Runtime::AnyFunc*>()
+	{
+		return ValueType::anyfunc;
+	}
 
 	template<typename T> inline TypeTuple inferResultType()
 	{

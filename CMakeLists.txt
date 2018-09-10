@@ -189,4 +189,5 @@ add_custom_target(RootFiles SOURCES
 	LICENSE
 	README.md
 	run-clang-format.sh
-	travis-build.sh)
+	travis-build.sh
+	WebAssembly.tmLanguage)

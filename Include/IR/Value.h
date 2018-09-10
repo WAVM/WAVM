@@ -4,6 +4,12 @@
 
 #include <string.h>
 
+namespace Runtime
+{
+	struct Object;
+	struct FunctionInstance;
+}
+
 namespace IR
 {
 	// A runtime value of any type.
@@ -19,8 +25,8 @@ namespace IR
 			F64 f64;
 			V128 v128;
 			U8 bytes[16];
-			AnyReferee* anyref;
-			AnyFunc* anyfunc;
+			Runtime::Object* object;
+			Runtime::FunctionInstance* function;
 		};
 
 		UntaggedValue(I32 inI32) { i32 = inI32; }
@@ -30,8 +36,8 @@ namespace IR
 		UntaggedValue(F32 inF32) { f32 = inF32; }
 		UntaggedValue(F64 inF64) { f64 = inF64; }
 		UntaggedValue(V128 inV128) { v128 = inV128; }
-		UntaggedValue(AnyReferee* inAnyref) { anyref = inAnyref; }
-		UntaggedValue(AnyFunc* inAnyfunc) { anyfunc = inAnyfunc; }
+		UntaggedValue(Runtime::Object* inObject) { object = inObject; }
+		UntaggedValue(Runtime::FunctionInstance* inFunction) { function = inFunction; }
 		UntaggedValue() { memset(this, 0, sizeof(*this)); }
 	};
 
@@ -48,9 +54,11 @@ namespace IR
 		Value(F32 inF32) : UntaggedValue(inF32), type(ValueType::f32) {}
 		Value(F64 inF64) : UntaggedValue(inF64), type(ValueType::f64) {}
 		Value(const V128& inV128) : UntaggedValue(inV128), type(ValueType::v128) {}
-		Value(std::nullptr_t) : UntaggedValue((AnyReferee*)nullptr), type(ValueType::nullref) {}
-		Value(AnyReferee* inRef) : UntaggedValue(inRef), type(ValueType::anyref) {}
-		Value(AnyFunc* inRef) : UntaggedValue(inRef), type(ValueType::anyfunc) {}
+		Value(std::nullptr_t) : UntaggedValue((Runtime::Object*)nullptr), type(ValueType::nullref)
+		{
+		}
+		Value(Runtime::Object* inRef) : UntaggedValue(inRef), type(ValueType::anyref) {}
+		Value(Runtime::FunctionInstance* inRef) : UntaggedValue(inRef), type(ValueType::anyfunc) {}
 		Value(ValueType inType, UntaggedValue inValue) : UntaggedValue(inValue), type(inType) {}
 		Value() : type(ValueType::any) {}
 
@@ -63,8 +71,19 @@ namespace IR
 			case ValueType::f32: return "f32.const " + asString(value.f32);
 			case ValueType::f64: return "f64.const " + asString(value.f64);
 			case ValueType::v128: return "v128.const " + asString(value.v128);
-			case ValueType::anyref: return "anyref " + asString(value.anyref);
-			case ValueType::anyfunc: return "anyfunc " + asString(value.anyref);
+			case ValueType::anyref:
+			case ValueType::anyfunc:
+			{
+				// buffer needs 27 characters:
+				// (anyref|anyfunc) 0xHHHHHHHHHHHHHHHH\0
+				char buffer[27];
+				snprintf(buffer,
+						 sizeof(buffer),
+						 "%s 0x%.16" PRIxPTR,
+						 value.type == ValueType::anyref ? "anyref" : "anyfunc",
+						 reinterpret_cast<Uptr>(value.object));
+				return std::string(buffer);
+			}
 			default: Errors::unreachable();
 			}
 		}
@@ -74,7 +93,7 @@ namespace IR
 			if(left.type != right.type)
 			{
 				return isReferenceType(left.type) && isReferenceType(right.type)
-					   && left.anyref == right.anyref;
+					   && left.object == right.object;
 			}
 			switch(left.type)
 			{
@@ -84,7 +103,7 @@ namespace IR
 			case ValueType::f64: return left.i64 == right.i64;
 			case ValueType::v128: return left.v128 == right.v128;
 			case ValueType::anyref:
-			case ValueType::anyfunc: return left.anyref == right.anyref;
+			case ValueType::anyfunc: return left.object == right.object;
 			default: Errors::unreachable();
 			};
 		}

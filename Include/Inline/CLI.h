@@ -5,7 +5,7 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Floats.h"
 #include "Inline/Timing.h"
-#include "Platform/Platform.h"
+#include "Platform/File.h"
 #include "Runtime/Runtime.h"
 #include "WASM/WASM.h"
 #include "WASTParse/WASTParse.h"

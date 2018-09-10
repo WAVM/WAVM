@@ -10,7 +10,9 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 #include "Inline/Lock.h"
-#include "Platform/Platform.h"
+#include "Platform/Intrinsic.h"
+#include "Platform/Memory.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
@@ -186,7 +188,7 @@ Iptr Runtime::growMemory(MemoryInstance* memory, Uptr numNewPages)
 
 		// Try to commit the new pages, and return -1 if the commit fails.
 		if(!Platform::commitVirtualPages(
-			   memory->baseAddress + (memory->numPages << IR::numBytesPerPageLog2),
+			   memory->baseAddress + memory->numPages * IR::numBytesPerPage,
 			   numNewPages << getPlatformPagesPerWebAssemblyPageLog2()))
 		{ return -1; }
 		memory->numPages += numNewPages;
@@ -208,7 +210,7 @@ Iptr Runtime::shrinkMemory(MemoryInstance* memory, Uptr numPagesToShrink)
 
 		// Decommit the pages that were shrunk off the end of the memory.
 		Platform::decommitVirtualPages(
-			memory->baseAddress + (memory->numPages << IR::numBytesPerPageLog2),
+			memory->baseAddress + memory->numPages * IR::numBytesPerPage,
 			numPagesToShrink << getPlatformPagesPerWebAssemblyPageLog2());
 	}
 	return previousNumPages;
@@ -221,7 +223,7 @@ void Runtime::unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numP
 	wavmAssert(pageIndex + numPages < memory->numPages);
 
 	// Decommit the pages.
-	Platform::decommitVirtualPages(memory->baseAddress + (pageIndex << IR::numBytesPerPageLog2),
+	Platform::decommitVirtualPages(memory->baseAddress + pageIndex * IR::numBytesPerPage,
 								   numPages << getPlatformPagesPerWebAssemblyPageLog2());
 }
 
@@ -238,7 +240,7 @@ static U8* getValidatedMemoryOffsetRangeImpl(U8* memoryBase,
 	U8* pointer = memoryBase + Platform::saturateToBounds(address, memoryNumBytes - numBytes);
 	if(pointer < memoryBase || pointer + numBytes < pointer
 	   || pointer + numBytes > memoryBase + memoryNumBytes)
-	{ throwException(Exception::accessViolationType, {}); }
+	{ throwException(Exception::memoryAddressOutOfBoundsType, {}); }
 	return pointer;
 }
 
@@ -259,7 +261,7 @@ U8* Runtime::getValidatedMemoryOffsetRange(MemoryInstance* memory, Uptr address,
 	// Validate that the range [offset..offset+numBytes) is contained by the memory's committed
 	// pages.
 	return ::getValidatedMemoryOffsetRangeImpl(
-		memory->baseAddress, memory->numPages << IR::numBytesPerPageLog2, address, numBytes);
+		memory->baseAddress, memory->numPages * IR::numBytesPerPage, address, numBytes);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -286,22 +288,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memory.size", I32, memory_size, I64 m
 	return (U32)numMemoryPages;
 }
 
-static void bytewiseMemMove(U8* dest, U8* source, Uptr numBytes)
-{
-	const Uptr numNonOverlappingBytes
-		= source < dest && source + numBytes > dest ? dest - source : numBytes;
-
-	for(Uptr index = numNonOverlappingBytes; index < numBytes; ++index)
-	{ dest[index] = source[index]; }
-
-	for(Uptr index = 0; index < numNonOverlappingBytes; ++index) { dest[index] = source[index]; }
-}
-
-static void bytewiseMemSet(U8* dest, U8 value, Uptr numBytes)
-{
-	for(Uptr index = 0; index < numBytes; ++index) { dest[index] = value; }
-}
-
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "memory.init",
 						  void,
@@ -323,7 +309,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		// Copy the passive data segment shared_ptr, and unlock the mutex. It's important to
 		// explicitly unlock the mutex before calling memcpy, as memcpy might trigger a signal that
 		// will unwind the stack without calling the Lock destructor.
-		std::shared_ptr<std::vector<U8>> passiveDataSegmentBytes
+		std::shared_ptr<const std::vector<U8>> passiveDataSegmentBytes
 			= moduleInstance->passiveDataSegments[dataSegmentIndex];
 		passiveDataSegmentsLock.unlock();
 
@@ -336,15 +322,16 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			// in range, then trap.
 			if(sourceOffset < passiveDataSegmentBytes->size())
 			{
-				bytewiseMemMove(destPointer,
-								passiveDataSegmentBytes->data() + sourceOffset,
-								passiveDataSegmentBytes->size() - sourceOffset);
+				Platform::bytewiseMemCopy(destPointer,
+										  passiveDataSegmentBytes->data() + sourceOffset,
+										  passiveDataSegmentBytes->size() - sourceOffset);
 			}
-			throwException(Exception::accessViolationType);
+			throwException(Exception::memoryAddressOutOfBoundsType);
 		}
 		else if(numBytes)
 		{
-			bytewiseMemMove(destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
+			Platform::bytewiseMemCopy(
+				destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
 		}
 	}
 }
@@ -380,7 +367,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
 	U8* sourcePointer = getReservedMemoryOffsetRange(memory, sourceAddress, numBytes);
-	if(numBytes) { bytewiseMemMove(destPointer, sourcePointer, numBytes); }
+	if(numBytes) { Platform::bytewiseMemMove(destPointer, sourcePointer, numBytes); }
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -395,5 +382,5 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
-	if(numBytes) { bytewiseMemSet(destPointer, U8(value), numBytes); }
+	if(numBytes) { Platform::bytewiseMemSet(destPointer, U8(value), numBytes); }
 }

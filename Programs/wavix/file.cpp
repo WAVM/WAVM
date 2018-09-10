@@ -9,7 +9,7 @@
 #include "Inline/Lock.h"
 #include "Inline/Unicode.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
+#include "Platform/File.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "errno.h"

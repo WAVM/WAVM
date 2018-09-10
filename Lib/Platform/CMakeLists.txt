@@ -7,7 +7,15 @@ set(WindowsSources
 	Windows.asm)
 
 set(PublicHeaders
-	${WAVM_INCLUDE_DIR}/Platform/Platform.h)
+	${WAVM_INCLUDE_DIR}/Platform/Defines.h
+	${WAVM_INCLUDE_DIR}/Platform/Diagnostics.h
+	${WAVM_INCLUDE_DIR}/Platform/Event.h
+	${WAVM_INCLUDE_DIR}/Platform/Exception.h
+	${WAVM_INCLUDE_DIR}/Platform/File.h
+	${WAVM_INCLUDE_DIR}/Platform/Intrinsic.h
+	${WAVM_INCLUDE_DIR}/Platform/Memory.h
+	${WAVM_INCLUDE_DIR}/Platform/Mutex.h
+	${WAVM_INCLUDE_DIR}/Platform/Thread.h)
 
 if(MSVC)
 	set(Sources ${POSIXSources} ${WindowsSources})

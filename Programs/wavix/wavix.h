@@ -9,7 +9,8 @@
 #include "./errno.h"
 #include "Inline/BasicTypes.h"
 #include "Logging/Logging.h"
-#include "Platform/Platform.h"
+#include "Platform/Diagnostics.h"
+#include "Platform/Event.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 
