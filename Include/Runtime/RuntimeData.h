@@ -16,6 +16,7 @@ namespace Runtime
 	// Forward declarations
 	struct Compartment;
 	struct Context;
+	struct Object;
 	struct TableInstance;
 	struct MemoryInstance;
 
@@ -91,4 +92,15 @@ namespace Runtime
 	RUNTIME_API MemoryInstance* getMemoryFromRuntimeData(
 		struct ContextRuntimeData* contextRuntimeData,
 		Uptr memoryId);
+
+	struct AnyReferee
+	{
+		Object* object;
+	};
+
+	struct AnyFunc : AnyReferee
+	{
+		IR::FunctionType::Encoding functionTypeEncoding;
+		U8 code[1];
+	};
 }

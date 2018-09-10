@@ -220,7 +220,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	// Validate that the address is within the memory's bounds.
 	if(U64(addressOffset) + 4 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
-	{ throwException(Exception::accessViolationType); }
+	{ throwException(Exception::memoryAddressOutOfBoundsType); }
 
 	// The alignment check is done by the caller.
 	wavmAssert(!(addressOffset & 3));
@@ -242,7 +242,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	// Validate that the address is within the memory's bounds.
 	if(U64(addressOffset) + 4 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
-	{ throwException(Exception::accessViolationType); }
+	{ throwException(Exception::memoryAddressOutOfBoundsType); }
 
 	// The alignment check is done by the caller.
 	wavmAssert(!(addressOffset & 3));
@@ -263,7 +263,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	// Validate that the address is within the memory's bounds.
 	if(U64(addressOffset) + 8 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
-	{ throwException(Exception::accessViolationType); }
+	{ throwException(Exception::memoryAddressOutOfBoundsType); }
 
 	// The alignment check is done by the caller.
 	wavmAssert(!(addressOffset & 7));

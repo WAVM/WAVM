@@ -14,6 +14,12 @@
 #include "Inline/Floats.h"
 #include "Inline/Hash.h"
 
+namespace Runtime
+{
+	struct AnyReferee;
+	struct AnyFunc;
+}
+
 namespace IR
 {
 	// The type of a WebAssembly operand
@@ -66,13 +72,6 @@ namespace IR
 		}
 	}
 
-	struct AnyReferee
-	{
-	};
-	struct AnyFunc : AnyReferee
-	{
-	};
-
 	inline std::string asString(I32 value) { return std::to_string(value); }
 	inline std::string asString(I64 value) { return std::to_string(value); }
 	inline std::string asString(F32 value) { return Floats::asString(value); }
@@ -90,15 +89,6 @@ namespace IR
 				 v128.u32[1],
 				 v128.u32[2],
 				 v128.u32[3]);
-		return std::string(buffer);
-	}
-
-	inline std::string asString(AnyReferee* referee)
-	{
-		// buffer needs 19 characters:
-		// 0xHHHHHHHHHHHHHHHH\0
-		char buffer[19];
-		snprintf(buffer, sizeof(buffer), "0x%.16" PRIxPTR, reinterpret_cast<Uptr>(referee));
 		return std::string(buffer);
 	}
 
@@ -215,7 +205,14 @@ namespace IR
 	template<> constexpr ValueType inferValueType<U64>() { return ValueType::i64; }
 	template<> constexpr ValueType inferValueType<F32>() { return ValueType::f32; }
 	template<> constexpr ValueType inferValueType<F64>() { return ValueType::f64; }
-	template<> constexpr ValueType inferValueType<AnyReferee*>() { return ValueType::anyref; }
+	template<> constexpr ValueType inferValueType<Runtime::AnyReferee*>()
+	{
+		return ValueType::anyref;
+	}
+	template<> constexpr ValueType inferValueType<Runtime::AnyFunc*>()
+	{
+		return ValueType::anyfunc;
+	}
 
 	template<typename T> inline TypeTuple inferResultType()
 	{

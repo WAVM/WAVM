@@ -495,6 +495,7 @@ LLVMJIT::LoadedModule::~LoadedModule()
 
 LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 								  HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
+								  std::vector<FunctionType>&& types,
 								  std::vector<FunctionBinding>&& functionImports,
 								  std::vector<TableBinding>&& tables,
 								  std::vector<MemoryBinding>&& memories,
@@ -503,7 +504,8 @@ LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 								  MemoryBinding defaultMemory,
 								  TableBinding defaultTable,
 								  ModuleInstance* moduleInstance,
-								  Uptr numFunctionDefs,
+								  Uptr tableReferenceBias,
+								  const std::vector<FunctionInstance*>& functionDefInstances,
 								  std::vector<JITFunction*>& outFunctionDefs)
 {
 	// Bind undefined symbols in the compiled object to values.
@@ -517,12 +519,27 @@ LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 									reinterpret_cast<Uptr>(exportMapPair.value.nativeFunction));
 	}
 
+	// Bind the type ID symbols.
+	for(Uptr typeIndex = 0; typeIndex < types.size(); ++typeIndex)
+	{
+		importedSymbolMap.addOrFail(getExternalName("typeId", typeIndex),
+									types[typeIndex].getEncoding().impl);
+	}
+
 	// Bind imported function symbols.
 	for(Uptr importIndex = 0; importIndex < functionImports.size(); ++importIndex)
 	{
 		void* nativeFunction = functionImports[importIndex].nativeFunction;
 		importedSymbolMap.addOrFail(getExternalName("functionImport", importIndex),
 									reinterpret_cast<Uptr>(nativeFunction));
+	}
+
+	// Bind the defined function instances.
+	for(Uptr functionDefIndex = 0; functionDefIndex < functionDefInstances.size();
+		++functionDefIndex)
+	{
+		importedSymbolMap.addOrFail(getExternalName("functionDefInstance", functionDefIndex),
+									reinterpret_cast<Uptr>(functionDefInstances[functionDefIndex]));
 	}
 
 	// Bind the table symbols. The compiled module uses the symbol's value as an offset into
@@ -574,11 +591,15 @@ LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 	// Bind the moduleInstance symbol to point to the ModuleInstance.
 	importedSymbolMap.addOrFail("moduleInstance", reinterpret_cast<Uptr>(moduleInstance));
 
+	// Bind the tableReferenceBias symbol to the tableReferenceBias.
+	importedSymbolMap.addOrFail("tableReferenceBias", tableReferenceBias);
+
 	// Load the module.
 	LoadedModule* jitModule = new LoadedModule(objectFileBytes, importedSymbolMap, true);
 
 	// Look up the function definitions by name from the loaded module's functions.
-	for(Uptr functionDefIndex = 0; functionDefIndex < numFunctionDefs; ++functionDefIndex)
+	for(Uptr functionDefIndex = 0; functionDefIndex < functionDefInstances.size();
+		++functionDefIndex)
 	{
 		outFunctionDefs.push_back(
 			jitModule->nameToFunctionMap[getExternalName("functionDef", functionDefIndex)]);

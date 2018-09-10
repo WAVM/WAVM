@@ -174,6 +174,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 }
 
 void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
+								 FunctionInstance* functionInstance,
 								 FunctionType functionType,
 								 CallingConvention callingConvention,
 								 MemoryBinding defaultMemory,
@@ -206,6 +207,10 @@ void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
 	function->setCallingConv(asLLVMCallingConv(callingConvention));
+	function->setPrefixData(llvm::ConstantArray::get(
+		llvm::ArrayType::get(llvmContext.iptrType, 2),
+		{emitLiteral(llvmContext, reinterpret_cast<Uptr>(functionInstance)),
+		 emitLiteral(llvmContext, functionType.getEncoding().impl)}));
 
 	llvm::Constant* defaultMemoryOffset = nullptr;
 	if(defaultMemory.id != UINTPTR_MAX)

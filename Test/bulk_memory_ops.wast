@@ -685,33 +685,33 @@
 	(func (export "table.drop 1") (table.drop 1))
 )
 
-(assert_trap   (invoke "call_indirect i32" (i32.const 0)) "undefined table element")
+(assert_trap   (invoke "call_indirect i32" (i32.const 0)) "uninitialized element")
 
 (assert_return (invoke "table.init 0" (i32.const 0) (i32.const 0) (i32.const 2)))
 (assert_return (invoke "call_indirect i32" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "call_indirect i32" (i32.const 1)) (i32.const 1))
-(assert_trap   (invoke "call_indirect i32" (i32.const 2)) "undefined table element")
+(assert_trap   (invoke "call_indirect i32" (i32.const 2)) "uninitialized element")
 
 (assert_return (invoke "table.init 1" (i32.const 2) (i32.const 0) (i32.const 2)))
 (assert_return (invoke "call_indirect i64" (i32.const 2)) (i64.const 2))
 (assert_return (invoke "call_indirect i64" (i32.const 3)) (i64.const 3))
-(assert_trap   (invoke "call_indirect i64" (i32.const 4)) "undefined table element")
+(assert_trap   (invoke "call_indirect i64" (i32.const 4)) "uninitialized element")
 
 (assert_return (invoke "table.init 0" (i32.const 4) (i32.const 0) (i32.const 1)))
 (assert_return (invoke "call_indirect i32" (i32.const 4)) (i32.const 0))
-(assert_trap   (invoke "call_indirect i32" (i32.const 5)) "undefined table element")
+(assert_trap   (invoke "call_indirect i32" (i32.const 5)) "uninitialized element")
 
 (assert_return (invoke "table.init 1" (i32.const 5) (i32.const 1) (i32.const 1)))
 (assert_return (invoke "call_indirect i64" (i32.const 5)) (i64.const 3))
-(assert_trap   (invoke "call_indirect i64" (i32.const 6)) "undefined table element")
+(assert_trap   (invoke "call_indirect i64" (i32.const 6)) "uninitialized element")
 
-(assert_trap   (invoke "table.init 0" (i32.const 8) (i32.const 0) (i32.const 1)) "out of bounds memory access")
-(assert_trap   (invoke "table.init 0" (i32.const 7) (i32.const 0) (i32.const 2)) "out of bounds memory access")
-(assert_trap   (invoke "table.init 0" (i32.const 6) (i32.const 1) (i32.const 2)) "out of bounds memory access")
-(assert_trap   (invoke "table.init 0" (i32.const 5) (i32.const 0) (i32.const 3)) "out of bounds memory access")
+(assert_trap   (invoke "table.init 0" (i32.const 8) (i32.const 0) (i32.const 1)) "undefined element")
+(assert_trap   (invoke "table.init 0" (i32.const 7) (i32.const 0) (i32.const 2)) "undefined element")
+(assert_trap   (invoke "table.init 0" (i32.const 6) (i32.const 1) (i32.const 2)) "undefined element")
+(assert_trap   (invoke "table.init 0" (i32.const 5) (i32.const 0) (i32.const 3)) "undefined element")
 
-(assert_trap   (invoke "table.init 0" (i32.const 0xffffffff) (i32.const 0) (i32.const 1)) "out of bounds memory access")
-(assert_trap   (invoke "table.init 0" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "out of bounds memory access")
+(assert_trap   (invoke "table.init 0" (i32.const 0xffffffff) (i32.const 0) (i32.const 1)) "undefined element")
+(assert_trap   (invoke "table.init 0" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "undefined element")
 
 (assert_return (invoke "table.drop 0"))
 (assert_trap   (invoke "table.init 0" (i32.const 0) (i32.const 0) (i32.const 2)) "invalid argument")
@@ -810,7 +810,7 @@
 	)
 )
 
-(assert_trap   (invoke "call_indirect i32" (i32.const 4)) "undefined table element")
+(assert_trap   (invoke "call_indirect i32" (i32.const 4)) "uninitialized element")
 (assert_return (invoke "table.copy" (i32.const 4) (i32.const 0) (i32.const 4)))
 (assert_return (invoke "call_indirect i32" (i32.const 4)) (i32.const 0))
 (assert_return (invoke "call_indirect i32" (i32.const 4)) (i32.const 0))
@@ -822,10 +822,10 @@
 (assert_return (invoke "call_indirect i64" (i32.const 3)) (i64.const 2))
 (assert_return (invoke "call_indirect i64" (i32.const 4)) (i64.const 3))
 
-(assert_trap   (invoke "table.copy" (i32.const 8) (i32.const 0) (i32.const 1)) "out of bounds memory access")
-(assert_trap   (invoke "table.copy" (i32.const 7) (i32.const 0) (i32.const 2)) "out of bounds memory access")
-(assert_trap   (invoke "table.copy" (i32.const 0) (i32.const 8) (i32.const 1)) "out of bounds memory access")
-(assert_trap   (invoke "table.copy" (i32.const 0) (i32.const 7) (i32.const 2)) "out of bounds memory access")
+(assert_trap   (invoke "table.copy" (i32.const 8) (i32.const 0) (i32.const 1)) "undefined element")
+(assert_trap   (invoke "table.copy" (i32.const 7) (i32.const 0) (i32.const 2)) "undefined element")
+(assert_trap   (invoke "table.copy" (i32.const 0) (i32.const 8) (i32.const 1)) "undefined element")
+(assert_trap   (invoke "table.copy" (i32.const 0) (i32.const 7) (i32.const 2)) "undefined element")
 
-(assert_trap   (invoke "table.copy" (i32.const 0xffffffff) (i32.const 0) (i32.const 1)) "out of bounds memory access")
-(assert_trap   (invoke "table.copy" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "out of bounds memory access")
+(assert_trap   (invoke "table.copy" (i32.const 0xffffffff) (i32.const 0) (i32.const 1)) "undefined element")
+(assert_trap   (invoke "table.copy" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "undefined element")

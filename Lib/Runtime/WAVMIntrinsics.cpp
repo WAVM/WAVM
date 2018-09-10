@@ -189,7 +189,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "unreachableTrap", void, unreachableTr
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "accessViolationTrap", void, accessViolationTrap)
 {
-	throwException(Exception::accessViolationType);
+	throwException(Exception::memoryAddressOutOfBoundsType);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -198,42 +198,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  invalidFloatOperationTrap)
 {
 	throwException(Exception::invalidFloatOperationType);
-}
-
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "indirectCallSignatureMismatch",
-						  void,
-						  indirectCallSignatureMismatch,
-						  I32 index,
-						  Uptr expectedSignatureBits,
-						  Uptr tableId)
-{
-	Compartment* compartment
-		= getCompartmentFromContext(getContextFromRuntimeData(contextRuntimeData));
-	TableInstance* table = compartment->tables[tableId];
-	wavmAssert(table);
-	void* elementValue = table->baseAddress[index].value;
-	IR::FunctionType actualSignature{table->baseAddress[index].typeEncoding};
-	IR::FunctionType expectedSignature{IR::FunctionType::Encoding{expectedSignatureBits}};
-	std::string ipDescription = "<unknown>";
-	describeInstructionPointer(reinterpret_cast<Uptr>(elementValue), ipDescription);
-	Log::printf(
-		Log::debug,
-		"call_indirect signature mismatch: expected %s at index %u but got %s (%s)\n",
-		asString(expectedSignature).c_str(),
-		index,
-		table->baseAddress[index].typeEncoding.impl ? asString(actualSignature).c_str() : "nullptr",
-		ipDescription.c_str());
-	throwException(elementValue == nullptr ? Exception::undefinedTableElementType
-										   : Exception::indirectCallSignatureMismatchType);
-}
-
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "indirectCallIndexOutOfBounds",
-						  void,
-						  indirectCallIndexOutOfBounds)
-{
-	throwException(Exception::undefinedTableElementType);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)

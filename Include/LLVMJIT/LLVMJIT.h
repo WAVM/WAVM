@@ -98,6 +98,7 @@ namespace LLVMJIT
 	LLVMJIT_API LoadedModule* loadModule(
 		const std::vector<U8>& objectFileBytes,
 		HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
+		std::vector<IR::FunctionType>&& types,
 		std::vector<FunctionBinding>&& functionImports,
 		std::vector<TableBinding>&& tables,
 		std::vector<MemoryBinding>&& memories,
@@ -106,7 +107,8 @@ namespace LLVMJIT
 		MemoryBinding defaultMemory,
 		TableBinding defaultTable,
 		Runtime::ModuleInstance* moduleInstance,
-		Uptr numFunctionDefs,
+		Uptr tableReferenceBias,
+		const std::vector<Runtime::FunctionInstance*>& functionDefInstances,
 		std::vector<JITFunction*>& outFunctionDefs);
 
 	// Unloads a JIT module, freeings its memory.
@@ -124,6 +126,7 @@ namespace LLVMJIT
 
 	// Generates a thunk to call a native function from generated code.
 	LLVMJIT_API void* getIntrinsicThunk(void* nativeFunction,
+										Runtime::FunctionInstance* functionInstance,
 										IR::FunctionType functionType,
 										IR::CallingConvention callingConvention,
 										MemoryBinding defaultMemory,

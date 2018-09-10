@@ -25,14 +25,15 @@ using namespace Runtime;
 	const GCPointer<ExceptionTypeInstance> Runtime::Exception::name##Type                          \
 		= createExceptionTypeInstance(IR::ExceptionType{IR::TypeTuple()}, "wavm." #name);
 
-DEFINE_STATIC_EXCEPTION_TYPE(accessViolation)
+DEFINE_STATIC_EXCEPTION_TYPE(memoryAddressOutOfBounds)
+DEFINE_STATIC_EXCEPTION_TYPE(tableIndexOutOfBounds)
 DEFINE_STATIC_EXCEPTION_TYPE(stackOverflow)
 DEFINE_STATIC_EXCEPTION_TYPE(integerDivideByZeroOrOverflow)
 DEFINE_STATIC_EXCEPTION_TYPE(invalidFloatOperation)
 DEFINE_STATIC_EXCEPTION_TYPE(invokeSignatureMismatch)
 DEFINE_STATIC_EXCEPTION_TYPE(reachedUnreachable)
 DEFINE_STATIC_EXCEPTION_TYPE(indirectCallSignatureMismatch)
-DEFINE_STATIC_EXCEPTION_TYPE(undefinedTableElement)
+DEFINE_STATIC_EXCEPTION_TYPE(uninitializedTableElement)
 DEFINE_STATIC_EXCEPTION_TYPE(calledAbort)
 DEFINE_STATIC_EXCEPTION_TYPE(calledUnimplementedIntrinsic)
 DEFINE_STATIC_EXCEPTION_TYPE(outOfMemory)
@@ -209,14 +210,14 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		// table element runtime error.
 		if(isAddressOwnedByTable(reinterpret_cast<U8*>(signal.accessViolation.address)))
 		{
-			outException = Exception{Exception::undefinedTableElementType, {}, callStack};
+			outException = Exception{Exception::tableIndexOutOfBoundsType, {}, callStack};
 			return true;
 		}
 		// If the access violation occured in a Memory's reserved pages, treat it as an access
 		// violation runtime error.
 		else if(isAddressOwnedByMemory(reinterpret_cast<U8*>(signal.accessViolation.address)))
 		{
-			outException = Exception{Exception::accessViolationType, {}, callStack};
+			outException = Exception{Exception::memoryAddressOutOfBoundsType, {}, callStack};
 			return true;
 		}
 		return false;

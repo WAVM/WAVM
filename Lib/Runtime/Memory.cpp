@@ -240,7 +240,7 @@ static U8* getValidatedMemoryOffsetRangeImpl(U8* memoryBase,
 	U8* pointer = memoryBase + Platform::saturateToBounds(address, memoryNumBytes - numBytes);
 	if(pointer < memoryBase || pointer + numBytes < pointer
 	   || pointer + numBytes > memoryBase + memoryNumBytes)
-	{ throwException(Exception::accessViolationType, {}); }
+	{ throwException(Exception::memoryAddressOutOfBoundsType, {}); }
 	return pointer;
 }
 
@@ -309,7 +309,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		// Copy the passive data segment shared_ptr, and unlock the mutex. It's important to
 		// explicitly unlock the mutex before calling memcpy, as memcpy might trigger a signal that
 		// will unwind the stack without calling the Lock destructor.
-		std::shared_ptr<std::vector<U8>> passiveDataSegmentBytes
+		std::shared_ptr<const std::vector<U8>> passiveDataSegmentBytes
 			= moduleInstance->passiveDataSegments[dataSegmentIndex];
 		passiveDataSegmentsLock.unlock();
 
@@ -326,7 +326,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 										  passiveDataSegmentBytes->data() + sourceOffset,
 										  passiveDataSegmentBytes->size() - sourceOffset);
 			}
-			throwException(Exception::accessViolationType);
+			throwException(Exception::memoryAddressOutOfBoundsType);
 		}
 		else if(numBytes)
 		{

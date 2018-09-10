@@ -101,7 +101,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 	}
 	else
 	{
-		throwException(Exception::accessViolationType);
+		throwException(Exception::memoryAddressOutOfBoundsType);
 	}
 }
 
@@ -128,12 +128,12 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 		}
 		else
 		{
-			throwException(Exception::accessViolationType);
+			throwException(Exception::memoryAddressOutOfBoundsType);
 		}
 	}
 	else
 	{
-		throwException(Exception::accessViolationType);
+		throwException(Exception::memoryAddressOutOfBoundsType);
 	}
 }
 

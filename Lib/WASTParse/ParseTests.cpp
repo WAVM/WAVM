@@ -283,7 +283,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				}
 				ExpectedTrapType expectedType;
 				if(!strcmp(expectedErrorMessage.c_str(), "out of bounds memory access"))
-				{ expectedType = ExpectedTrapType::accessViolation; }
+				{ expectedType = ExpectedTrapType::memoryAddressOutOfBounds; }
 				else if(!strcmp(expectedErrorMessage.c_str(), "call stack exhausted"))
 				{
 					expectedType = ExpectedTrapType::stackOverflow;
@@ -314,11 +314,11 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(), "undefined"))
 				{
-					expectedType = ExpectedTrapType::undefinedTableElement;
+					expectedType = ExpectedTrapType::tableIndexOutOfBounds;
 				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(), "uninitialized"))
 				{
-					expectedType = ExpectedTrapType::undefinedTableElement;
+					expectedType = ExpectedTrapType::uninitializedTableElement;
 				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(), "invalid argument"))
 				{

@@ -7,6 +7,7 @@
 #include "Inline/BasicTypes.h"
 #include "Inline/Lock.h"
 #include "LLVMJIT/LLVMJIT.h"
+#include "Logging/Logging.h"
 #include "Platform/Intrinsic.h"
 #include "Platform/Memory.h"
 #include "Platform/Mutex.h"
@@ -30,6 +31,48 @@ static Uptr getNumPlatformPages(Uptr numBytes)
 	return (numBytes + (Uptr(1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 }
 
+static AnyFunc* makeDummyAnyFunc()
+{
+	FunctionInstance* functionInstance = new FunctionInstance(
+		nullptr, IR::FunctionType::Encoding{0}, nullptr, IR::CallingConvention::c, "dummy");
+	AnyFunc* anyFunc = new AnyFunc;
+	anyFunc->object = functionInstance;
+	anyFunc->functionTypeEncoding = IR::FunctionType::Encoding{0};
+	anyFunc->code[0] = 0xcc; // int3
+	functionInstance->nativeFunction = anyFunc->code;
+	++functionInstance->numRootReferences;
+	return anyFunc;
+}
+
+// This is used as a sentinel value for table elements that are out-of-bounds. The address of this
+// AnyFunc is subtracted from every address stored in the table, so zero-initialized pages at the
+// end of the array will, when re-adding this AnyFunc's address, point to this AnyFunc.
+static AnyFunc* getOutOfBoundsAnyFunc()
+{
+	static AnyFunc* anyFunc = makeDummyAnyFunc();
+	return anyFunc;
+}
+
+// A sentinel value that is used for uninitialized table elements.
+static AnyFunc* getUninitializedAnyFunc()
+{
+	static AnyFunc* anyFunc = makeDummyAnyFunc();
+	return anyFunc;
+}
+
+static Uptr anyRefToBiasedTableElementValue(AnyReferee* anyRef)
+{
+	return reinterpret_cast<Uptr>(anyRef) - reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc());
+}
+
+static AnyReferee* biasedTableElementValueToAnyFunc(Uptr biasedValue)
+{
+	return reinterpret_cast<AnyReferee*>(biasedValue
+										 + reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()));
+}
+
+Uptr TableInstance::getReferenceBias() { return reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()); }
+
 static TableInstance* createTableImpl(Compartment* compartment,
 									  IR::TableType type,
 									  Uptr numElements)
@@ -39,13 +82,15 @@ static TableInstance* createTableImpl(Compartment* compartment,
 	// In 64-bit, allocate enough address-space to safely access 32-bit table indices without bounds
 	// checking, or 16MB (4M elements) if the host is 32-bit.
 	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
-	const Uptr tableMaxBytes = Uptr(U64(sizeof(TableInstance::FunctionElement)) << 32);
-	const Uptr tableMaxPages = tableMaxBytes >> pageBytesLog2;
+	const U64 tableMaxElements = Uptr(1) << 32;
+	const U64 tableMaxBytes = sizeof(TableInstance::Element) * tableMaxElements;
+	const U64 tableMaxPages = tableMaxBytes >> pageBytesLog2;
 
-	table->baseAddress = (TableInstance::FunctionElement*)Platform::allocateVirtualPages(
-		tableMaxPages + numGuardPages);
+	table->elements
+		= (TableInstance::Element*)Platform::allocateVirtualPages(tableMaxPages + numGuardPages);
 	table->numReservedBytes = tableMaxBytes;
-	if(!table->baseAddress)
+	table->numReservedElements = tableMaxElements;
+	if(!table->elements)
 	{
 		delete table;
 		return nullptr;
@@ -82,7 +127,7 @@ TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type
 			delete table;
 			return nullptr;
 		}
-		compartment->runtimeData->tableBases[table->id] = table->baseAddress;
+		compartment->runtimeData->tableBases[table->id] = table->elements;
 	}
 
 	return table;
@@ -90,16 +135,18 @@ TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type
 
 TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompartment)
 {
-	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
-
-	TableInstance* newTable = createTableImpl(newCompartment, table->type, table->elements.size());
+	const Uptr initialNumElements = table->numElements;
+	TableInstance* newTable = createTableImpl(newCompartment, table->type, initialNumElements);
 	if(!newTable) { return nullptr; }
 
 	newTable->id = table->id;
-	newTable->elements = table->elements;
-	memcpy(newTable->baseAddress,
-		   table->baseAddress,
-		   table->elements.size() * sizeof(TableInstance::FunctionElement));
+	for(Uptr elementIndex = 0;
+		elementIndex < table->numElements && elementIndex < initialNumElements;
+		++elementIndex)
+	{
+		newTable->elements[elementIndex].biasedValue
+			= table->elements[elementIndex].biasedValue.load();
+	}
 
 	// Insert the table in the new compartment's tables array with the same index as it had in the
 	// original compartment's tables IndexMap.
@@ -108,7 +155,7 @@ TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompart
 
 		newTable->id = table->id;
 		newCompartment->tables.insertOrFail(newTable->id, newTable);
-		newCompartment->runtimeData->tableBases[newTable->id] = newTable->baseAddress;
+		newCompartment->runtimeData->tableBases[newTable->id] = newTable->elements;
 	}
 
 	return newTable;
@@ -121,28 +168,28 @@ void TableInstance::finalize()
 	wavmAssert(compartment->tables[id] == this);
 	compartment->tables.removeOrFail(id);
 
-	wavmAssert(compartment->runtimeData->tableBases[id] == baseAddress);
+	wavmAssert(compartment->runtimeData->tableBases[id] == elements);
 	compartment->runtimeData->tableBases[id] = nullptr;
 }
 
 TableInstance::~TableInstance()
 {
 	// Decommit all pages.
-	if(elements.size() > 0)
+	if(numElements > 0)
 	{
 		Platform::decommitVirtualPages(
-			(U8*)baseAddress,
-			getNumPlatformPages(elements.size() * sizeof(TableInstance::FunctionElement)));
+			(U8*)elements, getNumPlatformPages(numElements * sizeof(TableInstance::Element)));
 	}
 
 	// Free the virtual address space.
 	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
 	if(numReservedBytes > 0)
 	{
-		Platform::freeVirtualPages((U8*)baseAddress,
+		Platform::freeVirtualPages((U8*)elements,
 								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
 	}
-	baseAddress = nullptr;
+	elements = nullptr;
+	numReservedBytes = numReservedElements = 0;
 
 	// Remove the table from the global array.
 	{
@@ -165,11 +212,61 @@ bool Runtime::isAddressOwnedByTable(U8* address)
 	Lock<Platform::Mutex> tablesLock(tablesMutex);
 	for(auto table : tables)
 	{
-		U8* startAddress = (U8*)table->baseAddress;
-		U8* endAddress = ((U8*)table->baseAddress) + table->numReservedBytes;
+		U8* startAddress = (U8*)table->elements;
+		U8* endAddress = ((U8*)table->elements) + table->numReservedBytes;
 		if(address >= startAddress && address < endAddress) { return true; }
 	}
 	return false;
+}
+
+static AnyReferee* setTableElementAnyRef(TableInstance* table, Uptr index, AnyReferee* anyRef)
+{
+	// Verify the index is within the table's bounds.
+	if(index >= table->numReservedElements)
+	{ throwException(Exception::tableIndexOutOfBoundsType); }
+
+	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
+	// speculate past the above bounds check.
+	const Uptr saturatedIndex
+		= Platform::saturateToBounds(index, U64(table->numReservedElements) - 1);
+
+	// Compute the biased value to store in the table.
+	const Uptr biasedValue = anyRefToBiasedTableElementValue(anyRef);
+
+	// Atomically replace the table element, throwing an out-of-bounds exception before the write if
+	// the element being replaced is an out-of-bounds sentinel value.
+	Uptr oldBiasedValue = table->elements[saturatedIndex].biasedValue;
+	while(true)
+	{
+		if(biasedTableElementValueToAnyFunc(oldBiasedValue) == getOutOfBoundsAnyFunc())
+		{ throwException(Exception::tableIndexOutOfBoundsType); }
+		if(table->elements[saturatedIndex].biasedValue.compare_exchange_weak(
+			   oldBiasedValue, biasedValue, std::memory_order_seq_cst))
+		{ break; }
+	};
+
+	return biasedTableElementValueToAnyFunc(oldBiasedValue);
+}
+
+static AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
+{
+	// Verify the index is within the table's bounds.
+	if(index >= table->numReservedElements)
+	{ throwException(Exception::tableIndexOutOfBoundsType); }
+
+	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
+	// speculate past the above bounds check.
+	const Uptr saturatedIndex
+		= Platform::saturateToBounds(index, U64(table->numReservedElements) - 1);
+
+	// Read the table element.
+	const Uptr biasedValue = table->elements[saturatedIndex].biasedValue;
+	AnyReferee* anyRef = biasedTableElementValueToAnyFunc(biasedValue);
+
+	// If the element was an out-of-bounds sentinel value, throw an out-of-bounds exception.
+	if(anyRef == getOutOfBoundsAnyFunc()) { throwException(Exception::tableIndexOutOfBoundsType); }
+
+	return anyRef;
 }
 
 Object* Runtime::setTableElement(TableInstance* table,
@@ -195,6 +292,7 @@ Object* Runtime::setTableElement(TableInstance* table,
 	{
 		nativeFunction = LLVMJIT::getIntrinsicThunk(
 			nativeFunction,
+			functionInstance,
 			functionInstance->type,
 			functionInstance->callingConvention,
 			LLVMJIT::MemoryBinding{intrinsicDefaultMemory ? intrinsicDefaultMemory->id
@@ -202,120 +300,141 @@ Object* Runtime::setTableElement(TableInstance* table,
 			LLVMJIT::TableBinding{intrinsicDefaultTable ? intrinsicDefaultTable->id : UINTPTR_MAX});
 	}
 
-	// Lock the table's elements array.
-	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
+	// Get the pointer to the Anyfunc struct that is emitted as a prefix to the function's code.
+	AnyFunc* anyFunc = (AnyFunc*)((U8*)nativeFunction - ((AnyFunc*)nullptr)->code);
+	wavmAssert(anyFunc->object == functionInstance);
+	wavmAssert(IR::FunctionType{anyFunc->functionTypeEncoding} == functionInstance->type);
 
-	// Verify the index is within the table's bounds.
-	if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
+	// Write the table element.
+	AnyReferee* oldAnyRef = setTableElementAnyRef(table, index, anyFunc);
 
-	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
-	// speculate past the above bounds check.
-	const Uptr saturatedIndex = Platform::saturateToBounds(index, table->elements.size());
-
-	// Write the new table element to both the table's elements array and its indirect function call
-	// data.
-	table->baseAddress[saturatedIndex].typeEncoding = functionInstance->type.getEncoding();
-	table->baseAddress[saturatedIndex].value = nativeFunction;
-
-	auto oldValue = table->elements[saturatedIndex];
-	table->elements[saturatedIndex] = newValue;
-	return oldValue;
+	// Translate the old table element to an object pointer to return. If the old table element was
+	// the uninitialized sentinel value, return null.
+	if(oldAnyRef == getUninitializedAnyFunc()) { return nullptr; }
+	else
+	{
+		return oldAnyRef->object;
+	}
 }
 
 Object* Runtime::getTableElement(TableInstance* table, Uptr index)
 {
-	// Verify the index is within the table's bounds.
-	if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
+	AnyReferee* anyRef = getTableElementAnyRef(table, index);
 
-	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
-	// speculate past the above bounds check.
-	const Uptr saturatedIndex = Platform::saturateToBounds(index, table->elements.size());
-
-	// Read from the table's elements array.
+	// Translate the old table element to an object pointer to return. If the old table element was
+	// the uninitialized sentinel value, return null. If it was an out-of-bounds sentinel value,
+	// throw an exception.
+	if(anyRef == getOutOfBoundsAnyFunc()) { throwException(Exception::tableIndexOutOfBoundsType); }
+	else if(anyRef == getUninitializedAnyFunc())
 	{
-		Lock<Platform::Mutex> elementsLock(table->elementsMutex);
-		return table->elements[saturatedIndex];
+		return nullptr;
+	}
+	else
+	{
+		return anyRef->object;
 	}
 }
 
-Uptr Runtime::getTableNumElements(TableInstance* table) { return table->elements.size(); }
+Uptr Runtime::getTableNumElements(TableInstance* table) { return table->numElements; }
 
 Iptr Runtime::growTable(TableInstance* table, Uptr numNewElements)
 {
-	const Uptr previousNumElements = table->elements.size();
-	if(numNewElements > 0)
+	if(!numNewElements) { return table->numElements; }
+
+	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+	const Uptr previousNumElements = table->numElements;
+
+	// If the number of elements to grow would cause the table's size to exceed its maximum,
+	// return -1.
+	if(numNewElements > table->type.size.max
+	   || table->numElements > table->type.size.max - numNewElements)
+	{ return -1; }
+
+	// Try to commit pages for the new elements, and return -1 if the commit fails.
+	const Uptr previousNumPlatformPages
+		= getNumPlatformPages(table->numElements * sizeof(TableInstance::Element));
+	const Uptr newNumPlatformPages = getNumPlatformPages((table->numElements + numNewElements)
+														 * sizeof(TableInstance::Element));
+	if(newNumPlatformPages != previousNumPlatformPages
+	   && !Platform::commitVirtualPages(
+			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+			  newNumPlatformPages - previousNumPlatformPages))
+	{ return -1; }
+
+	// Write the uninitialized sentinel value to the new elements.
+	for(Uptr elementIndex = previousNumElements;
+		elementIndex < previousNumElements + numNewElements;
+		++elementIndex)
 	{
-		// If the number of elements to grow would cause the table's size to exceed its maximum,
-		// return -1.
-		if(numNewElements > table->type.size.max
-		   || table->elements.size() > table->type.size.max - numNewElements)
-		{ return -1; }
-
-		// Try to commit pages for the new elements, and return -1 if the commit fails.
-		const Uptr previousNumPlatformPages
-			= getNumPlatformPages(table->elements.size() * sizeof(TableInstance::FunctionElement));
-		const Uptr newNumPlatformPages = getNumPlatformPages(
-			(table->elements.size() + numNewElements) * sizeof(TableInstance::FunctionElement));
-		if(newNumPlatformPages != previousNumPlatformPages
-		   && !Platform::commitVirtualPages(
-				  (U8*)table->baseAddress
-					  + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-				  newNumPlatformPages - previousNumPlatformPages))
-		{ return -1; }
-
-		// Also grow the table's elements array.
-		{
-			Lock<Platform::Mutex> elementsLock(table->elementsMutex);
-			table->elements.insert(table->elements.end(), numNewElements, nullptr);
-		}
+		table->elements[elementIndex].biasedValue
+			= anyRefToBiasedTableElementValue(getUninitializedAnyFunc());
 	}
+
+	table->numElements += numNewElements;
+	wavmAssert(table->numElements == previousNumElements + numNewElements);
+
 	return previousNumElements;
 }
 
 Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 {
-	const Uptr previousNumElements = table->elements.size();
-	if(numElementsToShrink > 0)
+	if(!numElementsToShrink) { return table->numElements; }
+
+	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+	const Uptr previousNumElements = table->numElements;
+
+	// If the number of elements to shrink would cause the table's size to drop below its minimum,
+	// return -1.
+	if(numElementsToShrink > previousNumElements
+	   || previousNumElements - numElementsToShrink < table->type.size.min)
+	{ return -1; }
+
+	// Decommit the pages that were shrunk off the end of the table's indirect function call data.
+	const Uptr newNumElements = previousNumElements - numElementsToShrink;
+	const Uptr previousNumPlatformPages
+		= getNumPlatformPages(previousNumElements * sizeof(TableInstance::Element));
+	const Uptr newNumPlatformPages
+		= getNumPlatformPages(previousNumElements * sizeof(TableInstance::Element));
+	if(newNumPlatformPages != previousNumPlatformPages)
 	{
-		// If the number of elements to shrink would cause the table's size to drop below its
-		// minimum, return -1.
-		if(numElementsToShrink > table->elements.size()
-		   || table->elements.size() - numElementsToShrink < table->type.size.min)
-		{ return -1; }
+		Platform::decommitVirtualPages(
+			(U8*)table->elements + (newNumPlatformPages << Platform::getPageSizeLog2()),
+			(previousNumPlatformPages - newNumPlatformPages) << Platform::getPageSizeLog2());
+	}
 
-		// Shrink the table's elements array.
+	// Write the out-of-bounds sentinel value to any removed elements that are between the new end
+	// of the table and the first decommitted page.
+	const Uptr numCommittedIndices
+		= (newNumPlatformPages << Platform::getPageSizeLog2()) / sizeof(TableInstance::Element);
+	if(numCommittedIndices > newNumElements)
+	{
+		for(Uptr elementIndex = numCommittedIndices - 1; elementIndex > newNumElements;
+			--elementIndex)
 		{
-			Lock<Platform::Mutex> elementsLock(table->elementsMutex);
-			table->elements.resize(table->elements.size() - numElementsToShrink);
-		}
-
-		// Decommit the pages that were shrunk off the end of the table's indirect function call
-		// data.
-		const Uptr previousNumPlatformPages
-			= getNumPlatformPages(previousNumElements * sizeof(TableInstance::FunctionElement));
-		const Uptr newNumPlatformPages
-			= getNumPlatformPages(table->elements.size() * sizeof(TableInstance::FunctionElement));
-		if(newNumPlatformPages != previousNumPlatformPages)
-		{
-			Platform::decommitVirtualPages(
-				(U8*)table->baseAddress + (newNumPlatformPages << Platform::getPageSizeLog2()),
-				(previousNumPlatformPages - newNumPlatformPages) << Platform::getPageSizeLog2());
+			table->elements[elementIndex].biasedValue
+				= anyRefToBiasedTableElementValue(getOutOfBoundsAnyFunc());
 		}
 	}
+
+	table->numElements = newNumElements;
+
 	return previousNumElements;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "table.get",
-						  IR::AnyReferee*,
+						  AnyReferee*,
 						  table_get,
 						  U32 index,
 						  Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
-	if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
-	return (IR::AnyReferee*)table->elements[index];
+	if(index >= table->numReservedElements)
+	{ throwException(Exception::tableIndexOutOfBoundsType); }
+	const Uptr saturatedIndex
+		= Platform::saturateToBounds(Uptr(index), table->numReservedElements - 1);
+	return reinterpret_cast<AnyReferee*>(reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc())
+										 + table->elements[saturatedIndex].biasedValue);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -323,13 +442,15 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  void,
 						  table_set,
 						  U32 index,
-						  IR::AnyReferee* value,
+						  AnyReferee* value,
 						  Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
-	if(index >= table->elements.size()) { throwException(Exception::accessViolationType); }
-	table->elements[index] = (Object*)value;
+	const Uptr saturatedIndex
+		= Platform::saturateToBounds(Uptr(index), table->numReservedElements - 1);
+	if(index >= table->numReservedElements)
+	{ throwException(Exception::tableIndexOutOfBoundsType); }
+	table->elements[saturatedIndex].biasedValue = anyRefToBiasedTableElementValue(value);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -350,23 +471,25 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	{ throwException(Exception::invalidArgumentType); }
 	else
 	{
-		TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-
-		const std::vector<Uptr>& passiveTableSegmentIndices
+		// Copy the passive table segment shared_ptr, and unlock the mutex. It's important to
+		// explicitly unlock the mutex before calling setTableElement, as setTableElement trigger a
+		// signal that will unwind the stack without calling the Lock destructor.
+		std::shared_ptr<const std::vector<Object*>> passiveTableSegmentObjects
 			= moduleInstance->passiveTableSegments[elemSegmentIndex];
+		passiveTableSegmentsLock.unlock();
+
+		TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
 		for(Uptr index = 0; index < numElements; ++index)
 		{
 			const U64 sourceIndex = U64(sourceOffset) + index;
 			const U64 destIndex = U64(destOffset) + index;
-			if(sourceIndex >= passiveTableSegmentIndices.size()
-			   || destIndex >= table->elements.size())
-			{ throwException(Exception::accessViolationType); }
+			if(sourceIndex >= passiveTableSegmentObjects->size())
+			{ throwException(Exception::tableIndexOutOfBoundsType); }
 
-			const Uptr functionIndex = passiveTableSegmentIndices[sourceIndex];
 			setTableElement(table,
 							Uptr(destIndex),
-							moduleInstance->functions[functionIndex],
+							(*passiveTableSegmentObjects)[sourceIndex],
 							moduleInstance->defaultMemory,
 							moduleInstance->defaultTable);
 		}
@@ -391,21 +514,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-static void copyTableElement(TableInstance* table, U64 destIndex, U64 sourceIndex)
-{
-	if(destIndex >= table->elements.size() || sourceIndex >= table->elements.size())
-	{ throwException(Exception::accessViolationType); }
-
-	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
-	// speculate past the outside bounds check.
-	sourceIndex = Platform::saturateToBounds(sourceIndex, U64(table->elements.size()));
-	destIndex = Platform::saturateToBounds(destIndex, U64(table->elements.size()));
-
-	table->baseAddress[destIndex].typeEncoding = table->baseAddress[sourceIndex].typeEncoding;
-	table->baseAddress[destIndex].value = table->baseAddress[sourceIndex].value;
-	table->elements[destIndex] = table->elements[sourceIndex];
-}
-
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "table.copy",
 						  void,
@@ -416,7 +524,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	Lock<Platform::Mutex> elementsLock(table->elementsMutex);
 
 	if(sourceOffset != destOffset)
 	{
@@ -428,9 +535,51 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		// If the end of the source overlaps the beginning of the destination, copy those elements
 		// before they are overwritten by the second part of the copy below.
 		for(Uptr index = numNonOverlappingElements; index < numElements; ++index)
-		{ copyTableElement(table, U64(destOffset) + U64(index), U64(sourceOffset) + U64(index)); }
+		{
+			setTableElementAnyRef(table,
+								  U64(destOffset) + U64(index),
+								  getTableElementAnyRef(table, U64(sourceOffset) + U64(index)));
+		}
 
 		for(Uptr index = 0; index < numNonOverlappingElements; ++index)
-		{ copyTableElement(table, U64(destOffset) + U64(index), U64(sourceOffset) + U64(index)); }
+		{
+			setTableElementAnyRef(table,
+								  U64(destOffset) + U64(index),
+								  getTableElementAnyRef(table, U64(sourceOffset) + U64(index)));
+		}
+	}
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "callIndirectFail",
+						  void,
+						  callIndirectFail,
+						  U32 index,
+						  Uptr functionPointerBits,
+						  Uptr expectedTypeEncoding)
+{
+	AnyFunc* functionPointer = reinterpret_cast<AnyFunc*>(functionPointerBits);
+	if(functionPointer == getOutOfBoundsAnyFunc())
+	{
+		Log::printf(Log::debug, "call_indirect: index %u is out-of-bounds\n", index);
+		throwException(Exception::tableIndexOutOfBoundsType);
+	}
+	else if(functionPointer == getUninitializedAnyFunc())
+	{
+		Log::printf(Log::debug, "call_indirect: index %u is uninitialized\n", index);
+		throwException(Exception::uninitializedTableElementType);
+	}
+	else
+	{
+		IR::FunctionType expectedSignature{IR::FunctionType::Encoding{expectedTypeEncoding}};
+		std::string ipDescription = "<unknown>";
+		describeInstructionPointer(reinterpret_cast<Uptr>(functionPointer->code), ipDescription);
+		Log::printf(Log::debug,
+					"call_indirect: index %u has signature %s (%s), but was expecting %s\n",
+					index,
+					asString(IR::FunctionType{functionPointer->functionTypeEncoding}).c_str(),
+					ipDescription.c_str(),
+					asString(expectedSignature).c_str());
+		throwException(Exception::indirectCallSignatureMismatchType);
 	}
 }

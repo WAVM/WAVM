@@ -136,7 +136,10 @@ static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTr
 {
 	switch(expectedType)
 	{
-	case WAST::ExpectedTrapType::accessViolation: return Runtime::Exception::accessViolationType;
+	case WAST::ExpectedTrapType::memoryAddressOutOfBounds:
+		return Runtime::Exception::memoryAddressOutOfBoundsType;
+	case WAST::ExpectedTrapType::tableIndexOutOfBounds:
+		return Runtime::Exception::tableIndexOutOfBoundsType;
 	case WAST::ExpectedTrapType::stackOverflow: return Runtime::Exception::stackOverflowType;
 	case WAST::ExpectedTrapType::integerDivideByZeroOrIntegerOverflow:
 		return Runtime::Exception::integerDivideByZeroOrOverflowType;
@@ -148,14 +151,9 @@ static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTr
 		return Runtime::Exception::reachedUnreachableType;
 	case WAST::ExpectedTrapType::indirectCallSignatureMismatch:
 		return Runtime::Exception::indirectCallSignatureMismatchType;
-	case WAST::ExpectedTrapType::undefinedTableElement:
-		return Runtime::Exception::undefinedTableElementType;
-	case WAST::ExpectedTrapType::calledAbort: return Runtime::Exception::calledAbortType;
-	case WAST::ExpectedTrapType::calledUnimplementedIntrinsic:
-		return Runtime::Exception::calledUnimplementedIntrinsicType;
+	case WAST::ExpectedTrapType::uninitializedTableElement:
+		return Runtime::Exception::uninitializedTableElementType;
 	case WAST::ExpectedTrapType::outOfMemory: return Runtime::Exception::outOfMemoryType;
-	case WAST::ExpectedTrapType::invalidSegmentOffset:
-		return Runtime::Exception::invalidSegmentOffsetType;
 	case WAST::ExpectedTrapType::misalignedAtomicMemoryAccess:
 		return Runtime::Exception::misalignedAtomicMemoryAccessType;
 	case WAST::ExpectedTrapType::invalidArgument: return Runtime::Exception::invalidArgumentType;

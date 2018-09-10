@@ -158,14 +158,15 @@ namespace Runtime
 	// Information about a runtime exception.
 	struct Exception
 	{
-		RUNTIME_API static const GCPointer<ExceptionTypeInstance> accessViolationType;
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> memoryAddressOutOfBoundsType;
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> tableIndexOutOfBoundsType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> stackOverflowType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> integerDivideByZeroOrOverflowType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidFloatOperationType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invokeSignatureMismatchType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> reachedUnreachableType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> indirectCallSignatureMismatchType;
-		RUNTIME_API static const GCPointer<ExceptionTypeInstance> undefinedTableElementType;
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> uninitializedTableElementType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> calledAbortType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> calledUnimplementedIntrinsicType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> outOfMemoryType;

@@ -5,6 +5,8 @@
 #include "Inline/Errors.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
+#include "Inline/Lock.h"
+#include "Platform/Mutex.h"
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
@@ -112,6 +114,10 @@ Runtime::ModuleInstance* Intrinsics::instantiateModule(
 {
 	auto moduleInstance
 		= new Runtime::ModuleInstance(compartment, {}, {}, {}, {}, {}, std::move(debugName));
+	{
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		compartment->modules.addOrFail(moduleInstance);
+	}
 
 	if(moduleRef.impl)
 	{

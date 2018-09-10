@@ -35,7 +35,7 @@ DEFINE_INTRINSIC_MODULE(global)
 
 static U32 coerce32bitAddress(Uptr address)
 {
-	if(address >= UINT32_MAX) { throwException(Exception::accessViolationType); }
+	if(address >= UINT32_MAX) { throwException(Exception::memoryAddressOutOfBoundsType); }
 	return (U32)address;
 }
 
