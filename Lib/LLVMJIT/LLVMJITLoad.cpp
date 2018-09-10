@@ -301,19 +301,15 @@ LoadedModule::LoadedModule(const std::vector<U8>& objectBytes,
 		{
 		}
 
-		virtual llvm::Expected<std::map<llvm::StringRef, llvm::JITEvaluatedSymbol>> lookup(
-			const std::set<llvm::StringRef>& symbols) override
+		virtual llvm::Expected<LookupResult> lookup(const LookupSet& symbols) override
 		{
-			std::map<llvm::StringRef, llvm::JITEvaluatedSymbol> result;
+			LookupResult result;
 			for(auto symbol : symbols) { result.emplace(symbol, findSymbol(symbol)); }
 			return result;
 		}
-		virtual llvm::Expected<std::map<llvm::StringRef, llvm::JITSymbolFlags>> lookupFlags(
-			const std::set<llvm::StringRef>& symbols) override
+		virtual llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet& Symbols) override
 		{
-			std::map<llvm::StringRef, llvm::JITSymbolFlags> result;
-			for(auto symbol : symbols) { result.emplace(symbol, findSymbol(symbol).getFlags()); }
-			return result;
+			return LookupSet();
 		}
 
 	private:
