@@ -1,6 +1,6 @@
-[![Linux/OSX Build Status](https://travis-ci.org/AndrewScheidecker/WAVM.svg?branch=master)](https://travis-ci.org/AndrewScheidecker/WAVM)
+[![Linux/OSX Build Status](https://travis-ci.com/WAVM/WAVM.svg?branch=master)](https://travis-ci.com/WAVM/WAVM)
 
-Primary repo: https://github.com/AndrewScheidecker/WAVM
+Primary repo: https://github.com/WAVM/WAVM
 
 # Overview
 
