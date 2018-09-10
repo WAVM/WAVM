@@ -73,40 +73,6 @@ namespace IR
 	{
 	};
 
-	template<ValueType type> struct ValueTypeInfo;
-	template<> struct ValueTypeInfo<ValueType::i32>
-	{
-		typedef I32 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::i64>
-	{
-		typedef I64 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::f32>
-	{
-		typedef F32 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::f64>
-	{
-		typedef F64 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::v128>
-	{
-		typedef V128 Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::anyref>
-	{
-		typedef AnyReferee* Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::anyfunc>
-	{
-		typedef AnyReferee* Value;
-	};
-	template<> struct ValueTypeInfo<ValueType::nullref>
-	{
-		typedef AnyReferee* Value;
-	};
-
 	inline std::string asString(I32 value) { return std::to_string(value); }
 	inline std::string asString(I64 value) { return std::to_string(value); }
 	inline std::string asString(F32 value) { return Floats::asString(value); }
