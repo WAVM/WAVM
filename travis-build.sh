@@ -2,12 +2,20 @@
 
 set -e -v
 
-if [ "$CXX" = "g++" ]; then export CXX="g++-7" CC="gcc-7"; fi
-if [ "$CXX" = "clang++" ] && [ "$TRAVIS_OS_NAME" != "osx" ]; then export CXX="clang++-5.0" CC="clang-5.0"; fi
+if [ "$CXX" = "g++" ]; then
+  export CXX="g++-7" CC="gcc-7";
+fi
+
+if [ "$TRAVIS_OS_NAME" != "osx" ]; then
+  export CXXFLAGS="-fuse-ld=gold";
+  if [ "$CXX" = "clang++" ]; then
+    export CXX="clang++-5.0" CC="clang-5.0";
+  fi
+fi
 
 $CXX --version
 
-if [[ $TRAVIS_OS_NAME == "osx" ]]; then
+if [ $TRAVIS_OS_NAME == "osx" ]; then
   export CMAKE_URL="https://cmake.org/files/v3.7/cmake-3.7.2-Darwin-x86_64.tar.gz";
   export LLVM_URL="http://releases.llvm.org/6.0.0/clang+llvm-6.0.0-x86_64-apple-darwin.tar.xz";
 else
