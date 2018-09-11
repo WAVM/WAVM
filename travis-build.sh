@@ -4,13 +4,11 @@ set -e -v
 
 if [ "$CXX" = "g++" ]; then
   export CXX="g++-7" CC="gcc-7";
+  export CXXFLAGS="-fuse-ld=gold";
 fi
 
-if [ "$TRAVIS_OS_NAME" != "osx" ]; then
-  export CXXFLAGS="-fuse-ld=gold";
-  if [ "$CXX" = "clang++" ]; then
-    export CXX="clang++-5.0" CC="clang-5.0";
-  fi
+if [ "$CXX" = "clang++" ] && [ "$TRAVIS_OS_NAME" != "osx" ]; then
+  export CXX="clang++-5.0" CC="clang-5.0";
 fi
 
 echo $CXX
