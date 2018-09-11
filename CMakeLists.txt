@@ -171,6 +171,7 @@ add_subdirectory(Programs/Disassemble)
 add_subdirectory(Test)
 add_subdirectory(ThirdParty/dtoa)
 add_subdirectory(ThirdParty/xxhash)
+add_subdirectory(ThirdParty/libunwind)
 
 if(ENABLE_RUNTIME)
 	add_subdirectory(Lib/Emscripten)
@@ -179,7 +180,6 @@ if(ENABLE_RUNTIME)
 	add_subdirectory(Lib/ThreadTest)
 	add_subdirectory(Programs/wavm)
 	add_subdirectory(Programs/wavix)
-	add_subdirectory(ThirdParty/libunwind)
 endif()
 
 # Create a dummy target to hold various files in the project root
