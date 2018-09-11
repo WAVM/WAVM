@@ -1,0 +1,18 @@
+pool:
+  vmImage: 'VS2017-Win2016'
+
+variables:
+  buildPlatform: 'x64'
+  buildConfiguration: 'RelWithDebInfo'
+
+steps:
+- task: CMake@1
+  inputs:
+    workingDirectory: '$(Build.ArtifactStagingDirectory)/build'
+    cmakeArgs: '-G "Visual Studio 15 2017 Win64" -DENABLE_RUNTIME=NO $(Build.SourcesDirectory)'
+
+- task: VSBuild@1
+  inputs:
+    solution: '$(Build.ArtifactStagingDirectory)/build/WAVM.sln'
+    platform: '$(buildPlatform)'
+    configuration: '$(buildConfiguration)'
