@@ -36,7 +36,7 @@ static AnyFunc* makeDummyAnyFunc()
 	FunctionInstance* functionInstance = new FunctionInstance(
 		nullptr, IR::FunctionType::Encoding{0}, nullptr, IR::CallingConvention::c, "dummy");
 	AnyFunc* anyFunc = new AnyFunc;
-	anyFunc->object = functionInstance;
+	anyFunc->anyRef.object = functionInstance;
 	anyFunc->functionTypeEncoding = IR::FunctionType::Encoding{0};
 	anyFunc->code[0] = 0xcc; // int3
 	functionInstance->nativeFunction = anyFunc->code;
@@ -65,7 +65,7 @@ static Uptr anyRefToBiasedTableElementValue(AnyReferee* anyRef)
 	return reinterpret_cast<Uptr>(anyRef) - reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc());
 }
 
-static AnyReferee* biasedTableElementValueToAnyFunc(Uptr biasedValue)
+static AnyReferee* biasedTableElementValueToAnyRef(Uptr biasedValue)
 {
 	return reinterpret_cast<AnyReferee*>(biasedValue
 										 + reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()));
@@ -238,14 +238,14 @@ static AnyReferee* setTableElementAnyRef(TableInstance* table, Uptr index, AnyRe
 	Uptr oldBiasedValue = table->elements[saturatedIndex].biasedValue;
 	while(true)
 	{
-		if(biasedTableElementValueToAnyFunc(oldBiasedValue) == getOutOfBoundsAnyFunc())
+		if(biasedTableElementValueToAnyRef(oldBiasedValue) == &getOutOfBoundsAnyFunc()->anyRef)
 		{ throwException(Exception::tableIndexOutOfBoundsType); }
 		if(table->elements[saturatedIndex].biasedValue.compare_exchange_weak(
 			   oldBiasedValue, biasedValue, std::memory_order_seq_cst))
 		{ break; }
 	};
 
-	return biasedTableElementValueToAnyFunc(oldBiasedValue);
+	return biasedTableElementValueToAnyRef(oldBiasedValue);
 }
 
 static AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
@@ -261,10 +261,11 @@ static AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
 
 	// Read the table element.
 	const Uptr biasedValue = table->elements[saturatedIndex].biasedValue;
-	AnyReferee* anyRef = biasedTableElementValueToAnyFunc(biasedValue);
+	AnyReferee* anyRef = biasedTableElementValueToAnyRef(biasedValue);
 
 	// If the element was an out-of-bounds sentinel value, throw an out-of-bounds exception.
-	if(anyRef == getOutOfBoundsAnyFunc()) { throwException(Exception::tableIndexOutOfBoundsType); }
+	if(anyRef == &getOutOfBoundsAnyFunc()->anyRef)
+	{ throwException(Exception::tableIndexOutOfBoundsType); }
 
 	return anyRef;
 }
@@ -301,16 +302,16 @@ Object* Runtime::setTableElement(TableInstance* table,
 	}
 
 	// Get the pointer to the Anyfunc struct that is emitted as a prefix to the function's code.
-	AnyFunc* anyFunc = (AnyFunc*)((U8*)nativeFunction - ((AnyFunc*)nullptr)->code);
-	wavmAssert(anyFunc->object == functionInstance);
+	AnyFunc* anyFunc = (AnyFunc*)((U8*)nativeFunction - offsetof(AnyFunc, code));
+	wavmAssert(anyFunc->anyRef.object == functionInstance);
 	wavmAssert(IR::FunctionType{anyFunc->functionTypeEncoding} == functionInstance->type);
 
 	// Write the table element.
-	AnyReferee* oldAnyRef = setTableElementAnyRef(table, index, anyFunc);
+	AnyReferee* oldAnyRef = setTableElementAnyRef(table, index, &anyFunc->anyRef);
 
 	// Translate the old table element to an object pointer to return. If the old table element was
 	// the uninitialized sentinel value, return null.
-	if(oldAnyRef == getUninitializedAnyFunc()) { return nullptr; }
+	if(oldAnyRef == &getUninitializedAnyFunc()->anyRef) { return nullptr; }
 	else
 	{
 		return oldAnyRef->object;
@@ -324,8 +325,9 @@ Object* Runtime::getTableElement(TableInstance* table, Uptr index)
 	// Translate the old table element to an object pointer to return. If the old table element was
 	// the uninitialized sentinel value, return null. If it was an out-of-bounds sentinel value,
 	// throw an exception.
-	if(anyRef == getOutOfBoundsAnyFunc()) { throwException(Exception::tableIndexOutOfBoundsType); }
-	else if(anyRef == getUninitializedAnyFunc())
+	if(anyRef == &getOutOfBoundsAnyFunc()->anyRef)
+	{ throwException(Exception::tableIndexOutOfBoundsType); }
+	else if(anyRef == &getUninitializedAnyFunc()->anyRef)
 	{
 		return nullptr;
 	}
@@ -367,7 +369,7 @@ Iptr Runtime::growTable(TableInstance* table, Uptr numNewElements)
 		++elementIndex)
 	{
 		table->elements[elementIndex].biasedValue
-			= anyRefToBiasedTableElementValue(getUninitializedAnyFunc());
+			= anyRefToBiasedTableElementValue(&getUninitializedAnyFunc()->anyRef);
 	}
 
 	table->numElements += numNewElements;
@@ -412,7 +414,7 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 			--elementIndex)
 		{
 			table->elements[elementIndex].biasedValue
-				= anyRefToBiasedTableElementValue(getOutOfBoundsAnyFunc());
+				= anyRefToBiasedTableElementValue(&getOutOfBoundsAnyFunc()->anyRef);
 		}
 	}
 
