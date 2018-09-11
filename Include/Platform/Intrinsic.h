@@ -97,7 +97,7 @@ namespace Platform
 	{
 #ifdef _WIN32
 		__movsb(dest, source, numBytes);
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(__x86_64__)
 		asm volatile("rep movsb"
 					 : "=D"(dest), "=S"(source), "=c"(numBytes)
 					 : "0"(dest), "1"(source), "2"(numBytes)
@@ -111,7 +111,7 @@ namespace Platform
 	{
 #ifdef _WIN32
 		__stosb(dest, value, numBytes);
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(__x86_64__)
 		asm volatile("rep stosb"
 					 : "=D"(dest), "=a"(value), "=c"(numBytes)
 					 : "0"(dest), "1"(value), "2"(numBytes)
