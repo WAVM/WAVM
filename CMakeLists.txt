@@ -138,9 +138,9 @@ endif()
 
 option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 
-option(USE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" ON)
+option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" ON)
 
-if(NOT USE_STATIC_LINKING AND MSVC)
+if(NOT ENABLE_STATIC_LINKING AND MSVC)
 	add_definitions("-DDLL_EXPORT=__declspec(dllexport)")
 	add_definitions("-DDLL_IMPORT=__declspec(dllimport)")
 else()
@@ -149,7 +149,7 @@ else()
 endif()
 
 function(WAVM_ADD_LIBRARY TARGET_NAME)
-	if(USE_STATIC_LINKING)
+	if(ENABLE_STATIC_LINKING)
 		add_library(${TARGET_NAME} STATIC ${ARGN})
 	else()
 		add_library(${TARGET_NAME} SHARED ${ARGN})
