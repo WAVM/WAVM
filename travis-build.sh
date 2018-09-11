@@ -2,6 +2,9 @@
 
 set -e -v
 
+if [ "$CXX" = "g++" ]; then export CXX="g++-7" CC="gcc-7"; fi
+if [ "$CXX" = "clang++" ] && [ "$TRAVIS_OS_NAME" != "osx" ]; then export CXX="clang++-5.0" CC="clang-5.0"; fi
+
 $CXX --version
 
 if [[ $TRAVIS_OS_NAME == "osx" ]]; then
@@ -30,18 +33,16 @@ tar --strip-components=1 -xf ./llvm.tar.xz
 export LLVM_DIR=`pwd`/lib/cmake/llvm
 cd ..
 
-# Build and test a release build of WAVM.
-mkdir release
-cd release
-cmake .. -DCMAKE_BUILD_TYPE=RELEASE -DLLVM_DIR=${LLVM_DIR}
-make -j2
-ctest -V -j2
-cd ..
-
-# Build and test a debug build of WAVM.
-mkdir debug
-cd debug
-cmake .. -DCMAKE_BUILD_TYPE=DEBUG -DLLVM_DIR=${LLVM_DIR}
+# Build and test WAVM.
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+         -DLLVM_DIR=${LLVM_DIR} \
+         -DENABLE_RUNTIME=${ENABLE_RUNTIME} \
+         -DENABLE_STATIC_LINKING=${ENABLE_STATIC_LINKING} \
+         -DENABLE_RELEASE_ASSERTS=${ENABLE_RELEASE_ASSERTS} \
+         -DENABLE_ASAN=${ENABLE_ASAN} \
+         -DENABLE_UBSAN=${ENABLE_UBSAN}
 make -j2
 ASAN_OPTIONS=detect_leaks=0 ctest -V -j2
 cd ..
