@@ -427,12 +427,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	if(index >= table->numReservedElements)
-	{ throwException(Exception::tableIndexOutOfBoundsType); }
-	const Uptr saturatedIndex
-		= Platform::saturateToBounds(Uptr(index), table->numReservedElements - 1);
-	return reinterpret_cast<AnyReferee*>(reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc())
-										 + table->elements[saturatedIndex].biasedValue);
+	return getTableElementAnyRef(table, index);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
