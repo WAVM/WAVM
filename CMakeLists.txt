@@ -195,7 +195,7 @@ add_custom_target(RootFiles SOURCES
 	.travis.yml
 	azure-pipelines.yml
 	azure-windows-build-job-template.yml
-	LICENSE
+	LICENSE.md
 	README.md
 	run-clang-format.sh
 	travis-build.sh
