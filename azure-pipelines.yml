@@ -1,35 +1,9 @@
-pool:
-  vmImage: 'VS2017-Win2016'
-
-variables:
-  buildPlatform: 'x64'
-  buildConfiguration: 'RelWithDebInfo'
-
-steps:
-- task: CmdLine@1
-  inputs:
-    script: 'git clone -b release_60 https://github.com/llvm-mirror/llvm'
-    workingDirectory: '$(Build.ArtifactStagingDirectory)/llvm'
-    failOnStderr: true
-
-- task: CMake@1
-  inputs:
-    workingDirectory: '$(Build.ArtifactStagingDirectory)/llvm/build'
-    cmakeArgs: '-G "Visual Studio 15 2017 Win64" -DLLVM_TARGETS_TO_BUILD=X86 $(Build.ArtifactStagingDirectory)/llvm'
-
-- task: VSBuild@1
-  inputs:
-    solution: '$(Build.ArtifactStagingDirectory)/llvm/build/LLVM.sln'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
-
-- task: CMake@2
-  inputs:
-    workingDirectory: '$(Build.ArtifactStagingDirectory)/build'
-    cmakeArgs: '-G "Visual Studio 15 2017 Win64" -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm/build/lib/cmake/llvm $(Build.SourcesDirectory)'
-
-- task: VSBuild@2
-  inputs:
-    solution: '$(Build.ArtifactStagingDirectory)/build/WAVM.sln'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+jobs:
+  - template: azure-windows-build-job-template.yml
+    parameters:
+      name: Windows_Release
+      buildConfiguration: Release
+  - template: azure-windows-build-job-template.yml
+    parameters:
+      name: Windows_Debug
+      buildConfiguration: Debug

@@ -187,6 +187,8 @@ endif()
 add_custom_target(RootFiles SOURCES
 	.clang-format
 	.travis.yml
+	azure-pipelines.yml
+	azure-windows-build-job-template.yml
 	LICENSE
 	README.md
 	run-clang-format.sh
