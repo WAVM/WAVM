@@ -385,7 +385,8 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		llvmContext.i8PtrType);
 	auto elementTypeId = loadFromUntypedPointer(
 		irBuilder.CreateInBoundsGEP(
-			anyfuncPointer, emitLiteral(llvmContext, Uptr(offsetof(AnyFunc, functionTypeEncoding)))),
+			anyfuncPointer,
+			emitLiteral(llvmContext, Uptr(offsetof(AnyFunc, functionTypeEncoding)))),
 		llvmContext.iptrType);
 	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
 

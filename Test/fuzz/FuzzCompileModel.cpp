@@ -695,7 +695,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	RandomStream random(inputBytes, numBytes);
 
 	HashMap<FunctionType, Uptr> functionTypeMap;
-	
+
 	// Manually turn on the reference type feature until it's on by default.
 	errorUnless(!module.featureSpec.referenceTypes);
 	module.featureSpec.referenceTypes = true;

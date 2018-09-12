@@ -284,8 +284,7 @@ private:
 LoadedModule::LoadedModule(const std::vector<U8>& inObjectBytes,
 						   const HashMap<std::string, Uptr>& importedSymbolMap,
 						   bool shouldLogMetrics)
-: memoryManager(new ModuleMemoryManager())
-, objectBytes(inObjectBytes)
+: memoryManager(new ModuleMemoryManager()), objectBytes(inObjectBytes)
 {
 	Timing::Timer loadObjectTimer;
 
