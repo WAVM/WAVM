@@ -33,14 +33,10 @@ static Uptr getNumPlatformPages(Uptr numBytes)
 
 static AnyFunc* makeDummyAnyFunc()
 {
-	FunctionInstance* functionInstance = new FunctionInstance(
-		nullptr, IR::FunctionType::Encoding{0}, nullptr, IR::CallingConvention::c, "dummy");
 	AnyFunc* anyFunc = new AnyFunc;
-	anyFunc->anyRef.object = functionInstance;
+	anyFunc->anyRef.object = nullptr;
 	anyFunc->functionTypeEncoding = IR::FunctionType::Encoding{0};
 	anyFunc->code[0] = 0xcc; // int3
-	functionInstance->nativeFunction = anyFunc->code;
-	++functionInstance->numRootReferences;
 	return anyFunc;
 }
 
