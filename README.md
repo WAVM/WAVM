@@ -1,5 +1,7 @@
 [![Linux/OSX Build Status](https://travis-ci.com/WAVM/WAVM.svg?branch=master)](https://travis-ci.com/WAVM/WAVM)
 
+[![Windows Build Status](https://dev.azure.com/WAVM/WAVM/_apis/build/status/WAVM.WAVM)](https://dev.azure.com/WAVM/WAVM/_build/latest?definitionId=1)
+
 Primary repo: https://github.com/WAVM/WAVM
 
 # Overview
