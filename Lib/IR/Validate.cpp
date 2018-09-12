@@ -909,6 +909,9 @@ void IR::validateElemSegments(const Module& module)
 		if(tableSegment.isActive)
 		{
 			VALIDATE_INDEX(tableSegment.tableIndex, module.tables.size());
+			const TableType& tableType = module.tables.getType(tableSegment.tableIndex);
+			VALIDATE_UNLESS("active table segments must be in anyfunc tables",
+							tableType.elementType != ReferenceType::anyfunc);
 			validateInitializer(
 				module, tableSegment.baseOffset, ValueType::i32, "table segment base initializer");
 		}

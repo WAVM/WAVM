@@ -19,6 +19,17 @@
 	(table $t 0 anyref)
 )
 
+;; elem segments should only be allowed in anyfunc tables
+(assert_invalid
+	(module
+		(table $t 0 anyref)
+		(elem $t (i32.const 0) $f)
+		(func $f)
+	)
+	"active table segments must be in anyfunc tables"
+)
+
+
 ;; nullref tables
 (assert_malformed
 	(module quote "(table $t 0 nullref)")
