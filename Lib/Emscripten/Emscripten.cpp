@@ -18,6 +18,7 @@
 #include "IR/Types.h"
 #include "IR/Value.h"
 #include "Inline/BasicTypes.h"
+#include "Inline/Floats.h"
 #include "Inline/Hash.h"
 #include "Inline/HashMap.h"
 #include "Logging/Logging.h"
@@ -586,10 +587,22 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
 
 DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-to-int", I32, f64_to_int, F64 f) { return (I32)f; }
 
-static F64 zero = 0.0;
-
-static NO_UBSAN F64 makeNaN() { return zero / zero; }
-static NO_UBSAN F64 makeInf() { return 1.0 / zero; }
+static F64 makeNaN()
+{
+	Floats::FloatComponents<F64> floatBits;
+	floatBits.bits.sign = 0;
+	floatBits.bits.exponent = Floats::FloatComponents<F64>::maxExponentBits;
+	floatBits.bits.significand = Floats::FloatComponents<F64>::canonicalSignificand;
+	return floatBits.value;
+}
+static F64 makeInf()
+{
+	Floats::FloatComponents<F64> floatBits;
+	floatBits.bits.sign = 0;
+	floatBits.bits.exponent = Floats::FloatComponents<F64>::maxExponentBits;
+	floatBits.bits.significand = Floats::FloatComponents<F64>::maxSignificand;
+	return floatBits.value;
+}
 
 DEFINE_INTRINSIC_GLOBAL(global, "NaN", F64, NaN, makeNaN())
 DEFINE_INTRINSIC_GLOBAL(global, "Infinity", F64, Infinity, makeInf())

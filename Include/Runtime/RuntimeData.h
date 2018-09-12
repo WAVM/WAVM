@@ -98,8 +98,9 @@ namespace Runtime
 		Object* object;
 	};
 
-	struct AnyFunc : AnyReferee
+	struct AnyFunc
 	{
+		AnyReferee anyRef;
 		IR::FunctionType::Encoding functionTypeEncoding;
 		U8 code[1];
 	};

@@ -19,6 +19,17 @@
 	(table $t 0 anyref)
 )
 
+;; elem segments should only be allowed in anyfunc tables
+(assert_invalid
+	(module
+		(table $t 0 anyref)
+		(elem $t (i32.const 0) $f)
+		(func $f)
+	)
+	"active table segments must be in anyfunc tables"
+)
+
+
 ;; nullref tables
 (assert_malformed
 	(module quote "(table $t 0 nullref)")
@@ -65,11 +76,11 @@
 (invoke "table.get $t1" (i32.const 1))
 (invoke "table.get $t1" (i32.const 2))
 (invoke "table.get $t1" (i32.const 3))
-(assert_trap (invoke "table.get $t1" (i32.const 4)) "out of bounds memory access")
-(assert_trap (invoke "table.get $t1" (i32.const -1)) "out of bounds memory access")
+(assert_trap (invoke "table.get $t1" (i32.const 4)) "undefined element")
+(assert_trap (invoke "table.get $t1" (i32.const -1)) "undefined element")
 
 (invoke "table.get $t2" (i32.const 0))
 (invoke "table.get $t2" (i32.const 1))
 (invoke "table.get $t2" (i32.const 2))
-(assert_trap (invoke "table.get $t2" (i32.const 3)) "out of bounds memory access")
-(assert_trap (invoke "table.get $t2" (i32.const -1)) "out of bounds memory access")
+(assert_trap (invoke "table.get $t2" (i32.const 3)) "undefined element")
+(assert_trap (invoke "table.get $t2" (i32.const -1)) "undefined element")

@@ -782,6 +782,15 @@ NO_ASAN static void* forkThreadEntry(void* argsVoid)
 	return reinterpret_cast<void*>(result);
 }
 
+// This provides a non-always_inline version of memcpy to call from NO_ASAN functions. It's needed
+// to compile on GCC w/ ASAN without triggering this error:
+// inlining failed in call to always_inline ‘void* memcpy(void*, const void*, size_t) throw ()’:
+//   function attribute mismatch
+static void memcpyToCallFromNoASAN(void* dest, const void* source, Uptr numBytes)
+{
+	memcpy(dest, source, numBytes);
+}
+
 NO_ASAN Thread* Platform::forkCurrentThread()
 {
 	auto forkThreadArgs = new ForkThreadArgs;
@@ -828,7 +837,8 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 										   0);
 		errorUnless(forkedMinStackAddr != MAP_FAILED);
 		U8* forkedMaxStackAddr = forkedMinStackAddr + numStackBytes - PTHREAD_STACK_MIN;
-		memcpy(forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
+		memcpyToCallFromNoASAN(
+			forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
 
 		// Compute the offset to add to stack pointers to translate them to the forked thread's
 		// stack.

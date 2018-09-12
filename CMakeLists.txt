@@ -92,9 +92,10 @@ else()
 		option(ENABLE_ASAN "enable ASAN" OFF)
 	endif()
 	if(ENABLE_ASAN)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -Wno-unused-command-line-argument")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mllvm -asan-stack=0")
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument")
 		endif()
 	endif()
 
@@ -105,6 +106,12 @@ else()
 		add_definitions(-DENABLE_UBSAN=1)
 	else()
 		add_definitions(-DENABLE_UBSAN=0)
+	endif()
+
+	# Optionally enable the thread sanitizer.
+	option(ENABLE_TSAN "enable TSAN" OFF)
+	if(ENABLE_TSAN)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
 	endif()
 
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer")
@@ -138,9 +145,9 @@ endif()
 
 option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 
-option(USE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" ON)
+option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" ON)
 
-if(NOT USE_STATIC_LINKING AND MSVC)
+if(NOT ENABLE_STATIC_LINKING AND MSVC)
 	add_definitions("-DDLL_EXPORT=__declspec(dllexport)")
 	add_definitions("-DDLL_IMPORT=__declspec(dllimport)")
 else()
@@ -149,7 +156,7 @@ else()
 endif()
 
 function(WAVM_ADD_LIBRARY TARGET_NAME)
-	if(USE_STATIC_LINKING)
+	if(ENABLE_STATIC_LINKING)
 		add_library(${TARGET_NAME} STATIC ${ARGN})
 	else()
 		add_library(${TARGET_NAME} SHARED ${ARGN})
@@ -171,6 +178,7 @@ add_subdirectory(Programs/Disassemble)
 add_subdirectory(Test)
 add_subdirectory(ThirdParty/dtoa)
 add_subdirectory(ThirdParty/xxhash)
+add_subdirectory(ThirdParty/libunwind)
 
 if(ENABLE_RUNTIME)
 	add_subdirectory(Lib/Emscripten)
@@ -179,14 +187,15 @@ if(ENABLE_RUNTIME)
 	add_subdirectory(Lib/ThreadTest)
 	add_subdirectory(Programs/wavm)
 	add_subdirectory(Programs/wavix)
-	add_subdirectory(ThirdParty/libunwind)
 endif()
 
 # Create a dummy target to hold various files in the project root
 add_custom_target(RootFiles SOURCES
 	.clang-format
 	.travis.yml
-	LICENSE
+	azure-pipelines.yml
+	azure-windows-build-job-template.yml
+	LICENSE.md
 	README.md
 	run-clang-format.sh
 	travis-build.sh

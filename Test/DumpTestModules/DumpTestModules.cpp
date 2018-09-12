@@ -196,8 +196,15 @@ int main(int argc, char** argv)
 	std::vector<WAST::Error> testErrors;
 
 	// Parse the test script.
-	WAST::parseTestCommands(
-		(const char*)testScriptBytes.data(), testScriptBytes.size(), testCommands, testErrors);
+	IR::FeatureSpec featureSpec;
+	featureSpec.requireSharedFlagForAtomicOperators = true;
+	errorUnless(!featureSpec.referenceTypes);
+	featureSpec.referenceTypes = true;
+	WAST::parseTestCommands((const char*)testScriptBytes.data(),
+							testScriptBytes.size(),
+							featureSpec,
+							testCommands,
+							testErrors);
 	if(!testErrors.size())
 	{
 		for(auto& command : testCommands)

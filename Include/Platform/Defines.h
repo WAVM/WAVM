@@ -37,8 +37,10 @@
 #define UNLIKELY(condition) (condition)
 #endif
 
-#if defined(__GNUC__) && ENABLE_UBSAN
+#if defined(__clang__) && ENABLE_UBSAN
 #define NO_UBSAN __attribute__((no_sanitize("undefined")))
+#elif defined(__GNUC__) && ENABLE_UBSAN
+#define NO_UBSAN __attribute__((no_sanitize_undefined))
 #else
 #define NO_UBSAN
 #endif
