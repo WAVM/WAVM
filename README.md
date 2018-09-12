@@ -53,15 +53,15 @@ Usage: wavm [switches] [programfile] [--] [arguments]
   --				Stop parsing arguments
 ```
 
-`wavm` will load a WebAssembly file and call `main` (or a specified function).  Example programs to try without changing any code include those found in the Test/wast and Test/spec directory such as the following:
+`wavm` will load a WebAssembly file and call `main` (or a specified function).  Example programs to try without changing any code include those found in the Examples and Test/spec directory such as the following:
 
 ```
-wavm Test/wast/helloworld.wast
-wavm Test/Benchmark/Benchmark.wast
-wavm Test/zlib/zlib.wast
+wavm Examples/helloworld.wast
+wavm Examples/Benchmark/Benchmark.wast
+wavm Examples/zlib.wast
 ```
 
-WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments.  If the same main function returns a i32 type it will become the exit code.  WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr.  See [echo.wast](Test/wast/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
+WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments.  If the same main function returns a i32 type it will become the exit code.  WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr.  See [echo.wast](Examples/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
 
 There are a few additional executables that can be used to assemble the WAST file into a binary:
 
