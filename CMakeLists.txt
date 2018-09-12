@@ -108,6 +108,12 @@ else()
 		add_definitions(-DENABLE_UBSAN=0)
 	endif()
 
+	# Optionally enable the thread sanitizer.
+	option(ENABLE_TSAN "enable TSAN" OFF)
+	if(ENABLE_TSAN)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+	endif()
+
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer")
 endif()
 
