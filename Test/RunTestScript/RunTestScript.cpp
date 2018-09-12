@@ -551,14 +551,49 @@ DEFINE_INTRINSIC_MEMORY(spectest,
 						shared_memory,
 						MemoryType(true, SizeConstraints{1, 2}))
 
+static void showHelp()
+{
+	Log::printf(Log::error,
+				"Usage: Test [options] in.wast [options]\n"
+				"  -h|--help                 Display this message\n"
+				"  --enable-reference-types  Enable the reference-types extension\n");
+}
+
 int main(int argc, char** argv)
 {
-	if(argc != 2)
+	// Use a WebAssembly standard-compliant feature spec.
+	FeatureSpec featureSpec;
+	featureSpec.requireSharedFlagForAtomicOperators = true;
+
+	const char* filename = nullptr;
+	for(Uptr argIndex = 1; argIndex < argc; ++argIndex)
 	{
-		Log::printf(Log::error, "Usage: Test in.wast\n");
+		if(!strcmp(argv[argIndex], "--enable-reference-types"))
+		{
+			errorUnless(!featureSpec.referenceTypes);
+			featureSpec.referenceTypes = true;
+		}
+		else if(!strcmp(argv[argIndex], "--help") || !strcmp(argv[argIndex], "-h"))
+		{
+			showHelp();
+			return EXIT_SUCCESS;
+		}
+		else if(!filename)
+		{
+			filename = argv[argIndex];
+		}
+		else
+		{
+			showHelp();
+			return EXIT_FAILURE;
+		}
+	}
+
+	if(!filename)
+	{
+		showHelp();
 		return EXIT_FAILURE;
 	}
-	const char* filename = argv[1];
 
 	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
 	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception) {
@@ -582,6 +617,7 @@ int main(int argc, char** argv)
 	// Parse the test script.
 	WAST::parseTestCommands((const char*)testScriptBytes.data(),
 							testScriptBytes.size(),
+							featureSpec,
 							testCommands,
 							testScriptState->errors);
 	if(!testScriptState->errors.size())

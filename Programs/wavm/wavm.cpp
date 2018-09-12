@@ -323,17 +323,18 @@ static int run(const CommandLineOptions& options)
 	}
 }
 
-void showHelp()
+static void showHelp()
 {
 	Log::printf(Log::error,
 				"Usage: wavm [switches] [programfile] [--] [arguments]\n"
-				"  in.wast|in.wasm\t\tSpecify program file (.wast/.wasm)\n"
-				"  -f|--function name\t\tSpecify function name to run in module rather than main\n"
-				"  -c|--check\t\t\tExit after checking that the program is valid\n"
-				"  -d|--debug\t\t\tWrite additional debug information to stdout\n"
-				"  --disable-emscripten\t\tDisable Emscripten intrinsics\n"
-				"  --enable-thread-test\t\tEnable ThreadTest intrinsics\n"
-				"  --\t\t\t\tStop parsing arguments\n");
+				"  in.wast|in.wasm       Specify program file (.wast/.wasm)\n"
+				"  -c|--check            Exit after checking that the program is valid\n"
+				"  -d|--debug            Write additional debug information to stdout\n"
+				"  -f|--function name    Specify function name to run in module rather than main\n"
+				"  -h|--help             Display this message\n"
+				"  --disable-emscripten  Disable Emscripten intrinsics\n"
+				"  --enable-thread-test  Enable ThreadTest intrinsics\n"
+				"  --                    Stop parsing arguments\n");
 }
 
 int main(int argc, char** argv)
