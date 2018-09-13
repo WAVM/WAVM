@@ -30,7 +30,9 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
+#if LLVM_VERSION_MAJOR >= 7
 #include "llvm/Transforms/Utils.h"
+#endif
 
 #include "LLVMPostInclude.h"
 
@@ -38,9 +40,11 @@ namespace llvm
 {
 	class MCContext;
 
+#if LLVM_VERSION_MAJOR >= 7
 	// Instead of including llvm/Transforms/InstCombine/InstCombine.h, which doesn't compile on
 	// Windows, just declare the one function we call.
 	FunctionPass* createInstructionCombiningPass(bool ExpensiveCombines = true);
+#endif
 }
 
 #define DUMP_UNOPTIMIZED_MODULE WAVM_DEBUG

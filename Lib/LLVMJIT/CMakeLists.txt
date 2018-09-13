@@ -27,7 +27,11 @@ WAVM_ADD_LIBRARY(LLVMJIT ${Sources} ${PublicHeaders})
 set_target_properties(LLVMJIT PROPERTIES FOLDER Libraries)
 
 # Find an installed build of LLVM
-find_package(LLVM 8.0 REQUIRED CONFIG)
+find_package(LLVM REQUIRED CONFIG)
+
+if(LLVM_VERSION_MAJOR LESS 6)
+	message(FATAL_ERROR "WAVM requires LLVM version 6.0 or newer")
+endif()
 
 # Include the LLVM headers
 include_directories(${LLVM_INCLUDE_DIRS})

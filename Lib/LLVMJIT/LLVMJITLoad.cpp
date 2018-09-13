@@ -301,19 +301,30 @@ LoadedModule::LoadedModule(const std::vector<U8>& inObjectBytes,
 		{
 		}
 
+#if LLVM_VERSION_MAJOR >= 8
 		virtual llvm::Expected<LookupResult> lookup(const LookupSet& symbols) override
 		{
 			LookupResult result;
-			for(auto symbol : symbols) { result.emplace(symbol, findSymbol(symbol)); }
+			for(auto symbol : symbols) { result.emplace(symbol, findSymbolImpl(symbol)); }
 			return result;
 		}
 		virtual llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet& Symbols) override
 		{
 			return LookupSet();
 		}
+#else
+		virtual llvm::JITSymbol findSymbolInLogicalDylib(const std::string& name) override
+		{
+			return findSymbolImpl(name);
+		}
+		virtual llvm::JITSymbol findSymbol(const std::string& name) override
+		{
+			return findSymbolImpl(name);
+		}
+#endif
 
 	private:
-		llvm::JITEvaluatedSymbol findSymbol(llvm::StringRef name)
+		llvm::JITEvaluatedSymbol findSymbolImpl(llvm::StringRef name)
 		{
 			const Uptr* symbolValue = importedSymbolMap.get(name.str());
 			if(!symbolValue) { return resolveJITImport(name); }
