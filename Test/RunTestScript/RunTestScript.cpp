@@ -566,7 +566,7 @@ int main(int argc, char** argv)
 	featureSpec.requireSharedFlagForAtomicOperators = true;
 
 	const char* filename = nullptr;
-	for(Uptr argIndex = 1; argIndex < argc; ++argIndex)
+	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "--enable-reference-types"))
 		{
