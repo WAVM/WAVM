@@ -185,8 +185,9 @@ if(ENABLE_RUNTIME)
 	add_subdirectory(Lib/LLVMJIT)
 	add_subdirectory(Lib/Runtime)
 	add_subdirectory(Lib/ThreadTest)
-	add_subdirectory(Programs/wavm)
 	add_subdirectory(Programs/wavix)
+	add_subdirectory(Programs/wavm)
+	add_subdirectory(Programs/wavm-compile)
 endif()
 
 # Create a dummy target to hold various files in the project root

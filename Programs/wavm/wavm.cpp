@@ -121,34 +121,6 @@ struct RootResolver : Resolver
 	}
 };
 
-static bool loadModule(const char* filename, IR::Module& outModule)
-{
-	// Read the specified file into an array.
-	std::vector<U8> fileBytes;
-	if(!loadFile(filename, fileBytes)) { return false; }
-
-	// If the file starts with the WASM binary magic number, load it as a binary module.
-	if(*(U32*)fileBytes.data() == 0x6d736100)
-	{ return loadBinaryModule(fileBytes.data(), fileBytes.size(), outModule); }
-	else
-	{
-		// Make sure the WAST file is null terminated.
-		fileBytes.push_back(0);
-
-		// Load it as a text module.
-		std::vector<WAST::Error> parseErrors;
-		if(!WAST::parseModule(
-			   (const char*)fileBytes.data(), fileBytes.size(), outModule, parseErrors))
-		{
-			Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
-			reportParseErrors(filename, parseErrors);
-			return false;
-		}
-
-		return true;
-	}
-}
-
 struct CommandLineOptions
 {
 	const char* filename = nullptr;
@@ -157,15 +129,42 @@ struct CommandLineOptions
 	bool onlyCheck = false;
 	bool enableEmscripten = true;
 	bool enableThreadTest = false;
+	bool precompiled = false;
 };
 
 static int run(const CommandLineOptions& options)
 {
-	IR::Module module;
+	IR::Module irModule;
 
 	// Load the module.
-	if(!loadModule(options.filename, module)) { return EXIT_FAILURE; }
+	if(!loadModule(options.filename, irModule)) { return EXIT_FAILURE; }
 	if(options.onlyCheck) { return EXIT_SUCCESS; }
+
+	// Compile the module.
+	Runtime::Module* module = nullptr;
+	if(!options.precompiled) { module = Runtime::compileModule(irModule); }
+	else
+	{
+		const UserSection* precompiledObjectSection = nullptr;
+		for(const UserSection& userSection : irModule.userSections)
+		{
+			if(userSection.name == "wavm.precompiled_object")
+			{
+				precompiledObjectSection = &userSection;
+				break;
+			}
+		}
+
+		if(!precompiledObjectSection)
+		{
+			Log::printf(Log::error, "Input file did not contain 'wavm.precompiled_object' section");
+			return EXIT_FAILURE;
+		}
+		else
+		{
+			module = Runtime::loadPrecompiledModule(irModule, precompiledObjectSection->data);
+		}
+	}
 
 	// Link the module with the intrinsic modules.
 	Compartment* compartment = Runtime::createCompartment();
@@ -175,7 +174,7 @@ static int run(const CommandLineOptions& options)
 	Emscripten::Instance* emscriptenInstance = nullptr;
 	if(options.enableEmscripten)
 	{
-		emscriptenInstance = Emscripten::instantiate(compartment, module);
+		emscriptenInstance = Emscripten::instantiate(compartment, irModule);
 		if(emscriptenInstance)
 		{
 			rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
@@ -190,7 +189,7 @@ static int run(const CommandLineOptions& options)
 		rootResolver.moduleNameToInstanceMap.set("threadTest", threadTestInstance);
 	}
 
-	LinkResult linkResult = linkModule(module, rootResolver);
+	LinkResult linkResult = linkModule(irModule, rootResolver);
 	if(!linkResult.success)
 	{
 		Log::printf(Log::error, "Failed to link module:\n");
@@ -206,10 +205,8 @@ static int run(const CommandLineOptions& options)
 	}
 
 	// Instantiate the module.
-	ModuleInstance* moduleInstance = instantiateModule(compartment,
-													   compileModule(module),
-													   std::move(linkResult.resolvedImports),
-													   options.filename);
+	ModuleInstance* moduleInstance = instantiateModule(
+		compartment, module, std::move(linkResult.resolvedImports), options.filename);
 	if(!moduleInstance) { return EXIT_FAILURE; }
 
 	// Call the module start function, if it has one.
@@ -219,7 +216,7 @@ static int run(const CommandLineOptions& options)
 	if(options.enableEmscripten)
 	{
 		// Call the Emscripten global initalizers.
-		Emscripten::initializeGlobals(context, module, moduleInstance);
+		Emscripten::initializeGlobals(context, irModule, moduleInstance);
 	}
 
 	// Look up the function export to call.
@@ -334,6 +331,7 @@ static void showHelp()
 				"  -h|--help             Display this message\n"
 				"  --disable-emscripten  Disable Emscripten intrinsics\n"
 				"  --enable-thread-test  Enable ThreadTest intrinsics\n"
+				"  --precompiled         Use precompiled object code in programfile\n"
 				"  --                    Stop parsing arguments\n");
 }
 
@@ -367,6 +365,10 @@ int main(int argc, char** argv)
 		else if(!strcmp(*options.args, "--enable-thread-test"))
 		{
 			options.enableThreadTest = true;
+		}
+		else if(!strcmp(*options.args, "--precompiled"))
+		{
+			options.precompiled = true;
 		}
 		else if(!strcmp(*options.args, "--"))
 		{

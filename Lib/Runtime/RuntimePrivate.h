@@ -167,50 +167,11 @@ namespace Runtime
 	// A compiled WebAssembly module.
 	struct Module : ObjectImpl
 	{
-		std::vector<IR::FunctionType> types;
+		IR::Module ir;
+		std::vector<U8> objectCode;
 
-		IR::IndexSpace<IR::FunctionType, IR::FunctionType> functions;
-
-		IR::IndexSpace<IR::TableDef, IR::TableType> tables;
-		IR::IndexSpace<IR::MemoryDef, IR::MemoryType> memories;
-		IR::IndexSpace<IR::GlobalDef, IR::GlobalType> globals;
-		IR::IndexSpace<IR::ExceptionTypeDef, IR::ExceptionType> exceptionTypes;
-
-		std::vector<IR::Export> exports;
-		std::vector<IR::DataSegment> dataSegments;
-		std::vector<IR::TableSegment> tableSegments;
-
-		Uptr startFunctionIndex;
-
-		IR::DisassemblyNames disassemblyNames;
-
-		std::vector<U8> objectFileBytes;
-
-		Module(std::vector<IR::FunctionType>&& inTypes,
-			   IR::IndexSpace<IR::FunctionType, IR::FunctionType>&& inFunctions,
-			   IR::IndexSpace<IR::TableDef, IR::TableType>&& inTables,
-			   IR::IndexSpace<IR::MemoryDef, IR::MemoryType>&& inMemories,
-			   IR::IndexSpace<IR::GlobalDef, IR::GlobalType>&& inGlobals,
-			   IR::IndexSpace<IR::ExceptionTypeDef, IR::ExceptionType>&& inExceptionTypes,
-			   std::vector<IR::Export>&& inExports,
-			   std::vector<IR::DataSegment>&& inDataSegments,
-			   std::vector<IR::TableSegment>&& inTableSegments,
-			   Uptr inStartFunctionIndex,
-			   IR::DisassemblyNames&& inDisassemblyNames,
-			   std::vector<U8>&& inObjectFileBytes)
-		: ObjectImpl(ObjectKind::module)
-		, types(std::move(inTypes))
-		, functions(std::move(inFunctions))
-		, tables(std::move(inTables))
-		, memories(std::move(inMemories))
-		, globals(std::move(inGlobals))
-		, exceptionTypes(std::move(inExceptionTypes))
-		, exports(std::move(inExports))
-		, dataSegments(std::move(inDataSegments))
-		, tableSegments(std::move(inTableSegments))
-		, startFunctionIndex(inStartFunctionIndex)
-		, disassemblyNames(std::move(inDisassemblyNames))
-		, objectFileBytes(std::move(inObjectFileBytes))
+		Module(IR::Module&& inIR, std::vector<U8>&& inObjectCode)
+		: ObjectImpl(ObjectKind::module), ir(inIR), objectCode(std::move(inObjectCode))
 		{
 		}
 	};

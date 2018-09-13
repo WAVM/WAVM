@@ -336,8 +336,17 @@ namespace Runtime
 		std::vector<ExceptionTypeInstance*> exceptionTypes;
 	};
 
-	// Compiles an IR module to native code.
+	// Compiles an IR module to object code.
 	RUNTIME_API Module* compileModule(const IR::Module& irModule);
+
+	// Extracts the compiled object code for a module. This may be used as an input to
+	// loadPrecompiledModule to bypass redundant compilations of the module.
+	RUNTIME_API std::vector<U8> getObjectCode(Module* module);
+
+	// Loads a previously compiled module from a combination of an IR module and the object code
+	// returned by getObjectCode for the previously compiled module.
+	RUNTIME_API Module* loadPrecompiledModule(const IR::Module& irModule,
+											  const std::vector<U8>& objectCode);
 
 	// Instantiates a compiled module, bindings its imports to the specified objects. May throw a
 	// runtime exception for bad segment offsets.
