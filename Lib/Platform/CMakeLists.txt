@@ -19,6 +19,7 @@ set(PublicHeaders
 
 if(MSVC)
 	set(Sources ${POSIXSources} ${WindowsSources})
+	set_source_files_properties(${POSIXSources} PROPERTIES HEADER_FILE_ONLY TRUE)
 	enable_language(ASM_MASM)
 else()
 	set(Sources ${POSIXSources})
