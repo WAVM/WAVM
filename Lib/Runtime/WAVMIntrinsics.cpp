@@ -200,6 +200,36 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	throwException(Exception::invalidFloatOperationType);
 }
 
+static thread_local Uptr indentLevel = 0;
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "debugEnterFunction",
+						  void,
+						  debugEnterFunction,
+						  AnyFunc* anyFunc)
+{
+	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(anyFunc->anyRef.object);
+	Log::printf(Log::debug,
+				"ENTER: %*s\n",
+				U32(indentLevel * 4 + function->debugName.size()),
+				function->debugName.c_str());
+	++indentLevel;
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "debugExitFunction",
+						  void,
+						  debugExitFunction,
+						  AnyFunc* anyFunc)
+{
+	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(anyFunc->anyRef.object);
+	--indentLevel;
+	Log::printf(Log::debug,
+				"EXIT:  %*s\n",
+				U32(indentLevel * 4 + function->debugName.size()),
+				function->debugName.c_str());
+}
+
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)
 {
 	Log::printf(Log::debug, "================== wavmIntrinsics.debugBreak\n");
