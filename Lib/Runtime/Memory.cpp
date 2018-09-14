@@ -108,6 +108,9 @@ MemoryInstance* Runtime::cloneMemory(MemoryInstance* memory, Compartment* newCom
 		newCompartment->runtimeData->memoryBases[newMemory->id] = newMemory->baseAddress;
 	}
 
+	// Copy the memory contents to the new memory.
+	memcpy(newMemory->baseAddress, memory->baseAddress, memory->numPages * IR::numBytesPerPage);
+
 	return newMemory;
 }
 
