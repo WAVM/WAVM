@@ -147,7 +147,11 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 	traceSyscallf("open", "(%08x=>\"%s\", 0x%x, %u)", pathAddress, pathString.c_str(), flags, mode);
 
 	Path path;
-	if(!parsePath(pathString, path)) { return -1; }
+	if(!parsePath(pathString, path))
+	{
+		traceSyscallReturnf("open", "ENOENT (couldn't parse path)");
+		return -ErrNo::enoent;
+	}
 
 	std::string cwd;
 	{
@@ -164,7 +168,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 	case OpenFlags::readOnly: platformAccessMode = Platform::FileAccessMode::readOnly; break;
 	case OpenFlags::writeOnly: platformAccessMode = Platform::FileAccessMode::writeOnly; break;
 	case OpenFlags::readWrite: platformAccessMode = Platform::FileAccessMode::readWrite; break;
-	default: return -1;
+	default: traceSyscallReturnf("open", "EINVAL (invalid flags)"); return -ErrNo::einval;
 	};
 
 	Platform::FileCreateMode platformCreateMode;
@@ -193,15 +197,21 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 
 	Platform::File* platformFile
 		= Platform::openFile(pathString, platformAccessMode, platformCreateMode);
-	if(!platformFile) { return -1; }
+	if(!platformFile)
+	{
+		traceSyscallReturnf("open", "EACCESS (Platform::openFile failed)");
+		return -ErrNo::eacces;
+	}
 
 	Lock<Platform::Mutex> fileLock(currentProcess->filesMutex);
 	I32 fd = currentProcess->files.add(-1, platformFile);
 	if(fd == -1)
 	{
 		Platform::closeFile(platformFile);
-		return -1;
+		traceSyscallReturnf("open", "EMFILE (exhausted fd index space)");
+		return -ErrNo::emfile;
 	}
+	traceSyscallReturnf("open", "%i", fd);
 	return fd;
 }
 
@@ -328,11 +338,17 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 	Platform::File* platformFile = currentProcess->files[fd];
 	if(!platformFile) { throwException(Exception::calledUnimplementedIntrinsicType); }
 
+	if(isTracingSyscalls) { Log::printf(Log::debug, "IOVs:\n"); }
+
 	const IoVec* ios = memoryArrayPtr<const IoVec>(memory, iosAddress, numIos);
 	Uptr numReadBytes = 0;
 	for(U32 ioIndex = 0; ioIndex < U32(numIos); ++ioIndex)
 	{
 		const IoVec io = ios[ioIndex];
+
+		if(isTracingSyscalls)
+		{ Log::printf(Log::debug, "  [%u] 0x%x, %u bytes\n", ioIndex, io.address, io.numBytes); }
+
 		if(io.numBytes)
 		{
 			U8* ioData = memoryArrayPtr<U8>(memory, io.address, io.numBytes);
@@ -763,6 +779,6 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 		winSize.ws_ypixel = 600;
 		return 0;
 	}
-	default: return ErrNo::einval;
+	default: return -ErrNo::einval;
 	};
 }

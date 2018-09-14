@@ -449,7 +449,7 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 	// Load the module.
 	ModuleInstance* moduleInstance
 		= loadModule(currentProcess, (sysroot + "/" + pathString).c_str());
-	if(!moduleInstance) { return Wavix::ErrNo::enoent; }
+	if(!moduleInstance) { return -ErrNo::enoent; }
 
 	// Execute the module in a new thread.
 	Thread* mainThread = executeModule(currentProcess, moduleInstance);
