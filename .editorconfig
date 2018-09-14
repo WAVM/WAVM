@@ -1,5 +1,5 @@
 root = true
 
-[*.{c,cpp,S,asm}]
+[*.{c,cpp,h,S,asm}]
 indent_style = tab
 indent_size = 4
