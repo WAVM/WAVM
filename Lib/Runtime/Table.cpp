@@ -332,31 +332,39 @@ Object* Runtime::setTableElement(TableInstance* table,
 	wavmAssert(!intrinsicDefaultMemory || intrinsicDefaultMemory->compartment == compartment);
 	wavmAssert(!intrinsicDefaultTable || intrinsicDefaultTable->compartment == compartment);
 
-	// Look up the new function's code pointer.
-	FunctionInstance* functionInstance = asFunction(newValue);
-	void* nativeFunction = functionInstance->nativeFunction;
-	wavmAssert(nativeFunction);
-
-	// If the function isn't a WASM function, generate a thunk for it.
-	if(functionInstance->callingConvention != IR::CallingConvention::wasm)
+	AnyReferee* anyRef;
+	if(!newValue) { anyRef = &getUninitializedAnyFunc()->anyRef; }
+	else
 	{
-		nativeFunction = LLVMJIT::getIntrinsicThunk(
-			nativeFunction,
-			functionInstance,
-			functionInstance->type,
-			functionInstance->callingConvention,
-			LLVMJIT::MemoryBinding{intrinsicDefaultMemory ? intrinsicDefaultMemory->id
-														  : UINTPTR_MAX},
-			LLVMJIT::TableBinding{intrinsicDefaultTable ? intrinsicDefaultTable->id : UINTPTR_MAX});
+		// Look up the new function's code pointer.
+		FunctionInstance* functionInstance = asFunction(newValue);
+		void* nativeFunction = functionInstance->nativeFunction;
+		wavmAssert(nativeFunction);
+
+		// If the function isn't a WASM function, generate a thunk for it.
+		if(functionInstance->callingConvention != IR::CallingConvention::wasm)
+		{
+			nativeFunction = LLVMJIT::getIntrinsicThunk(
+				nativeFunction,
+				functionInstance,
+				functionInstance->type,
+				functionInstance->callingConvention,
+				LLVMJIT::MemoryBinding{intrinsicDefaultMemory ? intrinsicDefaultMemory->id
+															  : UINTPTR_MAX},
+				LLVMJIT::TableBinding{intrinsicDefaultTable ? intrinsicDefaultTable->id
+															: UINTPTR_MAX});
+		}
+
+		// Get the pointer to the AnyFunc struct that is emitted as a prefix to the function's code.
+		AnyFunc* anyFunc = (AnyFunc*)((U8*)nativeFunction - offsetof(AnyFunc, code));
+		wavmAssert(anyFunc->anyRef.object == functionInstance);
+		wavmAssert(IR::FunctionType{anyFunc->functionTypeEncoding} == functionInstance->type);
+
+		anyRef = &anyFunc->anyRef;
 	}
 
-	// Get the pointer to the Anyfunc struct that is emitted as a prefix to the function's code.
-	AnyFunc* anyFunc = (AnyFunc*)((U8*)nativeFunction - offsetof(AnyFunc, code));
-	wavmAssert(anyFunc->anyRef.object == functionInstance);
-	wavmAssert(IR::FunctionType{anyFunc->functionTypeEncoding} == functionInstance->type);
-
 	// Write the table element.
-	AnyReferee* oldAnyRef = setTableElementAnyRef(table, index, &anyFunc->anyRef);
+	AnyReferee* oldAnyRef = setTableElementAnyRef(table, index, anyRef);
 
 	// Translate the old table element to an object pointer to return. If the old table element was
 	// the uninitialized sentinel value, return null.
@@ -462,12 +470,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	const Uptr saturatedIndex
-		= Platform::saturateToBounds(Uptr(index), table->numReservedElements - 1);
-	if(index >= table->numReservedElements)
-	{ throwException(Exception::tableIndexOutOfBoundsType); }
-	table->elements[saturatedIndex].biasedValue.store(anyRefToBiasedTableElementValue(value),
-													  std::memory_order_release);
+	setTableElementAnyRef(table, index, value ? value : &getUninitializedAnyFunc()->anyRef);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
