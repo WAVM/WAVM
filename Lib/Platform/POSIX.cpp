@@ -268,16 +268,16 @@ void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 {
 	errorUnless(isPageAligned(baseVirtualAddress));
 	auto numBytes = numPages << getPageSizeLog2();
-	if(madvise(baseVirtualAddress, numBytes, MADV_DONTNEED))
+	if(mprotect(baseVirtualAddress, numBytes, PROT_NONE))
 	{
-		Errors::fatalf("madvise(0x%" PRIxPTR ", %u, MADV_DONTNEED) failed! errno=%s",
+		Errors::fatalf("mprotect(0x%" PRIxPTR ", %u, PROT_NONE) failed! errno=%s",
 					   reinterpret_cast<Uptr>(baseVirtualAddress),
 					   numBytes,
 					   strerror(errno));
 	}
-	if(mprotect(baseVirtualAddress, numBytes, PROT_NONE))
+	if(madvise(baseVirtualAddress, numBytes, MADV_DONTNEED))
 	{
-		Errors::fatalf("mprotect(0x%" PRIxPTR ", %u, PROT_NONE) failed! errno=%s",
+		Errors::fatalf("madvise(0x%" PRIxPTR ", %u, MADV_DONTNEED) failed! errno=%s",
 					   reinterpret_cast<Uptr>(baseVirtualAddress),
 					   numBytes,
 					   strerror(errno));

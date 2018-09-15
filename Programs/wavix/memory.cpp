@@ -63,9 +63,6 @@ DEFINE_INTRINSIC_FUNCTION(wavix,
 
 	if(basePageIndex + numPages > getMemoryMaxPages(memory)) { return -ErrNo::einval; }
 
-	if(basePageIndex + numPages > getMemoryNumPages(memory))
-	{ growMemory(memory, basePageIndex + numPages - getMemoryNumPages(memory)); }
-
 	unmapMemoryPages(memory, basePageIndex, numPages);
 
 	return 0;

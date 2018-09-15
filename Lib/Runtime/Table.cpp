@@ -69,9 +69,7 @@ static AnyReferee* biasedTableElementValueToAnyRef(Uptr biasedValue)
 
 Uptr TableInstance::getReferenceBias() { return reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()); }
 
-static TableInstance* createTableImpl(Compartment* compartment,
-									  IR::TableType type,
-									  Uptr numElements)
+static TableInstance* createTableImpl(Compartment* compartment, IR::TableType type)
 {
 	TableInstance* table = new TableInstance(compartment, type);
 
@@ -92,13 +90,6 @@ static TableInstance* createTableImpl(Compartment* compartment,
 		return nullptr;
 	}
 
-	// Grow the table to the type's minimum size.
-	if(growTable(table, Uptr(type.size.min)) == -1)
-	{
-		delete table;
-		return nullptr;
-	}
-
 	// Add the table to the global array.
 	{
 		Lock<Platform::Mutex> tablesLock(tablesMutex);
@@ -107,11 +98,60 @@ static TableInstance* createTableImpl(Compartment* compartment,
 	return table;
 }
 
+static Iptr growTableImpl(TableInstance* table, Uptr numElementsToGrow, bool initializeNewElements)
+{
+	if(!numElementsToGrow) { return table->numElements.load(std::memory_order_acquire); }
+
+	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+
+	const Uptr previousNumElements = table->numElements.load(std::memory_order_acquire);
+
+	// If the growth would cause the table's size to exceed its maximum, return -1.
+	if(numElementsToGrow > table->type.size.max
+	   || previousNumElements > table->type.size.max - numElementsToGrow
+	   || numElementsToGrow > IR::maxTableElems
+	   || previousNumElements > IR::maxTableElems - numElementsToGrow)
+	{ return -1; }
+
+	// Try to commit pages for the new elements, and return -1 if the commit fails.
+	const Uptr newNumElements = previousNumElements + numElementsToGrow;
+	const Uptr previousNumPlatformPages
+		= getNumPlatformPages(previousNumElements * sizeof(TableInstance::Element));
+	const Uptr newNumPlatformPages
+		= getNumPlatformPages(newNumElements * sizeof(TableInstance::Element));
+	if(newNumPlatformPages != previousNumPlatformPages
+	   && !Platform::commitVirtualPages(
+			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+			  newNumPlatformPages - previousNumPlatformPages))
+	{ return -1; }
+
+	if(initializeNewElements)
+	{
+		// Write the uninitialized sentinel value to the new elements.
+		for(Uptr elementIndex = previousNumElements; elementIndex < newNumElements; ++elementIndex)
+		{
+			table->elements[elementIndex].biasedValue.store(
+				anyRefToBiasedTableElementValue(&getUninitializedAnyFunc()->anyRef),
+				std::memory_order_release);
+		}
+	}
+
+	table->numElements.store(newNumElements, std::memory_order_release);
+	return previousNumElements;
+}
+
 TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type)
 {
 	wavmAssert(type.size.min <= UINTPTR_MAX);
-	TableInstance* table = createTableImpl(compartment, type, Uptr(type.size.min));
+	TableInstance* table = createTableImpl(compartment, type);
 	if(!table) { return nullptr; }
+
+	// Grow the table to the type's minimum size.
+	if(growTableImpl(table, Uptr(type.size.min), true) == -1)
+	{
+		delete table;
+		return nullptr;
+	}
 
 	// Add the table to the compartment's tables IndexMap.
 	{
@@ -131,18 +171,30 @@ TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type
 
 TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompartment)
 {
-	const Uptr initialNumElements = table->numElements;
-	TableInstance* newTable = createTableImpl(newCompartment, table->type, initialNumElements);
+	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
+
+	// Create the new table.
+	const Uptr numElements = table->numElements.load(std::memory_order_acquire);
+	TableInstance* newTable = createTableImpl(newCompartment, table->type);
 	if(!newTable) { return nullptr; }
 
-	newTable->id = table->id;
-	for(Uptr elementIndex = 0;
-		elementIndex < table->numElements && elementIndex < initialNumElements;
-		++elementIndex)
+	// Grow the table to the same size as the original, without initializing the new elements since
+	// they will be written immediately following this.
+	if(growTableImpl(newTable, numElements, false) == -1)
 	{
-		newTable->elements[elementIndex].biasedValue
-			= table->elements[elementIndex].biasedValue.load();
+		delete newTable;
+		return nullptr;
 	}
+
+	// Copy the original table's elements to the new table.
+	for(Uptr elementIndex = 0; elementIndex < numElements; ++elementIndex)
+	{
+		newTable->elements[elementIndex].biasedValue.store(
+			table->elements[elementIndex].biasedValue.load(std::memory_order_acquire),
+			std::memory_order_release);
+	}
+
+	resizingLock.unlock();
 
 	// Insert the table in the new compartment's tables array with the same index as it had in the
 	// original compartment's tables IndexMap.
@@ -170,6 +222,19 @@ void TableInstance::finalize()
 
 TableInstance::~TableInstance()
 {
+	// Remove the table from the global array.
+	{
+		Lock<Platform::Mutex> tablesLock(tablesMutex);
+		for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
+		{
+			if(tables[tableIndex] == this)
+			{
+				tables.erase(tables.begin() + tableIndex);
+				break;
+			}
+		}
+	}
+
 	// Decommit all pages.
 	if(numElements > 0)
 	{
@@ -185,20 +250,7 @@ TableInstance::~TableInstance()
 								   (numReservedBytes >> pageBytesLog2) + numGuardPages);
 	}
 	elements = nullptr;
-	numReservedBytes = numReservedElements = 0;
-
-	// Remove the table from the global array.
-	{
-		Lock<Platform::Mutex> tablesLock(tablesMutex);
-		for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
-		{
-			if(tables[tableIndex] == this)
-			{
-				tables.erase(tables.begin() + tableIndex);
-				break;
-			}
-		}
-	}
+	numElements = numReservedBytes = numReservedElements = 0;
 }
 
 bool Runtime::isAddressOwnedByTable(U8* address)
@@ -237,7 +289,7 @@ static AnyReferee* setTableElementAnyRef(TableInstance* table, Uptr index, AnyRe
 		if(biasedTableElementValueToAnyRef(oldBiasedValue) == &getOutOfBoundsAnyFunc()->anyRef)
 		{ throwException(Exception::tableIndexOutOfBoundsType); }
 		if(table->elements[saturatedIndex].biasedValue.compare_exchange_weak(
-			   oldBiasedValue, biasedValue, std::memory_order_seq_cst))
+			   oldBiasedValue, biasedValue, std::memory_order_acq_rel))
 		{ break; }
 	};
 
@@ -256,7 +308,8 @@ static AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
 		= Platform::saturateToBounds(index, U64(table->numReservedElements) - 1);
 
 	// Read the table element.
-	const Uptr biasedValue = table->elements[saturatedIndex].biasedValue;
+	const Uptr biasedValue
+		= table->elements[saturatedIndex].biasedValue.load(std::memory_order_acquire);
 	AnyReferee* anyRef = biasedTableElementValueToAnyRef(biasedValue);
 
 	// If the element was an out-of-bounds sentinel value, throw an out-of-bounds exception.
@@ -333,53 +386,23 @@ Object* Runtime::getTableElement(TableInstance* table, Uptr index)
 	}
 }
 
-Uptr Runtime::getTableNumElements(TableInstance* table) { return table->numElements; }
+Uptr Runtime::getTableNumElements(TableInstance* table)
+{
+	return table->numElements.load(std::memory_order_acquire);
+}
 
 Iptr Runtime::growTable(TableInstance* table, Uptr numNewElements)
 {
-	if(!numNewElements) { return table->numElements; }
-
-	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
-	const Uptr previousNumElements = table->numElements;
-
-	// If the number of elements to grow would cause the table's size to exceed its maximum,
-	// return -1.
-	if(numNewElements > table->type.size.max
-	   || table->numElements > table->type.size.max - numNewElements)
-	{ return -1; }
-
-	// Try to commit pages for the new elements, and return -1 if the commit fails.
-	const Uptr previousNumPlatformPages
-		= getNumPlatformPages(table->numElements * sizeof(TableInstance::Element));
-	const Uptr newNumPlatformPages = getNumPlatformPages((table->numElements + numNewElements)
-														 * sizeof(TableInstance::Element));
-	if(newNumPlatformPages != previousNumPlatformPages
-	   && !Platform::commitVirtualPages(
-			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-			  newNumPlatformPages - previousNumPlatformPages))
-	{ return -1; }
-
-	// Write the uninitialized sentinel value to the new elements.
-	for(Uptr elementIndex = previousNumElements;
-		elementIndex < previousNumElements + numNewElements;
-		++elementIndex)
-	{
-		table->elements[elementIndex].biasedValue
-			= anyRefToBiasedTableElementValue(&getUninitializedAnyFunc()->anyRef);
-	}
-
-	table->numElements += numNewElements;
-	wavmAssert(table->numElements == previousNumElements + numNewElements);
-
-	return previousNumElements;
+	return growTableImpl(table, numNewElements, true);
 }
 
 Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 {
-	if(!numElementsToShrink) { return table->numElements; }
+	if(!numElementsToShrink) { return table->numElements.load(std::memory_order_acquire); }
 
 	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
-	const Uptr previousNumElements = table->numElements;
+
+	const Uptr previousNumElements = table->numElements.load(std::memory_order_acquire);
 
 	// If the number of elements to shrink would cause the table's size to drop below its minimum,
 	// return -1.
@@ -392,7 +415,7 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 	const Uptr previousNumPlatformPages
 		= getNumPlatformPages(previousNumElements * sizeof(TableInstance::Element));
 	const Uptr newNumPlatformPages
-		= getNumPlatformPages(previousNumElements * sizeof(TableInstance::Element));
+		= getNumPlatformPages(newNumElements * sizeof(TableInstance::Element));
 	if(newNumPlatformPages != previousNumPlatformPages)
 	{
 		Platform::decommitVirtualPages(
@@ -409,13 +432,13 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 		for(Uptr elementIndex = numCommittedIndices - 1; elementIndex > newNumElements;
 			--elementIndex)
 		{
-			table->elements[elementIndex].biasedValue
-				= anyRefToBiasedTableElementValue(&getOutOfBoundsAnyFunc()->anyRef);
+			table->elements[elementIndex].biasedValue.store(
+				anyRefToBiasedTableElementValue(&getOutOfBoundsAnyFunc()->anyRef),
+				std::memory_order_release);
 		}
 	}
 
-	table->numElements = newNumElements;
-
+	table->numElements.store(newNumElements, std::memory_order_release);
 	return previousNumElements;
 }
 
@@ -443,7 +466,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		= Platform::saturateToBounds(Uptr(index), table->numReservedElements - 1);
 	if(index >= table->numReservedElements)
 	{ throwException(Exception::tableIndexOutOfBoundsType); }
-	table->elements[saturatedIndex].biasedValue = anyRefToBiasedTableElementValue(value);
+	table->elements[saturatedIndex].biasedValue.store(anyRefToBiasedTableElementValue(value),
+													  std::memory_order_release);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
