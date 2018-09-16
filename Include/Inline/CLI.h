@@ -144,7 +144,7 @@ inline bool loadModule(const char* filename, IR::Module& outModule)
 	if(!loadFile(filename, fileBytes)) { return false; }
 
 	// If the file starts with the WASM binary magic number, load it as a binary irModule.
-	if(*(U32*)fileBytes.data() == 0x6d736100)
+	if(fileBytes.size() >= 4 && *(U32*)fileBytes.data() == 0x6d736100)
 	{ return loadBinaryModule(fileBytes.data(), fileBytes.size(), outModule); }
 	else
 	{
