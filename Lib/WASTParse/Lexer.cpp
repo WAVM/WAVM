@@ -16,6 +16,9 @@
 #include "RegExp/RegExp.h"
 #include "WASTParse/WASTParse.h"
 
+#define DUMP_NFA_GRAPH 0
+#define DUMP_DFA_GRAPH 0
+
 using namespace WAST;
 
 namespace WAST
@@ -147,7 +150,7 @@ StaticData::StaticData()
 		addLiteralToNFA(literalString, nfaBuilder, 0, finalState);
 	}
 
-	if(WAVM_DEBUG)
+	if(DUMP_NFA_GRAPH)
 	{
 		std::string nfaGraphVizString = NFA::dumpNFAGraphViz(nfaBuilder);
 		errorUnless(saveFile("nfaGraph.dot", nfaGraphVizString.data(), nfaGraphVizString.size()));
@@ -155,7 +158,7 @@ StaticData::StaticData()
 
 	nfaMachine = NFA::Machine(nfaBuilder);
 
-	if(WAVM_DEBUG)
+	if(DUMP_DFA_GRAPH)
 	{
 		std::string dfaGraphVizString = nfaMachine.dumpDFAGraphViz().c_str();
 		errorUnless(saveFile("dfaGraph.dot", dfaGraphVizString.data(), dfaGraphVizString.size()));
