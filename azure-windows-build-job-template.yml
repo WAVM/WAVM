@@ -37,5 +37,5 @@ jobs:
 
     - script: ctest -j%NUMBER_OF_PROCESSORS% -C %buildConfiguration% -V
       workingDirectory: $(Build.ArtifactStagingDirectory)/build
-	  env:
-	    buildConfiguration: ${{ parameters.buildConfiguration }}
+      env:
+        buildConfiguration: ${{ parameters.buildConfiguration }}
