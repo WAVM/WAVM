@@ -35,6 +35,7 @@ jobs:
         platform: x64
         configuration: ${{ parameters.buildConfiguration }}
 
-    - script: |
-        cd $(Build.ArtifactStagingDirectory)/build
-        ctest -j%NUMBER_OF_PROCESSORS% -C ${{ parameters.buildConfiguration }} -V
+    - script: ctest -j%NUMBER_OF_PROCESSORS% -C %buildConfiguration% -V
+      workingDirectory: $(Build.ArtifactStagingDirectory)/build
+	  env:
+	    buildConfiguration: ${{ parameters.buildConfiguration }}
