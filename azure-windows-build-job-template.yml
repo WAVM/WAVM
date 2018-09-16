@@ -12,6 +12,7 @@ jobs:
 
     steps:
     - script: git clone -b release_60 https://github.com/llvm-mirror/llvm $(Build.ArtifactStagingDirectory)/llvm
+      displayName: Clone LLVM
 
     - task: CMake@1
       displayName: Configure LLVM
