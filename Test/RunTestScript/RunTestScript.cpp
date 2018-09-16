@@ -554,7 +554,7 @@ DEFINE_INTRINSIC_MEMORY(spectest,
 static void showHelp()
 {
 	Log::printf(Log::error,
-				"Usage: Test [options] in.wast [options]\n"
+				"Usage: RunTestScript [options] in.wast [options]\n"
 				"  -h|--help                 Display this message\n"
 				"  --enable-reference-types  Enable the reference-types extension\n");
 }
