@@ -250,21 +250,23 @@ static int run(const CommandLineOptions& options)
 	{
 		if(functionType.params().size() == 2)
 		{
-			MemoryInstance* defaultMemory = Runtime::getDefaultMemory(moduleInstance);
-			if(!defaultMemory)
+			if(!emscriptenInstance)
 			{
 				Log::printf(
 					Log::error,
 					"Module does not declare a default memory object to put arguments in.\n");
 				return EXIT_FAILURE;
 			}
+			else
+			{
+				std::vector<const char*> argStrings;
+				argStrings.push_back(options.filename);
+				char** args = options.args;
+				while(*args) { argStrings.push_back(*args++); };
 
-			std::vector<const char*> argStrings;
-			argStrings.push_back(options.filename);
-			char** args = options.args;
-			while(*args) { argStrings.push_back(*args++); };
-
-			Emscripten::injectCommandArgs(emscriptenInstance, argStrings, invokeArgs);
+				wavmAssert(emscriptenInstance);
+				Emscripten::injectCommandArgs(emscriptenInstance, argStrings, invokeArgs);
+			}
 		}
 		else if(functionType.params().size() > 0)
 		{
