@@ -20,10 +20,8 @@ addons:
 script: Build/travis-build.sh
 
 # Notify Discord when a build completes.
-after_success:
-  - Build/notify_discord.sh success $DISCORD_WEBHOOK_URL
-after_failure:
-  - Build/notify_discord.sh failure $DISCORD_WEBHOOK_URL
+after_success: Build/notify-discord.sh success $DISCORD_WEBHOOK_URL
+after_failure: Build/notify-discord.sh failure $DISCORD_WEBHOOK_URL
 
 # Build configuration matrix
 matrix:
