@@ -37,4 +37,4 @@ jobs:
 
     - script: |
         cd $(Build.ArtifactStagingDirectory)/build
-        ctest -V
+        ctest -j%NUMBER_OF_PROCESSORS% -C ${{ parameters.buildConfiguration }} -V
