@@ -156,7 +156,6 @@ void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
 	Lock<Platform::Mutex> lock(getErrorReportingMutex());
 	std::vfprintf(stderr, messageFormat, varArgs);
 	std::fflush(stderr);
-	dumpErrorCallStack(3);
 	std::abort();
 }
 
