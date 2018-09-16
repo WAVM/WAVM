@@ -145,7 +145,7 @@ endif()
 
 option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 
-option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" ON)
+option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 
 if(NOT ENABLE_STATIC_LINKING AND MSVC)
 	add_definitions("-DDLL_EXPORT=__declspec(dllexport)")
