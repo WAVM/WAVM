@@ -17,17 +17,13 @@ addons:
    - clang-5.0
 
 # Defer the actual build script to travis-build.sh
-script: ./travis-build.sh
+script: Build/travis-build.sh
 
 # Notify Discord when a build completes.
 after_success:
-  - wget https://raw.githubusercontent.com/k3rn31p4nic/travis-ci-discord-webhook/7a59c258a574ed1af06994365786a4446a03249d/send.sh
-  - chmod +x send.sh
-  - ./send.sh success $DISCORD_WEBHOOK_URL
+  - Build/notify_discord.sh success $DISCORD_WEBHOOK_URL
 after_failure:
-  - wget https://raw.githubusercontent.com/k3rn31p4nic/travis-ci-discord-webhook/7a59c258a574ed1af06994365786a4446a03249d/send.sh
-  - chmod +x send.sh
-  - ./send.sh failure $DISCORD_WEBHOOK_URL
+  - Build/notify_discord.sh failure $DISCORD_WEBHOOK_URL
 
 # Build configuration matrix
 matrix:

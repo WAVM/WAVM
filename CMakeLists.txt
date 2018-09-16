@@ -211,9 +211,10 @@ add_custom_target(RootFiles SOURCES
 	.clang-format
 	.travis.yml
 	azure-pipelines.yml
-	azure-windows-build-job-template.yml
+	Build/azure-windows-build-job-template.yml
+	Build/notify-discord.sh
+	Build/travis-build.sh
 	LICENSE.md
 	README.md
 	run-clang-format.sh
-	travis-build.sh
 	WebAssembly.tmLanguage)
