@@ -55,7 +55,7 @@ void EmitFunctionContext::table_set(TableImm imm)
 		FunctionType({}, TypeTuple({ValueType::i32, ValueType::anyref, inferValueType<Uptr>()})),
 		{index,
 		 value,
-		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])})[0];
+		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
 }
 
 void EmitFunctionContext::table_init(ElemSegmentAndTableImm imm)
