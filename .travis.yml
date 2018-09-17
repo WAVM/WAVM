@@ -6,18 +6,18 @@ osx_image: xcode9.3beta
 
 # Linux configuration
 addons:
- apt:
-  sources:
-   - llvm-toolchain-trusty-5.0
-   - ubuntu-toolchain-r-test
-  packages:
-   - gcc-7
-   - g++-7
-   - libedit-dev
-   - clang-5.0
+  apt:
+    sources:
+      - llvm-toolchain-trusty-5.0
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-7
+      - g++-7
+      - libedit-dev
+      - clang-5.0
 
-# Defer the actual build script to travis-build.sh
-script: Build/travis-build.sh
+# Defer the actual build script to build.sh
+script: Build/build.sh
 
 stages:
   - build
@@ -34,13 +34,13 @@ jobs:
       os: osx
       compiler: clang
       env: ENABLE_RUNTIME=YES ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
-    
+
     - stage: build
       name: "Linux/GCC"
       os: linux
       compiler: gcc
       env: ENABLE_RUNTIME=NO ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
-    
+
     - stage: build
       name: "Linux/Clang"
       os: linux

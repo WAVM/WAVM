@@ -225,7 +225,7 @@ add_custom_target(RootFiles SOURCES
 	azure-pipelines.yml
 	Build/azure-windows-build-job-template.yml
 	Build/notify-discord.sh
-	Build/travis-build.sh
+	Build/build.sh
 	LICENSE.md
 	README.md
 	run-clang-format.sh

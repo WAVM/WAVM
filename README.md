@@ -10,9 +10,12 @@ This is a standalone VM for WebAssembly. It can load both the standard binary fo
 
 # Building and running it
 
-To build it, you'll need CMake and [LLVM 6.0](http://llvm.org/releases/download.html#6.0.0). If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable. Note that on Windows, you must compile LLVM from source, and manually point the LLVM_DIR configuration variable at `<LLVM build directory>\lib\cmake\llvm`.
+To build it, you'll need CMake and [LLVM 6.0](http://llvm.org/releases/download.html#6.0.0).
+You can execute the `./Build/build.sh` script, that will automatically pull `llvm6` and build the project.
 
-### Building WAVM on Windows 
+If CMake can't find your LLVM directory, you can manually give it the location in the LLVM_DIR CMake configuration variable. Note that on Windows, you must compile LLVM from source, and manually point the LLVM_DIR configuration variable at `<LLVM build directory>\lib\cmake\llvm`.
+
+### Building WAVM on Windows
 
 **1.) Install the [Visual Studio C++ Build Tools for Visual Studio 2015 or 2017](http://landinghub.visualstudio.com/visual-cpp-build-tools)**
 
@@ -46,6 +49,7 @@ The output binaries should be located in `wavm_build\bin`
 I've tested it on Windows with Visual C++ 2015/2017, Linux with GCC and clang, and MacOS with Xcode/clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
 
 The primary executable is `wavm`:
+
 ```
 Usage: wavm [switches] [programfile] [--] [arguments]
   in.wast|in.wasm		Specify program file (.wast/.wasm)
@@ -55,7 +59,7 @@ Usage: wavm [switches] [programfile] [--] [arguments]
   --				Stop parsing arguments
 ```
 
-`wavm` will load a WebAssembly file and call `main` (or a specified function).  Example programs to try without changing any code include those found in the Examples and Test/spec directory such as the following:
+`wavm` will load a WebAssembly file and call `main` (or a specified function). Example programs to try without changing any code include those found in the Examples and Test/spec directory such as the following:
 
 ```
 wavm Examples/helloworld.wast
@@ -63,7 +67,7 @@ wavm Examples/Benchmark/Benchmark.wast
 wavm Examples/zlib.wast
 ```
 
-WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments.  If the same main function returns a i32 type it will become the exit code.  WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr.  See [echo.wast](Examples/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
+WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments. If the same main function returns a i32 type it will become the exit code. WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr. See [echo.wast](Examples/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
 
 There are a few additional executables that can be used to assemble the WAST file into a binary:
 
