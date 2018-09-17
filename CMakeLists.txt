@@ -154,6 +154,12 @@ else()
 	option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 endif()
 
+if(ENABLE_RUNTIME)
+	add_definitions("-DENABLE_RUNTIME=1")
+else()
+	add_definitions("-DENABLE_RUNTIME=0")
+endif()
+
 option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 
 if(NOT ENABLE_STATIC_LINKING AND MSVC)
