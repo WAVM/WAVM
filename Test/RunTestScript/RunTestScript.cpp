@@ -20,6 +20,7 @@
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
+#include "Runtime/RuntimeData.h"
 #include "ThreadTest/ThreadTest.h"
 #include "WASTParse/TestScript.h"
 #include "WASTParse/WASTParse.h"
@@ -362,6 +363,24 @@ static void processCommand(TestScriptState& state, const Command* command)
 		}
 		break;
 	}
+	case Command::assert_return_func:
+	{
+		auto assertCommand = (AssertReturnNaNCommand*)command;
+		// Execute the action and check that the result is a function.
+		IR::ValueTuple actionResults;
+		if(processAction(state, assertCommand->action.get(), actionResults))
+		{
+			if(actionResults.size() != 1 || !isReferenceType(actionResults[0].type)
+			   || !asFunctionNullable(actionResults[0].anyRef->object))
+			{
+				testErrorf(state,
+						   assertCommand->locus,
+						   "expected single reference result but got %s",
+						   asString(actionResults).c_str());
+			}
+		}
+		break;
+	}
 	case Command::assert_trap:
 	{
 		auto assertCommand = (AssertTrapCommand*)command;
@@ -555,8 +574,7 @@ static void showHelp()
 {
 	Log::printf(Log::error,
 				"Usage: RunTestScript [options] in.wast [options]\n"
-				"  -h|--help                 Display this message\n"
-				"  --enable-reference-types  Enable the reference-types extension\n");
+				"  -h|--help                 Display this message\n");
 }
 
 int main(int argc, char** argv)
@@ -568,12 +586,7 @@ int main(int argc, char** argv)
 	const char* filename = nullptr;
 	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
-		if(!strcmp(argv[argIndex], "--enable-reference-types"))
-		{
-			errorUnless(!featureSpec.referenceTypes);
-			featureSpec.referenceTypes = true;
-		}
-		else if(!strcmp(argv[argIndex], "--help") || !strcmp(argv[argIndex], "-h"))
+		if(!strcmp(argv[argIndex], "--help") || !strcmp(argv[argIndex], "-h"))
 		{
 			showHelp();
 			return EXIT_SUCCESS;

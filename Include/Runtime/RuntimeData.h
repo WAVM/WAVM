@@ -16,6 +16,7 @@ namespace Runtime
 	// Forward declarations
 	struct Compartment;
 	struct Context;
+	struct ExceptionTypeInstance;
 	struct Object;
 	struct TableInstance;
 	struct MemoryInstance;

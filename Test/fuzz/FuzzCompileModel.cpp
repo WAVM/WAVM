@@ -696,10 +696,6 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 
 	HashMap<FunctionType, Uptr> functionTypeMap;
 
-	// Manually turn on the reference type feature until it's on by default.
-	errorUnless(!module.featureSpec.referenceTypes);
-	module.featureSpec.referenceTypes = true;
-
 	// Generate some standard definitions that are the same for all modules.
 	module.memories.defs.push_back({{true, {1024, IR::maxMemoryPages}}});
 	module.tables.defs.push_back({{ReferenceType::anyfunc, true, {1024, IR::maxTableElems}}});

@@ -5,9 +5,10 @@
 #include "Platform/Defines.h"
 #include "WASTParse/WASTParse.h"
 
-#define VISIT_OPERATOR_TOKEN(opcode, name, nameString, ...) VISIT_TOKEN(name, "'" #nameString "'")
+#define VISIT_OPERATOR_TOKEN(opcode, name, nameString, ...)                                        \
+	VISIT_TOKEN(name, "'" #nameString "'", #nameString)
 
-#define VISIT_LITERAL_TOKEN(name) VISIT_TOKEN(name, "'" #name "'")
+#define VISIT_LITERAL_TOKEN(name) VISIT_TOKEN(name, "'" #name "'", #name)
 #define ENUM_LITERAL_TOKENS()                                                                      \
 	VISIT_LITERAL_TOKEN(module)                                                                    \
 	VISIT_LITERAL_TOKEN(func)                                                                      \
@@ -25,8 +26,9 @@
 	VISIT_LITERAL_TOKEN(local)                                                                     \
 	VISIT_LITERAL_TOKEN(global)                                                                    \
 	VISIT_LITERAL_TOKEN(assert_return)                                                             \
-	VISIT_LITERAL_TOKEN(assert_return_canonical_nan)                                               \
 	VISIT_LITERAL_TOKEN(assert_return_arithmetic_nan)                                              \
+	VISIT_LITERAL_TOKEN(assert_return_canonical_nan)                                               \
+	VISIT_LITERAL_TOKEN(assert_return_func)                                                        \
 	VISIT_LITERAL_TOKEN(assert_trap)                                                               \
 	VISIT_LITERAL_TOKEN(assert_throws)                                                             \
 	VISIT_LITERAL_TOKEN(assert_invalid)                                                            \
@@ -53,26 +55,27 @@
 	VISIT_LITERAL_TOKEN(quote)                                                                     \
 	VISIT_LITERAL_TOKEN(binary)                                                                    \
 	VISIT_LITERAL_TOKEN(v128)                                                                      \
-	VISIT_LITERAL_TOKEN(exception_type)
+	VISIT_LITERAL_TOKEN(exception_type)                                                            \
+	VISIT_TOKEN(ref_host, "'ref.host'", "ref.host")
 
 #define ENUM_TOKENS()                                                                              \
-	VISIT_TOKEN(eof, "eof")                                                                        \
+	VISIT_TOKEN(eof, "eof", _)                                                                     \
                                                                                                    \
-	VISIT_TOKEN(unterminatedComment, "unterminated comment")                                       \
-	VISIT_TOKEN(unrecognized, "unrecognized token")                                                \
+	VISIT_TOKEN(unterminatedComment, "unterminated comment", _)                                    \
+	VISIT_TOKEN(unrecognized, "unrecognized token", _)                                             \
                                                                                                    \
-	VISIT_TOKEN(decimalFloat, "decimal float literal")                                             \
-	VISIT_TOKEN(decimalInt, "decimal int literal")                                                 \
-	VISIT_TOKEN(hexFloat, "hexadecimal float literal")                                             \
-	VISIT_TOKEN(hexInt, "hexadecimal int literal")                                                 \
-	VISIT_TOKEN(floatNaN, "float NaN literal")                                                     \
-	VISIT_TOKEN(floatInf, "float infinity literal")                                                \
-	VISIT_TOKEN(string, "string literal")                                                          \
-	VISIT_TOKEN(name, "name literal")                                                              \
+	VISIT_TOKEN(decimalFloat, "decimal float literal", _)                                          \
+	VISIT_TOKEN(decimalInt, "decimal int literal", _)                                              \
+	VISIT_TOKEN(hexFloat, "hexadecimal float literal", _)                                          \
+	VISIT_TOKEN(hexInt, "hexadecimal int literal", _)                                              \
+	VISIT_TOKEN(floatNaN, "float NaN literal", _)                                                  \
+	VISIT_TOKEN(floatInf, "float infinity literal", _)                                             \
+	VISIT_TOKEN(string, "string literal", _)                                                       \
+	VISIT_TOKEN(name, "name literal", _)                                                           \
                                                                                                    \
-	VISIT_TOKEN(leftParenthesis, "'('")                                                            \
-	VISIT_TOKEN(rightParenthesis, "')'")                                                           \
-	VISIT_TOKEN(equals, "'='")                                                                     \
+	VISIT_TOKEN(leftParenthesis, "'('", _)                                                         \
+	VISIT_TOKEN(rightParenthesis, "')'", _)                                                        \
+	VISIT_TOKEN(equals, "'='", _)                                                                  \
                                                                                                    \
 	ENUM_LITERAL_TOKENS()                                                                          \
                                                                                                    \
@@ -82,7 +85,7 @@ namespace WAST
 {
 	enum TokenType : U16
 	{
-#define VISIT_TOKEN(name, description) t_##name,
+#define VISIT_TOKEN(name, description, _) t_##name,
 		ENUM_TOKENS()
 #undef VISIT_TOKEN
 			numTokenTypes

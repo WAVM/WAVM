@@ -16,8 +16,9 @@ namespace WAST
 			_register,
 			action,
 			assert_return,
-			assert_return_canonical_nan,
 			assert_return_arithmetic_nan,
+			assert_return_canonical_nan,
+			assert_return_func,
 			assert_trap,
 			assert_throws,
 			assert_invalid,
@@ -164,6 +165,15 @@ namespace WAST
 		std::unique_ptr<Action> action;
 		AssertReturnNaNCommand(Command::Type inType, TextFileLocus&& inLocus, Action* inAction)
 		: Command(inType, std::move(inLocus)), action(inAction)
+		{
+		}
+	};
+	
+	struct AssertReturnFuncCommand : Command
+	{
+		std::unique_ptr<Action> action;
+		AssertReturnFuncCommand(TextFileLocus&& inLocus, Action* inAction)
+		: Command(Command::assert_return_func, std::move(inLocus)), action(inAction)
 		{
 		}
 	};

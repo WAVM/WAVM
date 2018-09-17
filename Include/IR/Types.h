@@ -25,15 +25,16 @@ namespace IR
 	// The type of a WebAssembly operand
 	enum class ValueType : U8
 	{
-		any = 0,
-		i32 = 1,
-		i64 = 2,
-		f32 = 3,
-		f64 = 4,
-		v128 = 5,
-		anyref = 6,
-		anyfunc = 7,
-		nullref = 8,
+		none = 0,
+		any = 1,
+		i32 = 2,
+		i64 = 3,
+		f32 = 4,
+		f64 = 5,
+		v128 = 6,
+		anyref = 7,
+		anyfunc = 8,
+		nullref = 9,
 
 		num,
 		max = num - 1
@@ -44,8 +45,8 @@ namespace IR
 	{
 		invalid = 0,
 
-		anyref = 6,
-		anyfunc = 7,
+		anyref = 7,
+		anyfunc = 8,
 	};
 
 	inline ValueType asValueType(ReferenceType type) { return ValueType(type); }
@@ -69,6 +70,61 @@ namespace IR
 			case ValueType::anyfunc: return subtype == ValueType::nullref;
 			default: return false;
 			}
+		}
+	}
+
+	// Returns the type that includes all values that are an instance of a OR b.
+	inline ValueType join(ValueType a, ValueType b)
+	{
+		if(a == b) { return a; }
+		else if(isReferenceType(a) && isReferenceType(b))
+		{
+			// a \ b    anyref  anyfunc  nullref
+			// anyref   anyref  anyref   anyref
+			// anyfunc  anyref  anyfunc  anyfunc
+			// nullref  anyref  anyfunc  nullref
+			if(a == ValueType::nullref) { return b; }
+			else if(b == ValueType::nullref)
+			{
+				return a;
+			}
+			else
+			{
+				// Because we know a != b, and neither a or b are nullref, we can infer that one is
+				// anyref, and one is anyfunc.
+				return ValueType::anyref;
+			}
+		}
+		else
+		{
+			return ValueType::any;
+		}
+	}
+
+	// Returns the type that includes all values that are an instance of both a AND b.
+	inline ValueType meet(ValueType a, ValueType b)
+	{
+		if(a == b) { return a; }
+		else if(isReferenceType(a) && isReferenceType(b))
+		{
+			// a \ b    anyref   anyfunc  nullref
+			// anyref   anyref   anyfunc  nullref
+			// anyfunc  anyfunc  anyfunc  nullref
+			// nullref  nullref  nullref  nullref
+			if(a == ValueType::nullref || b == ValueType::nullref) { return ValueType::nullref; }
+			else if(a == ValueType::anyref)
+			{
+				return b;
+			}
+			else
+			{
+				wavmAssert(b == ValueType::anyref);
+				return a;
+			}
+		}
+		else
+		{
+			return ValueType::none;
 		}
 	}
 
@@ -134,6 +190,7 @@ namespace IR
 		IR_API TypeTuple(ValueType inElem);
 		IR_API TypeTuple(const std::initializer_list<ValueType>& inElems);
 		IR_API TypeTuple(const std::vector<ValueType>& inElems);
+		IR_API TypeTuple(const ValueType* inElems, Uptr numElems);
 
 		const ValueType* begin() const { return impl->elems; }
 		const ValueType* end() const { return impl->elems + impl->numElems; }
@@ -205,11 +262,11 @@ namespace IR
 	template<> constexpr ValueType inferValueType<U64>() { return ValueType::i64; }
 	template<> constexpr ValueType inferValueType<F32>() { return ValueType::f32; }
 	template<> constexpr ValueType inferValueType<F64>() { return ValueType::f64; }
-	template<> constexpr ValueType inferValueType<Runtime::AnyReferee*>()
+	template<> constexpr ValueType inferValueType<const Runtime::AnyReferee*>()
 	{
 		return ValueType::anyref;
 	}
-	template<> constexpr ValueType inferValueType<Runtime::AnyFunc*>()
+	template<> constexpr ValueType inferValueType<const Runtime::AnyFunc*>()
 	{
 		return ValueType::anyfunc;
 	}
@@ -345,7 +402,7 @@ namespace IR
 			return left.elementType != right.elementType || left.isShared != right.isShared
 				   || left.size != right.size;
 		}
-		friend bool isSubset(const TableType& super, const TableType& sub)
+		friend bool isSubtype(const TableType& sub, const TableType& super)
 		{
 			return super.elementType == sub.elementType && super.isShared == sub.isShared
 				   && isSubset(super.size, sub.size);
@@ -377,7 +434,7 @@ namespace IR
 		{
 			return left.isShared != right.isShared || left.size != right.size;
 		}
-		friend bool isSubset(const MemoryType& super, const MemoryType& sub)
+		friend bool isSubtype(const MemoryType& sub, const MemoryType& super)
 		{
 			return super.isShared == sub.isShared && isSubset(super.size, sub.size);
 		}
@@ -408,13 +465,9 @@ namespace IR
 		{
 			return left.valueType != right.valueType || left.isMutable != right.isMutable;
 		}
-		friend bool operator<=(const GlobalType& left, const GlobalType& right)
+		friend bool isSubtype(const GlobalType& sub, const GlobalType& super)
 		{
-			return left.valueType == right.valueType && left.isMutable == right.isMutable;
-		}
-		friend bool operator>(const GlobalType& left, const GlobalType& right)
-		{
-			return !(left <= right);
+			return super.isMutable == sub.isMutable && isSubtype(sub.valueType, super.valueType);
 		}
 	};
 

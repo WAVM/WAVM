@@ -37,6 +37,18 @@ namespace Runtime
 
 		// Called on all objects that are about to be deleted before any of them are deleted.
 		virtual void finalize() {}
+
+		virtual const AnyReferee* getAnyRef() const = 0;
+	};
+
+	struct ObjectImplWithAnyRef : ObjectImpl
+	{
+		ObjectImplWithAnyRef(ObjectKind inKind) : ObjectImpl(inKind), anyRef{this} {}
+
+		virtual const AnyReferee* getAnyRef() const override { return &anyRef; }
+
+	private:
+		AnyReferee anyRef;
 	};
 
 	// An instance of a function: a function defined in an instantiated module, or an intrinsic
@@ -62,10 +74,15 @@ namespace Runtime
 		, debugName(std::move(inDebugName))
 		{
 		}
+
+		virtual const AnyReferee* getAnyRef() const override
+		{
+			return &asAnyFunc(this, nullptr, nullptr)->anyRef;
+		}
 	};
 
 	// An instance of a WebAssembly Table.
-	struct TableInstance : ObjectImpl
+	struct TableInstance : ObjectImplWithAnyRef
 	{
 		struct Element
 		{
@@ -85,7 +102,7 @@ namespace Runtime
 		std::atomic<Uptr> numElements;
 
 		TableInstance(Compartment* inCompartment, const IR::TableType& inType)
-		: ObjectImpl(ObjectKind::table)
+		: ObjectImplWithAnyRef(ObjectKind::table)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, type(inType)
@@ -97,12 +114,18 @@ namespace Runtime
 		}
 		~TableInstance() override;
 		virtual void finalize() override;
-
-		static Uptr getReferenceBias();
 	};
 
+	// This is used as a sentinel value for table elements that are out-of-bounds. The address of
+	// this AnyFunc is subtracted from every address stored in the table, so zero-initialized pages
+	// at the end of the array will, when re-adding this AnyFunc's address, point to this AnyFunc.
+	extern const AnyFunc* getOutOfBoundsAnyFunc();
+
+	// A sentinel value that is used for null values of type anyfunc.
+	extern const AnyFunc* getUninitializedAnyFunc();
+
 	// An instance of a WebAssembly Memory.
-	struct MemoryInstance : ObjectImpl
+	struct MemoryInstance : ObjectImplWithAnyRef
 	{
 		Compartment* const compartment;
 		Uptr id;
@@ -116,7 +139,7 @@ namespace Runtime
 		std::atomic<Uptr> numPages;
 
 		MemoryInstance(Compartment* inCompartment, const IR::MemoryType& inType)
-		: ObjectImpl(ObjectKind::memory)
+		: ObjectImplWithAnyRef(ObjectKind::memory)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, type(inType)
@@ -130,7 +153,7 @@ namespace Runtime
 	};
 
 	// An instance of a WebAssembly global.
-	struct GlobalInstance : ObjectImpl
+	struct GlobalInstance : ObjectImplWithAnyRef
 	{
 		Compartment* const compartment;
 
@@ -142,7 +165,7 @@ namespace Runtime
 					   IR::GlobalType inType,
 					   U32 inMutableGlobalId,
 					   IR::UntaggedValue inInitialValue)
-		: ObjectImpl(ObjectKind::global)
+		: ObjectImplWithAnyRef(ObjectKind::global)
 		, compartment(inCompartment)
 		, type(inType)
 		, mutableGlobalId(inMutableGlobalId)
@@ -153,13 +176,13 @@ namespace Runtime
 	};
 
 	// An instance of a WebAssembly exception type.
-	struct ExceptionTypeInstance : ObjectImpl
+	struct ExceptionTypeInstance : ObjectImplWithAnyRef
 	{
 		IR::ExceptionType type;
 		std::string debugName;
 
 		ExceptionTypeInstance(IR::ExceptionType inType, std::string&& inDebugName)
-		: ObjectImpl(ObjectKind::exceptionTypeInstance)
+		: ObjectImplWithAnyRef(ObjectKind::exceptionTypeInstance)
 		, type(inType)
 		, debugName(std::move(inDebugName))
 		{
@@ -167,19 +190,19 @@ namespace Runtime
 	};
 
 	// A compiled WebAssembly module.
-	struct Module : ObjectImpl
+	struct Module : ObjectImplWithAnyRef
 	{
 		IR::Module ir;
 		std::vector<U8> objectCode;
 
 		Module(IR::Module&& inIR, std::vector<U8>&& inObjectCode)
-		: ObjectImpl(ObjectKind::module), ir(inIR), objectCode(std::move(inObjectCode))
+		: ObjectImplWithAnyRef(ObjectKind::module), ir(inIR), objectCode(std::move(inObjectCode))
 		{
 		}
 	};
 
 	// An instance of a WebAssembly module.
-	struct ModuleInstance : ObjectImpl
+	struct ModuleInstance : ObjectImplWithAnyRef
 	{
 		Compartment* compartment;
 
@@ -214,7 +237,7 @@ namespace Runtime
 					   std::vector<GlobalInstance*>&& inGlobalImports,
 					   std::vector<ExceptionTypeInstance*>&& inExceptionTypeImports,
 					   std::string&& inDebugName)
-		: ObjectImpl(ObjectKind::moduleInstance)
+		: ObjectImplWithAnyRef(ObjectKind::moduleInstance)
 		, compartment(inCompartment)
 		, functions(inFunctionImports)
 		, tables(inTableImports)
@@ -233,14 +256,14 @@ namespace Runtime
 		virtual void finalize() override;
 	};
 
-	struct Context : ObjectImpl
+	struct Context : ObjectImplWithAnyRef
 	{
 		Compartment* compartment;
 		Uptr id;
 		struct ContextRuntimeData* runtimeData;
 
 		Context(Compartment* inCompartment)
-		: ObjectImpl(ObjectKind::context)
+		: ObjectImplWithAnyRef(ObjectKind::context)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, runtimeData(nullptr)
@@ -250,7 +273,7 @@ namespace Runtime
 		virtual void finalize() override;
 	};
 
-	struct Compartment : ObjectImpl
+	struct Compartment : ObjectImplWithAnyRef
 	{
 		mutable Platform::Mutex mutex;
 

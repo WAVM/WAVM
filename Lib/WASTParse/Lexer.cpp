@@ -36,7 +36,7 @@ const char* WAST::describeToken(TokenType tokenType)
 	static const char* tokenDescriptions[] = {
 // This ENUM_TOKENS must come before the literalTokenPairs definition that redefines
 // VISIT_OPERATOR_TOKEN.
-#define VISIT_TOKEN(name, description) description,
+#define VISIT_TOKEN(name, description, _) description,
 		ENUM_TOKENS()
 #undef VISIT_TOKEN
 	};
@@ -115,7 +115,7 @@ StaticData::StaticData()
 		   std::make_tuple(t_rightParenthesis, ")", true),
 		   std::make_tuple(t_equals, "=", true),
 
-#define VISIT_TOKEN(name, description) std::make_tuple(t_##name, #name, false),
+#define VISIT_TOKEN(name, _, literalString) std::make_tuple(t_##name, literalString, false),
 		   ENUM_LITERAL_TOKENS()
 #undef VISIT_TOKEN
 

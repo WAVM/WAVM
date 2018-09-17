@@ -455,13 +455,13 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])table\.copy(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict>
 			<key>match</key>
-			<string>(?&lt;=[\s=();])(module|binary|quote|memory|table|data|elem|passive|type|import|export|global|exception_type|func|param|result|local)(?=[\s=();])</string>
+			<string>(?&lt;=[\s=();])(module|binary|quote|memory|table|data|elem|passive|type|import|export|global|exception_type|ref\.host|func|param|result|local)(?=[\s=();])</string>
 			<key>name</key>
 			<string>entity.name.function.wasm</string>
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>(?&lt;=[\s=();])(assert_return|assert_return_canonical_nan|assert_return_arithmetic|assert_trap|assert_throws|assert_invalid|assert_malformed|assert_unlinkable|invoke|get)(?=[\s=();])</string>
+			<string>(?&lt;=[\s=();])(assert_return|assert_return_arithmetic|assert_return_canonical_nan|assert_return_func|assert_trap|assert_throws|assert_invalid|assert_malformed|assert_unlinkable|invoke|get)(?=[\s=();])</string>
 			<key>name</key>
 			<string>entity.name.function.wasm</string>
 		</dict>

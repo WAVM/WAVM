@@ -14,7 +14,7 @@
 using namespace Runtime;
 
 Runtime::Compartment::Compartment()
-: ObjectImpl(ObjectKind::compartment)
+: ObjectImplWithAnyRef(ObjectKind::compartment)
 , unalignedRuntimeData(nullptr)
 , memories(0, maxMemories)
 , tables(0, maxTables)

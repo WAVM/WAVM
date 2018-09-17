@@ -206,7 +206,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "debugEnterFunction",
 						  void,
 						  debugEnterFunction,
-						  AnyFunc* anyFunc)
+						  const AnyFunc* anyFunc)
 {
 	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(anyFunc->anyRef.object);
 	Log::printf(Log::debug,
@@ -220,7 +220,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "debugExitFunction",
 						  void,
 						  debugExitFunction,
-						  AnyFunc* anyFunc)
+						  const AnyFunc* anyFunc)
 {
 	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(anyFunc->anyRef.object);
 	--indentLevel;

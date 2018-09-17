@@ -151,6 +151,9 @@ namespace Runtime
 	// Frees objects that are unreachable from root object references.
 	RUNTIME_API void collectGarbage();
 
+	// Returns the AnyReferee proxy of an Object.
+	RUNTIME_API const AnyReferee* asAnyRef(const Object* object);
+
 	//
 	// Exceptions
 	//
@@ -232,6 +235,11 @@ namespace Runtime
 	// Returns the type of a FunctionInstance.
 	RUNTIME_API IR::FunctionType getFunctionType(FunctionInstance* function);
 
+	// Returns the AnyFunc proxy of a FunctionInstance.
+	RUNTIME_API const AnyFunc* asAnyFunc(const FunctionInstance* function,
+										 MemoryInstance* intrinsicDefaultMemory,
+										 TableInstance* intrinsicDefaultTable);
+
 	//
 	// Tables
 	//
@@ -240,15 +248,13 @@ namespace Runtime
 	RUNTIME_API TableInstance* createTable(Compartment* compartment, IR::TableType type);
 
 	// Reads an element from the table. Assumes that index is in bounds.
-	RUNTIME_API Object* getTableElement(TableInstance* table, Uptr index);
+	RUNTIME_API const AnyReferee* getTableElement(TableInstance* table, Uptr index);
 
 	// Writes an element to the table. Assumes that index is in bounds, and returns a pointer to the
 	// previous value of the element.
-	RUNTIME_API Object* setTableElement(TableInstance* table,
-										Uptr index,
-										Object* newValue,
-										MemoryInstance* intrinsicDefaultMemory,
-										TableInstance* intrinsicDefaultTable);
+	RUNTIME_API const AnyReferee* setTableElement(TableInstance* table,
+												  Uptr index,
+												  const AnyReferee* newValue);
 
 	// Gets the current or maximum size of the table.
 	RUNTIME_API Uptr getTableNumElements(TableInstance* table);

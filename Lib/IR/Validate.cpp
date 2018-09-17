@@ -400,17 +400,49 @@ struct FunctionValidationContext
 	void br_table(BranchTableImm imm)
 	{
 		popAndValidateOperand("br_table index", ValueType::i32);
+
 		const TypeTuple defaultTargetParams = getBranchTargetByDepth(imm.defaultTargetDepth).params;
-		popAndValidateTypeTuple("br_table argument", defaultTargetParams);
+
+		// Meet (intersect) the parameters of all the branch targets to get the most general type
+		// that matches any of the targets.
+		const Uptr numTargetParams = defaultTargetParams.size();
+		ValueType* targetParamMeets = new(alloca(sizeof(ValueType) * defaultTargetParams.size()))
+			ValueType[numTargetParams];
+		for(Uptr elementIndex = 0; elementIndex < numTargetParams; ++elementIndex)
+		{ targetParamMeets[elementIndex] = defaultTargetParams[elementIndex]; }
 
 		wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
 		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
 			const TypeTuple targetParams = getBranchTargetByDepth(targetDepths[targetIndex]).params;
-			VALIDATE_UNLESS("br_table target argument must match default target argument: ",
-							targetParams != defaultTargetParams);
+			if(targetParams.size() != numTargetParams)
+			{
+				throw ValidationException(
+					"br_table targets must all take the same number of parameters");
+			}
+			else
+			{
+				for(Uptr elementIndex = 0; elementIndex < numTargetParams; ++elementIndex)
+				{
+					targetParamMeets[elementIndex]
+						= meet(targetParamMeets[elementIndex], targetParams[elementIndex]);
+				}
+			}
 		}
+
+		// If any target's parameters are disjoint from any other target's parameters, the result of
+		// the meet will be empty; i.e. there are no possible arguments that will match any of the
+		// branch targets.
+		for(Uptr elementIndex = 0; elementIndex < numTargetParams; ++elementIndex)
+		{
+			if(targetParamMeets[elementIndex] == ValueType::none)
+			{ throw ValidationException("br_table targets have incompatible parameter types"); }
+		}
+
+		// Validate that the br_table's arguments match the meet of the target's parameters.
+		popAndValidateOperands(
+			"br_table argument", (const ValueType*)targetParamMeets, numTargetParams);
 
 		enterUnreachable();
 	}
@@ -429,8 +461,19 @@ struct FunctionValidationContext
 	{
 		popAndValidateOperand("select condition", ValueType::i32);
 		const ValueType falseType = popAndValidateOperand("select false value", ValueType::any);
-		popAndValidateOperand("select true value", falseType);
-		pushOperand(falseType);
+		const ValueType trueType = popAndValidateOperand("select true value", ValueType::any);
+		if(falseType == ValueType::any) { pushOperand(trueType); }
+		else if(trueType == ValueType::any)
+		{
+			pushOperand(falseType);
+		}
+		else
+		{
+			const ValueType resultType = join(falseType, trueType);
+			if(resultType == ValueType::any)
+			{ throw ValidationException("select operands must have a common supertype"); }
+			pushOperand(resultType);
+		}
 	}
 
 	void get_local(GetOrSetVariableImm<false> imm)

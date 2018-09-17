@@ -92,6 +92,22 @@
   "incompatible import type"
 )
 
+(module $Mref-ex
+  (global (export "g-const") anyfunc (ref.null))
+  ;; Mutable globals cannot be exported yet
+  ;; (global (export "g-var") (mut anyfunc) (ref.null))
+)
+(register "Mref-ex" $Mref-ex)
+
+(module $Mref-im
+  (global (import "Mref-ex" "g-const") anyref)
+)
+
+(assert_unlinkable
+  (module (global (import "Mref-ex" "g-var") (mut anyref)))
+  "type mismatch"
+)
+
 ;; Tables
 
 (module $Mt

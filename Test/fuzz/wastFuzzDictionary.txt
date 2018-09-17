@@ -15,8 +15,9 @@
 "local"
 "global"
 "assert_return"
-"assert_return_canonical_nan"
 "assert_return_arithmetic_nan"
+"assert_return_canonical_nan"
+"assert_return_func"
 "assert_trap"
 "assert_throws"
 "assert_invalid"
@@ -43,6 +44,7 @@
 "binary"
 "v128"
 "exception_type"
+"ref.host"
 
 # Whitespace
 space=" "

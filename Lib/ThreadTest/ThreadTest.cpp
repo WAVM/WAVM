@@ -128,17 +128,15 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(threadTest,
 
 	// Look up the index provided in the default table to get the thread entry function.
 	TableInstance* defaultTable = getTableFromRuntimeData(contextRuntimeData, defaultTableId.id);
-	Object* entryObject = Runtime::getTableElement(defaultTable, entryFunctionIndex);
-	FunctionInstance* entryFunction = asFunctionNullable(entryObject);
+	const AnyReferee* entryAnyRef = Runtime::getTableElement(defaultTable, entryFunctionIndex);
+	if(!entryAnyRef) { throwException(Runtime::Exception::uninitializedTableElementType); }
+	FunctionInstance* entryFunction = asFunctionNullable(entryAnyRef->object);
 
-	// Validate that the entry function wasn't null, and it has the correct type (i32)->i64
-	if(!entryObject) { throwException(Runtime::Exception::uninitializedTableElementType); }
-	else if(!entryFunction
-			|| Runtime::getFunctionType(entryFunction)
-				   != FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
-	{
-		throwException(Runtime::Exception::indirectCallSignatureMismatchType);
-	}
+	// Validate that the entry function has the correct type (i32)->i64
+	if(!entryFunction
+	   || Runtime::getFunctionType(entryFunction)
+			  != FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
+	{ throwException(Runtime::Exception::indirectCallSignatureMismatchType); }
 
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.

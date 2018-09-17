@@ -33,6 +33,7 @@ set(WASTTests
 	func.wast
 	func_ptrs.wast
 	get_local.wast
+	get_table.wast
 	globals.wast
 	i32.wast
 	i64.wast
@@ -52,9 +53,12 @@ set(WASTTests
 	names.wast
 	nop.wast
 	resizing.wast
+	ref_isnull.wast
+	ref_null.wast
 	return.wast
 	select.wast
 	set_local.wast
+	set_table.wast
 	#skip-stack-guard-page.wast
 	start.wast
 	stack.wast

@@ -198,8 +198,6 @@ int main(int argc, char** argv)
 	// Parse the test script.
 	IR::FeatureSpec featureSpec;
 	featureSpec.requireSharedFlagForAtomicOperators = true;
-	errorUnless(!featureSpec.referenceTypes);
-	featureSpec.referenceTypes = true;
 	WAST::parseTestCommands((const char*)testScriptBytes.data(),
 							testScriptBytes.size(),
 							featureSpec,

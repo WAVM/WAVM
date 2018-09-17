@@ -59,6 +59,15 @@ static void visitReference(HashSet<ObjectImpl*>& unreferencedObjects,
 	{ pendingScanObjects.push_back(reference); }
 }
 
+static void visitReference(HashSet<ObjectImpl*>& unreferencedObjects,
+						   std::vector<Object*>& pendingScanObjects,
+						   const AnyReferee* anyRef)
+{
+	wavmAssert(!(anyRef && !anyRef->object));
+	if(anyRef && unreferencedObjects.remove((ObjectImpl*)anyRef->object))
+	{ pendingScanObjects.push_back(anyRef->object); }
+}
+
 template<typename Array>
 static void visitReferenceArray(HashSet<ObjectImpl*>& unreferencedObjects,
 								std::vector<Object*>& pendingScanObjects,
@@ -129,6 +138,11 @@ void Runtime::collectGarbage()
 		{
 			GlobalInstance* global = asGlobal(scanObject);
 			visitReference(unreferencedObjects, pendingScanObjects, global->compartment);
+			if(isReferenceType(global->type.valueType))
+			{
+				visitReference(
+					unreferencedObjects, pendingScanObjects, global->initialValue.anyRef);
+			}
 			break;
 		}
 		case ObjectKind::moduleInstance:

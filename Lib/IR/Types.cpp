@@ -58,6 +58,11 @@ IR::TypeTuple::TypeTuple(const std::vector<ValueType>& inElems)
 	impl = getUniqueImpl(inElems.size(), inElems.data());
 }
 
+IR::TypeTuple::TypeTuple(const ValueType* inElems, Uptr numElems)
+{
+	impl = getUniqueImpl(numElems, inElems);
+}
+
 const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueType* inElems)
 {
 	if(numElems == 0)

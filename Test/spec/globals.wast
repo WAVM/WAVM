@@ -11,8 +11,12 @@
   (global (;6;) (mut f64) (f64.const -14))
   (global $y (mut i64) (i64.const -15))
 
+  (global $r anyref (ref.null))
+  (global anyfunc (ref.null))
+
   (func (export "get-a") (result i32) (get_global $a))
   (func (export "get-b") (result i64) (get_global $b))
+  (func (export "get-r") (result anyref) (get_global $r))
   (func (export "get-x") (result i32) (get_global $x))
   (func (export "get-y") (result i64) (get_global $y))
   (func (export "set-x") (param i32) (set_global $x (get_local 0)))
@@ -28,6 +32,7 @@
 
 (assert_return (invoke "get-a") (i32.const -2))
 (assert_return (invoke "get-b") (i64.const -5))
+(assert_return (invoke "get-r") (ref.null))
 (assert_return (invoke "get-x") (i32.const -12))
 (assert_return (invoke "get-y") (i64.const -15))
 
@@ -92,6 +97,11 @@
 
 (assert_invalid
   (module (global i32 (;empty instruction sequence;)))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module (global (import "" "") anyref) (global anyfunc (get_global 0)))
   "type mismatch"
 )
 

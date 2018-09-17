@@ -126,7 +126,7 @@ namespace LLVMJIT
 
 	// Generates a thunk to call a native function from generated code.
 	LLVMJIT_API void* getIntrinsicThunk(void* nativeFunction,
-										Runtime::FunctionInstance* functionInstance,
+										const Runtime::FunctionInstance* functionInstance,
 										IR::FunctionType functionType,
 										IR::CallingConvention callingConvention,
 										MemoryBinding defaultMemory,

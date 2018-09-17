@@ -253,7 +253,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 													jitDefaultMemory,
 													jitDefaultTable,
 													moduleInstance,
-													TableInstance::getReferenceBias(),
+													reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()),
 													moduleInstance->functionDefs,
 													jitFunctionDefs);
 
@@ -339,11 +339,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				{
 					const Uptr functionIndex = tableSegment.indices[index];
 					wavmAssert(functionIndex < moduleInstance->functions.size());
-					setTableElement(table,
-									baseOffset + index,
-									moduleInstance->functions[functionIndex],
-									moduleInstance->defaultMemory,
-									moduleInstance->defaultTable);
+					const AnyFunc* anyFunc = asAnyFunc(moduleInstance->functions[functionIndex],
+													   moduleInstance->defaultMemory,
+													   moduleInstance->defaultTable);
+					setTableElement(table, baseOffset + index, &anyFunc->anyRef);
 				}
 			}
 			else

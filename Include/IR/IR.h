@@ -36,7 +36,7 @@ namespace IR
 		bool extendedSignExtension = true;
 		bool multipleResultsAndBlockParams = true;
 		bool bulkMemoryOperations = true;
-		bool referenceTypes = false;
+		bool referenceTypes = true;
 
 		// WAVM-specific extensions
 		bool sharedTables = true;

@@ -9,6 +9,11 @@
 using namespace IR;
 using namespace Runtime;
 
+const AnyReferee* Runtime::asAnyRef(const Object* object)
+{
+	return ((ObjectImpl*)object)->getAnyRef();
+}
+
 bool Runtime::isA(Object* object, const ObjectType& type)
 {
 	if(Runtime::ObjectKind(type.kind) != object->kind) { return false; }
@@ -16,9 +21,9 @@ bool Runtime::isA(Object* object, const ObjectType& type)
 	switch(type.kind)
 	{
 	case IR::ObjectKind::function: return asFunctionType(type) == asFunction(object)->type;
-	case IR::ObjectKind::global: return asGlobalType(type) == asGlobal(object)->type;
-	case IR::ObjectKind::table: return isSubset(asTableType(type), asTable(object)->type);
-	case IR::ObjectKind::memory: return isSubset(asMemoryType(type), asMemory(object)->type);
+	case IR::ObjectKind::global: return isSubtype(asGlobal(object)->type, asGlobalType(type));
+	case IR::ObjectKind::table: return isSubtype(asTable(object)->type, asTableType(type));
+	case IR::ObjectKind::memory: return isSubtype(asMemory(object)->type, asMemoryType(type));
 	case IR::ObjectKind::exceptionType:
 		return asExceptionType(type) == asExceptionTypeInstance(object)->type;
 	default: Errors::unreachable();

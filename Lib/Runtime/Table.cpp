@@ -31,7 +31,7 @@ static Uptr getNumPlatformPages(Uptr numBytes)
 	return (numBytes + (Uptr(1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 }
 
-static AnyFunc* makeDummyAnyFunc()
+static const AnyFunc* makeDummyAnyFunc()
 {
 	AnyFunc* anyFunc = new AnyFunc;
 	anyFunc->anyRef.object = nullptr;
@@ -40,34 +40,28 @@ static AnyFunc* makeDummyAnyFunc()
 	return anyFunc;
 }
 
-// This is used as a sentinel value for table elements that are out-of-bounds. The address of this
-// AnyFunc is subtracted from every address stored in the table, so zero-initialized pages at the
-// end of the array will, when re-adding this AnyFunc's address, point to this AnyFunc.
-static AnyFunc* getOutOfBoundsAnyFunc()
+const AnyFunc* Runtime::getOutOfBoundsAnyFunc()
 {
-	static AnyFunc* anyFunc = makeDummyAnyFunc();
+	static const AnyFunc* anyFunc = makeDummyAnyFunc();
 	return anyFunc;
 }
 
-// A sentinel value that is used for uninitialized table elements.
-static AnyFunc* getUninitializedAnyFunc()
+const AnyFunc* Runtime::getUninitializedAnyFunc()
 {
-	static AnyFunc* anyFunc = makeDummyAnyFunc();
+	static const AnyFunc* anyFunc = makeDummyAnyFunc();
 	return anyFunc;
 }
 
-static Uptr anyRefToBiasedTableElementValue(AnyReferee* anyRef)
+static Uptr anyRefToBiasedTableElementValue(const AnyReferee* anyRef)
 {
 	return reinterpret_cast<Uptr>(anyRef) - reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc());
 }
 
-static AnyReferee* biasedTableElementValueToAnyRef(Uptr biasedValue)
+static const AnyReferee* biasedTableElementValueToAnyRef(Uptr biasedValue)
 {
-	return reinterpret_cast<AnyReferee*>(biasedValue
-										 + reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()));
+	return reinterpret_cast<const AnyReferee*>(biasedValue
+											   + reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()));
 }
-
-Uptr TableInstance::getReferenceBias() { return reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()); }
 
 static TableInstance* createTableImpl(Compartment* compartment, IR::TableType type)
 {
@@ -267,7 +261,9 @@ bool Runtime::isAddressOwnedByTable(U8* address)
 	return false;
 }
 
-static AnyReferee* setTableElementAnyRef(TableInstance* table, Uptr index, AnyReferee* anyRef)
+static const AnyReferee* setTableElementAnyRef(TableInstance* table,
+											   Uptr index,
+											   const AnyReferee* anyRef)
 {
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
@@ -296,7 +292,7 @@ static AnyReferee* setTableElementAnyRef(TableInstance* table, Uptr index, AnyRe
 	return biasedTableElementValueToAnyRef(oldBiasedValue);
 }
 
-static AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
+static const AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
 {
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
@@ -310,7 +306,7 @@ static AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
 	// Read the table element.
 	const Uptr biasedValue
 		= table->elements[saturatedIndex].biasedValue.load(std::memory_order_acquire);
-	AnyReferee* anyRef = biasedTableElementValueToAnyRef(biasedValue);
+	const AnyReferee* anyRef = biasedTableElementValueToAnyRef(biasedValue);
 
 	// If the element was an out-of-bounds sentinel value, throw an out-of-bounds exception.
 	if(anyRef == &getOutOfBoundsAnyFunc()->anyRef)
@@ -319,79 +315,26 @@ static AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
 	return anyRef;
 }
 
-Object* Runtime::setTableElement(TableInstance* table,
-								 Uptr index,
-								 Object* newValue,
-								 MemoryInstance* intrinsicDefaultMemory,
-								 TableInstance* intrinsicDefaultTable)
+const AnyReferee* Runtime::setTableElement(TableInstance* table,
+										   Uptr index,
+										   const AnyReferee* newValue)
 {
-	Compartment* compartment = table->compartment;
-
-	// If a default memory or table are provided to bind to intrinsic functions, make sure they are
-	// in the same compartment as the table being modified.
-	wavmAssert(!intrinsicDefaultMemory || intrinsicDefaultMemory->compartment == compartment);
-	wavmAssert(!intrinsicDefaultTable || intrinsicDefaultTable->compartment == compartment);
-
-	AnyReferee* anyRef;
-	if(!newValue) { anyRef = &getUninitializedAnyFunc()->anyRef; }
-	else
-	{
-		// Look up the new function's code pointer.
-		FunctionInstance* functionInstance = asFunction(newValue);
-		void* nativeFunction = functionInstance->nativeFunction;
-		wavmAssert(nativeFunction);
-
-		// If the function isn't a WASM function, generate a thunk for it.
-		if(functionInstance->callingConvention != IR::CallingConvention::wasm)
-		{
-			nativeFunction = LLVMJIT::getIntrinsicThunk(
-				nativeFunction,
-				functionInstance,
-				functionInstance->type,
-				functionInstance->callingConvention,
-				LLVMJIT::MemoryBinding{intrinsicDefaultMemory ? intrinsicDefaultMemory->id
-															  : UINTPTR_MAX},
-				LLVMJIT::TableBinding{intrinsicDefaultTable ? intrinsicDefaultTable->id
-															: UINTPTR_MAX});
-		}
-
-		// Get the pointer to the AnyFunc struct that is emitted as a prefix to the function's code.
-		AnyFunc* anyFunc = (AnyFunc*)((U8*)nativeFunction - offsetof(AnyFunc, code));
-		wavmAssert(anyFunc->anyRef.object == functionInstance);
-		wavmAssert(IR::FunctionType{anyFunc->functionTypeEncoding} == functionInstance->type);
-
-		anyRef = &anyFunc->anyRef;
-	}
+	// If the new value is null, write the uninitialized sentinel value instead.
+	if(!newValue) { newValue = &getUninitializedAnyFunc()->anyRef; }
 
 	// Write the table element.
-	AnyReferee* oldAnyRef = setTableElementAnyRef(table, index, anyRef);
+	const AnyReferee* oldAnyRef = setTableElementAnyRef(table, index, newValue);
 
-	// Translate the old table element to an object pointer to return. If the old table element was
-	// the uninitialized sentinel value, return null.
-	if(oldAnyRef == &getUninitializedAnyFunc()->anyRef) { return nullptr; }
-	else
-	{
-		return oldAnyRef->object;
-	}
+	// If the old table element was the uninitialized sentinel value, return null.
+	return oldAnyRef == &getUninitializedAnyFunc()->anyRef ? nullptr : oldAnyRef;
 }
 
-Object* Runtime::getTableElement(TableInstance* table, Uptr index)
+const AnyReferee* Runtime::getTableElement(TableInstance* table, Uptr index)
 {
-	AnyReferee* anyRef = getTableElementAnyRef(table, index);
+	const AnyReferee* anyRef = getTableElementAnyRef(table, index);
 
-	// Translate the old table element to an object pointer to return. If the old table element was
-	// the uninitialized sentinel value, return null. If it was an out-of-bounds sentinel value,
-	// throw an exception.
-	if(anyRef == &getOutOfBoundsAnyFunc()->anyRef)
-	{ throwException(Exception::tableIndexOutOfBoundsType); }
-	else if(anyRef == &getUninitializedAnyFunc()->anyRef)
-	{
-		return nullptr;
-	}
-	else
-	{
-		return anyRef->object;
-	}
+	// If the old table element was the uninitialized sentinel value, return null.
+	return anyRef == &getUninitializedAnyFunc()->anyRef ? nullptr : anyRef;
 }
 
 Uptr Runtime::getTableNumElements(TableInstance* table)
@@ -452,13 +395,13 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "table.get",
-						  AnyReferee*,
+						  const AnyReferee*,
 						  table_get,
 						  U32 index,
 						  Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	return getTableElementAnyRef(table, index);
+	return getTableElement(table, index);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -466,11 +409,11 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  void,
 						  table_set,
 						  U32 index,
-						  AnyReferee* value,
+						  const AnyReferee* value,
 						  Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	setTableElementAnyRef(table, index, value ? value : &getUninitializedAnyFunc()->anyRef);
+	setTableElement(table, index, value);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -509,9 +452,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 			setTableElement(table,
 							Uptr(destIndex),
-							(*passiveTableSegmentObjects)[sourceIndex],
-							moduleInstance->defaultMemory,
-							moduleInstance->defaultTable);
+							asAnyRef((*passiveTableSegmentObjects)[sourceIndex]));
 		}
 	}
 }

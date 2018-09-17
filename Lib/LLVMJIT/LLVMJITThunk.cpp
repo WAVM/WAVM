@@ -174,7 +174,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType,
 }
 
 void* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
-								 FunctionInstance* functionInstance,
+								 const FunctionInstance* functionInstance,
 								 FunctionType functionType,
 								 CallingConvention callingConvention,
 								 MemoryBinding defaultMemory,
