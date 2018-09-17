@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include <initializer_list>
 #include <memory>
 #include <new>
@@ -622,6 +623,10 @@ DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32u-div", I32, I32_divu, I32 left, I32 rig
 DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32s-div", I32, I32_divs, I32 left, I32 right)
 {
 	return left / right;
+}
+DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-rem", F64, F64_rems, F64 left, F64 right)
+{
+	return (F64)fmod(left, right);
 }
 
 Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR::Module& module)
