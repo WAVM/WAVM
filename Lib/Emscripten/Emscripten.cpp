@@ -180,7 +180,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "_pthread_key_create", I32, _p
 
 	MemoryInstance* memory
 		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	memoryRef<U32>(memory, key >> 2) = pthreadSpecificNextKey;
+	memoryRef<U32>(memory, key) = pthreadSpecificNextKey;
 	pthreadSpecific.set(pthreadSpecificNextKey, 0);
 	pthreadSpecificNextKey++;
 
