@@ -22,14 +22,15 @@ inline bool loadFile(const char* filename, std::vector<U8>& outFileContents)
 		return false;
 	}
 
-	U64 numFileBytes = 0;
-	errorUnless(Platform::seekFile(file, 0, Platform::FileSeekOrigin::end, &numFileBytes));
-	if(numFileBytes > UINTPTR_MAX)
+	U64 numFileBytes64 = 0;
+	errorUnless(Platform::seekFile(file, 0, Platform::FileSeekOrigin::end, &numFileBytes64));
+	if(numFileBytes64 > UINTPTR_MAX)
 	{
-		Log::printf(Log::error, "Couldn't read %s: file is too large.\n", filename);
+		Log::printf(Log::error, "Couldn't read %s: file doesn't fit in memory.\n", filename);
 		errorUnless(Platform::closeFile(file));
 		return false;
 	}
+	const Uptr numFileBytes = Uptr(numFileBytes64);
 
 	std::vector<U8> fileContents;
 	outFileContents.resize(numFileBytes);

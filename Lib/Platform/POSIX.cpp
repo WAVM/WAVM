@@ -43,8 +43,10 @@
 #include <utility>
 #include <vector>
 
+#if ENABLE_RUNTIME
 #define UNW_LOCAL_ONLY
 #include "libunwind.h"
+#endif
 
 #ifdef __APPLE__
 #define MAP_ANONYMOUS MAP_ANON
@@ -82,6 +84,40 @@ static_assert(offsetof(ExecutionContext, rip) == 56, "unexpected offset");
 static_assert(sizeof(ExecutionContext) == 64, "unexpected size");
 
 extern "C" {
+
+#ifdef __WAVIX__
+extern I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode) noexcept(false)
+{
+	Errors::fatal("saveExecutionState is unimplemented on Wavix");
+}
+
+[[noreturn]] extern void loadExecutionState(ExecutionContext* context, I64 returnCode)
+{
+	Errors::fatal("loadExecutionState is unimplemented on Wavix");
+}
+
+extern I64 switchToForkedStackContext(ExecutionContext* forkedContext,
+									  U8* trampolineFramePointer) noexcept(false)
+{
+	Errors::fatal("switchToForkedStackContext is unimplemented on Wavix");
+}
+
+extern U8* getStackPointer()
+{
+	Errors::fatal("getStackPointer is unimplemented on Wavix");
+}
+
+// libunwind dynamic frame registration
+void __register_frame(const void* fde)
+{
+	Errors::fatal("__register_frame is unimplemented on Wavix");
+}
+void __deregister_frame(const void* fde)
+{
+	Errors::fatal("__deregister_frame is unimplemented on Wavix");
+}
+
+#else
 // Defined in POSIX.S
 extern I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode) noexcept(false);
 [[noreturn]] extern void loadExecutionState(ExecutionContext* context, I64 returnCode);
@@ -89,14 +125,15 @@ extern I64 switchToForkedStackContext(ExecutionContext* forkedContext,
 									  U8* trampolineFramePointer) noexcept(false);
 extern U8* getStackPointer();
 
+// libunwind dynamic frame registration
+void __register_frame(const void* fde);
+void __deregister_frame(const void* fde);
+#endif
+
 const char* __asan_default_options()
 {
 	return "handle_segv=false:handle_sigbus=false:handle_sigfpe=false:replace_intrin=false";
 }
-
-// libunwind dynamic frame registration
-void __register_frame(const void* fde);
-void __deregister_frame(const void* fde);
 }
 
 static Uptr internalGetPreferredVirtualPageSizeLog2()
@@ -309,6 +346,7 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 
 bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
+#ifndef __WAVIX__
 	// Look up static symbol information for the address.
 	Dl_info symbolInfo;
 	if(dladdr((void*)(ip - 1), &symbolInfo))
@@ -338,6 +376,7 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 		}
 		return true;
 	}
+#endif
 	return false;
 }
 
@@ -358,10 +397,14 @@ static void getCurrentThreadStack(U8*& outMinAddr, U8*& outMaxAddr)
 	pthread_attr_getstack(&threadAttributes, (void**)&outMinAddr, &numStackBytes);
 	pthread_attr_destroy(&threadAttributes);
 	outMaxAddr = outMinAddr + numStackBytes;
-#else
+#elif defined(__APPLE__)
 	// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the
 	// stack.
 	outMaxAddr = (U8*)pthread_get_stackaddr_np(pthread_self());
+#elif defined(__WAVIX__)
+	Errors::fatal("getCurrentThreadStack is unimplemented on Wavix.");
+#else
+#error unsupported platform
 #endif
 
 	outMinAddr = outMaxAddr - stackLimit.rlim_cur;
@@ -530,6 +573,9 @@ bool Platform::catchSignals(const std::function<void()>& thunk,
 	signalContext.outerContext = innermostSignalContext;
 	signalContext.filter = filter;
 
+#ifdef __WAVIX__
+	Errors::fatal("catchSignals is unimplemented on Wavix");
+#else
 	// Use sigsetjmp to capture the execution state into the signal context. If a signal is raised,
 	// the signal handler will jump back to here.
 	bool isReturningFromSignalHandler = sigsetjmp(signalContext.catchJump, 1) != 0;
@@ -543,6 +589,7 @@ bool Platform::catchSignals(const std::function<void()>& thunk,
 	innermostSignalContext = signalContext.outerContext;
 
 	return isReturningFromSignalHandler;
+#endif
 }
 
 static void terminateHandler()
@@ -579,6 +626,7 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 {
 	CallStack result;
 
+#if ENABLE_RUNTIME
 	unw_context_t context;
 	errorUnless(!unw_getcontext(&context));
 
@@ -596,6 +644,7 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 			result.stackFrames.push_back(CallStack::Frame{ip});
 		}
 	}
+#endif
 
 	return result;
 }

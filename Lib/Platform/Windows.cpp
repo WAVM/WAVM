@@ -71,10 +71,26 @@ static_assert(offsetof(ExecutionContext, xmm6) == 112, "unexpected offset");
 static_assert(offsetof(ExecutionContext, xmm15) == 256, "unexpected offset");
 static_assert(sizeof(ExecutionContext) == 272, "unexpected size");
 
+#ifdef _WIN64
 extern "C" I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode);
 extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,
 										  U8* trampolineFramePointer) noexcept(false);
 extern "C" U8* getStackPointer();
+#else
+extern "C" I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode)
+{
+	Errors::fatal("saveExecutionState isn't implemented on 32-bit Windows");
+}
+extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,
+										  U8* trampolineFramePointer) noexcept(false)
+{
+	Errors::fatal("switchToForkedStackContext isn't implemented on 32-bit Windows");
+}
+extern "C" U8* getStackPointer()
+{
+	Errors::fatal("getStackPointer isn't implemented on 32-bit Windows");
+}
+#endif
 
 static void initThread();
 
@@ -343,7 +359,7 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 	{
 		outDescription = "host!";
 		outDescription
-			+= trimModuleName(getModuleName(getModuleFromBaseAddress(symbolInfo->ModBase)));
+			+= trimModuleName(getModuleName(getModuleFromBaseAddress(Uptr(symbolInfo->ModBase))));
 		outDescription += '!';
 		outDescription += std::string(symbolInfo->Name, symbolInfo->NameLen);
 		outDescription += '+' + std::to_string(displacement);
@@ -410,16 +426,24 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 
 void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
 {
+#ifdef _WIN64
 	const U32 numFunctions = (U32)(numBytes / sizeof(RUNTIME_FUNCTION));
 
 	// Register our manually fixed up copy of the function table.
 	if(!RtlAddFunctionTable(
 		   (RUNTIME_FUNCTION*)ehFrames, numFunctions, reinterpret_cast<ULONG_PTR>(imageBase)))
 	{ Errors::fatal("RtlAddFunctionTable failed"); }
+#else
+	Errors::fatal("registerEHFrames isn't implemented on 32-bit Windows");
+#endif
 }
 void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
 {
+#ifdef _WIN64
 	RtlDeleteFunctionTable((RUNTIME_FUNCTION*)ehFrames);
+#else
+	Errors::fatal("deregisterEHFrames isn't implemented on 32-bit Windows");
+#endif
 }
 
 static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& outSignal)
@@ -596,7 +620,7 @@ bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
 
 [[noreturn]] void Platform::raisePlatformException(void* data)
 {
-	Uptr arguments[1] = {reinterpret_cast<Uptr>(data)};
+	ULONG_PTR arguments[1] = {reinterpret_cast<ULONG_PTR>(data)};
 	RaiseException(U32(SEH_WAVM_EXCEPTION), 0, 1, arguments);
 	Errors::unreachable();
 }
@@ -790,6 +814,7 @@ void Platform::exitThread(I64 code)
 	Errors::unreachable();
 }
 
+#ifdef _WIN64
 static DWORD forkThreadEntry2(void* argsVoid)
 {
 	std::unique_ptr<ForkThreadArgs> args((ForkThreadArgs*)argsVoid);
@@ -929,6 +954,12 @@ Thread* Platform::forkCurrentThread()
 		return forkThreadArgs->thread;
 	}
 }
+#else
+Thread* Platform::forkCurrentThread()
+{
+	Errors::fatal("Platform::forkCurrentThread isn't implemented on 32-bit Windows");
+}
+#endif
 
 U64 Platform::getMonotonicClock()
 {

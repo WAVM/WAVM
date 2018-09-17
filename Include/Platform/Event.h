@@ -45,6 +45,15 @@ namespace Platform
 		{
 			Uptr data[6];
 		} pthreadCond;
+#elif defined(__WAVIX__)
+		struct PthreadMutex
+		{
+			Uptr data[6];
+		} pthreadMutex;
+		struct PthreadCond
+		{
+			Uptr data[12];
+		} pthreadCond;
 #else
 #error unsupported platform
 #endif

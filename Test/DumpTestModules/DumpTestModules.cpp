@@ -42,7 +42,7 @@ static void dumpWAST(const std::string& wastString, const char* outputDir)
 
 static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
 {
-	const Uptr wasmHash = XXH64(wasmBytes, numBytes, 0);
+	const Uptr wasmHash = XXH<Uptr>(wasmBytes, numBytes, 0);
 
 	Platform::File* wasmFile
 		= Platform::openFile(std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",

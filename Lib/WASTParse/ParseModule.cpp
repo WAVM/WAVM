@@ -45,7 +45,7 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							cursor->nextToken - 1,
-							"maximum size exceeds limit (%" PRIuPTR ">%" PRIuPTR ")",
+							"maximum size exceeds limit (%" PRIu64 ">%" PRIu64 ")",
 							outSizeConstraints.max,
 							maxMax);
 				outSizeConstraints.max = maxMax;
@@ -54,7 +54,7 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							cursor->nextToken - 1,
-							"maximum size is less than minimum size (%" PRIuPTR "<%" PRIuPTR ")",
+							"maximum size is less than minimum size (%" PRIu64 "<%" PRIu64 ")",
 							outSizeConstraints.max,
 							outSizeConstraints.min);
 				outSizeConstraints.max = outSizeConstraints.min;

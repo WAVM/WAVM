@@ -47,9 +47,10 @@
 
 #ifdef _WIN32
 #define DEBUG_TRAP() __debugbreak()
-#elif defined(__GNUC__) && !ENABLE_LIBFUZZER // Use abort() instead of int3 when fuzzing, since
-											 // libfuzzer doesn't handle the breakpoint trap.
-#define DEBUG_TRAP() __asm__ __volatile__("int3")
-#else
+#elif !defined(__GNUC__) || ENABLE_LIBFUZZER || !(defined(__i386__) || defined(__x86_64__))
+// Use abort() instead of int3 when fuzzing, since
+// libfuzzer doesn't handle the breakpoint trap.
 #define DEBUG_TRAP() abort()
+#else
+#define DEBUG_TRAP() __asm__ __volatile__("int3")
 #endif

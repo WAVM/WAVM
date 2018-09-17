@@ -867,7 +867,7 @@ void ModulePrintContext::printModule()
 			string += "\n\"";
 			string
 				+= escapeString((const char*)dataSegment.data.data() + offset,
-								std::min(dataSegment.data.size() - offset, (Uptr)numBytesPerLine));
+								std::min(Uptr(dataSegment.data.size()) - offset, Uptr(numBytesPerLine)));
 			string += "\"";
 		}
 	}
@@ -962,7 +962,7 @@ void ModulePrintContext::printModule()
 				string += "\n;; \"";
 				string += escapeString(
 					(const char*)userSection.data.data() + offset,
-					std::min(userSection.data.size() - offset, (Uptr)numBytesPerLine));
+					std::min(Uptr(userSection.data.size()) - offset, Uptr(numBytesPerLine)));
 				string += "\"";
 			}
 			string += DEDENT_STRING "\n";

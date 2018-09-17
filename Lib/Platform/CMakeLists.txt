@@ -19,10 +19,20 @@ set(PublicHeaders
 
 if(MSVC)
 	set(Sources ${POSIXSources} ${WindowsSources})
+	if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+		set_source_files_properties(Windows.asm PROPERTIES HEADER_FILE_ONLY TRUE)
+	endif()
 	set_source_files_properties(${POSIXSources} PROPERTIES HEADER_FILE_ONLY TRUE)
 	enable_language(ASM_MASM)
 else()
 	set(Sources ${POSIXSources})
+
+	# Using if(CMAKE_SYSTEM_NAME STREQUAL Wavix) doesn't work because Wavix is interpreted as a
+	# reference to the Wavix target in this project.
+	string(COMPARE EQUAL "${CMAKE_SYSTEM_NAME}" Wavix IS_WAVIX)
+	if(IS_WAVIX)
+		set_source_files_properties(POSIX.S PROPERTIES HEADER_FILE_ONLY TRUE)
+	endif()
 endif()
 
 add_definitions(-DPLATFORM_API=DLL_EXPORT)
@@ -31,11 +41,13 @@ WAVM_ADD_LIBRARY(Platform ${Sources} ${PublicHeaders})
 set_target_properties(Platform PROPERTIES FOLDER Libraries)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	# Link with dl on Linux for dladdr.
 	target_link_libraries(Platform pthread rt)
 endif()
 
 if(NOT MSVC)
 	include_directories(${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
-	target_link_libraries(Platform dl WAVMUnwind)
+
+	if(ENABLE_RUNTIME)
+		target_link_libraries(Platform dl WAVMUnwind)
+	endif()
 endif()

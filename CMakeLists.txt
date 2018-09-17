@@ -146,7 +146,13 @@ else()
 	add_definitions("-DWAVM_METRICS_OUTPUT=0")
 endif()
 
-option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+	# Disable the runtime on 32-bit platforms.
+	set(ENABLE_RUNTIME OFF)
+else()
+	# Allow disabling the runtime on 64-bit platforms.
+	option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
+endif()
 
 option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 

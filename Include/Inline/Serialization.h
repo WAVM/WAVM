@@ -268,7 +268,7 @@ namespace Serialization
 		// Decode the buffer's bytes into the output integer.
 		value = 0;
 		for(Uptr byteIndex = 0; byteIndex < maxBytes; ++byteIndex)
-		{ value |= Value(Uptr(bytes[byteIndex] & ~0x80) << (byteIndex * 7)); }
+		{ value |= Value(U64(bytes[byteIndex] & ~0x80) << U64(byteIndex * 7)); }
 
 		// Sign extend the output integer to the full size of Value.
 		if(std::is_signed<Value>::value && signExtendShift > 0)

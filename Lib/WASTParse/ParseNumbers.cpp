@@ -330,7 +330,7 @@ bool WAST::tryParseI64(CursorState* cursor, U64& outI64)
 
 bool WAST::tryParseIptr(CursorState* cursor, Uptr& outIptr)
 {
-	return tryParseInt<U64>(cursor, outIptr, INTPTR_MIN, UINTPTR_MAX);
+	return tryParseInt<Uptr>(cursor, outIptr, INTPTR_MIN, UINTPTR_MAX);
 }
 
 U8 WAST::parseI8(CursorState* cursor)
