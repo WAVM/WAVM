@@ -17,7 +17,7 @@ int main(int argc, char** argv)
 	if(argc < 3)
 	{
 		Log::printf(Log::error,
-					"Usage: Assemble in.wast out.wasm [switches]\n"
+					"Usage: wavm-as in.wast out.wasm [switches]\n"
 					"  -n|--omit-names           Omits WAST names from the output\n"
 					"     --omit-extended-names  Omits only the non-standard WAVM extended\n"
 					"                              names from the output\n");

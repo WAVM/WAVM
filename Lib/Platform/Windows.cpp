@@ -219,6 +219,20 @@ static Mutex& getErrorReportingMutex()
 	return mutex;
 }
 
+static void dumpErrorCallStack(Uptr numOmittedFramesFromTop)
+{
+	std::fprintf(stderr, "Call stack:\n");
+	CallStack callStack = captureCallStack(numOmittedFramesFromTop);
+	for(auto frame : callStack.stackFrames)
+	{
+		std::string frameDescription;
+		if(!Platform::describeInstructionPointer(frame.ip, frameDescription))
+		{ frameDescription = "<unknown function>"; }
+		std::fprintf(stderr, "  %s\n", frameDescription.c_str());
+	}
+	std::fflush(stderr);
+}
+
 void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
 {
 	Lock<Platform::Mutex> lock(getErrorReportingMutex());
@@ -236,6 +250,7 @@ void Platform::handleAssertionFailure(const AssertMetadata& metadata)
 				 metadata.file,
 				 metadata.line,
 				 metadata.condition);
+	dumpErrorCallStack(2);
 }
 
 // The interface to the DbgHelp DLL
@@ -747,7 +762,23 @@ void Platform::detachThread(Thread* thread)
 
 I64 Platform::joinThread(Thread* thread)
 {
-	errorUnless(WaitForSingleObject(thread->handle, INFINITE) == WAIT_OBJECT_0);
+	DWORD waitResult = WaitForSingleObject(thread->handle, INFINITE);
+	switch(waitResult)
+	{
+	case WAIT_OBJECT_0: break;
+	case WAIT_ABANDONED:
+		Errors::fatal("WaitForSingleObject(INFINITE) on thread returned WAIT_ABANDONED");
+		break;
+	case WAIT_TIMEOUT:
+		Errors::fatal("WaitForSingleObject(INFINITE) on thread returned WAIT_TIMEOUT");
+		break;
+	case WAIT_FAILED:
+		Errors::fatalf(
+			"WaitForSingleObject(INFINITE) on thread returned WAIT_FAILED. GetLastError()=%u",
+			GetLastError());
+		break;
+	};
+
 	const I64 result = thread->result;
 	thread->releaseRef();
 	return result;

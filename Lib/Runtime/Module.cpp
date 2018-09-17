@@ -350,7 +350,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			{
 				// WebAssembly still expects out-of-bounds errors if the segment base offset is
 				// out-of-bounds, even if the segment is empty.
-				if(baseOffset > table->numElements)
+				if(baseOffset > getTableNumElements(table))
 				{ throwException(Runtime::Exception::tableIndexOutOfBoundsType); }
 			}
 		}

@@ -212,7 +212,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "atomic_wake",
 						  I32,
 						  atomic_wake,
-						  I32 addressOffset,
+						  U32 addressOffset,
 						  I32 numToWake,
 						  Iptr memoryId)
 {
@@ -225,7 +225,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	// The alignment check is done by the caller.
 	wavmAssert(!(addressOffset & 3));
 
-	const Uptr address = reinterpret_cast<Uptr>(&memoryRef<U8>(memoryInstance, addressOffset));
+	const Uptr address = reinterpret_cast<Uptr>(memoryInstance->baseAddress) + addressOffset;
 	return wakeAddress(address, numToWake);
 }
 
@@ -233,21 +233,19 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "atomic_wait_i32",
 						  I32,
 						  atomic_wait_I32,
-						  I32 addressOffset,
+						  U32 addressOffset,
 						  I32 expectedValue,
 						  F64 timeout,
 						  Iptr memoryId)
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-	// Validate that the address is within the memory's bounds.
-	if(U64(addressOffset) + 4 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
-	{ throwException(Exception::memoryAddressOutOfBoundsType); }
-
-	// The alignment check is done by the caller.
+	// Assume that the caller has validated the alignment.
 	wavmAssert(!(addressOffset & 3));
 
+	// Validate that the address is within the memory's bounds, and convert it to a pointer.
 	I32* valuePointer = &memoryRef<I32>(memoryInstance, addressOffset);
+
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -261,14 +259,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-	// Validate that the address is within the memory's bounds.
-	if(U64(addressOffset) + 8 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
-	{ throwException(Exception::memoryAddressOutOfBoundsType); }
-
-	// The alignment check is done by the caller.
+	// Assume that the caller has validated the alignment.
 	wavmAssert(!(addressOffset & 7));
 
+	// Validate that the address is within the memory's bounds, and convert it to a pointer.
 	I64* valuePointer = &memoryRef<I64>(memoryInstance, addressOffset);
+
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }
 

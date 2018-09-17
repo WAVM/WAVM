@@ -1,26 +1,32 @@
-set(Sources
+# Helper functions for adding WAST test scripts.
+function(ADD_WAST_TEST WAST_PATH)
+	get_filename_component(WAST_NAME ${WAST_PATH} NAME)
+	add_test(
+		NAME ${WAST_NAME}
+		COMMAND $<TARGET_FILE:RunTestScript> ${CMAKE_CURRENT_LIST_DIR}/${WAST_PATH} ${ARGN})
+endfunction()
+
+function(ADD_WAST_TESTS WAST_PATHS)
+	foreach(WAST_PATH ${WAST_PATHS})
+		ADD_WAST_TEST(${WAST_PATH} ${ARGN})
+	endforeach()
+endfunction()
+
+set(NonReferenceTypesWASTTests
 	bulk_memory_ops.wast
 	exceptions.wast
 	misc.wast
-	reference_types.wast
 	simd.wast
 	threads.wast
 	trunc_sat.wast
-	wavm_atomic.wast)
-add_custom_target(WAVMTests SOURCES ${Sources})
+	wavm_atomic.wast
+)
+add_custom_target(WAVMTests SOURCES ${NonReferenceTypesWASTTests} reference_types.wast)
 set_target_properties(WAVMTests PROPERTIES FOLDER Testing)
 
-set(TEST_BIN ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CONFIGURATION}/RunTestScript)
-
 if(ENABLE_RUNTIME)
-	add_test(bulk_memory_ops ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/bulk_memory_ops.wast)
-	add_test(exceptions ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/exceptions.wast)
-	add_test(misc ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/misc.wast)
-	add_test(reference_types ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/reference_types.wast --enable-reference-types)
-	add_test(simd ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/simd.wast)
-	add_test(threads ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/threads.wast)
-	add_test(trunc_sat ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/trunc_sat.wast)
-	add_test(wavm_atomic ${TEST_BIN} ${CMAKE_CURRENT_LIST_DIR}/wavm_atomic.wast)
+	ADD_WAST_TESTS("${NonReferenceTypesWASTTests}")
+	ADD_WAST_TEST("reference_types.wast" --enable-reference-types)
 endif()
 
 add_subdirectory(Containers)

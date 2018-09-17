@@ -1,0 +1,5 @@
+root = true
+
+[*.{c,cpp,h,S,asm}]
+indent_style = tab
+indent_size = 4

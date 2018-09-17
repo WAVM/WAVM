@@ -47,10 +47,10 @@ namespace llvm
 #endif
 }
 
-#define DUMP_UNOPTIMIZED_MODULE WAVM_DEBUG
 #define VERIFY_MODULE WAVM_DEBUG
-#define DUMP_OPTIMIZED_MODULE WAVM_DEBUG
-#define DUMP_OBJECT WAVM_DEBUG
+#define DUMP_UNOPTIMIZED_MODULE 0
+#define DUMP_OPTIMIZED_MODULE 0
+#define DUMP_OBJECT 0
 
 using namespace IR;
 using namespace LLVMJIT;

@@ -72,6 +72,23 @@ namespace Wavix
 		}
 	}
 
+	VALIDATE_AS_PRINTF(2, 3)
+	inline void traceSyscallReturnf(const char* syscallName, const char* returnFormat, ...)
+	{
+		if(isTracingSyscalls)
+		{
+			va_list argList;
+			va_start(argList, returnFormat);
+			Log::printf(Log::debug,
+						"SYSCALL(%" PRIxPTR "): %s -> ",
+						reinterpret_cast<Uptr>(currentThread),
+						syscallName);
+			Log::vprintf(Log::debug, returnFormat, argList);
+			Log::printf(Log::debug, "\n");
+			va_end(argList);
+		}
+	}
+
 	inline U32 coerce32bitAddress(Uptr address)
 	{
 		if(address >= UINT32_MAX)

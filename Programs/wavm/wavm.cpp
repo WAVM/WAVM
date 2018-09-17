@@ -250,21 +250,23 @@ static int run(const CommandLineOptions& options)
 	{
 		if(functionType.params().size() == 2)
 		{
-			MemoryInstance* defaultMemory = Runtime::getDefaultMemory(moduleInstance);
-			if(!defaultMemory)
+			if(!emscriptenInstance)
 			{
 				Log::printf(
 					Log::error,
 					"Module does not declare a default memory object to put arguments in.\n");
 				return EXIT_FAILURE;
 			}
+			else
+			{
+				std::vector<const char*> argStrings;
+				argStrings.push_back(options.filename);
+				char** args = options.args;
+				while(*args) { argStrings.push_back(*args++); };
 
-			std::vector<const char*> argStrings;
-			argStrings.push_back(options.filename);
-			char** args = options.args;
-			while(*args) { argStrings.push_back(*args++); };
-
-			Emscripten::injectCommandArgs(emscriptenInstance, argStrings, invokeArgs);
+				wavmAssert(emscriptenInstance);
+				Emscripten::injectCommandArgs(emscriptenInstance, argStrings, invokeArgs);
+			}
 		}
 		else if(functionType.params().size() > 0)
 		{
@@ -398,7 +400,7 @@ int main(int argc, char** argv)
 
 	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
 	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception) {
-		Errors::fatalf("Unhandled runtime exception: %s\n", describeException(exception).c_str());
+		Errors::fatalf("Runtime exception: %s\n", describeException(exception).c_str());
 	});
 
 	return run(options);

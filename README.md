@@ -68,13 +68,13 @@ WebAssembly programs that export a main function with the standard parameters wi
 There are a few additional executables that can be used to assemble the WAST file into a binary:
 
 ```
-Assemble in.wast out.wasm
+wavm-as in.wast out.wasm
 ```
 
-Disassemble a binary into a WAST file:
+wavm-disas a binary into a WAST file:
 
 ```
-Disassemble in.wasm out.wast
+wavm-disas in.wasm out.wast
 ```
 
 and to execute a test script defined by a WAST file (see the [Test/spec directory](Test/spec) for examples of the syntax):

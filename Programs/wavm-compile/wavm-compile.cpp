@@ -23,11 +23,6 @@ int main(int argc, char** argv)
 	const char* inputFilename = argv[1];
 	const char* outputFilename = argv[2];
 
-	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
-	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception) {
-		Errors::fatalf("Unhandled runtime exception: %s\n", describeException(exception).c_str());
-	});
-
 	IR::Module irModule;
 
 	// Load the module IR.

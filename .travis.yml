@@ -1,7 +1,5 @@
 sudo: false
 language: c++
-notifications:
- slack: wavm:XJj5kD0mDa4FMKLUz9laRC48
 
 # OSX configuration
 osx_image: xcode9.3beta
@@ -19,47 +17,68 @@ addons:
    - clang-5.0
 
 # Defer the actual build script to travis-build.sh
-script: ./travis-build.sh
+script: Build/travis-build.sh
+
+stages:
+  - build
+  - notify
+
+# Notify Discord when any job fails.
+after_failure: Build/notify-discord.sh failure $DISCORD_WEBHOOK_URL
 
 # Build configuration matrix
-matrix:
+jobs:
   include:
-    - name: "OSX"
+    - stage: build
+      name: "OSX"
       os: osx
       compiler: clang
       env: ENABLE_RUNTIME=YES ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
     
-    - name: "Linux/GCC"
+    - stage: build
+      name: "Linux/GCC"
       os: linux
       compiler: gcc
       env: ENABLE_RUNTIME=NO ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
     
-    - name: "Linux/Clang"
+    - stage: build
+      name: "Linux/Clang"
       os: linux
       compiler: clang
       env: ENABLE_RUNTIME=NO ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
 
-    - name: "Linux/GCC STATIC_LINKING"
+    - stage: build
+      name: "Linux/GCC STATIC_LINKING"
       os: linux
       compiler: gcc
       env: ENABLE_RUNTIME=NO ENABLE_STATIC_LINKING=YES ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
 
-    - name: "Linux/GCC RELEASE_ASSERTS"
+    - stage: build
+      name: "Linux/GCC RELEASE_ASSERTS"
       os: linux
       compiler: gcc
       env: ENABLE_RUNTIME=NO ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=YES ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
 
-    - name: "Linux/GCC UBSAN"
+    - stage: build
+      name: "Linux/GCC UBSAN"
       os: linux
       compiler: gcc
       env: ENABLE_RUNTIME=NO ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=YES ENABLE_LIBFUZZER=NO
 
-    - name: "Linux/Clang ASAN"
+    - stage: build
+      name: "Linux/Clang ASAN"
       os: linux
       compiler: clang
       env: ENABLE_RUNTIME=NO ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=YES ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
 
-    - name: "Linux/Clang UBSAN"
+    - stage: build
+      name: "Linux/Clang UBSAN"
       os: linux
       compiler: clang
       env: ENABLE_RUNTIME=NO ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=YES ENABLE_LIBFUZZER=NO
+
+    - stage: notify
+      name: "Notify Discord"
+      os: linux
+      install: skip
+      script: Build/notify-discord.sh success $DISCORD_WEBHOOK_URL

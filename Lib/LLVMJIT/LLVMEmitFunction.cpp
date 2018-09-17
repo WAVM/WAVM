@@ -45,6 +45,7 @@ namespace llvm
 }
 
 #define ENABLE_LOGGING 0
+#define EMIT_ENTER_EXIT_HOOKS 0
 
 using namespace IR;
 using namespace LLVMJIT;
@@ -384,6 +385,15 @@ void EmitFunctionContext::emit()
 		}
 	}
 
+	if(EMIT_ENTER_EXIT_HOOKS)
+	{
+		emitRuntimeIntrinsic("debugEnterFunction",
+							 FunctionType({}, {ValueType::anyfunc}),
+							 {llvm::ConstantExpr::getSub(
+								 llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
+								 emitLiteral(llvmContext, Uptr(offsetof(AnyFunc, code))))});
+	}
+
 	// Decode the WebAssembly opcodes and emit LLVM IR for them.
 	OperatorDecoderStream decoder(functionDef.code);
 	UnreachableOpVisitor unreachableOpVisitor(*this);
@@ -402,6 +412,15 @@ void EmitFunctionContext::emit()
 		}
 	};
 	wavmAssert(irBuilder.GetInsertBlock() == returnBlock);
+
+	if(EMIT_ENTER_EXIT_HOOKS)
+	{
+		emitRuntimeIntrinsic("debugExitFunction",
+							 FunctionType({}, {ValueType::anyfunc}),
+							 {llvm::ConstantExpr::getSub(
+								 llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
+								 emitLiteral(llvmContext, Uptr(offsetof(AnyFunc, code))))});
+	}
 
 	// Emit the function return.
 	emitReturn(functionType.results(), stack);

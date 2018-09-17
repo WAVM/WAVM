@@ -17,9 +17,12 @@ enable_testing()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# Put executables in the bin dir, and libraries in the lib dir.
-SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+# Put executables/DLLs in the bin directory.
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+
+# Put libraries/SOs in the lib/WAVM directory.
+SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib/WAVM)
+SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/WAVM")
 
 # Allow includes relative to the source path.
 include_directories(${WAVM_INCLUDE_DIR})
@@ -145,7 +148,7 @@ endif()
 
 option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 
-option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" ON)
+option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 
 if(NOT ENABLE_STATIC_LINKING AND MSVC)
 	add_definitions("-DDLL_EXPORT=__declspec(dllexport)")
@@ -158,8 +161,14 @@ endif()
 function(WAVM_ADD_LIBRARY TARGET_NAME)
 	if(ENABLE_STATIC_LINKING)
 		add_library(${TARGET_NAME} STATIC ${ARGN})
+		install(TARGETS ${TARGET_NAME} DESTINATION lib/WAVM)
 	else()
 		add_library(${TARGET_NAME} SHARED ${ARGN})
+		if(WIN32)
+			install(TARGETS ${TARGET_NAME} DESTINATION bin)
+		else()
+			install(TARGETS ${TARGET_NAME} DESTINATION lib/WAVM)
+		endif()
 	endif()
 endfunction(WAVM_ADD_LIBRARY)
 
@@ -173,8 +182,8 @@ add_subdirectory(Lib/RegExp)
 add_subdirectory(Lib/WASM)
 add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
-add_subdirectory(Programs/Assemble)
-add_subdirectory(Programs/Disassemble)
+add_subdirectory(Programs/wavm-as)
+add_subdirectory(Programs/wavm-disas)
 add_subdirectory(Test)
 add_subdirectory(ThirdParty/dtoa)
 add_subdirectory(ThirdParty/xxhash)
@@ -190,14 +199,22 @@ if(ENABLE_RUNTIME)
 	add_subdirectory(Programs/wavm-compile)
 endif()
 
+file(GLOB IncludeDirectories RELATIVE ${WAVM_SOURCE_DIR} ${WAVM_SOURCE_DIR}/Include/*)
+foreach(IncludeDirectory ${IncludeDirectories})
+	if(IS_DIRECTORY ${WAVM_SOURCE_DIR}/${IncludeDirectory})
+		install(DIRECTORY ${IncludeDirectory} DESTINATION include/WAVM PATTERN *.txt EXCLUDE)
+	endif()
+endforeach()
+
 # Create a dummy target to hold various files in the project root
 add_custom_target(RootFiles SOURCES
 	.clang-format
 	.travis.yml
 	azure-pipelines.yml
-	azure-windows-build-job-template.yml
+	Build/azure-windows-build-job-template.yml
+	Build/notify-discord.sh
+	Build/travis-build.sh
 	LICENSE.md
 	README.md
 	run-clang-format.sh
-	travis-build.sh
 	WebAssembly.tmLanguage)

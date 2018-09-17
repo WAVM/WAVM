@@ -78,11 +78,11 @@ namespace Runtime
 		const IR::TableType type;
 
 		Element* elements;
-		std::atomic<Uptr> numElements;
 		Uptr numReservedBytes;
 		Uptr numReservedElements;
 
 		Platform::Mutex resizingMutex;
+		std::atomic<Uptr> numElements;
 
 		TableInstance(Compartment* inCompartment, const IR::TableType& inType)
 		: ObjectImpl(ObjectKind::table)
@@ -90,9 +90,9 @@ namespace Runtime
 		, id(UINTPTR_MAX)
 		, type(inType)
 		, elements(nullptr)
-		, numElements(0)
 		, numReservedBytes(0)
 		, numReservedElements(0)
+		, numElements(0)
 		{
 		}
 		~TableInstance() override;
@@ -110,8 +110,10 @@ namespace Runtime
 		IR::MemoryType type;
 
 		U8* baseAddress;
-		std::atomic<Uptr> numPages;
 		Uptr numReservedBytes;
+
+		Platform::Mutex resizingMutex;
+		std::atomic<Uptr> numPages;
 
 		MemoryInstance(Compartment* inCompartment, const IR::MemoryType& inType)
 		: ObjectImpl(ObjectKind::memory)
@@ -119,8 +121,8 @@ namespace Runtime
 		, id(UINTPTR_MAX)
 		, type(inType)
 		, baseAddress(nullptr)
-		, numPages(0)
 		, numReservedBytes(0)
+		, numPages(0)
 		{
 		}
 		~MemoryInstance() override;

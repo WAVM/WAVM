@@ -12,7 +12,7 @@ int main(int argc, char** argv)
 {
 	if(argc != 3)
 	{
-		Log::printf(Log::error, "Usage: Disassemble in.wasm out.wast\n");
+		Log::printf(Log::error, "Usage: wavm-disas in.wasm out.wast\n");
 		return EXIT_FAILURE;
 	}
 	const char* inputFilename = argv[1];
