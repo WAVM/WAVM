@@ -50,6 +50,11 @@ enum
 	minStaticEmscriptenMemoryPages = 128
 };
 
+enum ErrNo
+{
+	einval = 22
+};
+
 struct MutableGlobals
 {
 	enum
@@ -174,8 +179,7 @@ static int pthreadSpecificNextKey = 0;
 DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "_pthread_key_create", I32, _pthread_key_create, I32 key, I32 destructorPtr)
 {
 	if (key == 0) {
-		// ErrNo codes - einval
-		return 22;
+		return ErrNo::einval;
 	}
 
 	MemoryInstance* memory
@@ -194,8 +198,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_mutex_unlock", I32, _pthread_mutex_unlo
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_setspecific", I32, _pthread_setspecific, I32 key, I32 value)
 {
 	if (!pthreadSpecific.contains(key)) {
-		// ErrNo codes - einval
-		return 22;
+		return ErrNo::einval;
     }
 	pthreadSpecific.set(key, value);
 	return 0;
