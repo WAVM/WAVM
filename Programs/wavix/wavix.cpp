@@ -333,6 +333,22 @@ DEFINE_INTRINSIC_FUNCTION(wavix, "__syscall_getgroups32", I32, __syscall_getgrou
 	throwException(Exception::calledUnimplementedIntrinsicType);
 }
 
+// Exceptions
+
+DEFINE_INTRINSIC_FUNCTION(wavix, "_Unwind_RaiseException", I32, Wavix_Unwind_RaiseException, I32 a)
+{
+	throwException(Exception::calledUnimplementedIntrinsicType);
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavix,
+						  "_Unwind_DeleteException",
+						  void,
+						  Wavix_Unwind_DeleteException,
+						  I32 a)
+{
+	throwException(Exception::calledUnimplementedIntrinsicType);
+}
+
 static void unhandledExceptionHandler(Exception&& exception)
 {
 	Errors::fatalf("Unhandled runtime exception: %s\n", describeException(exception).c_str());
