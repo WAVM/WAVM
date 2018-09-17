@@ -378,7 +378,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	// Load the anyfunc referenced by the table.
 	auto elementPointer = irBuilder.CreateInBoundsGEP(tableBasePointer, {functionIndexZExt});
 	llvm::LoadInst* biasedValueLoad = irBuilder.CreateLoad(elementPointer);
-	biasedValueLoad->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);
+	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(sizeof(Uptr));
 	auto anyfuncPointer = irBuilder.CreateIntToPtr(
 		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
