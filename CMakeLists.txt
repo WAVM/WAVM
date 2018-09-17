@@ -5,6 +5,13 @@ set(WAVM_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(WAVM_LIB_DIR ${WAVM_SOURCE_DIR}/Lib)
 set(WAVM_INCLUDE_DIR ${WAVM_SOURCE_DIR}/Include)
 
+# Use ccache if possible (to improve build times)
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif(CCACHE_FOUND)
+
 # If no build type is specified, default to RelWithDebInfo
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "The type of build (Debug, Release, RelWithDebInfo, or MinSizeRel" FORCE)
