@@ -543,10 +543,9 @@ struct FunctionValidationContext
 	}
 	void call_indirect(CallIndirectImm imm)
 	{
-		VALIDATE_UNLESS("call_indirect is only valid if there is a default function table: ",
-						module.tables.size() == 0);
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
 		VALIDATE_UNLESS("call_indirect requires a table element type of anyfunc: ",
-						module.tables.getType(0).elementType != ReferenceType::anyfunc);
+						module.tables.getType(imm.tableIndex).elementType != ReferenceType::anyfunc);
 		FunctionType calleeType = validateFunctionType(module, imm.type);
 		popAndValidateOperand("call_indirect function index", ValueType::i32);
 		popAndValidateTypeTuple("call_indirect arguments", calleeType.params());

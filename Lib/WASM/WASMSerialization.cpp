@@ -443,7 +443,7 @@ template<typename Stream> void serialize(Stream& stream, CallImm& imm, const Fun
 template<typename Stream> void serialize(Stream& stream, CallIndirectImm& imm, const FunctionDef&)
 {
 	serializeVarUInt32(stream, imm.type.index);
-	serializeConstant(stream, "call_indirect immediate reserved field must be 0", U8(0));
+	serializeVarUInt32(stream, imm.tableIndex);
 }
 
 template<typename Stream, Uptr naturalAlignmentLog2>

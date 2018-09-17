@@ -372,8 +372,10 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	// Zero extend the function index to the pointer size.
 	auto functionIndexZExt = zext(tableElementIndex, llvmContext.iptrType);
 
-	auto tableBasePointer = irBuilder.CreatePointerCast(
-		irBuilder.CreateLoad(tableBasePointerVariable), llvmContext.iptrType->getPointerTo());
+	auto tableBasePointer = loadFromUntypedPointer(
+		irBuilder.CreateInBoundsGEP(getCompartmentAddress(),
+									{moduleContext.tableOffsets[imm.tableIndex]}),
+		llvmContext.iptrType->getPointerTo());
 
 	// Load the anyfunc referenced by the table.
 	auto elementPointer = irBuilder.CreateInBoundsGEP(tableBasePointer, {functionIndexZExt});

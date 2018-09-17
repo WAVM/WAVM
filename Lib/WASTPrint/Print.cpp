@@ -479,7 +479,8 @@ struct FunctionPrintContext
 	}
 	void call_indirect(CallIndirectImm imm)
 	{
-		string += "\ncall_indirect (type " + moduleContext.names.types[imm.type.index] + ')';
+		string += "\ncall_indirect " + moduleContext.names.tables[imm.tableIndex];
+		string += " (type " + moduleContext.names.types[imm.type.index] + ')';
 	}
 
 	void printControlSignature(IndexedBlockType indexedSignature)
@@ -865,9 +866,9 @@ void ModulePrintContext::printModule()
 		for(Uptr offset = 0; offset < dataSegment.data.size(); offset += numBytesPerLine)
 		{
 			string += "\n\"";
-			string
-				+= escapeString((const char*)dataSegment.data.data() + offset,
-								std::min(Uptr(dataSegment.data.size()) - offset, Uptr(numBytesPerLine)));
+			string += escapeString(
+				(const char*)dataSegment.data.data() + offset,
+				std::min(Uptr(dataSegment.data.size()) - offset, Uptr(numBytesPerLine)));
 			string += "\"";
 		}
 	}

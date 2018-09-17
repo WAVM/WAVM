@@ -24,7 +24,6 @@ namespace LLVMJIT
 
 		llvm::Value* contextPointerVariable;
 		llvm::Value* memoryBasePointerVariable;
-		llvm::Value* tableBasePointerVariable;
 
 		EmitContext(LLVMContext& inLLVMContext,
 					llvm::Constant* inDefaultMemoryOffset,
@@ -33,7 +32,6 @@ namespace LLVMJIT
 		, irBuilder(inLLVMContext)
 		, contextPointerVariable(nullptr)
 		, memoryBasePointerVariable(nullptr)
-		, tableBasePointerVariable(nullptr)
 		, defaultMemoryOffset(inDefaultMemoryOffset)
 		, defaultTableOffset(inDefaultTableOffset)
 		{
@@ -51,16 +49,21 @@ namespace LLVMJIT
 				value, irBuilder.CreatePointerCast(pointer, value->getType()->getPointerTo()));
 		}
 
-		void reloadMemoryAndTableBase()
+		llvm::Value* getCompartmentAddress()
 		{
 			// Derive the compartment runtime data from the context address by masking off the lower
 			// 32 bits.
-			llvm::Value* compartmentAddress = irBuilder.CreateIntToPtr(
+			return irBuilder.CreateIntToPtr(
 				irBuilder.CreateAnd(
 					irBuilder.CreatePtrToInt(irBuilder.CreateLoad(contextPointerVariable),
 											 llvmContext.i64Type),
 					emitLiteral(llvmContext, ~((U64(1) << 32) - 1))),
 				llvmContext.i8PtrType);
+		}
+
+		void reloadMemoryBase()
+		{
+			llvm::Value* compartmentAddress = getCompartmentAddress();
 
 			// Load the defaultMemoryBase and defaultTableBase values from the runtime data for this
 			// module instance.
@@ -73,27 +76,16 @@ namespace LLVMJIT
 						llvmContext.i8PtrType),
 					memoryBasePointerVariable);
 			}
-
-			if(defaultTableOffset)
-			{
-				irBuilder.CreateStore(
-					loadFromUntypedPointer(
-						irBuilder.CreateInBoundsGEP(compartmentAddress, {defaultTableOffset}),
-						llvmContext.i8PtrType),
-					tableBasePointerVariable);
-			}
 		}
 
 		void initContextVariables(llvm::Value* initialContextPointer)
 		{
 			memoryBasePointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "memoryBase");
-			tableBasePointerVariable
-				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "tableBase");
 			contextPointerVariable
 				= irBuilder.CreateAlloca(llvmContext.i8PtrType, nullptr, "context");
 			irBuilder.CreateStore(initialContextPointer, contextPointerVariable);
-			reloadMemoryAndTableBase();
+			reloadMemoryBase();
 		}
 
 		// Creates either a call or an invoke if the call occurs inside a try.
@@ -162,7 +154,7 @@ namespace LLVMJIT
 				irBuilder.CreateStore(newContextPointer, contextPointerVariable);
 
 				// Reload the memory/table base pointers.
-				reloadMemoryAndTableBase();
+				reloadMemoryBase();
 
 				if(areResultsReturnedDirectly(calleeType.results()))
 				{
@@ -204,7 +196,7 @@ namespace LLVMJIT
 				irBuilder.CreateStore(newContextPointer, contextPointerVariable);
 
 				// Reload the memory/table base pointers.
-				reloadMemoryAndTableBase();
+				reloadMemoryBase();
 
 				// Load the call result from the returned context.
 				wavmAssert(calleeType.results().size() <= 1);

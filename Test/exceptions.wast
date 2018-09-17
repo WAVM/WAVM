@@ -67,7 +67,7 @@
 
     (func (export "catch_all") (param $thunk i32) (result i32)
       try (result i32)
-        (call_indirect $i32_to_void_sig (i32.const 13) (get_local $thunk))
+        (call_indirect (type $i32_to_void_sig) (i32.const 13) (get_local $thunk))
         i32.const 14
       catch_all
         i32.const 15

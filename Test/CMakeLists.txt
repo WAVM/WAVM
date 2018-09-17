@@ -22,7 +22,7 @@ set(WASTTests
 	trunc_sat.wast
 	wavm_atomic.wast
 )
-add_custom_target(WAVMTests SOURCES ${NonReferenceTypesWASTTests} reference_types.wast)
+add_custom_target(WAVMTests SOURCES ${WASTTests})
 set_target_properties(WAVMTests PROPERTIES FOLDER Testing)
 
 if(ENABLE_RUNTIME)

@@ -65,6 +65,7 @@ namespace IR
 	struct CallIndirectImm
 	{
 		IndexedFunctionType type;
+		Uptr tableIndex;
 	};
 
 	template<Uptr naturalAlignmentLog2> struct LoadOrStoreImm

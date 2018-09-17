@@ -84,3 +84,37 @@
 (invoke "table.get $t2" (i32.const 2))
 (assert_trap (invoke "table.get $t2" (i32.const 3)) "undefined element")
 (assert_trap (invoke "table.get $t2" (i32.const -1)) "undefined element")
+
+;; call_indirect with non-zero table index
+
+(module
+	(table $t1 4 anyref)
+	(table $t2 4 anyfunc)
+	(table $t3 4 anyfunc)
+
+	(elem $t2 (i32.const 0) $0 $1 $2 $3)
+	(elem $t3 (i32.const 0) $4 $5)
+	
+	(func $0 (result i32) (i32.const 0))
+	(func $1 (result i32) (i32.const 1))
+	(func $2 (result i32) (i32.const 2))
+	(func $3 (result i32) (i32.const 3))
+	(func $4 (result i32) (i32.const 4))
+	(func $5 (result i32) (i32.const 5))
+
+	(func (export "call_indirect $t2") (param $index i32) (result i32)
+		(call_indirect $t2 (result i32) (get_local $index))
+	)
+	(func (export "call_indirect $t3") (param $index i32) (result i32)
+		(call_indirect 2 (result i32) (get_local $index))
+	)
+)
+
+(assert_return (invoke "call_indirect $t2" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "call_indirect $t2" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "call_indirect $t2" (i32.const 2)) (i32.const 2))
+(assert_return (invoke "call_indirect $t2" (i32.const 3)) (i32.const 3))
+(assert_return (invoke "call_indirect $t3" (i32.const 0)) (i32.const 4))
+(assert_return (invoke "call_indirect $t3" (i32.const 1)) (i32.const 5))
+(assert_trap   (invoke "call_indirect $t3" (i32.const 2)) "uninitialized")
+(assert_trap   (invoke "call_indirect $t3" (i32.const 3)) "uninitialized")

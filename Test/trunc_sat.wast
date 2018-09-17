@@ -56,13 +56,13 @@
     (local $i i32)
     loop $loop
         (i32.ne
-            (call_indirect $f32_to_i32 (f32.reinterpret/i32 (get_local $i)) (get_local $funcA))
-            (call_indirect $f32_to_i32 (f32.reinterpret/i32 (get_local $i)) (get_local $funcB))
+            (call_indirect (type $f32_to_i32) (f32.reinterpret/i32 (get_local $i)) (get_local $funcA))
+            (call_indirect (type $f32_to_i32) (f32.reinterpret/i32 (get_local $i)) (get_local $funcB))
             )
         if
             (call $spectest_print_f32 (f32.reinterpret/i32 (get_local $i)))
-            (call $spectest_print_i32 (call_indirect $f32_to_i32 (f32.reinterpret/i32 (get_local $i)) (get_local $funcA)))
-            (call $spectest_print_i32 (call_indirect $f32_to_i32 (f32.reinterpret/i32 (get_local $i)) (get_local $funcB)))
+            (call $spectest_print_i32 (call_indirect (type $f32_to_i32) (f32.reinterpret/i32 (get_local $i)) (get_local $funcA)))
+            (call $spectest_print_i32 (call_indirect (type $f32_to_i32) (f32.reinterpret/i32 (get_local $i)) (get_local $funcB)))
             (return (i32.const 0))
         end
         (set_local $i (i32.add (i32.const 1) (get_local $i)))
