@@ -72,9 +72,7 @@ namespace LLVMJIT
 							const IR::Module& inIRModule,
 							const IR::FunctionDef& inFunctionDef,
 							llvm::Function* inLLVMFunction)
-		: EmitContext(inLLVMContext,
-					  inModuleContext.defaultMemoryOffset,
-					  inModuleContext.defaultTableOffset)
+		: EmitContext(inLLVMContext, inModuleContext.defaultMemoryOffset)
 		, moduleContext(inModuleContext)
 		, irModule(inIRModule)
 		, functionDef(inFunctionDef)

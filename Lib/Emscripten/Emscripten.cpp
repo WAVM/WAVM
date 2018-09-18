@@ -108,6 +108,8 @@ DEFINE_INTRINSIC_GLOBAL(env, "EMTSTACKTOP", I32, EMTSTACKTOP, 0)
 DEFINE_INTRINSIC_GLOBAL(env, "EMT_STACK_MAX", I32, EMT_STACK_MAX, 0)
 DEFINE_INTRINSIC_GLOBAL(env, "eb", I32, eb, 0)
 
+static thread_local MemoryInstance* emscriptenMemory = nullptr;
+
 static U32 dynamicAlloc(MemoryInstance* memory, U32 numBytes)
 {
 	MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
@@ -124,11 +126,10 @@ static U32 dynamicAlloc(MemoryInstance* memory, U32 numBytes)
 	return allocationAddress;
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "getTotalMemory", I32, getTotalMemory)
+DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", I32, getTotalMemory)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	return coerce32bitAddress(Runtime::getMemoryMaxPages(memory) * IR::numBytesPerPage);
+	wavmAssert(emscriptenMemory);
+	return coerce32bitAddress(Runtime::getMemoryMaxPages(emscriptenMemory) * IR::numBytesPerPage);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrowMemory)
@@ -140,12 +141,11 @@ DEFINE_INTRINSIC_FUNCTION(env, "enlargeMemory", I32, enlargeMemory)
 	return abortOnCannotGrowMemory(contextRuntimeData);
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "_time", I32, _time, I32 address)
+DEFINE_INTRINSIC_FUNCTION(env, "_time", I32, _time, I32 address)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+	wavmAssert(emscriptenMemory);
 	time_t t = time(nullptr);
-	if(address) { memoryRef<I32>(memory, address) = (I32)t; }
+	if(address) { memoryRef<I32>(emscriptenMemory, address) = (I32)t; }
 	return (I32)t;
 }
 
@@ -176,18 +176,17 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_broadcast", I32, _pthread_cond_bro
 static HashMap<I32, I32> pthreadSpecific = {};
 static int pthreadSpecificNextKey = 0;
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
-											 "_pthread_key_create",
-											 I32,
-											 _pthread_key_create,
-											 I32 key,
-											 I32 destructorPtr)
+DEFINE_INTRINSIC_FUNCTION(env,
+						  "_pthread_key_create",
+						  I32,
+						  _pthread_key_create,
+						  I32 key,
+						  I32 destructorPtr)
 {
 	if(key == 0) { return ErrNo::einval; }
 
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	memoryRef<U32>(memory, key) = pthreadSpecificNextKey;
+	wavmAssert(emscriptenMemory);
+	memoryRef<U32>(emscriptenMemory, key) = pthreadSpecificNextKey;
 	pthreadSpecific.set(pthreadSpecificNextKey, 0);
 	pthreadSpecificNextKey++;
 
@@ -224,10 +223,9 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cleanup_push", void, _pthread_cleanup_p
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cleanup_pop", void, _pthread_cleanup_pop, I32 a) {}
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_self", I32, _pthread_self) { return 0; }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "___ctype_b_loc", I32, ___ctype_b_loc)
+DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", I32, ___ctype_b_loc)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+	wavmAssert(emscriptenMemory);
 	unsigned short data[384] = {
 		0,     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
 		0,     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
@@ -262,15 +260,14 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "___ctype_b_loc", I32, ___ctyp
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(dynamicAlloc(memory, sizeof(data)));
-		memcpy(memoryArrayPtr<U8>(memory, vmAddress, sizeof(data)), data, sizeof(data));
+		vmAddress = coerce32bitAddress(dynamicAlloc(emscriptenMemory, sizeof(data)));
+		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(short) * 128;
 }
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "___ctype_toupper_loc", I32, ___ctype_toupper_loc)
+DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", I32, ___ctype_toupper_loc)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+	wavmAssert(emscriptenMemory);
 	I32 data[384]
 		= {128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145,
 		   146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163,
@@ -297,15 +294,14 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "___ctype_toupper_loc", I32, _
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(dynamicAlloc(memory, sizeof(data)));
-		memcpy(memoryArrayPtr<U8>(memory, vmAddress, sizeof(data)), data, sizeof(data));
+		vmAddress = coerce32bitAddress(dynamicAlloc(emscriptenMemory, sizeof(data)));
+		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
 }
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "___ctype_tolower_loc", I32, ___ctype_tolower_loc)
+DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", I32, ___ctype_tolower_loc)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+	wavmAssert(emscriptenMemory);
 	I32 data[384]
 		= {128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145,
 		   146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163,
@@ -332,8 +328,8 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "___ctype_tolower_loc", I32, _
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(dynamicAlloc(memory, sizeof(data)));
-		memcpy(memoryArrayPtr<U8>(memory, vmAddress, sizeof(data)), data, sizeof(data));
+		vmAddress = coerce32bitAddress(dynamicAlloc(emscriptenMemory, sizeof(data)));
+		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
 }
@@ -353,17 +349,12 @@ DEFINE_INTRINSIC_FUNCTION(env, "___cxa_atexit", I32, ___cxa_atexit, I32 a, I32 b
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
-											 "___cxa_guard_acquire",
-											 I32,
-											 ___cxa_guard_acquire,
-											 I32 address)
+DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_acquire", I32, ___cxa_guard_acquire, I32 address)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	if(!memoryRef<U8>(memory, address))
+	wavmAssert(emscriptenMemory);
+	if(!memoryRef<U8>(emscriptenMemory, address))
 	{
-		memoryRef<U8>(memory, address) = 1;
+		memoryRef<U8>(emscriptenMemory, address) = 1;
 		return 1;
 	}
 	else
@@ -380,15 +371,14 @@ DEFINE_INTRINSIC_FUNCTION(env, "___cxa_begin_catch", I32, ___cxa_begin_catch, I3
 {
 	throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 }
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
-											 "___cxa_allocate_exception",
-											 I32,
-											 ___cxa_allocate_exception,
-											 I32 size)
+DEFINE_INTRINSIC_FUNCTION(env,
+						  "___cxa_allocate_exception",
+						  I32,
+						  ___cxa_allocate_exception,
+						  I32 size)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	return coerce32bitAddress(dynamicAlloc(memory, size));
+	wavmAssert(emscriptenMemory);
+	return coerce32bitAddress(dynamicAlloc(emscriptenMemory, size));
 }
 DEFINE_INTRINSIC_FUNCTION(env, "__ZSt18uncaught_exceptionv", I32, __ZSt18uncaught_exceptionv)
 {
@@ -415,17 +405,10 @@ DEFINE_INTRINSIC_FUNCTION(env, "_uselocale", I32, _uselocale, I32 locale)
 	currentLocale = locale;
 	return oldLocale;
 }
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
-											 "_newlocale",
-											 I32,
-											 _newlocale,
-											 I32 mask,
-											 I32 locale,
-											 I32 base)
+DEFINE_INTRINSIC_FUNCTION(env, "_newlocale", I32, _newlocale, I32 mask, I32 locale, I32 base)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	if(!base) { base = coerce32bitAddress(dynamicAlloc(memory, 4)); }
+	wavmAssert(emscriptenMemory);
+	if(!base) { base = coerce32bitAddress(dynamicAlloc(emscriptenMemory, 4)); }
 	return base;
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_freelocale", void, emscripten__freelocale, I32 a) {}
@@ -464,17 +447,18 @@ DEFINE_INTRINSIC_FUNCTION(env,
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_catclose", I32, emscripten__catclose, I32 a) { return 0; }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
-											 "_emscripten_memcpy_big",
-											 I32,
-											 _emscripten_memcpy_big,
-											 I32 a,
-											 I32 b,
-											 I32 c)
+DEFINE_INTRINSIC_FUNCTION(env,
+						  "_emscripten_memcpy_big",
+						  I32,
+						  _emscripten_memcpy_big,
+						  I32 a,
+						  I32 b,
+						  I32 c)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	memcpy(memoryArrayPtr<U8>(memory, a, c), memoryArrayPtr<U8>(memory, b, c), U32(c));
+	wavmAssert(emscriptenMemory);
+	memcpy(memoryArrayPtr<U8>(emscriptenMemory, a, c),
+		   memoryArrayPtr<U8>(emscriptenMemory, b, c),
+		   U32(c));
 	return a;
 }
 
@@ -510,34 +494,18 @@ DEFINE_INTRINSIC_FUNCTION(env, "_ungetc", I32, _ungetc, I32 character, I32 file)
 {
 	return ungetc(character, vmFile(file));
 }
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
-											 "_fread",
-											 I32,
-											 _fread,
-											 I32 pointer,
-											 I32 size,
-											 I32 count,
-											 I32 file)
+DEFINE_INTRINSIC_FUNCTION(env, "_fread", I32, _fread, I32 pointer, I32 size, I32 count, I32 file)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	return (I32)fread(memoryArrayPtr<U8>(memory, pointer, U64(size) * U64(count)),
+	wavmAssert(emscriptenMemory);
+	return (I32)fread(memoryArrayPtr<U8>(emscriptenMemory, pointer, U64(size) * U64(count)),
 					  U64(size),
 					  U64(count),
 					  vmFile(file));
 }
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
-											 "_fwrite",
-											 I32,
-											 _fwrite,
-											 I32 pointer,
-											 I32 size,
-											 I32 count,
-											 I32 file)
+DEFINE_INTRINSIC_FUNCTION(env, "_fwrite", I32, _fwrite, I32 pointer, I32 size, I32 count, I32 file)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
-	return (I32)fwrite(memoryArrayPtr<U8>(memory, pointer, U64(size) * U64(count)),
+	wavmAssert(emscriptenMemory);
+	return (I32)fwrite(memoryArrayPtr<U8>(emscriptenMemory, pointer, U64(size) * U64(count)),
 					   U64(size),
 					   U64(count),
 					   vmFile(file));
@@ -577,27 +545,22 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall145", I32, ___syscall145, I32 file, I3
 	throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
-											 "___syscall146",
-											 I32,
-											 ___syscall146,
-											 I32 file,
-											 I32 argsPtr)
+DEFINE_INTRINSIC_FUNCTION(env, "___syscall146", I32, ___syscall146, I32 file, I32 argsPtr)
 {
-	MemoryInstance* memory
-		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+	wavmAssert(emscriptenMemory);
 
 	// writev
-	U32* args = memoryArrayPtr<U32>(memory, argsPtr, 3);
+	U32* args = memoryArrayPtr<U32>(emscriptenMemory, argsPtr, 3);
 	U32 iov = args[1];
 	U32 iovcnt = args[2];
 #ifdef _WIN32
 	U32 count = 0;
 	for(U32 i = 0; i < iovcnt; i++)
 	{
-		U32 base = memoryRef<U32>(memory, iov + i * 8);
-		U32 len = memoryRef<U32>(memory, iov + i * 8 + 4);
-		U32 size = (U32)fwrite(memoryArrayPtr<U8>(memory, base, len), 1, len, vmFile(file));
+		U32 base = memoryRef<U32>(emscriptenMemory, iov + i * 8);
+		U32 len = memoryRef<U32>(emscriptenMemory, iov + i * 8 + 4);
+		U32 size
+			= (U32)fwrite(memoryArrayPtr<U8>(emscriptenMemory, base, len), 1, len, vmFile(file));
 		count += size;
 		if(size < len) break;
 	}
@@ -605,10 +568,10 @@ DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
 	struct iovec* native_iovec = new(alloca(sizeof(iovec) * iovcnt)) struct iovec[iovcnt];
 	for(U32 i = 0; i < iovcnt; i++)
 	{
-		U32 base = memoryRef<U32>(memory, iov + i * 8);
-		U32 len = memoryRef<U32>(memory, iov + i * 8 + 4);
+		U32 base = memoryRef<U32>(emscriptenMemory, iov + i * 8);
+		U32 len = memoryRef<U32>(emscriptenMemory, iov + i * 8 + 4);
 
-		native_iovec[i].iov_base = memoryArrayPtr<U8>(memory, base, len);
+		native_iovec[i].iov_base = memoryArrayPtr<U8>(emscriptenMemory, base, len);
 		native_iovec[i].iov_len = len;
 	}
 	Iptr count = writev(fileno(vmFile(file)), native_iovec, iovcnt);
@@ -714,6 +677,7 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 	mutableGlobals._stdout = (U32)ioStreamVMHandle::StdOut;
 
 	instance->emscriptenMemory = memory;
+	emscriptenMemory = instance->emscriptenMemory;
 
 	return instance;
 }

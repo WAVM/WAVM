@@ -236,9 +236,7 @@ namespace Runtime
 	RUNTIME_API IR::FunctionType getFunctionType(FunctionInstance* function);
 
 	// Returns the AnyFunc proxy of a FunctionInstance.
-	RUNTIME_API const AnyFunc* asAnyFunc(const FunctionInstance* function,
-										 MemoryInstance* intrinsicDefaultMemory,
-										 TableInstance* intrinsicDefaultTable);
+	RUNTIME_API const AnyFunc* asAnyFunc(const FunctionInstance* function);
 
 	//
 	// Tables

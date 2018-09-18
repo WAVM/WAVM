@@ -14,23 +14,17 @@
 using namespace IR;
 using namespace Runtime;
 
-const AnyFunc* Runtime::asAnyFunc(const FunctionInstance* functionInstance,
-								  MemoryInstance* intrinsicDefaultMemory,
-								  TableInstance* intrinsicDefaultTable)
+const AnyFunc* Runtime::asAnyFunc(const FunctionInstance* functionInstance)
 {
 	void* wasmFunction = functionInstance->nativeFunction;
 
 	// If the function isn't a WASM function, generate a thunk for it.
 	if(functionInstance->callingConvention != IR::CallingConvention::wasm)
 	{
-		wasmFunction = LLVMJIT::getIntrinsicThunk(
-			wasmFunction,
-			functionInstance,
-			functionInstance->type,
-			functionInstance->callingConvention,
-			LLVMJIT::MemoryBinding{intrinsicDefaultMemory ? intrinsicDefaultMemory->id
-														  : UINTPTR_MAX},
-			LLVMJIT::TableBinding{intrinsicDefaultTable ? intrinsicDefaultTable->id : UINTPTR_MAX});
+		wasmFunction = LLVMJIT::getIntrinsicThunk(wasmFunction,
+												  functionInstance,
+												  functionInstance->type,
+												  functionInstance->callingConvention);
 	}
 
 	// Get the pointer to the AnyFunc struct that is emitted as a prefix to the function's code.

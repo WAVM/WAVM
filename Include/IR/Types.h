@@ -583,7 +583,6 @@ namespace IR
 		wasm,
 		intrinsic,
 		intrinsicWithContextSwitch,
-		intrinsicWithMemAndTable,
 		c
 	};
 }

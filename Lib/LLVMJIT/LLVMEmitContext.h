@@ -25,15 +25,12 @@ namespace LLVMJIT
 		llvm::Value* contextPointerVariable;
 		llvm::Value* memoryBasePointerVariable;
 
-		EmitContext(LLVMContext& inLLVMContext,
-					llvm::Constant* inDefaultMemoryOffset,
-					llvm::Constant* inDefaultTableOffset)
+		EmitContext(LLVMContext& inLLVMContext, llvm::Constant* inDefaultMemoryOffset)
 		: llvmContext(inLLVMContext)
 		, irBuilder(inLLVMContext)
 		, contextPointerVariable(nullptr)
 		, memoryBasePointerVariable(nullptr)
 		, defaultMemoryOffset(inDefaultMemoryOffset)
-		, defaultTableOffset(inDefaultTableOffset)
 		{
 		}
 
@@ -97,24 +94,7 @@ namespace LLVMJIT
 		{
 			llvm::ArrayRef<llvm::Value*> augmentedArgs = args;
 
-			if(callingConvention == IR::CallingConvention::intrinsicWithMemAndTable)
-			{
-				// Augment the argument list with the context pointer, and the default memory and
-				// table IDs.
-				auto augmentedArgsAlloca
-					= (llvm::Value**)alloca(sizeof(llvm::Value*) * (args.size() + 3));
-				augmentedArgs = llvm::ArrayRef<llvm::Value*>(augmentedArgsAlloca, args.size() + 3);
-				augmentedArgsAlloca[0] = irBuilder.CreateLoad(contextPointerVariable);
-				augmentedArgsAlloca[1]
-					= defaultMemoryOffset ? getMemoryIdFromOffset(llvmContext, defaultMemoryOffset)
-										  : emitLiteral(llvmContext, I64(-1));
-				augmentedArgsAlloca[2] = defaultTableOffset
-											 ? getTableIdFromOffset(llvmContext, defaultTableOffset)
-											 : emitLiteral(llvmContext, I64(-1));
-				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
-				{ augmentedArgsAlloca[3 + argIndex] = args[argIndex]; }
-			}
-			else if(callingConvention != IR::CallingConvention::c)
+			if(callingConvention != IR::CallingConvention::c)
 			{
 				// Augment the argument list with the context pointer.
 				auto augmentedArgsAlloca
@@ -208,7 +188,6 @@ namespace LLVMJIT
 
 				break;
 			}
-			case IR::CallingConvention::intrinsicWithMemAndTable:
 			case IR::CallingConvention::intrinsic:
 			case IR::CallingConvention::c:
 			{
@@ -267,6 +246,5 @@ namespace LLVMJIT
 
 	private:
 		llvm::Constant* defaultMemoryOffset;
-		llvm::Constant* defaultTableOffset;
 	};
 }

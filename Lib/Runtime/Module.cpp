@@ -210,9 +210,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			nativeFunction = LLVMJIT::getIntrinsicThunk(nativeFunction,
 														functionImport,
 														functionImport->type,
-														functionImport->callingConvention,
-														jitDefaultMemory,
-														jitDefaultTable);
+														functionImport->callingConvention);
 		}
 		jitFunctionImports.push_back({nativeFunction});
 	}
@@ -339,9 +337,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				{
 					const Uptr functionIndex = tableSegment.indices[index];
 					wavmAssert(functionIndex < moduleInstance->functions.size());
-					const AnyFunc* anyFunc = asAnyFunc(moduleInstance->functions[functionIndex],
-													   moduleInstance->defaultMemory,
-													   moduleInstance->defaultTable);
+					const AnyFunc* anyFunc = asAnyFunc(moduleInstance->functions[functionIndex]);
 					setTableElement(table, baseOffset + index, &anyFunc->anyRef);
 				}
 			}

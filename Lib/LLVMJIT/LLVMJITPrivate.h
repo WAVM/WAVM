@@ -173,22 +173,11 @@ namespace LLVMJIT
 										  IR::FunctionType functionType,
 										  IR::CallingConvention callingConvention)
 	{
-		const Uptr numImplicitParameters
-			= callingConvention == IR::CallingConvention::intrinsicWithMemAndTable
-				  ? 3
-				  : callingConvention == IR::CallingConvention::c ? 0 : 1;
+		const Uptr numImplicitParameters = callingConvention == IR::CallingConvention::c ? 0 : 1;
 		const Uptr numParameters = numImplicitParameters + functionType.params().size();
 		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
-		if(callingConvention == IR::CallingConvention::intrinsicWithMemAndTable)
-		{
-			llvmArgTypes[0] = llvmContext.i8PtrType;
-			llvmArgTypes[1] = llvmContext.i64Type;
-			llvmArgTypes[2] = llvmContext.i64Type;
-		}
-		else if(callingConvention != IR::CallingConvention::c)
-		{
-			llvmArgTypes[0] = llvmContext.i8PtrType;
-		}
+		if(callingConvention != IR::CallingConvention::c)
+		{ llvmArgTypes[0] = llvmContext.i8PtrType; }
 		for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 		{
 			llvmArgTypes[argIndex + numImplicitParameters]
@@ -206,7 +195,6 @@ namespace LLVMJIT
 			llvmReturnType = llvmContext.i8PtrType;
 			break;
 
-		case IR::CallingConvention::intrinsicWithMemAndTable:
 		case IR::CallingConvention::intrinsic:
 		case IR::CallingConvention::c:
 			switch(functionType.results().size())
@@ -231,7 +219,6 @@ namespace LLVMJIT
 
 		case IR::CallingConvention::intrinsic:
 		case IR::CallingConvention::intrinsicWithContextSwitch:
-		case IR::CallingConvention::intrinsicWithMemAndTable:
 		case IR::CallingConvention::c: return llvm::CallingConv::C;
 
 		default: Errors::unreachable();

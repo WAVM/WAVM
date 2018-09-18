@@ -75,10 +75,7 @@ namespace Runtime
 		{
 		}
 
-		virtual const AnyReferee* getAnyRef() const override
-		{
-			return &asAnyFunc(this, nullptr, nullptr)->anyRef;
-		}
+		virtual const AnyReferee* getAnyRef() const override { return &asAnyFunc(this)->anyRef; }
 	};
 
 	// An instance of a WebAssembly Table.

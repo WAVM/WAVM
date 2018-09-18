@@ -128,7 +128,5 @@ namespace LLVMJIT
 	LLVMJIT_API void* getIntrinsicThunk(void* nativeFunction,
 										const Runtime::FunctionInstance* functionInstance,
 										IR::FunctionType functionType,
-										IR::CallingConvention callingConvention,
-										MemoryBinding defaultMemory,
-										TableBinding defaultTable);
+										IR::CallingConvention callingConvention);
 }
