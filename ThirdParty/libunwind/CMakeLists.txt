@@ -40,8 +40,14 @@ else()
 	endif()
 	
 	add_library(WAVMUnwind STATIC ${Sources} ${PublicHeaders})
-	target_include_directories(WAVMUnwind PUBLIC include)
-	
+	target_include_directories(WAVMUnwind PRIVATE include)
+
+	# When using static linking for the WAVM libraries, the WAVMUnwind library needs to be
+	# installed. Otherwise, it will just be linked into the WAVM .so/.dylib files.
+	if(WAVM_ENABLE_STATIC_LINKING)
+		install(TARGETS WAVMUnwind DESTINATION lib/WAVM EXPORT WAVMLibraries)
+	endif()
+
 	# Target C++11.
 	target_compile_features(WAVMUnwind PRIVATE cxx_std_11)
 
