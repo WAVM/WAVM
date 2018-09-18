@@ -325,7 +325,7 @@ static int run(const CommandLineOptions& options)
 static void showHelp()
 {
 	Log::printf(Log::error,
-				"Usage: wavm [switches] [programfile] [--] [arguments]\n"
+				"Usage: wavm-run [switches] [programfile] [--] [arguments]\n"
 				"  in.wast|in.wasm       Specify program file (.wast/.wasm)\n"
 				"  -c|--check            Exit after checking that the program is valid\n"
 				"  -d|--debug            Write additional debug information to stdout\n"

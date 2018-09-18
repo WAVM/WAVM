@@ -45,9 +45,9 @@ The output binaries should be located in `wavm_build\bin`
 
 I've tested it on Windows with Visual C++ 2015/2017, Linux with GCC and clang, and MacOS with Xcode/clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
 
-The primary executable is `wavm`:
+The primary executable is `wavm-run`:
 ```
-Usage: wavm [switches] [programfile] [--] [arguments]
+Usage: wavm-run [switches] [programfile] [--] [arguments]
   in.wast|in.wasm		Specify program file (.wast/.wasm)
   -f|--function name		Specify function name to run in module rather than main
   -c|--check			Exit after checking that the program is valid
@@ -55,12 +55,12 @@ Usage: wavm [switches] [programfile] [--] [arguments]
   --				Stop parsing arguments
 ```
 
-`wavm` will load a WebAssembly file and call `main` (or a specified function).  Example programs to try without changing any code include those found in the Examples and Test/spec directory such as the following:
+`wavm-run` will load a WebAssembly file and call `main` (or a specified function).  Example programs to try without changing any code include those found in the Examples and Test/spec directory such as the following:
 
 ```
-wavm Examples/helloworld.wast
-wavm Examples/Benchmark/Benchmark.wast
-wavm Examples/zlib.wast
+wavm-run Examples/helloworld.wast
+wavm-run Examples/Benchmark/Benchmark.wast
+wavm-run Examples/zlib.wast
 ```
 
 WebAssembly programs that export a main function with the standard parameters will be passed in the command line arguments.  If the same main function returns a i32 type it will become the exit code.  WAVM supports Emscripten's defined I/O functions so programs can read from stdin and write to stdout and stderr.  See [echo.wast](Examples/echo.wast) for an example of a program that echos the command line arguments back out through stdout.
