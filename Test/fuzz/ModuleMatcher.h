@@ -102,7 +102,7 @@ private:
 		if(a.variableIndex != b.variableIndex) { failVerification(); }
 	}
 
-	void verifyMatches(CallImm a, CallImm b)
+	void verifyMatches(FunctionImm a, FunctionImm b)
 	{
 		if(a.functionIndex != b.functionIndex) { failVerification(); }
 	}

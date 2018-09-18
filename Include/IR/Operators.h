@@ -57,7 +57,7 @@ namespace IR
 		Uptr variableIndex;
 	};
 
-	struct CallImm
+	struct FunctionImm
 	{
 		Uptr functionIndex;
 	};

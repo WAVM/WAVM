@@ -223,7 +223,7 @@ static void parseImm(CursorState* cursor, GetOrSetVariableImm<isGlobal>& outImm)
 		isGlobal ? "global" : "local");
 }
 
-static void parseImm(CursorState* cursor, CallImm& outImm)
+static void parseImm(CursorState* cursor, FunctionImm& outImm)
 {
 	outImm.functionIndex
 		= parseAndResolveNameOrIndexRef(cursor,

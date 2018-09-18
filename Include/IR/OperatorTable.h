@@ -40,7 +40,7 @@
 	visitOp(0x0d,br_if,"br_if",BranchImm,,mvp) \
 	visitOp(0x0e,br_table,"br_table",BranchTableImm,,mvp) \
 	visitOp(0x0f,return_,"return",NoImm,,mvp) \
-	visitOp(0x10,call,"call",CallImm,,mvp) \
+	visitOp(0x10,call,"call",FunctionImm,,mvp) \
 	visitOp(0x11,call_indirect,"call_indirect",CallIndirectImm,,mvp) \
 	visitOp(0x1a,drop,"drop",NoImm,,mvp) \
 	visitOp(0x1b,select,"select",NoImm,,mvp) \
@@ -238,6 +238,7 @@
 	/* Reference type operators */ \
 	visitOp(0xd0,ref_null,"ref.null",NoImm,NULLARY(nullref),referenceTypes) \
 	visitOp(0xd1,ref_isnull,"ref.isnull",NoImm,UNARY(anyref,i32),referenceTypes) \
+	visitOp(0xd2,ref_func,"ref.func",FunctionImm,NULLARY(anyfunc),functionRefInstruction) \
 	\
 	/* SIMD operators */ \
 	visitOp(SIMDOP(0),v128_const,"v128.const",LiteralImm<V128>,NULLARY(v128),simd) \

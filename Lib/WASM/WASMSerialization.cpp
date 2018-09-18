@@ -435,7 +435,7 @@ void serialize(Stream& stream, GetOrSetVariableImm<isGlobal>& imm, const Functio
 	serializeVarUInt32(stream, imm.variableIndex);
 }
 
-template<typename Stream> void serialize(Stream& stream, CallImm& imm, const FunctionDef&)
+template<typename Stream> void serialize(Stream& stream, FunctionImm& imm, const FunctionDef&)
 {
 	serializeVarUInt32(stream, imm.functionIndex);
 }

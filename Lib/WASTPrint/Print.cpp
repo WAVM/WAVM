@@ -473,7 +473,7 @@ struct FunctionPrintContext
 		Errors::unreachable();
 	}
 
-	void call(CallImm imm)
+	void call(FunctionImm imm)
 	{
 		string += "\ncall " + moduleContext.names.functions[imm.functionIndex].name;
 	}
@@ -491,7 +491,16 @@ struct FunctionPrintContext
 
 	void printImm(NoImm) {}
 	void printImm(MemoryImm imm) { errorUnless(imm.memoryIndex == 0); }
-	void printImm(TableImm imm) { errorUnless(imm.tableIndex == 0); }
+	void printImm(TableImm imm)
+	{
+		string += ' ';
+		string += moduleContext.names.tables[imm.tableIndex];
+	}
+	void printImm(FunctionImm imm)
+	{
+		string += ' ';
+		string += moduleContext.names.functions[imm.functionIndex].name;
+	}
 
 	void printImm(LiteralImm<I32> imm)
 	{

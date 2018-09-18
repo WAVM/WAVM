@@ -6,6 +6,7 @@
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+#include "Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"
 
@@ -34,6 +35,16 @@ void EmitFunctionContext::ref_isnull(NoImm)
 	llvm::Value* null = llvm::Constant::getNullValue(llvmContext.anyrefType);
 	llvm::Value* isNull = irBuilder.CreateICmpEQ(reference, null);
 	push(coerceBoolToI32(isNull));
+}
+
+void EmitFunctionContext::ref_func(FunctionImm imm)
+{
+	llvm::Value* referencedFunction = moduleContext.functions[imm.functionIndex];
+	llvm::Value* codeAddress = irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);
+	llvm::Value* anyFuncAddress = irBuilder.CreateSub(
+		codeAddress, emitLiteral(llvmContext, Uptr(offsetof(Runtime::AnyFunc, code))));
+	llvm::Value* anyFunc = irBuilder.CreateIntToPtr(anyFuncAddress, llvmContext.anyrefType);
+	push(anyFunc);
 }
 
 void EmitFunctionContext::table_get(TableImm imm)

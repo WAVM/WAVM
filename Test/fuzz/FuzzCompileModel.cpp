@@ -90,6 +90,10 @@ static void generateImm(RandomStream& random, IR::Module& module, TableImm& outI
 {
 	outImm.tableIndex = random.get(module.tables.size() - 1);
 }
+static void generateImm(RandomStream& random, IR::Module& module, FunctionImm& outImm)
+{
+	outImm.functionIndex = random.get(module.functions.size() - 1);
+}
 
 static void generateImm(RandomStream& random, IR::Module& module, LiteralImm<I32>& outImm)
 {

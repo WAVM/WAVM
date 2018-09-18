@@ -324,7 +324,7 @@ void EmitFunctionContext::unreachable(NoImm)
 // Call operators
 //
 
-void EmitFunctionContext::call(CallImm imm)
+void EmitFunctionContext::call(FunctionImm imm)
 {
 	wavmAssert(imm.functionIndex < moduleContext.functions.size());
 	wavmAssert(imm.functionIndex < irModule.functions.size());

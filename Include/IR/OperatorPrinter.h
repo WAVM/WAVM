@@ -60,7 +60,7 @@ namespace IR
 		{
 			return " " + std::to_string(imm.variableIndex);
 		}
-		std::string describeImm(CallImm imm)
+		std::string describeImm(FunctionImm imm)
 		{
 			const std::string typeString
 				= imm.functionIndex >= module.functions.size()

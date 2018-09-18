@@ -535,7 +535,7 @@ struct FunctionValidationContext
 		enterUnreachable();
 	}
 
-	void call(CallImm imm)
+	void call(FunctionImm imm)
 	{
 		FunctionType calleeType = validateFunctionIndex(module, imm.functionIndex);
 		popAndValidateTypeTuple("call arguments", calleeType.params());
@@ -568,6 +568,8 @@ struct FunctionValidationContext
 	void validateImm(MemoryImm imm) { VALIDATE_INDEX(imm.memoryIndex, module.memories.size()); }
 
 	void validateImm(TableImm imm) { VALIDATE_INDEX(imm.tableIndex, module.tables.size()); }
+
+	void validateImm(FunctionImm imm) { validateFunctionIndex(module, imm.functionIndex); }
 
 	template<Uptr numLanes> void validateImm(LaneIndexImm<numLanes> imm)
 	{

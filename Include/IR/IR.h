@@ -40,6 +40,7 @@ namespace IR
 
 		// WAVM-specific extensions
 		bool sharedTables = true;
+		bool functionRefInstruction = true;
 		bool requireSharedFlagForAtomicOperators = false; // (true is standard)
 
 		Uptr maxLocals = 65536;
