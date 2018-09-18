@@ -7,8 +7,7 @@
 #include "Module.h"
 #include "Operators.h"
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	struct OperatorPrinter
 	{
 		typedef std::string Result;
@@ -132,4 +131,4 @@ namespace IR
 			return " " + std::to_string(imm.elemSegmentIndex);
 		}
 	};
-}
+}}

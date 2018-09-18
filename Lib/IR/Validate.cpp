@@ -19,7 +19,8 @@
 
 #define ENABLE_LOGGING 0
 
-using namespace IR;
+using namespace WAVM;
+using namespace WAVM::IR;
 
 #define VALIDATE_UNLESS(reason, comparison)                                                        \
 	if(comparison) { throw ValidationException(reason #comparison); }
@@ -978,8 +979,7 @@ void IR::validateDataSegments(const Module& module)
 	}
 }
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	struct CodeValidationStreamImpl
 	{
 		FunctionValidationContext functionContext;
@@ -990,7 +990,7 @@ namespace IR
 		{
 		}
 	};
-}
+}}
 
 IR::CodeValidationStream::CodeValidationStream(const Module& module, const FunctionDef& functionDef)
 {

@@ -16,18 +16,15 @@
 #include <functional>
 #include <memory>
 
-namespace Intrinsics
-{
+namespace WAVM { namespace Intrinsics {
 	struct Module;
-}
+}}
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	enum class CallingConvention;
-}
+}}
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	// A private root for all runtime objects that handles garbage collection.
 	struct ObjectImpl : Object
 	{
@@ -312,4 +309,4 @@ namespace Runtime
 
 	// Clone a global with same ID and mutable data offset (if mutable) in a new compartment.
 	GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
-}
+}}

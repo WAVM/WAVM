@@ -13,8 +13,7 @@
 #include "Lexer.h"
 #include "WASTParse/WASTParse.h"
 
-namespace WAST
-{
+namespace WAVM { namespace WAST {
 	struct FatalParseException
 	{
 	};
@@ -293,4 +292,4 @@ namespace WAST
 
 	// Module parsing.
 	void parseModuleBody(CursorState* cursor, IR::Module& outModule);
-}
+}}

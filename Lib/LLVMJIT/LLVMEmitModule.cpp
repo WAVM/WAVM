@@ -26,14 +26,14 @@
 
 #include "LLVMPostInclude.h"
 
-namespace llvm
-{
+namespace llvm {
 	class Constant;
 }
 
-using namespace IR;
-using namespace LLVMJIT;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
+using namespace WAVM::Runtime;
 
 EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 									 LLVMContext& inLLVMContext,

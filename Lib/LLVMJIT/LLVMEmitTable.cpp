@@ -21,8 +21,8 @@
 
 #include "LLVMPostInclude.h"
 
-using namespace IR;
-using namespace LLVMJIT;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
 
 void EmitFunctionContext::ref_null(NoImm)
 {

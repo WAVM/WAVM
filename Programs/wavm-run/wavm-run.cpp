@@ -24,8 +24,9 @@
 #include "ThreadTest/ThreadTest.h"
 #include "WASTParse/WASTParse.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 
 struct RootResolver : Resolver
 {

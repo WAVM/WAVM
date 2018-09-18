@@ -42,10 +42,9 @@
 
 #include "LLVMPostInclude.h"
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	struct ExceptionTypeInstance;
-}
+}}
 
 #define PRINT_DISASSEMBLY 0
 
@@ -86,9 +85,10 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 }
 #endif
 
-using namespace IR;
-using namespace LLVMJIT;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
+using namespace WAVM::Runtime;
 
 static llvm::JITEventListener* gdbRegistrationListener = nullptr;
 

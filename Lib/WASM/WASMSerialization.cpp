@@ -16,8 +16,9 @@
 #include "Platform/Defines.h"
 #include "WASM/WASM.h"
 
-using namespace IR;
-using namespace Serialization;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Serialization;
 
 static void throwIfNotValidUTF8(const std::string& string)
 {
@@ -49,8 +50,7 @@ FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 
 // These serialization functions need to be declared in the IR namespace for the array serializer in
 // the Serialization namespace to find them.
-namespace IR
-{
+namespace WAVM { namespace IR {
 	static void serialize(InputStream& stream, ValueType& type)
 	{
 		U8 encodedValueType = 0;
@@ -281,7 +281,7 @@ namespace IR
 			serializeVarUInt32(stream, functionIndex);
 		});
 	}
-}
+}}
 
 enum
 {

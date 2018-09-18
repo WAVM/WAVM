@@ -6,7 +6,8 @@
 #include "Inline/Assert.h"
 #include "Inline/BasicTypes.h"
 
-using namespace Log;
+using namespace WAVM;
+using namespace WAVM::Log;
 
 static std::atomic<bool> categoryEnabled[(Uptr)Category::num] = {
 	{true}, // error

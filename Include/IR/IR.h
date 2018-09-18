@@ -6,8 +6,7 @@
 #define IR_API DLL_IMPORT
 #endif
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	enum : U64
 	{
 		maxMemoryPages = 65536,
@@ -46,4 +45,4 @@ namespace IR
 		Uptr maxLocals = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;
 	};
-}
+}}

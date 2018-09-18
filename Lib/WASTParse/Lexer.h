@@ -81,8 +81,7 @@
                                                                                                    \
 	ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
 
-namespace WAST
-{
+namespace WAVM { namespace WAST {
 	enum TokenType : U16
 	{
 #define VISIT_TOKEN(name, description, _) t_##name,
@@ -112,4 +111,4 @@ namespace WAST
 	TextFileLocus calcLocusFromOffset(const char* string,
 									  const LineInfo* lineInfo,
 									  Uptr charOffset);
-}
+}}

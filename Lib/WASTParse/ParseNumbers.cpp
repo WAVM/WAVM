@@ -49,7 +49,8 @@
 #undef strtod
 #undef dtoa
 
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::WAST;
 
 // Parses an optional + or - sign and returns true if a - sign was parsed.
 // If either a + or - sign is parsed, nextChar is advanced past it.

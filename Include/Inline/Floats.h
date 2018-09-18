@@ -6,8 +6,7 @@
 #include <cstdio>
 #include <string>
 
-namespace Floats
-{
+namespace WAVM { namespace Floats {
 	template<typename Float> struct FloatComponents;
 
 	// The components of a 64-bit float
@@ -119,4 +118,4 @@ namespace Floats
 			return buffer;
 		}
 	}
-}
+}}

@@ -25,9 +25,10 @@
 #include "WASTParse/TestScript.h"
 #include "WASTParse/WASTParse.h"
 
-using namespace IR;
-using namespace Runtime;
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
+using namespace WAVM::WAST;
 
 DEFINE_INTRINSIC_MODULE(spectest);
 

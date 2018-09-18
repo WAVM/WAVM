@@ -36,8 +36,7 @@
 
 #include "LLVMPostInclude.h"
 
-namespace llvm
-{
+namespace llvm {
 	class MCContext;
 
 #if LLVM_VERSION_MAJOR >= 7
@@ -52,8 +51,9 @@ namespace llvm
 #define DUMP_OPTIMIZED_MODULE 0
 #define DUMP_OBJECT 0
 
-using namespace IR;
-using namespace LLVMJIT;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
 
 static Uptr printedModuleId = 0;
 

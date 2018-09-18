@@ -17,8 +17,9 @@
 #include "Parse.h"
 #include "WASTParse/WASTParse.h"
 
-using namespace IR;
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::WAST;
 
 void WAST::findClosingParenthesis(CursorState* cursor, const Token* openingParenthesisToken)
 {

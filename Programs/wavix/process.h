@@ -10,13 +10,13 @@
 #include "Runtime/Runtime.h"
 #include "file.h"
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	struct File;
-}
+}}
 
-namespace Wavix
-{
+using namespace WAVM;
+
+namespace Wavix {
 	struct Thread;
 
 	struct Process

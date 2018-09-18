@@ -11,6 +11,8 @@
 #include "Inline/HashMap.h"
 #include "Inline/Timing.h"
 
+using namespace WAVM;
+
 static std::string generateRandomString()
 {
 	enum

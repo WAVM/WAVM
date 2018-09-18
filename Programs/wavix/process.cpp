@@ -28,12 +28,11 @@
 #include "process.h"
 #include "wavix.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 using namespace Wavix;
 
-namespace Wavix
-{
+namespace Wavix {
 	thread_local Thread* currentThread = nullptr;
 	thread_local Process* currentProcess = nullptr;
 

@@ -12,8 +12,9 @@
 #include "Inline/Serialization.h"
 #include "Logging/Logging.h"
 
-using namespace IR;
-using namespace Serialization;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Serialization;
 
 enum class NameSubsectionType : U8
 {

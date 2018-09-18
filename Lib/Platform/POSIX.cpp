@@ -59,7 +59,8 @@
 #define MAP_STACK_FLAGS 0
 #endif
 
-using namespace Platform;
+using namespace WAVM;
+using namespace WAVM::Platform;
 
 // This struct layout is replicated in POSIX.S
 struct ExecutionContext
@@ -722,13 +723,12 @@ std::type_info* Platform::getUserExceptionTypeInfo()
 	Errors::unreachable();
 }
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	struct Thread
 	{
 		pthread_t id;
 	};
-}
+}}
 
 struct CreateThreadArgs
 {

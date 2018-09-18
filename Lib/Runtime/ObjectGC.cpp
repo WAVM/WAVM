@@ -14,7 +14,8 @@
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::Runtime;
 
 // Keep a global list of all objects.
 struct GCGlobals

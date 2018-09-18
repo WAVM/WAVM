@@ -7,8 +7,7 @@
 #define REGEXP_API DLL_IMPORT
 #endif
 
-namespace RegExp
-{
+namespace WAVM { namespace RegExp {
 	// Parses a regular expression from a string, and adds a recognizer for it to the given NFA
 	// The recognizer will start from initialState, and end in finalState when the regular
 	// expression has been completely matched.
@@ -16,4 +15,4 @@ namespace RegExp
 							 NFA::Builder* nfaBuilder,
 							 NFA::StateIndex initialState,
 							 NFA::StateIndex finalState);
-}
+}}

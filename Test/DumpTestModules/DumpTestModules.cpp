@@ -17,8 +17,9 @@
 #include "WASTParse/WASTParse.h"
 #include "WASTPrint/WASTPrint.h"
 
-using namespace IR;
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::WAST;
 
 enum class DumpFormat
 {

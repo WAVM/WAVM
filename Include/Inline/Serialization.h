@@ -7,8 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace Serialization
-{
+namespace WAVM { namespace Serialization {
 	// An exception that is thrown for various errors during serialization.
 	// Any code using serialization should handle it!
 	struct FatalSerializationException
@@ -391,4 +390,4 @@ namespace Serialization
 		serializeArray(
 			stream, vector, [](Stream& stream, Element& element) { serialize(stream, element); });
 	}
-}
+}}

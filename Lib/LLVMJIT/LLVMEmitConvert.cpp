@@ -18,14 +18,14 @@
 
 #include "LLVMPostInclude.h"
 
-namespace llvm
-{
+namespace llvm {
 	class Type;
 	class Value;
 }
 
-using namespace IR;
-using namespace LLVMJIT;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
 
 #define EMIT_UNARY_OP(name, emitCode)                                                              \
 	void EmitFunctionContext::name(NoImm)                                                          \

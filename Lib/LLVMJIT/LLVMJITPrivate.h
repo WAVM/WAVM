@@ -31,18 +31,15 @@
 #define USE_WINDOWS_SEH 0
 #endif
 
-namespace llvm
-{
+namespace llvm {
 	class LoadedObjectInfo;
 
-	namespace object
-	{
+	namespace object {
 		class SectionRef;
 	}
 }
 
-namespace LLVMJIT
-{
+namespace WAVM { namespace LLVMJIT {
 	typedef llvm::SmallVector<llvm::Value*, 1> ValueVector;
 	typedef llvm::SmallVector<llvm::PHINode*, 1> PHIVector;
 
@@ -296,4 +293,4 @@ namespace LLVMJIT
 								 const llvm::object::SectionRef& xdataSection,
 								 const U8* xdataCopy,
 								 Uptr sehTrampolineAddress);
-}
+}}

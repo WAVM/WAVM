@@ -21,8 +21,8 @@
 
 #include "LLVMPostInclude.h"
 
-using namespace IR;
-using namespace LLVMJIT;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
 
 // Bounds checks a sandboxed memory address + offset, and returns an offset relative to the memory
 // base address that is guaranteed to be within the virtual address space allocated for the linear

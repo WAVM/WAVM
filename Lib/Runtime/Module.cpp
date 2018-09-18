@@ -20,8 +20,9 @@
 #include "RuntimePrivate.h"
 #include "WASM/WASM.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 
 static Value evaluateInitializer(const std::vector<GlobalInstance*>& moduleGlobals,
 								 InitializerExpression expression)

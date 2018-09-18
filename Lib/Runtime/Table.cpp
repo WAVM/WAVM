@@ -15,7 +15,8 @@
 #include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::Runtime;
 
 // Global lists of tables; used to query whether an address is reserved by one of them.
 static Platform::Mutex tablesMutex;

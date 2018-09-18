@@ -3,8 +3,7 @@
 #include "Inline/BasicTypes.h"
 #include "Platform/Defines.h"
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	// Describes allowed memory accesses.
 	enum class MemoryAccess
 	{
@@ -59,4 +58,4 @@ namespace Platform
 	PLATFORM_API void freeAlignedVirtualPages(U8* unalignedBaseAddress,
 											  Uptr numPages,
 											  Uptr alignmentLog2);
-}
+}}

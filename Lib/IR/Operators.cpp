@@ -1,6 +1,6 @@
 #include "IR/Operators.h"
 
-const char* IR::getOpcodeName(Opcode opcode)
+const char* WAVM::IR::getOpcodeName(Opcode opcode)
 {
 	switch(opcode)
 	{

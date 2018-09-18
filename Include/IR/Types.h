@@ -14,14 +14,12 @@
 #include "Inline/Floats.h"
 #include "Inline/Hash.h"
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	struct AnyReferee;
 	struct AnyFunc;
-}
+}}
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	// The type of a WebAssembly operand
 	enum class ValueType : U8
 	{
@@ -585,20 +583,20 @@ namespace IR
 		intrinsicWithContextSwitch,
 		c
 	};
-}
+}}
 
-template<> struct Hash<IR::TypeTuple>
+template<> struct WAVM::Hash<WAVM::IR::TypeTuple>
 {
-	Uptr operator()(IR::TypeTuple typeTuple, Uptr seed = 0) const
+	Uptr operator()(WAVM::IR::TypeTuple typeTuple, Uptr seed = 0) const
 	{
-		return Hash<Uptr>()(typeTuple.getHash(), seed);
+		return WAVM::Hash<Uptr>()(typeTuple.getHash(), seed);
 	}
 };
 
-template<> struct Hash<IR::FunctionType>
+template<> struct WAVM::Hash<WAVM::IR::FunctionType>
 {
-	Uptr operator()(IR::FunctionType functionType, Uptr seed = 0) const
+	Uptr operator()(WAVM::IR::FunctionType functionType, Uptr seed = 0) const
 	{
-		return Hash<Uptr>()(functionType.getHash(), seed);
+		return WAVM::Hash<Uptr>()(functionType.getHash(), seed);
 	}
 };

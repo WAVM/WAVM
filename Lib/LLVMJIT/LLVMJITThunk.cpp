@@ -35,14 +35,14 @@
 
 #include "LLVMPostInclude.h"
 
-namespace llvm
-{
+namespace llvm {
 	class Value;
 }
 
-using namespace IR;
-using namespace LLVMJIT;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
+using namespace WAVM::Runtime;
 
 // A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
 static Platform::Mutex invokeThunkMutex;

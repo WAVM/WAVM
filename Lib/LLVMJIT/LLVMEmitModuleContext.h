@@ -9,8 +9,7 @@
 
 #include "LLVMPostInclude.h"
 
-namespace LLVMJIT
-{
+namespace WAVM { namespace LLVMJIT {
 	struct EmitModuleContext
 	{
 		const IR::Module& irModule;
@@ -56,4 +55,4 @@ namespace LLVMJIT
 			return llvm::Intrinsic::getDeclaration(llvmModule, id, typeArguments);
 		}
 	};
-}
+}}

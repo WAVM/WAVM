@@ -12,8 +12,7 @@
 
 #include "LLVMPostInclude.h"
 
-namespace LLVMJIT
-{
+namespace WAVM { namespace LLVMJIT {
 	struct EmitFunctionContext : EmitContext
 	{
 		typedef void Result;
@@ -280,4 +279,4 @@ namespace LLVMJIT
 
 		void unknown(IR::Opcode opcode) { Errors::unreachable(); }
 	};
-}
+}}

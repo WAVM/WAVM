@@ -5,8 +5,7 @@
 #include "Inline/BasicTypes.h"
 #include "Platform/Defines.h"
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	enum class FileAccessMode
 	{
 		readOnly = 0x1,
@@ -57,4 +56,4 @@ namespace Platform
 								Uptr* outNumBytesWritten = nullptr);
 	PLATFORM_API bool flushFileWrites(File* file);
 	PLATFORM_API std::string getCurrentWorkingDirectory();
-}
+}}

@@ -5,8 +5,7 @@
 #include "Inline/BasicTypes.h"
 #include "Platform/Defines.h"
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	struct Signal
 	{
 		enum class Type
@@ -59,4 +58,4 @@ namespace Platform
 		SEH_WAVM_EXCEPTION = 0xE0000001
 	};
 	PLATFORM_API std::type_info* getUserExceptionTypeInfo();
-}
+}}

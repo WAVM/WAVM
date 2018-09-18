@@ -14,13 +14,28 @@
 #endif
 
 // Declare IR::Module to avoid including the definition.
-namespace IR
-{
+namespace WAVM { namespace IR {
 	struct Module;
-}
+}}
 
-namespace Runtime
-{
+// Declare the different kinds of objects.
+// They are only declared as incomplete struct types here, and Runtime clients
+// will only handle opaque pointers to them.
+#define DECLARE_OBJECT_TYPE(kindId, kindName, Type)                                                \
+	struct Type;                                                                                   \
+	inline Type* as##kindName(Object* object)                                                      \
+	{                                                                                              \
+		wavmAssert(!object || object->kind == kindId);                                             \
+		return (Type*)object;                                                                      \
+	}                                                                                              \
+	inline Type* as##kindName##Nullable(Object* object)                                            \
+	{                                                                                              \
+		return object && object->kind == kindId ? (Type*)object : nullptr;                         \
+	}                                                                                              \
+	inline Object* asObject(Type* object) { return (Object*)object; }                              \
+	template<> inline Type* as<Type>(Object * object) { return as##kindName(object); }
+
+namespace WAVM { namespace Runtime {
 	// Runtime object types. This must be a superset of IR::ObjectKind, with IR::ObjectKind
 	// values having the same representation in Runtime::ObjectKind.
 	enum class ObjectKind : U8
@@ -57,23 +72,6 @@ namespace Runtime
 	inline Object* asObject(Object* object) { return object; }
 	template<typename Type> Type* as(Object* object);
 	template<> inline Object* as<Object>(Object* object) { return asObject(object); }
-
-// Declare the different kinds of objects.
-// They are only declared as incomplete struct types here, and Runtime clients
-// will only handle opaque pointers to them.
-#define DECLARE_OBJECT_TYPE(kindId, kindName, Type)                                                \
-	struct Type;                                                                                   \
-	inline Type* as##kindName(Object* object)                                                      \
-	{                                                                                              \
-		wavmAssert(!object || object->kind == kindId);                                             \
-		return (Type*)object;                                                                      \
-	}                                                                                              \
-	inline Type* as##kindName##Nullable(Object* object)                                            \
-	{                                                                                              \
-		return object && object->kind == kindId ? (Type*)object : nullptr;                         \
-	}                                                                                              \
-	inline Object* asObject(Type* object) { return (Object*)object; }                              \
-	template<> inline Type* as<Type>(Object * object) { return as##kindName(object); }
 
 	DECLARE_OBJECT_TYPE(ObjectKind::function, Function, FunctionInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::table, Table, TableInstance);
@@ -394,4 +392,4 @@ namespace Runtime
 
 	// Creates a new context, initializing its mutable global state from the given context.
 	RUNTIME_API Context* cloneContext(Context* context, Compartment* newCompartment);
-}
+}}

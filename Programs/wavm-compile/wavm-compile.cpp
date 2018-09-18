@@ -10,8 +10,9 @@
 #include "Logging/Logging.h"
 #include "Runtime/Runtime.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 
 int main(int argc, char** argv)
 {

@@ -4,14 +4,12 @@
 
 #include <string.h>
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	struct AnyReferee;
 	struct AnyFunc;
-}
+}}
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	// A runtime value of any type.
 	struct UntaggedValue
 	{
@@ -166,4 +164,4 @@ namespace IR
 			return !(left == right);
 		}
 	};
-}
+}}

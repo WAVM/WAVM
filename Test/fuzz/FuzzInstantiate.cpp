@@ -17,9 +17,10 @@
 #include "Runtime/Linker.h"
 #include "Runtime/Runtime.h"
 
-using namespace IR;
-using namespace Runtime;
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
+using namespace WAVM::WAST;
 
 struct StubResolver : Runtime::Resolver
 {

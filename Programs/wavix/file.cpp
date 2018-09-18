@@ -17,11 +17,10 @@
 #include "process.h"
 #include "wavix.h"
 
-using namespace Runtime;
+using namespace WAVM::Runtime;
 using namespace Wavix;
 
-namespace Wavix
-{
+namespace Wavix {
 	void staticInitializeFile() {}
 }
 
@@ -113,8 +112,7 @@ static std::string resolvePath(const std::string& cwd, const std::string& home, 
 	return result;
 }
 
-namespace OpenFlags
-{
+namespace OpenFlags {
 	enum
 	{
 		readOnly = 0x0000,

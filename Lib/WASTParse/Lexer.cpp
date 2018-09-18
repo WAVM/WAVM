@@ -19,16 +19,16 @@
 #define DUMP_NFA_GRAPH 0
 #define DUMP_DFA_GRAPH 0
 
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::WAST;
 
-namespace WAST
-{
+namespace WAVM { namespace WAST {
 	struct LineInfo
 	{
 		U32* lineStarts;
 		U32 numLineStarts;
 	};
-}
+}}
 
 const char* WAST::describeToken(TokenType tokenType)
 {

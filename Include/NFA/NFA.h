@@ -11,8 +11,7 @@
 #define NFA_API DLL_IMPORT
 #endif
 
-namespace NFA
-{
+namespace WAVM { namespace NFA {
 	// A set of characters.
 	typedef DenseStaticIntSet<U8, 256> CharSet;
 
@@ -113,4 +112,4 @@ namespace NFA
 
 		void moveFrom(Machine&& inMachine);
 	};
-}
+}}

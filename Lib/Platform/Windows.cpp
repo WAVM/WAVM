@@ -27,7 +27,8 @@
 
 #define POISON_FORKED_STACK_SELF_POINTERS 0
 
-using namespace Platform;
+using namespace WAVM;
+using namespace WAVM::Platform;
 
 // An execution context containing all non-volatile registers that will be preserved across calls.
 // The layout is mirrored in Windows.asm, so keep them in sync!
@@ -627,8 +628,7 @@ bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
 
 std::type_info* Platform::getUserExceptionTypeInfo() { return nullptr; }
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	struct Thread
 	{
 		HANDLE handle = INVALID_HANDLE_VALUE;
@@ -649,7 +649,7 @@ namespace Platform
 			id = 0;
 		}
 	};
-}
+}}
 
 struct ThreadArgs
 {

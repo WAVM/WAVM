@@ -7,13 +7,11 @@
 #include <string>
 #include "Inline/BasicTypes.h"
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	struct Module;
-}
+}}
 
-namespace WAST
-{
+namespace WAVM { namespace WAST {
 	// Prints a module in WAST format.
 	WASTPRINT_API std::string print(const IR::Module& module);
-}
+}}

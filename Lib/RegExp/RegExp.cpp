@@ -4,6 +4,8 @@
 #include "Inline/Errors.h"
 #include "NFA/NFA.h"
 
+using namespace WAVM;
+
 enum class NodeType : U8
 {
 	lit,

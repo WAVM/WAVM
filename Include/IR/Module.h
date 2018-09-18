@@ -12,8 +12,7 @@
 #include "Inline/Errors.h"
 #include "Types.h"
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	enum class Opcode : U16;
 
 	// An initializer expression: serialized like any other code, but may only be a constant or
@@ -279,4 +278,4 @@ namespace IR
 
 	// Serializes a DisassemblyNames structure and adds it to the module as a name section.
 	IR_API void setDisassemblyNames(Module& module, const DisassemblyNames& names);
-}
+}}

@@ -6,11 +6,10 @@
 #include "process.h"
 #include "wavix.h"
 
-using namespace Runtime;
+using namespace WAVM::Runtime;
 using namespace Wavix;
 
-namespace Wavix
-{
+namespace Wavix {
 	void staticInitializeMemory() {}
 }
 

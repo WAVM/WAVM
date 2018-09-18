@@ -25,14 +25,14 @@
 
 #include "LLVMPostInclude.h"
 
-namespace llvm
-{
+namespace llvm {
 	class Value;
 }
 
-using namespace IR;
-using namespace LLVMJIT;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
+using namespace WAVM::Runtime;
 
 void EmitFunctionContext::block(ControlStructureImm imm)
 {

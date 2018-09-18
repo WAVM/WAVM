@@ -18,7 +18,8 @@
 #include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::Runtime;
 
 // Holds a list of threads (in the form of events that will wake them) that
 // are waiting on a specific address.

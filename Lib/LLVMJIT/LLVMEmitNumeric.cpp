@@ -28,8 +28,9 @@
 
 #include "LLVMPostInclude.h"
 
-using namespace IR;
-using namespace LLVMJIT;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
 
 //
 // Constant operators

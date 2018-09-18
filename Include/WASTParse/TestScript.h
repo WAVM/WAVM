@@ -7,8 +7,7 @@
 #include <memory>
 #include <vector>
 
-namespace WAST
-{
+namespace WAVM { namespace WAST {
 	struct Command
 	{
 		enum Type
@@ -245,4 +244,4 @@ namespace WAST
 		{
 		}
 	};
-}
+}}

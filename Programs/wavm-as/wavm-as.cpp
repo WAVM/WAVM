@@ -12,6 +12,8 @@
 #include "Logging/Logging.h"
 #include "WASM/WASM.h"
 
+using namespace WAVM;
+
 int main(int argc, char** argv)
 {
 	if(argc < 3)

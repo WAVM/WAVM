@@ -11,8 +11,7 @@
 #include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
 
-namespace Intrinsics
-{
+namespace WAVM { namespace Intrinsics {
 	struct ModuleImpl
 	{
 		HashMap<std::string, Intrinsics::Function*> functionMap;
@@ -20,7 +19,9 @@ namespace Intrinsics
 		HashMap<std::string, Intrinsics::Memory*> memoryMap;
 		HashMap<std::string, Intrinsics::Table*> tableMap;
 	};
-}
+}}
+
+using namespace WAVM;
 
 Intrinsics::Module::~Module()
 {

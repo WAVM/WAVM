@@ -6,8 +6,9 @@
 #include "Inline/CLI.h"
 #include "Logging/Logging.h"
 
-using namespace IR;
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::WAST;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {

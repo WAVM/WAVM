@@ -9,13 +9,11 @@
 #define EMSCRIPTEN_API DLL_IMPORT
 #endif
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	struct Module;
-}
+}}
 
-namespace Emscripten
-{
+namespace WAVM { namespace Emscripten {
 	struct Instance
 	{
 		Runtime::GCPointer<Runtime::ModuleInstance> env;
@@ -33,4 +31,4 @@ namespace Emscripten
 	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,
 										  const std::vector<const char*>& argStrings,
 										  std::vector<IR::Value>& outInvokeArgs);
-}
+}}

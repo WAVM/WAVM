@@ -16,12 +16,11 @@
 #include "Runtime/Runtime.h"
 #include "process.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 using namespace Wavix;
 
-namespace Wavix
-{
+namespace Wavix {
 	std::string sysroot;
 	bool isTracingSyscalls = false;
 

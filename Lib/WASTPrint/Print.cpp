@@ -20,8 +20,9 @@
 #include "Inline/Serialization.h"
 #include "WASTPrint/WASTPrint.h"
 
-using namespace IR;
-using namespace Serialization;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Serialization;
 
 #define INDENT_STRING "\xE0\x01"
 #define DEDENT_STRING "\xE0\x02"

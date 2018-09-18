@@ -10,8 +10,7 @@
 #include "Inline/BasicTypes.h"
 #include "Runtime/Runtime.h"
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	// An abstract resolver: maps module+export name pairs to a Runtime::Object.
 	struct Resolver
 	{
@@ -92,4 +91,4 @@ namespace Runtime
 	};
 
 	RUNTIME_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);
-}
+}}

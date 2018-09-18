@@ -26,7 +26,7 @@ BraceWrapping:
   AfterControlStatement: true
   AfterEnum:       true
   AfterFunction:   true
-  AfterNamespace:  true
+  AfterNamespace:  false
   AfterObjCDeclaration: true
   AfterStruct:     true
   AfterUnion:      true
@@ -38,6 +38,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializersBeforeComma: true
 ColumnLimit:     100
 CommentPragmas:  '^ IWYU pragma:'
+CompactNamespaces: true
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 0
 ContinuationIndentWidth: 4

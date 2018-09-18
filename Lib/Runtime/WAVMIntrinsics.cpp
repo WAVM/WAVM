@@ -14,12 +14,12 @@
 #include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::Runtime;
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	DEFINE_INTRINSIC_MODULE(wavmIntrinsics)
-}
+}}
 
 template<typename Float> Float quietNaN(Float value)
 {

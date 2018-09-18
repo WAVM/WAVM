@@ -7,8 +7,7 @@
 #include "Inline/BasicTypes.h"
 #include "Platform/Defines.h"
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	//
 	// Error reporting
 	//
@@ -41,4 +40,4 @@ namespace Platform
 
 	// Describes an instruction pointer.
 	PLATFORM_API bool describeInstructionPointer(Uptr ip, std::string& outDescription);
-}
+}}

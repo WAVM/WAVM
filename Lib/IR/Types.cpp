@@ -10,7 +10,8 @@
 #include "Inline/Lock.h"
 #include "Platform/Mutex.h"
 
-using namespace IR;
+using namespace WAVM;
+using namespace WAVM::IR;
 
 struct TypeTupleHashPolicy
 {

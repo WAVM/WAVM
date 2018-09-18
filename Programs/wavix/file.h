@@ -4,8 +4,7 @@
 #include "Platform/File.h"
 #include "wavix.h"
 
-namespace Wavix
-{
+namespace Wavix {
 	struct File;
 
 	struct FileSystem

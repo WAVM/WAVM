@@ -18,8 +18,9 @@
 #include "WASTParse/TestScript.h"
 #include "WASTParse/WASTParse.h"
 
-using namespace IR;
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::WAST;
 
 static const Runtime::AnyFunc* makeHostRef(Uptr index)
 {

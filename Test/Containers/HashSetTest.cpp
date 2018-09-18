@@ -10,6 +10,8 @@
 #include "Inline/HashSet.h"
 #include "Inline/Timing.h"
 
+using namespace WAVM;
+
 static std::string generateRandomString()
 {
 	enum

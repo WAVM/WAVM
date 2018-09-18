@@ -3,8 +3,9 @@
 #include "Inline/Assert.h"
 #include "Runtime/Runtime.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 
 static FunctionType resolveImportType(const IR::Module& module, IndexedFunctionType type)
 {

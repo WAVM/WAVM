@@ -14,8 +14,7 @@
 
 #include "LLVMPostInclude.h"
 
-namespace LLVMJIT
-{
+namespace WAVM { namespace LLVMJIT {
 	// Code and state that is used for generating IR for both thunks and WASM functions.
 	struct EmitContext
 	{
@@ -247,4 +246,4 @@ namespace LLVMJIT
 	private:
 		llvm::Constant* defaultMemoryOffset;
 	};
-}
+}}

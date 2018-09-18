@@ -11,8 +11,9 @@
 #include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 
 const AnyFunc* Runtime::asAnyFunc(const FunctionInstance* functionInstance)
 {

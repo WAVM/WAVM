@@ -5,8 +5,7 @@
 #include "IR.h"
 #include "IR/Operators.h"
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	struct FunctionDef;
 	struct Module;
 
@@ -84,4 +83,4 @@ namespace IR
 		validateElemSegments(module);
 		validateDataSegments(module);
 	}
-}
+}}

@@ -9,9 +9,10 @@
 #define wavmAssert(condition)                                                                      \
 	if(!(condition))                                                                               \
 	{                                                                                              \
-		for(static const Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};;)      \
+		for(static const WAVM::Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};  \
+			;)                                                                                     \
 		{                                                                                          \
-			Platform::handleAssertionFailure(metadata);                                            \
+			WAVM::Platform::handleAssertionFailure(metadata);                                      \
 			DEBUG_TRAP();                                                                          \
 			break;                                                                                 \
 		}                                                                                          \
@@ -24,9 +25,10 @@
 #define errorUnless(condition)                                                                     \
 	if(!(condition))                                                                               \
 	{                                                                                              \
-		for(static const Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};;)      \
+		for(static const WAVM::Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};  \
+			;)                                                                                     \
 		{                                                                                          \
-			Platform::handleAssertionFailure(metadata);                                            \
+			WAVM::Platform::handleAssertionFailure(metadata);                                      \
 			DEBUG_TRAP();                                                                          \
 			break;                                                                                 \
 		}                                                                                          \

@@ -28,8 +28,9 @@
 #include "Runtime/Runtime.h"
 #include "Runtime/RuntimeData.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 
 DEFINE_INTRINSIC_MODULE(env)
 DEFINE_INTRINSIC_MODULE(asm2wasm)

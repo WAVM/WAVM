@@ -3,8 +3,7 @@
 #include "BasicTypes.h"
 #include "Inline/Assert.h"
 
-namespace Unicode
-{
+namespace WAVM { namespace Unicode {
 	template<typename String> void encodeUTF8CodePoint(U32 codePoint, String& outString)
 	{
 		if(codePoint < 0x80) { outString += char(codePoint); }
@@ -175,4 +174,4 @@ namespace Unicode
 		{ encodeUTF8CodePoint(codePoint, outString); };
 		return nextChar;
 	}
-}
+}}

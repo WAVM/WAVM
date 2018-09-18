@@ -9,13 +9,11 @@
 #include "Inline/HashMap.h"
 #include "Runtime/Runtime.h"
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	struct ContextRuntimeData;
-}
+}}
 
-namespace Intrinsics
-{
+namespace WAVM { namespace Intrinsics {
 	struct ModuleImpl;
 
 	struct Module
@@ -136,8 +134,7 @@ namespace Intrinsics
 		return IR::FunctionType(IR::inferResultType<R>(),
 								IR::TypeTuple({IR::inferValueType<Args>()...}));
 	}
-
-}
+}}
 
 #define DEFINE_INTRINSIC_MODULE(name)                                                              \
 	Intrinsics::Module& getIntrinsicModule_##name()                                                \

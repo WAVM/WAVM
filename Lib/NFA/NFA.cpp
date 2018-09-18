@@ -15,7 +15,8 @@
 #include "Logging/Logging.h"
 #include "NFA/NFA.h"
 
-using namespace NFA;
+using namespace WAVM;
+using namespace WAVM::NFA;
 
 struct NFAState
 {
@@ -23,13 +24,12 @@ struct NFAState
 	std::vector<StateIndex> epsilonNextStates;
 };
 
-namespace NFA
-{
+namespace WAVM { namespace NFA {
 	struct Builder
 	{
 		std::vector<NFAState> nfaStates;
 	};
-}
+}}
 
 typedef std::vector<StateIndex> StateSet;
 

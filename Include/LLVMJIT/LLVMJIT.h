@@ -13,23 +13,20 @@
 #endif
 
 // Forward declarations
-namespace IR
-{
+namespace WAVM { namespace IR {
 	struct Module;
 	struct UntaggedValue;
 
 	enum class CallingConvention;
-}
-namespace Runtime
-{
+}}
+namespace WAVM { namespace Runtime {
 	struct ContextRuntimeData;
 	struct ExceptionTypeInstance;
 	struct FunctionInstance;
 	struct ModuleInstance;
-}
+}}
 
-namespace LLVMJIT
-{
+namespace WAVM { namespace LLVMJIT {
 	// Compiles a module to object code.
 	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule);
 
@@ -129,4 +126,4 @@ namespace LLVMJIT
 										const Runtime::FunctionInstance* functionInstance,
 										IR::FunctionType functionType,
 										IR::CallingConvention callingConvention);
-}
+}}

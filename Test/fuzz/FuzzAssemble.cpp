@@ -11,7 +11,8 @@
 #include "WASM/WASM.h"
 #include "WASTParse/WASTParse.h"
 
-using namespace IR;
+using namespace WAVM;
+using namespace WAVM::IR;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {

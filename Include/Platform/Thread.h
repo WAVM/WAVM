@@ -3,8 +3,7 @@
 #include "Inline/BasicTypes.h"
 #include "Platform/Defines.h"
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	struct Thread;
 	PLATFORM_API Thread* createThread(Uptr numStackBytes,
 									  I64 (*threadEntry)(void*),
@@ -14,4 +13,4 @@ namespace Platform
 	[[noreturn]] PLATFORM_API void exitThread(I64 code);
 
 	RETURNS_TWICE PLATFORM_API Thread* forkCurrentThread();
-}
+}}

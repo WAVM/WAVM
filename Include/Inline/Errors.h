@@ -4,8 +4,7 @@
 
 #include <cstdarg>
 
-namespace Errors
-{
+namespace WAVM { namespace Errors {
 	// Fatal error handling.
 	[[noreturn]] inline void fatalf(const char* messageFormat, ...)
 	{
@@ -19,4 +18,4 @@ namespace Errors
 	{
 		fatalf("unimplemented: %s\n", context);
 	}
-}
+}}

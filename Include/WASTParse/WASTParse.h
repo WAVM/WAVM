@@ -8,13 +8,11 @@
 #include <vector>
 #include "Inline/BasicTypes.h"
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	struct Module;
-}
+}}
 
-namespace WAST
-{
+namespace WAVM { namespace WAST {
 	// A location in a text file.
 	struct TextFileLocus
 	{
@@ -47,4 +45,4 @@ namespace WAST
 								   Uptr stringLength,
 								   IR::Module& outModule,
 								   std::vector<Error>& outErrors);
-}
+}}

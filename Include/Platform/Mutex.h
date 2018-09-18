@@ -3,8 +3,7 @@
 #include "Inline/BasicTypes.h"
 #include "Platform/Defines.h"
 
-namespace Platform
-{
+namespace WAVM { namespace Platform {
 	// Platform-independent mutexes.
 	struct Mutex
 	{
@@ -50,4 +49,4 @@ namespace Platform
 #error unsupported platform
 #endif
 	};
-}
+}}

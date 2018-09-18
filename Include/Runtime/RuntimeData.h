@@ -11,8 +11,7 @@
 #define RUNTIME_API DLL_IMPORT
 #endif
 
-namespace Runtime
-{
+namespace WAVM { namespace Runtime {
 	// Forward declarations
 	struct Compartment;
 	struct Context;
@@ -105,4 +104,4 @@ namespace Runtime
 		IR::FunctionType::Encoding functionTypeEncoding;
 		U8 code[1];
 	};
-}
+}}

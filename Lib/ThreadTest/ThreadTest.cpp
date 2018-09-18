@@ -18,8 +18,9 @@
 #include "Runtime/RuntimeData.h"
 #include "ThreadTest/ThreadTest.h"
 
-using namespace IR;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
 
 enum
 {

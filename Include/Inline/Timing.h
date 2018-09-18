@@ -4,8 +4,7 @@
 
 #include "Logging/Logging.h"
 
-namespace Timing
-{
+namespace WAVM { namespace Timing {
 	// Encapsulates a timer that starts when constructed and stops when read.
 	struct Timer
 	{
@@ -43,4 +42,4 @@ namespace Timing
 					numerator / timer.getSeconds(),
 					numeratorUnit);
 	}
-}
+}}

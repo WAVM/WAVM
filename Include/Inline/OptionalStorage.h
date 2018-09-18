@@ -2,57 +2,59 @@
 
 #include <type_traits>
 
-// A type that holds an optional instance of another type. The lifetime of the contained instance
-// is defined by the user of this type, and the user is responsible for calling construct and
-// destruct.
-template<typename Contents,
-		 bool hasTrivialDestructor = std::is_trivially_destructible<Contents>::value>
-struct OptionalStorage
-{
-	union
+namespace WAVM {
+	// A type that holds an optional instance of another type. The lifetime of the contained
+	// instance is defined by the user of this type, and the user is responsible for calling
+	// construct and destruct.
+	template<typename Contents,
+			 bool hasTrivialDestructor = std::is_trivially_destructible<Contents>::value>
+	struct OptionalStorage
 	{
-		// Putting contents in a union allows this type to be default-constructible without calling
-		// the Contents default constructor.
-		Contents contents;
+		union
+		{
+			// Putting contents in a union allows this type to be default-constructible without
+			// calling the Contents default constructor.
+			Contents contents;
+		};
+
+		OptionalStorage() {}
+		~OptionalStorage() {}
+
+		template<typename... Args>
+		OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
+		{
+		}
+
+		template<typename... Args> void construct(Args&&... args)
+		{
+			memset(&contents, 0, sizeof(Contents));
+			new(&contents) Contents(std::forward<Args>(args)...);
+		}
+
+		void destruct() { contents.~Contents(); }
 	};
 
-	OptionalStorage() {}
-	~OptionalStorage() {}
-
-	template<typename... Args>
-	OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
+	// Partial specialization for types with trivial destructors.
+	template<typename Contents> struct OptionalStorage<Contents, true>
 	{
-	}
+		union
+		{
+			Contents contents;
+		};
+		OptionalStorage() {}
+		~OptionalStorage() {}
 
-	template<typename... Args> void construct(Args&&... args)
-	{
-		memset(&contents, 0, sizeof(Contents));
-		new(&contents) Contents(std::forward<Args>(args)...);
-	}
+		template<typename... Args>
+		OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
+		{
+		}
 
-	void destruct() { contents.~Contents(); }
-};
+		template<typename... Args> void construct(Args&&... args)
+		{
+			memset(&contents, 0, sizeof(Contents));
+			new(&contents) Contents(std::forward<Args>(args)...);
+		}
 
-// Partial specialization for types with trivial destructors.
-template<typename Contents> struct OptionalStorage<Contents, true>
-{
-	union
-	{
-		Contents contents;
+		void destruct() {}
 	};
-	OptionalStorage() {}
-	~OptionalStorage() {}
-
-	template<typename... Args>
-	OptionalStorage(Args&&... args) : contents(std::forward<Args>(args)...)
-	{
-	}
-
-	template<typename... Args> void construct(Args&&... args)
-	{
-		memset(&contents, 0, sizeof(Contents));
-		new(&contents) Contents(std::forward<Args>(args)...);
-	}
-
-	void destruct() {}
-};
+}

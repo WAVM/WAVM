@@ -18,11 +18,11 @@
 #include "Parse.h"
 #include "Platform/Intrinsic.h"
 
-using namespace IR;
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::WAST;
 
-namespace WAST
-{
+namespace WAVM { namespace WAST {
 	// State associated with parsing a function.
 	struct FunctionState
 	{
@@ -52,10 +52,9 @@ namespace WAST
 		{
 		}
 	};
-}
+}}
 
-namespace
-{
+namespace {
 	// While in scope, pushes a branch target onto the branch target stack.
 	// Also maintains the branchTargetNameToIndexMap
 	struct ScopedBranchTarget

@@ -13,8 +13,7 @@
 
 #include "OperatorTable.h"
 
-namespace IR
-{
+namespace WAVM { namespace IR {
 	// Structures for operator immediates
 
 	struct NoImm
@@ -216,4 +215,4 @@ namespace IR
 	};
 
 	IR_API const char* getOpcodeName(Opcode opcode);
-}
+}}

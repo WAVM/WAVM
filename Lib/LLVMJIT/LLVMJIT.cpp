@@ -20,13 +20,13 @@
 
 #include "LLVMPostInclude.h"
 
-namespace llvm
-{
+namespace llvm {
 	class Constant;
 }
 
-using namespace IR;
-using namespace LLVMJIT;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
 
 static HashMap<std::string, const char*> runtimeSymbolMap = {
 #ifdef _WIN32

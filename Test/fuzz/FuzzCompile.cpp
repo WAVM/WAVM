@@ -8,9 +8,10 @@
 #include "Logging/Logging.h"
 #include "Runtime/Runtime.h"
 
-using namespace IR;
-using namespace Runtime;
-using namespace WAST;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::Runtime;
+using namespace WAVM::WAST;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {

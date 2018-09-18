@@ -39,17 +39,17 @@
 
 #include "LLVMPostInclude.h"
 
-namespace llvm
-{
+namespace llvm {
 	class Metadata;
 }
 
 #define ENABLE_LOGGING 0
 #define EMIT_ENTER_EXIT_HOOKS 0
 
-using namespace IR;
-using namespace LLVMJIT;
-using namespace Runtime;
+using namespace WAVM;
+using namespace WAVM::IR;
+using namespace WAVM::LLVMJIT;
+using namespace WAVM::Runtime;
 
 // Creates a PHI node for the argument of branches to a basic block.
 PHIVector EmitFunctionContext::createPHIs(llvm::BasicBlock* basicBlock, IR::TypeTuple type)

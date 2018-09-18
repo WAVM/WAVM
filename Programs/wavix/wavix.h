@@ -14,8 +14,9 @@
 #include "Runtime/Intrinsics.h"
 #include "Runtime/Runtime.h"
 
-namespace Wavix
-{
+using namespace WAVM;
+
+namespace Wavix {
 	typedef I32 wavix_time_t;
 
 	struct wavix_timespec
