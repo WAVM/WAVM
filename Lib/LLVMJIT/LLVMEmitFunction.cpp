@@ -4,17 +4,17 @@
 #include <string>
 #include <vector>
 
-#include "IR/Module.h"
-#include "IR/OperatorPrinter.h"
-#include "IR/Operators.h"
-#include "IR/Types.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
-#include "Logging/Logging.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/OperatorPrinter.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Logging/Logging.h"
 
 #include "LLVMPreInclude.h"
 

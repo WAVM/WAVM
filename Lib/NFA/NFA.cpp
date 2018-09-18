@@ -5,15 +5,15 @@
 #include <string>
 #include <vector>
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
-#include "Inline/HashSet.h"
-#include "Inline/Timing.h"
-#include "Logging/Logging.h"
-#include "NFA/NFA.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/HashSet.h"
+#include "WAVM/Inline/Timing.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/NFA/NFA.h"
 
 using namespace WAVM;
 using namespace WAVM::NFA;

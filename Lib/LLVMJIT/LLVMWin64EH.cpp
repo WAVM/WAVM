@@ -2,11 +2,11 @@
 #include <stdint.h>
 #include <string>
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
 #include "LLVMJITPrivate.h"
-#include "Logging/Logging.h"
-#include "Platform/Defines.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Defines.h"
 
 #include "LLVMPreInclude.h"
 

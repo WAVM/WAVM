@@ -6,17 +6,17 @@
 #include <utility>
 #include <vector>
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
-#include "Inline/Lock.h"
-#include "Platform/Event.h"
-#include "Platform/Mutex.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Runtime.h"
-#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/Event.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Runtime/Intrinsics.h"
+#include "WAVM/Runtime/Runtime.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;

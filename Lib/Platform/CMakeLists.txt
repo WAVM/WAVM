@@ -35,19 +35,12 @@ else()
 	endif()
 endif()
 
-add_definitions(-DPLATFORM_API=DLL_EXPORT)
-
 WAVM_ADD_LIBRARY(Platform ${Sources} ${PublicHeaders})
-set_target_properties(Platform PROPERTIES FOLDER Libraries)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	target_link_libraries(Platform pthread rt)
+	target_link_libraries(Platform PRIVATE pthread rt)
 endif()
 
-if(NOT MSVC)
-	include_directories(${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
-
-	if(ENABLE_RUNTIME)
-		target_link_libraries(Platform dl WAVMUnwind)
-	endif()
+if(NOT MSVC AND WAVM_ENABLE_RUNTIME)
+	target_link_libraries(Platform PRIVATE dl WAVMUnwind)
 endif()

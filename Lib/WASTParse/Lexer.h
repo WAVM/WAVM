@@ -1,9 +1,9 @@
 #pragma once
 
-#include "IR/Operators.h"
-#include "Inline/BasicTypes.h"
-#include "Platform/Defines.h"
-#include "WASTParse/WASTParse.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Platform/Defines.h"
+#include "WAVM/WASTParse/WASTParse.h"
 
 #define VISIT_OPERATOR_TOKEN(opcode, name, nameString, ...)                                        \
 	VISIT_TOKEN(name, "'" #nameString "'", #nameString)

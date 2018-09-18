@@ -9,20 +9,20 @@
 #include <utility>
 #include <vector>
 
-#include "IR/Types.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
-#include "Inline/Lock.h"
-#include "Inline/Timing.h"
-#include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
-#include "Platform/Exception.h"
-#include "Platform/Memory.h"
-#include "Platform/Mutex.h"
-#include "Runtime/RuntimeData.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Inline/Timing.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/Memory.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"
 

@@ -3,22 +3,21 @@
 #include <memory>
 #include <utility>
 
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "IR/Types.h"
-#include "IR/Value.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
-#include "Inline/Lock.h"
-#include "Inline/Serialization.h"
-#include "LLVMJIT/LLVMJIT.h"
-#include "Platform/Intrinsic.h"
-#include "Platform/Mutex.h"
-#include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
-#include "WASM/WASM.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Inline/Serialization.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Intrinsic.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Runtime/Runtime.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

@@ -1,14 +1,14 @@
-#include "IR/Types.h"
+#include "WAVM/IR/Types.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <new>
 #include <utility>
 
-#include "Inline/Hash.h"
-#include "Inline/HashSet.h"
-#include "Inline/Lock.h"
-#include "Platform/Mutex.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashSet.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/Mutex.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

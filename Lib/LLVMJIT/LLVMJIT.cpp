@@ -1,11 +1,11 @@
 #include <utility>
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/HashMap.h"
-#include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 
 #include "LLVMPreInclude.h"
 

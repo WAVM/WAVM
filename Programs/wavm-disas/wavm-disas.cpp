@@ -1,14 +1,24 @@
 #include <stdlib.h>
 #include <string>
 
-#include "IR/Module.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/CLI.h"
-#include "Inline/Timing.h"
-#include "Logging/Logging.h"
-#include "WASTPrint/WASTPrint.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Timing.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/WASM/WASM.h"
+#include "WAVM/WASTPrint/WASTPrint.h"
 
 using namespace WAVM;
+
+static bool loadBinaryModuleFromFile(const char* filename,
+									 IR::Module& outModule,
+									 Log::Category errorCategory = Log::error)
+{
+	std::vector<U8> wasmBytes;
+	if(!loadFile(filename, wasmBytes)) { return false; }
+	return WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), outModule);
+}
 
 int main(int argc, char** argv)
 {

@@ -1,8 +1,8 @@
-#include "RegExp/RegExp.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/DenseStaticIntSet.h"
-#include "Inline/Errors.h"
-#include "NFA/NFA.h"
+#include "WAVM/RegExp/RegExp.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/DenseStaticIntSet.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/NFA/NFA.h"
 
 using namespace WAVM;
 

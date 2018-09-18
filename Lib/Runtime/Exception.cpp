@@ -6,18 +6,18 @@
 #include <utility>
 #include <vector>
 
-#include "IR/Types.h"
-#include "IR/Value.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "LLVMJIT/LLVMJIT.h"
-#include "Platform/Diagnostics.h"
-#include "Platform/Exception.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Runtime.h"
-#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Exception.h"
+#include "WAVM/Runtime/Intrinsics.h"
+#include "WAVM/Runtime/Runtime.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;

@@ -3,16 +3,16 @@
 #include <utility>
 #include <vector>
 
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Hash.h"
-#include "Inline/HashSet.h"
-#include "Inline/Lock.h"
-#include "Inline/Timing.h"
-#include "Logging/Logging.h"
-#include "Platform/Mutex.h"
-#include "Runtime/Runtime.h"
 #include "RuntimePrivate.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashSet.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Inline/Timing.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Runtime/Runtime.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;

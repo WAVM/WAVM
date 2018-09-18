@@ -79,6 +79,6 @@ set(WASTTests
 add_custom_target(SpecTests SOURCES ${WASTTests})
 set_target_properties(SpecTests PROPERTIES FOLDER Testing)
 
-if(ENABLE_RUNTIME)
+if(WAVM_ENABLE_RUNTIME)
 	ADD_WAST_TESTS("${WASTTests}")
 endif()

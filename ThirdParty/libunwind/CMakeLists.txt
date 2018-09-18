@@ -32,13 +32,6 @@ set(PublicHeaders
 	include/mach-o/compact_unwind_encoding.h
 	)
 
-include_directories(include)
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	# disable warning: 'variable' may be used uninitialized in this function
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
-endif()
-
 if(MSVC)
 	add_custom_target(WAVMUnwind SOURCES ${Sources} ${AppleSources} ${PublicHeaders})
 else()
@@ -46,7 +39,18 @@ else()
 		set(Sources ${Sources} ${AppleSources})
 	endif()
 	
-	WAVM_ADD_LIBRARY(WAVMUnwind ${Sources} ${PublicHeaders})
+	add_library(WAVMUnwind STATIC ${Sources} ${PublicHeaders})
+	target_include_directories(WAVMUnwind PUBLIC include)
+	
+	# Compile as a static library, but use -fPIC to make sure it can be linked into a shared object.
+	target_compile_options(WAVMUnwind PRIVATE "-fPIC")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	# disable warning: 'variable' may be used uninitialized in this function
+	target_compile_options(WAVMUnwind PRIVATE "-Wno-maybe-uninitialized")
+	# disable warning: 'variable' set but not used
+	target_compile_options(WAVMUnwind PRIVATE "-Wno-unused-but-set-variable")
 endif()
 
 set_target_properties(WAVMUnwind PROPERTIES FOLDER "Third party")

@@ -21,9 +21,4 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Runtime/RuntimeData.h)
 
 WAVM_ADD_LIBRARY(Runtime ${Sources} ${PublicHeaders})
-set_target_properties(Runtime PROPERTIES FOLDER Libraries)
-
-add_definitions(-DRUNTIME_API=DLL_EXPORT)
-
-# Link against the LLVM libraries
 target_link_libraries(Runtime Platform Logging IR LLVMJIT)

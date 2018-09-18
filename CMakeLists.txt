@@ -1,9 +1,44 @@
-cmake_minimum_required(VERSION 2.7.0)
+cmake_minimum_required(VERSION 3.8.0)
 project (WAVM C CXX ASM)
 
+
+# WAVM configuration options
+
+option(WAVM_ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
+option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
+option(WAVM_METRICS_OUTPUT "controls printing the timings of some operations to stdout" OFF)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	# The sanitizers are only available when compiling with Clang and GCC.
+	option(WAVM_ENABLE_ASAN "enable ASAN" OFF)
+	option(WAVM_ENABLE_UBSAN "enable UBSAN" OFF)
+	option(WAVM_ENABLE_TSAN "enable TSAN" OFF)
+else()
+	set(WAVM_ENABLE_ASAN OFF)
+	set(WAVM_ENABLE_UBSAN OFF)
+	set(WAVM_ENABLE_TSAN OFF)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	# libfuzzer is only available when compiling with Clang.
+	option(WAVM_ENABLE_LIBFUZZER "compile WAVM for use by clang/LLVM's libfuzzer" OFF)
+else()
+	set(WAVM_ENABLE_LIBFUZZER OFF)
+endif()
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+	# Disable the runtime on 32-bit platforms.
+	set(WAVM_ENABLE_RUNTIME OFF)
+else()
+	# Allow disabling the runtime on 64-bit platforms.
+	option(WAVM_ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
+endif()
+
+
+
+# Bind some variables to useful paths.
 set(WAVM_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
-set(WAVM_LIB_DIR ${WAVM_SOURCE_DIR}/Lib)
-set(WAVM_INCLUDE_DIR ${WAVM_SOURCE_DIR}/Include)
+set(WAVM_INCLUDE_DIR ${WAVM_SOURCE_DIR}/Include/WAVM)
 
 # If no build type is specified, default to RelWithDebInfo
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -13,179 +48,148 @@ endif()
 # Enable MAXOSX_RPATH by default
 cmake_policy(SET CMP0042 NEW)
 
+# Enable cmake's testing infrastructure
 enable_testing()
 
+# Enable folders when generating Visual Studio solutions
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# Put executables/DLLs in the bin directory.
-SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+# Put executables/DLLs in the <build>/bin directory.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 
-# Put libraries/SOs in the lib/WAVM directory.
-SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib/WAVM)
-SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/WAVM")
+# Put libraries/SOs in the <build|install>/lib/WAVM directory.
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib/WAVM)
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/WAVM")
 
-# Allow includes relative to the source path.
-include_directories(${WAVM_INCLUDE_DIR})
 
-if(MSVC)
-	# Taken out of the VC projects to avoid the compiler complaining about POSIX code
-	add_definitions(-D_SCL_SECURE_NO_WARNINGS)
-	add_definitions(-D_SCL_SECURE_NO_DEPRECATE)
-	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-	add_definitions(-D_CRT_SECURE_NO_DEPRECATE)
-	add_definitions(-D_CRT_NONSTDC_NO_DEPRECATE)
-	add_definitions(-D_CRT_NONSTDC_NO_WARNINGS)
-	add_definitions(-D__STDC_CONSTANT_MACROS)
-	add_definitions(-D__STDC_FORMAT_MACROS)
-	add_definitions(-D__STDC_LIMIT_MACROS)
+# Install Include/WAVM to <install root>/include/WAVM
+install(DIRECTORY ${WAVM_SOURCE_DIR}/Include/WAVM
+		DESTINATION include
+		PATTERN *.txt EXCLUDE
+		PATTERN *.h.in EXCLUDE)
 
-	# Compile files in parallel.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+# Generate Inline/Config.h in the build/install directories from Inline/Config.h.in in the source
+configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Config.h.in
+			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h)
+install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h
+		DESTINATION include/WAVM/Inline)
 
-	# Compile with all warnings and fatal warnings
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
-	if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-		string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-	else()
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-	endif()
 
-	# disable warning: conditional expression is constant
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4127")
-	# disable warning: unreferenced formal parameter
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4100")
-	# disable warning: assignment operator could not be generated
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4512")
-	# disable warning: 'typedef ': ignored on left of '' when no variable is declared
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4091")
-	# disable warning: 'inline': used more than once
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4141")
-	# disable warning: cast truncates constant value
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4310")
-	# disable warning: unreachable code
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4702")
-	# disable warning: The result of the unary '&' operator may be unaligned
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4366")
-	# disable warning: structure was padded due to alignment specifier
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4324")
-	# disable warning: unary minus operator applied to unsigned type, result still unsigned
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4146")
+# A function that sets compile options that are common to all WAVM targets.
+function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
+	# Add the WAVM public include directory.
+	target_include_directories(
+		${TARGET_NAME}
+		INTERFACE $<INSTALL_INTERFACE:include>
+		PRIVATE $<BUILD_INTERFACE:${WAVM_SOURCE_DIR}/Include>
+				${PROJECT_BINARY_DIR}/Include
+	)
 
-	add_definitions(-DENABLE_UBSAN=0)
-else()
-	# Use C++11
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+	# Target C++11.
+	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_11)
 
-	# Compile with all warnings and fatal warnings
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
+	if(MSVC)
+		# Compile files in parallel.
+		target_compile_options(${TARGET_NAME} PRIVATE "/MP")
 
-	# Disable zero-length printf format string warning.
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-format-zero-length")
+		# Compile with all warnings, and fatal warnings.
+		target_compile_options(${TARGET_NAME} PRIVATE "/W4")
+		target_compile_options(${TARGET_NAME} PRIVATE "/WX")
 
-	# Disable RTTI
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+		# Disable warnings
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4127") # conditional expression is constant
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4100") # unreferenced formal parameter
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4512") # assignment operator could not be generated
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4141") # 'inline': used more than once
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4310") # cast truncates constant value
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		# Compile with all warnings and fatal warnings
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
+		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
+
+		# Disable zero-length printf format string warning.
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wno-format-zero-length")
 	
-	# Ensure that even static libraries are relocatable so they can be linked into a .so
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
+		target_compile_options(${TARGET_NAME} PRIVATE "-fno-rtti")
 
-	# Enable asan by default in debug builds.
-	if(CMAKE_BUILD_TYPE MATCHES "Debug")
-		option(ENABLE_ASAN "enable ASAN" ON)
-	else()
-		option(ENABLE_ASAN "enable ASAN" OFF)
-	endif()
-	if(ENABLE_ASAN)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-		if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mllvm -asan-stack=0")
-			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-command-line-argument")
+		# Ensure that even static libraries are relocatable so they can be linked into a .so
+		target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
+
+		if(WAVM_ENABLE_ASAN)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
+			if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+				target_compile_options(${TARGET_NAME} PRIVATE "-mllvm -asan-stack=0")
+				target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-command-line-argument")
+			endif()
 		endif()
+
+		# Optionally enable the undefined-behavior sanitizer.
+		if(WAVM_ENABLE_UBSAN)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=undefined")
+			target_compile_options(${TARGET_NAME} PRIVATE "-fno-sanitize-recover=undefined")
+		endif()
+
+		# Optionally enable the thread sanitizer.
+		if(WAVM_ENABLE_TSAN)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=thread")
+		endif()
+
+		# Make sure to omit the frame pointer in order to allow stuff like thread forking to work.
+		target_compile_options(${TARGET_NAME} PRIVATE "-fomit-frame-pointer")
 	endif()
-
-	# Optionally enable the undefined-behavior sanitizer.
-	option(ENABLE_UBSAN "enable UBSAN" OFF)
-	if(ENABLE_UBSAN)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize-recover=undefined")
-		add_definitions(-DENABLE_UBSAN=1)
-	else()
-		add_definitions(-DENABLE_UBSAN=0)
-	endif()
-
-	# Optionally enable the thread sanitizer.
-	option(ENABLE_TSAN "enable TSAN" OFF)
-	if(ENABLE_TSAN)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
-	endif()
-
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer")
-endif()
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	option(ENABLE_LIBFUZZER "compile WAVM for use by clang/LLVM's libfuzzer")
-	if(ENABLE_LIBFUZZER)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=fuzzer-no-link")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize-coverage=trace-cmp,trace-div,trace-gep")
-	endif()
-	add_definitions(-DENABLE_LIBFUZZER=${ENABLE_LIBFUZZER})
-else()
-	add_definitions(-DENABLE_LIBFUZZER=0)
-endif()
-
-option(ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
-add_definitions(-DENABLE_RELEASE_ASSERTS=${ENABLE_RELEASE_ASSERTS})
-
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DWAVM_DEBUG=1")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DWAVM_DEBUG=0")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -DWAVM_DEBUG=0")
-set(CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} -DWAVM_DEBUG=0")
-
-option(WAVM_METRICS_OUTPUT "controls printing the timings of some operations to stdout" OFF)
-if(WAVM_METRICS_OUTPUT)
-	add_definitions("-DWAVM_METRICS_OUTPUT=1")
-else()
-	add_definitions("-DWAVM_METRICS_OUTPUT=0")
-endif()
-
-if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-	# Disable the runtime on 32-bit platforms.
-	set(ENABLE_RUNTIME OFF)
-else()
-	# Allow disabling the runtime on 64-bit platforms.
-	option(ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
-endif()
-
-if(ENABLE_RUNTIME)
-	add_definitions("-DENABLE_RUNTIME=1")
-else()
-	add_definitions("-DENABLE_RUNTIME=0")
-endif()
-
-option(ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
-
-if(NOT ENABLE_STATIC_LINKING AND MSVC)
-	add_definitions("-DDLL_EXPORT=__declspec(dllexport)")
-	add_definitions("-DDLL_IMPORT=__declspec(dllimport)")
-else()
-	add_definitions(-DDLL_EXPORT=)
-	add_definitions(-DDLL_IMPORT=)
-endif()
+endfunction()
 
 function(WAVM_ADD_LIBRARY TARGET_NAME)
-	if(ENABLE_STATIC_LINKING)
+	if(WAVM_ENABLE_STATIC_LINKING)
 		add_library(${TARGET_NAME} STATIC ${ARGN})
-		install(TARGETS ${TARGET_NAME} DESTINATION lib/WAVM)
+		install(TARGETS ${TARGET_NAME} DESTINATION lib/WAVM EXPORT WAVMLibraries)
 	else()
 		add_library(${TARGET_NAME} SHARED ${ARGN})
 		if(WIN32)
-			install(TARGETS ${TARGET_NAME} DESTINATION bin)
+			install(TARGETS ${TARGET_NAME} DESTINATION bin EXPORT WAVMLibraries)
 		else()
-			install(TARGETS ${TARGET_NAME} DESTINATION lib/WAVM)
+			install(TARGETS ${TARGET_NAME} DESTINATION lib/WAVM EXPORT WAVMLibraries)
 		endif()
 	endif()
-endfunction(WAVM_ADD_LIBRARY)
+
+	WAVM_SET_TARGET_OPTIONS(${TARGET_NAME})
+	
+	# Set up the library's API definitions.
+	string(TOUPPER ${TARGET_NAME} TARGET_NAME_UPPERCASE)
+	if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
+		target_compile_definitions(${TARGET_NAME} PRIVATE "\"${TARGET_NAME_UPPERCASE}_API=__declspec(dllexport)\"")
+		target_compile_definitions(${TARGET_NAME} INTERFACE "\"${TARGET_NAME_UPPERCASE}_API=__declspec(dllimport)\"")
+	else()
+		target_compile_definitions(${TARGET_NAME} PUBLIC "${TARGET_NAME_UPPERCASE}_API=")
+	endif()
+
+	# Enable libfuzzer for libraries.
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		if(WAVM_ENABLE_LIBFUZZER)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer-no-link")
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize-coverage=trace-cmp,trace-div,trace-gep")
+		endif()
+	endif()
+	
+	set_target_properties(${TARGET_NAME} PROPERTIES FOLDER Libraries)
+endfunction()
+
+function(WAVM_ADD_EXECUTABLE TARGET_NAME FOLDER_NAME)
+	add_executable("${TARGET_NAME}" ${ARGN})
+	set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${FOLDER_NAME})
+	WAVM_SET_TARGET_OPTIONS(${TARGET_NAME})
+endfunction()
+
+function(WAVM_ADD_INSTALLED_EXECUTABLE TARGET_NAME FOLDER_NAME)
+	WAVM_ADD_EXECUTABLE(${TARGET_NAME} ${FOLDER_NAME} ${ARGN})
+	install(TARGETS ${TARGET_NAME} DESTINATION bin)
+endfunction()
 
 add_subdirectory(Examples)
-add_subdirectory(Include/Inline)
+add_subdirectory(Include/WAVM/Inline)
 add_subdirectory(Lib/IR)
 add_subdirectory(Lib/Logging)
 add_subdirectory(Lib/NFA)
@@ -198,25 +202,23 @@ add_subdirectory(Programs/wavm-as)
 add_subdirectory(Programs/wavm-disas)
 add_subdirectory(Test)
 add_subdirectory(ThirdParty/dtoa)
-add_subdirectory(ThirdParty/xxhash)
 
-if(ENABLE_RUNTIME)
+if(WAVM_ENABLE_RUNTIME)
 	add_subdirectory(Lib/Emscripten)
 	add_subdirectory(Lib/LLVMJIT)
 	add_subdirectory(Lib/Runtime)
 	add_subdirectory(Lib/ThreadTest)
-	add_subdirectory(Programs/wavix)
 	add_subdirectory(Programs/wavm-compile)
 	add_subdirectory(Programs/wavm-run)
 	add_subdirectory(ThirdParty/libunwind)
 endif()
 
-file(GLOB IncludeDirectories RELATIVE ${WAVM_SOURCE_DIR} ${WAVM_SOURCE_DIR}/Include/*)
-foreach(IncludeDirectory ${IncludeDirectories})
-	if(IS_DIRECTORY ${WAVM_SOURCE_DIR}/${IncludeDirectory})
-		install(DIRECTORY ${IncludeDirectory} DESTINATION include/WAVM PATTERN *.txt EXCLUDE)
-	endif()
-endforeach()
+# Create a CMake package in <install root>/lib/cmake/WAVM containing the WAVM library targets.
+install(
+	EXPORT WAVMLibraries
+	FILE WAVMConfig.cmake
+	DESTINATION lib/cmake/WAVM
+	NAMESPACE WAVM::)
 
 # Create a dummy target to hold various files in the project root
 add_custom_target(RootFiles SOURCES

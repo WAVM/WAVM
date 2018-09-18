@@ -4,18 +4,18 @@
 #include <string>
 #include <vector>
 
-#include "IR/Module.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/CLI.h"
-#include "Inline/Hash.h"
-#include "Inline/Serialization.h"
-#include "Logging/Logging.h"
-#include "Platform/File.h"
-#include "WASM/WASM.h"
-#include "WASTParse/TestScript.h"
-#include "WASTParse/WASTParse.h"
-#include "WASTPrint/WASTPrint.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/Serialization.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/File.h"
+#include "WAVM/WASM/WASM.h"
+#include "WAVM/WASTParse/TestScript.h"
+#include "WAVM/WASTParse/WASTParse.h"
+#include "WAVM/WASTPrint/WASTPrint.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

@@ -1,10 +1,11 @@
-#include "Logging/Logging.h"
-
 #include <atomic>
 #include <cstdio>
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Config.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Defines.h"
 
 using namespace WAVM;
 using namespace WAVM::Log;

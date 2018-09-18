@@ -16,7 +16,4 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/IR/Validate.h)
 
 WAVM_ADD_LIBRARY(IR ${Sources} ${PublicHeaders})
-set_target_properties(IR PROPERTIES FOLDER Libraries)
-
-add_definitions(-DIR_API=DLL_EXPORT)
 target_link_libraries(IR Logging)

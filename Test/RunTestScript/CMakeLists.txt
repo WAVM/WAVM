@@ -1,5 +1,4 @@
-if(ENABLE_RUNTIME)
-	add_executable(RunTestScript RunTestScript.cpp)
+if(WAVM_ENABLE_RUNTIME)
+	WAVM_ADD_EXECUTABLE(RunTestScript Testing RunTestScript.cpp)
 	target_link_libraries(RunTestScript Logging IR WASTParse Runtime ThreadTest)
-	set_target_properties(RunTestScript PROPERTIES FOLDER Testing)
 endif()

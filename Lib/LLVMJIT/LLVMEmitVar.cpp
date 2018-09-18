@@ -1,12 +1,12 @@
 #include <vector>
 
-#include "IR/Module.h"
-#include "IR/Operators.h"
-#include "IR/Types.h"
-#include "Inline/Assert.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
 
 #include "LLVMPreInclude.h"
 

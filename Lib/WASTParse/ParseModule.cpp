@@ -6,20 +6,20 @@
 #include <utility>
 #include <vector>
 
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "IR/Types.h"
-#include "IR/Validate.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
-#include "Inline/Timing.h"
 #include "Lexer.h"
-#include "Logging/Logging.h"
 #include "Parse.h"
-#include "WASTParse/WASTParse.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/IR/Validate.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Timing.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/WASTParse/WASTParse.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

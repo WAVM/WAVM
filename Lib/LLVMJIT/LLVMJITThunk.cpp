@@ -4,17 +4,17 @@
 #include <utility>
 #include <vector>
 
-#include "IR/Types.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
-#include "Inline/Lock.h"
 #include "LLVMEmitContext.h"
-#include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
-#include "Platform/Mutex.h"
-#include "Runtime/RuntimeData.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 #include "LLVMPreInclude.h"
 

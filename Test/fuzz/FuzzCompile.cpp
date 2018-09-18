@@ -1,24 +1,25 @@
 #include <stdlib.h>
 #include <vector>
 
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/CLI.h"
-#include "Logging/Logging.h"
-#include "Runtime/Runtime.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Config.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/Runtime/Runtime.h"
+#include "WAVM/WASM/WASM.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
-using namespace WAVM::WAST;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	IR::Module module;
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
-	if(!loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
+	if(!WASM::loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
 
 	compileModule(module);
 	collectGarbage();
@@ -26,7 +27,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	return 0;
 }
 
-#if !ENABLE_LIBFUZZER
+#if !WAVM_ENABLE_LIBFUZZER
 I32 main(int argc, char** argv)
 {
 	if(argc != 2)

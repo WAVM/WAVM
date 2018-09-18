@@ -5,16 +5,16 @@
 #include <tuple>
 #include <utility>
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/CLI.h"
-#include "Inline/Errors.h"
-#include "Inline/Timing.h"
 #include "Lexer.h"
-#include "Logging/Logging.h"
-#include "NFA/NFA.h"
-#include "RegExp/RegExp.h"
-#include "WASTParse/WASTParse.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Timing.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/NFA/NFA.h"
+#include "WAVM/RegExp/RegExp.h"
+#include "WAVM/WASTParse/WASTParse.h"
 
 #define DUMP_NFA_GRAPH 0
 #define DUMP_DFA_GRAPH 0

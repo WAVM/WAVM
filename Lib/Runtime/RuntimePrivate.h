@@ -1,16 +1,16 @@
 #pragma once
 
-#include "IR/Module.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/DenseStaticIntSet.h"
-#include "Inline/HashMap.h"
-#include "Inline/HashSet.h"
-#include "Inline/IndexMap.h"
-#include "LLVMJIT/LLVMJIT.h"
-#include "Platform/Mutex.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Runtime.h"
-#include "Runtime/RuntimeData.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/DenseStaticIntSet.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/HashSet.h"
+#include "WAVM/Inline/IndexMap.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Runtime/Intrinsics.h"
+#include "WAVM/Runtime/Runtime.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 #include <atomic>
 #include <functional>
@@ -309,4 +309,7 @@ namespace WAVM { namespace Runtime {
 
 	// Clone a global with same ID and mutable data offset (if mutable) in a new compartment.
 	GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
+
+	TableInstance* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId);
+	MemoryInstance* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId);
 }}

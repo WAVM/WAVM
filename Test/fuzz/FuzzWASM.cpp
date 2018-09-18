@@ -1,14 +1,16 @@
 #include <stdlib.h>
 
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/CLI.h"
-#include "Logging/Logging.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Config.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/WASM/WASM.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
-using namespace WAVM::WAST;
+using namespace WAVM::WASM;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
@@ -19,7 +21,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	return 0;
 }
 
-#if !ENABLE_LIBFUZZER
+#if !WAVM_ENABLE_LIBFUZZER
 I32 main()
 {
 	LLVMFuzzerTestOneInput((const U8*)"", 0);

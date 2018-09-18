@@ -1,18 +1,19 @@
 #ifndef _WIN32
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Lock.h"
-#include "Platform/Defines.h"
-#include "Platform/Diagnostics.h"
-#include "Platform/Event.h"
-#include "Platform/Exception.h"
-#include "Platform/File.h"
-#include "Platform/Intrinsic.h"
-#include "Platform/Memory.h"
-#include "Platform/Mutex.h"
-#include "Platform/Thread.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Config.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Event.h"
+#include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/File.h"
+#include "WAVM/Platform/Intrinsic.h"
+#include "WAVM/Platform/Memory.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Thread.h"
 
 #include <cxxabi.h>
 #include <dlfcn.h>
@@ -43,7 +44,7 @@
 #include <utility>
 #include <vector>
 
-#if ENABLE_RUNTIME
+#if WAVM_ENABLE_RUNTIME
 #define UNW_LOCAL_ONLY
 #include "libunwind.h"
 #endif
@@ -624,7 +625,7 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 {
 	CallStack result;
 
-#if ENABLE_RUNTIME
+#if WAVM_ENABLE_RUNTIME
 	unw_context_t context;
 	errorUnless(!unw_getcontext(&context));
 

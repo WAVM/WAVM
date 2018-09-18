@@ -1,10 +1,10 @@
 #pragma once
 
-#include "IR/Module.h"
-#include "IR/Types.h"
 #include "LLVMEmitContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
 
 #include "LLVMPreInclude.h"
 

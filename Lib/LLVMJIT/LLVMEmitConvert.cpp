@@ -1,12 +1,12 @@
 #include <stdint.h>
 
-#include "IR/Operators.h"
-#include "IR/Types.h"
-#include "Inline/BasicTypes.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMEmitWorkarounds.h"
 #include "LLVMJITPrivate.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 #include "LLVMPreInclude.h"
 

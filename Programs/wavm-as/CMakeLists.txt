@@ -1,4 +1,2 @@
-add_executable(wavm-as wavm-as.cpp)
+WAVM_ADD_INSTALLED_EXECUTABLE(wavm-as Programs wavm-as.cpp)
 target_link_libraries(wavm-as Logging IR WASTParse WASM)
-set_target_properties(wavm-as PROPERTIES FOLDER Programs)
-install(TARGETS wavm-as DESTINATION bin)

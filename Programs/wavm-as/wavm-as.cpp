@@ -3,16 +3,36 @@
 #include <string>
 #include <vector>
 
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/CLI.h"
-#include "Inline/Serialization.h"
-#include "Inline/Timing.h"
-#include "Logging/Logging.h"
-#include "WASM/WASM.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Serialization.h"
+#include "WAVM/Inline/Timing.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/WASM/WASM.h"
+#include "WAVM/WASTParse/WASTParse.h"
 
 using namespace WAVM;
+
+static bool loadTextModuleFromFile(const char* filename, IR::Module& outModule)
+{
+	std::vector<U8> wastBytes;
+	if(!loadFile(filename, wastBytes)) { return false; }
+
+	// Make sure the WAST is null terminated.
+	wastBytes.push_back(0);
+
+	std::vector<WAST::Error> parseErrors;
+	if(WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), outModule, parseErrors))
+	{ return true; }
+	else
+	{
+		Log::printf(Log::error, "Error parsing WebAssembly text file:\n");
+		reportParseErrors(filename, parseErrors);
+		return false;
+	}
+}
 
 int main(int argc, char** argv)
 {

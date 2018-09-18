@@ -1,21 +1,21 @@
-#include "IR/Validate.h"
+#include "WAVM/IR/Validate.h"
 
 #include <stdint.h>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "IR/OperatorPrinter.h"
-#include "IR/Operators.h"
-#include "IR/Types.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Hash.h"
-#include "Inline/HashSet.h"
-#include "Logging/Logging.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/OperatorPrinter.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashSet.h"
+#include "WAVM/Logging/Logging.h"
 
 #define ENABLE_LOGGING 0
 

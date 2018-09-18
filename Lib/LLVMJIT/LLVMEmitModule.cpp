@@ -1,13 +1,13 @@
 #include <stdint.h>
 #include <vector>
 
-#include "IR/Module.h"
-#include "IR/Types.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Timing.h"
 #include "LLVMEmitFunctionContext.h"
 #include "LLVMEmitModuleContext.h"
 #include "LLVMJITPrivate.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Timing.h"
 
 #include "LLVMPreInclude.h"
 

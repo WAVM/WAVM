@@ -3,11 +3,7 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Logging/Logging.h)
 
-add_definitions(-DLOGGING_API=DLL_EXPORT)
-
 WAVM_ADD_LIBRARY(Logging ${Sources} ${PublicHeaders})
-set_target_properties(Logging PROPERTIES FOLDER Libraries)
-
 target_link_libraries(Logging Platform)
 
 # Link with dl on Linux for dladdr.

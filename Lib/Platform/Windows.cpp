@@ -1,19 +1,19 @@
 #if _WIN32
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Lock.h"
-#include "Inline/Unicode.h"
-#include "Platform/Defines.h"
-#include "Platform/Diagnostics.h"
-#include "Platform/Event.h"
-#include "Platform/Exception.h"
-#include "Platform/File.h"
-#include "Platform/Intrinsic.h"
-#include "Platform/Memory.h"
-#include "Platform/Mutex.h"
-#include "Platform/Thread.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Inline/Unicode.h"
+#include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Event.h"
+#include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/File.h"
+#include "WAVM/Platform/Intrinsic.h"
+#include "WAVM/Platform/Memory.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Thread.h"
 
 #include <algorithm>
 #include <atomic>
@@ -808,11 +808,7 @@ I64 Platform::joinThread(Thread* thread)
 	return result;
 }
 
-void Platform::exitThread(I64 code)
-{
-	throw ExitThreadException{code};
-	Errors::unreachable();
-}
+void Platform::exitThread(I64 code) { throw ExitThreadException{code}; }
 
 #ifdef _WIN64
 static DWORD forkThreadEntry2(void* argsVoid)

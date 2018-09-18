@@ -5,14 +5,15 @@
 #include <utility>
 #include <vector>
 
-#include "IR/Module.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Timing.h"
-#include "LLVMJIT/LLVMJIT.h"
 #include "LLVMJITPrivate.h"
-#include "Logging/Logging.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Timing.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Defines.h"
 
 #include "LLVMPreInclude.h"
 

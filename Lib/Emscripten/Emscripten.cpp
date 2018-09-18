@@ -13,20 +13,20 @@
 #include <sys/uio.h>
 #endif
 
-#include "Emscripten/Emscripten.h"
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "IR/Types.h"
-#include "IR/Value.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Floats.h"
-#include "Inline/Hash.h"
-#include "Inline/HashMap.h"
-#include "Logging/Logging.h"
-#include "Platform/Defines.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Runtime.h"
-#include "Runtime/RuntimeData.h"
+#include "WAVM/Emscripten/Emscripten.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/IR/Value.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Floats.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Defines.h"
+#include "WAVM/Runtime/Intrinsics.h"
+#include "WAVM/Runtime/Runtime.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

@@ -3,16 +3,16 @@
 #include <string>
 #include <vector>
 
-#include "IR/IR.h"
-#include "IR/Types.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Floats.h"
-#include "Logging/Logging.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Runtime.h"
-#include "Runtime/RuntimeData.h"
 #include "RuntimePrivate.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Floats.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/Runtime/Intrinsics.h"
+#include "WAVM/Runtime/Runtime.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;

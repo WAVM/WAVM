@@ -1,4 +1,2 @@
-add_executable(wavm-disas wavm-disas.cpp)
+WAVM_ADD_INSTALLED_EXECUTABLE(wavm-disas Programs wavm-disas.cpp)
 target_link_libraries(wavm-disas Logging IR WASTPrint WASM)
-set_target_properties(wavm-disas PROPERTIES FOLDER Programs)
-install(TARGETS wavm-disas DESTINATION bin)

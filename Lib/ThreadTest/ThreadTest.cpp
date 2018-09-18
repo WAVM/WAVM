@@ -4,19 +4,19 @@
 #include <utility>
 #include <vector>
 
-#include "IR/Types.h"
-#include "IR/Value.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/IntrusiveSharedPtr.h"
-#include "Inline/Lock.h"
-#include "Platform/Mutex.h"
-#include "Platform/Thread.h"
-#include "Runtime/Intrinsics.h"
-#include "Runtime/Runtime.h"
-#include "Runtime/RuntimeData.h"
-#include "ThreadTest/ThreadTest.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/IR/Value.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/IntrusiveSharedPtr.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Thread.h"
+#include "WAVM/Runtime/Intrinsics.h"
+#include "WAVM/Runtime/Runtime.h"
+#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/ThreadTest/ThreadTest.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -191,7 +191,6 @@ DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, for
 DEFINE_INTRINSIC_FUNCTION(threadTest, "exitThread", void, exitThread, I64 code)
 {
 	Platform::exitThread(code);
-	Errors::unreachable();
 }
 
 // Validates a thread ID, removes the corresponding thread from the threads array, and returns it.

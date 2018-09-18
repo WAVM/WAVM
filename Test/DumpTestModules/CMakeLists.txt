@@ -1,3 +1,2 @@
-add_executable(DumpTestModules DumpTestModules.cpp)
+WAVM_ADD_EXECUTABLE(DumpTestModules Testing DumpTestModules.cpp)
 target_link_libraries(DumpTestModules Logging IR WASTParse WASTPrint)
-set_target_properties(DumpTestModules PROPERTIES FOLDER Testing)

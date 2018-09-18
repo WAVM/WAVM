@@ -25,7 +25,7 @@ set(WASTTests
 add_custom_target(WAVMTests SOURCES ${WASTTests})
 set_target_properties(WAVMTests PROPERTIES FOLDER Testing)
 
-if(ENABLE_RUNTIME)
+if(WAVM_ENABLE_RUNTIME)
 	ADD_WAST_TESTS("${WASTTests}")
 endif()
 

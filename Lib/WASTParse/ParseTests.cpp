@@ -4,19 +4,19 @@
 #include <utility>
 #include <vector>
 
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "IR/Types.h"
-#include "IR/Validate.h"
-#include "IR/Value.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Serialization.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "Runtime/RuntimeData.h"
-#include "WASM/WASM.h"
-#include "WASTParse/TestScript.h"
-#include "WASTParse/WASTParse.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/IR/Validate.h"
+#include "WAVM/IR/Value.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Serialization.h"
+#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/WASM/WASM.h"
+#include "WAVM/WASTParse/TestScript.h"
+#include "WAVM/WASTParse/WASTParse.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

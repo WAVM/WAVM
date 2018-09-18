@@ -1,8 +1,9 @@
 #pragma once
 
-#include "IR/Module.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM {
 	using namespace WAVM::IR;

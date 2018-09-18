@@ -1,10 +1,10 @@
 #pragma once
 
-#include "IR/Module.h"
-#include "IR/Operators.h"
-#include "Inline/BasicTypes.h"
-#include "LLVMJIT/LLVMJIT.h"
-#include "Runtime/RuntimeData.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 #include <cctype>
 #include <string>

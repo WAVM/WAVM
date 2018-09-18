@@ -4,11 +4,11 @@
 #include <utility>
 #include <vector>
 
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Hash.h"
-#include "Inline/HashSet.h"
-#include "Inline/Timing.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Hash.h"
+#include "WAVM/Inline/HashSet.h"
+#include "WAVM/Inline/Timing.h"
 
 using namespace WAVM;
 

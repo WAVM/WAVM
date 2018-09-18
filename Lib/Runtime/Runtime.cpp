@@ -1,10 +1,10 @@
-#include "Runtime/Runtime.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/Lock.h"
-#include "Runtime/RuntimeData.h"
+#include "WAVM/Runtime/Runtime.h"
 #include "RuntimePrivate.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

@@ -5,18 +5,18 @@
 #include <utility>
 #include <vector>
 
-#include "IR/Module.h"
-#include "IR/Operators.h"
-#include "IR/Types.h"
-#include "IR/Validate.h"
-#include "Inline/Assert.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/Errors.h"
-#include "Inline/HashMap.h"
-#include "Inline/Serialization.h"
 #include "Lexer.h"
 #include "Parse.h"
-#include "Platform/Intrinsic.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/IR/Operators.h"
+#include "WAVM/IR/Types.h"
+#include "WAVM/IR/Validate.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Serialization.h"
+#include "WAVM/Platform/Intrinsic.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

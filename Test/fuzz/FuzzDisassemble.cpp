@@ -2,15 +2,17 @@
 #include <string>
 #include <vector>
 
-#include "IR/IR.h"
-#include "IR/Module.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/CLI.h"
-#include "Inline/Errors.h"
-#include "Logging/Logging.h"
 #include "ModuleMatcher.h"
-#include "WASTParse/WASTParse.h"
-#include "WASTPrint/WASTPrint.h"
+#include "WAVM/IR/IR.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Config.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/WASM/WASM.h"
+#include "WAVM/WASTParse/WASTParse.h"
+#include "WAVM/WASTPrint/WASTPrint.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -20,7 +22,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	Module module;
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
-	if(loadBinaryModule(data, numBytes, module, Log::debug))
+	if(WASM::loadBinaryModule(data, numBytes, module, Log::debug))
 	{
 		const std::string wastString = WAST::print(module);
 
@@ -29,7 +31,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 		if(!WAST::parseModule(
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))
 		{
-			reportParseErrors("disassembly", parseErrors);
+			WAST::reportParseErrors("disassembly", parseErrors);
 			Errors::unreachable();
 		}
 
@@ -40,7 +42,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	return 0;
 }
 
-#if !ENABLE_LIBFUZZER
+#if !WAVM_ENABLE_LIBFUZZER
 
 I32 main(int argc, char** argv)
 {

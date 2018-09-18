@@ -1,15 +1,16 @@
 #include <stdlib.h>
 #include <vector>
 
-#include "IR/Module.h"
-#include "Inline/BasicTypes.h"
-#include "Inline/CLI.h"
-#include "Inline/Errors.h"
-#include "Inline/Serialization.h"
-#include "Logging/Logging.h"
 #include "ModuleMatcher.h"
-#include "WASM/WASM.h"
-#include "WASTParse/WASTParse.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/CLI.h"
+#include "WAVM/Inline/Config.h"
+#include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Serialization.h"
+#include "WAVM/Logging/Logging.h"
+#include "WAVM/WASM/WASM.h"
+#include "WAVM/WASTParse/WASTParse.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -37,7 +38,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 		}
 
 		Module wasmModule;
-		if(!loadBinaryModule(wasmBytes.data(), wasmBytes.size(), wasmModule))
+		if(!WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), wasmModule))
 		{ Errors::fatal("Failed to deserialize the generated WASM file"); }
 
 		ModuleMatcher moduleMatcher(wastModule, wasmModule);
@@ -47,7 +48,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	return 0;
 }
 
-#if !ENABLE_LIBFUZZER
+#if !WAVM_ENABLE_LIBFUZZER
 
 I32 main(int argc, char** argv)
 {

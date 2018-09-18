@@ -1,4 +1,4 @@
-#include "IR/Operators.h"
+#include "WAVM/IR/Operators.h"
 
 const char* WAVM::IR::getOpcodeName(Opcode opcode)
 {

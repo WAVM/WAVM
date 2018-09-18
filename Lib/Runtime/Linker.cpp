@@ -1,7 +1,7 @@
-#include "Runtime/Linker.h"
-#include "IR/Module.h"
-#include "Inline/Assert.h"
-#include "Runtime/Runtime.h"
+#include "WAVM/Runtime/Linker.h"
+#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Runtime/Runtime.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
