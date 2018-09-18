@@ -168,7 +168,7 @@ namespace WAST
 		{
 		}
 	};
-	
+
 	struct AssertReturnFuncCommand : Command
 	{
 		std::unique_ptr<Action> action;

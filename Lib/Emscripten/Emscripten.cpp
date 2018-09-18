@@ -1,9 +1,9 @@
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <math.h>
 #include <initializer_list>
 #include <memory>
 #include <new>
@@ -176,11 +176,14 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_broadcast", I32, _pthread_cond_bro
 static HashMap<I32, I32> pthreadSpecific = {};
 static int pthreadSpecificNextKey = 0;
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "_pthread_key_create", I32, _pthread_key_create, I32 key, I32 destructorPtr)
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env,
+											 "_pthread_key_create",
+											 I32,
+											 _pthread_key_create,
+											 I32 key,
+											 I32 destructorPtr)
 {
-	if (key == 0) {
-		return ErrNo::einval;
-	}
+	if(key == 0) { return ErrNo::einval; }
 
 	MemoryInstance* memory
 		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
@@ -195,11 +198,14 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_mutex_unlock", I32, _pthread_mutex_unlo
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_setspecific", I32, _pthread_setspecific, I32 key, I32 value)
+DEFINE_INTRINSIC_FUNCTION(env,
+						  "_pthread_setspecific",
+						  I32,
+						  _pthread_setspecific,
+						  I32 key,
+						  I32 value)
 {
-	if (!pthreadSpecific.contains(key)) {
-		return ErrNo::einval;
-    }
+	if(!pthreadSpecific.contains(key)) { return ErrNo::einval; }
 	pthreadSpecific.set(key, value);
 	return 0;
 }

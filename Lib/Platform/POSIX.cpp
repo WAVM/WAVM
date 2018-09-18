@@ -102,10 +102,7 @@ extern I64 switchToForkedStackContext(ExecutionContext* forkedContext,
 	Errors::fatal("switchToForkedStackContext is unimplemented on Wavix");
 }
 
-extern U8* getStackPointer()
-{
-	Errors::fatal("getStackPointer is unimplemented on Wavix");
-}
+extern U8* getStackPointer() { Errors::fatal("getStackPointer is unimplemented on Wavix"); }
 
 // libunwind dynamic frame registration
 void __register_frame(const void* fde)

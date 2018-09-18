@@ -450,9 +450,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			if(sourceIndex >= passiveTableSegmentObjects->size())
 			{ throwException(Exception::tableIndexOutOfBoundsType); }
 
-			setTableElement(table,
-							Uptr(destIndex),
-							asAnyRef((*passiveTableSegmentObjects)[sourceIndex]));
+			setTableElement(
+				table, Uptr(destIndex), asAnyRef((*passiveTableSegmentObjects)[sourceIndex]));
 		}
 	}
 }
