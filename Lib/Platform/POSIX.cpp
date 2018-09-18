@@ -345,7 +345,7 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 
 bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
-#ifndef __WAVIX__
+#if WAVM_ENABLE_RUNTIME
 	// Look up static symbol information for the address.
 	Dl_info symbolInfo;
 	if(dladdr((void*)(ip - 1), &symbolInfo))
