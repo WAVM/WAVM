@@ -47,6 +47,11 @@ namespace WAVM { namespace IR {
 		anyfunc = 8,
 	};
 
+	static_assert(Uptr(ValueType::anyref) == Uptr(ReferenceType::anyref),
+				  "ReferenceType and ValueType must match");
+	static_assert(Uptr(ValueType::anyfunc) == Uptr(ReferenceType::anyfunc),
+				  "ReferenceType and ValueType must match");
+
 	inline ValueType asValueType(ReferenceType type) { return ValueType(type); }
 
 	inline bool isReferenceType(ValueType type)
