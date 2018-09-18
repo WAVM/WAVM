@@ -211,7 +211,8 @@ DEFINE_INTRINSIC_FUNCTION(env,
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_getspecific", I32, _pthread_getspecific, I32 key)
 {
-	return (I32)*pthreadSpecific.get(key);
+	const I32* value = pthreadSpecific.get(key);
+	return value ? *value : 0;
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_once", I32, _pthread_once, I32 a, I32 b)
 {
