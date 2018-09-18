@@ -455,8 +455,14 @@ struct FunctionPrintContext
 		string += "\nset_global " + moduleContext.names.globals[imm.variableIndex];
 	}
 
-	void table_get(TableImm imm) { string += "\ntable.get"; }
-	void table_set(TableImm imm) { string += "\ntable.set"; }
+	void table_get(TableImm imm)
+	{
+		string += "\ntable.get " + moduleContext.names.tables[imm.tableIndex];
+	}
+	void table_set(TableImm imm)
+	{
+		string += "\ntable.set " + moduleContext.names.tables[imm.tableIndex];
+	}
 
 	void throw_(ExceptionTypeImm imm)
 	{
