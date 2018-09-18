@@ -269,12 +269,13 @@ struct ModulePrintContext
 		// and add the "$" sigil.
 		IR::getDisassemblyNames(module, names);
 		const Uptr numGlobalNames = names.types.size() + names.tables.size() + names.memories.size()
-									+ names.globals.size();
+									+ names.globals.size() + names.exceptionTypes.size();
 		NameScope globalNameScope('$', numGlobalNames);
 		for(auto& name : names.types) { globalNameScope.map(name); }
 		for(auto& name : names.tables) { globalNameScope.map(name); }
 		for(auto& name : names.memories) { globalNameScope.map(name); }
 		for(auto& name : names.globals) { globalNameScope.map(name); }
+		for(auto& name : names.exceptionTypes) { globalNameScope.map(name); }
 		for(auto& function : names.functions)
 		{
 			globalNameScope.map(function.name);
@@ -614,7 +615,7 @@ struct FunctionPrintContext
 		string += DEDENT_STRING;
 		controlStack.back().type = ControlContext::Type::catch_;
 		string += "\ncatch ";
-		string += moduleContext.names.functions[imm.exceptionTypeIndex].name;
+		string += moduleContext.names.exceptionTypes[imm.exceptionTypeIndex];
 		string += INDENT_STRING;
 	}
 	void catch_all(NoImm)
