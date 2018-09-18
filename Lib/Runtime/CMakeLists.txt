@@ -21,4 +21,4 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Runtime/RuntimeData.h)
 
 WAVM_ADD_LIBRARY(Runtime ${Sources} ${PublicHeaders})
-target_link_libraries(Runtime Platform Logging IR LLVMJIT)
+target_link_libraries(Runtime PUBLIC IR Platform PRIVATE Logging LLVMJIT)

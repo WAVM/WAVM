@@ -1,2 +1,2 @@
 WAVM_ADD_EXECUTABLE(DumpTestModules Testing DumpTestModules.cpp)
-target_link_libraries(DumpTestModules Logging IR WASTParse WASTPrint)
+target_link_libraries(DumpTestModules PRIVATE Logging IR WASTParse WASTPrint Platform WASM)

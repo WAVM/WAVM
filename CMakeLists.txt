@@ -117,8 +117,9 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 
 		if(WAVM_ENABLE_ASAN)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
+			target_link_libraries(${TARGET_NAME} INTERFACE "-fsanitize=address")
 			if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-				target_compile_options(${TARGET_NAME} PRIVATE "-mllvm -asan-stack=0")
+				target_compile_options(${TARGET_NAME} PRIVATE "-mllvm" "-asan-stack=0")
 				target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-command-line-argument")
 			endif()
 		endif()
@@ -126,12 +127,14 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 		# Optionally enable the undefined-behavior sanitizer.
 		if(WAVM_ENABLE_UBSAN)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=undefined")
+			target_link_libraries(${TARGET_NAME} INTERFACE -fsanitize=undefined)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fno-sanitize-recover=undefined")
 		endif()
 
 		# Optionally enable the thread sanitizer.
 		if(WAVM_ENABLE_TSAN)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=thread")
+			target_link_libraries(${TARGET_NAME} INTERFACE -fsanitize=thread)
 		endif()
 
 		# Make sure to omit the frame pointer in order to allow stuff like thread forking to work.
