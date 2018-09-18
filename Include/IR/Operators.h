@@ -128,7 +128,7 @@ namespace IR
 #undef VISIT_OPCODE
 
 			maxSingleByteOpcode
-		= 0xcf,
+		= 0xdf,
 	};
 
 	PACKED_STRUCT(template<typename Imm> struct OpcodeAndImm {
