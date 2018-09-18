@@ -180,12 +180,23 @@ static void print(std::string& string, FunctionType functionType)
 	}
 }
 
+static void print(std::string& string, ReferenceType type)
+{
+	switch(type)
+	{
+	case ReferenceType::anyfunc: string += "anyfunc"; break;
+	case ReferenceType::anyref: string += "anyref"; break;
+	default: Errors::unreachable();
+	}
+}
+
 static void print(std::string& string, const TableType& type)
 {
 	string += ' ';
 	print(string, type.size);
 	if(type.isShared) { string += " shared"; }
-	string += " anyfunc";
+	string += ' ';
+	print(string, type.elementType);
 }
 
 static void print(std::string& string, const MemoryType& type)
