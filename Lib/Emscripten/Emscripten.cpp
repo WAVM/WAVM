@@ -50,6 +50,11 @@ enum
 	minStaticEmscriptenMemoryPages = 128
 };
 
+enum ErrNo
+{
+	einval = 22
+};
+
 struct MutableGlobals
 {
 	enum
@@ -167,22 +172,40 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_broadcast", I32, _pthread_cond_bro
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_key_create", I32, _pthread_key_create, I32 a, I32 b)
+
+static HashMap<I32, I32> pthreadSpecific = {};
+static int pthreadSpecificNextKey = 0;
+
+DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(env, "_pthread_key_create", I32, _pthread_key_create, I32 key, I32 destructorPtr)
 {
-	throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
+	if (key == 0) {
+		return ErrNo::einval;
+	}
+
+	MemoryInstance* memory
+		= Runtime::getMemoryFromRuntimeData(contextRuntimeData, defaultMemoryId.id);
+	memoryRef<U32>(memory, key) = pthreadSpecificNextKey;
+	pthreadSpecific.set(pthreadSpecificNextKey, 0);
+	pthreadSpecificNextKey++;
+
+	return 0;
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_mutex_lock", I32, _pthread_mutex_lock, I32 a) { return 0; }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_mutex_unlock", I32, _pthread_mutex_unlock, I32 a)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_setspecific", I32, _pthread_setspecific, I32 a, I32 b)
+DEFINE_INTRINSIC_FUNCTION(env, "_pthread_setspecific", I32, _pthread_setspecific, I32 key, I32 value)
 {
-	throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
+	if (!pthreadSpecific.contains(key)) {
+		return ErrNo::einval;
+    }
+	pthreadSpecific.set(key, value);
+	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_getspecific", I32, _pthread_getspecific, I32 a)
+DEFINE_INTRINSIC_FUNCTION(env, "_pthread_getspecific", I32, _pthread_getspecific, I32 key)
 {
-	throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
+	return (I32)*pthreadSpecific.get(key);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_once", I32, _pthread_once, I32 a, I32 b)
 {
