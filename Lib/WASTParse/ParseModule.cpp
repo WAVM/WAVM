@@ -326,6 +326,7 @@ static void parseExport(CursorState* cursor)
 		case t_table: exportKind = ObjectKind::table; break;
 		case t_memory: exportKind = ObjectKind::memory; break;
 		case t_global: exportKind = ObjectKind::global; break;
+		case t_exception_type: exportKind = ObjectKind::exceptionType; break;
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "invalid export kind");
 			throw RecoverParseException();
@@ -368,6 +369,12 @@ static void parseExport(CursorState* cursor)
 				exportedObjectIndex = resolveRef(moduleState->parseState,
 												 moduleState->globalNameToIndexMap,
 												 moduleState->module.globals.size(),
+												 exportRef);
+				break;
+			case ObjectKind::exceptionType:
+				exportedObjectIndex = resolveRef(moduleState->parseState,
+												 moduleState->exceptionTypeNameToIndexMap,
+												 moduleState->module.exceptionTypes.size(),
 												 exportRef);
 				break;
 			default: Errors::unreachable();
