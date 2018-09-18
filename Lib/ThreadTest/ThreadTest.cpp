@@ -112,31 +112,19 @@ static I64 threadEntry(void* threadVoid)
 	return invokeFunctionUnchecked(thread->context, thread->entryFunction, &thread->argument)->i64;
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_MEM_AND_TABLE(threadTest,
-											 "createThread",
-											 I64,
-											 createThread,
-											 I32 entryFunctionIndex,
-											 I32 entryArgument)
+DEFINE_INTRINSIC_FUNCTION(threadTest,
+						  "createThread",
+						  I64,
+						  createThread,
+						  const AnyFunc* entryAnyFunc,
+						  I32 entryArgument)
 {
-	if(defaultTableId.id == UINT32_MAX)
-	{
-		// If createThread is called from a module that doesn't handle a default table, throw an
-		// exception.
-		throwException(Exception::tableIndexOutOfBoundsType);
-	}
-
-	// Look up the index provided in the default table to get the thread entry function.
-	TableInstance* defaultTable = getTableFromRuntimeData(contextRuntimeData, defaultTableId.id);
-	const AnyReferee* entryAnyRef = Runtime::getTableElement(defaultTable, entryFunctionIndex);
-	if(!entryAnyRef) { throwException(Runtime::Exception::uninitializedTableElementType); }
-	FunctionInstance* entryFunction = asFunctionNullable(entryAnyRef->object);
-
-	// Validate that the entry function has the correct type (i32)->i64
-	if(!entryFunction
-	   || Runtime::getFunctionType(entryFunction)
+	// Validate that the entry function is non-null and has the correct type (i32)->i64
+	if(!entryAnyFunc
+	   || IR::FunctionType{entryAnyFunc->functionTypeEncoding}
 			  != FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
 	{ throwException(Runtime::Exception::indirectCallSignatureMismatchType); }
+	FunctionInstance* entryFunction = asFunction(entryAnyFunc->anyRef.object);
 
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.

@@ -1,29 +1,12 @@
 (module
 
-	(import "threadTest" "createThread" (func $threadTest.createThread  (param i32 i32) (result i64)))
+	(import "threadTest" "createThread" (func $threadTest.createThread  (param anyfunc i32) (result i64)))
 	(import "threadTest" "forkThread" (func $threadTest.forkThread (result i64)))
 	(import "threadTest" "exitThread" (func $threadTest.exitThread (param i64)))
 	(import "threadTest" "detachThread" (func $threadTest.detachThread (param i64)))
 	(import "threadTest" "joinThread" (func $threadTest.joinThread (param i64) (result i64)))
 
 	(memory 1 1 shared)
-	(table shared anyfunc
-		(elem
-			$createThreadEntry
-			$createThreadEntry2
-			$createThreadEntry3
-			$createThreadEntry4
-			$createThreadEntry5
-			$createThreadEntry6
-			$createThreadEntry7))
-
-	(global $createThreadEntryIndex i32 (i32.const 0))
-	(global $createThreadEntry2Index i32 (i32.const 1))
-	(global $createThreadEntry3Index i32 (i32.const 2))
-	(global $createThreadEntry4Index i32 (i32.const 3))
-	(global $createThreadEntry5Index i32 (i32.const 4))
-	(global $createThreadEntry6Index i32 (i32.const 5))
-	(global $createThreadEntry7Index i32 (i32.const 6))
 
 	(global $atomicAccumulatorAddress i32 (i32.const 0))
 
@@ -45,7 +28,7 @@
 	(func (export "createThreadWithReturn") (result i64)
 		(call $initAccumulator)
 		(call $threadTest.joinThread
-			(call $threadTest.createThread (get_global $createThreadEntryIndex) (i32.const 11)))
+			(call $threadTest.createThread (ref.func $createThreadEntry) (i32.const 11)))
 		(return (call $getAccumulator))
 		)
 		
@@ -58,7 +41,7 @@
 	(func (export "createThreadWithExit") (result i64)
 		(call $initAccumulator)
 		(call $threadTest.joinThread
-			(call $threadTest.createThread (get_global $createThreadEntry2Index) (i32.const 11)))
+			(call $threadTest.createThread (ref.func $createThreadEntry2) (i32.const 11)))
 		(return (call $getAccumulator))
 		)
 
@@ -80,7 +63,7 @@
 		loop $iterLoop
 			(call $initAccumulator)
 			(drop (call $threadTest.joinThread
-				(call $threadTest.createThread (get_global $createThreadEntry3Index) (i32.const 13))))
+				(call $threadTest.createThread (ref.func $createThreadEntry3) (i32.const 13))))
 			(tee_local $i (i32.add (get_local $i) (i32.const 1)))
 			i32.const 1000
 			i32.lt_u
@@ -108,7 +91,7 @@
 		loop $iterLoop
 			(call $initAccumulator)
 			(drop (call $threadTest.joinThread
-				(call $threadTest.createThread (get_global $createThreadEntry4Index) (i32.const 23))))
+				(call $threadTest.createThread (ref.func $createThreadEntry4) (i32.const 23))))
 			(tee_local $i (i32.add (get_local $i) (i32.const 1)))
 			i32.const 1000
 			i32.lt_u
@@ -134,7 +117,7 @@
 	(func (export "forkThreadWithJoin") (result i64)
 		(call $initAccumulator)
 		(call $threadTest.joinThread
-			(call $threadTest.createThread (get_global $createThreadEntry5Index) (i32.const 31)))
+			(call $threadTest.createThread (ref.func $createThreadEntry5) (i32.const 31)))
 		(return (call $getAccumulator))
 		)
 
@@ -161,7 +144,7 @@
 
 	(func (export "forkForkedThreadWithReturn") (result i64)
 		(call $threadTest.joinThread
-			(call $threadTest.createThread (get_global $createThreadEntry6Index) (i32.const 100)))
+			(call $threadTest.createThread (ref.func $createThreadEntry6) (i32.const 100)))
 		)
 
 	(func $createThreadEntry7 (param $argument i32) (result i64)
@@ -191,7 +174,7 @@
 
 	(func (export "forkForkedThreadWithExit") (result i64)
 		(call $threadTest.joinThread
-			(call $threadTest.createThread (get_global $createThreadEntry7Index) (i32.const 200)))
+			(call $threadTest.createThread (ref.func $createThreadEntry7) (i32.const 200)))
 		)
 
 	(func (export "atomic.wake") (param $numWaiters i32) (param $address i32) (result i32)
