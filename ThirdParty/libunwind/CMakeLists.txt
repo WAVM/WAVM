@@ -42,6 +42,9 @@ else()
 	add_library(WAVMUnwind STATIC ${Sources} ${PublicHeaders})
 	target_include_directories(WAVMUnwind PUBLIC include)
 	
+	# Target C++11.
+	target_compile_features(WAVMUnwind PRIVATE cxx_std_11)
+
 	# Compile as a static library, but use -fPIC to make sure it can be linked into a shared object.
 	target_compile_options(WAVMUnwind PRIVATE "-fPIC")
 endif()
