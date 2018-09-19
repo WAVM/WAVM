@@ -51,37 +51,44 @@ FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 // These serialization functions need to be declared in the IR namespace for the array serializer in
 // the Serialization namespace to find them.
 namespace WAVM { namespace IR {
-	static void serialize(InputStream& stream, ValueType& type)
+	static ValueType decodeValueType(Iptr encodedValueType)
 	{
-		U8 encodedValueType = 0;
-		serializeVarUInt7(stream, encodedValueType);
 		switch(encodedValueType)
 		{
-		case 0x7F: type = ValueType::i32; break;
-		case 0x7E: type = ValueType::i64; break;
-		case 0x7D: type = ValueType::f32; break;
-		case 0x7C: type = ValueType::f64; break;
-		case 0x7B: type = ValueType::v128; break;
-		case 0x70: type = ValueType::anyfunc; break;
-		case 0x6F: type = ValueType::anyref; break;
+		case -1: return ValueType::i32;
+		case -2: return ValueType::i64;
+		case -3: return ValueType::f32;
+		case -4: return ValueType::f64;
+		case -5: return ValueType::v128;
+		case -16: return ValueType::anyfunc;
+		case -17: return ValueType::anyref;
+		default: throw FatalSerializationException("invalid value type encoding");
+		};
+	}
+	static I8 encodeValueType(ValueType valueType)
+	{
+		switch(valueType)
+		{
+		case ValueType::i32: return -1;
+		case ValueType::i64: return -2;
+		case ValueType::f32: return -3;
+		case ValueType::f64: return -4;
+		case ValueType::v128: return -5;
+		case ValueType::anyfunc: return -16;
+		case ValueType::anyref: return -17;
 		default: throw FatalSerializationException("invalid value type");
 		};
 	}
+	static void serialize(InputStream& stream, ValueType& type)
+	{
+		I8 encodedValueType = 0;
+		serializeVarInt7(stream, encodedValueType);
+		type = decodeValueType(encodedValueType);
+	}
 	static void serialize(OutputStream& stream, ValueType type)
 	{
-		U8 encodedValueType;
-		switch(type)
-		{
-		case ValueType::i32: encodedValueType = 0x7F; break;
-		case ValueType::i64: encodedValueType = 0x7E; break;
-		case ValueType::f32: encodedValueType = 0x7D; break;
-		case ValueType::f64: encodedValueType = 0x7C; break;
-		case ValueType::v128: encodedValueType = 0x7B; break;
-		case ValueType::anyfunc: encodedValueType = 0x70; break;
-		case ValueType::anyref: encodedValueType = 0x6F; break;
-		default: throw FatalSerializationException("invalid value type");
-		};
-		serializeVarUInt7(stream, encodedValueType);
+		I8 encodedValueType = encodeValueType(type);
+		serializeVarInt7(stream, encodedValueType);
 	}
 
 	FORCEINLINE static void serialize(InputStream& stream, TypeTuple& typeTuple)
@@ -377,7 +384,7 @@ static void serialize(InputStream& stream, ControlStructureImm& imm, const Funct
 	else
 	{
 		imm.type.format = IndexedBlockType::oneResult;
-		imm.type.resultType = ValueType(-encodedBlockType);
+		imm.type.resultType = decodeValueType(encodedBlockType);
 	}
 }
 
@@ -387,7 +394,9 @@ static void serialize(OutputStream& stream, const ControlStructureImm& imm, cons
 	switch(imm.type.format)
 	{
 	case IndexedBlockType::noParametersOrResult: encodedBlockType = -64; break;
-	case IndexedBlockType::oneResult: encodedBlockType = -Iptr(imm.type.resultType); break;
+	case IndexedBlockType::oneResult:
+		encodedBlockType = encodeValueType(imm.type.resultType);
+		break;
 	case IndexedBlockType::functionType: encodedBlockType = imm.type.index; break;
 	default: Errors::unreachable();
 	};
