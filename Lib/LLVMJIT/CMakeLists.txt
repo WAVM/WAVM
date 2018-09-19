@@ -39,7 +39,7 @@ string(REGEX REPLACE "\"" "\\\\\"" LLVM_TARGET_ATTRIBUTES_ESCAPED ${LLVM_TARGET_
 add_definitions("\"-DLLVM_TARGET_ATTRIBUTES=${LLVM_TARGET_ATTRIBUTES_ESCAPED}\"")
 
 # Link against the LLVM libraries
-llvm_map_components_to_libnames(LLVM_LIBS support core passes orcjit native DebugInfoDWARF)
+llvm_map_components_to_libnames(LLVM_LIBS support core passes orcjit RuntimeDyld native DebugInfoDWARF)
 target_link_libraries(LLVMJIT PUBLIC IR)
 target_link_libraries(LLVMJIT PRIVATE ${LLVM_LIBS} Logging Platform)
 
