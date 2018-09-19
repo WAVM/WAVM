@@ -5,7 +5,8 @@
 
 #define SUPPRESS_UNUSED(variable) (void)(variable);
 
-#ifdef _WIN32
+// Compiler-specific attributes that both GCC and MSVC implement.
+#ifdef _MSC_VER
 #define FORCEINLINE __forceinline
 #define FORCENOINLINE __declspec(noinline)
 #define PACKED_STRUCT(definition)                                                                  \
@@ -21,6 +22,7 @@
 #define PACKED_STRUCT(definition) definition
 #endif
 
+// GCC/Clang-only attributes.
 #if defined(__GNUC__)
 #define NO_ASAN __attribute__((no_sanitize_address))
 #define RETURNS_TWICE __attribute__((returns_twice))
@@ -34,6 +36,7 @@
 #define UNLIKELY(condition) (condition)
 #endif
 
+// The attribute to disable UBSAN on a function is different between GCC and Clang.
 #if defined(__clang__) && WAVM_ENABLE_UBSAN
 #define NO_UBSAN __attribute__((no_sanitize("undefined")))
 #elif defined(__GNUC__) && WAVM_ENABLE_UBSAN
@@ -42,7 +45,8 @@
 #define NO_UBSAN
 #endif
 
-#ifdef _WIN32
+// DEBUG_TRAP macro: breaks a debugger if one is attached, or aborts the program if not.
+#ifdef _MSC_VER
 #define DEBUG_TRAP() __debugbreak()
 #elif !defined(__GNUC__) || WAVM_ENABLE_LIBFUZZER || !(defined(__i386__) || defined(__x86_64__))
 // Use abort() instead of int3 when fuzzing, since
@@ -59,6 +63,8 @@
 #define WAVM_DEBUG 1
 #endif
 
+// Provide a macro to wrap calls to the C standard library functions that disables the MSVC error
+// that they should be replaced by the safer but unportable MSVC secure CRT functions.
 #ifdef _MSC_VER
 #define SCOPED_DISABLE_SECURE_CRT_WARNINGS(code)                                                   \
 	__pragma(warning(push)) __pragma(warning(disable : 4996)) code __pragma(warning(pop))
