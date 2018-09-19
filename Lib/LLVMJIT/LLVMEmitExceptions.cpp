@@ -14,8 +14,7 @@
 #include "WAVM/Platform/Exception.h"
 #include "WAVM/Runtime/RuntimeData.h"
 
-#include "LLVMPreInclude.h"
-
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/APInt.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
@@ -29,8 +28,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-
-#include "LLVMPostInclude.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
 using namespace WAVM::IR;

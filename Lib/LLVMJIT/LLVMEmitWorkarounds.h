@@ -1,13 +1,11 @@
 #pragma once
 
-#include "LLVMPreInclude.h"
-
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-
-#include "LLVMPostInclude.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 inline llvm::Value* getTriviallyNonConstantZero(llvm::IRBuilder<>& irBuilder, llvm::Type* type)
 {

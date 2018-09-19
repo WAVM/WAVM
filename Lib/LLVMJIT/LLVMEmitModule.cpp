@@ -9,8 +9,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Timing.h"
 
-#include "LLVMPreInclude.h"
-
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Constants.h"
@@ -23,8 +22,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-
-#include "LLVMPostInclude.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
 	class Constant;

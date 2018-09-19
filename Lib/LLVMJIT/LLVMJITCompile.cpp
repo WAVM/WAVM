@@ -15,8 +15,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Defines.h"
 
-#include "LLVMPreInclude.h"
-
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
@@ -34,8 +33,7 @@
 #if LLVM_VERSION_MAJOR >= 7
 #include "llvm/Transforms/Utils.h"
 #endif
-
-#include "LLVMPostInclude.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
 	class MCContext;

@@ -10,8 +10,39 @@
 #include <string>
 #include <vector>
 
-#include "LLVMPreInclude.h"
+// Define some macros that can be used to wrap the LLVM includes and disable VC warnings.
+#ifdef _MSC_VER
+#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
+	__pragma(warning(push));                                                                       \
+	__pragma(warning(disable : 4267));                                                             \
+	__pragma(warning(disable : 4800));                                                             \
+	__pragma(warning(disable : 4291));                                                             \
+	__pragma(warning(disable : 4244));                                                             \
+	__pragma(warning(disable : 4351));                                                             \
+	__pragma(warning(disable : 4065));                                                             \
+	__pragma(warning(disable : 4624));                                                             \
+	/* conversion from 'int' to 'unsigned int', signed/unsigned mismatch */                        \
+	__pragma(warning(disable : 4245));                                                             \
+	/* unary minus operator applied to unsigned type, result is still unsigned */                  \
+	__pragma(warning(disable : 4146));                                                             \
+	/* declaration of 'x' hides class member */                                                    \
+	__pragma(warning(disable : 4458));                                                             \
+	/* default constructor could not be generated */                                               \
+	__pragma(warning(disable : 4510));                                                             \
+	/* struct can never be instantiated - user defined constructor required */                     \
+	__pragma(warning(disable : 4610));                                                             \
+	/* structure was padded due to alignment specifier */                                          \
+	__pragma(warning(disable : 4324));                                                             \
+	/* unreachable code */                                                                         \
+	__pragma(warning(disable : 4702));
 
+#define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(pop));
+#else
+#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
+#define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
+#endif
+
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
@@ -22,8 +53,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/DataTypes.h"
-
-#include "LLVMPostInclude.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 #ifdef _WIN32
 #define USE_WINDOWS_SEH 1

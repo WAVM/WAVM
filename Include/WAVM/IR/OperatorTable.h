@@ -141,9 +141,9 @@
 	visitOp(0x6e,i32_div_u,"i32.div_u",NoImm,BINARY(i32,i32),mvp) \
 	visitOp(0x6f,i32_rem_s,"i32.rem_s",NoImm,BINARY(i32,i32),mvp) \
 	visitOp(0x70,i32_rem_u,"i32.rem_u",NoImm,BINARY(i32,i32),mvp) \
-	visitOp(0x71,i32_and,"i32.and",NoImm,BINARY(i32,i32),mvp) \
-	visitOp(0x72,i32_or,"i32.or",NoImm,BINARY(i32,i32),mvp) \
-	visitOp(0x73,i32_xor,"i32.xor",NoImm,BINARY(i32,i32),mvp) \
+	visitOp(0x71,i32_and_,"i32.and",NoImm,BINARY(i32,i32),mvp) \
+	visitOp(0x72,i32_or_,"i32.or",NoImm,BINARY(i32,i32),mvp) \
+	visitOp(0x73,i32_xor_,"i32.xor",NoImm,BINARY(i32,i32),mvp) \
 	visitOp(0x74,i32_shl,"i32.shl",NoImm,BINARY(i32,i32),mvp) \
 	visitOp(0x75,i32_shr_s,"i32.shr_s",NoImm,BINARY(i32,i32),mvp) \
 	visitOp(0x76,i32_shr_u,"i32.shr_u",NoImm,BINARY(i32,i32),mvp) \
@@ -161,9 +161,9 @@
 	visitOp(0x80,i64_div_u,"i64.div_u",NoImm,BINARY(i64,i64),mvp) \
 	visitOp(0x81,i64_rem_s,"i64.rem_s",NoImm,BINARY(i64,i64),mvp) \
 	visitOp(0x82,i64_rem_u,"i64.rem_u",NoImm,BINARY(i64,i64),mvp) \
-	visitOp(0x83,i64_and,"i64.and",NoImm,BINARY(i64,i64),mvp) \
-	visitOp(0x84,i64_or,"i64.or",NoImm,BINARY(i64,i64),mvp) \
-	visitOp(0x85,i64_xor,"i64.xor",NoImm,BINARY(i64,i64),mvp) \
+	visitOp(0x83,i64_and_,"i64.and",NoImm,BINARY(i64,i64),mvp) \
+	visitOp(0x84,i64_or_,"i64.or",NoImm,BINARY(i64,i64),mvp) \
+	visitOp(0x85,i64_xor_,"i64.xor",NoImm,BINARY(i64,i64),mvp) \
 	visitOp(0x86,i64_shl,"i64.shl",NoImm,BINARY(i64,i64),mvp) \
 	visitOp(0x87,i64_shr_s,"i64.shr_s",NoImm,BINARY(i64,i64),mvp) \
 	visitOp(0x88,i64_shr_u,"i64.shr_u",NoImm,BINARY(i64,i64),mvp) \

@@ -10,8 +10,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 
-#include "LLVMPreInclude.h"
-
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
@@ -25,8 +24,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
-
-#include "LLVMPostInclude.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -198,9 +196,9 @@ static llvm::Value* emitRotr(EmitContext& emitContext, llvm::Value* left, llvm::
 EMIT_INT_BINARY_OP(add, irBuilder.CreateAdd(left, right))
 EMIT_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
 EMIT_INT_BINARY_OP(mul, irBuilder.CreateMul(left, right))
-EMIT_INT_BINARY_OP(and, irBuilder.CreateAnd(left, right))
-EMIT_INT_BINARY_OP(or, irBuilder.CreateOr(left, right))
-EMIT_INT_BINARY_OP(xor, irBuilder.CreateXor(left, right))
+EMIT_INT_BINARY_OP(and_, irBuilder.CreateAnd(left, right))
+EMIT_INT_BINARY_OP(or_, irBuilder.CreateOr(left, right))
+EMIT_INT_BINARY_OP(xor_, irBuilder.CreateXor(left, right))
 EMIT_INT_BINARY_OP(rotr, emitRotr(*this, left, right))
 EMIT_INT_BINARY_OP(rotl, emitRotl(*this, left, right))
 

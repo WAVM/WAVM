@@ -6,11 +6,9 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 
-#include "LLVMPreInclude.h"
-
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/IR/Intrinsics.h"
-
-#include "LLVMPostInclude.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace LLVMJIT {
 	struct EmitFunctionContext : EmitContext

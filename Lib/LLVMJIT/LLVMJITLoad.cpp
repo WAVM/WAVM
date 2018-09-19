@@ -24,8 +24,7 @@
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/RuntimeData.h"
 
-#include "LLVMPreInclude.h"
-
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
@@ -39,8 +38,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Memory.h"
 #include "llvm/Support/MemoryBuffer.h"
-
-#include "LLVMPostInclude.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace Runtime {
 	struct ExceptionTypeInstance;
@@ -50,9 +48,9 @@ namespace WAVM { namespace Runtime {
 
 #if PRINT_DISASSEMBLY
 
-#include "LLVMPostInclude.h"
-#include "LLVMPreInclude.h"
+PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm-c/Disassembler.h"
+POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 static void disassembleFunction(U8* bytes, Uptr numBytes)
 {
