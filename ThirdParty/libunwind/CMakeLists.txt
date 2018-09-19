@@ -45,7 +45,7 @@ else()
 	# When using static linking for the WAVM libraries, the WAVMUnwind library needs to be
 	# installed. Otherwise, it will just be linked into the WAVM .so/.dylib files.
 	if(WAVM_ENABLE_STATIC_LINKING)
-		install(TARGETS WAVMUnwind DESTINATION lib/WAVM EXPORT WAVMLibraries)
+		install(TARGETS WAVMUnwind DESTINATION lib/WAVM EXPORT WAVMInstallTargets)
 	endif()
 
 	# Target C++11.
