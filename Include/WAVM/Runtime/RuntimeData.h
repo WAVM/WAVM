@@ -24,7 +24,7 @@ namespace WAVM { namespace Runtime {
 		maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes,
 		maxMutableGlobals = maxGlobalBytes / sizeof(IR::UntaggedValue),
 		maxMemories = 255,
-		maxTables = 256,
+		maxTables = (4096 - maxMemories * sizeof(void*) - sizeof(Compartment*)) / sizeof(void*),
 		compartmentRuntimeDataAlignmentLog2 = 32,
 		contextRuntimeDataAlignment = 4096
 	};
@@ -58,7 +58,8 @@ namespace WAVM { namespace Runtime {
 
 	static_assert(offsetof(CompartmentRuntimeData, contexts) % 4096 == 0,
 				  "CompartmentRuntimeData::contexts isn't page-aligned");
-	static_assert(offsetof(CompartmentRuntimeData, contexts[maxContexts])
+	static_assert(U64(offsetof(CompartmentRuntimeData, contexts))
+						  + U64(maxContexts) * sizeof(ContextRuntimeData)
 					  == compartmentReservedBytes,
 				  "CompartmentRuntimeData isn't the expected size");
 
