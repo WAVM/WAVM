@@ -52,18 +52,11 @@
 #define DEBUG_TRAP() __asm__ __volatile__("int3")
 #endif
 
-#ifdef _WIN32
-#if defined(_DEBUG)
-#define WAVM_DEBUG 1
-#else
-#define WAVM_DEBUG 0
-#endif
-#else
+// Define WAVM_DEBUG to 0 or 1 depending on whether it's a debug build.
 #if defined(NDEBUG)
 #define WAVM_DEBUG 0
 #else
 #define WAVM_DEBUG 1
-#endif
 #endif
 
 #ifdef _MSC_VER
