@@ -175,7 +175,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_broadcast", I32, _pthread_cond_bro
 }
 
 static HashMap<I32, I32> pthreadSpecific = {};
-static int pthreadSpecificNextKey = 0;
+static I32 pthreadSpecificNextKey = 0;
 
 DEFINE_INTRINSIC_FUNCTION(env,
 						  "_pthread_key_create",
