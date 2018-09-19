@@ -284,135 +284,135 @@
 	visitOp(SIMDOP(33),i16x8_mul,"i16x8.mul",NoImm,BINARY(v128,v128),simd) \
 	visitOp(SIMDOP(34),i32x4_mul,"i32x4.mul",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(35),i8x16_neg,"i8x16.neg",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(36),i16x8_neg,"i16x8.neg",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(37),i32x4_neg,"i32x4.neg",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(38),i64x2_neg,"i64x2.neg",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(36),i8x16_neg,"i8x16.neg",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(37),i16x8_neg,"i16x8.neg",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(38),i32x4_neg,"i32x4.neg",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(39),i64x2_neg,"i64x2.neg",NoImm,UNARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(39),i8x16_add_saturate_s,"i8x16.add_saturate_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(40),i8x16_add_saturate_u,"i8x16.add_saturate_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(41),i16x8_add_saturate_s,"i16x8.add_saturate_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(42),i16x8_add_saturate_u,"i16x8.add_saturate_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(43),i8x16_sub_saturate_s,"i8x16.sub_saturate_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(44),i8x16_sub_saturate_u,"i8x16.sub_saturate_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(45),i16x8_sub_saturate_s,"i16x8.sub_saturate_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(46),i16x8_sub_saturate_u,"i16x8.sub_saturate_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(40),i8x16_add_saturate_s,"i8x16.add_saturate_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(41),i8x16_add_saturate_u,"i8x16.add_saturate_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(42),i16x8_add_saturate_s,"i16x8.add_saturate_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(43),i16x8_add_saturate_u,"i16x8.add_saturate_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(44),i8x16_sub_saturate_s,"i8x16.sub_saturate_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(45),i8x16_sub_saturate_u,"i8x16.sub_saturate_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(46),i16x8_sub_saturate_s,"i16x8.sub_saturate_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(47),i16x8_sub_saturate_u,"i16x8.sub_saturate_u",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(47),i8x16_shl,"i8x16.shl",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(48),i16x8_shl,"i16x8.shl",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(49),i32x4_shl,"i32x4.shl",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(50),i64x2_shl,"i64x2.shl",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(48),i8x16_shl,"i8x16.shl",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(49),i16x8_shl,"i16x8.shl",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(50),i32x4_shl,"i32x4.shl",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(51),i64x2_shl,"i64x2.shl",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(51),i8x16_shr_s,"i8x16.shr_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(52),i8x16_shr_u,"i8x16.shr_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(53),i16x8_shr_s,"i16x8.shr_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(54),i16x8_shr_u,"i16x8.shr_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(55),i32x4_shr_s,"i32x4.shr_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(56),i32x4_shr_u,"i32x4.shr_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(57),i64x2_shr_s,"i64x2.shr_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(58),i64x2_shr_u,"i64x2.shr_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(52),i8x16_shr_s,"i8x16.shr_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(53),i8x16_shr_u,"i8x16.shr_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(54),i16x8_shr_s,"i16x8.shr_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(55),i16x8_shr_u,"i16x8.shr_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(56),i32x4_shr_s,"i32x4.shr_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(57),i32x4_shr_u,"i32x4.shr_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(58),i64x2_shr_s,"i64x2.shr_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(59),i64x2_shr_u,"i64x2.shr_u",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(59),v128_and,"v128.and",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(60),v128_or,"v128.or",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(61),v128_xor,"v128.xor",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(62),v128_not,"v128.not",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(60),v128_and,"v128.and",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(61),v128_or,"v128.or",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(62),v128_xor,"v128.xor",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(63),v128_not,"v128.not",NoImm,UNARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(63),v128_bitselect,"v128.bitselect",NoImm,VECTORSELECT(v128),simd) \
+	visitOp(SIMDOP(64),v128_bitselect,"v128.bitselect",NoImm,VECTORSELECT(v128),simd) \
 	\
-	visitOp(SIMDOP(64),i8x16_any_true,"i8x16.any_true",NoImm,UNARY(v128,i32),simd) \
-	visitOp(SIMDOP(65),i16x8_any_true,"i16x8.any_true",NoImm,UNARY(v128,i32),simd) \
-	visitOp(SIMDOP(66),i32x4_any_true,"i32x4.any_true",NoImm,UNARY(v128,i32),simd) \
-	visitOp(SIMDOP(67),i64x2_any_true,"i64x2.any_true",NoImm,UNARY(v128,i32),simd) \
+	visitOp(SIMDOP(65),i8x16_any_true,"i8x16.any_true",NoImm,UNARY(v128,i32),simd) \
+	visitOp(SIMDOP(66),i16x8_any_true,"i16x8.any_true",NoImm,UNARY(v128,i32),simd) \
+	visitOp(SIMDOP(67),i32x4_any_true,"i32x4.any_true",NoImm,UNARY(v128,i32),simd) \
+	visitOp(SIMDOP(68),i64x2_any_true,"i64x2.any_true",NoImm,UNARY(v128,i32),simd) \
 	\
-	visitOp(SIMDOP(68),i8x16_all_true,"i8x16.all_true",NoImm,UNARY(v128,i32),simd) \
-	visitOp(SIMDOP(69),i16x8_all_true,"i16x8.all_true",NoImm,UNARY(v128,i32),simd) \
-	visitOp(SIMDOP(70),i32x4_all_true,"i32x4.all_true",NoImm,UNARY(v128,i32),simd) \
-	visitOp(SIMDOP(71),i64x2_all_true,"i64x2.all_true",NoImm,UNARY(v128,i32),simd) \
+	visitOp(SIMDOP(69),i8x16_all_true,"i8x16.all_true",NoImm,UNARY(v128,i32),simd) \
+	visitOp(SIMDOP(70),i16x8_all_true,"i16x8.all_true",NoImm,UNARY(v128,i32),simd) \
+	visitOp(SIMDOP(71),i32x4_all_true,"i32x4.all_true",NoImm,UNARY(v128,i32),simd) \
+	visitOp(SIMDOP(72),i64x2_all_true,"i64x2.all_true",NoImm,UNARY(v128,i32),simd) \
 	\
-	visitOp(SIMDOP(72),i8x16_eq,"i8x16.eq",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(73),i16x8_eq,"i16x8.eq",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(74),i32x4_eq,"i32x4.eq",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(75),f32x4_eq,"f32x4.eq",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(76),f64x2_eq,"f64x2.eq",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(73),i8x16_eq,"i8x16.eq",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(74),i16x8_eq,"i16x8.eq",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(75),i32x4_eq,"i32x4.eq",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(77),f32x4_eq,"f32x4.eq",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(78),f64x2_eq,"f64x2.eq",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(77),i8x16_ne,"i8x16.ne",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(78),i16x8_ne,"i16x8.ne",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(79),i32x4_ne,"i32x4.ne",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(80),f32x4_ne,"f32x4.ne",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(81),f64x2_ne,"f64x2.ne",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(79),i8x16_ne,"i8x16.ne",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(80),i16x8_ne,"i16x8.ne",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(81),i32x4_ne,"i32x4.ne",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(83),f32x4_ne,"f32x4.ne",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(84),f64x2_ne,"f64x2.ne",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(82),i8x16_lt_s,"i8x16.lt_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(83),i8x16_lt_u,"i8x16.lt_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(84),i16x8_lt_s,"i16x8.lt_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(85),i16x8_lt_u,"i16x8.lt_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(86),i32x4_lt_s,"i32x4.lt_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(87),i32x4_lt_u,"i32x4.lt_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(88),f32x4_lt,"f32x4.lt",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(89),f64x2_lt,"f64x2.lt",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(85),i8x16_lt_s,"i8x16.lt_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(86),i8x16_lt_u,"i8x16.lt_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(87),i16x8_lt_s,"i16x8.lt_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(88),i16x8_lt_u,"i16x8.lt_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(89),i32x4_lt_s,"i32x4.lt_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(90),i32x4_lt_u,"i32x4.lt_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(93),f32x4_lt,"f32x4.lt",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(94),f64x2_lt,"f64x2.lt",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(90),i8x16_le_s,"i8x16.le_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(91),i8x16_le_u,"i8x16.le_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(92),i16x8_le_s,"i16x8.le_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(93),i16x8_le_u,"i16x8.le_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(94),i32x4_le_s,"i32x4.le_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(95),i32x4_le_u,"i32x4.le_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(96),f32x4_le,"f32x4.le",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(97),f64x2_le,"f64x2.le",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(95),i8x16_le_s,"i8x16.le_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(96),i8x16_le_u,"i8x16.le_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(97),i16x8_le_s,"i16x8.le_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(98),i16x8_le_u,"i16x8.le_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(99),i32x4_le_s,"i32x4.le_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(100),i32x4_le_u,"i32x4.le_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(103),f32x4_le,"f32x4.le",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(104),f64x2_le,"f64x2.le",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(98),i8x16_gt_s,"i8x16.gt_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(99),i8x16_gt_u,"i8x16.gt_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(100),i16x8_gt_s,"i16x8.gt_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(101),i16x8_gt_u,"i16x8.gt_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(102),i32x4_gt_s,"i32x4.gt_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(103),i32x4_gt_u,"i32x4.gt_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(104),f32x4_gt,"f32x4.gt",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(105),f64x2_gt,"f64x2.gt",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(105),i8x16_gt_s,"i8x16.gt_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(106),i8x16_gt_u,"i8x16.gt_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(107),i16x8_gt_s,"i16x8.gt_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(108),i16x8_gt_u,"i16x8.gt_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(109),i32x4_gt_s,"i32x4.gt_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(110),i32x4_gt_u,"i32x4.gt_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(113),f32x4_gt,"f32x4.gt",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(114),f64x2_gt,"f64x2.gt",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(106),i8x16_ge_s,"i8x16.ge_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(107),i8x16_ge_u,"i8x16.ge_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(108),i16x8_ge_s,"i16x8.ge_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(109),i16x8_ge_u,"i16x8.ge_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(110),i32x4_ge_s,"i32x4.ge_s",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(111),i32x4_ge_u,"i32x4.ge_u",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(112),f32x4_ge,"f32x4.ge",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(113),f64x2_ge,"f64x2.ge",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(115),i8x16_ge_s,"i8x16.ge_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(116),i8x16_ge_u,"i8x16.ge_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(117),i16x8_ge_s,"i16x8.ge_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(118),i16x8_ge_u,"i16x8.ge_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(119),i32x4_ge_s,"i32x4.ge_s",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(120),i32x4_ge_u,"i32x4.ge_u",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(123),f32x4_ge,"f32x4.ge",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(124),f64x2_ge,"f64x2.ge",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(114),f32x4_neg,"f32x4.neg",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(115),f64x2_neg,"f64x2.neg",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(125),f32x4_neg,"f32x4.neg",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(126),f64x2_neg,"f64x2.neg",NoImm,UNARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(116),f32x4_abs,"f32x4.abs",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(117),f64x2_abs,"f64x2.abs",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(127),f32x4_abs,"f32x4.abs",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(128),f64x2_abs,"f64x2.abs",NoImm,UNARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(118),f32x4_min,"f32x4.min",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(119),f64x2_min,"f64x2.min",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(129),f32x4_min,"f32x4.min",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(130),f64x2_min,"f64x2.min",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(120),f32x4_max,"f32x4.max",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(121),f64x2_max,"f64x2.max",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(131),f32x4_max,"f32x4.max",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(132),f64x2_max,"f64x2.max",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(122),f32x4_add,"f32x4.add",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(123),f64x2_add,"f64x2.add",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(133),f32x4_add,"f32x4.add",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(134),f64x2_add,"f64x2.add",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(124),f32x4_sub,"f32x4.sub",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(125),f64x2_sub,"f64x2.sub",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(135),f32x4_sub,"f32x4.sub",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(136),f64x2_sub,"f64x2.sub",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(126),f32x4_div,"f32x4.div",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(127),f64x2_div,"f64x2.div",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(137),f32x4_div,"f32x4.div",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(138),f64x2_div,"f64x2.div",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(128),f32x4_mul,"f32x4.mul",NoImm,BINARY(v128,v128),simd) \
-	visitOp(SIMDOP(129),f64x2_mul,"f64x2.mul",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(139),f32x4_mul,"f32x4.mul",NoImm,BINARY(v128,v128),simd) \
+	visitOp(SIMDOP(140),f64x2_mul,"f64x2.mul",NoImm,BINARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(130),f32x4_sqrt,"f32x4.sqrt",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(131),f64x2_sqrt,"f64x2.sqrt",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(141),f32x4_sqrt,"f32x4.sqrt",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(142),f64x2_sqrt,"f64x2.sqrt",NoImm,UNARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(132),f32x4_convert_s_i32x4,"f32x4.convert_s/i32x4",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(133),f32x4_convert_u_i32x4,"f32x4.convert_u/i32x4",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(134),f64x2_convert_s_i64x2,"f64x2.convert_s/i64x2",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(135),f64x2_convert_u_i64x2,"f64x2.convert_u/i64x2",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(143),f32x4_convert_s_i32x4,"f32x4.convert_s/i32x4",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(144),f32x4_convert_u_i32x4,"f32x4.convert_u/i32x4",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(145),f64x2_convert_s_i64x2,"f64x2.convert_s/i64x2",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(146),f64x2_convert_u_i64x2,"f64x2.convert_u/i64x2",NoImm,UNARY(v128,v128),simd) \
 	\
-	visitOp(SIMDOP(136),i32x4_trunc_s_sat_f32x4,"i32x4.trunc_s:sat/f32x4",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(137),i32x4_trunc_u_sat_f32x4,"i32x4.trunc_u:sat/f32x4",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(138),i64x2_trunc_s_sat_f64x2,"i64x2.trunc_s:sat/f64x2",NoImm,UNARY(v128,v128),simd) \
-	visitOp(SIMDOP(139),i64x2_trunc_u_sat_f64x2,"i64x2.trunc_u:sat/f64x2",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(147),i32x4_trunc_s_sat_f32x4,"i32x4.trunc_s:sat/f32x4",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(148),i32x4_trunc_u_sat_f32x4,"i32x4.trunc_u:sat/f32x4",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(149),i64x2_trunc_s_sat_f64x2,"i64x2.trunc_s:sat/f64x2",NoImm,UNARY(v128,v128),simd) \
+	visitOp(SIMDOP(150),i64x2_trunc_u_sat_f64x2,"i64x2.trunc_u:sat/f64x2",NoImm,UNARY(v128,v128),simd) \
 	\
 	/*  Threading operators */ \
 	visitOp(ATOMICOP(0x00),atomic_wake,"atomic.wake",AtomicLoadOrStoreImm<2>,BINARY(i32,i32),atomics) \
