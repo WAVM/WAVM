@@ -1,3 +1,11 @@
+;; Test that NaNs without any significand bits set are rejected
+
+(module quote "(func (f32.const +nan:0x1) drop)")
+(assert_malformed (module quote "(func (f32.const +nan:0x0))") "NaN significand must be non-zero")
+(assert_malformed (module quote "(func (f32.const -nan:0x0))") "NaN significand must be non-zero")
+(assert_malformed (module quote "(func (f64.const +nan:0x0))") "NaN significand must be non-zero")
+(assert_malformed (module quote "(func (f64.const -nan:0x0))") "NaN significand must be non-zero")
+
 ;; some tests omitted from the reference interpreter test suite because the reference interpreter
 ;; doesn't correctly implement them.
 ;; from https://github.com/WebAssembly/spec/issues/421

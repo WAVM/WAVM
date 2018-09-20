@@ -156,6 +156,11 @@ template<typename Float> Float parseNaN(const char*& nextChar, ParseState* parse
 
 		const U64 significandBits
 			= parseHexUnsignedInt(nextChar, parseState, FloatComponents::maxSignificand);
+		if(!significandBits)
+		{
+			parseErrorf(parseState, firstChar, "NaN significand must be non-zero");
+			resultComponents.bits.significand = 1;
+		}
 		resultComponents.bits.significand = typename FloatComponents::Bits(significandBits);
 	}
 	else
