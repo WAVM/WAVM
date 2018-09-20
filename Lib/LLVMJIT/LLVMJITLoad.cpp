@@ -306,9 +306,23 @@ LoadedModule::LoadedModule(const std::vector<U8>& inObjectBytes,
 			for(auto symbol : symbols) { result.emplace(symbol, findSymbolImpl(symbol)); }
 			return result;
 		}
-		virtual llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet& Symbols) override
+		virtual llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet& symbols) override
 		{
 			return LookupSet();
+		}
+#elif LLVM_VERSION_MAJOR == 7
+		virtual llvm::Expected<LookupResult> lookup(const LookupSet& symbols) override
+		{
+			LookupResult result;
+			for(auto symbol : symbols) { result.emplace(symbol, findSymbolImpl(symbol)); }
+			return result;
+		}
+		virtual llvm::Expected<LookupFlagsResult> lookupFlags(const LookupSet& symbols) override
+		{
+			LookupFlagsResult result;
+			for(auto symbol : symbols)
+			{ result.emplace(symbol, findSymbolImpl(symbol).getFlags()); }
+			return result;
 		}
 #else
 		virtual llvm::JITSymbol findSymbolInLogicalDylib(const std::string& name) override
