@@ -7,6 +7,7 @@ project (WAVM C CXX ASM)
 option(WAVM_ENABLE_STATIC_LINKING "use static linking instead of dynamic for the WAVM libraries" OFF)
 option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
 option(WAVM_METRICS_OUTPUT "controls printing the timings of some operations to stdout" OFF)
+option(WAVM_ENABLE_LTO "use link-time optimization" OFF)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	# The sanitizers are only available when compiling with Clang and GCC.
@@ -69,6 +70,17 @@ else()
 	set(WAVM_DISABLE_PER_CONFIG_RPATH 1)
 endif()
 
+# If MSVC LTO is enabled, remove the /INCREMENTAL option from the link flags to avoid link warnings.
+function(REMOVE_INCREMENTAL_FLAG INOUT_FLAGS)
+	set(INOUT_FLAGS ${OUT_FLAGS_LOCAL} PARENT_SCOPE)
+endfunction()
+if(MSVC AND WAVM_ENABLE_LTO)
+	string(REGEX REPLACE "[-/]INCREMENTAL" "/INCREMENTAL:NO " CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO ${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO})
+	string(REGEX REPLACE "[-/]INCREMENTAL" "/INCREMENTAL:NO " CMAKE_SHARED_LINKER_FLAGS_DEBUG ${CMAKE_SHARED_LINKER_FLAGS_DEBUG})
+	string(REGEX REPLACE "[-/]INCREMENTAL" "/INCREMENTAL:NO " CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO ${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO})
+	string(REGEX REPLACE "[-/]INCREMENTAL" "/INCREMENTAL:NO " CMAKE_EXE_LINKER_FLAGS_DEBUG ${CMAKE_EXE_LINKER_FLAGS_DEBUG})
+endif()
+
 # Install Include/WAVM to <install root>/include/WAVM
 install(DIRECTORY ${WAVM_SOURCE_DIR}/Include/WAVM
 		DESTINATION include
@@ -96,6 +108,13 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_11)
 
 	if(MSVC)
+		if(WAVM_ENABLE_LTO)
+			target_compile_options(${TARGET_NAME} PRIVATE "/GL")
+
+			set_target_properties(${TARGET_NAME} PROPERTIES STATIC_LIBRARY_FLAGS "/LTCG")
+			set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/LTCG")
+		endif()
+
 		# Compile files in parallel.
 		target_compile_options(${TARGET_NAME} PRIVATE "/MP")
 
@@ -111,7 +130,14 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4310") # cast truncates constant value
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
+
 	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	
+		if(WAVM_ENABLE_LTO)
+			target_compile_options(${TARGET_NAME} PRIVATE "-flto")
+			target_link_libraries(${TARGET_NAME} PRIVATE "-flto")
+		endif()
+
 		# Compile with all warnings and fatal warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
 		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
