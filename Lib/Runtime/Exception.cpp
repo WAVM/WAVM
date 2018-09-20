@@ -96,15 +96,33 @@ bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
 std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& callStack)
 {
 	std::vector<std::string> frameDescriptions;
-	for(auto frame : callStack.stackFrames)
+	Uptr runIP = 0;
+	Uptr runLength = 0;
+	for(Uptr frameIndex = 0; frameIndex < callStack.stackFrames.size(); ++frameIndex)
 	{
-		std::string frameDescription;
-		if(describeInstructionPointer(frame.ip, frameDescription))
-		{ frameDescriptions.push_back(frameDescription); }
+		const Platform::CallStack::Frame& frame = callStack.stackFrames[frameIndex];
+		if(frameIndex > 0 && frame.ip == runIP) { ++runLength; }
 		else
 		{
-			frameDescriptions.push_back("<unknown function>");
+			if(runLength > 0)
+			{
+				frameDescriptions.push_back("<" + std::to_string(runLength)
+											+ " identical frames omitted>");
+			}
+
+			runIP = frame.ip;
+			runLength = 0;
+
+			std::string frameDescription;
+			if(!describeInstructionPointer(frame.ip, frameDescription))
+			{ frameDescription = "<unknown function>"; }
+
+			frameDescriptions.push_back(frameDescription);
 		}
+	}
+	if(runLength > 0)
+	{
+		frameDescriptions.push_back("<" + std::to_string(runLength) + "identical frames omitted>");
 	}
 	return frameDescriptions;
 }
