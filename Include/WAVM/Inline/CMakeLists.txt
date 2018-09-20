@@ -6,7 +6,7 @@ set(PublicHeaders
 	ConcurrentHashMap.h
 	DenseStaticIntSet.h
 	Errors.h
-	Floats.h
+	FloatComponents.h
 	Hash.h
 	HashMap.h HashMapImpl.h HashMap.natvis
 	HashSet.h HashSetImpl.h HashSet.natvis

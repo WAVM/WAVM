@@ -12,7 +12,6 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Floats.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
@@ -301,10 +300,10 @@ struct ModulePrintContext
 			string += "(i64.const " + std::to_string(expression.i64) + ')';
 			break;
 		case InitializerExpression::Type::f32_const:
-			string += "(f32.const " + Floats::asString(expression.f32) + ')';
+			string += "(f32.const " + asString(expression.f32) + ')';
 			break;
 		case InitializerExpression::Type::f64_const:
-			string += "(f64.const " + Floats::asString(expression.f64) + ')';
+			string += "(f64.const " + asString(expression.f64) + ')';
 			break;
 		case InitializerExpression::Type::v128_const:
 			string += "(v128.const " + asString(expression.v128) + ')';
@@ -534,12 +533,12 @@ struct FunctionPrintContext
 	void printImm(LiteralImm<F32> imm)
 	{
 		string += ' ';
-		string += Floats::asString(imm.value);
+		string += asString(imm.value);
 	}
 	void printImm(LiteralImm<F64> imm)
 	{
 		string += ' ';
-		string += Floats::asString(imm.value);
+		string += asString(imm.value);
 	}
 
 	template<Uptr naturalAlignmentLog2> void printImm(LoadOrStoreImm<naturalAlignmentLog2> imm)

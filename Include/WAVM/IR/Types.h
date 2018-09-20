@@ -11,7 +11,6 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Floats.h"
 #include "WAVM/Inline/Hash.h"
 
 namespace WAVM { namespace Runtime {
@@ -133,8 +132,8 @@ namespace WAVM { namespace IR {
 
 	inline std::string asString(I32 value) { return std::to_string(value); }
 	inline std::string asString(I64 value) { return std::to_string(value); }
-	inline std::string asString(F32 value) { return Floats::asString(value); }
-	inline std::string asString(F64 value) { return Floats::asString(value); }
+	IR_API std::string asString(F32 value);
+	IR_API std::string asString(F64 value);
 
 	inline std::string asString(const V128& v128)
 	{

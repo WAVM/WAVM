@@ -6,7 +6,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Floats.h"
+#include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Platform/Defines.h"
 
 // Include the David Gay's dtoa code.
@@ -140,7 +140,9 @@ static U64 parseDecimalUnsignedInt(const char*& nextChar,
 // NaN.
 template<typename Float> Float parseNaN(const char*& nextChar, ParseState* parseState)
 {
-	typedef typename Floats::FloatComponents<Float> FloatComponents;
+	const char* firstChar = nextChar;
+
+	typedef FloatComponents<Float> FloatComponents;
 	FloatComponents resultComponents;
 	resultComponents.bits.sign = parseSign(nextChar) ? 1 : 0;
 	resultComponents.bits.exponent = FloatComponents::maxExponentBits;
@@ -172,7 +174,7 @@ template<typename Float> Float parseNaN(const char*& nextChar, ParseState* parse
 template<typename Float> Float parseInfinity(const char* nextChar)
 {
 	// Floating point infinite is represented by max exponent with a zero significand.
-	typedef typename Floats::FloatComponents<Float> FloatComponents;
+	typedef FloatComponents<Float> FloatComponents;
 	FloatComponents resultComponents;
 	resultComponents.bits.sign = parseSign(nextChar) ? 1 : 0;
 	resultComponents.bits.exponent = FloatComponents::maxExponentBits;
@@ -184,8 +186,8 @@ template<typename Float> static NO_UBSAN Float uncheckedCast(F64 f64) { return F
 
 template<typename DestFloat> static F64 getMaxCastableF64()
 {
-	typedef typename Floats::FloatComponents<F64> F64Components;
-	typedef typename Floats::FloatComponents<DestFloat> DestComponents;
+	typedef FloatComponents<F64> F64Components;
+	typedef FloatComponents<DestFloat> DestComponents;
 
 	F64Components f64Components;
 	f64Components.bits.sign = 0;

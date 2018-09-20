@@ -19,7 +19,7 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Floats.h"
+#include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Logging/Logging.h"
@@ -583,18 +583,18 @@ DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-to-int", I32, f64_to_int, F64 f) { retu
 
 static F64 makeNaN()
 {
-	Floats::FloatComponents<F64> floatBits;
+	FloatComponents<F64> floatBits;
 	floatBits.bits.sign = 0;
-	floatBits.bits.exponent = Floats::FloatComponents<F64>::maxExponentBits;
-	floatBits.bits.significand = Floats::FloatComponents<F64>::canonicalSignificand;
+	floatBits.bits.exponent = FloatComponents<F64>::maxExponentBits;
+	floatBits.bits.significand = FloatComponents<F64>::canonicalSignificand;
 	return floatBits.value;
 }
 static F64 makeInf()
 {
-	Floats::FloatComponents<F64> floatBits;
+	FloatComponents<F64> floatBits;
 	floatBits.bits.sign = 0;
-	floatBits.bits.exponent = Floats::FloatComponents<F64>::maxExponentBits;
-	floatBits.bits.significand = Floats::FloatComponents<F64>::maxSignificand;
+	floatBits.bits.exponent = FloatComponents<F64>::maxExponentBits;
+	floatBits.bits.significand = FloatComponents<F64>::maxSignificand;
 	return floatBits.value;
 }
 

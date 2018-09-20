@@ -13,7 +13,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Floats.h"
+#include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Logging/Logging.h"
@@ -282,12 +282,11 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 // significand set.
 template<typename Float> bool isCanonicalOrArithmeticNaN(Float value, bool requireCanonical)
 {
-	Floats::FloatComponents<Float> components;
+	FloatComponents<Float> components;
 	components.value = value;
-	return components.bits.exponent == Floats::FloatComponents<Float>::maxExponentBits
+	return components.bits.exponent == FloatComponents<Float>::maxExponentBits
 		   && (!requireCanonical
-			   || components.bits.significand
-					  == Floats::FloatComponents<Float>::canonicalSignificand);
+			   || components.bits.significand == FloatComponents<Float>::canonicalSignificand);
 }
 
 static void processCommand(TestScriptState& state, const Command* command)

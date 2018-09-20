@@ -8,7 +8,7 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/Floats.h"
+#include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -23,10 +23,10 @@ namespace WAVM { namespace Runtime {
 
 template<typename Float> Float quietNaN(Float value)
 {
-	Floats::FloatComponents<Float> components;
+	FloatComponents<Float> components;
 	components.value = value;
-	components.bits.significand |= typename Floats::FloatComponents<Float>::Bits(1)
-								   << (Floats::FloatComponents<Float>::numSignificandBits - 1);
+	components.bits.significand |= typename FloatComponents<Float>::Bits(1)
+								   << (FloatComponents<Float>::numSignificandBits - 1);
 	return components.value;
 }
 
@@ -51,9 +51,9 @@ template<typename Float> Float floatMin(Float left, Float right)
 	{
 		// Finally, if the operands are apparently equal, compare their integer values to
 		// distinguish -0.0 from +0.0
-		Floats::FloatComponents<Float> leftComponents;
+		FloatComponents<Float> leftComponents;
 		leftComponents.value = left;
-		Floats::FloatComponents<Float> rightComponents;
+		FloatComponents<Float> rightComponents;
 		rightComponents.value = right;
 		return leftComponents.bitcastInt < rightComponents.bitcastInt ? right : left;
 	}
@@ -80,9 +80,9 @@ template<typename Float> Float floatMax(Float left, Float right)
 	{
 		// Finally, if the operands are apparently equal, compare their integer values to
 		// distinguish -0.0 from +0.0
-		Floats::FloatComponents<Float> leftComponents;
+		FloatComponents<Float> leftComponents;
 		leftComponents.value = left;
-		Floats::FloatComponents<Float> rightComponents;
+		FloatComponents<Float> rightComponents;
 		rightComponents.value = right;
 		return leftComponents.bitcastInt > rightComponents.bitcastInt ? right : left;
 	}

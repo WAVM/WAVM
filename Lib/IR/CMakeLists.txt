@@ -1,6 +1,7 @@
 set(Sources
 	DisassemblyNames.cpp
 	Operators.cpp
+	FloatPrinting.cpp
 	Types.cpp
 	Validate.cpp)
 

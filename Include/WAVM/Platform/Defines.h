@@ -62,12 +62,3 @@
 #else
 #define WAVM_DEBUG 1
 #endif
-
-// Provide a macro to wrap calls to the C standard library functions that disables the MSVC error
-// that they should be replaced by the safer but unportable MSVC secure CRT functions.
-#ifdef _MSC_VER
-#define SCOPED_DISABLE_SECURE_CRT_WARNINGS(code)                                                   \
-	__pragma(warning(push)) __pragma(warning(disable : 4996)) code __pragma(warning(pop))
-#else
-#define SCOPED_DISABLE_SECURE_CRT_WARNINGS(code) code
-#endif
