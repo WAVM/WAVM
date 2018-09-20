@@ -192,10 +192,7 @@ struct OperatorInfo
 
 #define VISIT_OP(encoding, name, nameString, Imm, SIGNATURE, ...)                                  \
 	{nameString,                                                                                   \
-	 []() {                                                                                        \
-		 static FunctionType sig = SIGNATURE;                                                      \
-		 return sig;                                                                               \
-	 },                                                                                            \
+	 []() { return IR::getNonParametricOpSigs().name; },                                           \
 	 [](RandomStream& random, IR::Module& module, CodeStream& codeStream) {                        \
 		 Imm imm;                                                                                  \
 		 generateImm(random, module, imm);                                                         \

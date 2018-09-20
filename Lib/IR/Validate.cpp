@@ -637,9 +637,8 @@ struct FunctionValidationContext
 		const char* operatorName = nameString;                                                     \
 		SUPPRESS_UNUSED(operatorName);                                                             \
 		validateImm(imm);                                                                          \
-		static const FunctionType signature = signatureInitializer;                                \
-		popAndValidateTypeTuple("call arguments", signature.params());                             \
-		pushOperandTuple(signature.results());                                                     \
+		popAndValidateTypeTuple("call arguments", IR::getNonParametricOpSigs().name.params());     \
+		pushOperandTuple(IR::getNonParametricOpSigs().name.results());                             \
 	}
 	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
 #undef VALIDATE_OP

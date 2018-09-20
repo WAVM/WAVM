@@ -215,4 +215,12 @@ namespace WAVM { namespace IR {
 	};
 
 	IR_API const char* getOpcodeName(Opcode opcode);
+
+	struct NonParametricOpSignatures
+	{
+#define VISIT_OP(_1, name, ...) FunctionType name;
+		ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)
+#undef VISIT_OP
+	};
+	IR_API const NonParametricOpSignatures& getNonParametricOpSigs();
 }}
