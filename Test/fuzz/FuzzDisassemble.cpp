@@ -26,6 +26,8 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	{
 		const std::string wastString = WAST::print(module);
 
+		Log::printf(Log::debug, "%s\n", wastString.c_str());
+
 		Module wastModule;
 		std::vector<WAST::Error> parseErrors;
 		if(!WAST::parseModule(
