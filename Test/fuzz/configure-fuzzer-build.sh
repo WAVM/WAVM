@@ -8,12 +8,12 @@ WAVM_DIR=$(cd `dirname $0`/../.. && pwd)
 clang -v
 clang++ -v
 
-rm -rf llvm6
-mkdir llvm6
-git clone -b release_60 http://github.com/llvm-mirror/llvm llvm6
+rm -rf llvm7
+mkdir llvm7
+git clone -b release_70 http://github.com/llvm-mirror/llvm llvm7
 
-mkdir $BUILD_DIR/llvm6/build
-cd $BUILD_DIR/llvm6/build
+mkdir $BUILD_DIR/llvm7/build
+cd $BUILD_DIR/llvm7/build
 CC=clang CXX=clang++ cmake \
 	-G Ninja \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
