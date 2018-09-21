@@ -29,8 +29,9 @@ cd $BUILD_DIR
 CC=clang CXX=clang++ cmake \
 	-G Ninja \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-	-DENABLE_ASAN=1 \
-	-DENABLE_LIBFUZZER=1 \
+	-DWAVM_ENABLE_ASAN=1 \
+	-DWAVM_ENABLE_UBSAN=1 \
+	-DWAVM_ENABLE_LIBFUZZER=1 \
 	-DLLVM_DIR=$BUILD_DIR/llvm6/build/lib/cmake/llvm \
 	$WAVM_DIR
 ninja
