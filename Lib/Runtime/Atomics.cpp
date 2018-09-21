@@ -170,11 +170,12 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, F64 timeout)
 	return timedOut ? 2 : 0;
 }
 
-static U32 wakeAddress(Uptr address, U32 numToWake)
+static U32 wakeAddress(void* pointer, U32 numToWake)
 {
 	if(numToWake == 0) { return 0; }
 
 	// Open the wait list for this address.
+	const Uptr address = reinterpret_cast<Uptr>(pointer);
 	WaitList* waitList = openWaitList(address);
 	Uptr actualNumToWake = numToWake;
 	{
@@ -204,37 +205,40 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "misalignedAtomicTrap",
 						  void,
 						  misalignedAtomicTrap,
-						  I64 address)
+						  U64 address)
 {
-	throwException(Exception::misalignedAtomicMemoryAccessType);
+	throwException(Exception::misalignedAtomicMemoryAccessType, {address});
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "atomic_wake",
 						  I32,
 						  atomic_wake,
-						  U32 addressOffset,
+						  U32 address,
 						  I32 numToWake,
 						  Iptr memoryId)
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Validate that the address is within the memory's bounds.
-	if(U64(addressOffset) + 4 > U64(memoryInstance->numPages) * IR::numBytesPerPage)
-	{ throwException(Exception::memoryAddressOutOfBoundsType); }
+	const U64 memoryInstanceNumBytes = U64(memoryInstance->numPages) * IR::numBytesPerPage;
+	if(U64(address) + 4 > memoryInstanceNumBytes)
+	{
+		throwException(Exception::outOfBoundsMemoryAccessType,
+					   {asAnyRef(memoryInstance), memoryInstanceNumBytes});
+	}
 
 	// The alignment check is done by the caller.
-	wavmAssert(!(addressOffset & 3));
+	wavmAssert(!(address & 3));
 
-	const Uptr address = reinterpret_cast<Uptr>(memoryInstance->baseAddress) + addressOffset;
-	return wakeAddress(address, numToWake);
+	return wakeAddress(memoryInstance->baseAddress + address, numToWake);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "atomic_wait_i32",
 						  I32,
 						  atomic_wait_I32,
-						  U32 addressOffset,
+						  U32 address,
 						  I32 expectedValue,
 						  F64 timeout,
 						  Iptr memoryId)
@@ -242,10 +246,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Assume that the caller has validated the alignment.
-	wavmAssert(!(addressOffset & 3));
+	wavmAssert(!(address & 3));
 
 	// Validate that the address is within the memory's bounds, and convert it to a pointer.
-	I32* valuePointer = &memoryRef<I32>(memoryInstance, addressOffset);
+	I32* valuePointer = &memoryRef<I32>(memoryInstance, address);
 
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }
@@ -253,7 +257,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "atomic_wait_i64",
 						  I32,
 						  atomic_wait_i64,
-						  I32 addressOffset,
+						  I32 address,
 						  I64 expectedValue,
 						  F64 timeout,
 						  Iptr memoryId)
@@ -261,10 +265,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Assume that the caller has validated the alignment.
-	wavmAssert(!(addressOffset & 7));
+	wavmAssert(!(address & 7));
 
 	// Validate that the address is within the memory's bounds, and convert it to a pointer.
-	I64* valuePointer = &memoryRef<I64>(memoryInstance, addressOffset);
+	I64* valuePointer = &memoryRef<I64>(memoryInstance, address);
 
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }

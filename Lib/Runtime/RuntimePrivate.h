@@ -85,8 +85,8 @@ namespace WAVM { namespace Runtime {
 
 		Compartment* const compartment;
 		Uptr id;
-
 		const IR::TableType type;
+		std::string debugName;
 
 		Element* elements;
 		Uptr numReservedBytes;
@@ -95,11 +95,14 @@ namespace WAVM { namespace Runtime {
 		Platform::Mutex resizingMutex;
 		std::atomic<Uptr> numElements;
 
-		TableInstance(Compartment* inCompartment, const IR::TableType& inType)
+		TableInstance(Compartment* inCompartment,
+					  const IR::TableType& inType,
+					  std::string&& inDebugName)
 		: ObjectImplWithAnyRef(ObjectKind::table)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, type(inType)
+		, debugName(std::move(inDebugName))
 		, elements(nullptr)
 		, numReservedBytes(0)
 		, numReservedElements(0)
@@ -123,8 +126,8 @@ namespace WAVM { namespace Runtime {
 	{
 		Compartment* const compartment;
 		Uptr id;
-
 		IR::MemoryType type;
+		std::string debugName;
 
 		U8* baseAddress;
 		Uptr numReservedBytes;
@@ -132,11 +135,14 @@ namespace WAVM { namespace Runtime {
 		Platform::Mutex resizingMutex;
 		std::atomic<Uptr> numPages;
 
-		MemoryInstance(Compartment* inCompartment, const IR::MemoryType& inType)
+		MemoryInstance(Compartment* inCompartment,
+					   const IR::MemoryType& inType,
+					   std::string&& inDebugName)
 		: ObjectImplWithAnyRef(ObjectKind::memory)
 		, compartment(inCompartment)
 		, id(UINTPTR_MAX)
 		, type(inType)
+		, debugName(std::move(inDebugName))
 		, baseAddress(nullptr)
 		, numReservedBytes(0)
 		, numPages(0)
@@ -300,8 +306,8 @@ namespace WAVM { namespace Runtime {
 	Runtime::ModuleInstance* instantiateWAVMIntrinsics(Compartment* compartment);
 
 	// Checks whether an address is owned by a table or memory.
-	bool isAddressOwnedByTable(U8* address);
-	bool isAddressOwnedByMemory(U8* address);
+	bool isAddressOwnedByTable(U8* address, TableInstance*& outTable, Uptr& outTableIndex);
+	bool isAddressOwnedByMemory(U8* address, MemoryInstance*& outMemory, Uptr& outMemoryAddress);
 
 	// Clones a memory or table with the same ID in a new compartment.
 	TableInstance* cloneTable(TableInstance* memory, Compartment* newCompartment);

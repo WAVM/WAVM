@@ -155,8 +155,12 @@ namespace WAVM { namespace Runtime {
 	// Information about a runtime exception.
 	struct Exception
 	{
-		RUNTIME_API static const GCPointer<ExceptionTypeInstance> memoryAddressOutOfBoundsType;
-		RUNTIME_API static const GCPointer<ExceptionTypeInstance> tableIndexOutOfBoundsType;
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> outOfBoundsMemoryAccessType;
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> outOfBoundsTableAccessType;
+
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> outOfBoundsDataSegmentAccessType;
+		RUNTIME_API static const GCPointer<ExceptionTypeInstance> outOfBoundsElemSegmentAccessType;
+
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> stackOverflowType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> integerDivideByZeroOrOverflowType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidFloatOperationType;
@@ -167,7 +171,6 @@ namespace WAVM { namespace Runtime {
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> calledAbortType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> calledUnimplementedIntrinsicType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> outOfMemoryType;
-		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidSegmentOffsetType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> misalignedAtomicMemoryAccessType;
 		RUNTIME_API static const GCPointer<ExceptionTypeInstance> invalidArgumentType;
 
@@ -237,7 +240,9 @@ namespace WAVM { namespace Runtime {
 	//
 
 	// Creates a Table. May return null if the memory allocation fails.
-	RUNTIME_API TableInstance* createTable(Compartment* compartment, IR::TableType type);
+	RUNTIME_API TableInstance* createTable(Compartment* compartment,
+										   IR::TableType type,
+										   std::string&& debugName);
 
 	// Reads an element from the table. Assumes that index is in bounds.
 	RUNTIME_API const AnyReferee* getTableElement(TableInstance* table, Uptr index);
@@ -261,7 +266,9 @@ namespace WAVM { namespace Runtime {
 	//
 
 	// Creates a Memory. May return null if the memory allocation fails.
-	RUNTIME_API MemoryInstance* createMemory(Compartment* compartment, IR::MemoryType type);
+	RUNTIME_API MemoryInstance* createMemory(Compartment* compartment,
+											 IR::MemoryType type,
+											 std::string&& debugName);
 
 	// Gets the base address of the memory's data.
 	RUNTIME_API U8* getMemoryBaseAddress(MemoryInstance* memory);

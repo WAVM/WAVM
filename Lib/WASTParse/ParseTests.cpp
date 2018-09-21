@@ -316,10 +316,20 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				}
 				ExpectedTrapType expectedType;
 				if(!strcmp(expectedErrorMessage.c_str(), "out of bounds memory access"))
-				{ expectedType = ExpectedTrapType::memoryAddressOutOfBounds; }
+				{ expectedType = ExpectedTrapType::outOfBoundsMemoryAccess; }
 				else if(!strcmp(expectedErrorMessage.c_str(), "out of bounds"))
 				{
-					expectedType = ExpectedTrapType::tableIndexOutOfBounds;
+					expectedType = ExpectedTrapType::outOfBoundsTableAccess;
+				}
+				else if(stringStartsWith(expectedErrorMessage.c_str(),
+										 "out of bounds data segment access"))
+				{
+					expectedType = ExpectedTrapType::outOfBoundsDataSegmentAccess;
+				}
+				else if(stringStartsWith(expectedErrorMessage.c_str(),
+										 "out of bounds elem segment access"))
+				{
+					expectedType = ExpectedTrapType::outOfBoundsElemSegmentAccess;
 				}
 				else if(!strcmp(expectedErrorMessage.c_str(), "call stack exhausted"))
 				{
@@ -351,7 +361,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(), "undefined"))
 				{
-					expectedType = ExpectedTrapType::tableIndexOutOfBounds;
+					expectedType = ExpectedTrapType::outOfBoundsTableAccess;
 				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(), "uninitialized"))
 				{

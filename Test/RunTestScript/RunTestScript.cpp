@@ -138,10 +138,14 @@ static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTr
 {
 	switch(expectedType)
 	{
-	case WAST::ExpectedTrapType::memoryAddressOutOfBounds:
-		return Runtime::Exception::memoryAddressOutOfBoundsType;
-	case WAST::ExpectedTrapType::tableIndexOutOfBounds:
-		return Runtime::Exception::tableIndexOutOfBoundsType;
+	case WAST::ExpectedTrapType::outOfBoundsMemoryAccess:
+		return Runtime::Exception::outOfBoundsMemoryAccessType;
+	case WAST::ExpectedTrapType::outOfBoundsTableAccess:
+		return Runtime::Exception::outOfBoundsTableAccessType;
+	case WAST::ExpectedTrapType::outOfBoundsDataSegmentAccess:
+		return Runtime::Exception::outOfBoundsDataSegmentAccessType;
+	case WAST::ExpectedTrapType::outOfBoundsElemSegmentAccess:
+		return Runtime::Exception::outOfBoundsElemSegmentAccessType;
 	case WAST::ExpectedTrapType::stackOverflow: return Runtime::Exception::stackOverflowType;
 	case WAST::ExpectedTrapType::integerDivideByZeroOrIntegerOverflow:
 		return Runtime::Exception::integerDivideByZeroOrOverflowType;

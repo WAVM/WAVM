@@ -83,11 +83,13 @@ struct StubResolver : Runtime::Resolver
 		}
 		case IR::ObjectKind::memory:
 		{
-			return asObject(Runtime::createMemory(compartment, asMemoryType(type)));
+			return asObject(
+				Runtime::createMemory(compartment, asMemoryType(type), std::string(exportName)));
 		}
 		case IR::ObjectKind::table:
 		{
-			return asObject(Runtime::createTable(compartment, asTableType(type)));
+			return asObject(
+				Runtime::createTable(compartment, asTableType(type), std::string(exportName)));
 		}
 		case IR::ObjectKind::global:
 		{

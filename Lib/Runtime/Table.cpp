@@ -64,9 +64,11 @@ static const AnyReferee* biasedTableElementValueToAnyRef(Uptr biasedValue)
 											   + reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()));
 }
 
-static TableInstance* createTableImpl(Compartment* compartment, IR::TableType type)
+static TableInstance* createTableImpl(Compartment* compartment,
+									  IR::TableType type,
+									  std::string&& debugName)
 {
-	TableInstance* table = new TableInstance(compartment, type);
+	TableInstance* table = new TableInstance(compartment, type, std::move(debugName));
 
 	// In 64-bit, allocate enough address-space to safely access 32-bit table indices without bounds
 	// checking, or 16MB (4M elements) if the host is 32-bit.
@@ -135,10 +137,10 @@ static Iptr growTableImpl(TableInstance* table, Uptr numElementsToGrow, bool ini
 	return previousNumElements;
 }
 
-TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type)
+TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type, std::string&& debugName)
 {
 	wavmAssert(type.size.min <= UINTPTR_MAX);
-	TableInstance* table = createTableImpl(compartment, type);
+	TableInstance* table = createTableImpl(compartment, type, std::move(debugName));
 	if(!table) { return nullptr; }
 
 	// Grow the table to the type's minimum size.
@@ -170,7 +172,8 @@ TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompart
 
 	// Create the new table.
 	const Uptr numElements = table->numElements.load(std::memory_order_acquire);
-	TableInstance* newTable = createTableImpl(newCompartment, table->type);
+	std::string debugName = table->debugName;
+	TableInstance* newTable = createTableImpl(newCompartment, table->type, std::move(debugName));
 	if(!newTable) { return nullptr; }
 
 	// Grow the table to the same size as the original, without initializing the new elements since
@@ -248,7 +251,7 @@ TableInstance::~TableInstance()
 	numElements = numReservedBytes = numReservedElements = 0;
 }
 
-bool Runtime::isAddressOwnedByTable(U8* address)
+bool Runtime::isAddressOwnedByTable(U8* address, TableInstance*& outTable, Uptr& outTableIndex)
 {
 	// Iterate over all tables and check if the address is within the reserved address space for
 	// each.
@@ -257,7 +260,12 @@ bool Runtime::isAddressOwnedByTable(U8* address)
 	{
 		U8* startAddress = (U8*)table->elements;
 		U8* endAddress = ((U8*)table->elements) + table->numReservedBytes;
-		if(address >= startAddress && address < endAddress) { return true; }
+		if(address >= startAddress && address < endAddress)
+		{
+			outTable = table;
+			outTableIndex = (address - startAddress) / sizeof(TableInstance::Element);
+			return true;
+		}
 	}
 	return false;
 }
@@ -268,7 +276,7 @@ static const AnyReferee* setTableElementAnyRef(TableInstance* table,
 {
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
-	{ throwException(Exception::tableIndexOutOfBoundsType); }
+	{ throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)}); }
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
@@ -284,7 +292,7 @@ static const AnyReferee* setTableElementAnyRef(TableInstance* table,
 	while(true)
 	{
 		if(biasedTableElementValueToAnyRef(oldBiasedValue) == &getOutOfBoundsAnyFunc()->anyRef)
-		{ throwException(Exception::tableIndexOutOfBoundsType); }
+		{ throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)}); }
 		if(table->elements[saturatedIndex].biasedValue.compare_exchange_weak(
 			   oldBiasedValue, biasedValue, std::memory_order_acq_rel))
 		{ break; }
@@ -297,7 +305,7 @@ static const AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
 {
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
-	{ throwException(Exception::tableIndexOutOfBoundsType); }
+	{ throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)}); }
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
@@ -311,7 +319,7 @@ static const AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
 
 	// If the element was an out-of-bounds sentinel value, throw an out-of-bounds exception.
 	if(anyRef == &getOutOfBoundsAnyFunc()->anyRef)
-	{ throwException(Exception::tableIndexOutOfBoundsType); }
+	{ throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)}); }
 
 	return anyRef;
 }
@@ -449,7 +457,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			const U64 sourceIndex = U64(sourceOffset) + index;
 			const U64 destIndex = U64(destOffset) + index;
 			if(sourceIndex >= passiveTableSegmentObjects->size())
-			{ throwException(Exception::tableIndexOutOfBoundsType); }
+			{
+				throwException(Exception::outOfBoundsElemSegmentAccessType,
+							   {asAnyRef(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+			}
 
 			setTableElement(
 				table, Uptr(destIndex), asAnyRef((*passiveTableSegmentObjects)[sourceIndex]));
@@ -516,19 +527,21 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  void,
 						  callIndirectFail,
 						  U32 index,
+						  Uptr tableId,
 						  Uptr functionPointerBits,
 						  Uptr expectedTypeEncoding)
 {
+	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	AnyFunc* functionPointer = reinterpret_cast<AnyFunc*>(functionPointerBits);
 	if(functionPointer == getOutOfBoundsAnyFunc())
 	{
 		Log::printf(Log::debug, "call_indirect: index %u is out-of-bounds\n", index);
-		throwException(Exception::tableIndexOutOfBoundsType);
+		throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)});
 	}
 	else if(functionPointer == getUninitializedAnyFunc())
 	{
 		Log::printf(Log::debug, "call_indirect: index %u is uninitialized\n", index);
-		throwException(Exception::uninitializedTableElementType);
+		throwException(Exception::uninitializedTableElementType, {asAnyRef(table), U64(index)});
 	}
 	else
 	{

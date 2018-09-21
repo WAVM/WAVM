@@ -187,11 +187,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "unreachableTrap", void, unreachableTr
 	throwException(Exception::reachedUnreachableType);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "accessViolationTrap", void, accessViolationTrap)
-{
-	throwException(Exception::memoryAddressOutOfBoundsType);
-}
-
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "invalidFloatOperationTrap",
 						  void,

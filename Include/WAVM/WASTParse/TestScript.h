@@ -51,8 +51,10 @@ namespace WAVM { namespace WAST {
 
 	enum class ExpectedTrapType
 	{
-		memoryAddressOutOfBounds,
-		tableIndexOutOfBounds,
+		outOfBoundsMemoryAccess,
+		outOfBoundsTableAccess,
+		outOfBoundsDataSegmentAccess,
+		outOfBoundsElemSegmentAccess,
 		stackOverflow,
 		integerDivideByZeroOrIntegerOverflow,
 		invalidFloatOperation,

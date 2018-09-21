@@ -35,9 +35,13 @@ DEFINE_INTRINSIC_MODULE(env)
 DEFINE_INTRINSIC_MODULE(asm2wasm)
 DEFINE_INTRINSIC_MODULE(global)
 
-static U32 coerce32bitAddress(Uptr address)
+static U32 coerce32bitAddress(MemoryInstance* memory, Uptr address)
 {
-	if(address >= UINT32_MAX) { throwException(Exception::memoryAddressOutOfBoundsType); }
+	if(address >= UINT32_MAX)
+	{
+		throwException(Exception::outOfBoundsMemoryAccessType,
+					   {asAnyRef(asObject(memory)), U64(address)});
+	}
 	return (U32)address;
 }
 
@@ -129,7 +133,8 @@ static U32 dynamicAlloc(MemoryInstance* memory, U32 numBytes)
 DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", I32, getTotalMemory)
 {
 	wavmAssert(emscriptenMemory);
-	return coerce32bitAddress(Runtime::getMemoryMaxPages(emscriptenMemory) * IR::numBytesPerPage);
+	return coerce32bitAddress(emscriptenMemory,
+							  Runtime::getMemoryMaxPages(emscriptenMemory) * IR::numBytesPerPage);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrowMemory)
@@ -260,7 +265,8 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", I32, ___ctype_b_loc)
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(dynamicAlloc(emscriptenMemory, sizeof(data)));
+		vmAddress
+			= coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(short) * 128;
@@ -294,7 +300,8 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", I32, ___ctype_toupper_loc
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(dynamicAlloc(emscriptenMemory, sizeof(data)));
+		vmAddress
+			= coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
@@ -328,7 +335,8 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", I32, ___ctype_tolower_loc
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress = coerce32bitAddress(dynamicAlloc(emscriptenMemory, sizeof(data)));
+		vmAddress
+			= coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
@@ -378,7 +386,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 						  I32 size)
 {
 	wavmAssert(emscriptenMemory);
-	return coerce32bitAddress(dynamicAlloc(emscriptenMemory, size));
+	return coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, size));
 }
 DEFINE_INTRINSIC_FUNCTION(env, "__ZSt18uncaught_exceptionv", I32, __ZSt18uncaught_exceptionv)
 {
@@ -408,7 +416,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_uselocale", I32, _uselocale, I32 locale)
 DEFINE_INTRINSIC_FUNCTION(env, "_newlocale", I32, _newlocale, I32 mask, I32 locale, I32 base)
 {
 	wavmAssert(emscriptenMemory);
-	if(!base) { base = coerce32bitAddress(dynamicAlloc(emscriptenMemory, 4)); }
+	if(!base) { base = coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, 4)); }
 	return base;
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_freelocale", void, emscripten__freelocale, I32 a) {}
@@ -653,8 +661,8 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 	   && module.tables.imports[0].exportName == "table")
 	{ tableType = module.tables.imports[0].type; }
 
-	MemoryInstance* memory = Runtime::createMemory(compartment, memoryType);
-	TableInstance* table = Runtime::createTable(compartment, tableType);
+	MemoryInstance* memory = Runtime::createMemory(compartment, memoryType, "env.memory");
+	TableInstance* table = Runtime::createTable(compartment, tableType, "env.table");
 
 	HashMap<std::string, Runtime::Object*> extraEnvExports = {
 		{"memory", Runtime::asObject(memory)},

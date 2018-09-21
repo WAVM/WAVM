@@ -87,7 +87,7 @@ Intrinsics::Table::Table(Intrinsics::Module& moduleRef,
 
 Runtime::TableInstance* Intrinsics::Table::instantiate(Runtime::Compartment* compartment)
 {
-	return Runtime::createTable(compartment, type);
+	return Runtime::createTable(compartment, type, name);
 }
 
 Intrinsics::Memory::Memory(Intrinsics::Module& moduleRef,
@@ -104,7 +104,7 @@ Intrinsics::Memory::Memory(Intrinsics::Module& moduleRef,
 
 Runtime::MemoryInstance* Intrinsics::Memory::instantiate(Runtime::Compartment* compartment)
 {
-	return Runtime::createMemory(compartment, type);
+	return Runtime::createMemory(compartment, type, name);
 }
 
 Runtime::ModuleInstance* Intrinsics::instantiateModule(

@@ -22,24 +22,35 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
-#define DEFINE_STATIC_EXCEPTION_TYPE(name)                                                         \
+#define DEFINE_STATIC_EXCEPTION_TYPE(name, ...)                                                    \
 	const GCPointer<ExceptionTypeInstance> Runtime::Exception::name##Type                          \
-		= createExceptionTypeInstance(IR::ExceptionType{IR::TypeTuple()}, "wavm." #name);
+		= createExceptionTypeInstance(IR::ExceptionType{IR::TypeTuple({__VA_ARGS__})},             \
+									  "wavm." #name);
 
-DEFINE_STATIC_EXCEPTION_TYPE(memoryAddressOutOfBounds)
-DEFINE_STATIC_EXCEPTION_TYPE(tableIndexOutOfBounds)
+DEFINE_STATIC_EXCEPTION_TYPE(outOfBoundsMemoryAccess, IR::ValueType::anyref, IR::ValueType::i64)
+DEFINE_STATIC_EXCEPTION_TYPE(outOfBoundsTableAccess, IR::ValueType::anyref, IR::ValueType::i64)
+
+DEFINE_STATIC_EXCEPTION_TYPE(outOfBoundsDataSegmentAccess,
+							 IR::ValueType::anyref,
+							 IR::ValueType::i64,
+							 IR::ValueType::i64)
+
+DEFINE_STATIC_EXCEPTION_TYPE(outOfBoundsElemSegmentAccess,
+							 IR::ValueType::anyref,
+							 IR::ValueType::i64,
+							 IR::ValueType::i64)
+
 DEFINE_STATIC_EXCEPTION_TYPE(stackOverflow)
 DEFINE_STATIC_EXCEPTION_TYPE(integerDivideByZeroOrOverflow)
 DEFINE_STATIC_EXCEPTION_TYPE(invalidFloatOperation)
 DEFINE_STATIC_EXCEPTION_TYPE(invokeSignatureMismatch)
 DEFINE_STATIC_EXCEPTION_TYPE(reachedUnreachable)
 DEFINE_STATIC_EXCEPTION_TYPE(indirectCallSignatureMismatch)
-DEFINE_STATIC_EXCEPTION_TYPE(uninitializedTableElement)
+DEFINE_STATIC_EXCEPTION_TYPE(uninitializedTableElement, IR::ValueType::anyref, IR::ValueType::i64)
 DEFINE_STATIC_EXCEPTION_TYPE(calledAbort)
 DEFINE_STATIC_EXCEPTION_TYPE(calledUnimplementedIntrinsic)
 DEFINE_STATIC_EXCEPTION_TYPE(outOfMemory)
-DEFINE_STATIC_EXCEPTION_TYPE(invalidSegmentOffset)
-DEFINE_STATIC_EXCEPTION_TYPE(misalignedAtomicMemoryAccess)
+DEFINE_STATIC_EXCEPTION_TYPE(misalignedAtomicMemoryAccess, IR::ValueType::i64)
 DEFINE_STATIC_EXCEPTION_TYPE(invalidArgument)
 
 #undef DEFINE_STATIC_EXCEPTION_TYPE
@@ -147,7 +158,28 @@ std::string Runtime::describeException(const Exception& exception)
 {
 	std::string result = describeExceptionType(exception.typeInstance);
 	wavmAssert(exception.arguments.size() == exception.typeInstance->type.params.size());
-	if(exception.arguments.size())
+	if(exception.typeInstance == Exception::outOfBoundsMemoryAccessType)
+	{
+		wavmAssert(exception.arguments.size() == 2);
+		MemoryInstance* memory = asMemory(exception.arguments[0].anyRef->object);
+		result += '(';
+		result += memory->debugName;
+		result += '+';
+		result += std::to_string(exception.arguments[1].u64);
+		result += ')';
+	}
+	else if(exception.typeInstance == Exception::outOfBoundsTableAccessType
+			|| exception.typeInstance == Exception::uninitializedTableElementType)
+	{
+		wavmAssert(exception.arguments.size() == 2);
+		TableInstance* table = asTable(exception.arguments[0].anyRef->object);
+		result += '(';
+		result += table->debugName;
+		result += '[';
+		result += std::to_string(exception.arguments[1].u64);
+		result += "])";
+	}
+	else if(exception.arguments.size())
 	{
 		result += '(';
 		for(Uptr argumentIndex = 0; argumentIndex < exception.arguments.size(); ++argumentIndex)
@@ -227,16 +259,26 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 	{
 		// If the access violation occured in a Table's reserved pages, treat it as an undefined
 		// table element runtime error.
-		if(isAddressOwnedByTable(reinterpret_cast<U8*>(signal.accessViolation.address)))
+		TableInstance* table = nullptr;
+		Uptr tableIndex = 0;
+		MemoryInstance* memory = nullptr;
+		Uptr memoryAddress = 0;
+		if(isAddressOwnedByTable(
+			   reinterpret_cast<U8*>(signal.accessViolation.address), table, tableIndex))
 		{
-			outException = Exception{Exception::tableIndexOutOfBoundsType, {}, callStack};
+			outException = Exception{Exception::outOfBoundsTableAccessType,
+									 {asAnyRef(table), U64(tableIndex)},
+									 callStack};
 			return true;
 		}
 		// If the access violation occured in a Memory's reserved pages, treat it as an access
 		// violation runtime error.
-		else if(isAddressOwnedByMemory(reinterpret_cast<U8*>(signal.accessViolation.address)))
+		else if(isAddressOwnedByMemory(
+					reinterpret_cast<U8*>(signal.accessViolation.address), memory, memoryAddress))
 		{
-			outException = Exception{Exception::memoryAddressOutOfBoundsType, {}, callStack};
+			outException = Exception{Exception::outOfBoundsMemoryAccessType,
+									 {asAnyRef(memory), U64(memoryAddress)},
+									 callStack};
 			return true;
 		}
 		return false;

@@ -37,9 +37,10 @@ static Uptr getPlatformPagesPerWebAssemblyPageLog2()
 
 static MemoryInstance* createMemoryImpl(Compartment* compartment,
 										IR::MemoryType type,
-										Uptr numPages)
+										Uptr numPages,
+										std::string&& debugName)
 {
-	MemoryInstance* memory = new MemoryInstance(compartment, type);
+	MemoryInstance* memory = new MemoryInstance(compartment, type, std::move(debugName));
 
 	// On a 64-bit runtime, allocate 8GB of address space for the memory.
 	// This allows eliding bounds checks on memory accesses, since a 32-bit index + 32-bit offset
@@ -72,10 +73,13 @@ static MemoryInstance* createMemoryImpl(Compartment* compartment,
 	return memory;
 }
 
-MemoryInstance* Runtime::createMemory(Compartment* compartment, IR::MemoryType type)
+MemoryInstance* Runtime::createMemory(Compartment* compartment,
+									  IR::MemoryType type,
+									  std::string&& debugName)
 {
 	wavmAssert(type.size.min <= UINTPTR_MAX);
-	MemoryInstance* memory = createMemoryImpl(compartment, type, Uptr(type.size.min));
+	MemoryInstance* memory
+		= createMemoryImpl(compartment, type, Uptr(type.size.min), std::move(debugName));
 	if(!memory) { return nullptr; }
 
 	// Add the memory to the compartment's memories IndexMap.
@@ -98,7 +102,9 @@ MemoryInstance* Runtime::cloneMemory(MemoryInstance* memory, Compartment* newCom
 {
 	Lock<Platform::Mutex> resizingLock(memory->resizingMutex);
 	const Uptr numPages = memory->numPages.load(std::memory_order_acquire);
-	MemoryInstance* newMemory = createMemoryImpl(newCompartment, memory->type, numPages);
+	std::string debugName = memory->debugName;
+	MemoryInstance* newMemory
+		= createMemoryImpl(newCompartment, memory->type, numPages, std::move(debugName));
 	if(!newMemory) { return nullptr; }
 
 	// Copy the memory contents to the new memory.
@@ -163,7 +169,9 @@ Runtime::MemoryInstance::~MemoryInstance()
 	numPages = numReservedBytes = 0;
 }
 
-bool Runtime::isAddressOwnedByMemory(U8* address)
+bool Runtime::isAddressOwnedByMemory(U8* address,
+									 MemoryInstance*& outMemory,
+									 Uptr& outMemoryAddress)
 {
 	// Iterate over all memories and check if the address is within the reserved address space for
 	// each.
@@ -172,7 +180,12 @@ bool Runtime::isAddressOwnedByMemory(U8* address)
 	{
 		U8* startAddress = memory->baseAddress;
 		U8* endAddress = memory->baseAddress + memory->numReservedBytes;
-		if(address >= startAddress && address < endAddress) { return true; }
+		if(address >= startAddress && address < endAddress)
+		{
+			outMemory = memory;
+			outMemoryAddress = address - startAddress;
+			return true;
+		}
 	}
 	return false;
 }
@@ -245,7 +258,8 @@ void Runtime::unmapMemoryPages(MemoryInstance* memory, Uptr pageIndex, Uptr numP
 
 U8* Runtime::getMemoryBaseAddress(MemoryInstance* memory) { return memory->baseAddress; }
 
-static U8* getValidatedMemoryOffsetRangeImpl(U8* memoryBase,
+static U8* getValidatedMemoryOffsetRangeImpl(MemoryInstance* memory,
+											 U8* memoryBase,
 											 Uptr memoryNumBytes,
 											 Uptr address,
 											 Uptr numBytes)
@@ -256,7 +270,11 @@ static U8* getValidatedMemoryOffsetRangeImpl(U8* memoryBase,
 	U8* pointer = memoryBase + Platform::saturateToBounds(address, memoryNumBytes - numBytes);
 	if(pointer < memoryBase || pointer + numBytes < pointer
 	   || pointer + numBytes > memoryBase + memoryNumBytes)
-	{ throwException(Exception::memoryAddressOutOfBoundsType, {}); }
+	{
+		throwException(
+			Exception::outOfBoundsMemoryAccessType,
+			{asAnyRef(memory), U64(address > memoryNumBytes ? address : memoryNumBytes)});
+	}
 	return pointer;
 }
 
@@ -267,7 +285,7 @@ U8* Runtime::getReservedMemoryOffsetRange(MemoryInstance* memory, Uptr address, 
 	// Validate that the range [offset..offset+numBytes) is contained by the memory's reserved
 	// pages.
 	return ::getValidatedMemoryOffsetRangeImpl(
-		memory->baseAddress, memory->numReservedBytes, address, numBytes);
+		memory, memory->baseAddress, memory->numReservedBytes, address, numBytes);
 }
 
 U8* Runtime::getValidatedMemoryOffsetRange(MemoryInstance* memory, Uptr address, Uptr numBytes)
@@ -277,6 +295,7 @@ U8* Runtime::getValidatedMemoryOffsetRange(MemoryInstance* memory, Uptr address,
 	// Validate that the range [offset..offset+numBytes) is contained by the memory's committed
 	// pages.
 	return ::getValidatedMemoryOffsetRangeImpl(
+		memory,
 		memory->baseAddress,
 		memory->numPages.load(std::memory_order_acquire) * IR::numBytesPerPage,
 		address,
@@ -342,7 +361,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 										  passiveDataSegmentBytes->data() + sourceOffset,
 										  passiveDataSegmentBytes->size() - sourceOffset);
 			}
-			throwException(Exception::memoryAddressOutOfBoundsType);
+			throwException(Exception::outOfBoundsDataSegmentAccessType,
+						   {asAnyRef(moduleInstance),
+							U64(dataSegmentIndex),
+							U64(passiveDataSegmentBytes->size())});
 		}
 		else if(numBytes)
 		{

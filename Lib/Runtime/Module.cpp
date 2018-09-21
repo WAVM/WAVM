@@ -125,15 +125,21 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	getDisassemblyNames(module->ir, disassemblyNames);
 
 	// Instantiate the module's memory and table definitions.
-	for(const TableDef& tableDef : module->ir.tables.defs)
+	for(Uptr tableDefIndex = 0; tableDefIndex < module->ir.tables.defs.size(); ++tableDefIndex)
 	{
-		auto table = createTable(compartment, tableDef.type);
+		std::string debugName
+			= disassemblyNames.tables[module->ir.tables.imports.size() + tableDefIndex];
+		auto table = createTable(
+			compartment, module->ir.tables.defs[tableDefIndex].type, std::move(debugName));
 		if(!table) { throwException(Exception::outOfMemoryType); }
 		moduleInstance->tables.push_back(table);
 	}
-	for(const MemoryDef& memoryDef : module->ir.memories.defs)
+	for(Uptr memoryDefIndex = 0; memoryDefIndex < module->ir.memories.defs.size(); ++memoryDefIndex)
 	{
-		auto memory = createMemory(compartment, memoryDef.type);
+		std::string debugName
+			= disassemblyNames.memories[module->ir.memories.imports.size() + memoryDefIndex];
+		auto memory = createMemory(
+			compartment, module->ir.memories.defs[memoryDefIndex].type, std::move(debugName));
 		if(!memory) { throwException(Exception::outOfMemoryType); }
 		moduleInstance->memories.push_back(memory);
 	}
@@ -314,7 +320,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				// WebAssembly still expects out-of-bounds errors if the segment base offset is
 				// out-of-bounds, even if the segment is empty.
 				if(baseOffset > memory->numPages * IR::numBytesPerPage)
-				{ throwException(Runtime::Exception::memoryAddressOutOfBoundsType); }
+				{
+					throwException(Runtime::Exception::outOfBoundsMemoryAccessType,
+								   {asAnyRef(memory), U64(baseOffset)});
+				}
 			}
 		}
 	}
@@ -346,7 +355,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				// WebAssembly still expects out-of-bounds errors if the segment base offset is
 				// out-of-bounds, even if the segment is empty.
 				if(baseOffset > getTableNumElements(table))
-				{ throwException(Runtime::Exception::tableIndexOutOfBoundsType); }
+				{
+					throwException(Runtime::Exception::outOfBoundsTableAccessType,
+								   {asAnyRef(table), U64(baseOffset)});
+				}
 			}
 		}
 	}

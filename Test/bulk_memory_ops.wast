@@ -323,14 +323,14 @@
 (assert_return (invoke "i32.load8_u" (i32.const 13)) (i32.const 0x12))
 
 (assert_return (invoke "memory.init 0" (i32.const 65532) (i32.const 0) (i32.const 4)))
-(assert_trap (invoke "memory.init 0" (i32.const 65532) (i32.const 4) (i32.const 1)) "out of bounds memory access")
+(assert_trap (invoke "memory.init 0" (i32.const 65532) (i32.const 4) (i32.const 1)) "out of bounds data segment access")
 (assert_trap (invoke "memory.init 0" (i32.const 65533) (i32.const 0) (i32.const 4)) "out of bounds memory access")
 (assert_return (invoke "i32.load8_u" (i32.const 65533)) (i32.const 1))
 (assert_return (invoke "i32.load8_u" (i32.const 65534)) (i32.const 2))
 (assert_return (invoke "i32.load8_u" (i32.const 65535)) (i32.const 3))
 (assert_return (invoke "memory.init 1" (i32.const 65520) (i32.const 0) (i32.const 16)))
 (assert_trap (invoke "memory.init 1" (i32.const 65541) (i32.const 0) (i32.const 16)) "out of bounds memory access")
-(assert_trap (invoke "memory.init 1" (i32.const 100) (i32.const 9) (i32.const 8)) "out of bounds memory access")
+(assert_trap (invoke "memory.init 1" (i32.const 100) (i32.const 9) (i32.const 8)) "out of bounds data segment access")
 (assert_return (invoke "i32.load8_u" (i32.const 100)) (i32.const 0x0e))
 (assert_return (invoke "i32.load8_u" (i32.const 101)) (i32.const 0x0f))
 (assert_return (invoke "i32.load8_u" (i32.const 102)) (i32.const 0x10))
@@ -341,7 +341,7 @@
 (assert_return (invoke "i32.load8_u" (i32.const 107)) (i32.const 0))
 
 (assert_trap (invoke "memory.init 0" (i32.const 0xffffffff) (i32.const 0) (i32.const 1)) "out of bounds memory access")
-(assert_trap (invoke "memory.init 0" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "out of bounds memory access")
+(assert_trap (invoke "memory.init 0" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "out of bounds data segment access")
 
 (assert_return (invoke "memory.drop 0"))
 (assert_trap (invoke "memory.init 0" (i32.const 0) (i32.const 0) (i32.const 4)) "invalid argument")
@@ -707,11 +707,11 @@
 
 (assert_trap   (invoke "table.init 0" (i32.const 8) (i32.const 0) (i32.const 1)) "undefined element")
 (assert_trap   (invoke "table.init 0" (i32.const 7) (i32.const 0) (i32.const 2)) "undefined element")
-(assert_trap   (invoke "table.init 0" (i32.const 6) (i32.const 1) (i32.const 2)) "undefined element")
-(assert_trap   (invoke "table.init 0" (i32.const 5) (i32.const 0) (i32.const 3)) "undefined element")
+(assert_trap   (invoke "table.init 0" (i32.const 6) (i32.const 1) (i32.const 2)) "out of bounds elem segment access")
+(assert_trap   (invoke "table.init 0" (i32.const 5) (i32.const 0) (i32.const 3)) "out of bounds elem segment access element")
 
 (assert_trap   (invoke "table.init 0" (i32.const 0xffffffff) (i32.const 0) (i32.const 1)) "undefined element")
-(assert_trap   (invoke "table.init 0" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "undefined element")
+(assert_trap   (invoke "table.init 0" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "out of bounds elem segment access")
 
 (assert_return (invoke "table.drop 0"))
 (assert_trap   (invoke "table.init 0" (i32.const 0) (i32.const 0) (i32.const 2)) "invalid argument")
