@@ -297,7 +297,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		moduleInstance->exportMap.addOrFail(exportIt.name, exportedObject);
 	}
 
-	// Copy the module's data segments into the module's default memory.
+	// Copy the module's data segments into their designated memory instances.
 	for(const DataSegment& dataSegment : module->ir.dataSegments)
 	{
 		if(dataSegment.isActive)
@@ -328,23 +328,23 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		}
 	}
 
-	// Copy the module's table segments into the module's default table.
-	for(const TableSegment& tableSegment : module->ir.tableSegments)
+	// Copy the module's elem segments into their designated table instances.
+	for(const ElemSegment& elemSegment : module->ir.elemSegments)
 	{
-		if(tableSegment.isActive)
+		if(elemSegment.isActive)
 		{
-			TableInstance* table = moduleInstance->tables[tableSegment.tableIndex];
+			TableInstance* table = moduleInstance->tables[elemSegment.tableIndex];
 
 			const Value baseOffsetValue
-				= evaluateInitializer(moduleInstance->globals, tableSegment.baseOffset);
+				= evaluateInitializer(moduleInstance->globals, elemSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
-			if(tableSegment.indices.size())
+			if(elemSegment.indices.size())
 			{
-				for(Uptr index = 0; index < tableSegment.indices.size(); ++index)
+				for(Uptr index = 0; index < elemSegment.indices.size(); ++index)
 				{
-					const Uptr functionIndex = tableSegment.indices[index];
+					const Uptr functionIndex = elemSegment.indices[index];
 					wavmAssert(functionIndex < moduleInstance->functions.size());
 					const AnyFunc* anyFunc = asAnyFunc(moduleInstance->functions[functionIndex]);
 					setTableElement(table, baseOffset + index, &anyFunc->anyRef);
@@ -373,15 +373,15 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				segmentIndex, std::make_shared<std::vector<U8>>(dataSegment.data));
 		}
 	}
-	for(Uptr segmentIndex = 0; segmentIndex < module->ir.tableSegments.size(); ++segmentIndex)
+	for(Uptr segmentIndex = 0; segmentIndex < module->ir.elemSegments.size(); ++segmentIndex)
 	{
-		const TableSegment& tableSegment = module->ir.tableSegments[segmentIndex];
-		if(!tableSegment.isActive)
+		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
+		if(!elemSegment.isActive)
 		{
-			auto passiveTableSegmentObjects = std::make_shared<std::vector<Object*>>();
-			for(Uptr functionIndex : tableSegment.indices)
-			{ passiveTableSegmentObjects->push_back(moduleInstance->functions[functionIndex]); }
-			moduleInstance->passiveTableSegments.add(segmentIndex, passiveTableSegmentObjects);
+			auto passiveElemSegmentObjects = std::make_shared<std::vector<Object*>>();
+			for(Uptr functionIndex : elemSegment.indices)
+			{ passiveElemSegmentObjects->push_back(moduleInstance->functions[functionIndex]); }
+			moduleInstance->passiveElemSegments.add(segmentIndex, passiveElemSegmentObjects);
 		}
 	}
 

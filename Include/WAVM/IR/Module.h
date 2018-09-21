@@ -148,9 +148,9 @@ namespace WAVM { namespace IR {
 		std::vector<U8> data;
 	};
 
-	// A table segment: a literal sequence of function indices that is copied into a Runtime::Table
+	// An elem segment: a literal sequence of function indices that is copied into a Runtime::Table
 	// when instantiating a module
-	struct TableSegment
+	struct ElemSegment
 	{
 		bool isActive;
 		Uptr tableIndex;
@@ -212,7 +212,7 @@ namespace WAVM { namespace IR {
 
 		std::vector<Export> exports;
 		std::vector<DataSegment> dataSegments;
-		std::vector<TableSegment> tableSegments;
+		std::vector<ElemSegment> elemSegments;
 		std::vector<UserSection> userSections;
 
 		Uptr startFunctionIndex;

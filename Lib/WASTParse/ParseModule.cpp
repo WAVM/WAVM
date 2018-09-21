@@ -488,43 +488,43 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	Reference elementRef;
 	while(tryParseNameOrIndexRef(cursor, elementRef)) { elementReferences->push_back(elementRef); };
 
-	// Create the table segment.
-	const Uptr tableSegmentIndex = cursor->moduleState->module.tableSegments.size();
-	cursor->moduleState->module.tableSegments.push_back(
+	// Create the elem segment.
+	const Uptr elemSegmentIndex = cursor->moduleState->module.elemSegments.size();
+	cursor->moduleState->module.elemSegments.push_back(
 		{isActive, UINTPTR_MAX, baseIndex, std::vector<Uptr>()});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table
 	// elements' references.
-	cursor->moduleState->postDeclarationCallbacks.push_back(
-		[isActive, tableRef, tableSegmentIndex, elementReferences, elemToken](
-			ModuleState* moduleState) {
-			if(isActive && !moduleState->module.tables.size())
-			{
-				parseErrorf(
-					moduleState->parseState,
-					elemToken,
-					"elem segments aren't allowed in modules without any table declarations");
-			}
-			else
-			{
-				TableSegment& tableSegment = moduleState->module.tableSegments[tableSegmentIndex];
-				tableSegment.tableIndex = tableRef ? resolveRef(moduleState->parseState,
-																moduleState->tableNameToIndexMap,
-																moduleState->module.tables.size(),
-																tableRef)
-												   : 0;
+	cursor->moduleState->postDeclarationCallbacks.push_back([isActive,
+															 tableRef,
+															 elemSegmentIndex,
+															 elementReferences,
+															 elemToken](ModuleState* moduleState) {
+		if(isActive && !moduleState->module.tables.size())
+		{
+			parseErrorf(moduleState->parseState,
+						elemToken,
+						"elem segments aren't allowed in modules without any table declarations");
+		}
+		else
+		{
+			ElemSegment& elemSegment = moduleState->module.elemSegments[elemSegmentIndex];
+			elemSegment.tableIndex = tableRef ? resolveRef(moduleState->parseState,
+														   moduleState->tableNameToIndexMap,
+														   moduleState->module.tables.size(),
+														   tableRef)
+											  : 0;
 
-				tableSegment.indices.resize(elementReferences->size());
-				for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
-				{
-					tableSegment.indices[elementIndex]
-						= resolveRef(moduleState->parseState,
-									 moduleState->functionNameToIndexMap,
-									 moduleState->module.functions.size(),
-									 (*elementReferences)[elementIndex]);
-				}
+			elemSegment.indices.resize(elementReferences->size());
+			for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
+			{
+				elemSegment.indices[elementIndex] = resolveRef(moduleState->parseState,
+															   moduleState->functionNameToIndexMap,
+															   moduleState->module.functions.size(),
+															   (*elementReferences)[elementIndex]);
 			}
-		});
+		}
+	});
 
 	return elementReferences->size();
 }
@@ -547,7 +547,7 @@ static void parseElem(CursorState* cursor)
 		// Parse an optional table name.
 		tryParseNameOrIndexRef(cursor, tableRef);
 
-		// Parse an initializer expression for the base index of the table segment.
+		// Parse an initializer expression for the base index of the elem segment.
 		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
 		{
 			// The initializer expression can optionally be wrapped in (offset ...)
@@ -680,7 +680,7 @@ static void parseTable(CursorState* cursor)
 			const ReferenceType elementType = parseReferenceType(cursor);
 
 			// If we couldn't parse an explicit size constraints, the table definition must contain
-			// an table segment that implicitly defines the size.
+			// an elem segment that implicitly defines the size.
 			if(!hasSizeConstraints)
 			{
 				parseParenthesized(cursor, [&] {

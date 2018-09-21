@@ -158,12 +158,12 @@ void Runtime::collectGarbage()
 				unreferencedObjects, pendingScanObjects, moduleInstance->exceptionTypes);
 
 			{
-				Lock<Platform::Mutex> passiveTableSegmentLock(
-					moduleInstance->passiveTableSegmentsMutex);
-				for(const auto& passiveTableSegmentPair : moduleInstance->passiveTableSegments)
+				Lock<Platform::Mutex> passiveElemSegmentLock(
+					moduleInstance->passiveElemSegmentsMutex);
+				for(const auto& passiveElemSegmentPair : moduleInstance->passiveElemSegments)
 				{
 					visitReferenceArray(
-						unreferencedObjects, pendingScanObjects, *passiveTableSegmentPair.value);
+						unreferencedObjects, pendingScanObjects, *passiveElemSegmentPair.value);
 				}
 			}
 

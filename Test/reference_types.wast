@@ -26,7 +26,7 @@
 		(elem $t (i32.const 0) $f)
 		(func $f)
 	)
-	"active table segments must be in anyfunc tables"
+	"active elem segments must be in anyfunc tables"
 )
 
 

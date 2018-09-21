@@ -137,7 +137,9 @@ static Iptr growTableImpl(TableInstance* table, Uptr numElementsToGrow, bool ini
 	return previousNumElements;
 }
 
-TableInstance* Runtime::createTable(Compartment* compartment, IR::TableType type, std::string&& debugName)
+TableInstance* Runtime::createTable(Compartment* compartment,
+									IR::TableType type,
+									std::string&& debugName)
 {
 	wavmAssert(type.size.min <= UINTPTR_MAX);
 	TableInstance* table = createTableImpl(compartment, type, std::move(debugName));
@@ -437,18 +439,18 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  Uptr elemSegmentIndex)
 {
 	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
-	Lock<Platform::Mutex> passiveTableSegmentsLock(moduleInstance->passiveTableSegmentsMutex);
+	Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->passiveElemSegmentsMutex);
 
-	if(!moduleInstance->passiveTableSegments.contains(elemSegmentIndex))
+	if(!moduleInstance->passiveElemSegments.contains(elemSegmentIndex))
 	{ throwException(Exception::invalidArgumentType); }
 	else
 	{
-		// Copy the passive table segment shared_ptr, and unlock the mutex. It's important to
+		// Copy the passive elem segment shared_ptr, and unlock the mutex. It's important to
 		// explicitly unlock the mutex before calling setTableElement, as setTableElement trigger a
 		// signal that will unwind the stack without calling the Lock destructor.
-		std::shared_ptr<const std::vector<Object*>> passiveTableSegmentObjects
-			= moduleInstance->passiveTableSegments[elemSegmentIndex];
-		passiveTableSegmentsLock.unlock();
+		std::shared_ptr<const std::vector<Object*>> passiveElemSegmentObjects
+			= moduleInstance->passiveElemSegments[elemSegmentIndex];
+		passiveElemSegmentsLock.unlock();
 
 		TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
@@ -456,14 +458,14 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		{
 			const U64 sourceIndex = U64(sourceOffset) + index;
 			const U64 destIndex = U64(destOffset) + index;
-			if(sourceIndex >= passiveTableSegmentObjects->size())
+			if(sourceIndex >= passiveElemSegmentObjects->size())
 			{
 				throwException(Exception::outOfBoundsElemSegmentAccessType,
 							   {asAnyRef(moduleInstance), U64(elemSegmentIndex), sourceIndex});
 			}
 
 			setTableElement(
-				table, Uptr(destIndex), asAnyRef((*passiveTableSegmentObjects)[sourceIndex]));
+				table, Uptr(destIndex), asAnyRef((*passiveElemSegmentObjects)[sourceIndex]));
 		}
 	}
 }
@@ -476,13 +478,13 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  Uptr elemSegmentIndex)
 {
 	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
-	Lock<Platform::Mutex> passiveTableSegmentsLock(moduleInstance->passiveTableSegmentsMutex);
+	Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->passiveElemSegmentsMutex);
 
-	if(!moduleInstance->passiveTableSegments.contains(elemSegmentIndex))
+	if(!moduleInstance->passiveElemSegments.contains(elemSegmentIndex))
 	{ throwException(Exception::invalidArgumentType); }
 	else
 	{
-		moduleInstance->passiveTableSegments.removeOrFail(elemSegmentIndex);
+		moduleInstance->passiveElemSegments.removeOrFail(elemSegmentIndex);
 	}
 }
 

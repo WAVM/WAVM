@@ -245,7 +245,7 @@ namespace WAVM { namespace IR {
 		serialize(stream, exceptionTypeDef.type);
 	}
 
-	template<typename Stream> void serialize(Stream& stream, TableSegment& tableSegment)
+	template<typename Stream> void serialize(Stream& stream, ElemSegment& elemSegment)
 	{
 		if(Stream::isInput)
 		{
@@ -255,38 +255,38 @@ namespace WAVM { namespace IR {
 			switch(flags)
 			{
 			case 0:
-				tableSegment.isActive = true;
-				tableSegment.tableIndex = 0;
-				serialize(stream, tableSegment.baseOffset);
+				elemSegment.isActive = true;
+				elemSegment.tableIndex = 0;
+				serialize(stream, elemSegment.baseOffset);
 				break;
 			case 1:
-				tableSegment.isActive = false;
-				tableSegment.tableIndex = UINTPTR_MAX;
-				tableSegment.baseOffset = {};
+				elemSegment.isActive = false;
+				elemSegment.tableIndex = UINTPTR_MAX;
+				elemSegment.baseOffset = {};
 				break;
 			case 2:
-				tableSegment.isActive = true;
-				serializeVarUInt32(stream, tableSegment.tableIndex);
-				serialize(stream, tableSegment.baseOffset);
+				elemSegment.isActive = true;
+				serializeVarUInt32(stream, elemSegment.tableIndex);
+				serialize(stream, elemSegment.baseOffset);
 				break;
 			default: throw FatalSerializationException("invalid elem segment flags");
 			};
 		}
 		else
 		{
-			if(!tableSegment.isActive) { serializeConstant<U8>(stream, "", 1); }
+			if(!elemSegment.isActive) { serializeConstant<U8>(stream, "", 1); }
 			else
 			{
-				if(tableSegment.tableIndex == 0) { serializeConstant<U8>(stream, "", 0); }
+				if(elemSegment.tableIndex == 0) { serializeConstant<U8>(stream, "", 0); }
 				else
 				{
 					serializeConstant<U8>(stream, "", 2);
-					serializeVarUInt32(stream, tableSegment.tableIndex);
+					serializeVarUInt32(stream, elemSegment.tableIndex);
 				}
-				serialize(stream, tableSegment.baseOffset);
+				serialize(stream, elemSegment.baseOffset);
 			}
 		}
-		serializeArray(stream, tableSegment.indices, [](Stream& stream, Uptr& functionIndex) {
+		serializeArray(stream, elemSegment.indices, [](Stream& stream, Uptr& functionIndex) {
 			serializeVarUInt32(stream, functionIndex);
 		});
 	}
@@ -969,7 +969,7 @@ template<typename Stream> void serializeStartSection(Stream& moduleStream, Modul
 template<typename Stream> void serializeElementSection(Stream& moduleStream, Module& module)
 {
 	serializeSection(moduleStream, SectionType::elem, [&module](Stream& sectionStream) {
-		serialize(sectionStream, module.tableSegments);
+		serialize(sectionStream, module.elemSegments);
 	});
 }
 
@@ -1031,7 +1031,7 @@ static void serializeModule(OutputStream& moduleStream, Module& module)
 	{ serializeExceptionTypeSection(moduleStream, module); }
 	if(module.exports.size() > 0) { serializeExportSection(moduleStream, module); }
 	if(module.startFunctionIndex != UINTPTR_MAX) { serializeStartSection(moduleStream, module); }
-	if(module.tableSegments.size() > 0) { serializeElementSection(moduleStream, module); }
+	if(module.elemSegments.size() > 0) { serializeElementSection(moduleStream, module); }
 	if(module.functions.defs.size() > 0) { serializeCodeSection(moduleStream, module); }
 	if(module.dataSegments.size() > 0) { serializeDataSection(moduleStream, module); }
 

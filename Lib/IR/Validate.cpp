@@ -622,17 +622,17 @@ struct FunctionValidationContext
 
 	void validateImm(ElemSegmentAndTableImm imm)
 	{
-		VALIDATE_INDEX(imm.elemSegmentIndex, module.tableSegments.size());
+		VALIDATE_INDEX(imm.elemSegmentIndex, module.elemSegments.size());
 		VALIDATE_UNLESS("active elem segment can't be used as source for table.init",
-						module.tableSegments[imm.elemSegmentIndex].isActive)
+						module.elemSegments[imm.elemSegmentIndex].isActive)
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
 	}
 
 	void validateImm(ElemSegmentImm imm)
 	{
-		VALIDATE_INDEX(imm.elemSegmentIndex, module.tableSegments.size());
+		VALIDATE_INDEX(imm.elemSegmentIndex, module.elemSegments.size());
 		VALIDATE_UNLESS("active elem segment can't be used as source for table.init",
-						module.tableSegments[imm.elemSegmentIndex].isActive)
+						module.elemSegments[imm.elemSegmentIndex].isActive)
 	}
 
 #define VALIDATE_OP(opcode, name, nameString, Imm, signatureInitializer, requiredFeature)          \
@@ -955,18 +955,18 @@ void IR::validateStartFunction(const Module& module)
 
 void IR::validateElemSegments(const Module& module)
 {
-	for(auto& tableSegment : module.tableSegments)
+	for(auto& elemSegment : module.elemSegments)
 	{
-		if(tableSegment.isActive)
+		if(elemSegment.isActive)
 		{
-			VALIDATE_INDEX(tableSegment.tableIndex, module.tables.size());
-			const TableType& tableType = module.tables.getType(tableSegment.tableIndex);
-			VALIDATE_UNLESS("active table segments must be in anyfunc tables",
+			VALIDATE_INDEX(elemSegment.tableIndex, module.tables.size());
+			const TableType& tableType = module.tables.getType(elemSegment.tableIndex);
+			VALIDATE_UNLESS("active elem segments must be in anyfunc tables",
 							tableType.elementType != ReferenceType::anyfunc);
 			validateInitializer(
-				module, tableSegment.baseOffset, ValueType::i32, "table segment base initializer");
+				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
 		}
-		for(auto functionIndex : tableSegment.indices)
+		for(auto functionIndex : elemSegment.indices)
 		{ VALIDATE_INDEX(functionIndex, module.functions.size()); }
 	}
 }

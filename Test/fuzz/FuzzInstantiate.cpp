@@ -76,7 +76,7 @@ struct StubResolver : Runtime::Resolver
 			IR::setDisassemblyNames(stubModule, stubModuleNames);
 			IR::validatePreCodeSections(stubModule);
 			DeferredCodeValidationState deferredCodeValidationState;
-			IR::validatePostCodeSections(stubModule,deferredCodeValidationState);
+			IR::validatePostCodeSections(stubModule, deferredCodeValidationState);
 
 			// Instantiate the module and return the stub function instance.
 			auto stubModuleInstance = Runtime::instantiateModule(

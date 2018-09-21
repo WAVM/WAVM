@@ -223,8 +223,8 @@ namespace WAVM { namespace Runtime {
 		Platform::Mutex passiveDataSegmentsMutex;
 		HashMap<Uptr, std::shared_ptr<const std::vector<U8>>> passiveDataSegments;
 
-		Platform::Mutex passiveTableSegmentsMutex;
-		HashMap<Uptr, std::shared_ptr<const std::vector<Object*>>> passiveTableSegments;
+		Platform::Mutex passiveElemSegmentsMutex;
+		HashMap<Uptr, std::shared_ptr<const std::vector<Object*>>> passiveElemSegments;
 
 		LLVMJIT::LoadedModule* jitModule;
 

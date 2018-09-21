@@ -169,13 +169,13 @@ static void generateImm(RandomStream& random, IR::Module& module, DataSegmentImm
 
 static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentAndTableImm& outImm)
 {
-	outImm.elemSegmentIndex = random.get(module.tableSegments.size() - 1);
+	outImm.elemSegmentIndex = random.get(module.elemSegments.size() - 1);
 	outImm.tableIndex = random.get(module.tables.size() - 1);
 }
 
 static void generateImm(RandomStream& random, IR::Module& module, ElemSegmentImm& outImm)
 {
-	outImm.elemSegmentIndex = random.get(module.tableSegments.size() - 1);
+	outImm.elemSegmentIndex = random.get(module.elemSegments.size() - 1);
 }
 
 // Build a table with information about non-parametric operators.
@@ -791,7 +791,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 		std::vector<Uptr> functionIndices;
 		for(Uptr index = 0; index < numSegmentElements; ++index)
 		{ functionIndices.push_back(random.get(numFunctionDefs - 1)); }
-		module.tableSegments.push_back({false, UINTPTR_MAX, {}, std::move(functionIndices)});
+		module.elemSegments.push_back({false, UINTPTR_MAX, {}, std::move(functionIndices)});
 	};
 
 	validatePreCodeSections(module);

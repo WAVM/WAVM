@@ -847,31 +847,31 @@ void ModulePrintContext::printModule()
 		print(string, exceptionTypeDef.type);
 	}
 
-	// Print the data and table segment definitions.
-	for(auto tableSegment : module.tableSegments)
+	// Print the data and elem segment definitions.
+	for(auto elemSegment : module.elemSegments)
 	{
 		string += '\n';
 		ScopedTagPrinter dataTag(string, "elem");
 		string += ' ';
-		if(!tableSegment.isActive) { string += "passive"; }
+		if(!elemSegment.isActive) { string += "passive"; }
 		else
 		{
-			string += names.tables[tableSegment.tableIndex];
+			string += names.tables[elemSegment.tableIndex];
 			string += ' ';
-			printInitializerExpression(tableSegment.baseOffset);
+			printInitializerExpression(elemSegment.baseOffset);
 		}
 		enum
 		{
 			numElemsPerLine = 8
 		};
-		for(Uptr elementIndex = 0; elementIndex < tableSegment.indices.size(); ++elementIndex)
+		for(Uptr elementIndex = 0; elementIndex < elemSegment.indices.size(); ++elementIndex)
 		{
 			if(elementIndex % numElemsPerLine == 0) { string += '\n'; }
 			else
 			{
 				string += ' ';
 			}
-			string += names.functions[tableSegment.indices[elementIndex]].name;
+			string += names.functions[elemSegment.indices[elementIndex]].name;
 		}
 	}
 	for(auto dataSegment : module.dataSegments)

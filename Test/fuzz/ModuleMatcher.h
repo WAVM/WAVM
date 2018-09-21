@@ -32,11 +32,11 @@ namespace WAVM {
 				{ failVerification(); }
 			}
 
-			if(aModule.tableSegments.size() != bModule.tableSegments.size()) { failVerification(); }
-			for(Uptr segmentIndex = 0; segmentIndex < aModule.tableSegments.size(); ++segmentIndex)
+			if(aModule.elemSegments.size() != bModule.elemSegments.size()) { failVerification(); }
+			for(Uptr segmentIndex = 0; segmentIndex < aModule.elemSegments.size(); ++segmentIndex)
 			{
-				const TableSegment& segment = aModule.tableSegments[segmentIndex];
-				const TableSegment& wastSegment = bModule.tableSegments[segmentIndex];
+				const ElemSegment& segment = aModule.elemSegments[segmentIndex];
+				const ElemSegment& wastSegment = bModule.elemSegments[segmentIndex];
 				if(segment.isActive != wastSegment.isActive) { failVerification(); }
 				if(segment.isActive
 				   && (segment.tableIndex != wastSegment.tableIndex
