@@ -1,6 +1,7 @@
 #include "WAVM/IR/Validate.h"
 
 #include <stdint.h>
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -227,9 +228,12 @@ static void validateInitializer(const Module& module,
 
 struct FunctionValidationContext
 {
-	FunctionValidationContext(const Module& inModule, const FunctionDef& inFunctionDef)
+	FunctionValidationContext(const Module& inModule,
+							  const FunctionDef& inFunctionDef,
+							  DeferredCodeValidationState& inDeferredCodeValidationState)
 	: module(inModule)
 	, functionDef(inFunctionDef)
+	, deferredCodeValidationState(inDeferredCodeValidationState)
 	, functionType(inModule.types[inFunctionDef.type.index])
 	{
 		// Validate the function's local types.
@@ -602,17 +606,18 @@ struct FunctionValidationContext
 
 	void validateImm(DataSegmentAndMemImm imm)
 	{
-		VALIDATE_INDEX(imm.dataSegmentIndex, module.dataSegments.size());
-		VALIDATE_UNLESS("active data segment can't be used as source for memory.init",
-						module.dataSegments[imm.dataSegmentIndex].isActive)
 		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
+
+		// Defer the validation of the data segment index until the data section is deserialized.
+		deferredCodeValidationState.requiredNumDataSegments = std::max(
+			deferredCodeValidationState.requiredNumDataSegments, imm.dataSegmentIndex + 1);
 	}
 
 	void validateImm(DataSegmentImm imm)
 	{
-		VALIDATE_INDEX(imm.dataSegmentIndex, module.dataSegments.size());
-		VALIDATE_UNLESS("active data segment can't be used as source for memory.drop",
-						module.dataSegments[imm.dataSegmentIndex].isActive)
+		// Defer the validation of the data segment index until the data section is deserialized.
+		deferredCodeValidationState.requiredNumDataSegments = std::max(
+			deferredCodeValidationState.requiredNumDataSegments, imm.dataSegmentIndex + 1);
 	}
 
 	void validateImm(ElemSegmentAndTableImm imm)
@@ -669,6 +674,7 @@ private:
 
 	const Module& module;
 	const FunctionDef& functionDef;
+	DeferredCodeValidationState& deferredCodeValidationState;
 	FunctionType functionType;
 
 	std::vector<ValueType> locals;
@@ -965,8 +971,13 @@ void IR::validateElemSegments(const Module& module)
 	}
 }
 
-void IR::validateDataSegments(const Module& module)
+void IR::validateDataSegments(const Module& module,
+							  const DeferredCodeValidationState& deferredCodeValidationState)
 {
+	VALIDATE_UNLESS(
+		"invalid data segment index",
+		module.dataSegments.size() < deferredCodeValidationState.requiredNumDataSegments);
+
 	for(auto& dataSegment : module.dataSegments)
 	{
 		if(dataSegment.isActive)
@@ -984,16 +995,22 @@ namespace WAVM { namespace IR {
 		FunctionValidationContext functionContext;
 		OperatorPrinter operatorPrinter;
 
-		CodeValidationStreamImpl(const Module& module, const FunctionDef& functionDef)
-		: functionContext(module, functionDef), operatorPrinter(module, functionDef)
+		CodeValidationStreamImpl(const Module& module,
+								 const FunctionDef& functionDef,
+								 DeferredCodeValidationState& deferredCodeValidationState)
+		: functionContext(module, functionDef, deferredCodeValidationState)
+		, operatorPrinter(module, functionDef)
 		{
 		}
 	};
 }}
 
-IR::CodeValidationStream::CodeValidationStream(const Module& module, const FunctionDef& functionDef)
+IR::CodeValidationStream::CodeValidationStream(
+	const Module& module,
+	const FunctionDef& functionDef,
+	DeferredCodeValidationState& deferredCodeValidationState)
 {
-	impl = new CodeValidationStreamImpl(module, functionDef);
+	impl = new CodeValidationStreamImpl(module, functionDef, deferredCodeValidationState);
 }
 
 IR::CodeValidationStream::~CodeValidationStream()

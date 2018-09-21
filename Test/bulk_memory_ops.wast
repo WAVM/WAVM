@@ -21,24 +21,29 @@
 	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
 	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
 	"\00\01"                             ;;   (memory 1)
-	"\0c\02\01"                          ;; data declaration section: 2 bytes, 1 entry
-	"\01"                                ;;   [0] passive data segment
-	"\0b\03\01"                          ;; data section: 3 bytes, 1 entry
-	"\01\00"                             ;;   [0] passive data segment: 1 byte of data
+	"\0b\04\01"                          ;; data section: 4 bytes, 1 entry
+	"\01\01\00"                          ;;   [0] passive data segment: 1 byte of data
 )
 
 (module binary
 	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
 	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
 	"\00\01"                             ;;   (memory 1)
-	"\0c\03\02"                          ;; data declaration section: 3 bytes, 2 entries
-	"\00"                                ;;   [0] active data segment
-	"\01"                                ;;   [1] passive data segment
-	"\0b\09\02"                          ;; data section: 9 bytes, 2 entries
+	"\0b\08\01"                          ;; data section: 8 bytes, 1 entry
+	"\02\00"                             ;;   [0] active data segment, memory 0
+	"\41\00\0b"                          ;;     base offset (i32.const 0)
+	"\01\00"                             ;;     1 byte of data
+)
+
+(module binary
+	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
+	"\00\01"                             ;;   (memory 1)
+	"\0b\0a\02"                          ;; data section: 9 bytes, 2 entries
 	"\00"                                ;;   [0] active data segment, memory 0
 	"\41\00\0b"                          ;;     base offset (i32.const 0)
 	"\01\00"                             ;;     1 byte of data
-	"\01\00"                             ;;   [1] passive data segment: 1 byte of data
+	"\01\01\00"                          ;;   [1] passive data segment: 1 byte of data
 )
 
 (assert_malformed
@@ -46,27 +51,12 @@
 		"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
 		"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
 		"\00\01"                             ;;   (memory 1)
-		"\0c\03\02"                          ;; data declaration section: 3 bytes, 2 entries
-		"\00"                                ;;   [0] active data segment
-		"\01"                                ;;   [1] passive data segment
 		"\0b\07\01"                          ;; data section: 7 bytes, 1 entries
-		"\00"                                ;;   [0] active data segment, memory 0
+		"\03"                                ;;   [0] <invalid data segment flags>
 		"\41\00\0b"                          ;;     base offset (i32.const 0)
 		"\01\00"                             ;;     1 byte of data
 	)
-	"data section contains a different number of data segments than were declared in the data declaration section"
-)
-
-(assert_malformed
-	(module binary
-		"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
-		"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
-		"\00\01"                             ;;   (memory 1)
-		"\0c\03\02"                          ;; data declaration section: 3 bytes, 2 entries
-		"\00"                                ;;   [0] active data segment
-		"\01"                                ;;   [1] passive data segment
-	)
-	"module contained data declaration section, but no corresponding data section"
+	"invalid data segment flags"
 )
 
 ;; memory.init/memory.drop
@@ -104,23 +94,6 @@
 	"invalid data segment index"
 )
 
-(assert_invalid
-	(module
-		(memory $m 1)
-		(data (i32.const 0) "test")
-		(func (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 0)))
-	)
-	"memory.init may not reference an active data segment"
-)
-(assert_invalid
-	(module
-		(memory $m 1)
-		(data (i32.const 0) "test")
-		(func (memory.drop 0))
-	)
-	"memory.drop may not reference an active data segment"
-)
-
 (module
 	(memory $m 1 1)
 	(data passive "a")
@@ -151,9 +124,6 @@
 	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
 	"\00\01"                             ;;   (memory 1)
 	
-	"\0c\02\01"                          ;; data declaration section: 2 bytes, 1 entry
-	"\01"                                ;;   [0] passive data segment
-
 	"\0a\11\01"                          ;; Code section
 	"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
 	"\41\00"                             ;; i32.const 0
@@ -163,8 +133,8 @@
 	"\fc\09\00"                          ;; memory.drop 0
 	"\0b"                                ;; end
 
-	"\0b\03\01"                          ;; data section: 3 bytes, 1 entry
-	"\01\00"                             ;;   [0] 1 byte passive data segment
+	"\0b\04\01"                          ;; data section: 3 bytes, 1 entry
+	"\01\01\00"                          ;;   [0] 1 byte passive data segment
 )
 
 (assert_invalid
@@ -227,33 +197,31 @@
 	"invalid memory index"
 )
 
-(assert_invalid
-	(module binary
-		"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+;; Test that it's valid to reference an active data segment with memory.init
+(module binary
+	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
 
-		"\01\04\01"                          ;; Type section: 4 bytes, 1 entry
-		"\60\00\00"                          ;;   Function type () -> ()
+	"\01\04\01"                          ;; Type section: 4 bytes, 1 entry
+	"\60\00\00"                          ;;   Function type () -> ()
 
-		"\03\02\01"                          ;; Function section: 2 bytes, 1 entry
-		"\00"                                ;;   Function 0: type 0
+	"\03\02\01"                          ;; Function section: 2 bytes, 1 entry
+	"\00"                                ;;   Function 0: type 0
 
-		"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
-		"\00\01"                             ;;   (memory 1)
+	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
+	"\00\01"                             ;;   (memory 1)
 
-		"\0a\11\01"                          ;; Code section
-		"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
-		"\41\00"                             ;; i32.const 0
-		"\41\00"                             ;; i32.const 0
-		"\41\00"                             ;; i32.const 0
-		"\fc\08\00\00"                       ;; memory.init 0 0
-		"\fc\09\00"                          ;; memory.drop 0
-		"\0b"                                ;; end
+	"\0a\11\01"                          ;; Code section
+	"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
+	"\41\00"                             ;; i32.const 0
+	"\41\00"                             ;; i32.const 0
+	"\41\00"                             ;; i32.const 0
+	"\fc\08\00\00"                       ;; memory.init 0 0
+	"\fc\09\00"                          ;; memory.drop 0
+	"\0b"                                ;; end
 		
-		"\0b\07\01"                          ;; data section: 5 bytes, 1 entry
-		"\00\41\00\0b"                       ;; active data segment, base offset (i32.const 0)
-		"\01\00"                             ;;   1 byte of data
-	)
-	"can't use active data segment in memory.init"
+	"\0b\07\01"                          ;; data section: 5 bytes, 1 entry
+	"\00\41\00\0b"                       ;; active data segment, base offset (i32.const 0)
+	"\01\00"                             ;;   1 byte of data
 )
 
 (module
@@ -549,7 +517,7 @@
 	"\70\00\01"                          ;;   (table 1 anyfunc)
 	
 	"\09\08\01"                          ;; elem section: 8 bytes, 1 entry
-	"\02\00"                             ;;   [0] active elem segment, memory 0
+	"\02\00"                             ;;   [0] active elem segment, table 0
 	"\41\00\0b"                          ;;     base offset (i32.const 0)
 	"\01"                                ;;     elem segment with 1 element
 	"\00"                                ;;     [0] function 0

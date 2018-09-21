@@ -9,6 +9,13 @@ namespace WAVM { namespace IR {
 	struct FunctionDef;
 	struct Module;
 
+	// Since the data section occurs after the code section in binary modules, it's necessary to
+	// defer some validation until it is loaded.
+	struct DeferredCodeValidationState
+	{
+		Uptr requiredNumDataSegments = 0;
+	};
+
 	struct ValidationException
 	{
 		std::string message;
@@ -19,7 +26,9 @@ namespace WAVM { namespace IR {
 
 	struct CodeValidationStream
 	{
-		IR_API CodeValidationStream(const Module& module, const FunctionDef& function);
+		IR_API CodeValidationStream(const Module& module,
+									const FunctionDef& function,
+									DeferredCodeValidationState& deferredCodeValidationState);
 		IR_API ~CodeValidationStream();
 
 		IR_API void finish();
@@ -36,8 +45,10 @@ namespace WAVM { namespace IR {
 	{
 		CodeValidationProxyStream(const Module& module,
 								  const FunctionDef& function,
-								  InnerStream& inInnerStream)
-		: codeValidationStream(module, function), innerStream(inInnerStream)
+								  InnerStream& inInnerStream,
+								  DeferredCodeValidationState& deferredCodeValidationState)
+		: codeValidationStream(module, function, deferredCodeValidationState)
+		, innerStream(inInnerStream)
 		{
 		}
 
@@ -67,9 +78,11 @@ namespace WAVM { namespace IR {
 	IR_API void validateExports(const IR::Module& module);
 	IR_API void validateStartFunction(const IR::Module& module);
 	IR_API void validateElemSegments(const IR::Module& module);
-	IR_API void validateDataSegments(const IR::Module& module);
+	IR_API void validateDataSegments(
+		const IR::Module& module,
+		const DeferredCodeValidationState& deferredCodeValidationState);
 
-	inline void validateDefinitions(const IR::Module& module)
+	inline void validatePreCodeSections(const IR::Module& module)
 	{
 		validateTypes(module);
 		validateImports(module);
@@ -81,6 +94,12 @@ namespace WAVM { namespace IR {
 		validateExports(module);
 		validateStartFunction(module);
 		validateElemSegments(module);
-		validateDataSegments(module);
+	}
+
+	inline void validatePostCodeSections(
+		const IR::Module& module,
+		const DeferredCodeValidationState& deferredCodeValidationState)
+	{
+		validateDataSegments(module, deferredCodeValidationState);
 	}
 }}

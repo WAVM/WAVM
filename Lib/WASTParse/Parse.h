@@ -8,6 +8,7 @@
 #include "Lexer.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/IR/Validate.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
@@ -140,6 +141,7 @@ namespace WAVM { namespace WAST {
 		NameToIndexMap exceptionTypeNameToIndexMap;
 
 		IR::DisassemblyNames disassemblyNames;
+		IR::DeferredCodeValidationState deferredCodeValidationState;
 
 		// Thunks that are called after parsing all types.
 		std::vector<std::function<void(ModuleState*)>> postTypeCallbacks;

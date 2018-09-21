@@ -41,14 +41,17 @@ namespace WAVM { namespace WAST {
 
 		FunctionState(const std::shared_ptr<NameToIndexMap>& inLocalNameToIndexMap,
 					  FunctionDef& inFunctionDef,
-					  Module& module)
+					  ModuleState* moduleState)
 		: functionDef(inFunctionDef)
 		, localNameToIndexMap(inLocalNameToIndexMap)
 		, numLocals(inFunctionDef.nonParameterLocalTypes.size()
-					+ module.types[inFunctionDef.type.index].params().size())
+					+ moduleState->module.types[inFunctionDef.type.index].params().size())
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
-		, validatingCodeStream(module, functionDef, operationEncoder)
+		, validatingCodeStream(moduleState->module,
+							   functionDef,
+							   operationEncoder,
+							   moduleState->deferredCodeValidationState)
 		{
 		}
 	};
@@ -804,7 +807,7 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 				= std::move(*localDisassemblyNames);
 
 			// Parse the function's code.
-			FunctionState functionState(localNameToIndexMap, functionDef, moduleState->module);
+			FunctionState functionState(localNameToIndexMap, functionDef, moduleState);
 			functionCursorState.functionState = &functionState;
 			const Token* validationErrorToken = firstBodyToken;
 			try

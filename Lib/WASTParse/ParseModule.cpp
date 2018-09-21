@@ -880,7 +880,8 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 		{
 			try
 			{
-				IR::validateDefinitions(outModule);
+				IR::validatePreCodeSections(outModule);
+				IR::validatePostCodeSections(outModule, moduleState.deferredCodeValidationState);
 			}
 			catch(ValidationException validationException)
 			{
