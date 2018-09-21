@@ -306,16 +306,16 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "memory.grow",
 						  I32,
 						  memory_grow,
-						  I32 deltaPages,
-						  I64 memoryId)
+						  U32 deltaPages,
+						  Uptr memoryId)
 {
 	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	const Iptr numPreviousMemoryPages = growMemory(memory, (Uptr)deltaPages);
-	wavmAssert(numPreviousMemoryPages <= INT32_MAX);
+	wavmAssert(numPreviousMemoryPages <= UINT32_MAX);
 	return I32(numPreviousMemoryPages);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memory.size", I32, memory_size, I64 memoryId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memory.size", U32, memory_size, I64 memoryId)
 {
 	MemoryInstance* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	Uptr numMemoryPages = getMemoryNumPages(memory);

@@ -115,7 +115,7 @@ static I64 threadEntry(void* threadVoid)
 
 DEFINE_INTRINSIC_FUNCTION(threadTest,
 						  "createThread",
-						  I64,
+						  U64,
 						  createThread,
 						  const AnyFunc* entryAnyFunc,
 						  I32 entryArgument)
@@ -210,17 +210,17 @@ static IntrusiveSharedPtr<Thread> removeThreadById(Uptr threadId)
 	return thread;
 }
 
-DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, I64 threadId)
+DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, U64 threadId)
 {
-	IntrusiveSharedPtr<Thread> thread = removeThreadById(threadId);
+	IntrusiveSharedPtr<Thread> thread = removeThreadById(Uptr(threadId));
 	const I64 result = Platform::joinThread(thread->platformThread);
 	thread->platformThread = nullptr;
 	return result;
 }
 
-DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, I64 threadId)
+DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U64 threadId)
 {
-	IntrusiveSharedPtr<Thread> thread = removeThreadById(threadId);
+	IntrusiveSharedPtr<Thread> thread = removeThreadById(Uptr(threadId));
 	Platform::detachThread(thread->platformThread);
 	thread->platformThread = nullptr;
 }

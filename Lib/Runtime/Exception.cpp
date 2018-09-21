@@ -222,9 +222,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "throwException",
 						  void,
 						  intrinsicThrowException,
-						  Iptr exceptionTypeInstanceBits,
-						  Iptr argsBits,
-						  I32 isUserException)
+						  Uptr exceptionTypeInstanceBits,
+						  Uptr argsBits,
+						  U32 isUserException)
 {
 	auto typeInstance = reinterpret_cast<ExceptionTypeInstance*>(Uptr(exceptionTypeInstanceBits));
 	auto args = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));

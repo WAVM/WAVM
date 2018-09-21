@@ -216,7 +216,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  atomic_wake,
 						  U32 address,
 						  I32 numToWake,
-						  Iptr memoryId)
+						  Uptr memoryId)
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
@@ -241,7 +241,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  U32 address,
 						  I32 expectedValue,
 						  F64 timeout,
-						  Iptr memoryId)
+						  Uptr memoryId)
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
@@ -260,7 +260,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  I32 address,
 						  I64 expectedValue,
 						  F64 timeout,
-						  Iptr memoryId)
+						  Uptr memoryId)
 {
 	MemoryInstance* memoryInstance = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 

@@ -74,7 +74,7 @@ void EmitFunctionContext::memory_grow(MemoryImm imm)
 	ValueVector previousNumPages = emitRuntimeIntrinsic(
 		"memory.grow",
 		FunctionType(TypeTuple(ValueType::i32),
-					 TypeTuple({ValueType::i32, inferValueType<Iptr>()})),
+					 TypeTuple({ValueType::i32, inferValueType<Uptr>()})),
 		{deltaNumPages,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
 	wavmAssert(previousNumPages.size() == 1);
@@ -85,7 +85,7 @@ void EmitFunctionContext::memory_size(MemoryImm imm)
 	errorUnless(imm.memoryIndex == 0);
 	ValueVector currentNumPages = emitRuntimeIntrinsic(
 		"memory.size",
-		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Iptr>())),
+		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Uptr>())),
 		{getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
 	wavmAssert(currentNumPages.size() == 1);
 	push(currentNumPages[0]);
@@ -257,7 +257,7 @@ void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2> imm)
 		"atomic_wait_i32",
 		FunctionType(
 			TypeTuple{ValueType::i32},
-			TypeTuple{ValueType::i32, ValueType::i32, ValueType::f64, inferValueType<Iptr>()}),
+			TypeTuple{ValueType::i32, ValueType::i32, ValueType::f64, inferValueType<Uptr>()}),
 		{address,
 		 expectedValue,
 		 timeout,
@@ -274,7 +274,7 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 		"atomic_wait_i64",
 		FunctionType(
 			TypeTuple{ValueType::i32},
-			TypeTuple{ValueType::i32, ValueType::i64, ValueType::f64, inferValueType<Iptr>()}),
+			TypeTuple{ValueType::i32, ValueType::i64, ValueType::f64, inferValueType<Uptr>()}),
 		{address,
 		 expectedValue,
 		 timeout,
