@@ -16,5 +16,5 @@ ASAN_OPTIONS=detect_leaks=0 bin/FuzzCompileModel -use_value_profile=1 \
   -jobs=36 \
   -detect_leaks=0 \
   -max_len=16 \
-  -rss_limit_mb=4096 \
+  -rss_limit_mb=2048 \
   compile-model-corpus

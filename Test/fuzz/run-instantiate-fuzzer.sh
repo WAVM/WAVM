@@ -15,7 +15,7 @@ ASAN_OPTIONS=detect_leaks=0 bin/FuzzInstantiate -use_value_profile=1 \
   -workers=36 \
   -jobs=36 \
   -detect_leaks=0 \
-  -rss_limit_mb=4096 \
+  -rss_limit_mb=2048 \
   instantiate-corpus \
 	compile-corpus \
 	wasm-corpus \
