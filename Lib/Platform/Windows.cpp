@@ -76,22 +76,9 @@ static_assert(sizeof(ExecutionContext) == 272, "unexpected size");
 extern "C" I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode);
 extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,
 										  U8* trampolineFramePointer) noexcept(false);
-extern "C" U8* getStackPointer();
-#else
-extern "C" I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode)
-{
-	Errors::fatal("saveExecutionState isn't implemented on 32-bit Windows");
-}
-extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,
-										  U8* trampolineFramePointer) noexcept(false)
-{
-	Errors::fatal("switchToForkedStackContext isn't implemented on 32-bit Windows");
-}
-extern "C" U8* getStackPointer()
-{
-	Errors::fatal("getStackPointer isn't implemented on 32-bit Windows");
-}
 #endif
+
+extern "C" U8* getStackPointer();
 
 static void initThread();
 

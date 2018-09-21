@@ -4,7 +4,8 @@ set(POSIXSources
 
 set(WindowsSources
 	Windows.cpp
-	Windows.asm)
+	Win32.asm
+	Win64.asm)
 
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Platform/Defines.h
@@ -20,7 +21,10 @@ set(PublicHeaders
 if(MSVC)
 	set(Sources ${POSIXSources} ${WindowsSources})
 	if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-		set_source_files_properties(Windows.asm PROPERTIES HEADER_FILE_ONLY TRUE)
+		set_source_files_properties(Win64.asm PROPERTIES HEADER_FILE_ONLY TRUE)
+		set_source_files_properties(Win32.asm PROPERTIES COMPILE_FLAGS "/safeseh")
+	else()
+		set_source_files_properties(Win32.asm PROPERTIES HEADER_FILE_ONLY TRUE)
 	endif()
 	set_source_files_properties(${POSIXSources} PROPERTIES HEADER_FILE_ONLY TRUE)
 	enable_language(ASM_MASM)
