@@ -23,12 +23,7 @@ namespace WAVM { namespace Platform {
 #ifdef WIN32
 		struct CriticalSection
 		{
-			struct _RTL_CRITICAL_SECTION_DEBUG* debugInfo;
-			I32 lockCount;
-			I32 recursionCount;
-			void* owningThreadHandle;
-			void* lockSemaphoreHandle;
-			Uptr spinCount;
+			Uptr data[5];
 		} criticalSection;
 #elif defined(__linux__)
 		struct PthreadMutex
