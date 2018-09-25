@@ -75,7 +75,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	setRuntimeFunctionPrefix(llvmContext,
 							 function,
 							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
-							 emitLiteral(llvmContext, UINTPTR_MAX),
+							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
 							 emitLiteral(llvmContext, functionType.getEncoding().impl));
 
 	llvm::Value* calleeFunction = &*(function->args().begin() + 0);
@@ -189,7 +189,7 @@ Runtime::FunctionInstance* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	setRuntimeFunctionPrefix(llvmContext,
 							 function,
 							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
-							 emitLiteral(llvmContext, UINTPTR_MAX),
+							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
 							 emitLiteral(llvmContext, functionType.getEncoding().impl));
 
 	EmitContext emitContext(llvmContext, nullptr);
