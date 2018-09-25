@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,8 @@ namespace WAVM { namespace WAST {
 		const char* string;
 		const LineInfo* lineInfo;
 		std::vector<UnresolvedError> unresolvedErrors;
+
+		std::vector<std::unique_ptr<std::string>> quotedNameStrings;
 
 		ParseState(const char* inString, const LineInfo* inLineInfo)
 		: string(inString), lineInfo(inLineInfo)

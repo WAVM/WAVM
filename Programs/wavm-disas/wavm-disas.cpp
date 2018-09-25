@@ -22,16 +22,37 @@ static bool loadBinaryModuleFromFile(const char* filename,
 
 int main(int argc, char** argv)
 {
-	if(argc != 3)
+	const char* inputFilename = nullptr;
+	const char* outputFilename = nullptr;
+
+	bool showHelp = false;
+	bool enableQuotedNames = false;
+	if(argc < 3 || argc > 4) { showHelp = true; }
+	else
 	{
-		Log::printf(Log::error, "Usage: wavm-disas in.wasm out.wast\n");
+		inputFilename = argv[1];
+		outputFilename = argv[2];
+		if(!strcmp(argv[1], "--help")) { showHelp = true; }
+		else if(argc == 4)
+		{
+			if(!strcmp(argv[3], "--enable-quoted-names"))
+			{ enableQuotedNames = true; }
+			else
+			{
+				showHelp = true;
+			}
+		}
+	}
+
+	if(showHelp)
+	{
+		Log::printf(Log::error, "Usage: wavm-disas in.wasm out.wast [--enable-quoted-names]\n");
 		return EXIT_FAILURE;
 	}
-	const char* inputFilename = argv[1];
-	const char* outputFilename = argv[2];
 
 	// Load the WASM file.
 	IR::Module module;
+	module.featureSpec.quotedNamesInTextFormat = enableQuotedNames;
 	if(!loadBinaryModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 
 	// Print the module to WAST.

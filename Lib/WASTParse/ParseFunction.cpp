@@ -236,8 +236,8 @@ static void parseImm(CursorState* cursor, FunctionImm& outImm)
 
 static void parseImm(CursorState* cursor, CallIndirectImm& outImm)
 {
-	if(cursor->nextToken->type == t_name || cursor->nextToken->type == t_decimalInt
-	   || cursor->nextToken->type == t_hexInt)
+	if(cursor->nextToken->type == t_name || cursor->nextToken->type == t_quotedName
+	   || cursor->nextToken->type == t_decimalInt || cursor->nextToken->type == t_hexInt)
 	{
 		// Parse a table name or index.
 		outImm.tableIndex = parseAndResolveNameOrIndexRef(cursor,

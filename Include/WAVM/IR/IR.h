@@ -32,6 +32,9 @@ namespace WAVM { namespace IR {
 		bool multipleResultsAndBlockParams = true;
 		bool bulkMemoryOperations = true;
 		bool referenceTypes = true;
+		bool quotedNamesInTextFormat = true; // Enabled by default for everything but wavm-disas,
+											 // where a command-line flag is required to enable it
+											 // to ensure the default output uses standard syntax.
 
 		// WAVM-specific extensions
 		bool sharedTables = true;

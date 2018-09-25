@@ -72,6 +72,7 @@
 	VISIT_TOKEN(floatInf, "float infinity literal", _)                                             \
 	VISIT_TOKEN(string, "string literal", _)                                                       \
 	VISIT_TOKEN(name, "name literal", _)                                                           \
+	VISIT_TOKEN(quotedName, "quoted name literal", _)                                              \
                                                                                                    \
 	VISIT_TOKEN(leftParenthesis, "'('", _)                                                         \
 	VISIT_TOKEN(rightParenthesis, "')'", _)                                                        \

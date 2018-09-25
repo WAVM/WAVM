@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <cstdarg>
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -278,27 +279,51 @@ IndexedFunctionType WAST::getUniqueFunctionTypeIndex(ModuleState* moduleState,
 	return IndexedFunctionType{functionTypeIndex};
 }
 
+static void parseStringChars(const char*& nextChar, ParseState* parseState, std::string& outString);
+
 bool WAST::tryParseName(CursorState* cursor, Name& outName)
 {
-	if(cursor->nextToken->type != t_name) { return false; }
+	if(cursor->nextToken->type != t_quotedName && cursor->nextToken->type != t_name)
+	{ return false; }
 
 	const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;
 	const char* nextChar = firstChar;
 	wavmAssert(*nextChar == '$');
 	++nextChar;
 
-	// Find the first non-name character.
-	while(true)
+	if(cursor->nextToken->type == t_quotedName)
 	{
-		const char c = *nextChar;
-		if(isNameChar(c)) { ++nextChar; }
-		else
-		{
-			break;
-		}
-	};
+		if(!cursor->moduleState->module.featureSpec.quotedNamesInTextFormat)
+		{ parseErrorf(cursor->parseState, cursor->nextToken, "quoted names are disabled"); }
 
-	outName = Name(firstChar + 1, U32(nextChar - firstChar - 1), cursor->nextToken->begin);
+		wavmAssert(*nextChar == '\"');
+		++nextChar;
+		{
+			std::string quotedNameChars;
+			parseStringChars(nextChar, cursor->parseState, quotedNameChars);
+			cursor->parseState->quotedNameStrings.push_back(
+				std::unique_ptr<std::string>{new std::string(std::move(quotedNameChars))});
+		}
+		const std::unique_ptr<std::string>& quotedName
+			= cursor->parseState->quotedNameStrings.back();
+		wavmAssert(quotedName->size() <= UINT32_MAX);
+		outName = Name(quotedName->data(), U32(quotedName->size()), cursor->nextToken->begin);
+	}
+	else
+	{
+		// Find the first non-name character.
+		while(true)
+		{
+			const char c = *nextChar;
+			if(isNameChar(c)) { ++nextChar; }
+			else
+			{
+				break;
+			}
+		};
+
+		outName = Name(firstChar + 1, U32(nextChar - firstChar - 1), cursor->nextToken->begin);
+	}
 
 	wavmAssert(U32(nextChar - cursor->parseState->string) > cursor->nextToken->begin + 1);
 	++cursor->nextToken;
@@ -510,15 +535,8 @@ static void parseCharEscapeCode(const char*& nextChar,
 	}
 }
 
-bool WAST::tryParseString(CursorState* cursor, std::string& outString)
+static void parseStringChars(const char*& nextChar, ParseState* parseState, std::string& outString)
 {
-	if(cursor->nextToken->type != t_string) { return false; }
-
-	// Parse a string literal; the lexer has already rejected unterminated strings, so this just
-	// needs to copy the characters and evaluate escape codes.
-	const char* nextChar = cursor->parseState->string + cursor->nextToken->begin;
-	assert(*nextChar == '\"');
-	++nextChar;
 	while(true)
 	{
 		switch(*nextChar)
@@ -526,16 +544,28 @@ bool WAST::tryParseString(CursorState* cursor, std::string& outString)
 		case '\\':
 		{
 			++nextChar;
-			parseCharEscapeCode(nextChar, cursor->parseState, outString);
+			parseCharEscapeCode(nextChar, parseState, outString);
 			break;
 		}
-		case '\"':
-			++cursor->nextToken;
-			assert(cursor->parseState->string + cursor->nextToken->begin > nextChar);
-			return true;
+		case '\"': return;
 		default: outString += *nextChar++; break;
 		};
 	};
+}
+
+bool WAST::tryParseString(CursorState* cursor, std::string& outString)
+{
+	if(cursor->nextToken->type != t_string) { return false; }
+
+	// Parse a string literal; the lexer has already rejected unterminated strings, so this just
+	// needs to copy the characters and evaluate escape codes.
+	const char* nextChar = cursor->parseState->string + cursor->nextToken->begin;
+	wavmAssert(*nextChar == '\"');
+	++nextChar;
+	parseStringChars(nextChar, cursor->parseState, outString);
+	++cursor->nextToken;
+	wavmAssert(cursor->parseState->string + cursor->nextToken->begin > nextChar);
+	return true;
 }
 
 std::string WAST::parseUTF8String(CursorState* cursor)

@@ -225,8 +225,11 @@ static void print(std::string& string, const ExceptionType& type)
 
 struct NameScope
 {
-	NameScope(const char inSigil, Uptr estimatedNumElements)
-	: sigil(inSigil), nameSet(estimatedNumElements), nameToUniqueIndexMap()
+	NameScope(const char inSigil, bool inAllowQuotedNames, Uptr estimatedNumElements)
+	: sigil(inSigil)
+	, allowQuotedNames(inAllowQuotedNames)
+	, nameSet(estimatedNumElements)
+	, nameToUniqueIndexMap()
 	{
 	}
 
@@ -246,11 +249,27 @@ struct NameScope
 			} while(!nameSet.add(name));
 		}
 
-		name = sigil + escapeName(name);
+		if(!allowQuotedNames) { name = escapeName(name); }
+		else
+		{
+			bool needsQuotes = false;
+			for(char c : name)
+			{
+				if(!isNameChar(c))
+				{
+					needsQuotes = true;
+					break;
+				}
+			}
+			if(needsQuotes) { name = '\"' + escapeString(name.data(), name.size()) + '\"'; }
+		}
+
+		name = sigil + name;
 	}
 
 private:
 	char sigil;
+	bool allowQuotedNames;
 	HashSet<std::string> nameSet;
 	HashMap<std::string, Uptr> nameToUniqueIndexMap;
 };
@@ -270,7 +289,7 @@ struct ModulePrintContext
 		IR::getDisassemblyNames(module, names);
 		const Uptr numGlobalNames = names.types.size() + names.tables.size() + names.memories.size()
 									+ names.globals.size() + names.exceptionTypes.size();
-		NameScope globalNameScope('$', numGlobalNames);
+		NameScope globalNameScope('$', module.featureSpec.quotedNamesInTextFormat, numGlobalNames);
 		for(auto& name : names.types) { globalNameScope.map(name); }
 		for(auto& name : names.tables) { globalNameScope.map(name); }
 		for(auto& name : names.memories) { globalNameScope.map(name); }
@@ -280,7 +299,8 @@ struct ModulePrintContext
 		{
 			globalNameScope.map(function.name);
 
-			NameScope localNameScope('$', function.locals.size());
+			NameScope localNameScope(
+				'$', module.featureSpec.quotedNamesInTextFormat, function.locals.size());
 			for(auto& name : function.locals) { localNameScope.map(name); }
 		}
 	}
@@ -342,7 +362,7 @@ struct FunctionPrintContext
 					 .labels)
 	, localNames(inModuleContext.names.functions[module.functions.imports.size() + functionDefIndex]
 					 .locals)
-	, labelNameScope('$', 4)
+	, labelNameScope('$', inModuleContext.module.featureSpec.quotedNamesInTextFormat, 4)
 	, labelIndex(0)
 	{
 	}
