@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
-  <Type Name="HashTable&lt;*,*&gt;">
+  <Type Name="WAVM::HashTable&lt;*,*&gt;">
     <DisplayString>{numElements} elements in {hashToBucketIndexMask+1} buckets</DisplayString>
     <Expand>
       <ArrayItems>
