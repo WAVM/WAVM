@@ -102,8 +102,8 @@ struct StubResolver : Runtime::Resolver
 		}
 		case IR::ExternKind::exceptionType:
 		{
-			return asObject(Runtime::createExceptionTypeInstance(
-				compartment, asExceptionType(type), "importStub"));
+			return asObject(
+				Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
 		}
 		default: Errors::unreachable();
 		};

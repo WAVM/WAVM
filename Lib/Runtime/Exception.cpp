@@ -25,14 +25,14 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 #define DEFINE_INTRINSIC_EXCEPTION_TYPE(name, ...)                                                 \
-	ExceptionTypeInstance* Runtime::Exception::name##Type = new ExceptionTypeInstance(             \
+	ExceptionType* Runtime::Exception::name##Type = new ExceptionType(                             \
 		nullptr, IR::ExceptionType{IR::TypeTuple({__VA_ARGS__})}, "wavm." #name);
 ENUM_INTRINSIC_EXCEPTION_TYPES(DEFINE_INTRINSIC_EXCEPTION_TYPE)
 #undef DEFINE_INTRINSIC_EXCEPTION_TYPE
 
 bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
-	Runtime::FunctionInstance* function = LLVMJIT::getFunctionByAddress(ip);
+	Runtime::Function* function = LLVMJIT::getFunctionByAddress(ip);
 	if(!function) { return Platform::describeInstructionPointer(ip, outDescription); }
 	else
 	{
@@ -93,36 +93,36 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 	return frameDescriptions;
 }
 
-ExceptionTypeInstance* Runtime::createExceptionTypeInstance(Compartment* compartment,
-															IR::ExceptionType type,
-															std::string&& debugName)
+ExceptionType* Runtime::createExceptionType(Compartment* compartment,
+											IR::ExceptionType type,
+											std::string&& debugName)
 {
-	auto exceptionTypeInstance = new ExceptionTypeInstance(compartment, type, std::move(debugName));
+	auto exceptionType = new ExceptionType(compartment, type, std::move(debugName));
 
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	exceptionTypeInstance->id = compartment->exceptionTypes.add(UINTPTR_MAX, exceptionTypeInstance);
-	if(exceptionTypeInstance->id == UINTPTR_MAX)
+	exceptionType->id = compartment->exceptionTypes.add(UINTPTR_MAX, exceptionType);
+	if(exceptionType->id == UINTPTR_MAX)
 	{
-		delete exceptionTypeInstance;
+		delete exceptionType;
 		return nullptr;
 	}
 
-	return exceptionTypeInstance;
+	return exceptionType;
 }
 
-Runtime::ExceptionTypeInstance::~ExceptionTypeInstance()
+Runtime::ExceptionType::~ExceptionType()
 {
 	wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
 	if(id != UINTPTR_MAX) { compartment->exceptionTypes.removeOrFail(id); }
 }
 
-std::string Runtime::describeExceptionType(const ExceptionTypeInstance* typeInstance)
+std::string Runtime::describeExceptionType(const ExceptionType* typeInstance)
 {
 	wavmAssert(typeInstance);
 	return typeInstance->debugName;
 }
 
-IR::TypeTuple Runtime::getExceptionTypeParameters(const ExceptionTypeInstance* typeInstance)
+IR::TypeTuple Runtime::getExceptionTypeParameters(const ExceptionType* typeInstance)
 {
 	return typeInstance->type.params;
 }
@@ -134,7 +134,7 @@ std::string Runtime::describeException(const Exception& exception)
 	if(exception.typeInstance == Exception::outOfBoundsMemoryAccessType)
 	{
 		wavmAssert(exception.arguments.size() == 2);
-		MemoryInstance* memory = asMemoryNullable(exception.arguments[0].object);
+		Memory* memory = asMemoryNullable(exception.arguments[0].object);
 		result += '(';
 		result += memory ? memory->debugName : "<unknown memory>";
 		result += '+';
@@ -145,7 +145,7 @@ std::string Runtime::describeException(const Exception& exception)
 			|| exception.typeInstance == Exception::uninitializedTableElementType)
 	{
 		wavmAssert(exception.arguments.size() == 2);
-		TableInstance* table = asTableNullable(exception.arguments[0].object);
+		Table* table = asTableNullable(exception.arguments[0].object);
 		result += '(';
 		result += table ? table->debugName : "<unknown table>";
 		result += '[';
@@ -174,7 +174,7 @@ std::string Runtime::describeException(const Exception& exception)
 	return result;
 }
 
-[[noreturn]] void Runtime::throwException(ExceptionTypeInstance* typeInstance,
+[[noreturn]] void Runtime::throwException(ExceptionType* typeInstance,
 										  std::vector<IR::UntaggedValue>&& arguments)
 {
 	wavmAssert(arguments.size() == typeInstance->type.params.size());
@@ -200,22 +200,22 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  Uptr argsBits,
 						  U32 isUserException)
 {
-	ExceptionTypeInstance* exceptionTypeInstance;
+	ExceptionType* exceptionType;
 	{
 		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-		exceptionTypeInstance = compartment->exceptionTypes[exceptionTypeId];
+		exceptionType = compartment->exceptionTypes[exceptionTypeId];
 	}
 	auto args = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));
 
-	ExceptionData* exceptionData = (ExceptionData*)malloc(
-		ExceptionData::calcNumBytes(exceptionTypeInstance->type.params.size()));
+	ExceptionData* exceptionData
+		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(exceptionType->type.params.size()));
 	exceptionData->typeId = exceptionTypeId;
-	exceptionData->typeInstance = exceptionTypeInstance;
+	exceptionData->typeInstance = exceptionType;
 	exceptionData->isUserException = isUserException ? 1 : 0;
 	memcpy(exceptionData->arguments,
 		   args,
-		   sizeof(IR::UntaggedValue) * exceptionTypeInstance->type.params.size());
+		   sizeof(IR::UntaggedValue) * exceptionType->type.params.size());
 	Platform::raisePlatformException(exceptionData);
 }
 
@@ -232,7 +232,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 static Exception translateExceptionDataToException(const ExceptionData* exceptionData,
 												   const Platform::CallStack& callStack)
 {
-	ExceptionTypeInstance* runtimeType = exceptionData->typeInstance;
+	ExceptionType* runtimeType = exceptionData->typeInstance;
 	std::vector<IR::UntaggedValue> arguments(
 		exceptionData->arguments,
 		exceptionData->arguments + exceptionData->typeInstance->type.params.size());
@@ -249,9 +249,9 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 	{
 		// If the access violation occured in a Table's reserved pages, treat it as an undefined
 		// table element runtime error.
-		TableInstance* table = nullptr;
+		Table* table = nullptr;
 		Uptr tableIndex = 0;
-		MemoryInstance* memory = nullptr;
+		Memory* memory = nullptr;
 		Uptr memoryAddress = 0;
 		if(isAddressOwnedByTable(
 			   reinterpret_cast<U8*>(signal.accessViolation.address), table, tableIndex))

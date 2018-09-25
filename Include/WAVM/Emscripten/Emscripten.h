@@ -16,7 +16,7 @@ namespace WAVM { namespace Emscripten {
 		Runtime::GCPointer<Runtime::ModuleInstance> asm2wasm;
 		Runtime::GCPointer<Runtime::ModuleInstance> global;
 
-		Runtime::GCPointer<Runtime::MemoryInstance> emscriptenMemory;
+		Runtime::GCPointer<Runtime::Memory> emscriptenMemory;
 	};
 
 	EMSCRIPTEN_API Instance* instantiate(Runtime::Compartment* compartment,

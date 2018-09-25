@@ -202,7 +202,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "debugEnterFunction",
 						  void,
 						  debugEnterFunction,
-						  const FunctionInstance* function)
+						  const Function* function)
 {
 	Log::printf(Log::debug,
 				"ENTER: %*s\n",
@@ -215,7 +215,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "debugExitFunction",
 						  void,
 						  debugExitFunction,
-						  const FunctionInstance* function)
+						  const Function* function)
 {
 	--indentLevel;
 	Log::printf(Log::debug,

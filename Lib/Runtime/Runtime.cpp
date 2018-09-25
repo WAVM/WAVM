@@ -11,32 +11,32 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
 #define DEFINE_OBJECT_TYPE(kindId, kindName, Type)                                                 \
-	Type* Runtime::as##kindName(Object* object)                                                    \
+	Runtime::Type* Runtime::as##kindName(Object* object)                                           \
 	{                                                                                              \
 		wavmAssert(!object || object->kind == kindId);                                             \
-		return (Type*)object;                                                                      \
+		return (Runtime::Type*)object;                                                             \
 	}                                                                                              \
-	Type* Runtime::as##kindName##Nullable(Object* object)                                          \
+	Runtime::Type* Runtime::as##kindName##Nullable(Object* object)                                 \
 	{                                                                                              \
-		return object && object->kind == kindId ? (Type*)object : nullptr;                         \
+		return object && object->kind == kindId ? (Runtime::Type*)object : nullptr;                \
 	}                                                                                              \
-	const Type* Runtime::as##kindName(const Object* object)                                        \
+	const Runtime::Type* Runtime::as##kindName(const Object* object)                               \
 	{                                                                                              \
 		wavmAssert(!object || object->kind == kindId);                                             \
-		return (const Type*)object;                                                                \
+		return (const Runtime::Type*)object;                                                       \
 	}                                                                                              \
-	const Type* Runtime::as##kindName##Nullable(const Object* object)                              \
+	const Runtime::Type* Runtime::as##kindName##Nullable(const Object* object)                     \
 	{                                                                                              \
-		return object && object->kind == kindId ? (const Type*)object : nullptr;                   \
+		return object && object->kind == kindId ? (const Runtime::Type*)object : nullptr;          \
 	}                                                                                              \
-	Object* Runtime::asObject(Type* object) { return (Object*)object; }                            \
-	const Object* Runtime::asObject(const Type* object) { return (const Object*)object; }
+	Object* Runtime::asObject(Runtime::Type* object) { return (Object*)object; }                   \
+	const Object* Runtime::asObject(const Runtime::Type* object) { return (const Object*)object; }
 
-DEFINE_OBJECT_TYPE(ObjectKind::function, Function, FunctionInstance);
-DEFINE_OBJECT_TYPE(ObjectKind::table, Table, TableInstance);
-DEFINE_OBJECT_TYPE(ObjectKind::memory, Memory, MemoryInstance);
-DEFINE_OBJECT_TYPE(ObjectKind::global, Global, GlobalInstance);
-DEFINE_OBJECT_TYPE(ObjectKind::exceptionType, ExceptionType, ExceptionTypeInstance);
+DEFINE_OBJECT_TYPE(ObjectKind::function, Function, Function);
+DEFINE_OBJECT_TYPE(ObjectKind::table, Table, Table);
+DEFINE_OBJECT_TYPE(ObjectKind::memory, Memory, Memory);
+DEFINE_OBJECT_TYPE(ObjectKind::global, Global, Global);
+DEFINE_OBJECT_TYPE(ObjectKind::exceptionType, ExceptionType, ExceptionType);
 DEFINE_OBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
 DEFINE_OBJECT_TYPE(ObjectKind::context, Context, Context);
 DEFINE_OBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
@@ -69,7 +69,7 @@ ExternType Runtime::getObjectType(Object* object)
 	};
 }
 
-FunctionType Runtime::getFunctionType(FunctionInstance* function) { return function->encodedType; }
+FunctionType Runtime::getFunctionType(Function* function) { return function->encodedType; }
 
 Context* Runtime::getContextFromRuntimeData(ContextRuntimeData* contextRuntimeData)
 {
@@ -94,8 +94,7 @@ ModuleInstance* Runtime::getModuleInstanceFromRuntimeData(ContextRuntimeData* co
 	return compartment->moduleInstances[moduleInstanceId];
 }
 
-TableInstance* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData,
-												Uptr tableId)
+Table* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
@@ -103,8 +102,7 @@ TableInstance* Runtime::getTableFromRuntimeData(ContextRuntimeData* contextRunti
 	return compartment->tables[tableId];
 }
 
-MemoryInstance* Runtime::getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData,
-												  Uptr memoryId)
+Memory* Runtime::getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId)
 {
 	Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);

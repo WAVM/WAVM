@@ -286,16 +286,16 @@ namespace WAVM { namespace LLVMJIT {
 									  mutableData,
 									  moduleInstanceId,
 									  typeId}));
-		static_assert(offsetof(Runtime::FunctionInstance, object) == sizeof(Uptr) * 0,
-					  "Function prefix must match Runtime::FunctionInstance layout");
-		static_assert(offsetof(Runtime::FunctionInstance, mutableData) == sizeof(Uptr) * 1,
-					  "Function prefix must match Runtime::FunctionInstance layout");
-		static_assert(offsetof(Runtime::FunctionInstance, moduleInstanceId) == sizeof(Uptr) * 2,
-					  "Function prefix must match Runtime::FunctionInstance layout");
-		static_assert(offsetof(Runtime::FunctionInstance, encodedType) == sizeof(Uptr) * 3,
-					  "Function prefix must match Runtime::FunctionInstance layout");
-		static_assert(offsetof(Runtime::FunctionInstance, code) == sizeof(Uptr) * 4,
-					  "Function prefix must match Runtime::FunctionInstance layout");
+		static_assert(offsetof(Runtime::Function, object) == sizeof(Uptr) * 0,
+					  "Function prefix must match Runtime::Function layout");
+		static_assert(offsetof(Runtime::Function, mutableData) == sizeof(Uptr) * 1,
+					  "Function prefix must match Runtime::Function layout");
+		static_assert(offsetof(Runtime::Function, moduleInstanceId) == sizeof(Uptr) * 2,
+					  "Function prefix must match Runtime::Function layout");
+		static_assert(offsetof(Runtime::Function, encodedType) == sizeof(Uptr) * 3,
+					  "Function prefix must match Runtime::Function layout");
+		static_assert(offsetof(Runtime::Function, code) == sizeof(Uptr) * 4,
+					  "Function prefix must match Runtime::Function layout");
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function
@@ -317,8 +317,8 @@ namespace WAVM { namespace LLVMJIT {
 	// Encapsulates a loaded module.
 	struct LoadedModule
 	{
-		std::map<Uptr, Runtime::FunctionInstance*> addressToFunctionMap;
-		HashMap<std::string, Runtime::FunctionInstance*> nameToFunctionMap;
+		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
+		HashMap<std::string, Runtime::Function*> nameToFunctionMap;
 
 		LoadedModule(const std::vector<U8>& inObjectBytes,
 					 const HashMap<std::string, Uptr>& importedSymbolMap,

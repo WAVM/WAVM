@@ -18,8 +18,8 @@ namespace WAVM { namespace IR {
 }}
 namespace WAVM { namespace Runtime {
 	struct ContextRuntimeData;
-	struct ExceptionTypeInstance;
-	struct FunctionInstance;
+	struct ExceptionType;
+	struct Function;
 	struct ModuleInstance;
 }}
 
@@ -91,18 +91,17 @@ namespace WAVM { namespace LLVMJIT {
 
 	// Finds the JIT function whose code contains the given address. If no JIT function contains the
 	// given address, returns null.
-	LLVMJIT_API Runtime::FunctionInstance* getFunctionByAddress(Uptr address);
+	LLVMJIT_API Runtime::Function* getFunctionByAddress(Uptr address);
 
-	typedef Runtime::ContextRuntimeData* (*InvokeThunkPointer)(Runtime::FunctionInstance*,
+	typedef Runtime::ContextRuntimeData* (*InvokeThunkPointer)(Runtime::Function*,
 															   Runtime::ContextRuntimeData*);
 
 	// Generates an invoke thunk for a specific function type.
 	LLVMJIT_API InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);
 
 	// Generates a thunk to call a native function from generated code.
-	LLVMJIT_API Runtime::FunctionInstance* getIntrinsicThunk(
-		void* nativeFunction,
-		IR::FunctionType functionType,
-		IR::CallingConvention callingConvention,
-		const char* debugName);
+	LLVMJIT_API Runtime::Function* getIntrinsicThunk(void* nativeFunction,
+													 IR::FunctionType functionType,
+													 IR::CallingConvention callingConvention,
+													 const char* debugName);
 }}

@@ -18,10 +18,10 @@ namespace WAVM { namespace Runtime {
 	// Forward declarations
 	struct Compartment;
 	struct Context;
-	struct ExceptionTypeInstance;
+	struct ExceptionType;
 	struct Object;
-	struct TableInstance;
-	struct MemoryInstance;
+	struct Table;
+	struct Memory;
 
 	// Runtime object types. This must be a superset of IR::ExternKind, with IR::ExternKind
 	// values having the same representation in Runtime::ObjectKind.
@@ -50,7 +50,7 @@ namespace WAVM { namespace Runtime {
 	static_assert(Uptr(IR::ExternKind::global) == Uptr(ObjectKind::global),
 				  "IR::ExternKind::global != ObjectKind::global");
 	static_assert(Uptr(IR::ExternKind::exceptionType) == Uptr(ObjectKind::exceptionType),
-				  "IR::ExternKind::exceptionTypeInstance != ObjectKind::exceptionType");
+				  "IR::ExternKind::exceptionType != ObjectKind::exceptionType");
 
 #define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
 
@@ -102,7 +102,7 @@ namespace WAVM { namespace Runtime {
 	struct ExceptionData
 	{
 		Uptr typeId;
-		ExceptionTypeInstance* typeInstance;
+		ExceptionType* typeInstance;
 		U8 isUserException;
 		IR::UntaggedValue arguments[1];
 
@@ -122,7 +122,7 @@ namespace WAVM { namespace Runtime {
 	struct FunctionMutableData
 	{
 		LLVMJIT::LoadedModule* jitModule = nullptr;
-		Runtime::FunctionInstance* function = nullptr;
+		Runtime::Function* function = nullptr;
 		Uptr numCodeBytes = 0;
 		std::atomic<Uptr> numRootReferences{0};
 		std::map<U32, U32> offsetToOpIndexMap;
@@ -131,7 +131,7 @@ namespace WAVM { namespace Runtime {
 		FunctionMutableData(std::string&& inDebugName) : debugName(inDebugName) {}
 	};
 
-	struct FunctionInstance
+	struct Function
 	{
 		Object object;
 		FunctionMutableData* mutableData;
@@ -139,9 +139,9 @@ namespace WAVM { namespace Runtime {
 		const IR::FunctionType::Encoding encodedType;
 		const U8 code[1];
 
-		FunctionInstance(FunctionMutableData* inMutableData,
-						 Uptr inModuleInstanceId,
-						 IR::FunctionType::Encoding inEncodedType)
+		Function(FunctionMutableData* inMutableData,
+				 Uptr inModuleInstanceId,
+				 IR::FunctionType::Encoding inEncodedType)
 		: object{ObjectKind::function}
 		, mutableData(inMutableData)
 		, moduleInstanceId(inModuleInstanceId)

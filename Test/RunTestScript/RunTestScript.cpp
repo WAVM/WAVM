@@ -145,7 +145,7 @@ static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
 	return moduleInstance;
 }
 
-static Runtime::ExceptionTypeInstance* getExpectedExceptionType(WAST::ExpectedTrapType expectedType)
+static Runtime::ExceptionType* getExpectedExceptionType(WAST::ExpectedTrapType expectedType)
 {
 	switch(expectedType)
 	{
@@ -204,7 +204,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 														 "test module");
 
 			// Call the module start function, if it has one.
-			FunctionInstance* startFunction = getStartFunction(state.lastModuleInstance);
+			Function* startFunction = getStartFunction(state.lastModuleInstance);
 			if(startFunction) { invokeFunctionChecked(state.context, startFunction, {}); }
 		}
 		else
@@ -243,9 +243,9 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 		if(!moduleInstance) { return false; }
 
 		// Find the named export in the module instance.
-		auto functionInstance
+		auto function
 			= asFunctionNullable(getInstanceExport(moduleInstance, invokeAction->exportName));
-		if(!functionInstance)
+		if(!function)
 		{
 			testErrorf(state,
 					   invokeAction->locus,
@@ -255,8 +255,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 		}
 
 		// Execute the invoke
-		outResults = invokeFunctionChecked(
-			state.context, functionInstance, invokeAction->arguments.values);
+		outResults = invokeFunctionChecked(state.context, function, invokeAction->arguments.values);
 
 		return true;
 	}
@@ -273,9 +272,8 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 		if(!moduleInstance) { return false; }
 
 		// Find the named export in the module instance.
-		auto globalInstance
-			= asGlobalNullable(getInstanceExport(moduleInstance, getAction->exportName));
-		if(!globalInstance)
+		auto global = asGlobalNullable(getInstanceExport(moduleInstance, getAction->exportName));
+		if(!global)
 		{
 			testErrorf(state,
 					   getAction->locus,
@@ -285,7 +283,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 		}
 
 		// Get the value of the specified global.
-		outResults = getGlobalValue(state.context, globalInstance);
+		outResults = getGlobalValue(state.context, global);
 
 		return true;
 	}
@@ -411,7 +409,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 				}
 			},
 			[&](Runtime::Exception&& exception) {
-				Runtime::ExceptionTypeInstance* expectedType
+				Runtime::ExceptionType* expectedType
 					= getExpectedExceptionType(assertCommand->expectedType);
 				if(exception.typeInstance != expectedType)
 				{
@@ -526,7 +524,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 											"test module");
 
 					// Call the module start function, if it has one.
-					FunctionInstance* startFunction = getStartFunction(moduleInstance);
+					Function* startFunction = getStartFunction(moduleInstance);
 					if(startFunction) { invokeFunctionChecked(state.context, startFunction, {}); }
 
 					testErrorf(state, assertCommand->locus, "module was linkable");

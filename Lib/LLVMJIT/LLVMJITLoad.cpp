@@ -41,7 +41,7 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace Runtime {
-	struct ExceptionTypeInstance;
+	struct ExceptionType;
 }}
 
 #define PRINT_DISASSEMBLY 0
@@ -495,9 +495,8 @@ LoadedModule::LoadedModule(const std::vector<U8>& inObjectBytes,
 
 		// Add the function to the module's name and address to function maps.
 		wavmAssert(symbolSizePair.second <= UINTPTR_MAX);
-		Runtime::FunctionInstance* function
-			= (Runtime::FunctionInstance*)(loadedAddress
-										   - offsetof(Runtime::FunctionInstance, code));
+		Runtime::Function* function
+			= (Runtime::Function*)(loadedAddress - offsetof(Runtime::Function, code));
 		nameToFunctionMap.addOrFail(*name, function);
 		addressToFunctionMap.emplace(Uptr(loadedAddress + symbolSizePair.second), function);
 
@@ -651,7 +650,7 @@ LoadedModule* LLVMJIT::loadModule(
 
 void LLVMJIT::unloadModule(LoadedModule* loadedModule) { delete loadedModule; }
 
-Runtime::FunctionInstance* LLVMJIT::getFunctionByAddress(Uptr address)
+Runtime::Function* LLVMJIT::getFunctionByAddress(Uptr address)
 {
 	LoadedModule* jitModule;
 	{
@@ -663,7 +662,7 @@ Runtime::FunctionInstance* LLVMJIT::getFunctionByAddress(Uptr address)
 
 	auto functionIt = jitModule->addressToFunctionMap.upper_bound(address);
 	if(functionIt == jitModule->addressToFunctionMap.end()) { return nullptr; }
-	Runtime::FunctionInstance* function = functionIt->second;
+	Runtime::Function* function = functionIt->second;
 	const Uptr codeAddress = reinterpret_cast<Uptr>(function->code);
 	return address >= codeAddress && address < codeAddress + function->mutableData->numCodeBytes
 			   ? function

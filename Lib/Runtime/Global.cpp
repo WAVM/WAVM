@@ -17,7 +17,7 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-GlobalInstance* Runtime::createGlobal(Compartment* compartment, GlobalType type, Value initialValue)
+Global* Runtime::createGlobal(Compartment* compartment, GlobalType type, Value initialValue)
 {
 	errorUnless(isSubtype(initialValue.type, type.valueType));
 	errorUnless(!isReferenceType(type.valueType) || !initialValue.object
@@ -38,25 +38,24 @@ GlobalInstance* Runtime::createGlobal(Compartment* compartment, GlobalType type,
 	}
 
 	// Create the global and add it to the compartment's list of globals.
-	GlobalInstance* globalInstance
-		= new GlobalInstance(compartment, type, mutableGlobalId, initialValue);
+	Global* global = new Global(compartment, type, mutableGlobalId, initialValue);
 	{
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-		compartment->globals.addOrFail(globalInstance);
+		compartment->globals.addOrFail(global);
 	}
 
-	return globalInstance;
+	return global;
 }
 
-GlobalInstance* Runtime::cloneGlobal(GlobalInstance* global, Compartment* newCompartment)
+Global* Runtime::cloneGlobal(Global* global, Compartment* newCompartment)
 {
-	GlobalInstance* newGlobal = new GlobalInstance(
-		newCompartment, global->type, global->mutableGlobalId, global->initialValue);
+	Global* newGlobal
+		= new Global(newCompartment, global->type, global->mutableGlobalId, global->initialValue);
 	newCompartment->globals.addOrFail(newGlobal);
 	return newGlobal;
 }
 
-Runtime::GlobalInstance::~GlobalInstance()
+Runtime::Global::~Global()
 {
 	wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
 	compartment->globals.removeOrFail(this);
@@ -68,7 +67,7 @@ Runtime::GlobalInstance::~GlobalInstance()
 	}
 }
 
-Value Runtime::getGlobalValue(const Context* context, GlobalInstance* global)
+Value Runtime::getGlobalValue(const Context* context, Global* global)
 {
 	wavmAssert(context || !global->type.isMutable);
 	return Value(global->type.valueType,
@@ -77,7 +76,7 @@ Value Runtime::getGlobalValue(const Context* context, GlobalInstance* global)
 					 : global->initialValue);
 }
 
-Value Runtime::setGlobalValue(Context* context, GlobalInstance* global, Value newValue)
+Value Runtime::setGlobalValue(Context* context, Global* global, Value newValue)
 {
 	wavmAssert(context);
 	wavmAssert(newValue.type == global->type.valueType);

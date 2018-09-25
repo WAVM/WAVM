@@ -51,7 +51,7 @@ Intrinsics::Function::Function(Intrinsics::Module& moduleRef,
 	moduleRef.impl->functionMap.set(name, this);
 }
 
-FunctionInstance* Intrinsics::Function::instantiate(Compartment* compartment)
+Function* Intrinsics::Function::instantiate(Compartment* compartment)
 {
 	return LLVMJIT::getIntrinsicThunk(nativeFunction, type, callingConvention, name);
 }
@@ -69,7 +69,7 @@ Intrinsics::Global::Global(Intrinsics::Module& moduleRef,
 	moduleRef.impl->globalMap.set(name, this);
 }
 
-GlobalInstance* Intrinsics::Global::instantiate(Compartment* compartment)
+Global* Intrinsics::Global::instantiate(Compartment* compartment)
 {
 	return createGlobal(compartment, IR::GlobalType(type, false), value);
 }
@@ -86,7 +86,7 @@ Intrinsics::Table::Table(Intrinsics::Module& moduleRef,
 	moduleRef.impl->tableMap.set(name, this);
 }
 
-TableInstance* Intrinsics::Table::instantiate(Compartment* compartment)
+Table* Intrinsics::Table::instantiate(Compartment* compartment)
 {
 	return createTable(compartment, type, name);
 }
@@ -103,7 +103,7 @@ Intrinsics::Memory::Memory(Intrinsics::Module& moduleRef,
 	moduleRef.impl->memoryMap.set(name, this);
 }
 
-MemoryInstance* Intrinsics::Memory::instantiate(Compartment* compartment)
+Memory* Intrinsics::Memory::instantiate(Compartment* compartment)
 {
 	return createMemory(compartment, type, name);
 }
@@ -135,23 +135,23 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 
 		for(const auto& pair : moduleRef.impl->tableMap)
 		{
-			auto tableInstance = pair.value->instantiate(compartment);
-			moduleInstance->tables.push_back(tableInstance);
-			moduleInstance->exportMap.addOrFail(pair.key, asObject(tableInstance));
+			auto table = pair.value->instantiate(compartment);
+			moduleInstance->tables.push_back(table);
+			moduleInstance->exportMap.addOrFail(pair.key, asObject(table));
 		}
 
 		for(const auto& pair : moduleRef.impl->memoryMap)
 		{
-			auto memoryInstance = pair.value->instantiate(compartment);
-			moduleInstance->memories.push_back(memoryInstance);
-			moduleInstance->exportMap.addOrFail(pair.key, asObject(memoryInstance));
+			auto memory = pair.value->instantiate(compartment);
+			moduleInstance->memories.push_back(memory);
+			moduleInstance->exportMap.addOrFail(pair.key, asObject(memory));
 		}
 
 		for(const auto& pair : moduleRef.impl->globalMap)
 		{
-			auto globalInstance = pair.value->instantiate(compartment);
-			moduleInstance->globals.push_back(globalInstance);
-			moduleInstance->exportMap.addOrFail(pair.key, asObject(globalInstance));
+			auto global = pair.value->instantiate(compartment);
+			moduleInstance->globals.push_back(global);
+			moduleInstance->exportMap.addOrFail(pair.key, asObject(global));
 		}
 
 		for(const auto& pair : extraExports)

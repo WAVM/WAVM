@@ -7,14 +7,23 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-static FunctionType resolveImportType(const IR::Module& module, IndexedFunctionType type)
+static IR::FunctionType resolveImportType(const IR::Module& module, IR::IndexedFunctionType type)
 {
 	return module.types[type.index];
 }
-static TableType resolveImportType(const IR::Module& module, TableType type) { return type; }
-static MemoryType resolveImportType(const IR::Module& module, MemoryType type) { return type; }
-static GlobalType resolveImportType(const IR::Module& module, GlobalType type) { return type; }
-static ExceptionType resolveImportType(const IR::Module& module, ExceptionType type)
+static IR::TableType resolveImportType(const IR::Module& module, IR::TableType type)
+{
+	return type;
+}
+static IR::MemoryType resolveImportType(const IR::Module& module, IR::MemoryType type)
+{
+	return type;
+}
+static IR::GlobalType resolveImportType(const IR::Module& module, IR::GlobalType type)
+{
+	return type;
+}
+static IR::ExceptionType resolveImportType(const IR::Module& module, IR::ExceptionType type)
 {
 	return type;
 }

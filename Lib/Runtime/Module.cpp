@@ -23,7 +23,7 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-static Value evaluateInitializer(const std::vector<GlobalInstance*>& moduleGlobals,
+static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 								 InitializerExpression expression)
 {
 	switch(expression.type)
@@ -37,10 +37,10 @@ static Value evaluateInitializer(const std::vector<GlobalInstance*>& moduleGloba
 	{
 		// Find the import this refers to.
 		errorUnless(expression.globalIndex < moduleGlobals.size());
-		GlobalInstance* globalInstance = moduleGlobals[expression.globalIndex];
-		errorUnless(globalInstance);
-		errorUnless(!globalInstance->type.isMutable);
-		return IR::Value(globalInstance->type.valueType, globalInstance->initialValue);
+		Global* global = moduleGlobals[expression.globalIndex];
+		errorUnless(global);
+		errorUnless(!global->type.isMutable);
+		return IR::Value(global->type.valueType, global->initialValue);
 	}
 	case InitializerExpression::Type::ref_null: return nullptr;
 	default: Errors::unreachable();
@@ -190,7 +190,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			= disassemblyNames
 				  .exceptionTypes[module->ir.exceptionTypes.imports.size() + exceptionTypeDefIndex];
 		moduleInstance->exceptionTypes.push_back(
-			createExceptionTypeInstance(compartment, exceptionTypeDef.type, std::move(debugName)));
+			createExceptionType(compartment, exceptionTypeDef.type, std::move(debugName)));
 	}
 
 	HashMap<std::string, LLVMJIT::FunctionBinding> wavmIntrinsicsExportMap;
@@ -218,13 +218,13 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	}
 
 	std::vector<LLVMJIT::TableBinding> jitTables;
-	for(TableInstance* table : moduleInstance->tables) { jitTables.push_back({table->id}); }
+	for(Table* table : moduleInstance->tables) { jitTables.push_back({table->id}); }
 
 	std::vector<LLVMJIT::MemoryBinding> jitMemories;
-	for(MemoryInstance* memory : moduleInstance->memories) { jitMemories.push_back({memory->id}); }
+	for(Memory* memory : moduleInstance->memories) { jitMemories.push_back({memory->id}); }
 
 	std::vector<LLVMJIT::GlobalBinding> jitGlobals;
-	for(GlobalInstance* global : moduleInstance->globals)
+	for(Global* global : moduleInstance->globals)
 	{
 		LLVMJIT::GlobalBinding globalSpec;
 		globalSpec.type = global->type;
@@ -237,8 +237,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	}
 
 	std::vector<LLVMJIT::ExceptionTypeBinding> jitExceptionTypes;
-	for(ExceptionTypeInstance* exceptionTypeInstance : moduleInstance->exceptionTypes)
-	{ jitExceptionTypes.push_back({exceptionTypeInstance->id}); }
+	for(ExceptionType* exceptionType : moduleInstance->exceptionTypes)
+	{ jitExceptionTypes.push_back({exceptionType->id}); }
 
 	// Create a FunctionMutableData for each function definition.
 	std::vector<FunctionMutableData*> functionDefMutableDatas;
@@ -256,7 +256,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	}
 
 	// Load the compiled module's object code with this module instance's imports.
-	std::vector<Runtime::FunctionInstance*> jitFunctionDefs;
+	std::vector<Runtime::Function*> jitFunctionDefs;
 	jitFunctionDefs.resize(module->ir.functions.defs.size(), nullptr);
 	moduleInstance->jitModule = LLVMJIT::loadModule(module->objectCode,
 													std::move(wavmIntrinsicsExportMap),
@@ -306,7 +306,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		if(dataSegment.isActive)
 		{
-			MemoryInstance* memory = moduleInstance->memories[dataSegment.memoryIndex];
+			Memory* memory = moduleInstance->memories[dataSegment.memoryIndex];
 
 			const Value baseOffsetValue
 				= evaluateInitializer(moduleInstance->globals, dataSegment.baseOffset);
@@ -337,7 +337,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		if(elemSegment.isActive)
 		{
-			TableInstance* table = moduleInstance->tables[elemSegment.tableIndex];
+			Table* table = moduleInstance->tables[elemSegment.tableIndex];
 
 			const Value baseOffsetValue
 				= evaluateInitializer(moduleInstance->globals, elemSegment.baseOffset);
@@ -350,7 +350,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				{
 					const Uptr functionIndex = elemSegment.indices[index];
 					wavmAssert(functionIndex < moduleInstance->functions.size());
-					FunctionInstance* function = moduleInstance->functions[functionIndex];
+					Function* function = moduleInstance->functions[functionIndex];
 					setTableElement(table, baseOffset + index, asObject(function));
 				}
 			}
@@ -402,16 +402,16 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	return moduleInstance;
 }
 
-FunctionInstance* Runtime::getStartFunction(ModuleInstance* moduleInstance)
+Function* Runtime::getStartFunction(ModuleInstance* moduleInstance)
 {
 	return moduleInstance->startFunction;
 }
 
-MemoryInstance* Runtime::getDefaultMemory(ModuleInstance* moduleInstance)
+Memory* Runtime::getDefaultMemory(ModuleInstance* moduleInstance)
 {
 	return moduleInstance->defaultMemory;
 }
-TableInstance* Runtime::getDefaultTable(ModuleInstance* moduleInstance)
+Table* Runtime::getDefaultTable(ModuleInstance* moduleInstance)
 {
 	return moduleInstance->defaultTable;
 }

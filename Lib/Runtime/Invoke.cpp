@@ -16,7 +16,7 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
 UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
-												FunctionInstance* function,
+												Function* function,
 												const UntaggedValue* arguments)
 {
 	FunctionType functionType = function->encodedType;
@@ -56,7 +56,7 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 }
 
 ValueTuple Runtime::invokeFunctionChecked(Context* context,
-										  FunctionInstance* function,
+										  Function* function,
 										  const std::vector<Value>& arguments)
 {
 	errorUnless(isInCompartment(asObject(function), context->compartment));
@@ -106,9 +106,7 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		case ValueType::f64: results.values.push_back(Value(*(F64*)result)); break;
 		case ValueType::v128: results.values.push_back(Value(*(V128*)result)); break;
 		case ValueType::anyref: results.values.push_back(Value(*(Object**)result)); break;
-		case ValueType::anyfunc:
-			results.values.push_back(Value(*(FunctionInstance**)result));
-			break;
+		case ValueType::anyfunc: results.values.push_back(Value(*(Function**)result)); break;
 		default: Errors::unreachable();
 		};
 

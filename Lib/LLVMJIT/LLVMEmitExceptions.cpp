@@ -423,7 +423,8 @@ void EmitFunctionContext::catch_all(NoImm)
 
 void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 {
-	const ExceptionType& exceptionType = irModule.exceptionTypes.getType(imm.exceptionTypeIndex);
+	const IR::ExceptionType& exceptionType
+		= irModule.exceptionTypes.getType(imm.exceptionTypeIndex);
 
 	const Uptr numArgs = exceptionType.params.size();
 	const Uptr numArgBytes = numArgs * sizeof(UntaggedValue);

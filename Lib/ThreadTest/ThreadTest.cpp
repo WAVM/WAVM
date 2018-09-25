@@ -36,12 +36,12 @@ struct Thread
 
 	Platform::Thread* platformThread = nullptr;
 	Runtime::GCPointer<Runtime::Context> context;
-	Runtime::GCPointer<Runtime::FunctionInstance> entryFunction;
+	Runtime::GCPointer<Runtime::Function> entryFunction;
 
 	IR::Value argument;
 
 	FORCENOINLINE Thread(Runtime::Context* inContext,
-						 Runtime::FunctionInstance* inEntryFunction,
+						 Runtime::Function* inEntryFunction,
 						 const IR::Value& inArgument)
 	: context(inContext), entryFunction(inEntryFunction), argument(inArgument)
 	{
@@ -117,7 +117,7 @@ DEFINE_INTRINSIC_FUNCTION(threadTest,
 						  "createThread",
 						  U64,
 						  createThread,
-						  FunctionInstance* entryFunction,
+						  Function* entryFunction,
 						  I32 entryArgument)
 {
 	// Validate that the entry function is non-null and has the correct type (i32)->i64

@@ -22,16 +22,16 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::WAST;
 
-static Runtime::FunctionInstance* makeHostRef(Uptr index)
+static Runtime::Function* makeHostRef(Uptr index)
 {
-	static HashMap<Uptr, Runtime::FunctionInstance*> indexToHostRefMap;
-	Runtime::FunctionInstance*& function = indexToHostRefMap.getOrAdd(index, nullptr);
+	static HashMap<Uptr, Runtime::Function*> indexToHostRefMap;
+	Runtime::Function*& function = indexToHostRefMap.getOrAdd(index, nullptr);
 	if(!function)
 	{
 		Runtime::FunctionMutableData* functionMutableData
 			= new Runtime::FunctionMutableData("test!ref.host!" + std::to_string(index));
-		function = new Runtime::FunctionInstance(
-			functionMutableData, UINTPTR_MAX, FunctionType::Encoding{0});
+		function
+			= new Runtime::Function(functionMutableData, UINTPTR_MAX, FunctionType::Encoding{0});
 		functionMutableData->function = function;
 	}
 	return function;

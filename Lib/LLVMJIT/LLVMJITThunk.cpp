@@ -44,11 +44,11 @@ using namespace WAVM::Runtime;
 
 // A map from function types to JIT symbols for cached invoke thunks (C++ -> WASM)
 static Platform::Mutex invokeThunkMutex;
-static HashMap<FunctionType, Runtime::FunctionInstance*> invokeThunkTypeToFunctionMap;
+static HashMap<FunctionType, Runtime::Function*> invokeThunkTypeToFunctionMap;
 
 // A map from function types to JIT symbols for cached native thunks (WASM -> C++)
 static Platform::Mutex intrinsicThunkMutex;
-static HashMap<void*, Runtime::FunctionInstance*> intrinsicFunctionToThunkFunctionMap;
+static HashMap<void*, Runtime::Function*> intrinsicFunctionToThunkFunctionMap;
 
 InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 {
@@ -57,7 +57,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	LLVMContext llvmContext;
 
 	// Reuse cached invoke thunks for the same function type.
-	Runtime::FunctionInstance*& invokeThunkFunction
+	Runtime::Function*& invokeThunkFunction
 		= invokeThunkTypeToFunctionMap.getOrAdd(functionType, nullptr);
 	if(invokeThunkFunction)
 	{ return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code)); }
@@ -108,8 +108,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	// Call the function.
 	llvm::Value* functionCode = emitContext.irBuilder.CreateInBoundsGEP(
-		calleeFunction,
-		{emitLiteral(llvmContext, Uptr(offsetof(Runtime::FunctionInstance, code)))});
+		calleeFunction, {emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code)))});
 	ValueVector results = emitContext.emitCallOrInvoke(
 		emitContext.irBuilder.CreatePointerCast(
 			functionCode,
@@ -158,10 +157,10 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
 }
 
-Runtime::FunctionInstance* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
-													  FunctionType functionType,
-													  CallingConvention callingConvention,
-													  const char* debugName)
+Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
+											  FunctionType functionType,
+											  CallingConvention callingConvention,
+											  const char* debugName)
 {
 	Lock<Platform::Mutex> intrinsicThunkLock(intrinsicThunkMutex);
 
@@ -171,14 +170,14 @@ Runtime::FunctionInstance* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	LLVMContext llvmContext;
 
 	// Reuse cached intrinsic thunks for the same function type.
-	Runtime::FunctionInstance*& intrinsicThunkFunction
+	Runtime::Function*& intrinsicThunkFunction
 		= intrinsicFunctionToThunkFunctionMap.getOrAdd(nativeFunction, nullptr);
 	if(intrinsicThunkFunction) { return intrinsicThunkFunction; }
-	
+
 	// Create a FunctionMutableData object for the thunk.
 	FunctionMutableData* functionMutableData
 		= new FunctionMutableData(std::string("thnk!WASM to C thunk!(") + debugName + ')');
-	
+
 	// Create a LLVM module containing a single function with the same signature as the native
 	// function, but with the WASM calling convention.
 	llvm::Module llvmModule("", llvmContext);

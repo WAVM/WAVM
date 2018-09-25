@@ -386,7 +386,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	auto elementTypeId = loadFromUntypedPointer(
 		irBuilder.CreateInBoundsGEP(
 			runtimeFunction,
-			emitLiteral(llvmContext, Uptr(offsetof(Runtime::FunctionInstance, encodedType)))),
+			emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, encodedType)))),
 		llvmContext.iptrType);
 	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
 
@@ -407,8 +407,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	// Call the function loaded from the table.
 	auto functionPointer = irBuilder.CreatePointerCast(
 		irBuilder.CreateInBoundsGEP(
-			runtimeFunction,
-			emitLiteral(llvmContext, Uptr(offsetof(Runtime::FunctionInstance, code)))),
+			runtimeFunction, emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code)))),
 		asLLVMType(llvmContext, calleeType, CallingConvention::wasm)->getPointerTo());
 	ValueVector results = emitCallOrInvoke(functionPointer,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),

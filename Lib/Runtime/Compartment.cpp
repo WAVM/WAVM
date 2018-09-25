@@ -66,23 +66,23 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 
 	// Clone globals.
 	newCompartment->globalDataAllocationMask = compartment->globalDataAllocationMask;
-	for(GlobalInstance* global : compartment->globals)
+	for(Global* global : compartment->globals)
 	{
-		GlobalInstance* newGlobal = cloneGlobal(global, newCompartment);
+		Global* newGlobal = cloneGlobal(global, newCompartment);
 		wavmAssert(newGlobal->mutableGlobalId == global->mutableGlobalId);
 	}
 
 	// Clone memories.
-	for(MemoryInstance* memory : compartment->memories)
+	for(Memory* memory : compartment->memories)
 	{
-		MemoryInstance* newMemory = cloneMemory(memory, newCompartment);
+		Memory* newMemory = cloneMemory(memory, newCompartment);
 		wavmAssert(newMemory->id == memory->id);
 	}
 
 	// Clone tables.
-	for(TableInstance* table : compartment->tables)
+	for(Table* table : compartment->tables)
 	{
-		TableInstance* newTable = cloneTable(table, newCompartment);
+		Table* newTable = cloneTable(table, newCompartment);
 		wavmAssert(newTable->id == table->id);
 	}
 
@@ -93,8 +93,8 @@ Uptr Runtime::getCompartmentModuleInstanceId(ModuleInstance* moduleInstance)
 {
 	return moduleInstance->id;
 }
-Uptr Runtime::getCompartmentTableId(const TableInstance* table) { return table->id; }
-Uptr Runtime::getCompartmentMemoryId(const MemoryInstance* memory) { return memory->id; }
+Uptr Runtime::getCompartmentTableId(const Table* table) { return table->id; }
+Uptr Runtime::getCompartmentMemoryId(const Memory* memory) { return memory->id; }
 
 ModuleInstance* Runtime::getCompartmentModuleInstanceById(const Compartment* compartment,
 														  Uptr moduleInstanceId)
@@ -102,12 +102,12 @@ ModuleInstance* Runtime::getCompartmentModuleInstanceById(const Compartment* com
 	Lock<Platform::Mutex> lock(compartment->mutex);
 	return compartment->moduleInstances[moduleInstanceId];
 }
-TableInstance* Runtime::getCompartmentTableById(const Compartment* compartment, Uptr tableId)
+Table* Runtime::getCompartmentTableById(const Compartment* compartment, Uptr tableId)
 {
 	Lock<Platform::Mutex> lock(compartment->mutex);
 	return compartment->tables[tableId];
 }
-MemoryInstance* Runtime::getCompartmentMemoryById(const Compartment* compartment, Uptr memoryId)
+Memory* Runtime::getCompartmentMemoryById(const Compartment* compartment, Uptr memoryId)
 {
 	Lock<Platform::Mutex> lock(compartment->mutex);
 	return compartment->memories[memoryId];
@@ -120,7 +120,7 @@ bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
 		// The function may be in multiple compartments, but if this compartment maps the function's
 		// moduleInstanceId to a ModuleInstance with the LLVMJIT LoadedModule that contains this
 		// function, then the function is in this compartment.
-		FunctionInstance* function = (FunctionInstance*)object;
+		Function* function = (Function*)object;
 
 		// Treat functions with moduleInstanceId=UINTPTR_MAX as if they are in all compartments.
 		if(function->moduleInstanceId == UINTPTR_MAX) { return true; }

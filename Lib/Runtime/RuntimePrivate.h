@@ -34,7 +34,7 @@ namespace WAVM { namespace Runtime {
 	};
 
 	// An instance of a WebAssembly Table.
-	struct TableInstance : GCObject
+	struct Table : GCObject
 	{
 		struct Element
 		{
@@ -52,15 +52,13 @@ namespace WAVM { namespace Runtime {
 		mutable Platform::Mutex resizingMutex;
 		std::atomic<Uptr> numElements{0};
 
-		TableInstance(Compartment* inCompartment,
-					  const IR::TableType& inType,
-					  std::string&& inDebugName)
+		Table(Compartment* inCompartment, const IR::TableType& inType, std::string&& inDebugName)
 		: GCObject(ObjectKind::table, inCompartment)
 		, type(inType)
 		, debugName(std::move(inDebugName))
 		{
 		}
-		~TableInstance() override;
+		~Table() override;
 	};
 
 	// This is used as a sentinel value for table elements that are out-of-bounds. The address of
@@ -69,7 +67,7 @@ namespace WAVM { namespace Runtime {
 	extern Object* getOutOfBoundsElement();
 
 	// An instance of a WebAssembly Memory.
-	struct MemoryInstance : GCObject
+	struct Memory : GCObject
 	{
 		Uptr id = UINTPTR_MAX;
 		IR::MemoryType type;
@@ -81,55 +79,53 @@ namespace WAVM { namespace Runtime {
 		mutable Platform::Mutex resizingMutex;
 		std::atomic<Uptr> numPages{0};
 
-		MemoryInstance(Compartment* inCompartment,
-					   const IR::MemoryType& inType,
-					   std::string&& inDebugName)
+		Memory(Compartment* inCompartment, const IR::MemoryType& inType, std::string&& inDebugName)
 		: GCObject(ObjectKind::memory, inCompartment)
 		, type(inType)
 		, debugName(std::move(inDebugName))
 		{
 		}
-		~MemoryInstance() override;
+		~Memory() override;
 	};
 
 	// An instance of a WebAssembly global.
-	struct GlobalInstance : GCObject
+	struct Global : GCObject
 	{
 		const IR::GlobalType type;
 		const U32 mutableGlobalId;
 		const IR::UntaggedValue initialValue;
 
-		GlobalInstance(Compartment* inCompartment,
-					   IR::GlobalType inType,
-					   U32 inMutableGlobalId,
-					   IR::UntaggedValue inInitialValue)
+		Global(Compartment* inCompartment,
+			   IR::GlobalType inType,
+			   U32 inMutableGlobalId,
+			   IR::UntaggedValue inInitialValue)
 		: GCObject(ObjectKind::global, inCompartment)
 		, type(inType)
 		, mutableGlobalId(inMutableGlobalId)
 		, initialValue(inInitialValue)
 		{
 		}
-		~GlobalInstance() override;
+		~Global() override;
 	};
 
 	// An instance of a WebAssembly exception type.
-	struct ExceptionTypeInstance : GCObject
+	struct ExceptionType : GCObject
 	{
 		Uptr id = UINTPTR_MAX;
 
 		IR::ExceptionType type;
 		std::string debugName;
 
-		ExceptionTypeInstance(Compartment* inCompartment,
-							  IR::ExceptionType inType,
-							  std::string&& inDebugName)
+		ExceptionType(Compartment* inCompartment,
+					  IR::ExceptionType inType,
+					  std::string&& inDebugName)
 		: GCObject(ObjectKind::exceptionType, inCompartment)
 		, type(inType)
 		, debugName(std::move(inDebugName))
 		{
 		}
 
-		~ExceptionTypeInstance() override;
+		~ExceptionType() override;
 	};
 
 	// A compiled WebAssembly module.
@@ -151,15 +147,15 @@ namespace WAVM { namespace Runtime {
 
 		HashMap<std::string, Object*> exportMap;
 
-		std::vector<FunctionInstance*> functions;
-		std::vector<TableInstance*> tables;
-		std::vector<MemoryInstance*> memories;
-		std::vector<GlobalInstance*> globals;
-		std::vector<ExceptionTypeInstance*> exceptionTypes;
+		std::vector<Function*> functions;
+		std::vector<Table*> tables;
+		std::vector<Memory*> memories;
+		std::vector<Global*> globals;
+		std::vector<ExceptionType*> exceptionTypes;
 
-		FunctionInstance* startFunction = nullptr;
-		MemoryInstance* defaultMemory = nullptr;
-		TableInstance* defaultTable = nullptr;
+		Function* startFunction = nullptr;
+		Memory* defaultMemory = nullptr;
+		Table* defaultTable = nullptr;
 
 		mutable Platform::Mutex passiveDataSegmentsMutex;
 		HashMap<Uptr, std::shared_ptr<const std::vector<U8>>> passiveDataSegments;
@@ -172,11 +168,11 @@ namespace WAVM { namespace Runtime {
 		std::string debugName;
 
 		ModuleInstance(Compartment* inCompartment,
-					   std::vector<FunctionInstance*>&& inFunctionImports,
-					   std::vector<TableInstance*>&& inTableImports,
-					   std::vector<MemoryInstance*>&& inMemoryImports,
-					   std::vector<GlobalInstance*>&& inGlobalImports,
-					   std::vector<ExceptionTypeInstance*>&& inExceptionTypeImports,
+					   std::vector<Function*>&& inFunctionImports,
+					   std::vector<Table*>&& inTableImports,
+					   std::vector<Memory*>&& inMemoryImports,
+					   std::vector<Global*>&& inGlobalImports,
+					   std::vector<ExceptionType*>&& inExceptionTypeImports,
 					   std::string&& inDebugName)
 		: GCObject(ObjectKind::moduleInstance, inCompartment)
 		, functions(inFunctionImports)
@@ -208,12 +204,12 @@ namespace WAVM { namespace Runtime {
 		U8* unalignedRuntimeData;
 
 		IndexMap<Uptr, ModuleInstance*> moduleInstances;
-		IndexMap<Uptr, MemoryInstance*> memories;
-		IndexMap<Uptr, TableInstance*> tables;
+		IndexMap<Uptr, Memory*> memories;
+		IndexMap<Uptr, Table*> tables;
 		IndexMap<Uptr, Context*> contexts;
-		IndexMap<Uptr, ExceptionTypeInstance*> exceptionTypes;
+		IndexMap<Uptr, ExceptionType*> exceptionTypes;
 
-		HashSet<GlobalInstance*> globals;
+		HashSet<Global*> globals;
 
 		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
 		IR::UntaggedValue initialContextMutableGlobals[maxMutableGlobals];
@@ -231,18 +227,18 @@ namespace WAVM { namespace Runtime {
 	Runtime::ModuleInstance* instantiateWAVMIntrinsics(Compartment* compartment);
 
 	// Checks whether an address is owned by a table or memory.
-	bool isAddressOwnedByTable(U8* address, TableInstance*& outTable, Uptr& outTableIndex);
-	bool isAddressOwnedByMemory(U8* address, MemoryInstance*& outMemory, Uptr& outMemoryAddress);
+	bool isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTableIndex);
+	bool isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outMemoryAddress);
 
 	// Clones a memory or table with the same ID in a new compartment.
-	TableInstance* cloneTable(TableInstance* memory, Compartment* newCompartment);
-	MemoryInstance* cloneMemory(MemoryInstance* memory, Compartment* newCompartment);
+	Table* cloneTable(Table* memory, Compartment* newCompartment);
+	Memory* cloneMemory(Memory* memory, Compartment* newCompartment);
 
 	// Clone a global with same ID and mutable data offset (if mutable) in a new compartment.
-	GlobalInstance* cloneGlobal(GlobalInstance* global, Compartment* newCompartment);
+	Global* cloneGlobal(Global* global, Compartment* newCompartment);
 
 	ModuleInstance* getModuleInstanceFromRuntimeData(ContextRuntimeData* contextRuntimeData,
 													 Uptr moduleInstanceId);
-	TableInstance* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId);
-	MemoryInstance* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId);
+	Table* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId);
+	Memory* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId);
 }}

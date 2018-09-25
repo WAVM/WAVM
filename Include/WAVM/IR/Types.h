@@ -15,7 +15,7 @@
 
 namespace WAVM { namespace Runtime {
 	struct Object;
-	struct FunctionInstance;
+	struct Function;
 }}
 
 namespace WAVM { namespace IR {
@@ -265,7 +265,7 @@ namespace WAVM { namespace IR {
 	template<> constexpr ValueType inferValueType<F32>() { return ValueType::f32; }
 	template<> constexpr ValueType inferValueType<F64>() { return ValueType::f64; }
 	template<> constexpr ValueType inferValueType<Runtime::Object*>() { return ValueType::anyref; }
-	template<> constexpr ValueType inferValueType<Runtime::FunctionInstance*>()
+	template<> constexpr ValueType inferValueType<Runtime::Function*>()
 	{
 		return ValueType::anyfunc;
 	}
@@ -273,7 +273,7 @@ namespace WAVM { namespace IR {
 	{
 		return ValueType::anyref;
 	}
-	template<> constexpr ValueType inferValueType<const Runtime::FunctionInstance*>()
+	template<> constexpr ValueType inferValueType<const Runtime::Function*>()
 	{
 		return ValueType::anyfunc;
 	}

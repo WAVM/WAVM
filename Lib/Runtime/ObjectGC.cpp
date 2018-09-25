@@ -26,7 +26,7 @@ void Runtime::addGCRoot(Object* object)
 {
 	if(object->kind == ObjectKind::function)
 	{
-		FunctionInstance* function = (FunctionInstance*)object;
+		Function* function = (Function*)object;
 		wavmAssert(function->mutableData);
 		++function->mutableData->numRootReferences;
 	}
@@ -41,7 +41,7 @@ void Runtime::removeGCRoot(Object* object)
 {
 	if(object->kind == ObjectKind::function)
 	{
-		FunctionInstance* function = (FunctionInstance*)object;
+		Function* function = (Function*)object;
 		wavmAssert(function->mutableData);
 		--function->mutableData->numRootReferences;
 	}
@@ -66,7 +66,7 @@ struct GCState
 		{
 			if(object->kind == ObjectKind::function)
 			{
-				FunctionInstance* function = asFunction(object);
+				Function* function = asFunction(object);
 				if(function->moduleInstanceId != UINTPTR_MAX)
 				{
 					wavmAssert(compartment->moduleInstances.contains(function->moduleInstanceId));
@@ -106,7 +106,7 @@ struct GCState
 		{
 		case ObjectKind::table:
 		{
-			TableInstance* table = asTable(object);
+			Table* table = asTable(object);
 
 			Lock<Platform::Mutex> resizingLock(table->resizingMutex);
 			const Uptr numElements = getTableNumElements(table);
@@ -116,7 +116,7 @@ struct GCState
 		}
 		case ObjectKind::global:
 		{
-			GlobalInstance* global = asGlobal(object);
+			Global* global = asGlobal(object);
 			if(isReferenceType(global->type.valueType))
 			{
 				if(global->type.isMutable)
@@ -180,7 +180,7 @@ static bool collectGarbageImpl(Compartment* compartment)
 	{
 		// Transfer root markings from functions to their module instance.
 		bool hasRootFunction = false;
-		for(FunctionInstance* function : moduleInstance->functions)
+		for(Function* function : moduleInstance->functions)
 		{
 			if(function->mutableData->numRootReferences)
 			{
@@ -191,11 +191,11 @@ static bool collectGarbageImpl(Compartment* compartment)
 
 		state.initGCObject(moduleInstance, hasRootFunction);
 	}
-	for(MemoryInstance* memory : compartment->memories) { state.initGCObject(memory); }
-	for(TableInstance* table : compartment->tables) { state.initGCObject(table); }
-	for(ExceptionTypeInstance* exceptionType : compartment->exceptionTypes)
+	for(Memory* memory : compartment->memories) { state.initGCObject(memory); }
+	for(Table* table : compartment->tables) { state.initGCObject(table); }
+	for(ExceptionType* exceptionType : compartment->exceptionTypes)
 	{ state.initGCObject(exceptionType); }
-	for(GlobalInstance* global : compartment->globals) { state.initGCObject(global); }
+	for(Global* global : compartment->globals) { state.initGCObject(global); }
 	for(Context* context : compartment->contexts) { state.initGCObject(context); }
 
 	// Scan the objects added to the referenced set so far: gather their child references and

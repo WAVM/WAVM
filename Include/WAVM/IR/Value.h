@@ -6,7 +6,7 @@
 
 namespace WAVM { namespace Runtime {
 	struct Object;
-	struct FunctionInstance;
+	struct Function;
 }}
 
 namespace WAVM { namespace IR {
@@ -24,7 +24,7 @@ namespace WAVM { namespace IR {
 			V128 v128;
 			U8 bytes[16];
 			Runtime::Object* object;
-			Runtime::FunctionInstance* function;
+			Runtime::Function* function;
 		};
 
 		UntaggedValue(I32 inI32) { i32 = inI32; }
@@ -35,7 +35,7 @@ namespace WAVM { namespace IR {
 		UntaggedValue(F64 inF64) { f64 = inF64; }
 		UntaggedValue(V128 inV128) { v128 = inV128; }
 		UntaggedValue(Runtime::Object* inObject) { object = inObject; }
-		UntaggedValue(Runtime::FunctionInstance* inFunction) { function = inFunction; }
+		UntaggedValue(Runtime::Function* inFunction) { function = inFunction; }
 		UntaggedValue() { memset(this, 0, sizeof(*this)); }
 	};
 
@@ -56,8 +56,7 @@ namespace WAVM { namespace IR {
 		{
 		}
 		Value(Runtime::Object* inObject) : UntaggedValue(inObject), type(ValueType::anyref) {}
-		Value(Runtime::FunctionInstance* inFunction)
-		: UntaggedValue(inFunction), type(ValueType::anyfunc)
+		Value(Runtime::Function* inFunction) : UntaggedValue(inFunction), type(ValueType::anyfunc)
 		{
 		}
 		Value(ValueType inType, UntaggedValue inValue) : UntaggedValue(inValue), type(inType) {}

@@ -40,7 +40,7 @@ void EmitFunctionContext::ref_func(FunctionImm imm)
 	llvm::Value* referencedFunction = moduleContext.functions[imm.functionIndex];
 	llvm::Value* codeAddress = irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);
 	llvm::Value* functionAddress = irBuilder.CreateSub(
-		codeAddress, emitLiteral(llvmContext, Uptr(offsetof(Runtime::FunctionInstance, code))));
+		codeAddress, emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))));
 	llvm::Value* anyref = irBuilder.CreateIntToPtr(functionAddress, llvmContext.anyrefType);
 	push(anyref);
 }

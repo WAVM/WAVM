@@ -41,7 +41,7 @@ namespace WAVM { namespace Intrinsics {
 							 void* inNativeFunction,
 							 IR::FunctionType type,
 							 IR::CallingConvention inCallingConvention);
-		RUNTIME_API Runtime::FunctionInstance* instantiate(Runtime::Compartment* compartment);
+		RUNTIME_API Runtime::Function* instantiate(Runtime::Compartment* compartment);
 
 		void* getNativeFunction() const { return nativeFunction; }
 		IR::CallingConvention getCallingConvention() const { return callingConvention; }
@@ -60,7 +60,7 @@ namespace WAVM { namespace Intrinsics {
 						   const char* inName,
 						   IR::ValueType inType,
 						   IR::Value inValue);
-		RUNTIME_API Runtime::GlobalInstance* instantiate(Runtime::Compartment* compartment);
+		RUNTIME_API Runtime::Global* instantiate(Runtime::Compartment* compartment);
 
 		IR::Value getValue() const { return value; }
 
@@ -87,9 +87,9 @@ namespace WAVM { namespace Intrinsics {
 	{
 		RUNTIME_API
 		Memory(Intrinsics::Module& moduleRef, const char* inName, const IR::MemoryType& inType);
-		RUNTIME_API Runtime::MemoryInstance* instantiate(Runtime::Compartment* compartment);
+		RUNTIME_API Runtime::Memory* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::MemoryInstance* getInstance(Runtime::ModuleInstance* moduleInstance)
+		Runtime::Memory* getInstance(Runtime::ModuleInstance* moduleInstance)
 		{
 			return asMemory(Runtime::getInstanceExport(moduleInstance, name));
 		}
@@ -103,9 +103,9 @@ namespace WAVM { namespace Intrinsics {
 	{
 		RUNTIME_API
 		Table(Intrinsics::Module& moduleRef, const char* inName, const IR::TableType& inType);
-		RUNTIME_API Runtime::TableInstance* instantiate(Runtime::Compartment* compartment);
+		RUNTIME_API Runtime::Table* instantiate(Runtime::Compartment* compartment);
 
-		Runtime::TableInstance* getInstance(Runtime::ModuleInstance* moduleInstance)
+		Runtime::Table* getInstance(Runtime::ModuleInstance* moduleInstance)
 		{
 			return asTable(Runtime::getInstanceExport(moduleInstance, name));
 		}

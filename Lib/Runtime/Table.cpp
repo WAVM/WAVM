@@ -20,7 +20,7 @@ using namespace WAVM::Runtime;
 
 // Global lists of tables; used to query whether an address is reserved by one of them.
 static Platform::Mutex tablesMutex;
-static std::vector<TableInstance*> tables;
+static std::vector<Table*> tables;
 
 enum
 {
@@ -32,24 +32,24 @@ static Uptr getNumPlatformPages(Uptr numBytes)
 	return (numBytes + (Uptr(1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 }
 
-static FunctionInstance* makeDummyFunction(const char* debugName)
+static Function* makeDummyFunction(const char* debugName)
 {
 	FunctionMutableData* functionMutableData = new FunctionMutableData(debugName);
-	FunctionInstance* function
-		= new FunctionInstance(functionMutableData, UINTPTR_MAX, IR::FunctionType::Encoding{0});
+	Function* function
+		= new Function(functionMutableData, UINTPTR_MAX, IR::FunctionType::Encoding{0});
 	functionMutableData->function = function;
 	return function;
 }
 
 Object* Runtime::getOutOfBoundsElement()
 {
-	static FunctionInstance* function = makeDummyFunction("out-of-bounds table element");
+	static Function* function = makeDummyFunction("out-of-bounds table element");
 	return asObject(function);
 }
 
 static Object* getUninitializedElement()
 {
-	static FunctionInstance* function = makeDummyFunction("uninitialized table element");
+	static Function* function = makeDummyFunction("uninitialized table element");
 	return asObject(function);
 }
 
@@ -63,21 +63,19 @@ static Object* biasedTableElementValueToObject(Uptr biasedValue)
 	return reinterpret_cast<Object*>(biasedValue + reinterpret_cast<Uptr>(getOutOfBoundsElement()));
 }
 
-static TableInstance* createTableImpl(Compartment* compartment,
-									  IR::TableType type,
-									  std::string&& debugName)
+static Table* createTableImpl(Compartment* compartment, IR::TableType type, std::string&& debugName)
 {
-	TableInstance* table = new TableInstance(compartment, type, std::move(debugName));
+	Table* table = new Table(compartment, type, std::move(debugName));
 
 	// In 64-bit, allocate enough address-space to safely access 32-bit table indices without bounds
 	// checking, or 16MB (4M elements) if the host is 32-bit.
 	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
 	const U64 tableMaxElements = Uptr(1) << 32;
-	const U64 tableMaxBytes = sizeof(TableInstance::Element) * tableMaxElements;
+	const U64 tableMaxBytes = sizeof(Table::Element) * tableMaxElements;
 	const U64 tableMaxPages = tableMaxBytes >> pageBytesLog2;
 
 	table->elements
-		= (TableInstance::Element*)Platform::allocateVirtualPages(tableMaxPages + numGuardPages);
+		= (Table::Element*)Platform::allocateVirtualPages(tableMaxPages + numGuardPages);
 	table->numReservedBytes = tableMaxBytes;
 	table->numReservedElements = tableMaxElements;
 	if(!table->elements)
@@ -94,7 +92,7 @@ static TableInstance* createTableImpl(Compartment* compartment,
 	return table;
 }
 
-static Iptr growTableImpl(TableInstance* table, Uptr numElementsToGrow, bool initializeNewElements)
+static Iptr growTableImpl(Table* table, Uptr numElementsToGrow, bool initializeNewElements)
 {
 	if(!numElementsToGrow) { return table->numElements.load(std::memory_order_acquire); }
 
@@ -112,9 +110,8 @@ static Iptr growTableImpl(TableInstance* table, Uptr numElementsToGrow, bool ini
 	// Try to commit pages for the new elements, and return -1 if the commit fails.
 	const Uptr newNumElements = previousNumElements + numElementsToGrow;
 	const Uptr previousNumPlatformPages
-		= getNumPlatformPages(previousNumElements * sizeof(TableInstance::Element));
-	const Uptr newNumPlatformPages
-		= getNumPlatformPages(newNumElements * sizeof(TableInstance::Element));
+		= getNumPlatformPages(previousNumElements * sizeof(Table::Element));
+	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
 	if(newNumPlatformPages != previousNumPlatformPages
 	   && !Platform::commitVirtualPages(
 			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
@@ -136,12 +133,10 @@ static Iptr growTableImpl(TableInstance* table, Uptr numElementsToGrow, bool ini
 	return previousNumElements;
 }
 
-TableInstance* Runtime::createTable(Compartment* compartment,
-									IR::TableType type,
-									std::string&& debugName)
+Table* Runtime::createTable(Compartment* compartment, IR::TableType type, std::string&& debugName)
 {
 	wavmAssert(type.size.min <= UINTPTR_MAX);
-	TableInstance* table = createTableImpl(compartment, type, std::move(debugName));
+	Table* table = createTableImpl(compartment, type, std::move(debugName));
 	if(!table) { return nullptr; }
 
 	// Grow the table to the type's minimum size.
@@ -167,14 +162,14 @@ TableInstance* Runtime::createTable(Compartment* compartment,
 	return table;
 }
 
-TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompartment)
+Table* Runtime::cloneTable(Table* table, Compartment* newCompartment)
 {
 	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
 
 	// Create the new table.
 	const Uptr numElements = table->numElements.load(std::memory_order_acquire);
 	std::string debugName = table->debugName;
-	TableInstance* newTable = createTableImpl(newCompartment, table->type, std::move(debugName));
+	Table* newTable = createTableImpl(newCompartment, table->type, std::move(debugName));
 	if(!newTable) { return nullptr; }
 
 	// Grow the table to the same size as the original, without initializing the new elements since
@@ -208,7 +203,7 @@ TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompart
 	return newTable;
 }
 
-TableInstance::~TableInstance()
+Table::~Table()
 {
 	if(id != UINTPTR_MAX)
 	{
@@ -237,8 +232,8 @@ TableInstance::~TableInstance()
 	// Decommit all pages.
 	if(numElements > 0)
 	{
-		Platform::decommitVirtualPages(
-			(U8*)elements, getNumPlatformPages(numElements * sizeof(TableInstance::Element)));
+		Platform::decommitVirtualPages((U8*)elements,
+									   getNumPlatformPages(numElements * sizeof(Table::Element)));
 	}
 
 	// Free the virtual address space.
@@ -252,7 +247,7 @@ TableInstance::~TableInstance()
 	numElements = numReservedBytes = numReservedElements = 0;
 }
 
-bool Runtime::isAddressOwnedByTable(U8* address, TableInstance*& outTable, Uptr& outTableIndex)
+bool Runtime::isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTableIndex)
 {
 	// Iterate over all tables and check if the address is within the reserved address space for
 	// each.
@@ -264,14 +259,14 @@ bool Runtime::isAddressOwnedByTable(U8* address, TableInstance*& outTable, Uptr&
 		if(address >= startAddress && address < endAddress)
 		{
 			outTable = table;
-			outTableIndex = (address - startAddress) / sizeof(TableInstance::Element);
+			outTableIndex = (address - startAddress) / sizeof(Table::Element);
 			return true;
 		}
 	}
 	return false;
 }
 
-static Object* setTableElementNonNull(TableInstance* table, Uptr index, Object* object)
+static Object* setTableElementNonNull(Table* table, Uptr index, Object* object)
 {
 	wavmAssert(object);
 
@@ -302,7 +297,7 @@ static Object* setTableElementNonNull(TableInstance* table, Uptr index, Object* 
 	return biasedTableElementValueToObject(oldBiasedValue);
 }
 
-static Object* getTableElementNonNull(TableInstance* table, Uptr index)
+static Object* getTableElementNonNull(Table* table, Uptr index)
 {
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
@@ -326,7 +321,7 @@ static Object* getTableElementNonNull(TableInstance* table, Uptr index)
 	return object;
 }
 
-Object* Runtime::setTableElement(TableInstance* table, Uptr index, Object* newValue)
+Object* Runtime::setTableElement(Table* table, Uptr index, Object* newValue)
 {
 	wavmAssert(!newValue || isInCompartment(newValue, table->compartment));
 
@@ -340,7 +335,7 @@ Object* Runtime::setTableElement(TableInstance* table, Uptr index, Object* newVa
 	return oldObject == getUninitializedElement() ? nullptr : oldObject;
 }
 
-Object* Runtime::getTableElement(TableInstance* table, Uptr index)
+Object* Runtime::getTableElement(Table* table, Uptr index)
 {
 	Object* object = getTableElementNonNull(table, index);
 
@@ -348,17 +343,17 @@ Object* Runtime::getTableElement(TableInstance* table, Uptr index)
 	return object == getUninitializedElement() ? nullptr : object;
 }
 
-Uptr Runtime::getTableNumElements(TableInstance* table)
+Uptr Runtime::getTableNumElements(Table* table)
 {
 	return table->numElements.load(std::memory_order_acquire);
 }
 
-Iptr Runtime::growTable(TableInstance* table, Uptr numNewElements)
+Iptr Runtime::growTable(Table* table, Uptr numNewElements)
 {
 	return growTableImpl(table, numNewElements, true);
 }
 
-Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
+Iptr Runtime::shrinkTable(Table* table, Uptr numElementsToShrink)
 {
 	if(!numElementsToShrink) { return table->numElements.load(std::memory_order_acquire); }
 
@@ -375,9 +370,8 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 	// Decommit the pages that were shrunk off the end of the table's indirect function call data.
 	const Uptr newNumElements = previousNumElements - numElementsToShrink;
 	const Uptr previousNumPlatformPages
-		= getNumPlatformPages(previousNumElements * sizeof(TableInstance::Element));
-	const Uptr newNumPlatformPages
-		= getNumPlatformPages(newNumElements * sizeof(TableInstance::Element));
+		= getNumPlatformPages(previousNumElements * sizeof(Table::Element));
+	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
 	if(newNumPlatformPages != previousNumPlatformPages)
 	{
 		Platform::decommitVirtualPages(
@@ -388,7 +382,7 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 	// Write the out-of-bounds sentinel value to any removed elements that are between the new end
 	// of the table and the first decommitted page.
 	const Uptr numCommittedIndices
-		= (newNumPlatformPages << Platform::getPageSizeLog2()) / sizeof(TableInstance::Element);
+		= (newNumPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::Element);
 	if(numCommittedIndices > newNumElements)
 	{
 		for(Uptr elementIndex = numCommittedIndices - 1; elementIndex > newNumElements;
@@ -406,7 +400,7 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.get", Object*, table_get, U32 index, Uptr tableId)
 {
-	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	return getTableElement(table, index);
 }
 
@@ -418,7 +412,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  Object* value,
 						  Uptr tableId)
 {
-	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	setTableElement(table, index, value);
 }
 
@@ -451,7 +445,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			= moduleInstance->passiveElemSegments[elemSegmentIndex];
 		passiveElemSegmentsLock.unlock();
 
-		TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+		Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
 		for(Uptr index = 0; index < numElements; ++index)
 		{
@@ -500,7 +494,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  U32 numElements,
 						  Uptr tableId)
 {
-	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
 	if(sourceOffset != destOffset)
 	{
@@ -533,10 +527,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  callIndirectFail,
 						  U32 index,
 						  Uptr tableId,
-						  FunctionInstance* function,
+						  Function* function,
 						  Uptr expectedTypeEncoding)
 {
-	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	if(asObject(function) == getOutOfBoundsElement())
 	{
 		Log::printf(Log::debug, "call_indirect: index %u is out-of-bounds\n", index);

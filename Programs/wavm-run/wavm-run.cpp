@@ -119,8 +119,8 @@ struct RootResolver : Resolver
 		}
 		case IR::ExternKind::exceptionType:
 		{
-			return asObject(Runtime::createExceptionTypeInstance(
-				compartment, asExceptionType(type), "importStub"));
+			return asObject(
+				Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
 		}
 		default: Errors::unreachable();
 		};
@@ -245,7 +245,7 @@ static int run(const CommandLineOptions& options)
 	if(!moduleInstance) { return EXIT_FAILURE; }
 
 	// Call the module start function, if it has one.
-	FunctionInstance* startFunction = getStartFunction(moduleInstance);
+	Function* startFunction = getStartFunction(moduleInstance);
 	if(startFunction) { invokeFunctionChecked(context, startFunction, {}); }
 
 	if(options.enableEmscripten)
@@ -255,7 +255,7 @@ static int run(const CommandLineOptions& options)
 	}
 
 	// Look up the function export to call.
-	FunctionInstance* function;
+	Function* function;
 	if(!options.functionName)
 	{
 		function = asFunctionNullable(getInstanceExport(moduleInstance, "main"));
