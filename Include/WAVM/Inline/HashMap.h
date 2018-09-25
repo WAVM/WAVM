@@ -91,6 +91,9 @@ namespace WAVM {
 		// key.
 		const Pair* getPair(const Key& key) const;
 
+		// Removes all pairs from the map.
+		void clear();
+
 		Iterator begin() const;
 		Iterator end() const;
 

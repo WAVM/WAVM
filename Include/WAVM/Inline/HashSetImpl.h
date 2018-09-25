@@ -135,6 +135,12 @@ const Element* HashSet<Element, ElementHashPolicy>::get(const Element& element) 
 }
 
 template<typename Element, typename ElementHashPolicy>
+void HashSet<Element, ElementHashPolicy>::clear()
+{
+	table.clear();
+}
+
+template<typename Element, typename ElementHashPolicy>
 HashSetIterator<Element> HashSet<Element, ElementHashPolicy>::begin() const
 {
 	// Find the first occupied bucket.

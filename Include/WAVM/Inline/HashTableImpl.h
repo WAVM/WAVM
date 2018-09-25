@@ -20,6 +20,14 @@ Uptr HashTable<HASHTABLE_ARGUMENTS>::calcProbeCount(Uptr bucketIndex) const
 	}
 }
 
+template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::clear()
+{
+	destruct();
+	buckets = nullptr;
+	numElements = 0;
+	hashToBucketIndexMask = UINTPTR_MAX;
+}
+
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::resize(Uptr newNumBuckets)
 {
 	wavmAssert(!(newNumBuckets & (newNumBuckets - 1)));

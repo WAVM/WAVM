@@ -64,6 +64,9 @@ namespace WAVM {
 		// values.
 		const Element* get(const Element& element) const;
 
+		// Removes all elements from the set.
+		void clear();
+
 		HashSetIterator<Element> begin() const;
 		HashSetIterator<Element> end() const;
 

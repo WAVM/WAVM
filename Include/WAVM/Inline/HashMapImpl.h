@@ -148,6 +148,8 @@ const HashMapPair<Key, Value>* HashMap<HASHMAP_ARGUMENTS>::getPair(const Key& ke
 	}
 }
 
+template<HASHMAP_PARAMETERS> void HashMap<HASHMAP_ARGUMENTS>::clear() { table.clear(); }
+
 template<HASHMAP_PARAMETERS> HashMapIterator<Key, Value> HashMap<HASHMAP_ARGUMENTS>::begin() const
 {
 	// Find the first occupied bucket.

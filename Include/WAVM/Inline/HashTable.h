@@ -115,6 +115,8 @@ namespace WAVM {
 		HashTable& operator=(const HashTable& copyee);
 		HashTable& operator=(HashTable&& movee);
 
+		void clear();
+
 		void resize(Uptr newNumBuckets);
 
 		bool remove(Uptr hash, const Key& key);
