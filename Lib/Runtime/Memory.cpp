@@ -338,7 +338,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
 
 	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
-	{ throwException(Exception::invalidArgumentType); }
+	{
+		passiveDataSegmentsLock.unlock();
+		throwException(Exception::invalidArgumentType);
+	}
 	else
 	{
 		// Copy the passive data segment shared_ptr, and unlock the mutex. It's important to
@@ -385,7 +388,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
 
 	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
-	{ throwException(Exception::invalidArgumentType); }
+	{
+		passiveDataSegmentsLock.unlock();
+		throwException(Exception::invalidArgumentType);
+	}
 	else
 	{
 		moduleInstance->passiveDataSegments.removeOrFail(dataSegmentIndex);
