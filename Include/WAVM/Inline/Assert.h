@@ -10,10 +10,11 @@
 #define wavmAssert(condition)                                                                      \
 	if(!(condition))                                                                               \
 	{                                                                                              \
-		for(static const WAVM::Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};  \
+		for(static const WAVM::Platform::AssertMetadata wavmAssertMetadata{                        \
+				#condition, __FILE__, __LINE__};                                                   \
 			;)                                                                                     \
 		{                                                                                          \
-			WAVM::Platform::handleAssertionFailure(metadata);                                      \
+			WAVM::Platform::handleAssertionFailure(wavmAssertMetadata);                            \
 			DEBUG_TRAP();                                                                          \
 			break;                                                                                 \
 		}                                                                                          \
@@ -26,10 +27,11 @@
 #define errorUnless(condition)                                                                     \
 	if(!(condition))                                                                               \
 	{                                                                                              \
-		for(static const WAVM::Platform::AssertMetadata metadata{#condition, __FILE__, __LINE__};  \
+		for(static const WAVM::Platform::AssertMetadata wavmAssertMetadata{                        \
+				#condition, __FILE__, __LINE__};                                                   \
 			;)                                                                                     \
 		{                                                                                          \
-			WAVM::Platform::handleAssertionFailure(metadata);                                      \
+			WAVM::Platform::handleAssertionFailure(wavmAssertMetadata);                            \
 			DEBUG_TRAP();                                                                          \
 			break;                                                                                 \
 		}                                                                                          \
