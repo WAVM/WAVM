@@ -16,7 +16,7 @@ namespace WAVM { namespace Runtime {
 	{
 		virtual bool resolve(const std::string& moduleName,
 							 const std::string& exportName,
-							 IR::ObjectType type,
+							 IR::ExternType type,
 							 Object*& outObject)
 			= 0;
 	};
@@ -31,7 +31,7 @@ namespace WAVM { namespace Runtime {
 
 		bool resolve(const std::string& moduleName,
 					 const std::string& exportName,
-					 IR::ObjectType type,
+					 IR::ExternType type,
 					 Object*& outObject) override;
 
 	private:
@@ -50,7 +50,7 @@ namespace WAVM { namespace Runtime {
 
 		bool resolve(const std::string& moduleName,
 					 const std::string& exportName,
-					 IR::ObjectType type,
+					 IR::ExternType type,
 					 Runtime::Object*& outObject) override
 		{
 			if(!innerResolver) { innerResolver = innerResolverThunk(); }
@@ -67,7 +67,7 @@ namespace WAVM { namespace Runtime {
 	{
 		bool resolve(const std::string& moduleName,
 					 const std::string& exportName,
-					 IR::ObjectType type,
+					 IR::ExternType type,
 					 Runtime::Object*& outObject) override
 		{
 			return false;
@@ -82,7 +82,7 @@ namespace WAVM { namespace Runtime {
 		{
 			std::string moduleName;
 			std::string exportName;
-			IR::ObjectType type;
+			IR::ExternType type;
 		};
 
 		std::vector<MissingImport> missingImports;

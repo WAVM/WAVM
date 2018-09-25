@@ -36,8 +36,8 @@ namespace WAVM { namespace Runtime {
 	struct Object;
 	
 	// Tests whether an object is of the given type.
-	RUNTIME_API bool isA(Object* object, const IR::ObjectType& type);
-	RUNTIME_API IR::ObjectType getObjectType(Object* object);
+	RUNTIME_API bool isA(Object* object, const IR::ExternType& type);
+	RUNTIME_API IR::ExternType getObjectType(Object* object);
 
 	inline Object* asObject(Object* object) { return object; }
 	inline const Object* asObject(const Object* object) { return object; }

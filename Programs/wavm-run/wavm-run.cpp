@@ -38,7 +38,7 @@ struct RootResolver : Resolver
 
 	bool resolve(const std::string& moduleName,
 				 const std::string& exportName,
-				 ObjectType type,
+				 ExternType type,
 				 Object*& outObject) override
 	{
 		auto namedInstance = moduleNameToInstanceMap.get(moduleName);
@@ -70,12 +70,12 @@ struct RootResolver : Resolver
 		return true;
 	}
 
-	Object* getStubObject(const std::string& exportName, ObjectType type) const
+	Object* getStubObject(const std::string& exportName, ExternType type) const
 	{
 		// If the import couldn't be resolved, stub it in.
 		switch(type.kind)
 		{
-		case IR::ObjectKind::function:
+		case IR::ExternKind::function:
 		{
 			// Generate a function body that just uses the unreachable op to fault if called.
 			Serialization::ArrayOutputStream codeStream;
@@ -88,7 +88,7 @@ struct RootResolver : Resolver
 			DisassemblyNames stubModuleNames;
 			stubIRModule.types.push_back(asFunctionType(type));
 			stubIRModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
-			stubIRModule.exports.push_back({"importStub", IR::ObjectKind::function, 0});
+			stubIRModule.exports.push_back({"importStub", IR::ExternKind::function, 0});
 			stubModuleNames.functions.push_back({"importStub: " + exportName, {}, {}});
 			IR::setDisassemblyNames(stubIRModule, stubModuleNames);
 			IR::validatePreCodeSections(stubIRModule);
@@ -100,24 +100,24 @@ struct RootResolver : Resolver
 			auto stubModuleInstance = instantiateModule(compartment, stubModule, {}, "importStub");
 			return getInstanceExport(stubModuleInstance, "importStub");
 		}
-		case IR::ObjectKind::memory:
+		case IR::ExternKind::memory:
 		{
 			return asObject(
 				Runtime::createMemory(compartment, asMemoryType(type), std::string(exportName)));
 		}
-		case IR::ObjectKind::table:
+		case IR::ExternKind::table:
 		{
 			return asObject(
 				Runtime::createTable(compartment, asTableType(type), std::string(exportName)));
 		}
-		case IR::ObjectKind::global:
+		case IR::ExternKind::global:
 		{
 			return asObject(Runtime::createGlobal(
 				compartment,
 				asGlobalType(type),
 				IR::Value(asGlobalType(type).valueType, IR::UntaggedValue())));
 		}
-		case IR::ObjectKind::exceptionType:
+		case IR::ExternKind::exceptionType:
 		{
 			return asObject(Runtime::createExceptionTypeInstance(
 				compartment, asExceptionType(type), "importStub"));

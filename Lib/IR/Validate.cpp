@@ -919,10 +919,10 @@ void IR::validateExports(const Module& module)
 	{
 		switch(exportIt.kind)
 		{
-		case ObjectKind::function: VALIDATE_INDEX(exportIt.index, module.functions.size()); break;
-		case ObjectKind::table: VALIDATE_INDEX(exportIt.index, module.tables.size()); break;
-		case ObjectKind::memory: VALIDATE_INDEX(exportIt.index, module.memories.size()); break;
-		case ObjectKind::global:
+		case ExternKind::function: VALIDATE_INDEX(exportIt.index, module.functions.size()); break;
+		case ExternKind::table: VALIDATE_INDEX(exportIt.index, module.tables.size()); break;
+		case ExternKind::memory: VALIDATE_INDEX(exportIt.index, module.memories.size()); break;
+		case ExternKind::global:
 			validateGlobalIndex(module,
 								exportIt.index,
 								false,
@@ -930,7 +930,7 @@ void IR::validateExports(const Module& module)
 								false,
 								"exported global index");
 			break;
-		case ObjectKind::exceptionType:
+		case ExternKind::exceptionType:
 			VALIDATE_INDEX(exportIt.index, module.exceptionTypes.size());
 			break;
 		default: throw ValidationException("unknown export kind");

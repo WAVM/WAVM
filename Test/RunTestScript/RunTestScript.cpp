@@ -72,7 +72,7 @@ struct TestScriptResolver : Resolver
 	TestScriptResolver(const TestScriptState& inState) : state(inState) {}
 	bool resolve(const std::string& moduleName,
 				 const std::string& exportName,
-				 ObjectType type,
+				 ExternType type,
 				 Object*& outObject) override
 	{
 		auto namedModule = state.moduleNameToInstanceMap.get(moduleName);

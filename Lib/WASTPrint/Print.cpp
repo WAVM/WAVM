@@ -786,11 +786,11 @@ void ModulePrintContext::printModule()
 		string += "\" (";
 		switch(export_.kind)
 		{
-		case ObjectKind::function: string += "func " + names.functions[export_.index].name; break;
-		case ObjectKind::table: string += "table " + names.tables[export_.index]; break;
-		case ObjectKind::memory: string += "memory " + names.memories[export_.index]; break;
-		case ObjectKind::global: string += "global " + names.globals[export_.index]; break;
-		case ObjectKind::exceptionType:
+		case ExternKind::function: string += "func " + names.functions[export_.index].name; break;
+		case ExternKind::table: string += "table " + names.tables[export_.index]; break;
+		case ExternKind::memory: string += "memory " + names.memories[export_.index]; break;
+		case ExternKind::global: string += "global " + names.globals[export_.index]; break;
+		case ExternKind::exceptionType:
 			string += "exception_type " + names.exceptionTypes[export_.index];
 			break;
 		default: Errors::unreachable();

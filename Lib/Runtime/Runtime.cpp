@@ -41,31 +41,30 @@ DEFINE_OBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
 DEFINE_OBJECT_TYPE(ObjectKind::context, Context, Context);
 DEFINE_OBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
 
-bool Runtime::isA(Object* object, const ObjectType& type)
+bool Runtime::isA(Object* object, const ExternType& type)
 {
 	if(ObjectKind(type.kind) != object->kind) { return false; }
 
 	switch(type.kind)
 	{
-	case IR::ObjectKind::function: return asFunction(object)->encodedType == asFunctionType(type);
-	case IR::ObjectKind::global: return isSubtype(asGlobal(object)->type, asGlobalType(type));
-	case IR::ObjectKind::table: return isSubtype(asTable(object)->type, asTableType(type));
-	case IR::ObjectKind::memory: return isSubtype(asMemory(object)->type, asMemoryType(type));
-	case IR::ObjectKind::exceptionType:
-		return asExceptionType(type) == asExceptionType(object)->type;
+	case ExternKind::function: return asFunction(object)->encodedType == asFunctionType(type);
+	case ExternKind::global: return isSubtype(asGlobal(object)->type, asGlobalType(type));
+	case ExternKind::table: return isSubtype(asTable(object)->type, asTableType(type));
+	case ExternKind::memory: return isSubtype(asMemory(object)->type, asMemoryType(type));
+	case ExternKind::exceptionType: return asExceptionType(type) == asExceptionType(object)->type;
 	default: Errors::unreachable();
 	}
 }
 
-IR::ObjectType Runtime::getObjectType(Object* object)
+ExternType Runtime::getObjectType(Object* object)
 {
 	switch(object->kind)
 	{
-	case Runtime::ObjectKind::function: return FunctionType(asFunction(object)->encodedType);
-	case Runtime::ObjectKind::global: return asGlobal(object)->type;
-	case Runtime::ObjectKind::table: return asTable(object)->type;
-	case Runtime::ObjectKind::memory: return asMemory(object)->type;
-	case Runtime::ObjectKind::exceptionType: return asExceptionType(object)->type;
+	case ObjectKind::function: return FunctionType(asFunction(object)->encodedType);
+	case ObjectKind::global: return asGlobal(object)->type;
+	case ObjectKind::table: return asTable(object)->type;
+	case ObjectKind::memory: return asMemory(object)->type;
+	case ObjectKind::exceptionType: return asExceptionType(object)->type;
 	default: Errors::unreachable();
 	};
 }

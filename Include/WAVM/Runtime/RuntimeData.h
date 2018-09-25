@@ -23,7 +23,7 @@ namespace WAVM { namespace Runtime {
 	struct TableInstance;
 	struct MemoryInstance;
 
-	// Runtime object types. This must be a superset of IR::ObjectKind, with IR::ObjectKind
+	// Runtime object types. This must be a superset of IR::ExternKind, with IR::ExternKind
 	// values having the same representation in Runtime::ObjectKind.
 	enum class ObjectKind : U8
 	{
@@ -41,16 +41,16 @@ namespace WAVM { namespace Runtime {
 
 		invalid = 0xff,
 	};
-	static_assert(Uptr(IR::ObjectKind::function) == Uptr(ObjectKind::function),
-				  "IR::ObjectKind::function != ObjectKind::function");
-	static_assert(Uptr(IR::ObjectKind::table) == Uptr(ObjectKind::table),
-				  "IR::ObjectKind::table != ObjectKind::table");
-	static_assert(Uptr(IR::ObjectKind::memory) == Uptr(ObjectKind::memory),
-				  "IR::ObjectKind::memory != ObjectKind::memory");
-	static_assert(Uptr(IR::ObjectKind::global) == Uptr(ObjectKind::global),
-				  "IR::ObjectKind::global != ObjectKind::global");
-	static_assert(Uptr(IR::ObjectKind::exceptionType) == Uptr(ObjectKind::exceptionType),
-				  "IR::ObjectKind::exceptionTypeInstance != ObjectKind::exceptionType");
+	static_assert(Uptr(IR::ExternKind::function) == Uptr(ObjectKind::function),
+				  "IR::ExternKind::function != ObjectKind::function");
+	static_assert(Uptr(IR::ExternKind::table) == Uptr(ObjectKind::table),
+				  "IR::ExternKind::table != ObjectKind::table");
+	static_assert(Uptr(IR::ExternKind::memory) == Uptr(ObjectKind::memory),
+				  "IR::ExternKind::memory != ObjectKind::memory");
+	static_assert(Uptr(IR::ExternKind::global) == Uptr(ObjectKind::global),
+				  "IR::ExternKind::global != ObjectKind::global");
+	static_assert(Uptr(IR::ExternKind::exceptionType) == Uptr(ObjectKind::exceptionType),
+				  "IR::ExternKind::exceptionTypeInstance != ObjectKind::exceptionType");
 
 #define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
 

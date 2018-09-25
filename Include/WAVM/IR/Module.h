@@ -134,7 +134,7 @@ namespace WAVM { namespace IR {
 	struct Export
 	{
 		std::string name;
-		ObjectKind kind;
+		ExternKind kind;
 		Uptr index;
 	};
 

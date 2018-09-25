@@ -507,7 +507,7 @@ namespace WAVM { namespace IR {
 	}
 
 	// The type of an external object: something that can be imported or exported from a module.
-	enum class ObjectKind : U8
+	enum class ExternKind : U8
 	{
 		// Standard object kinds that may be imported/exported from WebAssembly modules.
 		function = 0,
@@ -518,44 +518,44 @@ namespace WAVM { namespace IR {
 		max = 4,
 		invalid = 0xff,
 	};
-	struct ObjectType
+	struct ExternType
 	{
-		const ObjectKind kind;
+		const ExternKind kind;
 
-		ObjectType() : kind(ObjectKind::invalid) {}
-		ObjectType(FunctionType inFunction) : kind(ObjectKind::function), function(inFunction) {}
-		ObjectType(TableType inTable) : kind(ObjectKind::table), table(inTable) {}
-		ObjectType(MemoryType inMemory) : kind(ObjectKind::memory), memory(inMemory) {}
-		ObjectType(GlobalType inGlobal) : kind(ObjectKind::global), global(inGlobal) {}
-		ObjectType(ExceptionType inExceptionType)
-		: kind(ObjectKind::exceptionType), exceptionType(inExceptionType)
+		ExternType() : kind(ExternKind::invalid) {}
+		ExternType(FunctionType inFunction) : kind(ExternKind::function), function(inFunction) {}
+		ExternType(TableType inTable) : kind(ExternKind::table), table(inTable) {}
+		ExternType(MemoryType inMemory) : kind(ExternKind::memory), memory(inMemory) {}
+		ExternType(GlobalType inGlobal) : kind(ExternKind::global), global(inGlobal) {}
+		ExternType(ExceptionType inExceptionType)
+		: kind(ExternKind::exceptionType), exceptionType(inExceptionType)
 		{
 		}
-		ObjectType(ObjectKind inKind) : kind(inKind) {}
+		ExternType(ExternKind inKind) : kind(inKind) {}
 
-		friend FunctionType asFunctionType(const ObjectType& objectType)
+		friend FunctionType asFunctionType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ObjectKind::function);
+			wavmAssert(objectType.kind == ExternKind::function);
 			return objectType.function;
 		}
-		friend TableType asTableType(const ObjectType& objectType)
+		friend TableType asTableType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ObjectKind::table);
+			wavmAssert(objectType.kind == ExternKind::table);
 			return objectType.table;
 		}
-		friend MemoryType asMemoryType(const ObjectType& objectType)
+		friend MemoryType asMemoryType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ObjectKind::memory);
+			wavmAssert(objectType.kind == ExternKind::memory);
 			return objectType.memory;
 		}
-		friend GlobalType asGlobalType(const ObjectType& objectType)
+		friend GlobalType asGlobalType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ObjectKind::global);
+			wavmAssert(objectType.kind == ExternKind::global);
 			return objectType.global;
 		}
-		friend ExceptionType asExceptionType(const ObjectType& objectType)
+		friend ExceptionType asExceptionType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ObjectKind::exceptionType);
+			wavmAssert(objectType.kind == ExternKind::exceptionType);
 			return objectType.exceptionType;
 		}
 
@@ -570,15 +570,15 @@ namespace WAVM { namespace IR {
 		};
 	};
 
-	inline std::string asString(const ObjectType& objectType)
+	inline std::string asString(const ExternType& objectType)
 	{
 		switch(objectType.kind)
 		{
-		case ObjectKind::function: return "func " + asString(asFunctionType(objectType));
-		case ObjectKind::table: return "table " + asString(asTableType(objectType));
-		case ObjectKind::memory: return "memory " + asString(asMemoryType(objectType));
-		case ObjectKind::global: return asString(asGlobalType(objectType));
-		case ObjectKind::exceptionType:
+		case ExternKind::function: return "func " + asString(asFunctionType(objectType));
+		case ExternKind::table: return "table " + asString(asTableType(objectType));
+		case ExternKind::memory: return "memory " + asString(asMemoryType(objectType));
+		case ExternKind::global: return asString(asGlobalType(objectType));
+		case ExternKind::exceptionType:
 			return "exception_type " + asString(asExceptionType(objectType));
 		default: Errors::unreachable();
 		};

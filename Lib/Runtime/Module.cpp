@@ -283,17 +283,17 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		Object* exportedObject = nullptr;
 		switch(exportIt.kind)
 		{
-		case IR::ObjectKind::function:
+		case IR::ExternKind::function:
 			exportedObject = asObject(moduleInstance->functions[exportIt.index]);
 			break;
-		case IR::ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
-		case IR::ObjectKind::memory:
+		case IR::ExternKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
+		case IR::ExternKind::memory:
 			exportedObject = moduleInstance->memories[exportIt.index];
 			break;
-		case IR::ObjectKind::global:
+		case IR::ExternKind::global:
 			exportedObject = moduleInstance->globals[exportIt.index];
 			break;
-		case IR::ObjectKind::exceptionType:
+		case IR::ExternKind::exceptionType:
 			exportedObject = moduleInstance->exceptionTypes[exportIt.index];
 			break;
 		default: Errors::unreachable();

@@ -731,7 +731,7 @@ void Emscripten::initializeGlobals(Context* context,
 	for(Uptr exportIndex = 0; exportIndex < module.exports.size(); ++exportIndex)
 	{
 		const Export& functionExport = module.exports[exportIndex];
-		if(functionExport.kind == IR::ObjectKind::function
+		if(functionExport.kind == IR::ExternKind::function
 		   && !strncmp(functionExport.name.c_str(), "__GLOBAL__", 10))
 		{
 			FunctionInstance* function

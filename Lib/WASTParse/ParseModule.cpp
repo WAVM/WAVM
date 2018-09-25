@@ -320,14 +320,14 @@ static void parseExport(CursorState* cursor)
 	const std::string exportName = parseUTF8String(cursor);
 
 	parseParenthesized(cursor, [&] {
-		ObjectKind exportKind;
+		ExternKind exportKind;
 		switch(cursor->nextToken->type)
 		{
-		case t_func: exportKind = ObjectKind::function; break;
-		case t_table: exportKind = ObjectKind::table; break;
-		case t_memory: exportKind = ObjectKind::memory; break;
-		case t_global: exportKind = ObjectKind::global; break;
-		case t_exception_type: exportKind = ObjectKind::exceptionType; break;
+		case t_func: exportKind = ExternKind::function; break;
+		case t_table: exportKind = ExternKind::table; break;
+		case t_memory: exportKind = ExternKind::memory; break;
+		case t_global: exportKind = ExternKind::global; break;
+		case t_exception_type: exportKind = ExternKind::exceptionType; break;
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "invalid export kind");
 			throw RecoverParseException();
@@ -348,31 +348,31 @@ static void parseExport(CursorState* cursor)
 			Uptr& exportedObjectIndex = moduleState->module.exports[exportIndex].index;
 			switch(exportKind)
 			{
-			case ObjectKind::function:
+			case ExternKind::function:
 				exportedObjectIndex = resolveRef(moduleState->parseState,
 												 moduleState->functionNameToIndexMap,
 												 moduleState->module.functions.size(),
 												 exportRef);
 				break;
-			case ObjectKind::table:
+			case ExternKind::table:
 				exportedObjectIndex = resolveRef(moduleState->parseState,
 												 moduleState->tableNameToIndexMap,
 												 moduleState->module.tables.size(),
 												 exportRef);
 				break;
-			case ObjectKind::memory:
+			case ExternKind::memory:
 				exportedObjectIndex = resolveRef(moduleState->parseState,
 												 moduleState->memoryNameToIndexMap,
 												 moduleState->module.memories.size(),
 												 exportRef);
 				break;
-			case ObjectKind::global:
+			case ExternKind::global:
 				exportedObjectIndex = resolveRef(moduleState->parseState,
 												 moduleState->globalNameToIndexMap,
 												 moduleState->module.globals.size(),
 												 exportRef);
 				break;
-			case ObjectKind::exceptionType:
+			case ExternKind::exceptionType:
 				exportedObjectIndex = resolveRef(moduleState->parseState,
 												 moduleState->exceptionTypeNameToIndexMap,
 												 moduleState->module.exceptionTypes.size(),
@@ -575,7 +575,7 @@ static void parseObjectDefOrImport(CursorState* cursor,
 								   IR::IndexSpace<Def, Type>& indexSpace,
 								   std::vector<DisassemblyName>& disassemblyNameArray,
 								   TokenType declarationTag,
-								   IR::ObjectKind kind,
+								   IR::ExternKind kind,
 								   ParseImport parseImportFunc,
 								   ParseDef parseDefFunc)
 {
@@ -633,7 +633,7 @@ static void parseFunc(CursorState* cursor)
 		cursor->moduleState->module.functions,
 		cursor->moduleState->disassemblyNames.functions,
 		t_func,
-		ObjectKind::function,
+		ExternKind::function,
 		[&](CursorState* cursor) {
 			// Parse the imported function's type.
 			NameToIndexMap localNameToIndexMap;
@@ -661,7 +661,7 @@ static void parseTable(CursorState* cursor)
 		cursor->moduleState->module.tables,
 		cursor->moduleState->disassemblyNames.tables,
 		t_table,
-		ObjectKind::table,
+		ExternKind::table,
 		// Parse a table import.
 		[](CursorState* cursor) {
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
@@ -708,7 +708,7 @@ static void parseMemory(CursorState* cursor)
 		cursor->moduleState->module.memories,
 		cursor->moduleState->disassemblyNames.memories,
 		t_memory,
-		ObjectKind::memory,
+		ExternKind::memory,
 		// Parse a memory import.
 		[](CursorState* cursor) {
 			const SizeConstraints sizeConstraints
@@ -752,7 +752,7 @@ static void parseGlobal(CursorState* cursor)
 						   cursor->moduleState->module.globals,
 						   cursor->moduleState->disassemblyNames.globals,
 						   t_global,
-						   ObjectKind::global,
+						   ExternKind::global,
 						   // Parse a global import.
 						   parseGlobalType,
 						   // Parse a global definition
@@ -771,7 +771,7 @@ static void parseExceptionType(CursorState* cursor)
 						   cursor->moduleState->module.exceptionTypes,
 						   cursor->moduleState->disassemblyNames.exceptionTypes,
 						   t_exception_type,
-						   ObjectKind::exceptionType,
+						   ExternKind::exceptionType,
 						   // Parse an exception type import.
 						   [](CursorState* cursor) {
 							   TypeTuple params = parseTypeTuple(cursor);

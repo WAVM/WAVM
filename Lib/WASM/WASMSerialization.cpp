@@ -188,7 +188,7 @@ namespace WAVM { namespace IR {
 		serialize(stream, exceptionType.params);
 	}
 
-	template<typename Stream> void serialize(Stream& stream, ObjectKind& kind)
+	template<typename Stream> void serialize(Stream& stream, ExternKind& kind)
 	{
 		serializeNativeValue(stream, *(U8*)&kind);
 	}
@@ -795,7 +795,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 			{
 				std::string moduleName;
 				std::string exportName;
-				ObjectKind kind = ObjectKind::invalid;
+				ExternKind kind = ExternKind::invalid;
 				serialize(sectionStream, moduleName);
 				serialize(sectionStream, exportName);
 				throwIfNotValidUTF8(moduleName);
@@ -803,7 +803,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				serialize(sectionStream, kind);
 				switch(kind)
 				{
-				case ObjectKind::function:
+				case ExternKind::function:
 				{
 					U32 functionTypeIndex = 0;
 					serializeVarUInt32(sectionStream, functionTypeIndex);
@@ -813,7 +813,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{{functionTypeIndex}, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ObjectKind::table:
+				case ExternKind::table:
 				{
 					TableType tableType;
 					serialize(sectionStream, tableType);
@@ -821,7 +821,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{tableType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ObjectKind::memory:
+				case ExternKind::memory:
 				{
 					MemoryType memoryType;
 					serialize(sectionStream, memoryType);
@@ -829,7 +829,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{memoryType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ObjectKind::global:
+				case ExternKind::global:
 				{
 					GlobalType globalType;
 					serialize(sectionStream, globalType);
@@ -837,7 +837,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{globalType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ObjectKind::exceptionType:
+				case ExternKind::exceptionType:
 				{
 					ExceptionType exceptionType;
 					serialize(sectionStream, exceptionType);
@@ -845,7 +845,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{exceptionType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				default: throw FatalSerializationException("invalid ObjectKind");
+				default: throw FatalSerializationException("invalid ExternKind");
 				}
 			}
 		}
@@ -855,7 +855,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 			{
 				serialize(sectionStream, functionImport.moduleName);
 				serialize(sectionStream, functionImport.exportName);
-				ObjectKind kind = ObjectKind::function;
+				ExternKind kind = ExternKind::function;
 				serialize(sectionStream, kind);
 				serializeVarUInt32(sectionStream, functionImport.type.index);
 			}
@@ -863,7 +863,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 			{
 				serialize(sectionStream, tableImport.moduleName);
 				serialize(sectionStream, tableImport.exportName);
-				ObjectKind kind = ObjectKind::table;
+				ExternKind kind = ExternKind::table;
 				serialize(sectionStream, kind);
 				serialize(sectionStream, tableImport.type);
 			}
@@ -871,7 +871,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 			{
 				serialize(sectionStream, memoryImport.moduleName);
 				serialize(sectionStream, memoryImport.exportName);
-				ObjectKind kind = ObjectKind::memory;
+				ExternKind kind = ExternKind::memory;
 				serialize(sectionStream, kind);
 				serialize(sectionStream, memoryImport.type);
 			}
@@ -879,7 +879,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 			{
 				serialize(sectionStream, globalImport.moduleName);
 				serialize(sectionStream, globalImport.exportName);
-				ObjectKind kind = ObjectKind::global;
+				ExternKind kind = ExternKind::global;
 				serialize(sectionStream, kind);
 				serialize(sectionStream, globalImport.type);
 			}
@@ -887,7 +887,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 			{
 				serialize(sectionStream, exceptionTypeImport.moduleName);
 				serialize(sectionStream, exceptionTypeImport.exportName);
-				ObjectKind kind = ObjectKind::exceptionType;
+				ExternKind kind = ExternKind::exceptionType;
 				serialize(sectionStream, kind);
 				serialize(sectionStream, exceptionTypeImport.type);
 			}
