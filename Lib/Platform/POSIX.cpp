@@ -943,6 +943,23 @@ void Platform::Mutex::unlock()
 	errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));
 }
 
+bool Platform::Mutex::isLockedByCurrentThread()
+{
+	// Try to lock the mutex, and if EDEADLK is returned, it means the mutex was already locked by
+	// this thread.
+	int tryLockResult = pthread_mutex_trylock((pthread_mutex_t*)&pthreadMutex);
+	if(tryLockResult == EDEADLK) { return true; }
+	else if(!tryLockResult)
+	{
+		errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));
+		return false;
+	}
+	else
+	{
+		Errors::fatalf("pthread_mutex_trylock returned %i", tryLockResult);
+	}
+}
+
 Platform::Event::Event()
 {
 	static_assert(sizeof(pthreadMutex) == sizeof(pthread_mutex_t), "");

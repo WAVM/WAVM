@@ -1,5 +1,6 @@
 #pragma once
 
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Defines.h"
 
@@ -19,12 +20,15 @@ namespace WAVM { namespace Platform {
 		PLATFORM_API void lock();
 		PLATFORM_API void unlock();
 
+		PLATFORM_API bool isLockedByCurrentThread();
+
 	private:
 #ifdef WIN32
 		struct CriticalSection
 		{
 			Uptr data[5];
 		} criticalSection;
+		bool isLocked;
 #elif defined(__linux__)
 		struct PthreadMutex
 		{
@@ -45,3 +49,5 @@ namespace WAVM { namespace Platform {
 #endif
 	};
 }}
+
+#define wavmAssertMutexIsLockedByCurrentThread(mutex) wavmAssert(mutex.isLockedByCurrentThread())
