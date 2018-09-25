@@ -968,11 +968,20 @@ Platform::Mutex::Mutex()
 	isLocked = false;
 }
 
-Platform::Mutex::~Mutex() { DeleteCriticalSection((CRITICAL_SECTION*)&criticalSection); }
+Platform::Mutex::~Mutex()
+{
+	if(!TryEnterCriticalSection((CRITICAL_SECTION*)&criticalSection)
+		|| isLocked)
+	{
+		Errors::fatal("Destroying mutex that was locked");
+	}
+	DeleteCriticalSection((CRITICAL_SECTION*)&criticalSection);
+}
 
 void Platform::Mutex::lock()
 {
 	EnterCriticalSection((CRITICAL_SECTION*)&criticalSection);
+	if(isLocked) { Errors::fatal("Recursive mutex lock"); }
 	isLocked = true;
 }
 
