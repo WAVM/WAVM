@@ -27,7 +27,7 @@ enum
 	numStackBytes = 1 * 1024 * 1024
 };
 
-// Keeps track of the entry and error functions used by a running WebAssembly-spawned thread.
+// Keeps track of the entry function used by a running WebAssembly-spawned thread.
 // Used to find garbage collection roots.
 struct Thread
 {
@@ -117,15 +117,14 @@ DEFINE_INTRINSIC_FUNCTION(threadTest,
 						  "createThread",
 						  U64,
 						  createThread,
-						  const AnyFunc* entryAnyFunc,
+						  FunctionInstance* entryFunction,
 						  I32 entryArgument)
 {
 	// Validate that the entry function is non-null and has the correct type (i32)->i64
-	if(!entryAnyFunc
-	   || IR::FunctionType{entryAnyFunc->functionTypeEncoding}
+	if(!entryFunction
+	   || IR::FunctionType{entryFunction->encodedType}
 			  != FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
 	{ throwException(Runtime::Exception::indirectCallSignatureMismatchType); }
-	FunctionInstance* entryFunction = asFunction(entryAnyFunc->anyRef.object);
 
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.

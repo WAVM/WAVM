@@ -5,8 +5,8 @@
 #include <string.h>
 
 namespace WAVM { namespace Runtime {
-	struct AnyReferee;
-	struct AnyFunc;
+	struct Object;
+	struct FunctionInstance;
 }}
 
 namespace WAVM { namespace IR {
@@ -23,8 +23,8 @@ namespace WAVM { namespace IR {
 			F64 f64;
 			V128 v128;
 			U8 bytes[16];
-			const Runtime::AnyReferee* anyRef;
-			const Runtime::AnyFunc* anyFunc;
+			Runtime::Object* object;
+			Runtime::FunctionInstance* function;
 		};
 
 		UntaggedValue(I32 inI32) { i32 = inI32; }
@@ -34,8 +34,8 @@ namespace WAVM { namespace IR {
 		UntaggedValue(F32 inF32) { f32 = inF32; }
 		UntaggedValue(F64 inF64) { f64 = inF64; }
 		UntaggedValue(V128 inV128) { v128 = inV128; }
-		UntaggedValue(const Runtime::AnyReferee* inAnyRef) { anyRef = inAnyRef; }
-		UntaggedValue(const Runtime::AnyFunc* inAnyFunc) { anyFunc = inAnyFunc; }
+		UntaggedValue(Runtime::Object* inObject) { object = inObject; }
+		UntaggedValue(Runtime::FunctionInstance* inFunction) { function = inFunction; }
 		UntaggedValue() { memset(this, 0, sizeof(*this)); }
 	};
 
@@ -52,16 +52,12 @@ namespace WAVM { namespace IR {
 		Value(F32 inF32) : UntaggedValue(inF32), type(ValueType::f32) {}
 		Value(F64 inF64) : UntaggedValue(inF64), type(ValueType::f64) {}
 		Value(const V128& inV128) : UntaggedValue(inV128), type(ValueType::v128) {}
-		Value(std::nullptr_t)
-		: UntaggedValue((Runtime::AnyReferee*)nullptr), type(ValueType::nullref)
+		Value(std::nullptr_t) : UntaggedValue((Runtime::Object*)nullptr), type(ValueType::nullref)
 		{
 		}
-		Value(const Runtime::AnyReferee* inAnyRef)
-		: UntaggedValue(inAnyRef), type(ValueType::anyref)
-		{
-		}
-		Value(const Runtime::AnyFunc* inAnyFunc)
-		: UntaggedValue(inAnyFunc), type(ValueType::anyfunc)
+		Value(Runtime::Object* inObject) : UntaggedValue(inObject), type(ValueType::anyref) {}
+		Value(Runtime::FunctionInstance* inFunction)
+		: UntaggedValue(inFunction), type(ValueType::anyfunc)
 		{
 		}
 		Value(ValueType inType, UntaggedValue inValue) : UntaggedValue(inValue), type(inType) {}
@@ -86,7 +82,7 @@ namespace WAVM { namespace IR {
 						 sizeof(buffer),
 						 "%s 0x%.16" PRIxPTR,
 						 value.type == ValueType::anyref ? "anyref" : "anyfunc",
-						 reinterpret_cast<Uptr>(value.anyRef));
+						 reinterpret_cast<Uptr>(value.object));
 				return std::string(buffer);
 			}
 			case ValueType::nullref: return "ref.null";
@@ -99,7 +95,7 @@ namespace WAVM { namespace IR {
 			if(left.type != right.type)
 			{
 				return isReferenceType(left.type) && isReferenceType(right.type)
-					   && left.anyRef == right.anyRef;
+					   && left.object == right.object;
 			}
 			switch(left.type)
 			{
@@ -109,7 +105,7 @@ namespace WAVM { namespace IR {
 			case ValueType::f64: return left.i64 == right.i64;
 			case ValueType::v128: return left.v128 == right.v128;
 			case ValueType::anyref:
-			case ValueType::anyfunc: return left.anyRef == right.anyRef;
+			case ValueType::anyfunc: return left.object == right.object;
 			case ValueType::nullref: return true;
 			default: Errors::unreachable();
 			};

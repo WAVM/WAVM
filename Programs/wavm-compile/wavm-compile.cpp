@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 	if(!loadModule(inputFilename, irModule)) { return EXIT_FAILURE; }
 
 	// Compile the module's IR.
-	Runtime::Module* module = Runtime::compileModule(irModule);
+	Runtime::ModuleRef module = Runtime::compileModule(irModule);
 
 	// Extract the compiled object code and add it to the IR module as a user section.
 	irModule.userSections.push_back({"wavm.precompiled_object", Runtime::getObjectCode(module)});

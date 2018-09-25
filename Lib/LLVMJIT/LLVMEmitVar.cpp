@@ -90,7 +90,7 @@ void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 				value = emitLiteral(llvmContext, globalDef.initializer.v128);
 				break;
 			case InitializerExpression::Type::ref_null:
-				value = emitLiteralPointer(nullptr, llvmContext.anyrefType);
+				value = llvm::Constant::getNullValue(llvmContext.anyrefType);
 				break;
 			default: break;
 			};

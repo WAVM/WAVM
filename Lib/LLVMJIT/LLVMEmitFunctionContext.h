@@ -257,7 +257,7 @@ namespace WAVM { namespace LLVMJIT {
 			// Only used for non-Windows exceptions.
 			llvm::LandingPadInst* landingPadInst;
 			llvm::BasicBlock* nextHandlerBlock;
-			llvm::Value* exceptionTypeInstance;
+			llvm::Value* exceptionTypeId;
 
 			// Used for all platforms.
 			llvm::Value* exceptionPointer;

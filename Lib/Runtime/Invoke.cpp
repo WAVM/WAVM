@@ -15,31 +15,14 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-const AnyFunc* Runtime::asAnyFunc(const FunctionInstance* functionInstance)
-{
-	void* wasmFunction = functionInstance->nativeFunction;
-
-	// If the function isn't a WASM function, generate a thunk for it.
-	if(functionInstance->callingConvention != IR::CallingConvention::wasm)
-	{
-		wasmFunction = LLVMJIT::getIntrinsicThunk(wasmFunction,
-												  functionInstance,
-												  functionInstance->type,
-												  functionInstance->callingConvention);
-	}
-
-	// Get the pointer to the AnyFunc struct that is emitted as a prefix to the function's code.
-	return (AnyFunc*)((U8*)wasmFunction - offsetof(AnyFunc, code));
-}
-
 UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 												FunctionInstance* function,
 												const UntaggedValue* arguments)
 {
-	FunctionType functionType = function->type;
+	FunctionType functionType = function->encodedType;
 
 	// Get the invoke thunk for this function type.
-	auto invokeFunctionPointer = LLVMJIT::getInvokeThunk(functionType, function->callingConvention);
+	auto invokeFunctionPointer = LLVMJIT::getInvokeThunk(functionType);
 
 	// Copy the arguments into the thunk arguments buffer in ContextRuntimeData.
 	ContextRuntimeData* contextRuntimeData
@@ -65,8 +48,8 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 	}
 
 	// Call the invoke thunk.
-	contextRuntimeData = (ContextRuntimeData*)(*invokeFunctionPointer)(function->nativeFunction,
-																	   contextRuntimeData);
+	contextRuntimeData
+		= (ContextRuntimeData*)(*invokeFunctionPointer)(function, contextRuntimeData);
 
 	// Return a pointer to the return value that was written to the ContextRuntimeData.
 	return (UntaggedValue*)contextRuntimeData->thunkArgAndReturnData;
@@ -76,7 +59,9 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 										  FunctionInstance* function,
 										  const std::vector<Value>& arguments)
 {
-	FunctionType functionType = function->type;
+	errorUnless(isInCompartment(asObject(function), context->compartment));
+
+	FunctionType functionType{function->encodedType};
 
 	// Check that the parameter types match the function, and copy them into a memory block that
 	// stores each as a 64-bit value.
@@ -89,10 +74,14 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		= (UntaggedValue*)alloca(arguments.size() * sizeof(UntaggedValue));
 	for(Uptr argumentIndex = 0; argumentIndex < arguments.size(); ++argumentIndex)
 	{
-		if(!isSubtype(arguments[argumentIndex].type, functionType.params()[argumentIndex]))
+		const Value& argument = arguments[argumentIndex];
+		if(!isSubtype(argument.type, functionType.params()[argumentIndex]))
 		{ throwException(Exception::invokeSignatureMismatchType); }
 
-		untaggedArguments[argumentIndex] = arguments[argumentIndex];
+		errorUnless(!isReferenceType(argument.type) || !argument.object
+					|| isInCompartment(argument.object, context->compartment));
+
+		untaggedArguments[argumentIndex] = argument;
 	}
 
 	// Call the unchecked version of this function to do the actual invoke.
@@ -116,8 +105,10 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		case ValueType::f32: results.values.push_back(Value(*(F32*)result)); break;
 		case ValueType::f64: results.values.push_back(Value(*(F64*)result)); break;
 		case ValueType::v128: results.values.push_back(Value(*(V128*)result)); break;
-		case ValueType::anyref: results.values.push_back(Value(*(const AnyReferee**)result)); break;
-		case ValueType::anyfunc: results.values.push_back(Value(*(const AnyFunc**)result)); break;
+		case ValueType::anyref: results.values.push_back(Value(*(Object**)result)); break;
+		case ValueType::anyfunc:
+			results.values.push_back(Value(*(FunctionInstance**)result));
+			break;
 		default: Errors::unreachable();
 		};
 

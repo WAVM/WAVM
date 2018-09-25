@@ -811,7 +811,6 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	IR::Module module;
 	generateValidModule(module, data, numBytes);
 	compileModule(module);
-	collectGarbage();
 
 	return 0;
 }

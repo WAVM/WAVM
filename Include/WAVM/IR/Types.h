@@ -14,8 +14,8 @@
 #include "WAVM/Inline/Hash.h"
 
 namespace WAVM { namespace Runtime {
-	struct AnyReferee;
-	struct AnyFunc;
+	struct Object;
+	struct FunctionInstance;
 }}
 
 namespace WAVM { namespace IR {
@@ -264,11 +264,16 @@ namespace WAVM { namespace IR {
 	template<> constexpr ValueType inferValueType<U64>() { return ValueType::i64; }
 	template<> constexpr ValueType inferValueType<F32>() { return ValueType::f32; }
 	template<> constexpr ValueType inferValueType<F64>() { return ValueType::f64; }
-	template<> constexpr ValueType inferValueType<const Runtime::AnyReferee*>()
+	template<> constexpr ValueType inferValueType<Runtime::Object*>() { return ValueType::anyref; }
+	template<> constexpr ValueType inferValueType<Runtime::FunctionInstance*>()
+	{
+		return ValueType::anyfunc;
+	}
+	template<> constexpr ValueType inferValueType<const Runtime::Object*>()
 	{
 		return ValueType::anyref;
 	}
-	template<> constexpr ValueType inferValueType<const Runtime::AnyFunc*>()
+	template<> constexpr ValueType inferValueType<const Runtime::FunctionInstance*>()
 	{
 		return ValueType::anyfunc;
 	}
@@ -501,7 +506,7 @@ namespace WAVM { namespace IR {
 		return asString(exceptionType.params);
 	}
 
-	// The type of an object
+	// The type of an external object: something that can be imported or exported from a module.
 	enum class ObjectKind : U8
 	{
 		// Standard object kinds that may be imported/exported from WebAssembly modules.

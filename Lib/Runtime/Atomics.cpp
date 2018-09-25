@@ -225,7 +225,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	if(U64(address) + 4 > memoryInstanceNumBytes)
 	{
 		throwException(Exception::outOfBoundsMemoryAccessType,
-					   {asAnyRef(memoryInstance), memoryInstanceNumBytes});
+					   {memoryInstance, memoryInstanceNumBytes});
 	}
 
 	// The alignment check is done by the caller.

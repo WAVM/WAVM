@@ -19,12 +19,15 @@ using namespace WAVM::Runtime;
 
 GlobalInstance* Runtime::createGlobal(Compartment* compartment, GlobalType type, Value initialValue)
 {
-	wavmAssert(isSubtype(initialValue.type, type.valueType));
+	errorUnless(isSubtype(initialValue.type, type.valueType));
+	errorUnless(!isReferenceType(type.valueType) || !initialValue.object
+				|| isInCompartment(initialValue.object, compartment));
 
 	U32 mutableGlobalId = UINT32_MAX;
 	if(type.isMutable)
 	{
 		mutableGlobalId = compartment->globalDataAllocationMask.getSmallestNonMember();
+		if(mutableGlobalId == maxMutableGlobals) { return nullptr; }
 		compartment->globalDataAllocationMask.add(mutableGlobalId);
 
 		// Initialize the global value for each context, and the data used to initialize new
@@ -53,9 +56,9 @@ GlobalInstance* Runtime::cloneGlobal(GlobalInstance* global, Compartment* newCom
 	return newGlobal;
 }
 
-void Runtime::GlobalInstance::finalize()
+Runtime::GlobalInstance::~GlobalInstance()
 {
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
 	compartment->globals.removeOrFail(this);
 	if(type.isMutable)
 	{
@@ -65,7 +68,7 @@ void Runtime::GlobalInstance::finalize()
 	}
 }
 
-Value Runtime::getGlobalValue(Context* context, GlobalInstance* global)
+Value Runtime::getGlobalValue(const Context* context, GlobalInstance* global)
 {
 	wavmAssert(context || !global->type.isMutable);
 	return Value(global->type.valueType,
@@ -79,6 +82,9 @@ Value Runtime::setGlobalValue(Context* context, GlobalInstance* global, Value ne
 	wavmAssert(context);
 	wavmAssert(newValue.type == global->type.valueType);
 	wavmAssert(global->type.isMutable);
+	errorUnless(context->compartment == global->compartment);
+	errorUnless(!isReferenceType(global->type.valueType) || !newValue.object
+				|| isInCompartment(newValue.object, context->compartment));
 	UntaggedValue& value = context->runtimeData->mutableGlobals[global->mutableGlobalId];
 	const Value previousValue = Value(global->type.valueType, value);
 	value = newValue;

@@ -7,6 +7,7 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 // Forward declarations
 namespace WAVM { namespace IR {
@@ -26,35 +27,6 @@ namespace WAVM { namespace LLVMJIT {
 	// Compiles a module to object code.
 	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule);
 
-	// Information about a JIT function, used to map addresses to information about the function.
-	struct JITFunction
-	{
-		enum class Type
-		{
-			unknown,
-			wasmFunction,
-			invokeThunk,
-			intrinsicThunk
-		};
-		Type type;
-		union
-		{
-			Runtime::FunctionInstance* functionInstance;
-			IR::FunctionType invokeThunkType;
-		};
-		Uptr baseAddress;
-		Uptr numBytes;
-		std::map<U32, U32> offsetToOpIndexMap;
-
-		JITFunction(Uptr inBaseAddress, Uptr inNumBytes, std::map<U32, U32>&& inOffsetToOpIndexMap)
-		: type(Type::unknown)
-		, baseAddress(inBaseAddress)
-		, numBytes(inNumBytes)
-		, offsetToOpIndexMap(inOffsetToOpIndexMap)
-		{
-		}
-	};
-
 	// An opaque type that can be used to reference a loaded JIT module.
 	struct LoadedModule;
 
@@ -62,9 +34,15 @@ namespace WAVM { namespace LLVMJIT {
 	// Structs that are passed to loadModule to bind undefined symbols in object code to values.
 	//
 
+	struct ModuleInstanceBinding
+	{
+		Uptr id;
+	};
+
 	struct FunctionBinding
 	{
-		void* nativeFunction;
+		IR::CallingConvention callingConvention;
+		void* code;
 	};
 
 	struct TableBinding
@@ -87,6 +65,11 @@ namespace WAVM { namespace LLVMJIT {
 		};
 	};
 
+	struct ExceptionTypeBinding
+	{
+		Uptr id;
+	};
+
 	// Loads a module from object code, and binds its undefined symbols to the provided bindings.
 	LLVMJIT_API LoadedModule* loadModule(
 		const std::vector<U8>& objectFileBytes,
@@ -96,30 +79,30 @@ namespace WAVM { namespace LLVMJIT {
 		std::vector<TableBinding>&& tables,
 		std::vector<MemoryBinding>&& memories,
 		std::vector<GlobalBinding>&& globals,
-		std::vector<Runtime::ExceptionTypeInstance*>&& exceptionTypes,
+		std::vector<ExceptionTypeBinding>&& exceptionTypes,
 		MemoryBinding defaultMemory,
 		TableBinding defaultTable,
-		Runtime::ModuleInstance* moduleInstance,
+		ModuleInstanceBinding moduleInstance,
 		Uptr tableReferenceBias,
-		const std::vector<Runtime::FunctionInstance*>& functionDefInstances,
-		std::vector<JITFunction*>& outFunctionDefs);
+		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas);
 
 	// Unloads a JIT module, freeings its memory.
 	LLVMJIT_API void unloadModule(LoadedModule* loadedModule);
 
 	// Finds the JIT function whose code contains the given address. If no JIT function contains the
 	// given address, returns null.
-	LLVMJIT_API JITFunction* getJITFunctionByAddress(Uptr address);
+	LLVMJIT_API Runtime::FunctionInstance* getFunctionByAddress(Uptr address);
 
-	typedef Runtime::ContextRuntimeData* (*InvokeThunkPointer)(void*, Runtime::ContextRuntimeData*);
+	typedef Runtime::ContextRuntimeData* (*InvokeThunkPointer)(Runtime::FunctionInstance*,
+															   Runtime::ContextRuntimeData*);
 
 	// Generates an invoke thunk for a specific function type.
-	LLVMJIT_API InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType,
-												  IR::CallingConvention callingConvention);
+	LLVMJIT_API InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);
 
 	// Generates a thunk to call a native function from generated code.
-	LLVMJIT_API void* getIntrinsicThunk(void* nativeFunction,
-										const Runtime::FunctionInstance* functionInstance,
-										IR::FunctionType functionType,
-										IR::CallingConvention callingConvention);
+	LLVMJIT_API Runtime::FunctionInstance* getIntrinsicThunk(
+		void* nativeFunction,
+		IR::FunctionType functionType,
+		IR::CallingConvention callingConvention,
+		const char* debugName);
 }}

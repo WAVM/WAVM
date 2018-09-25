@@ -15,6 +15,7 @@ namespace WAVM { namespace Runtime {
 
 namespace WAVM { namespace Intrinsics {
 	struct ModuleImpl;
+	struct Function;
 
 	struct Module
 	{
@@ -29,6 +30,9 @@ namespace WAVM { namespace Intrinsics {
 		std::string&& debugName,
 		const HashMap<std::string, Runtime::Object*>& extraExports = {});
 
+	RUNTIME_API HashMap<std::string, Function*> getUninstantiatedFunctions(
+		const Intrinsics::Module& moduleRef);
+
 	// An intrinsic function.
 	struct Function
 	{
@@ -38,6 +42,9 @@ namespace WAVM { namespace Intrinsics {
 							 IR::FunctionType type,
 							 IR::CallingConvention inCallingConvention);
 		RUNTIME_API Runtime::FunctionInstance* instantiate(Runtime::Compartment* compartment);
+
+		void* getNativeFunction() const { return nativeFunction; }
+		IR::CallingConvention getCallingConvention() const { return callingConvention; }
 
 	private:
 		const char* name;

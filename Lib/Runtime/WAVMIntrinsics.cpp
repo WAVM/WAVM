@@ -9,6 +9,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/FloatComponents.h"
+#include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -201,13 +202,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "debugEnterFunction",
 						  void,
 						  debugEnterFunction,
-						  const AnyFunc* anyFunc)
+						  const FunctionInstance* function)
 {
-	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(anyFunc->anyRef.object);
 	Log::printf(Log::debug,
 				"ENTER: %*s\n",
-				U32(indentLevel * 4 + function->debugName.size()),
-				function->debugName.c_str());
+				U32(indentLevel * 4 + function->mutableData->debugName.size()),
+				function->mutableData->debugName.c_str());
 	++indentLevel;
 }
 
@@ -215,14 +215,13 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "debugExitFunction",
 						  void,
 						  debugExitFunction,
-						  const AnyFunc* anyFunc)
+						  const FunctionInstance* function)
 {
-	FunctionInstance* function = reinterpret_cast<FunctionInstance*>(anyFunc->anyRef.object);
 	--indentLevel;
 	Log::printf(Log::debug,
 				"EXIT:  %*s\n",
-				U32(indentLevel * 4 + function->debugName.size()),
-				function->debugName.c_str());
+				U32(indentLevel * 4 + function->mutableData->debugName.size()),
+				function->mutableData->debugName.c_str());
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)
@@ -230,9 +229,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)
 	Log::printf(Log::debug, "================== wavmIntrinsics.debugBreak\n");
 }
 
-Runtime::ModuleInstance* Runtime::instantiateWAVMIntrinsics(Compartment* compartment)
+void Runtime::dummyReferenceWAVMIntrinsics()
 {
-	dummyReferenceAtomics();
-	return Intrinsics::instantiateModule(
-		compartment, INTRINSIC_MODULE_REF(wavmIntrinsics), "WAVMIntrinsics");
+	// This is just here make sure the static initializers for the intrinsic function registrations
+	// aren't removed as dead code.
 }

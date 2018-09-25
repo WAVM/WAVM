@@ -139,10 +139,10 @@ namespace WAVM { namespace LLVMJIT {
 			{llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64[0], false)),
 			 llvm::ConstantInt::get(llvmContext, llvm::APInt(64, value.u64[1], false))});
 	}
-	inline llvm::Constant* emitLiteralPointer(const void* pointer, llvm::Type* type)
+	inline llvm::Constant* emitLiteralPointer(const void* pointer, llvm::Type* intOrPointerType)
 	{
 		auto pointerInt = llvm::APInt(sizeof(Uptr) == 8 ? 64 : 32, reinterpret_cast<Uptr>(pointer));
-		return llvm::Constant::getIntegerValue(type, pointerInt);
+		return llvm::Constant::getIntegerValue(intOrPointerType, pointerInt);
 	}
 
 	// Converts a WebAssembly type to a LLVM type.
@@ -274,6 +274,30 @@ namespace WAVM { namespace LLVMJIT {
 			emitLiteral(llvmContext, Uptr(sizeof(Uptr))));
 	}
 
+	inline void setRuntimeFunctionPrefix(LLVMContext& llvmContext,
+										 llvm::Function* function,
+										 llvm::Constant* mutableData,
+										 llvm::Constant* moduleInstanceId,
+										 llvm::Constant* typeId)
+	{
+		function->setPrefixData(
+			llvm::ConstantArray::get(llvm::ArrayType::get(llvmContext.iptrType, 4),
+									 {emitLiteral(llvmContext, Uptr(Runtime::ObjectKind::function)),
+									  mutableData,
+									  moduleInstanceId,
+									  typeId}));
+		static_assert(offsetof(Runtime::FunctionInstance, object) == sizeof(Uptr) * 0,
+					  "Function prefix must match Runtime::FunctionInstance layout");
+		static_assert(offsetof(Runtime::FunctionInstance, mutableData) == sizeof(Uptr) * 1,
+					  "Function prefix must match Runtime::FunctionInstance layout");
+		static_assert(offsetof(Runtime::FunctionInstance, moduleInstanceId) == sizeof(Uptr) * 2,
+					  "Function prefix must match Runtime::FunctionInstance layout");
+		static_assert(offsetof(Runtime::FunctionInstance, encodedType) == sizeof(Uptr) * 3,
+					  "Function prefix must match Runtime::FunctionInstance layout");
+		static_assert(offsetof(Runtime::FunctionInstance, code) == sizeof(Uptr) * 4,
+					  "Function prefix must match Runtime::FunctionInstance layout");
+	}
+
 	// Functions that map between the symbols used for externally visible functions and the function
 	inline std::string getExternalName(const char* baseName, Uptr index)
 	{
@@ -293,9 +317,8 @@ namespace WAVM { namespace LLVMJIT {
 	// Encapsulates a loaded module.
 	struct LoadedModule
 	{
-		std::vector<std::unique_ptr<JITFunction>> functions;
-		std::map<Uptr, JITFunction*> addressToFunctionMap;
-		HashMap<std::string, JITFunction*> nameToFunctionMap;
+		std::map<Uptr, Runtime::FunctionInstance*> addressToFunctionMap;
+		HashMap<std::string, Runtime::FunctionInstance*> nameToFunctionMap;
 
 		LoadedModule(const std::vector<U8>& inObjectBytes,
 					 const HashMap<std::string, Uptr>& importedSymbolMap,

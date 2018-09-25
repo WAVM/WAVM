@@ -12,9 +12,11 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/Runtime/RuntimeData.h"
@@ -22,82 +24,35 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
-#define DEFINE_STATIC_EXCEPTION_TYPE(name, ...)                                                    \
-	const GCPointer<ExceptionTypeInstance> Runtime::Exception::name##Type                          \
-		= createExceptionTypeInstance(IR::ExceptionType{IR::TypeTuple({__VA_ARGS__})},             \
-									  "wavm." #name);
-
-DEFINE_STATIC_EXCEPTION_TYPE(outOfBoundsMemoryAccess, IR::ValueType::anyref, IR::ValueType::i64)
-DEFINE_STATIC_EXCEPTION_TYPE(outOfBoundsTableAccess, IR::ValueType::anyref, IR::ValueType::i64)
-
-DEFINE_STATIC_EXCEPTION_TYPE(outOfBoundsDataSegmentAccess,
-							 IR::ValueType::anyref,
-							 IR::ValueType::i64,
-							 IR::ValueType::i64)
-
-DEFINE_STATIC_EXCEPTION_TYPE(outOfBoundsElemSegmentAccess,
-							 IR::ValueType::anyref,
-							 IR::ValueType::i64,
-							 IR::ValueType::i64)
-
-DEFINE_STATIC_EXCEPTION_TYPE(stackOverflow)
-DEFINE_STATIC_EXCEPTION_TYPE(integerDivideByZeroOrOverflow)
-DEFINE_STATIC_EXCEPTION_TYPE(invalidFloatOperation)
-DEFINE_STATIC_EXCEPTION_TYPE(invokeSignatureMismatch)
-DEFINE_STATIC_EXCEPTION_TYPE(reachedUnreachable)
-DEFINE_STATIC_EXCEPTION_TYPE(indirectCallSignatureMismatch)
-DEFINE_STATIC_EXCEPTION_TYPE(uninitializedTableElement, IR::ValueType::anyref, IR::ValueType::i64)
-DEFINE_STATIC_EXCEPTION_TYPE(calledAbort)
-DEFINE_STATIC_EXCEPTION_TYPE(calledUnimplementedIntrinsic)
-DEFINE_STATIC_EXCEPTION_TYPE(outOfMemory)
-DEFINE_STATIC_EXCEPTION_TYPE(misalignedAtomicMemoryAccess, IR::ValueType::i64)
-DEFINE_STATIC_EXCEPTION_TYPE(invalidArgument)
-
-#undef DEFINE_STATIC_EXCEPTION_TYPE
+#define DEFINE_INTRINSIC_EXCEPTION_TYPE(name, ...)                                                 \
+	ExceptionTypeInstance* Runtime::Exception::name##Type = new ExceptionTypeInstance(             \
+		nullptr, IR::ExceptionType{IR::TypeTuple({__VA_ARGS__})}, "wavm." #name);
+ENUM_INTRINSIC_EXCEPTION_TYPES(DEFINE_INTRINSIC_EXCEPTION_TYPE)
+#undef DEFINE_INTRINSIC_EXCEPTION_TYPE
 
 bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
-	LLVMJIT::JITFunction* jitFunction = LLVMJIT::getJITFunctionByAddress(ip);
-	if(!jitFunction) { return Platform::describeInstructionPointer(ip, outDescription); }
+	Runtime::FunctionInstance* function = LLVMJIT::getFunctionByAddress(ip);
+	if(!function) { return Platform::describeInstructionPointer(ip, outDescription); }
 	else
 	{
-		switch(jitFunction->type)
-		{
-		case LLVMJIT::JITFunction::Type::wasmFunction:
-		{
-			outDescription = "wasm!";
-			outDescription += jitFunction->functionInstance->moduleInstance->debugName;
-			outDescription += '!';
-			outDescription += jitFunction->functionInstance->debugName;
-			outDescription += '+';
+		outDescription = function->mutableData->debugName;
+		outDescription += '+';
 
-			// Find the highest entry in the offsetToOpIndexMap whose offset is <= the
-			// symbol-relative IP.
-			U32 ipOffset = (U32)(ip - jitFunction->baseAddress);
-			Iptr opIndex = -1;
-			for(auto offsetMapIt : jitFunction->offsetToOpIndexMap)
+		// Find the highest entry in the offsetToOpIndexMap whose offset is <= the
+		// symbol-relative IP.
+		U32 ipOffset = (U32)(ip - reinterpret_cast<Uptr>(function->code));
+		Iptr opIndex = -1;
+		for(auto offsetMapIt : function->mutableData->offsetToOpIndexMap)
+		{
+			if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
+			else
 			{
-				if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
-				else
-				{
-					break;
-				}
+				break;
 			}
-			outDescription += std::to_string(opIndex >= 0 ? opIndex : 0);
-
-			return true;
 		}
-		case LLVMJIT::JITFunction::Type::invokeThunk:
-			outDescription = "thnk!";
-			outDescription += asString(jitFunction->invokeThunkType);
-			outDescription += '+';
-			outDescription += std::to_string(ip - jitFunction->baseAddress);
-			return true;
-		case LLVMJIT::JITFunction::Type::intrinsicThunk:
-			outDescription = "thnk!intrinsic+" + std::to_string(ip - jitFunction->baseAddress);
-			return true;
-		default: Errors::unreachable();
-		};
+		outDescription += std::to_string(opIndex >= 0 ? opIndex : 0);
+		return true;
 	}
 }
 
@@ -138,11 +93,29 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 	return frameDescriptions;
 }
 
-ExceptionTypeInstance* Runtime::createExceptionTypeInstance(IR::ExceptionType type,
+ExceptionTypeInstance* Runtime::createExceptionTypeInstance(Compartment* compartment,
+															IR::ExceptionType type,
 															std::string&& debugName)
 {
-	return new ExceptionTypeInstance(type, std::move(debugName));
+	auto exceptionTypeInstance = new ExceptionTypeInstance(compartment, type, std::move(debugName));
+
+	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	exceptionTypeInstance->id = compartment->exceptionTypes.add(UINTPTR_MAX, exceptionTypeInstance);
+	if(exceptionTypeInstance->id == UINTPTR_MAX)
+	{
+		delete exceptionTypeInstance;
+		return nullptr;
+	}
+
+	return exceptionTypeInstance;
 }
+
+Runtime::ExceptionTypeInstance::~ExceptionTypeInstance()
+{
+	wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+	if(id != UINTPTR_MAX) { compartment->exceptionTypes.removeOrFail(id); }
+}
+
 std::string Runtime::describeExceptionType(const ExceptionTypeInstance* typeInstance)
 {
 	wavmAssert(typeInstance);
@@ -161,9 +134,9 @@ std::string Runtime::describeException(const Exception& exception)
 	if(exception.typeInstance == Exception::outOfBoundsMemoryAccessType)
 	{
 		wavmAssert(exception.arguments.size() == 2);
-		MemoryInstance* memory = asMemory(exception.arguments[0].anyRef->object);
+		MemoryInstance* memory = asMemoryNullable(exception.arguments[0].object);
 		result += '(';
-		result += memory->debugName;
+		result += memory ? memory->debugName : "<unknown memory>";
 		result += '+';
 		result += std::to_string(exception.arguments[1].u64);
 		result += ')';
@@ -172,9 +145,9 @@ std::string Runtime::describeException(const Exception& exception)
 			|| exception.typeInstance == Exception::uninitializedTableElementType)
 	{
 		wavmAssert(exception.arguments.size() == 2);
-		TableInstance* table = asTable(exception.arguments[0].anyRef->object);
+		TableInstance* table = asTableNullable(exception.arguments[0].object);
 		result += '(';
-		result += table->debugName;
+		result += table ? table->debugName : "<unknown table>";
 		result += '[';
 		result += std::to_string(exception.arguments[1].u64);
 		result += "])";
@@ -207,6 +180,7 @@ std::string Runtime::describeException(const Exception& exception)
 	wavmAssert(arguments.size() == typeInstance->type.params.size());
 	ExceptionData* exceptionData
 		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(typeInstance->type.params.size()));
+	exceptionData->typeId = typeInstance->id;
 	exceptionData->typeInstance = typeInstance;
 	exceptionData->isUserException = 0;
 	if(arguments.size())
@@ -222,21 +196,37 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "throwException",
 						  void,
 						  intrinsicThrowException,
-						  Uptr exceptionTypeInstanceBits,
+						  Uptr exceptionTypeId,
 						  Uptr argsBits,
 						  U32 isUserException)
 {
-	auto typeInstance = reinterpret_cast<ExceptionTypeInstance*>(Uptr(exceptionTypeInstanceBits));
+	ExceptionTypeInstance* exceptionTypeInstance;
+	{
+		Compartment* compartment = getCompartmentRuntimeData(contextRuntimeData)->compartment;
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		exceptionTypeInstance = compartment->exceptionTypes[exceptionTypeId];
+	}
 	auto args = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));
 
-	ExceptionData* exceptionData
-		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(typeInstance->type.params.size()));
-	exceptionData->typeInstance = typeInstance;
+	ExceptionData* exceptionData = (ExceptionData*)malloc(
+		ExceptionData::calcNumBytes(exceptionTypeInstance->type.params.size()));
+	exceptionData->typeId = exceptionTypeId;
+	exceptionData->typeInstance = exceptionTypeInstance;
 	exceptionData->isUserException = isUserException ? 1 : 0;
 	memcpy(exceptionData->arguments,
 		   args,
-		   sizeof(IR::UntaggedValue) * typeInstance->type.params.size());
+		   sizeof(IR::UntaggedValue) * exceptionTypeInstance->type.params.size());
 	Platform::raisePlatformException(exceptionData);
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "rethrowException",
+						  void,
+						  rethrowException,
+						  Uptr exceptionBits)
+{
+	ExceptionData* exception = reinterpret_cast<ExceptionData*>(exceptionBits);
+	Platform::raisePlatformException(exception);
 }
 
 static Exception translateExceptionDataToException(const ExceptionData* exceptionData,
@@ -266,9 +256,8 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		if(isAddressOwnedByTable(
 			   reinterpret_cast<U8*>(signal.accessViolation.address), table, tableIndex))
 		{
-			outException = Exception{Exception::outOfBoundsTableAccessType,
-									 {asAnyRef(table), U64(tableIndex)},
-									 callStack};
+			outException = Exception{
+				Exception::outOfBoundsTableAccessType, {table, U64(tableIndex)}, callStack};
 			return true;
 		}
 		// If the access violation occured in a Memory's reserved pages, treat it as an access
@@ -276,9 +265,8 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		else if(isAddressOwnedByMemory(
 					reinterpret_cast<U8*>(signal.accessViolation.address), memory, memoryAddress))
 		{
-			outException = Exception{Exception::outOfBoundsMemoryAccessType,
-									 {asAnyRef(memory), U64(memoryAddress)},
-									 callStack};
+			outException = Exception{
+				Exception::outOfBoundsMemoryAccessType, {memory, U64(memoryAddress)}, callStack};
 			return true;
 		}
 		return false;

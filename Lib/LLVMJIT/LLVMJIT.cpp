@@ -109,7 +109,7 @@ LLVMContext::LLVMContext()
 	exceptionPointersStructType
 		= llvm::StructType::create({llvmExceptionRecordStructType->getPointerTo(), i8PtrType});
 
-	anyrefType = llvm::StructType::create("AnyReferee", i8Type)->getPointerTo();
+	anyrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
 
 	i8x16Type = llvm::VectorType::get(i8Type, 16);
 	i16x8Type = llvm::VectorType::get(i16Type, 8);
@@ -118,7 +118,8 @@ LLVMContext::LLVMContext()
 	f32x4Type = llvm::VectorType::get(f32Type, 4);
 	f64x2Type = llvm::VectorType::get(f64Type, 2);
 
-	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any] = nullptr;
+	valueTypes[(Uptr)ValueType::none] = valueTypes[(Uptr)ValueType::any]
+		= valueTypes[(Uptr)ValueType::nullref] = nullptr;
 	valueTypes[(Uptr)ValueType::i32] = i32Type;
 	valueTypes[(Uptr)ValueType::i64] = i64Type;
 	valueTypes[(Uptr)ValueType::f32] = f32Type;
@@ -126,7 +127,6 @@ LLVMContext::LLVMContext()
 	valueTypes[(Uptr)ValueType::v128] = i64x2Type;
 	valueTypes[(Uptr)ValueType::anyref] = anyrefType;
 	valueTypes[(Uptr)ValueType::anyfunc] = anyrefType;
-	valueTypes[(Uptr)ValueType::nullref] = anyrefType;
 
 	// Create zero constants of each type.
 	typedZeroConstants[(Uptr)ValueType::none] = nullptr;

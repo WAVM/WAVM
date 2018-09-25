@@ -54,6 +54,17 @@ struct TestScriptState
 			Intrinsics::instantiateModule(compartment, INTRINSIC_MODULE_REF(spectest), "spectest"));
 		moduleNameToInstanceMap.set("threadTest", ThreadTest::instantiate(compartment));
 	}
+
+	~TestScriptState()
+	{
+		// Ensure that the compartment is garbage-collected after clearing all the references held
+		// by the script state.
+		lastModuleInstance = nullptr;
+		context = nullptr;
+		moduleInternalNameToInstanceMap.clear();
+		moduleNameToInstanceMap.clear();
+		errorUnless(tryCollectCompartment(std::move(compartment)));
+	}
 };
 
 struct TestScriptResolver : Resolver
@@ -179,7 +190,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 
 		// Clear the previous module.
 		state.lastModuleInstance = nullptr;
-		collectGarbage();
+		collectCompartmentGarbage(state.compartment);
 
 		// Link and instantiate the module.
 		TestScriptResolver resolver(state);
@@ -375,7 +386,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		if(processAction(state, assertCommand->action.get(), actionResults))
 		{
 			if(actionResults.size() != 1 || !isReferenceType(actionResults[0].type)
-			   || !asFunctionNullable(actionResults[0].anyRef->object))
+			   || !asFunctionNullable(actionResults[0].object))
 			{
 				testErrorf(state,
 						   assertCommand->locus,
@@ -429,7 +440,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		if(!moduleInstance) { break; }
 
 		// Find the named export in the module instance.
-		auto expectedExceptionType = asExceptionTypeInstanceNullable(
+		auto expectedExceptionType = asExceptionTypeNullable(
 			getInstanceExport(moduleInstance, assertCommand->exceptionTypeExportName));
 		if(!expectedExceptionType)
 		{
@@ -668,7 +679,6 @@ int main(int argc, char** argv)
 
 	delete testScriptState;
 	testCommands.clear();
-	collectGarbage();
 
 	return exitCode;
 }

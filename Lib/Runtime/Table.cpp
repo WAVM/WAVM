@@ -32,36 +32,35 @@ static Uptr getNumPlatformPages(Uptr numBytes)
 	return (numBytes + (Uptr(1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
 }
 
-static const AnyFunc* makeDummyAnyFunc()
+static FunctionInstance* makeDummyFunction(const char* debugName)
 {
-	AnyFunc* anyFunc = new AnyFunc;
-	anyFunc->anyRef.object = nullptr;
-	anyFunc->functionTypeEncoding = IR::FunctionType::Encoding{0};
-	anyFunc->code[0] = 0xcc; // int3
-	return anyFunc;
+	FunctionMutableData* functionMutableData = new FunctionMutableData(debugName);
+	FunctionInstance* function
+		= new FunctionInstance(functionMutableData, UINTPTR_MAX, IR::FunctionType::Encoding{0});
+	functionMutableData->function = function;
+	return function;
 }
 
-const AnyFunc* Runtime::getOutOfBoundsAnyFunc()
+Object* Runtime::getOutOfBoundsElement()
 {
-	static const AnyFunc* anyFunc = makeDummyAnyFunc();
-	return anyFunc;
+	static FunctionInstance* function = makeDummyFunction("out-of-bounds table element");
+	return asObject(function);
 }
 
-const AnyFunc* Runtime::getUninitializedAnyFunc()
+static Object* getUninitializedElement()
 {
-	static const AnyFunc* anyFunc = makeDummyAnyFunc();
-	return anyFunc;
+	static FunctionInstance* function = makeDummyFunction("uninitialized table element");
+	return asObject(function);
 }
 
-static Uptr anyRefToBiasedTableElementValue(const AnyReferee* anyRef)
+static Uptr objectToBiasedTableElementValue(Object* object)
 {
-	return reinterpret_cast<Uptr>(anyRef) - reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc());
+	return reinterpret_cast<Uptr>(object) - reinterpret_cast<Uptr>(getOutOfBoundsElement());
 }
 
-static const AnyReferee* biasedTableElementValueToAnyRef(Uptr biasedValue)
+static Object* biasedTableElementValueToObject(Uptr biasedValue)
 {
-	return reinterpret_cast<const AnyReferee*>(biasedValue
-											   + reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()));
+	return reinterpret_cast<Object*>(biasedValue + reinterpret_cast<Uptr>(getOutOfBoundsElement()));
 }
 
 static TableInstance* createTableImpl(Compartment* compartment,
@@ -128,7 +127,7 @@ static Iptr growTableImpl(TableInstance* table, Uptr numElementsToGrow, bool ini
 		for(Uptr elementIndex = previousNumElements; elementIndex < newNumElements; ++elementIndex)
 		{
 			table->elements[elementIndex].biasedValue.store(
-				anyRefToBiasedTableElementValue(&getUninitializedAnyFunc()->anyRef),
+				objectToBiasedTableElementValue(getUninitializedElement()),
 				std::memory_order_release);
 		}
 	}
@@ -209,19 +208,19 @@ TableInstance* Runtime::cloneTable(TableInstance* table, Compartment* newCompart
 	return newTable;
 }
 
-void TableInstance::finalize()
-{
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-
-	wavmAssert(compartment->tables[id] == this);
-	compartment->tables.removeOrFail(id);
-
-	wavmAssert(compartment->runtimeData->tableBases[id] == elements);
-	compartment->runtimeData->tableBases[id] = nullptr;
-}
-
 TableInstance::~TableInstance()
 {
+	if(id != UINTPTR_MAX)
+	{
+		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+
+		wavmAssert(compartment->tables[id] == this);
+		compartment->tables.removeOrFail(id);
+
+		wavmAssert(compartment->runtimeData->tableBases[id] == elements);
+		compartment->runtimeData->tableBases[id] = nullptr;
+	}
+
 	// Remove the table from the global array.
 	{
 		Lock<Platform::Mutex> tablesLock(tablesMutex);
@@ -272,13 +271,13 @@ bool Runtime::isAddressOwnedByTable(U8* address, TableInstance*& outTable, Uptr&
 	return false;
 }
 
-static const AnyReferee* setTableElementAnyRef(TableInstance* table,
-											   Uptr index,
-											   const AnyReferee* anyRef)
+static Object* setTableElementNonNull(TableInstance* table, Uptr index, Object* object)
 {
+	wavmAssert(object);
+
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
-	{ throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)}); }
+	{ throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)}); }
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
@@ -286,28 +285,28 @@ static const AnyReferee* setTableElementAnyRef(TableInstance* table,
 		= Platform::saturateToBounds(index, U64(table->numReservedElements) - 1);
 
 	// Compute the biased value to store in the table.
-	const Uptr biasedValue = anyRefToBiasedTableElementValue(anyRef);
+	const Uptr biasedValue = objectToBiasedTableElementValue(object);
 
 	// Atomically replace the table element, throwing an out-of-bounds exception before the write if
 	// the element being replaced is an out-of-bounds sentinel value.
 	Uptr oldBiasedValue = table->elements[saturatedIndex].biasedValue;
 	while(true)
 	{
-		if(biasedTableElementValueToAnyRef(oldBiasedValue) == &getOutOfBoundsAnyFunc()->anyRef)
-		{ throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)}); }
+		if(biasedTableElementValueToObject(oldBiasedValue) == getOutOfBoundsElement())
+		{ throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)}); }
 		if(table->elements[saturatedIndex].biasedValue.compare_exchange_weak(
 			   oldBiasedValue, biasedValue, std::memory_order_acq_rel))
 		{ break; }
 	};
 
-	return biasedTableElementValueToAnyRef(oldBiasedValue);
+	return biasedTableElementValueToObject(oldBiasedValue);
 }
 
-static const AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
+static Object* getTableElementNonNull(TableInstance* table, Uptr index)
 {
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
-	{ throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)}); }
+	{ throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)}); }
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
@@ -317,35 +316,36 @@ static const AnyReferee* getTableElementAnyRef(TableInstance* table, Uptr index)
 	// Read the table element.
 	const Uptr biasedValue
 		= table->elements[saturatedIndex].biasedValue.load(std::memory_order_acquire);
-	const AnyReferee* anyRef = biasedTableElementValueToAnyRef(biasedValue);
+	Object* object = biasedTableElementValueToObject(biasedValue);
 
 	// If the element was an out-of-bounds sentinel value, throw an out-of-bounds exception.
-	if(anyRef == &getOutOfBoundsAnyFunc()->anyRef)
-	{ throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)}); }
+	if(object == getOutOfBoundsElement())
+	{ throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)}); }
 
-	return anyRef;
+	wavmAssert(object);
+	return object;
 }
 
-const AnyReferee* Runtime::setTableElement(TableInstance* table,
-										   Uptr index,
-										   const AnyReferee* newValue)
+Object* Runtime::setTableElement(TableInstance* table, Uptr index, Object* newValue)
 {
+	wavmAssert(!newValue || isInCompartment(newValue, table->compartment));
+
 	// If the new value is null, write the uninitialized sentinel value instead.
-	if(!newValue) { newValue = &getUninitializedAnyFunc()->anyRef; }
+	if(!newValue) { newValue = getUninitializedElement(); }
 
 	// Write the table element.
-	const AnyReferee* oldAnyRef = setTableElementAnyRef(table, index, newValue);
+	Object* oldObject = setTableElementNonNull(table, index, newValue);
 
 	// If the old table element was the uninitialized sentinel value, return null.
-	return oldAnyRef == &getUninitializedAnyFunc()->anyRef ? nullptr : oldAnyRef;
+	return oldObject == getUninitializedElement() ? nullptr : oldObject;
 }
 
-const AnyReferee* Runtime::getTableElement(TableInstance* table, Uptr index)
+Object* Runtime::getTableElement(TableInstance* table, Uptr index)
 {
-	const AnyReferee* anyRef = getTableElementAnyRef(table, index);
+	Object* object = getTableElementNonNull(table, index);
 
 	// If the old table element was the uninitialized sentinel value, return null.
-	return anyRef == &getUninitializedAnyFunc()->anyRef ? nullptr : anyRef;
+	return object == getUninitializedElement() ? nullptr : object;
 }
 
 Uptr Runtime::getTableNumElements(TableInstance* table)
@@ -395,7 +395,7 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 			--elementIndex)
 		{
 			table->elements[elementIndex].biasedValue.store(
-				anyRefToBiasedTableElementValue(&getOutOfBoundsAnyFunc()->anyRef),
+				objectToBiasedTableElementValue(getOutOfBoundsElement()),
 				std::memory_order_release);
 		}
 	}
@@ -404,12 +404,7 @@ Iptr Runtime::shrinkTable(TableInstance* table, Uptr numElementsToShrink)
 	return previousNumElements;
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "table.get",
-						  const AnyReferee*,
-						  table_get,
-						  U32 index,
-						  Uptr tableId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.get", Object*, table_get, U32 index, Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	return getTableElement(table, index);
@@ -420,7 +415,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  void,
 						  table_set,
 						  U32 index,
-						  const AnyReferee* value,
+						  Object* value,
 						  Uptr tableId)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
@@ -434,11 +429,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  U32 destOffset,
 						  U32 sourceOffset,
 						  U32 numElements,
-						  Uptr moduleInstanceBits,
+						  Uptr moduleInstanceId,
 						  Uptr tableId,
 						  Uptr elemSegmentIndex)
 {
-	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	ModuleInstance* moduleInstance
+		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
 	Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->passiveElemSegmentsMutex);
 
 	if(!moduleInstance->passiveElemSegments.contains(elemSegmentIndex))
@@ -464,11 +460,11 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			if(sourceIndex >= passiveElemSegmentObjects->size())
 			{
 				throwException(Exception::outOfBoundsElemSegmentAccessType,
-							   {asAnyRef(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+							   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
 			}
 
 			setTableElement(
-				table, Uptr(destIndex), asAnyRef((*passiveElemSegmentObjects)[sourceIndex]));
+				table, Uptr(destIndex), asObject((*passiveElemSegmentObjects)[sourceIndex]));
 		}
 	}
 }
@@ -477,10 +473,11 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "table.drop",
 						  void,
 						  table_drop,
-						  Uptr moduleInstanceBits,
+						  Uptr moduleInstanceId,
 						  Uptr elemSegmentIndex)
 {
-	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	ModuleInstance* moduleInstance
+		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
 	Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->passiveElemSegmentsMutex);
 
 	if(!moduleInstance->passiveElemSegments.contains(elemSegmentIndex))
@@ -516,16 +513,16 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		// before they are overwritten by the second part of the copy below.
 		for(Uptr index = numNonOverlappingElements; index < numElements; ++index)
 		{
-			setTableElementAnyRef(table,
-								  U64(destOffset) + U64(index),
-								  getTableElementAnyRef(table, U64(sourceOffset) + U64(index)));
+			setTableElementNonNull(table,
+								   U64(destOffset) + U64(index),
+								   getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
 		}
 
 		for(Uptr index = 0; index < numNonOverlappingElements; ++index)
 		{
-			setTableElementAnyRef(table,
-								  U64(destOffset) + U64(index),
-								  getTableElementAnyRef(table, U64(sourceOffset) + U64(index)));
+			setTableElementNonNull(table,
+								   U64(destOffset) + U64(index),
+								   getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
 		}
 	}
 }
@@ -536,30 +533,29 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  callIndirectFail,
 						  U32 index,
 						  Uptr tableId,
-						  Uptr functionPointerBits,
+						  FunctionInstance* function,
 						  Uptr expectedTypeEncoding)
 {
 	TableInstance* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	AnyFunc* functionPointer = reinterpret_cast<AnyFunc*>(functionPointerBits);
-	if(functionPointer == getOutOfBoundsAnyFunc())
+	if(asObject(function) == getOutOfBoundsElement())
 	{
 		Log::printf(Log::debug, "call_indirect: index %u is out-of-bounds\n", index);
-		throwException(Exception::outOfBoundsTableAccessType, {asAnyRef(table), U64(index)});
+		throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)});
 	}
-	else if(functionPointer == getUninitializedAnyFunc())
+	else if(asObject(function) == getUninitializedElement())
 	{
 		Log::printf(Log::debug, "call_indirect: index %u is uninitialized\n", index);
-		throwException(Exception::uninitializedTableElementType, {asAnyRef(table), U64(index)});
+		throwException(Exception::uninitializedTableElementType, {table, U64(index)});
 	}
 	else
 	{
 		IR::FunctionType expectedSignature{IR::FunctionType::Encoding{expectedTypeEncoding}};
 		std::string ipDescription = "<unknown>";
-		describeInstructionPointer(reinterpret_cast<Uptr>(functionPointer->code), ipDescription);
+		describeInstructionPointer(reinterpret_cast<Uptr>(function->code), ipDescription);
 		Log::printf(Log::debug,
 					"call_indirect: index %u has signature %s (%s), but was expecting %s\n",
 					index,
-					asString(IR::FunctionType{functionPointer->functionTypeEncoding}).c_str(),
+					asString(IR::FunctionType{function->encodedType}).c_str(),
 					ipDescription.c_str(),
 					asString(expectedSignature).c_str());
 		throwException(Exception::indirectCallSignatureMismatchType);

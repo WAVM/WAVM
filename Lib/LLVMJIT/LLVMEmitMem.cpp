@@ -112,7 +112,7 @@ void EmitFunctionContext::memory_init(DataSegmentAndMemImm imm)
 		{destAddress,
 		 sourceOffset,
 		 numBytes,
-		 irBuilder.CreatePointerCast(moduleContext.moduleInstancePointer, llvmContext.iptrType),
+		 moduleContext.moduleInstanceId,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex]),
 		 emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
@@ -122,8 +122,7 @@ void EmitFunctionContext::memory_drop(DataSegmentImm imm)
 	emitRuntimeIntrinsic(
 		"memory.drop",
 		FunctionType({}, TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()})),
-		{irBuilder.CreatePointerCast(moduleContext.moduleInstancePointer, llvmContext.iptrType),
-		 emitLiteral(llvmContext, imm.dataSegmentIndex)});
+		{moduleContext.moduleInstanceId, emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
 
 void EmitFunctionContext::memory_copy(MemoryImm imm)

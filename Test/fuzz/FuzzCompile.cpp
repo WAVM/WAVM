@@ -22,7 +22,6 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	if(!WASM::loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
 
 	compileModule(module);
-	collectGarbage();
 
 	return 0;
 }

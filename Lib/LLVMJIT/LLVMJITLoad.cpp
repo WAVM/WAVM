@@ -493,18 +493,25 @@ LoadedModule::LoadedModule(const std::vector<U8>& inObjectBytes,
 		}
 #endif
 
-		// Notify the JIT unit that the symbol was loaded.
+		// Add the function to the module's name and address to function maps.
 		wavmAssert(symbolSizePair.second <= UINTPTR_MAX);
-		JITFunction* jitFunction = new JITFunction(
-			loadedAddress, Uptr(symbolSizePair.second), std::move(offsetToOpIndexMap));
-		functions.push_back(std::unique_ptr<JITFunction>(jitFunction));
-		nameToFunctionMap.addOrFail(*name, jitFunction);
-		addressToFunctionMap.emplace(jitFunction->baseAddress + jitFunction->numBytes, jitFunction);
+		Runtime::FunctionInstance* function
+			= (Runtime::FunctionInstance*)(loadedAddress
+										   - offsetof(Runtime::FunctionInstance, code));
+		nameToFunctionMap.addOrFail(*name, function);
+		addressToFunctionMap.emplace(Uptr(loadedAddress + symbolSizePair.second), function);
+
+		// Initialize the function mutable data.
+		wavmAssert(function->mutableData);
+		function->mutableData->jitModule = this;
+		function->mutableData->function = function;
+		function->mutableData->numCodeBytes = Uptr(symbolSizePair.second);
+		function->mutableData->offsetToOpIndexMap = std::move(std::move(offsetToOpIndexMap));
 	}
 
-	addressToModuleMap.emplace(reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
-													  + memoryManager->getNumImageBytes()),
-							   this);
+	const Uptr moduleEndAddress = reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
+														 + memoryManager->getNumImageBytes());
+	addressToModuleMap.emplace(moduleEndAddress, this);
 
 	if(shouldLogMetrics)
 	{
@@ -523,24 +530,27 @@ LLVMJIT::LoadedModule::~LoadedModule()
 	addressToModuleMap.erase(addressToModuleMap.find(reinterpret_cast<Uptr>(
 		memoryManager->getImageBaseAddress() + memoryManager->getNumImageBytes())));
 
+	// Free the FunctionMutableData objects.
+	for(const auto& pair : addressToFunctionMap) { delete pair.second->mutableData; }
+
 	// Delete the memory manager.
 	delete memoryManager;
 }
 
-LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
-								  HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
-								  std::vector<FunctionType>&& types,
-								  std::vector<FunctionBinding>&& functionImports,
-								  std::vector<TableBinding>&& tables,
-								  std::vector<MemoryBinding>&& memories,
-								  std::vector<GlobalBinding>&& globals,
-								  std::vector<Runtime::ExceptionTypeInstance*>&& exceptionTypes,
-								  MemoryBinding defaultMemory,
-								  TableBinding defaultTable,
-								  ModuleInstance* moduleInstance,
-								  Uptr tableReferenceBias,
-								  const std::vector<FunctionInstance*>& functionDefInstances,
-								  std::vector<JITFunction*>& outFunctionDefs)
+LoadedModule* LLVMJIT::loadModule(
+	const std::vector<U8>& objectFileBytes,
+	HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
+	std::vector<FunctionType>&& types,
+	std::vector<FunctionBinding>&& functionImports,
+	std::vector<TableBinding>&& tables,
+	std::vector<MemoryBinding>&& memories,
+	std::vector<GlobalBinding>&& globals,
+	std::vector<ExceptionTypeBinding>&& exceptionTypes,
+	MemoryBinding defaultMemory,
+	TableBinding defaultTable,
+	ModuleInstanceBinding moduleInstance,
+	Uptr tableReferenceBias,
+	const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas)
 {
 	// Bind undefined symbols in the compiled object to values.
 	HashMap<std::string, Uptr> importedSymbolMap;
@@ -549,8 +559,9 @@ LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 	// calling convention, so no thunking is necessary.
 	for(auto exportMapPair : wavmIntrinsicsExportMap)
 	{
+		wavmAssert(exportMapPair.value.callingConvention == CallingConvention::intrinsic);
 		importedSymbolMap.addOrFail(exportMapPair.key,
-									reinterpret_cast<Uptr>(exportMapPair.value.nativeFunction));
+									reinterpret_cast<Uptr>(exportMapPair.value.code));
 	}
 
 	// Bind the type ID symbols.
@@ -563,17 +574,8 @@ LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 	// Bind imported function symbols.
 	for(Uptr importIndex = 0; importIndex < functionImports.size(); ++importIndex)
 	{
-		void* nativeFunction = functionImports[importIndex].nativeFunction;
 		importedSymbolMap.addOrFail(getExternalName("functionImport", importIndex),
-									reinterpret_cast<Uptr>(nativeFunction));
-	}
-
-	// Bind the defined function instances.
-	for(Uptr functionDefIndex = 0; functionDefIndex < functionDefInstances.size();
-		++functionDefIndex)
-	{
-		importedSymbolMap.addOrFail(getExternalName("functionDefInstance", functionDefIndex),
-									reinterpret_cast<Uptr>(functionDefInstances[functionDefIndex]));
+									reinterpret_cast<Uptr>(functionImports[importIndex].code));
 	}
 
 	// Bind the table symbols. The compiled module uses the symbol's value as an offset into
@@ -618,33 +620,38 @@ LoadedModule* LLVMJIT::loadModule(const std::vector<U8>& objectFileBytes,
 	for(Uptr exceptionTypeIndex = 0; exceptionTypeIndex < exceptionTypes.size();
 		++exceptionTypeIndex)
 	{
-		importedSymbolMap.addOrFail(getExternalName("exceptionType", exceptionTypeIndex),
-									reinterpret_cast<Uptr>(exceptionTypes[exceptionTypeIndex]));
+		importedSymbolMap.addOrFail(getExternalName("biasedExceptionTypeId", exceptionTypeIndex),
+									exceptionTypes[exceptionTypeIndex].id + 1);
+	}
+
+	// Allocate FunctionMutableData objects for each function def, and bind them to the symbols
+	// imported by the compiled module.
+	for(Uptr functionDefIndex = 0; functionDefIndex < functionDefMutableDatas.size();
+		++functionDefIndex)
+	{
+		Runtime::FunctionMutableData* functionMutableData
+			= functionDefMutableDatas[functionDefIndex];
+		importedSymbolMap.addOrFail(getExternalName("functionDefMutableDatas", functionDefIndex),
+									reinterpret_cast<Uptr>(functionMutableData));
 	}
 
 	// Bind the moduleInstance symbol to point to the ModuleInstance.
-	importedSymbolMap.addOrFail("moduleInstance", reinterpret_cast<Uptr>(moduleInstance));
+	wavmAssert(moduleInstance.id != UINTPTR_MAX);
+	importedSymbolMap.addOrFail("biasedModuleInstanceId", moduleInstance.id + 1);
 
 	// Bind the tableReferenceBias symbol to the tableReferenceBias.
 	importedSymbolMap.addOrFail("tableReferenceBias", tableReferenceBias);
 
+	importedSymbolMap.addOrFail("userExceptionTypeInfo",
+								reinterpret_cast<Uptr>(Platform::getUserExceptionTypeInfo()));
+
 	// Load the module.
-	LoadedModule* jitModule = new LoadedModule(objectFileBytes, importedSymbolMap, true);
-
-	// Look up the function definitions by name from the loaded module's functions.
-	for(Uptr functionDefIndex = 0; functionDefIndex < functionDefInstances.size();
-		++functionDefIndex)
-	{
-		outFunctionDefs.push_back(
-			jitModule->nameToFunctionMap[getExternalName("functionDef", functionDefIndex)]);
-	}
-
-	return jitModule;
+	return new LoadedModule(objectFileBytes, importedSymbolMap, true);
 }
 
 void LLVMJIT::unloadModule(LoadedModule* loadedModule) { delete loadedModule; }
 
-JITFunction* LLVMJIT::getJITFunctionByAddress(Uptr address)
+Runtime::FunctionInstance* LLVMJIT::getFunctionByAddress(Uptr address)
 {
 	LoadedModule* jitModule;
 	{
@@ -656,8 +663,9 @@ JITFunction* LLVMJIT::getJITFunctionByAddress(Uptr address)
 
 	auto functionIt = jitModule->addressToFunctionMap.upper_bound(address);
 	if(functionIt == jitModule->addressToFunctionMap.end()) { return nullptr; }
-	JITFunction* function = functionIt->second;
-	return address >= function->baseAddress && address < function->baseAddress + function->numBytes
+	Runtime::FunctionInstance* function = functionIt->second;
+	const Uptr codeAddress = reinterpret_cast<Uptr>(function->code);
+	return address >= codeAddress && address < codeAddress + function->mutableData->numCodeBytes
 			   ? function
 			   : nullptr;
 }

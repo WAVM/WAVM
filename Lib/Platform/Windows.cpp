@@ -970,11 +970,8 @@ Platform::Mutex::Mutex()
 
 Platform::Mutex::~Mutex()
 {
-	if(!TryEnterCriticalSection((CRITICAL_SECTION*)&criticalSection)
-		|| isLocked)
-	{
-		Errors::fatal("Destroying mutex that was locked");
-	}
+	if(!TryEnterCriticalSection((CRITICAL_SECTION*)&criticalSection) || isLocked)
+	{ Errors::fatal("Destroying mutex that was locked"); }
 	DeleteCriticalSection((CRITICAL_SECTION*)&criticalSection);
 }
 

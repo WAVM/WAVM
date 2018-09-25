@@ -52,16 +52,9 @@ void EmitFunctionContext::endCatch()
 		irBuilder.SetInsertPoint(catchContext.nextHandlerBlock);
 
 		emitRuntimeIntrinsic(
-			"throwException",
-			FunctionType(TypeTuple{},
-						 TypeTuple{inferValueType<Iptr>(), inferValueType<Iptr>(), ValueType::i32}),
-			{loadFromUntypedPointer(catchContext.exceptionPointer, llvmContext.iptrType),
-			 irBuilder.CreatePtrToInt(
-				 irBuilder.CreateInBoundsGEP(
-					 catchContext.exceptionPointer,
-					 {emitLiteral(llvmContext, I32(offsetof(ExceptionData, arguments)))}),
-				 llvmContext.iptrType),
-			 emitLiteral(llvmContext, I32(0))});
+			"rethrowException",
+			FunctionType(TypeTuple{}, TypeTuple{inferValueType<Iptr>()}),
+			{irBuilder.CreatePtrToInt(catchContext.exceptionPointer, llvmContext.iptrType)});
 
 		irBuilder.CreateUnreachable();
 	}
@@ -117,7 +110,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 		{
 			moduleContext.tryPrologueDummyFunction = llvm::Function::Create(
 				llvm::FunctionType::get(llvm::Type::getVoidTy(llvmContext), false),
-				llvm::GlobalValue::LinkageTypes::InternalLinkage,
+				llvm::GlobalValue::LinkageTypes::PrivateLinkage,
 				"__try_prologue",
 				moduleContext.llvmModule);
 			auto entryBasicBlock = llvm::BasicBlock::Create(
@@ -145,21 +138,19 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 			irBuilder.CreateCall(moduleContext.cxaBeginCatchFunction,
 								 {irBuilder.CreateExtractValue(landingPadInst, {0})}),
 			llvmContext.i8Type->getPointerTo());
-		auto exceptionTypeInstance = loadFromUntypedPointer(
+		auto exceptionTypeId = loadFromUntypedPointer(
 			irBuilder.CreateInBoundsGEP(
 				exceptionPointer,
-				{emitLiteral(llvmContext, Uptr(offsetof(ExceptionData, typeInstance)))}),
-			llvmContext.i8PtrType);
+				{emitLiteral(llvmContext, Uptr(offsetof(ExceptionData, typeId)))}),
+			llvmContext.iptrType);
 
 		irBuilder.SetInsertPoint(originalInsertBlock);
 		tryStack.push_back(TryContext{landingPadBlock});
 		catchStack.push_back(CatchContext{
-			nullptr, landingPadInst, landingPadBlock, exceptionTypeInstance, exceptionPointer});
+			nullptr, landingPadInst, landingPadBlock, exceptionTypeId, exceptionPointer});
 
 		// Add the platform exception type to the landing pad's type filter.
-		auto platformExceptionTypeInfo
-			= emitLiteralPointer(Platform::getUserExceptionTypeInfo(), llvmContext.i8PtrType);
-		landingPadInst->addClause(platformExceptionTypeInfo);
+		landingPadInst->addClause(moduleContext.userExceptionTypeInfo);
 
 		// Create an end try+phi for the try result.
 		auto endBlock = llvm::BasicBlock::Create(llvmContext, "tryEnd", function);
@@ -183,7 +174,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 
 static llvm::Function* createSEHFilterFunction(LLVMContext& llvmContext,
 											   EmitFunctionContext& functionContext,
-											   llvm::Constant* catchTypeInstance,
+											   llvm::Constant* catchTypeId,
 											   llvm::Value*& outExceptionDataAlloca)
 {
 	// Insert an alloca for the exception point at the beginning of the function, and add it as a
@@ -204,7 +195,7 @@ static llvm::Function* createSEHFilterFunction(LLVMContext& llvmContext,
 	llvm::FunctionType* filterFunctionType = llvm::FunctionType::get(
 		llvmContext.i32Type, {llvmContext.i8PtrType, llvmContext.i8PtrType}, false);
 	auto filterFunction = llvm::Function::Create(filterFunctionType,
-												 llvm::GlobalValue::LinkageTypes::InternalLinkage,
+												 llvm::GlobalValue::LinkageTypes::PrivateLinkage,
 												 "sehFilter",
 												 functionContext.moduleContext.llvmModule);
 	auto filterEntryBasicBlock = llvm::BasicBlock::Create(llvmContext, "entry", filterFunction);
@@ -257,7 +248,7 @@ static llvm::Function* createSEHFilterFunction(LLVMContext& llvmContext,
 								filterIRBuilder.CreatePointerCast(
 									exceptionDataAlloca, llvmContext.i64Type->getPointerTo()));
 
-	if(!catchTypeInstance)
+	if(!catchTypeId)
 	{
 		// If the exception code is SEH_WAVM_EXCEPTION, and the exception is a user exception,
 		// return 1 from the filter function.
@@ -271,12 +262,11 @@ static llvm::Function* createSEHFilterFunction(LLVMContext& llvmContext,
 	{
 		// If the exception code is SEH_WAVM_EXCEPTION, and the thrown exception matches the catch
 		// exception type, return 1 from the filter function.
-		auto exceptionTypeInstance = filterIRBuilder.CreateLoad(
-			filterIRBuilder.CreateIntToPtr(exceptionData, llvmContext.i8PtrType->getPointerTo()));
-		auto isExpectedTypeInstance
-			= filterIRBuilder.CreateICmpEQ(exceptionTypeInstance, catchTypeInstance);
+		auto exceptionTypeId = filterIRBuilder.CreateLoad(
+			filterIRBuilder.CreateIntToPtr(exceptionData, llvmContext.iptrType->getPointerTo()));
+		auto isExpectedTypeId = filterIRBuilder.CreateICmpEQ(exceptionTypeId, catchTypeId);
 		filterIRBuilder.CreateRet(
-			filterIRBuilder.CreateZExt(isExpectedTypeInstance, llvmContext.i32Type));
+			filterIRBuilder.CreateZExt(isExpectedTypeId, llvmContext.i32Type));
 	}
 
 	return filterFunction;
@@ -299,10 +289,9 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 	branchToEndOfControlContext();
 
 	// Look up the exception type instance to be caught
-	wavmAssert(imm.exceptionTypeIndex < moduleContext.exceptionTypeInstances.size());
+	wavmAssert(imm.exceptionTypeIndex < moduleContext.exceptionTypeIds.size());
 	const IR::ExceptionType catchType = irModule.exceptionTypes.getType(imm.exceptionTypeIndex);
-	llvm::Constant* catchTypeInstance
-		= moduleContext.exceptionTypeInstances[imm.exceptionTypeIndex];
+	llvm::Constant* catchTypeId = moduleContext.exceptionTypeIds[imm.exceptionTypeIndex];
 
 	if(USE_WINDOWS_SEH)
 	{
@@ -311,7 +300,7 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 		llvm::Value* exceptionDataAlloca = nullptr;
 
 		auto filterFunction
-			= createSEHFilterFunction(llvmContext, *this, catchTypeInstance, exceptionDataAlloca);
+			= createSEHFilterFunction(llvmContext, *this, catchTypeId, exceptionDataAlloca);
 
 		// Create a block+catchpad that the catchswitch will transfer control to if the filter
 		// function returns 1.
@@ -345,8 +334,7 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 	else
 	{
 		irBuilder.SetInsertPoint(catchContext.nextHandlerBlock);
-		auto isExceptionType
-			= irBuilder.CreateICmpEQ(catchContext.exceptionTypeInstance, catchTypeInstance);
+		auto isExceptionType = irBuilder.CreateICmpEQ(catchContext.exceptionTypeId, catchTypeId);
 
 		auto catchBlock = llvm::BasicBlock::Create(llvmContext, "catch", function);
 		auto unhandledBlock = llvm::BasicBlock::Create(llvmContext, "unhandled", function);
@@ -454,15 +442,14 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 				elementValue->getType()->getPointerTo()));
 	}
 
-	llvm::Value* exceptionTypeInstance = irBuilder.CreatePtrToInt(
-		moduleContext.exceptionTypeInstances[imm.exceptionTypeIndex], llvmContext.iptrType);
+	llvm::Value* exceptionTypeId = moduleContext.exceptionTypeIds[imm.exceptionTypeIndex];
 	llvm::Value* argsPointerAsInt = irBuilder.CreatePtrToInt(argBaseAddress, llvmContext.iptrType);
 
 	emitRuntimeIntrinsic(
 		"throwException",
 		FunctionType(TypeTuple{},
 					 TypeTuple{inferValueType<Iptr>(), inferValueType<Iptr>(), ValueType::i32}),
-		{exceptionTypeInstance, argsPointerAsInt, emitLiteral(llvmContext, I32(1))});
+		{exceptionTypeId, argsPointerAsInt, emitLiteral(llvmContext, I32(1))});
 
 	irBuilder.CreateUnreachable();
 	enterUnreachable();
@@ -471,20 +458,10 @@ void EmitFunctionContext::rethrow(RethrowImm imm)
 {
 	wavmAssert(imm.catchDepth < catchStack.size());
 	CatchContext& catchContext = catchStack[catchStack.size() - imm.catchDepth - 1];
-
-	llvm::Value* exceptionTypeInstance
-		= loadFromUntypedPointer(catchContext.exceptionPointer, llvmContext.iptrType);
-	llvm::Value* argsPointerAsInt = irBuilder.CreatePtrToInt(
-		irBuilder.CreateInBoundsGEP(
-			catchContext.exceptionPointer,
-			{emitLiteral(llvmContext, Uptr(offsetof(ExceptionData, arguments)))}),
-		llvmContext.iptrType);
-
 	emitRuntimeIntrinsic(
-		"throwException",
-		FunctionType(TypeTuple{},
-					 TypeTuple{inferValueType<Iptr>(), inferValueType<Iptr>(), ValueType::i32}),
-		{exceptionTypeInstance, argsPointerAsInt, emitLiteral(llvmContext, I32(1))});
+		"rethrowException",
+		FunctionType(TypeTuple{}, TypeTuple{inferValueType<Iptr>()}),
+		{irBuilder.CreatePtrToInt(catchContext.exceptionPointer, llvmContext.iptrType)});
 
 	irBuilder.CreateUnreachable();
 	enterUnreachable();

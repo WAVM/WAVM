@@ -43,15 +43,18 @@ Context* Runtime::createContext(Compartment* compartment)
 	return context;
 }
 
-void Runtime::Context::finalize()
+Runtime::Context::~Context()
 {
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
 	compartment->contexts.removeOrFail(id);
 }
 
-Compartment* Runtime::getCompartmentFromContext(Context* context) { return context->compartment; }
+Compartment* Runtime::getCompartmentFromContext(const Context* context)
+{
+	return context->compartment;
+}
 
-Context* Runtime::cloneContext(Context* context, Compartment* newCompartment)
+Context* Runtime::cloneContext(const Context* context, Compartment* newCompartment)
 {
 	// Create a new context and initialize its runtime data with the values from the source context.
 	Context* clonedContext = createContext(newCompartment);

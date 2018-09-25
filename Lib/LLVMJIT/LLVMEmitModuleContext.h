@@ -15,18 +15,19 @@ namespace WAVM { namespace LLVMJIT {
 		LLVMContext& llvmContext;
 		llvm::Module* llvmModule;
 		std::vector<llvm::Constant*> typeIds;
-		std::vector<llvm::Constant*> functionDefInstances;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::Constant*> tableOffsets;
 		std::vector<llvm::Constant*> memoryOffsets;
 		std::vector<llvm::Constant*> globals;
-		std::vector<llvm::Constant*> exceptionTypeInstances;
+		std::vector<llvm::Constant*> exceptionTypeIds;
 
 		llvm::Constant* defaultMemoryOffset;
 		llvm::Constant* defaultTableOffset;
 
-		llvm::Constant* moduleInstancePointer;
+		llvm::Constant* moduleInstanceId;
 		llvm::Constant* tableReferenceBias;
+
+		llvm::Constant* userExceptionTypeInfo;
 
 		llvm::DIBuilder diBuilder;
 		llvm::DICompileUnit* diCompileUnit;

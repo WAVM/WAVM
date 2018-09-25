@@ -380,13 +380,13 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	llvm::LoadInst* biasedValueLoad = irBuilder.CreateLoad(elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
 	biasedValueLoad->setAlignment(sizeof(Uptr));
-	auto anyfuncPointer = irBuilder.CreateIntToPtr(
+	auto runtimeFunction = irBuilder.CreateIntToPtr(
 		irBuilder.CreateAdd(biasedValueLoad, moduleContext.tableReferenceBias),
 		llvmContext.i8PtrType);
 	auto elementTypeId = loadFromUntypedPointer(
 		irBuilder.CreateInBoundsGEP(
-			anyfuncPointer,
-			emitLiteral(llvmContext, Uptr(offsetof(AnyFunc, functionTypeEncoding)))),
+			runtimeFunction,
+			emitLiteral(llvmContext, Uptr(offsetof(Runtime::FunctionInstance, encodedType)))),
 		llvmContext.iptrType);
 	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
 
@@ -397,17 +397,18 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		FunctionType(TypeTuple(),
 					 TypeTuple({ValueType::i32,
 								inferValueType<Uptr>(),
-								inferValueType<Uptr>(),
+								ValueType::anyfunc,
 								inferValueType<Uptr>()})),
 		{tableElementIndex,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),
-		 irBuilder.CreatePtrToInt(anyfuncPointer, llvmContext.iptrType),
+		 irBuilder.CreatePointerCast(runtimeFunction, llvmContext.anyrefType),
 		 calleeTypeId});
 
 	// Call the function loaded from the table.
 	auto functionPointer = irBuilder.CreatePointerCast(
-		irBuilder.CreateInBoundsGEP(anyfuncPointer,
-									emitLiteral(llvmContext, Uptr(offsetof(AnyFunc, code)))),
+		irBuilder.CreateInBoundsGEP(
+			runtimeFunction,
+			emitLiteral(llvmContext, Uptr(offsetof(Runtime::FunctionInstance, code)))),
 		asLLVMType(llvmContext, calleeType, CallingConvention::wasm)->getPointerTo());
 	ValueVector results = emitCallOrInvoke(functionPointer,
 										   llvm::ArrayRef<llvm::Value*>(llvmArgs, numArguments),

@@ -125,19 +125,19 @@ MemoryInstance* Runtime::cloneMemory(MemoryInstance* memory, Compartment* newCom
 	return newMemory;
 }
 
-void Runtime::MemoryInstance::finalize()
-{
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-
-	wavmAssert(compartment->memories[id] == this);
-	compartment->memories.removeOrFail(id);
-
-	wavmAssert(compartment->runtimeData->memoryBases[id] == baseAddress);
-	compartment->runtimeData->memoryBases[id] = nullptr;
-}
-
 Runtime::MemoryInstance::~MemoryInstance()
 {
+	if(id != UINTPTR_MAX)
+	{
+		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+
+		wavmAssert(compartment->memories[id] == this);
+		compartment->memories.removeOrFail(id);
+
+		wavmAssert(compartment->runtimeData->memoryBases[id] == baseAddress);
+		compartment->runtimeData->memoryBases[id] = nullptr;
+	}
+
 	// Remove the memory from the global array.
 	{
 		Lock<Platform::Mutex> memoriesLock(memoriesMutex);
@@ -273,7 +273,7 @@ static U8* getValidatedMemoryOffsetRangeImpl(MemoryInstance* memory,
 	{
 		throwException(
 			Exception::outOfBoundsMemoryAccessType,
-			{asAnyRef(memory), U64(address > memoryNumBytes ? address : memoryNumBytes)});
+			{asObject(memory), U64(address > memoryNumBytes ? address : memoryNumBytes)});
 	}
 	return pointer;
 }
@@ -330,11 +330,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  U32 destAddress,
 						  U32 sourceOffset,
 						  U32 numBytes,
-						  Uptr moduleInstanceBits,
+						  Uptr moduleInstanceId,
 						  Uptr memoryId,
 						  Uptr dataSegmentIndex)
 {
-	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	ModuleInstance* moduleInstance
+		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
 	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
 
 	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
@@ -365,7 +366,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 										  passiveDataSegmentBytes->size() - sourceOffset);
 			}
 			throwException(Exception::outOfBoundsDataSegmentAccessType,
-						   {asAnyRef(moduleInstance),
+						   {asObject(moduleInstance),
 							U64(dataSegmentIndex),
 							U64(passiveDataSegmentBytes->size())});
 		}
@@ -381,10 +382,11 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "memory.drop",
 						  void,
 						  memory_drop,
-						  Uptr moduleInstanceBits,
+						  Uptr moduleInstanceId,
 						  Uptr dataSegmentIndex)
 {
-	ModuleInstance* moduleInstance = reinterpret_cast<ModuleInstance*>(moduleInstanceBits);
+	ModuleInstance* moduleInstance
+		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
 	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
 
 	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))

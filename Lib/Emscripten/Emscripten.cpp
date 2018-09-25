@@ -38,20 +38,14 @@ DEFINE_INTRINSIC_MODULE(global)
 static U32 coerce32bitAddress(MemoryInstance* memory, Uptr address)
 {
 	if(address >= UINT32_MAX)
-	{
-		throwException(Exception::outOfBoundsMemoryAccessType,
-					   {asAnyRef(asObject(memory)), U64(address)});
-	}
+	{ throwException(Exception::outOfBoundsMemoryAccessType, {asObject(memory), U64(address)}); }
 	return (U32)address;
 }
 
 static I32 coerce32bitAddressSigned(MemoryInstance* memory, Uptr address)
 {
 	if(address >= INT32_MAX)
-	{
-		throwException(Exception::outOfBoundsMemoryAccessType,
-					   {asAnyRef(asObject(memory)), U64(address)});
-	}
+	{ throwException(Exception::outOfBoundsMemoryAccessType, {asObject(memory), U64(address)}); }
 	return (I32)address;
 }
 
@@ -740,9 +734,9 @@ void Emscripten::initializeGlobals(Context* context,
 		if(functionExport.kind == IR::ObjectKind::function
 		   && !strncmp(functionExport.name.c_str(), "__GLOBAL__", 10))
 		{
-			FunctionInstance* functionInstance
+			FunctionInstance* function
 				= asFunctionNullable(getInstanceExport(moduleInstance, functionExport.name));
-			if(functionInstance) { Runtime::invokeFunctionChecked(context, functionInstance, {}); }
+			if(function) { Runtime::invokeFunctionChecked(context, function, {}); }
 		}
 	}
 }

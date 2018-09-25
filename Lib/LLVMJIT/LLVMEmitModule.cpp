@@ -157,16 +157,33 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	for(Uptr exceptionTypeIndex = 0; exceptionTypeIndex < irModule.exceptionTypes.size();
 		++exceptionTypeIndex)
 	{
-		moduleContext.exceptionTypeInstances.push_back(createImportedConstant(
-			outLLVMModule, getExternalName("exceptionType", exceptionTypeIndex)));
+		llvm::Constant* biasedExceptionTypeIdAsPointer = createImportedConstant(
+			outLLVMModule, getExternalName("biasedExceptionTypeId", exceptionTypeIndex));
+		llvm::Constant* biasedExceptionTypeId
+			= llvm::ConstantExpr::getPtrToInt(biasedExceptionTypeIdAsPointer, llvmContext.iptrType);
+		llvm::Constant* exceptionTypeId
+			= llvm::ConstantExpr::getSub(biasedExceptionTypeId, emitLiteral(llvmContext, Uptr(1)));
+		moduleContext.exceptionTypeIds.push_back(exceptionTypeId);
 	}
 
 	// Create a LLVM external global that will point to the ModuleInstance.
-	moduleContext.moduleInstancePointer = createImportedConstant(outLLVMModule, "moduleInstance");
+	llvm::Constant* biasedModuleInstanceIdAsPointer
+		= createImportedConstant(outLLVMModule, "biasedModuleInstanceId");
+	llvm::Constant* biasedModuleInstanceId
+		= llvm::ConstantExpr::getPtrToInt(biasedModuleInstanceIdAsPointer, llvmContext.iptrType);
+	moduleContext.moduleInstanceId
+		= llvm::ConstantExpr::getSub(biasedModuleInstanceId, emitLiteral(llvmContext, Uptr(1)));
 
 	// Create a LLVM external global that will be a bias applied to all references in a table.
 	moduleContext.tableReferenceBias = llvm::ConstantExpr::getPtrToInt(
 		createImportedConstant(outLLVMModule, "tableReferenceBias"), llvmContext.iptrType);
+
+	if(USE_WINDOWS_SEH) { moduleContext.userExceptionTypeInfo = nullptr; }
+	else
+	{
+		moduleContext.userExceptionTypeInfo = llvm::ConstantExpr::getPointerCast(
+			createImportedConstant(outLLVMModule, "userExceptionTypeInfo"), llvmContext.i8PtrType);
+	}
 
 	// Create the LLVM functions.
 	moduleContext.functions.resize(irModule.functions.size());
@@ -195,14 +212,16 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 
 		function->setPersonalityFn(personalityFunction);
 
-		llvm::Constant* functionInstance = llvm::ConstantExpr::getPtrToInt(
-			createImportedConstant(outLLVMModule,
-								   getExternalName("functionDefInstance", functionDefIndex)),
-			llvmContext.iptrType);
+		llvm::Constant* functionDefMutableData = createImportedConstant(
+			outLLVMModule, getExternalName("functionDefMutableDatas", functionDefIndex));
+		llvm::Constant* functionDefMutableDataAsIptr
+			= llvm::ConstantExpr::getPtrToInt(functionDefMutableData, llvmContext.iptrType);
 
-		function->setPrefixData(llvm::ConstantArray::get(
-			llvm::ArrayType::get(llvmContext.iptrType, 2),
-			{functionInstance, moduleContext.typeIds[functionDef.type.index]}));
+		setRuntimeFunctionPrefix(llvmContext,
+								 function,
+								 functionDefMutableDataAsIptr,
+								 moduleContext.moduleInstanceId,
+								 moduleContext.typeIds[functionDef.type.index]);
 
 		EmitFunctionContext(llvmContext, moduleContext, irModule, functionDef, function).emit();
 	}

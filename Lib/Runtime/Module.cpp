@@ -47,22 +47,28 @@ static Value evaluateInitializer(const std::vector<GlobalInstance*>& moduleGloba
 	};
 }
 
-Runtime::Module* Runtime::compileModule(const IR::Module& irModule)
+ModuleRef Runtime::compileModule(const IR::Module& irModule)
 {
 	std::vector<U8> objectCode = LLVMJIT::compileModule(irModule);
-	return new Module(IR::Module(irModule), std::move(objectCode));
+	return std::make_shared<Module>(IR::Module(irModule), std::move(objectCode));
 }
 
-std::vector<U8> Runtime::getObjectCode(Runtime::Module* module) { return module->objectCode; }
+std::vector<U8> Runtime::getObjectCode(ModuleConstRefParam module) { return module->objectCode; }
 
-Runtime::Module* Runtime::loadPrecompiledModule(const IR::Module& irModule,
-												const std::vector<U8>& objectCode)
+ModuleRef Runtime::loadPrecompiledModule(const IR::Module& irModule,
+										 const std::vector<U8>& objectCode)
 {
-	return new Module(IR::Module(irModule), std::vector<U8>(objectCode));
+	return std::make_shared<Module>(IR::Module(irModule), std::vector<U8>(objectCode));
 }
 
 ModuleInstance::~ModuleInstance()
 {
+	if(id != UINTPTR_MAX)
+	{
+		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+		compartment->moduleInstances.removeOrFail(id);
+	}
+
 	if(jitModule)
 	{
 		LLVMJIT::unloadModule(jitModule);
@@ -71,10 +77,13 @@ ModuleInstance::~ModuleInstance()
 }
 
 ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
-										   Module* module,
+										   ModuleConstRefParam module,
 										   ImportBindings&& imports,
 										   std::string&& moduleDebugName)
 {
+	dummyReferenceAtomics();
+	dummyReferenceWAVMIntrinsics();
+
 	// Create the ModuleInstance and add it to the compartment's modules list.
 	ModuleInstance* moduleInstance = new ModuleInstance(compartment,
 														std::move(imports.functions),
@@ -85,39 +94,46 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 														std::move(moduleDebugName));
 	{
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-		compartment->modules.addOrFail(moduleInstance);
+		moduleInstance->id = compartment->moduleInstances.add(0, moduleInstance);
+		errorUnless(moduleInstance->id != UINTPTR_MAX);
 	}
 
 	// Check the type of the ModuleInstance's imports.
 	errorUnless(moduleInstance->functions.size() == module->ir.functions.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.functions.imports.size(); ++importIndex)
 	{
-		errorUnless(isA(moduleInstance->functions[importIndex],
-						module->ir.types[module->ir.functions.imports[importIndex].type.index]));
+		Object* importObject = asObject(moduleInstance->functions[importIndex]);
+		errorUnless(
+			isA(importObject, module->ir.types[module->ir.functions.getType(importIndex).index]));
+		errorUnless(isInCompartment(importObject, compartment));
 	}
 	errorUnless(moduleInstance->tables.size() == module->ir.tables.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.tables.imports.size(); ++importIndex)
 	{
-		errorUnless(
-			isA(moduleInstance->tables[importIndex], module->ir.tables.imports[importIndex].type));
+		Object* importObject = asObject(moduleInstance->tables[importIndex]);
+		errorUnless(isA(importObject, module->ir.tables.getType(importIndex)));
+		errorUnless(isInCompartment(importObject, compartment));
 	}
 	errorUnless(moduleInstance->memories.size() == module->ir.memories.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.memories.imports.size(); ++importIndex)
 	{
-		errorUnless(isA(moduleInstance->memories[importIndex],
-						module->ir.memories.imports[importIndex].type));
+		Object* importObject = asObject(moduleInstance->memories[importIndex]);
+		errorUnless(isA(importObject, module->ir.memories.getType(importIndex)));
+		errorUnless(isInCompartment(importObject, compartment));
 	}
 	errorUnless(moduleInstance->globals.size() == module->ir.globals.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.globals.imports.size(); ++importIndex)
 	{
-		errorUnless(isA(moduleInstance->globals[importIndex],
-						module->ir.globals.imports[importIndex].type));
+		Object* importObject = asObject(moduleInstance->globals[importIndex]);
+		errorUnless(isA(importObject, module->ir.globals.getType(importIndex)));
+		errorUnless(isInCompartment(importObject, compartment));
 	}
 	errorUnless(moduleInstance->exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.exceptionTypes.imports.size(); ++importIndex)
 	{
-		errorUnless(isA(moduleInstance->exceptionTypes[importIndex],
-						module->ir.exceptionTypes.imports[importIndex].type));
+		Object* importObject = asObject(moduleInstance->exceptionTypes[importIndex]);
+		errorUnless(isA(importObject, module->ir.exceptionTypes.getType(importIndex)));
+		errorUnless(isInCompartment(importObject, compartment));
 	}
 
 	// Deserialize the disassembly names.
@@ -164,40 +180,27 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	}
 
 	// Instantiate the module's exception types.
-	for(const ExceptionTypeDef& exceptionTypeDef : module->ir.exceptionTypes.defs)
+	for(Uptr exceptionTypeDefIndex = 0;
+		exceptionTypeDefIndex < module->ir.exceptionTypes.defs.size();
+		++exceptionTypeDefIndex)
 	{
+		const ExceptionTypeDef& exceptionTypeDef
+			= module->ir.exceptionTypes.defs[exceptionTypeDefIndex];
+		std::string debugName
+			= disassemblyNames
+				  .exceptionTypes[module->ir.exceptionTypes.imports.size() + exceptionTypeDefIndex];
 		moduleInstance->exceptionTypes.push_back(
-			createExceptionTypeInstance(exceptionTypeDef.type, "wasmException"));
-	}
-
-	// Instantiate the module's defined functions.
-	for(Uptr functionDefIndex = 0; functionDefIndex < module->ir.functions.defs.size();
-		++functionDefIndex)
-	{
-		const DisassemblyNames::Function& functionNames
-			= disassemblyNames.functions[module->ir.functions.imports.size() + functionDefIndex];
-		std::string debugName = functionNames.name;
-		if(!debugName.size())
-		{ debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-
-		auto functionInstance = new FunctionInstance(
-			moduleInstance,
-			module->ir.types[module->ir.functions.defs[functionDefIndex].type.index],
-			nullptr,
-			IR::CallingConvention::wasm,
-			std::move(debugName));
-		moduleInstance->functionDefs.push_back(functionInstance);
-		moduleInstance->functions.push_back(functionInstance);
+			createExceptionTypeInstance(compartment, exceptionTypeDef.type, std::move(debugName)));
 	}
 
 	HashMap<std::string, LLVMJIT::FunctionBinding> wavmIntrinsicsExportMap;
-	for(auto intrinsicExport : compartment->wavmIntrinsics->exportMap)
+	for(const HashMapPair<std::string, Intrinsics::Function*>& intrinsicFunctionPair :
+		Intrinsics::getUninstantiatedFunctions(INTRINSIC_MODULE_REF(wavmIntrinsics)))
 	{
-		FunctionInstance* intrinsicFunction = asFunction(intrinsicExport.value);
-		wavmAssert(intrinsicFunction);
-		wavmAssert(intrinsicFunction->callingConvention == IR::CallingConvention::intrinsic);
-		errorUnless(wavmIntrinsicsExportMap.add(
-			intrinsicExport.key, LLVMJIT::FunctionBinding{intrinsicFunction->nativeFunction}));
+		LLVMJIT::FunctionBinding functionBinding{
+			intrinsicFunctionPair.value->getCallingConvention(),
+			intrinsicFunctionPair.value->getNativeFunction()};
+		wavmIntrinsicsExportMap.add(intrinsicFunctionPair.key, functionBinding);
 	}
 
 	std::vector<FunctionType> jitTypes = module->ir.types;
@@ -209,16 +212,9 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	std::vector<LLVMJIT::FunctionBinding> jitFunctionImports;
 	for(Uptr importIndex = 0; importIndex < module->ir.functions.imports.size(); ++importIndex)
 	{
-		FunctionInstance* functionImport = moduleInstance->functions[importIndex];
-		void* nativeFunction = functionImport->nativeFunction;
-		if(functionImport->callingConvention != IR::CallingConvention::wasm)
-		{
-			nativeFunction = LLVMJIT::getIntrinsicThunk(nativeFunction,
-														functionImport,
-														functionImport->type,
-														functionImport->callingConvention);
-		}
-		jitFunctionImports.push_back({nativeFunction});
+		jitFunctionImports.push_back(
+			{CallingConvention::wasm,
+			 const_cast<U8*>(moduleInstance->functions[importIndex]->code)});
 	}
 
 	std::vector<LLVMJIT::TableBinding> jitTables;
@@ -240,12 +236,28 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		jitGlobals.push_back(globalSpec);
 	}
 
-	std::vector<ExceptionTypeInstance*> jitExceptionTypes;
+	std::vector<LLVMJIT::ExceptionTypeBinding> jitExceptionTypes;
 	for(ExceptionTypeInstance* exceptionTypeInstance : moduleInstance->exceptionTypes)
-	{ jitExceptionTypes.push_back(exceptionTypeInstance); }
+	{ jitExceptionTypes.push_back({exceptionTypeInstance->id}); }
+
+	// Create a FunctionMutableData for each function definition.
+	std::vector<FunctionMutableData*> functionDefMutableDatas;
+	for(Uptr functionDefIndex = 0; functionDefIndex < module->ir.functions.defs.size();
+		++functionDefIndex)
+	{
+		std::string debugName
+			= disassemblyNames.functions[module->ir.functions.imports.size() + functionDefIndex]
+				  .name;
+		if(!debugName.size())
+		{ debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
+		debugName = "wasm!" + moduleInstance->debugName + '!' + debugName;
+
+		functionDefMutableDatas.push_back(new FunctionMutableData(std::move(debugName)));
+	}
 
 	// Load the compiled module's object code with this module instance's imports.
-	std::vector<LLVMJIT::JITFunction*> jitFunctionDefs;
+	std::vector<Runtime::FunctionInstance*> jitFunctionDefs;
+	jitFunctionDefs.resize(module->ir.functions.defs.size(), nullptr);
 	moduleInstance->jitModule = LLVMJIT::loadModule(module->objectCode,
 													std::move(wavmIntrinsicsExportMap),
 													std::move(jitTypes),
@@ -256,22 +268,14 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 													std::move(jitExceptionTypes),
 													jitDefaultMemory,
 													jitDefaultTable,
-													moduleInstance,
-													reinterpret_cast<Uptr>(getOutOfBoundsAnyFunc()),
-													moduleInstance->functionDefs,
-													jitFunctionDefs);
+													{moduleInstance->id},
+													reinterpret_cast<Uptr>(getOutOfBoundsElement()),
+													functionDefMutableDatas);
 
-	// Link the JITFunction to the corresponding FunctionInstance, and the FunctionInstance to the
-	// compiled machine code.
-	for(Uptr functionDefIndex = 0; functionDefIndex < module->ir.functions.defs.size();
-		++functionDefIndex)
-	{
-		LLVMJIT::JITFunction* jitFunction = jitFunctionDefs[functionDefIndex];
-		FunctionInstance* functionInstance = moduleInstance->functionDefs[functionDefIndex];
-		functionInstance->nativeFunction = reinterpret_cast<void*>(jitFunction->baseAddress);
-		jitFunction->type = LLVMJIT::JITFunction::Type::wasmFunction;
-		jitFunction->functionInstance = functionInstance;
-	}
+	// LLVMJIT::loadModule filled in the functionDefMutableDatas' function pointers with the
+	// compiled functions. Add those functions to the module.
+	for(FunctionMutableData* functionMutableData : functionDefMutableDatas)
+	{ moduleInstance->functions.push_back(functionMutableData->function); }
 
 	// Set up the instance's exports.
 	for(const Export& exportIt : module->ir.exports)
@@ -280,7 +284,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		switch(exportIt.kind)
 		{
 		case IR::ObjectKind::function:
-			exportedObject = moduleInstance->functions[exportIt.index];
+			exportedObject = asObject(moduleInstance->functions[exportIt.index]);
 			break;
 		case IR::ObjectKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
 		case IR::ObjectKind::memory:
@@ -322,7 +326,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				if(baseOffset > memory->numPages * IR::numBytesPerPage)
 				{
 					throwException(Runtime::Exception::outOfBoundsMemoryAccessType,
-								   {asAnyRef(memory), U64(baseOffset)});
+								   {memory, U64(baseOffset)});
 				}
 			}
 		}
@@ -346,8 +350,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				{
 					const Uptr functionIndex = elemSegment.indices[index];
 					wavmAssert(functionIndex < moduleInstance->functions.size());
-					const AnyFunc* anyFunc = asAnyFunc(moduleInstance->functions[functionIndex]);
-					setTableElement(table, baseOffset + index, &anyFunc->anyRef);
+					FunctionInstance* function = moduleInstance->functions[functionIndex];
+					setTableElement(table, baseOffset + index, asObject(function));
 				}
 			}
 			else
@@ -357,7 +361,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				if(baseOffset > getTableNumElements(table))
 				{
 					throwException(Runtime::Exception::outOfBoundsTableAccessType,
-								   {asAnyRef(table), U64(baseOffset)});
+								   {table, U64(baseOffset)});
 				}
 			}
 		}
@@ -380,7 +384,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		{
 			auto passiveElemSegmentObjects = std::make_shared<std::vector<Object*>>();
 			for(Uptr functionIndex : elemSegment.indices)
-			{ passiveElemSegmentObjects->push_back(moduleInstance->functions[functionIndex]); }
+			{
+				passiveElemSegmentObjects->push_back(
+					asObject(moduleInstance->functions[functionIndex]));
+			}
 			moduleInstance->passiveElemSegments.add(segmentIndex, passiveElemSegmentObjects);
 		}
 	}
@@ -389,16 +396,10 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	if(module->ir.startFunctionIndex != UINTPTR_MAX)
 	{
 		moduleInstance->startFunction = moduleInstance->functions[module->ir.startFunctionIndex];
-		wavmAssert(moduleInstance->startFunction->type == IR::FunctionType());
+		wavmAssert(FunctionType(moduleInstance->startFunction->encodedType) == FunctionType());
 	}
 
 	return moduleInstance;
-}
-
-void ModuleInstance::finalize()
-{
-	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-	compartment->modules.removeOrFail(this);
 }
 
 FunctionInstance* Runtime::getStartFunction(ModuleInstance* moduleInstance)

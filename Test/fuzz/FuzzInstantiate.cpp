@@ -26,9 +26,9 @@ using namespace WAVM::WASM;
 
 struct StubResolver : Runtime::Resolver
 {
-	Runtime::Compartment* compartment;
+	Compartment* compartment;
 
-	StubResolver(Runtime::Compartment* inCompartment) : compartment(inCompartment) {}
+	StubResolver(Compartment* inCompartment) : compartment(inCompartment) {}
 
 	bool resolve(const std::string& moduleName,
 				 const std::string& exportName,
@@ -102,8 +102,8 @@ struct StubResolver : Runtime::Resolver
 		}
 		case IR::ObjectKind::exceptionType:
 		{
-			return asObject(
-				Runtime::createExceptionTypeInstance(asExceptionType(type), "importStub"));
+			return asObject(Runtime::createExceptionTypeInstance(
+				compartment, asExceptionType(type), "importStub"));
 		}
 		default: Errors::unreachable();
 		};
@@ -117,7 +117,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	module.featureSpec.maxLocals = 1024;
 	if(!WASM::loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
 
-	Compartment* compartment = createCompartment();
+	GCPointer<Compartment> compartment = createCompartment();
 	StubResolver stubResolver(compartment);
 	LinkResult linkResult = linkModule(module, stubResolver);
 	if(linkResult.success)
@@ -130,9 +130,8 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 								  "fuzz");
 			},
 			[&](Exception&& exception) {});
-
-		collectGarbage();
 	}
+	errorUnless(tryCollectCompartment(std::move(compartment)));
 
 	return 0;
 }

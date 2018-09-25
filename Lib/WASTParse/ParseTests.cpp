@@ -22,13 +22,19 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::WAST;
 
-static const Runtime::AnyFunc* makeHostRef(Uptr index)
+static Runtime::FunctionInstance* makeHostRef(Uptr index)
 {
-	static HashMap<Uptr, const Runtime::AnyFunc*> indexToHostRefMap;
-	const Runtime::AnyFunc*& anyFunc = indexToHostRefMap.getOrAdd(index, nullptr);
-	if(!anyFunc)
-	{ anyFunc = new Runtime::AnyFunc{{nullptr}, IR::FunctionType::Encoding{0}, {0xcc}}; }
-	return anyFunc;
+	static HashMap<Uptr, Runtime::FunctionInstance*> indexToHostRefMap;
+	Runtime::FunctionInstance*& function = indexToHostRefMap.getOrAdd(index, nullptr);
+	if(!function)
+	{
+		Runtime::FunctionMutableData* functionMutableData
+			= new Runtime::FunctionMutableData("test!ref.host!" + std::to_string(index));
+		function = new Runtime::FunctionInstance(
+			functionMutableData, UINTPTR_MAX, FunctionType::Encoding{0});
+		functionMutableData->function = function;
+	}
+	return function;
 }
 
 static IR::Value parseConstExpression(CursorState* cursor)
@@ -72,14 +78,14 @@ static IR::Value parseConstExpression(CursorState* cursor)
 		{
 			++cursor->nextToken;
 			result.type = ValueType::anyfunc;
-			result.anyFunc = makeHostRef(parseIptr(cursor));
+			result.function = makeHostRef(parseIptr(cursor));
 			break;
 		}
 		case t_ref_null:
 		{
 			++cursor->nextToken;
 			result.type = ValueType::nullref;
-			result.anyRef = nullptr;
+			result.object = nullptr;
 			break;
 		}
 		default:
