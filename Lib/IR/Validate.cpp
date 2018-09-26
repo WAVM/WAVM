@@ -578,14 +578,14 @@ struct FunctionValidationContext
 
 	template<Uptr numLanes> void validateImm(LaneIndexImm<numLanes> imm)
 	{
-		VALIDATE_UNLESS("swizzle invalid lane index", imm.laneIndex >= numLanes);
+		VALIDATE_UNLESS("swizzle invalid lane index: ", imm.laneIndex >= numLanes);
 	}
 
 	template<Uptr numLanes> void validateImm(ShuffleImm<numLanes> imm)
 	{
 		for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 		{
-			VALIDATE_UNLESS("shuffle invalid lane index",
+			VALIDATE_UNLESS("shuffle invalid lane index: ",
 							imm.laneIndices[laneIndex] >= numLanes * 2);
 		}
 	}
@@ -961,7 +961,7 @@ void IR::validateElemSegments(const Module& module)
 		{
 			VALIDATE_INDEX(elemSegment.tableIndex, module.tables.size());
 			const TableType& tableType = module.tables.getType(elemSegment.tableIndex);
-			VALIDATE_UNLESS("active elem segments must be in anyfunc tables",
+			VALIDATE_UNLESS("active elem segments must be in anyfunc tables: ",
 							tableType.elementType != ReferenceType::anyfunc);
 			validateInitializer(
 				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
