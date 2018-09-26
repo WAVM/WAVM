@@ -47,14 +47,13 @@ namespace WAVM { namespace Platform {
 	// baseVirtualAddress must be a multiple of the preferred page size.
 	PLATFORM_API void decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages);
 
-	// Frees virtual addresses. Any physical memory committed to the addresses must have already
-	// been decommitted. baseVirtualAddress must also be an address returned by
+	// Frees virtual addresses. baseVirtualAddress must also be the address returned by
 	// allocateVirtualPages.
 	PLATFORM_API void freeVirtualPages(U8* baseVirtualAddress, Uptr numPages);
 
-	// Frees an aligned virtual address block. Any physical memory committed to the addresses must
-	// have already been decommitted. unalignedBaseAddress must be the unaligned base address
-	// returned by allocateAlignedVirtualPages.
+	// Frees an aligned virtual address block. unalignedBaseAddress must be the unaligned base
+	// address returned in the outUnalignedBaseAddress parameter of a call to
+	// allocateAlignedVirtualPages.
 	PLATFORM_API void freeAlignedVirtualPages(U8* unalignedBaseAddress,
 											  Uptr numPages,
 											  Uptr alignmentLog2);

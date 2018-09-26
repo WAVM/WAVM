@@ -47,8 +47,6 @@ Runtime::Compartment::~Compartment()
 	wavmAssert(!moduleInstances.size());
 	wavmAssert(!contexts.size());
 
-	Platform::decommitVirtualPages((U8*)runtimeData,
-								   compartmentReservedBytes >> Platform::getPageSizeLog2());
 	Platform::freeAlignedVirtualPages(unalignedRuntimeData,
 									  compartmentReservedBytes >> Platform::getPageSizeLog2(),
 									  compartmentRuntimeDataAlignmentLog2);

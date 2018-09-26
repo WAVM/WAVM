@@ -150,13 +150,6 @@ Runtime::Memory::~Memory()
 		}
 	}
 
-	// Decommit all default memory pages.
-	if(numPages > 0)
-	{
-		Platform::decommitVirtualPages(baseAddress,
-									   numPages << getPlatformPagesPerWebAssemblyPageLog2());
-	}
-
 	// Free the virtual address space.
 	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
 	if(numReservedBytes > 0)

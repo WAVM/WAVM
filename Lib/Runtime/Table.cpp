@@ -229,13 +229,6 @@ Table::~Table()
 		}
 	}
 
-	// Decommit all pages.
-	if(numElements > 0)
-	{
-		Platform::decommitVirtualPages((U8*)elements,
-									   getNumPlatformPages(numElements * sizeof(Table::Element)));
-	}
-
 	// Free the virtual address space.
 	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
 	if(numReservedBytes > 0)
