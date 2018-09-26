@@ -944,6 +944,21 @@ Thread* Platform::forkCurrentThread()
 }
 #endif
 
+static Uptr getNumberOfHardwareThreadsImpl()
+{
+	Uptr result = 0;
+	const U16 numProcessorGroups = GetActiveProcessorGroupCount();
+	for(U16 groupIndex = 0; groupIndex < numProcessorGroups; ++groupIndex)
+	{ result += GetActiveProcessorCount(groupIndex); }
+	return result;
+}
+
+Uptr Platform::getNumberOfHardwareThreads()
+{
+	static Uptr cachedNumberOfHardwareThreads = getNumberOfHardwareThreadsImpl();
+	return cachedNumberOfHardwareThreads;
+}
+
 U64 Platform::getMonotonicClock()
 {
 	LARGE_INTEGER performanceCounter;

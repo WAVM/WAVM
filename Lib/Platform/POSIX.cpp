@@ -40,6 +40,7 @@
 #include <exception>
 #include <memory>
 #include <string>
+#include <thread>
 #include <typeinfo>
 #include <utility>
 #include <vector>
@@ -913,6 +914,8 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 		return thread;
 	}
 }
+
+Uptr Platform::getNumberOfHardwareThreads() { return std::thread::hardware_concurrency(); }
 
 U64 Platform::getMonotonicClock()
 {
