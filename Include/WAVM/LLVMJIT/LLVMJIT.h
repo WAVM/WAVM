@@ -1,8 +1,8 @@
 #pragma once
 
-#include <map>
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
@@ -28,7 +28,7 @@ namespace WAVM { namespace LLVMJIT {
 	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule);
 
 	// An opaque type that can be used to reference a loaded JIT module.
-	struct LoadedModule;
+	struct Module;
 
 	//
 	// Structs that are passed to loadModule to bind undefined symbols in object code to values.
@@ -71,7 +71,7 @@ namespace WAVM { namespace LLVMJIT {
 	};
 
 	// Loads a module from object code, and binds its undefined symbols to the provided bindings.
-	LLVMJIT_API LoadedModule* loadModule(
+	LLVMJIT_API std::shared_ptr<Module> loadModule(
 		const std::vector<U8>& objectFileBytes,
 		HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
 		std::vector<IR::FunctionType>&& types,
@@ -85,9 +85,6 @@ namespace WAVM { namespace LLVMJIT {
 		ModuleInstanceBinding moduleInstance,
 		Uptr tableReferenceBias,
 		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas);
-
-	// Unloads a JIT module, freeings its memory.
-	LLVMJIT_API void unloadModule(LoadedModule* loadedModule);
 
 	// Finds the JIT function whose code contains the given address. If no JIT function contains the
 	// given address, returns null.

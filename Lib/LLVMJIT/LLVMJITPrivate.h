@@ -315,15 +315,15 @@ namespace WAVM { namespace LLVMJIT {
 	struct ModuleMemoryManager;
 
 	// Encapsulates a loaded module.
-	struct LoadedModule
+	struct Module
 	{
 		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
 		HashMap<std::string, Runtime::Function*> nameToFunctionMap;
 
-		LoadedModule(const std::vector<U8>& inObjectBytes,
-					 const HashMap<std::string, Uptr>& importedSymbolMap,
-					 bool shouldLogMetrics);
-		~LoadedModule();
+		Module(const std::vector<U8>& inObjectBytes,
+			   const HashMap<std::string, Uptr>& importedSymbolMap,
+			   bool shouldLogMetrics);
+		~Module();
 
 	private:
 		ModuleMemoryManager* memoryManager;

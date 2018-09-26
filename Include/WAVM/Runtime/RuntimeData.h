@@ -11,7 +11,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM { namespace LLVMJIT {
-	struct LoadedModule;
+	struct Module;
 }}
 
 namespace WAVM { namespace Runtime {
@@ -121,7 +121,7 @@ namespace WAVM { namespace Runtime {
 	// file, or must be mutable.
 	struct FunctionMutableData
 	{
-		LLVMJIT::LoadedModule* jitModule = nullptr;
+		LLVMJIT::Module* jitModule = nullptr;
 		Runtime::Function* function = nullptr;
 		Uptr numCodeBytes = 0;
 		std::atomic<Uptr> numRootReferences{0};

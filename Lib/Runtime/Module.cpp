@@ -68,12 +68,6 @@ ModuleInstance::~ModuleInstance()
 		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
 		compartment->moduleInstances.removeOrFail(id);
 	}
-
-	if(jitModule)
-	{
-		LLVMJIT::unloadModule(jitModule);
-		jitModule = nullptr;
-	}
 }
 
 ModuleInstance* Runtime::instantiateModule(Compartment* compartment,

@@ -127,7 +127,7 @@ bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
 
 		if(!compartment->moduleInstances.contains(function->moduleInstanceId)) { return false; }
 		ModuleInstance* moduleInstance = compartment->moduleInstances[function->moduleInstanceId];
-		return moduleInstance->jitModule == function->mutableData->jitModule;
+		return moduleInstance->jitModule.get() == function->mutableData->jitModule;
 	}
 	else
 	{

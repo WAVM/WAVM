@@ -84,15 +84,13 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 #endif
 
 using namespace WAVM;
-using namespace WAVM::IR;
 using namespace WAVM::LLVMJIT;
-using namespace WAVM::Runtime;
 
 static llvm::JITEventListener* gdbRegistrationListener = nullptr;
 
 // A map from address to loaded JIT symbols.
 static Platform::Mutex addressToModuleMapMutex;
-static std::map<Uptr, LoadedModule*> addressToModuleMap;
+static std::map<Uptr, LLVMJIT::Module*> addressToModuleMap;
 
 // Allocates memory for the LLVM object loader.
 struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
@@ -279,9 +277,9 @@ private:
 	void operator=(const ModuleMemoryManager&) = delete;
 };
 
-LoadedModule::LoadedModule(const std::vector<U8>& inObjectBytes,
-						   const HashMap<std::string, Uptr>& importedSymbolMap,
-						   bool shouldLogMetrics)
+Module::Module(const std::vector<U8>& inObjectBytes,
+			   const HashMap<std::string, Uptr>& importedSymbolMap,
+			   bool shouldLogMetrics)
 : memoryManager(new ModuleMemoryManager()), objectBytes(inObjectBytes)
 {
 	Timing::Timer loadObjectTimer;
@@ -519,7 +517,7 @@ LoadedModule::LoadedModule(const std::vector<U8>& inObjectBytes,
 	}
 }
 
-LLVMJIT::LoadedModule::~LoadedModule()
+Module::~Module()
 {
 	// Notify GDB that the object is being unloaded.
 	gdbRegistrationListener->NotifyFreeingObject(*object);
@@ -531,15 +529,12 @@ LLVMJIT::LoadedModule::~LoadedModule()
 
 	// Free the FunctionMutableData objects.
 	for(const auto& pair : addressToFunctionMap) { delete pair.second->mutableData; }
-
-	// Delete the memory manager.
-	delete memoryManager;
 }
 
-LoadedModule* LLVMJIT::loadModule(
+std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	const std::vector<U8>& objectFileBytes,
 	HashMap<std::string, FunctionBinding>&& wavmIntrinsicsExportMap,
-	std::vector<FunctionType>&& types,
+	std::vector<IR::FunctionType>&& types,
 	std::vector<FunctionBinding>&& functionImports,
 	std::vector<TableBinding>&& tables,
 	std::vector<MemoryBinding>&& memories,
@@ -558,7 +553,7 @@ LoadedModule* LLVMJIT::loadModule(
 	// calling convention, so no thunking is necessary.
 	for(auto exportMapPair : wavmIntrinsicsExportMap)
 	{
-		wavmAssert(exportMapPair.value.callingConvention == CallingConvention::intrinsic);
+		wavmAssert(exportMapPair.value.callingConvention == IR::CallingConvention::intrinsic);
 		importedSymbolMap.addOrFail(exportMapPair.key,
 									reinterpret_cast<Uptr>(exportMapPair.value.code));
 	}
@@ -581,9 +576,9 @@ LoadedModule* LLVMJIT::loadModule(
 	// CompartmentRuntimeData to the table's entry in CompartmentRuntimeData::tableBases.
 	for(Uptr tableIndex = 0; tableIndex < tables.size(); ++tableIndex)
 	{
-		importedSymbolMap.addOrFail(
-			getExternalName("tableOffset", tableIndex),
-			offsetof(CompartmentRuntimeData, tableBases) + sizeof(void*) * tables[tableIndex].id);
+		importedSymbolMap.addOrFail(getExternalName("tableOffset", tableIndex),
+									offsetof(Runtime::CompartmentRuntimeData, tableBases)
+										+ sizeof(void*) * tables[tableIndex].id);
 	}
 
 	// Bind the memory symbols. The compiled module uses the symbol's value as an offset into
@@ -591,7 +586,7 @@ LoadedModule* LLVMJIT::loadModule(
 	for(Uptr memoryIndex = 0; memoryIndex < memories.size(); ++memoryIndex)
 	{
 		importedSymbolMap.addOrFail(getExternalName("memoryOffset", memoryIndex),
-									offsetof(CompartmentRuntimeData, memoryBases)
+									offsetof(Runtime::CompartmentRuntimeData, memoryBases)
 										+ sizeof(void*) * memories[memoryIndex].id);
 	}
 
@@ -604,7 +599,7 @@ LoadedModule* LLVMJIT::loadModule(
 		{
 			// If the global is mutable, bind the symbol to the offset into
 			// ContextRuntimeData::globalData where it is stored.
-			value = offsetof(ContextRuntimeData, mutableGlobals)
+			value = offsetof(Runtime::ContextRuntimeData, mutableGlobals)
 					+ globalSpec.mutableGlobalId * sizeof(IR::UntaggedValue);
 		}
 		else
@@ -645,14 +640,12 @@ LoadedModule* LLVMJIT::loadModule(
 								reinterpret_cast<Uptr>(Platform::getUserExceptionTypeInfo()));
 
 	// Load the module.
-	return new LoadedModule(objectFileBytes, importedSymbolMap, true);
+	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true);
 }
-
-void LLVMJIT::unloadModule(LoadedModule* loadedModule) { delete loadedModule; }
 
 Runtime::Function* LLVMJIT::getFunctionByAddress(Uptr address)
 {
-	LoadedModule* jitModule;
+	Module* jitModule;
 	{
 		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
 		auto moduleIt = addressToModuleMap.upper_bound(address);

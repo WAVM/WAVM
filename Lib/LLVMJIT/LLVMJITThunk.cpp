@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <memory>
 
 #include "LLVMEmitContext.h"
 #include "LLVMJITPrivate.h"
@@ -146,7 +147,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	std::vector<U8> objectBytes = compileLLVMModule(llvmContext, std::move(llvmModule), false);
 
 	// Load the object code.
-	auto jitModule = new LoadedModule(objectBytes, {}, false);
+	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
 
 #if(defined(_WIN32) && !defined(_WIN64))
 	const char* thunkFunctionName = "_thunk";
@@ -213,7 +214,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	std::vector<U8> objectBytes = compileLLVMModule(llvmContext, std::move(llvmModule), false);
 
 	// Load the object code.
-	auto jitModule = new LoadedModule(objectBytes, {}, false);
+	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
 
 #if(defined(_WIN32) && !defined(_WIN64))
 	const char* thunkFunctionName = "_thunk";

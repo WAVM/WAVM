@@ -163,7 +163,7 @@ namespace WAVM { namespace Runtime {
 		mutable Platform::Mutex passiveElemSegmentsMutex;
 		HashMap<Uptr, std::shared_ptr<const std::vector<Object*>>> passiveElemSegments;
 
-		LLVMJIT::LoadedModule* jitModule = nullptr;
+		std::shared_ptr<LLVMJIT::Module> jitModule = nullptr;
 
 		std::string debugName;
 
