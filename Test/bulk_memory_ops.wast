@@ -556,61 +556,33 @@
 	"\0b"                                ;; end
 )
 
-(assert_invalid
-	(module binary
-		"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+;; Test that it's valid to reference an active elem segment with table.init and table.drop
+(module binary
+	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
 
-		"\01\04\01"                          ;; Type section: 4 bytes, 1 entry
-		"\60\00\00"                          ;;   Function type () -> ()
+	"\01\04\01"                          ;; Type section: 4 bytes, 1 entry
+	"\60\00\00"                          ;;   Function type () -> ()
 
-		"\03\02\01"                          ;; Function section: 2 bytes, 1 entry
-		"\00"                                ;;   Function 0: type 0
+	"\03\02\01"                          ;; Function section: 2 bytes, 1 entry
+	"\00"                                ;;   Function 0: type 0
 
-		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-		"\70\00\01"                          ;;   (table 1 anyfunc)
+	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
+	"\70\00\01"                          ;;   (table 1 anyfunc)
 	
-		"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
-		"\00"                                ;;   [0] active elem segment
-		"\41\00\0b"                          ;;     base offset (i32.const 0)
-		"\01"                                ;;     elem segment with 1 element
-		"\00"                                ;;     [0] function 0
+	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
+	"\00"                                ;;   [0] active elem segment
+	"\41\00\0b"                          ;;     base offset (i32.const 0)
+	"\01"                                ;;     elem segment with 1 element
+	"\00"                                ;;     [0] function 0
 	
-		"\0a\0e\01"                          ;; Code section
-		"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
-		"\41\00"                             ;; i32.const 0
-		"\41\00"                             ;; i32.const 0
-		"\41\00"                             ;; i32.const 0
-		"\fc\0c\00\00"                       ;; table.init 0 0
-		"\0b"                                ;; end
-	)
-	"active elem segment can't be used as source for table.init"
-)
-
-(assert_invalid
-	(module binary
-		"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
-
-		"\01\04\01"                          ;; Type section: 4 bytes, 1 entry
-		"\60\00\00"                          ;;   Function type () -> ()
-
-		"\03\02\01"                          ;; Function section: 2 bytes, 1 entry
-		"\00"                                ;;   Function 0: type 0
-
-		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-		"\70\00\01"                          ;;   (table 1 anyfunc)
-	
-		"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
-		"\00"                                ;;   [0] active elem segment
-		"\41\00\0b"                          ;;     base offset (i32.const 0)
-		"\01"                                ;;     elem segment with 1 element
-		"\00"                                ;;     [0] function 0
-	
-		"\0a\06\01"                          ;; Code section
-		"\05\00"                             ;; function 0: 5 bytes, 0 local sets
-		"\fc\0d\00"                          ;; table.drop 0
-		"\0b"                                ;; end
-	)
-	"active elem segment can't be used as source for table.drop"
+	"\0a\11\01"                          ;; Code section
+	"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
+	"\41\00"                             ;; i32.const 0
+	"\41\00"                             ;; i32.const 0
+	"\41\00"                             ;; i32.const 0
+	"\fc\0c\00\00"                       ;; table.init 0 0
+	"\fc\0d\00"                          ;; table.drop 0
+	"\0b"                                ;; end
 )
 
 (module
