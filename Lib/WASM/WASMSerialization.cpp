@@ -1046,7 +1046,6 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	DeferredCodeValidationState deferredCodeValidationState;
 	SectionType lastKnownSectionType = SectionType::unknown;
 	bool hadFunctionDefinitions = false;
-	bool hadDataSection = false;
 	while(moduleStream.capacity())
 	{
 		SectionType sectionType;
@@ -1107,11 +1106,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			serializeCodeSection(moduleStream, module, deferredCodeValidationState);
 			hadFunctionDefinitions = true;
 			break;
-		case SectionType::data:
-			serializeDataSection(moduleStream, module);
-			IR::validateDataSegments(module, deferredCodeValidationState);
-			hadDataSection = true;
-			break;
+		case SectionType::data: serializeDataSection(moduleStream, module); break;
 		case SectionType::user:
 		{
 			UserSection& userSection
@@ -1123,18 +1118,16 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		};
 	};
 
+	// Validate the data segments at the end, regardless of whether there was a data section or not.
+	// This is necessary to validate the data segment indices that may occur in the code section,
+	// even if there was no data section.
+	IR::validateDataSegments(module, deferredCodeValidationState);
+
 	if(module.functions.defs.size() && !hadFunctionDefinitions)
 	{
 		throw IR::ValidationException(
 			"module contained function declarations, but no corresponding "
 			"function definition section");
-	}
-
-	if(module.dataSegments.size() && !hadDataSection)
-	{
-		throw IR::ValidationException(
-			"module contained function declarations, but no corresponding "
-			"data section");
 	}
 }
 
