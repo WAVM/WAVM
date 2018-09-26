@@ -192,6 +192,7 @@ void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
 {
 	Lock<Platform::Mutex> lock(getErrorReportingMutex());
 	std::vfprintf(stderr, messageFormat, varArgs);
+	std::fprintf(stderr, "\n");
 	std::fflush(stderr);
 	std::abort();
 }
@@ -533,9 +534,9 @@ static void deliverSignal(Signal signal, const CallStack& callStack)
 
 	switch(signalNumber)
 	{
-	case SIGFPE: Errors::fatalf("unhandled SIGFPE\n");
-	case SIGSEGV: Errors::fatalf("unhandled SIGSEGV\n");
-	case SIGBUS: Errors::fatalf("unhandled SIGBUS\n");
+	case SIGFPE: Errors::fatalf("unhandled SIGFPE");
+	case SIGSEGV: Errors::fatalf("unhandled SIGSEGV");
+	case SIGBUS: Errors::fatalf("unhandled SIGBUS");
 	default: Errors::unreachable();
 	};
 }

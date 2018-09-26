@@ -151,7 +151,7 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 		if(llvm::verifyModule(llvmModule, &verifyOutputStream))
 		{
 			verifyOutputStream.flush();
-			Errors::fatalf("LLVM verification errors:\n%s\n", verifyOutputString.c_str());
+			Errors::fatalf("LLVM verification errors:\n%s", verifyOutputString.c_str());
 		}
 		Log::printf(Log::debug, "Verified LLVM module\n");
 	}

@@ -62,7 +62,7 @@ llvm::JITEvaluatedSymbol LLVMJIT::resolveJITImport(llvm::StringRef name)
 	void* addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(*runtimeSymbolName);
 	if(!addr)
 	{
-		Errors::fatalf("LLVM generated code references undefined external symbol: %s\n",
+		Errors::fatalf("LLVM generated code references undefined external symbol: %s",
 					   *runtimeSymbolName);
 	}
 	return llvm::JITEvaluatedSymbol(reinterpret_cast<Uptr>(addr), llvm::JITSymbolFlags::None);
