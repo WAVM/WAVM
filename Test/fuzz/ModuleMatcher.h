@@ -26,9 +26,11 @@ namespace WAVM {
 			{
 				const DataSegment& segment = aModule.dataSegments[segmentIndex];
 				const DataSegment& wastSegment = bModule.dataSegments[segmentIndex];
-				if(segment.memoryIndex != wastSegment.memoryIndex
-				   || segment.baseOffset != wastSegment.baseOffset
-				   || segment.data != wastSegment.data)
+				if(segment.isActive != wastSegment.isActive) { failVerification(); }
+				if(segment.isActive
+				   && (segment.memoryIndex != wastSegment.memoryIndex
+					   || segment.baseOffset != wastSegment.baseOffset
+					   || segment.data != wastSegment.data))
 				{ failVerification(); }
 			}
 
