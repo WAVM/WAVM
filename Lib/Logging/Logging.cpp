@@ -11,10 +11,16 @@ using namespace WAVM;
 using namespace WAVM::Log;
 
 static std::atomic<bool> categoryEnabled[(Uptr)Category::num] = {
-	{true}, // error
-	{WAVM_DEBUG != 0},
-	{WAVM_METRICS_OUTPUT != 0} // metrics
+	{true},                     // error
+	{WAVM_DEBUG != 0},          // debug
+	{WAVM_METRICS_OUTPUT != 0}, // metrics
+	{true},                     // output
 };
+
+static FILE* getFileForCategory(Log::Category category)
+{
+	return category == Log::error ? stderr : stdout;
+}
 
 void Log::setCategoryEnabled(Category category, bool enable)
 {
@@ -34,8 +40,9 @@ void Log::printf(Category category, const char* format, ...)
 	{
 		va_list argList;
 		va_start(argList, format);
-		vfprintf(stdout, format, argList);
-		fflush(stdout);
+		FILE* file = getFileForCategory(category);
+		vfprintf(file, format, argList);
+		fflush(file);
 		va_end(argList);
 	}
 }
@@ -44,7 +51,8 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 {
 	if(categoryEnabled[(Uptr)category].load())
 	{
-		vfprintf(stdout, format, argList);
-		fflush(stdout);
+		FILE* file = getFileForCategory(category);
+		vfprintf(file, format, argList);
+		fflush(file);
 	}
 }
