@@ -532,6 +532,9 @@ Module::~Module()
 
 	// Free the FunctionMutableData objects.
 	for(const auto& pair : addressToFunctionMap) { delete pair.second->mutableData; }
+
+	// Delete the memory manager.
+	delete memoryManager;
 }
 
 std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
