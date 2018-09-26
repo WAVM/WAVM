@@ -970,9 +970,8 @@ void IR::validateElemSegments(const Module& module)
 void IR::validateDataSegments(const Module& module,
 							  const DeferredCodeValidationState& deferredCodeValidationState)
 {
-	VALIDATE_UNLESS(
-		"invalid data segment index",
-		module.dataSegments.size() < deferredCodeValidationState.requiredNumDataSegments);
+	if(deferredCodeValidationState.requiredNumDataSegments > module.dataSegments.size())
+	{ throw ValidationException("invalid data segment index in operator immediate"); }
 
 	for(auto& dataSegment : module.dataSegments)
 	{
