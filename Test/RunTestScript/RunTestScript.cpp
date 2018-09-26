@@ -1,5 +1,6 @@
 #include <inttypes.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <memory>
@@ -16,7 +17,11 @@
 #include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Lock.h"
+#include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -583,20 +588,103 @@ DEFINE_INTRINSIC_MEMORY(spectest,
 						shared_memory,
 						MemoryType(true, SizeConstraints{1, 2}))
 
+struct SharedState
+{
+	Platform::Mutex mutex;
+	std::vector<const char*> pendingFilenames;
+};
+
+static I64 threadMain(void* sharedStateVoid)
+{
+	auto sharedState = (SharedState*)sharedStateVoid;
+
+	// Process files from sharedState->pendingFilenames until they've all been processed.
+	I64 numErrors = 0;
+	while(true)
+	{
+		const char* filename;
+		{
+			Lock<Platform::Mutex> sharedStateLock(sharedState->mutex);
+			if(!sharedState->pendingFilenames.size()) { break; }
+			filename = sharedState->pendingFilenames.back();
+			sharedState->pendingFilenames.pop_back();
+		}
+
+		// Read the file into a vector.
+		std::vector<U8> testScriptBytes;
+		if(!loadFile(filename, testScriptBytes)) { return EXIT_FAILURE; }
+
+		// Make sure the file is null terminated.
+		testScriptBytes.push_back(0);
+
+		// Process the test script.
+		TestScriptState testScriptState;
+		std::vector<std::unique_ptr<Command>> testCommands;
+
+		// Use a WebAssembly standard-compliant feature spec.
+		FeatureSpec featureSpec;
+		featureSpec.requireSharedFlagForAtomicOperators = true;
+
+		// Parse the test script.
+		WAST::parseTestCommands((const char*)testScriptBytes.data(),
+								testScriptBytes.size(),
+								featureSpec,
+								testCommands,
+								testScriptState.errors);
+		if(!testScriptState.errors.size())
+		{
+			// Process the test script commands.
+			for(auto& command : testCommands)
+			{
+				Log::printf(Log::debug,
+							"Evaluating test command at %s\n",
+							command->locus.describe().c_str());
+				catchRuntimeExceptions(
+					[&testScriptState, &command] {
+						processCommand(testScriptState, command.get());
+					},
+					[&testScriptState, &command](Runtime::Exception&& exception) {
+						testErrorf(testScriptState,
+								   command->locus,
+								   "unexpected trap: %s",
+								   describeExceptionType(exception.typeInstance).c_str());
+					});
+			}
+		}
+		numErrors += testScriptState.errors.size();
+
+		// Print any errors.
+		reportParseErrors(filename, testScriptState.errors);
+
+		delete testScriptState;
+		testCommands.clear();
+	}
+
+	return numErrors;
+}
+
 static void showHelp()
 {
 	Log::printf(Log::error,
 				"Usage: RunTestScript [options] in.wast [options]\n"
-				"  -h|--help                 Display this message\n");
+				"  -h|--help   Display this message\n"
+				"  -d|--debug  Print verbose debug output to stdout\n");
 }
 
 int main(int argc, char** argv)
 {
-	// Use a WebAssembly standard-compliant feature spec.
-	FeatureSpec featureSpec;
-	featureSpec.requireSharedFlagForAtomicOperators = true;
+	Timing::Timer timer;
 
-	const char* filename = nullptr;
+	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
+	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception) {
+		Errors::fatalf("Unhandled runtime exception: %s\n", describeException(exception).c_str());
+	});
+
+	// Suppress metrics output.
+	Log::setCategoryEnabled(Log::metrics, false);
+
+	// Parse the command-line.
+	SharedState sharedState;
 	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "--help") || !strcmp(argv[argIndex], "-h"))
@@ -604,79 +692,42 @@ int main(int argc, char** argv)
 			showHelp();
 			return EXIT_SUCCESS;
 		}
-		else if(!filename)
+		else if(!strcmp(argv[argIndex], "--debug") || !strcmp(argv[argIndex], "-d"))
 		{
-			filename = argv[argIndex];
+			Log::setCategoryEnabled(Log::debug, true);
 		}
 		else
 		{
-			showHelp();
-			return EXIT_FAILURE;
+			sharedState.pendingFilenames.push_back(argv[argIndex]);
 		}
 	}
 
-	if(!filename)
+	if(!sharedState.pendingFilenames.size())
 	{
 		showHelp();
 		return EXIT_FAILURE;
 	}
 
-	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
-	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception) {
-		Errors::fatalf("Unhandled runtime exception: %s\n", describeException(exception).c_str());
-	});
+	// Create a thread for each hardware thread.
+	std::vector<Platform::Thread*> threads;
+	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
+	const Uptr numTestThreads = std::min(numHardwareThreads, sharedState.pendingFilenames.size());
+	for(Uptr threadIndex = 0; threadIndex < numTestThreads; ++threadIndex)
+	{ threads.push_back(Platform::createThread(1024 * 1024, threadMain, &sharedState)); }
 
-	// Always enable debug logging for tests.
-	Log::setCategoryEnabled(Log::debug, true);
+	// Wait for the threads to exit, summing up their return code, which will be the number of
+	// errors found by the thread.
+	I64 numErrors = 0;
+	for(Platform::Thread* thread : threads) { numErrors += Platform::joinThread(thread); }
 
-	// Read the file into a vector.
-	std::vector<U8> testScriptBytes;
-	if(!loadFile(filename, testScriptBytes)) { return EXIT_FAILURE; }
-
-	// Make sure the file is null terminated.
-	testScriptBytes.push_back(0);
-
-	// Process the test script.
-	TestScriptState* testScriptState = new TestScriptState();
-	std::vector<std::unique_ptr<Command>> testCommands;
-
-	// Parse the test script.
-	WAST::parseTestCommands((const char*)testScriptBytes.data(),
-							testScriptBytes.size(),
-							featureSpec,
-							testCommands,
-							testScriptState->errors);
-	if(!testScriptState->errors.size())
+	if(!numErrors)
 	{
-		// Process the test script commands.
-		for(auto& command : testCommands)
-		{
-			Log::printf(
-				Log::debug, "Evaluating test command at %s\n", command->locus.describe().c_str());
-			catchRuntimeExceptions(
-				[testScriptState, &command] { processCommand(*testScriptState, command.get()); },
-				[testScriptState, &command](Runtime::Exception&& exception) {
-					testErrorf(*testScriptState,
-							   command->locus,
-							   "unexpected trap: %s",
-							   describeExceptionType(exception.typeInstance).c_str());
-				});
-		}
+		Log::printf(Log::output, "All tests succeeded in %.1fms!\n", timer.getMilliseconds());
+		return EXIT_SUCCESS;
 	}
-
-	int exitCode = EXIT_SUCCESS;
-	if(testScriptState->errors.size())
+	else
 	{
-		// Print any errors;
-		Log::printf(Log::error, "Error running test script:\n");
-		reportParseErrors(filename, testScriptState->errors);
-
-		Log::printf(Log::error, "%s: testing failed!\n", filename);
-		exitCode = EXIT_FAILURE;
+		Log::printf(Log::error, "Testing failed with %" PRIi64 " error(s)\n", numErrors);
+		return EXIT_FAILURE;
 	}
-
-	delete testScriptState;
-	testCommands.clear();
-
-	return exitCode;
 }
