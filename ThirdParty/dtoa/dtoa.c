@@ -226,7 +226,7 @@ extern void *MALLOC(size_t);
 #define PRIVATE_MEM 2304
 #endif
 #define PRIVATE_mem ((PRIVATE_MEM+sizeof(double)-1)/sizeof(double))
-static double private_mem[PRIVATE_mem], *pmem_next = private_mem;
+static thread_local double private_mem[PRIVATE_mem], *pmem_next = private_mem;
 #endif
 
 #undef IEEE_Arith
@@ -538,7 +538,7 @@ Bigint {
 
  typedef struct Bigint Bigint;
 
- static Bigint *freelist[Kmax+1];
+ static thread_local Bigint *freelist[Kmax+1];
 
  static Bigint *
 Balloc
@@ -911,7 +911,7 @@ mult
 	return c;
 	}
 
- static Bigint *p5s;
+ static thread_local Bigint *p5s;
 
  static Bigint *
 pow5mult
