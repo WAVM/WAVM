@@ -87,7 +87,7 @@ Test in.wast
 
 ## IR
 
-The [IR](Include/IR) (Intermediate Representation) is the glue that the WAST parser, the WASM serialization, and the Runtime communicate through. It closely mirrors the semantics of the WebAssembly binary format, but is easier to work with in memory.
+The [IR](Include/WAVM/IR) (Intermediate Representation) is the glue that the WAST parser, the WASM serialization, and the Runtime communicate through. It closely mirrors the semantics of the WebAssembly binary format, but is easier to work with in memory.
 
 ## Parsing
 
@@ -95,7 +95,11 @@ Parsing the WebAssembly text format uses a table-driven deterministic finite aut
 
 ## Runtime
 
-The [Runtime](Source/Runtime/) is the primary consumer of the byte code. It provides an [API](Include/Runtime/Runtime.h) for instantiating WebAssembly modules and calling functions exported from them. To instantiate a module, it [initializes the module's runtime environment](Source/Runtime/ModuleInstance.cpp) (globals, memory objects, and table objects), [translates the byte code into LLVM IR](Source/Runtime/LLVMEmitIR.cpp), and [uses LLVM to generate machine code](Source/Runtime/LLVMJIT.cpp) for the module's functions.
+The [Runtime](Lib/Runtime/) is the primary consumer of the byte code. It provides an [API](Include/WAVM/Runtime/Runtime.h) for instantiating WebAssembly modules and calling functions exported from them. To instantiate a module,
+1) Translates the byte code into LLVM IR([1](Lib/LLVMJIT/LLVMEmitModule.cpp), [2](Lib/LLVMJIT/LLVMEmitFunction.cpp), and the various `LLVMEmit*.cpp` in [Lib/LLVMJIT](Lib/LLVMJIT))
+2) [Uses LLVM to compile the LLVM IR to object code](Lib/LLVMJITCompile.cpp) for the module's functions, with symbols in place of literal values for things like the module's imports.
+3) [Instantiates the module's runtime environment](Lib/Runtime/Module.cpp) (globals, memory objects, and table objects).
+4) [Loads the object code](Lib/LLVMJIT/LLVMJITLoad.cpp) created by step 2, replacing symbols with the appropriate values from the module's environment.
 
 # License
 
