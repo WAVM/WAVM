@@ -508,7 +508,10 @@ Module::Module(const std::vector<U8>& inObjectBytes,
 
 	const Uptr moduleEndAddress = reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
 														 + memoryManager->getNumImageBytes());
-	addressToModuleMap.emplace(moduleEndAddress, this);
+	{
+		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
+		addressToModuleMap.emplace(moduleEndAddress, this);
+	}
 
 	if(shouldLogMetrics)
 	{
