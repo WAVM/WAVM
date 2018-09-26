@@ -623,16 +623,12 @@ struct FunctionValidationContext
 	void validateImm(ElemSegmentAndTableImm imm)
 	{
 		VALIDATE_INDEX(imm.elemSegmentIndex, module.elemSegments.size());
-		VALIDATE_UNLESS("active elem segment can't be used as source for table.init",
-						module.elemSegments[imm.elemSegmentIndex].isActive)
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
 	}
 
 	void validateImm(ElemSegmentImm imm)
 	{
 		VALIDATE_INDEX(imm.elemSegmentIndex, module.elemSegments.size());
-		VALIDATE_UNLESS("active elem segment can't be used as source for table.init",
-						module.elemSegments[imm.elemSegmentIndex].isActive)
 	}
 
 #define VALIDATE_OP(opcode, name, nameString, Imm, signatureInitializer, requiredFeature)          \
