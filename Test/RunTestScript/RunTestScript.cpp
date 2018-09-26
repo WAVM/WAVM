@@ -655,9 +655,6 @@ static I64 threadMain(void* sharedStateVoid)
 
 		// Print any errors.
 		reportParseErrors(filename, testScriptState.errors);
-
-		delete testScriptState;
-		testCommands.clear();
 	}
 
 	return numErrors;
@@ -711,7 +708,8 @@ int main(int argc, char** argv)
 	// Create a thread for each hardware thread.
 	std::vector<Platform::Thread*> threads;
 	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
-	const Uptr numTestThreads = std::min(numHardwareThreads, sharedState.pendingFilenames.size());
+	const Uptr numTestThreads
+		= std::min(numHardwareThreads, Uptr(sharedState.pendingFilenames.size()));
 	for(Uptr threadIndex = 0; threadIndex < numTestThreads; ++threadIndex)
 	{ threads.push_back(Platform::createThread(1024 * 1024, threadMain, &sharedState)); }
 
