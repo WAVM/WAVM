@@ -612,7 +612,11 @@ static I64 threadMain(void* sharedStateVoid)
 
 		// Read the file into a vector.
 		std::vector<U8> testScriptBytes;
-		if(!loadFile(filename, testScriptBytes)) { return EXIT_FAILURE; }
+		if(!loadFile(filename, testScriptBytes))
+		{
+			++numErrors;
+			continue;
+		}
 
 		// Make sure the file is null terminated.
 		testScriptBytes.push_back(0);
