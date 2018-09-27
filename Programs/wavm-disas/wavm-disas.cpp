@@ -35,8 +35,7 @@ int main(int argc, char** argv)
 		if(!strcmp(argv[1], "--help")) { showHelp = true; }
 		else if(argc == 4)
 		{
-			if(!strcmp(argv[3], "--enable-quoted-names"))
-			{ enableQuotedNames = true; }
+			if(!strcmp(argv[3], "--enable-quoted-names")) { enableQuotedNames = true; }
 			else
 			{
 				showHelp = true;

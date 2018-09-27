@@ -1,9 +1,9 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-#include <memory>
 
 #include "LLVMEmitContext.h"
 #include "LLVMJITPrivate.h"

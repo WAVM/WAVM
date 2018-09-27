@@ -1,8 +1,8 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
