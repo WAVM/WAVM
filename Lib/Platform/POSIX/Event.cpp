@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <errno.h>
 
 #include "WAVM/Platform/Event.h"
 #include "WAVM/Inline/Assert.h"
