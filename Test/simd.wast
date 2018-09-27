@@ -591,3 +591,20 @@
 (assert_return (invoke "test-simd-shift-mask" (v128.const i32 2 0 0 0)) (i32.const 2))
 (assert_return (invoke "test-simd-shift-mask" (v128.const i32 3 0 0 0)) (i32.const 3))
 (assert_return (invoke "test-simd-shift-mask" (v128.const i32 4 0 0 0)) (i32.const 100))
+
+;; Test that misaligned SIMD loads/stores don't trap
+
+(module
+	(memory 1 1)
+	(func (export "v128.load align=16") (param $address i32) (result v128)
+		(v128.load align=16 (get_local $address))
+	)
+	(func (export "v128.store align=16") (param $address i32) (param $value v128)
+		(v128.store align=16 (get_local $address) (get_local $value))
+	)
+)
+
+(assert_return (invoke "v128.load align=16" (i32.const 0)) (v128.const i64 0 0))
+(assert_return (invoke "v128.load align=16" (i32.const 1)) (v128.const i64 0 0))
+(assert_return (invoke "v128.store align=16" (i32.const 1) (v128.const i8 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)))
+(assert_return (invoke "v128.load align=16" (i32.const 0)) (v128.const i8 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
