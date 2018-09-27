@@ -1,10 +1,11 @@
-#include <pthread.h>
 #include <errno.h>
+#include <pthread.h>
+#include <sys/time.h>
 
-#include "WAVM/Platform/Event.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Event.h"
 
 using namespace WAVM;
 using namespace WAVM::Platform;
