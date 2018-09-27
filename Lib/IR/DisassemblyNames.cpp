@@ -290,14 +290,14 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 
 	// Module name
 	serializeNameSubsection(
-		stream, NameSubsectionType::module, [names](OutputStream& subsectionStream) {
+		stream, NameSubsectionType::module, [&names](OutputStream& subsectionStream) {
 			std::string moduleName = names.moduleName;
 			serialize(subsectionStream, moduleName);
 		});
 
 	// Function names
 	serializeNameSubsection(
-		stream, NameSubsectionType::function, [names](OutputStream& subsectionStream) {
+		stream, NameSubsectionType::function, [&names](OutputStream& subsectionStream) {
 			Uptr numFunctionNames = names.functions.size();
 			serializeVarUInt32(subsectionStream, numFunctionNames);
 			for(Uptr functionIndex = 0; functionIndex < names.functions.size(); ++functionIndex)
@@ -310,7 +310,7 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 
 	// Local names.
 	serializeNameSubsection(
-		stream, NameSubsectionType::local, [names](OutputStream& subsectionStream) {
+		stream, NameSubsectionType::local, [&names](OutputStream& subsectionStream) {
 			Uptr numFunctionNames = names.functions.size();
 			serializeVarUInt32(subsectionStream, numFunctionNames);
 			for(Uptr functionIndex = 0; functionIndex < names.functions.size(); ++functionIndex)
@@ -324,7 +324,7 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 	{
 		// Label names.
 		serializeNameSubsection(
-			stream, NameSubsectionType::label, [names](OutputStream& subsectionStream) {
+			stream, NameSubsectionType::label, [&names](OutputStream& subsectionStream) {
 				Uptr numFunctionNames = names.functions.size();
 				serializeVarUInt32(subsectionStream, numFunctionNames);
 				for(Uptr functionIndex = 0; functionIndex < names.functions.size(); ++functionIndex)
@@ -336,25 +336,25 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 
 		// Type names
 		serializeNameSubsection(
-			stream, NameSubsectionType::type, [names](OutputStream& subsectionStream) {
+			stream, NameSubsectionType::type, [&names](OutputStream& subsectionStream) {
 				serializeNameMap(subsectionStream, names.types);
 			});
 
 		// Table names
 		serializeNameSubsection(
-			stream, NameSubsectionType::table, [names](OutputStream& subsectionStream) {
+			stream, NameSubsectionType::table, [&names](OutputStream& subsectionStream) {
 				serializeNameMap(subsectionStream, names.tables);
 			});
 
 		// Memory names
 		serializeNameSubsection(
-			stream, NameSubsectionType::memory, [names](OutputStream& subsectionStream) {
+			stream, NameSubsectionType::memory, [&names](OutputStream& subsectionStream) {
 				serializeNameMap(subsectionStream, names.memories);
 			});
 
 		//  Global names
 		serializeNameSubsection(
-			stream, NameSubsectionType::global, [names](OutputStream& subsectionStream) {
+			stream, NameSubsectionType::global, [&names](OutputStream& subsectionStream) {
 				serializeNameMap(subsectionStream, names.globals);
 			});
 	}
