@@ -93,7 +93,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	for(ValueType parameterType : functionType.params())
 	{
 		// Naturally align each argument.
-		const Uptr numArgBytes = getTypeByteWidth(parameterType);
+		const U32 numArgBytes = getTypeByteWidth(parameterType);
 		argDataOffset = (argDataOffset + numArgBytes - 1) & -numArgBytes;
 
 		arguments.push_back(emitContext.loadFromUntypedPointer(
@@ -101,7 +101,8 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 				contextPointer,
 				{emitLiteral(llvmContext,
 							 argDataOffset + offsetof(ContextRuntimeData, thunkArgAndReturnData))}),
-			asLLVMType(llvmContext, parameterType)));
+			asLLVMType(llvmContext, parameterType),
+			numArgBytes));
 
 		argDataOffset += numArgBytes;
 	}

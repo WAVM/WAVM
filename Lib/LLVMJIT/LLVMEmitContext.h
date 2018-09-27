@@ -31,16 +31,21 @@ namespace WAVM { namespace LLVMJIT {
 		{
 		}
 
-		llvm::Value* loadFromUntypedPointer(llvm::Value* pointer, llvm::Type* valueType)
+		llvm::Value* loadFromUntypedPointer(llvm::Value* pointer,
+											llvm::Type* valueType,
+											U32 alignment = 1)
 		{
-			return irBuilder.CreateLoad(
+			auto load = irBuilder.CreateLoad(
 				irBuilder.CreatePointerCast(pointer, valueType->getPointerTo()));
+			load->setAlignment(alignment);
+			return load;
 		}
 
-		void storeToUntypedPointer(llvm::Value* value, llvm::Value* pointer)
+		void storeToUntypedPointer(llvm::Value* value, llvm::Value* pointer, U32 alignment = 1)
 		{
-			irBuilder.CreateStore(
+			auto store = irBuilder.CreateStore(
 				value, irBuilder.CreatePointerCast(pointer, value->getType()->getPointerTo()));
+			store->setAlignment(alignment);
 		}
 
 		llvm::Value* getCompartmentAddress()
@@ -67,7 +72,8 @@ namespace WAVM { namespace LLVMJIT {
 				irBuilder.CreateStore(
 					loadFromUntypedPointer(
 						irBuilder.CreateInBoundsGEP(compartmentAddress, {defaultMemoryOffset}),
-						llvmContext.i8PtrType),
+						llvmContext.i8PtrType,
+						sizeof(U8*)),
 					memoryBasePointerVariable);
 			}
 		}
@@ -154,10 +160,11 @@ namespace WAVM { namespace LLVMJIT {
 						resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 						wavmAssert(resultOffset < Runtime::maxThunkArgAndReturnBytes);
 
-						results.push_back(irBuilder.CreateLoad(irBuilder.CreatePointerCast(
+						results.push_back(loadFromUntypedPointer(
 							irBuilder.CreateInBoundsGEP(newContextPointer,
 														{emitLiteral(llvmContext, resultOffset)}),
-							asLLVMType(llvmContext, resultType)->getPointerTo())));
+							asLLVMType(llvmContext, resultType),
+							resultNumBytes));
 
 						resultOffset += resultNumBytes;
 					}
@@ -180,7 +187,10 @@ namespace WAVM { namespace LLVMJIT {
 				if(calleeType.results().size() == 1)
 				{
 					llvm::Type* llvmResultType = asLLVMType(llvmContext, calleeType.results()[0]);
-					results.push_back(loadFromUntypedPointer(newContextPointer, llvmResultType));
+					results.push_back(
+						loadFromUntypedPointer(newContextPointer,
+											   llvmResultType,
+											   IR::getTypeByteWidth(calleeType.results()[0])));
 				}
 
 				break;

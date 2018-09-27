@@ -63,7 +63,8 @@ void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 			moduleContext.globals[imm.variableIndex], llvmContext.iptrType);
 		llvm::Value* globalPointer = irBuilder.CreateInBoundsGEP(
 			irBuilder.CreateLoad(contextPointerVariable), {globalDataOffset});
-		value = loadFromUntypedPointer(globalPointer, llvmValueType);
+		value = loadFromUntypedPointer(
+			globalPointer, llvmValueType, getTypeByteWidth(globalType.valueType));
 	}
 	else
 	{
@@ -99,7 +100,9 @@ void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 		if(!value)
 		{
 			// Otherwise, the symbol's value will point to the global's immutable value.
-			value = loadFromUntypedPointer(moduleContext.globals[imm.variableIndex], llvmValueType);
+			value = loadFromUntypedPointer(moduleContext.globals[imm.variableIndex],
+										   llvmValueType,
+										   getTypeByteWidth(globalType.valueType));
 		}
 	}
 

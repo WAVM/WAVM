@@ -170,7 +170,9 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		auto boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);              \
 		auto pointer = coerceAddressToPointer(boundedAddress, llvmMemoryType);                     \
 		auto load = irBuilder.CreateLoad(pointer);                                                 \
-		load->setAlignment(1 << imm.alignmentLog2);                                                \
+		/* Don't trust the alignment hint provided by the WebAssembly code, since the load can't   \
+		 * trap if it's wrong. */                                                                  \
+		load->setAlignment(1);                                                                     \
 		load->setVolatile(true);                                                                   \
 		push(conversionOp(load, asLLVMType(llvmContext, ValueType::valueTypeId)));                 \
 	}
@@ -184,7 +186,9 @@ void EmitFunctionContext::memory_fill(MemoryImm imm)
 		auto memoryValue = conversionOp(value, llvmMemoryType);                                    \
 		auto store = irBuilder.CreateStore(memoryValue, pointer);                                  \
 		store->setVolatile(true);                                                                  \
-		store->setAlignment(1 << imm.alignmentLog2);                                               \
+		/* Don't trust the alignment hint provided by the WebAssembly code, since the store can't  \
+		 * trap if it's wrong. */                                                                  \
+		store->setAlignment(1);                                                                    \
 	}
 
 EMIT_LOAD_OP(i32, load8_s, llvmContext.i8Type, 0, sext)

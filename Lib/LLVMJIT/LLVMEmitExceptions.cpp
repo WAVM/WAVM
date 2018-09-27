@@ -327,7 +327,8 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 								 offsetof(ExceptionData, arguments)
 									 + (catchType.params.size() - argumentIndex - 1)
 										   * sizeof(ExceptionData::arguments[0]))}),
-				asLLVMType(llvmContext, parameters));
+				asLLVMType(llvmContext, parameters),
+				sizeof(ExceptionData::arguments[0]));
 			push(argument);
 		}
 	}
@@ -350,7 +351,8 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 			auto argument = loadFromUntypedPointer(
 				irBuilder.CreateInBoundsGEP(catchContext.exceptionPointer,
 											{emitLiteral(llvmContext, argumentOffset)}),
-				asLLVMType(llvmContext, parameters));
+				asLLVMType(llvmContext, parameters),
+				sizeof(ExceptionData::arguments[0]));
 			push(argument);
 		}
 	}
@@ -430,17 +432,19 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 	const Uptr numArgBytes = numArgs * sizeof(UntaggedValue);
 	auto argBaseAddress
 		= irBuilder.CreateAlloca(llvmContext.i8Type, emitLiteral(llvmContext, numArgBytes));
+	argBaseAddress->setAlignment(sizeof(UntaggedValue));
 
 	for(Uptr argIndex = 0; argIndex < exceptionType.params.size(); ++argIndex)
 	{
 		auto elementValue = pop();
-		irBuilder.CreateStore(
+		storeToUntypedPointer(
 			elementValue,
 			irBuilder.CreatePointerCast(
 				irBuilder.CreateInBoundsGEP(
 					argBaseAddress,
 					{emitLiteral(llvmContext, (numArgs - argIndex - 1) * sizeof(UntaggedValue))}),
-				elementValue->getType()->getPointerTo()));
+				elementValue->getType()->getPointerTo()),
+			sizeof(UntaggedValue));
 	}
 
 	llvm::Value* exceptionTypeId = moduleContext.exceptionTypeIds[imm.exceptionTypeIndex];

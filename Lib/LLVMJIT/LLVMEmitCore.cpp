@@ -373,7 +373,8 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 	auto tableBasePointer = loadFromUntypedPointer(
 		irBuilder.CreateInBoundsGEP(getCompartmentAddress(),
 									{moduleContext.tableOffsets[imm.tableIndex]}),
-		llvmContext.iptrType->getPointerTo());
+		llvmContext.iptrType->getPointerTo(),
+		sizeof(Uptr));
 
 	// Load the anyfunc referenced by the table.
 	auto elementPointer = irBuilder.CreateInBoundsGEP(tableBasePointer, {functionIndexZExt});
@@ -387,7 +388,8 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		irBuilder.CreateInBoundsGEP(
 			runtimeFunction,
 			emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, encodedType)))),
-		llvmContext.iptrType);
+		llvmContext.iptrType,
+		sizeof(Uptr));
 	auto calleeTypeId = moduleContext.typeIds[imm.type.index];
 
 	// If the function type doesn't match, trap.
