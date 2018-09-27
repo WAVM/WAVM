@@ -153,7 +153,6 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 			verifyOutputStream.flush();
 			Errors::fatalf("LLVM verification errors:\n%s", verifyOutputString.c_str());
 		}
-		Log::printf(Log::debug, "Verified LLVM module\n");
 	}
 
 	// Optimize the module;
