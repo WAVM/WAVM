@@ -1,11 +1,25 @@
 set(POSIXSources
-	POSIX.cpp
-	POSIX.S)
+	POSIX/Diagnostics.cpp
+	POSIX/Event.cpp
+	POSIX/Exception.cpp
+	POSIX/File.cpp
+	POSIX/Memory.cpp
+	POSIX/Mutex.cpp
+	POSIX/Thread.cpp
+	POSIX/POSIX.S
+	POSIX/POSIXPrivate.h)
 
 set(WindowsSources
-	Windows.cpp
-	Win32.asm
-	Win64.asm)
+	Windows/Diagnostics.cpp
+	Windows/Event.cpp
+	Windows/Exception.cpp
+	Windows/File.cpp
+	Windows/Memory.cpp
+	Windows/Mutex.cpp
+	Windows/Thread.cpp
+	Windows/WindowsPrivate.h
+	Windows/Win32.asm
+	Windows/Win64.asm)
 
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Platform/Defines.h
@@ -19,15 +33,16 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Platform/Thread.h)
 
 if(MSVC)
-	set(Sources ${POSIXSources} ${WindowsSources})
 	if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-		set_source_files_properties(Win64.asm PROPERTIES HEADER_FILE_ONLY TRUE)
-		set_source_files_properties(Win32.asm PROPERTIES COMPILE_FLAGS "/safeseh")
+		set_source_files_properties(Windows/Win64.asm PROPERTIES HEADER_FILE_ONLY TRUE)
+		set_source_files_properties(Windows/Win32.asm PROPERTIES COMPILE_FLAGS "/safeseh")
 	else()
-		set_source_files_properties(Win32.asm PROPERTIES HEADER_FILE_ONLY TRUE)
+		set_source_files_properties(Windows/Win32.asm PROPERTIES HEADER_FILE_ONLY TRUE)
 	endif()
 	set_source_files_properties(${POSIXSources} PROPERTIES HEADER_FILE_ONLY TRUE)
 	enable_language(ASM_MASM)
+	
+	set_source_files_properties(${POSIXSources} PROPERTIES HEADER_FILE_ONLY TRUE)
 else()
 	set(Sources ${POSIXSources})
 
@@ -35,11 +50,13 @@ else()
 	# reference to the Wavix target in this project.
 	string(COMPARE EQUAL "${CMAKE_SYSTEM_NAME}" Wavix IS_WAVIX)
 	if(IS_WAVIX)
-		set_source_files_properties(POSIX.S PROPERTIES HEADER_FILE_ONLY TRUE)
+		set_source_files_properties(POSIX/POSIX.S PROPERTIES HEADER_FILE_ONLY TRUE)
 	endif()
+
+	set_source_files_properties(${WindowsSources} PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
-WAVM_ADD_LIBRARY(Platform ${Sources} ${PublicHeaders})
+WAVM_ADD_LIBRARY(Platform ${WindowsSources} ${POSIXSources} ${PublicHeaders})
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	target_link_libraries(Platform PRIVATE pthread rt)

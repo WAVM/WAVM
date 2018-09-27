@@ -4,6 +4,7 @@
 
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Diagnostics.h"
 
 namespace WAVM { namespace Platform {
 	struct Signal
