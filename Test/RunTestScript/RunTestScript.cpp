@@ -641,7 +641,8 @@ static I64 threadMain(void* sharedStateVoid)
 			for(auto& command : testCommands)
 			{
 				Log::printf(Log::debug,
-							"Evaluating test command at %s\n",
+							"Evaluating test command at %s(%s)\n",
+							filename,
 							command->locus.describe().c_str());
 				catchRuntimeExceptions(
 					[&testScriptState, &command] {
