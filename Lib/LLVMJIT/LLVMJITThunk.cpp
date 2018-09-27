@@ -55,8 +55,6 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 {
 	Lock<Platform::Mutex> invokeThunkLock(invokeThunkMutex);
 
-	LLVMContext llvmContext;
-
 	// Reuse cached invoke thunks for the same function type.
 	Runtime::Function*& invokeThunkFunction
 		= invokeThunkTypeToFunctionMap.getOrAdd(functionType, nullptr);
@@ -68,6 +66,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		= new FunctionMutableData("thnk!C to WASM thunk!" + asString(functionType));
 
 	// Create a LLVM module and a LLVM function for the thunk.
+	LLVMContext llvmContext;
 	llvm::Module llvmModule("", llvmContext);
 	auto llvmFunctionType = llvm::FunctionType::get(
 		llvmContext.i8PtrType, {llvmContext.i8PtrType, llvmContext.i8PtrType}, false);
