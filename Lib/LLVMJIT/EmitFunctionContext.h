@@ -1,7 +1,7 @@
 #pragma once
 
-#include "LLVMEmitContext.h"
-#include "LLVMEmitModuleContext.h"
+#include "EmitContext.h"
+#include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"

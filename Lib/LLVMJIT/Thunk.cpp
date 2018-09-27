@@ -5,7 +5,7 @@
 #include <utility>
 #include <vector>
 
-#include "LLVMEmitContext.h"
+#include "EmitContext.h"
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"

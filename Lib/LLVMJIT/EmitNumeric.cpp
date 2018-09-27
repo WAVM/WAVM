@@ -1,9 +1,9 @@
 #include <stdint.h>
 
-#include "LLVMEmitContext.h"
-#include "LLVMEmitFunctionContext.h"
-#include "LLVMEmitModuleContext.h"
-#include "LLVMEmitWorkarounds.h"
+#include "EmitContext.h"
+#include "EmitFunctionContext.h"
+#include "EmitModuleContext.h"
+#include "EmitWorkarounds.h"
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"

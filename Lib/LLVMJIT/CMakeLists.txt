@@ -1,23 +1,23 @@
 set(Sources
-	LLVMEmitContext.h
-	LLVMEmitConvert.cpp
-	LLVMEmitCore.cpp
-	LLVMEmitExceptions.cpp
-	LLVMEmitFunction.cpp
-	LLVMEmitFunctionContext.h
-	LLVMEmitMem.cpp
-	LLVMEmitModule.cpp
-	LLVMEmitModuleContext.h
-	LLVMEmitNumeric.cpp
-	LLVMEmitTable.cpp
-	LLVMEmitVar.cpp
-	LLVMEmitWorkarounds.h
+	EmitContext.h
+	EmitConvert.cpp
+	EmitCore.cpp
+	EmitExceptions.cpp
+	EmitFunction.cpp
+	EmitFunctionContext.h
+	EmitMem.cpp
+	EmitModule.cpp
+	EmitModuleContext.h
+	EmitNumeric.cpp
+	EmitTable.cpp
+	EmitVar.cpp
+	EmitWorkarounds.h
+	LLVMCompile.cpp
 	LLVMJIT.cpp
-	LLVMJITCompile.cpp
-	LLVMJITLoad.cpp
 	LLVMJITPrivate.h
-	LLVMJITThunk.cpp
-	LLVMWin64EH.cpp)
+	LLVMModule.cpp
+	Thunk.cpp
+	Win64EH.cpp)
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/LLVMJIT/LLVMJIT.h)
 
