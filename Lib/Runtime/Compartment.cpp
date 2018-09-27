@@ -11,6 +11,7 @@
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/Inline/Timing.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;
@@ -18,11 +19,13 @@ using namespace WAVM::Runtime;
 Runtime::Compartment::Compartment()
 : GCObject(ObjectKind::compartment, this)
 , unalignedRuntimeData(nullptr)
-, moduleInstances(0, UINTPTR_MAX - 1) // Use UINTPTR_MAX as an invalid index.
-, memories(0, maxMemories - 1)
 , tables(0, maxTables - 1)
+, memories(0, maxMemories - 1)
+// Use UINTPTR_MAX as an invalid ID for globals, exception types, and module instances.
+, globals(0, UINTPTR_MAX - 1)
+, exceptionTypes(0, UINTPTR_MAX - 1)
+, moduleInstances(0, UINTPTR_MAX - 1)
 , contexts(0, maxContexts - 1)
-, exceptionTypes(0, UINTPTR_MAX - 1) // Use UINTPTR_MAX as an invalid index.
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
 		compartmentReservedBytes >> Platform::getPageSizeLog2(),
@@ -58,16 +61,16 @@ Compartment* Runtime::createCompartment() { return new Compartment; }
 
 Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 {
-	Compartment* newCompartment = new Compartment;
+	Timing::Timer timer;
 
+	Compartment* newCompartment = new Compartment;
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 
-	// Clone globals.
-	newCompartment->globalDataAllocationMask = compartment->globalDataAllocationMask;
-	for(Global* global : compartment->globals)
+	// Clone tables.
+	for(Table* table : compartment->tables)
 	{
-		Global* newGlobal = cloneGlobal(global, newCompartment);
-		wavmAssert(newGlobal->mutableGlobalId == global->mutableGlobalId);
+		Table* newTable = cloneTable(table, newCompartment);
+		wavmAssert(newTable->id == table->id);
 	}
 
 	// Clone memories.
@@ -77,38 +80,82 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 		wavmAssert(newMemory->id == memory->id);
 	}
 
-	// Clone tables.
-	for(Table* table : compartment->tables)
+	// Clone globals.
+	newCompartment->globalDataAllocationMask = compartment->globalDataAllocationMask;
+	memcpy(newCompartment->initialContextMutableGlobals,
+		   compartment->initialContextMutableGlobals,
+		   sizeof(newCompartment->initialContextMutableGlobals));
+	for(Global* global : compartment->globals)
 	{
-		Table* newTable = cloneTable(table, newCompartment);
-		wavmAssert(newTable->id == table->id);
+		Global* newGlobal = cloneGlobal(global, newCompartment);
+		wavmAssert(newGlobal->id == global->id);
+		wavmAssert(newGlobal->mutableGlobalIndex == global->mutableGlobalIndex);
 	}
 
+	// Clone exception types.
+	for(ExceptionType* exceptionType : compartment->exceptionTypes)
+	{
+		ExceptionType* newExceptionType = cloneExceptionType(exceptionType, newCompartment);
+		wavmAssert(newExceptionType->id == exceptionType->id);
+	}
+
+	// Clone module instances.
+	for(ModuleInstance* moduleInstance : compartment->moduleInstances)
+	{
+		ModuleInstance* newModuleInstance = cloneModuleInstance(moduleInstance, newCompartment);
+		wavmAssert(newModuleInstance->id == moduleInstance->id);
+	}
+
+	Timing::logTimer("Cloned compartment", timer);
 	return newCompartment;
 }
 
-Uptr Runtime::getCompartmentModuleInstanceId(ModuleInstance* moduleInstance)
+Object* Runtime::remapToClonedCompartment(Object* object, const Compartment* newCompartment)
 {
-	return moduleInstance->id;
+	switch(object->kind)
+	{
+	case ObjectKind::function: return object;
+	case ObjectKind::table: return newCompartment->tables[asTable(object)->id];
+	case ObjectKind::memory: return newCompartment->memories[asMemory(object)->id];
+	case ObjectKind::global: return newCompartment->globals[asGlobal(object)->id];
+	case ObjectKind::exceptionType:
+		return newCompartment->exceptionTypes[asExceptionType(object)->id];
+	case ObjectKind::moduleInstance:
+		return newCompartment->moduleInstances[asModuleInstance(object)->id];
+	default: Errors::unreachable();
+	};
 }
-Uptr Runtime::getCompartmentTableId(const Table* table) { return table->id; }
-Uptr Runtime::getCompartmentMemoryId(const Memory* memory) { return memory->id; }
 
-ModuleInstance* Runtime::getCompartmentModuleInstanceById(const Compartment* compartment,
-														  Uptr moduleInstanceId)
+Function* Runtime::remapToClonedCompartment(Function* function, const Compartment* newCompartment)
 {
-	Lock<Platform::Mutex> lock(compartment->mutex);
-	return compartment->moduleInstances[moduleInstanceId];
+	return function;
 }
-Table* Runtime::getCompartmentTableById(const Compartment* compartment, Uptr tableId)
+Table* Runtime::remapToClonedCompartment(Table* table, const Compartment* newCompartment)
 {
-	Lock<Platform::Mutex> lock(compartment->mutex);
-	return compartment->tables[tableId];
+	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	return newCompartment->tables[table->id];
 }
-Memory* Runtime::getCompartmentMemoryById(const Compartment* compartment, Uptr memoryId)
+Memory* Runtime::remapToClonedCompartment(Memory* memory, const Compartment* newCompartment)
 {
-	Lock<Platform::Mutex> lock(compartment->mutex);
-	return compartment->memories[memoryId];
+	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	return newCompartment->memories[memory->id];
+}
+Global* Runtime::remapToClonedCompartment(Global* global, const Compartment* newCompartment)
+{
+	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	return newCompartment->globals[global->id];
+}
+ExceptionType* Runtime::remapToClonedCompartment(ExceptionType* exceptionType,
+												 const Compartment* newCompartment)
+{
+	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	return newCompartment->exceptionTypes[exceptionType->id];
+}
+ModuleInstance* Runtime::remapToClonedCompartment(ModuleInstance* moduleInstance,
+												  const Compartment* newCompartment)
+{
+	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	return newCompartment->moduleInstances[moduleInstance->id];
 }
 
 bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
@@ -131,5 +178,15 @@ bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
 	{
 		GCObject* gcObject = (GCObject*)object;
 		return gcObject->compartment == compartment;
+	}
+}
+
+Compartment* Runtime::getCompartment(Object* object)
+{
+	if(object->kind == ObjectKind::function) { return nullptr; }
+	else
+	{
+		GCObject* gcObject = (GCObject*)object;
+		return gcObject->compartment;
 	}
 }

@@ -357,15 +357,17 @@ namespace WAVM { namespace Runtime {
 
 	RUNTIME_API Compartment* cloneCompartment(const Compartment* compartment);
 
-	RUNTIME_API Uptr getCompartmentModuleInstanceId(ModuleInstance* moduleInstance);
-	RUNTIME_API Uptr getCompartmentTableId(const Table* table);
-	RUNTIME_API Uptr getCompartmentMemoryId(const Memory* memory);
+	Object* remapToClonedCompartment(Object* object, const Compartment* newCompartment);
+	Function* remapToClonedCompartment(Function* function, const Compartment* newCompartment);
+	Table* remapToClonedCompartment(Table* table, const Compartment* newCompartment);
+	Memory* remapToClonedCompartment(Memory* memory, const Compartment* newCompartment);
+	Global* remapToClonedCompartment(Global* global, const Compartment* newCompartment);
+	ExceptionType* remapToClonedCompartment(ExceptionType* exceptionType,
+											const Compartment* newCompartment);
+	ModuleInstance* remapToClonedCompartment(ModuleInstance* moduleInstance,
+											 const Compartment* newCompartment);
 
-	RUNTIME_API ModuleInstance* getCompartmentModuleInstanceById(const Compartment* compartment,
-																 Uptr moduleInstanceId);
-	RUNTIME_API Table* getCompartmentTableById(const Compartment* compartment, Uptr tableId);
-	RUNTIME_API Memory* getCompartmentMemoryById(const Compartment* compartment, Uptr memoryId);
-
+	RUNTIME_API Compartment* getCompartment(Object* object);
 	RUNTIME_API bool isInCompartment(Object* object, const Compartment* compartment);
 
 	//

@@ -539,8 +539,6 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	std::vector<MemoryBinding>&& memories,
 	std::vector<GlobalBinding>&& globals,
 	std::vector<ExceptionTypeBinding>&& exceptionTypes,
-	MemoryBinding defaultMemory,
-	TableBinding defaultTable,
 	ModuleInstanceBinding moduleInstance,
 	Uptr tableReferenceBias,
 	const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas)
@@ -599,7 +597,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 			// If the global is mutable, bind the symbol to the offset into
 			// ContextRuntimeData::globalData where it is stored.
 			value = offsetof(Runtime::ContextRuntimeData, mutableGlobals)
-					+ globalSpec.mutableGlobalId * sizeof(IR::UntaggedValue);
+					+ globalSpec.mutableGlobalIndex * sizeof(IR::UntaggedValue);
 		}
 		else
 		{

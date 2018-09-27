@@ -122,11 +122,11 @@ struct GCState
 				if(global->type.isMutable)
 				{
 					visitReference(
-						compartment->initialContextMutableGlobals[global->mutableGlobalId].object);
+						compartment->initialContextMutableGlobals[global->mutableGlobalIndex].object);
 					for(Context* context : compartment->contexts)
 					{
 						visitReference(
-							context->runtimeData->mutableGlobals[global->mutableGlobalId].object);
+							context->runtimeData->mutableGlobals[global->mutableGlobalIndex].object);
 					}
 				}
 				visitReference(global->initialValue.object);

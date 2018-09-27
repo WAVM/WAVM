@@ -91,8 +91,10 @@ namespace WAVM { namespace Runtime {
 	// An instance of a WebAssembly global.
 	struct Global : GCObject
 	{
+		Uptr id = UINTPTR_MAX;
+
 		const IR::GlobalType type;
-		const U32 mutableGlobalId;
+		const U32 mutableGlobalIndex;
 		const IR::UntaggedValue initialValue;
 
 		Global(Compartment* inCompartment,
@@ -101,7 +103,7 @@ namespace WAVM { namespace Runtime {
 			   IR::UntaggedValue inInitialValue)
 		: GCObject(ObjectKind::global, inCompartment)
 		, type(inType)
-		, mutableGlobalId(inMutableGlobalId)
+		, mutableGlobalIndex(inMutableGlobalId)
 		, initialValue(inInitialValue)
 		{
 		}
@@ -140,47 +142,59 @@ namespace WAVM { namespace Runtime {
 		}
 	};
 
+	typedef HashMap<Uptr, std::shared_ptr<std::vector<U8>>> PassiveDataSegmentMap;
+	typedef HashMap<Uptr, std::shared_ptr<std::vector<Object*>>> PassiveElemSegmentMap;
+
 	// An instance of a WebAssembly module.
 	struct ModuleInstance : GCObject
 	{
-		Uptr id = UINTPTR_MAX;
+		const Uptr id;
+		const std::string debugName;
 
-		HashMap<std::string, Object*> exportMap;
+		const HashMap<std::string, Object*> exportMap;
 
-		std::vector<Function*> functions;
-		std::vector<Table*> tables;
-		std::vector<Memory*> memories;
-		std::vector<Global*> globals;
-		std::vector<ExceptionType*> exceptionTypes;
+		const std::vector<Function*> functions;
+		const std::vector<Table*> tables;
+		const std::vector<Memory*> memories;
+		const std::vector<Global*> globals;
+		const std::vector<ExceptionType*> exceptionTypes;
 
-		Function* startFunction = nullptr;
-		Memory* defaultMemory = nullptr;
-		Table* defaultTable = nullptr;
+		Function* const startFunction;
 
 		mutable Platform::Mutex passiveDataSegmentsMutex;
-		HashMap<Uptr, std::shared_ptr<const std::vector<U8>>> passiveDataSegments;
+		PassiveDataSegmentMap passiveDataSegments;
 
 		mutable Platform::Mutex passiveElemSegmentsMutex;
-		HashMap<Uptr, std::shared_ptr<const std::vector<Object*>>> passiveElemSegments;
+		PassiveElemSegmentMap passiveElemSegments;
 
-		std::shared_ptr<LLVMJIT::Module> jitModule = nullptr;
-
-		std::string debugName;
+		const std::shared_ptr<LLVMJIT::Module> jitModule;
 
 		ModuleInstance(Compartment* inCompartment,
-					   std::vector<Function*>&& inFunctionImports,
-					   std::vector<Table*>&& inTableImports,
-					   std::vector<Memory*>&& inMemoryImports,
-					   std::vector<Global*>&& inGlobalImports,
-					   std::vector<ExceptionType*>&& inExceptionTypeImports,
+					   Uptr inID,
+					   HashMap<std::string, Object*>&& inExportMap,
+					   std::vector<Function*>&& inFunctions,
+					   std::vector<Table*>&& inTables,
+					   std::vector<Memory*>&& inMemories,
+					   std::vector<Global*>&& inGlobals,
+					   std::vector<ExceptionType*>&& inExceptionTypes,
+					   Function* inStartFunction,
+					   PassiveDataSegmentMap&& inPassiveDataSegments,
+					   PassiveElemSegmentMap&& inPassiveElemSegments,
+					   std::shared_ptr<LLVMJIT::Module>&& inJITModule,
 					   std::string&& inDebugName)
 		: GCObject(ObjectKind::moduleInstance, inCompartment)
-		, functions(inFunctionImports)
-		, tables(inTableImports)
-		, memories(inMemoryImports)
-		, globals(inGlobalImports)
-		, exceptionTypes(inExceptionTypeImports)
+		, id(inID)
 		, debugName(std::move(inDebugName))
+		, exportMap(std::move(inExportMap))
+		, functions(std::move(inFunctions))
+		, tables(std::move(inTables))
+		, memories(std::move(inMemories))
+		, globals(std::move(inGlobals))
+		, exceptionTypes(std::move(inExceptionTypes))
+		, startFunction(inStartFunction)
+		, passiveDataSegments(std::move(inPassiveDataSegments))
+		, passiveElemSegments(std::move(inPassiveElemSegments))
+		, jitModule(std::move(inJITModule))
 		{
 		}
 
@@ -203,13 +217,12 @@ namespace WAVM { namespace Runtime {
 		struct CompartmentRuntimeData* runtimeData;
 		U8* unalignedRuntimeData;
 
-		IndexMap<Uptr, ModuleInstance*> moduleInstances;
-		IndexMap<Uptr, Memory*> memories;
 		IndexMap<Uptr, Table*> tables;
-		IndexMap<Uptr, Context*> contexts;
+		IndexMap<Uptr, Memory*> memories;
+		IndexMap<Uptr, Global*> globals;
 		IndexMap<Uptr, ExceptionType*> exceptionTypes;
-
-		HashSet<Global*> globals;
+		IndexMap<Uptr, ModuleInstance*> moduleInstances;
+		IndexMap<Uptr, Context*> contexts;
 
 		DenseStaticIntSet<U32, maxMutableGlobals> globalDataAllocationMask;
 		IR::UntaggedValue initialContextMutableGlobals[maxMutableGlobals];
@@ -230,9 +243,12 @@ namespace WAVM { namespace Runtime {
 	bool isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTableIndex);
 	bool isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outMemoryAddress);
 
-	// Clones a memory or table with the same ID in a new compartment.
+	// Clones objects into a new compartment with the same ID.
 	Table* cloneTable(Table* memory, Compartment* newCompartment);
 	Memory* cloneMemory(Memory* memory, Compartment* newCompartment);
+	ExceptionType* cloneExceptionType(ExceptionType* exceptionType, Compartment* newCompartment);
+	ModuleInstance* cloneModuleInstance(ModuleInstance* moduleInstance,
+										Compartment* newCompartment);
 
 	// Clone a global with same ID and mutable data offset (if mutable) in a new compartment.
 	Global* cloneGlobal(Global* global, Compartment* newCompartment);

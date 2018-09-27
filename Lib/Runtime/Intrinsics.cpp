@@ -113,68 +113,76 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 											  std::string&& debugName,
 											  const HashMap<std::string, Object*>& extraExports)
 {
-	auto moduleInstance = new ModuleInstance(compartment, {}, {}, {}, {}, {}, std::move(debugName));
-	{
-		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-		moduleInstance->id = compartment->moduleInstances.add(UINTPTR_MAX, moduleInstance);
-		if(moduleInstance->id == UINTPTR_MAX)
-		{
-			delete moduleInstance;
-			throwException(Exception::outOfMemoryType, {});
-		}
-	}
-
+	HashMap<std::string, Object*> exportMap = extraExports;
+	std::vector<Runtime::Function*> functions;
+	std::vector<Runtime::Table*> tables;
+	std::vector<Runtime::Memory*> memories;
+	std::vector<Runtime::Global*> globals;
+	std::vector<Runtime::ExceptionType*> exceptionTypes;
 	if(moduleRef.impl)
 	{
 		for(const auto& pair : moduleRef.impl->functionMap)
 		{
 			auto function = pair.value->instantiate(compartment);
-			moduleInstance->functions.push_back(function);
-			moduleInstance->exportMap.addOrFail(pair.key, asObject(function));
+			functions.push_back(function);
+			exportMap.addOrFail(pair.key, asObject(function));
 		}
 
 		for(const auto& pair : moduleRef.impl->tableMap)
 		{
 			auto table = pair.value->instantiate(compartment);
-			moduleInstance->tables.push_back(table);
-			moduleInstance->exportMap.addOrFail(pair.key, asObject(table));
+			tables.push_back(table);
+			exportMap.addOrFail(pair.key, asObject(table));
 		}
 
 		for(const auto& pair : moduleRef.impl->memoryMap)
 		{
 			auto memory = pair.value->instantiate(compartment);
-			moduleInstance->memories.push_back(memory);
-			moduleInstance->exportMap.addOrFail(pair.key, asObject(memory));
+			memories.push_back(memory);
+			exportMap.addOrFail(pair.key, asObject(memory));
 		}
 
 		for(const auto& pair : moduleRef.impl->globalMap)
 		{
 			auto global = pair.value->instantiate(compartment);
-			moduleInstance->globals.push_back(global);
-			moduleInstance->exportMap.addOrFail(pair.key, asObject(global));
+			globals.push_back(global);
+			exportMap.addOrFail(pair.key, asObject(global));
 		}
 
 		for(const auto& pair : extraExports)
 		{
 			Object* object = pair.value;
-			moduleInstance->exportMap.set(pair.key, object);
-
 			switch(object->kind)
 			{
-			case ObjectKind::function:
-				moduleInstance->functions.push_back(asFunction(object));
-				break;
-			case ObjectKind::table: moduleInstance->tables.push_back(asTable(object)); break;
-			case ObjectKind::memory: moduleInstance->memories.push_back(asMemory(object)); break;
-			case ObjectKind::global: moduleInstance->globals.push_back(asGlobal(object)); break;
+			case ObjectKind::function: functions.push_back(asFunction(object)); break;
+			case ObjectKind::table: tables.push_back(asTable(object)); break;
+			case ObjectKind::memory: memories.push_back(asMemory(object)); break;
+			case ObjectKind::global: globals.push_back(asGlobal(object)); break;
 			case ObjectKind::exceptionType:
-				moduleInstance->exceptionTypes.push_back(asExceptionType(object));
+				exceptionTypes.push_back(asExceptionType(object));
 				break;
 			default: Errors::unreachable();
 			};
 		}
 	}
 
+	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+	const Uptr id = compartment->moduleInstances.add(UINTPTR_MAX, nullptr);
+	if(id == UINTPTR_MAX) { throwException(Exception::outOfMemoryType, {}); }
+	auto moduleInstance = new ModuleInstance(compartment,
+											 id,
+											 std::move(exportMap),
+											 std::move(functions),
+											 std::move(tables),
+											 std::move(memories),
+											 std::move(globals),
+											 std::move(exceptionTypes),
+											 nullptr,
+											 {},
+											 {},
+											 nullptr,
+											 std::move(debugName));
+	compartment->moduleInstances[id] = moduleInstance;
 	return moduleInstance;
 }
 

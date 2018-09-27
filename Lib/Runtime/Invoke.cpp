@@ -48,8 +48,7 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 	}
 
 	// Call the invoke thunk.
-	contextRuntimeData
-		= (ContextRuntimeData*)(*invokeFunctionPointer)(function, contextRuntimeData);
+	contextRuntimeData = (*invokeFunctionPointer)(function, contextRuntimeData);
 
 	// Return a pointer to the return value that was written to the ContextRuntimeData.
 	return (UntaggedValue*)contextRuntimeData->thunkArgAndReturnData;

@@ -110,10 +110,25 @@ ExceptionType* Runtime::createExceptionType(Compartment* compartment,
 	return exceptionType;
 }
 
+ExceptionType* Runtime::cloneExceptionType(ExceptionType* exceptionType,
+										   Compartment* newCompartment)
+{
+	auto newExceptionType = new ExceptionType(
+		newCompartment, exceptionType->type, std::string(exceptionType->debugName));
+	newExceptionType->id = exceptionType->id;
+
+	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+	newCompartment->exceptionTypes.insertOrFail(exceptionType->id, newExceptionType);
+	return newExceptionType;
+}
+
 Runtime::ExceptionType::~ExceptionType()
 {
-	wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
-	if(id != UINTPTR_MAX) { compartment->exceptionTypes.removeOrFail(id); }
+	if(id != UINTPTR_MAX)
+	{
+		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+		compartment->exceptionTypes.removeOrFail(id);
+	}
 }
 
 std::string Runtime::describeExceptionType(const ExceptionType* typeInstance)

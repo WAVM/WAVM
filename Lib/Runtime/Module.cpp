@@ -78,54 +78,56 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	dummyReferenceAtomics();
 	dummyReferenceWAVMIntrinsics();
 
-	// Create the ModuleInstance and add it to the compartment's modules list.
-	ModuleInstance* moduleInstance = new ModuleInstance(compartment,
-														std::move(imports.functions),
-														std::move(imports.tables),
-														std::move(imports.memories),
-														std::move(imports.globals),
-														std::move(imports.exceptionTypes),
-														std::move(moduleDebugName));
+	Uptr id = UINTPTR_MAX;
 	{
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
-		moduleInstance->id = compartment->moduleInstances.add(0, moduleInstance);
-		errorUnless(moduleInstance->id != UINTPTR_MAX);
+		id = compartment->moduleInstances.add(UINTPTR_MAX, nullptr);
 	}
+	if(id == UINTPTR_MAX) { return nullptr; }
 
 	// Check the type of the ModuleInstance's imports.
-	errorUnless(moduleInstance->functions.size() == module->ir.functions.imports.size());
+	std::vector<Function*> functions = std::move(imports.functions);
+	errorUnless(functions.size() == module->ir.functions.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.functions.imports.size(); ++importIndex)
 	{
-		Object* importObject = asObject(moduleInstance->functions[importIndex]);
+		Object* importObject = asObject(functions[importIndex]);
 		errorUnless(
 			isA(importObject, module->ir.types[module->ir.functions.getType(importIndex).index]));
 		errorUnless(isInCompartment(importObject, compartment));
 	}
-	errorUnless(moduleInstance->tables.size() == module->ir.tables.imports.size());
+
+	std::vector<Table*> tables = std::move(imports.tables);
+	errorUnless(tables.size() == module->ir.tables.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.tables.imports.size(); ++importIndex)
 	{
-		Object* importObject = asObject(moduleInstance->tables[importIndex]);
+		Object* importObject = asObject(tables[importIndex]);
 		errorUnless(isA(importObject, module->ir.tables.getType(importIndex)));
 		errorUnless(isInCompartment(importObject, compartment));
 	}
-	errorUnless(moduleInstance->memories.size() == module->ir.memories.imports.size());
+
+	std::vector<Memory*> memories = std::move(imports.memories);
+	errorUnless(memories.size() == module->ir.memories.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.memories.imports.size(); ++importIndex)
 	{
-		Object* importObject = asObject(moduleInstance->memories[importIndex]);
+		Object* importObject = asObject(memories[importIndex]);
 		errorUnless(isA(importObject, module->ir.memories.getType(importIndex)));
 		errorUnless(isInCompartment(importObject, compartment));
 	}
-	errorUnless(moduleInstance->globals.size() == module->ir.globals.imports.size());
+
+	std::vector<Global*> globals = std::move(imports.globals);
+	errorUnless(globals.size() == module->ir.globals.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.globals.imports.size(); ++importIndex)
 	{
-		Object* importObject = asObject(moduleInstance->globals[importIndex]);
+		Object* importObject = asObject(globals[importIndex]);
 		errorUnless(isA(importObject, module->ir.globals.getType(importIndex)));
 		errorUnless(isInCompartment(importObject, compartment));
 	}
-	errorUnless(moduleInstance->exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
+
+	std::vector<ExceptionType*> exceptionTypes = std::move(imports.exceptionTypes);
+	errorUnless(exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
 	for(Uptr importIndex = 0; importIndex < module->ir.exceptionTypes.imports.size(); ++importIndex)
 	{
-		Object* importObject = asObject(moduleInstance->exceptionTypes[importIndex]);
+		Object* importObject = asObject(exceptionTypes[importIndex]);
 		errorUnless(isA(importObject, module->ir.exceptionTypes.getType(importIndex)));
 		errorUnless(isInCompartment(importObject, compartment));
 	}
@@ -142,7 +144,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		auto table = createTable(
 			compartment, module->ir.tables.defs[tableDefIndex].type, std::move(debugName));
 		if(!table) { throwException(Exception::outOfMemoryType); }
-		moduleInstance->tables.push_back(table);
+		tables.push_back(table);
 	}
 	for(Uptr memoryDefIndex = 0; memoryDefIndex < module->ir.memories.defs.size(); ++memoryDefIndex)
 	{
@@ -151,26 +153,15 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		auto memory = createMemory(
 			compartment, module->ir.memories.defs[memoryDefIndex].type, std::move(debugName));
 		if(!memory) { throwException(Exception::outOfMemoryType); }
-		moduleInstance->memories.push_back(memory);
+		memories.push_back(memory);
 	}
-
-	// Find the default memory and table for the module and initialize the runtime data memory/table
-	// base pointers.
-	if(moduleInstance->memories.size() != 0)
-	{
-		wavmAssert(moduleInstance->memories.size() == 1);
-		moduleInstance->defaultMemory = moduleInstance->memories[0];
-	}
-	if(moduleInstance->tables.size() != 0)
-	{ moduleInstance->defaultTable = moduleInstance->tables[0]; }
 
 	// Instantiate the module's global definitions.
 	for(const GlobalDef& globalDef : module->ir.globals.defs)
 	{
-		const Value initialValue
-			= evaluateInitializer(moduleInstance->globals, globalDef.initializer);
+		const Value initialValue = evaluateInitializer(globals, globalDef.initializer);
 		errorUnless(isSubtype(initialValue.type, globalDef.type.valueType));
-		moduleInstance->globals.push_back(createGlobal(compartment, globalDef.type, initialValue));
+		globals.push_back(createGlobal(compartment, globalDef.type, initialValue));
 	}
 
 	// Instantiate the module's exception types.
@@ -183,10 +174,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		std::string debugName
 			= disassemblyNames
 				  .exceptionTypes[module->ir.exceptionTypes.imports.size() + exceptionTypeDefIndex];
-		moduleInstance->exceptionTypes.push_back(
+		exceptionTypes.push_back(
 			createExceptionType(compartment, exceptionTypeDef.type, std::move(debugName)));
 	}
 
+	// Set up the values to bind to the symbols in the LLVMJIT object code.
 	HashMap<std::string, LLVMJIT::FunctionBinding> wavmIntrinsicsExportMap;
 	for(const HashMapPair<std::string, Intrinsics::Function*>& intrinsicFunctionPair :
 		Intrinsics::getUninstantiatedFunctions(INTRINSIC_MODULE_REF(wavmIntrinsics)))
@@ -197,32 +189,25 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		wavmIntrinsicsExportMap.add(intrinsicFunctionPair.key, functionBinding);
 	}
 
-	std::vector<FunctionType> jitTypes = module->ir.types;
-	LLVMJIT::MemoryBinding jitDefaultMemory{
-		moduleInstance->defaultMemory ? moduleInstance->defaultMemory->id : UINTPTR_MAX};
-	LLVMJIT::TableBinding jitDefaultTable{
-		moduleInstance->defaultTable ? moduleInstance->defaultTable->id : UINTPTR_MAX};
-
 	std::vector<LLVMJIT::FunctionBinding> jitFunctionImports;
 	for(Uptr importIndex = 0; importIndex < module->ir.functions.imports.size(); ++importIndex)
 	{
 		jitFunctionImports.push_back(
-			{CallingConvention::wasm,
-			 const_cast<U8*>(moduleInstance->functions[importIndex]->code)});
+			{CallingConvention::wasm, const_cast<U8*>(functions[importIndex]->code)});
 	}
 
 	std::vector<LLVMJIT::TableBinding> jitTables;
-	for(Table* table : moduleInstance->tables) { jitTables.push_back({table->id}); }
+	for(Table* table : tables) { jitTables.push_back({table->id}); }
 
 	std::vector<LLVMJIT::MemoryBinding> jitMemories;
-	for(Memory* memory : moduleInstance->memories) { jitMemories.push_back({memory->id}); }
+	for(Memory* memory : memories) { jitMemories.push_back({memory->id}); }
 
 	std::vector<LLVMJIT::GlobalBinding> jitGlobals;
-	for(Global* global : moduleInstance->globals)
+	for(Global* global : globals)
 	{
 		LLVMJIT::GlobalBinding globalSpec;
 		globalSpec.type = global->type;
-		if(global->type.isMutable) { globalSpec.mutableGlobalId = global->mutableGlobalId; }
+		if(global->type.isMutable) { globalSpec.mutableGlobalIndex = global->mutableGlobalIndex; }
 		else
 		{
 			globalSpec.immutableValuePointer = &global->initialValue;
@@ -231,7 +216,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	}
 
 	std::vector<LLVMJIT::ExceptionTypeBinding> jitExceptionTypes;
-	for(ExceptionType* exceptionType : moduleInstance->exceptionTypes)
+	for(ExceptionType* exceptionType : exceptionTypes)
 	{ jitExceptionTypes.push_back({exceptionType->id}); }
 
 	// Create a FunctionMutableData for each function definition.
@@ -244,55 +229,99 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				  .name;
 		if(!debugName.size())
 		{ debugName = "<function #" + std::to_string(functionDefIndex) + ">"; }
-		debugName = "wasm!" + moduleInstance->debugName + '!' + debugName;
+		debugName = "wasm!" + moduleDebugName + '!' + debugName;
 
 		functionDefMutableDatas.push_back(new FunctionMutableData(std::move(debugName)));
 	}
 
 	// Load the compiled module's object code with this module instance's imports.
+	std::vector<FunctionType> jitTypes = module->ir.types;
 	std::vector<Runtime::Function*> jitFunctionDefs;
 	jitFunctionDefs.resize(module->ir.functions.defs.size(), nullptr);
-	moduleInstance->jitModule = LLVMJIT::loadModule(module->objectCode,
-													std::move(wavmIntrinsicsExportMap),
-													std::move(jitTypes),
-													std::move(jitFunctionImports),
-													std::move(jitTables),
-													std::move(jitMemories),
-													std::move(jitGlobals),
-													std::move(jitExceptionTypes),
-													jitDefaultMemory,
-													jitDefaultTable,
-													{moduleInstance->id},
-													reinterpret_cast<Uptr>(getOutOfBoundsElement()),
-													functionDefMutableDatas);
+	std::shared_ptr<LLVMJIT::Module> jitModule
+		= LLVMJIT::loadModule(module->objectCode,
+							  std::move(wavmIntrinsicsExportMap),
+							  std::move(jitTypes),
+							  std::move(jitFunctionImports),
+							  std::move(jitTables),
+							  std::move(jitMemories),
+							  std::move(jitGlobals),
+							  std::move(jitExceptionTypes),
+							  {id},
+							  reinterpret_cast<Uptr>(getOutOfBoundsElement()),
+							  functionDefMutableDatas);
 
 	// LLVMJIT::loadModule filled in the functionDefMutableDatas' function pointers with the
 	// compiled functions. Add those functions to the module.
 	for(FunctionMutableData* functionMutableData : functionDefMutableDatas)
-	{ moduleInstance->functions.push_back(functionMutableData->function); }
+	{ functions.push_back(functionMutableData->function); }
 
 	// Set up the instance's exports.
+	HashMap<std::string, Object*> exportMap;
 	for(const Export& exportIt : module->ir.exports)
 	{
 		Object* exportedObject = nullptr;
 		switch(exportIt.kind)
 		{
-		case IR::ExternKind::function:
-			exportedObject = asObject(moduleInstance->functions[exportIt.index]);
-			break;
-		case IR::ExternKind::table: exportedObject = moduleInstance->tables[exportIt.index]; break;
-		case IR::ExternKind::memory:
-			exportedObject = moduleInstance->memories[exportIt.index];
-			break;
-		case IR::ExternKind::global:
-			exportedObject = moduleInstance->globals[exportIt.index];
-			break;
-		case IR::ExternKind::exceptionType:
-			exportedObject = moduleInstance->exceptionTypes[exportIt.index];
-			break;
+		case IR::ExternKind::function: exportedObject = asObject(functions[exportIt.index]); break;
+		case IR::ExternKind::table: exportedObject = tables[exportIt.index]; break;
+		case IR::ExternKind::memory: exportedObject = memories[exportIt.index]; break;
+		case IR::ExternKind::global: exportedObject = globals[exportIt.index]; break;
+		case IR::ExternKind::exceptionType: exportedObject = exceptionTypes[exportIt.index]; break;
 		default: Errors::unreachable();
 		}
-		moduleInstance->exportMap.addOrFail(exportIt.name, exportedObject);
+		exportMap.addOrFail(exportIt.name, exportedObject);
+	}
+
+	// Copy the module's passive data and table segments into the ModuleInstance for later use.
+	PassiveDataSegmentMap passiveDataSegments;
+	PassiveElemSegmentMap passiveElemSegments;
+	for(Uptr segmentIndex = 0; segmentIndex < module->ir.dataSegments.size(); ++segmentIndex)
+	{
+		const DataSegment& dataSegment = module->ir.dataSegments[segmentIndex];
+		if(!dataSegment.isActive)
+		{
+			passiveDataSegments.add(segmentIndex,
+									std::make_shared<std::vector<U8>>(dataSegment.data));
+		}
+	}
+	for(Uptr segmentIndex = 0; segmentIndex < module->ir.elemSegments.size(); ++segmentIndex)
+	{
+		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
+		if(!elemSegment.isActive)
+		{
+			auto passiveElemSegmentObjects = std::make_shared<std::vector<Object*>>();
+			for(Uptr functionIndex : elemSegment.indices)
+			{ passiveElemSegmentObjects->push_back(asObject(functions[functionIndex])); }
+			passiveElemSegments.add(segmentIndex, passiveElemSegmentObjects);
+		}
+	}
+
+	// Look up the module's start function.
+	Function* startFunction = nullptr;
+	if(module->ir.startFunctionIndex != UINTPTR_MAX)
+	{
+		startFunction = functions[module->ir.startFunctionIndex];
+		wavmAssert(FunctionType(startFunction->encodedType) == FunctionType());
+	}
+
+	// Create the ModuleInstance and add it to the compartment's modules list.
+	ModuleInstance* moduleInstance = new ModuleInstance(compartment,
+														id,
+														std::move(exportMap),
+														std::move(functions),
+														std::move(tables),
+														std::move(memories),
+														std::move(globals),
+														std::move(exceptionTypes),
+														startFunction,
+														std::move(passiveDataSegments),
+														std::move(passiveElemSegments),
+														std::move(jitModule),
+														std::move(moduleDebugName));
+	{
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+		compartment->moduleInstances[id] = moduleInstance;
 	}
 
 	// Copy the module's data segments into their designated memory instances.
@@ -361,39 +390,76 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		}
 	}
 
-	// Copy the module's passive data and table segments into the ModuleInstance for later use.
-	for(Uptr segmentIndex = 0; segmentIndex < module->ir.dataSegments.size(); ++segmentIndex)
-	{
-		const DataSegment& dataSegment = module->ir.dataSegments[segmentIndex];
-		if(!dataSegment.isActive)
-		{
-			moduleInstance->passiveDataSegments.add(
-				segmentIndex, std::make_shared<std::vector<U8>>(dataSegment.data));
-		}
-	}
-	for(Uptr segmentIndex = 0; segmentIndex < module->ir.elemSegments.size(); ++segmentIndex)
-	{
-		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
-		if(!elemSegment.isActive)
-		{
-			auto passiveElemSegmentObjects = std::make_shared<std::vector<Object*>>();
-			for(Uptr functionIndex : elemSegment.indices)
-			{
-				passiveElemSegmentObjects->push_back(
-					asObject(moduleInstance->functions[functionIndex]));
-			}
-			moduleInstance->passiveElemSegments.add(segmentIndex, passiveElemSegmentObjects);
-		}
-	}
-
-	// Look up the module's start function.
-	if(module->ir.startFunctionIndex != UINTPTR_MAX)
-	{
-		moduleInstance->startFunction = moduleInstance->functions[module->ir.startFunctionIndex];
-		wavmAssert(FunctionType(moduleInstance->startFunction->encodedType) == FunctionType());
-	}
-
 	return moduleInstance;
+}
+
+ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
+											 Compartment* newCompartment)
+{
+	// Remap the module's references to the cloned compartment.
+	HashMap<std::string, Object*> newExportMap;
+	for(const auto& pair : moduleInstance->exportMap)
+	{ newExportMap.add(pair.key, remapToClonedCompartment(pair.value, newCompartment)); }
+
+	std::vector<Function*> newFunctions = moduleInstance->functions;
+
+	std::vector<Table*> newTables;
+	for(Table* table : moduleInstance->tables)
+	{ newTables.push_back(remapToClonedCompartment(table, newCompartment)); }
+
+	std::vector<Memory*> newMemories;
+	for(Memory* memory : moduleInstance->memories)
+	{ newMemories.push_back(remapToClonedCompartment(memory, newCompartment)); }
+
+	std::vector<Global*> newGlobals;
+	for(Global* global : moduleInstance->globals)
+	{ newGlobals.push_back(remapToClonedCompartment(global, newCompartment)); }
+
+	std::vector<ExceptionType*> newExceptionTypes;
+	for(ExceptionType* exceptionType : moduleInstance->exceptionTypes)
+	{ newExceptionTypes.push_back(remapToClonedCompartment(exceptionType, newCompartment)); }
+
+	Function* newStartFunction
+		= remapToClonedCompartment(moduleInstance->startFunction, newCompartment);
+
+	PassiveDataSegmentMap newPassiveDataSegments;
+	{
+		Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
+		newPassiveDataSegments = moduleInstance->passiveDataSegments;
+	}
+
+	PassiveElemSegmentMap newPassiveElemSegments;
+	{
+		Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
+		newPassiveDataSegments = moduleInstance->passiveDataSegments;
+	}
+	for(const auto& pair : newPassiveElemSegments)
+	{
+		for(Uptr index = 0; index < pair.value->size(); ++index)
+		{ (*pair.value)[index] = remapToClonedCompartment((*pair.value)[index], newCompartment); }
+	}
+
+	// Create the new ModuleInstance in the cloned compartment, but with the same ID as the old one.
+	std::shared_ptr<LLVMJIT::Module> jitModuleCopy = moduleInstance->jitModule;
+	ModuleInstance* newModuleInstance = new ModuleInstance(newCompartment,
+														   moduleInstance->id,
+														   std::move(newExportMap),
+														   std::move(newFunctions),
+														   std::move(newTables),
+														   std::move(newMemories),
+														   std::move(newGlobals),
+														   std::move(newExceptionTypes),
+														   std::move(newStartFunction),
+														   std::move(newPassiveDataSegments),
+														   std::move(newPassiveElemSegments),
+														   std::move(jitModuleCopy),
+														   std::string(moduleInstance->debugName));
+	{
+		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
+		newCompartment->moduleInstances.insertOrFail(moduleInstance->id, newModuleInstance);
+	}
+
+	return newModuleInstance;
 }
 
 Function* Runtime::getStartFunction(ModuleInstance* moduleInstance)
@@ -403,11 +469,11 @@ Function* Runtime::getStartFunction(ModuleInstance* moduleInstance)
 
 Memory* Runtime::getDefaultMemory(ModuleInstance* moduleInstance)
 {
-	return moduleInstance->defaultMemory;
+	return moduleInstance->memories.size() ? moduleInstance->memories[0] : nullptr;
 }
 Table* Runtime::getDefaultTable(ModuleInstance* moduleInstance)
 {
-	return moduleInstance->defaultTable;
+	return moduleInstance->tables.size() ? moduleInstance->tables[0] : nullptr;
 }
 
 Object* Runtime::getInstanceExport(ModuleInstance* moduleInstance, const std::string& name)

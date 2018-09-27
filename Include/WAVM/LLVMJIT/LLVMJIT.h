@@ -61,7 +61,7 @@ namespace WAVM { namespace LLVMJIT {
 		union
 		{
 			const IR::UntaggedValue* immutableValuePointer;
-			Uptr mutableGlobalId;
+			Uptr mutableGlobalIndex;
 		};
 	};
 
@@ -80,8 +80,6 @@ namespace WAVM { namespace LLVMJIT {
 		std::vector<MemoryBinding>&& memories,
 		std::vector<GlobalBinding>&& globals,
 		std::vector<ExceptionTypeBinding>&& exceptionTypes,
-		MemoryBinding defaultMemory,
-		TableBinding defaultTable,
 		ModuleInstanceBinding moduleInstance,
 		Uptr tableReferenceBias,
 		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas);

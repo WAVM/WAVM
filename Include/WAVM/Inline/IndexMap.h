@@ -74,6 +74,13 @@ namespace WAVM {
 			wavmAssert(index <= maxIndex);
 			return map[index];
 		}
+		Element& operator[](Index index)
+		{
+			wavmAssert(index >= minIndex);
+			wavmAssert(index <= maxIndex);
+			wavmAssert(map.contains(index));
+			return map.getOrAdd(index);
+		}
 
 		// Returns the number of allocated index/element pairs.
 		Uptr size() const { return map.size(); }
