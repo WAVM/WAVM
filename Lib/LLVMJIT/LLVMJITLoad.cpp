@@ -19,12 +19,14 @@
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Exception.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/RuntimeData.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
+#include "llvm-c/Disassembler.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
@@ -45,43 +47,6 @@ namespace WAVM { namespace Runtime {
 }}
 
 #define PRINT_DISASSEMBLY 0
-
-#if PRINT_DISASSEMBLY
-
-PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm-c/Disassembler.h"
-POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-
-static void disassembleFunction(U8* bytes, Uptr numBytes)
-{
-	LLVMDisasmContextRef disasmRef
-		= LLVMCreateDisasm(llvm::sys::getProcessTriple().c_str(), nullptr, 0, nullptr, nullptr);
-
-	U8* nextByte = bytes;
-	Uptr numBytesRemaining = numBytes;
-	while(numBytesRemaining)
-	{
-		char instructionBuffer[256];
-		Uptr numInstructionBytes = LLVMDisasmInstruction(disasmRef,
-														 nextByte,
-														 numBytesRemaining,
-														 reinterpret_cast<Uptr>(nextByte),
-														 instructionBuffer,
-														 sizeof(instructionBuffer));
-		if(numInstructionBytes == 0) { numInstructionBytes = 1; }
-		wavmAssert(numInstructionBytes <= numBytesRemaining);
-		numBytesRemaining -= numInstructionBytes;
-		nextByte += numInstructionBytes;
-
-		Log::printf(Log::error,
-					"\t\t0x%04x %s\n",
-					(nextByte - bytes - numInstructionBytes),
-					instructionBuffer);
-	};
-
-	LLVMDisasmDispose(disasmRef);
-}
-#endif
 
 using namespace WAVM;
 using namespace WAVM::LLVMJIT;
@@ -276,6 +241,36 @@ private:
 	ModuleMemoryManager(const ModuleMemoryManager&) = delete;
 	void operator=(const ModuleMemoryManager&) = delete;
 };
+
+static void disassembleFunction(U8* bytes, Uptr numBytes)
+{
+	LLVMDisasmContextRef disasmRef
+		= LLVMCreateDisasm(llvm::sys::getProcessTriple().c_str(), nullptr, 0, nullptr, nullptr);
+
+	U8* nextByte = bytes;
+	Uptr numBytesRemaining = numBytes;
+	while(numBytesRemaining)
+	{
+		char instructionBuffer[256];
+		Uptr numInstructionBytes = LLVMDisasmInstruction(disasmRef,
+														 nextByte,
+														 numBytesRemaining,
+														 reinterpret_cast<Uptr>(nextByte),
+														 instructionBuffer,
+														 sizeof(instructionBuffer));
+		if(numInstructionBytes == 0) { numInstructionBytes = 1; }
+		wavmAssert(numInstructionBytes <= numBytesRemaining);
+		numBytesRemaining -= numInstructionBytes;
+		nextByte += numInstructionBytes;
+
+		Log::printf(Log::output,
+					"\t\t0x%04x %s\n",
+					(nextByte - bytes - numInstructionBytes),
+					instructionBuffer);
+	};
+
+	LLVMDisasmDispose(disasmRef);
+}
 
 Module::Module(const std::vector<U8>& inObjectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
@@ -483,13 +478,11 @@ Module::Module(const std::vector<U8>& inObjectBytes,
 		for(auto lineInfo : lineInfoTable)
 		{ offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
 
-#if PRINT_DISASSEMBLY
-		if(shouldLogMetrics)
+		if(PRINT_DISASSEMBLY && shouldLogMetrics)
 		{
-			Log::printf(Log::error, "Disassembly for function %s\n", name.get().data());
+			Log::printf(Log::output, "Disassembly for function %s\n", name.get().data());
 			disassembleFunction(reinterpret_cast<U8*>(loadedAddress), Uptr(symbolSizePair.second));
 		}
-#endif
 
 		// Add the function to the module's name and address to function maps.
 		wavmAssert(symbolSizePair.second <= UINTPTR_MAX);
