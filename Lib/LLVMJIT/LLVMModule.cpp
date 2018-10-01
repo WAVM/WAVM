@@ -89,6 +89,13 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 			ehFramesNumBytes = numBytes;
 		}
 	}
+	void registerFixedSEHFrames(U8* addr, Uptr numBytes)
+	{
+		Platform::registerEHFrames(imageBaseAddress, addr, numBytes);
+		hasRegisteredEHFrames = true;
+		ehFramesAddr = addr;
+		ehFramesNumBytes = numBytes;
+	}
 	void deregisterEHFrames() override
 	{
 		if(hasRegisteredEHFrames)
@@ -206,7 +213,7 @@ private:
 	Section readWriteSection;
 
 	bool hasRegisteredEHFrames;
-	U8* ehFramesAddr;
+	const U8* ehFramesAddr;
 	Uptr ehFramesNumBytes;
 
 	U8* allocateBytes(Uptr numBytes, Uptr alignment, Section& section)
@@ -419,9 +426,8 @@ Module::Module(const std::vector<U8>& inObjectBytes,
 						 xdataCopy,
 						 reinterpret_cast<Uptr>(trampolineBytes));
 
-		Platform::registerEHFrames(
-			memoryManager->getImageBaseAddress(),
-			reinterpret_cast<const U8*>(Uptr(loadedObject->getSectionLoadAddress(pdataSection))),
+		memoryManager->registerFixedSEHFrames(
+			reinterpret_cast<U8*>(Uptr(loadedObject->getSectionLoadAddress(pdataSection))),
 			pdataNumBytes);
 	}
 
