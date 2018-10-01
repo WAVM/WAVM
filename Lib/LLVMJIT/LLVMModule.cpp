@@ -46,6 +46,7 @@ namespace WAVM { namespace Runtime {
 	struct ExceptionType;
 }}
 
+#define KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED 0
 #define PRINT_DISASSEMBLY 0
 
 using namespace WAVM;
@@ -74,9 +75,14 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 		// Deregister the exception handling frame info.
 		deregisterEHFrames();
 
-		// Decommit the image pages, but leave them reserved to catch any references to them that
-		// might erroneously remain.
-		Platform::decommitVirtualPages(imageBaseAddress, numAllocatedImagePages);
+		if(!KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED)
+		{ Platform::freeVirtualPages(imageBaseAddress, numAllocatedImagePages); }
+		else
+		{
+			// Decommit the image pages, but leave them reserved to catch any references to them
+			// that might erroneously remain.
+			Platform::decommitVirtualPages(imageBaseAddress, numAllocatedImagePages);
+		}
 	}
 
 	void registerEHFrames(U8* addr, U64 loadAddr, uintptr_t numBytes) override
