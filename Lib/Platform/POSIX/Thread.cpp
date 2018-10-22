@@ -17,6 +17,7 @@
 
 #ifdef __APPLE__
 #define UC_RESET_ALT_STACK 0x80000000
+#define MAP_ANONYMOUS MAP_ANON
 #endif
 
 #ifdef __linux__
