@@ -102,7 +102,7 @@ namespace WAVM { namespace Runtime {
 	struct ExceptionData
 	{
 		Uptr typeId;
-		ExceptionType* typeInstance;
+		ExceptionType* type;
 		U8 isUserException;
 		IR::UntaggedValue arguments[1];
 

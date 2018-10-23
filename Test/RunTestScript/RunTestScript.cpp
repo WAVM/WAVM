@@ -416,13 +416,13 @@ static void processCommand(TestScriptState& state, const Command* command)
 			[&](Runtime::Exception&& exception) {
 				Runtime::ExceptionType* expectedType
 					= getExpectedExceptionType(assertCommand->expectedType);
-				if(exception.typeInstance != expectedType)
+				if(exception.type != expectedType)
 				{
 					testErrorf(state,
 							   assertCommand->action->locus,
 							   "expected %s trap but got %s trap",
 							   describeExceptionType(expectedType).c_str(),
-							   describeExceptionType(exception.typeInstance).c_str());
+							   describeExceptionType(exception.type).c_str());
 				}
 			});
 		break;
@@ -466,13 +466,13 @@ static void processCommand(TestScriptState& state, const Command* command)
 				}
 			},
 			[&](Runtime::Exception&& exception) {
-				if(exception.typeInstance != expectedExceptionType)
+				if(exception.type != expectedExceptionType)
 				{
 					testErrorf(state,
 							   assertCommand->action->locus,
 							   "expected %s exception but got %s exception",
 							   describeExceptionType(expectedExceptionType).c_str(),
-							   describeExceptionType(exception.typeInstance).c_str());
+							   describeExceptionType(exception.type).c_str());
 				}
 				else
 				{
@@ -652,7 +652,7 @@ static I64 threadMain(void* sharedStateVoid)
 						testErrorf(testScriptState,
 								   command->locus,
 								   "unexpected trap: %s",
-								   describeExceptionType(exception.typeInstance).c_str());
+								   describeExceptionType(exception.type).c_str());
 					});
 			}
 		}

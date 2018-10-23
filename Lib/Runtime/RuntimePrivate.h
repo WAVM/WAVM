@@ -115,14 +115,14 @@ namespace WAVM { namespace Runtime {
 	{
 		Uptr id = UINTPTR_MAX;
 
-		IR::ExceptionType type;
+		IR::ExceptionType sig;
 		std::string debugName;
 
 		ExceptionType(Compartment* inCompartment,
-					  IR::ExceptionType inType,
+					  IR::ExceptionType inSig,
 					  std::string&& inDebugName)
 		: GCObject(ObjectKind::exceptionType, inCompartment)
-		, type(inType)
+		, sig(inSig)
 		, debugName(std::move(inDebugName))
 		{
 		}

@@ -128,7 +128,7 @@ namespace WAVM { namespace IR {
 	typedef Import<TableType> TableImport;
 	typedef Import<MemoryType> MemoryImport;
 	typedef Import<GlobalType> GlobalImport;
-	typedef Import<TypeTuple> ExceptionTypeImport;
+	typedef Import<ExceptionType> ExceptionTypeImport;
 
 	// Describes an export from a module. The interpretation of index depends on kind
 	struct Export

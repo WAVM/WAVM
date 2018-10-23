@@ -158,14 +158,14 @@ namespace WAVM { namespace Runtime {
 		ENUM_INTRINSIC_EXCEPTION_TYPES(DECLARE_INTRINSIC_EXCEPTION_TYPE)
 #undef DECLARE_INTRINSIC_EXCEPTION_TYPE
 
-		GCPointer<ExceptionType> typeInstance;
+		GCPointer<ExceptionType> type;
 		std::vector<IR::UntaggedValue> arguments;
 		Platform::CallStack callStack;
 	};
 
 	// Creates an exception type instance.
 	RUNTIME_API ExceptionType* createExceptionType(Compartment* compartment,
-												   IR::ExceptionType type,
+												   IR::ExceptionType sig,
 												   std::string&& debugName);
 
 	// Returns a string that describes the given exception cause.

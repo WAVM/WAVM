@@ -255,6 +255,19 @@ namespace WAVM { namespace IR {
 		}
 	}
 
+	inline bool isSubtype(TypeTuple subtype, TypeTuple supertype)
+	{
+		if(subtype.size() != supertype.size()) { return false; }
+		else
+		{
+			for(Uptr elementIndex = 0; elementIndex < subtype.size(); ++elementIndex)
+			{
+				if(!isSubtype(subtype[elementIndex], supertype[elementIndex])) { return false; }
+			}
+			return true;
+		}
+	}
+
 	// Infer value and result types from a C type.
 
 	template<typename> constexpr ValueType inferValueType();
