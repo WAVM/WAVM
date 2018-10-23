@@ -306,11 +306,12 @@ Module::Module(const std::vector<U8>& inObjectBytes,
 		}
 
 #if LLVM_VERSION_MAJOR >= 8
-		virtual llvm::Expected<LookupResult> lookup(const LookupSet& symbols) override
+		virtual void lookup(const LookupSet& symbols,
+							llvm::JITSymbolResolver::OnResolvedFunction onResolvedFunction) override
 		{
 			LookupResult result;
 			for(auto symbol : symbols) { result.emplace(symbol, findSymbolImpl(symbol)); }
-			return result;
+			onResolvedFunction(result);
 		}
 		virtual llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet& symbols) override
 		{
