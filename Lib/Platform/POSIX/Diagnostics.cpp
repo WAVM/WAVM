@@ -37,11 +37,12 @@ void Platform::dumpErrorCallStack(Uptr numOmittedFramesFromTop)
 	std::fflush(stderr);
 }
 
-void Platform::handleFatalError(const char* messageFormat, va_list varArgs)
+void Platform::handleFatalError(const char* messageFormat, bool printCallStack, va_list varArgs)
 {
 	Lock<Platform::Mutex> lock(getErrorReportingMutex());
 	std::vfprintf(stderr, messageFormat, varArgs);
 	std::fprintf(stderr, "\n");
+	if(printCallStack) { dumpErrorCallStack(2); }
 	std::fflush(stderr);
 	std::abort();
 }

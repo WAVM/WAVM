@@ -10,12 +10,16 @@ namespace WAVM { namespace Errors {
 	{
 		va_list varArgs;
 		va_start(varArgs, messageFormat);
-		Platform::handleFatalError(messageFormat, varArgs);
+		Platform::handleFatalError(messageFormat, false, varArgs);
 	}
-	[[noreturn]] inline void fatal(const char* message) { fatalf("%s\n", message); }
-	[[noreturn]] inline void unreachable() { fatalf("reached unreachable code\n"); }
+	[[noreturn]] inline void fatal(const char* message) { fatalf("%s", message); }
+	[[noreturn]] inline void unreachable()
+	{
+		va_list varArgs{};
+		Platform::handleFatalError("reached unreachable code", true, varArgs);
+	}
 	[[noreturn]] inline void unimplemented(const char* context)
 	{
-		fatalf("unimplemented: %s\n", context);
+		fatalf("unimplemented: %s", context);
 	}
 }}
