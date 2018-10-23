@@ -9,6 +9,11 @@
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 
+#if WAVM_ENABLE_RUNTIME
+#define UNW_LOCAL_ONLY
+#include "libunwind.h"
+#endif
+
 using namespace WAVM;
 using namespace WAVM::Platform;
 
@@ -21,6 +26,33 @@ static Mutex& getErrorReportingMutex()
 {
 	static Platform::Mutex mutex;
 	return mutex;
+}
+
+CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
+{
+	CallStack result;
+
+#if WAVM_ENABLE_RUNTIME
+	unw_context_t context;
+	errorUnless(!unw_getcontext(&context));
+
+	unw_cursor_t cursor;
+
+	errorUnless(!unw_init_local(&cursor, &context));
+	while(unw_step(&cursor) > 0)
+	{
+		if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
+		else
+		{
+			unw_word_t ip;
+			errorUnless(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
+
+			result.stackFrames.push_back(CallStack::Frame{ip});
+		}
+	}
+#endif
+
+	return result;
 }
 
 void Platform::dumpErrorCallStack(Uptr numOmittedFramesFromTop)

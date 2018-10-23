@@ -8,11 +8,6 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Diagnostics.h"
 
-#if WAVM_ENABLE_RUNTIME
-#define UNW_LOCAL_ONLY
-#include "libunwind.h"
-#endif
-
 using namespace WAVM;
 using namespace WAVM::Platform;
 
@@ -167,33 +162,6 @@ void Platform::setSignalHandler(SignalHandler handler)
 	std::set_terminate(terminateHandler);
 
 	portableSignalHandler.store(handler);
-}
-
-CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
-{
-	CallStack result;
-
-#if WAVM_ENABLE_RUNTIME
-	unw_context_t context;
-	errorUnless(!unw_getcontext(&context));
-
-	unw_cursor_t cursor;
-
-	errorUnless(!unw_init_local(&cursor, &context));
-	while(unw_step(&cursor) > 0)
-	{
-		if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
-		else
-		{
-			unw_word_t ip;
-			errorUnless(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
-
-			result.stackFrames.push_back(CallStack::Frame{ip});
-		}
-	}
-#endif
-
-	return result;
 }
 
 static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*))
