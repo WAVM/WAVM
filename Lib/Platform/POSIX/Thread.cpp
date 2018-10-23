@@ -8,12 +8,12 @@
 #include <memory>
 #include <thread>
 
-#include "WAVM/Platform/Thread.h"
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/Thread.h"
 
 #ifdef __APPLE__
 #define UC_RESET_ALT_STACK 0x80000000

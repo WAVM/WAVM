@@ -41,7 +41,7 @@ inline I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode) noex
 }
 
 inline I64 switchToForkedStackContext(ExecutionContext* forkedContext,
-										  U8* trampolineFramePointer) noexcept(false)
+									  U8* trampolineFramePointer) noexcept(false)
 {
 	WAVM::Errors::fatal("switchToForkedStackContext is unimplemented on Wavix");
 }

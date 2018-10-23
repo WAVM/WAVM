@@ -1,9 +1,9 @@
 #include <pthread.h>
 
-#include "WAVM/Platform/Mutex.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Mutex.h"
 
 using namespace WAVM;
 using namespace WAVM::Platform;

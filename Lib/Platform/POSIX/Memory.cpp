@@ -3,12 +3,12 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "WAVM/Platform/Memory.h"
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Intrinsic.h"
+#include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
 
 #ifdef __APPLE__

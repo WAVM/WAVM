@@ -2,10 +2,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "WAVM/Platform/File.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
+#include "WAVM/Platform/File.h"
 
 using namespace WAVM;
 using namespace WAVM::Platform;

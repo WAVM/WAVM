@@ -7,11 +7,11 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Lock.h"
+#include "WAVM/Inline/Timing.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/Runtime/RuntimeData.h"
-#include "WAVM/Inline/Timing.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;

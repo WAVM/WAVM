@@ -3,10 +3,10 @@
 #include <cstdio>
 #include <string>
 
-#include "WAVM/Platform/Diagnostics.h"
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 
 using namespace WAVM;
