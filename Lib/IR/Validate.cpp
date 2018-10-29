@@ -209,13 +209,8 @@ static void validateInitializer(const Module& module,
 		break;
 	case InitializerExpression::Type::get_global:
 	{
-		const ValueType globalValueType
-			= validateGlobalIndex(module,
-								  expression.globalRef,
-								  false,
-								  true,
-								  true,
-								  "initializer expression global index");
+		const ValueType globalValueType = validateGlobalIndex(
+			module, expression.globalRef, false, true, true, "initializer expression global index");
 		validateType(expectedType, globalValueType, context);
 		break;
 	}
@@ -349,17 +344,38 @@ struct FunctionValidationContext
 	{
 		wavmAssert(controlStack.size());
 
-		TypeTuple params = controlStack.back().elseParams;
 		popAndValidateTypeTuple("if result", controlStack.back().results);
-		popControlStack(true);
-		pushOperandTuple(params);
+		validateStackEmptyAtEndOfControlStructure();
+
+		if(controlStack.back().type == ControlContext::Type::ifThen)
+		{
+			controlStack.back().type = ControlContext::Type::ifElse;
+			controlStack.back().isReachable = true;
+		}
+		else
+		{
+			throw ValidationException("else only allowed in if context");
+		}
+		pushOperandTuple(controlStack.back().elseParams);
 	}
 	void end(NoImm)
 	{
 		wavmAssert(controlStack.size());
 
 		popAndValidateTypeTuple("end result", controlStack.back().results);
-		popControlStack();
+		validateStackEmptyAtEndOfControlStructure();
+
+		if(controlStack.back().type == ControlContext::Type::try_)
+		{ throw ValidationException("end may not occur in try context"); }
+		else
+		{
+			TypeTuple results = controlStack.back().results;
+			if(controlStack.back().type == ControlContext::Type::ifThen
+			   && results != controlStack.back().elseParams)
+			{ throw ValidationException("else-less if must have identity signature"); }
+			controlStack.pop_back();
+			if(controlStack.size()) { pushOperandTuple(results); }
+		}
 	}
 	void try_(ControlStructureImm imm)
 	{
@@ -369,26 +385,36 @@ struct FunctionValidationContext
 		pushControlStack(ControlContext::Type::try_, type.results(), type.results());
 		pushOperandTuple(type.params());
 	}
-	void catch_(ExceptionTypeImm imm)
+	void validateCatch()
 	{
 		wavmAssert(controlStack.size());
 
-		VALIDATE_FEATURE("try", exceptionHandling);
+		popAndValidateTypeTuple("try result", controlStack.back().results);
+		validateStackEmptyAtEndOfControlStructure();
+
+		if(controlStack.back().type == ControlContext::Type::try_
+		   || controlStack.back().type == ControlContext::Type::catch_)
+		{
+			controlStack.back().type = ControlContext::Type::catch_;
+			controlStack.back().isReachable = true;
+		}
+		else
+		{
+			throw ValidationException("catch only allowed in try/catch context");
+		}
+	}
+	void catch_(ExceptionTypeImm imm)
+	{
+		VALIDATE_FEATURE("catch", exceptionHandling);
 		VALIDATE_INDEX(imm.exceptionTypeIndex, module.exceptionTypes.size());
 		ExceptionType type = module.exceptionTypes.getType(imm.exceptionTypeIndex);
-
-		popAndValidateTypeTuple("try result", controlStack.back().results);
-		popControlStack(false, true);
-
+		validateCatch();
 		for(auto param : type.params) { pushOperand(param); }
 	}
 	void catch_all(NoImm)
 	{
-		wavmAssert(controlStack.size());
-
-		VALIDATE_FEATURE("try", exceptionHandling);
-		popAndValidateTypeTuple("try result", controlStack.back().results);
-		popControlStack(false, true);
+		VALIDATE_FEATURE("catch_all", exceptionHandling);
+		validateCatch();
 	}
 
 	void return_(NoImm)
@@ -685,7 +711,7 @@ private:
 		controlStack.push_back({type, stack.size(), params, results, true, elseParams});
 	}
 
-	void popControlStack(bool isElse = false, bool isCatch = false)
+	void validateStackEmptyAtEndOfControlStructure()
 	{
 		wavmAssert(controlStack.size());
 
@@ -699,34 +725,6 @@ private:
 				message += asString(stack[stackIndex]);
 			}
 			throw ValidationException(std::move(message));
-		}
-
-		if(isElse && controlStack.back().type == ControlContext::Type::ifThen)
-		{
-			controlStack.back().type = ControlContext::Type::ifElse;
-			controlStack.back().isReachable = true;
-		}
-		else if(isCatch
-				&& (controlStack.back().type == ControlContext::Type::try_
-					|| controlStack.back().type == ControlContext::Type::catch_))
-		{
-			controlStack.back().type = ControlContext::Type::catch_;
-			controlStack.back().isReachable = true;
-		}
-		else if(controlStack.back().type == ControlContext::Type::try_ && !isCatch)
-		{
-			throw ValidationException("end may not occur in try context");
-		}
-		else
-		{
-			VALIDATE_UNLESS("else only allowed in if context: ", isElse);
-			VALIDATE_UNLESS("catch only allowed in try context: ", isCatch);
-			TypeTuple results = controlStack.back().results;
-			if(controlStack.back().type == ControlContext::Type::ifThen
-			   && results != controlStack.back().elseParams)
-			{ throw ValidationException("else-less if must have identity signature"); }
-			controlStack.pop_back();
-			if(controlStack.size()) { pushOperandTuple(results); }
 		}
 	}
 
