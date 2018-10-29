@@ -91,9 +91,12 @@ static TypeTuple parseTypeTuple(CursorState* cursor)
 	return TypeTuple(parameters);
 }
 
-static InitializerExpression parseInitializerExpression(CursorState* cursor)
+// An unresolved initializer expression: uses a Reference instead of an index for get_global.
+typedef InitializerExpressionBase<Reference> UnresolvedInitializerExpression;
+
+static UnresolvedInitializerExpression parseInitializerExpression(CursorState* cursor)
 {
-	InitializerExpression result;
+	UnresolvedInitializerExpression result;
 	parseParenthesized(cursor, [&] {
 		switch(cursor->nextToken->type)
 		{
@@ -130,12 +133,13 @@ static InitializerExpression parseInitializerExpression(CursorState* cursor)
 		case t_get_global:
 		{
 			++cursor->nextToken;
-			result.type = InitializerExpression::Type::get_global;
-			result.globalIndex
-				= parseAndResolveNameOrIndexRef(cursor,
-												cursor->moduleState->globalNameToIndexMap,
-												cursor->moduleState->module.globals.size(),
-												"global");
+			Reference globalRef;
+			if(!tryParseNameOrIndexRef(cursor, globalRef))
+			{
+				parseErrorf(cursor->parseState, cursor->nextToken, "expected global name or index");
+			}
+			result = UnresolvedInitializerExpression(
+				UnresolvedInitializerExpression::Type::get_global, globalRef);
 			break;
 		}
 		case t_ref_null:
@@ -146,12 +150,40 @@ static InitializerExpression parseInitializerExpression(CursorState* cursor)
 		}
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
-			result.type = InitializerExpression::Type::error;
+			result.type = UnresolvedInitializerExpression::Type::error;
 			throw RecoverParseException();
 		};
 	});
 
 	return result;
+}
+
+static InitializerExpression resolveInitializerExpression(
+	ModuleState* moduleState,
+	UnresolvedInitializerExpression unresolvedExpression)
+{
+	switch(unresolvedExpression.type)
+	{
+	case UnresolvedInitializerExpression::Type::i32_const:
+		return InitializerExpression(unresolvedExpression.i32);
+	case UnresolvedInitializerExpression::Type::i64_const:
+		return InitializerExpression(unresolvedExpression.i64);
+	case UnresolvedInitializerExpression::Type::f32_const:
+		return InitializerExpression(unresolvedExpression.f32);
+	case UnresolvedInitializerExpression::Type::f64_const:
+		return InitializerExpression(unresolvedExpression.f64);
+	case UnresolvedInitializerExpression::Type::v128_const:
+		return InitializerExpression(unresolvedExpression.v128);
+	case UnresolvedInitializerExpression::Type::get_global:
+		return InitializerExpression(InitializerExpression::Type::get_global,
+									 resolveRef(moduleState->parseState,
+												moduleState->globalNameToIndexMap,
+												moduleState->module.globals.size(),
+												unresolvedExpression.globalRef));
+	case UnresolvedInitializerExpression::Type::ref_null: return InitializerExpression(nullptr);
+	case UnresolvedInitializerExpression::Type::error: return InitializerExpression();
+	default: Errors::unreachable();
+	}
 }
 
 static void errorIfFollowsDefinitions(CursorState* cursor)
@@ -416,7 +448,7 @@ static void parseData(CursorState* cursor)
 
 	bool isActive = true;
 	Reference memoryRef;
-	InitializerExpression baseAddress;
+	UnresolvedInitializerExpression baseAddress;
 	if(cursor->nextToken->type == t_passive)
 	{
 		isActive = false;
@@ -451,33 +483,39 @@ static void parseData(CursorState* cursor)
 							   (const U8*)dataString.data() + dataString.size());
 	const Uptr dataSegmentIndex = cursor->moduleState->module.dataSegments.size();
 	cursor->moduleState->module.dataSegments.push_back(
-		{isActive, UINTPTR_MAX, baseAddress, std::move(dataVector)});
+		{isActive, UINTPTR_MAX, InitializerExpression(), std::move(dataVector)});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the memory to
-	// put the data segment in.
-	cursor->moduleState->postDeclarationCallbacks.push_back([=](ModuleState* moduleState) {
-		if(isActive && !moduleState->module.memories.size())
-		{
-			parseErrorf(moduleState->parseState,
-						firstToken,
-						"data segments aren't allowed in modules without any memory declarations");
-		}
-		else
-		{
-			moduleState->module.dataSegments[dataSegmentIndex].memoryIndex
-				= memoryRef ? resolveRef(moduleState->parseState,
-										 moduleState->memoryNameToIndexMap,
-										 moduleState->module.memories.size(),
-										 memoryRef)
-							: 0;
-		}
-	});
+	// put the data segment in, and the base offset.
+	if(isActive)
+	{
+		cursor->moduleState->postDeclarationCallbacks.push_back([=](ModuleState* moduleState) {
+			if(!moduleState->module.memories.size())
+			{
+				parseErrorf(
+					moduleState->parseState,
+					firstToken,
+					"data segments aren't allowed in modules without any memory declarations");
+			}
+			else
+			{
+				DataSegment& dataSegment = moduleState->module.dataSegments[dataSegmentIndex];
+				dataSegment.memoryIndex = memoryRef
+											  ? resolveRef(moduleState->parseState,
+														   moduleState->memoryNameToIndexMap,
+														   moduleState->module.memories.size(),
+														   memoryRef)
+											  : 0;
+				dataSegment.baseOffset = resolveInitializerExpression(moduleState, baseAddress);
+			}
+		});
+	}
 }
 
 static Uptr parseElemSegmentBody(CursorState* cursor,
 								 bool isActive,
 								 Reference tableRef,
-								 InitializerExpression baseIndex,
+								 UnresolvedInitializerExpression baseIndex,
 								 const Token* elemToken)
 {
 	// Allocate the elementReferences array on the heap so it doesn't need to be copied for the
@@ -491,29 +529,35 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	// Create the elem segment.
 	const Uptr elemSegmentIndex = cursor->moduleState->module.elemSegments.size();
 	cursor->moduleState->module.elemSegments.push_back(
-		{isActive, UINTPTR_MAX, baseIndex, std::vector<Uptr>()});
+		{isActive, UINTPTR_MAX, InitializerExpression(), std::vector<Uptr>()});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table
 	// elements' references.
-	cursor->moduleState->postDeclarationCallbacks.push_back([isActive,
-															 tableRef,
-															 elemSegmentIndex,
-															 elementReferences,
-															 elemToken](ModuleState* moduleState) {
-		if(isActive && !moduleState->module.tables.size())
-		{
-			parseErrorf(moduleState->parseState,
+	cursor->moduleState->postDeclarationCallbacks.push_back(
+		[isActive, tableRef, elemSegmentIndex, elementReferences, elemToken, baseIndex](
+			ModuleState* moduleState) {
+			ElemSegment& elemSegment = moduleState->module.elemSegments[elemSegmentIndex];
+
+			if(isActive)
+			{
+				if(!moduleState->module.tables.size())
+				{
+					parseErrorf(
+						moduleState->parseState,
 						elemToken,
 						"elem segments aren't allowed in modules without any table declarations");
-		}
-		else
-		{
-			ElemSegment& elemSegment = moduleState->module.elemSegments[elemSegmentIndex];
-			elemSegment.tableIndex = tableRef ? resolveRef(moduleState->parseState,
-														   moduleState->tableNameToIndexMap,
-														   moduleState->module.tables.size(),
-														   tableRef)
-											  : 0;
+				}
+				else
+				{
+					elemSegment.tableIndex = tableRef
+												 ? resolveRef(moduleState->parseState,
+															  moduleState->tableNameToIndexMap,
+															  moduleState->module.tables.size(),
+															  tableRef)
+												 : 0;
+					elemSegment.baseOffset = resolveInitializerExpression(moduleState, baseIndex);
+				}
+			}
 
 			elemSegment.indices.resize(elementReferences->size());
 			for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
@@ -523,8 +567,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 															   moduleState->module.functions.size(),
 															   (*elementReferences)[elementIndex]);
 			}
-		}
-	});
+		});
 
 	return elementReferences->size();
 }
@@ -536,7 +579,7 @@ static void parseElem(CursorState* cursor)
 
 	bool isActive = true;
 	Reference tableRef;
-	InitializerExpression baseIndex;
+	UnresolvedInitializerExpression baseIndex;
 	if(cursor->nextToken->type == t_passive)
 	{
 		isActive = false;
@@ -687,11 +730,12 @@ static void parseTable(CursorState* cursor)
 					require(cursor, t_elem);
 
 					const Uptr tableIndex = cursor->moduleState->module.tables.size();
-					const Uptr numElements = parseElemSegmentBody(cursor,
-																  true,
-																  Reference(tableIndex),
-																  InitializerExpression((I32)0),
-																  cursor->nextToken - 1);
+					const Uptr numElements
+						= parseElemSegmentBody(cursor,
+											   true,
+											   Reference(tableIndex),
+											   UnresolvedInitializerExpression((I32)0),
+											   cursor->nextToken - 1);
 					sizeConstraints.min = sizeConstraints.max = numElements;
 				});
 			}
@@ -758,8 +802,14 @@ static void parseGlobal(CursorState* cursor)
 						   // Parse a global definition
 						   [](CursorState* cursor, const Token*) {
 							   const GlobalType globalType = parseGlobalType(cursor);
-							   const InitializerExpression initializerExpression
+							   // It's safe to immediately resolve the initializer expression,
+							   // because global definitions must occur after global imports, and
+							   // global initializers may only reference imported globals.
+							   const UnresolvedInitializerExpression unresolvedInitializerExpression
 								   = parseInitializerExpression(cursor);
+							   const InitializerExpression initializerExpression
+								   = resolveInitializerExpression(cursor->moduleState,
+																  unresolvedInitializerExpression);
 							   return GlobalDef{globalType, initializerExpression};
 						   });
 }

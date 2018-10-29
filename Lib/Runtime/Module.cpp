@@ -36,8 +36,8 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	case InitializerExpression::Type::get_global:
 	{
 		// Find the import this refers to.
-		errorUnless(expression.globalIndex < moduleGlobals.size());
-		Global* global = moduleGlobals[expression.globalIndex];
+		errorUnless(expression.globalRef < moduleGlobals.size());
+		Global* global = moduleGlobals[expression.globalRef];
 		errorUnless(global);
 		errorUnless(!global->type.isMutable);
 		return IR::Value(global->type.valueType, global->initialValue);

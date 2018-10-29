@@ -211,7 +211,7 @@ static void validateInitializer(const Module& module,
 	{
 		const ValueType globalValueType
 			= validateGlobalIndex(module,
-								  expression.globalIndex,
+								  expression.globalRef,
 								  false,
 								  true,
 								  true,

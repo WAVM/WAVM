@@ -17,7 +17,7 @@ namespace WAVM { namespace IR {
 
 	// An initializer expression: serialized like any other code, but may only be a constant or
 	// immutable global
-	struct InitializerExpression
+	template<typename GlobalRef> struct InitializerExpressionBase
 	{
 		enum class Type : U16
 		{
@@ -42,22 +42,23 @@ namespace WAVM { namespace IR {
 			F32 f32;
 			F64 f64;
 			V128 v128;
-			Uptr globalIndex;
+			GlobalRef globalRef;
 		};
-		InitializerExpression() : type(Type::error) {}
-		InitializerExpression(I32 inI32) : type(Type::i32_const), i32(inI32) {}
-		InitializerExpression(I64 inI64) : type(Type::i64_const), i64(inI64) {}
-		InitializerExpression(F32 inF32) : type(Type::f32_const), f32(inF32) {}
-		InitializerExpression(F64 inF64) : type(Type::f64_const), f64(inF64) {}
-		InitializerExpression(V128 inV128) : type(Type::v128_const), v128(inV128) {}
-		InitializerExpression(Type inType, Uptr inGlobalIndex)
-		: type(inType), globalIndex(inGlobalIndex)
+		InitializerExpressionBase() : type(Type::error) {}
+		InitializerExpressionBase(I32 inI32) : type(Type::i32_const), i32(inI32) {}
+		InitializerExpressionBase(I64 inI64) : type(Type::i64_const), i64(inI64) {}
+		InitializerExpressionBase(F32 inF32) : type(Type::f32_const), f32(inF32) {}
+		InitializerExpressionBase(F64 inF64) : type(Type::f64_const), f64(inF64) {}
+		InitializerExpressionBase(V128 inV128) : type(Type::v128_const), v128(inV128) {}
+		InitializerExpressionBase(Type inType, GlobalRef inGlobalRef)
+		: type(inType), globalRef(inGlobalRef)
 		{
 			wavmAssert(inType == Type::get_global);
 		}
-		InitializerExpression(std::nullptr_t) : type(Type::ref_null) {}
+		InitializerExpressionBase(std::nullptr_t) : type(Type::ref_null) {}
 
-		friend bool operator==(const InitializerExpression& a, const InitializerExpression& b)
+		friend bool operator==(const InitializerExpressionBase& a,
+							   const InitializerExpressionBase& b)
 		{
 			if(a.type != b.type) { return false; }
 			switch(a.type)
@@ -69,18 +70,21 @@ namespace WAVM { namespace IR {
 			case Type::f32_const: return a.i32 == b.i32;
 			case Type::f64_const: return a.i64 == b.i64;
 			case Type::v128_const: return a.v128 == b.v128;
-			case Type::get_global: return a.globalIndex == b.globalIndex;
+			case Type::get_global: return a.globalRef == b.globalRef;
 			case Type::ref_null: return true;
 			case Type::error: return true;
 			default: Errors::unreachable();
 			};
 		}
 
-		friend bool operator!=(const InitializerExpression& a, const InitializerExpression& b)
+		friend bool operator!=(const InitializerExpressionBase& a,
+							   const InitializerExpressionBase& b)
 		{
 			return !(a == b);
 		}
 	};
+
+	typedef InitializerExpressionBase<Uptr> InitializerExpression;
 
 	// A function definition
 	struct FunctionDef

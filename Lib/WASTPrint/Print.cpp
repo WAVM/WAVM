@@ -329,7 +329,7 @@ struct ModulePrintContext
 			string += "(v128.const " + asString(expression.v128) + ')';
 			break;
 		case InitializerExpression::Type::get_global:
-			string += "(get_global " + names.globals[expression.globalIndex] + ')';
+			string += "(get_global " + names.globals[expression.globalRef] + ')';
 			break;
 		case InitializerExpression::Type::ref_null: string += "(ref.null)"; break;
 		default: Errors::unreachable();

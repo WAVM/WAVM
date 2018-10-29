@@ -216,7 +216,7 @@ namespace WAVM { namespace IR {
 		case InitializerExpression::Type::f64_const: serialize(stream, initializer.f64); break;
 		case InitializerExpression::Type::v128_const: serialize(stream, initializer.v128); break;
 		case InitializerExpression::Type::get_global:
-			serializeVarUInt32(stream, initializer.globalIndex);
+			serializeVarUInt32(stream, initializer.globalRef);
 			break;
 		case InitializerExpression::Type::ref_null: break;
 		default: throw FatalSerializationException("invalid initializer expression opcode");
