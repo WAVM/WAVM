@@ -103,7 +103,10 @@ DEFINE_INTRINSIC_GLOBAL(env,
 						_stdout,
 						MutableGlobals::address + offsetof(MutableGlobals, _stdout));
 
+DEFINE_INTRINSIC_GLOBAL(env, "__memory_base", U32, memory_base, 1024);
 DEFINE_INTRINSIC_GLOBAL(env, "memoryBase", U32, emscriptenMemoryBase, 1024);
+
+DEFINE_INTRINSIC_GLOBAL(env, "__table_base", U32, table_base, 0);
 DEFINE_INTRINSIC_GLOBAL(env, "tableBase", U32, emscriptenTableBase, 0);
 
 DEFINE_INTRINSIC_GLOBAL(env,
