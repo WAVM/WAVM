@@ -519,6 +519,23 @@ static void parseExprSequence(CursorState* cursor)
 ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 
+static void tryEmitElse(const Token* errorToken, CursorState* cursor)
+{
+	try
+	{
+		cursor->functionState->validatingCodeStream.else_();
+	}
+	catch(ValidationException exception)
+	{
+		parseErrorf(cursor->parseState, errorToken, "%s", exception.message.c_str());
+		cursor->functionState->validatingCodeStream.unreachable();
+		cursor->functionState->validatingCodeStream.else_();
+		cursor->functionState->validatingCodeStream.unreachable();
+		cursor->functionState->validatingCodeStream.end();
+		throw RecoverParseException();
+	}
+}
+
 static void parseExpr(CursorState* cursor)
 {
 	parseParenthesized(cursor, [&] {
@@ -567,8 +584,9 @@ static void parseExpr(CursorState* cursor)
 					if(cursor->nextToken->type == t_leftParenthesis)
 					{
 						parseParenthesized(cursor, [&] {
+							const Token* elseToken = cursor->nextToken;
 							require(cursor, t_else_);
-							cursor->functionState->validatingCodeStream.else_();
+							tryEmitElse(elseToken, cursor);
 							parseInstrSequence(cursor);
 						});
 					}
@@ -579,7 +597,7 @@ static void parseExpr(CursorState* cursor)
 					parseExpr(cursor);
 					if(cursor->nextToken->type != t_rightParenthesis)
 					{
-						cursor->functionState->validatingCodeStream.else_();
+						tryEmitElse(cursor->nextToken, cursor);
 						parseExpr(cursor);
 					}
 				}

@@ -344,38 +344,36 @@ struct FunctionValidationContext
 	{
 		wavmAssert(controlStack.size());
 
+		if(controlStack.back().type != ControlContext::Type::ifThen)
+		{ throw ValidationException("else only allowed in if context"); }
+
 		popAndValidateTypeTuple("if result", controlStack.back().results);
 		validateStackEmptyAtEndOfControlStructure();
 
-		if(controlStack.back().type == ControlContext::Type::ifThen)
-		{
-			controlStack.back().type = ControlContext::Type::ifElse;
-			controlStack.back().isReachable = true;
-		}
-		else
-		{
-			throw ValidationException("else only allowed in if context");
-		}
+		controlStack.back().type = ControlContext::Type::ifElse;
+		controlStack.back().isReachable = true;
+
 		pushOperandTuple(controlStack.back().elseParams);
 	}
 	void end(NoImm)
 	{
 		wavmAssert(controlStack.size());
 
-		popAndValidateTypeTuple("end result", controlStack.back().results);
-		validateStackEmptyAtEndOfControlStructure();
-
 		if(controlStack.back().type == ControlContext::Type::try_)
 		{ throw ValidationException("end may not occur in try context"); }
-		else
+
+		TypeTuple results = controlStack.back().results;
+		if(controlStack.back().type == ControlContext::Type::ifThen
+		   && results != controlStack.back().elseParams)
 		{
-			TypeTuple results = controlStack.back().results;
-			if(controlStack.back().type == ControlContext::Type::ifThen
-			   && results != controlStack.back().elseParams)
-			{ throw ValidationException("else-less if must have identity signature"); }
-			controlStack.pop_back();
-			if(controlStack.size()) { pushOperandTuple(results); }
+			throw ValidationException("else-less if must have identity signature");
 		}
+
+		popAndValidateTypeTuple("end result", controlStack.back().results);
+		validateStackEmptyAtEndOfControlStructure();
+				
+		controlStack.pop_back();
+		if(controlStack.size()) { pushOperandTuple(results); }
 	}
 	void try_(ControlStructureImm imm)
 	{
