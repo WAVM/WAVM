@@ -859,5 +859,5 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 	findClosingParenthesis(cursor, funcToken - 1);
 	--cursor->nextToken;
 
-	return {{UINTPTR_MAX}, {}, {}};
+	return {{UINTPTR_MAX}, {}, {}, {}};
 }

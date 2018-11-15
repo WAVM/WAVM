@@ -86,7 +86,7 @@ bool Platform::seekFile(File* file, I64 offset, FileSeekOrigin origin, U64* outA
 	LONG offsetHigh = LONG((offset >> 32) & 0xffffffff);
 	LONG result = SetFilePointer(
 		filePointerToHandle(file), U32(offset & 0xffffffff), &offsetHigh, DWORD(origin));
-	if(result == INVALID_SET_FILE_POINTER) { return false; }
+	if(result == LONG(INVALID_SET_FILE_POINTER)) { return false; }
 	if(outAbsoluteOffset) { *outAbsoluteOffset = (U64(offsetHigh) << 32) | result; }
 	return true;
 }

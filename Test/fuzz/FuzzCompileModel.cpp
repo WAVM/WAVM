@@ -239,7 +239,7 @@ IndexedBlockType getIndexedBlockType(IR::Module& module,
 	{
 		return sig.results().size() == 1
 				   ? IndexedBlockType{IndexedBlockType::Format::oneResult, {sig.results()[0]}}
-				   : IndexedBlockType{IndexedBlockType::Format::noParametersOrResult};
+				   : IndexedBlockType{IndexedBlockType::Format::noParametersOrResult, {}};
 	}
 }
 
@@ -713,7 +713,11 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 
 		const bool isMutable = random.get(1);
 		const GlobalType globalType{globalValueType, isMutable};
-		if(random.get(1)) { module.globals.imports.push_back({globalType}); }
+		if(random.get(1))
+		{
+			module.globals.imports.push_back(
+				{globalType, "env", "global" + std::to_string(globalIndex)});
+		}
 		else
 		{
 			InitializerExpression initializer;

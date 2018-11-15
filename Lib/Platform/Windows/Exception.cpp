@@ -124,7 +124,7 @@ static LONG NTAPI unhandledExceptionFilterNonRentrant(struct _EXCEPTION_POINTERS
 
 	if(!translateSEHToSignal(exceptionPointers, signal))
 	{
-		if(exceptionPointers->ExceptionRecord->ExceptionCode == SEH_WAVM_EXCEPTION)
+		if(exceptionPointers->ExceptionRecord->ExceptionCode == DWORD(SEH_WAVM_EXCEPTION))
 		{
 			signal.type = Signal::Type::unhandledException;
 			signal.unhandledException.data = reinterpret_cast<void*>(
@@ -173,7 +173,7 @@ static LONG CALLBACK sehPlatformExceptionFilterFunction(EXCEPTION_POINTERS* exce
 														CallStack*& outCallStack,
 														void*& outExceptionData)
 {
-	if(exceptionPointers->ExceptionRecord->ExceptionCode != SEH_WAVM_EXCEPTION)
+	if(exceptionPointers->ExceptionRecord->ExceptionCode != DWORD(SEH_WAVM_EXCEPTION))
 	{ return EXCEPTION_CONTINUE_SEARCH; }
 	else
 	{

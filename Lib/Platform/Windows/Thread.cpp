@@ -24,7 +24,7 @@ struct Platform::Thread
 {
 	HANDLE handle = INVALID_HANDLE_VALUE;
 	DWORD id = 0xffffffff;
-	std::atomic<I32> numRefs = 2;
+	std::atomic<I32> numRefs {2};
 	I64 result = -1;
 
 	void releaseRef()

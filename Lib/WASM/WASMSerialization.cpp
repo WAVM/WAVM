@@ -912,7 +912,7 @@ template<typename Stream> void serializeFunctionSection(Stream& moduleStream, Mo
 					serializeVarUInt32(sectionStream, functionTypeIndex);
 					if(functionTypeIndex >= module.types.size())
 					{ throw FatalSerializationException("invalid function type index"); }
-					module.functions.defs.push_back({{functionTypeIndex}, {}, {}});
+					module.functions.defs.push_back({{functionTypeIndex}, {}, {}, {}});
 				}
 				module.functions.defs.shrink_to_fit();
 			}

@@ -64,9 +64,9 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 	ModuleMemoryManager()
 	: imageBaseAddress(nullptr)
 	, isFinalized(false)
-	, codeSection({0})
-	, readOnlySection({0})
-	, readWriteSection({0})
+	, codeSection({nullptr, 0, 0})
+	, readOnlySection({nullptr, 0, 0})
+	, readWriteSection({nullptr, 0, 0})
 	, hasRegisteredEHFrames(false)
 	{
 	}

@@ -44,6 +44,9 @@ void Platform::handleFatalError(const char* messageFormat, bool printCallStack, 
 	std::fflush(stderr);
 	if(IsDebuggerPresent()) { DebugBreak(); }
 	TerminateProcess(GetCurrentProcess(), 1);
+
+	// This throw is necessary to convince clang-cl that the function doesn't return.
+	throw;
 }
 
 void Platform::handleAssertionFailure(const AssertMetadata& metadata)

@@ -18,7 +18,7 @@ U64 Platform::getMonotonicClock()
 
 	const U64 wavmFrequency = 1000000;
 
-	return performanceCounterFrequency.QuadPart > wavmFrequency
+	return U64(performanceCounterFrequency.QuadPart) > wavmFrequency
 			   ? performanceCounter.QuadPart
 					 / (performanceCounterFrequency.QuadPart / wavmFrequency)
 			   : performanceCounter.QuadPart
@@ -36,7 +36,6 @@ Platform::Event::~Event() { errorUnless(CloseHandle(handle)); }
 bool Platform::Event::wait(U64 untilTime)
 {
 	U64 currentTime = getMonotonicClock();
-	const U64 startProcessTime = currentTime;
 	while(true)
 	{
 		const U64 timeoutMicroseconds = currentTime > untilTime ? 0 : (untilTime - currentTime);
