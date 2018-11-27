@@ -145,6 +145,11 @@ DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", U32, getTotalMemory)
 							  Runtime::getMemoryMaxPages(emscriptenMemory) * IR::numBytesPerPage);
 }
 
+DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverflow, I32 size)
+{
+	Log::printf(Log::error, "env.abortStackOverflow(%i)\n", size);
+	throwException(Runtime::Exception::calledAbortType);
+}
 DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrowMemory)
 {
 	throwException(Runtime::Exception::calledUnimplementedIntrinsicType);
