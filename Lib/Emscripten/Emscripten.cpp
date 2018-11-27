@@ -423,6 +423,64 @@ DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
 	throwException(Runtime::Exception::calledAbortType);
 }
 
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_i", void, emscripten_nullFunc_i, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_ii", void, emscripten_nullFunc_ii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iii", void, emscripten_nullFunc_iii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiii", void, emscripten_nullFunc_iiii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiii", void, emscripten_nullFunc_iiiii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiii", void, emscripten_nullFunc_iiiiii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiiii", void, emscripten_nullFunc_iiiiiii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_v", void, emscripten_nullFunc_v, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vi", void, emscripten_nullFunc_vi, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vii", void, emscripten_nullFunc_vii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viii", void, emscripten_nullFunc_viii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiii", void, emscripten_nullFunc_viiii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiii", void, emscripten_nullFunc_viiiii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiiii", void, emscripten_nullFunc_viiiiii, I32 code)
+{
+	throwException(Runtime::Exception::calledAbortType);
+}
+
 static U32 currentLocale = 0;
 DEFINE_INTRINSIC_FUNCTION(env, "_uselocale", I32, _uselocale, I32 locale)
 {
