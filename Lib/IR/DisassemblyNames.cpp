@@ -247,14 +247,14 @@ void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
 
 			while(stream.capacity()) { deserializeNameSubsection(module, outNames, stream); };
 		}
-		catch(FatalSerializationException exception)
+		catch(FatalSerializationException& exception)
 		{
 			Log::printf(
 				Log::debug,
 				"FatalSerializationException while deserializing WASM user name section: %s\n",
 				exception.message.c_str());
 		}
-		catch(std::bad_alloc)
+		catch(std::bad_alloc&)
 		{
 			Log::printf(
 				Log::debug,

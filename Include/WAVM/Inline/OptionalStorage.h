@@ -27,7 +27,7 @@ namespace WAVM {
 
 		template<typename... Args> void construct(Args&&... args)
 		{
-			memset(&contents, 0, sizeof(Contents));
+			memset(static_cast<void*>(&contents), 0, sizeof(Contents));
 			new(&contents) Contents(std::forward<Args>(args)...);
 		}
 
@@ -51,7 +51,7 @@ namespace WAVM {
 
 		template<typename... Args> void construct(Args&&... args)
 		{
-			memset(&contents, 0, sizeof(Contents));
+			memset(static_cast<void*>(&contents), 0, sizeof(Contents));
 			new(&contents) Contents(std::forward<Args>(args)...);
 		}
 

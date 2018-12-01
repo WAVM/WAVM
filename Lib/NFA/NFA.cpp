@@ -545,7 +545,7 @@ std::string NFA::Machine::dumpDFAGraphViz() const
 	HashSet<StateIndex> terminalStates;
 
 	CharSet* classCharSets = (CharSet*)alloca(sizeof(CharSet) * numClasses);
-	memset(classCharSets, 0, sizeof(CharSet) * numClasses);
+	memset(static_cast<void*>(classCharSets), 0, sizeof(CharSet) * numClasses);
 	for(Uptr charIndex = 0; charIndex < 256; ++charIndex)
 	{
 		const Uptr classIndex = charToOffsetMap[charIndex] / numStates;
