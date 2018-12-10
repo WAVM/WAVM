@@ -669,14 +669,13 @@ static void showHelp()
 {
 	Log::printf(Log::error,
 				"Usage: RunTestScript [options] in.wast [options]\n"
-				"  -h|--help   Display this message\n"
-				"  -d|--debug  Print verbose debug output to stdout\n");
+				"  -h|--help          Display this message\n"
+				"  -d|--debug         Print verbose debug output to stdout\n"
+				"  -l <N>|--loop <N>  Run tests up to N times in a loop until an error occurs\n");
 }
 
 int main(int argc, char** argv)
 {
-	Timing::Timer timer;
-
 	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
 	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception) {
 		Errors::fatalf("Unhandled runtime exception: %s", describeException(exception).c_str());
@@ -686,7 +685,8 @@ int main(int argc, char** argv)
 	Log::setCategoryEnabled(Log::metrics, false);
 
 	// Parse the command-line.
-	SharedState sharedState;
+	Uptr numLoops = 1;
+	std::vector<const char*> filenames;
 	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "--help") || !strcmp(argv[argIndex], "-h"))
@@ -698,39 +698,64 @@ int main(int argc, char** argv)
 		{
 			Log::setCategoryEnabled(Log::debug, true);
 		}
+		else if(!strcmp(argv[argIndex], "--loop") || !strcmp(argv[argIndex], "-l"))
+		{
+			if(argIndex + 1 >= argc)
+			{
+				showHelp();
+				return EXIT_FAILURE;
+			}
+			++argIndex;
+			long int numLoopsLongInt = strtol(argv[argIndex], nullptr, 10);
+			if(numLoopsLongInt <= 0)
+			{
+				showHelp();
+				return EXIT_FAILURE;
+			}
+			numLoops = Uptr(numLoopsLongInt);
+		}
 		else
 		{
-			sharedState.pendingFilenames.push_back(argv[argIndex]);
+			filenames.push_back(argv[argIndex]);
 		}
 	}
 
-	if(!sharedState.pendingFilenames.size())
+	if(!filenames.size())
 	{
 		showHelp();
 		return EXIT_FAILURE;
 	}
 
-	// Create a thread for each hardware thread.
-	std::vector<Platform::Thread*> threads;
-	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
-	const Uptr numTestThreads
-		= std::min(numHardwareThreads, Uptr(sharedState.pendingFilenames.size()));
-	for(Uptr threadIndex = 0; threadIndex < numTestThreads; ++threadIndex)
-	{ threads.push_back(Platform::createThread(1024 * 1024, threadMain, &sharedState)); }
-
-	// Wait for the threads to exit, summing up their return code, which will be the number of
-	// errors found by the thread.
-	I64 numErrors = 0;
-	for(Platform::Thread* thread : threads) { numErrors += Platform::joinThread(thread); }
-
-	if(!numErrors)
+	Uptr loopIndex = 0;
+	while(true)
 	{
-		Log::printf(Log::output, "All tests succeeded in %.1fms!\n", timer.getMilliseconds());
-		return EXIT_SUCCESS;
-	}
-	else
-	{
-		Log::printf(Log::error, "Testing failed with %" PRIi64 " error(s)\n", numErrors);
-		return EXIT_FAILURE;
+		Timing::Timer timer;
+
+		SharedState sharedState;
+		sharedState.pendingFilenames = filenames;
+
+		// Create a thread for each hardware thread.
+		std::vector<Platform::Thread*> threads;
+		const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
+		const Uptr numTestThreads
+			= std::min(numHardwareThreads, Uptr(sharedState.pendingFilenames.size()));
+		for(Uptr threadIndex = 0; threadIndex < numTestThreads; ++threadIndex)
+		{ threads.push_back(Platform::createThread(1024 * 1024, threadMain, &sharedState)); }
+
+		// Wait for the threads to exit, summing up their return code, which will be the number of
+		// errors found by the thread.
+		I64 numErrors = 0;
+		for(Platform::Thread* thread : threads) { numErrors += Platform::joinThread(thread); }
+
+		if(numErrors)
+		{
+			Log::printf(Log::error, "Testing failed with %" PRIi64 " error(s)\n", numErrors);
+			return EXIT_FAILURE;
+		}
+		else
+		{
+			Log::printf(Log::output, "All tests succeeded in %.1fms!\n", timer.getMilliseconds());
+			if(++loopIndex >= numLoops) { return EXIT_SUCCESS; }
+		}
 	}
 }
