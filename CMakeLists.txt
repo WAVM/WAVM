@@ -9,7 +9,7 @@ option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
 option(WAVM_METRICS_OUTPUT "controls printing the timings of some operations to stdout" OFF)
 option(WAVM_ENABLE_LTO "use link-time optimization" OFF)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	# The sanitizers are only available when compiling with Clang and GCC.
 	option(WAVM_ENABLE_ASAN "enable ASAN" OFF)
 	option(WAVM_ENABLE_UBSAN "enable UBSAN" OFF)
@@ -20,7 +20,7 @@ else()
 	set(WAVM_ENABLE_TSAN OFF)
 endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	# libfuzzer is only available when compiling with Clang.
 	option(WAVM_ENABLE_LIBFUZZER "compile WAVM for use by clang/LLVM's libfuzzer" OFF)
 else()
@@ -131,7 +131,7 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
 
-	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	
 		if(WAVM_ENABLE_LTO)
 			target_compile_options(${TARGET_NAME} PRIVATE "-flto")
@@ -151,7 +151,7 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 		if(WAVM_ENABLE_ASAN)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
 			target_link_libraries(${TARGET_NAME} INTERFACE "-fsanitize=address")
-			if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+			if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 				target_compile_options(${TARGET_NAME} PRIVATE "-mllvm" "-asan-stack=0")
 				target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-command-line-argument")
 			endif()
@@ -203,7 +203,7 @@ function(WAVM_ADD_LIBRARY TARGET_NAME)
 	endif()
 
 	# Enable libfuzzer for libraries.
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 		if(WAVM_ENABLE_LIBFUZZER)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer-no-link")
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize-coverage=trace-cmp,trace-div,trace-gep")
