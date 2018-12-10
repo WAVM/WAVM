@@ -3,12 +3,12 @@
 set -e -v
 
 if [ "$CXX" = "g++" ]; then
-  export CXX="g++-7" CC="gcc-7";
+  export CXX="g++-8" CC="gcc-8";
   export CXXFLAGS="-fuse-ld=gold";
 fi
 
 if [ "$CXX" = "clang++" ] && [ "$TRAVIS_OS_NAME" != "osx" ]; then
-  export CXX="clang++-5.0" CC="clang-5.0";
+  export CXX="clang++-7.0" CC="clang-7.0";
 fi
 
 echo $CXX
@@ -19,7 +19,7 @@ cmake --version
 if [ $TRAVIS_OS_NAME == "osx" ]; then
   export LLVM_URL="http://releases.llvm.org/6.0.0/clang+llvm-6.0.0-x86_64-apple-darwin.tar.xz";
 else
-  export LLVM_URL="http://releases.llvm.org/6.0.0/clang+llvm-6.0.0-x86_64-linux-gnu-ubuntu-14.04.tar.xz";
+  export LLVM_URL="http://releases.llvm.org/6.0.1/clang+llvm-6.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz";
 fi
 
 # Download a binary build of LLVM6 (also not available in Travis's whitelisted apt sources)
