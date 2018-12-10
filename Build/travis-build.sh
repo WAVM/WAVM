@@ -8,7 +8,7 @@ if [ "$CXX" = "g++" ]; then
 fi
 
 if [ "$CXX" = "clang++" ] && [ "$TRAVIS_OS_NAME" != "osx" ]; then
-  export CXX="clang++-7.0" CC="clang-7.0";
+  export CXX="clang++-7" CC="clang-7";
 fi
 
 echo $CXX
