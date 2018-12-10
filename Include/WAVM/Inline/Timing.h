@@ -36,10 +36,11 @@ namespace WAVM { namespace Timing {
 								 const char* numeratorUnit)
 	{
 		Log::printf(Log::metrics,
-					"%s in %.2fms (%f %s/s)\n",
+					"%s in %.2fms (%f %s%s)\n",
 					context,
 					timer.getMilliseconds(),
-					numerator / timer.getSeconds(),
-					numeratorUnit);
+					timer.getSeconds() == 0.0 ? numerator : numerator / timer.getSeconds(),
+					numeratorUnit,
+					timer.getSeconds() == 0.0 ? "" : "/s");
 	}
 }}
