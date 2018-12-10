@@ -525,7 +525,7 @@ static void tryEmitElse(const Token* errorToken, CursorState* cursor)
 	{
 		cursor->functionState->validatingCodeStream.else_();
 	}
-	catch(ValidationException exception)
+	catch(ValidationException const& exception)
 	{
 		parseErrorf(cursor->parseState, errorToken, "%s", exception.message.c_str());
 		cursor->functionState->validatingCodeStream.unreachable();
@@ -615,12 +615,12 @@ static void parseExpr(CursorState* cursor)
 				throw RecoverParseException();
 			}
 		}
-		catch(RecoverParseException)
+		catch(RecoverParseException const&)
 		{
 			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
-		catch(ValidationException exception)
+		catch(ValidationException const& exception)
 		{
 			parseErrorf(cursor->parseState, opcodeToken, "%s", exception.message.c_str());
 			cursor->functionState->validatingCodeStream.unreachable();
@@ -742,12 +742,12 @@ static void parseInstrSequence(CursorState* cursor)
 				throw RecoverParseException();
 			}
 		}
-		catch(RecoverParseException)
+		catch(RecoverParseException const&)
 		{
 			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
-		catch(ValidationException exception)
+		catch(ValidationException const& exception)
 		{
 			parseErrorf(cursor->parseState, opcodeToken, "%s", exception.message.c_str());
 			cursor->functionState->validatingCodeStream.unreachable();
@@ -838,15 +838,15 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 					functionState.validatingCodeStream.finishValidation();
 				}
 			}
-			catch(ValidationException exception)
+			catch(ValidationException const& exception)
 			{
 				parseErrorf(
 					moduleState->parseState, validationErrorToken, "%s", exception.message.c_str());
 			}
-			catch(RecoverParseException)
+			catch(RecoverParseException const&)
 			{
 			}
-			catch(FatalParseException)
+			catch(FatalParseException const&)
 			{
 			}
 			functionDef.code = std::move(functionState.codeByteStream.getBytes());

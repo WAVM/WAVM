@@ -1156,21 +1156,21 @@ bool WASM::loadBinaryModule(const void* wasmBytes,
 		Timing::logRatePerSecond("Loaded WASM", loadTimer, numBytes / 1024.0 / 1024.0, "MB");
 		return true;
 	}
-	catch(Serialization::FatalSerializationException exception)
+	catch(Serialization::FatalSerializationException const& exception)
 	{
 		Log::printf(errorCategory,
 					"Error deserializing WebAssembly binary file:\n%s\n",
 					exception.message.c_str());
 		return false;
 	}
-	catch(IR::ValidationException exception)
+	catch(IR::ValidationException const& exception)
 	{
 		Log::printf(errorCategory,
 					"Error validating WebAssembly binary file:\n%s\n",
 					exception.message.c_str());
 		return false;
 	}
-	catch(std::bad_alloc)
+	catch(std::bad_alloc const&)
 	{
 		Log::printf(errorCategory, "Memory allocation failed: input is likely malformed\n");
 		return false;

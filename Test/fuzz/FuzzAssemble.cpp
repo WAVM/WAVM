@@ -32,7 +32,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 			WASM::serialize(stream, wastModule);
 			wasmBytes = stream.getBytes();
 		}
-		catch(Serialization::FatalSerializationException exception)
+		catch(Serialization::FatalSerializationException const&)
 		{
 			return 0;
 		}

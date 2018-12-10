@@ -1335,7 +1335,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			};
 		};
 	}
-	catch(FatalSerializationException)
+	catch(FatalSerializationException const&)
 	{
 		linkingSectionString += "\n;; Fatal serialization exception!";
 		while(indentDepth > 1)

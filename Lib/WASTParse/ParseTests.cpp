@@ -156,14 +156,14 @@ static void parseTestScriptModule(CursorState* cursor,
 					(const U8*)outQuotedModuleString.data(), outQuotedModuleString.size());
 				WASM::serialize(wasmInputStream, outModule);
 			}
-			catch(Serialization::FatalSerializationException exception)
+			catch(Serialization::FatalSerializationException const& exception)
 			{
 				parseErrorf(cursor->parseState,
 							quoteToken,
 							"error deserializing binary module: %s",
 							exception.message.c_str());
 			}
-			catch(ValidationException exception)
+			catch(ValidationException const& exception)
 			{
 				parseErrorf(cursor->parseState,
 							quoteToken,
@@ -456,7 +456,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 											  quotedModuleString);
 					});
 				}
-				catch(RecoverParseException)
+				catch(RecoverParseException const&)
 				{
 					cursor->parseState = outerParseState;
 					throw RecoverParseException();
@@ -528,10 +528,10 @@ void WAST::parseTestCommands(const char* string,
 
 		require(&cursor, t_eof);
 	}
-	catch(RecoverParseException)
+	catch(RecoverParseException const&)
 	{
 	}
-	catch(FatalParseException)
+	catch(FatalParseException const&)
 	{
 	}
 

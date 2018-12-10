@@ -263,7 +263,7 @@ namespace WAVM { namespace WAST {
 			parseInner();
 			require(cursor, t_rightParenthesis);
 		}
-		catch(RecoverParseException)
+		catch(RecoverParseException const&)
 		{
 			findClosingParenthesis(cursor, openingParenthesisToken);
 		}
@@ -285,7 +285,7 @@ namespace WAVM { namespace WAST {
 			parseInner();
 			require(cursor, t_rightParenthesis);
 		}
-		catch(RecoverParseException)
+		catch(RecoverParseException const&)
 		{
 			findClosingParenthesis(cursor, openingParenthesisToken);
 		}

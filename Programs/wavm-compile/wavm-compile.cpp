@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 		Timing::logRatePerSecond(
 			"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MB");
 	}
-	catch(Serialization::FatalSerializationException exception)
+	catch(Serialization::FatalSerializationException const& exception)
 	{
 		Log::printf(Log::error,
 					"Error serializing WebAssembly binary file:\n%s\n",

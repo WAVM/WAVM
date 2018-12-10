@@ -72,7 +72,7 @@ static void dumpModule(const Module& module, const char* outputDir, DumpFormat d
 			WASM::serialize(stream, module);
 			wasmBytes = stream.getBytes();
 		}
-		catch(Serialization::FatalSerializationException exception)
+		catch(Serialization::FatalSerializationException const& exception)
 		{
 			Log::printf(Log::error,
 						"Error serializing WebAssembly binary file:\n%s\n",

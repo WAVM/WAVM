@@ -933,7 +933,7 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 				IR::validatePreCodeSections(outModule);
 				IR::validatePostCodeSections(outModule, moduleState.deferredCodeValidationState);
 			}
-			catch(ValidationException validationException)
+			catch(ValidationException const& validationException)
 			{
 				parseErrorf(cursor->parseState,
 							firstToken,
@@ -958,7 +958,7 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 			dumpHashMapSpaceAnalysis(moduleState.typeNameToIndexMap, "typeNameToIndexMap");
 		}
 	}
-	catch(RecoverParseException)
+	catch(RecoverParseException const&)
 	{
 		cursor->moduleState = nullptr;
 		throw RecoverParseException();
@@ -996,10 +996,10 @@ bool WAST::parseModule(const char* string,
 		}
 		require(&cursor, t_eof);
 	}
-	catch(RecoverParseException)
+	catch(RecoverParseException const&)
 	{
 	}
-	catch(FatalParseException)
+	catch(FatalParseException const&)
 	{
 	}
 

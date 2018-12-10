@@ -142,7 +142,7 @@ NO_ASAN static void* createThreadEntry(void* argsVoid)
 
 		result = (*args->entry)(args->entryArgument);
 	}
-	catch(ExitThreadException exception)
+	catch(ExitThreadException const& exception)
 	{
 		result = exception.exitCode;
 	}
@@ -200,7 +200,7 @@ NO_ASAN static void* forkThreadEntry(void* argsVoid)
 
 		result = switchToForkedStackContext(&args->forkContext, args->threadEntryFramePointer);
 	}
-	catch(ExitThreadException exception)
+	catch(ExitThreadException const& exception)
 	{
 		result = exception.exitCode;
 	}

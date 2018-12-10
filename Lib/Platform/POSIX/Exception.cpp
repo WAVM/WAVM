@@ -140,7 +140,7 @@ static void terminateHandler()
 	{
 		std::rethrow_exception(std::current_exception());
 	}
-	catch(PlatformException exception)
+	catch(PlatformException const& exception)
 	{
 		Signal signal;
 		signal.type = Signal::Type::unhandledException;
@@ -207,7 +207,7 @@ bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
 		thunk();
 		return false;
 	}
-	catch(PlatformException exception)
+	catch(PlatformException const& exception)
 	{
 		handler(exception.data, exception.callStack);
 		if(exception.data) { free(exception.data); }
@@ -224,7 +224,7 @@ std::type_info* Platform::getUserExceptionTypeInfo()
 		{
 			throw PlatformException{nullptr};
 		}
-		catch(PlatformException)
+		catch(PlatformException const&)
 		{
 			typeInfo = __cxxabiv1::__cxa_current_exception_type();
 		}
