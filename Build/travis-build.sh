@@ -3,7 +3,7 @@
 set -e -v
 
 if [ "$CXX" = "g++" ]; then
-  export CXX="g++-8" CC="gcc-8";
+  export CXX="g++-7" CC="gcc-7";
   export CXXFLAGS="-fuse-ld=gold";
 fi
 

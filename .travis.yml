@@ -14,8 +14,8 @@ addons:
    - llvm-toolchain-xenial-7
    - ubuntu-toolchain-r-test
   packages:
-   - gcc-8
-   - g++-8
+   - gcc-7
+   - g++-7
    - libedit-dev
    - clang-7
 
