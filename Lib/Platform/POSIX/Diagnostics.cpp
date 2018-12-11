@@ -19,7 +19,11 @@ using namespace WAVM::Platform;
 
 extern "C" const char* __asan_default_options()
 {
-	return "handle_segv=false:handle_sigbus=false:handle_sigfpe=false:replace_intrin=false";
+	return "handle_segv=false"
+		   ":handle_sigbus=false"
+		   ":handle_sigfpe=false"
+		   ":replace_intrin=false"
+		   ":fast_unwind_on_malloc=false";
 }
 
 static Mutex& getErrorReportingMutex()
