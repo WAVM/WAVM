@@ -38,7 +38,7 @@ POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 namespace llvm {
 	class MCContext;
 
-#if LLVM_VERSION_MAJOR >= 8
+#if LLVM_VERSION_MAJOR >= 7
 	// Instead of including llvm/Transforms/InstCombine/InstCombine.h, which doesn't compile on
 	// Windows, just declare the one function we call.
 	FunctionPass* createInstructionCombiningPass(bool ExpensiveCombines = true);
