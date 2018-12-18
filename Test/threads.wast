@@ -65,7 +65,7 @@
 			(drop (call $threadTest.joinThread
 				(call $threadTest.createThread (ref.func $createThreadEntry3) (i32.const 13))))
 			(tee_local $i (i32.add (get_local $i) (i32.const 1)))
-			i32.const 1000
+			i32.const 100
 			i32.lt_u
 			br_if $iterLoop
 		end
@@ -93,7 +93,7 @@
 			(drop (call $threadTest.joinThread
 				(call $threadTest.createThread (ref.func $createThreadEntry4) (i32.const 23))))
 			(tee_local $i (i32.add (get_local $i) (i32.const 1)))
-			i32.const 1000
+			i32.const 100
 			i32.lt_u
 			br_if $iterLoop
 		end
