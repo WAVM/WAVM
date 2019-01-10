@@ -20,13 +20,13 @@ struct PlatformException
 thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 static std::atomic<SignalHandler> portableSignalHandler;
 
-static void deliverSignal(Signal signal, const CallStack& callStack)
+static void deliverSignal(Signal signal, CallStack&& callStack)
 {
 	// Call the signal handlers, from innermost to outermost, until one returns true.
 	for(SignalContext* signalContext = innermostSignalContext; signalContext;
 		signalContext = signalContext->outerContext)
 	{
-		if(signalContext->filter(signal, callStack))
+		if(signalContext->filter(signal, std::move(callStack)))
 		{
 			// Jump back to the execution context that was saved in catchSignals.
 			siglongjmp(signalContext->catchJump, 1);
@@ -35,7 +35,8 @@ static void deliverSignal(Signal signal, const CallStack& callStack)
 
 	// If the signal wasn't handled by a catchSignals call, call the portable signal handler.
 	SignalHandler portableSignalHandlerSnapshot = portableSignalHandler.load();
-	if(portableSignalHandlerSnapshot) { portableSignalHandlerSnapshot(signal, callStack); }
+	if(portableSignalHandlerSnapshot)
+	{ portableSignalHandlerSnapshot(signal, std::move(callStack)); }
 }
 
 [[noreturn]] static void signalHandler(int signalNumber, siginfo_t* signalInfo, void*)
@@ -71,7 +72,7 @@ static void deliverSignal(Signal signal, const CallStack& callStack)
 	// top of the callstack is the function that triggered the signal.
 	CallStack callStack = captureCallStack(2);
 
-	deliverSignal(signal, callStack);
+	deliverSignal(signal, std::move(callStack));
 
 	switch(signalNumber)
 	{
@@ -106,7 +107,7 @@ static void initSignals()
 }
 
 bool Platform::catchSignals(const std::function<void()>& thunk,
-							const std::function<bool(Signal, const CallStack&)>& filter)
+							const std::function<bool(Signal, CallStack&&)>& filter)
 {
 	initSignals();
 	sigAltStack.init();
@@ -140,12 +141,12 @@ static void terminateHandler()
 	{
 		std::rethrow_exception(std::current_exception());
 	}
-	catch(PlatformException const& exception)
+	catch(PlatformException& exception)
 	{
 		Signal signal;
 		signal.type = Signal::Type::unhandledException;
 		signal.unhandledException.data = exception.data;
-		deliverSignal(signal, exception.callStack);
+		deliverSignal(signal, std::move(exception.callStack));
 		Errors::fatal("Unhandled runtime exception");
 	}
 	catch(...)
@@ -200,16 +201,16 @@ void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr 
 }
 
 bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
-									   const std::function<void(void*, const CallStack&)>& handler)
+									   const std::function<void(void*, CallStack&&)>& handler)
 {
 	try
 	{
 		thunk();
 		return false;
 	}
-	catch(PlatformException const& exception)
+	catch(PlatformException& exception)
 	{
-		handler(exception.data, exception.callStack);
+		handler(exception.data, std::move(exception.callStack));
 		if(exception.data) { free(exception.data); }
 		return true;
 	}

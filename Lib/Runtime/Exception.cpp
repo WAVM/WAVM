@@ -245,17 +245,17 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 }
 
 static Exception translateExceptionDataToException(const ExceptionData* exceptionData,
-												   const Platform::CallStack& callStack)
+												   Platform::CallStack&& callStack)
 {
 	ExceptionType* runtimeType = exceptionData->type;
 	std::vector<IR::UntaggedValue> arguments(
 		exceptionData->arguments,
 		exceptionData->arguments + exceptionData->type->sig.params.size());
-	return Exception{runtimeType, std::move(arguments), callStack};
+	return Exception{runtimeType, std::move(arguments), std::move(callStack)};
 }
 
 static bool translateSignalToRuntimeException(const Platform::Signal& signal,
-											  const Platform::CallStack& callStack,
+											  Platform::CallStack&& callStack,
 											  Runtime::Exception& outException)
 {
 	switch(signal.type)
@@ -271,30 +271,34 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		if(isAddressOwnedByTable(
 			   reinterpret_cast<U8*>(signal.accessViolation.address), table, tableIndex))
 		{
-			outException = Exception{
-				Exception::outOfBoundsTableAccessType, {table, U64(tableIndex)}, callStack};
+			outException = Exception{Exception::outOfBoundsTableAccessType,
+									 {table, U64(tableIndex)},
+									 std::move(callStack)};
 			return true;
 		}
-		// If the access violation occured in a Memory's reserved pages, treat it as an access
-		// violation runtime error.
+		// If the access violation occured in a Memory's reserved pages, treat it as an
+		// out-of-bounds memory access.
 		else if(isAddressOwnedByMemory(
 					reinterpret_cast<U8*>(signal.accessViolation.address), memory, memoryAddress))
 		{
-			outException = Exception{
-				Exception::outOfBoundsMemoryAccessType, {memory, U64(memoryAddress)}, callStack};
+			outException = Exception{Exception::outOfBoundsMemoryAccessType,
+									 {memory, U64(memoryAddress)},
+									 std::move(callStack)};
 			return true;
 		}
 		return false;
 	}
 	case Platform::Signal::Type::stackOverflow:
-		outException = Exception{Exception::stackOverflowType, {}, callStack};
+		outException = Exception{Exception::stackOverflowType, {}, std::move(callStack)};
 		return true;
 	case Platform::Signal::Type::intDivideByZeroOrOverflow:
-		outException = Exception{Exception::integerDivideByZeroOrOverflowType, {}, callStack};
+		outException
+			= Exception{Exception::integerDivideByZeroOrOverflowType, {}, std::move(callStack)};
 		return true;
 	case Platform::Signal::Type::unhandledException:
 		outException = translateExceptionDataToException(
-			reinterpret_cast<const ExceptionData*>(signal.unhandledException.data), callStack);
+			reinterpret_cast<const ExceptionData*>(signal.unhandledException.data),
+			std::move(callStack));
 		return true;
 	default: Errors::unreachable();
 	}
@@ -308,10 +312,9 @@ void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
 		[thunk, catchThunk] {
 			Platform::catchSignals(
 				thunk,
-				[catchThunk](Platform::Signal signal,
-							 const Platform::CallStack& callStack) -> bool {
+				[catchThunk](Platform::Signal signal, Platform::CallStack&& callStack) -> bool {
 					Exception exception;
-					if(translateSignalToRuntimeException(signal, callStack, exception))
+					if(translateSignalToRuntimeException(signal, std::move(callStack), exception))
 					{
 						catchThunk(std::move(exception));
 						return true;
@@ -322,26 +325,19 @@ void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
 					}
 				});
 		},
-		[catchThunk](void* exceptionData, const Platform::CallStack& callStack) {
+		[catchThunk](void* exceptionData, Platform::CallStack&& callStack) {
 			catchThunk(translateExceptionDataToException(
-				reinterpret_cast<ExceptionData*>(exceptionData), callStack));
+				reinterpret_cast<ExceptionData*>(exceptionData), std::move(callStack)));
 		});
 }
 
 static std::atomic<UnhandledExceptionHandler> unhandledExceptionHandler;
 
-static bool globalSignalHandler(Platform::Signal signal, const Platform::CallStack& callStack)
+static void globalSignalHandler(Platform::Signal signal, Platform::CallStack&& callStack)
 {
 	Exception exception;
-	if(translateSignalToRuntimeException(signal, callStack, exception))
-	{
-		(unhandledExceptionHandler.load())(std::move(exception));
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	if(translateSignalToRuntimeException(signal, std::move(callStack), exception))
+	{ (unhandledExceptionHandler.load())(std::move(exception)); }
 }
 
 void Runtime::setUnhandledExceptionHandler(UnhandledExceptionHandler handler)

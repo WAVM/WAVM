@@ -63,7 +63,7 @@ static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& 
 // the body of the sehSignalFilterFunction __try pulled out into a function.
 static LONG CALLBACK
 sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
-									const std::function<bool(Signal, const CallStack&)>& filter)
+									const std::function<bool(Signal, CallStack&&)>& filter)
 {
 	Signal signal;
 	if(!translateSEHToSignal(exceptionPointers, signal)) { return EXCEPTION_CONTINUE_SEARCH; }
@@ -72,7 +72,7 @@ sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
 		// Unwind the stack frames from the context of the exception.
 		CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
 
-		if(filter(signal, callStack)) { return EXCEPTION_EXECUTE_HANDLER; }
+		if(filter(signal, std::move(callStack))) { return EXCEPTION_EXECUTE_HANDLER; }
 		else
 		{
 			return EXCEPTION_CONTINUE_SEARCH;
@@ -80,9 +80,8 @@ sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
 	}
 }
 
-static LONG CALLBACK
-sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointers,
-						const std::function<bool(Signal, const CallStack&)>& filter)
+static LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointers,
+											 const std::function<bool(Signal, CallStack&&)>& filter)
 {
 	__try
 	{
@@ -95,7 +94,7 @@ sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointers,
 }
 
 bool Platform::catchSignals(const std::function<void()>& thunk,
-							const std::function<bool(Signal, const CallStack&)>& filter)
+							const std::function<bool(Signal, CallStack&&)>& filter)
 {
 	initThread();
 
@@ -139,7 +138,7 @@ static LONG NTAPI unhandledExceptionFilterNonRentrant(struct _EXCEPTION_POINTERS
 	// Unwind the stack frames from the context of the exception.
 	CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
 
-	(signalHandler.load())(signal, callStack);
+	(signalHandler.load())(signal, std::move(callStack));
 
 	return EXCEPTION_CONTINUE_SEARCH;
 }
@@ -187,7 +186,7 @@ static LONG CALLBACK sehPlatformExceptionFilterFunction(EXCEPTION_POINTERS* exce
 }
 
 bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
-									   const std::function<void(void*, const CallStack&)>& handler)
+									   const std::function<void(void*, CallStack&&)>& handler)
 {
 	CallStack* callStack = nullptr;
 	void* exceptionData = nullptr;
@@ -199,7 +198,7 @@ bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
 	__except(
 		sehPlatformExceptionFilterFunction(GetExceptionInformation(), callStack, exceptionData))
 	{
-		handler(exceptionData, *callStack);
+		handler(exceptionData, std::move(*callStack));
 
 		delete callStack;
 		if(exceptionData) { free(exceptionData); }

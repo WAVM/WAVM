@@ -34,11 +34,10 @@ namespace WAVM { namespace Platform {
 		};
 	};
 
-	PLATFORM_API bool catchSignals(
-		const std::function<void()>& thunk,
-		const std::function<bool(Signal signal, const CallStack&)>& filter);
+	PLATFORM_API bool catchSignals(const std::function<void()>& thunk,
+								   const std::function<bool(Signal signal, CallStack&&)>& filter);
 
-	typedef bool (*SignalHandler)(Signal, const CallStack&);
+	typedef void (*SignalHandler)(Signal, CallStack&&);
 
 	PLATFORM_API void setSignalHandler(SignalHandler handler);
 
@@ -50,7 +49,7 @@ namespace WAVM { namespace Platform {
 	// is returned. If no exceptions are caught, false is returned.
 	PLATFORM_API bool catchPlatformExceptions(
 		const std::function<void()>& thunk,
-		const std::function<void(void*, const CallStack&)>& handler);
+		const std::function<void(void*, CallStack&&)>& handler);
 
 	[[noreturn]] PLATFORM_API void raisePlatformException(void* data);
 
