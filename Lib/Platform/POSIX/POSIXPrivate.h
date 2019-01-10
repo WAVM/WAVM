@@ -85,9 +85,10 @@ namespace WAVM { namespace Platform {
 
 	struct SigAltStack
 	{
-		~SigAltStack();
+		~SigAltStack() { deinit(); }
 
 		void init();
+		void deinit();
 
 	private:
 		U8* base = nullptr;
@@ -97,5 +98,5 @@ namespace WAVM { namespace Platform {
 	extern thread_local SignalContext* innermostSignalContext;
 
 	void dumpErrorCallStack(Uptr numOmittedFramesFromTop);
-	void getCurrentThreadStack(U8*& outMinAddr, U8*& outMaxAddr);
+	void getCurrentThreadStack(U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr);
 }}

@@ -55,11 +55,11 @@ static void deliverSignal(Signal signal, CallStack&& callStack)
 	case SIGBUS:
 	{
 		// Determine whether the faulting address was an address reserved by the stack.
+		U8* stackMinGuardAddr;
 		U8* stackMinAddr;
 		U8* stackMaxAddr;
-		getCurrentThreadStack(stackMinAddr, stackMaxAddr);
-		stackMinAddr -= sysconf(_SC_PAGESIZE);
-		signal.type = signalInfo->si_addr >= stackMinAddr && signalInfo->si_addr < stackMaxAddr
+		getCurrentThreadStack(stackMinGuardAddr, stackMinAddr, stackMaxAddr);
+		signal.type = signalInfo->si_addr >= stackMinGuardAddr && signalInfo->si_addr < stackMaxAddr
 						  ? Signal::Type::stackOverflow
 						  : Signal::Type::accessViolation;
 		signal.accessViolation.address = reinterpret_cast<Uptr>(signalInfo->si_addr);
