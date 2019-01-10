@@ -418,30 +418,46 @@ static llvm::Value* emitSubUnsignedSaturated(llvm::IRBuilder<>& irBuilder,
 		right);
 }
 
-EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
-					llvmContext.i8x16Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_b, {left, right}))
 EMIT_SIMD_BINARY_OP(i8x16_add_saturate_u,
 					llvmContext.i8x16Type,
 					emitAddUnsignedSaturated(irBuilder, left, right, llvmContext.i8x16Type))
-EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,
-					llvmContext.i8x16Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_b, {left, right}))
 EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_u,
 					llvmContext.i8x16Type,
 					emitSubUnsignedSaturated(irBuilder, left, right, llvmContext.i8x16Type))
-EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,
-					llvmContext.i16x8Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_w, {left, right}))
 EMIT_SIMD_BINARY_OP(i16x8_add_saturate_u,
 					llvmContext.i16x8Type,
 					emitAddUnsignedSaturated(irBuilder, left, right, llvmContext.i16x8Type))
-EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,
-					llvmContext.i16x8Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_w, {left, right}))
 EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_u,
 					llvmContext.i16x8Type,
 					emitSubUnsignedSaturated(irBuilder, left, right, llvmContext.i16x8Type))
+
+#if LLVM_VERSION_MAJOR >= 8
+EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
+					llvmContext.i8x16Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::sadd_sat, {left, right}))
+EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,
+					llvmContext.i8x16Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::ssub_sat, {left, right}))
+EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,
+					llvmContext.i16x8Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::sadd_sat, {left, right}))
+EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,
+					llvmContext.i16x8Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::ssub_sat, {left, right}))
+#else
+EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
+					llvmContext.i8x16Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_b, {left, right}))
+EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,
+					llvmContext.i8x16Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_b, {left, right}))
+EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,
+					llvmContext.i16x8Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_padds_w, {left, right}))
+EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,
+					llvmContext.i16x8Type,
+					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_psubs_w, {left, right}))
+#endif
 
 llvm::Value* EmitFunctionContext::emitBitSelect(llvm::Value* mask,
 												llvm::Value* trueValue,
