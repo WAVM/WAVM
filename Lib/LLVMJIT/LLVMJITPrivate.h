@@ -328,10 +328,12 @@ namespace WAVM { namespace LLVMJIT {
 	private:
 		ModuleMemoryManager* memoryManager;
 
-		// Have to keep copies of these around because GDB registration listener uses their pointers
-		// as keys for deregistration.
+		// Have to keep copies of these around because until LLVM 8, GDB registration listener uses
+		// their pointers as keys for deregistration.
+#if LLVM_VERSION_MAJOR < 8
 		std::vector<U8> objectBytes;
 		std::unique_ptr<llvm::object::ObjectFile> object;
+#endif
 	};
 
 	extern std::vector<U8> compileLLVMModule(LLVMContext& llvmContext,

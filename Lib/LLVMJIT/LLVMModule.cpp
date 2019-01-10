@@ -285,12 +285,19 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 	LLVMDisasmDispose(disasmRef);
 }
 
-Module::Module(const std::vector<U8>& inObjectBytes,
+Module::Module(const std::vector<U8>& objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
 			   bool shouldLogMetrics)
-: memoryManager(new ModuleMemoryManager()), objectBytes(inObjectBytes)
+: memoryManager(new ModuleMemoryManager())
+#if LLVM_VERSION_MAJOR < 8
+, objectBytes(objectBytes)
+#endif
 {
 	Timing::Timer loadObjectTimer;
+
+#if LLVM_VERSION_MAJOR >= 8
+	std::unique_ptr<llvm::object::ObjectFile> object;
+#endif
 
 	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
 		llvm::StringRef((const char*)objectBytes.data(), objectBytes.size()), "memory")));
@@ -457,7 +464,12 @@ Module::Module(const std::vector<U8>& inObjectBytes,
 	// Notify GDB of the new object.
 	if(!gdbRegistrationListener)
 	{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }
+#if LLVM_VERSION_MAJOR >= 8
+	gdbRegistrationListener->notifyObjectLoaded(
+		reinterpret_cast<Uptr>(this), *object, *loadedObject);
+#else
 	gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
+#endif
 
 	// Create a DWARF context to interpret the debug information in this compilation unit.
 	auto dwarfContext = llvm::DWARFContext::create(*object, &*loadedObject);
@@ -529,7 +541,11 @@ Module::Module(const std::vector<U8>& inObjectBytes,
 Module::~Module()
 {
 	// Notify GDB that the object is being unloaded.
+#if LLVM_VERSION_MAJOR >= 8
+	gdbRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
+#else
 	gdbRegistrationListener->NotifyFreeingObject(*object);
+#endif
 
 	// Remove the module from the global address to module map.
 	Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
