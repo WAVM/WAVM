@@ -47,7 +47,7 @@ static void deliverSignal(Signal signal, const CallStack& callStack)
 	{
 	case SIGFPE:
 		if(signalInfo->si_code != FPE_INTDIV && signalInfo->si_code != FPE_INTOVF)
-		{ Errors::fatal("unknown SIGFPE code"); }
+		{ Errors::fatalfWithCallStack("unknown SIGFPE code"); }
 		signal.type = Signal::Type::intDivideByZeroOrOverflow;
 		break;
 	case SIGSEGV:
@@ -64,7 +64,7 @@ static void deliverSignal(Signal signal, const CallStack& callStack)
 		signal.accessViolation.address = reinterpret_cast<Uptr>(signalInfo->si_addr);
 		break;
 	}
-	default: Errors::fatalf("unknown signal number: %i", signalNumber); break;
+	default: Errors::fatalfWithCallStack("unknown signal number: %i", signalNumber); break;
 	};
 
 	// Capture the execution context, omitting this function and the function that called it, so the
@@ -75,9 +75,9 @@ static void deliverSignal(Signal signal, const CallStack& callStack)
 
 	switch(signalNumber)
 	{
-	case SIGFPE: Errors::fatalf("unhandled SIGFPE");
-	case SIGSEGV: Errors::fatalf("unhandled SIGSEGV");
-	case SIGBUS: Errors::fatalf("unhandled SIGBUS");
+	case SIGFPE: Errors::fatalfWithCallStack("unhandled SIGFPE");
+	case SIGSEGV: Errors::fatalfWithCallStack("unhandled SIGSEGV");
+	case SIGBUS: Errors::fatalfWithCallStack("unhandled SIGBUS");
 	default: Errors::unreachable();
 	};
 }
