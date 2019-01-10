@@ -338,9 +338,15 @@ void EmitFunctionContext::emit()
 														moduleContext.diModuleScope,
 														0,
 														diFunctionType,
+#if LLVM_VERSION_MAJOR >= 8
+														0,
+														llvm::DINode::FlagZero,
+														llvm::DISubprogram::SPFlagOptimized);
+#else
 														false,
 														true,
 														0);
+#endif
 	function->setSubprogram(diFunction);
 
 	// Create the return basic block, and push the root control context for the function.
