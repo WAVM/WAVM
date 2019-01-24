@@ -144,6 +144,10 @@ DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", U32, getTotalMemory)
 	return coerce32bitAddress(emscriptenMemory,
 							  Runtime::getMemoryMaxPages(emscriptenMemory) * IR::numBytesPerPage);
 }
+DEFINE_INTRINSIC_FUNCTION(env, "_emscripten_get_heap_size", U32, _emscripten_get_heap_size)
+{
+	return getTotalMemory(contextRuntimeData);
+}
 
 DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverflow, I32 size)
 {
@@ -157,6 +161,10 @@ DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrow
 DEFINE_INTRINSIC_FUNCTION(env, "enlargeMemory", I32, enlargeMemory)
 {
 	return abortOnCannotGrowMemory(contextRuntimeData);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "_emscripten_resize_heap", I32, _emscripten_resize_heap, U32 size)
+{
+	return enlargeMemory(contextRuntimeData);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "_time", I32, _time, U32 address)
