@@ -334,58 +334,6 @@ static void memcpyNoASAN(U8* dest, const U8* source, Uptr numBytes)
 #endif
 }
 
-NO_ASAN static Thread* createForkedThread(ForkThreadArgs* forkThreadArgs)
-{
-	Lock<Platform::Mutex> forkedStackLock(forkThreadArgs->forkedStackMutex);
-
-	// Compute the address extent of this thread's stack.
-	U8* minStackGuardAddr;
-	U8* minStackAddr;
-	U8* maxStackAddr;
-	getCurrentThreadStack(minStackGuardAddr, minStackAddr, maxStackAddr);
-	const Uptr numStackBytes
-		= std::max(Uptr(maxStackAddr - minStackAddr), getNumStackBytesRLimit());
-
-	// Use the current stack pointer derive a conservative bounds on the area of the stack that
-	// is active.
-	const U8* minActiveStackAddr = getStackPointer() - 128;
-	const U8* maxActiveStackAddr = threadEntryContext->framePointer;
-	const Uptr numActiveStackBytes = maxActiveStackAddr - minActiveStackAddr;
-
-	if(numActiveStackBytes + PTHREAD_STACK_MIN > numStackBytes)
-	{ Errors::fatal("not enough stack space to fork thread"); }
-	pthread_attr_t threadAttr;
-	errorUnless(!pthread_attr_init(&threadAttr));
-	errorUnless(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
-
-	auto thread = new Thread;
-	errorUnless(!pthread_create(
-		&thread->id, &threadAttr, (void* (*)(void*))forkThreadEntry, forkThreadArgs));
-	errorUnless(!pthread_attr_destroy(&threadAttr));
-
-	U8* forkedMinStackGuardAddr = nullptr;
-	U8* forkedMinStackAddr = nullptr;
-	U8* forkedMaxStackAddr = nullptr;
-	getThreadStack(thread->id, forkedMinStackGuardAddr, forkedMinStackAddr, forkedMaxStackAddr);
-
-	forkedMaxStackAddr -= PTHREAD_STACK_MIN;
-	wavmAssert(Uptr(forkedMaxStackAddr - forkedMinStackAddr) > numActiveStackBytes);
-
-	// Compute the offset to add to stack pointers to translate them to the forked thread's stack.
-	const Iptr forkedStackOffset = forkedMaxStackAddr - maxActiveStackAddr;
-
-	// Translate this thread's saved stack pointer to the forked stack.
-	forkThreadArgs->forkContext.rsp += forkedStackOffset;
-
-	// Translate this thread's entry stack pointer to the forked stack.
-	forkThreadArgs->threadEntryFramePointer = threadEntryContext->framePointer + forkedStackOffset;
-
-	// Copy the contents of this thread's stack to the forked stack.
-	memcpyNoASAN(forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
-
-	return thread;
-}
-
 NO_ASAN Thread* Platform::forkCurrentThread()
 {
 	auto forkThreadArgs = new ForkThreadArgs;
@@ -411,7 +359,59 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 	}
 	else
 	{
-		return createForkedThread(forkThreadArgs);
+		forkThreadArgs->forkedStackMutex.lock();
+
+		// Compute the address extent of this thread's stack.
+		U8* minStackGuardAddr;
+		U8* minStackAddr;
+		U8* maxStackAddr;
+		getCurrentThreadStack(minStackGuardAddr, minStackAddr, maxStackAddr);
+		const Uptr numStackBytes
+			= std::max(Uptr(maxStackAddr - minStackAddr), getNumStackBytesRLimit());
+
+		// Use the current stack pointer derive a conservative bounds on the area of the stack that
+		// is active.
+		const U8* minActiveStackAddr = getStackPointer() - 128;
+		const U8* maxActiveStackAddr = threadEntryContext->framePointer;
+		const Uptr numActiveStackBytes = maxActiveStackAddr - minActiveStackAddr;
+
+		if(numActiveStackBytes + PTHREAD_STACK_MIN > numStackBytes)
+		{ Errors::fatal("not enough stack space to fork thread"); }
+		pthread_attr_t threadAttr;
+		errorUnless(!pthread_attr_init(&threadAttr));
+		errorUnless(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
+
+		auto thread = new Thread;
+		errorUnless(!pthread_create(
+			&thread->id, &threadAttr, (void* (*)(void*))forkThreadEntry, forkThreadArgs));
+		errorUnless(!pthread_attr_destroy(&threadAttr));
+
+		U8* forkedMinStackGuardAddr = nullptr;
+		U8* forkedMinStackAddr = nullptr;
+		U8* forkedMaxStackAddr = nullptr;
+		getThreadStack(thread->id, forkedMinStackGuardAddr, forkedMinStackAddr, forkedMaxStackAddr);
+
+		forkedMaxStackAddr -= PTHREAD_STACK_MIN;
+		wavmAssert(Uptr(forkedMaxStackAddr - forkedMinStackAddr) > numActiveStackBytes);
+
+		// Compute the offset to add to stack pointers to translate them to the forked thread's
+		// stack.
+		const Iptr forkedStackOffset = forkedMaxStackAddr - maxActiveStackAddr;
+
+		// Translate this thread's saved stack pointer to the forked stack.
+		forkThreadArgs->forkContext.rsp += forkedStackOffset;
+
+		// Translate this thread's entry stack pointer to the forked stack.
+		forkThreadArgs->threadEntryFramePointer
+			= threadEntryContext->framePointer + forkedStackOffset;
+
+		// Copy the contents of this thread's stack to the forked stack.
+		memcpyNoASAN(
+			forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
+
+		forkThreadArgs->forkedStackMutex.unlock();
+
+		return thread;
 	}
 }
 
