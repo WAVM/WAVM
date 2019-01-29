@@ -224,6 +224,8 @@ private:
 
 	U8* allocateBytes(Uptr numBytes, Uptr alignment, Section& section)
 	{
+		if(alignment == 0) { alignment = 1; }
+
 		wavmAssert(section.baseAddress);
 		wavmAssert(!(alignment & (alignment - 1)));
 		wavmAssert(!isFinalized);
