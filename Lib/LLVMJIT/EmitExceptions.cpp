@@ -212,7 +212,11 @@ static llvm::Function* createSEHFilterFunction(LLVMContext& llvmContext,
 	// Recover the frame pointer of the catching frame, and the escaped local to write the exception
 	// pointer to.
 	auto framePointer = filterIRBuilder.CreateCall(
+#if LLVM_VERSION_MAJOR >= 8
+		functionContext.moduleContext.getLLVMIntrinsic({}, llvm::Intrinsic::eh_recoverfp),
+#else
 		functionContext.moduleContext.getLLVMIntrinsic({}, llvm::Intrinsic::x86_seh_recoverfp),
+#endif
 		{filterIRBuilder.CreatePointerCast(functionContext.function, llvmContext.i8PtrType),
 		 (llvm::Value*)&(*argIt++)});
 	auto exceptionDataAlloca = filterIRBuilder.CreateCall(
