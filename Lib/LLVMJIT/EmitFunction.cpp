@@ -332,20 +332,21 @@ void EmitFunctionContext::emit()
 	{ diFunctionParameterTypes.push_back(moduleContext.diValueTypes[(Uptr)parameterType]); }
 	auto diParamArray = moduleContext.diBuilder.getOrCreateTypeArray(diFunctionParameterTypes);
 	auto diFunctionType = moduleContext.diBuilder.createSubroutineType(diParamArray);
-	diFunction = moduleContext.diBuilder.createFunction(moduleContext.diModuleScope,
-														function->getName(),
-														function->getName(),
-														moduleContext.diModuleScope,
-														0,
-														diFunctionType,
+	diFunction = moduleContext.diBuilder.createFunction(
+		moduleContext.diModuleScope,
+		function->getName(),
+		function->getName(),
+		moduleContext.diModuleScope,
+		0,
+		diFunctionType,
 #if LLVM_VERSION_MAJOR >= 8
-														0,
-														llvm::DINode::FlagZero,
-														llvm::DISubprogram::SPFlagOptimized);
+		0,
+		llvm::DINode::FlagZero,
+		llvm::DISubprogram::SPFlagDefinition | llvm::DISubprogram::SPFlagOptimized);
 #else
-														false,
-														true,
-														0);
+		false,
+		true,
+		0);
 #endif
 	function->setSubprogram(diFunction);
 
