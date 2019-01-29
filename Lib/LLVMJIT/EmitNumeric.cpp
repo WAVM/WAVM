@@ -434,16 +434,24 @@ EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_u,
 #if LLVM_VERSION_MAJOR >= 8
 EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
 					llvmContext.i8x16Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::sadd_sat, {left, right}))
+					callLLVMIntrinsic({llvmContext.i8x16Type},
+									  llvm::Intrinsic::sadd_sat,
+									  {left, right}))
 EMIT_SIMD_BINARY_OP(i8x16_sub_saturate_s,
 					llvmContext.i8x16Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::ssub_sat, {left, right}))
+					callLLVMIntrinsic({llvmContext.i8x16Type},
+									  llvm::Intrinsic::ssub_sat,
+									  {left, right}))
 EMIT_SIMD_BINARY_OP(i16x8_add_saturate_s,
 					llvmContext.i16x8Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::sadd_sat, {left, right}))
+					callLLVMIntrinsic({llvmContext.i16x8Type},
+									  llvm::Intrinsic::sadd_sat,
+									  {left, right}))
 EMIT_SIMD_BINARY_OP(i16x8_sub_saturate_s,
 					llvmContext.i16x8Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::ssub_sat, {left, right}))
+					callLLVMIntrinsic({llvmContext.i16x8Type},
+									  llvm::Intrinsic::ssub_sat,
+									  {left, right}))
 #else
 EMIT_SIMD_BINARY_OP(i8x16_add_saturate_s,
 					llvmContext.i8x16Type,
