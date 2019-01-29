@@ -69,8 +69,6 @@ enum
 	sigAltStackNumBytes = 65536
 };
 
-#define ALLOCATE_SIGALTSTACK_ON_MAIN_STACK 0
-
 static bool isAlignedLog2(void* pointer, Uptr alignmentLog2)
 {
 	return !(reinterpret_cast<Uptr>(pointer) & ((Uptr(1) << alignmentLog2) - 1));
@@ -90,19 +88,14 @@ void SigAltStack::deinit()
 		errorUnless(!sigaltstack(&disableAltStack, nullptr));
 
 		// Free the alt stack's memory.
-		if(!ALLOCATE_SIGALTSTACK_ON_MAIN_STACK) { errorUnless(!munmap(base, sigAltStackNumBytes)); }
-		else
+		U8* signalStackMaxAddr = base + sigAltStackNumBytes;
+		if(mprotect(signalStackMaxAddr, Uptr(1) << getPageSizeLog2(), PROT_READ | PROT_WRITE) != 0)
 		{
-			U8* signalStackMaxAddr = base + sigAltStackNumBytes;
-			if(mprotect(signalStackMaxAddr, Uptr(1) << getPageSizeLog2(), PROT_READ | PROT_WRITE)
-			   != 0)
-			{
-				Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR
-							   ", PROT_READ | PROT_WRITE) returned %i.\n",
-							   reinterpret_cast<Uptr>(signalStackMaxAddr),
-							   Uptr(1) << getPageSizeLog2(),
-							   errno);
-			}
+			Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR
+						   ", PROT_READ | PROT_WRITE) returned %i.\n",
+						   reinterpret_cast<Uptr>(signalStackMaxAddr),
+						   Uptr(1) << getPageSizeLog2(),
+						   errno);
 		}
 		base = nullptr;
 	}
@@ -121,49 +114,38 @@ NO_ASAN static void touchStackPages(U8* minAddr, Uptr numBytesPerPage)
 
 void SigAltStack::init()
 {
+	// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
 	if(!base)
 	{
-		// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
-		if(!ALLOCATE_SIGALTSTACK_ON_MAIN_STACK)
+		const Uptr pageSizeLog2 = getPageSizeLog2();
+		const Uptr numBytesPerPage = Uptr(1) << pageSizeLog2;
+
+		// Use the top of the thread's normal stack to handle signals: just protect a page below
+		// the pages used by the sigaltstack that will catch stack overflows before they
+		// overwrite the sigaltstack.
+		U8* stackMinGuardAddr = nullptr;
+		U8* stackMinAddr = nullptr;
+		U8* stackMaxAddr = nullptr;
+		getCurrentThreadStack(stackMinGuardAddr, stackMinAddr, stackMaxAddr);
+
+		// Touch each stack page from bottom to top to ensure that it has been mapped: Linux and
+		// possibly other OSes lazily grow the stack mapping as a guard page is hit.
+		touchStackPages(stackMinAddr, numBytesPerPage);
+
+		// Protect a page in between the sigaltstack and the rest of the stack.
+		U8* signalStackMaxAddr = stackMinAddr + sigAltStackNumBytes;
+		errorUnless(isAlignedLog2(signalStackMaxAddr, pageSizeLog2));
+		if(mprotect(signalStackMaxAddr, numBytesPerPage, PROT_NONE) != 0)
 		{
-			base = (U8*)mmap(nullptr,
-							 sigAltStackNumBytes,
-							 PROT_READ | PROT_WRITE,
-							 MAP_PRIVATE | MAP_ANONYMOUS,
-							 -1,
-							 0);
-		}
-		else
-		{
-			const Uptr pageSizeLog2 = getPageSizeLog2();
-			const Uptr numBytesPerPage = Uptr(1) << pageSizeLog2;
-
-			// Use the top of the thread's normal stack to handle signals: just protect a page below
-			// the pages used by the sigaltstack that will catch stack overflows before they
-			// overwrite the sigaltstack.
-			U8* stackMinGuardAddr = nullptr;
-			U8* stackMinAddr = nullptr;
-			U8* stackMaxAddr = nullptr;
-			getCurrentThreadStack(stackMinGuardAddr, stackMinAddr, stackMaxAddr);
-
-			// Touch each stack page from bottom to top to ensure that it has been mapped: Linux and
-			// possibly other OSes lazily grow the stack mapping as a guard page is hit.
-			touchStackPages(stackMinAddr, numBytesPerPage);
-
-			// Protect a page in between the sigaltstack and the rest of the stack.
-			U8* signalStackMaxAddr = stackMinAddr + sigAltStackNumBytes;
-			errorUnless(isAlignedLog2(signalStackMaxAddr, pageSizeLog2));
-			if(mprotect(signalStackMaxAddr, numBytesPerPage, PROT_NONE) != 0)
-			{
-				Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR ", PROT_NONE) returned %i.\n",
-							   reinterpret_cast<Uptr>(signalStackMaxAddr),
-							   numBytesPerPage,
-							   errno);
-			}
-
-			base = stackMinAddr;
+			Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR ", PROT_NONE) returned %i.\n",
+						   reinterpret_cast<Uptr>(signalStackMaxAddr),
+						   numBytesPerPage,
+						   errno);
 		}
 
+		base = stackMinAddr;
+
+		// Set the sigaltstack for this thread.
 		errorUnless(base != MAP_FAILED);
 		stack_t sigAltStackInfo;
 		sigAltStackInfo.ss_size = sigAltStackNumBytes;
