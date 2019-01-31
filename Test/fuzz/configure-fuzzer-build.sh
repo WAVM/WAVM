@@ -5,16 +5,16 @@ set -e
 BUILD_DIR=$(pwd)
 WAVM_DIR=$(cd `dirname $0`/../.. && pwd)
 
-clang -v
-clang++ -v
+clang-7 -v
+clang++-7 -v
 
-rm -rf llvm7
-mkdir llvm7
-git clone -b release_70 http://github.com/llvm-mirror/llvm llvm7
+rm -rf llvm8
+mkdir llvm8
+git clone -b release_80 http://github.com/llvm-mirror/llvm llvm8
 
-mkdir $BUILD_DIR/llvm7/build
-cd $BUILD_DIR/llvm7/build
-CC=clang CXX=clang++ cmake \
+mkdir $BUILD_DIR/llvm8/build
+cd $BUILD_DIR/llvm8/build
+CC=clang-7 CXX=clang++-7 cmake \
 	-G Ninja \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 	-DLLVM_USE_SANITIZER="Address;Undefined" \
@@ -26,12 +26,12 @@ CC=clang CXX=clang++ cmake \
 ninja
 
 cd $BUILD_DIR
-CC=clang CXX=clang++ cmake \
+CC=clang-7 CXX=clang++-7 cmake \
 	-G Ninja \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 	-DWAVM_ENABLE_ASAN=1 \
 	-DWAVM_ENABLE_UBSAN=1 \
 	-DWAVM_ENABLE_LIBFUZZER=1 \
-	-DLLVM_DIR=$BUILD_DIR/llvm7/build/lib/cmake/llvm \
+	-DLLVM_DIR=$BUILD_DIR/llvm8/build/lib/cmake/llvm \
 	$WAVM_DIR
 ninja
