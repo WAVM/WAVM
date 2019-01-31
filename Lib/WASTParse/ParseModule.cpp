@@ -137,6 +137,7 @@ static UnresolvedInitializerExpression parseInitializerExpression(CursorState* c
 			if(!tryParseNameOrIndexRef(cursor, globalRef))
 			{
 				parseErrorf(cursor->parseState, cursor->nextToken, "expected global name or index");
+				throw RecoverParseException();
 			}
 			result = UnresolvedInitializerExpression(
 				UnresolvedInitializerExpression::Type::get_global, globalRef);
@@ -150,7 +151,6 @@ static UnresolvedInitializerExpression parseInitializerExpression(CursorState* c
 		}
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
-			result.type = UnresolvedInitializerExpression::Type::error;
 			throw RecoverParseException();
 		};
 	});
