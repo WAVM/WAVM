@@ -237,11 +237,11 @@
 	visitOp(0xfc07, i64_trunc_sat_f64_u       , "i64.trunc_sat_f64_u"       , NoImm                     , UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
 /* Bulk memory operators                                                                                                                                 */ \
 	visitOp(0xfc08, memory_init               , "memory.init"               , DataSegmentAndMemImm      , BULKCOPY             , bulkMemoryOperations   )   \
-	visitOp(0xfc09, data_drop               , "data.drop"               , DataSegmentImm            , NONE                 , bulkMemoryOperations   )   \
+	visitOp(0xfc09, data_drop                 , "data.drop"                 , DataSegmentImm            , NONE                 , bulkMemoryOperations   )   \
 	visitOp(0xfc0a, memory_copy               , "memory.copy"               , MemoryImm                 , BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc0b, memory_fill               , "memory.fill"               , MemoryImm                 , BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc0c, table_init                , "table.init"                , ElemSegmentAndTableImm    , BULKCOPY             , bulkMemoryOperations   )   \
-	visitOp(0xfc0d, elem_drop                , "elem.drop"                , ElemSegmentImm            , NONE                 , bulkMemoryOperations   )   \
+	visitOp(0xfc0d, elem_drop                 , "elem.drop"                 , ElemSegmentImm            , NONE                 , bulkMemoryOperations   )   \
 	visitOp(0xfc0e, table_copy                , "table.copy"                , TableImm                  , BULKCOPY             , bulkMemoryOperations   )   \
 /* v128 operators                                                                                                                                        */ \
 	visitOp(0xfd00, v128_const                , "v128.const"                , LiteralImm<V128>          , NULLARY(v128)        , simd                   )   \
@@ -401,7 +401,7 @@
 	visitOp(0xfd95, i64x2_trunc_sat_f64x2_s   , "i64x2.trunc_sat_f64x2_s"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd96, i64x2_trunc_sat_f64x2_u   , "i64x2.trunc_sat_f64x2_u"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 /* Atomic wait/wake                                                                                                                                      */ \
-	visitOp(0xfe00, atomic_notify               , "atomic.notify"               , AtomicLoadOrStoreImm<2>   , BINARY(i32,i32)      , atomics                )   \
+	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAIT(i32)            , atomics                )   \
 	visitOp(0xfe02, i64_atomic_wait           , "i64.atomic.wait"           , AtomicLoadOrStoreImm<3>   , WAIT(i64)            , atomics                )   \
 /* Atomic load/store                                                                                                                                     */ \
