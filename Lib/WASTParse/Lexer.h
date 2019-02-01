@@ -42,12 +42,16 @@
 	VISIT_LITERAL_TOKEN(then)                                                                      \
 	VISIT_LITERAL_TOKEN(register)                                                                  \
 	VISIT_LITERAL_TOKEN(mut)                                                                       \
-	VISIT_LITERAL_TOKEN(i8)                                                                        \
-	VISIT_LITERAL_TOKEN(i16)                                                                       \
 	VISIT_LITERAL_TOKEN(i32)                                                                       \
 	VISIT_LITERAL_TOKEN(i64)                                                                       \
 	VISIT_LITERAL_TOKEN(f32)                                                                       \
 	VISIT_LITERAL_TOKEN(f64)                                                                       \
+	VISIT_LITERAL_TOKEN(i8x16)                                                                     \
+	VISIT_LITERAL_TOKEN(i16x8)                                                                     \
+	VISIT_LITERAL_TOKEN(i32x4)                                                                     \
+	VISIT_LITERAL_TOKEN(i64x2)                                                                     \
+	VISIT_LITERAL_TOKEN(f32x4)                                                                     \
+	VISIT_LITERAL_TOKEN(f64x2)                                                                     \
 	VISIT_LITERAL_TOKEN(anyref)                                                                    \
 	VISIT_LITERAL_TOKEN(funcref)                                                                   \
 	VISIT_LITERAL_TOKEN(nullref)                                                                   \

@@ -1,8 +1,8 @@
 ;; v128 globals
 
 (module $M
-  (global (export "a") v128       (v128.const f32 0 1 2 3))
-  (global (export "b") (mut v128) (v128.const f32 4 5 6 7))
+  (global (export "a") v128       (v128.const f32x4 0 1 2 3))
+  (global (export "b") (mut v128) (v128.const f32x4 4 5 6 7))
 )
 (register "M" $M)
 
@@ -11,9 +11,9 @@
   (global $b (import "M" "b") (mut v128))
   
   (global $c v128       (global.get $a))
-  (global $d v128       (v128.const i32 8 9 10 11))
+  (global $d v128       (v128.const i32x4 8 9 10 11))
   (global $e (mut v128) (global.get $a))
-  (global $f (mut v128) (v128.const i32 12 13 14 15))
+  (global $f (mut v128) (v128.const i32x4 12 13 14 15))
 
   (func (export "get-a") (result v128) (global.get $a))
   (func (export "get-b") (result v128) (global.get $b))
@@ -27,21 +27,21 @@
   (func (export "set-f") (param $value v128) (global.set $f (local.get $value)))
 )
 
-(assert_return (invoke "get-a") (v128.const f32 0 1 2 3))
-(assert_return (invoke "get-b") (v128.const f32 4 5 6 7))
-(assert_return (invoke "get-c") (v128.const f32 0 1 2 3))
-(assert_return (invoke "get-d") (v128.const i32 8 9 10 11))
-(assert_return (invoke "get-e") (v128.const f32 0 1 2 3))
-(assert_return (invoke "get-f") (v128.const i32 12 13 14 15))
+(assert_return (invoke "get-a") (v128.const f32x4 0 1 2 3))
+(assert_return (invoke "get-b") (v128.const f32x4 4 5 6 7))
+(assert_return (invoke "get-c") (v128.const f32x4 0 1 2 3))
+(assert_return (invoke "get-d") (v128.const i32x4 8 9 10 11))
+(assert_return (invoke "get-e") (v128.const f32x4 0 1 2 3))
+(assert_return (invoke "get-f") (v128.const i32x4 12 13 14 15))
 
-(invoke "set-b" (v128.const f64 nan:0x1 nan:0x2))
-(assert_return (invoke "get-b") (v128.const f64 nan:0x1 nan:0x2))
+(invoke "set-b" (v128.const f64x2 nan:0x1 nan:0x2))
+(assert_return (invoke "get-b") (v128.const f64x2 nan:0x1 nan:0x2))
 
-(invoke "set-e" (v128.const f64 -nan:0x3 +inf))
-(assert_return (invoke "get-e") (v128.const f64 -nan:0x3 +inf))
+(invoke "set-e" (v128.const f64x2 -nan:0x3 +inf))
+(assert_return (invoke "get-e") (v128.const f64x2 -nan:0x3 +inf))
 
-(invoke "set-f" (v128.const f32 -inf +3.14 10.0e30 +nan:0x42))
-(assert_return (invoke "get-f") (v128.const f32 -inf +3.14 10.0e30 +nan:0x42))
+(invoke "set-f" (v128.const f32x4 -inf +3.14 10.0e30 +nan:0x42))
+(assert_return (invoke "get-f") (v128.const f32x4 -inf +3.14 10.0e30 +nan:0x42))
 
 (assert_invalid (module (global v128 (i32.const 0))) "invalid initializer expression")
 (assert_invalid (module (global v128 (i64.const 0))) "invalid initializer expression")
@@ -88,12 +88,12 @@
 ;; v128.const
 
 (module
-  (func (export "v128.const/i8x16") (result v128) (v128.const i8 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
-  (func (export "v128.const/i16x8") (result v128) (v128.const i16 16 17 18 19 20 21 22 23))
-  (func (export "v128.const/i32x4") (result v128) (v128.const i32 24 25 26 27))
-  (func (export "v128.const/i64x2") (result v128) (v128.const i64 28 29))
-  (func (export "v128.const/f32x4") (result v128) (v128.const f32 30.5 31.5 32.5 33.5))
-  (func (export "v128.const/f64x2") (result v128) (v128.const f64 34.5 35.5))
+  (func (export "v128.const/i8x16") (result v128) (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
+  (func (export "v128.const/i16x8") (result v128) (v128.const i16x8 16 17 18 19 20 21 22 23))
+  (func (export "v128.const/i32x4") (result v128) (v128.const i32x4 24 25 26 27))
+  (func (export "v128.const/i64x2") (result v128) (v128.const i64x2 28 29))
+  (func (export "v128.const/f32x4") (result v128) (v128.const f32x4 30.5 31.5 32.5 33.5))
+  (func (export "v128.const/f64x2") (result v128) (v128.const f64x2 34.5 35.5))
 )
 
 ;; v128.load/store
@@ -294,9 +294,9 @@
 
 (assert_return
   (invoke "i8x16.add_saturate_s"
-    (v128.const i8 127 126 125 124 123 122 121 120 119 120 121 122 123 124 125 126)
-    (v128.const i8 -7 -6 -5 -4 -3 -2 -1 0 +1 +2 +3 +4 +5 +6 +7 +8))
-  (v128.const i8 120 120 120 120 120 120 120 120 120 122 124 126 127 127 127 127))
+    (v128.const i8x16 127 126 125 124 123 122 121 120 119 120 121 122 123 124 125 126)
+    (v128.const i8x16 -7 -6 -5 -4 -3 -2 -1 0 +1 +2 +3 +4 +5 +6 +7 +8))
+  (v128.const i8x16 120 120 120 120 120 120 120 120 120 122 124 126 127 127 127 127))
 
 ;; i*.sub_saturate*
 
@@ -449,56 +449,56 @@
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const 0.0))
-  (v128.const i32 0 0 0 0))
+  (v128.const i32x4 0 0 0 0))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const 1.0))
-  (v128.const i32 1 1 1 1))
+  (v128.const i32x4 1 1 1 1))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const 1.9))
-  (v128.const i32 1 1 1 1))
+  (v128.const i32x4 1 1 1 1))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const 2.0))
-  (v128.const i32 2 2 2 2))
+  (v128.const i32x4 2 2 2 2))
   
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -1.0))
-  (v128.const i32 -1 -1 -1 -1))
+  (v128.const i32x4 -1 -1 -1 -1))
   
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -1.9))
-  (v128.const i32 -1 -1 -1 -1))
+  (v128.const i32x4 -1 -1 -1 -1))
   
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -2))
-  (v128.const i32 -2 -2 -2 -2))
+  (v128.const i32x4 -2 -2 -2 -2))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -2147483648.0))
-  (v128.const i32 -2147483648 -2147483648 -2147483648 -2147483648))
+  (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -2147483648.0))
-  (v128.const i32 -2147483648 -2147483648 -2147483648 -2147483648))
+  (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -3000000000.0))
-  (v128.const i32 -2147483648 -2147483648 -2147483648 -2147483648))
+  (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
   
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -inf))
-  (v128.const i32 -2147483648 -2147483648 -2147483648 -2147483648))
+  (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
   
 (; not yet working correctly
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +inf))
-  (v128.const i32 2147483647 2147483647 2147483647 2147483647))
+  (v128.const i32x4 2147483647 2147483647 2147483647 2147483647))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const nan))
-  (v128.const i32 0 0 0 0))
+  (v128.const i32x4 0 0 0 0))
 ;)
   
 ;; i32x4.trunc_sat_f32x4_u
@@ -507,44 +507,44 @@
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const 0.0))
-  (v128.const i32 0 0 0 0))
+  (v128.const i32x4 0 0 0 0))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const 1.0))
-  (v128.const i32 1 1 1 1))
+  (v128.const i32x4 1 1 1 1))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const 1.9))
-  (v128.const i32 1 1 1 1))
+  (v128.const i32x4 1 1 1 1))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const 2.0))
-  (v128.const i32 2 2 2 2))
+  (v128.const i32x4 2 2 2 2))
   
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -1.0))
-  (v128.const i32 0 0 0 0))
+  (v128.const i32x4 0 0 0 0))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -2.0))
-  (v128.const i32 0 0 0 0))
+  (v128.const i32x4 0 0 0 0))
   
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -2147483648.0))
-  (v128.const i32 0 0 0 0))
+  (v128.const i32x4 0 0 0 0))
   
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -inf))
-  (v128.const i32 0 0 0 0))
+  (v128.const i32x4 0 0 0 0))
   
 (; not yet working correctly
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +inf))
-  (v128.const i32 0xffffffff 0xffffffff 0xffffffff 0xffffffff))
+  (v128.const i32x4 0xffffffff 0xffffffff 0xffffffff 0xffffffff))
 
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const nan))
-  (v128.const i32 0 0 0 0))
+  (v128.const i32x4 0 0 0 0))
 ;)
 
 ;; i64x2.trunc_sat_f64x2_s
@@ -571,7 +571,7 @@
 								$0 $1 $2 $3
 								$default
 								(i32x4.extract_lane 0 (i32x4.shr_s (local.get $v)
-								                                   (v128.const i32 32 32 32 32)))
+								                                   (v128.const i32x4 32 32 32 32)))
 							)
 						)
 						(return (i32.const 100))
@@ -586,11 +586,11 @@
 	)
 )
 
-(assert_return (invoke "test-simd-shift-mask" (v128.const i32 0 0 0 0)) (i32.const 0))
-(assert_return (invoke "test-simd-shift-mask" (v128.const i32 1 0 0 0)) (i32.const 1))
-(assert_return (invoke "test-simd-shift-mask" (v128.const i32 2 0 0 0)) (i32.const 2))
-(assert_return (invoke "test-simd-shift-mask" (v128.const i32 3 0 0 0)) (i32.const 3))
-(assert_return (invoke "test-simd-shift-mask" (v128.const i32 4 0 0 0)) (i32.const 100))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32x4 0 0 0 0)) (i32.const 0))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32x4 1 0 0 0)) (i32.const 1))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32x4 2 0 0 0)) (i32.const 2))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32x4 3 0 0 0)) (i32.const 3))
+(assert_return (invoke "test-simd-shift-mask" (v128.const i32x4 4 0 0 0)) (i32.const 100))
 
 ;; Test that misaligned SIMD loads/stores don't trap
 
@@ -604,7 +604,7 @@
 	)
 )
 
-(assert_return (invoke "v128.load align=16" (i32.const 0)) (v128.const i64 0 0))
-(assert_return (invoke "v128.load align=16" (i32.const 1)) (v128.const i64 0 0))
-(assert_return (invoke "v128.store align=16" (i32.const 1) (v128.const i8 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)))
-(assert_return (invoke "v128.load align=16" (i32.const 0)) (v128.const i8 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
+(assert_return (invoke "v128.load align=16" (i32.const 0)) (v128.const i64x2 0 0))
+(assert_return (invoke "v128.load align=16" (i32.const 1)) (v128.const i64x2 0 0))
+(assert_return (invoke "v128.store align=16" (i32.const 1) (v128.const i8x16 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)))
+(assert_return (invoke "v128.load align=16" (i32.const 0)) (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))

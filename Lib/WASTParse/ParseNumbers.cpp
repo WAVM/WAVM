@@ -423,32 +423,32 @@ V128 WAST::parseV128(CursorState* cursor)
 	V128 result;
 	switch(cursor->nextToken->type)
 	{
-	case t_i8:
+	case t_i8x16:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 16; ++laneIndex)
 		{ result.i8[laneIndex] = parseI8(cursor); }
 		break;
-	case t_i16:
+	case t_i16x8:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 8; ++laneIndex)
 		{ result.i16[laneIndex] = parseI16(cursor); }
 		break;
-	case t_i32:
+	case t_i32x4:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
 		{ result.i32[laneIndex] = parseI32(cursor); }
 		break;
-	case t_i64:
+	case t_i64x2:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
 		{ result.i64[laneIndex] = parseI64(cursor); }
 		break;
-	case t_f32:
+	case t_f32x4:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 4; ++laneIndex)
 		{ result.f32[laneIndex] = parseF32(cursor); }
 		break;
-	case t_f64:
+	case t_f64x2:
 		++cursor->nextToken;
 		for(Uptr laneIndex = 0; laneIndex < 2; ++laneIndex)
 		{ result.f64[laneIndex] = parseF64(cursor); }
@@ -456,7 +456,7 @@ V128 WAST::parseV128(CursorState* cursor)
 	default:
 		parseErrorf(cursor->parseState,
 					cursor->nextToken,
-					"expected 'i8', 'i16', 'i32', 'i64', 'f32', or 'f64'");
+					"expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'");
 		throw RecoverParseException();
 	};
 

@@ -640,6 +640,12 @@
 		</dict>
 		<dict>
 			<key>match</key>
+			<string>(?&lt;=[\s=();])(i8x16|i16x8|i32x4|i64x2|f32x4|f64x2)</string>
+			<key>name</key>
+			<string>constant.language.wasm</string>
+		</dict>
+		<dict>
+			<key>match</key>
 			<string>(?&lt;=[\s=();])(i32|i64|f32|f64|v128|mut|anyfunc|funcref|anyref)</string>
 			<key>name</key>
 			<string>constant.language.wasm</string>

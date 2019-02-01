@@ -33,41 +33,41 @@
 
 (module
 	(func (result v128)
-		(i32x4.eq (v128.const i32 1 2 3 4)
-		          (f32x4.convert_i32x4_u (v128.const i32 5 6 7 8)))
+		(i32x4.eq (v128.const i32x4 1 2 3 4)
+		          (f32x4.convert_i32x4_u (v128.const i32x4 5 6 7 8)))
 	)
 	
 	(func (result i32)
-		(i32.eq (i32x4.extract_lane 0 (v128.const i32 1 2 3 4))
-		        (i32x4.extract_lane 0 (f32x4.convert_i32x4_u (v128.const i32 5 6 7 8))))
+		(i32.eq (i32x4.extract_lane 0 (v128.const i32x4 1 2 3 4))
+		        (i32x4.extract_lane 0 (f32x4.convert_i32x4_u (v128.const i32x4 5 6 7 8))))
 	)
 )
 
 (module
 	(func (result v128)
-		(i8x16.sub_saturate_u (v128.const i32 9 10 11 12)
-		                      (f32x4.convert_i32x4_u (v128.const i32 13 14 15 16)))
+		(i8x16.sub_saturate_u (v128.const i32x4 9 10 11 12)
+		                      (f32x4.convert_i32x4_u (v128.const i32x4 13 14 15 16)))
 	)
 )
 
 (module	
 	(func (result v128)
-		(i16x8.sub_saturate_u (v128.const i32 17 18 19 20)
-		                      (f32x4.convert_i32x4_u (v128.const i32 21 22 23 24)))
+		(i16x8.sub_saturate_u (v128.const i32x4 17 18 19 20)
+		                      (f32x4.convert_i32x4_u (v128.const i32x4 21 22 23 24)))
 	)
 )
 
 (module
 	(func (result i32)	
 		(i64.gt_u (i64.const 0)
-		          (i64.reinterpret/f64 (f64x2.extract_lane 0 (v128.const i32 25 26 27 28))))
+		          (i64.reinterpret/f64 (f64x2.extract_lane 0 (v128.const i32x4 25 26 27 28))))
 	)
 )
 
 (module
 	(func (result i32)
 		(i32.eq (i32.const 0x6c2964f6)
-		        (i32.reinterpret/f32 (f32x4.extract_lane 0 (v128.const f32 1.0 2.0 3.0 4.0))))
+		        (i32.reinterpret/f32 (f32x4.extract_lane 0 (v128.const f32x4 1.0 2.0 3.0 4.0))))
 	)
 )
 
@@ -85,7 +85,7 @@
 					(br_table
 						$0 $1
 						$default
-						(i32.trunc_f32_s (f32x4.extract_lane 0 (v128.const f32 nan 0 0 0)))
+						(i32.trunc_f32_s (f32x4.extract_lane 0 (v128.const f32x4 nan 0 0 0)))
 					)
 				)
 				(return (i32.const 100))
@@ -106,7 +106,7 @@
 						$default
 						(i32.add
 							(local.get $i)
-							(i32.trunc_sat_f32_s (f32x4.extract_lane 0 (v128.const f32 nan 0 0 0)))
+							(i32.trunc_sat_f32_s (f32x4.extract_lane 0 (v128.const f32x4 nan 0 0 0)))
 						)
 					)
 				)
@@ -129,7 +129,7 @@
 						(i32.add
 							(local.get $i)
 							(i32x4.extract_lane 0
-								(i32x4.trunc_sat_f32x4_s (v128.const f32 nan 0 0 0))
+								(i32x4.trunc_sat_f32x4_s (v128.const f32x4 nan 0 0 0))
 							)
 						)
 					)
@@ -142,13 +142,13 @@
 	)
 	
 	(func (export "test-misfold-FCmpEQ-self") (result i32)
-		(f32.eq (f32x4.extract_lane 0 (v128.const f32 nan nan nan nan))
-				(f32x4.extract_lane 0 (v128.const f32 nan nan nan nan)))
+		(f32.eq (f32x4.extract_lane 0 (v128.const f32x4 nan nan nan nan))
+				(f32x4.extract_lane 0 (v128.const f32x4 nan nan nan nan)))
 	)
 	
 	(func (export "test-misfold-FCmpNE-self") (result i32)
-		(f32.ne (f32x4.extract_lane 0 (v128.const f32 nan nan nan nan))
-				(f32x4.extract_lane 0 (v128.const f32 nan nan nan nan)))
+		(f32.ne (f32x4.extract_lane 0 (v128.const f32x4 nan nan nan nan))
+				(f32x4.extract_lane 0 (v128.const f32x4 nan nan nan nan)))
 	)
 )
 
@@ -168,7 +168,7 @@
    (type $2 (func (param v128 i32 f64 f32 i32)))
    (memory $4  1024 65536 shared)
    (table $3  1024 4294967296 shared funcref)
-   (global $5 (mut v128) (v128.const i32 0 1 2 3))
+   (global $5 (mut v128) (v128.const i32x4 0 1 2 3))
    (global $7  (mut i32) (i32.const 1998782039))
    (global $8  (mut i64) (i64.const 2173604684453082686))
    (global $9  i32 (i32.const -2007124476))
@@ -186,9 +186,9 @@
       (local $8 f32)
       (local $9 f32)
       (local $10 v128)
-      v128.const i32 1 1 1 1
+      v128.const i32x4 1 1 1 1
       i32x4.trunc_sat_f32x4_s
-      v128.const i32 1 1 1 1
+      v128.const i32x4 1 1 1 1
       local.get $1
       local.get $8
       f64.promote/f32
