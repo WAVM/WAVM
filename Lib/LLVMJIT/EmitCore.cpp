@@ -376,7 +376,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		llvmContext.iptrType->getPointerTo(),
 		sizeof(Uptr));
 
-	// Load the anyfunc referenced by the table.
+	// Load the funcref referenced by the table.
 	auto elementPointer = irBuilder.CreateInBoundsGEP(tableBasePointer, {functionIndexZExt});
 	llvm::LoadInst* biasedValueLoad = irBuilder.CreateLoad(elementPointer);
 	biasedValueLoad->setAtomic(llvm::AtomicOrdering::Acquire);
@@ -399,7 +399,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 		FunctionType(TypeTuple(),
 					 TypeTuple({ValueType::i32,
 								inferValueType<Uptr>(),
-								ValueType::anyfunc,
+								ValueType::funcref,
 								inferValueType<Uptr>()})),
 		{tableElementIndex,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex]),

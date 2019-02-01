@@ -42,11 +42,11 @@
 	visitOp(0x001a, drop               , "drop"                             , NoImm                     , PARAMETRIC           , mvp                    )   \
 	visitOp(0x001b, select             , "select"                           , NoImm                     , PARAMETRIC           , mvp                    )   \
 /* Variables                                                                                                                                             */ \
-	visitOp(0x0020, get_local          , "get_local"                        , GetOrSetVariableImm<false>, PARAMETRIC           , mvp                    )   \
-	visitOp(0x0021, set_local          , "set_local"                        , GetOrSetVariableImm<false>, PARAMETRIC           , mvp                    )   \
-	visitOp(0x0022, tee_local          , "tee_local"                        , GetOrSetVariableImm<false>, PARAMETRIC           , mvp                    )   \
-	visitOp(0x0023, get_global         , "get_global"                       , GetOrSetVariableImm<true> , PARAMETRIC           , mvp                    )   \
-	visitOp(0x0024, set_global         , "set_global"                       , GetOrSetVariableImm<true> , PARAMETRIC           , mvp                    )   \
+	visitOp(0x0020, local_get          , "local.get"                        , GetOrSetVariableImm<false>, PARAMETRIC           , mvp                    )   \
+	visitOp(0x0021, local_set          , "local.set"                        , GetOrSetVariableImm<false>, PARAMETRIC           , mvp                    )   \
+	visitOp(0x0022, local_tee          , "local.tee"                        , GetOrSetVariableImm<false>, PARAMETRIC           , mvp                    )   \
+	visitOp(0x0023, global_get         , "global.get"                       , GetOrSetVariableImm<true> , PARAMETRIC           , mvp                    )   \
+	visitOp(0x0024, global_set         , "global.set"                       , GetOrSetVariableImm<true> , PARAMETRIC           , mvp                    )   \
 /* Table access                                                                                                                                          */ \
 	visitOp(0x0025, table_get          , "table.get"                        , TableImm                  , PARAMETRIC           , referenceTypes         )   \
 	visitOp(0x0026, table_set          , "table.set"                        , TableImm                  , PARAMETRIC           , referenceTypes         )   \
@@ -191,31 +191,31 @@
 	visitOp(0x00a5, f64_max            , "f64.max"                          , NoImm                     , BINARY(f64,f64)      , mvp                    )   \
 	visitOp(0x00a6, f64_copysign       , "f64.copysign"                     , NoImm                     , BINARY(f64,f64)      , mvp                    )   \
 /* Conversions                                                                                                                                           */ \
-	visitOp(0x00a7, i32_wrap_i64       , "i32.wrap/i64"                     , NoImm                     , UNARY(i64,i32)       , mvp                    )   \
-	visitOp(0x00a8, i32_trunc_s_f32    , "i32.trunc_s/f32"                  , NoImm                     , UNARY(f32,i32)       , mvp                    )   \
-	visitOp(0x00a9, i32_trunc_u_f32    , "i32.trunc_u/f32"                  , NoImm                     , UNARY(f32,i32)       , mvp                    )   \
-	visitOp(0x00aa, i32_trunc_s_f64    , "i32.trunc_s/f64"                  , NoImm                     , UNARY(f64,i32)       , mvp                    )   \
-	visitOp(0x00ab, i32_trunc_u_f64    , "i32.trunc_u/f64"                  , NoImm                     , UNARY(f64,i32)       , mvp                    )   \
-	visitOp(0x00ac, i64_extend_s_i32   , "i64.extend_s/i32"                 , NoImm                     , UNARY(i32,i64)       , mvp                    )   \
-	visitOp(0x00ad, i64_extend_u_i32   , "i64.extend_u/i32"                 , NoImm                     , UNARY(i32,i64)       , mvp                    )   \
-	visitOp(0x00ae, i64_trunc_s_f32    , "i64.trunc_s/f32"                  , NoImm                     , UNARY(f32,i64)       , mvp                    )   \
-	visitOp(0x00af, i64_trunc_u_f32    , "i64.trunc_u/f32"                  , NoImm                     , UNARY(f32,i64)       , mvp                    )   \
-	visitOp(0x00b0, i64_trunc_s_f64    , "i64.trunc_s/f64"                  , NoImm                     , UNARY(f64,i64)       , mvp                    )   \
-	visitOp(0x00b1, i64_trunc_u_f64    , "i64.trunc_u/f64"                  , NoImm                     , UNARY(f64,i64)       , mvp                    )   \
-	visitOp(0x00b2, f32_convert_s_i32  , "f32.convert_s/i32"                , NoImm                     , UNARY(i32,f32)       , mvp                    )   \
-	visitOp(0x00b3, f32_convert_u_i32  , "f32.convert_u/i32"                , NoImm                     , UNARY(i32,f32)       , mvp                    )   \
-	visitOp(0x00b4, f32_convert_s_i64  , "f32.convert_s/i64"                , NoImm                     , UNARY(i64,f32)       , mvp                    )   \
-	visitOp(0x00b5, f32_convert_u_i64  , "f32.convert_u/i64"                , NoImm                     , UNARY(i64,f32)       , mvp                    )   \
-	visitOp(0x00b6, f32_demote_f64     , "f32.demote/f64"                   , NoImm                     , UNARY(f64,f32)       , mvp                    )   \
-	visitOp(0x00b7, f64_convert_s_i32  , "f64.convert_s/i32"                , NoImm                     , UNARY(i32,f64)       , mvp                    )   \
-	visitOp(0x00b8, f64_convert_u_i32  , "f64.convert_u/i32"                , NoImm                     , UNARY(i32,f64)       , mvp                    )   \
-	visitOp(0x00b9, f64_convert_s_i64  , "f64.convert_s/i64"                , NoImm                     , UNARY(i64,f64)       , mvp                    )   \
-	visitOp(0x00ba, f64_convert_u_i64  , "f64.convert_u/i64"                , NoImm                     , UNARY(i64,f64)       , mvp                    )   \
-	visitOp(0x00bb, f64_promote_f32    , "f64.promote/f32"                  , NoImm                     , UNARY(f32,f64)       , mvp                    )   \
-	visitOp(0x00bc, i32_reinterpret_f32, "i32.reinterpret/f32"              , NoImm                     , UNARY(f32,i32)       , mvp                    )   \
-	visitOp(0x00bd, i64_reinterpret_f64, "i64.reinterpret/f64"              , NoImm                     , UNARY(f64,i64)       , mvp                    )   \
-	visitOp(0x00be, f32_reinterpret_i32, "f32.reinterpret/i32"              , NoImm                     , UNARY(i32,f32)       , mvp                    )   \
-	visitOp(0x00bf, f64_reinterpret_i64, "f64.reinterpret/i64"              , NoImm                     , UNARY(i64,f64)       , mvp                    )   \
+	visitOp(0x00a7, i32_wrap_i64       , "i32.wrap_i64"                     , NoImm                     , UNARY(i64,i32)       , mvp                    )   \
+	visitOp(0x00a8, i32_trunc_f32_s    , "i32.trunc_f32_s"                  , NoImm                     , UNARY(f32,i32)       , mvp                    )   \
+	visitOp(0x00a9, i32_trunc_f32_u    , "i32.trunc_f32_u"                  , NoImm                     , UNARY(f32,i32)       , mvp                    )   \
+	visitOp(0x00aa, i32_trunc_f64_s    , "i32.trunc_f64_s"                  , NoImm                     , UNARY(f64,i32)       , mvp                    )   \
+	visitOp(0x00ab, i32_trunc_f64_u    , "i32.trunc_f64_u"                  , NoImm                     , UNARY(f64,i32)       , mvp                    )   \
+	visitOp(0x00ac, i64_extend_i32_s   , "i64.extend_i32_s"                 , NoImm                     , UNARY(i32,i64)       , mvp                    )   \
+	visitOp(0x00ad, i64_extend_i32_u   , "i64.extend_i32_u"                 , NoImm                     , UNARY(i32,i64)       , mvp                    )   \
+	visitOp(0x00ae, i64_trunc_f32_s    , "i64.trunc_f32_s"                  , NoImm                     , UNARY(f32,i64)       , mvp                    )   \
+	visitOp(0x00af, i64_trunc_f32_u    , "i64.trunc_f32_u"                  , NoImm                     , UNARY(f32,i64)       , mvp                    )   \
+	visitOp(0x00b0, i64_trunc_f64_s    , "i64.trunc_f64_s"                  , NoImm                     , UNARY(f64,i64)       , mvp                    )   \
+	visitOp(0x00b1, i64_trunc_f64_u    , "i64.trunc_f64_u"                  , NoImm                     , UNARY(f64,i64)       , mvp                    )   \
+	visitOp(0x00b2, f32_convert_i32_s  , "f32.convert_i32_s"                , NoImm                     , UNARY(i32,f32)       , mvp                    )   \
+	visitOp(0x00b3, f32_convert_i32_u  , "f32.convert_i32_u"                , NoImm                     , UNARY(i32,f32)       , mvp                    )   \
+	visitOp(0x00b4, f32_convert_i64_s  , "f32.convert_i64_s"                , NoImm                     , UNARY(i64,f32)       , mvp                    )   \
+	visitOp(0x00b5, f32_convert_i64_u  , "f32.convert_i64_u"                , NoImm                     , UNARY(i64,f32)       , mvp                    )   \
+	visitOp(0x00b6, f32_demote_f64     , "f32.demote_f64"                   , NoImm                     , UNARY(f64,f32)       , mvp                    )   \
+	visitOp(0x00b7, f64_convert_i32_s  , "f64.convert_i32_s"                , NoImm                     , UNARY(i32,f64)       , mvp                    )   \
+	visitOp(0x00b8, f64_convert_i32_u  , "f64.convert_i32_u"                , NoImm                     , UNARY(i32,f64)       , mvp                    )   \
+	visitOp(0x00b9, f64_convert_i64_s  , "f64.convert_i64_s"                , NoImm                     , UNARY(i64,f64)       , mvp                    )   \
+	visitOp(0x00ba, f64_convert_i64_u  , "f64.convert_i64_u"                , NoImm                     , UNARY(i64,f64)       , mvp                    )   \
+	visitOp(0x00bb, f64_promote_f32    , "f64.promote_f32"                  , NoImm                     , UNARY(f32,f64)       , mvp                    )   \
+	visitOp(0x00bc, i32_reinterpret_f32, "i32.reinterpret_f32"              , NoImm                     , UNARY(f32,i32)       , mvp                    )   \
+	visitOp(0x00bd, i64_reinterpret_f64, "i64.reinterpret_f64"              , NoImm                     , UNARY(f64,i64)       , mvp                    )   \
+	visitOp(0x00be, f32_reinterpret_i32, "f32.reinterpret_i32"              , NoImm                     , UNARY(i32,f32)       , mvp                    )   \
+	visitOp(0x00bf, f64_reinterpret_i64, "f64.reinterpret_i64"              , NoImm                     , UNARY(i64,f64)       , mvp                    )   \
 /* 8- and 16-bit sign extension operators                                                                                                                */ \
 	visitOp(0x00c0, i32_extend8_s             , "i32.extend8_s"             , NoImm                     , UNARY(i32,i32)       , extendedSignExtension  )   \
 	visitOp(0x00c1, i32_extend16_s            , "i32.extend16_s"            , NoImm                     , UNARY(i32,i32)       , extendedSignExtension  )   \
@@ -225,23 +225,23 @@
 /* Reference type operators                                                                                                                              */ \
 	visitOp(0x00d0, ref_null                  , "ref.null"                  , NoImm                     , NULLARY(nullref)     , referenceTypes         )   \
 	visitOp(0x00d1, ref_isnull                , "ref.isnull"                , NoImm                     , UNARY(anyref,i32)    , referenceTypes         )   \
-	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionImm               , NULLARY(anyfunc)     , functionRefInstruction )   \
+	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionImm               , NULLARY(funcref)     , functionRefInstruction )   \
 /* Saturating float->int truncation operators                                                                                                            */ \
-	visitOp(0xfc00, i32_trunc_s_sat_f32       , "i32.trunc_s:sat/f32"       , NoImm                     , UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
-	visitOp(0xfc01, i32_trunc_u_sat_f32       , "i32.trunc_u:sat/f32"       , NoImm                     , UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
-	visitOp(0xfc02, i32_trunc_s_sat_f64       , "i32.trunc_s:sat/f64"       , NoImm                     , UNARY(f64,i32)       , nonTrappingFloatToInt  )   \
-	visitOp(0xfc03, i32_trunc_u_sat_f64       , "i32.trunc_u:sat/f64"       , NoImm                     , UNARY(f64,i32)       , nonTrappingFloatToInt  )   \
-	visitOp(0xfc04, i64_trunc_s_sat_f32       , "i64.trunc_s:sat/f32"       , NoImm                     , UNARY(f32,i64)       , nonTrappingFloatToInt  )   \
-	visitOp(0xfc05, i64_trunc_u_sat_f32       , "i64.trunc_u:sat/f32"       , NoImm                     , UNARY(f32,i64)       , nonTrappingFloatToInt  )   \
-	visitOp(0xfc06, i64_trunc_s_sat_f64       , "i64.trunc_s:sat/f64"       , NoImm                     , UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
-	visitOp(0xfc07, i64_trunc_u_sat_f64       , "i64.trunc_u:sat/f64"       , NoImm                     , UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
+	visitOp(0xfc00, i32_trunc_sat_f32_s       , "i32.trunc_sat_f32_s"       , NoImm                     , UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
+	visitOp(0xfc01, i32_trunc_sat_f32_u       , "i32.trunc_sat_f32_u"       , NoImm                     , UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
+	visitOp(0xfc02, i32_trunc_sat_f64_s       , "i32.trunc_sat_f64_s"       , NoImm                     , UNARY(f64,i32)       , nonTrappingFloatToInt  )   \
+	visitOp(0xfc03, i32_trunc_sat_f64_u       , "i32.trunc_sat_f64_u"       , NoImm                     , UNARY(f64,i32)       , nonTrappingFloatToInt  )   \
+	visitOp(0xfc04, i64_trunc_sat_f32_s       , "i64.trunc_sat_f32_s"       , NoImm                     , UNARY(f32,i64)       , nonTrappingFloatToInt  )   \
+	visitOp(0xfc05, i64_trunc_sat_f32_u       , "i64.trunc_sat_f32_u"       , NoImm                     , UNARY(f32,i64)       , nonTrappingFloatToInt  )   \
+	visitOp(0xfc06, i64_trunc_sat_f64_s       , "i64.trunc_sat_f64_s"       , NoImm                     , UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
+	visitOp(0xfc07, i64_trunc_sat_f64_u       , "i64.trunc_sat_f64_u"       , NoImm                     , UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
 /* Bulk memory operators                                                                                                                                 */ \
 	visitOp(0xfc08, memory_init               , "memory.init"               , DataSegmentAndMemImm      , BULKCOPY             , bulkMemoryOperations   )   \
-	visitOp(0xfc09, memory_drop               , "memory.drop"               , DataSegmentImm            , NONE                 , bulkMemoryOperations   )   \
+	visitOp(0xfc09, data_drop               , "data.drop"               , DataSegmentImm            , NONE                 , bulkMemoryOperations   )   \
 	visitOp(0xfc0a, memory_copy               , "memory.copy"               , MemoryImm                 , BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc0b, memory_fill               , "memory.fill"               , MemoryImm                 , BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc0c, table_init                , "table.init"                , ElemSegmentAndTableImm    , BULKCOPY             , bulkMemoryOperations   )   \
-	visitOp(0xfc0d, table_drop                , "table.drop"                , ElemSegmentImm            , NONE                 , bulkMemoryOperations   )   \
+	visitOp(0xfc0d, elem_drop                , "elem.drop"                , ElemSegmentImm            , NONE                 , bulkMemoryOperations   )   \
 	visitOp(0xfc0e, table_copy                , "table.copy"                , TableImm                  , BULKCOPY             , bulkMemoryOperations   )   \
 /* v128 operators                                                                                                                                        */ \
 	visitOp(0xfd00, v128_const                , "v128.const"                , LiteralImm<V128>          , NULLARY(v128)        , simd                   )   \
@@ -392,16 +392,16 @@
 	visitOp(0xfd8d, f32x4_sqrt                , "f32x4.sqrt"                , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd8e, f64x2_sqrt                , "f64x2.sqrt"                , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 /* v128 conversions                                                                                                                                      */ \
-	visitOp(0xfd8f, f32x4_convert_s_i32x4     , "f32x4.convert_s/i32x4"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfd90, f32x4_convert_u_i32x4     , "f32x4.convert_u/i32x4"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfd91, f64x2_convert_s_i64x2     , "f64x2.convert_s/i64x2"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfd92, f64x2_convert_u_i64x2     , "f64x2.convert_u/i64x2"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfd93, i32x4_trunc_s_sat_f32x4   , "i32x4.trunc_s:sat/f32x4"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfd94, i32x4_trunc_u_sat_f32x4   , "i32x4.trunc_u:sat/f32x4"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfd95, i64x2_trunc_s_sat_f64x2   , "i64x2.trunc_s:sat/f64x2"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
-	visitOp(0xfd96, i64x2_trunc_u_sat_f64x2   , "i64x2.trunc_u:sat/f64x2"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfd8f, f32x4_convert_i32x4_s     , "f32x4.convert_i32x4_s"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfd90, f32x4_convert_i32x4_u     , "f32x4.convert_i32x4_u"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfd91, f64x2_convert_i64x2_s     , "f64x2.convert_i64x2_s"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfd92, f64x2_convert_i64x2_u     , "f64x2.convert_i64x2_u"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfd93, i32x4_trunc_sat_f32x4_s   , "i32x4.trunc_sat_f32x4_s"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfd94, i32x4_trunc_sat_f32x4_u   , "i32x4.trunc_sat_f32x4_u"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfd95, i64x2_trunc_sat_f64x2_s   , "i64x2.trunc_sat_f64x2_s"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfd96, i64x2_trunc_sat_f64x2_u   , "i64x2.trunc_sat_f64x2_u"   , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 /* Atomic wait/wake                                                                                                                                      */ \
-	visitOp(0xfe00, atomic_wake               , "atomic.wake"               , AtomicLoadOrStoreImm<2>   , BINARY(i32,i32)      , atomics                )   \
+	visitOp(0xfe00, atomic_notify               , "atomic.notify"               , AtomicLoadOrStoreImm<2>   , BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAIT(i32)            , atomics                )   \
 	visitOp(0xfe02, i64_atomic_wait           , "i64.atomic.wait"           , AtomicLoadOrStoreImm<3>   , WAIT(i64)            , atomics                )   \
 /* Atomic load/store                                                                                                                                     */ \

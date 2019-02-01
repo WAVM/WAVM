@@ -11,8 +11,8 @@
 ;; from https://github.com/WebAssembly/spec/issues/421
 
 (module
-  (func (export "f32.convert_s_i64") (param $x i64) (result f32) (f32.convert_s/i64 (get_local $x)))
-  (func (export "f32.convert_u_i64") (param $x i64) (result f32) (f32.convert_u/i64 (get_local $x)))
+  (func (export "f32.convert_s_i64") (param $x i64) (result f32) (f32.convert_i64_s (local.get $x)))
+  (func (export "f32.convert_u_i64") (param $x i64) (result f32) (f32.convert_i64_u (local.get $x)))
 )
 
 (assert_return (invoke "f32.convert_u_i64" (i64.const 0x0020000020000001)) (f32.const 0x1.000002p+53))
@@ -34,26 +34,26 @@
 (module
 	(func (result v128)
 		(i32x4.eq (v128.const i32 1 2 3 4)
-		          (f32x4.convert_u/i32x4 (v128.const i32 5 6 7 8)))
+		          (f32x4.convert_i32x4_u (v128.const i32 5 6 7 8)))
 	)
 	
 	(func (result i32)
 		(i32.eq (i32x4.extract_lane 0 (v128.const i32 1 2 3 4))
-		        (i32x4.extract_lane 0 (f32x4.convert_u/i32x4 (v128.const i32 5 6 7 8))))
+		        (i32x4.extract_lane 0 (f32x4.convert_i32x4_u (v128.const i32 5 6 7 8))))
 	)
 )
 
 (module
 	(func (result v128)
 		(i8x16.sub_saturate_u (v128.const i32 9 10 11 12)
-		                      (f32x4.convert_u/i32x4 (v128.const i32 13 14 15 16)))
+		                      (f32x4.convert_i32x4_u (v128.const i32 13 14 15 16)))
 	)
 )
 
 (module	
 	(func (result v128)
 		(i16x8.sub_saturate_u (v128.const i32 17 18 19 20)
-		                      (f32x4.convert_u/i32x4 (v128.const i32 21 22 23 24)))
+		                      (f32x4.convert_i32x4_u (v128.const i32 21 22 23 24)))
 	)
 )
 
@@ -85,7 +85,7 @@
 					(br_table
 						$0 $1
 						$default
-						(i32.trunc_s/f32 (f32x4.extract_lane 0 (v128.const f32 nan 0 0 0)))
+						(i32.trunc_f32_s (f32x4.extract_lane 0 (v128.const f32 nan 0 0 0)))
 					)
 				)
 				(return (i32.const 100))
@@ -105,8 +105,8 @@
 						$0 $1
 						$default
 						(i32.add
-							(get_local $i)
-							(i32.trunc_s:sat/f32 (f32x4.extract_lane 0 (v128.const f32 nan 0 0 0)))
+							(local.get $i)
+							(i32.trunc_sat_f32_s (f32x4.extract_lane 0 (v128.const f32 nan 0 0 0)))
 						)
 					)
 				)
@@ -127,9 +127,9 @@
 						$0 $1
 						$default
 						(i32.add
-							(get_local $i)
+							(local.get $i)
 							(i32x4.extract_lane 0
-								(i32x4.trunc_s:sat/f32x4 (v128.const f32 nan 0 0 0))
+								(i32x4.trunc_sat_f32x4_s (v128.const f32 nan 0 0 0))
 							)
 						)
 					)
@@ -167,7 +167,7 @@
    (type $1 (func (param v128)))
    (type $2 (func (param v128 i32 f64 f32 i32)))
    (memory $4  1024 65536 shared)
-   (table $3  1024 4294967296 shared anyfunc)
+   (table $3  1024 4294967296 shared funcref)
    (global $5 (mut v128) (v128.const i32 0 1 2 3))
    (global $7  (mut i32) (i32.const 1998782039))
    (global $8  (mut i64) (i64.const 2173604684453082686))
@@ -187,37 +187,37 @@
       (local $9 f32)
       (local $10 v128)
       v128.const i32 1 1 1 1
-      i32x4.trunc_s:sat/f32x4
+      i32x4.trunc_sat_f32x4_s
       v128.const i32 1 1 1 1
-      get_local $1
-      get_local $8
+      local.get $1
+      local.get $8
       f64.promote/f32
-      get_global $5
+      global.get $5
       f64.const 0x1.8dc8cb3e84082p+523
       f64.ceil
-      get_local $7
-      set_local $10
-      i32.trunc_s/f64
+      local.get $7
+      local.set $10
+      i32.trunc_f64_s
       i8x16.splat
       f32x4.lt
-      set_local $10
-      tee_local $2
+      local.set $10
+      local.tee $2
       f64.ceil
-      get_local $10
-      f32x4.convert_s/i32x4
-      get_local $5
-      get_global $10
+      local.get $10
+      f32x4.convert_i32_sx4
+      local.get $5
+      global.get $10
       i64.rotr
-      f64.convert_u/i64
-      i32.trunc_s/f64
+      f64.convert_i64_u
+      i32.trunc_f64_s
       i32.clz
       i64.load8_u offset=3353026027
-      (v128.store (i32.const 10000) (get_local $10))
-      get_local $9
-      set_local $9
-      set_local $6
-      set_global $5
-      set_local $2
+      (v128.store (i32.const 10000) (local.get $10))
+      local.get $9
+      local.set $9
+      local.set $6
+      global.set $5
+      local.set $2
       i32x4.replace_lane 2
       i16x8.le_s
       drop

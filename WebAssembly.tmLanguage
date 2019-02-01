@@ -63,11 +63,11 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])call(?=[\s=();])</string><key>name</key><string>entity.name.function.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])drop(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])select(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])get_local(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])set_local(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])tee_local(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])get_global(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])set_global(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])local\.get(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])local\.set(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])local\.tee(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])global\.get(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])global\.set(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])table\.get(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])table\.set(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])nop(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
@@ -199,25 +199,25 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.max(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.copysign(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.wrap/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_s/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_u/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_s/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_u/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.extend_s/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.extend_u/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_s/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_u/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_s/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_u/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_s/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_u/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_s/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_u/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_f32_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_f32_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_f64_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_f64_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.extend_i32_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.extend_i32_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_f32_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_f32_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_f64_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_f64_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_i32_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_i32_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_i64_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_i64_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.demote/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_s/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_u/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_s/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_u/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_i32_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_i32_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_i64_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_i64_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.promote/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.reinterpret/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.reinterpret/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
@@ -362,15 +362,15 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])f64x2\.mul(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])f32x4\.sqrt(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])f64x2\.sqrt(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f32x4\.convert_s/i32x4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f32x4\.convert_u/i32x4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f64x2\.convert_s/i64x2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])f64x2\.convert_u/i64x2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.trunc_s:sat/f32x4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.trunc_u:sat/f32x4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.trunc_s:sat/f64x2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.trunc_u:sat/f64x2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])atomic\.wake(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32x4\.convert_i32_sx4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32x4\.convert_i32_ux4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64x2\.convert_i64_sx2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64x2\.convert_i64_ux2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.trunc_sat_f32x4_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.trunc_sat_f32x4_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.trunc_sat_f64x2_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.trunc_sat_f64x2_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])atomic\.notify(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.atomic\.wait(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.atomic\.wait(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.atomic\.load(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
@@ -438,6 +438,53 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.atomic\.rmw32_u\.cmpxchg(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])throw(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])rethrow(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_sat_f32_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_sat_f32_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_sat_f64_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_sat_f64_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_sat_f32_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_sat_f32_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_sat_f64_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_sat_f64_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])memory\.init(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])memory\.drop(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])memory\.copy(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])memory\.fill(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])table\.init(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])table\.drop(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])table\.copy(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+
+		<dict><key>match</key><string>(?&lt;=[\s=();])get_local(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])set_local(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])tee_local(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])get_global(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])set_global(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32x4\.convert_s/i32x4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32x4\.convert_u/i32x4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64x2\.convert_s/i64x2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64x2\.convert_u/i64x2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.trunc_s:sat/f32x4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32x4\.trunc_u:sat/f32x4(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.trunc_s:sat/f64x2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64x2\.trunc_u:sat/f64x2(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_s/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_u/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_s/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_u/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.extend_s/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.extend_u/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_s/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_u/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_s/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_u/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_s/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_u/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_s/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f32\.convert_u/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_s/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_u/i32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_s/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])f64\.convert_u/i64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_s:sat/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_u:sat/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.trunc_s:sat/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
@@ -446,13 +493,6 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_u:sat/f32(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_s:sat/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.trunc_u:sat/f64(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])memory\.init(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])memory\.drop(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])memory\.copy(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])memory\.fill(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])table\.init(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])table\.drop(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])table\.copy(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict>
 			<key>match</key>
 			<string>(?&lt;=[\s=();])(module|binary|quote|memory|table|data|elem|passive|type|import|export|global|exception_type|ref\.host|func|param|result|local)(?=[\s=();])</string>

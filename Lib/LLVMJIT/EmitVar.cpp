@@ -24,19 +24,19 @@ using namespace WAVM::LLVMJIT;
 // Local variables
 //
 
-void EmitFunctionContext::get_local(GetOrSetVariableImm<false> imm)
+void EmitFunctionContext::local_get(GetOrSetVariableImm<false> imm)
 {
 	wavmAssert(imm.variableIndex < localPointers.size());
 	push(irBuilder.CreateLoad(localPointers[imm.variableIndex]));
 }
-void EmitFunctionContext::set_local(GetOrSetVariableImm<false> imm)
+void EmitFunctionContext::local_set(GetOrSetVariableImm<false> imm)
 {
 	wavmAssert(imm.variableIndex < localPointers.size());
 	auto value = irBuilder.CreateBitCast(
 		pop(), localPointers[imm.variableIndex]->getType()->getPointerElementType());
 	irBuilder.CreateStore(value, localPointers[imm.variableIndex]);
 }
-void EmitFunctionContext::tee_local(GetOrSetVariableImm<false> imm)
+void EmitFunctionContext::local_tee(GetOrSetVariableImm<false> imm)
 {
 	wavmAssert(imm.variableIndex < localPointers.size());
 	auto value = irBuilder.CreateBitCast(
@@ -48,7 +48,7 @@ void EmitFunctionContext::tee_local(GetOrSetVariableImm<false> imm)
 // Global variables
 //
 
-void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
+void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 {
 	wavmAssert(imm.variableIndex < irModule.globals.size());
 	GlobalType globalType = irModule.globals.getType(imm.variableIndex);
@@ -108,7 +108,7 @@ void EmitFunctionContext::get_global(GetOrSetVariableImm<true> imm)
 
 	push(value);
 }
-void EmitFunctionContext::set_global(GetOrSetVariableImm<true> imm)
+void EmitFunctionContext::global_set(GetOrSetVariableImm<true> imm)
 {
 	wavmAssert(imm.variableIndex < irModule.globals.size());
 	GlobalType globalType = irModule.globals.getType(imm.variableIndex);

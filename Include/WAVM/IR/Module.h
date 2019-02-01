@@ -26,7 +26,7 @@ namespace WAVM { namespace IR {
 			f32_const = 0x0043,
 			f64_const = 0x0044,
 			v128_const = 0xfd00,
-			get_global = 0x0023,
+			global_get = 0x0023,
 			ref_null = 0x00D0,
 			error = 0xffff
 		};
@@ -53,7 +53,7 @@ namespace WAVM { namespace IR {
 		InitializerExpressionBase(Type inType, GlobalRef inGlobalRef)
 		: type(inType), globalRef(inGlobalRef)
 		{
-			wavmAssert(inType == Type::get_global);
+			wavmAssert(inType == Type::global_get);
 		}
 		InitializerExpressionBase(std::nullptr_t) : type(Type::ref_null) {}
 
@@ -70,7 +70,7 @@ namespace WAVM { namespace IR {
 			case Type::f32_const: return a.i32 == b.i32;
 			case Type::f64_const: return a.i64 == b.i64;
 			case Type::v128_const: return a.v128 == b.v128;
-			case Type::get_global: return a.globalRef == b.globalRef;
+			case Type::global_get: return a.globalRef == b.globalRef;
 			case Type::ref_null: return true;
 			case Type::error: return true;
 			default: Errors::unreachable();

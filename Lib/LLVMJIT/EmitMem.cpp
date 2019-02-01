@@ -117,10 +117,10 @@ void EmitFunctionContext::memory_init(DataSegmentAndMemImm imm)
 		 emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
 
-void EmitFunctionContext::memory_drop(DataSegmentImm imm)
+void EmitFunctionContext::data_drop(DataSegmentImm imm)
 {
 	emitRuntimeIntrinsic(
-		"memory.drop",
+		"data.drop",
 		FunctionType({}, TypeTuple({inferValueType<Uptr>(), inferValueType<Uptr>()})),
 		{moduleContext.moduleInstanceId, emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
@@ -235,14 +235,14 @@ void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 align
 	}
 }
 
-void EmitFunctionContext::atomic_wake(AtomicLoadOrStoreImm<2> imm)
+void EmitFunctionContext::atomic_notify(AtomicLoadOrStoreImm<2> imm)
 {
 	llvm::Value* numWaiters = pop();
 	llvm::Value* address = pop();
 	llvm::Value* boundedAddress = getOffsetAndBoundedAddress(*this, address, imm.offset);
 	trapIfMisalignedAtomic(boundedAddress, imm.alignmentLog2);
 	push(emitRuntimeIntrinsic(
-		"atomic_wake",
+		"atomic_notify",
 		FunctionType(TypeTuple{ValueType::i32},
 					 TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64}),
 		{address,

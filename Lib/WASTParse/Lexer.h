@@ -49,7 +49,7 @@
 	VISIT_LITERAL_TOKEN(f32)                                                                       \
 	VISIT_LITERAL_TOKEN(f64)                                                                       \
 	VISIT_LITERAL_TOKEN(anyref)                                                                    \
-	VISIT_LITERAL_TOKEN(anyfunc)                                                                   \
+	VISIT_LITERAL_TOKEN(funcref)                                                                   \
 	VISIT_LITERAL_TOKEN(nullref)                                                                   \
 	VISIT_LITERAL_TOKEN(shared)                                                                    \
 	VISIT_LITERAL_TOKEN(quote)                                                                     \
@@ -102,7 +102,10 @@ namespace WAVM { namespace WAST {
 	// Also returns a pointer in outLineInfo to the information necessary to resolve line/column
 	// numbers for the tokens. The caller should pass the tokens and line info to
 	// freeTokens/freeLineInfo, respectively, when it is done with them.
-	Token* lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo);
+	Token* lex(const char* string,
+			   Uptr stringLength,
+			   LineInfo*& outLineInfo,
+			   bool allowLegacyOperatorNames);
 
 	void freeTokens(Token* tokens);
 	void freeLineInfo(LineInfo* lineInfo);

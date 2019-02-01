@@ -77,7 +77,7 @@ static IR::Value parseConstExpression(CursorState* cursor)
 		case t_ref_host:
 		{
 			++cursor->nextToken;
-			result.type = ValueType::anyfunc;
+			result.type = ValueType::funcref;
 			result.function = makeHostRef(parseIptr(cursor));
 			break;
 		}
@@ -496,7 +496,7 @@ void WAST::parseTestCommands(const char* string,
 {
 	// Lex the input string.
 	LineInfo* lineInfo = nullptr;
-	Token* tokens = lex(string, stringLength, lineInfo);
+	Token* tokens = lex(string, stringLength, lineInfo, featureSpec.allowLegacyOperatorNames);
 	ParseState parseState(string, lineInfo);
 	CursorState cursor(tokens, &parseState);
 

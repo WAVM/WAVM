@@ -216,7 +216,7 @@ static ValueType generateValueType(RandomStream& random)
 	case 3: return ValueType::f64;
 	case 4: return ValueType::v128;
 	case 5: return ValueType::anyref;
-	case 6: return ValueType::anyfunc;
+	case 6: return ValueType::funcref;
 	default: Errors::unreachable();
 	}
 }
@@ -420,32 +420,32 @@ static void generateFunction(RandomStream& random,
 			if(stack.size() > controlStack.back().outerStackSize
 			   && isSubtype(stack.back(), localType))
 			{
-				// set_local
+				// local.set
 				validOpEmitters.push_back([&stack, localIndex](RandomStream& random,
 															   IR::Module& module,
 															   CodeStream& codeStream) {
-					codeStream.set_local({U32(localIndex)});
+					codeStream.local_set({U32(localIndex)});
 					stack.pop_back();
 				});
 
-				// tee_local
+				// local.tee
 				if(allowStackGrowth)
 				{
 					validOpEmitters.push_back([localIndex](RandomStream& random,
 														   IR::Module& module,
 														   CodeStream& codeStream) {
-						codeStream.tee_local({U32(localIndex)});
+						codeStream.local_tee({U32(localIndex)});
 					});
 				}
 			}
 
-			// get_local
+			// local.get
 			if(allowStackGrowth)
 			{
 				validOpEmitters.push_back([&stack, localIndex, localType](RandomStream& random,
 																		  IR::Module& module,
 																		  CodeStream& codeStream) {
-					codeStream.get_local({U32(localIndex)});
+					codeStream.local_get({U32(localIndex)});
 					stack.push_back(localType);
 				});
 			}
@@ -458,22 +458,22 @@ static void generateFunction(RandomStream& random,
 			if(stack.size() > controlStack.back().outerStackSize
 			   && isSubtype(stack.back(), globalType.valueType) && globalType.isMutable)
 			{
-				// set_global
+				// global.set
 				validOpEmitters.push_back([&stack, globalIndex](RandomStream& random,
 																IR::Module& module,
 																CodeStream& codeStream) {
-					codeStream.set_global({U32(globalIndex)});
+					codeStream.global_set({U32(globalIndex)});
 					stack.pop_back();
 				});
 			}
 
-			// get_global
+			// global.get
 			if(allowStackGrowth)
 			{
 				validOpEmitters.push_back(
 					[&stack, globalIndex, globalType](
 						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-						codeStream.get_global({U32(globalIndex)});
+						codeStream.global_get({U32(globalIndex)});
 						stack.push_back(globalType.valueType);
 					});
 			}
@@ -703,7 +703,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 
 	// Generate some standard definitions that are the same for all modules.
 	module.memories.defs.push_back({{true, {1024, IR::maxMemoryPages}}});
-	module.tables.defs.push_back({{ReferenceType::anyfunc, true, {1024, IR::maxTableElems}}});
+	module.tables.defs.push_back({{ReferenceType::funcref, true, {1024, IR::maxTableElems}}});
 
 	// Generate some globals.
 	const Uptr numGlobals = random.get(10);
@@ -745,7 +745,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 				initializer.v128.u64[1] = random.get(UINT64_MAX);
 				break;
 			case ValueType::anyref:
-			case ValueType::anyfunc:
+			case ValueType::funcref:
 				initializer.type = InitializerExpression::Type::ref_null;
 				break;
 			default: Errors::unreachable();

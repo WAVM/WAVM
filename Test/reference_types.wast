@@ -1,32 +1,32 @@
 ;; multiple tables
 (module
-	(table $t1 0 anyfunc)
-	(table $t2 0 anyfunc)
+	(table $t1 0 funcref)
+	(table $t2 0 funcref)
 )
 
 ;; element segments in multiple tables
 (module
-	(table $t1 1 anyfunc)
-	(table $t2 1 anyfunc)
+	(table $t1 1 funcref)
+	(table $t2 1 funcref)
 	(elem $t1 (i32.const 0) $f)
 	(elem $t2 (i32.const 0) $f)
 	(func $f)
 )
 
 
-;; non-anyfunc tables
+;; non-funcref tables
 (module
 	(table $t 0 anyref)
 )
 
-;; elem segments should only be allowed in anyfunc tables
+;; elem segments should only be allowed in funcref tables
 (assert_invalid
 	(module
 		(table $t 0 anyref)
 		(elem $t (i32.const 0) $f)
 		(func $f)
 	)
-	"active elem segments must be in anyfunc tables"
+	"active elem segments must be in funcref tables"
 )
 
 
@@ -39,19 +39,19 @@
 ;; reference typed values
 
 (module (func (param anyref)))
-(module (func (param anyfunc)))
+(module (func (param funcref)))
 (module (func (result anyref)  ref.null))
-(module (func (result anyfunc) ref.null))
+(module (func (result funcref) ref.null))
 (module (global anyref  (ref.null)))
-(module (global anyfunc (ref.null)))
+(module (global funcref (ref.null)))
 (module (global (mut anyref)  (ref.null)))
-(module (global (mut anyfunc) (ref.null)))
+(module (global (mut funcref) (ref.null)))
 
 ;; table.get
 
 (module
-	(table $t1 4 anyfunc)
-	(table $t2 3 anyfunc)
+	(table $t1 4 funcref)
+	(table $t2 3 funcref)
 
 	(elem $t1 (i32.const 0) $0 $1 $2 $3)
 	(elem $t2 (i32.const 1) $4 $5)
@@ -64,11 +64,11 @@
 	(func $5 (result i32) (i32.const 5))
 
 	(func (export "table.get $t1") (param $index i32) (result anyref)
-		(table.get $t1 (get_local $index))
+		(table.get $t1 (local.get $index))
 	)
 	
 	(func (export "table.get $t2") (param $index i32) (result anyref)
-		(table.get $t2 (get_local $index))
+		(table.get $t2 (local.get $index))
 	)
 )
 
@@ -89,8 +89,8 @@
 
 (module
 	(table $t1 4 anyref)
-	(table $t2 4 anyfunc)
-	(table $t3 4 anyfunc)
+	(table $t2 4 funcref)
+	(table $t3 4 funcref)
 
 	(elem $t2 (i32.const 0) $0 $1 $2 $3)
 	(elem $t3 (i32.const 0) $4 $5)
@@ -103,10 +103,10 @@
 	(func $5 (result i32) (i32.const 5))
 
 	(func (export "call_indirect $t2") (param $index i32) (result i32)
-		(call_indirect $t2 (result i32) (get_local $index))
+		(call_indirect $t2 (result i32) (local.get $index))
 	)
 	(func (export "call_indirect $t3") (param $index i32) (result i32)
-		(call_indirect 2 (result i32) (get_local $index))
+		(call_indirect 2 (result i32) (local.get $index))
 	)
 )
 

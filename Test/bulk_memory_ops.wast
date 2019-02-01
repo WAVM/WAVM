@@ -59,7 +59,7 @@
 	"invalid data segment flags"
 )
 
-;; memory.init/memory.drop
+;; memory.init/data.drop
 
 (assert_invalid
 	(module
@@ -89,7 +89,7 @@
 	(module
 		(memory $m 1)
 		(data passive "test")
-		(func (memory.drop 1))
+		(func (data.drop 1))
 	)
 	"invalid data segment index"
 )
@@ -130,7 +130,7 @@
 	"\41\00"                             ;; i32.const 0
 	"\41\00"                             ;; i32.const 0
 	"\fc\08\00\00"                       ;; memory.init 0 0
-	"\fc\09\00"                          ;; memory.drop 0
+	"\fc\09\00"                          ;; data.drop 0
 	"\0b"                                ;; end
 
 	"\0b\04\01"                          ;; data section: 3 bytes, 1 entry
@@ -159,7 +159,7 @@
 		"\41\00"                             ;; i32.const 0
 		"\41\00"                             ;; i32.const 0
 		"\fc\08\01\00"                       ;; memory.init 1 0
-		"\fc\09\01"                          ;; memory.drop 1
+		"\fc\09\01"                          ;; data.drop 1
 		"\0b"                                ;; end
 		
 		"\0b\03\01"                          ;; data section: 3 bytes, 1 entry
@@ -187,7 +187,7 @@
 		"\41\00"                             ;; i32.const 0
 		"\41\00"                             ;; i32.const 0
 		"\fc\08\00\01"                       ;; memory.init 0 1
-		"\fc\09\00"                          ;; memory.drop 0
+		"\fc\09\00"                          ;; data.drop 0
 		"\0b"                                ;; end
 
 		"\0b\04\01"                          ;; data section: 5 bytes, 1 entry
@@ -216,7 +216,7 @@
 	"\41\00"                             ;; i32.const 0
 	"\41\00"                             ;; i32.const 0
 	"\fc\08\00\00"                       ;; memory.init 0 0
-	"\fc\09\00"                          ;; memory.drop 0
+	"\fc\09\00"                          ;; data.drop 0
 	"\0b"                                ;; end
 		
 	"\0b\07\01"                          ;; data section: 5 bytes, 1 entry
@@ -234,21 +234,21 @@
 		(param $destAddress i32)
 		(param $sourceOffset i32)
 		(param $numBytes i32)
-		(memory.init 0 $m (get_local $destAddress) (get_local $sourceOffset) (get_local $numBytes))
+		(memory.init 0 $m (local.get $destAddress) (local.get $sourceOffset) (local.get $numBytes))
 	)
 	
 	(func (export "memory.init 1")
 		(param $destAddress i32)
 		(param $sourceOffset i32)
 		(param $numBytes i32)
-		(memory.init 1 $m (get_local $destAddress) (get_local $sourceOffset) (get_local $numBytes))
+		(memory.init 1 $m (local.get $destAddress) (local.get $sourceOffset) (local.get $numBytes))
 	)
 	
-	(func (export "memory.drop 0") (memory.drop 0))
-	(func (export "memory.drop 1") (memory.drop 1))
+	(func (export "data.drop 0") (data.drop 0))
+	(func (export "data.drop 1") (data.drop 1))
 
 	(func (export "i32.load8_u") (param $address i32) (result i32)
-		(i32.load8_u (get_local $address))
+		(i32.load8_u (local.get $address))
 	)
 )
 
@@ -311,9 +311,9 @@
 (assert_trap (invoke "memory.init 0" (i32.const 0xffffffff) (i32.const 0) (i32.const 1)) "out of bounds memory access")
 (assert_trap (invoke "memory.init 0" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "out of bounds data segment access")
 
-(assert_return (invoke "memory.drop 0"))
+(assert_return (invoke "data.drop 0"))
 (assert_trap (invoke "memory.init 0" (i32.const 0) (i32.const 0) (i32.const 4)) "invalid argument")
-(assert_trap (invoke "memory.drop 0") "invalid argument")
+(assert_trap (invoke "data.drop 0") "invalid argument")
 
 (module
 	(memory $m 1 1)
@@ -324,11 +324,11 @@
 		(param $destAddress i32)
 		(param $sourceAddress i32)
 		(param $numBytes i32)
-		(memory.copy (get_local $destAddress) (get_local $sourceAddress) (get_local $numBytes))
+		(memory.copy (local.get $destAddress) (local.get $sourceAddress) (local.get $numBytes))
 	)
 	
 	(func (export "i32.load8_u") (param $address i32) (result i32)
-		(i32.load8_u (get_local $address))
+		(i32.load8_u (local.get $address))
 	)
 )
 
@@ -416,11 +416,11 @@
 		(param $destAddress i32)
 		(param $value i32)
 		(param $numBytes i32)
-		(memory.fill (get_local $destAddress) (get_local $value) (get_local $numBytes))
+		(memory.fill (local.get $destAddress) (local.get $value) (local.get $numBytes))
 	)
 	
 	(func (export "i32.load8_u") (param $address i32) (result i32)
-		(i32.load8_u (get_local $address))
+		(i32.load8_u (local.get $address))
 	)
 )
 
@@ -469,7 +469,7 @@
 	"\00"                                ;;   Function 0: type 0
 
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-	"\70\00\01"                          ;;   (table 1 anyfunc)
+	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
 	"\00"                                ;;   [0] active elem segment
@@ -492,7 +492,7 @@
 	"\00"                                ;;   Function 0: type 0
 
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-	"\70\00\01"                          ;;   (table 1 anyfunc)
+	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\04\01"                          ;; elem section: 7 bytes, 1 entry
 	"\01"                                ;;   [0] passive elem segment
@@ -514,7 +514,7 @@
 	"\00"                                ;;   Function 0: type 0
 
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-	"\70\00\01"                          ;;   (table 1 anyfunc)
+	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\08\01"                          ;; elem section: 8 bytes, 1 entry
 	"\02\00"                             ;;   [0] active elem segment, table 0
@@ -527,7 +527,7 @@
 	"\0b"                                ;; end
 )
 
-;; table.init and table.drop
+;; table.init and elem.drop
 
 (module binary
 	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
@@ -539,7 +539,7 @@
 	"\00"                                ;;   Function 0: type 0
 
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-	"\70\00\01"                          ;;   (table 1 anyfunc)
+	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\04\01"                          ;; elem section: 7 bytes, 1 entry
 	"\01"                                ;;   [0] passive elem segment
@@ -552,11 +552,11 @@
 	"\41\00"                             ;; i32.const 0
 	"\41\00"                             ;; i32.const 0
 	"\fc\0c\00\00"                       ;; table.init 0 0
-	"\fc\0d\00"                          ;; table.drop 0
+	"\fc\0d\00"                          ;; elem.drop 0
 	"\0b"                                ;; end
 )
 
-;; Test that it's valid to reference an active elem segment with table.init and table.drop
+;; Test that it's valid to reference an active elem segment with table.init and elem.drop
 (module binary
 	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
 
@@ -567,7 +567,7 @@
 	"\00"                                ;;   Function 0: type 0
 
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-	"\70\00\01"                          ;;   (table 1 anyfunc)
+	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
 	"\00"                                ;;   [0] active elem segment
@@ -581,12 +581,12 @@
 	"\41\00"                             ;; i32.const 0
 	"\41\00"                             ;; i32.const 0
 	"\fc\0c\00\00"                       ;; table.init 0 0
-	"\fc\0d\00"                          ;; table.drop 0
+	"\fc\0d\00"                          ;; elem.drop 0
 	"\0b"                                ;; end
 )
 
 (module
-	(table $t 8 8 anyfunc)
+	(table $t 8 8 funcref)
 	
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
@@ -600,29 +600,29 @@
 	(func $3 (type $type_i64) (result i64) i64.const 3)
 
 	(func (export "call_indirect i32") (param $index i32) (result i32)
-		(call_indirect (type $type_i32) (get_local $index))
+		(call_indirect (type $type_i32) (local.get $index))
 	)
 	
 	(func (export "call_indirect i64") (param $index i32) (result i64)
-		(call_indirect (type $type_i64) (get_local $index))
+		(call_indirect (type $type_i64) (local.get $index))
 	)
 
 	(func (export "table.init 0")
 		(param $destOffset i32)
 		(param $sourceOffset i32)
 		(param $numElements i32)
-		(table.init 0 $t (get_local $destOffset) (get_local $sourceOffset) (get_local $numElements))
+		(table.init 0 $t (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
 	)
 	
 	(func (export "table.init 1")
 		(param $destOffset i32)
 		(param $sourceOffset i32)
 		(param $numElements i32)
-		(table.init 1 $t (get_local $destOffset) (get_local $sourceOffset) (get_local $numElements))
+		(table.init 1 $t (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
 	)
 	
-	(func (export "table.drop 0") (table.drop 0))
-	(func (export "table.drop 1") (table.drop 1))
+	(func (export "elem.drop 0") (elem.drop 0))
+	(func (export "elem.drop 1") (elem.drop 1))
 )
 
 (assert_trap   (invoke "call_indirect i32" (i32.const 0)) "uninitialized element")
@@ -653,16 +653,16 @@
 (assert_trap   (invoke "table.init 0" (i32.const 0xffffffff) (i32.const 0) (i32.const 1)) "undefined element")
 (assert_trap   (invoke "table.init 0" (i32.const 0) (i32.const 0xffffffff) (i32.const 1)) "out of bounds elem segment access")
 
-(assert_return (invoke "table.drop 0"))
+(assert_return (invoke "elem.drop 0"))
 (assert_trap   (invoke "table.init 0" (i32.const 0) (i32.const 0) (i32.const 2)) "invalid argument")
-(assert_trap   (invoke "table.drop 0") "invalid argument")
+(assert_trap   (invoke "elem.drop 0") "invalid argument")
 (assert_return (invoke "table.init 1" (i32.const 0) (i32.const 0) (i32.const 2)))
 (assert_return (invoke "call_indirect i64" (i32.const 0)) (i64.const 2))
 (assert_return (invoke "call_indirect i64" (i32.const 1)) (i64.const 3))
 
-(assert_return (invoke "table.drop 1"))
+(assert_return (invoke "elem.drop 1"))
 (assert_trap   (invoke "table.init 1" (i32.const 0) (i32.const 0) (i32.const 2)) "invalid argument")
-(assert_trap   (invoke "table.drop 1") "invalid argument")
+(assert_trap   (invoke "elem.drop 1") "invalid argument")
 
 ;; table.copy
 
@@ -676,7 +676,7 @@
 	"\00"                                ;;   Function 0: type 0
 
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-	"\70\00\01"                          ;;   (table 1 anyfunc)
+	"\70\00\01"                          ;;   (table 1 funcref)
 	
 	"\09\04\01"                          ;; elem section: 7 bytes, 1 entry
 	"\01"                                ;;   [0] passive elem segment
@@ -703,7 +703,7 @@
 		"\00"                                ;;   Function 0: type 0
 
 		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
-		"\70\00\01"                          ;;   (table 1 anyfunc)
+		"\70\00\01"                          ;;   (table 1 funcref)
 	
 		"\09\04\01"                          ;; elem section: 7 bytes, 1 entry
 		"\01"                                ;;   [0] passive elem segment
@@ -722,7 +722,7 @@
 )
 
 (module
-	(table $t 8 8 anyfunc)
+	(table $t 8 8 funcref)
 	
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
@@ -735,18 +735,18 @@
 	(func $3 (type $type_i64) (result i64) i64.const 3)
 
 	(func (export "call_indirect i32") (param $index i32) (result i32)
-		(call_indirect (type $type_i32) (get_local $index))
+		(call_indirect (type $type_i32) (local.get $index))
 	)
 	
 	(func (export "call_indirect i64") (param $index i32) (result i64)
-		(call_indirect (type $type_i64) (get_local $index))
+		(call_indirect (type $type_i64) (local.get $index))
 	)
 
 	(func (export "table.copy")
 		(param $destOffset i32)
 		(param $sourceOffset i32)
 		(param $numElements i32)
-		(table.copy (get_local $destOffset) (get_local $sourceOffset) (get_local $numElements))
+		(table.copy (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
 	)
 )
 

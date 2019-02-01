@@ -62,7 +62,7 @@ namespace WAVM { namespace IR {
 		case -3: return ValueType::f32;
 		case -4: return ValueType::f64;
 		case -5: return ValueType::v128;
-		case -16: return ValueType::anyfunc;
+		case -16: return ValueType::funcref;
 		case -17: return ValueType::anyref;
 		default: throw FatalSerializationException("invalid value type encoding");
 		};
@@ -76,7 +76,7 @@ namespace WAVM { namespace IR {
 		case ValueType::f32: return -3;
 		case ValueType::f64: return -4;
 		case ValueType::v128: return -5;
-		case ValueType::anyfunc: return -16;
+		case ValueType::funcref: return -16;
 		case ValueType::anyref: return -17;
 		default: throw FatalSerializationException("invalid value type");
 		};
@@ -135,7 +135,7 @@ namespace WAVM { namespace IR {
 			serializeNativeValue(stream, encodedReferenceType);
 			switch(encodedReferenceType)
 			{
-			case 0x70: referenceType = ReferenceType::anyfunc; break;
+			case 0x70: referenceType = ReferenceType::funcref; break;
 			case 0x6F: referenceType = ReferenceType::anyref; break;
 			default: throw FatalSerializationException("invalid reference type encoding");
 			}
@@ -145,7 +145,7 @@ namespace WAVM { namespace IR {
 			U8 encodedReferenceType;
 			switch(referenceType)
 			{
-			case ReferenceType::anyfunc: encodedReferenceType = 0x70; break;
+			case ReferenceType::funcref: encodedReferenceType = 0x70; break;
 			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
 			default: Errors::unreachable();
 			}
@@ -215,7 +215,7 @@ namespace WAVM { namespace IR {
 		case InitializerExpression::Type::f32_const: serialize(stream, initializer.f32); break;
 		case InitializerExpression::Type::f64_const: serialize(stream, initializer.f64); break;
 		case InitializerExpression::Type::v128_const: serialize(stream, initializer.v128); break;
-		case InitializerExpression::Type::get_global:
+		case InitializerExpression::Type::global_get:
 			serializeVarUInt32(stream, initializer.globalRef);
 			break;
 		case InitializerExpression::Type::ref_null: break;

@@ -33,7 +33,7 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	case InitializerExpression::Type::f32_const: return expression.f32;
 	case InitializerExpression::Type::f64_const: return expression.f64;
 	case InitializerExpression::Type::v128_const: return expression.v128;
-	case InitializerExpression::Type::get_global:
+	case InitializerExpression::Type::global_get:
 	{
 		// Find the import this refers to.
 		errorUnless(expression.globalRef < moduleGlobals.size());

@@ -211,9 +211,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "atomic_wake",
+						  "atomic_notify",
 						  I32,
-						  atomic_wake,
+						  atomic_notify,
 						  U32 address,
 						  I32 numToWake,
 						  Uptr memoryId)

@@ -323,7 +323,7 @@ static int run(const CommandLineOptions& options)
 			case ValueType::f64: value = atof(options.args[i]); break;
 			case ValueType::v128:
 			case ValueType::anyref:
-			case ValueType::anyfunc:
+			case ValueType::funcref:
 				Errors::fatalf("Cannot parse command-line argument for %s function parameter",
 							   asString(functionType.params()[i]));
 			default: Errors::unreachable();

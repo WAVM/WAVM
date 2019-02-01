@@ -1,6 +1,6 @@
 (module
 
-	(import "threadTest" "createThread" (func $threadTest.createThread  (param anyfunc i32) (result i64)))
+	(import "threadTest" "createThread" (func $threadTest.createThread  (param funcref i32) (result i64)))
 	(import "threadTest" "forkThread" (func $threadTest.forkThread (result i64)))
 	(import "threadTest" "exitThread" (func $threadTest.exitThread (param i64)))
 	(import "threadTest" "detachThread" (func $threadTest.detachThread (param i64)))
@@ -11,17 +11,17 @@
 	(global $atomicAccumulatorAddress i32 (i32.const 0))
 
 	(func $initAccumulator
-		(i64.atomic.store (get_global $atomicAccumulatorAddress) (i64.const 0))
+		(i64.atomic.store (global.get $atomicAccumulatorAddress) (i64.const 0))
 		)
 
 	(func $atomicAccumulate (param $addend i64)
-		(drop (i64.atomic.rmw.add (get_global $atomicAccumulatorAddress) (get_local $addend)))
+		(drop (i64.atomic.rmw.add (global.get $atomicAccumulatorAddress) (local.get $addend)))
 		)
 
-	(func $getAccumulator (result i64) (i64.atomic.load (get_global $atomicAccumulatorAddress)))
+	(func $getAccumulator (result i64) (i64.atomic.load (global.get $atomicAccumulatorAddress)))
 
 	(func $createThreadEntry (param $argument i32) (result i64)
-		(call $atomicAccumulate (i64.extend_u/i32 (get_local $argument)))
+		(call $atomicAccumulate (i64.extend_i32_u (local.get $argument)))
 		i64.const 100
 		)
 
@@ -33,7 +33,7 @@
 		)
 		
 	(func $createThreadEntry2 (param $argument i32) (result i64)
-		(call $atomicAccumulate (i64.extend_u/i32 (get_local $argument)))
+		(call $atomicAccumulate (i64.extend_i32_u (local.get $argument)))
 		(call $threadTest.exitThread (i64.const 200))
 		unreachable
 		)
@@ -47,13 +47,13 @@
 
 	(func $createThreadEntry3 (param $argument i32) (result i64)
 		(local $forkedThread i64)
-		(set_local $forkedThread (call $threadTest.forkThread))
-		(i64.ne (get_local $forkedThread) (i64.const 0))
+		(local.set $forkedThread (call $threadTest.forkThread))
+		(i64.ne (local.get $forkedThread) (i64.const 0))
 		if
 			(call $atomicAccumulate (i64.const 17))
-			(drop (call $threadTest.joinThread (get_local $forkedThread)))
+			(drop (call $threadTest.joinThread (local.get $forkedThread)))
 		else
-			(call $atomicAccumulate (i64.extend_u/i32 (get_local $argument)))
+			(call $atomicAccumulate (i64.extend_i32_u (local.get $argument)))
 		end
 		i64.const 300
 		)
@@ -64,7 +64,7 @@
 			(call $initAccumulator)
 			(drop (call $threadTest.joinThread
 				(call $threadTest.createThread (ref.func $createThreadEntry3) (i32.const 13))))
-			(tee_local $i (i32.add (get_local $i) (i32.const 1)))
+			(local.tee $i (i32.add (local.get $i) (i32.const 1)))
 			i32.const 100
 			i32.lt_u
 			br_if $iterLoop
@@ -74,13 +74,13 @@
 
 	(func $createThreadEntry4 (param $argument i32) (result i64)
 		(local $forkedThread i64)
-		(set_local $forkedThread (call $threadTest.forkThread))
-		(i64.ne (get_local $forkedThread) (i64.const 0))
+		(local.set $forkedThread (call $threadTest.forkThread))
+		(i64.ne (local.get $forkedThread) (i64.const 0))
 		if
 			(call $atomicAccumulate (i64.const 19))
-			(drop (call $threadTest.joinThread (get_local $forkedThread)))
+			(drop (call $threadTest.joinThread (local.get $forkedThread)))
 		else
-			(call $atomicAccumulate (i64.extend_u/i32 (get_local $argument)))
+			(call $atomicAccumulate (i64.extend_i32_u (local.get $argument)))
 		end
 		(call $threadTest.exitThread (i64.const 400))
 		unreachable
@@ -92,7 +92,7 @@
 			(call $initAccumulator)
 			(drop (call $threadTest.joinThread
 				(call $threadTest.createThread (ref.func $createThreadEntry4) (i32.const 23))))
-			(tee_local $i (i32.add (get_local $i) (i32.const 1)))
+			(local.tee $i (i32.add (local.get $i) (i32.const 1)))
 			i32.const 100
 			i32.lt_u
 			br_if $iterLoop
@@ -102,11 +102,11 @@
 		
 	(func $createThreadEntry5 (param $argument i32) (result i64)
 		(local $forkedThread i64)
-		(set_local $forkedThread (call $threadTest.forkThread))
-		(i64.ne (get_local $forkedThread) (i64.const 0))
+		(local.set $forkedThread (call $threadTest.forkThread))
+		(i64.ne (local.get $forkedThread) (i64.const 0))
 		if
 			(call $atomicAccumulate
-				(call $threadTest.joinThread (get_local $forkedThread)))
+				(call $threadTest.joinThread (local.get $forkedThread)))
 		else
 			(call $atomicAccumulate (i64.const 29))
 		end
@@ -123,21 +123,21 @@
 
 	(func $createThreadEntry6 (param $argument i32) (result i64)
 		(local $forkedThread i64)
-		(set_local $forkedThread (call $threadTest.forkThread))
-		(i64.ne (get_local $forkedThread) (i64.const 0))
+		(local.set $forkedThread (call $threadTest.forkThread))
+		(i64.ne (local.get $forkedThread) (i64.const 0))
 		if (result i64)
 			(i64.mul
 				(i64.const 3)
-				(call $threadTest.joinThread (get_local $forkedThread)))
+				(call $threadTest.joinThread (local.get $forkedThread)))
 		else
-			(set_local $forkedThread (call $threadTest.forkThread))
-			(i64.ne (get_local $forkedThread) (i64.const 0))
+			(local.set $forkedThread (call $threadTest.forkThread))
+			(i64.ne (local.get $forkedThread) (i64.const 0))
 			if (result i64)
 				(i64.add
 					(i64.const 17)
-					(call $threadTest.joinThread (get_local $forkedThread)))
+					(call $threadTest.joinThread (local.get $forkedThread)))
 			else
-				(i64.extend_u/i32 (get_local $argument))
+				(i64.extend_i32_u (local.get $argument))
 			end
 		end
 		)
@@ -149,23 +149,23 @@
 
 	(func $createThreadEntry7 (param $argument i32) (result i64)
 		(local $forkedThread i64)
-		(set_local $forkedThread (call $threadTest.forkThread))
-		(i64.ne (get_local $forkedThread) (i64.const 0))
+		(local.set $forkedThread (call $threadTest.forkThread))
+		(i64.ne (local.get $forkedThread) (i64.const 0))
 		if
 			(i64.mul
 				(i64.const 5)
-				(call $threadTest.joinThread (get_local $forkedThread)))
+				(call $threadTest.joinThread (local.get $forkedThread)))
 			call $threadTest.exitThread
 		else
-			(set_local $forkedThread (call $threadTest.forkThread))
-			(i64.ne (get_local $forkedThread) (i64.const 0))
+			(local.set $forkedThread (call $threadTest.forkThread))
+			(i64.ne (local.get $forkedThread) (i64.const 0))
 			if
 				(i64.add
 					(i64.const 19)
-					(call $threadTest.joinThread (get_local $forkedThread)))
+					(call $threadTest.joinThread (local.get $forkedThread)))
 				call $threadTest.exitThread
 			else
-				(i64.extend_u/i32 (get_local $argument))
+				(i64.extend_i32_u (local.get $argument))
 				call $threadTest.exitThread
 			end
 		end
@@ -177,16 +177,16 @@
 			(call $threadTest.createThread (ref.func $createThreadEntry7) (i32.const 200)))
 		)
 
-	(func (export "atomic.wake") (param $numWaiters i32) (param $address i32) (result i32)
-		(atomic.wake (get_local $numWaiters) (get_local $address))
+	(func (export "atomic.notify") (param $numWaiters i32) (param $address i32) (result i32)
+		(atomic.notify (local.get $numWaiters) (local.get $address))
 		)
 
 	(func (export "i32.atomic.wait") (param $address i32) (param $expectedValue i32) (param $timeout f64) (result i32)
-		(i32.atomic.wait (get_local $address) (get_local $expectedValue) (get_local $timeout))
+		(i32.atomic.wait (local.get $address) (local.get $expectedValue) (local.get $timeout))
 		)
 
 	(func (export "i64.atomic.wait") (param $address i32) (param $expectedValue i64) (param $timeout f64) (result i32)
-		(i64.atomic.wait (get_local $address) (get_local $expectedValue) (get_local $timeout))
+		(i64.atomic.wait (local.get $address) (local.get $expectedValue) (local.get $timeout))
 		)
 )
 

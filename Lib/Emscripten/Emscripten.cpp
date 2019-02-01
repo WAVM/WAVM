@@ -757,7 +757,7 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 		return nullptr;
 	}
 
-	TableType tableType(ReferenceType::anyfunc, false, SizeConstraints{0, 0});
+	TableType tableType(ReferenceType::funcref, false, SizeConstraints{0, 0});
 	if(module.tables.imports.size() && module.tables.imports[0].moduleName == "env"
 	   && module.tables.imports[0].exportName == "table")
 	{ tableType = module.tables.imports[0].type; }

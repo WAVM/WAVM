@@ -369,9 +369,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "memory.drop",
+						  "data.drop",
 						  void,
-						  memory_drop,
+						  data_drop,
 						  Uptr moduleInstanceId,
 						  Uptr dataSegmentIndex)
 {

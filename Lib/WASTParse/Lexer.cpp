@@ -46,7 +46,9 @@ const char* WAST::describeToken(TokenType tokenType)
 struct StaticData
 {
 	NFA::Machine nfaMachine;
-	StaticData();
+	StaticData(bool allowLegacyOperatorNames);
+
+	static StaticData& get(bool allowLegacyOperatorNames);
 };
 
 static NFA::StateIndex createTokenSeparatorPeekState(NFA::Builder* builder,
@@ -70,10 +72,10 @@ static NFA::StateIndex createTokenSeparatorPeekState(NFA::Builder* builder,
 	return separatorState;
 }
 
-static void addLiteralToNFA(const char* string,
-							NFA::Builder* builder,
-							NFA::StateIndex initialState,
-							NFA::StateIndex finalState)
+static void addLiteralStringToNFA(const char* string,
+								  NFA::Builder* builder,
+								  NFA::StateIndex initialState,
+								  NFA::StateIndex finalState)
 {
 	// Add the literal to the NFA, one character at a time, reusing existing states that are
 	// reachable by the same string.
@@ -89,42 +91,96 @@ static void addLiteralToNFA(const char* string,
 	}
 }
 
-StaticData::StaticData()
+static void addLiteralTokenToNFA(const char* literalString,
+								 NFA::Builder* builder,
+								 TokenType tokenType,
+								 bool isTokenSeparator)
 {
-	// clang-format off
-	static const std::pair<TokenType, const char*> regexpTokenPairs[] = {
-		{t_decimalInt, "[+\\-]?\\d+(_\\d+)*"},
-		{t_decimalFloat, "[+\\-]?\\d+(_\\d+)*\\.(\\d+(_\\d+)*)*([eE][+\\-]?\\d+(_\\d+)*)?"},
-		{t_decimalFloat, "[+\\-]?\\d+(_\\d+)*[eE][+\\-]?\\d+(_\\d+)*"},
+	NFA::StateIndex finalState = NFA::maximumTerminalStateIndex - (NFA::StateIndex)tokenType;
+	if(!isTokenSeparator) { finalState = createTokenSeparatorPeekState(builder, finalState); }
 
-		{t_hexInt, "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*"},
-		{t_hexFloat, "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*\\.([\\da-fA-F]+(_[\\da-fA-F]+)*)*([pP][+\\-]?\\d+(_\\d+)*)?"},
-		{t_hexFloat, "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*[pP][+\\-]?\\d+(_\\d+)*"},
+	addLiteralStringToNFA(literalString, builder, 0, finalState);
+}
 
-		{t_floatNaN, "[+\\-]?nan(:0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*)?"},
-		{t_floatInf, "[+\\-]?inf"},
+StaticData::StaticData(bool allowLegacyOperatorNames)
+{
+// Legacy aliases for tokens.
+// clang-format off
+#define ENUM_LEGACY_TOKEN_ALIASES(v)                        \
+	v(funcref                 , "anyfunc"                 ) \
+															\
+	v(local_get               , "get_local"               ) \
+	v(local_set               , "set_local"               ) \
+	v(local_tee               , "tee_local"               ) \
+	v(global_get              , "get_global"              ) \
+	v(global_set              , "set_global"              ) \
+															\
+	v(i32_wrap_i64            , "i32.wrap/i64"            ) \
+	v(i32_trunc_f32_s         , "i32.trunc_s/f32"         ) \
+	v(i32_trunc_f32_u         , "i32.trunc_u/f32"         ) \
+	v(i32_trunc_f64_s         , "i32.trunc_s/f64"         ) \
+	v(i32_trunc_f64_u         , "i32.trunc_u/f64"         ) \
+	v(i64_extend_i32_s        , "i64.extend_s/i32"        ) \
+	v(i64_extend_i32_u        , "i64.extend_u/i32"        ) \
+	v(i64_trunc_f32_s         , "i64.trunc_s/f32"         ) \
+	v(i64_trunc_f32_u         , "i64.trunc_u/f32"         ) \
+	v(i64_trunc_f64_s         , "i64.trunc_s/f64"         ) \
+	v(i64_trunc_f64_u         , "i64.trunc_u/f64"         ) \
+	v(f32_convert_i32_s       , "f32.convert_s/i32"       ) \
+	v(f32_convert_i32_u       , "f32.convert_u/i32"       ) \
+	v(f32_convert_i64_s       , "f32.convert_s/i64"       ) \
+	v(f32_convert_i64_u       , "f32.convert_u/i64"       ) \
+	v(f32_demote_f64          , "f32.demote/f64"          ) \
+	v(f64_convert_i32_s       , "f64.convert_s/i32"       ) \
+	v(f64_convert_i32_u       , "f64.convert_u/i32"       ) \
+	v(f64_convert_i64_s       , "f64.convert_s/i64"       ) \
+	v(f64_convert_i64_u       , "f64.convert_u/i64"       ) \
+	v(f64_promote_f32         , "f64.promote/f32"         ) \
+	v(i32_reinterpret_f32     , "i32.reinterpret/f32"     ) \
+	v(i64_reinterpret_f64     , "i64.reinterpret/f64"     ) \
+	v(f32_reinterpret_i32     , "f32.reinterpret/i32"     ) \
+	v(f64_reinterpret_i64     , "f64.reinterpret/i64"     )
 
-		{t_string, "\"([^\"\n\\\\]*(\\\\([^0-9a-fA-Fu]|[0-9a-fA-F][0-9a-fA-F]|u\\{[0-9a-fA-F]+})))*\""},
+static const std::pair<TokenType, const char*> regexpTokenPairs[] = {
+	{t_decimalInt, "[+\\-]?\\d+(_\\d+)*"},
+	{t_decimalFloat, "[+\\-]?\\d+(_\\d+)*\\.(\\d+(_\\d+)*)*([eE][+\\-]?\\d+(_\\d+)*)?"},
+	{t_decimalFloat, "[+\\-]?\\d+(_\\d+)*[eE][+\\-]?\\d+(_\\d+)*"},
 
-		{t_name, "\\$[a-zA-Z0-9\'_+*/~=<>!?@#$%&|:`.\\-\\^\\\\]+"},
-		{t_quotedName, "\\$\"([^\"\n\\\\]*(\\\\([^0-9a-fA-Fu]|[0-9a-fA-F][0-9a-fA-F]|u\\{[0-9a-fA-F]+})))*\""},
-	};
+	{t_hexInt, "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*"},
+	{t_hexFloat, "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*\\.([\\da-fA-F]+(_[\\da-fA-F]+)*)*([pP][+\\-]?\\d+(_\\d+)*)?"},
+	{t_hexFloat, "[+\\-]?0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*[pP][+\\-]?\\d+(_\\d+)*"},
+
+	{t_floatNaN, "[+\\-]?nan(:0[xX][\\da-fA-F]+(_[\\da-fA-F]+)*)?"},
+	{t_floatInf, "[+\\-]?inf"},
+
+	{t_string, "\"([^\"\n\\\\]*(\\\\([^0-9a-fA-Fu]|[0-9a-fA-F][0-9a-fA-F]|u\\{[0-9a-fA-F]+})))*\""},
+
+	{t_name, "\\$[a-zA-Z0-9\'_+*/~=<>!?@#$%&|:`.\\-\\^\\\\]+"},
+	{t_quotedName, "\\$\"([^\"\n\\\\]*(\\\\([^0-9a-fA-Fu]|[0-9a-fA-F][0-9a-fA-F]|u\\{[0-9a-fA-F]+})))*\""},
+};
+
+static const std::tuple<TokenType, const char*, bool> literalTokenTuples[] = {
+	std::make_tuple(t_leftParenthesis, "(", true),
+	std::make_tuple(t_rightParenthesis, ")", true),
+	std::make_tuple(t_equals, "=", true),
+
+	#define VISIT_TOKEN(name, _, literalString) std::make_tuple(t_##name, literalString, false),
+	ENUM_LITERAL_TOKENS()
+	#undef VISIT_TOKEN
+
+	#undef VISIT_OPERATOR_TOKEN
+	#define VISIT_OPERATOR_TOKEN(_, name, nameString, ...) std::make_tuple(t_##name, nameString, false),
+	ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
+	#undef VISIT_OPERATOR_TOKEN
+};
+
+static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
+	#undef VISIT_LEGACY_OPERATOR_ALIAS
+	#define VISIT_LEGACY_OPERATOR_ALIAS(name, aliasString) std::make_tuple(t_##name, aliasString),
+	ENUM_LEGACY_TOKEN_ALIASES(VISIT_LEGACY_OPERATOR_ALIAS)
+	#undef VISIT_LEGACY_OPERATOR_ALIAS
+};
 	// clang-format on
-
-	static const std::tuple<TokenType, const char*, bool> literalTokenTuples[]
-		= {std::make_tuple(t_leftParenthesis, "(", true),
-		   std::make_tuple(t_rightParenthesis, ")", true),
-		   std::make_tuple(t_equals, "=", true),
-
-#define VISIT_TOKEN(name, _, literalString) std::make_tuple(t_##name, literalString, false),
-		   ENUM_LITERAL_TOKENS()
-#undef VISIT_TOKEN
-
-#undef VISIT_OPERATOR_TOKEN
-#define VISIT_OPERATOR_TOKEN(_, name, nameString, ...) std::make_tuple(t_##name, nameString, false),
-			   ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
-#undef VISIT_OPERATOR_TOKEN
-		};
 
 	Timing::Timer timer;
 
@@ -143,12 +199,17 @@ StaticData::StaticData()
 		const TokenType tokenType = std::get<0>(literalTokenTuple);
 		const char* literalString = std::get<1>(literalTokenTuple);
 		const bool isTokenSeparator = std::get<2>(literalTokenTuple);
+		addLiteralTokenToNFA(literalString, nfaBuilder, tokenType, isTokenSeparator);
+	}
 
-		NFA::StateIndex finalState = NFA::maximumTerminalStateIndex - (NFA::StateIndex)tokenType;
-		if(!isTokenSeparator)
-		{ finalState = createTokenSeparatorPeekState(nfaBuilder, finalState); }
-
-		addLiteralToNFA(literalString, nfaBuilder, 0, finalState);
+	if(allowLegacyOperatorNames)
+	{
+		for(auto legacyOperatorAliasTuple : legacyOperatorAliasTuples)
+		{
+			const TokenType tokenType = std::get<0>(legacyOperatorAliasTuple);
+			const char* literalString = std::get<1>(legacyOperatorAliasTuple);
+			addLiteralTokenToNFA(literalString, nfaBuilder, tokenType, false);
+		}
 	}
 
 	if(DUMP_NFA_GRAPH)
@@ -168,6 +229,20 @@ StaticData::StaticData()
 	Timing::logTimer("built lexer tables", timer);
 }
 
+StaticData& StaticData::get(bool allowLegacyOperatorNames)
+{
+	if(allowLegacyOperatorNames)
+	{
+		static StaticData staticData(true);
+		return staticData;
+	}
+	else
+	{
+		static StaticData staticData(false);
+		return staticData;
+	}
+}
+
 inline bool isRecoveryPointChar(char c)
 {
 	switch(c)
@@ -184,12 +259,15 @@ inline bool isRecoveryPointChar(char c)
 	};
 }
 
-Token* WAST::lex(const char* string, Uptr stringLength, LineInfo*& outLineInfo)
+Token* WAST::lex(const char* string,
+				 Uptr stringLength,
+				 LineInfo*& outLineInfo,
+				 bool allowLegacyOperatorNames)
 {
 	errorUnless(string);
 	errorUnless(string[stringLength - 1] == 0);
 
-	static StaticData staticData;
+	StaticData& staticData = StaticData::get(allowLegacyOperatorNames);
 
 	Timing::Timer timer;
 

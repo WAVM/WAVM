@@ -59,7 +59,7 @@ struct StubResolver : Runtime::Resolver
 				case IR::ValueType::f64: encoder.f64_const({0.0}); break;
 				case IR::ValueType::v128: encoder.v128_const({V128{{0, 0}}}); break;
 				case IR::ValueType::anyref:
-				case IR::ValueType::anyfunc:
+				case IR::ValueType::funcref:
 				case IR::ValueType::nullref: encoder.ref_null(); break;
 				default: Errors::unreachable();
 				};

@@ -59,8 +59,8 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 		= diBuilder.createBasicType("v128", 128, llvm::dwarf::DW_ATE_signed);
 	diValueTypes[(Uptr)ValueType::anyref]
 		= diBuilder.createBasicType("anyref", 8, llvm::dwarf::DW_ATE_address);
-	diValueTypes[(Uptr)ValueType::anyfunc]
-		= diBuilder.createBasicType("anyfunc", 8, llvm::dwarf::DW_ATE_address);
+	diValueTypes[(Uptr)ValueType::funcref]
+		= diBuilder.createBasicType("funcref", 8, llvm::dwarf::DW_ATE_address);
 	diValueTypes[(Uptr)ValueType::nullref]
 		= diBuilder.createBasicType("nullref", 8, llvm::dwarf::DW_ATE_address);
 

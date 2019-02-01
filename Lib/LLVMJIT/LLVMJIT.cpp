@@ -126,7 +126,7 @@ LLVMContext::LLVMContext()
 	valueTypes[(Uptr)ValueType::f64] = f64Type;
 	valueTypes[(Uptr)ValueType::v128] = i64x2Type;
 	valueTypes[(Uptr)ValueType::anyref] = anyrefType;
-	valueTypes[(Uptr)ValueType::anyfunc] = anyrefType;
+	valueTypes[(Uptr)ValueType::funcref] = anyrefType;
 
 	// Create zero constants of each type.
 	typedZeroConstants[(Uptr)ValueType::none] = nullptr;
@@ -136,6 +136,6 @@ LLVMContext::LLVMContext()
 	typedZeroConstants[(Uptr)ValueType::f32] = emitLiteral(*this, (F32)0.0f);
 	typedZeroConstants[(Uptr)ValueType::f64] = emitLiteral(*this, (F64)0.0);
 	typedZeroConstants[(Uptr)ValueType::v128] = emitLiteral(*this, V128());
-	typedZeroConstants[(Uptr)ValueType::anyref] = typedZeroConstants[(Uptr)ValueType::anyfunc]
+	typedZeroConstants[(Uptr)ValueType::anyref] = typedZeroConstants[(Uptr)ValueType::funcref]
 		= typedZeroConstants[(Uptr)ValueType::nullref] = llvm::Constant::getNullValue(anyrefType);
 }

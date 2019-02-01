@@ -12,13 +12,13 @@
 
   (func $main (result i32)
     (local $stdout i32)
-    (set_local $stdout (i32.load align=4 (get_global $stdoutPtr)))
+    (local.set $stdout (i32.load align=4 (global.get $stdoutPtr)))
 
     (return (call $__fwrite
        (i32.const 8)         ;; void *ptr    => Address of our string
        (i32.const 1)         ;; size_t size  => Data size
        (i32.const 13)        ;; size_t nmemb => Length of our string
-       (get_local $stdout))  ;; stream
+       (local.get $stdout))  ;; stream
     )
   )
 )

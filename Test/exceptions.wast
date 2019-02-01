@@ -5,20 +5,20 @@
   (exception_type $d (export "d"))
 
   (type $i32_to_void_sig (func (param i32)))
-  (func $throw_a (export "throw_a") (type $i32_to_void_sig) (param i32) (throw $a (get_local 0)))
-  (func $throw_b (export "throw_b") (type $i32_to_void_sig) (param i32) (throw $b (get_local 0)))
-  (func $throw_c (export "throw_c") (param i32 f64) (throw $c (get_local 0) (get_local 1)))
+  (func $throw_a (export "throw_a") (type $i32_to_void_sig) (param i32) (throw $a (local.get 0)))
+  (func $throw_b (export "throw_b") (type $i32_to_void_sig) (param i32) (throw $b (local.get 0)))
+  (func $throw_c (export "throw_c") (param i32 f64) (throw $c (local.get 0) (local.get 1)))
   (func $throw_d (export "throw_d") (throw $d))
   (func $no_throw (export "no_throw") (type $i32_to_void_sig) (param i32))
   (func $divide_by_zero (export "divide_by_zero") (type $i32_to_void_sig) (param i32)
-    get_local 0
+    local.get 0
     i32.const 0
     i32.div_s
     drop
     )
 
 
-  (table anyfunc (elem $no_throw $divide_by_zero $throw_a $throw_b))
+  (table funcref (elem $no_throw $divide_by_zero $throw_a $throw_b))
 
   (func (export "try_without_throw") (result i32)
     try (result i32)
@@ -67,7 +67,7 @@
 
     (func (export "catch_all") (param $thunk i32) (result i32)
       try (result i32)
-        (call_indirect (type $i32_to_void_sig) (i32.const 13) (get_local $thunk))
+        (call_indirect (type $i32_to_void_sig) (i32.const 13) (local.get $thunk))
         i32.const 14
       catch_all
         i32.const 15

@@ -33,28 +33,28 @@ using namespace WAVM::LLVMJIT;
 	}
 
 EMIT_UNARY_OP(i32_wrap_i64, trunc(operand, llvmContext.i32Type))
-EMIT_UNARY_OP(i64_extend_s_i32, sext(operand, llvmContext.i64Type))
-EMIT_UNARY_OP(i64_extend_u_i32, zext(operand, llvmContext.i64Type))
+EMIT_UNARY_OP(i64_extend_i32_s, sext(operand, llvmContext.i64Type))
+EMIT_UNARY_OP(i64_extend_i32_u, zext(operand, llvmContext.i64Type))
 
-EMIT_UNARY_OP(f32_convert_s_i32, irBuilder.CreateSIToFP(operand, llvmContext.f32Type))
-EMIT_UNARY_OP(f64_convert_s_i32, irBuilder.CreateSIToFP(operand, llvmContext.f64Type))
-EMIT_UNARY_OP(f32_convert_s_i64, irBuilder.CreateSIToFP(operand, llvmContext.f32Type))
-EMIT_UNARY_OP(f64_convert_s_i64, irBuilder.CreateSIToFP(operand, llvmContext.f64Type))
-EMIT_UNARY_OP(f32_convert_u_i32, irBuilder.CreateUIToFP(operand, llvmContext.f32Type))
-EMIT_UNARY_OP(f64_convert_u_i32, irBuilder.CreateUIToFP(operand, llvmContext.f64Type))
-EMIT_UNARY_OP(f32_convert_u_i64, irBuilder.CreateUIToFP(operand, llvmContext.f32Type))
-EMIT_UNARY_OP(f64_convert_u_i64, irBuilder.CreateUIToFP(operand, llvmContext.f64Type))
+EMIT_UNARY_OP(f32_convert_i32_s, irBuilder.CreateSIToFP(operand, llvmContext.f32Type))
+EMIT_UNARY_OP(f64_convert_i32_s, irBuilder.CreateSIToFP(operand, llvmContext.f64Type))
+EMIT_UNARY_OP(f32_convert_i64_s, irBuilder.CreateSIToFP(operand, llvmContext.f32Type))
+EMIT_UNARY_OP(f64_convert_i64_s, irBuilder.CreateSIToFP(operand, llvmContext.f64Type))
+EMIT_UNARY_OP(f32_convert_i32_u, irBuilder.CreateUIToFP(operand, llvmContext.f32Type))
+EMIT_UNARY_OP(f64_convert_i32_u, irBuilder.CreateUIToFP(operand, llvmContext.f64Type))
+EMIT_UNARY_OP(f32_convert_i64_u, irBuilder.CreateUIToFP(operand, llvmContext.f32Type))
+EMIT_UNARY_OP(f64_convert_i64_u, irBuilder.CreateUIToFP(operand, llvmContext.f64Type))
 
-EMIT_UNARY_OP(f32x4_convert_s_i32x4,
+EMIT_UNARY_OP(f32x4_convert_i32x4_s,
 			  irBuilder.CreateSIToFP(irBuilder.CreateBitCast(operand, llvmContext.i32x4Type),
 									 llvmContext.f32x4Type));
-EMIT_UNARY_OP(f32x4_convert_u_i32x4,
+EMIT_UNARY_OP(f32x4_convert_i32x4_u,
 			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmContext.i32x4Type),
 									 llvmContext.f32x4Type));
-EMIT_UNARY_OP(f64x2_convert_s_i64x2,
+EMIT_UNARY_OP(f64x2_convert_i64x2_s,
 			  irBuilder.CreateSIToFP(irBuilder.CreateBitCast(operand, llvmContext.i64x2Type),
 									 llvmContext.f64x2Type));
-EMIT_UNARY_OP(f64x2_convert_u_i64x2,
+EMIT_UNARY_OP(f64x2_convert_i64x2_u,
 			  irBuilder.CreateUIToFP(irBuilder.CreateBitCast(operand, llvmContext.i64x2Type),
 									 llvmContext.f64x2Type));
 
@@ -118,32 +118,32 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToInt(ValueType destType,
 // float that would be truncated to an integer out of range of the target type.
 
 EMIT_UNARY_OP(
-	i32_trunc_s_f32,
+	i32_trunc_f32_s,
 	emitTruncFloatToInt<F32>(ValueType::i32, true, -2147483904.0f, 2147483648.0f, operand))
-EMIT_UNARY_OP(i32_trunc_s_f64,
+EMIT_UNARY_OP(i32_trunc_f64_s,
 			  emitTruncFloatToInt<F64>(ValueType::i32, true, -2147483649.0, 2147483648.0, operand))
-EMIT_UNARY_OP(i32_trunc_u_f32,
+EMIT_UNARY_OP(i32_trunc_f32_u,
 			  emitTruncFloatToInt<F32>(ValueType::i32, false, -1.0f, 4294967296.0f, operand))
-EMIT_UNARY_OP(i32_trunc_u_f64,
+EMIT_UNARY_OP(i32_trunc_f64_u,
 			  emitTruncFloatToInt<F64>(ValueType::i32, false, -1.0, 4294967296.0, operand))
 
-EMIT_UNARY_OP(i64_trunc_s_f32,
+EMIT_UNARY_OP(i64_trunc_f32_s,
 			  emitTruncFloatToInt<F32>(ValueType::i64,
 									   true,
 									   -9223373136366403584.0f,
 									   9223372036854775808.0f,
 									   operand))
-EMIT_UNARY_OP(i64_trunc_s_f64,
+EMIT_UNARY_OP(i64_trunc_f64_s,
 			  emitTruncFloatToInt<F64>(ValueType::i64,
 									   true,
 									   -9223372036854777856.0,
 									   9223372036854775808.0,
 									   operand))
 EMIT_UNARY_OP(
-	i64_trunc_u_f32,
+	i64_trunc_f32_u,
 	emitTruncFloatToInt<F32>(ValueType::i64, false, -1.0f, 18446744073709551616.0f, operand))
 EMIT_UNARY_OP(
-	i64_trunc_u_f64,
+	i64_trunc_f64_u,
 	emitTruncFloatToInt<F64>(ValueType::i64, false, -1.0, 18446744073709551616.0, operand))
 
 template<typename Int, typename Float>
@@ -174,7 +174,7 @@ llvm::Value* EmitFunctionContext::emitTruncFloatToIntSat(llvm::Type* destType,
 	return result;
 }
 
-EMIT_UNARY_OP(i32_trunc_s_sat_f32,
+EMIT_UNARY_OP(i32_trunc_sat_f32_s,
 			  emitTruncFloatToIntSat(llvmContext.i32Type,
 									 true,
 									 F32(INT32_MIN),
@@ -182,7 +182,7 @@ EMIT_UNARY_OP(i32_trunc_s_sat_f32,
 									 INT32_MIN,
 									 INT32_MAX,
 									 operand))
-EMIT_UNARY_OP(i32_trunc_s_sat_f64,
+EMIT_UNARY_OP(i32_trunc_sat_f64_s,
 			  emitTruncFloatToIntSat(llvmContext.i32Type,
 									 true,
 									 F64(INT32_MIN),
@@ -190,7 +190,7 @@ EMIT_UNARY_OP(i32_trunc_s_sat_f64,
 									 INT32_MIN,
 									 INT32_MAX,
 									 operand))
-EMIT_UNARY_OP(i32_trunc_u_sat_f32,
+EMIT_UNARY_OP(i32_trunc_sat_f32_u,
 			  emitTruncFloatToIntSat(llvmContext.i32Type,
 									 false,
 									 0.0f,
@@ -198,7 +198,7 @@ EMIT_UNARY_OP(i32_trunc_u_sat_f32,
 									 U32(0),
 									 UINT32_MAX,
 									 operand))
-EMIT_UNARY_OP(i32_trunc_u_sat_f64,
+EMIT_UNARY_OP(i32_trunc_sat_f64_u,
 			  emitTruncFloatToIntSat(llvmContext.i32Type,
 									 false,
 									 0.0,
@@ -206,7 +206,7 @@ EMIT_UNARY_OP(i32_trunc_u_sat_f64,
 									 U32(0),
 									 UINT32_MAX,
 									 operand))
-EMIT_UNARY_OP(i64_trunc_s_sat_f32,
+EMIT_UNARY_OP(i64_trunc_sat_f32_s,
 			  emitTruncFloatToIntSat(llvmContext.i64Type,
 									 true,
 									 F32(INT64_MIN),
@@ -214,7 +214,7 @@ EMIT_UNARY_OP(i64_trunc_s_sat_f32,
 									 INT64_MIN,
 									 INT64_MAX,
 									 operand))
-EMIT_UNARY_OP(i64_trunc_s_sat_f64,
+EMIT_UNARY_OP(i64_trunc_sat_f64_s,
 			  emitTruncFloatToIntSat(llvmContext.i64Type,
 									 true,
 									 F64(INT64_MIN),
@@ -222,7 +222,7 @@ EMIT_UNARY_OP(i64_trunc_s_sat_f64,
 									 INT64_MIN,
 									 INT64_MAX,
 									 operand))
-EMIT_UNARY_OP(i64_trunc_u_sat_f32,
+EMIT_UNARY_OP(i64_trunc_sat_f32_u,
 			  emitTruncFloatToIntSat(llvmContext.i64Type,
 									 false,
 									 0.0f,
@@ -230,7 +230,7 @@ EMIT_UNARY_OP(i64_trunc_u_sat_f32,
 									 U64(0),
 									 UINT64_MAX,
 									 operand))
-EMIT_UNARY_OP(i64_trunc_u_sat_f64,
+EMIT_UNARY_OP(i64_trunc_sat_f64_u,
 			  emitTruncFloatToIntSat(llvmContext.i64Type,
 									 false,
 									 0.0,
@@ -273,7 +273,7 @@ llvm::Value* EmitFunctionContext::emitTruncVectorFloatToIntSat(llvm::Type* destT
 }
 
 EMIT_UNARY_OP(
-	i32x4_trunc_s_sat_f32x4,
+	i32x4_trunc_sat_f32x4_s,
 	(emitTruncVectorFloatToIntSat<I32, F32, 4>)(llvmContext.i32x4Type,
 												true,
 												F32(INT32_MIN),
@@ -284,7 +284,7 @@ EMIT_UNARY_OP(
 												irBuilder.CreateBitCast(operand,
 																		llvmContext.f32x4Type)))
 EMIT_UNARY_OP(
-	i32x4_trunc_u_sat_f32x4,
+	i32x4_trunc_sat_f32x4_u,
 	(emitTruncVectorFloatToIntSat<U32, F32, 4>)(llvmContext.i32x4Type,
 												false,
 												0.0f,
@@ -295,7 +295,7 @@ EMIT_UNARY_OP(
 												irBuilder.CreateBitCast(operand,
 																		llvmContext.f32x4Type)))
 EMIT_UNARY_OP(
-	i64x2_trunc_s_sat_f64x2,
+	i64x2_trunc_sat_f64x2_s,
 	(emitTruncVectorFloatToIntSat<I64, F64, 2>)(llvmContext.i64x2Type,
 												true,
 												F64(INT64_MIN),
@@ -306,7 +306,7 @@ EMIT_UNARY_OP(
 												irBuilder.CreateBitCast(operand,
 																		llvmContext.f64x2Type)))
 EMIT_UNARY_OP(
-	i64x2_trunc_u_sat_f64x2,
+	i64x2_trunc_sat_f64x2_u,
 	(emitTruncVectorFloatToIntSat<U64, F64, 2>)(llvmContext.i64x2Type,
 												false,
 												0.0,

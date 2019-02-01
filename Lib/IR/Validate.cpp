@@ -49,7 +49,7 @@ static void validate(const IR::FeatureSpec& featureSpec, IR::ValueType valueType
 	case ValueType::f64: isValid = featureSpec.mvp; break;
 	case ValueType::v128: isValid = featureSpec.simd; break;
 	case ValueType::anyref:
-	case ValueType::anyfunc: isValid = featureSpec.referenceTypes; break;
+	case ValueType::funcref: isValid = featureSpec.referenceTypes; break;
 	default: isValid = false;
 	};
 
@@ -69,7 +69,7 @@ static void validate(const IR::FeatureSpec& featureSpec, ReferenceType type)
 	bool isValid;
 	switch(type)
 	{
-	case ReferenceType::anyfunc: isValid = featureSpec.mvp; break;
+	case ReferenceType::funcref: isValid = featureSpec.mvp; break;
 	case ReferenceType::anyref: isValid = featureSpec.referenceTypes; break;
 	default: isValid = false;
 	}
@@ -207,7 +207,7 @@ static void validateInitializer(const Module& module,
 	case InitializerExpression::Type::v128_const:
 		validateType(expectedType, ValueType::v128, context);
 		break;
-	case InitializerExpression::Type::get_global:
+	case InitializerExpression::Type::global_get:
 	{
 		const ValueType globalValueType = validateGlobalIndex(
 			module, expression.globalRef, false, true, true, "initializer expression global index");
@@ -503,31 +503,31 @@ struct FunctionValidationContext
 		}
 	}
 
-	void get_local(GetOrSetVariableImm<false> imm)
+	void local_get(GetOrSetVariableImm<false> imm)
 	{
 		pushOperand(validateLocalIndex(imm.variableIndex));
 	}
-	void set_local(GetOrSetVariableImm<false> imm)
+	void local_set(GetOrSetVariableImm<false> imm)
 	{
-		popAndValidateOperand("set_local", validateLocalIndex(imm.variableIndex));
+		popAndValidateOperand("local.set", validateLocalIndex(imm.variableIndex));
 	}
-	void tee_local(GetOrSetVariableImm<false> imm)
+	void local_tee(GetOrSetVariableImm<false> imm)
 	{
 		const ValueType localType = validateLocalIndex(imm.variableIndex);
-		const ValueType operandType = popAndValidateOperand("tee_local", localType);
+		const ValueType operandType = popAndValidateOperand("local.tee", localType);
 		pushOperand(operandType);
 	}
 
-	void get_global(GetOrSetVariableImm<true> imm)
+	void global_get(GetOrSetVariableImm<true> imm)
 	{
 		pushOperand(
-			validateGlobalIndex(module, imm.variableIndex, false, false, false, "get_global"));
+			validateGlobalIndex(module, imm.variableIndex, false, false, false, "global.get"));
 	}
-	void set_global(GetOrSetVariableImm<true> imm)
+	void global_set(GetOrSetVariableImm<true> imm)
 	{
 		popAndValidateOperand(
-			"set_global",
-			validateGlobalIndex(module, imm.variableIndex, true, false, false, "set_global"));
+			"global.set",
+			validateGlobalIndex(module, imm.variableIndex, true, false, false, "global.set"));
 	}
 
 	void table_get(TableImm imm)
@@ -572,8 +572,8 @@ struct FunctionValidationContext
 	{
 		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
 		VALIDATE_UNLESS(
-			"call_indirect requires a table element type of anyfunc: ",
-			module.tables.getType(imm.tableIndex).elementType != ReferenceType::anyfunc);
+			"call_indirect requires a table element type of funcref: ",
+			module.tables.getType(imm.tableIndex).elementType != ReferenceType::funcref);
 		FunctionType calleeType = validateFunctionType(module, imm.type);
 		popAndValidateOperand("call_indirect function index", ValueType::i32);
 		popAndValidateTypeTuple("call_indirect arguments", calleeType.params());
@@ -951,8 +951,8 @@ void IR::validateElemSegments(const Module& module)
 		{
 			VALIDATE_INDEX(elemSegment.tableIndex, module.tables.size());
 			const TableType& tableType = module.tables.getType(elemSegment.tableIndex);
-			VALIDATE_UNLESS("active elem segments must be in anyfunc tables: ",
-							tableType.elementType != ReferenceType::anyfunc);
+			VALIDATE_UNLESS("active elem segments must be in funcref tables: ",
+							tableType.elementType != ReferenceType::funcref);
 			validateInitializer(
 				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
 		}

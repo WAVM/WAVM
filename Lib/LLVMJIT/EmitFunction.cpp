@@ -394,7 +394,7 @@ void EmitFunctionContext::emit()
 	{
 		emitRuntimeIntrinsic(
 			"debugEnterFunction",
-			FunctionType({}, {ValueType::anyfunc}),
+			FunctionType({}, {ValueType::funcref}),
 			{llvm::ConstantExpr::getSub(
 				llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
 				emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))))});
@@ -423,7 +423,7 @@ void EmitFunctionContext::emit()
 	{
 		emitRuntimeIntrinsic(
 			"debugExitFunction",
-			FunctionType({}, {ValueType::anyfunc}),
+			FunctionType({}, {ValueType::funcref}),
 			{llvm::ConstantExpr::getSub(
 				llvm::ConstantExpr::getPtrToInt(function, llvmContext.iptrType),
 				emitLiteral(llvmContext, Uptr(offsetof(Runtime::Function, code))))});

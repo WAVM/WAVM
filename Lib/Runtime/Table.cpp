@@ -457,9 +457,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "table.drop",
+						  "elem.drop",
 						  void,
-						  table_drop,
+						  elem_drop,
 						  Uptr moduleInstanceId,
 						  Uptr elemSegmentIndex)
 {

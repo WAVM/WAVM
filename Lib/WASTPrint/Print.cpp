@@ -184,7 +184,7 @@ static void print(std::string& string, ReferenceType type)
 {
 	switch(type)
 	{
-	case ReferenceType::anyfunc: string += "anyfunc"; break;
+	case ReferenceType::funcref: string += "funcref"; break;
 	case ReferenceType::anyref: string += "anyref"; break;
 	default: Errors::unreachable();
 	}
@@ -328,8 +328,8 @@ struct ModulePrintContext
 		case InitializerExpression::Type::v128_const:
 			string += "(v128.const " + asString(expression.v128) + ')';
 			break;
-		case InitializerExpression::Type::get_global:
-			string += "(get_global " + names.globals[expression.globalRef] + ')';
+		case InitializerExpression::Type::global_get:
+			string += "(global.get " + names.globals[expression.globalRef] + ')';
 			break;
 		case InitializerExpression::Type::ref_null: string += "(ref.null)"; break;
 		default: Errors::unreachable();
@@ -454,26 +454,26 @@ struct FunctionPrintContext
 
 	void select(NoImm) { string += "\nselect"; }
 
-	void get_local(GetOrSetVariableImm<false> imm)
+	void local_get(GetOrSetVariableImm<false> imm)
 	{
-		string += "\nget_local " + localNames[imm.variableIndex];
+		string += "\nlocal.get " + localNames[imm.variableIndex];
 	}
-	void set_local(GetOrSetVariableImm<false> imm)
+	void local_set(GetOrSetVariableImm<false> imm)
 	{
-		string += "\nset_local " + localNames[imm.variableIndex];
+		string += "\nlocal.set " + localNames[imm.variableIndex];
 	}
-	void tee_local(GetOrSetVariableImm<false> imm)
+	void local_tee(GetOrSetVariableImm<false> imm)
 	{
-		string += "\ntee_local " + localNames[imm.variableIndex];
+		string += "\nlocal.tee " + localNames[imm.variableIndex];
 	}
 
-	void get_global(GetOrSetVariableImm<true> imm)
+	void global_get(GetOrSetVariableImm<true> imm)
 	{
-		string += "\nget_global " + moduleContext.names.globals[imm.variableIndex];
+		string += "\nglobal.get " + moduleContext.names.globals[imm.variableIndex];
 	}
-	void set_global(GetOrSetVariableImm<true> imm)
+	void global_set(GetOrSetVariableImm<true> imm)
 	{
-		string += "\nset_global " + moduleContext.names.globals[imm.variableIndex];
+		string += "\nglobal.set " + moduleContext.names.globals[imm.variableIndex];
 	}
 
 	void table_get(TableImm imm)

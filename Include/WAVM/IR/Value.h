@@ -56,7 +56,7 @@ namespace WAVM { namespace IR {
 		{
 		}
 		Value(Runtime::Object* inObject) : UntaggedValue(inObject), type(ValueType::anyref) {}
-		Value(Runtime::Function* inFunction) : UntaggedValue(inFunction), type(ValueType::anyfunc)
+		Value(Runtime::Function* inFunction) : UntaggedValue(inFunction), type(ValueType::funcref)
 		{
 		}
 		Value(ValueType inType, UntaggedValue inValue) : UntaggedValue(inValue), type(inType) {}
@@ -72,15 +72,15 @@ namespace WAVM { namespace IR {
 			case ValueType::f64: return "f64.const " + asString(value.f64);
 			case ValueType::v128: return "v128.const " + asString(value.v128);
 			case ValueType::anyref:
-			case ValueType::anyfunc:
+			case ValueType::funcref:
 			{
 				// buffer needs 27 characters:
-				// (anyref|anyfunc) 0xHHHHHHHHHHHHHHHH\0
+				// (anyref|funcref) 0xHHHHHHHHHHHHHHHH\0
 				char buffer[27];
 				snprintf(buffer,
 						 sizeof(buffer),
 						 "%s 0x%.16" PRIxPTR,
-						 value.type == ValueType::anyref ? "anyref" : "anyfunc",
+						 value.type == ValueType::anyref ? "anyref" : "funcref",
 						 reinterpret_cast<Uptr>(value.object));
 				return std::string(buffer);
 			}
@@ -104,7 +104,7 @@ namespace WAVM { namespace IR {
 			case ValueType::f64: return left.i64 == right.i64;
 			case ValueType::v128: return left.v128 == right.v128;
 			case ValueType::anyref:
-			case ValueType::anyfunc: return left.object == right.object;
+			case ValueType::funcref: return left.object == right.object;
 			case ValueType::nullref: return true;
 			default: Errors::unreachable();
 			};

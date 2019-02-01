@@ -30,7 +30,7 @@ namespace WAVM { namespace IR {
 		f64 = 5,
 		v128 = 6,
 		anyref = 7,
-		anyfunc = 8,
+		funcref = 8,
 		nullref = 9,
 
 		num,
@@ -43,19 +43,19 @@ namespace WAVM { namespace IR {
 		invalid = 0,
 
 		anyref = 7,
-		anyfunc = 8,
+		funcref = 8,
 	};
 
 	static_assert(Uptr(ValueType::anyref) == Uptr(ReferenceType::anyref),
 				  "ReferenceType and ValueType must match");
-	static_assert(Uptr(ValueType::anyfunc) == Uptr(ReferenceType::anyfunc),
+	static_assert(Uptr(ValueType::funcref) == Uptr(ReferenceType::funcref),
 				  "ReferenceType and ValueType must match");
 
 	inline ValueType asValueType(ReferenceType type) { return ValueType(type); }
 
 	inline bool isReferenceType(ValueType type)
 	{
-		return type == ValueType::anyref || type == ValueType::anyfunc
+		return type == ValueType::anyref || type == ValueType::funcref
 			   || type == ValueType::nullref;
 	}
 
@@ -68,8 +68,8 @@ namespace WAVM { namespace IR {
 			{
 			case ValueType::any: return true;
 			case ValueType::anyref:
-				return subtype == ValueType::anyfunc || subtype == ValueType::nullref;
-			case ValueType::anyfunc: return subtype == ValueType::nullref;
+				return subtype == ValueType::funcref || subtype == ValueType::nullref;
+			case ValueType::funcref: return subtype == ValueType::nullref;
 			default: return false;
 			}
 		}
@@ -81,10 +81,10 @@ namespace WAVM { namespace IR {
 		if(a == b) { return a; }
 		else if(isReferenceType(a) && isReferenceType(b))
 		{
-			// a \ b    anyref  anyfunc  nullref
+			// a \ b    anyref  funcref  nullref
 			// anyref   anyref  anyref   anyref
-			// anyfunc  anyref  anyfunc  anyfunc
-			// nullref  anyref  anyfunc  nullref
+			// funcref  anyref  funcref  funcref
+			// nullref  anyref  funcref  nullref
 			if(a == ValueType::nullref) { return b; }
 			else if(b == ValueType::nullref)
 			{
@@ -93,7 +93,7 @@ namespace WAVM { namespace IR {
 			else
 			{
 				// Because we know a != b, and neither a or b are nullref, we can infer that one is
-				// anyref, and one is anyfunc.
+				// anyref, and one is funcref.
 				return ValueType::anyref;
 			}
 		}
@@ -109,9 +109,9 @@ namespace WAVM { namespace IR {
 		if(a == b) { return a; }
 		else if(isReferenceType(a) && isReferenceType(b))
 		{
-			// a \ b    anyref   anyfunc  nullref
-			// anyref   anyref   anyfunc  nullref
-			// anyfunc  anyfunc  anyfunc  nullref
+			// a \ b    anyref   funcref  nullref
+			// anyref   anyref   funcref  nullref
+			// funcref  funcref  funcref  nullref
 			// nullref  nullref  nullref  nullref
 			if(a == ValueType::nullref || b == ValueType::nullref) { return ValueType::nullref; }
 			else if(a == ValueType::anyref)
@@ -160,7 +160,7 @@ namespace WAVM { namespace IR {
 		case ValueType::f64: return 8;
 		case ValueType::v128: return 16;
 		case ValueType::anyref:
-		case ValueType::anyfunc:
+		case ValueType::funcref:
 		case ValueType::nullref: return 8;
 		default: Errors::unreachable();
 		};
@@ -179,7 +179,7 @@ namespace WAVM { namespace IR {
 		case ValueType::f64: return "f64";
 		case ValueType::v128: return "v128";
 		case ValueType::anyref: return "anyref";
-		case ValueType::anyfunc: return "anyfunc";
+		case ValueType::funcref: return "funcref";
 		case ValueType::nullref: return "nullref";
 		default: Errors::unreachable();
 		};
@@ -280,7 +280,7 @@ namespace WAVM { namespace IR {
 	template<> constexpr ValueType inferValueType<Runtime::Object*>() { return ValueType::anyref; }
 	template<> constexpr ValueType inferValueType<Runtime::Function*>()
 	{
-		return ValueType::anyfunc;
+		return ValueType::funcref;
 	}
 	template<> constexpr ValueType inferValueType<const Runtime::Object*>()
 	{
@@ -288,7 +288,7 @@ namespace WAVM { namespace IR {
 	}
 	template<> constexpr ValueType inferValueType<const Runtime::Function*>()
 	{
-		return ValueType::anyfunc;
+		return ValueType::funcref;
 	}
 
 	template<typename T> inline TypeTuple inferResultType()
@@ -431,7 +431,7 @@ namespace WAVM { namespace IR {
 
 	inline std::string asString(const TableType& tableType)
 	{
-		return asString(tableType.size) + (tableType.isShared ? " shared anyfunc" : " anyfunc");
+		return asString(tableType.size) + (tableType.isShared ? " shared funcref" : " funcref");
 	}
 
 	// The type of a memory

@@ -16,16 +16,16 @@
     (local $stdout i32)
     (local $stderr i32)
     (local $nmemb i32)
-    (set_local $stdin (i32.load align=4 (get_global $stdinPtr)))
-    (set_local $stdout (i32.load align=4 (get_global $stdoutPtr)))
-    (set_local $stderr (i32.load align=4 (get_global $stderrPtr)))
+    (local.set $stdin (i32.load align=4 (global.get $stdinPtr)))
+    (local.set $stdout (i32.load align=4 (global.get $stdoutPtr)))
+    (local.set $stderr (i32.load align=4 (global.get $stderrPtr)))
 
     (loop $loop
       (block $done
-        (set_local $nmemb (call $__fread (i32.const 0) (i32.const 1) (i32.const 32) (get_local $stdin)))
-        (br_if $done (i32.eq (i32.const 0) (get_local $nmemb)))
-        (drop (call $__fwrite (i32.const 0) (i32.const 1) (get_local $nmemb) (get_local $stdout)))
-        (drop (call $__fwrite (i32.const 0) (i32.const 1) (get_local $nmemb) (get_local $stderr)))
+        (local.set $nmemb (call $__fread (i32.const 0) (i32.const 1) (i32.const 32) (local.get $stdin)))
+        (br_if $done (i32.eq (i32.const 0) (local.get $nmemb)))
+        (drop (call $__fwrite (i32.const 0) (i32.const 1) (local.get $nmemb) (local.get $stdout)))
+        (drop (call $__fwrite (i32.const 0) (i32.const 1) (local.get $nmemb) (local.get $stderr)))
         (br $loop)
       )
     )
