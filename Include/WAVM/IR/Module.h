@@ -25,7 +25,7 @@ namespace WAVM { namespace IR {
 			i64_const = 0x0042,
 			f32_const = 0x0043,
 			f64_const = 0x0044,
-			v128_const = 0xfd00,
+			v128_const = 0xfd02,
 			global_get = 0x0023,
 			ref_null = 0x00D0,
 			error = 0xffff

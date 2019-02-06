@@ -57,7 +57,7 @@
   "\01"                ;; 1 global
   "\7b"                ;; v128
   "\00"                ;; immutable
-  "\fd\00"             ;; v128.const
+  "\fd\02"             ;; v128.const
   "\00\01\02\03"       ;; literal bytes 0-3
   "\04\05\06\07"       ;; literal bytes 4-7
   "\08\09\0a\0b"       ;; literal bytes 8-11
@@ -73,7 +73,7 @@
     "\01"                ;; 1 global
     "\7b"                ;; v128
     "\00"                ;; immutable
-    "\fd\01"             ;; v128.load
+    "\fd\00"             ;; v128.load
     "\0b"                ;; end
   )
   "invalid initializer expression"
