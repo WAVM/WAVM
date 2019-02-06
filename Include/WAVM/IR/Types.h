@@ -487,7 +487,15 @@ namespace WAVM { namespace IR {
 		}
 		friend bool isSubtype(const GlobalType& sub, const GlobalType& super)
 		{
-			return super.isMutable == sub.isMutable && isSubtype(sub.valueType, super.valueType);
+			if(super.isMutable != sub.isMutable) { return false; }
+			else if(super.isMutable)
+			{
+				return super.valueType == sub.valueType;
+			}
+			else
+			{
+				return isSubtype(sub.valueType, super.valueType);
+			}
 		}
 	};
 
