@@ -347,7 +347,7 @@ enum class SectionType : U8
 	unknown,
 	type,
 	import,
-	functionDeclarations,
+	function,
 	table,
 	memory,
 	global,
@@ -356,7 +356,7 @@ enum class SectionType : U8
 	start,
 	elem,
 	dataCount,
-	functionDefinitions,
+	code,
 	data,
 	user
 };
@@ -369,14 +369,14 @@ static void serialize(InputStream& stream, SectionType& sectionType)
 	case 0: sectionType = SectionType::user; break;
 	case 1: sectionType = SectionType::type; break;
 	case 2: sectionType = SectionType::import; break;
-	case 3: sectionType = SectionType::functionDeclarations; break;
+	case 3: sectionType = SectionType::function; break;
 	case 4: sectionType = SectionType::table; break;
 	case 5: sectionType = SectionType::memory; break;
 	case 6: sectionType = SectionType::global; break;
 	case 7: sectionType = SectionType::export_; break;
 	case 8: sectionType = SectionType::start; break;
 	case 9: sectionType = SectionType::elem; break;
-	case 10: sectionType = SectionType::functionDefinitions; break;
+	case 10: sectionType = SectionType::code; break;
 	case 11: sectionType = SectionType::data; break;
 	case 12: sectionType = SectionType ::dataCount; break;
 	case 0x7f: sectionType = SectionType::exceptionTypes; break;
@@ -394,14 +394,14 @@ static void serialize(OutputStream& stream, SectionType sectionType)
 	case SectionType::user: serializedSectionId = 0; break;
 	case SectionType::type: serializedSectionId = 1; break;
 	case SectionType::import: serializedSectionId = 2; break;
-	case SectionType::functionDeclarations: serializedSectionId = 3; break;
+	case SectionType::function: serializedSectionId = 3; break;
 	case SectionType::table: serializedSectionId = 4; break;
 	case SectionType::memory: serializedSectionId = 5; break;
 	case SectionType::global: serializedSectionId = 6; break;
 	case SectionType::export_: serializedSectionId = 7; break;
 	case SectionType::start: serializedSectionId = 8; break;
 	case SectionType::elem: serializedSectionId = 9; break;
-	case SectionType::functionDefinitions: serializedSectionId = 10; break;
+	case SectionType::code: serializedSectionId = 10; break;
 	case SectionType::data: serializedSectionId = 11; break;
 	case SectionType::dataCount: serializedSectionId = 12; break;
 	case SectionType::exceptionTypes: serializedSectionId = 0x7f; break;
@@ -899,31 +899,30 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 
 template<typename Stream> void serializeFunctionSection(Stream& moduleStream, Module& module)
 {
-	serializeSection(
-		moduleStream, SectionType::functionDeclarations, [&module](Stream& sectionStream) {
-			Uptr numFunctions = module.functions.defs.size();
-			serializeVarUInt32(sectionStream, numFunctions);
-			if(Stream::isInput)
+	serializeSection(moduleStream, SectionType::function, [&module](Stream& sectionStream) {
+		Uptr numFunctions = module.functions.defs.size();
+		serializeVarUInt32(sectionStream, numFunctions);
+		if(Stream::isInput)
+		{
+			// Grow the vector one element at a time: try to get a serialization exception
+			// before making a huge allocation for malformed input.
+			module.functions.defs.clear();
+			for(Uptr functionIndex = 0; functionIndex < numFunctions; ++functionIndex)
 			{
-				// Grow the vector one element at a time: try to get a serialization exception
-				// before making a huge allocation for malformed input.
-				module.functions.defs.clear();
-				for(Uptr functionIndex = 0; functionIndex < numFunctions; ++functionIndex)
-				{
-					U32 functionTypeIndex = 0;
-					serializeVarUInt32(sectionStream, functionTypeIndex);
-					if(functionTypeIndex >= module.types.size())
-					{ throw FatalSerializationException("invalid function type index"); }
-					module.functions.defs.push_back({{functionTypeIndex}, {}, {}, {}});
-				}
-				module.functions.defs.shrink_to_fit();
+				U32 functionTypeIndex = 0;
+				serializeVarUInt32(sectionStream, functionTypeIndex);
+				if(functionTypeIndex >= module.types.size())
+				{ throw FatalSerializationException("invalid function type index"); }
+				module.functions.defs.push_back({{functionTypeIndex}, {}, {}, {}});
 			}
-			else
-			{
-				for(FunctionDef& function : module.functions.defs)
-				{ serializeVarUInt32(sectionStream, function.type.index); }
-			}
-		});
+			module.functions.defs.shrink_to_fit();
+		}
+		else
+		{
+			for(FunctionDef& function : module.functions.defs)
+			{ serializeVarUInt32(sectionStream, function.type.index); }
+		}
+	});
 }
 
 template<typename Stream> void serializeTableSection(Stream& moduleStream, Module& module)
@@ -1094,7 +1093,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			serializeImportSection(moduleStream, module);
 			IR::validateImports(module);
 			break;
-		case SectionType::functionDeclarations:
+		case SectionType::function:
 			serializeFunctionSection(moduleStream, module);
 			IR::validateFunctionDeclarations(module);
 			break;
