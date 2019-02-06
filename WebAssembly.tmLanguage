@@ -229,7 +229,7 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.extend16_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.extend32_s(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])ref\.null(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
-		<dict><key>match</key><string>(?&lt;=[\s=();])ref\.isnull(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])ref\.is_null(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])v128\.const(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])v128\.load(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])v128\.store(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
