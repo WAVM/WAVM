@@ -69,44 +69,44 @@
 
   ;; Typing of locals
 
-  (func (export "local-first-i32") (result i32) (local i32 i32) (get_local 0))
-  (func (export "local-first-i64") (result i64) (local i64 i64) (get_local 0))
-  (func (export "local-first-f32") (result f32) (local f32 f32) (get_local 0))
-  (func (export "local-first-f64") (result f64) (local f64 f64) (get_local 0))
-  (func (export "local-second-i32") (result i32) (local i32 i32) (get_local 1))
-  (func (export "local-second-i64") (result i64) (local i64 i64) (get_local 1))
-  (func (export "local-second-f32") (result f32) (local f32 f32) (get_local 1))
-  (func (export "local-second-f64") (result f64) (local f64 f64) (get_local 1))
+  (func (export "local-first-i32") (result i32) (local i32 i32) (local.get 0))
+  (func (export "local-first-i64") (result i64) (local i64 i64) (local.get 0))
+  (func (export "local-first-f32") (result f32) (local f32 f32) (local.get 0))
+  (func (export "local-first-f64") (result f64) (local f64 f64) (local.get 0))
+  (func (export "local-second-i32") (result i32) (local i32 i32) (local.get 1))
+  (func (export "local-second-i64") (result i64) (local i64 i64) (local.get 1))
+  (func (export "local-second-f32") (result f32) (local f32 f32) (local.get 1))
+  (func (export "local-second-f64") (result f64) (local f64 f64) (local.get 1))
   (func (export "local-mixed") (result f64)
     (local f32) (local $x i32) (local i64 i32) (local) (local f64 i32)
-    (drop (f32.neg (get_local 0)))
-    (drop (i32.eqz (get_local 1)))
-    (drop (i64.eqz (get_local 2)))
-    (drop (i32.eqz (get_local 3)))
-    (drop (f64.neg (get_local 4)))
-    (drop (i32.eqz (get_local 5)))
-    (get_local 4)
+    (drop (f32.neg (local.get 0)))
+    (drop (i32.eqz (local.get 1)))
+    (drop (i64.eqz (local.get 2)))
+    (drop (i32.eqz (local.get 3)))
+    (drop (f64.neg (local.get 4)))
+    (drop (i32.eqz (local.get 5)))
+    (local.get 4)
   )
 
   ;; Typing of parameters
 
-  (func (export "param-first-i32") (param i32 i32) (result i32) (get_local 0))
-  (func (export "param-first-i64") (param i64 i64) (result i64) (get_local 0))
-  (func (export "param-first-f32") (param f32 f32) (result f32) (get_local 0))
-  (func (export "param-first-f64") (param f64 f64) (result f64) (get_local 0))
-  (func (export "param-second-i32") (param i32 i32) (result i32) (get_local 1))
-  (func (export "param-second-i64") (param i64 i64) (result i64) (get_local 1))
-  (func (export "param-second-f32") (param f32 f32) (result f32) (get_local 1))
-  (func (export "param-second-f64") (param f64 f64) (result f64) (get_local 1))
+  (func (export "param-first-i32") (param i32 i32) (result i32) (local.get 0))
+  (func (export "param-first-i64") (param i64 i64) (result i64) (local.get 0))
+  (func (export "param-first-f32") (param f32 f32) (result f32) (local.get 0))
+  (func (export "param-first-f64") (param f64 f64) (result f64) (local.get 0))
+  (func (export "param-second-i32") (param i32 i32) (result i32) (local.get 1))
+  (func (export "param-second-i64") (param i64 i64) (result i64) (local.get 1))
+  (func (export "param-second-f32") (param f32 f32) (result f32) (local.get 1))
+  (func (export "param-second-f64") (param f64 f64) (result f64) (local.get 1))
   (func (export "param-mixed") (param f32 i32) (param) (param $x i64) (param i32 f64 i32)
     (result f64)
-    (drop (f32.neg (get_local 0)))
-    (drop (i32.eqz (get_local 1)))
-    (drop (i64.eqz (get_local 2)))
-    (drop (i32.eqz (get_local 3)))
-    (drop (f64.neg (get_local 4)))
-    (drop (i32.eqz (get_local 5)))
-    (get_local 4)
+    (drop (f32.neg (local.get 0)))
+    (drop (i32.eqz (local.get 1)))
+    (drop (i64.eqz (local.get 2)))
+    (drop (i32.eqz (local.get 3)))
+    (drop (f64.neg (local.get 4)))
+    (drop (i32.eqz (local.get 5)))
+    (local.get 4)
   )
 
   ;; Typing of results
@@ -166,33 +166,33 @@
   )
 
   (func (export "break-br_if-empty") (param i32)
-    (br_if 0 (get_local 0))
+    (br_if 0 (local.get 0))
   )
   (func (export "break-br_if-num") (param i32) (result i32)
-    (drop (br_if 0 (i32.const 50) (get_local 0))) (i32.const 51)
+    (drop (br_if 0 (i32.const 50) (local.get 0))) (i32.const 51)
   )
   (func (export "break-br_if-num-num") (param i32) (result i32 i64)
-    (drop (drop (br_if 0 (i32.const 50) (i64.const 51) (get_local 0))))
+    (drop (drop (br_if 0 (i32.const 50) (i64.const 51) (local.get 0))))
     (i32.const 51) (i64.const 52)
   )
 
   (func (export "break-br_table-empty") (param i32)
-    (br_table 0 0 0 (get_local 0))
+    (br_table 0 0 0 (local.get 0))
   )
   (func (export "break-br_table-num") (param i32) (result i32)
-    (br_table 0 0 (i32.const 50) (get_local 0)) (i32.const 51)
+    (br_table 0 0 (i32.const 50) (local.get 0)) (i32.const 51)
   )
   (func (export "break-br_table-num-num") (param i32) (result i32 i64)
-    (br_table 0 0 (i32.const 50) (i64.const 51) (get_local 0))
+    (br_table 0 0 (i32.const 50) (i64.const 51) (local.get 0))
     (i32.const 51) (i64.const 52)
   )
   (func (export "break-br_table-nested-empty") (param i32)
-    (block (br_table 0 1 0 (get_local 0)))
+    (block (br_table 0 1 0 (local.get 0)))
   )
   (func (export "break-br_table-nested-num") (param i32) (result i32)
     (i32.add
       (block (result i32)
-        (br_table 0 1 0 (i32.const 50) (get_local 0)) (i32.const 51)
+        (br_table 0 1 0 (i32.const 50) (local.get 0)) (i32.const 51)
       )
       (i32.const 2)
     )
@@ -200,7 +200,7 @@
   (func (export "break-br_table-nested-num-num") (param i32) (result i32 i32)
     (i32.add
       (block (result i32 i32)
-        (br_table 0 1 0 (i32.const 50) (i32.const 51) (get_local 0))
+        (br_table 0 1 0 (i32.const 50) (i32.const 51) (local.get 0))
         (i32.const 51) (i32.const -3)
       )
     )
@@ -212,30 +212,30 @@
   (func (export "large-sig")
     (param i32 i64 f32 f32 i32 f64 f32 i32 i32 i32 f32 f64 f64 f64 i32 i32 f32)
     (result f64 f32 i32 i32 i32 i64 f32 i32 i32 f32 f64 f64 i32 f32 i32 f64)
-    (get_local 5)
-    (get_local 2)
-    (get_local 0)
-    (get_local 8)
-    (get_local 7)
-    (get_local 1)
-    (get_local 3)
-    (get_local 9)
-    (get_local 4)
-    (get_local 6)
-    (get_local 13)
-    (get_local 11)
-    (get_local 15)
-    (get_local 16)
-    (get_local 14)
-    (get_local 12)
+    (local.get 5)
+    (local.get 2)
+    (local.get 0)
+    (local.get 8)
+    (local.get 7)
+    (local.get 1)
+    (local.get 3)
+    (local.get 9)
+    (local.get 4)
+    (local.get 6)
+    (local.get 13)
+    (local.get 11)
+    (local.get 15)
+    (local.get 16)
+    (local.get 14)
+    (local.get 12)
   )
 
   ;; Default initialization of locals
 
-  (func (export "init-local-i32") (result i32) (local i32) (get_local 0))
-  (func (export "init-local-i64") (result i64) (local i64) (get_local 0))
-  (func (export "init-local-f32") (result f32) (local f32) (get_local 0))
-  (func (export "init-local-f64") (result f64) (local f64) (get_local 0))
+  (func (export "init-local-i32") (result i32) (local i32) (local.get 0))
+  (func (export "init-local-i64") (result i64) (local i64) (local.get 0))
+  (func (export "init-local-f32") (result f32) (local f32) (local.get 0))
+  (func (export "init-local-f64") (result f64) (local f64) (local.get 0))
 )
 
 (assert_return (invoke "type-use-1"))
@@ -458,7 +458,7 @@
 
   (type $empty-sig-duplicate (func))
   (type $complex-sig-duplicate (func (param i64 i64 f64 i64 f64 i64 f32 i32)))
-  (table anyfunc
+  (table funcref
     (elem
       $complex-sig-3 $empty-sig-2 $complex-sig-1 $complex-sig-3 $empty-sig-1
       $complex-sig-4 $complex-sig-5
@@ -591,15 +591,15 @@
 ;; Invalid typing of locals
 
 (assert_invalid
-  (module (func $type-local-num-vs-num (result i64) (local i32) (get_local 0)))
+  (module (func $type-local-num-vs-num (result i64) (local i32) (local.get 0)))
   "type mismatch"
 )
 (assert_invalid
-  (module (func $type-local-num-vs-num (local f32) (i32.eqz (get_local 0))))
+  (module (func $type-local-num-vs-num (local f32) (i32.eqz (local.get 0))))
   "type mismatch"
 )
 (assert_invalid
-  (module (func $type-local-num-vs-num (local f64 i64) (f64.neg (get_local 1))))
+  (module (func $type-local-num-vs-num (local f64 i64) (f64.neg (local.get 1))))
   "type mismatch"
 )
 
@@ -607,15 +607,15 @@
 ;; Invalid typing of parameters
 
 (assert_invalid
-  (module (func $type-param-num-vs-num (param i32) (result i64) (get_local 0)))
+  (module (func $type-param-num-vs-num (param i32) (result i64) (local.get 0)))
   "type mismatch"
 )
 (assert_invalid
-  (module (func $type-param-num-vs-num (param f32) (i32.eqz (get_local 0))))
+  (module (func $type-param-num-vs-num (param f32) (i32.eqz (local.get 0))))
   "type mismatch"
 )
 (assert_invalid
-  (module (func $type-param-num-vs-num (param f64 i64) (f64.neg (get_local 1))))
+  (module (func $type-param-num-vs-num (param f64 i64) (f64.neg (local.get 1))))
   "type mismatch"
 )
 
@@ -890,10 +890,10 @@
   "unexpected token"
 )
 (assert_malformed
-  (module quote "(func (local i32) (result i32) (get_local 0))")
+  (module quote "(func (local i32) (result i32) (local.get 0))")
   "unexpected token"
 )
 (assert_malformed
-  (module quote "(func (result i32) (param i32) (get_local 0))")
+  (module quote "(func (result i32) (param i32) (local.get 0))")
   "unexpected token"
 )
