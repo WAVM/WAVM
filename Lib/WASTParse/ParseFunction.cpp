@@ -50,8 +50,7 @@ namespace WAVM { namespace WAST {
 		, operationEncoder(codeByteStream)
 		, validatingCodeStream(moduleState->module,
 							   functionDef,
-							   operationEncoder,
-							   moduleState->deferredCodeValidationState)
+							   operationEncoder)
 		{
 		}
 	};

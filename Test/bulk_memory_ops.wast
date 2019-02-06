@@ -123,7 +123,9 @@
 
 	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
 	"\00\01"                             ;;   (memory 1)
-	
+
+	"\0c\01\01"                          ;; DataCount section: 1 byte, 1 segment
+
 	"\0a\11\01"                          ;; Code section
 	"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
 	"\41\00"                             ;; i32.const 0
@@ -133,7 +135,7 @@
 	"\fc\09\00"                          ;; data.drop 0
 	"\0b"                                ;; end
 
-	"\0b\04\01"                          ;; data section: 3 bytes, 1 entry
+	"\0b\04\01"                          ;; data section: 4 bytes, 1 entry
 	"\01\01\00"                          ;;   [0] 1 byte passive data segment
 )
 
@@ -149,9 +151,8 @@
 
 		"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
 		"\00\01"                             ;;   (memory 1)
-		
-		"\0c\02\01"                          ;; data declaration section: 2 bytes, 1 entry
-		"\01"                                ;;   [0] passive data segment
+
+		"\0c\01\01"                          ;; DataCount section: 1 byte, 1 segment
 
 		"\0a\11\01"                          ;; Code section
 		"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
@@ -181,6 +182,8 @@
 		"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
 		"\00\01"                             ;;   (memory 1)
 
+		"\0c\01\01"                          ;; DataCount section: 1 byte, 1 segment
+
 		"\0a\11\01"                          ;; Code section
 		"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
 		"\41\00"                             ;; i32.const 0
@@ -209,6 +212,8 @@
 
 	"\05\03\01"                          ;; memory section: 3 bytes, 1 entry
 	"\00\01"                             ;;   (memory 1)
+
+	"\0c\01\01"                          ;; DataCount section: 1 byte, 1 segment
 
 	"\0a\11\01"                          ;; Code section
 	"\0f\00"                             ;; function 0: 15 bytes, 0 local sets

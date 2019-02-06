@@ -92,8 +92,7 @@ struct RootResolver : Resolver
 			stubModuleNames.functions.push_back({"importStub: " + exportName, {}, {}});
 			IR::setDisassemblyNames(stubIRModule, stubModuleNames);
 			IR::validatePreCodeSections(stubIRModule);
-			DeferredCodeValidationState deferredCodeValidationState;
-			IR::validatePostCodeSections(stubIRModule, deferredCodeValidationState);
+			IR::validatePostCodeSections(stubIRModule);
 
 			// Instantiate the module and return the stub function instance.
 			auto stubModule = compileModule(stubIRModule);

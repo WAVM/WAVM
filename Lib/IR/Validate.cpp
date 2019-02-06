@@ -223,12 +223,9 @@ static void validateInitializer(const Module& module,
 
 struct FunctionValidationContext
 {
-	FunctionValidationContext(const Module& inModule,
-							  const FunctionDef& inFunctionDef,
-							  DeferredCodeValidationState& inDeferredCodeValidationState)
+	FunctionValidationContext(const Module& inModule, const FunctionDef& inFunctionDef)
 	: module(inModule)
 	, functionDef(inFunctionDef)
-	, deferredCodeValidationState(inDeferredCodeValidationState)
 	, functionType(inModule.types[inFunctionDef.type.index])
 	{
 		// Validate the function's local types.
@@ -629,17 +626,12 @@ struct FunctionValidationContext
 	void validateImm(DataSegmentAndMemImm imm)
 	{
 		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());
-
-		// Defer the validation of the data segment index until the data section is deserialized.
-		deferredCodeValidationState.requiredNumDataSegments = std::max(
-			deferredCodeValidationState.requiredNumDataSegments, imm.dataSegmentIndex + 1);
+		VALIDATE_INDEX(imm.dataSegmentIndex, module.dataSegments.size());
 	}
 
 	void validateImm(DataSegmentImm imm)
 	{
-		// Defer the validation of the data segment index until the data section is deserialized.
-		deferredCodeValidationState.requiredNumDataSegments = std::max(
-			deferredCodeValidationState.requiredNumDataSegments, imm.dataSegmentIndex + 1);
+		VALIDATE_INDEX(imm.dataSegmentIndex, module.dataSegments.size());
 	}
 
 	void validateImm(ElemSegmentAndTableImm imm)
@@ -692,7 +684,6 @@ private:
 
 	const Module& module;
 	const FunctionDef& functionDef;
-	DeferredCodeValidationState& deferredCodeValidationState;
 	FunctionType functionType;
 
 	std::vector<ValueType> locals;
@@ -961,12 +952,8 @@ void IR::validateElemSegments(const Module& module)
 	}
 }
 
-void IR::validateDataSegments(const Module& module,
-							  const DeferredCodeValidationState& deferredCodeValidationState)
+void IR::validateDataSegments(const Module& module)
 {
-	if(deferredCodeValidationState.requiredNumDataSegments > module.dataSegments.size())
-	{ throw ValidationException("invalid data segment index in operator immediate"); }
-
 	for(auto& dataSegment : module.dataSegments)
 	{
 		if(dataSegment.isActive)
@@ -984,22 +971,16 @@ namespace WAVM { namespace IR {
 		FunctionValidationContext functionContext;
 		OperatorPrinter operatorPrinter;
 
-		CodeValidationStreamImpl(const Module& module,
-								 const FunctionDef& functionDef,
-								 DeferredCodeValidationState& deferredCodeValidationState)
-		: functionContext(module, functionDef, deferredCodeValidationState)
-		, operatorPrinter(module, functionDef)
+		CodeValidationStreamImpl(const Module& module, const FunctionDef& functionDef)
+		: functionContext(module, functionDef), operatorPrinter(module, functionDef)
 		{
 		}
 	};
 }}
 
-IR::CodeValidationStream::CodeValidationStream(
-	const Module& module,
-	const FunctionDef& functionDef,
-	DeferredCodeValidationState& deferredCodeValidationState)
+IR::CodeValidationStream::CodeValidationStream(const Module& module, const FunctionDef& functionDef)
 {
-	impl = new CodeValidationStreamImpl(module, functionDef, deferredCodeValidationState);
+	impl = new CodeValidationStreamImpl(module, functionDef);
 }
 
 IR::CodeValidationStream::~CodeValidationStream()

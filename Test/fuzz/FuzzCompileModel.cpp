@@ -246,8 +246,7 @@ IndexedBlockType getIndexedBlockType(IR::Module& module,
 static void generateFunction(RandomStream& random,
 							 IR::Module& module,
 							 FunctionDef& functionDef,
-							 HashMap<FunctionType, Uptr>& functionTypeMap,
-							 DeferredCodeValidationState& deferredCodeValidationState)
+							 HashMap<FunctionType, Uptr>& functionTypeMap)
 {
 	const FunctionType functionType = module.types[functionDef.type.index];
 
@@ -259,8 +258,7 @@ static void generateFunction(RandomStream& random,
 
 	Serialization::ArrayOutputStream codeByteStream;
 	OperatorEncoderStream opEncoder(codeByteStream);
-	CodeValidationProxyStream<OperatorEncoderStream> codeStream(
-		module, functionDef, opEncoder, deferredCodeValidationState);
+	CodeValidationProxyStream<OperatorEncoderStream> codeStream(module, functionDef, opEncoder);
 
 	struct ControlContext
 	{
@@ -801,13 +799,12 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	validatePreCodeSections(module);
 
 	// Generate a few functions.
-	DeferredCodeValidationState deferredCodeValidationState;
 	for(FunctionDef& functionDef : module.functions.defs)
 	{
-		generateFunction(random, module, functionDef, functionTypeMap, deferredCodeValidationState);
+		generateFunction(random, module, functionDef, functionTypeMap);
 	};
 
-	validatePostCodeSections(module, deferredCodeValidationState);
+	validatePostCodeSections(module);
 }
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)

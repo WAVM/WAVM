@@ -355,6 +355,7 @@ enum class SectionType : U8
 	export_,
 	start,
 	elem,
+	dataCount,
 	functionDefinitions,
 	data,
 	user
@@ -377,6 +378,7 @@ static void serialize(InputStream& stream, SectionType& sectionType)
 	case 9: sectionType = SectionType::elem; break;
 	case 10: sectionType = SectionType::functionDefinitions; break;
 	case 11: sectionType = SectionType::data; break;
+	case 12: sectionType = SectionType ::dataCount; break;
 	case 0x7f: sectionType = SectionType::exceptionTypes; break;
 	default:
 		throw FatalSerializationException(std::string("invalid section type: ")
@@ -401,6 +403,7 @@ static void serialize(OutputStream& stream, SectionType sectionType)
 	case SectionType::elem: serializedSectionId = 9; break;
 	case SectionType::functionDefinitions: serializedSectionId = 10; break;
 	case SectionType::data: serializedSectionId = 11; break;
+	case SectionType::dataCount: serializedSectionId = 12; break;
 	case SectionType::exceptionTypes: serializedSectionId = 0x7f; break;
 	default: Errors::unreachable();
 	};
@@ -706,8 +709,7 @@ static void serializeFunctionBody(OutputStream& sectionStream,
 
 static void serializeFunctionBody(InputStream& sectionStream,
 								  Module& module,
-								  FunctionDef& functionDef,
-								  DeferredCodeValidationState& deferredCodeValidationState)
+								  FunctionDef& functionDef)
 {
 	Uptr numBodyBytes = 0;
 	serializeVarUInt32(sectionStream, numBodyBytes);
@@ -730,7 +732,7 @@ static void serializeFunctionBody(InputStream& sectionStream,
 	// Deserialize the function code, validate it, and re-encode it in the IR format.
 	ArrayOutputStream irCodeByteStream;
 	OperatorEncoderStream irEncoderStream(irCodeByteStream);
-	CodeValidationStream codeValidationStream(module, functionDef, deferredCodeValidationState);
+	CodeValidationStream codeValidationStream(module, functionDef);
 	while(bodyStream.capacity())
 	{
 		Opcode opcode;
@@ -973,42 +975,62 @@ template<typename Stream> void serializeElementSection(Stream& moduleStream, Mod
 	});
 }
 
-static void serializeCodeSection(InputStream& moduleStream,
-								 Module& module,
-								 DeferredCodeValidationState& deferredCodeValidationState)
+static void serializeCodeSection(InputStream& moduleStream, Module& module)
 {
-	serializeSection(moduleStream,
-					 SectionType::functionDefinitions,
-					 [&module, &deferredCodeValidationState](InputStream& sectionStream) {
-						 Uptr numFunctionBodies = module.functions.defs.size();
-						 serializeVarUInt32(sectionStream, numFunctionBodies);
-						 if(numFunctionBodies != module.functions.defs.size())
-						 {
-							 throw FatalSerializationException(
-								 "function and code sections have mismatched function counts");
-						 }
-						 for(FunctionDef& functionDef : module.functions.defs)
-						 {
-							 serializeFunctionBody(
-								 sectionStream, module, functionDef, deferredCodeValidationState);
-						 }
-					 });
+	serializeSection(moduleStream, SectionType::code, [&module](InputStream& sectionStream) {
+		Uptr numFunctionBodies = module.functions.defs.size();
+		serializeVarUInt32(sectionStream, numFunctionBodies);
+		if(numFunctionBodies != module.functions.defs.size())
+		{
+			throw FatalSerializationException(
+				"function and code sections have mismatched function counts");
+		}
+		for(FunctionDef& functionDef : module.functions.defs)
+		{ serializeFunctionBody(sectionStream, module, functionDef); }
+	});
 }
 
 void serializeCodeSection(OutputStream& moduleStream, Module& module)
 {
-	serializeSection(
-		moduleStream, SectionType::functionDefinitions, [&module](OutputStream& sectionStream) {
-			Uptr numFunctionBodies = module.functions.defs.size();
-			serializeVarUInt32(sectionStream, numFunctionBodies);
-			for(FunctionDef& functionDef : module.functions.defs)
-			{ serializeFunctionBody(sectionStream, module, functionDef); }
-		});
+	serializeSection(moduleStream, SectionType::code, [&module](OutputStream& sectionStream) {
+		Uptr numFunctionBodies = module.functions.defs.size();
+		serializeVarUInt32(sectionStream, numFunctionBodies);
+		for(FunctionDef& functionDef : module.functions.defs)
+		{ serializeFunctionBody(sectionStream, module, functionDef); }
+	});
 }
 
-template<typename Stream> void serializeDataSection(Stream& moduleStream, Module& module)
+template<typename Stream> void serializeDataCountSection(Stream& moduleStream, Module& module)
 {
-	serializeSection(moduleStream, SectionType::data, [&module](Stream& sectionStream) {
+	serializeSection(moduleStream, SectionType::dataCount, [&module](Stream& sectionStream) {
+		Uptr numDataSegments = module.dataSegments.size();
+		serializeVarUInt32(sectionStream, numDataSegments);
+		if(Stream::isInput) { module.dataSegments.resize(numDataSegments); }
+	});
+}
+
+void serializeDataSection(InputStream& moduleStream, Module& module, bool hadDataCountSection)
+{
+	serializeSection(moduleStream,
+					 SectionType::data,
+					 [&module, hadDataCountSection](InputStream& sectionStream) {
+						 Uptr numDataSegments = 0;
+						 serializeVarUInt32(sectionStream, numDataSegments);
+						 if(!hadDataCountSection) { module.dataSegments.resize(numDataSegments); }
+						 else if(numDataSegments != module.dataSegments.size())
+						 {
+							 throw FatalSerializationException(
+								 "DataCount and Data sections have mismatched segment counts");
+						 }
+						 for(Uptr segmentIndex = 0; segmentIndex < module.dataSegments.size();
+							 ++segmentIndex)
+						 { serialize(sectionStream, module.dataSegments[segmentIndex]); }
+					 });
+}
+
+void serializeDataSection(OutputStream& moduleStream, Module& module)
+{
+	serializeSection(moduleStream, SectionType::data, [&module](OutputStream& sectionStream) {
 		serialize(sectionStream, module.dataSegments);
 	});
 }
@@ -1032,6 +1054,7 @@ static void serializeModule(OutputStream& moduleStream, Module& module)
 	if(module.exports.size() > 0) { serializeExportSection(moduleStream, module); }
 	if(module.startFunctionIndex != UINTPTR_MAX) { serializeStartSection(moduleStream, module); }
 	if(module.elemSegments.size() > 0) { serializeElementSection(moduleStream, module); }
+	if(module.dataSegments.size() > 0) { serializeDataCountSection(moduleStream, module); }
 	if(module.functions.defs.size() > 0) { serializeCodeSection(moduleStream, module); }
 	if(module.dataSegments.size() > 0) { serializeDataSection(moduleStream, module); }
 
@@ -1043,9 +1066,10 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	serializeConstant(moduleStream, "magic number", U32(magicNumber));
 	serializeConstant(moduleStream, "version", U32(currentVersion));
 
-	DeferredCodeValidationState deferredCodeValidationState;
 	SectionType lastKnownSectionType = SectionType::unknown;
 	bool hadFunctionDefinitions = false;
+	bool hadDataCountSection = false;
+	bool hadDataSection = false;
 	while(moduleStream.capacity())
 	{
 		SectionType sectionType;
@@ -1102,11 +1126,19 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			serializeElementSection(moduleStream, module);
 			IR::validateElemSegments(module);
 			break;
-		case SectionType::functionDefinitions:
-			serializeCodeSection(moduleStream, module, deferredCodeValidationState);
+		case SectionType::dataCount:
+			serializeDataCountSection(moduleStream, module);
+			hadDataCountSection = true;
+			break;
+		case SectionType::code:
+			serializeCodeSection(moduleStream, module);
 			hadFunctionDefinitions = true;
 			break;
-		case SectionType::data: serializeDataSection(moduleStream, module); break;
+		case SectionType::data:
+			serializeDataSection(moduleStream, module, hadDataCountSection);
+			hadDataSection = true;
+			IR::validateDataSegments(module);
+			break;
 		case SectionType::user:
 		{
 			UserSection& userSection
@@ -1118,16 +1150,18 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 		};
 	};
 
-	// Validate the data segments at the end, regardless of whether there was a data section or not.
-	// This is necessary to validate the data segment indices that may occur in the code section,
-	// even if there was no data section.
-	IR::validateDataSegments(module, deferredCodeValidationState);
-
 	if(module.functions.defs.size() && !hadFunctionDefinitions)
 	{
 		throw IR::ValidationException(
 			"module contained function declarations, but no corresponding "
 			"function definition section");
+	}
+
+	if(module.dataSegments.size() && !hadDataSection)
+	{
+		throw IR::ValidationException(
+			"module contained DataCount section with non-zero segment count, but no corresponding "
+			"Data section");
 	}
 }
 

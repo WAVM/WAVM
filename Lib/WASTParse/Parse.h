@@ -144,7 +144,6 @@ namespace WAVM { namespace WAST {
 		NameToIndexMap exceptionTypeNameToIndexMap;
 
 		IR::DisassemblyNames disassemblyNames;
-		IR::DeferredCodeValidationState deferredCodeValidationState;
 
 		// Thunks that are called after parsing all types.
 		std::vector<std::function<void(ModuleState*)>> postTypeCallbacks;
