@@ -27,7 +27,7 @@ void EmitFunctionContext::ref_null(NoImm)
 	push(llvm::Constant::getNullValue(llvmContext.anyrefType));
 }
 
-void EmitFunctionContext::ref_isnull(NoImm)
+void EmitFunctionContext::ref_is_null(NoImm)
 {
 	llvm::Value* reference = pop();
 	llvm::Value* null = llvm::Constant::getNullValue(llvmContext.anyrefType);

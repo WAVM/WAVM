@@ -53,7 +53,7 @@ set(WASTTests
 	names.wast
 	nop.wast
 	resizing.wast
-	ref_isnull.wast
+	ref_is_null.wast
 	ref_null.wast
 	return.wast
 	select.wast

@@ -224,7 +224,7 @@
 	visitOp(0x00c4, i64_extend32_s            , "i64.extend32_s"            , NoImm                     , UNARY(i64,i64)       , extendedSignExtension  )   \
 /* Reference type operators                                                                                                                              */ \
 	visitOp(0x00d0, ref_null                  , "ref.null"                  , NoImm                     , NULLARY(nullref)     , referenceTypes         )   \
-	visitOp(0x00d1, ref_isnull                , "ref.isnull"                , NoImm                     , UNARY(anyref,i32)    , referenceTypes         )   \
+	visitOp(0x00d1, ref_is_null               , "ref.is_null"               , NoImm                     , UNARY(anyref,i32)    , referenceTypes         )   \
 	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionImm               , NULLARY(funcref)     , functionRefInstruction )   \
 /* Saturating float->int truncation operators                                                                                                            */ \
 	visitOp(0xfc00, i32_trunc_sat_f32_s       , "i32.trunc_sat_f32_s"       , NoImm                     , UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
