@@ -69,9 +69,11 @@ Intrinsics::Global::Global(Intrinsics::Module& moduleRef,
 	moduleRef.impl->globalMap.set(name, this);
 }
 
-Global* Intrinsics::Global::instantiate(Compartment* compartment)
+Runtime::Global* Intrinsics::Global::instantiate(Compartment* compartment)
 {
-	return createGlobal(compartment, IR::GlobalType(type, false), value);
+	Runtime::Global* global = createGlobal(compartment, IR::GlobalType(type, false));
+	initializeGlobal(global, value);
+	return global;
 }
 
 Intrinsics::Table::Table(Intrinsics::Module& moduleRef,

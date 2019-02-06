@@ -17,12 +17,8 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-Global* Runtime::createGlobal(Compartment* compartment, GlobalType type, Value initialValue)
+Global* Runtime::createGlobal(Compartment* compartment, GlobalType type)
 {
-	errorUnless(isSubtype(initialValue.type, type.valueType));
-	errorUnless(!isReferenceType(type.valueType) || !initialValue.object
-				|| isInCompartment(initialValue.object, compartment));
-
 	U32 mutableGlobalIndex = UINT32_MAX;
 	if(type.isMutable)
 	{
@@ -30,15 +26,14 @@ Global* Runtime::createGlobal(Compartment* compartment, GlobalType type, Value i
 		if(mutableGlobalIndex == maxMutableGlobals) { return nullptr; }
 		compartment->globalDataAllocationMask.add(mutableGlobalIndex);
 
-		// Initialize the global value for each context, and the data used to initialize new
-		// contexts.
-		compartment->initialContextMutableGlobals[mutableGlobalIndex] = initialValue;
+		// Zero-initialize the global's mutable value for all current and future contexts.
+		compartment->initialContextMutableGlobals[mutableGlobalIndex] = IR::UntaggedValue();
 		for(Context* context : compartment->contexts)
-		{ context->runtimeData->mutableGlobals[mutableGlobalIndex] = initialValue; }
+		{ context->runtimeData->mutableGlobals[mutableGlobalIndex] = IR::UntaggedValue(); }
 	}
 
 	// Create the global and add it to the compartment's list of globals.
-	Global* global = new Global(compartment, type, mutableGlobalIndex, initialValue);
+	Global* global = new Global(compartment, type, mutableGlobalIndex);
 	{
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		global->id = compartment->globals.add(UINTPTR_MAX, global);
@@ -50,6 +45,26 @@ Global* Runtime::createGlobal(Compartment* compartment, GlobalType type, Value i
 	}
 
 	return global;
+}
+
+void Runtime::initializeGlobal(Global* global, Value value)
+{
+	Compartment* compartment = global->compartment;
+	errorUnless(isSubtype(value.type, global->type.valueType));
+	errorUnless(!isReferenceType(global->type.valueType) || !value.object
+				|| isInCompartment(value.object, compartment));
+
+	errorUnless(!global->hasBeenInitialized);
+	global->hasBeenInitialized = true;
+
+	global->initialValue = value;
+	if(global->type.isMutable)
+	{
+		// Initialize the global's mutable value for all current and future contexts.
+		compartment->initialContextMutableGlobals[global->mutableGlobalIndex] = value;
+		for(Context* context : compartment->contexts)
+		{ context->runtimeData->mutableGlobals[global->mutableGlobalIndex] = value; }
+	}
 }
 
 Global* Runtime::cloneGlobal(Global* global, Compartment* newCompartment)

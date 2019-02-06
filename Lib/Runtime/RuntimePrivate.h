@@ -95,16 +95,18 @@ namespace WAVM { namespace Runtime {
 
 		const IR::GlobalType type;
 		const U32 mutableGlobalIndex;
-		const IR::UntaggedValue initialValue;
+		IR::UntaggedValue initialValue;
+		bool hasBeenInitialized;
 
 		Global(Compartment* inCompartment,
 			   IR::GlobalType inType,
 			   U32 inMutableGlobalId,
-			   IR::UntaggedValue inInitialValue)
+			   IR::UntaggedValue inInitialValue = IR::UntaggedValue())
 		: GCObject(ObjectKind::global, inCompartment)
 		, type(inType)
 		, mutableGlobalIndex(inMutableGlobalId)
 		, initialValue(inInitialValue)
+		, hasBeenInitialized(false)
 		{
 		}
 		~Global() override;

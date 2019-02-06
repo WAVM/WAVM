@@ -94,10 +94,7 @@ struct StubResolver : Runtime::Resolver
 		}
 		case IR::ExternKind::global:
 		{
-			return asObject(Runtime::createGlobal(
-				compartment,
-				asGlobalType(type),
-				IR::Value(asGlobalType(type).valueType, IR::UntaggedValue())));
+			return asObject(Runtime::createGlobal(compartment, asGlobalType(type)));
 		}
 		case IR::ExternKind::exceptionType:
 		{

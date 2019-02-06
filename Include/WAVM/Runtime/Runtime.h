@@ -290,10 +290,11 @@ namespace WAVM { namespace Runtime {
 	// Globals
 	//
 
-	// Creates a Global with the specified type and initial value.
-	RUNTIME_API Global* createGlobal(Compartment* compartment,
-									 IR::GlobalType type,
-									 IR::Value initialValue);
+	// Creates a Global with the specified type. The initial value is set to the appropriate zero.
+	RUNTIME_API Global* createGlobal(Compartment* compartment, IR::GlobalType type);
+
+	// Initializes a Global with the specified value. May not be called more than once/Global.
+	RUNTIME_API void initializeGlobal(Global* global, IR::Value value);
 
 	// Reads the current value of a global.
 	RUNTIME_API IR::Value getGlobalValue(const Context* context, Global* global);

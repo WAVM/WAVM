@@ -15,9 +15,9 @@
 namespace WAVM { namespace IR {
 	enum class Opcode : U16;
 
-	// An initializer expression: serialized like any other code, but may only be a constant or
-	// immutable global
-	template<typename GlobalRef> struct InitializerExpressionBase
+	// An initializer expression: serialized like any other code, but only supports a few specific
+	// instructions.
+	template<typename Ref> struct InitializerExpressionBase
 	{
 		enum class Type : U16
 		{
@@ -27,7 +27,8 @@ namespace WAVM { namespace IR {
 			f64_const = 0x0044,
 			v128_const = 0xfd02,
 			global_get = 0x0023,
-			ref_null = 0x00D0,
+			ref_null = 0x00d0,
+			ref_func = 0x00d2,
 			error = 0xffff
 		};
 		union
@@ -42,7 +43,7 @@ namespace WAVM { namespace IR {
 			F32 f32;
 			F64 f64;
 			V128 v128;
-			GlobalRef globalRef;
+			Ref ref;
 		};
 		InitializerExpressionBase() : type(Type::error) {}
 		InitializerExpressionBase(I32 inI32) : type(Type::i32_const), i32(inI32) {}
@@ -50,10 +51,9 @@ namespace WAVM { namespace IR {
 		InitializerExpressionBase(F32 inF32) : type(Type::f32_const), f32(inF32) {}
 		InitializerExpressionBase(F64 inF64) : type(Type::f64_const), f64(inF64) {}
 		InitializerExpressionBase(V128 inV128) : type(Type::v128_const), v128(inV128) {}
-		InitializerExpressionBase(Type inType, GlobalRef inGlobalRef)
-		: type(inType), globalRef(inGlobalRef)
+		InitializerExpressionBase(Type inType, Ref inRef) : type(inType), ref(inRef)
 		{
-			wavmAssert(inType == Type::global_get);
+			wavmAssert(type == Type::global_get || type == Type::ref_func);
 		}
 		InitializerExpressionBase(std::nullptr_t) : type(Type::ref_null) {}
 
@@ -70,8 +70,9 @@ namespace WAVM { namespace IR {
 			case Type::f32_const: return a.i32 == b.i32;
 			case Type::f64_const: return a.i64 == b.i64;
 			case Type::v128_const: return a.v128 == b.v128;
-			case Type::global_get: return a.globalRef == b.globalRef;
+			case Type::global_get: return a.ref == b.ref;
 			case Type::ref_null: return true;
+			case Type::ref_func: return a.ref == b.ref;
 			case Type::error: return true;
 			default: Errors::unreachable();
 			};

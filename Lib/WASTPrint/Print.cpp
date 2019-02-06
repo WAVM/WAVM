@@ -329,9 +329,12 @@ struct ModulePrintContext
 			string += "(v128.const " + asString(expression.v128) + ')';
 			break;
 		case InitializerExpression::Type::global_get:
-			string += "(global.get " + names.globals[expression.globalRef] + ')';
+			string += "(global.get " + names.globals[expression.ref] + ')';
 			break;
 		case InitializerExpression::Type::ref_null: string += "(ref.null)"; break;
+		case InitializerExpression::Type::ref_func:
+			string += "(ref.func " + names.functions[expression.ref].name + ')';
+			break;
 		default: Errors::unreachable();
 		};
 	}

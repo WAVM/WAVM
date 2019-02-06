@@ -91,7 +91,8 @@ static TypeTuple parseTypeTuple(CursorState* cursor)
 	return TypeTuple(parameters);
 }
 
-// An unresolved initializer expression: uses a Reference instead of an index for global.get.
+// An unresolved initializer expression: uses a Reference instead of an index for global.get and
+// ref.func.
 typedef InitializerExpressionBase<Reference> UnresolvedInitializerExpression;
 
 static UnresolvedInitializerExpression parseInitializerExpression(CursorState* cursor)
@@ -149,6 +150,20 @@ static UnresolvedInitializerExpression parseInitializerExpression(CursorState* c
 			result = nullptr;
 			break;
 		}
+		case t_ref_func:
+		{
+			++cursor->nextToken;
+			Reference funcRef;
+			if(!tryParseNameOrIndexRef(cursor, funcRef))
+			{
+				parseErrorf(
+					cursor->parseState, cursor->nextToken, "expected function name or index");
+				throw RecoverParseException();
+			}
+			result = UnresolvedInitializerExpression(
+				UnresolvedInitializerExpression::Type::ref_func, funcRef);
+			break;
+		}
 		default:
 			parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
 			throw RecoverParseException();
@@ -179,8 +194,14 @@ static InitializerExpression resolveInitializerExpression(
 									 resolveRef(moduleState->parseState,
 												moduleState->globalNameToIndexMap,
 												moduleState->module.globals.size(),
-												unresolvedExpression.globalRef));
+												unresolvedExpression.ref));
 	case UnresolvedInitializerExpression::Type::ref_null: return InitializerExpression(nullptr);
+	case UnresolvedInitializerExpression::Type::ref_func:
+		return InitializerExpression(InitializerExpression::Type::ref_func,
+									 resolveRef(moduleState->parseState,
+												moduleState->functionNameToIndexMap,
+												moduleState->module.functions.size(),
+												unresolvedExpression.ref));
 	case UnresolvedInitializerExpression::Type::error: return InitializerExpression();
 	default: Errors::unreachable();
 	}
@@ -816,23 +837,22 @@ static void parseGlobal(CursorState* cursor)
 
 static void parseExceptionType(CursorState* cursor)
 {
-	parseObjectDefOrImport(
-		cursor,
-		cursor->moduleState->exceptionTypeNameToIndexMap,
-		cursor->moduleState->module.exceptionTypes,
-		cursor->moduleState->disassemblyNames.exceptionTypes,
-		t_exception_type,
-		ExternKind::exceptionType,
-		// Parse an exception type import.
-		[](CursorState* cursor) {
-			TypeTuple params = parseTypeTuple(cursor);
-			return ExceptionType{params};
-		},
-		// Parse an exception type definition
-		[](CursorState* cursor, const Token*) {
-			TypeTuple params = parseTypeTuple(cursor);
-			return ExceptionTypeDef{ExceptionType{params}};
-		});
+	parseObjectDefOrImport(cursor,
+						   cursor->moduleState->exceptionTypeNameToIndexMap,
+						   cursor->moduleState->module.exceptionTypes,
+						   cursor->moduleState->disassemblyNames.exceptionTypes,
+						   t_exception_type,
+						   ExternKind::exceptionType,
+						   // Parse an exception type import.
+						   [](CursorState* cursor) {
+							   TypeTuple params = parseTypeTuple(cursor);
+							   return ExceptionType{params};
+						   },
+						   // Parse an exception type definition
+						   [](CursorState* cursor, const Token*) {
+							   TypeTuple params = parseTypeTuple(cursor);
+							   return ExceptionTypeDef{ExceptionType{params}};
+						   });
 }
 
 static void parseStart(CursorState* cursor)

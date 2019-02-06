@@ -210,13 +210,19 @@ static void validateInitializer(const Module& module,
 	case InitializerExpression::Type::global_get:
 	{
 		const ValueType globalValueType = validateGlobalIndex(
-			module, expression.globalRef, false, true, true, "initializer expression global index");
+			module, expression.ref, false, true, true, "initializer expression global index");
 		validateType(expectedType, globalValueType, context);
 		break;
 	}
 	case InitializerExpression::Type::ref_null:
 		validateType(expectedType, ValueType::nullref, context);
 		break;
+	case InitializerExpression::Type::ref_func:
+	{
+		validateFunctionIndex(module, expression.ref);
+		validateType(expectedType, ValueType::funcref, context);
+		break;
+	}
 	default: throw ValidationException("invalid initializer expression");
 	};
 }

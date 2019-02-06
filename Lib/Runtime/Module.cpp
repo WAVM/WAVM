@@ -36,8 +36,8 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	case InitializerExpression::Type::global_get:
 	{
 		// Find the import this refers to.
-		errorUnless(expression.globalRef < moduleGlobals.size());
-		Global* global = moduleGlobals[expression.globalRef];
+		errorUnless(expression.ref < moduleGlobals.size());
+		Global* global = moduleGlobals[expression.ref];
 		errorUnless(global);
 		errorUnless(!global->type.isMutable);
 		return IR::Value(global->type.valueType, global->initialValue);
@@ -159,9 +159,17 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	// Instantiate the module's global definitions.
 	for(const GlobalDef& globalDef : module->ir.globals.defs)
 	{
-		const Value initialValue = evaluateInitializer(globals, globalDef.initializer);
-		errorUnless(isSubtype(initialValue.type, globalDef.type.valueType));
-		globals.push_back(createGlobal(compartment, globalDef.type, initialValue));
+		Global* global = createGlobal(compartment, globalDef.type);
+		globals.push_back(global);
+
+		// Defer evaluation of globals with (ref.func ...) initializers until the module's code is
+		// loaded and we have pointers to the Runtime::Function objects.
+		if(globalDef.initializer.type != InitializerExpression::Type::ref_func)
+		{
+			const Value initialValue = evaluateInitializer(globals, globalDef.initializer);
+			errorUnless(isSubtype(initialValue.type, globalDef.type.valueType));
+			initializeGlobal(global, initialValue);
+		}
 	}
 
 	// Instantiate the module's exception types.
@@ -322,6 +330,19 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		compartment->moduleInstances[id] = moduleInstance;
+	}
+
+	// Initialize the globals with (ref.func ...) initializers that were deferred until after the
+	// Runtime::Function objects were loaded.
+	for(Uptr globalDefIndex = 0; globalDefIndex < module->ir.globals.defs.size(); ++globalDefIndex)
+	{
+		const GlobalDef& globalDef = module->ir.globals.defs[globalDefIndex];
+		if(globalDef.initializer.type == InitializerExpression::Type::ref_func)
+		{
+			Global* global
+				= moduleInstance->globals[module->ir.globals.imports.size() + globalDefIndex];
+			initializeGlobal(global, moduleInstance->functions[globalDef.initializer.ref]);
+		}
 	}
 
 	// Copy the module's data segments into their designated memory instances.
