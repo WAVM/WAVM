@@ -1331,7 +1331,7 @@
 			loop $waitLoop
 				(local.set $i (i32.atomic.load (global.get $numPendingThreadsAddress)))
 				(br_if $waitLoopEnd (i32.le_s (local.get $i) (i32.const 0)))
-				(drop (i32.atomic.wait (global.get $numPendingThreadsAddress) (local.get $i) (f64.const +inf)))
+				(drop (i32.atomic.wait (global.get $numPendingThreadsAddress) (local.get $i) (i64.const -1)))
 				(br $waitLoop)
 			end
 		end

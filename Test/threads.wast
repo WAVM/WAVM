@@ -181,11 +181,11 @@
 		(atomic.notify (local.get $numWaiters) (local.get $address))
 		)
 
-	(func (export "i32.atomic.wait") (param $address i32) (param $expectedValue i32) (param $timeout f64) (result i32)
+	(func (export "i32.atomic.wait") (param $address i32) (param $expectedValue i32) (param $timeout i64) (result i32)
 		(i32.atomic.wait (local.get $address) (local.get $expectedValue) (local.get $timeout))
 		)
 
-	(func (export "i64.atomic.wait") (param $address i32) (param $expectedValue i64) (param $timeout f64) (result i32)
+	(func (export "i64.atomic.wait") (param $address i32) (param $expectedValue i64) (param $timeout i64) (result i32)
 		(i64.atomic.wait (local.get $address) (local.get $expectedValue) (local.get $timeout))
 		)
 )

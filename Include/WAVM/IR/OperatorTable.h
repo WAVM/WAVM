@@ -13,7 +13,7 @@
 #define VECTORSELECT(vectorTypeId)              WAVM::IR::FunctionType({WAVM::IR::ValueType::vectorTypeId}, {WAVM::IR::ValueType::vectorTypeId,  WAVM::IR::ValueType::vectorTypeId, WAVM::IR::ValueType::vectorTypeId})
 #define REPLACELANE(scalarTypeId, vectorTypeId) WAVM::IR::FunctionType({WAVM::IR::ValueType::vectorTypeId}, {WAVM::IR::ValueType::vectorTypeId,  WAVM::IR::ValueType::scalarTypeId                                   })
 #define COMPAREEXCHANGE(valueTypeId)            WAVM::IR::FunctionType({WAVM::IR::ValueType::valueTypeId},  {WAVM::IR::ValueType::i32,           WAVM::IR::ValueType::valueTypeId,  WAVM::IR::ValueType::valueTypeId })
-#define WAIT(valueTypeId)                       WAVM::IR::FunctionType({WAVM::IR::ValueType::i32},          {WAVM::IR::ValueType::i32,           WAVM::IR::ValueType::valueTypeId,  WAVM::IR::ValueType::f64         })
+#define WAIT(valueTypeId)                       WAVM::IR::FunctionType({WAVM::IR::ValueType::i32},          {WAVM::IR::ValueType::i32,           WAVM::IR::ValueType::valueTypeId,  WAVM::IR::ValueType::i64         })
 #define ATOMICRMW(valueTypeId)                  WAVM::IR::FunctionType({WAVM::IR::ValueType::valueTypeId},  {WAVM::IR::ValueType::i32,           WAVM::IR::ValueType::valueTypeId                                    })
 #define BULKCOPY                                WAVM::IR::FunctionType({},                                  {WAVM::IR::ValueType::i32,           WAVM::IR::ValueType::i32,          WAVM::IR::ValueType::i32         })
 

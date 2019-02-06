@@ -260,7 +260,7 @@ void EmitFunctionContext::i32_atomic_wait(AtomicLoadOrStoreImm<2> imm)
 		"atomic_wait_i32",
 		FunctionType(
 			TypeTuple{ValueType::i32},
-			TypeTuple{ValueType::i32, ValueType::i32, ValueType::f64, inferValueType<Uptr>()}),
+			TypeTuple{ValueType::i32, ValueType::i32, ValueType::i64, inferValueType<Uptr>()}),
 		{address,
 		 expectedValue,
 		 timeout,
@@ -277,7 +277,7 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 		"atomic_wait_i64",
 		FunctionType(
 			TypeTuple{ValueType::i32},
-			TypeTuple{ValueType::i32, ValueType::i64, ValueType::f64, inferValueType<Uptr>()}),
+			TypeTuple{ValueType::i32, ValueType::i64, ValueType::i64, inferValueType<Uptr>()}),
 		{address,
 		 expectedValue,
 		 timeout,

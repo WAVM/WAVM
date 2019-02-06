@@ -469,7 +469,7 @@
 
 (module
   (memory 1 1 shared)
-  (func (export "i32.atomic.wait") (param $addr i32) (param $expected i32) (param $timeout f64) (result i32) (i32.atomic.wait (local.get $addr) (local.get $expected) (local.get $timeout)))
-  (func (export "i64.atomic.wait") (param $addr i32) (param $expected i64) (param $timeout f64) (result i32) (i64.atomic.wait (local.get $addr) (local.get $expected) (local.get $timeout)))
+  (func (export "i32.atomic.wait") (param $addr i32) (param $expected i32) (param $timeout i64) (result i32) (i32.atomic.wait (local.get $addr) (local.get $expected) (local.get $timeout)))
+  (func (export "i64.atomic.wait") (param $addr i32) (param $expected i64) (param $timeout i64) (result i32) (i64.atomic.wait (local.get $addr) (local.get $expected) (local.get $timeout)))
   (func (export "atomic.notify") (param $addr i32) (param $numWaiters i32) (result i32) (atomic.notify (local.get $addr) (local.get $numWaiters)))
 )
