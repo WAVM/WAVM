@@ -249,8 +249,8 @@ namespace WAVM { namespace IR {
 	{
 		if(Stream::isInput)
 		{
-			U8 flags = 0;
-			serializeNativeValue(stream, flags);
+			U32 flags = 0;
+			serializeVarUInt32(stream, flags);
 
 			switch(flags)
 			{
@@ -295,8 +295,8 @@ namespace WAVM { namespace IR {
 	{
 		if(Stream::isInput)
 		{
-			U8 flags = 0;
-			serializeNativeValue(stream, flags);
+			U32 flags = 0;
+			serializeVarUInt32(stream, flags);
 
 			switch(flags)
 			{
