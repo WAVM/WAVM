@@ -464,3 +464,16 @@
 (assert_invalid (module (memory 1 1) (func (drop (i32.atomic.rmw16_u.cmpxchg (i32.const 0) (i32.const 0) (i32.const 0))))) "atomic accesses require shared memory")
 (assert_invalid (module (memory 1 1) (func (drop (i64.atomic.rmw16_u.cmpxchg (i32.const 0) (i64.const 0) (i64.const 0))))) "atomic accesses require shared memory")
 (assert_invalid (module (memory 1 1) (func (drop (i64.atomic.rmw32_u.cmpxchg (i32.const 0) (i64.const 0) (i64.const 0))))) "atomic accesses require shared memory")
+
+;; TODO: *.atomic.wait and atomic.notify (unimplemented in exec)
+
+(module
+  (memory 1 1 shared)
+
+  (func (export "atomic.notify") (param $addr i32) (param $count i32) (result i32)
+      (atomic.notify (local.get 0) (local.get 1)))
+  (func (export "i32.atomic.wait") (param $addr i32) (param $expected i32) (param $timeout i64) (result i32)
+      (i32.atomic.wait (local.get 0) (local.get 1) (local.get 2)))
+  (func (export "i64.atomic.wait") (param $addr i32) (param $expected i64) (param $timeout i64) (result i32)
+      (i64.atomic.wait (local.get 0) (local.get 1) (local.get 2)))
+)

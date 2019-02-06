@@ -5,7 +5,6 @@ set(WASTTests
 	binary.wast
 	block.wast
 	br.wast
-	break-drop.wast
 	br_if.wast
 	br_table.wast
 	call.wast
@@ -32,8 +31,6 @@ set(WASTTests
 	forward.wast
 	func.wast
 	func_ptrs.wast
-	get_local.wast
-	get_table.wast
 	globals.wast
 	i32.wast
 	i64.wast
@@ -45,6 +42,10 @@ set(WASTTests
 	labels.wast
 	left-to-right.wast
 	linking.wast
+	load.wast
+	local_get.wast
+	local_set.wast
+	local_tee.wast
 	loop.wast
 	memory.wast
 	memory_grow.wast
@@ -52,19 +53,18 @@ set(WASTTests
 	memory_trap.wast
 	names.wast
 	nop.wast
-	resizing.wast
+	ref_func.wast
 	ref_is_null.wast
 	ref_null.wast
 	return.wast
 	select.wast
-	set_local.wast
-	set_table.wast
 	#skip-stack-guard-page.wast
 	start.wast
 	stack.wast
-	store_retval.wast
+	store.wast
 	switch.wast
-	tee_local.wast
+	table_get.wast
+	table_set.wast
 	token.wast
 	traps.wast
 	type.wast

@@ -160,6 +160,13 @@
   (func (export "as-local.set-value") (result i32) (local f32)
     (local.set 0 (return (i32.const 17))) (i32.const -1)
   )
+  (func (export "as-local.tee-value") (result i32) (local i32)
+    (local.tee 0 (return (i32.const 1)))
+  )
+  (global $a (mut i32) (i32.const 0))
+  (func (export "as-global.set-value") (result i32)
+    (global.set $a (return (i32.const 1)))
+  )
 
   (memory 1)
   (func (export "as-load-address") (result f32)
@@ -275,6 +282,8 @@
 (assert_return (invoke "as-call_indirect-last") (i32.const 23))
 
 (assert_return (invoke "as-local.set-value") (i32.const 17))
+(assert_return (invoke "as-local.tee-value") (i32.const 1))
+(assert_return (invoke "as-global.set-value") (i32.const 1))
 
 (assert_return (invoke "as-load-address") (f32.const 1.7))
 (assert_return (invoke "as-loadN-address") (i64.const 30))
@@ -300,6 +309,42 @@
 
 (assert_invalid
   (module (func $type-value-empty-vs-num (result f64) (return)))
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-value-empty-vs-num-in-block (result f64)
+      (i32.const 0)
+      (block (return))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-value-empty-vs-num-in-loop (result f64)
+      (i32.const 0)
+      (loop (return))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-value-empty-vs-num-in-then (result f64)
+      (i32.const 0) (i32.const 0)
+      (if (then (return)))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-value-empty-vs-num-in-else (result i32)
+      (i32.const 0) (i32.const 0)
+      (if (result i32) (then (i32.const 0)) (else (return))) (drop)
+    )
+  )
   "type mismatch"
 )
 (assert_invalid

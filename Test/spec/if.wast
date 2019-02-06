@@ -284,6 +284,23 @@
     )
     (local.get 0)
   )
+  (func (export "as-local.tee-value") (param i32) (result i32)
+    (local.tee 0
+      (if (result i32) (local.get 0)
+        (then (i32.const 1))
+        (else (i32.const 0))
+      )
+    )
+  )
+  (global $a (mut i32) (i32.const 10))
+  (func (export "as-global.set-value") (param i32) (result i32)
+    (global.set $a
+      (if (result i32) (local.get 0)
+        (then (i32.const 1))
+        (else (i32.const 0))
+      )
+    ) (global.get $a)
+  )
   (func (export "as-load-operand") (param i32) (result i32)
     (i32.load
       (if (result i32) (local.get 0)
@@ -589,6 +606,12 @@
 
 (assert_return (invoke "as-local.set-value" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "as-local.set-value" (i32.const 1)) (i32.const 1))
+
+(assert_return (invoke "as-local.tee-value" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-local.tee-value" (i32.const 1)) (i32.const 1))
+
+(assert_return (invoke "as-global.set-value" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-global.set-value" (i32.const 1)) (i32.const 1))
 
 (assert_return (invoke "as-load-operand" (i32.const 0)) (i32.const 0))
 (assert_return (invoke "as-load-operand" (i32.const 1)) (i32.const 0))
@@ -1221,6 +1244,51 @@
   "type mismatch"
 )
 (assert_invalid
+  (module
+    (func $type-condition-empty
+      (if (then))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-block
+      (i32.const 0)
+      (block (if (then)))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-loop
+      (i32.const 0)
+      (loop (if (then)))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-then
+      (i32.const 0) (i32.const 0)
+      (if (then (if (then))))
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func $type-condition-empty-in-else
+      (i32.const 0) (i32.const 0)
+      (if (result i32) (then (i32.const 0)) (else (if (then)) (i32.const 0)))
+      (drop)
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
   (module (func $type-then-break-num-vs-nums (result i32 i32)
     (if (result i32 i32) (i32.const 1)
       (then (br 0 (i64.const 1)) (i32.const 1) (i32.const 1))
@@ -1258,7 +1326,6 @@
   ))
   "type mismatch"
 )
-
 (assert_invalid
   (module (func $type-param-void-vs-num
     (if (param i32) (i32.const 1) (then (drop)))

@@ -154,6 +154,13 @@
   (func (export "as-local.set-value") (local f32)
     (local.set 0 (unreachable))
   )
+  (func (export "as-local.tee-value") (result f32) (local f32)
+    (local.tee 0 (unreachable))
+  )
+  (global $a (mut f32) (f32.const 0))
+  (func (export "as-global.set-value") (result f32)
+    (global.set $a (unreachable))
+  )
 
   (memory 1)
   (func (export "as-load-address") (result f32)
@@ -265,6 +272,8 @@
 (assert_trap (invoke "as-call_indirect-last") "unreachable")
 
 (assert_trap (invoke "as-local.set-value") "unreachable")
+(assert_trap (invoke "as-local.tee-value") "unreachable")
+(assert_trap (invoke "as-global.set-value") "unreachable")
 
 (assert_trap (invoke "as-load-address") "unreachable")
 (assert_trap (invoke "as-loadN-address") "unreachable")

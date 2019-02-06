@@ -203,6 +203,13 @@
   (func (export "as-local.set-value") (result i32) (local f32)
     (block (result i32) (local.set 0 (br 0 (i32.const 17))) (i32.const -1))
   )
+  (func (export "as-local.tee-value") (result i32) (local i32)
+    (block (result i32) (local.tee 0 (br 0 (i32.const 1))))
+  )
+  (global $a (mut i32) (i32.const 10))
+  (func (export "as-global.set-value") (result i32)
+    (block (result i32) (global.set $a (br 0 (i32.const 1))))
+  )
 
   (memory 1)
   (func (export "as-load-address") (result f32)
@@ -424,6 +431,8 @@
 (assert_return (invoke "as-call_indirect-all") (i32.const 24))
 
 (assert_return (invoke "as-local.set-value") (i32.const 17))
+(assert_return (invoke "as-local.tee-value") (i32.const 1))
+(assert_return (invoke "as-global.set-value") (i32.const 1))
 
 (assert_return (invoke "as-load-address") (f32.const 1.7))
 (assert_return (invoke "as-loadN-address") (i64.const 30))
@@ -483,6 +492,7 @@
   ))
   "type mismatch"
 )
+
 
 (assert_invalid
   (module (func $unbound-label (br 1)))

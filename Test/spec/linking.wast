@@ -92,10 +92,10 @@
   "incompatible import type"
 )
 
+
 (module $Mref-ex
   (global (export "g-const") funcref (ref.null))
-  ;; Mutable globals cannot be exported yet
-  ;; (global (export "g-var") (mut funcref) (ref.null))
+  (global (export "g-var") (mut funcref) (ref.null))
 )
 (register "Mref-ex" $Mref-ex)
 
@@ -105,8 +105,9 @@
 
 (assert_unlinkable
   (module (global (import "Mref-ex" "g-var") (mut anyref)))
-  "type mismatch"
+  "incompatible import type"
 )
+
 
 ;; Tables
 
@@ -240,6 +241,28 @@
 )
 (assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
 
+(assert_unlinkable
+  (module
+    (table (import "Mt" "tab") 10 funcref)
+    (func $f (result i32) (i32.const 0))
+    (elem (i32.const 7) $f)
+    (elem (i32.const 12) $f)  ;; out of bounds
+  )
+  "elements segment does not fit"
+)
+
+(assert_unlinkable
+  (module
+    (table (import "Mt" "tab") 10 funcref)
+    (func $f (result i32) (i32.const 0))
+    (elem (i32.const 7) $f)
+    (memory 1)
+    (data (i32.const 0x10000) "d") ;; out of bounds
+  )
+  "data segment does not fit"
+)
+
+
 ;; Memories
 
 (module $Mm
@@ -322,3 +345,23 @@
   "unknown import"
 )
 (assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
+
+(assert_unlinkable
+  (module
+    (memory (import "Mm" "mem") 1)
+    (data (i32.const 0) "abc")
+    (data (i32.const 0x50000) "d") ;; out of bounds
+  )
+  "data segment does not fit"
+)
+
+(assert_unlinkable
+  (module
+    (memory (import "Mm" "mem") 1)
+    (data (i32.const 0) "abc")
+    (table 0 funcref)
+    (func)
+    (elem (i32.const 0) 0) ;; out of bounds
+  )
+  "elements segment does not fit"
+)

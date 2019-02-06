@@ -55,9 +55,9 @@
       $runaway $mutual-runaway1 $mutual-runaway2   ;; 16..18
       $over-i32-duplicate $over-i64-duplicate      ;; 19..20
       $over-f32-duplicate $over-f64-duplicate      ;; 21..22
-      $const-f64-i32 $id-i32-f64 $swap-i32-i64     ;; 23..25
-      $fac-i32 $fac-f32 $fac-f64                   ;; 26..28
-      $fib-i32 $fib-f32 $fib-f64                   ;; 29..31
+      $fac-i32 $fac-f32 $fac-f64                   ;; 23..25
+      $fib-i32 $fib-f32 $fib-f64                   ;; 26..28
+      $const-f64-i32 $id-i32-f64 $swap-i32-i64     ;; 29..31
     )
   )
 
@@ -104,7 +104,7 @@
     (call_indirect (type $out-f64) (i32.const 3))
   )
   (func (export "type-f64-i32") (result f64 i32)
-    (call_indirect (type $out-f64-i32) (i32.const 23))
+    (call_indirect (type $out-f64-i32) (i32.const 29))
   )
 
   (func (export "type-index") (result i64)
@@ -138,16 +138,16 @@
   )
 
   (func (export "type-all-f64-i32") (result f64 i32)
-    (call_indirect (type $out-f64-i32) (i32.const 23))
+    (call_indirect (type $out-f64-i32) (i32.const 29))
   )
   (func (export "type-all-i32-f64") (result i32 f64)
     (call_indirect (type $over-i32-f64)
-      (i32.const 1) (f64.const 2) (i32.const 24)
+      (i32.const 1) (f64.const 2) (i32.const 30)
     )
   )
   (func (export "type-all-i32-i64") (result i64 i32)
     (call_indirect (type $swap-i32-i64)
-      (i32.const 1) (i64.const 2) (i32.const 25)
+      (i32.const 1) (i64.const 2) (i32.const 31)
     )
   )
 
@@ -213,7 +213,7 @@
           (local.get 0)
           (call_indirect (type $over-i32)
             (i32.sub (local.get 0) (i32.const 1))
-            (i32.const 26)
+            (i32.const 23)
           )
         )
       )
@@ -228,7 +228,7 @@
           (local.get 0)
           (call_indirect (type $over-f32)
             (f32.sub (local.get 0) (f32.const 1.0))
-            (i32.const 27)
+            (i32.const 24)
           )
         )
       )
@@ -243,7 +243,7 @@
           (local.get 0)
           (call_indirect (type $over-f64)
             (f64.sub (local.get 0) (f64.const 1.0))
-            (i32.const 28)
+            (i32.const 25)
           )
         )
       )
@@ -257,11 +257,11 @@
         (i32.add
           (call_indirect (type $over-i32)
             (i32.sub (local.get 0) (i32.const 2))
-            (i32.const 29)
+            (i32.const 26)
           )
           (call_indirect (type $over-i32)
             (i32.sub (local.get 0) (i32.const 1))
-            (i32.const 29)
+            (i32.const 26)
           )
         )
       )
@@ -275,11 +275,11 @@
         (f32.add
           (call_indirect (type $over-f32)
             (f32.sub (local.get 0) (f32.const 2.0))
-            (i32.const 30)
+            (i32.const 27)
           )
           (call_indirect (type $over-f32)
             (f32.sub (local.get 0) (f32.const 1.0))
-            (i32.const 30)
+            (i32.const 27)
           )
         )
       )
@@ -293,11 +293,11 @@
         (f64.add
           (call_indirect (type $over-f64)
             (f64.sub (local.get 0) (f64.const 2.0))
-            (i32.const 31)
+            (i32.const 28)
           )
           (call_indirect (type $over-f64)
             (f64.sub (local.get 0) (f64.const 1.0))
-            (i32.const 31)
+            (i32.const 28)
           )
         )
       )
@@ -395,9 +395,77 @@
   (func (export "as-local.set-value") (result f64)
     (local f64) (local.set 0 (call_indirect (type $over-f64) (f64.const 1) (i32.const 7))) (local.get 0)
   )
+  (func (export "as-local.tee-value") (result f64)
+    (local f64) (local.tee 0 (call_indirect (type $over-f64) (f64.const 1) (i32.const 7)))
+  )
+  (global $a (mut f64) (f64.const 10.0))
+  (func (export "as-global.set-value") (result f64)
+    (global.set $a (call_indirect (type $over-f64) (f64.const 1.0) (i32.const 7)))
+    (global.get $a)
+  )
+
   (func (export "as-load-operand") (result i32)
     (i32.load (call_indirect (type $out-i32) (i32.const 0)))
   )
+
+  (func (export "as-unary-operand") (result f32)
+    (block (result f32)
+      (f32.sqrt
+        (call_indirect (type $over-f32) (f32.const 0x0p+0) (i32.const 6))
+      )
+    )
+  )
+
+  (func (export "as-binary-left") (result i32)
+    (block (result i32)
+      (i32.add
+        (call_indirect (type $over-i32) (i32.const 1) (i32.const 4))
+        (i32.const 10)
+      )
+    )
+  )
+  (func (export "as-binary-right") (result i32)
+    (block (result i32)
+      (i32.sub
+        (i32.const 10)
+        (call_indirect (type $over-i32) (i32.const 1) (i32.const 4))
+      )
+    )
+  )
+
+  (func (export "as-test-operand") (result i32)
+    (block (result i32)
+      (i32.eqz
+        (call_indirect (type $over-i32) (i32.const 1) (i32.const 4))
+      )
+    )
+  )
+
+  (func (export "as-compare-left") (result i32)
+    (block (result i32)
+      (i32.le_u
+        (call_indirect (type $over-i32) (i32.const 1) (i32.const 4))
+        (i32.const 10)
+      )
+    )
+  )
+  (func (export "as-compare-right") (result i32)
+    (block (result i32)
+      (i32.ne
+        (i32.const 10)
+        (call_indirect (type $over-i32) (i32.const 1) (i32.const 4))
+      )
+    )
+  )
+
+  (func (export "as-convert-operand") (result i64)
+    (block (result i64)
+      (i64.extend_i32_s
+        (call_indirect (type $over-i32) (i32.const 1) (i32.const 4))
+      )
+    )
+  )
+
 )
 
 (assert_return (invoke "type-i32") (i32.const 0x132))
@@ -441,22 +509,22 @@
 (assert_trap (invoke "dispatch-structural-i64" (i32.const 22)) "indirect call type mismatch")
 
 (assert_return (invoke "dispatch-structural-i32" (i32.const 4)) (i32.const 9))
-(assert_return (invoke "dispatch-structural-i32" (i32.const 26)) (i32.const 362880))
-(assert_return (invoke "dispatch-structural-i32" (i32.const 29)) (i32.const 55))
+(assert_return (invoke "dispatch-structural-i32" (i32.const 23)) (i32.const 362880))
+(assert_return (invoke "dispatch-structural-i32" (i32.const 26)) (i32.const 55))
 (assert_return (invoke "dispatch-structural-i32" (i32.const 19)) (i32.const 9))
 (assert_trap (invoke "dispatch-structural-i32" (i32.const 9)) "indirect call type mismatch")
 (assert_trap (invoke "dispatch-structural-i32" (i32.const 21)) "indirect call type mismatch")
 
 (assert_return (invoke "dispatch-structural-f32" (i32.const 6)) (f32.const 9.0))
-(assert_return (invoke "dispatch-structural-f32" (i32.const 27)) (f32.const 362880.0))
-(assert_return (invoke "dispatch-structural-f32" (i32.const 30)) (f32.const 55.0))
+(assert_return (invoke "dispatch-structural-f32" (i32.const 24)) (f32.const 362880.0))
+(assert_return (invoke "dispatch-structural-f32" (i32.const 27)) (f32.const 55.0))
 (assert_return (invoke "dispatch-structural-f32" (i32.const 21)) (f32.const 9.0))
 (assert_trap (invoke "dispatch-structural-f32" (i32.const 8)) "indirect call type mismatch")
 (assert_trap (invoke "dispatch-structural-f32" (i32.const 19)) "indirect call type mismatch")
 
 (assert_return (invoke "dispatch-structural-f64" (i32.const 7)) (f64.const 9.0))
-(assert_return (invoke "dispatch-structural-f64" (i32.const 28)) (f64.const 362880.0))
-(assert_return (invoke "dispatch-structural-f64" (i32.const 31)) (f64.const 55.0))
+(assert_return (invoke "dispatch-structural-f64" (i32.const 25)) (f64.const 362880.0))
+(assert_return (invoke "dispatch-structural-f64" (i32.const 28)) (f64.const 55.0))
 (assert_return (invoke "dispatch-structural-f64" (i32.const 22)) (f64.const 9.0))
 (assert_trap (invoke "dispatch-structural-f64" (i32.const 10)) "indirect call type mismatch")
 (assert_trap (invoke "dispatch-structural-f64" (i32.const 18)) "indirect call type mismatch")
@@ -537,7 +605,17 @@
 (assert_return (invoke "as-drop-operand"))
 (assert_return (invoke "as-br-value") (f32.const 1))
 (assert_return (invoke "as-local.set-value") (f64.const 1))
+(assert_return (invoke "as-local.tee-value") (f64.const 1))
+(assert_return (invoke "as-global.set-value") (f64.const 1.0))
 (assert_return (invoke "as-load-operand") (i32.const 1))
+
+(assert_return (invoke "as-unary-operand") (f32.const 0x0p+0))
+(assert_return (invoke "as-binary-left") (i32.const 11))
+(assert_return (invoke "as-binary-right") (i32.const 9))
+(assert_return (invoke "as-test-operand") (i32.const 0))
+(assert_return (invoke "as-compare-left") (i32.const 1))
+(assert_return (invoke "as-compare-right") (i32.const 1))
+(assert_return (invoke "as-convert-operand") (i64.const 1))
 
 ;; Invalid syntax
 

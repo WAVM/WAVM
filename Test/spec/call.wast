@@ -231,8 +231,44 @@
   (func (export "as-local.set-value") (result i32)
     (local i32) (local.set 0 (call $const-i32)) (local.get 0)
   )
+  (func (export "as-local.tee-value") (result i32)
+    (local i32) (local.tee 0 (call $const-i32))
+  )
+  (global $a (mut i32) (i32.const 10))
+  (func (export "as-global.set-value") (result i32)
+    (global.set $a (call $const-i32))
+    (global.get $a)
+  )
   (func (export "as-load-operand") (result i32)
     (i32.load (call $const-i32))
+  )
+
+  (func $dummy (param i32) (result i32) (local.get 0))
+  (func $du (param f32) (result f32) (local.get 0))
+  (func (export "as-unary-operand") (result f32)
+    (block (result f32) (f32.sqrt (call $du (f32.const 0x0p+0))))
+  )
+
+  (func (export "as-binary-left") (result i32)
+    (block (result i32) (i32.add (call $dummy (i32.const 1)) (i32.const 10)))
+  )
+  (func (export "as-binary-right") (result i32)
+    (block (result i32) (i32.sub (i32.const 10) (call $dummy (i32.const 1))))
+  )
+
+  (func (export "as-test-operand") (result i32)
+    (block (result i32) (i32.eqz (call $dummy (i32.const 1))))
+  )
+
+  (func (export "as-compare-left") (result i32)
+    (block (result i32) (i32.le_u (call $dummy (i32.const 1)) (i32.const 10)))
+  )
+  (func (export "as-compare-right") (result i32)
+    (block (result i32) (i32.ne (i32.const 10) (call $dummy (i32.const 1))))
+  )
+
+  (func (export "as-convert-operand") (result i64)
+    (block (result i64) (i64.extend_i32_s (call $dummy (i32.const 1))))
   )
 )
 
@@ -315,7 +351,17 @@
 (assert_return (invoke "as-drop-operand"))
 (assert_return (invoke "as-br-value") (i32.const 0x132))
 (assert_return (invoke "as-local.set-value") (i32.const 0x132))
+(assert_return (invoke "as-local.tee-value") (i32.const 0x132))
+(assert_return (invoke "as-global.set-value") (i32.const 0x132))
 (assert_return (invoke "as-load-operand") (i32.const 1))
+
+(assert_return (invoke "as-unary-operand") (f32.const 0x0p+0))
+(assert_return (invoke "as-binary-left") (i32.const 11))
+(assert_return (invoke "as-binary-right") (i32.const 9))
+(assert_return (invoke "as-test-operand") (i32.const 0))
+(assert_return (invoke "as-compare-left") (i32.const 1))
+(assert_return (invoke "as-compare-right") (i32.const 1))
+(assert_return (invoke "as-convert-operand") (i64.const 1))
 
 ;; Invalid typing
 

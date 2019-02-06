@@ -1,8 +1,8 @@
 (module
   ;; Auxiliary
-  (memory 1)
   (func $dummy)
-  (table $tab funcref (elem $dummy $func))
+  (table $tab funcref (elem $dummy))
+  (memory 1)
 
   (func (export "select_i32") (param $lhs i32) (param $rhs i32) (param $cond i32) (result i32)
    (select (local.get $lhs) (local.get $rhs) (local.get $cond)))
@@ -31,6 +31,20 @@
     (unreachable) (f32.const 0) (i32.const 0) (select)
     (unreachable)
   )
+
+
+  (func (export "join-nullref") (param i32) (result anyref)
+    (select (ref.null) (ref.null) (local.get 0))
+  )
+
+  (func (export "join-funcref") (param i32) (result anyref)
+    (select (table.get $tab (i32.const 0)) (ref.null) (local.get 0))
+  )
+
+  (func (export "join-anyref") (param i32) (param anyref) (result anyref)
+    (select (table.get $tab (i32.const 0)) (local.get 1) (local.get 0))
+  )
+
 
   ;; As the argument of control constructs and instructions
 
@@ -80,23 +94,24 @@
 
   (func $func (param i32 i32) (result i32) (local.get 0))
   (type $check (func (param i32 i32) (result i32)))
+  (table $t funcref (elem $func))
   (func (export "as-call_indirect-first") (param i32) (result i32)
     (block (result i32)
-      (call_indirect (type $check)
-        (select (i32.const 2) (i32.const 3) (local.get 0)) (i32.const 1) (i32.const 1)
+      (call_indirect $t (type $check)
+        (select (i32.const 2) (i32.const 3) (local.get 0)) (i32.const 1) (i32.const 0)
       )
     )
   )
   (func (export "as-call_indirect-mid") (param i32) (result i32)
     (block (result i32)
-      (call_indirect (type $check)
-        (i32.const 1) (select (i32.const 2) (i32.const 3) (local.get 0)) (i32.const 1)
+      (call_indirect $t (type $check)
+        (i32.const 1) (select (i32.const 2) (i32.const 3) (local.get 0)) (i32.const 0)
       )
     )
   )
   (func (export "as-call_indirect-last") (param i32) (result i32)
     (block (result i32)
-      (call_indirect (type $check)
+      (call_indirect $t (type $check)
         (i32.const 1) (i32.const 4) (select (i32.const 2) (i32.const 3) (local.get 0))
       )
     )
@@ -151,17 +166,27 @@
       (select (i32.const 1) (i32.const 2) (local.get 0))
     )
   )
-
-  (func (export "join-nullref") (param i32) (result anyref)
-    (select (ref.null) (ref.null) (local.get 0))
+  (func (export "as-test-operand") (param i32) (result i32)
+    (block (result i32)
+      (i32.eqz (select (i32.const 0) (i32.const 1) (local.get 0)))
+    )
   )
 
-  (func (export "join-funcref") (param i32) (result anyref)
-    (select (table.get $tab (i32.const 0)) (ref.null) (local.get 0))
+  (func (export "as-compare-left") (param i32) (result i32)
+    (block (result i32)
+      (i32.le_s (select (i32.const 1) (i32.const 2) (local.get 0)) (i32.const 1))
+    )
+  )
+  (func (export "as-compare-right") (param i32) (result i32)
+    (block (result i32)
+      (i32.ne (i32.const 1) (select (i32.const 0) (i32.const 1) (local.get 0)))
+    )
   )
 
-  (func (export "join-anyref") (param i32) (param anyref) (result anyref)
-    (select (table.get $tab (i32.const 0)) (local.get 1) (local.get 0))
+  (func (export "as-convert-operand") (param i32) (result i32)
+    (block (result i32)
+      (i32.wrap_i64 (select (i64.const 1) (i64.const 0) (local.get 0)))
+    )
   )
 )
 
@@ -239,7 +264,7 @@
 (assert_return (invoke "as-br_table-last" (i32.const 1)) (i32.const 2))
 
 (assert_return (invoke "as-call_indirect-first" (i32.const 0)) (i32.const 3))
-(assert_return (invoke "as-call_indirect-first" (i32.const 1)) (i32.const 2))
+;;(assert_return (invoke "as-call_indirect-first" (i32.const 1)) (i32.const 2))
 (assert_return (invoke "as-call_indirect-mid" (i32.const 0)) (i32.const 1))
 (assert_return (invoke "as-call_indirect-mid" (i32.const 1)) (i32.const 1))
 (assert_trap (invoke "as-call_indirect-last" (i32.const 0)) "undefined element")
@@ -274,6 +299,14 @@
 (assert_return (invoke "as-unary-operand" (i32.const 1)) (i32.const 1))
 (assert_return (invoke "as-binary-operand" (i32.const 0)) (i32.const 4))
 (assert_return (invoke "as-binary-operand" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "as-test-operand" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-test-operand" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "as-compare-left" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-compare-left" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "as-compare-right" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-compare-right" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "as-convert-operand" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "as-convert-operand" (i32.const 1)) (i32.const 1))
 
 (assert_invalid
   (module (func $arity-0 (select (nop) (nop) (i32.const 1))))
