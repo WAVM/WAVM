@@ -137,12 +137,12 @@ namespace WAVM { namespace IR {
 
 	inline std::string asString(const V128& v128)
 	{
-		// buffer needs 48 characters:
-		// i32 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH\0
-		char buffer[48];
+		// buffer needs 50 characters:
+		// i32x4 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH 0xHHHHHHHH\0
+		char buffer[50];
 		snprintf(buffer,
 				 sizeof(buffer),
-				 "i32 0x%.8x 0x%.8x 0x%.8x 0x%.8x",
+				 "i32x4 0x%.8x 0x%.8x 0x%.8x 0x%.8x",
 				 v128.u32[0],
 				 v128.u32[1],
 				 v128.u32[2],
