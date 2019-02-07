@@ -812,27 +812,35 @@ static void parseMemory(CursorState* cursor)
 
 static void parseGlobal(CursorState* cursor)
 {
-	parseObjectDefOrImport(cursor,
-						   cursor->moduleState->globalNameToIndexMap,
-						   cursor->moduleState->module.globals,
-						   cursor->moduleState->disassemblyNames.globals,
-						   t_global,
-						   ExternKind::global,
-						   // Parse a global import.
-						   parseGlobalType,
-						   // Parse a global definition
-						   [](CursorState* cursor, const Token*) {
-							   const GlobalType globalType = parseGlobalType(cursor);
-							   // It's safe to immediately resolve the initializer expression,
-							   // because global definitions must occur after global imports, and
-							   // global initializers may only reference imported globals.
-							   const UnresolvedInitializerExpression unresolvedInitializerExpression
-								   = parseInitializerExpression(cursor);
-							   const InitializerExpression initializerExpression
-								   = resolveInitializerExpression(cursor->moduleState,
-																  unresolvedInitializerExpression);
-							   return GlobalDef{globalType, initializerExpression};
-						   });
+	parseObjectDefOrImport(
+		cursor,
+		cursor->moduleState->globalNameToIndexMap,
+		cursor->moduleState->module.globals,
+		cursor->moduleState->disassemblyNames.globals,
+		t_global,
+		ExternKind::global,
+		// Parse a global import.
+		parseGlobalType,
+		// Parse a global definition
+		[](CursorState* cursor, const Token*) {
+			const GlobalType globalType = parseGlobalType(cursor);
+
+			// Parse the unresolved initializer expression, but defer resolving it until all
+			// declarations have been parsed. This allows the initializer to reference
+			// function/global names declared after this global.
+			const UnresolvedInitializerExpression unresolvedInitializerExpression
+				= parseInitializerExpression(cursor);
+			const Uptr globalDefIndex = cursor->moduleState->module.globals.defs.size();
+			cursor->moduleState->postDeclarationCallbacks.push_back(
+				[cursor, globalDefIndex, unresolvedInitializerExpression](
+					ModuleState* moduleState) {
+					cursor->moduleState->module.globals.defs[globalDefIndex].initializer
+						= resolveInitializerExpression(cursor->moduleState,
+													   unresolvedInitializerExpression);
+				});
+
+			return GlobalDef{globalType, InitializerExpression()};
+		});
 }
 
 static void parseExceptionType(CursorState* cursor)
