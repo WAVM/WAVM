@@ -1275,7 +1275,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						break;
 					}
 					default:
-						linkingSectionString += "\nUnknown symbol kind: " + std::to_string(kind);
+						linkingSectionString += "\n;; Unknown symbol kind: " + std::to_string(kind);
 						throw FatalSerializationException("Unknown symbol kind");
 					};
 
@@ -1332,7 +1332,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			}
 			default:
 				linkingSectionString
-					+= "\nUnknown WASM linking subsection type: " + std::to_string(subsectionType);
+					+= "\n;; Unknown WASM linking subsection type: " + std::to_string(subsectionType);
 				throw FatalSerializationException("Unknown linking subsection type");
 				break;
 			};
