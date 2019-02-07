@@ -17,6 +17,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	Module module;
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
+	module.featureSpec.maxDataSegments = 65536;
 	loadBinaryModule(data, numBytes, module, Log::debug);
 	return 0;
 }

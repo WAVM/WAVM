@@ -44,5 +44,6 @@ namespace WAVM { namespace IR {
 
 		Uptr maxLocals = 65536;
 		Uptr maxLabelsPerFunction = UINTPTR_MAX;
+		Uptr maxDataSegments = UINTPTR_MAX;
 	};
 }}

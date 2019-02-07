@@ -22,6 +22,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	Module module;
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
+	module.featureSpec.maxDataSegments = 65536;
 	if(WASM::loadBinaryModule(data, numBytes, module, Log::debug))
 	{
 		const std::string wastString = WAST::print(module);

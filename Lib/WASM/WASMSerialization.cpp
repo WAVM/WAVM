@@ -1007,7 +1007,15 @@ template<typename Stream> void serializeDataCountSection(Stream& moduleStream, M
 	serializeSection(moduleStream, SectionType::dataCount, [&module](Stream& sectionStream) {
 		Uptr numDataSegments = module.dataSegments.size();
 		serializeVarUInt32(sectionStream, numDataSegments);
-		if(Stream::isInput) { module.dataSegments.resize(numDataSegments); }
+		if(Stream::isInput)
+		{
+			// To make fuzzing more effective, fail gracefully instead of through OOM if the
+			// DataCount section specifies a large number of data segments.
+			if(numDataSegments > module.featureSpec.maxDataSegments)
+			{ throw FatalSerializationException("too many data segments"); }
+
+			module.dataSegments.resize(numDataSegments);
+		}
 	});
 }
 
@@ -1018,7 +1026,15 @@ void serializeDataSection(InputStream& moduleStream, Module& module, bool hadDat
 					 [&module, hadDataCountSection](InputStream& sectionStream) {
 						 Uptr numDataSegments = 0;
 						 serializeVarUInt32(sectionStream, numDataSegments);
-						 if(!hadDataCountSection) { module.dataSegments.resize(numDataSegments); }
+						 if(!hadDataCountSection)
+						 {
+							 // To make fuzzing more effective, fail gracefully instead of through
+							 // OOM if the DataCount section specifies a large number of data
+							 // segments.
+							 if(numDataSegments > module.featureSpec.maxDataSegments)
+							 { throw FatalSerializationException("too many data segments"); }
+							 module.dataSegments.resize(numDataSegments);
+						 }
 						 else if(numDataSegments != module.dataSegments.size())
 						 {
 							 throw FatalSerializationException(
