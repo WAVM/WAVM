@@ -67,6 +67,12 @@ jobs:
       os: linux
       compiler: gcc
       env: ENABLE_RUNTIME=YES ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=YES ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
+	  
+    - stage: build
+      name: "Linux/GCC ASAN"
+      os: linux
+      compiler: gcc
+      env: ENABLE_RUNTIME=YES ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=YES ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO
 
     - stage: build
       name: "Linux/GCC UBSAN"
