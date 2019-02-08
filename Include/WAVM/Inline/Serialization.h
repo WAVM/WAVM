@@ -291,6 +291,10 @@ namespace WAVM { namespace Serialization {
 	{
 		serializeVarInt<Value, 7>(stream, value, 0, 127);
 	}
+	template<typename Stream, typename Value> void serializeVarUInt8(Stream& stream, Value& value)
+	{
+		serializeVarInt<Value, 8>(stream, value, 0, 255);
+	}
 	template<typename Stream, typename Value> void serializeVarUInt32(Stream& stream, Value& value)
 	{
 		serializeVarInt<Value, 32>(stream, value, 0, UINT32_MAX);

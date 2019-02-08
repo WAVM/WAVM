@@ -36,7 +36,7 @@ FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 	if(opcode > Opcode::maxSingleByteOpcode)
 	{
 		opcode = (Opcode)(U16(opcode) << 8);
-		serializeNativeValue(stream, *(U8*)&opcode);
+		serializeVarUInt8(stream, *(U8*)&opcode);
 	}
 }
 FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
@@ -45,8 +45,10 @@ FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 	{ Serialization::serializeNativeValue(stream, *(U8*)&opcode); }
 	else
 	{
-		serializeNativeValue(stream, *(((U8*)&opcode) + 1));
-		serializeNativeValue(stream, *(((U8*)&opcode) + 0));
+		U8 opcodePrefix = U8(U16(opcode) >> 8);
+		U8 opcodeVarUInt = U8(opcode);
+		serializeNativeValue(stream, opcodePrefix);
+		serializeVarUInt8(stream, opcodeVarUInt);
 	}
 }
 
