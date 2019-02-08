@@ -194,31 +194,30 @@ static Uptr getNumStackBytesRLimit()
 
 static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr)
 {
-	Uptr numGuardBytes = 0;
 #ifdef __linux__
 	// Linux uses pthread_getattr_np/pthread_attr_getstack, and returns a pointer to the minimum
 	// address of the stack.
 	pthread_attr_t threadAttributes;
 	memset(&threadAttributes, 0, sizeof(threadAttributes));
 	errorUnless(!pthread_getattr_np(thread, &threadAttributes));
-	Uptr numStackBytes;
-	errorUnless(!pthread_attr_getstack(&threadAttributes, (void**)&outMinAddr, &numStackBytes));
+	Uptr numStackBytes = 0;
+	Uptr numGuardBytes = 0;
+	errorUnless(!pthread_attr_getstack(&threadAttributes, (void**)&outMinGuardAddr, &numStackBytes));
 	errorUnless(!pthread_attr_getguardsize(&threadAttributes, &numGuardBytes));
 	errorUnless(!pthread_attr_destroy(&threadAttributes));
-	outMaxAddr = outMinAddr + numStackBytes;
+	outMaxAddr = outMinGuardAddr + numStackBytes;
+	outMinAddr = outMinGuardAddr + numGuardBytes;
 #elif defined(__APPLE__)
 	// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the
 	// stack.
 	outMaxAddr = (U8*)pthread_get_stackaddr_np(thread);
 	outMinAddr = outMaxAddr - getNumStackBytesRLimit();
-	numGuardBytes = Uptr(1) << getPageSizeLog2();
+	outMinGuardAddr = outMinAddr - (Uptr(1) << getPageSizeLog2());
 #elif defined(__WAVIX__)
 	Errors::fatal("getCurrentThreadStack is unimplemented on Wavix.");
 #else
 #error unsupported platform
 #endif
-
-	outMinGuardAddr = outMinAddr - numGuardBytes;
 }
 
 void Platform::getCurrentThreadStack(U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr)
