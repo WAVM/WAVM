@@ -22,8 +22,7 @@ extern "C" const char* __asan_default_options()
 	return "handle_segv=false"
 		   ":handle_sigbus=false"
 		   ":handle_sigfpe=false"
-		   ":replace_intrin=false"
-		   ":fast_unwind_on_malloc=false";
+		   ":replace_intrin=false";
 }
 
 static Mutex& getErrorReportingMutex()
