@@ -169,6 +169,20 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=thread")
 			target_link_libraries(${TARGET_NAME} PUBLIC -fsanitize=thread)
 		endif()
+		
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+			# Link with the static sanitizer runtimes instead of the shared sanitize runtimes on GCC.
+			# This matches the default behavior for Clang.
+			if(WAVM_ENABLE_ASAN)
+				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libasan")
+			endif()
+			if(WAVM_ENABLE_UBSAN)
+				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libubsan")
+			endif()
+			if(WAVM_ENABLE_TSAN)
+				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libtsan")
+			endif()
+		endif()
 
 		# Make sure to omit the frame pointer in order to allow stuff like thread forking to work.
 		target_compile_options(${TARGET_NAME} PRIVATE "-fomit-frame-pointer")
