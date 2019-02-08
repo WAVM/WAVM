@@ -188,7 +188,7 @@ static int run(const CommandLineOptions& options)
 
 		if(!precompiledObjectSection)
 		{
-			Log::printf(Log::error, "Input file did not contain 'wavm.precompiled_object' section");
+			Log::printf(Log::error, "Input file did not contain 'wavm.precompiled_object' section.\n");
 			return EXIT_FAILURE;
 		}
 		else
