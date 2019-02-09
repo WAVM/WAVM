@@ -1074,14 +1074,14 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					std::string segmentName;
 					serialize(substream, segmentName);
 
-					Uptr alignment = 0;
+					Uptr alignmentLog2 = 0;
 					Uptr flags = 0;
-					serializeVarUInt32(substream, alignment);
+					serializeVarUInt32(substream, alignmentLog2);
 					serializeVarUInt32(substream, flags);
 
 					linkingSectionString += "\n;; \"";
 					linkingSectionString += escapeString(segmentName);
-					linkingSectionString += "\" alignment=" + std::to_string(1 << alignment);
+					linkingSectionString += "\" alignment=2^" + std::to_string(alignmentLog2);
 					linkingSectionString += " flags=" + std::to_string(flags);
 				}
 
