@@ -57,6 +57,11 @@ static std::string escapeString(const char* string, Uptr numChars)
 	return result;
 }
 
+static std::string escapeString(const std::string& string)
+{
+	return escapeString(string.c_str(), string.size());
+}
+
 static std::string escapeName(const std::string& name)
 {
 	std::string escapedName;
@@ -85,6 +90,15 @@ static std::string escapeName(const std::string& name)
 	}
 
 	return escapedName;
+}
+
+static bool hasNonNameChars(const std::string& name)
+{
+	for(char c : name)
+	{
+		if(!isNameChar(c)) { return true; }
+	}
+	return false;
 }
 
 static std::string expandIndentation(std::string&& inString, U8 spacesPerIndentLevel = 2)
@@ -250,18 +264,9 @@ struct NameScope
 		}
 
 		if(!allowQuotedNames) { name = escapeName(name); }
-		else
+		else if(hasNonNameChars(name))
 		{
-			bool needsQuotes = false;
-			for(char c : name)
-			{
-				if(!isNameChar(c))
-				{
-					needsQuotes = true;
-					break;
-				}
-			}
-			if(needsQuotes) { name = '\"' + escapeString(name.data(), name.size()) + '\"'; }
+			name = '\"' + escapeString(name.data(), name.size()) + '\"';
 		}
 
 		name = sigil + name;
@@ -1074,9 +1079,9 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					serializeVarUInt32(substream, alignment);
 					serializeVarUInt32(substream, flags);
 
-					linkingSectionString += "\n;; ";
-					linkingSectionString += segmentName;
-					linkingSectionString += " alignment=" + std::to_string(1 << alignment);
+					linkingSectionString += "\n;; \"";
+					linkingSectionString += escapeString(segmentName);
+					linkingSectionString += "\" alignment=" + std::to_string(1 << alignment);
 					linkingSectionString += " flags=" + std::to_string(flags);
 				}
 
@@ -1096,13 +1101,13 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					Uptr functionIndex = 0;
 					serializeVarUInt32(substream, functionIndex);
 
-					linkingSectionString += ";; \n";
+					linkingSectionString += "\n;; ";
 					if(functionIndex < names.functions.size())
-					{ linkingSectionString += ' ' + names.functions[functionIndex].name; }
+					{ linkingSectionString += names.functions[functionIndex].name; }
 					else
 					{
 						linkingSectionString
-							+= " <invalid function index " + std::to_string(functionIndex) + ">";
+							+= "<invalid function index " + std::to_string(functionIndex) + ">";
 					}
 				}
 
@@ -1125,8 +1130,9 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					U32 flags = 0;
 					serializeVarUInt32(substream, flags);
 
-					linkingSectionString += "\n;; ";
-					linkingSectionString += comdatName;
+					linkingSectionString += "\n;; \"";
+					linkingSectionString += escapeString(comdatName);
+					linkingSectionString += '\"';
 
 					if(flags) { linkingSectionString += " OtherFlags=" + std::to_string(flags); }
 
@@ -1268,7 +1274,9 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 
 					linkingSectionString += "\n;; ";
 					linkingSectionString += kindName;
-					linkingSectionString += symbolName;
+					linkingSectionString += '\"';
+					linkingSectionString += escapeString(symbolName);
+					linkingSectionString += '\"';
 
 					switch(SymbolKind(kind))
 					{
@@ -1318,8 +1326,8 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 				break;
 			}
 			default:
-				linkingSectionString
-					+= "\n;; Unknown WASM linking subsection type: " + std::to_string(subsectionType);
+				linkingSectionString += "\n;; Unknown WASM linking subsection type: "
+										+ std::to_string(subsectionType);
 				throw FatalSerializationException("Unknown linking subsection type");
 				break;
 			};
