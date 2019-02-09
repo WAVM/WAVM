@@ -495,23 +495,10 @@ struct FunctionPrintContext
 
 	void rethrow(RethrowImm imm)
 	{
-		string += "\nrethrow ";
+		wavmAssert(controlStack[controlStack.size() - 1 - imm.catchDepth].type
+				   == ControlContext::Type::catch_);
 
-		Uptr catchDepth = 0;
-		for(Uptr targetDepth = controlStack.size() - 1; targetDepth > 0; --targetDepth)
-		{
-			if(controlStack[targetDepth].type == ControlContext::Type::catch_)
-			{
-				if(catchDepth == imm.catchDepth)
-				{
-					string += getBranchTargetId(targetDepth);
-					return;
-				}
-				++catchDepth;
-			}
-		}
-
-		Errors::unreachable();
+		string += "\nrethrow " + getBranchTargetId(imm.catchDepth);
 	}
 
 	void call(FunctionImm imm)
