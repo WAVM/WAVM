@@ -15,7 +15,7 @@
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Diagnostics.h"
-#include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/Signal.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"

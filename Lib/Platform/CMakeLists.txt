@@ -1,7 +1,7 @@
 set(POSIXSources
 	POSIX/Diagnostics.cpp
 	POSIX/Event.cpp
-	POSIX/Exception.cpp
+	POSIX/Signal.cpp
 	POSIX/File.cpp
 	POSIX/Memory.cpp
 	POSIX/Mutex.cpp
@@ -12,7 +12,7 @@ set(POSIXSources
 set(WindowsSources
 	Windows/Diagnostics.cpp
 	Windows/Event.cpp
-	Windows/Exception.cpp
+	Windows/Signal.cpp
 	Windows/File.cpp
 	Windows/Memory.cpp
 	Windows/Mutex.cpp
@@ -25,7 +25,7 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Platform/Defines.h
 	${WAVM_INCLUDE_DIR}/Platform/Diagnostics.h
 	${WAVM_INCLUDE_DIR}/Platform/Event.h
-	${WAVM_INCLUDE_DIR}/Platform/Exception.h
+	${WAVM_INCLUDE_DIR}/Platform/Signal.h
 	${WAVM_INCLUDE_DIR}/Platform/File.h
 	${WAVM_INCLUDE_DIR}/Platform/Intrinsic.h
 	${WAVM_INCLUDE_DIR}/Platform/Memory.h

@@ -21,7 +21,7 @@
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Lock.h"
-#include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/Signal.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"

@@ -5,7 +5,7 @@
 
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/Signal.h"
 
 // This struct layout is replicated in POSIX.S
 struct ExecutionContext

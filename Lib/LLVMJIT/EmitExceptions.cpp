@@ -11,7 +11,7 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Exception.h"
+#include "WAVM/Platform/Signal.h"
 #include "WAVM/Runtime/RuntimeData.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
