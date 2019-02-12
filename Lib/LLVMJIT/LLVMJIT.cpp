@@ -30,7 +30,7 @@ static HashMap<std::string, const char*> runtimeSymbolMap = {
 #ifdef _WIN32
 	// the LLVM X86 code generator calls __chkstk when allocating more than 4KB of stack space
 	{"__chkstk", "__chkstk"},
-	{"__C_specific_handler", "__C_specific_handler"},
+	{"__CxxFrameHandler3", "__CxxFrameHandler3"},
 #ifndef _WIN64
 	{"__aullrem", "_aullrem"},
 	{"__allrem", "_allrem"},
@@ -38,8 +38,8 @@ static HashMap<std::string, const char*> runtimeSymbolMap = {
 	{"__alldiv", "_alldiv"},
 #endif
 #else
-	{"__CxxFrameHandler3", "__CxxFrameHandler3"},
 	{"__cxa_begin_catch", "__cxa_begin_catch"},
+	{"__cxa_end_catch", "__cxa_end_catch"},
 	{"__gxx_personality_v0", "__gxx_personality_v0"},
 #endif
 #ifdef __arm__
@@ -96,18 +96,6 @@ LLVMContext::LLVMContext()
 	case 8: iptrType = i64Type; break;
 	default: Errors::unreachable();
 	}
-
-	auto llvmExceptionRecordStructType = llvm::StructType::create({
-		i32Type,   // DWORD ExceptionCode
-		i32Type,   // DWORD ExceptionFlags
-		i8PtrType, // _EXCEPTION_RECORD* ExceptionRecord
-		i8PtrType, // PVOID ExceptionAddress
-		i32Type,   // DWORD NumParameters
-		llvm::ArrayType::get(i64Type,
-							 15) // ULONG_PTR ExceptionInformation[EXCEPTION_MAXIMUM_PARAMETERS]
-	});
-	exceptionPointersStructType
-		= llvm::StructType::create({llvmExceptionRecordStructType->getPointerTo(), i8PtrType});
 
 	anyrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
 

@@ -170,7 +170,7 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 
 	Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 	const Uptr id = compartment->moduleInstances.add(UINTPTR_MAX, nullptr);
-	if(id == UINTPTR_MAX) { throwException(Exception::outOfMemoryType, {}); }
+	if(id == UINTPTR_MAX) { createAndThrowException(ExceptionTypes::outOfMemory, {}); }
 	auto moduleInstance = new ModuleInstance(compartment,
 											 id,
 											 std::move(exportMap),

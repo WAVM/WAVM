@@ -105,8 +105,7 @@ bool Platform::catchSignals(const std::function<void()>& thunk,
 	}
 	__except(sehSignalFilterFunction(GetExceptionInformation(), filter))
 	{
-		// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair
-		// it.
+		// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
 		errorUnless(_resetstkoflw());
 
 		return true;
@@ -121,19 +120,7 @@ static LONG NTAPI unhandledExceptionFilterNonRentrant(struct _EXCEPTION_POINTERS
 {
 	Signal signal;
 
-	if(!translateSEHToSignal(exceptionPointers, signal))
-	{
-		if(exceptionPointers->ExceptionRecord->ExceptionCode == DWORD(SEH_WAVM_EXCEPTION))
-		{
-			signal.type = Signal::Type::unhandledException;
-			signal.unhandledException.data = reinterpret_cast<void*>(
-				exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
-		}
-		else
-		{
-			return EXCEPTION_CONTINUE_SEARCH;
-		}
-	}
+	if(!translateSEHToSignal(exceptionPointers, signal)) { return EXCEPTION_CONTINUE_SEARCH; }
 
 	// Unwind the stack frames from the context of the exception.
 	CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
@@ -167,51 +154,3 @@ void Platform::setSignalHandler(SignalHandler handler)
 
 	signalHandler.store(handler);
 }
-
-static LONG CALLBACK sehPlatformExceptionFilterFunction(EXCEPTION_POINTERS* exceptionPointers,
-														CallStack*& outCallStack,
-														void*& outExceptionData)
-{
-	if(exceptionPointers->ExceptionRecord->ExceptionCode != DWORD(SEH_WAVM_EXCEPTION))
-	{ return EXCEPTION_CONTINUE_SEARCH; }
-	else
-	{
-		outExceptionData
-			= reinterpret_cast<void*>(exceptionPointers->ExceptionRecord->ExceptionInformation[0]);
-
-		// Unwind the stack frames from the context of the exception.
-		outCallStack = new CallStack(unwindStack(*exceptionPointers->ContextRecord, 0));
-		return EXCEPTION_EXECUTE_HANDLER;
-	}
-}
-
-bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
-									   const std::function<void(void*, CallStack&&)>& handler)
-{
-	CallStack* callStack = nullptr;
-	void* exceptionData = nullptr;
-	__try
-	{
-		thunk();
-		return false;
-	}
-	__except(
-		sehPlatformExceptionFilterFunction(GetExceptionInformation(), callStack, exceptionData))
-	{
-		handler(exceptionData, std::move(*callStack));
-
-		delete callStack;
-		if(exceptionData) { free(exceptionData); }
-
-		return true;
-	}
-}
-
-[[noreturn]] void Platform::raisePlatformException(void* data)
-{
-	ULONG_PTR arguments[1] = {reinterpret_cast<ULONG_PTR>(data)};
-	RaiseException(U32(SEH_WAVM_EXCEPTION), 0, 1, arguments);
-	Errors::unreachable();
-}
-
-std::type_info* Platform::getUserExceptionTypeInfo() { return nullptr; }

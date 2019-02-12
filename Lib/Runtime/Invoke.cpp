@@ -41,7 +41,7 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 		if(argDataOffset >= maxThunkArgAndReturnBytes)
 		{
 			// Throw an exception if the invoke uses too much memory for arguments.
-			throwException(Exception::outOfMemoryType);
+			createAndThrowException(ExceptionTypes::outOfMemory);
 		}
 		memcpy(argData + argDataOffset, argument.bytes, getTypeByteWidth(type));
 		argDataOffset += numArgBytes;
@@ -65,7 +65,7 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 	// Check that the parameter types match the function, and copy them into a memory block that
 	// stores each as a 64-bit value.
 	if(arguments.size() != functionType.params().size())
-	{ throwException(Exception::invokeSignatureMismatchType); }
+	{ createAndThrowException(ExceptionTypes::invokeSignatureMismatch); }
 
 	// Convert the arguments from a vector of Values to a stack-allocated block of
 	// UntaggedValues.
@@ -75,7 +75,7 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 	{
 		const Value& argument = arguments[argumentIndex];
 		if(!isSubtype(argument.type, functionType.params()[argumentIndex]))
-		{ throwException(Exception::invokeSignatureMismatchType); }
+		{ createAndThrowException(ExceptionTypes::invokeSignatureMismatch); }
 
 		errorUnless(!isReferenceType(argument.type) || !argument.object
 					|| isInCompartment(argument.object, context->compartment));

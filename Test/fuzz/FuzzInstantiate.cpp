@@ -126,7 +126,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 								  std::move(linkResult.resolvedImports),
 								  "fuzz");
 			},
-			[&](Exception&& exception) {});
+			[&](Exception* exception) {});
 	}
 	errorUnless(tryCollectCompartment(std::move(compartment)));
 

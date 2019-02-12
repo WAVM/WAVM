@@ -144,6 +144,12 @@ void EmitFunctionContext::end(NoImm)
 	wavmAssert(controlStack.size());
 	ControlContext& currentContext = controlStack.back();
 
+	if(currentContext.type == ControlContext::Type::try_) { endTryWithoutCatch(); }
+	else if(currentContext.type == ControlContext::Type::catch_)
+	{
+		endTryCatch();
+	}
+
 	branchToEndOfControlContext();
 
 	if(currentContext.elseBlock)
@@ -161,12 +167,6 @@ void EmitFunctionContext::end(NoImm)
 			currentContext.endPHIs[argIndex]->addIncoming(currentContext.elseArgs[argIndex],
 														  currentContext.elseBlock);
 		}
-	}
-
-	if(currentContext.type == ControlContext::Type::try_) { endTry(); }
-	else if(currentContext.type == ControlContext::Type::catch_)
-	{
-		endCatch();
 	}
 
 	// Switch the IR emitter to the end block.

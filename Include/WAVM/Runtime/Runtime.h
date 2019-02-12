@@ -152,24 +152,17 @@ namespace WAVM { namespace Runtime {
 	visit(invalidArgument);
 
 	// Information about a runtime exception.
-	struct Exception
-	{
-#define DECLARE_INTRINSIC_EXCEPTION_TYPE(name, ...) RUNTIME_API static ExceptionType* name##Type;
+	namespace ExceptionTypes {
+#define DECLARE_INTRINSIC_EXCEPTION_TYPE(name, ...) RUNTIME_API extern ExceptionType* name;
 		ENUM_INTRINSIC_EXCEPTION_TYPES(DECLARE_INTRINSIC_EXCEPTION_TYPE)
 #undef DECLARE_INTRINSIC_EXCEPTION_TYPE
-
-		GCPointer<ExceptionType> type;
-		std::vector<IR::UntaggedValue> arguments;
-		Platform::CallStack callStack;
 	};
 
+	struct Exception;
 	// Creates an exception type instance.
 	RUNTIME_API ExceptionType* createExceptionType(Compartment* compartment,
 												   IR::ExceptionType sig,
 												   std::string&& debugName);
-
-	// Returns a string that describes the given exception cause.
-	RUNTIME_API std::string describeException(const Exception& exception);
 
 	// Returns a string that describes the given exception type.
 	RUNTIME_API std::string describeExceptionType(const ExceptionType* type);
@@ -177,15 +170,37 @@ namespace WAVM { namespace Runtime {
 	// Returns the parameter types for an exception type instance.
 	RUNTIME_API IR::TypeTuple getExceptionTypeParameters(const ExceptionType* type);
 
+	// Creates a runtime exception.
+	RUNTIME_API Exception* createException(ExceptionType* type,
+										   const IR::UntaggedValue* arguments,
+										   Uptr numArguments,
+										   Platform::CallStack&& callStack);
+
+	// Destroys a runtime exception.
+	RUNTIME_API void destroyException(Exception* exception);
+
+	// Returns the type of an exception.
+	RUNTIME_API ExceptionType* getExceptionType(const Exception* exception);
+
+	// Returns a specific argument of an exception.
+	RUNTIME_API IR::UntaggedValue getExceptionArgument(const Exception* exception, Uptr argIndex);
+
+	// Returns a string that describes the given exception cause.
+	RUNTIME_API std::string describeException(const Exception* exception);
+
 	// Throws a runtime exception.
-	[[noreturn]] RUNTIME_API void throwException(ExceptionType* type,
-												 std::vector<IR::UntaggedValue>&& arguments = {});
+	[[noreturn]] RUNTIME_API void throwException(Exception* exception);
+
+	// Creates and throws a runtime exception.
+	[[noreturn]] RUNTIME_API void createAndThrowException(
+		ExceptionType* type,
+		const std::vector<IR::UntaggedValue>& arguments = {});
 
 	// Calls a thunk and catches any runtime exceptions that occur within it.
 	RUNTIME_API void catchRuntimeExceptions(const std::function<void()>& thunk,
-											const std::function<void(Exception&&)>& catchThunk);
+											const std::function<void(Exception*)>& catchThunk);
 
-	typedef void (*UnhandledExceptionHandler)(Exception&&);
+	typedef void (*UnhandledExceptionHandler)(Exception*);
 	RUNTIME_API void setUnhandledExceptionHandler(UnhandledExceptionHandler handler);
 
 	// Describes an instruction pointer.

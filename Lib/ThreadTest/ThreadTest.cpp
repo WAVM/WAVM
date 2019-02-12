@@ -83,7 +83,7 @@ FORCENOINLINE static void setCurrentThread(Thread* thread) { currentThread = thr
 static void validateThreadId(Uptr threadId)
 {
 	if(threadId == 0 || !threads.contains(threadId))
-	{ throwException(Exception::invalidArgumentType); }
+	{ createAndThrowException(ExceptionTypes::invalidArgument); }
 }
 
 DEFINE_INTRINSIC_MODULE(threadTest);
@@ -108,7 +108,7 @@ DEFINE_INTRINSIC_FUNCTION(threadTest,
 	if(!entryFunction
 	   || IR::FunctionType{entryFunction->encodedType}
 			  != FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
-	{ throwException(Runtime::Exception::indirectCallSignatureMismatchType); }
+	{ createAndThrowException(Runtime::ExceptionTypes::indirectCallSignatureMismatch); }
 
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.

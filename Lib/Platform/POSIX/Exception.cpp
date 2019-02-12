@@ -1,4 +1,3 @@
-#include <cxxabi.h>
 #include <signal.h>
 #include <unistd.h>
 #include <atomic>
@@ -19,25 +18,6 @@ struct PlatformException
 
 thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 static std::atomic<SignalHandler> portableSignalHandler;
-
-static void deliverSignal(Signal signal, CallStack&& callStack)
-{
-	// Call the signal handlers, from innermost to outermost, until one returns true.
-	for(SignalContext* signalContext = innermostSignalContext; signalContext;
-		signalContext = signalContext->outerContext)
-	{
-		if(signalContext->filter(signal, std::move(callStack)))
-		{
-			// Jump back to the execution context that was saved in catchSignals.
-			siglongjmp(signalContext->catchJump, 1);
-		}
-	}
-
-	// If the signal wasn't handled by a catchSignals call, call the portable signal handler.
-	SignalHandler portableSignalHandlerSnapshot = portableSignalHandler.load();
-	if(portableSignalHandlerSnapshot)
-	{ portableSignalHandlerSnapshot(signal, std::move(callStack)); }
-}
 
 [[noreturn]] static void signalHandler(int signalNumber, siginfo_t* signalInfo, void*)
 {
@@ -72,7 +52,21 @@ static void deliverSignal(Signal signal, CallStack&& callStack)
 	// top of the callstack is the function that triggered the signal.
 	CallStack callStack = captureCallStack(2);
 
-	deliverSignal(signal, std::move(callStack));
+	// Call the signal handlers, from innermost to outermost, until one returns true.
+	for(SignalContext* signalContext = innermostSignalContext; signalContext;
+		signalContext = signalContext->outerContext)
+	{
+		if(signalContext->filter(signal, std::move(callStack)))
+		{
+			// Jump back to the execution context that was saved in catchSignals.
+			siglongjmp(signalContext->catchJump, 1);
+		}
+	}
+
+	// If the signal wasn't handled by a catchSignals call, call the portable signal handler.
+	SignalHandler portableSignalHandlerSnapshot = portableSignalHandler.load();
+	if(portableSignalHandlerSnapshot)
+	{ portableSignalHandlerSnapshot(signal, std::move(callStack)); }
 
 	switch(signalNumber)
 	{
@@ -135,32 +129,10 @@ bool Platform::catchSignals(const std::function<void()>& thunk,
 #endif
 }
 
-static void terminateHandler()
-{
-	try
-	{
-		std::rethrow_exception(std::current_exception());
-	}
-	catch(PlatformException& exception)
-	{
-		Signal signal;
-		signal.type = Signal::Type::unhandledException;
-		signal.unhandledException.data = exception.data;
-		deliverSignal(signal, std::move(exception.callStack));
-		Errors::fatal("Unhandled runtime exception");
-	}
-	catch(...)
-	{
-		Errors::fatal("Unhandled C++ exception");
-	}
-}
-
 void Platform::setSignalHandler(SignalHandler handler)
 {
 	initSignals();
 	sigAltStack.init();
-
-	std::set_terminate(terminateHandler);
 
 	portableSignalHandler.store(handler);
 }
@@ -198,45 +170,4 @@ void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr nu
 void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
 {
 	visitFDEs(ehFrames, numBytes, __deregister_frame);
-}
-
-bool Platform::catchPlatformExceptions(const std::function<void()>& thunk,
-									   const std::function<void(void*, CallStack&&)>& handler)
-{
-	try
-	{
-		thunk();
-		return false;
-	}
-	catch(PlatformException& exception)
-	{
-		handler(exception.data, std::move(exception.callStack));
-		if(exception.data) { free(exception.data); }
-		return true;
-	}
-}
-
-std::type_info* Platform::getUserExceptionTypeInfo()
-{
-	static std::type_info* typeInfo = nullptr;
-	if(!typeInfo)
-	{
-		try
-		{
-			throw PlatformException{nullptr};
-		}
-		catch(PlatformException const&)
-		{
-			typeInfo = __cxxabiv1::__cxa_current_exception_type();
-		}
-	}
-	wavmAssert(typeInfo);
-	return typeInfo;
-}
-
-[[noreturn]] void Platform::raisePlatformException(void* data)
-{
-	throw PlatformException{data, captureCallStack(1)};
-	printf("unhandled PlatformException\n");
-	Errors::unreachable();
 }

@@ -35,6 +35,8 @@ namespace WAVM { namespace Platform {
 			Uptr ip;
 		};
 		std::vector<Frame> stackFrames;
+
+		PLATFORM_API ~CallStack() {}
 	};
 
 	// Captures the execution context of the caller.

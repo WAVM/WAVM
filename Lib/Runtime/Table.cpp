@@ -114,8 +114,8 @@ static Iptr growTableImpl(Table* table, Uptr numElementsToGrow, bool initializeN
 	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
 	if(newNumPlatformPages != previousNumPlatformPages
 	   && !Platform::commitVirtualPages(
-			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-			  newNumPlatformPages - previousNumPlatformPages))
+		   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+		   newNumPlatformPages - previousNumPlatformPages))
 	{ return -1; }
 
 	if(initializeNewElements)
@@ -265,7 +265,7 @@ static Object* setTableElementNonNull(Table* table, Uptr index, Object* object)
 
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
-	{ throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)}); }
+	{ createAndThrowException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
@@ -281,7 +281,7 @@ static Object* setTableElementNonNull(Table* table, Uptr index, Object* object)
 	while(true)
 	{
 		if(biasedTableElementValueToObject(oldBiasedValue) == getOutOfBoundsElement())
-		{ throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)}); }
+		{ createAndThrowException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
 		if(table->elements[saturatedIndex].biasedValue.compare_exchange_weak(
 			   oldBiasedValue, biasedValue, std::memory_order_acq_rel))
 		{ break; }
@@ -294,7 +294,7 @@ static Object* getTableElementNonNull(Table* table, Uptr index)
 {
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
-	{ throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)}); }
+	{ createAndThrowException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
@@ -308,7 +308,7 @@ static Object* getTableElementNonNull(Table* table, Uptr index)
 
 	// If the element was an out-of-bounds sentinel value, throw an out-of-bounds exception.
 	if(object == getOutOfBoundsElement())
-	{ throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)}); }
+	{ createAndThrowException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
 
 	wavmAssert(object);
 	return object;
@@ -427,7 +427,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	if(!moduleInstance->passiveElemSegments.contains(elemSegmentIndex))
 	{
 		passiveElemSegmentsLock.unlock();
-		throwException(Exception::invalidArgumentType);
+		createAndThrowException(ExceptionTypes::invalidArgument);
 	}
 	else
 	{
@@ -446,8 +446,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			const U64 destIndex = U64(destOffset) + index;
 			if(sourceIndex >= passiveElemSegmentObjects->size())
 			{
-				throwException(Exception::outOfBoundsElemSegmentAccessType,
-							   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+				createAndThrowException(
+					ExceptionTypes::outOfBoundsElemSegmentAccess,
+					{asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
 			}
 
 			setTableElement(
@@ -470,7 +471,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	if(!moduleInstance->passiveElemSegments.contains(elemSegmentIndex))
 	{
 		passiveElemSegmentsLock.unlock();
-		throwException(Exception::invalidArgumentType);
+		createAndThrowException(ExceptionTypes::invalidArgument);
 	}
 	else
 	{
@@ -527,12 +528,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	if(asObject(function) == getOutOfBoundsElement())
 	{
 		Log::printf(Log::debug, "call_indirect: index %u is out-of-bounds\n", index);
-		throwException(Exception::outOfBoundsTableAccessType, {table, U64(index)});
+		createAndThrowException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)});
 	}
 	else if(asObject(function) == getUninitializedElement())
 	{
 		Log::printf(Log::debug, "call_indirect: index %u is uninitialized\n", index);
-		throwException(Exception::uninitializedTableElementType, {table, U64(index)});
+		createAndThrowException(ExceptionTypes::uninitializedTableElement, {table, U64(index)});
 	}
 	else
 	{
@@ -545,6 +546,6 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 					asString(IR::FunctionType{function->encodedType}).c_str(),
 					ipDescription.c_str(),
 					asString(expectedSignature).c_str());
-		throwException(Exception::indirectCallSignatureMismatchType);
+		createAndThrowException(ExceptionTypes::indirectCallSignatureMismatch);
 	}
 }

@@ -126,10 +126,10 @@ static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo& loadedOb
 			U64 symbolAddress;
 			if(symbol->getFlags() & llvm::object::SymbolRef::SF_Undefined)
 			{
-				// Resolve __C_specific_handler to the trampoline previously created in the image's
+				// Resolve __CxxFrameHandler3 to the trampoline previously created in the image's
 				// 32-bit address space.
 				const std::string symbolName = cantFail(symbol->getName()).str();
-				if(symbolName == "__C_specific_handler") { symbolAddress = sehTrampolineAddress; }
+				if(symbolName == "__CxxFrameHandler3") { symbolAddress = sehTrampolineAddress; }
 				else
 				{
 					llvm::JITSymbol resolvedSymbol

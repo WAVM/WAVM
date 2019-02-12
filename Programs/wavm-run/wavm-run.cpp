@@ -428,7 +428,7 @@ int main(int argc, char** argv)
 	}
 
 	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
-	Runtime::setUnhandledExceptionHandler([](Runtime::Exception&& exception) {
+	Runtime::setUnhandledExceptionHandler([](Runtime::Exception* exception) {
 		Errors::fatalf("Runtime exception: %s", describeException(exception).c_str());
 	});
 

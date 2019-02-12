@@ -77,17 +77,6 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 		llvmContext, llvm::MDString::get(llvmContext, "round.tonearest"));
 	fpExceptionMetadata = llvm::MetadataAsValue::get(
 		llvmContext, llvm::MDString::get(llvmContext, "fpexcept.strict"));
-
-	tryPrologueDummyFunction = nullptr;
-	cxaBeginCatchFunction = nullptr;
-	if(!USE_WINDOWS_SEH)
-	{
-		cxaBeginCatchFunction = llvm::Function::Create(
-			llvm::FunctionType::get(llvmContext.i8PtrType, {llvmContext.i8PtrType}, false),
-			llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-			"__cxa_begin_catch",
-			llvmModule);
-	}
 }
 
 static llvm::Constant* createImportedConstant(llvm::Module& llvmModule, llvm::Twine externalName)
@@ -111,7 +100,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	auto personalityFunction
 		= llvm::Function::Create(llvm::FunctionType::get(llvmContext.i32Type, {}, false),
 								 llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-								 USE_WINDOWS_SEH ? "__C_specific_handler" : "__gxx_personality_v0",
+								 USE_WINDOWS_SEH ? "__CxxFrameHandler3" : "__gxx_personality_v0",
 								 &outLLVMModule);
 
 	// Create LLVM external globals corresponding to the encoded function types for the module's
@@ -178,11 +167,39 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	moduleContext.tableReferenceBias = llvm::ConstantExpr::getPtrToInt(
 		createImportedConstant(outLLVMModule, "tableReferenceBias"), llvmContext.iptrType);
 
-	if(USE_WINDOWS_SEH) { moduleContext.userExceptionTypeInfo = nullptr; }
+	// Create a LLVM external global that will point to the std::type_info for Runtime::Exception.
+	if(USE_WINDOWS_SEH)
+	{
+		// The Windows type_info is referenced by the exception handling tables with a 32-bit
+		// image-relative offset, so we have to create a copy of it in the image.
+		const char* typeMangledName = ".PEAUException@Runtime@WAVM@@";
+		llvm::Type* typeDescriptorTypeElements[3]
+			= {llvmContext.i8PtrType->getPointerTo(),
+			   llvmContext.i8PtrType,
+			   llvm::ArrayType::get(llvmContext.i8Type, strlen(typeMangledName) + 1)};
+		llvm::StructType* typeDescriptorType = llvm::StructType::create(typeDescriptorTypeElements);
+		llvm::Constant* typeDescriptorElements[3]
+			= {llvm::ConstantPointerNull::get(llvmContext.i8PtrType->getPointerTo()),
+			   llvm::ConstantPointerNull::get(llvmContext.i8PtrType),
+			   llvm::ConstantDataArray::getString(llvmContext, typeMangledName, true)};
+		llvm::Constant* typeDescriptor
+			= llvm::ConstantStruct::get(typeDescriptorType, typeDescriptorElements);
+		llvm::GlobalVariable* typeDescriptorVariable
+			= new llvm::GlobalVariable(*moduleContext.llvmModule,
+									   typeDescriptorType,
+									   false,
+									   llvm::GlobalVariable::LinkOnceODRLinkage,
+									   typeDescriptor,
+									   "??_R0PEAUException@Runtime@WAVM@@@8");
+		typeDescriptorVariable->setComdat(
+			moduleContext.llvmModule->getOrInsertComdat("??_R0PEAUException@Runtime@WAVM@@@8"));
+		moduleContext.runtimeExceptionTypeInfo = typeDescriptorVariable;
+	}
 	else
 	{
-		moduleContext.userExceptionTypeInfo = llvm::ConstantExpr::getPointerCast(
-			createImportedConstant(outLLVMModule, "userExceptionTypeInfo"), llvmContext.i8PtrType);
+		moduleContext.runtimeExceptionTypeInfo = llvm::ConstantExpr::getPointerCast(
+			createImportedConstant(*moduleContext.llvmModule, "runtimeExceptionTypeInfo"),
+			llvmContext.i8PtrType);
 	}
 
 	// Create the LLVM functions.

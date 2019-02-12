@@ -81,8 +81,9 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* i64Type;
 		llvm::Type* f32Type;
 		llvm::Type* f64Type;
-		llvm::Type* i8PtrType;
 		llvm::Type* iptrType;
+
+		llvm::PointerType* i8PtrType;
 
 		llvm::Type* i8x16Type;
 		llvm::Type* i16x8Type;
@@ -90,8 +91,6 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* i64x2Type;
 		llvm::Type* f32x4Type;
 		llvm::Type* f64x2Type;
-
-		llvm::Type* exceptionPointersStructType;
 
 		llvm::Type* anyrefType;
 

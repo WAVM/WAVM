@@ -27,8 +27,6 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Constant* moduleInstanceId;
 		llvm::Constant* tableReferenceBias;
 
-		llvm::Constant* userExceptionTypeInfo;
-
 		llvm::DIBuilder diBuilder;
 		llvm::DICompileUnit* diCompileUnit;
 		llvm::DIFile* diModuleScope;
@@ -41,8 +39,9 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Value* fpRoundingModeMetadata;
 		llvm::Value* fpExceptionMetadata;
 
-		llvm::Function* tryPrologueDummyFunction;
-		llvm::Function* cxaBeginCatchFunction;
+		llvm::Function* cxaBeginCatchFunction = nullptr;
+		llvm::Function* cxaEndCatchFunction = nullptr;
+		llvm::Constant* runtimeExceptionTypeInfo = nullptr;
 
 		EmitModuleContext(const IR::Module& inModule,
 						  LLVMContext& inLLVMContext,

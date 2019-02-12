@@ -350,16 +350,17 @@ void EmitFunctionContext::emit()
 #endif
 	function->setSubprogram(diFunction);
 
+	// Create an initial basic block for the function.
+	auto entryBasicBlock = llvm::BasicBlock::Create(llvmContext, "entry", function);
+
 	// Create the return basic block, and push the root control context for the function.
 	auto returnBlock = llvm::BasicBlock::Create(llvmContext, "return", function);
 	auto returnPHIs = createPHIs(returnBlock, functionType.results());
+	irBuilder.SetInsertPoint(entryBasicBlock);
+
 	pushControlStack(
 		ControlContext::Type::function, functionType.results(), returnBlock, returnPHIs);
 	pushBranchTarget(functionType.results(), returnBlock, returnPHIs);
-
-	// Create an initial basic block for the function.
-	auto entryBasicBlock = llvm::BasicBlock::Create(llvmContext, "entry", function);
-	irBuilder.SetInsertPoint(entryBasicBlock);
 
 	// Create and initialize allocas for the memory and table base parameters.
 	auto llvmArgIt = function->arg_begin();
@@ -431,14 +432,4 @@ void EmitFunctionContext::emit()
 
 	// Emit the function return.
 	emitReturn(functionType.results(), stack);
-
-	// If a local escape block was created, add a localescape intrinsic to it with the accumulated
-	// local escape allocas, and insert it before the function's entry block.
-	if(localEscapeBlock)
-	{
-		irBuilder.SetInsertPoint(localEscapeBlock);
-		callLLVMIntrinsic({}, llvm::Intrinsic::localescape, pendingLocalEscapes);
-		irBuilder.CreateBr(&function->getEntryBlock());
-		localEscapeBlock->moveBefore(&function->getEntryBlock());
-	}
 }

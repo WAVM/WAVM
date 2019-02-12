@@ -25,9 +25,6 @@ namespace WAVM { namespace LLVMJIT {
 
 		llvm::DISubprogram* diFunction;
 
-		llvm::BasicBlock* localEscapeBlock;
-		std::vector<llvm::Value*> pendingLocalEscapes;
-
 		// Information about an in-scope control structure.
 		struct ControlContext
 		{
@@ -75,7 +72,6 @@ namespace WAVM { namespace LLVMJIT {
 		, functionDef(inFunctionDef)
 		, functionType(inIRModule.types[inFunctionDef.type.index])
 		, function(inLLVMFunction)
-		, localEscapeBlock(nullptr)
 		{
 		}
 
@@ -256,18 +252,19 @@ namespace WAVM { namespace LLVMJIT {
 
 			// Only used for non-Windows exceptions.
 			llvm::LandingPadInst* landingPadInst;
-			llvm::BasicBlock* nextHandlerBlock;
-			llvm::Value* exceptionTypeId;
 
 			// Used for all platforms.
 			llvm::Value* exceptionPointer;
+			llvm::BasicBlock* nextHandlerBlock;
+			llvm::Value* exceptionTypeId;
 		};
 
 		std::vector<TryContext> tryStack;
 		std::vector<CatchContext> catchStack;
 
-		void endTry();
-		void endCatch();
+		void endTryWithoutCatch();
+		void endTryCatch();
+		void exitCatch();
 
 		llvm::BasicBlock* getInnermostUnwindToBlock();
 

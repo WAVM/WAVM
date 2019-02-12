@@ -143,7 +143,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			= disassemblyNames.tables[module->ir.tables.imports.size() + tableDefIndex];
 		auto table = createTable(
 			compartment, module->ir.tables.defs[tableDefIndex].type, std::move(debugName));
-		if(!table) { throwException(Exception::outOfMemoryType); }
+		if(!table) { createAndThrowException(ExceptionTypes::outOfMemory); }
 		tables.push_back(table);
 	}
 	for(Uptr memoryDefIndex = 0; memoryDefIndex < module->ir.memories.defs.size(); ++memoryDefIndex)
@@ -152,7 +152,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			= disassemblyNames.memories[module->ir.memories.imports.size() + memoryDefIndex];
 		auto memory = createMemory(
 			compartment, module->ir.memories.defs[memoryDefIndex].type, std::move(debugName));
-		if(!memory) { throwException(Exception::outOfMemoryType); }
+		if(!memory) { createAndThrowException(ExceptionTypes::outOfMemory); }
 		memories.push_back(memory);
 	}
 
@@ -369,8 +369,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				// out-of-bounds, even if the segment is empty.
 				if(baseOffset > memory->numPages * IR::numBytesPerPage)
 				{
-					throwException(Runtime::Exception::outOfBoundsMemoryAccessType,
-								   {memory, U64(baseOffset)});
+					createAndThrowException(Runtime::ExceptionTypes::outOfBoundsMemoryAccess,
+											{memory, U64(baseOffset)});
 				}
 			}
 		}
@@ -404,8 +404,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				// out-of-bounds, even if the segment is empty.
 				if(baseOffset > getTableNumElements(table))
 				{
-					throwException(Runtime::Exception::outOfBoundsTableAccessType,
-								   {table, U64(baseOffset)});
+					createAndThrowException(Runtime::ExceptionTypes::outOfBoundsTableAccess,
+											{table, U64(baseOffset)});
 				}
 			}
 		}

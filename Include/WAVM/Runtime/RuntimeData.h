@@ -9,6 +9,7 @@
 
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Platform/Diagnostics.h"
 
 namespace WAVM { namespace LLVMJIT {
 	struct Module;
@@ -99,16 +100,18 @@ namespace WAVM { namespace Runtime {
 					  == compartmentReservedBytes,
 				  "CompartmentRuntimeData isn't the expected size");
 
-	struct ExceptionData
+	struct Exception
 	{
 		Uptr typeId;
 		ExceptionType* type;
 		U8 isUserException;
+		Platform::CallStack callStack;
 		IR::UntaggedValue arguments[1];
 
 		static Uptr calcNumBytes(Uptr numArguments)
 		{
-			return offsetof(ExceptionData, arguments) + numArguments * sizeof(IR::UntaggedValue);
+			if(numArguments == 0) { numArguments = 1; }
+			return offsetof(Exception, arguments) + numArguments * sizeof(IR::UntaggedValue);
 		}
 	};
 

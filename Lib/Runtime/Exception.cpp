@@ -25,7 +25,7 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 #define DEFINE_INTRINSIC_EXCEPTION_TYPE(name, ...)                                                 \
-	ExceptionType* Runtime::Exception::name##Type = new ExceptionType(                             \
+	ExceptionType* Runtime::ExceptionTypes::name = new ExceptionType(                              \
 		nullptr, IR::ExceptionType{IR::TypeTuple({__VA_ARGS__})}, "wavm." #name);
 ENUM_INTRINSIC_EXCEPTION_TYPES(DEFINE_INTRINSIC_EXCEPTION_TYPE)
 #undef DEFINE_INTRINSIC_EXCEPTION_TYPE
@@ -142,43 +142,71 @@ IR::TypeTuple Runtime::getExceptionTypeParameters(const ExceptionType* type)
 	return type->sig.params;
 }
 
-std::string Runtime::describeException(const Exception& exception)
+Exception* Runtime::createException(ExceptionType* type,
+									const IR::UntaggedValue* arguments,
+									Uptr numArguments,
+									Platform::CallStack&& callStack)
 {
-	std::string result = describeExceptionType(exception.type);
-	wavmAssert(exception.arguments.size() == exception.type->sig.params.size());
-	if(exception.type == Exception::outOfBoundsMemoryAccessType)
+	const IR::TypeTuple& params = type->sig.params;
+	wavmAssert(numArguments == params.size());
+
+	const bool isUserException = type->compartment != nullptr;
+	Exception* exception = new(malloc(Exception::calcNumBytes(params.size())))
+		Exception{type->id, type, isUserException ? U8(1) : U8(0), std::move(callStack)};
+	if(params.size())
+	{ memcpy(exception->arguments, arguments, sizeof(IR::UntaggedValue) * params.size()); }
+	return exception;
+}
+
+void Runtime::destroyException(Exception* exception)
+{
+	exception->~Exception();
+	free(exception);
+}
+
+ExceptionType* Runtime::getExceptionType(const Exception* exception) { return exception->type; }
+
+IR::UntaggedValue Runtime::getExceptionArgument(const Exception* exception, Uptr argIndex)
+{
+	errorUnless(argIndex < exception->type->sig.params.size());
+	return exception->arguments[argIndex];
+}
+
+std::string Runtime::describeException(const Exception* exception)
+{
+	std::string result = describeExceptionType(exception->type);
+	if(exception->type == ExceptionTypes::outOfBoundsMemoryAccess)
 	{
-		wavmAssert(exception.arguments.size() == 2);
-		Memory* memory = asMemoryNullable(exception.arguments[0].object);
+		Memory* memory = asMemoryNullable(exception->arguments[0].object);
 		result += '(';
 		result += memory ? memory->debugName : "<unknown memory>";
 		result += '+';
-		result += std::to_string(exception.arguments[1].u64);
+		result += std::to_string(exception->arguments[1].u64);
 		result += ')';
 	}
-	else if(exception.type == Exception::outOfBoundsTableAccessType
-			|| exception.type == Exception::uninitializedTableElementType)
+	else if(exception->type == ExceptionTypes::outOfBoundsTableAccess
+			|| exception->type == ExceptionTypes::uninitializedTableElement)
 	{
-		wavmAssert(exception.arguments.size() == 2);
-		Table* table = asTableNullable(exception.arguments[0].object);
+		Table* table = asTableNullable(exception->arguments[0].object);
 		result += '(';
 		result += table ? table->debugName : "<unknown table>";
 		result += '[';
-		result += std::to_string(exception.arguments[1].u64);
+		result += std::to_string(exception->arguments[1].u64);
 		result += "])";
 	}
-	else if(exception.arguments.size())
+	else if(exception->type->sig.params.size())
 	{
 		result += '(';
-		for(Uptr argumentIndex = 0; argumentIndex < exception.arguments.size(); ++argumentIndex)
+		for(Uptr argumentIndex = 0; argumentIndex < exception->type->sig.params.size();
+			++argumentIndex)
 		{
 			if(argumentIndex != 0) { result += ", "; }
-			result += asString(IR::Value(exception.type->sig.params[argumentIndex],
-										 exception.arguments[argumentIndex]));
+			result += asString(IR::Value(exception->type->sig.params[argumentIndex],
+										 exception->arguments[argumentIndex]));
 		}
 		result += ')';
 	}
-	std::vector<std::string> callStackDescription = describeCallStack(exception.callStack);
+	std::vector<std::string> callStackDescription = describeCallStack(exception->callStack);
 	result += "\nCall stack:\n";
 	for(auto calledFunction : callStackDescription)
 	{
@@ -189,28 +217,20 @@ std::string Runtime::describeException(const Exception& exception)
 	return result;
 }
 
-[[noreturn]] void Runtime::throwException(ExceptionType* type,
-										  std::vector<IR::UntaggedValue>&& arguments)
+[[noreturn]] void Runtime::throwException(Exception* exception) { throw exception; }
+
+[[noreturn]] void Runtime::createAndThrowException(ExceptionType* type,
+												   const std::vector<IR::UntaggedValue>& arguments)
 {
-	wavmAssert(arguments.size() == type->sig.params.size());
-	ExceptionData* exceptionData
-		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(type->sig.params.size()));
-	exceptionData->typeId = type->id;
-	exceptionData->type = type;
-	exceptionData->isUserException = 0;
-	if(arguments.size())
-	{
-		memcpy(exceptionData->arguments,
-			   arguments.data(),
-			   sizeof(IR::UntaggedValue) * arguments.size());
-	}
-	Platform::raisePlatformException(exceptionData);
+	wavmAssert(type->sig.params.size() == arguments.size());
+	throwException(
+		createException(type, arguments.data(), arguments.size(), Platform::captureCallStack(1)));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "throwException",
-						  void,
-						  intrinsicThrowException,
+						  "createException",
+						  Uptr,
+						  intrinsicCreateException,
 						  Uptr exceptionTypeId,
 						  Uptr argsBits,
 						  U32 isUserException)
@@ -223,40 +243,35 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 	auto args = reinterpret_cast<const IR::UntaggedValue*>(Uptr(argsBits));
 
-	ExceptionData* exceptionData
-		= (ExceptionData*)malloc(ExceptionData::calcNumBytes(exceptionType->sig.params.size()));
-	exceptionData->typeId = exceptionTypeId;
-	exceptionData->type = exceptionType;
-	exceptionData->isUserException = isUserException ? 1 : 0;
-	memcpy(exceptionData->arguments,
-		   args,
-		   sizeof(IR::UntaggedValue) * exceptionType->sig.params.size());
-	Platform::raisePlatformException(exceptionData);
+	Exception* exception = createException(
+		exceptionType, args, exceptionType->sig.params.size(), Platform::captureCallStack(1));
+
+	return reinterpret_cast<Uptr>(exception);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "rethrowException",
+						  "destroyException",
 						  void,
-						  rethrowException,
+						  intrinsicDestroyException,
 						  Uptr exceptionBits)
 {
-	ExceptionData* exception = reinterpret_cast<ExceptionData*>(exceptionBits);
-	Platform::raisePlatformException(exception);
+	Exception* exception = reinterpret_cast<Exception*>(exceptionBits);
+	destroyException(exception);
 }
 
-static Exception translateExceptionDataToException(const ExceptionData* exceptionData,
-												   Platform::CallStack&& callStack)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "throwException",
+						  void,
+						  intrinsicThrowException,
+						  Uptr exceptionBits)
 {
-	ExceptionType* runtimeType = exceptionData->type;
-	std::vector<IR::UntaggedValue> arguments(
-		exceptionData->arguments,
-		exceptionData->arguments + exceptionData->type->sig.params.size());
-	return Exception{runtimeType, std::move(arguments), std::move(callStack)};
+	Exception* exception = reinterpret_cast<Exception*>(exceptionBits);
+	throw exception;
 }
 
 static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 											  Platform::CallStack&& callStack,
-											  Runtime::Exception& outException)
+											  Runtime::Exception*& outException)
 {
 	switch(signal.type)
 	{
@@ -271,9 +286,11 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		if(isAddressOwnedByTable(
 			   reinterpret_cast<U8*>(signal.accessViolation.address), table, tableIndex))
 		{
-			outException = Exception{Exception::outOfBoundsTableAccessType,
-									 {table, U64(tableIndex)},
-									 std::move(callStack)};
+			IR::UntaggedValue exceptionArguments[2] = {table, U64(tableIndex)};
+			outException = createException(ExceptionTypes::outOfBoundsTableAccess,
+										   exceptionArguments,
+										   2,
+										   std::move(callStack));
 			return true;
 		}
 		// If the access violation occured in a Memory's reserved pages, treat it as an
@@ -281,71 +298,92 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		else if(isAddressOwnedByMemory(
 					reinterpret_cast<U8*>(signal.accessViolation.address), memory, memoryAddress))
 		{
-			outException = Exception{Exception::outOfBoundsMemoryAccessType,
-									 {memory, U64(memoryAddress)},
-									 std::move(callStack)};
+			IR::UntaggedValue exceptionArguments[2] = {memory, U64(memoryAddress)};
+			outException = createException(ExceptionTypes::outOfBoundsMemoryAccess,
+										   exceptionArguments,
+										   2,
+										   std::move(callStack));
 			return true;
 		}
 		return false;
 	}
 	case Platform::Signal::Type::stackOverflow:
-		outException = Exception{Exception::stackOverflowType, {}, std::move(callStack)};
+		outException
+			= createException(ExceptionTypes::stackOverflow, nullptr, 0, std::move(callStack));
 		return true;
 	case Platform::Signal::Type::intDivideByZeroOrOverflow:
-		outException
-			= Exception{Exception::integerDivideByZeroOrOverflowType, {}, std::move(callStack)};
-		return true;
-	case Platform::Signal::Type::unhandledException:
-		outException = translateExceptionDataToException(
-			reinterpret_cast<const ExceptionData*>(signal.unhandledException.data),
-			std::move(callStack));
+		outException = createException(
+			ExceptionTypes::integerDivideByZeroOrOverflow, nullptr, 0, std::move(callStack));
 		return true;
 	default: Errors::unreachable();
 	}
 }
 
 void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
-									 const std::function<void(Exception&&)>& catchThunk)
+									 const std::function<void(Exception*)>& catchThunk)
 {
 	// Catch platform exceptions and translate them into C++ exceptions.
-	Platform::catchPlatformExceptions(
-		[thunk, catchThunk] {
-			Platform::catchSignals(
-				thunk,
-				[catchThunk](Platform::Signal signal, Platform::CallStack&& callStack) -> bool {
-					Exception exception;
-					if(translateSignalToRuntimeException(signal, std::move(callStack), exception))
-					{
-						catchThunk(std::move(exception));
-						return true;
-					}
-					else
-					{
-						return false;
-					}
-				});
-		},
-		[catchThunk](void* exceptionData, Platform::CallStack&& callStack) {
-			catchThunk(translateExceptionDataToException(
-				reinterpret_cast<ExceptionData*>(exceptionData), std::move(callStack)));
-		});
+	try
+	{
+		Exception* exception = nullptr;
+		if(Platform::catchSignals(
+			   thunk,
+			   [catchThunk, &exception](Platform::Signal signal,
+										Platform::CallStack&& callStack) -> bool {
+				   return translateSignalToRuntimeException(
+					   signal, std::move(callStack), exception);
+			   }))
+		{ throw exception; }
+	}
+	catch(Exception* exception)
+	{
+		catchThunk(exception);
+		destroyException(exception);
+	}
 }
 
 static std::atomic<UnhandledExceptionHandler> unhandledExceptionHandler;
 
 static void globalSignalHandler(Platform::Signal signal, Platform::CallStack&& callStack)
 {
-	Exception exception;
+	Exception* exception;
 	if(translateSignalToRuntimeException(signal, std::move(callStack), exception))
-	{ (unhandledExceptionHandler.load())(std::move(exception)); }
+	{ (unhandledExceptionHandler.load())(exception); }
+}
+
+std::terminate_handler outerTerminateHandler;
+
+static void terminateHandler()
+{
+	try
+	{
+		std::rethrow_exception(std::current_exception());
+	}
+	catch(Runtime::Exception* exception)
+	{
+		(unhandledExceptionHandler.load())(exception);
+	}
+	catch(...)
+	{
+		outerTerminateHandler();
+	}
 }
 
 void Runtime::setUnhandledExceptionHandler(UnhandledExceptionHandler handler)
 {
-	struct SignalHandlerRegistrar
+	unhandledExceptionHandler.store(handler);
+
+	static struct SignalHandlerRegistrar
 	{
 		SignalHandlerRegistrar() { Platform::setSignalHandler(globalSignalHandler); }
 	} signalHandlerRegistrar;
 
-	unhandledExceptionHandler.store(handler);
+	static struct TerminateHandlerRegistrar
+	{
+		TerminateHandlerRegistrar()
+		{
+			outerTerminateHandler = std::get_terminate();
+			std::set_terminate(terminateHandler);
+		}
+	} terminateHandlerRegistrar;
 }
