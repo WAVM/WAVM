@@ -119,6 +119,13 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 	// Lock the wait list, and check that *valuePointer is still what the caller expected it to be.
 	{
 		Lock<Platform::Mutex> waitListLock(waitList->mutex);
+
+		// Use catchRuntimeExceptions to ensure that an access violation signal produced by the load
+		// will be thrown as a Runtime::Exception and unwind the stack (e.g. the locks).
+		Value value;
+		Runtime::unwindSignalsAsExceptions(
+			[valuePointer, &value] { value = atomicLoad(valuePointer); });
+
 		if(atomicLoad(valuePointer) != expectedValue)
 		{
 			// If *valuePointer wasn't the expected value, unlock the wait list and return.

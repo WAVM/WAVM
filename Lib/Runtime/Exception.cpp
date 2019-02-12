@@ -328,8 +328,7 @@ void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
 		Exception* exception = nullptr;
 		if(Platform::catchSignals(
 			   thunk,
-			   [catchThunk, &exception](Platform::Signal signal,
-										Platform::CallStack&& callStack) -> bool {
+			   [&exception](Platform::Signal signal, Platform::CallStack&& callStack) -> bool {
 				   return translateSignalToRuntimeException(
 					   signal, std::move(callStack), exception);
 			   }))
@@ -340,6 +339,17 @@ void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
 		catchThunk(exception);
 		destroyException(exception);
 	}
+}
+
+void Runtime::unwindSignalsAsExceptions(const std::function<void()>& thunk)
+{
+	// Catch signals and translate them into runtime exceptions.
+	Exception* exception = nullptr;
+	if(Platform::catchSignals(
+		   thunk, [&exception](Platform::Signal signal, Platform::CallStack&& callStack) -> bool {
+			   return translateSignalToRuntimeException(signal, std::move(callStack), exception);
+		   }))
+	{ throw exception; }
 }
 
 static std::atomic<UnhandledExceptionHandler> unhandledExceptionHandler;

@@ -329,31 +329,26 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
 
 	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
-	{
-		passiveDataSegmentsLock.unlock();
-		createAndThrowException(ExceptionTypes::invalidArgument);
-	}
+	{ createAndThrowException(ExceptionTypes::invalidArgument); }
 	else
 	{
-		// Copy the passive data segment shared_ptr, and unlock the mutex. It's important to
-		// explicitly unlock the mutex before calling memcpy, as memcpy might trigger a signal that
-		// will unwind the stack without calling the Lock destructor.
-		std::shared_ptr<const std::vector<U8>> passiveDataSegmentBytes
+		const std::shared_ptr<const std::vector<U8>>& passiveDataSegmentBytes
 			= moduleInstance->passiveDataSegments[dataSegmentIndex];
-		passiveDataSegmentsLock.unlock();
 
 		Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 		U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
 
 		if(U64(sourceOffset) + U64(numBytes) > passiveDataSegmentBytes->size())
 		{
-			// If the source range is outside the bounds of the data segment, copy the part that is
-			// in range, then trap.
+			// If the source range is outside the bounds of the data segment, copy the part
+			// that is in range, then trap.
 			if(sourceOffset < passiveDataSegmentBytes->size())
 			{
-				Platform::bytewiseMemCopy(destPointer,
-										  passiveDataSegmentBytes->data() + sourceOffset,
-										  passiveDataSegmentBytes->size() - sourceOffset);
+				Runtime::unwindSignalsAsExceptions([=] {
+					Platform::bytewiseMemCopy(destPointer,
+											  passiveDataSegmentBytes->data() + sourceOffset,
+											  passiveDataSegmentBytes->size() - sourceOffset);
+				});
 			}
 			createAndThrowException(ExceptionTypes::outOfBoundsDataSegmentAccess,
 									{asObject(moduleInstance),
@@ -362,8 +357,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		}
 		else if(numBytes)
 		{
-			Platform::bytewiseMemCopy(
-				destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
+			Runtime::unwindSignalsAsExceptions([=] {
+				Platform::bytewiseMemCopy(
+					destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
+			});
 		}
 	}
 }
@@ -380,10 +377,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
 
 	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
-	{
-		passiveDataSegmentsLock.unlock();
-		createAndThrowException(ExceptionTypes::invalidArgument);
-	}
+	{ createAndThrowException(ExceptionTypes::invalidArgument); }
 	else
 	{
 		moduleInstance->passiveDataSegments.removeOrFail(dataSegmentIndex);
@@ -403,7 +397,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
 	U8* sourcePointer = getReservedMemoryOffsetRange(memory, sourceAddress, numBytes);
-	if(numBytes) { Platform::bytewiseMemMove(destPointer, sourcePointer, numBytes); }
+
+	if(numBytes)
+	{
+		Runtime::unwindSignalsAsExceptions(
+			[=] { Platform::bytewiseMemMove(destPointer, sourcePointer, numBytes); });
+	}
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -418,5 +417,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
-	if(numBytes) { Platform::bytewiseMemSet(destPointer, U8(value), numBytes); }
+	if(numBytes)
+	{
+		Runtime::unwindSignalsAsExceptions(
+			[=] { Platform::bytewiseMemSet(destPointer, U8(value), numBytes); });
+	}
 }

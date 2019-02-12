@@ -48,9 +48,7 @@ namespace WAVM { namespace WAST {
 					+ moduleState->module.types[inFunctionDef.type.index].params().size())
 		, branchTargetDepth(0)
 		, operationEncoder(codeByteStream)
-		, validatingCodeStream(moduleState->module,
-							   functionDef,
-							   operationEncoder)
+		, validatingCodeStream(moduleState->module, functionDef, operationEncoder)
 		{
 		}
 	};

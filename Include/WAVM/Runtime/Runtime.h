@@ -200,6 +200,10 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API void catchRuntimeExceptions(const std::function<void()>& thunk,
 											const std::function<void(Exception*)>& catchThunk);
 
+	// Calls a thunk and ensures that any signals that occur within the thunk will be thrown as
+	// runtime exceptions.
+	RUNTIME_API void unwindSignalsAsExceptions(const std::function<void()>& thunk);
+
 	typedef void (*UnhandledExceptionHandler)(Exception*);
 	RUNTIME_API void setUnhandledExceptionHandler(UnhandledExceptionHandler handler);
 
