@@ -92,7 +92,7 @@ FORCENOINLINE static Thread* getCurrentThread() { return currentThread; }
 static void validateThreadId(Uptr threadId)
 {
 	if(threadId == 0 || !threads.contains(threadId))
-	{ createAndThrowException(ExceptionTypes::invalidArgument); }
+	{ throwException(ExceptionTypes::invalidArgument); }
 }
 
 DEFINE_INTRINSIC_MODULE(threadTest);
@@ -154,7 +154,7 @@ DEFINE_INTRINSIC_FUNCTION(threadTest,
 	if(!entryFunction
 	   || IR::FunctionType{entryFunction->encodedType}
 			  != FunctionType(TypeTuple{ValueType::i64}, TypeTuple{ValueType::i32}))
-	{ createAndThrowException(Runtime::ExceptionTypes::indirectCallSignatureMismatch); }
+	{ throwException(Runtime::ExceptionTypes::indirectCallSignatureMismatch); }
 
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.
@@ -219,7 +219,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, for
 
 DEFINE_INTRINSIC_FUNCTION(threadTest, "exitThread", void, exitThread, I64 code)
 {
-	if(!getCurrentThread()) { createAndThrowException(ExceptionTypes::calledAbort); }
+	if(!getCurrentThread()) { throwException(ExceptionTypes::calledAbort); }
 
 	throw ExitThreadException{code};
 }

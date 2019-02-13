@@ -261,7 +261,7 @@ static U8* getValidatedMemoryOffsetRangeImpl(Memory* memory,
 	if(pointer < memoryBase || pointer + numBytes < pointer
 	   || pointer + numBytes > memoryBase + memoryNumBytes)
 	{
-		createAndThrowException(
+		throwException(
 			ExceptionTypes::outOfBoundsMemoryAccess,
 			{asObject(memory), U64(address > memoryNumBytes ? address : memoryNumBytes)});
 	}
@@ -329,7 +329,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
 
 	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
-	{ createAndThrowException(ExceptionTypes::invalidArgument); }
+	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
 		const std::shared_ptr<const std::vector<U8>>& passiveDataSegmentBytes
@@ -350,7 +350,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 											  passiveDataSegmentBytes->size() - sourceOffset);
 				});
 			}
-			createAndThrowException(ExceptionTypes::outOfBoundsDataSegmentAccess,
+			throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
 									{asObject(moduleInstance),
 									 U64(dataSegmentIndex),
 									 U64(passiveDataSegmentBytes->size())});
@@ -377,7 +377,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
 
 	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
-	{ createAndThrowException(ExceptionTypes::invalidArgument); }
+	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
 		moduleInstance->passiveDataSegments.removeOrFail(dataSegmentIndex);

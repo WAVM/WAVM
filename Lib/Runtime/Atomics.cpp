@@ -201,7 +201,7 @@ static U32 wakeAddress(void* pointer, U32 numToWake)
 	closeWaitList(address, waitList);
 
 	if(actualNumToWake > UINT32_MAX)
-	{ createAndThrowException(ExceptionTypes::integerDivideByZeroOrOverflow); }
+	{ throwException(ExceptionTypes::integerDivideByZeroOrOverflow); }
 	return U32(actualNumToWake);
 }
 
@@ -211,7 +211,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  misalignedAtomicTrap,
 						  U64 address)
 {
-	createAndThrowException(ExceptionTypes::misalignedAtomicMemoryAccess, {address});
+	throwException(ExceptionTypes::misalignedAtomicMemoryAccess, {address});
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -228,7 +228,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	const U64 memoryNumBytes = U64(memory->numPages) * IR::numBytesPerPage;
 	if(U64(address) + 4 > memoryNumBytes)
 	{
-		createAndThrowException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes});
+		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes});
 	}
 
 	// The alignment check is done by the caller.

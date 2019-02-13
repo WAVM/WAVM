@@ -180,12 +180,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  void,
 						  divideByZeroOrIntegerOverflowTrap)
 {
-	createAndThrowException(ExceptionTypes::integerDivideByZeroOrOverflow);
+	throwException(ExceptionTypes::integerDivideByZeroOrOverflow);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "unreachableTrap", void, unreachableTrap)
 {
-	createAndThrowException(ExceptionTypes::reachedUnreachable);
+	throwException(ExceptionTypes::reachedUnreachable);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
@@ -193,7 +193,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  void,
 						  invalidFloatOperationTrap)
 {
-	createAndThrowException(ExceptionTypes::invalidFloatOperation);
+	throwException(ExceptionTypes::invalidFloatOperation);
 }
 
 static thread_local Uptr indentLevel = 0;

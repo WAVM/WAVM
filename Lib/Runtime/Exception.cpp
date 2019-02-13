@@ -217,8 +217,8 @@ std::string Runtime::describeException(const Exception* exception)
 
 [[noreturn]] void Runtime::throwException(Exception* exception) { throw exception; }
 
-[[noreturn]] void Runtime::createAndThrowException(ExceptionType* type,
-												   const std::vector<IR::UntaggedValue>& arguments)
+[[noreturn]] void Runtime::throwException(ExceptionType* type,
+										  const std::vector<IR::UntaggedValue>& arguments)
 {
 	wavmAssert(type->sig.params.size() == arguments.size());
 	throwException(

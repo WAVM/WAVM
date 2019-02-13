@@ -192,7 +192,7 @@ namespace WAVM { namespace Runtime {
 	[[noreturn]] RUNTIME_API void throwException(Exception* exception);
 
 	// Creates and throws a runtime exception.
-	[[noreturn]] RUNTIME_API void createAndThrowException(
+	[[noreturn]] RUNTIME_API void throwException(
 		ExceptionType* type,
 		const std::vector<IR::UntaggedValue>& arguments = {});
 

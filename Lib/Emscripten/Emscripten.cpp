@@ -39,7 +39,7 @@ static U32 coerce32bitAddress(Memory* memory, Uptr address)
 {
 	if(address >= UINT32_MAX)
 	{
-		createAndThrowException(ExceptionTypes::outOfBoundsMemoryAccess,
+		throwException(ExceptionTypes::outOfBoundsMemoryAccess,
 								{asObject(memory), U64(address)});
 	}
 	return (U32)address;
@@ -49,7 +49,7 @@ static I32 coerce32bitAddressSigned(Memory* memory, Uptr address)
 {
 	if(address >= INT32_MAX)
 	{
-		createAndThrowException(ExceptionTypes::outOfBoundsMemoryAccess,
+		throwException(ExceptionTypes::outOfBoundsMemoryAccess,
 								{asObject(memory), U64(address)});
 	}
 	return (I32)address;
@@ -158,11 +158,11 @@ DEFINE_INTRINSIC_FUNCTION(env, "_emscripten_get_heap_size", U32, _emscripten_get
 DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverflow, I32 size)
 {
 	Log::printf(Log::error, "env.abortStackOverflow(%i)\n", size);
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrowMemory)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "enlargeMemory", I32, enlargeMemory)
 {
@@ -198,7 +198,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", I32, _sysconf, I32 a)
 	switch(a)
 	{
 	case sysConfPageSize: return IR::numBytesPerPage;
-	default: createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	default: throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 	}
 }
 
@@ -253,7 +253,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_getspecific", I32, _pthread_getspecific
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_once", I32, _pthread_once, I32 a, I32 b)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cleanup_push", void, _pthread_cleanup_push, I32 a, I32 b)
 {
@@ -383,7 +383,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 						  I32 line,
 						  I32 function)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "___cxa_atexit", I32, ___cxa_atexit, I32 a, I32 b, I32 c)
@@ -406,11 +406,11 @@ DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_acquire", I32, ___cxa_guard_acquire
 DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_release", void, ___cxa_guard_release, I32 a) {}
 DEFINE_INTRINSIC_FUNCTION(env, "___cxa_throw", void, ___cxa_throw, I32 a, I32 b, I32 c)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "___cxa_begin_catch", I32, ___cxa_begin_catch, I32 a)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 DEFINE_INTRINSIC_FUNCTION(env,
 						  "___cxa_allocate_exception",
@@ -423,78 +423,78 @@ DEFINE_INTRINSIC_FUNCTION(env,
 }
 DEFINE_INTRINSIC_FUNCTION(env, "__ZSt18uncaught_exceptionv", I32, __ZSt18uncaught_exceptionv)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_abort", void, emscripten__abort)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_exit", void, emscripten__exit, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
 {
 	Log::printf(Log::error, "env.abort(%i)\n", code);
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_i", void, emscripten_nullFunc_i, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_ii", void, emscripten_nullFunc_ii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iii", void, emscripten_nullFunc_iii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiii", void, emscripten_nullFunc_iiii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiii", void, emscripten_nullFunc_iiiii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiii", void, emscripten_nullFunc_iiiiii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiiii", void, emscripten_nullFunc_iiiiiii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_v", void, emscripten_nullFunc_v, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vi", void, emscripten_nullFunc_vi, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vii", void, emscripten_nullFunc_vii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viii", void, emscripten_nullFunc_viii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiii", void, emscripten_nullFunc_viiii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiii", void, emscripten_nullFunc_viiiii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiiii", void, emscripten_nullFunc_viiiiii, I32 code)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 
 static U32 currentLocale = 0;
@@ -522,11 +522,11 @@ DEFINE_INTRINSIC_FUNCTION(env,
 						  I32 d,
 						  I32 e)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_strerror", I32, emscripten__strerror, I32 a)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "_catopen", I32, emscripten__catopen, I32 a, I32 b) { return -1; }
@@ -583,7 +583,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 						  U32 formatPointer,
 						  I32 argList)
 {
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_getc", I32, _getc, I32 file) { return getc(vmFile(file)); }
 DEFINE_INTRINSIC_FUNCTION(env, "_ungetc", I32, _ungetc, I32 character, I32 file)
@@ -638,7 +638,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___unlockfile", void, ___unlockfile, I32 a) {}
 DEFINE_INTRINSIC_FUNCTION(env, "___syscall6", I32, ___syscall6, I32 a, I32 b)
 {
 	// close
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "___syscall54", I32, ___syscall54, I32 a, I32 b)
@@ -650,13 +650,13 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall54", I32, ___syscall54, I32 a, I32 b)
 DEFINE_INTRINSIC_FUNCTION(env, "___syscall140", I32, ___syscall140, I32 a, I32 b)
 {
 	// llseek
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "___syscall145", I32, ___syscall145, I32 file, I32 argsPtr)
 {
 	// readv
-	createAndThrowException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
+	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "___syscall146", I32, ___syscall146, I32 file, U32 argsPtr)
