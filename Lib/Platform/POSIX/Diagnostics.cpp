@@ -129,3 +129,8 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 #endif
 	return false;
 }
+
+#if WAVM_ENABLE_ASAN
+#include <sanitizer/lsan_interface.h>
+void Platform::expectLeakedObject(void* object) { __lsan_ignore_object(object); }
+#endif
