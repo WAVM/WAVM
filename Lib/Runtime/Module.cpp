@@ -359,9 +359,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 
 			if(dataSegment.data.size())
 			{
-				Platform::bytewiseMemCopy(memory->baseAddress + baseOffset,
-										  dataSegment.data.data(),
-										  dataSegment.data.size());
+				Runtime::unwindSignalsAsExceptions([=] {
+					Platform::bytewiseMemCopy(memory->baseAddress + baseOffset,
+											  dataSegment.data.data(),
+											  dataSegment.data.size());
+				});
 			}
 			else
 			{
