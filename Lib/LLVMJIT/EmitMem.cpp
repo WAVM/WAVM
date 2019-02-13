@@ -350,13 +350,13 @@ EMIT_ATOMIC_STORE_OP(i64, atomic_store32, llvmContext.i32Type, 2, trunc)
 		push(memToValue(previousValue, asLLVMType(llvmContext, ValueType::valueTypeId)));          \
 	}
 
-EMIT_ATOMIC_CMPXCHG(i32, atomic_rmw8_u_cmpxchg, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_CMPXCHG(i32, atomic_rmw16_u_cmpxchg, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_CMPXCHG(i32, atomic_rmw8_cmpxchg_u, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_CMPXCHG(i32, atomic_rmw16_cmpxchg_u, llvmContext.i16Type, 1, zext, trunc)
 EMIT_ATOMIC_CMPXCHG(i32, atomic_rmw_cmpxchg, llvmContext.i32Type, 2, identity, identity)
 
-EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw8_u_cmpxchg, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw16_u_cmpxchg, llvmContext.i16Type, 1, zext, trunc)
-EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw32_u_cmpxchg, llvmContext.i32Type, 2, zext, trunc)
+EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw8_cmpxchg_u, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw16_cmpxchg_u, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw32_cmpxchg_u, llvmContext.i32Type, 2, zext, trunc)
 EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw_cmpxchg, llvmContext.i64Type, 3, identity, identity)
 
 #define EMIT_ATOMIC_RMW(                                                                           \
@@ -376,56 +376,56 @@ EMIT_ATOMIC_CMPXCHG(i64, atomic_rmw_cmpxchg, llvmContext.i64Type, 3, identity, i
 		push(memToValue(atomicRMW, asLLVMType(llvmContext, ValueType::valueTypeId)));              \
 	}
 
-EMIT_ATOMIC_RMW(i32, atomic_rmw8_u_xchg, Xchg, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i32, atomic_rmw16_u_xchg, Xchg, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw8_xchg_u, Xchg, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw16_xchg_u, Xchg, llvmContext.i16Type, 1, zext, trunc)
 EMIT_ATOMIC_RMW(i32, atomic_rmw_xchg, Xchg, llvmContext.i32Type, 2, identity, identity)
 
-EMIT_ATOMIC_RMW(i64, atomic_rmw8_u_xchg, Xchg, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw16_u_xchg, Xchg, llvmContext.i16Type, 1, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw32_u_xchg, Xchg, llvmContext.i32Type, 2, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw8_xchg_u, Xchg, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw16_xchg_u, Xchg, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw32_xchg_u, Xchg, llvmContext.i32Type, 2, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw_xchg, Xchg, llvmContext.i64Type, 3, identity, identity)
 
-EMIT_ATOMIC_RMW(i32, atomic_rmw8_u_add, Add, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i32, atomic_rmw16_u_add, Add, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw8_add_u, Add, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw16_add_u, Add, llvmContext.i16Type, 1, zext, trunc)
 EMIT_ATOMIC_RMW(i32, atomic_rmw_add, Add, llvmContext.i32Type, 2, identity, identity)
 
-EMIT_ATOMIC_RMW(i64, atomic_rmw8_u_add, Add, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw16_u_add, Add, llvmContext.i16Type, 1, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw32_u_add, Add, llvmContext.i32Type, 2, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw8_add_u, Add, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw16_add_u, Add, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw32_add_u, Add, llvmContext.i32Type, 2, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw_add, Add, llvmContext.i64Type, 3, identity, identity)
 
-EMIT_ATOMIC_RMW(i32, atomic_rmw8_u_sub, Sub, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i32, atomic_rmw16_u_sub, Sub, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw8_sub_u, Sub, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw16_sub_u, Sub, llvmContext.i16Type, 1, zext, trunc)
 EMIT_ATOMIC_RMW(i32, atomic_rmw_sub, Sub, llvmContext.i32Type, 2, identity, identity)
 
-EMIT_ATOMIC_RMW(i64, atomic_rmw8_u_sub, Sub, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw16_u_sub, Sub, llvmContext.i16Type, 1, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw32_u_sub, Sub, llvmContext.i32Type, 2, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw8_sub_u, Sub, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw16_sub_u, Sub, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw32_sub_u, Sub, llvmContext.i32Type, 2, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw_sub, Sub, llvmContext.i64Type, 3, identity, identity)
 
-EMIT_ATOMIC_RMW(i32, atomic_rmw8_u_and, And, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i32, atomic_rmw16_u_and, And, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw8_and_u, And, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw16_and_u, And, llvmContext.i16Type, 1, zext, trunc)
 EMIT_ATOMIC_RMW(i32, atomic_rmw_and, And, llvmContext.i32Type, 2, identity, identity)
 
-EMIT_ATOMIC_RMW(i64, atomic_rmw8_u_and, And, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw16_u_and, And, llvmContext.i16Type, 1, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw32_u_and, And, llvmContext.i32Type, 2, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw8_and_u, And, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw16_and_u, And, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw32_and_u, And, llvmContext.i32Type, 2, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw_and, And, llvmContext.i64Type, 3, identity, identity)
 
-EMIT_ATOMIC_RMW(i32, atomic_rmw8_u_or, Or, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i32, atomic_rmw16_u_or, Or, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw8_or_u, Or, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw16_or_u, Or, llvmContext.i16Type, 1, zext, trunc)
 EMIT_ATOMIC_RMW(i32, atomic_rmw_or, Or, llvmContext.i32Type, 2, identity, identity)
 
-EMIT_ATOMIC_RMW(i64, atomic_rmw8_u_or, Or, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw16_u_or, Or, llvmContext.i16Type, 1, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw32_u_or, Or, llvmContext.i32Type, 2, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw8_or_u, Or, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw16_or_u, Or, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw32_or_u, Or, llvmContext.i32Type, 2, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw_or, Or, llvmContext.i64Type, 3, identity, identity)
 
-EMIT_ATOMIC_RMW(i32, atomic_rmw8_u_xor, Xor, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i32, atomic_rmw16_u_xor, Xor, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw8_xor_u, Xor, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i32, atomic_rmw16_xor_u, Xor, llvmContext.i16Type, 1, zext, trunc)
 EMIT_ATOMIC_RMW(i32, atomic_rmw_xor, Xor, llvmContext.i32Type, 2, identity, identity)
 
-EMIT_ATOMIC_RMW(i64, atomic_rmw8_u_xor, Xor, llvmContext.i8Type, 0, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw16_u_xor, Xor, llvmContext.i16Type, 1, zext, trunc)
-EMIT_ATOMIC_RMW(i64, atomic_rmw32_u_xor, Xor, llvmContext.i32Type, 2, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw8_xor_u, Xor, llvmContext.i8Type, 0, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw16_xor_u, Xor, llvmContext.i16Type, 1, zext, trunc)
+EMIT_ATOMIC_RMW(i64, atomic_rmw32_xor_u, Xor, llvmContext.i32Type, 2, zext, trunc)
 EMIT_ATOMIC_RMW(i64, atomic_rmw_xor, Xor, llvmContext.i64Type, 3, identity, identity)
