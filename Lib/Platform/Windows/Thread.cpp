@@ -69,11 +69,6 @@ struct ForkThreadArgs : ThreadArgs
 	U8* threadEntryFramePointer;
 };
 
-struct ExitThreadException
-{
-	I64 exitCode;
-};
-
 void Platform::initThread()
 {
 	if(!isThreadInitialized)
@@ -87,36 +82,17 @@ void Platform::initThread()
 	}
 }
 
-static DWORD createThreadEntry2(void* argsVoid)
+static DWORD WINAPI createThreadEntry(void* argsVoid)
 {
 	initThread();
 
 	std::unique_ptr<CreateThreadArgs> args((CreateThreadArgs*)argsVoid);
 
-	try
-	{
-		threadEntryFramePointer = getStackPointer();
+	threadEntryFramePointer = getStackPointer();
 
-		args->thread->result = (*args->entry)(args->entryArgument);
-	}
-	catch(ExitThreadException const& exception)
-	{
-		args->thread->result = exception.exitCode;
-	}
+	args->thread->result = (*args->entry)(args->entryArgument);
 
 	return 0;
-}
-
-static DWORD WINAPI createThreadEntry(void* argsVoid)
-{
-	__try
-	{
-		return createThreadEntry2(argsVoid);
-	}
-	__except(unhandledExceptionFilter(GetExceptionInformation()))
-	{
-		Errors::unreachable();
-	}
 }
 
 struct ProcessorGroupInfo
@@ -195,38 +171,17 @@ I64 Platform::joinThread(Thread* thread)
 	return result;
 }
 
-void Platform::exitThread(I64 code) { throw ExitThreadException{code}; }
-
 #ifdef _WIN64
-static DWORD forkThreadEntry2(void* argsVoid)
+static DWORD WINAPI forkThreadEntry(void* argsVoid)
 {
 	std::unique_ptr<ForkThreadArgs> args((ForkThreadArgs*)argsVoid);
 
-	try
-	{
-		threadEntryFramePointer = args->threadEntryFramePointer;
+	threadEntryFramePointer = args->threadEntryFramePointer;
 
-		args->thread->result
-			= switchToForkedStackContext(&args->forkContext, args->threadEntryFramePointer);
-	}
-	catch(ExitThreadException const& exception)
-	{
-		args->thread->result = exception.exitCode;
-	}
+	args->thread->result
+		= switchToForkedStackContext(&args->forkContext, args->threadEntryFramePointer);
 
 	return 0;
-}
-
-static DWORD WINAPI forkThreadEntry(void* argsVoid)
-{
-	__try
-	{
-		return forkThreadEntry2(argsVoid);
-	}
-	__except(unhandledExceptionFilter(GetExceptionInformation()))
-	{
-		Errors::unreachable();
-	}
 }
 
 Thread* Platform::forkCurrentThread()

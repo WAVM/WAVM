@@ -10,14 +10,7 @@
 using namespace WAVM;
 using namespace WAVM::Platform;
 
-struct PlatformException
-{
-	void* data;
-	CallStack callStack;
-};
-
 thread_local SignalContext* Platform::innermostSignalContext = nullptr;
-static std::atomic<SignalHandler> portableSignalHandler;
 
 [[noreturn]] static void signalHandler(int signalNumber, siginfo_t* signalInfo, void*)
 {
@@ -56,17 +49,12 @@ static std::atomic<SignalHandler> portableSignalHandler;
 	for(SignalContext* signalContext = innermostSignalContext; signalContext;
 		signalContext = signalContext->outerContext)
 	{
-		if(signalContext->filter(signal, std::move(callStack)))
+		if(signalContext->filter(signalContext->filterArgument, signal, std::move(callStack)))
 		{
 			// Jump back to the execution context that was saved in catchSignals.
 			siglongjmp(signalContext->catchJump, 1);
 		}
 	}
-
-	// If the signal wasn't handled by a catchSignals call, call the portable signal handler.
-	SignalHandler portableSignalHandlerSnapshot = portableSignalHandler.load();
-	if(portableSignalHandlerSnapshot)
-	{ portableSignalHandlerSnapshot(signal, std::move(callStack)); }
 
 	switch(signalNumber)
 	{
@@ -100,8 +88,9 @@ static void initSignals()
 	}
 }
 
-bool Platform::catchSignals(const std::function<void()>& thunk,
-							const std::function<bool(Signal, CallStack&&)>& filter)
+bool Platform::catchSignals(void (*thunk)(void*),
+							bool (*filter)(void*, Signal, CallStack&&),
+							void* argument)
 {
 	initSignals();
 	sigAltStack.init();
@@ -109,6 +98,7 @@ bool Platform::catchSignals(const std::function<void()>& thunk,
 	SignalContext signalContext;
 	signalContext.outerContext = innermostSignalContext;
 	signalContext.filter = filter;
+	signalContext.filterArgument = argument;
 
 #ifdef __WAVIX__
 	Errors::fatal("catchSignals is unimplemented on Wavix");
@@ -121,20 +111,12 @@ bool Platform::catchSignals(const std::function<void()>& thunk,
 		innermostSignalContext = &signalContext;
 
 		// Call the thunk.
-		thunk();
+		thunk(argument);
 	}
 	innermostSignalContext = signalContext.outerContext;
 
 	return isReturningFromSignalHandler;
 #endif
-}
-
-void Platform::setSignalHandler(SignalHandler handler)
-{
-	initSignals();
-	sigAltStack.init();
-
-	portableSignalHandler.store(handler);
 }
 
 static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*))

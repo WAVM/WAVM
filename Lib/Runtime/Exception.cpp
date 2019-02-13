@@ -1,7 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <atomic>
-#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,8 +13,8 @@
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Diagnostics.h"
-#include "WAVM/Platform/Signal.h"
 #include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Signal.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/Runtime/RuntimeData.h"
@@ -322,78 +320,60 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
 									 const std::function<void(Exception*)>& catchThunk)
 {
-	// Catch platform exceptions and translate them into C++ exceptions.
 	try
 	{
-		Exception* exception = nullptr;
-		if(Platform::catchSignals(
-			   thunk,
-			   [&exception](Platform::Signal signal, Platform::CallStack&& callStack) -> bool {
-				   return translateSignalToRuntimeException(
-					   signal, std::move(callStack), exception);
-			   }))
-		{ throw exception; }
+		unwindSignalsAsExceptions(thunk);
 	}
 	catch(Exception* exception)
 	{
 		catchThunk(exception);
-		destroyException(exception);
+	}
+}
+
+void Runtime::catchRuntimeExceptionsOnRelocatableStack(void (*thunk)(),
+													   void (*catchThunk)(Exception*))
+{
+	try
+	{
+		static thread_local Exception* translatedSignalException = nullptr;
+
+		if(Platform::catchSignals(
+			   [](void* thunkVoid) {
+				   auto thunk = (void (*)())thunkVoid;
+				   (*thunk)();
+			   },
+			   [](void*, Platform::Signal signal, Platform::CallStack&& callStack) {
+				   return translateSignalToRuntimeException(
+					   signal, std::move(callStack), translatedSignalException);
+			   },
+			   (void*)thunk))
+		{ throw translatedSignalException; }
+	}
+	catch(Exception* exception)
+	{
+		(*catchThunk)(exception);
 	}
 }
 
 void Runtime::unwindSignalsAsExceptions(const std::function<void()>& thunk)
 {
 	// Catch signals and translate them into runtime exceptions.
-	Exception* exception = nullptr;
+	struct UnwindContext
+	{
+		const std::function<void()>* thunk;
+		Exception* exception = nullptr;
+	} context;
+	context.thunk = &thunk;
 	if(Platform::catchSignals(
-		   thunk, [&exception](Platform::Signal signal, Platform::CallStack&& callStack) -> bool {
-			   return translateSignalToRuntimeException(signal, std::move(callStack), exception);
-		   }))
-	{ throw exception; }
-}
-
-static std::atomic<UnhandledExceptionHandler> unhandledExceptionHandler;
-
-static void globalSignalHandler(Platform::Signal signal, Platform::CallStack&& callStack)
-{
-	Exception* exception;
-	if(translateSignalToRuntimeException(signal, std::move(callStack), exception))
-	{ (unhandledExceptionHandler.load())(exception); }
-}
-
-std::terminate_handler outerTerminateHandler;
-
-static void terminateHandler()
-{
-	try
-	{
-		std::rethrow_exception(std::current_exception());
-	}
-	catch(Runtime::Exception* exception)
-	{
-		(unhandledExceptionHandler.load())(exception);
-	}
-	catch(...)
-	{
-		outerTerminateHandler();
-	}
-}
-
-void Runtime::setUnhandledExceptionHandler(UnhandledExceptionHandler handler)
-{
-	unhandledExceptionHandler.store(handler);
-
-	static struct SignalHandlerRegistrar
-	{
-		SignalHandlerRegistrar() { Platform::setSignalHandler(globalSignalHandler); }
-	} signalHandlerRegistrar;
-
-	static struct TerminateHandlerRegistrar
-	{
-		TerminateHandlerRegistrar()
-		{
-			outerTerminateHandler = std::get_terminate();
-			std::set_terminate(terminateHandler);
-		}
-	} terminateHandlerRegistrar;
+		   [](void* contextVoid) {
+			   UnwindContext& context = *(UnwindContext*)contextVoid;
+			   (*context.thunk)();
+		   },
+		   [](void* contextVoid, Platform::Signal signal, Platform::CallStack&& callStack) {
+			   UnwindContext& context = *(UnwindContext*)contextVoid;
+			   return translateSignalToRuntimeException(
+				   signal, std::move(callStack), context.exception);
+		   },
+		   &context))
+	{ throw context.exception; }
 }

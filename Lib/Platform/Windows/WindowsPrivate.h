@@ -61,7 +61,5 @@ extern "C" U8* getStackPointer();
 namespace WAVM { namespace Platform {
 	void initThread();
 
-	LONG NTAPI unhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionPointers);
-
 	CallStack unwindStack(const CONTEXT& immutableContext, Uptr numOmittedFramesFromTop);
 }}

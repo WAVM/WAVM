@@ -120,7 +120,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 	{
 		Lock<Platform::Mutex> waitListLock(waitList->mutex);
 
-		// Use catchRuntimeExceptions to ensure that an access violation signal produced by the load
+		// Use unwindSignalsAsExceptions to ensure that an access violation signal produced by the load
 		// will be thrown as a Runtime::Exception and unwind the stack (e.g. the locks).
 		Value value;
 		Runtime::unwindSignalsAsExceptions(

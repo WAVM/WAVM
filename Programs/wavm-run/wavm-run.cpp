@@ -188,7 +188,8 @@ static int run(const CommandLineOptions& options)
 
 		if(!precompiledObjectSection)
 		{
-			Log::printf(Log::error, "Input file did not contain 'wavm.precompiled_object' section.\n");
+			Log::printf(Log::error,
+						"Input file did not contain 'wavm.precompiled_object' section.\n");
 			return EXIT_FAILURE;
 		}
 		else
@@ -427,10 +428,12 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
-	Runtime::setUnhandledExceptionHandler([](Runtime::Exception* exception) {
-		Errors::fatalf("Runtime exception: %s", describeException(exception).c_str());
-	});
-
-	return run(options);
+	int result = EXIT_FAILURE;
+	Runtime::catchRuntimeExceptions([&result, options]() { result = run(options); },
+									[](Runtime::Exception* exception) {
+										// Treat any unhandled exception as a fatal error.
+										Errors::fatalf("Runtime exception: %s",
+													   describeException(exception).c_str());
+									});
+	return result;
 }

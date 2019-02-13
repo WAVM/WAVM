@@ -424,6 +424,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 							   describeExceptionType(expectedType).c_str(),
 							   describeExceptionType(exception->type).c_str());
 				}
+				destroyException(exception);
 			});
 		break;
 	}
@@ -496,6 +497,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 						}
 					}
 				}
+				destroyException(exception);
 			});
 		break;
 	}
@@ -535,6 +537,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 				}
 			},
 			[&](Runtime::Exception* exception) {
+				destroyException(exception);
 				// If the instantiation throws an exception, the assert_unlinkable succeeds.
 			});
 		break;
@@ -652,6 +655,7 @@ static I64 threadMain(void* sharedStateVoid)
 								   command->locus,
 								   "unexpected trap: %s",
 								   describeExceptionType(exception->type).c_str());
+						destroyException(exception);
 					});
 			}
 		}
@@ -675,11 +679,6 @@ static void showHelp()
 
 int main(int argc, char** argv)
 {
-	// Treat any unhandled exception (e.g. in a thread) as a fatal error.
-	Runtime::setUnhandledExceptionHandler([](Runtime::Exception* exception) {
-		Errors::fatalf("Unhandled runtime exception: %s", describeException(exception).c_str());
-	});
-
 	// Suppress metrics output.
 	Log::setCategoryEnabled(Log::metrics, false);
 

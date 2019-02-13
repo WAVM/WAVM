@@ -61,9 +61,9 @@ static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& 
 
 // __try/__except doesn't support locals with destructors in the same function, so this is just
 // the body of the sehSignalFilterFunction __try pulled out into a function.
-static LONG CALLBACK
-sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
-									const std::function<bool(Signal, CallStack&&)>& filter)
+static LONG CALLBACK sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
+														 bool (*filter)(void*, Signal, CallStack&&),
+														 void* context)
 {
 	Signal signal;
 	if(!translateSEHToSignal(exceptionPointers, signal)) { return EXCEPTION_CONTINUE_SEARCH; }
@@ -72,7 +72,7 @@ sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
 		// Unwind the stack frames from the context of the exception.
 		CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
 
-		if(filter(signal, std::move(callStack))) { return EXCEPTION_EXECUTE_HANDLER; }
+		if((*filter)(context, signal, std::move(callStack))) { return EXCEPTION_EXECUTE_HANDLER; }
 		else
 		{
 			return EXCEPTION_CONTINUE_SEARCH;
@@ -81,11 +81,12 @@ sehSignalFilterFunctionNonReentrant(EXCEPTION_POINTERS* exceptionPointers,
 }
 
 static LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointers,
-											 const std::function<bool(Signal, CallStack&&)>& filter)
+											 bool (*filter)(void*, Signal, CallStack&&),
+											 void* context)
 {
 	__try
 	{
-		return sehSignalFilterFunctionNonReentrant(exceptionPointers, filter);
+		return sehSignalFilterFunctionNonReentrant(exceptionPointers, filter, context);
 	}
 	__except(Errors::fatal("reentrant exception"), true)
 	{
@@ -93,64 +94,22 @@ static LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointe
 	}
 }
 
-bool Platform::catchSignals(const std::function<void()>& thunk,
-							const std::function<bool(Signal, CallStack&&)>& filter)
+bool Platform::catchSignals(void (*thunk)(void*),
+							bool (*filter)(void*, Signal, CallStack&&),
+							void* context)
 {
 	initThread();
 
 	__try
 	{
-		thunk();
+		(*thunk)(context);
 		return false;
 	}
-	__except(sehSignalFilterFunction(GetExceptionInformation(), filter))
+	__except(sehSignalFilterFunction(GetExceptionInformation(), filter, context))
 	{
 		// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
 		errorUnless(_resetstkoflw());
 
 		return true;
 	}
-}
-
-static std::atomic<SignalHandler> signalHandler;
-
-// __try/__except doesn't support locals with destructors in the same function, so this is just
-// the body of the unhandledExceptionFilter __try pulled out into a function.
-static LONG NTAPI unhandledExceptionFilterNonRentrant(struct _EXCEPTION_POINTERS* exceptionPointers)
-{
-	Signal signal;
-
-	if(!translateSEHToSignal(exceptionPointers, signal)) { return EXCEPTION_CONTINUE_SEARCH; }
-
-	// Unwind the stack frames from the context of the exception.
-	CallStack callStack = unwindStack(*exceptionPointers->ContextRecord, 0);
-
-	(signalHandler.load())(signal, std::move(callStack));
-
-	return EXCEPTION_CONTINUE_SEARCH;
-}
-
-LONG NTAPI Platform::unhandledExceptionFilter(struct _EXCEPTION_POINTERS* exceptionPointers)
-{
-	__try
-	{
-		return unhandledExceptionFilterNonRentrant(exceptionPointers);
-	}
-	__except(Errors::fatal("reentrant exception"), true)
-	{
-		Errors::unreachable();
-	}
-}
-
-void Platform::setSignalHandler(SignalHandler handler)
-{
-	static struct UnhandledExceptionFilterRegistrar
-	{
-		UnhandledExceptionFilterRegistrar()
-		{
-			SetUnhandledExceptionFilter(unhandledExceptionFilter);
-		}
-	} unhandledExceptionFilterRegistrar;
-
-	signalHandler.store(handler);
 }

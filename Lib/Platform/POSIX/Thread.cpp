@@ -21,10 +21,10 @@
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Lock.h"
-#include "WAVM/Platform/Signal.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Signal.h"
 #include "WAVM/Platform/Thread.h"
 
 #ifdef __APPLE__
@@ -62,6 +62,7 @@ struct ForkThreadArgs
 	ExecutionContext forkContext;
 	Platform::Mutex forkedStackMutex;
 	U8* threadEntryFramePointer;
+	SignalContext* innermostSignalContext;
 };
 
 enum
@@ -202,7 +203,8 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	errorUnless(!pthread_getattr_np(thread, &threadAttributes));
 	Uptr numStackBytes = 0;
 	Uptr numGuardBytes = 0;
-	errorUnless(!pthread_attr_getstack(&threadAttributes, (void**)&outMinGuardAddr, &numStackBytes));
+	errorUnless(
+		!pthread_attr_getstack(&threadAttributes, (void**)&outMinGuardAddr, &numStackBytes));
 	errorUnless(!pthread_attr_getguardsize(&threadAttributes, &numGuardBytes));
 	errorUnless(!pthread_attr_destroy(&threadAttributes));
 	outMaxAddr = outMinGuardAddr + numStackBytes;
@@ -281,14 +283,6 @@ I64 Platform::joinThread(Thread* thread)
 	return reinterpret_cast<I64>(returnValue);
 }
 
-void Platform::exitThread(I64 argument)
-{
-	wavmAssert(threadEntryContext);
-	threadEntryContext->exitCode = argument;
-	siglongjmp(threadEntryContext->exitJump, 1);
-	Errors::unreachable();
-}
-
 NO_ASAN static void* forkThreadEntry(void* argsVoid)
 {
 	std::unique_ptr<ForkThreadArgs> args((ForkThreadArgs*)argsVoid);
@@ -342,8 +336,6 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 		Errors::fatal(
 			"Cannot fork a thread that wasn't created by Platform::createThread/forkThread");
 	}
-	if(innermostSignalContext)
-	{ Errors::fatal("Cannot fork a thread with catchSignals on the stack"); }
 
 	// Capture the current execution state in forkThreadArgs->forkContext.
 	// The forked thread will load this execution context, and "return" from this function on the
@@ -351,6 +343,8 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 	const I64 isExecutingInFork = saveExecutionState(&forkThreadArgs->forkContext, 0);
 	if(isExecutingInFork)
 	{
+		innermostSignalContext = forkThreadArgs->innermostSignalContext;
+
 		// Allocate a sigaltstack for the new thread.
 		sigAltStack.init();
 
@@ -407,6 +401,16 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 		// Copy the contents of this thread's stack to the forked stack.
 		memcpyNoASAN(
 			forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
+
+		// Fix up the links in the signal context chain for the new stack.
+		forkThreadArgs->innermostSignalContext = innermostSignalContext;
+		for(SignalContext** forkedSignalContextLink = &forkThreadArgs->innermostSignalContext;
+			*forkedSignalContextLink;
+			forkedSignalContextLink = &(*forkedSignalContextLink)->outerContext)
+		{
+			*forkedSignalContextLink = reinterpret_cast<SignalContext*>(
+				reinterpret_cast<Uptr>(*forkedSignalContextLink) + forkedStackOffset);
+		}
 
 		forkThreadArgs->forkedStackMutex.unlock();
 

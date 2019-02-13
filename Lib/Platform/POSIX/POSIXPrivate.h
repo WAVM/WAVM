@@ -80,7 +80,8 @@ namespace WAVM { namespace Platform {
 	{
 		SignalContext* outerContext;
 		jmp_buf catchJump;
-		std::function<bool(Platform::Signal, Platform::CallStack&&)> filter;
+		bool (*filter)(void*, Signal, CallStack&&);
+		void* filterArgument;
 	};
 
 	struct SigAltStack

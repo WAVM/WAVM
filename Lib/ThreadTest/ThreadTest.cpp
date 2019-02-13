@@ -36,14 +36,17 @@ struct Thread
 	std::atomic<Uptr> numRefs{0};
 
 	Platform::Thread* platformThread = nullptr;
-	Runtime::GCPointer<Runtime::Context> context;
-	Runtime::GCPointer<Runtime::Function> entryFunction;
+	GCPointer<Context> context;
+	GCPointer<Function> entryFunction;
+
+	Platform::Mutex resultMutex;
+	bool threwException = false;
+	Exception* exception = nullptr;
+	I64 result = -1;
 
 	IR::Value argument;
 
-	FORCENOINLINE Thread(Runtime::Context* inContext,
-						 Runtime::Function* inEntryFunction,
-						 const IR::Value& inArgument)
+	FORCENOINLINE Thread(Context* inContext, Function* inEntryFunction, const IR::Value& inArgument)
 	: context(inContext), entryFunction(inEntryFunction), argument(inArgument)
 	{
 	}
@@ -53,6 +56,11 @@ struct Thread
 	{
 		if(--numRefs == 0) { delete this; }
 	}
+};
+
+struct ExitThreadException
+{
+	I64 code;
 };
 
 // A global list of running threads created by WebAssembly code.
@@ -73,9 +81,10 @@ FORCENOINLINE static Uptr allocateThreadId(Thread* thread)
 	return thread->id;
 }
 
-// This function is just to provide a way to write to the currentThread thread-local variable in a
+// These functions just provide a way to read/write the currentThread thread-local variable in a
 // way that the compiler can't cache across a call to Platform::forkCurrentThread.
 FORCENOINLINE static void setCurrentThread(Thread* thread) { currentThread = thread; }
+FORCENOINLINE static Thread* getCurrentThread() { return currentThread; }
 
 // Validates that a thread ID is valid. i.e. 0 < threadId < threads.size(), and threads[threadId] !=
 // null If the thread ID is invalid, throws an invalid argument exception. The caller must have
@@ -90,11 +99,48 @@ DEFINE_INTRINSIC_MODULE(threadTest);
 
 static I64 threadEntry(void* threadVoid)
 {
-	Thread* thread = (Thread*)threadVoid;
-	currentThread = thread;
-	thread->removeRef();
+	// Assign the thread to currentThread, and discard it: if this thread is forked, then the local
+	// thread/threadVoid will point to the original Thread, not the forked Thread.
+	{
+		Thread* thread = (Thread*)threadVoid;
+		setCurrentThread(thread);
+		thread->removeRef();
+	}
 
-	return invokeFunctionUnchecked(thread->context, thread->entryFunction, &thread->argument)->i64;
+	catchRuntimeExceptionsOnRelocatableStack(
+		[]() {
+			I64 result;
+			try
+			{
+				result = invokeFunctionUnchecked(getCurrentThread()->context,
+												 getCurrentThread()->entryFunction,
+												 &getCurrentThread()->argument)
+							 ->i64;
+			}
+			catch(ExitThreadException exitThreadException)
+			{
+				result = exitThreadException.code;
+			}
+
+			Lock<Platform::Mutex> resultLock(getCurrentThread()->resultMutex);
+			getCurrentThread()->result = result;
+		},
+		[](Exception* exception) {
+			Lock<Platform::Mutex> resultLock(getCurrentThread()->resultMutex);
+			if(getCurrentThread()->numRefs == 1)
+			{
+				// If the thread has already been detached, the exception is fatal.
+				Errors::fatalf("Runtime exception in detached thread: %s",
+							   describeException(exception).c_str());
+			}
+			else
+			{
+				getCurrentThread()->threwException = true;
+				getCurrentThread()->exception = exception;
+			}
+		});
+
+	return 0;
 }
 
 DEFINE_INTRINSIC_FUNCTION(threadTest,
@@ -173,7 +219,9 @@ DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, for
 
 DEFINE_INTRINSIC_FUNCTION(threadTest, "exitThread", void, exitThread, I64 code)
 {
-	Platform::exitThread(code);
+	if(!getCurrentThread()) { createAndThrowException(ExceptionTypes::calledAbort); }
+
+	throw ExitThreadException{code};
 }
 
 // Validates a thread ID, removes the corresponding thread from the threads array, and returns it.
@@ -195,16 +243,31 @@ static IntrusiveSharedPtr<Thread> removeThreadById(Uptr threadId)
 DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, U64 threadId)
 {
 	IntrusiveSharedPtr<Thread> thread = removeThreadById(Uptr(threadId));
-	const I64 result = Platform::joinThread(thread->platformThread);
+	Platform::joinThread(thread->platformThread);
 	thread->platformThread = nullptr;
-	return result;
+
+	Lock<Platform::Mutex> resultLock(thread->resultMutex);
+	if(thread->threwException) { throwException(thread->exception); }
+	else
+	{
+		return thread->result;
+	}
 }
 
 DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U64 threadId)
 {
 	IntrusiveSharedPtr<Thread> thread = removeThreadById(Uptr(threadId));
+
 	Platform::detachThread(thread->platformThread);
 	thread->platformThread = nullptr;
+
+	// If the thread threw an exception, turn it into a fatal error.
+	Lock<Platform::Mutex> resultLock(thread->resultMutex);
+	if(thread->threwException)
+	{
+		Errors::fatalf("Runtime exception in detached thread: %s",
+					   describeException(thread->exception).c_str());
+	}
 }
 
 ModuleInstance* ThreadTest::instantiate(Compartment* compartment)

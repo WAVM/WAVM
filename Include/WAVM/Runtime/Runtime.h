@@ -196,16 +196,19 @@ namespace WAVM { namespace Runtime {
 		ExceptionType* type,
 		const std::vector<IR::UntaggedValue>& arguments = {});
 
-	// Calls a thunk and catches any runtime exceptions that occur within it.
+	// Calls a thunk and catches any runtime exceptions that occur within it. Note that the
+	// catchThunk takes ownership of the exception, and is responsible for calling destroyException.
 	RUNTIME_API void catchRuntimeExceptions(const std::function<void()>& thunk,
 											const std::function<void(Exception*)>& catchThunk);
+
+	// Same as catchRuntimeExceptions, but works on a relocatable stack (e.g. a stack for a thread
+	// that will be forked with Platform::forkCurrentThread).
+	RUNTIME_API void catchRuntimeExceptionsOnRelocatableStack(void (*thunk)(),
+															  void (*catchThunk)(Exception*));
 
 	// Calls a thunk and ensures that any signals that occur within the thunk will be thrown as
 	// runtime exceptions.
 	RUNTIME_API void unwindSignalsAsExceptions(const std::function<void()>& thunk);
-
-	typedef void (*UnhandledExceptionHandler)(Exception*);
-	RUNTIME_API void setUnhandledExceptionHandler(UnhandledExceptionHandler handler);
 
 	// Describes an instruction pointer.
 	bool describeInstructionPointer(Uptr ip, std::string& outDescription);
