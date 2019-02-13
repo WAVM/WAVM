@@ -13,6 +13,7 @@
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Serialization.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Runtime/RuntimeData.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/TestScript.h"
@@ -33,6 +34,9 @@ static Runtime::Function* makeHostRef(Uptr index)
 		function
 			= new Runtime::Function(functionMutableData, UINTPTR_MAX, FunctionType::Encoding{0});
 		functionMutableData->function = function;
+
+		Platform::expectLeakedObject(functionMutableData);
+		Platform::expectLeakedObject(function);
 	}
 	return function;
 }

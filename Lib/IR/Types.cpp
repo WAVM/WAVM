@@ -8,6 +8,7 @@
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 
 using namespace WAVM;
@@ -86,6 +87,7 @@ const TypeTuple::Impl* IR::TypeTuple::getUniqueImpl(Uptr numElems, const ValueTy
 		else
 		{
 			Impl* globalImpl = new(malloc(numImplBytes)) Impl(*localImpl);
+			Platform::expectLeakedObject(globalImpl);
 			uniqueTypeTupleSet.addOrFail(TypeTuple(globalImpl));
 			return globalImpl;
 		}
@@ -119,6 +121,7 @@ const FunctionType::Impl* IR::FunctionType::getUniqueImpl(TypeTuple results, Typ
 		else
 		{
 			Impl* globalImpl = new Impl(localImpl);
+			Platform::expectLeakedObject(globalImpl);
 			uniqueFunctionTypeSet.addOrFail(FunctionType(globalImpl));
 			return globalImpl;
 		}

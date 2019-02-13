@@ -14,6 +14,7 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/RuntimeData.h"
 
@@ -148,6 +149,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	// Load the object code.
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
+	Platform::expectLeakedObject(jitModule);
 
 #if(defined(_WIN32) && !defined(_WIN64))
 	const char* thunkFunctionName = "_thunk";
@@ -215,6 +217,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 
 	// Load the object code.
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
+	Platform::expectLeakedObject(jitModule);
 
 #if(defined(_WIN32) && !defined(_WIN64))
 	const char* thunkFunctionName = "_thunk";
