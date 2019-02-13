@@ -219,7 +219,7 @@ function(WAVM_ADD_LIBRARY TARGET_NAME)
 	# Enable libfuzzer for libraries.
 	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 		if(WAVM_ENABLE_LIBFUZZER)
-			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer-no-link")
+			target_compile_options(${TARGET_NAME} PUBLIC "-fsanitize=fuzzer")
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize-coverage=trace-cmp,trace-div,trace-gep")
 		endif()
 	endif()
