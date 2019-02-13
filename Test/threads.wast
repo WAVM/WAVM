@@ -8,6 +8,8 @@
 
 	(memory 1 1 shared)
 
+	(data passive "x")
+
 	(global $atomicAccumulatorAddress i32 (i32.const 0))
 
 	(func $initAccumulator
@@ -171,10 +173,40 @@
 		end
 		unreachable
 		)
-
+		
 	(func (export "forkForkedThreadWithExit") (result i64)
 		(call $threadTest.joinThread
 			(call $threadTest.createThread (ref.func $createThreadEntry7) (i32.const 200)))
+		)
+		
+	(func $createThreadEntry8 (param $argument i32) (result i64)
+		(local $forkedThread i64)
+		(set_local $forkedThread (call $threadTest.forkThread))
+		(i64.ne (get_local $forkedThread) (i64.const 0))
+		if
+			(i64.mul
+				(i64.const 5)
+				(call $threadTest.joinThread (get_local $forkedThread)))
+			call $threadTest.exitThread
+		else
+			(set_local $forkedThread (call $threadTest.forkThread))
+			(i64.ne (get_local $forkedThread) (i64.const 0))
+			if
+				(i64.add
+					(i64.const 19)
+					(call $threadTest.joinThread (get_local $forkedThread)))
+				call $threadTest.exitThread
+			else
+				(memory.init 0 (i32.const 0xffffffff) (i32.const 0) (i32.const 1))
+				unreachable
+			end
+		end
+		unreachable
+		)
+		
+	(func (export "forkForkedThreadWithTrap") (result i64)
+		(call $threadTest.joinThread
+			(call $threadTest.createThread (ref.func $createThreadEntry8) (i32.const 200)))
 		)
 
 	(func (export "atomic.notify") (param $numWaiters i32) (param $address i32) (result i32)
@@ -197,3 +229,7 @@
 (assert_return (invoke "forkThreadWithJoin") (i64.const 529))
 (assert_return (invoke "forkForkedThreadWithReturn") (i64.const 351))
 (assert_return (invoke "forkForkedThreadWithExit") (i64.const 1095))
+
+;; do this twice to make sure no locks were orphaned by the first trap
+(assert_trap (invoke "forkForkedThreadWithTrap") "out of bounds memory access")
+(assert_trap (invoke "forkForkedThreadWithTrap") "out of bounds memory access")
