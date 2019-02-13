@@ -51,6 +51,9 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 	{
 		if(signalContext->filter(signalContext->filterArgument, signal, std::move(callStack)))
 		{
+			// siglongjmp won't unwind the stack, so manually call the CallStack destructor.
+			callStack.~CallStack();
+
 			// Jump back to the execution context that was saved in catchSignals.
 			siglongjmp(signalContext->catchJump, 1);
 		}

@@ -36,7 +36,10 @@ namespace WAVM { namespace Platform {
 		};
 		std::vector<Frame> stackFrames;
 
-		PLATFORM_API ~CallStack() {}
+		CallStack() {}
+		CallStack(const CallStack& copy) : stackFrames(copy.stackFrames) {}
+		CallStack(CallStack&& movee) : stackFrames(std::move(movee.stackFrames)) {}
+		~CallStack() {}
 	};
 
 	// Captures the execution context of the caller.
