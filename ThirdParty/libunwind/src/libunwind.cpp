@@ -337,7 +337,8 @@ void _unw_add_dynamic_fde(unw_word_t fde) {
     unw_word_t mh_group = fdeInfo.fdeStart;
     DwarfFDECache<LocalAddressSpace>::add((LocalAddressSpace::pint_t)mh_group,
                                           fdeInfo.pcStart, fdeInfo.pcEnd,
-                                          fdeInfo.fdeStart);
+                                          fdeInfo.fdeStart,
+                                          true);
   } else {
     _LIBUNWIND_DEBUG_LOG("_unw_add_dynamic_fde: bad fde: %s", message);
   }

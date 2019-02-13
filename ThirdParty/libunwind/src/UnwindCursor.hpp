@@ -43,7 +43,8 @@ class _LIBUNWIND_HIDDEN DwarfFDECache {
   typedef typename A::pint_t pint_t;
 public:
   static pint_t findFDE(pint_t mh, pint_t pc);
-  static void add(pint_t mh, pint_t ip_start, pint_t ip_end, pint_t fde);
+  static void add(pint_t mh, pint_t ip_start, pint_t ip_end, pint_t fde,
+                  bool isMallocAllowed = false);
   static void removeAllIn(pint_t mh);
   static void iterateCacheEntries(void (*func)(unw_word_t ip_start,
                                                unw_word_t ip_end,
@@ -113,10 +114,14 @@ typename A::pint_t DwarfFDECache<A>::findFDE(pint_t mh, pint_t pc) {
 
 template <typename A>
 void DwarfFDECache<A>::add(pint_t mh, pint_t ip_start, pint_t ip_end,
-                           pint_t fde) {
+                           pint_t fde, bool isMallocAllowed) {
 #if !defined(_LIBUNWIND_NO_HEAP)
   _LIBUNWIND_LOG_IF_FALSE(_lock.lock());
   if (_bufferUsed >= _bufferEnd) {
+    if (!isMallocAllowed) {
+      _LIBUNWIND_LOG_IF_FALSE(_lock.unlock());
+      return;
+    }
     size_t oldSize = (size_t)(_bufferEnd - _buffer);
     size_t newSize = oldSize * 4;
     // Can't use operator new (we are below it).
