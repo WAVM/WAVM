@@ -351,9 +351,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 				});
 			}
 			throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
-									{asObject(moduleInstance),
-									 U64(dataSegmentIndex),
-									 U64(passiveDataSegmentBytes->size())});
+						   {asObject(moduleInstance),
+							U64(dataSegmentIndex),
+							U64(passiveDataSegmentBytes->size())});
 		}
 		else if(numBytes)
 		{

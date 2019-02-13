@@ -114,8 +114,8 @@ static Iptr growTableImpl(Table* table, Uptr numElementsToGrow, bool initializeN
 	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
 	if(newNumPlatformPages != previousNumPlatformPages
 	   && !Platform::commitVirtualPages(
-		   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-		   newNumPlatformPages - previousNumPlatformPages))
+			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+			  newNumPlatformPages - previousNumPlatformPages))
 	{ return -1; }
 
 	if(initializeNewElements)
@@ -444,9 +444,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			const U64 destIndex = U64(destOffset) + index;
 			if(sourceIndex >= passiveElemSegmentObjects->size())
 			{
-				throwException(
-					ExceptionTypes::outOfBoundsElemSegmentAccess,
-					{asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+				throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
+							   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
 			}
 
 			setTableElement(

@@ -38,20 +38,14 @@ DEFINE_INTRINSIC_MODULE(global)
 static U32 coerce32bitAddress(Memory* memory, Uptr address)
 {
 	if(address >= UINT32_MAX)
-	{
-		throwException(ExceptionTypes::outOfBoundsMemoryAccess,
-								{asObject(memory), U64(address)});
-	}
+	{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {asObject(memory), U64(address)}); }
 	return (U32)address;
 }
 
 static I32 coerce32bitAddressSigned(Memory* memory, Uptr address)
 {
 	if(address >= INT32_MAX)
-	{
-		throwException(ExceptionTypes::outOfBoundsMemoryAccess,
-								{asObject(memory), U64(address)});
-	}
+	{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {asObject(memory), U64(address)}); }
 	return (I32)address;
 }
 

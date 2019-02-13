@@ -20,9 +20,9 @@
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/Platform/Signal.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
+#include "WAVM/Platform/Signal.h"
 #include "WAVM/Runtime/RuntimeData.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS

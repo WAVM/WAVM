@@ -117,8 +117,7 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 			break;
 		case InitializerExpression::Type::ref_func:
 		{
-			llvm::Value* referencedFunction
-				= moduleContext.functions[globalDef.initializer.ref];
+			llvm::Value* referencedFunction = moduleContext.functions[globalDef.initializer.ref];
 			llvm::Value* codeAddress
 				= irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);
 			llvm::Value* functionAddress = irBuilder.CreateSub(

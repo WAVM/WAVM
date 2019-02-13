@@ -120,8 +120,8 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 	{
 		Lock<Platform::Mutex> waitListLock(waitList->mutex);
 
-		// Use unwindSignalsAsExceptions to ensure that an access violation signal produced by the load
-		// will be thrown as a Runtime::Exception and unwind the stack (e.g. the locks).
+		// Use unwindSignalsAsExceptions to ensure that an access violation signal produced by the
+		// load will be thrown as a Runtime::Exception and unwind the stack (e.g. the locks).
 		Value value;
 		Runtime::unwindSignalsAsExceptions(
 			[valuePointer, &value] { value = atomicLoad(valuePointer); });
@@ -227,9 +227,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	// Validate that the address is within the memory's bounds.
 	const U64 memoryNumBytes = U64(memory->numPages) * IR::numBytesPerPage;
 	if(U64(address) + 4 > memoryNumBytes)
-	{
-		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes});
-	}
+	{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes}); }
 
 	// The alignment check is done by the caller.
 	wavmAssert(!(address & 3));

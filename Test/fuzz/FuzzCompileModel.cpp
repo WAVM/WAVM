@@ -800,9 +800,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 
 	// Generate a few functions.
 	for(FunctionDef& functionDef : module.functions.defs)
-	{
-		generateFunction(random, module, functionDef, functionTypeMap);
-	};
+	{ generateFunction(random, module, functionDef, functionTypeMap); };
 
 	validatePostCodeSections(module);
 }

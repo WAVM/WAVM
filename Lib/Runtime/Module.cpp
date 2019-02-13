@@ -370,7 +370,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				if(baseOffset > memory->numPages * IR::numBytesPerPage)
 				{
 					throwException(Runtime::ExceptionTypes::outOfBoundsMemoryAccess,
-											{memory, U64(baseOffset)});
+								   {memory, U64(baseOffset)});
 				}
 			}
 		}
@@ -405,7 +405,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 				if(baseOffset > getTableNumElements(table))
 				{
 					throwException(Runtime::ExceptionTypes::outOfBoundsTableAccess,
-											{table, U64(baseOffset)});
+								   {table, U64(baseOffset)});
 				}
 			}
 		}
