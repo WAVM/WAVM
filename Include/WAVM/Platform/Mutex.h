@@ -49,7 +49,7 @@ namespace WAVM { namespace Platform {
 #error unsupported platform
 #endif
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if defined(WIN32) || WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
 		bool isLocked;
 #endif
 	};
