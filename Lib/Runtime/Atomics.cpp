@@ -126,7 +126,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 		Runtime::unwindSignalsAsExceptions(
 			[valuePointer, &value] { value = atomicLoad(valuePointer); });
 
-		if(atomicLoad(valuePointer) != expectedValue)
+		if(value != expectedValue)
 		{
 			// If *valuePointer wasn't the expected value, unlock the wait list and return.
 			waitListLock.unlock();
