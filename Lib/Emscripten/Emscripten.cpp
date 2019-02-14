@@ -42,7 +42,7 @@ static U32 coerce32bitAddress(Memory* memory, Uptr address)
 	return (U32)address;
 }
 
-static I32 coerce32bitAddressSigned(Memory* memory, Uptr address)
+static I32 coerce32bitAddressSigned(Memory* memory, Iptr address)
 {
 	if(address >= INT32_MAX)
 	{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {asObject(memory), U64(address)}); }
@@ -778,12 +778,14 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 	instance->global
 		= Intrinsics::instantiateModule(compartment, INTRINSIC_MODULE_REF(global), "global");
 
-	MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
+	unwindSignalsAsExceptions([=] {
+		MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
 
-	mutableGlobals.DYNAMICTOP_PTR = STACK_MAX.getValue().i32;
-	mutableGlobals._stderr = (U32)ioStreamVMHandle::StdErr;
-	mutableGlobals._stdin = (U32)ioStreamVMHandle::StdIn;
-	mutableGlobals._stdout = (U32)ioStreamVMHandle::StdOut;
+		mutableGlobals.DYNAMICTOP_PTR = STACK_MAX.getValue().i32;
+		mutableGlobals._stderr = (U32)ioStreamVMHandle::StdErr;
+		mutableGlobals._stdin = (U32)ioStreamVMHandle::StdIn;
+		mutableGlobals._stdout = (U32)ioStreamVMHandle::StdOut;
+	});
 
 	instance->emscriptenMemory = memory;
 	emscriptenMemory = instance->emscriptenMemory;
