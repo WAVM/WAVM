@@ -364,6 +364,7 @@ static void showHelp()
 				"  --disable-emscripten  Disable Emscripten intrinsics\n"
 				"  --enable-thread-test  Enable ThreadTest intrinsics\n"
 				"  --precompiled         Use precompiled object code in programfile\n"
+				"  --metrics             Write benchmarking information to stdout\n"
 				"  --                    Stop parsing arguments\n");
 }
 
@@ -389,6 +390,10 @@ int main(int argc, char** argv)
 		else if(!strcmp(*options.args, "--debug") || !strcmp(*options.args, "-d"))
 		{
 			Log::setCategoryEnabled(Log::debug, true);
+		}
+		else if(!strcmp(*options.args, "--metrics"))
+		{
+			Log::setCategoryEnabled(Log::metrics, true);
 		}
 		else if(!strcmp(*options.args, "--disable-emscripten"))
 		{
