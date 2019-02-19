@@ -391,6 +391,10 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 		// stack.
 		const Iptr forkedStackOffset = forkedMaxStackAddr - maxActiveStackAddr;
 
+		// Copy the contents of this thread's stack to the forked stack.
+		memcpyNoASAN(
+			forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
+
 		// Translate this thread's saved stack pointer to the forked stack.
 		forkThreadArgs->forkContext.rsp += forkedStackOffset;
 
@@ -398,9 +402,11 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 		forkThreadArgs->threadEntryFramePointer
 			= threadEntryContext->framePointer + forkedStackOffset;
 
-		// Copy the contents of this thread's stack to the forked stack.
-		memcpyNoASAN(
-			forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
+		// Fix up the links in the frame pointer chain for the new stack.
+		for(U8** forkedStackFramePointer = (U8**)&forkThreadArgs->forkContext.rbp;
+			*forkedStackFramePointer >= minStackAddr && *forkedStackFramePointer <= maxStackAddr;
+			forkedStackFramePointer = (U8**)*forkedStackFramePointer)
+		{ *forkedStackFramePointer += forkedStackOffset; }
 
 		// Fix up the links in the signal context chain for the new stack.
 		forkThreadArgs->innermostSignalContext = innermostSignalContext;

@@ -150,10 +150,6 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 
 		if(WAVM_ENABLE_ASAN)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
-			if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-				target_compile_options(${TARGET_NAME} PRIVATE "-mllvm" "-asan-stack=0")
-				target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-command-line-argument")
-			endif()
 			target_link_libraries(${TARGET_NAME} PUBLIC "-fsanitize=address")
 		endif()
 
@@ -184,8 +180,10 @@ function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
 			endif()
 		endif()
 
-		# Make sure to omit the frame pointer in order to allow stuff like thread forking to work.
-		target_compile_options(${TARGET_NAME} PRIVATE "-fomit-frame-pointer")
+		# Don't eliminate frame pointers: this makes thread forking work robustly if one of the
+		# sanitizers requires a frame pointer, and makes ASAN's stack trace on malloc much better
+		# without using the slow libunwind path.
+		target_compile_options(${TARGET_NAME} PRIVATE "-fno-omit-frame-pointer")
 	endif()
 endfunction()
 

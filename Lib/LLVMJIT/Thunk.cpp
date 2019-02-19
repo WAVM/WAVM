@@ -78,6 +78,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
 							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
 							 emitLiteral(llvmContext, functionType.getEncoding().impl));
+	setFramePointerAttribute(function);
 
 	llvm::Value* calleeFunction = &*(function->args().begin() + 0);
 	llvm::Value* contextPointer = &*(function->args().begin() + 1);
@@ -193,6 +194,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
 							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
 							 emitLiteral(llvmContext, functionType.getEncoding().impl));
+	setFramePointerAttribute(function);
 
 	EmitContext emitContext(llvmContext, nullptr);
 	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));

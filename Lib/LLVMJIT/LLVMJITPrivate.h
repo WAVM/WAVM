@@ -297,6 +297,20 @@ namespace WAVM { namespace LLVMJIT {
 					  "Function prefix must match Runtime::Function layout");
 	}
 
+	inline void setFramePointerAttribute(llvm::Function* function)
+	{
+#ifndef _WIN32
+		auto attrs = function->getAttributes();
+		// LLVM 9+ has a more general purpose frame-pointer=(all|non-leaf|none) attribute that WAVM
+		// should use once we can depend on it.
+		attrs = attrs.addAttribute(function->getContext(),
+								   llvm::AttributeList::FunctionIndex,
+								   "no-frame-pointer-elim",
+								   "true");
+		function->setAttributes(attrs);
+#endif
+	}
+
 	// Functions that map between the symbols used for externally visible functions and the function
 	inline std::string getExternalName(const char* baseName, Uptr index)
 	{
