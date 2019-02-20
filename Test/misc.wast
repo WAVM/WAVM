@@ -395,3 +395,23 @@
 	)
 )
 (assert_return (invoke "testLLVM-D58049" (i32.const 0)) (i32.const 0))
+
+
+;; Test for the bug reported here: https://bugs.llvm.org/show_bug.cgi?id=40793
+(;(module
+	(type $2 (func (param funcref v128)))
+	(memory $4  1024 65536 shared)
+	(global $11  (mut v128) (v128.const i32x4 0xb3ce8331 0x45c113c5 0xe339424d 0x743a15f1))
+
+	(func $15 (type $2)
+		(param $0 funcref)
+		(param $1 v128)
+		v128.const i32x4 0xc6046244 0xbdc49765 0x7fddc966 0x48629ec2
+		global.get $11
+		i16x8.shr_u
+		f64x2.abs
+		i16x8.extract_lane_s 5
+		i64.load8_u
+		br 0
+	)
+);)
