@@ -11,9 +11,8 @@ ninja
 
 mkdir wasm-corpus
 
-ASAN_OPTIONS=detect_leaks=0 bin/FuzzWASM -use_value_profile=1 \
+bin/FuzzWASM -use_value_profile=1 \
   -workers=36 \
   -jobs=36 \
-  -detect_leaks=0 \
   wasm-corpus \
 	wasm-seed-corpus
