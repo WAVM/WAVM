@@ -204,7 +204,7 @@
       local.tee $2
       f64.ceil
       local.get $10
-      f32x4.convert_i32_sx4
+      f32x4.convert_i32x4_s
       local.get $5
       global.get $10
       i64.rotr
