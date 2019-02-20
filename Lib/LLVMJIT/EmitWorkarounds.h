@@ -23,7 +23,7 @@ inline llvm::Value* createFCmpWithWorkaround(llvm::IRBuilder<>& irBuilder,
 	// X is a constant expression to false, even though it would be true if X evaluates to a NaN. To
 	// work around the bug, add a constant zero to the operand in a way that can easily be elided in
 	// optimization, and use it as one of the operands: FCmpUNO(X, X+0).
-	if(left == right)
+	if(left == right && LLVM_VERSION_MAJOR < 9)
 	{
 		right
 			= irBuilder.CreateFAdd(right, getTriviallyNonConstantZero(irBuilder, right->getType()));
@@ -42,6 +42,9 @@ inline llvm::Value* createICmpWithWorkaround(llvm::IRBuilder<>& irBuilder,
 	//   ICmp(bitcast T x to <floating point type>, <floating point type> y)
 	// This is malformed, and will cause undefined behavior later in the compilation pipeline if it
 	// occurs. To work around the bug, or a trivially non-constant zero with the right operand.
-	right = irBuilder.CreateOr(right, getTriviallyNonConstantZero(irBuilder, right->getType()));
+	if(LLVM_VERSION_MAJOR < 9)
+	{
+		right = irBuilder.CreateOr(right, getTriviallyNonConstantZero(irBuilder, right->getType()));
+	}
 	return irBuilder.CreateICmp(predicate, left, right);
 }
