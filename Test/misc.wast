@@ -370,3 +370,28 @@
 		)
 	"expected '('"
 	)
+
+;; Test for the bug fixed by https://reviews.llvm.org/D57871
+(module
+	(func (export "testLLVM-D57871") (param $a v128) (result v128)
+		(i16x8.eq (f32x4.convert_i32x4_s (local.get $a))
+		          (v128.const i16x8 0 0 0 0 0 0 0 0))
+	)
+)
+(assert_return (invoke "testLLVM-D57871" (v128.const i32x4 0 0 0 0))     (v128.const i16x8 1 1 1 1 1 1 1 1))
+(assert_return (invoke "testLLVM-D57871" (v128.const i32x4 1 1 1 1))     (v128.const i16x8 1 0 1 0 1 0 1 0))
+
+
+;; Test for the bug fixed by https://reviews.llvm.org/D58049
+(module $m (func (export "f")))
+(register "m" $m)
+(module
+	(func $f (import "m" "f"))
+	(func (export "testLLVM-D58049") (param $x i32) (result i32)
+		(i32.or
+			(i32.shr_u (ref.is_null (ref.func $f)) (local.get $x))
+			(i32.shl   (ref.is_null (ref.func $f)) (i32.const 1))
+			)
+	)
+)
+(assert_return (invoke "testLLVM-D58049" (i32.const 0)) (i32.const 0))
