@@ -122,49 +122,74 @@ DEFINE_INTRINSIC_GLOBAL(env, "eb", I32, eb, 0)
 static thread_local Memory* emscriptenMemory = nullptr;
 static thread_local U32 emscriptenErrNoLocation = 0;
 
-static U32 dynamicAlloc(Memory* memory, U32 numBytes)
+static bool resizeHeap(U32 desiredNumBytes)
 {
-	MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);
+	const Uptr desiredNumPages
+		= (Uptr(desiredNumBytes) + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
+	const Uptr currentNumPages = Runtime::getMemoryNumPages(emscriptenMemory);
+	if(desiredNumPages > currentNumPages)
+	{
+		if(Runtime::growMemory(emscriptenMemory, desiredNumPages - currentNumPages) == -1)
+		{ return false; }
+
+		return true;
+	}
+	else if(desiredNumPages < currentNumPages)
+	{
+		if(Runtime::shrinkMemory(emscriptenMemory, currentNumPages - desiredNumPages) == -1)
+		{ return false; }
+
+		return true;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+static U32 dynamicAlloc(U32 numBytes)
+{
+	MutableGlobals& mutableGlobals
+		= memoryRef<MutableGlobals>(emscriptenMemory, MutableGlobals::address);
 
 	const U32 allocationAddress = mutableGlobals.DYNAMICTOP_PTR;
 	const U32 endAddress = (allocationAddress + numBytes + 15) & -16;
 
 	mutableGlobals.DYNAMICTOP_PTR = endAddress;
 
-	const Uptr endPage = (endAddress + IR::numBytesPerPage - 1) / IR::numBytesPerPage;
-	if(endPage >= getMemoryNumPages(memory) && endPage < getMemoryMaxPages(memory))
-	{ growMemory(memory, endPage - getMemoryNumPages(memory) + 1); }
+	if(endAddress > getMemoryNumPages(emscriptenMemory) * IR::numBytesPerPage)
+	{
+		if(endAddress > getMemoryMaxPages(emscriptenMemory) * IR::numBytesPerPage
+		   || !resizeHeap(endAddress))
+		{ throwException(ExceptionTypes::outOfMemory); }
+	}
 
 	return allocationAddress;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", U32, getTotalMemory)
+DEFINE_INTRINSIC_FUNCTION(env, "_emscripten_get_heap_size", U32, _emscripten_get_heap_size)
 {
 	wavmAssert(emscriptenMemory);
 	return coerce32bitAddress(emscriptenMemory,
-							  Runtime::getMemoryMaxPages(emscriptenMemory) * IR::numBytesPerPage);
+							  Runtime::getMemoryNumPages(emscriptenMemory) * IR::numBytesPerPage);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_emscripten_get_heap_size", U32, _emscripten_get_heap_size)
+
+DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", U32, getTotalMemory)
 {
-	return getTotalMemory(contextRuntimeData);
+	return _emscripten_get_heap_size(contextRuntimeData);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverflow, I32 size)
 {
-	Log::printf(Log::error, "env.abortStackOverflow(%i)\n", size);
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(ExceptionTypes::stackOverflow);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrowMemory)
+DEFINE_INTRINSIC_FUNCTION(env,
+						  "_emscripten_resize_heap",
+						  I32,
+						  _emscripten_resize_heap,
+						  U32 desiredNumBytes)
 {
-	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
-}
-DEFINE_INTRINSIC_FUNCTION(env, "enlargeMemory", I32, enlargeMemory)
-{
-	return abortOnCannotGrowMemory(contextRuntimeData);
-}
-DEFINE_INTRINSIC_FUNCTION(env, "_emscripten_resize_heap", I32, _emscripten_resize_heap, U32 size)
-{
-	return enlargeMemory(contextRuntimeData);
+	return resizeHeap(desiredNumBytes) ? 1 : 0;
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "_time", I32, _time, U32 address)
@@ -292,8 +317,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", U32, ___ctype_b_loc)
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress
-			= coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, sizeof(data)));
+		vmAddress = coerce32bitAddress(emscriptenMemory, dynamicAlloc(sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(short) * 128;
@@ -327,8 +351,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", U32, ___ctype_toupper_loc
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress
-			= coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, sizeof(data)));
+		vmAddress = coerce32bitAddress(emscriptenMemory, dynamicAlloc(sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
@@ -362,8 +385,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", U32, ___ctype_tolower_loc
 	static U32 vmAddress = 0;
 	if(vmAddress == 0)
 	{
-		vmAddress
-			= coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, sizeof(data)));
+		vmAddress = coerce32bitAddress(emscriptenMemory, dynamicAlloc(sizeof(data)));
 		memcpy(memoryArrayPtr<U8>(emscriptenMemory, vmAddress, sizeof(data)), data, sizeof(data));
 	}
 	return vmAddress + sizeof(I32) * 128;
@@ -413,7 +435,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 						  U32 size)
 {
 	wavmAssert(emscriptenMemory);
-	return coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, size));
+	return coerce32bitAddress(emscriptenMemory, dynamicAlloc(size));
 }
 DEFINE_INTRINSIC_FUNCTION(env, "__ZSt18uncaught_exceptionv", I32, __ZSt18uncaught_exceptionv)
 {
@@ -501,7 +523,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_uselocale", I32, _uselocale, I32 locale)
 DEFINE_INTRINSIC_FUNCTION(env, "_newlocale", U32, _newlocale, I32 mask, I32 locale, I32 base)
 {
 	wavmAssert(emscriptenMemory);
-	if(!base) { base = coerce32bitAddress(emscriptenMemory, dynamicAlloc(emscriptenMemory, 4)); }
+	if(!base) { base = coerce32bitAddress(emscriptenMemory, dynamicAlloc(4)); }
 	return base;
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_freelocale", void, emscripten__freelocale, I32 a) {}
@@ -810,7 +832,11 @@ void Emscripten::initializeGlobals(Context* context,
 		Runtime::invokeFunctionChecked(context, establishStackSpace, parameters);
 	}
 
-	// Call the global initializer functions.
+	// Call the global initializer functions: newer Emscripten uses a single globalCtors function,
+	// and older Emscripten uses a __GLOBAL__* function for each translation unit.
+	if(Function* globalCtors = asFunctionNullable(getInstanceExport(moduleInstance, "globalCtors")))
+	{ Runtime::invokeFunctionChecked(context, globalCtors, {}); }
+
 	for(Uptr exportIndex = 0; exportIndex < module.exports.size(); ++exportIndex)
 	{
 		const Export& functionExport = module.exports[exportIndex];
@@ -839,15 +865,14 @@ void Emscripten::injectCommandArgs(Emscripten::Instance* instance,
 								   const std::vector<const char*>& argStrings,
 								   std::vector<IR::Value>& outInvokeArgs)
 {
-	Memory* memory = instance->emscriptenMemory;
-	U8* emscriptenMemoryBaseAdress = getMemoryBaseAddress(memory);
+	U8* emscriptenMemoryBaseAdress = getMemoryBaseAddress(emscriptenMemory);
 
 	U32* argvOffsets = (U32*)(emscriptenMemoryBaseAdress
-							  + dynamicAlloc(memory, (U32)(sizeof(U32) * (argStrings.size() + 1))));
+							  + dynamicAlloc((U32)(sizeof(U32) * (argStrings.size() + 1))));
 	for(Uptr argIndex = 0; argIndex < argStrings.size(); ++argIndex)
 	{
 		auto stringSize = strlen(argStrings[argIndex]) + 1;
-		auto stringMemory = emscriptenMemoryBaseAdress + dynamicAlloc(memory, (U32)stringSize);
+		auto stringMemory = emscriptenMemoryBaseAdress + dynamicAlloc((U32)stringSize);
 		memcpy(stringMemory, argStrings[argIndex], stringSize);
 		argvOffsets[argIndex] = (U32)(stringMemory - emscriptenMemoryBaseAdress);
 	}

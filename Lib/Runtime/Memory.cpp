@@ -186,8 +186,7 @@ Uptr Runtime::getMemoryNumPages(Memory* memory)
 }
 Uptr Runtime::getMemoryMaxPages(Memory* memory)
 {
-	wavmAssert(memory->type.size.max <= UINTPTR_MAX);
-	return Uptr(memory->type.size.max);
+	return memory->type.size.max == UINT64_MAX ? IR::maxMemoryPages : memory->type.size.max;
 }
 
 Iptr Runtime::growMemory(Memory* memory, Uptr numPagesToGrow)
