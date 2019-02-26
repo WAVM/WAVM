@@ -12,7 +12,12 @@ JOBS_PER_FUZZER=32
 WORKERS_PER_FUZZER=32
 SECONDS_PER_JOB=7200
 
-# Build LLVM  and WAVM.
+# Pull the latest WAVM code
+cd $WAVM_DIR
+git pull
+cd $BUILD_DIR
+
+# Build LLVM and WAVM.
 ninja -C llvm/build
 ninja
 
