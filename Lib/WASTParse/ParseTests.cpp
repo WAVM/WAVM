@@ -178,8 +178,13 @@ static void parseTestScriptModule(CursorState* cursor,
 	}
 	else
 	{
-		outQuotedModuleType = QuotedModuleType::none;
+		const U32 startCharOffset = cursor->nextToken->begin;
 		parseModuleBody(cursor, outModule);
+		const U32 endCharOffset = cursor->nextToken->begin;
+
+		outQuotedModuleType = QuotedModuleType::text;
+		outQuotedModuleString = std::string(cursor->parseState->string + startCharOffset,
+											cursor->parseState->string + endCharOffset);
 	}
 }
 
