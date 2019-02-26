@@ -2,6 +2,8 @@
 
 set -e
 
+rm artifacts/$1/* || true
+
 SCRIPT_DIR=$(cd `dirname $0` && pwd)
 $SCRIPT_DIR/run-fuzzer.sh $1 ${@:2} || true
 $SCRIPT_DIR/reduce-corpus.sh $1 || true
@@ -17,4 +19,3 @@ git commit -m "Update $1" || true
 git push
 
 cd ..
-rm artifacts/$1/* || true
