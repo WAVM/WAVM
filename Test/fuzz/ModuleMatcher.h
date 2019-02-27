@@ -52,6 +52,9 @@ namespace WAVM {
 		const Module& aModule;
 		const Module& bModule;
 
+		const FunctionDef* aFunction = nullptr;
+		const FunctionDef* bFunction = nullptr;
+
 		[[noreturn]] void failVerification()
 		{
 			Errors::fatal("Disassembled module doesn't match the input");
@@ -92,7 +95,8 @@ namespace WAVM {
 		void verifyMatches(BranchTableImm a, BranchTableImm b)
 		{
 			if(a.defaultTargetDepth != b.defaultTargetDepth
-			   || a.branchTableIndex != b.branchTableIndex)
+			   || aFunction->branchTables[a.branchTableIndex]
+					  != bFunction->branchTables[b.branchTableIndex])
 			{ failVerification(); }
 		}
 
@@ -179,6 +183,9 @@ namespace WAVM {
 
 		void verifyMatches(const FunctionDef& a, const FunctionDef& b)
 		{
+			aFunction = &a;
+			bFunction = &b;
+
 			verifyMatches(a.type, b.type);
 			if(a.branchTables != b.branchTables
 			   || a.nonParameterLocalTypes != b.nonParameterLocalTypes)
@@ -225,6 +232,9 @@ namespace WAVM {
 			}
 			wavmAssert(aNextByte == aEnd);
 			wavmAssert(bNextByte == bEnd);
+
+			aFunction = nullptr;
+			bFunction = nullptr;
 		}
 
 		void verifyMatches(const TableType& a, const TableType& b)
