@@ -24,39 +24,24 @@ ninja
 # Generate/update the seed corpus
 $SCRIPT_DIR/generate-seed-corpus.sh
 
-# Run the WAST fuzzer.
-$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh wast \
+# Run the assemble fuzzer.
+$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh assemble \
 	wast-seed-corpus \
 	-jobs=$JOBS_PER_FUZZER \
 	-workers=$WORKERS_PER_FUZZER \
 	-max_total_time=$SECONDS_PER_JOB \
 	-dict=$WAST_DICTIONARY
 
-# Run the assemble fuzzer.
-$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh assemble \
-	corpora/wast \
-	-jobs=$JOBS_PER_FUZZER \
-	-workers=$WORKERS_PER_FUZZER \
-	-max_total_time=$SECONDS_PER_JOB \
-	-dict=$WAST_DICTIONARY
-
-# Run the WASM fuzzer.
-$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh wasm \
-	wasm-seed-corpus \
-	-jobs=$JOBS_PER_FUZZER \
-	-workers=$WORKERS_PER_FUZZER \
-	-max_total_time=$SECONDS_PER_JOB
-
 # Run the disassemble fuzzer.
 $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh disassemble \
-	corpora/wasm \
+	wasm-seed-corpus \
 	-jobs=$JOBS_PER_FUZZER \
 	-workers=$WORKERS_PER_FUZZER \
 	-max_total_time=$SECONDS_PER_JOB
 
 # Run the instantiate fuzzer.
 $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh instantiate \
-	corpora/wasm \
+	wasm-seed-corpus \
 	-jobs=$JOBS_PER_FUZZER \
 	-workers=$WORKERS_PER_FUZZER \
 	-max_total_time=$SECONDS_PER_JOB
