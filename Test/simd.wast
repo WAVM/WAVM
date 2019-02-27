@@ -608,3 +608,42 @@
 (assert_return (invoke "v128.load align=16" (i32.const 1)) (v128.const i64x2 0 0))
 (assert_return (invoke "v128.store align=16" (i32.const 1) (v128.const i8x16 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)))
 (assert_return (invoke "v128.load align=16" (i32.const 0)) (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
+
+;; v128.const format
+
+(module (func (result v128) (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)))
+(module (func (result v128) (v128.const i16x8 0 1 2 3 4 5 6 7)))
+(module (func (result v128) (v128.const i32x4 0 1 2 3)))
+(module (func (result v128) (v128.const i64x2 0 1)))
+(module (func (result v128) (v128.const i64x2 -1 -2)))
+
+(module (func (result v128) (v128.const i32x4 0xa 0xb 0xc 0xd)))
+(module (func (result v128) (v128.const i32x4 0xa 0xb 0xc 0xd)))
+
+(module (func (result v128) (v128.const f32x4 0.0 1.0 2.0 3.0)))
+(module (func (result v128) (v128.const f64x2 0.0 1.0)))
+
+(module (func (result v128) (v128.const f32x4 0 1 2 3)))
+(module (func (result v128) (v128.const f32x4 0 1 2 -0x1.0p+10)))
+
+(assert_invalid
+  (module (func (result v128) (v128.const i32x4 0.0 1.0 2.0 3.0)))
+  "expected i32 literal"
+)
+
+(assert_invalid
+  (module (func (result v128) (v128.const i32 0 1 2 3)))
+  "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
+)
+(assert_invalid
+  (module (func (result v128) (v128.const i16x4 0 1 2 3)))
+  "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
+)
+(assert_invalid
+  (module (func (result v128) (v128.const f32 0 1 2 3)))
+  "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
+)
+(assert_invalid
+  (module (func (result v128) (v128.const 0 1 2 3)))
+  "expected 'i8x6', 'i16x8', 'i32x4', 'i64x2', 'f32x4', or 'f64x2'"
+)
