@@ -33,6 +33,7 @@ CC=clang-7 CXX=clang++-7 cmake \
 	-DWAVM_ENABLE_ASAN=1 \
 	-DWAVM_ENABLE_UBSAN=1 \
 	-DWAVM_ENABLE_LIBFUZZER=1 \
+	-DWAVM_ENABLE_RELEASE_ASSERTS=1 \
 	-DLLVM_DIR=$BUILD_DIR/llvm/build/lib/cmake/llvm \
 	$WAVM_DIR
 ninja
