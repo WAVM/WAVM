@@ -458,10 +458,15 @@
 
 ;; passive elem segments
 
-(module (elem passive $f) (func $f))
+(module (elem passive (ref.func $f)) (func $f))
+(module (elem passive (ref.null)))
 (assert_invalid
-	(module (table $t 1) (elem passive (i32.const 0) $f) (func $f))
+	(module (table $t 1) (elem passive (i32.const 0) (ref.func $f)) (func $f))
 	"unexpected expression"
+)
+(assert_invalid
+	(module (table $t 1) (elem passive (i32.const 0) (unreachable)) (func $f))
+	"expected 'ref.func' or 'ref.null'"
 )
 
 (module binary
@@ -499,14 +504,61 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\04\01"                          ;; elem section: 7 bytes, 1 entry
+	"\09\05\01"                          ;; elem section: 5 bytes, 1 entry
 	"\01"                                ;;   [0] passive elem segment
 	"\01"                                ;;     elem segment with 1 element
-	"\00"                                ;;     [0] function 0
+	"\d2\00"                             ;;     [0] ref.func 0
 	
 	"\0a\04\01"                          ;; Code section
 	"\02\00"                             ;; function 0: 2 bytes, 0 local sets
 	"\0b"                                ;; end
+)
+
+(module binary
+	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+
+	"\01\04\01"                          ;; Type section: 4 bytes, 1 entry
+	"\60\00\00"                          ;;   Function type () -> ()
+
+	"\03\02\01"                          ;; Function section: 2 bytes, 1 entry
+	"\00"                                ;;   Function 0: type 0
+
+	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
+	"\70\00\01"                          ;;   (table 1 funcref)
+	
+	"\09\04\01"                          ;; elem section: 4 bytes, 1 entry
+	"\01"                                ;;   [0] passive elem segment
+	"\01"                                ;;     elem segment with 1 element
+	"\d0"                                ;;     [0] ref.null
+	
+	"\0a\04\01"                          ;; Code section
+	"\02\00"                             ;; function 0: 2 bytes, 0 local sets
+	"\0b"                                ;; end
+)
+
+(assert_invalid
+	(module binary
+		"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+
+		"\01\04\01"                          ;; Type section: 4 bytes, 1 entry
+		"\60\00\00"                          ;;   Function type () -> ()
+
+		"\03\02\01"                          ;; Function section: 2 bytes, 1 entry
+		"\00"                                ;;   Function 0: type 0
+
+		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
+		"\70\00\01"                          ;;   (table 1 funcref)
+	
+		"\09\04\01"                          ;; elem section: 4 bytes, 1 entry
+		"\01"                                ;;   [0] passive elem segment
+		"\01"                                ;;     elem segment with 1 element
+		"\00"                                ;;     [0] unreachable
+	
+		"\0a\04\01"                          ;; Code section
+		"\02\00"                             ;; function 0: 2 bytes, 0 local sets
+		"\0b"                                ;; end
+	)
+	"invalid elem opcode"
 )
 
 (module binary
@@ -546,10 +598,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\04\01"                          ;; elem section: 7 bytes, 1 entry
+	"\09\05\01"                          ;; elem section: 5 bytes, 1 entry
 	"\01"                                ;;   [0] passive elem segment
 	"\01"                                ;;     elem segment with 1 element
-	"\00"                                ;;     [0] function 0
+	"\d2\00"                             ;;     [0] ref.func 0
 	
 	"\0a\11\01"                          ;; Code section
 	"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
@@ -596,8 +648,8 @@
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
 
-	(elem passive $0 $1)
-	(elem passive $2 $3)
+	(elem passive (ref.func $0) (ref.func $1))
+	(elem passive (ref.func $2) (ref.func $3))
 
 	(func $0 (type $type_i32) (result i32) i32.const 0)
 	(func $1 (type $type_i32) (result i32) i32.const 1)
@@ -669,6 +721,38 @@
 (assert_trap   (invoke "table.init 1" (i32.const 0) (i32.const 0) (i32.const 2)) "invalid argument")
 (assert_trap   (invoke "elem.drop 1") "invalid argument")
 
+;; table.init with (ref.null) elems
+
+(module
+	(table $t 3 3 funcref)
+	
+	(type $type_i32 (func (result i32)))
+	(type $type_i64 (func (result i64)))
+
+	(elem passive (ref.func $0) (ref.null) (ref.func $1))
+
+	(func $0 (type $type_i32) (result i32) i32.const 0)
+	(func $1 (type $type_i32) (result i32) i32.const 1)
+
+	(func (export "call_indirect") (param $index i32) (result i32)
+		(call_indirect (type $type_i32) (local.get $index))
+	)
+
+	(func (export "table.init")
+		(param $destOffset i32)
+		(param $sourceOffset i32)
+		(param $numElements i32)
+		(table.init 0 $t (local.get $destOffset) (local.get $sourceOffset) (local.get $numElements))
+	)
+)
+
+(assert_trap   (invoke "call_indirect" (i32.const 0)) "uninitialized element")
+
+(assert_return (invoke "table.init" (i32.const 0) (i32.const 0) (i32.const 3)))
+(assert_return (invoke "call_indirect" (i32.const 0)) (i32.const 0))
+(assert_trap   (invoke "call_indirect" (i32.const 1)) "uninitialized element")
+(assert_return (invoke "call_indirect" (i32.const 2)) (i32.const 1))
+
 ;; table.copy
 
 (module binary
@@ -683,10 +767,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\04\01"                          ;; elem section: 7 bytes, 1 entry
+	"\09\05\01"                          ;; elem section: 5 bytes, 1 entry
 	"\01"                                ;;   [0] passive elem segment
 	"\01"                                ;;     elem segment with 1 element
-	"\00"                                ;;     [0] function 0
+	"\d2\00"                             ;;     [0] ref.func 0
 	
 	"\0a\0d\01"                          ;; Code section
 	"\0b\00"                             ;; function 0: 11 bytes, 0 local sets
@@ -710,10 +794,10 @@
 		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 		"\70\00\01"                          ;;   (table 1 funcref)
 	
-		"\09\04\01"                          ;; elem section: 7 bytes, 1 entry
+		"\09\05\01"                          ;; elem section: 5 bytes, 1 entry
 		"\01"                                ;;   [0] passive elem segment
 		"\01"                                ;;     elem segment with 1 element
-		"\00"                                ;;     [0] function 0
+		"\d2\00"                             ;;     [0] ref.func 0
 	
 		"\0a\0e\01"                          ;; Code section
 		"\0b\00"                             ;; function 0: 11 bytes, 0 local sets

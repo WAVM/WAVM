@@ -790,10 +790,17 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	for(Uptr segmentIndex = 0; segmentIndex < numElemSegments; ++segmentIndex)
 	{
 		const Uptr numSegmentElements = 1 + random.get(100);
-		std::vector<Uptr> functionIndices;
+		std::vector<Elem> elems;
 		for(Uptr index = 0; index < numSegmentElements; ++index)
-		{ functionIndices.push_back(random.get(numFunctionDefs - 1)); }
-		module.elemSegments.push_back({false, UINTPTR_MAX, {}, std::move(functionIndices)});
+		{
+			const Uptr functionIndex = random.get(numFunctionDefs);
+			if(functionIndex == numFunctionDefs) { elems.push_back({{Elem::Type::ref_null}}); }
+			else
+			{
+				elems.push_back({{Elem::Type::ref_func}, functionIndex});
+			}
+		}
+		module.elemSegments.push_back({false, UINTPTR_MAX, {}, std::move(elems)});
 	};
 
 	validatePreCodeSections(module);

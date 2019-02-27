@@ -291,9 +291,26 @@ namespace WAVM { namespace IR {
 				serialize(stream, elemSegment.baseOffset);
 			}
 		}
-		serializeArray(stream, elemSegment.indices, [](Stream& stream, Uptr& functionIndex) {
-			serializeVarUInt32(stream, functionIndex);
-		});
+		if(elemSegment.isActive)
+		{
+			serializeArray(stream, elemSegment.elems, [](Stream& stream, Elem& elem) {
+				if(Stream::isInput) { elem.type = Elem::Type::ref_func; }
+				wavmAssert(elem.type == Elem::Type::ref_func);
+				serializeVarUInt32(stream, elem.index);
+			});
+		}
+		else
+		{
+			serializeArray(stream, elemSegment.elems, [](Stream& stream, Elem& elem) {
+				serializeOpcode(stream, elem.typeOpcode);
+				switch(elem.type)
+				{
+				case Elem::Type::ref_null: break;
+				case Elem::Type::ref_func: serializeVarUInt32(stream, elem.index); break;
+				default: throw FatalSerializationException("invalid elem opcode");
+				};
+			});
+		}
 	}
 
 	template<typename Stream> void serialize(Stream& stream, DataSegment& dataSegment)

@@ -153,14 +153,51 @@ namespace WAVM { namespace IR {
 		std::vector<U8> data;
 	};
 
-	// An elem segment: a literal sequence of function indices that is copied into a Runtime::Table
-	// when instantiating a module
+	// An elem: a literal reference used to initialize a table element.
+	struct Elem
+	{
+		enum class Type
+		{
+			// These must match the corresponding Opcode members.
+			ref_null = 0xd0,
+			ref_func = 0xd2
+		};
+		union
+		{
+			Type type;
+			Opcode typeOpcode;
+		};
+		Uptr index;
+
+		friend bool operator==(const Elem& a, const Elem& b)
+		{
+			if(a.type != b.type) { return false; }
+			switch(a.type)
+			{
+			case Elem::Type::ref_func: return a.index == b.index;
+			default: return true;
+			}
+		}
+
+		friend bool operator!=(const Elem& a, const Elem& b)
+		{
+			if(a.type != b.type) { return true; }
+			switch(a.type)
+			{
+			case Elem::Type::ref_func: return a.index != b.index;
+			default: return false;
+			}
+		}
+	};
+
+	// An elem segment: a literal sequence of elems that is copied into a Runtime::Table when
+	// instantiating a module
 	struct ElemSegment
 	{
 		bool isActive;
 		Uptr tableIndex;
 		InitializerExpression baseOffset;
-		std::vector<Uptr> indices;
+		std::vector<Elem> elems;
 	};
 
 	// A user-defined module section as an array of bytes

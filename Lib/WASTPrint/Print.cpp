@@ -879,14 +879,30 @@ void ModulePrintContext::printModule()
 		{
 			numElemsPerLine = 8
 		};
-		for(Uptr elementIndex = 0; elementIndex < elemSegment.indices.size(); ++elementIndex)
+		for(Uptr elementIndex = 0; elementIndex < elemSegment.elems.size(); ++elementIndex)
 		{
-			if(elementIndex % numElemsPerLine == 0) { string += '\n'; }
+			const Elem& elem = elemSegment.elems[elementIndex];
+			string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
+			if(elemSegment.isActive)
+			{
+				wavmAssert(elem.type == Elem::Type::ref_func);
+				wavmAssert(elem.index < names.functions.size());
+				string += names.functions[elem.index].name;
+			}
 			else
 			{
-				string += ' ';
+				switch(elem.type)
+				{
+				case Elem::Type::ref_null: string += "(ref.null)"; break;
+				case Elem::Type::ref_func:
+					wavmAssert(elem.index < names.functions.size());
+					string += "(ref.func ";
+					string += names.functions[elem.index].name;
+					string += ')';
+					break;
+				default: Errors::unreachable();
+				};
 			}
-			string += names.functions[elemSegment.indices[elementIndex]].name;
 		}
 	}
 	for(auto dataSegment : module.dataSegments)

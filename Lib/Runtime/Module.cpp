@@ -299,8 +299,17 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		if(!elemSegment.isActive)
 		{
 			auto passiveElemSegmentObjects = std::make_shared<std::vector<Object*>>();
-			for(Uptr functionIndex : elemSegment.indices)
-			{ passiveElemSegmentObjects->push_back(asObject(functions[functionIndex])); }
+			for(const Elem& elem : elemSegment.elems)
+			{
+				switch(elem.type)
+				{
+				case Elem::Type::ref_null: passiveElemSegmentObjects->push_back(nullptr); break;
+				case Elem::Type::ref_func:
+					passiveElemSegmentObjects->push_back(asObject(functions[elem.index]));
+					break;
+				default: Errors::unreachable();
+				}
+			}
 			passiveElemSegments.add(segmentIndex, passiveElemSegmentObjects);
 		}
 	}
@@ -390,13 +399,14 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
-			if(elemSegment.indices.size())
+			if(elemSegment.elems.size())
 			{
-				for(Uptr index = 0; index < elemSegment.indices.size(); ++index)
+				for(Uptr index = 0; index < elemSegment.elems.size(); ++index)
 				{
-					const Uptr functionIndex = elemSegment.indices[index];
-					wavmAssert(functionIndex < moduleInstance->functions.size());
-					Function* function = moduleInstance->functions[functionIndex];
+					const Elem& elem = elemSegment.elems[index];
+					wavmAssert(elem.type == Elem::Type::ref_func);
+					wavmAssert(elem.index < moduleInstance->functions.size());
+					Function* function = moduleInstance->functions[elem.index];
 					setTableElement(table, baseOffset + index, asObject(function));
 				}
 			}

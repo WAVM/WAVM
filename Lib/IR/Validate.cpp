@@ -953,8 +953,18 @@ void IR::validateElemSegments(const Module& module)
 			validateInitializer(
 				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
 		}
-		for(auto functionIndex : elemSegment.indices)
-		{ VALIDATE_INDEX(functionIndex, module.functions.size()); }
+		for(const Elem& elem : elemSegment.elems)
+		{
+			switch(elem.type)
+			{
+			case Elem::Type::ref_null:
+				VALIDATE_UNLESS("ref.null is only allowed in passive segments",
+								elemSegment.isActive);
+				break;
+			case Elem::Type::ref_func: VALIDATE_INDEX(elem.index, module.functions.size()); break;
+			default: Errors::unreachable();
+			};
+		}
 	}
 }
 

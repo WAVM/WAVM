@@ -539,18 +539,69 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 								 UnresolvedInitializerExpression baseIndex,
 								 const Token* elemToken)
 {
+	struct UnresolvedElem
+	{
+		Elem::Type type;
+		Reference ref;
+	};
+
 	// Allocate the elementReferences array on the heap so it doesn't need to be copied for the
 	// post-declaration callback.
-	std::shared_ptr<std::vector<Reference>> elementReferences
-		= std::make_shared<std::vector<Reference>>();
+	std::shared_ptr<std::vector<UnresolvedElem>> elementReferences
+		= std::make_shared<std::vector<UnresolvedElem>>();
 
-	Reference elementRef;
-	while(tryParseNameOrIndexRef(cursor, elementRef)) { elementReferences->push_back(elementRef); };
+	while(cursor->nextToken->type != t_rightParenthesis)
+	{
+		if(isActive)
+		{
+			Reference elementRef;
+			if(!tryParseNameOrIndexRef(cursor, elementRef))
+			{
+				parseErrorf(
+					cursor->parseState, cursor->nextToken, "expected function name or index");
+				throw RecoverParseException();
+			}
+
+			elementReferences->push_back({Elem::Type::ref_func, std::move(elementRef)});
+		}
+		else
+		{
+			parseParenthesized(cursor, [&] {
+				switch(cursor->nextToken->type)
+				{
+				case t_ref_null:
+					++cursor->nextToken;
+					elementReferences->push_back({Elem::Type::ref_null});
+					break;
+				case t_ref_func:
+				{
+					++cursor->nextToken;
+
+					Reference elementRef;
+					if(!tryParseNameOrIndexRef(cursor, elementRef))
+					{
+						parseErrorf(cursor->parseState,
+									cursor->nextToken,
+									"expected function name or index");
+						throw RecoverParseException();
+					}
+
+					elementReferences->push_back({Elem::Type::ref_func, std::move(elementRef)});
+					break;
+				}
+				default:
+					parseErrorf(
+						cursor->parseState, cursor->nextToken, "expected 'ref.func' or 'ref.null'");
+					throw RecoverParseException();
+				};
+			});
+		}
+	}
 
 	// Create the elem segment.
 	const Uptr elemSegmentIndex = cursor->moduleState->module.elemSegments.size();
 	cursor->moduleState->module.elemSegments.push_back(
-		{isActive, UINTPTR_MAX, InitializerExpression(), std::vector<Uptr>()});
+		{isActive, UINTPTR_MAX, InitializerExpression(), std::vector<Elem>()});
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table
 	// elements' references.
@@ -580,13 +631,25 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 				}
 			}
 
-			elemSegment.indices.resize(elementReferences->size());
+			elemSegment.elems.resize(elementReferences->size());
 			for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
 			{
-				elemSegment.indices[elementIndex] = resolveRef(moduleState->parseState,
-															   moduleState->functionNameToIndexMap,
-															   moduleState->module.functions.size(),
-															   (*elementReferences)[elementIndex]);
+				const UnresolvedElem& unresolvedElem = (*elementReferences)[elementIndex];
+				switch(unresolvedElem.type)
+				{
+				case Elem::Type::ref_null:
+					elemSegment.elems[elementIndex] = {{Elem::Type::ref_null}, UINTPTR_MAX};
+					break;
+				case Elem::Type::ref_func:
+					elemSegment.elems[elementIndex]
+						= {{Elem::Type::ref_func},
+						   resolveRef(moduleState->parseState,
+									  moduleState->functionNameToIndexMap,
+									  moduleState->module.functions.size(),
+									  unresolvedElem.ref)};
+					break;
+				default: Errors::unreachable();
+				}
 			}
 		});
 
@@ -845,22 +908,23 @@ static void parseGlobal(CursorState* cursor)
 
 static void parseExceptionType(CursorState* cursor)
 {
-	parseObjectDefOrImport(cursor,
-						   cursor->moduleState->exceptionTypeNameToIndexMap,
-						   cursor->moduleState->module.exceptionTypes,
-						   cursor->moduleState->disassemblyNames.exceptionTypes,
-						   t_exception_type,
-						   ExternKind::exceptionType,
-						   // Parse an exception type import.
-						   [](CursorState* cursor) {
-							   TypeTuple params = parseTypeTuple(cursor);
-							   return ExceptionType{params};
-						   },
-						   // Parse an exception type definition
-						   [](CursorState* cursor, const Token*) {
-							   TypeTuple params = parseTypeTuple(cursor);
-							   return ExceptionTypeDef{ExceptionType{params}};
-						   });
+	parseObjectDefOrImport(
+		cursor,
+		cursor->moduleState->exceptionTypeNameToIndexMap,
+		cursor->moduleState->module.exceptionTypes,
+		cursor->moduleState->disassemblyNames.exceptionTypes,
+		t_exception_type,
+		ExternKind::exceptionType,
+		// Parse an exception type import.
+		[](CursorState* cursor) {
+			TypeTuple params = parseTypeTuple(cursor);
+			return ExceptionType{params};
+		},
+		// Parse an exception type definition
+		[](CursorState* cursor, const Token*) {
+			TypeTuple params = parseTypeTuple(cursor);
+			return ExceptionTypeDef{ExceptionType{params}};
+		});
 }
 
 static void parseStart(CursorState* cursor)
