@@ -2,6 +2,16 @@
 
 set -e
 
-SCRIPT_DIR=$(cd `dirname $0` && pwd)
+BUILD_DIR=$(pwd)
+WAVM_DIR=$(cd `dirname $0`/../.. && pwd)
+SCRIPT_DIR=$WAVM_DIR/Test/fuzz
 
-while true; do $SCRIPT_DIR/run-all-fuzzers.sh; done
+while true; do
+
+	# Pull the latest WAVM code
+	cd $WAVM_DIR
+	git pull
+	cd $BUILD_DIR
+
+	$SCRIPT_DIR/run-all-fuzzers.sh
+done

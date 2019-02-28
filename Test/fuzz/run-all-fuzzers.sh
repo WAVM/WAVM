@@ -12,11 +12,6 @@ WORKERS_PER_FUZZER=$(nproc --all)
 JOBS_PER_FUZZER=$WORKERS_PER_FUZZER
 SECONDS_PER_JOB=7200
 
-# Pull the latest WAVM code
-cd $WAVM_DIR
-git pull
-cd $BUILD_DIR
-
 # Build LLVM and WAVM.
 ninja -C llvm/build
 ninja
