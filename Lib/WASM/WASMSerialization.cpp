@@ -811,7 +811,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 	serializeSection(moduleStream, SectionType::import, [&module](Stream& sectionStream) {
 		Uptr size = module.functions.imports.size() + module.tables.imports.size()
 					+ module.memories.imports.size() + module.globals.imports.size()
-					+ module.exceptionTypes.size();
+					+ module.exceptionTypes.imports.size();
 		serializeVarUInt32(sectionStream, size);
 		if(Stream::isInput)
 		{
