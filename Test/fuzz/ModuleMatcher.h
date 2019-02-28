@@ -187,9 +187,7 @@ namespace WAVM {
 			bFunction = &b;
 
 			verifyMatches(a.type, b.type);
-			if(a.branchTables != b.branchTables
-			   || a.nonParameterLocalTypes != b.nonParameterLocalTypes)
-			{ failVerification(); }
+			if(a.nonParameterLocalTypes != b.nonParameterLocalTypes) { failVerification(); }
 
 			if(a.code.size() != b.code.size()) { failVerification(); }
 
