@@ -68,34 +68,32 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 	};
 }
 
-static void initSignals()
+static bool initSignals()
 {
-	static bool hasInitializedSignalHandlers = false;
-	if(!hasInitializedSignalHandlers)
-	{
-		hasInitializedSignalHandlers = true;
+	// Set up a signal mask for the signals we handle that will disable them inside the handler.
+	struct sigaction signalAction;
+	sigemptyset(&signalAction.sa_mask);
+	sigaddset(&signalAction.sa_mask, SIGFPE);
+	sigaddset(&signalAction.sa_mask, SIGSEGV);
+	sigaddset(&signalAction.sa_mask, SIGBUS);
 
-		// Set up a signal mask for the signals we handle that will disable them inside the handler.
-		struct sigaction signalAction;
-		sigemptyset(&signalAction.sa_mask);
-		sigaddset(&signalAction.sa_mask, SIGFPE);
-		sigaddset(&signalAction.sa_mask, SIGSEGV);
-		sigaddset(&signalAction.sa_mask, SIGBUS);
+	// Set the signal handler for the signals we want to intercept.
+	signalAction.sa_sigaction = signalHandler;
+	signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
+	sigaction(SIGSEGV, &signalAction, nullptr);
+	sigaction(SIGBUS, &signalAction, nullptr);
+	sigaction(SIGFPE, &signalAction, nullptr);
 
-		// Set the signal handler for the signals we want to intercept.
-		signalAction.sa_sigaction = signalHandler;
-		signalAction.sa_flags = SA_SIGINFO | SA_ONSTACK;
-		sigaction(SIGSEGV, &signalAction, nullptr);
-		sigaction(SIGBUS, &signalAction, nullptr);
-		sigaction(SIGFPE, &signalAction, nullptr);
-	}
+	return true;
 }
 
 bool Platform::catchSignals(void (*thunk)(void*),
 							bool (*filter)(void*, Signal, CallStack&&),
 							void* argument)
 {
-	initSignals();
+	static bool initedSignals = initSignals();
+	wavmAssert(initedSignals);
+
 	sigAltStack.init();
 
 	SignalContext signalContext;
