@@ -21,4 +21,8 @@ bin/fuzz-${FUZZER} \
 	corpora/${FUZZER} \
 	-artifact_prefix="artifacts/${FUZZER}/" \
 	-use_value_profile=1 \
+	-print_final_stats=1 \
+	-print_pcs=1 \
+	-reduce_depth=1 \
+	-shrink=1 \
 	$EXTRA_ARGS

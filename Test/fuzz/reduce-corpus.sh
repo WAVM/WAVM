@@ -20,6 +20,7 @@ bin/fuzz-${FUZZER} \
 	corpora/${FUZZER}-reduced corpora/${FUZZER} \
 	-artifact_prefix="artifacts/${FUZZER}/" \
 	-use_value_profile=1 \
+	-print_final_stats=1 \
 	-merge=1
 
 # Replace the original corpus directory with the reduced corpus directory.
