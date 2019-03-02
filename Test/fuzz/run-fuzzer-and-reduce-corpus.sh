@@ -10,7 +10,7 @@ $SCRIPT_DIR/reduce-corpus.sh $1 || true
 
 cd corpora
 git add *
-git commit -m "Update $1" || true
+git commit -m "Update $1" -q || true
 git push
 
 cd ../artifacts
