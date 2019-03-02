@@ -1193,7 +1193,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 							break;
 						default:
 							linkingSectionString
-								+= "\nUnknown comdat kind: " + std::to_string(kind);
+								+= "\n;; Unknown comdat kind: " + std::to_string(kind);
 							throw FatalSerializationException("Unknown COMDAT kind");
 							break;
 						};
