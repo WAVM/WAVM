@@ -1297,10 +1297,24 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					switch(SymbolKind(kind))
 					{
 					case SymbolKind::function:
-						linkingSectionString += " " + names.functions[index].name;
+						if(index < names.functions.size())
+						{ linkingSectionString += " " + names.functions[index].name; }
+						else
+						{
+							linkingSectionString
+								+= " *invalid index " + std::to_string(index) + "*";
+						}
 						break;
 					case SymbolKind::global:
-						linkingSectionString += " " + names.globals[index];
+						if (index < names.globals.size())
+						{
+							linkingSectionString += " " + names.globals[index];
+						}
+						else
+						{
+							linkingSectionString
+								+= " *invalid index " + std::to_string(index) + "*";
+						}
 						break;
 					case SymbolKind::data:
 					case SymbolKind::section:
