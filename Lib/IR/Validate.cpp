@@ -658,7 +658,7 @@ struct FunctionValidationContext
 		const char* operatorName = nameString;                                                     \
 		SUPPRESS_UNUSED(operatorName);                                                             \
 		validateImm(imm);                                                                          \
-		popAndValidateTypeTuple("call arguments", IR::getNonParametricOpSigs().name.params());     \
+		popAndValidateTypeTuple(nameString, IR::getNonParametricOpSigs().name.params());     \
 		pushOperandTuple(IR::getNonParametricOpSigs().name.results());                             \
 	}
 	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
