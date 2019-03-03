@@ -584,13 +584,11 @@ struct FunctionPrintContext
 
 	template<Uptr numLanes> void printImm(ShuffleImm<numLanes> imm)
 	{
-		string += " (";
 		for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 		{
-			if(laneIndex != 0) { string += ' '; }
+			string += ' ';
 			string += std::to_string(imm.laneIndices[laneIndex]);
 		}
-		string += ')';
 	}
 
 	template<Uptr naturalAlignmentLog2>

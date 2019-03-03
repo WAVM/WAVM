@@ -239,13 +239,13 @@
 ;; v8x16.shuffle
 
 (module
-  (func (export "v8x16.shuffle/0123456789abcdef") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle ( 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15) (local.get $a) (local.get $b)))
-  (func (export "v8x16.shuffle/ghijklmnopqrstuv") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle (16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31) (local.get $a) (local.get $b)))
-  (func (export "v8x16.shuffle/vutsrqponmlkjihg") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle (31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16) (local.get $a) (local.get $b)))
-  (func (export "v8x16.shuffle/fedcba9876543210") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle (15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0) (local.get $a) (local.get $b)))
-  (func (export "v8x16.shuffle/0000000000000000") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle ( 0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0) (local.get $a) (local.get $b)))
-  (func (export "v8x16.shuffle/gggggggggggggggg") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle (16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16) (local.get $a) (local.get $b)))
-  (func (export "v8x16.shuffle/00000000gggggggg") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle ( 0  0  0  0  0  0  0  0 16 16 16 16 16 16 16 16) (local.get $a) (local.get $b)))
+  (func (export "v8x16.shuffle/0123456789abcdef") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 (local.get $a) (local.get $b)))
+  (func (export "v8x16.shuffle/ghijklmnopqrstuv") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 (local.get $a) (local.get $b)))
+  (func (export "v8x16.shuffle/vutsrqponmlkjihg") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle 31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 16 (local.get $a) (local.get $b)))
+  (func (export "v8x16.shuffle/fedcba9876543210") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0 (local.get $a) (local.get $b)))
+  (func (export "v8x16.shuffle/0000000000000000") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 (local.get $a) (local.get $b)))
+  (func (export "v8x16.shuffle/gggggggggggggggg") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 (local.get $a) (local.get $b)))
+  (func (export "v8x16.shuffle/00000000gggggggg") (param $a v128) (param $b v128) (result v128) (v8x16.shuffle  0  0  0  0  0  0  0  0 16 16 16 16 16 16 16 16 (local.get $a) (local.get $b)))
 )
 
 ;; i*.add

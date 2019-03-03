@@ -317,20 +317,18 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, LaneIndexImm<n
 
 template<Uptr numLanes> static void parseImm(CursorState* cursor, ShuffleImm<numLanes>& outImm)
 {
-	parseParenthesized(cursor, [&] {
-		for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
+	for(Uptr destLaneIndex = 0; destLaneIndex < numLanes; ++destLaneIndex)
+	{
+		const U8 sourceLaneIndex = parseI8(cursor);
+		if(sourceLaneIndex >= numLanes * 2)
 		{
-			const U64 u64 = parseI64(cursor);
-			if(u64 >= numLanes * 2)
-			{
-				parseErrorf(cursor->parseState,
-							cursor->nextToken - 1,
-							"lane index must be in the range 0..%" PRIuPTR,
-							numLanes * 2);
-			}
-			outImm.laneIndices[laneIndex] = U8(u64);
+			parseErrorf(cursor->parseState,
+						cursor->nextToken - 1,
+						"lane index must be in the range 0..%" PRIuPTR,
+						numLanes * 2);
 		}
-	});
+		outImm.laneIndices[destLaneIndex] = sourceLaneIndex;
+	}
 }
 
 template<Uptr naturalAlignmentLog2>
