@@ -11,7 +11,7 @@
 #define BINARY(operandTypeId, resultTypeId)     WAVM::IR::FunctionType({WAVM::IR::ValueType::resultTypeId}, {WAVM::IR::ValueType::operandTypeId, WAVM::IR::ValueType::operandTypeId                                  })
 #define UNARY(operandTypeId, resultTypeId)      WAVM::IR::FunctionType({WAVM::IR::ValueType::resultTypeId}, {WAVM::IR::ValueType::operandTypeId                                                                      })
 #define VECTORSELECT(vectorTypeId)              WAVM::IR::FunctionType({WAVM::IR::ValueType::vectorTypeId}, {WAVM::IR::ValueType::vectorTypeId,  WAVM::IR::ValueType::vectorTypeId, WAVM::IR::ValueType::vectorTypeId})
-#define REPLACELANE(scalarTypeId, vectorTypeId) WAVM::IR::FunctionType({WAVM::IR::ValueType::vectorTypeId}, {WAVM::IR::ValueType::vectorTypeId,  WAVM::IR::ValueType::scalarTypeId                                   })
+#define V_VS(vectorTypeId, scalarTypeId)        WAVM::IR::FunctionType({WAVM::IR::ValueType::vectorTypeId}, {WAVM::IR::ValueType::vectorTypeId,  WAVM::IR::ValueType::scalarTypeId                                   })
 #define COMPAREEXCHANGE(valueTypeId)            WAVM::IR::FunctionType({WAVM::IR::ValueType::valueTypeId},  {WAVM::IR::ValueType::i32,           WAVM::IR::ValueType::valueTypeId,  WAVM::IR::ValueType::valueTypeId })
 #define WAIT(valueTypeId)                       WAVM::IR::FunctionType({WAVM::IR::ValueType::i32},          {WAVM::IR::ValueType::i32,           WAVM::IR::ValueType::valueTypeId,  WAVM::IR::ValueType::i64         })
 #define ATOMICRMW(valueTypeId)                  WAVM::IR::FunctionType({WAVM::IR::ValueType::valueTypeId},  {WAVM::IR::ValueType::i32,           WAVM::IR::ValueType::valueTypeId                                    })
@@ -251,23 +251,23 @@
 	visitOp(0xfd04, i8x16_splat               , "i8x16.splat"               , NoImm                     , UNARY(i32,v128)      , simd                   )   \
 	visitOp(0xfd05, i8x16_extract_lane_s      , "i8x16.extract_lane_s"      , LaneIndexImm<16>          , UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd06, i8x16_extract_lane_u      , "i8x16.extract_lane_u"      , LaneIndexImm<16>          , UNARY(v128,i32)      , simd                   )   \
-	visitOp(0xfd07, i8x16_replace_lane        , "i8x16.replace_lane"        , LaneIndexImm<16>          , REPLACELANE(i32,v128), simd                   )   \
+	visitOp(0xfd07, i8x16_replace_lane        , "i8x16.replace_lane"        , LaneIndexImm<16>          , V_VS(v128,i32)       , simd                   )   \
 	visitOp(0xfd08, i16x8_splat               , "i16x8.splat"               , NoImm                     , UNARY(i32,v128)      , simd                   )   \
 	visitOp(0xfd09, i16x8_extract_lane_s      , "i16x8.extract_lane_s"      , LaneIndexImm<8>           , UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd0a, i16x8_extract_lane_u      , "i16x8.extract_lane_u"      , LaneIndexImm<8>           , UNARY(v128,i32)      , simd                   )   \
-	visitOp(0xfd0b, i16x8_replace_lane        , "i16x8.replace_lane"        , LaneIndexImm<8>           , REPLACELANE(i32,v128), simd                   )   \
+	visitOp(0xfd0b, i16x8_replace_lane        , "i16x8.replace_lane"        , LaneIndexImm<8>           , V_VS(v128,i32)       , simd                   )   \
 	visitOp(0xfd0c, i32x4_splat               , "i32x4.splat"               , NoImm                     , UNARY(i32,v128)      , simd                   )   \
 	visitOp(0xfd0d, i32x4_extract_lane        , "i32x4.extract_lane"        , LaneIndexImm<4>           , UNARY(v128,i32)      , simd                   )   \
-	visitOp(0xfd0e, i32x4_replace_lane        , "i32x4.replace_lane"        , LaneIndexImm<4>           , REPLACELANE(i32,v128), simd                   )   \
+	visitOp(0xfd0e, i32x4_replace_lane        , "i32x4.replace_lane"        , LaneIndexImm<4>           , V_VS(v128,i32)       , simd                   )   \
 	visitOp(0xfd0f, i64x2_splat               , "i64x2.splat"               , NoImm                     , UNARY(i64,v128)      , simd                   )   \
 	visitOp(0xfd10, i64x2_extract_lane        , "i64x2.extract_lane"        , LaneIndexImm<2>           , UNARY(v128,i64)      , simd                   )   \
-	visitOp(0xfd11, i64x2_replace_lane        , "i64x2.replace_lane"        , LaneIndexImm<2>           , REPLACELANE(i64,v128), simd                   )   \
+	visitOp(0xfd11, i64x2_replace_lane        , "i64x2.replace_lane"        , LaneIndexImm<2>           , V_VS(v128,i64)       , simd                   )   \
 	visitOp(0xfd12, f32x4_splat               , "f32x4.splat"               , NoImm                     , UNARY(f32,v128)      , simd                   )   \
 	visitOp(0xfd13, f32x4_extract_lane        , "f32x4.extract_lane"        , LaneIndexImm<4>           , UNARY(v128,f32)      , simd                   )   \
-	visitOp(0xfd14, f32x4_replace_lane        , "f32x4.replace_lane"        , LaneIndexImm<4>           , REPLACELANE(f32,v128), simd                   )   \
+	visitOp(0xfd14, f32x4_replace_lane        , "f32x4.replace_lane"        , LaneIndexImm<4>           , V_VS(v128,f32)       , simd                   )   \
 	visitOp(0xfd15, f64x2_splat               , "f64x2.splat"               , NoImm                     , UNARY(f64,v128)      , simd                   )   \
 	visitOp(0xfd16, f64x2_extract_lane        , "f64x2.extract_lane"        , LaneIndexImm<2>           , UNARY(v128,f64)      , simd                   )   \
-	visitOp(0xfd17, f64x2_replace_lane        , "f64x2.replace_lane"        , LaneIndexImm<2>           , REPLACELANE(f64,v128), simd                   )   \
+	visitOp(0xfd17, f64x2_replace_lane        , "f64x2.replace_lane"        , LaneIndexImm<2>           , V_VS(v128,f64)       , simd                   )   \
 /* v128 comparisons                                                                                                                                      */ \
 	visitOp(0xfd18, i8x16_eq                  , "i8x16.eq"                  , NoImm                     , BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd19, i8x16_ne                  , "i8x16.ne"                  , NoImm                     , BINARY(v128,v128)    , simd                   )   \
@@ -331,9 +331,9 @@
 	visitOp(0xfd51, i8x16_neg                 , "i8x16.neg"                 , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd52, i8x16_any_true            , "i8x16.any_true"            , NoImm                     , UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd53, i8x16_all_true            , "i8x16.all_true"            , NoImm                     , UNARY(v128,i32)      , simd                   )   \
-	visitOp(0xfd54, i8x16_shl                 , "i8x16.shl"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd55, i8x16_shr_s               , "i8x16.shr_s"               , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd56, i8x16_shr_u               , "i8x16.shr_u"               , NoImm                     , BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd54, i8x16_shl                 , "i8x16.shl"                 , NoImm                     , V_VS(v128,i32)       , simd                   )   \
+	visitOp(0xfd55, i8x16_shr_s               , "i8x16.shr_s"               , NoImm                     , V_VS(v128,i32)       , simd                   )   \
+	visitOp(0xfd56, i8x16_shr_u               , "i8x16.shr_u"               , NoImm                     , V_VS(v128,i32)       , simd                   )   \
 	visitOp(0xfd57, i8x16_add                 , "i8x16.add"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd58, i8x16_add_saturate_s      , "i8x16.add_saturate_s"      , NoImm                     , BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd59, i8x16_add_saturate_u      , "i8x16.add_saturate_u"      , NoImm                     , BINARY(v128,v128)    , simd                   )   \
@@ -348,9 +348,9 @@
 	visitOp(0xfd62, i16x8_neg                 , "i16x8.neg"                 , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd63, i16x8_any_true            , "i16x8.any_true"            , NoImm                     , UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd64, i16x8_all_true            , "i16x8.all_true"            , NoImm                     , UNARY(v128,i32)      , simd                   )   \
-	visitOp(0xfd65, i16x8_shl                 , "i16x8.shl"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd66, i16x8_shr_s               , "i16x8.shr_s"               , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd67, i16x8_shr_u               , "i16x8.shr_u"               , NoImm                     , BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd65, i16x8_shl                 , "i16x8.shl"                 , NoImm                     , V_VS(v128,i32)       , simd                   )   \
+	visitOp(0xfd66, i16x8_shr_s               , "i16x8.shr_s"               , NoImm                     , V_VS(v128,i32)       , simd                   )   \
+	visitOp(0xfd67, i16x8_shr_u               , "i16x8.shr_u"               , NoImm                     , V_VS(v128,i32)       , simd                   )   \
 	visitOp(0xfd68, i16x8_add                 , "i16x8.add"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd69, i16x8_add_saturate_s      , "i16x8.add_saturate_s"      , NoImm                     , BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd6a, i16x8_add_saturate_u      , "i16x8.add_saturate_u"      , NoImm                     , BINARY(v128,v128)    , simd                   )   \
@@ -365,9 +365,9 @@
 	visitOp(0xfd73, i32x4_neg                 , "i32x4.neg"                 , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd74, i32x4_any_true            , "i32x4.any_true"            , NoImm                     , UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd75, i32x4_all_true            , "i32x4.all_true"            , NoImm                     , UNARY(v128,i32)      , simd                   )   \
-	visitOp(0xfd76, i32x4_shl                 , "i32x4.shl"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd77, i32x4_shr_s               , "i32x4.shr_s"               , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd78, i32x4_shr_u               , "i32x4.shr_u"               , NoImm                     , BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd76, i32x4_shl                 , "i32x4.shl"                 , NoImm                     , V_VS(v128,i32)       , simd                   )   \
+	visitOp(0xfd77, i32x4_shr_s               , "i32x4.shr_s"               , NoImm                     , V_VS(v128,i32)       , simd                   )   \
+	visitOp(0xfd78, i32x4_shr_u               , "i32x4.shr_u"               , NoImm                     , V_VS(v128,i32)       , simd                   )   \
 	visitOp(0xfd79, i32x4_add                 , "i32x4.add"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
 /*	visitOp(0xfd7a, i32x4_add_saturate_s      , "i32x4.add_saturate_s"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd7b, i32x4_add_saturate_u      , "i32x4.add_saturate_u"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
@@ -382,9 +382,9 @@
 	visitOp(0xfd84, i64x2_neg                 , "i64x2.neg"                 , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd85, i64x2_any_true            , "i64x2.any_true"            , NoImm                     , UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd86, i64x2_all_true            , "i64x2.all_true"            , NoImm                     , UNARY(v128,i32)      , simd                   )   \
-	visitOp(0xfd87, i64x2_shl                 , "i64x2.shl"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd88, i64x2_shr_s               , "i64x2.shr_s"               , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfd89, i64x2_shr_u               , "i64x2.shr_u"               , NoImm                     , BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfd87, i64x2_shl                 , "i64x2.shl"                 , NoImm                     , V_VS(v128,i32)       , simd                   )   \
+	visitOp(0xfd88, i64x2_shr_s               , "i64x2.shr_s"               , NoImm                     , V_VS(v128,i32)       , simd                   )   \
+	visitOp(0xfd89, i64x2_shr_u               , "i64x2.shr_u"               , NoImm                     , V_VS(v128,i32)       , simd                   )   \
 	visitOp(0xfd8a, i64x2_add                 , "i64x2.add"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
 /*	visitOp(0xfd8b, i64x2_add_saturate_s      , "i64x2.add_saturate_s"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd8c, i64x2_add_saturate_u      , "i64x2.add_saturate_u"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \

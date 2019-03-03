@@ -307,23 +307,6 @@
   (func (export "i16x8.sub_saturate_u") (param $a v128) (param $b v128) (result v128) (i16x8.sub_saturate_u (local.get $a) (local.get $b)))
 )
 
-;; i*.shl/shr_s/shr_u
-
-(module
-  (func (export "i8x16.shl")   (param $a v128) (param $b v128) (result v128) (i8x16.shl   (local.get $a) (local.get $b)))
-  (func (export "i16x8.shl")   (param $a v128) (param $b v128) (result v128) (i16x8.shl   (local.get $a) (local.get $b)))
-  (func (export "i32x4.shl")   (param $a v128) (param $b v128) (result v128) (i32x4.shl   (local.get $a) (local.get $b)))
-  (func (export "i64x2.shl")   (param $a v128) (param $b v128) (result v128) (i64x2.shl   (local.get $a) (local.get $b)))
-  (func (export "i8x16.shr_s") (param $a v128) (param $b v128) (result v128) (i8x16.shr_s (local.get $a) (local.get $b)))
-  (func (export "i8x16.shr_u") (param $a v128) (param $b v128) (result v128) (i8x16.shr_u (local.get $a) (local.get $b)))
-  (func (export "i16x8.shr_s") (param $a v128) (param $b v128) (result v128) (i16x8.shr_s (local.get $a) (local.get $b)))
-  (func (export "i16x8.shr_u") (param $a v128) (param $b v128) (result v128) (i16x8.shr_u (local.get $a) (local.get $b)))
-  (func (export "i32x4.shr_s") (param $a v128) (param $b v128) (result v128) (i32x4.shr_s (local.get $a) (local.get $b)))
-  (func (export "i32x4.shr_u") (param $a v128) (param $b v128) (result v128) (i32x4.shr_u (local.get $a) (local.get $b)))
-  (func (export "i64x2.shr_s") (param $a v128) (param $b v128) (result v128) (i64x2.shr_s (local.get $a) (local.get $b)))
-  (func (export "i64x2.shr_u") (param $a v128) (param $b v128) (result v128) (i64x2.shr_u (local.get $a) (local.get $b)))
-)
-
 ;; v128.and/or/xor/not
 
 (module
@@ -571,7 +554,7 @@
 								$0 $1 $2 $3
 								$default
 								(i32x4.extract_lane 0 (i32x4.shr_s (local.get $v)
-								                                   (v128.const i32x4 32 32 32 32)))
+								                                   (i32.const 32)))
 							)
 						)
 						(return (i32.const 100))
