@@ -355,7 +355,7 @@ U8 WAST::parseI8(CursorState* cursor)
 U16 WAST::parseI16(CursorState* cursor)
 {
 	U32 result;
-	if(!tryParseInt<U32>(cursor, result, INT16_MIN, UINT8_MAX))
+	if(!tryParseInt<U32>(cursor, result, INT16_MIN, UINT16_MAX))
 	{
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected i16 literal");
 		throw RecoverParseException();
