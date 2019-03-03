@@ -283,19 +283,19 @@ EMIT_FP_UNARY_OP(sqrt,
 									moduleContext.fpRoundingModeMetadata,
 									moduleContext.fpExceptionMetadata}))
 
-#define EMIT_FP_COMPARE_OP(name, predicate, llvmOperandType, llvmResultType)                       \
+#define EMIT_FP_COMPARE_OP(name, pred, zextOrSext, llvmOperandType, llvmResultType)                \
 	void EmitFunctionContext::name(NoImm)                                                          \
 	{                                                                                              \
 		auto right = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
 		auto left = irBuilder.CreateBitCast(pop(), llvmOperandType);                               \
-		push(zext(createFCmpWithWorkaround(irBuilder, predicate, left, right), llvmResultType));   \
+		push(zextOrSext(createFCmpWithWorkaround(irBuilder, pred, left, right), llvmResultType));  \
 	}
 
-#define EMIT_FP_COMPARE(name, predicate)                                                           \
-	EMIT_FP_COMPARE_OP(f32_##name, predicate, llvmContext.f32Type, llvmContext.i32Type)            \
-	EMIT_FP_COMPARE_OP(f64_##name, predicate, llvmContext.f64Type, llvmContext.i32Type)            \
-	EMIT_FP_COMPARE_OP(f32x4_##name, predicate, llvmContext.f32x4Type, llvmContext.i32x4Type)      \
-	EMIT_FP_COMPARE_OP(f64x2_##name, predicate, llvmContext.f64x2Type, llvmContext.i64x2Type)
+#define EMIT_FP_COMPARE(name, pred)                                                                \
+	EMIT_FP_COMPARE_OP(f32_##name, pred, zext, llvmContext.f32Type, llvmContext.i32Type)           \
+	EMIT_FP_COMPARE_OP(f64_##name, pred, zext, llvmContext.f64Type, llvmContext.i32Type)           \
+	EMIT_FP_COMPARE_OP(f32x4_##name, pred, sext, llvmContext.f32x4Type, llvmContext.i32x4Type)     \
+	EMIT_FP_COMPARE_OP(f64x2_##name, pred, sext, llvmContext.f64x2Type, llvmContext.i64x2Type)
 
 EMIT_FP_COMPARE(eq, llvm::CmpInst::FCMP_OEQ)
 EMIT_FP_COMPARE(ne, llvm::CmpInst::FCMP_UNE)
@@ -364,20 +364,20 @@ EMIT_SIMD_BINARY_OP(i8x16_mul, llvmContext.i8x16Type, irBuilder.CreateMul(left, 
 EMIT_SIMD_BINARY_OP(i16x8_mul, llvmContext.i16x8Type, irBuilder.CreateMul(left, right))
 EMIT_SIMD_BINARY_OP(i32x4_mul, llvmContext.i32x4Type, irBuilder.CreateMul(left, right))
 
-#define EMIT_INT_COMPARE_OP(name, llvmOperandType, llvmDestType, predicate)                        \
+#define EMIT_INT_COMPARE_OP(name, llvmOperandType, llvmDestType, pred, zextOrSext)                 \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
 		auto right = irBuilder.CreateBitCast(pop(), llvmOperandType);                              \
 		auto left = irBuilder.CreateBitCast(pop(), llvmOperandType);                               \
-		push(zext(createICmpWithWorkaround(irBuilder, predicate, left, right), llvmDestType));     \
+		push(zextOrSext(createICmpWithWorkaround(irBuilder, pred, left, right), llvmDestType));    \
 	}
 
-#define EMIT_INT_COMPARE(name, emitCode)                                                           \
-	EMIT_INT_COMPARE_OP(i32_##name, llvmContext.i32Type, llvmContext.i32Type, emitCode)            \
-	EMIT_INT_COMPARE_OP(i64_##name, llvmContext.i64Type, llvmContext.i32Type, emitCode)            \
-	EMIT_INT_COMPARE_OP(i8x16_##name, llvmContext.i8x16Type, llvmContext.i8x16Type, emitCode)      \
-	EMIT_INT_COMPARE_OP(i16x8_##name, llvmContext.i16x8Type, llvmContext.i16x8Type, emitCode)      \
-	EMIT_INT_COMPARE_OP(i32x4_##name, llvmContext.i32x4Type, llvmContext.i32x4Type, emitCode)
+#define EMIT_INT_COMPARE(name, pred)                                                               \
+	EMIT_INT_COMPARE_OP(i32_##name, llvmContext.i32Type, llvmContext.i32Type, pred, zext)          \
+	EMIT_INT_COMPARE_OP(i64_##name, llvmContext.i64Type, llvmContext.i32Type, pred, zext)          \
+	EMIT_INT_COMPARE_OP(i8x16_##name, llvmContext.i8x16Type, llvmContext.i8x16Type, pred, sext)    \
+	EMIT_INT_COMPARE_OP(i16x8_##name, llvmContext.i16x8Type, llvmContext.i16x8Type, pred, sext)    \
+	EMIT_INT_COMPARE_OP(i32x4_##name, llvmContext.i32x4Type, llvmContext.i32x4Type, pred, sext)
 
 EMIT_INT_COMPARE(eq, llvm::CmpInst::ICMP_EQ)
 EMIT_INT_COMPARE(ne, llvm::CmpInst::ICMP_NE)

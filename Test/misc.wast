@@ -378,8 +378,8 @@
 		          (v128.const i16x8 0 0 0 0 0 0 0 0))
 	)
 )
-(assert_return (invoke "testLLVM-D57871" (v128.const i32x4 0 0 0 0))     (v128.const i16x8 1 1 1 1 1 1 1 1))
-(assert_return (invoke "testLLVM-D57871" (v128.const i32x4 1 1 1 1))     (v128.const i16x8 1 0 1 0 1 0 1 0))
+(assert_return (invoke "testLLVM-D57871" (v128.const i32x4 0 0 0 0))     (v128.const i16x8 -1 -1 -1 -1 -1 -1 -1 -1))
+(assert_return (invoke "testLLVM-D57871" (v128.const i32x4 1 1 1 1))     (v128.const i16x8 -1 0 -1 0 -1 0 -1 0))
 
 
 ;; Test for the bug fixed by https://reviews.llvm.org/D58049
