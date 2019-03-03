@@ -304,15 +304,15 @@ static void parseImm(CursorState* cursor, LiteralImm<V128>& outImm)
 
 template<Uptr numLanes> static void parseImm(CursorState* cursor, LaneIndexImm<numLanes>& outImm)
 {
-	const U64 u64 = parseI64(cursor);
-	if(u64 > numLanes)
+	const U8 laneIndex = parseI8(cursor);
+	if(laneIndex > numLanes)
 	{
 		parseErrorf(cursor->parseState,
 					cursor->nextToken - 1,
 					"lane index must be in the range 0..%" PRIuPTR,
 					numLanes);
 	}
-	outImm.laneIndex = U8(u64);
+	outImm.laneIndex = laneIndex;
 }
 
 template<Uptr numLanes> static void parseImm(CursorState* cursor, ShuffleImm<numLanes>& outImm)
