@@ -304,15 +304,71 @@ EMIT_FP_COMPARE(le, llvm::CmpInst::FCMP_OLE)
 EMIT_FP_COMPARE(gt, llvm::CmpInst::FCMP_OGT)
 EMIT_FP_COMPARE(ge, llvm::CmpInst::FCMP_OGE)
 
+llvm::Value* EmitFunctionContext::emitFloatMin(llvm::Value* left,
+											   llvm::Value* right,
+											   llvm::Type* intType)
+{
+	llvm::Type* floatType = left->getType();
+	llvm::Value* isLeftNaN = irBuilder.CreateFCmpUNO(left, left);
+	llvm::Value* isRightNaN = irBuilder.CreateFCmpUNO(right, right);
+	llvm::Value* isLeftLessThanRight = irBuilder.CreateFCmpOLT(left, right);
+	llvm::Value* isLeftGreaterThanRight = irBuilder.CreateFCmpOGT(left, right);
+
+	return irBuilder.CreateSelect(
+		isLeftNaN,
+		left,
+		irBuilder.CreateSelect(
+			isRightNaN,
+			right,
+			irBuilder.CreateSelect(
+				isLeftLessThanRight,
+				left,
+				irBuilder.CreateSelect(
+					isLeftGreaterThanRight,
+					right,
+					irBuilder.CreateBitCast(
+						irBuilder.CreateOr(irBuilder.CreateBitCast(left, intType),
+										   irBuilder.CreateBitCast(right, intType)),
+						floatType)))));
+}
+
+llvm::Value* EmitFunctionContext::emitFloatMax(llvm::Value* left,
+											   llvm::Value* right,
+											   llvm::Type* intType)
+{
+	llvm::Type* floatType = left->getType();
+	llvm::Value* isLeftNaN = irBuilder.CreateFCmpUNO(left, left);
+	llvm::Value* isRightNaN = irBuilder.CreateFCmpUNO(right, right);
+	llvm::Value* isLeftLessThanRight = irBuilder.CreateFCmpOLT(left, right);
+	llvm::Value* isLeftGreaterThanRight = irBuilder.CreateFCmpOGT(left, right);
+
+	return irBuilder.CreateSelect(
+		isLeftNaN,
+		left,
+		irBuilder.CreateSelect(
+			isRightNaN,
+			right,
+			irBuilder.CreateSelect(
+				isLeftLessThanRight,
+				right,
+				irBuilder.CreateSelect(
+					isLeftGreaterThanRight,
+					left,
+					irBuilder.CreateBitCast(
+						irBuilder.CreateAnd(irBuilder.CreateBitCast(left, intType),
+											irBuilder.CreateBitCast(right, intType)),
+						floatType)))));
+}
+
 // These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
 EMIT_FP_BINARY_OP(min,
-				  emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.min" : "f64.min",
-									   FunctionType(TypeTuple(type), TypeTuple{type, type}),
-									   {left, right})[0])
+				  emitFloatMin(left,
+							   right,
+							   type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type))
 EMIT_FP_BINARY_OP(max,
-				  emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.max" : "f64.max",
-									   FunctionType(TypeTuple(type), TypeTuple{type, type}),
-									   {left, right})[0])
+				  emitFloatMax(left,
+							   right,
+							   type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type))
 EMIT_FP_UNARY_OP(ceil,
 				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.ceil" : "f64.ceil",
 									  FunctionType(TypeTuple(type), TypeTuple{type}),
@@ -504,16 +560,16 @@ EMIT_SIMD_FP_BINARY_OP(div, irBuilder.CreateFDiv(left, right))
 
 EMIT_SIMD_BINARY_OP(f32x4_min,
 					llvmContext.f32x4Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse_min_ps, {left, right}))
+					emitFloatMin(left, right, llvmContext.i32x4Type))
 EMIT_SIMD_BINARY_OP(f64x2_min,
 					llvmContext.f64x2Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_min_pd, {left, right}))
+					emitFloatMin(left, right, llvmContext.i64x2Type))
 EMIT_SIMD_BINARY_OP(f32x4_max,
 					llvmContext.f32x4Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse_max_ps, {left, right}))
+					emitFloatMax(left, right, llvmContext.i32x4Type))
 EMIT_SIMD_BINARY_OP(f64x2_max,
 					llvmContext.f64x2Type,
-					callLLVMIntrinsic({}, llvm::Intrinsic::x86_sse2_max_pd, {left, right}))
+					emitFloatMax(left, right, llvmContext.i64x2Type))
 
 EMIT_SIMD_FP_UNARY_OP(neg, irBuilder.CreateFNeg(operand))
 EMIT_SIMD_FP_UNARY_OP(abs,

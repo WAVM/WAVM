@@ -31,64 +31,6 @@ template<typename Float> Float quietNaN(Float value)
 	return components.value;
 }
 
-template<typename Float> Float floatMin(Float left, Float right)
-{
-	// If either operand is a NaN, convert it to a quiet NaN and return it.
-	if(left != left) { return quietNaN(left); }
-	else if(right != right)
-	{
-		return quietNaN(right);
-	}
-	// If either operand is less than the other, return it.
-	else if(left < right)
-	{
-		return left;
-	}
-	else if(right < left)
-	{
-		return right;
-	}
-	else
-	{
-		// Finally, if the operands are apparently equal, compare their integer values to
-		// distinguish -0.0 from +0.0
-		FloatComponents<Float> leftComponents;
-		leftComponents.value = left;
-		FloatComponents<Float> rightComponents;
-		rightComponents.value = right;
-		return leftComponents.bitcastInt < rightComponents.bitcastInt ? right : left;
-	}
-}
-
-template<typename Float> Float floatMax(Float left, Float right)
-{
-	// If either operand is a NaN, convert it to a quiet NaN and return it.
-	if(left != left) { return quietNaN(left); }
-	else if(right != right)
-	{
-		return quietNaN(right);
-	}
-	// If either operand is less than the other, return it.
-	else if(left > right)
-	{
-		return left;
-	}
-	else if(right > left)
-	{
-		return right;
-	}
-	else
-	{
-		// Finally, if the operands are apparently equal, compare their integer values to
-		// distinguish -0.0 from +0.0
-		FloatComponents<Float> leftComponents;
-		leftComponents.value = left;
-		FloatComponents<Float> rightComponents;
-		rightComponents.value = right;
-		return leftComponents.bitcastInt > rightComponents.bitcastInt ? right : left;
-	}
-}
-
 template<typename Float> Float floatCeil(Float value)
 {
 	if(value != value) { return quietNaN(value); }
@@ -123,23 +65,6 @@ template<typename Float> Float floatNearest(Float value)
 	{
 		return nearbyint(value);
 	}
-}
-
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f32.min", F32, f32Min, F32 left, F32 right)
-{
-	return floatMin(left, right);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f64.min", F64, f64Min, F64 left, F64 right)
-{
-	return floatMin(left, right);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f32.max", F32, f32Max, F32 left, F32 right)
-{
-	return floatMax(left, right);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f64.max", F64, f64Max, F64 left, F64 right)
-{
-	return floatMax(left, right);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f32.ceil", F32, f32Ceil, F32 value)
