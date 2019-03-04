@@ -479,6 +479,7 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 		require(cursor, t_passive);
 		isActive = false;
 		break;
+	case t_quotedName:
 	case t_name:
 		switch(cursor->nextToken[1].type)
 		{
@@ -488,6 +489,7 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 			require(cursor, t_passive);
 			isActive = false;
 			break;
+		case t_quotedName:
 		case t_name:
 		case t_hexInt:
 		case t_decimalInt:
