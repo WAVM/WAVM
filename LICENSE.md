@@ -10,7 +10,11 @@ Redistribution and use in source and binary forms, with or without modification,
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-The contents of [Test/spec](Test/spec) is covered by the license in [Test/spec/LICENSE](Test/spec/LICENSE).
+The contents of [Test/spec](Test/spec) are covered by the license in [Test/spec/LICENSE](Test/spec/LICENSE).
+
+The contents of [Test/binaryen](Test/binaryen) are covered by the license in [Test/binaryen/LICENSE](Test/binaryen/LICENSE).
+
+The contents of [Test/wabt](Test/wabt) are covered by the license in [Test/wabt/LICENSE](Test/wabt/LICENSE).
 
 [Source/ThirdParty/dtoa/dtoa.c](Source/ThirdParty/dtoa/dtoa.c) is covered by the license in that file.
 

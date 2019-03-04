@@ -13,6 +13,16 @@ function(ADD_WAST_TESTS WAST_PATHS)
 endfunction()
 
 set(WASTTests
+	binaryen/binaryen_simd.wast
+	wabt/wabt_simd_basic.wast
+	wabt/wabt_simd_binary.wast
+	wabt/wabt_simd_bitselect.wast
+	wabt/wabt_simd_compare.wast
+	wabt/wabt_simd_lane.wast
+	wabt/wabt_simd_load_store.wast
+	wabt/wabt_simd_shift.wast
+	wabt/wabt_simd_splat.wast
+	wabt/wabt_simd_unary.wast
 	bulk_memory_ops.wast
 	exceptions.wast
 	misc.wast
