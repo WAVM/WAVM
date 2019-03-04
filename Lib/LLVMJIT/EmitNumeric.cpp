@@ -309,10 +309,14 @@ llvm::Value* EmitFunctionContext::emitFloatMin(llvm::Value* left,
 											   llvm::Type* intType)
 {
 	llvm::Type* floatType = left->getType();
-	llvm::Value* isLeftNaN = irBuilder.CreateFCmpUNO(left, left);
-	llvm::Value* isRightNaN = irBuilder.CreateFCmpUNO(right, right);
-	llvm::Value* isLeftLessThanRight = irBuilder.CreateFCmpOLT(left, right);
-	llvm::Value* isLeftGreaterThanRight = irBuilder.CreateFCmpOGT(left, right);
+	llvm::Value* isLeftNaN
+		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, left, left);
+	llvm::Value* isRightNaN
+		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, right, right);
+	llvm::Value* isLeftLessThanRight
+		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, left, right);
+	llvm::Value* isLeftGreaterThanRight
+		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OGT, left, right);
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
@@ -337,10 +341,14 @@ llvm::Value* EmitFunctionContext::emitFloatMax(llvm::Value* left,
 											   llvm::Type* intType)
 {
 	llvm::Type* floatType = left->getType();
-	llvm::Value* isLeftNaN = irBuilder.CreateFCmpUNO(left, left);
-	llvm::Value* isRightNaN = irBuilder.CreateFCmpUNO(right, right);
-	llvm::Value* isLeftLessThanRight = irBuilder.CreateFCmpOLT(left, right);
-	llvm::Value* isLeftGreaterThanRight = irBuilder.CreateFCmpOGT(left, right);
+	llvm::Value* isLeftNaN
+		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, left, left);
+	llvm::Value* isRightNaN
+		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_UNO, right, right);
+	llvm::Value* isLeftLessThanRight
+		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OLT, left, right);
+	llvm::Value* isLeftGreaterThanRight
+		= createFCmpWithWorkaround(irBuilder, llvm::CmpInst::FCMP_OGT, left, right);
 
 	return irBuilder.CreateSelect(
 		isLeftNaN,
