@@ -462,38 +462,83 @@ static void parseType(CursorState* cursor)
 	});
 }
 
-static void parseData(CursorState* cursor)
+static bool parseSegmentDeclaration(CursorState* cursor,
+									Name& outSegmentName,
+									Reference& outMemoryOrTableRef,
+									UnresolvedInitializerExpression& outBaseIndex)
 {
-	const Token* firstToken = cursor->nextToken;
-	require(cursor, t_data);
-
+	// The segment can have a name, and for active segments, a reference to a memory or table. If
+	// there are two names, the first is the segment name, and the second is the reference to a
+	// memory or table. If there is one name on a passive segment, it is the segment name. If there
+	// is one name on an active segment, it is a reference to a memory or table.
 	bool isActive = true;
-	Reference memoryRef;
-	UnresolvedInitializerExpression baseAddress;
-	if(cursor->nextToken->type == t_passive)
+	switch(cursor->nextToken[0].type)
 	{
+	case t_passive:
+		// passive ...
+		require(cursor, t_passive);
 		isActive = false;
-		++cursor->nextToken;
-	}
-	else
-	{
-		// Parse an optional memory name.
-		tryParseNameOrIndexRef(cursor, memoryRef);
+		break;
+	case t_name:
+		switch(cursor->nextToken[1].type)
+		{
+		case t_passive:
+			// <s:name> passive ...
+			errorUnless(tryParseName(cursor, outSegmentName));
+			require(cursor, t_passive);
+			isActive = false;
+			break;
+		case t_name:
+		case t_hexInt:
+		case t_decimalInt:
+			// <s:name> <m:ref> ...
+			errorUnless(tryParseName(cursor, outSegmentName));
+			errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+			break;
+		default:
+			// <m:name> ...
+			errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+		}
+		break;
+	case t_hexInt:
+	case t_decimalInt:
+		// <m:ref> ...
+		errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+		break;
+	default:
+		// ...
+		break;
+	};
 
-		// Parse an initializer expression for the base address of the data.
+	if(isActive)
+	{
+		// Parse an initializer expression for the base index of the elem segment.
 		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
 		{
 			// The initializer expression can optionally be wrapped in (offset ...)
 			parseParenthesized(cursor, [&] {
 				require(cursor, t_offset);
-				baseAddress = parseInitializerExpression(cursor);
+				outBaseIndex = parseInitializerExpression(cursor);
 			});
 		}
 		else
 		{
-			baseAddress = parseInitializerExpression(cursor);
+			outBaseIndex = parseInitializerExpression(cursor);
 		}
 	}
+
+	return isActive;
+}
+
+static void parseData(CursorState* cursor)
+{
+	const Token* firstToken = cursor->nextToken;
+	require(cursor, t_data);
+
+	Name segmentName;
+	Reference memoryRef;
+	UnresolvedInitializerExpression baseAddress;
+	bool isActive = parseSegmentDeclaration(cursor, segmentName, memoryRef, baseAddress);
 
 	// Parse a list of strings that contains the segment's data.
 	std::string dataString;
@@ -505,6 +550,15 @@ static void parseData(CursorState* cursor)
 	const Uptr dataSegmentIndex = cursor->moduleState->module.dataSegments.size();
 	cursor->moduleState->module.dataSegments.push_back(
 		{isActive, UINTPTR_MAX, InitializerExpression(), std::move(dataVector)});
+
+	if(segmentName)
+	{
+		bindName(cursor->parseState,
+				 cursor->moduleState->dataNameToIndexMap,
+				 segmentName,
+				 dataSegmentIndex);
+	}
+	cursor->moduleState->disassemblyNames.dataSegments.push_back(segmentName.getString());
 
 	// Enqueue a callback that is called after all declarations are parsed to resolve the memory to
 	// put the data segment in, and the base offset.
@@ -535,6 +589,7 @@ static void parseData(CursorState* cursor)
 
 static Uptr parseElemSegmentBody(CursorState* cursor,
 								 bool isActive,
+								 Name segmentName,
 								 Reference tableRef,
 								 UnresolvedInitializerExpression baseIndex,
 								 const Token* elemToken)
@@ -603,6 +658,15 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	cursor->moduleState->module.elemSegments.push_back(
 		{isActive, UINTPTR_MAX, InitializerExpression(), std::vector<Elem>()});
 
+	if(segmentName)
+	{
+		bindName(cursor->parseState,
+				 cursor->moduleState->elemNameToIndexMap,
+				 segmentName,
+				 elemSegmentIndex);
+	}
+	cursor->moduleState->disassemblyNames.elemSegments.push_back(segmentName.getString());
+
 	// Enqueue a callback that is called after all declarations are parsed to resolve the table
 	// elements' references.
 	cursor->moduleState->postDeclarationCallbacks.push_back(
@@ -661,35 +725,12 @@ static void parseElem(CursorState* cursor)
 	const Token* elemToken = cursor->nextToken;
 	require(cursor, t_elem);
 
-	bool isActive = true;
+	Name segmentName;
 	Reference tableRef;
 	UnresolvedInitializerExpression baseIndex;
-	if(cursor->nextToken->type == t_passive)
-	{
-		isActive = false;
-		++cursor->nextToken;
-	}
-	else
-	{
-		// Parse an optional table name.
-		tryParseNameOrIndexRef(cursor, tableRef);
+	bool isActive = parseSegmentDeclaration(cursor, segmentName, tableRef, baseIndex);
 
-		// Parse an initializer expression for the base index of the elem segment.
-		if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_offset)
-		{
-			// The initializer expression can optionally be wrapped in (offset ...)
-			parseParenthesized(cursor, [&] {
-				require(cursor, t_offset);
-				baseIndex = parseInitializerExpression(cursor);
-			});
-		}
-		else
-		{
-			baseIndex = parseInitializerExpression(cursor);
-		}
-	}
-
-	parseElemSegmentBody(cursor, isActive, tableRef, baseIndex, elemToken);
+	parseElemSegmentBody(cursor, isActive, segmentName, tableRef, baseIndex, elemToken);
 }
 
 template<typename Def,
@@ -817,6 +858,7 @@ static void parseTable(CursorState* cursor)
 					const Uptr numElements
 						= parseElemSegmentBody(cursor,
 											   true,
+											   Name(),
 											   Reference(tableIndex),
 											   UnresolvedInitializerExpression((I32)0),
 											   cursor->nextToken - 1);
@@ -866,6 +908,7 @@ static void parseMemory(CursorState* cursor)
 					 cursor->moduleState->module.memories.size(),
 					 InitializerExpression(I32(0)),
 					 std::move(dataVector)});
+				cursor->moduleState->disassemblyNames.dataSegments.push_back(std::string());
 			}
 
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
@@ -1036,11 +1079,15 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 		}
 
 		// Set the module's disassembly names.
-		wavmAssert(outModule.functions.size() == moduleState.disassemblyNames.functions.size());
-		wavmAssert(outModule.tables.size() == moduleState.disassemblyNames.tables.size());
-		wavmAssert(outModule.memories.size() == moduleState.disassemblyNames.memories.size());
-		wavmAssert(outModule.globals.size() == moduleState.disassemblyNames.globals.size());
-		IR::setDisassemblyNames(outModule, moduleState.disassemblyNames);
+		const DisassemblyNames& disassemblyNames = moduleState.disassemblyNames;
+		wavmAssert(outModule.functions.size() == disassemblyNames.functions.size());
+		wavmAssert(outModule.tables.size() == disassemblyNames.tables.size());
+		wavmAssert(outModule.memories.size() == disassemblyNames.memories.size());
+		wavmAssert(outModule.globals.size() == disassemblyNames.globals.size());
+		wavmAssert(outModule.elemSegments.size() == disassemblyNames.elemSegments.size());
+		wavmAssert(outModule.dataSegments.size() == disassemblyNames.dataSegments.size());
+		wavmAssert(outModule.exceptionTypes.size() == disassemblyNames.exceptionTypes.size());
+		IR::setDisassemblyNames(outModule, disassemblyNames);
 
 		// If metrics logging is enabled, log some statistics about the module's name maps.
 		if(Log::isCategoryEnabled(Log::metrics))

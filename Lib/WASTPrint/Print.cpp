@@ -299,6 +299,8 @@ struct ModulePrintContext
 		for(auto& name : names.tables) { globalNameScope.map(name); }
 		for(auto& name : names.memories) { globalNameScope.map(name); }
 		for(auto& name : names.globals) { globalNameScope.map(name); }
+		for(auto& name : names.elemSegments) { globalNameScope.map(name); }
+		for(auto& name : names.dataSegments) { globalNameScope.map(name); }
 		for(auto& name : names.exceptionTypes) { globalNameScope.map(name); }
 		for(auto& function : names.functions)
 		{
@@ -604,17 +606,23 @@ struct FunctionPrintContext
 
 	void printImm(DataSegmentAndMemImm imm)
 	{
-		string += " " + std::to_string(imm.dataSegmentIndex);
-		string += " " + std::to_string(imm.memoryIndex);
+		string += " " + moduleContext.names.dataSegments[imm.dataSegmentIndex];
+		string += " " + moduleContext.names.memories[imm.memoryIndex];
 	}
-	void printImm(DataSegmentImm imm) { string += " " + std::to_string(imm.dataSegmentIndex); }
+	void printImm(DataSegmentImm imm)
+	{
+		string += " " + moduleContext.names.dataSegments[imm.dataSegmentIndex];
+	}
 
 	void printImm(ElemSegmentAndTableImm imm)
 	{
-		string += " " + std::to_string(imm.elemSegmentIndex);
-		string += " " + std::to_string(imm.tableIndex);
+		string += " " + moduleContext.names.elemSegments[imm.elemSegmentIndex];
+		string += " " + moduleContext.names.tables[imm.tableIndex];
 	}
-	void printImm(ElemSegmentImm imm) { string += " " + std::to_string(imm.elemSegmentIndex); }
+	void printImm(ElemSegmentImm imm)
+	{
+		string += " " + moduleContext.names.elemSegments[imm.elemSegmentIndex];
+	}
 
 	void try_(ControlStructureImm imm)
 	{
@@ -861,10 +869,13 @@ void ModulePrintContext::printModule()
 	}
 
 	// Print the data and elem segment definitions.
-	for(auto elemSegment : module.elemSegments)
+	for(Uptr segmentIndex = 0; segmentIndex < module.elemSegments.size(); ++segmentIndex)
 	{
+		const ElemSegment& elemSegment = module.elemSegments[segmentIndex];
 		string += '\n';
 		ScopedTagPrinter dataTag(string, "elem");
+		string += ' ';
+		string += names.elemSegments[segmentIndex];
 		string += ' ';
 		if(!elemSegment.isActive) { string += "passive"; }
 		else
@@ -903,10 +914,13 @@ void ModulePrintContext::printModule()
 			}
 		}
 	}
-	for(auto dataSegment : module.dataSegments)
+	for(Uptr segmentIndex = 0; segmentIndex < module.dataSegments.size(); ++segmentIndex)
 	{
+		const DataSegment& dataSegment = module.dataSegments[segmentIndex];
 		string += '\n';
 		ScopedTagPrinter dataTag(string, "data");
+		string += ' ';
+		string += names.dataSegments[segmentIndex];
 		string += ' ';
 		if(!dataSegment.isActive) { string += "passive"; }
 		else
@@ -1304,10 +1318,8 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						}
 						break;
 					case SymbolKind::global:
-						if (index < names.globals.size())
-						{
-							linkingSectionString += " " + names.globals[index];
-						}
+						if(index < names.globals.size())
+						{ linkingSectionString += " " + names.globals[index]; }
 						else
 						{
 							linkingSectionString

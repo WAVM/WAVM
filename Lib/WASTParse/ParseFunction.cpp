@@ -359,7 +359,11 @@ static void parseImm(CursorState* cursor, RethrowImm& outImm)
 
 static void parseImm(CursorState* cursor, DataSegmentAndMemImm& outImm)
 {
-	outImm.dataSegmentIndex = parseIptr(cursor);
+	outImm.dataSegmentIndex
+		= parseAndResolveNameOrIndexRef(cursor,
+										cursor->moduleState->dataNameToIndexMap,
+										cursor->moduleState->module.dataSegments.size(),
+										"data");
 	if(!tryParseAndResolveNameOrIndexRef(cursor,
 										 cursor->moduleState->memoryNameToIndexMap,
 										 cursor->moduleState->module.memories.size(),
@@ -370,12 +374,20 @@ static void parseImm(CursorState* cursor, DataSegmentAndMemImm& outImm)
 
 static void parseImm(CursorState* cursor, DataSegmentImm& outImm)
 {
-	outImm.dataSegmentIndex = parseIptr(cursor);
+	outImm.dataSegmentIndex
+		= parseAndResolveNameOrIndexRef(cursor,
+										cursor->moduleState->dataNameToIndexMap,
+										cursor->moduleState->module.dataSegments.size(),
+										"data");
 }
 
 static void parseImm(CursorState* cursor, ElemSegmentAndTableImm& outImm)
 {
-	outImm.elemSegmentIndex = parseIptr(cursor);
+	outImm.elemSegmentIndex
+		= parseAndResolveNameOrIndexRef(cursor,
+										cursor->moduleState->elemNameToIndexMap,
+										cursor->moduleState->module.elemSegments.size(),
+										"elem");
 	if(!tryParseAndResolveNameOrIndexRef(cursor,
 										 cursor->moduleState->tableNameToIndexMap,
 										 cursor->moduleState->module.tables.size(),
@@ -386,7 +398,11 @@ static void parseImm(CursorState* cursor, ElemSegmentAndTableImm& outImm)
 
 static void parseImm(CursorState* cursor, ElemSegmentImm& outImm)
 {
-	outImm.elemSegmentIndex = parseIptr(cursor);
+	outImm.elemSegmentIndex
+		= parseAndResolveNameOrIndexRef(cursor,
+										cursor->moduleState->elemNameToIndexMap,
+										cursor->moduleState->module.elemSegments.size(),
+										"elem");
 }
 
 static void parseInstrSequence(CursorState* cursor);

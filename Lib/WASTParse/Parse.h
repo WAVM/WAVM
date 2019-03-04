@@ -142,6 +142,8 @@ namespace WAVM { namespace WAST {
 		NameToIndexMap memoryNameToIndexMap;
 		NameToIndexMap globalNameToIndexMap;
 		NameToIndexMap exceptionTypeNameToIndexMap;
+		NameToIndexMap elemNameToIndexMap;
+		NameToIndexMap dataNameToIndexMap;
 
 		IR::DisassemblyNames disassemblyNames;
 

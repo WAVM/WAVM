@@ -311,6 +311,8 @@ namespace WAVM { namespace IR {
 		std::vector<std::string> tables;
 		std::vector<std::string> memories;
 		std::vector<std::string> globals;
+		std::vector<std::string> elemSegments;
+		std::vector<std::string> dataSegments;
 		std::vector<std::string> exceptionTypes;
 	};
 

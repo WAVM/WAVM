@@ -26,6 +26,9 @@ enum class NameSubsectionType : U8
 	table = 5,
 	memory = 6,
 	global = 7,
+	elemSegment = 8,
+	dataSegment = 9,
+	exceptionTypes = 10,
 	invalid = 0xff
 };
 
@@ -203,6 +206,22 @@ static void deserializeNameSubsection(const Module& module,
 		}
 		deserializeNameMap(substream, outNames.globals, outNames.globals.size());
 		break;
+	case NameSubsectionType::elemSegment:
+		if(!module.featureSpec.extendedNamesSection)
+		{
+			throw FatalSerializationException(
+				"elem segment name subsection requires extendedNamesSection feature");
+		}
+		deserializeNameMap(substream, outNames.elemSegments, outNames.elemSegments.size());
+		break;
+	case NameSubsectionType::dataSegment:
+		if(!module.featureSpec.extendedNamesSection)
+		{
+			throw FatalSerializationException(
+				"data segment name subsection requires extendedNamesSection feature");
+		}
+		deserializeNameMap(substream, outNames.dataSegments, outNames.dataSegments.size());
+		break;
 	default:
 		Log::printf(Log::debug, "Unknown WASM binary name subsection type: %u\n", subsectionType);
 		break;
@@ -234,6 +253,8 @@ void IR::getDisassemblyNames(const Module& module, DisassemblyNames& outNames)
 	outNames.tables.insert(outNames.tables.end(), module.tables.size(), "");
 	outNames.memories.insert(outNames.memories.end(), module.memories.size(), "");
 	outNames.globals.insert(outNames.globals.end(), module.globals.size(), "");
+	outNames.elemSegments.insert(outNames.elemSegments.end(), module.elemSegments.size(), "");
+	outNames.dataSegments.insert(outNames.dataSegments.end(), module.dataSegments.size(), "");
 	outNames.exceptionTypes.insert(outNames.exceptionTypes.end(), module.exceptionTypes.size(), "");
 
 	// Deserialize the name section, if it is present.
@@ -356,6 +377,24 @@ void IR::setDisassemblyNames(Module& module, const DisassemblyNames& names)
 		serializeNameSubsection(
 			stream, NameSubsectionType::global, [&names](OutputStream& subsectionStream) {
 				serializeNameMap(subsectionStream, names.globals);
+			});
+
+		// Elem segments
+		serializeNameSubsection(
+			stream, NameSubsectionType::elemSegment, [&names](OutputStream& subsectionStream) {
+				serializeNameMap(subsectionStream, names.elemSegments);
+			});
+
+		// Data segments
+		serializeNameSubsection(
+			stream, NameSubsectionType::dataSegment, [&names](OutputStream& subsectionStream) {
+				serializeNameMap(subsectionStream, names.dataSegments);
+			});
+
+		// Exception types
+		serializeNameSubsection(
+			stream, NameSubsectionType::exceptionTypes, [&names](OutputStream& subsectionStream) {
+				serializeNameMap(subsectionStream, names.exceptionTypes);
 			});
 	}
 
