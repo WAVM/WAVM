@@ -229,6 +229,7 @@ static void deserializeNameSubsection(const Module& module,
 				"exception type name subsection requires extendedNamesSection feature");
 		}
 		deserializeNameMap(substream, outNames.exceptionTypes, outNames.exceptionTypes.size());
+		break;
 	default:
 		Log::printf(Log::debug, "Unknown WASM binary name subsection type: %u\n", subsectionType);
 		break;
