@@ -305,6 +305,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 			{
 				parseErrorf(
 					cursor->parseState, cursor->nextToken, "quoted names must not be empty");
+				outName = Name();
 			}
 			else
 			{
