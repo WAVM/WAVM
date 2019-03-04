@@ -506,8 +506,16 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 		// Get the DWARF line info for this symbol, which maps machine code addresses to
 		// WebAssembly op indices.
+#if LLVM_VERSION_MAJOR >= 9
+		llvm::Expected<llvm::object::section_iterator> section = symbol.getSection();
+		if(!section) { continue; }
+		llvm::DILineInfoTable lineInfoTable = dwarfContext->getLineInfoForAddressRange(
+			llvm::object::SectionedAddress{loadedAddress, section.get()->getIndex()},
+			symbolSizePair.second);
+#else
 		llvm::DILineInfoTable lineInfoTable
 			= dwarfContext->getLineInfoForAddressRange(loadedAddress, symbolSizePair.second);
+#endif
 		std::map<U32, U32> offsetToOpIndexMap;
 		for(auto lineInfo : lineInfoTable)
 		{ offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
