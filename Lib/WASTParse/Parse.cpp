@@ -301,13 +301,22 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 		{
 			std::string quotedNameChars;
 			parseStringChars(nextChar, cursor->parseState, quotedNameChars);
-			cursor->parseState->quotedNameStrings.push_back(
-				std::unique_ptr<std::string>{new std::string(std::move(quotedNameChars))});
+			if(quotedNameChars.size() == 0)
+			{
+				parseErrorf(
+					cursor->parseState, cursor->nextToken, "quoted names must not be empty");
+			}
+			else
+			{
+				cursor->parseState->quotedNameStrings.push_back(
+					std::unique_ptr<std::string>{new std::string(std::move(quotedNameChars))});
+				const std::unique_ptr<std::string>& quotedName
+					= cursor->parseState->quotedNameStrings.back();
+				wavmAssert(quotedName->size() <= UINT32_MAX);
+				outName
+					= Name(quotedName->data(), U32(quotedName->size()), cursor->nextToken->begin);
+			}
 		}
-		const std::unique_ptr<std::string>& quotedName
-			= cursor->parseState->quotedNameStrings.back();
-		wavmAssert(quotedName->size() <= UINT32_MAX);
-		outName = Name(quotedName->data(), U32(quotedName->size()), cursor->nextToken->begin);
 	}
 	else
 	{
