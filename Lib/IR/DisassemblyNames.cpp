@@ -222,6 +222,13 @@ static void deserializeNameSubsection(const Module& module,
 		}
 		deserializeNameMap(substream, outNames.dataSegments, outNames.dataSegments.size());
 		break;
+	case NameSubsectionType::exceptionTypes:
+		if(!module.featureSpec.extendedNamesSection)
+		{
+			throw FatalSerializationException(
+				"exception type name subsection requires extendedNamesSection feature");
+		}
+		deserializeNameMap(substream, outNames.exceptionTypes, outNames.exceptionTypes.size());
 	default:
 		Log::printf(Log::debug, "Unknown WASM binary name subsection type: %u\n", subsectionType);
 		break;
