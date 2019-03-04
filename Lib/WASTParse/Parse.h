@@ -79,7 +79,8 @@ namespace WAVM { namespace WAST {
 
 		friend constexpr bool operator==(const Name& a, const Name& b)
 		{
-			return a.numChars == b.numChars && memcmp(a.begin, b.begin, a.numChars) == 0;
+			return a.numChars == b.numChars
+				   && (a.numChars == 0 || memcmp(a.begin, b.begin, a.numChars) == 0);
 		}
 		friend constexpr bool operator!=(const Name& a, const Name& b) { return !(a == b); }
 
