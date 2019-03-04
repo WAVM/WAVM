@@ -438,18 +438,34 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 		Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
-		for(Uptr index = 0; index < numElements; ++index)
+		if(!numElements)
 		{
-			const U64 sourceIndex = U64(sourceOffset) + index;
-			const U64 destIndex = U64(destOffset) + index;
-			if(sourceIndex >= passiveElemSegmentObjects->size())
+			// WebAssembly expects 0-sized inits to still trap for out-of-bounds adddresses.
+			if(sourceOffset > passiveElemSegmentObjects->size())
 			{
 				throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
-							   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+							   {asObject(moduleInstance), U64(elemSegmentIndex), sourceOffset});
 			}
+			else if(destOffset > getTableNumElements(table))
+			{
+				throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(destOffset)});
+			}
+		}
+		else
+		{
+			for(Uptr index = 0; index < numElements; ++index)
+			{
+				const U64 sourceIndex = U64(sourceOffset) + index;
+				const U64 destIndex = U64(destOffset) + index;
+				if(sourceIndex >= passiveElemSegmentObjects->size())
+				{
+					throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
+								   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+				}
 
-			setTableElement(
-				table, Uptr(destIndex), asObject((*passiveElemSegmentObjects)[sourceIndex]));
+				setTableElement(
+					table, Uptr(destIndex), asObject((*passiveElemSegmentObjects)[sourceIndex]));
+			}
 		}
 	}
 }
@@ -492,22 +508,39 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 					  ? destOffset - sourceOffset
 					  : numElements;
 
-			// If the end of the source overlaps the beginning of the destination, copy those
-			// elements before they are overwritten by the second part of the copy below.
-			for(Uptr index = numNonOverlappingElements; index < numElements; ++index)
+			if(!numElements)
 			{
-				setTableElementNonNull(
-					table,
-					U64(destOffset) + U64(index),
-					getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
+				// WebAssembly expects 0-sized copies to still trap for out-of-bounds adddresses.
+				if(sourceOffset > getTableNumElements(table))
+				{
+					throwException(ExceptionTypes::outOfBoundsTableAccess,
+								   {table, U64(sourceOffset)});
+				}
+				else if(destOffset > getTableNumElements(table))
+				{
+					throwException(ExceptionTypes::outOfBoundsTableAccess,
+								   {table, U64(destOffset)});
+				}
 			}
-
-			for(Uptr index = 0; index < numNonOverlappingElements; ++index)
+			else
 			{
-				setTableElementNonNull(
-					table,
-					U64(destOffset) + U64(index),
-					getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
+				// If the end of the source overlaps the beginning of the destination, copy those
+				// elements before they are overwritten by the second part of the copy below.
+				for(Uptr index = numNonOverlappingElements; index < numElements; ++index)
+				{
+					setTableElementNonNull(
+						table,
+						U64(destOffset) + U64(index),
+						getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
+				}
+
+				for(Uptr index = 0; index < numNonOverlappingElements; ++index)
+				{
+					setTableElementNonNull(
+						table,
+						U64(destOffset) + U64(index),
+						getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
+				}
 			}
 		}
 	});

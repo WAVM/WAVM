@@ -361,6 +361,11 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 					destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
 			});
 		}
+		else if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
+		{
+			// WebAssembly expects 0-sized inits to still trap for out-of-bounds adddresses.
+			throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)});
+		}
 	}
 }
 
@@ -399,8 +404,19 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	if(numBytes)
 	{
-		Runtime::unwindSignalsAsExceptions(
+		unwindSignalsAsExceptions(
 			[=] { Platform::bytewiseMemMove(destPointer, sourcePointer, numBytes); });
+	}
+	else
+	{
+		// WebAssembly expects 0-sized copies to still trap for out-of-bounds adddresses.
+		const Uptr numMemoryBytes = getMemoryNumPages(memory) * IR::numBytesPerPage;
+		if(destAddress > numMemoryBytes)
+		{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)}); }
+		else if(sourceAddress > numMemoryBytes)
+		{
+			throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(sourceAddress)});
+		}
 	}
 }
 
@@ -418,7 +434,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
 	if(numBytes)
 	{
-		Runtime::unwindSignalsAsExceptions(
+		unwindSignalsAsExceptions(
 			[=] { Platform::bytewiseMemSet(destPointer, U8(value), numBytes); });
+	}
+	else if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
+	{
+		// WebAssembly expects 0-sized fills to still trap for out-of-bounds adddresses.
+		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)});
 	}
 }
