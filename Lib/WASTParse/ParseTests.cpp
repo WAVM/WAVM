@@ -336,10 +336,6 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				ExpectedTrapType expectedType;
 				if(!strcmp(expectedErrorMessage.c_str(), "out of bounds memory access"))
 				{ expectedType = ExpectedTrapType::outOfBoundsMemoryAccess; }
-				else if(!strcmp(expectedErrorMessage.c_str(), "out of bounds"))
-				{
-					expectedType = ExpectedTrapType::outOfBoundsTableAccess;
-				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(),
 										 "out of bounds data segment access"))
 				{
@@ -349,6 +345,10 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 										 "out of bounds elem segment access"))
 				{
 					expectedType = ExpectedTrapType::outOfBoundsElemSegmentAccess;
+				}
+				else if(stringStartsWith(expectedErrorMessage.c_str(), "out of bounds"))
+				{
+					expectedType = ExpectedTrapType::outOfBoundsTableAccess;
 				}
 				else if(!strcmp(expectedErrorMessage.c_str(), "call stack exhausted"))
 				{
@@ -387,6 +387,14 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					expectedType = ExpectedTrapType::uninitializedTableElement;
 				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(), "invalid argument"))
+				{
+					expectedType = ExpectedTrapType::invalidArgument;
+				}
+				else if(!strcmp(expectedErrorMessage.c_str(), "elements segment dropped"))
+				{
+					expectedType = ExpectedTrapType::invalidArgument;
+				}
+				else if(!strcmp(expectedErrorMessage.c_str(), "data segment dropped"))
 				{
 					expectedType = ExpectedTrapType::invalidArgument;
 				}

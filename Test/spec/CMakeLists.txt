@@ -7,6 +7,7 @@ set(WASTTests
 	br.wast
 	br_if.wast
 	br_table.wast
+	bulk.wast
 	call.wast
 	call_indirect.wast
 	comments.wast
