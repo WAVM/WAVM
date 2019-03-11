@@ -348,7 +348,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				}
 				else if(stringStartsWith(expectedErrorMessage.c_str(), "out of bounds"))
 				{
-					expectedType = ExpectedTrapType::outOfBoundsTableAccess;
+					expectedType = ExpectedTrapType::outOfBounds;
 				}
 				else if(!strcmp(expectedErrorMessage.c_str(), "call stack exhausted"))
 				{
@@ -390,7 +390,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				{
 					expectedType = ExpectedTrapType::invalidArgument;
 				}
-				else if(!strcmp(expectedErrorMessage.c_str(), "elements segment dropped"))
+				else if(!strcmp(expectedErrorMessage.c_str(), "element segment dropped"))
 				{
 					expectedType = ExpectedTrapType::invalidArgument;
 				}

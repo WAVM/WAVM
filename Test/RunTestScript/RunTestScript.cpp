@@ -150,7 +150,7 @@ static ModuleInstance* getModuleContextByInternalName(TestScriptState& state,
 	return moduleInstance;
 }
 
-static Runtime::ExceptionType* getExpectedExceptionType(WAST::ExpectedTrapType expectedType)
+static Runtime::ExceptionType* getExpectedTrapType(WAST::ExpectedTrapType expectedType)
 {
 	switch(expectedType)
 	{
@@ -181,6 +181,33 @@ static Runtime::ExceptionType* getExpectedExceptionType(WAST::ExpectedTrapType e
 	case WAST::ExpectedTrapType::invalidArgument: return Runtime::ExceptionTypes::invalidArgument;
 	default: Errors::unreachable();
 	};
+}
+
+static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
+									Runtime::ExceptionType* actualType)
+{
+	// WAVM has more precise trap types for out-of-bounds accesses than the spec tests.
+	if(expectedType == WAST::ExpectedTrapType::outOfBounds)
+	{
+		return actualType == Runtime::ExceptionTypes::outOfBoundsMemoryAccess
+			   || actualType == Runtime::ExceptionTypes::outOfBoundsDataSegmentAccess
+			   || actualType == Runtime::ExceptionTypes::outOfBoundsTableAccess
+			   || actualType == Runtime::ExceptionTypes::outOfBoundsElemSegmentAccess;
+	}
+	else if(expectedType == WAST::ExpectedTrapType::outOfBoundsMemoryAccess)
+	{
+		return actualType == Runtime::ExceptionTypes::outOfBoundsMemoryAccess
+			   || actualType == Runtime::ExceptionTypes::outOfBoundsDataSegmentAccess;
+	}
+	else if(expectedType == WAST::ExpectedTrapType::outOfBoundsTableAccess)
+	{
+		return actualType == Runtime::ExceptionTypes::outOfBoundsTableAccess
+			   || actualType == Runtime::ExceptionTypes::outOfBoundsElemSegmentAccess;
+	}
+	else
+	{
+		return getExpectedTrapType(expectedType) == actualType;
+	}
 }
 
 static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple& outResults)
@@ -414,15 +441,15 @@ static void processCommand(TestScriptState& state, const Command* command)
 				}
 			},
 			[&](Runtime::Exception* exception) {
-				Runtime::ExceptionType* expectedType
-					= getExpectedExceptionType(assertCommand->expectedType);
-				if(exception->type != expectedType)
+				if(!isExpectedExceptionType(assertCommand->expectedType, exception->type))
 				{
-					testErrorf(state,
-							   assertCommand->action->locus,
-							   "expected %s trap but got %s trap",
-							   describeExceptionType(expectedType).c_str(),
-							   describeExceptionType(exception->type).c_str());
+					testErrorf(
+						state,
+						assertCommand->action->locus,
+						"expected %s trap but got %s trap",
+						describeExceptionType(getExpectedTrapType(assertCommand->expectedType))
+							.c_str(),
+						describeExceptionType(exception->type).c_str());
 				}
 				destroyException(exception);
 			});
