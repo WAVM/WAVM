@@ -610,19 +610,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 
 	while(cursor->nextToken->type != t_rightParenthesis)
 	{
-		if(isActive)
-		{
-			Reference elementRef;
-			if(!tryParseNameOrIndexRef(cursor, elementRef))
-			{
-				parseErrorf(
-					cursor->parseState, cursor->nextToken, "expected function name or index");
-				throw RecoverParseException();
-			}
-
-			elementReferences->push_back({Elem::Type::ref_func, std::move(elementRef)});
-		}
-		else
+		if(!isActive && cursor->nextToken->type == t_leftParenthesis)
 		{
 			parseParenthesized(cursor, [&] {
 				switch(cursor->nextToken->type)
@@ -653,6 +641,18 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					throw RecoverParseException();
 				};
 			});
+		}
+		else
+		{
+			Reference elementRef;
+			if(!tryParseNameOrIndexRef(cursor, elementRef))
+			{
+				parseErrorf(
+					cursor->parseState, cursor->nextToken, "expected function name or index");
+				throw RecoverParseException();
+			}
+
+			elementReferences->push_back({Elem::Type::ref_func, std::move(elementRef)});
 		}
 	}
 
