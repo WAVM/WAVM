@@ -465,10 +465,10 @@
 (assert_invalid (module (memory 1 1) (func (drop (i64.atomic.rmw16.cmpxchg_u (i32.const 0) (i64.const 0) (i64.const 0))))) "atomic accesses require shared memory")
 (assert_invalid (module (memory 1 1) (func (drop (i64.atomic.rmw32.cmpxchg_u (i32.const 0) (i64.const 0) (i64.const 0))))) "atomic accesses require shared memory")
 
-;; TODO: *.atomic.wait and atomic.notify (unimplemented in exec)
-
 (module
   (memory 1 1 shared)
+
+  (func (export "init") (param $value i64) (i64.store (i32.const 0) (local.get $value)))
 
   (func (export "atomic.notify") (param $addr i32) (param $count i32) (result i32)
       (atomic.notify (local.get 0) (local.get 1)))
@@ -477,3 +477,8 @@
   (func (export "i64.atomic.wait") (param $addr i32) (param $expected i64) (param $timeout i64) (result i32)
       (i64.atomic.wait (local.get 0) (local.get 1) (local.get 2)))
 )
+
+(invoke "init" (i64.const 0xffffffffffff))
+(assert_return (invoke "i32.atomic.wait" (i32.const 0) (i32.const 0) (i64.const 0)) (i32.const 1))
+(assert_return (invoke "i64.atomic.wait" (i32.const 0) (i64.const 0) (i64.const 0)) (i32.const 1))
+(assert_return (invoke "atomic.notify" (i32.const 0) (i32.const 0)) (i32.const 0))
