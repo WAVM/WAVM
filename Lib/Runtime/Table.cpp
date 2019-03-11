@@ -501,46 +501,40 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	Runtime::unwindSignalsAsExceptions([=] {
 		Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
-		if(sourceOffset != destOffset)
+		if(!numElements)
 		{
-			const Uptr numNonOverlappingElements
-				= sourceOffset < destOffset && U64(sourceOffset) + U64(numElements) > destOffset
-					  ? destOffset - sourceOffset
-					  : numElements;
-
-			if(!numElements)
+			// WebAssembly expects 0-sized copies to still trap for out-of-bounds adddresses.
+			if(sourceOffset > getTableNumElements(table))
 			{
-				// WebAssembly expects 0-sized copies to still trap for out-of-bounds adddresses.
-				if(sourceOffset > getTableNumElements(table))
-				{
-					throwException(ExceptionTypes::outOfBoundsTableAccess,
-								   {table, U64(sourceOffset)});
-				}
-				else if(destOffset > getTableNumElements(table))
-				{
-					throwException(ExceptionTypes::outOfBoundsTableAccess,
-								   {table, U64(destOffset)});
-				}
+				throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(sourceOffset)});
 			}
-			else
+			else if(destOffset > getTableNumElements(table))
 			{
-				// If the end of the source overlaps the beginning of the destination, copy those
-				// elements before they are overwritten by the second part of the copy below.
-				for(Uptr index = numNonOverlappingElements; index < numElements; ++index)
-				{
-					setTableElementNonNull(
-						table,
-						U64(destOffset) + U64(index),
-						getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
-				}
-
-				for(Uptr index = 0; index < numNonOverlappingElements; ++index)
-				{
-					setTableElementNonNull(
-						table,
-						U64(destOffset) + U64(index),
-						getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
-				}
+				throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(destOffset)});
+			}
+		}
+		else if(sourceOffset < destOffset && U64(sourceOffset) + U64(numElements) > destOffset)
+		{
+			// If the end of the source range overlaps the beginning of the destination range,
+			// copy the elements in reverse order so source elements are copied before they are
+			// overwritten.
+			for(Uptr index = 0; index < numElements; ++index)
+			{
+				setTableElementNonNull(
+					table,
+					U64(destOffset) + U64(numElements - index - 1),
+					getTableElementNonNull(table,
+										   U64(sourceOffset) + U64(numElements - index - 1)));
+			}
+		}
+		else
+		{
+			for(Uptr index = 0; index < numElements; ++index)
+			{
+				setTableElementNonNull(
+					table,
+					U64(destOffset) + U64(index),
+					getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
 			}
 		}
 	});
