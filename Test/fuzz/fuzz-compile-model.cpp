@@ -800,7 +800,8 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 				elems.push_back({{Elem::Type::ref_func}, functionIndex});
 			}
 		}
-		module.elemSegments.push_back({false, UINTPTR_MAX, {}, std::move(elems)});
+		module.elemSegments.push_back(
+			{false, UINTPTR_MAX, {}, ReferenceType::funcref, std::move(elems)});
 	};
 
 	validatePreCodeSections(module);

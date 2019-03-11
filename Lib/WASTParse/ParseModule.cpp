@@ -309,7 +309,7 @@ static void parseImport(CursorState* cursor)
 		{
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			const ReferenceType elementType = parseReferenceType(cursor);
+			const ReferenceType elemType = parseReferenceType(cursor);
 			createImport(cursor,
 						 name,
 						 std::move(moduleName),
@@ -317,7 +317,7 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->tableNameToIndexMap,
 						 cursor->moduleState->module.tables,
 						 cursor->moduleState->disassemblyNames.tables,
-						 {elementType, isShared, sizeConstraints});
+						 {elemType, isShared, sizeConstraints});
 			break;
 		}
 		case t_memory:
@@ -594,6 +594,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 								 Name segmentName,
 								 Reference tableRef,
 								 UnresolvedInitializerExpression baseIndex,
+								 ReferenceType elemType,
 								 const Token* elemToken)
 {
 	struct UnresolvedElem
@@ -657,8 +658,11 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 
 	// Create the elem segment.
 	const Uptr elemSegmentIndex = cursor->moduleState->module.elemSegments.size();
-	cursor->moduleState->module.elemSegments.push_back(
-		{isActive, UINTPTR_MAX, InitializerExpression(), std::vector<Elem>()});
+	cursor->moduleState->module.elemSegments.push_back({isActive,
+														UINTPTR_MAX,
+														InitializerExpression(),
+														ReferenceType::funcref,
+														std::vector<Elem>()});
 
 	if(segmentName)
 	{
@@ -732,7 +736,10 @@ static void parseElem(CursorState* cursor)
 	UnresolvedInitializerExpression baseIndex;
 	bool isActive = parseSegmentDeclaration(cursor, segmentName, tableRef, baseIndex);
 
-	parseElemSegmentBody(cursor, isActive, segmentName, tableRef, baseIndex, elemToken);
+	ReferenceType elemType = ReferenceType::funcref;
+	if(!isActive) { elemType = parseReferenceType(cursor); }
+
+	parseElemSegmentBody(cursor, isActive, segmentName, tableRef, baseIndex, elemType, elemToken);
 }
 
 template<typename Def,
@@ -836,8 +843,8 @@ static void parseTable(CursorState* cursor)
 		[](CursorState* cursor) {
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
-			const ReferenceType elementType = parseReferenceType(cursor);
-			return TableType{elementType, isShared, sizeConstraints};
+			const ReferenceType elemType = parseReferenceType(cursor);
+			return TableType{elemType, isShared, sizeConstraints};
 		},
 		// Parse a table definition.
 		[](CursorState* cursor, const Token*) {
@@ -847,7 +854,7 @@ static void parseTable(CursorState* cursor)
 				= tryParseSizeConstraints(cursor, IR::maxTableElems, sizeConstraints);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 
-			const ReferenceType elementType = parseReferenceType(cursor);
+			const ReferenceType elemType = parseReferenceType(cursor);
 
 			// If we couldn't parse an explicit size constraints, the table definition must contain
 			// an elem segment that implicitly defines the size.
@@ -863,12 +870,13 @@ static void parseTable(CursorState* cursor)
 											   Name(),
 											   Reference(tableIndex),
 											   UnresolvedInitializerExpression((I32)0),
+											   elemType,
 											   cursor->nextToken - 1);
 					sizeConstraints.min = sizeConstraints.max = numElements;
 				});
 			}
 
-			return TableDef{TableType(elementType, isShared, sizeConstraints)};
+			return TableDef{TableType(elemType, isShared, sizeConstraints)};
 		});
 }
 

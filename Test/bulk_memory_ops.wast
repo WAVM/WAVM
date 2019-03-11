@@ -458,8 +458,8 @@
 
 ;; passive elem segments
 
-(module (elem passive (ref.func $f)) (func $f))
-(module (elem passive (ref.null)))
+(module (elem passive funcref (ref.func $f)) (func $f))
+(module (elem passive funcref (ref.null)))
 (assert_invalid
 	(module (table $t 1) (elem passive (i32.const 0) (ref.func $f)) (func $f))
 	"unexpected expression"
@@ -648,8 +648,8 @@
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
 
-	(elem passive (ref.func $0) (ref.func $1))
-	(elem passive (ref.func $2) (ref.func $3))
+	(elem passive funcref (ref.func $0) (ref.func $1))
+	(elem passive funcref (ref.func $2) (ref.func $3))
 
 	(func $0 (type $type_i32) (result i32) i32.const 0)
 	(func $1 (type $type_i32) (result i32) i32.const 1)
@@ -729,7 +729,7 @@
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
 
-	(elem passive (ref.func $0) (ref.null) (ref.func $1))
+	(elem passive funcref (ref.func $0) (ref.null) (ref.func $1))
 
 	(func $0 (type $type_i32) (result i32) i32.const 0)
 	(func $1 (type $type_i32) (result i32) i32.const 1)

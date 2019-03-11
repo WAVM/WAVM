@@ -197,6 +197,7 @@ namespace WAVM { namespace IR {
 		bool isActive;
 		Uptr tableIndex;
 		InitializerExpression baseOffset;
+		ReferenceType elemType;
 		std::vector<Elem> elems;
 	};
 

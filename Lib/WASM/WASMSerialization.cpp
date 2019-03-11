@@ -301,6 +301,7 @@ namespace WAVM { namespace IR {
 		}
 		else
 		{
+			serialize(stream, elemSegment.elemType);
 			serializeArray(stream, elemSegment.elems, [](Stream& stream, Elem& elem) {
 				serializeOpcode(stream, elem.typeOpcode);
 				switch(elem.type)
