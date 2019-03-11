@@ -5,7 +5,7 @@
 
 (module
   (table 3 funcref)
-  (elem passive (ref.func 0) (ref.null) (ref.func 1))
+  (elem passive funcref (ref.func 0) (ref.null) (ref.func 1))
   (func)
   (func))
 
@@ -154,7 +154,7 @@
 (assert_trap (invoke "init" (i32.const 0x10001) (i32.const 0) (i32.const 0))
     "out of bounds memory access")
 (assert_trap (invoke "init" (i32.const 0) (i32.const 5) (i32.const 0))
-    "out of bounds data segment access")
+    "out of bounds memory access")
 
 ;; data.drop
 (module
@@ -182,7 +182,7 @@
 ;; table.init
 (module
   (table 3 funcref)
-  (elem passive
+  (elem passive funcref
     (ref.func $zero) (ref.func $one) (ref.func $zero) (ref.func $one))
 
   (func $zero (result i32) (i32.const 0))
@@ -220,14 +220,14 @@
 (assert_trap (invoke "init" (i32.const 4) (i32.const 0) (i32.const 0))
     "out of bounds table access")
 (assert_trap (invoke "init" (i32.const 0) (i32.const 5) (i32.const 0))
-    "out of bounds elem segment access")
+    "out of bounds table access")
 
 
 ;; elem.drop
 (module
   (table 1 funcref)
   (func $f)
-  (elem $p passive (ref.func $f))
+  (elem $p passive funcref (ref.func $f))
   (elem $a 0 (i32.const 0) $f)
 
   (func (export "drop_passive") (elem.drop $p))
@@ -241,10 +241,10 @@
 
 (invoke "init_passive")
 (invoke "drop_passive")
-(assert_trap (invoke "drop_passive") "elements segment dropped")
-(assert_trap (invoke "init_passive") "elements segment dropped")
-(assert_trap (invoke "drop_active") "elements segment dropped")
-(assert_trap (invoke "init_active") "elements segment dropped")
+(assert_trap (invoke "drop_passive") "element segment dropped")
+(assert_trap (invoke "init_passive") "element segment dropped")
+(assert_trap (invoke "drop_active") "element segment dropped")
+(assert_trap (invoke "init_active") "element segment dropped")
 
 
 ;; table.copy

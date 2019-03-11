@@ -241,6 +241,8 @@
 )
 (assert_trap (invoke $Mt "call" (i32.const 7)) "uninitialized")
 
+;; Unlike in the v1 spec, the elements stored before an out-of-bounds access
+;; persist after the instantiation failure.
 (assert_unlinkable
   (module
     (table (import "Mt" "tab") 10 funcref)
@@ -250,6 +252,7 @@
   )
   "elements segment does not fit"
 )
+(assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
 
 (assert_unlinkable
   (module
@@ -261,6 +264,7 @@
   )
   "data segment does not fit"
 )
+(assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
 
 
 ;; Memories
@@ -346,6 +350,8 @@
 )
 (assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
 
+;; Unlike in v1 spec, bytes written before an out-of-bounds access persist
+;; after the instantiation failure.
 (assert_unlinkable
   (module
     (memory (import "Mm" "mem") 1)
@@ -354,6 +360,7 @@
   )
   "data segment does not fit"
 )
+(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 97))
 
 (assert_unlinkable
   (module
@@ -365,3 +372,4 @@
   )
   "elements segment does not fit"
 )
+(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 97))
