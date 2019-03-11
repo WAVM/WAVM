@@ -106,6 +106,12 @@ namespace WAVM { namespace Platform {
 #endif
 	}
 
+	inline void bytewiseMemCopyReverse(U8* dest, const U8* source, Uptr numBytes)
+	{
+		for(Uptr index = 0; index < numBytes; ++index)
+		{ dest[numBytes - index - 1] = source[numBytes - index - 1]; }
+	}
+
 	inline void bytewiseMemSet(U8* dest, U8 value, Uptr numBytes)
 	{
 #ifdef _WIN32
@@ -127,16 +133,11 @@ namespace WAVM { namespace Platform {
 
 	inline void bytewiseMemMove(U8* dest, U8* source, Uptr numBytes)
 	{
-		const Uptr numNonOverlappingBytes
-			= source < dest && source + numBytes > dest ? dest - source : numBytes;
-
-		if(numNonOverlappingBytes != numBytes)
+		if(source < dest && source + numBytes > dest)
+		{ bytewiseMemCopyReverse(dest, source, numBytes); }
+		else
 		{
-			bytewiseMemCopy(dest + numNonOverlappingBytes,
-							source + numNonOverlappingBytes,
-							numBytes - numNonOverlappingBytes);
+			bytewiseMemCopy(dest, source, numBytes);
 		}
-
-		bytewiseMemCopy(dest, source, numNonOverlappingBytes);
 	}
 }}
