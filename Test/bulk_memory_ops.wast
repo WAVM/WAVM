@@ -504,10 +504,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\05\01"                          ;; elem section: 5 bytes, 1 entry
-	"\01"                                ;;   [0] passive elem segment
+	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
+	"\01\70"                             ;;   [0] passive elem funcref segment
 	"\01"                                ;;     elem segment with 1 element
-	"\d2\00"                             ;;     [0] ref.func 0
+	"\d2\00\0b"                          ;;     [0] ref.func 0
 	
 	"\0a\04\01"                          ;; Code section
 	"\02\00"                             ;; function 0: 2 bytes, 0 local sets
@@ -526,10 +526,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\04\01"                          ;; elem section: 4 bytes, 1 entry
-	"\01"                                ;;   [0] passive elem segment
+	"\09\06\01"                          ;; elem section: 6 bytes, 1 entry
+	"\01\70"                             ;;   [0] passive elem funcref segment
 	"\01"                                ;;     elem segment with 1 element
-	"\d0"                                ;;     [0] ref.null
+	"\d0\0b"                             ;;     [0] ref.null
 	
 	"\0a\04\01"                          ;; Code section
 	"\02\00"                             ;; function 0: 2 bytes, 0 local sets
@@ -549,10 +549,10 @@
 		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 		"\70\00\01"                          ;;   (table 1 funcref)
 	
-		"\09\04\01"                          ;; elem section: 4 bytes, 1 entry
-		"\01"                                ;;   [0] passive elem segment
+		"\09\06\01"                          ;; elem section: 6 bytes, 1 entry
+		"\01\70"                             ;;   [0] passive elem funcref segment
 		"\01"                                ;;     elem segment with 1 element
-		"\00"                                ;;     [0] unreachable
+		"\00\0b"                             ;;     [0] unreachable
 	
 		"\0a\04\01"                          ;; Code section
 		"\02\00"                             ;; function 0: 2 bytes, 0 local sets
@@ -598,10 +598,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\05\01"                          ;; elem section: 5 bytes, 1 entry
-	"\01"                                ;;   [0] passive elem segment
+	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
+	"\01\70"                             ;;   [0] passive elem funcref segment
 	"\01"                                ;;     elem segment with 1 element
-	"\d2\00"                             ;;     [0] ref.func 0
+	"\d2\00\0b"                          ;;     [0] ref.func 0
 	
 	"\0a\11\01"                          ;; Code section
 	"\0f\00"                             ;; function 0: 15 bytes, 0 local sets
@@ -767,10 +767,10 @@
 	"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 	"\70\00\01"                          ;;   (table 1 funcref)
 	
-	"\09\05\01"                          ;; elem section: 5 bytes, 1 entry
-	"\01"                                ;;   [0] passive elem segment
+	"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
+	"\01\70"                             ;;   [0] passive elem funcref segment
 	"\01"                                ;;     elem segment with 1 element
-	"\d2\00"                             ;;     [0] ref.func 0
+	"\d2\00\0b"                          ;;     [0] ref.func 0
 	
 	"\0a\0d\01"                          ;; Code section
 	"\0b\00"                             ;; function 0: 11 bytes, 0 local sets
@@ -794,10 +794,10 @@
 		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
 		"\70\00\01"                          ;;   (table 1 funcref)
 	
-		"\09\05\01"                          ;; elem section: 5 bytes, 1 entry
-		"\01"                                ;;   [0] passive elem segment
+		"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
+		"\01\70"                             ;;   [0] passive elem funcref segment
 		"\01"                                ;;     elem segment with 1 element
-		"\d2\00"                             ;;     [0] ref.func 0
+		"\d2\00\0b"                          ;;     [0] ref.func 0
 	
 		"\0a\0e\01"                          ;; Code section
 		"\0b\00"                             ;; function 0: 11 bytes, 0 local sets

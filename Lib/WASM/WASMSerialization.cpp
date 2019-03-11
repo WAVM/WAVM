@@ -310,6 +310,7 @@ namespace WAVM { namespace IR {
 				case Elem::Type::ref_func: serializeVarUInt32(stream, elem.index); break;
 				default: throw FatalSerializationException("invalid elem opcode");
 				};
+				serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
 			});
 		}
 	}
