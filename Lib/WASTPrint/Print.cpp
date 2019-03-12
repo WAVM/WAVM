@@ -877,7 +877,16 @@ void ModulePrintContext::printModule()
 		string += ' ';
 		string += names.elemSegments[segmentIndex];
 		string += ' ';
-		if(!elemSegment.isActive) { string += "passive"; }
+		if(!elemSegment.isActive)
+		{
+			string += "passive";
+			switch(elemSegment.elemType)
+			{
+			case ReferenceType::anyref: string += " anyref"; break;
+			case ReferenceType::funcref: string += " funcref"; break;
+			default: Errors::unreachable();
+			};
+		}
 		else
 		{
 			string += names.tables[elemSegment.tableIndex];
