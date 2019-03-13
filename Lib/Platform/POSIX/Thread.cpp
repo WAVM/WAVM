@@ -185,14 +185,6 @@ struct ThreadEntryContext
 
 static thread_local ThreadEntryContext* threadEntryContext = nullptr;
 
-static Uptr getNumStackBytesRLimit()
-{
-	// Use getrlimit to find the maximum size of the stack instead of the current.
-	struct rlimit stackLimit;
-	getrlimit(RLIMIT_STACK, &stackLimit);
-	return stackLimit.rlim_cur;
-}
-
 static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr)
 {
 #ifdef __linux__
@@ -213,7 +205,8 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	// MacOS uses pthread_get_stackaddr_np, and returns a pointer to the maximum address of the
 	// stack.
 	outMaxAddr = (U8*)pthread_get_stackaddr_np(thread);
-	outMinAddr = outMaxAddr - getNumStackBytesRLimit();
+	const Uptr numStackBytes = pthread_get_stacksize_np(thread);
+	outMinAddr = outMaxAddr - numStackBytes;
 	outMinGuardAddr = outMinAddr - (Uptr(1) << getPageSizeLog2());
 #elif defined(__WAVIX__)
 	Errors::fatal("getCurrentThreadStack is unimplemented on Wavix.");
@@ -255,8 +248,6 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 	auto createArgs = new CreateThreadArgs;
 	createArgs->entry = threadEntry;
 	createArgs->entryArgument = argument;
-
-	numStackBytes = std::max(numStackBytes, getNumStackBytesRLimit());
 
 	pthread_attr_t threadAttr;
 	errorUnless(!pthread_attr_init(&threadAttr));
@@ -359,8 +350,7 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 		U8* minStackAddr;
 		U8* maxStackAddr;
 		getCurrentThreadStack(minStackGuardAddr, minStackAddr, maxStackAddr);
-		const Uptr numStackBytes
-			= std::max(Uptr(maxStackAddr - minStackAddr), getNumStackBytesRLimit());
+		const Uptr numStackBytes = Uptr(maxStackAddr - minStackAddr);
 
 		// Use the current stack pointer derive a conservative bounds on the area of the stack that
 		// is active.
