@@ -27,7 +27,13 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-typedef ContextRuntimeData* (*NopFunctionPointer)(ContextRuntimeData*);
+template<typename Result> struct ContextAndResult
+{
+	ContextRuntimeData* contextRuntimeData;
+	Result result;
+};
+
+typedef ContextAndResult<I32> (*NopFunctionPointer)(ContextRuntimeData*);
 
 struct ThreadArgs
 {
@@ -89,12 +95,13 @@ int main(int argc, char** argv)
 	// Generate a nop function.
 	Serialization::ArrayOutputStream codeStream;
 	OperatorEncoderStream encoder(codeStream);
+	encoder.i32_const({0});
 	encoder.end();
 
 	// Generate a module containing the nop function.
 	IR::Module irModule;
 	DisassemblyNames irModuleNames;
-	irModule.types.push_back(FunctionType());
+	irModule.types.push_back(FunctionType({ValueType::i32}, {ValueType::i32}));
 	irModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
 	irModule.exports.push_back({"nopFunction", IR::ExternKind::function, 0});
 	irModuleNames.functions.push_back({"nopFunction", {}, {}});
@@ -109,7 +116,7 @@ int main(int argc, char** argv)
 	auto nopFunction = asFunction(getInstanceExport(moduleInstance, "nopFunction"));
 
 	// Call the nop function once to ensure the time to create the invoke thunk isn't benchmarked.
-	invokeFunctionChecked(createContext(compartment), nopFunction, {});
+	invokeFunctionChecked(createContext(compartment), nopFunction, {Value{I32(0)}});
 
 	// Benchmark calling the function directly.
 	runBenchmarkSingleAndMultiThreaded(
@@ -132,9 +139,13 @@ int main(int argc, char** argv)
 		compartment, nopFunction, "invokeFunctionUnchecked", [](void* argument) -> I64 {
 			ThreadArgs* threadArgs = (ThreadArgs*)argument;
 
+			UntaggedValue functionArgs[]{{I32(0)}};
+
 			Timing::Timer timer;
 			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-			{ invokeFunctionUnchecked(threadArgs->context, threadArgs->nopFunction, nullptr); }
+			{
+				invokeFunctionUnchecked(threadArgs->context, threadArgs->nopFunction, functionArgs);
+			}
 			timer.stop();
 
 			threadArgs->elapsedMicroseconds = timer.getMicroseconds();
@@ -147,9 +158,11 @@ int main(int argc, char** argv)
 		compartment, nopFunction, "invokeFunctionChecked", [](void* argument) -> I64 {
 			ThreadArgs* threadArgs = (ThreadArgs*)argument;
 
+			std::vector<Value> functionArgs{Value{I32(0)}};
+
 			Timing::Timer timer;
 			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-			{ invokeFunctionChecked(threadArgs->context, threadArgs->nopFunction, {}); }
+			{ invokeFunctionChecked(threadArgs->context, threadArgs->nopFunction, functionArgs); }
 			timer.stop();
 
 			threadArgs->elapsedMicroseconds = timer.getMicroseconds();
