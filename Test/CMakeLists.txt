@@ -39,6 +39,7 @@ if(WAVM_ENABLE_RUNTIME)
 	ADD_WAST_TESTS("${WASTTests}")
 endif()
 
+add_subdirectory(Benchmarks)
 add_subdirectory(Containers)
 add_subdirectory(DumpTestModules)
 add_subdirectory(fuzz)

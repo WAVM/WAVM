@@ -120,6 +120,9 @@ namespace WAVM { namespace Runtime {
 		const ObjectKind kind;
 	};
 
+	typedef Runtime::ContextRuntimeData* (*InvokeThunkPointer)(Runtime::Function*,
+															   Runtime::ContextRuntimeData*);
+
 	// Metadata about a function, used to hold data that can't be emitted directly in an object
 	// file, or must be mutable.
 	struct FunctionMutableData
@@ -130,6 +133,7 @@ namespace WAVM { namespace Runtime {
 		std::atomic<Uptr> numRootReferences{0};
 		std::map<U32, U32> offsetToOpIndexMap;
 		std::string debugName;
+		std::atomic<InvokeThunkPointer> invokeThunk{nullptr};
 
 		FunctionMutableData(std::string&& inDebugName) : debugName(inDebugName) {}
 	};

@@ -21,8 +21,17 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 {
 	FunctionType functionType = function->encodedType;
 
-	// Get the invoke thunk for this function type.
-	auto invokeFunctionPointer = LLVMJIT::getInvokeThunk(functionType);
+	// Get the invoke thunk for this function type. Cache it in the function's FunctionMutableData
+	// to avoid the global lock implied by LLVMJIT::getInvokeThunk.
+	InvokeThunkPointer invokeThunk
+		= function->mutableData->invokeThunk.load(std::memory_order_acquire);
+	while(!invokeThunk)
+	{
+		InvokeThunkPointer newInvokeThunk = LLVMJIT::getInvokeThunk(functionType);
+		function->mutableData->invokeThunk.compare_exchange_strong(
+			invokeThunk, newInvokeThunk, std::memory_order_acq_rel);
+	};
+	wavmAssert(invokeThunk);
 
 	// Copy the arguments into the thunk arguments buffer in ContextRuntimeData.
 	ContextRuntimeData* contextRuntimeData
@@ -48,7 +57,7 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 	}
 
 	// Call the invoke thunk.
-	contextRuntimeData = (*invokeFunctionPointer)(function, contextRuntimeData);
+	contextRuntimeData = (*invokeThunk)(function, contextRuntimeData);
 
 	// Return a pointer to the return value that was written to the ContextRuntimeData.
 	return (UntaggedValue*)contextRuntimeData->thunkArgAndReturnData;
