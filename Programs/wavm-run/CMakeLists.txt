@@ -1,2 +1,5 @@
-WAVM_ADD_INSTALLED_EXECUTABLE(wavm-run Programs wavm-run.cpp)
-target_link_libraries(wavm-run PRIVATE Logging IR WASTParse WASM Runtime Emscripten ThreadTest)
+WAVM_ADD_EXECUTABLE(wavm-run
+	FOLDER Programs
+	SOURCES wavm-run.cpp
+	PRIVATE_LIB_COMPONENTS Logging IR WASTParse WASM Runtime Emscripten ThreadTest)
+WAVM_INSTALL_TARGET(wavm-run)

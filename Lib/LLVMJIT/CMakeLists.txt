@@ -21,8 +21,6 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/LLVMJIT/LLVMJIT.h)
 
-WAVM_ADD_LIBRARY(LLVMJIT ${Sources} ${PublicHeaders})
-
 # Find an installed build of LLVM
 find_package(LLVM REQUIRED CONFIG)
 
@@ -38,10 +36,15 @@ set(LLVM_TARGET_ATTRIBUTES "" CACHE STRING "allows overriding LLVM target attrib
 string(REGEX REPLACE "\"" "\\\\\"" LLVM_TARGET_ATTRIBUTES_ESCAPED ${LLVM_TARGET_ATTRIBUTES} " ")
 add_definitions("\"-DLLVM_TARGET_ATTRIBUTES=${LLVM_TARGET_ATTRIBUTES_ESCAPED}\"")
 
-# Link against the LLVM libraries
+# Find the LLVM libraries to link with.
 llvm_map_components_to_libnames(LLVM_LIBS support core passes orcjit RuntimeDyld native DebugInfoDWARF)
-target_link_libraries(LLVMJIT PUBLIC IR)
-target_link_libraries(LLVMJIT PRIVATE ${LLVM_LIBS} Logging Platform)
+
+# Create the LLVMJIT target.
+WAVM_ADD_LIB_COMPONENT(LLVMJIT
+	SOURCES ${Sources} ${PublicHeaders}
+	PUBLIC_LIB_COMPONENTS IR
+	PRIVATE_LIB_COMPONENTS Logging Platform
+	PRIVATE_LIBS ${LLVM_LIBS})
 
 # This adds the LLVM RPATH to the installed libLLVMJIT.so
 set_target_properties(LLVMJIT PROPERTIES INSTALL_RPATH_USE_LINK_PATH true)

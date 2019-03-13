@@ -3,5 +3,7 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/RegExp/RegExp.h)
 
-WAVM_ADD_LIBRARY(RegExp ${Sources} ${PublicHeaders})
-target_link_libraries(RegExp PUBLIC NFA PRIVATE Platform)
+WAVM_ADD_LIB_COMPONENT(RegExp
+	SOURCES ${Sources} ${PublicHeaders}
+	PUBLIC_LIB_COMPONENTS NFA
+	PRIVATE_LIB_COMPONENTS Platform)

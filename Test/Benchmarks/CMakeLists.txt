@@ -1,4 +1,6 @@
 if(WAVM_ENABLE_RUNTIME)
-	WAVM_ADD_EXECUTABLE(invoke-bench Testing/Benchmarks invoke-bench.cpp)
-	target_link_libraries(invoke-bench PRIVATE IR Platform Logging Runtime)
+	WAVM_ADD_EXECUTABLE(invoke-bench
+		FOLDER Testing/Benchmarks
+		SOURCES invoke-bench.cpp
+		PRIVATE_LIB_COMPONENTS IR Platform Logging Runtime)
 endif()

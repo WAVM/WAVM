@@ -3,5 +3,6 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/NFA/NFA.h)
 
-WAVM_ADD_LIBRARY(NFA ${Sources} ${PublicHeaders})
-target_link_libraries(NFA PRIVATE Platform Logging)
+WAVM_ADD_LIB_COMPONENT(NFA
+	SOURCES ${Sources} ${PublicHeaders}
+	PRIVATE_LIB_COMPONENTS Platform Logging)

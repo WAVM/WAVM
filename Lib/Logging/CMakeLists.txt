@@ -3,5 +3,6 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Logging/Logging.h)
 
-WAVM_ADD_LIBRARY(Logging ${Sources} ${PublicHeaders})
-target_link_libraries(Logging PRIVATE Platform)
+WAVM_ADD_LIB_COMPONENT(Logging 
+	SOURCES ${Sources} ${PublicHeaders}
+	PRIVATE_LIB_COMPONENTS Platform)

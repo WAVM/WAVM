@@ -95,7 +95,7 @@ install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h
 
 
 # A function that sets compile options that are common to all WAVM targets.
-function(WAVM_SET_TARGET_OPTIONS TARGET_NAME)
+function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 	# Add the WAVM public include directory.
 	target_include_directories(
 		${TARGET_NAME}
@@ -196,22 +196,33 @@ function(WAVM_INSTALL_TARGET TARGET_NAME)
 			RUNTIME DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,bin,bin/WAVM/$<CONFIG>>)
 endfunction()
 
-function(WAVM_ADD_LIBRARY TARGET_NAME)
+function(WAVM_ADD_LIB_COMPONENT TARGET_NAME)
+	cmake_parse_arguments(TARGET
+		""
+		""
+		"SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS"
+		${ARGN})
+
 	if(WAVM_ENABLE_STATIC_LINKING)
-		add_library(${TARGET_NAME} STATIC ${ARGN})
+		add_library(${TARGET_NAME} STATIC ${TARGET_SOURCES})
 	else()
-		add_library(${TARGET_NAME} SHARED ${ARGN})
+		add_library(${TARGET_NAME} SHARED ${TARGET_SOURCES})
 	endif()
+
 	WAVM_INSTALL_TARGET(${TARGET_NAME})
-	WAVM_SET_TARGET_OPTIONS(${TARGET_NAME})
+	WAVM_SET_TARGET_COMPILE_OPTIONS(${TARGET_NAME})
+
+	target_link_libraries(${TARGET_NAME} PRIVATE ${TARGET_PRIVATE_LIBS} ${TARGET_PRIVATE_LIB_COMPONENTS})
+	target_link_libraries(${TARGET_NAME} PUBLIC ${TARGET_PUBLIC_LIBS} ${TARGET_PUBLIC_LIB_COMPONENTS})
 	
 	# Set up the library's API definitions.
-	string(TOUPPER ${TARGET_NAME} TARGET_NAME_UPPERCASE)
+	string(TOUPPER ${TARGET_NAME} TARGET_C_NAME)
+	string(REPLACE "-" "_" TARGET_C_NAME ${TARGET_C_NAME})
 	if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
-		target_compile_definitions(${TARGET_NAME} PRIVATE "\"${TARGET_NAME_UPPERCASE}_API=__declspec(dllexport)\"")
-		target_compile_definitions(${TARGET_NAME} INTERFACE "\"${TARGET_NAME_UPPERCASE}_API=__declspec(dllimport)\"")
+		target_compile_definitions(${TARGET_NAME} PRIVATE "\"${TARGET_C_NAME}_API=__declspec(dllexport)\"")
+		target_compile_definitions(${TARGET_NAME} INTERFACE "\"${TARGET_C_NAME}_API=__declspec(dllimport)\"")
 	else()
-		target_compile_definitions(${TARGET_NAME} PUBLIC "${TARGET_NAME_UPPERCASE}_API=")
+		target_compile_definitions(${TARGET_NAME} PUBLIC "${TARGET_C_NAME}_API=")
 	endif()
 
 	# Enable libfuzzer for libraries.
@@ -225,15 +236,23 @@ function(WAVM_ADD_LIBRARY TARGET_NAME)
 	set_target_properties(${TARGET_NAME} PROPERTIES FOLDER Libraries)
 endfunction()
 
-function(WAVM_ADD_EXECUTABLE TARGET_NAME FOLDER_NAME)
-	add_executable("${TARGET_NAME}" ${ARGN})
-	set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${FOLDER_NAME})
-	WAVM_SET_TARGET_OPTIONS(${TARGET_NAME})
-endfunction()
+function(WAVM_ADD_EXECUTABLE TARGET_NAME)
+	cmake_parse_arguments(TARGET
+		""
+		"FOLDER"
+		"SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS"
+		${ARGN})
 
-function(WAVM_ADD_INSTALLED_EXECUTABLE TARGET_NAME FOLDER_NAME)
-	WAVM_ADD_EXECUTABLE(${TARGET_NAME} ${FOLDER_NAME} ${ARGN})
-	WAVM_INSTALL_TARGET(${TARGET_NAME})
+	add_executable("${TARGET_NAME}" ${TARGET_SOURCES})
+
+	target_link_libraries(${TARGET_NAME} PRIVATE ${TARGET_PRIVATE_LIBS} ${TARGET_PRIVATE_LIB_COMPONENTS})
+	target_link_libraries(${TARGET_NAME} PUBLIC ${TARGET_PUBLIC_LIBS} ${TARGET_PUBLIC_LIB_COMPONENTS})
+
+	WAVM_SET_TARGET_COMPILE_OPTIONS(${TARGET_NAME})
+	
+	if(TARGET_FOLDER)
+		set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${TARGET_FOLDER})
+	endif()
 endfunction()
 
 add_subdirectory(Examples)

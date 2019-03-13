@@ -1,5 +1,7 @@
 function(WAVM_ADD_FUZZER_EXECUTABLE TARGET_NAME)
-	WAVM_ADD_EXECUTABLE(${TARGET_NAME} Testing/Fuzzers ${ARGN})
+	WAVM_ADD_EXECUTABLE(${TARGET_NAME}
+		FOLDER Testing/Fuzzers
+		${ARGN})
 	if(WAVM_ENABLE_LIBFUZZER)
 		target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer")
 		target_link_libraries(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer")
@@ -7,25 +9,32 @@ function(WAVM_ADD_FUZZER_EXECUTABLE TARGET_NAME)
 	endif()
 endfunction()
 
-WAVM_ADD_FUZZER_EXECUTABLE(fuzz-wast fuzz-wast.cpp wastFuzzDictionary.txt)
-target_link_libraries(fuzz-wast PRIVATE Logging IR WASTParse Platform)
+WAVM_ADD_FUZZER_EXECUTABLE(fuzz-wast
+	SOURCES fuzz-wast.cpp wastFuzzDictionary.txt
+	PRIVATE_LIB_COMPONENTS Logging IR WASTParse Platform)
 
-WAVM_ADD_FUZZER_EXECUTABLE(fuzz-wasm fuzz-wasm.cpp)
-target_link_libraries(fuzz-wasm PRIVATE Logging IR WASM Platform)
+WAVM_ADD_FUZZER_EXECUTABLE(fuzz-wasm
+	SOURCES fuzz-wasm.cpp
+	PRIVATE_LIB_COMPONENTS Logging IR WASM Platform)
 
-WAVM_ADD_FUZZER_EXECUTABLE(fuzz-disassemble fuzz-disassemble.cpp ModuleMatcher.h)
-target_link_libraries(fuzz-disassemble PRIVATE Logging IR WASTParse WASTPrint WASM Platform)
+WAVM_ADD_FUZZER_EXECUTABLE(fuzz-disassemble
+	SOURCES fuzz-disassemble.cpp ModuleMatcher.h
+	PRIVATE_LIB_COMPONENTS Logging IR WASTParse WASTPrint WASM Platform)
 
-WAVM_ADD_FUZZER_EXECUTABLE(fuzz-assemble fuzz-assemble.cpp ModuleMatcher.h)
-target_link_libraries(fuzz-assemble PRIVATE Logging IR WASTParse WASTPrint WASM Platform)
+WAVM_ADD_FUZZER_EXECUTABLE(fuzz-assemble
+	SOURCES fuzz-assemble.cpp ModuleMatcher.h
+	PRIVATE_LIB_COMPONENTS Logging IR WASTParse WASTPrint WASM Platform)
 
 if(WAVM_ENABLE_RUNTIME)
-	WAVM_ADD_FUZZER_EXECUTABLE(fuzz-compile fuzz-compile.cpp)
-	target_link_libraries(fuzz-compile PRIVATE Logging IR WASM Runtime)
+	WAVM_ADD_FUZZER_EXECUTABLE(fuzz-compile
+		SOURCES fuzz-compile.cpp
+		PRIVATE_LIB_COMPONENTS Logging IR WASM Runtime)
 
-	WAVM_ADD_FUZZER_EXECUTABLE(fuzz-instantiate fuzz-instantiate.cpp)
-	target_link_libraries(fuzz-instantiate PRIVATE Logging IR WASM Runtime)
+	WAVM_ADD_FUZZER_EXECUTABLE(fuzz-instantiate
+		SOURCES fuzz-instantiate.cpp
+		PRIVATE_LIB_COMPONENTS Logging IR WASM Runtime)
 
-	WAVM_ADD_FUZZER_EXECUTABLE(fuzz-compile-model fuzz-compile-model.cpp)
-	target_link_libraries(fuzz-compile-model PRIVATE Logging IR WASTPrint Runtime Platform)
+	WAVM_ADD_FUZZER_EXECUTABLE(fuzz-compile-model
+		SOURCES fuzz-compile-model.cpp
+		PRIVATE_LIB_COMPONENTS Logging IR WASTPrint Runtime Platform)
 endif()

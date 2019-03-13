@@ -1,5 +1,7 @@
 set(Sources WASMSerialization.cpp)
 set(PublicHeaders ${WAVM_INCLUDE_DIR}/WASM/WASM.h)
 
-WAVM_ADD_LIBRARY(WASM ${Sources} ${PublicHeaders})
-target_link_libraries(WASM PUBLIC Logging PRIVATE Platform IR)
+WAVM_ADD_LIB_COMPONENT(WASM
+	SOURCES ${Sources} ${PublicHeaders}
+	PUBLIC_LIB_COMPONENTS Logging
+	PRIVATE_LIB_COMPONENTS Platform IR)

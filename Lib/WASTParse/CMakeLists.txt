@@ -11,5 +11,6 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/WASTParse/WASTParse.h
 	${WAVM_INCLUDE_DIR}/WASTParse/TestScript.h)
 
-WAVM_ADD_LIBRARY(WASTParse ${Sources} ${PublicHeaders})
-target_link_libraries(WASTParse PRIVATE IR NFA Platform RegExp WASM Logging)
+WAVM_ADD_LIB_COMPONENT(WASTParse
+	SOURCES ${Sources} ${PublicHeaders}
+	PRIVATE_LIB_COMPONENTS IR NFA Platform RegExp WASM Logging)

@@ -1,2 +1,5 @@
-WAVM_ADD_INSTALLED_EXECUTABLE(wavm-compile Programs wavm-compile.cpp)
-target_link_libraries(wavm-compile PRIVATE Logging IR WASTParse WASM Runtime)
+WAVM_ADD_EXECUTABLE(wavm-compile
+	FOLDER Programs
+	SOURCES wavm-compile.cpp
+	PRIVATE_LIB_COMPONENTS Logging IR WASTParse WASM Runtime)
+WAVM_INSTALL_TARGET(wavm-compile)

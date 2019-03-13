@@ -56,16 +56,18 @@ else()
 	set_source_files_properties(${WindowsSources} PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
-WAVM_ADD_LIBRARY(Platform ${WindowsSources} ${POSIXSources} ${PublicHeaders})
-
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	target_link_libraries(Platform PRIVATE pthread rt)
+	list(APPEND PLATFORM_PRIVATE_LIBS pthread rt)
 endif()
 
 if(NOT MSVC AND WAVM_ENABLE_RUNTIME)
-	target_link_libraries(Platform PRIVATE dl WAVMUnwind)
+	list(APPEND PLATFORM_PRIVATE_LIBS dl WAVMUnwind)
 
 	# This can't be set in the WAVMUnwind target's public include directories without adding the
-	# libunwind headers to the install, so just set it manually on Platform
-	target_include_directories(Platform PRIVATE ${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
+	# libunwind headers to the install, so just set it manually for source files in this directory.
+	include_directories(${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
 endif()
+
+WAVM_ADD_LIB_COMPONENT(Platform
+	SOURCES ${WindowsSources} ${POSIXSources} ${PublicHeaders}
+	PRIVATE_LIBS ${PLATFORM_PRIVATE_LIBS})
