@@ -16,6 +16,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/Runtime/RuntimeData.h"
 
 enum
 {
@@ -25,6 +26,8 @@ enum
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
+
+typedef ContextRuntimeData* (*NopFunctionPointer)(ContextRuntimeData*);
 
 struct ThreadArgs
 {
@@ -71,6 +74,16 @@ void runBenchmark(Compartment* compartment,
 				nanosecondsPerInvoke);
 }
 
+void runBenchmarkSingleAndMultiThreaded(Compartment* compartment,
+										Function* nopFunction,
+										const char* description,
+										I64 (*threadFunc)(void*))
+{
+	const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
+	runBenchmark(compartment, nopFunction, 1, description, threadFunc);
+	runBenchmark(compartment, nopFunction, numHardwareThreads, description, threadFunc);
+}
+
 int main(int argc, char** argv)
 {
 	// Generate a nop function.
@@ -98,13 +111,27 @@ int main(int argc, char** argv)
 	// Call the nop function once to ensure the time to create the invoke thunk isn't benchmarked.
 	invokeFunctionChecked(createContext(compartment), nopFunction, {});
 
-	const Uptr numThreads = Platform::getNumberOfHardwareThreads();
+	// Benchmark calling the function directly.
+	runBenchmarkSingleAndMultiThreaded(
+		compartment, nopFunction, "direct call", [](void* argument) -> I64 {
+			ThreadArgs* threadArgs = (ThreadArgs*)argument;
+			ContextRuntimeData* contextRuntimeData = getContextRuntimeData(threadArgs->context);
 
-	runBenchmark(
-		compartment, nopFunction, numThreads, "invokeFunctionUnchecked", [](void* argument) -> I64 {
+			Timing::Timer timer;
+			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
+			{ (*(NopFunctionPointer)&threadArgs->nopFunction->code[0])(contextRuntimeData); }
+			timer.stop();
+
+			threadArgs->elapsedMicroseconds = timer.getMicroseconds();
+
+			return 0;
+		});
+
+	// Benchmark invokeFunctionUnchecked.
+	runBenchmarkSingleAndMultiThreaded(
+		compartment, nopFunction, "invokeFunctionUnchecked", [](void* argument) -> I64 {
 			ThreadArgs* threadArgs = (ThreadArgs*)argument;
 
-			// Measure the time it takes to call the nop function many times.
 			Timing::Timer timer;
 			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
 			{ invokeFunctionUnchecked(threadArgs->context, threadArgs->nopFunction, nullptr); }
@@ -115,25 +142,11 @@ int main(int argc, char** argv)
 			return 0;
 		});
 
-	runBenchmark(compartment, nopFunction, 1, "invokeFunctionUnchecked", [](void* argument) -> I64 {
-		ThreadArgs* threadArgs = (ThreadArgs*)argument;
-
-		// Measure the time it takes to call the nop function many times.
-		Timing::Timer timer;
-		for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-		{ invokeFunctionUnchecked(threadArgs->context, threadArgs->nopFunction, nullptr); }
-		timer.stop();
-
-		threadArgs->elapsedMicroseconds = timer.getMicroseconds();
-
-		return 0;
-	});
-
-	runBenchmark(
-		compartment, nopFunction, numThreads, "invokeFunctionChecked", [](void* argument) -> I64 {
+	// Benchmark invokeFunctionChecked.
+	runBenchmarkSingleAndMultiThreaded(
+		compartment, nopFunction, "invokeFunctionChecked", [](void* argument) -> I64 {
 			ThreadArgs* threadArgs = (ThreadArgs*)argument;
 
-			// Measure the time it takes to call the nop function many times.
 			Timing::Timer timer;
 			for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
 			{ invokeFunctionChecked(threadArgs->context, threadArgs->nopFunction, {}); }
@@ -143,20 +156,6 @@ int main(int argc, char** argv)
 
 			return 0;
 		});
-
-	runBenchmark(compartment, nopFunction, 1, "invokeFunctionChecked", [](void* argument) -> I64 {
-		ThreadArgs* threadArgs = (ThreadArgs*)argument;
-
-		// Measure the time it takes to call the nop function many times.
-		Timing::Timer timer;
-		for(Uptr repeatIndex = 0; repeatIndex < numInvokesPerThread; ++repeatIndex)
-		{ invokeFunctionChecked(threadArgs->context, threadArgs->nopFunction, {}); }
-		timer.stop();
-
-		threadArgs->elapsedMicroseconds = timer.getMicroseconds();
-
-		return 0;
-	});
 
 	// Free the compartment.
 	errorUnless(tryCollectCompartment(std::move(compartment)));
