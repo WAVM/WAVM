@@ -3,9 +3,7 @@ function(WAVM_ADD_FUZZER_EXECUTABLE TARGET_NAME)
 		FOLDER Testing/Fuzzers
 		${ARGN})
 	if(WAVM_ENABLE_LIBFUZZER)
-		target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer")
 		target_link_libraries(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer")
-		target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize-coverage=trace-cmp,trace-div,trace-gep")
 	endif()
 endfunction()
 

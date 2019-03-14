@@ -131,11 +131,11 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 	// Without it, our symbols can't be found in the JITed object file.
 	targetTriple += "-elf";
 #endif
-	std::unique_ptr<llvm::TargetMachine> targetMachine(llvm::EngineBuilder().selectTarget(
-		llvm::Triple(targetTriple),
-		"",
-		llvm::sys::getHostCPUName(),
-		llvm::SmallVector<std::string, 0>{LLVM_TARGET_ATTRIBUTES}));
+	std::unique_ptr<llvm::TargetMachine> targetMachine(
+		llvm::EngineBuilder().selectTarget(llvm::Triple(targetTriple),
+										   "",
+										   llvm::sys::getHostCPUName(),
+										   llvm::SmallVector<std::string, 0>{}));
 
 	// Get a target machine object for this host, and set the module to use its data layout.
 	llvmModule.setDataLayout(targetMachine->createDataLayout());

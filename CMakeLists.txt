@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.8.0)
 project (WAVM C CXX ASM)
 
+if(MSVC)
+	enable_language(ASM_MASM)
+endif()
 
 # WAVM configuration options
 
@@ -35,7 +38,14 @@ else()
 	option(WAVM_ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 endif()
 
+if(WAVM_ENABLE_RUNTIME)
+	# Find an installed build of LLVM
+	find_package(LLVM REQUIRED CONFIG)
 
+	if(LLVM_VERSION_MAJOR LESS 6)
+		message(FATAL_ERROR "WAVM requires LLVM version 6.0 or newer")
+	endif()
+endif()
 
 # Bind some variables to useful paths.
 set(WAVM_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
@@ -62,11 +72,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 # This means that platforms that need an RPATH but have multi-configuration generators (i.e. Xcode)
 # can't install the shared libraries into a configuration-dependent directory, so only one
 # configuration may be installed at a time.
-if(CMAKE_BUILD_TYPE)
-	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/WAVM/${CMAKE_BUILD_TYPE}")
+if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+	set(WAVM_DISABLE_PER_CONFIG_RPATH 1)
+elseif(CMAKE_BUILD_TYPE)
+	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/${CMAKE_BUILD_TYPE}")
 	set(WAVM_DISABLE_PER_CONFIG_RPATH 0)
 else()
-	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/WAVM")
+	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 	set(WAVM_DISABLE_PER_CONFIG_RPATH 1)
 endif()
 
@@ -166,6 +179,12 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 			target_link_libraries(${TARGET_NAME} PUBLIC -fsanitize=thread)
 		endif()
 		
+		# Optionally enable Clang's libfuzzer.
+		if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WAVM_ENABLE_LIBFUZZER)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer")
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize-coverage=trace-cmp,trace-div,trace-gep")
+		endif()
+
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 			# Link with the static sanitizer runtimes instead of the shared sanitize runtimes on GCC.
 			# This matches the default behavior for Clang.
@@ -190,71 +209,106 @@ endfunction()
 function(WAVM_INSTALL_TARGET TARGET_NAME)
 	install(TARGETS ${TARGET_NAME}
 			EXPORT WAVMInstallTargets
-			LIBRARY DESTINATION lib/WAVM/$<CONFIG>
-			ARCHIVE DESTINATION lib/WAVM/$<CONFIG>
+			LIBRARY DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,lib,lib/WAVM/$<CONFIG>>
+			ARCHIVE DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,lib,lib/WAVM/$<CONFIG>>
 			# Install RelWithDebInfo binaries to bin, and all others to bin/WAVM/config
 			RUNTIME DESTINATION $<IF:$<OR:$<CONFIG:RelWithDebInfo>,$<BOOL:${WAVM_DISABLE_PER_CONFIG_RPATH}>>,bin,bin/WAVM/$<CONFIG>>)
 endfunction()
 
-function(WAVM_ADD_LIB_COMPONENT TARGET_NAME)
-	cmake_parse_arguments(TARGET
+# Older versions of CMake can't handle target_link_libraries on the monolithic WAVM library
+# when invoked from a source directory other than the root directory where the WAVM target is
+# defined. To get around this, accumulate the libraries this component needs to link with in an
+# internal config variable, which seems to be the closest thing CMake has to a global variable.
+# After processing all library components, this root directory CMakeLists.txt invokes
+# target_link_libraries with the accumulated libraries.
+set(WAVM_MONOLIB_PRIVATE_LIBS ${WAVM_MONOLIB_PRIVATE_LIBS} CACHE INTERNAL "" FORCE)
+set(WAVM_MONOLIB_PUBLIC_LIBS ${WAVM_MONOLIB_PUBLIC_LIBS} CACHE INTERNAL "" FORCE)
+
+function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
+	cmake_parse_arguments(COMPONENT
 		""
 		""
-		"SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS"
+		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS;PRIVATE_INCLUDE_DIRECTORIES;PRIVATE_DEFINITIONS"
 		${ARGN})
 
-	if(WAVM_ENABLE_STATIC_LINKING)
-		add_library(${TARGET_NAME} STATIC ${TARGET_SOURCES})
-	else()
-		add_library(${TARGET_NAME} SHARED ${TARGET_SOURCES})
-	endif()
-
-	WAVM_INSTALL_TARGET(${TARGET_NAME})
-	WAVM_SET_TARGET_COMPILE_OPTIONS(${TARGET_NAME})
-
-	target_link_libraries(${TARGET_NAME} PRIVATE ${TARGET_PRIVATE_LIBS} ${TARGET_PRIVATE_LIB_COMPONENTS})
-	target_link_libraries(${TARGET_NAME} PUBLIC ${TARGET_PUBLIC_LIBS} ${TARGET_PUBLIC_LIB_COMPONENTS})
+	# Translate the relative source and header file paths to absolute paths.
+	# Older versions of CMake will use the source directory where a target is defined as the root
+	# for relative paths in the target's sources, which breaks when adding the source files to The
+	# monolithic WAVM library defined in the root directory.
+	foreach(COMPONENT_SOURCE ${COMPONENT_SOURCES})
+		get_filename_component(COMPONENT_SOURCE_ABSOLUTE ${COMPONENT_SOURCE} ABSOLUTE)
+		list(APPEND COMPONENT_SOURCES_ABSOLUTE ${COMPONENT_SOURCE_ABSOLUTE})
+	endforeach()
+	foreach(COMPONENT_NONCOMPILED_SOURCE ${COMPONENT_NONCOMPILED_SOURCES})
+		get_filename_component(COMPONENT_NONCOMPILED_SOURCE_ABSOLUTE ${COMPONENT_NONCOMPILED_SOURCE} ABSOLUTE)
+		list(APPEND COMPONENT_NONCOMPILED_SOURCES_ABSOLUTE ${COMPONENT_NONCOMPILED_SOURCE_ABSOLUTE})			
+	endforeach()
 	
-	# Set up the library's API definitions.
-	string(TOUPPER ${TARGET_NAME} TARGET_C_NAME)
-	string(REPLACE "-" "_" TARGET_C_NAME ${TARGET_C_NAME})
+	# Create a custom target to hold all the source files. Without this, CMake won't include The
+	# CMakeLists.txt that called WAVM_ADD_LIB_COMPONENT in the MSVC solution.
+	add_custom_target(${COMPONENT_NAME} SOURCES ${COMPONENT_SOURCES} ${COMPONENT_NONCOMPILED_SOURCES_ABSOLUTE})
+	set_target_properties(${COMPONENT_NAME} PROPERTIES FOLDER Libraries)
+
+	# Directly add the component's source files to the monolithic WAVM library.
+	target_sources(WAVM PRIVATE ${COMPONENT_SOURCES_ABSOLUTE})
+
+	# Add the libraries this component depends on to the global list of libraries to link the
+	# monolithic WAVM library with.
+	list(APPEND WAVM_MONOLIB_PRIVATE_LIBS ${COMPONENT_PRIVATE_LIBS})
+	list(APPEND WAVM_MONOLIB_PUBLIC_LIBS ${COMPONENT_PUBLIC_LIBS})
+	set(WAVM_MONOLIB_PRIVATE_LIBS ${WAVM_MONOLIB_PRIVATE_LIBS} CACHE INTERNAL "" FORCE)
+	set(WAVM_MONOLIB_PUBLIC_LIBS ${WAVM_MONOLIB_PUBLIC_LIBS} CACHE INTERNAL "" FORCE)
+	
+	# Add the component's include directories and definitions.
+	target_include_directories(WAVM PRIVATE ${COMPONENT_PRIVATE_INCLUDE_DIRECTORIES})
+	target_compile_definitions(WAVM PRIVATE ${COMPONENT_PRIVATE_DEFINITIONS})
+
+	# Set up the component's API definitions.
+	string(TOUPPER ${COMPONENT_NAME} COMPONENT_C_NAME)
+	string(REPLACE "-" "_" COMPONENT_C_NAME ${COMPONENT_C_NAME})
 	if(NOT WAVM_ENABLE_STATIC_LINKING AND MSVC)
-		target_compile_definitions(${TARGET_NAME} PRIVATE "\"${TARGET_C_NAME}_API=__declspec(dllexport)\"")
-		target_compile_definitions(${TARGET_NAME} INTERFACE "\"${TARGET_C_NAME}_API=__declspec(dllimport)\"")
+		target_compile_definitions(WAVM PRIVATE "\"${COMPONENT_C_NAME}_API=__declspec(dllexport)\"")
+		target_compile_definitions(WAVM INTERFACE "\"${COMPONENT_C_NAME}_API=__declspec(dllimport)\"")
 	else()
-		target_compile_definitions(${TARGET_NAME} PUBLIC "${TARGET_C_NAME}_API=")
+		target_compile_definitions(WAVM PUBLIC "${COMPONENT_C_NAME}_API=")
 	endif()
-
-	# Enable libfuzzer for libraries.
-	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-		if(WAVM_ENABLE_LIBFUZZER)
-			target_compile_options(${TARGET_NAME} PUBLIC "-fsanitize=fuzzer")
-			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize-coverage=trace-cmp,trace-div,trace-gep")
-		endif()
-	endif()
-	
-	set_target_properties(${TARGET_NAME} PROPERTIES FOLDER Libraries)
 endfunction()
 
-function(WAVM_ADD_EXECUTABLE TARGET_NAME)
-	cmake_parse_arguments(TARGET
+function(WAVM_ADD_EXECUTABLE EXE_NAME)
+	cmake_parse_arguments(EXE
 		""
 		"FOLDER"
 		"SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS"
 		${ARGN})
 
-	add_executable("${TARGET_NAME}" ${TARGET_SOURCES})
+	add_executable(${EXE_NAME} ${EXE_SOURCES})
+	WAVM_SET_TARGET_COMPILE_OPTIONS(${EXE_NAME})
 
-	target_link_libraries(${TARGET_NAME} PRIVATE ${TARGET_PRIVATE_LIBS} ${TARGET_PRIVATE_LIB_COMPONENTS})
-	target_link_libraries(${TARGET_NAME} PUBLIC ${TARGET_PUBLIC_LIBS} ${TARGET_PUBLIC_LIB_COMPONENTS})
+	# Add the executable's link libraries.
+	target_link_libraries(${EXE_NAME} PRIVATE ${EXE_PRIVATE_LIBS})
+	target_link_libraries(${EXE_NAME} PUBLIC ${EXE_PUBLIC_LIBS})
 
-	WAVM_SET_TARGET_COMPILE_OPTIONS(${TARGET_NAME})
-	
-	if(TARGET_FOLDER)
-		set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${TARGET_FOLDER})
+	# Ignore the PRIVATE_LIB_COMPONENTS and PUBLIC_LIB_COMPONENTS, and just link the executable with
+	# the monolithic WAVM library.
+	target_link_libraries(${EXE_NAME} PRIVATE WAVM)
+
+	if(EXE_FOLDER)
+		set_target_properties(${EXE_NAME} PROPERTIES FOLDER ${EXE_FOLDER})
 	endif()
 endfunction()
 
+# Create a WAVM library that will include all WAVM library components.
+if(WAVM_ENABLE_STATIC_LINKING)
+	add_library(WAVM STATIC)
+else()
+	add_library(WAVM SHARED)
+endif()
+WAVM_SET_TARGET_COMPILE_OPTIONS(WAVM)
+WAVM_INSTALL_TARGET(WAVM)
+set_target_properties(WAVM PROPERTIES FOLDER Libraries)
+set_target_properties(WAVM PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# Process the CMake scripts in subdirectories.
 add_subdirectory(Examples)
 add_subdirectory(Include/WAVM/Inline)
 add_subdirectory(Lib/IR)
@@ -279,6 +333,11 @@ if(WAVM_ENABLE_RUNTIME)
 	add_subdirectory(Programs/wavm-run)
 	add_subdirectory(ThirdParty/libunwind)
 endif()
+
+# Add the library dependencies accumulated from the various library components as link dependencies
+# of the monolithic WAVM library.
+target_link_libraries(WAVM PRIVATE ${WAVM_MONOLIB_PRIVATE_LIBS})
+target_link_libraries(WAVM PUBLIC ${WAVM_MONOLIB_PUBLIC_LIBS})
 
 # Create a CMake package in <build>/lib/cmake/WAVM containing the WAVM library targets.
 export(
