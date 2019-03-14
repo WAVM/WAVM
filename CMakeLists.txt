@@ -158,7 +158,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
 	
 		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
-		target_compile_options(${TARGET_NAME} PRIVATE "-fno-rtti")
+		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 
 		# Ensure that even static libraries are relocatable so they can be linked into a .so
 		target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
@@ -321,6 +321,7 @@ add_subdirectory(Lib/RegExp)
 add_subdirectory(Lib/WASM)
 add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
+add_subdirectory(Lib/wavm-c)
 add_subdirectory(Programs/wavm-as)
 add_subdirectory(Programs/wavm-disas)
 add_subdirectory(Test)
