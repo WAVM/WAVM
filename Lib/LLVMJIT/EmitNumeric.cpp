@@ -732,7 +732,40 @@ EMIT_SIMD_REPLACE_LANE_OP(i64x2, llvmContext.i64x2Type, 2, scalar)
 EMIT_SIMD_REPLACE_LANE_OP(f32x4, llvmContext.f32x4Type, 4, scalar)
 EMIT_SIMD_REPLACE_LANE_OP(f64x2, llvmContext.f64x2Type, 2, scalar)
 
-void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)
+void EmitFunctionContext::v8x16_shuffle1(NoImm)
+{
+	auto indexVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
+	auto elementVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
+
+	// WASM defines any out-of-range index to write zero to the output vector, but x86 pshufb just
+	// uses the index modulo 16, and only writes zero if the MSB of the index is 1. Do a saturated
+	// add of 112 to set the MSB in any index >= 16 while leaving the index modulo 16 unchanged.
+	auto constant112 = llvm::ConstantInt::get(llvmContext.i8Type, 112);
+	auto saturatedIndexVector = emitAddUnsignedSaturated(irBuilder,
+														 indexVector,
+														 llvm::ConstantVector::get({constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112,
+																					constant112}),
+														 llvmContext.i8x16Type);
+
+	push(callLLVMIntrinsic(
+		{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
+}
+
+void EmitFunctionContext::v8x16_shuffle2_imm(IR::ShuffleImm<16> imm)
 {
 	auto right = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto left = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);

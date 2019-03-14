@@ -247,7 +247,7 @@
 	visitOp(0xfd00, v128_load                 , "v128.load"                 , LoadOrStoreImm<4>         , LOAD(v128)           , simd                   )   \
 	visitOp(0xfd01, v128_store                , "v128.store"                , LoadOrStoreImm<4>         , STORE(v128)          , simd                   )   \
 	visitOp(0xfd02, v128_const                , "v128.const"                , LiteralImm<V128>          , NULLARY(v128)        , simd                   )   \
-	visitOp(0xfd03, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , BINARY(v128,v128)    , simd                   )   \
+/*  visitOp(0xfd03,                           ,                             ,                           ,                      , simd                   )*/ \
 	visitOp(0xfd04, i8x16_splat               , "i8x16.splat"               , NoImm                     , UNARY(i32,v128)      , simd                   )   \
 	visitOp(0xfd05, i8x16_extract_lane_s      , "i8x16.extract_lane_s"      , LaneIndexImm<16>          , UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd06, i8x16_extract_lane_u      , "i8x16.extract_lane_u"      , LaneIndexImm<16>          , UNARY(v128,i32)      , simd                   )   \
@@ -428,6 +428,9 @@
 	visitOp(0xfdb0, f32x4_convert_i32x4_u     , "f32x4.convert_i32x4_u"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdb1, f64x2_convert_i64x2_s     , "f64x2.convert_i64x2_s"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdb2, f64x2_convert_i64x2_u     , "f64x2.convert_i64x2_u"     , NoImm                     , UNARY(v128,v128)     , simd                   )   \
+/* v128 shuffles                                                                                                                                         */ \
+	visitOp(0xfdc0, v8x16_shuffle1            , "v8x16.shuffle1"            , NoImm                     , BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfdc1, v8x16_shuffle2_imm        , "v8x16.shuffle2_imm"        , ShuffleImm<16>            , BINARY(v128,v128)    , simd                   )   \
 /* Atomic wait/wake                                                                                                                                      */ \
 	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAIT(i32)            , atomics                )   \
