@@ -144,6 +144,8 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
 
+		target_link_libraries(${TARGET_NAME} PRIVATE "-ignore:4199") # /DELAYLOAD:... ignored; no imports found from ...
+
 	elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	
 		if(WAVM_ENABLE_LTO)
