@@ -416,3 +416,27 @@
 		br 0
 	)
 )
+
+;; Test for the bug reported here: https://bugs.llvm.org/show_bug.cgi?id=41066
+(module
+	(memory 1024 65536 shared)
+
+	(func
+		(param $0 v128)
+		
+		(i32.load8_u
+			(i32x4.extract_lane 2
+				(f64x2.min
+					(f64x2.convert_i64x2_s		
+						(i16x8.gt_s
+							(local.get $0)
+							(local.get $0)
+							)
+						)
+					(local.get $0)
+					)
+				)
+			)
+		br 0
+	)
+)
