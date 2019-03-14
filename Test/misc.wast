@@ -398,10 +398,11 @@
 
 
 ;; Test for the bug reported here: https://bugs.llvm.org/show_bug.cgi?id=40793
-(;(module
+(module
 	(type $2 (func (param funcref v128)))
 	(memory $4  1024 65536 shared)
-	(global $11  (mut v128) (v128.const i32x4 0xb3ce8331 0x45c113c5 0xe339424d 0x743a15f1))
+	;;(global $11  (mut v128) (v128.const i32x4 0xb3ce8331 0x45c113c5 0xe339424d 0x743a15f1))
+	(global $11 (mut i32) (i32.const 0xb3ce))
 
 	(func $15 (type $2)
 		(param $0 funcref)
@@ -414,4 +415,4 @@
 		i64.load8_u
 		br 0
 	)
-);)
+)
