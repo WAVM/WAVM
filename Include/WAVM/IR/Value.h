@@ -102,7 +102,9 @@ namespace WAVM { namespace IR {
 			case ValueType::f32: return left.i32 == right.i32;
 			case ValueType::i64:
 			case ValueType::f64: return left.i64 == right.i64;
-			case ValueType::v128: return left.v128 == right.v128;
+			case ValueType::v128:
+				return left.v128.u64[0] == right.v128.u64[0]
+					   && left.v128.u64[1] == right.v128.u64[1];
 			case ValueType::anyref:
 			case ValueType::funcref: return left.object == right.object;
 			case ValueType::nullref: return true;
