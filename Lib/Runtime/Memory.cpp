@@ -343,11 +343,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			// that is in range, then trap.
 			if(sourceOffset < passiveDataSegmentBytes->size())
 			{
-				Runtime::unwindSignalsAsExceptions([=] {
-					Platform::bytewiseMemCopy(destPointer,
-											  passiveDataSegmentBytes->data() + sourceOffset,
-											  passiveDataSegmentBytes->size() - sourceOffset);
-				});
+				Runtime::unwindSignalsAsExceptions(
+					[destPointer, sourceOffset, &passiveDataSegmentBytes] {
+						Platform::bytewiseMemCopy(destPointer,
+												  passiveDataSegmentBytes->data() + sourceOffset,
+												  passiveDataSegmentBytes->size() - sourceOffset);
+					});
 			}
 			throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
 						   {asObject(moduleInstance),
@@ -356,10 +357,11 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		}
 		else if(numBytes)
 		{
-			Runtime::unwindSignalsAsExceptions([=] {
-				Platform::bytewiseMemCopy(
-					destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
-			});
+			Runtime::unwindSignalsAsExceptions(
+				[destPointer, sourceOffset, numBytes, &passiveDataSegmentBytes] {
+					Platform::bytewiseMemCopy(
+						destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
+				});
 		}
 		else if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
 		{
