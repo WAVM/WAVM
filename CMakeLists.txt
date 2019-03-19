@@ -52,6 +52,11 @@ if(WAVM_ENABLE_RUNTIME)
 	separate_arguments(LLVM_INCLUDE_DIRS)
 endif()
 
+# Tell MASM to create SAFESEH-compatible object files on Win32.
+if(MSVC AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+	set(CMAKE_ASM_MASM_FLAGS "${CMAKE_ASM_MASM_FLAGS} /safeseh")
+endif()
+
 # Bind some variables to useful paths.
 set(WAVM_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(WAVM_INCLUDE_DIR ${WAVM_SOURCE_DIR}/Include/WAVM)
