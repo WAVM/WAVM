@@ -19,7 +19,8 @@ set(PublicHeaders
 	Serialization.h
 	Timing.h
 	Unicode.h)
-add_custom_target(Inline SOURCES ${PublicHeaders})
-set_target_properties(Inline PROPERTIES FOLDER Libraries)
+
+WAVM_ADD_LIB_COMPONENT(Inline
+	NONCOMPILED_SOURCES ${PublicHeaders})
 
 add_subdirectory(xxhash)

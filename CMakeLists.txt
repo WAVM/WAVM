@@ -233,8 +233,14 @@ endfunction()
 # internal config variable, which seems to be the closest thing CMake has to a global variable.
 # After processing all library components, this root directory CMakeLists.txt invokes
 # target_link_libraries with the accumulated libraries.
-set(WAVM_MONOLIB_PRIVATE_LIBS ${WAVM_MONOLIB_PRIVATE_LIBS} CACHE INTERNAL "" FORCE)
-set(WAVM_MONOLIB_PUBLIC_LIBS ${WAVM_MONOLIB_PUBLIC_LIBS} CACHE INTERNAL "" FORCE)
+set(WAVM_MONOLIB_PRIVATE_LIBS "" CACHE INTERNAL "" FORCE)
+set(WAVM_MONOLIB_PUBLIC_LIBS "" CACHE INTERNAL "" FORCE)
+
+# CMake also scopes the effect of set_source_files_properties to targets created by the same list
+# file, so to set the header-only flag on source files in the WAVM monolib, it's necessary to
+# accumulate the set of header-only files in a global variable while processing subdirectory list
+# files, and then set the source file properties at the end of this list file.
+set(WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES "" CACHE INTERNAL "" FORCE)
 
 function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	cmake_parse_arguments(COMPONENT
@@ -256,13 +262,12 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 		list(APPEND COMPONENT_NONCOMPILED_SOURCES_ABSOLUTE ${COMPONENT_NONCOMPILED_SOURCE_ABSOLUTE})			
 	endforeach()
 	
-	# Create a custom target to hold all the source files. Without this, CMake won't include The
-	# CMakeLists.txt that called WAVM_ADD_LIB_COMPONENT in the MSVC solution.
-	add_custom_target(${COMPONENT_NAME} SOURCES ${COMPONENT_SOURCES} ${COMPONENT_NONCOMPILED_SOURCES_ABSOLUTE})
-	set_target_properties(${COMPONENT_NAME} PROPERTIES FOLDER Libraries)
-
 	# Directly add the component's source files to the monolithic WAVM library.
-	target_sources(WAVM PRIVATE ${COMPONENT_SOURCES_ABSOLUTE})
+	target_sources(WAVM PRIVATE ${COMPONENT_SOURCES_ABSOLUTE} ${CMAKE_CURRENT_LIST_FILE})
+
+	# Add the non-compiled source files to a global list that will be flagged as "header-only".
+	list(APPEND WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES ${COMPONENT_NONCOMPILED_SOURCES_ABSOLUTE})
+	set(WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES ${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES} CACHE INTERNAL "" FORCE)
 
 	# Add the libraries this component depends on to the global list of libraries to link the
 	# monolithic WAVM library with.
@@ -351,6 +356,11 @@ endif()
 # of the monolithic WAVM library.
 target_link_libraries(WAVM PRIVATE ${WAVM_MONOLIB_PRIVATE_LIBS})
 target_link_libraries(WAVM PUBLIC ${WAVM_MONOLIB_PUBLIC_LIBS})
+
+# Set the non-compiled source files accumulated from the various library components as header-only,
+# which includes the files in IDE projects, but doesn't compile them.
+target_sources(WAVM PRIVATE ${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES})
+set_source_files_properties(${WAVM_MONOLIB_NONCOMPILED_SOURCE_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
 
 # Create a CMake package in <build>/lib/cmake/WAVM containing the WAVM library targets.
 export(
