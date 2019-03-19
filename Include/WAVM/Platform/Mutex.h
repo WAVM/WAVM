@@ -25,10 +25,15 @@ namespace WAVM { namespace Platform {
 #endif
 
 	private:
-#ifdef WIN32
+#ifdef _WIN64
 		struct CriticalSection
 		{
 			Uptr data[5];
+		} criticalSection;
+#elif defined(WIN32)
+		struct CriticalSection
+		{
+			Uptr data[6];
 		} criticalSection;
 #elif defined(__linux__)
 		struct PthreadMutex
