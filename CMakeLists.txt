@@ -45,6 +45,11 @@ if(WAVM_ENABLE_RUNTIME)
 	if(LLVM_VERSION_MAJOR LESS 6)
 		message(FATAL_ERROR "WAVM requires LLVM version 6.0 or newer")
 	endif()
+
+	# Convert LLVM_DEFINITIONS and LLVM_INCLUDE_DIRS from strings of space-separated elements to
+	# CMake lists (strings with semicolon-separated elements).
+	separate_arguments(LLVM_DEFINITIONS)
+	separate_arguments(LLVM_INCLUDE_DIRS)
 endif()
 
 # Bind some variables to useful paths.
