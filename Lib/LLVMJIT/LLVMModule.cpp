@@ -56,6 +56,7 @@ namespace WAVM { namespace Runtime {
 using namespace WAVM;
 using namespace WAVM::LLVMJIT;
 
+static Platform::Mutex gdbRegistrationListenerMutex;
 static llvm::JITEventListener* gdbRegistrationListener = nullptr;
 
 // A map from address to loaded JIT symbols.
@@ -468,14 +469,17 @@ Module::Module(const std::vector<U8>& objectBytes,
 	memoryManager->reallyFinalizeMemory();
 
 	// Notify GDB of the new object.
-	if(!gdbRegistrationListener)
-	{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }
+	{
+		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
+		if(!gdbRegistrationListener)
+		{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }
 #if LLVM_VERSION_MAJOR >= 8
-	gdbRegistrationListener->notifyObjectLoaded(
-		reinterpret_cast<Uptr>(this), *object, *loadedObject);
+		gdbRegistrationListener->notifyObjectLoaded(
+			reinterpret_cast<Uptr>(this), *object, *loadedObject);
 #else
-	gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
+		gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
 #endif
+	}
 
 	// Create a DWARF context to interpret the debug information in this compilation unit.
 	auto dwarfContext = llvm::DWARFContext::create(*object, &*loadedObject);
@@ -558,11 +562,14 @@ Module::Module(const std::vector<U8>& objectBytes,
 Module::~Module()
 {
 	// Notify GDB that the object is being unloaded.
+	{
+		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
-	gdbRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
+		gdbRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
 #else
-	gdbRegistrationListener->NotifyFreeingObject(*object);
+		gdbRegistrationListener->NotifyFreeingObject(*object);
 #endif
+	}
 
 	// Remove the module from the global address to module map.
 	Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
