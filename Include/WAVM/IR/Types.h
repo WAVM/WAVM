@@ -271,6 +271,10 @@ namespace WAVM { namespace IR {
 	// Infer value and result types from a C type.
 
 	template<typename> constexpr ValueType inferValueType();
+	template<> constexpr ValueType inferValueType<I8>() { return ValueType::i32; }
+	template<> constexpr ValueType inferValueType<U8>() { return ValueType::i32; }
+	template<> constexpr ValueType inferValueType<I16>() { return ValueType::i32; }
+	template<> constexpr ValueType inferValueType<U16>() { return ValueType::i32; }
 	template<> constexpr ValueType inferValueType<I32>() { return ValueType::i32; }
 	template<> constexpr ValueType inferValueType<U32>() { return ValueType::i32; }
 	template<> constexpr ValueType inferValueType<I64>() { return ValueType::i64; }
