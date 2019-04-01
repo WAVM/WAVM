@@ -134,6 +134,7 @@ namespace WAVM { namespace Runtime {
 		std::map<U32, U32> offsetToOpIndexMap;
 		std::string debugName;
 		std::atomic<InvokeThunkPointer> invokeThunk{nullptr};
+		void* userData{nullptr};
 
 		FunctionMutableData(std::string&& inDebugName) : debugName(inDebugName) {}
 	};

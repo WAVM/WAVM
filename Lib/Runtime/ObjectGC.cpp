@@ -18,7 +18,7 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 Runtime::GCObject::GCObject(ObjectKind inKind, Compartment* inCompartment)
-: Object{inKind}, compartment(inCompartment), numRootReferences(0)
+: Object{inKind}, compartment(inCompartment)
 {
 }
 

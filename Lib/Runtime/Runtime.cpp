@@ -32,14 +32,31 @@ using namespace WAVM::Runtime;
 	Object* Runtime::asObject(Runtime::Type* object) { return (Object*)object; }                   \
 	const Object* Runtime::asObject(const Runtime::Type* object) { return (const Object*)object; }
 
+#define DEFINE_GCOBJECT_TYPE(kindId, kindName, Type)                                               \
+	DEFINE_OBJECT_TYPE(kindId, kindName, Type)                                                     \
+	void Runtime::setUserData(Runtime::Type* object, void* userData)                               \
+	{                                                                                              \
+		object->userData = userData;                                                               \
+	}                                                                                              \
+	void* Runtime::getUserData(const Runtime::Type* object) { return object->userData; }
+
+DEFINE_GCOBJECT_TYPE(ObjectKind::table, Table, Table);
+DEFINE_GCOBJECT_TYPE(ObjectKind::memory, Memory, Memory);
+DEFINE_GCOBJECT_TYPE(ObjectKind::global, Global, Global);
+DEFINE_GCOBJECT_TYPE(ObjectKind::exceptionType, ExceptionType, ExceptionType);
+DEFINE_GCOBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
+DEFINE_GCOBJECT_TYPE(ObjectKind::context, Context, Context);
+DEFINE_GCOBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
+
 DEFINE_OBJECT_TYPE(ObjectKind::function, Function, Function);
-DEFINE_OBJECT_TYPE(ObjectKind::table, Table, Table);
-DEFINE_OBJECT_TYPE(ObjectKind::memory, Memory, Memory);
-DEFINE_OBJECT_TYPE(ObjectKind::global, Global, Global);
-DEFINE_OBJECT_TYPE(ObjectKind::exceptionType, ExceptionType, ExceptionType);
-DEFINE_OBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
-DEFINE_OBJECT_TYPE(ObjectKind::context, Context, Context);
-DEFINE_OBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
+void Runtime::setUserData(Runtime::Function* function, void* userData)
+{
+	function->mutableData->userData = userData;
+}
+void* Runtime::getUserData(const Runtime::Function* function)
+{
+	return function->mutableData->userData;
+}
 
 bool Runtime::isA(Object* object, const ExternType& type)
 {

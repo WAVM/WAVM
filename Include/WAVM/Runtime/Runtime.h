@@ -25,6 +25,8 @@ namespace WAVM { namespace IR {
 	RUNTIME_API const Runtime::Type* as##kindName##Nullable(const Object* object);                 \
 	RUNTIME_API Object* asObject(Type* object);                                                    \
 	RUNTIME_API const Object* asObject(const Runtime::Type* object);                               \
+	RUNTIME_API void setUserData(Runtime::Type* object, void* userData);                           \
+	RUNTIME_API void* getUserData(const Runtime::Type* object);                                    \
 	template<> inline Runtime::Type* as<Type>(Object * object) { return as##kindName(object); }    \
 	template<> inline const Runtime::Type* as<const Type>(const Object* object)                    \
 	{                                                                                              \
@@ -38,6 +40,8 @@ namespace WAVM { namespace Runtime {
 	// Tests whether an object is of the given type.
 	RUNTIME_API bool isA(Object* object, const IR::ExternType& type);
 	RUNTIME_API IR::ExternType getObjectType(Object* object);
+	RUNTIME_API void setUserData(Object* object, void* userData);
+	RUNTIME_API void* getUserData(Object* object);
 
 	inline Object* asObject(Object* object) { return object; }
 	inline const Object* asObject(const Object* object) { return object; }

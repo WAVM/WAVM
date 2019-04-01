@@ -27,7 +27,8 @@ namespace WAVM { namespace Runtime {
 	struct GCObject : Object
 	{
 		Compartment* const compartment;
-		std::atomic<Uptr> numRootReferences;
+		std::atomic<Uptr> numRootReferences{0};
+		void* userData{nullptr};
 
 		GCObject(ObjectKind inKind, Compartment* inCompartment);
 		virtual ~GCObject() { wavmAssert(numRootReferences.load(std::memory_order_acquire) == 0); }
