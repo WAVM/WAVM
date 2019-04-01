@@ -2,28 +2,13 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Event.h"
+#include "WAVM/Platform/Clock.h"
 
 #define NOMINMAX
 #include <Windows.h>
 
 using namespace WAVM;
 using namespace WAVM::Platform;
-
-U64 Platform::getMonotonicClock()
-{
-	LARGE_INTEGER performanceCounter;
-	LARGE_INTEGER performanceCounterFrequency;
-	QueryPerformanceCounter(&performanceCounter);
-	QueryPerformanceFrequency(&performanceCounterFrequency);
-
-	const U64 wavmFrequency = 1000000;
-
-	return U64(performanceCounterFrequency.QuadPart) > wavmFrequency
-			   ? performanceCounter.QuadPart
-					 / (performanceCounterFrequency.QuadPart / wavmFrequency)
-			   : performanceCounter.QuadPart
-					 * (wavmFrequency / performanceCounterFrequency.QuadPart);
-}
 
 Platform::Event::Event()
 {

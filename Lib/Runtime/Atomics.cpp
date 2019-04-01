@@ -12,6 +12,7 @@
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Intrinsics.h"
