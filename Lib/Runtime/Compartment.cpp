@@ -112,6 +112,7 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 
 Object* Runtime::remapToClonedCompartment(Object* object, const Compartment* newCompartment)
 {
+	if(!object) { return nullptr; }
 	if(object->kind == ObjectKind::function) { return object; }
 
 	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
@@ -134,28 +135,33 @@ Function* Runtime::remapToClonedCompartment(Function* function, const Compartmen
 }
 Table* Runtime::remapToClonedCompartment(Table* table, const Compartment* newCompartment)
 {
+	if(!table) { return nullptr; }
 	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
 	return newCompartment->tables[table->id];
 }
 Memory* Runtime::remapToClonedCompartment(Memory* memory, const Compartment* newCompartment)
 {
+	if(!memory) { return nullptr; }
 	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
 	return newCompartment->memories[memory->id];
 }
 Global* Runtime::remapToClonedCompartment(Global* global, const Compartment* newCompartment)
 {
+	if(!global) { return nullptr; }
 	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
 	return newCompartment->globals[global->id];
 }
 ExceptionType* Runtime::remapToClonedCompartment(ExceptionType* exceptionType,
 												 const Compartment* newCompartment)
 {
+	if(!exceptionType) { return nullptr; }
 	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
 	return newCompartment->exceptionTypes[exceptionType->id];
 }
 ModuleInstance* Runtime::remapToClonedCompartment(ModuleInstance* moduleInstance,
 												  const Compartment* newCompartment)
 {
+	if(!moduleInstance) { return nullptr; }
 	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
 	return newCompartment->moduleInstances[moduleInstance->id];
 }
