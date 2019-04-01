@@ -355,6 +355,9 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API ModuleRef loadPrecompiledModule(const IR::Module& irModule,
 												const std::vector<U8>& objectCode);
 
+	// Accesses the IR for a compiled module.
+	RUNTIME_API const IR::Module& getModuleIR(ModuleConstRefParam module);
+
 	// Instantiates a compiled module, bindings its imports to the specified objects. May throw a
 	// runtime exception for bad segment offsets.
 	RUNTIME_API ModuleInstance* instantiateModule(Compartment* compartment,

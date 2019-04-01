@@ -61,6 +61,11 @@ ModuleRef Runtime::loadPrecompiledModule(const IR::Module& irModule,
 	return std::make_shared<Module>(IR::Module(irModule), std::vector<U8>(objectCode));
 }
 
+const IR::Module& Runtime::getModuleIR(ModuleConstRefParam module)
+{
+	return module->ir;
+}
+
 ModuleInstance::~ModuleInstance()
 {
 	if(id != UINTPTR_MAX)
