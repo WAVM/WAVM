@@ -112,9 +112,11 @@ Compartment* Runtime::cloneCompartment(const Compartment* compartment)
 
 Object* Runtime::remapToClonedCompartment(Object* object, const Compartment* newCompartment)
 {
+	if(object->kind == ObjectKind::function) { return object; }
+
+	Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
 	switch(object->kind)
 	{
-	case ObjectKind::function: return object;
 	case ObjectKind::table: return newCompartment->tables[asTable(object)->id];
 	case ObjectKind::memory: return newCompartment->memories[asMemory(object)->id];
 	case ObjectKind::global: return newCompartment->globals[asGlobal(object)->id];
