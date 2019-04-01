@@ -406,10 +406,11 @@ namespace WAVM { namespace Runtime {
 	//
 
 	RUNTIME_API Context* createContext(Compartment* compartment);
-	RUNTIME_API Compartment* getCompartmentFromContext(const Context* context);
 
 	RUNTIME_API struct ContextRuntimeData* getContextRuntimeData(const Context* context);
 	RUNTIME_API Context* getContextFromRuntimeData(struct ContextRuntimeData* contextRuntimeData);
+	RUNTIME_API Compartment* getCompartmentFromContextRuntimeData(
+		struct ContextRuntimeData* contextRuntimeData);
 
 	// Creates a new context, initializing its mutable global state from the given context.
 	RUNTIME_API Context* cloneContext(const Context* context, Compartment* newCompartment);

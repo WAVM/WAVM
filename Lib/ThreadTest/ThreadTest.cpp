@@ -158,8 +158,7 @@ DEFINE_INTRINSIC_FUNCTION(threadTest,
 
 	// Create a thread object that will expose its entry and error functions to the garbage
 	// collector as roots.
-	auto newContext
-		= createContext(getCompartmentFromContext(getContextFromRuntimeData(contextRuntimeData)));
+	auto newContext = createContext(getCompartmentFromContextRuntimeData(contextRuntimeData));
 	Thread* thread = new Thread(newContext, entryFunction, entryArgument);
 
 	allocateThreadId(thread);
@@ -177,7 +176,7 @@ DEFINE_INTRINSIC_FUNCTION(threadTest,
 DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, forkThread)
 {
 	auto oldContext = getContextFromRuntimeData(contextRuntimeData);
-	auto compartment = getCompartmentFromContext(oldContext);
+	auto compartment = getCompartmentFromContextRuntimeData(contextRuntimeData);
 	auto newContext = cloneContext(oldContext, compartment);
 
 	wavmAssert(currentThread);

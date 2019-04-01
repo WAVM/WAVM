@@ -98,6 +98,14 @@ Context* Runtime::getContextFromRuntimeData(ContextRuntimeData* contextRuntimeDa
 	return compartmentRuntimeData->compartment->contexts[contextId];
 }
 
+Compartment* Runtime::getCompartmentFromContextRuntimeData(
+	struct ContextRuntimeData* contextRuntimeData)
+{
+	const CompartmentRuntimeData* compartmentRuntimeData
+		= getCompartmentRuntimeData(contextRuntimeData);
+	return compartmentRuntimeData->compartment;
+}
+
 ContextRuntimeData* Runtime::getContextRuntimeData(const Context* context)
 {
 	return context->runtimeData;

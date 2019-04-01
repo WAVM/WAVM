@@ -49,11 +49,6 @@ Runtime::Context::~Context()
 	compartment->contexts.removeOrFail(id);
 }
 
-Compartment* Runtime::getCompartmentFromContext(const Context* context)
-{
-	return context->compartment;
-}
-
 Context* Runtime::cloneContext(const Context* context, Compartment* newCompartment)
 {
 	// Create a new context and initialize its runtime data with the values from the source context.
