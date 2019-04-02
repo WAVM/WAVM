@@ -21,3 +21,5 @@ The contents of [Test/wabt](Test/wabt) are covered by the license in [Test/wabt/
 [ThirdParty/libunwind](ThirdParty/libunwind) is covered by the license in [ThirdParty/libunwind/LICENSE.TXT](ThirdParty/libunwind/LICENSE.TXT).
 
 [Include/WAVM/Inline/xxhash](Include/WAVM/Inline/xxhash) is covered by the license in [Include/WAVM/Inline/xxhash/LICENSE](Include/WAVM/Inline/xxhash/LICENSE).
+
+[Lib/WASI/WASIDefinitions.h](Lib/WASI/WASIDefinitions.h) is covered by the license in [Lib/WASI/WASIDefinitions.h](Lib/WASI/WASIDefinitions.h).
