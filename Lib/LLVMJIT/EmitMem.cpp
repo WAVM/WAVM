@@ -125,7 +125,7 @@ void EmitFunctionContext::data_drop(DataSegmentImm imm)
 		{moduleContext.moduleInstanceId, emitLiteral(llvmContext, imm.dataSegmentIndex)});
 }
 
-void EmitFunctionContext::memory_copy(MemoryImm imm)
+void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 {
 	auto numBytes = pop();
 	auto sourceAddress = pop();
@@ -139,7 +139,8 @@ void EmitFunctionContext::memory_copy(MemoryImm imm)
 		{destAddress,
 		 sourceAddress,
 		 numBytes,
-		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.sourceMemoryIndex]),
+		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.destMemoryIndex])});
 }
 
 void EmitFunctionContext::memory_fill(MemoryImm imm)

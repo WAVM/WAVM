@@ -68,9 +68,12 @@ set(WASTTests
 	store.wast
 	switch.wast
 	table_copy.wast
+	table_fill.wast
 	table_get.wast
+	table_grow.wast
 	table_init.wast
 	table_set.wast
+	table_size.wast
 	token.wast
 	traps.wast
 	type.wast

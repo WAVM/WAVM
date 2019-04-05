@@ -88,9 +88,19 @@ static void generateImm(RandomStream& random, IR::Module& module, MemoryImm& out
 {
 	outImm.memoryIndex = random.get(module.memories.size() - 1);
 }
+static void generateImm(RandomStream& random, IR::Module& module, MemoryCopyImm& outImm)
+{
+	outImm.sourceMemoryIndex = random.get(module.memories.size() - 1);
+	outImm.destMemoryIndex = random.get(module.memories.size() - 1);
+}
 static void generateImm(RandomStream& random, IR::Module& module, TableImm& outImm)
 {
 	outImm.tableIndex = random.get(module.tables.size() - 1);
+}
+static void generateImm(RandomStream& random, IR::Module& module, TableCopyImm& outImm)
+{
+	outImm.sourceTableIndex = random.get(module.tables.size() - 1);
+	outImm.destTableIndex = random.get(module.tables.size() - 1);
 }
 static void generateImm(RandomStream& random, IR::Module& module, FunctionImm& outImm)
 {

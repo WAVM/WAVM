@@ -494,6 +494,14 @@ struct FunctionPrintContext
 	{
 		string += "\ntable.set " + moduleContext.names.tables[imm.tableIndex];
 	}
+	void table_grow(TableImm imm)
+	{
+		string += "\ntable.grow " + moduleContext.names.tables[imm.tableIndex];
+	}
+	void table_fill(TableImm imm)
+	{
+		string += "\ntable.fill " + moduleContext.names.tables[imm.tableIndex];
+	}
 
 	void throw_(ExceptionTypeImm imm)
 	{
@@ -526,10 +534,22 @@ struct FunctionPrintContext
 
 	void printImm(NoImm) {}
 	void printImm(MemoryImm imm) { errorUnless(imm.memoryIndex == 0); }
+	void printImm(MemoryCopyImm imm)
+	{
+		errorUnless(imm.sourceMemoryIndex == 0);
+		errorUnless(imm.destMemoryIndex == 0);
+	}
 	void printImm(TableImm imm)
 	{
 		string += ' ';
 		string += moduleContext.names.tables[imm.tableIndex];
+	}
+	void printImm(TableCopyImm imm)
+	{
+		string += ' ';
+		string += moduleContext.names.tables[imm.sourceTableIndex];
+		string += ' ';
+		string += moduleContext.names.tables[imm.destTableIndex];
 	}
 	void printImm(FunctionImm imm)
 	{

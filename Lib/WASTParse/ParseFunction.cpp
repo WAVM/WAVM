@@ -154,6 +154,11 @@ static void parseAndValidateRedundantBranchTargetName(CursorState* cursor,
 
 static void parseImm(CursorState* cursor, NoImm&) {}
 static void parseImm(CursorState* cursor, MemoryImm& outImm) { outImm.memoryIndex = 0; }
+static void parseImm(CursorState* cursor, MemoryCopyImm& outImm)
+{
+	outImm.sourceMemoryIndex = 0;
+	outImm.destMemoryIndex = 0;
+}
 static void parseImm(CursorState* cursor, TableImm& outImm)
 {
 	if(!tryParseAndResolveNameOrIndexRef(cursor,
@@ -162,6 +167,22 @@ static void parseImm(CursorState* cursor, TableImm& outImm)
 										 "table",
 										 outImm.tableIndex))
 	{ outImm.tableIndex = 0; }
+}
+static void parseImm(CursorState* cursor, TableCopyImm& outImm)
+{
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->tableNameToIndexMap,
+										 cursor->moduleState->module.tables.size(),
+										 "table",
+										 outImm.sourceTableIndex))
+	{ outImm.sourceTableIndex = 0; }
+
+	if(!tryParseAndResolveNameOrIndexRef(cursor,
+										 cursor->moduleState->tableNameToIndexMap,
+										 cursor->moduleState->module.tables.size(),
+										 "table",
+										 outImm.destTableIndex))
+	{ outImm.destTableIndex = outImm.sourceTableIndex; }
 }
 
 static void parseImm(CursorState* cursor, LiteralImm<I32>& outImm)

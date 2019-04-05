@@ -92,7 +92,10 @@ static Table* createTableImpl(Compartment* compartment, IR::TableType type, std:
 	return table;
 }
 
-static Iptr growTableImpl(Table* table, Uptr numElementsToGrow, bool initializeNewElements)
+static Iptr growTableImpl(Table* table,
+						  Uptr numElementsToGrow,
+						  bool initializeNewElements,
+						  Runtime::Object* initializeToElement = getUninitializedElement())
 {
 	if(!numElementsToGrow) { return table->numElements.load(std::memory_order_acquire); }
 
@@ -114,8 +117,8 @@ static Iptr growTableImpl(Table* table, Uptr numElementsToGrow, bool initializeN
 	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
 	if(newNumPlatformPages != previousNumPlatformPages
 	   && !Platform::commitVirtualPages(
-			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-			  newNumPlatformPages - previousNumPlatformPages))
+		   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+		   newNumPlatformPages - previousNumPlatformPages))
 	{ return -1; }
 
 	if(initializeNewElements)
@@ -124,8 +127,7 @@ static Iptr growTableImpl(Table* table, Uptr numElementsToGrow, bool initializeN
 		for(Uptr elementIndex = previousNumElements; elementIndex < newNumElements; ++elementIndex)
 		{
 			table->elements[elementIndex].biasedValue.store(
-				objectToBiasedTableElementValue(getUninitializedElement()),
-				std::memory_order_release);
+				objectToBiasedTableElementValue(initializeToElement), std::memory_order_release);
 		}
 	}
 
@@ -346,9 +348,9 @@ Uptr Runtime::getTableNumElements(Table* table)
 	return table->numElements.load(std::memory_order_acquire);
 }
 
-Iptr Runtime::growTable(Table* table, Uptr numNewElements)
+Iptr Runtime::growTable(Table* table, Uptr numNewElements, Object* initialElement)
 {
-	return growTableImpl(table, numNewElements, true);
+	return growTableImpl(table, numNewElements, true, initialElement);
 }
 
 Iptr Runtime::shrinkTable(Table* table, Uptr numElementsToShrink)
@@ -394,6 +396,29 @@ Iptr Runtime::shrinkTable(Table* table, Uptr numElementsToShrink)
 
 	table->numElements.store(newNumElements, std::memory_order_release);
 	return previousNumElements;
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.grow",
+						  U32,
+						  table_grow,
+						  Object* initialValue,
+						  U32 deltaNumElements,
+						  Uptr tableId)
+{
+	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	const Uptr numTableElements = growTable(
+		table, deltaNumElements, initialValue ? initialValue : getUninitializedElement());
+	wavmAssert(numTableElements <= UINT32_MAX);
+	return U32(numTableElements);
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.size", U32, table_size, Uptr tableId)
+{
+	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+	const Uptr numTableElements = getTableNumElements(table);
+	wavmAssert(numTableElements <= UINT32_MAX);
+	return U32(numTableElements);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.get", Object*, table_get, U32 index, Uptr tableId)
@@ -496,21 +521,25 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  U32 destOffset,
 						  U32 sourceOffset,
 						  U32 numElements,
-						  Uptr tableId)
+						  Uptr sourceTableId,
+						  Uptr destTableId)
 {
 	Runtime::unwindSignalsAsExceptions([=] {
-		Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
+		Table* sourceTable = getTableFromRuntimeData(contextRuntimeData, sourceTableId);
+		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
 
 		if(!numElements)
 		{
-			// WebAssembly expects 0-sized copies to still trap for out-of-bounds adddresses.
-			if(sourceOffset > getTableNumElements(table))
+			// WebAssembly expects 0-sized copies to still trap for out-of-bounds addresses.
+			if(sourceOffset > getTableNumElements(sourceTable))
 			{
-				throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(sourceOffset)});
+				throwException(ExceptionTypes::outOfBoundsTableAccess,
+							   {sourceTable, U64(sourceOffset)});
 			}
-			else if(destOffset > getTableNumElements(table))
+			else if(destOffset > getTableNumElements(destTable))
 			{
-				throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(destOffset)});
+				throwException(ExceptionTypes::outOfBoundsTableAccess,
+							   {destTable, U64(destOffset)});
 			}
 		}
 		else if(sourceOffset < destOffset && U64(sourceOffset) + U64(numElements) > destOffset)
@@ -521,9 +550,9 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			for(Uptr index = 0; index < numElements; ++index)
 			{
 				setTableElementNonNull(
-					table,
+					destTable,
 					U64(destOffset) + U64(numElements - index - 1),
-					getTableElementNonNull(table,
+					getTableElementNonNull(sourceTable,
 										   U64(sourceOffset) + U64(numElements - index - 1)));
 			}
 		}
@@ -532,10 +561,39 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 			for(Uptr index = 0; index < numElements; ++index)
 			{
 				setTableElementNonNull(
-					table,
+					destTable,
 					U64(destOffset) + U64(index),
-					getTableElementNonNull(table, U64(sourceOffset) + U64(index)));
+					getTableElementNonNull(sourceTable, U64(sourceOffset) + U64(index)));
 			}
+		}
+	});
+}
+
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+						  "table.fill",
+						  void,
+						  table_fill,
+						  U32 destOffset,
+						  Runtime::Object* value,
+						  U32 numElements,
+						  Uptr destTableId)
+{
+	Runtime::unwindSignalsAsExceptions([=] {
+		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
+
+		if(!numElements)
+		{
+			// WebAssembly expects 0-sized fills to still trap for out-of-bounds addresses.
+			if(destOffset > getTableNumElements(destTable))
+			{
+				throwException(ExceptionTypes::outOfBoundsTableAccess,
+							   {destTable, U64(destOffset)});
+			}
+		}
+		else
+		{
+			for(Uptr index = 0; index < numElements; ++index)
+			{ setTableElementNonNull(destTable, U64(destOffset) + U64(index), value); }
 		}
 	});
 }

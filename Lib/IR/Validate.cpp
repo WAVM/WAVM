@@ -546,6 +546,20 @@ struct FunctionValidationContext
 		const TableType& tableType = module.tables.getType(imm.tableIndex);
 		popAndValidateOperands("table.get", ValueType::i32, asValueType(tableType.elementType));
 	}
+	void table_grow(TableImm imm)
+	{
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+		const TableType& tableType = module.tables.getType(imm.tableIndex);
+		popAndValidateOperands("table.grow", asValueType(tableType.elementType), ValueType::i32);
+		pushOperand(ValueType::i32);
+	}
+	void table_fill(TableImm imm)
+	{
+		VALIDATE_INDEX(imm.tableIndex, module.tables.size());
+		const TableType& tableType = module.tables.getType(imm.tableIndex);
+		popAndValidateOperands(
+			"table.fill", ValueType::i32, asValueType(tableType.elementType), ValueType::i32);
+	}
 
 	void throw_(ExceptionTypeImm imm)
 	{
@@ -596,8 +610,22 @@ struct FunctionValidationContext
 	}
 
 	void validateImm(MemoryImm imm) { VALIDATE_INDEX(imm.memoryIndex, module.memories.size()); }
+	void validateImm(MemoryCopyImm imm)
+	{
+		VALIDATE_INDEX(imm.sourceMemoryIndex, module.memories.size());
+		VALIDATE_INDEX(imm.destMemoryIndex, module.memories.size());
+	}
 
 	void validateImm(TableImm imm) { VALIDATE_INDEX(imm.tableIndex, module.tables.size()); }
+	void validateImm(TableCopyImm imm)
+	{
+		VALIDATE_INDEX(imm.sourceTableIndex, module.tables.size());
+		VALIDATE_INDEX(imm.destTableIndex, module.tables.size());
+		VALIDATE_UNLESS(
+			"source table element type must be a subtype of the destination table element type",
+			!isSubtype(asValueType(module.tables.getType(imm.sourceTableIndex).elementType),
+					   asValueType(module.tables.getType(imm.destTableIndex).elementType)));
+	}
 
 	void validateImm(FunctionImm imm) { validateFunctionIndex(module, imm.functionIndex); }
 
@@ -658,7 +686,7 @@ struct FunctionValidationContext
 		const char* operatorName = nameString;                                                     \
 		SUPPRESS_UNUSED(operatorName);                                                             \
 		validateImm(imm);                                                                          \
-		popAndValidateTypeTuple(nameString, IR::getNonParametricOpSigs().name.params());     \
+		popAndValidateTypeTuple(nameString, IR::getNonParametricOpSigs().name.params());           \
 		pushOperandTuple(IR::getNonParametricOpSigs().name.results());                             \
 	}
 	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)

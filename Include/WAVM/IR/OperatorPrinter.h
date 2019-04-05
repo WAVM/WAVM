@@ -81,7 +81,17 @@ namespace WAVM { namespace IR {
 				   + " align=" + std::to_string(1 << imm.alignmentLog2);
 		}
 		std::string describeImm(MemoryImm imm) { return " " + std::to_string(imm.memoryIndex); }
+		std::string describeImm(MemoryCopyImm imm)
+		{
+			return " " + std::to_string(imm.sourceMemoryIndex) + " "
+				   + std::to_string(imm.destMemoryIndex);
+		}
 		std::string describeImm(TableImm imm) { return " " + std::to_string(imm.tableIndex); }
+		std::string describeImm(TableCopyImm imm)
+		{
+			return " " + std::to_string(imm.sourceTableIndex) + " "
+				   + std::to_string(imm.destTableIndex);
+		}
 
 		template<Uptr numLanes> std::string describeImm(LaneIndexImm<numLanes> imm)
 		{

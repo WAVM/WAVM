@@ -264,7 +264,7 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API Uptr getTableMaxElements(Table* table);
 
 	// Grows or shrinks the size of a table by numElements. Returns the previous size of the table.
-	RUNTIME_API Iptr growTable(Table* table, Uptr numElements);
+	RUNTIME_API Iptr growTable(Table* table, Uptr numElements, Object* initialElement = nullptr);
 	RUNTIME_API Iptr shrinkTable(Table* table, Uptr numElements);
 
 	//

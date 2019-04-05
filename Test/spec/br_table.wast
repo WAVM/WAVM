@@ -1590,6 +1590,19 @@
   "type mismatch"
 )
 
+(assert_invalid
+  (module (func $meet-bottom (param i32) (result anyref)
+    (block $l1 (result anyref)
+      (drop
+        (block $l2 (result i32)
+          (br_table $l2 $l1 $l2 (ref.null) (local.get 0))
+        )
+      )
+      (ref.null)
+    )
+  ))
+  "type mismatch"
+)
 
 (assert_invalid
   (module (func $unbound-label

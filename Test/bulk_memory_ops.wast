@@ -772,12 +772,12 @@
 	"\01"                                ;;     elem segment with 1 element
 	"\d2\00\0b"                          ;;     [0] ref.func 0
 	
-	"\0a\0d\01"                          ;; Code section
-	"\0b\00"                             ;; function 0: 11 bytes, 0 local sets
+	"\0a\0e\01"                          ;; Code section
+	"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
 	"\41\00"                             ;; i32.const 0
 	"\41\00"                             ;; i32.const 0
 	"\41\00"                             ;; i32.const 0
-	"\fc\0e\00"                          ;; table.copy 0
+	"\fc\0e\00\00"                       ;; table.copy 0 0
 	"\0b"                                ;; end
 )
 
@@ -799,12 +799,41 @@
 		"\01"                                ;;     elem segment with 1 element
 		"\d2\00\0b"                          ;;     [0] ref.func 0
 	
-		"\0a\0e\01"                          ;; Code section
-		"\0b\00"                             ;; function 0: 11 bytes, 0 local sets
+		"\0a\0f\01"                          ;; Code section
+		"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
 		"\41\00"                             ;; i32.const 0
 		"\41\00"                             ;; i32.const 0
 		"\41\00"                             ;; i32.const 0
-		"\fc\0e\01"                          ;; table.copy 1
+		"\fc\0e\01\00"                       ;; table.copy 1 0
+		"\0b"                                ;; end
+	)
+	"invalid table index"
+)
+
+(assert_invalid
+	(module binary
+		"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
+
+		"\01\04\01"                          ;; Type section: 4 bytes, 1 entry
+		"\60\00\00"                          ;;   Function type () -> ()
+
+		"\03\02\01"                          ;; Function section: 2 bytes, 1 entry
+		"\00"                                ;;   Function 0: type 0
+
+		"\04\04\01"                          ;; table section: 4 bytes, 1 entry
+		"\70\00\01"                          ;;   (table 1 funcref)
+	
+		"\09\07\01"                          ;; elem section: 7 bytes, 1 entry
+		"\01\70"                             ;;   [0] passive elem funcref segment
+		"\01"                                ;;     elem segment with 1 element
+		"\d2\00\0b"                          ;;     [0] ref.func 0
+	
+		"\0a\0f\01"                          ;; Code section
+		"\0c\00"                             ;; function 0: 12 bytes, 0 local sets
+		"\41\00"                             ;; i32.const 0
+		"\41\00"                             ;; i32.const 0
+		"\41\00"                             ;; i32.const 0
+		"\fc\0e\00\01"                       ;; table.copy 0 1
 		"\0b"                                ;; end
 	)
 	"invalid table index"

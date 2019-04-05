@@ -365,7 +365,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 		}
 		else if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
 		{
-			// WebAssembly expects 0-sized inits to still trap for out-of-bounds adddresses.
+			// WebAssembly expects 0-sized inits to still trap for out-of-bounds addresses.
 			throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)});
 		}
 	}
@@ -397,12 +397,14 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  U32 destAddress,
 						  U32 sourceAddress,
 						  U32 numBytes,
-						  Uptr memoryId)
+						  Uptr sourceMemoryId,
+						  Uptr destMemoryId)
 {
-	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
+	Memory* sourceMemory = getMemoryFromRuntimeData(contextRuntimeData, sourceMemoryId);
+	Memory* destMemory = getMemoryFromRuntimeData(contextRuntimeData, destMemoryId);
 
-	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
-	U8* sourcePointer = getReservedMemoryOffsetRange(memory, sourceAddress, numBytes);
+	U8* destPointer = getReservedMemoryOffsetRange(destMemory, destAddress, numBytes);
+	U8* sourcePointer = getReservedMemoryOffsetRange(sourceMemory, sourceAddress, numBytes);
 
 	if(numBytes)
 	{
@@ -411,13 +413,17 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 	else
 	{
-		// WebAssembly expects 0-sized copies to still trap for out-of-bounds adddresses.
-		const Uptr numMemoryBytes = getMemoryNumPages(memory) * IR::numBytesPerPage;
-		if(destAddress > numMemoryBytes)
-		{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)}); }
-		else if(sourceAddress > numMemoryBytes)
+		// WebAssembly expects 0-sized copies to still trap for out-of-bounds addresses.
+		const Uptr numSourceMemoryBytes = getMemoryNumPages(sourceMemory) * IR::numBytesPerPage;
+		const Uptr numDestMemoryBytes = getMemoryNumPages(destMemory) * IR::numBytesPerPage;
+		if(destAddress > numDestMemoryBytes)
 		{
-			throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(sourceAddress)});
+			throwException(ExceptionTypes::outOfBoundsMemoryAccess, {destMemory, U64(destAddress)});
+		}
+		else if(sourceAddress > numSourceMemoryBytes)
+		{
+			throwException(ExceptionTypes::outOfBoundsMemoryAccess,
+						   {sourceMemory, U64(sourceAddress)});
 		}
 	}
 }

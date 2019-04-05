@@ -533,13 +533,24 @@ void serialize(Stream& stream, LoadOrStoreImm<naturalAlignmentLog2>& imm, const 
 }
 template<typename Stream> void serialize(Stream& stream, MemoryImm& imm, const FunctionDef&)
 {
-	serializeConstant(
-		stream, "memory.(grow|size|copy|fill) immediate reserved field must be 0", U8(0));
+	serializeConstant(stream, "memory.(grow|size|fill) immediate memory field must be 0", U8(0));
 	if(Stream::isInput) { imm.memoryIndex = 0; }
+}
+template<typename Stream> void serialize(Stream& stream, MemoryCopyImm& imm, const FunctionDef&)
+{
+	serializeConstant(stream, "memory.copy immediate source field must be 0", U8(0));
+	if(Stream::isInput) { imm.sourceMemoryIndex = 0; }
+	serializeConstant(stream, "memory.copy immediate dest field must be 0", U8(0));
+	if(Stream::isInput) { imm.destMemoryIndex = 0; }
 }
 template<typename Stream> void serialize(Stream& stream, TableImm& imm, const FunctionDef&)
 {
 	serializeVarUInt32(stream, imm.tableIndex);
+}
+template<typename Stream> void serialize(Stream& stream, TableCopyImm& imm, const FunctionDef&)
+{
+	serializeVarUInt32(stream, imm.sourceTableIndex);
+	serializeVarUInt32(stream, imm.destTableIndex);
 }
 
 template<typename Stream> void serialize(Stream& stream, V128& v128)

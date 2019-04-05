@@ -227,10 +227,10 @@
 (assert_return_func (invoke "join-anyref" (i32.const 1) (ref.host 1)))
 (assert_return (invoke "join-anyref" (i32.const 0) (ref.host 1)) (ref.host 1))
 
-(assert_trap (invoke "select_trap_l" (i32.const 1)) "unreachable executed")
-(assert_trap (invoke "select_trap_l" (i32.const 0)) "unreachable executed")
-(assert_trap (invoke "select_trap_r" (i32.const 1)) "unreachable executed")
-(assert_trap (invoke "select_trap_r" (i32.const 0)) "unreachable executed")
+(assert_trap (invoke "select_trap_l" (i32.const 1)) "unreachable")
+(assert_trap (invoke "select_trap_l" (i32.const 0)) "unreachable")
+(assert_trap (invoke "select_trap_r" (i32.const 1)) "unreachable")
+(assert_trap (invoke "select_trap_r" (i32.const 0)) "unreachable")
 
 (assert_return (invoke "as-select-first" (i32.const 0)) (i32.const 1))
 (assert_return (invoke "as-select-first" (i32.const 1)) (i32.const 0))

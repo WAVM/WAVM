@@ -23,9 +23,19 @@ namespace WAVM { namespace IR {
 	{
 		Uptr memoryIndex;
 	};
+	struct MemoryCopyImm
+	{
+		Uptr sourceMemoryIndex;
+		Uptr destMemoryIndex;
+	};
 	struct TableImm
 	{
 		Uptr tableIndex;
+	};
+	struct TableCopyImm
+	{
+		Uptr sourceTableIndex;
+		Uptr destTableIndex;
 	};
 
 	struct ControlStructureImm

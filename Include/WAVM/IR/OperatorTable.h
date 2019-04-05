@@ -50,6 +50,8 @@
 /* Table access                                                                                                                                          */ \
 	visitOp(0x0025, table_get          , "table.get"                        , TableImm                  , PARAMETRIC           , referenceTypes         )   \
 	visitOp(0x0026, table_set          , "table.set"                        , TableImm                  , PARAMETRIC           , referenceTypes         )   \
+	visitOp(0xfc0f, table_grow         , "table.grow"                       , TableImm                  , PARAMETRIC           , referenceTypes         )   \
+	visitOp(0xfc11, table_fill         , "table.fill"                       , TableImm                  , PARAMETRIC           , referenceTypes         )   \
 /* Exceptions                                                                                                                                            */ \
 	visitOp(0xfb00, throw_             , "throw"                            , ExceptionTypeImm          , PARAMETRIC           , exceptionHandling      )   \
 	visitOp(0xfb01, rethrow            , "rethrow"                          , RethrowImm                , PARAMETRIC           , exceptionHandling      )
@@ -235,14 +237,15 @@
 	visitOp(0xfc05, i64_trunc_sat_f32_u       , "i64.trunc_sat_f32_u"       , NoImm                     , UNARY(f32,i64)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc06, i64_trunc_sat_f64_s       , "i64.trunc_sat_f64_s"       , NoImm                     , UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc07, i64_trunc_sat_f64_u       , "i64.trunc_sat_f64_u"       , NoImm                     , UNARY(f64,i64)       , nonTrappingFloatToInt  )   \
-/* Bulk memory operators                                                                                                                                 */ \
+/* Bulk memory/table operators                                                                                                                                 */ \
 	visitOp(0xfc08, memory_init               , "memory.init"               , DataSegmentAndMemImm      , BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc09, data_drop                 , "data.drop"                 , DataSegmentImm            , NONE                 , bulkMemoryOperations   )   \
-	visitOp(0xfc0a, memory_copy               , "memory.copy"               , MemoryImm                 , BULKCOPY             , bulkMemoryOperations   )   \
+	visitOp(0xfc0a, memory_copy               , "memory.copy"               , MemoryCopyImm             , BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc0b, memory_fill               , "memory.fill"               , MemoryImm                 , BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc0c, table_init                , "table.init"                , ElemSegmentAndTableImm    , BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc0d, elem_drop                 , "elem.drop"                 , ElemSegmentImm            , NONE                 , bulkMemoryOperations   )   \
-	visitOp(0xfc0e, table_copy                , "table.copy"                , TableImm                  , BULKCOPY             , bulkMemoryOperations   )   \
+	visitOp(0xfc0e, table_copy                , "table.copy"                , TableCopyImm              , BULKCOPY             , bulkMemoryOperations   )   \
+	visitOp(0xfc10, table_size                , "table.size"                , TableImm                  , NULLARY(i32)         , referenceTypes         )   \
 /* v128 operators                                                                                                                                        */ \
 	visitOp(0xfd00, v128_load                 , "v128.load"                 , LoadOrStoreImm<4>         , LOAD(v128)           , simd                   )   \
 	visitOp(0xfd01, v128_store                , "v128.store"                , LoadOrStoreImm<4>         , STORE(v128)          , simd                   )   \

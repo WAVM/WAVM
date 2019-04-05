@@ -76,9 +76,19 @@ namespace WAVM {
 		{
 			if(a.memoryIndex != b.memoryIndex) { failVerification(); }
 		}
+		void verifyMatches(MemoryCopyImm a, MemoryCopyImm b)
+		{
+			if(a.sourceMemoryIndex != b.sourceMemoryIndex || a.destMemoryIndex != b.destMemoryIndex)
+			{ failVerification(); }
+		}
 		void verifyMatches(TableImm a, TableImm b)
 		{
 			if(a.tableIndex != b.tableIndex) { failVerification(); }
+		}
+		void verifyMatches(TableCopyImm a, TableCopyImm b)
+		{
+			if(a.sourceTableIndex != b.sourceTableIndex || a.destTableIndex != b.destTableIndex)
+			{ failVerification(); }
 		}
 
 		void verifyMatches(ControlStructureImm a, ControlStructureImm b)
