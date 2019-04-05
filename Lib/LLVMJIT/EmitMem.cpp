@@ -133,9 +133,12 @@ void EmitFunctionContext::memory_copy(MemoryCopyImm imm)
 
 	emitRuntimeIntrinsic(
 		"memory.copy",
-		FunctionType(
-			{},
-			TypeTuple({ValueType::i32, ValueType::i32, ValueType::i32, inferValueType<Uptr>()})),
+		FunctionType({},
+					 TypeTuple({ValueType::i32,
+								ValueType::i32,
+								ValueType::i32,
+								inferValueType<Uptr>(),
+								inferValueType<Uptr>()})),
 		{destAddress,
 		 sourceAddress,
 		 numBytes,

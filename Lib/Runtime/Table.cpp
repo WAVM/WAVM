@@ -407,10 +407,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-	const Uptr numTableElements = growTable(
+	const Iptr numTableElements = growTable(
 		table, deltaNumElements, initialValue ? initialValue : getUninitializedElement());
-	wavmAssert(numTableElements <= UINT32_MAX);
-	return U32(numTableElements);
+	wavmAssert(numTableElements <= INT32_MAX);
+	return I32(numTableElements);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.size", U32, table_size, Uptr tableId)
@@ -578,24 +578,24 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  U32 numElements,
 						  Uptr destTableId)
 {
-	Runtime::unwindSignalsAsExceptions([=] {
-		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
+	Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
 
-		if(!numElements)
-		{
-			// WebAssembly expects 0-sized fills to still trap for out-of-bounds addresses.
-			if(destOffset > getTableNumElements(destTable))
-			{
-				throwException(ExceptionTypes::outOfBoundsTableAccess,
-							   {destTable, U64(destOffset)});
-			}
-		}
-		else
-		{
+	// If the value is null, write the uninitialized sentinel value instead.
+	if(!value) { value = getUninitializedElement(); }
+
+	if(!numElements)
+	{
+		// WebAssembly expects 0-sized fills to still trap for out-of-bounds addresses.
+		if(destOffset > getTableNumElements(destTable))
+		{ throwException(ExceptionTypes::outOfBoundsTableAccess, {destTable, U64(destOffset)}); }
+	}
+	else
+	{
+		Runtime::unwindSignalsAsExceptions([=] {
 			for(Uptr index = 0; index < numElements; ++index)
 			{ setTableElementNonNull(destTable, U64(destOffset) + U64(index), value); }
-		}
-	});
+		});
+	}
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,

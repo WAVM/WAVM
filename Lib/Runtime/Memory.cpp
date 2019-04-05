@@ -300,7 +300,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	const Iptr numPreviousMemoryPages = growMemory(memory, (Uptr)deltaPages);
-	wavmAssert(numPreviousMemoryPages <= UINT32_MAX);
+	wavmAssert(numPreviousMemoryPages <= INT32_MAX);
 	return I32(numPreviousMemoryPages);
 }
 
