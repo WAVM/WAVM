@@ -145,7 +145,7 @@ void EmitFunctionContext::table_grow(TableImm imm)
 					 TypeTuple({ValueType::anyref, ValueType::i32, inferValueType<Uptr>()})),
 		{value,
 		 deltaNumElements,
-		getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
+		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
 	wavmAssert(previousNumElements.size() == 1);
 	push(previousNumElements[0]);
 }

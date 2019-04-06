@@ -1,8 +1,8 @@
 #include "WAVM/Platform/Event.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Platform/Event.h"
 #include "WAVM/Platform/Clock.h"
+#include "WAVM/Platform/Event.h"
 
 #define NOMINMAX
 #include <Windows.h>
