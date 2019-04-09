@@ -130,6 +130,7 @@ static void showHelp()
 				"  -h|--help             Display this message\n"
 				"  --precompiled         Use precompiled object code in programfile\n"
 				"  --metrics             Write benchmarking information to stdout\n"
+				"  --trace-syscalls      Trace WASI syscalls to stdout\n"
 				"  --                    Stop parsing arguments\n");
 }
 
@@ -151,6 +152,10 @@ int main(int argc, char** argv)
 		else if(!strcmp(*nextArg, "--precompiled"))
 		{
 			options.precompiled = true;
+		}
+		else if (!strcmp(*nextArg, "--trace-syscalls"))
+		{
+			WASI::setTraceSyscalls(true);
 		}
 		else if(!strcmp(*nextArg, "--"))
 		{

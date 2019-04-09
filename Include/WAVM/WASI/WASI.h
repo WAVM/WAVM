@@ -15,4 +15,6 @@ namespace WAVM { namespace WASI {
 						   std::vector<std::string>&& inArgs,
 						   std::vector<std::string>&& inEnvs,
 						   I32& outExitCode);
+
+	WASI_API void setTraceSyscalls(bool newTraceSyscalls);
 }}

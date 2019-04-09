@@ -1,8 +1,11 @@
 #include "WAVM/WASI/WASI.h"
+#include <atomic>
 #include "./WASIDefinitions.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
+#include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Runtime/Intrinsics.h"
@@ -18,6 +21,8 @@ DEFINE_INTRINSIC_MODULE(wasi)
 
 typedef U32 WASIAddress;
 #define WASIADDRESS_MAX UINT32_MAX
+
+#define WASIADDRESS_FORMAT "0x%08x"
 
 struct ExitException
 {
@@ -70,6 +75,66 @@ namespace WAVM { namespace WASI {
 		ProcessResolver resolver;
 	};
 }}
+
+std::atomic<bool> isTracingSyscalls{false};
+
+void WASI::setTraceSyscalls(bool newTraceSyscalls)
+{
+	isTracingSyscalls.store(newTraceSyscalls, std::memory_order_relaxed);
+}
+
+static void traceSyscallv(const char* syscallName, const char* argFormat, va_list argList)
+{
+	if(isTracingSyscalls.load(std::memory_order_relaxed))
+	{
+		Log::printf(Log::output, "SYSCALL: %s", syscallName);
+		Log::vprintf(Log::output, argFormat, argList);
+		Log::printf(Log::output, ". Call stack:\n");
+		va_end(argList);
+
+		Platform::CallStack callStack = Platform::captureCallStack(4);
+		if(callStack.stackFrames.size() > 4) { callStack.stackFrames.resize(4); }
+		std::vector<std::string> callStackFrameDescriptions = Runtime::describeCallStack(callStack);
+		for(const std::string& frameDescription : callStackFrameDescriptions)
+		{ Log::printf(Log::output, "SYSCALL:     %s\n", frameDescription.c_str()); }
+	}
+}
+
+VALIDATE_AS_PRINTF(2, 3)
+static void traceSyscallf(const char* syscallName, const char* argFormat, ...)
+{
+	va_list argList;
+	va_start(argList, argFormat);
+	traceSyscallv(syscallName, argFormat, argList);
+	va_end(argList);
+}
+
+VALIDATE_AS_PRINTF(2, 3)
+static void traceSyscallReturnf(const char* syscallName, const char* returnFormat, ...)
+{
+	if(isTracingSyscalls.load(std::memory_order_relaxed))
+	{
+		va_list argList;
+		va_start(argList, returnFormat);
+		Log::printf(Log::output, "SYSCALL: %s -> ", syscallName);
+		Log::vprintf(Log::output, returnFormat, argList);
+		Log::printf(Log::output, "\n");
+		va_end(argList);
+	}
+}
+
+VALIDATE_AS_PRINTF(2, 3)
+static void traceUnimplementedSyscall(const char* syscallName, const char* argFormat, ...)
+{
+	va_list argList;
+	va_start(argList, argFormat);
+	traceSyscallv(syscallName, argFormat, argList);
+	va_end(argList);
+
+	Log::printf(Log::error, "Called unimplemented WASI syscall %s.\n", syscallName);
+
+	traceSyscallReturnf(syscallName, "ENOSYS");
+}
 
 WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 						  std::vector<std::string>&& inArgs,
@@ -157,16 +222,25 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 argcAddress,
 						  U32 argBufSizeAddress)
 {
+	traceSyscallf("args_sizes_get",
+				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
+				  argcAddress,
+				  argBufSizeAddress);
+
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	Uptr numArgBufferBytes = 0;
 	for(const std::string& arg : process->args) { numArgBufferBytes += arg.size() + 1; }
 
 	if(process->args.size() > WASIADDRESS_MAX || numArgBufferBytes > WASIADDRESS_MAX)
-	{ return __WASI_EOVERFLOW; }
+	{
+		traceSyscallReturnf("args_sizes_get", "EOVERFLOW");
+		return __WASI_EOVERFLOW;
+	}
 	memoryRef<WASIAddress>(process->memory, argcAddress) = WASIAddress(process->args.size());
 	memoryRef<WASIAddress>(process->memory, argBufSizeAddress) = WASIAddress(numArgBufferBytes);
 
+	traceSyscallReturnf("args_sizes_get", "ESUCCESS");
 	return __WASI_ESUCCESS;
 }
 
@@ -177,6 +251,9 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 argvAddress,
 						  U32 argBufAddress)
 {
+	traceSyscallf(
+		"args_get", "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")", argvAddress, argBufAddress);
+
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASIAddress nextArgBufAddress = argBufAddress;
@@ -186,7 +263,10 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		const Uptr numArgBytes = arg.size() + 1;
 
 		if(numArgBytes > WASIADDRESS_MAX || nextArgBufAddress > WASIADDRESS_MAX - numArgBytes - 1)
-		{ return __WASI_EOVERFLOW; }
+		{
+			traceSyscallReturnf("args_get", "EOVERFLOW");
+			return __WASI_EOVERFLOW;
+		}
 
 		Platform::bytewiseMemCopy(
 			memoryArrayPtr<U8>(process->memory, nextArgBufAddress, numArgBytes),
@@ -198,6 +278,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		nextArgBufAddress += WASIAddress(numArgBytes);
 	}
 
+	traceSyscallReturnf("args_get", "ESUCCESS");
 	return __WASI_ESUCCESS;
 }
 
@@ -208,16 +289,25 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 envCountAddress,
 						  U32 envBufSizeAddress)
 {
+	traceSyscallf("environ_sizes_get",
+				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
+				  envCountAddress,
+				  envBufSizeAddress);
+
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	Uptr numEnvBufferBytes = 0;
 	for(const std::string& env : process->envs) { numEnvBufferBytes += env.size() + 1; }
 
 	if(process->envs.size() > WASIADDRESS_MAX || numEnvBufferBytes > WASIADDRESS_MAX)
-	{ return __WASI_EOVERFLOW; }
+	{
+		traceSyscallReturnf("environ_sizes_get", "EOVERFLOW");
+		return __WASI_EOVERFLOW;
+	}
 	memoryRef<WASIAddress>(process->memory, envCountAddress) = WASIAddress(process->envs.size());
 	memoryRef<WASIAddress>(process->memory, envBufSizeAddress) = WASIAddress(numEnvBufferBytes);
 
+	traceSyscallReturnf("environ_sizes_get", "ESUCCESS");
 	return __WASI_ESUCCESS;
 }
 
@@ -228,6 +318,11 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 envvAddress,
 						  U32 envBufAddress)
 {
+	traceSyscallf("environ_get",
+				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
+				  envvAddress,
+				  envBufAddress);
+
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASIAddress nextEnvBufAddress = envBufAddress;
@@ -237,7 +332,10 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		const Uptr numEnvBytes = env.size() + 1;
 
 		if(numEnvBytes > WASIADDRESS_MAX || nextEnvBufAddress > WASIADDRESS_MAX - numEnvBytes - 1)
-		{ return __WASI_EOVERFLOW; }
+		{
+			traceSyscallReturnf("environ_get", "EOVERFLOW");
+			return __WASI_EOVERFLOW;
+		}
 
 		Platform::bytewiseMemCopy(
 			memoryArrayPtr<U8>(process->memory, nextEnvBufAddress, numEnvBytes),
@@ -249,6 +347,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		nextEnvBufAddress += WASIAddress(numEnvBytes);
 	}
 
+	traceSyscallReturnf("environ_get", "ESUCCESS");
 	return __WASI_ESUCCESS;
 }
 
@@ -259,6 +358,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_clockid_t clockId,
 						  WASIAddress resolutionAddress)
 {
+	traceSyscallf("clock_res_get", "(%u, " WASIADDRESS_FORMAT ")", clockId, resolutionAddress);
+
 	__wasi_timestamp_t resolution;
 	switch(clockId)
 	{
@@ -266,10 +367,12 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
 	case __WASI_CLOCK_THREAD_CPUTIME_ID:
 	case __WASI_CLOCK_MONOTONIC: resolution = 1000000ul; break;
-	default: return __WASI_EINVAL;
+	default: traceSyscallReturnf("clock_res_get", "EINVAL"); return __WASI_EINVAL;
 	}
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 	memoryRef<__wasi_timestamp_t>(process->memory, resolutionAddress) = resolution;
+
+	traceSyscallReturnf("clock_res_get", "ESUCCESS (%" PRIu64 ")", resolution);
 	return __WASI_ESUCCESS;
 }
 
@@ -288,10 +391,12 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
 	case __WASI_CLOCK_THREAD_CPUTIME_ID:
 	case __WASI_CLOCK_MONOTONIC: currentTime = Platform::getMonotonicClock(); break;
-	default: return __WASI_EINVAL;
+	default: traceSyscallReturnf("clock_time_get", "EINVAL"); return __WASI_EINVAL;
 	}
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = currentTime;
+
+	traceSyscallReturnf("clock_time_get", "ESUCCESS (%" PRIu64 ")", currentTime);
 	return __WASI_ESUCCESS;
 }
 
@@ -302,6 +407,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t fd,
 						  WASIAddress prestatAddress)
 {
+	traceSyscallf("fd_prestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, prestatAddress);
+	traceSyscallReturnf("fd_prestat_get", "EBADF");
 	return __WASI_EBADF;
 }
 
@@ -313,16 +420,20 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress bufferAddress,
 						  WASIAddress bufferLength)
 {
+	traceUnimplementedSyscall(
+		"fd_prestat_dir_name", "(%u, " WASIADDRESS_FORMAT ", %u)", fd, bufferAddress, bufferLength);
 	return __WASI_ENOSYS;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "fd_close", __wasi_errno_t, wasi_fd_close, __wasi_fd_t fd)
 {
+	traceUnimplementedSyscall("fd_close", "(%u)", fd);
 	return __WASI_ENOSYS;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "fd_datasync", __wasi_errno_t, wasi_fd_datasync, __wasi_fd_t fd)
 {
+	traceUnimplementedSyscall("fd_datasync", "(%u)", fd);
 	return __WASI_ENOSYS;
 }
 
@@ -336,6 +447,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_filesize_t offset,
 						  WASIAddress numBytesReadAddress)
 {
+	traceUnimplementedSyscall("fd_pread",
+							  "(%u, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", " WASIADDRESS_FORMAT
+							  ")",
+							  fd,
+							  iovsAddress,
+							  numIOVs,
+							  offset,
+							  numBytesReadAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -349,6 +468,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_filesize_t offset,
 						  WASIAddress numBytesWrittenAddress)
 {
+	traceUnimplementedSyscall("fd_pwrite",
+							  "(%u, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", " WASIADDRESS_FORMAT
+							  ")",
+							  fd,
+							  iovsAddress,
+							  numIOVs,
+							  offset,
+							  numBytesWrittenAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -361,6 +488,12 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress numIOVs,
 						  WASIAddress numBytesReadAddress)
 {
+	traceUnimplementedSyscall("fd_read",
+							  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
+							  fd,
+							  iovsAddress,
+							  numIOVs,
+							  numBytesReadAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -371,6 +504,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t from,
 						  __wasi_fd_t to)
 {
+	traceUnimplementedSyscall("fd_renumber", "(%u, %u)", from, to);
 	return __WASI_ENOSYS;
 }
 
@@ -383,6 +517,12 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 whence,
 						  WASIAddress newOffsetAddress)
 {
+	traceUnimplementedSyscall("fd_seek",
+							  "(%u, %" PRIu64 "%u, " WASIADDRESS_FORMAT ")",
+							  fd,
+							  offset,
+							  whence,
+							  newOffsetAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -393,6 +533,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t fd,
 						  WASIAddress offsetAddress)
 {
+	traceUnimplementedSyscall("fd_tell", "(%u, " WASIADDRESS_FORMAT ")", fd, offsetAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -403,6 +544,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t fd,
 						  WASIAddress fdstatAddress)
 {
+	traceSyscallf("fd_fdstat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, fdstatAddress);
+
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
@@ -416,8 +559,9 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		fdstat.fs_flags = __WASI_FDFLAG_NONBLOCK | __WASI_FDFLAG_SYNC;
 		fdstat.fs_rights_base = fd == 0 ? __WASI_RIGHT_FD_READ : __WASI_RIGHT_FD_WRITE;
 		fdstat.fs_rights_inheriting = fdstat.fs_rights_base;
+		traceSyscallReturnf("fd_fdstat_get", "ESUCCESS");
 		return __WASI_ESUCCESS;
-	default: return __WASI_EBADF;
+	default: traceSyscallReturnf("fd_fdstat_get", "EBADF"); return __WASI_EBADF;
 	}
 }
 
@@ -428,6 +572,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t fd,
 						  __wasi_fdflags_t flags)
 {
+	traceUnimplementedSyscall("fd_fdstat_set_flags", "(%u, 0x%04x)", fd, flags);
 	return __WASI_ENOSYS;
 }
 
@@ -439,11 +584,17 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_rights_t rightsBase,
 						  __wasi_rights_t rightsInheriting)
 {
+	traceUnimplementedSyscall("fd_fdstat_set_rights",
+							  "(%u, 0x%" PRIx64 ", 0x %" PRIx64 ") ",
+							  fd,
+							  rightsBase,
+							  rightsInheriting);
 	return __WASI_ENOSYS;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "fd_sync", __wasi_errno_t, wasi_fd_sync, __wasi_fd_t fd)
 {
+	traceUnimplementedSyscall("fd_sync", "(%u)", fd);
 	return __WASI_ENOSYS;
 }
 
@@ -456,6 +607,13 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress numIOVs,
 						  WASIAddress numBytesWrittenAddress)
 {
+	traceSyscallf("fd_write",
+				  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
+				  fd,
+				  iovsAddress,
+				  numIOVs,
+				  numBytesWrittenAddress);
+
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	Platform::File* platformFile;
@@ -464,7 +622,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	case 0: platformFile = Platform::getStdFile(Platform::StdDevice::in); break;
 	case 1: platformFile = Platform::getStdFile(Platform::StdDevice::out); break;
 	case 2: platformFile = Platform::getStdFile(Platform::StdDevice::err); break;
-	default: return __WASI_EBADF;
+	default: traceSyscallReturnf("fd_write", "EBADF"); return __WASI_EBADF;
 	}
 
 	const __wasi_ciovec_t* iovs
@@ -478,13 +636,21 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 			   memoryArrayPtr<U8>(process->memory, iovs[iovIndex].buf, iovs[iovIndex].buf_len),
 			   iovs[iovIndex].buf_len,
 			   &numBytesWrittenThisIO))
-		{ return __WASI_EIO; }
+		{
+			traceSyscallReturnf("fd_write", "EIO");
+			return __WASI_EIO;
+		}
 		numBytesWritten += numBytesWrittenThisIO;
 	}
 
-	if(numBytesWritten > WASIADDRESS_MAX) { return __WASI_EOVERFLOW; }
+	if(numBytesWritten > WASIADDRESS_MAX)
+	{
+		traceSyscallReturnf("fd_write", "EOVERFLOW");
+		return __WASI_EOVERFLOW;
+	}
 	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
+	traceSyscallReturnf("fd_write", "ESUCCESS (numBytesWritten=%" PRIu64 ")", numBytesWritten);
 	return __WASI_ESUCCESS;
 }
 
@@ -497,6 +663,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_filesize_t numBytes,
 						  __wasi_advice_t advice)
 {
+	traceUnimplementedSyscall(
+		"fd_advise", "(%u, %" PRIu64 ", %" PRIu64 ", 0x%02x)", fd, offset, numBytes, advice);
 	return __WASI_ENOSYS;
 }
 
@@ -508,6 +676,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_filesize_t offset,
 						  __wasi_filesize_t numBytes)
 {
+	traceUnimplementedSyscall(
+		"fd_allocate", "(%u, %" PRIu64 ", %" PRIu64 ")", fd, offset, numBytes);
 	return __WASI_ENOSYS;
 }
 
@@ -523,6 +693,16 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress newPathAddress,
 						  WASIAddress numNewPathBytes)
 {
+	traceUnimplementedSyscall("path_link",
+							  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT
+							  ", %u)",
+							  oldFD,
+							  oldFlags,
+							  oldPathAddress,
+							  numOldPathBytes,
+							  newFD,
+							  newPathAddress,
+							  numNewPathBytes);
 	return __WASI_ENOSYS;
 }
 
@@ -533,13 +713,25 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t dirfd,
 						  __wasi_lookupflags_t dirflags,
 						  WASIAddress pathAddress,
-						  WASIAddress path_len,
+						  WASIAddress numPathBytes,
 						  __wasi_oflags_t oflags,
 						  __wasi_rights_t rightsBase,
 						  __wasi_rights_t rightsInheriting,
 						  __wasi_fdflags_t fdFlags,
 						  WASIAddress fdAddress)
 {
+	traceUnimplementedSyscall("path_open",
+							  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, 0x%04x, 0x%" PRIx64
+							  ", 0x%" PRIx64 ", 0x%04x, " WASIADDRESS_FORMAT ")",
+							  dirfd,
+							  dirflags,
+							  pathAddress,
+							  numPathBytes,
+							  oflags,
+							  rightsBase,
+							  rightsInheriting,
+							  fdFlags,
+							  fdAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -553,6 +745,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_dircookie_t cookie,
 						  WASIAddress outNumBufferBytesUsedAddress)
 {
+	traceUnimplementedSyscall("fd_readdir",
+							  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%" PRIx64 ", " WASIADDRESS_FORMAT
+							  ")",
+							  fd,
+							  bufferAddress,
+							  numBufferBytes,
+							  cookie,
+							  outNumBufferBytesUsedAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -567,6 +767,15 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress numBufferBytes,
 						  WASIAddress outNumBufferBytesUsedAddress)
 {
+	traceUnimplementedSyscall("path_readlink",
+							  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT
+							  ", %u, " WASIADDRESS_FORMAT ")",
+							  fd,
+							  pathAddress,
+							  numPathBytes,
+							  bufferAddress,
+							  numBufferBytes,
+							  outNumBufferBytesUsedAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -581,6 +790,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress newPathAddress,
 						  WASIAddress numNewPathBytes)
 {
+	traceUnimplementedSyscall("path_rename",
+							  "(%u, " WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT ", %u)",
+							  oldFD,
+							  oldPathAddress,
+							  numOldPathBytes,
+							  newFD,
+							  newPathAddress,
+							  numNewPathBytes);
 	return __WASI_ENOSYS;
 }
 
@@ -591,6 +808,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t fd,
 						  WASIAddress fdstatAddress)
 {
+	traceUnimplementedSyscall("fd_filestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, fdstatAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -603,6 +821,12 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_timestamp_t st_mtim,
 						  __wasi_fstflags_t fstflags)
 {
+	traceUnimplementedSyscall("fd_filestat_set_times",
+							  "(%u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
+							  fd,
+							  st_atim,
+							  st_mtim,
+							  fstflags);
 	return __WASI_ENOSYS;
 }
 
@@ -611,8 +835,9 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_errno_t,
 						  wasi_fd_filestat_set_size,
 						  __wasi_fd_t fd,
-						  __wasi_filesize_t size)
+						  __wasi_filesize_t numBytes)
 {
+	traceUnimplementedSyscall("fd_filestat_set_size", "(%u, %" PRIu64 ")", fd, numBytes);
 	return __WASI_ENOSYS;
 }
 
@@ -626,6 +851,13 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress numPathBytes,
 						  WASIAddress filestatAddress)
 {
+	traceUnimplementedSyscall("path_filestat_get",
+							  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
+							  fd,
+							  flags,
+							  pathAddress,
+							  numPathBytes,
+							  filestatAddress);
 	return __WASI_ENOSYS;
 }
 
@@ -641,6 +873,16 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_timestamp_t st_mtim,
 						  __wasi_fstflags_t fstflags)
 {
+	traceUnimplementedSyscall("path_filestat_set_times",
+							  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", %" PRIu64
+							  ", 0x%04x)",
+							  fd,
+							  flags,
+							  pathAddress,
+							  numPathBytes,
+							  st_atim,
+							  st_mtim,
+							  fstflags);
 	return __WASI_ENOSYS;
 }
 
@@ -654,6 +896,13 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress newPathAddress,
 						  WASIAddress numNewPathBytes)
 {
+	traceUnimplementedSyscall("path_symlink",
+							  "(" WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT ", %u)",
+							  oldPathAddress,
+							  numOldPathBytes,
+							  fd,
+							  newPathAddress,
+							  numNewPathBytes);
 	return __WASI_ENOSYS;
 }
 
@@ -665,6 +914,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress pathAddress,
 						  WASIAddress numPathBytes)
 {
+	traceUnimplementedSyscall(
+		"path_unlink_file", "(%u, " WASIADDRESS_FORMAT ", %u)", fd, pathAddress, numPathBytes);
 	return __WASI_ENOSYS;
 }
 
@@ -676,6 +927,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress pathAddress,
 						  WASIAddress numPathBytes)
 {
+	traceUnimplementedSyscall(
+		"path_remove_directory", "(%u, " WASIADDRESS_FORMAT ", %u)", fd, pathAddress, numPathBytes);
 	return __WASI_ENOSYS;
 }
 
@@ -688,16 +941,25 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress numSubscriptions,
 						  WASIAddress outNumEventsAddress)
 {
+	traceUnimplementedSyscall("poll_oneoff",
+							  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT
+							  ", %u, " WASIADDRESS_FORMAT ")",
+							  inAddress,
+							  outAddress,
+							  numSubscriptions,
+							  outNumEventsAddress);
 	return __WASI_ENOSYS;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "proc_exit", void, wasi_proc_exit, __wasi_exitcode_t exitCode)
 {
+	traceSyscallf("proc_exit", "(%u)", exitCode);
 	throw ExitException{exitCode};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "proc_raise", __wasi_errno_t, wasi_proc_raise, __wasi_signal_t sig)
 {
+	traceUnimplementedSyscall("proc_raise", "(%u)", sig);
 	return __WASI_ENOSYS;
 }
 
@@ -708,6 +970,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress bufferAddress,
 						  WASIAddress numBufferBytes)
 {
+	traceUnimplementedSyscall(
+		"random_get", "(" WASIADDRESS_FORMAT ", %u)", bufferAddress, numBufferBytes);
 	return __WASI_ENOSYS;
 }
 
@@ -722,6 +986,15 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress ro_datalen,
 						  WASIAddress ro_flags)
 {
+	traceUnimplementedSyscall("sock_recv",
+							  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%04x, " WASIADDRESS_FORMAT
+							  ", " WASIADDRESS_FORMAT ")",
+							  sock,
+							  ri_data,
+							  ri_data_len,
+							  ri_flags,
+							  ro_datalen,
+							  ro_flags);
 	return __WASI_ENOSYS;
 }
 
@@ -735,6 +1008,13 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_siflags_t si_flags,
 						  WASIAddress so_datalen)
 {
+	traceUnimplementedSyscall("sock_send",
+							  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%04x, " WASIADDRESS_FORMAT ")",
+							  sock,
+							  si_data,
+							  si_data_len,
+							  si_flags,
+							  so_datalen);
 	return __WASI_ENOSYS;
 }
 
@@ -745,10 +1025,12 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t sock,
 						  __wasi_sdflags_t how)
 {
+	traceUnimplementedSyscall("sock_shutdown", "(%u, 0x%02x)", sock, how);
 	return __WASI_ENOSYS;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_t, wasi_sched_yield)
 {
-	return __WASI_ESUCCESS;
+	traceUnimplementedSyscall("sched_yield", "()");
+	return __WASI_ENOSYS;
 }
