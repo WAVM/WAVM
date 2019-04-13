@@ -31,7 +31,7 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 		U8* stackMinGuardAddr;
 		U8* stackMinAddr;
 		U8* stackMaxAddr;
-		getCurrentThreadStack(stackMinGuardAddr, stackMinAddr, stackMaxAddr);
+		sigAltStack.getNonSignalStack(stackMinGuardAddr, stackMinAddr, stackMaxAddr);
 		signal.type = signalInfo->si_addr >= stackMinGuardAddr && signalInfo->si_addr < stackMaxAddr
 						  ? Signal::Type::stackOverflow
 						  : Signal::Type::accessViolation;

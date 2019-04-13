@@ -109,82 +109,6 @@ void SigAltStack::deinit()
 	}
 }
 
-NO_ASAN static void touchStackPages(U8* minAddr, Uptr numBytesPerPage)
-{
-	U8 sum = 0;
-	while(true)
-	{
-		volatile U8* touchAddr = (volatile U8*)alloca(numBytesPerPage / 2);
-		sum += *touchAddr;
-		if(touchAddr < minAddr + numBytesPerPage) { break; }
-	}
-}
-
-void SigAltStack::init()
-{
-	if(!base)
-	{
-		// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
-		if(!ALLOCATE_SIGALTSTACK_ON_MAIN_STACK)
-		{
-			base = (U8*)mmap(nullptr,
-							 sigAltStackNumBytes,
-							 PROT_READ | PROT_WRITE,
-							 MAP_PRIVATE | MAP_ANONYMOUS,
-							 -1,
-							 0);
-		}
-		else
-		{
-			const Uptr pageSizeLog2 = getPageSizeLog2();
-			const Uptr numBytesPerPage = Uptr(1) << pageSizeLog2;
-
-			// Use the top of the thread's normal stack to handle signals: just protect a page below
-			// the pages used by the sigaltstack that will catch stack overflows before they
-			// overwrite the sigaltstack.
-			U8* stackMinGuardAddr = nullptr;
-			U8* stackMinAddr = nullptr;
-			U8* stackMaxAddr = nullptr;
-			getCurrentThreadStack(stackMinGuardAddr, stackMinAddr, stackMaxAddr);
-
-			// Touch each stack page from bottom to top to ensure that it has been mapped: Linux and
-			// possibly other OSes lazily grow the stack mapping as a guard page is hit.
-			touchStackPages(stackMinAddr, numBytesPerPage);
-
-			// Protect a page in between the sigaltstack and the rest of the stack.
-			U8* signalStackMaxAddr = stackMinAddr + sigAltStackNumBytes;
-			errorUnless(isAlignedLog2(signalStackMaxAddr, pageSizeLog2));
-			if(mprotect(signalStackMaxAddr, numBytesPerPage, PROT_NONE) != 0)
-			{
-				Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR ", PROT_NONE) returned %i.\n",
-							   reinterpret_cast<Uptr>(signalStackMaxAddr),
-							   numBytesPerPage,
-							   errno);
-			}
-
-			base = stackMinAddr;
-		}
-
-		errorUnless(base != MAP_FAILED);
-		stack_t sigAltStackInfo;
-		sigAltStackInfo.ss_size = sigAltStackNumBytes;
-		sigAltStackInfo.ss_sp = base;
-		sigAltStackInfo.ss_flags = 0;
-		errorUnless(!sigaltstack(&sigAltStackInfo, nullptr));
-	}
-}
-
-thread_local SigAltStack Platform::sigAltStack;
-
-struct ThreadEntryContext
-{
-	jmp_buf exitJump;
-	I64 exitCode;
-	U8* framePointer = nullptr;
-};
-
-static thread_local ThreadEntryContext* threadEntryContext = nullptr;
-
 static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr)
 {
 #ifdef __linux__
@@ -209,16 +133,103 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	outMinAddr = outMaxAddr - numStackBytes;
 	outMinGuardAddr = outMinAddr - (Uptr(1) << getPageSizeLog2());
 #elif defined(__WAVIX__)
-	Errors::fatal("getCurrentThreadStack is unimplemented on Wavix.");
+	Errors::fatal("getThreadStack is unimplemented on Wavix.");
 #else
 #error unsupported platform
 #endif
 }
 
-void Platform::getCurrentThreadStack(U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr)
+NO_ASAN static void touchStackPages(U8* minAddr, Uptr numBytesPerPage)
 {
-	getThreadStack(pthread_self(), outMinGuardAddr, outMinAddr, outMaxAddr);
+	U8 sum = 0;
+	while(true)
+	{
+		volatile U8* touchAddr = (volatile U8*)alloca(numBytesPerPage / 2);
+		sum += *touchAddr;
+		if(touchAddr < minAddr + numBytesPerPage) { break; }
+	}
 }
+
+void SigAltStack::init()
+{
+	if(!base)
+	{
+		// Save the original stack information, since mprotecting part of the stack may change the
+		// result of pthread_getattr_np on the main thread. This is because glibc parses
+		// /proc/self/maps to implement pthread_getattr_np:
+		// https://github.com/lattera/glibc/blob/master/nptl/pthread_getattr_np.c#L72
+		getThreadStack(pthread_self(), stackMinGuardAddr, stackMinAddr, stackMaxAddr);
+
+		// Allocate a stack to use when handling signals, so stack overflow can be handled safely.
+		if(!ALLOCATE_SIGALTSTACK_ON_MAIN_STACK)
+		{
+			base = (U8*)mmap(nullptr,
+							 sigAltStackNumBytes,
+							 PROT_READ | PROT_WRITE,
+							 MAP_PRIVATE | MAP_ANONYMOUS,
+							 -1,
+							 0);
+		}
+		else
+		{
+			const Uptr pageSizeLog2 = getPageSizeLog2();
+			const Uptr numBytesPerPage = Uptr(1) << pageSizeLog2;
+
+			// Use the top of the thread's normal stack to handle signals: just protect a page below
+			// the pages used by the sigaltstack that will catch stack overflows before they
+			// overwrite the sigaltstack.
+			// Touch each stack page from bottom to top to ensure that it has been mapped: Linux and
+			// possibly other OSes lazily grow the stack mapping as a guard page is hit.
+			touchStackPages(stackMinAddr, numBytesPerPage);
+
+			// Protect a page in between the sigaltstack and the rest of the stack.
+			U8* signalStackMaxAddr = stackMinAddr + sigAltStackNumBytes;
+			errorUnless(isAlignedLog2(signalStackMaxAddr, pageSizeLog2));
+			if(mprotect(signalStackMaxAddr, numBytesPerPage, PROT_NONE) != 0)
+			{
+				Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR ", PROT_NONE) returned %i.\n",
+							   reinterpret_cast<Uptr>(signalStackMaxAddr),
+							   numBytesPerPage,
+							   errno);
+			}
+
+			base = stackMinAddr;
+
+			// Exclude the sigaltstack region from the saved "non-signal" stack information.
+			stackMinGuardAddr = signalStackMaxAddr;
+			stackMinAddr = signalStackMaxAddr + numBytesPerPage;
+		}
+
+		errorUnless(base != MAP_FAILED);
+		stack_t sigAltStackInfo;
+		sigAltStackInfo.ss_size = sigAltStackNumBytes;
+		sigAltStackInfo.ss_sp = base;
+		sigAltStackInfo.ss_flags = 0;
+		errorUnless(!sigaltstack(&sigAltStackInfo, nullptr));
+	}
+}
+
+void SigAltStack::getNonSignalStack(U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr)
+{
+	if(!base) { getThreadStack(pthread_self(), outMinGuardAddr, outMinAddr, outMaxAddr); }
+	else
+	{
+		outMinGuardAddr = stackMinGuardAddr;
+		outMinAddr = stackMinAddr;
+		outMaxAddr = stackMaxAddr;
+	}
+}
+
+thread_local SigAltStack Platform::sigAltStack;
+
+struct ThreadEntryContext
+{
+	jmp_buf exitJump;
+	I64 exitCode;
+	U8* framePointer = nullptr;
+};
+
+static thread_local ThreadEntryContext* threadEntryContext = nullptr;
 
 NO_ASAN static void* createThreadEntry(void* argsVoid)
 {
@@ -349,7 +360,7 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 		U8* minStackGuardAddr;
 		U8* minStackAddr;
 		U8* maxStackAddr;
-		getCurrentThreadStack(minStackGuardAddr, minStackAddr, maxStackAddr);
+		sigAltStack.getNonSignalStack(minStackGuardAddr, minStackAddr, maxStackAddr);
 		const Uptr numStackBytes = Uptr(maxStackAddr - minStackAddr);
 
 		// Use the current stack pointer derive a conservative bounds on the area of the stack that

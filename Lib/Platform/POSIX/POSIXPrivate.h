@@ -91,8 +91,14 @@ namespace WAVM { namespace Platform {
 		void init();
 		void deinit();
 
+		void getNonSignalStack(U8*& outMinGuardAddr, U8*& outMinAddr, U8*& outMaxAddr);
+
 	private:
 		U8* base = nullptr;
+
+		U8* stackMinAddr;
+		U8* stackMaxAddr;
+		U8* stackMinGuardAddr;
 	};
 
 	extern thread_local SigAltStack sigAltStack;
