@@ -60,33 +60,37 @@ bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
 std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& callStack)
 {
 	std::vector<std::string> frameDescriptions;
-	Uptr runIP = 0;
-	Uptr runLength = 0;
-	for(Uptr frameIndex = 0; frameIndex < callStack.stackFrames.size(); ++frameIndex)
+	HashSet<Uptr> describedIPs;
+	Uptr frameIndex = 0;
+	while(frameIndex < callStack.stackFrames.size())
 	{
-		const Platform::CallStack::Frame& frame = callStack.stackFrames[frameIndex];
-		if(frameIndex > 0 && frame.ip == runIP) { ++runLength; }
+		if(frameIndex + 1 < callStack.stackFrames.size()
+		   && describedIPs.contains(callStack.stackFrames[frameIndex].ip)
+		   && describedIPs.contains(callStack.stackFrames[frameIndex + 1].ip))
+		{
+			Uptr numOmittedFrames = 2;
+			while(frameIndex + numOmittedFrames < callStack.stackFrames.size()
+				  && describedIPs.contains(callStack.stackFrames[frameIndex + numOmittedFrames].ip))
+			{ ++numOmittedFrames; }
+
+			frameDescriptions.push_back("<" + std::to_string(numOmittedFrames)
+										+ " redundant frames omitted>");
+
+			frameIndex += numOmittedFrames;
+		}
 		else
 		{
-			if(runLength > 0)
-			{
-				frameDescriptions.push_back("<" + std::to_string(runLength)
-											+ " identical frames omitted>");
-			}
-
-			runIP = frame.ip;
-			runLength = 0;
+			const Uptr frameIP = callStack.stackFrames[frameIndex].ip;
 
 			std::string frameDescription;
-			if(!describeInstructionPointer(frame.ip, frameDescription))
+			if(!describeInstructionPointer(frameIP, frameDescription))
 			{ frameDescription = "<unknown function>"; }
 
+			describedIPs.add(frameIP);
 			frameDescriptions.push_back(frameDescription);
+
+			++frameIndex;
 		}
-	}
-	if(runLength > 0)
-	{
-		frameDescriptions.push_back("<" + std::to_string(runLength) + "identical frames omitted>");
 	}
 	return frameDescriptions;
 }
