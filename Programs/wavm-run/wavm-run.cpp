@@ -248,7 +248,7 @@ static int run(const CommandLineOptions& options)
 	if(options.enableEmscripten)
 	{
 		// Call the Emscripten global initalizers.
-		Emscripten::initializeGlobals(context, irModule, moduleInstance);
+		Emscripten::initializeGlobals(emscriptenInstance, context, irModule, moduleInstance);
 	}
 
 	// Look up the function export to call.
