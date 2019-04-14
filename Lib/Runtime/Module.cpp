@@ -465,8 +465,8 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 
 	PassiveElemSegmentMap newPassiveElemSegments;
 	{
-		Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
-		newPassiveDataSegments = moduleInstance->passiveDataSegments;
+		Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->passiveElemSegmentsMutex);
+		newPassiveElemSegments = moduleInstance->passiveElemSegments;
 	}
 	for(const auto& pair : newPassiveElemSegments)
 	{
