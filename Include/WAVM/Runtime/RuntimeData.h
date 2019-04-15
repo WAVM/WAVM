@@ -61,7 +61,7 @@ namespace WAVM { namespace Runtime {
 		maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes,
 		maxMutableGlobals = maxGlobalBytes / sizeof(IR::UntaggedValue),
 		maxMemories = 255,
-		maxTables = (4096 - maxMemories * sizeof(void*) - sizeof(Compartment*)) / sizeof(void*),
+		maxTables = 128*1024 - maxMemories - 1,
 		compartmentRuntimeDataAlignmentLog2 = 32,
 		contextRuntimeDataAlignment = 4096
 	};
