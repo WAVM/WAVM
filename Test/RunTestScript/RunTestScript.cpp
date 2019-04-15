@@ -60,6 +60,28 @@ struct TestScriptState
 		moduleNameToInstanceMap.set("threadTest", ThreadTest::instantiate(compartment));
 	}
 
+	TestScriptState(const TestScriptState& copyee)
+	: hasInstantiatedModule(copyee.hasInstantiatedModule)
+	{
+		compartment = Runtime::cloneCompartment(copyee.compartment);
+		context = Runtime::cloneContext(copyee.context, compartment);
+
+		lastModuleInstance
+			= Runtime::remapToClonedCompartment(copyee.lastModuleInstance, compartment);
+
+		for(const auto& pair : copyee.moduleInternalNameToInstanceMap)
+		{
+			moduleInternalNameToInstanceMap.addOrFail(
+				pair.key, Runtime::remapToClonedCompartment(pair.value, compartment));
+		}
+
+		for(const auto& pair : copyee.moduleNameToInstanceMap)
+		{
+			moduleNameToInstanceMap.addOrFail(
+				pair.key, Runtime::remapToClonedCompartment(pair.value, compartment));
+		}
+	}
+
 	~TestScriptState()
 	{
 		// Ensure that the compartment is garbage-collected after clearing all the references held
@@ -181,6 +203,15 @@ static Runtime::ExceptionType* getExpectedTrapType(WAST::ExpectedTrapType expect
 	case WAST::ExpectedTrapType::invalidArgument: return Runtime::ExceptionTypes::invalidArgument;
 	default: Errors::unreachable();
 	};
+}
+
+static std::string describeExpectedTrapType(WAST::ExpectedTrapType expectedType)
+{
+	if(expectedType == WAST::ExpectedTrapType::outOfBounds) { return "wavm.outOfBounds*"; }
+	else
+	{
+		return describeExceptionType(getExpectedTrapType(expectedType));
+	}
 }
 
 static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
@@ -443,13 +474,11 @@ static void processCommand(TestScriptState& state, const Command* command)
 			[&](Runtime::Exception* exception) {
 				if(!isExpectedExceptionType(assertCommand->expectedType, exception->type))
 				{
-					testErrorf(
-						state,
-						assertCommand->action->locus,
-						"expected %s trap but got %s trap",
-						describeExceptionType(getExpectedTrapType(assertCommand->expectedType))
-							.c_str(),
-						describeExceptionType(exception->type).c_str());
+					testErrorf(state,
+							   assertCommand->action->locus,
+							   "expected %s trap but got %s trap",
+							   describeExpectedTrapType(assertCommand->expectedType).c_str(),
+							   describeExceptionType(exception->type).c_str());
 				}
 				destroyException(exception);
 			});
@@ -572,6 +601,84 @@ static void processCommand(TestScriptState& state, const Command* command)
 	};
 }
 
+static void processCommandWithCloning(TestScriptState& state, const Command* command)
+{
+	const Uptr originalNumErrors = state.errors.size();
+
+	// Clone the test compartment and state.
+	TestScriptState clonedState(state);
+
+	// Process the command in both the original and the cloned compartments.
+	processCommand(state, command);
+	processCommand(clonedState, command);
+
+	// Check that the command produced the same errors in both the original and cloned compartments.
+	if(state.errors.size() != clonedState.errors.size())
+	{
+		testErrorf(state,
+				   command->locus,
+				   "Command produced different number of errors in cloned compartment");
+	}
+	else
+	{
+		for(Uptr errorIndex = originalNumErrors; errorIndex < state.errors.size(); ++errorIndex)
+		{
+			if(state.errors[errorIndex] != clonedState.errors[errorIndex])
+			{
+				testErrorf(state,
+						   clonedState.errors[errorIndex].locus,
+						   "Error only occurs in cloned state: %s",
+						   clonedState.errors[errorIndex].message.c_str());
+			}
+		}
+	}
+
+	// Check that the original and cloned memory are the same after processing the command.
+	if(state.lastModuleInstance && clonedState.lastModuleInstance)
+	{
+		wavmAssert(state.lastModuleInstance != clonedState.lastModuleInstance);
+
+		Memory* memory = getDefaultMemory(state.lastModuleInstance);
+		Memory* clonedMemory = getDefaultMemory(clonedState.lastModuleInstance);
+		if(memory && clonedMemory)
+		{
+			wavmAssert(memory != clonedMemory);
+
+			const Uptr numMemoryPages = getMemoryNumPages(memory);
+			const Uptr numClonedMemoryPages = getMemoryNumPages(clonedMemory);
+
+			if(numMemoryPages != numClonedMemoryPages)
+			{
+				testErrorf(state,
+						   command->locus,
+						   "Cloned memory size doesn't match (original = %" PRIuPTR
+						   " pages, cloned = %" PRIuPTR " pages",
+						   numMemoryPages,
+						   numClonedMemoryPages);
+			}
+			else
+			{
+				const Uptr numMemoryBytes = numMemoryPages * IR::numBytesPerPage;
+				for(Uptr byteIndex = 0; byteIndex < numMemoryBytes; ++byteIndex)
+				{
+					const U8 value = memoryRef<U8>(memory, byteIndex);
+					const U8 clonedValue = memoryRef<U8>(clonedMemory, byteIndex);
+					if(value != clonedValue)
+					{
+						testErrorf(state,
+								   command->locus,
+								   "Memory differs from cloned memory at address 0x08%" PRIxPTR
+								   ": 0x%02x vs 0x%02x",
+								   byteIndex,
+								   value,
+								   clonedValue);
+					}
+				}
+			}
+		}
+	}
+}
+
 DEFINE_INTRINSIC_FUNCTION(spectest, "print", void, spectest_print) {}
 DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32", void, spectest_print_i32, I32 a)
 {
@@ -675,7 +782,7 @@ static I64 threadMain(void* sharedStateVoid)
 							command->locus.describe().c_str());
 				catchRuntimeExceptions(
 					[&testScriptState, &command] {
-						processCommand(testScriptState, command.get());
+						processCommandWithCloning(testScriptState, command.get());
 					},
 					[&testScriptState, &command](Runtime::Exception* exception) {
 						testErrorf(testScriptState,

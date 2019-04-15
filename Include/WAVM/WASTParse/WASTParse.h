@@ -27,6 +27,14 @@ namespace WAVM { namespace WAST {
 		{
 			return std::to_string(lineNumber()) + ":" + std::to_string(column(spacesPerTab));
 		}
+
+		friend bool operator==(const TextFileLocus& a, const TextFileLocus& b)
+		{
+			return a.sourceLine == b.sourceLine && a.newlines == b.newlines && a.tabs == b.tabs
+				   && a.characters == b.characters;
+		}
+
+		friend bool operator!=(const TextFileLocus& a, const TextFileLocus& b) { return !(a == b); }
 	};
 
 	// A WAST parse error.
@@ -34,6 +42,13 @@ namespace WAVM { namespace WAST {
 	{
 		TextFileLocus locus;
 		std::string message;
+
+		friend bool operator==(const Error& a, const Error& b)
+		{
+			return a.locus == b.locus && a.message == b.message;
+		}
+
+		friend bool operator!=(const Error& a, const Error& b) { return !(a == b); }
 	};
 
 	// Parse a module from a string. Returns true if it succeeds, and writes the module to
