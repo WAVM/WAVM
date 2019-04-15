@@ -389,3 +389,12 @@ add_custom_target(RootFiles SOURCES
 	README.md
 	run-clang-format.sh
 	WebAssembly.tmLanguage)
+
+# Add an option to include the Wavix runtime in the WAVM build.
+set(WAVM_EXTERNAL_WAVIX_SOURCE_DIR
+    "${WAVM_EXTERNAL_WAVIX_SOURCE_DIR}"
+    CACHE PATH "Set to the path to the Wavix source code if you wish to build it as part of WAVM")
+if(NOT WAVM_EXTERNAL_WAVIX_SOURCE_DIR STREQUAL "")
+	set(WAVM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/WAVM)
+	add_subdirectory(${WAVM_EXTERNAL_WAVIX_SOURCE_DIR} Wavix)
+endif()
