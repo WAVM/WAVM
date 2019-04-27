@@ -501,16 +501,22 @@
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -inf))
   (v128.const i32x4 -2147483648 -2147483648 -2147483648 -2147483648))
   
-(; not yet working correctly
 (assert_return
   (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +inf))
   (v128.const i32x4 2147483647 2147483647 2147483647 2147483647))
 
 (assert_return
-  (invoke "i32x4.trunc_sat_f32x4_s" (f32.const nan))
+  (invoke "i32x4.trunc_sat_f32x4_s" (f32.const -nan))
   (v128.const i32x4 0 0 0 0))
-;)
   
+(assert_return
+  (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +nan))
+  (v128.const i32x4 0 0 0 0))
+  
+(assert_return
+  (invoke "i32x4.trunc_sat_f32x4_s" (f32.const nan:0x444444))
+  (v128.const i32x4 0 0 0 0))
+
 ;; i32x4.trunc_sat_f32x4_u
 
 (module (func (export "i32x4.trunc_sat_f32x4_u") (param $a f32) (result v128) (i32x4.trunc_sat_f32x4_u (f32x4.splat (local.get $a)))))
@@ -547,15 +553,21 @@
   (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -inf))
   (v128.const i32x4 0 0 0 0))
   
-(; not yet working correctly
 (assert_return
-  (invoke "i32x4.trunc_sat_f32x4_s" (f32.const +inf))
+  (invoke "i32x4.trunc_sat_f32x4_u" (f32.const +inf))
   (v128.const i32x4 0xffffffff 0xffffffff 0xffffffff 0xffffffff))
 
 (assert_return
-  (invoke "i32x4.trunc_sat_f32x4_u" (f32.const nan))
+  (invoke "i32x4.trunc_sat_f32x4_u" (f32.const -nan))
   (v128.const i32x4 0 0 0 0))
-;)
+  
+(assert_return
+  (invoke "i32x4.trunc_sat_f32x4_u" (f32.const +nan))
+  (v128.const i32x4 0 0 0 0))
+  
+(assert_return
+  (invoke "i32x4.trunc_sat_f32x4_u" (f32.const nan:0x444444))
+  (v128.const i32x4 0 0 0 0))
 
 ;; i64x2.trunc_sat_f64x2_s
 
