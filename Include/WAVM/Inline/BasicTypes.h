@@ -19,7 +19,7 @@ typedef double F64;
 // The OSX libc defines uintptr_t to be a long where U32/U64 are int. This causes uintptr_t/uint64
 // to be treated as distinct types for e.g. overloading. Work around it by defining our own
 // Uptr/Iptr that are always int type.
-#if defined(__APPLE__)
+#if defined(__APPLE__) || defined(__WAVIX__)
 #undef PRIuPTR
 #undef PRIxPTR
 #if __SIZEOF_POINTER__ == 8

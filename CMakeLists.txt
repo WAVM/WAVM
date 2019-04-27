@@ -38,6 +38,14 @@ else()
 	option(WAVM_ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 endif()
 
+# On GCC/Clang, provide an option to compile the static libraries as PIC: Position-Independent Code.
+# With this option disabled, the static libraries may not be linked into shared libraries.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	if(WAVM_ENABLE_STATIC_LINKING)
+		option(WAVM_ENABLE_STATIC_LIBRARY_PIC "create position-independent static libraries" ON)
+	endif()
+endif()
+
 if(WAVM_ENABLE_RUNTIME)
 	# Find an installed build of LLVM
 	find_package(LLVM REQUIRED CONFIG)
@@ -170,8 +178,11 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
 		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 
-		# Ensure that even static libraries are relocatable so they can be linked into a .so
-		target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
+		get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
+		if(TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND WAVM_ENABLE_STATIC_LIBRARY_PIC)
+			# Ensure that even static libraries are relocatable so they can be linked into a .so
+			target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
+		endif()
 
 		if(WAVM_ENABLE_ASAN)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
