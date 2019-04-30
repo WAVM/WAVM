@@ -392,7 +392,7 @@
 /*	visitOp(0xfd8b, i64x2_add_saturate_s      , "i64x2.add_saturate_s"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd8c, i64x2_add_saturate_u      , "i64x2.add_saturate_u"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
 	visitOp(0xfd8d, i64x2_sub                 , "i64x2.sub"                 , NoImm                     , BINARY(v128,v128)    , simd                   )   \
-/*	visitOp(0xfd8e, i64x2_susb_saturate_s      , "i64x2.sub_saturate_s"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
+/*	visitOp(0xfd8e, i64x2_sub_saturate_s      , "i64x2.sub_saturate_s"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd8f, i64x2_sub_saturate_u      , "i64x2.sub_saturate_u"      , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd90, i64x2_mul                 , "i64x2.mul"                 , NoImm                     , BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd91,                           ,                             ,                           ,                      , simd                   )*/ \
