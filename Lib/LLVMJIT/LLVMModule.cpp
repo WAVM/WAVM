@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <string>
@@ -40,10 +41,12 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Memory.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/raw_ostream.h"
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 #if !USE_WINDOWS_SEH
 #include <cxxabi.h>
+
 #endif
 
 namespace WAVM { namespace Runtime {
@@ -51,13 +54,17 @@ namespace WAVM { namespace Runtime {
 }}
 
 #define KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED 0
+
+#ifndef PRINT_DISASSEMBLY
 #define PRINT_DISASSEMBLY 0
+#endif
 
 using namespace WAVM;
 using namespace WAVM::LLVMJIT;
 
 static Platform::Mutex gdbRegistrationListenerMutex;
 static llvm::JITEventListener* gdbRegistrationListener = nullptr;
+static llvm::JITEventListener* perfRegistrationListener = nullptr;
 
 // A map from address to loaded JIT symbols.
 static Platform::Mutex addressToModuleMapMutex;
@@ -472,12 +479,16 @@ Module::Module(const std::vector<U8>& objectBytes,
 	{
 		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
 		if(!gdbRegistrationListener)
-		{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }
+		{
+            perfRegistrationListener = llvm::JITEventListener::createPerfJITEventListener();
+		    gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
+		}
 #if LLVM_VERSION_MAJOR >= 8
-		gdbRegistrationListener->notifyObjectLoaded(
-			reinterpret_cast<Uptr>(this), *object, *loadedObject);
+		gdbRegistrationListener->notifyObjectLoaded(reinterpret_cast<Uptr>(this), *object, *loadedObject);
+        perfRegistrationListener->notifyObjectLoaded(reinterpret_cast<Uptr>(this), *object, *loadedObject);
 #else
 		gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
+		perfRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
 #endif
 	}
 
@@ -557,6 +568,13 @@ Module::Module(const std::vector<U8>& objectBytes,
 		Timing::logRatePerSecond(
 			"Loaded object", loadObjectTimer, (F64)objectBytes.size() / 1024.0 / 1024.0, "MB");
 	}
+
+//	llvm::DIDumpOptions dwarfOpt;
+//	std::error_code errorCode;
+//    std::string filename = std::string("dwarf/dump_") + std::to_string(rand()) + std::string(".dwarf");
+//    llvm::raw_fd_ostream dumpFileStream(filename, errorCode, llvm::sys::fs::OpenFlags::F_Text);
+//    dwarfContext->dump(dumpFileStream, dwarfOpt);
+//    printf("DWARF at %s\n", filename.c_str());
 }
 
 Module::~Module()
@@ -566,8 +584,10 @@ Module::~Module()
 		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
 		gdbRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
+		perfRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
 #else
 		gdbRegistrationListener->NotifyFreeingObject(*object);
+		perfRegistrationListener->NotifyFreeingObject(*object);
 #endif
 	}
 
