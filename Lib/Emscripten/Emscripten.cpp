@@ -238,6 +238,11 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_broadcast", I32, _pthread_cond_bro
 	return 0;
 }
 
+DEFINE_INTRINSIC_FUNCTION(env, "_pthread_equal", I32, _pthread_equal, I32 a, I32 b)
+{
+	return a == b;
+}
+
 static HashMap<U32, I32> pthreadSpecific = {};
 static U32 pthreadSpecificNextKey = 0;
 
