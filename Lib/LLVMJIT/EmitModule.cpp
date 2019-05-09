@@ -43,7 +43,7 @@ EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 , defaultTableOffset(nullptr)
 , diBuilder(*inLLVMModule)
 {
-	diModuleScope = diBuilder.createFile("unknown", "unknown");
+	diModuleScope = diBuilder.createFile("function.o", ".");
 	diCompileUnit = diBuilder.createCompileUnit(0xffff, diModuleScope, "WAVM", true, "", 0);
 
 	diValueTypes[(Uptr)ValueType::any] = nullptr;

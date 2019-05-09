@@ -318,7 +318,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 #endif
 
 	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
-		llvm::StringRef((const char*)objectBytes.data(), objectBytes.size()), "memory")));
+		llvm::StringRef((const char*)objectBytes.data(), objectBytes.size()), "function.o")));
 
 	// Create the LLVM object loader.
 	struct SymbolResolver : llvm::JITSymbolResolver
@@ -334,8 +334,11 @@ Module::Module(const std::vector<U8>& objectBytes,
 		virtual void lookup(const LookupSet& symbols,
 							llvm::JITSymbolResolver::OnResolvedFunction onResolvedFunction) override
 		{
-			LookupResult result;
-			for(auto symbol : symbols) { result.emplace(symbol, findSymbolImpl(symbol)); }
+			// Used to look up imports
+		    LookupResult result;
+			for(auto symbol : symbols) {
+			    result.emplace(symbol, findSymbolImpl(symbol));
+			}
 			onResolvedFunction(result);
 		}
 		virtual llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet& symbols) override
