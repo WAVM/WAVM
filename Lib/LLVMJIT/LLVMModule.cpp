@@ -53,7 +53,9 @@ namespace WAVM { namespace Runtime {
 	struct ExceptionType;
 }}
 
+#ifndef KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED
 #define KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED 0
+#endif
 
 #ifndef PRINT_DISASSEMBLY
 #define PRINT_DISASSEMBLY 0
@@ -203,6 +205,8 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 													   readWriteSection.numPages,
 													   Platform::MemoryAccess::readWrite));
 		}
+
+		invalidateInstructionCache();
 	}
 	virtual void invalidateInstructionCache()
 	{
