@@ -308,7 +308,8 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 
 Module::Module(const std::vector<U8>& objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
-			   bool shouldLogMetrics)
+			   bool shouldLogMetrics,
+			   const std::string &filePath)
 : memoryManager(new ModuleMemoryManager())
 #if LLVM_VERSION_MAJOR < 8
 , objectBytes(objectBytes)
@@ -320,7 +321,13 @@ Module::Module(const std::vector<U8>& objectBytes,
 	std::unique_ptr<llvm::object::ObjectFile> object;
 #endif
 
-	llvm::StringRef fileRef("/usr/local/code/faasm/wasm/demo/fibonacci/function.o");
+    llvm::StringRef fileRef;
+	if(filePath.empty()) {
+	    fileRef = "memory";
+	} else {
+        fileRef = filePath;
+	}
+
 	llvm::StringRef bytesRef((const char*)objectBytes.data(), objectBytes.size());
 	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(bytesRef, fileRef)));
 
@@ -437,14 +444,6 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Use the LLVM object loader to load the object.
 	std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo> loadedObject = loader.loadObject(*object);
-	for(auto &p : loader.getSymbolTable()) {
-	    printf("Sym: %s\n", p.first.data());
-	}
-
-    const llvm::object::OwningBinary<llvm::object::ObjectFile> debugBinary = loadedObject->getObjectForDebug(*object);
-    const llvm::object::ObjectFile *bin = debugBinary.getBinary();
-    const llvm::StringRef fn = bin->getFileName();
-    printf("File: %s\n", fn.data());
 
 	loader.finalizeWithMemoryManagerLocking();
 	if(loader.hasError())
