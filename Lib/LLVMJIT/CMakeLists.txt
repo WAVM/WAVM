@@ -25,6 +25,8 @@ set(PublicHeaders
 if(${WAVM_PERF_EVENTS})
 	# This is a bit lazy, should find only what's needed
 	llvm_map_components_to_libnames(LLVM_LIBS all)
+
+	add_definitions(-DWAVM_PERF_EVENTS=1)
 else()
 	llvm_map_components_to_libnames(LLVM_LIBS support core passes orcjit RuntimeDyld native DebugInfoDWARF)
 endif()
