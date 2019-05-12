@@ -22,8 +22,12 @@ set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/LLVMJIT/LLVMJIT.h)
 
 # Find the LLVM libraries to link with.
-llvm_map_components_to_libnames(LLVM_LIBS all)
-#llvm_map_components_to_libnames(LLVM_LIBS support core passes orcjit RuntimeDyld native DebugInfoDWARF)
+if(${WAVM_PERF_EVENTS})
+	# This is a bit lazy, should find only what's needed
+	llvm_map_components_to_libnames(LLVM_LIBS all)
+else()
+	llvm_map_components_to_libnames(LLVM_LIBS support core passes orcjit RuntimeDyld native DebugInfoDWARF)
+endif()
 
 # Create the LLVMJIT target.
 WAVM_ADD_LIB_COMPONENT(LLVMJIT

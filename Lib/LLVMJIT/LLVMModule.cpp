@@ -66,7 +66,10 @@ using namespace WAVM::LLVMJIT;
 
 static Platform::Mutex gdbRegistrationListenerMutex;
 static llvm::JITEventListener* gdbRegistrationListener = nullptr;
+
+#ifdef WAVM_PERF_EVENTS
 static llvm::JITEventListener* perfRegistrationListener = nullptr;
+#endif
 
 // A map from address to loaded JIT symbols.
 static Platform::Mutex addressToModuleMapMutex;
@@ -317,8 +320,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 	std::unique_ptr<llvm::object::ObjectFile> object;
 #endif
 
-	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
-		llvm::StringRef((const char*)objectBytes.data(), objectBytes.size()), "function.o")));
+	llvm::StringRef fileRef("/usr/local/code/faasm/wasm/demo/fibonacci/function.o");
+	llvm::StringRef bytesRef((const char*)objectBytes.data(), objectBytes.size());
+	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(bytesRef, fileRef)));
 
 	// Create the LLVM object loader.
 	struct SymbolResolver : llvm::JITSymbolResolver
@@ -433,6 +437,15 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Use the LLVM object loader to load the object.
 	std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo> loadedObject = loader.loadObject(*object);
+	for(auto &p : loader.getSymbolTable()) {
+	    printf("Sym: %s\n", p.first.data());
+	}
+
+    const llvm::object::OwningBinary<llvm::object::ObjectFile> debugBinary = loadedObject->getObjectForDebug(*object);
+    const llvm::object::ObjectFile *bin = debugBinary.getBinary();
+    const llvm::StringRef fn = bin->getFileName();
+    printf("File: %s\n", fn.data());
+
 	loader.finalizeWithMemoryManagerLocking();
 	if(loader.hasError())
 	{ Errors::fatalf("RuntimeDyld failed: %s", loader.getErrorString().data()); }
@@ -487,15 +500,24 @@ Module::Module(const std::vector<U8>& objectBytes,
 		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
 		if(!gdbRegistrationListener)
 		{
-            perfRegistrationListener = llvm::JITEventListener::createPerfJITEventListener();
 		    gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
 		}
 #if LLVM_VERSION_MAJOR >= 8
 		gdbRegistrationListener->notifyObjectLoaded(reinterpret_cast<Uptr>(this), *object, *loadedObject);
-        perfRegistrationListener->notifyObjectLoaded(reinterpret_cast<Uptr>(this), *object, *loadedObject);
 #else
 		gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
-		perfRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
+#endif
+
+#ifdef WAVM_PERF_EVENTS
+        if(!perfRegistrationListener)
+        {
+            perfRegistrationListener = llvm::JITEventListener::createPerfJITEventListener();
+        }
+#if LLVM_VERSION_MAJOR >= 8
+        perfRegistrationListener->notifyObjectLoaded(reinterpret_cast<Uptr>(this), *object, *loadedObject);
+#else
+        perfRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
+#endif
 #endif
 	}
 
@@ -591,10 +613,16 @@ Module::~Module()
 		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
 #if LLVM_VERSION_MAJOR >= 8
 		gdbRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
-		perfRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
 #else
 		gdbRegistrationListener->NotifyFreeingObject(*object);
-		perfRegistrationListener->NotifyFreeingObject(*object);
+#endif
+
+#ifdef WAVM_PERF_EVENTS
+#if LLVM_VERSION_MAJOR >= 8
+		perfRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
+#else
+        perfRegistrationListener->NotifyFreeingObject(*object);
+#endif
 #endif
 	}
 
