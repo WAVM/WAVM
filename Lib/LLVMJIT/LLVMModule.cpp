@@ -596,13 +596,6 @@ Module::Module(const std::vector<U8>& objectBytes,
 		Timing::logRatePerSecond(
 			"Loaded object", loadObjectTimer, (F64)objectBytes.size() / 1024.0 / 1024.0, "MB");
 	}
-
-//	llvm::DIDumpOptions dwarfOpt;
-//	std::error_code errorCode;
-//    std::string filename = std::string("dwarf/dump_") + std::to_string(rand()) + std::string(".dwarf");
-//    llvm::raw_fd_ostream dumpFileStream(filename, errorCode, llvm::sys::fs::OpenFlags::F_Text);
-//    dwarfContext->dump(dumpFileStream, dwarfOpt);
-//    printf("DWARF at %s\n", filename.c_str());
 }
 
 Module::~Module()
