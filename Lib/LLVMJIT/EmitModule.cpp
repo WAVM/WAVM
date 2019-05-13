@@ -96,10 +96,6 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	Timing::Timer emitTimer;
 	EmitModuleContext moduleContext(irModule, llvmContext, &outLLVMModule);
 
-	// Get disassembly names to help assigning recognisable names to the functions
-    IR::DisassemblyNames disassemblyNames;
-    getDisassemblyNames(irModule, disassemblyNames);
-
 	// Create an external reference to the appropriate exception personality function.
 	auto personalityFunction
 		= llvm::Function::Create(llvm::FunctionType::get(llvmContext.i32Type, {}, false),
@@ -212,25 +208,12 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	{
 		FunctionType functionType = irModule.types[irModule.functions.getType(functionIndex).index];
 
-		// Try and get the proper name for the function
-		std::string funcName;
-        bool isImport = functionIndex < irModule.functions.imports.size();
-
-        // TODO - get this working
-        // if(functionIndex < disassemblyNames.functions.size()) {
-        //     funcName = disassemblyNames.functions[functionIndex].name;
-        // }
-
-        if(isImport) {
-            funcName = getExternalName("functionImport", functionIndex);
-        } else {
-            funcName = getExternalName("functionDef", functionIndex - irModule.functions.imports.size());
-        }
-
 		llvm::Function* function = llvm::Function::Create(
 			asLLVMType(llvmContext, functionType, CallingConvention::wasm),
 			llvm::Function::ExternalLinkage,
-			funcName,
+			functionIndex >= irModule.functions.imports.size()
+				? getExternalName("functionDef", functionIndex - irModule.functions.imports.size())
+				: getExternalName("functionImport", functionIndex),
 			&outLLVMModule);
 		function->setCallingConv(asLLVMCallingConv(CallingConvention::wasm));
 		moduleContext.functions[functionIndex] = function;
