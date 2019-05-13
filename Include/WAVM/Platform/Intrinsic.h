@@ -22,8 +22,10 @@ namespace WAVM { namespace Platform {
 		// BitScanReverse returns 0 if the input is 0.
 		unsigned long result;
 		return _BitScanReverse(&result, value) ? (31 - result) : 32;
-#else
+#elif defined(__GNUC__)
 		return value == 0 ? 32 : __builtin_clz(value);
+#else
+#error Unsupported compiler
 #endif
 	}
 
@@ -34,8 +36,10 @@ namespace WAVM { namespace Platform {
 		return _BitScanReverse64(&result, value) ? (63 - result) : 64;
 #elif defined(_WIN32)
 		DEBUG_TRAP();
-#else
+#elif defined(__GNUC__)
 		return value == 0 ? 64 : __builtin_clzll(value);
+#else
+#error Unsupported compiler
 #endif
 	}
 
@@ -47,8 +51,10 @@ namespace WAVM { namespace Platform {
 		// BitScanForward returns 0 if the input is 0.
 		unsigned long result;
 		return _BitScanForward(&result, value) ? result : 32;
-#else
+#elif defined(__GNUC__)
 		return value == 0 ? 32 : __builtin_ctz(value);
+#else
+#error Unsupported compiler
 #endif
 	}
 	inline U64 countTrailingZeroes(U64 value)
@@ -58,8 +64,10 @@ namespace WAVM { namespace Platform {
 		return _BitScanForward64(&result, value) ? result : 64;
 #elif defined(_WIN32)
 		DEBUG_TRAP();
-#else
+#elif defined(__GNUC__)
 		return value == 0 ? 64 : __builtin_ctzll(value);
+#else
+#error Unsupported compiler
 #endif
 	}
 
