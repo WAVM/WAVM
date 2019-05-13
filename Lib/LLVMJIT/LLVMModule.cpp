@@ -196,6 +196,9 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 													   readWriteSection.numPages,
 													   Platform::MemoryAccess::readWrite));
 		}
+
+		// Invalidate the instruction cache.
+		invalidateInstructionCache();
 	}
 	virtual void invalidateInstructionCache()
 	{
