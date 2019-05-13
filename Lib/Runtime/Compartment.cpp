@@ -178,6 +178,7 @@ bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
 		// Treat functions with moduleInstanceId=UINTPTR_MAX as if they are in all compartments.
 		if(function->moduleInstanceId == UINTPTR_MAX) { return true; }
 
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		if(!compartment->moduleInstances.contains(function->moduleInstanceId)) { return false; }
 		ModuleInstance* moduleInstance = compartment->moduleInstances[function->moduleInstanceId];
 		return moduleInstance->jitModule.get() == function->mutableData->jitModule;
