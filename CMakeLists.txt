@@ -12,6 +12,10 @@ option(WAVM_ENABLE_RELEASE_ASSERTS "enable assertions in release builds" 0)
 option(WAVM_METRICS_OUTPUT "controls printing the timings of some operations to stdout" OFF)
 option(WAVM_ENABLE_LTO "use link-time optimization" OFF)
 
+if(${WAVM_PERF_EVENTS})
+	add_definitions(-DWAVM_PERF_EVENTS=1)
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	# The sanitizers are only available when compiling with Clang and GCC.
 	option(WAVM_ENABLE_ASAN "enable ASAN" OFF)

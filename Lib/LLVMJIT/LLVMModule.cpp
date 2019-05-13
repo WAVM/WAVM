@@ -508,15 +508,11 @@ Module::Module(const std::vector<U8>& objectBytes,
 #endif
 
 #ifdef WAVM_PERF_EVENTS
-        if(!perfRegistrationListener)
-        {
+        if(!perfRegistrationListener) {
             perfRegistrationListener = llvm::JITEventListener::createPerfJITEventListener();
         }
-#if LLVM_VERSION_MAJOR >= 8
+
         perfRegistrationListener->notifyObjectLoaded(reinterpret_cast<Uptr>(this), *object, *loadedObject);
-#else
-        perfRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
-#endif
 #endif
 	}
 
@@ -610,11 +606,7 @@ Module::~Module()
 #endif
 
 #ifdef WAVM_PERF_EVENTS
-#if LLVM_VERSION_MAJOR >= 8
-		perfRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
-#else
-        perfRegistrationListener->NotifyFreeingObject(*object);
-#endif
+    perfRegistrationListener->notifyFreeingObject(reinterpret_cast<Uptr>(this));
 #endif
 	}
 
