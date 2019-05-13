@@ -1,6 +1,7 @@
 #pragma once
 
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/I128.h"
 #include "WAVM/Platform/Defines.h"
 
 namespace WAVM { namespace Platform {
@@ -16,7 +17,7 @@ namespace WAVM { namespace Platform {
 		void operator=(const Event&) = delete;
 		void operator=(Event&&) = delete;
 
-		PLATFORM_API bool wait(U64 untilClock);
+		PLATFORM_API bool wait(I128 untilMonotonicClock);
 		PLATFORM_API void signal();
 
 	private:

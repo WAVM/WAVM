@@ -4,6 +4,8 @@
 
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/I128.h"
+#include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Event.h"
 
@@ -38,20 +40,20 @@ Platform::Event::~Event()
 	errorUnless(!pthread_mutex_destroy((pthread_mutex_t*)&pthreadMutex));
 }
 
-bool Platform::Event::wait(U64 untilTime)
+bool Platform::Event::wait(I128 untilTime)
 {
 	errorUnless(!pthread_mutex_lock((pthread_mutex_t*)&pthreadMutex));
 
 	int result;
-	if(untilTime == UINT64_MAX)
+	if(untilTime == INT128_MAX)
 	{
 		result = pthread_cond_wait((pthread_cond_t*)&pthreadCond, (pthread_mutex_t*)&pthreadMutex);
 	}
 	else
 	{
 		timespec untilTimeSpec;
-		untilTimeSpec.tv_sec = untilTime / 1000000;
-		untilTimeSpec.tv_nsec = (untilTime % 1000000) * 1000;
+		untilTimeSpec.tv_sec = U64(untilTime / 1000000000);
+		untilTimeSpec.tv_nsec = U64(untilTime % 1000000000);
 
 		result = pthread_cond_timedwait(
 			(pthread_cond_t*)&pthreadCond, (pthread_mutex_t*)&pthreadMutex, &untilTimeSpec);

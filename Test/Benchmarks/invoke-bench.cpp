@@ -39,7 +39,7 @@ struct ThreadArgs
 {
 	Context* context = nullptr;
 	Function* nopFunction = nullptr;
-	U64 elapsedMicroseconds = 0;
+	F64 elapsedNanoseconds = 0;
 	Platform::Thread* thread = nullptr;
 };
 
@@ -61,20 +61,20 @@ void runBenchmark(Compartment* compartment,
 	}
 
 	// Wait for the threads to exit, and sum the results from each thread.
-	U64 totalElapsedMicroseconds = 0;
+	F64 totalElapsedNanoseconds = 0;
 	for(ThreadArgs* threadArgs : threads)
 	{
 		Platform::joinThread(threadArgs->thread);
-		totalElapsedMicroseconds += threadArgs->elapsedMicroseconds;
+		totalElapsedNanoseconds += threadArgs->elapsedNanoseconds;
 		delete threadArgs;
 	}
 
 	// Print the results.
 	const U64 numCalls = U64(numInvokesPerThread) * numThreads;
-	const F64 nanosecondsPerInvoke = F64(totalElapsedMicroseconds) / F64(numCalls) * 1000.0;
+	const F64 nanosecondsPerInvoke = totalElapsedNanoseconds / F64(numCalls);
 
 	Log::printf(Log::output,
-				"ns/%s in %" PRIuPTR " threads: %.1f\n",
+				"ns/%s in %" PRIuPTR " threads: %.2f\n",
 				description,
 				numThreads,
 				nanosecondsPerInvoke);
@@ -129,7 +129,7 @@ int main(int argc, char** argv)
 			{ (*(NopFunctionPointer)&threadArgs->nopFunction->code[0])(contextRuntimeData); }
 			timer.stop();
 
-			threadArgs->elapsedMicroseconds = timer.getMicroseconds();
+			threadArgs->elapsedNanoseconds = timer.getNanoseconds();
 
 			return 0;
 		});
@@ -148,7 +148,7 @@ int main(int argc, char** argv)
 			}
 			timer.stop();
 
-			threadArgs->elapsedMicroseconds = timer.getMicroseconds();
+			threadArgs->elapsedNanoseconds = timer.getNanoseconds();
 
 			return 0;
 		});
@@ -165,7 +165,7 @@ int main(int argc, char** argv)
 			{ invokeFunctionChecked(threadArgs->context, threadArgs->nopFunction, functionArgs); }
 			timer.stop();
 
-			threadArgs->elapsedMicroseconds = timer.getMicroseconds();
+			threadArgs->elapsedNanoseconds = timer.getNanoseconds();
 
 			return 0;
 		});

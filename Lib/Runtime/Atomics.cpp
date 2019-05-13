@@ -94,24 +94,11 @@ template<typename Value> static void atomicStore(Value* valuePointer, Value newV
 	valuePointerAtomic->store(newValue);
 }
 
-// Decodes a floating-point timeout value relative to startTime.
-static U64 getEndTimeFromTimeout(U64 startTimeMicroseconds, I64 timeoutNanoseconds)
-{
-	U64 endTimeMicroseconds = UINT64_MAX;
-	if(timeoutNanoseconds >= 0)
-	{
-		// Convert the timeout to microseconds, rounding up.
-		const U64 timeoutMicroseconds = (U64(timeoutNanoseconds) + 999) / 1000;
-
-		endTimeMicroseconds = startTimeMicroseconds + timeoutMicroseconds;
-	}
-	return endTimeMicroseconds;
-}
-
 template<typename Value>
 static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 {
-	const U64 endTime = getEndTimeFromTimeout(Platform::getMonotonicClock(), timeout);
+	const I128 startTime = Platform::getMonotonicClock();
+	const I128 endTime = timeout < 0 ? INT128_MAX : (startTime + timeout);
 
 	// Open the wait list for this address.
 	const Uptr address = reinterpret_cast<Uptr>(valuePointer);

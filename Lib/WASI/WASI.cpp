@@ -360,16 +360,22 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 {
 	traceSyscallf("clock_res_get", "(%u, " WASIADDRESS_FORMAT ")", clockId, resolutionAddress);
 
-	__wasi_timestamp_t resolution;
+	I128 resolution128;
 	switch(clockId)
 	{
-	case __WASI_CLOCK_REALTIME:
+	case __WASI_CLOCK_REALTIME: resolution128 = Platform::getRealtimeClockResolution(); break;
+	case __WASI_CLOCK_MONOTONIC: resolution128 = Platform::getMonotonicClockResolution(); break;
 	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+		resolution128 = Platform::getProcessClockResolution();
+		break;
 	case __WASI_CLOCK_THREAD_CPUTIME_ID:
-	case __WASI_CLOCK_MONOTONIC: resolution = 1000000ul; break;
+		resolution128 = Platform::getThreadClockResolution();
+		break;
 	default: traceSyscallReturnf("clock_res_get", "EINVAL"); return __WASI_EINVAL;
 	}
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	__wasi_timestamp_t resolution = __wasi_timestamp_t(resolution128);
 	memoryRef<__wasi_timestamp_t>(process->memory, resolutionAddress) = resolution;
 
 	traceSyscallReturnf("clock_res_get", "ESUCCESS (%" PRIu64 ")", resolution);
@@ -384,16 +390,18 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_timestamp_t precision,
 						  WASIAddress timeAddress)
 {
-	__wasi_timestamp_t currentTime;
+	I128 currentTime128;
 	switch(clockId)
 	{
-	case __WASI_CLOCK_REALTIME:
-	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
-	case __WASI_CLOCK_THREAD_CPUTIME_ID:
-	case __WASI_CLOCK_MONOTONIC: currentTime = Platform::getMonotonicClock(); break;
+	case __WASI_CLOCK_REALTIME: currentTime128 = Platform::getRealtimeClock(); break;
+	case __WASI_CLOCK_MONOTONIC: currentTime128 = Platform::getMonotonicClock(); break;
+	case __WASI_CLOCK_PROCESS_CPUTIME_ID: currentTime128 = Platform::getProcessClock(); break;
+	case __WASI_CLOCK_THREAD_CPUTIME_ID: currentTime128 = Platform::getThreadClock(); break;
 	default: traceSyscallReturnf("clock_time_get", "EINVAL"); return __WASI_EINVAL;
 	}
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	__wasi_timestamp_t currentTime = __wasi_timestamp_t(currentTime128);
 	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = currentTime;
 
 	traceSyscallReturnf("clock_time_get", "ESUCCESS (%" PRIu64 ")", currentTime);
