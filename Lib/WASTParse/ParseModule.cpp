@@ -474,19 +474,19 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 	bool isActive = true;
 	switch(cursor->nextToken[0].type)
 	{
-	case t_passive:
-		// passive ...
-		require(cursor, t_passive);
+	case t_funcref:
+	case t_string:
+		// ...
 		isActive = false;
 		break;
 	case t_quotedName:
 	case t_name:
 		switch(cursor->nextToken[1].type)
 		{
-		case t_passive:
-			// <s:name> passive ...
+		case t_funcref:
+		case t_string:
+			// <s:name> ...
 			errorUnless(tryParseName(cursor, outSegmentName));
-			require(cursor, t_passive);
 			isActive = false;
 			break;
 		case t_quotedName:

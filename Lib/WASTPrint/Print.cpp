@@ -899,7 +899,6 @@ void ModulePrintContext::printModule()
 		string += ' ';
 		if(!elemSegment.isActive)
 		{
-			string += "passive";
 			switch(elemSegment.elemType)
 			{
 			case ReferenceType::anyref: string += " anyref"; break;
@@ -913,6 +912,7 @@ void ModulePrintContext::printModule()
 			string += ' ';
 			printInitializerExpression(elemSegment.baseOffset);
 		}
+
 		enum
 		{
 			numElemsPerLine = 8
@@ -951,13 +951,13 @@ void ModulePrintContext::printModule()
 		string += ' ';
 		string += names.dataSegments[segmentIndex];
 		string += ' ';
-		if(!dataSegment.isActive) { string += "passive"; }
-		else
+		if(dataSegment.isActive)
 		{
 			string += names.memories[dataSegment.memoryIndex];
 			string += ' ';
 			printInitializerExpression(dataSegment.baseOffset);
 		}
+
 		enum
 		{
 			numBytesPerLine = 64
