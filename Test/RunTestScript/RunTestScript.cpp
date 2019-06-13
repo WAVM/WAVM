@@ -80,6 +80,8 @@ struct TestScriptState
 			moduleNameToInstanceMap.addOrFail(
 				pair.key, Runtime::remapToClonedCompartment(pair.value, compartment));
 		}
+
+		errors = copyee.errors;
 	}
 
 	~TestScriptState()
