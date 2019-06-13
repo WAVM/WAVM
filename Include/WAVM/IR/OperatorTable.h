@@ -40,7 +40,6 @@
 	visitOp(0x0011, call_indirect      , "call_indirect"                    , CallIndirectImm           , PARAMETRIC           , mvp                    )   \
 /* Stack manipulation                                                                                                                                    */ \
 	visitOp(0x001a, drop               , "drop"                             , NoImm                     , PARAMETRIC           , mvp                    )   \
-	visitOp(0x001b, select             , "select"                           , NoImm                     , PARAMETRIC           , mvp                    )   \
 /* Variables                                                                                                                                             */ \
 	visitOp(0x0020, local_get          , "local.get"                        , GetOrSetVariableImm<false>, PARAMETRIC           , mvp                    )   \
 	visitOp(0x0021, local_set          , "local.set"                        , GetOrSetVariableImm<false>, PARAMETRIC           , mvp                    )   \
@@ -55,6 +54,10 @@
 /* Exceptions                                                                                                                                            */ \
 	visitOp(0xfb00, throw_             , "throw"                            , ExceptionTypeImm          , PARAMETRIC           , exceptionHandling      )   \
 	visitOp(0xfb01, rethrow            , "rethrow"                          , RethrowImm                , PARAMETRIC           , exceptionHandling      )
+
+#define ENUM_OVERLOADED_OPERATORS(visitOp)                                                                                                                  \
+/*  visitOp(0x001b, select             , "select"                           , NoImm                     , PARAMETRIC           , mvp                    )*/ \
+	visitOp(0x001c, select             , "select"                           , SelectImm                 , PARAMETRIC           , mvp                    )
 
 #define ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                                                                                    \
 	visitOp(0x0001, nop                , "nop"                              , NoImm                     , NONE                 , mvp                    )   \
@@ -508,8 +511,16 @@
 
 #define ENUM_NONCONTROL_OPERATORS(visitOp)                                                         \
 	ENUM_PARAMETRIC_OPERATORS(visitOp)                                                             \
+	ENUM_OVERLOADED_OPERATORS(visitOp)                                                             \
 	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)
 
+#define ENUM_NONOVERLOADED_OPERATORS(visitOp)                                                      \
+	ENUM_PARAMETRIC_OPERATORS(visitOp)                                                             \
+	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                               \
+	ENUM_CONTROL_OPERATORS(visitOp)
+
 #define ENUM_OPERATORS(visitOp)                                                                    \
-	ENUM_NONCONTROL_OPERATORS(visitOp)                                                             \
+	ENUM_PARAMETRIC_OPERATORS(visitOp)                                                             \
+	ENUM_OVERLOADED_OPERATORS(visitOp)                                                             \
+	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                               \
 	ENUM_CONTROL_OPERATORS(visitOp)

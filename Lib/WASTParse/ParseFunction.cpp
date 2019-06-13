@@ -185,6 +185,18 @@ static void parseImm(CursorState* cursor, TableCopyImm& outImm)
 	{ outImm.destTableIndex = outImm.sourceTableIndex; }
 }
 
+static void parseImm(CursorState* cursor, SelectImm& outImm)
+{
+	outImm.type = ValueType::any;
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
+	{
+		parseParenthesized(cursor, [&] {
+			require(cursor, t_result);
+			outImm.type = parseValueType(cursor);
+		});
+	}
+}
+
 static void parseImm(CursorState* cursor, LiteralImm<I32>& outImm)
 {
 	outImm.value = (I32)parseI32(cursor);
@@ -484,7 +496,7 @@ static void parseControlImm(CursorState* cursor,
 	if(functionType.params().size() == 0 && functionType.results().size() == 0)
 	{
 		imm.type.format = IndexedBlockType::noParametersOrResult;
-		imm.type.resultType = ValueType::any;
+		imm.type.resultType = ValueType::none;
 	}
 	else if(functionType.params().size() == 0 && functionType.results().size() == 1)
 	{

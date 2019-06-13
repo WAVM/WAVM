@@ -22,16 +22,16 @@ namespace WAVM { namespace IR {
 	// The type of a WebAssembly operand
 	enum class ValueType : U8
 	{
-		none = 0,
-		any = 1,
-		i32 = 2,
-		i64 = 3,
-		f32 = 4,
-		f64 = 5,
-		v128 = 6,
-		anyref = 7,
-		funcref = 8,
-		nullref = 9,
+		none,
+		any,
+		i32,
+		i64,
+		f32,
+		f64,
+		v128,
+		anyref,
+		funcref,
+		nullref,
 
 		num,
 		max = num - 1
@@ -40,10 +40,10 @@ namespace WAVM { namespace IR {
 	// The reference types subset of ValueType.
 	enum class ReferenceType : U8
 	{
-		invalid = 0,
+		invalid = U8(ValueType::none),
 
-		anyref = 7,
-		funcref = 8,
+		anyref = U8(ValueType::anyref),
+		funcref = U8(ValueType::funcref),
 	};
 
 	static_assert(Uptr(ValueType::anyref) == Uptr(ReferenceType::anyref),
@@ -53,6 +53,12 @@ namespace WAVM { namespace IR {
 
 	inline ValueType asValueType(ReferenceType type) { return ValueType(type); }
 
+	inline bool isNumericType(ValueType type)
+	{
+		return type == ValueType::i32 || type == ValueType::i64 || type == ValueType::f32
+			   || type == ValueType::f64 || type == ValueType::v128;
+	}
+
 	inline bool isReferenceType(ValueType type)
 	{
 		return type == ValueType::anyref || type == ValueType::funcref
@@ -61,7 +67,7 @@ namespace WAVM { namespace IR {
 
 	inline bool isSubtype(ValueType subtype, ValueType supertype)
 	{
-		if(subtype == supertype) { return true; }
+		if(subtype == supertype || subtype == ValueType::none) { return true; }
 		else
 		{
 			switch(supertype)
@@ -75,58 +81,17 @@ namespace WAVM { namespace IR {
 		}
 	}
 
-	// Returns the type that includes all values that are an instance of a OR b.
-	inline ValueType join(ValueType a, ValueType b)
+	inline bool isSubtype(ReferenceType subtype, ReferenceType supertype)
 	{
-		if(a == b) { return a; }
-		else if(isReferenceType(a) && isReferenceType(b))
-		{
-			// a \ b    anyref  funcref  nullref
-			// anyref   anyref  anyref   anyref
-			// funcref  anyref  funcref  funcref
-			// nullref  anyref  funcref  nullref
-			if(a == ValueType::nullref) { return b; }
-			else if(b == ValueType::nullref)
-			{
-				return a;
-			}
-			else
-			{
-				// Because we know a != b, and neither a or b are nullref, we can infer that one is
-				// anyref, and one is funcref.
-				return ValueType::anyref;
-			}
-		}
+		if(subtype == supertype) { return true; }
 		else
 		{
-			return ValueType::any;
-		}
-	}
-
-	// Returns the type that includes all values that are an instance of both a AND b.
-	inline ValueType meet(ValueType a, ValueType b)
-	{
-		if(a == b) { return a; }
-		else if(isReferenceType(a) && isReferenceType(b))
-		{
-			// a \ b    anyref   funcref  nullref
-			// anyref   anyref   funcref  nullref
-			// funcref  funcref  funcref  nullref
-			// nullref  nullref  nullref  nullref
-			if(a == ValueType::nullref || b == ValueType::nullref) { return ValueType::nullref; }
-			else if(a == ValueType::anyref)
+			switch(supertype)
 			{
-				return b;
+			case ReferenceType::anyref: return subtype == ReferenceType::funcref;
+			case ReferenceType::funcref: return subtype == ReferenceType::funcref;
+			default: return false;
 			}
-			else
-			{
-				wavmAssert(b == ValueType::anyref);
-				return a;
-			}
-		}
-		else
-		{
-			return ValueType::none;
 		}
 	}
 
@@ -172,6 +137,7 @@ namespace WAVM { namespace IR {
 	{
 		switch(type)
 		{
+		case ValueType::none: return "none";
 		case ValueType::any: return "any";
 		case ValueType::i32: return "i32";
 		case ValueType::i64: return "i64";

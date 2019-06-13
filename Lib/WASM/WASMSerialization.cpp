@@ -449,7 +449,7 @@ static void serialize(InputStream& stream, ControlStructureImm& imm, const Funct
 	else if(encodedBlockType == -64)
 	{
 		imm.type.format = IndexedBlockType::noParametersOrResult;
-		imm.type.resultType = ValueType::any;
+		imm.type.resultType = ValueType::none;
 	}
 	else
 	{
@@ -471,6 +471,11 @@ static void serialize(OutputStream& stream, const ControlStructureImm& imm, cons
 	default: Errors::unreachable();
 	};
 	serializeVarInt32(stream, encodedBlockType);
+}
+
+template<typename Stream> void serialize(Stream& stream, SelectImm& imm, const FunctionDef&)
+{
+	serialize(stream, imm.type);
 }
 
 template<typename Stream> void serialize(Stream& stream, BranchImm& imm, const FunctionDef&)
@@ -691,8 +696,26 @@ struct OperatorSerializerStream
 		serializeOpcode(byteStream, opcode);                                                       \
 		serialize(byteStream, imm, functionDef);                                                   \
 	}
-	ENUM_OPERATORS(VISIT_OPCODE)
+	ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
+
+	void select(SelectImm imm) const
+	{
+		// Serialize different opcodes depending on the select immediates:
+		// implicitly-typed select: 0x1b
+		// explicitly-typed select: 0x1c
+		if(imm.type == ValueType::any)
+		{
+			Opcode opcode = Opcode(0x1b);
+			serializeOpcode(byteStream, opcode);
+		}
+		else
+		{
+			Opcode opcode = Opcode(0x1c);
+			serializeOpcode(byteStream, opcode);
+			serialize(byteStream, imm, functionDef);
+		}
+	}
 
 	void unknown(Opcode opcode) { throw FatalSerializationException("unknown opcode"); }
 
@@ -772,10 +795,10 @@ static void serializeFunctionBody(InputStream& sectionStream,
 	{
 		Opcode opcode;
 		serializeOpcode(bodyStream, opcode);
-		switch(opcode)
+		switch(U16(opcode))
 		{
 #define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
-	case Opcode::name:                                                                             \
+	case Uptr(Opcode::name):                                                                       \
 	{                                                                                              \
 		Imm imm;                                                                                   \
 		serialize(bodyStream, imm, functionDef);                                                   \
@@ -783,8 +806,26 @@ static void serializeFunctionBody(InputStream& sectionStream,
 		irEncoderStream.name(imm);                                                                 \
 		break;                                                                                     \
 	}
-			ENUM_OPERATORS(VISIT_OPCODE)
+			ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
+		// Explicitly handle both select opcodes here:
+		case 0x1b:
+		{
+			SelectImm imm{ValueType::any};
+
+			codeValidationStream.select(imm);
+			irEncoderStream.select(imm);
+			break;
+		}
+		case 0x1c:
+		{
+			SelectImm imm;
+			serialize(bodyStream, imm, functionDef);
+
+			codeValidationStream.select(imm);
+			irEncoderStream.select(imm);
+			break;
+		}
 		default: throw FatalSerializationException("unknown opcode");
 		};
 	};

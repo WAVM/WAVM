@@ -423,7 +423,7 @@ void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 
 void EmitFunctionContext::nop(IR::NoImm) {}
 void EmitFunctionContext::drop(IR::NoImm) { stack.pop_back(); }
-void EmitFunctionContext::select(IR::NoImm)
+void EmitFunctionContext::select(IR::SelectImm)
 {
 	auto condition = pop();
 	auto falseValue = pop();

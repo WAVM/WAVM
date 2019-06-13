@@ -97,6 +97,11 @@ namespace WAVM {
 			{ failVerification(); }
 		}
 
+		void verifyMatches(SelectImm a, SelectImm b)
+		{
+			if(a.type != b.type) { failVerification(); }
+		}
+
 		void verifyMatches(BranchImm a, BranchImm b)
 		{
 			if(a.targetDepth != b.targetDepth) { failVerification(); }

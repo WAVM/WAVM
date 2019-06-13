@@ -462,7 +462,16 @@ struct FunctionPrintContext
 	}
 	void drop(NoImm) { string += "\ndrop"; }
 
-	void select(NoImm) { string += "\nselect"; }
+	void select(SelectImm imm)
+	{
+		if(imm.type == ValueType::any) { string += "\nselect"; }
+		else
+		{
+			string += "\nselect (result ";
+			string += asString(imm.type);
+			string += ")";
+		}
+	}
 
 	void local_get(GetOrSetVariableImm<false> imm)
 	{
