@@ -474,8 +474,10 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 	bool isActive = true;
 	switch(cursor->nextToken[0].type)
 	{
+	case t_anyref:
 	case t_funcref:
 	case t_string:
+	case t_rightParenthesis:
 		// ...
 		isActive = false;
 		break;
@@ -483,8 +485,10 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 	case t_name:
 		switch(cursor->nextToken[1].type)
 		{
+		case t_anyref:
 		case t_funcref:
 		case t_string:
+		case t_rightParenthesis:
 			// <s:name> ...
 			errorUnless(tryParseName(cursor, outSegmentName));
 			isActive = false;
