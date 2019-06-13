@@ -398,9 +398,16 @@ Module::Module(const std::vector<U8>& objectBytes,
 			llvm::StringRef sectionName;
 			if(!section.getName(sectionName))
 			{
+#if LLVM_VERSION_MAJOR >= 9
+				llvm::Expected<llvm::StringRef> sectionContentsOrError = section.getContents();
+				if(sectionContentsOrError)
+				{
+					const llvm::StringRef& sectionContents = sectionContentsOrError.get();
+#else
 				llvm::StringRef sectionContents;
 				if(!section.getContents(sectionContents))
 				{
+#endif
 					const U8* loadedSection = (const U8*)sectionContents.data();
 					if(sectionName == ".pdata")
 					{
