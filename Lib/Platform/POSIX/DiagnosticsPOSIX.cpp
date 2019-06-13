@@ -40,6 +40,7 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 	errorUnless(!unw_getcontext(&context));
 
 	unw_cursor_t cursor;
+	bool lastFrameWasSignalFrame = false;
 
 	errorUnless(!unw_init_local(&cursor, &context));
 	while(unw_step(&cursor) > 0)
@@ -49,9 +50,10 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 		{
 			unw_word_t ip;
 			errorUnless(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
-
-			result.stackFrames.push_back(CallStack::Frame{ip});
+			result.stackFrames.push_back(CallStack::Frame{lastFrameWasSignalFrame ? ip : (ip - 1)});
 		}
+
+		lastFrameWasSignalFrame = unw_is_signal_frame(&cursor) > 0;
 	}
 #endif
 
@@ -99,7 +101,7 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 #if WAVM_ENABLE_RUNTIME
 	// Look up static symbol information for the address.
 	Dl_info symbolInfo;
-	if(dladdr((void*)(ip - 1), &symbolInfo))
+	if(dladdr((void*)ip, &symbolInfo))
 	{
 		wavmAssert(symbolInfo.dli_fname);
 		outDescription = "host!";
