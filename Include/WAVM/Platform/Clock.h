@@ -23,10 +23,4 @@ namespace WAVM { namespace Platform {
 
 	// Returns the precision of getProcessClock, in nanoseconds per clock tick.
 	PLATFORM_API I128 getProcessClockResolution();
-
-	// Returns a high-resolution per-thread clock: nanoseconds since some arbitrary reference time.
-	PLATFORM_API I128 getThreadClock();
-
-	// Returns the precision of getThreadClock, in nanoseconds per clock tick.
-	PLATFORM_API I128 getThreadClockResolution();
 }}

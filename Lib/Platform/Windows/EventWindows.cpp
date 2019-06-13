@@ -17,16 +17,17 @@ Platform::Event::Event()
 
 Platform::Event::~Event() { errorUnless(CloseHandle(handle)); }
 
-bool Platform::Event::wait(I128 untilTime)
+bool Platform::Event::wait(I128 waitDuration)
 {
 	I128 currentTime = getMonotonicClock();
+	const I128 untilTime = waitDuration == INT128_MAX ? INT128_MAX : (currentTime + waitDuration);
 	while(true)
 	{
-		const I128 timeout128 = currentTime > untilTime ? 0 : (untilTime - currentTime) / 1000000;
-		const U32 timeout
-			= timeout128 <= 0 ? 0 : timeout128 > UINT32_MAX ? UINT32_MAX : U32(timeout128);
+		const I128 durationMS = currentTime > untilTime ? 0 : (untilTime - currentTime) / 1000000;
+		const U32 durationMS32
+			= durationMS <= 0 ? 0 : durationMS >= UINT32_MAX ? (UINT32_MAX - 1) : U32(durationMS);
 
-		const U32 waitResult = WaitForSingleObject(handle, timeout);
+		const U32 waitResult = WaitForSingleObject(handle, durationMS32);
 		if(waitResult != WAIT_TIMEOUT)
 		{
 			errorUnless(waitResult == WAIT_OBJECT_0);

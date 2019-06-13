@@ -97,9 +97,6 @@ template<typename Value> static void atomicStore(Value* valuePointer, Value newV
 template<typename Value>
 static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 {
-	const I128 startTime = Platform::getMonotonicClock();
-	const I128 endTime = timeout < 0 ? INT128_MAX : (startTime + timeout);
-
 	// Open the wait list for this address.
 	const Uptr address = reinterpret_cast<Uptr>(valuePointer);
 	WaitList* waitList = openWaitList(address);
@@ -135,7 +132,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 
 	// Wait for the thread's wake event to be signaled.
 	bool timedOut = false;
-	if(!threadWakeEvent->wait(endTime))
+	if(!threadWakeEvent->wait(timeout < 0 ? INT128_MAX : I128(timeout)))
 	{
 		// If the wait timed out, lock the wait list and check if the thread's wake event is still
 		// in the wait list.

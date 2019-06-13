@@ -366,10 +366,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	case __WASI_CLOCK_REALTIME: resolution128 = Platform::getRealtimeClockResolution(); break;
 	case __WASI_CLOCK_MONOTONIC: resolution128 = Platform::getMonotonicClockResolution(); break;
 	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
-		resolution128 = Platform::getProcessClockResolution();
-		break;
 	case __WASI_CLOCK_THREAD_CPUTIME_ID:
-		resolution128 = Platform::getThreadClockResolution();
+		resolution128 = Platform::getProcessClockResolution();
 		break;
 	default: traceSyscallReturnf("clock_res_get", "EINVAL"); return __WASI_EINVAL;
 	}
@@ -395,8 +393,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	{
 	case __WASI_CLOCK_REALTIME: currentTime128 = Platform::getRealtimeClock(); break;
 	case __WASI_CLOCK_MONOTONIC: currentTime128 = Platform::getMonotonicClock(); break;
-	case __WASI_CLOCK_PROCESS_CPUTIME_ID: currentTime128 = Platform::getProcessClock(); break;
-	case __WASI_CLOCK_THREAD_CPUTIME_ID: currentTime128 = Platform::getThreadClock(); break;
+	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+	case __WASI_CLOCK_THREAD_CPUTIME_ID: currentTime128 = Platform::getProcessClock(); break;
 	default: traceSyscallReturnf("clock_time_get", "EINVAL"); return __WASI_EINVAL;
 	}
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);

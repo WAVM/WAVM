@@ -8,8 +8,8 @@ namespace WAVM { namespace Timing {
 	// Encapsulates a timer that starts when constructed and stops when read.
 	struct Timer
 	{
-		Timer() : startTime(Platform::getThreadClock()), isStopped(false) {}
-		void stop() { endTime = Platform::getThreadClock(); }
+		Timer() : startTime(Platform::getProcessClock()), isStopped(false) {}
+		void stop() { endTime = Platform::getProcessClock(); }
 		F64 getNanoseconds()
 		{
 			if(!isStopped) { stop(); }

@@ -17,7 +17,7 @@ namespace WAVM { namespace Platform {
 		void operator=(const Event&) = delete;
 		void operator=(Event&&) = delete;
 
-		PLATFORM_API bool wait(I128 untilMonotonicClock);
+		PLATFORM_API bool wait(I128 waitDuration);
 		PLATFORM_API void signal();
 
 	private:

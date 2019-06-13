@@ -74,7 +74,3 @@ I128 Platform::getMonotonicClockResolution()
 I128 Platform::getProcessClock() { return getMonotonicClock(); }
 
 I128 Platform::getProcessClockResolution() { return getMonotonicClockResolution(); }
-
-I128 Platform::getThreadClock() { return getMonotonicClock(); }
-
-I128 Platform::getThreadClockResolution() { return getMonotonicClockResolution(); }
