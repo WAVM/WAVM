@@ -54,6 +54,7 @@ set(WASTTests
 	memory_grow.wast
 	memory_init.wast
 	memory_redundancy.wast
+	memory_size.wast
 	memory_trap.wast
 	names.wast
 	nop.wast

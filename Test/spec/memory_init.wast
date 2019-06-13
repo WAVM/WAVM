@@ -5,9 +5,9 @@
 (module
   (memory (export "memory0") 1 1)
   (data (i32.const 2) "\03\01\04\01")
-  (data passive "\02\07\01\08")
+  (data "\02\07\01\08")
   (data (i32.const 12) "\07\05\02\03\06")
-  (data passive "\05\09\02\07\06")
+  (data "\05\09\02\07\06")
   (func (export "test")
     (nop))
   (func (export "load8_u") (param i32) (result i32)
@@ -49,9 +49,9 @@
 (module
   (memory (export "memory0") 1 1)
   (data (i32.const 2) "\03\01\04\01")
-  (data passive "\02\07\01\08")
+  (data "\02\07\01\08")
   (data (i32.const 12) "\07\05\02\03\06")
-  (data passive "\05\09\02\07\06")
+  (data "\05\09\02\07\06")
   (func (export "test")
     (memory.init 1 (i32.const 7) (i32.const 0) (i32.const 4)))
   (func (export "load8_u") (param i32) (result i32)
@@ -93,9 +93,9 @@
 (module
   (memory (export "memory0") 1 1)
   (data (i32.const 2) "\03\01\04\01")
-  (data passive "\02\07\01\08")
+  (data "\02\07\01\08")
   (data (i32.const 12) "\07\05\02\03\06")
-  (data passive "\05\09\02\07\06")
+  (data "\05\09\02\07\06")
   (func (export "test")
     (memory.init 3 (i32.const 15) (i32.const 1) (i32.const 3)))
   (func (export "load8_u") (param i32) (result i32)
@@ -137,9 +137,9 @@
 (module
   (memory (export "memory0") 1 1)
   (data (i32.const 2) "\03\01\04\01")
-  (data passive "\02\07\01\08")
+  (data "\02\07\01\08")
   (data (i32.const 12) "\07\05\02\03\06")
-  (data passive "\05\09\02\07\06")
+  (data "\05\09\02\07\06")
   (func (export "test")
     (memory.init 1 (i32.const 7) (i32.const 0) (i32.const 4))
     (data.drop 1)
@@ -194,14 +194,14 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (data.drop 4)))
   "unknown data segment")
 
 (module
   (memory 1)
-    (data passive "\37")
+    (data "\37")
   (func (export "test")
     (data.drop 0)
     (data.drop 0)))
@@ -209,7 +209,7 @@
 
 (module
   (memory 1)
-    (data passive "\37")
+    (data "\37")
   (func (export "test")
     (data.drop 0)
     (memory.init 0 (i32.const 1234) (i32.const 1) (i32.const 1))))
@@ -231,14 +231,14 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 1 (i32.const 1234) (i32.const 1) (i32.const 1))))
   "unknown data segment 1")
 
 (module
   (memory 1)
-    (data passive "\37")
+    (data "\37")
   (func (export "test")
     (memory.init 0 (i32.const 1) (i32.const 0) (i32.const 1))
     (memory.init 0 (i32.const 1) (i32.const 0) (i32.const 1))))
@@ -246,43 +246,64 @@
 
 (module
   (memory 1)
-    (data passive "\37")
+    (data "\37")
   (func (export "test")
     (memory.init 0 (i32.const 1234) (i32.const 0) (i32.const 5))))
 (assert_trap (invoke "test") "out of bounds")
 
 (module
   (memory 1)
-    (data passive "\37")
+    (data "\37")
   (func (export "test")
     (memory.init 0 (i32.const 1234) (i32.const 2) (i32.const 3))))
 (assert_trap (invoke "test") "out of bounds")
 
 (module
   (memory 1)
-    (data passive "\37")
+    (data "\37")
   (func (export "test")
     (memory.init 0 (i32.const 0xFFFE) (i32.const 1) (i32.const 3))))
 (assert_trap (invoke "test") "out of bounds")
 
 (module
   (memory 1)
-    (data passive "\37")
+    (data "\37")
   (func (export "test")
     (memory.init 0 (i32.const 1234) (i32.const 4) (i32.const 0))))
 (assert_trap (invoke "test") "out of bounds")
 
 (module
   (memory 1)
-    (data passive "\37")
+    (data "\37")
   (func (export "test")
-    (memory.init 0 (i32.const 0x10000) (i32.const 2) (i32.const 0))))
+    (memory.init 0 (i32.const 1234) (i32.const 1) (i32.const 0))))
+(invoke "test")
+
+(module
+  (memory 1)
+    (data "\37")
+  (func (export "test")
+    (memory.init 0 (i32.const 0x10001) (i32.const 0) (i32.const 0))))
 (assert_trap (invoke "test") "out of bounds")
+
+(module
+  (memory 1)
+    (data "\37")
+  (func (export "test")
+    (memory.init 0 (i32.const 0x10000) (i32.const 0) (i32.const 0))))
+(invoke "test")
+
+(module
+  (memory 1)
+    (data "\37")
+  (func (export "test")
+    (memory.init 0 (i32.const 0x10000) (i32.const 1) (i32.const 0))))
+(invoke "test")
 
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (i32.const 1) (f32.const 1))))
   "type mismatch")
@@ -290,7 +311,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (i32.const 1) (i64.const 1))))
   "type mismatch")
@@ -298,7 +319,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (i32.const 1) (f64.const 1))))
   "type mismatch")
@@ -306,7 +327,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (f32.const 1) (i32.const 1))))
   "type mismatch")
@@ -314,7 +335,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (f32.const 1) (f32.const 1))))
   "type mismatch")
@@ -322,7 +343,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (f32.const 1) (i64.const 1))))
   "type mismatch")
@@ -330,7 +351,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (f32.const 1) (f64.const 1))))
   "type mismatch")
@@ -338,7 +359,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (i64.const 1) (i32.const 1))))
   "type mismatch")
@@ -346,7 +367,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (i64.const 1) (f32.const 1))))
   "type mismatch")
@@ -354,7 +375,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (i64.const 1) (i64.const 1))))
   "type mismatch")
@@ -362,7 +383,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (i64.const 1) (f64.const 1))))
   "type mismatch")
@@ -370,7 +391,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (f64.const 1) (i32.const 1))))
   "type mismatch")
@@ -378,7 +399,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (f64.const 1) (f32.const 1))))
   "type mismatch")
@@ -386,7 +407,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (f64.const 1) (i64.const 1))))
   "type mismatch")
@@ -394,7 +415,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i32.const 1) (f64.const 1) (f64.const 1))))
   "type mismatch")
@@ -402,7 +423,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (i32.const 1) (i32.const 1))))
   "type mismatch")
@@ -410,7 +431,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (i32.const 1) (f32.const 1))))
   "type mismatch")
@@ -418,7 +439,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (i32.const 1) (i64.const 1))))
   "type mismatch")
@@ -426,7 +447,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (i32.const 1) (f64.const 1))))
   "type mismatch")
@@ -434,7 +455,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (f32.const 1) (i32.const 1))))
   "type mismatch")
@@ -442,7 +463,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (f32.const 1) (f32.const 1))))
   "type mismatch")
@@ -450,7 +471,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (f32.const 1) (i64.const 1))))
   "type mismatch")
@@ -458,7 +479,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (f32.const 1) (f64.const 1))))
   "type mismatch")
@@ -466,7 +487,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (i64.const 1) (i32.const 1))))
   "type mismatch")
@@ -474,7 +495,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (i64.const 1) (f32.const 1))))
   "type mismatch")
@@ -482,7 +503,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (i64.const 1) (i64.const 1))))
   "type mismatch")
@@ -490,7 +511,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (i64.const 1) (f64.const 1))))
   "type mismatch")
@@ -498,7 +519,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (f64.const 1) (i32.const 1))))
   "type mismatch")
@@ -506,7 +527,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (f64.const 1) (f32.const 1))))
   "type mismatch")
@@ -514,7 +535,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (f64.const 1) (i64.const 1))))
   "type mismatch")
@@ -522,7 +543,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f32.const 1) (f64.const 1) (f64.const 1))))
   "type mismatch")
@@ -530,7 +551,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (i32.const 1) (i32.const 1))))
   "type mismatch")
@@ -538,7 +559,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (i32.const 1) (f32.const 1))))
   "type mismatch")
@@ -546,7 +567,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (i32.const 1) (i64.const 1))))
   "type mismatch")
@@ -554,7 +575,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (i32.const 1) (f64.const 1))))
   "type mismatch")
@@ -562,7 +583,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (f32.const 1) (i32.const 1))))
   "type mismatch")
@@ -570,7 +591,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (f32.const 1) (f32.const 1))))
   "type mismatch")
@@ -578,7 +599,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (f32.const 1) (i64.const 1))))
   "type mismatch")
@@ -586,7 +607,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (f32.const 1) (f64.const 1))))
   "type mismatch")
@@ -594,7 +615,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (i64.const 1) (i32.const 1))))
   "type mismatch")
@@ -602,7 +623,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (i64.const 1) (f32.const 1))))
   "type mismatch")
@@ -610,7 +631,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (i64.const 1) (i64.const 1))))
   "type mismatch")
@@ -618,7 +639,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (i64.const 1) (f64.const 1))))
   "type mismatch")
@@ -626,7 +647,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (f64.const 1) (i32.const 1))))
   "type mismatch")
@@ -634,7 +655,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (f64.const 1) (f32.const 1))))
   "type mismatch")
@@ -642,7 +663,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (f64.const 1) (i64.const 1))))
   "type mismatch")
@@ -650,7 +671,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (i64.const 1) (f64.const 1) (f64.const 1))))
   "type mismatch")
@@ -658,7 +679,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (i32.const 1) (i32.const 1))))
   "type mismatch")
@@ -666,7 +687,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (i32.const 1) (f32.const 1))))
   "type mismatch")
@@ -674,7 +695,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (i32.const 1) (i64.const 1))))
   "type mismatch")
@@ -682,7 +703,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (i32.const 1) (f64.const 1))))
   "type mismatch")
@@ -690,7 +711,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (f32.const 1) (i32.const 1))))
   "type mismatch")
@@ -698,7 +719,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (f32.const 1) (f32.const 1))))
   "type mismatch")
@@ -706,7 +727,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (f32.const 1) (i64.const 1))))
   "type mismatch")
@@ -714,7 +735,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (f32.const 1) (f64.const 1))))
   "type mismatch")
@@ -722,7 +743,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (i64.const 1) (i32.const 1))))
   "type mismatch")
@@ -730,7 +751,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (i64.const 1) (f32.const 1))))
   "type mismatch")
@@ -738,7 +759,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (i64.const 1) (i64.const 1))))
   "type mismatch")
@@ -746,7 +767,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (i64.const 1) (f64.const 1))))
   "type mismatch")
@@ -754,7 +775,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (f64.const 1) (i32.const 1))))
   "type mismatch")
@@ -762,7 +783,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (f64.const 1) (f32.const 1))))
   "type mismatch")
@@ -770,7 +791,7 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (f64.const 1) (i64.const 1))))
   "type mismatch")
@@ -778,14 +799,14 @@
 (assert_invalid
   (module
     (memory 1)
-    (data passive "\37")
+    (data "\37")
     (func (export "test")
       (memory.init 0 (f64.const 1) (f64.const 1) (f64.const 1))))
   "type mismatch")
 
 (module
   (memory 1 1 )
-  (data passive "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
+  (data "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
    
   (func (export "checkRange") (param $from i32) (param $to i32) (param $expected i32) (result i32)
     (loop $cont
@@ -812,7 +833,7 @@
                (i32.const -1))
 (module
   (memory 1 1 )
-  (data passive "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
+  (data "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
    
   (func (export "checkRange") (param $from i32) (param $to i32) (param $expected i32) (result i32)
     (loop $cont
@@ -839,7 +860,7 @@
                (i32.const -1))
 (module
   (memory 1 1 )
-  (data passive "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
+  (data "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
    
   (func (export "checkRange") (param $from i32) (param $to i32) (param $expected i32) (result i32)
     (loop $cont
@@ -866,7 +887,7 @@
                (i32.const -1))
 (module
   (memory 1 1 )
-  (data passive "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
+  (data "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
    
   (func (export "checkRange") (param $from i32) (param $to i32) (param $expected i32) (result i32)
     (loop $cont
@@ -893,7 +914,7 @@
                (i32.const -1))
 (module
   (memory 1  )
-  (data passive "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
+  (data "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
    
   (func (export "checkRange") (param $from i32) (param $to i32) (param $expected i32) (result i32)
     (loop $cont
@@ -920,7 +941,7 @@
                (i32.const -1))
 (module
   (memory 1  )
-  (data passive "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
+  (data "\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42\42")
    
   (func (export "checkRange") (param $from i32) (param $to i32) (param $expected i32) (result i32)
     (loop $cont
