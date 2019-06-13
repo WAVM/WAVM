@@ -776,7 +776,7 @@ private:
 		wavmAssert(controlStack.size());
 
 		ValueType actualType;
-		if(stack.size() - operandDepth > controlStack.back().outerStackSize)
+		if(stack.size() > controlStack.back().outerStackSize + operandDepth)
 		{ actualType = stack[stack.size() - operandDepth - 1]; }
 		else if(!controlStack.back().isReachable)
 		{
