@@ -1,7 +1,7 @@
-#include "WAVM/Platform/Mutex.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/Mutex.h"
 
 #define NOMINMAX
 #include <Windows.h>

@@ -965,23 +965,22 @@ static void parseGlobal(CursorState* cursor)
 
 static void parseExceptionType(CursorState* cursor)
 {
-	parseObjectDefOrImport(
-		cursor,
-		cursor->moduleState->exceptionTypeNameToIndexMap,
-		cursor->moduleState->module.exceptionTypes,
-		cursor->moduleState->disassemblyNames.exceptionTypes,
-		t_exception_type,
-		ExternKind::exceptionType,
-		// Parse an exception type import.
-		[](CursorState* cursor) {
-			TypeTuple params = parseTypeTuple(cursor);
-			return ExceptionType{params};
-		},
-		// Parse an exception type definition
-		[](CursorState* cursor, const Token*) {
-			TypeTuple params = parseTypeTuple(cursor);
-			return ExceptionTypeDef{ExceptionType{params}};
-		});
+	parseObjectDefOrImport(cursor,
+						   cursor->moduleState->exceptionTypeNameToIndexMap,
+						   cursor->moduleState->module.exceptionTypes,
+						   cursor->moduleState->disassemblyNames.exceptionTypes,
+						   t_exception_type,
+						   ExternKind::exceptionType,
+						   // Parse an exception type import.
+						   [](CursorState* cursor) {
+							   TypeTuple params = parseTypeTuple(cursor);
+							   return ExceptionType{params};
+						   },
+						   // Parse an exception type definition
+						   [](CursorState* cursor, const Token*) {
+							   TypeTuple params = parseTypeTuple(cursor);
+							   return ExceptionTypeDef{ExceptionType{params}};
+						   });
 }
 
 static void parseStart(CursorState* cursor)

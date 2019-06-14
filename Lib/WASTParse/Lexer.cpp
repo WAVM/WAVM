@@ -104,7 +104,7 @@ static void addLiteralTokenToNFA(const char* literalString,
 
 StaticData::StaticData(bool allowLegacyOperatorNames)
 {
-// clang-format off
+	// clang-format off
 static const std::pair<TokenType, const char*> regexpTokenPairs[] = {
 	{t_decimalInt, "[+\\-]?\\d+(_\\d+)*"},
 	{t_decimalFloat, "[+\\-]?\\d+(_\\d+)*\\.(\\d+(_\\d+)*)*([eE][+\\-]?\\d+(_\\d+)*)?"},
@@ -174,7 +174,7 @@ static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
 	std::make_tuple(t_f32_reinterpret_i32, "f32.reinterpret/i32"),
 	std::make_tuple(t_f64_reinterpret_i64, "f64.reinterpret/i64")
 };
-// clang-format on
+	// clang-format on
 
 	Timing::Timer timer;
 

@@ -573,7 +573,7 @@ std::string NFA::Machine::dumpDFAGraphViz() const
 					= transitionPair.key < 0
 						  ? "terminal"
 								+ std::to_string(
-									-(transitionPair.key & ~edgeDoesntConsumeInputFlag))
+									  -(transitionPair.key & ~edgeDoesntConsumeInputFlag))
 						  : "state" + std::to_string(transitionPair.key);
 				result += "start" + std::to_string(startIndex) + " -> " + nextStateName
 						  + "[label=\""
@@ -617,7 +617,7 @@ std::string NFA::Machine::dumpDFAGraphViz() const
 					= transitionPair.key < 0
 						  ? "terminal"
 								+ std::to_string(
-									-(transitionPair.key & ~edgeDoesntConsumeInputFlag))
+									  -(transitionPair.key & ~edgeDoesntConsumeInputFlag))
 						  : "state" + std::to_string(transitionPair.key);
 				result += "state" + std::to_string(stateIndex) + " -> " + nextStateName
 						  + "[label=\""

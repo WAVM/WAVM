@@ -1,9 +1,9 @@
-#include "WAVM/Platform/File.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Unicode.h"
 #include "WAVM/Platform/Event.h"
+#include "WAVM/Platform/File.h"
 
 #define NOMINMAX
 #include <Windows.h>

@@ -117,8 +117,8 @@ static Iptr growTableImpl(Table* table,
 	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
 	if(newNumPlatformPages != previousNumPlatformPages
 	   && !Platform::commitVirtualPages(
-		   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-		   newNumPlatformPages - previousNumPlatformPages))
+			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+			  newNumPlatformPages - previousNumPlatformPages))
 	{ return -1; }
 
 	if(initializeNewElements)

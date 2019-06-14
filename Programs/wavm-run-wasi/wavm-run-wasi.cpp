@@ -153,7 +153,7 @@ int main(int argc, char** argv)
 		{
 			options.precompiled = true;
 		}
-		else if (!strcmp(*nextArg, "--trace-syscalls"))
+		else if(!strcmp(*nextArg, "--trace-syscalls"))
 		{
 			WASI::setTraceSyscalls(true);
 		}

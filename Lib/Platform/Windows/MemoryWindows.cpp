@@ -1,8 +1,8 @@
-#include "WAVM/Platform/Memory.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Intrinsic.h"
+#include "WAVM/Platform/Memory.h"
 
 #define NOMINMAX
 #include <Windows.h>
