@@ -16,5 +16,12 @@ namespace WAVM { namespace WASI {
 						   std::vector<std::string>&& inEnvs,
 						   I32& outExitCode);
 
-	WASI_API void setTraceSyscalls(bool newTraceSyscalls);
+	enum class SyscallTraceLevel
+	{
+		none,
+		syscalls,
+		syscallsWithCallstacks
+	};
+
+	WASI_API void setSyscallTraceLevel(SyscallTraceLevel newLevel);
 }}

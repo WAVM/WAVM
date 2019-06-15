@@ -2,6 +2,7 @@
 #include <atomic>
 #include "./WASIDefinitions.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Defines.h"
@@ -11,6 +12,7 @@
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/VFS/VFS.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -63,6 +65,13 @@ struct ProcessResolver : Resolver
 };
 
 namespace WAVM { namespace WASI {
+	struct FD
+	{
+		VFS::FD* vfd;
+		__wasi_rights_t rightsBase;
+		__wasi_rights_t rightsInheriting;
+	};
+
 	struct Process
 	{
 		GCPointer<Compartment> compartment;
@@ -72,31 +81,41 @@ namespace WAVM { namespace WASI {
 		std::vector<std::string> args;
 		std::vector<std::string> envs;
 
+		IndexMap<__wasi_fd_t, WASI::FD> fds;
+
 		ProcessResolver resolver;
 	};
 }}
 
-std::atomic<bool> isTracingSyscalls{false};
+std::atomic<SyscallTraceLevel> syscallTraceLevel{SyscallTraceLevel::none};
 
-void WASI::setTraceSyscalls(bool newTraceSyscalls)
+void WASI::setSyscallTraceLevel(SyscallTraceLevel newLevel)
 {
-	isTracingSyscalls.store(newTraceSyscalls, std::memory_order_relaxed);
+	syscallTraceLevel.store(newLevel, std::memory_order_relaxed);
 }
 
 static void traceSyscallv(const char* syscallName, const char* argFormat, va_list argList)
 {
-	if(isTracingSyscalls.load(std::memory_order_relaxed))
+	SyscallTraceLevel syscallTraceLevelSnapshot = syscallTraceLevel.load(std::memory_order_relaxed);
+	if(syscallTraceLevelSnapshot != SyscallTraceLevel::none)
 	{
 		Log::printf(Log::output, "SYSCALL: %s", syscallName);
 		Log::vprintf(Log::output, argFormat, argList);
-		Log::printf(Log::output, ". Call stack:\n");
 		va_end(argList);
 
-		Platform::CallStack callStack = Platform::captureCallStack(4);
-		if(callStack.stackFrames.size() > 4) { callStack.stackFrames.resize(4); }
-		std::vector<std::string> callStackFrameDescriptions = Runtime::describeCallStack(callStack);
-		for(const std::string& frameDescription : callStackFrameDescriptions)
-		{ Log::printf(Log::output, "SYSCALL:     %s\n", frameDescription.c_str()); }
+		if(syscallTraceLevelSnapshot != SyscallTraceLevel::syscallsWithCallstacks)
+		{ Log::printf(Log::output, "\n"); }
+		else
+		{
+			Log::printf(Log::output, " - Call stack:\n");
+
+			Platform::CallStack callStack = Platform::captureCallStack(4);
+			if(callStack.stackFrames.size() > 4) { callStack.stackFrames.resize(4); }
+			std::vector<std::string> callStackFrameDescriptions
+				= Runtime::describeCallStack(callStack);
+			for(const std::string& frameDescription : callStackFrameDescriptions)
+			{ Log::printf(Log::output, "SYSCALL:     %s\n", frameDescription.c_str()); }
+		}
 	}
 }
 
@@ -112,7 +131,8 @@ static void traceSyscallf(const char* syscallName, const char* argFormat, ...)
 VALIDATE_AS_PRINTF(2, 3)
 static void traceSyscallReturnf(const char* syscallName, const char* returnFormat, ...)
 {
-	if(isTracingSyscalls.load(std::memory_order_relaxed))
+	SyscallTraceLevel syscallTraceLevelSnapshot = syscallTraceLevel.load(std::memory_order_relaxed);
+	if(syscallTraceLevelSnapshot != SyscallTraceLevel::none)
 	{
 		va_list argList;
 		va_start(argList, returnFormat);
@@ -134,6 +154,24 @@ static void traceUnimplementedSyscall(const char* syscallName, const char* argFo
 	Log::printf(Log::error, "Called unimplemented WASI syscall %s.\n", syscallName);
 
 	traceSyscallReturnf(syscallName, "ENOSYS");
+}
+
+#define TRACE_SYSCALL(syscallName, argFormat, ...)                                                 \
+	const char* TRACE_SYSCALL_name = syscallName;                                                  \
+	traceSyscallf(TRACE_SYSCALL_name, argFormat, __VA_ARGS__)
+
+#define TRACE_SYSCALL_RETURN(returnCode, ...)                                                      \
+	traceSyscallReturnf(TRACE_SYSCALL_name, #returnCode __VA_ARGS__), __WASI_##returnCode
+
+static WASI::FD* getFD(Process* process, __wasi_fd_t fd)
+{
+	if(fd < process->fds.getMinIndex() || fd > process->fds.getMaxIndex()) { return nullptr; }
+	return process->fds.get(fd);
+}
+
+static bool checkFDRights(WASI::FD* wasiFD, __wasi_rights_t requiredRights)
+{
+	return (wasiFD->rightsBase & requiredRights) == requiredRights;
 }
 
 WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
@@ -169,12 +207,23 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 
 	Memory* memory = asMemoryNullable(getInstanceExport(moduleInstance, "memory"));
 
+	IndexMap<__wasi_fd_t, FD> files(0, INT32_MAX);
+
+	__wasi_rights_t stdioRights = __WASI_RIGHT_FD_READ | __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
+								  | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET
+								  | __WASI_RIGHT_POLL_FD_READWRITE;
+
+	files.insertOrFail(0, FD{Platform::getStdFD(VFS::StdDevice::in), stdioRights, 0});
+	files.insertOrFail(1, FD{Platform::getStdFD(VFS::StdDevice::out), stdioRights, 0});
+	files.insertOrFail(2, FD{Platform::getStdFD(VFS::StdDevice::err), stdioRights, 0});
+
 	Process* process = new Process{compartment,
 								   context,
 								   memory,
 								   moduleInstance,
 								   std::move(inArgs),
 								   std::move(inEnvs),
+								   std::move(files),
 								   std::move(processResolver)};
 	setUserData(compartment, process);
 
@@ -222,7 +271,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 argcAddress,
 						  U32 argBufSizeAddress)
 {
-	traceSyscallf("args_sizes_get",
+	TRACE_SYSCALL("args_sizes_get",
 				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
 				  argcAddress,
 				  argBufSizeAddress);
@@ -233,15 +282,11 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	for(const std::string& arg : process->args) { numArgBufferBytes += arg.size() + 1; }
 
 	if(process->args.size() > WASIADDRESS_MAX || numArgBufferBytes > WASIADDRESS_MAX)
-	{
-		traceSyscallReturnf("args_sizes_get", "EOVERFLOW");
-		return __WASI_EOVERFLOW;
-	}
+	{ return TRACE_SYSCALL_RETURN(EOVERFLOW); }
 	memoryRef<WASIAddress>(process->memory, argcAddress) = WASIAddress(process->args.size());
 	memoryRef<WASIAddress>(process->memory, argBufSizeAddress) = WASIAddress(numArgBufferBytes);
 
-	traceSyscallReturnf("args_sizes_get", "ESUCCESS");
-	return __WASI_ESUCCESS;
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -251,7 +296,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 argvAddress,
 						  U32 argBufAddress)
 {
-	traceSyscallf(
+	TRACE_SYSCALL(
 		"args_get", "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")", argvAddress, argBufAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
@@ -263,10 +308,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		const Uptr numArgBytes = arg.size() + 1;
 
 		if(numArgBytes > WASIADDRESS_MAX || nextArgBufAddress > WASIADDRESS_MAX - numArgBytes - 1)
-		{
-			traceSyscallReturnf("args_get", "EOVERFLOW");
-			return __WASI_EOVERFLOW;
-		}
+		{ return TRACE_SYSCALL_RETURN(EOVERFLOW); }
 
 		Platform::bytewiseMemCopy(
 			memoryArrayPtr<U8>(process->memory, nextArgBufAddress, numArgBytes),
@@ -278,8 +320,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		nextArgBufAddress += WASIAddress(numArgBytes);
 	}
 
-	traceSyscallReturnf("args_get", "ESUCCESS");
-	return __WASI_ESUCCESS;
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -289,7 +330,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 envCountAddress,
 						  U32 envBufSizeAddress)
 {
-	traceSyscallf("environ_sizes_get",
+	TRACE_SYSCALL("environ_sizes_get",
 				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
 				  envCountAddress,
 				  envBufSizeAddress);
@@ -300,15 +341,11 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	for(const std::string& env : process->envs) { numEnvBufferBytes += env.size() + 1; }
 
 	if(process->envs.size() > WASIADDRESS_MAX || numEnvBufferBytes > WASIADDRESS_MAX)
-	{
-		traceSyscallReturnf("environ_sizes_get", "EOVERFLOW");
-		return __WASI_EOVERFLOW;
-	}
+	{ return TRACE_SYSCALL_RETURN(EOVERFLOW); }
 	memoryRef<WASIAddress>(process->memory, envCountAddress) = WASIAddress(process->envs.size());
 	memoryRef<WASIAddress>(process->memory, envBufSizeAddress) = WASIAddress(numEnvBufferBytes);
 
-	traceSyscallReturnf("environ_sizes_get", "ESUCCESS");
-	return __WASI_ESUCCESS;
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -318,7 +355,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 envvAddress,
 						  U32 envBufAddress)
 {
-	traceSyscallf("environ_get",
+	TRACE_SYSCALL("environ_get",
 				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
 				  envvAddress,
 				  envBufAddress);
@@ -332,10 +369,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		const Uptr numEnvBytes = env.size() + 1;
 
 		if(numEnvBytes > WASIADDRESS_MAX || nextEnvBufAddress > WASIADDRESS_MAX - numEnvBytes - 1)
-		{
-			traceSyscallReturnf("environ_get", "EOVERFLOW");
-			return __WASI_EOVERFLOW;
-		}
+		{ return TRACE_SYSCALL_RETURN(EOVERFLOW); }
 
 		Platform::bytewiseMemCopy(
 			memoryArrayPtr<U8>(process->memory, nextEnvBufAddress, numEnvBytes),
@@ -347,8 +381,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		nextEnvBufAddress += WASIAddress(numEnvBytes);
 	}
 
-	traceSyscallReturnf("environ_get", "ESUCCESS");
-	return __WASI_ESUCCESS;
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -358,7 +391,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_clockid_t clockId,
 						  WASIAddress resolutionAddress)
 {
-	traceSyscallf("clock_res_get", "(%u, " WASIADDRESS_FORMAT ")", clockId, resolutionAddress);
+	TRACE_SYSCALL("clock_res_get", "(%u, " WASIADDRESS_FORMAT ")", clockId, resolutionAddress);
 
 	I128 resolution128;
 	switch(clockId)
@@ -369,15 +402,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	case __WASI_CLOCK_THREAD_CPUTIME_ID:
 		resolution128 = Platform::getProcessClockResolution();
 		break;
-	default: traceSyscallReturnf("clock_res_get", "EINVAL"); return __WASI_EINVAL;
+	default: return TRACE_SYSCALL_RETURN(EINVAL);
 	}
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	__wasi_timestamp_t resolution = __wasi_timestamp_t(resolution128);
 	memoryRef<__wasi_timestamp_t>(process->memory, resolutionAddress) = resolution;
 
-	traceSyscallReturnf("clock_res_get", "ESUCCESS (%" PRIu64 ")", resolution);
-	return __WASI_ESUCCESS;
+	return TRACE_SYSCALL_RETURN(ESUCCESS, " (%" PRIu64 ")", resolution);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -388,6 +420,12 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_timestamp_t precision,
 						  WASIAddress timeAddress)
 {
+	TRACE_SYSCALL("clock_time_get",
+				  "(%u, %" PRIu64 ", " WASIADDRESS_FORMAT ")",
+				  clockId,
+				  precision,
+				  timeAddress);
+
 	I128 currentTime128;
 	switch(clockId)
 	{
@@ -395,15 +433,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	case __WASI_CLOCK_MONOTONIC: currentTime128 = Platform::getMonotonicClock(); break;
 	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
 	case __WASI_CLOCK_THREAD_CPUTIME_ID: currentTime128 = Platform::getProcessClock(); break;
-	default: traceSyscallReturnf("clock_time_get", "EINVAL"); return __WASI_EINVAL;
+	default: return TRACE_SYSCALL_RETURN(EINVAL);
 	}
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	__wasi_timestamp_t currentTime = __wasi_timestamp_t(currentTime128);
 	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = currentTime;
 
-	traceSyscallReturnf("clock_time_get", "ESUCCESS (%" PRIu64 ")", currentTime);
-	return __WASI_ESUCCESS;
+	return TRACE_SYSCALL_RETURN(ESUCCESS, " (%" PRIu64 ")", currentTime);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -413,9 +450,8 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t fd,
 						  WASIAddress prestatAddress)
 {
-	traceSyscallf("fd_prestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, prestatAddress);
-	traceSyscallReturnf("fd_prestat_get", "EBADF");
-	return __WASI_EBADF;
+	TRACE_SYSCALL("fd_prestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, prestatAddress);
+	return TRACE_SYSCALL_RETURN(EBADF);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -433,14 +469,43 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "fd_close", __wasi_errno_t, wasi_fd_close, __wasi_fd_t fd)
 {
-	traceUnimplementedSyscall("fd_close", "(%u)", fd);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("fd_close", "(%u)", fd);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+
+	VFS::CloseResult result = wasiFD->vfd->close();
+	switch(result)
+	{
+	case VFS::CloseResult::success:
+		// If the close succeeded, remove the fd from the fds map.
+		process->fds.removeOrFail(fd);
+
+		return TRACE_SYSCALL_RETURN(ESUCCESS);
+
+	case VFS::CloseResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
+	case VFS::CloseResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+
+	default: Errors::unreachable();
+	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "fd_datasync", __wasi_errno_t, wasi_fd_datasync, __wasi_fd_t fd)
 {
-	traceUnimplementedSyscall("fd_datasync", "(%u)", fd);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("fd_datasync", "(%u)", fd);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_DATASYNC))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	wasiFD->vfd->sync(VFS::SyncType::contents);
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -543,6 +608,22 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	return __WASI_ENOSYS;
 }
 
+__wasi_filetype_t asWaSIFileType(VFS::FDType type)
+{
+	switch(type)
+	{
+	case VFS::FDType::unknown: return __WASI_FILETYPE_UNKNOWN;
+	case VFS::FDType::blockDevice: return __WASI_FILETYPE_BLOCK_DEVICE;
+	case VFS::FDType::characterDevice: return __WASI_FILETYPE_CHARACTER_DEVICE;
+	case VFS::FDType::directory: return __WASI_FILETYPE_DIRECTORY;
+	case VFS::FDType::file: return __WASI_FILETYPE_REGULAR_FILE;
+	case VFS::FDType::datagramSocket: return __WASI_FILETYPE_SOCKET_DGRAM;
+	case VFS::FDType::streamSocket: return __WASI_FILETYPE_SOCKET_STREAM;
+	case VFS::FDType::symbolicLink: return __WASI_FILETYPE_SYMBOLIC_LINK;
+	default: Errors::unreachable();
+	};
+}
+
 DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "fd_fdstat_get",
 						  __wasi_errno_t,
@@ -550,25 +631,53 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t fd,
 						  WASIAddress fdstatAddress)
 {
-	traceSyscallf("fd_fdstat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, fdstatAddress);
+	TRACE_SYSCALL("fd_fdstat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, fdstatAddress);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
 
-	switch(fd)
+	VFS::FDInfo fdInfo;
+	VFS::GetFDInfoResult result = wasiFD->vfd->getInfo(fdInfo);
+	switch(result)
 	{
-	case 0:
-	case 1:
-	case 2:
-		fdstat.fs_filetype = __WASI_FILETYPE_CHARACTER_DEVICE;
-		fdstat.fs_flags = __WASI_FDFLAG_NONBLOCK | __WASI_FDFLAG_SYNC;
-		fdstat.fs_rights_base = fd == 0 ? __WASI_RIGHT_FD_READ : __WASI_RIGHT_FD_WRITE;
-		fdstat.fs_rights_inheriting = fdstat.fs_rights_base;
-		traceSyscallReturnf("fd_fdstat_get", "ESUCCESS");
-		return __WASI_ESUCCESS;
-	default: traceSyscallReturnf("fd_fdstat_get", "EBADF"); return __WASI_EBADF;
+	case VFS::GetFDInfoResult::success:
+	{
+		__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
+		fdstat.fs_filetype = asWaSIFileType(fdInfo.type);
+		fdstat.fs_flags = 0;
+
+		if(fdInfo.flags.append) { fdstat.fs_flags |= __WASI_FDFLAG_APPEND; }
+		if(fdInfo.flags.nonBlocking) { fdstat.fs_flags |= __WASI_FDFLAG_NONBLOCK; }
+		switch(fdInfo.flags.implicitSync)
+		{
+		case VFS::FDImplicitSync::none: break;
+		case VFS::FDImplicitSync::syncContentsAfterWrite:
+			fdstat.fs_flags |= __WASI_FDFLAG_DSYNC;
+			break;
+		case VFS::FDImplicitSync::syncContentsAndMetadataAfterWrite:
+			fdstat.fs_flags |= __WASI_FDFLAG_SYNC;
+			break;
+		case VFS::FDImplicitSync::syncContentsAfterWriteAndBeforeRead:
+			fdstat.fs_flags |= __WASI_FDFLAG_DSYNC | __WASI_FDFLAG_RSYNC;
+			break;
+		case VFS::FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
+			fdstat.fs_flags |= __WASI_FDFLAG_SYNC | __WASI_FDFLAG_RSYNC;
+			break;
+		default: Errors::unreachable();
+		}
+
+		fdstat.fs_rights_base = wasiFD->rightsBase;
+		fdstat.fs_rights_inheriting = wasiFD->rightsInheriting;
+
+		return TRACE_SYSCALL_RETURN(ESUCCESS);
 	}
+
+	case VFS::GetFDInfoResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+
+	default: Errors::unreachable();
+	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -600,8 +709,17 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "fd_sync", __wasi_errno_t, wasi_fd_sync, __wasi_fd_t fd)
 {
-	traceUnimplementedSyscall("fd_sync", "(%u)", fd);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("fd_sync", "(%u)", fd);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_SYNC)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	wasiFD->vfd->sync(VFS::SyncType::contentsAndMetadata);
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -613,7 +731,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress numIOVs,
 						  WASIAddress numBytesWrittenAddress)
 {
-	traceSyscallf("fd_write",
+	TRACE_SYSCALL("fd_write",
 				  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
 				  fd,
 				  iovsAddress,
@@ -622,42 +740,43 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	Platform::File* platformFile;
-	switch(fd)
-	{
-	case 0: platformFile = Platform::getStdFile(Platform::StdDevice::in); break;
-	case 1: platformFile = Platform::getStdFile(Platform::StdDevice::out); break;
-	case 2: platformFile = Platform::getStdFile(Platform::StdDevice::err); break;
-	default: traceSyscallReturnf("fd_write", "EBADF"); return __WASI_EBADF;
-	}
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_WRITE)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
 
 	const __wasi_ciovec_t* iovs
 		= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
 	U64 numBytesWritten = 0;
+	VFS::WriteResult writeResult = VFS::WriteResult::success;
 	for(WASIAddress iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 	{
 		Uptr numBytesWrittenThisIO = 0;
-		if(!Platform::writeFile(
-			   platformFile,
-			   memoryArrayPtr<U8>(process->memory, iovs[iovIndex].buf, iovs[iovIndex].buf_len),
-			   iovs[iovIndex].buf_len,
-			   &numBytesWrittenThisIO))
-		{
-			traceSyscallReturnf("fd_write", "EIO");
-			return __WASI_EIO;
-		}
+		writeResult = wasiFD->vfd->write(
+			memoryArrayPtr<U8>(process->memory, iovs[iovIndex].buf, iovs[iovIndex].buf_len),
+			iovs[iovIndex].buf_len,
+			&numBytesWrittenThisIO);
+		if(writeResult != VFS::WriteResult::success) { break; }
+
 		numBytesWritten += numBytesWrittenThisIO;
 	}
 
-	if(numBytesWritten > WASIADDRESS_MAX)
-	{
-		traceSyscallReturnf("fd_write", "EOVERFLOW");
-		return __WASI_EOVERFLOW;
-	}
+	if(numBytesWritten > WASIADDRESS_MAX) { return TRACE_SYSCALL_RETURN(EOVERFLOW); }
 	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
-	traceSyscallReturnf("fd_write", "ESUCCESS (numBytesWritten=%" PRIu64 ")", numBytesWritten);
-	return __WASI_ESUCCESS;
+	switch(writeResult)
+	{
+	case VFS::WriteResult::success:
+		return TRACE_SYSCALL_RETURN(ESUCCESS, " (numBytesWritten=%" PRIu64 ")", numBytesWritten);
+	case VFS::WriteResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+	case VFS::WriteResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
+	case VFS::WriteResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
+	case VFS::WriteResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
+	case VFS::WriteResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
+	case VFS::WriteResult::exceededFileSizeLimit: return TRACE_SYSCALL_RETURN(EFBIG);
+	case VFS::WriteResult::notPermitted: return TRACE_SYSCALL_RETURN(EPERM);
+
+	default: Errors::unreachable();
+	}
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -959,7 +1078,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "proc_exit", void, wasi_proc_exit, __wasi_exitcode_t exitCode)
 {
-	traceSyscallf("proc_exit", "(%u)", exitCode);
+	TRACE_SYSCALL("proc_exit", "(%u)", exitCode);
 	throw ExitException{exitCode};
 }
 

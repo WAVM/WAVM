@@ -12,6 +12,7 @@
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/File.h"
+#include "WAVM/VFS/VFS.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/TestScript.h"
 #include "WAVM/WASTParse/WASTParse.h"
@@ -32,26 +33,27 @@ static void dumpWAST(const std::string& wastString, const char* outputDir)
 {
 	const Uptr wastHash = Hash<std::string>()(wastString);
 
-	Platform::File* wastFile
-		= Platform::openFile(std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast",
-							 Platform::FileAccessMode::writeOnly,
-							 Platform::FileCreateMode::createAlways);
+	VFS::FD* wastFile
+		= Platform::openHostFile(std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast",
+								 VFS::FileAccessMode::writeOnly,
+								 VFS::FileCreateMode::createAlways);
 	errorUnless(wastFile);
-	errorUnless(Platform::writeFile(wastFile, (const U8*)wastString.c_str(), wastString.size()));
-	errorUnless(Platform::closeFile(wastFile));
+	errorUnless(wastFile->write(wastString.c_str(), wastString.size())
+				== VFS::WriteResult::success);
+	errorUnless(wastFile->close() == VFS::CloseResult::success);
 }
 
 static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
 {
 	const Uptr wasmHash = XXH<Uptr>(wasmBytes, numBytes, 0);
 
-	Platform::File* wasmFile
-		= Platform::openFile(std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",
-							 Platform::FileAccessMode::writeOnly,
-							 Platform::FileCreateMode::createAlways);
+	VFS::FD* wasmFile
+		= Platform::openHostFile(std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",
+								 VFS::FileAccessMode::writeOnly,
+								 VFS::FileCreateMode::createAlways);
 	errorUnless(wasmFile);
-	errorUnless(Platform::writeFile(wasmFile, wasmBytes, numBytes));
-	errorUnless(Platform::closeFile(wasmFile));
+	errorUnless(wasmFile->write(wasmBytes, numBytes) == VFS::WriteResult::success);
+	errorUnless(wasmFile->close() == VFS::CloseResult::success);
 }
 
 static void dumpModule(const Module& module, const char* outputDir, DumpFormat dumpFormat)

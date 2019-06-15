@@ -124,14 +124,15 @@ static void showHelp()
 {
 	Log::printf(Log::error,
 				"Usage: wavm-run-wasi [switches] [programfile] [--] [arguments]\n"
-				"  in.wast|in.wasm       Specify program file (.wast/.wasm)\n"
-				"  -c|--check            Exit after checking that the program is valid\n"
-				"  -d|--debug            Write additional debug information to stdout\n"
-				"  -h|--help             Display this message\n"
-				"  --precompiled         Use precompiled object code in programfile\n"
-				"  --metrics             Write benchmarking information to stdout\n"
-				"  --trace-syscalls      Trace WASI syscalls to stdout\n"
-				"  --                    Stop parsing arguments\n");
+				"  in.wast|in.wasm             Specify program file (.wast/.wasm)\n"
+				"  -c|--check                  Exit after checking that the program is valid\n"
+				"  -d|--debug                  Write additional debug information to stdout\n"
+				"  -h|--help                   Display this message\n"
+				"  --precompiled               Use precompiled object code in programfile\n"
+				"  --metrics                   Write benchmarking information to stdout\n"
+				"  --trace-syscalls            Trace WASI syscalls to stdout\n"
+				"  --trace-syscall-callstacks  Trace WASI syscalls w/ callstacks to stdout\n"
+				"  --                          Stop parsing arguments\n");
 }
 
 int main(int argc, char** argv)
@@ -155,7 +156,11 @@ int main(int argc, char** argv)
 		}
 		else if(!strcmp(*nextArg, "--trace-syscalls"))
 		{
-			WASI::setTraceSyscalls(true);
+			WASI::setSyscallTraceLevel(WASI::SyscallTraceLevel::syscalls);
+		}
+		else if(!strcmp(*nextArg, "--trace-syscall-callstacks"))
+		{
+			WASI::setSyscallTraceLevel(WASI::SyscallTraceLevel::syscallsWithCallstacks);
 		}
 		else if(!strcmp(*nextArg, "--"))
 		{

@@ -82,10 +82,12 @@ namespace WAVM {
 
 		// Returns a reference to the value bound to the key. Assumes that the map contains the key.
 		const Value& operator[](const Key& key) const;
+		Value& operator[](const Key& key);
 
 		// Returns a pointer to the value bound to the key, or null if the map doesn't contain the
 		// key.
 		const Value* get(const Key& key) const;
+		Value* get(const Key& key);
 
 		// Returns a pointer to the key-value pair for a key, or null if the map doesn't contain the
 		// key.

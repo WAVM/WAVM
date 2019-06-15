@@ -117,18 +117,36 @@ const Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const Key& key) const
 	return bucket->storage.contents.value;
 }
 
+template<HASHMAP_PARAMETERS> Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const Key& key)
+{
+	const Uptr hash = KeyHashPolicy::getKeyHash(key);
+	HashTableBucket<Pair>* bucket = table.getBucketForModify(hash, key);
+	wavmAssert(bucket);
+	wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+	return bucket->storage.contents.value;
+}
+
 template<HASHMAP_PARAMETERS> const Value* HashMap<HASHMAP_ARGUMENTS>::get(const Key& key) const
 {
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
-	if(bucket)
+	if(!bucket) { return nullptr; }
+	else
 	{
 		wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 		return &bucket->storage.contents.value;
 	}
+}
+
+template<HASHMAP_PARAMETERS> Value* HashMap<HASHMAP_ARGUMENTS>::get(const Key& key)
+{
+	const Uptr hash = KeyHashPolicy::getKeyHash(key);
+	HashTableBucket<Pair>* bucket = table.getBucketForModify(hash, key);
+	if(!bucket) { return nullptr; }
 	else
 	{
-		return nullptr;
+		wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+		return &bucket->storage.contents.value;
 	}
 }
 
@@ -137,14 +155,11 @@ const HashMapPair<Key, Value>* HashMap<HASHMAP_ARGUMENTS>::getPair(const Key& ke
 {
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
-	if(bucket)
+	if(!bucket) { return nullptr; }
+	else
 	{
 		wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 		return &bucket->storage.contents;
-	}
-	else
-	{
-		return nullptr;
 	}
 }
 
