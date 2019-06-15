@@ -246,10 +246,23 @@ FD* Platform::openHostFile(const std::string& pathName,
 	case FDImplicitSync::none: break;
 	case FDImplicitSync::syncContentsAfterWrite: flags |= O_DSYNC; break;
 	case FDImplicitSync::syncContentsAndMetadataAfterWrite: flags |= O_SYNC; break;
+
+#ifdef __APPLE__
+	// Apple doesn't support O_RSYNC.
+	case FDImplicitSync::syncContentsAfterWriteAndBeforeRead:
+		Errors::fatal(
+			"FDImplicitSync::syncContentsAfterWriteAndBeforeRead is not yet implemented on Apple "
+			"platforms.");
+	case FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
+		Errors::fatal(
+			"FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead is not yet implemented "
+			"on Apple platforms.");
+#else
 	case FDImplicitSync::syncContentsAfterWriteAndBeforeRead: flags |= O_DSYNC | O_RSYNC; break;
 	case FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
 		flags |= O_SYNC | O_RSYNC;
 		break;
+#endif
 
 	default: Errors::unreachable();
 	}
