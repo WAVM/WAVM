@@ -166,7 +166,7 @@ ModuleInstance* Runtime::remapToClonedCompartment(ModuleInstance* moduleInstance
 	return newCompartment->moduleInstances[moduleInstance->id];
 }
 
-bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
+bool Runtime::isInCompartment(const Object* object, const Compartment* compartment)
 {
 	if(object->kind == ObjectKind::function)
 	{
@@ -190,7 +190,7 @@ bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
 	}
 }
 
-Compartment* Runtime::getCompartment(Object* object)
+Compartment* Runtime::getCompartment(const Object* object)
 {
 	if(object->kind == ObjectKind::function) { return nullptr; }
 	else

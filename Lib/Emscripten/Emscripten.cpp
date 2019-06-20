@@ -165,8 +165,10 @@ static U32 dynamicAlloc(Emscripten::Instance* instance, U32 numBytes)
 
 	if(endAddress > getMemoryNumPages(instance->memory) * IR::numBytesPerPage)
 	{
-		if(endAddress > getMemoryMaxPages(instance->memory) * IR::numBytesPerPage
-		   || !resizeHeap(instance, endAddress))
+		Uptr memoryMaxPages = getMemoryType(instance->memory).size.max;
+		if(memoryMaxPages == UINT64_MAX) { memoryMaxPages = IR::maxMemoryPages; }
+
+		if(endAddress > memoryMaxPages * IR::numBytesPerPage || !resizeHeap(instance, endAddress))
 		{ throwException(ExceptionTypes::outOfMemory); }
 	}
 
@@ -798,7 +800,7 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 	{ tableType = module.tables.imports[0].type; }
 
 	Memory* memory = Runtime::createMemory(compartment, memoryType, "env.memory");
-	Table* table = Runtime::createTable(compartment, tableType, "env.table");
+	Table* table = Runtime::createTable(compartment, tableType, nullptr, "env.table");
 
 	HashMap<std::string, Runtime::Object*> extraEnvExports = {
 		{"memory", Runtime::asObject(memory)},
@@ -824,7 +826,7 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 
 	instance->memory = memory;
 
-	setUserData(compartment, instance);
+	setUserData(compartment, instance, nullptr);
 
 	return instance;
 }

@@ -880,6 +880,11 @@ void IR::validateTypes(const Module& module)
 
 void IR::validateImports(const Module& module)
 {
+	wavmAssert(module.imports.size()
+			   == module.functions.imports.size() + module.tables.imports.size()
+					  + module.memories.imports.size() + module.globals.imports.size()
+					  + module.exceptionTypes.imports.size());
+
 	for(auto& functionImport : module.functions.imports)
 	{ validateFunctionType(module, functionImport.type); }
 	for(auto& tableImport : module.tables.imports) { validate(module, tableImport.type); }

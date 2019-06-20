@@ -180,14 +180,11 @@ bool Runtime::isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outM
 	return false;
 }
 
-Uptr Runtime::getMemoryNumPages(Memory* memory)
+Uptr Runtime::getMemoryNumPages(const Memory* memory)
 {
 	return memory->numPages.load(std::memory_order_seq_cst);
 }
-Uptr Runtime::getMemoryMaxPages(Memory* memory)
-{
-	return memory->type.size.max == UINT64_MAX ? IR::maxMemoryPages : memory->type.size.max;
-}
+IR::MemoryType Runtime::getMemoryType(const Memory* memory) { return memory->type; }
 
 Iptr Runtime::growMemory(Memory* memory, Uptr numPagesToGrow)
 {

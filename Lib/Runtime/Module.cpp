@@ -87,52 +87,71 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	}
 	if(id == UINTPTR_MAX) { return nullptr; }
 
-	// Check the type of the ModuleInstance's imports.
-	std::vector<Function*> functions = std::move(imports.functions);
-	errorUnless(functions.size() == module->ir.functions.imports.size());
-	for(Uptr importIndex = 0; importIndex < module->ir.functions.imports.size(); ++importIndex)
+	std::vector<Function*> functions;
+	std::vector<Table*> tables;
+	std::vector<Memory*> memories;
+	std::vector<Global*> globals;
+	std::vector<ExceptionType*> exceptionTypes;
+
+	// Check the types of the ModuleInstance's imports.
+	errorUnless(imports.size() == module->ir.imports.size());
+	for(Uptr importIndex = 0; importIndex < imports.size(); ++importIndex)
 	{
-		Object* importObject = asObject(functions[importIndex]);
-		errorUnless(
-			isA(importObject, module->ir.types[module->ir.functions.getType(importIndex).index]));
+		const auto& kindIndex = module->ir.imports[importIndex];
+		Object* importObject = imports[importIndex];
+
 		errorUnless(isInCompartment(importObject, compartment));
+		errorUnless(importObject->kind == ObjectKind(kindIndex.kind));
+
+		switch(kindIndex.kind)
+		{
+		case ExternKind::function:
+		{
+			Function* function = asFunction(importObject);
+			const auto& importType
+				= module->ir.types[module->ir.functions.getType(kindIndex.index).index];
+			errorUnless(function->encodedType == importType);
+			functions.push_back(function);
+			break;
+		}
+		case ExternKind::table:
+		{
+			Table* table = asTable(importObject);
+			errorUnless(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
+			tables.push_back(table);
+			break;
+		}
+		case ExternKind::memory:
+		{
+			Memory* memory = asMemory(importObject);
+			errorUnless(isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
+			memories.push_back(memory);
+			break;
+		}
+		case ExternKind::global:
+		{
+			Global* global = asGlobal(importObject);
+			errorUnless(isSubtype(global->type, module->ir.globals.getType(kindIndex.index)));
+			globals.push_back(global);
+			break;
+		}
+		case ExternKind::exceptionType:
+		{
+			ExceptionType* exceptionType = asExceptionType(importObject);
+			errorUnless(isSubtype(exceptionType->sig.params,
+								  module->ir.exceptionTypes.getType(kindIndex.index).params));
+			exceptionTypes.push_back(exceptionType);
+			break;
+		}
+		default: Errors::unreachable();
+		};
 	}
 
-	std::vector<Table*> tables = std::move(imports.tables);
-	errorUnless(tables.size() == module->ir.tables.imports.size());
-	for(Uptr importIndex = 0; importIndex < module->ir.tables.imports.size(); ++importIndex)
-	{
-		Object* importObject = asObject(tables[importIndex]);
-		errorUnless(isA(importObject, module->ir.tables.getType(importIndex)));
-		errorUnless(isInCompartment(importObject, compartment));
-	}
-
-	std::vector<Memory*> memories = std::move(imports.memories);
-	errorUnless(memories.size() == module->ir.memories.imports.size());
-	for(Uptr importIndex = 0; importIndex < module->ir.memories.imports.size(); ++importIndex)
-	{
-		Object* importObject = asObject(memories[importIndex]);
-		errorUnless(isA(importObject, module->ir.memories.getType(importIndex)));
-		errorUnless(isInCompartment(importObject, compartment));
-	}
-
-	std::vector<Global*> globals = std::move(imports.globals);
-	errorUnless(globals.size() == module->ir.globals.imports.size());
-	for(Uptr importIndex = 0; importIndex < module->ir.globals.imports.size(); ++importIndex)
-	{
-		Object* importObject = asObject(globals[importIndex]);
-		errorUnless(isA(importObject, module->ir.globals.getType(importIndex)));
-		errorUnless(isInCompartment(importObject, compartment));
-	}
-
-	std::vector<ExceptionType*> exceptionTypes = std::move(imports.exceptionTypes);
-	errorUnless(exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
-	for(Uptr importIndex = 0; importIndex < module->ir.exceptionTypes.imports.size(); ++importIndex)
-	{
-		Object* importObject = asObject(exceptionTypes[importIndex]);
-		errorUnless(isA(importObject, module->ir.exceptionTypes.getType(importIndex)));
-		errorUnless(isInCompartment(importObject, compartment));
-	}
+	wavmAssert(functions.size() == module->ir.functions.imports.size());
+	wavmAssert(tables.size() == module->ir.tables.imports.size());
+	wavmAssert(memories.size() == module->ir.memories.imports.size());
+	wavmAssert(globals.size() == module->ir.globals.imports.size());
+	wavmAssert(exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
 
 	// Deserialize the disassembly names.
 	DisassemblyNames disassemblyNames;
@@ -144,7 +163,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		std::string debugName
 			= disassemblyNames.tables[module->ir.tables.imports.size() + tableDefIndex];
 		auto table = createTable(
-			compartment, module->ir.tables.defs[tableDefIndex].type, std::move(debugName));
+			compartment, module->ir.tables.defs[tableDefIndex].type, nullptr, std::move(debugName));
 		if(!table) { throwException(ExceptionTypes::outOfMemory); }
 		tables.push_back(table);
 	}
@@ -268,6 +287,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 
 	// Set up the instance's exports.
 	HashMap<std::string, Object*> exportMap;
+	std::vector<Object*> exports;
 	for(const Export& exportIt : module->ir.exports)
 	{
 		Object* exportedObject = nullptr;
@@ -281,6 +301,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		default: Errors::unreachable();
 		}
 		exportMap.addOrFail(exportIt.name, exportedObject);
+		exports.push_back(exportedObject);
 	}
 
 	// Copy the module's passive data and table segments into the ModuleInstance for later use.
@@ -328,6 +349,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	ModuleInstance* moduleInstance = new ModuleInstance(compartment,
 														id,
 														std::move(exportMap),
+														std::move(exports),
 														std::move(functions),
 														std::move(tables),
 														std::move(memories),
@@ -435,6 +457,9 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 	HashMap<std::string, Object*> newExportMap;
 	for(const auto& pair : moduleInstance->exportMap)
 	{ newExportMap.add(pair.key, remapToClonedCompartment(pair.value, newCompartment)); }
+	std::vector<Object*> newExports;
+	for(Object* exportObject : moduleInstance->exports)
+	{ newExports.push_back(remapToClonedCompartment(exportObject, newCompartment)); }
 
 	std::vector<Function*> newFunctions = moduleInstance->functions;
 
@@ -479,6 +504,7 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 	ModuleInstance* newModuleInstance = new ModuleInstance(newCompartment,
 														   moduleInstance->id,
 														   std::move(newExportMap),
+														   std::move(newExports),
 														   std::move(newFunctions),
 														   std::move(newTables),
 														   std::move(newMemories),
@@ -497,23 +523,28 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 	return newModuleInstance;
 }
 
-Function* Runtime::getStartFunction(ModuleInstance* moduleInstance)
+Function* Runtime::getStartFunction(const ModuleInstance* moduleInstance)
 {
 	return moduleInstance->startFunction;
 }
 
-Memory* Runtime::getDefaultMemory(ModuleInstance* moduleInstance)
+Memory* Runtime::getDefaultMemory(const ModuleInstance* moduleInstance)
 {
 	return moduleInstance->memories.size() ? moduleInstance->memories[0] : nullptr;
 }
-Table* Runtime::getDefaultTable(ModuleInstance* moduleInstance)
+Table* Runtime::getDefaultTable(const ModuleInstance* moduleInstance)
 {
 	return moduleInstance->tables.size() ? moduleInstance->tables[0] : nullptr;
 }
 
-Object* Runtime::getInstanceExport(ModuleInstance* moduleInstance, const std::string& name)
+Object* Runtime::getInstanceExport(const ModuleInstance* moduleInstance, const std::string& name)
 {
 	wavmAssert(moduleInstance);
 	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
 	return exportedObjectPtr ? *exportedObjectPtr : nullptr;
+}
+
+const std::vector<Object*>& Runtime::getInstanceExports(const ModuleInstance* moduleInstance)
+{
+	return moduleInstance->exports;
 }

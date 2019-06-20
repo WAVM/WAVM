@@ -228,12 +228,14 @@ static Uptr createImport(CursorState* cursor,
 						 NameToIndexMap& nameToIndexMap,
 						 IndexSpace<Def, Type>& indexSpace,
 						 std::vector<DisassemblyName>& disassemblyNameArray,
-						 Type type)
+						 Type type,
+						 ExternKind kind)
 {
 	const Uptr importIndex = indexSpace.imports.size();
 	bindName(cursor->parseState, nameToIndexMap, name, indexSpace.size());
 	disassemblyNameArray.push_back({name.getString()});
 	indexSpace.imports.push_back({type, std::move(moduleName), std::move(exportName)});
+	cursor->moduleState->module.imports.push_back({kind, importIndex});
 	return importIndex;
 }
 
@@ -294,7 +296,8 @@ static void parseImport(CursorState* cursor)
 												  cursor->moduleState->functionNameToIndexMap,
 												  cursor->moduleState->module.functions,
 												  cursor->moduleState->disassemblyNames.functions,
-												  {UINTPTR_MAX});
+												  {UINTPTR_MAX},
+												  ExternKind::function);
 			cursor->moduleState->disassemblyNames.functions.back().locals = localDissassemblyNames;
 
 			// Resolve the function import type after all type declarations have been parsed.
@@ -317,7 +320,8 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->tableNameToIndexMap,
 						 cursor->moduleState->module.tables,
 						 cursor->moduleState->disassemblyNames.tables,
-						 {elemType, isShared, sizeConstraints});
+						 {elemType, isShared, sizeConstraints},
+						 ExternKind::table);
 			break;
 		}
 		case t_memory:
@@ -332,7 +336,8 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->memoryNameToIndexMap,
 						 cursor->moduleState->module.memories,
 						 cursor->moduleState->disassemblyNames.memories,
-						 MemoryType{isShared, sizeConstraints});
+						 MemoryType{isShared, sizeConstraints},
+						 ExternKind::memory);
 			break;
 		}
 		case t_global:
@@ -345,7 +350,8 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->globalNameToIndexMap,
 						 cursor->moduleState->module.globals,
 						 cursor->moduleState->disassemblyNames.globals,
-						 globalType);
+						 globalType,
+						 ExternKind::global);
 			break;
 		}
 		case t_exception_type:
@@ -358,7 +364,8 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->exceptionTypeNameToIndexMap,
 						 cursor->moduleState->module.exceptionTypes,
 						 cursor->moduleState->disassemblyNames.exceptionTypes,
-						 ExceptionType{params});
+						 ExceptionType{params},
+						 ExternKind::exceptionType);
 			break;
 		}
 		default: Errors::unreachable();
@@ -795,7 +802,8 @@ static void parseObjectDefOrImport(CursorState* cursor,
 					 nameToIndexMap,
 					 indexSpace,
 					 disassemblyNameArray,
-					 importType);
+					 importType,
+					 kind);
 	}
 	else
 	{

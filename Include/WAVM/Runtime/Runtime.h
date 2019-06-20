@@ -19,14 +19,20 @@ namespace WAVM { namespace IR {
 // and Runtime clients will only handle opaque pointers to them.
 #define DECLARE_OBJECT_TYPE(kindId, kindName, Type)                                                \
 	struct Type;                                                                                   \
+                                                                                                   \
+	RUNTIME_API void addGCRoot(const Type* type);                                                  \
+	RUNTIME_API void removeGCRoot(const Type* type);                                               \
+                                                                                                   \
 	RUNTIME_API Runtime::Type* as##kindName(Object* object);                                       \
 	RUNTIME_API Runtime::Type* as##kindName##Nullable(Object* object);                             \
 	RUNTIME_API const Runtime::Type* as##kindName(const Object* object);                           \
 	RUNTIME_API const Runtime::Type* as##kindName##Nullable(const Object* object);                 \
 	RUNTIME_API Object* asObject(Type* object);                                                    \
 	RUNTIME_API const Object* asObject(const Runtime::Type* object);                               \
-	RUNTIME_API void setUserData(Runtime::Type* object, void* userData);                           \
+                                                                                                   \
+	RUNTIME_API void setUserData(Runtime::Type* object, void* userData, void (*finalizer)(void*)); \
 	RUNTIME_API void* getUserData(const Runtime::Type* object);                                    \
+                                                                                                   \
 	template<> inline Runtime::Type* as<Type>(Object * object) { return as##kindName(object); }    \
 	template<> inline const Runtime::Type* as<const Type>(const Object* object)                    \
 	{                                                                                              \
@@ -38,10 +44,12 @@ namespace WAVM { namespace Runtime {
 	struct Object;
 
 	// Tests whether an object is of the given type.
-	RUNTIME_API bool isA(Object* object, const IR::ExternType& type);
-	RUNTIME_API IR::ExternType getObjectType(Object* object);
-	RUNTIME_API void setUserData(Object* object, void* userData);
-	RUNTIME_API void* getUserData(Object* object);
+	RUNTIME_API bool isA(const Object* object, const IR::ExternType& type);
+
+	RUNTIME_API IR::ExternType getExternType(const Object* object);
+
+	RUNTIME_API void setUserData(Object* object, void* userData, void (*finalizer)(void*));
+	RUNTIME_API void* getUserData(const Object* object);
 
 	inline Object* asObject(Object* object) { return object; }
 	inline const Object* asObject(const Object* object) { return object; }
@@ -57,6 +65,7 @@ namespace WAVM { namespace Runtime {
 	DECLARE_OBJECT_TYPE(ObjectKind::moduleInstance, ModuleInstance, ModuleInstance);
 	DECLARE_OBJECT_TYPE(ObjectKind::context, Context, Context);
 	DECLARE_OBJECT_TYPE(ObjectKind::compartment, Compartment, Compartment);
+	DECLARE_OBJECT_TYPE(ObjectKind::foreign, Foreign, Foreign);
 
 	//
 	// Garbage collection
@@ -69,12 +78,12 @@ namespace WAVM { namespace Runtime {
 		GCPointer(ObjectType* inValue)
 		{
 			value = inValue;
-			if(value) { addGCRoot(asObject(value)); }
+			if(value) { addGCRoot(value); }
 		}
 		GCPointer(const GCPointer<ObjectType>& inCopy)
 		{
 			value = inCopy.value;
-			if(value) { addGCRoot(asObject(value)); }
+			if(value) { addGCRoot(value); }
 		}
 		GCPointer(GCPointer<ObjectType>&& inMove)
 		{
@@ -83,24 +92,24 @@ namespace WAVM { namespace Runtime {
 		}
 		~GCPointer()
 		{
-			if(value) { removeGCRoot(asObject(value)); }
+			if(value) { removeGCRoot(value); }
 		}
 
 		void operator=(ObjectType* inValue)
 		{
-			if(value) { removeGCRoot(asObject(value)); }
+			if(value) { removeGCRoot(value); }
 			value = inValue;
-			if(value) { addGCRoot(asObject(value)); }
+			if(value) { addGCRoot(value); }
 		}
 		void operator=(const GCPointer<ObjectType>& inCopy)
 		{
-			if(value) { removeGCRoot(asObject(value)); }
+			if(value) { removeGCRoot(value); }
 			value = inCopy.value;
-			if(value) { addGCRoot(asObject(value)); }
+			if(value) { addGCRoot(value); }
 		}
 		void operator=(GCPointer<ObjectType>&& inMove)
 		{
-			if(value) { removeGCRoot(asObject(value)); }
+			if(value) { removeGCRoot(value); }
 			value = inMove.value;
 			inMove.value = nullptr;
 		}
@@ -114,10 +123,10 @@ namespace WAVM { namespace Runtime {
 	};
 
 	// Increments the object's counter of root references.
-	RUNTIME_API void addGCRoot(Object* object);
+	RUNTIME_API void addGCRoot(const Object* object);
 
 	// Decrements the object's counter of root referencers.
-	RUNTIME_API void removeGCRoot(Object* object);
+	RUNTIME_API void removeGCRoot(const Object* object);
 
 	// Frees any unreferenced objects owned by a compartment.
 	RUNTIME_API void collectCompartmentGarbage(Compartment* compartment);
@@ -128,7 +137,7 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API bool tryCollectCompartment(GCPointer<Compartment>&& compartment);
 
 	//
-	// Exceptions
+	// Exception types
 	//
 
 #define ENUM_INTRINSIC_EXCEPTION_TYPES(visit)                                                      \
@@ -162,7 +171,6 @@ namespace WAVM { namespace Runtime {
 #undef DECLARE_INTRINSIC_EXCEPTION_TYPE
 	};
 
-	struct Exception;
 	// Creates an exception type instance.
 	RUNTIME_API ExceptionType* createExceptionType(Compartment* compartment,
 												   IR::ExceptionType sig,
@@ -173,6 +181,16 @@ namespace WAVM { namespace Runtime {
 
 	// Returns the parameter types for an exception type instance.
 	RUNTIME_API IR::TypeTuple getExceptionTypeParameters(const ExceptionType* type);
+
+	//
+	// Exceptions
+	//
+
+	struct Exception;
+
+	// Exception UserData
+	RUNTIME_API void setUserData(Exception* exception, void* userData, void (*finalizer)(void*));
+	RUNTIME_API void* getUserData(const Exception* exception);
 
 	// Creates a runtime exception.
 	RUNTIME_API Exception* createException(ExceptionType* type,
@@ -188,6 +206,9 @@ namespace WAVM { namespace Runtime {
 
 	// Returns a specific argument of an exception.
 	RUNTIME_API IR::UntaggedValue getExceptionArgument(const Exception* exception, Uptr argIndex);
+
+	// Returns the call stack at the origin of an exception.
+	RUNTIME_API const Platform::CallStack& getExceptionCallStack(const Exception* exception);
 
 	// Returns a string that describes the given exception cause.
 	RUNTIME_API std::string describeException(const Exception* exception);
@@ -230,18 +251,18 @@ namespace WAVM { namespace Runtime {
 	// in a call stack that will be forked, since returning the result as a value will be lowered to
 	// passing in a pointer to stack memory for most calling conventions.
 	RUNTIME_API IR::UntaggedValue* invokeFunctionUnchecked(Context* context,
-														   Function* function,
+														   const Function* function,
 														   const IR::UntaggedValue* arguments);
 
 	// Like invokeFunctionUnchecked, but returns a result tagged with its type, and takes arguments
 	// as tagged values. If the wrong number or types or arguments are provided, a runtime exception
 	// is thrown.
 	RUNTIME_API IR::ValueTuple invokeFunctionChecked(Context* context,
-													 Function* function,
+													 const Function* function,
 													 const std::vector<IR::Value>& arguments);
 
 	// Returns the type of a Function.
-	RUNTIME_API IR::FunctionType getFunctionType(Function* function);
+	RUNTIME_API IR::FunctionType getFunctionType(const Function* function);
 
 	//
 	// Tables
@@ -250,18 +271,22 @@ namespace WAVM { namespace Runtime {
 	// Creates a Table. May return null if the memory allocation fails.
 	RUNTIME_API Table* createTable(Compartment* compartment,
 								   IR::TableType type,
+								   Object* element,
 								   std::string&& debugName);
 
-	// Reads an element from the table. Assumes that index is in bounds.
-	RUNTIME_API Object* getTableElement(Table* table, Uptr index);
+	// Reads an element from the table. Throws an outOfBoundsTableAccess exception if index is
+	// out-of-bounds.
+	RUNTIME_API Object* getTableElement(const Table* table, Uptr index);
 
-	// Writes an element to the table. Assumes that index is in bounds, and returns a pointer to the
-	// previous value of the element.
+	// Writes an element to the table, a returns the previous value of the element.
+	// Throws an outOfBoundsTableAccess exception if index is out-of-bounds.
 	RUNTIME_API Object* setTableElement(Table* table, Uptr index, Object* newValue);
 
-	// Gets the current or maximum size of the table.
-	RUNTIME_API Uptr getTableNumElements(Table* table);
-	RUNTIME_API Uptr getTableMaxElements(Table* table);
+	// Gets the current size of the table.
+	RUNTIME_API Uptr getTableNumElements(const Table* table);
+
+	// Returns the type of a table.
+	RUNTIME_API IR::TableType getTableType(const Table* table);
 
 	// Grows or shrinks the size of a table by numElements. Returns the previous size of the table.
 	RUNTIME_API Iptr growTable(Table* table, Uptr numElements, Object* initialElement = nullptr);
@@ -279,9 +304,11 @@ namespace WAVM { namespace Runtime {
 	// Gets the base address of the memory's data.
 	RUNTIME_API U8* getMemoryBaseAddress(Memory* memory);
 
-	// Gets the current or maximum size of the memory in pages.
-	RUNTIME_API Uptr getMemoryNumPages(Memory* memory);
-	RUNTIME_API Uptr getMemoryMaxPages(Memory* memory);
+	// Gets the current size of the memory in pages.
+	RUNTIME_API Uptr getMemoryNumPages(const Memory* memory);
+
+	// Returns the type of a memory.
+	RUNTIME_API IR::MemoryType getMemoryType(const Memory* memory);
 
 	// Grows or shrinks the size of a memory by numPages. Returns the previous size of the memory.
 	RUNTIME_API Iptr growMemory(Memory* memory, Uptr numPages);
@@ -323,23 +350,19 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API void initializeGlobal(Global* global, IR::Value value);
 
 	// Reads the current value of a global.
-	RUNTIME_API IR::Value getGlobalValue(const Context* context, Global* global);
+	RUNTIME_API IR::Value getGlobalValue(const Context* context, const Global* global);
 
 	// Writes a new value to a global, and returns the previous value.
-	RUNTIME_API IR::Value setGlobalValue(Context* context, Global* global, IR::Value newValue);
+	RUNTIME_API IR::Value setGlobalValue(Context* context,
+										 const Global* global,
+										 IR::Value newValue);
+
+	// Returns the type of a global.
+	RUNTIME_API IR::GlobalType getGlobalType(const Global* global);
 
 	//
 	// Modules
 	//
-
-	struct ImportBindings
-	{
-		std::vector<Function*> functions;
-		std::vector<Table*> tables;
-		std::vector<Memory*> memories;
-		std::vector<Global*> globals;
-		std::vector<ExceptionType*> exceptionTypes;
-	};
 
 	struct Module;
 	typedef std::shared_ptr<Module> ModuleRef;
@@ -362,6 +385,12 @@ namespace WAVM { namespace Runtime {
 	// Accesses the IR for a compiled module.
 	RUNTIME_API const IR::Module& getModuleIR(ModuleConstRefParam module);
 
+	//
+	// Instances
+	//
+
+	typedef std::vector<Object*> ImportBindings;
+
 	// Instantiates a compiled module, bindings its imports to the specified objects. May throw a
 	// runtime exception for bad segment offsets.
 	RUNTIME_API ModuleInstance* instantiateModule(Compartment* compartment,
@@ -370,14 +399,20 @@ namespace WAVM { namespace Runtime {
 												  std::string&& debugName);
 
 	// Gets the start function of a ModuleInstance.
-	RUNTIME_API Function* getStartFunction(ModuleInstance* moduleInstance);
+	RUNTIME_API Function* getStartFunction(const ModuleInstance* moduleInstance);
 
 	// Gets the default table/memory for a ModuleInstance.
-	RUNTIME_API Memory* getDefaultMemory(ModuleInstance* moduleInstance);
-	RUNTIME_API Table* getDefaultTable(ModuleInstance* moduleInstance);
+	RUNTIME_API Memory* getDefaultMemory(const ModuleInstance* moduleInstance);
+	RUNTIME_API Table* getDefaultTable(const ModuleInstance* moduleInstance);
 
 	// Gets an object exported by a ModuleInstance by name.
-	RUNTIME_API Object* getInstanceExport(ModuleInstance* moduleInstance, const std::string& name);
+	RUNTIME_API Object* getInstanceExport(const ModuleInstance* moduleInstance,
+										  const std::string& name);
+
+	// Gets an array of the objects exported by a module instance. The array indices correspond to
+	// the IR::Module::exports array.
+	RUNTIME_API const std::vector<Object*>& getInstanceExports(
+		const ModuleInstance* moduleInstance);
 
 	//
 	// Compartments
@@ -398,8 +433,8 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API ModuleInstance* remapToClonedCompartment(ModuleInstance* moduleInstance,
 														 const Compartment* newCompartment);
 
-	RUNTIME_API Compartment* getCompartment(Object* object);
-	RUNTIME_API bool isInCompartment(Object* object, const Compartment* compartment);
+	RUNTIME_API Compartment* getCompartment(const Object* object);
+	RUNTIME_API bool isInCompartment(const Object* object, const Compartment* compartment);
 
 	//
 	// Contexts
@@ -414,4 +449,12 @@ namespace WAVM { namespace Runtime {
 
 	// Creates a new context, initializing its mutable global state from the given context.
 	RUNTIME_API Context* cloneContext(const Context* context, Compartment* newCompartment);
+
+	//
+	// Foreign objects
+	//
+
+	RUNTIME_API Foreign* createForeign(Compartment* compartment,
+									   void* userData,
+									   void (*finalizer)(void*));
 }}

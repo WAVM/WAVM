@@ -29,6 +29,18 @@ using namespace WAVM::Runtime;
 ENUM_INTRINSIC_EXCEPTION_TYPES(DEFINE_INTRINSIC_EXCEPTION_TYPE)
 #undef DEFINE_INTRINSIC_EXCEPTION_TYPE
 
+Runtime::Exception::~Exception()
+{
+	if(finalizeUserData) { (*finalizeUserData)(userData); }
+}
+
+void Runtime::setUserData(Exception* exception, void* userData, void (*finalizer)(void*))
+{
+	exception->userData = userData;
+	exception->finalizeUserData = finalizer;
+}
+void* Runtime::getUserData(const Exception* exception) { return exception->userData; }
+
 bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
 	Runtime::Function* function = LLVMJIT::getFunctionByAddress(ip);
@@ -155,7 +167,7 @@ Exception* Runtime::createException(ExceptionType* type,
 
 	const bool isUserException = type->compartment != nullptr;
 	Exception* exception = new(malloc(Exception::calcNumBytes(params.size())))
-		Exception{type->id, type, isUserException ? U8(1) : U8(0), std::move(callStack)};
+		Exception(type->id, type, isUserException, std::move(callStack));
 	if(params.size())
 	{ memcpy(exception->arguments, arguments, sizeof(IR::UntaggedValue) * params.size()); }
 	return exception;
@@ -173,6 +185,11 @@ IR::UntaggedValue Runtime::getExceptionArgument(const Exception* exception, Uptr
 {
 	errorUnless(argIndex < exception->type->sig.params.size());
 	return exception->arguments[argIndex];
+}
+
+const Platform::CallStack& Runtime::getExceptionCallStack(const Exception* exception)
+{
+	return exception->callStack;
 }
 
 std::string Runtime::describeException(const Exception* exception)

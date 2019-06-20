@@ -136,10 +136,20 @@ namespace WAVM { namespace IR {
 	typedef Import<GlobalType> GlobalImport;
 	typedef Import<ExceptionType> ExceptionTypeImport;
 
-	// Describes an export from a module. The interpretation of index depends on kind
+	// Describes an export from a module.
 	struct Export
 	{
 		std::string name;
+
+		ExternKind kind;
+
+		// An index into the module's kind-specific IndexSpace.
+		Uptr index;
+	};
+
+	// Identifies an element of a kind-specific IndexSpace in a module.
+	struct KindAndIndex
+	{
 		ExternKind kind;
 		Uptr index;
 	};
@@ -254,6 +264,7 @@ namespace WAVM { namespace IR {
 		IndexSpace<GlobalDef, GlobalType> globals;
 		IndexSpace<ExceptionTypeDef, ExceptionType> exceptionTypes;
 
+		std::vector<KindAndIndex> imports;
 		std::vector<Export> exports;
 		std::vector<DataSegment> dataSegments;
 		std::vector<ElemSegment> elemSegments;

@@ -199,15 +199,29 @@ namespace WAVM { namespace LLVMJIT {
 										  IR::FunctionType functionType,
 										  IR::CallingConvention callingConvention)
 	{
-		const Uptr numImplicitParameters = callingConvention == IR::CallingConvention::c ? 0 : 1;
-		const Uptr numParameters = numImplicitParameters + functionType.params().size();
-		auto llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
-		if(callingConvention != IR::CallingConvention::c)
-		{ llvmArgTypes[0] = llvmContext.i8PtrType; }
-		for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
+		Uptr numParameters;
+		llvm::Type** llvmArgTypes;
+		if(callingConvention == IR::CallingConvention::cAPICallback)
 		{
-			llvmArgTypes[argIndex + numImplicitParameters]
-				= asLLVMType(llvmContext, functionType.params()[argIndex]);
+			numParameters = 2;
+			llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
+			llvmArgTypes[0] = llvmContext.i8PtrType;
+			llvmArgTypes[1] = llvmContext.i8PtrType;
+		}
+		else
+		{
+			const Uptr numImplicitParameters
+				= callingConvention == IR::CallingConvention::c ? 0 : 1;
+			numParameters = numImplicitParameters + functionType.params().size();
+			llvmArgTypes = (llvm::Type**)alloca(sizeof(llvm::Type*) * numParameters);
+			if(callingConvention != IR::CallingConvention::c)
+			{ llvmArgTypes[0] = llvmContext.i8PtrType; }
+
+			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
+			{
+				llvmArgTypes[argIndex + numImplicitParameters]
+					= asLLVMType(llvmContext, functionType.params()[argIndex]);
+			}
 		}
 
 		llvm::Type* llvmReturnType;
@@ -217,6 +231,7 @@ namespace WAVM { namespace LLVMJIT {
 			llvmReturnType = getLLVMReturnStructType(llvmContext, functionType.results());
 			break;
 
+		case IR::CallingConvention::cAPICallback:
 		case IR::CallingConvention::intrinsicWithContextSwitch:
 			llvmReturnType = llvmContext.i8PtrType;
 			break;
@@ -245,6 +260,7 @@ namespace WAVM { namespace LLVMJIT {
 
 		case IR::CallingConvention::intrinsic:
 		case IR::CallingConvention::intrinsicWithContextSwitch:
+		case IR::CallingConvention::cAPICallback:
 		case IR::CallingConvention::c: return llvm::CallingConv::C;
 
 		default: Errors::unreachable();

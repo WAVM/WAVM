@@ -90,7 +90,7 @@ Intrinsics::Table::Table(Intrinsics::Module& moduleRef,
 
 Table* Intrinsics::Table::instantiate(Compartment* compartment)
 {
-	return createTable(compartment, type, name);
+	return createTable(compartment, type, nullptr, name);
 }
 
 Intrinsics::Memory::Memory(Intrinsics::Module& moduleRef,
@@ -115,6 +115,7 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 											  std::string&& debugName,
 											  const HashMap<std::string, Object*>& extraExports)
 {
+	std::vector<Runtime::Object*> exports;
 	HashMap<std::string, Object*> exportMap = extraExports;
 	std::vector<Runtime::Function*> functions;
 	std::vector<Runtime::Table*> tables;
@@ -128,6 +129,7 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 			auto function = pair.value->instantiate(compartment);
 			functions.push_back(function);
 			exportMap.addOrFail(pair.key, asObject(function));
+			exports.push_back(asObject(function));
 		}
 
 		for(const auto& pair : moduleRef.impl->tableMap)
@@ -135,6 +137,7 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 			auto table = pair.value->instantiate(compartment);
 			tables.push_back(table);
 			exportMap.addOrFail(pair.key, asObject(table));
+			exports.push_back(asObject(table));
 		}
 
 		for(const auto& pair : moduleRef.impl->memoryMap)
@@ -142,6 +145,7 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 			auto memory = pair.value->instantiate(compartment);
 			memories.push_back(memory);
 			exportMap.addOrFail(pair.key, asObject(memory));
+			exports.push_back(asObject(memory));
 		}
 
 		for(const auto& pair : moduleRef.impl->globalMap)
@@ -149,11 +153,13 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 			auto global = pair.value->instantiate(compartment);
 			globals.push_back(global);
 			exportMap.addOrFail(pair.key, asObject(global));
+			exports.push_back(asObject(global));
 		}
 
 		for(const auto& pair : extraExports)
 		{
 			Object* object = pair.value;
+			exports.push_back(object);
 			switch(object->kind)
 			{
 			case ObjectKind::function: functions.push_back(asFunction(object)); break;
@@ -174,6 +180,7 @@ ModuleInstance* Intrinsics::instantiateModule(Compartment* compartment,
 	auto moduleInstance = new ModuleInstance(compartment,
 											 id,
 											 std::move(exportMap),
+											 std::move(exports),
 											 std::move(functions),
 											 std::move(tables),
 											 std::move(memories),

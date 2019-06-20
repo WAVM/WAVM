@@ -575,13 +575,23 @@ namespace WAVM { namespace IR {
 		};
 	}
 
+	inline ReferenceType asReferenceType(const ExternType& type)
+	{
+		switch(type.kind)
+		{
+		case ExternKind::function: return ReferenceType::funcref;
+		default: return ReferenceType::anyref;
+		}
+	}
+
 	// The calling convention for a function.
 	enum class CallingConvention
 	{
 		wasm,
 		intrinsic,
 		intrinsicWithContextSwitch,
-		c
+		c,
+		cAPICallback,
 	};
 }}
 

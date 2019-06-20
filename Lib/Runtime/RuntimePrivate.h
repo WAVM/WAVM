@@ -27,11 +27,12 @@ namespace WAVM { namespace Runtime {
 	struct GCObject : Object
 	{
 		Compartment* const compartment;
-		std::atomic<Uptr> numRootReferences{0};
+		mutable std::atomic<Uptr> numRootReferences{0};
 		void* userData{nullptr};
+		void (*finalizeUserData)(void*);
 
 		GCObject(ObjectKind inKind, Compartment* inCompartment);
-		virtual ~GCObject() { wavmAssert(numRootReferences.load(std::memory_order_acquire) == 0); }
+		virtual ~GCObject();
 	};
 
 	// An instance of a WebAssembly Table.
@@ -155,6 +156,7 @@ namespace WAVM { namespace Runtime {
 		const std::string debugName;
 
 		const HashMap<std::string, Object*> exportMap;
+		const std::vector<Object*> exports;
 
 		const std::vector<Function*> functions;
 		const std::vector<Table*> tables;
@@ -175,6 +177,7 @@ namespace WAVM { namespace Runtime {
 		ModuleInstance(Compartment* inCompartment,
 					   Uptr inID,
 					   HashMap<std::string, Object*>&& inExportMap,
+					   std::vector<Object*>&& inExports,
 					   std::vector<Function*>&& inFunctions,
 					   std::vector<Table*>&& inTables,
 					   std::vector<Memory*>&& inMemories,
@@ -189,6 +192,7 @@ namespace WAVM { namespace Runtime {
 		, id(inID)
 		, debugName(std::move(inDebugName))
 		, exportMap(std::move(inExportMap))
+		, exports(std::move(inExports))
 		, functions(std::move(inFunctions))
 		, tables(std::move(inTables))
 		, memories(std::move(inMemories))
@@ -232,6 +236,11 @@ namespace WAVM { namespace Runtime {
 
 		Compartment();
 		~Compartment();
+	};
+
+	struct Foreign : GCObject
+	{
+		Foreign(Compartment* inCompartment) : GCObject(ObjectKind::foreign, inCompartment) {}
 	};
 
 	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);

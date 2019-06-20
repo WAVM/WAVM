@@ -161,6 +161,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4310") # cast truncates constant value
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4204") # nonstandard extension used : non-constant aggregate initializer
 
 		target_link_libraries(${TARGET_NAME} PRIVATE "-ignore:4199") # /DELAYLOAD:... ignored; no imports found from ...
 
@@ -257,7 +258,7 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	cmake_parse_arguments(COMPONENT
 		""
 		""
-		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS;PRIVATE_INCLUDE_DIRECTORIES;PRIVATE_DEFINITIONS"
+		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS;PRIVATE_INCLUDE_DIRECTORIES;PRIVATE_DEFINITIONS;PUBLIC_DEFINITIONS"
 		${ARGN})
 
 	# Translate the relative source and header file paths to absolute paths.
@@ -290,6 +291,7 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	# Add the component's include directories and definitions.
 	target_include_directories(WAVM PRIVATE ${COMPONENT_PRIVATE_INCLUDE_DIRECTORIES})
 	target_compile_definitions(WAVM PRIVATE ${COMPONENT_PRIVATE_DEFINITIONS})
+	target_compile_definitions(WAVM PUBLIC ${COMPONENT_PUBLIC_DEFINITIONS})
 
 	# Set up the component's API definitions.
 	string(TOUPPER ${COMPONENT_NAME} COMPONENT_C_NAME)
@@ -348,7 +350,6 @@ add_subdirectory(Lib/VFS)
 add_subdirectory(Lib/WASM)
 add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
-add_subdirectory(Lib/wavm-c)
 add_subdirectory(Programs/wavm-as)
 add_subdirectory(Programs/wavm-disas)
 add_subdirectory(Test)
@@ -360,6 +361,7 @@ if(WAVM_ENABLE_RUNTIME)
 	add_subdirectory(Lib/Runtime)
 	add_subdirectory(Lib/ThreadTest)
 	add_subdirectory(Lib/WASI)
+	add_subdirectory(Lib/wavm-c)
 	add_subdirectory(Programs/wavm-compile)
 	add_subdirectory(Programs/wavm-run)
 	add_subdirectory(Programs/wavm-run-wasi)

@@ -3,6 +3,7 @@
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/IR/Value.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/IR/Constant.h"
@@ -95,24 +96,50 @@ namespace WAVM { namespace LLVMJIT {
 									 IR::CallingConvention callingConvention,
 									 llvm::BasicBlock* unwindToBlock = nullptr)
 		{
-			llvm::ArrayRef<llvm::Value*> augmentedArgs = args;
+			llvm::ArrayRef<llvm::Value*> callArgs = args;
 
-			if(callingConvention != IR::CallingConvention::c)
+			llvm::Value* resultsArray = nullptr;
+			if(callingConvention == IR::CallingConvention::cAPICallback)
+			{
+				// Pass in pointers to argument and result arrays.
+				auto argsArray = irBuilder.CreateAlloca(
+					llvmContext.i8Type,
+					emitLiteral(llvmContext, args.size() * sizeof(IR::UntaggedValue)));
+				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
+				{
+					storeToUntypedPointer(
+						args[argIndex],
+						irBuilder.CreateInBoundsGEP(
+							argsArray,
+							{emitLiteral(llvmContext, argIndex * sizeof(IR::UntaggedValue))}));
+				}
+
+				resultsArray = irBuilder.CreateAlloca(
+					llvmContext.i8Type,
+					emitLiteral(llvmContext,
+								calleeType.results().size() * sizeof(IR::UntaggedValue)));
+
+				auto callArgsAlloca = (llvm::Value**)alloca(sizeof(llvm::Value*) * 2);
+				callArgs = llvm::ArrayRef<llvm::Value*>(callArgsAlloca, 2);
+				callArgsAlloca[0] = argsArray;
+				callArgsAlloca[1] = resultsArray;
+			}
+			else if(callingConvention != IR::CallingConvention::c)
 			{
 				// Augment the argument list with the context pointer.
-				auto augmentedArgsAlloca
+				auto callArgsAlloca
 					= (llvm::Value**)alloca(sizeof(llvm::Value*) * (args.size() + 1));
-				augmentedArgs = llvm::ArrayRef<llvm::Value*>(augmentedArgsAlloca, args.size() + 1);
-				augmentedArgsAlloca[0] = irBuilder.CreateLoad(contextPointerVariable);
+				callArgs = llvm::ArrayRef<llvm::Value*>(callArgsAlloca, args.size() + 1);
+				callArgsAlloca[0] = irBuilder.CreateLoad(contextPointerVariable);
 				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
-				{ augmentedArgsAlloca[1 + argIndex] = args[argIndex]; }
+				{ callArgsAlloca[1 + argIndex] = args[argIndex]; }
 			}
 
 			// Call or invoke the callee.
 			llvm::Value* returnValue;
 			if(!unwindToBlock)
 			{
-				auto call = irBuilder.CreateCall(callee, augmentedArgs);
+				auto call = irBuilder.CreateCall(callee, callArgs);
 				call->setCallingConv(asLLVMCallingConv(callingConvention));
 				returnValue = call;
 			}
@@ -120,8 +147,7 @@ namespace WAVM { namespace LLVMJIT {
 			{
 				auto returnBlock = llvm::BasicBlock::Create(
 					llvmContext, "invokeReturn", irBuilder.GetInsertBlock()->getParent());
-				auto invoke
-					= irBuilder.CreateInvoke(callee, returnBlock, unwindToBlock, augmentedArgs);
+				auto invoke = irBuilder.CreateInvoke(callee, returnBlock, unwindToBlock, callArgs);
 				invoke->setCallingConv(asLLVMCallingConv(callingConvention));
 				irBuilder.SetInsertPoint(returnBlock);
 				returnValue = invoke;
@@ -191,6 +217,36 @@ namespace WAVM { namespace LLVMJIT {
 						loadFromUntypedPointer(newContextPointer,
 											   llvmResultType,
 											   IR::getTypeByteWidth(calleeType.results()[0])));
+				}
+
+				break;
+			}
+			case IR::CallingConvention::cAPICallback:
+			{
+				// Check whether the call returned an Exception.
+				auto exception = returnValue;
+				auto function = irBuilder.GetInsertBlock()->getParent();
+				auto trapBlock = llvm::BasicBlock::Create(llvmContext, "intrinsicTrap", function);
+				auto returnBlock
+					= llvm::BasicBlock::Create(llvmContext, "intrinsicReturn", function);
+				irBuilder.CreateCondBr(
+					irBuilder.CreateICmpEQ(exception,
+										   llvm::Constant::getNullValue(llvmContext.i8PtrType)),
+					returnBlock,
+					trapBlock);
+
+				irBuilder.SetInsertPoint(trapBlock);
+				irBuilder.CreateUnreachable();
+
+				// Load the results from the results array.
+				irBuilder.SetInsertPoint(returnBlock);
+				for(Uptr resultIndex = 0; resultIndex < calleeType.results().size(); ++resultIndex)
+				{
+					results.push_back(loadFromUntypedPointer(
+						irBuilder.CreateInBoundsGEP(
+							resultsArray,
+							{emitLiteral(llvmContext, resultIndex * sizeof(IR::UntaggedValue))}),
+						asLLVMType(llvmContext, calleeType.results()[resultIndex])));
 				}
 
 				break;

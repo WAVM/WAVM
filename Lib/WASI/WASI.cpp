@@ -53,7 +53,7 @@ struct ProcessResolver : Resolver
 								"Resolved import %s.%s to a %s, but was expecting %s\n",
 								moduleName.c_str(),
 								exportName.c_str(),
-								asString(getObjectType(outObject)).c_str(),
+								asString(getExternType(outObject)).c_str(),
 								asString(type).c_str());
 					return false;
 				}
@@ -225,7 +225,7 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 								   std::move(inEnvs),
 								   std::move(files),
 								   std::move(processResolver)};
-	setUserData(compartment, process);
+	setUserData(compartment, process, nullptr);
 
 	try
 	{

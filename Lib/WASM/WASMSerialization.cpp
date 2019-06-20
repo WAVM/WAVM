@@ -879,6 +879,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				throwIfNotValidUTF8(moduleName);
 				throwIfNotValidUTF8(exportName);
 				serialize(sectionStream, kind);
+				Uptr kindIndex = 0;
 				switch(kind)
 				{
 				case ExternKind::function:
@@ -887,6 +888,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serializeVarUInt32(sectionStream, functionTypeIndex);
 					if(functionTypeIndex >= module.types.size())
 					{ throw FatalSerializationException("invalid import function type index"); }
+					kindIndex = module.functions.imports.size();
 					module.functions.imports.push_back(
 						{{functionTypeIndex}, std::move(moduleName), std::move(exportName)});
 					break;
@@ -895,6 +897,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				{
 					TableType tableType;
 					serialize(sectionStream, tableType);
+					kindIndex = module.tables.imports.size();
 					module.tables.imports.push_back(
 						{tableType, std::move(moduleName), std::move(exportName)});
 					break;
@@ -903,6 +906,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				{
 					MemoryType memoryType;
 					serialize(sectionStream, memoryType);
+					kindIndex = module.memories.imports.size();
 					module.memories.imports.push_back(
 						{memoryType, std::move(moduleName), std::move(exportName)});
 					break;
@@ -911,6 +915,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				{
 					GlobalType globalType;
 					serialize(sectionStream, globalType);
+					kindIndex = module.globals.imports.size();
 					module.globals.imports.push_back(
 						{globalType, std::move(moduleName), std::move(exportName)});
 					break;
@@ -919,55 +924,76 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				{
 					ExceptionType exceptionType;
 					serialize(sectionStream, exceptionType);
+					kindIndex = module.exceptionTypes.imports.size();
 					module.exceptionTypes.imports.push_back(
 						{exceptionType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
 				default: throw FatalSerializationException("invalid ExternKind");
-				}
+				};
+
+				module.imports.push_back({kind, kindIndex});
 			}
 		}
 		else
 		{
-			for(auto& functionImport : module.functions.imports)
+			wavmAssert(module.imports.size()
+					   == module.functions.imports.size() + module.tables.imports.size()
+							  + module.memories.imports.size() + module.globals.imports.size()
+							  + module.exceptionTypes.imports.size());
+
+			for(const auto& kindIndex : module.imports)
 			{
-				serialize(sectionStream, functionImport.moduleName);
-				serialize(sectionStream, functionImport.exportName);
-				ExternKind kind = ExternKind::function;
-				serialize(sectionStream, kind);
-				serializeVarUInt32(sectionStream, functionImport.type.index);
-			}
-			for(auto& tableImport : module.tables.imports)
-			{
-				serialize(sectionStream, tableImport.moduleName);
-				serialize(sectionStream, tableImport.exportName);
-				ExternKind kind = ExternKind::table;
-				serialize(sectionStream, kind);
-				serialize(sectionStream, tableImport.type);
-			}
-			for(auto& memoryImport : module.memories.imports)
-			{
-				serialize(sectionStream, memoryImport.moduleName);
-				serialize(sectionStream, memoryImport.exportName);
-				ExternKind kind = ExternKind::memory;
-				serialize(sectionStream, kind);
-				serialize(sectionStream, memoryImport.type);
-			}
-			for(auto& globalImport : module.globals.imports)
-			{
-				serialize(sectionStream, globalImport.moduleName);
-				serialize(sectionStream, globalImport.exportName);
-				ExternKind kind = ExternKind::global;
-				serialize(sectionStream, kind);
-				serialize(sectionStream, globalImport.type);
-			}
-			for(auto& exceptionTypeImport : module.exceptionTypes.imports)
-			{
-				serialize(sectionStream, exceptionTypeImport.moduleName);
-				serialize(sectionStream, exceptionTypeImport.exportName);
-				ExternKind kind = ExternKind::exceptionType;
-				serialize(sectionStream, kind);
-				serialize(sectionStream, exceptionTypeImport.type);
+				ExternKind kind = kindIndex.kind;
+				switch(kindIndex.kind)
+				{
+				case ExternKind::function:
+				{
+					auto& functionImport = module.functions.imports[kindIndex.index];
+					serialize(sectionStream, functionImport.moduleName);
+					serialize(sectionStream, functionImport.exportName);
+					serialize(sectionStream, kind);
+					serializeVarUInt32(sectionStream, functionImport.type.index);
+					break;
+				}
+				case ExternKind::table:
+				{
+					auto& tableImport = module.tables.imports[kindIndex.index];
+					serialize(sectionStream, tableImport.moduleName);
+					serialize(sectionStream, tableImport.exportName);
+					serialize(sectionStream, kind);
+					serialize(sectionStream, tableImport.type);
+					break;
+				}
+				case ExternKind::memory:
+				{
+					auto& memoryImport = module.memories.imports[kindIndex.index];
+					serialize(sectionStream, memoryImport.moduleName);
+					serialize(sectionStream, memoryImport.exportName);
+					serialize(sectionStream, kind);
+					serialize(sectionStream, memoryImport.type);
+					break;
+				}
+				case ExternKind::global:
+				{
+					auto& globalImport = module.globals.imports[kindIndex.index];
+					serialize(sectionStream, globalImport.moduleName);
+					serialize(sectionStream, globalImport.exportName);
+					serialize(sectionStream, kind);
+					serialize(sectionStream, globalImport.type);
+					break;
+				}
+				case ExternKind::exceptionType:
+				{
+					auto& exceptionTypeImport = module.exceptionTypes.imports[kindIndex.index];
+					serialize(sectionStream, exceptionTypeImport.moduleName);
+					serialize(sectionStream, exceptionTypeImport.exportName);
+					serialize(sectionStream, kind);
+					serialize(sectionStream, exceptionTypeImport.type);
+					break;
+				}
+				default: Errors::unreachable();
+				};
 			}
 		}
 	});
@@ -1101,9 +1127,9 @@ void serializeDataSection(InputStream& moduleStream, Module& module, bool hadDat
 						 serializeVarUInt32(sectionStream, numDataSegments);
 						 if(!hadDataCountSection)
 						 {
-							 // To make fuzzing more effective, fail gracefully instead of through
-							 // OOM if the DataCount section specifies a large number of data
-							 // segments.
+							 // To make fuzzing more effective, fail gracefully instead of
+							 // through OOM if the DataCount section specifies a large number of
+							 // data segments.
 							 if(numDataSegments > module.featureSpec.maxDataSegments)
 							 { throw FatalSerializationException("too many data segments"); }
 							 module.dataSegments.resize(numDataSegments);

@@ -54,7 +54,7 @@ struct RootResolver : Resolver
 								"Resolved import %s.%s to a %s, but was expecting %s\n",
 								moduleName.c_str(),
 								exportName.c_str(),
-								asString(getObjectType(outObject)).c_str(),
+								asString(getExternType(outObject)).c_str(),
 								asString(type).c_str());
 					return false;
 				}
@@ -106,8 +106,8 @@ struct RootResolver : Resolver
 		}
 		case IR::ExternKind::table:
 		{
-			return asObject(
-				Runtime::createTable(compartment, asTableType(type), std::string(exportName)));
+			return asObject(Runtime::createTable(
+				compartment, asTableType(type), nullptr, std::string(exportName)));
 		}
 		case IR::ExternKind::global:
 		{
