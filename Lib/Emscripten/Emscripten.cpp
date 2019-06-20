@@ -187,6 +187,11 @@ DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", U32, getTotalMemory)
 	return _emscripten_get_heap_size(contextRuntimeData);
 }
 
+DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrowMemory, I32 size)
+{
+	throwException(ExceptionTypes::calledAbort);
+}
+
 DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverflow, I32 size)
 {
 	throwException(ExceptionTypes::stackOverflow);
@@ -217,6 +222,10 @@ DEFINE_INTRINSIC_FUNCTION(env, "___setErrNo", void, ___seterrno, I32 value)
 	if(instance->errnoAddress)
 	{ memoryRef<I32>(instance->memory, instance->errnoAddress) = (I32)value; }
 }
+
+thread_local I32 tempRet0;
+DEFINE_INTRINSIC_FUNCTION(env, "setTempRet0", void, setTempRet0, I32 value) { tempRet0 = value; }
+DEFINE_INTRINSIC_FUNCTION(env, "getTempRet0", I32, getTempRet0) { return tempRet0; }
 
 DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", I32, _sysconf, I32 a)
 {
@@ -472,60 +481,69 @@ DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
 
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_i", void, emscripten_nullFunc_i, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_ii", void, emscripten_nullFunc_ii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iii", void, emscripten_nullFunc_iii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiii", void, emscripten_nullFunc_iiii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiii", void, emscripten_nullFunc_iiiii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiii", void, emscripten_nullFunc_iiiiii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiiii", void, emscripten_nullFunc_iiiiiii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_v", void, emscripten_nullFunc_v, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vi", void, emscripten_nullFunc_vi, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vii", void, emscripten_nullFunc_vii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viii", void, emscripten_nullFunc_viii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiii", void, emscripten_nullFunc_viiii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiii", void, emscripten_nullFunc_viiiii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiiii", void, emscripten_nullFunc_viiiiii, I32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iidiiii", void, emscripten_nullFunc_iidiiii, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_jiji", void, emscripten_nullFunc_jiji, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 
 static U32 currentLocale = 0;
