@@ -37,6 +37,7 @@ set_target_properties(WAVMTests PROPERTIES FOLDER Testing)
 
 if(WAVM_ENABLE_RUNTIME)
 	ADD_WAST_TESTS("${WASTTests}")
+	add_subdirectory(wavm-c)
 endif()
 
 add_subdirectory(Benchmarks)
@@ -46,4 +47,3 @@ add_subdirectory(fuzz)
 add_subdirectory(I128)
 add_subdirectory(RunTestScript)
 add_subdirectory(spec)
-add_subdirectory(wavm-c)
