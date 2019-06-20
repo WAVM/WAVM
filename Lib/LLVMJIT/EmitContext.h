@@ -104,20 +104,21 @@ namespace WAVM { namespace LLVMJIT {
 				// Pass in pointers to argument and result arrays.
 				auto argsArray = irBuilder.CreateAlloca(
 					llvmContext.i8Type,
-					emitLiteral(llvmContext, args.size() * sizeof(IR::UntaggedValue)));
+					emitLiteral(llvmContext, Uptr(args.size() * sizeof(IR::UntaggedValue))));
 				for(Uptr argIndex = 0; argIndex < args.size(); ++argIndex)
 				{
 					storeToUntypedPointer(
 						args[argIndex],
 						irBuilder.CreateInBoundsGEP(
 							argsArray,
-							{emitLiteral(llvmContext, argIndex * sizeof(IR::UntaggedValue))}));
+							{emitLiteral(llvmContext,
+										 Uptr(argIndex * sizeof(IR::UntaggedValue)))}));
 				}
 
 				resultsArray = irBuilder.CreateAlloca(
 					llvmContext.i8Type,
 					emitLiteral(llvmContext,
-								calleeType.results().size() * sizeof(IR::UntaggedValue)));
+								Uptr(calleeType.results().size() * sizeof(IR::UntaggedValue))));
 
 				auto callArgsAlloca = (llvm::Value**)alloca(sizeof(llvm::Value*) * 2);
 				callArgs = llvm::ArrayRef<llvm::Value*>(callArgsAlloca, 2);
