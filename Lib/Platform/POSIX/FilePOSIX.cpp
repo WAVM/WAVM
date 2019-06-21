@@ -70,7 +70,7 @@ struct POSIXFD : FD
 				Errors::fatalf("lseek(%i, %" PRIi64 ", %u) returned EOVERFLOW", fd, offset, whence);
 
 			case EINVAL: return SeekResult::invalidOffset;
-			case ESPIPE: return SeekResult::notSupported;
+			case ESPIPE: return SeekResult::unseekable;
 
 			default: Errors::unreachable();
 			}

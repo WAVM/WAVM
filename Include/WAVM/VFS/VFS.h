@@ -86,7 +86,7 @@ namespace WAVM { namespace VFS {
 	{
 		success,
 		invalidOffset,
-		notSupported
+		unseekable
 	};
 
 	enum class CloseResult

@@ -594,13 +594,39 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  U32 whence,
 						  WASIAddress newOffsetAddress)
 {
-	traceUnimplementedSyscall("fd_seek",
-							  "(%u, %" PRIu64 "%u, " WASIADDRESS_FORMAT ")",
-							  fd,
-							  offset,
-							  whence,
-							  newOffsetAddress);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("fd_seek",
+				  "(%u, %" PRIi64 ", %u, " WASIADDRESS_FORMAT ")",
+				  fd,
+				  offset,
+				  whence,
+				  newOffsetAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_SEEK)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	VFS::SeekOrigin origin;
+	switch(whence)
+	{
+	case __WASI_WHENCE_CUR: origin = VFS::SeekOrigin::cur; break;
+	case __WASI_WHENCE_END: origin = VFS::SeekOrigin::end; break;
+	case __WASI_WHENCE_SET: origin = VFS::SeekOrigin::begin; break;
+	default: return TRACE_SYSCALL_RETURN(EINVAL);
+	};
+
+	U64 newOffset;
+	VFS::SeekResult seekResult = wasiFD->vfd->seek(offset, origin, &newOffset);
+	switch(seekResult)
+	{
+	case VFS::SeekResult::success:
+		memoryRef<__wasi_filesize_t>(process->memory, newOffsetAddress) = newOffset;
+		return TRACE_SYSCALL_RETURN(ESUCCESS);
+	case VFS::SeekResult::invalidOffset: return TRACE_SYSCALL_RETURN(EINVAL);
+	case VFS::SeekResult::unseekable: return TRACE_SYSCALL_RETURN(ESPIPE);
+	default: Errors::unreachable();
+	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -610,8 +636,25 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_fd_t fd,
 						  WASIAddress offsetAddress)
 {
-	traceUnimplementedSyscall("fd_tell", "(%u, " WASIADDRESS_FORMAT ")", fd, offsetAddress);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("fd_tell", "(%u, " WASIADDRESS_FORMAT ")", fd, offsetAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_TELL)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	U64 currentOffset;
+	VFS::SeekResult seekResult = wasiFD->vfd->seek(0, VFS::SeekOrigin::cur, &currentOffset);
+	switch(seekResult)
+	{
+	case VFS::SeekResult::success:
+		memoryRef<__wasi_filesize_t>(process->memory, offsetAddress) = currentOffset;
+		return TRACE_SYSCALL_RETURN(ESUCCESS);
+	case VFS::SeekResult::invalidOffset: return TRACE_SYSCALL_RETURN(EOVERFLOW);
+	case VFS::SeekResult::unseekable: return TRACE_SYSCALL_RETURN(ESPIPE);
+	default: Errors::unreachable();
+	};
 }
 
 __wasi_filetype_t asWaSIFileType(VFS::FDType type)
