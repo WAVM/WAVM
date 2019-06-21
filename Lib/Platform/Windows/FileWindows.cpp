@@ -217,17 +217,36 @@ private:
 	FDImplicitSync implicitSync;
 };
 
+struct WindowsStdFD : WindowsFD
+{
+	WindowsStdFD(HANDLE inHandle, FDType inType, FDImplicitSync inImplicitSync)
+	: WindowsFD(inHandle, inType, inImplicitSync)
+	{
+	}
+
+	virtual CloseResult close()
+	{
+		// The stdio FDs are shared, so don't close them.
+		return CloseResult::success;
+	}
+};
+
 FD* Platform::getStdFD(StdDevice device)
 {
-	DWORD StdHandle = 0;
+	static WindowsStdFD* stdinVFD = new WindowsStdFD(
+		GetStdHandle(STD_INPUT_HANDLE), FDType::characterDevice, FDImplicitSync::none);
+	static WindowsStdFD* stdoutVFD = new WindowsStdFD(
+		GetStdHandle(STD_OUTPUT_HANDLE), FDType::characterDevice, FDImplicitSync::none);
+	static WindowsStdFD* stderrVFD = new WindowsStdFD(
+		GetStdHandle(STD_ERROR_HANDLE), FDType::characterDevice, FDImplicitSync::none);
+
 	switch(device)
 	{
-	case StdDevice::in: StdHandle = STD_INPUT_HANDLE; break;
-	case StdDevice::out: StdHandle = STD_OUTPUT_HANDLE; break;
-	case StdDevice::err: StdHandle = STD_ERROR_HANDLE; break;
+	case StdDevice::in: return stdinVFD;
+	case StdDevice::out: return stdoutVFD;
+	case StdDevice::err: return stderrVFD;
 	default: Errors::unreachable();
 	};
-	return new WindowsFD(GetStdHandle(StdHandle), FDType::characterDevice, FDImplicitSync::none);
 }
 
 FD* Platform::openHostFile(const std::string& pathName,

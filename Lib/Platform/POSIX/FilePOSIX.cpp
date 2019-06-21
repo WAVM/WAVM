@@ -195,17 +195,29 @@ struct POSIXFD : FD
 	}
 };
 
+struct POSIXStdFD : POSIXFD
+{
+	POSIXStdFD(I32 inFD, FDFlags inFlags) : POSIXFD(inFD, inFlags) {}
+
+	virtual CloseResult close() override
+	{
+		// The stdio FDs are shared, so don't close them.
+		return CloseResult::success;
+	}
+};
+
 FD* Platform::getStdFD(StdDevice device)
 {
-	I32 fd;
+	static POSIXStdFD* stdinVFD = new POSIXStdFD(0, FDFlags{false, false, FDImplicitSync::none});
+	static POSIXStdFD* stdoutVFD = new POSIXStdFD(1, FDFlags{false, false, FDImplicitSync::none});
+	static POSIXStdFD* stderrVFD = new POSIXStdFD(2, FDFlags{false, false, FDImplicitSync::none});
 	switch(device)
 	{
-	case StdDevice::in: fd = 0; break;
-	case StdDevice::out: fd = 1; break;
-	case StdDevice::err: fd = 2; break;
+	case StdDevice::in: return stdinVFD; break;
+	case StdDevice::out: return stdoutVFD; break;
+	case StdDevice::err: return stderrVFD; break;
 	default: Errors::unreachable();
 	};
-	return new POSIXFD(fd, FDFlags{false, false, FDImplicitSync::none});
 }
 
 FD* Platform::openHostFile(const std::string& pathName,

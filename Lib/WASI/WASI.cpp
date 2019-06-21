@@ -85,6 +85,11 @@ namespace WAVM { namespace WASI {
 		IndexMap<__wasi_fd_t, WASI::FD> fds;
 
 		ProcessResolver resolver;
+
+		~Process()
+		{
+			for(const WASI::FD& fd : fds) { fd.vfd->close(); }
+		}
 	};
 }}
 
