@@ -1176,6 +1176,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi, "proc_exit", void, wasi_proc_exit, __wasi_exitco
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "proc_raise", __wasi_errno_t, wasi_proc_raise, __wasi_signal_t sig)
 {
+	// proc_raise will possibly be removed: https://github.com/WebAssembly/WASI/issues/7
 	traceUnimplementedSyscall("proc_raise", "(%u)", sig);
 	return __WASI_ENOSYS;
 }
