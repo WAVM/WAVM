@@ -839,14 +839,16 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	VFS::WriteResult writeResult = VFS::WriteResult::success;
 	for(WASIAddress iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 	{
+		__wasi_ciovec_t iov = iovs[iovIndex];
+
 		Uptr numBytesWrittenThisIO = 0;
-		writeResult = wasiFD->vfd->write(
-			memoryArrayPtr<U8>(process->memory, iovs[iovIndex].buf, iovs[iovIndex].buf_len),
-			iovs[iovIndex].buf_len,
-			&numBytesWrittenThisIO);
+		writeResult = wasiFD->vfd->write(memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len),
+										 iov.buf_len,
+										 &numBytesWrittenThisIO);
 		if(writeResult != VFS::WriteResult::success) { break; }
 
 		numBytesWritten += numBytesWrittenThisIO;
+		if(numBytesWrittenThisIO < iov.buf_len) { break; }
 	}
 
 	if(numBytesWritten > WASIADDRESS_MAX) { return TRACE_SYSCALL_RETURN(EOVERFLOW); }
