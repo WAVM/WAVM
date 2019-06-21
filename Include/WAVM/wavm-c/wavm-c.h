@@ -58,11 +58,14 @@ extern "C" {
 
 inline void assertions()
 {
-	static_assert(sizeof(float) == sizeof(uint32_t), "incompatible float type");
-	static_assert(sizeof(double) == sizeof(uint64_t), "incompatible double type");
+	static_assert(sizeof(float) == sizeof(uint32_t), "incompatible wasm_float32_t type");
+	static_assert(sizeof(double) == sizeof(uint64_t), "incompatible wasm_float64_t type");
 	static_assert(sizeof(intptr_t) == sizeof(uint32_t) || sizeof(intptr_t) == sizeof(uint64_t),
 				  "incompatible pointer type");
 }
+
+typedef float wasm_float32_t;
+typedef double wasm_float64_t;
 
 // Ownership
 
@@ -301,8 +304,8 @@ typedef union wasm_val_t
 {
 	int32_t i32;
 	int64_t i64;
-	float f32;
-	double f64;
+	wasm_float32_t f32;
+	wasm_float64_t f64;
 	wasm_v128_t v128;
 	wasm_ref_t* ref;
 } wasm_val_t;
