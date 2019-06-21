@@ -6,6 +6,7 @@ set(POSIXSources
 	POSIX/FilePOSIX.cpp
 	POSIX/MemoryPOSIX.cpp
 	POSIX/MutexPOSIX.cpp
+	POSIX/RandomPOSIX.cpp
 	POSIX/ThreadPOSIX.cpp
 	POSIX/POSIXPrivate.h)
 
@@ -20,6 +21,7 @@ set(WindowsSources
 	Windows/FileWindows.cpp
 	Windows/MemoryWindows.cpp
 	Windows/MutexWindows.cpp
+	Windows/RandomWindows.cpp
 	Windows/ThreadWindows.cpp
 	Windows/WindowsPrivate.h)
 
@@ -64,6 +66,10 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND PLATFORM_PRIVATE_LIBS pthread rt)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	list(APPEND PLATFORM_PRIVATE_LIBS "Bcrypt.lib")
 endif()
 
 if(NOT MSVC AND WAVM_ENABLE_RUNTIME)

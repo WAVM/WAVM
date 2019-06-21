@@ -9,6 +9,7 @@
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/Intrinsic.h"
+#include "WAVM/Platform/Random.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -1095,9 +1096,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress bufferAddress,
 						  WASIAddress numBufferBytes)
 {
-	traceUnimplementedSyscall(
-		"random_get", "(" WASIADDRESS_FORMAT ", %u)", bufferAddress, numBufferBytes);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("random_get", "(" WASIADDRESS_FORMAT ", %u)", bufferAddress, numBufferBytes);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
+	Platform::getCryptographicRNG(buffer, numBufferBytes);
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
