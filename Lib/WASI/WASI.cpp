@@ -565,13 +565,53 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress numIOVs,
 						  WASIAddress numBytesReadAddress)
 {
-	traceUnimplementedSyscall("fd_read",
-							  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
-							  fd,
-							  iovsAddress,
-							  numIOVs,
-							  numBytesReadAddress);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("fd_read",
+				  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
+				  fd,
+				  iovsAddress,
+				  numIOVs,
+				  numBytesReadAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_READ)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	const __wasi_iovec_t* iovs
+		= memoryArrayPtr<__wasi_iovec_t>(process->memory, iovsAddress, numIOVs);
+	U64 numBytesRead = 0;
+	VFS::ReadResult readResult = VFS::ReadResult::success;
+	for(WASIAddress iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+	{
+		__wasi_iovec_t iov = iovs[iovIndex];
+
+		Uptr numBytesReadThisIO = 0;
+		readResult = wasiFD->vfd->read(memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len),
+									   iov.buf_len,
+									   &numBytesReadThisIO);
+		if(readResult != VFS::ReadResult::success) { break; }
+
+		numBytesRead += numBytesReadThisIO;
+		if(numBytesReadThisIO < iov.buf_len) { break; }
+	}
+
+	if(numBytesRead > WASIADDRESS_MAX) { return TRACE_SYSCALL_RETURN(EOVERFLOW); }
+	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
+
+	switch(readResult)
+	{
+	case VFS::ReadResult::success:
+		return TRACE_SYSCALL_RETURN(ESUCCESS, " (numBytesRead=%" PRIu64 ")", numBytesRead);
+	case VFS::ReadResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+	case VFS::ReadResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
+	case VFS::ReadResult::invalidArgument: return TRACE_SYSCALL_RETURN(EINVAL);
+	case VFS::ReadResult::notPermitted: return TRACE_SYSCALL_RETURN(EPERM);
+	case VFS::ReadResult::isDirectory: return TRACE_SYSCALL_RETURN(EISDIR);
+	case VFS::ReadResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
+
+	default: Errors::unreachable();
+	}
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
