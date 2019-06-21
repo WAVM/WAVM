@@ -253,6 +253,7 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 		}
 
 		invokeFunctionChecked(process->context, startFunction, {});
+		outExitCode = 0;
 	}
 	catch(const ExitException& exitException)
 	{
