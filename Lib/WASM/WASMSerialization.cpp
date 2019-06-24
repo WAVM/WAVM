@@ -435,9 +435,20 @@ static void serialize(OutputStream& stream, SectionType sectionType)
 	*stream.advance(1) = serializedSectionId;
 }
 
-template<typename Stream> void serialize(Stream& stream, NoImm&, const FunctionDef&) {}
+struct ModuleSerializationState
+{
+	bool hadDataCountSection = false;
+};
 
-static void serialize(InputStream& stream, ControlStructureImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream, NoImm&, const FunctionDef&, const ModuleSerializationState&)
+{
+}
+
+static void serialize(InputStream& stream,
+					  ControlStructureImm& imm,
+					  const FunctionDef&,
+					  const ModuleSerializationState&)
 {
 	Iptr encodedBlockType;
 	serializeVarInt32(stream, encodedBlockType);
@@ -458,7 +469,10 @@ static void serialize(InputStream& stream, ControlStructureImm& imm, const Funct
 	}
 }
 
-static void serialize(OutputStream& stream, const ControlStructureImm& imm, const FunctionDef&)
+static void serialize(OutputStream& stream,
+					  const ControlStructureImm& imm,
+					  const FunctionDef&,
+					  const ModuleSerializationState&)
 {
 	Iptr encodedBlockType;
 	switch(imm.type.format)
@@ -473,17 +487,22 @@ static void serialize(OutputStream& stream, const ControlStructureImm& imm, cons
 	serializeVarInt32(stream, encodedBlockType);
 }
 
-template<typename Stream> void serialize(Stream& stream, SelectImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream, SelectImm& imm, const FunctionDef&, const ModuleSerializationState&)
 {
 	serialize(stream, imm.type);
 }
 
-template<typename Stream> void serialize(Stream& stream, BranchImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream, BranchImm& imm, const FunctionDef&, const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.targetDepth);
 }
 
-static void serialize(InputStream& stream, BranchTableImm& imm, FunctionDef& functionDef)
+static void serialize(InputStream& stream,
+					  BranchTableImm& imm,
+					  FunctionDef& functionDef,
+					  const ModuleSerializationState&)
 {
 	std::vector<Uptr> branchTable;
 	serializeArray(stream, branchTable, [](InputStream& stream, Uptr& targetDepth) {
@@ -493,7 +512,10 @@ static void serialize(InputStream& stream, BranchTableImm& imm, FunctionDef& fun
 	functionDef.branchTables.push_back(std::move(branchTable));
 	serializeVarUInt32(stream, imm.defaultTargetDepth);
 }
-static void serialize(OutputStream& stream, BranchTableImm& imm, FunctionDef& functionDef)
+static void serialize(OutputStream& stream,
+					  BranchTableImm& imm,
+					  FunctionDef& functionDef,
+					  const ModuleSerializationState&)
 {
 	wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
 	std::vector<Uptr>& branchTable = functionDef.branchTables[imm.branchTableIndex];
@@ -503,56 +525,88 @@ static void serialize(OutputStream& stream, BranchTableImm& imm, FunctionDef& fu
 	serializeVarUInt32(stream, imm.defaultTargetDepth);
 }
 
-template<typename Stream> void serialize(Stream& stream, LiteralImm<I32>& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   LiteralImm<I32>& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarInt32(stream, imm.value);
 }
 
-template<typename Stream> void serialize(Stream& stream, LiteralImm<I64>& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   LiteralImm<I64>& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarInt64(stream, imm.value);
 }
 
 template<typename Stream, bool isGlobal>
-void serialize(Stream& stream, GetOrSetVariableImm<isGlobal>& imm, const FunctionDef&)
+void serialize(Stream& stream,
+			   GetOrSetVariableImm<isGlobal>& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.variableIndex);
 }
 
-template<typename Stream> void serialize(Stream& stream, FunctionImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   FunctionImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.functionIndex);
 }
 
-template<typename Stream> void serialize(Stream& stream, CallIndirectImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   CallIndirectImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.type.index);
 	serializeVarUInt32(stream, imm.tableIndex);
 }
 
 template<typename Stream, Uptr naturalAlignmentLog2>
-void serialize(Stream& stream, LoadOrStoreImm<naturalAlignmentLog2>& imm, const FunctionDef&)
+void serialize(Stream& stream,
+			   LoadOrStoreImm<naturalAlignmentLog2>& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt7(stream, imm.alignmentLog2);
 	serializeVarUInt32(stream, imm.offset);
 }
-template<typename Stream> void serialize(Stream& stream, MemoryImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream, MemoryImm& imm, const FunctionDef&, const ModuleSerializationState&)
 {
 	serializeConstant(stream, "memory.(grow|size|fill) immediate memory field must be 0", U8(0));
 	if(Stream::isInput) { imm.memoryIndex = 0; }
 }
-template<typename Stream> void serialize(Stream& stream, MemoryCopyImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   MemoryCopyImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeConstant(stream, "memory.copy immediate source field must be 0", U8(0));
 	if(Stream::isInput) { imm.sourceMemoryIndex = 0; }
 	serializeConstant(stream, "memory.copy immediate dest field must be 0", U8(0));
 	if(Stream::isInput) { imm.destMemoryIndex = 0; }
 }
-template<typename Stream> void serialize(Stream& stream, TableImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream, TableImm& imm, const FunctionDef&, const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.tableIndex);
 }
-template<typename Stream> void serialize(Stream& stream, TableCopyImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   TableCopyImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.sourceTableIndex);
 	serializeVarUInt32(stream, imm.destTableIndex);
@@ -564,61 +618,104 @@ template<typename Stream> void serialize(Stream& stream, V128& v128)
 }
 
 template<typename Stream, Uptr numLanes>
-void serialize(Stream& stream, LaneIndexImm<numLanes>& imm, const FunctionDef&)
+void serialize(Stream& stream,
+			   LaneIndexImm<numLanes>& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt7(stream, imm.laneIndex);
 }
 
 template<typename Stream, Uptr numLanes>
-void serialize(Stream& stream, ShuffleImm<numLanes>& imm, const FunctionDef&)
+void serialize(Stream& stream,
+			   ShuffleImm<numLanes>& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	for(Uptr laneIndex = 0; laneIndex < numLanes; ++laneIndex)
 	{ serializeVarUInt7(stream, imm.laneIndices[laneIndex]); }
 }
 
 template<typename Stream, Uptr naturalAlignmentLog2>
-void serialize(Stream& stream, AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm, const FunctionDef&)
+void serialize(Stream& stream,
+			   AtomicLoadOrStoreImm<naturalAlignmentLog2>& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt7(stream, imm.alignmentLog2);
 	serializeVarUInt32(stream, imm.offset);
 }
 
-template<typename Stream> void serialize(Stream& stream, ExceptionTypeImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   ExceptionTypeImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.exceptionTypeIndex);
 }
 
-template<typename Stream> void serialize(Stream& stream, RethrowImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream, RethrowImm& imm, const FunctionDef&, const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.catchDepth);
 }
 
 template<typename Stream>
-void serialize(Stream& stream, DataSegmentAndMemImm& imm, const FunctionDef&)
+void serialize(Stream& stream,
+			   DataSegmentAndMemImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState& moduleState)
 {
+	if(Stream::isInput && !moduleState.hadDataCountSection)
+	{
+		throw FatalSerializationException(
+			"memory.init instruction cannot occur in a module without a DataCount section");
+	}
+
 	serializeVarUInt32(stream, imm.dataSegmentIndex);
 	serializeVarUInt32(stream, imm.memoryIndex);
 }
 
-template<typename Stream> void serialize(Stream& stream, DataSegmentImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   DataSegmentImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState& moduleState)
 {
+	if(Stream::isInput && !moduleState.hadDataCountSection)
+	{
+		throw FatalSerializationException(
+			"data.drop instruction cannot occur in a module without a DataCount section");
+	}
+
 	serializeVarUInt32(stream, imm.dataSegmentIndex);
 }
 
 template<typename Stream>
-void serialize(Stream& stream, ElemSegmentAndTableImm& imm, const FunctionDef&)
+void serialize(Stream& stream,
+			   ElemSegmentAndTableImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.elemSegmentIndex);
 	serializeVarUInt32(stream, imm.tableIndex);
 }
 
-template<typename Stream> void serialize(Stream& stream, ElemSegmentImm& imm, const FunctionDef&)
+template<typename Stream>
+void serialize(Stream& stream,
+			   ElemSegmentImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serializeVarUInt32(stream, imm.elemSegmentIndex);
 }
 
 template<typename Stream, typename Value>
-void serialize(Stream& stream, LiteralImm<Value>& imm, const FunctionDef&)
+void serialize(Stream& stream,
+			   LiteralImm<Value>& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
 {
 	serialize(stream, imm.value);
 }
@@ -684,8 +781,10 @@ struct OperatorSerializerStream
 {
 	typedef void Result;
 
-	OperatorSerializerStream(Serialization::OutputStream& inByteStream, FunctionDef& inFunctionDef)
-	: byteStream(inByteStream), functionDef(inFunctionDef)
+	OperatorSerializerStream(Serialization::OutputStream& inByteStream,
+							 FunctionDef& inFunctionDef,
+							 const ModuleSerializationState& inModuleState)
+	: byteStream(inByteStream), functionDef(inFunctionDef), moduleState(inModuleState)
 	{
 	}
 
@@ -694,7 +793,7 @@ struct OperatorSerializerStream
 	{                                                                                              \
 		Opcode opcode = Opcode::name;                                                              \
 		serializeOpcode(byteStream, opcode);                                                       \
-		serialize(byteStream, imm, functionDef);                                                   \
+		serialize(byteStream, imm, functionDef, moduleState);                                      \
 	}
 	ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
@@ -713,7 +812,7 @@ struct OperatorSerializerStream
 		{
 			Opcode opcode = Opcode(0x1c);
 			serializeOpcode(byteStream, opcode);
-			serialize(byteStream, imm, functionDef);
+			serialize(byteStream, imm, functionDef, moduleState);
 		}
 	}
 
@@ -722,11 +821,13 @@ struct OperatorSerializerStream
 private:
 	Serialization::OutputStream& byteStream;
 	FunctionDef& functionDef;
+	const ModuleSerializationState& moduleState;
 };
 
 static void serializeFunctionBody(OutputStream& sectionStream,
 								  Module& module,
-								  FunctionDef& functionDef)
+								  FunctionDef& functionDef,
+								  const ModuleSerializationState& moduleState)
 {
 	ArrayOutputStream bodyStream;
 
@@ -758,7 +859,7 @@ static void serializeFunctionBody(OutputStream& sectionStream,
 
 	// Serialize the function code.
 	OperatorDecoderStream irDecoderStream(functionDef.code);
-	OperatorSerializerStream wasmOpEncoderStream(bodyStream, functionDef);
+	OperatorSerializerStream wasmOpEncoderStream(bodyStream, functionDef, moduleState);
 	while(irDecoderStream) { irDecoderStream.decodeOp(wasmOpEncoderStream); };
 
 	std::vector<U8> bodyBytes = bodyStream.getBytes();
@@ -767,7 +868,8 @@ static void serializeFunctionBody(OutputStream& sectionStream,
 
 static void serializeFunctionBody(InputStream& sectionStream,
 								  Module& module,
-								  FunctionDef& functionDef)
+								  FunctionDef& functionDef,
+								  const ModuleSerializationState& moduleState)
 {
 	Uptr numBodyBytes = 0;
 	serializeVarUInt32(sectionStream, numBodyBytes);
@@ -801,7 +903,7 @@ static void serializeFunctionBody(InputStream& sectionStream,
 	case Uptr(Opcode::name):                                                                       \
 	{                                                                                              \
 		Imm imm;                                                                                   \
-		serialize(bodyStream, imm, functionDef);                                                   \
+		serialize(bodyStream, imm, functionDef, moduleState);                                      \
 		codeValidationStream.name(imm);                                                            \
 		irEncoderStream.name(imm);                                                                 \
 		break;                                                                                     \
@@ -820,7 +922,7 @@ static void serializeFunctionBody(InputStream& sectionStream,
 		case 0x1c:
 		{
 			SelectImm imm;
-			serialize(bodyStream, imm, functionDef);
+			serialize(bodyStream, imm, functionDef, moduleState);
 
 			codeValidationStream.select(imm);
 			irEncoderStream.select(imm);
@@ -1076,29 +1178,35 @@ template<typename Stream> void serializeElementSection(Stream& moduleStream, Mod
 	});
 }
 
-static void serializeCodeSection(InputStream& moduleStream, Module& module)
+static void serializeCodeSection(InputStream& moduleStream,
+								 Module& module,
+								 const ModuleSerializationState& moduleState)
 {
-	serializeSection(moduleStream, SectionType::code, [&module](InputStream& sectionStream) {
-		Uptr numFunctionBodies = module.functions.defs.size();
-		serializeVarUInt32(sectionStream, numFunctionBodies);
-		if(numFunctionBodies != module.functions.defs.size())
-		{
-			throw FatalSerializationException(
-				"function and code sections have mismatched function counts");
-		}
-		for(FunctionDef& functionDef : module.functions.defs)
-		{ serializeFunctionBody(sectionStream, module, functionDef); }
-	});
+	serializeSection(
+		moduleStream, SectionType::code, [&module, &moduleState](InputStream& sectionStream) {
+			Uptr numFunctionBodies = module.functions.defs.size();
+			serializeVarUInt32(sectionStream, numFunctionBodies);
+			if(numFunctionBodies != module.functions.defs.size())
+			{
+				throw FatalSerializationException(
+					"function and code sections have mismatched function counts");
+			}
+			for(FunctionDef& functionDef : module.functions.defs)
+			{ serializeFunctionBody(sectionStream, module, functionDef, moduleState); }
+		});
 }
 
-void serializeCodeSection(OutputStream& moduleStream, Module& module)
+void serializeCodeSection(OutputStream& moduleStream,
+						  Module& module,
+						  const ModuleSerializationState& moduleState)
 {
-	serializeSection(moduleStream, SectionType::code, [&module](OutputStream& sectionStream) {
-		Uptr numFunctionBodies = module.functions.defs.size();
-		serializeVarUInt32(sectionStream, numFunctionBodies);
-		for(FunctionDef& functionDef : module.functions.defs)
-		{ serializeFunctionBody(sectionStream, module, functionDef); }
-	});
+	serializeSection(
+		moduleStream, SectionType::code, [&module, &moduleState](OutputStream& sectionStream) {
+			Uptr numFunctionBodies = module.functions.defs.size();
+			serializeVarUInt32(sectionStream, numFunctionBodies);
+			for(FunctionDef& functionDef : module.functions.defs)
+			{ serializeFunctionBody(sectionStream, module, functionDef, moduleState); }
+		});
 }
 
 template<typename Stream> void serializeDataCountSection(Stream& moduleStream, Module& module)
@@ -1154,6 +1262,8 @@ void serializeDataSection(OutputStream& moduleStream, Module& module)
 
 static void serializeModule(OutputStream& moduleStream, Module& module)
 {
+	ModuleSerializationState moduleState;
+
 	serializeConstant(moduleStream, "magic number", U32(magicNumber));
 	serializeConstant(moduleStream, "version", U32(currentVersion));
 
@@ -1171,8 +1281,13 @@ static void serializeModule(OutputStream& moduleStream, Module& module)
 	if(module.exports.size() > 0) { serializeExportSection(moduleStream, module); }
 	if(module.startFunctionIndex != UINTPTR_MAX) { serializeStartSection(moduleStream, module); }
 	if(module.elemSegments.size() > 0) { serializeElementSection(moduleStream, module); }
-	if(module.dataSegments.size() > 0) { serializeDataCountSection(moduleStream, module); }
-	if(module.functions.defs.size() > 0) { serializeCodeSection(moduleStream, module); }
+	if(module.dataSegments.size() > 0)
+	{
+		serializeDataCountSection(moduleStream, module);
+		moduleState.hadDataCountSection = true;
+	}
+	if(module.functions.defs.size() > 0)
+	{ serializeCodeSection(moduleStream, module, moduleState); }
 	if(module.dataSegments.size() > 0) { serializeDataSection(moduleStream, module); }
 
 	for(auto& userSection : module.userSections) { serialize(moduleStream, userSection); }
@@ -1184,8 +1299,8 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 	serializeConstant(moduleStream, "version", U32(currentVersion));
 
 	SectionType lastKnownSectionType = SectionType::unknown;
+	ModuleSerializationState moduleState;
 	bool hadFunctionDefinitions = false;
-	bool hadDataCountSection = false;
 	bool hadDataSection = false;
 	while(moduleStream.capacity())
 	{
@@ -1245,14 +1360,14 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			break;
 		case SectionType::dataCount:
 			serializeDataCountSection(moduleStream, module);
-			hadDataCountSection = true;
+			moduleState.hadDataCountSection = true;
 			break;
 		case SectionType::code:
-			serializeCodeSection(moduleStream, module);
+			serializeCodeSection(moduleStream, module, moduleState);
 			hadFunctionDefinitions = true;
 			break;
 		case SectionType::data:
-			serializeDataSection(moduleStream, module, hadDataCountSection);
+			serializeDataSection(moduleStream, module, moduleState.hadDataCountSection);
 			hadDataSection = true;
 			IR::validateDataSegments(module);
 			break;
