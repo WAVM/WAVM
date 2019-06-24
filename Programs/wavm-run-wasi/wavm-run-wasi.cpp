@@ -32,7 +32,10 @@ using namespace WAVM::VFS;
 
 struct SandboxedFileSystem : FileSystem
 {
-	SandboxedFileSystem(const char* inRootPath) : rootPath(inRootPath) {}
+	SandboxedFileSystem(std::string&& inRootPath) : rootPath(std::move(inRootPath))
+	{
+		if(rootPath.back() != '/' && rootPath.back() != '\\') { rootPath += '/'; }
+	}
 
 	virtual OpenResult open(const std::string& absolutePathName,
 							FileAccessMode accessMode,
@@ -54,7 +57,7 @@ private:
 
 	std::string getHostPath(const std::string& sandboxedAbsolutePathName)
 	{
-		return rootPath + '/' + sandboxedAbsolutePathName;
+		return rootPath + sandboxedAbsolutePathName;
 	}
 };
 
@@ -90,6 +93,7 @@ static bool loadModule(const char* filename, IR::Module& outModule)
 struct CommandLineOptions
 {
 	const char* filename = nullptr;
+	const char* rootMountPath = nullptr;
 	std::vector<std::string> args;
 	bool onlyCheck = false;
 	bool precompiled = false;
@@ -130,7 +134,21 @@ static int run(const CommandLineOptions& options)
 		}
 	}
 
-	SandboxedFileSystem sandboxedFS(Platform::getCurrentWorkingDirectory().c_str());
+	// If a directory to mount as the root filesystem was passed on the command-line, create a
+	// SandboxedFileSystem for it.
+	SandboxedFileSystem* sandboxedFS = nullptr;
+	if(options.rootMountPath)
+	{
+		std::string rootPath;
+		if(options.rootMountPath[0] == '/' || options.rootMountPath[0] == '\\'
+		   || options.rootMountPath[0] == '~' || options.rootMountPath[1] == ':')
+		{ rootPath = options.rootMountPath; }
+		else
+		{
+			rootPath = Platform::getCurrentWorkingDirectory() + '/' + options.rootMountPath;
+		}
+		sandboxedFS = new SandboxedFileSystem(std::move(rootPath));
+	}
 
 	std::vector<std::string> args = options.args;
 	args.insert(args.begin(), "/proc/1/exe");
@@ -139,11 +157,14 @@ static int run(const CommandLineOptions& options)
 	WASI::RunResult result = WASI::run(module,
 									   std::move(args),
 									   {},
-									   &sandboxedFS,
+									   sandboxedFS,
 									   Platform::getStdFD(Platform::StdDevice::in),
 									   Platform::getStdFD(Platform::StdDevice::out),
 									   Platform::getStdFD(Platform::StdDevice::err),
 									   exitCode);
+
+	if(sandboxedFS) { delete sandboxedFS; }
+
 	switch(result)
 	{
 	case WASI::RunResult::success: return exitCode;
@@ -176,6 +197,7 @@ static void showHelp()
 				"  --metrics                   Write benchmarking information to stdout\n"
 				"  --trace-syscalls            Trace WASI syscalls to stdout\n"
 				"  --trace-syscall-callstacks  Trace WASI syscalls w/ callstacks to stdout\n"
+				"  --mount-root <directory>    Mounts directory as a "
 				"  --                          Stop parsing arguments\n");
 }
 
@@ -205,6 +227,15 @@ int main(int argc, char** argv)
 		else if(!strcmp(*nextArg, "--trace-syscall-callstacks"))
 		{
 			WASI::setSyscallTraceLevel(WASI::SyscallTraceLevel::syscallsWithCallstacks);
+		}
+		else if(!strcmp(*nextArg, "--mount-root"))
+		{
+			if(!*++nextArg)
+			{
+				showHelp();
+				return EXIT_FAILURE;
+			}
+			options.rootMountPath = *nextArg;
 		}
 		else if(!strcmp(*nextArg, "--"))
 		{

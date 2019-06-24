@@ -200,6 +200,8 @@ namespace WAVM { namespace VFS {
 
 	struct FileSystem
 	{
+		virtual ~FileSystem() {}
+
 		virtual OpenResult open(const std::string& absolutePathName,
 								FileAccessMode accessMode,
 								FileCreateMode createMode,
