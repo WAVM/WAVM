@@ -281,10 +281,19 @@ bool tryParseInt(CursorState* cursor,
 	{
 	case t_decimalInt:
 		isNegative = parseSign(nextChar);
-		u64 = parseDecimalUnsignedInt(nextChar,
-									  cursor->parseState,
-									  isNegative ? -U64(minSignedValue) : maxUnsignedValue,
-									  "int literal");
+		if(minSignedValue == 0 && isNegative)
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected unsigned integer");
+			isNegative = false;
+			u64 = 0;
+		}
+		else
+		{
+			u64 = parseDecimalUnsignedInt(nextChar,
+										  cursor->parseState,
+										  isNegative ? -U64(minSignedValue) : maxUnsignedValue,
+										  "int literal");
+		}
 		break;
 	case t_hexInt:
 		isNegative = parseSign(nextChar);
@@ -326,22 +335,28 @@ template<typename Float> bool tryParseFloat(CursorState* cursor, Float& outFloat
 	return true;
 }
 
-bool WAST::tryParseI32(CursorState* cursor, U32& outI32)
+bool WAST::tryParseU64(CursorState* cursor, U64& outI64)
 {
-	return tryParseInt<U32>(cursor, outI32, INT32_MIN, UINT32_MAX);
+	return tryParseInt<U64>(cursor, outI64, 0, UINT64_MAX);
 }
 
-bool WAST::tryParseI64(CursorState* cursor, U64& outI64)
+bool WAST::tryParseUptr(CursorState* cursor, Uptr& outUptr)
 {
-	return tryParseInt<U64>(cursor, outI64, INT64_MIN, UINT64_MAX);
+	return tryParseInt<Uptr>(cursor, outUptr, 0, UINTPTR_MAX);
 }
 
-bool WAST::tryParseIptr(CursorState* cursor, Uptr& outIptr)
+U32 WAST::parseU32(CursorState* cursor)
 {
-	return tryParseInt<Uptr>(cursor, outIptr, INTPTR_MIN, UINTPTR_MAX);
+	U32 result;
+	if (!tryParseInt<U32>(cursor, result, 0, UINT32_MAX))
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected u32 literal");
+		throw RecoverParseException();
+	}
+	return result;
 }
 
-U8 WAST::parseI8(CursorState* cursor)
+I8 WAST::parseI8(CursorState* cursor)
 {
 	U32 result;
 	if(!tryParseInt<U32>(cursor, result, INT8_MIN, UINT8_MAX))
@@ -349,10 +364,10 @@ U8 WAST::parseI8(CursorState* cursor)
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected i8 literal");
 		throw RecoverParseException();
 	}
-	return U8(result);
+	return I8(result);
 }
 
-U16 WAST::parseI16(CursorState* cursor)
+I16 WAST::parseI16(CursorState* cursor)
 {
 	U32 result;
 	if(!tryParseInt<U32>(cursor, result, INT16_MIN, UINT16_MAX))
@@ -360,40 +375,29 @@ U16 WAST::parseI16(CursorState* cursor)
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected i16 literal");
 		throw RecoverParseException();
 	}
-	return U16(result);
+	return I16(result);
 }
 
-U32 WAST::parseI32(CursorState* cursor)
+I32 WAST::parseI32(CursorState* cursor)
 {
 	U32 result;
-	if(!tryParseI32(cursor, result))
+	if(!tryParseInt<U32>(cursor, result, INT32_MIN, UINT32_MAX))
 	{
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected i32 literal");
 		throw RecoverParseException();
 	}
-	return result;
+	return I32(result);
 }
 
-U64 WAST::parseI64(CursorState* cursor)
+I64 WAST::parseI64(CursorState* cursor)
 {
 	U64 result;
-	if(!tryParseI64(cursor, result))
+	if(!tryParseInt<U64>(cursor, result, INT64_MIN, UINT64_MAX))
 	{
 		parseErrorf(cursor->parseState, cursor->nextToken, "expected i64 literal");
 		throw RecoverParseException();
 	}
-	return result;
-}
-
-Uptr WAST::parseIptr(CursorState* cursor)
-{
-	Uptr result;
-	if(!tryParseIptr(cursor, result))
-	{
-		parseErrorf(cursor->parseState, cursor->nextToken, "expected integer literal");
-		throw RecoverParseException();
-	}
-	return result;
+	return I64(result);
 }
 
 F32 WAST::parseF32(CursorState* cursor)

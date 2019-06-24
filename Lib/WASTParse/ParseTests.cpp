@@ -86,7 +86,7 @@ static IR::Value parseConstExpression(CursorState* cursor)
 		{
 			++cursor->nextToken;
 			result.type = ValueType::funcref;
-			result.function = makeHostRef(parseIptr(cursor));
+			result.function = makeHostRef(parseU32(cursor));
 			break;
 		}
 		case t_ref_null:

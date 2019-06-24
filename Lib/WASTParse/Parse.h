@@ -212,15 +212,18 @@ namespace WAVM { namespace WAST {
 	// Literal parsing.
 	bool tryParseHexit(const char*& nextChar, U8& outValue);
 
-	bool tryParseI32(CursorState* cursor, U32& outI32);
-	bool tryParseI64(CursorState* cursor, U64& outI64);
-	bool tryParseIptr(CursorState* cursor, Uptr& outIptr);
+	bool tryParseU64(CursorState* cursor, U64& outI64);
+	bool tryParseUptr(CursorState* cursor, Uptr& outUptr);
 
-	U8 parseI8(CursorState* cursor);
-	U16 parseI16(CursorState* cursor);
-	U32 parseI32(CursorState* cursor);
-	U64 parseI64(CursorState* cursor);
-	Uptr parseIptr(CursorState* cursor);
+	U8 parseU8(CursorState* cursor);
+	U32 parseU32(CursorState* cursor);
+
+	// Uninterpreted integers: may be anywhere in the range INT_MIN to UINT_MAX.
+	I8 parseI8(CursorState* cursor);
+	I16 parseI16(CursorState* cursor);
+	I32 parseI32(CursorState* cursor);
+	I64 parseI64(CursorState* cursor);
+
 	F32 parseF32(CursorState* cursor);
 	F64 parseF64(CursorState* cursor);
 	V128 parseV128(CursorState* cursor);

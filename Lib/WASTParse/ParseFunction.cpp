@@ -199,11 +199,11 @@ static void parseImm(CursorState* cursor, SelectImm& outImm)
 
 static void parseImm(CursorState* cursor, LiteralImm<I32>& outImm)
 {
-	outImm.value = (I32)parseI32(cursor);
+	outImm.value = parseI32(cursor);
 }
 static void parseImm(CursorState* cursor, LiteralImm<I64>& outImm)
 {
-	outImm.value = (I64)parseI64(cursor);
+	outImm.value = parseI64(cursor);
 }
 static void parseImm(CursorState* cursor, LiteralImm<F32>& outImm)
 {
@@ -307,7 +307,7 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	{
 		++cursor->nextToken;
 		require(cursor, t_equals);
-		outImm.offset = parseI32(cursor);
+		outImm.offset = parseU32(cursor);
 	}
 
 	const U32 naturalAlignment = 1 << naturalAlignmentLog2;
@@ -316,7 +316,7 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	{
 		++cursor->nextToken;
 		require(cursor, t_equals);
-		alignment = parseI32(cursor);
+		alignment = parseU32(cursor);
 		if(alignment > naturalAlignment)
 		{
 			parseErrorf(
@@ -337,8 +337,8 @@ static void parseImm(CursorState* cursor, LiteralImm<V128>& outImm)
 
 template<Uptr numLanes> static void parseImm(CursorState* cursor, LaneIndexImm<numLanes>& outImm)
 {
-	const U8 laneIndex = parseI8(cursor);
-	if(laneIndex > numLanes)
+	const I8 laneIndex = parseI8(cursor);
+	if(laneIndex < 0 || Uptr(laneIndex) > numLanes)
 	{
 		parseErrorf(cursor->parseState,
 					cursor->nextToken - 1,
@@ -352,8 +352,8 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, ShuffleImm<num
 {
 	for(Uptr destLaneIndex = 0; destLaneIndex < numLanes; ++destLaneIndex)
 	{
-		const U8 sourceLaneIndex = parseI8(cursor);
-		if(sourceLaneIndex >= numLanes * 2)
+		const I8 sourceLaneIndex = parseI8(cursor);
+		if(sourceLaneIndex < 0 || Uptr(sourceLaneIndex) >= numLanes * 2)
 		{
 			parseErrorf(cursor->parseState,
 						cursor->nextToken - 1,

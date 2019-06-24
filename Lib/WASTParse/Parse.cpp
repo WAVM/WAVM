@@ -350,7 +350,7 @@ bool WAST::tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef)
 		outRef.type = Reference::Type::name;
 		return true;
 	}
-	else if(tryParseIptr(cursor, outRef.index))
+	else if(tryParseUptr(cursor, outRef.index))
 	{
 		outRef.type = Reference::Type::index;
 		return true;

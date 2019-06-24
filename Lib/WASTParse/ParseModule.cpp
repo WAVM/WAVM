@@ -33,11 +33,11 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 	outSizeConstraints.max = UINT64_MAX;
 
 	// Parse a minimum.
-	if(!tryParseI64(cursor, outSizeConstraints.min)) { return false; }
+	if(!tryParseU64(cursor, outSizeConstraints.min)) { return false; }
 	else
 	{
 		// Parse an optional maximum.
-		if(!tryParseI64(cursor, outSizeConstraints.max)) { outSizeConstraints.max = UINT64_MAX; }
+		if(!tryParseU64(cursor, outSizeConstraints.max)) { outSizeConstraints.max = UINT64_MAX; }
 		else
 		{
 			// Validate that the maximum size is within the limit, and that the size contraints is
@@ -104,13 +104,13 @@ static UnresolvedInitializerExpression parseInitializerExpression(CursorState* c
 		case t_i32_const:
 		{
 			++cursor->nextToken;
-			result = (I32)parseI32(cursor);
+			result = parseI32(cursor);
 			break;
 		}
 		case t_i64_const:
 		{
 			++cursor->nextToken;
-			result = (I64)parseI64(cursor);
+			result = parseI64(cursor);
 			break;
 		}
 		case t_f32_const:
