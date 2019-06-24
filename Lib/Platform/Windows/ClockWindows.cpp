@@ -1,6 +1,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Platform/Clock.h"
+#include "WindowsPrivate.h"
 
 #define NOMINMAX
 #include <Windows.h>
@@ -14,7 +15,7 @@ static I128 fileTimeToI128(FILETIME fileTime)
 							* 100);
 }
 
-static I128 getRealtimeClockOffset()
+static I128 getRealtimeClockOrigin()
 {
 	SYSTEMTIME systemTime;
 	systemTime.wYear = 1970;
@@ -27,17 +28,22 @@ static I128 getRealtimeClockOffset()
 	FILETIME fileTime;
 	errorUnless(SystemTimeToFileTime(&systemTime, &fileTime));
 
-	return -fileTimeToI128(fileTime);
+	return fileTimeToI128(fileTime);
+}
+
+I128 Platform::fileTimeToWAVMRealTime(FILETIME fileTime)
+{
+	static const I128 cachedRealtimeClockOrigin = getRealtimeClockOrigin();
+
+	return fileTimeToI128(fileTime) - cachedRealtimeClockOrigin;
 }
 
 I128 Platform::getRealtimeClock()
 {
-	static const I128 cachedRealtimeClockOffset = getRealtimeClockOffset();
-
 	FILETIME realtimeClock;
 	GetSystemTimePreciseAsFileTime(&realtimeClock);
 
-	return cachedRealtimeClockOffset + fileTimeToI128(realtimeClock);
+	return fileTimeToWAVMRealTime(realtimeClock);
 }
 
 I128 Platform::getRealtimeClockResolution() { return 100; }
@@ -72,5 +78,4 @@ I128 Platform::getMonotonicClockResolution()
 }
 
 I128 Platform::getProcessClock() { return getMonotonicClock(); }
-
 I128 Platform::getProcessClockResolution() { return getMonotonicClockResolution(); }

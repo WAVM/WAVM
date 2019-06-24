@@ -2,11 +2,13 @@
 
 #include <string>
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/I128.h"
 
 namespace WAVM { namespace VFS {
 
 	enum class FileAccessMode
 	{
+		none,
 		readOnly,
 		writeOnly,
 		readWrite,
@@ -19,13 +21,6 @@ namespace WAVM { namespace VFS {
 		openAlways,
 		openExisting,
 		truncateExisting,
-	};
-
-	enum class StdDevice
-	{
-		in,
-		out,
-		err,
 	};
 
 	enum class SeekOrigin
@@ -41,7 +36,7 @@ namespace WAVM { namespace VFS {
 		contentsAndMetadata
 	};
 
-	enum class FDType
+	enum class FileType
 	{
 		unknown,
 		blockDevice,
@@ -50,7 +45,8 @@ namespace WAVM { namespace VFS {
 		file,
 		datagramSocket,
 		streamSocket,
-		symbolicLink
+		symbolicLink,
+		pipe
 	};
 
 	enum class FDImplicitSync
@@ -62,8 +58,10 @@ namespace WAVM { namespace VFS {
 		syncContentsAndMetadataAfterWriteAndBeforeRead
 	};
 
-	struct FDFlags
+	struct FDInfo
 	{
+		FileType type;
+
 		// If true, data written to the FD is always appended to the file's end.
 		bool append;
 
@@ -74,31 +72,43 @@ namespace WAVM { namespace VFS {
 		FDImplicitSync implicitSync;
 	};
 
-	struct FDInfo
+	struct FileInfo
 	{
-		FDType type;
-		FDFlags flags;
+		U64 deviceNumber;
+		U64 fileNumber;
+
+		FileType type;
+		U32 numLinks;
+		U64 numBytes;
+
+		// Time values correspond to the "real-time" clock defined by Platform::getRealtimeClock.
+		I128 lastAccessTime;
+		I128 lastWriteTime;
+		I128 creationTime;
 	};
 
 	// Result enumerations
 
-	enum class SeekResult
+	enum class SeekResult : I32
 	{
 		success,
+
 		invalidOffset,
-		unseekable
+		unseekable,
 	};
 
-	enum class CloseResult
+	enum class CloseResult : I32
 	{
 		success,
+
 		interrupted,
 		ioError
 	};
 
-	enum class ReadResult
+	enum class ReadResult : I32
 	{
 		success,
+
 		ioError,
 		interrupted,
 		invalidArgument,
@@ -107,7 +117,7 @@ namespace WAVM { namespace VFS {
 		outOfMemory
 	};
 
-	enum class WriteResult
+	enum class WriteResult : I32
 	{
 		success,
 		ioError,
@@ -120,7 +130,7 @@ namespace WAVM { namespace VFS {
 		notPermitted
 	};
 
-	enum class SyncResult
+	enum class SyncResult : I32
 	{
 		success,
 		ioError,
@@ -128,10 +138,44 @@ namespace WAVM { namespace VFS {
 		notSupported
 	};
 
-	enum class GetFDInfoResult
+	enum class GetInfoResult : I32
 	{
 		success,
 		ioError,
+	};
+
+	enum class OpenResult : I32
+	{
+		success,
+
+		alreadyExists,
+		doesNotExist,
+		isDirectory,
+		cantSynchronize,
+		invalidNameCharacter,
+		nameTooLong,
+		pathUsesFileAsDirectory,
+
+		notPermitted,
+		ioError,
+		interrupted,
+
+		outOfMemory,
+		outOfQuota,
+		outOfFreeSpace,
+	};
+
+	enum GetInfoByPathResult : I32
+	{
+		success,
+
+		doesNotExist,
+		invalidNameCharacter,
+		nameTooLong,
+		pathUsesFileAsDirectory,
+
+		notPermitted,
+		ioError
 	};
 
 	struct FD
@@ -147,7 +191,8 @@ namespace WAVM { namespace VFS {
 								  Uptr* outNumBytesWritten = nullptr)
 			= 0;
 		virtual SyncResult sync(SyncType type) = 0;
-		virtual GetFDInfoResult getInfo(FDInfo& outInfo) = 0;
+		virtual GetInfoResult getFDInfo(FDInfo& outInfo) = 0;
+		virtual GetInfoResult getFileInfo(FileInfo& outInfo) = 0;
 
 	protected:
 		virtual ~FD() {}
@@ -155,9 +200,14 @@ namespace WAVM { namespace VFS {
 
 	struct FileSystem
 	{
-		virtual FD* openFile(const std::string& absolutePathName,
-							 FileAccessMode accessMode,
-							 FileCreateMode createMode)
+		virtual OpenResult open(const std::string& absolutePathName,
+								FileAccessMode accessMode,
+								FileCreateMode createMode,
+								FD*& outFD,
+								VFS::FDImplicitSync implicitSync = VFS::FDImplicitSync::none)
+			= 0;
+
+		virtual GetInfoByPathResult getInfo(const std::string& absolutePathName, FileInfo& outInfo)
 			= 0;
 	};
 }}

@@ -10,6 +10,7 @@
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Random.h"
+#include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -26,6 +27,28 @@ typedef U32 WASIAddress;
 #define WASIADDRESS_MAX UINT32_MAX
 
 #define WASIADDRESS_FORMAT "0x%08x"
+
+// Operations that apply to regular files.
+#define REGULAR_FILE_RIGHTS                                                                        \
+	(__WASI_RIGHT_FD_DATASYNC | __WASI_RIGHT_FD_READ | __WASI_RIGHT_FD_SEEK                        \
+	 | __WASI_RIGHT_FD_FDSTAT_SET_FLAGS | __WASI_RIGHT_FD_SYNC | __WASI_RIGHT_FD_TELL              \
+	 | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_ADVISE | __WASI_RIGHT_FD_ALLOCATE                   \
+	 | __WASI_RIGHT_FD_FILESTAT_GET | __WASI_RIGHT_FD_FILESTAT_SET_SIZE                            \
+	 | __WASI_RIGHT_FD_FILESTAT_SET_TIMES | __WASI_RIGHT_POLL_FD_READWRITE)
+
+// Only allow directory operations on directories.
+#define DIRECTORY_RIGHTS                                                                           \
+	(__WASI_RIGHT_FD_FDSTAT_SET_FLAGS | __WASI_RIGHT_FD_SYNC | __WASI_RIGHT_FD_ADVISE              \
+	 | __WASI_RIGHT_PATH_CREATE_DIRECTORY | __WASI_RIGHT_PATH_CREATE_FILE                          \
+	 | __WASI_RIGHT_PATH_LINK_SOURCE | __WASI_RIGHT_PATH_LINK_TARGET | __WASI_RIGHT_PATH_OPEN      \
+	 | __WASI_RIGHT_FD_READDIR | __WASI_RIGHT_PATH_READLINK | __WASI_RIGHT_PATH_RENAME_SOURCE      \
+	 | __WASI_RIGHT_PATH_RENAME_TARGET | __WASI_RIGHT_PATH_FILESTAT_GET                            \
+	 | __WASI_RIGHT_PATH_FILESTAT_SET_SIZE | __WASI_RIGHT_PATH_FILESTAT_SET_TIMES                  \
+	 | __WASI_RIGHT_FD_FILESTAT_GET | __WASI_RIGHT_FD_FILESTAT_SET_TIMES                           \
+	 | __WASI_RIGHT_PATH_SYMLINK | __WASI_RIGHT_PATH_UNLINK_FILE                                   \
+	 | __WASI_RIGHT_PATH_REMOVE_DIRECTORY | __WASI_RIGHT_POLL_FD_READWRITE)
+// Only allow directory or file operations to be derived from directories.
+#define INHERITING_DIRECTORY_RIGHTS (DIRECTORY_RIGHTS | REGULAR_FILE_RIGHTS)
 
 struct ExitException
 {
@@ -69,8 +92,13 @@ namespace WAVM { namespace WASI {
 	struct FD
 	{
 		VFS::FD* vfd;
-		__wasi_rights_t rightsBase;
-		__wasi_rights_t rightsInheriting;
+		__wasi_rights_t rights;
+		__wasi_rights_t inheritingRights;
+
+		std::string originalPath;
+
+		bool isPreopened;
+		__wasi_preopentype_t preopenedType;
 	};
 
 	struct Process
@@ -83,12 +111,63 @@ namespace WAVM { namespace WASI {
 		std::vector<std::string> envs;
 
 		IndexMap<__wasi_fd_t, WASI::FD> fds;
+		VFS::FileSystem* fileSystem;
 
 		ProcessResolver resolver;
 
+		I128 processClockOrigin;
+
+		Process(std::vector<std::string>&& inArgs,
+				std::vector<std::string>&& inEnvs,
+				VFS::FileSystem* inFileSystem,
+				VFS::FD* stdIn,
+				VFS::FD* stdOut,
+				VFS::FD* stdErr)
+		: args(inArgs), envs(inEnvs), fds(0, INT32_MAX), fileSystem(inFileSystem)
+		{
+			compartment = createCompartment();
+			setUserData(compartment, this, nullptr);
+
+			context = createContext(compartment);
+
+			resolver.moduleNameToInstanceMap.set(
+				"wasi_unstable",
+				instantiateModule(compartment, INTRINSIC_MODULE_REF(wasi), "wasi"));
+
+			__wasi_rights_t stdioRights = __WASI_RIGHT_FD_READ | __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
+										  | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET
+										  | __WASI_RIGHT_POLL_FD_READWRITE;
+
+			fds.insertOrFail(0, FD{stdIn, stdioRights, 0, "/dev/stdin", false});
+			fds.insertOrFail(1, FD{stdOut, stdioRights, 0, "/dev/stdout", false});
+			fds.insertOrFail(2, FD{stdErr, stdioRights, 0, "/dev/stderr", false});
+
+			if(fileSystem)
+			{
+				VFS::FD* rootFD = nullptr;
+				errorUnless(
+					fileSystem->open(
+						"/", VFS::FileAccessMode::none, VFS::FileCreateMode::openExisting, rootFD)
+					== VFS::OpenResult::success);
+
+				fds.insertOrFail(3,
+								 FD{rootFD,
+									DIRECTORY_RIGHTS,
+									INHERITING_DIRECTORY_RIGHTS,
+									"/",
+									true,
+									__WASI_PREOPENTYPE_DIR});
+			}
+
+			processClockOrigin = Platform::getProcessClock();
+		}
+
 		~Process()
 		{
-			for(const WASI::FD& fd : fds) { fd.vfd->close(); }
+			for(const WASI::FD& fd : fds)
+			{
+				if(fd.vfd) { fd.vfd->close(); }
+			}
 		}
 	};
 }}
@@ -164,7 +243,7 @@ static void traceUnimplementedSyscall(const char* syscallName, const char* argFo
 
 #define TRACE_SYSCALL(syscallName, argFormat, ...)                                                 \
 	const char* TRACE_SYSCALL_name = syscallName;                                                  \
-	traceSyscallf(TRACE_SYSCALL_name, argFormat, __VA_ARGS__)
+	traceSyscallf(TRACE_SYSCALL_name, argFormat, ##__VA_ARGS__)
 
 #define TRACE_SYSCALL_RETURN(returnCode, ...)                                                      \
 	traceSyscallReturnf(TRACE_SYSCALL_name, #returnCode __VA_ARGS__), __WASI_##returnCode
@@ -175,100 +254,108 @@ static WASI::FD* getFD(Process* process, __wasi_fd_t fd)
 	return process->fds.get(fd);
 }
 
-static bool checkFDRights(WASI::FD* wasiFD, __wasi_rights_t requiredRights)
+static bool checkFDRights(WASI::FD* wasiFD,
+						  __wasi_rights_t requiredRights,
+						  __wasi_rights_t requiredInheritingRights = 0)
 {
-	return (wasiFD->rightsBase & requiredRights) == requiredRights;
-}
-
-WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
-						  std::vector<std::string>&& inArgs,
-						  std::vector<std::string>&& inEnvs,
-						  I32& outExitCode)
-{
-	GCPointer<Compartment> compartment = createCompartment();
-	Context* context = createContext(compartment);
-
-	ProcessResolver processResolver;
-	processResolver.moduleNameToInstanceMap.set(
-		"wasi_unstable", instantiateModule(compartment, INTRINSIC_MODULE_REF(wasi), "wasi"));
-
-	const IR::Module& moduleIR = getModuleIR(module);
-	LinkResult linkResult = linkModule(moduleIR, processResolver);
-
-	if(!linkResult.success)
-	{
-		for(const auto& missingImport : linkResult.missingImports)
-		{
-			Log::printf(Log::debug,
-						"Couldn't resolve import %s.%s : %s\n",
-						missingImport.moduleName.c_str(),
-						missingImport.exportName.c_str(),
-						asString(missingImport.type).c_str());
-		}
-		return RunResult::linkError;
-	}
-
-	ModuleInstance* moduleInstance = instantiateModule(
-		compartment, module, std::move(linkResult.resolvedImports), "<main module>");
-
-	Memory* memory = asMemoryNullable(getInstanceExport(moduleInstance, "memory"));
-
-	IndexMap<__wasi_fd_t, FD> files(0, INT32_MAX);
-
-	__wasi_rights_t stdioRights = __WASI_RIGHT_FD_READ | __WASI_RIGHT_FD_FDSTAT_SET_FLAGS
-								  | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET
-								  | __WASI_RIGHT_POLL_FD_READWRITE;
-
-	files.insertOrFail(0, FD{Platform::getStdFD(VFS::StdDevice::in), stdioRights, 0});
-	files.insertOrFail(1, FD{Platform::getStdFD(VFS::StdDevice::out), stdioRights, 0});
-	files.insertOrFail(2, FD{Platform::getStdFD(VFS::StdDevice::err), stdioRights, 0});
-
-	Process* process = new Process{compartment,
-								   context,
-								   memory,
-								   moduleInstance,
-								   std::move(inArgs),
-								   std::move(inEnvs),
-								   std::move(files),
-								   std::move(processResolver)};
-	setUserData(compartment, process, nullptr);
-
-	try
-	{
-		Function* startFunction
-			= asFunctionNullable(getInstanceExport(process->moduleInstance, "_start"));
-		if(!startFunction)
-		{
-			Log::printf(Log::Category::debug, "WASI module did not export start function.\n");
-			return RunResult::noStartFunction;
-		}
-
-		if(getFunctionType(startFunction) != FunctionType())
-		{
-			Log::printf(Log::Category::debug,
-						"WASI module exported _start : %s but expected _start : %s.\n",
-						asString(getFunctionType(startFunction)).c_str(),
-						asString(FunctionType()).c_str());
-			return RunResult::mistypedStartFunction;
-		}
-
-		invokeFunctionChecked(process->context, startFunction, {});
-		outExitCode = 0;
-	}
-	catch(const ExitException& exitException)
-	{
-		outExitCode = exitException.exitCode;
-	}
-
-	delete process;
-	errorUnless(tryCollectCompartment(std::move(compartment)));
-
-	return RunResult::success;
+	return (wasiFD->rights & requiredRights) == requiredRights
+		   && (wasiFD->inheritingRights & requiredInheritingRights) == requiredInheritingRights;
 }
 
 static Process* getProcessFromContextRuntimeData(ContextRuntimeData* contextRuntimeData)
 {
 	return (Process*)getUserData(getCompartmentFromContextRuntimeData(contextRuntimeData));
+}
+
+static __wasi_filetype_t asWASIFileType(VFS::FileType type)
+{
+	switch(type)
+	{
+	case VFS::FileType::unknown: return __WASI_FILETYPE_UNKNOWN;
+	case VFS::FileType::blockDevice: return __WASI_FILETYPE_BLOCK_DEVICE;
+	case VFS::FileType::characterDevice: return __WASI_FILETYPE_CHARACTER_DEVICE;
+	case VFS::FileType::directory: return __WASI_FILETYPE_DIRECTORY;
+	case VFS::FileType::file: return __WASI_FILETYPE_REGULAR_FILE;
+	case VFS::FileType::datagramSocket: return __WASI_FILETYPE_SOCKET_DGRAM;
+	case VFS::FileType::streamSocket: return __WASI_FILETYPE_SOCKET_STREAM;
+	case VFS::FileType::symbolicLink: return __WASI_FILETYPE_SYMBOLIC_LINK;
+	default: Errors::unreachable();
+	};
+}
+
+static bool readUserString(Runtime::Memory* memory,
+						   WASIAddress stringAddress,
+						   WASIAddress numStringBytes,
+						   std::string& outString)
+{
+	outString = "";
+
+	bool succeeded = true;
+	Runtime::catchRuntimeExceptions(
+		[&] {
+			char* stringBytes
+				= Runtime::memoryArrayPtr<char>(memory, stringAddress, numStringBytes);
+			for(Uptr index = 0; index < numStringBytes; ++index)
+			{ outString += stringBytes[index]; }
+		},
+		[&succeeded](Exception* exception) {
+			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+
+			Log::printf(Log::debug,
+						"Caught runtime exception while reading string at address 0x%" PRIx64,
+						getExceptionArgument(exception, 1).i64);
+
+			succeeded = false;
+		});
+
+	return succeeded;
+}
+
+static bool getCanonicalPath(const std::string& basePath,
+							 const std::string& relativePath,
+							 std::string& outAbsolutePath)
+{
+	outAbsolutePath = basePath;
+	if(outAbsolutePath.back() == '/') { outAbsolutePath.pop_back(); }
+
+	std::vector<std::string> relativePathComponents;
+
+	Uptr componentStart = 0;
+	while(componentStart < relativePath.size())
+	{
+		Uptr nextPathSeparator = relativePath.find_first_of("\\/", componentStart, 2);
+
+		if(nextPathSeparator == std::string::npos) { nextPathSeparator = relativePath.size(); }
+
+		if(nextPathSeparator != componentStart)
+		{
+			std::string component
+				= relativePath.substr(componentStart, nextPathSeparator - componentStart);
+
+			if(component == "..")
+			{
+				if(!relativePathComponents.size()) { return false; }
+				else
+				{
+					relativePathComponents.pop_back();
+				}
+			}
+			else if(component != ".")
+			{
+				relativePathComponents.push_back(component);
+			}
+
+			componentStart = nextPathSeparator + 1;
+		}
+	};
+
+	for(const std::string& component : relativePathComponents)
+	{
+		outAbsolutePath += '/';
+		outAbsolutePath += component;
+	}
+
+	return true;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -433,16 +520,19 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 				  precision,
 				  timeAddress);
 
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
 	I128 currentTime128;
 	switch(clockId)
 	{
 	case __WASI_CLOCK_REALTIME: currentTime128 = Platform::getRealtimeClock(); break;
 	case __WASI_CLOCK_MONOTONIC: currentTime128 = Platform::getMonotonicClock(); break;
 	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
-	case __WASI_CLOCK_THREAD_CPUTIME_ID: currentTime128 = Platform::getProcessClock(); break;
+	case __WASI_CLOCK_THREAD_CPUTIME_ID:
+		currentTime128 = Platform::getProcessClock() - process->processClockOrigin;
+		break;
 	default: return TRACE_SYSCALL_RETURN(EINVAL);
 	}
-	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	__wasi_timestamp_t currentTime = __wasi_timestamp_t(currentTime128);
 	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = currentTime;
@@ -458,7 +548,20 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress prestatAddress)
 {
 	TRACE_SYSCALL("fd_prestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, prestatAddress);
-	return TRACE_SYSCALL_RETURN(EBADF);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD || !wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(EBADF); }
+
+	if(wasiFD->originalPath.size() > UINT32_MAX) { return TRACE_SYSCALL_RETURN(EOVERFLOW); }
+
+	__wasi_prestat_t& prestat = memoryRef<__wasi_prestat_t>(process->memory, prestatAddress);
+	prestat.pr_type = wasiFD->preopenedType;
+	wavmAssert(wasiFD->preopenedType == __WASI_PREOPENTYPE_DIR);
+	prestat.u.dir.pr_name_len = U32(wasiFD->originalPath.size());
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -469,9 +572,20 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  WASIAddress bufferAddress,
 						  WASIAddress bufferLength)
 {
-	traceUnimplementedSyscall(
+	TRACE_SYSCALL(
 		"fd_prestat_dir_name", "(%u, " WASIADDRESS_FORMAT ", %u)", fd, bufferAddress, bufferLength);
-	return __WASI_ENOSYS;
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD || !wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(EBADF); }
+
+	if(bufferLength != wasiFD->originalPath.size()) { return TRACE_SYSCALL_RETURN(EINVAL); }
+
+	char* buffer = memoryArrayPtr<char>(process->memory, bufferAddress, bufferLength);
+	memcpy(buffer, wasiFD->originalPath.c_str(), bufferLength);
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "fd_close", __wasi_errno_t, wasi_fd_close, __wasi_fd_t fd)
@@ -481,7 +595,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi, "fd_close", __wasi_errno_t, wasi_fd_close, __was
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD || wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(EBADF); }
 
 	VFS::CloseResult result = wasiFD->vfd->close();
 	switch(result)
@@ -698,22 +812,6 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	};
 }
 
-__wasi_filetype_t asWaSIFileType(VFS::FDType type)
-{
-	switch(type)
-	{
-	case VFS::FDType::unknown: return __WASI_FILETYPE_UNKNOWN;
-	case VFS::FDType::blockDevice: return __WASI_FILETYPE_BLOCK_DEVICE;
-	case VFS::FDType::characterDevice: return __WASI_FILETYPE_CHARACTER_DEVICE;
-	case VFS::FDType::directory: return __WASI_FILETYPE_DIRECTORY;
-	case VFS::FDType::file: return __WASI_FILETYPE_REGULAR_FILE;
-	case VFS::FDType::datagramSocket: return __WASI_FILETYPE_SOCKET_DGRAM;
-	case VFS::FDType::streamSocket: return __WASI_FILETYPE_SOCKET_STREAM;
-	case VFS::FDType::symbolicLink: return __WASI_FILETYPE_SYMBOLIC_LINK;
-	default: Errors::unreachable();
-	};
-}
-
 DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "fd_fdstat_get",
 						  __wasi_errno_t,
@@ -729,18 +827,18 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
 
 	VFS::FDInfo fdInfo;
-	VFS::GetFDInfoResult result = wasiFD->vfd->getInfo(fdInfo);
+	VFS::GetInfoResult result = wasiFD->vfd->getFDInfo(fdInfo);
 	switch(result)
 	{
-	case VFS::GetFDInfoResult::success:
+	case VFS::GetInfoResult::success:
 	{
 		__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
-		fdstat.fs_filetype = asWaSIFileType(fdInfo.type);
+		fdstat.fs_filetype = asWASIFileType(fdInfo.type);
 		fdstat.fs_flags = 0;
 
-		if(fdInfo.flags.append) { fdstat.fs_flags |= __WASI_FDFLAG_APPEND; }
-		if(fdInfo.flags.nonBlocking) { fdstat.fs_flags |= __WASI_FDFLAG_NONBLOCK; }
-		switch(fdInfo.flags.implicitSync)
+		if(fdInfo.append) { fdstat.fs_flags |= __WASI_FDFLAG_APPEND; }
+		if(fdInfo.nonBlocking) { fdstat.fs_flags |= __WASI_FDFLAG_NONBLOCK; }
+		switch(fdInfo.implicitSync)
 		{
 		case VFS::FDImplicitSync::none: break;
 		case VFS::FDImplicitSync::syncContentsAfterWrite:
@@ -758,13 +856,13 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 		default: Errors::unreachable();
 		}
 
-		fdstat.fs_rights_base = wasiFD->rightsBase;
-		fdstat.fs_rights_inheriting = wasiFD->rightsInheriting;
+		fdstat.fs_rights_base = wasiFD->rights;
+		fdstat.fs_rights_inheriting = wasiFD->inheritingRights;
 
 		return TRACE_SYSCALL_RETURN(ESUCCESS);
 	}
 
-	case VFS::GetFDInfoResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+	case VFS::GetInfoResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 
 	default: Errors::unreachable();
 	};
@@ -786,14 +884,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_errno_t,
 						  wasi_fd_fdstat_set_rights,
 						  __wasi_fd_t fd,
-						  __wasi_rights_t rightsBase,
-						  __wasi_rights_t rightsInheriting)
+						  __wasi_rights_t rights,
+						  __wasi_rights_t inheritingRights)
 {
 	traceUnimplementedSyscall("fd_fdstat_set_rights",
 							  "(%u, 0x%" PRIx64 ", 0x %" PRIx64 ") ",
 							  fd,
-							  rightsBase,
-							  rightsInheriting);
+							  rights,
+							  inheritingRights);
 	return __WASI_ENOSYS;
 }
 
@@ -880,9 +978,28 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_filesize_t numBytes,
 						  __wasi_advice_t advice)
 {
-	traceUnimplementedSyscall(
+	TRACE_SYSCALL(
 		"fd_advise", "(%u, %" PRIu64 ", %" PRIu64 ", 0x%02x)", fd, offset, numBytes, advice);
-	return __WASI_ENOSYS;
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_ADVISE)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	switch(advice)
+	{
+	case __WASI_ADVICE_DONTNEED:
+	case __WASI_ADVICE_NOREUSE:
+	case __WASI_ADVICE_NORMAL:
+	case __WASI_ADVICE_RANDOM:
+	case __WASI_ADVICE_SEQUENTIAL:
+	case __WASI_ADVICE_WILLNEED:
+		// It's safe to ignore the advice, so just return success for now.
+		// TODO: do something with the advice!
+		return TRACE_SYSCALL_RETURN(ESUCCESS);
+	default: return TRACE_SYSCALL_RETURN(EINVAL);
+	}
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -927,29 +1044,133 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "path_open",
 						  __wasi_errno_t,
 						  wasi_path_open,
-						  __wasi_fd_t dirfd,
-						  __wasi_lookupflags_t dirflags,
+						  __wasi_fd_t dirFD,
+						  __wasi_lookupflags_t dirFlags,
 						  WASIAddress pathAddress,
 						  WASIAddress numPathBytes,
-						  __wasi_oflags_t oflags,
-						  __wasi_rights_t rightsBase,
-						  __wasi_rights_t rightsInheriting,
+						  __wasi_oflags_t openFlags,
+						  __wasi_rights_t requestedRights,
+						  __wasi_rights_t requestedInheritingRights,
 						  __wasi_fdflags_t fdFlags,
 						  WASIAddress fdAddress)
 {
-	traceUnimplementedSyscall("path_open",
-							  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, 0x%04x, 0x%" PRIx64
-							  ", 0x%" PRIx64 ", 0x%04x, " WASIADDRESS_FORMAT ")",
-							  dirfd,
-							  dirflags,
-							  pathAddress,
-							  numPathBytes,
-							  oflags,
-							  rightsBase,
-							  rightsInheriting,
-							  fdFlags,
-							  fdAddress);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("path_open",
+				  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, 0x%04x, 0x%" PRIx64 ", 0x%" PRIx64
+				  ", 0x%04x, " WASIADDRESS_FORMAT ")",
+				  dirFD,
+				  dirFlags,
+				  pathAddress,
+				  numPathBytes,
+				  openFlags,
+				  requestedRights,
+				  requestedInheritingRights,
+				  fdFlags,
+				  fdAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	__wasi_rights_t requiredDirRights = __WASI_RIGHT_PATH_OPEN;
+	__wasi_rights_t requiredDirInheritingRights = requestedRights | requestedInheritingRights;
+
+	const bool read = requestedRights & (__WASI_RIGHT_FD_READ | __WASI_RIGHT_FD_READDIR);
+	const bool write = requestedRights
+					   & (__WASI_RIGHT_FD_DATASYNC | __WASI_RIGHT_FD_WRITE
+						  | __WASI_RIGHT_FD_ALLOCATE | __WASI_RIGHT_FD_FILESTAT_SET_SIZE);
+	const VFS::FileAccessMode accessMode
+		= read && write ? VFS::FileAccessMode::readWrite
+						: read ? VFS::FileAccessMode::readOnly
+							   : write ? VFS::FileAccessMode::writeOnly : VFS::FileAccessMode::none;
+
+	VFS::FileCreateMode createMode = VFS::FileCreateMode::openExisting;
+	switch(openFlags & (__WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC))
+	{
+	case __WASI_O_CREAT | __WASI_O_EXCL: createMode = VFS::FileCreateMode::createNew; break;
+	case __WASI_O_CREAT | __WASI_O_TRUNC: createMode = VFS::FileCreateMode::createAlways; break;
+	case __WASI_O_CREAT: createMode = VFS::FileCreateMode::openAlways; break;
+	case __WASI_O_TRUNC: createMode = VFS::FileCreateMode::truncateExisting; break;
+	case 0: createMode = VFS::FileCreateMode::openExisting; break;
+
+	// Undefined oflag combinations
+	case __WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC:
+	case __WASI_O_EXCL | __WASI_O_TRUNC:
+	case __WASI_O_EXCL: return TRACE_SYSCALL_RETURN(EINVAL);
+	};
+
+	if(openFlags & __WASI_O_CREAT) { requiredDirRights |= __WASI_RIGHT_PATH_CREATE_FILE; }
+	if(openFlags & __WASI_O_TRUNC) { requiredDirRights |= __WASI_RIGHT_PATH_FILESTAT_SET_SIZE; }
+
+	VFS::FDImplicitSync implicitSync = VFS::FDImplicitSync::none;
+	if(fdFlags & __WASI_FDFLAG_DSYNC)
+	{
+		implicitSync = (fdFlags & __WASI_FDFLAG_RSYNC)
+						   ? VFS::FDImplicitSync::syncContentsAfterWriteAndBeforeRead
+						   : VFS::FDImplicitSync::syncContentsAfterWrite;
+		requiredDirInheritingRights |= __WASI_RIGHT_FD_DATASYNC;
+	}
+	if(fdFlags & __WASI_FDFLAG_SYNC)
+	{
+		implicitSync = (fdFlags & __WASI_FDFLAG_RSYNC)
+						   ? VFS::FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead
+						   : VFS::FDImplicitSync::syncContentsAndMetadataAfterWrite;
+		requiredDirInheritingRights |= __WASI_RIGHT_FD_SYNC;
+	}
+	if(write && !(fdFlags & (__WASI_FDFLAG_APPEND | __WASI_O_TRUNC)))
+	{ requiredDirInheritingRights |= __WASI_RIGHT_FD_SEEK; }
+
+	WASI::FD* wasiDirFD = getFD(process, dirFD);
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiDirFD, requiredDirRights, requiredDirInheritingRights))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	std::string relativePath;
+	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
+	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+
+	std::string canonicalPath;
+	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
+	{ return TRACE_SYSCALL_RETURN(ENOENT); }
+
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	VFS::FD* openedVFD = nullptr;
+	VFS::OpenResult result
+		= process->fileSystem->open(canonicalPath, accessMode, createMode, openedVFD, implicitSync);
+	if(result != VFS::OpenResult::success)
+	{
+		switch(result)
+		{
+		case VFS::OpenResult::alreadyExists: return TRACE_SYSCALL_RETURN(EEXIST);
+		case VFS::OpenResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
+		case VFS::OpenResult::isDirectory: return TRACE_SYSCALL_RETURN(EISDIR);
+		case VFS::OpenResult::cantSynchronize: return TRACE_SYSCALL_RETURN(EINVAL);
+		case VFS::OpenResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
+		case VFS::OpenResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
+		case VFS::OpenResult::pathUsesFileAsDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+
+		case VFS::OpenResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
+		case VFS::OpenResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+		case VFS::OpenResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
+
+		case VFS::OpenResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
+		case VFS::OpenResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
+		case VFS::OpenResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
+
+		default: Errors::unreachable();
+		};
+	}
+
+	__wasi_fd_t fd = process->fds.add(
+		UINT32_MAX,
+		FD{openedVFD, requestedRights, requestedInheritingRights, canonicalPath, false});
+	if(fd == UINT32_MAX)
+	{
+		errorUnless(openedVFD->close() == VFS::CloseResult::success);
+		return TRACE_SYSCALL_RETURN(EMFILE);
+	}
+
+	memoryRef<__wasi_fd_t>(process->memory, fdAddress) = fd;
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS, " (%u)", fd);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -1023,10 +1244,39 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  __wasi_errno_t,
 						  wasi_fd_filestat_get,
 						  __wasi_fd_t fd,
-						  WASIAddress fdstatAddress)
+						  WASIAddress filestatAddress)
 {
-	traceUnimplementedSyscall("fd_filestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, fdstatAddress);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("fd_filestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, filestatAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_FILESTAT_GET, 0))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	VFS::FileInfo fileInfo;
+	VFS::GetInfoResult result = wasiFD->vfd->getFileInfo(fileInfo);
+	switch(result)
+	{
+	case VFS::GetInfoResult::success: break;
+	case VFS::GetInfoResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+
+	default: Errors::unreachable();
+	};
+
+	__wasi_filestat_t& fileStat = memoryRef<__wasi_filestat_t>(process->memory, filestatAddress);
+
+	fileStat.st_dev = fileInfo.deviceNumber;
+	fileStat.st_ino = fileInfo.fileNumber;
+	fileStat.st_filetype = asWASIFileType(fileInfo.type);
+	fileStat.st_nlink = fileInfo.numLinks;
+	fileStat.st_size = fileInfo.numBytes;
+	fileStat.st_atim = __wasi_timestamp_t(fileInfo.lastAccessTime);
+	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime);
+	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime);
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -1062,20 +1312,66 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "path_filestat_get",
 						  __wasi_errno_t,
 						  wasi_path_filestat_get,
-						  __wasi_fd_t fd,
+						  __wasi_fd_t dirFD,
 						  __wasi_lookupflags_t flags,
 						  WASIAddress pathAddress,
 						  WASIAddress numPathBytes,
 						  WASIAddress filestatAddress)
 {
-	traceUnimplementedSyscall("path_filestat_get",
-							  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
-							  fd,
-							  flags,
-							  pathAddress,
-							  numPathBytes,
-							  filestatAddress);
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("path_filestat_get",
+				  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
+				  dirFD,
+				  flags,
+				  pathAddress,
+				  numPathBytes,
+				  filestatAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiDirFD = getFD(process, dirFD);
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_PATH_FILESTAT_GET, 0))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	std::string relativePath;
+	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
+	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+
+	std::string canonicalPath;
+	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
+	{ return TRACE_SYSCALL_RETURN(ENOENT); }
+
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	VFS::FileInfo fileInfo;
+	VFS::GetInfoByPathResult result = process->fileSystem->getInfo(canonicalPath, fileInfo);
+	switch(result)
+	{
+	case VFS::GetInfoByPathResult::success: break;
+
+	case VFS::GetInfoByPathResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
+	case VFS::GetInfoByPathResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
+	case VFS::GetInfoByPathResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
+	case VFS::GetInfoByPathResult::pathUsesFileAsDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+
+	case VFS::GetInfoByPathResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
+	case VFS::GetInfoByPathResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+
+	default: Errors::unreachable();
+	};
+
+	__wasi_filestat_t& fileStat = memoryRef<__wasi_filestat_t>(process->memory, filestatAddress);
+
+	fileStat.st_dev = fileInfo.deviceNumber;
+	fileStat.st_ino = fileInfo.fileNumber;
+	fileStat.st_filetype = asWASIFileType(fileInfo.type);
+	fileStat.st_nlink = fileInfo.numLinks;
+	fileStat.st_size = fileInfo.numBytes;
+	fileStat.st_atim = __wasi_timestamp_t(fileInfo.lastAccessTime);
+	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime);
+	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime);
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -1254,6 +1550,74 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 
 DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_t, wasi_sched_yield)
 {
-	traceUnimplementedSyscall("sched_yield", "()");
-	return __WASI_ENOSYS;
+	TRACE_SYSCALL("sched_yield", "()");
+	Platform::yieldToAnotherThread();
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
+}
+
+WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
+						  std::vector<std::string>&& inArgs,
+						  std::vector<std::string>&& inEnvs,
+						  VFS::FileSystem* fileSystem,
+						  VFS::FD* stdIn,
+						  VFS::FD* stdOut,
+						  VFS::FD* stdErr,
+						  I32& outExitCode)
+{
+	Process* process
+		= new Process(std::move(inArgs), std::move(inEnvs), fileSystem, stdIn, stdOut, stdErr);
+
+	const IR::Module& moduleIR = getModuleIR(module);
+	LinkResult linkResult = linkModule(moduleIR, process->resolver);
+
+	if(!linkResult.success)
+	{
+		for(const auto& missingImport : linkResult.missingImports)
+		{
+			Log::printf(Log::debug,
+						"Couldn't resolve import %s.%s : %s\n",
+						missingImport.moduleName.c_str(),
+						missingImport.exportName.c_str(),
+						asString(missingImport.type).c_str());
+		}
+		return RunResult::linkError;
+	}
+
+	process->moduleInstance = instantiateModule(
+		process->compartment, module, std::move(linkResult.resolvedImports), "<main module>");
+
+	try
+	{
+		process->memory = asMemoryNullable(getInstanceExport(process->moduleInstance, "memory"));
+		if(!process->memory) { return RunResult::doesNotExportMemory; }
+
+		Function* startFunction = getStartFunction(process->moduleInstance);
+		if(startFunction) { invokeFunctionChecked(process->context, startFunction, {}); }
+
+		Function* mainFunction
+			= asFunctionNullable(getInstanceExport(process->moduleInstance, "_start"));
+		if(!mainFunction) { return RunResult::noStartFunction; }
+
+		if(getFunctionType(mainFunction) != FunctionType())
+		{
+			Log::printf(Log::Category::debug,
+						"WASI module exported _start : %s but expected _start : %s.\n",
+						asString(getFunctionType(mainFunction)).c_str(),
+						asString(FunctionType()).c_str());
+			return RunResult::mistypedStartFunction;
+		}
+
+		invokeFunctionChecked(process->context, mainFunction, {});
+		outExitCode = 0;
+	}
+	catch(const ExitException& exitException)
+	{
+		outExitCode = exitException.exitCode;
+	}
+
+	GCPointer<Compartment> compartment = std::move(process->compartment);
+	delete process;
+	errorUnless(tryCollectCompartment(std::move(compartment)));
+
+	return RunResult::success;
 }

@@ -18,7 +18,7 @@ namespace WAVM { namespace Platform {
 	// Returns the precision of getMonotonicClock, in nanoseconds per clock tick.
 	PLATFORM_API I128 getMonotonicClockResolution();
 
-	// Returns a high-resolution per-process clock: nanoseconds since some arbitrary reference time.
+	// Returns a high-resolution per-process clock: nanoseconds since process start.
 	PLATFORM_API I128 getProcessClock();
 
 	// Returns the precision of getProcessClock, in nanoseconds per clock tick.

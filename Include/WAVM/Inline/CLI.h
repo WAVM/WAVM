@@ -10,9 +10,10 @@
 namespace WAVM {
 	inline bool loadFile(const char* filename, std::vector<U8>& outFileContents)
 	{
-		VFS::FD* vfd = Platform::openHostFile(
-			filename, VFS::FileAccessMode::readOnly, VFS::FileCreateMode::openExisting);
-		if(!vfd)
+		VFS::FD* vfd = nullptr;
+		VFS::OpenResult result = Platform::openHostFile(
+			filename, VFS::FileAccessMode::readOnly, VFS::FileCreateMode::openExisting, vfd);
+		if(result != VFS::OpenResult::success)
 		{
 			Log::printf(Log::error, "Couldn't read %s: couldn't open file.\n", filename);
 			return false;
@@ -41,9 +42,10 @@ namespace WAVM {
 
 	inline bool saveFile(const char* filename, const void* fileBytes, Uptr numFileBytes)
 	{
-		VFS::FD* vfd = Platform::openHostFile(
-			filename, VFS::FileAccessMode::writeOnly, VFS::FileCreateMode::createAlways);
-		if(!vfd)
+		VFS::FD* vfd = nullptr;
+		VFS::OpenResult result = Platform::openHostFile(
+			filename, VFS::FileAccessMode::writeOnly, VFS::FileCreateMode::createAlways, vfd);
+		if(result != VFS::OpenResult::success)
 		{
 			Log::printf(Log::error, "Couldn't write %s: couldn't open file.\n", filename);
 			return false;

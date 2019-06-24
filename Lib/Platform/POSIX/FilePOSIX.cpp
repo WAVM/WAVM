@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -7,6 +8,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/I128.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
 
@@ -14,12 +16,50 @@ using namespace WAVM;
 using namespace WAVM::Platform;
 using namespace WAVM::VFS;
 
+static FileType getFileTypeFromMode(mode_t mode)
+{
+	switch(mode & S_IFMT)
+	{
+	case S_IFBLK: return FileType::blockDevice;
+	case S_IFCHR: return FileType::characterDevice;
+	case S_IFIFO: return FileType::pipe;
+	case S_IFREG: return FileType::file;
+	case S_IFDIR: return FileType::directory;
+	case S_IFLNK: return FileType::symbolicLink;
+	case S_IFSOCK:
+		// return FileType::datagramSocket;
+		// return FileType::streamSocket;
+		Errors::unreachable();
+		break;
+	default: return FileType::unknown;
+	};
+}
+
+static I128 timeToNS(time_t time)
+{
+	// time_t might be a long, and I128 doesn't have a long constructor, so coerce it to an integer
+	// type first.
+	const U64 timeInt = U64(time);
+	return assumeNoOverflow(I128(timeInt) * 1000000000);
+}
+
+static void getFileInfoFromStatus(const struct stat& status, FileInfo& outInfo)
+{
+	outInfo.deviceNumber = status.st_dev;
+	outInfo.fileNumber = status.st_ino;
+	outInfo.type = getFileTypeFromMode(status.st_mode);
+	outInfo.numLinks = status.st_nlink;
+	outInfo.numBytes = status.st_size;
+	outInfo.lastAccessTime = timeToNS(status.st_atime);
+	outInfo.lastWriteTime = timeToNS(status.st_mtime);
+	outInfo.creationTime = timeToNS(status.st_ctime);
+}
+
 struct POSIXFD : FD
 {
 	const I32 fd;
-	const FDFlags flags;
 
-	POSIXFD(I32 inFD, FDFlags inFlags) : fd(inFD), flags(inFlags) {}
+	POSIXFD(I32 inFD) : fd(inFD) {}
 
 	virtual CloseResult close() override
 	{
@@ -72,7 +112,7 @@ struct POSIXFD : FD
 			case EINVAL: return SeekResult::invalidOffset;
 			case ESPIPE: return SeekResult::unseekable;
 
-			default: Errors::unreachable();
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
 			}
 		}
 	}
@@ -94,7 +134,7 @@ struct POSIXFD : FD
 			case EINTR: return ReadResult::interrupted;
 			case EISDIR: return ReadResult::isDirectory;
 
-			default: Errors::unreachable();
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
 			};
 		}
 	}
@@ -121,7 +161,7 @@ struct POSIXFD : FD
 			case EFBIG: return WriteResult::exceededFileSizeLimit;
 			case EPERM: return WriteResult::notPermitted;
 
-			default: Errors::unreachable();
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
 			};
 		}
 	}
@@ -135,7 +175,7 @@ struct POSIXFD : FD
 		{
 		case SyncType::contents: result = fdatasync(fd); break;
 		case SyncType::contentsAndMetadata: result = fsync(fd); break;
-		default: Errors::unreachable();
+		default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
 		}
 #endif
 
@@ -150,11 +190,11 @@ struct POSIXFD : FD
 			case EINTR: return SyncResult::interrupted;
 			case EINVAL: return SyncResult::notSupported;
 
-			default: Errors::unreachable();
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
 			};
 		}
 	}
-	virtual GetFDInfoResult getInfo(FDInfo& outInfo) override
+	virtual GetInfoResult getFDInfo(FDInfo& outInfo) override
 	{
 		struct stat fdStatus;
 		if(fstat(fd, &fdStatus) != 0)
@@ -163,41 +203,87 @@ struct POSIXFD : FD
 			{
 			case EBADF: Errors::fatalf("fstat return EBADF (fd=%i)", fd);
 
-			case EIO: return GetFDInfoResult::ioError;
+			case EIO: return GetInfoResult::ioError;
 			case EOVERFLOW:
 				// EOVERFLOW: The file size in bytes or the number of blocks allocated to the file
 				// or the file serial number cannot be represented correctly in the structure
 				// pointed to by buf.
-				Errors::unreachable();
 
-			default: Errors::unreachable();
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
 			};
 		}
 
-		switch(fdStatus.st_mode & S_IFMT)
+		outInfo.type = getFileTypeFromMode(fdStatus.st_mode);
+		outInfo.append = false;
+		outInfo.nonBlocking = false;
+
+		I32 fdFlags = fcntl(fd, F_GETFL);
+		if(fdFlags < 0)
 		{
-		case S_IFBLK: outInfo.type = FDType::blockDevice; break;
-		case S_IFCHR: outInfo.type = FDType::characterDevice; break;
-		case S_IFREG: outInfo.type = FDType::file; break;
-		case S_IFDIR: outInfo.type = FDType::directory; break;
-		case S_IFLNK: outInfo.type = FDType::symbolicLink; break;
-		case S_IFSOCK:
-			// outInfo.type = FDType::datagramSocket;
-			// outInfo.type = FDType::streamSocket;
-			Errors::unreachable();
-			break;
-		default: outInfo.type = FDType::unknown;
-		};
+			switch(errno)
+			{
+			case EBADF: Errors::fatalf("fcntl returned EBADF (fd=%i)", fd);
 
-		outInfo.flags = flags;
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			};
+		}
 
-		return GetFDInfoResult::success;
+		if(fdFlags & O_SYNC)
+		{
+#ifdef O_RSYNC
+			outInfo.implicitSync
+				= fdFlags & O_RSYNC ? FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead
+									: FDImplicitSync::syncContentsAndMetadataAfterWrite;
+#else
+			outInfo.implicitSync = FDImplicitSync::syncContentsAndMetadataAfterWrite;
+#endif
+		}
+		else if(fdFlags & O_DSYNC)
+		{
+#ifdef O_RSYNC
+			outInfo.implicitSync = fdFlags & O_RSYNC
+									   ? FDImplicitSync::syncContentsAfterWriteAndBeforeRead
+									   : FDImplicitSync::syncContentsAfterWrite;
+#else
+			outInfo.implicitSync = FDImplicitSync::syncContentsAfterWrite;
+#endif
+		}
+		else
+		{
+			outInfo.implicitSync = FDImplicitSync::none;
+		}
+
+		return GetInfoResult::success;
+	}
+
+	virtual GetInfoResult getFileInfo(FileInfo& outInfo) override
+	{
+		struct stat fdStatus;
+
+		if(fstat(fd, &fdStatus))
+		{
+			switch(errno)
+			{
+			case EBADF: Errors::fatalf("fstat returned EBADF (fd=%i)", fd);
+
+			case EIO: return GetInfoResult::ioError;
+
+			case EOVERFLOW:
+				// The file size in bytes or the number of blocks allocated to the file or the file
+				// serial number cannot be represented correctly in the structure pointed to by buf.
+
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			};
+		}
+
+		getFileInfoFromStatus(fdStatus, outInfo);
+		return GetInfoResult::success;
 	}
 };
 
 struct POSIXStdFD : POSIXFD
 {
-	POSIXStdFD(I32 inFD, FDFlags inFlags) : POSIXFD(inFD, inFlags) {}
+	POSIXStdFD(I32 inFD) : POSIXFD(inFD) {}
 
 	virtual CloseResult close() override
 	{
@@ -208,9 +294,9 @@ struct POSIXStdFD : POSIXFD
 
 FD* Platform::getStdFD(StdDevice device)
 {
-	static POSIXStdFD* stdinVFD = new POSIXStdFD(0, FDFlags{false, false, FDImplicitSync::none});
-	static POSIXStdFD* stdoutVFD = new POSIXStdFD(1, FDFlags{false, false, FDImplicitSync::none});
-	static POSIXStdFD* stderrVFD = new POSIXStdFD(2, FDFlags{false, false, FDImplicitSync::none});
+	static POSIXStdFD* stdinVFD = new POSIXStdFD(0);
+	static POSIXStdFD* stdoutVFD = new POSIXStdFD(1);
+	static POSIXStdFD* stderrVFD = new POSIXStdFD(2);
 	switch(device)
 	{
 	case StdDevice::in: return stdinVFD; break;
@@ -220,15 +306,17 @@ FD* Platform::getStdFD(StdDevice device)
 	};
 }
 
-FD* Platform::openHostFile(const std::string& pathName,
-						   FileAccessMode accessMode,
-						   FileCreateMode createMode,
-						   FDImplicitSync implicitSync)
+OpenResult Platform::openHostFile(const std::string& pathName,
+								  FileAccessMode accessMode,
+								  FileCreateMode createMode,
+								  FD*& outFD,
+								  FDImplicitSync implicitSync)
 {
 	U32 flags = 0;
 	mode_t mode = 0;
 	switch(accessMode)
 	{
+	case FileAccessMode::none: flags = O_RDONLY; break;
 	case FileAccessMode::readOnly: flags = O_RDONLY; break;
 	case FileAccessMode::writeOnly: flags = O_WRONLY; break;
 	case FileAccessMode::readWrite: flags = O_RDWR; break;
@@ -249,7 +337,9 @@ FD* Platform::openHostFile(const std::string& pathName,
 	{
 	case FileCreateMode::createAlways:
 	case FileCreateMode::createNew:
-	case FileCreateMode::openAlways: mode = S_IRWXU; break;
+	case FileCreateMode::openAlways:
+		mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+		break;
 	default: break;
 	};
 
@@ -281,9 +371,87 @@ FD* Platform::openHostFile(const std::string& pathName,
 
 	const I32 fd = open(pathName.c_str(), flags, mode);
 
-	;
+	if(fd != -1)
+	{
+		outFD = new POSIXFD(fd);
+		return OpenResult::success;
+	}
+	else
+	{
+		switch(errno)
+		{
+		case EACCES: return OpenResult::notPermitted;
+		case EEXIST: return OpenResult::alreadyExists;
+		case EINTR: return OpenResult::interrupted;
+		case EINVAL: return OpenResult::cantSynchronize;
+		case EIO: return OpenResult::ioError;
+		case EISDIR: return OpenResult::isDirectory;
+		case EMFILE: return OpenResult::outOfMemory;
+		case ENAMETOOLONG: return OpenResult::nameTooLong;
+		case ENFILE: return OpenResult::outOfMemory;
+		case ENOENT: return OpenResult::doesNotExist;
+		case ENOSPC: return OpenResult::outOfFreeSpace;
+		case ENOTDIR: return OpenResult::pathUsesFileAsDirectory;
+		case EROFS: return OpenResult::notPermitted;
+		case ENOMEM: return OpenResult::outOfMemory;
+		case EDQUOT: return OpenResult::outOfQuota;
+		case EPERM: return OpenResult::notPermitted;
 
-	return fd == -1 ? nullptr : new POSIXFD(fd, FDFlags{false, false, implicitSync});
+		case ELOOP:
+			// A loop exists in symbolic links encountered during resolution of the path argument.
+			// More than {SYMLOOP_MAX} symbolic links were encountered during resolution of the path
+			// argument.
+		case ENOSR:
+			// The path argument names a STREAMS-based file and the system is unable to allocate a
+			// STREAM.
+		case ENXIO:
+			// O_NONBLOCK is set, the named file is a FIFO, O_WRONLY is set, and no process has the
+			// file open for reading.
+			// The named file is a character special or block special file, and the device
+			// associated with this special file does not exist.
+		case EOVERFLOW:
+			// The named file is a regular file and the size of the file cannot be represented
+			// correctly in an object of type off_t.
+		case EAGAIN:
+			// The path argument names the slave side of a pseudo-terminal device that is locked.
+		case ETXTBSY:
+			// The file is a pure procedure (shared text) file that is being executed and oflag is
+			// O_WRONLY or O_RDWR.
+
+		default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+		};
+	}
+}
+
+GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, VFS::FileInfo& outInfo)
+{
+	struct stat fileStatus;
+
+	if(stat(pathName.c_str(), &fileStatus))
+	{
+		switch(errno)
+		{
+		case EACCES: return GetInfoByPathResult::notPermitted;
+		case EIO: return GetInfoByPathResult::ioError;
+		case ENAMETOOLONG: return GetInfoByPathResult::nameTooLong;
+		case ENOENT: return GetInfoByPathResult::doesNotExist;
+		case ENOTDIR: return GetInfoByPathResult::pathUsesFileAsDirectory;
+
+		case ELOOP:
+			// A loop exists in symbolic links encountered during resolution of the path argument.
+			// More than {SYMLOOP_MAX} symbolic links were encountered during resolution of the path
+			// argument.
+
+		case EOVERFLOW:
+			// The file size in bytes or the number of blocks allocated to the file or the file
+			// serial number cannot be represented correctly in the structure pointed to by buf.
+
+		default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+		};
+	}
+
+	getFileInfoFromStatus(fileStatus, outInfo);
+	return GetInfoByPathResult::success;
 }
 
 std::string Platform::getCurrentWorkingDirectory()

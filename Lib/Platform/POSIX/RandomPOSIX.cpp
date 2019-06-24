@@ -1,11 +1,12 @@
+#include <errno.h>
+#include <string.h>
+#include <sys/fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Random.h"
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/fcntl.h>
-#include <string.h>
-#include <unistd.h>
 
 using namespace WAVM;
 using namespace WAVM::Platform;

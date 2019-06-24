@@ -20,6 +20,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/VFS/VFS.h"
 #include "WAVM/WASI/WASI.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
@@ -27,6 +28,35 @@
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
+using namespace WAVM::VFS;
+
+struct SandboxedFileSystem : FileSystem
+{
+	SandboxedFileSystem(const char* inRootPath) : rootPath(inRootPath) {}
+
+	virtual OpenResult open(const std::string& absolutePathName,
+							FileAccessMode accessMode,
+							FileCreateMode createMode,
+							FD*& outFD,
+							FDImplicitSync implicitSync)
+	{
+		return Platform::openHostFile(
+			getHostPath(absolutePathName), accessMode, createMode, outFD, implicitSync);
+	}
+
+	virtual GetInfoByPathResult getInfo(const std::string& absolutePathName, FileInfo& outInfo)
+	{
+		return Platform::getHostFileInfo(getHostPath(absolutePathName), outInfo);
+	}
+
+private:
+	std::string rootPath;
+
+	std::string getHostPath(const std::string& sandboxedAbsolutePathName)
+	{
+		return rootPath + '/' + sandboxedAbsolutePathName;
+	}
+};
 
 static bool loadModule(const char* filename, IR::Module& outModule)
 {
@@ -100,9 +130,20 @@ static int run(const CommandLineOptions& options)
 		}
 	}
 
+	SandboxedFileSystem sandboxedFS(Platform::getCurrentWorkingDirectory().c_str());
+
+	std::vector<std::string> args = options.args;
+	args.insert(args.begin(), "/proc/1/exe");
+
 	I32 exitCode = 0;
-	WASI::RunResult result
-		= WASI::run(module, std::vector<std::string>(options.args), {}, exitCode);
+	WASI::RunResult result = WASI::run(module,
+									   std::move(args),
+									   {},
+									   &sandboxedFS,
+									   Platform::getStdFD(Platform::StdDevice::in),
+									   Platform::getStdFD(Platform::StdDevice::out),
+									   Platform::getStdFD(Platform::StdDevice::err),
+									   exitCode);
 	switch(result)
 	{
 	case WASI::RunResult::success: return exitCode;
@@ -115,6 +156,9 @@ static int run(const CommandLineOptions& options)
 	case WASI::RunResult::mistypedStartFunction:
 		Log::printf(Log::error,
 					"WASM module exports a _start function, but it is not the correct type.\n.");
+		return EXIT_FAILURE;
+	case WASI::RunResult::doesNotExportMemory:
+		Log::printf(Log::error, "WASM module does not export a memory.\n");
 		return EXIT_FAILURE;
 	default: Errors::unreachable();
 	}
@@ -190,7 +234,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	int result = EXIT_FAILURE;
+	int result = EXIT_SUCCESS;
 	Runtime::catchRuntimeExceptions([&result, options]() { result = run(options); },
 									[](Runtime::Exception* exception) {
 										// Treat any unhandled exception as a fatal error.

@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <pthread.h>
+#include <sched.h>
 #include <signal.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
@@ -426,3 +427,5 @@ NO_ASAN Thread* Platform::forkCurrentThread()
 }
 
 Uptr Platform::getNumberOfHardwareThreads() { return std::thread::hardware_concurrency(); }
+
+void Platform::yieldToAnotherThread() { errorUnless(sched_yield() == 0); }
