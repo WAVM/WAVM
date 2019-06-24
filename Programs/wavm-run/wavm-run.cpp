@@ -19,6 +19,7 @@
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/File.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/ThreadTest/ThreadTest.h"
@@ -212,6 +213,10 @@ static int run(const CommandLineOptions& options)
 			rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
 			rootResolver.moduleNameToInstanceMap.set("asm2wasm", emscriptenInstance->asm2wasm);
 			rootResolver.moduleNameToInstanceMap.set("global", emscriptenInstance->global);
+
+			emscriptenInstance->stdIn = Platform::getStdFD(Platform::StdDevice::in);
+			emscriptenInstance->stdOut = Platform::getStdFD(Platform::StdDevice::out);
+			emscriptenInstance->stdErr = Platform::getStdFD(Platform::StdDevice::err);
 		}
 	}
 
