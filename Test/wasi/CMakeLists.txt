@@ -2,9 +2,9 @@ set(TestNames
 	args
 	cat
 	clock
-	hello
 	random
 	stat
+	stdout
 	write)
 
 set(TestSources "")
