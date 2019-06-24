@@ -411,4 +411,8 @@ set(WAVM_EXTERNAL_WAVIX_SOURCE_DIR
 if(NOT WAVM_EXTERNAL_WAVIX_SOURCE_DIR STREQUAL "")
 	set(WAVM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/WAVM)
 	add_subdirectory(${WAVM_EXTERNAL_WAVIX_SOURCE_DIR} Wavix)
+
+	# CMake doesn't automatically add the dependency of the wavix executable on the WAVM library, so
+	# add it explicitly to make sure it doesn't build wavix until it's done building WAVM.
+	add_dependencies(wavix WAVM)
 endif()
