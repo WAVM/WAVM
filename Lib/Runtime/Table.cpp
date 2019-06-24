@@ -443,7 +443,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.size", U32, table_size, Up
 	return U32(numTableElements);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.get", Object*, table_get, U32 index, Uptr tableId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+						  "table.get",
+						  Object*,
+						  table_get,
+						  U32 index,
+						  Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	return getTableElement(table, index);

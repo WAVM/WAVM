@@ -270,5 +270,6 @@ namespace WAVM { namespace Runtime {
 }}
 
 namespace WAVM { namespace Intrinsics {
-	HashMap<std::string, Function*> getUninstantiatedFunctions(const std::initializer_list<const Intrinsics::Module*>& moduleRefs);
+	HashMap<std::string, Function*> getUninstantiatedFunctions(
+		const std::initializer_list<const Intrinsics::Module*>& moduleRefs);
 }}

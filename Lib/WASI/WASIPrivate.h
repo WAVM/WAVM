@@ -80,7 +80,7 @@ namespace WAVM { namespace WASI {
 		std::vector<std::string> args;
 		std::vector<std::string> envs;
 
-		IndexMap<__wasi_fd_t, WASI::FD> fds{ 0, INT32_MAX };
+		IndexMap<__wasi_fd_t, WASI::FD> fds{0, INT32_MAX};
 		VFS::FileSystem* fileSystem = nullptr;
 
 		ProcessResolver resolver;
