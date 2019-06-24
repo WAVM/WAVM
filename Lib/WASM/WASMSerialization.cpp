@@ -1269,14 +1269,14 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 
 	if(module.functions.defs.size() && !hadFunctionDefinitions)
 	{
-		throw IR::ValidationException(
+		throw FatalSerializationException(
 			"module contained function declarations, but no corresponding "
 			"function definition section");
 	}
 
 	if(module.dataSegments.size() && !hadDataSection)
 	{
-		throw IR::ValidationException(
+		throw FatalSerializationException(
 			"module contained DataCount section with non-zero segment count, but no corresponding "
 			"Data section");
 	}
