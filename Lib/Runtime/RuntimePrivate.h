@@ -244,12 +244,10 @@ namespace WAVM { namespace Runtime {
 	};
 
 	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
-
-	void dummyReferenceAtomics();
-	void dummyReferenceWAVMIntrinsics();
-
-	// Initializes global state used by the WAVM intrinsics.
-	Runtime::ModuleInstance* instantiateWAVMIntrinsics(Compartment* compartment);
+	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsAtomics);
+	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsException);
+	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsMemory);
+	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsTable);
 
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTableIndex);
@@ -269,4 +267,8 @@ namespace WAVM { namespace Runtime {
 													 Uptr moduleInstanceId);
 	Table* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId);
 	Memory* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId);
+}}
+
+namespace WAVM { namespace Intrinsics {
+	HashMap<std::string, Function*> getUninstantiatedFunctions(const std::initializer_list<const Intrinsics::Module*>& moduleRefs);
 }}

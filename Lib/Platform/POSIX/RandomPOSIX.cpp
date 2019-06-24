@@ -31,7 +31,7 @@ static void readDevRandom(U8* outRandomBytes, Uptr numBytes)
 	}
 }
 
-#if 0// __linux__
+#if 0 // __linux__
 #include <sys/random.h>
 void Platform::getCryptographicRNG(U8* outRandomBytes, Uptr numBytes)
 {

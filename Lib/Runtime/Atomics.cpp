@@ -22,6 +22,10 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
+namespace WAVM { namespace Runtime {
+	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsAtomics)
+}}
+
 // Holds a list of threads (in the form of events that will wake them) that
 // are waiting on a specific address.
 struct WaitList
@@ -190,7 +194,7 @@ static U32 wakeAddress(void* pointer, U32 numToWake)
 	return U32(actualNumToWake);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 						  "misalignedAtomicTrap",
 						  void,
 						  misalignedAtomicTrap,
@@ -199,7 +203,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	throwException(ExceptionTypes::misalignedAtomicMemoryAccess, {address});
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 						  "atomic_notify",
 						  I32,
 						  atomic_notify,
@@ -220,7 +224,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	return wakeAddress(memory->baseAddress + address, numToWake);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 						  "atomic_wait_i32",
 						  I32,
 						  atomic_wait_I32,
@@ -239,7 +243,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 						  "atomic_wait_i64",
 						  I32,
 						  atomic_wait_i64,
@@ -257,10 +261,4 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	I64* valuePointer = &memoryRef<I64>(memory, address);
 
 	return waitOnAddress(valuePointer, expectedValue, timeout);
-}
-
-void Runtime::dummyReferenceAtomics()
-{
-	// This is just here make sure the static initializers for the intrinsic function registrations
-	// aren't removed as dead code.
 }

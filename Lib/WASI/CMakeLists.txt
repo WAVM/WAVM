@@ -1,4 +1,12 @@
-set(Sources WASI.cpp WASIDefinitions.h WASIDefinitions.LICENSE)
+set(Sources
+	WASI.cpp
+	WASIArgsEnvs.cpp
+	WASIClocks.cpp
+	WASIDiagnostics.cpp
+	WASIFile.cpp
+	WASIPrivate.h
+	WASITypes.h
+	WASITypes.LICENSE)
 set(PublicHeaders ${WAVM_INCLUDE_DIR}/WASI/WASI.h)
 
 WAVM_ADD_LIB_COMPONENT(WASI

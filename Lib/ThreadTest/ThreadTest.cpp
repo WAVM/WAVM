@@ -272,5 +272,5 @@ DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U64 th
 ModuleInstance* ThreadTest::instantiate(Compartment* compartment)
 {
 	return Intrinsics::instantiateModule(
-		compartment, INTRINSIC_MODULE_REF(threadTest), "threadTest");
+		compartment, {INTRINSIC_MODULE_REF(threadTest)}, "threadTest");
 }

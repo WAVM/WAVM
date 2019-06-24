@@ -18,6 +18,10 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
+namespace WAVM { namespace Runtime {
+	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsTable)
+}}
+
 // Global lists of tables; used to query whether an address is reserved by one of them.
 static Platform::Mutex tablesMutex;
 static std::vector<Table*> tables;
@@ -416,7 +420,7 @@ Iptr Runtime::shrinkTable(Table* table, Uptr numElementsToShrink)
 	return previousNumElements;
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.grow",
 						  U32,
 						  table_grow,
@@ -431,7 +435,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	return I32(numTableElements);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.size", U32, table_size, Uptr tableId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.size", U32, table_size, Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	const Uptr numTableElements = getTableNumElements(table);
@@ -439,13 +443,13 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.size", U32, table_size, Uptr ta
 	return U32(numTableElements);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.get", Object*, table_get, U32 index, Uptr tableId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.get", Object*, table_get, U32 index, Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	return getTableElement(table, index);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.set",
 						  void,
 						  table_set,
@@ -457,7 +461,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	setTableElement(table, index, value);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.init",
 						  void,
 						  table_init,
@@ -513,7 +517,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "elem.drop",
 						  void,
 						  elem_drop,
@@ -532,7 +536,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.copy",
 						  void,
 						  table_copy,
@@ -587,7 +591,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	});
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.fill",
 						  void,
 						  table_fill,
@@ -616,7 +620,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "callIndirectFail",
 						  void,
 						  callIndirectFail,

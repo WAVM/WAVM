@@ -23,6 +23,10 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
+namespace WAVM { namespace Runtime {
+	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsException)
+}}
+
 #define DEFINE_INTRINSIC_EXCEPTION_TYPE(name, ...)                                                 \
 	ExceptionType* Runtime::ExceptionTypes::name = new ExceptionType(                              \
 		nullptr, IR::ExceptionType{IR::TypeTuple({__VA_ARGS__})}, "wavm." #name);
@@ -247,7 +251,7 @@ std::string Runtime::describeException(const Exception* exception)
 		createException(type, arguments.data(), arguments.size(), Platform::captureCallStack(1)));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "createException",
 						  Uptr,
 						  intrinsicCreateException,
@@ -269,7 +273,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	return reinterpret_cast<Uptr>(exception);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "destroyException",
 						  void,
 						  intrinsicDestroyException,
@@ -279,7 +283,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	destroyException(exception);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "throwException",
 						  void,
 						  intrinsicThrowException,

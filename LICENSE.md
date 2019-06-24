@@ -24,6 +24,6 @@ The contents of [Test/wabt](Test/wabt) are covered by the license in [Test/wabt/
 
 [Include/WAVM/Inline/xxhash](Include/WAVM/Inline/xxhash) is covered by the license in [Include/WAVM/Inline/xxhash/LICENSE](Include/WAVM/Inline/xxhash/LICENSE).
 
-[Lib/WASI/WASIDefinitions.h](Lib/WASI/WASIDefinitions.h) is covered by the license in [Lib/WASI/WASIDefinitions.h](Lib/WASI/WASIDefinitions.h).
+[Lib/WASI/WASITypes.h](Lib/WASI/WASITypes.h) is covered by the license in [Lib/WASI/WASITypes.h](Lib/WASI/WASITypes.h).
 
 [Include/WAVM/wavm-c/wavm-c.h](Include/WAVM/wavm-c/wavm-c.h) is based on [wasm-c-api](https://github.com/WebAssembly/wasm-c-api), which is covered by the license in [Include/WAVM/wavm-c/wasm-c-api.LICENSE](Include/WAVM/wavm-c/wasm-c-api.LICENSE).
