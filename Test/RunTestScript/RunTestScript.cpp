@@ -560,16 +560,17 @@ static void processCommand(TestScriptState& state, const Command* command)
 		break;
 	}
 	case Command::assert_invalid:
+	{
+		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
+		if(assertCommand->wasInvalidOrMalformed == InvalidOrMalformed::wellFormedAndValid)
+		{ testErrorf(state, assertCommand->locus, "module was valid"); }
+		break;
+	}
 	case Command::assert_malformed:
 	{
 		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
-		if(!assertCommand->wasInvalidOrMalformed)
-		{
-			testErrorf(state,
-					   assertCommand->locus,
-					   "module was %s",
-					   assertCommand->type == Command::assert_invalid ? "valid" : "well formed");
-		}
+		if(assertCommand->wasInvalidOrMalformed != InvalidOrMalformed::malformed)
+		{ testErrorf(state, assertCommand->locus, "module was well formed"); }
 		break;
 	}
 	case Command::assert_unlinkable:

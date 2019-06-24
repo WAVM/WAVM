@@ -221,14 +221,21 @@ namespace WAVM { namespace WAST {
 		binary
 	};
 
+	enum class InvalidOrMalformed
+	{
+		wellFormedAndValid,
+		invalid,
+		malformed
+	};
+
 	struct AssertInvalidOrMalformedCommand : Command
 	{
-		bool wasInvalidOrMalformed;
+		InvalidOrMalformed wasInvalidOrMalformed;
 		QuotedModuleType quotedModuleType;
 		std::string quotedModuleString;
 		AssertInvalidOrMalformedCommand(Command::Type inType,
 										TextFileLocus&& inLocus,
-										bool inWasInvalidOrMalformed,
+										InvalidOrMalformed inWasInvalidOrMalformed,
 										QuotedModuleType inQuotedModuleType,
 										std::string&& inQuotedModuleString)
 		: Command(inType, std::move(inLocus))

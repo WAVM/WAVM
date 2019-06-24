@@ -175,7 +175,7 @@ static void parseTestScriptModule(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							quoteToken,
-							"error validating binary module: %s",
+							"validation exception: %s",
 							exception.message.c_str());
 			}
 		}
@@ -491,12 +491,24 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					throw RecoverParseException();
 				}
 
-				result = new AssertInvalidOrMalformedCommand(
-					commandType,
-					std::move(locus),
-					malformedModuleParseState.unresolvedErrors.size() != 0,
-					quotedModuleType,
-					std::move(quotedModuleString));
+				// Determine whether the module was invalid or malformed.
+				InvalidOrMalformed invalidOrMalformed = InvalidOrMalformed::wellFormedAndValid;
+				for(const UnresolvedError& error : malformedModuleParseState.unresolvedErrors)
+				{
+					if(stringStartsWith(error.message.c_str(), "validation exception"))
+					{ invalidOrMalformed = InvalidOrMalformed::invalid; }
+					else
+					{
+						invalidOrMalformed = InvalidOrMalformed::malformed;
+						break;
+					}
+				}
+
+				result = new AssertInvalidOrMalformedCommand(commandType,
+															 std::move(locus),
+															 invalidOrMalformed,
+															 quotedModuleType,
+															 std::move(quotedModuleString));
 				break;
 			};
 			default:
