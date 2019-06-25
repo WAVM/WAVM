@@ -576,7 +576,10 @@ static void parseData(CursorState* cursor)
 							   (const U8*)dataString.data() + dataString.size());
 	const Uptr dataSegmentIndex = cursor->moduleState->module.dataSegments.size();
 	cursor->moduleState->module.dataSegments.push_back(
-		{isActive, UINTPTR_MAX, InitializerExpression(), std::move(dataVector)});
+		{isActive,
+		 UINTPTR_MAX,
+		 InitializerExpression(),
+		 std::make_shared<std::vector<U8>>(std::move(dataVector))});
 
 	if(segmentName)
 	{
@@ -687,7 +690,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 														UINTPTR_MAX,
 														InitializerExpression(),
 														ReferenceType::funcref,
-														std::vector<Elem>()});
+														std::make_shared<std::vector<Elem>>()});
 
 	if(segmentName)
 	{
@@ -726,17 +729,17 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 				}
 			}
 
-			elemSegment.elems.resize(elementReferences->size());
+			elemSegment.elems->resize(elementReferences->size());
 			for(Uptr elementIndex = 0; elementIndex < elementReferences->size(); ++elementIndex)
 			{
 				const UnresolvedElem& unresolvedElem = (*elementReferences)[elementIndex];
 				switch(unresolvedElem.type)
 				{
 				case Elem::Type::ref_null:
-					elemSegment.elems[elementIndex] = {{Elem::Type::ref_null}, UINTPTR_MAX};
+					(*elemSegment.elems)[elementIndex] = {{Elem::Type::ref_null}, UINTPTR_MAX};
 					break;
 				case Elem::Type::ref_func:
-					elemSegment.elems[elementIndex]
+					(*elemSegment.elems)[elementIndex]
 						= {{Elem::Type::ref_func},
 						   resolveRef(moduleState->parseState,
 									  moduleState->functionNameToIndexMap,
@@ -943,7 +946,7 @@ static void parseMemory(CursorState* cursor)
 					{true,
 					 cursor->moduleState->module.memories.size(),
 					 InitializerExpression(I32(0)),
-					 std::move(dataVector)});
+					 std::make_shared<std::vector<U8>>(std::move(dataVector))});
 				cursor->moduleState->disassemblyNames.dataSegments.push_back(std::string());
 			}
 

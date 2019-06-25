@@ -771,7 +771,8 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 		std::vector<U8> bytes;
 		for(Uptr byteIndex = 0; byteIndex < numSegmentBytes; ++byteIndex)
 		{ bytes.push_back(random.get<U8>(255)); }
-		module.dataSegments.push_back({false, UINTPTR_MAX, {}, std::move(bytes)});
+		module.dataSegments.push_back(
+			{false, UINTPTR_MAX, {}, std::make_shared<std::vector<U8>>(std::move(bytes))});
 	};
 
 	// Create FunctionDefs for all the function we will generate, but don't yet generate their code.
@@ -811,8 +812,11 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 				elems.push_back({{Elem::Type::ref_func}, functionIndex});
 			}
 		}
-		module.elemSegments.push_back(
-			{false, UINTPTR_MAX, {}, ReferenceType::funcref, std::move(elems)});
+		module.elemSegments.push_back({false,
+									   UINTPTR_MAX,
+									   {},
+									   ReferenceType::funcref,
+									   std::make_shared<std::vector<Elem>>(std::move(elems))});
 	};
 
 	validatePreCodeSections(module);

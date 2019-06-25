@@ -54,7 +54,7 @@ namespace WAVM { namespace Runtime {
 	static_assert(Uptr(IR::ExternKind::exceptionType) == Uptr(ObjectKind::exceptionType),
 				  "IR::ExternKind::exceptionType != ObjectKind::exceptionType");
 
-#define compartmentReservedBytes (4ull * 1024 * 1024 * 1024)
+#define compartmentReservedBytes (2ull * 1024 * 1024 * 1024)
 
 	enum
 	{
@@ -63,7 +63,7 @@ namespace WAVM { namespace Runtime {
 		maxMutableGlobals = maxGlobalBytes / sizeof(IR::UntaggedValue),
 		maxMemories = 255,
 		maxTables = 128 * 1024 - maxMemories - 1,
-		compartmentRuntimeDataAlignmentLog2 = 32,
+		compartmentRuntimeDataAlignmentLog2 = 31,
 		contextRuntimeDataAlignment = 4096
 	};
 
@@ -91,7 +91,7 @@ namespace WAVM { namespace Runtime {
 	enum
 	{
 		maxContexts
-		= 1024 * 1024 - offsetof(CompartmentRuntimeData, contexts) / sizeof(ContextRuntimeData)
+		= 512 * 1024 - offsetof(CompartmentRuntimeData, contexts) / sizeof(ContextRuntimeData)
 	};
 
 	static_assert(offsetof(CompartmentRuntimeData, contexts) % 4096 == 0,
@@ -185,7 +185,8 @@ namespace WAVM { namespace Runtime {
 
 	inline CompartmentRuntimeData* getCompartmentRuntimeData(ContextRuntimeData* contextRuntimeData)
 	{
-		return reinterpret_cast<CompartmentRuntimeData*>(reinterpret_cast<Uptr>(contextRuntimeData)
-														 & 0xffffffff00000000);
+		return reinterpret_cast<CompartmentRuntimeData*>(
+			reinterpret_cast<Uptr>(contextRuntimeData)
+			& -(Iptr(1) << compartmentRuntimeDataAlignmentLog2));
 	}
 }}

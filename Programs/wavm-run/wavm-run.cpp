@@ -20,6 +20,7 @@
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/File.h"
+#include "WAVM/Platform/Memory.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/ThreadTest/ThreadTest.h"
@@ -445,5 +446,10 @@ int main(int argc, char** argv)
 										Errors::fatalf("Runtime exception: %s",
 													   describeException(exception).c_str());
 									});
+
+	// Log the peak memory usage.
+	Uptr peakMemoryUsage = Platform::getPeakMemoryUsageBytes();
+	Log::printf(Log::metrics, "Peak memory usage: %" PRIuPTR "KB\n", peakMemoryUsage / 1024);
+
 	return result;
 }

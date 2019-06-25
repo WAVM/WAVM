@@ -276,6 +276,7 @@ namespace WAVM { namespace IR {
 				break;
 			default: throw FatalSerializationException("invalid elem segment flags");
 			};
+			elemSegment.elems = std::make_shared<std::vector<IR::Elem>>();
 		}
 		else
 		{
@@ -293,7 +294,7 @@ namespace WAVM { namespace IR {
 		}
 		if(elemSegment.isActive)
 		{
-			serializeArray(stream, elemSegment.elems, [](Stream& stream, Elem& elem) {
+			serializeArray(stream, *elemSegment.elems, [](Stream& stream, Elem& elem) {
 				if(Stream::isInput) { elem.type = Elem::Type::ref_func; }
 				wavmAssert(elem.type == Elem::Type::ref_func);
 				serializeVarUInt32(stream, elem.index);
@@ -302,7 +303,7 @@ namespace WAVM { namespace IR {
 		else
 		{
 			serialize(stream, elemSegment.elemType);
-			serializeArray(stream, elemSegment.elems, [](Stream& stream, Elem& elem) {
+			serializeArray(stream, *elemSegment.elems, [](Stream& stream, Elem& elem) {
 				serializeOpcode(stream, elem.typeOpcode);
 				switch(elem.type)
 				{
@@ -341,6 +342,7 @@ namespace WAVM { namespace IR {
 				break;
 			default: throw FatalSerializationException("invalid data segment flags");
 			};
+			dataSegment.data = std::make_shared<std::vector<U8>>();
 		}
 		else
 		{
@@ -356,7 +358,7 @@ namespace WAVM { namespace IR {
 				serialize(stream, dataSegment.baseOffset);
 			}
 		}
-		serialize(stream, dataSegment.data);
+		serialize(stream, *dataSegment.data);
 	}
 }}
 

@@ -134,6 +134,9 @@ namespace WAVM { namespace Runtime {
 		~ExceptionType() override;
 	};
 
+	typedef std::vector<std::shared_ptr<std::vector<U8>>> DataSegmentVector;
+	typedef std::vector<std::shared_ptr<std::vector<IR::Elem>>> ElemSegmentVector;
+
 	// A compiled WebAssembly module.
 	struct Module
 	{
@@ -145,9 +148,6 @@ namespace WAVM { namespace Runtime {
 		{
 		}
 	};
-
-	typedef HashMap<Uptr, std::shared_ptr<std::vector<U8>>> PassiveDataSegmentMap;
-	typedef HashMap<Uptr, std::shared_ptr<std::vector<Object*>>> PassiveElemSegmentMap;
 
 	// An instance of a WebAssembly module.
 	struct ModuleInstance : GCObject
@@ -166,11 +166,11 @@ namespace WAVM { namespace Runtime {
 
 		Function* const startFunction;
 
-		mutable Platform::Mutex passiveDataSegmentsMutex;
-		PassiveDataSegmentMap passiveDataSegments;
+		mutable Platform::Mutex dataSegmentsMutex;
+		DataSegmentVector dataSegments;
 
-		mutable Platform::Mutex passiveElemSegmentsMutex;
-		PassiveElemSegmentMap passiveElemSegments;
+		mutable Platform::Mutex elemSegmentsMutex;
+		ElemSegmentVector elemSegments;
 
 		const std::shared_ptr<LLVMJIT::Module> jitModule;
 
@@ -184,8 +184,8 @@ namespace WAVM { namespace Runtime {
 					   std::vector<Global*>&& inGlobals,
 					   std::vector<ExceptionType*>&& inExceptionTypes,
 					   Function* inStartFunction,
-					   PassiveDataSegmentMap&& inPassiveDataSegments,
-					   PassiveElemSegmentMap&& inPassiveElemSegments,
+					   DataSegmentVector&& inPassiveDataSegments,
+					   ElemSegmentVector&& inPassiveElemSegments,
 					   std::shared_ptr<LLVMJIT::Module>&& inJITModule,
 					   std::string&& inDebugName)
 		: GCObject(ObjectKind::moduleInstance, inCompartment)
@@ -199,8 +199,8 @@ namespace WAVM { namespace Runtime {
 		, globals(std::move(inGlobals))
 		, exceptionTypes(std::move(inExceptionTypes))
 		, startFunction(inStartFunction)
-		, passiveDataSegments(std::move(inPassiveDataSegments))
-		, passiveElemSegments(std::move(inPassiveElemSegments))
+		, dataSegments(std::move(inPassiveDataSegments))
+		, elemSegments(std::move(inPassiveElemSegments))
 		, jitModule(std::move(inJITModule))
 		{
 		}
@@ -267,6 +267,24 @@ namespace WAVM { namespace Runtime {
 													 Uptr moduleInstanceId);
 	Table* getTableFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr tableId);
 	Memory* getMemoryFromRuntimeData(ContextRuntimeData* contextRuntimeData, Uptr memoryId);
+
+	// Initialize a data segment (equivalent to executing a memory.init instruction).
+	void initDataSegment(ModuleInstance* moduleInstance,
+						 Uptr dataSegmentIndex,
+						 const std::vector<U8>* dataVector,
+						 Memory* memory,
+						 Uptr destAddress,
+						 Uptr sourceOffset,
+						 Uptr numBytes);
+
+	// Initialize a table segment (equivalent to executing a table.init instruction).
+	void initElemSegment(ModuleInstance* moduleInstance,
+						 Uptr elemSegmentIndex,
+						 const std::vector<IR::Elem>* elemVector,
+						 Table* table,
+						 Uptr destOffset,
+						 Uptr sourceOffset,
+						 Uptr numElems);
 }}
 
 namespace WAVM { namespace Intrinsics {

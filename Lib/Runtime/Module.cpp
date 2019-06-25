@@ -305,38 +305,13 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		exports.push_back(exportedObject);
 	}
 
-	// Copy the module's passive data and table segments into the ModuleInstance for later use.
-	PassiveDataSegmentMap passiveDataSegments;
-	PassiveElemSegmentMap passiveElemSegments;
-	for(Uptr segmentIndex = 0; segmentIndex < module->ir.dataSegments.size(); ++segmentIndex)
-	{
-		const DataSegment& dataSegment = module->ir.dataSegments[segmentIndex];
-		if(!dataSegment.isActive)
-		{
-			passiveDataSegments.add(segmentIndex,
-									std::make_shared<std::vector<U8>>(dataSegment.data));
-		}
-	}
-	for(Uptr segmentIndex = 0; segmentIndex < module->ir.elemSegments.size(); ++segmentIndex)
-	{
-		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
-		if(!elemSegment.isActive)
-		{
-			auto passiveElemSegmentObjects = std::make_shared<std::vector<Object*>>();
-			for(const Elem& elem : elemSegment.elems)
-			{
-				switch(elem.type)
-				{
-				case Elem::Type::ref_null: passiveElemSegmentObjects->push_back(nullptr); break;
-				case Elem::Type::ref_func:
-					passiveElemSegmentObjects->push_back(asObject(functions[elem.index]));
-					break;
-				default: Errors::unreachable();
-				}
-			}
-			passiveElemSegments.add(segmentIndex, passiveElemSegmentObjects);
-		}
-	}
+	// Copy the module's data and elem segments into the ModuleInstance for later use.
+	DataSegmentVector dataSegments;
+	ElemSegmentVector elemSegments;
+	for(const DataSegment& dataSegment : module->ir.dataSegments)
+	{ dataSegments.push_back(dataSegment.isActive ? nullptr : dataSegment.data); }
+	for(const ElemSegment& elemSegment : module->ir.elemSegments)
+	{ elemSegments.push_back(elemSegment.isActive ? nullptr : elemSegment.elems); }
 
 	// Look up the module's start function.
 	Function* startFunction = nullptr;
@@ -357,8 +332,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 														std::move(globals),
 														std::move(exceptionTypes),
 														startFunction,
-														std::move(passiveDataSegments),
-														std::move(passiveElemSegments),
+														std::move(dataSegments),
+														std::move(elemSegments),
 														std::move(jitModule),
 														std::move(moduleDebugName));
 	{
@@ -380,71 +355,49 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	}
 
 	// Copy the module's data segments into their designated memory instances.
-	for(const DataSegment& dataSegment : module->ir.dataSegments)
+	for(Uptr segmentIndex = 0; segmentIndex < module->ir.dataSegments.size(); ++segmentIndex)
 	{
+		const DataSegment& dataSegment = module->ir.dataSegments[segmentIndex];
 		if(dataSegment.isActive)
 		{
-			Memory* memory = moduleInstance->memories[dataSegment.memoryIndex];
+			wavmAssert(moduleInstance->dataSegments[segmentIndex] == nullptr);
 
 			const Value baseOffsetValue
 				= evaluateInitializer(moduleInstance->globals, dataSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
-			if(dataSegment.data.size())
-			{
-				Runtime::unwindSignalsAsExceptions([memory, baseOffset, &dataSegment] {
-					Platform::bytewiseMemCopy(memory->baseAddress + baseOffset,
-											  dataSegment.data.data(),
-											  dataSegment.data.size());
-				});
-			}
-			else
-			{
-				// WebAssembly still expects out-of-bounds errors if the segment base offset is
-				// out-of-bounds, even if the segment is empty.
-				if(baseOffset > memory->numPages * IR::numBytesPerPage)
-				{
-					throwException(Runtime::ExceptionTypes::outOfBoundsMemoryAccess,
-								   {memory, U64(baseOffset)});
-				}
-			}
+			initDataSegment(moduleInstance,
+							segmentIndex,
+							dataSegment.data.get(),
+							moduleInstance->memories[dataSegment.memoryIndex],
+							baseOffset,
+							0,
+							dataSegment.data->size());
 		}
 	}
 
 	// Copy the module's elem segments into their designated table instances.
-	for(const ElemSegment& elemSegment : module->ir.elemSegments)
+	for(Uptr segmentIndex = 0; segmentIndex < module->ir.elemSegments.size(); ++segmentIndex)
 	{
+		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
 		if(elemSegment.isActive)
 		{
-			Table* table = moduleInstance->tables[elemSegment.tableIndex];
+			wavmAssert(moduleInstance->elemSegments[segmentIndex] == nullptr);
 
 			const Value baseOffsetValue
 				= evaluateInitializer(moduleInstance->globals, elemSegment.baseOffset);
 			errorUnless(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
-			if(elemSegment.elems.size())
-			{
-				for(Uptr index = 0; index < elemSegment.elems.size(); ++index)
-				{
-					const Elem& elem = elemSegment.elems[index];
-					wavmAssert(elem.type == Elem::Type::ref_func);
-					wavmAssert(elem.index < moduleInstance->functions.size());
-					Function* function = moduleInstance->functions[elem.index];
-					setTableElement(table, baseOffset + index, asObject(function));
-				}
-			}
-			else
-			{
-				// WebAssembly still expects out-of-bounds errors if the segment base offset is
-				// out-of-bounds, even if the segment is empty.
-				if(baseOffset > getTableNumElements(table))
-				{
-					throwException(Runtime::ExceptionTypes::outOfBoundsTableAccess,
-								   {table, U64(baseOffset)});
-				}
-			}
+			Table* table = moduleInstance->tables[elemSegment.tableIndex];
+			initElemSegment(moduleInstance,
+							segmentIndex,
+							elemSegment.elems.get(),
+							table,
+							baseOffset,
+							0,
+							elemSegment.elems->size());
 		}
 	}
 
@@ -483,21 +436,16 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 	Function* newStartFunction
 		= remapToClonedCompartment(moduleInstance->startFunction, newCompartment);
 
-	PassiveDataSegmentMap newPassiveDataSegments;
+	DataSegmentVector newDataSegments;
 	{
-		Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
-		newPassiveDataSegments = moduleInstance->passiveDataSegments;
+		Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->dataSegmentsMutex);
+		newDataSegments = moduleInstance->dataSegments;
 	}
 
-	PassiveElemSegmentMap newPassiveElemSegments;
+	ElemSegmentVector newElemSegments;
 	{
-		Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->passiveElemSegmentsMutex);
-		newPassiveElemSegments = moduleInstance->passiveElemSegments;
-	}
-	for(const auto& pair : newPassiveElemSegments)
-	{
-		for(Uptr index = 0; index < pair.value->size(); ++index)
-		{ (*pair.value)[index] = remapToClonedCompartment((*pair.value)[index], newCompartment); }
+		Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->elemSegmentsMutex);
+		newElemSegments = moduleInstance->elemSegments;
 	}
 
 	// Create the new ModuleInstance in the cloned compartment, but with the same ID as the old one.
@@ -512,8 +460,8 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 														   std::move(newGlobals),
 														   std::move(newExceptionTypes),
 														   std::move(newStartFunction),
-														   std::move(newPassiveDataSegments),
-														   std::move(newPassiveElemSegments),
+														   std::move(newDataSegments),
+														   std::move(newElemSegments),
 														   std::move(jitModuleCopy),
 														   std::string(moduleInstance->debugName));
 	{

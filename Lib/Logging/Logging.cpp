@@ -1,11 +1,12 @@
 #include <atomic>
-#include <cstdio>
 
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Defines.h"
+#include "WAVM/Platform/File.h"
+#include "WAVM/VFS/VFS.h"
 
 using namespace WAVM;
 using namespace WAVM::Log;
@@ -17,9 +18,10 @@ static std::atomic<bool> categoryEnabled[(Uptr)Category::num] = {
 	{true},                     // output
 };
 
-static FILE* getFileForCategory(Log::Category category)
+static VFS::FD* getFileForCategory(Log::Category category)
 {
-	return category == Log::error ? stderr : stdout;
+	return category == Log::error ? Platform::getStdFD(Platform::StdDevice::err)
+								  : Platform::getStdFD(Platform::StdDevice::out);
 }
 
 void Log::setCategoryEnabled(Category category, bool enable)
@@ -40,9 +42,7 @@ void Log::printf(Category category, const char* format, ...)
 	{
 		va_list argList;
 		va_start(argList, format);
-		FILE* file = getFileForCategory(category);
-		vfprintf(file, format, argList);
-		fflush(file);
+		vprintf(category, format, argList);
 		va_end(argList);
 	}
 }
@@ -51,8 +51,18 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 {
 	if(categoryEnabled[(Uptr)category].load())
 	{
-		FILE* file = getFileForCategory(category);
-		vfprintf(file, format, argList);
-		fflush(file);
+		va_list argListCopy;
+		va_copy(argListCopy, argList);
+		const I32 numChars = vsnprintf(nullptr, 0, format, argListCopy);
+		wavmAssert(numChars >= 0);
+
+		const Uptr numBufferBytes = numChars + 1;
+		char* buffer = (char*)alloca(numBufferBytes);
+		vsnprintf(buffer, numBufferBytes, format, argList);
+
+		VFS::FD* fd = getFileForCategory(category);
+		Uptr numBytesWritten = 0;
+		errorUnless(fd->write(buffer, numChars, &numBytesWritten) == VFS::WriteResult::success);
+		errorUnless(numBytesWritten == U32(numChars));
 	}
 }

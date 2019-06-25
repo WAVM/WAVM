@@ -18,6 +18,7 @@
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Memory.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
@@ -154,6 +155,7 @@ static int run(const CommandLineOptions& options)
 	args.insert(args.begin(), "/proc/1/exe");
 
 	I32 exitCode = 0;
+	Timing::Timer executionTimer;
 	WASI::RunResult result = WASI::run(module,
 									   std::move(args),
 									   {},
@@ -162,12 +164,14 @@ static int run(const CommandLineOptions& options)
 									   Platform::getStdFD(Platform::StdDevice::out),
 									   Platform::getStdFD(Platform::StdDevice::err),
 									   exitCode);
-
+	executionTimer.stop();
 	if(sandboxedFS) { delete sandboxedFS; }
 
 	switch(result)
 	{
-	case WASI::RunResult::success: return exitCode;
+	case WASI::RunResult::success:
+		Timing::logTimer("Executed WASI program", executionTimer);
+		return exitCode;
 	case WASI::RunResult::linkError:
 		Log::printf(Log::error, "WASM module is unlinkable.\n");
 		return EXIT_FAILURE;
@@ -272,5 +276,10 @@ int main(int argc, char** argv)
 										Errors::fatalf("Runtime exception: %s",
 													   describeException(exception).c_str());
 									});
+
+	// Log the peak memory usage.
+	Uptr peakMemoryUsage = Platform::getPeakMemoryUsageBytes();
+	Log::printf(Log::metrics, "Peak memory usage: %" PRIuPTR "KB\n", peakMemoryUsage / 1024);
+
 	return result;
 }

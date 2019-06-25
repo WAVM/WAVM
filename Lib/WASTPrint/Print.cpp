@@ -929,9 +929,9 @@ void ModulePrintContext::printModule()
 		{
 			numElemsPerLine = 8
 		};
-		for(Uptr elementIndex = 0; elementIndex < elemSegment.elems.size(); ++elementIndex)
+		for(Uptr elementIndex = 0; elementIndex < elemSegment.elems->size(); ++elementIndex)
 		{
-			const Elem& elem = elemSegment.elems[elementIndex];
+			const Elem& elem = (*elemSegment.elems)[elementIndex];
 			string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
 			if(elemSegment.isActive)
 			{
@@ -974,12 +974,12 @@ void ModulePrintContext::printModule()
 		{
 			numBytesPerLine = 64
 		};
-		for(Uptr offset = 0; offset < dataSegment.data.size(); offset += numBytesPerLine)
+		for(Uptr offset = 0; offset < dataSegment.data->size(); offset += numBytesPerLine)
 		{
 			string += "\n\"";
 			string += escapeString(
-				(const char*)dataSegment.data.data() + offset,
-				std::min(Uptr(dataSegment.data.size()) - offset, Uptr(numBytesPerLine)));
+				(const char*)dataSegment.data->data() + offset,
+				std::min(Uptr(dataSegment.data->size()) - offset, Uptr(numBytesPerLine)));
 			string += "\"";
 		}
 	}
