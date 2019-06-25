@@ -351,8 +351,7 @@ namespace WAVM { namespace LLVMJIT {
 
 		Module(const std::vector<U8>& inObjectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
-			   bool shouldLogMetrics,
-			   const std::string &filePath="");
+			   bool shouldLogMetrics);
 		~Module();
 
 	private:

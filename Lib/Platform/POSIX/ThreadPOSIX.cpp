@@ -71,9 +71,7 @@ enum
 	sigAltStackNumBytes = 65536
 };
 
-#ifndef ALLOCATE_SIGALTSTACK_ON_MAIN_STACK
 #define ALLOCATE_SIGALTSTACK_ON_MAIN_STACK 1
-#endif
 
 static bool isAlignedLog2(void* pointer, Uptr alignmentLog2)
 {
