@@ -998,7 +998,7 @@ void IR::validateElemSegments(const Module& module)
 			validateInitializer(
 				module, elemSegment.baseOffset, ValueType::i32, "elem segment base initializer");
 		}
-		for(const Elem& elem : elemSegment.elems)
+		for(const Elem& elem : *elemSegment.elems)
 		{
 			switch(elem.type)
 			{

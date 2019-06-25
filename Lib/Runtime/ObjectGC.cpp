@@ -158,14 +158,6 @@ struct GCState
 			visitReferenceArray(moduleInstance->memories);
 			visitReferenceArray(moduleInstance->globals);
 			visitReferenceArray(moduleInstance->exceptionTypes);
-
-			{
-				Lock<Platform::Mutex> passiveElemSegmentLock(
-					moduleInstance->passiveElemSegmentsMutex);
-				for(const auto& passiveElemSegmentPair : moduleInstance->passiveElemSegments)
-				{ visitReferenceArray(*passiveElemSegmentPair.value); }
-			}
-
 			break;
 		}
 		case ObjectKind::compartment:

@@ -420,6 +420,55 @@ Iptr Runtime::shrinkTable(Table* table, Uptr numElementsToShrink)
 	return previousNumElements;
 }
 
+void Runtime::initElemSegment(ModuleInstance* moduleInstance,
+							  Uptr elemSegmentIndex,
+							  const std::vector<IR::Elem>* elemVector,
+							  Table* table,
+							  Uptr destOffset,
+							  Uptr sourceOffset,
+							  Uptr numElems)
+{
+	if(!numElems)
+	{
+		// WebAssembly expects 0-sized inits to still trap for out-of-bounds adddresses.
+		if(sourceOffset > elemVector->size())
+		{
+			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
+						   {asObject(moduleInstance), U64(elemSegmentIndex), sourceOffset});
+		}
+		else if(destOffset > getTableNumElements(table))
+		{
+			throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(destOffset)});
+		}
+	}
+	else
+	{
+		for(Uptr index = 0; index < numElems; ++index)
+		{
+			const Uptr sourceIndex = sourceOffset + index;
+			const Uptr destIndex = destOffset + index;
+			if(sourceIndex >= elemVector->size() || sourceIndex < sourceOffset)
+			{
+				throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
+							   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
+			}
+
+			const IR::Elem& elem = (*elemVector)[sourceIndex];
+			Object* elemObject = nullptr;
+			switch(elem.type)
+			{
+			case IR::Elem::Type::ref_null: elemObject = nullptr; break;
+			case IR::Elem::Type::ref_func:
+				elemObject = asObject(moduleInstance->functions[elem.index]);
+				break;
+			default: Errors::unreachable();
+			}
+
+			setTableElement(table, destIndex, elemObject);
+		}
+	}
+}
+
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.grow",
 						  U32,
@@ -470,55 +519,34 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.init",
 						  void,
 						  table_init,
-						  U32 destOffset,
-						  U32 sourceOffset,
-						  U32 numElements,
+						  U32 destIndex,
+						  U32 sourceIndex,
+						  U32 numElems,
 						  Uptr moduleInstanceId,
 						  Uptr tableId,
 						  Uptr elemSegmentIndex)
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->passiveElemSegmentsMutex);
+	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 
-	if(!moduleInstance->passiveElemSegments.contains(elemSegmentIndex))
+	Lock<Platform::Mutex> elemSegmentsLock(moduleInstance->elemSegmentsMutex);
+	if(!moduleInstance->elemSegments[elemSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
-		const std::shared_ptr<const std::vector<Object*>>& passiveElemSegmentObjects
-			= moduleInstance->passiveElemSegments[elemSegmentIndex];
+		// Make a copy of the shared_ptr to the elems and unlock the elem segments mutex.
+		std::shared_ptr<std::vector<IR::Elem>> elemVector
+			= moduleInstance->elemSegments[elemSegmentIndex];
+		elemSegmentsLock.unlock();
 
-		Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
-
-		if(!numElements)
-		{
-			// WebAssembly expects 0-sized inits to still trap for out-of-bounds adddresses.
-			if(sourceOffset > passiveElemSegmentObjects->size())
-			{
-				throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
-							   {asObject(moduleInstance), U64(elemSegmentIndex), sourceOffset});
-			}
-			else if(destOffset > getTableNumElements(table))
-			{
-				throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(destOffset)});
-			}
-		}
-		else
-		{
-			for(Uptr index = 0; index < numElements; ++index)
-			{
-				const U64 sourceIndex = U64(sourceOffset) + index;
-				const U64 destIndex = U64(destOffset) + index;
-				if(sourceIndex >= passiveElemSegmentObjects->size())
-				{
-					throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
-								   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
-				}
-
-				setTableElement(
-					table, Uptr(destIndex), asObject((*passiveElemSegmentObjects)[sourceIndex]));
-			}
-		}
+		initElemSegment(moduleInstance,
+						elemSegmentIndex,
+						elemVector.get(),
+						table,
+						destIndex,
+						sourceIndex,
+						numElems);
 	}
 }
 
@@ -531,13 +559,13 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Lock<Platform::Mutex> passiveElemSegmentsLock(moduleInstance->passiveElemSegmentsMutex);
+	Lock<Platform::Mutex> elemSegmentsLock(moduleInstance->elemSegmentsMutex);
 
-	if(!moduleInstance->passiveElemSegments.contains(elemSegmentIndex))
+	if(!moduleInstance->elemSegments[elemSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
-		moduleInstance->passiveElemSegments.removeOrFail(elemSegmentIndex);
+		moduleInstance->elemSegments[elemSegmentIndex].reset();
 	}
 }
 

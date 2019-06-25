@@ -292,6 +292,44 @@ U8* Runtime::getValidatedMemoryOffsetRange(Memory* memory, Uptr address, Uptr nu
 		numBytes);
 }
 
+void Runtime::initDataSegment(ModuleInstance* moduleInstance,
+							  Uptr dataSegmentIndex,
+							  const std::vector<U8>* dataVector,
+							  Memory* memory,
+							  Uptr destAddress,
+							  Uptr sourceOffset,
+							  Uptr numBytes)
+{
+	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
+
+	if(sourceOffset + numBytes > dataVector->size() || sourceOffset + numBytes < sourceOffset)
+	{
+		// If the source range is outside the bounds of the data segment, copy the part
+		// that is in range, then trap.
+		if(sourceOffset < dataVector->size())
+		{
+			Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, dataVector] {
+				Platform::bytewiseMemCopy(destPointer,
+										  dataVector->data() + sourceOffset,
+										  dataVector->size() - sourceOffset);
+			});
+		}
+		throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
+					   {asObject(moduleInstance), U64(dataSegmentIndex), U64(dataVector->size())});
+	}
+	else if(numBytes)
+	{
+		Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, numBytes, dataVector] {
+			Platform::bytewiseMemCopy(destPointer, dataVector->data() + sourceOffset, numBytes);
+		});
+	}
+	else if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
+	{
+		// WebAssembly expects 0-sized inits to still trap for out-of-bounds addresses.
+		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)});
+	}
+}
+
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "memory.grow",
 						  I32,
@@ -326,49 +364,25 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
+	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
-	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
+	Lock<Platform::Mutex> dataSegmentsLock(moduleInstance->dataSegmentsMutex);
+	if(!moduleInstance->dataSegments[dataSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
-		const std::shared_ptr<const std::vector<U8>>& passiveDataSegmentBytes
-			= moduleInstance->passiveDataSegments[dataSegmentIndex];
+		// Make a copy of the shared_ptr to the data and unlock the data segments mutex.
+		std::shared_ptr<std::vector<U8>> dataVector
+			= moduleInstance->dataSegments[dataSegmentIndex];
+		dataSegmentsLock.unlock();
 
-		Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
-		U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
-
-		if(U64(sourceOffset) + U64(numBytes) > passiveDataSegmentBytes->size())
-		{
-			// If the source range is outside the bounds of the data segment, copy the part
-			// that is in range, then trap.
-			if(sourceOffset < passiveDataSegmentBytes->size())
-			{
-				Runtime::unwindSignalsAsExceptions(
-					[destPointer, sourceOffset, &passiveDataSegmentBytes] {
-						Platform::bytewiseMemCopy(destPointer,
-												  passiveDataSegmentBytes->data() + sourceOffset,
-												  passiveDataSegmentBytes->size() - sourceOffset);
-					});
-			}
-			throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
-						   {asObject(moduleInstance),
-							U64(dataSegmentIndex),
-							U64(passiveDataSegmentBytes->size())});
-		}
-		else if(numBytes)
-		{
-			Runtime::unwindSignalsAsExceptions(
-				[destPointer, sourceOffset, numBytes, &passiveDataSegmentBytes] {
-					Platform::bytewiseMemCopy(
-						destPointer, passiveDataSegmentBytes->data() + sourceOffset, numBytes);
-				});
-		}
-		else if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
-		{
-			// WebAssembly expects 0-sized inits to still trap for out-of-bounds addresses.
-			throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)});
-		}
+		initDataSegment(moduleInstance,
+						dataSegmentIndex,
+						dataVector.get(),
+						memory,
+						destAddress,
+						sourceOffset,
+						numBytes);
 	}
 }
 
@@ -381,13 +395,13 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
-	Lock<Platform::Mutex> passiveDataSegmentsLock(moduleInstance->passiveDataSegmentsMutex);
+	Lock<Platform::Mutex> dataSegmentsLock(moduleInstance->dataSegmentsMutex);
 
-	if(!moduleInstance->passiveDataSegments.contains(dataSegmentIndex))
+	if(!moduleInstance->dataSegments[dataSegmentIndex])
 	{ throwException(ExceptionTypes::invalidArgument); }
 	else
 	{
-		moduleInstance->passiveDataSegments.removeOrFail(dataSegmentIndex);
+		moduleInstance->dataSegments[dataSegmentIndex].reset();
 	}
 }
 

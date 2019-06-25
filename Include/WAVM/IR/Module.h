@@ -161,7 +161,7 @@ namespace WAVM { namespace IR {
 		bool isActive;
 		Uptr memoryIndex;
 		InitializerExpression baseOffset;
-		std::vector<U8> data;
+		std::shared_ptr<std::vector<U8>> data;
 	};
 
 	// An elem: a literal reference used to initialize a table element.
@@ -209,7 +209,7 @@ namespace WAVM { namespace IR {
 		Uptr tableIndex;
 		InitializerExpression baseOffset;
 		ReferenceType elemType;
-		std::vector<Elem> elems;
+		std::shared_ptr<std::vector<Elem>> elems;
 	};
 
 	// A user-defined module section as an array of bytes
