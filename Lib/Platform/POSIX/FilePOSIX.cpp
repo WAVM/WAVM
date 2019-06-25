@@ -70,8 +70,16 @@ struct POSIXFD : FD
 			{
 			case EBADF: Errors::fatalf("close returned EBADF (fd=%i)", fd);
 
-			case EINTR: return CloseResult::interrupted;
+			case EINTR:
+				// POSIX close says that the fd is in an undefined state after close returns EINTR.
+				// This risks leaking the fd, but assume that the interrupted close actually closed
+				// the fd and return success.
+				// https://www.daemonology.net/blog/2011-12-17-POSIX-close-is-broken.html
+				break;
+
 			case EIO: return CloseResult::ioError;
+
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
 			};
 		}
 		delete this;

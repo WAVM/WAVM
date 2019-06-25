@@ -184,7 +184,6 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_close", __wasi_errno_t, wasi_fd_close, _
 		process->fds.removeOrFail(fd);
 		return TRACE_SYSCALL_RETURN(ESUCCESS);
 
-	case VFS::CloseResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
 	case VFS::CloseResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 
 	default: WAVM_UNREACHABLE();

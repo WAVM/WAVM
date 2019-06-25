@@ -101,7 +101,6 @@ namespace WAVM { namespace VFS {
 	{
 		success,
 
-		interrupted,
 		ioError
 	};
 
