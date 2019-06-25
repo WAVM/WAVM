@@ -17,11 +17,11 @@
 ;; v128.load operater as the argument of other SIMD instructions
 
 (module (memory 1)
-  (data (i32.const 0) "abcdefghijklmnopqrstuvwxyzaBCdEfabIjklmnop")
+  (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\10\11\12\13\14\15\00\01\02\03")
   (func (export "as-i8x16_extract_lane_s-value/0") (result i32)
     (i8x16.extract_lane_s 0 (v128.load (i32.const 0)))
   )
-  (func (export "as-i8x16.eq-operand") (result v128) (i8x16.eq (v128.load offset=0 (i32.const 0)) (v128.load offset=26 (i32.const 0))))
+  (func (export "as-i8x16.eq-operand") (result v128) (i8x16.eq (v128.load offset=0 (i32.const 0)) (v128.load offset=16 (i32.const 0))))
   (func (export "as-v128.not-operand") (param $0 v128) (result v128)
     (local v128)
     (v128.store (i32.const 0) (local.get $0))
@@ -92,8 +92,8 @@
   )
 )
 
-(assert_return (invoke "as-i8x16_extract_lane_s-value/0")  (i32.const 0x61))
-(assert_return (invoke "as-i8x16.eq-operand") (v128.const i32x4 0xff0000ff 0x0000ff00 0xffffff00 0xffffffff))
+(assert_return (invoke "as-i8x16_extract_lane_s-value/0")  (i32.const 0x00))
+(assert_return (invoke "as-i8x16.eq-operand") (v128.const i32x4 0xffffffff 0x00000000 0x00000000 0x00000000))
 (assert_return (invoke "as-v128.not-operand" (v128.const i32x4 0 -1 0 -1)) (v128.const i32x4 -1 0 -1 0))
 (assert_return (invoke "as-v128.bitselect-operand"
     (v128.const i32x4 0xAAAAAAAA 0xAAAAAAAA 0xAAAAAAAA 0xAAAAAAAA)

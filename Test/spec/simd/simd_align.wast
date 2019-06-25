@@ -2,7 +2,7 @@
 
 (module
   (memory 1)
-  (data (i32.const 0) "abcdefghijklmnopqrstuvwxyz")
+  (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\10\11\12\13\14\15")
 
   (func (export "v128.load_align_1") (result v128)
     (v128.load align=1 (i32.const 0))
@@ -21,11 +21,11 @@
   )
 )
 
-(assert_return (invoke "v128.load_align_1") (v128.const i32x4 0x64636261 0x68676665 0x6c6b6a69 0x706f6e6d))
-(assert_return (invoke "v128.load_align_2") (v128.const i32x4 0x64636261 0x68676665 0x6c6b6a69 0x706f6e6d))
-(assert_return (invoke "v128.load_align_4") (v128.const i32x4 0x64636261 0x68676665 0x6c6b6a69 0x706f6e6d))
-(assert_return (invoke "v128.load_align_8") (v128.const i32x4 0x64636261 0x68676665 0x6c6b6a69 0x706f6e6d))
-(assert_return (invoke "v128.load_align_16") (v128.const i32x4 0x64636261 0x68676665 0x6c6b6a69 0x706f6e6d))
+(assert_return (invoke "v128.load_align_1") (v128.const i32x4 0x03020100 0x07060504 0x11100908 0x15141312))
+(assert_return (invoke "v128.load_align_2") (v128.const i32x4 0x03020100 0x07060504 0x11100908 0x15141312))
+(assert_return (invoke "v128.load_align_4") (v128.const i32x4 0x03020100 0x07060504 0x11100908 0x15141312))
+(assert_return (invoke "v128.load_align_8") (v128.const i32x4 0x03020100 0x07060504 0x11100908 0x15141312))
+(assert_return (invoke "v128.load_align_16") (v128.const i32x4 0x03020100 0x07060504 0x11100908 0x15141312))
 
 
 ;; Invalid alignment
