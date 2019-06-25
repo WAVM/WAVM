@@ -155,7 +155,7 @@ namespace WAVM { namespace IR {
 			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
 
 			case ReferenceType::none:
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 			serializeNativeValue(stream, encodedReferenceType);
 		}
@@ -441,7 +441,7 @@ static void serialize(OutputStream& stream, SectionType sectionType)
 	case SectionType::exceptionTypes: serializedSectionId = 0x7f; break;
 
 	case SectionType::unknown:
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
 	*stream.advance(1) = serializedSectionId;
@@ -494,7 +494,7 @@ static void serialize(OutputStream& stream,
 		encodedBlockType = encodeValueType(imm.type.resultType);
 		break;
 	case IndexedBlockType::functionType: encodedBlockType = imm.type.index; break;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 	serializeVarInt32(stream, encodedBlockType);
 }
@@ -1108,7 +1108,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				}
 
 				case ExternKind::invalid:
-				default: Errors::unreachable();
+				default: WAVM_UNREACHABLE();
 				};
 			}
 		}

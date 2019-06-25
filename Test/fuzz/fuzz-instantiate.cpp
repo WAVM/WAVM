@@ -64,7 +64,7 @@ struct StubResolver : Runtime::Resolver
 				case IR::ValueType::none:
 				case IR::ValueType::any:
 				case IR::ValueType::nullref:
-				default: Errors::unreachable();
+				default: WAVM_UNREACHABLE();
 				};
 			}
 			encoder.end();
@@ -106,7 +106,7 @@ struct StubResolver : Runtime::Resolver
 		}
 
 		case IR::ExternKind::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 };

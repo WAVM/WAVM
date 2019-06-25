@@ -178,7 +178,7 @@ ModuleInstance* Intrinsics::instantiateModule(
 				case ObjectKind::compartment:
 				case ObjectKind::foreign:
 				case ObjectKind::invalid:
-				default: Errors::unreachable();
+				default: WAVM_UNREACHABLE();
 				};
 			}
 		}

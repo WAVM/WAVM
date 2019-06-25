@@ -259,7 +259,7 @@ namespace WAVM { namespace LLVMJIT {
 				if(calleeType.results().size() == 1) { results.push_back(returnValue); }
 				break;
 			}
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 
 			return results;

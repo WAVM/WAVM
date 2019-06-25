@@ -76,7 +76,7 @@ LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
 		}
 
 		case ExternKind::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 

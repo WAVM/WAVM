@@ -437,7 +437,7 @@ Uptr WAST::resolveRef(ParseState* parseState,
 	}
 
 	case Reference::Type::invalid:
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 

@@ -178,7 +178,7 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 		}
 		return functionType;
 	}
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -298,7 +298,7 @@ struct FunctionValidationContext
 				case ControlContext::Type::loop: controlStackString += "L"; break;
 				case ControlContext::Type::try_: controlStackString += "R"; break;
 				case ControlContext::Type::catch_: controlStackString += "C"; break;
-				default: Errors::unreachable();
+				default: WAVM_UNREACHABLE();
 				};
 				if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 			}
@@ -1013,7 +1013,7 @@ void IR::validateElemSegments(const Module& module)
 								elemSegment.isActive);
 				break;
 			case Elem::Type::ref_func: VALIDATE_INDEX(elem.index, module.functions.size()); break;
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 	}

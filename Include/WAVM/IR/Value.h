@@ -88,7 +88,7 @@ namespace WAVM { namespace IR {
 
 			case ValueType::none:
 			case ValueType::any:
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 		}
 
@@ -113,7 +113,7 @@ namespace WAVM { namespace IR {
 			case ValueType::funcref: return left.object == right.object;
 			case ValueType::nullref: return true;
 			case ValueType::any:
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 

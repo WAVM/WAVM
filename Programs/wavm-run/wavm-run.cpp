@@ -122,7 +122,7 @@ struct RootResolver : Resolver
 		}
 
 		case IR::ExternKind::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 };
@@ -335,7 +335,7 @@ static int run(const CommandLineOptions& options)
 			case ValueType::none:
 			case ValueType::any:
 			case ValueType::nullref:
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 			invokeArgs.push_back(value);
 		}

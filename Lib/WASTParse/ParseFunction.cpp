@@ -131,7 +131,7 @@ static bool tryParseAndResolveBranchTargetRef(CursorState* cursor, Uptr& outTarg
 		}
 
 		case Reference::Type::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 		return true;
 	}

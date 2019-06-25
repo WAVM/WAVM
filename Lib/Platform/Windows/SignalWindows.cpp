@@ -90,7 +90,7 @@ static LONG CALLBACK sehSignalFilterFunction(EXCEPTION_POINTERS* exceptionPointe
 	}
 	__except(Errors::fatal("reentrant exception"), true)
 	{
-		Errors::unreachable();
+		WAVM_UNREACHABLE();
 	}
 }
 

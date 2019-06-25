@@ -252,7 +252,7 @@ namespace WAVM { namespace LLVMJIT {
 			}
 			break;
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 		return llvm::FunctionType::get(
 			llvmReturnType, llvm::ArrayRef<llvm::Type*>(llvmArgTypes, numParameters), false);
@@ -269,7 +269,7 @@ namespace WAVM { namespace LLVMJIT {
 		case IR::CallingConvention::cAPICallback:
 		case IR::CallingConvention::c: return llvm::CallingConv::C;
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		}
 	}
 

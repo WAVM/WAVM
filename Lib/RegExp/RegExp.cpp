@@ -332,7 +332,7 @@ static void createNFA(NFA::Builder* nfaBuilder,
 		createNFA(nfaBuilder, seq->secondChild, intermediateState, finalState);
 		break;
 	}
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 

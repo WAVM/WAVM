@@ -119,7 +119,7 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		case ValueType::none:
 		case ValueType::any:
 		case ValueType::nullref:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 
 		resultOffset += resultNumBytes;

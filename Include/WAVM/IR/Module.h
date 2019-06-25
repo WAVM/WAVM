@@ -75,7 +75,7 @@ namespace WAVM { namespace IR {
 			case Type::ref_null: return true;
 			case Type::ref_func: return a.ref == b.ref;
 			case Type::invalid: return true;
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 
@@ -306,7 +306,7 @@ namespace WAVM { namespace IR {
 		case IndexedBlockType::noParametersOrResult: return FunctionType();
 		case IndexedBlockType::oneResult: return FunctionType(TypeTuple(indexedType.resultType));
 		case IndexedBlockType::functionType: return module.types[indexedType.index];
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 

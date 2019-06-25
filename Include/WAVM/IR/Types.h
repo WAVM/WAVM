@@ -144,7 +144,7 @@ namespace WAVM { namespace IR {
 
 		case ValueType::none:
 		case ValueType::any:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 
@@ -164,7 +164,7 @@ namespace WAVM { namespace IR {
 		case ValueType::anyref: return "anyref";
 		case ValueType::funcref: return "funcref";
 		case ValueType::nullref: return "nullref";
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 
@@ -590,7 +590,7 @@ namespace WAVM { namespace IR {
 			return "exception_type " + asString(asExceptionType(objectType));
 
 		case ExternKind::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 

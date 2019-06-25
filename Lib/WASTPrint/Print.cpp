@@ -202,7 +202,7 @@ static void print(std::string& string, ReferenceType type)
 	case ReferenceType::anyref: string += "anyref"; break;
 
 	case ReferenceType::none:
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -346,7 +346,7 @@ struct ModulePrintContext
 			break;
 
 		case InitializerExpression::Type::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 };
@@ -830,7 +830,7 @@ void ModulePrintContext::printModule()
 			break;
 
 		case ExternKind::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 
@@ -853,7 +853,7 @@ void ModulePrintContext::printModule()
 			break;
 
 		case ExternKind::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 		string += ')';
 	}
@@ -924,7 +924,7 @@ void ModulePrintContext::printModule()
 			case ReferenceType::funcref: string += " funcref"; break;
 
 			case ReferenceType::none:
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 		else
@@ -960,7 +960,7 @@ void ModulePrintContext::printModule()
 					string += ')';
 					break;
 
-				default: Errors::unreachable();
+				default: WAVM_UNREACHABLE();
 				};
 			}
 		}
@@ -1382,7 +1382,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						linkingSectionString += " index=" + std::to_string(index);
 						break;
 
-					default: Errors::unreachable();
+					default: WAVM_UNREACHABLE();
 					}
 
 					if(SymbolKind(kind) == SymbolKind::data)

@@ -217,7 +217,7 @@ static InitializerExpression resolveInitializerExpression(
 												moduleState->module.functions.size(),
 												unresolvedExpression.ref));
 	case UnresolvedInitializerExpression::Type::invalid: return InitializerExpression();
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -382,7 +382,7 @@ static void parseImport(CursorState* cursor)
 						 ExternKind::exceptionType);
 			break;
 		}
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	});
 }
@@ -454,7 +454,7 @@ static void parseExport(CursorState* cursor)
 				break;
 
 			case ExternKind::invalid:
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 		});
 	});
@@ -748,7 +748,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 									  moduleState->module.functions.size(),
 									  unresolvedElem.ref)};
 					break;
-				default: Errors::unreachable();
+				default: WAVM_UNREACHABLE();
 				}
 			}
 		});

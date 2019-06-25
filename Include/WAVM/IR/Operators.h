@@ -193,7 +193,7 @@ namespace WAVM { namespace IR {
 	}
 				ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 		}
 

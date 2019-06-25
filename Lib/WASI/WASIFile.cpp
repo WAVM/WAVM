@@ -39,9 +39,9 @@ static __wasi_filetype_t asWASIFileType(VFS::FileType type)
 	case VFS::FileType::datagramSocket: return __WASI_FILETYPE_SOCKET_DGRAM;
 	case VFS::FileType::streamSocket: return __WASI_FILETYPE_SOCKET_STREAM;
 	case VFS::FileType::symbolicLink: return __WASI_FILETYPE_SYMBOLIC_LINK;
-	case VFS::FileType::pipe: Errors::unreachable();
+	case VFS::FileType::pipe: WAVM_UNREACHABLE();
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -187,7 +187,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_close", __wasi_errno_t, wasi_fd_close, _
 	case VFS::CloseResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
 	case VFS::CloseResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -299,7 +299,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::ReadResult::isDirectory: return TRACE_SYSCALL_RETURN(EISDIR);
 	case VFS::ReadResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -354,7 +354,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::SeekResult::invalidOffset: return TRACE_SYSCALL_RETURN(EINVAL);
 	case VFS::SeekResult::unseekable: return TRACE_SYSCALL_RETURN(ESPIPE);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -383,7 +383,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::SeekResult::invalidOffset: return TRACE_SYSCALL_RETURN(EOVERFLOW);
 	case VFS::SeekResult::unseekable: return TRACE_SYSCALL_RETURN(ESPIPE);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -429,7 +429,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 			fdstat.fs_flags |= __WASI_FDFLAG_SYNC | __WASI_FDFLAG_RSYNC;
 			break;
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		}
 
 		fdstat.fs_rights_base = wasiFD->rights;
@@ -440,7 +440,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	case VFS::GetInfoResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -540,7 +540,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::WriteResult::exceededFileSizeLimit: return TRACE_SYSCALL_RETURN(EFBIG);
 	case VFS::WriteResult::notPermitted: return TRACE_SYSCALL_RETURN(EPERM);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -730,7 +730,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::OpenResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
 	case VFS::OpenResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
 	__wasi_fd_t fd = process->fds.add(
@@ -832,7 +832,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::GetInfoResult::success: break;
 	case VFS::GetInfoResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
 	__wasi_filestat_t& fileStat = memoryRef<__wasi_filestat_t>(process->memory, filestatAddress);
@@ -925,7 +925,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::GetInfoByPathResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
 	case VFS::GetInfoByPathResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
 	__wasi_filestat_t& fileStat = memoryRef<__wasi_filestat_t>(process->memory, filestatAddress);

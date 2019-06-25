@@ -64,7 +64,7 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 	case SIGFPE: Errors::fatalfWithCallStack("unhandled SIGFPE");
 	case SIGSEGV: Errors::fatalfWithCallStack("unhandled SIGSEGV");
 	case SIGBUS: Errors::fatalfWithCallStack("unhandled SIGBUS");
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 

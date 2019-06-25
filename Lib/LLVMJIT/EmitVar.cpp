@@ -128,7 +128,7 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		}
 
 		case InitializerExpression::Type::invalid:
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 

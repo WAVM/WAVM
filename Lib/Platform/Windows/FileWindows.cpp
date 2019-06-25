@@ -28,7 +28,7 @@ static GetInfoResult getFileType(HANDLE handle, FileType& outType)
 			Errors::fatalf("GetFileType returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
 						   reinterpret_cast<Uptr>(handle));
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		}
 	}
 
@@ -50,7 +50,7 @@ static GetInfoResult getFileType(HANDLE handle, FileType& outType)
 					")",
 					reinterpret_cast<Uptr>(handle));
 
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 
@@ -77,7 +77,7 @@ static GetInfoResult getFileInfoByHandle(HANDLE handle, FileInfo& outInfo)
 				"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
 				reinterpret_cast<Uptr>(handle));
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 
@@ -121,7 +121,7 @@ struct WindowsFD : FD
 				Errors::fatalf("CloseHandle returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
 							   reinterpret_cast<Uptr>(handle));
 
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 		}
 	}
@@ -136,7 +136,7 @@ struct WindowsFD : FD
 		case SeekOrigin::begin: windowsOrigin = FILE_BEGIN; break;
 		case SeekOrigin::cur: windowsOrigin = FILE_CURRENT; break;
 		case SeekOrigin::end: windowsOrigin = FILE_END; break;
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		}
 
 		LONG offsetHigh = LONG((offset >> 32) & 0xffffffff);
@@ -162,7 +162,7 @@ struct WindowsFD : FD
 				// FILE_FLAG_NO_BUFFERING, the function fails, and GetLastError returns
 				// ERROR_INVALID_PARAMETER."
 
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 	}
@@ -219,7 +219,7 @@ struct WindowsFD : FD
 				// ReadFile attempts to read using the pipe's corresponding read handle, the
 				// function returns FALSE and GetLastError returns ERROR_BROKEN_PIPE. "
 
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 	}
@@ -265,7 +265,7 @@ struct WindowsFD : FD
 				// WriteFile attempts to write using the pipe's corresponding write handle, the
 				// function returns FALSE and GetLastError returns ERROR_BROKEN_PIPE."
 
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 	}
@@ -283,7 +283,7 @@ struct WindowsFD : FD
 
 			case ERROR_IO_DEVICE: return SyncResult::ioError;
 
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 	}
@@ -336,7 +336,7 @@ FD* Platform::getStdFD(StdDevice device)
 	case StdDevice::in: return stdinVFD;
 	case StdDevice::out: return stdoutVFD;
 	case StdDevice::err: return stderrVFD;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -365,7 +365,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 	case FileAccessMode::readOnly: desiredAccess = GENERIC_READ; break;
 	case FileAccessMode::writeOnly: desiredAccess = GENERIC_WRITE; break;
 	case FileAccessMode::readWrite: desiredAccess = GENERIC_READ | GENERIC_WRITE; break;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
 	switch(createMode)
@@ -375,7 +375,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 	case FileCreateMode::openAlways: creationDisposition = OPEN_ALWAYS; break;
 	case FileCreateMode::openExisting: creationDisposition = OPEN_EXISTING; break;
 	case FileCreateMode::truncateExisting: creationDisposition = TRUNCATE_EXISTING; break;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
 	// Try to open the file.
@@ -400,7 +400,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 		case ERROR_IO_DEVICE: return OpenResult::ioError;
 		case ERROR_ALREADY_EXISTS: return OpenResult::alreadyExists;
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		}
 	}
 }
@@ -430,7 +430,7 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileI
 		case ERROR_FILE_NOT_FOUND: return GetInfoByPathResult::doesNotExist;
 		case ERROR_IO_DEVICE: return GetInfoByPathResult::ioError;
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		}
 	}
 
@@ -440,7 +440,7 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileI
 	case GetInfoResult::success: break;
 	case GetInfoResult::ioError: return GetInfoByPathResult::ioError;
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
 	if(!CloseHandle(handle))

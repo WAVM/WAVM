@@ -205,7 +205,7 @@ static Runtime::ExceptionType* getExpectedTrapType(WAST::ExpectedTrapType expect
 	case WAST::ExpectedTrapType::invalidArgument: return Runtime::ExceptionTypes::invalidArgument;
 
 	case WAST::ExpectedTrapType::outOfBounds:
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -354,7 +354,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 
 		return true;
 	}
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -604,7 +604,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		break;
 	}
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 

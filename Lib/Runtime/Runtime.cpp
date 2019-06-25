@@ -109,7 +109,7 @@ bool Runtime::isA(const Object* object, const ExternType& type)
 		return isSubtype(asExceptionType(type).params, asExceptionType(object)->sig.params);
 
 	case ExternKind::invalid:
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -128,7 +128,7 @@ ExternType Runtime::getExternType(const Object* object)
 	case ObjectKind::compartment:
 	case ObjectKind::foreign:
 	case ObjectKind::invalid:
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 

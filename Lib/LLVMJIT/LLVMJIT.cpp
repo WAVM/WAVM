@@ -105,7 +105,7 @@ LLVMContext::LLVMContext()
 	{
 	case 4: iptrType = i32Type; break;
 	case 8: iptrType = i64Type; break;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 
 	anyrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();

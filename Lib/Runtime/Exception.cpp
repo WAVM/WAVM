@@ -341,7 +341,7 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		return true;
 
 	case Platform::Signal::Type::invalid:
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 

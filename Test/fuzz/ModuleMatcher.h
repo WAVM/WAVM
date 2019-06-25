@@ -253,7 +253,7 @@ namespace WAVM {
 	}
 					ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
-				default: Errors::unreachable();
+				default: WAVM_UNREACHABLE();
 				}
 			}
 			wavmAssert(aNextByte == aEnd);

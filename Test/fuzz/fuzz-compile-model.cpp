@@ -227,7 +227,7 @@ static ValueType generateValueType(RandomStream& random)
 	case 4: return ValueType::v128;
 	case 5: return ValueType::anyref;
 	case 6: return ValueType::funcref;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -761,7 +761,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 			case ValueType::none:
 			case ValueType::any:
 			case ValueType::nullref:
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 			module.globals.defs.push_back({globalType, initializer});
 		}

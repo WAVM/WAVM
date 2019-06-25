@@ -255,7 +255,7 @@ void printFunctionSEH(U8* imageBase, const RuntimeFunction& function)
 				++unwindCode;
 				break;
 
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 		}
 	}
