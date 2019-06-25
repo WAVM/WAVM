@@ -250,7 +250,7 @@ static int run(const CommandLineOptions& options)
 	Function* startFunction = getStartFunction(moduleInstance);
 	if(startFunction) { invokeFunctionChecked(context, startFunction, {}); }
 
-	if(options.enableEmscripten)
+	if(emscriptenInstance)
 	{
 		// Call the Emscripten global initalizers.
 		Emscripten::initializeGlobals(emscriptenInstance, context, irModule, moduleInstance);
