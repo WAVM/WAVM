@@ -261,8 +261,8 @@ static U8* getValidatedMemoryOffsetRangeImpl(Memory* memory,
 			{asObject(memory), U64(address > memoryNumBytes ? address : memoryNumBytes)});
 	}
 	wavmAssert(memoryBase);
-	numBytes = Platform::saturateToBounds(numBytes, memoryNumBytes);
-	return memoryBase + Platform::saturateToBounds(address, memoryNumBytes - numBytes);
+	numBytes = Platform::branchlessMin(numBytes, memoryNumBytes);
+	return memoryBase + Platform::branchlessMin(address, memoryNumBytes - numBytes);
 }
 
 U8* Runtime::getReservedMemoryOffsetRange(Memory* memory, Uptr address, Uptr numBytes)

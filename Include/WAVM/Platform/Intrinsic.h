@@ -82,12 +82,12 @@ namespace WAVM { namespace Platform {
 		return value <= 1 ? 0 : 31 - countLeadingZeroes(value * 2 - 1);
 	}
 
-	inline U64 saturateToBounds(U64 value, U64 maxValue)
+	inline U64 branchlessMin(U64 value, U64 maxValue)
 	{
 		return U64(value + ((I64(maxValue - value) >> 63) & (maxValue - value)));
 	}
 
-	inline U32 saturateToBounds(U32 value, U32 maxValue)
+	inline U32 branchlessMin(U32 value, U32 maxValue)
 	{
 		return U32(value + ((I32(maxValue - value) >> 31) & (maxValue - value)));
 	}
