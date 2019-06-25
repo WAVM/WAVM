@@ -95,80 +95,94 @@ static TypeTuple parseTypeTuple(CursorState* cursor)
 // ref.func.
 typedef InitializerExpressionBase<Reference> UnresolvedInitializerExpression;
 
+static UnresolvedInitializerExpression parseInitializerInstruction(CursorState* cursor)
+{
+	UnresolvedInitializerExpression result;
+	switch(cursor->nextToken->type)
+	{
+	case t_i32_const:
+	{
+		++cursor->nextToken;
+		result = parseI32(cursor);
+		break;
+	}
+	case t_i64_const:
+	{
+		++cursor->nextToken;
+		result = parseI64(cursor);
+		break;
+	}
+	case t_f32_const:
+	{
+		++cursor->nextToken;
+		result = parseF32(cursor);
+		break;
+	}
+	case t_f64_const:
+	{
+		++cursor->nextToken;
+		result = parseF64(cursor);
+		break;
+	}
+	case t_v128_const:
+	{
+		++cursor->nextToken;
+		result = parseV128(cursor);
+		break;
+	}
+	case t_global_get:
+	{
+		++cursor->nextToken;
+		Reference globalRef;
+		if(!tryParseNameOrIndexRef(cursor, globalRef))
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected global name or index");
+			throw RecoverParseException();
+		}
+		result = UnresolvedInitializerExpression(UnresolvedInitializerExpression::Type::global_get,
+												 globalRef);
+		break;
+	}
+	case t_ref_null:
+	{
+		++cursor->nextToken;
+		result = nullptr;
+		break;
+	}
+	case t_ref_func:
+	{
+		++cursor->nextToken;
+		Reference funcRef;
+		if(!tryParseNameOrIndexRef(cursor, funcRef))
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected function name or index");
+			throw RecoverParseException();
+		}
+		result = UnresolvedInitializerExpression(UnresolvedInitializerExpression::Type::ref_func,
+												 funcRef);
+		break;
+	}
+	default:
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
+		throw RecoverParseException();
+	};
+
+	return result;
+}
+
 static UnresolvedInitializerExpression parseInitializerExpression(CursorState* cursor)
 {
 	UnresolvedInitializerExpression result;
-	parseParenthesized(cursor, [&] {
-		switch(cursor->nextToken->type)
-		{
-		case t_i32_const:
-		{
-			++cursor->nextToken;
-			result = parseI32(cursor);
-			break;
-		}
-		case t_i64_const:
-		{
-			++cursor->nextToken;
-			result = parseI64(cursor);
-			break;
-		}
-		case t_f32_const:
-		{
-			++cursor->nextToken;
-			result = parseF32(cursor);
-			break;
-		}
-		case t_f64_const:
-		{
-			++cursor->nextToken;
-			result = parseF64(cursor);
-			break;
-		}
-		case t_v128_const:
-		{
-			++cursor->nextToken;
-			result = parseV128(cursor);
-			break;
-		}
-		case t_global_get:
-		{
-			++cursor->nextToken;
-			Reference globalRef;
-			if(!tryParseNameOrIndexRef(cursor, globalRef))
-			{
-				parseErrorf(cursor->parseState, cursor->nextToken, "expected global name or index");
-				throw RecoverParseException();
-			}
-			result = UnresolvedInitializerExpression(
-				UnresolvedInitializerExpression::Type::global_get, globalRef);
-			break;
-		}
-		case t_ref_null:
-		{
-			++cursor->nextToken;
-			result = nullptr;
-			break;
-		}
-		case t_ref_func:
-		{
-			++cursor->nextToken;
-			Reference funcRef;
-			if(!tryParseNameOrIndexRef(cursor, funcRef))
-			{
-				parseErrorf(
-					cursor->parseState, cursor->nextToken, "expected function name or index");
-				throw RecoverParseException();
-			}
-			result = UnresolvedInitializerExpression(
-				UnresolvedInitializerExpression::Type::ref_func, funcRef);
-			break;
-		}
-		default:
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
-			throw RecoverParseException();
-		};
-	});
+
+	// Parse either a parenthesized or unparenthesized instruction.
+	if(cursor->nextToken->type == t_leftParenthesis)
+	{
+		parseParenthesized(cursor, [&] { result = parseInitializerInstruction(cursor); });
+	}
+	else
+	{
+		result = parseInitializerInstruction(cursor);
+	}
 
 	return result;
 }
