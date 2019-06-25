@@ -204,9 +204,6 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Value* emitSRem(IR::ValueType type, llvm::Value* left, llvm::Value* right);
 		llvm::Value* emitF64Promote(llvm::Value* operand);
 
-		llvm::Value* emitFloatMin(llvm::Value* left, llvm::Value* right, llvm::Type* intType);
-		llvm::Value* emitFloatMax(llvm::Value* left, llvm::Value* right, llvm::Type* intType);
-
 		template<typename Float>
 		llvm::Value* emitTruncFloatToInt(IR::ValueType destType,
 										 bool isSigned,
