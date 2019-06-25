@@ -251,7 +251,7 @@ std::string Runtime::describeException(const Exception* exception)
 		createException(type, arguments.data(), arguments.size(), Platform::captureCallStack(1)));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
 						  "createException",
 						  Uptr,
 						  intrinsicCreateException,
@@ -273,7 +273,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	return reinterpret_cast<Uptr>(exception);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
 						  "destroyException",
 						  void,
 						  intrinsicDestroyException,
@@ -283,7 +283,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	destroyException(exception);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
 						  "throwException",
 						  void,
 						  intrinsicThrowException,
