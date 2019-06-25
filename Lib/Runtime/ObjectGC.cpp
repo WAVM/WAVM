@@ -171,6 +171,8 @@ struct GCState
 		case ObjectKind::context: break;
 
 		case ObjectKind::function:
+		case ObjectKind::foreign:
+		case ObjectKind::invalid:
 		default: Errors::unreachable();
 		};
 	}

@@ -31,16 +31,19 @@ namespace WAVM { namespace IR {
 		v128,
 		anyref,
 		funcref,
-		nullref,
+		nullref
+	};
 
-		num,
-		max = num - 1
+	enum : U8
+	{
+		maxValueType = (U8)ValueType::nullref,
+		numValueTypes
 	};
 
 	// The reference types subset of ValueType.
 	enum class ReferenceType : U8
 	{
-		invalid = U8(ValueType::none),
+		none = U8(ValueType::none),
 
 		anyref = U8(ValueType::anyref),
 		funcref = U8(ValueType::funcref),
@@ -73,9 +76,18 @@ namespace WAVM { namespace IR {
 			switch(supertype)
 			{
 			case ValueType::any: return true;
+
 			case ValueType::anyref:
 				return subtype == ValueType::funcref || subtype == ValueType::nullref;
 			case ValueType::funcref: return subtype == ValueType::nullref;
+
+			case ValueType::none:
+			case ValueType::i32:
+			case ValueType::i64:
+			case ValueType::f32:
+			case ValueType::f64:
+			case ValueType::v128:
+			case ValueType::nullref:
 			default: return false;
 			}
 		}
@@ -90,6 +102,8 @@ namespace WAVM { namespace IR {
 			{
 			case ReferenceType::anyref: return subtype == ReferenceType::funcref;
 			case ReferenceType::funcref: return subtype == ReferenceType::funcref;
+
+			case ReferenceType::none:
 			default: return false;
 			}
 		}
@@ -126,7 +140,10 @@ namespace WAVM { namespace IR {
 		case ValueType::v128: return 16;
 		case ValueType::anyref:
 		case ValueType::funcref:
-		case ValueType::nullref: return 8;
+		case ValueType::nullref: return sizeof(void*);
+
+		case ValueType::none:
+		case ValueType::any:
 		default: Errors::unreachable();
 		};
 	}
@@ -376,7 +393,7 @@ namespace WAVM { namespace IR {
 		bool isShared;
 		SizeConstraints size;
 
-		TableType() : elementType(ReferenceType::invalid) {}
+		TableType() : elementType(ReferenceType::none) {}
 		TableType(ReferenceType inElementType, bool inIsShared, SizeConstraints inSize)
 		: elementType(inElementType), isShared(inIsShared), size(inSize)
 		{
@@ -571,6 +588,8 @@ namespace WAVM { namespace IR {
 		case ExternKind::global: return asString(asGlobalType(objectType));
 		case ExternKind::exceptionType:
 			return "exception_type " + asString(asExceptionType(objectType));
+
+		case ExternKind::invalid:
 		default: Errors::unreachable();
 		};
 	}
@@ -580,6 +599,12 @@ namespace WAVM { namespace IR {
 		switch(type.kind)
 		{
 		case ExternKind::function: return ReferenceType::funcref;
+
+		case ExternKind::table:
+		case ExternKind::memory:
+		case ExternKind::global:
+		case ExternKind::exceptionType:
+		case ExternKind::invalid:
 		default: return ReferenceType::anyref;
 		}
 	}

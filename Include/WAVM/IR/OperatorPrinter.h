@@ -22,11 +22,6 @@ namespace WAVM { namespace IR {
 		ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
-		std::string unknown(Opcode opcode)
-		{
-			return "<unknown opcode " + std::to_string((Uptr)opcode) + ">";
-		}
-
 	private:
 		const Module& module;
 		const FunctionDef& functionDef;

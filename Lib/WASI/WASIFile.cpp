@@ -39,6 +39,8 @@ static __wasi_filetype_t asWASIFileType(VFS::FileType type)
 	case VFS::FileType::datagramSocket: return __WASI_FILETYPE_SOCKET_DGRAM;
 	case VFS::FileType::streamSocket: return __WASI_FILETYPE_SOCKET_STREAM;
 	case VFS::FileType::symbolicLink: return __WASI_FILETYPE_SYMBOLIC_LINK;
+	case VFS::FileType::pipe: Errors::unreachable();
+
 	default: Errors::unreachable();
 	};
 }
@@ -180,7 +182,6 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_close", __wasi_errno_t, wasi_fd_close, _
 	case VFS::CloseResult::success:
 		// If the close succeeded, remove the fd from the fds map.
 		process->fds.removeOrFail(fd);
-
 		return TRACE_SYSCALL_RETURN(ESUCCESS);
 
 	case VFS::CloseResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
@@ -293,13 +294,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		return TRACE_SYSCALL_RETURN(ESUCCESS, " (numBytesRead=%" PRIu64 ")", numBytesRead);
 	case VFS::ReadResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 	case VFS::ReadResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
-	case VFS::ReadResult::invalidArgument: return TRACE_SYSCALL_RETURN(EINVAL);
+	case VFS::ReadResult::tooManyBytes: return TRACE_SYSCALL_RETURN(EINVAL);
 	case VFS::ReadResult::notPermitted: return TRACE_SYSCALL_RETURN(EPERM);
 	case VFS::ReadResult::isDirectory: return TRACE_SYSCALL_RETURN(EISDIR);
 	case VFS::ReadResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
 
 	default: Errors::unreachable();
-	}
+	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -352,6 +353,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		return TRACE_SYSCALL_RETURN(ESUCCESS);
 	case VFS::SeekResult::invalidOffset: return TRACE_SYSCALL_RETURN(EINVAL);
 	case VFS::SeekResult::unseekable: return TRACE_SYSCALL_RETURN(ESPIPE);
+
 	default: Errors::unreachable();
 	};
 }
@@ -380,6 +382,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		return TRACE_SYSCALL_RETURN(ESUCCESS);
 	case VFS::SeekResult::invalidOffset: return TRACE_SYSCALL_RETURN(EOVERFLOW);
 	case VFS::SeekResult::unseekable: return TRACE_SYSCALL_RETURN(ESPIPE);
+
 	default: Errors::unreachable();
 	};
 }
@@ -425,6 +428,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		case VFS::FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
 			fdstat.fs_flags |= __WASI_FDFLAG_SYNC | __WASI_FDFLAG_RSYNC;
 			break;
+
 		default: Errors::unreachable();
 		}
 
@@ -529,6 +533,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		return TRACE_SYSCALL_RETURN(ESUCCESS, " (numBytesWritten=%" PRIu64 ")", numBytesWritten);
 	case VFS::WriteResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 	case VFS::WriteResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
+	case VFS::WriteResult::invalidArgument: return TRACE_SYSCALL_RETURN(EINVAL);
 	case VFS::WriteResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
 	case VFS::WriteResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
 	case VFS::WriteResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
@@ -536,7 +541,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::WriteResult::notPermitted: return TRACE_SYSCALL_RETURN(EPERM);
 
 	default: Errors::unreachable();
-	}
+	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -662,7 +667,8 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		// Undefined oflag combinations
 	case __WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC:
 	case __WASI_O_EXCL | __WASI_O_TRUNC:
-	case __WASI_O_EXCL: return TRACE_SYSCALL_RETURN(EINVAL);
+	case __WASI_O_EXCL:
+	default: return TRACE_SYSCALL_RETURN(EINVAL);
 	};
 
 	if(openFlags & __WASI_O_CREAT) { requiredDirRights |= __WASI_RIGHT_PATH_CREATE_FILE; }
@@ -704,29 +710,28 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	VFS::FD* openedVFD = nullptr;
 	VFS::OpenResult result
 		= process->fileSystem->open(canonicalPath, accessMode, createMode, openedVFD, implicitSync);
-	if(result != VFS::OpenResult::success)
+	switch(result)
 	{
-		switch(result)
-		{
-		case VFS::OpenResult::alreadyExists: return TRACE_SYSCALL_RETURN(EEXIST);
-		case VFS::OpenResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
-		case VFS::OpenResult::isDirectory: return TRACE_SYSCALL_RETURN(EISDIR);
-		case VFS::OpenResult::cantSynchronize: return TRACE_SYSCALL_RETURN(EINVAL);
-		case VFS::OpenResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
-		case VFS::OpenResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
-		case VFS::OpenResult::pathUsesFileAsDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::OpenResult::success: break;
 
-		case VFS::OpenResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
-		case VFS::OpenResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
-		case VFS::OpenResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
+	case VFS::OpenResult::alreadyExists: return TRACE_SYSCALL_RETURN(EEXIST);
+	case VFS::OpenResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
+	case VFS::OpenResult::isDirectory: return TRACE_SYSCALL_RETURN(EISDIR);
+	case VFS::OpenResult::cantSynchronize: return TRACE_SYSCALL_RETURN(EINVAL);
+	case VFS::OpenResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
+	case VFS::OpenResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
+	case VFS::OpenResult::pathUsesFileAsDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
 
-		case VFS::OpenResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
-		case VFS::OpenResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
-		case VFS::OpenResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
+	case VFS::OpenResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
+	case VFS::OpenResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+	case VFS::OpenResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
 
-		default: Errors::unreachable();
-		};
-	}
+	case VFS::OpenResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
+	case VFS::OpenResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
+	case VFS::OpenResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
+
+	default: Errors::unreachable();
+	};
 
 	__wasi_fd_t fd = process->fds.add(
 		UINT32_MAX,

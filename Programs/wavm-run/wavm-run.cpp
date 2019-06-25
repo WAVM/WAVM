@@ -120,6 +120,8 @@ struct RootResolver : Resolver
 			return asObject(
 				Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
 		}
+
+		case IR::ExternKind::invalid:
 		default: Errors::unreachable();
 		};
 	}
@@ -329,6 +331,10 @@ static int run(const CommandLineOptions& options)
 			case ValueType::funcref:
 				Errors::fatalf("Cannot parse command-line argument for %s function parameter",
 							   asString(functionType.params()[i]));
+
+			case ValueType::none:
+			case ValueType::any:
+			case ValueType::nullref:
 			default: Errors::unreachable();
 			}
 			invokeArgs.push_back(value);

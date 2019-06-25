@@ -165,7 +165,7 @@ namespace WAVM { namespace VFS {
 		outOfFreeSpace,
 	};
 
-	enum GetInfoByPathResult : I32
+	enum class GetInfoByPathResult : I32
 	{
 		success,
 

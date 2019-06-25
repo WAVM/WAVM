@@ -129,6 +129,8 @@ static bool tryParseAndResolveBranchTargetRef(CursorState* cursor, Uptr& outTarg
 			}
 			break;
 		}
+
+		case Reference::Type::invalid:
 		default: Errors::unreachable();
 		};
 		return true;

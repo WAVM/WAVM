@@ -435,6 +435,8 @@ Uptr WAST::resolveRef(ParseState* parseState,
 			return nameIndexPair->value;
 		}
 	}
+
+	case Reference::Type::invalid:
 	default: Errors::unreachable();
 	};
 }

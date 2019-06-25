@@ -216,25 +216,16 @@ static Node* parseGroup(const char*& nextChar, Uptr groupDepth)
 
 static Node* parseQuantifier(const char*& nextChar, Uptr groupDepth)
 {
-	Node* result = parseGroup(nextChar, groupDepth);
+	Node* group = parseGroup(nextChar, groupDepth);
 
 	switch(*nextChar)
 	{
-	case '+':
-		++nextChar;
-		result = new OneOrMore(result);
-		break;
-	case '*':
-		++nextChar;
-		result = new ZeroOrMore(result);
-		break;
-	case '?':
-		++nextChar;
-		result = new Optional(result);
-		break;
-	};
+	case '+': ++nextChar; return new OneOrMore(group);
+	case '*': ++nextChar; return new ZeroOrMore(group);
+	case '?': ++nextChar; return new Optional(group);
 
-	return result;
+	default: return group;
+	};
 }
 
 static Node* parseSeq(const char*& nextChar, Uptr groupDepth)
@@ -254,6 +245,8 @@ static Node* parseSeq(const char*& nextChar, Uptr groupDepth)
 			if(groupDepth != 0) { Errors::fatalf("unexpected end of string"); }
 			return result;
 		case '|': return result;
+
+		default: break;
 		};
 	};
 }

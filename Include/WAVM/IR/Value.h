@@ -85,6 +85,9 @@ namespace WAVM { namespace IR {
 				return std::string(buffer);
 			}
 			case ValueType::nullref: return "ref.null";
+
+			case ValueType::none:
+			case ValueType::any:
 			default: Errors::unreachable();
 			}
 		}
@@ -98,6 +101,7 @@ namespace WAVM { namespace IR {
 			}
 			switch(left.type)
 			{
+			case ValueType::none: return true;
 			case ValueType::i32:
 			case ValueType::f32: return left.i32 == right.i32;
 			case ValueType::i64:
@@ -108,6 +112,7 @@ namespace WAVM { namespace IR {
 			case ValueType::anyref:
 			case ValueType::funcref: return left.object == right.object;
 			case ValueType::nullref: return true;
+			case ValueType::any:
 			default: Errors::unreachable();
 			};
 		}

@@ -126,6 +126,8 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 			value = anyref;
 			break;
 		}
+
+		case InitializerExpression::Type::invalid:
 		default: Errors::unreachable();
 		};
 	}

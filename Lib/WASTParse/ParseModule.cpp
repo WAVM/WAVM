@@ -216,7 +216,7 @@ static InitializerExpression resolveInitializerExpression(
 												moduleState->functionNameToIndexMap,
 												moduleState->module.functions.size(),
 												unresolvedExpression.ref));
-	case UnresolvedInitializerExpression::Type::error: return InitializerExpression();
+	case UnresolvedInitializerExpression::Type::invalid: return InitializerExpression();
 	default: Errors::unreachable();
 	}
 }
@@ -452,6 +452,8 @@ static void parseExport(CursorState* cursor)
 												 moduleState->module.exceptionTypes.size(),
 												 exportRef);
 				break;
+
+			case ExternKind::invalid:
 			default: Errors::unreachable();
 			}
 		});

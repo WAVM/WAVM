@@ -135,6 +135,8 @@ static wasm_externtype_t* as_externtype(ExternType type)
 	case ExternKind::memory: return as_externtype(asMemoryType(type));
 	case ExternKind::global: return as_externtype(asGlobalType(type));
 	case ExternKind::exceptionType: Errors::unreachable();
+
+	case ExternKind::invalid:
 	default: Errors::unreachable();
 	}
 }
@@ -170,6 +172,10 @@ static Value asValue(ValueType type, const wasm_val_t* value)
 	}
 	case ValueType::anyref: return Value(value->ref);
 	case ValueType::funcref: return Value(asFunction(value->ref));
+
+	case ValueType::none:
+	case ValueType::any:
+	case ValueType::nullref:
 	default: Errors::unreachable();
 	}
 }
@@ -191,6 +197,10 @@ static wasm_val_t as_val(const Value& value)
 	}
 	case ValueType::anyref: result.ref = value.object; break;
 	case ValueType::funcref: result.ref = asObject(value.function); break;
+
+	case ValueType::none:
+	case ValueType::any:
+	case ValueType::nullref:
 	default: Errors::unreachable();
 	}
 	return result;
@@ -257,6 +267,10 @@ wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t* type)
 	case ValueType::v128: return WASM_V128;
 	case ValueType::anyref: return WASM_ANYREF;
 	case ValueType::funcref: return WASM_FUNCREF;
+
+	case ValueType::none:
+	case ValueType::any:
+	case ValueType::nullref:
 	default: Errors::unreachable();
 	};
 }
@@ -689,6 +703,8 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 	{
 		Errors::fatal("wasm_module_import can't handle exception type imports");
 	}
+
+	case ExternKind::invalid:
 	default: Errors::unreachable();
 	};
 }
@@ -719,6 +735,8 @@ void wasm_module_export(const wasm_module_t* module, size_t index, wasm_export_t
 		break;
 	case ExternKind::exceptionType:
 		Errors::fatal("wasm_module_export can't handle exception type exports");
+
+	case ExternKind::invalid:
 	default: Errors::unreachable();
 	};
 }
@@ -909,6 +927,12 @@ wasm_externkind_t wasm_extern_kind(const wasm_extern_t* object)
 	case ObjectKind::memory: return WASM_EXTERN_MEMORY;
 	case ObjectKind::global: return WASM_EXTERN_GLOBAL;
 	case ObjectKind::exceptionType: Errors::fatal("wasm_extern_kind can't handle exception types");
+
+	case ObjectKind::moduleInstance:
+	case ObjectKind::context:
+	case ObjectKind::compartment:
+	case ObjectKind::foreign:
+	case ObjectKind::invalid:
 	default: Errors::unreachable();
 	};
 }

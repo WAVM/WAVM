@@ -757,6 +757,10 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 			case ValueType::funcref:
 				initializer.type = InitializerExpression::Type::ref_null;
 				break;
+
+			case ValueType::none:
+			case ValueType::any:
+			case ValueType::nullref:
 			default: Errors::unreachable();
 			}
 			module.globals.defs.push_back({globalType, initializer});
@@ -785,7 +789,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 		for(Uptr paramIndex = 0; paramIndex < numParams; ++paramIndex)
 		{ functionParams.push_back(generateValueType(random)); };
 
-		// const ValueType resultType = ValueType(random.get(U32(ValueType::max)));
+		// const ValueType resultType = ValueType(random.get(U32(maxValueType)));
 		// FunctionType functionType(resultType == ValueType::any ? TypeTuple() :
 		// TypeTuple{resultType},
 		//						  TypeTuple(functionParams));

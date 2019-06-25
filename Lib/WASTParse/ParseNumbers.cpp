@@ -23,22 +23,26 @@
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4244 4083 4706 4701 4703 4018)
-#elif defined(__GNUC__) && !defined(__clang__)
+#elif defined(__GNUC__)
+#if !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wswitch-default"
 #define Long int
 #else
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wswitch-default"
 #define Long int
+#endif
 #endif
 
 #include "../ThirdParty/dtoa/dtoa.c"
 
 #ifdef _MSC_VER
 #pragma warning(pop)
-#else
+#elif defined(__GNUC__)
 #pragma GCC diagnostic pop
 #undef Long
 #endif

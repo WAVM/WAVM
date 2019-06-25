@@ -203,6 +203,8 @@ static Runtime::ExceptionType* getExpectedTrapType(WAST::ExpectedTrapType expect
 	case WAST::ExpectedTrapType::misalignedAtomicMemoryAccess:
 		return Runtime::ExceptionTypes::misalignedAtomicMemoryAccess;
 	case WAST::ExpectedTrapType::invalidArgument: return Runtime::ExceptionTypes::invalidArgument;
+
+	case WAST::ExpectedTrapType::outOfBounds:
 	default: Errors::unreachable();
 	};
 }
@@ -601,6 +603,8 @@ static void processCommand(TestScriptState& state, const Command* command)
 			});
 		break;
 	}
+
+	default: Errors::unreachable();
 	};
 }
 

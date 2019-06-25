@@ -43,6 +43,12 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 		return IR::Value(global->type.valueType, global->initialValue);
 	}
 	case InitializerExpression::Type::ref_null: return nullptr;
+
+	case InitializerExpression::Type::ref_func:
+		// instantiateModule delays evaluating ref.func initializers until the module is loaded and
+		// we have addresses for its functions.
+
+	case InitializerExpression::Type::invalid:
 	default: Errors::unreachable();
 	};
 }
@@ -140,6 +146,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			exceptionTypes.push_back(exceptionType);
 			break;
 		}
+
+		case ExternKind::invalid:
 		default: Errors::unreachable();
 		};
 	}
@@ -299,6 +307,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		case IR::ExternKind::memory: exportedObject = memories[exportIt.index]; break;
 		case IR::ExternKind::global: exportedObject = globals[exportIt.index]; break;
 		case IR::ExternKind::exceptionType: exportedObject = exceptionTypes[exportIt.index]; break;
+
+		case IR::ExternKind::invalid:
 		default: Errors::unreachable();
 		}
 		exportMap.addOrFail(exportIt.name, exportedObject);

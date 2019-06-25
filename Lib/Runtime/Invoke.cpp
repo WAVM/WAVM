@@ -115,6 +115,10 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		case ValueType::v128: results.values.push_back(Value(*(V128*)result)); break;
 		case ValueType::anyref: results.values.push_back(Value(*(Object**)result)); break;
 		case ValueType::funcref: results.values.push_back(Value(*(Function**)result)); break;
+
+		case ValueType::none:
+		case ValueType::any:
+		case ValueType::nullref:
 		default: Errors::unreachable();
 		};
 

@@ -339,6 +339,8 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		outException = createException(
 			ExceptionTypes::integerDivideByZeroOrOverflow, nullptr, 0, std::move(callStack));
 		return true;
+
+	case Platform::Signal::Type::invalid:
 	default: Errors::unreachable();
 	}
 }

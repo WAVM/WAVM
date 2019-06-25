@@ -313,7 +313,6 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 								  FDImplicitSync implicitSync)
 {
 	U32 flags = 0;
-	mode_t mode = 0;
 	switch(accessMode)
 	{
 	case FileAccessMode::none: flags = O_RDONLY; break;
@@ -333,15 +332,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 	default: Errors::unreachable();
 	};
 
-	switch(createMode)
-	{
-	case FileCreateMode::createAlways:
-	case FileCreateMode::createNew:
-	case FileCreateMode::openAlways:
-		mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-		break;
-	default: break;
-	};
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
 	switch(implicitSync)
 	{

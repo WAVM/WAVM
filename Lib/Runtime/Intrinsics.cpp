@@ -172,6 +172,12 @@ ModuleInstance* Intrinsics::instantiateModule(
 				case ObjectKind::exceptionType:
 					exceptionTypes.push_back(asExceptionType(object));
 					break;
+
+				case ObjectKind::moduleInstance:
+				case ObjectKind::context:
+				case ObjectKind::compartment:
+				case ObjectKind::foreign:
+				case ObjectKind::invalid:
 				default: Errors::unreachable();
 				};
 			}

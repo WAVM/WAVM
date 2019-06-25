@@ -33,7 +33,7 @@ FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 {
 	opcode = (Opcode)0;
 	serializeNativeValue(stream, *(U8*)&opcode);
-	if(opcode > Opcode::maxSingleByteOpcode)
+	if(opcode > (Opcode)maxSingleByteOpcode)
 	{
 		opcode = (Opcode)(U16(opcode) << 8);
 		serializeVarUInt8(stream, *(U8*)&opcode);
@@ -41,7 +41,7 @@ FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 }
 FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 {
-	if(opcode <= Opcode::maxSingleByteOpcode)
+	if(opcode <= (Opcode)maxSingleByteOpcode)
 	{ Serialization::serializeNativeValue(stream, *(U8*)&opcode); }
 	else
 	{
@@ -80,6 +80,10 @@ namespace WAVM { namespace IR {
 		case ValueType::v128: return -5;
 		case ValueType::funcref: return -16;
 		case ValueType::anyref: return -17;
+
+		case ValueType::none:
+		case ValueType::any:
+		case ValueType::nullref:
 		default: throw FatalSerializationException("invalid value type");
 		};
 	}
@@ -149,6 +153,8 @@ namespace WAVM { namespace IR {
 			{
 			case ReferenceType::funcref: encodedReferenceType = 0x70; break;
 			case ReferenceType::anyref: encodedReferenceType = 0x6F; break;
+
+			case ReferenceType::none:
 			default: Errors::unreachable();
 			}
 			serializeNativeValue(stream, encodedReferenceType);
@@ -224,6 +230,8 @@ namespace WAVM { namespace IR {
 		case InitializerExpression::Type::ref_func:
 			serializeVarUInt32(stream, initializer.ref);
 			break;
+
+		case InitializerExpression::Type::invalid:
 		default: throw FatalSerializationException("invalid initializer expression opcode");
 		}
 		serializeConstant(stream, "expected end opcode", (U8)Opcode::end);
@@ -431,6 +439,8 @@ static void serialize(OutputStream& stream, SectionType sectionType)
 	case SectionType::data: serializedSectionId = 11; break;
 	case SectionType::dataCount: serializedSectionId = 12; break;
 	case SectionType::exceptionTypes: serializedSectionId = 0x7f; break;
+
+	case SectionType::unknown:
 	default: Errors::unreachable();
 	};
 
@@ -818,8 +828,6 @@ struct OperatorSerializerStream
 		}
 	}
 
-	void unknown(Opcode opcode) { throw FatalSerializationException("unknown opcode"); }
-
 private:
 	Serialization::OutputStream& byteStream;
 	FunctionDef& functionDef;
@@ -1033,6 +1041,8 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{exceptionType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
+
+				case ExternKind::invalid:
 				default: throw FatalSerializationException("invalid ExternKind");
 				};
 
@@ -1096,6 +1106,8 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serialize(sectionStream, exceptionTypeImport.type);
 					break;
 				}
+
+				case ExternKind::invalid:
 				default: Errors::unreachable();
 				};
 			}
@@ -1380,6 +1392,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			serialize(moduleStream, userSection);
 			break;
 		}
+		case SectionType::unknown:
 		default: throw FatalSerializationException("unknown section ID");
 		};
 	};

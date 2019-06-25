@@ -74,6 +74,8 @@ LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
 			linkImport(module, exceptionTypeImport, exceptionTypeImport.type, resolver, linkResult);
 			break;
 		}
+
+		case ExternKind::invalid:
 		default: Errors::unreachable();
 		};
 	}
