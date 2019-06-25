@@ -52,12 +52,12 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Value* getCompartmentAddress()
 		{
 			// Derive the compartment runtime data from the context address by masking off the lower
-			// 32 bits.
+			// 31 bits.
 			return irBuilder.CreateIntToPtr(
 				irBuilder.CreateAnd(
 					irBuilder.CreatePtrToInt(irBuilder.CreateLoad(contextPointerVariable),
 											 llvmContext.i64Type),
-					emitLiteral(llvmContext, ~((U64(1) << 32) - 1))),
+					emitLiteral(llvmContext, ~((U64(1) << 31) - 1))),
 				llvmContext.i8PtrType);
 		}
 
