@@ -115,7 +115,7 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 	if(result != 0)
 	{
 		fprintf(stderr,
-				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed! errno=%s\n",
+				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed: %s\n",
 				reinterpret_cast<Uptr>(baseVirtualAddress),
 				numPages << getPageSizeLog2(),
 				memoryAccessAsPOSIXFlag(access),
@@ -133,7 +133,7 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 	if(result != 0)
 	{
 		fprintf(stderr,
-				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed! errno=%s\n",
+				"mprotect(0x%" PRIxPTR ", %" PRIuPTR ", %u) failed: %s\n",
 				reinterpret_cast<Uptr>(baseVirtualAddress),
 				numPages << getPageSizeLog2(),
 				memoryAccessAsPOSIXFlag(access),
@@ -150,12 +150,11 @@ void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 	if(mmap(baseVirtualAddress, numBytes, PROT_NONE, MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)
 	   == MAP_FAILED)
 	{
-		Errors::fatalf(
-			"mmap(0x%" PRIxPTR ", %" PRIuPTR
-			", PROT_NONE, MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed! errno=%s",
-			reinterpret_cast<Uptr>(baseVirtualAddress),
-			numBytes,
-			strerror(errno));
+		Errors::fatalf("mmap(0x%" PRIxPTR ", %" PRIuPTR
+					   ", PROT_NONE, MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) failed: %s",
+					   reinterpret_cast<Uptr>(baseVirtualAddress),
+					   numBytes,
+					   strerror(errno));
 	}
 }
 
@@ -164,7 +163,7 @@ void Platform::freeVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 	errorUnless(isPageAligned(baseVirtualAddress));
 	if(munmap(baseVirtualAddress, numPages << getPageSizeLog2()))
 	{
-		Errors::fatalf("munmap(0x%" PRIxPTR ", %u) failed! errno=%s",
+		Errors::fatalf("munmap(0x%" PRIxPTR ", %u) failed: %s",
 					   reinterpret_cast<Uptr>(baseVirtualAddress),
 					   numPages << getPageSizeLog2(),
 					   strerror(errno));
@@ -176,7 +175,7 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 	errorUnless(isPageAligned(unalignedBaseAddress));
 	if(munmap(unalignedBaseAddress, numPages << getPageSizeLog2()))
 	{
-		Errors::fatalf("munmap(0x%" PRIxPTR ", %u) failed! errno=%s",
+		Errors::fatalf("munmap(0x%" PRIxPTR ", %u) failed: %s",
 					   reinterpret_cast<Uptr>(unalignedBaseAddress),
 					   numPages << getPageSizeLog2(),
 					   strerror(errno));

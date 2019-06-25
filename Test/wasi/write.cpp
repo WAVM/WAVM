@@ -16,13 +16,13 @@ int main(int argc, char** argv)
 	FILE* file = fopen(argv[1], "wb");
 	if(!file)
 	{
-		printf("Failed to open '%s' for writing. errno=%s\n", argv[1], strerror(errno));
+		printf("Failed to open '%s' for writing: %s\n", argv[1], strerror(errno));
 		return 1;
 	}
 	size_t writeResult = fwrite(string, 1, stringLength, file);
 	if(writeResult != stringLength)
 	{
-		printf("Failed to write string to '%s': fwrite returned %zu, errno=%s.\n",
+		printf("Failed to write string to '%s': fwrite returned %zu, errno = %s.\n",
 			   argv[1],
 			   writeResult,
 			   strerror(errno));
