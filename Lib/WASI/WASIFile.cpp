@@ -250,7 +250,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  wasi_fd_read,
 						  __wasi_fd_t fd,
 						  WASIAddress iovsAddress,
-						  WASIAddress numIOVs,
+						  I32 numIOVs,
 						  WASIAddress numBytesReadAddress)
 {
 	TRACE_SYSCALL("fd_read",
@@ -266,11 +266,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
 	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_READ)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
 
+	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(EINVAL); }
+
 	const __wasi_iovec_t* iovs
 		= memoryArrayPtr<__wasi_iovec_t>(process->memory, iovsAddress, numIOVs);
 	U64 numBytesRead = 0;
 	VFS::ReadResult readResult = VFS::ReadResult::success;
-	for(WASIAddress iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+	for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 	{
 		__wasi_iovec_t iov = iovs[iovIndex];
 
@@ -489,7 +491,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  wasi_fd_write,
 						  __wasi_fd_t fd,
 						  WASIAddress iovsAddress,
-						  WASIAddress numIOVs,
+						  I32 numIOVs,
 						  WASIAddress numBytesWrittenAddress)
 {
 	TRACE_SYSCALL("fd_write",
@@ -505,11 +507,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
 	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_WRITE)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
 
+	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(EINVAL); }
+
 	const __wasi_ciovec_t* iovs
 		= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
 	U64 numBytesWritten = 0;
 	VFS::WriteResult writeResult = VFS::WriteResult::success;
-	for(WASIAddress iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+	for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
 	{
 		__wasi_ciovec_t iov = iovs[iovIndex];
 

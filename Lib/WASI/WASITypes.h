@@ -432,3 +432,5 @@ static_assert(offsetof(__wasi_subscription_t, u.clock.flags) == 48, "non-wasi da
 static_assert(offsetof(__wasi_subscription_t, u.fd_readwrite.fd) == 16, "non-wasi data layout");
 static_assert(sizeof(__wasi_subscription_t) == 56, "non-wasi data layout");
 static_assert(alignof(__wasi_subscription_t) == 8, "non-wasi data layout");
+
+#define __WASI_IOV_MAX 1024
