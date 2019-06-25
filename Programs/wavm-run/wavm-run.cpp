@@ -19,6 +19,7 @@
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/File.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/ThreadTest/ThreadTest.h"
@@ -54,7 +55,7 @@ struct RootResolver : Resolver
 								"Resolved import %s.%s to a %s, but was expecting %s\n",
 								moduleName.c_str(),
 								exportName.c_str(),
-								asString(getObjectType(outObject)).c_str(),
+								asString(getExternType(outObject)).c_str(),
 								asString(type).c_str());
 					return false;
 				}
@@ -106,8 +107,8 @@ struct RootResolver : Resolver
 		}
 		case IR::ExternKind::table:
 		{
-			return asObject(
-				Runtime::createTable(compartment, asTableType(type), std::string(exportName)));
+			return asObject(Runtime::createTable(
+				compartment, asTableType(type), nullptr, std::string(exportName)));
 		}
 		case IR::ExternKind::global:
 		{
@@ -212,6 +213,10 @@ static int run(const CommandLineOptions& options)
 			rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
 			rootResolver.moduleNameToInstanceMap.set("asm2wasm", emscriptenInstance->asm2wasm);
 			rootResolver.moduleNameToInstanceMap.set("global", emscriptenInstance->global);
+
+			emscriptenInstance->stdIn = Platform::getStdFD(Platform::StdDevice::in);
+			emscriptenInstance->stdOut = Platform::getStdFD(Platform::StdDevice::out);
+			emscriptenInstance->stdErr = Platform::getStdFD(Platform::StdDevice::err);
 		}
 	}
 
@@ -245,7 +250,7 @@ static int run(const CommandLineOptions& options)
 	Function* startFunction = getStartFunction(moduleInstance);
 	if(startFunction) { invokeFunctionChecked(context, startFunction, {}); }
 
-	if(options.enableEmscripten)
+	if(emscriptenInstance)
 	{
 		// Call the Emscripten global initalizers.
 		Emscripten::initializeGlobals(emscriptenInstance, context, irModule, moduleInstance);

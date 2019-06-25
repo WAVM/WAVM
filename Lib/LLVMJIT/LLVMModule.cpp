@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <fstream>
 #include <map>
 #include <memory>
 #include <string>
@@ -41,25 +40,18 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Memory.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/raw_ostream.h"
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 #if !USE_WINDOWS_SEH
 #include <cxxabi.h>
-
 #endif
 
 namespace WAVM { namespace Runtime {
 	struct ExceptionType;
 }}
 
-#ifndef KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED
 #define KEEP_UNLOADED_MODULE_ADDRESSES_RESERVED 0
-#endif
-
-#ifndef PRINT_DISASSEMBLY
 #define PRINT_DISASSEMBLY 0
-#endif
 
 using namespace WAVM;
 using namespace WAVM::LLVMJIT;
@@ -209,6 +201,7 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 													   Platform::MemoryAccess::readWrite));
 		}
 
+		// Invalidate the instruction cache.
 		invalidateInstructionCache();
 	}
 	virtual void invalidateInstructionCache()
@@ -308,8 +301,7 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 
 Module::Module(const std::vector<U8>& objectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
-			   bool shouldLogMetrics,
-			   const std::string &filePath)
+			   bool shouldLogMetrics)
 : memoryManager(new ModuleMemoryManager())
 #if LLVM_VERSION_MAJOR < 8
 , objectBytes(objectBytes)
@@ -321,15 +313,8 @@ Module::Module(const std::vector<U8>& objectBytes,
 	std::unique_ptr<llvm::object::ObjectFile> object;
 #endif
 
-    llvm::StringRef fileRef;
-	if(filePath.empty()) {
-	    fileRef = "memory";
-	} else {
-        fileRef = filePath;
-	}
-
-	llvm::StringRef bytesRef((const char*)objectBytes.data(), objectBytes.size());
-	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(bytesRef, fileRef)));
+	object = cantFail(llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(
+		llvm::StringRef((const char*)objectBytes.data(), objectBytes.size()), "memory")));
 
 	// Create the LLVM object loader.
 	struct SymbolResolver : llvm::JITSymbolResolver
@@ -345,11 +330,8 @@ Module::Module(const std::vector<U8>& objectBytes,
 		virtual void lookup(const LookupSet& symbols,
 							llvm::JITSymbolResolver::OnResolvedFunction onResolvedFunction) override
 		{
-			// Used to look up imports
-		    LookupResult result;
-			for(auto symbol : symbols) {
-			    result.emplace(symbol, findSymbolImpl(symbol));
-			}
+			LookupResult result;
+			for(auto symbol : symbols) { result.emplace(symbol, findSymbolImpl(symbol)); }
 			onResolvedFunction(result);
 		}
 		virtual llvm::Expected<LookupSet> getResponsibilitySet(const LookupSet& symbols) override
@@ -420,9 +402,16 @@ Module::Module(const std::vector<U8>& objectBytes,
 			llvm::StringRef sectionName;
 			if(!section.getName(sectionName))
 			{
+#if LLVM_VERSION_MAJOR >= 9
+				llvm::Expected<llvm::StringRef> sectionContentsOrError = section.getContents();
+				if(sectionContentsOrError)
+				{
+					const llvm::StringRef& sectionContents = sectionContentsOrError.get();
+#else
 				llvm::StringRef sectionContents;
 				if(!section.getContents(sectionContents))
 				{
+#endif
 					const U8* loadedSection = (const U8*)sectionContents.data();
 					if(sectionName == ".pdata")
 					{
@@ -444,7 +433,6 @@ Module::Module(const std::vector<U8>& objectBytes,
 
 	// Use the LLVM object loader to load the object.
 	std::unique_ptr<llvm::RuntimeDyld::LoadedObjectInfo> loadedObject = loader.loadObject(*object);
-
 	loader.finalizeWithMemoryManagerLocking();
 	if(loader.hasError())
 	{ Errors::fatalf("RuntimeDyld failed: %s", loader.getErrorString().data()); }
@@ -498,11 +486,10 @@ Module::Module(const std::vector<U8>& objectBytes,
 	{
 		Lock<Platform::Mutex> gdbRegistrationListenerLock(gdbRegistrationListenerMutex);
 		if(!gdbRegistrationListener)
-		{
-		    gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener();
-		}
+		{ gdbRegistrationListener = llvm::JITEventListener::createGDBRegistrationListener(); }
 #if LLVM_VERSION_MAJOR >= 8
-		gdbRegistrationListener->notifyObjectLoaded(reinterpret_cast<Uptr>(this), *object, *loadedObject);
+		gdbRegistrationListener->notifyObjectLoaded(
+			reinterpret_cast<Uptr>(this), *object, *loadedObject);
 #else
 		gdbRegistrationListener->NotifyObjectEmitted(*object, *loadedObject);
 #endif

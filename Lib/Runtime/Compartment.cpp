@@ -166,7 +166,7 @@ ModuleInstance* Runtime::remapToClonedCompartment(ModuleInstance* moduleInstance
 	return newCompartment->moduleInstances[moduleInstance->id];
 }
 
-bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
+bool Runtime::isInCompartment(const Object* object, const Compartment* compartment)
 {
 	if(object->kind == ObjectKind::function)
 	{
@@ -178,6 +178,7 @@ bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
 		// Treat functions with moduleInstanceId=UINTPTR_MAX as if they are in all compartments.
 		if(function->moduleInstanceId == UINTPTR_MAX) { return true; }
 
+		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		if(!compartment->moduleInstances.contains(function->moduleInstanceId)) { return false; }
 		ModuleInstance* moduleInstance = compartment->moduleInstances[function->moduleInstanceId];
 		return moduleInstance->jitModule.get() == function->mutableData->jitModule;
@@ -189,7 +190,7 @@ bool Runtime::isInCompartment(Object* object, const Compartment* compartment)
 	}
 }
 
-Compartment* Runtime::getCompartment(Object* object)
+Compartment* Runtime::getCompartment(const Object* object)
 {
 	if(object->kind == ObjectKind::function) { return nullptr; }
 	else

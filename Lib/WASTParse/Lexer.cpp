@@ -104,43 +104,7 @@ static void addLiteralTokenToNFA(const char* literalString,
 
 StaticData::StaticData(bool allowLegacyOperatorNames)
 {
-// Legacy aliases for tokens.
-// clang-format off
-#define ENUM_LEGACY_TOKEN_ALIASES(v)                        \
-	v(funcref                 , "anyfunc"                 ) \
-															\
-	v(local_get               , "get_local"               ) \
-	v(local_set               , "set_local"               ) \
-	v(local_tee               , "tee_local"               ) \
-	v(global_get              , "get_global"              ) \
-	v(global_set              , "set_global"              ) \
-															\
-	v(i32_wrap_i64            , "i32.wrap/i64"            ) \
-	v(i32_trunc_f32_s         , "i32.trunc_s/f32"         ) \
-	v(i32_trunc_f32_u         , "i32.trunc_u/f32"         ) \
-	v(i32_trunc_f64_s         , "i32.trunc_s/f64"         ) \
-	v(i32_trunc_f64_u         , "i32.trunc_u/f64"         ) \
-	v(i64_extend_i32_s        , "i64.extend_s/i32"        ) \
-	v(i64_extend_i32_u        , "i64.extend_u/i32"        ) \
-	v(i64_trunc_f32_s         , "i64.trunc_s/f32"         ) \
-	v(i64_trunc_f32_u         , "i64.trunc_u/f32"         ) \
-	v(i64_trunc_f64_s         , "i64.trunc_s/f64"         ) \
-	v(i64_trunc_f64_u         , "i64.trunc_u/f64"         ) \
-	v(f32_convert_i32_s       , "f32.convert_s/i32"       ) \
-	v(f32_convert_i32_u       , "f32.convert_u/i32"       ) \
-	v(f32_convert_i64_s       , "f32.convert_s/i64"       ) \
-	v(f32_convert_i64_u       , "f32.convert_u/i64"       ) \
-	v(f32_demote_f64          , "f32.demote/f64"          ) \
-	v(f64_convert_i32_s       , "f64.convert_s/i32"       ) \
-	v(f64_convert_i32_u       , "f64.convert_u/i32"       ) \
-	v(f64_convert_i64_s       , "f64.convert_s/i64"       ) \
-	v(f64_convert_i64_u       , "f64.convert_u/i64"       ) \
-	v(f64_promote_f32         , "f64.promote/f32"         ) \
-	v(i32_reinterpret_f32     , "i32.reinterpret/f32"     ) \
-	v(i64_reinterpret_f64     , "i64.reinterpret/f64"     ) \
-	v(f32_reinterpret_i32     , "f32.reinterpret/i32"     ) \
-	v(f64_reinterpret_i64     , "f64.reinterpret/i64"     )
-
+	// clang-format off
 static const std::pair<TokenType, const char*> regexpTokenPairs[] = {
 	{t_decimalInt, "[+\\-]?\\d+(_\\d+)*"},
 	{t_decimalFloat, "[+\\-]?\\d+(_\\d+)*\\.(\\d+(_\\d+)*)*([eE][+\\-]?\\d+(_\\d+)*)?"},
@@ -174,11 +138,41 @@ static const std::tuple<TokenType, const char*, bool> literalTokenTuples[] = {
 	#undef VISIT_OPERATOR_TOKEN
 };
 
+// Legacy aliases for tokens.
 static const std::tuple<TokenType, const char*> legacyOperatorAliasTuples[] = {
-	#undef VISIT_LEGACY_OPERATOR_ALIAS
-	#define VISIT_LEGACY_OPERATOR_ALIAS(name, aliasString) std::make_tuple(t_##name, aliasString),
-	ENUM_LEGACY_TOKEN_ALIASES(VISIT_LEGACY_OPERATOR_ALIAS)
-	#undef VISIT_LEGACY_OPERATOR_ALIAS
+	std::make_tuple(t_funcref            , "anyfunc"            ),
+
+	std::make_tuple(t_local_get          , "get_local"          ),
+	std::make_tuple(t_local_set          , "set_local"          ),
+	std::make_tuple(t_local_tee          , "tee_local"          ),
+	std::make_tuple(t_global_get         , "get_global"         ),
+	std::make_tuple(t_global_set         , "set_global"         ),
+
+	std::make_tuple(t_i32_wrap_i64       , "i32.wrap/i64"       ),
+	std::make_tuple(t_i32_trunc_f32_s    , "i32.trunc_s/f32"    ),
+	std::make_tuple(t_i32_trunc_f32_u    , "i32.trunc_u/f32"    ),
+	std::make_tuple(t_i32_trunc_f64_s    , "i32.trunc_s/f64"    ),
+	std::make_tuple(t_i32_trunc_f64_u    , "i32.trunc_u/f64"    ),
+	std::make_tuple(t_i64_extend_i32_s   , "i64.extend_s/i32"   ),
+	std::make_tuple(t_i64_extend_i32_u   , "i64.extend_u/i32"   ),
+	std::make_tuple(t_i64_trunc_f32_s    , "i64.trunc_s/f32"    ),
+	std::make_tuple(t_i64_trunc_f32_u    , "i64.trunc_u/f32"    ),
+	std::make_tuple(t_i64_trunc_f64_s    , "i64.trunc_s/f64"    ),
+	std::make_tuple(t_i64_trunc_f64_u    , "i64.trunc_u/f64"    ),
+	std::make_tuple(t_f32_convert_i32_s  , "f32.convert_s/i32"  ),
+	std::make_tuple(t_f32_convert_i32_u  , "f32.convert_u/i32"  ),
+	std::make_tuple(t_f32_convert_i64_s  , "f32.convert_s/i64"  ),
+	std::make_tuple(t_f32_convert_i64_u  , "f32.convert_u/i64"  ),
+	std::make_tuple(t_f32_demote_f64     , "f32.demote/f64"     ),
+	std::make_tuple(t_f64_convert_i32_s  , "f64.convert_s/i32"  ),
+	std::make_tuple(t_f64_convert_i32_u  , "f64.convert_u/i32"  ),
+	std::make_tuple(t_f64_convert_i64_s  , "f64.convert_s/i64"  ),
+	std::make_tuple(t_f64_convert_i64_u  , "f64.convert_u/i64"  ),
+	std::make_tuple(t_f64_promote_f32    , "f64.promote/f32"    ),
+	std::make_tuple(t_i32_reinterpret_f32, "i32.reinterpret/f32"),
+	std::make_tuple(t_i64_reinterpret_f64, "i64.reinterpret/f64"),
+	std::make_tuple(t_f32_reinterpret_i32, "f32.reinterpret/i32"),
+	std::make_tuple(t_f64_reinterpret_i64, "f64.reinterpret/i64")
 };
 	// clang-format on
 

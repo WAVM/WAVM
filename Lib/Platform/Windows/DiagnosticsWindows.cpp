@@ -1,8 +1,8 @@
-#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Lock.h"
+#include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WindowsPrivate.h"
 

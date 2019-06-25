@@ -18,6 +18,10 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
+namespace WAVM { namespace Runtime {
+	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsTable)
+}}
+
 // Global lists of tables; used to query whether an address is reserved by one of them.
 static Platform::Mutex tablesMutex;
 static std::vector<Table*> tables;
@@ -117,8 +121,8 @@ static Iptr growTableImpl(Table* table,
 	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
 	if(newNumPlatformPages != previousNumPlatformPages
 	   && !Platform::commitVirtualPages(
-		   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-		   newNumPlatformPages - previousNumPlatformPages))
+			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+			  newNumPlatformPages - previousNumPlatformPages))
 	{ return -1; }
 
 	if(initializeNewElements)
@@ -135,14 +139,24 @@ static Iptr growTableImpl(Table* table,
 	return previousNumElements;
 }
 
-Table* Runtime::createTable(Compartment* compartment, IR::TableType type, std::string&& debugName)
+Table* Runtime::createTable(Compartment* compartment,
+							IR::TableType type,
+							Object* element,
+							std::string&& debugName)
 {
 	wavmAssert(type.size.min <= UINTPTR_MAX);
 	Table* table = createTableImpl(compartment, type, std::move(debugName));
 	if(!table) { return nullptr; }
 
+	// If element is null, use the uninitialized element sentinel instead.
+	if(!element) { element = getUninitializedElement(); }
+	else
+	{
+		errorUnless(isSubtype(asReferenceType(getExternType(element)), type.elementType));
+	}
+
 	// Grow the table to the type's minimum size.
-	if(growTableImpl(table, Uptr(type.size.min), true) == -1)
+	if(growTableImpl(table, Uptr(type.size.min), true, element) == -1)
 	{
 		delete table;
 		return nullptr;
@@ -292,11 +306,14 @@ static Object* setTableElementNonNull(Table* table, Uptr index, Object* object)
 	return biasedTableElementValueToObject(oldBiasedValue);
 }
 
-static Object* getTableElementNonNull(Table* table, Uptr index)
+static Object* getTableElementNonNull(const Table* table, Uptr index)
 {
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
-	{ throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
+	{
+		throwException(ExceptionTypes::outOfBoundsTableAccess,
+					   {const_cast<Table*>(table), U64(index)});
+	}
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
@@ -310,7 +327,10 @@ static Object* getTableElementNonNull(Table* table, Uptr index)
 
 	// If the element was an out-of-bounds sentinel value, throw an out-of-bounds exception.
 	if(object == getOutOfBoundsElement())
-	{ throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(index)}); }
+	{
+		throwException(ExceptionTypes::outOfBoundsTableAccess,
+					   {const_cast<Table*>(table), U64(index)});
+	}
 
 	wavmAssert(object);
 	return object;
@@ -333,7 +353,7 @@ Object* Runtime::setTableElement(Table* table, Uptr index, Object* newValue)
 	return oldObject == getUninitializedElement() ? nullptr : oldObject;
 }
 
-Object* Runtime::getTableElement(Table* table, Uptr index)
+Object* Runtime::getTableElement(const Table* table, Uptr index)
 {
 	Object* object = nullptr;
 	Runtime::unwindSignalsAsExceptions(
@@ -343,10 +363,12 @@ Object* Runtime::getTableElement(Table* table, Uptr index)
 	return object == getUninitializedElement() ? nullptr : object;
 }
 
-Uptr Runtime::getTableNumElements(Table* table)
+Uptr Runtime::getTableNumElements(const Table* table)
 {
 	return table->numElements.load(std::memory_order_acquire);
 }
+
+IR::TableType Runtime::getTableType(const Table* table) { return table->type; }
 
 Iptr Runtime::growTable(Table* table, Uptr numNewElements, Object* initialElement)
 {
@@ -398,7 +420,7 @@ Iptr Runtime::shrinkTable(Table* table, Uptr numElementsToShrink)
 	return previousNumElements;
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.grow",
 						  U32,
 						  table_grow,
@@ -413,7 +435,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	return I32(numTableElements);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.size", U32, table_size, Uptr tableId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.size", U32, table_size, Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	const Uptr numTableElements = getTableNumElements(table);
@@ -421,13 +443,18 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.size", U32, table_size, Uptr ta
 	return U32(numTableElements);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "table.get", Object*, table_get, U32 index, Uptr tableId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+						  "table.get",
+						  Object*,
+						  table_get,
+						  U32 index,
+						  Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	return getTableElement(table, index);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.set",
 						  void,
 						  table_set,
@@ -439,7 +466,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	setTableElement(table, index, value);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.init",
 						  void,
 						  table_init,
@@ -495,7 +522,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "elem.drop",
 						  void,
 						  elem_drop,
@@ -514,7 +541,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.copy",
 						  void,
 						  table_copy,
@@ -569,7 +596,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	});
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "table.fill",
 						  void,
 						  table_fill,
@@ -598,7 +625,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 						  "callIndirectFail",
 						  void,
 						  callIndirectFail,

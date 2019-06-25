@@ -169,7 +169,8 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	Lock<Platform::Mutex> intrinsicThunkLock(intrinsicThunkMutex);
 
 	wavmAssert(callingConvention == CallingConvention::intrinsic
-			   || callingConvention == CallingConvention::intrinsicWithContextSwitch);
+			   || callingConvention == CallingConvention::intrinsicWithContextSwitch
+			   || callingConvention == CallingConvention::cAPICallback);
 
 	LLVMContext llvmContext;
 

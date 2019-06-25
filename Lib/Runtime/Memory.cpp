@@ -20,6 +20,10 @@
 using namespace WAVM;
 using namespace WAVM::Runtime;
 
+namespace WAVM { namespace Runtime {
+	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsMemory)
+}}
+
 // Global lists of memories; used to query whether an address is reserved by one of them.
 static Platform::Mutex memoriesMutex;
 static std::vector<Memory*> memories;
@@ -180,14 +184,11 @@ bool Runtime::isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outM
 	return false;
 }
 
-Uptr Runtime::getMemoryNumPages(Memory* memory)
+Uptr Runtime::getMemoryNumPages(const Memory* memory)
 {
 	return memory->numPages.load(std::memory_order_seq_cst);
 }
-Uptr Runtime::getMemoryMaxPages(Memory* memory)
-{
-	return memory->type.size.max == UINT64_MAX ? IR::maxMemoryPages : memory->type.size.max;
-}
+IR::MemoryType Runtime::getMemoryType(const Memory* memory) { return memory->type; }
 
 Iptr Runtime::growMemory(Memory* memory, Uptr numPagesToGrow)
 {
@@ -291,7 +292,7 @@ U8* Runtime::getValidatedMemoryOffsetRange(Memory* memory, Uptr address, Uptr nu
 		numBytes);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "memory.grow",
 						  I32,
 						  memory_grow,
@@ -304,7 +305,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	return I32(numPreviousMemoryPages);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memory.size", U32, memory_size, I64 memoryId)
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory, "memory.size", U32, memory_size, I64 memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	Uptr numMemoryPages = getMemoryNumPages(memory);
@@ -312,7 +313,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "memory.size", U32, memory_size, I64 m
 	return U32(numMemoryPages);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "memory.init",
 						  void,
 						  memory_init,
@@ -371,7 +372,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "data.drop",
 						  void,
 						  data_drop,
@@ -390,7 +391,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "memory.copy",
 						  void,
 						  memory_copy,
@@ -428,7 +429,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 						  "memory.fill",
 						  void,
 						  memory_fill,

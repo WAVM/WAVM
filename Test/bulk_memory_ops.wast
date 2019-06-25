@@ -1,11 +1,6 @@
 ;; passive data segments and data segment encoding
 
-(module (data passive "test"))
-
-(assert_invalid
-	(module (data passive (i32.const 0) "test"))
-	"unexpected expression"
-)
+(module (data "test"))
 
 (module binary
 	"\00asm" "\01\00\00\00"              ;; WebAssembly version 1
@@ -64,7 +59,7 @@
 (assert_invalid
 	(module
 		(memory $m 1)
-		(data passive "test")
+		(data "test")
 		(func (memory.init (i32.const 0) (i32.const 0) (i32.const 0)))
 	)
 	"invalid data segment index"
@@ -72,7 +67,7 @@
 (assert_invalid
 	(module
 		(memory $m 1)
-		(data passive "test")
+		(data "test")
 		(func (memory.init 1 (i32.const 0) (i32.const 0) (i32.const 0)))
 	)
 	"invalid data segment index"
@@ -80,7 +75,7 @@
 (assert_invalid
 	(module
 		(memory $m 1)
-		(data passive "test")
+		(data "test")
 		(func (memory.init 0 1 (i32.const 0) (i32.const 0) (i32.const 0)))
 	)
 	"invalid memory index"
@@ -88,7 +83,7 @@
 (assert_invalid
 	(module
 		(memory $m 1)
-		(data passive "test")
+		(data "test")
 		(func (data.drop 1))
 	)
 	"invalid data segment index"
@@ -96,19 +91,19 @@
 
 (module
 	(memory $m 1 1)
-	(data passive "a")
+	(data "a")
 	(func (memory.init 0 (i32.const 0) (i32.const 0) (i32.const 0)))
 )
 
 (module
 	(memory $m 1 1)
-	(data passive "a")
+	(data "a")
 	(func (memory.init 0 0 (i32.const 0) (i32.const 0) (i32.const 0)))
 )
 
 (module
 	(memory $m 1 1)
-	(data passive "a")
+	(data "a")
 	(func (memory.init 0 $m (i32.const 0) (i32.const 0) (i32.const 0)))
 )
 
@@ -232,8 +227,8 @@
 (module
 	(memory $m 1 1)
 
-	(data passive "\01\02\03\04")
-	(data passive "\05\06\07\08\09\0a\0b\0c\0d\0e\0f\10\11\12\13\14")
+	(data "\01\02\03\04")
+	(data "\05\06\07\08\09\0a\0b\0c\0d\0e\0f\10\11\12\13\14")
 
 	(func (export "memory.init 0")
 		(param $destAddress i32)
@@ -458,14 +453,14 @@
 
 ;; passive elem segments
 
-(module (elem passive funcref (ref.func $f)) (func $f))
-(module (elem passive funcref (ref.null)))
+(module (elem funcref (ref.func $f)) (func $f))
+(module (elem funcref (ref.null)))
 (assert_invalid
-	(module (table $t 1) (elem passive (i32.const 0) (ref.func $f)) (func $f))
+	(module (table $t 1) (elem (i32.const 0) (ref.func $f)) (func $f))
 	"unexpected expression"
 )
 (assert_invalid
-	(module (table $t 1) (elem passive (i32.const 0) (unreachable)) (func $f))
+	(module (table $t 1) (elem (i32.const 0) (unreachable)) (func $f))
 	"expected 'ref.func' or 'ref.null'"
 )
 
@@ -648,8 +643,8 @@
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
 
-	(elem passive funcref (ref.func $0) (ref.func $1))
-	(elem passive funcref (ref.func $2) (ref.func $3))
+	(elem funcref (ref.func $0) (ref.func $1))
+	(elem funcref (ref.func $2) (ref.func $3))
 
 	(func $0 (type $type_i32) (result i32) i32.const 0)
 	(func $1 (type $type_i32) (result i32) i32.const 1)
@@ -729,7 +724,7 @@
 	(type $type_i32 (func (result i32)))
 	(type $type_i64 (func (result i64)))
 
-	(elem passive funcref (ref.func $0) (ref.null) (ref.func $1))
+	(elem funcref (ref.func $0) (ref.null) (ref.func $1))
 
 	(func $0 (type $type_i32) (result i32) i32.const 0)
 	(func $1 (type $type_i32) (result i32) i32.const 1)

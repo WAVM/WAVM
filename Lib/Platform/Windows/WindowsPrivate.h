@@ -3,6 +3,7 @@
 #include <intrin.h>
 
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/I128.h"
 #include "WAVM/Platform/Diagnostics.h"
 
 #define NOMINMAX
@@ -62,4 +63,6 @@ namespace WAVM { namespace Platform {
 	void initThread();
 
 	CallStack unwindStack(const CONTEXT& immutableContext, Uptr numOmittedFramesFromTop);
+
+	I128 fileTimeToWAVMRealTime(FILETIME fileTime);
 }}

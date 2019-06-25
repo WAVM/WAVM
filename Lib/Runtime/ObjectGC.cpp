@@ -18,33 +18,48 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 Runtime::GCObject::GCObject(ObjectKind inKind, Compartment* inCompartment)
-: Object{inKind}, compartment(inCompartment)
+: Object{inKind}, compartment(inCompartment), userData(nullptr), finalizeUserData(nullptr)
 {
 }
 
-void Runtime::addGCRoot(Object* object)
+#define IMPLEMENT_GCOBJECT_REFCOUNTING(Type)                                                       \
+	void Runtime::addGCRoot(const Type* object) { ++object->numRootReferences; }                   \
+	void Runtime::removeGCRoot(const Type* object) { --object->numRootReferences; }
+
+IMPLEMENT_GCOBJECT_REFCOUNTING(Table)
+IMPLEMENT_GCOBJECT_REFCOUNTING(Memory)
+IMPLEMENT_GCOBJECT_REFCOUNTING(Global)
+IMPLEMENT_GCOBJECT_REFCOUNTING(ExceptionType)
+IMPLEMENT_GCOBJECT_REFCOUNTING(ModuleInstance)
+IMPLEMENT_GCOBJECT_REFCOUNTING(Context)
+IMPLEMENT_GCOBJECT_REFCOUNTING(Compartment)
+IMPLEMENT_GCOBJECT_REFCOUNTING(Foreign)
+
+void Runtime::addGCRoot(const Function* function)
 {
-	if(object->kind == ObjectKind::function)
-	{
-		Function* function = (Function*)object;
-		wavmAssert(function->mutableData);
-		++function->mutableData->numRootReferences;
-	}
+	wavmAssert(function->mutableData);
+	++function->mutableData->numRootReferences;
+}
+
+void Runtime::removeGCRoot(const Function* function)
+{
+	wavmAssert(function->mutableData);
+	--function->mutableData->numRootReferences;
+}
+
+void Runtime::addGCRoot(const Object* object)
+{
+	if(object->kind == ObjectKind::function) { addGCRoot((const Function*)object); }
 	else
 	{
-		GCObject* gcObject = (GCObject*)object;
+		const GCObject* gcObject = static_cast<const GCObject*>(object);
 		++gcObject->numRootReferences;
 	}
 }
 
-void Runtime::removeGCRoot(Object* object)
+void Runtime::removeGCRoot(const Object* object)
 {
-	if(object->kind == ObjectKind::function)
-	{
-		Function* function = (Function*)object;
-		wavmAssert(function->mutableData);
-		--function->mutableData->numRootReferences;
-	}
+	if(object->kind == ObjectKind::function) { removeGCRoot((const Function*)object); }
 	else
 	{
 		GCObject* gcObject = (GCObject*)object;

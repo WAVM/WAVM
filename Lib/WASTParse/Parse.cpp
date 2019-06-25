@@ -120,7 +120,7 @@ bool WAST::tryParseValueType(CursorState* cursor, ValueType& outValueType)
 	case t_v128: outValueType = ValueType::v128; break;
 	case t_anyref: outValueType = ValueType::anyref; break;
 	case t_funcref: outValueType = ValueType::funcref; break;
-	default: outValueType = ValueType::any; return false;
+	default: outValueType = ValueType::none; return false;
 	};
 
 	++cursor->nextToken;
@@ -350,7 +350,7 @@ bool WAST::tryParseNameOrIndexRef(CursorState* cursor, Reference& outRef)
 		outRef.type = Reference::Type::name;
 		return true;
 	}
-	else if(tryParseIptr(cursor, outRef.index))
+	else if(tryParseUptr(cursor, outRef.index))
 	{
 		outRef.type = Reference::Type::index;
 		return true;

@@ -43,6 +43,13 @@ namespace WAVM { namespace IR {
 		IndexedBlockType type;
 	};
 
+	struct SelectImm
+	{
+		// ValueType::any represents a legacy select with the type inferred from the first operand
+		// following the condition.
+		ValueType type;
+	};
+
 	struct BranchImm
 	{
 		Uptr targetDepth;

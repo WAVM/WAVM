@@ -1,27 +1,27 @@
 #pragma once
 
-#include <chrono>
-
+#include "WAVM/Inline/I128.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Clock.h"
 
 namespace WAVM { namespace Timing {
 	// Encapsulates a timer that starts when constructed and stops when read.
 	struct Timer
 	{
-		Timer() : startTime(std::chrono::high_resolution_clock::now()), isStopped(false) {}
-		void stop() { endTime = std::chrono::high_resolution_clock::now(); }
-		U64 getMicroseconds()
+		Timer() : startTime(Platform::getProcessClock()), isStopped(false) {}
+		void stop() { endTime = Platform::getProcessClock(); }
+		F64 getNanoseconds()
 		{
 			if(!isStopped) { stop(); }
-			return std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime)
-				.count();
+			return F64(assumeNoOverflow(endTime - startTime));
 		}
-		F64 getMilliseconds() { return getMicroseconds() / 1000.0; }
-		F64 getSeconds() { return getMicroseconds() / 1000000.0; }
+		F64 getMicroseconds() { return getNanoseconds() / 1000.0; }
+		F64 getMilliseconds() { return getNanoseconds() / 1000000.0; }
+		F64 getSeconds() { return getNanoseconds() / 1000000000.0; }
 
 	private:
-		std::chrono::high_resolution_clock::time_point startTime;
-		std::chrono::high_resolution_clock::time_point endTime;
+		I128 startTime;
+		I128 endTime;
 		bool isStopped;
 	};
 

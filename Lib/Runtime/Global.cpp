@@ -106,7 +106,7 @@ Runtime::Global::~Global()
 	}
 }
 
-Value Runtime::getGlobalValue(const Context* context, Global* global)
+Value Runtime::getGlobalValue(const Context* context, const Global* global)
 {
 	wavmAssert(context || !global->type.isMutable);
 	return Value(global->type.valueType,
@@ -115,7 +115,7 @@ Value Runtime::getGlobalValue(const Context* context, Global* global)
 					 : global->initialValue);
 }
 
-Value Runtime::setGlobalValue(Context* context, Global* global, Value newValue)
+Value Runtime::setGlobalValue(Context* context, const Global* global, Value newValue)
 {
 	wavmAssert(context);
 	wavmAssert(newValue.type == global->type.valueType);
@@ -128,3 +128,5 @@ Value Runtime::setGlobalValue(Context* context, Global* global, Value newValue)
 	value = newValue;
 	return previousValue;
 }
+
+GlobalType Runtime::getGlobalType(const Global* global) { return global->type; }

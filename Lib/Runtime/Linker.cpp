@@ -7,66 +7,75 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-static IR::FunctionType resolveImportType(const IR::Module& module, IR::IndexedFunctionType type)
-{
-	return module.types[type.index];
-}
-static IR::TableType resolveImportType(const IR::Module& module, IR::TableType type)
-{
-	return type;
-}
-static IR::MemoryType resolveImportType(const IR::Module& module, IR::MemoryType type)
-{
-	return type;
-}
-static IR::GlobalType resolveImportType(const IR::Module& module, IR::GlobalType type)
-{
-	return type;
-}
-static IR::ExceptionType resolveImportType(const IR::Module& module, IR::ExceptionType type)
-{
-	return type;
-}
-
-template<typename Instance, typename Type>
+template<typename Type, typename ResolvedType>
 void linkImport(const IR::Module& module,
 				const Import<Type>& import,
+				ResolvedType resolvedType,
 				Resolver& resolver,
-				LinkResult& linkResult,
-				std::vector<Instance*>& resolvedImports)
+				LinkResult& linkResult)
 {
 	// Ask the resolver for a value for this import.
 	Object* importValue;
-	if(resolver.resolve(import.moduleName,
-						import.exportName,
-						resolveImportType(module, import.type),
-						importValue))
+	if(resolver.resolve(import.moduleName, import.exportName, resolvedType, importValue))
 	{
 		// Sanity check that the resolver returned an object of the right type.
-		wavmAssert(isA(importValue, resolveImportType(module, import.type)));
-		resolvedImports.push_back(as<Instance>(importValue));
+		wavmAssert(isA(importValue, resolvedType));
+		linkResult.resolvedImports.push_back(importValue);
 	}
 	else
 	{
-		linkResult.missingImports.push_back(
-			{import.moduleName, import.exportName, resolveImportType(module, import.type)});
+		linkResult.missingImports.push_back({import.moduleName, import.exportName, resolvedType});
+		linkResult.resolvedImports.push_back(nullptr);
 	}
 }
 
 LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
 {
 	LinkResult linkResult;
-	for(const auto& import : module.functions.imports)
-	{ linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.functions); }
-	for(const auto& import : module.tables.imports)
-	{ linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.tables); }
-	for(const auto& import : module.memories.imports)
-	{ linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.memories); }
-	for(const auto& import : module.globals.imports)
-	{ linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.globals); }
-	for(const auto& import : module.exceptionTypes.imports)
+	wavmAssert(module.imports.size()
+			   == module.functions.imports.size() + module.tables.imports.size()
+					  + module.memories.imports.size() + module.globals.imports.size()
+					  + module.exceptionTypes.imports.size());
+	for(const auto& kindIndex : module.imports)
 	{
-		linkImport(module, import, resolver, linkResult, linkResult.resolvedImports.exceptionTypes);
+		switch(kindIndex.kind)
+		{
+		case ExternKind::function:
+		{
+			const auto& functionImport = module.functions.imports[kindIndex.index];
+			linkImport(module,
+					   functionImport,
+					   module.types[functionImport.type.index],
+					   resolver,
+					   linkResult);
+			break;
+		}
+		case ExternKind::table:
+		{
+			const auto& tableImport = module.tables.imports[kindIndex.index];
+			linkImport(module, tableImport, tableImport.type, resolver, linkResult);
+			break;
+		}
+		case ExternKind::memory:
+		{
+			const auto& memoryImport = module.memories.imports[kindIndex.index];
+			linkImport(module, memoryImport, memoryImport.type, resolver, linkResult);
+			break;
+		}
+		case ExternKind::global:
+		{
+			const auto& globalImport = module.globals.imports[kindIndex.index];
+			linkImport(module, globalImport, globalImport.type, resolver, linkResult);
+			break;
+		}
+		case ExternKind::exceptionType:
+		{
+			const auto& exceptionTypeImport = module.exceptionTypes.imports[kindIndex.index];
+			linkImport(module, exceptionTypeImport, exceptionTypeImport.type, resolver, linkResult);
+			break;
+		}
+		default: Errors::unreachable();
+		};
 	}
 
 	linkResult.success = linkResult.missingImports.size() == 0;

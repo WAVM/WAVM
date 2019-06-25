@@ -19,16 +19,6 @@
 	(table $t 0 anyref)
 )
 
-;; elem segments should only be allowed in funcref tables
-(assert_invalid
-	(module
-		(table $t 0 anyref)
-		(elem $t (i32.const 0) $f)
-		(func $f)
-	)
-	"active elem segments must be in funcref tables"
-)
-
 
 ;; nullref tables
 (assert_malformed

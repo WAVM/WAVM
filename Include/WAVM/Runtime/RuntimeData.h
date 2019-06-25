@@ -39,6 +39,7 @@ namespace WAVM { namespace Runtime {
 		moduleInstance = 5,
 		context = 6,
 		compartment = 7,
+		foreign = 8,
 
 		invalid = 0xff,
 	};
@@ -61,7 +62,7 @@ namespace WAVM { namespace Runtime {
 		maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes,
 		maxMutableGlobals = maxGlobalBytes / sizeof(IR::UntaggedValue),
 		maxMemories = 255,
-		maxTables = 128*1024 - maxMemories - 1,
+		maxTables = 128 * 1024 - maxMemories - 1,
 		compartmentRuntimeDataAlignmentLog2 = 32,
 		contextRuntimeDataAlignment = 4096
 	};
@@ -106,7 +107,24 @@ namespace WAVM { namespace Runtime {
 		ExceptionType* type;
 		U8 isUserException;
 		Platform::CallStack callStack;
+		void* userData;
+		void (*finalizeUserData)(void*);
 		IR::UntaggedValue arguments[1];
+
+		Exception(Uptr inTypeId,
+				  ExceptionType* inType,
+				  bool inIsUserException,
+				  Platform::CallStack&& inCallStack)
+		: typeId(inTypeId)
+		, type(inType)
+		, isUserException(inIsUserException ? 1 : 0)
+		, callStack(std::move(inCallStack))
+		, userData(nullptr)
+		, finalizeUserData(nullptr)
+		{
+		}
+
+		~Exception();
 
 		static Uptr calcNumBytes(Uptr numArguments)
 		{
@@ -120,7 +138,7 @@ namespace WAVM { namespace Runtime {
 		const ObjectKind kind;
 	};
 
-	typedef Runtime::ContextRuntimeData* (*InvokeThunkPointer)(Runtime::Function*,
+	typedef Runtime::ContextRuntimeData* (*InvokeThunkPointer)(const Runtime::Function*,
 															   Runtime::ContextRuntimeData*);
 
 	// Metadata about a function, used to hold data that can't be emitted directly in an object
@@ -135,8 +153,14 @@ namespace WAVM { namespace Runtime {
 		std::string debugName;
 		std::atomic<InvokeThunkPointer> invokeThunk{nullptr};
 		void* userData{nullptr};
+		void (*finalizeUserData)(void*);
 
-		FunctionMutableData(std::string&& inDebugName) : debugName(inDebugName) {}
+		FunctionMutableData(std::string&& inDebugName)
+		: debugName(inDebugName), userData(nullptr), finalizeUserData(nullptr)
+		{
+		}
+
+		~FunctionMutableData();
 	};
 
 	struct Function

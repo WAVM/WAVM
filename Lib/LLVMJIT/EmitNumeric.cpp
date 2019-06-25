@@ -304,9 +304,10 @@ EMIT_FP_COMPARE(le, llvm::CmpInst::FCMP_OLE)
 EMIT_FP_COMPARE(gt, llvm::CmpInst::FCMP_OGT)
 EMIT_FP_COMPARE(ge, llvm::CmpInst::FCMP_OGE)
 
-llvm::Value* EmitFunctionContext::emitFloatMin(llvm::Value* left,
-											   llvm::Value* right,
-											   llvm::Type* intType)
+static llvm::Value* emitFloatMin(llvm::IRBuilder<>& irBuilder,
+								 llvm::Value* left,
+								 llvm::Value* right,
+								 llvm::Type* intType)
 {
 	llvm::Type* floatType = left->getType();
 	llvm::Value* isLeftNaN
@@ -336,9 +337,10 @@ llvm::Value* EmitFunctionContext::emitFloatMin(llvm::Value* left,
 						floatType)))));
 }
 
-llvm::Value* EmitFunctionContext::emitFloatMax(llvm::Value* left,
-											   llvm::Value* right,
-											   llvm::Type* intType)
+static llvm::Value* emitFloatMax(llvm::IRBuilder<>& irBuilder,
+								 llvm::Value* left,
+								 llvm::Value* right,
+								 llvm::Type* intType)
 {
 	llvm::Type* floatType = left->getType();
 	llvm::Value* isLeftNaN
@@ -370,29 +372,19 @@ llvm::Value* EmitFunctionContext::emitFloatMax(llvm::Value* left,
 
 // These operations don't match LLVM's semantics exactly, so just call out to C++ implementations.
 EMIT_FP_BINARY_OP(min,
-				  emitFloatMin(left,
+				  emitFloatMin(irBuilder,
+							   left,
 							   right,
 							   type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type))
 EMIT_FP_BINARY_OP(max,
-				  emitFloatMax(left,
+				  emitFloatMax(irBuilder,
+							   left,
 							   right,
 							   type == ValueType::f32 ? llvmContext.i32Type : llvmContext.i64Type))
-EMIT_FP_UNARY_OP(ceil,
-				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.ceil" : "f64.ceil",
-									  FunctionType(TypeTuple(type), TypeTuple{type}),
-									  {operand})[0])
-EMIT_FP_UNARY_OP(floor,
-				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.floor" : "f64.floor",
-									  FunctionType(TypeTuple(type), TypeTuple{type}),
-									  {operand})[0])
-EMIT_FP_UNARY_OP(trunc,
-				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.trunc" : "f64.trunc",
-									  FunctionType(TypeTuple(type), TypeTuple{type}),
-									  {operand})[0])
-EMIT_FP_UNARY_OP(nearest,
-				 emitRuntimeIntrinsic(type == ValueType::f32 ? "f32.nearest" : "f64.nearest",
-									  FunctionType(TypeTuple(type), TypeTuple{type}),
-									  {operand})[0])
+EMIT_FP_UNARY_OP(ceil, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::ceil, {operand}))
+EMIT_FP_UNARY_OP(floor, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::floor, {operand}))
+EMIT_FP_UNARY_OP(trunc, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::trunc, {operand}))
+EMIT_FP_UNARY_OP(nearest, callLLVMIntrinsic({operand->getType()}, llvm::Intrinsic::rint, {operand}))
 
 EMIT_SIMD_INT_BINARY_OP(add, irBuilder.CreateAdd(left, right))
 EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
@@ -568,16 +560,16 @@ EMIT_SIMD_FP_BINARY_OP(div, irBuilder.CreateFDiv(left, right))
 
 EMIT_SIMD_BINARY_OP(f32x4_min,
 					llvmContext.f32x4Type,
-					emitFloatMin(left, right, llvmContext.i32x4Type))
+					emitFloatMin(irBuilder, left, right, llvmContext.i32x4Type))
 EMIT_SIMD_BINARY_OP(f64x2_min,
 					llvmContext.f64x2Type,
-					emitFloatMin(left, right, llvmContext.i64x2Type))
+					emitFloatMin(irBuilder, left, right, llvmContext.i64x2Type))
 EMIT_SIMD_BINARY_OP(f32x4_max,
 					llvmContext.f32x4Type,
-					emitFloatMax(left, right, llvmContext.i32x4Type))
+					emitFloatMax(irBuilder, left, right, llvmContext.i32x4Type))
 EMIT_SIMD_BINARY_OP(f64x2_max,
 					llvmContext.f64x2Type,
-					emitFloatMax(left, right, llvmContext.i64x2Type))
+					emitFloatMax(irBuilder, left, right, llvmContext.i64x2Type))
 
 EMIT_SIMD_FP_UNARY_OP(neg, irBuilder.CreateFNeg(operand))
 EMIT_SIMD_FP_UNARY_OP(abs,

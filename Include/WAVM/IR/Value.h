@@ -60,7 +60,7 @@ namespace WAVM { namespace IR {
 		{
 		}
 		Value(ValueType inType, UntaggedValue inValue) : UntaggedValue(inValue), type(inType) {}
-		Value() : type(ValueType::any) {}
+		Value() : type(ValueType::none) {}
 
 		friend std::string asString(const Value& value)
 		{

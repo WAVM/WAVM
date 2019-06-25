@@ -313,3 +313,5 @@ Uptr Platform::getNumberOfHardwareThreads()
 	static Uptr cachedNumberOfHardwareThreads = getNumberOfHardwareThreadsImpl();
 	return cachedNumberOfHardwareThreads;
 }
+
+void Platform::yieldToAnotherThread() { SwitchToThread(); }

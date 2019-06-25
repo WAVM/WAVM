@@ -22,84 +22,6 @@ namespace WAVM { namespace Runtime {
 	DEFINE_INTRINSIC_MODULE(wavmIntrinsics)
 }}
 
-template<typename Float> Float quietNaN(Float value)
-{
-	FloatComponents<Float> components;
-	components.value = value;
-	components.bits.significand |= typename FloatComponents<Float>::Bits(1)
-								   << (FloatComponents<Float>::numSignificandBits - 1);
-	return components.value;
-}
-
-template<typename Float> Float floatCeil(Float value)
-{
-	if(value != value) { return quietNaN(value); }
-	else
-	{
-		return ceil(value);
-	}
-}
-
-template<typename Float> Float floatFloor(Float value)
-{
-	if(value != value) { return quietNaN(value); }
-	else
-	{
-		return floor(value);
-	}
-}
-
-template<typename Float> Float floatTrunc(Float value)
-{
-	if(value != value) { return quietNaN(value); }
-	else
-	{
-		return trunc(value);
-	}
-}
-
-template<typename Float> Float floatNearest(Float value)
-{
-	if(value != value) { return quietNaN(value); }
-	else
-	{
-		return nearbyint(value);
-	}
-}
-
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f32.ceil", F32, f32Ceil, F32 value)
-{
-	return floatCeil(value);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f64.ceil", F64, f64Ceil, F64 value)
-{
-	return floatCeil(value);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f32.floor", F32, f32Floor, F32 value)
-{
-	return floatFloor(value);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f64.floor", F64, f64Floor, F64 value)
-{
-	return floatFloor(value);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f32.trunc", F32, f32Trunc, F32 value)
-{
-	return floatTrunc(value);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f64.trunc", F64, f64Trunc, F64 value)
-{
-	return floatTrunc(value);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f32.nearest", F32, f32Nearest, F32 value)
-{
-	return floatNearest(value);
-}
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "f64.nearest", F64, f64Nearest, F64 value)
-{
-	return floatNearest(value);
-}
-
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 						  "divideByZeroOrIntegerOverflowTrap",
 						  void,
@@ -152,10 +74,4 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)
 {
 	Log::printf(Log::debug, "================== wavmIntrinsics.debugBreak\n");
-}
-
-void Runtime::dummyReferenceWAVMIntrinsics()
-{
-	// This is just here make sure the static initializers for the intrinsic function registrations
-	// aren't removed as dead code.
 }

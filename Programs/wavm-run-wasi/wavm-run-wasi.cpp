@@ -20,6 +20,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/VFS/VFS.h"
 #include "WAVM/WASI/WASI.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
@@ -27,6 +28,38 @@
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
+using namespace WAVM::VFS;
+
+struct SandboxedFileSystem : FileSystem
+{
+	SandboxedFileSystem(std::string&& inRootPath) : rootPath(std::move(inRootPath))
+	{
+		if(rootPath.back() != '/' && rootPath.back() != '\\') { rootPath += '/'; }
+	}
+
+	virtual OpenResult open(const std::string& absolutePathName,
+							FileAccessMode accessMode,
+							FileCreateMode createMode,
+							FD*& outFD,
+							FDImplicitSync implicitSync)
+	{
+		return Platform::openHostFile(
+			getHostPath(absolutePathName), accessMode, createMode, outFD, implicitSync);
+	}
+
+	virtual GetInfoByPathResult getInfo(const std::string& absolutePathName, FileInfo& outInfo)
+	{
+		return Platform::getHostFileInfo(getHostPath(absolutePathName), outInfo);
+	}
+
+private:
+	std::string rootPath;
+
+	std::string getHostPath(const std::string& sandboxedAbsolutePathName)
+	{
+		return rootPath + sandboxedAbsolutePathName;
+	}
+};
 
 static bool loadModule(const char* filename, IR::Module& outModule)
 {
@@ -60,6 +93,7 @@ static bool loadModule(const char* filename, IR::Module& outModule)
 struct CommandLineOptions
 {
 	const char* filename = nullptr;
+	const char* rootMountPath = nullptr;
 	std::vector<std::string> args;
 	bool onlyCheck = false;
 	bool precompiled = false;
@@ -100,9 +134,37 @@ static int run(const CommandLineOptions& options)
 		}
 	}
 
+	// If a directory to mount as the root filesystem was passed on the command-line, create a
+	// SandboxedFileSystem for it.
+	SandboxedFileSystem* sandboxedFS = nullptr;
+	if(options.rootMountPath)
+	{
+		std::string rootPath;
+		if(options.rootMountPath[0] == '/' || options.rootMountPath[0] == '\\'
+		   || options.rootMountPath[0] == '~' || options.rootMountPath[1] == ':')
+		{ rootPath = options.rootMountPath; }
+		else
+		{
+			rootPath = Platform::getCurrentWorkingDirectory() + '/' + options.rootMountPath;
+		}
+		sandboxedFS = new SandboxedFileSystem(std::move(rootPath));
+	}
+
+	std::vector<std::string> args = options.args;
+	args.insert(args.begin(), "/proc/1/exe");
+
 	I32 exitCode = 0;
-	WASI::RunResult result
-		= WASI::run(module, std::vector<std::string>(options.args), {}, exitCode);
+	WASI::RunResult result = WASI::run(module,
+									   std::move(args),
+									   {},
+									   sandboxedFS,
+									   Platform::getStdFD(Platform::StdDevice::in),
+									   Platform::getStdFD(Platform::StdDevice::out),
+									   Platform::getStdFD(Platform::StdDevice::err),
+									   exitCode);
+
+	if(sandboxedFS) { delete sandboxedFS; }
+
 	switch(result)
 	{
 	case WASI::RunResult::success: return exitCode;
@@ -116,6 +178,9 @@ static int run(const CommandLineOptions& options)
 		Log::printf(Log::error,
 					"WASM module exports a _start function, but it is not the correct type.\n.");
 		return EXIT_FAILURE;
+	case WASI::RunResult::doesNotExportMemory:
+		Log::printf(Log::error, "WASM module does not export a memory.\n");
+		return EXIT_FAILURE;
 	default: Errors::unreachable();
 	}
 }
@@ -124,14 +189,16 @@ static void showHelp()
 {
 	Log::printf(Log::error,
 				"Usage: wavm-run-wasi [switches] [programfile] [--] [arguments]\n"
-				"  in.wast|in.wasm       Specify program file (.wast/.wasm)\n"
-				"  -c|--check            Exit after checking that the program is valid\n"
-				"  -d|--debug            Write additional debug information to stdout\n"
-				"  -h|--help             Display this message\n"
-				"  --precompiled         Use precompiled object code in programfile\n"
-				"  --metrics             Write benchmarking information to stdout\n"
-				"  --trace-syscalls      Trace WASI syscalls to stdout\n"
-				"  --                    Stop parsing arguments\n");
+				"  in.wast|in.wasm             Specify program file (.wast/.wasm)\n"
+				"  -c|--check                  Exit after checking that the program is valid\n"
+				"  -d|--debug                  Write additional debug information to stdout\n"
+				"  -h|--help                   Display this message\n"
+				"  --precompiled               Use precompiled object code in programfile\n"
+				"  --metrics                   Write benchmarking information to stdout\n"
+				"  --trace-syscalls            Trace WASI syscalls to stdout\n"
+				"  --trace-syscall-callstacks  Trace WASI syscalls w/ callstacks to stdout\n"
+				"  --mount-root <directory>    Mounts directory as a "
+				"  --                          Stop parsing arguments\n");
 }
 
 int main(int argc, char** argv)
@@ -153,9 +220,22 @@ int main(int argc, char** argv)
 		{
 			options.precompiled = true;
 		}
-		else if (!strcmp(*nextArg, "--trace-syscalls"))
+		else if(!strcmp(*nextArg, "--trace-syscalls"))
 		{
-			WASI::setTraceSyscalls(true);
+			WASI::setSyscallTraceLevel(WASI::SyscallTraceLevel::syscalls);
+		}
+		else if(!strcmp(*nextArg, "--trace-syscall-callstacks"))
+		{
+			WASI::setSyscallTraceLevel(WASI::SyscallTraceLevel::syscallsWithCallstacks);
+		}
+		else if(!strcmp(*nextArg, "--mount-root"))
+		{
+			if(!*++nextArg)
+			{
+				showHelp();
+				return EXIT_FAILURE;
+			}
+			options.rootMountPath = *nextArg;
 		}
 		else if(!strcmp(*nextArg, "--"))
 		{
@@ -185,7 +265,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	int result = EXIT_FAILURE;
+	int result = EXIT_SUCCESS;
 	Runtime::catchRuntimeExceptions([&result, options]() { result = run(options); },
 									[](Runtime::Exception* exception) {
 										// Treat any unhandled exception as a fatal error.

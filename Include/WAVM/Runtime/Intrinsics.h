@@ -1,7 +1,7 @@
 #pragma once
 
+#include <initializer_list>
 #include <string>
-
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
@@ -26,17 +26,14 @@ namespace WAVM { namespace Intrinsics {
 
 	RUNTIME_API Runtime::ModuleInstance* instantiateModule(
 		Runtime::Compartment* compartment,
-		const Intrinsics::Module& moduleRef,
+		const std::initializer_list<const Intrinsics::Module*>& moduleRefs,
 		std::string&& debugName,
 		const HashMap<std::string, Runtime::Object*>& extraExports = {});
-
-	RUNTIME_API HashMap<std::string, Function*> getUninstantiatedFunctions(
-		const Intrinsics::Module& moduleRef);
 
 	// An intrinsic function.
 	struct Function
 	{
-		RUNTIME_API Function(Intrinsics::Module& moduleRef,
+		RUNTIME_API Function(Intrinsics::Module* moduleRef,
 							 const char* inName,
 							 void* inNativeFunction,
 							 IR::FunctionType type,
@@ -56,7 +53,7 @@ namespace WAVM { namespace Intrinsics {
 	// The base class of Intrinsic globals.
 	struct Global
 	{
-		RUNTIME_API Global(Intrinsics::Module& moduleRef,
+		RUNTIME_API Global(Intrinsics::Module* moduleRef,
 						   const char* inName,
 						   IR::ValueType inType,
 						   IR::Value inValue);
@@ -73,7 +70,7 @@ namespace WAVM { namespace Intrinsics {
 	// An immutable global that provides typed initialization and reading of the global's value.
 	template<typename Value> struct GenericGlobal : Global
 	{
-		GenericGlobal(Intrinsics::Module& moduleRef, const char* inName, Value inValue)
+		GenericGlobal(Intrinsics::Module* moduleRef, const char* inName, Value inValue)
 		: Global(moduleRef,
 				 inName,
 				 IR::inferValueType<Value>(),
@@ -86,7 +83,7 @@ namespace WAVM { namespace Intrinsics {
 	struct Memory
 	{
 		RUNTIME_API
-		Memory(Intrinsics::Module& moduleRef, const char* inName, const IR::MemoryType& inType);
+		Memory(Intrinsics::Module* moduleRef, const char* inName, const IR::MemoryType& inType);
 		RUNTIME_API Runtime::Memory* instantiate(Runtime::Compartment* compartment);
 
 		Runtime::Memory* getInstance(Runtime::ModuleInstance* moduleInstance)
@@ -102,7 +99,7 @@ namespace WAVM { namespace Intrinsics {
 	struct Table
 	{
 		RUNTIME_API
-		Table(Intrinsics::Module& moduleRef, const char* inName, const IR::TableType& inType);
+		Table(Intrinsics::Module* moduleRef, const char* inName, const IR::TableType& inType);
 		RUNTIME_API Runtime::Table* instantiate(Runtime::Compartment* compartment);
 
 		Runtime::Table* getInstance(Runtime::ModuleInstance* moduleInstance)
@@ -144,13 +141,13 @@ namespace WAVM { namespace Intrinsics {
 }}
 
 #define DEFINE_INTRINSIC_MODULE(name)                                                              \
-	Intrinsics::Module& getIntrinsicModule_##name()                                                \
+	Intrinsics::Module* getIntrinsicModule_##name()                                                \
 	{                                                                                              \
 		static Intrinsics::Module module;                                                          \
-		return module;                                                                             \
+		return &module;                                                                            \
 	}
 
-#define DECLARE_INTRINSIC_MODULE(name) extern Intrinsics::Module& getIntrinsicModule_##name();
+#define DECLARE_INTRINSIC_MODULE(name) extern Intrinsics::Module* getIntrinsicModule_##name();
 
 #define INTRINSIC_MODULE_REF(name) getIntrinsicModule_##name()
 

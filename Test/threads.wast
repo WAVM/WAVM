@@ -8,7 +8,7 @@
 
 	(memory 1 1 shared)
 
-	(data passive "x")
+	(data "x")
 
 	(global $atomicAccumulatorAddress i32 (i32.const 0))
 

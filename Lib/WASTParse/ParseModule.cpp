@@ -33,11 +33,11 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 	outSizeConstraints.max = UINT64_MAX;
 
 	// Parse a minimum.
-	if(!tryParseI64(cursor, outSizeConstraints.min)) { return false; }
+	if(!tryParseU64(cursor, outSizeConstraints.min)) { return false; }
 	else
 	{
 		// Parse an optional maximum.
-		if(!tryParseI64(cursor, outSizeConstraints.max)) { outSizeConstraints.max = UINT64_MAX; }
+		if(!tryParseU64(cursor, outSizeConstraints.max)) { outSizeConstraints.max = UINT64_MAX; }
 		else
 		{
 			// Validate that the maximum size is within the limit, and that the size contraints is
@@ -95,80 +95,94 @@ static TypeTuple parseTypeTuple(CursorState* cursor)
 // ref.func.
 typedef InitializerExpressionBase<Reference> UnresolvedInitializerExpression;
 
+static UnresolvedInitializerExpression parseInitializerInstruction(CursorState* cursor)
+{
+	UnresolvedInitializerExpression result;
+	switch(cursor->nextToken->type)
+	{
+	case t_i32_const:
+	{
+		++cursor->nextToken;
+		result = parseI32(cursor);
+		break;
+	}
+	case t_i64_const:
+	{
+		++cursor->nextToken;
+		result = parseI64(cursor);
+		break;
+	}
+	case t_f32_const:
+	{
+		++cursor->nextToken;
+		result = parseF32(cursor);
+		break;
+	}
+	case t_f64_const:
+	{
+		++cursor->nextToken;
+		result = parseF64(cursor);
+		break;
+	}
+	case t_v128_const:
+	{
+		++cursor->nextToken;
+		result = parseV128(cursor);
+		break;
+	}
+	case t_global_get:
+	{
+		++cursor->nextToken;
+		Reference globalRef;
+		if(!tryParseNameOrIndexRef(cursor, globalRef))
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected global name or index");
+			throw RecoverParseException();
+		}
+		result = UnresolvedInitializerExpression(UnresolvedInitializerExpression::Type::global_get,
+												 globalRef);
+		break;
+	}
+	case t_ref_null:
+	{
+		++cursor->nextToken;
+		result = nullptr;
+		break;
+	}
+	case t_ref_func:
+	{
+		++cursor->nextToken;
+		Reference funcRef;
+		if(!tryParseNameOrIndexRef(cursor, funcRef))
+		{
+			parseErrorf(cursor->parseState, cursor->nextToken, "expected function name or index");
+			throw RecoverParseException();
+		}
+		result = UnresolvedInitializerExpression(UnresolvedInitializerExpression::Type::ref_func,
+												 funcRef);
+		break;
+	}
+	default:
+		parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
+		throw RecoverParseException();
+	};
+
+	return result;
+}
+
 static UnresolvedInitializerExpression parseInitializerExpression(CursorState* cursor)
 {
 	UnresolvedInitializerExpression result;
-	parseParenthesized(cursor, [&] {
-		switch(cursor->nextToken->type)
-		{
-		case t_i32_const:
-		{
-			++cursor->nextToken;
-			result = (I32)parseI32(cursor);
-			break;
-		}
-		case t_i64_const:
-		{
-			++cursor->nextToken;
-			result = (I64)parseI64(cursor);
-			break;
-		}
-		case t_f32_const:
-		{
-			++cursor->nextToken;
-			result = parseF32(cursor);
-			break;
-		}
-		case t_f64_const:
-		{
-			++cursor->nextToken;
-			result = parseF64(cursor);
-			break;
-		}
-		case t_v128_const:
-		{
-			++cursor->nextToken;
-			result = parseV128(cursor);
-			break;
-		}
-		case t_global_get:
-		{
-			++cursor->nextToken;
-			Reference globalRef;
-			if(!tryParseNameOrIndexRef(cursor, globalRef))
-			{
-				parseErrorf(cursor->parseState, cursor->nextToken, "expected global name or index");
-				throw RecoverParseException();
-			}
-			result = UnresolvedInitializerExpression(
-				UnresolvedInitializerExpression::Type::global_get, globalRef);
-			break;
-		}
-		case t_ref_null:
-		{
-			++cursor->nextToken;
-			result = nullptr;
-			break;
-		}
-		case t_ref_func:
-		{
-			++cursor->nextToken;
-			Reference funcRef;
-			if(!tryParseNameOrIndexRef(cursor, funcRef))
-			{
-				parseErrorf(
-					cursor->parseState, cursor->nextToken, "expected function name or index");
-				throw RecoverParseException();
-			}
-			result = UnresolvedInitializerExpression(
-				UnresolvedInitializerExpression::Type::ref_func, funcRef);
-			break;
-		}
-		default:
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected initializer expression");
-			throw RecoverParseException();
-		};
-	});
+
+	// Parse either a parenthesized or unparenthesized instruction.
+	if(cursor->nextToken->type == t_leftParenthesis)
+	{
+		parseParenthesized(cursor, [&] { result = parseInitializerInstruction(cursor); });
+	}
+	else
+	{
+		result = parseInitializerInstruction(cursor);
+	}
 
 	return result;
 }
@@ -228,12 +242,14 @@ static Uptr createImport(CursorState* cursor,
 						 NameToIndexMap& nameToIndexMap,
 						 IndexSpace<Def, Type>& indexSpace,
 						 std::vector<DisassemblyName>& disassemblyNameArray,
-						 Type type)
+						 Type type,
+						 ExternKind kind)
 {
 	const Uptr importIndex = indexSpace.imports.size();
 	bindName(cursor->parseState, nameToIndexMap, name, indexSpace.size());
 	disassemblyNameArray.push_back({name.getString()});
 	indexSpace.imports.push_back({type, std::move(moduleName), std::move(exportName)});
+	cursor->moduleState->module.imports.push_back({kind, importIndex});
 	return importIndex;
 }
 
@@ -294,7 +310,8 @@ static void parseImport(CursorState* cursor)
 												  cursor->moduleState->functionNameToIndexMap,
 												  cursor->moduleState->module.functions,
 												  cursor->moduleState->disassemblyNames.functions,
-												  {UINTPTR_MAX});
+												  {UINTPTR_MAX},
+												  ExternKind::function);
 			cursor->moduleState->disassemblyNames.functions.back().locals = localDissassemblyNames;
 
 			// Resolve the function import type after all type declarations have been parsed.
@@ -317,7 +334,8 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->tableNameToIndexMap,
 						 cursor->moduleState->module.tables,
 						 cursor->moduleState->disassemblyNames.tables,
-						 {elemType, isShared, sizeConstraints});
+						 {elemType, isShared, sizeConstraints},
+						 ExternKind::table);
 			break;
 		}
 		case t_memory:
@@ -332,7 +350,8 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->memoryNameToIndexMap,
 						 cursor->moduleState->module.memories,
 						 cursor->moduleState->disassemblyNames.memories,
-						 MemoryType{isShared, sizeConstraints});
+						 MemoryType{isShared, sizeConstraints},
+						 ExternKind::memory);
 			break;
 		}
 		case t_global:
@@ -345,7 +364,8 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->globalNameToIndexMap,
 						 cursor->moduleState->module.globals,
 						 cursor->moduleState->disassemblyNames.globals,
-						 globalType);
+						 globalType,
+						 ExternKind::global);
 			break;
 		}
 		case t_exception_type:
@@ -358,7 +378,8 @@ static void parseImport(CursorState* cursor)
 						 cursor->moduleState->exceptionTypeNameToIndexMap,
 						 cursor->moduleState->module.exceptionTypes,
 						 cursor->moduleState->disassemblyNames.exceptionTypes,
-						 ExceptionType{params});
+						 ExceptionType{params},
+						 ExternKind::exceptionType);
 			break;
 		}
 		default: Errors::unreachable();
@@ -474,19 +495,23 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 	bool isActive = true;
 	switch(cursor->nextToken[0].type)
 	{
-	case t_passive:
-		// passive ...
-		require(cursor, t_passive);
+	case t_anyref:
+	case t_funcref:
+	case t_string:
+	case t_rightParenthesis:
+		// ...
 		isActive = false;
 		break;
 	case t_quotedName:
 	case t_name:
 		switch(cursor->nextToken[1].type)
 		{
-		case t_passive:
-			// <s:name> passive ...
+		case t_anyref:
+		case t_funcref:
+		case t_string:
+		case t_rightParenthesis:
+			// <s:name> ...
 			errorUnless(tryParseName(cursor, outSegmentName));
-			require(cursor, t_passive);
 			isActive = false;
 			break;
 		case t_quotedName:
@@ -791,7 +816,8 @@ static void parseObjectDefOrImport(CursorState* cursor,
 					 nameToIndexMap,
 					 indexSpace,
 					 disassemblyNameArray,
-					 importType);
+					 importType,
+					 kind);
 	}
 	else
 	{
@@ -961,23 +987,22 @@ static void parseGlobal(CursorState* cursor)
 
 static void parseExceptionType(CursorState* cursor)
 {
-	parseObjectDefOrImport(
-		cursor,
-		cursor->moduleState->exceptionTypeNameToIndexMap,
-		cursor->moduleState->module.exceptionTypes,
-		cursor->moduleState->disassemblyNames.exceptionTypes,
-		t_exception_type,
-		ExternKind::exceptionType,
-		// Parse an exception type import.
-		[](CursorState* cursor) {
-			TypeTuple params = parseTypeTuple(cursor);
-			return ExceptionType{params};
-		},
-		// Parse an exception type definition
-		[](CursorState* cursor, const Token*) {
-			TypeTuple params = parseTypeTuple(cursor);
-			return ExceptionTypeDef{ExceptionType{params}};
-		});
+	parseObjectDefOrImport(cursor,
+						   cursor->moduleState->exceptionTypeNameToIndexMap,
+						   cursor->moduleState->module.exceptionTypes,
+						   cursor->moduleState->disassemblyNames.exceptionTypes,
+						   t_exception_type,
+						   ExternKind::exceptionType,
+						   // Parse an exception type import.
+						   [](CursorState* cursor) {
+							   TypeTuple params = parseTypeTuple(cursor);
+							   return ExceptionType{params};
+						   },
+						   // Parse an exception type definition
+						   [](CursorState* cursor, const Token*) {
+							   TypeTuple params = parseTypeTuple(cursor);
+							   return ExceptionTypeDef{ExceptionType{params}};
+						   });
 }
 
 static void parseStart(CursorState* cursor)

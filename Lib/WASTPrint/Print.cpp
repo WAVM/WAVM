@@ -462,7 +462,16 @@ struct FunctionPrintContext
 	}
 	void drop(NoImm) { string += "\ndrop"; }
 
-	void select(NoImm) { string += "\nselect"; }
+	void select(SelectImm imm)
+	{
+		if(imm.type == ValueType::any) { string += "\nselect"; }
+		else
+		{
+			string += "\nselect (result ";
+			string += asString(imm.type);
+			string += ")";
+		}
+	}
 
 	void local_get(GetOrSetVariableImm<false> imm)
 	{
@@ -772,51 +781,54 @@ void ModulePrintContext::printModule()
 	}
 
 	// Print the module imports.
-	for(Uptr importIndex = 0; importIndex < module.functions.imports.size(); ++importIndex)
+	for(const auto& import : module.imports)
 	{
-		printImport(string,
-					module,
-					module.functions.imports[importIndex],
-					importIndex,
-					names.functions[importIndex].name.c_str(),
-					"func");
+		switch(import.kind)
+		{
+		case ExternKind::function:
+			printImport(string,
+						module,
+						module.functions.imports[import.index],
+						import.index,
+						names.functions[import.index].name.c_str(),
+						"func");
+			break;
+		case ExternKind::table:
+			printImport(string,
+						module,
+						module.tables.imports[import.index],
+						import.index,
+						names.tables[import.index].c_str(),
+						"table");
+			break;
+		case ExternKind::memory:
+			printImport(string,
+						module,
+						module.memories.imports[import.index],
+						import.index,
+						names.memories[import.index].c_str(),
+						"memory");
+			break;
+		case ExternKind::global:
+			printImport(string,
+						module,
+						module.globals.imports[import.index],
+						import.index,
+						names.globals[import.index].c_str(),
+						"global");
+			break;
+		case ExternKind::exceptionType:
+			printImport(string,
+						module,
+						module.exceptionTypes.imports[import.index],
+						import.index,
+						names.exceptionTypes[import.index].c_str(),
+						"exception_type");
+			break;
+		default: Errors::unreachable();
+		};
 	}
-	for(Uptr importIndex = 0; importIndex < module.tables.imports.size(); ++importIndex)
-	{
-		printImport(string,
-					module,
-					module.tables.imports[importIndex],
-					importIndex,
-					names.tables[importIndex].c_str(),
-					"table");
-	}
-	for(Uptr importIndex = 0; importIndex < module.memories.imports.size(); ++importIndex)
-	{
-		printImport(string,
-					module,
-					module.memories.imports[importIndex],
-					importIndex,
-					names.memories[importIndex].c_str(),
-					"memory");
-	}
-	for(Uptr importIndex = 0; importIndex < module.globals.imports.size(); ++importIndex)
-	{
-		printImport(string,
-					module,
-					module.globals.imports[importIndex],
-					importIndex,
-					names.globals[importIndex].c_str(),
-					"global");
-	}
-	for(Uptr importIndex = 0; importIndex < module.exceptionTypes.imports.size(); ++importIndex)
-	{
-		printImport(string,
-					module,
-					module.exceptionTypes.imports[importIndex],
-					importIndex,
-					names.exceptionTypes[importIndex].c_str(),
-					"exception_type");
-	}
+
 	// Print the module exports.
 	for(auto export_ : module.exports)
 	{
@@ -899,7 +911,6 @@ void ModulePrintContext::printModule()
 		string += ' ';
 		if(!elemSegment.isActive)
 		{
-			string += "passive";
 			switch(elemSegment.elemType)
 			{
 			case ReferenceType::anyref: string += " anyref"; break;
@@ -913,6 +924,7 @@ void ModulePrintContext::printModule()
 			string += ' ';
 			printInitializerExpression(elemSegment.baseOffset);
 		}
+
 		enum
 		{
 			numElemsPerLine = 8
@@ -951,13 +963,13 @@ void ModulePrintContext::printModule()
 		string += ' ';
 		string += names.dataSegments[segmentIndex];
 		string += ' ';
-		if(!dataSegment.isActive) { string += "passive"; }
-		else
+		if(dataSegment.isActive)
 		{
 			string += names.memories[dataSegment.memoryIndex];
 			string += ' ';
 			printInitializerExpression(dataSegment.baseOffset);
 		}
+
 		enum
 		{
 			numBytesPerLine = 64

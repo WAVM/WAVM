@@ -89,8 +89,8 @@ struct StubResolver : Runtime::Resolver
 		}
 		case IR::ExternKind::table:
 		{
-			return asObject(
-				Runtime::createTable(compartment, asTableType(type), std::string(exportName)));
+			return asObject(Runtime::createTable(
+				compartment, asTableType(type), nullptr, std::string(exportName)));
 		}
 		case IR::ExternKind::global:
 		{

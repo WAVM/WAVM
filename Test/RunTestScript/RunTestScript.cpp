@@ -54,9 +54,9 @@ struct TestScriptState
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
 	{
-		moduleNameToInstanceMap.set(
-			"spectest",
-			Intrinsics::instantiateModule(compartment, INTRINSIC_MODULE_REF(spectest), "spectest"));
+		moduleNameToInstanceMap.set("spectest",
+									Intrinsics::instantiateModule(
+										compartment, {INTRINSIC_MODULE_REF(spectest)}, "spectest"));
 		moduleNameToInstanceMap.set("threadTest", ThreadTest::instantiate(compartment));
 	}
 
@@ -80,6 +80,8 @@ struct TestScriptState
 			moduleNameToInstanceMap.addOrFail(
 				pair.key, Runtime::remapToClonedCompartment(pair.value, compartment));
 		}
+
+		errors = copyee.errors;
 	}
 
 	~TestScriptState()
@@ -558,16 +560,17 @@ static void processCommand(TestScriptState& state, const Command* command)
 		break;
 	}
 	case Command::assert_invalid:
+	{
+		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
+		if(assertCommand->wasInvalidOrMalformed == InvalidOrMalformed::wellFormedAndValid)
+		{ testErrorf(state, assertCommand->locus, "module was valid"); }
+		break;
+	}
 	case Command::assert_malformed:
 	{
 		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
-		if(!assertCommand->wasInvalidOrMalformed)
-		{
-			testErrorf(state,
-					   assertCommand->locus,
-					   "module was %s",
-					   assertCommand->type == Command::assert_invalid ? "valid" : "well formed");
-		}
+		if(assertCommand->wasInvalidOrMalformed != InvalidOrMalformed::malformed)
+		{ testErrorf(state, assertCommand->locus, "module was well formed"); }
 		break;
 	}
 	case Command::assert_unlinkable:

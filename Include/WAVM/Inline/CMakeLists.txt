@@ -11,6 +11,9 @@ set(PublicHeaders
 	HashMap.h HashMapImpl.h HashMap.natvis
 	HashSet.h HashSetImpl.h HashSet.natvis
 	HashTable.h HashTableImpl.h HashTable.natvis
+	I128.h
+	I128Impl.h
+	I128Impl.LICENSE
 	IndexMap.h
 	IntrusiveSharedPtr.h
 	IsNameChar.h

@@ -14,4 +14,6 @@ namespace WAVM { namespace Platform {
 	RETURNS_TWICE PLATFORM_API Thread* forkCurrentThread();
 
 	PLATFORM_API Uptr getNumberOfHardwareThreads();
+
+	PLATFORM_API void yieldToAnotherThread();
 }}

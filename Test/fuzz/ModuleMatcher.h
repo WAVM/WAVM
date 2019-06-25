@@ -13,6 +13,9 @@ namespace WAVM {
 
 		void verify()
 		{
+			verifyMatches(aModule.imports, bModule.imports);
+			verifyMatches(aModule.exports, bModule.exports);
+
 			verifyMatches(aModule.functions, bModule.functions);
 			verifyMatches(aModule.tables, bModule.tables);
 			verifyMatches(aModule.memories, bModule.memories);
@@ -65,6 +68,16 @@ namespace WAVM {
 			if(aModule.types[a.index] != bModule.types[b.index]) { failVerification(); }
 		}
 
+		void verifyMatches(const KindAndIndex& a, const KindAndIndex& b)
+		{
+			if(a.kind != b.kind || a.index != b.index) { failVerification(); }
+		}
+
+		void verifyMatches(const Export& a, const Export& b)
+		{
+			if(a.name != b.name || a.kind != b.kind || a.index != b.index) { failVerification(); }
+		}
+
 		template<typename Type> void verifyMatches(const Import<Type>& a, const Import<Type>& b)
 		{
 			verifyMatches(a.type, b.type);
@@ -95,6 +108,11 @@ namespace WAVM {
 		{
 			if(resolveBlockType(aModule, a.type) != resolveBlockType(bModule, b.type))
 			{ failVerification(); }
+		}
+
+		void verifyMatches(SelectImm a, SelectImm b)
+		{
+			if(a.type != b.type) { failVerification(); }
 		}
 
 		void verifyMatches(BranchImm a, BranchImm b)
@@ -283,17 +301,19 @@ namespace WAVM {
 
 		void verifyMatches(const TableDef& a, const TableDef& b) { verifyMatches(a.type, b.type); }
 
+		template<typename Element>
+		void verifyMatches(const std::vector<Element>& a, const std::vector<Element>& b)
+		{
+			if(a.size() != b.size()) { failVerification(); }
+			for(Uptr index = 0; index < a.size(); ++index) { verifyMatches(a[index], b[index]); }
+		}
+
 		template<typename Definition, typename Type>
 		void verifyMatches(const IndexSpace<Definition, Type>& a,
 						   const IndexSpace<Definition, Type>& b)
 		{
-			if(a.imports.size() != b.imports.size()) { failVerification(); }
-			for(Uptr importIndex = 0; importIndex < a.imports.size(); ++importIndex)
-			{ verifyMatches(a.imports[importIndex], b.imports[importIndex]); }
-
-			if(a.defs.size() != b.defs.size()) { failVerification(); }
-			for(Uptr defIndex = 0; defIndex < a.defs.size(); ++defIndex)
-			{ verifyMatches(a.defs[defIndex], b.defs[defIndex]); }
+			verifyMatches(a.imports, b.imports);
+			verifyMatches(a.defs, b.defs);
 		}
 	};
 }

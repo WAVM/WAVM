@@ -1,26 +1,28 @@
 set(POSIXSources
-	POSIX/Clock.cpp
-	POSIX/Diagnostics.cpp
-	POSIX/Event.cpp
-	POSIX/Signal.cpp
-	POSIX/File.cpp
-	POSIX/Memory.cpp
-	POSIX/Mutex.cpp
-	POSIX/Thread.cpp
+	POSIX/ClockPOSIX.cpp
+	POSIX/DiagnosticsPOSIX.cpp
+	POSIX/EventPOSIX.cpp
+	POSIX/SignalPOSIX.cpp
+	POSIX/FilePOSIX.cpp
+	POSIX/MemoryPOSIX.cpp
+	POSIX/MutexPOSIX.cpp
+	POSIX/RandomPOSIX.cpp
+	POSIX/ThreadPOSIX.cpp
 	POSIX/POSIXPrivate.h)
 
 set(NonWavixSources
 	POSIX/POSIX.S)
 
 set(WindowsSources
-	Windows/Clock.cpp
-	Windows/Diagnostics.cpp
-	Windows/Event.cpp
-	Windows/Signal.cpp
-	Windows/File.cpp
-	Windows/Memory.cpp
-	Windows/Mutex.cpp
-	Windows/Thread.cpp
+	Windows/ClockWindows.cpp
+	Windows/DiagnosticsWindows.cpp
+	Windows/EventWindows.cpp
+	Windows/SignalWindows.cpp
+	Windows/FileWindows.cpp
+	Windows/MemoryWindows.cpp
+	Windows/MutexWindows.cpp
+	Windows/RandomWindows.cpp
+	Windows/ThreadWindows.cpp
 	Windows/WindowsPrivate.h)
 
 set(Win32Sources
@@ -64,6 +66,10 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND PLATFORM_PRIVATE_LIBS pthread rt)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	list(APPEND PLATFORM_PRIVATE_LIBS "Bcrypt.lib")
 endif()
 
 if(NOT MSVC AND WAVM_ENABLE_RUNTIME)

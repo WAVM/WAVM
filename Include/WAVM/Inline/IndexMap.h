@@ -66,7 +66,7 @@ namespace WAVM {
 			return map.contains(index);
 		}
 
-		// Returns the element bound to the specified index. Behavior is undefined for if the index
+		// Returns the element bound to the specified index. Behavior is undefined if the index
 		// isn't allocated.
 		const Element& operator[](Index index) const
 		{
@@ -80,6 +80,21 @@ namespace WAVM {
 			wavmAssert(index <= maxIndex);
 			wavmAssert(map.contains(index));
 			return map.getOrAdd(index);
+		}
+
+		// Returns a pointer to the element bound to the specified index, or null if the index isn't
+		// allocated.
+		const Element* get(Index index) const
+		{
+			wavmAssert(index >= minIndex);
+			wavmAssert(index <= maxIndex);
+			return map.get(index);
+		}
+		Element* get(Index index)
+		{
+			wavmAssert(index >= minIndex);
+			wavmAssert(index <= maxIndex);
+			return map.get(index);
 		}
 
 		// Returns the number of allocated index/element pairs.

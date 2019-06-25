@@ -723,6 +723,7 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 		const GlobalType globalType{globalValueType, isMutable};
 		if(random.get(1))
 		{
+			module.imports.push_back({ExternKind::global, module.globals.imports.size()});
 			module.globals.imports.push_back(
 				{globalType, "env", "global" + std::to_string(globalIndex)});
 		}

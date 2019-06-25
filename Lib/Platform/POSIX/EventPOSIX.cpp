@@ -4,6 +4,8 @@
 
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/Errors.h"
+#include "WAVM/Inline/I128.h"
+#include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Event.h"
 
@@ -38,23 +40,35 @@ Platform::Event::~Event()
 	errorUnless(!pthread_mutex_destroy((pthread_mutex_t*)&pthreadMutex));
 }
 
-bool Platform::Event::wait(U64 untilTime)
+bool Platform::Event::wait(I128 waitDuration)
 {
 	errorUnless(!pthread_mutex_lock((pthread_mutex_t*)&pthreadMutex));
 
 	int result;
-	if(untilTime == UINT64_MAX)
+	if(waitDuration == INT128_MAX)
 	{
 		result = pthread_cond_wait((pthread_cond_t*)&pthreadCond, (pthread_mutex_t*)&pthreadMutex);
 	}
 	else
 	{
+		// Use the non-POSIX relative time wait on Mac, and an absolute monotonic clock timeout on
+		// other POSIX systems.
+#ifdef __APPLE__
+		timespec waitTimeSpec;
+		waitTimeSpec.tv_sec = U64(waitDuration / 1000000000);
+		waitTimeSpec.tv_nsec = U64(waitDuration % 1000000000);
+
+		result = pthread_cond_timedwait_relative_np(
+			(pthread_cond_t*)&pthreadCond, (pthread_mutex_t*)&pthreadMutex, &waitTimeSpec);
+#else
+		const I128 untilTime = getMonotonicClock() + waitDuration;
 		timespec untilTimeSpec;
-		untilTimeSpec.tv_sec = untilTime / 1000000;
-		untilTimeSpec.tv_nsec = (untilTime % 1000000) * 1000;
+		untilTimeSpec.tv_sec = U64(untilTime / 1000000000);
+		untilTimeSpec.tv_nsec = U64(untilTime % 1000000000);
 
 		result = pthread_cond_timedwait(
 			(pthread_cond_t*)&pthreadCond, (pthread_mutex_t*)&pthreadMutex, &untilTimeSpec);
+#endif
 	}
 
 	errorUnless(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));

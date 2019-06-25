@@ -42,6 +42,14 @@ else()
 	option(WAVM_ENABLE_RUNTIME "enables the runtime components of WAVM" ON)
 endif()
 
+# On GCC/Clang, provide an option to compile the static libraries as PIC: Position-Independent Code.
+# With this option disabled, the static libraries may not be linked into shared libraries.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	if(WAVM_ENABLE_STATIC_LINKING)
+		option(WAVM_ENABLE_STATIC_LIBRARY_PIC "create position-independent static libraries" ON)
+	endif()
+endif()
+
 if(WAVM_ENABLE_RUNTIME)
 	if(LLVM_VERSION_MAJOR LESS 6)
 		message(FATAL_ERROR "WAVM requires LLVM version 6.0 or newer")
@@ -154,6 +162,7 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4310") # cast truncates constant value
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4324") # structure was padded due to alignment specifier
 		target_compile_options(${TARGET_NAME} PRIVATE "/wd4146") # unary minus operator applied to unsigned type, result still unsigned
+		target_compile_options(${TARGET_NAME} PRIVATE "/wd4204") # nonstandard extension used : non-constant aggregate initializer
 
 		target_link_libraries(${TARGET_NAME} PRIVATE "-ignore:4199") # /DELAYLOAD:... ignored; no imports found from ...
 
@@ -171,8 +180,11 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
 		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
 
-		# Ensure that even static libraries are relocatable so they can be linked into a .so
-		target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
+		get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
+		if(TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND WAVM_ENABLE_STATIC_LIBRARY_PIC)
+			# Ensure that even static libraries are relocatable so they can be linked into a .so
+			target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
+		endif()
 
 		if(WAVM_ENABLE_ASAN)
 			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
@@ -247,7 +259,7 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	cmake_parse_arguments(COMPONENT
 		""
 		""
-		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS;PRIVATE_INCLUDE_DIRECTORIES;PRIVATE_DEFINITIONS"
+		"SOURCES;NONCOMPILED_SOURCES;PRIVATE_LIBS;PUBLIC_LIBS;PRIVATE_LIB_COMPONENTS;PUBLIC_LIB_COMPONENTS;PRIVATE_INCLUDE_DIRECTORIES;PRIVATE_DEFINITIONS;PUBLIC_DEFINITIONS"
 		${ARGN})
 
 	# Translate the relative source and header file paths to absolute paths.
@@ -280,6 +292,7 @@ function(WAVM_ADD_LIB_COMPONENT COMPONENT_NAME)
 	# Add the component's include directories and definitions.
 	target_include_directories(WAVM PRIVATE ${COMPONENT_PRIVATE_INCLUDE_DIRECTORIES})
 	target_compile_definitions(WAVM PRIVATE ${COMPONENT_PRIVATE_DEFINITIONS})
+	target_compile_definitions(WAVM PUBLIC ${COMPONENT_PUBLIC_DEFINITIONS})
 
 	# Set up the component's API definitions.
 	string(TOUPPER ${COMPONENT_NAME} COMPONENT_C_NAME)
@@ -334,10 +347,10 @@ add_subdirectory(Lib/Logging)
 add_subdirectory(Lib/NFA)
 add_subdirectory(Lib/Platform)
 add_subdirectory(Lib/RegExp)
+add_subdirectory(Lib/VFS)
 add_subdirectory(Lib/WASM)
 add_subdirectory(Lib/WASTParse)
 add_subdirectory(Lib/WASTPrint)
-add_subdirectory(Lib/wavm-c)
 add_subdirectory(Programs/wavm-as)
 add_subdirectory(Programs/wavm-disas)
 add_subdirectory(Test)
@@ -349,6 +362,7 @@ if(WAVM_ENABLE_RUNTIME)
 	add_subdirectory(Lib/Runtime)
 	add_subdirectory(Lib/ThreadTest)
 	add_subdirectory(Lib/WASI)
+	add_subdirectory(Lib/wavm-c)
 	add_subdirectory(Programs/wavm-compile)
 	add_subdirectory(Programs/wavm-run)
 	add_subdirectory(Programs/wavm-run-wasi)
@@ -398,4 +412,8 @@ set(WAVM_EXTERNAL_WAVIX_SOURCE_DIR
 if(NOT WAVM_EXTERNAL_WAVIX_SOURCE_DIR STREQUAL "")
 	set(WAVM_DIR ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/WAVM)
 	add_subdirectory(${WAVM_EXTERNAL_WAVIX_SOURCE_DIR} Wavix)
+
+	# CMake doesn't automatically add the dependency of the wavix executable on the WAVM library, so
+	# add it explicitly to make sure it doesn't build wavix until it's done building WAVM.
+	add_dependencies(wavix WAVM)
 endif()
