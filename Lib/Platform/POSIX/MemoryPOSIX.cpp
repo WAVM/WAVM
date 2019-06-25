@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <unistd.h>
 
 #include "POSIXPrivate.h"
@@ -180,4 +181,11 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 					   numPages << getPageSizeLog2(),
 					   strerror(errno));
 	}
+}
+
+Uptr Platform::getPeakMemoryUsageBytes()
+{
+	struct rusage ru;
+	errorUnless(!getrusage(RUSAGE_SELF, &ru));
+	return Uptr(ru.ru_maxrss) * 1024;
 }

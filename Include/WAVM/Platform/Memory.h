@@ -57,4 +57,7 @@ namespace WAVM { namespace Platform {
 	PLATFORM_API void freeAlignedVirtualPages(U8* unalignedBaseAddress,
 											  Uptr numPages,
 											  Uptr alignmentLog2);
+
+	// Gets memory usage information for this process.
+	PLATFORM_API Uptr getPeakMemoryUsageBytes();
 }}

@@ -7,6 +7,8 @@
 #define NOMINMAX
 #include <Windows.h>
 
+#include <Psapi.h>
+
 using namespace WAVM;
 using namespace WAVM::Platform;
 
@@ -143,4 +145,12 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 	errorUnless(isPageAligned(unalignedBaseAddress));
 	auto result = VirtualFree(unalignedBaseAddress, 0, MEM_RELEASE);
 	if(unalignedBaseAddress && !result) { Errors::fatal("VirtualFree(MEM_RELEASE) failed"); }
+}
+
+Uptr Platform::getPeakMemoryUsageBytes()
+{
+	PROCESS_MEMORY_COUNTERS processMemoryCounters;
+	errorUnless(GetProcessMemoryInfo(
+		GetCurrentProcess(), &processMemoryCounters, sizeof(processMemoryCounters)));
+	return processMemoryCounters.PeakWorkingSetSize;
 }
