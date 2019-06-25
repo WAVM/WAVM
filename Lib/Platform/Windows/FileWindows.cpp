@@ -169,7 +169,7 @@ struct WindowsFD : FD
 	virtual ReadResult read(void* outData, Uptr numBytes, Uptr* outNumBytesRead = nullptr) override
 	{
 		if(outNumBytesRead) { *outNumBytesRead = 0; }
-		if(numBytes > Uptr(UINT32_MAX)) { return ReadResult::invalidArgument; }
+		if(numBytes > Uptr(UINT32_MAX)) { return ReadResult::tooManyBytes; }
 
 		switch(implicitSync)
 		{
@@ -228,7 +228,7 @@ struct WindowsFD : FD
 							  Uptr* outNumBytesWritten = nullptr) override
 	{
 		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
-		if(numBytes > Uptr(UINT32_MAX)) { return WriteResult::invalidArgument; }
+		if(numBytes > Uptr(UINT32_MAX)) { return WriteResult::tooManyBytes; }
 
 		DWORD windowsNumBytesWritten = 0;
 		if(WriteFile(handle, data, U32(numBytes), &windowsNumBytesWritten, nullptr))

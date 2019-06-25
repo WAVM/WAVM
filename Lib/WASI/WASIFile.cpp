@@ -533,7 +533,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		return TRACE_SYSCALL_RETURN(ESUCCESS, " (numBytesWritten=%" PRIu64 ")", numBytesWritten);
 	case VFS::WriteResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
 	case VFS::WriteResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
-	case VFS::WriteResult::invalidArgument: return TRACE_SYSCALL_RETURN(EINVAL);
+	case VFS::WriteResult::tooManyBytes: return TRACE_SYSCALL_RETURN(EINVAL);
 	case VFS::WriteResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
 	case VFS::WriteResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
 	case VFS::WriteResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);

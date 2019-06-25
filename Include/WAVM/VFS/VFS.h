@@ -111,7 +111,7 @@ namespace WAVM { namespace VFS {
 
 		ioError,
 		interrupted,
-		invalidArgument,
+		tooManyBytes,
 		notPermitted,
 		isDirectory,
 		outOfMemory
@@ -122,7 +122,7 @@ namespace WAVM { namespace VFS {
 		success,
 		ioError,
 		interrupted,
-		invalidArgument,
+		tooManyBytes,
 		outOfMemory,
 		outOfQuota,
 		outOfFreeSpace,
