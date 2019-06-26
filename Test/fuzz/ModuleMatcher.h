@@ -33,7 +33,7 @@ namespace WAVM {
 				if(segment.isActive
 				   && (segment.memoryIndex != wastSegment.memoryIndex
 					   || segment.baseOffset != wastSegment.baseOffset
-					   || segment.data != wastSegment.data))
+					   || *segment.data != *wastSegment.data))
 				{ failVerification(); }
 			}
 
@@ -46,7 +46,7 @@ namespace WAVM {
 				if(segment.isActive
 				   && (segment.tableIndex != wastSegment.tableIndex
 					   || segment.baseOffset != wastSegment.baseOffset
-					   || segment.elems != wastSegment.elems))
+					   || *segment.elems != *wastSegment.elems))
 				{ failVerification(); }
 			}
 		}
