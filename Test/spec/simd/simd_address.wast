@@ -66,8 +66,6 @@
 (module
   (memory 1)
   (func (export "v128.load_offset_65521")
-    (local v128)
-    (v128.store (i32.const 0) (v128.const i32x4 4294967295 4294967295 4294967295 4294967295))
     (drop (v128.load offset=65521 (i32.const 0)))
   )
 )
@@ -77,8 +75,6 @@
   (module quote
     "(memory 1)"
     "(func"
-    "  (local v128)"
-    "  (v128.store (i32.const 0) (v128.const i32x4 0 1 2 3))"
     "  (drop (v128.load offset=-1 (i32.const 0)))"
     ")"
   )
