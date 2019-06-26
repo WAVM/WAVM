@@ -91,3 +91,5 @@ set_target_properties(SpecTests PROPERTIES FOLDER Testing)
 if(WAVM_ENABLE_RUNTIME)
 	ADD_WAST_TESTS("${WASTTests}")
 endif()
+
+add_subdirectory(simd)
