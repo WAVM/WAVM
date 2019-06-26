@@ -107,7 +107,9 @@ bool Runtime::isA(const Object* object, const ExternType& type)
 	case ExternKind::memory: return isSubtype(asMemory(object)->type, asMemoryType(type));
 	case ExternKind::exceptionType:
 		return isSubtype(asExceptionType(type).params, asExceptionType(object)->sig.params);
-	default: Errors::unreachable();
+
+	case ExternKind::invalid:
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -120,7 +122,13 @@ ExternType Runtime::getExternType(const Object* object)
 	case ObjectKind::table: return asTable(object)->type;
 	case ObjectKind::memory: return asMemory(object)->type;
 	case ObjectKind::exceptionType: return asExceptionType(object)->sig;
-	default: Errors::unreachable();
+
+	case ObjectKind::moduleInstance:
+	case ObjectKind::context:
+	case ObjectKind::compartment:
+	case ObjectKind::foreign:
+	case ObjectKind::invalid:
+	default: WAVM_UNREACHABLE();
 	};
 }
 

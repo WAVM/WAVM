@@ -31,7 +31,7 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::DICompileUnit* diCompileUnit;
 		llvm::DIFile* diModuleScope;
 
-		llvm::DIType* diValueTypes[(Uptr)IR::ValueType::num];
+		llvm::DIType* diValueTypes[IR::numValueTypes];
 
 		llvm::MDNode* likelyFalseBranchWeights;
 		llvm::MDNode* likelyTrueBranchWeights;

@@ -171,7 +171,9 @@ struct GCState
 		case ObjectKind::context: break;
 
 		case ObjectKind::function:
-		default: Errors::unreachable();
+		case ObjectKind::foreign:
+		case ObjectKind::invalid:
+		default: WAVM_UNREACHABLE();
 		};
 	}
 };

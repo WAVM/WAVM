@@ -230,6 +230,8 @@ static void deserializeNameSubsection(const Module& module,
 		}
 		deserializeNameMap(substream, outNames.exceptionTypes, outNames.exceptionTypes.size());
 		break;
+
+	case NameSubsectionType::invalid:
 	default:
 		Log::printf(Log::debug, "Unknown WASM binary name subsection type: %u\n", subsectionType);
 		break;

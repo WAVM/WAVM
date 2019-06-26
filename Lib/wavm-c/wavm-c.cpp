@@ -134,8 +134,10 @@ static wasm_externtype_t* as_externtype(ExternType type)
 	case ExternKind::table: return as_externtype(asTableType(type));
 	case ExternKind::memory: return as_externtype(asMemoryType(type));
 	case ExternKind::global: return as_externtype(asGlobalType(type));
-	case ExternKind::exceptionType: Errors::unreachable();
-	default: Errors::unreachable();
+	case ExternKind::exceptionType: WAVM_UNREACHABLE();
+
+	case ExternKind::invalid:
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -150,7 +152,7 @@ static ValueType asValueType(wasm_valkind_t kind)
 	case WASM_V128: return ValueType::v128;
 	case WASM_ANYREF: return ValueType::anyref;
 	case WASM_FUNCREF: return ValueType::funcref;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 static Value asValue(ValueType type, const wasm_val_t* value)
@@ -170,7 +172,11 @@ static Value asValue(ValueType type, const wasm_val_t* value)
 	}
 	case ValueType::anyref: return Value(value->ref);
 	case ValueType::funcref: return Value(asFunction(value->ref));
-	default: Errors::unreachable();
+
+	case ValueType::none:
+	case ValueType::any:
+	case ValueType::nullref:
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -191,7 +197,11 @@ static wasm_val_t as_val(const Value& value)
 	}
 	case ValueType::anyref: result.ref = value.object; break;
 	case ValueType::funcref: result.ref = asObject(value.function); break;
-	default: Errors::unreachable();
+
+	case ValueType::none:
+	case ValueType::any:
+	case ValueType::nullref:
+	default: WAVM_UNREACHABLE();
 	}
 	return result;
 }
@@ -257,7 +267,11 @@ wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t* type)
 	case ValueType::v128: return WASM_V128;
 	case ValueType::anyref: return WASM_ANYREF;
 	case ValueType::funcref: return WASM_FUNCREF;
-	default: Errors::unreachable();
+
+	case ValueType::none:
+	case ValueType::any:
+	case ValueType::nullref:
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -379,7 +393,7 @@ void wasm_externtype_delete(wasm_externtype_t* type)
 	case WASM_EXTERN_TABLE: wasm_tabletype_delete(wasm_externtype_as_tabletype(type)); break;
 	case WASM_EXTERN_MEMORY: wasm_memorytype_delete(wasm_externtype_as_memorytype(type)); break;
 	case WASM_EXTERN_GLOBAL: wasm_globaltype_delete(wasm_externtype_as_globaltype(type)); break;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 wasm_externtype_t* wasm_externtype_copy(wasm_externtype_t* type)
@@ -397,7 +411,7 @@ wasm_externtype_t* wasm_externtype_copy(wasm_externtype_t* type)
 	case WASM_EXTERN_GLOBAL:
 		return wasm_globaltype_as_externtype(
 			wasm_globaltype_copy(wasm_externtype_as_globaltype(type)));
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t* type) { return type->kind; }
@@ -689,7 +703,9 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 	{
 		Errors::fatal("wasm_module_import can't handle exception type imports");
 	}
-	default: Errors::unreachable();
+
+	case ExternKind::invalid:
+	default: WAVM_UNREACHABLE();
 	};
 }
 size_t wasm_module_num_exports(const wasm_module_t* module)
@@ -719,7 +735,9 @@ void wasm_module_export(const wasm_module_t* module, size_t index, wasm_export_t
 		break;
 	case ExternKind::exceptionType:
 		Errors::fatal("wasm_module_export can't handle exception type exports");
-	default: Errors::unreachable();
+
+	case ExternKind::invalid:
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -909,7 +927,13 @@ wasm_externkind_t wasm_extern_kind(const wasm_extern_t* object)
 	case ObjectKind::memory: return WASM_EXTERN_MEMORY;
 	case ObjectKind::global: return WASM_EXTERN_GLOBAL;
 	case ObjectKind::exceptionType: Errors::fatal("wasm_extern_kind can't handle exception types");
-	default: Errors::unreachable();
+
+	case ObjectKind::moduleInstance:
+	case ObjectKind::context:
+	case ObjectKind::compartment:
+	case ObjectKind::foreign:
+	case ObjectKind::invalid:
+	default: WAVM_UNREACHABLE();
 	};
 }
 wasm_externtype_t* wasm_extern_type(const wasm_extern_t* object)

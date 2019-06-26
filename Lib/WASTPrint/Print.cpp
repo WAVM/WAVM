@@ -200,7 +200,9 @@ static void print(std::string& string, ReferenceType type)
 	{
 	case ReferenceType::funcref: string += "funcref"; break;
 	case ReferenceType::anyref: string += "anyref"; break;
-	default: Errors::unreachable();
+
+	case ReferenceType::none:
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -342,7 +344,9 @@ struct ModulePrintContext
 		case InitializerExpression::Type::ref_func:
 			string += "(ref.func " + names.functions[expression.ref].name + ')';
 			break;
-		default: Errors::unreachable();
+
+		case InitializerExpression::Type::invalid:
+		default: WAVM_UNREACHABLE();
 		};
 	}
 };
@@ -379,7 +383,6 @@ struct FunctionPrintContext
 
 	void printFunctionBody();
 
-	void unknown(Opcode) { Errors::unreachable(); }
 	void block(ControlStructureImm imm)
 	{
 		string += "\nblock";
@@ -825,7 +828,9 @@ void ModulePrintContext::printModule()
 						names.exceptionTypes[import.index].c_str(),
 						"exception_type");
 			break;
-		default: Errors::unreachable();
+
+		case ExternKind::invalid:
+		default: WAVM_UNREACHABLE();
 		};
 	}
 
@@ -846,7 +851,9 @@ void ModulePrintContext::printModule()
 		case ExternKind::exceptionType:
 			string += "exception_type " + names.exceptionTypes[export_.index];
 			break;
-		default: Errors::unreachable();
+
+		case ExternKind::invalid:
+		default: WAVM_UNREACHABLE();
 		};
 		string += ')';
 	}
@@ -915,7 +922,9 @@ void ModulePrintContext::printModule()
 			{
 			case ReferenceType::anyref: string += " anyref"; break;
 			case ReferenceType::funcref: string += " funcref"; break;
-			default: Errors::unreachable();
+
+			case ReferenceType::none:
+			default: WAVM_UNREACHABLE();
 			};
 		}
 		else
@@ -950,7 +959,8 @@ void ModulePrintContext::printModule()
 					string += names.functions[elem.index].name;
 					string += ')';
 					break;
-				default: Errors::unreachable();
+
+				default: WAVM_UNREACHABLE();
 				};
 			}
 		}
@@ -1371,6 +1381,8 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 					case SymbolKind::section:
 						linkingSectionString += " index=" + std::to_string(index);
 						break;
+
+					default: WAVM_UNREACHABLE();
 					}
 
 					if(SymbolKind(kind) == SymbolKind::data)
@@ -1406,6 +1418,8 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 				--indentDepth;
 				break;
 			}
+
+			case LinkingSubsectionType::invalid:
 			default:
 				linkingSectionString += "\n;; Unknown WASM linking subsection type: "
 										+ std::to_string(subsectionType);

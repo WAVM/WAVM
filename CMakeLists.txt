@@ -176,6 +176,10 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		# Compile with all warnings and fatal warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
 		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
+		
+		# Warn if a switch doesn't handle an enum case even if it has a default label.
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-enum")
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-default")
 	
 		# Disable RTTI to allow linking against a build of LLVM that was compiled without it.
 		target_compile_options(${TARGET_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)

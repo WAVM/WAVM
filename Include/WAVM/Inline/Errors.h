@@ -4,6 +4,9 @@
 
 #include <cstdarg>
 
+#define WAVM_UNREACHABLE()                                                                         \
+	while(true) { DEBUG_TRAP(); };
+
 namespace WAVM { namespace Errors {
 	// Fatal error handling.
 	[[noreturn]] inline void fatalfWithCallStack(const char* messageFormat, ...)
@@ -19,13 +22,4 @@ namespace WAVM { namespace Errors {
 		Platform::handleFatalError(messageFormat, false, varArgs);
 	}
 	[[noreturn]] inline void fatal(const char* message) { fatalf("%s", message); }
-	[[noreturn]] inline void unreachable()
-	{
-		va_list varArgs{};
-		Platform::handleFatalError("reached unreachable code", true, varArgs);
-	}
-	[[noreturn]] inline void unimplemented(const char* context)
-	{
-		fatalf("unimplemented: %s", context);
-	}
 }}

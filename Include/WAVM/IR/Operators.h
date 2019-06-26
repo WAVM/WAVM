@@ -143,8 +143,11 @@ namespace WAVM { namespace IR {
 		ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
-			maxSingleByteOpcode
-		= 0xdf,
+	};
+
+	enum : U16
+	{
+		maxSingleByteOpcode = 0xdf,
 	};
 
 	PACKED_STRUCT(template<typename Imm> struct OpcodeAndImm {
@@ -190,7 +193,7 @@ namespace WAVM { namespace IR {
 	}
 				ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
-			default: nextByte += sizeof(Opcode); return visitor.unknown(opcode);
+			default: WAVM_UNREACHABLE();
 			}
 		}
 

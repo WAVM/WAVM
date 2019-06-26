@@ -37,6 +37,12 @@
 	__pragma(warning(disable : 4702));
 
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS __pragma(warning(pop));
+#elif __GNUC__
+#define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS                                                     \
+	_Pragma("GCC diagnostic push");                                                                \
+	_Pragma("GCC diagnostic ignored \"-Wswitch-enum\"");                                           \
+	_Pragma("GCC diagnostic ignored \"-Wswitch-default\"");
+#define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS _Pragma("GCC diagnostic pop");
 #else
 #define PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #define POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
@@ -95,10 +101,10 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Type* anyrefType;
 
 		// Zero constants of each type.
-		llvm::Constant* typedZeroConstants[(Uptr)IR::ValueType::num];
+		llvm::Constant* typedZeroConstants[IR::numValueTypes];
 
 		// Maps a type ID to the corresponding LLVM type.
-		llvm::Type* valueTypes[Uptr(IR::ValueType::num)];
+		llvm::Type* valueTypes[IR::numValueTypes];
 
 		LLVMContext();
 	};
@@ -147,7 +153,7 @@ namespace WAVM { namespace LLVMJIT {
 	// Converts a WebAssembly type to a LLVM type.
 	inline llvm::Type* asLLVMType(LLVMContext& llvmContext, IR::ValueType type)
 	{
-		wavmAssert(type < IR::ValueType::num);
+		wavmAssert(type < (IR::ValueType)IR::numValueTypes);
 		return llvmContext.valueTypes[Uptr(type)];
 	}
 
@@ -246,7 +252,7 @@ namespace WAVM { namespace LLVMJIT {
 			}
 			break;
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 		return llvm::FunctionType::get(
 			llvmReturnType, llvm::ArrayRef<llvm::Type*>(llvmArgTypes, numParameters), false);
@@ -263,7 +269,7 @@ namespace WAVM { namespace LLVMJIT {
 		case IR::CallingConvention::cAPICallback:
 		case IR::CallingConvention::c: return llvm::CallingConv::C;
 
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		}
 	}
 

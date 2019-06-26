@@ -35,7 +35,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))
 		{
 			WAST::reportParseErrors("disassembly", parseErrors);
-			Errors::unreachable();
+			WAVM_UNREACHABLE();
 		}
 
 		ModuleMatcher moduleMatcher(module, wastModule);

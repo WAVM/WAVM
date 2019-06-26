@@ -459,7 +459,7 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 			case IR::Elem::Type::ref_func:
 				elemObject = asObject(moduleInstance->functions[elem.index]);
 				break;
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			}
 
 			setTableElement(table, destIndex, elemObject);

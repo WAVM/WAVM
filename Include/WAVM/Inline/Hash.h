@@ -7,9 +7,19 @@
 #include <type_traits>
 #include <vector>
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wswitch-default"
+#endif
+
 #define XXH_FORCE_NATIVE_FORMAT 1
 #define XXH_INLINE_ALL
 #include "xxhash/xxhash.h"
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#undef Long
+#endif
 
 namespace WAVM {
 	template<typename Key> struct Hash : std::hash<Key>

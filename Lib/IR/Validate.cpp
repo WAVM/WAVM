@@ -50,6 +50,10 @@ static void validate(const IR::FeatureSpec& featureSpec, IR::ValueType valueType
 	case ValueType::v128: isValid = featureSpec.simd; break;
 	case ValueType::anyref:
 	case ValueType::funcref: isValid = featureSpec.referenceTypes; break;
+
+	case ValueType::none:
+	case ValueType::any:
+	case ValueType::nullref:
 	default: isValid = false;
 	};
 
@@ -71,6 +75,8 @@ static void validate(const IR::FeatureSpec& featureSpec, ReferenceType type)
 	{
 	case ReferenceType::funcref: isValid = featureSpec.mvp; break;
 	case ReferenceType::anyref: isValid = featureSpec.referenceTypes; break;
+
+	case ReferenceType::none:
 	default: isValid = false;
 	}
 
@@ -172,7 +178,7 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 		}
 		return functionType;
 	}
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 
@@ -223,6 +229,8 @@ static void validateInitializer(const Module& module,
 		validateType(expectedType, ValueType::funcref, context);
 		break;
 	}
+
+	case InitializerExpression::Type::invalid:
 	default: throw ValidationException("invalid initializer expression");
 	};
 }
@@ -290,7 +298,7 @@ struct FunctionValidationContext
 				case ControlContext::Type::loop: controlStackString += "L"; break;
 				case ControlContext::Type::try_: controlStackString += "R"; break;
 				case ControlContext::Type::catch_: controlStackString += "C"; break;
-				default: Errors::unreachable();
+				default: WAVM_UNREACHABLE();
 				};
 				if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 			}
@@ -315,10 +323,6 @@ struct FunctionValidationContext
 	}
 
 	// Operation dispatch methods.
-	void unknown(Opcode opcode)
-	{
-		throw ValidationException("Unknown opcode: " + std::to_string((Uptr)opcode));
-	}
 	void block(ControlStructureImm imm)
 	{
 		const FunctionType type = validateBlockType(module, imm.type);
@@ -965,6 +969,8 @@ void IR::validateExports(const Module& module)
 		case ExternKind::exceptionType:
 			VALIDATE_INDEX(exportIt.index, module.exceptionTypes.size());
 			break;
+
+		case ExternKind::invalid:
 		default: throw ValidationException("unknown export kind");
 		};
 
@@ -1007,7 +1013,7 @@ void IR::validateElemSegments(const Module& module)
 								elemSegment.isActive);
 				break;
 			case Elem::Type::ref_func: VALIDATE_INDEX(elem.index, module.functions.size()); break;
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 		}
 	}

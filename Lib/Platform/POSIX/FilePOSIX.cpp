@@ -29,7 +29,7 @@ static FileType getFileTypeFromMode(mode_t mode)
 	case S_IFSOCK:
 		// return FileType::datagramSocket;
 		// return FileType::streamSocket;
-		Errors::unreachable();
+		WAVM_UNREACHABLE();
 		break;
 	default: return FileType::unknown;
 	};
@@ -70,8 +70,16 @@ struct POSIXFD : FD
 			{
 			case EBADF: Errors::fatalf("close returned EBADF (fd=%i)", fd);
 
-			case EINTR: return CloseResult::interrupted;
+			case EINTR:
+				// POSIX close says that the fd is in an undefined state after close returns EINTR.
+				// This risks leaking the fd, but assume that the interrupted close actually closed
+				// the fd and return success.
+				// https://www.daemonology.net/blog/2011-12-17-POSIX-close-is-broken.html
+				break;
+
 			case EIO: return CloseResult::ioError;
+
+			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
 			};
 		}
 		delete this;
@@ -88,7 +96,7 @@ struct POSIXFD : FD
 		case SeekOrigin::begin: whence = SEEK_SET; break;
 		case SeekOrigin::cur: whence = SEEK_CUR; break;
 		case SeekOrigin::end: whence = SEEK_END; break;
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 
 #ifdef __linux__
@@ -302,7 +310,7 @@ FD* Platform::getStdFD(StdDevice device)
 	case StdDevice::in: return stdinVFD; break;
 	case StdDevice::out: return stdoutVFD; break;
 	case StdDevice::err: return stderrVFD; break;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 }
 
@@ -313,14 +321,13 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 								  FDImplicitSync implicitSync)
 {
 	U32 flags = 0;
-	mode_t mode = 0;
 	switch(accessMode)
 	{
 	case FileAccessMode::none: flags = O_RDONLY; break;
 	case FileAccessMode::readOnly: flags = O_RDONLY; break;
 	case FileAccessMode::writeOnly: flags = O_WRONLY; break;
 	case FileAccessMode::readWrite: flags = O_RDWR; break;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
 	switch(createMode)
@@ -330,18 +337,10 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 	case FileCreateMode::openAlways: flags |= O_CREAT; break;
 	case FileCreateMode::openExisting: break;
 	case FileCreateMode::truncateExisting: flags |= O_TRUNC; break;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	};
 
-	switch(createMode)
-	{
-	case FileCreateMode::createAlways:
-	case FileCreateMode::createNew:
-	case FileCreateMode::openAlways:
-		mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-		break;
-	default: break;
-	};
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
 	switch(implicitSync)
 	{
@@ -366,7 +365,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 		break;
 #endif
 
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 
 	const I32 fd = open(pathName.c_str(), flags, mode);

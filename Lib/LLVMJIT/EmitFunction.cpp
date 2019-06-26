@@ -73,7 +73,7 @@ llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 		switch(value->getType()->getScalarSizeInBits() * value->getType()->getVectorNumElements())
 		{
 		case 128: return irBuilder.CreateBitCast(value, llvmContext.i64x2Type);
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 	else if(value->getType()->isX86_MMXTy())
@@ -104,7 +104,7 @@ void EmitFunctionContext::logOperator(const std::string& operatorDescription)
 			case ControlContext::Type::loop: controlStackString += "L"; break;
 			case ControlContext::Type::try_: controlStackString += "T"; break;
 			case ControlContext::Type::catch_: controlStackString += "C"; break;
-			default: Errors::unreachable();
+			default: WAVM_UNREACHABLE();
 			};
 			if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 		}

@@ -125,7 +125,13 @@ Object* Runtime::remapToClonedCompartment(Object* object, const Compartment* new
 		return newCompartment->exceptionTypes[asExceptionType(object)->id];
 	case ObjectKind::moduleInstance:
 		return newCompartment->moduleInstances[asModuleInstance(object)->id];
-	default: Errors::unreachable();
+
+	case ObjectKind::function:
+	case ObjectKind::context:
+	case ObjectKind::compartment:
+	case ObjectKind::foreign:
+	case ObjectKind::invalid:
+	default: WAVM_UNREACHABLE();
 	};
 }
 

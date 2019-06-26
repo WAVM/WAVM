@@ -185,7 +185,7 @@ static int run(const CommandLineOptions& options)
 	case WASI::RunResult::doesNotExportMemory:
 		Log::printf(Log::error, "WASM module does not export a memory.\n");
 		return EXIT_FAILURE;
-	default: Errors::unreachable();
+	default: WAVM_UNREACHABLE();
 	}
 }
 

@@ -86,7 +86,8 @@
 	ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
 
 namespace WAVM { namespace WAST {
-	enum TokenType : U16
+	typedef U16 TokenType;
+	enum : U16
 	{
 #define VISIT_TOKEN(name, description, _) t_##name,
 		ENUM_TOKENS()

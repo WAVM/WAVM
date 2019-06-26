@@ -107,6 +107,8 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 			dumpModule(*moduleAction->module, outputDir, dumpFormat);
 			break;
 		}
+		case ActionType::invoke:
+		case ActionType::get:
 		default: break;
 		}
 		break;
@@ -134,6 +136,14 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 
 		break;
 	}
+
+	case Command::_register:
+	case Command::assert_return:
+	case Command::assert_return_arithmetic_nan:
+	case Command::assert_return_canonical_nan:
+	case Command::assert_return_func:
+	case Command::assert_trap:
+	case Command::assert_throws:
 	default: break;
 	};
 }

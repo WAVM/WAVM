@@ -29,7 +29,7 @@ namespace WAVM { namespace IR {
 			global_get = 0x0023,
 			ref_null = 0x00d0,
 			ref_func = 0x00d2,
-			error = 0xffff
+			invalid = 0xffff
 		};
 		union
 		{
@@ -45,7 +45,7 @@ namespace WAVM { namespace IR {
 			V128 v128;
 			Ref ref;
 		};
-		InitializerExpressionBase() : type(Type::error) {}
+		InitializerExpressionBase() : type(Type::invalid) {}
 		InitializerExpressionBase(I32 inI32) : type(Type::i32_const), i32(inI32) {}
 		InitializerExpressionBase(I64 inI64) : type(Type::i64_const), i64(inI64) {}
 		InitializerExpressionBase(F32 inF32) : type(Type::f32_const), f32(inF32) {}
@@ -74,8 +74,8 @@ namespace WAVM { namespace IR {
 			case Type::global_get: return a.ref == b.ref;
 			case Type::ref_null: return true;
 			case Type::ref_func: return a.ref == b.ref;
-			case Type::error: return true;
-			default: Errors::unreachable();
+			case Type::invalid: return true;
+			default: WAVM_UNREACHABLE();
 			};
 		}
 
@@ -186,6 +186,7 @@ namespace WAVM { namespace IR {
 			switch(a.type)
 			{
 			case Elem::Type::ref_func: return a.index == b.index;
+			case Elem::Type::ref_null:
 			default: return true;
 			}
 		}
@@ -196,6 +197,7 @@ namespace WAVM { namespace IR {
 			switch(a.type)
 			{
 			case Elem::Type::ref_func: return a.index != b.index;
+			case Elem::Type::ref_null:
 			default: return false;
 			}
 		}
@@ -304,7 +306,7 @@ namespace WAVM { namespace IR {
 		case IndexedBlockType::noParametersOrResult: return FunctionType();
 		case IndexedBlockType::oneResult: return FunctionType(TypeTuple(indexedType.resultType));
 		case IndexedBlockType::functionType: return module.types[indexedType.index];
-		default: Errors::unreachable();
+		default: WAVM_UNREACHABLE();
 		};
 	}
 

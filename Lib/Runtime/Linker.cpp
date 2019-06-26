@@ -74,7 +74,9 @@ LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
 			linkImport(module, exceptionTypeImport, exceptionTypeImport.type, resolver, linkResult);
 			break;
 		}
-		default: Errors::unreachable();
+
+		case ExternKind::invalid:
+		default: WAVM_UNREACHABLE();
 		};
 	}
 

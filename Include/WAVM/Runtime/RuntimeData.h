@@ -7,6 +7,7 @@
 #include <atomic>
 #include <map>
 
+#include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Diagnostics.h"
@@ -29,11 +30,11 @@ namespace WAVM { namespace Runtime {
 	enum class ObjectKind : U8
 	{
 		// Standard object kinds that may be imported/exported from WebAssembly modules.
-		function = 0,
-		table = 1,
-		memory = 2,
-		global = 3,
-		exceptionType = 4,
+		function = (U8)IR::ExternKind::function,
+		table = (U8)IR::ExternKind::table,
+		memory = (U8)IR::ExternKind::memory,
+		global = (U8)IR::ExternKind::global,
+		exceptionType = (U8)IR::ExternKind::exceptionType,
 
 		// Runtime-specific object kinds that are only used by transient runtime objects.
 		moduleInstance = 5,

@@ -14,7 +14,7 @@ int main(int argc, char** argv)
 	FILE* file = fopen(argv[1], "rb");
 	if(!file)
 	{
-		printf("Failed to open '%s' for reading. errno=%s\n", argv[1], strerror(errno));
+		printf("Failed to open '%s' for reading: %s\n", argv[1], strerror(errno));
 		return 1;
 	}
 

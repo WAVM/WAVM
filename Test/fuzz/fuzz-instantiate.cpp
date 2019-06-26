@@ -59,9 +59,12 @@ struct StubResolver : Runtime::Resolver
 				case IR::ValueType::f64: encoder.f64_const({0.0}); break;
 				case IR::ValueType::v128: encoder.v128_const({V128{{0, 0}}}); break;
 				case IR::ValueType::anyref:
-				case IR::ValueType::funcref:
-				case IR::ValueType::nullref: encoder.ref_null(); break;
-				default: Errors::unreachable();
+				case IR::ValueType::funcref: encoder.ref_null(); break;
+
+				case IR::ValueType::none:
+				case IR::ValueType::any:
+				case IR::ValueType::nullref:
+				default: WAVM_UNREACHABLE();
 				};
 			}
 			encoder.end();
@@ -101,7 +104,9 @@ struct StubResolver : Runtime::Resolver
 			return asObject(
 				Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
 		}
-		default: Errors::unreachable();
+
+		case IR::ExternKind::invalid:
+		default: WAVM_UNREACHABLE();
 		};
 	}
 };

@@ -254,6 +254,8 @@ void printFunctionSEH(U8* imageBase, const RuntimeFunction& function)
 							unwindCode->opInfo);
 				++unwindCode;
 				break;
+
+			default: WAVM_UNREACHABLE();
 			}
 		}
 	}

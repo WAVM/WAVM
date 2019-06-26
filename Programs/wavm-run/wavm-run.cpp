@@ -120,7 +120,9 @@ struct RootResolver : Resolver
 			return asObject(
 				Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
 		}
-		default: Errors::unreachable();
+
+		case IR::ExternKind::invalid:
+		default: WAVM_UNREACHABLE();
 		};
 	}
 };
@@ -329,7 +331,11 @@ static int run(const CommandLineOptions& options)
 			case ValueType::funcref:
 				Errors::fatalf("Cannot parse command-line argument for %s function parameter",
 							   asString(functionType.params()[i]));
-			default: Errors::unreachable();
+
+			case ValueType::none:
+			case ValueType::any:
+			case ValueType::nullref:
+			default: WAVM_UNREACHABLE();
 			}
 			invokeArgs.push_back(value);
 		}
