@@ -2,6 +2,7 @@ set(TestNames
 	args
 	cat
 	clock
+	ls
 	random
 	stat
 	stdout

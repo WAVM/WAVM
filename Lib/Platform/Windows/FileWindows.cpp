@@ -36,8 +36,7 @@ static GetInfoResult getFileType(HANDLE handle, FileType& outType)
 	{
 	case FILE_TYPE_CHAR: outType = FileType::characterDevice; break;
 	case FILE_TYPE_PIPE: outType = FileType::pipe; break;
-	case FILE_TYPE_DISK:
-	{
+	case FILE_TYPE_DISK: {
 		FILE_BASIC_INFO fileBasicInfo;
 		if(!GetFileInformationByHandleEx(
 			   handle, FileBasicInfo, &fileBasicInfo, sizeof(fileBasicInfo)))
@@ -97,6 +96,115 @@ static GetInfoResult getFileInfoByHandle(HANDLE handle, FileInfo& outInfo)
 
 	return GetInfoResult::success;
 }
+
+static bool readDirEnts(HANDLE handle, bool startFromBeginning, std::vector<DirEnt>& outDirEnts)
+{
+	U8 buffer[2048];
+	if(!GetFileInformationByHandleEx(
+		   handle,
+		   startFromBeginning ? FileIdBothDirectoryRestartInfo : FileIdBothDirectoryInfo,
+		   buffer,
+		   sizeof(buffer)))
+	{ return false; }
+
+	auto fileInfo = (FILE_ID_BOTH_DIR_INFO*)buffer;
+	while(true)
+	{
+		DirEnt dirEnt;
+		dirEnt.fileNumber = fileInfo->FileId.QuadPart;
+
+		const U16* fileNameEnd = (U16*)fileInfo->FileName + fileInfo->FileNameLength / sizeof(U16);
+		const U16* transcodeResult = Unicode::transcodeUTF16ToUTF8(
+			(const U16*)fileInfo->FileName, fileNameEnd, dirEnt.name);
+		if(transcodeResult != fileNameEnd)
+		{
+			Errors::fatalf(
+				"GetFileInformationByHandleEx returned a file name with an "
+				"invalid UTF-16 code point: %u\n",
+				*transcodeResult);
+		}
+
+		// Assume this is a FILE_TYPE_DISK.
+		dirEnt.type = fileInfo->FileAttributes & FILE_ATTRIBUTE_DIRECTORY ? FileType::directory
+																		  : FileType::file;
+
+		outDirEnts.push_back(dirEnt);
+
+		if(fileInfo->NextEntryOffset == 0) { break; }
+		else
+		{
+			fileInfo = (FILE_ID_BOTH_DIR_INFO*)(((U8*)fileInfo) + fileInfo->NextEntryOffset);
+		}
+	};
+
+	return true;
+}
+
+struct WindowsDirEntStream : DirEntStream
+{
+	WindowsDirEntStream(HANDLE inHandle, std::vector<DirEnt>&& inDirEnts)
+	: handle(inHandle), dirEnts(std::move(inDirEnts))
+	{
+	}
+
+	virtual void close() override
+	{
+		errorUnless(CloseHandle(handle));
+		delete this;
+	}
+
+	virtual bool getNext(DirEnt& outEntry) override
+	{
+		while(nextReadIndex >= dirEnts.size())
+		{
+			if(!readDirEnts(handle, nextReadIndex == 0, dirEnts))
+			{
+				switch(GetLastError())
+				{
+				case ERROR_INVALID_HANDLE:
+					Errors::fatalf(
+						"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR
+						")",
+						reinterpret_cast<Uptr>(handle));
+
+				case ERROR_NO_MORE_FILES: return false;
+
+				default: WAVM_UNREACHABLE();
+				}
+			}
+		};
+
+		outEntry = dirEnts[nextReadIndex++];
+
+		return true;
+	}
+
+	virtual void restart() override
+	{
+		dirEnts.clear();
+		nextReadIndex = 0;
+	}
+
+	virtual U64 tell() override
+	{
+		errorUnless(nextReadIndex < UINT64_MAX);
+		return U64(nextReadIndex);
+	}
+
+	virtual bool seek(U64 offset) override
+	{
+		// Don't allow seeking forward past the last buffered dirent.
+		if(offset > UINTPTR_MAX || offset > dirEnts.size()) { return false; }
+
+		nextReadIndex = Uptr(offset);
+		return true;
+	}
+
+private:
+	HANDLE handle;
+	std::vector<DirEnt> dirEnts;
+	Uptr nextReadIndex{0};
+};
 
 struct WindowsFD : FD
 {
@@ -303,6 +411,46 @@ struct WindowsFD : FD
 		return getFileInfoByHandle(handle, outInfo);
 	}
 
+	virtual OpenDirResult openDir(DirEntStream*& outStream) override
+	{
+		// Make a copy of the handle, so the FD and the DirEntStream can be closed independently.
+		HANDLE duplicatedHandle = INVALID_HANDLE_VALUE;
+		errorUnless(DuplicateHandle(GetCurrentProcess(),
+									handle,
+									GetCurrentProcess(),
+									&duplicatedHandle,
+									0,
+									TRUE,
+									DUPLICATE_SAME_ACCESS));
+
+		// Try to read the initial buffer-full of dirents to determine whether this is a directory.
+		std::vector<DirEnt> initialDirEnts;
+		if(readDirEnts(duplicatedHandle, true, initialDirEnts)
+		   || GetLastError() == ERROR_NO_MORE_FILES)
+		{
+			outStream = new WindowsDirEntStream(duplicatedHandle, std::move(initialDirEnts));
+			return OpenDirResult::success;
+		}
+		else
+		{
+			// Close the duplicated handle.
+			CloseHandle(duplicatedHandle);
+
+			switch(GetLastError())
+			{
+			case ERROR_INVALID_HANDLE:
+				Errors::fatalf(
+					"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR
+					")",
+					reinterpret_cast<Uptr>(handle));
+
+			case ERROR_INVALID_PARAMETER: return OpenDirResult::notADirectory;
+
+			default: WAVM_UNREACHABLE();
+			};
+		}
+	}
+
 private:
 	HANDLE handle;
 	FDImplicitSync implicitSync;
@@ -447,6 +595,11 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileI
 	{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
 
 	return GetInfoByPathResult::success;
+}
+
+OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
+{
+	WAVM_UNREACHABLE();
 }
 
 std::string Platform::getCurrentWorkingDirectory()

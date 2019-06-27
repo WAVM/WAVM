@@ -87,6 +87,13 @@ namespace WAVM { namespace VFS {
 		I128 creationTime;
 	};
 
+	struct DirEnt
+	{
+		U64 fileNumber;
+		std::string name;
+		FileType type;
+	};
+
 	// Result enumerations
 
 	enum class SeekResult : I32
@@ -154,6 +161,7 @@ namespace WAVM { namespace VFS {
 		invalidNameCharacter,
 		nameTooLong,
 		pathUsesFileAsDirectory,
+		tooManyLinks,
 
 		notPermitted,
 		ioError,
@@ -172,9 +180,46 @@ namespace WAVM { namespace VFS {
 		invalidNameCharacter,
 		nameTooLong,
 		pathUsesFileAsDirectory,
+		tooManyLinks,
 
 		notPermitted,
 		ioError
+	};
+
+	enum class OpenDirResult : I32
+	{
+		success,
+
+		notADirectory,
+		outOfMemory,
+		notPermitted,
+	};
+
+	enum class OpenDirByPathResult : I32
+	{
+		success,
+
+		invalidNameCharacter,
+		nameTooLong,
+		pathUsesFileAsDirectory,
+		tooManyLinks,
+
+		notADirectory,
+		outOfMemory,
+		notPermitted,
+	};
+
+	struct DirEntStream
+	{
+		virtual ~DirEntStream() {}
+
+		virtual void close() = 0;
+
+		virtual bool getNext(DirEnt& outEntry) = 0;
+
+		virtual void restart() = 0;
+		virtual U64 tell() = 0;
+		virtual bool seek(U64 offset) = 0;
 	};
 
 	struct FD
@@ -193,6 +238,8 @@ namespace WAVM { namespace VFS {
 		virtual GetInfoResult getFDInfo(FDInfo& outInfo) = 0;
 		virtual GetInfoResult getFileInfo(FileInfo& outInfo) = 0;
 
+		virtual OpenDirResult openDir(DirEntStream*& outStream) = 0;
+
 	protected:
 		virtual ~FD() {}
 	};
@@ -209,6 +256,10 @@ namespace WAVM { namespace VFS {
 			= 0;
 
 		virtual GetInfoByPathResult getInfo(const std::string& absolutePathName, FileInfo& outInfo)
+			= 0;
+
+		virtual OpenDirByPathResult openDir(const std::string& absolutePathName,
+											DirEntStream*& outStream)
 			= 0;
 	};
 }}

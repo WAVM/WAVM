@@ -1,5 +1,7 @@
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -55,6 +57,101 @@ static void getFileInfoFromStatus(const struct stat& status, FileInfo& outInfo)
 	outInfo.creationTime = timeToNS(status.st_ctime);
 }
 
+struct POSIXDirEntStream : DirEntStream
+{
+	POSIXDirEntStream(DIR* inDir) : dir(inDir) {}
+
+	virtual void close() override
+	{
+		closedir(dir);
+		delete this;
+	}
+
+	virtual bool getNext(DirEnt& outEntry) override
+	{
+		errno = 0;
+		struct dirent* dirent = readdir(dir);
+		if(dirent)
+		{
+			wavmAssert(dirent);
+			outEntry.fileNumber = dirent->d_ino;
+			outEntry.name = dirent->d_name;
+#ifdef _DIRENT_HAVE_D_TYPE
+			switch(dirent->d_type)
+			{
+			case DT_BLK: outEntry.type = FileType::blockDevice; break;
+			case DT_CHR: outEntry.type = FileType::characterDevice; break;
+			case DT_DIR: outEntry.type = FileType::directory; break;
+			case DT_FIFO: outEntry.type = FileType::pipe; break;
+			case DT_LNK: outEntry.type = FileType::symbolicLink; break;
+			case DT_REG: outEntry.type = FileType::file; break;
+			case DT_SOCK: outEntry.type = FileType::streamSocket; break;
+			case DT_UNKNOWN: outEntry.type = FileType::unknown; break;
+
+			default: WAVM_UNREACHABLE();
+			};
+#else
+			outEntry.type = FileType::unknown;
+#endif
+			return true;
+		}
+		else
+		{
+			switch(errno)
+			{
+			case 0:
+				// Reached the end of the directory.
+				return false;
+
+			case EBADF:
+				Errors::fatalf("readdir returned EBADF; dir=0x%" PRIxPTR ", dirfd(dir)=%i",
+							   reinterpret_cast<Uptr>(dir),
+							   dirfd(dir));
+
+			case ENOENT:
+				// "The current position of the directory stream is invalid."
+				return false;
+
+			case EOVERFLOW:
+				// "One of the values in the structure to be returned cannot be represented
+				// correctly."
+				return false;
+
+			default: WAVM_UNREACHABLE();
+			};
+		}
+	}
+
+	virtual void restart() override
+	{
+		rewinddir(dir);
+		maxValidOffset = 0;
+	}
+
+	virtual U64 tell() override
+	{
+		const long offset = telldir(dir);
+		errorUnless(offset >= 0 && (unsigned long)offset <= UINT64_MAX);
+		if(U64(offset) > maxValidOffset) { maxValidOffset = U64(offset); }
+		return U64(offset);
+	}
+
+	virtual bool seek(U64 offset) override
+	{
+		// Don't allow seeking to higher offsets than have been returned by tell since the last
+		// rewind.
+		if(offset > maxValidOffset) { return false; };
+
+		errorUnless(offset <= LONG_MAX);
+		seekdir(dir, long(offset));
+		return true;
+	}
+
+private:
+	DIR* dir;
+	U64 maxValidOffset{0};
+};
+
 struct POSIXFD : FD
 {
 	const I32 fd;
@@ -79,7 +176,7 @@ struct POSIXFD : FD
 
 			case EIO: return CloseResult::ioError;
 
-			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
 		}
 		delete this;
@@ -120,7 +217,7 @@ struct POSIXFD : FD
 			case EINVAL: return SeekResult::invalidOffset;
 			case ESPIPE: return SeekResult::unseekable;
 
-			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			}
 		}
 	}
@@ -142,7 +239,7 @@ struct POSIXFD : FD
 			case EINTR: return ReadResult::interrupted;
 			case EISDIR: return ReadResult::isDirectory;
 
-			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
 		}
 	}
@@ -169,7 +266,7 @@ struct POSIXFD : FD
 			case EFBIG: return WriteResult::exceededFileSizeLimit;
 			case EPERM: return WriteResult::notPermitted;
 
-			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
 		}
 	}
@@ -183,7 +280,7 @@ struct POSIXFD : FD
 		{
 		case SyncType::contents: result = fdatasync(fd); break;
 		case SyncType::contentsAndMetadata: result = fsync(fd); break;
-		default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+		default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 		}
 #endif
 
@@ -198,7 +295,7 @@ struct POSIXFD : FD
 			case EINTR: return SyncResult::interrupted;
 			case EINVAL: return SyncResult::notSupported;
 
-			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
 		}
 	}
@@ -217,7 +314,7 @@ struct POSIXFD : FD
 				// or the file serial number cannot be represented correctly in the structure
 				// pointed to by buf.
 
-			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
 		}
 
@@ -232,7 +329,7 @@ struct POSIXFD : FD
 			{
 			case EBADF: Errors::fatalf("fcntl returned EBADF (fd=%i)", fd);
 
-			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
 		}
 
@@ -280,12 +377,48 @@ struct POSIXFD : FD
 				// The file size in bytes or the number of blocks allocated to the file or the file
 				// serial number cannot be represented correctly in the structure pointed to by buf.
 
-			default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
 		}
 
 		getFileInfoFromStatus(fdStatus, outInfo);
 		return GetInfoResult::success;
+	}
+
+	virtual OpenDirResult openDir(DirEntStream*& outStream) override
+	{
+		const I32 duplicateFD = dup(fd);
+		if(duplicateFD < 0)
+		{
+			switch(errno)
+			{
+			case EBADF: Errors::fatalf("dup returned EBADF (fd=%i)", fd);
+			case EMFILE: return OpenDirResult::outOfMemory;
+
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
+			};
+		}
+
+		DIR* dir = fdopendir(duplicateFD);
+		if(dir)
+		{
+			// Rewind the dir to the beginning to ensure previous seeks on the FD don't affect the
+			// dirent stream.
+			rewinddir(dir);
+
+			outStream = new POSIXDirEntStream(dir);
+			return OpenDirResult::success;
+		}
+		else
+		{
+			switch(errno)
+			{
+			case EBADF: Errors::fatalf("fdopendir returned EBADF (fd=%i)", fd);
+			case ENOTDIR: return OpenDirResult::notADirectory;
+
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
+			};
+		}
 	}
 };
 
@@ -395,11 +528,8 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 		case ENOMEM: return OpenResult::outOfMemory;
 		case EDQUOT: return OpenResult::outOfQuota;
 		case EPERM: return OpenResult::notPermitted;
+		case ELOOP: return OpenResult::tooManyLinks;
 
-		case ELOOP:
-			// A loop exists in symbolic links encountered during resolution of the path argument.
-			// More than {SYMLOOP_MAX} symbolic links were encountered during resolution of the path
-			// argument.
 		case ENOSR:
 			// The path argument names a STREAMS-based file and the system is unable to allocate a
 			// STREAM.
@@ -417,7 +547,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 			// The file is a pure procedure (shared text) file that is being executed and oflag is
 			// O_WRONLY or O_RDWR.
 
-		default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+		default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 		};
 	}
 }
@@ -435,22 +565,46 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, VFS::
 		case ENAMETOOLONG: return GetInfoByPathResult::nameTooLong;
 		case ENOENT: return GetInfoByPathResult::doesNotExist;
 		case ENOTDIR: return GetInfoByPathResult::pathUsesFileAsDirectory;
-
-		case ELOOP:
-			// A loop exists in symbolic links encountered during resolution of the path argument.
-			// More than {SYMLOOP_MAX} symbolic links were encountered during resolution of the path
-			// argument.
+		case ELOOP: return GetInfoByPathResult::tooManyLinks;
 
 		case EOVERFLOW:
 			// The file size in bytes or the number of blocks allocated to the file or the file
 			// serial number cannot be represented correctly in the structure pointed to by buf.
 
-		default: Errors::fatalf("Unexpected errno: %s", strerror(errno));
+		default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 		};
 	}
 
 	getFileInfoFromStatus(fileStatus, outInfo);
 	return GetInfoByPathResult::success;
+}
+
+OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
+{
+	DIR* dir = opendir(pathName.c_str());
+
+	if(dir)
+	{
+		outStream = new POSIXDirEntStream(dir);
+		return OpenDirByPathResult::success;
+	}
+	else
+	{
+		switch(errno)
+		{
+		case EACCES: return OpenDirByPathResult::notPermitted;
+
+		case ELOOP: return OpenDirByPathResult::tooManyLinks;
+		case ENAMETOOLONG: return OpenDirByPathResult::nameTooLong;
+		case ENOTDIR: return OpenDirByPathResult::pathUsesFileAsDirectory;
+		case ENOENT: return OpenDirByPathResult::notADirectory;
+
+		case EMFILE: return OpenDirByPathResult::outOfMemory;
+		case ENFILE: return OpenDirByPathResult::outOfMemory;
+
+		default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
+		};
+	}
 }
 
 std::string Platform::getCurrentWorkingDirectory()

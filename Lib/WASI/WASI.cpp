@@ -167,7 +167,10 @@ WASI::Process::~Process()
 {
 	for(const WASI::FD& fd : fds)
 	{
-		if(fd.vfd) { fd.vfd->close(); }
+		if(fd.close() != VFS::CloseResult::success)
+		{
+			Log::printf(Log::Category::debug, "Error while closing file because of process exit\n");
+		}
 	}
 
 	context = nullptr;
@@ -208,9 +211,9 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 								  | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET
 								  | __WASI_RIGHT_POLL_FD_READWRITE;
 
-	process->fds.insertOrFail(0, FD{stdIn, stdioRights, 0, "/dev/stdin", false});
-	process->fds.insertOrFail(1, FD{stdOut, stdioRights, 0, "/dev/stdout", false});
-	process->fds.insertOrFail(2, FD{stdErr, stdioRights, 0, "/dev/stderr", false});
+	process->fds.insertOrFail(0, FD(stdIn, stdioRights, 0, "/dev/stdin"));
+	process->fds.insertOrFail(1, FD(stdOut, stdioRights, 0, "/dev/stdout"));
+	process->fds.insertOrFail(2, FD(stdErr, stdioRights, 0, "/dev/stderr"));
 
 	if(fileSystem)
 	{

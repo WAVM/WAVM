@@ -53,6 +53,12 @@ struct SandboxedFileSystem : FileSystem
 		return Platform::getHostFileInfo(getHostPath(absolutePathName), outInfo);
 	}
 
+	virtual OpenDirByPathResult openDir(const std::string& absolutePathName,
+										DirEntStream*& outStream)
+	{
+		return Platform::openHostDir(getHostPath(absolutePathName), outStream);
+	}
+
 private:
 	std::string rootPath;
 

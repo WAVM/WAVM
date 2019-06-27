@@ -45,6 +45,8 @@
 #define INHERITING_DIRECTORY_RIGHTS (DIRECTORY_RIGHTS | REGULAR_FILE_RIGHTS)
 
 namespace WAVM { namespace VFS {
+	enum class CloseResult;
+	struct DirEntStream;
 	struct FD;
 }}
 
@@ -59,6 +61,25 @@ namespace WAVM { namespace WASI {
 
 		bool isPreopened;
 		__wasi_preopentype_t preopenedType;
+
+		VFS::DirEntStream* dirEntStream{nullptr};
+
+		FD(VFS::FD* inVFD,
+		   __wasi_rights_t inRights,
+		   __wasi_rights_t inInheritingRights,
+		   std::string&& inOriginalPath,
+		   bool inIsPreopened = false,
+		   __wasi_preopentype_t inPreopenedType = __WASI_PREOPENTYPE_DIR)
+		: vfd(inVFD)
+		, rights(inRights)
+		, inheritingRights(inInheritingRights)
+		, originalPath(std::move(inOriginalPath))
+		, isPreopened(inIsPreopened)
+		, preopenedType(inPreopenedType)
+		{
+		}
+
+		VFS::CloseResult close() const;
 	};
 
 	struct ProcessResolver : Runtime::Resolver

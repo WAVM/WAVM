@@ -119,6 +119,12 @@ static bool getCanonicalPath(const std::string& basePath,
 	return true;
 }
 
+VFS::CloseResult WASI::FD::close() const
+{
+	if(dirEntStream) { dirEntStream->close(); }
+	return vfd->close();
+}
+
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_prestat_get",
 						  __wasi_errno_t,
@@ -175,6 +181,8 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_close", __wasi_errno_t, wasi_fd_close, _
 
 	WASI::FD* wasiFD = getFD(process, fd);
 	if(!wasiFD || wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(EBADF); }
+
+	if(wasiFD->dirEntStream) { wasiFD->dirEntStream->close(); }
 
 	VFS::CloseResult result = wasiFD->vfd->close();
 	switch(result)
@@ -406,8 +414,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	VFS::GetInfoResult result = wasiFD->vfd->getFDInfo(fdInfo);
 	switch(result)
 	{
-	case VFS::GetInfoResult::success:
-	{
+	case VFS::GetInfoResult::success: {
 		__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
 		fdstat.fs_filetype = asWASIFileType(fdInfo.type);
 		fdstat.fs_flags = 0;
@@ -706,7 +713,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	std::string canonicalPath;
 	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
-	{ return TRACE_SYSCALL_RETURN(ENOENT); }
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
 
 	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
 
@@ -724,6 +731,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::OpenResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
 	case VFS::OpenResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
 	case VFS::OpenResult::pathUsesFileAsDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::OpenResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
 
 	case VFS::OpenResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
 	case VFS::OpenResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
@@ -738,7 +746,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	__wasi_fd_t fd = process->fds.add(
 		UINT32_MAX,
-		FD{openedVFD, requestedRights, requestedInheritingRights, canonicalPath, false});
+		FD(openedVFD, requestedRights, requestedInheritingRights, std::move(canonicalPath)));
 	if(fd == UINT32_MAX)
 	{
 		errorUnless(openedVFD->close() == VFS::CloseResult::success);
@@ -750,23 +758,94 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(ESUCCESS, " (%u)", fd);
 }
 
+static Uptr truncatingMemcpy(void* dest, const void* source, Uptr numSourceBytes, Uptr numDestBytes)
+{
+	Uptr numBytes = numSourceBytes;
+	if(numBytes > numDestBytes) { numBytes = numDestBytes; }
+	if(numBytes > 0) { memcpy(dest, source, numBytes); }
+	return numBytes;
+}
+
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_readdir",
 						  __wasi_errno_t,
 						  wasi_fd_readdir,
-						  __wasi_fd_t fd,
+						  __wasi_fd_t dirFD,
 						  WASIAddress bufferAddress,
 						  WASIAddress numBufferBytes,
-						  __wasi_dircookie_t cookie,
+						  __wasi_dircookie_t firstCookie,
 						  WASIAddress outNumBufferBytesUsedAddress)
 {
-	UNIMPLEMENTED_SYSCALL("fd_readdir",
-						  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%" PRIx64 ", " WASIADDRESS_FORMAT ")",
-						  fd,
-						  bufferAddress,
-						  numBufferBytes,
-						  cookie,
-						  outNumBufferBytesUsedAddress);
+	TRACE_SYSCALL("fd_readdir",
+				  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%" PRIx64 ", " WASIADDRESS_FORMAT ")",
+				  dirFD,
+				  bufferAddress,
+				  numBufferBytes,
+				  firstCookie,
+				  outNumBufferBytesUsedAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiDirFD = getFD(process, dirFD);
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_FD_READDIR, 0))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	// If this is the first time readdir was called, open a DirEntStream for the FD.
+	if(!wasiDirFD->dirEntStream)
+	{
+		if(firstCookie != __WASI_DIRCOOKIE_START) { return TRACE_SYSCALL_RETURN(EINVAL); }
+
+		const VFS::OpenDirResult result = wasiDirFD->vfd->openDir(wasiDirFD->dirEntStream);
+		switch(result)
+		{
+		case VFS::OpenDirResult::success: break;
+
+		case VFS::OpenDirResult::notADirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+		case VFS::OpenDirResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
+		case VFS::OpenDirResult::notPermitted: return TRACE_SYSCALL_RETURN(EACCES);
+
+		default: WAVM_UNREACHABLE();
+		};
+	}
+	else if(wasiDirFD->dirEntStream->tell() != firstCookie)
+	{
+		if(!wasiDirFD->dirEntStream->seek(firstCookie)) { return TRACE_SYSCALL_RETURN(EINVAL); }
+	}
+
+	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
+	Uptr numBufferBytesUsed = 0;
+
+	while(numBufferBytesUsed < numBufferBytes)
+	{
+		VFS::DirEnt dirEnt;
+		if(!wasiDirFD->dirEntStream->getNext(dirEnt)) { break; }
+
+		errorUnless(dirEnt.name.size() <= UINT32_MAX);
+
+		__wasi_dirent_t wasiDirEnt;
+
+		wasiDirEnt.d_next = wasiDirFD->dirEntStream->tell();
+		wasiDirEnt.d_ino = dirEnt.fileNumber;
+		wasiDirEnt.d_namlen = U32(dirEnt.name.size());
+		wasiDirEnt.d_type = asWASIFileType(dirEnt.type);
+
+		numBufferBytesUsed += truncatingMemcpy(buffer + numBufferBytesUsed,
+											   &wasiDirEnt,
+											   sizeof(wasiDirEnt),
+											   numBufferBytes - numBufferBytesUsed);
+
+		numBufferBytesUsed += truncatingMemcpy(buffer + numBufferBytesUsed,
+											   dirEnt.name.c_str(),
+											   dirEnt.name.size(),
+											   numBufferBytes - numBufferBytesUsed);
+	};
+
+	wavmAssert(numBufferBytesUsed <= WASIADDRESS_MAX);
+	memoryRef<WASIAddress>(process->memory, outNumBufferBytesUsedAddress)
+		= WASIAddress(numBufferBytesUsed);
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -910,7 +989,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	std::string canonicalPath;
 	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
-	{ return TRACE_SYSCALL_RETURN(ENOENT); }
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
 
 	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
 
@@ -924,6 +1003,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::GetInfoByPathResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
 	case VFS::GetInfoByPathResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
 	case VFS::GetInfoByPathResult::pathUsesFileAsDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::GetInfoByPathResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
 
 	case VFS::GetInfoByPathResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
 	case VFS::GetInfoByPathResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
