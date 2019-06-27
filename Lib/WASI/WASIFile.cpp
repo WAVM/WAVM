@@ -316,10 +316,31 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_renumber",
 						  __wasi_errno_t,
 						  wasi_fd_renumber,
-						  __wasi_fd_t from,
-						  __wasi_fd_t to)
+						  __wasi_fd_t fromFD,
+						  __wasi_fd_t toFD)
 {
-	UNIMPLEMENTED_SYSCALL("fd_renumber", "(%u, %u)", from, to);
+	TRACE_SYSCALL("fd_renumber", "(%u, %u)", fromFD, toFD);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFromFD = getFD(process, fromFD);
+	WASI::FD* wasiToFD = getFD(process, toFD);
+	if(!wasiFromFD || !wasiToFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(wasiFromFD->isPreopened || wasiToFD->isPreopened) { return TRACE_SYSCALL_RETURN(ENOTSUP); }
+
+	switch (wasiToFD->close())
+	{
+	case VFS::CloseResult::success: break;
+	case VFS::CloseResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+
+	default: WAVM_UNREACHABLE();
+	};
+
+	process->fds.removeOrFail(toFD);
+	process->fds.insertOrFail(toFD, *wasiFromFD);
+	process->fds.removeOrFail(fromFD);
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,

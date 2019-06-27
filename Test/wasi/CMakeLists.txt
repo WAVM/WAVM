@@ -2,6 +2,7 @@ set(TestNames
 	args
 	cat
 	clock
+	fd_renumber
 	ls
 	random
 	stat
