@@ -199,6 +199,7 @@ namespace WAVM { namespace VFS {
 	{
 		success,
 
+		doesNotExist,
 		invalidNameCharacter,
 		nameTooLong,
 		pathUsesFileAsDirectory,
@@ -207,6 +208,7 @@ namespace WAVM { namespace VFS {
 		notADirectory,
 		outOfMemory,
 		notPermitted,
+		ioError,
 	};
 
 	struct DirEntStream

@@ -444,7 +444,7 @@ struct WindowsFD : FD
 		else
 		{
 			// Close the duplicated handle.
-			CloseHandle(duplicatedHandle);
+			errorUnless(CloseHandle(duplicatedHandle));
 
 			switch(GetLastError())
 			{
@@ -612,7 +612,62 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileI
 
 OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
 {
-	WAVM_UNREACHABLE();
+	// Translate the path from UTF-8 to UTF-16.
+	const U8* pathNameStart = (const U8*)pathName.c_str();
+	const U8* pathNameEnd = pathNameStart + pathName.size();
+	std::wstring pathNameW;
+	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
+	{ return OpenDirByPathResult::invalidNameCharacter; }
+
+	// Try to open the file.
+	HANDLE handle = CreateFileW(pathNameW.c_str(),
+								0,
+								FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+								nullptr,
+								OPEN_EXISTING,
+								FILE_FLAG_BACKUP_SEMANTICS,
+								nullptr);
+	if(handle == INVALID_HANDLE_VALUE)
+	{
+		switch(GetLastError())
+		{
+		case ERROR_ACCESS_DENIED: return OpenDirByPathResult::notPermitted;
+		case ERROR_FILE_NOT_FOUND: return OpenDirByPathResult::doesNotExist;
+		case ERROR_IO_DEVICE: return OpenDirByPathResult::ioError;
+
+		default:
+			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
+		}
+	}
+	else
+	{
+		// Try to read the initial buffer-full of dirents to determine whether this is a directory.
+		std::vector<DirEnt> initialDirEnts;
+		if(readDirEnts(handle, true, initialDirEnts) || GetLastError() == ERROR_NO_MORE_FILES)
+		{
+			outStream = new WindowsDirEntStream(handle, std::move(initialDirEnts));
+			return OpenDirByPathResult::success;
+		}
+		else
+		{
+			// Close the file handle we just opened if there was an error reading dirents from it.
+			errorUnless(CloseHandle(handle));
+
+			switch(GetLastError())
+			{
+			case ERROR_INVALID_HANDLE:
+				Errors::fatalf(
+					"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR
+					")",
+					reinterpret_cast<Uptr>(handle));
+
+			case ERROR_INVALID_PARAMETER: return OpenDirByPathResult::notADirectory;
+
+			default:
+				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
+			};
+		}
+	}
 }
 
 std::string Platform::getCurrentWorkingDirectory()
