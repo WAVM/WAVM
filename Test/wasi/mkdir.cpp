@@ -14,7 +14,7 @@ int main(int argc, char** argv)
 	if(mkdir(argv[1], 0666))
 	{
 		fprintf(
-			stderr, "Failed to remove directory '%s': %s (%i)\n", argv[1], strerror(errno), errno);
+			stderr, "Failed to create directory '%s': %s (%i)\n", argv[1], strerror(errno), errno);
 		return 1;
 	}
 
