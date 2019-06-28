@@ -16,7 +16,7 @@ namespace WAVM { namespace WASI {
 
 DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 						  "clock_res_get",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  __wasi_clock_res_get,
 						  __wasi_clockid_t clockId,
 						  WASIAddress resolutionAddress)
@@ -44,7 +44,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 
 DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 						  "clock_time_get",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  __wasi_clock_time_get,
 						  __wasi_clockid_t clockId,
 						  __wasi_timestamp_t precision,

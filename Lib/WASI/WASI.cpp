@@ -60,7 +60,7 @@ bool ProcessResolver::resolve(const std::string& moduleName,
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "poll_oneoff",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_poll_oneoff,
 						  WASIAddress inAddress,
 						  WASIAddress outAddress,
@@ -82,7 +82,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi, "proc_exit", void, wasi_proc_exit, __wasi_exitco
 	throw ExitException{exitCode};
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasi, "proc_raise", __wasi_errno_t, wasi_proc_raise, __wasi_signal_t sig)
+DEFINE_INTRINSIC_FUNCTION(wasi, "proc_raise", __wasi_errno_return_t, wasi_proc_raise, __wasi_signal_t sig)
 {
 	// proc_raise will possibly be removed: https://github.com/WebAssembly/WASI/issues/7
 	UNIMPLEMENTED_SYSCALL("proc_raise", "(%u)", sig);
@@ -90,7 +90,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi, "proc_raise", __wasi_errno_t, wasi_proc_raise, _
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "random_get",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_random_get,
 						  WASIAddress bufferAddress,
 						  WASIAddress numBufferBytes)
@@ -107,7 +107,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "sock_recv",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_sock_recv,
 						  __wasi_fd_t sock,
 						  WASIAddress ri_data,
@@ -129,7 +129,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "sock_send",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_sock_send,
 						  __wasi_fd_t sock,
 						  WASIAddress si_data,
@@ -148,7 +148,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
 						  "sock_shutdown",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_sock_shutdown,
 						  __wasi_fd_t sock,
 						  __wasi_sdflags_t how)
@@ -156,7 +156,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	UNIMPLEMENTED_SYSCALL("sock_shutdown", "(%u, 0x%02x)", sock, how);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_t, wasi_sched_yield)
+DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_return_t, wasi_sched_yield)
 {
 	TRACE_SYSCALL("sched_yield", "()");
 	Platform::yieldToAnotherThread();

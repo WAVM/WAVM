@@ -284,6 +284,14 @@ namespace WAVM { namespace IR {
 	}
 	template<> inline TypeTuple inferResultType<void>() { return TypeTuple(); }
 
+	// Don't allow quietly promoting I8/I16 return types to an I32 WebAssembly type: the C function
+	// may not zero the extra bits in the I32 register before returning, and the WebAssembly
+	// function will see that junk in the returned I32.
+	template<> inline TypeTuple inferResultType<I8>();
+	template<> inline TypeTuple inferResultType<U8>();
+	template<> inline TypeTuple inferResultType<I16>();
+	template<> inline TypeTuple inferResultType<U16>();
+
 	// The type of a WebAssembly function
 	struct FunctionType
 	{

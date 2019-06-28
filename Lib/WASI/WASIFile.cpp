@@ -127,7 +127,7 @@ VFS::CloseResult WASI::FD::close() const
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_prestat_get",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_prestat_get,
 						  __wasi_fd_t fd,
 						  WASIAddress prestatAddress)
@@ -151,7 +151,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_prestat_dir_name",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_prestat_dir_name,
 						  __wasi_fd_t fd,
 						  WASIAddress bufferAddress,
@@ -173,7 +173,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_close", __wasi_errno_t, wasi_fd_close, __wasi_fd_t fd)
+DEFINE_INTRINSIC_FUNCTION(wasiFile,
+						  "fd_close",
+						  __wasi_errno_return_t,
+						  wasi_fd_close,
+						  __wasi_fd_t fd)
 {
 	TRACE_SYSCALL("fd_close", "(%u)", fd);
 
@@ -198,7 +202,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_close", __wasi_errno_t, wasi_fd_close, _
 	};
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_datasync", __wasi_errno_t, wasi_fd_datasync, __wasi_fd_t fd)
+DEFINE_INTRINSIC_FUNCTION(wasiFile,
+						  "fd_datasync",
+						  __wasi_errno_return_t,
+						  wasi_fd_datasync,
+						  __wasi_fd_t fd)
 {
 	TRACE_SYSCALL("fd_datasync", "(%u)", fd);
 
@@ -216,7 +224,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_datasync", __wasi_errno_t, wasi_fd_datas
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_pread",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_pread,
 						  __wasi_fd_t fd,
 						  WASIAddress iovsAddress,
@@ -235,7 +243,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_pwrite",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_pwrite,
 						  __wasi_fd_t fd,
 						  WASIAddress iovsAddress,
@@ -254,7 +262,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_read",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_read,
 						  __wasi_fd_t fd,
 						  WASIAddress iovsAddress,
@@ -314,7 +322,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_renumber",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_renumber,
 						  __wasi_fd_t fromFD,
 						  __wasi_fd_t toFD)
@@ -328,7 +336,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	if(!wasiFromFD || !wasiToFD) { return TRACE_SYSCALL_RETURN(EBADF); }
 	if(wasiFromFD->isPreopened || wasiToFD->isPreopened) { return TRACE_SYSCALL_RETURN(ENOTSUP); }
 
-	switch (wasiToFD->close())
+	switch(wasiToFD->close())
 	{
 	case VFS::CloseResult::success: break;
 	case VFS::CloseResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
@@ -345,7 +353,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_seek",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_seek,
 						  __wasi_fd_t fd,
 						  __wasi_filedelta_t offset,
@@ -390,7 +398,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_tell",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_tell,
 						  __wasi_fd_t fd,
 						  WASIAddress offsetAddress)
@@ -419,7 +427,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_fdstat_get",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_fdstat_get,
 						  __wasi_fd_t fd,
 						  WASIAddress fdstatAddress)
@@ -475,7 +483,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_fdstat_set_flags",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_fdstat_set_flags,
 						  __wasi_fd_t fd,
 						  __wasi_fdflags_t flags)
@@ -485,7 +493,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_fdstat_set_rights",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_fdstat_set_rights,
 						  __wasi_fd_t fd,
 						  __wasi_rights_t rights,
@@ -498,7 +506,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  inheritingRights);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_t, wasi_fd_sync, __wasi_fd_t fd)
+DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_return_t, wasi_fd_sync, __wasi_fd_t fd)
 {
 	TRACE_SYSCALL("fd_sync", "(%u)", fd);
 
@@ -515,7 +523,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_t, wasi_fd_sync, __w
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_write",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_write,
 						  __wasi_fd_t fd,
 						  WASIAddress iovsAddress,
@@ -577,7 +585,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_advise",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_advise,
 						  __wasi_fd_t fd,
 						  __wasi_filesize_t offset,
@@ -610,7 +618,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_allocate",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_allocate,
 						  __wasi_fd_t fd,
 						  __wasi_filesize_t offset,
@@ -621,7 +629,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_link",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_link,
 						  __wasi_fd_t oldFD,
 						  __wasi_lookupflags_t oldFlags,
@@ -645,7 +653,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_open",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_open,
 						  __wasi_fd_t dirFD,
 						  __wasi_lookupflags_t dirFlags,
@@ -789,7 +797,7 @@ static Uptr truncatingMemcpy(void* dest, const void* source, Uptr numSourceBytes
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_readdir",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_readdir,
 						  __wasi_fd_t dirFD,
 						  WASIAddress bufferAddress,
@@ -871,7 +879,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_readlink",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_readlink,
 						  __wasi_fd_t fd,
 						  WASIAddress pathAddress,
@@ -893,7 +901,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_rename",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_rename,
 						  __wasi_fd_t oldFD,
 						  WASIAddress oldPathAddress,
@@ -914,7 +922,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_filestat_get",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_filestat_get,
 						  __wasi_fd_t fd,
 						  WASIAddress filestatAddress)
@@ -954,7 +962,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_filestat_set_times",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_filestat_set_times,
 						  __wasi_fd_t fd,
 						  __wasi_timestamp_t st_atim,
@@ -971,7 +979,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_filestat_set_size",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_fd_filestat_set_size,
 						  __wasi_fd_t fd,
 						  __wasi_filesize_t numBytes)
@@ -981,7 +989,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_filestat_get",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_filestat_get,
 						  __wasi_fd_t dirFD,
 						  __wasi_lookupflags_t flags,
@@ -1048,7 +1056,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_filestat_set_times",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_filestat_set_times,
 						  __wasi_fd_t fd,
 						  __wasi_lookupflags_t flags,
@@ -1072,7 +1080,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_symlink",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_symlink,
 						  WASIAddress oldPathAddress,
 						  WASIAddress numOldPathBytes,
