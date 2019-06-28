@@ -143,6 +143,13 @@ static bool readDirEnts(HANDLE handle, bool startFromBeginning, std::vector<DirE
 	return true;
 }
 
+static bool transcodeUTF8ToUTF16(const std::string& in, std::wstring& out)
+{
+	const U8* inStart = (const U8*)in.c_str();
+	const U8* inEnd = inStart + in.size();
+	return Unicode::transcodeUTF8ToUTF16(inStart, inEnd, out) == inEnd;
+}
+
 struct WindowsDirEntStream : DirEntStream
 {
 	WindowsDirEntStream(HANDLE inHandle, std::vector<DirEnt>&& inDirEnts)
@@ -506,11 +513,8 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 								  FDImplicitSync implicitSync)
 {
 	// Translate the path from UTF-8 to UTF-16.
-	const U8* pathNameStart = (const U8*)pathName.c_str();
-	const U8* pathNameEnd = pathNameStart + pathName.size();
 	std::wstring pathNameW;
-	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
-	{ return OpenResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return OpenResult::invalidNameCharacter; }
 
 	// Map the VFS accessMode/createMode to the appropriate Windows CreateFile arguments.
 	DWORD desiredAccess = 0;
@@ -569,9 +573,7 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileI
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
-	const U8* pathNameStart = (const U8*)pathName.c_str();
-	const U8* pathNameEnd = pathNameStart + pathName.size();
-	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW))
 	{ return GetInfoByPathResult::invalidNameCharacter; }
 
 	// Try to open the file with no access requested.
@@ -613,10 +615,8 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileI
 UnlinkFileResult Platform::unlinkHostFile(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
-	const U8* pathNameStart = (const U8*)pathName.c_str();
-	const U8* pathNameEnd = pathNameStart + pathName.size();
 	std::wstring pathNameW;
-	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW))
 	{ return UnlinkFileResult::invalidNameCharacter; }
 
 	if(DeleteFileW(pathNameW.c_str())) { return UnlinkFileResult::success; }
@@ -636,11 +636,8 @@ UnlinkFileResult Platform::unlinkHostFile(const std::string& pathName)
 RemoveDirResult Platform::removeHostDir(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
-	const U8* pathNameStart = (const U8*)pathName.c_str();
-	const U8* pathNameEnd = pathNameStart + pathName.size();
 	std::wstring pathNameW;
-	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
-	{ return RemoveDirResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return RemoveDirResult::invalidNameCharacter; }
 
 	if(RemoveDirectoryW(pathNameW.c_str())) { return RemoveDirResult::success; }
 	else
@@ -660,11 +657,8 @@ RemoveDirResult Platform::removeHostDir(const std::string& pathName)
 CreateDirResult Platform::createHostDir(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
-	const U8* pathNameStart = (const U8*)pathName.c_str();
-	const U8* pathNameEnd = pathNameStart + pathName.size();
 	std::wstring pathNameW;
-	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
-	{ return CreateDirResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return CreateDirResult::invalidNameCharacter; }
 
 	if(CreateDirectoryW(pathNameW.c_str(), nullptr)) { return CreateDirResult::success; }
 	else
@@ -684,10 +678,8 @@ CreateDirResult Platform::createHostDir(const std::string& pathName)
 OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
 {
 	// Translate the path from UTF-8 to UTF-16.
-	const U8* pathNameStart = (const U8*)pathName.c_str();
-	const U8* pathNameEnd = pathNameStart + pathName.size();
 	std::wstring pathNameW;
-	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW))
 	{ return OpenDirByPathResult::invalidNameCharacter; }
 
 	// Try to open the file.
