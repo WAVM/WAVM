@@ -414,7 +414,7 @@ struct POSIXFD : FD
 			switch(errno)
 			{
 			case EBADF: Errors::fatalf("fdopendir returned EBADF (fd=%i)", fd);
-			case ENOTDIR: return OpenDirResult::notADirectory;
+			case ENOTDIR: return OpenDirResult::notDirectory;
 
 			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
@@ -523,7 +523,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 		case ENFILE: return OpenResult::outOfMemory;
 		case ENOENT: return OpenResult::doesNotExist;
 		case ENOSPC: return OpenResult::outOfFreeSpace;
-		case ENOTDIR: return OpenResult::pathUsesFileAsDirectory;
+		case ENOTDIR: return OpenResult::pathPrefixNotDirectory;
 		case EROFS: return OpenResult::notPermitted;
 		case ENOMEM: return OpenResult::outOfMemory;
 		case EDQUOT: return OpenResult::outOfQuota;
@@ -564,7 +564,7 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, VFS::
 		case EIO: return GetInfoByPathResult::ioError;
 		case ENAMETOOLONG: return GetInfoByPathResult::nameTooLong;
 		case ENOENT: return GetInfoByPathResult::doesNotExist;
-		case ENOTDIR: return GetInfoByPathResult::pathUsesFileAsDirectory;
+		case ENOTDIR: return GetInfoByPathResult::pathPrefixNotDirectory;
 		case ELOOP: return GetInfoByPathResult::tooManyLinks;
 
 		case EOVERFLOW:
@@ -596,11 +596,84 @@ OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStr
 
 		case ELOOP: return OpenDirByPathResult::tooManyLinks;
 		case ENAMETOOLONG: return OpenDirByPathResult::nameTooLong;
-		case ENOTDIR: return OpenDirByPathResult::pathUsesFileAsDirectory;
-		case ENOENT: return OpenDirByPathResult::notADirectory;
+		case ENOTDIR: return OpenDirByPathResult::pathPrefixNotDirectory;
+		case ENOENT: return OpenDirByPathResult::notDirectory;
 
 		case EMFILE: return OpenDirByPathResult::outOfMemory;
 		case ENFILE: return OpenDirByPathResult::outOfMemory;
+
+		default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
+		};
+	}
+}
+
+UnlinkFileResult Platform::unlinkHostFile(const std::string& pathName)
+{
+	if(!unlink(pathName.c_str())) { return UnlinkFileResult::success; }
+	else
+	{
+		switch(errno)
+		{
+		case EACCES: return UnlinkFileResult::notPermitted;
+		case EBUSY: return UnlinkFileResult::notPermitted;
+		case ELOOP: return UnlinkFileResult::tooManyLinks;
+		case ENAMETOOLONG: return UnlinkFileResult::nameTooLong;
+		case ENOENT: return UnlinkFileResult::doesNotExist;
+		case ENOTDIR: return UnlinkFileResult::pathPrefixNotDirectory;
+		case EPERM: return UnlinkFileResult::notPermitted;
+		case EROFS: return UnlinkFileResult::notPermitted;
+		case EISDIR: return UnlinkFileResult::isDirectory;
+
+		case ETXTBSY:
+			// "The entry to be unlinked is the last directory entry to a pure procedure (shared
+			// text) file that is being executed."
+		default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
+		};
+	}
+}
+
+RemoveDirResult Platform::removeHostDir(const std::string& pathName)
+{
+	if(!unlinkat(AT_FDCWD, pathName.c_str(), AT_REMOVEDIR)) { return RemoveDirResult::success; }
+	else
+	{
+		switch(errno)
+		{
+		case EACCES: return RemoveDirResult::notPermitted;
+		case EBUSY: return RemoveDirResult::notPermitted;
+		case ELOOP: return RemoveDirResult::tooManyLinks;
+		case ENAMETOOLONG: return RemoveDirResult::nameTooLong;
+		case ENOENT: return RemoveDirResult::doesNotExist;
+		case ENOTDIR: return RemoveDirResult::notDirectory;
+		case EPERM: return RemoveDirResult::notPermitted;
+		case EROFS: return RemoveDirResult::notPermitted;
+		case ENOTEMPTY: return RemoveDirResult::notEmpty;
+
+		case ETXTBSY:
+			// "The entry to be unlinked is the last directory entry to a pure procedure (shared
+			// text) file that is being executed."
+		default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
+		};
+	}
+}
+
+CreateDirResult Platform::createHostDir(const std::string& pathName)
+{
+	if(!mkdir(pathName.c_str(), 0666)) { return CreateDirResult::success; }
+	else
+	{
+		switch(errno)
+		{
+		case EACCES: return CreateDirResult::notPermitted;
+		case EEXIST: return CreateDirResult::alreadyExists;
+		case ELOOP: return CreateDirResult::tooManyLinks;
+		case EMLINK: return CreateDirResult::outOfLinksToParentDir;
+		case ENAMETOOLONG: return CreateDirResult::nameTooLong;
+		case ENOENT: return CreateDirResult::pathPrefixDoesNotExist;
+		case ENOSPC: return CreateDirResult::outOfFreeSpace;
+		case EDQUOT: return CreateDirResult::outOfQuota;
+		case ENOTDIR: return CreateDirResult::outOfLinksToParentDir;
+		case EROFS: return CreateDirResult::notPermitted;
 
 		default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 		};

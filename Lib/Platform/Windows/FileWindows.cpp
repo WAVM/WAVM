@@ -454,7 +454,7 @@ struct WindowsFD : FD
 					")",
 					reinterpret_cast<Uptr>(handle));
 
-			case ERROR_INVALID_PARAMETER: return OpenDirResult::notADirectory;
+			case ERROR_INVALID_PARAMETER: return OpenDirResult::notDirectory;
 
 			default:
 				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
@@ -610,6 +610,77 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileI
 	return GetInfoByPathResult::success;
 }
 
+UnlinkFileResult Platform::unlinkHostFile(const std::string& pathName)
+{
+	// Translate the path from UTF-8 to UTF-16.
+	const U8* pathNameStart = (const U8*)pathName.c_str();
+	const U8* pathNameEnd = pathNameStart + pathName.size();
+	std::wstring pathNameW;
+	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
+	{ return UnlinkFileResult::invalidNameCharacter; }
+
+	if(DeleteFileW(pathNameW.c_str())) { return UnlinkFileResult::success; }
+	else
+	{
+		switch(GetLastError())
+		{
+		case ERROR_ACCESS_DENIED: return UnlinkFileResult::notPermitted;
+		case ERROR_FILE_NOT_FOUND: return UnlinkFileResult::doesNotExist;
+
+		default:
+			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
+		};
+	}
+}
+
+RemoveDirResult Platform::removeHostDir(const std::string& pathName)
+{
+	// Translate the path from UTF-8 to UTF-16.
+	const U8* pathNameStart = (const U8*)pathName.c_str();
+	const U8* pathNameEnd = pathNameStart + pathName.size();
+	std::wstring pathNameW;
+	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
+	{ return RemoveDirResult::invalidNameCharacter; }
+
+	if(RemoveDirectoryW(pathNameW.c_str())) { return RemoveDirResult::success; }
+	else
+	{
+		switch(GetLastError())
+		{
+		case ERROR_ACCESS_DENIED: return RemoveDirResult::notPermitted;
+		case ERROR_FILE_NOT_FOUND: return RemoveDirResult::doesNotExist;
+		case ERROR_DIR_NOT_EMPTY: return RemoveDirResult::notEmpty;
+
+		default:
+			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
+		};
+	}
+}
+
+CreateDirResult Platform::createHostDir(const std::string& pathName)
+{
+	// Translate the path from UTF-8 to UTF-16.
+	const U8* pathNameStart = (const U8*)pathName.c_str();
+	const U8* pathNameEnd = pathNameStart + pathName.size();
+	std::wstring pathNameW;
+	if(Unicode::transcodeUTF8ToUTF16(pathNameStart, pathNameEnd, pathNameW) != pathNameEnd)
+	{ return CreateDirResult::invalidNameCharacter; }
+
+	if(CreateDirectoryW(pathNameW.c_str(), nullptr)) { return CreateDirResult::success; }
+	else
+	{
+		switch(GetLastError())
+		{
+		case ERROR_ACCESS_DENIED: return CreateDirResult::notPermitted;
+		case ERROR_ALREADY_EXISTS: return CreateDirResult::alreadyExists;
+		case ERROR_HANDLE_DISK_FULL: return CreateDirResult::outOfFreeSpace;
+
+		default:
+			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
+		};
+	}
+}
+
 OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
 {
 	// Translate the path from UTF-8 to UTF-16.
@@ -661,7 +732,7 @@ OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStr
 					")",
 					reinterpret_cast<Uptr>(handle));
 
-			case ERROR_INVALID_PARAMETER: return OpenDirByPathResult::notADirectory;
+			case ERROR_INVALID_PARAMETER: return OpenDirByPathResult::notDirectory;
 
 			default:
 				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());

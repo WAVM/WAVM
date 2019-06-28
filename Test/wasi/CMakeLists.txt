@@ -4,7 +4,10 @@ set(TestNames
 	clock
 	fd_renumber
 	ls
+	mkdir
 	random
+	rm
+	rmdir
 	stat
 	stdout
 	write)

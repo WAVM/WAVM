@@ -42,21 +42,37 @@ struct SandboxedFileSystem : FileSystem
 							FileAccessMode accessMode,
 							FileCreateMode createMode,
 							FD*& outFD,
-							FDImplicitSync implicitSync)
+							FDImplicitSync implicitSync) override
 	{
 		return Platform::openHostFile(
 			getHostPath(absolutePathName), accessMode, createMode, outFD, implicitSync);
 	}
 
-	virtual GetInfoByPathResult getInfo(const std::string& absolutePathName, FileInfo& outInfo)
+	virtual GetInfoByPathResult getInfo(const std::string& absolutePathName,
+										FileInfo& outInfo) override
 	{
 		return Platform::getHostFileInfo(getHostPath(absolutePathName), outInfo);
 	}
 
 	virtual OpenDirByPathResult openDir(const std::string& absolutePathName,
-										DirEntStream*& outStream)
+										DirEntStream*& outStream) override
 	{
 		return Platform::openHostDir(getHostPath(absolutePathName), outStream);
+	}
+
+	virtual UnlinkFileResult unlinkFile(const std::string& absolutePathName) override
+	{
+		return Platform::unlinkHostFile(getHostPath(absolutePathName));
+	}
+
+	virtual RemoveDirResult removeDir(const std::string& absolutePathName) override
+	{
+		return Platform::removeHostDir(getHostPath(absolutePathName));
+	}
+
+	virtual CreateDirResult createDir(const std::string& absolutePathName) override
+	{
+		return Platform::createHostDir(getHostPath(absolutePathName));
 	}
 
 private:

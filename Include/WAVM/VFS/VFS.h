@@ -160,7 +160,7 @@ namespace WAVM { namespace VFS {
 		cantSynchronize,
 		invalidNameCharacter,
 		nameTooLong,
-		pathUsesFileAsDirectory,
+		pathPrefixNotDirectory,
 		tooManyLinks,
 
 		notPermitted,
@@ -179,7 +179,7 @@ namespace WAVM { namespace VFS {
 		doesNotExist,
 		invalidNameCharacter,
 		nameTooLong,
-		pathUsesFileAsDirectory,
+		pathPrefixNotDirectory,
 		tooManyLinks,
 
 		notPermitted,
@@ -190,7 +190,7 @@ namespace WAVM { namespace VFS {
 	{
 		success,
 
-		notADirectory,
+		notDirectory,
 		outOfMemory,
 		notPermitted,
 	};
@@ -202,13 +202,59 @@ namespace WAVM { namespace VFS {
 		doesNotExist,
 		invalidNameCharacter,
 		nameTooLong,
-		pathUsesFileAsDirectory,
+		pathPrefixNotDirectory,
 		tooManyLinks,
 
-		notADirectory,
+		notDirectory,
 		outOfMemory,
 		notPermitted,
 		ioError,
+	};
+
+	enum class UnlinkFileResult : I32
+	{
+		success,
+
+		doesNotExist,
+		invalidNameCharacter,
+		nameTooLong,
+		pathPrefixNotDirectory,
+		tooManyLinks,
+
+		isDirectory,
+		notPermitted,
+	};
+
+	enum class RemoveDirResult : I32
+	{
+		success,
+
+		doesNotExist,
+		invalidNameCharacter,
+		nameTooLong,
+		pathPrefixNotDirectory,
+		tooManyLinks,
+
+		notDirectory,
+		notEmpty,
+		notPermitted,
+	};
+
+	enum class CreateDirResult : I32
+	{
+		success,
+
+		alreadyExists,
+		invalidNameCharacter,
+		nameTooLong,
+		pathPrefixNotDirectory,
+		pathPrefixDoesNotExist,
+		tooManyLinks,
+
+		outOfQuota,
+		outOfFreeSpace,
+		outOfLinksToParentDir,
+		notPermitted,
 	};
 
 	struct DirEntStream
@@ -263,5 +309,9 @@ namespace WAVM { namespace VFS {
 		virtual OpenDirByPathResult openDir(const std::string& absolutePathName,
 											DirEntStream*& outStream)
 			= 0;
+
+		virtual UnlinkFileResult unlinkFile(const std::string& absolutePathName) = 0;
+		virtual RemoveDirResult removeDir(const std::string& absolutePathName) = 0;
+		virtual CreateDirResult createDir(const std::string& absolutePathName) = 0;
 	};
 }}

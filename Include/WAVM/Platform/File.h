@@ -24,6 +24,9 @@ namespace WAVM { namespace Platform {
 											  = VFS::FDImplicitSync::none);
 	PLATFORM_API VFS::GetInfoByPathResult getHostFileInfo(const std::string& pathName,
 														  VFS::FileInfo& outInfo);
+	PLATFORM_API VFS::UnlinkFileResult unlinkHostFile(const std::string& pathName);
+	PLATFORM_API VFS::RemoveDirResult removeHostDir(const std::string& pathName);
+	PLATFORM_API VFS::CreateDirResult createHostDir(const std::string& pathName);
 
 	PLATFORM_API VFS::OpenDirByPathResult openHostDir(const std::string& pathName,
 													  VFS::DirEntStream*& outStream);

@@ -115,6 +115,10 @@ namespace WAVM { namespace WASI {
 #define WASIADDRESS_MAX UINT32_MAX
 #define WASIADDRESS_FORMAT "0x%08x"
 
+	// __wasi_errno_t is actually 16-bits but since WebAssembly doesn't have an I16 type, we need to
+	// return an I32 from the intrinsic functions.
+	typedef uint32_t __wasi_errno_return_t;
+
 	inline Process* getProcessFromContextRuntimeData(
 		Runtime::ContextRuntimeData* contextRuntimeData)
 	{

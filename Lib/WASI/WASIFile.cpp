@@ -751,7 +751,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::OpenResult::cantSynchronize: return TRACE_SYSCALL_RETURN(EINVAL);
 	case VFS::OpenResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
 	case VFS::OpenResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
-	case VFS::OpenResult::pathUsesFileAsDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::OpenResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
 	case VFS::OpenResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
 
 	case VFS::OpenResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
@@ -822,7 +822,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		{
 		case VFS::OpenDirResult::success: break;
 
-		case VFS::OpenDirResult::notADirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+		case VFS::OpenDirResult::notDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
 		case VFS::OpenDirResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
 		case VFS::OpenDirResult::notPermitted: return TRACE_SYSCALL_RETURN(EACCES);
 
@@ -1023,7 +1023,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case VFS::GetInfoByPathResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
 	case VFS::GetInfoByPathResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
 	case VFS::GetInfoByPathResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
-	case VFS::GetInfoByPathResult::pathUsesFileAsDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::GetInfoByPathResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
 	case VFS::GetInfoByPathResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
 
 	case VFS::GetInfoByPathResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
@@ -1091,24 +1091,142 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_unlink_file",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_unlink_file,
-						  __wasi_fd_t fd,
+						  __wasi_fd_t dirFD,
 						  WASIAddress pathAddress,
 						  WASIAddress numPathBytes)
 {
-	UNIMPLEMENTED_SYSCALL(
-		"path_unlink_file", "(%u, " WASIADDRESS_FORMAT ", %u)", fd, pathAddress, numPathBytes);
+	TRACE_SYSCALL(
+		"path_unlink_file", "(%u, " WASIADDRESS_FORMAT ", %u)", dirFD, pathAddress, numPathBytes);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiDirFD = getFD(process, dirFD);
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_PATH_UNLINK_FILE, 0))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	std::string relativePath;
+	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
+	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+
+	std::string canonicalPath;
+	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	switch(process->fileSystem->unlinkFile(canonicalPath))
+	{
+	case VFS::UnlinkFileResult::success: return TRACE_SYSCALL_RETURN(ESUCCESS);
+
+	case VFS::UnlinkFileResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
+	case VFS::UnlinkFileResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
+	case VFS::UnlinkFileResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
+	case VFS::UnlinkFileResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::UnlinkFileResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
+	case VFS::UnlinkFileResult::isDirectory: return TRACE_SYSCALL_RETURN(EPERM);
+	case VFS::UnlinkFileResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
+
+	default: WAVM_UNREACHABLE();
+	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_remove_directory",
-						  __wasi_errno_t,
+						  __wasi_errno_return_t,
 						  wasi_path_remove_directory,
-						  __wasi_fd_t fd,
+						  __wasi_fd_t dirFD,
 						  WASIAddress pathAddress,
 						  WASIAddress numPathBytes)
 {
-	UNIMPLEMENTED_SYSCALL(
-		"path_remove_directory", "(%u, " WASIADDRESS_FORMAT ", %u)", fd, pathAddress, numPathBytes);
+	TRACE_SYSCALL("path_remove_directory",
+				  "(%u, " WASIADDRESS_FORMAT ", %u)",
+				  dirFD,
+				  pathAddress,
+				  numPathBytes);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiDirFD = getFD(process, dirFD);
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_PATH_UNLINK_FILE, 0))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	std::string relativePath;
+	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
+	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+
+	std::string canonicalPath;
+	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	switch(process->fileSystem->removeDir(canonicalPath))
+	{
+	case VFS::RemoveDirResult::success: return TRACE_SYSCALL_RETURN(ESUCCESS);
+
+	case VFS::RemoveDirResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
+	case VFS::RemoveDirResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
+	case VFS::RemoveDirResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
+	case VFS::RemoveDirResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::RemoveDirResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
+	case VFS::RemoveDirResult::notDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::RemoveDirResult::notEmpty: return TRACE_SYSCALL_RETURN(ENOTEMPTY);
+	case VFS::RemoveDirResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
+DEFINE_INTRINSIC_FUNCTION(wasiFile,
+						  "path_create_directory",
+						  __wasi_errno_return_t,
+						  wasi_path_create_directory,
+						  __wasi_fd_t dirFD,
+						  WASIAddress pathAddress,
+						  WASIAddress numPathBytes)
+{
+	TRACE_SYSCALL("path_create_directory",
+				  "(%u, " WASIADDRESS_FORMAT ", %u)",
+				  dirFD,
+				  pathAddress,
+				  numPathBytes);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiDirFD = getFD(process, dirFD);
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_PATH_UNLINK_FILE, 0))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	std::string relativePath;
+	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
+	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+
+	std::string canonicalPath;
+	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	switch(process->fileSystem->createDir(canonicalPath))
+	{
+	case VFS::CreateDirResult::success: return TRACE_SYSCALL_RETURN(ESUCCESS);
+
+	case VFS::CreateDirResult::alreadyExists: return TRACE_SYSCALL_RETURN(EEXIST);
+	case VFS::CreateDirResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
+	case VFS::CreateDirResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
+	case VFS::CreateDirResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
+	case VFS::CreateDirResult::pathPrefixDoesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
+	case VFS::CreateDirResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
+	case VFS::CreateDirResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
+	case VFS::CreateDirResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
+	case VFS::CreateDirResult::outOfLinksToParentDir: return TRACE_SYSCALL_RETURN(EMLINK);
+	case VFS::CreateDirResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
+
+	default: WAVM_UNREACHABLE();
+	};
 }
