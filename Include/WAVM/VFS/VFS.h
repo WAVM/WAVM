@@ -94,6 +94,18 @@ namespace WAVM { namespace VFS {
 		FileType type;
 	};
 
+	struct IOReadBuffer
+	{
+		void* data;
+		Uptr numBytes;
+	};
+
+	struct IOWriteBuffer
+	{
+		const void* data;
+		Uptr numBytes;
+	};
+
 	// Result enumerations
 
 	enum class SeekResult : I32
@@ -118,9 +130,11 @@ namespace WAVM { namespace VFS {
 		ioError,
 		interrupted,
 		tooManyBytes,
+		tooManyBuffers,
 		notPermitted,
 		isDirectory,
-		outOfMemory
+		outOfMemory,
+		badAddress,
 	};
 
 	enum class WriteResult : I32
@@ -129,11 +143,13 @@ namespace WAVM { namespace VFS {
 		ioError,
 		interrupted,
 		tooManyBytes,
+		tooManyBuffers,
 		outOfMemory,
 		outOfQuota,
 		outOfFreeSpace,
 		exceededFileSizeLimit,
-		notPermitted
+		notPermitted,
+		badAddress,
 	};
 
 	enum class SyncResult : I32
@@ -277,16 +293,31 @@ namespace WAVM { namespace VFS {
 
 		virtual SeekResult seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr)
 			= 0;
-		virtual ReadResult read(void* outData, Uptr numBytes, Uptr* outNumBytesRead = nullptr) = 0;
-		virtual WriteResult write(const void* data,
-								  Uptr numBytes,
-								  Uptr* outNumBytesWritten = nullptr)
+
+		virtual ReadResult readv(const IOReadBuffer* buffers,
+								 Uptr numBuffers,
+								 Uptr* outNumBytesRead = nullptr)
+			= 0;
+		virtual WriteResult writev(const IOWriteBuffer* buffers,
+								   Uptr numBuffers,
+								   Uptr* outNumBytesWritten = nullptr)
 			= 0;
 		virtual SyncResult sync(SyncType type) = 0;
 		virtual GetInfoResult getFDInfo(FDInfo& outInfo) = 0;
 		virtual GetInfoResult getFileInfo(FileInfo& outInfo) = 0;
 
 		virtual OpenDirResult openDir(DirEntStream*& outStream) = 0;
+
+		ReadResult read(void* outData, Uptr numBytes, Uptr* outNumBytesRead = nullptr)
+		{
+			IOReadBuffer buffer{outData, numBytes};
+			return readv(&buffer, 1, outNumBytesRead);
+		}
+		WriteResult write(const void* data, Uptr numBytes, Uptr* outNumBytesWritten = nullptr)
+		{
+			IOWriteBuffer buffer{data, numBytes};
+			return writev(&buffer, 1, outNumBytesWritten);
+		}
 
 	protected:
 		virtual ~FD() {}

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include "WAVM/Inline/Assert.h"
@@ -17,6 +18,20 @@
 using namespace WAVM;
 using namespace WAVM::Platform;
 using namespace WAVM::VFS;
+
+static_assert(offsetof(struct iovec, iov_base) == offsetof(IOReadBuffer, data)
+				  && offsetof(struct iovec, iov_len) == offsetof(IOReadBuffer, numBytes)
+				  && sizeof(((struct iovec*)nullptr)->iov_base) == sizeof(IOReadBuffer::data)
+				  && sizeof(((struct iovec*)nullptr)->iov_len) == sizeof(IOReadBuffer::numBytes)
+				  && sizeof(struct iovec) == sizeof(IOReadBuffer),
+			  "IOReadBuffer must match iovec");
+
+static_assert(offsetof(struct iovec, iov_base) == offsetof(IOWriteBuffer, data)
+				  && offsetof(struct iovec, iov_len) == offsetof(IOWriteBuffer, numBytes)
+				  && sizeof(((struct iovec*)nullptr)->iov_base) == sizeof(IOWriteBuffer::data)
+				  && sizeof(((struct iovec*)nullptr)->iov_len) == sizeof(IOWriteBuffer::numBytes)
+				  && sizeof(struct iovec) == sizeof(IOWriteBuffer),
+			  "IOWriteBuffer must match iovec");
 
 static FileType getFileTypeFromMode(mode_t mode)
 {
@@ -221,9 +236,20 @@ struct POSIXFD : FD
 			}
 		}
 	}
-	virtual ReadResult read(void* outData, Uptr numBytes, Uptr* outNumBytesRead = nullptr) override
+	virtual ReadResult readv(const IOReadBuffer* buffers,
+							 Uptr numBuffers,
+							 Uptr* outNumBytesRead = nullptr) override
 	{
-		ssize_t result = ::read(fd, outData, numBytes);
+		if(outNumBytesRead) { *outNumBytesRead = 0; }
+
+		if(numBuffers == 0) { return ReadResult::success; }
+		else if(numBuffers > IOV_MAX)
+		{
+			return ReadResult::tooManyBuffers;
+		}
+
+		// Do the read.
+		ssize_t result = ::readv(fd, (const struct iovec*)buffers, numBuffers);
 		if(result != -1)
 		{
 			if(outNumBytesRead) { *outNumBytesRead = result; }
@@ -238,16 +264,25 @@ struct POSIXFD : FD
 			case EIO: return ReadResult::ioError;
 			case EINTR: return ReadResult::interrupted;
 			case EISDIR: return ReadResult::isDirectory;
+			case EFAULT: return ReadResult::badAddress;
 
 			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};
 		}
 	}
-	virtual WriteResult write(const void* data,
-							  Uptr numBytes,
-							  Uptr* outNumBytesWritten = nullptr) override
+	virtual WriteResult writev(const IOWriteBuffer* buffers,
+							   Uptr numBuffers,
+							   Uptr* outNumBytesWritten = nullptr) override
 	{
-		ssize_t result = ::write(fd, data, numBytes);
+		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
+
+		if(numBuffers == 0) { return WriteResult::success; }
+		else if(numBuffers > IOV_MAX)
+		{
+			return WriteResult::tooManyBuffers;
+		}
+
+		ssize_t result = ::writev(fd, (const struct iovec*)buffers, numBuffers);
 		if(result != -1)
 		{
 			if(outNumBytesWritten) { *outNumBytesWritten = result; }
@@ -265,6 +300,7 @@ struct POSIXFD : FD
 			case ENOSPC: return WriteResult::outOfFreeSpace;
 			case EFBIG: return WriteResult::exceededFileSizeLimit;
 			case EPERM: return WriteResult::notPermitted;
+			case EFAULT: return WriteResult::badAddress;
 
 			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
 			};

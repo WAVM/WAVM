@@ -61,10 +61,10 @@ static bool readUserString(Memory* memory,
 		},
 		[&succeeded](Exception* exception) {
 			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
-
 			Log::printf(Log::debug,
 						"Caught runtime exception while reading string at address 0x%" PRIx64,
 						getExceptionArgument(exception, 1).i64);
+			destroyException(exception);
 
 			succeeded = false;
 		});
@@ -284,40 +284,158 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(EINVAL); }
 
-	const __wasi_iovec_t* iovs
-		= memoryArrayPtr<__wasi_iovec_t>(process->memory, iovsAddress, numIOVs);
-	U64 numBytesRead = 0;
-	VFS::ReadResult readResult = VFS::ReadResult::success;
-	for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
-	{
-		__wasi_iovec_t iov = iovs[iovIndex];
+	// Allocate memory for the VFS::IOReadBuffers.
+	VFS::IOReadBuffer* vfsReadBuffers
+		= (VFS::IOReadBuffer*)malloc(numIOVs * sizeof(VFS::IOReadBuffer));
 
-		Uptr numBytesReadThisIO = 0;
-		readResult = wasiFD->vfd->read(memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len),
-									   iov.buf_len,
-									   &numBytesReadThisIO);
-		if(readResult != VFS::ReadResult::success) { break; }
+	// Catch any out-of-bounds memory access exceptions that are thrown.
+	__wasi_errno_return_t result = __WASI_ESUCCESS;
+	Runtime::catchRuntimeExceptions(
+		[&] {
+			// Translate the IOVs to VFS::IOReadBuffers.
+			const __wasi_ciovec_t* iovs
+				= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
+			U64 numBufferBytes = 0;
+			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+			{
+				__wasi_ciovec_t iov = iovs[iovIndex];
+				vfsReadBuffers[iovIndex].data
+					= memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len);
+				vfsReadBuffers[iovIndex].numBytes = iov.buf_len;
+				numBufferBytes += iov.buf_len;
+			}
+			if(numBufferBytes > WASIADDRESS_MAX) { result = TRACE_SYSCALL_RETURN(EOVERFLOW); }
+			else
+			{
+				// Do the read.
+				Uptr numBytesRead = 0;
+				switch(wasiFD->vfd->readv(vfsReadBuffers, numIOVs, &numBytesRead))
+				{
+				case VFS::ReadResult::success:
+					wavmAssert(numBytesRead <= WASIADDRESS_MAX);
+					memoryRef<WASIAddress>(process->memory, numBytesReadAddress)
+						= WASIAddress(numBytesRead);
+					result = TRACE_SYSCALL_RETURN(
+						ESUCCESS, " (numBytesRead=%" PRIu64 ")", numBytesRead);
+					break;
+				case VFS::ReadResult::ioError: result = TRACE_SYSCALL_RETURN(EIO); break;
+				case VFS::ReadResult::interrupted: result = TRACE_SYSCALL_RETURN(EINTR); break;
+				case VFS::ReadResult::tooManyBytes: result = TRACE_SYSCALL_RETURN(EINVAL); break;
+				case VFS::ReadResult::tooManyBuffers: result = TRACE_SYSCALL_RETURN(EINVAL); break;
+				case VFS::ReadResult::notPermitted: result = TRACE_SYSCALL_RETURN(EPERM); break;
+				case VFS::ReadResult::isDirectory: result = TRACE_SYSCALL_RETURN(EISDIR); break;
+				case VFS::ReadResult::outOfMemory: result = TRACE_SYSCALL_RETURN(ENOMEM); break;
+				case VFS::ReadResult::badAddress: result = TRACE_SYSCALL_RETURN(EFAULT); break;
 
-		numBytesRead += numBytesReadThisIO;
-		if(numBytesReadThisIO < iov.buf_len) { break; }
-	}
+				default: WAVM_UNREACHABLE();
+				}
+			}
+		},
+		[&](Exception* exception) {
+			// If we catch an out-of-bounds memory exception, return EFAULT.
+			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			Log::printf(Log::debug,
+						"Caught runtime exception while reading memory at address 0x%" PRIx64,
+						getExceptionArgument(exception, 1).i64);
+			destroyException(exception);
+			result = TRACE_SYSCALL_RETURN(EFAULT);
+		});
 
-	if(numBytesRead > WASIADDRESS_MAX) { return TRACE_SYSCALL_RETURN(EOVERFLOW); }
-	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
+	// Free the VFS read buffers.
+	free(vfsReadBuffers);
 
-	switch(readResult)
-	{
-	case VFS::ReadResult::success:
-		return TRACE_SYSCALL_RETURN(ESUCCESS, " (numBytesRead=%" PRIu64 ")", numBytesRead);
-	case VFS::ReadResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
-	case VFS::ReadResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
-	case VFS::ReadResult::tooManyBytes: return TRACE_SYSCALL_RETURN(EINVAL);
-	case VFS::ReadResult::notPermitted: return TRACE_SYSCALL_RETURN(EPERM);
-	case VFS::ReadResult::isDirectory: return TRACE_SYSCALL_RETURN(EISDIR);
-	case VFS::ReadResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
+	return result;
+}
 
-	default: WAVM_UNREACHABLE();
-	};
+DEFINE_INTRINSIC_FUNCTION(wasiFile,
+						  "fd_write",
+						  __wasi_errno_return_t,
+						  wasi_fd_write,
+						  __wasi_fd_t fd,
+						  WASIAddress iovsAddress,
+						  I32 numIOVs,
+						  WASIAddress numBytesWrittenAddress)
+{
+	TRACE_SYSCALL("fd_write",
+				  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
+				  fd,
+				  iovsAddress,
+				  numIOVs,
+				  numBytesWrittenAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_WRITE)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(EINVAL); }
+
+	// Allocate memory for the VFS::IOWriteBuffers.
+	VFS::IOWriteBuffer* vfsWriteBuffers
+		= (VFS::IOWriteBuffer*)malloc(numIOVs * sizeof(VFS::IOWriteBuffer));
+
+	// Catch any out-of-bounds memory access exceptions that are thrown.
+	__wasi_errno_return_t result = __WASI_ESUCCESS;
+	Runtime::catchRuntimeExceptions(
+		[&] {
+			// Translate the IOVs to VFS::IOWriteBuffers
+			const __wasi_ciovec_t* iovs
+				= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
+			U64 numBufferBytes = 0;
+			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+			{
+				__wasi_ciovec_t iov = iovs[iovIndex];
+				vfsWriteBuffers[iovIndex].data
+					= memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len);
+				vfsWriteBuffers[iovIndex].numBytes = iov.buf_len;
+				numBufferBytes += iov.buf_len;
+			}
+			if(numBufferBytes > WASIADDRESS_MAX) { result = TRACE_SYSCALL_RETURN(EOVERFLOW); }
+			else
+			{
+				// Do the writes.
+				Uptr numBytesWritten = 0;
+				switch(wasiFD->vfd->writev(vfsWriteBuffers, numIOVs, &numBytesWritten))
+				{
+				case VFS::WriteResult::success:
+					wavmAssert(numBytesWritten <= WASIADDRESS_MAX);
+					memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress)
+						= WASIAddress(numBytesWritten);
+					result = TRACE_SYSCALL_RETURN(
+						ESUCCESS, " (numBytesWritten=%" PRIu64 ")", numBytesWritten);
+					break;
+				case VFS::WriteResult::ioError: result = TRACE_SYSCALL_RETURN(EIO); break;
+				case VFS::WriteResult::interrupted: result = TRACE_SYSCALL_RETURN(EINTR); break;
+				case VFS::WriteResult::tooManyBytes: result = TRACE_SYSCALL_RETURN(EINVAL); break;
+				case VFS::WriteResult::tooManyBuffers: result = TRACE_SYSCALL_RETURN(EINVAL); break;
+				case VFS::WriteResult::outOfMemory: result = TRACE_SYSCALL_RETURN(ENOMEM); break;
+				case VFS::WriteResult::outOfQuota: result = TRACE_SYSCALL_RETURN(EDQUOT); break;
+				case VFS::WriteResult::outOfFreeSpace: result = TRACE_SYSCALL_RETURN(ENOSPC); break;
+				case VFS::WriteResult::exceededFileSizeLimit:
+					result = TRACE_SYSCALL_RETURN(EFBIG);
+					break;
+				case VFS::WriteResult::notPermitted: result = TRACE_SYSCALL_RETURN(EPERM); break;
+				case VFS::WriteResult::badAddress: result = TRACE_SYSCALL_RETURN(EFAULT); break;
+
+				default: WAVM_UNREACHABLE();
+				};
+			}
+		},
+		[&](Exception* exception) {
+			// If we catch an out-of-bounds memory exception, return EFAULT.
+			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			Log::printf(Log::debug,
+						"Caught runtime exception while reading memory at address 0x%" PRIx64,
+						getExceptionArgument(exception, 1).i64);
+			destroyException(exception);
+			result = TRACE_SYSCALL_RETURN(EFAULT);
+		});
+
+	// Free the VFS write buffers.
+	free(vfsWriteBuffers);
+
+	return result;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -519,68 +637,6 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_return_t, wasi_fd_sy
 	wasiFD->vfd->sync(VFS::SyncType::contentsAndMetadata);
 
 	return TRACE_SYSCALL_RETURN(ESUCCESS);
-}
-
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_write",
-						  __wasi_errno_return_t,
-						  wasi_fd_write,
-						  __wasi_fd_t fd,
-						  WASIAddress iovsAddress,
-						  I32 numIOVs,
-						  WASIAddress numBytesWrittenAddress)
-{
-	TRACE_SYSCALL("fd_write",
-				  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
-				  fd,
-				  iovsAddress,
-				  numIOVs,
-				  numBytesWrittenAddress);
-
-	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
-
-	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_WRITE)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
-
-	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(EINVAL); }
-
-	const __wasi_ciovec_t* iovs
-		= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
-	U64 numBytesWritten = 0;
-	VFS::WriteResult writeResult = VFS::WriteResult::success;
-	for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
-	{
-		__wasi_ciovec_t iov = iovs[iovIndex];
-
-		Uptr numBytesWrittenThisIO = 0;
-		writeResult = wasiFD->vfd->write(memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len),
-										 iov.buf_len,
-										 &numBytesWrittenThisIO);
-		if(writeResult != VFS::WriteResult::success) { break; }
-
-		numBytesWritten += numBytesWrittenThisIO;
-		if(numBytesWrittenThisIO < iov.buf_len) { break; }
-	}
-
-	if(numBytesWritten > WASIADDRESS_MAX) { return TRACE_SYSCALL_RETURN(EOVERFLOW); }
-	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
-
-	switch(writeResult)
-	{
-	case VFS::WriteResult::success:
-		return TRACE_SYSCALL_RETURN(ESUCCESS, " (numBytesWritten=%" PRIu64 ")", numBytesWritten);
-	case VFS::WriteResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
-	case VFS::WriteResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
-	case VFS::WriteResult::tooManyBytes: return TRACE_SYSCALL_RETURN(EINVAL);
-	case VFS::WriteResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
-	case VFS::WriteResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
-	case VFS::WriteResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
-	case VFS::WriteResult::exceededFileSizeLimit: return TRACE_SYSCALL_RETURN(EFBIG);
-	case VFS::WriteResult::notPermitted: return TRACE_SYSCALL_RETURN(EPERM);
-
-	default: WAVM_UNREACHABLE();
-	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,

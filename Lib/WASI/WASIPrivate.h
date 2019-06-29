@@ -15,7 +15,7 @@
 	traceSyscallf(TRACE_SYSCALL_name, argFormat, ##__VA_ARGS__)
 
 #define TRACE_SYSCALL_RETURN(returnCode, ...)                                                      \
-	traceSyscallReturnf(TRACE_SYSCALL_name, #returnCode __VA_ARGS__), __WASI_##returnCode
+	(traceSyscallReturnf(TRACE_SYSCALL_name, #returnCode __VA_ARGS__), __WASI_##returnCode)
 
 #define UNIMPLEMENTED_SYSCALL(syscallName, argFormat, ...)                                         \
 	TRACE_SYSCALL(syscallName, argFormat, ##__VA_ARGS__);                                          \
