@@ -186,5 +186,10 @@ Uptr Platform::getPeakMemoryUsageBytes()
 {
 	struct rusage ru;
 	errorUnless(!getrusage(RUSAGE_SELF, &ru));
+#ifdef __APPLE__
+	// POSIX and even the Mac OS X docs say this is in KB, but it's actually in bytes.
+	return Uptr(ru.ru_maxrss);
+#else
 	return Uptr(ru.ru_maxrss) * 1024;
+#endif
 }
