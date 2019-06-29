@@ -15,12 +15,12 @@
 	traceSyscallf(TRACE_SYSCALL_name, argFormat, ##__VA_ARGS__)
 
 #define TRACE_SYSCALL_RETURN(returnCode, ...)                                                      \
-	(traceSyscallReturnf(TRACE_SYSCALL_name, #returnCode __VA_ARGS__), __WASI_##returnCode)
+	traceSyscallReturnf(TRACE_SYSCALL_name, returnCode, " " __VA_ARGS__)
 
 #define UNIMPLEMENTED_SYSCALL(syscallName, argFormat, ...)                                         \
 	TRACE_SYSCALL(syscallName, argFormat, ##__VA_ARGS__);                                          \
 	Log::printf(Log::error, "Called unimplemented WASI syscall %s.\n", syscallName);               \
-	return TRACE_SYSCALL_RETURN(ENOSYS);
+	return TRACE_SYSCALL_RETURN(__WASI_ENOSYS);
 
 // Operations that apply to regular files.
 #define REGULAR_FILE_RIGHTS                                                                        \
@@ -45,7 +45,7 @@
 #define INHERITING_DIRECTORY_RIGHTS (DIRECTORY_RIGHTS | REGULAR_FILE_RIGHTS)
 
 namespace WAVM { namespace VFS {
-	enum class CloseResult;
+	enum class Result;
 	struct DirEntStream;
 	struct FD;
 }}
@@ -79,7 +79,7 @@ namespace WAVM { namespace WASI {
 		{
 		}
 
-		VFS::CloseResult close() const;
+		VFS::Result close() const;
 	};
 
 	struct ProcessResolver : Runtime::Resolver
@@ -129,8 +129,11 @@ namespace WAVM { namespace WASI {
 	VALIDATE_AS_PRINTF(2, 3)
 	void traceSyscallf(const char* syscallName, const char* argFormat, ...);
 
-	VALIDATE_AS_PRINTF(2, 3)
-	void traceSyscallReturnf(const char* syscallName, const char* returnFormat, ...);
+	VALIDATE_AS_PRINTF(3, 4)
+	__wasi_errno_t traceSyscallReturnf(const char* syscallName,
+									   __wasi_errno_t result,
+									   const char* format,
+									   ...);
 
 	DECLARE_INTRINSIC_MODULE(wasi);
 	DECLARE_INTRINSIC_MODULE(wasiArgsEnvs);

@@ -1,5 +1,5 @@
 set(Sources
-	)
+	VFS.cpp)
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/VFS/VFS.h)
 

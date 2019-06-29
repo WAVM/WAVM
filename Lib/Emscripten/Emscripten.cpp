@@ -685,9 +685,9 @@ DEFINE_INTRINSIC_FUNCTION(env,
 	errorUnless(numBytes64 <= UINTPTR_MAX);
 	const Uptr numBytes = Uptr(numBytes64);
 	Uptr numBytesRead = 0;
-	const VFS::ReadResult result = fd->read(
+	const VFS::Result result = fd->read(
 		memoryArrayPtr<U8>(instance->memory, destAddress, numBytes), numBytes, &numBytesRead);
-	if(result != VFS::ReadResult::success) { return 0; }
+	if(result != VFS::Result::success) { return 0; }
 	else
 	{
 		wavmAssert(numBytesRead < UINT32_MAX);
@@ -711,9 +711,9 @@ DEFINE_INTRINSIC_FUNCTION(env,
 	errorUnless(numBytes64 <= UINTPTR_MAX);
 	const Uptr numBytes = Uptr(numBytes64);
 	Uptr numBytesWritten = 0;
-	const VFS::WriteResult result = fd->write(
+	const VFS::Result result = fd->write(
 		memoryArrayPtr<U8>(instance->memory, sourceAddress, numBytes), numBytes, &numBytesWritten);
-	if(result != VFS::WriteResult::success) { return 0; }
+	if(result != VFS::Result::success) { return 0; }
 	else
 	{
 		wavmAssert(numBytesWritten < UINT32_MAX);
@@ -729,8 +729,8 @@ DEFINE_INTRINSIC_FUNCTION(env, "_fputc", I32, _fputc, I32 character, I32 file)
 	char c = char(character);
 
 	Uptr numBytesWritten = 0;
-	const VFS::WriteResult result = fd->write(&c, 1, &numBytesWritten);
-	return result == VFS::WriteResult::success ? character : -1;
+	const VFS::Result result = fd->write(&c, 1, &numBytesWritten);
+	return result == VFS::Result::success ? character : -1;
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_fflush", I32, _fflush, I32 file)
 {
@@ -738,7 +738,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_fflush", I32, _fflush, I32 file)
 	VFS::FD* fd = getFD(instance, file);
 	if(!fd) { return -1; }
 
-	return fd->sync(VFS::SyncType::contentsAndMetadata) == VFS::SyncResult::success ? 0 : -1;
+	return fd->sync(VFS::SyncType::contentsAndMetadata) == VFS::Result::success ? 0 : -1;
 }
 
 DEFINE_INTRINSIC_FUNCTION(env, "___lock", void, ___lock, I32 a) {}
@@ -787,7 +787,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall145", I32, _readv, I32, I32 argsPtr)
 		   && fd->read(memoryArrayPtr<U8>(instance->memory, destAddress, numBytes),
 					   numBytes,
 					   &numBytesRead)
-				  != VFS::ReadResult::success)
+				  != VFS::Result::success)
 		{ return -1; }
 		totalNumBytesRead += numBytesRead;
 		if(numBytesRead < numBytes) { break; }
@@ -817,7 +817,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall146", I32, _writev, I32, U32 argsPtr)
 		if(fd->write(memoryArrayPtr<U8>(instance->memory, sourceAddress, numBytes),
 					 numBytes,
 					 &numBytesWritten)
-		   != VFS::WriteResult::success)
+		   != VFS::Result::success)
 		{ return -1; }
 		totalNumBytesWritten += numBytesWritten;
 		if(numBytesWritten < numBytes) { break; }
@@ -941,19 +941,13 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall195", U32, ___syscall195, U32, U32)
 {
 	WAVM_UNREACHABLE();
 }
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall20", U32, ___syscall20, U32, U32)
-{
-	WAVM_UNREACHABLE();
-}
+DEFINE_INTRINSIC_FUNCTION(env, "___syscall20", U32, ___syscall20, U32, U32) { WAVM_UNREACHABLE(); }
 DEFINE_INTRINSIC_FUNCTION(env, "___syscall221", U32, ___syscall221, U32, U32)
 {
 	WAVM_UNREACHABLE();
 }
 DEFINE_INTRINSIC_FUNCTION(env, "___syscall5", U32, ___syscall5, U32, U32) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall91", U32, ___syscall91, U32, U32)
-{
-	WAVM_UNREACHABLE();
-}
+DEFINE_INTRINSIC_FUNCTION(env, "___syscall91", U32, ___syscall91, U32, U32) { WAVM_UNREACHABLE(); }
 DEFINE_INTRINSIC_FUNCTION(env, "_atexit", U32, _atexit, U32) { WAVM_UNREACHABLE(); }
 DEFINE_INTRINSIC_FUNCTION(env,
 						  "_clock_gettime",
@@ -993,26 +987,14 @@ DEFINE_INTRINSIC_FUNCTION(env,
 	return 0;
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_getpagesize", U32, _getpagesize) { return 16384; }
-DEFINE_INTRINSIC_FUNCTION(env, "_llvm_log10_f64", F64, _llvm_log10_f64, F64)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "_llvm_log2_f64", F64, _llvm_log2_f64, F64)
-{
-	WAVM_UNREACHABLE();
-}
+DEFINE_INTRINSIC_FUNCTION(env, "_llvm_log10_f64", F64, _llvm_log10_f64, F64) { WAVM_UNREACHABLE(); }
+DEFINE_INTRINSIC_FUNCTION(env, "_llvm_log2_f64", F64, _llvm_log2_f64, F64) { WAVM_UNREACHABLE(); }
 DEFINE_INTRINSIC_FUNCTION(env, "_llvm_trap", void, _llvm_trap)
 {
 	Errors::fatal("env._llvm_trap called");
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_llvm_trunc_f64", F64, _llvm_trunc_f64, F64)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "_localtime_r", U32, _localtime_r, U32, U32)
-{
-	WAVM_UNREACHABLE();
-}
+DEFINE_INTRINSIC_FUNCTION(env, "_llvm_trunc_f64", F64, _llvm_trunc_f64, F64) { WAVM_UNREACHABLE(); }
+DEFINE_INTRINSIC_FUNCTION(env, "_localtime_r", U32, _localtime_r, U32, U32) { WAVM_UNREACHABLE(); }
 DEFINE_INTRINSIC_FUNCTION(env, "_longjmp", void, _longjmp, U32, U32) { WAVM_UNREACHABLE(); }
 DEFINE_INTRINSIC_FUNCTION(env, "_mktime", U32, _mktime, U32) { WAVM_UNREACHABLE(); }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_destroy", U32, _pthread_cond_destroy, U32)
@@ -1041,10 +1023,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_create", U32, _pthread_create, U32, U32
 {
 	WAVM_UNREACHABLE();
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_detach", U32, _pthread_detach, U32)
-{
-	WAVM_UNREACHABLE();
-}
+DEFINE_INTRINSIC_FUNCTION(env, "_pthread_detach", U32, _pthread_detach, U32) { WAVM_UNREACHABLE(); }
 DEFINE_INTRINSIC_FUNCTION(env, "_pthread_join", U32, _pthread_join, U32, U32)
 {
 	WAVM_UNREACHABLE();

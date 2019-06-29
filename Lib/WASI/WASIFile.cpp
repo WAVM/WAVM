@@ -13,6 +13,49 @@ namespace WAVM { namespace WASI {
 	DEFINE_INTRINSIC_MODULE(wasiFile)
 }}
 
+static __wasi_errno_t asWASIErrNo(VFS::Result result)
+{
+	switch(result)
+	{
+	case VFS::Result::success: return __WASI_ESUCCESS;
+	case VFS::Result::ioPending: WAVM_UNREACHABLE();
+	case VFS::Result::ioDeviceError: return __WASI_EIO;
+	case VFS::Result::interruptedBySignal: return __WASI_EINTR;
+	case VFS::Result::interruptedByCancellation: return __WASI_EINTR;
+	case VFS::Result::wouldBlock: return __WASI_EAGAIN;
+	case VFS::Result::inaccessibleBuffer: return __WASI_EFAULT;
+	case VFS::Result::invalidOffset: return __WASI_EINVAL;
+	case VFS::Result::notSeekable: return __WASI_ESPIPE;
+	case VFS::Result::notPermitted: return __WASI_EPERM;
+	case VFS::Result::notAccessible: return __WASI_EACCES;
+	case VFS::Result::notSynchronizable: return __WASI_EINVAL;
+	case VFS::Result::tooManyBufferBytes: return __WASI_EINVAL;
+	case VFS::Result::notEnoughBufferBytes: return __WASI_EINVAL;
+	case VFS::Result::tooManyBuffers: return __WASI_EINVAL;
+	case VFS::Result::notEnoughBits: return __WASI_EOVERFLOW;
+	case VFS::Result::exceededFileSizeLimit: return __WASI_EFBIG;
+	case VFS::Result::outOfSystemFDs: return __WASI_ENFILE;
+	case VFS::Result::outOfProcessFDs: return __WASI_EMFILE;
+	case VFS::Result::outOfMemory: return __WASI_ENOMEM;
+	case VFS::Result::outOfQuota: return __WASI_EDQUOT;
+	case VFS::Result::outOfFreeSpace: return __WASI_ENOSPC;
+	case VFS::Result::outOfLinksToParentDir: return __WASI_EMLINK;
+	case VFS::Result::invalidNameCharacter: return __WASI_EACCES;
+	case VFS::Result::nameTooLong: return __WASI_ENAMETOOLONG;
+	case VFS::Result::tooManyLinksInPath: return __WASI_ELOOP;
+	case VFS::Result::alreadyExists: return __WASI_EEXIST;
+	case VFS::Result::doesNotExist: return __WASI_ENOENT;
+	case VFS::Result::isDirectory: return __WASI_EISDIR;
+	case VFS::Result::isNotDirectory: return __WASI_ENOTDIR;
+	case VFS::Result::isNotEmpty: return __WASI_ENOTEMPTY;
+	case VFS::Result::brokenPipe: return __WASI_EPIPE;
+	case VFS::Result::missingDevice: return __WASI_ENXIO;
+	case VFS::Result::busy: return __WASI_EBUSY;
+
+	default: WAVM_UNREACHABLE();
+	};
+}
+
 static WASI::FD* getFD(Process* process, __wasi_fd_t fd)
 {
 	if(fd < process->fds.getMinIndex() || fd > process->fds.getMaxIndex()) { return nullptr; }
@@ -143,10 +186,11 @@ static VFS::FDFlags translateWASIFDFlags(__wasi_fdflags_t fdFlags,
 	return result;
 }
 
-VFS::CloseResult WASI::FD::close() const
+VFS::Result WASI::FD::close() const
 {
-	if(dirEntStream) { dirEntStream->close(); }
-	return vfd->close();
+	VFS::Result result = vfd->close();
+	if(result == VFS::Result::success && dirEntStream) { dirEntStream->close(); }
+	return result;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -161,16 +205,16 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD || !wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD || !wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 
-	if(wasiFD->originalPath.size() > UINT32_MAX) { return TRACE_SYSCALL_RETURN(EOVERFLOW); }
+	if(wasiFD->originalPath.size() > UINT32_MAX) { return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 
 	__wasi_prestat_t& prestat = memoryRef<__wasi_prestat_t>(process->memory, prestatAddress);
 	prestat.pr_type = wasiFD->preopenedType;
 	wavmAssert(wasiFD->preopenedType == __WASI_PREOPENTYPE_DIR);
 	prestat.u.dir.pr_name_len = U32(wasiFD->originalPath.size());
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -187,14 +231,14 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD || !wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD || !wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 
-	if(bufferLength != wasiFD->originalPath.size()) { return TRACE_SYSCALL_RETURN(EINVAL); }
+	if(bufferLength != wasiFD->originalPath.size()) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 
 	char* buffer = memoryArrayPtr<char>(process->memory, bufferAddress, bufferLength);
 	memcpy(buffer, wasiFD->originalPath.c_str(), bufferLength);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -208,22 +252,17 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD || wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD || wasiFD->isPreopened) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 
-	if(wasiFD->dirEntStream) { wasiFD->dirEntStream->close(); }
+	const VFS::Result result = wasiFD->close();
 
-	VFS::CloseResult result = wasiFD->vfd->close();
-	switch(result)
+	if(result == VFS::Result::success)
 	{
-	case VFS::CloseResult::success:
 		// If the close succeeded, remove the fd from the fds map.
 		process->fds.removeOrFail(fd);
-		return TRACE_SYSCALL_RETURN(ESUCCESS);
+	}
 
-	case VFS::CloseResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
-
-	default: WAVM_UNREACHABLE();
-	};
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -237,13 +276,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_DATASYNC))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	wasiFD->vfd->sync(VFS::SyncType::contents);
-
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(wasiFD->vfd->sync(VFS::SyncType::contents)));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -303,17 +340,18 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_READ)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_READ))
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(EINVAL); }
+	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 
 	// Allocate memory for the VFS::IOReadBuffers.
 	VFS::IOReadBuffer* vfsReadBuffers
 		= (VFS::IOReadBuffer*)malloc(numIOVs * sizeof(VFS::IOReadBuffer));
 
 	// Catch any out-of-bounds memory access exceptions that are thrown.
-	__wasi_errno_return_t result = __WASI_ESUCCESS;
+	__wasi_errno_return_t wasiResult = __WASI_ESUCCESS;
 	Runtime::catchRuntimeExceptions(
 		[&] {
 			// Translate the IOVs to VFS::IOReadBuffers.
@@ -328,31 +366,20 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 				vfsReadBuffers[iovIndex].numBytes = iov.buf_len;
 				numBufferBytes += iov.buf_len;
 			}
-			if(numBufferBytes > WASIADDRESS_MAX) { result = TRACE_SYSCALL_RETURN(EOVERFLOW); }
+			if(numBufferBytes > WASIADDRESS_MAX)
+			{ wasiResult = TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 			else
 			{
 				// Do the read.
 				Uptr numBytesRead = 0;
-				switch(wasiFD->vfd->readv(vfsReadBuffers, numIOVs, &numBytesRead))
-				{
-				case VFS::ReadResult::success:
-					wavmAssert(numBytesRead <= WASIADDRESS_MAX);
-					memoryRef<WASIAddress>(process->memory, numBytesReadAddress)
-						= WASIAddress(numBytesRead);
-					result = TRACE_SYSCALL_RETURN(
-						ESUCCESS, " (numBytesRead=%" PRIu64 ")", numBytesRead);
-					break;
-				case VFS::ReadResult::ioError: result = TRACE_SYSCALL_RETURN(EIO); break;
-				case VFS::ReadResult::interrupted: result = TRACE_SYSCALL_RETURN(EINTR); break;
-				case VFS::ReadResult::tooManyBytes: result = TRACE_SYSCALL_RETURN(EINVAL); break;
-				case VFS::ReadResult::tooManyBuffers: result = TRACE_SYSCALL_RETURN(EINVAL); break;
-				case VFS::ReadResult::notPermitted: result = TRACE_SYSCALL_RETURN(EPERM); break;
-				case VFS::ReadResult::isDirectory: result = TRACE_SYSCALL_RETURN(EISDIR); break;
-				case VFS::ReadResult::outOfMemory: result = TRACE_SYSCALL_RETURN(ENOMEM); break;
-				case VFS::ReadResult::badAddress: result = TRACE_SYSCALL_RETURN(EFAULT); break;
+				const VFS::Result result
+					= wasiFD->vfd->readv(vfsReadBuffers, numIOVs, &numBytesRead);
+				wasiResult = TRACE_SYSCALL_RETURN(
+					asWASIErrNo(result), " (numBytesRead=%" PRIu64 ")", numBytesRead);
 
-				default: WAVM_UNREACHABLE();
-				}
+				wavmAssert(numBytesRead <= numBufferBytes);
+				memoryRef<WASIAddress>(process->memory, numBytesReadAddress)
+					= WASIAddress(numBytesRead);
 			}
 		},
 		[&](Exception* exception) {
@@ -362,13 +389,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						"Caught runtime exception while reading memory at address 0x%" PRIx64,
 						getExceptionArgument(exception, 1).i64);
 			destroyException(exception);
-			result = TRACE_SYSCALL_RETURN(EFAULT);
+			wasiResult = TRACE_SYSCALL_RETURN(__WASI_EFAULT);
 		});
 
 	// Free the VFS read buffers.
 	free(vfsReadBuffers);
 
-	return result;
+	return wasiResult;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -390,17 +417,18 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_WRITE)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_WRITE))
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(EINVAL); }
+	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 
 	// Allocate memory for the VFS::IOWriteBuffers.
 	VFS::IOWriteBuffer* vfsWriteBuffers
 		= (VFS::IOWriteBuffer*)malloc(numIOVs * sizeof(VFS::IOWriteBuffer));
 
 	// Catch any out-of-bounds memory access exceptions that are thrown.
-	__wasi_errno_return_t result = __WASI_ESUCCESS;
+	__wasi_errno_return_t wasiResult = __WASI_ESUCCESS;
 	Runtime::catchRuntimeExceptions(
 		[&] {
 			// Translate the IOVs to VFS::IOWriteBuffers
@@ -415,35 +443,20 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 				vfsWriteBuffers[iovIndex].numBytes = iov.buf_len;
 				numBufferBytes += iov.buf_len;
 			}
-			if(numBufferBytes > WASIADDRESS_MAX) { result = TRACE_SYSCALL_RETURN(EOVERFLOW); }
+			if(numBufferBytes > WASIADDRESS_MAX)
+			{ wasiResult = TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 			else
 			{
 				// Do the writes.
 				Uptr numBytesWritten = 0;
-				switch(wasiFD->vfd->writev(vfsWriteBuffers, numIOVs, &numBytesWritten))
-				{
-				case VFS::WriteResult::success:
-					wavmAssert(numBytesWritten <= WASIADDRESS_MAX);
-					memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress)
-						= WASIAddress(numBytesWritten);
-					result = TRACE_SYSCALL_RETURN(
-						ESUCCESS, " (numBytesWritten=%" PRIu64 ")", numBytesWritten);
-					break;
-				case VFS::WriteResult::ioError: result = TRACE_SYSCALL_RETURN(EIO); break;
-				case VFS::WriteResult::interrupted: result = TRACE_SYSCALL_RETURN(EINTR); break;
-				case VFS::WriteResult::tooManyBytes: result = TRACE_SYSCALL_RETURN(EINVAL); break;
-				case VFS::WriteResult::tooManyBuffers: result = TRACE_SYSCALL_RETURN(EINVAL); break;
-				case VFS::WriteResult::outOfMemory: result = TRACE_SYSCALL_RETURN(ENOMEM); break;
-				case VFS::WriteResult::outOfQuota: result = TRACE_SYSCALL_RETURN(EDQUOT); break;
-				case VFS::WriteResult::outOfFreeSpace: result = TRACE_SYSCALL_RETURN(ENOSPC); break;
-				case VFS::WriteResult::exceededFileSizeLimit:
-					result = TRACE_SYSCALL_RETURN(EFBIG);
-					break;
-				case VFS::WriteResult::notPermitted: result = TRACE_SYSCALL_RETURN(EPERM); break;
-				case VFS::WriteResult::badAddress: result = TRACE_SYSCALL_RETURN(EFAULT); break;
+				const VFS::Result result
+					= wasiFD->vfd->writev(vfsWriteBuffers, numIOVs, &numBytesWritten);
+				wasiResult = TRACE_SYSCALL_RETURN(
+					asWASIErrNo(result), " (numBytesWritten=%" PRIu64 ")", numBytesWritten);
 
-				default: WAVM_UNREACHABLE();
-				};
+				wavmAssert(numBytesWritten <= numBufferBytes);
+				memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress)
+					= WASIAddress(numBytesWritten);
 			}
 		},
 		[&](Exception* exception) {
@@ -453,13 +466,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						"Caught runtime exception while reading memory at address 0x%" PRIx64,
 						getExceptionArgument(exception, 1).i64);
 			destroyException(exception);
-			result = TRACE_SYSCALL_RETURN(EFAULT);
+			wasiResult = TRACE_SYSCALL_RETURN(__WASI_EFAULT);
 		});
 
 	// Free the VFS write buffers.
 	free(vfsWriteBuffers);
 
-	return result;
+	return wasiResult;
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -475,22 +488,18 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	WASI::FD* wasiFromFD = getFD(process, fromFD);
 	WASI::FD* wasiToFD = getFD(process, toFD);
-	if(!wasiFromFD || !wasiToFD) { return TRACE_SYSCALL_RETURN(EBADF); }
-	if(wasiFromFD->isPreopened || wasiToFD->isPreopened) { return TRACE_SYSCALL_RETURN(ENOTSUP); }
+	if(!wasiFromFD || !wasiToFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(wasiFromFD->isPreopened || wasiToFD->isPreopened)
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTSUP); }
 
-	switch(wasiToFD->close())
-	{
-	case VFS::CloseResult::success: break;
-	case VFS::CloseResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
-
-	default: WAVM_UNREACHABLE();
-	};
+	VFS::Result result = wasiToFD->close();
+	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	process->fds.removeOrFail(toFD);
 	process->fds.insertOrFail(toFD, *wasiFromFD);
 	process->fds.removeOrFail(fromFD);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -512,8 +521,9 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_SEEK)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_SEEK))
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	VFS::SeekOrigin origin;
 	switch(whence)
@@ -521,21 +531,15 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case __WASI_WHENCE_CUR: origin = VFS::SeekOrigin::cur; break;
 	case __WASI_WHENCE_END: origin = VFS::SeekOrigin::end; break;
 	case __WASI_WHENCE_SET: origin = VFS::SeekOrigin::begin; break;
-	default: return TRACE_SYSCALL_RETURN(EINVAL);
+	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
 	};
 
 	U64 newOffset;
-	VFS::SeekResult seekResult = wasiFD->vfd->seek(offset, origin, &newOffset);
-	switch(seekResult)
-	{
-	case VFS::SeekResult::success:
-		memoryRef<__wasi_filesize_t>(process->memory, newOffsetAddress) = newOffset;
-		return TRACE_SYSCALL_RETURN(ESUCCESS);
-	case VFS::SeekResult::invalidOffset: return TRACE_SYSCALL_RETURN(EINVAL);
-	case VFS::SeekResult::unseekable: return TRACE_SYSCALL_RETURN(ESPIPE);
+	const VFS::Result result = wasiFD->vfd->seek(offset, origin, &newOffset);
+	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
-	default: WAVM_UNREACHABLE();
-	};
+	memoryRef<__wasi_filesize_t>(process->memory, newOffsetAddress) = newOffset;
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -550,21 +554,16 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_TELL)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_TELL))
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	U64 currentOffset;
-	VFS::SeekResult seekResult = wasiFD->vfd->seek(0, VFS::SeekOrigin::cur, &currentOffset);
-	switch(seekResult)
-	{
-	case VFS::SeekResult::success:
-		memoryRef<__wasi_filesize_t>(process->memory, offsetAddress) = currentOffset;
-		return TRACE_SYSCALL_RETURN(ESUCCESS);
-	case VFS::SeekResult::invalidOffset: return TRACE_SYSCALL_RETURN(EOVERFLOW);
-	case VFS::SeekResult::unseekable: return TRACE_SYSCALL_RETURN(ESPIPE);
+	const VFS::Result result = wasiFD->vfd->seek(0, VFS::SeekOrigin::cur, &currentOffset);
+	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
-	default: WAVM_UNREACHABLE();
-	};
+	memoryRef<__wasi_filesize_t>(process->memory, offsetAddress) = currentOffset;
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -579,48 +578,39 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 
 	VFS::FDInfo fdInfo;
-	VFS::GetInfoResult result = wasiFD->vfd->getFDInfo(fdInfo);
-	switch(result)
+	const VFS::Result result = wasiFD->vfd->getFDInfo(fdInfo);
+	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
+
+	__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
+	fdstat.fs_filetype = asWASIFileType(fdInfo.type);
+	fdstat.fs_flags = 0;
+
+	if(fdInfo.flags.append) { fdstat.fs_flags |= __WASI_FDFLAG_APPEND; }
+	if(fdInfo.flags.nonBlocking) { fdstat.fs_flags |= __WASI_FDFLAG_NONBLOCK; }
+	switch(fdInfo.flags.implicitSync)
 	{
-	case VFS::GetInfoResult::success: {
-		__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
-		fdstat.fs_filetype = asWASIFileType(fdInfo.type);
-		fdstat.fs_flags = 0;
-
-		if(fdInfo.flags.append) { fdstat.fs_flags |= __WASI_FDFLAG_APPEND; }
-		if(fdInfo.flags.nonBlocking) { fdstat.fs_flags |= __WASI_FDFLAG_NONBLOCK; }
-		switch(fdInfo.flags.implicitSync)
-		{
-		case VFS::FDImplicitSync::none: break;
-		case VFS::FDImplicitSync::syncContentsAfterWrite:
-			fdstat.fs_flags |= __WASI_FDFLAG_DSYNC;
-			break;
-		case VFS::FDImplicitSync::syncContentsAndMetadataAfterWrite:
-			fdstat.fs_flags |= __WASI_FDFLAG_SYNC;
-			break;
-		case VFS::FDImplicitSync::syncContentsAfterWriteAndBeforeRead:
-			fdstat.fs_flags |= __WASI_FDFLAG_DSYNC | __WASI_FDFLAG_RSYNC;
-			break;
-		case VFS::FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
-			fdstat.fs_flags |= __WASI_FDFLAG_SYNC | __WASI_FDFLAG_RSYNC;
-			break;
-
-		default: WAVM_UNREACHABLE();
-		}
-
-		fdstat.fs_rights_base = wasiFD->rights;
-		fdstat.fs_rights_inheriting = wasiFD->inheritingRights;
-
-		return TRACE_SYSCALL_RETURN(ESUCCESS);
-	}
-
-	case VFS::GetInfoResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
+	case VFS::FDImplicitSync::none: break;
+	case VFS::FDImplicitSync::syncContentsAfterWrite: fdstat.fs_flags |= __WASI_FDFLAG_DSYNC; break;
+	case VFS::FDImplicitSync::syncContentsAndMetadataAfterWrite:
+		fdstat.fs_flags |= __WASI_FDFLAG_SYNC;
+		break;
+	case VFS::FDImplicitSync::syncContentsAfterWriteAndBeforeRead:
+		fdstat.fs_flags |= __WASI_FDFLAG_DSYNC | __WASI_FDFLAG_RSYNC;
+		break;
+	case VFS::FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
+		fdstat.fs_flags |= __WASI_FDFLAG_SYNC | __WASI_FDFLAG_RSYNC;
+		break;
 
 	default: WAVM_UNREACHABLE();
-	};
+	}
+
+	fdstat.fs_rights_base = wasiFD->rights;
+	fdstat.fs_rights_inheriting = wasiFD->inheritingRights;
+
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -638,16 +628,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	VFS::FDFlags vfsFDFlags = translateWASIFDFlags(flags, requiredRights);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_FDSTAT_SET_FLAGS | requiredRights))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	switch(wasiFD->vfd->setFDFlags(vfsFDFlags))
-	{
-	case VFS::SetFlagsResult::success: return TRACE_SYSCALL_RETURN(ESUCCESS);
-	case VFS::SetFlagsResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
-	default: WAVM_UNREACHABLE();
-	};
+	const VFS::Result result = wasiFD->vfd->setFDFlags(vfsFDFlags);
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -667,15 +653,15 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiFD, rights, inheritingRights))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	// Narrow the FD's rights.
 	wasiFD->rights = rights;
 	wasiFD->inheritingRights = inheritingRights;
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_return_t, wasi_fd_sync, __wasi_fd_t fd)
@@ -685,12 +671,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_return_t, wasi_fd_sy
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_SYNC)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_SYNC))
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	wasiFD->vfd->sync(VFS::SyncType::contentsAndMetadata);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -708,8 +695,9 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_ADVISE)) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_ADVISE))
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	switch(advice)
 	{
@@ -721,8 +709,8 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case __WASI_ADVICE_WILLNEED:
 		// It's safe to ignore the advice, so just return success for now.
 		// TODO: do something with the advice!
-		return TRACE_SYSCALL_RETURN(ESUCCESS);
-	default: return TRACE_SYSCALL_RETURN(EINVAL);
+		return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
+	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
 	}
 }
 
@@ -817,7 +805,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	case __WASI_O_CREAT | __WASI_O_EXCL | __WASI_O_TRUNC:
 	case __WASI_O_EXCL | __WASI_O_TRUNC:
 	case __WASI_O_EXCL:
-	default: return TRACE_SYSCALL_RETURN(EINVAL);
+	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
 	};
 
 	if(openFlags & __WASI_O_CREAT) { requiredDirRights |= __WASI_RIGHT_PATH_CREATE_FILE; }
@@ -828,59 +816,37 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	{ requiredDirInheritingRights |= __WASI_RIGHT_FD_SEEK; }
 
 	WASI::FD* wasiDirFD = getFD(process, dirFD);
-	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiDirFD, requiredDirRights, requiredDirInheritingRights))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	std::string relativePath;
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
-	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_EFAULT); }
 
 	std::string canonicalPath;
 	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	VFS::FD* openedVFD = nullptr;
-	VFS::OpenResult result
+	const VFS::Result result
 		= process->fileSystem->open(canonicalPath, accessMode, createMode, openedVFD, vfsFDFlags);
-	switch(result)
-	{
-	case VFS::OpenResult::success: break;
-
-	case VFS::OpenResult::alreadyExists: return TRACE_SYSCALL_RETURN(EEXIST);
-	case VFS::OpenResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
-	case VFS::OpenResult::isDirectory: return TRACE_SYSCALL_RETURN(EISDIR);
-	case VFS::OpenResult::cantSynchronize: return TRACE_SYSCALL_RETURN(EINVAL);
-	case VFS::OpenResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
-	case VFS::OpenResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
-	case VFS::OpenResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
-	case VFS::OpenResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
-
-	case VFS::OpenResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
-	case VFS::OpenResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
-	case VFS::OpenResult::interrupted: return TRACE_SYSCALL_RETURN(EINTR);
-
-	case VFS::OpenResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
-	case VFS::OpenResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
-	case VFS::OpenResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
-
-	default: WAVM_UNREACHABLE();
-	};
+	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	__wasi_fd_t fd = process->fds.add(
 		UINT32_MAX,
 		FD(openedVFD, requestedRights, requestedInheritingRights, std::move(canonicalPath)));
 	if(fd == UINT32_MAX)
 	{
-		errorUnless(openedVFD->close() == VFS::CloseResult::success);
-		return TRACE_SYSCALL_RETURN(EMFILE);
+		errorUnless(openedVFD->close() == VFS::Result::success);
+		return TRACE_SYSCALL_RETURN(__WASI_EMFILE);
 	}
 
 	memoryRef<__wasi_fd_t>(process->memory, fdAddress) = fd;
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS, " (%u)", fd);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, " (%u)", fd);
 }
 
 static Uptr truncatingMemcpy(void* dest, const void* source, Uptr numSourceBytes, Uptr numDestBytes)
@@ -912,30 +878,22 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiDirFD = getFD(process, dirFD);
-	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_FD_READDIR, 0))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	// If this is the first time readdir was called, open a DirEntStream for the FD.
 	if(!wasiDirFD->dirEntStream)
 	{
-		if(firstCookie != __WASI_DIRCOOKIE_START) { return TRACE_SYSCALL_RETURN(EINVAL); }
+		if(firstCookie != __WASI_DIRCOOKIE_START) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 
-		const VFS::OpenDirResult result = wasiDirFD->vfd->openDir(wasiDirFD->dirEntStream);
-		switch(result)
-		{
-		case VFS::OpenDirResult::success: break;
-
-		case VFS::OpenDirResult::notDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
-		case VFS::OpenDirResult::outOfMemory: return TRACE_SYSCALL_RETURN(ENOMEM);
-		case VFS::OpenDirResult::notPermitted: return TRACE_SYSCALL_RETURN(EACCES);
-
-		default: WAVM_UNREACHABLE();
-		};
+		const VFS::Result result = wasiDirFD->vfd->openDir(wasiDirFD->dirEntStream);
+		if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 	}
 	else if(wasiDirFD->dirEntStream->tell() != firstCookie)
 	{
-		if(!wasiDirFD->dirEntStream->seek(firstCookie)) { return TRACE_SYSCALL_RETURN(EINVAL); }
+		if(!wasiDirFD->dirEntStream->seek(firstCookie))
+		{ return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 	}
 
 	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
@@ -949,7 +907,6 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		errorUnless(dirEnt.name.size() <= UINT32_MAX);
 
 		__wasi_dirent_t wasiDirEnt;
-
 		wasiDirEnt.d_next = wasiDirFD->dirEntStream->tell();
 		wasiDirEnt.d_ino = dirEnt.fileNumber;
 		wasiDirEnt.d_namlen = U32(dirEnt.name.size());
@@ -966,11 +923,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 											   numBufferBytes - numBufferBytesUsed);
 	};
 
-	wavmAssert(numBufferBytesUsed <= WASIADDRESS_MAX);
+	wavmAssert(numBufferBytesUsed <= numBufferBytes);
 	memoryRef<WASIAddress>(process->memory, outNumBufferBytesUsedAddress)
 		= WASIAddress(numBufferBytesUsed);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(
+		__WASI_ESUCCESS, "(numBufferBytesUsed=%" PRIuPTR ")", numBufferBytesUsed);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -1028,19 +986,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_FILESTAT_GET, 0))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	VFS::FileInfo fileInfo;
-	VFS::GetInfoResult result = wasiFD->vfd->getFileInfo(fileInfo);
-	switch(result)
-	{
-	case VFS::GetInfoResult::success: break;
-	case VFS::GetInfoResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
-
-	default: WAVM_UNREACHABLE();
-	};
+	const VFS::Result result = wasiFD->vfd->getFileInfo(fileInfo);
+	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	__wasi_filestat_t& fileStat = memoryRef<__wasi_filestat_t>(process->memory, filestatAddress);
 
@@ -1053,7 +1005,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime);
 	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -1104,37 +1056,23 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiDirFD = getFD(process, dirFD);
-	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_PATH_FILESTAT_GET, 0))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	std::string relativePath;
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
-	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_EFAULT); }
 
 	std::string canonicalPath;
 	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	VFS::FileInfo fileInfo;
-	VFS::GetInfoByPathResult result = process->fileSystem->getInfo(canonicalPath, fileInfo);
-	switch(result)
-	{
-	case VFS::GetInfoByPathResult::success: break;
-
-	case VFS::GetInfoByPathResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
-	case VFS::GetInfoByPathResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
-	case VFS::GetInfoByPathResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
-	case VFS::GetInfoByPathResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
-	case VFS::GetInfoByPathResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
-
-	case VFS::GetInfoByPathResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
-	case VFS::GetInfoByPathResult::ioError: return TRACE_SYSCALL_RETURN(EIO);
-
-	default: WAVM_UNREACHABLE();
-	};
+	const VFS::Result result = process->fileSystem->getInfo(canonicalPath, fileInfo);
+	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	__wasi_filestat_t& fileStat = memoryRef<__wasi_filestat_t>(process->memory, filestatAddress);
 
@@ -1147,7 +1085,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime);
 	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -1207,34 +1145,23 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiDirFD = getFD(process, dirFD);
-	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_PATH_UNLINK_FILE, 0))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	std::string relativePath;
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
-	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_EFAULT); }
 
 	std::string canonicalPath;
 	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	switch(process->fileSystem->unlinkFile(canonicalPath))
-	{
-	case VFS::UnlinkFileResult::success: return TRACE_SYSCALL_RETURN(ESUCCESS);
-
-	case VFS::UnlinkFileResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
-	case VFS::UnlinkFileResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
-	case VFS::UnlinkFileResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
-	case VFS::UnlinkFileResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
-	case VFS::UnlinkFileResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
-	case VFS::UnlinkFileResult::isDirectory: return TRACE_SYSCALL_RETURN(EPERM);
-	case VFS::UnlinkFileResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
-
-	default: WAVM_UNREACHABLE();
-	};
+	VFS::Result result = process->fileSystem->unlinkFile(canonicalPath);
+	return TRACE_SYSCALL_RETURN(result == VFS::Result::isDirectory ? __WASI_EPERM
+																   : asWASIErrNo(result));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -1254,35 +1181,22 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiDirFD = getFD(process, dirFD);
-	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_PATH_UNLINK_FILE, 0))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	std::string relativePath;
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
-	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_EFAULT); }
 
 	std::string canonicalPath;
 	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	switch(process->fileSystem->removeDir(canonicalPath))
-	{
-	case VFS::RemoveDirResult::success: return TRACE_SYSCALL_RETURN(ESUCCESS);
-
-	case VFS::RemoveDirResult::doesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
-	case VFS::RemoveDirResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
-	case VFS::RemoveDirResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
-	case VFS::RemoveDirResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
-	case VFS::RemoveDirResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
-	case VFS::RemoveDirResult::notDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
-	case VFS::RemoveDirResult::notEmpty: return TRACE_SYSCALL_RETURN(ENOTEMPTY);
-	case VFS::RemoveDirResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
-
-	default: WAVM_UNREACHABLE();
-	};
+	const VFS::Result result = process->fileSystem->removeDir(canonicalPath);
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -1302,35 +1216,20 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	WASI::FD* wasiDirFD = getFD(process, dirFD);
-	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!wasiDirFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
 	if(!checkFDRights(wasiDirFD, __WASI_RIGHT_PATH_UNLINK_FILE, 0))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
 	std::string relativePath;
 	if(!readUserString(process->memory, pathAddress, numPathBytes, relativePath))
-	{ return TRACE_SYSCALL_RETURN(EFAULT); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_EFAULT); }
 
 	std::string canonicalPath;
 	if(!getCanonicalPath(wasiDirFD->originalPath, relativePath, canonicalPath))
-	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+	if(!process->fileSystem) { return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
 
-	switch(process->fileSystem->createDir(canonicalPath))
-	{
-	case VFS::CreateDirResult::success: return TRACE_SYSCALL_RETURN(ESUCCESS);
-
-	case VFS::CreateDirResult::alreadyExists: return TRACE_SYSCALL_RETURN(EEXIST);
-	case VFS::CreateDirResult::invalidNameCharacter: return TRACE_SYSCALL_RETURN(EACCES);
-	case VFS::CreateDirResult::nameTooLong: return TRACE_SYSCALL_RETURN(ENAMETOOLONG);
-	case VFS::CreateDirResult::pathPrefixNotDirectory: return TRACE_SYSCALL_RETURN(ENOTDIR);
-	case VFS::CreateDirResult::pathPrefixDoesNotExist: return TRACE_SYSCALL_RETURN(ENOENT);
-	case VFS::CreateDirResult::tooManyLinks: return TRACE_SYSCALL_RETURN(ELOOP);
-	case VFS::CreateDirResult::outOfQuota: return TRACE_SYSCALL_RETURN(EDQUOT);
-	case VFS::CreateDirResult::outOfFreeSpace: return TRACE_SYSCALL_RETURN(ENOSPC);
-	case VFS::CreateDirResult::outOfLinksToParentDir: return TRACE_SYSCALL_RETURN(EMLINK);
-	case VFS::CreateDirResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
-
-	default: WAVM_UNREACHABLE();
-	};
+	const VFS::Result result = process->fileSystem->createDir(canonicalPath);
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }

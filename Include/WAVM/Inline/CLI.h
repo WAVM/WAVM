@@ -10,50 +10,71 @@
 namespace WAVM {
 	inline bool loadFile(const char* filename, std::vector<U8>& outFileContents)
 	{
+		VFS::Result result;
 		VFS::FD* vfd = nullptr;
-		VFS::OpenResult result = Platform::openHostFile(
-			filename, VFS::FileAccessMode::readOnly, VFS::FileCreateMode::openExisting, vfd);
-		if(result != VFS::OpenResult::success)
 		{
-			Log::printf(Log::error, "Couldn't read %s: couldn't open file.\n", filename);
-			return false;
+			result = Platform::openHostFile(
+				filename, VFS::FileAccessMode::readOnly, VFS::FileCreateMode::openExisting, vfd);
+			if(result != VFS::Result::success) { goto printAndReturnError; }
+
+			U64 numFileBytes64 = 0;
+			result = vfd->seek(0, VFS::SeekOrigin::end, &numFileBytes64);
+			if(result != VFS::Result::success) { goto printAndReturnError; }
+			else if(numFileBytes64 > UINTPTR_MAX)
+			{
+				result = VFS::Result::outOfMemory;
+				goto printAndReturnError;
+			}
+
+			const Uptr numFileBytes = Uptr(numFileBytes64);
+			std::vector<U8> fileContents;
+			outFileContents.resize(numFileBytes);
+
+			result = vfd->seek(0, VFS::SeekOrigin::begin);
+			if(result != VFS::Result::success) { goto printAndReturnError; }
+
+			result = vfd->read(const_cast<U8*>(outFileContents.data()), numFileBytes);
+			if(result != VFS::Result::success) { goto printAndReturnError; }
+
+			result = vfd->close();
+			if(result != VFS::Result::success)
+			{
+				vfd = nullptr;
+				goto printAndReturnError;
+			}
+
+			return true;
 		}
-
-		U64 numFileBytes64 = 0;
-		errorUnless(vfd->seek(0, VFS::SeekOrigin::end, &numFileBytes64)
-					== VFS::SeekResult::success);
-		if(numFileBytes64 > UINTPTR_MAX)
-		{
-			Log::printf(Log::error, "Couldn't read %s: file doesn't fit in memory.\n", filename);
-			errorUnless(vfd->close() == VFS::CloseResult::success);
-			return false;
-		}
-		const Uptr numFileBytes = Uptr(numFileBytes64);
-
-		std::vector<U8> fileContents;
-		outFileContents.resize(numFileBytes);
-		errorUnless(vfd->seek(0, VFS::SeekOrigin::begin) == VFS::SeekResult::success);
-		errorUnless(vfd->read(const_cast<U8*>(outFileContents.data()), numFileBytes)
-					== VFS::ReadResult::success);
-		errorUnless(vfd->close() == VFS::CloseResult::success);
-
-		return true;
+	printAndReturnError:
+		Log::printf(Log::error, "Error loading '%s': %s\n", filename, VFS::describeResult(result));
+		if(vfd) { errorUnless(vfd->close() == VFS::Result::success); }
+		return false;
 	}
 
 	inline bool saveFile(const char* filename, const void* fileBytes, Uptr numFileBytes)
 	{
+		VFS::Result result;
 		VFS::FD* vfd = nullptr;
-		VFS::OpenResult result = Platform::openHostFile(
-			filename, VFS::FileAccessMode::writeOnly, VFS::FileCreateMode::createAlways, vfd);
-		if(result != VFS::OpenResult::success)
 		{
-			Log::printf(Log::error, "Couldn't write %s: couldn't open file.\n", filename);
-			return false;
+			result = Platform::openHostFile(
+				filename, VFS::FileAccessMode::writeOnly, VFS::FileCreateMode::createAlways, vfd);
+			if(result != VFS::Result::success) { goto printAndReturnError; }
+
+			result = vfd->write(fileBytes, numFileBytes);
+			if(result != VFS::Result::success) { goto printAndReturnError; }
+
+			result = vfd->close();
+			if(result != VFS::Result::success)
+			{
+				vfd = nullptr;
+				goto printAndReturnError;
+			}
+
+			return true;
 		}
-
-		errorUnless(vfd->write(fileBytes, numFileBytes) == VFS::WriteResult::success);
-		errorUnless(vfd->close() == VFS::CloseResult::success);
-
-		return true;
+	printAndReturnError:
+		Log::printf(Log::error, "Error saving '%s': %s\n", filename, VFS::describeResult(result));
+		if(vfd) { errorUnless(vfd->close() == VFS::Result::success); }
+		return false;
 	}
 }

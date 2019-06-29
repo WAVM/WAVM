@@ -32,14 +32,14 @@ DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 	case __WASI_CLOCK_THREAD_CPUTIME_ID:
 		resolution128 = Platform::getProcessClockResolution();
 		break;
-	default: return TRACE_SYSCALL_RETURN(EINVAL);
+	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
 	}
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
 	__wasi_timestamp_t resolution = __wasi_timestamp_t(resolution128);
 	memoryRef<__wasi_timestamp_t>(process->memory, resolutionAddress) = resolution;
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS, " (%" PRIu64 ")", resolution);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, "(%" PRIu64 ")", resolution);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiClocks,
@@ -67,11 +67,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 	case __WASI_CLOCK_THREAD_CPUTIME_ID:
 		currentTime128 = Platform::getProcessClock() - process->processClockOrigin;
 		break;
-	default: return TRACE_SYSCALL_RETURN(EINVAL);
+	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
 	}
 
 	__wasi_timestamp_t currentTime = __wasi_timestamp_t(currentTime128);
 	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = currentTime;
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS, " (%" PRIu64 ")", currentTime);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, "(%" PRIu64 ")", currentTime);
 }

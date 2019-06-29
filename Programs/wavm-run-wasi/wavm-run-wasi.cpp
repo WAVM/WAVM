@@ -38,39 +38,37 @@ struct SandboxedFileSystem : FileSystem
 		if(rootPath.back() != '/' && rootPath.back() != '\\') { rootPath += '/'; }
 	}
 
-	virtual OpenResult open(const std::string& absolutePathName,
-							FileAccessMode accessMode,
-							FileCreateMode createMode,
-							FD*& outFD,
-							const FDFlags& flags) override
+	virtual Result open(const std::string& absolutePathName,
+						FileAccessMode accessMode,
+						FileCreateMode createMode,
+						FD*& outFD,
+						const FDFlags& flags) override
 	{
 		return Platform::openHostFile(
 			getHostPath(absolutePathName), accessMode, createMode, outFD, flags);
 	}
 
-	virtual GetInfoByPathResult getInfo(const std::string& absolutePathName,
-										FileInfo& outInfo) override
+	virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) override
 	{
 		return Platform::getHostFileInfo(getHostPath(absolutePathName), outInfo);
 	}
 
-	virtual OpenDirByPathResult openDir(const std::string& absolutePathName,
-										DirEntStream*& outStream) override
+	virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) override
 	{
 		return Platform::openHostDir(getHostPath(absolutePathName), outStream);
 	}
 
-	virtual UnlinkFileResult unlinkFile(const std::string& absolutePathName) override
+	virtual Result unlinkFile(const std::string& absolutePathName) override
 	{
 		return Platform::unlinkHostFile(getHostPath(absolutePathName));
 	}
 
-	virtual RemoveDirResult removeDir(const std::string& absolutePathName) override
+	virtual Result removeDir(const std::string& absolutePathName) override
 	{
 		return Platform::removeHostDir(getHostPath(absolutePathName));
 	}
 
-	virtual CreateDirResult createDir(const std::string& absolutePathName) override
+	virtual Result createDir(const std::string& absolutePathName) override
 	{
 		return Platform::createHostDir(getHostPath(absolutePathName));
 	}

@@ -32,34 +32,17 @@ enum class DumpFormat
 static void dumpWAST(const std::string& wastString, const char* outputDir)
 {
 	const Uptr wastHash = Hash<std::string>()(wastString);
-
-	VFS::FD* wastFile = nullptr;
-	errorUnless(
-		Platform::openHostFile(std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast",
-							   VFS::FileAccessMode::writeOnly,
-							   VFS::FileCreateMode::createAlways,
-							   wastFile)
-		== VFS::OpenResult::success);
-	errorUnless(wastFile);
-	errorUnless(wastFile->write(wastString.c_str(), wastString.size())
-				== VFS::WriteResult::success);
-	errorUnless(wastFile->close() == VFS::CloseResult::success);
+	const std::string outputPath
+		= std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast";
+	errorUnless(saveFile(outputPath.c_str(), wastString.c_str(), wastString.size()));
 }
 
 static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
 {
 	const Uptr wasmHash = XXH<Uptr>(wasmBytes, numBytes, 0);
-
-	VFS::FD* wasmFile = nullptr;
-	errorUnless(
-		Platform::openHostFile(std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm",
-							   VFS::FileAccessMode::writeOnly,
-							   VFS::FileCreateMode::createAlways,
-							   wasmFile)
-		== VFS::OpenResult::success);
-	errorUnless(wasmFile);
-	errorUnless(wasmFile->write(wasmBytes, numBytes) == VFS::WriteResult::success);
-	errorUnless(wasmFile->close() == VFS::CloseResult::success);
+	const std::string outputPath
+		= std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm";
+	errorUnless(saveFile(outputPath.c_str(), wasmBytes, numBytes));
 }
 
 static void dumpModule(const Module& module, const char* outputDir, DumpFormat dumpFormat)

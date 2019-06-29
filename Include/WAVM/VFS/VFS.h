@@ -110,179 +110,62 @@ namespace WAVM { namespace VFS {
 		Uptr numBytes;
 	};
 
-	// Result enumerations
+	// Error codes
+	// clang-format off
 
-	enum class SeekResult : I32
+	#define ENUM_VFS_RESULTS(v) \
+		v(success, "Success") \
+		/* Asynchronous I/O statuses */ \
+		v(ioPending, "IO pending") \
+		/* Hardware errors */ \
+		v(ioDeviceError, "IO device error") \
+		/* Transient errors */ \
+		v(interruptedBySignal, "Interrupted by signal") \
+		v(interruptedByCancellation, "Interrupted by cancellation") \
+		v(wouldBlock, "Operation on non-blocking file descriptor would block") \
+		/* Invalid argument errors */ \
+		v(inaccessibleBuffer, "A provided buffer is in memory that is not accessible") \
+		v(invalidOffset, "Invalid offset") \
+		/* Capability errors */ \
+		v(notSeekable, "File descriptor is not seekable") \
+		v(notPermitted, "Not permitted") \
+		v(notAccessible, "Not accessible") \
+		v(notSynchronizable,"File descriptor is not synchronizable") \
+		/* Argument constraints */ \
+		v(tooManyBufferBytes, "Too many bytes") \
+		v(notEnoughBufferBytes, "Not enough bytes") \
+		v(tooManyBuffers, "Too many buffers") \
+		v(notEnoughBits, "Not enough bits") \
+		v(exceededFileSizeLimit, "File is too large") \
+		/* Resource exhaustion errors */ \
+		v(outOfSystemFDs, "Out of system file descriptors") \
+		v(outOfProcessFDs, "Out of process file descriptors") \
+		V(outOfMemory, "Out of memory") \
+		v(outOfQuota, "Out of quota") \
+		v(outOfFreeSpace, "Out of free space") \
+		v(outOfLinksToParentDir, "Out of links to parent directory") \
+		/* Path errors */ \
+		v(invalidNameCharacter, "Invalid filename character") \
+		v(nameTooLong, "Filename is too long") \
+		v(tooManyLinksInPath, "Path follows too many links") \
+		/* File state errors */ \
+		v(alreadyExists, "Already exists") \
+		v(doesNotExist, "Doesn't exist") \
+		v(isDirectory, "Is a directory") \
+		v(isNotDirectory, "Isn't a directory") \
+		v(isNotEmpty, "Directory isn't empty") \
+		v(brokenPipe, "Pipe is broken") \
+		v(missingDevice, "Device is missing") \
+		v(busy, "Device or resource busy")
+
+	enum class Result : I32
 	{
-		success,
-
-		invalidOffset,
-		unseekable,
+		#define V(name, description) name,
+		ENUM_VFS_RESULTS(V)
+		#undef V
 	};
 
-	enum class CloseResult : I32
-	{
-		success,
-
-		ioError
-	};
-
-	enum class ReadResult : I32
-	{
-		success,
-
-		ioError,
-		interrupted,
-		tooManyBytes,
-		tooManyBuffers,
-		notPermitted,
-		isDirectory,
-		outOfMemory,
-		badAddress,
-	};
-
-	enum class WriteResult : I32
-	{
-		success,
-		ioError,
-		interrupted,
-		tooManyBytes,
-		tooManyBuffers,
-		outOfMemory,
-		outOfQuota,
-		outOfFreeSpace,
-		exceededFileSizeLimit,
-		notPermitted,
-		badAddress,
-	};
-
-	enum class SyncResult : I32
-	{
-		success,
-		ioError,
-		interrupted,
-		notSupported
-	};
-
-	enum class GetInfoResult : I32
-	{
-		success,
-		ioError,
-	};
-
-	enum class SetFlagsResult : I32
-	{
-		success,
-
-		notPermitted,
-	};
-
-	enum class OpenResult : I32
-	{
-		success,
-
-		alreadyExists,
-		doesNotExist,
-		isDirectory,
-		cantSynchronize,
-		invalidNameCharacter,
-		nameTooLong,
-		pathPrefixNotDirectory,
-		tooManyLinks,
-
-		notPermitted,
-		ioError,
-		interrupted,
-
-		outOfMemory,
-		outOfQuota,
-		outOfFreeSpace,
-	};
-
-	enum class GetInfoByPathResult : I32
-	{
-		success,
-
-		doesNotExist,
-		invalidNameCharacter,
-		nameTooLong,
-		pathPrefixNotDirectory,
-		tooManyLinks,
-
-		notPermitted,
-		ioError
-	};
-
-	enum class OpenDirResult : I32
-	{
-		success,
-
-		notDirectory,
-		outOfMemory,
-		notPermitted,
-	};
-
-	enum class OpenDirByPathResult : I32
-	{
-		success,
-
-		doesNotExist,
-		invalidNameCharacter,
-		nameTooLong,
-		pathPrefixNotDirectory,
-		tooManyLinks,
-
-		notDirectory,
-		outOfMemory,
-		notPermitted,
-		ioError,
-	};
-
-	enum class UnlinkFileResult : I32
-	{
-		success,
-
-		doesNotExist,
-		invalidNameCharacter,
-		nameTooLong,
-		pathPrefixNotDirectory,
-		tooManyLinks,
-
-		isDirectory,
-		notPermitted,
-	};
-
-	enum class RemoveDirResult : I32
-	{
-		success,
-
-		doesNotExist,
-		invalidNameCharacter,
-		nameTooLong,
-		pathPrefixNotDirectory,
-		tooManyLinks,
-
-		notDirectory,
-		notEmpty,
-		notPermitted,
-	};
-
-	enum class CreateDirResult : I32
-	{
-		success,
-
-		alreadyExists,
-		invalidNameCharacter,
-		nameTooLong,
-		pathPrefixNotDirectory,
-		pathPrefixDoesNotExist,
-		tooManyLinks,
-
-		outOfQuota,
-		outOfFreeSpace,
-		outOfLinksToParentDir,
-		notPermitted,
-	};
+	// clang-format on
 
 	struct DirEntStream
 	{
@@ -300,34 +183,33 @@ namespace WAVM { namespace VFS {
 	struct FD
 	{
 		// Closes the FD. If CloseResult::success is returned, also deletes this FD.
-		virtual CloseResult close() = 0;
+		virtual Result close() = 0;
 
-		virtual SeekResult seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr)
+		virtual Result seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr) = 0;
+
+		virtual Result readv(const IOReadBuffer* buffers,
+							 Uptr numBuffers,
+							 Uptr* outNumBytesRead = nullptr)
+			= 0;
+		virtual Result writev(const IOWriteBuffer* buffers,
+							  Uptr numBuffers,
+							  Uptr* outNumBytesWritten = nullptr)
 			= 0;
 
-		virtual ReadResult readv(const IOReadBuffer* buffers,
-								 Uptr numBuffers,
-								 Uptr* outNumBytesRead = nullptr)
-			= 0;
-		virtual WriteResult writev(const IOWriteBuffer* buffers,
-								   Uptr numBuffers,
-								   Uptr* outNumBytesWritten = nullptr)
-			= 0;
+		virtual Result sync(SyncType type) = 0;
 
-		virtual SyncResult sync(SyncType type) = 0;
+		virtual Result getFDInfo(FDInfo& outInfo) = 0;
+		virtual Result getFileInfo(FileInfo& outInfo) = 0;
+		virtual Result setFDFlags(const FDFlags& flags) = 0;
 
-		virtual GetInfoResult getFDInfo(FDInfo& outInfo) = 0;
-		virtual GetInfoResult getFileInfo(FileInfo& outInfo) = 0;
-		virtual SetFlagsResult setFDFlags(const FDFlags& flags) = 0;
+		virtual Result openDir(DirEntStream*& outStream) = 0;
 
-		virtual OpenDirResult openDir(DirEntStream*& outStream) = 0;
-
-		ReadResult read(void* outData, Uptr numBytes, Uptr* outNumBytesRead = nullptr)
+		Result read(void* outData, Uptr numBytes, Uptr* outNumBytesRead = nullptr)
 		{
 			IOReadBuffer buffer{outData, numBytes};
 			return readv(&buffer, 1, outNumBytesRead);
 		}
-		WriteResult write(const void* data, Uptr numBytes, Uptr* outNumBytesWritten = nullptr)
+		Result write(const void* data, Uptr numBytes, Uptr* outNumBytesWritten = nullptr)
 		{
 			IOWriteBuffer buffer{data, numBytes};
 			return writev(&buffer, 1, outNumBytesWritten);
@@ -341,22 +223,21 @@ namespace WAVM { namespace VFS {
 	{
 		virtual ~FileSystem() {}
 
-		virtual OpenResult open(const std::string& absolutePathName,
-								FileAccessMode accessMode,
-								FileCreateMode createMode,
-								FD*& outFD,
-								const FDFlags& flags = FDFlags{})
+		virtual Result open(const std::string& absolutePathName,
+							FileAccessMode accessMode,
+							FileCreateMode createMode,
+							FD*& outFD,
+							const FDFlags& flags = FDFlags{})
 			= 0;
 
-		virtual GetInfoByPathResult getInfo(const std::string& absolutePathName, FileInfo& outInfo)
-			= 0;
+		virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) = 0;
 
-		virtual OpenDirByPathResult openDir(const std::string& absolutePathName,
-											DirEntStream*& outStream)
-			= 0;
+		virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) = 0;
 
-		virtual UnlinkFileResult unlinkFile(const std::string& absolutePathName) = 0;
-		virtual RemoveDirResult removeDir(const std::string& absolutePathName) = 0;
-		virtual CreateDirResult createDir(const std::string& absolutePathName) = 0;
+		virtual Result unlinkFile(const std::string& absolutePathName) = 0;
+		virtual Result removeDir(const std::string& absolutePathName) = 0;
+		virtual Result createDir(const std::string& absolutePathName) = 0;
 	};
+
+	VFS_API const char* describeResult(Result result);
 }}

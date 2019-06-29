@@ -106,7 +106,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi,
 	U8* buffer = memoryArrayPtr<U8>(process->memory, bufferAddress, numBufferBytes);
 	Platform::getCryptographicRNG(buffer, numBufferBytes);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasi,
@@ -164,14 +164,14 @@ DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_return_t, wasi_sched
 {
 	TRACE_SYSCALL("sched_yield", "()");
 	Platform::yieldToAnotherThread();
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 WASI::Process::~Process()
 {
 	for(const WASI::FD& fd : fds)
 	{
-		if(fd.close() != VFS::CloseResult::success)
+		if(fd.close() != VFS::Result::success)
 		{
 			Log::printf(Log::Category::debug, "Error while closing file because of process exit\n");
 		}
@@ -222,9 +222,13 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 	if(fileSystem)
 	{
 		VFS::FD* rootFD = nullptr;
-		errorUnless(fileSystem->open(
-						"/", VFS::FileAccessMode::none, VFS::FileCreateMode::openExisting, rootFD)
-					== VFS::OpenResult::success);
+		const VFS::Result openResult = fileSystem->open(
+			"/", VFS::FileAccessMode::none, VFS::FileCreateMode::openExisting, rootFD);
+		if(openResult != VFS::Result::success)
+		{
+			Errors::fatalf("Error opening WASI root directory: %s",
+						   VFS::describeResult(openResult));
+		}
 
 		process->fds.insertOrFail(3,
 								  FD{rootFD,

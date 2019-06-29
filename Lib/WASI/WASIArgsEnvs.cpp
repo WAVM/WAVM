@@ -30,11 +30,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 	for(const std::string& arg : process->args) { numArgBufferBytes += arg.size() + 1; }
 
 	if(process->args.size() > WASIADDRESS_MAX || numArgBufferBytes > WASIADDRESS_MAX)
-	{ return TRACE_SYSCALL_RETURN(EOVERFLOW); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 	memoryRef<WASIAddress>(process->memory, argcAddress) = WASIAddress(process->args.size());
 	memoryRef<WASIAddress>(process->memory, argBufSizeAddress) = WASIAddress(numArgBufferBytes);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
@@ -56,7 +56,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 		const Uptr numArgBytes = arg.size() + 1;
 
 		if(numArgBytes > WASIADDRESS_MAX || nextArgBufAddress > WASIADDRESS_MAX - numArgBytes - 1)
-		{ return TRACE_SYSCALL_RETURN(EOVERFLOW); }
+		{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 
 		Platform::bytewiseMemCopy(
 			memoryArrayPtr<U8>(process->memory, nextArgBufAddress, numArgBytes),
@@ -68,7 +68,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 		nextArgBufAddress += WASIAddress(numArgBytes);
 	}
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
@@ -89,11 +89,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 	for(const std::string& env : process->envs) { numEnvBufferBytes += env.size() + 1; }
 
 	if(process->envs.size() > WASIADDRESS_MAX || numEnvBufferBytes > WASIADDRESS_MAX)
-	{ return TRACE_SYSCALL_RETURN(EOVERFLOW); }
+	{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 	memoryRef<WASIAddress>(process->memory, envCountAddress) = WASIAddress(process->envs.size());
 	memoryRef<WASIAddress>(process->memory, envBufSizeAddress) = WASIAddress(numEnvBufferBytes);
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
@@ -117,7 +117,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 		const Uptr numEnvBytes = env.size() + 1;
 
 		if(numEnvBytes > WASIADDRESS_MAX || nextEnvBufAddress > WASIADDRESS_MAX - numEnvBytes - 1)
-		{ return TRACE_SYSCALL_RETURN(EOVERFLOW); }
+		{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 
 		Platform::bytewiseMemCopy(
 			memoryArrayPtr<U8>(process->memory, nextEnvBufAddress, numEnvBytes),
@@ -129,5 +129,5 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 		nextEnvBufAddress += WASIAddress(numEnvBytes);
 	}
 
-	return TRACE_SYSCALL_RETURN(ESUCCESS);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }

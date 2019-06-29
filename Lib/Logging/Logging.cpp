@@ -62,7 +62,7 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 
 		VFS::FD* fd = getFileForCategory(category);
 		Uptr numBytesWritten = 0;
-		errorUnless(fd->write(buffer, numChars, &numBytesWritten) == VFS::WriteResult::success);
+		errorUnless(fd->write(buffer, numChars, &numBytesWritten) == VFS::Result::success);
 		errorUnless(numBytesWritten == U32(numChars));
 	}
 }

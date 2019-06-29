@@ -4,6 +4,7 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Unicode.h"
+#include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
@@ -16,46 +17,63 @@ using namespace WAVM;
 using namespace WAVM::Platform;
 using namespace WAVM::VFS;
 
-static GetInfoResult getFileType(HANDLE handle, FileType& outType)
+static Result asVFSResult(DWORD windowsError)
+{
+	switch(windowsError)
+	{
+	case ERROR_SUCCESS: return Result::success;
+
+	case ERROR_READ_FAULT:
+	case ERROR_WRITE_FAULT:
+	case ERROR_NET_WRITE_FAULT:
+	case ERROR_IO_DEVICE: return Result::ioDeviceError;
+
+	case ERROR_PATH_NOT_FOUND:
+	case ERROR_FILE_NOT_FOUND: return Result::doesNotExist;
+
+	case ERROR_NEGATIVE_SEEK: return Result::invalidOffset;
+	case ERROR_INVALID_FUNCTION: return Result::notPermitted;
+	case ERROR_ACCESS_DENIED: return Result::notAccessible;
+	case ERROR_IO_PENDING: return Result::ioPending;
+	case ERROR_OPERATION_ABORTED: return Result::interruptedByCancellation;
+	case ERROR_NOT_ENOUGH_MEMORY: return Result::outOfMemory;
+	case ERROR_NOT_ENOUGH_QUOTA: return Result::outOfQuota;
+	case ERROR_HANDLE_DISK_FULL: return Result::outOfFreeSpace;
+	case ERROR_INVALID_USER_BUFFER: return Result::inaccessibleBuffer;
+	case ERROR_INSUFFICIENT_BUFFER: return Result::notEnoughBufferBytes;
+	case ERROR_BROKEN_PIPE: return Result::brokenPipe;
+	case ERROR_ALREADY_EXISTS: return Result::alreadyExists;
+	case ERROR_DIR_NOT_EMPTY: return Result::isNotEmpty;
+	case ERROR_INVALID_ADDRESS: return Result::inaccessibleBuffer;
+	case ERROR_DIRECTORY: return Result::isNotDirectory;
+
+	case ERROR_INVALID_PARAMETER:
+		// This probably needs to be handled differently for each API entry point.
+		Errors::fatalfWithCallStack("ERROR_INVALID_PARAMETER");
+
+	case ERROR_INVALID_HANDLE:
+		// This must be a bug, so make it a fatal error.
+		Errors::fatalfWithCallStack("ERROR_INVALID_HANDLE");
+
+	default: Errors::fatalfWithCallStack("Unexpected windows error code: %u", GetLastError());
+	};
+}
+
+static Result getFileType(HANDLE handle, FileType& outType)
 {
 	const DWORD windowsFileType = GetFileType(handle);
-	if(windowsFileType == FILE_TYPE_UNKNOWN)
-	{
-		switch(GetLastError())
-		{
-		case ERROR_SUCCESS: break;
-
-		case ERROR_INVALID_HANDLE:
-			Errors::fatalf("GetFileType returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
-						   reinterpret_cast<Uptr>(handle));
-
-		default:
-			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-		}
-	}
+	if(windowsFileType == FILE_TYPE_UNKNOWN && GetLastError() != ERROR_SUCCESS)
+	{ return asVFSResult(GetLastError()); }
 
 	switch(windowsFileType)
 	{
 	case FILE_TYPE_CHAR: outType = FileType::characterDevice; break;
 	case FILE_TYPE_PIPE: outType = FileType::pipe; break;
-	case FILE_TYPE_DISK:
-	{
+	case FILE_TYPE_DISK: {
 		FILE_BASIC_INFO fileBasicInfo;
 		if(!GetFileInformationByHandleEx(
 			   handle, FileBasicInfo, &fileBasicInfo, sizeof(fileBasicInfo)))
-		{
-			switch(GetLastError())
-			{
-			case ERROR_INVALID_HANDLE:
-				Errors::fatalf(
-					"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR
-					")",
-					reinterpret_cast<Uptr>(handle));
-
-			default:
-				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-			};
-		}
+		{ return asVFSResult(GetLastError()); }
 
 		outType = fileBasicInfo.FileAttributes & FILE_ATTRIBUTE_DIRECTORY ? FileType::directory
 																		  : FileType::file;
@@ -65,32 +83,21 @@ static GetInfoResult getFileType(HANDLE handle, FileType& outType)
 	default: outType = FileType::unknown;
 	};
 
-	return GetInfoResult::success;
+	return Result::success;
 }
 
-static GetInfoResult getFileInfoByHandle(HANDLE handle, FileInfo& outInfo)
+static Result getFileInfoByHandle(HANDLE handle, FileInfo& outInfo)
 {
 	BY_HANDLE_FILE_INFORMATION windowsFileInfo;
 	if(!GetFileInformationByHandle(handle, &windowsFileInfo))
-	{
-		switch(GetLastError())
-		{
-		case ERROR_INVALID_HANDLE:
-			Errors::fatalf(
-				"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
-				reinterpret_cast<Uptr>(handle));
-
-		default:
-			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-		};
-	}
+	{ return asVFSResult(GetLastError()); }
 
 	outInfo.deviceNumber = windowsFileInfo.dwVolumeSerialNumber;
 	outInfo.fileNumber
 		= windowsFileInfo.nFileIndexLow | (U64(windowsFileInfo.nFileIndexHigh) << 32);
 
-	const GetInfoResult getTypeResult = getFileType(handle, outInfo.type);
-	if(getTypeResult != GetInfoResult::success) { return getTypeResult; }
+	const Result getTypeResult = getFileType(handle, outInfo.type);
+	if(getTypeResult != Result::success) { return getTypeResult; }
 
 	outInfo.numLinks = windowsFileInfo.nNumberOfLinks;
 	outInfo.numBytes = windowsFileInfo.nFileSizeLow | (U64(windowsFileInfo.nFileSizeHigh) << 32);
@@ -99,7 +106,28 @@ static GetInfoResult getFileInfoByHandle(HANDLE handle, FileInfo& outInfo)
 	outInfo.lastWriteTime = fileTimeToWAVMRealTime(windowsFileInfo.ftLastWriteTime);
 	outInfo.creationTime = fileTimeToWAVMRealTime(windowsFileInfo.ftCreationTime);
 
-	return GetInfoResult::success;
+	return Result::success;
+}
+
+static bool transcodeUTF8ToUTF16(const std::string& in, std::wstring& out)
+{
+	const U8* inStart = (const U8*)in.c_str();
+	const U8* inEnd = inStart + in.size();
+	return Unicode::transcodeUTF8ToUTF16(inStart, inEnd, out) == inEnd;
+}
+
+static void transcodeUTF16ToUTF8(const wchar_t* in,
+								 size_t numInBytes,
+								 std::string& out,
+								 const char* context)
+{
+	const U16* inStart = (const U16*)in;
+	const U16* inEnd = inStart + numInBytes;
+	const U16* transcodeResult = Unicode::transcodeUTF16ToUTF8(inStart, inEnd, out);
+	if(transcodeResult != inEnd)
+	{
+		Errors::fatalf("Found an invalid UTF-16 code point (%u) in %s", *transcodeResult, context);
+	}
 }
 
 static bool readDirEnts(HANDLE handle, bool startFromBeginning, std::vector<DirEnt>& outDirEnts)
@@ -118,16 +146,10 @@ static bool readDirEnts(HANDLE handle, bool startFromBeginning, std::vector<DirE
 		DirEnt dirEnt;
 		dirEnt.fileNumber = fileInfo->FileId.QuadPart;
 
-		const U16* fileNameEnd = (U16*)fileInfo->FileName + fileInfo->FileNameLength / sizeof(U16);
-		const U16* transcodeResult = Unicode::transcodeUTF16ToUTF8(
-			(const U16*)fileInfo->FileName, fileNameEnd, dirEnt.name);
-		if(transcodeResult != fileNameEnd)
-		{
-			Errors::fatalf(
-				"GetFileInformationByHandleEx returned a file name with an "
-				"invalid UTF-16 code point: %u\n",
-				*transcodeResult);
-		}
+		transcodeUTF16ToUTF8(fileInfo->FileName,
+							 fileInfo->FileNameLength / sizeof(wchar_t),
+							 dirEnt.name,
+							 "a filename returned by GetFileInformationByHandleEx");
 
 		// Assume this is a FILE_TYPE_DISK.
 		dirEnt.type = fileInfo->FileAttributes & FILE_ATTRIBUTE_DIRECTORY ? FileType::directory
@@ -145,13 +167,6 @@ static bool readDirEnts(HANDLE handle, bool startFromBeginning, std::vector<DirE
 	return true;
 }
 
-static bool transcodeUTF8ToUTF16(const std::string& in, std::wstring& out)
-{
-	const U8* inStart = (const U8*)in.c_str();
-	const U8* inEnd = inStart + in.size();
-	return Unicode::transcodeUTF8ToUTF16(inStart, inEnd, out) == inEnd;
-}
-
 struct WindowsDirEntStream : DirEntStream
 {
 	WindowsDirEntStream(HANDLE inHandle, std::vector<DirEnt>&& inDirEnts)
@@ -161,7 +176,8 @@ struct WindowsDirEntStream : DirEntStream
 
 	virtual void close() override
 	{
-		errorUnless(CloseHandle(handle));
+		if(!CloseHandle(handle))
+		{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
 		delete this;
 	}
 
@@ -171,18 +187,10 @@ struct WindowsDirEntStream : DirEntStream
 		{
 			if(!readDirEnts(handle, nextReadIndex == 0, dirEnts))
 			{
-				switch(GetLastError())
+				if(GetLastError() == ERROR_NO_MORE_FILES) { return false; }
+				else
 				{
-				case ERROR_INVALID_HANDLE:
-					Errors::fatalf(
-						"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR
-						")",
-						reinterpret_cast<Uptr>(handle));
-
-				case ERROR_NO_MORE_FILES: return false;
-
-				default:
-					Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u",
+					Errors::fatalfWithCallStack("Unexpected windows error code: %u",
 												GetLastError());
 				}
 			}
@@ -238,30 +246,15 @@ struct WindowsFD : FD
 		wavmAssert(handle != INVALID_HANDLE_VALUE);
 	}
 
-	virtual CloseResult close() override
+	virtual Result close() override
 	{
-		if(CloseHandle(handle))
-		{
-			delete this;
-			return CloseResult::success;
-		}
-		else
-		{
-			switch(GetLastError())
-			{
-			case ERROR_INVALID_HANDLE:
-				Errors::fatalf("CloseHandle returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
-							   reinterpret_cast<Uptr>(handle));
+		if(!CloseHandle(handle)) { return asVFSResult(GetLastError()); }
 
-			default:
-				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-			}
-		}
+		delete this;
+		return Result::success;
 	}
 
-	virtual SeekResult seek(I64 offset,
-							SeekOrigin origin,
-							U64* outAbsoluteOffset = nullptr) override
+	virtual Result seek(I64 offset, SeekOrigin origin, U64* outAbsoluteOffset = nullptr) override
 	{
 		DWORD windowsOrigin;
 		switch(origin)
@@ -274,38 +267,25 @@ struct WindowsFD : FD
 
 		LONG offsetHigh = LONG((offset >> 32) & 0xffffffff);
 		LONG result = SetFilePointer(handle, LONG(offset & 0xffffffff), &offsetHigh, windowsOrigin);
-		if(result != INVALID_SET_FILE_POINTER)
+		if(result == INVALID_SET_FILE_POINTER)
 		{
-			if(outAbsoluteOffset) { *outAbsoluteOffset = (U64(offsetHigh) << 32) | result; }
-			return SeekResult::success;
+			// "If an application calls SetFilePointer with distance to move values that result
+			// in a position not sector-aligned and a handle that is opened with
+			// FILE_FLAG_NO_BUFFERING, the function fails, and GetLastError returns
+			// ERROR_INVALID_PARAMETER."
+			return GetLastError() == ERROR_INVALID_PARAMETER ? Result::invalidOffset
+															 : asVFSResult(GetLastError());
 		}
-		else
-		{
-			switch(GetLastError())
-			{
-			case ERROR_INVALID_HANDLE:
-				Errors::fatalf("SetFilePointer returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
-							   reinterpret_cast<Uptr>(handle));
 
-			case ERROR_NEGATIVE_SEEK: return SeekResult::invalidOffset;
-
-			case ERROR_INVALID_PARAMETER:
-				// "If an application calls SetFilePointer with distance to move values that result
-				// in a position not sector-aligned and a handle that is opened with
-				// FILE_FLAG_NO_BUFFERING, the function fails, and GetLastError returns
-				// ERROR_INVALID_PARAMETER."
-
-			default:
-				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-			};
-		}
+		if(outAbsoluteOffset) { *outAbsoluteOffset = (U64(offsetHigh) << 32) | result; }
+		return Result::success;
 	}
-	virtual ReadResult readv(const IOReadBuffer* buffers,
-							 Uptr numBuffers,
-							 Uptr* outNumBytesRead = nullptr) override
+	virtual Result readv(const IOReadBuffer* buffers,
+						 Uptr numBuffers,
+						 Uptr* outNumBytesRead = nullptr) override
 	{
 		if(outNumBytesRead) { *outNumBytesRead = 0; }
-		if(numBuffers == 0) { return ReadResult::success; }
+		if(numBuffers == 0) { return Result::success; }
 
 		// Count the number of bytes in all the buffers.
 		Uptr numBufferBytes = 0;
@@ -313,15 +293,15 @@ struct WindowsFD : FD
 		{
 			const IOReadBuffer& buffer = buffers[bufferIndex];
 			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return ReadResult::tooManyBytes; }
+			{ return Result::tooManyBufferBytes; }
 			numBufferBytes += buffer.numBytes;
 		}
-		if(numBufferBytes > UINT32_MAX) { return ReadResult::tooManyBytes; }
+		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
 		const U32 numBufferBytesU32 = U32(numBufferBytes);
 
 		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
 		U8* combinedBuffer = (U8*)(numBuffers == 1 ? buffers[0].data : malloc(numBufferBytes));
-		if(!combinedBuffer) { return ReadResult::outOfMemory; }
+		if(!combinedBuffer) { return Result::outOfMemory; }
 
 		// If the FD has implicit syncing before reads, do it.
 		if(implicitSync == FDImplicitSync::syncContentsAfterWriteAndBeforeRead
@@ -358,54 +338,31 @@ struct WindowsFD : FD
 				wavmAssert(numBytesRead <= UINTPTR_MAX);
 				*outNumBytesRead = Uptr(numBytesRead);
 			}
-			return ReadResult::success;
+			return Result::success;
 		}
 		else
 		{
 			// If there was a combined buffer, free it.
 			if(numBuffers > 1) { free(combinedBuffer); }
 
-			switch(GetLastError())
+			if(GetLastError() == ERROR_NOT_ENOUGH_QUOTA)
 			{
-			case ERROR_INVALID_HANDLE:
-				Errors::fatalf("ReadFile returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
-							   reinterpret_cast<Uptr>(handle));
-
-			case ERROR_NOT_ENOUGH_QUOTA:
 				// "The ReadFile function may fail with ERROR_NOT_ENOUGH_QUOTA, which means the
 				// calling process's buffer could not be page-locked."
-				return ReadResult::outOfMemory;
-
-			case ERROR_ACCESS_DENIED: return ReadResult::notPermitted;
-			case ERROR_IO_DEVICE: return ReadResult::ioError;
-
-			case ERROR_IO_PENDING:
-			case ERROR_OPERATION_ABORTED:
-			case ERROR_NOT_ENOUGH_MEMORY:
-			case ERROR_INVALID_USER_BUFFER:
-				// Async I/O result codes that we shouldn't see.
-
-			case ERROR_INSUFFICIENT_BUFFER:
-				// "If ReadFile attempts to read from a mailslot that has a buffer that is too
-				// small, the function returns FALSE and GetLastError returns
-				// ERROR_INSUFFICIENT_BUFFER."
-
-			case ERROR_BROKEN_PIPE:
-				// "If an anonymous pipe is being used and the write handle has been closed, when
-				// ReadFile attempts to read using the pipe's corresponding read handle, the
-				// function returns FALSE and GetLastError returns ERROR_BROKEN_PIPE. "
-
-			default:
-				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-			};
+				return Result::outOfMemory;
+			}
+			else
+			{
+				return asVFSResult(GetLastError());
+			}
 		}
 	}
-	virtual WriteResult writev(const IOWriteBuffer* buffers,
-							   Uptr numBuffers,
-							   Uptr* outNumBytesWritten = nullptr) override
+	virtual Result writev(const IOWriteBuffer* buffers,
+						  Uptr numBuffers,
+						  Uptr* outNumBytesWritten = nullptr) override
 	{
 		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
-		if(numBuffers == 0) { return WriteResult::success; }
+		if(numBuffers == 0) { return Result::success; }
 
 		// Count the number of bytes in all the buffers.
 		Uptr numBufferBytes = 0;
@@ -413,10 +370,10 @@ struct WindowsFD : FD
 		{
 			const IOWriteBuffer& buffer = buffers[bufferIndex];
 			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return WriteResult::tooManyBytes; }
+			{ return Result::tooManyBufferBytes; }
 			numBufferBytes += buffer.numBytes;
 		}
-		if(numBufferBytes > Uptr(UINT32_MAX)) { return WriteResult::tooManyBytes; }
+		if(numBufferBytes > Uptr(UINT32_MAX)) { return Result::tooManyBufferBytes; }
 		const U32 numBufferBytesU32 = U32(numBufferBytes);
 
 		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
@@ -425,7 +382,7 @@ struct WindowsFD : FD
 		else
 		{
 			U8* combinedBufferU8 = (U8*)malloc(numBufferBytes);
-			if(!combinedBufferU8) { return WriteResult::outOfMemory; }
+			if(!combinedBufferU8) { return Result::outOfMemory; }
 
 			Uptr numBytesCopied = 0;
 			for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
@@ -457,76 +414,40 @@ struct WindowsFD : FD
 				wavmAssert(numBytesWritten <= UINTPTR_MAX);
 				*outNumBytesWritten = Uptr(numBytesWritten);
 			}
-			return WriteResult::success;
+			return Result::success;
 		}
 		else
 		{
-			switch(GetLastError())
+			if(result != ERROR_NOT_ENOUGH_QUOTA) { return asVFSResult(result); }
+			else
 			{
-			case ERROR_INVALID_HANDLE:
-				Errors::fatalf("ReadFile returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR ")",
-							   reinterpret_cast<Uptr>(handle));
-
-			case ERROR_NOT_ENOUGH_QUOTA:
 				// "The WriteFile function may fail with ERROR_NOT_ENOUGH_QUOTA, which means the
 				// calling process's buffer could not be page-locked."
-				return WriteResult::outOfMemory;
-
-			case ERROR_ACCESS_DENIED: return WriteResult::notPermitted;
-			case ERROR_IO_DEVICE: return WriteResult::ioError;
-
-			case ERROR_IO_PENDING:
-			case ERROR_OPERATION_ABORTED:
-			case ERROR_NOT_ENOUGH_MEMORY:
-			case ERROR_INVALID_USER_BUFFER:
-				// Async I/O result codes that we shouldn't see.
-
-			case ERROR_BROKEN_PIPE:
-				// "If an anonymous pipe is being used and the read handle has been closed, when
-				// WriteFile attempts to write using the pipe's corresponding write handle, the
-				// function returns FALSE and GetLastError returns ERROR_BROKEN_PIPE."
-
-			default:
-				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-			};
+				return Result::outOfMemory;
+			}
 		}
 	}
-	virtual SyncResult sync(SyncType syncType) override
+	virtual Result sync(SyncType syncType) override
 	{
-		if(FlushFileBuffers(handle)) { return SyncResult::success; }
-		else
-		{
-			switch(GetLastError())
-			{
-			case ERROR_INVALID_HANDLE:
-				Errors::fatalf("FlushFileBuffers returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR
-							   ")",
-							   reinterpret_cast<Uptr>(handle));
-
-			case ERROR_IO_DEVICE: return SyncResult::ioError;
-
-			default:
-				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-			};
-		}
+		return FlushFileBuffers(handle) ? Result::success : asVFSResult(GetLastError());
 	}
 
-	virtual GetInfoResult getFDInfo(FDInfo& outInfo) override
+	virtual Result getFDInfo(FDInfo& outInfo) override
 	{
-		const GetInfoResult getTypeResult = getFileType(handle, outInfo.type);
-		if(getTypeResult != GetInfoResult::success) { return getTypeResult; }
+		const Result getTypeResult = getFileType(handle, outInfo.type);
+		if(getTypeResult != Result::success) { return getTypeResult; }
 
 		outInfo.flags.append = desiredAccess & FILE_APPEND_DATA;
 		outInfo.flags.nonBlocking = nonBlocking;
 		outInfo.flags.implicitSync = implicitSync;
-		return GetInfoResult::success;
+		return Result::success;
 	}
-	virtual GetInfoResult getFileInfo(FileInfo& outInfo) override
+	virtual Result getFileInfo(FileInfo& outInfo) override
 	{
 		return getFileInfoByHandle(handle, outInfo);
 	}
 
-	virtual SetFlagsResult setFDFlags(const FDFlags& flags)
+	virtual Result setFDFlags(const FDFlags& flags)
 	{
 		const DWORD originalDesiredAccess = desiredAccess;
 		if(originalDesiredAccess & (GENERIC_WRITE | FILE_APPEND_DATA))
@@ -541,30 +462,24 @@ struct WindowsFD : FD
 				= ReOpenFile(handle, desiredAccess, shareMode, flagsAndAttributes);
 			if(reopenedHandle != INVALID_HANDLE_VALUE)
 			{
-				CloseHandle(handle);
+				if(!CloseHandle(handle))
+				{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
 				handle = reopenedHandle;
 			}
 			else
 			{
 				desiredAccess = originalDesiredAccess;
-				switch(GetLastError())
-				{
-				case ERROR_ACCESS_DENIED: return SetFlagsResult::notPermitted;
-
-				default:
-					Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u",
-												GetLastError());
-				};
+				return asVFSResult(GetLastError());
 			}
 		}
 
 		nonBlocking = flags.nonBlocking;
 		implicitSync = flags.implicitSync;
 
-		return SetFlagsResult::success;
+		return Result::success;
 	}
 
-	virtual OpenDirResult openDir(DirEntStream*& outStream) override
+	virtual Result openDir(DirEntStream*& outStream) override
 	{
 		// Make a copy of the handle, so the FD and the DirEntStream can be closed independently.
 		HANDLE duplicatedHandle = INVALID_HANDLE_VALUE;
@@ -582,26 +497,19 @@ struct WindowsFD : FD
 		   || GetLastError() == ERROR_NO_MORE_FILES)
 		{
 			outStream = new WindowsDirEntStream(duplicatedHandle, std::move(initialDirEnts));
-			return OpenDirResult::success;
+			return Result::success;
 		}
 		else
 		{
+			const Result result = GetLastError() == ERROR_INVALID_PARAMETER
+									  ? Result::isNotDirectory
+									  : asVFSResult(GetLastError());
+
 			// Close the duplicated handle.
-			errorUnless(CloseHandle(duplicatedHandle));
+			if(!CloseHandle(duplicatedHandle))
+			{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
 
-			switch(GetLastError())
-			{
-			case ERROR_INVALID_HANDLE:
-				Errors::fatalf(
-					"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR
-					")",
-					reinterpret_cast<Uptr>(handle));
-
-			case ERROR_INVALID_PARAMETER: return OpenDirResult::notDirectory;
-
-			default:
-				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-			};
+			return result;
 		}
 	}
 
@@ -626,10 +534,10 @@ struct WindowsStdFD : WindowsFD
 	{
 	}
 
-	virtual CloseResult close()
+	virtual Result close()
 	{
 		// The stdio FDs are shared, so don't close them.
-		return CloseResult::success;
+		return Result::success;
 	}
 };
 
@@ -651,21 +559,31 @@ FD* Platform::getStdFD(StdDevice device)
 	};
 }
 
-OpenResult Platform::openHostFile(const std::string& pathName,
-								  FileAccessMode accessMode,
-								  FileCreateMode createMode,
-								  FD*& outFD,
-								  const FDFlags& flags)
+Result Platform::openHostFile(const std::string& pathName,
+							  FileAccessMode accessMode,
+							  FileCreateMode createMode,
+							  FD*& outFD,
+							  const FDFlags& flags)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return OpenResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
 
 	// Map the VFS accessMode/createMode to the appropriate Windows CreateFile arguments.
 	DWORD desiredAccess = 0;
 	DWORD shareMode = FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE;
 	DWORD creationDisposition = 0;
-	DWORD flagsAndAttributes = FILE_FLAG_BACKUP_SEMANTICS;
+	DWORD flagsAndAttributes = 0;
+
+	// From https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-createfilew:
+	// The file is being opened or created for a backup or restore operation. The system
+	// ensures that the calling process overrides file security checks when the process has
+	// SE_BACKUP_NAME and SE_RESTORE_NAME privileges. For more information, see Changing
+	// Privileges in a Token.
+	// You must set this flag to obtain a handle to a directory. A directory handle can be
+	// passed to some functions instead of a file handle.For more information, see the Remarks
+	// section.
+	flagsAndAttributes |= FILE_FLAG_BACKUP_SEMANTICS;
 
 	const DWORD writeOrAppend = flags.append ? FILE_APPEND_DATA : GENERIC_WRITE;
 	switch(accessMode)
@@ -695,38 +613,22 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 								creationDisposition,
 								flagsAndAttributes,
 								nullptr);
-	if(handle != INVALID_HANDLE_VALUE)
-	{
-		outFD = new WindowsFD(handle,
-							  desiredAccess,
-							  shareMode,
-							  flagsAndAttributes,
-							  flags.nonBlocking,
-							  flags.implicitSync);
-		return OpenResult::success;
-	}
-	else
-	{
-		switch(GetLastError())
-		{
-		case ERROR_ACCESS_DENIED: return OpenResult::notPermitted;
-		case ERROR_PATH_NOT_FOUND:
-		case ERROR_FILE_NOT_FOUND: return OpenResult::doesNotExist;
-		case ERROR_IO_DEVICE: return OpenResult::ioError;
-		case ERROR_ALREADY_EXISTS: return OpenResult::alreadyExists;
+	if(handle == INVALID_HANDLE_VALUE) { return asVFSResult(GetLastError()); }
 
-		default:
-			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-		}
-	}
+	outFD = new WindowsFD(handle,
+						  desiredAccess,
+						  shareMode,
+						  flagsAndAttributes,
+						  flags.nonBlocking,
+						  flags.implicitSync);
+	return Result::success;
 }
 
-GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileInfo& outInfo)
+Result Platform::getHostFileInfo(const std::string& pathName, FileInfo& outInfo)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW))
-	{ return GetInfoByPathResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
 
 	// Try to open the file with no access requested.
 	HANDLE handle = CreateFileW(pathNameW.c_str(),
@@ -736,103 +638,50 @@ GetInfoByPathResult Platform::getHostFileInfo(const std::string& pathName, FileI
 								OPEN_EXISTING,
 								0,
 								nullptr);
-	if(handle == INVALID_HANDLE_VALUE)
-	{
-		switch(GetLastError())
-		{
-		case ERROR_ACCESS_DENIED: return GetInfoByPathResult::notPermitted;
-		case ERROR_FILE_NOT_FOUND: return GetInfoByPathResult::doesNotExist;
-		case ERROR_IO_DEVICE: return GetInfoByPathResult::ioError;
+	if(handle == INVALID_HANDLE_VALUE) { return asVFSResult(GetLastError()); }
 
-		default:
-			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-		}
-	}
-
-	GetInfoResult getInfoResult = getFileInfoByHandle(handle, outInfo);
-	switch(getInfoResult)
-	{
-	case GetInfoResult::success: break;
-	case GetInfoResult::ioError: return GetInfoByPathResult::ioError;
-
-	default: WAVM_UNREACHABLE();
-	};
+	Result getInfoResult = getFileInfoByHandle(handle, outInfo);
+	if(getInfoResult != Result::success) { return getInfoResult; }
 
 	if(!CloseHandle(handle))
 	{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
 
-	return GetInfoByPathResult::success;
+	return Result::success;
 }
 
-UnlinkFileResult Platform::unlinkHostFile(const std::string& pathName)
+Result Platform::unlinkHostFile(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW))
-	{ return UnlinkFileResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
 
-	if(DeleteFileW(pathNameW.c_str())) { return UnlinkFileResult::success; }
-	else
-	{
-		switch(GetLastError())
-		{
-		case ERROR_ACCESS_DENIED: return UnlinkFileResult::notPermitted;
-		case ERROR_FILE_NOT_FOUND: return UnlinkFileResult::doesNotExist;
-
-		default:
-			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-		};
-	}
+	return DeleteFileW(pathNameW.c_str()) ? Result::success : asVFSResult(GetLastError());
 }
 
-RemoveDirResult Platform::removeHostDir(const std::string& pathName)
+Result Platform::removeHostDir(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return RemoveDirResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
 
-	if(RemoveDirectoryW(pathNameW.c_str())) { return RemoveDirResult::success; }
-	else
-	{
-		switch(GetLastError())
-		{
-		case ERROR_ACCESS_DENIED: return RemoveDirResult::notPermitted;
-		case ERROR_FILE_NOT_FOUND: return RemoveDirResult::doesNotExist;
-		case ERROR_DIR_NOT_EMPTY: return RemoveDirResult::notEmpty;
-
-		default:
-			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-		};
-	}
+	return RemoveDirectoryW(pathNameW.c_str()) ? Result::success : asVFSResult(GetLastError());
 }
 
-CreateDirResult Platform::createHostDir(const std::string& pathName)
+Result Platform::createHostDir(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return CreateDirResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
 
-	if(CreateDirectoryW(pathNameW.c_str(), nullptr)) { return CreateDirResult::success; }
-	else
-	{
-		switch(GetLastError())
-		{
-		case ERROR_ACCESS_DENIED: return CreateDirResult::notPermitted;
-		case ERROR_ALREADY_EXISTS: return CreateDirResult::alreadyExists;
-		case ERROR_HANDLE_DISK_FULL: return CreateDirResult::outOfFreeSpace;
-
-		default:
-			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-		};
-	}
+	return CreateDirectoryW(pathNameW.c_str(), nullptr) ? Result::success
+														: asVFSResult(GetLastError());
 }
 
-OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
+Result Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW))
-	{ return OpenDirByPathResult::invalidNameCharacter; }
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
 
 	// Try to open the file.
 	HANDLE handle = CreateFileW(pathNameW.c_str(),
@@ -842,58 +691,37 @@ OpenDirByPathResult Platform::openHostDir(const std::string& pathName, DirEntStr
 								OPEN_EXISTING,
 								FILE_FLAG_BACKUP_SEMANTICS,
 								nullptr);
-	if(handle == INVALID_HANDLE_VALUE)
-	{
-		switch(GetLastError())
-		{
-		case ERROR_ACCESS_DENIED: return OpenDirByPathResult::notPermitted;
-		case ERROR_FILE_NOT_FOUND: return OpenDirByPathResult::doesNotExist;
-		case ERROR_IO_DEVICE: return OpenDirByPathResult::ioError;
+	if(handle == INVALID_HANDLE_VALUE) { return asVFSResult(GetLastError()); }
 
-		default:
-			Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-		}
+	// Try to read the initial buffer-full of dirents to determine whether this is a directory.
+	std::vector<DirEnt> initialDirEnts;
+	if(readDirEnts(handle, true, initialDirEnts) || GetLastError() == ERROR_NO_MORE_FILES)
+	{
+		outStream = new WindowsDirEntStream(handle, std::move(initialDirEnts));
+		return Result::success;
 	}
 	else
 	{
-		// Try to read the initial buffer-full of dirents to determine whether this is a directory.
-		std::vector<DirEnt> initialDirEnts;
-		if(readDirEnts(handle, true, initialDirEnts) || GetLastError() == ERROR_NO_MORE_FILES)
-		{
-			outStream = new WindowsDirEntStream(handle, std::move(initialDirEnts));
-			return OpenDirByPathResult::success;
-		}
-		else
-		{
-			// Close the file handle we just opened if there was an error reading dirents from it.
-			errorUnless(CloseHandle(handle));
+		const VFS::Result result = GetLastError() == ERROR_INVALID_PARAMETER
+									   ? Result::isNotDirectory
+									   : asVFSResult(GetLastError());
 
-			switch(GetLastError())
-			{
-			case ERROR_INVALID_HANDLE:
-				Errors::fatalf(
-					"GetFileInformationByHandleEx returned ERROR_INVALID_HANDLE (handle=%" PRIxPTR
-					")",
-					reinterpret_cast<Uptr>(handle));
+		// Close the file handle we just opened if there was an error reading dirents from it.
+		if(!CloseHandle(handle))
+		{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
 
-			case ERROR_INVALID_PARAMETER: return OpenDirByPathResult::notDirectory;
-
-			default:
-				Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u", GetLastError());
-			};
-		}
+		return result;
 	}
 }
 
 std::string Platform::getCurrentWorkingDirectory()
 {
-	U16 buffer[MAX_PATH];
-	const DWORD numChars = GetCurrentDirectoryW(MAX_PATH, (LPWSTR)buffer);
+	wchar_t buffer[MAX_PATH];
+	const DWORD numChars = GetCurrentDirectoryW(MAX_PATH, buffer);
 	errorUnless(numChars);
 
 	std::string result;
-	const U16* transcodeEnd = Unicode::transcodeUTF16ToUTF8(buffer, buffer + numChars, result);
-	errorUnless(transcodeEnd == buffer + numChars);
+	transcodeUTF16ToUTF8(buffer, numChars, result, "the result of GetCurrentDirectoryW");
 
 	return result;
 }
