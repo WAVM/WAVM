@@ -1,4 +1,5 @@
 set(TestNames
+	append
 	args
 	cat
 	clock

@@ -58,18 +58,22 @@ namespace WAVM { namespace VFS {
 		syncContentsAndMetadataAfterWriteAndBeforeRead
 	};
 
+	struct FDFlags
+	{
+		// If true, writes will always occur at the end of the file.
+		bool append{false};
+
+		// If true, reads and writes will fail if they can't immediately complete.
+		bool nonBlocking{false};
+
+		// The amount of synchronization implied for reads and writes.
+		FDImplicitSync implicitSync{FDImplicitSync::none};
+	};
+
 	struct FDInfo
 	{
 		FileType type;
-
-		// If true, data written to the FD is always appended to the file's end.
-		bool append;
-
-		// If true, reads and writes will fail if they can't immediately complete.
-		bool nonBlocking;
-
-		// The amount of synchronization implied for reads and writes.
-		FDImplicitSync implicitSync;
+		FDFlags flags;
 	};
 
 	struct FileInfo
@@ -164,6 +168,13 @@ namespace WAVM { namespace VFS {
 	{
 		success,
 		ioError,
+	};
+
+	enum class SetFlagsResult : I32
+	{
+		success,
+
+		notPermitted,
 	};
 
 	enum class OpenResult : I32
@@ -302,9 +313,12 @@ namespace WAVM { namespace VFS {
 								   Uptr numBuffers,
 								   Uptr* outNumBytesWritten = nullptr)
 			= 0;
+
 		virtual SyncResult sync(SyncType type) = 0;
+
 		virtual GetInfoResult getFDInfo(FDInfo& outInfo) = 0;
 		virtual GetInfoResult getFileInfo(FileInfo& outInfo) = 0;
+		virtual SetFlagsResult setFDFlags(const FDFlags& flags) = 0;
 
 		virtual OpenDirResult openDir(DirEntStream*& outStream) = 0;
 
@@ -331,7 +345,7 @@ namespace WAVM { namespace VFS {
 								FileAccessMode accessMode,
 								FileCreateMode createMode,
 								FD*& outFD,
-								VFS::FDImplicitSync implicitSync = VFS::FDImplicitSync::none)
+								const FDFlags& flags = FDFlags{})
 			= 0;
 
 		virtual GetInfoByPathResult getInfo(const std::string& absolutePathName, FileInfo& outInfo)

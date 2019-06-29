@@ -82,7 +82,11 @@ DEFINE_INTRINSIC_FUNCTION(wasi, "proc_exit", void, wasi_proc_exit, __wasi_exitco
 	throw ExitException{exitCode};
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasi, "proc_raise", __wasi_errno_return_t, wasi_proc_raise, __wasi_signal_t sig)
+DEFINE_INTRINSIC_FUNCTION(wasi,
+						  "proc_raise",
+						  __wasi_errno_return_t,
+						  wasi_proc_raise,
+						  __wasi_signal_t sig)
 {
 	// proc_raise will possibly be removed: https://github.com/WebAssembly/WASI/issues/7
 	UNIMPLEMENTED_SYSCALL("proc_raise", "(%u)", sig);

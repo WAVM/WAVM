@@ -42,10 +42,10 @@ struct SandboxedFileSystem : FileSystem
 							FileAccessMode accessMode,
 							FileCreateMode createMode,
 							FD*& outFD,
-							FDImplicitSync implicitSync) override
+							const FDFlags& flags) override
 	{
 		return Platform::openHostFile(
-			getHostPath(absolutePathName), accessMode, createMode, outFD, implicitSync);
+			getHostPath(absolutePathName), accessMode, createMode, outFD, flags);
 	}
 
 	virtual GetInfoByPathResult getInfo(const std::string& absolutePathName,

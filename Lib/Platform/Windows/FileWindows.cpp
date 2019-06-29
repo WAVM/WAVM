@@ -38,7 +38,8 @@ static GetInfoResult getFileType(HANDLE handle, FileType& outType)
 	{
 	case FILE_TYPE_CHAR: outType = FileType::characterDevice; break;
 	case FILE_TYPE_PIPE: outType = FileType::pipe; break;
-	case FILE_TYPE_DISK: {
+	case FILE_TYPE_DISK:
+	{
 		FILE_BASIC_INFO fileBasicInfo;
 		if(!GetFileInformationByHandleEx(
 			   handle, FileBasicInfo, &fileBasicInfo, sizeof(fileBasicInfo)))
@@ -221,8 +222,18 @@ private:
 
 struct WindowsFD : FD
 {
-	WindowsFD(HANDLE inHandle, FDImplicitSync inImplicitSync)
-	: handle(inHandle), implicitSync(inImplicitSync)
+	WindowsFD(HANDLE inHandle,
+			  DWORD inDesiredAccess,
+			  DWORD inShareMode,
+			  DWORD inFlagsAndAttributes,
+			  bool inNonBlocking,
+			  FDImplicitSync inImplicitSync)
+	: handle(inHandle)
+	, desiredAccess(inDesiredAccess)
+	, shareMode(inShareMode)
+	, flagsAndAttributes(inFlagsAndAttributes)
+	, nonBlocking(inNonBlocking)
+	, implicitSync(inImplicitSync)
 	{
 		wavmAssert(handle != INVALID_HANDLE_VALUE);
 	}
@@ -505,14 +516,52 @@ struct WindowsFD : FD
 		const GetInfoResult getTypeResult = getFileType(handle, outInfo.type);
 		if(getTypeResult != GetInfoResult::success) { return getTypeResult; }
 
-		outInfo.append = false;
-		outInfo.nonBlocking = false;
-		outInfo.implicitSync = implicitSync;
+		outInfo.flags.append = desiredAccess & FILE_APPEND_DATA;
+		outInfo.flags.nonBlocking = nonBlocking;
+		outInfo.flags.implicitSync = implicitSync;
 		return GetInfoResult::success;
 	}
 	virtual GetInfoResult getFileInfo(FileInfo& outInfo) override
 	{
 		return getFileInfoByHandle(handle, outInfo);
+	}
+
+	virtual SetFlagsResult setFDFlags(const FDFlags& flags)
+	{
+		const DWORD originalDesiredAccess = desiredAccess;
+		if(originalDesiredAccess & (GENERIC_WRITE | FILE_APPEND_DATA))
+		{
+			desiredAccess &= ~(GENERIC_WRITE | FILE_APPEND_DATA);
+			desiredAccess |= flags.append ? FILE_APPEND_DATA : GENERIC_WRITE;
+		}
+
+		if(desiredAccess != originalDesiredAccess)
+		{
+			HANDLE reopenedHandle
+				= ReOpenFile(handle, desiredAccess, shareMode, flagsAndAttributes);
+			if(reopenedHandle != INVALID_HANDLE_VALUE)
+			{
+				CloseHandle(handle);
+				handle = reopenedHandle;
+			}
+			else
+			{
+				desiredAccess = originalDesiredAccess;
+				switch(GetLastError())
+				{
+				case ERROR_ACCESS_DENIED: return SetFlagsResult::notPermitted;
+
+				default:
+					Errors::fatalfWithCallStack("Unexpected GetLastError() return: %u",
+												GetLastError());
+				};
+			}
+		}
+
+		nonBlocking = flags.nonBlocking;
+		implicitSync = flags.implicitSync;
+
+		return SetFlagsResult::success;
 	}
 
 	virtual OpenDirResult openDir(DirEntStream*& outStream) override
@@ -558,13 +607,22 @@ struct WindowsFD : FD
 
 private:
 	HANDLE handle;
+	DWORD desiredAccess;
+	DWORD shareMode;
+	DWORD flagsAndAttributes;
+	bool nonBlocking;
 	FDImplicitSync implicitSync;
 };
 
 struct WindowsStdFD : WindowsFD
 {
-	WindowsStdFD(HANDLE inHandle, FDImplicitSync inImplicitSync)
-	: WindowsFD(inHandle, inImplicitSync)
+	WindowsStdFD(HANDLE inHandle, DWORD inDesiredAccess, FDImplicitSync inImplicitSync)
+	: WindowsFD(inHandle,
+				inDesiredAccess,
+				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+				0,
+				false,
+				inImplicitSync)
 	{
 	}
 
@@ -578,11 +636,11 @@ struct WindowsStdFD : WindowsFD
 FD* Platform::getStdFD(StdDevice device)
 {
 	static WindowsStdFD* stdinVFD
-		= new WindowsStdFD(GetStdHandle(STD_INPUT_HANDLE), FDImplicitSync::none);
+		= new WindowsStdFD(GetStdHandle(STD_INPUT_HANDLE), GENERIC_READ, FDImplicitSync::none);
 	static WindowsStdFD* stdoutVFD
-		= new WindowsStdFD(GetStdHandle(STD_OUTPUT_HANDLE), FDImplicitSync::none);
+		= new WindowsStdFD(GetStdHandle(STD_OUTPUT_HANDLE), FILE_APPEND_DATA, FDImplicitSync::none);
 	static WindowsStdFD* stderrVFD
-		= new WindowsStdFD(GetStdHandle(STD_ERROR_HANDLE), FDImplicitSync::none);
+		= new WindowsStdFD(GetStdHandle(STD_ERROR_HANDLE), FILE_APPEND_DATA, FDImplicitSync::none);
 
 	switch(device)
 	{
@@ -597,7 +655,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 								  FileAccessMode accessMode,
 								  FileCreateMode createMode,
 								  FD*& outFD,
-								  FDImplicitSync implicitSync)
+								  const FDFlags& flags)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
@@ -609,12 +667,13 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 	DWORD creationDisposition = 0;
 	DWORD flagsAndAttributes = FILE_FLAG_BACKUP_SEMANTICS;
 
+	const DWORD writeOrAppend = flags.append ? FILE_APPEND_DATA : GENERIC_WRITE;
 	switch(accessMode)
 	{
 	case FileAccessMode::none: desiredAccess = 0; break;
 	case FileAccessMode::readOnly: desiredAccess = GENERIC_READ; break;
-	case FileAccessMode::writeOnly: desiredAccess = GENERIC_WRITE; break;
-	case FileAccessMode::readWrite: desiredAccess = GENERIC_READ | GENERIC_WRITE; break;
+	case FileAccessMode::writeOnly: desiredAccess = writeOrAppend; break;
+	case FileAccessMode::readWrite: desiredAccess = GENERIC_READ | writeOrAppend; break;
 	default: WAVM_UNREACHABLE();
 	};
 
@@ -638,7 +697,12 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 								nullptr);
 	if(handle != INVALID_HANDLE_VALUE)
 	{
-		outFD = new WindowsFD(handle, implicitSync);
+		outFD = new WindowsFD(handle,
+							  desiredAccess,
+							  shareMode,
+							  flagsAndAttributes,
+							  flags.nonBlocking,
+							  flags.implicitSync);
 		return OpenResult::success;
 	}
 	else
@@ -646,6 +710,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 		switch(GetLastError())
 		{
 		case ERROR_ACCESS_DENIED: return OpenResult::notPermitted;
+		case ERROR_PATH_NOT_FOUND:
 		case ERROR_FILE_NOT_FOUND: return OpenResult::doesNotExist;
 		case ERROR_IO_DEVICE: return OpenResult::ioError;
 		case ERROR_ALREADY_EXISTS: return OpenResult::alreadyExists;

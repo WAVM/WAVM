@@ -119,6 +119,30 @@ static bool getCanonicalPath(const std::string& basePath,
 	return true;
 }
 
+static VFS::FDFlags translateWASIFDFlags(__wasi_fdflags_t fdFlags,
+										 __wasi_rights_t& outRequiredRights)
+{
+	VFS::FDFlags result;
+	if(fdFlags & __WASI_FDFLAG_DSYNC)
+	{
+		result.implicitSync = (fdFlags & __WASI_FDFLAG_RSYNC)
+								  ? VFS::FDImplicitSync::syncContentsAfterWriteAndBeforeRead
+								  : VFS::FDImplicitSync::syncContentsAfterWrite;
+		outRequiredRights |= __WASI_RIGHT_FD_DATASYNC;
+	}
+	if(fdFlags & __WASI_FDFLAG_SYNC)
+	{
+		result.implicitSync
+			= (fdFlags & __WASI_FDFLAG_RSYNC)
+				  ? VFS::FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead
+				  : VFS::FDImplicitSync::syncContentsAndMetadataAfterWrite;
+		outRequiredRights |= __WASI_RIGHT_FD_SYNC;
+	}
+	if(fdFlags & __WASI_FDFLAG_NONBLOCK) { result.nonBlocking = true; }
+	if(fdFlags & __WASI_FDFLAG_APPEND) { result.append = true; }
+	return result;
+}
+
 VFS::CloseResult WASI::FD::close() const
 {
 	if(dirEntStream) { dirEntStream->close(); }
@@ -566,9 +590,9 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		fdstat.fs_filetype = asWASIFileType(fdInfo.type);
 		fdstat.fs_flags = 0;
 
-		if(fdInfo.append) { fdstat.fs_flags |= __WASI_FDFLAG_APPEND; }
-		if(fdInfo.nonBlocking) { fdstat.fs_flags |= __WASI_FDFLAG_NONBLOCK; }
-		switch(fdInfo.implicitSync)
+		if(fdInfo.flags.append) { fdstat.fs_flags |= __WASI_FDFLAG_APPEND; }
+		if(fdInfo.flags.nonBlocking) { fdstat.fs_flags |= __WASI_FDFLAG_NONBLOCK; }
+		switch(fdInfo.flags.implicitSync)
 		{
 		case VFS::FDImplicitSync::none: break;
 		case VFS::FDImplicitSync::syncContentsAfterWrite:
@@ -606,7 +630,24 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  __wasi_fd_t fd,
 						  __wasi_fdflags_t flags)
 {
-	UNIMPLEMENTED_SYSCALL("fd_fdstat_set_flags", "(%u, 0x%04x)", fd, flags);
+	TRACE_SYSCALL("fd_fdstat_set_flags", "(%u, 0x%04x)", fd, flags);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	__wasi_rights_t requiredRights;
+	VFS::FDFlags vfsFDFlags = translateWASIFDFlags(flags, requiredRights);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_FDSTAT_SET_FLAGS | requiredRights))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	switch(wasiFD->vfd->setFDFlags(vfsFDFlags))
+	{
+	case VFS::SetFlagsResult::success: return TRACE_SYSCALL_RETURN(ESUCCESS);
+	case VFS::SetFlagsResult::notPermitted: return TRACE_SYSCALL_RETURN(ENOTCAPABLE);
+	default: WAVM_UNREACHABLE();
+	};
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -617,11 +658,24 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  __wasi_rights_t rights,
 						  __wasi_rights_t inheritingRights)
 {
-	UNIMPLEMENTED_SYSCALL("fd_fdstat_set_rights",
-						  "(%u, 0x%" PRIx64 ", 0x %" PRIx64 ") ",
-						  fd,
-						  rights,
-						  inheritingRights);
+	TRACE_SYSCALL("fd_fdstat_set_rights",
+				  "(%u, 0x%" PRIx64 ", 0x %" PRIx64 ") ",
+				  fd,
+				  rights,
+				  inheritingRights);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(EBADF); }
+	if(!checkFDRights(wasiFD, rights, inheritingRights))
+	{ return TRACE_SYSCALL_RETURN(ENOTCAPABLE); }
+
+	// Narrow the FD's rights.
+	wasiFD->rights = rights;
+	wasiFD->inheritingRights = inheritingRights;
+
+	return TRACE_SYSCALL_RETURN(ESUCCESS);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_return_t, wasi_fd_sync, __wasi_fd_t fd)
@@ -769,22 +823,8 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	if(openFlags & __WASI_O_CREAT) { requiredDirRights |= __WASI_RIGHT_PATH_CREATE_FILE; }
 	if(openFlags & __WASI_O_TRUNC) { requiredDirRights |= __WASI_RIGHT_PATH_FILESTAT_SET_SIZE; }
 
-	VFS::FDImplicitSync implicitSync = VFS::FDImplicitSync::none;
-	if(fdFlags & __WASI_FDFLAG_DSYNC)
-	{
-		implicitSync = (fdFlags & __WASI_FDFLAG_RSYNC)
-						   ? VFS::FDImplicitSync::syncContentsAfterWriteAndBeforeRead
-						   : VFS::FDImplicitSync::syncContentsAfterWrite;
-		requiredDirInheritingRights |= __WASI_RIGHT_FD_DATASYNC;
-	}
-	if(fdFlags & __WASI_FDFLAG_SYNC)
-	{
-		implicitSync = (fdFlags & __WASI_FDFLAG_RSYNC)
-						   ? VFS::FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead
-						   : VFS::FDImplicitSync::syncContentsAndMetadataAfterWrite;
-		requiredDirInheritingRights |= __WASI_RIGHT_FD_SYNC;
-	}
-	if(write && !(fdFlags & (__WASI_FDFLAG_APPEND | __WASI_O_TRUNC)))
+	VFS::FDFlags vfsFDFlags = translateWASIFDFlags(fdFlags, requiredDirInheritingRights);
+	if(write && !(fdFlags & __WASI_FDFLAG_APPEND) && !(openFlags & __WASI_O_TRUNC))
 	{ requiredDirInheritingRights |= __WASI_RIGHT_FD_SEEK; }
 
 	WASI::FD* wasiDirFD = getFD(process, dirFD);
@@ -804,7 +844,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	VFS::FD* openedVFD = nullptr;
 	VFS::OpenResult result
-		= process->fileSystem->open(canonicalPath, accessMode, createMode, openedVFD, implicitSync);
+		= process->fileSystem->open(canonicalPath, accessMode, createMode, openedVFD, vfsFDFlags);
 	switch(result)
 	{
 	case VFS::OpenResult::success: break;

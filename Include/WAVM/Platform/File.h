@@ -20,8 +20,7 @@ namespace WAVM { namespace Platform {
 											  VFS::FileAccessMode accessMode,
 											  VFS::FileCreateMode createMode,
 											  VFS::FD*& outFD,
-											  VFS::FDImplicitSync implicitSync
-											  = VFS::FDImplicitSync::none);
+											  const VFS::FDFlags& flags = VFS::FDFlags{});
 	PLATFORM_API VFS::GetInfoByPathResult getHostFileInfo(const std::string& pathName,
 														  VFS::FileInfo& outInfo);
 	PLATFORM_API VFS::UnlinkFileResult unlinkHostFile(const std::string& pathName);

@@ -72,6 +72,42 @@ static void getFileInfoFromStatus(const struct stat& status, FileInfo& outInfo)
 	outInfo.creationTime = timeToNS(status.st_ctime);
 }
 
+static I32 translateFDFlags(const FDFlags& vfsFlags)
+{
+	I32 flags = 0;
+
+	if(vfsFlags.append) { flags |= O_APPEND; }
+	if(vfsFlags.nonBlocking) { flags |= O_NONBLOCK; }
+
+	switch(vfsFlags.implicitSync)
+	{
+	case FDImplicitSync::none: break;
+	case FDImplicitSync::syncContentsAfterWrite: flags |= O_DSYNC; break;
+	case FDImplicitSync::syncContentsAndMetadataAfterWrite: flags |= O_SYNC; break;
+
+#ifdef __APPLE__
+		// Apple doesn't support O_RSYNC.
+	case FDImplicitSync::syncContentsAfterWriteAndBeforeRead:
+		Errors::fatal(
+			"FDImplicitSync::syncContentsAfterWriteAndBeforeRead is not yet implemented on Apple "
+			"platforms.");
+	case FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
+		Errors::fatal(
+			"FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead is not yet implemented "
+			"on Apple platforms.");
+#else
+	case FDImplicitSync::syncContentsAfterWriteAndBeforeRead: flags |= O_DSYNC | O_RSYNC; break;
+	case FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
+		flags |= O_SYNC | O_RSYNC;
+		break;
+#endif
+
+	default: WAVM_UNREACHABLE();
+	}
+
+	return flags;
+}
+
 struct POSIXDirEntStream : DirEntStream
 {
 	POSIXDirEntStream(DIR* inDir) : dir(inDir) {}
@@ -355,8 +391,6 @@ struct POSIXFD : FD
 		}
 
 		outInfo.type = getFileTypeFromMode(fdStatus.st_mode);
-		outInfo.append = false;
-		outInfo.nonBlocking = false;
 
 		I32 fdFlags = fcntl(fd, F_GETFL);
 		if(fdFlags < 0)
@@ -369,32 +403,52 @@ struct POSIXFD : FD
 			};
 		}
 
+		outInfo.flags.append = fdFlags & O_APPEND;
+		outInfo.flags.nonBlocking = fdFlags & O_NONBLOCK;
+
 		if(fdFlags & O_SYNC)
 		{
 #ifdef O_RSYNC
-			outInfo.implicitSync
+			outInfo.flags.implicitSync
 				= fdFlags & O_RSYNC ? FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead
 									: FDImplicitSync::syncContentsAndMetadataAfterWrite;
 #else
-			outInfo.implicitSync = FDImplicitSync::syncContentsAndMetadataAfterWrite;
+			outInfo.flags.implicitSync = FDImplicitSync::syncContentsAndMetadataAfterWrite;
 #endif
 		}
 		else if(fdFlags & O_DSYNC)
 		{
 #ifdef O_RSYNC
-			outInfo.implicitSync = fdFlags & O_RSYNC
-									   ? FDImplicitSync::syncContentsAfterWriteAndBeforeRead
-									   : FDImplicitSync::syncContentsAfterWrite;
+			outInfo.flags.implicitSync = fdFlags & O_RSYNC
+											 ? FDImplicitSync::syncContentsAfterWriteAndBeforeRead
+											 : FDImplicitSync::syncContentsAfterWrite;
 #else
-			outInfo.implicitSync = FDImplicitSync::syncContentsAfterWrite;
+			outInfo.flags.implicitSync = FDImplicitSync::syncContentsAfterWrite;
 #endif
 		}
 		else
 		{
-			outInfo.implicitSync = FDImplicitSync::none;
+			outInfo.flags.implicitSync = FDImplicitSync::none;
 		}
 
 		return GetInfoResult::success;
+	}
+
+	virtual SetFlagsResult setFDFlags(const FDFlags& vfsFlags) override
+	{
+		const I32 flags = translateFDFlags(vfsFlags);
+
+		I32 result = fcntl(fd, F_SETFL, flags);
+		if(result != -1) { return SetFlagsResult::success; }
+		else
+		{
+			switch(errno)
+			{
+			case EBADF: Errors::fatalf("fcntl returned EBADF (fd=%i)", fd);
+
+			default: Errors::fatalfWithCallStack("Unexpected errno: %s", strerror(errno));
+			};
+		}
 	}
 
 	virtual GetInfoResult getFileInfo(FileInfo& outInfo) override
@@ -487,7 +541,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 								  FileAccessMode accessMode,
 								  FileCreateMode createMode,
 								  FD*& outFD,
-								  FDImplicitSync implicitSync)
+								  const FDFlags& vfsFlags)
 {
 	U32 flags = 0;
 	switch(accessMode)
@@ -511,31 +565,7 @@ OpenResult Platform::openHostFile(const std::string& pathName,
 
 	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
-	switch(implicitSync)
-	{
-	case FDImplicitSync::none: break;
-	case FDImplicitSync::syncContentsAfterWrite: flags |= O_DSYNC; break;
-	case FDImplicitSync::syncContentsAndMetadataAfterWrite: flags |= O_SYNC; break;
-
-#ifdef __APPLE__
-	// Apple doesn't support O_RSYNC.
-	case FDImplicitSync::syncContentsAfterWriteAndBeforeRead:
-		Errors::fatal(
-			"FDImplicitSync::syncContentsAfterWriteAndBeforeRead is not yet implemented on Apple "
-			"platforms.");
-	case FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
-		Errors::fatal(
-			"FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead is not yet implemented "
-			"on Apple platforms.");
-#else
-	case FDImplicitSync::syncContentsAfterWriteAndBeforeRead: flags |= O_DSYNC | O_RSYNC; break;
-	case FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
-		flags |= O_SYNC | O_RSYNC;
-		break;
-#endif
-
-	default: WAVM_UNREACHABLE();
-	}
+	flags |= translateFDFlags(vfsFlags);
 
 	const I32 fd = open(pathName.c_str(), flags, mode);
 
