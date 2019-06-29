@@ -367,17 +367,17 @@ static int run(const CommandLineOptions& options)
 static void showHelp()
 {
 	Log::printf(Log::error,
-				"Usage: wavm-run [switches] [programfile] [--] [arguments]\n"
-				"  in.wast|in.wasm       Specify program file (.wast/.wasm)\n"
+				"Usage: wavm-run [options] <program file> [program arguments]\n"
+				"  -h|--help             Display this message\n"
 				"  -c|--check            Exit after checking that the program is valid\n"
 				"  -d|--debug            Write additional debug information to stdout\n"
-				"  -f|--function name    Specify function name to run in module rather than main\n"
-				"  -h|--help             Display this message\n"
+				"  -f|--function name    Specify function name to run in module (default:main)\n"
 				"  --disable-emscripten  Disable Emscripten intrinsics\n"
 				"  --enable-thread-test  Enable ThreadTest intrinsics\n"
 				"  --precompiled         Use precompiled object code in programfile\n"
 				"  --metrics             Write benchmarking information to stdout\n"
-				"  --                    Stop parsing arguments\n");
+				"  <program file>        The WebAssembly module (.wast/.wasm) to run\n"
+				"  [program arguments]   The arguments to pass to the WebAssembly function\n");
 }
 
 int main(int argc, char** argv)
@@ -386,14 +386,10 @@ int main(int argc, char** argv)
 	options.args = argv;
 	while(*++options.args)
 	{
-		if(!strcmp(*options.args, "--function") || !strcmp(*options.args, "-f"))
+		if(!strcmp(*options.args, "--help") || !strcmp(*options.args, "-h"))
 		{
-			if(!*++options.args)
-			{
-				showHelp();
-				return EXIT_FAILURE;
-			}
-			options.functionName = *options.args;
+			showHelp();
+			return EXIT_SUCCESS;
 		}
 		else if(!strcmp(*options.args, "--check") || !strcmp(*options.args, "-c"))
 		{
@@ -402,6 +398,15 @@ int main(int argc, char** argv)
 		else if(!strcmp(*options.args, "--debug") || !strcmp(*options.args, "-d"))
 		{
 			Log::setCategoryEnabled(Log::debug, true);
+		}
+		else if(!strcmp(*options.args, "--function") || !strcmp(*options.args, "-f"))
+		{
+			if(!*++options.args)
+			{
+				showHelp();
+				return EXIT_FAILURE;
+			}
+			options.functionName = *options.args;
 		}
 		else if(!strcmp(*options.args, "--metrics"))
 		{
@@ -419,22 +424,10 @@ int main(int argc, char** argv)
 		{
 			options.precompiled = true;
 		}
-		else if(!strcmp(*options.args, "--"))
-		{
-			++options.args;
-			break;
-		}
-		else if(!strcmp(*options.args, "--help") || !strcmp(*options.args, "-h"))
-		{
-			showHelp();
-			return EXIT_SUCCESS;
-		}
-		else if(!options.filename)
-		{
-			options.filename = *options.args;
-		}
 		else
 		{
+			options.filename = *options.args;
+			++options.args;
 			break;
 		}
 	}

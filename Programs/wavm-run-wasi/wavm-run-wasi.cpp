@@ -213,18 +213,19 @@ static int run(const CommandLineOptions& options)
 
 static void showHelp()
 {
-	Log::printf(Log::error,
-				"Usage: wavm-run-wasi [switches] [programfile] [--] [arguments]\n"
-				"  in.wast|in.wasm             Specify program file (.wast/.wasm)\n"
-				"  -c|--check                  Exit after checking that the program is valid\n"
-				"  -d|--debug                  Write additional debug information to stdout\n"
-				"  -h|--help                   Display this message\n"
-				"  --precompiled               Use precompiled object code in programfile\n"
-				"  --metrics                   Write benchmarking information to stdout\n"
-				"  --trace-syscalls            Trace WASI syscalls to stdout\n"
-				"  --trace-syscall-callstacks  Trace WASI syscalls w/ callstacks to stdout\n"
-				"  --mount-root <directory>    Mounts directory as a "
-				"  --                          Stop parsing arguments\n");
+	Log::printf(
+		Log::error,
+		"Usage: wavm-run-wasi [options] <module file> [program arguments]\n"
+		"  -h|--help                   Display this message\n"
+		"  -c|--check                  Exit after checking that the program is valid\n"
+		"  -d|--debug                  Write additional debug information to stdout\n"
+		"  --precompiled               Use precompiled object code in <program file>\n"
+		"  --metrics                   Write benchmarking information to stdout\n"
+		"  --trace-syscalls            Trace WASI syscalls to stdout\n"
+		"  --trace-syscall-callstacks  Trace WASI syscalls w/ callstacks to stdout\n"
+		"  --mount-root <directory>    Mounts directory as the WASI root directory\n"
+		"  <program file>              The WebAssembly module (.wast/.wasm) to run\n"
+		"  [program arguments]         The arguments to pass to the WebAssembly function\n");
 }
 
 int main(int argc, char** argv)
@@ -233,7 +234,15 @@ int main(int argc, char** argv)
 	char** nextArg = argv;
 	while(*++nextArg)
 	{
-		if(!strcmp(*nextArg, "--check") || !strcmp(*nextArg, "-c")) { options.onlyCheck = true; }
+		if(!strcmp(*nextArg, "--help") || !strcmp(*nextArg, "-h"))
+		{
+			showHelp();
+			return EXIT_SUCCESS;
+		}
+		else if(!strcmp(*nextArg, "--check") || !strcmp(*nextArg, "-c"))
+		{
+			options.onlyCheck = true;
+		}
 		else if(!strcmp(*nextArg, "--debug") || !strcmp(*nextArg, "-d"))
 		{
 			Log::setCategoryEnabled(Log::debug, true);
@@ -263,22 +272,10 @@ int main(int argc, char** argv)
 			}
 			options.rootMountPath = *nextArg;
 		}
-		else if(!strcmp(*nextArg, "--"))
-		{
-			++nextArg;
-			break;
-		}
-		else if(!strcmp(*nextArg, "--help") || !strcmp(*nextArg, "-h"))
-		{
-			showHelp();
-			return EXIT_SUCCESS;
-		}
-		else if(!options.filename)
-		{
-			options.filename = *nextArg;
-		}
 		else
 		{
+			options.filename = *nextArg;
+			++nextArg;
 			break;
 		}
 	}
