@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
+static const char string[] = "Hello World!\n";
+
 int main(int argc, char** argv)
 {
 	if(argc != 2)
@@ -10,15 +12,14 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	const char string[] = "Hello World!\n";
-	size_t stringLength = sizeof(string) - 1;
-
 	FILE* file = fopen(argv[1], "wb");
 	if(!file)
 	{
 		fprintf(stderr, "Failed to open '%s' for writing: %s\n", argv[1], strerror(errno));
 		return 1;
 	}
+
+	size_t stringLength = sizeof(string) - 1;
 	size_t writeResult = fwrite(string, 1, stringLength, file);
 	if(writeResult != stringLength)
 	{

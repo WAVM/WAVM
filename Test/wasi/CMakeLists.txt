@@ -7,6 +7,7 @@ set(TestNames
 	filestat_set_size
 	ls
 	mkdir
+	preadwrite
 	random
 	rm
 	rmdir

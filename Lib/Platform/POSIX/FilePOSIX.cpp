@@ -311,6 +311,130 @@ struct POSIXFD : FD
 		if(outNumBytesWritten) { *outNumBytesWritten = result; }
 		return Result::success;
 	}
+	virtual Result preadv(const IOReadBuffer* buffers,
+						  Uptr numBuffers,
+						  U64 offset,
+						  Uptr* outNumBytesRead = nullptr) override
+	{
+		if(outNumBytesRead) { *outNumBytesRead = 0; }
+
+		if(numBuffers == 0) { return Result::success; }
+		else if(numBuffers > IOV_MAX)
+		{
+			return Result::tooManyBuffers;
+		}
+
+#ifndef __linux__
+		// If pread64 isn't available, fail before allocating the combined buffer.
+		if(offset > UINT32_MAX) { return Result::invalidOffset; }
+#endif
+
+		// Count the number of bytes in all the buffers.
+		Uptr numBufferBytes = 0;
+		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+		{
+			const IOReadBuffer& buffer = buffers[bufferIndex];
+			if(numBufferBytes + buffer.numBytes < numBufferBytes)
+			{ return Result::tooManyBufferBytes; }
+			numBufferBytes += buffer.numBytes;
+		}
+		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
+
+		// Allocate a combined buffer.
+		U8* combinedBuffer = (U8*)malloc(numBufferBytes);
+		if(!combinedBuffer) { return Result::outOfMemory; }
+
+		// Do the read.
+#ifdef __linux__
+		ssize_t result = pread64(fd, combinedBuffer, numBufferBytes, offset);
+#else
+		ssize_t result = pread(fd, combinedBuffer, numBufferBytes, U32(offset));
+#endif
+		if(result >= 0)
+		{
+			const Uptr numBytesRead = Uptr(result);
+
+			// Copy the contents of the combined buffer to the individual buffers.
+			Uptr numBytesCopied = 0;
+			for(Uptr bufferIndex = 0; bufferIndex < numBuffers && numBytesCopied < numBytesRead;
+				++bufferIndex)
+			{
+				const IOReadBuffer& buffer = buffers[bufferIndex];
+				const Uptr numBytesToCopy
+					= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
+				if(numBytesToCopy)
+				{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
+				numBytesCopied += numBytesToCopy;
+			}
+
+			// Write the total number of bytes read.
+			if(outNumBytesRead) { *outNumBytesRead = numBytesRead; }
+		}
+
+		// Free the combined buffer.
+		free(combinedBuffer);
+
+		return result >= 0 ? Result::success : asVFSResult(errno);
+	}
+	virtual Result pwritev(const IOWriteBuffer* buffers,
+						   Uptr numBuffers,
+						   U64 offset,
+						   Uptr* outNumBytesWritten = nullptr) override
+	{
+		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
+
+		if(numBuffers == 0) { return Result::success; }
+		else if(numBuffers > IOV_MAX)
+		{
+			return Result::tooManyBuffers;
+		}
+
+#ifndef __linux__
+		// If pwrite64 isn't available, fail before allocating the combined buffer.
+		if(offset > UINT32_MAX) { return Result::invalidOffset; }
+#endif
+
+		// Count the number of bytes in all the buffers.
+		Uptr numBufferBytes = 0;
+		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+		{
+			const IOWriteBuffer& buffer = buffers[bufferIndex];
+			if(numBufferBytes + buffer.numBytes < numBufferBytes)
+			{ return Result::tooManyBufferBytes; }
+			numBufferBytes += buffer.numBytes;
+		}
+		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
+
+		// Allocate a combined buffer.
+		U8* combinedBuffer = (U8*)malloc(numBufferBytes);
+		if(!combinedBuffer) { return Result::outOfMemory; }
+
+		// Copy the individual buffers into the combined buffer.
+		Uptr numBytesCopied = 0;
+		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+		{
+			const IOWriteBuffer& buffer = buffers[bufferIndex];
+			const Uptr numBytesToCopy = std::min(buffer.numBytes, numBufferBytes - numBytesCopied);
+			if(numBytesToCopy)
+			{ memcpy(combinedBuffer + numBytesCopied, buffer.data, numBytesToCopy); }
+			numBytesCopied += numBytesToCopy;
+		}
+
+		// Do the write.
+#ifdef __linux__
+		ssize_t result = pwrite64(fd, combinedBuffer, numBufferBytes, offset);
+#else
+		ssize_t result = pwrite(fd, combinedBuffer, numBufferBytes, U32(offset));
+#endif
+
+		// Write the total number of bytes writte.
+		if(outNumBytesWritten) { *outNumBytesWritten = Uptr(result); }
+
+		// Free the combined buffer.
+		free(combinedBuffer);
+
+		return result >= 0 ? Result::success : asVFSResult(errno);
+	}
 	virtual Result sync(SyncType syncType) override
 	{
 #ifdef __APPLE__

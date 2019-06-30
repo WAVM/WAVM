@@ -24,7 +24,7 @@ int main(int argc, char** argv)
 	int result = __wasi_fd_renumber(fd, 1);
 	if(result)
 	{
-		fprintf(stderr, "__wasi_fd_renumber failed: %s\n", strerror(errno));
+		fprintf(stderr, "__wasi_fd_renumber failed: %s\n", strerror(result));
 		return 1;
 	}
 

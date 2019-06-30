@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 
+static const char string[] = "Hello World!\n";
+
 int main(int argc, char** argv)
 {
 	if(argc != 2)
@@ -12,7 +14,6 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	const char string[] = "Hello World!\n";
 	size_t stringLength = sizeof(string) - 1;
 
 	int fd = open(argv[1], O_WRONLY | O_APPEND | O_CREAT);

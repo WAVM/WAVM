@@ -3,10 +3,12 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Unicode.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
 #include "WAVM/Platform/File.h"
+#include "WAVM/Platform/Mutex.h"
 #include "WAVM/VFS/VFS.h"
 #include "WindowsPrivate.h"
 
@@ -59,6 +61,13 @@ static Result asVFSResult(DWORD windowsError)
 	};
 }
 
+static LARGE_INTEGER makeLargeInt(U64 u64)
+{
+	LARGE_INTEGER result;
+	result.QuadPart = u64;
+	return result;
+}
+
 static Result getFileType(HANDLE handle, FileType& outType)
 {
 	const DWORD windowsFileType = GetFileType(handle);
@@ -69,7 +78,8 @@ static Result getFileType(HANDLE handle, FileType& outType)
 	{
 	case FILE_TYPE_CHAR: outType = FileType::characterDevice; break;
 	case FILE_TYPE_PIPE: outType = FileType::pipe; break;
-	case FILE_TYPE_DISK: {
+	case FILE_TYPE_DISK:
+	{
 		FILE_BASIC_INFO fileBasicInfo;
 		if(!GetFileInformationByHandleEx(
 			   handle, FileBasicInfo, &fileBasicInfo, sizeof(fileBasicInfo)))
@@ -282,156 +292,39 @@ struct WindowsFD : FD
 	}
 	virtual Result readv(const IOReadBuffer* buffers,
 						 Uptr numBuffers,
-						 Uptr* outNumBytesRead = nullptr) override
+						 Uptr* outNumBytesRead) override
 	{
-		if(outNumBytesRead) { *outNumBytesRead = 0; }
-		if(numBuffers == 0) { return Result::success; }
-
-		// Count the number of bytes in all the buffers.
-		Uptr numBufferBytes = 0;
-		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
-		{
-			const IOReadBuffer& buffer = buffers[bufferIndex];
-			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return Result::tooManyBufferBytes; }
-			numBufferBytes += buffer.numBytes;
-		}
-		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
-		const U32 numBufferBytesU32 = U32(numBufferBytes);
-
-		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
-		U8* combinedBuffer = (U8*)(numBuffers == 1 ? buffers[0].data : malloc(numBufferBytes));
-		if(!combinedBuffer) { return Result::outOfMemory; }
-
-		// If the FD has implicit syncing before reads, do it.
-		if(implicitSync == FDImplicitSync::syncContentsAfterWriteAndBeforeRead
-		   || implicitSync == FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead)
-		{
-			if(!FlushFileBuffers(handle)) { return asVFSResult(GetLastError()); }
-		}
-
-		// Do the read.
-		DWORD numBytesRead = 0;
-		if(ReadFile(handle, combinedBuffer, numBufferBytesU32, &numBytesRead, nullptr))
-		{
-			if(numBuffers > 1)
-			{
-				// If there was a combined buffer, copy the contents of it to the individual
-				// buffers.
-				Uptr numBytesCopied = 0;
-				for(Uptr bufferIndex = 0; bufferIndex < numBuffers && numBytesCopied < numBytesRead;
-					++bufferIndex)
-				{
-					const IOReadBuffer& buffer = buffers[bufferIndex];
-					const Uptr numBytesToCopy
-						= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
-					if(numBytesToCopy)
-					{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
-					numBytesCopied += numBytesToCopy;
-				}
-
-				// Free the combined buffer.
-				free(combinedBuffer);
-			}
-
-			// Write the total number of bytes read and return success.
-			if(outNumBytesRead)
-			{
-				wavmAssert(numBytesRead <= UINTPTR_MAX);
-				*outNumBytesRead = Uptr(numBytesRead);
-			}
-			return Result::success;
-		}
-		else
-		{
-			// If there was a combined buffer, free it.
-			if(numBuffers > 1) { free(combinedBuffer); }
-
-			if(GetLastError() == ERROR_NOT_ENOUGH_QUOTA)
-			{
-				// "The ReadFile function may fail with ERROR_NOT_ENOUGH_QUOTA, which means the
-				// calling process's buffer could not be page-locked."
-				return Result::outOfMemory;
-			}
-			else
-			{
-				return asVFSResult(GetLastError());
-			}
-		}
+		return readvImpl(buffers, numBuffers, nullptr, outNumBytesRead);
 	}
 	virtual Result writev(const IOWriteBuffer* buffers,
 						  Uptr numBuffers,
-						  Uptr* outNumBytesWritten = nullptr) override
+						  Uptr* outNumBytesWritten) override
 	{
-		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
-		if(numBuffers == 0) { return Result::success; }
-
-		// Count the number of bytes in all the buffers.
-		Uptr numBufferBytes = 0;
-		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
-		{
-			const IOWriteBuffer& buffer = buffers[bufferIndex];
-			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return Result::tooManyBufferBytes; }
-			numBufferBytes += buffer.numBytes;
-		}
-		if(numBufferBytes > Uptr(UINT32_MAX)) { return Result::tooManyBufferBytes; }
-		const U32 numBufferBytesU32 = U32(numBufferBytes);
-
-		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
-		const void* combinedBuffer;
-		if(numBuffers == 1) { combinedBuffer = buffers[0].data; }
-		else
-		{
-			U8* combinedBufferU8 = (U8*)malloc(numBufferBytes);
-			if(!combinedBufferU8) { return Result::outOfMemory; }
-
-			Uptr numBytesCopied = 0;
-			for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
-			{
-				const IOWriteBuffer& buffer = buffers[bufferIndex];
-				if(buffer.numBytes)
-				{ memcpy(combinedBufferU8 + numBytesCopied, buffer.data, buffer.numBytes); }
-				numBytesCopied += buffer.numBytes;
-			}
-			combinedBuffer = combinedBufferU8;
-		}
-
-		// Do the write.
-		DWORD numBytesWritten = 0;
-		const BOOL result
-			= WriteFile(handle, combinedBuffer, numBufferBytesU32, &numBytesWritten, nullptr);
-
-		// Free the combined buffer.
-		if(numBuffers > 1) { free((void*)combinedBuffer); }
-
-		if(result)
-		{
-			// If the FD has implicit syncing before reads, do it.
-			if(implicitSync != FDImplicitSync::none)
-			{
-				if(!FlushFileBuffers(handle)) { return asVFSResult(GetLastError()); }
-			}
-
-			// Write the total number of bytes written and return success.
-			if(outNumBytesWritten)
-			{
-				wavmAssert(numBytesWritten <= UINTPTR_MAX);
-				*outNumBytesWritten = Uptr(numBytesWritten);
-			}
-			return Result::success;
-		}
-		else
-		{
-			if(result != ERROR_NOT_ENOUGH_QUOTA) { return asVFSResult(result); }
-			else
-			{
-				// "The WriteFile function may fail with ERROR_NOT_ENOUGH_QUOTA, which means the
-				// calling process's buffer could not be page-locked."
-				return Result::outOfMemory;
-			}
-		}
+		return writevImpl(buffers, numBuffers, nullptr, outNumBytesWritten);
 	}
+	virtual Result preadv(const IOReadBuffer* buffers,
+						  Uptr numBuffers,
+						  U64 offset,
+						  Uptr* outNumBytesRead)
+	{
+		OVERLAPPED overlapped;
+		overlapped.Offset = DWORD(offset);
+		overlapped.OffsetHigh = DWORD(offset >> 32);
+		overlapped.hEvent = nullptr;
+		return readvImpl(buffers, numBuffers, &overlapped, outNumBytesRead);
+	}
+	virtual Result pwritev(const IOWriteBuffer* buffers,
+						   Uptr numBuffers,
+						   U64 offset,
+						   Uptr* outNumBytesWritten) override
+	{
+		OVERLAPPED overlapped;
+		overlapped.Offset = DWORD(offset);
+		overlapped.OffsetHigh = DWORD(offset >> 32);
+		overlapped.hEvent = nullptr;
+		return writevImpl(buffers, numBuffers, &overlapped, outNumBytesWritten);
+	}
+
 	virtual Result sync(SyncType syncType) override
 	{
 		return FlushFileBuffers(handle) ? Result::success : asVFSResult(GetLastError());
@@ -534,6 +427,175 @@ private:
 	DWORD flagsAndAttributes;
 	bool nonBlocking;
 	FDImplicitSync implicitSync;
+
+	Result readImpl(void* buffer,
+					U32 numBufferBytesU32,
+					OVERLAPPED* overlapped,
+					Uptr* outNumBytesRead)
+	{
+		// If the FD has implicit syncing before reads, do it.
+		if(implicitSync == FDImplicitSync::syncContentsAfterWriteAndBeforeRead
+		   || implicitSync == FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead)
+		{
+			if(!FlushFileBuffers(handle)) { return asVFSResult(GetLastError()); }
+		}
+
+		// Do the read.
+		DWORD numBytesRead = 0;
+		if(!ReadFile(handle, buffer, numBufferBytesU32, &numBytesRead, overlapped))
+		{
+			// "The ReadFile function may fail with ERROR_NOT_ENOUGH_QUOTA, which means the calling
+			// process's buffer could not be page-locked."
+			return GetLastError() == ERROR_NOT_ENOUGH_QUOTA ? Result::outOfMemory
+															: asVFSResult(GetLastError());
+		}
+
+		// Write the total number of bytes read.
+		if(outNumBytesRead)
+		{
+			wavmAssert(numBytesRead <= UINTPTR_MAX);
+			*outNumBytesRead = Uptr(numBytesRead);
+		}
+
+		return Result::success;
+	}
+	Result readvImpl(const IOReadBuffer* buffers,
+					 Uptr numBuffers,
+					 OVERLAPPED* overlapped,
+					 Uptr* outNumBytesRead)
+	{
+		if(outNumBytesRead) { *outNumBytesRead = 0; }
+		if(numBuffers == 0) { return Result::success; }
+
+		// Count the number of bytes in all the buffers.
+		Uptr numBufferBytes = 0;
+		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+		{
+			const IOReadBuffer& buffer = buffers[bufferIndex];
+			if(numBufferBytes + buffer.numBytes < numBufferBytes)
+			{ return Result::tooManyBufferBytes; }
+			numBufferBytes += buffer.numBytes;
+		}
+		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
+		const U32 numBufferBytesU32 = U32(numBufferBytes);
+
+		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
+		if(numBuffers == 1)
+		{ return readImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesRead); }
+		else
+		{
+			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
+			if(!combinedBuffer) { return Result::outOfMemory; }
+
+			Uptr numBytesRead = 0;
+			const Result result
+				= readImpl(combinedBuffer, numBufferBytesU32, overlapped, &numBytesRead);
+
+			if(result == Result::success)
+			{
+				// If there was a combined buffer, copy the contents of it to the individual
+				// buffers.
+				Uptr numBytesCopied = 0;
+				for(Uptr bufferIndex = 0; bufferIndex < numBuffers && numBytesCopied < numBytesRead;
+					++bufferIndex)
+				{
+					const IOReadBuffer& buffer = buffers[bufferIndex];
+					const Uptr numBytesToCopy
+						= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
+					if(numBytesToCopy)
+					{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
+					numBytesCopied += numBytesToCopy;
+				}
+
+				// Write the total number of bytes read.
+				if(outNumBytesRead) { *outNumBytesRead = numBytesRead; }
+			}
+
+			// Free the combined buffer.
+			free(combinedBuffer);
+
+			return result;
+		}
+	}
+
+	Result writeImpl(const void* buffer,
+					 U32 numBufferBytesU32,
+					 OVERLAPPED* overlapped,
+					 Uptr* outNumBytesWritten)
+	{
+		// Do the write.
+		DWORD numBytesWritten = 0;
+		if(!WriteFile(handle, buffer, numBufferBytesU32, &numBytesWritten, overlapped))
+		{
+			// "The WriteFile function may fail with ERROR_NOT_ENOUGH_QUOTA, which means the calling
+			// process's buffer could not be page-locked."
+			return GetLastError() == ERROR_NOT_ENOUGH_QUOTA ? Result::outOfMemory
+															: asVFSResult(GetLastError());
+		}
+
+		// If the FD has implicit syncing after writes, do it.
+		if(implicitSync != FDImplicitSync::none)
+		{
+			if(!FlushFileBuffers(handle)) { return asVFSResult(GetLastError()); }
+		}
+
+		// Write the total number of bytes written.
+		if(outNumBytesWritten)
+		{
+			wavmAssert(numBytesWritten <= UINTPTR_MAX);
+			*outNumBytesWritten = Uptr(numBytesWritten);
+		}
+
+		return Result::success;
+	}
+	Result writevImpl(const IOWriteBuffer* buffers,
+					  Uptr numBuffers,
+					  OVERLAPPED* overlapped,
+					  Uptr* outNumBytesWritten)
+	{
+		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
+		if(numBuffers == 0) { return Result::success; }
+
+		// Count the number of bytes in all the buffers.
+		Uptr numBufferBytes = 0;
+		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+		{
+			const IOWriteBuffer& buffer = buffers[bufferIndex];
+			if(numBufferBytes + buffer.numBytes < numBufferBytes)
+			{ return Result::tooManyBufferBytes; }
+			numBufferBytes += buffer.numBytes;
+		}
+		if(numBufferBytes > Uptr(UINT32_MAX)) { return Result::tooManyBufferBytes; }
+		const U32 numBufferBytesU32 = U32(numBufferBytes);
+
+		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
+		if(numBuffers == 1)
+		{ return writeImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesWritten); }
+		else
+		{
+			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
+			if(!combinedBuffer) { return Result::outOfMemory; }
+
+			// Copy all the input buffers into the combined buffer.
+			Uptr numBytesCopied = 0;
+			for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+			{
+				const IOWriteBuffer& buffer = buffers[bufferIndex];
+				if(buffer.numBytes)
+				{ memcpy(combinedBuffer + numBytesCopied, buffer.data, buffer.numBytes); }
+				numBytesCopied += buffer.numBytes;
+			}
+
+			// Do the write.
+			const Result result
+				= writeImpl(combinedBuffer, numBufferBytesU32, overlapped, outNumBytesWritten);
+
+			// Free the combined buffer.
+			free(combinedBuffer);
+
+			return result;
+		}
+	}
 };
 
 struct WindowsStdFD : WindowsFD

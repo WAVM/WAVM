@@ -196,6 +196,17 @@ namespace WAVM { namespace VFS {
 							  Uptr* outNumBytesWritten = nullptr)
 			= 0;
 
+		virtual Result preadv(const IOReadBuffer* buffers,
+							  Uptr numBuffers,
+							  U64 offset,
+							  Uptr* outNumBytesRead = nullptr)
+			= 0;
+		virtual Result pwritev(const IOWriteBuffer* buffers,
+							   Uptr numBuffers,
+							   U64 offset,
+							   Uptr* outNumBytesWritten = nullptr)
+			= 0;
+
 		virtual Result sync(SyncType type) = 0;
 
 		virtual Result getFDInfo(FDInfo& outInfo) = 0;

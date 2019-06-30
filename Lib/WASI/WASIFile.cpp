@@ -283,6 +283,125 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(wasiFD->vfd->sync(VFS::SyncType::contents)));
 }
 
+static __wasi_errno_t readImpl(Process* process,
+							   __wasi_fd_t fd,
+							   WASIAddress iovsAddress,
+							   I32 numIOVs,
+							   const __wasi_filesize_t* offset,
+							   Uptr& outNumBytesRead)
+{
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return __WASI_EBADF; }
+	if(!checkFDRights(wasiFD, (offset ? __WASI_RIGHT_FD_SEEK : 0) | __WASI_RIGHT_FD_READ))
+	{ return __WASI_ENOTCAPABLE; }
+
+	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return __WASI_EINVAL; }
+
+	// Allocate memory for the VFS::IOReadBuffers.
+	VFS::IOReadBuffer* vfsReadBuffers
+		= (VFS::IOReadBuffer*)malloc(numIOVs * sizeof(VFS::IOReadBuffer));
+
+	// Catch any out-of-bounds memory access exceptions that are thrown.
+	__wasi_errno_t result = __WASI_ESUCCESS;
+	Runtime::catchRuntimeExceptions(
+		[&] {
+			// Translate the IOVs to VFS::IOReadBuffers.
+			const __wasi_iovec_t* iovs
+				= memoryArrayPtr<__wasi_iovec_t>(process->memory, iovsAddress, numIOVs);
+			U64 numBufferBytes = 0;
+			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+			{
+				__wasi_iovec_t iov = iovs[iovIndex];
+				vfsReadBuffers[iovIndex].data
+					= memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len);
+				vfsReadBuffers[iovIndex].numBytes = iov.buf_len;
+				numBufferBytes += iov.buf_len;
+			}
+			if(numBufferBytes > WASIADDRESS_MAX) { result = __WASI_EOVERFLOW; }
+			else
+			{
+				// Do the read.
+				result = asWASIErrNo(
+					offset ? wasiFD->vfd->preadv(vfsReadBuffers, numIOVs, *offset, &outNumBytesRead)
+						   : wasiFD->vfd->readv(vfsReadBuffers, numIOVs, &outNumBytesRead));
+			}
+		},
+		[&](Exception* exception) {
+			// If we catch an out-of-bounds memory exception, return EFAULT.
+			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			Log::printf(Log::debug,
+						"Caught runtime exception while reading memory at address 0x%" PRIx64,
+						getExceptionArgument(exception, 1).i64);
+			destroyException(exception);
+			result = __WASI_EFAULT;
+		});
+
+	// Free the VFS read buffers.
+	free(vfsReadBuffers);
+
+	return result;
+}
+
+static __wasi_errno_t writeImpl(Process* process,
+								__wasi_fd_t fd,
+								WASIAddress iovsAddress,
+								I32 numIOVs,
+								const __wasi_filesize_t* offset,
+								Uptr& outNumBytesWritten)
+{
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return __WASI_EBADF; }
+	if(!checkFDRights(wasiFD, (offset ? __WASI_RIGHT_FD_SEEK : 0) | __WASI_RIGHT_FD_WRITE))
+	{ return __WASI_ENOTCAPABLE; }
+
+	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return __WASI_EINVAL; }
+
+	// Allocate memory for the VFS::IOWriteBuffers.
+	VFS::IOWriteBuffer* vfsWriteBuffers
+		= (VFS::IOWriteBuffer*)malloc(numIOVs * sizeof(VFS::IOWriteBuffer));
+
+	// Catch any out-of-bounds memory access exceptions that are thrown.
+	__wasi_errno_t result = __WASI_ESUCCESS;
+	Runtime::catchRuntimeExceptions(
+		[&] {
+			// Translate the IOVs to VFS::IOWriteBuffers
+			const __wasi_ciovec_t* iovs
+				= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
+			U64 numBufferBytes = 0;
+			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
+			{
+				__wasi_ciovec_t iov = iovs[iovIndex];
+				vfsWriteBuffers[iovIndex].data
+					= memoryArrayPtr<const U8>(process->memory, iov.buf, iov.buf_len);
+				vfsWriteBuffers[iovIndex].numBytes = iov.buf_len;
+				numBufferBytes += iov.buf_len;
+			}
+			if(numBufferBytes > WASIADDRESS_MAX) { result = __WASI_EOVERFLOW; }
+			else
+			{
+				// Do the writes.
+				result = asWASIErrNo(
+					offset ? wasiFD->vfd->pwritev(
+								 vfsWriteBuffers, numIOVs, *offset, &outNumBytesWritten)
+						   : wasiFD->vfd->writev(vfsWriteBuffers, numIOVs, &outNumBytesWritten));
+			}
+		},
+		[&](Exception* exception) {
+			// If we catch an out-of-bounds memory exception, return EFAULT.
+			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			Log::printf(Log::debug,
+						"Caught runtime exception while reading memory at address 0x%" PRIx64,
+						getExceptionArgument(exception, 1).i64);
+			destroyException(exception);
+			result = __WASI_EFAULT;
+		});
+
+	// Free the VFS write buffers.
+	free(vfsWriteBuffers);
+
+	return result;
+}
+
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "fd_pread",
 						  __wasi_errno_return_t,
@@ -293,13 +412,25 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  __wasi_filesize_t offset,
 						  WASIAddress numBytesReadAddress)
 {
-	UNIMPLEMENTED_SYSCALL("fd_pread",
-						  "(%u, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", " WASIADDRESS_FORMAT ")",
-						  fd,
-						  iovsAddress,
-						  numIOVs,
-						  offset,
-						  numBytesReadAddress);
+	TRACE_SYSCALL("fd_pread",
+				  "(%u, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", " WASIADDRESS_FORMAT ")",
+				  fd,
+				  iovsAddress,
+				  numIOVs,
+				  offset,
+				  numBytesReadAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	Uptr numBytesRead = 0;
+	const __wasi_errno_t result
+		= readImpl(process, fd, iovsAddress, numIOVs, &offset, numBytesRead);
+
+	// Write the number of bytes read to memory.
+	wavmAssert(numBytesRead <= WASIADDRESS_MAX);
+	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
+
+	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" PRIuPTR ")", numBytesRead);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -312,13 +443,25 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  __wasi_filesize_t offset,
 						  WASIAddress numBytesWrittenAddress)
 {
-	UNIMPLEMENTED_SYSCALL("fd_pwrite",
-						  "(%u, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", " WASIADDRESS_FORMAT ")",
-						  fd,
-						  iovsAddress,
-						  numIOVs,
-						  offset,
-						  numBytesWrittenAddress);
+	TRACE_SYSCALL("fd_pwrite",
+				  "(%u, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", " WASIADDRESS_FORMAT ")",
+				  fd,
+				  iovsAddress,
+				  numIOVs,
+				  offset,
+				  numBytesWrittenAddress);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	Uptr numBytesWritten = 0;
+	const __wasi_errno_t result
+		= writeImpl(process, fd, iovsAddress, numIOVs, &offset, numBytesWritten);
+
+	// Write the number of bytes written to memory.
+	wavmAssert(numBytesWritten <= WASIADDRESS_MAX);
+	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
+
+	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" PRIuPTR ")", numBytesWritten);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -339,63 +482,15 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_READ))
-	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
+	Uptr numBytesRead = 0;
+	const __wasi_errno_t result
+		= readImpl(process, fd, iovsAddress, numIOVs, nullptr, numBytesRead);
 
-	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+	// Write the number of bytes read to memory.
+	wavmAssert(numBytesRead <= WASIADDRESS_MAX);
+	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
 
-	// Allocate memory for the VFS::IOReadBuffers.
-	VFS::IOReadBuffer* vfsReadBuffers
-		= (VFS::IOReadBuffer*)malloc(numIOVs * sizeof(VFS::IOReadBuffer));
-
-	// Catch any out-of-bounds memory access exceptions that are thrown.
-	__wasi_errno_return_t wasiResult = __WASI_ESUCCESS;
-	Runtime::catchRuntimeExceptions(
-		[&] {
-			// Translate the IOVs to VFS::IOReadBuffers.
-			const __wasi_ciovec_t* iovs
-				= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
-			U64 numBufferBytes = 0;
-			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
-			{
-				__wasi_ciovec_t iov = iovs[iovIndex];
-				vfsReadBuffers[iovIndex].data
-					= memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len);
-				vfsReadBuffers[iovIndex].numBytes = iov.buf_len;
-				numBufferBytes += iov.buf_len;
-			}
-			if(numBufferBytes > WASIADDRESS_MAX)
-			{ wasiResult = TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
-			else
-			{
-				// Do the read.
-				Uptr numBytesRead = 0;
-				const VFS::Result result
-					= wasiFD->vfd->readv(vfsReadBuffers, numIOVs, &numBytesRead);
-				wasiResult = TRACE_SYSCALL_RETURN(
-					asWASIErrNo(result), " (numBytesRead=%" PRIu64 ")", numBytesRead);
-
-				wavmAssert(numBytesRead <= numBufferBytes);
-				memoryRef<WASIAddress>(process->memory, numBytesReadAddress)
-					= WASIAddress(numBytesRead);
-			}
-		},
-		[&](Exception* exception) {
-			// If we catch an out-of-bounds memory exception, return EFAULT.
-			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
-			Log::printf(Log::debug,
-						"Caught runtime exception while reading memory at address 0x%" PRIx64,
-						getExceptionArgument(exception, 1).i64);
-			destroyException(exception);
-			wasiResult = TRACE_SYSCALL_RETURN(__WASI_EFAULT);
-		});
-
-	// Free the VFS read buffers.
-	free(vfsReadBuffers);
-
-	return wasiResult;
+	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" PRIuPTR ")", numBytesRead);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -416,63 +511,15 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	WASI::FD* wasiFD = getFD(process, fd);
-	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
-	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_WRITE))
-	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
+	Uptr numBytesWritten = 0;
+	const __wasi_errno_t result
+		= writeImpl(process, fd, iovsAddress, numIOVs, nullptr, numBytesWritten);
 
-	if(numIOVs < 0 || numIOVs > __WASI_IOV_MAX) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+	// Write the number of bytes written to memory.
+	wavmAssert(numBytesWritten <= WASIADDRESS_MAX);
+	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
-	// Allocate memory for the VFS::IOWriteBuffers.
-	VFS::IOWriteBuffer* vfsWriteBuffers
-		= (VFS::IOWriteBuffer*)malloc(numIOVs * sizeof(VFS::IOWriteBuffer));
-
-	// Catch any out-of-bounds memory access exceptions that are thrown.
-	__wasi_errno_return_t wasiResult = __WASI_ESUCCESS;
-	Runtime::catchRuntimeExceptions(
-		[&] {
-			// Translate the IOVs to VFS::IOWriteBuffers
-			const __wasi_ciovec_t* iovs
-				= memoryArrayPtr<__wasi_ciovec_t>(process->memory, iovsAddress, numIOVs);
-			U64 numBufferBytes = 0;
-			for(I32 iovIndex = 0; iovIndex < numIOVs; ++iovIndex)
-			{
-				__wasi_ciovec_t iov = iovs[iovIndex];
-				vfsWriteBuffers[iovIndex].data
-					= memoryArrayPtr<U8>(process->memory, iov.buf, iov.buf_len);
-				vfsWriteBuffers[iovIndex].numBytes = iov.buf_len;
-				numBufferBytes += iov.buf_len;
-			}
-			if(numBufferBytes > WASIADDRESS_MAX)
-			{ wasiResult = TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
-			else
-			{
-				// Do the writes.
-				Uptr numBytesWritten = 0;
-				const VFS::Result result
-					= wasiFD->vfd->writev(vfsWriteBuffers, numIOVs, &numBytesWritten);
-				wasiResult = TRACE_SYSCALL_RETURN(
-					asWASIErrNo(result), " (numBytesWritten=%" PRIu64 ")", numBytesWritten);
-
-				wavmAssert(numBytesWritten <= numBufferBytes);
-				memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress)
-					= WASIAddress(numBytesWritten);
-			}
-		},
-		[&](Exception* exception) {
-			// If we catch an out-of-bounds memory exception, return EFAULT.
-			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
-			Log::printf(Log::debug,
-						"Caught runtime exception while reading memory at address 0x%" PRIx64,
-						getExceptionArgument(exception, 1).i64);
-			destroyException(exception);
-			wasiResult = TRACE_SYSCALL_RETURN(__WASI_EFAULT);
-		});
-
-	// Free the VFS write buffers.
-	free(vfsWriteBuffers);
-
-	return wasiResult;
+	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" PRIuPTR ")", numBytesWritten);
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
