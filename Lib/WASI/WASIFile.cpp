@@ -673,7 +673,7 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
 
 	VFS::FDInfo fdInfo;
-	const VFS::Result result = wasiFD->vfd->validateFDInfo(fdInfo);
+	const VFS::Result result = wasiFD->vfd->getFDInfo(fdInfo);
 	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	__wasi_fdstat_t& fdstat = memoryRef<__wasi_fdstat_t>(process->memory, fdstatAddress);
