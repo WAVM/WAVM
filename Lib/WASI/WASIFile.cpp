@@ -128,7 +128,10 @@ static bool getCanonicalPath(const std::string& basePath,
 	Uptr componentStart = 0;
 	while(componentStart < relativePath.size())
 	{
-		Uptr nextPathSeparator = relativePath.find_first_of("\\/", componentStart, 2);
+		while(componentStart < relativePath.size() && relativePath[componentStart] == '/')
+		{ ++componentStart; }
+
+		Uptr nextPathSeparator = relativePath.find_first_of('/', componentStart);
 
 		if(nextPathSeparator == std::string::npos) { nextPathSeparator = relativePath.size(); }
 
