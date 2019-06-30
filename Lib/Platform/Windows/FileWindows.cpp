@@ -306,7 +306,9 @@ struct WindowsFD : FD
 		// If the FD has implicit syncing before reads, do it.
 		if(implicitSync == FDImplicitSync::syncContentsAfterWriteAndBeforeRead
 		   || implicitSync == FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead)
-		{ FlushFileBuffers(handle); }
+		{
+			if(!FlushFileBuffers(handle)) { return asVFSResult(GetLastError()); }
+		}
 
 		// Do the read.
 		DWORD numBytesRead = 0;
@@ -406,7 +408,10 @@ struct WindowsFD : FD
 		if(result)
 		{
 			// If the FD has implicit syncing before reads, do it.
-			if(implicitSync != FDImplicitSync::none) { FlushFileBuffers(handle); }
+			if(implicitSync != FDImplicitSync::none)
+			{
+				if(!FlushFileBuffers(handle)) { return asVFSResult(GetLastError()); }
+			}
 
 			// Write the total number of bytes written and return success.
 			if(outNumBytesWritten)
