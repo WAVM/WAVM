@@ -92,7 +92,6 @@ namespace WAVM { namespace WAST {
 #define VISIT_TOKEN(name, description, _) t_##name,
 		ENUM_TOKENS()
 #undef VISIT_TOKEN
-			numTokenTypes
 	};
 
 	PACKED_STRUCT(struct Token {

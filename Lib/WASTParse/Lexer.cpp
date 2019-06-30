@@ -32,7 +32,6 @@ namespace WAVM { namespace WAST {
 
 const char* WAST::describeToken(TokenType tokenType)
 {
-	wavmAssert(tokenType < numTokenTypes);
 	static const char* tokenDescriptions[] = {
 // This ENUM_TOKENS must come before the literalTokenPairs definition that redefines
 // VISIT_OPERATOR_TOKEN.
@@ -40,6 +39,7 @@ const char* WAST::describeToken(TokenType tokenType)
 		ENUM_TOKENS()
 #undef VISIT_TOKEN
 	};
+	wavmAssert(tokenType * sizeof(const char*) < sizeof(tokenDescriptions));
 	return tokenDescriptions[tokenType];
 }
 
