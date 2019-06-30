@@ -3,9 +3,9 @@ set(TestNames
 	args
 	cat
 	clock
+	fd_filestat_set_size
+	fd_filestat_set_times
 	fd_renumber
-	filestat_set_size
-	filestat_set_times
 	ls
 	mkdir
 	preadwrite
