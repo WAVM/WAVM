@@ -375,6 +375,17 @@ struct POSIXFD : FD
 		return fcntl(fd, F_SETFL, flags) == 0 ? Result::success : asVFSResult(errno);
 	}
 
+	virtual Result setFileSize(U64 numBytes) override
+	{
+#ifdef __linux__
+		int result = ftruncate64(fd, numBytes);
+#else
+		if(numBytes > UINT32_MAX) { return Result::exceededFileSizeLimit; }
+		int result = ftruncate(fd, U32(numBytes));
+#endif
+		return result ? asVFSResult(errno) : Result::success;
+	}
+
 	virtual Result getFileInfo(FileInfo& outInfo) override
 	{
 		struct stat fdStatus;

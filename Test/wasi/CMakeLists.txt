@@ -4,6 +4,7 @@ set(TestNames
 	cat
 	clock
 	fd_renumber
+	filestat_set_size
 	ls
 	mkdir
 	random

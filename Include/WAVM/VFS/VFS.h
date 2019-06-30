@@ -201,6 +201,7 @@ namespace WAVM { namespace VFS {
 		virtual Result getFDInfo(FDInfo& outInfo) = 0;
 		virtual Result getFileInfo(FileInfo& outInfo) = 0;
 		virtual Result setFDFlags(const FDFlags& flags) = 0;
+		virtual Result setFileSize(U64 numBytes) = 0;
 
 		virtual Result openDir(DirEntStream*& outStream) = 0;
 

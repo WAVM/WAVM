@@ -483,6 +483,15 @@ struct WindowsFD : FD
 
 		return Result::success;
 	}
+	virtual Result setFileSize(U64 numBytes)
+	{
+		FILE_END_OF_FILE_INFO endOfFileInfo;
+		endOfFileInfo.EndOfFile = makeLargeInt(numBytes);
+		return SetFileInformationByHandle(
+				   handle, FileEndOfFileInfo, &endOfFileInfo, sizeof(endOfFileInfo))
+				   ? Result::success
+				   : asVFSResult(GetLastError());
+	}
 
 	virtual Result openDir(DirEntStream*& outStream) override
 	{

@@ -1032,7 +1032,16 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  __wasi_fd_t fd,
 						  __wasi_filesize_t numBytes)
 {
-	UNIMPLEMENTED_SYSCALL("fd_filestat_set_size", "(%u, %" PRIu64 ")", fd, numBytes);
+	TRACE_SYSCALL("fd_filestat_set_size", "(%u, %" PRIu64 ")", fd, numBytes);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_FILESTAT_SET_SIZE, 0))
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
+
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(wasiFD->vfd->setFileSize(numBytes)));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,
