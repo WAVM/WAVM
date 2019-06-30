@@ -516,19 +516,17 @@ struct POSIXFD : FD
 	{
 		struct timespec timespecs[2];
 
-		if (!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
+		if(!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
 		else
 		{
-			timespecs[0].tv_sec = time_t(lastAccessTime / 1000000000);
+			timespecs[0].tv_sec = U64(lastAccessTime / 1000000000);
 			timespecs[0].tv_nsec = U32(lastAccessTime % 1000000000);
 		}
 
-		if (!setLastWriteTime) {
-			timespecs[1].tv_nsec = UTIME_OMIT;
-		}
+		if(!setLastWriteTime) { timespecs[1].tv_nsec = UTIME_OMIT; }
 		else
 		{
-			timespecs[1].tv_sec = time_t(lastWriteTime / 1000000000);
+			timespecs[1].tv_sec = U64(lastWriteTime / 1000000000);
 			timespecs[1].tv_nsec = U32(lastWriteTime % 1000000000);
 		}
 
@@ -645,14 +643,14 @@ Result Platform::setHostFileTimes(const std::string& pathName,
 	if(!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
 	else
 	{
-		timespecs[0].tv_sec = time_t(lastAccessTime / 1000000000);
+		timespecs[0].tv_sec = U64(lastAccessTime / 1000000000);
 		timespecs[0].tv_nsec = U32(lastAccessTime % 1000000000);
 	}
 
 	if(!setLastWriteTime) { timespecs[1].tv_nsec = UTIME_OMIT; }
 	else
 	{
-		timespecs[1].tv_sec = time_t(lastWriteTime / 1000000000);
+		timespecs[1].tv_sec = U64(lastWriteTime / 1000000000);
 		timespecs[1].tv_nsec = U32(lastWriteTime % 1000000000);
 	}
 
