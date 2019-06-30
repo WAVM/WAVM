@@ -52,6 +52,18 @@ struct SandboxedFileSystem : FileSystem
 	{
 		return Platform::getHostFileInfo(getHostPath(absolutePathName), outInfo);
 	}
+	virtual Result setFileTimes(const std::string& absolutePathName,
+								bool setLastAccessTime,
+								I128 lastAccessTime,
+								bool setLastWriteTime,
+								I128 lastWriteTime) override
+	{
+		return Platform::setHostFileTimes(getHostPath(absolutePathName),
+										  setLastAccessTime,
+										  lastAccessTime,
+										  setLastWriteTime,
+										  lastWriteTime);
+	}
 
 	virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) override
 	{

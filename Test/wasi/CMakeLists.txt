@@ -8,6 +8,7 @@ set(TestNames
 	fd_renumber
 	ls
 	mkdir
+	path_filestat_set_times
 	preadwrite
 	random
 	rm

@@ -634,6 +634,32 @@ Result Platform::getHostFileInfo(const std::string& pathName, VFS::FileInfo& out
 	return Result::success;
 }
 
+Result Platform::setHostFileTimes(const std::string& pathName,
+								  bool setLastAccessTime,
+								  I128 lastAccessTime,
+								  bool setLastWriteTime,
+								  I128 lastWriteTime)
+{
+	struct timespec timespecs[2];
+
+	if(!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
+	else
+	{
+		timespecs[0].tv_sec = time_t(lastAccessTime / 1000000000);
+		timespecs[0].tv_nsec = U32(lastAccessTime % 1000000000);
+	}
+
+	if(!setLastWriteTime) { timespecs[1].tv_nsec = UTIME_OMIT; }
+	else
+	{
+		timespecs[1].tv_sec = time_t(lastWriteTime / 1000000000);
+		timespecs[1].tv_nsec = U32(lastWriteTime % 1000000000);
+	}
+
+	return utimensat(AT_FDCWD, pathName.c_str(), timespecs, 0) == 0 ? Result::success
+																	: asVFSResult(errno);
+}
+
 Result Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
 {
 	DIR* dir = opendir(pathName.c_str());

@@ -390,6 +390,7 @@ struct WindowsFD : FD
 								bool setLastWriteTime,
 								I128 lastWriteTime) override
 	{
+		// Translate the times to Windows file times.
 		FILETIME lastAccessFileTime;
 		if(setLastAccessTime) { lastAccessFileTime = wavmRealTimeToFileTime(lastAccessTime); }
 		FILETIME lastWriteFileTime;
@@ -733,13 +734,51 @@ Result Platform::getHostFileInfo(const std::string& pathName, FileInfo& outInfo)
 								nullptr);
 	if(handle == INVALID_HANDLE_VALUE) { return asVFSResult(GetLastError()); }
 
-	Result getInfoResult = getFileInfoByHandle(handle, outInfo);
-	if(getInfoResult != Result::success) { return getInfoResult; }
+	const Result result = getFileInfoByHandle(handle, outInfo);
 
 	if(!CloseHandle(handle))
 	{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
 
-	return Result::success;
+	return result;
+}
+
+Result Platform::setHostFileTimes(const std::string& pathName,
+								  bool setLastAccessTime,
+								  I128 lastAccessTime,
+								  bool setLastWriteTime,
+								  I128 lastWriteTime)
+{
+	// Translate the path from UTF-8 to UTF-16.
+	std::wstring pathNameW;
+	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
+
+	// Try to open the file with no access requested.
+	HANDLE handle = CreateFileW(pathNameW.c_str(),
+								FILE_WRITE_ATTRIBUTES,
+								FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+								nullptr,
+								OPEN_EXISTING,
+								0,
+								nullptr);
+	if(handle == INVALID_HANDLE_VALUE) { return asVFSResult(GetLastError()); }
+
+	// Translate the times to Windows file times.
+	FILETIME lastAccessFileTime;
+	if(setLastAccessTime) { lastAccessFileTime = wavmRealTimeToFileTime(lastAccessTime); }
+	FILETIME lastWriteFileTime;
+	if(setLastWriteTime) { lastWriteFileTime = wavmRealTimeToFileTime(lastWriteTime); }
+
+	const VFS::Result result = SetFileTime(handle,
+										   nullptr,
+										   setLastAccessTime ? &lastAccessFileTime : nullptr,
+										   setLastWriteTime ? &lastWriteFileTime : nullptr)
+								   ? Result::success
+								   : asVFSResult(GetLastError());
+
+	if(!CloseHandle(handle))
+	{ Errors::fatalf("CloseHandle failed: GetLastError()=%u", GetLastError()); }
+
+	return result;
 }
 
 Result Platform::unlinkHostFile(const std::string& pathName)

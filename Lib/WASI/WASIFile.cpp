@@ -1220,24 +1220,68 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  "path_filestat_set_times",
 						  __wasi_errno_return_t,
 						  wasi_path_filestat_set_times,
-						  __wasi_fd_t fd,
-						  __wasi_lookupflags_t flags,
+						  __wasi_fd_t dirFD,
+						  __wasi_lookupflags_t lookupFlags,
 						  WASIAddress pathAddress,
 						  WASIAddress numPathBytes,
-						  __wasi_timestamp_t st_atim,
-						  __wasi_timestamp_t st_mtim,
-						  __wasi_fstflags_t fstflags)
+						  __wasi_timestamp_t lastAccessTime,
+						  __wasi_timestamp_t lastWriteTime,
+						  __wasi_fstflags_t flags)
 {
-	UNIMPLEMENTED_SYSCALL("path_filestat_set_times",
-						  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", %" PRIu64
-						  ", 0x%04x)",
-						  fd,
-						  flags,
-						  pathAddress,
-						  numPathBytes,
-						  st_atim,
-						  st_mtim,
-						  fstflags);
+	TRACE_SYSCALL("path_filestat_set_times",
+				  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
+				  dirFD,
+				  lookupFlags,
+				  pathAddress,
+				  numPathBytes,
+				  lastAccessTime,
+				  lastWriteTime,
+				  flags);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	std::string canonicalPath;
+	const __wasi_errno_t pathError = validatePath(process,
+												  dirFD,
+												  lookupFlags,
+												  __WASI_RIGHT_PATH_FILESTAT_SET_TIMES,
+												  0,
+												  pathAddress,
+												  numPathBytes,
+												  canonicalPath);
+	if(pathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(pathError); }
+
+	I128 now = Platform::getRealtimeClock();
+
+	bool setLastAccessTime = false;
+	I128 lastAccessTimeI128;
+	if(flags & __WASI_FILESTAT_SET_ATIM)
+	{
+		lastAccessTimeI128 = I128(lastAccessTime);
+		setLastAccessTime = true;
+	}
+	else if(flags & __WASI_FILESTAT_SET_ATIM_NOW)
+	{
+		lastAccessTimeI128 = now;
+		setLastAccessTime = true;
+	}
+
+	bool setLastWriteTime = false;
+	I128 lastWriteTimeI128;
+	if(flags & __WASI_FILESTAT_SET_MTIM)
+	{
+		lastWriteTimeI128 = I128(lastWriteTime);
+		setLastWriteTime = true;
+	}
+	else if(flags & __WASI_FILESTAT_SET_MTIM_NOW)
+	{
+		lastWriteTimeI128 = now;
+		setLastWriteTime = true;
+	}
+
+	const VFS::Result result = process->fileSystem->setFileTimes(
+		canonicalPath, setLastAccessTime, lastAccessTimeI128, setLastWriteTime, lastWriteTimeI128);
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,

@@ -248,6 +248,12 @@ namespace WAVM { namespace VFS {
 			= 0;
 
 		virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) = 0;
+		virtual Result setFileTimes(const std::string& absolutePathName,
+									bool setLastAccessTime,
+									I128 lastAccessTime,
+									bool setLastWriteTime,
+									I128 lastWriteTime)
+			= 0;
 
 		virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) = 0;
 
