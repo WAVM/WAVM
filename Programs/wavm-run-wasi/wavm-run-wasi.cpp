@@ -41,8 +41,8 @@ struct SandboxedFileSystem : FileSystem
 	virtual Result open(const std::string& absolutePathName,
 						FileAccessMode accessMode,
 						FileCreateMode createMode,
-						FD*& outFD,
-						const FDFlags& flags) override
+						VFD*& outFD,
+						const VFDFlags& flags) override
 	{
 		return Platform::openHostFile(
 			getHostPath(absolutePathName), accessMode, createMode, outFD, flags);

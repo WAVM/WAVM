@@ -5,7 +5,7 @@
 
 namespace WAVM { namespace VFS {
 	struct FileSystem;
-	struct FD;
+	struct VFD;
 }}
 
 namespace WAVM { namespace WASI {
@@ -21,9 +21,9 @@ namespace WAVM { namespace WASI {
 						   std::vector<std::string>&& inArgs,
 						   std::vector<std::string>&& inEnvs,
 						   VFS::FileSystem* fileSystem,
-						   VFS::FD* stdIn,
-						   VFS::FD* stdOut,
-						   VFS::FD* stdErr,
+						   VFS::VFD* stdIn,
+						   VFS::VFD* stdOut,
+						   VFS::VFD* stdErr,
 						   I32& outExitCode);
 
 	enum class SyscallTraceLevel

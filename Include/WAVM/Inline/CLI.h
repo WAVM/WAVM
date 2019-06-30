@@ -11,7 +11,7 @@ namespace WAVM {
 	inline bool loadFile(const char* filename, std::vector<U8>& outFileContents)
 	{
 		VFS::Result result;
-		VFS::FD* vfd = nullptr;
+		VFS::VFD* vfd = nullptr;
 		{
 			result = Platform::openHostFile(
 				filename, VFS::FileAccessMode::readOnly, VFS::FileCreateMode::openExisting, vfd);
@@ -54,7 +54,7 @@ namespace WAVM {
 	inline bool saveFile(const char* filename, const void* fileBytes, Uptr numFileBytes)
 	{
 		VFS::Result result;
-		VFS::FD* vfd = nullptr;
+		VFS::VFD* vfd = nullptr;
 		{
 			result = Platform::openHostFile(
 				filename, VFS::FileAccessMode::writeOnly, VFS::FileCreateMode::createAlways, vfd);

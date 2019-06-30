@@ -647,7 +647,7 @@ enum class ioStreamVMHandle
 	StdOut = 1,
 	StdErr = 2,
 };
-static VFS::FD* getFD(Emscripten::Instance* instance, U32 vmHandle)
+static VFS::VFD* getFD(Emscripten::Instance* instance, U32 vmHandle)
 {
 	switch((ioStreamVMHandle)vmHandle)
 	{
@@ -678,7 +678,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 						  I32 file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::FD* fd = getFD(instance, file);
+	VFS::VFD* fd = getFD(instance, file);
 	if(!fd) { return 0; }
 
 	const U64 numBytes64 = U64(size) * U64(count);
@@ -704,7 +704,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 						  I32 file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::FD* fd = getFD(instance, file);
+	VFS::VFD* fd = getFD(instance, file);
 	if(!fd) { return 0; }
 
 	const U64 numBytes64 = U64(size) * U64(count);
@@ -723,7 +723,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 DEFINE_INTRINSIC_FUNCTION(env, "_fputc", I32, _fputc, I32 character, I32 file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::FD* fd = getFD(instance, file);
+	VFS::VFD* fd = getFD(instance, file);
 	if(!fd) { return -1; }
 
 	char c = char(character);
@@ -735,7 +735,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_fputc", I32, _fputc, I32 character, I32 file)
 DEFINE_INTRINSIC_FUNCTION(env, "_fflush", I32, _fflush, I32 file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
-	VFS::FD* fd = getFD(instance, file);
+	VFS::VFD* fd = getFD(instance, file);
 	if(!fd) { return -1; }
 
 	return fd->sync(VFS::SyncType::contentsAndMetadata) == VFS::Result::success ? 0 : -1;
@@ -773,7 +773,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall145", I32, _readv, I32, I32 argsPtr)
 	U32 iov = args[1];
 	U32 iovcnt = args[2];
 
-	VFS::FD* fd = getFD(instance, file);
+	VFS::VFD* fd = getFD(instance, file);
 	if(!fd) { return -9; /* EBADF */ }
 
 	Uptr totalNumBytesRead = 0;
@@ -804,7 +804,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall146", I32, _writev, I32, U32 argsPtr)
 	U32 iov = args[1];
 	U32 iovcnt = args[2];
 
-	VFS::FD* fd = getFD(instance, file);
+	VFS::VFD* fd = getFD(instance, file);
 	if(!fd) { return -9; /* EBADF */ }
 
 	Uptr totalNumBytesWritten = 0;

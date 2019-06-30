@@ -113,34 +113,32 @@ static void getFileInfoFromStatus(const struct stat& status, FileInfo& outInfo)
 	outInfo.creationTime = timeToNS(status.st_ctime);
 }
 
-static I32 translateFDFlags(const FDFlags& vfsFlags)
+static I32 translateVFDFlags(const VFDFlags& vfsFlags)
 {
 	I32 flags = 0;
 
 	if(vfsFlags.append) { flags |= O_APPEND; }
 	if(vfsFlags.nonBlocking) { flags |= O_NONBLOCK; }
 
-	switch(vfsFlags.implicitSync)
+	switch(vfsFlags.syncLevel)
 	{
-	case FDImplicitSync::none: break;
-	case FDImplicitSync::syncContentsAfterWrite: flags |= O_DSYNC; break;
-	case FDImplicitSync::syncContentsAndMetadataAfterWrite: flags |= O_SYNC; break;
+	case VFDSync::none: break;
+	case VFDSync::contentsAfterWrite: flags |= O_DSYNC; break;
+	case VFDSync::contentsAndMetadataAfterWrite: flags |= O_SYNC; break;
 
 #ifdef __APPLE__
 		// Apple doesn't support O_RSYNC.
-	case FDImplicitSync::syncContentsAfterWriteAndBeforeRead:
+	case VFDSync::contentsAfterWriteAndBeforeRead:
 		Errors::fatal(
-			"FDImplicitSync::syncContentsAfterWriteAndBeforeRead is not yet implemented on Apple "
+			"VFDSync::contentsAfterWriteAndBeforeRead is not yet implemented on Apple "
 			"platforms.");
-	case FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
+	case VFDSync::contentsAndMetadataAfterWriteAndBeforeRead:
 		Errors::fatal(
-			"FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead is not yet implemented "
+			"VFDSync::contentsAndMetadataAfterWriteAndBeforeRead is not yet implemented "
 			"on Apple platforms.");
 #else
-	case FDImplicitSync::syncContentsAfterWriteAndBeforeRead: flags |= O_DSYNC | O_RSYNC; break;
-	case FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead:
-		flags |= O_SYNC | O_RSYNC;
-		break;
+	case VFDSync::contentsAfterWriteAndBeforeRead: flags |= O_DSYNC | O_RSYNC; break;
+	case VFDSync::contentsAndMetadataAfterWriteAndBeforeRead: flags |= O_SYNC | O_RSYNC; break;
 #endif
 
 	default: WAVM_UNREACHABLE();
@@ -232,7 +230,7 @@ private:
 	U64 maxValidOffset{0};
 };
 
-struct POSIXFD : FD
+struct POSIXFD : VFD
 {
 	const I32 fd;
 
@@ -452,7 +450,7 @@ struct POSIXFD : FD
 
 		return Result::success;
 	}
-	virtual Result getFDInfo(FDInfo& outInfo) override
+	virtual Result getVFDInfo(VFDInfo& outInfo) override
 	{
 		struct stat fdStatus;
 		if(fstat(fd, &fdStatus) != 0) { return asVFSResult(errno); }
@@ -468,34 +466,33 @@ struct POSIXFD : FD
 		if(fdFlags & O_SYNC)
 		{
 #ifdef O_RSYNC
-			outInfo.flags.implicitSync
-				= fdFlags & O_RSYNC ? FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead
-									: FDImplicitSync::syncContentsAndMetadataAfterWrite;
+			outInfo.flags.syncLevel = fdFlags & O_RSYNC
+										  ? VFDSync::contentsAndMetadataAfterWriteAndBeforeRead
+										  : VFDSync::contentsAndMetadataAfterWrite;
 #else
-			outInfo.flags.implicitSync = FDImplicitSync::syncContentsAndMetadataAfterWrite;
+			outInfo.flags.syncLevel = VFDSync::contentsAndMetadataAfterWrite;
 #endif
 		}
 		else if(fdFlags & O_DSYNC)
 		{
 #ifdef O_RSYNC
-			outInfo.flags.implicitSync = fdFlags & O_RSYNC
-											 ? FDImplicitSync::syncContentsAfterWriteAndBeforeRead
-											 : FDImplicitSync::syncContentsAfterWrite;
+			outInfo.flags.syncLevel = fdFlags & O_RSYNC ? VFDSync::contentsAfterWriteAndBeforeRead
+														: VFDSync::contentsAfterWrite;
 #else
-			outInfo.flags.implicitSync = FDImplicitSync::syncContentsAfterWrite;
+			outInfo.flags.syncLevel = VFDSync::contentsAfterWrite;
 #endif
 		}
 		else
 		{
-			outInfo.flags.implicitSync = FDImplicitSync::none;
+			outInfo.flags.syncLevel = VFDSync::none;
 		}
 
 		return Result::success;
 	}
 
-	virtual Result setFDFlags(const FDFlags& vfsFlags) override
+	virtual Result setVFDFlags(const VFDFlags& vfsFlags) override
 	{
-		const I32 flags = translateFDFlags(vfsFlags);
+		const I32 flags = translateVFDFlags(vfsFlags);
 		return fcntl(fd, F_SETFL, flags) == 0 ? Result::success : asVFSResult(errno);
 	}
 
@@ -571,7 +568,7 @@ struct POSIXStdFD : POSIXFD
 	}
 };
 
-FD* Platform::getStdFD(StdDevice device)
+VFD* Platform::getStdFD(StdDevice device)
 {
 	static POSIXStdFD* stdinVFD = new POSIXStdFD(0);
 	static POSIXStdFD* stdoutVFD = new POSIXStdFD(1);
@@ -588,8 +585,8 @@ FD* Platform::getStdFD(StdDevice device)
 Result Platform::openHostFile(const std::string& pathName,
 							  FileAccessMode accessMode,
 							  FileCreateMode createMode,
-							  FD*& outFD,
-							  const FDFlags& vfsFlags)
+							  VFD*& outFD,
+							  const VFDFlags& vfsFlags)
 {
 	U32 flags = 0;
 	switch(accessMode)
@@ -613,7 +610,7 @@ Result Platform::openHostFile(const std::string& pathName,
 
 	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
-	flags |= translateFDFlags(vfsFlags);
+	flags |= translateVFDFlags(vfsFlags);
 
 	const I32 fd = open(pathName.c_str(), flags, mode);
 	if(fd == -1) { return asVFSResult(errno); }

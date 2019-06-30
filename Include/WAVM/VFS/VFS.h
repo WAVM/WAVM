@@ -49,16 +49,16 @@ namespace WAVM { namespace VFS {
 		pipe
 	};
 
-	enum class FDImplicitSync
+	enum class VFDSync
 	{
 		none,
-		syncContentsAfterWrite,
-		syncContentsAndMetadataAfterWrite,
-		syncContentsAfterWriteAndBeforeRead,
-		syncContentsAndMetadataAfterWriteAndBeforeRead
+		contentsAfterWrite,
+		contentsAndMetadataAfterWrite,
+		contentsAfterWriteAndBeforeRead,
+		contentsAndMetadataAfterWriteAndBeforeRead
 	};
 
-	struct FDFlags
+	struct VFDFlags
 	{
 		// If true, writes will always occur at the end of the file.
 		bool append{false};
@@ -67,13 +67,13 @@ namespace WAVM { namespace VFS {
 		bool nonBlocking{false};
 
 		// The amount of synchronization implied for reads and writes.
-		FDImplicitSync implicitSync{FDImplicitSync::none};
+		VFDSync syncLevel{VFDSync::none};
 	};
 
-	struct FDInfo
+	struct VFDInfo
 	{
 		FileType type;
-		FDFlags flags;
+		VFDFlags flags;
 	};
 
 	struct FileInfo
@@ -180,7 +180,7 @@ namespace WAVM { namespace VFS {
 		virtual bool seek(U64 offset) = 0;
 	};
 
-	struct FD
+	struct VFD
 	{
 		// Closes the FD. If CloseResult::success is returned, also deletes this FD.
 		virtual Result close() = 0;
@@ -209,9 +209,9 @@ namespace WAVM { namespace VFS {
 
 		virtual Result sync(SyncType type) = 0;
 
-		virtual Result getFDInfo(FDInfo& outInfo) = 0;
+		virtual Result getVFDInfo(VFDInfo& outInfo) = 0;
 		virtual Result getFileInfo(FileInfo& outInfo) = 0;
-		virtual Result setFDFlags(const FDFlags& flags) = 0;
+		virtual Result setVFDFlags(const VFDFlags& flags) = 0;
 		virtual Result setFileSize(U64 numBytes) = 0;
 		virtual Result setFileTimes(bool setLastAccessTime,
 									I128 lastAccessTime,
@@ -233,7 +233,7 @@ namespace WAVM { namespace VFS {
 		}
 
 	protected:
-		virtual ~FD() {}
+		virtual ~VFD() {}
 	};
 
 	struct FileSystem
@@ -243,8 +243,8 @@ namespace WAVM { namespace VFS {
 		virtual Result open(const std::string& absolutePathName,
 							FileAccessMode accessMode,
 							FileCreateMode createMode,
-							FD*& outFD,
-							const FDFlags& flags = FDFlags{})
+							VFD*& outFD,
+							const VFDFlags& flags = VFDFlags{})
 			= 0;
 
 		virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) = 0;

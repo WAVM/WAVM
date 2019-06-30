@@ -238,20 +238,20 @@ private:
 	Uptr nextReadIndex{0};
 };
 
-struct WindowsFD : FD
+struct WindowsFD : VFD
 {
 	WindowsFD(HANDLE inHandle,
 			  DWORD inDesiredAccess,
 			  DWORD inShareMode,
 			  DWORD inFlagsAndAttributes,
 			  bool inNonBlocking,
-			  FDImplicitSync inImplicitSync)
+			  VFDSync inImplicitSync)
 	: handle(inHandle)
 	, desiredAccess(inDesiredAccess)
 	, shareMode(inShareMode)
 	, flagsAndAttributes(inFlagsAndAttributes)
 	, nonBlocking(inNonBlocking)
-	, implicitSync(inImplicitSync)
+	, syncLevel(inImplicitSync)
 	{
 		wavmAssert(handle != INVALID_HANDLE_VALUE);
 	}
@@ -330,14 +330,14 @@ struct WindowsFD : FD
 		return FlushFileBuffers(handle) ? Result::success : asVFSResult(GetLastError());
 	}
 
-	virtual Result getFDInfo(FDInfo& outInfo) override
+	virtual Result getVFDInfo(VFDInfo& outInfo) override
 	{
 		const Result getTypeResult = getFileType(handle, outInfo.type);
 		if(getTypeResult != Result::success) { return getTypeResult; }
 
 		outInfo.flags.append = desiredAccess & FILE_APPEND_DATA;
 		outInfo.flags.nonBlocking = nonBlocking;
-		outInfo.flags.implicitSync = implicitSync;
+		outInfo.flags.syncLevel = syncLevel;
 		return Result::success;
 	}
 	virtual Result getFileInfo(FileInfo& outInfo) override
@@ -345,7 +345,7 @@ struct WindowsFD : FD
 		return getFileInfoByHandle(handle, outInfo);
 	}
 
-	virtual Result setFDFlags(const FDFlags& flags)
+	virtual Result setVFDFlags(const VFDFlags& flags)
 	{
 		const DWORD originalDesiredAccess = desiredAccess;
 		if(originalDesiredAccess & (GENERIC_WRITE | FILE_APPEND_DATA))
@@ -372,7 +372,7 @@ struct WindowsFD : FD
 		}
 
 		nonBlocking = flags.nonBlocking;
-		implicitSync = flags.implicitSync;
+		syncLevel = flags.syncLevel;
 
 		return Result::success;
 	}
@@ -444,7 +444,7 @@ private:
 	DWORD shareMode;
 	DWORD flagsAndAttributes;
 	bool nonBlocking;
-	FDImplicitSync implicitSync;
+	VFDSync syncLevel;
 
 	Result readImpl(void* buffer,
 					U32 numBufferBytesU32,
@@ -452,8 +452,8 @@ private:
 					Uptr* outNumBytesRead)
 	{
 		// If the FD has implicit syncing before reads, do it.
-		if(implicitSync == FDImplicitSync::syncContentsAfterWriteAndBeforeRead
-		   || implicitSync == FDImplicitSync::syncContentsAndMetadataAfterWriteAndBeforeRead)
+		if(syncLevel == VFDSync::contentsAfterWriteAndBeforeRead
+		   || syncLevel == VFDSync::contentsAndMetadataAfterWriteAndBeforeRead)
 		{
 			if(!FlushFileBuffers(handle)) { return asVFSResult(GetLastError()); }
 		}
@@ -552,7 +552,7 @@ private:
 		}
 
 		// If the FD has implicit syncing after writes, do it.
-		if(implicitSync != FDImplicitSync::none)
+		if(syncLevel != VFDSync::none)
 		{
 			if(!FlushFileBuffers(handle)) { return asVFSResult(GetLastError()); }
 		}
@@ -618,7 +618,7 @@ private:
 
 struct WindowsStdFD : WindowsFD
 {
-	WindowsStdFD(HANDLE inHandle, DWORD inDesiredAccess, FDImplicitSync inImplicitSync)
+	WindowsStdFD(HANDLE inHandle, DWORD inDesiredAccess, VFDSync inImplicitSync)
 	: WindowsFD(inHandle,
 				inDesiredAccess,
 				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -635,14 +635,14 @@ struct WindowsStdFD : WindowsFD
 	}
 };
 
-FD* Platform::getStdFD(StdDevice device)
+VFD* Platform::getStdFD(StdDevice device)
 {
 	static WindowsStdFD* stdinVFD
-		= new WindowsStdFD(GetStdHandle(STD_INPUT_HANDLE), GENERIC_READ, FDImplicitSync::none);
+		= new WindowsStdFD(GetStdHandle(STD_INPUT_HANDLE), GENERIC_READ, VFDSync::none);
 	static WindowsStdFD* stdoutVFD
-		= new WindowsStdFD(GetStdHandle(STD_OUTPUT_HANDLE), FILE_APPEND_DATA, FDImplicitSync::none);
+		= new WindowsStdFD(GetStdHandle(STD_OUTPUT_HANDLE), FILE_APPEND_DATA, VFDSync::none);
 	static WindowsStdFD* stderrVFD
-		= new WindowsStdFD(GetStdHandle(STD_ERROR_HANDLE), FILE_APPEND_DATA, FDImplicitSync::none);
+		= new WindowsStdFD(GetStdHandle(STD_ERROR_HANDLE), FILE_APPEND_DATA, VFDSync::none);
 
 	switch(device)
 	{
@@ -656,8 +656,8 @@ FD* Platform::getStdFD(StdDevice device)
 Result Platform::openHostFile(const std::string& pathName,
 							  FileAccessMode accessMode,
 							  FileCreateMode createMode,
-							  FD*& outFD,
-							  const FDFlags& flags)
+							  VFD*& outFD,
+							  const VFDFlags& flags)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
@@ -709,12 +709,8 @@ Result Platform::openHostFile(const std::string& pathName,
 								nullptr);
 	if(handle == INVALID_HANDLE_VALUE) { return asVFSResult(GetLastError()); }
 
-	outFD = new WindowsFD(handle,
-						  desiredAccess,
-						  shareMode,
-						  flagsAndAttributes,
-						  flags.nonBlocking,
-						  flags.implicitSync);
+	outFD = new WindowsFD(
+		handle, desiredAccess, shareMode, flagsAndAttributes, flags.nonBlocking, flags.syncLevel);
 	return Result::success;
 }
 

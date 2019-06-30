@@ -169,7 +169,7 @@ DEFINE_INTRINSIC_FUNCTION(wasi, "sched_yield", __wasi_errno_return_t, wasi_sched
 
 WASI::Process::~Process()
 {
-	for(const WASI::FD& fd : fds)
+	for(const WASI::FDE& fd : fds)
 	{
 		if(fd.close() != VFS::Result::success)
 		{
@@ -188,9 +188,9 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 						  std::vector<std::string>&& inArgs,
 						  std::vector<std::string>&& inEnvs,
 						  VFS::FileSystem* fileSystem,
-						  VFS::FD* stdIn,
-						  VFS::FD* stdOut,
-						  VFS::FD* stdErr,
+						  VFS::VFD* stdIn,
+						  VFS::VFD* stdOut,
+						  VFS::VFD* stdErr,
 						  I32& outExitCode)
 {
 	Process* process = new Process;
@@ -215,13 +215,13 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 								  | __WASI_RIGHT_FD_WRITE | __WASI_RIGHT_FD_FILESTAT_GET
 								  | __WASI_RIGHT_POLL_FD_READWRITE;
 
-	process->fds.insertOrFail(0, FD(stdIn, stdioRights, 0, "/dev/stdin"));
-	process->fds.insertOrFail(1, FD(stdOut, stdioRights, 0, "/dev/stdout"));
-	process->fds.insertOrFail(2, FD(stdErr, stdioRights, 0, "/dev/stderr"));
+	process->fds.insertOrFail(0, FDE(stdIn, stdioRights, 0, "/dev/stdin"));
+	process->fds.insertOrFail(1, FDE(stdOut, stdioRights, 0, "/dev/stdout"));
+	process->fds.insertOrFail(2, FDE(stdErr, stdioRights, 0, "/dev/stderr"));
 
 	if(fileSystem)
 	{
-		VFS::FD* rootFD = nullptr;
+		VFS::VFD* rootFD = nullptr;
 		const VFS::Result openResult = fileSystem->open(
 			"/", VFS::FileAccessMode::none, VFS::FileCreateMode::openExisting, rootFD);
 		if(openResult != VFS::Result::success)
@@ -231,12 +231,12 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 		}
 
 		process->fds.insertOrFail(3,
-								  FD{rootFD,
-									 DIRECTORY_RIGHTS,
-									 INHERITING_DIRECTORY_RIGHTS,
-									 "/",
-									 true,
-									 __WASI_PREOPENTYPE_DIR});
+								  FDE(rootFD,
+									  DIRECTORY_RIGHTS,
+									  INHERITING_DIRECTORY_RIGHTS,
+									  "/",
+									  true,
+									  __WASI_PREOPENTYPE_DIR));
 	}
 
 	process->processClockOrigin = Platform::getProcessClock();

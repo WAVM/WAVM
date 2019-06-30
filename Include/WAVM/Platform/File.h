@@ -15,13 +15,13 @@ namespace WAVM { namespace Platform {
 		err,
 	};
 
-	PLATFORM_API VFS::FD* getStdFD(StdDevice device);
+	PLATFORM_API VFS::VFD* getStdFD(StdDevice device);
 
 	PLATFORM_API VFS::Result openHostFile(const std::string& pathName,
 										  VFS::FileAccessMode accessMode,
 										  VFS::FileCreateMode createMode,
-										  VFS::FD*& outFD,
-										  const VFS::FDFlags& flags = VFS::FDFlags{});
+										  VFS::VFD*& outFD,
+										  const VFS::VFDFlags& flags = VFS::VFDFlags{});
 
 	PLATFORM_API VFS::Result getHostFileInfo(const std::string& pathName, VFS::FileInfo& outInfo);
 	PLATFORM_API VFS::Result setHostFileTimes(const std::string& pathName,

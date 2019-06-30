@@ -47,13 +47,13 @@
 namespace WAVM { namespace VFS {
 	enum class Result;
 	struct DirEntStream;
-	struct FD;
+	struct VFD;
 }}
 
 namespace WAVM { namespace WASI {
-	struct FD
+	struct FDE
 	{
-		VFS::FD* vfd;
+		VFS::VFD* vfd;
 		__wasi_rights_t rights;
 		__wasi_rights_t inheritingRights;
 
@@ -64,12 +64,12 @@ namespace WAVM { namespace WASI {
 
 		VFS::DirEntStream* dirEntStream{nullptr};
 
-		FD(VFS::FD* inVFD,
-		   __wasi_rights_t inRights,
-		   __wasi_rights_t inInheritingRights,
-		   std::string&& inOriginalPath,
-		   bool inIsPreopened = false,
-		   __wasi_preopentype_t inPreopenedType = __WASI_PREOPENTYPE_DIR)
+		FDE(VFS::VFD* inVFD,
+			__wasi_rights_t inRights,
+			__wasi_rights_t inInheritingRights,
+			std::string&& inOriginalPath,
+			bool inIsPreopened = false,
+			__wasi_preopentype_t inPreopenedType = __WASI_PREOPENTYPE_DIR)
 		: vfd(inVFD)
 		, rights(inRights)
 		, inheritingRights(inInheritingRights)
@@ -101,7 +101,7 @@ namespace WAVM { namespace WASI {
 		std::vector<std::string> args;
 		std::vector<std::string> envs;
 
-		IndexMap<__wasi_fd_t, WASI::FD> fds{0, INT32_MAX};
+		IndexMap<__wasi_fd_t, WASI::FDE> fds{0, INT32_MAX};
 		VFS::FileSystem* fileSystem = nullptr;
 
 		ProcessResolver resolver;

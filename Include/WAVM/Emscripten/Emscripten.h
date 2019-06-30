@@ -10,7 +10,7 @@ namespace WAVM { namespace IR {
 }}
 
 namespace WAVM { namespace VFS {
-	struct FD;
+	struct VFD;
 }}
 
 namespace WAVM { namespace Emscripten {
@@ -26,9 +26,9 @@ namespace WAVM { namespace Emscripten {
 
 		U32 errnoAddress{0};
 
-		WAVM::VFS::FD* stdIn{nullptr};
-		WAVM::VFS::FD* stdOut{nullptr};
-		WAVM::VFS::FD* stdErr{nullptr};
+		WAVM::VFS::VFD* stdIn{nullptr};
+		WAVM::VFS::VFD* stdOut{nullptr};
+		WAVM::VFS::VFD* stdErr{nullptr};
 	};
 
 	EMSCRIPTEN_API Instance* instantiate(Runtime::Compartment* compartment,

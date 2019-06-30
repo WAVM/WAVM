@@ -18,7 +18,7 @@ static std::atomic<bool> categoryEnabled[(Uptr)Category::num] = {
 	{true},                     // output
 };
 
-static VFS::FD* getFileForCategory(Log::Category category)
+static VFS::VFD* getFileForCategory(Log::Category category)
 {
 	return category == Log::error ? Platform::getStdFD(Platform::StdDevice::err)
 								  : Platform::getStdFD(Platform::StdDevice::out);
@@ -60,7 +60,7 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 		char* buffer = (char*)alloca(numBufferBytes);
 		vsnprintf(buffer, numBufferBytes, format, argList);
 
-		VFS::FD* fd = getFileForCategory(category);
+		VFS::VFD* fd = getFileForCategory(category);
 		Uptr numBytesWritten = 0;
 		errorUnless(fd->write(buffer, numChars, &numBytesWritten) == VFS::Result::success);
 		errorUnless(numBytesWritten == U32(numChars));
