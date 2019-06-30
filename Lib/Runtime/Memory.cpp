@@ -298,32 +298,30 @@ void Runtime::initDataSegment(ModuleInstance* moduleInstance,
 							  Uptr numBytes)
 {
 	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
-
-	if(sourceOffset + numBytes > dataVector->size() || sourceOffset + numBytes < sourceOffset)
+	if(numBytes)
 	{
-		// If the source range is outside the bounds of the data segment, copy the part
-		// that is in range, then trap.
-		if(sourceOffset < dataVector->size())
+		if(sourceOffset + numBytes > dataVector->size() || sourceOffset + numBytes < sourceOffset)
 		{
-			Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, dataVector] {
-				Platform::bytewiseMemCopy(destPointer,
-										  dataVector->data() + sourceOffset,
-										  dataVector->size() - sourceOffset);
+			// If the source range is outside the bounds of the data segment, copy the part
+			// that is in range, then trap.
+			if(sourceOffset < dataVector->size())
+			{
+				Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, dataVector] {
+					Platform::bytewiseMemCopy(destPointer,
+											  dataVector->data() + sourceOffset,
+											  dataVector->size() - sourceOffset);
+				});
+			}
+			throwException(
+				ExceptionTypes::outOfBoundsDataSegmentAccess,
+				{asObject(moduleInstance), U64(dataSegmentIndex), U64(dataVector->size())});
+		}
+		else
+		{
+			Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, numBytes, dataVector] {
+				Platform::bytewiseMemCopy(destPointer, dataVector->data() + sourceOffset, numBytes);
 			});
 		}
-		throwException(ExceptionTypes::outOfBoundsDataSegmentAccess,
-					   {asObject(moduleInstance), U64(dataSegmentIndex), U64(dataVector->size())});
-	}
-	else if(numBytes)
-	{
-		Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, numBytes, dataVector] {
-			Platform::bytewiseMemCopy(destPointer, dataVector->data() + sourceOffset, numBytes);
-		});
-	}
-	else if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
-	{
-		// WebAssembly expects 0-sized inits to still trap for out-of-bounds addresses.
-		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)});
 	}
 }
 
@@ -418,26 +416,8 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	U8* destPointer = getReservedMemoryOffsetRange(destMemory, destAddress, numBytes);
 	U8* sourcePointer = getReservedMemoryOffsetRange(sourceMemory, sourceAddress, numBytes);
 
-	if(numBytes)
-	{
-		unwindSignalsAsExceptions(
-			[=] { Platform::bytewiseMemMove(destPointer, sourcePointer, numBytes); });
-	}
-	else
-	{
-		// WebAssembly expects 0-sized copies to still trap for out-of-bounds addresses.
-		const Uptr numSourceMemoryBytes = getMemoryNumPages(sourceMemory) * IR::numBytesPerPage;
-		const Uptr numDestMemoryBytes = getMemoryNumPages(destMemory) * IR::numBytesPerPage;
-		if(destAddress > numDestMemoryBytes)
-		{
-			throwException(ExceptionTypes::outOfBoundsMemoryAccess, {destMemory, U64(destAddress)});
-		}
-		else if(sourceAddress > numSourceMemoryBytes)
-		{
-			throwException(ExceptionTypes::outOfBoundsMemoryAccess,
-						   {sourceMemory, U64(sourceAddress)});
-		}
-	}
+	unwindSignalsAsExceptions(
+		[=] { Platform::bytewiseMemMove(destPointer, sourcePointer, numBytes); });
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
@@ -452,14 +432,5 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
-	if(numBytes)
-	{
-		unwindSignalsAsExceptions(
-			[=] { Platform::bytewiseMemSet(destPointer, U8(value), numBytes); });
-	}
-	else if(destAddress > getMemoryNumPages(memory) * IR::numBytesPerPage)
-	{
-		// WebAssembly expects 0-sized fills to still trap for out-of-bounds adddresses.
-		throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, U64(destAddress)});
-	}
+	unwindSignalsAsExceptions([=] { Platform::bytewiseMemSet(destPointer, U8(value), numBytes); });
 }

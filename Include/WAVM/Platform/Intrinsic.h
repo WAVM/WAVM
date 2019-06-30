@@ -134,15 +134,13 @@ namespace WAVM { namespace Platform {
 #endif
 	}
 
-	// Byte-wise memmove: this uses the above byte-wise memcpy, but if the source and destination
-	// buffers overlap so the copy would overwrite the end of the source buffer before it is copied
-	// from, then split the copy into two: the overlapping end of the source buffer is copied first,
-	// so it can be overwritten by the second copy safely.
+	// Byte-wise memmove: if the source address is lower than the destination address, then copy in
+	// reverse order. This ensures that if the source and destination address ranges overlap, the
+	// source bytes will be copied before they are overwritten.
 
 	inline void bytewiseMemMove(U8* dest, U8* source, Uptr numBytes)
 	{
-		if(source < dest && source + numBytes > dest)
-		{ bytewiseMemCopyReverse(dest, source, numBytes); }
+		if(source < dest) { bytewiseMemCopyReverse(dest, source, numBytes); }
 		else
 		{
 			bytewiseMemCopy(dest, source, numBytes);

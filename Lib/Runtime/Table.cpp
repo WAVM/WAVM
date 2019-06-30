@@ -121,8 +121,8 @@ static Iptr growTableImpl(Table* table,
 	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
 	if(newNumPlatformPages != previousNumPlatformPages
 	   && !Platform::commitVirtualPages(
-			  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-			  newNumPlatformPages - previousNumPlatformPages))
+		   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+		   newNumPlatformPages - previousNumPlatformPages))
 	{ return -1; }
 
 	if(initializeNewElements)
@@ -426,44 +426,28 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 							  Uptr sourceOffset,
 							  Uptr numElems)
 {
-	if(!numElems)
+	for(Uptr index = 0; index < numElems; ++index)
 	{
-		// WebAssembly expects 0-sized inits to still trap for out-of-bounds adddresses.
-		if(sourceOffset > elemVector->size())
+		const Uptr sourceIndex = sourceOffset + index;
+		const Uptr destIndex = destOffset + index;
+		if(sourceIndex >= elemVector->size() || sourceIndex < sourceOffset)
 		{
 			throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
-						   {asObject(moduleInstance), U64(elemSegmentIndex), sourceOffset});
+						   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
 		}
-		else if(destOffset > getTableNumElements(table))
-		{
-			throwException(ExceptionTypes::outOfBoundsTableAccess, {table, U64(destOffset)});
-		}
-	}
-	else
-	{
-		for(Uptr index = 0; index < numElems; ++index)
-		{
-			const Uptr sourceIndex = sourceOffset + index;
-			const Uptr destIndex = destOffset + index;
-			if(sourceIndex >= elemVector->size() || sourceIndex < sourceOffset)
-			{
-				throwException(ExceptionTypes::outOfBoundsElemSegmentAccess,
-							   {asObject(moduleInstance), U64(elemSegmentIndex), sourceIndex});
-			}
 
-			const IR::Elem& elem = (*elemVector)[sourceIndex];
-			Object* elemObject = nullptr;
-			switch(elem.type)
-			{
-			case IR::Elem::Type::ref_null: elemObject = nullptr; break;
-			case IR::Elem::Type::ref_func:
-				elemObject = asObject(moduleInstance->functions[elem.index]);
-				break;
-			default: WAVM_UNREACHABLE();
-			}
-
-			setTableElement(table, destIndex, elemObject);
+		const IR::Elem& elem = (*elemVector)[sourceIndex];
+		Object* elemObject = nullptr;
+		switch(elem.type)
+		{
+		case IR::Elem::Type::ref_null: elemObject = nullptr; break;
+		case IR::Elem::Type::ref_func:
+			elemObject = asObject(moduleInstance->functions[elem.index]);
+			break;
+		default: WAVM_UNREACHABLE();
 		}
+
+		setTableElement(table, destIndex, elemObject);
 	}
 }
 
@@ -581,25 +565,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 		Table* sourceTable = getTableFromRuntimeData(contextRuntimeData, sourceTableId);
 		Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
 
-		if(!numElements)
+		if(sourceOffset < destOffset)
 		{
-			// WebAssembly expects 0-sized copies to still trap for out-of-bounds addresses.
-			if(sourceOffset > getTableNumElements(sourceTable))
-			{
-				throwException(ExceptionTypes::outOfBoundsTableAccess,
-							   {sourceTable, U64(sourceOffset)});
-			}
-			else if(destOffset > getTableNumElements(destTable))
-			{
-				throwException(ExceptionTypes::outOfBoundsTableAccess,
-							   {destTable, U64(destOffset)});
-			}
-		}
-		else if(sourceOffset < destOffset && U64(sourceOffset) + U64(numElements) > destOffset)
-		{
-			// If the end of the source range overlaps the beginning of the destination range,
-			// copy the elements in reverse order so source elements are copied before they are
-			// overwritten.
+			// When copying to higher indices, copy the elements in descending order to ensure that
+			// source elements may only be overwritten after they have been copied.
 			for(Uptr index = 0; index < numElements; ++index)
 			{
 				setTableElementNonNull(
@@ -636,19 +605,10 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	// If the value is null, write the uninitialized sentinel value instead.
 	if(!value) { value = getUninitializedElement(); }
 
-	if(!numElements)
-	{
-		// WebAssembly expects 0-sized fills to still trap for out-of-bounds addresses.
-		if(destOffset > getTableNumElements(destTable))
-		{ throwException(ExceptionTypes::outOfBoundsTableAccess, {destTable, U64(destOffset)}); }
-	}
-	else
-	{
-		Runtime::unwindSignalsAsExceptions([=] {
-			for(Uptr index = 0; index < numElements; ++index)
-			{ setTableElementNonNull(destTable, U64(destOffset) + U64(index), value); }
-		});
-	}
+	Runtime::unwindSignalsAsExceptions([=] {
+		for(Uptr index = 0; index < numElements; ++index)
+		{ setTableElementNonNull(destTable, U64(destOffset) + U64(index), value); }
+	});
 }
 
 DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
