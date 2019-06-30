@@ -1,10 +1,10 @@
 #include <dirent.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-#include <limits.h>
 
 int main(int argc, char** argv)
 {
@@ -39,7 +39,7 @@ int main(int argc, char** argv)
 			default: typeString = "?"; break;
 			};
 
-			printf("%s : %s -> %" PRIu64"\n", dirent->d_name, typeString, dirent->d_ino);
+			printf("%s : %s -> %" PRIu64 "\n", dirent->d_name, typeString, dirent->d_ino);
 		}
 		else if(errno)
 		{
