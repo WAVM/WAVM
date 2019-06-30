@@ -385,6 +385,23 @@ struct WindowsFD : FD
 				   ? Result::success
 				   : asVFSResult(GetLastError());
 	}
+	virtual Result setFileTimes(bool setLastAccessTime,
+								I128 lastAccessTime,
+								bool setLastWriteTime,
+								I128 lastWriteTime) override
+	{
+		FILETIME lastAccessFileTime;
+		if(setLastAccessTime) { lastAccessFileTime = wavmRealTimeToFileTime(lastAccessTime); }
+		FILETIME lastWriteFileTime;
+		if(setLastWriteTime) { lastWriteFileTime = wavmRealTimeToFileTime(lastWriteTime); }
+
+		return SetFileTime(handle,
+						   nullptr,
+						   setLastAccessTime ? &lastAccessFileTime : nullptr,
+						   setLastWriteTime ? &lastWriteFileTime : nullptr)
+				   ? Result::success
+				   : asVFSResult(GetLastError());
+	}
 
 	virtual Result openDir(DirEntStream*& outStream) override
 	{

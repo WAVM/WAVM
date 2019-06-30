@@ -507,7 +507,32 @@ struct POSIXFD : FD
 		if(numBytes > UINT32_MAX) { return Result::exceededFileSizeLimit; }
 		int result = ftruncate(fd, U32(numBytes));
 #endif
-		return result ? asVFSResult(errno) : Result::success;
+		return result == 0 ? Result::success : asVFSResult(errno);
+	}
+	virtual Result setFileTimes(bool setLastAccessTime,
+								I128 lastAccessTime,
+								bool setLastWriteTime,
+								I128 lastWriteTime) override
+	{
+		struct timespec timespecs[2];
+
+		if (!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
+		else
+		{
+			timespecs[0].tv_sec = time_t(lastAccessTime / 1000000000);
+			timespecs[0].tv_nsec = U32(lastAccessTime % 1000000000);
+		}
+
+		if (!setLastWriteTime) {
+			timespecs[1].tv_nsec = UTIME_OMIT;
+		}
+		else
+		{
+			timespecs[1].tv_sec = time_t(lastWriteTime / 1000000000);
+			timespecs[1].tv_nsec = U32(lastWriteTime % 1000000000);
+		}
+
+		return futimens(fd, timespecs) == 0 ? Result::success : asVFSResult(errno);
 	}
 
 	virtual Result getFileInfo(FileInfo& outInfo) override

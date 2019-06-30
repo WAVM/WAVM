@@ -15,6 +15,15 @@ static I128 fileTimeToI128(FILETIME fileTime)
 							* 100);
 }
 
+static FILETIME i128ToFileTime(I128 i128)
+{
+	U64 fileTime64 = U64(assumeNoOverflow(i128 / 100));
+	FILETIME result;
+	result.dwLowDateTime = U32(fileTime64);
+	result.dwHighDateTime = U32(fileTime64 >> 32);
+	return result;
+}
+
 static I128 getRealtimeClockOrigin()
 {
 	SYSTEMTIME systemTime;
@@ -31,11 +40,20 @@ static I128 getRealtimeClockOrigin()
 	return fileTimeToI128(fileTime);
 }
 
-I128 Platform::fileTimeToWAVMRealTime(FILETIME fileTime)
+static const I128& getCachedRealtimeClockOrigin()
 {
 	static const I128 cachedRealtimeClockOrigin = getRealtimeClockOrigin();
+	return cachedRealtimeClockOrigin;
+}
 
-	return fileTimeToI128(fileTime) - cachedRealtimeClockOrigin;
+I128 Platform::fileTimeToWAVMRealTime(FILETIME fileTime)
+{
+	return fileTimeToI128(fileTime) - getCachedRealtimeClockOrigin();
+}
+
+FILETIME Platform::wavmRealTimeToFileTime(I128 realTime)
+{
+	return i128ToFileTime(getCachedRealtimeClockOrigin() + realTime);
 }
 
 I128 Platform::getRealtimeClock()

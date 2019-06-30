@@ -213,6 +213,11 @@ namespace WAVM { namespace VFS {
 		virtual Result getFileInfo(FileInfo& outInfo) = 0;
 		virtual Result setFDFlags(const FDFlags& flags) = 0;
 		virtual Result setFileSize(U64 numBytes) = 0;
+		virtual Result setFileTimes(bool setLastAccessTime,
+									I128 lastAccessTime,
+									bool setLastWriteTime,
+									I128 lastWriteTime)
+			= 0;
 
 		virtual Result openDir(DirEntStream*& outStream) = 0;
 

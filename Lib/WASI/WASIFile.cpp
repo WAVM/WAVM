@@ -2,6 +2,7 @@
 #include "./WASITypes.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Clock.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
 
@@ -1060,16 +1061,56 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  __wasi_errno_return_t,
 						  wasi_fd_filestat_set_times,
 						  __wasi_fd_t fd,
-						  __wasi_timestamp_t st_atim,
-						  __wasi_timestamp_t st_mtim,
-						  __wasi_fstflags_t fstflags)
+						  __wasi_timestamp_t lastAccessTime,
+						  __wasi_timestamp_t lastWriteTime,
+						  __wasi_fstflags_t flags)
 {
-	UNIMPLEMENTED_SYSCALL("fd_filestat_set_times",
-						  "(%u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
-						  fd,
-						  st_atim,
-						  st_mtim,
-						  fstflags);
+	TRACE_SYSCALL("fd_filestat_set_times",
+				  "(%u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
+				  fd,
+				  lastAccessTime,
+				  lastWriteTime,
+				  flags);
+
+	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
+
+	WASI::FD* wasiFD = getFD(process, fd);
+	if(!wasiFD) { return TRACE_SYSCALL_RETURN(__WASI_EBADF); }
+	if(!checkFDRights(wasiFD, __WASI_RIGHT_FD_FILESTAT_SET_TIMES, 0))
+	{ return TRACE_SYSCALL_RETURN(__WASI_ENOTCAPABLE); }
+
+	I128 now = Platform::getRealtimeClock();
+
+	bool setLastAccessTime = false;
+	I128 lastAccessTimeI128;
+	if(flags & __WASI_FILESTAT_SET_ATIM)
+	{
+		lastAccessTimeI128 = I128(lastAccessTime);
+		setLastAccessTime = true;
+	}
+	else if(flags & __WASI_FILESTAT_SET_ATIM_NOW)
+	{
+		lastAccessTimeI128 = now;
+		setLastAccessTime = true;
+	}
+
+	bool setLastWriteTime = false;
+	I128 lastWriteTimeI128;
+	if(flags & __WASI_FILESTAT_SET_MTIM)
+	{
+		lastWriteTimeI128 = I128(lastWriteTime);
+		setLastWriteTime = true;
+	}
+	else if(flags & __WASI_FILESTAT_SET_MTIM_NOW)
+	{
+		lastWriteTimeI128 = now;
+		setLastWriteTime = true;
+	}
+
+	const VFS::Result result = wasiFD->vfd->setFileTimes(
+		setLastAccessTime, lastAccessTimeI128, setLastWriteTime, lastWriteTimeI128);
+
+	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
 DEFINE_INTRINSIC_FUNCTION(wasiFile,

@@ -65,4 +65,5 @@ namespace WAVM { namespace Platform {
 	CallStack unwindStack(const CONTEXT& immutableContext, Uptr numOmittedFramesFromTop);
 
 	I128 fileTimeToWAVMRealTime(FILETIME fileTime);
+	FILETIME wavmRealTimeToFileTime(I128 realTime);
 }}

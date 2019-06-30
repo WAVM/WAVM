@@ -5,6 +5,7 @@ set(TestNames
 	clock
 	fd_renumber
 	filestat_set_size
+	filestat_set_times
 	ls
 	mkdir
 	preadwrite
