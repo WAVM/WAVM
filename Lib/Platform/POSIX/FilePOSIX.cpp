@@ -209,7 +209,7 @@ struct POSIXDirEntStream : DirEntStream
 	virtual U64 tell() override
 	{
 		const long offset = telldir(dir);
-		errorUnless(offset >= 0 && (unsigned long)offset <= UINT64_MAX);
+		errorUnless(offset >= 0 && (LONG_MAX <= UINT64_MAX || (unsigned long)offset <= UINT64_MAX));
 		if(U64(offset) > maxValidOffset) { maxValidOffset = U64(offset); }
 		return U64(offset);
 	}
