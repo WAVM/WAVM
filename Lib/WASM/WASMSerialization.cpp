@@ -502,6 +502,10 @@ static void serialize(OutputStream& stream,
 template<typename Stream>
 void serialize(Stream& stream, SelectImm& imm, const FunctionDef&, const ModuleSerializationState&)
 {
+	U32 numResults = 1;
+	serializeVarUInt32(stream, numResults);
+	if(Stream::isInput && numResults != 1)
+	{ throw ValidationException("typed select must have exactly one result"); }
 	serialize(stream, imm.type);
 }
 
