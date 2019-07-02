@@ -866,7 +866,8 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 					};
 				}
 			}))
-				;
+			{};
+
 			moduleState->disassemblyNames.functions[functionIndex].locals
 				= std::move(*localDisassemblyNames);
 
