@@ -490,7 +490,8 @@ static void parseType(CursorState* cursor)
 static bool parseSegmentDeclaration(CursorState* cursor,
 									Name& outSegmentName,
 									Reference& outMemoryOrTableRef,
-									UnresolvedInitializerExpression& outBaseIndex)
+									UnresolvedInitializerExpression& outBaseIndex,
+									const char* memoryOrTable)
 {
 	// The segment can have a name, and for active segments, a reference to a memory or table. If
 	// there are two names, the first is the segment name, and the second is the reference to a
@@ -515,7 +516,7 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 		case t_string:
 		case t_rightParenthesis:
 			// <s:name> ...
-			errorUnless(tryParseName(cursor, outSegmentName));
+			outSegmentName = parseName(cursor, "segment");
 			isActive = false;
 			break;
 		case t_quotedName:
@@ -523,18 +524,18 @@ static bool parseSegmentDeclaration(CursorState* cursor,
 		case t_hexInt:
 		case t_decimalInt:
 			// <s:name> <m:ref> ...
-			errorUnless(tryParseName(cursor, outSegmentName));
-			errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+			outSegmentName = parseName(cursor, "segment");
+			outMemoryOrTableRef = parseNameOrIndexRef(cursor, memoryOrTable);
 			break;
 		default:
 			// <m:name> ...
-			errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+			outMemoryOrTableRef = parseNameOrIndexRef(cursor, memoryOrTable);
 		}
 		break;
 	case t_hexInt:
 	case t_decimalInt:
 		// <m:ref> ...
-		errorUnless(tryParseNameOrIndexRef(cursor, outMemoryOrTableRef));
+		outMemoryOrTableRef = parseNameOrIndexRef(cursor, memoryOrTable);
 		break;
 	default:
 		// ...
@@ -569,7 +570,7 @@ static void parseData(CursorState* cursor)
 	Name segmentName;
 	Reference memoryRef;
 	UnresolvedInitializerExpression baseAddress;
-	bool isActive = parseSegmentDeclaration(cursor, segmentName, memoryRef, baseAddress);
+	bool isActive = parseSegmentDeclaration(cursor, segmentName, memoryRef, baseAddress, "memory");
 
 	// Parse a list of strings that contains the segment's data.
 	std::string dataString;
@@ -767,7 +768,7 @@ static void parseElem(CursorState* cursor)
 	Name segmentName;
 	Reference tableRef;
 	UnresolvedInitializerExpression baseIndex;
-	bool isActive = parseSegmentDeclaration(cursor, segmentName, tableRef, baseIndex);
+	bool isActive = parseSegmentDeclaration(cursor, segmentName, tableRef, baseIndex, "table");
 
 	ReferenceType elemType = ReferenceType::funcref;
 	if(!isActive) { elemType = parseReferenceType(cursor); }

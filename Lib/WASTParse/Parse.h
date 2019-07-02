@@ -240,6 +240,8 @@ namespace WAVM { namespace WAST {
 										  Uptr maxIndex,
 										  const char* context,
 										  Uptr& outIndex);
+	Name parseName(CursorState* cursor, const char* context);
+	Reference parseNameOrIndexRef(CursorState* cursor, const char* context);
 	Uptr parseAndResolveNameOrIndexRef(CursorState* cursor,
 									   const NameToIndexMap& nameToIndexMap,
 									   Uptr maxIndex,
