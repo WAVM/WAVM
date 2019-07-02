@@ -3,7 +3,7 @@ function(ADD_WAST_TEST WAST_PATH)
 	get_filename_component(WAST_NAME ${WAST_PATH} NAME)
 	add_test(
 		NAME ${WAST_NAME}
-		COMMAND $<TARGET_FILE:RunTestScript> ${CMAKE_CURRENT_LIST_DIR}/${WAST_PATH} ${ARGN})
+		COMMAND $<TARGET_FILE:RunTestScript> ${CMAKE_CURRENT_LIST_DIR}/${WAST_PATH} "--test-cloning" ${ARGN})
 endfunction()
 
 function(ADD_WAST_TESTS WAST_PATHS)

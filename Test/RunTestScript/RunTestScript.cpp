@@ -20,6 +20,7 @@
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Timing.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
@@ -37,8 +38,16 @@ using namespace WAVM::WAST;
 
 DEFINE_INTRINSIC_MODULE(spectest);
 
+struct Config
+{
+	bool strictAssertInvalid{false};
+	bool testCloning{false};
+};
+
 struct TestScriptState
 {
+	const Config& config;
+
 	bool hasInstantiatedModule;
 	GCPointer<ModuleInstance> lastModuleInstance;
 	GCPointer<Compartment> compartment;
@@ -49,8 +58,9 @@ struct TestScriptState
 
 	std::vector<WAST::Error> errors;
 
-	TestScriptState()
-	: hasInstantiatedModule(false)
+	TestScriptState(const Config& inConfig)
+	: config(inConfig)
+	, hasInstantiatedModule(false)
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
 	{
@@ -61,7 +71,7 @@ struct TestScriptState
 	}
 
 	TestScriptState(const TestScriptState& copyee)
-	: hasInstantiatedModule(copyee.hasInstantiatedModule)
+	: config(copyee.config), hasInstantiatedModule(copyee.hasInstantiatedModule)
 	{
 		compartment = Runtime::cloneCompartment(copyee.compartment);
 		context = Runtime::cloneContext(copyee.context, compartment);
@@ -564,15 +574,37 @@ static void processCommand(TestScriptState& state, const Command* command)
 	case Command::assert_invalid:
 	{
 		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
-		if(assertCommand->wasInvalidOrMalformed == InvalidOrMalformed::wellFormedAndValid)
-		{ testErrorf(state, assertCommand->locus, "module was valid"); }
+		switch(assertCommand->wasInvalidOrMalformed)
+		{
+		case InvalidOrMalformed::wellFormedAndValid:
+			testErrorf(state, assertCommand->locus, "module was well formed and valid");
+			break;
+		case InvalidOrMalformed::malformed:
+			if(state.config.strictAssertInvalid)
+			{ testErrorf(state, assertCommand->locus, "module was malformed"); }
+			break;
+
+		case InvalidOrMalformed::invalid:
+		default: break;
+		};
 		break;
 	}
 	case Command::assert_malformed:
 	{
 		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
-		if(assertCommand->wasInvalidOrMalformed != InvalidOrMalformed::malformed)
-		{ testErrorf(state, assertCommand->locus, "module was well formed"); }
+		switch(assertCommand->wasInvalidOrMalformed)
+		{
+		case InvalidOrMalformed::wellFormedAndValid:
+			testErrorf(state, assertCommand->locus, "module was well formed and valid");
+			break;
+
+		case InvalidOrMalformed::invalid:
+			testErrorf(state, assertCommand->locus, "module was invalid");
+			break;
+
+		case InvalidOrMalformed::malformed:
+		default: break;
+		};
 		break;
 	}
 	case Command::assert_unlinkable:
@@ -733,6 +765,8 @@ DEFINE_INTRINSIC_MEMORY(spectest,
 
 struct SharedState
 {
+	Config config;
+
 	Platform::Mutex mutex;
 	std::vector<const char*> pendingFilenames;
 };
@@ -765,7 +799,7 @@ static I64 threadMain(void* sharedStateVoid)
 		testScriptBytes.push_back(0);
 
 		// Process the test script.
-		TestScriptState testScriptState;
+		TestScriptState testScriptState(sharedState->config);
 		std::vector<std::unique_ptr<Command>> testCommands;
 
 		// Use a WebAssembly standard-compliant feature spec.
@@ -789,7 +823,12 @@ static I64 threadMain(void* sharedStateVoid)
 							command->locus.describe().c_str());
 				catchRuntimeExceptions(
 					[&testScriptState, &command] {
-						processCommandWithCloning(testScriptState, command.get());
+						if(testScriptState.config.testCloning)
+						{ processCommandWithCloning(testScriptState, command.get()); }
+						else
+						{
+							processCommand(testScriptState, command.get());
+						}
 					},
 					[&testScriptState, &command](Runtime::Exception* exception) {
 						testErrorf(testScriptState,
@@ -813,9 +852,13 @@ static void showHelp()
 {
 	Log::printf(Log::error,
 				"Usage: RunTestScript [options] in.wast [options]\n"
-				"  -h|--help          Display this message\n"
-				"  -d|--debug         Print verbose debug output to stdout\n"
-				"  -l <N>|--loop <N>  Run tests up to N times in a loop until an error occurs\n");
+				"  -h|--help                Display this message\n"
+				"  -d|--debug               Print verbose debug output to stdout\n"
+				"  -l <N>|--loop <N>        Run tests N times in a loop until an error occurs\n"
+				"  --strict-assert-invalid  Strictly evaluate assert_invalid, failing if the\n"
+				"                           module was malformed\n"
+				"  --test-cloning           Run each test command in the original compartment and\n"
+				"                           a clone of it, and compare the resulting state\n");
 }
 
 int main(int argc, char** argv)
@@ -826,6 +869,7 @@ int main(int argc, char** argv)
 	// Parse the command-line.
 	Uptr numLoops = 1;
 	std::vector<const char*> filenames;
+	Config config;
 	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "--help") || !strcmp(argv[argIndex], "-h"))
@@ -853,6 +897,15 @@ int main(int argc, char** argv)
 			}
 			numLoops = Uptr(numLoopsLongInt);
 		}
+		else if(!strcmp(argv[argIndex], "--strict-assert-invalid"))
+		{
+			config.strictAssertInvalid = true;
+			++argIndex;
+		}
+		else if(!strcmp(argv[argIndex], "--test-cloning"))
+		{
+			config.testCloning = true;
+		}
 		else
 		{
 			filenames.push_back(argv[argIndex]);
@@ -871,6 +924,7 @@ int main(int argc, char** argv)
 		Timing::Timer timer;
 
 		SharedState sharedState;
+		sharedState.config = config;
 		sharedState.pendingFilenames = filenames;
 
 		// Create a thread for each hardware thread.

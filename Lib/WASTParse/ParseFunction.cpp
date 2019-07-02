@@ -598,7 +598,8 @@ static void tryEmitElse(const Token* errorToken, CursorState* cursor)
 	}
 	catch(ValidationException const& exception)
 	{
-		parseErrorf(cursor->parseState, errorToken, "%s", exception.message.c_str());
+		parseErrorf(
+			cursor->parseState, errorToken, "validation error: %s", exception.message.c_str());
 		cursor->functionState->validatingCodeStream.unreachable();
 		cursor->functionState->validatingCodeStream.else_();
 		cursor->functionState->validatingCodeStream.unreachable();
@@ -693,7 +694,8 @@ static void parseExpr(CursorState* cursor)
 		}
 		catch(ValidationException const& exception)
 		{
-			parseErrorf(cursor->parseState, opcodeToken, "%s", exception.message.c_str());
+			parseErrorf(
+				cursor->parseState, opcodeToken, "validation error: %s", exception.message.c_str());
 			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
@@ -820,7 +822,8 @@ static void parseInstrSequence(CursorState* cursor)
 		}
 		catch(ValidationException const& exception)
 		{
-			parseErrorf(cursor->parseState, opcodeToken, "%s", exception.message.c_str());
+			parseErrorf(
+				cursor->parseState, opcodeToken, "validation error: %s", exception.message.c_str());
 			cursor->functionState->validatingCodeStream.unreachable();
 			throw RecoverParseException();
 		}
