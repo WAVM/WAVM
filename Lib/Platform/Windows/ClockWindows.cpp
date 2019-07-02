@@ -95,5 +95,12 @@ I128 Platform::getMonotonicClockResolution()
 	return I128(result);
 }
 
-I128 Platform::getProcessClock() { return getMonotonicClock(); }
-I128 Platform::getProcessClockResolution() { return getMonotonicClockResolution(); }
+I128 Platform::getProcessClock()
+{
+	FILETIME kernelTime;
+	FILETIME userTime;
+	errorUnless(GetProcessTimes(GetCurrentProcess(), nullptr, nullptr, &kernelTime, &userTime));
+
+	return assumeNoOverflow(fileTimeToI128(kernelTime) + fileTimeToI128(userTime));
+}
+I128 Platform::getProcessClockResolution() { return 100; }

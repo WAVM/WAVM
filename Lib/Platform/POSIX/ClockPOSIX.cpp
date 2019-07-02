@@ -82,7 +82,7 @@ I128 Platform::getProcessClockResolution() { return getClockResAsI128(CLOCK_PROC
 #else
 static I128 timevalToNS(timeval t)
 {
-	return assumeNoOverflow(I128(U64(t.tv_sec)) * 1000000 + U64(t.tv_usec));
+	return assumeNoOverflow(I128(U64(t.tv_sec)) * 1000000000 + U64(t.tv_usec));
 }
 I128 Platform::getProcessClock()
 {
