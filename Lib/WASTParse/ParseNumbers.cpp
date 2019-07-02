@@ -285,19 +285,10 @@ bool tryParseInt(CursorState* cursor,
 	{
 	case t_decimalInt:
 		isNegative = parseSign(nextChar);
-		if(minSignedValue == 0 && isNegative)
-		{
-			parseErrorf(cursor->parseState, cursor->nextToken, "expected unsigned integer");
-			isNegative = false;
-			u64 = 0;
-		}
-		else
-		{
-			u64 = parseDecimalUnsignedInt(nextChar,
-										  cursor->parseState,
-										  isNegative ? -U64(minSignedValue) : maxUnsignedValue,
-										  "int literal");
-		}
+		u64 = parseDecimalUnsignedInt(nextChar,
+									  cursor->parseState,
+									  isNegative ? -U64(minSignedValue) : maxUnsignedValue,
+									  "int literal");
 		break;
 	case t_hexInt:
 		isNegative = parseSign(nextChar);
@@ -307,12 +298,21 @@ bool tryParseInt(CursorState* cursor,
 	default: return false;
 	};
 
-	outUnsignedInt = isNegative ? UnsignedInt(-u64) : UnsignedInt(u64);
+	if(minSignedValue == 0 && isNegative)
+	{
+		isNegative = false;
+		outUnsignedInt = 0;
+		return false;
+	}
+	else
+	{
+		outUnsignedInt = isNegative ? UnsignedInt(-u64) : UnsignedInt(u64);
 
-	++cursor->nextToken;
-	wavmAssert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
+		++cursor->nextToken;
+		wavmAssert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
 
-	return true;
+		return true;
+	}
 }
 
 // Tries to parse a numeric literal literal token as a float, advancing cursor->nextToken.
