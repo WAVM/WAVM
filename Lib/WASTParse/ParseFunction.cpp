@@ -190,12 +190,34 @@ static void parseImm(CursorState* cursor, TableCopyImm& outImm)
 static void parseImm(CursorState* cursor, SelectImm& outImm)
 {
 	outImm.type = ValueType::any;
-	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
+	const Token* firstResultToken = nullptr;
+	while(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
 	{
 		parseParenthesized(cursor, [&] {
+			const Token* resultToken = cursor->nextToken;
 			require(cursor, t_result);
-			outImm.type = parseValueType(cursor);
+			if(!firstResultToken) { firstResultToken = resultToken; }
+
+			const Token* valueTypeToken = cursor->nextToken;
+			ValueType result;
+			while(tryParseValueType(cursor, result))
+			{
+				if(outImm.type == ValueType::any) { outImm.type = result; }
+				else
+				{
+					parseErrorf(cursor->parseState,
+								valueTypeToken,
+								"validation error: typed select must have exactly one result");
+				}
+			};
 		});
+	};
+
+	if(firstResultToken && outImm.type == ValueType::any)
+	{
+		parseErrorf(cursor->parseState,
+					firstResultToken,
+					"validation error: typed select must have exactly one result");
 	}
 }
 
