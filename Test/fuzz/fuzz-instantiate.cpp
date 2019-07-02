@@ -24,93 +24,6 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 using namespace WAVM::WASM;
 
-struct StubResolver : Runtime::Resolver
-{
-	Compartment* compartment;
-
-	StubResolver(Compartment* inCompartment) : compartment(inCompartment) {}
-
-	bool resolve(const std::string& moduleName,
-				 const std::string& exportName,
-				 IR::ExternType type,
-				 Runtime::Object*& outObject) override
-	{
-		outObject = getStubObject(exportName, type);
-		return true;
-	}
-
-	Runtime::Object* getStubObject(const std::string& exportName, IR::ExternType type) const
-	{
-		// If the import couldn't be resolved, stub it in.
-		switch(type.kind)
-		{
-		case IR::ExternKind::function:
-		{
-			// Generate a function body that just uses the unreachable op to fault if called.
-			Serialization::ArrayOutputStream codeStream;
-			IR::OperatorEncoderStream encoder(codeStream);
-			for(IR::ValueType result : asFunctionType(type).results())
-			{
-				switch(result)
-				{
-				case IR::ValueType::i32: encoder.i32_const({0}); break;
-				case IR::ValueType::i64: encoder.i64_const({0}); break;
-				case IR::ValueType::f32: encoder.f32_const({0.0f}); break;
-				case IR::ValueType::f64: encoder.f64_const({0.0}); break;
-				case IR::ValueType::v128: encoder.v128_const({V128{{0, 0}}}); break;
-				case IR::ValueType::anyref:
-				case IR::ValueType::funcref: encoder.ref_null(); break;
-
-				case IR::ValueType::none:
-				case IR::ValueType::any:
-				case IR::ValueType::nullref:
-				default: WAVM_UNREACHABLE();
-				};
-			}
-			encoder.end();
-
-			// Generate a module for the stub function.
-			IR::Module stubModule;
-			IR::DisassemblyNames stubModuleNames;
-			stubModule.types.push_back(asFunctionType(type));
-			stubModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
-			stubModule.exports.push_back({"importStub", IR::ExternKind::function, 0});
-			stubModuleNames.functions.push_back({"importStub: " + exportName, {}, {}});
-			IR::setDisassemblyNames(stubModule, stubModuleNames);
-			IR::validatePreCodeSections(stubModule);
-			IR::validatePostCodeSections(stubModule);
-
-			// Instantiate the module and return the stub function instance.
-			auto stubModuleInstance = Runtime::instantiateModule(
-				compartment, Runtime::compileModule(stubModule), {}, "importStub");
-			return getInstanceExport(stubModuleInstance, "importStub");
-		}
-		case IR::ExternKind::memory:
-		{
-			return asObject(
-				Runtime::createMemory(compartment, asMemoryType(type), std::string(exportName)));
-		}
-		case IR::ExternKind::table:
-		{
-			return asObject(Runtime::createTable(
-				compartment, asTableType(type), nullptr, std::string(exportName)));
-		}
-		case IR::ExternKind::global:
-		{
-			return asObject(Runtime::createGlobal(compartment, asGlobalType(type)));
-		}
-		case IR::ExternKind::exceptionType:
-		{
-			return asObject(
-				Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
-		}
-
-		case IR::ExternKind::invalid:
-		default: WAVM_UNREACHABLE();
-		};
-	}
-};
-
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	IR::Module module;
@@ -120,7 +33,8 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	if(!WASM::loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
 
 	GCPointer<Compartment> compartment = createCompartment();
-	StubResolver stubResolver(compartment);
+	NullResolver nullResolver;
+	StubResolver stubResolver(compartment, nullResolver, StubResolver::FunctionBehavior::zero);
 	LinkResult linkResult = linkModule(module, stubResolver);
 	if(linkResult.success)
 	{

@@ -33,10 +33,7 @@ using namespace WAVM::Runtime;
 
 struct RootResolver : Resolver
 {
-	Compartment* compartment;
 	HashMap<std::string, ModuleInstance*> moduleNameToInstanceMap;
-
-	RootResolver(Compartment* inCompartment) : compartment(inCompartment) {}
 
 	bool resolve(const std::string& moduleName,
 				 const std::string& exportName,
@@ -58,72 +55,11 @@ struct RootResolver : Resolver
 								exportName.c_str(),
 								asString(getExternType(outObject)).c_str(),
 								asString(type).c_str());
-					return false;
 				}
 			}
 		}
 
-		Log::printf(Log::error,
-					"Generated stub for missing import %s.%s : %s\n",
-					moduleName.c_str(),
-					exportName.c_str(),
-					asString(type).c_str());
-		outObject = getStubObject(exportName, type);
-		return true;
-	}
-
-	Object* getStubObject(const std::string& exportName, ExternType type) const
-	{
-		// If the import couldn't be resolved, stub it in.
-		switch(type.kind)
-		{
-		case IR::ExternKind::function:
-		{
-			// Generate a function body that just uses the unreachable op to fault if called.
-			Serialization::ArrayOutputStream codeStream;
-			OperatorEncoderStream encoder(codeStream);
-			encoder.unreachable();
-			encoder.end();
-
-			// Generate a module for the stub function.
-			IR::Module stubIRModule;
-			DisassemblyNames stubModuleNames;
-			stubIRModule.types.push_back(asFunctionType(type));
-			stubIRModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
-			stubIRModule.exports.push_back({"importStub", IR::ExternKind::function, 0});
-			stubModuleNames.functions.push_back({"importStub: " + exportName, {}, {}});
-			IR::setDisassemblyNames(stubIRModule, stubModuleNames);
-			IR::validatePreCodeSections(stubIRModule);
-			IR::validatePostCodeSections(stubIRModule);
-
-			// Instantiate the module and return the stub function instance.
-			auto stubModule = compileModule(stubIRModule);
-			auto stubModuleInstance = instantiateModule(compartment, stubModule, {}, "importStub");
-			return getInstanceExport(stubModuleInstance, "importStub");
-		}
-		case IR::ExternKind::memory:
-		{
-			return asObject(
-				Runtime::createMemory(compartment, asMemoryType(type), std::string(exportName)));
-		}
-		case IR::ExternKind::table:
-		{
-			return asObject(Runtime::createTable(
-				compartment, asTableType(type), nullptr, std::string(exportName)));
-		}
-		case IR::ExternKind::global:
-		{
-			return asObject(Runtime::createGlobal(compartment, asGlobalType(type)));
-		}
-		case IR::ExternKind::exceptionType:
-		{
-			return asObject(
-				Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
-		}
-
-		case IR::ExternKind::invalid:
-		default: WAVM_UNREACHABLE();
-		};
+		return false;
 	}
 };
 
@@ -205,7 +141,8 @@ static int run(const CommandLineOptions& options)
 	// Link the module with the intrinsic modules.
 	Compartment* compartment = Runtime::createCompartment();
 	Context* context = Runtime::createContext(compartment);
-	RootResolver rootResolver(compartment);
+	RootResolver rootResolver;
+	StubResolver stubResolver(compartment, rootResolver);
 
 	Emscripten::Instance* emscriptenInstance = nullptr;
 	if(options.enableEmscripten)
@@ -229,7 +166,7 @@ static int run(const CommandLineOptions& options)
 		rootResolver.moduleNameToInstanceMap.set("threadTest", threadTestInstance);
 	}
 
-	LinkResult linkResult = linkModule(irModule, rootResolver);
+	LinkResult linkResult = linkModule(irModule, stubResolver);
 	if(!linkResult.success)
 	{
 		Log::printf(Log::error, "Failed to link module:\n");

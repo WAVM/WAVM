@@ -74,6 +74,30 @@ namespace WAVM { namespace Runtime {
 		}
 	};
 
+	// A resolver that generates stubs for objects that the inner resolver can't find.
+	struct StubResolver : Resolver
+	{
+		enum class FunctionBehavior
+		{
+			zero,
+			trap,
+		};
+
+		RUNTIME_API StubResolver(Compartment* inCompartment,
+								 Resolver& inInnerResolver,
+								 FunctionBehavior functionBehavior = FunctionBehavior::trap);
+
+		RUNTIME_API virtual bool resolve(const std::string& moduleName,
+										 const std::string& exportName,
+										 IR::ExternType type,
+										 Runtime::Object*& outObject) override;
+
+	private:
+		GCPointer<Compartment> compartment;
+		Resolver& innerResolver;
+		FunctionBehavior functionBehavior;
+	};
+
 	// Links a module using the given resolver, returning an array mapping import indices to
 	// objects. If the resolver fails to resolve any imports, throws a LinkException.
 	struct LinkResult
