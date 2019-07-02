@@ -184,7 +184,7 @@ FunctionType WAST::parseFunctionType(CursorState* cursor,
 	}))
 		;
 
-	// Parse <= 1 result type: (result <value type>*)*
+	// Parse the result types: (result <value type>*)*
 	while(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_result)
 	{
 		parseParenthesized(cursor, [&] {
