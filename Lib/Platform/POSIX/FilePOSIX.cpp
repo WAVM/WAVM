@@ -586,11 +586,44 @@ VFD* Platform::getStdFD(StdDevice device)
 	};
 }
 
-Result Platform::openHostFile(const std::string& pathName,
-							  FileAccessMode accessMode,
-							  FileCreateMode createMode,
-							  VFD*& outFD,
-							  const VFDFlags& vfsFlags)
+struct POSIXFS : HostFS
+{
+	virtual Result open(const std::string& absolutePathName,
+						FileAccessMode accessMode,
+						FileCreateMode createMode,
+						VFD*& outFD,
+						const VFDFlags& flags = VFDFlags{}) override;
+
+	virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) override;
+	virtual Result setFileTimes(const std::string& absolutePathName,
+								bool setLastAccessTime,
+								I128 lastAccessTime,
+								bool setLastWriteTime,
+								I128 lastWriteTime) override;
+
+	virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) override;
+
+	virtual Result unlinkFile(const std::string& absolutePathName) override;
+	virtual Result removeDir(const std::string& absolutePathName) override;
+	virtual Result createDir(const std::string& absolutePathName) override;
+
+	static POSIXFS& get()
+	{
+		static POSIXFS posixFS;
+		return posixFS;
+	}
+
+protected:
+	POSIXFS() {}
+};
+
+PLATFORM_API HostFS& Platform::getHostFS() { return POSIXFS::get(); }
+
+Result POSIXFS::open(const std::string& pathName,
+					 FileAccessMode accessMode,
+					 FileCreateMode createMode,
+					 VFD*& outFD,
+					 const VFDFlags& vfsFlags)
 {
 	U32 flags = 0;
 	switch(accessMode)
@@ -616,14 +649,14 @@ Result Platform::openHostFile(const std::string& pathName,
 
 	flags |= translateVFDFlags(vfsFlags);
 
-	const I32 fd = open(pathName.c_str(), flags, mode);
+	const I32 fd = ::open(pathName.c_str(), flags, mode);
 	if(fd == -1) { return asVFSResult(errno); }
 
 	outFD = new POSIXFD(fd);
 	return Result::success;
 }
 
-Result Platform::getHostFileInfo(const std::string& pathName, VFS::FileInfo& outInfo)
+Result POSIXFS::getInfo(const std::string& pathName, VFS::FileInfo& outInfo)
 {
 	struct stat fileStatus;
 
@@ -633,11 +666,11 @@ Result Platform::getHostFileInfo(const std::string& pathName, VFS::FileInfo& out
 	return Result::success;
 }
 
-Result Platform::setHostFileTimes(const std::string& pathName,
-								  bool setLastAccessTime,
-								  I128 lastAccessTime,
-								  bool setLastWriteTime,
-								  I128 lastWriteTime)
+Result POSIXFS::setFileTimes(const std::string& pathName,
+							 bool setLastAccessTime,
+							 I128 lastAccessTime,
+							 bool setLastWriteTime,
+							 I128 lastWriteTime)
 {
 	struct timespec timespecs[2];
 
@@ -659,7 +692,7 @@ Result Platform::setHostFileTimes(const std::string& pathName,
 																	: asVFSResult(errno);
 }
 
-Result Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
+Result POSIXFS::openDir(const std::string& pathName, DirEntStream*& outStream)
 {
 	DIR* dir = opendir(pathName.c_str());
 	if(!dir) { return asVFSResult(errno); }
@@ -668,18 +701,18 @@ Result Platform::openHostDir(const std::string& pathName, DirEntStream*& outStre
 	return Result::success;
 }
 
-Result Platform::unlinkHostFile(const std::string& pathName)
+Result POSIXFS::unlinkFile(const std::string& pathName)
 {
 	return !unlink(pathName.c_str()) ? VFS::Result::success : asVFSResult(errno);
 }
 
-Result Platform::removeHostDir(const std::string& pathName)
+Result POSIXFS::removeDir(const std::string& pathName)
 {
 	return !unlinkat(AT_FDCWD, pathName.c_str(), AT_REMOVEDIR) ? Result::success
 															   : asVFSResult(errno);
 }
 
-Result Platform::createHostDir(const std::string& pathName)
+Result POSIXFS::createDir(const std::string& pathName)
 {
 	return !mkdir(pathName.c_str(), 0666) ? Result::success : asVFSResult(errno);
 }

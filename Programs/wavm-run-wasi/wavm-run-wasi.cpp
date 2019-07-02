@@ -21,6 +21,7 @@
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/VFS/SandboxFS.h"
 #include "WAVM/VFS/VFS.h"
 #include "WAVM/WASI/WASI.h"
 #include "WAVM/WASM/WASM.h"
@@ -29,70 +30,6 @@
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
-using namespace WAVM::VFS;
-
-struct SandboxedFileSystem : FileSystem
-{
-	SandboxedFileSystem(std::string&& inRootPath) : rootPath(std::move(inRootPath))
-	{
-		if(rootPath.back() != '/' && rootPath.back() != '\\') { rootPath += '/'; }
-	}
-
-	virtual Result open(const std::string& absolutePathName,
-						FileAccessMode accessMode,
-						FileCreateMode createMode,
-						VFD*& outFD,
-						const VFDFlags& flags) override
-	{
-		return Platform::openHostFile(
-			getHostPath(absolutePathName), accessMode, createMode, outFD, flags);
-	}
-
-	virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) override
-	{
-		return Platform::getHostFileInfo(getHostPath(absolutePathName), outInfo);
-	}
-	virtual Result setFileTimes(const std::string& absolutePathName,
-								bool setLastAccessTime,
-								I128 lastAccessTime,
-								bool setLastWriteTime,
-								I128 lastWriteTime) override
-	{
-		return Platform::setHostFileTimes(getHostPath(absolutePathName),
-										  setLastAccessTime,
-										  lastAccessTime,
-										  setLastWriteTime,
-										  lastWriteTime);
-	}
-
-	virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) override
-	{
-		return Platform::openHostDir(getHostPath(absolutePathName), outStream);
-	}
-
-	virtual Result unlinkFile(const std::string& absolutePathName) override
-	{
-		return Platform::unlinkHostFile(getHostPath(absolutePathName));
-	}
-
-	virtual Result removeDir(const std::string& absolutePathName) override
-	{
-		return Platform::removeHostDir(getHostPath(absolutePathName));
-	}
-
-	virtual Result createDir(const std::string& absolutePathName) override
-	{
-		return Platform::createHostDir(getHostPath(absolutePathName));
-	}
-
-private:
-	std::string rootPath;
-
-	std::string getHostPath(const std::string& sandboxedAbsolutePathName)
-	{
-		return rootPath + sandboxedAbsolutePathName;
-	}
-};
 
 static bool loadModule(const char* filename, IR::Module& outModule)
 {
@@ -168,8 +105,8 @@ static int run(const CommandLineOptions& options)
 	}
 
 	// If a directory to mount as the root filesystem was passed on the command-line, create a
-	// SandboxedFileSystem for it.
-	SandboxedFileSystem* sandboxedFS = nullptr;
+	// SandboxFS for it.
+	VFS::FileSystem* sandboxFS = nullptr;
 	if(options.rootMountPath)
 	{
 		std::string rootPath;
@@ -180,7 +117,7 @@ static int run(const CommandLineOptions& options)
 		{
 			rootPath = Platform::getCurrentWorkingDirectory() + '/' + options.rootMountPath;
 		}
-		sandboxedFS = new SandboxedFileSystem(std::move(rootPath));
+		sandboxFS = VFS::makeSandboxFS(&Platform::getHostFS(), rootPath);
 	}
 
 	std::vector<std::string> args = options.args;
@@ -191,13 +128,13 @@ static int run(const CommandLineOptions& options)
 	WASI::RunResult result = WASI::run(module,
 									   std::move(args),
 									   {},
-									   sandboxedFS,
+									   sandboxFS,
 									   Platform::getStdFD(Platform::StdDevice::in),
 									   Platform::getStdFD(Platform::StdDevice::out),
 									   Platform::getStdFD(Platform::StdDevice::err),
 									   exitCode);
 	executionTimer.stop();
-	if(sandboxedFS) { delete sandboxedFS; }
+	if(sandboxFS) { delete sandboxFS; }
 
 	switch(result)
 	{

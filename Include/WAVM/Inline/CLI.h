@@ -13,7 +13,7 @@ namespace WAVM {
 		VFS::Result result;
 		VFS::VFD* vfd = nullptr;
 		{
-			result = Platform::openHostFile(
+			result = Platform::getHostFS().open(
 				filename, VFS::FileAccessMode::readOnly, VFS::FileCreateMode::openExisting, vfd);
 			if(result != VFS::Result::success) { goto printAndReturnError; }
 
@@ -56,7 +56,7 @@ namespace WAVM {
 		VFS::Result result;
 		VFS::VFD* vfd = nullptr;
 		{
-			result = Platform::openHostFile(
+			result = Platform::getHostFS().open(
 				filename, VFS::FileAccessMode::writeOnly, VFS::FileCreateMode::createAlways, vfd);
 			if(result != VFS::Result::success) { goto printAndReturnError; }
 

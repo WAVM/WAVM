@@ -653,11 +653,44 @@ VFD* Platform::getStdFD(StdDevice device)
 	};
 }
 
-Result Platform::openHostFile(const std::string& pathName,
-							  FileAccessMode accessMode,
-							  FileCreateMode createMode,
-							  VFD*& outFD,
-							  const VFDFlags& flags)
+struct WindowsFS : HostFS
+{
+	virtual Result open(const std::string& absolutePathName,
+						FileAccessMode accessMode,
+						FileCreateMode createMode,
+						VFD*& outFD,
+						const VFDFlags& flags = VFDFlags{}) override;
+
+	virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) override;
+	virtual Result setFileTimes(const std::string& absolutePathName,
+								bool setLastAccessTime,
+								I128 lastAccessTime,
+								bool setLastWriteTime,
+								I128 lastWriteTime) override;
+
+	virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) override;
+
+	virtual Result unlinkFile(const std::string& absolutePathName) override;
+	virtual Result removeDir(const std::string& absolutePathName) override;
+	virtual Result createDir(const std::string& absolutePathName) override;
+
+	static WindowsFS& get()
+	{
+		static WindowsFS windowsFS;
+		return windowsFS;
+	}
+
+protected:
+	WindowsFS() {}
+};
+
+PLATFORM_API HostFS& Platform::getHostFS() { return WindowsFS::get(); }
+
+Result WindowsFS::open(const std::string& pathName,
+					   FileAccessMode accessMode,
+					   FileCreateMode createMode,
+					   VFD*& outFD,
+					   const VFDFlags& flags)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
@@ -714,7 +747,7 @@ Result Platform::openHostFile(const std::string& pathName,
 	return Result::success;
 }
 
-Result Platform::getHostFileInfo(const std::string& pathName, FileInfo& outInfo)
+Result WindowsFS::getInfo(const std::string& pathName, FileInfo& outInfo)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
@@ -738,11 +771,11 @@ Result Platform::getHostFileInfo(const std::string& pathName, FileInfo& outInfo)
 	return result;
 }
 
-Result Platform::setHostFileTimes(const std::string& pathName,
-								  bool setLastAccessTime,
-								  I128 lastAccessTime,
-								  bool setLastWriteTime,
-								  I128 lastWriteTime)
+Result WindowsFS::setFileTimes(const std::string& pathName,
+							   bool setLastAccessTime,
+							   I128 lastAccessTime,
+							   bool setLastWriteTime,
+							   I128 lastWriteTime)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
@@ -777,7 +810,7 @@ Result Platform::setHostFileTimes(const std::string& pathName,
 	return result;
 }
 
-Result Platform::unlinkHostFile(const std::string& pathName)
+Result WindowsFS::unlinkFile(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
@@ -786,7 +819,7 @@ Result Platform::unlinkHostFile(const std::string& pathName)
 	return DeleteFileW(pathNameW.c_str()) ? Result::success : asVFSResult(GetLastError());
 }
 
-Result Platform::removeHostDir(const std::string& pathName)
+Result WindowsFS::removeDir(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
@@ -795,7 +828,7 @@ Result Platform::removeHostDir(const std::string& pathName)
 	return RemoveDirectoryW(pathNameW.c_str()) ? Result::success : asVFSResult(GetLastError());
 }
 
-Result Platform::createHostDir(const std::string& pathName)
+Result WindowsFS::createDir(const std::string& pathName)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
@@ -805,7 +838,7 @@ Result Platform::createHostDir(const std::string& pathName)
 														: asVFSResult(GetLastError());
 }
 
-Result Platform::openHostDir(const std::string& pathName, DirEntStream*& outStream)
+Result WindowsFS::openDir(const std::string& pathName, DirEntStream*& outStream)
 {
 	// Translate the path from UTF-8 to UTF-16.
 	std::wstring pathNameW;
