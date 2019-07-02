@@ -134,7 +134,7 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	outMinAddr = outMaxAddr - numStackBytes;
 	outMinGuardAddr = outMinAddr - (Uptr(1) << getPageSizeLog2());
 #elif defined(__WAVIX__)
-	Errors::fatal("getThreadStack is unimplemented on Wavix.");
+	Errors::unimplemented("Wavix getThreadStack");
 #else
 #error unsupported platform
 #endif

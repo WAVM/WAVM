@@ -32,31 +32,31 @@ static_assert(sizeof(ExecutionContext) == 64, "unexpected size");
 #ifdef __WAVIX__
 inline I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode) noexcept(false)
 {
-	WAVM::Errors::fatal("saveExecutionState is unimplemented on Wavix");
+	WAVM::Errors::unimplemented("Wavix saveExecutionState");
 }
 
 [[noreturn]] inline void loadExecutionState(ExecutionContext* context, I64 returnCode)
 {
-	WAVM::Errors::fatal("loadExecutionState is unimplemented on Wavix");
+	WAVM::Errors::unimplemented("Wavix loadExecutionState");
 }
 
 inline I64 switchToForkedStackContext(ExecutionContext* forkedContext,
 									  U8* trampolineFramePointer) noexcept(false)
 {
-	WAVM::Errors::fatal("switchToForkedStackContext is unimplemented on Wavix");
+	WAVM::Errors::unimplemented("Wavix switchToForkedStackContext");
 }
 
-inline U8* getStackPointer() { WAVM::Errors::fatal("getStackPointer is unimplemented on Wavix"); }
+inline U8* getStackPointer() { WAVM::Errors::unimplemented("Wavix getStackPointer"); }
 
 // libunwind dynamic frame registration
 inline void __register_frame(const void* fde)
 {
-	WAVM::Errors::fatal("__register_frame is unimplemented on Wavix");
+	WAVM::Errors::unimplemented("Wavix __register_frame");
 }
 
 inline void __deregister_frame(const void* fde)
 {
-	WAVM::Errors::fatal("__deregister_frame is unimplemented on Wavix");
+	WAVM::Errors::unimplemented("Wavix __deregister_frame");
 }
 
 #else

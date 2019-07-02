@@ -84,14 +84,30 @@ static FileType getFileTypeFromMode(mode_t mode)
 	case S_IFREG: return FileType::file;
 	case S_IFDIR: return FileType::directory;
 	case S_IFLNK: return FileType::symbolicLink;
+
 	case S_IFSOCK:
-		// return FileType::datagramSocket;
-		// return FileType::streamSocket;
-		WAVM_UNREACHABLE();
-		break;
 	default: return FileType::unknown;
 	};
 }
+
+#ifdef _DIRENT_HAVE_D_TYPE
+static FileType getFileTypeFromDirEntType(U8 type)
+{
+	switch(type)
+	{
+	case DT_BLK: return FileType::blockDevice;
+	case DT_CHR: return FileType::characterDevice;
+	case DT_DIR: return FileType::directory;
+	case DT_FIFO: return FileType::pipe;
+	case DT_LNK: return FileType::symbolicLink;
+	case DT_REG: return FileType::file;
+
+	case DT_SOCK:
+	case DT_UNKNOWN:
+	default: return FileType::unknown;
+	};
+}
+#endif
 
 static I128 timeToNS(time_t time)
 {
@@ -167,19 +183,7 @@ struct POSIXDirEntStream : DirEntStream
 			outEntry.fileNumber = dirent->d_ino;
 			outEntry.name = dirent->d_name;
 #ifdef _DIRENT_HAVE_D_TYPE
-			switch(dirent->d_type)
-			{
-			case DT_BLK: outEntry.type = FileType::blockDevice; break;
-			case DT_CHR: outEntry.type = FileType::characterDevice; break;
-			case DT_DIR: outEntry.type = FileType::directory; break;
-			case DT_FIFO: outEntry.type = FileType::pipe; break;
-			case DT_LNK: outEntry.type = FileType::symbolicLink; break;
-			case DT_REG: outEntry.type = FileType::file; break;
-			case DT_SOCK: outEntry.type = FileType::streamSocket; break;
-			case DT_UNKNOWN: outEntry.type = FileType::unknown; break;
-
-			default: WAVM_UNREACHABLE();
-			};
+			outEntry.type = getFileTypeFromDirEntType(dirent->d_type);
 #else
 			outEntry.type = FileType::unknown;
 #endif

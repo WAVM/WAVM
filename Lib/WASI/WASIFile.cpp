@@ -20,7 +20,7 @@ static __wasi_errno_t asWASIErrNo(VFS::Result result)
 	switch(result)
 	{
 	case Result::success: return __WASI_ESUCCESS;
-	case Result::ioPending: WAVM_UNREACHABLE();
+	case Result::ioPending: return __WASI_EINPROGRESS;
 	case Result::ioDeviceError: return __WASI_EIO;
 	case Result::interruptedBySignal: return __WASI_EINTR;
 	case Result::interruptedByCancellation: return __WASI_EINTR;
@@ -88,7 +88,7 @@ static __wasi_filetype_t asWASIFileType(FileType type)
 	case FileType::datagramSocket: return __WASI_FILETYPE_SOCKET_DGRAM;
 	case FileType::streamSocket: return __WASI_FILETYPE_SOCKET_STREAM;
 	case FileType::symbolicLink: return __WASI_FILETYPE_SYMBOLIC_LINK;
-	case FileType::pipe: WAVM_UNREACHABLE();
+	case FileType::pipe: return __WASI_FILETYPE_UNKNOWN;
 
 	default: WAVM_UNREACHABLE();
 	};

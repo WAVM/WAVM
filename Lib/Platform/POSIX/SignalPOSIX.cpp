@@ -102,7 +102,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 	signalContext.filterArgument = argument;
 
 #ifdef __WAVIX__
-	Errors::fatal("catchSignals is unimplemented on Wavix");
+	Errors::unimplemented("Wavix catchSignals");
 #else
 	// Use sigsetjmp to capture the execution state into the signal context. If a signal is raised,
 	// the signal handler will jump back to here.

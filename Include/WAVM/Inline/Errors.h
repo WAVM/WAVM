@@ -22,4 +22,9 @@ namespace WAVM { namespace Errors {
 		Platform::handleFatalError(messageFormat, false, varArgs);
 	}
 	[[noreturn]] inline void fatal(const char* message) { fatalf("%s", message); }
+
+	[[noreturn]] inline void unimplemented(const char* context)
+	{
+		fatalf("%s is unimplemented", context);
+	}
 }}

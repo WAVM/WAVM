@@ -33,6 +33,13 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
+#define DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(module, nameString, Result, cName, ...)            \
+	DEFINE_INTRINSIC_FUNCTION(module, nameString, Result, cName, __VA_ARGS__)                      \
+	{                                                                                              \
+		Errors::fatalf("WAVM does not yet implement the Emscripten host function '%s'",            \
+					   nameString);                                                                \
+	}
+
 DEFINE_INTRINSIC_MODULE(env)
 DEFINE_INTRINSIC_MODULE(asm2wasm)
 DEFINE_INTRINSIC_MODULE(global)
@@ -883,23 +890,24 @@ DEFINE_INTRINSIC_FUNCTION(env, "_gettimeofday", I32, _gettimeofday, I32 timevalA
 
 DEFINE_INTRINSIC_FUNCTION(env, "_sem_init", I32, _sem_init, I32 a, I32 b, I32 c) { return 0; }
 
-DEFINE_INTRINSIC_FUNCTION(env, "invoke_ii", U32, invoke_ii, U32 index, U32 a)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "invoke_iii", U32, invoke_iii, U32 index, U32 a, U32 b)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "invoke_v", void, invoke_v, U32 index) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "invoke_vii", void, invoke_vii, U32 index, U32 a, U32 b)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "___buildEnvironment", void, ___buildEnvironment, U32)
-{
-	WAVM_UNREACHABLE();
-}
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "invoke_ii", U32, invoke_ii, U32 index, U32 a);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
+										"invoke_iii",
+										U32,
+										invoke_iii,
+										U32 index,
+										U32 a,
+										U32 b);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "invoke_v", void, invoke_v, U32 index);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
+										"invoke_vii",
+										void,
+										invoke_vii,
+										U32 index,
+										U32 a,
+										U32 b);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___buildEnvironment", void, ___buildEnvironment, U32);
+
 DEFINE_INTRINSIC_FUNCTION(env, "___cxa_pure_virtual", void, ___cxa_pure_virtual)
 {
 	Errors::fatal("env.__cxa_pure_virtual called");
@@ -937,18 +945,13 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall192", I32, _mmap2, U32 which, U32 vara
 		return I32(memalignResult);
 	}
 }
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall195", U32, ___syscall195, U32, U32)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall20", U32, ___syscall20, U32, U32) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall221", U32, ___syscall221, U32, U32)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall5", U32, ___syscall5, U32, U32) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall91", U32, ___syscall91, U32, U32) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "_atexit", U32, _atexit, U32) { WAVM_UNREACHABLE(); }
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___syscall195", U32, ___syscall195, U32, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___syscall20", U32, ___syscall20, U32, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___syscall221", U32, ___syscall221, U32, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___syscall5", U32, ___syscall5, U32, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___syscall91", U32, ___syscall91, U32, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_atexit", U32, _atexit, U32);
+
 DEFINE_INTRINSIC_FUNCTION(env,
 						  "_clock_gettime",
 						  I32,
@@ -971,7 +974,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 		break;
 	case 2:
 		// CLOCK_PROCESS_CPUTIME_ID
-		clock128 = Platform::getProcessClock();
+		clock128 = Platform::getRealtimeClock();
 		break;
 	case 3:
 		// CLOCK_THREAD_CPUTIME_ID
@@ -987,47 +990,49 @@ DEFINE_INTRINSIC_FUNCTION(env,
 	return 0;
 }
 DEFINE_INTRINSIC_FUNCTION(env, "_getpagesize", U32, _getpagesize) { return 16384; }
-DEFINE_INTRINSIC_FUNCTION(env, "_llvm_log10_f64", F64, _llvm_log10_f64, F64) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "_llvm_log2_f64", F64, _llvm_log2_f64, F64) { WAVM_UNREACHABLE(); }
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_llvm_log10_f64", F64, _llvm_log10_f64, F64);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_llvm_log2_f64", F64, _llvm_log2_f64, F64);
 DEFINE_INTRINSIC_FUNCTION(env, "_llvm_trap", void, _llvm_trap)
 {
 	Errors::fatal("env._llvm_trap called");
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_llvm_trunc_f64", F64, _llvm_trunc_f64, F64) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "_localtime_r", U32, _localtime_r, U32, U32) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "_longjmp", void, _longjmp, U32, U32) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "_mktime", U32, _mktime, U32) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_destroy", U32, _pthread_cond_destroy, U32)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_init", U32, _pthread_cond_init, U32, U32)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_signal", U32, _pthread_cond_signal, U32)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_pthread_cond_timedwait",
-						  U32,
-						  _pthread_cond_timedwait,
-						  U32,
-						  U32,
-						  U32)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_create", U32, _pthread_create, U32, U32, U32, U32)
-{
-	WAVM_UNREACHABLE();
-}
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_detach", U32, _pthread_detach, U32) { WAVM_UNREACHABLE(); }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_join", U32, _pthread_join, U32, U32)
-{
-	WAVM_UNREACHABLE();
-}
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_llvm_trunc_f64", F64, _llvm_trunc_f64, F64);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_localtime_r", U32, _localtime_r, U32, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_longjmp", void, _longjmp, U32, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_mktime", U32, _mktime, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
+										"_pthread_cond_destroy",
+										U32,
+										_pthread_cond_destroy,
+										U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
+										"_pthread_cond_init",
+										U32,
+										_pthread_cond_init,
+										U32,
+										U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
+										"_pthread_cond_signal",
+										U32,
+										_pthread_cond_signal,
+										U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
+										"_pthread_cond_timedwait",
+										U32,
+										_pthread_cond_timedwait,
+										U32,
+										U32,
+										U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
+										"_pthread_create",
+										U32,
+										_pthread_create,
+										U32,
+										U32,
+										U32,
+										U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_pthread_detach", U32, _pthread_detach, U32);
+DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_pthread_join", U32, _pthread_join, U32, U32);
 DEFINE_INTRINSIC_FUNCTION(env,
 						  "_pthread_mutexattr_destroy",
 						  U32,

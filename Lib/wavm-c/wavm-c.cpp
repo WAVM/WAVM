@@ -59,14 +59,14 @@ struct wasm_valtype_t
 
 struct wasm_externtype_t
 {
-	wasm_externkind_t kind;
-	wasm_externtype_t(wasm_externkind_t inKind) : kind(inKind) {}
+	ExternKind kind;
+	wasm_externtype_t(ExternKind inKind) : kind(inKind) {}
 };
 struct wasm_functype_t : wasm_externtype_t
 {
 	FunctionType type;
 
-	wasm_functype_t(FunctionType inType) : wasm_externtype_t(WASM_EXTERN_FUNC), type(inType) {}
+	wasm_functype_t(FunctionType inType) : wasm_externtype_t(ExternKind::function), type(inType) {}
 };
 struct wasm_globaltype_t : wasm_externtype_t
 {
@@ -74,7 +74,7 @@ struct wasm_globaltype_t : wasm_externtype_t
 	wasm_valtype_t* valtype;
 
 	wasm_globaltype_t(GlobalType inType, wasm_valtype_t* inValtype)
-	: wasm_externtype_t(WASM_EXTERN_GLOBAL), type(inType), valtype(inValtype)
+	: wasm_externtype_t(ExternKind::global), type(inType), valtype(inValtype)
 	{
 	}
 };
@@ -85,7 +85,7 @@ struct wasm_tabletype_t : wasm_externtype_t
 	wasm_limits_t limits;
 
 	wasm_tabletype_t(TableType inType, wasm_valtype_t* inElement, wasm_limits_t inLimits)
-	: wasm_externtype_t(WASM_EXTERN_TABLE), type(inType), element(inElement), limits(inLimits)
+	: wasm_externtype_t(ExternKind::table), type(inType), element(inElement), limits(inLimits)
 	{
 	}
 };
@@ -95,7 +95,7 @@ struct wasm_memorytype_t : wasm_externtype_t
 	wasm_limits_t limits;
 
 	wasm_memorytype_t(MemoryType inType, wasm_limits_t inLimits)
-	: wasm_externtype_t(WASM_EXTERN_MEMORY), type(inType), limits(inLimits)
+	: wasm_externtype_t(ExternKind::memory), type(inType), limits(inLimits)
 	{
 	}
 };
@@ -134,7 +134,8 @@ static wasm_externtype_t* as_externtype(ExternType type)
 	case ExternKind::table: return as_externtype(asTableType(type));
 	case ExternKind::memory: return as_externtype(asMemoryType(type));
 	case ExternKind::global: return as_externtype(asGlobalType(type));
-	case ExternKind::exceptionType: WAVM_UNREACHABLE();
+	case ExternKind::exceptionType:
+		Errors::unimplemented("Converting exception type to C API wasm_externtype_t");
 
 	case ExternKind::invalid:
 	default: WAVM_UNREACHABLE();
@@ -152,7 +153,7 @@ static ValueType asValueType(wasm_valkind_t kind)
 	case WASM_V128: return ValueType::v128;
 	case WASM_ANYREF: return ValueType::anyref;
 	case WASM_FUNCREF: return ValueType::funcref;
-	default: WAVM_UNREACHABLE();
+	default: Errors::fatalf("Unknown wasm_valkind_t value: %u", kind);
 	}
 }
 static Value asValue(ValueType type, const wasm_val_t* value)
@@ -389,10 +390,13 @@ void wasm_externtype_delete(wasm_externtype_t* type)
 {
 	switch(type->kind)
 	{
-	case WASM_EXTERN_FUNC: wasm_functype_delete(wasm_externtype_as_functype(type)); break;
-	case WASM_EXTERN_TABLE: wasm_tabletype_delete(wasm_externtype_as_tabletype(type)); break;
-	case WASM_EXTERN_MEMORY: wasm_memorytype_delete(wasm_externtype_as_memorytype(type)); break;
-	case WASM_EXTERN_GLOBAL: wasm_globaltype_delete(wasm_externtype_as_globaltype(type)); break;
+	case ExternKind::function: wasm_functype_delete(wasm_externtype_as_functype(type)); break;
+	case ExternKind::table: wasm_tabletype_delete(wasm_externtype_as_tabletype(type)); break;
+	case ExternKind::memory: wasm_memorytype_delete(wasm_externtype_as_memorytype(type)); break;
+	case ExternKind::global: wasm_globaltype_delete(wasm_externtype_as_globaltype(type)); break;
+	case ExternKind::exceptionType: Errors::unimplemented("exception types in C API");
+
+	case ExternKind::invalid:
 	default: WAVM_UNREACHABLE();
 	};
 }
@@ -400,21 +404,37 @@ wasm_externtype_t* wasm_externtype_copy(wasm_externtype_t* type)
 {
 	switch(type->kind)
 	{
-	case WASM_EXTERN_FUNC:
+	case ExternKind::function:
 		return wasm_functype_as_externtype(wasm_functype_copy(wasm_externtype_as_functype(type)));
-	case WASM_EXTERN_TABLE:
+	case ExternKind::table:
 		return wasm_tabletype_as_externtype(
 			wasm_tabletype_copy(wasm_externtype_as_tabletype(type)));
-	case WASM_EXTERN_MEMORY:
+	case ExternKind::memory:
 		return wasm_memorytype_as_externtype(
 			wasm_memorytype_copy(wasm_externtype_as_memorytype(type)));
-	case WASM_EXTERN_GLOBAL:
+	case ExternKind::global:
 		return wasm_globaltype_as_externtype(
 			wasm_globaltype_copy(wasm_externtype_as_globaltype(type)));
+	case ExternKind::exceptionType: Errors::unimplemented("exception types in C API");
+
+	case ExternKind::invalid:
 	default: WAVM_UNREACHABLE();
 	};
 }
-wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t* type) { return type->kind; }
+wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t* type)
+{
+	switch(type->kind)
+	{
+	case ExternKind::function: return WASM_EXTERN_FUNC;
+	case ExternKind::table: return WASM_EXTERN_TABLE;
+	case ExternKind::memory: return WASM_EXTERN_MEMORY;
+	case ExternKind::global: return WASM_EXTERN_GLOBAL;
+	case ExternKind::exceptionType: Errors::unimplemented("exception types in C API");
+
+	case ExternKind::invalid:
+	default: WAVM_UNREACHABLE();
+	}
+}
 wasm_externtype_t* wasm_functype_as_externtype(wasm_functype_t* type)
 {
 	return (wasm_externtype_t*)type;
@@ -558,21 +578,15 @@ void wasm_trap_set_host_info_with_finalizer(wasm_trap_t* trap,
 	setUserData(trap, userData, finalizeUserData);
 }
 
-wasm_ref_t* wasm_trap_as_ref(wasm_trap_t* trap)
-{
-	Errors::fatal("wasm_trap_as_ref is unimplemented");
-}
-wasm_trap_t* wasm_ref_as_trap(wasm_ref_t* object)
-{
-	Errors::fatal("wasm_ref_as_trap is unimplemented");
-}
+wasm_ref_t* wasm_trap_as_ref(wasm_trap_t* trap) { Errors::unimplemented("wasm_trap_as_ref"); }
+wasm_trap_t* wasm_ref_as_trap(wasm_ref_t* object) { Errors::unimplemented("wasm_ref_as_trap"); }
 const wasm_ref_t* wasm_trap_as_ref_const(const wasm_trap_t*)
 {
-	Errors::fatal("wasm_trap_as_ref_const is unimplemented");
+	Errors::unimplemented("wasm_trap_as_ref_const");
 }
 const wasm_trap_t* wasm_ref_as_trap_const(const wasm_ref_t*)
 {
-	Errors::fatal("wasm_ref_as_trap_const is unimplemented");
+	Errors::unimplemented("wasm_ref_as_trap_const");
 }
 
 wasm_trap_t* wasm_trap_new(wasm_compartment_t* compartment,

@@ -255,7 +255,7 @@ void printFunctionSEH(U8* imageBase, const RuntimeFunction& function)
 				++unwindCode;
 				break;
 
-			default: WAVM_UNREACHABLE();
+			default: Errors::fatalf("Unrecognized unwind opcode: %u", unwindCode->opcode);
 			}
 		}
 	}
