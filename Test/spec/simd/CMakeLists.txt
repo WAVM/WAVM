@@ -1,7 +1,8 @@
 set(SIMDSpecTestSources
 	simd_address.wast
 	simd_align.wast
-	simd_load.wast)
+	simd_load.wast
+	simd_store.wast)
 add_custom_target(SIMDSpecTests SOURCES ${SIMDSpecTestSources})
 set_target_properties(SIMDSpecTests PROPERTIES FOLDER Testing)
 
