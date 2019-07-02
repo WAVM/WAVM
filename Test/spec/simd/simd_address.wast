@@ -1,4 +1,4 @@
-;; Load v128 data with different valid offset/alignment
+;; Load/Store v128 data with different valid offset/alignment
 
 (module
   (memory 1)
@@ -19,6 +19,31 @@
   )
   (func (export "load_data_5") (param $i i32) (result v128)
     (v128.load offset=15 align=1 (local.get $i))          ;; 0x15 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+  )
+
+  (func (export "store_data_0") (result v128)
+    (v128.store offset=0 (i32.const 0) (v128.const f32x4 0 1 2 3))
+    (v128.load offset=0 (i32.const 0))
+  )
+  (func (export "store_data_1") (result v128)
+    (v128.store align=1 (i32.const 0) (v128.const i32x4 0 1 2 3))
+    (v128.load align=1 (i32.const 0))
+  )
+  (func (export "store_data_2") (result v128)
+    (v128.store offset=1 align=1 (i32.const 0) (v128.const i16x8 0 1 2 3 4 5 6 7))
+    (v128.load offset=1 align=1 (i32.const 0))
+  )
+  (func (export "store_data_3") (result v128)
+    (v128.store offset=2 align=1 (i32.const 0) (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
+    (v128.load offset=2 align=1 (i32.const 0))
+  )
+  (func (export "store_data_4") (result v128)
+    (v128.store offset=15 align=1 (i32.const 0) (v128.const i32x4 0 1 2 3))
+    (v128.load offset=15 (i32.const 0))
+  )
+  (func (export "store_data_5") (result v128)
+    (v128.store offset=65520 align=1 (i32.const 0) (v128.const i32x4 0 1 2 3))
+    (v128.load offset=65520 (i32.const 0))
   )
 )
 
@@ -60,8 +85,15 @@
 
 (assert_trap (invoke "load_data_5" (i32.const 65506)) "out of bounds memory access")
 
+(assert_return (invoke "store_data_0") (v128.const f32x4 0 1 2 3))
+(assert_return (invoke "store_data_1") (v128.const i32x4 0 1 2 3))
+(assert_return (invoke "store_data_2") (v128.const i16x8 0 1 2 3 4 5 6 7))
+(assert_return (invoke "store_data_3") (v128.const i8x16 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15))
+(assert_return (invoke "store_data_4") (v128.const i32x4 0 1 2 3))
+(assert_return (invoke "store_data_5") (v128.const i32x4 0 1 2 3))
 
-;; Load v128 data with invalid offset
+
+;; Load/Store v128 data with invalid offset
 
 (module
   (memory 1)
@@ -81,6 +113,24 @@
   "unknown operator"
 )
 
+(module
+  (memory 1)
+  (func (export "v128.store_offset_65521")
+    (v128.store offset=65521 (i32.const 0) (v128.const i32x4 0 0 0 0))
+  )
+)
+(assert_trap (invoke "v128.store_offset_65521") "out of bounds memory access")
+
+(assert_malformed
+  (module quote
+    "(memory 1)"
+    "(func"
+    "  (v128.store offset=-1 (i32.const 0) (v128.const i32x4 0 0 0 0))"
+    ")"
+  )
+  "unknown operator"
+)
+
 
 ;; Offset constant out of range
 
@@ -88,6 +138,14 @@
   (module quote
     "(memory 1)"
     "(func (drop (v128.load offset=4294967296 (i32.const 0))))"
+  )
+  "i32 constant"
+)
+
+(assert_malformed
+  (module quote
+    "(memory 1)"
+    "(func (v128.store offset=4294967296 (i32.const 0) (v128.const i32x4 0 0 0 0)))"
   )
   "i32 constant"
 )
