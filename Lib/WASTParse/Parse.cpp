@@ -417,7 +417,7 @@ Uptr WAST::resolveRef(ParseState* parseState,
 	{
 		if(ref.index >= maxIndex)
 		{
-			parseErrorf(parseState, ref.token, "invalid index");
+			parseErrorf(parseState, ref.token, "validation error: invalid index");
 			return UINTPTR_MAX;
 		}
 		return ref.index;

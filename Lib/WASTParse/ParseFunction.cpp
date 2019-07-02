@@ -340,18 +340,21 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 	{
 		++cursor->nextToken;
 		require(cursor, t_equals);
+		const Token* alignmentToken = cursor->nextToken;
 		alignment = parseU32(cursor);
-		if(alignment > naturalAlignment)
+
+		if(!alignment || alignment & (alignment - 1))
+		{ parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2"); }
+		else if(alignment > naturalAlignment)
 		{
-			parseErrorf(
-				cursor->parseState, cursor->nextToken, "alignment must be <= natural alignment");
+			parseErrorf(cursor->parseState,
+						alignmentToken,
+						"validation error: alignment must be <= natural alignment");
 			alignment = naturalAlignment;
 		}
 	}
 
 	outImm.alignmentLog2 = (U8)Platform::floorLogTwo(alignment);
-	if(!alignment || alignment & (alignment - 1))
-	{ parseErrorf(cursor->parseState, cursor->nextToken, "alignment must be power of 2"); }
 }
 
 static void parseImm(CursorState* cursor, LiteralImm<V128>& outImm)
@@ -909,8 +912,10 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 			}
 			catch(ValidationException const& exception)
 			{
-				parseErrorf(
-					moduleState->parseState, validationErrorToken, "%s", exception.message.c_str());
+				parseErrorf(moduleState->parseState,
+							validationErrorToken,
+							"validation error: %s",
+							exception.message.c_str());
 			}
 			catch(RecoverParseException const&)
 			{

@@ -46,7 +46,8 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							cursor->nextToken - 1,
-							"maximum size exceeds limit (%" PRIu64 ">%" PRIu64 ")",
+							"validation error: maximum size exceeds limit (%" PRIu64 ">%" PRIu64
+							")",
 							outSizeConstraints.max,
 							maxMax);
 				outSizeConstraints.max = maxMax;
@@ -55,7 +56,8 @@ static bool tryParseSizeConstraints(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							cursor->nextToken - 1,
-							"maximum size is less than minimum size (%" PRIu64 "<%" PRIu64 ")",
+							"validation error: maximum size is less than minimum size (%" PRIu64
+							"<%" PRIu64 ")",
 							outSizeConstraints.max,
 							outSizeConstraints.min);
 				outSizeConstraints.max = outSizeConstraints.min;
@@ -602,7 +604,7 @@ static void parseData(CursorState* cursor)
 				parseErrorf(
 					moduleState->parseState,
 					firstToken,
-					"data segments aren't allowed in modules without any memory declarations");
+					"validation error: data segments aren't allowed in modules without any memory declarations");
 			}
 			else
 			{
@@ -717,6 +719,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					parseErrorf(
 						moduleState->parseState,
 						elemToken,
+						"validation error: "
 						"elem segments aren't allowed in modules without any table declarations");
 				}
 				else
@@ -1113,7 +1116,7 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 			{
 				parseErrorf(cursor->parseState,
 							firstToken,
-							"validation exception: %s",
+							"validation error: %s",
 							validationException.message.c_str());
 			}
 		}

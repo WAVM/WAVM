@@ -175,7 +175,7 @@ static void parseTestScriptModule(CursorState* cursor,
 			{
 				parseErrorf(cursor->parseState,
 							quoteToken,
-							"validation exception: %s",
+							"validation error: %s",
 							exception.message.c_str());
 			}
 		}
@@ -491,11 +491,13 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 					throw RecoverParseException();
 				}
 
-				// Determine whether the module was invalid or malformed.
+				// Determine whether the module was invalid or malformed. If there are any syntax
+				// errors, the module is malformed. If there are only validation errors, the module
+				// is invalid.
 				InvalidOrMalformed invalidOrMalformed = InvalidOrMalformed::wellFormedAndValid;
 				for(const UnresolvedError& error : malformedModuleParseState.unresolvedErrors)
 				{
-					if(stringStartsWith(error.message.c_str(), "validation exception"))
+					if(stringStartsWith(error.message.c_str(), "validation error"))
 					{ invalidOrMalformed = InvalidOrMalformed::invalid; }
 					else
 					{
