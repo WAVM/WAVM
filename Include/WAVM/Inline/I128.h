@@ -4,8 +4,8 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Defines.h"
 
-#define INT128_MIN I128(U64(0), I64(0x8000000000000000ll))
-#define INT128_MAX I128(UINT64_MAX, INT64_MAX)
+#define WAVM_INT128_MIN I128(U64(0), I64(0x8000000000000000ll))
+#define WAVM_INT128_MAX I128(UINT64_MAX, INT64_MAX)
 
 namespace WAVM {
 	struct alignas(16) I128

@@ -23,7 +23,7 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 namespace WAVM { namespace Runtime {
-	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsAtomics)
+	WAVM_DEFINE_INTRINSIC_MODULE(wavmIntrinsicsAtomics)
 }}
 
 // Holds a list of threads (in the form of events that will wake them) that
@@ -136,7 +136,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 
 	// Wait for the thread's wake event to be signaled.
 	bool timedOut = false;
-	if(!threadWakeEvent->wait(timeout < 0 ? INT128_MAX : I128(timeout)))
+	if(!threadWakeEvent->wait(timeout < 0 ? WAVM_INT128_MAX : I128(timeout)))
 	{
 		// If the wait timed out, lock the wait list and check if the thread's wake event is still
 		// in the wait list.
@@ -194,22 +194,22 @@ static U32 wakeAddress(void* pointer, U32 numToWake)
 	return U32(actualNumToWake);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-						  "misalignedAtomicTrap",
-						  void,
-						  misalignedAtomicTrap,
-						  U64 address)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
+							   "misalignedAtomicTrap",
+							   void,
+							   misalignedAtomicTrap,
+							   U64 address)
 {
 	throwException(ExceptionTypes::misalignedAtomicMemoryAccess, {address});
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-						  "atomic_notify",
-						  I32,
-						  atomic_notify,
-						  U32 address,
-						  I32 numToWake,
-						  Uptr memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
+							   "atomic_notify",
+							   I32,
+							   atomic_notify,
+							   U32 address,
+							   I32 numToWake,
+							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
@@ -224,14 +224,14 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	return wakeAddress(memory->baseAddress + address, numToWake);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-						  "atomic_wait_i32",
-						  I32,
-						  atomic_wait_I32,
-						  U32 address,
-						  I32 expectedValue,
-						  I64 timeout,
-						  Uptr memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
+							   "atomic_wait_i32",
+							   I32,
+							   atomic_wait_I32,
+							   U32 address,
+							   I32 expectedValue,
+							   I64 timeout,
+							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
@@ -243,14 +243,14 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 
 	return waitOnAddress(valuePointer, expectedValue, timeout);
 }
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
-						  "atomic_wait_i64",
-						  I32,
-						  atomic_wait_i64,
-						  I32 address,
-						  I64 expectedValue,
-						  I64 timeout,
-						  Uptr memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
+							   "atomic_wait_i64",
+							   I32,
+							   atomic_wait_i64,
+							   I32 address,
+							   I64 expectedValue,
+							   I64 timeout,
+							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 

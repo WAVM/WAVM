@@ -682,12 +682,12 @@ struct FunctionValidationContext
 	{                                                                                              \
 		VALIDATE_FEATURE(nameString, requiredFeature);                                             \
 		const char* operatorName = nameString;                                                     \
-		SUPPRESS_UNUSED(operatorName);                                                             \
+		WAVM_SUPPRESS_UNUSED(operatorName);                                                        \
 		validateImm(imm);                                                                          \
 		popAndValidateTypeTuple(nameString, IR::getNonParametricOpSigs().name.params());           \
 		pushOperandTuple(IR::getNonParametricOpSigs().name.results());                             \
 	}
-	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
+	WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VALIDATE_OP)
 #undef VALIDATE_OP
 
 private:
@@ -1069,5 +1069,5 @@ void IR::CodeValidationStream::finish()
 		impl->functionContext.validateNonEmptyControlStack(nameString);                            \
 		impl->functionContext.name(imm);                                                           \
 	}
-ENUM_OPERATORS(VISIT_OPCODE)
+WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE

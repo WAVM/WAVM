@@ -25,7 +25,7 @@ namespace WAVM { namespace IR {
 		IR_API void finish();
 
 #define VISIT_OPCODE(_, name, nameString, Imm, ...) IR_API void name(Imm imm = {});
-		ENUM_OPERATORS(VISIT_OPCODE)
+		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
 	private:
@@ -49,7 +49,7 @@ namespace WAVM { namespace IR {
 		codeValidationStream.name(imm);                                                            \
 		innerStream.name(imm);                                                                     \
 	}
-		ENUM_OPERATORS(VISIT_OPCODE)
+		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
 	private:

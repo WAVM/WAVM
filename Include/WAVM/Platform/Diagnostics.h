@@ -12,7 +12,7 @@ namespace WAVM { namespace Platform {
 	// Error reporting
 	//
 
-	PACKED_STRUCT(struct AssertMetadata {
+	WAVM_PACKED_STRUCT(struct AssertMetadata {
 		const char* condition;
 		const char* file;
 		U32 line;

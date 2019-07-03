@@ -53,7 +53,7 @@ EMIT_CONST(v128, V128)
 	void EmitFunctionContext::typeId##_##name(NoImm)                                               \
 	{                                                                                              \
 		const ValueType type = ValueType::typeId;                                                  \
-		SUPPRESS_UNUSED(type);                                                                     \
+		WAVM_SUPPRESS_UNUSED(type);                                                                \
 		auto right = pop();                                                                        \
 		auto left = pop();                                                                         \
 		push(emitCode);                                                                            \
@@ -71,7 +71,7 @@ EMIT_CONST(v128, V128)
 	void EmitFunctionContext::typeId##_##name(NoImm)                                               \
 	{                                                                                              \
 		const ValueType type = ValueType::typeId;                                                  \
-		SUPPRESS_UNUSED(type);                                                                     \
+		WAVM_SUPPRESS_UNUSED(type);                                                                \
 		auto operand = pop();                                                                      \
 		push(emitCode);                                                                            \
 	}
@@ -88,18 +88,18 @@ EMIT_CONST(v128, V128)
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
 		llvm::Type* vectorType = llvmType;                                                         \
-		SUPPRESS_UNUSED(vectorType);                                                               \
+		WAVM_SUPPRESS_UNUSED(vectorType);                                                          \
 		auto right = irBuilder.CreateBitCast(pop(), llvmType);                                     \
-		SUPPRESS_UNUSED(right);                                                                    \
+		WAVM_SUPPRESS_UNUSED(right);                                                               \
 		auto left = irBuilder.CreateBitCast(pop(), llvmType);                                      \
-		SUPPRESS_UNUSED(left);                                                                     \
+		WAVM_SUPPRESS_UNUSED(left);                                                                \
 		push(emitCode);                                                                            \
 	}
 #define EMIT_SIMD_UNARY_OP(name, llvmType, emitCode)                                               \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
 		auto operand = irBuilder.CreateBitCast(pop(), llvmType);                                   \
-		SUPPRESS_UNUSED(operand);                                                                  \
+		WAVM_SUPPRESS_UNUSED(operand);                                                             \
 		push(emitCode);                                                                            \
 	}
 
@@ -394,14 +394,14 @@ EMIT_SIMD_INT_BINARY_OP(sub, irBuilder.CreateSub(left, right))
 	{                                                                                              \
 		llvm::Type* vectorType = llvmType;                                                         \
 		llvm::Type* scalarType = llvmType->getScalarType();                                        \
-		SUPPRESS_UNUSED(vectorType);                                                               \
+		WAVM_SUPPRESS_UNUSED(vectorType);                                                          \
 		auto right = irBuilder.CreateVectorSplat(                                                  \
 			vectorType->getVectorNumElements(),                                                    \
 			irBuilder.CreateZExtOrTrunc(                                                           \
 				emitShiftCountMask(*this, pop(), scalarType->getIntegerBitWidth()), scalarType));  \
-		SUPPRESS_UNUSED(right);                                                                    \
+		WAVM_SUPPRESS_UNUSED(right);                                                               \
 		auto left = irBuilder.CreateBitCast(pop(), llvmType);                                      \
-		SUPPRESS_UNUSED(left);                                                                     \
+		WAVM_SUPPRESS_UNUSED(left);                                                                \
 		auto result = createShift(left, right);                                                    \
 		push(result);                                                                              \
 	}

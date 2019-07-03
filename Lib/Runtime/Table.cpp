@@ -19,7 +19,7 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 namespace WAVM { namespace Runtime {
-	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsTable)
+	WAVM_DEFINE_INTRINSIC_MODULE(wavmIntrinsicsTable)
 }}
 
 // Global lists of tables; used to query whether an address is reserved by one of them.
@@ -451,13 +451,13 @@ void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
-						  "table.grow",
-						  U32,
-						  table_grow,
-						  Object* initialValue,
-						  U32 deltaNumElements,
-						  Uptr tableId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+							   "table.grow",
+							   U32,
+							   table_grow,
+							   Object* initialValue,
+							   U32 deltaNumElements,
+							   Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	const Iptr numTableElements = growTable(
@@ -466,7 +466,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	return I32(numTableElements);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.size", U32, table_size, Uptr tableId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.size", U32, table_size, Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	const Uptr numTableElements = getTableNumElements(table);
@@ -474,39 +474,39 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.size", U32, table_size, Up
 	return U32(numTableElements);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
-						  "table.get",
-						  Object*,
-						  table_get,
-						  U32 index,
-						  Uptr tableId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+							   "table.get",
+							   Object*,
+							   table_get,
+							   U32 index,
+							   Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	return getTableElement(table, index);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
-						  "table.set",
-						  void,
-						  table_set,
-						  U32 index,
-						  Object* value,
-						  Uptr tableId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+							   "table.set",
+							   void,
+							   table_set,
+							   U32 index,
+							   Object* value,
+							   Uptr tableId)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	setTableElement(table, index, value);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
-						  "table.init",
-						  void,
-						  table_init,
-						  U32 destIndex,
-						  U32 sourceIndex,
-						  U32 numElems,
-						  Uptr moduleInstanceId,
-						  Uptr tableId,
-						  Uptr elemSegmentIndex)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+							   "table.init",
+							   void,
+							   table_init,
+							   U32 destIndex,
+							   U32 sourceIndex,
+							   U32 numElems,
+							   Uptr moduleInstanceId,
+							   Uptr tableId,
+							   Uptr elemSegmentIndex)
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
@@ -532,12 +532,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
-						  "elem.drop",
-						  void,
-						  elem_drop,
-						  Uptr moduleInstanceId,
-						  Uptr elemSegmentIndex)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+							   "elem.drop",
+							   void,
+							   elem_drop,
+							   Uptr moduleInstanceId,
+							   Uptr elemSegmentIndex)
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
@@ -551,15 +551,15 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
-						  "table.copy",
-						  void,
-						  table_copy,
-						  U32 destOffset,
-						  U32 sourceOffset,
-						  U32 numElements,
-						  Uptr sourceTableId,
-						  Uptr destTableId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+							   "table.copy",
+							   void,
+							   table_copy,
+							   U32 destOffset,
+							   U32 sourceOffset,
+							   U32 numElements,
+							   Uptr sourceTableId,
+							   Uptr destTableId)
 {
 	Runtime::unwindSignalsAsExceptions([=] {
 		Table* sourceTable = getTableFromRuntimeData(contextRuntimeData, sourceTableId);
@@ -591,14 +591,14 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	});
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
-						  "table.fill",
-						  void,
-						  table_fill,
-						  U32 destOffset,
-						  Runtime::Object* value,
-						  U32 numElements,
-						  Uptr destTableId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+							   "table.fill",
+							   void,
+							   table_fill,
+							   U32 destOffset,
+							   Runtime::Object* value,
+							   U32 numElements,
+							   Uptr destTableId)
 {
 	Table* destTable = getTableFromRuntimeData(contextRuntimeData, destTableId);
 
@@ -611,14 +611,14 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 	});
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
-						  "callIndirectFail",
-						  void,
-						  callIndirectFail,
-						  U32 index,
-						  Uptr tableId,
-						  Function* function,
-						  Uptr expectedTypeEncoding)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
+							   "callIndirectFail",
+							   void,
+							   callIndirectFail,
+							   U32 index,
+							   Uptr tableId,
+							   Function* function,
+							   Uptr expectedTypeEncoding)
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	if(asObject(function) == getOutOfBoundsElement())

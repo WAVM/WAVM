@@ -34,15 +34,15 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
 #define DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(module, nameString, Result, cName, ...)            \
-	DEFINE_INTRINSIC_FUNCTION(module, nameString, Result, cName, __VA_ARGS__)                      \
+	WAVM_DEFINE_INTRINSIC_FUNCTION(module, nameString, Result, cName, __VA_ARGS__)                 \
 	{                                                                                              \
 		Errors::fatalf("WAVM does not yet implement the Emscripten host function '%s'",            \
 					   nameString);                                                                \
 	}
 
-DEFINE_INTRINSIC_MODULE(env)
-DEFINE_INTRINSIC_MODULE(asm2wasm)
-DEFINE_INTRINSIC_MODULE(global)
+WAVM_DEFINE_INTRINSIC_MODULE(env)
+WAVM_DEFINE_INTRINSIC_MODULE(asm2wasm)
+WAVM_DEFINE_INTRINSIC_MODULE(global)
 
 static U32 coerce32bitAddress(Memory* memory, Uptr address)
 {
@@ -86,47 +86,47 @@ struct MutableGlobals
 	I32 _stdout;
 };
 
-DEFINE_INTRINSIC_GLOBAL(env, "STACKTOP", I32, STACKTOP, 64 * IR::numBytesPerPage);
-DEFINE_INTRINSIC_GLOBAL(env, "STACK_MAX", I32, STACK_MAX, 128 * IR::numBytesPerPage);
-DEFINE_INTRINSIC_GLOBAL(env,
-						"tempDoublePtr",
-						I32,
-						tempDoublePtr,
-						MutableGlobals::address + offsetof(MutableGlobals, tempDoublePtr));
-DEFINE_INTRINSIC_GLOBAL(env, "ABORT", I32, ABORT, 0);
-DEFINE_INTRINSIC_GLOBAL(env, "cttz_i8", I32, cttz_i8, 0);
-DEFINE_INTRINSIC_GLOBAL(env, "___dso_handle", U32, ___dso_handle, 0);
-DEFINE_INTRINSIC_GLOBAL(env,
-						"_stderr",
-						I32,
-						_stderr,
-						MutableGlobals::address + offsetof(MutableGlobals, _stderr));
-DEFINE_INTRINSIC_GLOBAL(env,
-						"_stdin",
-						I32,
-						_stdin,
-						MutableGlobals::address + offsetof(MutableGlobals, _stdin));
-DEFINE_INTRINSIC_GLOBAL(env,
-						"_stdout",
-						I32,
-						_stdout,
-						MutableGlobals::address + offsetof(MutableGlobals, _stdout));
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "STACKTOP", I32, STACKTOP, 64 * IR::numBytesPerPage);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "STACK_MAX", I32, STACK_MAX, 128 * IR::numBytesPerPage);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env,
+							 "tempDoublePtr",
+							 I32,
+							 tempDoublePtr,
+							 MutableGlobals::address + offsetof(MutableGlobals, tempDoublePtr));
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "ABORT", I32, ABORT, 0);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "cttz_i8", I32, cttz_i8, 0);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "___dso_handle", U32, ___dso_handle, 0);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env,
+							 "_stderr",
+							 I32,
+							 _stderr,
+							 MutableGlobals::address + offsetof(MutableGlobals, _stderr));
+WAVM_DEFINE_INTRINSIC_GLOBAL(env,
+							 "_stdin",
+							 I32,
+							 _stdin,
+							 MutableGlobals::address + offsetof(MutableGlobals, _stdin));
+WAVM_DEFINE_INTRINSIC_GLOBAL(env,
+							 "_stdout",
+							 I32,
+							 _stdout,
+							 MutableGlobals::address + offsetof(MutableGlobals, _stdout));
 
-DEFINE_INTRINSIC_GLOBAL(env, "__memory_base", U32, memory_base, 1024);
-DEFINE_INTRINSIC_GLOBAL(env, "memoryBase", U32, emscriptenMemoryBase, 1024);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "__memory_base", U32, memory_base, 1024);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "memoryBase", U32, emscriptenMemoryBase, 1024);
 
-DEFINE_INTRINSIC_GLOBAL(env, "__table_base", U32, table_base, 0);
-DEFINE_INTRINSIC_GLOBAL(env, "tableBase", U32, emscriptenTableBase, 0);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "__table_base", U32, table_base, 0);
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "tableBase", U32, emscriptenTableBase, 0);
 
-DEFINE_INTRINSIC_GLOBAL(env,
-						"DYNAMICTOP_PTR",
-						U32,
-						DYNAMICTOP_PTR,
-						MutableGlobals::address + offsetof(MutableGlobals, DYNAMICTOP_PTR))
-DEFINE_INTRINSIC_GLOBAL(env, "_environ", U32, em_environ, 0)
-DEFINE_INTRINSIC_GLOBAL(env, "EMTSTACKTOP", U32, EMTSTACKTOP, 0)
-DEFINE_INTRINSIC_GLOBAL(env, "EMT_STACK_MAX", U32, EMT_STACK_MAX, 0)
-DEFINE_INTRINSIC_GLOBAL(env, "eb", I32, eb, 0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(env,
+							 "DYNAMICTOP_PTR",
+							 U32,
+							 DYNAMICTOP_PTR,
+							 MutableGlobals::address + offsetof(MutableGlobals, DYNAMICTOP_PTR))
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "_environ", U32, em_environ, 0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "EMTSTACKTOP", U32, EMTSTACKTOP, 0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "EMT_STACK_MAX", U32, EMT_STACK_MAX, 0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(env, "eb", I32, eb, 0)
 
 static Emscripten::Instance* getEmscriptenInstance(Runtime::ContextRuntimeData* contextRuntimeData)
 {
@@ -184,38 +184,42 @@ static U32 dynamicAlloc(Emscripten::Instance* instance, U32 numBytes)
 	return allocationAddress;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_emscripten_get_heap_size", U32, _emscripten_get_heap_size)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_emscripten_get_heap_size", U32, _emscripten_get_heap_size)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	return coerce32bitAddress(instance->memory,
 							  Runtime::getMemoryNumPages(instance->memory) * IR::numBytesPerPage);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", U32, getTotalMemory)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getTotalMemory", U32, getTotalMemory)
 {
 	return _emscripten_get_heap_size(contextRuntimeData);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "abortOnCannotGrowMemory", I32, abortOnCannotGrowMemory, I32 size)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "abortOnCannotGrowMemory",
+							   I32,
+							   abortOnCannotGrowMemory,
+							   I32 size)
 {
 	throwException(ExceptionTypes::calledAbort);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverflow, I32 size)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "abortStackOverflow", void, abortStackOverflow, I32 size)
 {
 	throwException(ExceptionTypes::stackOverflow);
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_emscripten_resize_heap",
-						  I32,
-						  _emscripten_resize_heap,
-						  U32 desiredNumBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_emscripten_resize_heap",
+							   I32,
+							   _emscripten_resize_heap,
+							   U32 desiredNumBytes)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	return resizeHeap(instance, desiredNumBytes) ? 1 : 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_time", I32, _time, U32 address)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_time", I32, _time, U32 address)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	time_t t = time(nullptr);
@@ -223,9 +227,9 @@ DEFINE_INTRINSIC_FUNCTION(env, "_time", I32, _time, U32 address)
 	return (I32)t;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___errno_location", I32, ___errno_location) { return 0; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___errno_location", I32, ___errno_location) { return 0; }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___setErrNo", void, ___seterrno, I32 value)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___setErrNo", void, ___seterrno, I32 value)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	if(instance->errnoAddress)
@@ -233,10 +237,13 @@ DEFINE_INTRINSIC_FUNCTION(env, "___setErrNo", void, ___seterrno, I32 value)
 }
 
 thread_local I32 tempRet0;
-DEFINE_INTRINSIC_FUNCTION(env, "setTempRet0", void, setTempRet0, I32 value) { tempRet0 = value; }
-DEFINE_INTRINSIC_FUNCTION(env, "getTempRet0", I32, getTempRet0) { return tempRet0; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "setTempRet0", void, setTempRet0, I32 value)
+{
+	tempRet0 = value;
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getTempRet0", I32, getTempRet0) { return tempRet0; }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", I32, _sysconf, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", I32, _sysconf, I32 a)
 {
 	enum
 	{
@@ -249,16 +256,16 @@ DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", I32, _sysconf, I32 a)
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_wait", I32, _pthread_cond_wait, I32 a, I32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_wait", I32, _pthread_cond_wait, I32 a, I32 b)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_broadcast", I32, _pthread_cond_broadcast, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cond_broadcast", I32, _pthread_cond_broadcast, I32 a)
 {
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_equal", I32, _pthread_equal, I32 a, I32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_equal", I32, _pthread_equal, I32 a, I32 b)
 {
 	return a == b;
 }
@@ -266,12 +273,12 @@ DEFINE_INTRINSIC_FUNCTION(env, "_pthread_equal", I32, _pthread_equal, I32 a, I32
 static HashMap<U32, I32> pthreadSpecific = {};
 static U32 pthreadSpecificNextKey = 0;
 
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_pthread_key_create",
-						  I32,
-						  _pthread_key_create,
-						  U32 key,
-						  I32 destructorPtr)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_key_create",
+							   I32,
+							   _pthread_key_create,
+							   U32 key,
+							   I32 destructorPtr)
 {
 	if(key == 0) { return ErrNo::einval; }
 
@@ -282,61 +289,73 @@ DEFINE_INTRINSIC_FUNCTION(env,
 
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_mutex_lock", I32, _pthread_mutex_lock, I32 a) { return 0; }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_mutex_unlock", I32, _pthread_mutex_unlock, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_mutex_lock", I32, _pthread_mutex_lock, I32 a)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_pthread_setspecific",
-						  I32,
-						  _pthread_setspecific,
-						  U32 key,
-						  I32 value)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_mutex_unlock", I32, _pthread_mutex_unlock, I32 a)
+{
+	return 0;
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_setspecific",
+							   I32,
+							   _pthread_setspecific,
+							   U32 key,
+							   I32 value)
 {
 	if(!pthreadSpecific.contains(key)) { return ErrNo::einval; }
 	pthreadSpecific.set(key, value);
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_getspecific", I32, _pthread_getspecific, U32 key)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_getspecific", I32, _pthread_getspecific, U32 key)
 {
 	const I32* value = pthreadSpecific.get(key);
 	return value ? *value : 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_once", I32, _pthread_once, I32 a, I32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_once", I32, _pthread_once, I32 a, I32 b)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cleanup_push", void, _pthread_cleanup_push, I32 a, I32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_cleanup_push",
+							   void,
+							   _pthread_cleanup_push,
+							   I32 a,
+							   I32 b)
 {
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cleanup_pop", void, _pthread_cleanup_pop, I32 a) {}
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_self", I32, _pthread_self) { return 0; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_cleanup_pop", void, _pthread_cleanup_pop, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_self", I32, _pthread_self) { return 0; }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_attr_init", I32, _pthread_attr_init, I32 address)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_pthread_attr_init", I32, _pthread_attr_init, I32 address)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_pthread_attr_destroy", I32, _pthread_attr_destroy, I32 address)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_attr_destroy",
+							   I32,
+							   _pthread_attr_destroy,
+							   I32 address)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_pthread_getattr_np",
-						  I32,
-						  _pthread_getattr_np,
-						  I32 thread,
-						  I32 address)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_getattr_np",
+							   I32,
+							   _pthread_getattr_np,
+							   I32 thread,
+							   I32 address)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_pthread_attr_getstack",
-						  I32,
-						  _pthread_attr_getstack,
-						  U32 attrAddress,
-						  U32 stackBaseAddress,
-						  U32 stackSizeAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_attr_getstack",
+							   I32,
+							   _pthread_attr_getstack,
+							   U32 attrAddress,
+							   U32 stackBaseAddress,
+							   U32 stackSizeAddress)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	memoryRef<U32>(instance->memory, stackBaseAddress) = STACKTOP.getValue().u32;
@@ -345,7 +364,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", U32, ___ctype_b_loc)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", U32, ___ctype_b_loc)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	unsigned short data[384] = {
@@ -387,7 +406,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_b_loc", U32, ___ctype_b_loc)
 	}
 	return vmAddress + sizeof(short) * 128;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", U32, ___ctype_toupper_loc)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", U32, ___ctype_toupper_loc)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	I32 data[384]
@@ -421,7 +440,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_toupper_loc", U32, ___ctype_toupper_loc
 	}
 	return vmAddress + sizeof(I32) * 128;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", U32, ___ctype_tolower_loc)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", U32, ___ctype_tolower_loc)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	I32 data[384]
@@ -455,23 +474,23 @@ DEFINE_INTRINSIC_FUNCTION(env, "___ctype_tolower_loc", U32, ___ctype_tolower_loc
 	}
 	return vmAddress + sizeof(I32) * 128;
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "___assert_fail",
-						  void,
-						  ___assert_fail,
-						  I32 condition,
-						  I32 filename,
-						  I32 line,
-						  I32 function)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "___assert_fail",
+							   void,
+							   ___assert_fail,
+							   I32 condition,
+							   I32 filename,
+							   I32 line,
+							   I32 function)
 {
 	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___cxa_atexit", I32, ___cxa_atexit, I32 a, I32 b, I32 c)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_atexit", I32, ___cxa_atexit, I32 a, I32 b, I32 c)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_acquire", I32, ___cxa_guard_acquire, U32 address)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_acquire", I32, ___cxa_guard_acquire, U32 address)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	if(!memoryRef<U8>(instance->memory, address))
@@ -484,162 +503,165 @@ DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_acquire", I32, ___cxa_guard_acquire
 		return 0;
 	}
 }
-DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_release", void, ___cxa_guard_release, I32 a) {}
-DEFINE_INTRINSIC_FUNCTION(env, "___cxa_throw", void, ___cxa_throw, I32 a, I32 b, I32 c)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_guard_release", void, ___cxa_guard_release, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_throw", void, ___cxa_throw, I32 a, I32 b, I32 c)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "___cxa_begin_catch", I32, ___cxa_begin_catch, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_begin_catch", I32, ___cxa_begin_catch, I32 a)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "___cxa_allocate_exception",
-						  U32,
-						  ___cxa_allocate_exception,
-						  U32 size)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "___cxa_allocate_exception",
+							   U32,
+							   ___cxa_allocate_exception,
+							   U32 size)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	return coerce32bitAddress(instance->memory, dynamicAlloc(instance, size));
 }
-DEFINE_INTRINSIC_FUNCTION(env, "__ZSt18uncaught_exceptionv", I32, __ZSt18uncaught_exceptionv)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "__ZSt18uncaught_exceptionv", I32, __ZSt18uncaught_exceptionv)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_abort", void, emscripten__abort)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_abort", void, emscripten__abort)
 {
 	throwException(Runtime::ExceptionTypes::calledAbort);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_exit", void, emscripten__exit, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_exit", void, emscripten__exit, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::calledAbort);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
 {
 	Log::printf(Log::error, "env.abort(%i)\n", code);
 	throwException(Runtime::ExceptionTypes::calledAbort);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_i", void, emscripten_nullFunc_i, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_i", void, emscripten_nullFunc_i, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_ii", void, emscripten_nullFunc_ii, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_ii", void, emscripten_nullFunc_ii, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iii", void, emscripten_nullFunc_iii, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iii", void, emscripten_nullFunc_iii, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiii", void, emscripten_nullFunc_iiii, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiii", void, emscripten_nullFunc_iiii, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiii", void, emscripten_nullFunc_iiiii, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiii", void, emscripten_nullFunc_iiiii, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiii", void, emscripten_nullFunc_iiiiii, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiii", void, emscripten_nullFunc_iiiiii, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiiii", void, emscripten_nullFunc_iiiiiii, I32 code)
-{
-	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
-}
-
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_v", void, emscripten_nullFunc_v, I32 code)
-{
-	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
-}
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vi", void, emscripten_nullFunc_vi, I32 code)
-{
-	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
-}
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vii", void, emscripten_nullFunc_vii, I32 code)
-{
-	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
-}
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viii", void, emscripten_nullFunc_viii, I32 code)
-{
-	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
-}
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiii", void, emscripten_nullFunc_viiii, I32 code)
-{
-	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
-}
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiii", void, emscripten_nullFunc_viiiii, I32 code)
-{
-	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
-}
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiiii", void, emscripten_nullFunc_viiiiii, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iiiiiii", void, emscripten_nullFunc_iiiiiii, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iidiiii", void, emscripten_nullFunc_iidiiii, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_v", void, emscripten_nullFunc_v, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_jiji", void, emscripten_nullFunc_jiji, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vi", void, emscripten_nullFunc_vi, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_vii", void, emscripten_nullFunc_vii, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viii", void, emscripten_nullFunc_viii, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiii", void, emscripten_nullFunc_viiii, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiii", void, emscripten_nullFunc_viiiii, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_viiiiii", void, emscripten_nullFunc_viiiiii, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_iidiiii", void, emscripten_nullFunc_iidiiii, I32 code)
+{
+	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "nullFunc_jiji", void, emscripten_nullFunc_jiji, I32 code)
 {
 	throwException(Runtime::ExceptionTypes::uninitializedTableElement);
 }
 
 static U32 currentLocale = 0;
-DEFINE_INTRINSIC_FUNCTION(env, "_uselocale", I32, _uselocale, I32 locale)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_uselocale", I32, _uselocale, I32 locale)
 {
 	auto oldLocale = currentLocale;
 	currentLocale = locale;
 	return oldLocale;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_newlocale", U32, _newlocale, I32 mask, I32 locale, I32 base)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_newlocale", U32, _newlocale, I32 mask, I32 locale, I32 base)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	if(!base) { base = coerce32bitAddress(instance->memory, dynamicAlloc(instance, 4)); }
 	return base;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_freelocale", void, emscripten__freelocale, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_freelocale", void, emscripten__freelocale, I32 a) {}
 
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_strftime_l",
-						  I32,
-						  emscripten__strftime_l,
-						  I32 a,
-						  I32 b,
-						  I32 c,
-						  I32 d,
-						  I32 e)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_strftime_l",
+							   I32,
+							   emscripten__strftime_l,
+							   I32 a,
+							   I32 b,
+							   I32 c,
+							   I32 d,
+							   I32 e)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_strerror", I32, emscripten__strerror, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_strerror", I32, emscripten__strerror, I32 a)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_catopen", I32, emscripten__catopen, I32 a, I32 b) { return -1; }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_catgets",
-						  I32,
-						  emscripten__catgets,
-						  I32 catd,
-						  I32 set_id,
-						  I32 msg_id,
-						  I32 s)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_catopen", I32, emscripten__catopen, I32 a, I32 b)
+{
+	return -1;
+}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_catgets",
+							   I32,
+							   emscripten__catgets,
+							   I32 catd,
+							   I32 set_id,
+							   I32 msg_id,
+							   I32 s)
 {
 	return s;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_catclose", I32, emscripten__catclose, I32 a) { return 0; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_catclose", I32, emscripten__catclose, I32 a) { return 0; }
 
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_emscripten_memcpy_big",
-						  U32,
-						  _emscripten_memcpy_big,
-						  U32 sourceAddress,
-						  U32 destAddress,
-						  U32 numBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_emscripten_memcpy_big",
+							   U32,
+							   _emscripten_memcpy_big,
+							   U32 sourceAddress,
+							   U32 destAddress,
+							   U32 numBytes)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	memcpy(memoryArrayPtr<U8>(instance->memory, sourceAddress, numBytes),
@@ -665,24 +687,24 @@ static VFS::VFD* getFD(Emscripten::Instance* instance, U32 vmHandle)
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_vfprintf",
-						  I32,
-						  _vfprintf,
-						  I32 file,
-						  U32 formatPointer,
-						  I32 argList)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_vfprintf",
+							   I32,
+							   _vfprintf,
+							   I32 file,
+							   U32 formatPointer,
+							   I32 argList)
 {
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_fread",
-						  U32,
-						  _fread,
-						  U32 destAddress,
-						  U32 size,
-						  U32 count,
-						  I32 file)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_fread",
+							   U32,
+							   _fread,
+							   U32 destAddress,
+							   U32 size,
+							   U32 count,
+							   I32 file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	VFS::VFD* fd = getFD(instance, file);
@@ -701,14 +723,14 @@ DEFINE_INTRINSIC_FUNCTION(env,
 		return U32(numBytesRead);
 	}
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_fwrite",
-						  U32,
-						  _fwrite,
-						  U32 sourceAddress,
-						  U32 size,
-						  U32 count,
-						  I32 file)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_fwrite",
+							   U32,
+							   _fwrite,
+							   U32 sourceAddress,
+							   U32 size,
+							   U32 count,
+							   I32 file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	VFS::VFD* fd = getFD(instance, file);
@@ -727,7 +749,7 @@ DEFINE_INTRINSIC_FUNCTION(env,
 		return U32(numBytesWritten);
 	}
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_fputc", I32, _fputc, I32 character, I32 file)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fputc", I32, _fputc, I32 character, I32 file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	VFS::VFD* fd = getFD(instance, file);
@@ -739,7 +761,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_fputc", I32, _fputc, I32 character, I32 file)
 	const VFS::Result result = fd->write(&c, 1, &numBytesWritten);
 	return result == VFS::Result::success ? character : -1;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_fflush", I32, _fflush, I32 file)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_fflush", I32, _fflush, I32 file)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 	VFS::VFD* fd = getFD(instance, file);
@@ -748,30 +770,30 @@ DEFINE_INTRINSIC_FUNCTION(env, "_fflush", I32, _fflush, I32 file)
 	return fd->sync(VFS::SyncType::contentsAndMetadata) == VFS::Result::success ? 0 : -1;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___lock", void, ___lock, I32 a) {}
-DEFINE_INTRINSIC_FUNCTION(env, "___unlock", void, ___unlock, I32 a) {}
-DEFINE_INTRINSIC_FUNCTION(env, "___lockfile", I32, ___lockfile, I32 a) { return 1; }
-DEFINE_INTRINSIC_FUNCTION(env, "___unlockfile", void, ___unlockfile, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___lock", void, ___lock, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___unlock", void, ___unlock, I32 a) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___lockfile", I32, ___lockfile, I32 a) { return 1; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___unlockfile", void, ___unlockfile, I32 a) {}
 
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall6", I32, ___syscall6, I32 a, I32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall6", I32, ___syscall6, I32 a, I32 b)
 {
 	// close
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall54", I32, ___syscall54, I32 a, I32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall54", I32, ___syscall54, I32 a, I32 b)
 {
 	// ioctl
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall140", I32, ___syscall140, I32 a, I32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall140", I32, ___syscall140, I32 a, I32 b)
 {
 	// llseek
 	throwException(Runtime::ExceptionTypes::calledUnimplementedIntrinsic);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall145", I32, _readv, I32, I32 argsPtr)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall145", I32, _readv, I32, I32 argsPtr)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 
@@ -802,7 +824,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall145", I32, _readv, I32, I32 argsPtr)
 	return coerce32bitAddressSigned(instance->memory, totalNumBytesRead);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall146", I32, _writev, I32, U32 argsPtr)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall146", I32, _writev, I32, U32 argsPtr)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 
@@ -833,7 +855,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "___syscall146", I32, _writev, I32, U32 argsPtr)
 	return I32(totalNumBytesWritten);
 }
 
-DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-to-int", I32, f64_to_int, F64 f) { return (I32)f; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-to-int", I32, f64_to_int, F64 f) { return (I32)f; }
 
 static F64 makeNaN()
 {
@@ -852,33 +874,33 @@ static F64 makeInf()
 	return floatBits.value;
 }
 
-DEFINE_INTRINSIC_GLOBAL(global, "NaN", F64, NaN, makeNaN())
-DEFINE_INTRINSIC_GLOBAL(global, "Infinity", F64, Infinity, makeInf())
+WAVM_DEFINE_INTRINSIC_GLOBAL(global, "NaN", F64, NaN, makeNaN())
+WAVM_DEFINE_INTRINSIC_GLOBAL(global, "Infinity", F64, Infinity, makeInf())
 
-DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32u-rem", U32, I32_remu, U32 left, U32 right)
+WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32u-rem", U32, I32_remu, U32 left, U32 right)
 {
 	return left % right;
 }
-DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32s-rem", I32, I32_rems, I32 left, I32 right)
+WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32s-rem", I32, I32_rems, I32 left, I32 right)
 {
 	return left % right;
 }
-DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32u-div", U32, I32_divu, U32 left, U32 right)
+WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32u-div", U32, I32_divu, U32 left, U32 right)
 {
 	return left / right;
 }
-DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32s-div", I32, I32_divs, I32 left, I32 right)
+WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "i32s-div", I32, I32_divs, I32 left, I32 right)
 {
 	return left / right;
 }
-DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-rem", F64, F64_rems, F64 left, F64 right)
+WAVM_DEFINE_INTRINSIC_FUNCTION(asm2wasm, "f64-rem", F64, F64_rems, F64 left, F64 right)
 {
 	return (F64)fmod(left, right);
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_getenv", I32, _getenv, I32 a) { return 0; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_getenv", I32, _getenv, I32 a) { return 0; }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_gettimeofday", I32, _gettimeofday, I32 timevalAddress, I32)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_gettimeofday", I32, _gettimeofday, I32 timevalAddress, I32)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 
@@ -888,7 +910,7 @@ DEFINE_INTRINSIC_FUNCTION(env, "_gettimeofday", I32, _gettimeofday, I32 timevalA
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION(env, "_sem_init", I32, _sem_init, I32 a, I32 b, I32 c) { return 0; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sem_init", I32, _sem_init, I32 a, I32 b, I32 c) { return 0; }
 
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "invoke_ii", U32, invoke_ii, U32 index, U32 a);
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
@@ -908,11 +930,11 @@ DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
 										U32 b);
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___buildEnvironment", void, ___buildEnvironment, U32);
 
-DEFINE_INTRINSIC_FUNCTION(env, "___cxa_pure_virtual", void, ___cxa_pure_virtual)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___cxa_pure_virtual", void, ___cxa_pure_virtual)
 {
 	Errors::fatal("env.__cxa_pure_virtual called");
 }
-DEFINE_INTRINSIC_FUNCTION(env, "___syscall192", I32, _mmap2, U32 which, U32 varargsAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall192", I32, _mmap2, U32 which, U32 varargsAddress)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 
@@ -952,12 +974,12 @@ DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___syscall5", U32, ___syscall5, U3
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___syscall91", U32, ___syscall91, U32, U32);
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_atexit", U32, _atexit, U32);
 
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_clock_gettime",
-						  I32,
-						  _clock_gettime,
-						  U32 clockId,
-						  U32 timespecAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_clock_gettime",
+							   I32,
+							   _clock_gettime,
+							   U32 clockId,
+							   U32 timespecAddress)
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 
@@ -989,10 +1011,10 @@ DEFINE_INTRINSIC_FUNCTION(env,
 
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_getpagesize", U32, _getpagesize) { return 16384; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_getpagesize", U32, _getpagesize) { return 16384; }
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_llvm_log10_f64", F64, _llvm_log10_f64, F64);
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_llvm_log2_f64", F64, _llvm_log2_f64, F64);
-DEFINE_INTRINSIC_FUNCTION(env, "_llvm_trap", void, _llvm_trap)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_llvm_trap", void, _llvm_trap)
 {
 	Errors::fatal("env._llvm_trap called");
 }
@@ -1033,35 +1055,35 @@ DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env,
 										U32);
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_pthread_detach", U32, _pthread_detach, U32);
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_pthread_join", U32, _pthread_join, U32, U32);
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_pthread_mutexattr_destroy",
-						  U32,
-						  _pthread_mutexattr_destroy,
-						  U32 attrAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_mutexattr_destroy",
+							   U32,
+							   _pthread_mutexattr_destroy,
+							   U32 attrAddress)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_pthread_mutexattr_init",
-						  U32,
-						  _pthread_mutexattr_init,
-						  U32 attrAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_mutexattr_init",
+							   U32,
+							   _pthread_mutexattr_init,
+							   U32 attrAddress)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env,
-						  "_pthread_mutexattr_settype",
-						  U32,
-						  _pthread_mutexattr_settype,
-						  U32 attrAddress,
-						  U32 type)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env,
+							   "_pthread_mutexattr_settype",
+							   U32,
+							   _pthread_mutexattr_settype,
+							   U32 attrAddress,
+							   U32 type)
 {
 	return 0;
 }
-DEFINE_INTRINSIC_FUNCTION(env, "_sched_yield", U32, _sched_yield) { return 0; }
-DEFINE_INTRINSIC_FUNCTION(env, "_sem_destroy", U32, _sem_destroy, U32) { return 0; }
-DEFINE_INTRINSIC_FUNCTION(env, "_strftime", U32, _strftime, U32, U32, U32, U32) { return 0; }
-// DEFINE_INTRINSIC_FUNCTION(env, "_tzset", void, _tzset) { }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sched_yield", U32, _sched_yield) { return 0; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sem_destroy", U32, _sem_destroy, U32) { return 0; }
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_strftime", U32, _strftime, U32, U32, U32, U32) { return 0; }
+// WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_tzset", void, _tzset) { }
 
 Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR::Module& module)
 {
@@ -1104,11 +1126,11 @@ Emscripten::Instance* Emscripten::instantiate(Compartment* compartment, const IR
 
 	Instance* instance = new Instance;
 	instance->env = Intrinsics::instantiateModule(
-		compartment, {INTRINSIC_MODULE_REF(env)}, "env", extraEnvExports);
-	instance->asm2wasm
-		= Intrinsics::instantiateModule(compartment, {INTRINSIC_MODULE_REF(asm2wasm)}, "asm2wasm");
+		compartment, {WAVM_INTRINSIC_MODULE_REF(env)}, "env", extraEnvExports);
+	instance->asm2wasm = Intrinsics::instantiateModule(
+		compartment, {WAVM_INTRINSIC_MODULE_REF(asm2wasm)}, "asm2wasm");
 	instance->global
-		= Intrinsics::instantiateModule(compartment, {INTRINSIC_MODULE_REF(global)}, "global");
+		= Intrinsics::instantiateModule(compartment, {WAVM_INTRINSIC_MODULE_REF(global)}, "global");
 
 	unwindSignalsAsExceptions([=] {
 		MutableGlobals& mutableGlobals = memoryRef<MutableGlobals>(memory, MutableGlobals::address);

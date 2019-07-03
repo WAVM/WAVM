@@ -113,7 +113,7 @@ namespace WAVM { namespace VFS {
 	// Error codes
 	// clang-format off
 
-	#define ENUM_VFS_RESULTS(v) \
+	#define WAVM_ENUM_VFS_RESULTS(v) \
 		v(success, "Success") \
 		/* Asynchronous I/O statuses */ \
 		v(ioPending, "IO pending") \
@@ -161,7 +161,7 @@ namespace WAVM { namespace VFS {
 	enum class Result : I32
 	{
 		#define V(name, description) name,
-		ENUM_VFS_RESULTS(V)
+		WAVM_ENUM_VFS_RESULTS(V)
 		#undef V
 	};
 

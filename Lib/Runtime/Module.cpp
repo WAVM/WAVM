@@ -215,11 +215,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	// Set up the values to bind to the symbols in the LLVMJIT object code.
 	HashMap<std::string, LLVMJIT::FunctionBinding> wavmIntrinsicsExportMap;
 	for(const HashMapPair<std::string, Intrinsics::Function*>& intrinsicFunctionPair :
-		Intrinsics::getUninstantiatedFunctions({INTRINSIC_MODULE_REF(wavmIntrinsics),
-												INTRINSIC_MODULE_REF(wavmIntrinsicsAtomics),
-												INTRINSIC_MODULE_REF(wavmIntrinsicsException),
-												INTRINSIC_MODULE_REF(wavmIntrinsicsMemory),
-												INTRINSIC_MODULE_REF(wavmIntrinsicsTable)}))
+		Intrinsics::getUninstantiatedFunctions({WAVM_INTRINSIC_MODULE_REF(wavmIntrinsics),
+												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsAtomics),
+												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsException),
+												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsMemory),
+												WAVM_INTRINSIC_MODULE_REF(wavmIntrinsicsTable)}))
 	{
 		LLVMJIT::FunctionBinding functionBinding{
 			intrinsicFunctionPair.value->getCallingConvention(),

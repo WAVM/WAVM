@@ -24,13 +24,13 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 namespace WAVM { namespace Runtime {
-	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsException)
+	WAVM_DEFINE_INTRINSIC_MODULE(wavmIntrinsicsException)
 }}
 
 #define DEFINE_INTRINSIC_EXCEPTION_TYPE(name, ...)                                                 \
 	ExceptionType* Runtime::ExceptionTypes::name = new ExceptionType(                              \
 		nullptr, IR::ExceptionType{IR::TypeTuple({__VA_ARGS__})}, "wavm." #name);
-ENUM_INTRINSIC_EXCEPTION_TYPES(DEFINE_INTRINSIC_EXCEPTION_TYPE)
+WAVM_ENUM_INTRINSIC_EXCEPTION_TYPES(DEFINE_INTRINSIC_EXCEPTION_TYPE)
 #undef DEFINE_INTRINSIC_EXCEPTION_TYPE
 
 Runtime::Exception::~Exception()
@@ -251,13 +251,13 @@ std::string Runtime::describeException(const Exception* exception)
 		createException(type, arguments.data(), arguments.size(), Platform::captureCallStack(1)));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
-						  "createException",
-						  Uptr,
-						  intrinsicCreateException,
-						  Uptr exceptionTypeId,
-						  Uptr argsBits,
-						  U32 isUserException)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
+							   "createException",
+							   Uptr,
+							   intrinsicCreateException,
+							   Uptr exceptionTypeId,
+							   Uptr argsBits,
+							   U32 isUserException)
 {
 	ExceptionType* exceptionType;
 	{
@@ -273,21 +273,21 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
 	return reinterpret_cast<Uptr>(exception);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
-						  "destroyException",
-						  void,
-						  intrinsicDestroyException,
-						  Uptr exceptionBits)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
+							   "destroyException",
+							   void,
+							   intrinsicDestroyException,
+							   Uptr exceptionBits)
 {
 	Exception* exception = reinterpret_cast<Exception*>(exceptionBits);
 	destroyException(exception);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
-						  "throwException",
-						  void,
-						  intrinsicThrowException,
-						  Uptr exceptionBits)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
+							   "throwException",
+							   void,
+							   intrinsicThrowException,
+							   Uptr exceptionBits)
 {
 	Exception* exception = reinterpret_cast<Exception*>(exceptionBits);
 	throw exception;

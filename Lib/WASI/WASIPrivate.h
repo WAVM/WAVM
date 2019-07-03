@@ -126,17 +126,17 @@ namespace WAVM { namespace WASI {
 			Runtime::getCompartmentFromContextRuntimeData(contextRuntimeData));
 	}
 
-	VALIDATE_AS_PRINTF(2, 3)
+	WAVM_VALIDATE_AS_PRINTF(2, 3)
 	void traceSyscallf(const char* syscallName, const char* argFormat, ...);
 
-	VALIDATE_AS_PRINTF(3, 4)
+	WAVM_VALIDATE_AS_PRINTF(3, 4)
 	__wasi_errno_t traceSyscallReturnf(const char* syscallName,
 									   __wasi_errno_t result,
 									   const char* format,
 									   ...);
 
-	DECLARE_INTRINSIC_MODULE(wasi);
-	DECLARE_INTRINSIC_MODULE(wasiArgsEnvs);
-	DECLARE_INTRINSIC_MODULE(wasiClocks);
-	DECLARE_INTRINSIC_MODULE(wasiFile);
+	WAVM_DECLARE_INTRINSIC_MODULE(wasi);
+	WAVM_DECLARE_INTRINSIC_MODULE(wasiArgsEnvs);
+	WAVM_DECLARE_INTRINSIC_MODULE(wasiClocks);
+	WAVM_DECLARE_INTRINSIC_MODULE(wasiFile);
 }}

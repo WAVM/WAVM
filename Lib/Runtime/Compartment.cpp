@@ -28,7 +28,7 @@ Runtime::Compartment::Compartment()
 , contexts(0, maxContexts - 1)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
-		compartmentReservedBytes >> Platform::getPageSizeLog2(),
+		wavmCompartmentReservedBytes >> Platform::getPageSizeLog2(),
 		compartmentRuntimeDataAlignmentLog2,
 		unalignedRuntimeData);
 
@@ -51,7 +51,7 @@ Runtime::Compartment::~Compartment()
 	wavmAssert(!contexts.size());
 
 	Platform::freeAlignedVirtualPages(unalignedRuntimeData,
-									  compartmentReservedBytes >> Platform::getPageSizeLog2(),
+									  wavmCompartmentReservedBytes >> Platform::getPageSizeLog2(),
 									  compartmentRuntimeDataAlignmentLog2);
 	runtimeData = nullptr;
 	unalignedRuntimeData = nullptr;

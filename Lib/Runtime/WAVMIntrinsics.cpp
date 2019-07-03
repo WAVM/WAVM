@@ -19,37 +19,37 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 namespace WAVM { namespace Runtime {
-	DEFINE_INTRINSIC_MODULE(wavmIntrinsics)
+	WAVM_DEFINE_INTRINSIC_MODULE(wavmIntrinsics)
 }}
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "divideByZeroOrIntegerOverflowTrap",
-						  void,
-						  divideByZeroOrIntegerOverflowTrap)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "divideByZeroOrIntegerOverflowTrap",
+							   void,
+							   divideByZeroOrIntegerOverflowTrap)
 {
 	throwException(ExceptionTypes::integerDivideByZeroOrOverflow);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "unreachableTrap", void, unreachableTrap)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "unreachableTrap", void, unreachableTrap)
 {
 	throwException(ExceptionTypes::reachedUnreachable);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "invalidFloatOperationTrap",
-						  void,
-						  invalidFloatOperationTrap)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "invalidFloatOperationTrap",
+							   void,
+							   invalidFloatOperationTrap)
 {
 	throwException(ExceptionTypes::invalidFloatOperation);
 }
 
 static thread_local Uptr indentLevel = 0;
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "debugEnterFunction",
-						  void,
-						  debugEnterFunction,
-						  const Function* function)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "debugEnterFunction",
+							   void,
+							   debugEnterFunction,
+							   const Function* function)
 {
 	Log::printf(Log::debug,
 				"ENTER: %*s\n",
@@ -58,11 +58,11 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 	++indentLevel;
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
-						  "debugExitFunction",
-						  void,
-						  debugExitFunction,
-						  const Function* function)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
+							   "debugExitFunction",
+							   void,
+							   debugExitFunction,
+							   const Function* function)
 {
 	--indentLevel;
 	Log::printf(Log::debug,
@@ -71,7 +71,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics,
 				function->mutableData->debugName.c_str());
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsics, "debugBreak", void, debugBreak)
 {
 	Log::printf(Log::debug, "================== wavmIntrinsics.debugBreak\n");
 }

@@ -71,8 +71,8 @@ namespace WAVM { namespace WAST {
 #define VISIT_CONTROL_OPERATOR(_1, name, _2, Imm, ...) VISIT_OPERATOR(name, Imm, true)
 #define VISIT_NONCONTROL_OPERATOR(_1, name, _2, Imm, ...) VISIT_OPERATOR(name, Imm, false)
 
-		ENUM_NONCONTROL_OPERATORS(VISIT_NONCONTROL_OPERATOR)
-		ENUM_CONTROL_OPERATORS(VISIT_CONTROL_OPERATOR)
+		WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_NONCONTROL_OPERATOR)
+		WAVM_ENUM_CONTROL_OPERATORS(VISIT_CONTROL_OPERATOR)
 #undef VISIT_CONTROL_OPERATOR
 #undef VISIT_NONCONTROL_OPERATOR
 
@@ -651,7 +651,7 @@ static void parseExprSequence(CursorState* cursor)
 		if(isExpression) { parseExprSequence(cursor); }                                            \
 		cursor->functionState->validatingCodeStream.name(imm);                                     \
 	}
-ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 
 static void parseExpr(CursorState* cursor)
@@ -727,7 +727,7 @@ static void parseExpr(CursorState* cursor)
 	case t_##name:                                                                                 \
 		parseOp_##name(cursor, true);                                                              \
 		break;
-				ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 			default:
 				parseErrorf(cursor->parseState, cursor->nextToken, "expected opcode");
@@ -848,7 +848,7 @@ static void parseInstrSequence(CursorState* cursor)
 			case t_catch_all: return;
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
 	case t_##name: parseOp_##name(cursor, false); break;
-				ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 			default:
 				parseErrorf(cursor->parseState, cursor->nextToken, "expected opcode");

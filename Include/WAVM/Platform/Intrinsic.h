@@ -35,7 +35,7 @@ namespace WAVM { namespace Platform {
 		unsigned long result;
 		return _BitScanReverse64(&result, value) ? (63 - result) : 64;
 #elif defined(_WIN32)
-		DEBUG_TRAP();
+		WAVM_DEBUG_TRAP();
 #elif defined(__GNUC__)
 		return value == 0 ? 64 : __builtin_clzll(value);
 #else
@@ -63,7 +63,7 @@ namespace WAVM { namespace Platform {
 		unsigned long result;
 		return _BitScanForward64(&result, value) ? result : 64;
 #elif defined(_WIN32)
-		DEBUG_TRAP();
+		WAVM_DEBUG_TRAP();
 #elif defined(__GNUC__)
 		return value == 0 ? 64 : __builtin_ctzll(value);
 #else

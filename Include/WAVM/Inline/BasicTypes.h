@@ -38,7 +38,7 @@ typedef uintptr_t Uptr;
 typedef intptr_t Iptr;
 #endif
 
-ALIGNED_STRUCT(16, union V128 {
+WAVM_ALIGNED_STRUCT(16, union V128 {
 	U8 u8[16];
 	I8 i8[16];
 

@@ -251,7 +251,7 @@ namespace WAVM {
 		verifyMatches(aEncodedOperator.imm, bEncodedOperator.imm);                                 \
 		break;                                                                                     \
 	}
-					ENUM_OPERATORS(VISIT_OPCODE)
+					WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 				default: WAVM_UNREACHABLE();
 				}

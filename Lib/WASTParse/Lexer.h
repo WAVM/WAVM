@@ -83,7 +83,7 @@
                                                                                                    \
 	ENUM_LITERAL_TOKENS()                                                                          \
                                                                                                    \
-	ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
+	WAVM_ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
 
 namespace WAVM { namespace WAST {
 	typedef U16 TokenType;
@@ -94,7 +94,7 @@ namespace WAVM { namespace WAST {
 #undef VISIT_TOKEN
 	};
 
-	PACKED_STRUCT(struct Token {
+	WAVM_PACKED_STRUCT(struct Token {
 		TokenType type;
 		U32 begin;
 	});

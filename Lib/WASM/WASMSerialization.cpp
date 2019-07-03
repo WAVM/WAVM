@@ -29,7 +29,7 @@ static void throwIfNotValidUTF8(const std::string& string)
 	{ throw FatalSerializationException("invalid UTF-8 encoding"); }
 }
 
-FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
+WAVM_FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 {
 	opcode = (Opcode)0;
 	serializeNativeValue(stream, *(U8*)&opcode);
@@ -39,7 +39,7 @@ FORCEINLINE void serializeOpcode(InputStream& stream, Opcode& opcode)
 		serializeVarUInt8(stream, *(U8*)&opcode);
 	}
 }
-FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
+WAVM_FORCEINLINE void serializeOpcode(OutputStream& stream, Opcode opcode)
 {
 	if(opcode <= (Opcode)maxSingleByteOpcode)
 	{ Serialization::serializeNativeValue(stream, *(U8*)&opcode); }
@@ -99,7 +99,7 @@ namespace WAVM { namespace IR {
 		serializeVarInt7(stream, encodedValueType);
 	}
 
-	FORCEINLINE static void serialize(InputStream& stream, TypeTuple& typeTuple)
+	WAVM_FORCEINLINE static void serialize(InputStream& stream, TypeTuple& typeTuple)
 	{
 		Uptr numElems;
 		serializeVarUInt32(stream, numElems);
@@ -811,7 +811,7 @@ struct OperatorSerializerStream
 		serializeOpcode(byteStream, opcode);                                                       \
 		serialize(byteStream, imm, functionDef, moduleState);                                      \
 	}
-	ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
+	WAVM_ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 
 	void select(SelectImm imm) const
@@ -922,7 +922,7 @@ static void serializeFunctionBody(InputStream& sectionStream,
 		irEncoderStream.name(imm);                                                                 \
 		break;                                                                                     \
 	}
-			ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
+			WAVM_ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 		// Explicitly handle both select opcodes here:
 		case 0x1b:

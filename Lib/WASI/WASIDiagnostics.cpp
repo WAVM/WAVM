@@ -124,7 +124,7 @@ static void traceSyscallv(const char* syscallName, const char* argFormat, va_lis
 	}
 }
 
-VALIDATE_AS_PRINTF(2, 3)
+WAVM_VALIDATE_AS_PRINTF(2, 3)
 void WASI::traceSyscallf(const char* syscallName, const char* argFormat, ...)
 {
 	va_list argList;
@@ -133,7 +133,7 @@ void WASI::traceSyscallf(const char* syscallName, const char* argFormat, ...)
 	va_end(argList);
 }
 
-VALIDATE_AS_PRINTF(3, 4)
+WAVM_VALIDATE_AS_PRINTF(3, 4)
 __wasi_errno_t WASI::traceSyscallReturnf(const char* syscallName,
 										 __wasi_errno_t wasiErrNo,
 										 const char* returnFormat,

@@ -5,7 +5,7 @@
 #include <cstdarg>
 
 #define WAVM_UNREACHABLE()                                                                         \
-	while(true) { DEBUG_TRAP(); };
+	while(true) { WAVM_DEBUG_TRAP(); };
 
 namespace WAVM { namespace Errors {
 	// Fatal error handling.

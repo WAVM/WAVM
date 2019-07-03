@@ -685,7 +685,7 @@ struct FunctionPrintContext
 		string += "\n" nameString;                                                                 \
 		printImm(imm);                                                                             \
 	}
-	ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(PRINT_OP)
+	WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(PRINT_OP)
 #undef VALIDATE_OP
 
 private:

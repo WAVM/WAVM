@@ -15,7 +15,7 @@
 			;)                                                                                     \
 		{                                                                                          \
 			WAVM::Platform::handleAssertionFailure(wavmAssertMetadata);                            \
-			DEBUG_TRAP();                                                                          \
+			WAVM_DEBUG_TRAP();                                                                     \
 			break;                                                                                 \
 		}                                                                                          \
 	}
@@ -32,7 +32,7 @@
 			;)                                                                                     \
 		{                                                                                          \
 			WAVM::Platform::handleAssertionFailure(wavmAssertMetadata);                            \
-			DEBUG_TRAP();                                                                          \
+			WAVM_DEBUG_TRAP();                                                                     \
 			break;                                                                                 \
 		}                                                                                          \
 	}

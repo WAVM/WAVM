@@ -36,7 +36,7 @@ using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 using namespace WAVM::WAST;
 
-DEFINE_INTRINSIC_MODULE(spectest);
+WAVM_DEFINE_INTRINSIC_MODULE(spectest);
 
 struct Config
 {
@@ -64,9 +64,10 @@ struct TestScriptState
 	, compartment(Runtime::createCompartment())
 	, context(Runtime::createContext(compartment))
 	{
-		moduleNameToInstanceMap.set("spectest",
-									Intrinsics::instantiateModule(
-										compartment, {INTRINSIC_MODULE_REF(spectest)}, "spectest"));
+		moduleNameToInstanceMap.set(
+			"spectest",
+			Intrinsics::instantiateModule(
+				compartment, {WAVM_INTRINSIC_MODULE_REF(spectest)}, "spectest"));
 		moduleNameToInstanceMap.set("threadTest", ThreadTest::instantiate(compartment));
 	}
 
@@ -128,7 +129,7 @@ private:
 	const TestScriptState& state;
 };
 
-VALIDATE_AS_PRINTF(3, 4)
+WAVM_VALIDATE_AS_PRINTF(3, 4)
 static void testErrorf(TestScriptState& state,
 					   const TextFileLocus& locus,
 					   const char* messageFormat,
@@ -718,50 +719,68 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(spectest, "print", void, spectest_print) {}
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32", void, spectest_print_i32, I32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print", void, spectest_print) {}
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32", void, spectest_print_i32, I32 a)
 {
 	Log::printf(Log::debug, "%s : i32\n", asString(a).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_i64", void, spectest_print_i64, I64 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print_i64", void, spectest_print_i64, I64 a)
 {
 	Log::printf(Log::debug, "%s : i64\n", asString(a).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_f32", void, spectest_print_f32, F32 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print_f32", void, spectest_print_f32, F32 a)
 {
 	Log::printf(Log::debug, "%s : f32\n", asString(a).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_f64", void, spectest_print_f64, F64 a)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest, "print_f64", void, spectest_print_f64, F64 a)
 {
 	Log::printf(Log::debug, "%s : f64\n", asString(a).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_f64_f64", void, spectest_print_f64_f64, F64 a, F64 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest,
+							   "print_f64_f64",
+							   void,
+							   spectest_print_f64_f64,
+							   F64 a,
+							   F64 b)
 {
 	Log::printf(Log::debug, "%s : f64\n%s : f64\n", asString(a).c_str(), asString(b).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_i32_f32", void, spectest_print_i32_f32, I32 a, F32 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest,
+							   "print_i32_f32",
+							   void,
+							   spectest_print_i32_f32,
+							   I32 a,
+							   F32 b)
 {
 	Log::printf(Log::debug, "%s : i32\n%s : f32\n", asString(a).c_str(), asString(b).c_str());
 }
-DEFINE_INTRINSIC_FUNCTION(spectest, "print_i64_f64", void, spectest_print_i64_f64, I64 a, F64 b)
+WAVM_DEFINE_INTRINSIC_FUNCTION(spectest,
+							   "print_i64_f64",
+							   void,
+							   spectest_print_i64_f64,
+							   I64 a,
+							   F64 b)
 {
 	Log::printf(Log::debug, "%s : i64\n%s : f64\n", asString(a).c_str(), asString(b).c_str());
 }
 
-DEFINE_INTRINSIC_GLOBAL(spectest, "global_i32", I32, spectest_global_i32, 666)
-DEFINE_INTRINSIC_GLOBAL(spectest, "global_i64", I64, spectest_global_i64, 0)
-DEFINE_INTRINSIC_GLOBAL(spectest, "global_f32", F32, spectest_global_f32, 0.0f)
-DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 0.0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_i32", I32, spectest_global_i32, 666)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_i64", I64, spectest_global_i64, 0)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f32", F32, spectest_global_f32, 0.0f)
+WAVM_DEFINE_INTRINSIC_GLOBAL(spectest, "global_f64", F64, spectest_global_f64, 0.0)
 
-DEFINE_INTRINSIC_TABLE(spectest,
-					   spectest_table,
-					   table,
-					   TableType(ReferenceType::funcref, false, SizeConstraints{10, 20}))
-DEFINE_INTRINSIC_MEMORY(spectest, spectest_memory, memory, MemoryType(false, SizeConstraints{1, 2}))
-DEFINE_INTRINSIC_MEMORY(spectest,
-						spectest_shared_memory,
-						shared_memory,
-						MemoryType(true, SizeConstraints{1, 2}))
+WAVM_DEFINE_INTRINSIC_TABLE(spectest,
+							spectest_table,
+							table,
+							TableType(ReferenceType::funcref, false, SizeConstraints{10, 20}))
+WAVM_DEFINE_INTRINSIC_MEMORY(spectest,
+							 spectest_memory,
+							 memory,
+							 MemoryType(false, SizeConstraints{1, 2}))
+WAVM_DEFINE_INTRINSIC_MEMORY(spectest,
+							 spectest_shared_memory,
+							 shared_memory,
+							 MemoryType(true, SizeConstraints{1, 2}))
 
 struct SharedState
 {

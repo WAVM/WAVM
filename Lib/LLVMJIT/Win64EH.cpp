@@ -35,24 +35,24 @@ enum UnwindOpcode
 	UWOP_PUSH_MACHFRAME = 8
 };
 
-PACKED_STRUCT(struct SEHLanguageSpecificDataEntry {
+WAVM_PACKED_STRUCT(struct SEHLanguageSpecificDataEntry {
 	U32 startAddress;
 	U32 endAddress;
 	U32 filterOrFinallyAddress;
 	U32 landingPadAddress;
 });
 
-PACKED_STRUCT(struct SEHLanguageSpecificData {
+WAVM_PACKED_STRUCT(struct SEHLanguageSpecificData {
 	U32 numEntries;
 	SEHLanguageSpecificDataEntry entries[1];
 });
 
-PACKED_STRUCT(struct UnwindInfoSuffix {
+WAVM_PACKED_STRUCT(struct UnwindInfoSuffix {
 	U32 exceptionHandlerAddress;
 	SEHLanguageSpecificData sehLSDA;
 });
 
-PACKED_STRUCT(struct UnwindCode {
+WAVM_PACKED_STRUCT(struct UnwindCode {
 	U8 codeOffset;
 	UnwindOpcode opcode : 4;
 	U8 opInfo : 4;
@@ -67,7 +67,7 @@ namespace UnwindInfoFlags {
 	};
 };
 
-PACKED_STRUCT(struct UnwindInfoPrefix {
+WAVM_PACKED_STRUCT(struct UnwindInfoPrefix {
 	U8 version : 3;
 	U8 flags : 5;
 	U8 sizeOfProlog;
@@ -77,7 +77,7 @@ PACKED_STRUCT(struct UnwindInfoPrefix {
 	UnwindCode unwindCodes[1];
 });
 
-PACKED_STRUCT(struct RuntimeFunction {
+WAVM_PACKED_STRUCT(struct RuntimeFunction {
 	U32 beginAddress;
 	U32 endAddress;
 	union

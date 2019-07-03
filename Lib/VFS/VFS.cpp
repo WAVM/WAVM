@@ -10,7 +10,7 @@ const char* VFS::describeResult(Result result)
 	{
 		// clang-format off
 #define V(name, description) case VFS::Result::name: return description;
-ENUM_VFS_RESULTS(V)
+WAVM_ENUM_VFS_RESULTS(V)
 #undef V
 		// clang-format on
 

@@ -284,7 +284,7 @@ struct UnreachableOpVisitor
 	}
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
 	void name(Imm imm) {}
-	ENUM_NONCONTROL_OPERATORS(VISIT_OP)
+	WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 	VISIT_OP(_, unknown, "unknown", Opcode)
 #undef VISIT_OP
 

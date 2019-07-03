@@ -184,11 +184,11 @@ namespace WAVM { namespace WAST {
 
 	// Error handling.
 	void parseErrorf(ParseState* parseState, Uptr charOffset, const char* messageFormat, ...)
-		VALIDATE_AS_PRINTF(3, 4);
+		WAVM_VALIDATE_AS_PRINTF(3, 4);
 	void parseErrorf(ParseState* parseState, const char* nextChar, const char* messageFormat, ...)
-		VALIDATE_AS_PRINTF(3, 4);
+		WAVM_VALIDATE_AS_PRINTF(3, 4);
 	void parseErrorf(ParseState* parseState, const Token* nextToken, const char* messageFormat, ...)
-		VALIDATE_AS_PRINTF(3, 4);
+		WAVM_VALIDATE_AS_PRINTF(3, 4);
 
 	void require(CursorState* cursor, TokenType type);
 

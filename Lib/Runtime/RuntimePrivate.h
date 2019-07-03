@@ -243,11 +243,11 @@ namespace WAVM { namespace Runtime {
 		Foreign(Compartment* inCompartment) : GCObject(ObjectKind::foreign, inCompartment) {}
 	};
 
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsAtomics);
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsException);
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsMemory);
-	DECLARE_INTRINSIC_MODULE(wavmIntrinsicsTable);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsics);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsicsAtomics);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsicsException);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsicsMemory);
+	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsicsTable);
 
 	// Checks whether an address is owned by a table or memory.
 	bool isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTableIndex);

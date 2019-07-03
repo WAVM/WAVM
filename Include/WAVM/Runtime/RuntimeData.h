@@ -55,7 +55,7 @@ namespace WAVM { namespace Runtime {
 	static_assert(Uptr(IR::ExternKind::exceptionType) == Uptr(ObjectKind::exceptionType),
 				  "IR::ExternKind::exceptionType != ObjectKind::exceptionType");
 
-#define compartmentReservedBytes (2ull * 1024 * 1024 * 1024)
+#define wavmCompartmentReservedBytes (2ull * 1024 * 1024 * 1024)
 
 	enum
 	{
@@ -99,7 +99,7 @@ namespace WAVM { namespace Runtime {
 				  "CompartmentRuntimeData::contexts isn't page-aligned");
 	static_assert(U64(offsetof(CompartmentRuntimeData, contexts))
 						  + U64(maxContexts) * sizeof(ContextRuntimeData)
-					  == compartmentReservedBytes,
+					  == wavmCompartmentReservedBytes,
 				  "CompartmentRuntimeData isn't the expected size");
 
 	struct Exception

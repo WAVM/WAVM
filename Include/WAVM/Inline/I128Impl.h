@@ -149,11 +149,11 @@ namespace WAVM {
 		result.overflow = a.overflow || b.overflow;
 		if(!result.overflow)
 		{
-			if(a == INT128_MIN)
+			if(a == WAVM_INT128_MIN)
 			{
 				if(b != 0 && b != 1) { result.overflow = true; }
 			}
-			else if(b == INT128_MIN)
+			else if(b == WAVM_INT128_MIN)
 			{
 				if(a != 0 && a != 1) { result.overflow = true; }
 			}
@@ -164,7 +164,8 @@ namespace WAVM {
 				I128 sb = b >> 127;
 				I128 abs_b = (b ^ sb) - sb;
 				if(abs_a >= 2 && abs_b >= 2
-				   && (sa == sb ? (abs_a > INT128_MAX / abs_b) : (abs_a > INT128_MIN / -abs_b)))
+				   && (sa == sb ? (abs_a > WAVM_INT128_MAX / abs_b)
+								: (abs_a > WAVM_INT128_MIN / -abs_b)))
 				{ result.overflow = true; }
 			}
 		}

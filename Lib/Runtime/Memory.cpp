@@ -21,7 +21,7 @@ using namespace WAVM;
 using namespace WAVM::Runtime;
 
 namespace WAVM { namespace Runtime {
-	DEFINE_INTRINSIC_MODULE(wavmIntrinsicsMemory)
+	WAVM_DEFINE_INTRINSIC_MODULE(wavmIntrinsicsMemory)
 }}
 
 // Global lists of memories; used to query whether an address is reserved by one of them.
@@ -325,12 +325,12 @@ void Runtime::initDataSegment(ModuleInstance* moduleInstance,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
-						  "memory.grow",
-						  I32,
-						  memory_grow,
-						  U32 deltaPages,
-						  Uptr memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
+							   "memory.grow",
+							   I32,
+							   memory_grow,
+							   U32 deltaPages,
+							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	const Iptr numPreviousMemoryPages = growMemory(memory, (Uptr)deltaPages);
@@ -338,7 +338,7 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	return I32(numPreviousMemoryPages);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory, "memory.size", U32, memory_size, I64 memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory, "memory.size", U32, memory_size, I64 memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	Uptr numMemoryPages = getMemoryNumPages(memory);
@@ -346,16 +346,16 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory, "memory.size", U32, memory_size,
 	return U32(numMemoryPages);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
-						  "memory.init",
-						  void,
-						  memory_init,
-						  U32 destAddress,
-						  U32 sourceOffset,
-						  U32 numBytes,
-						  Uptr moduleInstanceId,
-						  Uptr memoryId,
-						  Uptr dataSegmentIndex)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
+							   "memory.init",
+							   void,
+							   memory_init,
+							   U32 destAddress,
+							   U32 sourceOffset,
+							   U32 numBytes,
+							   Uptr moduleInstanceId,
+							   Uptr memoryId,
+							   Uptr dataSegmentIndex)
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
@@ -381,12 +381,12 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
-						  "data.drop",
-						  void,
-						  data_drop,
-						  Uptr moduleInstanceId,
-						  Uptr dataSegmentIndex)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
+							   "data.drop",
+							   void,
+							   data_drop,
+							   Uptr moduleInstanceId,
+							   Uptr dataSegmentIndex)
 {
 	ModuleInstance* moduleInstance
 		= getModuleInstanceFromRuntimeData(contextRuntimeData, moduleInstanceId);
@@ -400,15 +400,15 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
-						  "memory.copy",
-						  void,
-						  memory_copy,
-						  U32 destAddress,
-						  U32 sourceAddress,
-						  U32 numBytes,
-						  Uptr sourceMemoryId,
-						  Uptr destMemoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
+							   "memory.copy",
+							   void,
+							   memory_copy,
+							   U32 destAddress,
+							   U32 sourceAddress,
+							   U32 numBytes,
+							   Uptr sourceMemoryId,
+							   Uptr destMemoryId)
 {
 	Memory* sourceMemory = getMemoryFromRuntimeData(contextRuntimeData, sourceMemoryId);
 	Memory* destMemory = getMemoryFromRuntimeData(contextRuntimeData, destMemoryId);
@@ -420,14 +420,14 @@ DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 		[=] { Platform::bytewiseMemMove(destPointer, sourcePointer, numBytes); });
 }
 
-DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
-						  "memory.fill",
-						  void,
-						  memory_fill,
-						  U32 destAddress,
-						  U32 value,
-						  U32 numBytes,
-						  Uptr memoryId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
+							   "memory.fill",
+							   void,
+							   memory_fill,
+							   U32 destAddress,
+							   U32 value,
+							   U32 numBytes,
+							   Uptr memoryId)
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 

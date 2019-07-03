@@ -140,7 +140,7 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 #endif
 }
 
-NO_ASAN static void touchStackPages(U8* minAddr, Uptr numBytesPerPage)
+WAVM_NO_ASAN static void touchStackPages(U8* minAddr, Uptr numBytesPerPage)
 {
 	U8 sum = 0;
 	while(true)
@@ -232,7 +232,7 @@ struct ThreadEntryContext
 
 static thread_local ThreadEntryContext* threadEntryContext = nullptr;
 
-NO_ASAN static void* createThreadEntry(void* argsVoid)
+WAVM_NO_ASAN static void* createThreadEntry(void* argsVoid)
 {
 	std::unique_ptr<CreateThreadArgs> args((CreateThreadArgs*)argsVoid);
 
@@ -286,7 +286,7 @@ I64 Platform::joinThread(Thread* thread)
 	return reinterpret_cast<I64>(returnValue);
 }
 
-NO_ASAN static void* forkThreadEntry(void* argsVoid)
+WAVM_NO_ASAN static void* forkThreadEntry(void* argsVoid)
 {
 	std::unique_ptr<ForkThreadArgs> args((ForkThreadArgs*)argsVoid);
 
@@ -330,7 +330,7 @@ static void memcpyNoASAN(U8* dest, const U8* source, Uptr numBytes)
 #endif
 }
 
-NO_ASAN Thread* Platform::forkCurrentThread()
+WAVM_NO_ASAN Thread* Platform::forkCurrentThread()
 {
 	auto forkThreadArgs = new ForkThreadArgs;
 

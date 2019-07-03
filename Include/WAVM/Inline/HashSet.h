@@ -81,8 +81,11 @@ namespace WAVM {
 	private:
 		struct HashTablePolicy
 		{
-			FORCEINLINE static const Element& getKey(const Element& element) { return element; }
-			FORCEINLINE static bool areKeysEqual(const Element& left, const Element& right)
+			WAVM_FORCEINLINE static const Element& getKey(const Element& element)
+			{
+				return element;
+			}
+			WAVM_FORCEINLINE static bool areKeysEqual(const Element& left, const Element& right)
 			{
 				return ElementHashPolicy::areKeysEqual(left, right);
 			}

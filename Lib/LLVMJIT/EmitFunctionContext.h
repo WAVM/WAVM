@@ -269,7 +269,7 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::BasicBlock* getInnermostUnwindToBlock();
 
 #define VISIT_OPCODE(encoding, name, nameString, Imm, ...) void name(IR::Imm imm);
-		ENUM_OPERATORS(VISIT_OPCODE)
+		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 	};
 }}

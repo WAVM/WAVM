@@ -20,7 +20,8 @@ Platform::Event::~Event() { errorUnless(CloseHandle(handle)); }
 bool Platform::Event::wait(I128 waitDuration)
 {
 	I128 currentTime = getMonotonicClock();
-	const I128 untilTime = waitDuration == INT128_MAX ? INT128_MAX : (currentTime + waitDuration);
+	const I128 untilTime
+		= waitDuration == WAVM_INT128_MAX ? WAVM_INT128_MAX : (currentTime + waitDuration);
 	while(true)
 	{
 		const I128 durationMS = currentTime > untilTime ? 0 : (untilTime - currentTime) / 1000000;

@@ -11,15 +11,15 @@ using namespace WAVM::WASI;
 using namespace WAVM::Runtime;
 
 namespace WAVM { namespace WASI {
-	DEFINE_INTRINSIC_MODULE(wasiClocks)
+	WAVM_DEFINE_INTRINSIC_MODULE(wasiClocks)
 }}
 
-DEFINE_INTRINSIC_FUNCTION(wasiClocks,
-						  "clock_res_get",
-						  __wasi_errno_return_t,
-						  __wasi_clock_res_get,
-						  __wasi_clockid_t clockId,
-						  WASIAddress resolutionAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiClocks,
+							   "clock_res_get",
+							   __wasi_errno_return_t,
+							   __wasi_clock_res_get,
+							   __wasi_clockid_t clockId,
+							   WASIAddress resolutionAddress)
 {
 	TRACE_SYSCALL("clock_res_get", "(%u, " WASIADDRESS_FORMAT ")", clockId, resolutionAddress);
 
@@ -42,13 +42,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, "(%" PRIu64 ")", resolution);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiClocks,
-						  "clock_time_get",
-						  __wasi_errno_return_t,
-						  __wasi_clock_time_get,
-						  __wasi_clockid_t clockId,
-						  __wasi_timestamp_t precision,
-						  WASIAddress timeAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiClocks,
+							   "clock_time_get",
+							   __wasi_errno_return_t,
+							   __wasi_clock_time_get,
+							   __wasi_clockid_t clockId,
+							   __wasi_timestamp_t precision,
+							   WASIAddress timeAddress)
 {
 	TRACE_SYSCALL("clock_time_get",
 				  "(%u, %" PRIu64 ", " WASIADDRESS_FORMAT ")",

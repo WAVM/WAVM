@@ -9,15 +9,15 @@ using namespace WAVM::WASI;
 using namespace WAVM::Runtime;
 
 namespace WAVM { namespace WASI {
-	DEFINE_INTRINSIC_MODULE(wasiArgsEnvs)
+	WAVM_DEFINE_INTRINSIC_MODULE(wasiArgsEnvs)
 }}
 
-DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
-						  "args_sizes_get",
-						  __wasi_errno_return_t,
-						  wasi_args_sizes_get,
-						  U32 argcAddress,
-						  U32 argBufSizeAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
+							   "args_sizes_get",
+							   __wasi_errno_return_t,
+							   wasi_args_sizes_get,
+							   U32 argcAddress,
+							   U32 argBufSizeAddress)
 {
 	TRACE_SYSCALL("args_sizes_get",
 				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
@@ -37,12 +37,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
-						  "args_get",
-						  __wasi_errno_return_t,
-						  wasi_args_get,
-						  U32 argvAddress,
-						  U32 argBufAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
+							   "args_get",
+							   __wasi_errno_return_t,
+							   wasi_args_get,
+							   U32 argvAddress,
+							   U32 argBufAddress)
 {
 	TRACE_SYSCALL(
 		"args_get", "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")", argvAddress, argBufAddress);
@@ -71,12 +71,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
-						  "environ_sizes_get",
-						  __wasi_errno_return_t,
-						  wasi_environ_sizes_get,
-						  U32 envCountAddress,
-						  U32 envBufSizeAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
+							   "environ_sizes_get",
+							   __wasi_errno_return_t,
+							   wasi_environ_sizes_get,
+							   U32 envCountAddress,
+							   U32 envBufSizeAddress)
 {
 	TRACE_SYSCALL("environ_sizes_get",
 				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",
@@ -96,12 +96,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
-						  "environ_get",
-						  __wasi_errno_return_t,
-						  wasi_environ_get,
-						  U32 envvAddress,
-						  U32 envBufAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
+							   "environ_get",
+							   __wasi_errno_return_t,
+							   wasi_environ_get,
+							   U32 envvAddress,
+							   U32 envBufAddress)
 {
 	TRACE_SYSCALL("environ_get",
 				  "(" WASIADDRESS_FORMAT ", " WASIADDRESS_FORMAT ")",

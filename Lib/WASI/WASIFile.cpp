@@ -12,7 +12,7 @@ using namespace WAVM::Runtime;
 using namespace WAVM::VFS;
 
 namespace WAVM { namespace WASI {
-	DEFINE_INTRINSIC_MODULE(wasiFile)
+	WAVM_DEFINE_INTRINSIC_MODULE(wasiFile)
 }}
 
 static __wasi_errno_t asWASIErrNo(VFS::Result result)
@@ -226,12 +226,12 @@ Result WASI::FDE::close() const
 	return result;
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_prestat_get",
-						  __wasi_errno_return_t,
-						  wasi_fd_prestat_get,
-						  __wasi_fd_t fd,
-						  WASIAddress prestatAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_prestat_get",
+							   __wasi_errno_return_t,
+							   wasi_fd_prestat_get,
+							   __wasi_fd_t fd,
+							   WASIAddress prestatAddress)
 {
 	TRACE_SYSCALL("fd_prestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, prestatAddress);
 
@@ -251,13 +251,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_prestat_dir_name",
-						  __wasi_errno_return_t,
-						  wasi_fd_prestat_dir_name,
-						  __wasi_fd_t fd,
-						  WASIAddress bufferAddress,
-						  WASIAddress bufferLength)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_prestat_dir_name",
+							   __wasi_errno_return_t,
+							   wasi_fd_prestat_dir_name,
+							   __wasi_fd_t fd,
+							   WASIAddress bufferAddress,
+							   WASIAddress bufferLength)
 {
 	TRACE_SYSCALL(
 		"fd_prestat_dir_name", "(%u, " WASIADDRESS_FORMAT ", %u)", fd, bufferAddress, bufferLength);
@@ -278,11 +278,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_close",
-						  __wasi_errno_return_t,
-						  wasi_fd_close,
-						  __wasi_fd_t fd)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_close",
+							   __wasi_errno_return_t,
+							   wasi_fd_close,
+							   __wasi_fd_t fd)
 {
 	TRACE_SYSCALL("fd_close", "(%u)", fd);
 
@@ -305,11 +305,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_datasync",
-						  __wasi_errno_return_t,
-						  wasi_fd_datasync,
-						  __wasi_fd_t fd)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_datasync",
+							   __wasi_errno_return_t,
+							   wasi_fd_datasync,
+							   __wasi_fd_t fd)
 {
 	TRACE_SYSCALL("fd_datasync", "(%u)", fd);
 
@@ -441,15 +441,15 @@ static __wasi_errno_t writeImpl(Process* process,
 	return result;
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_pread",
-						  __wasi_errno_return_t,
-						  wasi_fd_pread,
-						  __wasi_fd_t fd,
-						  WASIAddress iovsAddress,
-						  WASIAddress numIOVs,
-						  __wasi_filesize_t offset,
-						  WASIAddress numBytesReadAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_pread",
+							   __wasi_errno_return_t,
+							   wasi_fd_pread,
+							   __wasi_fd_t fd,
+							   WASIAddress iovsAddress,
+							   WASIAddress numIOVs,
+							   __wasi_filesize_t offset,
+							   WASIAddress numBytesReadAddress)
 {
 	TRACE_SYSCALL("fd_pread",
 				  "(%u, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", " WASIADDRESS_FORMAT ")",
@@ -472,15 +472,15 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" PRIuPTR ")", numBytesRead);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_pwrite",
-						  __wasi_errno_return_t,
-						  wasi_fd_pwrite,
-						  __wasi_fd_t fd,
-						  WASIAddress iovsAddress,
-						  WASIAddress numIOVs,
-						  __wasi_filesize_t offset,
-						  WASIAddress numBytesWrittenAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_pwrite",
+							   __wasi_errno_return_t,
+							   wasi_fd_pwrite,
+							   __wasi_fd_t fd,
+							   WASIAddress iovsAddress,
+							   WASIAddress numIOVs,
+							   __wasi_filesize_t offset,
+							   WASIAddress numBytesWrittenAddress)
 {
 	TRACE_SYSCALL("fd_pwrite",
 				  "(%u, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", " WASIADDRESS_FORMAT ")",
@@ -503,14 +503,14 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" PRIuPTR ")", numBytesWritten);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_read",
-						  __wasi_errno_return_t,
-						  wasi_fd_read,
-						  __wasi_fd_t fd,
-						  WASIAddress iovsAddress,
-						  I32 numIOVs,
-						  WASIAddress numBytesReadAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_read",
+							   __wasi_errno_return_t,
+							   wasi_fd_read,
+							   __wasi_fd_t fd,
+							   WASIAddress iovsAddress,
+							   I32 numIOVs,
+							   WASIAddress numBytesReadAddress)
 {
 	TRACE_SYSCALL("fd_read",
 				  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
@@ -532,14 +532,14 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" PRIuPTR ")", numBytesRead);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_write",
-						  __wasi_errno_return_t,
-						  wasi_fd_write,
-						  __wasi_fd_t fd,
-						  WASIAddress iovsAddress,
-						  I32 numIOVs,
-						  WASIAddress numBytesWrittenAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_write",
+							   __wasi_errno_return_t,
+							   wasi_fd_write,
+							   __wasi_fd_t fd,
+							   WASIAddress iovsAddress,
+							   I32 numIOVs,
+							   WASIAddress numBytesWrittenAddress)
 {
 	TRACE_SYSCALL("fd_write",
 				  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
@@ -561,12 +561,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" PRIuPTR ")", numBytesWritten);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_renumber",
-						  __wasi_errno_return_t,
-						  wasi_fd_renumber,
-						  __wasi_fd_t fromFD,
-						  __wasi_fd_t toFD)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_renumber",
+							   __wasi_errno_return_t,
+							   wasi_fd_renumber,
+							   __wasi_fd_t fromFD,
+							   __wasi_fd_t toFD)
 {
 	TRACE_SYSCALL("fd_renumber", "(%u, %u)", fromFD, toFD);
 
@@ -591,14 +591,14 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_seek",
-						  __wasi_errno_return_t,
-						  wasi_fd_seek,
-						  __wasi_fd_t fd,
-						  __wasi_filedelta_t offset,
-						  U32 whence,
-						  WASIAddress newOffsetAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_seek",
+							   __wasi_errno_return_t,
+							   wasi_fd_seek,
+							   __wasi_fd_t fd,
+							   __wasi_filedelta_t offset,
+							   U32 whence,
+							   WASIAddress newOffsetAddress)
 {
 	TRACE_SYSCALL("fd_seek",
 				  "(%u, %" PRIi64 ", %u, " WASIADDRESS_FORMAT ")",
@@ -630,12 +630,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_tell",
-						  __wasi_errno_return_t,
-						  wasi_fd_tell,
-						  __wasi_fd_t fd,
-						  WASIAddress offsetAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_tell",
+							   __wasi_errno_return_t,
+							   wasi_fd_tell,
+							   __wasi_fd_t fd,
+							   WASIAddress offsetAddress)
 {
 	TRACE_SYSCALL("fd_tell", "(%u, " WASIADDRESS_FORMAT ")", fd, offsetAddress);
 
@@ -653,12 +653,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_fdstat_get",
-						  __wasi_errno_return_t,
-						  wasi_fd_fdstat_get,
-						  __wasi_fd_t fd,
-						  WASIAddress fdstatAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_fdstat_get",
+							   __wasi_errno_return_t,
+							   wasi_fd_fdstat_get,
+							   __wasi_fd_t fd,
+							   WASIAddress fdstatAddress)
 {
 	TRACE_SYSCALL("fd_fdstat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, fdstatAddress);
 
@@ -699,12 +699,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_fdstat_set_flags",
-						  __wasi_errno_return_t,
-						  wasi_fd_fdstat_set_flags,
-						  __wasi_fd_t fd,
-						  __wasi_fdflags_t flags)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_fdstat_set_flags",
+							   __wasi_errno_return_t,
+							   wasi_fd_fdstat_set_flags,
+							   __wasi_fd_t fd,
+							   __wasi_fdflags_t flags)
 {
 	TRACE_SYSCALL("fd_fdstat_set_flags", "(%u, 0x%04x)", fd, flags);
 
@@ -722,13 +722,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_fdstat_set_rights",
-						  __wasi_errno_return_t,
-						  wasi_fd_fdstat_set_rights,
-						  __wasi_fd_t fd,
-						  __wasi_rights_t rights,
-						  __wasi_rights_t inheritingRights)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_fdstat_set_rights",
+							   __wasi_errno_return_t,
+							   wasi_fd_fdstat_set_rights,
+							   __wasi_fd_t fd,
+							   __wasi_rights_t rights,
+							   __wasi_rights_t inheritingRights)
 {
 	TRACE_SYSCALL("fd_fdstat_set_rights",
 				  "(%u, 0x%" PRIx64 ", 0x %" PRIx64 ") ",
@@ -749,7 +749,11 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_return_t, wasi_fd_sync, __wasi_fd_t fd)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_sync",
+							   __wasi_errno_return_t,
+							   wasi_fd_sync,
+							   __wasi_fd_t fd)
 {
 	TRACE_SYSCALL("fd_sync", "(%u)", fd);
 
@@ -763,14 +767,14 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile, "fd_sync", __wasi_errno_return_t, wasi_fd_sy
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_advise",
-						  __wasi_errno_return_t,
-						  wasi_fd_advise,
-						  __wasi_fd_t fd,
-						  __wasi_filesize_t offset,
-						  __wasi_filesize_t numBytes,
-						  __wasi_advice_t advice)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_advise",
+							   __wasi_errno_return_t,
+							   wasi_fd_advise,
+							   __wasi_fd_t fd,
+							   __wasi_filesize_t offset,
+							   __wasi_filesize_t numBytes,
+							   __wasi_advice_t advice)
 {
 	TRACE_SYSCALL(
 		"fd_advise", "(%u, %" PRIu64 ", %" PRIu64 ", 0x%02x)", fd, offset, numBytes, advice);
@@ -796,28 +800,28 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_allocate",
-						  __wasi_errno_return_t,
-						  wasi_fd_allocate,
-						  __wasi_fd_t fd,
-						  __wasi_filesize_t offset,
-						  __wasi_filesize_t numBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_allocate",
+							   __wasi_errno_return_t,
+							   wasi_fd_allocate,
+							   __wasi_fd_t fd,
+							   __wasi_filesize_t offset,
+							   __wasi_filesize_t numBytes)
 {
 	UNIMPLEMENTED_SYSCALL("fd_allocate", "(%u, %" PRIu64 ", %" PRIu64 ")", fd, offset, numBytes);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_link",
-						  __wasi_errno_return_t,
-						  wasi_path_link,
-						  __wasi_fd_t dirFD,
-						  __wasi_lookupflags_t lookupFlags,
-						  WASIAddress oldPathAddress,
-						  WASIAddress numOldPathBytes,
-						  __wasi_fd_t newFD,
-						  WASIAddress newPathAddress,
-						  WASIAddress numNewPathBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_link",
+							   __wasi_errno_return_t,
+							   wasi_path_link,
+							   __wasi_fd_t dirFD,
+							   __wasi_lookupflags_t lookupFlags,
+							   WASIAddress oldPathAddress,
+							   WASIAddress numOldPathBytes,
+							   __wasi_fd_t newFD,
+							   WASIAddress newPathAddress,
+							   WASIAddress numNewPathBytes)
 {
 	UNIMPLEMENTED_SYSCALL("path_link",
 						  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT
@@ -831,19 +835,19 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  numNewPathBytes);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_open",
-						  __wasi_errno_return_t,
-						  wasi_path_open,
-						  __wasi_fd_t dirFD,
-						  __wasi_lookupflags_t lookupFlags,
-						  WASIAddress pathAddress,
-						  WASIAddress numPathBytes,
-						  __wasi_oflags_t openFlags,
-						  __wasi_rights_t requestedRights,
-						  __wasi_rights_t requestedInheritingRights,
-						  __wasi_fdflags_t fdFlags,
-						  WASIAddress fdAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_open",
+							   __wasi_errno_return_t,
+							   wasi_path_open,
+							   __wasi_fd_t dirFD,
+							   __wasi_lookupflags_t lookupFlags,
+							   WASIAddress pathAddress,
+							   WASIAddress numPathBytes,
+							   __wasi_oflags_t openFlags,
+							   __wasi_rights_t requestedRights,
+							   __wasi_rights_t requestedInheritingRights,
+							   __wasi_fdflags_t fdFlags,
+							   WASIAddress fdAddress)
 {
 	TRACE_SYSCALL("path_open",
 				  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, 0x%04x, 0x%" PRIx64 ", 0x%" PRIx64
@@ -935,15 +939,15 @@ static Uptr truncatingMemcpy(void* dest, const void* source, Uptr numSourceBytes
 	return numBytes;
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_readdir",
-						  __wasi_errno_return_t,
-						  wasi_fd_readdir,
-						  __wasi_fd_t dirFD,
-						  WASIAddress bufferAddress,
-						  WASIAddress numBufferBytes,
-						  __wasi_dircookie_t firstCookie,
-						  WASIAddress outNumBufferBytesUsedAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_readdir",
+							   __wasi_errno_return_t,
+							   wasi_fd_readdir,
+							   __wasi_fd_t dirFD,
+							   WASIAddress bufferAddress,
+							   WASIAddress numBufferBytes,
+							   __wasi_dircookie_t firstCookie,
+							   WASIAddress outNumBufferBytesUsedAddress)
 {
 	TRACE_SYSCALL("fd_readdir",
 				  "(%u, " WASIADDRESS_FORMAT ", %u, 0x%" PRIx64 ", " WASIADDRESS_FORMAT ")",
@@ -1007,16 +1011,16 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		__WASI_ESUCCESS, "(numBufferBytesUsed=%" PRIuPTR ")", numBufferBytesUsed);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_readlink",
-						  __wasi_errno_return_t,
-						  wasi_path_readlink,
-						  __wasi_fd_t fd,
-						  WASIAddress pathAddress,
-						  WASIAddress numPathBytes,
-						  WASIAddress bufferAddress,
-						  WASIAddress numBufferBytes,
-						  WASIAddress outNumBufferBytesUsedAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_readlink",
+							   __wasi_errno_return_t,
+							   wasi_path_readlink,
+							   __wasi_fd_t fd,
+							   WASIAddress pathAddress,
+							   WASIAddress numPathBytes,
+							   WASIAddress bufferAddress,
+							   WASIAddress numBufferBytes,
+							   WASIAddress outNumBufferBytesUsedAddress)
 {
 	UNIMPLEMENTED_SYSCALL("path_readlink",
 						  "(%u, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT
@@ -1029,16 +1033,16 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  outNumBufferBytesUsedAddress);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_rename",
-						  __wasi_errno_return_t,
-						  wasi_path_rename,
-						  __wasi_fd_t oldFD,
-						  WASIAddress oldPathAddress,
-						  WASIAddress numOldPathBytes,
-						  __wasi_fd_t newFD,
-						  WASIAddress newPathAddress,
-						  WASIAddress numNewPathBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_rename",
+							   __wasi_errno_return_t,
+							   wasi_path_rename,
+							   __wasi_fd_t oldFD,
+							   WASIAddress oldPathAddress,
+							   WASIAddress numOldPathBytes,
+							   __wasi_fd_t newFD,
+							   WASIAddress newPathAddress,
+							   WASIAddress numNewPathBytes)
 {
 	UNIMPLEMENTED_SYSCALL("path_rename",
 						  "(%u, " WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT ", %u)",
@@ -1050,12 +1054,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  numNewPathBytes);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_filestat_get",
-						  __wasi_errno_return_t,
-						  wasi_fd_filestat_get,
-						  __wasi_fd_t fd,
-						  WASIAddress filestatAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_filestat_get",
+							   __wasi_errno_return_t,
+							   wasi_fd_filestat_get,
+							   __wasi_fd_t fd,
+							   WASIAddress filestatAddress)
 {
 	TRACE_SYSCALL("fd_filestat_get", "(%u, " WASIADDRESS_FORMAT ")", fd, filestatAddress);
 
@@ -1083,14 +1087,14 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_filestat_set_times",
-						  __wasi_errno_return_t,
-						  wasi_fd_filestat_set_times,
-						  __wasi_fd_t fd,
-						  __wasi_timestamp_t lastAccessTime,
-						  __wasi_timestamp_t lastWriteTime,
-						  __wasi_fstflags_t flags)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_filestat_set_times",
+							   __wasi_errno_return_t,
+							   wasi_fd_filestat_set_times,
+							   __wasi_fd_t fd,
+							   __wasi_timestamp_t lastAccessTime,
+							   __wasi_timestamp_t lastWriteTime,
+							   __wasi_fstflags_t flags)
 {
 	TRACE_SYSCALL("fd_filestat_set_times",
 				  "(%u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
@@ -1140,12 +1144,12 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "fd_filestat_set_size",
-						  __wasi_errno_return_t,
-						  wasi_fd_filestat_set_size,
-						  __wasi_fd_t fd,
-						  __wasi_filesize_t numBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "fd_filestat_set_size",
+							   __wasi_errno_return_t,
+							   wasi_fd_filestat_set_size,
+							   __wasi_fd_t fd,
+							   __wasi_filesize_t numBytes)
 {
 	TRACE_SYSCALL("fd_filestat_set_size", "(%u, %" PRIu64 ")", fd, numBytes);
 
@@ -1159,15 +1163,15 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(fde->vfd->setFileSize(numBytes)));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_filestat_get",
-						  __wasi_errno_return_t,
-						  wasi_path_filestat_get,
-						  __wasi_fd_t dirFD,
-						  __wasi_lookupflags_t lookupFlags,
-						  WASIAddress pathAddress,
-						  WASIAddress numPathBytes,
-						  WASIAddress filestatAddress)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_filestat_get",
+							   __wasi_errno_return_t,
+							   wasi_path_filestat_get,
+							   __wasi_fd_t dirFD,
+							   __wasi_lookupflags_t lookupFlags,
+							   WASIAddress pathAddress,
+							   WASIAddress numPathBytes,
+							   WASIAddress filestatAddress)
 {
 	TRACE_SYSCALL("path_filestat_get",
 				  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, " WASIADDRESS_FORMAT ")",
@@ -1208,17 +1212,17 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_filestat_set_times",
-						  __wasi_errno_return_t,
-						  wasi_path_filestat_set_times,
-						  __wasi_fd_t dirFD,
-						  __wasi_lookupflags_t lookupFlags,
-						  WASIAddress pathAddress,
-						  WASIAddress numPathBytes,
-						  __wasi_timestamp_t lastAccessTime,
-						  __wasi_timestamp_t lastWriteTime,
-						  __wasi_fstflags_t flags)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_filestat_set_times",
+							   __wasi_errno_return_t,
+							   wasi_path_filestat_set_times,
+							   __wasi_fd_t dirFD,
+							   __wasi_lookupflags_t lookupFlags,
+							   WASIAddress pathAddress,
+							   WASIAddress numPathBytes,
+							   __wasi_timestamp_t lastAccessTime,
+							   __wasi_timestamp_t lastWriteTime,
+							   __wasi_fstflags_t flags)
 {
 	TRACE_SYSCALL("path_filestat_set_times",
 				  "(%u, 0x%08x, " WASIADDRESS_FORMAT ", %u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
@@ -1276,15 +1280,15 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_symlink",
-						  __wasi_errno_return_t,
-						  wasi_path_symlink,
-						  WASIAddress oldPathAddress,
-						  WASIAddress numOldPathBytes,
-						  __wasi_fd_t fd,
-						  WASIAddress newPathAddress,
-						  WASIAddress numNewPathBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_symlink",
+							   __wasi_errno_return_t,
+							   wasi_path_symlink,
+							   WASIAddress oldPathAddress,
+							   WASIAddress numOldPathBytes,
+							   __wasi_fd_t fd,
+							   WASIAddress newPathAddress,
+							   WASIAddress numNewPathBytes)
 {
 	UNIMPLEMENTED_SYSCALL("path_symlink",
 						  "(" WASIADDRESS_FORMAT ", %u, %u, " WASIADDRESS_FORMAT ", %u)",
@@ -1295,13 +1299,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 						  numNewPathBytes);
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_unlink_file",
-						  __wasi_errno_return_t,
-						  wasi_path_unlink_file,
-						  __wasi_fd_t dirFD,
-						  WASIAddress pathAddress,
-						  WASIAddress numPathBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_unlink_file",
+							   __wasi_errno_return_t,
+							   wasi_path_unlink_file,
+							   __wasi_fd_t dirFD,
+							   WASIAddress pathAddress,
+							   WASIAddress numPathBytes)
 {
 	TRACE_SYSCALL(
 		"path_unlink_file", "(%u, " WASIADDRESS_FORMAT ", %u)", dirFD, pathAddress, numPathBytes);
@@ -1326,13 +1330,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 																   : asWASIErrNo(result));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_remove_directory",
-						  __wasi_errno_return_t,
-						  wasi_path_remove_directory,
-						  __wasi_fd_t dirFD,
-						  WASIAddress pathAddress,
-						  WASIAddress numPathBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_remove_directory",
+							   __wasi_errno_return_t,
+							   wasi_path_remove_directory,
+							   __wasi_fd_t dirFD,
+							   WASIAddress pathAddress,
+							   WASIAddress numPathBytes)
 {
 	TRACE_SYSCALL("path_remove_directory",
 				  "(%u, " WASIADDRESS_FORMAT ", %u)",
@@ -1359,13 +1363,13 @@ DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 
-DEFINE_INTRINSIC_FUNCTION(wasiFile,
-						  "path_create_directory",
-						  __wasi_errno_return_t,
-						  wasi_path_create_directory,
-						  __wasi_fd_t dirFD,
-						  WASIAddress pathAddress,
-						  WASIAddress numPathBytes)
+WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
+							   "path_create_directory",
+							   __wasi_errno_return_t,
+							   wasi_path_create_directory,
+							   __wasi_fd_t dirFD,
+							   WASIAddress pathAddress,
+							   WASIAddress numPathBytes)
 {
 	TRACE_SYSCALL("path_create_directory",
 				  "(%u, " WASIADDRESS_FORMAT ", %u)",

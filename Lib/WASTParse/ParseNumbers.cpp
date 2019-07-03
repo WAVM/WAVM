@@ -191,7 +191,7 @@ template<typename Float> Float parseInfinity(const char* nextChar)
 	return resultComponents.value;
 }
 
-template<typename Float> static NO_UBSAN Float uncheckedCast(F64 f64) { return Float(f64); }
+template<typename Float> static WAVM_NO_UBSAN Float uncheckedCast(F64 f64) { return Float(f64); }
 
 template<typename DestFloat> static F64 getMaxCastableF64()
 {

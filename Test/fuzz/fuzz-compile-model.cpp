@@ -208,7 +208,7 @@ struct OperatorInfo
 		 generateImm(random, module, imm);                                                         \
 		 codeStream.name(imm);                                                                     \
 	 }},
-static OperatorInfo operatorInfos[]{ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)};
+static OperatorInfo operatorInfos[]{WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)};
 #undef VISIT_OP
 
 enum

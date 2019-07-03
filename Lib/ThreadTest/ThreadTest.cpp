@@ -46,7 +46,9 @@ struct Thread
 
 	IR::Value argument;
 
-	FORCENOINLINE Thread(Context* inContext, Function* inEntryFunction, const IR::Value& inArgument)
+	WAVM_FORCENOINLINE Thread(Context* inContext,
+							  Function* inEntryFunction,
+							  const IR::Value& inArgument)
 	: context(inContext), entryFunction(inEntryFunction), argument(inArgument)
 	{
 	}
@@ -73,7 +75,7 @@ thread_local IntrusiveSharedPtr<Thread> currentThread = nullptr;
 
 // Adds the thread to the global thread array, assigning it an ID corresponding to its index in the
 // array.
-FORCENOINLINE static Uptr allocateThreadId(Thread* thread)
+WAVM_FORCENOINLINE static Uptr allocateThreadId(Thread* thread)
 {
 	Lock<Platform::Mutex> threadsLock(threadsMutex);
 	thread->id = threads.add(0, thread);
@@ -83,8 +85,8 @@ FORCENOINLINE static Uptr allocateThreadId(Thread* thread)
 
 // These functions just provide a way to read/write the currentThread thread-local variable in a
 // way that the compiler can't cache across a call to Platform::forkCurrentThread.
-FORCENOINLINE static void setCurrentThread(Thread* thread) { currentThread = thread; }
-FORCENOINLINE static Thread* getCurrentThread() { return currentThread; }
+WAVM_FORCENOINLINE static void setCurrentThread(Thread* thread) { currentThread = thread; }
+WAVM_FORCENOINLINE static Thread* getCurrentThread() { return currentThread; }
 
 // Validates that a thread ID is valid. i.e. 0 < threadId < threads.size(), and threads[threadId] !=
 // null If the thread ID is invalid, throws an invalid argument exception. The caller must have
@@ -95,7 +97,7 @@ static void validateThreadId(Uptr threadId)
 	{ throwException(ExceptionTypes::invalidArgument); }
 }
 
-DEFINE_INTRINSIC_MODULE(threadTest);
+WAVM_DEFINE_INTRINSIC_MODULE(threadTest);
 
 static I64 threadEntry(void* threadVoid)
 {
@@ -143,12 +145,12 @@ static I64 threadEntry(void* threadVoid)
 	return 0;
 }
 
-DEFINE_INTRINSIC_FUNCTION(threadTest,
-						  "createThread",
-						  U64,
-						  createThread,
-						  Function* entryFunction,
-						  I32 entryArgument)
+WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest,
+							   "createThread",
+							   U64,
+							   createThread,
+							   Function* entryFunction,
+							   I32 entryArgument)
 {
 	// Validate that the entry function is non-null and has the correct type (i32)->i64
 	if(!entryFunction
@@ -173,7 +175,7 @@ DEFINE_INTRINSIC_FUNCTION(threadTest,
 	return thread->id;
 }
 
-DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, forkThread)
+WAVM_DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, forkThread)
 {
 	auto oldContext = getContextFromRuntimeData(contextRuntimeData);
 	auto compartment = getCompartmentFromContextRuntimeData(contextRuntimeData);
@@ -203,7 +205,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, for
 		// compilers will cache a pointer to thread-local data that's accessed multiple times in one
 		// function, and currentThread is accessed before calling forkCurrentThread, we can't
 		// directly write to it in this function in case the compiler tries to write to the original
-		// thread's currentThread variable. Instead, call a FORCENOINLINE function
+		// thread's currentThread variable. Instead, call a WAVM_FORCENOINLINE function
 		// (setCurrentThread) to set the variable.
 		setCurrentThread(childThread);
 		childThread->removeRef();
@@ -216,7 +218,7 @@ DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64, for
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(threadTest, "exitThread", void, exitThread, I64 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "exitThread", void, exitThread, I64 code)
 {
 	if(!getCurrentThread()) { throwException(ExceptionTypes::calledAbort); }
 
@@ -239,7 +241,7 @@ static IntrusiveSharedPtr<Thread> removeThreadById(Uptr threadId)
 	return thread;
 }
 
-DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, U64 threadId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, U64 threadId)
 {
 	IntrusiveSharedPtr<Thread> thread = removeThreadById(Uptr(threadId));
 	Platform::joinThread(thread->platformThread);
@@ -253,7 +255,7 @@ DEFINE_INTRINSIC_FUNCTION(threadTest, "joinThread", I64, joinThread, U64 threadI
 	}
 }
 
-DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U64 threadId)
+WAVM_DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U64 threadId)
 {
 	IntrusiveSharedPtr<Thread> thread = removeThreadById(Uptr(threadId));
 
@@ -272,5 +274,5 @@ DEFINE_INTRINSIC_FUNCTION(threadTest, "detachThread", void, detachThread, U64 th
 ModuleInstance* ThreadTest::instantiate(Compartment* compartment)
 {
 	return Intrinsics::instantiateModule(
-		compartment, {INTRINSIC_MODULE_REF(threadTest)}, "threadTest");
+		compartment, {WAVM_INTRINSIC_MODULE_REF(threadTest)}, "threadTest");
 }

@@ -132,18 +132,18 @@ namespace WAVM { namespace Serialization {
 	};
 
 	// Serialize raw byte sequences.
-	FORCEINLINE void serializeBytes(OutputStream& stream, const U8* bytes, Uptr numBytes)
+	WAVM_FORCEINLINE void serializeBytes(OutputStream& stream, const U8* bytes, Uptr numBytes)
 	{
 		if(numBytes) { memcpy(stream.advance(numBytes), bytes, numBytes); }
 	}
-	FORCEINLINE void serializeBytes(InputStream& stream, U8* bytes, Uptr numBytes)
+	WAVM_FORCEINLINE void serializeBytes(InputStream& stream, U8* bytes, Uptr numBytes)
 	{
 		if(numBytes) { memcpy(bytes, stream.advance(numBytes), numBytes); }
 	}
 
 	// Serialize basic C++ types.
 	template<typename Stream, typename Value>
-	FORCEINLINE void serializeNativeValue(Stream& stream, Value& value)
+	WAVM_FORCEINLINE void serializeNativeValue(Stream& stream, Value& value)
 	{
 		serializeBytes(stream, (U8*)&value, sizeof(Value));
 	}
@@ -183,10 +183,10 @@ namespace WAVM { namespace Serialization {
 
 	// LEB128 variable-length integer serialization.
 	template<typename Value, Uptr maxBits>
-	FORCEINLINE void serializeVarInt(OutputStream& stream,
-									 Value& inValue,
-									 Value minValue,
-									 Value maxValue)
+	WAVM_FORCEINLINE void serializeVarInt(OutputStream& stream,
+										  Value& inValue,
+										  Value minValue,
+										  Value maxValue)
 	{
 		Value value = inValue;
 
@@ -212,10 +212,10 @@ namespace WAVM { namespace Serialization {
 	}
 
 	template<typename Value, Uptr maxBits>
-	FORCEINLINE void serializeVarInt(InputStream& stream,
-									 Value& value,
-									 Value minValue,
-									 Value maxValue)
+	WAVM_FORCEINLINE void serializeVarInt(InputStream& stream,
+										  Value& value,
+										  Value minValue,
+										  Value maxValue)
 	{
 		// First, read the variable number of input bytes into a fixed size buffer.
 		enum

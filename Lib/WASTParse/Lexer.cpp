@@ -134,7 +134,7 @@ static const std::tuple<TokenType, const char*, bool> literalTokenTuples[] = {
 
 	#undef VISIT_OPERATOR_TOKEN
 	#define VISIT_OPERATOR_TOKEN(_, name, nameString, ...) std::make_tuple(t_##name, nameString, false),
-	ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
+	WAVM_ENUM_OPERATORS(VISIT_OPERATOR_TOKEN)
 	#undef VISIT_OPERATOR_TOKEN
 };
 

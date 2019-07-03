@@ -11,7 +11,7 @@ namespace WAVM { namespace Platform {
 	PLATFORM_API void detachThread(Thread* thread);
 	PLATFORM_API I64 joinThread(Thread* thread);
 
-	RETURNS_TWICE PLATFORM_API Thread* forkCurrentThread();
+	WAVM_RETURNS_TWICE PLATFORM_API Thread* forkCurrentThread();
 
 	PLATFORM_API Uptr getNumberOfHardwareThreads();
 
