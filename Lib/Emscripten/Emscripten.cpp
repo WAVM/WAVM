@@ -151,10 +151,7 @@ static bool resizeHeap(Emscripten::Instance* instance, U32 desiredNumBytes)
 	}
 	else if(desiredNumPages < currentNumPages)
 	{
-		if(Runtime::shrinkMemory(instance->memory, currentNumPages - desiredNumPages) == -1)
-		{ return false; }
-
-		return true;
+		return false;
 	}
 	else
 	{

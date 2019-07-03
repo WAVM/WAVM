@@ -290,7 +290,6 @@ namespace WAVM { namespace Runtime {
 
 	// Grows or shrinks the size of a table by numElements. Returns the previous size of the table.
 	RUNTIME_API Iptr growTable(Table* table, Uptr numElements, Object* initialElement = nullptr);
-	RUNTIME_API Iptr shrinkTable(Table* table, Uptr numElements);
 
 	//
 	// Memories
@@ -312,7 +311,6 @@ namespace WAVM { namespace Runtime {
 
 	// Grows or shrinks the size of a memory by numPages. Returns the previous size of the memory.
 	RUNTIME_API Iptr growMemory(Memory* memory, Uptr numPages);
-	RUNTIME_API Iptr shrinkMemory(Memory* memory, Uptr numPages);
 
 	// Unmaps a range of memory pages within the memory's address-space.
 	RUNTIME_API void unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages);

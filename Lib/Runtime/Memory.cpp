@@ -214,28 +214,6 @@ Iptr Runtime::growMemory(Memory* memory, Uptr numPagesToGrow)
 	return previousNumPages;
 }
 
-Iptr Runtime::shrinkMemory(Memory* memory, Uptr numPagesToShrink)
-{
-	if(numPagesToShrink == 0) { return memory->numPages.load(std::memory_order_acquire); }
-
-	Lock<Platform::Mutex> resizingLock(memory->resizingMutex);
-
-	const Uptr previousNumPages = memory->numPages.load(std::memory_order_acquire);
-
-	// If the number of pages to shrink would cause the memory's size to drop below its minimum,
-	// return -1.
-	if(numPagesToShrink > previousNumPages
-	   || previousNumPages - numPagesToShrink < memory->type.size.min)
-	{ return -1; }
-
-	// Decommit the pages that were shrunk off the end of the memory.
-	Platform::decommitVirtualPages(memory->baseAddress + previousNumPages * IR::numBytesPerPage,
-								   numPagesToShrink << getPlatformPagesPerWebAssemblyPageLog2());
-
-	memory->numPages.store(previousNumPages - numPagesToShrink, std::memory_order_release);
-	return previousNumPages;
-}
-
 void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
 {
 	wavmAssert(pageIndex + numPages > pageIndex);

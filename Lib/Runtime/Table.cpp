@@ -373,51 +373,6 @@ Iptr Runtime::growTable(Table* table, Uptr numNewElements, Object* initialElemen
 	return growTableImpl(table, numNewElements, true, initialElement);
 }
 
-Iptr Runtime::shrinkTable(Table* table, Uptr numElementsToShrink)
-{
-	if(!numElementsToShrink) { return table->numElements.load(std::memory_order_acquire); }
-
-	Lock<Platform::Mutex> resizingLock(table->resizingMutex);
-
-	const Uptr previousNumElements = table->numElements.load(std::memory_order_acquire);
-
-	// If the number of elements to shrink would cause the table's size to drop below its minimum,
-	// return -1.
-	if(numElementsToShrink > previousNumElements
-	   || previousNumElements - numElementsToShrink < table->type.size.min)
-	{ return -1; }
-
-	// Decommit the pages that were shrunk off the end of the table's indirect function call data.
-	const Uptr newNumElements = previousNumElements - numElementsToShrink;
-	const Uptr previousNumPlatformPages
-		= getNumPlatformPages(previousNumElements * sizeof(Table::Element));
-	const Uptr newNumPlatformPages = getNumPlatformPages(newNumElements * sizeof(Table::Element));
-	if(newNumPlatformPages != previousNumPlatformPages)
-	{
-		Platform::decommitVirtualPages(
-			(U8*)table->elements + (newNumPlatformPages << Platform::getPageSizeLog2()),
-			(previousNumPlatformPages - newNumPlatformPages) << Platform::getPageSizeLog2());
-	}
-
-	// Write the out-of-bounds sentinel value to any removed elements that are between the new end
-	// of the table and the first decommitted page.
-	const Uptr numCommittedIndices
-		= (newNumPlatformPages << Platform::getPageSizeLog2()) / sizeof(Table::Element);
-	if(numCommittedIndices > newNumElements)
-	{
-		for(Uptr elementIndex = numCommittedIndices - 1; elementIndex > newNumElements;
-			--elementIndex)
-		{
-			table->elements[elementIndex].biasedValue.store(
-				objectToBiasedTableElementValue(getOutOfBoundsElement()),
-				std::memory_order_release);
-		}
-	}
-
-	table->numElements.store(newNumElements, std::memory_order_release);
-	return previousNumElements;
-}
-
 void Runtime::initElemSegment(ModuleInstance* moduleInstance,
 							  Uptr elemSegmentIndex,
 							  const std::vector<IR::Elem>* elemVector,
