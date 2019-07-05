@@ -18,7 +18,7 @@ The contents of [Test/binaryen](Test/binaryen) are covered by the license in [Te
 
 The contents of [Test/wabt](Test/wabt) are covered by the license in [Test/wabt/LICENSE](Test/wabt/LICENSE).
 
-[ThirdParty/dtoa/dtoa.c](ThirdParty/dtoa/dtoa.c) is covered by the license in that file.
+The contents of [ThirdParty/gdtoa](ThirdParty/gdtoa) are covered by the licenses in the individual source files.
 
 [ThirdParty/libunwind](ThirdParty/libunwind) is covered by the license in [ThirdParty/libunwind/LICENSE.TXT](ThirdParty/libunwind/LICENSE.TXT).
 

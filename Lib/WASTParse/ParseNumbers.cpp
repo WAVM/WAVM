@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <cmath>
 #include <string>
 
 #include "Lexer.h"
@@ -8,53 +9,25 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Platform/Defines.h"
-
-// Include the David Gay's dtoa code.
-// #define strtod and dtoa to avoid conflicting with the C standard library versions
-// This is complicated by dtoa.c including stdlib.h, so we need to also include stdlib.h
-// here to ensure that it isn't included with the strtod and dtoa #define.
-#include <stdlib.h>
-
-#define IEEE_8087
-#define NO_INFNAN_CHECK
-#define strtod parseNonSpecialF64
-#define dtoa printNonSpecialF64
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4244 4083 4706 4701 4703 4018)
-#elif defined(__GNUC__)
-#if !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#pragma GCC diagnostic ignored "-Wswitch-default"
-#define Long int
-#else
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#pragma GCC diagnostic ignored "-Wswitch-default"
-#define Long int
-#endif
-#endif
-
-#include "../ThirdParty/dtoa/dtoa.c"
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#undef Long
-#endif
-
-#undef IEEE_8087
-#undef NO_STRTOD_BIGCOMP
-#undef NO_INFNAN_CHECK
-#undef strtod
-#undef dtoa
+#include "WAVM/Platform/Mutex.h"
 
 using namespace WAVM;
 using namespace WAVM::WAST;
+
+// Mutexes used by gdtoa.
+static Platform::Mutex gdtoaMutexes[2];
+extern "C" void ACQUIRE_DTOA_LOCK(unsigned int index) { gdtoaMutexes[index].lock(); }
+extern "C" void FREE_DTOA_LOCK(unsigned int index) { gdtoaMutexes[index].unlock(); }
+extern "C" unsigned int dtoa_get_threadno()
+{
+	// Returning 0 works because we never set the number of threads, so gdtoa just falls back to
+	// using a global freelist protected by ACQUIRE_DTOA_LOCK/FREE_DTOA_LOCK.
+	return 0;
+}
+
+// Defined in the WAVM/ThirdParty/gdtoa library.
+extern "C" float gdtoa_strtof(const char* s, char** p);
+extern "C" double gdtoa_strtod(const char* s, char** p);
 
 // Parses an optional + or - sign and returns true if a - sign was parsed.
 // If either a + or - sign is parsed, nextChar is advanced past it.
@@ -191,28 +164,14 @@ template<typename Float> Float parseInfinity(const char* nextChar)
 	return resultComponents.value;
 }
 
-template<typename Float> static WAVM_NO_UBSAN Float uncheckedCast(F64 f64) { return Float(f64); }
-
-template<typename DestFloat> static F64 getMaxCastableF64()
+template<typename Float> Float parseNonSpecialFloat(const char* firstChar, char** endChar);
+template<> F32 parseNonSpecialFloat(const char* firstChar, char** endChar)
 {
-	typedef FloatComponents<F64> F64Components;
-	typedef FloatComponents<DestFloat> DestComponents;
-
-	F64Components f64Components;
-	f64Components.bits.sign = 0;
-
-	// Set the F64 exponent to the maximum exponent of the destination type.
-	f64Components.bits.exponent
-		= U64(DestComponents::maxNormalExponent) + F64Components::exponentBias;
-
-	// Set the F64 significand to the highest value that rounds to the maximum normal significand of
-	// the destination type.
-	const Uptr deltaSignificandBits
-		= F64Components::numSignificandBits - DestComponents::numSignificandBits;
-	f64Components.bits.significand = U64(DestComponents::maxSignificand) << deltaSignificandBits;
-	f64Components.bits.significand |= ((U64(1) << deltaSignificandBits) - 1) >> 1;
-
-	return f64Components.value;
+	return gdtoa_strtof(firstChar, endChar);
+}
+template<> F64 parseNonSpecialFloat(const char* firstChar, char** endChar)
+{
+	return gdtoa_strtod(firstChar, endChar);
 }
 
 // Parses a floating point literal, advancing nextChar past the parsed characters. Assumes it will
@@ -220,29 +179,28 @@ template<typename DestFloat> static F64 getMaxCastableF64()
 template<typename Float> Float parseFloat(const char*& nextChar, ParseState* parseState)
 {
 	// Scan the token's characters for underscores, and make a copy of it without the underscores
-	// for strtod.
+	// for strtof/strtod.
 	const char* firstChar = nextChar;
 	std::string noUnderscoreString;
 	bool hasUnderscores = false;
 	while(true)
 	{
-		// Determine whether the next character is still part of the number.
-		const bool isNumericChar
-			= (*nextChar >= '0' && *nextChar <= '9') || (*nextChar >= 'a' && *nextChar <= 'f')
-			  || (*nextChar >= 'A' && *nextChar <= 'F') || *nextChar == 'x' || *nextChar == 'X'
-			  || *nextChar == 'p' || *nextChar == 'P' || *nextChar == '+' || *nextChar == '-'
-			  || *nextChar == '.' || *nextChar == '_';
+		const char c = *nextChar;
 
+		// Determine whether the next character is still part of the number.
+		const bool isNumericChar = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+								   || (c >= 'A' && c <= 'F') || c == 'x' || c == 'X' || c == 'p'
+								   || c == 'P' || c == '+' || c == '-' || c == '.' || c == '_';
 		if(!isNumericChar) { break; }
 
-		if(*nextChar == '_' && !hasUnderscores)
+		if(c == '_' && !hasUnderscores)
 		{
 			// If this is the first underscore encountered, copy the preceding characters of the
 			// number to a std::string.
 			noUnderscoreString = std::string(firstChar, nextChar);
 			hasUnderscores = true;
 		}
-		else if(*nextChar != '_' && hasUnderscores)
+		else if(c != '_' && hasUnderscores)
 		{
 			// If an underscore has previously been encountered, copy non-underscore characters to
 			// that string.
@@ -256,17 +214,15 @@ template<typename Float> Float parseFloat(const char*& nextChar, ParseState* par
 	const char* noUnderscoreFirstChar = firstChar;
 	if(hasUnderscores) { noUnderscoreFirstChar = noUnderscoreString.c_str(); }
 
-	// Use David Gay's strtod to parse a floating point number.
+	// Use David Gay's strtof/strtod to parse a floating point number.
 	char* endChar = nullptr;
-	F64 f64 = parseNonSpecialF64(noUnderscoreFirstChar, &endChar);
+	Float result = parseNonSpecialFloat<Float>(noUnderscoreFirstChar, &endChar);
 	if(endChar == noUnderscoreFirstChar)
-	{ Errors::fatalf("strtod failed to parse number accepted by lexer"); }
+	{ Errors::fatalf("strtof/strtod failed to parse number accepted by lexer"); }
 
-	const F64 maxCastableF64 = getMaxCastableF64<Float>();
-	if(f64 < -maxCastableF64 || f64 > maxCastableF64)
-	{ parseErrorf(parseState, firstChar, "float literal is too large"); }
+	if(std::isinf(result)) { parseErrorf(parseState, firstChar, "float literal is too large"); }
 
-	return uncheckedCast<Float>(f64);
+	return result;
 }
 
 // Tries to parse an numeric literal token as an integer, advancing cursor->nextToken.

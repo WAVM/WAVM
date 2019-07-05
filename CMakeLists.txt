@@ -124,6 +124,48 @@ configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Config.h.in
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h
 		DESTINATION include/WAVM/Inline)
 
+# A function that sets sanitizer options on a target.
+function(WAVM_SET_TARGET_SANITIZER_OPTIONS TARGET_NAME)
+	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		if(WAVM_ENABLE_ASAN)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
+			target_link_libraries(${TARGET_NAME} PUBLIC "-fsanitize=address")
+		endif()
+
+		# Optionally enable the undefined-behavior sanitizer.
+		if(WAVM_ENABLE_UBSAN)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=undefined")
+			target_link_libraries(${TARGET_NAME} PUBLIC -fsanitize=undefined)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fno-sanitize-recover=undefined")
+		endif()
+
+		# Optionally enable the thread sanitizer.
+		if(WAVM_ENABLE_TSAN)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=thread")
+			target_link_libraries(${TARGET_NAME} PUBLIC -fsanitize=thread)
+		endif()
+		
+		# Optionally enable Clang's libfuzzer.
+		if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WAVM_ENABLE_LIBFUZZER)
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer")
+			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize-coverage=trace-cmp,trace-div,trace-gep")
+		endif()
+
+		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+			# Link with the static sanitizer runtimes instead of the shared sanitize runtimes on GCC.
+			# This matches the default behavior for Clang.
+			if(WAVM_ENABLE_ASAN)
+				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libasan")
+			endif()
+			if(WAVM_ENABLE_UBSAN)
+				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libubsan")
+			endif()
+			if(WAVM_ENABLE_TSAN)
+				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libtsan")
+			endif()
+		endif()
+	endif()
+endfunction()
 
 # A function that sets compile options that are common to all WAVM targets.
 function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
@@ -137,6 +179,9 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 
 	# Target C++11.
 	target_compile_features(${TARGET_NAME} PUBLIC cxx_std_11)
+	
+	# Set sanitizer options.
+	WAVM_SET_TARGET_SANITIZER_OPTIONS(${TARGET_NAME})
 
 	if(MSVC)
 		if(WAVM_ENABLE_LTO)
@@ -187,44 +232,6 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 		if(TARGET_TYPE STREQUAL "STATIC_LIBRARY" AND WAVM_ENABLE_STATIC_LIBRARY_PIC)
 			# Ensure that even static libraries are relocatable so they can be linked into a .so
 			target_compile_options(${TARGET_NAME} PRIVATE "-fPIC")
-		endif()
-
-		if(WAVM_ENABLE_ASAN)
-			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=address")
-			target_link_libraries(${TARGET_NAME} PUBLIC "-fsanitize=address")
-		endif()
-
-		# Optionally enable the undefined-behavior sanitizer.
-		if(WAVM_ENABLE_UBSAN)
-			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=undefined")
-			target_link_libraries(${TARGET_NAME} PUBLIC -fsanitize=undefined)
-			target_compile_options(${TARGET_NAME} PRIVATE "-fno-sanitize-recover=undefined")
-		endif()
-
-		# Optionally enable the thread sanitizer.
-		if(WAVM_ENABLE_TSAN)
-			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=thread")
-			target_link_libraries(${TARGET_NAME} PUBLIC -fsanitize=thread)
-		endif()
-		
-		# Optionally enable Clang's libfuzzer.
-		if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WAVM_ENABLE_LIBFUZZER)
-			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize=fuzzer")
-			target_compile_options(${TARGET_NAME} PRIVATE "-fsanitize-coverage=trace-cmp,trace-div,trace-gep")
-		endif()
-
-		if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-			# Link with the static sanitizer runtimes instead of the shared sanitize runtimes on GCC.
-			# This matches the default behavior for Clang.
-			if(WAVM_ENABLE_ASAN)
-				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libasan")
-			endif()
-			if(WAVM_ENABLE_UBSAN)
-				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libubsan")
-			endif()
-			if(WAVM_ENABLE_TSAN)
-				target_link_libraries(${TARGET_NAME} PUBLIC "-static-libtsan")
-			endif()
 		endif()
 
 		# Don't eliminate frame pointers: this makes thread forking work robustly if one of the
@@ -357,7 +364,7 @@ add_subdirectory(Lib/WASTPrint)
 add_subdirectory(Programs/wavm-as)
 add_subdirectory(Programs/wavm-disas)
 add_subdirectory(Test)
-add_subdirectory(ThirdParty/dtoa)
+add_subdirectory(ThirdParty/gdtoa)
 
 if(WAVM_ENABLE_RUNTIME)
 	add_subdirectory(Lib/Emscripten)
