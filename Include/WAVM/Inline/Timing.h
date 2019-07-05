@@ -13,7 +13,7 @@ namespace WAVM { namespace Timing {
 		F64 getNanoseconds()
 		{
 			if(!isStopped) { stop(); }
-			return F64(assumeNoOverflow(endTime - startTime));
+			return F64(flushNaNToZero(endTime - startTime));
 		}
 		F64 getMicroseconds() { return getNanoseconds() / 1000.0; }
 		F64 getMilliseconds() { return getNanoseconds() / 1000000.0; }

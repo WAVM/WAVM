@@ -92,6 +92,30 @@ namespace WAVM { namespace Platform {
 		return U32(value + ((I32(maxValue - value) >> 31) & (maxValue - value)));
 	}
 
+#if defined(__GNUC__)
+	inline bool addAndCheckOverflow(U64 a, U64 b, U64* out)
+	{
+		return __builtin_add_overflow(a, b, out);
+	}
+	inline bool addAndCheckOverflow(I64 a, I64 b, I64* out)
+	{
+		return __builtin_add_overflow(a, b, out);
+	}
+#else
+	inline bool addAndCheckOverflow(U64 a, U64 b, U64* out)
+	{
+		*out = a + b;
+		return *out < a;
+	}
+
+	inline bool addAndCheckOverflow(I64 a, I64 b, I64* out)
+	{
+		// Do the add with U64 because signed overflow is UB.
+		*out = I64(U64(a) + U64(b));
+		return (a < 0 && b < 0 && *out > 0) || (a > 0 && b > 0 && *out < 0);
+	}
+#endif
+
 	// Byte-wise memcpy and memset: these are different from the C library versions because in the
 	// event of a trap while reading/writing memory, they guarantee that every byte preceding the
 	// byte that trapped will have been written.

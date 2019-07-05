@@ -136,7 +136,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 
 	// Wait for the thread's wake event to be signaled.
 	bool timedOut = false;
-	if(!threadWakeEvent->wait(timeout < 0 ? WAVM_INT128_MAX : I128(timeout)))
+	if(!threadWakeEvent->wait(timeout < 0 ? I128::nan() : I128(timeout)))
 	{
 		// If the wait timed out, lock the wait list and check if the thread's wake event is still
 		// in the wait list.

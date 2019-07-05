@@ -17,6 +17,8 @@ namespace WAVM { namespace Platform {
 		void operator=(const Event&) = delete;
 		void operator=(Event&&) = delete;
 
+		// Wait for the event to be signaled until waitDuration nanoseconds have elapsed.
+		// If waitDuration == I128::nan(), wait forever.
 		PLATFORM_API bool wait(I128 waitDuration);
 		PLATFORM_API void signal();
 

@@ -11,13 +11,13 @@ using namespace WAVM::Platform;
 
 static I128 fileTimeToI128(FILETIME fileTime)
 {
-	return assumeNoOverflow(I128(U64(fileTime.dwLowDateTime) | (U64(fileTime.dwHighDateTime) << 32))
-							* 100);
+	return I128(U64(fileTime.dwLowDateTime) | (U64(fileTime.dwHighDateTime) << 32)) * 100;
 }
 
 static FILETIME i128ToFileTime(I128 i128)
 {
-	U64 fileTime64 = U64(assumeNoOverflow(i128 / 100));
+	const I128 fileTime128 = i128 / 100;
+	const U64 fileTime64 = fileTime128 >= 0 && fileTime128 <= UINT64_MAX ? U64(fileTime128) : 0;
 	FILETIME result;
 	result.dwLowDateTime = U32(fileTime64);
 	result.dwHighDateTime = U32(fileTime64 >> 32);
@@ -84,7 +84,7 @@ I128 Platform::getMonotonicClock()
 	LARGE_INTEGER ticksPerSecond = getCachedQPCFrequency();
 	LARGE_INTEGER ticks;
 	errorUnless(QueryPerformanceCounter(&ticks));
-	return assumeNoOverflow(I128(ticks.QuadPart) * 1000000000) / ticksPerSecond.QuadPart;
+	return I128(ticks.QuadPart) * 1000000000 / ticksPerSecond.QuadPart;
 }
 
 I128 Platform::getMonotonicClockResolution()
@@ -104,6 +104,6 @@ I128 Platform::getProcessClock()
 	errorUnless(
 		GetProcessTimes(GetCurrentProcess(), &creationTime, &exitTime, &kernelTime, &userTime));
 
-	return assumeNoOverflow(fileTimeToI128(kernelTime) + fileTimeToI128(userTime));
+	return fileTimeToI128(kernelTime) + fileTimeToI128(userTime);
 }
 I128 Platform::getProcessClockResolution() { return 100; }

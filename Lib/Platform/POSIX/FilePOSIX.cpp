@@ -114,7 +114,7 @@ static I128 timeToNS(time_t time)
 	// time_t might be a long, and I128 doesn't have a long constructor, so coerce it to an integer
 	// type first.
 	const U64 timeInt = U64(time);
-	return assumeNoOverflow(I128(timeInt) * 1000000000);
+	return I128(timeInt) * 1000000000;
 }
 
 static void getFileInfoFromStatus(const struct stat& status, FileInfo& outInfo)

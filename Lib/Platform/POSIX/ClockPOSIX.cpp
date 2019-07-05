@@ -9,10 +9,7 @@
 using namespace WAVM;
 using namespace WAVM::Platform;
 
-static I128 timespecToNS(timespec t)
-{
-	return assumeNoOverflow(I128(U64(t.tv_sec)) * 1000000000 + U64(t.tv_nsec));
-}
+static I128 timespecToNS(timespec t) { return I128(U64(t.tv_sec)) * 1000000000 + U64(t.tv_nsec); }
 
 static I128 getClockAsI128(clockid_t clockId)
 {
@@ -59,7 +56,7 @@ static I128 getMachAbsoluteClock()
 	const I128 ticks = mach_absolute_time();
 	const I128 ns = ticks * cachedTimebaseInfoData.numer / cachedTimebaseInfoData.denom;
 
-	return assumeNoOverflow(ns);
+	return ns;
 }
 static I128 getMachAbsoluteClockResolution()
 {
@@ -80,15 +77,12 @@ I128 Platform::getMonotonicClockResolution() { return getMachAbsoluteClockResolu
 I128 Platform::getProcessClock() { return getClockAsI128(CLOCK_PROCESS_CPUTIME_ID); }
 I128 Platform::getProcessClockResolution() { return getClockResAsI128(CLOCK_PROCESS_CPUTIME_ID); }
 #else
-static I128 timevalToNS(timeval t)
-{
-	return assumeNoOverflow(I128(U64(t.tv_sec)) * 1000000000 + U64(t.tv_usec));
-}
+static I128 timevalToNS(timeval t) { return I128(U64(t.tv_sec)) * 1000000000 + U64(t.tv_usec); }
 I128 Platform::getProcessClock()
 {
 	struct rusage ru;
 	errorUnless(!getrusage(RUSAGE_SELF, &ru));
-	return assumeNoOverflow(timevalToNS(ru.ru_stime) + timevalToNS(ru.ru_utime));
+	return timevalToNS(ru.ru_stime) + timevalToNS(ru.ru_utime);
 }
 I128 Platform::getProcessClockResolution() { return 1000; }
 #endif
