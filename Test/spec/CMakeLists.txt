@@ -3,6 +3,7 @@ set(WASTTests
 	align.wast
 	atomic.wast
 	binary.wast
+	binary-LEB128.wast
 	block.wast
 	br.wast
 	br_if.wast
