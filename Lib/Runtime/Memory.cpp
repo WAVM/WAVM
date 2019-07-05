@@ -239,8 +239,8 @@ static U8* getValidatedMemoryOffsetRangeImpl(Memory* memory,
 			{asObject(memory), U64(address > memoryNumBytes ? address : memoryNumBytes)});
 	}
 	wavmAssert(memoryBase);
-	numBytes = Platform::branchlessMin(numBytes, memoryNumBytes);
-	return memoryBase + Platform::branchlessMin(address, memoryNumBytes - numBytes);
+	numBytes = branchlessMin(numBytes, memoryNumBytes);
+	return memoryBase + branchlessMin(address, memoryNumBytes - numBytes);
 }
 
 U8* Runtime::getReservedMemoryOffsetRange(Memory* memory, Uptr address, Uptr numBytes)
@@ -285,9 +285,9 @@ void Runtime::initDataSegment(ModuleInstance* moduleInstance,
 			if(sourceOffset < dataVector->size())
 			{
 				Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, dataVector] {
-					Platform::bytewiseMemCopy(destPointer,
-											  dataVector->data() + sourceOffset,
-											  dataVector->size() - sourceOffset);
+					bytewiseMemCopy(destPointer,
+									dataVector->data() + sourceOffset,
+									dataVector->size() - sourceOffset);
 				});
 			}
 			throwException(
@@ -297,7 +297,7 @@ void Runtime::initDataSegment(ModuleInstance* moduleInstance,
 		else
 		{
 			Runtime::unwindSignalsAsExceptions([destPointer, sourceOffset, numBytes, dataVector] {
-				Platform::bytewiseMemCopy(destPointer, dataVector->data() + sourceOffset, numBytes);
+				bytewiseMemCopy(destPointer, dataVector->data() + sourceOffset, numBytes);
 			});
 		}
 	}
@@ -394,8 +394,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	U8* destPointer = getReservedMemoryOffsetRange(destMemory, destAddress, numBytes);
 	U8* sourcePointer = getReservedMemoryOffsetRange(sourceMemory, sourceAddress, numBytes);
 
-	unwindSignalsAsExceptions(
-		[=] { Platform::bytewiseMemMove(destPointer, sourcePointer, numBytes); });
+	unwindSignalsAsExceptions([=] { bytewiseMemMove(destPointer, sourcePointer, numBytes); });
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
@@ -410,5 +409,5 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	U8* destPointer = getReservedMemoryOffsetRange(memory, destAddress, numBytes);
-	unwindSignalsAsExceptions([=] { Platform::bytewiseMemSet(destPointer, U8(value), numBytes); });
+	unwindSignalsAsExceptions([=] { bytewiseMemSet(destPointer, U8(value), numBytes); });
 }

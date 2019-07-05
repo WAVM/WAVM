@@ -76,7 +76,7 @@ namespace WAVM {
 		}
 
 	private:
-		struct alignas(WAVM::Platform::numCacheLineBytes) Stripe
+		struct alignas(WAVM::numCacheLineBytes) Stripe
 		{
 			WAVM::Platform::Mutex mutex;
 			HashMap<Key, Value, KeyHashPolicy> map;

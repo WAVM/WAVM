@@ -47,9 +47,8 @@ namespace WAVM {
 				{
 					// Find the index of the lowest set bit in the element using
 					// countTrailingZeroes.
-					const Index result
-						= (Index)(elementIndex * indicesPerElement
-								  + Platform::countTrailingZeroes(elements[elementIndex]));
+					const Index result = (Index)(elementIndex * indicesPerElement
+												 + countTrailingZeroes(elements[elementIndex]));
 					wavmAssert(contains(result));
 					return result;
 				}
@@ -65,9 +64,8 @@ namespace WAVM {
 				{
 					// Find the index of the lowest set bit in the element using
 					// countTrailingZeroes.
-					const Index result
-						= (Index)(elementIndex * indicesPerElement
-								  + Platform::countTrailingZeroes(~elements[elementIndex]));
+					const Index result = (Index)(elementIndex * indicesPerElement
+												 + countTrailingZeroes(~elements[elementIndex]));
 					if(result >= maxIndexPlusOne) { break; }
 					else
 					{

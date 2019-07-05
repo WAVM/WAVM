@@ -58,10 +58,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 		if(numArgBytes > WASIADDRESS_MAX || nextArgBufAddress > WASIADDRESS_MAX - numArgBytes - 1)
 		{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 
-		Platform::bytewiseMemCopy(
-			memoryArrayPtr<U8>(process->memory, nextArgBufAddress, numArgBytes),
-			(const U8*)arg.c_str(),
-			numArgBytes);
+		bytewiseMemCopy(memoryArrayPtr<U8>(process->memory, nextArgBufAddress, numArgBytes),
+						(const U8*)arg.c_str(),
+						numArgBytes);
 		memoryRef<WASIAddress>(process->memory, argvAddress + argIndex * sizeof(U32))
 			= WASIAddress(nextArgBufAddress);
 
@@ -119,10 +118,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiArgsEnvs,
 		if(numEnvBytes > WASIADDRESS_MAX || nextEnvBufAddress > WASIADDRESS_MAX - numEnvBytes - 1)
 		{ return TRACE_SYSCALL_RETURN(__WASI_EOVERFLOW); }
 
-		Platform::bytewiseMemCopy(
-			memoryArrayPtr<U8>(process->memory, nextEnvBufAddress, numEnvBytes),
-			(const U8*)env.c_str(),
-			numEnvBytes);
+		bytewiseMemCopy(memoryArrayPtr<U8>(process->memory, nextEnvBufAddress, numEnvBytes),
+						(const U8*)env.c_str(),
+						numEnvBytes);
 		memoryRef<WASIAddress>(process->memory, envvAddress + argIndex * sizeof(U32))
 			= WASIAddress(nextEnvBufAddress);
 

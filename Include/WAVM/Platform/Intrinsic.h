@@ -7,7 +7,7 @@
 #include <intrin.h>
 #endif
 
-namespace WAVM { namespace Platform {
+namespace WAVM {
 	// The number of bytes in a cache line: assume 64 for now.
 	enum
 	{
@@ -170,4 +170,4 @@ namespace WAVM { namespace Platform {
 			bytewiseMemCopy(dest, source, numBytes);
 		}
 	}
-}}
+}

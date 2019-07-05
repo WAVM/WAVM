@@ -418,7 +418,7 @@ static void parseImm(CursorState* cursor, LoadOrStoreImm<naturalAlignmentLog2>& 
 		}
 	}
 
-	outImm.alignmentLog2 = (U8)Platform::floorLogTwo(alignment);
+	outImm.alignmentLog2 = (U8)floorLogTwo(alignment);
 }
 
 static void parseImm(CursorState* cursor, LiteralImm<V128>& outImm)

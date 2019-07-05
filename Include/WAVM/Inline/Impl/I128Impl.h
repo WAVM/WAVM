@@ -60,10 +60,10 @@ namespace WAVM {
 		I128 absoluteI128 = components.bits.sign ? -*this : *this;
 
 		// Count the number of leading zeroes in the absolute I128.
-		U64 leadingZeroes = Platform::countLeadingZeroes(absoluteI128.highU64);
+		U64 leadingZeroes = countLeadingZeroes(absoluteI128.highU64);
 		if(leadingZeroes == 64)
 		{
-			leadingZeroes += Platform::countLeadingZeroes(absoluteI128.lowU64);
+			leadingZeroes += countLeadingZeroes(absoluteI128.lowU64);
 			if(leadingZeroes == 128)
 			{
 				components.bits.exponent = 0;
@@ -95,7 +95,7 @@ namespace WAVM {
 		I128 result;
 		result.highU64 = ~a.highU64;
 		result.lowU64 = ~a.lowU64;
-		result.highU64 += Platform::addAndCheckOverflow(result.lowU64, 1, &result.lowU64) ? 1 : 0;
+		result.highU64 += addAndCheckOverflow(result.lowU64, 1, &result.lowU64) ? 1 : 0;
 		return result;
 	}
 
@@ -121,12 +121,11 @@ namespace WAVM {
 		}
 
 		bool overflowed = false;
-		if(Platform::addAndCheckOverflow(a.highI64, b.highI64, &out->highI64))
-		{ overflowed = true; }
+		if(addAndCheckOverflow(a.highI64, b.highI64, &out->highI64)) { overflowed = true; }
 
-		if(Platform::addAndCheckOverflow(a.lowU64, b.lowU64, &out->lowU64))
+		if(addAndCheckOverflow(a.lowU64, b.lowU64, &out->lowU64))
 		{
-			if(Platform::addAndCheckOverflow(out->highI64, 1, &out->highI64)) { overflowed = true; }
+			if(addAndCheckOverflow(out->highI64, 1, &out->highI64)) { overflowed = true; }
 		}
 		return overflowed;
 	}
@@ -189,20 +188,16 @@ namespace WAVM {
 		// Add all the 64-bit products together, checking for overflow.
 		bool overflowed = false;
 		out->lowU64 = m00;
-		out->highU64 = U64(Platform::addAndCheckOverflow(out->lowU64, m01 << 32, &out->lowU64));
-		out->highU64 += U64(Platform::addAndCheckOverflow(out->lowU64, m10 << 32, &out->lowU64));
+		out->highU64 = U64(addAndCheckOverflow(out->lowU64, m01 << 32, &out->lowU64));
+		out->highU64 += U64(addAndCheckOverflow(out->lowU64, m10 << 32, &out->lowU64));
 		out->highU64 += (m01 >> 32) + (m10 >> 32);
-		overflowed = Platform::addAndCheckOverflow(out->highU64, m02, &out->highU64) || overflowed;
-		overflowed = Platform::addAndCheckOverflow(out->highU64, m11, &out->highU64) || overflowed;
-		overflowed = Platform::addAndCheckOverflow(out->highU64, m20, &out->highU64) || overflowed;
-		overflowed
-			= Platform::addAndCheckOverflow(out->highU64, m03 << 32, &out->highU64) || overflowed;
-		overflowed
-			= Platform::addAndCheckOverflow(out->highU64, m12 << 32, &out->highU64) || overflowed;
-		overflowed
-			= Platform::addAndCheckOverflow(out->highU64, m21 << 32, &out->highU64) || overflowed;
-		overflowed
-			= Platform::addAndCheckOverflow(out->highU64, m30 << 32, &out->highU64) || overflowed;
+		overflowed = addAndCheckOverflow(out->highU64, m02, &out->highU64) || overflowed;
+		overflowed = addAndCheckOverflow(out->highU64, m11, &out->highU64) || overflowed;
+		overflowed = addAndCheckOverflow(out->highU64, m20, &out->highU64) || overflowed;
+		overflowed = addAndCheckOverflow(out->highU64, m03 << 32, &out->highU64) || overflowed;
+		overflowed = addAndCheckOverflow(out->highU64, m12 << 32, &out->highU64) || overflowed;
+		overflowed = addAndCheckOverflow(out->highU64, m21 << 32, &out->highU64) || overflowed;
+		overflowed = addAndCheckOverflow(out->highU64, m30 << 32, &out->highU64) || overflowed;
 
 		// Check if the product overflowed the 63 non-sign bits in highU64.
 		overflowed = out->highI64 < 0 || overflowed;
@@ -419,12 +414,12 @@ namespace WAVM {
 				r.lowU64 = n.lowU64;
 				r.highU64 = n.highU64 & (d.highU64 - 1);
 				outRemainder = r;
-				return n.highU64 >> Platform::countTrailingZeroes(d.highU64);
+				return n.highU64 >> countTrailingZeroes(d.highU64);
 			}
 			// K K
 			// ---
 			// K 0
-			sr = Platform::countLeadingZeroes(d.highU64) - Platform::countLeadingZeroes(n.highU64);
+			sr = countLeadingZeroes(d.highU64) - countLeadingZeroes(n.highU64);
 			// 0 <= sr <= 64 - 2 or sr large
 			if(sr > 64 - 2)
 			{
@@ -455,7 +450,7 @@ namespace WAVM {
 						outRemainder = r;
 						return n;
 					}
-					sr = Platform::countTrailingZeroes(d.lowU64);
+					sr = countTrailingZeroes(d.lowU64);
 					q.highU64 = n.highU64 >> sr;
 					q.lowU64 = (n.highU64 << (64 - sr)) | (n.lowU64 >> sr);
 					outRemainder = r;
@@ -464,8 +459,7 @@ namespace WAVM {
 				// K X
 				// ---
 				// 0 K
-				sr = 1 + 64 + Platform::countLeadingZeroes(d.lowU64)
-					 - Platform::countLeadingZeroes(n.highU64);
+				sr = 1 + 64 + countLeadingZeroes(d.lowU64) - countLeadingZeroes(n.highU64);
 				// 2 <= sr <= 128 - 1
 				// q = n << (128 - sr);
 				// r = n >> sr;
@@ -496,8 +490,7 @@ namespace WAVM {
 				// K X
 				// ---
 				// K K
-				sr = Platform::countLeadingZeroes(d.highU64)
-					 - Platform::countLeadingZeroes(n.highU64);
+				sr = countLeadingZeroes(d.highU64) - countLeadingZeroes(n.highU64);
 				// 0 <= sr <= 64 - 1 or sr large
 				if(sr > 64 - 1)
 				{

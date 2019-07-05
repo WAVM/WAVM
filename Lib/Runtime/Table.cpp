@@ -285,7 +285,7 @@ static Object* setTableElementNonNull(Table* table, Uptr index, Object* object)
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
-	const Uptr saturatedIndex = Platform::branchlessMin(index, U64(table->numReservedElements) - 1);
+	const Uptr saturatedIndex = branchlessMin(index, U64(table->numReservedElements) - 1);
 
 	// Compute the biased value to store in the table.
 	const Uptr biasedValue = objectToBiasedTableElementValue(object);
@@ -316,7 +316,7 @@ static Object* getTableElementNonNull(const Table* table, Uptr index)
 
 	// Use a saturated index to access the table data to ensure that it's harmless for the CPU to
 	// speculate past the above bounds check.
-	const Uptr saturatedIndex = Platform::branchlessMin(index, U64(table->numReservedElements) - 1);
+	const Uptr saturatedIndex = branchlessMin(index, U64(table->numReservedElements) - 1);
 
 	// Read the table element.
 	const Uptr biasedValue
