@@ -41,6 +41,7 @@ WAVM_DEFINE_INTRINSIC_MODULE(spectest);
 struct Config
 {
 	bool strictAssertInvalid{false};
+	bool strictAssertMalformed{false};
 	bool testCloning{false};
 };
 
@@ -600,7 +601,8 @@ static void processCommand(TestScriptState& state, const Command* command)
 			break;
 
 		case InvalidOrMalformed::invalid:
-			testErrorf(state, assertCommand->locus, "module was invalid");
+			if(state.config.strictAssertMalformed)
+			{ testErrorf(state, assertCommand->locus, "module was invalid"); }
 			break;
 
 		case InvalidOrMalformed::malformed:
@@ -869,15 +871,18 @@ static I64 threadMain(void* sharedStateVoid)
 
 static void showHelp()
 {
-	Log::printf(Log::error,
-				"Usage: RunTestScript [options] in.wast [options]\n"
-				"  -h|--help                Display this message\n"
-				"  -d|--debug               Print verbose debug output to stdout\n"
-				"  -l <N>|--loop <N>        Run tests N times in a loop until an error occurs\n"
-				"  --strict-assert-invalid  Strictly evaluate assert_invalid, failing if the\n"
-				"                           module was malformed\n"
-				"  --test-cloning           Run each test command in the original compartment and\n"
-				"                           a clone of it, and compare the resulting state\n");
+	Log::printf(
+		Log::error,
+		"Usage: RunTestScript [options] in.wast [options]\n"
+		"  -h|--help                  Display this message\n"
+		"  -d|--debug                 Print verbose debug output to stdout\n"
+		"  -l <N>|--loop <N>          Run tests N times in a loop until an error occurs\n"
+		"  --strict-assert-invalid    Strictly evaluate assert_invalid, failing if the\n"
+		"                             module was malformed\n"
+		"  --strict-assert-malformed  Strictly evaluate assert_malformed, failing if the\n"
+		"                             module was invalid\n"
+		"  --test-cloning             Run each test command in the original compartment\n"
+		"                             and a clone of it, and compare the resulting state\n");
 }
 
 int main(int argc, char** argv)
@@ -919,6 +924,11 @@ int main(int argc, char** argv)
 		else if(!strcmp(argv[argIndex], "--strict-assert-invalid"))
 		{
 			config.strictAssertInvalid = true;
+			++argIndex;
+		}
+		else if(!strcmp(argv[argIndex], "--strict-assert-malformed"))
+		{
+			config.strictAssertMalformed = true;
 			++argIndex;
 		}
 		else if(!strcmp(argv[argIndex], "--test-cloning"))
