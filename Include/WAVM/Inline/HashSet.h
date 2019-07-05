@@ -95,5 +95,5 @@ namespace WAVM {
 	};
 
 // The implementation is defined in a separate file.
-#include "HashSetImpl.h"
+#include "Impl/HashSetImpl.h"
 }

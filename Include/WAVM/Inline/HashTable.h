@@ -154,5 +154,5 @@ namespace WAVM {
 	};
 
 // The implementation is defined in a separate file.
-#include "HashTableImpl.h"
+#include "Impl/HashTableImpl.h"
 }

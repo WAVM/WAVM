@@ -121,4 +121,4 @@ namespace WAVM {
 	};
 }
 
-#include "WAVM/Inline/I128Impl.h"
+#include "Impl/I128Impl.h"

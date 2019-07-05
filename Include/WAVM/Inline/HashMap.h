@@ -121,5 +121,5 @@ namespace WAVM {
 	};
 
 // The implementation is defined in a separate file.
-#include "HashMapImpl.h"
+#include "Impl/HashMapImpl.h"
 }
