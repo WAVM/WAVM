@@ -440,3 +440,43 @@
 		br 0
 	)
 )
+
+;; Test V128 as a loop parameter, in particular that LLVM's "interpreted" V128 types (e.g. f64x2)
+;; are correctly coerced to the canonical type the loop parameter PHI expects.
+(module
+	(func
+			f64.const 0
+		f64x2.splat
+		loop $loop (param v128)
+			br 1
+		end ;; $loop
+		br 0
+	)
+)
+
+;; Test V128 as an if parameter, in particular that LLVM's "interpreted" V128 types (e.g. f64x2)
+;; are correctly coerced to the canonical type the loop parameter PHI expects.
+(module
+	(func (param $x i32)
+			f64.const 0
+		f64x2.splat
+		local.get $x
+		if $loop (param v128) (result v128)
+			br 1
+		end ;; $loop
+		br 0
+	)
+)
+(module
+	(func (param $x i32)
+			f64.const 0
+		f64x2.splat
+		local.get $x
+		if $loop (param v128) (result v128)
+			br 1
+		else
+			br 1
+		end ;; $loop
+		br 0
+	)
+)

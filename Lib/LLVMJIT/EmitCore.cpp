@@ -67,13 +67,13 @@ void EmitFunctionContext::loop(ControlStructureImm imm)
 	auto parameterPHIs = createPHIs(loopBodyBlock, blockType.params());
 	auto endPHIs = createPHIs(endBlock, blockType.results());
 
+	// Pop the initial values of the loop's parameters from the stack.
+	for(Iptr elementIndex = Iptr(blockType.params().size()) - 1; elementIndex >= 0; --elementIndex)
+	{ parameterPHIs[elementIndex]->addIncoming(coerceToCanonicalType(pop()), loopEntryBlock); }
+
 	// Branch to the loop body and switch the IR builder to emit there.
 	irBuilder.CreateBr(loopBodyBlock);
 	irBuilder.SetInsertPoint(loopBodyBlock);
-
-	// Pop the initial values of the loop's parameters from the stack.
-	for(Iptr elementIndex = Iptr(blockType.params().size()) - 1; elementIndex >= 0; --elementIndex)
-	{ parameterPHIs[elementIndex]->addIncoming(pop(), loopEntryBlock); }
 
 	// Push a control context that ends at the end block/phi.
 	pushControlStack(ControlContext::Type::loop, blockType.results(), endBlock, endPHIs);
@@ -152,21 +152,21 @@ void EmitFunctionContext::end(NoImm)
 
 	branchToEndOfControlContext();
 
+	// If this is the end of an if without an else clause, create a dummy else clause.
 	if(currentContext.elseBlock)
 	{
-		// If this is the end of an if without an else clause, create a dummy else clause.
-		currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
-		irBuilder.SetInsertPoint(currentContext.elseBlock);
-		irBuilder.CreateBr(currentContext.endBlock);
-
 		// Add the if arguments to the end PHIs as if they just passed through the absent else
 		// block.
 		wavmAssert(currentContext.elseArgs.size() == currentContext.endPHIs.size());
 		for(Uptr argIndex = 0; argIndex < currentContext.elseArgs.size(); ++argIndex)
 		{
-			currentContext.endPHIs[argIndex]->addIncoming(currentContext.elseArgs[argIndex],
-														  currentContext.elseBlock);
+			currentContext.endPHIs[argIndex]->addIncoming(
+				coerceToCanonicalType(currentContext.elseArgs[argIndex]), currentContext.elseBlock);
 		}
+
+		currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
+		irBuilder.SetInsertPoint(currentContext.elseBlock);
+		irBuilder.CreateBr(currentContext.endBlock);
 	}
 
 	// Switch the IR emitter to the end block.
