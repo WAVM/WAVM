@@ -986,7 +986,7 @@ static void compileModule(const IR::Module& module, RandomStream& random)
 		LLVMJIT::TargetSpec{"x86_64-apple-darwin18.6.0", "skylake-avx512"},
 		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "skylake-avx512"},
 		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "skylake"},
-		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", ""},
+		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "core2"},
 	};
 	static const Uptr numPossibleTargets
 		= sizeof(possibleTargetSpecs) / sizeof(LLVMJIT::TargetSpec);
