@@ -6,6 +6,7 @@ set(TestNames
 	fd_filestat_set_size
 	fd_filestat_set_times
 	fd_renumber
+	largefile
 	ls
 	mkdir
 	path_filestat_set_times

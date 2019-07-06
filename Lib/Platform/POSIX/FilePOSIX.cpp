@@ -1,3 +1,7 @@
+#ifdef _GNU_SOURCE
+#define _FILE_OFFSET_BITS 64
+#endif
+
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -14,6 +18,8 @@
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
+
+#define FILE_OFFSET_IS_64BIT (sizeof(off_t) == 8)
 
 using namespace WAVM;
 using namespace WAVM::Platform;
@@ -266,11 +272,9 @@ struct POSIXFD : VFD
 		default: WAVM_UNREACHABLE();
 		};
 
-#ifdef __linux__
-		const I64 result = lseek64(fd, offset, whence);
-#else
-		const I64 result = lseek(fd, reinterpret_cast<off_t>(offset), whence);
-#endif
+		if(!FILE_OFFSET_IS_64BIT && (offset < INT32_MIN || offset > INT32_MAX))
+		{ return Result::invalidOffset; }
+		const I64 result = lseek(fd, off_t(offset), whence);
 		if(result == -1) { return errno == EINVAL ? Result::invalidOffset : asVFSResult(errno); }
 
 		if(outAbsoluteOffset) { *outAbsoluteOffset = U64(result); }
@@ -326,10 +330,7 @@ struct POSIXFD : VFD
 			return Result::tooManyBuffers;
 		}
 
-#ifndef __linux__
-		// If pread64 isn't available, fail before allocating the combined buffer.
-		if(offset > UINT32_MAX) { return Result::invalidOffset; }
-#endif
+		if(!FILE_OFFSET_IS_64BIT && offset > INT32_MAX) { return Result::invalidOffset; }
 
 		// Count the number of bytes in all the buffers.
 		Uptr numBufferBytes = 0;
@@ -347,11 +348,7 @@ struct POSIXFD : VFD
 		if(!combinedBuffer) { return Result::outOfMemory; }
 
 		// Do the read.
-#ifdef __linux__
-		ssize_t result = pread64(fd, combinedBuffer, numBufferBytes, offset);
-#else
-		ssize_t result = pread(fd, combinedBuffer, numBufferBytes, U32(offset));
-#endif
+		ssize_t result = pread(fd, combinedBuffer, numBufferBytes, off_t(offset));
 		if(result >= 0)
 		{
 			const Uptr numBytesRead = Uptr(result);
@@ -391,10 +388,7 @@ struct POSIXFD : VFD
 			return Result::tooManyBuffers;
 		}
 
-#ifndef __linux__
-		// If pwrite64 isn't available, fail before allocating the combined buffer.
-		if(offset > UINT32_MAX) { return Result::invalidOffset; }
-#endif
+		if(!FILE_OFFSET_IS_64BIT && offset > INT32_MAX) { return Result::invalidOffset; }
 
 		// Count the number of bytes in all the buffers.
 		Uptr numBufferBytes = 0;
@@ -423,11 +417,7 @@ struct POSIXFD : VFD
 		}
 
 		// Do the write.
-#ifdef __linux__
-		ssize_t result = pwrite64(fd, combinedBuffer, numBufferBytes, offset);
-#else
-		ssize_t result = pwrite(fd, combinedBuffer, numBufferBytes, U32(offset));
-#endif
+		ssize_t result = pwrite(fd, combinedBuffer, numBufferBytes, off_t(offset));
 
 		// Write the total number of bytes writte.
 		if(outNumBytesWritten) { *outNumBytesWritten = Uptr(result); }
@@ -502,12 +492,9 @@ struct POSIXFD : VFD
 
 	virtual Result setFileSize(U64 numBytes) override
 	{
-#ifdef __linux__
-		int result = ftruncate64(fd, numBytes);
-#else
-		if(numBytes > UINT32_MAX) { return Result::exceededFileSizeLimit; }
-		int result = ftruncate(fd, U32(numBytes));
-#endif
+		if(!FILE_OFFSET_IS_64BIT && numBytes > INT32_MAX) { return Result::exceededFileSizeLimit; }
+
+		int result = ftruncate(fd, off_t(numBytes));
 		return result == 0 ? Result::success : asVFSResult(errno);
 	}
 	virtual Result setFileTimes(bool setLastAccessTime,
