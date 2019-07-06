@@ -32,7 +32,7 @@ namespace WAVM { namespace IR {
 			const FunctionType type = resolveBlockType(module, imm.type);
 			return std::string(" : ") + asString(type.params()) + " -> " + asString(type.results());
 		}
-		std::string describeImm(SelectImm imm) { return asString(imm.type); }
+		std::string describeImm(SelectImm imm) { return std::string(" ") + asString(imm.type); }
 		std::string describeImm(BranchImm imm) { return " " + std::to_string(imm.targetDepth); }
 		std::string describeImm(BranchTableImm imm)
 		{
