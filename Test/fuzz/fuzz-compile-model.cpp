@@ -271,6 +271,60 @@ IndexedBlockType getIndexedBlockType(IR::Module& module,
 	}
 }
 
+struct ControlContext
+{
+	enum class Type : U8
+	{
+		function,
+		block,
+		ifThen,
+		ifElse,
+		loop,
+		try_,
+		catch_
+	};
+
+	Type type;
+	Uptr outerStackSize;
+
+	TypeTuple params;
+	TypeTuple results;
+
+	TypeTuple elseParams;
+};
+
+static void emitControlEnd(std::vector<ControlContext>& controlStack,
+						   std::vector<ValueType>& stack,
+						   IR::Module& module,
+						   CodeStream& codeStream)
+{
+	if(controlStack.back().type == ControlContext::Type::ifThen)
+	{
+		// Emit the else operator.
+		codeStream.else_();
+
+		stack.resize(controlStack.back().outerStackSize);
+		for(ValueType elseParam : controlStack.back().elseParams) { stack.push_back(elseParam); }
+
+		// Change the current control context type to an else clause.
+		controlStack.back().type = ControlContext::Type::ifElse;
+	}
+	else
+	{
+		if(controlStack.back().type == ControlContext::Type::try_
+		   || controlStack.back().type == ControlContext::Type::catch_)
+		{
+			// TODO: catch
+			WAVM_UNREACHABLE();
+		}
+
+		codeStream.end();
+		stack.resize(controlStack.back().outerStackSize);
+		for(ValueType result : controlStack.back().results) { stack.push_back(result); }
+		controlStack.pop_back();
+	}
+}
+
 static void generateFunction(RandomStream& random,
 							 IR::Module& module,
 							 FunctionDef& functionDef,
@@ -287,28 +341,6 @@ static void generateFunction(RandomStream& random,
 	Serialization::ArrayOutputStream codeByteStream;
 	OperatorEncoderStream opEncoder(codeByteStream);
 	CodeValidationProxyStream<OperatorEncoderStream> codeStream(module, functionDef, opEncoder);
-
-	struct ControlContext
-	{
-		enum class Type : U8
-		{
-			function,
-			block,
-			ifThen,
-			ifElse,
-			loop,
-			try_,
-			catch_
-		};
-
-		Type type;
-		Uptr outerStackSize;
-
-		TypeTuple params;
-		TypeTuple results;
-
-		TypeTuple elseParams;
-	};
 
 	std::vector<ControlContext> controlStack;
 	controlStack.push_back({ControlContext::Type::function,
@@ -451,7 +483,7 @@ static void generateFunction(RandomStream& random,
 				validOpEmitters.push_back([&stack, localIndex](RandomStream& random,
 															   IR::Module& module,
 															   CodeStream& codeStream) {
-					codeStream.local_set({U32(localIndex)});
+					codeStream.local_set({localIndex});
 					stack.pop_back();
 				});
 
@@ -461,7 +493,7 @@ static void generateFunction(RandomStream& random,
 					validOpEmitters.push_back([localIndex](RandomStream& random,
 														   IR::Module& module,
 														   CodeStream& codeStream) {
-						codeStream.local_tee({U32(localIndex)});
+						codeStream.local_tee({localIndex});
 					});
 				}
 			}
@@ -472,7 +504,7 @@ static void generateFunction(RandomStream& random,
 				validOpEmitters.push_back([&stack, localIndex, localType](RandomStream& random,
 																		  IR::Module& module,
 																		  CodeStream& codeStream) {
-					codeStream.local_get({U32(localIndex)});
+					codeStream.local_get({localIndex});
 					stack.push_back(localType);
 				});
 			}
@@ -489,24 +521,52 @@ static void generateFunction(RandomStream& random,
 				validOpEmitters.push_back([&stack, globalIndex](RandomStream& random,
 																IR::Module& module,
 																CodeStream& codeStream) {
-					codeStream.global_set({U32(globalIndex)});
+					codeStream.global_set({globalIndex});
 					stack.pop_back();
 				});
 			}
 
-			// global.get
 			if(allowStackGrowth)
 			{
+				// global.get
 				validOpEmitters.push_back(
 					[&stack, globalIndex, globalType](
 						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-						codeStream.global_get({U32(globalIndex)});
+						codeStream.global_get({globalIndex});
 						stack.push_back(globalType.valueType);
 					});
 			}
 		}
 
-		// TODO: table.get/table.set
+		for(Uptr tableIndex = 0; tableIndex < module.tables.size(); ++tableIndex)
+		{
+			const TableType tableType = module.tables.getType(tableIndex);
+
+			if(stack.size() - controlStack.back().outerStackSize >= 2
+			   && stack[stack.size() - 2] == ValueType::i32
+			   && isSubtype(stack.back(), asValueType(tableType.elementType)))
+			{
+				// table.set
+				validOpEmitters.push_back([&stack, tableIndex](RandomStream& random,
+															   IR::Module& module,
+															   CodeStream& codeStream) {
+					codeStream.table_set({U32(tableIndex)});
+					stack.resize(stack.size() - 2);
+				});
+			}
+
+			if(stack.size() > controlStack.back().outerStackSize && stack.back() == ValueType::i32)
+			{
+				// table.get
+				validOpEmitters.push_back([&stack, tableIndex, tableType](RandomStream& random,
+																		  IR::Module& module,
+																		  CodeStream& codeStream) {
+					codeStream.table_get({tableIndex});
+					stack.pop_back();
+					stack.push_back(asValueType(tableType.elementType));
+				});
+			}
+		}
 
 		if(allowStackGrowth)
 		{
@@ -574,7 +634,6 @@ static void generateFunction(RandomStream& random,
 
 		// TODO: try/catch/catch_all
 
-		// br
 		for(Uptr branchTargetDepth = 0; branchTargetDepth < controlStack.size();
 			++branchTargetDepth)
 		{
@@ -597,38 +656,24 @@ static void generateFunction(RandomStream& random,
 			}
 			if(sigMatch)
 			{
+				// br
 				validOpEmitters.push_back(
 					[&controlStack, &stack, branchTargetDepth](
 						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
 						codeStream.br({U32(branchTargetDepth)});
-						if(controlStack.back().type == ControlContext::Type::ifThen)
-						{
-							// Emit the else operator.
-							codeStream.else_();
-
-							stack.resize(controlStack.back().outerStackSize);
-							for(ValueType elseParam : controlStack.back().elseParams)
-							{ stack.push_back(elseParam); }
-
-							// Change the current control context type to an else clause.
-							controlStack.back().type = ControlContext::Type::ifElse;
-						}
-						else
-						{
-							if(controlStack.back().type == ControlContext::Type::try_
-							   || controlStack.back().type == ControlContext::Type::catch_)
-							{
-								// TODO: catch
-								WAVM_UNREACHABLE();
-							}
-
-							codeStream.end();
-							stack.resize(controlStack.back().outerStackSize);
-							for(ValueType result : controlStack.back().results)
-							{ stack.push_back(result); }
-							controlStack.pop_back();
-						}
+						emitControlEnd(controlStack, stack, module, codeStream);
 					});
+
+				if(branchTargetDepth == controlStack.size() - 1)
+				{
+					// return
+					validOpEmitters.push_back([&controlStack, &stack](RandomStream& random,
+																	  IR::Module& module,
+																	  CodeStream& codeStream) {
+						codeStream.return_();
+						emitControlEnd(controlStack, stack, module, codeStream);
+					});
+				}
 			}
 		}
 
@@ -658,19 +703,77 @@ static void generateFunction(RandomStream& random,
 				}
 				if(sigMatch)
 				{
-					validOpEmitters.push_back(
-						[&stack, branchTargetDepth](
-							RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-							stack.pop_back();
-							codeStream.br_if({U32(branchTargetDepth)});
-						});
+					validOpEmitters.push_back([&stack, branchTargetDepth](RandomStream& random,
+																		  IR::Module& module,
+																		  CodeStream& codeStream) {
+						stack.pop_back();
+						codeStream.br_if({U32(branchTargetDepth)});
+					});
 				}
 			}
 		}
 
-		// TODO: br_table, unreachable, return
+		// unreachable
+		validOpEmitters.push_back([&controlStack, &stack](RandomStream& random,
+														  IR::Module& module,
+														  CodeStream& codeStream) {
+			codeStream.unreachable();
+			emitControlEnd(controlStack, stack, module, codeStream);
+		});
 
-		// TODO: select
+		// TODO: br_table
+
+		if(stack.size() - controlStack.back().outerStackSize >= 3 && stack.back() == ValueType::i32)
+		{
+			const ValueType trueValueType = stack[stack.size() - 3];
+			const ValueType falseValueType = stack[stack.size() - 2];
+			const ValueType joinType = join(trueValueType, falseValueType);
+			if(joinType != ValueType::any)
+			{
+				// Typed select
+				if(joinType == ValueType::nullref)
+				{
+					// If selecting between two nullrefs, both:
+					//     select (result anyref)
+					// and select (result funcref) are valid.
+					validOpEmitters.push_back(
+						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+							stack.resize(stack.size() - 3);
+							stack.push_back(ValueType::anyref);
+							codeStream.select({ValueType::anyref});
+						});
+					validOpEmitters.push_back(
+						[&stack](RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+							stack.resize(stack.size() - 3);
+							stack.push_back(ValueType::funcref);
+							codeStream.select({ValueType::funcref});
+						});
+				}
+				else
+				{
+					validOpEmitters.push_back([&stack, joinType](RandomStream& random,
+																 IR::Module& module,
+																 CodeStream& codeStream) {
+						stack.resize(stack.size() - 3);
+						stack.push_back(joinType);
+						codeStream.select({joinType});
+					});
+				}
+			}
+
+			if(!isReferenceType(trueValueType) && !isReferenceType(falseValueType)
+			   && trueValueType == falseValueType)
+			{
+				// Non-typed select
+				validOpEmitters.push_back([&stack, joinType](RandomStream& random,
+															 IR::Module& module,
+															 CodeStream& codeStream) {
+					stack.resize(stack.size() - 3);
+					stack.push_back(joinType);
+					codeStream.select({ValueType::any});
+				});
+			}
+		}
 
 		if(stack.size() > controlStack.back().outerStackSize)
 		{

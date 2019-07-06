@@ -109,6 +109,61 @@ namespace WAVM { namespace IR {
 		}
 	}
 
+	// Returns the type that includes all values that are an instance of a OR b.
+	inline ValueType join(ValueType a, ValueType b)
+	{
+		if(a == b) { return a; }
+		else if(isReferenceType(a) && isReferenceType(b))
+		{
+			// a \ b    anyref  funcref  nullref
+			// anyref   anyref  anyref   anyref
+			// funcref  anyref  funcref  funcref
+			// nullref  anyref  funcref  nullref
+			if(a == ValueType::nullref) { return b; }
+			else if(b == ValueType::nullref)
+			{
+				return a;
+			}
+			else
+			{
+				// Because we know a != b, and neither a or b are nullref, we can infer that one is
+				// anyref, and one is funcref.
+				return ValueType::anyref;
+			}
+		}
+		else
+		{
+			return ValueType::any;
+		}
+	}
+
+	// Returns the type that includes all values that are an instance of both a AND b.
+	inline ValueType meet(ValueType a, ValueType b)
+	{
+		if(a == b) { return a; }
+		else if(isReferenceType(a) && isReferenceType(b))
+		{
+			// a \ b    anyref   funcref  nullref
+			// anyref   anyref   funcref  nullref
+			// funcref  funcref  funcref  nullref
+			// nullref  nullref  nullref  nullref
+			if(a == ValueType::nullref || b == ValueType::nullref) { return ValueType::nullref; }
+			else if(a == ValueType::anyref)
+			{
+				return b;
+			}
+			else
+			{
+				wavmAssert(b == ValueType::anyref);
+				return a;
+			}
+		}
+		else
+		{
+			return ValueType::none;
+		}
+	}
+
 	inline std::string asString(I32 value) { return std::to_string(value); }
 	inline std::string asString(I64 value) { return std::to_string(value); }
 	IR_API std::string asString(F32 value);
