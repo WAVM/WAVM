@@ -7,8 +7,8 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/Runtime/Runtime.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/WASTParse.h"
 
@@ -45,15 +45,76 @@ static bool loadModule(const char* filename, IR::Module& outModule)
 	}
 }
 
+static void showHelp()
+{
+	LLVMJIT::TargetSpec hostTargetSpec = LLVMJIT::getHostTargetSpec();
+
+	Log::printf(Log::error,
+				"Usage: wavm-compile [options] <in.wast|wasm> <out.wasm>\n"
+				"  -h|--help                 Display this message\n"
+				"  --target-triple <triple>  Set the target triple (default: %s)\n"
+				"  --target-cpu    <triple>  Set the target CPU (default: %s)\n",
+				hostTargetSpec.triple.c_str(),
+				hostTargetSpec.cpu.c_str());
+}
+
 int main(int argc, char** argv)
 {
-	if(argc != 3)
+	if(argc < 3)
 	{
-		Log::printf(Log::error, "Usage: wavm-compile (in.wast|in.wasm) out.wasm\n");
+		showHelp();
 		return EXIT_FAILURE;
 	}
-	const char* inputFilename = argv[1];
-	const char* outputFilename = argv[2];
+	const char* inputFilename = nullptr;
+	const char* outputFilename = nullptr;
+	LLVMJIT::TargetSpec targetSpec = LLVMJIT::getHostTargetSpec();
+	for(int argIndex = 1; argIndex < argc; ++argIndex)
+	{
+		if(!strcmp(argv[argIndex], "-h") || !strcmp(argv[argIndex], "--help"))
+		{
+			showHelp();
+			return EXIT_FAILURE;
+		}
+		else if(!strcmp(argv[argIndex], "--target-triple"))
+		{
+			if(argIndex + 1 == argc)
+			{
+				showHelp();
+				return EXIT_FAILURE;
+			}
+			++argIndex;
+			targetSpec.triple = argv[argIndex];
+		}
+		else if(!strcmp(argv[argIndex], "--target-cpu"))
+		{
+			if(argIndex + 1 == argc)
+			{
+				showHelp();
+				return EXIT_FAILURE;
+			}
+			++argIndex;
+			targetSpec.cpu = argv[argIndex];
+		}
+		else if(!inputFilename)
+		{
+			inputFilename = argv[argIndex];
+		}
+		else if(!outputFilename)
+		{
+			outputFilename = argv[argIndex];
+		}
+		else
+		{
+			showHelp();
+			return EXIT_FAILURE;
+		}
+	}
+
+	if(!inputFilename || !outputFilename)
+	{
+		showHelp();
+		return EXIT_FAILURE;
+	}
 
 	IR::Module irModule;
 
@@ -61,10 +122,22 @@ int main(int argc, char** argv)
 	if(!loadModule(inputFilename, irModule)) { return EXIT_FAILURE; }
 
 	// Compile the module's IR.
-	Runtime::ModuleRef module = Runtime::compileModule(irModule);
+	std::vector<U8> objectCode;
+	switch(LLVMJIT::compileModule(irModule, targetSpec, objectCode))
+	{
+	case LLVMJIT::CompileResult::success: break;
+	case LLVMJIT::CompileResult::invalidTargetSpec:
+		Log::printf(Log::error,
+					"Target triple (%s) or CPU (%s) is invalid.\n",
+					targetSpec.triple.c_str(),
+					targetSpec.cpu.c_str());
+		return EXIT_FAILURE;
+
+	default: WAVM_UNREACHABLE();
+	};
 
 	// Extract the compiled object code and add it to the IR module as a user section.
-	irModule.userSections.push_back({"wavm.precompiled_object", Runtime::getObjectCode(module)});
+	irModule.userSections.push_back({"wavm.precompiled_object", objectCode});
 
 	// Serialize the WASM module.
 	std::vector<U8> wasmBytes;

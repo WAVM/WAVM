@@ -14,6 +14,8 @@ namespace WAVM { namespace LLVMJIT {
 
 		LLVMContext& llvmContext;
 		llvm::Module* llvmModule;
+		llvm::TargetMachine* targetMachine;
+		bool useWindowsSEH;
 		std::vector<llvm::Constant*> typeIds;
 		std::vector<llvm::Function*> functions;
 		std::vector<llvm::Constant*> tableOffsets;
@@ -45,7 +47,8 @@ namespace WAVM { namespace LLVMJIT {
 
 		EmitModuleContext(const IR::Module& inModule,
 						  LLVMContext& inLLVMContext,
-						  llvm::Module* inLLVMModule);
+						  llvm::Module* inLLVMModule,
+						  llvm::TargetMachine* inTargetMachine);
 
 		inline llvm::Function* getLLVMIntrinsic(llvm::ArrayRef<llvm::Type*> typeArguments,
 												llvm::Intrinsic::ID id)

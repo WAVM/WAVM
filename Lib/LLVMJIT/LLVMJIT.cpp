@@ -138,3 +138,11 @@ LLVMContext::LLVMContext()
 	typedZeroConstants[(Uptr)ValueType::anyref] = typedZeroConstants[(Uptr)ValueType::funcref]
 		= typedZeroConstants[(Uptr)ValueType::nullref] = llvm::Constant::getNullValue(anyrefType);
 }
+
+TargetSpec LLVMJIT::getHostTargetSpec()
+{
+	TargetSpec result;
+	result.triple = llvm::sys::getProcessTriple();
+	result.cpu = llvm::sys::getHostCPUName();
+	return result;
+}

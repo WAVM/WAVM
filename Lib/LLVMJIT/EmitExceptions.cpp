@@ -125,7 +125,7 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 {
 	auto originalInsertBlock = irBuilder.GetInsertBlock();
 
-	if(USE_WINDOWS_SEH)
+	if(moduleContext.useWindowsSEH)
 	{
 		// Insert an alloca for the exception pointer at the beginning of the function.
 		irBuilder.SetInsertPoint(&function->getEntryBlock(),

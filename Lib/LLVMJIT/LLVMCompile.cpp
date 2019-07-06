@@ -123,20 +123,9 @@ static void optimizeLLVMModule(llvm::Module& llvmModule, bool shouldLogMetrics)
 
 std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 										   llvm::Module&& llvmModule,
-										   bool shouldLogMetrics)
+										   bool shouldLogMetrics,
+										   llvm::TargetMachine* targetMachine)
 {
-	auto targetTriple = llvm::sys::getProcessTriple();
-#ifdef __APPLE__
-	// Didn't figure out exactly why, but this works around a problem with the MacOS dynamic loader.
-	// Without it, our symbols can't be found in the JITed object file.
-	targetTriple += "-elf";
-#endif
-	std::unique_ptr<llvm::TargetMachine> targetMachine(
-		llvm::EngineBuilder().selectTarget(llvm::Triple(targetTriple),
-										   "",
-										   llvm::sys::getHostCPUName(),
-										   llvm::SmallVector<std::string, 0>{}));
-
 	// Get a target machine object for this host, and set the module to use its data layout.
 	llvmModule.setDataLayout(targetMachine->createDataLayout());
 
@@ -191,14 +180,48 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 	return objectBytes;
 }
 
+std::unique_ptr<llvm::TargetMachine> LLVMJIT::getTargetMachine(const TargetSpec& targetSpec)
+{
+	std::string targetTriple = targetSpec.triple;
+#ifdef __APPLE__
+	// Didn't figure out exactly why, but this works around a problem with the MacOS dynamic loader.
+	// Without it, our symbols can't be found in the JITed object file.
+	targetTriple += "-elf";
+#endif
+
+	return std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
+		llvm::Triple(targetTriple), "", targetSpec.cpu, llvm::SmallVector<std::string, 0>{}));
+}
+
 std::vector<U8> LLVMJIT::compileModule(const IR::Module& irModule)
 {
 	LLVMContext llvmContext;
 
+	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
+	wavmAssert(targetMachine);
+
 	// Emit LLVM IR for the module.
 	llvm::Module llvmModule("", llvmContext);
-	emitModule(irModule, llvmContext, llvmModule);
+	emitModule(irModule, llvmContext, llvmModule, targetMachine.get());
 
 	// Compile the LLVM IR to object code.
-	return compileLLVMModule(llvmContext, std::move(llvmModule), true);
+	return compileLLVMModule(llvmContext, std::move(llvmModule), true, targetMachine.get());
+}
+CompileResult LLVMJIT::compileModule(const IR::Module& irModule,
+									 const TargetSpec& targetSpec,
+									 std::vector<U8>& outObjectCode)
+{
+	LLVMContext llvmContext;
+
+	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(targetSpec);
+	if(!targetMachine) { return CompileResult::invalidTargetSpec; }
+
+	// Emit LLVM IR for the module.
+	llvm::Module llvmModule("", llvmContext);
+	emitModule(irModule, llvmContext, llvmModule, targetMachine.get());
+
+	// Compile the LLVM IR to object code.
+	outObjectCode
+		= compileLLVMModule(llvmContext, std::move(llvmModule), true, targetMachine.get());
+	return CompileResult::success;
 }

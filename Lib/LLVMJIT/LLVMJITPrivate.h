@@ -59,13 +59,8 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/IR/Type.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/DataTypes.h"
+#include "llvm/Target/TargetMachine.h"
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-
-#ifdef _WIN32
-#define USE_WINDOWS_SEH 1
-#else
-#define USE_WINDOWS_SEH 0
-#endif
 
 namespace llvm {
 	class LoadedObjectInfo;
@@ -319,18 +314,20 @@ namespace WAVM { namespace LLVMJIT {
 					  "Function prefix must match Runtime::Function layout");
 	}
 
-	inline void setFramePointerAttribute(llvm::Function* function)
+	inline void setFramePointerAttribute(llvm::TargetMachine* targetMachine,
+										 llvm::Function* function)
 	{
-#ifndef _WIN32
-		auto attrs = function->getAttributes();
-		// LLVM 9+ has a more general purpose frame-pointer=(all|non-leaf|none) attribute that WAVM
-		// should use once we can depend on it.
-		attrs = attrs.addAttribute(function->getContext(),
-								   llvm::AttributeList::FunctionIndex,
-								   "no-frame-pointer-elim",
-								   "true");
-		function->setAttributes(attrs);
-#endif
+		if(targetMachine->getTargetTriple().getOS() != llvm::Triple::Win32)
+		{
+			auto attrs = function->getAttributes();
+			// LLVM 9+ has a more general purpose frame-pointer=(all|non-leaf|none) attribute that
+			// WAVM should use once we can depend on it.
+			attrs = attrs.addAttribute(function->getContext(),
+									   llvm::AttributeList::FunctionIndex,
+									   "no-frame-pointer-elim",
+									   "true");
+			function->setAttributes(attrs);
+		}
 	}
 
 	// Functions that map between the symbols used for externally visible functions and the function
@@ -342,7 +339,8 @@ namespace WAVM { namespace LLVMJIT {
 	// Emits LLVM IR for a module.
 	void emitModule(const IR::Module& irModule,
 					LLVMContext& llvmContext,
-					llvm::Module& outLLVMModule);
+					llvm::Module& outLLVMModule,
+					llvm::TargetMachine* targetMachine);
 
 	// Used to override LLVM's default behavior of looking up unresolved symbols in DLL exports.
 	llvm::JITEvaluatedSymbol resolveJITImport(llvm::StringRef name);
@@ -371,9 +369,12 @@ namespace WAVM { namespace LLVMJIT {
 #endif
 	};
 
+	extern std::unique_ptr<llvm::TargetMachine> getTargetMachine(const TargetSpec& targetSpec);
+
 	extern std::vector<U8> compileLLVMModule(LLVMContext& llvmContext,
 											 llvm::Module&& llvmModule,
-											 bool shouldLogMetrics);
+											 bool shouldLogMetrics,
+											 llvm::TargetMachine* targetMachine);
 
 	extern void processSEHTables(U8* imageBase,
 								 const llvm::LoadedObjectInfo& loadedObject,

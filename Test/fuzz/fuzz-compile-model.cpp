@@ -17,8 +17,8 @@
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Serialization.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
-#include "WAVM/Runtime/Runtime.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
@@ -746,10 +746,8 @@ static void generateFunction(RandomStream& random,
 	functionDef.code = codeByteStream.getBytes();
 };
 
-void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes)
+void generateValidModule(IR::Module& module, RandomStream& random)
 {
-	RandomStream random(inputBytes, numBytes);
-
 	HashMap<FunctionType, Uptr> functionTypeMap;
 
 	// Generate some standard definitions that are the same for all modules.
@@ -878,11 +876,32 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	validatePostCodeSections(module);
 }
 
+static void compileModule(const IR::Module& module, RandomStream& random)
+{
+	static const LLVMJIT::TargetSpec possibleTargetSpecs[] = {
+		LLVMJIT::TargetSpec{"x86_64-pc-windows-msvc", "skylake-avx512"},
+		LLVMJIT::TargetSpec{"x86_64-apple-darwin18.6.0", "skylake-avx512"},
+		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "skylake-avx512"},
+		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", "skylake"},
+		LLVMJIT::TargetSpec{"x86_64-unknown-linux-gnu", ""},
+	};
+	static const Uptr numPossibleTargets
+		= sizeof(possibleTargetSpecs) / sizeof(LLVMJIT::TargetSpec);
+
+	const LLVMJIT::TargetSpec& targetSpec = possibleTargetSpecs[random.get(numPossibleTargets - 1)];
+
+	std::vector<U8> objectCode;
+	errorUnless(LLVMJIT::compileModule(module, targetSpec, objectCode)
+				== LLVMJIT::CompileResult::success);
+}
+
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
+	RandomStream random(data, numBytes);
+
 	IR::Module module;
-	generateValidModule(module, data, numBytes);
-	compileModule(module);
+	generateValidModule(module, random);
+	compileModule(module, random);
 
 	return 0;
 }
@@ -904,13 +923,15 @@ I32 main(int argc, char** argv)
 	std::vector<U8> inputBytes;
 	if(!loadFile(inputFilename, inputBytes)) { return EXIT_FAILURE; }
 
+	RandomStream random(inputBytes.data(), inputBytes.size());
+
 	IR::Module module;
-	generateValidModule(module, inputBytes.data(), inputBytes.size());
+	generateValidModule(module, random);
 
 	std::string wastString = WAST::print(module);
 	Log::printf(Log::Category::debug, "Generated module WAST:\n%s\n", wastString.c_str());
 
-	compileModule(module);
+	compileModule(module, random);
 
 	return EXIT_SUCCESS;
 }

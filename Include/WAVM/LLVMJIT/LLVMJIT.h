@@ -24,7 +24,27 @@ namespace WAVM { namespace Runtime {
 }}
 
 namespace WAVM { namespace LLVMJIT {
+
+	struct TargetSpec
+	{
+		std::string triple;
+		std::string cpu;
+	};
+
+	LLVMJIT_API TargetSpec getHostTargetSpec();
+
+	enum class CompileResult
+	{
+		success,
+		invalidTargetSpec,
+	};
+
 	// Compiles a module to object code.
+	LLVMJIT_API CompileResult compileModule(const IR::Module& irModule,
+											const TargetSpec& targetSpec,
+											std::vector<U8>& outObjectCode);
+
+	// Compile a module to object code with the host target spec. Cannot fail.
 	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule);
 
 	// An opaque type that can be used to reference a loaded JIT module.

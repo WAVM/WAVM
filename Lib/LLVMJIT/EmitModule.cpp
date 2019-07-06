@@ -35,14 +35,18 @@ using namespace WAVM::Runtime;
 
 EmitModuleContext::EmitModuleContext(const IR::Module& inIRModule,
 									 LLVMContext& inLLVMContext,
-									 llvm::Module* inLLVMModule)
+									 llvm::Module* inLLVMModule,
+									 llvm::TargetMachine* inTargetMachine)
 : irModule(inIRModule)
 , llvmContext(inLLVMContext)
 , llvmModule(inLLVMModule)
+, targetMachine(inTargetMachine)
 , defaultMemoryOffset(nullptr)
 , defaultTableOffset(nullptr)
 , diBuilder(*inLLVMModule)
 {
+	useWindowsSEH = targetMachine->getTargetTriple().getOS() == llvm::Triple::Win32;
+
 	diModuleScope = diBuilder.createFile("unknown", "unknown");
 	diCompileUnit = diBuilder.createCompileUnit(0xffff, diModuleScope, "WAVM", true, "", 0);
 
@@ -91,17 +95,18 @@ static llvm::Constant* createImportedConstant(llvm::Module& llvmModule, llvm::Tw
 
 void LLVMJIT::emitModule(const IR::Module& irModule,
 						 LLVMContext& llvmContext,
-						 llvm::Module& outLLVMModule)
+						 llvm::Module& outLLVMModule,
+						 llvm::TargetMachine* targetMachine)
 {
 	Timing::Timer emitTimer;
-	EmitModuleContext moduleContext(irModule, llvmContext, &outLLVMModule);
+	EmitModuleContext moduleContext(irModule, llvmContext, &outLLVMModule, targetMachine);
 
 	// Create an external reference to the appropriate exception personality function.
-	auto personalityFunction
-		= llvm::Function::Create(llvm::FunctionType::get(llvmContext.i32Type, {}, false),
-								 llvm::GlobalValue::LinkageTypes::ExternalLinkage,
-								 USE_WINDOWS_SEH ? "__CxxFrameHandler3" : "__gxx_personality_v0",
-								 &outLLVMModule);
+	auto personalityFunction = llvm::Function::Create(
+		llvm::FunctionType::get(llvmContext.i32Type, {}, false),
+		llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+		moduleContext.useWindowsSEH ? "__CxxFrameHandler3" : "__gxx_personality_v0",
+		&outLLVMModule);
 
 	// Create LLVM external globals corresponding to the encoded function types for the module's
 	// indexed function types.
@@ -168,7 +173,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 		createImportedConstant(outLLVMModule, "tableReferenceBias"), llvmContext.iptrType);
 
 	// Create a LLVM external global that will point to the std::type_info for Runtime::Exception.
-	if(USE_WINDOWS_SEH)
+	if(moduleContext.useWindowsSEH)
 	{
 		// The Windows type_info is referenced by the exception handling tables with a 32-bit
 		// image-relative offset, so we have to create a copy of it in the image.
@@ -239,7 +244,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 								 functionDefMutableDataAsIptr,
 								 moduleContext.moduleInstanceId,
 								 moduleContext.typeIds[functionDef.type.index]);
-		setFramePointerAttribute(function);
+		setFramePointerAttribute(targetMachine, function);
 
 		EmitFunctionContext(llvmContext, moduleContext, irModule, functionDef, function).emit();
 	}

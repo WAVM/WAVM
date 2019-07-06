@@ -42,6 +42,12 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/Support/MemoryBuffer.h"
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
+#ifdef _WIN32
+#define USE_WINDOWS_SEH 1
+#else
+#define USE_WINDOWS_SEH 0
+#endif
+
 #if !USE_WINDOWS_SEH
 #include <cxxabi.h>
 #endif

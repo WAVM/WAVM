@@ -69,6 +69,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	// Create a LLVM module and a LLVM function for the thunk.
 	LLVMContext llvmContext;
 	llvm::Module llvmModule("", llvmContext);
+	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
 	auto llvmFunctionType = llvm::FunctionType::get(
 		llvmContext.i8PtrType, {llvmContext.i8PtrType, llvmContext.i8PtrType}, false);
 	auto function = llvm::Function::Create(
@@ -78,7 +79,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
 							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
 							 emitLiteral(llvmContext, functionType.getEncoding().impl));
-	setFramePointerAttribute(function);
+	setFramePointerAttribute(targetMachine.get(), function);
 
 	llvm::Value* calleeFunction = &*(function->args().begin() + 0);
 	llvm::Value* contextPointer = &*(function->args().begin() + 1);
@@ -146,7 +147,8 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable));
 
 	// Compile the LLVM IR to object code.
-	std::vector<U8> objectBytes = compileLLVMModule(llvmContext, std::move(llvmModule), false);
+	std::vector<U8> objectBytes
+		= compileLLVMModule(llvmContext, std::move(llvmModule), false, targetMachine.get());
 
 	// Load the object code.
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
@@ -186,6 +188,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	// Create a LLVM module containing a single function with the same signature as the native
 	// function, but with the WASM calling convention.
 	llvm::Module llvmModule("", llvmContext);
+	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
 	auto llvmFunctionType = asLLVMType(llvmContext, functionType, CallingConvention::wasm);
 	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
@@ -195,7 +198,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 							 emitLiteralPointer(functionMutableData, llvmContext.iptrType),
 							 emitLiteral(llvmContext, Uptr(UINTPTR_MAX)),
 							 emitLiteral(llvmContext, functionType.getEncoding().impl));
-	setFramePointerAttribute(function);
+	setFramePointerAttribute(targetMachine.get(), function);
 
 	EmitContext emitContext(llvmContext, nullptr);
 	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
@@ -216,7 +219,8 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	emitContext.emitReturn(functionType.results(), results);
 
 	// Compile the LLVM IR to object code.
-	std::vector<U8> objectBytes = compileLLVMModule(llvmContext, std::move(llvmModule), false);
+	std::vector<U8> objectBytes
+		= compileLLVMModule(llvmContext, std::move(llvmModule), false, targetMachine.get());
 
 	// Load the object code.
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
