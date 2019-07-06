@@ -565,6 +565,55 @@ static void generateFunction(RandomStream& random,
 					stack.pop_back();
 					stack.push_back(asValueType(tableType.elementType));
 				});
+
+				if(tableType.elementType == ReferenceType::funcref)
+				{
+					// call_indirect
+					for(Uptr typeIndex = 0; typeIndex < module.types.size(); ++typeIndex)
+					{
+						const FunctionType calleeType = module.types[typeIndex];
+						const TypeTuple params = calleeType.params();
+						const TypeTuple results = calleeType.results();
+
+						// If the random stream has run out of entropy, only consider operators that
+						// result in fewer operands on the stack.
+						if(!allowStackGrowth && results.size() >= params.size() + 1) { continue; }
+
+						// Ensure the stack has enough values for the operator's parameters.
+						if(params.size() + 1 > stack.size() - controlStack.back().outerStackSize)
+						{ continue; }
+
+						// Check that the types of values on top of the stack are the right type for
+						// the operator's parameters.
+						bool sigMatch = true;
+						for(Uptr paramIndex = 0; paramIndex < params.size(); ++paramIndex)
+						{
+							if(stack[stack.size() - params.size() + paramIndex - 1]
+							   != params[paramIndex])
+							{
+								sigMatch = false;
+								break;
+							}
+						}
+						if(sigMatch)
+						{
+							validOpEmitters.push_back([&stack, calleeType, typeIndex, tableIndex](
+														  RandomStream& random,
+														  IR::Module& module,
+														  CodeStream& codeStream) {
+								codeStream.call_indirect({{typeIndex}, tableIndex});
+
+								// Remove the function's parameters and the table index from the top
+								// of the stack.
+								stack.resize(stack.size() - calleeType.params().size() - 1);
+
+								// Push the function's results onto the stack.
+								for(ValueType result : calleeType.results())
+								{ stack.push_back(result); }
+							});
+						}
+					}
+				}
 			}
 		}
 
@@ -786,7 +835,6 @@ static void generateFunction(RandomStream& random,
 		}
 
 		// call
-		std::vector<Uptr> validFunctionIndices;
 		for(Uptr functionIndex = 0; functionIndex < module.functions.size(); ++functionIndex)
 		{
 			const FunctionType calleeType
@@ -812,30 +860,24 @@ static void generateFunction(RandomStream& random,
 					break;
 				}
 			}
-			if(sigMatch) { validFunctionIndices.push_back(functionIndex); }
+			if(sigMatch)
+			{
+				validOpEmitters.push_back([&stack, functionIndex](RandomStream& random,
+																  IR::Module& module,
+																  CodeStream& codeStream) {
+					const FunctionType calleeType
+						= module.types[module.functions.getType(functionIndex).index];
+
+					codeStream.call({functionIndex});
+
+					// Remove the function's parameters from the top of the stack.
+					stack.resize(stack.size() - calleeType.params().size());
+
+					// Push the function's results onto the stack.
+					for(ValueType result : calleeType.results()) { stack.push_back(result); }
+				});
+			}
 		}
-
-		if(validFunctionIndices.size())
-		{
-			validOpEmitters.push_back([&stack, &validFunctionIndices](RandomStream& random,
-																	  IR::Module& module,
-																	  CodeStream& codeStream) {
-				const Uptr randomFunctionIndex = random.get(validFunctionIndices.size() - 1);
-				const Uptr functionIndex = validFunctionIndices[randomFunctionIndex];
-				const FunctionType calleeType
-					= module.types[module.functions.getType(functionIndex).index];
-
-				codeStream.call({U32(functionIndex)});
-
-				// Remove the functions's parameters from the top of the stack.
-				stack.resize(stack.size() - calleeType.params().size());
-
-				// Push the function's results onto the stack.
-				for(ValueType result : calleeType.results()) { stack.push_back(result); }
-			});
-		}
-
-		// TODO: call_indirect
 
 		// Emit a random operator.
 		wavmAssert(validOpEmitters.size());
