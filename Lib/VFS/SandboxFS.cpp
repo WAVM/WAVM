@@ -14,50 +14,47 @@ struct SandboxFS : FileSystem
 		if(rootPath.back() != '/' && rootPath.back() != '\\') { rootPath += '/'; }
 	}
 
-	virtual Result open(const std::string& absolutePathName,
+	virtual Result open(const std::string& path,
 						FileAccessMode accessMode,
 						FileCreateMode createMode,
 						VFD*& outFD,
 						const VFDFlags& flags) override
 	{
-		return innerFS->open(getInnerPath(absolutePathName), accessMode, createMode, outFD, flags);
+		return innerFS->open(getInnerPath(path), accessMode, createMode, outFD, flags);
 	}
 
-	virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) override
+	virtual Result getFileInfo(const std::string& path, FileInfo& outInfo) override
 	{
-		return innerFS->getInfo(getInnerPath(absolutePathName), outInfo);
+		return innerFS->getFileInfo(getInnerPath(path), outInfo);
 	}
-	virtual Result setFileTimes(const std::string& absolutePathName,
+	virtual Result setFileTimes(const std::string& path,
 								bool setLastAccessTime,
 								I128 lastAccessTime,
 								bool setLastWriteTime,
 								I128 lastWriteTime) override
 	{
-		return innerFS->setFileTimes(getInnerPath(absolutePathName),
-									 setLastAccessTime,
-									 lastAccessTime,
-									 setLastWriteTime,
-									 lastWriteTime);
+		return innerFS->setFileTimes(
+			getInnerPath(path), setLastAccessTime, lastAccessTime, setLastWriteTime, lastWriteTime);
 	}
 
-	virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) override
+	virtual Result openDir(const std::string& path, DirEntStream*& outStream) override
 	{
-		return innerFS->openDir(getInnerPath(absolutePathName), outStream);
+		return innerFS->openDir(getInnerPath(path), outStream);
 	}
 
-	virtual Result unlinkFile(const std::string& absolutePathName) override
+	virtual Result unlinkFile(const std::string& path) override
 	{
-		return innerFS->unlinkFile(getInnerPath(absolutePathName));
+		return innerFS->unlinkFile(getInnerPath(path));
 	}
 
-	virtual Result removeDir(const std::string& absolutePathName) override
+	virtual Result removeDir(const std::string& path) override
 	{
-		return innerFS->removeDir(getInnerPath(absolutePathName));
+		return innerFS->removeDir(getInnerPath(path));
 	}
 
-	virtual Result createDir(const std::string& absolutePathName) override
+	virtual Result createDir(const std::string& path) override
 	{
-		return innerFS->createDir(getInnerPath(absolutePathName));
+		return innerFS->createDir(getInnerPath(path));
 	}
 
 private:

@@ -119,25 +119,39 @@ static Result getFileInfoByHandle(HANDLE handle, FileInfo& outInfo)
 	return Result::success;
 }
 
-static bool transcodeUTF8ToUTF16(const std::string& in, std::wstring& out)
+static bool getWindowsPath(const std::string& inString, std::wstring& outString)
 {
-	const U8* inStart = (const U8*)in.c_str();
-	const U8* inEnd = inStart + in.size();
-	return Unicode::transcodeUTF8ToUTF16(inStart, inEnd, out) == inEnd;
+	outString.clear();
+
+	U32 codePoint;
+	const U8* nextChar = (const U8*)inString.c_str();
+	const U8* endChar = nextChar + inString.size();
+	while(nextChar != endChar)
+	{
+		if(!Unicode::decodeUTF8CodePoint(nextChar, endChar, codePoint)) { return false; }
+		if(codePoint == U32('/')) { codePoint = U32('\\'); }
+		Unicode::encodeUTF16CodePoint(codePoint, outString);
+	};
+	return true;
 }
 
-static void transcodeUTF16ToUTF8(const wchar_t* in,
-								 size_t numInBytes,
-								 std::string& out,
-								 const char* context)
+static void getVFSPath(const wchar_t* inChars,
+					   size_t numChars,
+					   std::string& outString,
+					   const char* context)
 {
-	const U16* inStart = (const U16*)in;
-	const U16* inEnd = inStart + numInBytes;
-	const U16* transcodeResult = Unicode::transcodeUTF16ToUTF8(inStart, inEnd, out);
-	if(transcodeResult != inEnd)
+	outString.clear();
+
+	U32 codePoint;
+	const U16* nextChar = (const U16*)inChars;
+	const U16* endChar = nextChar + numChars;
+	while(nextChar != endChar)
 	{
-		Errors::fatalf("Found an invalid UTF-16 code point (%u) in %s", *transcodeResult, context);
-	}
+		if(!Unicode::decodeUTF16CodePoint(nextChar, endChar, codePoint))
+		{ Errors::fatalf("Found an invalid UTF-16 code point (%u) in %s", *nextChar, context); }
+		if(codePoint == U32('\\')) { codePoint = U32('/'); }
+		Unicode::encodeUTF8CodePoint(codePoint, outString);
+	};
 }
 
 static bool readDirEnts(HANDLE handle, bool startFromBeginning, std::vector<DirEnt>& outDirEnts)
@@ -156,10 +170,11 @@ static bool readDirEnts(HANDLE handle, bool startFromBeginning, std::vector<DirE
 		DirEnt dirEnt;
 		dirEnt.fileNumber = fileInfo->FileId.QuadPart;
 
-		transcodeUTF16ToUTF8(fileInfo->FileName,
-							 fileInfo->FileNameLength / sizeof(wchar_t),
-							 dirEnt.name,
-							 "a filename returned by GetFileInformationByHandleEx");
+		// Convert the Windows path (UTF-16 + \) to a VFS path (UTF-8 + /).
+		getVFSPath(fileInfo->FileName,
+				   fileInfo->FileNameLength / sizeof(wchar_t),
+				   dirEnt.name,
+				   "a filename returned by GetFileInformationByHandleEx");
 
 		// Assume this is a FILE_TYPE_DISK.
 		dirEnt.type = fileInfo->FileAttributes & FILE_ATTRIBUTE_DIRECTORY ? FileType::directory
@@ -305,7 +320,7 @@ struct WindowsFD : VFD
 	virtual Result preadv(const IOReadBuffer* buffers,
 						  Uptr numBuffers,
 						  U64 offset,
-						  Uptr* outNumBytesRead)
+						  Uptr* outNumBytesRead) override
 	{
 		OVERLAPPED overlapped;
 		overlapped.Offset = DWORD(offset);
@@ -345,7 +360,7 @@ struct WindowsFD : VFD
 		return getFileInfoByHandle(handle, outInfo);
 	}
 
-	virtual Result setVFDFlags(const VFDFlags& flags)
+	virtual Result setVFDFlags(const VFDFlags& flags) override
 	{
 		const DWORD originalDesiredAccess = desiredAccess;
 		if(originalDesiredAccess & (GENERIC_WRITE | FILE_APPEND_DATA))
@@ -376,7 +391,7 @@ struct WindowsFD : VFD
 
 		return Result::success;
 	}
-	virtual Result setFileSize(U64 numBytes)
+	virtual Result setFileSize(U64 numBytes) override
 	{
 		FILE_END_OF_FILE_INFO endOfFileInfo;
 		endOfFileInfo.EndOfFile = makeLargeInt(numBytes);
@@ -655,24 +670,25 @@ VFD* Platform::getStdFD(StdDevice device)
 
 struct WindowsFS : HostFS
 {
-	virtual Result open(const std::string& absolutePathName,
+	virtual Result open(const std::string& path,
 						FileAccessMode accessMode,
 						FileCreateMode createMode,
 						VFD*& outFD,
 						const VFDFlags& flags = VFDFlags{}) override;
 
-	virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) override;
-	virtual Result setFileTimes(const std::string& absolutePathName,
+	virtual Result getFileInfo(const std::string& path, FileInfo& outInfo) override;
+	virtual Result setFileTimes(const std::string& path,
 								bool setLastAccessTime,
 								I128 lastAccessTime,
 								bool setLastWriteTime,
 								I128 lastWriteTime) override;
 
-	virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) override;
+	virtual Result openDir(const std::string& path, DirEntStream*& outStream) override;
 
-	virtual Result unlinkFile(const std::string& absolutePathName) override;
-	virtual Result removeDir(const std::string& absolutePathName) override;
-	virtual Result createDir(const std::string& absolutePathName) override;
+	virtual Result unlinkFile(const std::string& path) override;
+	virtual Result removeDir(const std::string& path) override;
+	virtual Result createDir(const std::string& path) override;
+
 
 	static WindowsFS& get()
 	{
@@ -686,15 +702,15 @@ protected:
 
 PLATFORM_API HostFS& Platform::getHostFS() { return WindowsFS::get(); }
 
-Result WindowsFS::open(const std::string& pathName,
+Result WindowsFS::open(const std::string& path,
 					   FileAccessMode accessMode,
 					   FileCreateMode createMode,
 					   VFD*& outFD,
 					   const VFDFlags& flags)
 {
-	// Translate the path from UTF-8 to UTF-16.
-	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
+	// Convert the path from a UTF-8 VFS path (with /) to a UTF-16 Windows path (with \).
+	std::wstring windowsPath;
+	if(!getWindowsPath(path, windowsPath)) { return Result::invalidNameCharacter; }
 
 	// Map the VFS accessMode/createMode to the appropriate Windows CreateFile arguments.
 	DWORD desiredAccess = 0;
@@ -733,7 +749,7 @@ Result WindowsFS::open(const std::string& pathName,
 	};
 
 	// Try to open the file.
-	HANDLE handle = CreateFileW(pathNameW.c_str(),
+	HANDLE handle = CreateFileW(windowsPath.c_str(),
 								desiredAccess,
 								shareMode,
 								nullptr,
@@ -747,14 +763,14 @@ Result WindowsFS::open(const std::string& pathName,
 	return Result::success;
 }
 
-Result WindowsFS::getInfo(const std::string& pathName, FileInfo& outInfo)
+Result WindowsFS::getFileInfo(const std::string& path, FileInfo& outInfo)
 {
-	// Translate the path from UTF-8 to UTF-16.
-	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
+	// Convert the path from a UTF-8 VFS path (with /) to a UTF-16 Windows path (with \).
+	std::wstring windowsPath;
+	if(!getWindowsPath(path, windowsPath)) { return Result::invalidNameCharacter; }
 
 	// Try to open the file with no access requested.
-	HANDLE handle = CreateFileW(pathNameW.c_str(),
+	HANDLE handle = CreateFileW(windowsPath.c_str(),
 								0,
 								FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 								nullptr,
@@ -771,18 +787,18 @@ Result WindowsFS::getInfo(const std::string& pathName, FileInfo& outInfo)
 	return result;
 }
 
-Result WindowsFS::setFileTimes(const std::string& pathName,
+Result WindowsFS::setFileTimes(const std::string& path,
 							   bool setLastAccessTime,
 							   I128 lastAccessTime,
 							   bool setLastWriteTime,
 							   I128 lastWriteTime)
 {
-	// Translate the path from UTF-8 to UTF-16.
-	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
+	// Convert the path from a UTF-8 VFS path (with /) to a UTF-16 Windows path (with \).
+	std::wstring windowsPath;
+	if(!getWindowsPath(path, windowsPath)) { return Result::invalidNameCharacter; }
 
 	// Try to open the file with no access requested.
-	HANDLE handle = CreateFileW(pathNameW.c_str(),
+	HANDLE handle = CreateFileW(windowsPath.c_str(),
 								FILE_WRITE_ATTRIBUTES,
 								FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 								nullptr,
@@ -810,42 +826,42 @@ Result WindowsFS::setFileTimes(const std::string& pathName,
 	return result;
 }
 
-Result WindowsFS::unlinkFile(const std::string& pathName)
+Result WindowsFS::unlinkFile(const std::string& path)
 {
-	// Translate the path from UTF-8 to UTF-16.
-	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
+	// Convert the path from a UTF-8 VFS path (with /) to a UTF-16 Windows path (with \).
+	std::wstring windowsPath;
+	if(!getWindowsPath(path, windowsPath)) { return Result::invalidNameCharacter; }
 
-	return DeleteFileW(pathNameW.c_str()) ? Result::success : asVFSResult(GetLastError());
+	return DeleteFileW(windowsPath.c_str()) ? Result::success : asVFSResult(GetLastError());
 }
 
-Result WindowsFS::removeDir(const std::string& pathName)
+Result WindowsFS::removeDir(const std::string& path)
 {
-	// Translate the path from UTF-8 to UTF-16.
-	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
+	// Convert the path from a UTF-8 VFS path (with /) to a UTF-16 Windows path (with \).
+	std::wstring windowsPath;
+	if(!getWindowsPath(path, windowsPath)) { return Result::invalidNameCharacter; }
 
-	return RemoveDirectoryW(pathNameW.c_str()) ? Result::success : asVFSResult(GetLastError());
+	return RemoveDirectoryW(windowsPath.c_str()) ? Result::success : asVFSResult(GetLastError());
 }
 
-Result WindowsFS::createDir(const std::string& pathName)
+Result WindowsFS::createDir(const std::string& path)
 {
-	// Translate the path from UTF-8 to UTF-16.
-	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
+	// Convert the path from a UTF-8 VFS path (with /) to a UTF-16 Windows path (with \).
+	std::wstring windowsPath;
+	if(!getWindowsPath(path, windowsPath)) { return Result::invalidNameCharacter; }
 
-	return CreateDirectoryW(pathNameW.c_str(), nullptr) ? Result::success
-														: asVFSResult(GetLastError());
+	return CreateDirectoryW(windowsPath.c_str(), nullptr) ? Result::success
+														  : asVFSResult(GetLastError());
 }
 
-Result WindowsFS::openDir(const std::string& pathName, DirEntStream*& outStream)
+Result WindowsFS::openDir(const std::string& path, DirEntStream*& outStream)
 {
-	// Translate the path from UTF-8 to UTF-16.
-	std::wstring pathNameW;
-	if(!transcodeUTF8ToUTF16(pathName, pathNameW)) { return Result::invalidNameCharacter; }
+	// Convert the path from a UTF-8 VFS path (with /) to a UTF-16 Windows path (with \).
+	std::wstring windowsPath;
+	if(!getWindowsPath(path, windowsPath)) { return Result::invalidNameCharacter; }
 
 	// Try to open the file.
-	HANDLE handle = CreateFileW(pathNameW.c_str(),
+	HANDLE handle = CreateFileW(windowsPath.c_str(),
 								0,
 								FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
 								nullptr,
@@ -881,8 +897,9 @@ std::string Platform::getCurrentWorkingDirectory()
 	const DWORD numChars = GetCurrentDirectoryW(MAX_PATH, buffer);
 	errorUnless(numChars);
 
+	// Convert the Windows path (UTF-16 + \) to a VFS path (UTF-8 + /).
 	std::string result;
-	transcodeUTF16ToUTF8(buffer, numChars, result, "the result of GetCurrentDirectoryW");
+	getVFSPath(buffer, numChars, result, "the result of GetCurrentDirectoryW");
 
 	return result;
 }

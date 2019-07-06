@@ -575,24 +575,24 @@ VFD* Platform::getStdFD(StdDevice device)
 
 struct POSIXFS : HostFS
 {
-	virtual Result open(const std::string& absolutePathName,
+	virtual Result open(const std::string& path,
 						FileAccessMode accessMode,
 						FileCreateMode createMode,
 						VFD*& outFD,
 						const VFDFlags& flags = VFDFlags{}) override;
 
-	virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) override;
-	virtual Result setFileTimes(const std::string& absolutePathName,
+	virtual Result getFileInfo(const std::string& path, FileInfo& outInfo) override;
+	virtual Result setFileTimes(const std::string& path,
 								bool setLastAccessTime,
 								I128 lastAccessTime,
 								bool setLastWriteTime,
 								I128 lastWriteTime) override;
 
-	virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) override;
+	virtual Result openDir(const std::string& path, DirEntStream*& outStream) override;
 
-	virtual Result unlinkFile(const std::string& absolutePathName) override;
-	virtual Result removeDir(const std::string& absolutePathName) override;
-	virtual Result createDir(const std::string& absolutePathName) override;
+	virtual Result unlinkFile(const std::string& path) override;
+	virtual Result removeDir(const std::string& path) override;
+	virtual Result createDir(const std::string& path) override;
 
 	static POSIXFS& get()
 	{
@@ -606,7 +606,7 @@ protected:
 
 PLATFORM_API HostFS& Platform::getHostFS() { return POSIXFS::get(); }
 
-Result POSIXFS::open(const std::string& pathName,
+Result POSIXFS::open(const std::string& path,
 					 FileAccessMode accessMode,
 					 FileCreateMode createMode,
 					 VFD*& outFD,
@@ -636,24 +636,24 @@ Result POSIXFS::open(const std::string& pathName,
 
 	flags |= translateVFDFlags(vfsFlags);
 
-	const I32 fd = ::open(pathName.c_str(), flags, mode);
+	const I32 fd = ::open(path.c_str(), flags, mode);
 	if(fd == -1) { return asVFSResult(errno); }
 
 	outFD = new POSIXFD(fd);
 	return Result::success;
 }
 
-Result POSIXFS::getInfo(const std::string& pathName, VFS::FileInfo& outInfo)
+Result POSIXFS::getFileInfo(const std::string& path, VFS::FileInfo& outInfo)
 {
 	struct stat fileStatus;
 
-	if(stat(pathName.c_str(), &fileStatus)) { return asVFSResult(errno); }
+	if(stat(path.c_str(), &fileStatus)) { return asVFSResult(errno); }
 
 	getFileInfoFromStatus(fileStatus, outInfo);
 	return Result::success;
 }
 
-Result POSIXFS::setFileTimes(const std::string& pathName,
+Result POSIXFS::setFileTimes(const std::string& path,
 							 bool setLastAccessTime,
 							 I128 lastAccessTime,
 							 bool setLastWriteTime,
@@ -675,33 +675,32 @@ Result POSIXFS::setFileTimes(const std::string& pathName,
 		timespecs[1].tv_nsec = U32(lastWriteTime % 1000000000);
 	}
 
-	return utimensat(AT_FDCWD, pathName.c_str(), timespecs, 0) == 0 ? Result::success
-																	: asVFSResult(errno);
+	return utimensat(AT_FDCWD, path.c_str(), timespecs, 0) == 0 ? Result::success
+																: asVFSResult(errno);
 }
 
-Result POSIXFS::openDir(const std::string& pathName, DirEntStream*& outStream)
+Result POSIXFS::openDir(const std::string& path, DirEntStream*& outStream)
 {
-	DIR* dir = opendir(pathName.c_str());
+	DIR* dir = opendir(path.c_str());
 	if(!dir) { return asVFSResult(errno); }
 
 	outStream = new POSIXDirEntStream(dir);
 	return Result::success;
 }
 
-Result POSIXFS::unlinkFile(const std::string& pathName)
+Result POSIXFS::unlinkFile(const std::string& path)
 {
-	return !unlink(pathName.c_str()) ? VFS::Result::success : asVFSResult(errno);
+	return !unlink(path.c_str()) ? VFS::Result::success : asVFSResult(errno);
 }
 
-Result POSIXFS::removeDir(const std::string& pathName)
+Result POSIXFS::removeDir(const std::string& path)
 {
-	return !unlinkat(AT_FDCWD, pathName.c_str(), AT_REMOVEDIR) ? Result::success
-															   : asVFSResult(errno);
+	return !unlinkat(AT_FDCWD, path.c_str(), AT_REMOVEDIR) ? Result::success : asVFSResult(errno);
 }
 
-Result POSIXFS::createDir(const std::string& pathName)
+Result POSIXFS::createDir(const std::string& path)
 {
-	return !mkdir(pathName.c_str(), 0666) ? Result::success : asVFSResult(errno);
+	return !mkdir(path.c_str(), 0666) ? Result::success : asVFSResult(errno);
 }
 
 std::string Platform::getCurrentWorkingDirectory()

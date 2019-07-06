@@ -240,26 +240,27 @@ namespace WAVM { namespace VFS {
 	{
 		virtual ~FileSystem() {}
 
-		virtual Result open(const std::string& absolutePathName,
+		virtual Result open(const std::string& path,
 							FileAccessMode accessMode,
 							FileCreateMode createMode,
 							VFD*& outFD,
 							const VFDFlags& flags = VFDFlags{})
 			= 0;
 
-		virtual Result getInfo(const std::string& absolutePathName, FileInfo& outInfo) = 0;
-		virtual Result setFileTimes(const std::string& absolutePathName,
+		virtual Result getFileInfo(const std::string& path, FileInfo& outInfo) = 0;
+		virtual Result setFileTimes(const std::string& path,
 									bool setLastAccessTime,
 									I128 lastAccessTime,
 									bool setLastWriteTime,
 									I128 lastWriteTime)
 			= 0;
 
-		virtual Result openDir(const std::string& absolutePathName, DirEntStream*& outStream) = 0;
+		virtual Result openDir(const std::string& path, DirEntStream*& outStream) = 0;
 
-		virtual Result unlinkFile(const std::string& absolutePathName) = 0;
-		virtual Result removeDir(const std::string& absolutePathName) = 0;
-		virtual Result createDir(const std::string& absolutePathName) = 0;
+		virtual Result unlinkFile(const std::string& path) = 0;
+		virtual Result removeDir(const std::string& path) = 0;
+		virtual Result createDir(const std::string& path) = 0;
+
 	};
 
 	VFS_API const char* describeResult(Result result);
