@@ -140,7 +140,7 @@ gethex( CONST char **sp, CONST FPI *fpi, Long *exp, Bigint **bp, int sign MTd)
 		while((n = hexdig[*++s]) !=0 && n <= 0x19) {
 			if (e1 & 0xf8000000)
 				big = 1;
-			e1 = 10*e1 + n - 0x10;
+			e1 = (Long)((10 * (ULong)e1) + n - 0x10);
 			}
 		if (esign)
 			e1 = -e1;
@@ -235,7 +235,7 @@ gethex( CONST char **sp, CONST FPI *fpi, Long *exp, Bigint **bp, int sign MTd)
 		if (any_on(b,n)) {
 			lostbits = 1;
 			k = n - 1;
-			if (x[k>>kshift] & 1 << (k & kmask)) {
+			if (x[k>>kshift] & ((ULong)1) << (k & kmask)) {
 				lostbits = 2;
 				if (k > 0 && any_on(b,k))
 					lostbits = 3;
@@ -310,7 +310,7 @@ gethex( CONST char **sp, CONST FPI *fpi, Long *exp, Bigint **bp, int sign MTd)
 			lostbits = 1;
 		else if (k > 0)
 			lostbits = any_on(b,k);
-		if (x[k>>kshift] & 1 << (k & kmask))
+		if (x[k>>kshift] & ((ULong)1) << (k & kmask))
 			lostbits |= 2;
 		nbits -= n;
 		rshift(b,n);
@@ -338,7 +338,7 @@ gethex( CONST char **sp, CONST FPI *fpi, Long *exp, Bigint **bp, int sign MTd)
 			x = b->x;
 			if (irv == STRTOG_Denormal) {
 				if (nbits == fpi->nbits - 1
-				 && x[nbits >> kshift] & 1 << (nbits & kmask))
+				 && x[nbits >> kshift] & ((ULong)1) << (nbits & kmask))
 					irv =  STRTOG_Normal;
 				}
 			else if (b->wds > k
