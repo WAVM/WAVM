@@ -64,7 +64,7 @@ set(WASTTests
 	ref_null.wast
 	return.wast
 	select.wast
-	#skip-stack-guard-page.wast
+	skip-stack-guard-page.wast
 	start.wast
 	stack.wast
 	store.wast
