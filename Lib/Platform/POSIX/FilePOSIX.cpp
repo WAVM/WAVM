@@ -282,7 +282,8 @@ struct POSIXFD : VFD
 	}
 	virtual Result readv(const IOReadBuffer* buffers,
 						 Uptr numBuffers,
-						 Uptr* outNumBytesRead = nullptr) override
+						 Uptr* outNumBytesRead = nullptr,
+						 const U64* offset = nullptr) override
 	{
 		if(outNumBytesRead) { *outNumBytesRead = 0; }
 
@@ -292,16 +293,69 @@ struct POSIXFD : VFD
 			return Result::tooManyBuffers;
 		}
 
-		// Do the read.
-		ssize_t result = ::readv(fd, (const struct iovec*)buffers, numBuffers);
-		if(result == -1) { return asVFSResult(errno); }
+		if(offset == nullptr)
+		{
+			// Do the read.
+			ssize_t result = ::readv(fd, (const struct iovec*)buffers, numBuffers);
+			if(result == -1) { return asVFSResult(errno); }
 
-		if(outNumBytesRead) { *outNumBytesRead = result; }
-		return Result::success;
+			if(outNumBytesRead) { *outNumBytesRead = result; }
+			return Result::success;
+		}
+		else
+		{
+			if(!FILE_OFFSET_IS_64BIT && *offset > INT32_MAX) { return Result::invalidOffset; }
+
+			// Count the number of bytes in all the buffers.
+			Uptr numBufferBytes = 0;
+			for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+			{
+				const IOReadBuffer& buffer = buffers[bufferIndex];
+				if(numBufferBytes + buffer.numBytes < numBufferBytes)
+				{ return Result::tooManyBufferBytes; }
+				numBufferBytes += buffer.numBytes;
+			}
+			if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
+
+			// Allocate a combined buffer.
+			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
+			if(!combinedBuffer) { return Result::outOfMemory; }
+
+			// Do the read.
+			Result vfsResult = Result::success;
+			const ssize_t result = pread(fd, combinedBuffer, numBufferBytes, off_t(*offset));
+			if(result < 0) { vfsResult = asVFSResult(errno); }
+			else
+			{
+				const Uptr numBytesRead = Uptr(result);
+
+				// Copy the contents of the combined buffer to the individual buffers.
+				Uptr numBytesCopied = 0;
+				for(Uptr bufferIndex = 0; bufferIndex < numBuffers && numBytesCopied < numBytesRead;
+					++bufferIndex)
+				{
+					const IOReadBuffer& buffer = buffers[bufferIndex];
+					const Uptr numBytesToCopy
+						= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
+					if(numBytesToCopy)
+					{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
+					numBytesCopied += numBytesToCopy;
+				}
+
+				// Write the total number of bytes read.
+				if(outNumBytesRead) { *outNumBytesRead = numBytesRead; }
+			}
+
+			// Free the combined buffer.
+			free(combinedBuffer);
+
+			return vfsResult;
+		}
 	}
 	virtual Result writev(const IOWriteBuffer* buffers,
 						  Uptr numBuffers,
-						  Uptr* outNumBytesWritten = nullptr) override
+						  Uptr* outNumBytesWritten = nullptr,
+						  const U64* offset = nullptr) override
 	{
 		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
 
@@ -311,121 +365,58 @@ struct POSIXFD : VFD
 			return Result::tooManyBuffers;
 		}
 
-		ssize_t result = ::writev(fd, (const struct iovec*)buffers, numBuffers);
-		if(result == -1) { return asVFSResult(errno); }
-
-		if(outNumBytesWritten) { *outNumBytesWritten = result; }
-		return Result::success;
-	}
-	virtual Result preadv(const IOReadBuffer* buffers,
-						  Uptr numBuffers,
-						  U64 offset,
-						  Uptr* outNumBytesRead = nullptr) override
-	{
-		if(outNumBytesRead) { *outNumBytesRead = 0; }
-
-		if(numBuffers == 0) { return Result::success; }
-		else if(numBuffers > IOV_MAX)
+		if(offset == nullptr)
 		{
-			return Result::tooManyBuffers;
+			ssize_t result = ::writev(fd, (const struct iovec*)buffers, numBuffers);
+			if(result == -1) { return asVFSResult(errno); }
+
+			if(outNumBytesWritten) { *outNumBytesWritten = result; }
+			return Result::success;
 		}
-
-		if(!FILE_OFFSET_IS_64BIT && offset > INT32_MAX) { return Result::invalidOffset; }
-
-		// Count the number of bytes in all the buffers.
-		Uptr numBufferBytes = 0;
-		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+		else
 		{
-			const IOReadBuffer& buffer = buffers[bufferIndex];
-			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return Result::tooManyBufferBytes; }
-			numBufferBytes += buffer.numBytes;
-		}
-		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
+			if(!FILE_OFFSET_IS_64BIT && *offset > INT32_MAX) { return Result::invalidOffset; }
 
-		// Allocate a combined buffer.
-		U8* combinedBuffer = (U8*)malloc(numBufferBytes);
-		if(!combinedBuffer) { return Result::outOfMemory; }
-
-		// Do the read.
-		ssize_t result = pread(fd, combinedBuffer, numBufferBytes, off_t(offset));
-		if(result >= 0)
-		{
-			const Uptr numBytesRead = Uptr(result);
-
-			// Copy the contents of the combined buffer to the individual buffers.
-			Uptr numBytesCopied = 0;
-			for(Uptr bufferIndex = 0; bufferIndex < numBuffers && numBytesCopied < numBytesRead;
-				++bufferIndex)
+			// Count the number of bytes in all the buffers.
+			Uptr numBufferBytes = 0;
+			for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
 			{
-				const IOReadBuffer& buffer = buffers[bufferIndex];
+				const IOWriteBuffer& buffer = buffers[bufferIndex];
+				if(numBufferBytes + buffer.numBytes < numBufferBytes)
+				{ return Result::tooManyBufferBytes; }
+				numBufferBytes += buffer.numBytes;
+			}
+			if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
+
+			// Allocate a combined buffer.
+			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
+			if(!combinedBuffer) { return Result::outOfMemory; }
+
+			// Copy the individual buffers into the combined buffer.
+			Uptr numBytesCopied = 0;
+			for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+			{
+				const IOWriteBuffer& buffer = buffers[bufferIndex];
 				const Uptr numBytesToCopy
-					= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
+					= std::min(buffer.numBytes, numBufferBytes - numBytesCopied);
 				if(numBytesToCopy)
-				{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
+				{ memcpy(combinedBuffer + numBytesCopied, buffer.data, numBytesToCopy); }
 				numBytesCopied += numBytesToCopy;
 			}
 
-			// Write the total number of bytes read.
-			if(outNumBytesRead) { *outNumBytesRead = numBytesRead; }
+			// Do the write.
+			Result vfsResult = Result::success;
+			ssize_t result = pwrite(fd, combinedBuffer, numBufferBytes, off_t(*offset));
+			if(result < 0) { vfsResult = asVFSResult(errno); }
+
+			// Write the total number of bytes writte.
+			if(outNumBytesWritten) { *outNumBytesWritten = Uptr(result); }
+
+			// Free the combined buffer.
+			free(combinedBuffer);
+
+			return vfsResult;
 		}
-
-		// Free the combined buffer.
-		free(combinedBuffer);
-
-		return result >= 0 ? Result::success : asVFSResult(errno);
-	}
-	virtual Result pwritev(const IOWriteBuffer* buffers,
-						   Uptr numBuffers,
-						   U64 offset,
-						   Uptr* outNumBytesWritten = nullptr) override
-	{
-		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
-
-		if(numBuffers == 0) { return Result::success; }
-		else if(numBuffers > IOV_MAX)
-		{
-			return Result::tooManyBuffers;
-		}
-
-		if(!FILE_OFFSET_IS_64BIT && offset > INT32_MAX) { return Result::invalidOffset; }
-
-		// Count the number of bytes in all the buffers.
-		Uptr numBufferBytes = 0;
-		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
-		{
-			const IOWriteBuffer& buffer = buffers[bufferIndex];
-			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return Result::tooManyBufferBytes; }
-			numBufferBytes += buffer.numBytes;
-		}
-		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
-
-		// Allocate a combined buffer.
-		U8* combinedBuffer = (U8*)malloc(numBufferBytes);
-		if(!combinedBuffer) { return Result::outOfMemory; }
-
-		// Copy the individual buffers into the combined buffer.
-		Uptr numBytesCopied = 0;
-		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
-		{
-			const IOWriteBuffer& buffer = buffers[bufferIndex];
-			const Uptr numBytesToCopy = std::min(buffer.numBytes, numBufferBytes - numBytesCopied);
-			if(numBytesToCopy)
-			{ memcpy(combinedBuffer + numBytesCopied, buffer.data, numBytesToCopy); }
-			numBytesCopied += numBytesToCopy;
-		}
-
-		// Do the write.
-		ssize_t result = pwrite(fd, combinedBuffer, numBufferBytes, off_t(offset));
-
-		// Write the total number of bytes writte.
-		if(outNumBytesWritten) { *outNumBytesWritten = Uptr(result); }
-
-		// Free the combined buffer.
-		free(combinedBuffer);
-
-		return result >= 0 ? Result::success : asVFSResult(errno);
 	}
 	virtual Result sync(SyncType syncType) override
 	{

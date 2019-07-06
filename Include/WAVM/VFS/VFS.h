@@ -189,22 +189,13 @@ namespace WAVM { namespace VFS {
 
 		virtual Result readv(const IOReadBuffer* buffers,
 							 Uptr numBuffers,
-							 Uptr* outNumBytesRead = nullptr)
+							 Uptr* outNumBytesRead = nullptr,
+							 const U64* offset = nullptr)
 			= 0;
 		virtual Result writev(const IOWriteBuffer* buffers,
 							  Uptr numBuffers,
-							  Uptr* outNumBytesWritten = nullptr)
-			= 0;
-
-		virtual Result preadv(const IOReadBuffer* buffers,
-							  Uptr numBuffers,
-							  U64 offset,
-							  Uptr* outNumBytesRead = nullptr)
-			= 0;
-		virtual Result pwritev(const IOWriteBuffer* buffers,
-							   Uptr numBuffers,
-							   U64 offset,
-							   Uptr* outNumBytesWritten = nullptr)
+							  Uptr* outNumBytesWritten = nullptr,
+							  const U64* offset = nullptr)
 			= 0;
 
 		virtual Result sync(SyncType type) = 0;
@@ -221,15 +212,21 @@ namespace WAVM { namespace VFS {
 
 		virtual Result openDir(DirEntStream*& outStream) = 0;
 
-		Result read(void* outData, Uptr numBytes, Uptr* outNumBytesRead = nullptr)
+		Result read(void* outData,
+					Uptr numBytes,
+					Uptr* outNumBytesRead = nullptr,
+					U64* offset = nullptr)
 		{
 			IOReadBuffer buffer{outData, numBytes};
-			return readv(&buffer, 1, outNumBytesRead);
+			return readv(&buffer, 1, outNumBytesRead, offset);
 		}
-		Result write(const void* data, Uptr numBytes, Uptr* outNumBytesWritten = nullptr)
+		Result write(const void* data,
+					 Uptr numBytes,
+					 Uptr* outNumBytesWritten = nullptr,
+					 U64* offset = nullptr)
 		{
 			IOWriteBuffer buffer{data, numBytes};
-			return writev(&buffer, 1, outNumBytesWritten);
+			return writev(&buffer, 1, outNumBytesWritten, offset);
 		}
 
 	protected:

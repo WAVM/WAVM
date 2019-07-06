@@ -307,37 +307,129 @@ struct WindowsFD : VFD
 	}
 	virtual Result readv(const IOReadBuffer* buffers,
 						 Uptr numBuffers,
-						 Uptr* outNumBytesRead) override
+						 Uptr* outNumBytesRead,
+						 const U64* offset) override
 	{
-		return readvImpl(buffers, numBuffers, nullptr, outNumBytesRead);
+		if(outNumBytesRead) { *outNumBytesRead = 0; }
+		if(numBuffers == 0) { return Result::success; }
+
+		// If there's an offset specified, translate it to an OVERLAPPED struct.
+		OVERLAPPED* overlapped = nullptr;
+		if(offset)
+		{
+			overlapped = (OVERLAPPED*)alloca(sizeof(OVERLAPPED));
+			overlapped->Offset = DWORD(*offset);
+			overlapped->OffsetHigh = DWORD(*offset >> 32);
+			overlapped->hEvent = nullptr;
+		}
+
+		// Count the number of bytes in all the buffers.
+		Uptr numBufferBytes = 0;
+		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+		{
+			const IOReadBuffer& buffer = buffers[bufferIndex];
+			if(numBufferBytes + buffer.numBytes < numBufferBytes)
+			{ return Result::tooManyBufferBytes; }
+			numBufferBytes += buffer.numBytes;
+		}
+		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
+		const U32 numBufferBytesU32 = U32(numBufferBytes);
+
+		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
+		if(numBuffers == 1)
+		{ return readImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesRead); }
+		else
+		{
+			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
+			if(!combinedBuffer) { return Result::outOfMemory; }
+
+			Uptr numBytesRead = 0;
+			const Result result
+				= readImpl(combinedBuffer, numBufferBytesU32, overlapped, &numBytesRead);
+
+			if(result == Result::success)
+			{
+				// If there was a combined buffer, copy the contents of it to the individual
+				// buffers.
+				Uptr numBytesCopied = 0;
+				for(Uptr bufferIndex = 0; bufferIndex < numBuffers && numBytesCopied < numBytesRead;
+					++bufferIndex)
+				{
+					const IOReadBuffer& buffer = buffers[bufferIndex];
+					const Uptr numBytesToCopy
+						= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
+					if(numBytesToCopy)
+					{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
+					numBytesCopied += numBytesToCopy;
+				}
+
+				// Write the total number of bytes read.
+				if(outNumBytesRead) { *outNumBytesRead = numBytesRead; }
+			}
+
+			// Free the combined buffer.
+			free(combinedBuffer);
+
+			return result;
+		}
 	}
 	virtual Result writev(const IOWriteBuffer* buffers,
 						  Uptr numBuffers,
-						  Uptr* outNumBytesWritten) override
+						  Uptr* outNumBytesWritten,
+						  const U64* offset) override
 	{
-		return writevImpl(buffers, numBuffers, nullptr, outNumBytesWritten);
-	}
-	virtual Result preadv(const IOReadBuffer* buffers,
-						  Uptr numBuffers,
-						  U64 offset,
-						  Uptr* outNumBytesRead) override
-	{
-		OVERLAPPED overlapped;
-		overlapped.Offset = DWORD(offset);
-		overlapped.OffsetHigh = DWORD(offset >> 32);
-		overlapped.hEvent = nullptr;
-		return readvImpl(buffers, numBuffers, &overlapped, outNumBytesRead);
-	}
-	virtual Result pwritev(const IOWriteBuffer* buffers,
-						   Uptr numBuffers,
-						   U64 offset,
-						   Uptr* outNumBytesWritten) override
-	{
-		OVERLAPPED overlapped;
-		overlapped.Offset = DWORD(offset);
-		overlapped.OffsetHigh = DWORD(offset >> 32);
-		overlapped.hEvent = nullptr;
-		return writevImpl(buffers, numBuffers, &overlapped, outNumBytesWritten);
+		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
+		if(numBuffers == 0) { return Result::success; }
+
+		// If there's an offset specified, translate it to an OVERLAPPED struct.
+		OVERLAPPED* overlapped = nullptr;
+		if(offset)
+		{
+			overlapped = (OVERLAPPED*)alloca(sizeof(OVERLAPPED));
+			overlapped->Offset = DWORD(*offset);
+			overlapped->OffsetHigh = DWORD(*offset >> 32);
+			overlapped->hEvent = nullptr;
+		}
+
+		// Count the number of bytes in all the buffers.
+		Uptr numBufferBytes = 0;
+		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+		{
+			const IOWriteBuffer& buffer = buffers[bufferIndex];
+			if(numBufferBytes + buffer.numBytes < numBufferBytes)
+			{ return Result::tooManyBufferBytes; }
+			numBufferBytes += buffer.numBytes;
+		}
+		if(numBufferBytes > Uptr(UINT32_MAX)) { return Result::tooManyBufferBytes; }
+		const U32 numBufferBytesU32 = U32(numBufferBytes);
+
+		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
+		if(numBuffers == 1)
+		{ return writeImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesWritten); }
+		else
+		{
+			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
+			if(!combinedBuffer) { return Result::outOfMemory; }
+
+			// Copy all the input buffers into the combined buffer.
+			Uptr numBytesCopied = 0;
+			for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
+			{
+				const IOWriteBuffer& buffer = buffers[bufferIndex];
+				if(buffer.numBytes)
+				{ memcpy(combinedBuffer + numBytesCopied, buffer.data, buffer.numBytes); }
+				numBytesCopied += buffer.numBytes;
+			}
+
+			// Do the write.
+			const Result result
+				= writeImpl(combinedBuffer, numBufferBytesU32, overlapped, outNumBytesWritten);
+
+			// Free the combined buffer.
+			free(combinedBuffer);
+
+			return result;
+		}
 	}
 
 	virtual Result sync(SyncType syncType) override
@@ -492,64 +584,6 @@ private:
 
 		return Result::success;
 	}
-	Result readvImpl(const IOReadBuffer* buffers,
-					 Uptr numBuffers,
-					 OVERLAPPED* overlapped,
-					 Uptr* outNumBytesRead)
-	{
-		if(outNumBytesRead) { *outNumBytesRead = 0; }
-		if(numBuffers == 0) { return Result::success; }
-
-		// Count the number of bytes in all the buffers.
-		Uptr numBufferBytes = 0;
-		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
-		{
-			const IOReadBuffer& buffer = buffers[bufferIndex];
-			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return Result::tooManyBufferBytes; }
-			numBufferBytes += buffer.numBytes;
-		}
-		if(numBufferBytes > UINT32_MAX) { return Result::tooManyBufferBytes; }
-		const U32 numBufferBytesU32 = U32(numBufferBytes);
-
-		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
-		if(numBuffers == 1)
-		{ return readImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesRead); }
-		else
-		{
-			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
-			if(!combinedBuffer) { return Result::outOfMemory; }
-
-			Uptr numBytesRead = 0;
-			const Result result
-				= readImpl(combinedBuffer, numBufferBytesU32, overlapped, &numBytesRead);
-
-			if(result == Result::success)
-			{
-				// If there was a combined buffer, copy the contents of it to the individual
-				// buffers.
-				Uptr numBytesCopied = 0;
-				for(Uptr bufferIndex = 0; bufferIndex < numBuffers && numBytesCopied < numBytesRead;
-					++bufferIndex)
-				{
-					const IOReadBuffer& buffer = buffers[bufferIndex];
-					const Uptr numBytesToCopy
-						= std::min(buffer.numBytes, numBytesRead - numBytesCopied);
-					if(numBytesToCopy)
-					{ memcpy(buffer.data, combinedBuffer + numBytesCopied, numBytesToCopy); }
-					numBytesCopied += numBytesToCopy;
-				}
-
-				// Write the total number of bytes read.
-				if(outNumBytesRead) { *outNumBytesRead = numBytesRead; }
-			}
-
-			// Free the combined buffer.
-			free(combinedBuffer);
-
-			return result;
-		}
-	}
 
 	Result writeImpl(const void* buffer,
 					 U32 numBufferBytesU32,
@@ -580,54 +614,6 @@ private:
 		}
 
 		return Result::success;
-	}
-	Result writevImpl(const IOWriteBuffer* buffers,
-					  Uptr numBuffers,
-					  OVERLAPPED* overlapped,
-					  Uptr* outNumBytesWritten)
-	{
-		if(outNumBytesWritten) { *outNumBytesWritten = 0; }
-		if(numBuffers == 0) { return Result::success; }
-
-		// Count the number of bytes in all the buffers.
-		Uptr numBufferBytes = 0;
-		for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
-		{
-			const IOWriteBuffer& buffer = buffers[bufferIndex];
-			if(numBufferBytes + buffer.numBytes < numBufferBytes)
-			{ return Result::tooManyBufferBytes; }
-			numBufferBytes += buffer.numBytes;
-		}
-		if(numBufferBytes > Uptr(UINT32_MAX)) { return Result::tooManyBufferBytes; }
-		const U32 numBufferBytesU32 = U32(numBufferBytes);
-
-		// If there's a single buffer, just use it directly. Otherwise, allocate a combined buffer.
-		if(numBuffers == 1)
-		{ return writeImpl(buffers[0].data, numBufferBytesU32, overlapped, outNumBytesWritten); }
-		else
-		{
-			U8* combinedBuffer = (U8*)malloc(numBufferBytes);
-			if(!combinedBuffer) { return Result::outOfMemory; }
-
-			// Copy all the input buffers into the combined buffer.
-			Uptr numBytesCopied = 0;
-			for(Uptr bufferIndex = 0; bufferIndex < numBuffers; ++bufferIndex)
-			{
-				const IOWriteBuffer& buffer = buffers[bufferIndex];
-				if(buffer.numBytes)
-				{ memcpy(combinedBuffer + numBytesCopied, buffer.data, buffer.numBytes); }
-				numBytesCopied += buffer.numBytes;
-			}
-
-			// Do the write.
-			const Result result
-				= writeImpl(combinedBuffer, numBufferBytesU32, overlapped, outNumBytesWritten);
-
-			// Free the combined buffer.
-			free(combinedBuffer);
-
-			return result;
-		}
 	}
 };
 
