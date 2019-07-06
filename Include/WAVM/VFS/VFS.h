@@ -140,7 +140,7 @@ namespace WAVM { namespace VFS {
 		/* Resource exhaustion errors */ \
 		v(outOfSystemFDs, "Out of system file descriptors") \
 		v(outOfProcessFDs, "Out of process file descriptors") \
-		V(outOfMemory, "Out of memory") \
+		v(outOfMemory, "Out of memory") \
 		v(outOfQuota, "Out of quota") \
 		v(outOfFreeSpace, "Out of free space") \
 		v(outOfLinksToParentDir, "Out of links to parent directory") \
