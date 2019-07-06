@@ -152,3 +152,43 @@ BEGIN_FUNC(getStackPointer)
 	lea 8(%rsp), %rax
 	ret
 END_FUNC(getStackPointer)
+
+BEGIN_FUNC(wavm_probe_stack)
+	/* On entry, the number of bytes of stack being allocated is in %rax.
+	   The allocation is relative to the caller's %rsp (i.e. %rsp+8).
+	   The function is not allowed to clobber any registers, with the exception
+	   of r11 as it's a scratch register in all calling conventions.
+	   https://github.com/llvm/llvm-project/blob/7770f83d614c7216e4c1e83026955fbf73298f34/llvm/lib/Target/X86/X86FrameLowering.cpp#L784
+	   */
+
+	/* Negate the allocation size, initialize the probe offset to zero, and
+	   jump to the first loop step. */
+	neg %rax
+	xor %r11, %r11
+	jmp step
+
+loop:
+	/* The request to probe the stack is relative to %rsp in the caller, so
+	   probe relative to %rsp+8 to cancel out the return address pushed by
+	   calling wavm_probe_stack.
+	   Use test to load from the address without clobbering a register with
+	   the loaded value. */
+	test %rsp, 8(%rsp,%r11)
+
+step:
+	/* Decrement the probe offset by 4096 until it is less than the negative
+	   allocation size. */
+	sub $4096, %r11
+
+	cmp %rax, %r11
+	jg loop         /* Note the reversed GAS argument order on the cmp, so this
+	                   is actually jumping if %r11 >= %rax. */
+
+	/* After probing to the greatest multiple of 4096 that is less than the
+	   allocation size, do a final probe at the allocation size. */
+	test %rsp, 8(%rsp, %rax)
+
+	neg %rax
+	ret
+
+END_FUNC(wavm_probe_stack)

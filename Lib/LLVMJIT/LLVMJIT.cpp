@@ -52,6 +52,7 @@ static HashMap<std::string, const char*> runtimeSymbolMap = {
 	{"__cxa_begin_catch", "__cxa_begin_catch"},
 	{"__cxa_end_catch", "__cxa_end_catch"},
 	{"__gxx_personality_v0", "__gxx_personality_v0"},
+	{"wavm_probe_stack", "wavm_probe_stack"},
 #endif
 #ifdef __arm__
 	{"__aeabi_uidiv", "__aeabi_uidiv"},

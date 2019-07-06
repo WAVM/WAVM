@@ -244,7 +244,7 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 								 functionDefMutableDataAsIptr,
 								 moduleContext.moduleInstanceId,
 								 moduleContext.typeIds[functionDef.type.index]);
-		setFramePointerAttribute(targetMachine, function);
+		setFunctionAttributes(targetMachine, function);
 
 		EmitFunctionContext(llvmContext, moduleContext, irModule, functionDef, function).emit();
 	}
