@@ -231,7 +231,25 @@ static ValueType generateValueType(RandomStream& random)
 	}
 }
 
-FunctionType generateBlockSig(RandomStream& random) { return FunctionType(); }
+FunctionType generateBlockSig(RandomStream& random, TypeTuple params)
+{
+	// Generalize the params to map internal type subsets (e.g. nullref) to a canonical type.
+	ValueType* remappedParamsVector = (ValueType*)alloca(sizeof(ValueType*) * params.size());
+	for(Uptr index = 0; index < params.size(); ++index)
+	{
+		remappedParamsVector[index]
+			= params[index] == ValueType::nullref ? ValueType::anyref : params[index];
+	}
+	params = TypeTuple(remappedParamsVector, params.size());
+
+	const Uptr maxResults = 4;
+	ValueType results[maxResults];
+	const Uptr numResults = random.get(4);
+	for(Uptr resultIndex = 0; resultIndex < numResults; ++resultIndex)
+	{ results[resultIndex] = generateValueType(random); }
+
+	return FunctionType(TypeTuple(results, numResults), params);
+}
 
 IndexedBlockType getIndexedBlockType(IR::Module& module,
 									 HashMap<FunctionType, Uptr>& functionTypeMap,
@@ -361,8 +379,9 @@ static void generateFunction(RandomStream& random,
 						codeStream.end();
 
 						// Push the control context's results on the stack.
-						for(ValueType result : controlStack.back().results)
-						{ stack.push_back(result); }
+						stack.resize(controlStack.back().outerStackSize);
+						const TypeTuple& results = controlStack.back().results;
+						stack.insert(stack.end(), results.begin(), results.end());
 
 						// Pop the control stack.
 						controlStack.pop_back();
@@ -491,49 +510,66 @@ static void generateFunction(RandomStream& random,
 
 		if(allowStackGrowth)
 		{
-			// Enter a block control structure.
-			validOpEmitters.push_back(
-				[&stack, &controlStack, &functionTypeMap](
-					RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-					const FunctionType blockSig = generateBlockSig(random);
-					codeStream.block({getIndexedBlockType(module, functionTypeMap, blockSig)});
-					controlStack.push_back({ControlContext::Type::block,
-											stack.size(),
-											blockSig.results(),
-											blockSig.results(),
-											TypeTuple()});
-				});
+			const Uptr maxArity = stack.size() - controlStack.back().outerStackSize;
+			for(Uptr arity = 0; arity < maxArity; ++arity)
+			{
+				// Enter a block control structure.
+				validOpEmitters.push_back(
+					[&stack, &controlStack, &functionTypeMap, arity](
+						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+						const FunctionType blockSig = generateBlockSig(
+							random, TypeTuple(stack.data() + stack.size() - arity, arity));
+						stack.resize(stack.size() - arity);
+						stack.insert(
+							stack.end(), blockSig.params().begin(), blockSig.params().end());
+						codeStream.block({getIndexedBlockType(module, functionTypeMap, blockSig)});
+						controlStack.push_back({ControlContext::Type::block,
+												stack.size() - arity,
+												blockSig.results(),
+												blockSig.results(),
+												TypeTuple()});
+					});
 
-			// Enter a loop control structure.
-			validOpEmitters.push_back(
-				[&stack, &controlStack, &functionTypeMap](
-					RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-					const FunctionType loopSig = generateBlockSig(random);
-					codeStream.loop({getIndexedBlockType(module, functionTypeMap, loopSig)});
-					controlStack.push_back({ControlContext::Type::loop,
-											stack.size(),
-											loopSig.params(),
-											loopSig.results(),
-											TypeTuple()});
-				});
+				// Enter a loop control structure.
+				validOpEmitters.push_back(
+					[&stack, &controlStack, &functionTypeMap, arity](
+						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+						const FunctionType loopSig = generateBlockSig(
+							random, TypeTuple(stack.data() + stack.size() - arity, arity));
+						stack.resize(stack.size() - arity);
+						stack.insert(stack.end(), loopSig.params().begin(), loopSig.params().end());
+						codeStream.loop({getIndexedBlockType(module, functionTypeMap, loopSig)});
+						controlStack.push_back({ControlContext::Type::loop,
+												stack.size() - arity,
+												loopSig.params(),
+												loopSig.results(),
+												TypeTuple()});
+					});
+			}
 		}
 
 		// Enter an if control structure.
 		if(allowStackGrowth && stack.size() > controlStack.back().outerStackSize
 		   && stack.back() == ValueType::i32)
 		{
-			validOpEmitters.push_back(
-				[&stack, &controlStack, &functionTypeMap](
-					RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-					stack.pop_back();
-					const FunctionType ifSig = generateBlockSig(random);
-					codeStream.if_({getIndexedBlockType(module, functionTypeMap, ifSig)});
-					controlStack.push_back({ControlContext::Type::ifThen,
-											stack.size(),
-											ifSig.results(),
-											ifSig.results(),
-											ifSig.params()});
-				});
+			const Uptr maxArity = stack.size() - controlStack.back().outerStackSize - 1;
+			for(Uptr arity = 0; arity < maxArity; ++arity)
+			{
+				validOpEmitters.push_back(
+					[&stack, &controlStack, &functionTypeMap, arity](
+						RandomStream& random, IR::Module& module, CodeStream& codeStream) {
+						const FunctionType ifSig = generateBlockSig(
+							random, TypeTuple(stack.data() + stack.size() - arity - 1, arity));
+						stack.resize(stack.size() - arity - 1);
+						stack.insert(stack.end(), ifSig.params().begin(), ifSig.params().end());
+						codeStream.if_({getIndexedBlockType(module, functionTypeMap, ifSig)});
+						controlStack.push_back({ControlContext::Type::ifThen,
+												stack.size() - arity,
+												ifSig.results(),
+												ifSig.results(),
+												ifSig.params()});
+					});
+			}
 		}
 
 		// TODO: try/catch/catch_all
@@ -579,6 +615,13 @@ static void generateFunction(RandomStream& random,
 						}
 						else
 						{
+							if(controlStack.back().type == ControlContext::Type::try_
+							   || controlStack.back().type == ControlContext::Type::catch_)
+							{
+								// TODO: catch
+								WAVM_UNREACHABLE();
+							}
+
 							codeStream.end();
 							stack.resize(controlStack.back().outerStackSize);
 							for(ValueType result : controlStack.back().results)
@@ -616,9 +659,9 @@ static void generateFunction(RandomStream& random,
 				if(sigMatch)
 				{
 					validOpEmitters.push_back(
-						[&stack, branchTargetDepth, params](
+						[&stack, branchTargetDepth](
 							RandomStream& random, IR::Module& module, CodeStream& codeStream) {
-							stack.resize(stack.size() - params.size() - 1);
+							stack.pop_back();
 							codeStream.br_if({U32(branchTargetDepth)});
 						});
 				}
@@ -828,6 +871,9 @@ void generateValidModule(IR::Module& module, const U8* inputBytes, Uptr numBytes
 	// Generate a few functions.
 	for(FunctionDef& functionDef : module.functions.defs)
 	{ generateFunction(random, module, functionDef, functionTypeMap); };
+
+	// Generating functions might have added some block types, so revalidate the type section.
+	validateTypes(module);
 
 	validatePostCodeSections(module);
 }
