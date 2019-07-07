@@ -39,6 +39,11 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	Log::printf(Log::Category::debug, "Disassembly:\n%s\n", wastString.c_str());
 #endif
 
+	// Use a resource quota to limit the amount of memory a single instance can allocate.
+	ResourceQuotaRef resourceQuota = createResourceQuota();
+	setResourceQuotaMaxTableElems(resourceQuota, 65536);
+	setResourceQuotaMaxMemoryPages(resourceQuota, 8192);
+
 	GCPointer<Compartment> compartment = createCompartment();
 	{
 		NullResolver nullResolver;
@@ -52,7 +57,8 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 					instantiateModule(compartment,
 									  compileModule(module),
 									  std::move(linkResult.resolvedImports),
-									  "fuzz");
+									  "fuzz",
+									  resourceQuota);
 				},
 				[&](Exception* exception) { destroyException(exception); });
 		}
