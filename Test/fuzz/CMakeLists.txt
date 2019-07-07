@@ -14,6 +14,11 @@ WAVM_ADD_FUZZER_EXECUTABLE(fuzz-disassemble
 WAVM_ADD_FUZZER_EXECUTABLE(fuzz-assemble
 	SOURCES fuzz-assemble.cpp ModuleMatcher.h
 	PRIVATE_LIB_COMPONENTS Logging IR WASTParse WASTPrint WASM Platform)
+	
+WAVM_ADD_EXECUTABLE(translate-compile-model-corpus
+	SOURCES translate-compile-model-corpus.cpp RandomModule.h
+	PRIVATE_LIB_COMPONENTS Logging IR WASM
+	FOLDER Testing/Fuzzers)
 
 if(WAVM_ENABLE_RUNTIME)
 	WAVM_ADD_FUZZER_EXECUTABLE(fuzz-instantiate
@@ -21,6 +26,6 @@ if(WAVM_ENABLE_RUNTIME)
 		PRIVATE_LIB_COMPONENTS Logging IR WASM Runtime)
 
 	WAVM_ADD_FUZZER_EXECUTABLE(fuzz-compile-model
-		SOURCES fuzz-compile-model.cpp
-		PRIVATE_LIB_COMPONENTS Logging IR WASTPrint Runtime Platform)
+		SOURCES fuzz-compile-model.cpp RandomModule.h
+		PRIVATE_LIB_COMPONENTS Logging IR WASTPrint LLVMJIT Platform)
 endif()
