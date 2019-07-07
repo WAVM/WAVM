@@ -848,7 +848,7 @@ Result WindowsFS::openDir(const std::string& path, DirEntStream*& outStream)
 
 	// Try to open the file.
 	HANDLE handle = CreateFileW(windowsPath.c_str(),
-								0,
+								FILE_LIST_DIRECTORY,
 								FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
 								nullptr,
 								OPEN_EXISTING,
