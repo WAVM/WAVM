@@ -12,6 +12,8 @@ WORKERS_PER_FUZZER=$(nproc --all)
 JOBS_PER_FUZZER=$WORKERS_PER_FUZZER
 SECONDS_PER_JOB=14400
 
+mkdir -p translated-compile-model-corpus
+
 # Build LLVM and WAVM.
 ninja -C llvm/build
 ninja
@@ -30,6 +32,7 @@ $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh assemble \
 # Run the disassemble fuzzer.
 $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh disassemble \
 	wasm-seed-corpus \
+	translated-compile-model-corpus \
 	-jobs=$JOBS_PER_FUZZER \
 	-workers=$WORKERS_PER_FUZZER \
 	-max_total_time=$SECONDS_PER_JOB
@@ -42,16 +45,16 @@ $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh compile-model \
 	-max_len=20 \
 	-reduce_inputs=0
 
-# Translate the compile model corpus to WASM files in the instantiate corpus.
-mkdir -p translated-compiled-model-corpus
+# Translate the compile model corpus to WASM files
+mkdir -p corpora/compile-model
 bin/translate-compile-model-corpus \
 	corpora/compile-model \
-	translated-compiled-model-corpus
+	translated-compile-model-corpus
 
 # Run the instantiate fuzzer.
 $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh instantiate \
 	wasm-seed-corpus \
-	translated-compiled-model-corpus \
+	translated-compile-model-corpus \
 	-jobs=$JOBS_PER_FUZZER \
 	-workers=$WORKERS_PER_FUZZER \
 	-max_total_time=$SECONDS_PER_JOB
