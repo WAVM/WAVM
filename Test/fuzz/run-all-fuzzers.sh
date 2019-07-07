@@ -34,13 +34,6 @@ $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh disassemble \
 	-workers=$WORKERS_PER_FUZZER \
 	-max_total_time=$SECONDS_PER_JOB
 
-# Run the instantiate fuzzer.
-$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh instantiate \
-	wasm-seed-corpus \
-	-jobs=$JOBS_PER_FUZZER \
-	-workers=$WORKERS_PER_FUZZER \
-	-max_total_time=$SECONDS_PER_JOB
-
 # Run the compile model fuzzer.
 $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh compile-model \
 	-jobs=$JOBS_PER_FUZZER \
@@ -48,3 +41,17 @@ $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh compile-model \
 	-max_total_time=$SECONDS_PER_JOB \
 	-max_len=20 \
 	-reduce_inputs=0
+
+# Translate the compile model corpus to WASM files in the instantiate corpus.
+mkdir -p translated-compiled-model-corpus
+bin/translate-compile-model-corpus \
+	corpora/compile-model \
+	translated-compiled-model-corpus
+
+# Run the instantiate fuzzer.
+$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh instantiate \
+	wasm-seed-corpus \
+	translated-compiled-model-corpus \
+	-jobs=$JOBS_PER_FUZZER \
+	-workers=$WORKERS_PER_FUZZER \
+	-max_total_time=$SECONDS_PER_JOB
