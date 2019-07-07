@@ -542,6 +542,8 @@ static void generateFunction(RandomStream& random,
 		{
 			const TableType tableType = module.tables.getType(tableIndex);
 
+			// TODO: table.grow and table.fill
+
 			if(stack.size() - controlStack.back().outerStackSize >= 2
 			   && stack[stack.size() - 2] == ValueType::i32
 			   && isSubtype(stack.back(), asValueType(tableType.elementType)))
@@ -681,7 +683,7 @@ static void generateFunction(RandomStream& random,
 			}
 		}
 
-		// TODO: try/catch/catch_all
+		// TODO: try/catch/catch_all/throw/rethrow
 
 		for(Uptr branchTargetDepth = 0; branchTargetDepth < controlStack.size();
 			++branchTargetDepth)
