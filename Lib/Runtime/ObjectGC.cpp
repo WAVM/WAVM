@@ -189,18 +189,21 @@ static bool collectGarbageImpl(Compartment* compartment)
 	state.initGCObject(compartment);
 	for(ModuleInstance* moduleInstance : compartment->moduleInstances)
 	{
-		// Transfer root markings from functions to their module instance.
-		bool hasRootFunction = false;
-		for(Function* function : moduleInstance->functions)
+		if(moduleInstance)
 		{
-			if(function->mutableData->numRootReferences)
+			// Transfer root markings from functions to their module instance.
+			bool hasRootFunction = false;
+			for(Function* function : moduleInstance->functions)
 			{
-				hasRootFunction = true;
-				break;
+				if(function->mutableData->numRootReferences)
+				{
+					hasRootFunction = true;
+					break;
+				}
 			}
-		}
 
-		state.initGCObject(moduleInstance, hasRootFunction);
+			state.initGCObject(moduleInstance, hasRootFunction);
+		}
 	}
 	for(Memory* memory : compartment->memories) { state.initGCObject(memory); }
 	for(Table* table : compartment->tables) { state.initGCObject(table); }
