@@ -1188,11 +1188,11 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 												  0,
 												  pathAddress,
 												  numPathBytes,
-												  absolutePath);
+												  canonicalPath);
 	if(pathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(pathError); }
 
 	FileInfo fileInfo;
-	const VFS::Result result = process->fileSystem->getFileInfo(absolutePath, fileInfo);
+	const VFS::Result result = process->fileSystem->getFileInfo(canonicalPath, fileInfo);
 	if(result != VFS::Result::success) { return TRACE_SYSCALL_RETURN(asWASIErrNo(result)); }
 
 	__wasi_filestat_t& fileStat = memoryRef<__wasi_filestat_t>(process->memory, filestatAddress);
