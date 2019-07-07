@@ -1,5 +1,7 @@
 #pragma once
 
+#include "WAVM/Inline/Config.h"
+
 #if !WAVM_ENABLE_LIBFUZZER
 
 #include <algorithm>
