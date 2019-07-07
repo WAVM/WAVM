@@ -23,4 +23,11 @@ namespace WAVM { namespace Log {
 	LOGGING_API void printf(Category category, const char* format, ...)
 		WAVM_VALIDATE_AS_PRINTF(2, 3);
 	LOGGING_API void vprintf(Category category, const char* format, va_list argList);
+
+	// Set a function that is called whenever something is logged, instead of writing it to
+	// stdout/stderr. setOutputFunction(nullptr) will reset the output function to the initial
+	// state, and redirect log messages to stdout/stderr again.
+	// outputFunction may be called from any thread without any locking, so it must be thread-safe.
+	typedef void OutputFunction(Category category, const char* message, Uptr numChars);
+	LOGGING_API void setOutputFunction(OutputFunction* outputFunction);
 }}

@@ -17,6 +17,7 @@ static std::atomic<bool> categoryEnabled[(Uptr)Category::num] = {
 	{WAVM_METRICS_OUTPUT != 0}, // metrics
 	{true},                     // output
 };
+static std::atomic<OutputFunction*> atomicOutputFunction{nullptr};
 
 static VFS::VFD* getFileForCategory(Log::Category category)
 {
@@ -60,9 +61,21 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 		char* buffer = (char*)alloca(numBufferBytes);
 		vsnprintf(buffer, numBufferBytes, format, argList);
 
-		VFS::VFD* fd = getFileForCategory(category);
-		Uptr numBytesWritten = 0;
-		errorUnless(fd->write(buffer, numChars, &numBytesWritten) == VFS::Result::success);
-		errorUnless(numBytesWritten == U32(numChars));
+		// If an output function is set, call it with the message.
+		OutputFunction* outputFunction = atomicOutputFunction.load(std::memory_order_acquire);
+		if(outputFunction) { (*outputFunction)(category, buffer, Uptr(numChars)); }
+		else
+		{
+			// Otherwise, write the message to the appropriate stdio device.
+			VFS::VFD* fd = getFileForCategory(category);
+			Uptr numBytesWritten = 0;
+			errorUnless(fd->write(buffer, numChars, &numBytesWritten) == VFS::Result::success);
+			errorUnless(numBytesWritten == U32(numChars));
+		}
 	}
+}
+
+void Log::setOutputFunction(OutputFunction* newOutputFunction)
+{
+	atomicOutputFunction.store(newOutputFunction, std::memory_order_release);
 }
