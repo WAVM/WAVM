@@ -85,7 +85,8 @@ namespace WAVM { namespace Runtime {
 
 		RUNTIME_API StubResolver(Compartment* inCompartment,
 								 Resolver& inInnerResolver,
-								 FunctionBehavior functionBehavior = FunctionBehavior::trap);
+								 FunctionBehavior inFunctionBehavior = FunctionBehavior::trap,
+								 bool inLogErrorOnStubGeneration = true);
 
 		RUNTIME_API virtual bool resolve(const std::string& moduleName,
 										 const std::string& exportName,
@@ -96,6 +97,7 @@ namespace WAVM { namespace Runtime {
 		GCPointer<Compartment> compartment;
 		Resolver& innerResolver;
 		FunctionBehavior functionBehavior;
+		bool logErrorOnStubGeneration;
 	};
 
 	// Links a module using the given resolver, returning an array mapping import indices to

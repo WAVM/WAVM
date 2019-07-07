@@ -11,8 +11,12 @@ using namespace WAVM::Runtime;
 
 Runtime::StubResolver::StubResolver(Compartment* inCompartment,
 									Resolver& inInnerResolver,
-									FunctionBehavior functionBehavior)
-: compartment(inCompartment), innerResolver(inInnerResolver)
+									FunctionBehavior inFunctionBehavior,
+									bool inLogErrorOnStubGeneration)
+: compartment(inCompartment)
+, innerResolver(inInnerResolver)
+, functionBehavior(inFunctionBehavior)
+, logErrorOnStubGeneration(inLogErrorOnStubGeneration)
 {
 }
 
@@ -23,11 +27,14 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 {
 	if(!innerResolver.resolve(moduleName, exportName, type, outObject))
 	{
-		Log::printf(Log::error,
-					"Generated stub for missing import %s.%s : %s\n",
-					moduleName.c_str(),
-					exportName.c_str(),
-					asString(type).c_str());
+		if(logErrorOnStubGeneration)
+		{
+			Log::printf(Log::error,
+						"Generated stub for missing import %s.%s : %s\n",
+						moduleName.c_str(),
+						exportName.c_str(),
+						asString(type).c_str());
+		}
 
 		// If the import couldn't be resolved, stub it in.
 		switch(type.kind)
