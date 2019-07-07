@@ -27,25 +27,35 @@ int main(int argc, char** argv)
 
 	bool showHelp = false;
 	bool enableQuotedNames = false;
-	if(argc < 3 || argc > 4) { showHelp = true; }
+	if(argc < 2) { showHelp = true; }
 	else
 	{
-		inputFilename = argv[1];
-		outputFilename = argv[2];
-		if(!strcmp(argv[1], "--help")) { showHelp = true; }
-		else if(argc == 4)
+		for(Uptr argIndex = 1; argIndex < argc; ++argIndex)
 		{
-			if(!strcmp(argv[3], "--enable-quoted-names")) { enableQuotedNames = true; }
+			if(!strcmp(argv[argIndex], "--help")) { showHelp = true; }
+			else if(!strcmp(argv[argIndex], "--enable-quoted-names"))
+			{
+				enableQuotedNames = true;
+			}
+			else if(!inputFilename)
+			{
+				inputFilename = argv[argIndex];
+			}
+			else if(!outputFilename)
+			{
+				outputFilename = argv[argIndex];
+			}
 			else
 			{
 				showHelp = true;
+				break;
 			}
 		}
 	}
 
 	if(showHelp)
 	{
-		Log::printf(Log::error, "Usage: wavm-disas in.wasm out.wast [--enable-quoted-names]\n");
+		Log::printf(Log::error, "Usage: wavm-disas in.wasm [out.wast] [--enable-quoted-names]\n");
 		return EXIT_FAILURE;
 	}
 
@@ -60,7 +70,12 @@ int main(int argc, char** argv)
 	Timing::logRatePerSecond(
 		"Printed WAST", printTimer, F64(wastString.size()) / 1024.0 / 1024.0, "MB");
 
-	// Write the serialized data to the output file.
-	return saveFile(outputFilename, wastString.data(), wastString.size()) ? EXIT_SUCCESS
-																		  : EXIT_FAILURE;
+	if(!outputFilename) { Log::printf(Log::output, "%s", wastString.c_str()); }
+	else
+	{
+		// Write the serialized data to the output file.
+		if(!saveFile(outputFilename, wastString.data(), wastString.size())) { return EXIT_FAILURE; }
+	}
+
+	return EXIT_SUCCESS;
 }
