@@ -17,7 +17,9 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-Global* Runtime::createGlobal(Compartment* compartment, GlobalType type)
+Global* Runtime::createGlobal(Compartment* compartment,
+							  GlobalType type,
+							  ResourceQuotaRefParam resourceQuota)
 {
 	U32 mutableGlobalIndex = UINT32_MAX;
 	if(type.isMutable)

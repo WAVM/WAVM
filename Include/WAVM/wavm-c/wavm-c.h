@@ -442,6 +442,8 @@ WASM_DECLARE_SHAREABLE_REF(table)
 
 typedef uint32_t wasm_table_size_t;
 
+static const wasm_table_size_t WASM_TABLE_SIZE_MAX = UINT32_MAX;
+
 WASM_C_API own wasm_table_t* wasm_table_new(wasm_compartment_t*,
 											const wasm_tabletype_t*,
 											wasm_ref_t* init);
@@ -462,6 +464,8 @@ WASM_C_API bool wasm_table_grow(wasm_table_t* table,
 WASM_DECLARE_SHAREABLE_REF(memory)
 
 typedef uint32_t wasm_memory_pages_t;
+
+static const wasm_memory_pages_t WASM_MEMORY_PAGES_MAX = UINT32_MAX;
 
 static const size_t MEMORY_PAGE_SIZE = 0x10000;
 

@@ -164,8 +164,7 @@ static Value asValue(ValueType type, const wasm_val_t* value)
 	case ValueType::i64: return Value(value->i64);
 	case ValueType::f32: return Value(value->f32);
 	case ValueType::f64: return Value(value->f64);
-	case ValueType::v128:
-	{
+	case ValueType::v128: {
 		V128 v128;
 		v128.u64[0] = value->v128.u64[0];
 		v128.u64[1] = value->v128.u64[1];
@@ -190,8 +189,7 @@ static wasm_val_t as_val(const Value& value)
 	case ValueType::i64: result.i64 = value.i64; break;
 	case ValueType::f32: result.f32 = value.f32; break;
 	case ValueType::f64: result.f64 = value.f64; break;
-	case ValueType::v128:
-	{
+	case ValueType::v128: {
 		result.v128.u64[0] = value.v128.u64[0];
 		result.v128.u64[1] = value.v128.u64[1];
 		break;
@@ -673,8 +671,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 	const KindAndIndex& kindAndIndex = irModule.imports[index];
 	switch(kindAndIndex.kind)
 	{
-	case ExternKind::function:
-	{
+	case ExternKind::function: {
 		const auto& functionImport = irModule.functions.imports[kindAndIndex.index];
 		out_import->module = functionImport.moduleName.c_str();
 		out_import->num_module_bytes = functionImport.moduleName.size();
@@ -683,8 +680,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 		out_import->type = as_externtype(irModule.types[functionImport.type.index]);
 		break;
 	}
-	case ExternKind::table:
-	{
+	case ExternKind::table: {
 		const auto& tableImport = irModule.tables.imports[kindAndIndex.index];
 		out_import->module = tableImport.moduleName.c_str();
 		out_import->num_module_bytes = tableImport.moduleName.size();
@@ -693,8 +689,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 		out_import->type = as_externtype(tableImport.type);
 		break;
 	}
-	case ExternKind::memory:
-	{
+	case ExternKind::memory: {
 		const auto& memoryImport = irModule.memories.imports[kindAndIndex.index];
 		out_import->module = memoryImport.moduleName.c_str();
 		out_import->num_module_bytes = memoryImport.moduleName.size();
@@ -703,8 +698,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 		out_import->type = as_externtype(memoryImport.type);
 		break;
 	}
-	case ExternKind::global:
-	{
+	case ExternKind::global: {
 		const auto& globalImport = irModule.globals.imports[kindAndIndex.index];
 		out_import->module = globalImport.moduleName.c_str();
 		out_import->num_module_bytes = globalImport.moduleName.size();
@@ -713,8 +707,7 @@ void wasm_module_import(const wasm_module_t* module, size_t index, wasm_import_t
 		out_import->type = as_externtype(globalImport.type);
 		break;
 	}
-	case ExternKind::exceptionType:
-	{
+	case ExternKind::exceptionType: {
 		Errors::fatal("wasm_module_import can't handle exception type imports");
 	}
 
@@ -869,8 +862,8 @@ bool wasm_table_set(wasm_table_t* table, wasm_table_size_t index, wasm_ref_t* va
 wasm_table_size_t wasm_table_size(const wasm_table_t* table)
 {
 	Uptr numElements = getTableNumElements(table);
-	errorUnless(numElements <= UINT32_MAX);
-	return U32(numElements);
+	errorUnless(numElements <= WASM_TABLE_SIZE_MAX);
+	return wasm_table_size_t(numElements);
 }
 
 bool wasm_table_grow(wasm_table_t* table,
@@ -878,12 +871,12 @@ bool wasm_table_grow(wasm_table_t* table,
 					 wasm_ref_t* init,
 					 wasm_table_size_t* out_previous_size)
 {
-	Iptr result = growTable(table, delta, init);
-	if(result == -1) { return false; }
+	Uptr oldNumElements = 0;
+	if(!growTable(table, delta, &oldNumElements, init)) { return false; }
 	else
 	{
-		errorUnless(result <= UINT32_MAX);
-		if(out_previous_size) { *out_previous_size = U32(result); }
+		errorUnless(oldNumElements <= WASM_TABLE_SIZE_MAX);
+		if(out_previous_size) { *out_previous_size = wasm_table_size_t(oldNumElements); }
 		return true;
 	}
 }
@@ -912,19 +905,19 @@ size_t wasm_memory_data_size(const wasm_memory_t* memory)
 wasm_memory_pages_t wasm_memory_size(const wasm_memory_t* memory)
 {
 	Uptr numPages = getMemoryNumPages(memory);
-	errorUnless(numPages <= UINT32_MAX);
-	return U32(numPages);
+	errorUnless(numPages <= WASM_MEMORY_PAGES_MAX);
+	return wasm_memory_pages_t(numPages);
 }
 bool wasm_memory_grow(wasm_memory_t* memory,
 					  wasm_memory_pages_t delta,
 					  wasm_memory_pages_t* out_previous_size)
 {
-	Iptr result = growMemory(memory, delta);
-	if(result == -1) { return false; }
+	Uptr oldNumPages = 0;
+	if(!growMemory(memory, delta, &oldNumPages)) { return false; }
 	else
 	{
-		errorUnless(result <= UINT32_MAX);
-		if(out_previous_size) { *out_previous_size = U32(result); }
+		errorUnless(oldNumPages <= WASM_MEMORY_PAGES_MAX);
+		if(out_previous_size) { *out_previous_size = wasm_memory_pages_t(oldNumPages); }
 		return true;
 	}
 }

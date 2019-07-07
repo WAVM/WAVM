@@ -10,6 +10,7 @@ set(Sources
 	Memory.cpp
 	Module.cpp
 	ObjectGC.cpp
+	ResourceQuota.cpp
 	Runtime.cpp
 	RuntimePrivate.h
 	Table.cpp

@@ -54,10 +54,16 @@ namespace WAVM { namespace Runtime {
 		mutable Platform::Mutex resizingMutex;
 		std::atomic<Uptr> numElements{0};
 
-		Table(Compartment* inCompartment, const IR::TableType& inType, std::string&& inDebugName)
+		ResourceQuotaRef resourceQuota;
+
+		Table(Compartment* inCompartment,
+			  const IR::TableType& inType,
+			  std::string&& inDebugName,
+			  ResourceQuotaRefParam inResourceQuota)
 		: GCObject(ObjectKind::table, inCompartment)
 		, type(inType)
 		, debugName(std::move(inDebugName))
+		, resourceQuota(inResourceQuota)
 		{
 		}
 		~Table() override;
@@ -81,10 +87,16 @@ namespace WAVM { namespace Runtime {
 		mutable Platform::Mutex resizingMutex;
 		std::atomic<Uptr> numPages{0};
 
-		Memory(Compartment* inCompartment, const IR::MemoryType& inType, std::string&& inDebugName)
+		ResourceQuotaRef resourceQuota;
+
+		Memory(Compartment* inCompartment,
+			   const IR::MemoryType& inType,
+			   std::string&& inDebugName,
+			   ResourceQuotaRefParam inResourceQuota)
 		: GCObject(ObjectKind::memory, inCompartment)
 		, type(inType)
 		, debugName(std::move(inDebugName))
+		, resourceQuota(inResourceQuota)
 		{
 		}
 		~Memory() override;
@@ -174,6 +186,8 @@ namespace WAVM { namespace Runtime {
 
 		const std::shared_ptr<LLVMJIT::Module> jitModule;
 
+		ResourceQuotaRef resourceQuota;
+
 		ModuleInstance(Compartment* inCompartment,
 					   Uptr inID,
 					   HashMap<std::string, Object*>&& inExportMap,
@@ -187,7 +201,8 @@ namespace WAVM { namespace Runtime {
 					   DataSegmentVector&& inPassiveDataSegments,
 					   ElemSegmentVector&& inPassiveElemSegments,
 					   std::shared_ptr<LLVMJIT::Module>&& inJITModule,
-					   std::string&& inDebugName)
+					   std::string&& inDebugName,
+					   ResourceQuotaRefParam inResourceQuota)
 		: GCObject(ObjectKind::moduleInstance, inCompartment)
 		, id(inID)
 		, debugName(std::move(inDebugName))
@@ -202,6 +217,7 @@ namespace WAVM { namespace Runtime {
 		, dataSegments(std::move(inPassiveDataSegments))
 		, elemSegments(std::move(inPassiveElemSegments))
 		, jitModule(std::move(inJITModule))
+		, resourceQuota(inResourceQuota)
 		{
 		}
 
@@ -241,6 +257,38 @@ namespace WAVM { namespace Runtime {
 	struct Foreign : GCObject
 	{
 		Foreign(Compartment* inCompartment) : GCObject(ObjectKind::foreign, inCompartment) {}
+	};
+
+	struct ResourceQuota
+	{
+		template<typename Value> struct CurrentAndMax
+		{
+			Value current;
+			Value max;
+
+			CurrentAndMax(Value inMax) : current{0}, max(inMax) {}
+
+			bool allocate(Value delta)
+			{
+				// Make sure the delta doesn't make current overflow.
+				if(current + delta < current) { return false; }
+
+				if(current + delta > max) { return false; }
+
+				current += delta;
+				return true;
+			}
+
+			void free(Value delta)
+			{
+				wavmAssert(current - delta < current);
+				current -= delta;
+			}
+		};
+
+		mutable Platform::Mutex mutex;
+		CurrentAndMax<Uptr> memoryPages{UINTPTR_MAX};
+		CurrentAndMax<Uptr> tableElems{UINTPTR_MAX};
 	};
 
 	WAVM_DECLARE_INTRINSIC_MODULE(wavmIntrinsics);

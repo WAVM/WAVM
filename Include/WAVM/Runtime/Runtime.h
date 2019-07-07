@@ -183,6 +183,26 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API IR::TypeTuple getExceptionTypeParameters(const ExceptionType* type);
 
 	//
+	// Resource quotas
+	//
+
+	struct ResourceQuota;
+	typedef std::shared_ptr<ResourceQuota> ResourceQuotaRef;
+	typedef std::shared_ptr<const ResourceQuota> ResourceQuotaConstRef;
+	typedef const std::shared_ptr<ResourceQuota>& ResourceQuotaRefParam;
+	typedef const std::shared_ptr<const ResourceQuota>& ResourceQuotaConstRefParam;
+
+	RUNTIME_API ResourceQuotaRef createResourceQuota();
+
+	RUNTIME_API Uptr getResourceQuotaMaxTableElems(ResourceQuotaConstRefParam);
+	RUNTIME_API Uptr getResourceQuotaCurrentTableElems(ResourceQuotaConstRefParam);
+	RUNTIME_API void setResourceQuotaMaxTableElems(ResourceQuotaRefParam, Uptr maxTableElems);
+
+	RUNTIME_API Uptr getResourceQuotaMaxMemoryPages(ResourceQuotaConstRefParam);
+	RUNTIME_API Uptr getResourceQuotaCurrentMemoryPages(ResourceQuotaConstRefParam);
+	RUNTIME_API void setResourceQuotaMaxMemoryPages(ResourceQuotaRefParam, Uptr maxMemoryPages);
+
+	//
 	// Exceptions
 	//
 
@@ -272,7 +292,8 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API Table* createTable(Compartment* compartment,
 								   IR::TableType type,
 								   Object* element,
-								   std::string&& debugName);
+								   std::string&& debugName,
+								   ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
 	// Reads an element from the table. Throws an outOfBoundsTableAccess exception if index is
 	// out-of-bounds.
@@ -289,7 +310,10 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API IR::TableType getTableType(const Table* table);
 
 	// Grows or shrinks the size of a table by numElements. Returns the previous size of the table.
-	RUNTIME_API Iptr growTable(Table* table, Uptr numElements, Object* initialElement = nullptr);
+	RUNTIME_API bool growTable(Table* table,
+							   Uptr numElements,
+							   Uptr* outOldNumElems = nullptr,
+							   Object* initialElement = nullptr);
 
 	//
 	// Memories
@@ -298,7 +322,8 @@ namespace WAVM { namespace Runtime {
 	// Creates a Memory. May return null if the memory allocation fails.
 	RUNTIME_API Memory* createMemory(Compartment* compartment,
 									 IR::MemoryType type,
-									 std::string&& debugName);
+									 std::string&& debugName,
+									 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
 	// Gets the base address of the memory's data.
 	RUNTIME_API U8* getMemoryBaseAddress(Memory* memory);
@@ -310,7 +335,7 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API IR::MemoryType getMemoryType(const Memory* memory);
 
 	// Grows or shrinks the size of a memory by numPages. Returns the previous size of the memory.
-	RUNTIME_API Iptr growMemory(Memory* memory, Uptr numPages);
+	RUNTIME_API bool growMemory(Memory* memory, Uptr numPages, Uptr* outOldNumPages = nullptr);
 
 	// Unmaps a range of memory pages within the memory's address-space.
 	RUNTIME_API void unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages);
@@ -342,7 +367,9 @@ namespace WAVM { namespace Runtime {
 	//
 
 	// Creates a Global with the specified type. The initial value is set to the appropriate zero.
-	RUNTIME_API Global* createGlobal(Compartment* compartment, IR::GlobalType type);
+	RUNTIME_API Global* createGlobal(Compartment* compartment,
+									 IR::GlobalType type,
+									 ResourceQuotaRefParam resourceQuota = ResourceQuotaRef());
 
 	// Initializes a Global with the specified value. May not be called more than once/Global.
 	RUNTIME_API void initializeGlobal(Global* global, IR::Value value);
@@ -394,7 +421,9 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API ModuleInstance* instantiateModule(Compartment* compartment,
 												  ModuleConstRefParam module,
 												  ImportBindings&& imports,
-												  std::string&& debugName);
+												  std::string&& debugName,
+												  ResourceQuotaRefParam resourceQuota
+												  = ResourceQuotaRef());
 
 	// Gets the start function of a ModuleInstance.
 	RUNTIME_API Function* getStartFunction(const ModuleInstance* moduleInstance);

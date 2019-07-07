@@ -144,7 +144,7 @@ static bool resizeHeap(Emscripten::Instance* instance, U32 desiredNumBytes)
 	const Uptr currentNumPages = Runtime::getMemoryNumPages(instance->memory);
 	if(desiredNumPages > currentNumPages)
 	{
-		if(Runtime::growMemory(instance->memory, desiredNumPages - currentNumPages) == -1)
+		if(!Runtime::growMemory(instance->memory, desiredNumPages - currentNumPages))
 		{ return false; }
 
 		return true;

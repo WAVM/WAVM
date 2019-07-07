@@ -6,7 +6,7 @@ namespace WAVM { namespace IR {
 	enum : U64
 	{
 		maxMemoryPages = 65536,
-		maxTableElems = U64(UINT32_MAX)
+		maxTableElems = U64(INT32_MAX)
 	};
 	enum : Uptr
 	{

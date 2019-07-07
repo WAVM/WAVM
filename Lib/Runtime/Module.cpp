@@ -33,8 +33,7 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	case InitializerExpression::Type::f32_const: return expression.f32;
 	case InitializerExpression::Type::f64_const: return expression.f64;
 	case InitializerExpression::Type::v128_const: return expression.v128;
-	case InitializerExpression::Type::global_get:
-	{
+	case InitializerExpression::Type::global_get: {
 		// Find the import this refers to.
 		errorUnless(expression.ref < moduleGlobals.size());
 		Global* global = moduleGlobals[expression.ref];
@@ -81,7 +80,8 @@ ModuleInstance::~ModuleInstance()
 ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 										   ModuleConstRefParam module,
 										   ImportBindings&& imports,
-										   std::string&& moduleDebugName)
+										   std::string&& moduleDebugName,
+										   ResourceQuotaRefParam resourceQuota)
 {
 	Uptr id = UINTPTR_MAX;
 	{
@@ -108,8 +108,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 
 		switch(kindIndex.kind)
 		{
-		case ExternKind::function:
-		{
+		case ExternKind::function: {
 			Function* function = asFunction(importObject);
 			const auto& importType
 				= module->ir.types[module->ir.functions.getType(kindIndex.index).index];
@@ -117,29 +116,25 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			functions.push_back(function);
 			break;
 		}
-		case ExternKind::table:
-		{
+		case ExternKind::table: {
 			Table* table = asTable(importObject);
 			errorUnless(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
 			tables.push_back(table);
 			break;
 		}
-		case ExternKind::memory:
-		{
+		case ExternKind::memory: {
 			Memory* memory = asMemory(importObject);
 			errorUnless(isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
 			memories.push_back(memory);
 			break;
 		}
-		case ExternKind::global:
-		{
+		case ExternKind::global: {
 			Global* global = asGlobal(importObject);
 			errorUnless(isSubtype(global->type, module->ir.globals.getType(kindIndex.index)));
 			globals.push_back(global);
 			break;
 		}
-		case ExternKind::exceptionType:
-		{
+		case ExternKind::exceptionType: {
 			ExceptionType* exceptionType = asExceptionType(importObject);
 			errorUnless(isSubtype(exceptionType->sig.params,
 								  module->ir.exceptionTypes.getType(kindIndex.index).params));
@@ -167,25 +162,40 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	{
 		std::string debugName
 			= disassemblyNames.tables[module->ir.tables.imports.size() + tableDefIndex];
-		auto table = createTable(
-			compartment, module->ir.tables.defs[tableDefIndex].type, nullptr, std::move(debugName));
-		if(!table) { throwException(ExceptionTypes::outOfMemory); }
+		auto table = createTable(compartment,
+								 module->ir.tables.defs[tableDefIndex].type,
+								 nullptr,
+								 std::move(debugName),
+								 resourceQuota);
+		if(!table)
+		{
+			Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+			compartment->moduleInstances.removeOrFail(id);
+			throwException(ExceptionTypes::outOfMemory);
+		}
 		tables.push_back(table);
 	}
 	for(Uptr memoryDefIndex = 0; memoryDefIndex < module->ir.memories.defs.size(); ++memoryDefIndex)
 	{
 		std::string debugName
 			= disassemblyNames.memories[module->ir.memories.imports.size() + memoryDefIndex];
-		auto memory = createMemory(
-			compartment, module->ir.memories.defs[memoryDefIndex].type, std::move(debugName));
-		if(!memory) { throwException(ExceptionTypes::outOfMemory); }
+		auto memory = createMemory(compartment,
+								   module->ir.memories.defs[memoryDefIndex].type,
+								   std::move(debugName),
+								   resourceQuota);
+		if(!memory)
+		{
+			Lock<Platform::Mutex> compartmentLock(compartment->mutex);
+			compartment->moduleInstances.removeOrFail(id);
+			throwException(ExceptionTypes::outOfMemory);
+		}
 		memories.push_back(memory);
 	}
 
 	// Instantiate the module's global definitions.
 	for(const GlobalDef& globalDef : module->ir.globals.defs)
 	{
-		Global* global = createGlobal(compartment, globalDef.type);
+		Global* global = createGlobal(compartment, globalDef.type, resourceQuota);
 		globals.push_back(global);
 
 		// Defer evaluation of globals with (ref.func ...) initializers until the module's code is
@@ -345,7 +355,8 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 														std::move(dataSegments),
 														std::move(elemSegments),
 														std::move(jitModule),
-														std::move(moduleDebugName));
+														std::move(moduleDebugName),
+														resourceQuota);
 	{
 		Lock<Platform::Mutex> compartmentLock(compartment->mutex);
 		compartment->moduleInstances[id] = moduleInstance;
@@ -473,7 +484,8 @@ ModuleInstance* Runtime::cloneModuleInstance(ModuleInstance* moduleInstance,
 														   std::move(newDataSegments),
 														   std::move(newElemSegments),
 														   std::move(jitModuleCopy),
-														   std::string(moduleInstance->debugName));
+														   std::string(moduleInstance->debugName),
+														   moduleInstance->resourceQuota);
 	{
 		Lock<Platform::Mutex> compartmentLock(newCompartment->mutex);
 		newCompartment->moduleInstances.insertOrFail(moduleInstance->id, newModuleInstance);
