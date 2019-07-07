@@ -426,7 +426,7 @@ void EmitFunctionContext::drop(IR::NoImm) { stack.pop_back(); }
 void EmitFunctionContext::select(IR::SelectImm)
 {
 	auto condition = pop();
-	auto falseValue = pop();
-	auto trueValue = pop();
+	auto falseValue = coerceToCanonicalType(pop());
+	auto trueValue = coerceToCanonicalType(pop());
 	push(irBuilder.CreateSelect(coerceI32ToBool(condition), trueValue, falseValue));
 }
