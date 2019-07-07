@@ -34,7 +34,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	module.featureSpec.maxDataSegments = 65536;
 	if(!WASM::loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
 
-#if !WAVM_ENABLE_FUZZER
+#if !WAVM_ENABLE_LIBFUZZER
 	std::string wastString = WAST::print(module);
 	Log::printf(Log::Category::debug, "Disassembly:\n%s\n", wastString.c_str());
 #endif

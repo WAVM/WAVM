@@ -45,7 +45,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	IR::Module module;
 	generateValidModule(module, random);
 
-#if !WAVM_ENABLE_FUZZER
+#if !WAVM_ENABLE_LIBFUZZER
 	std::string wastString = WAST::print(module);
 	Log::printf(Log::Category::debug, "Generated module WAST:\n%s\n", wastString.c_str());
 #endif
