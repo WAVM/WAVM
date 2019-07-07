@@ -1188,7 +1188,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 												  0,
 												  pathAddress,
 												  numPathBytes,
-												  canonicalPath);
+												  absolutePath);
 	if(pathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(pathError); }
 
 	FileInfo fileInfo;
