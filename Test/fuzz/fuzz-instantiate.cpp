@@ -33,19 +33,21 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	if(!WASM::loadBinaryModule(data, numBytes, module, Log::debug)) { return 0; }
 
 	GCPointer<Compartment> compartment = createCompartment();
-	NullResolver nullResolver;
-	StubResolver stubResolver(compartment, nullResolver, StubResolver::FunctionBehavior::zero);
-	LinkResult linkResult = linkModule(module, stubResolver);
-	if(linkResult.success)
 	{
-		catchRuntimeExceptions(
-			[&] {
-				instantiateModule(compartment,
-								  compileModule(module),
-								  std::move(linkResult.resolvedImports),
-								  "fuzz");
-			},
-			[&](Exception* exception) { destroyException(exception); });
+		NullResolver nullResolver;
+		StubResolver stubResolver(compartment, nullResolver, StubResolver::FunctionBehavior::zero);
+		LinkResult linkResult = linkModule(module, stubResolver);
+		if(linkResult.success)
+		{
+			catchRuntimeExceptions(
+				[&] {
+					instantiateModule(compartment,
+									  compileModule(module),
+									  std::move(linkResult.resolvedImports),
+									  "fuzz");
+				},
+				[&](Exception* exception) { destroyException(exception); });
+		}
 	}
 	errorUnless(tryCollectCompartment(std::move(compartment)));
 
