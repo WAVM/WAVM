@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 	if(argc < 2) { showHelp = true; }
 	else
 	{
-		for(Uptr argIndex = 1; argIndex < argc; ++argIndex)
+		for(int argIndex = 1; argIndex < argc; ++argIndex)
 		{
 			if(!strcmp(argv[argIndex], "--help")) { showHelp = true; }
 			else if(!strcmp(argv[argIndex], "--enable-quoted-names"))
