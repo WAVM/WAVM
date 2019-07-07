@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
-
+#include "FuzzTargetCommonMain.h"
 #include "ModuleMatcher.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
@@ -27,7 +27,9 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	{
 		const std::string wastString = WAST::print(module);
 
+#if !WAVM_ENABLE_LIBFUZZER
 		Log::printf(Log::debug, "%s\n", wastString.c_str());
+#endif
 
 		Module wastModule;
 		std::vector<WAST::Error> parseErrors;
@@ -44,22 +46,3 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 
 	return 0;
 }
-
-#if !WAVM_ENABLE_LIBFUZZER
-
-I32 main(int argc, char** argv)
-{
-	if(argc != 2)
-	{
-		Log::printf(Log::error, "Usage: FuzzDisassemble in.wasm\n");
-		return EXIT_FAILURE;
-	}
-	const char* inputFilename = argv[1];
-
-	std::vector<U8> wasmBytes;
-	if(!loadFile(inputFilename, wasmBytes)) { return EXIT_FAILURE; }
-
-	LLVMFuzzerTestOneInput(wasmBytes.data(), wasmBytes.size());
-	return EXIT_SUCCESS;
-}
-#endif
