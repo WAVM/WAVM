@@ -281,7 +281,7 @@ namespace WAVM { namespace Runtime {
 
 			void free(Value delta)
 			{
-				wavmAssert(current - delta < current);
+				wavmAssert(current - delta <= current);
 				current -= delta;
 			}
 		};
