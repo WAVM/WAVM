@@ -10,9 +10,6 @@ WAST_DICTIONARY=$SCRIPT_DIR/wastFuzzDictionary.txt
 
 WORKERS_PER_FUZZER=$(nproc --all)
 JOBS_PER_FUZZER=$WORKERS_PER_FUZZER
-SECONDS_PER_JOB=14400
-
-mkdir -p translated-compile-model-corpus
 
 # Build LLVM and WAVM.
 ninja -C llvm/build
@@ -22,40 +19,21 @@ ninja
 $SCRIPT_DIR/generate-seed-corpus.sh
 
 # Run the assemble fuzzer.
-$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh assemble \
-	wast-seed-corpus \
-	-jobs=$JOBS_PER_FUZZER \
-	-workers=$WORKERS_PER_FUZZER \
-	-max_total_time=$SECONDS_PER_JOB \
-	-dict=$WAST_DICTIONARY
+$SCRIPT_DIR/run-fuzz-assemble.sh
 
 # Run the disassemble fuzzer.
-$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh disassemble \
-	wasm-seed-corpus \
-	translated-compile-model-corpus \
-	-jobs=$JOBS_PER_FUZZER \
-	-workers=$WORKERS_PER_FUZZER \
-	-max_total_time=$SECONDS_PER_JOB
+$SCRIPT_DIR/run-fuzz-disassemble.sh
 
 # Run the compile model fuzzer.
-$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh compile-model \
-	-jobs=$JOBS_PER_FUZZER \
-	-workers=$WORKERS_PER_FUZZER \
-	-max_total_time=$SECONDS_PER_JOB \
-	-max_len=20 \
-	-reduce_inputs=0
+$SCRIPT_DIR/run-fuzz-compile-model.sh
 
 # Translate the compile model corpus to WASM files
 mkdir -p corpora/compile-model
+mkdir -p translated-compile-model-corpus
 rm translated-compile-model-corpus/*
 bin/translate-compile-model-corpus \
 	corpora/compile-model \
 	translated-compile-model-corpus
 
 # Run the instantiate fuzzer.
-$SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh instantiate \
-	wasm-seed-corpus \
-	translated-compile-model-corpus \
-	-jobs=$JOBS_PER_FUZZER \
-	-workers=$WORKERS_PER_FUZZER \
-	-max_total_time=$SECONDS_PER_JOB
+$SCRIPT_DIR/run-fuzz-instantiate.sh
