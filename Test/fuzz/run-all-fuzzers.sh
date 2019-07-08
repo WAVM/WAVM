@@ -47,6 +47,7 @@ $SCRIPT_DIR/run-fuzzer-and-reduce-corpus.sh compile-model \
 
 # Translate the compile model corpus to WASM files
 mkdir -p corpora/compile-model
+rm translated-compile-model-corpus/*
 bin/translate-compile-model-corpus \
 	corpora/compile-model \
 	translated-compile-model-corpus
