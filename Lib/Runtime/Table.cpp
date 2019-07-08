@@ -122,7 +122,10 @@ static bool growTableImpl(Table* table,
 		   || oldNumElements > table->type.size.max - numElementsToGrow
 		   || numElementsToGrow > IR::maxTableElems
 		   || oldNumElements > IR::maxTableElems - numElementsToGrow)
-		{ return false; }
+		{
+			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
+			return false;
+		}
 
 		// Try to commit pages for the new elements, and return -1 if the commit fails.
 		const Uptr newNumElements = oldNumElements + numElementsToGrow;
@@ -134,7 +137,10 @@ static bool growTableImpl(Table* table,
 		   && !Platform::commitVirtualPages(
 			   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
 			   newNumPlatformPages - previousNumPlatformPages))
-		{ return false; }
+		{
+			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
+			return false;
+		}
 
 		if(initializeNewElements)
 		{

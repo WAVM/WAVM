@@ -213,13 +213,19 @@ bool Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPag
 		   || oldNumPages > memory->type.size.max - numPagesToGrow
 		   || numPagesToGrow > IR::maxMemoryPages
 		   || oldNumPages > IR::maxMemoryPages - numPagesToGrow)
-		{ return false; }
+		{
+			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
+			return false;
+		}
 
 		// Try to commit the new pages, and return -1 if the commit fails.
 		if(!Platform::commitVirtualPages(
 			   memory->baseAddress + oldNumPages * IR::numBytesPerPage,
 			   numPagesToGrow << getPlatformPagesPerWebAssemblyPageLog2()))
-		{ return false; }
+		{
+			if(memory->resourceQuota) { memory->resourceQuota->memoryPages.free(numPagesToGrow); }
+			return false;
+		}
 
 		memory->numPages.store(oldNumPages + numPagesToGrow, std::memory_order_release);
 	}
