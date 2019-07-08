@@ -6,6 +6,7 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/IndexMap.h"
+#include "WAVM/Inline/Lock.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Mutex.h"
