@@ -166,11 +166,7 @@ Runtime::Memory::~Memory()
 	}
 
 	// Free the allocated quota.
-	if(resourceQuota)
-	{
-		Lock<Platform::Mutex> quotaLock(resourceQuota->mutex);
-		resourceQuota->memoryPages.free(numPages);
-	}
+	if(resourceQuota) { resourceQuota->memoryPages.free(numPages); }
 }
 
 bool Runtime::isAddressOwnedByMemory(U8* address, Memory*& outMemory, Uptr& outMemoryAddress)
@@ -205,11 +201,8 @@ bool Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPag
 	else
 	{
 		// Check the memory page quota.
-		if(memory->resourceQuota)
-		{
-			Lock<Platform::Mutex> quotaLock(memory->resourceQuota->mutex);
-			if(!memory->resourceQuota->memoryPages.allocate(numPagesToGrow)) { return false; }
-		}
+		if(memory->resourceQuota && !memory->resourceQuota->memoryPages.allocate(numPagesToGrow))
+		{ return false; }
 
 		Lock<Platform::Mutex> resizingLock(memory->resizingMutex);
 		oldNumPages = memory->numPages.load(std::memory_order_acquire);

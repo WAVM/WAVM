@@ -263,13 +263,12 @@ namespace WAVM { namespace Runtime {
 	{
 		template<typename Value> struct CurrentAndMax
 		{
-			Value current;
-			Value max;
-
 			CurrentAndMax(Value inMax) : current{0}, max(inMax) {}
 
 			bool allocate(Value delta)
 			{
+				Lock<Platform::Mutex> lock(mutex);
+
 				// Make sure the delta doesn't make current overflow.
 				if(current + delta < current) { return false; }
 
@@ -281,12 +280,33 @@ namespace WAVM { namespace Runtime {
 
 			void free(Value delta)
 			{
+				Lock<Platform::Mutex> lock(mutex);
 				wavmAssert(current - delta <= current);
 				current -= delta;
 			}
+
+			Value getCurrent() const
+			{
+				Lock<Platform::Mutex> lock(mutex);
+				return current;
+			}
+			Value getMax() const
+			{
+				Lock<Platform::Mutex> lock(mutex);
+				return max;
+			}
+			void setMax(Value newMax)
+			{
+				Lock<Platform::Mutex> lock(mutex);
+				max = newMax;
+			}
+
+		private:
+			mutable Platform::Mutex mutex;
+			Value current;
+			Value max;
 		};
 
-		mutable Platform::Mutex mutex;
 		CurrentAndMax<Uptr> memoryPages{UINTPTR_MAX};
 		CurrentAndMax<Uptr> tableElems{UINTPTR_MAX};
 	};

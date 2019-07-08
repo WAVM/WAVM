@@ -110,11 +110,8 @@ static bool growTableImpl(Table* table,
 	else
 	{
 		// Check the table element quota.
-		if(table->resourceQuota)
-		{
-			Lock<Platform::Mutex> quotaLock(table->resourceQuota->mutex);
-			if(!table->resourceQuota->tableElems.allocate(numElementsToGrow)) { return false; }
-		}
+		if(table->resourceQuota && !table->resourceQuota->tableElems.allocate(numElementsToGrow))
+		{ return false; }
 
 		Lock<Platform::Mutex> resizingLock(table->resizingMutex);
 
@@ -275,11 +272,7 @@ Table::~Table()
 	}
 
 	// Free the allocated quota.
-	if(resourceQuota)
-	{
-		Lock<Platform::Mutex> quotaLock(resourceQuota->mutex);
-		resourceQuota->tableElems.free(numElements);
-	}
+	if(resourceQuota) { resourceQuota->tableElems.free(numElements); }
 }
 
 bool Runtime::isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTableIndex)

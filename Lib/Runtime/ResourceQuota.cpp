@@ -11,37 +11,31 @@ ResourceQuotaRef Runtime::createResourceQuota() { return std::make_shared<Resour
 
 Uptr Runtime::getResourceQuotaMaxTableElems(ResourceQuotaConstRefParam resourceQuota)
 {
-	Lock<Platform::Mutex> lock(resourceQuota->mutex);
-	return resourceQuota->tableElems.max;
+	return resourceQuota->tableElems.getMax();
 }
 
 Uptr Runtime::getResourceQuotaCurrentTableElems(ResourceQuotaConstRefParam resourceQuota)
 {
-	Lock<Platform::Mutex> lock(resourceQuota->mutex);
-	return resourceQuota->tableElems.current;
+	return resourceQuota->tableElems.getCurrent();
 }
 
 void Runtime::setResourceQuotaMaxTableElems(ResourceQuotaRefParam resourceQuota, Uptr maxTableElems)
 {
-	Lock<Platform::Mutex> lock(resourceQuota->mutex);
-	resourceQuota->tableElems.max = maxTableElems;
+	resourceQuota->tableElems.setMax(maxTableElems);
 }
 
 Uptr Runtime::getResourceQuotaMaxMemoryPages(ResourceQuotaConstRefParam resourceQuota)
 {
-	Lock<Platform::Mutex> lock(resourceQuota->mutex);
-	return resourceQuota->memoryPages.max;
+	return resourceQuota->memoryPages.getMax();
 }
 
 Uptr Runtime::getResourceQuotaCurrentMemoryPages(ResourceQuotaConstRefParam resourceQuota)
 {
-	Lock<Platform::Mutex> lock(resourceQuota->mutex);
-	return resourceQuota->memoryPages.current;
+	return resourceQuota->memoryPages.getCurrent();
 }
 
 void Runtime::setResourceQuotaMaxMemoryPages(ResourceQuotaRefParam resourceQuota,
 											 Uptr maxMemoryPages)
 {
-	Lock<Platform::Mutex> lock(resourceQuota->mutex);
-	resourceQuota->memoryPages.max = maxMemoryPages;
+	resourceQuota->memoryPages.setMax(maxMemoryPages);
 }
