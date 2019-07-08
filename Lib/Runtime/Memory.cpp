@@ -169,7 +169,7 @@ Runtime::Memory::~Memory()
 	if(resourceQuota)
 	{
 		Lock<Platform::Mutex> quotaLock(resourceQuota->mutex);
-		resourceQuota->tableElems.free(numPages);
+		resourceQuota->memoryPages.free(numPages);
 	}
 }
 
