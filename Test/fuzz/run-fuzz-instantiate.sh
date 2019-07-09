@@ -8,7 +8,7 @@ SCRIPT_DIR=$WAVM_DIR/Test/fuzz
 
 WORKERS_PER_FUZZER=$(nproc --all)
 JOBS_PER_FUZZER=$WORKERS_PER_FUZZER
-SECONDS_PER_JOB=14400
+SECONDS_PER_JOB=28800
 
 mkdir -p wasm-seed-corpus
 mkdir -p translated-compile-model-corpus
