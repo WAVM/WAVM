@@ -154,12 +154,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
 	Platform::expectLeakedObject(jitModule);
 
-#if(defined(_WIN32) && !defined(_WIN64))
-	const char* thunkFunctionName = "_thunk";
-#else
-	const char* thunkFunctionName = "thunk";
-#endif
-	invokeThunkFunction = jitModule->nameToFunctionMap[thunkFunctionName];
+	invokeThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
 	return reinterpret_cast<InvokeThunkPointer>(const_cast<U8*>(invokeThunkFunction->code));
 }
 
@@ -226,11 +221,6 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	auto jitModule = new LLVMJIT::Module(objectBytes, {}, false);
 	Platform::expectLeakedObject(jitModule);
 
-#if(defined(_WIN32) && !defined(_WIN64))
-	const char* thunkFunctionName = "_thunk";
-#else
-	const char* thunkFunctionName = "thunk";
-#endif
-	intrinsicThunkFunction = jitModule->nameToFunctionMap[thunkFunctionName];
+	intrinsicThunkFunction = jitModule->nameToFunctionMap[mangleSymbol("thunk")];
 	return intrinsicThunkFunction;
 }

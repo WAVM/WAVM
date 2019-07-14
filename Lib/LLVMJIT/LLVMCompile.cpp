@@ -183,11 +183,6 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 std::unique_ptr<llvm::TargetMachine> LLVMJIT::getTargetMachine(const TargetSpec& targetSpec)
 {
 	std::string targetTriple = targetSpec.triple;
-#ifdef __APPLE__
-	// Didn't figure out exactly why, but this works around a problem with the MacOS dynamic loader.
-	// Without it, our symbols can't be found in the JITed object file.
-	targetTriple += "-elf";
-#endif
 
 	return std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
 		llvm::Triple(targetTriple), "", targetSpec.cpu, llvm::SmallVector<std::string, 0>{}));

@@ -345,6 +345,27 @@ namespace WAVM { namespace LLVMJIT {
 		return std::string(baseName) + std::to_string(index);
 	}
 
+	// Reproduces how LLVM symbols are mangled to make object symbols for the current platform.
+	inline std::string mangleSymbol(std::string&& symbol)
+	{
+#if((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
+		return std::string("_") + std::move(symbol);
+#else
+		return std::move(symbol);
+#endif
+	}
+
+	// The inverse of mangleSymbol
+	inline std::string demangleSymbol(std::string&& symbol)
+	{
+#if((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
+		wavmAssert(symbol[0] == '_');
+		return std::move(symbol).substr(1);
+#else
+		return std::move(symbol);
+#endif
+	}
+
 	// Emits LLVM IR for a module.
 	void emitModule(const IR::Module& irModule,
 					LLVMContext& llvmContext,

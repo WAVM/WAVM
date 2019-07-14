@@ -368,8 +368,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 	private:
 		llvm::JITEvaluatedSymbol findSymbolImpl(llvm::StringRef name)
 		{
-			const Uptr* symbolValue = importedSymbolMap.get(name.str());
-			if(!symbolValue) { return resolveJITImport(name); }
+			const std::string nameString = demangleSymbol(name.str());
+			const Uptr* symbolValue = importedSymbolMap.get(nameString);
+			if(!symbolValue) { return resolveJITImport(nameString); }
 			else
 			{
 				// LLVM assumes that a symbol value of zero is a symbol that wasn't resolved.
