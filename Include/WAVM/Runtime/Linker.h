@@ -84,7 +84,6 @@ namespace WAVM { namespace Runtime {
 		};
 
 		RUNTIME_API StubResolver(Compartment* inCompartment,
-								 Resolver& inInnerResolver,
 								 FunctionBehavior inFunctionBehavior = FunctionBehavior::trap,
 								 bool inLogErrorOnStubGeneration = true);
 
@@ -95,7 +94,6 @@ namespace WAVM { namespace Runtime {
 
 	private:
 		GCPointer<Compartment> compartment;
-		Resolver& innerResolver;
 		FunctionBehavior functionBehavior;
 		bool logErrorOnStubGeneration;
 	};

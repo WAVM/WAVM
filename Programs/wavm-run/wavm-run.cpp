@@ -33,7 +33,10 @@ using namespace WAVM::Runtime;
 
 struct RootResolver : Resolver
 {
+	StubResolver stubResolver;
 	HashMap<std::string, ModuleInstance*> moduleNameToInstanceMap;
+
+	RootResolver(Compartment* compartment): stubResolver(compartment) {}
 
 	bool resolve(const std::string& moduleName,
 				 const std::string& exportName,
@@ -59,7 +62,7 @@ struct RootResolver : Resolver
 			}
 		}
 
-		return false;
+		return stubResolver.resolve(moduleName, exportName, type, outObject);
 	}
 };
 
@@ -141,8 +144,7 @@ static int run(const CommandLineOptions& options)
 	// Link the module with the intrinsic modules.
 	Compartment* compartment = Runtime::createCompartment();
 	Context* context = Runtime::createContext(compartment);
-	RootResolver rootResolver;
-	StubResolver stubResolver(compartment, rootResolver);
+	RootResolver rootResolver(compartment);
 
 	Emscripten::Instance* emscriptenInstance = nullptr;
 	if(options.enableEmscripten)
@@ -166,7 +168,7 @@ static int run(const CommandLineOptions& options)
 		rootResolver.moduleNameToInstanceMap.set("threadTest", threadTestInstance);
 	}
 
-	LinkResult linkResult = linkModule(irModule, stubResolver);
+	LinkResult linkResult = linkModule(irModule, rootResolver);
 	if(!linkResult.success)
 	{
 		Log::printf(Log::error, "Failed to link module:\n");
