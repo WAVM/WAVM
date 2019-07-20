@@ -387,7 +387,7 @@ int main(int argc, char** argv)
 
 	// Log the peak memory usage.
 	Uptr peakMemoryUsage = Platform::getPeakMemoryUsageBytes();
-	Log::printf(Log::metrics, "Peak memory usage: %" PRIuPTR "KB\n", peakMemoryUsage / 1024);
+	Log::printf(Log::metrics, "Peak memory usage: %" PRIuPTR "KiB\n", peakMemoryUsage / 1024);
 
 	return result;
 }

@@ -435,8 +435,8 @@
 	visitOp(0xfdb1, f64x2_convert_i64x2_s     , "f64x2.convert_i64x2_s"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdb2, f64x2_convert_i64x2_u     , "f64x2.convert_i64x2_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 /* v128 shuffles                                                                                                                                         */ \
-	visitOp(0xfdc0, v8x16_shuffle1            , "v8x16.shuffle1"            , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-	visitOp(0xfdc1, v8x16_shuffle2_imm        , "v8x16.shuffle2_imm"        , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfdc0, v8x16_swizzle             , "v8x16.swizzle"             , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfdc1, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \
 /* Atomic wait/wake                                                                                                                                      */ \
 	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
