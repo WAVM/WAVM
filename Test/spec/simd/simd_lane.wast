@@ -254,16 +254,16 @@
 
 ;; Pass params as the lane index
 
-(assert_malformed (module (func (param i32) (result i32) (i8x16.extract_lane_s (local.get 0) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result i32) (i8x16.extract_lane_u (local.get 0) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result i32) (i16x8.extract_lane_s (local.get 0) (v128.const i16x8 0 0 0 0 0 0 0 0)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result i32) (i16x8.extract_lane_u (local.get 0) (v128.const i16x8 0 0 0 0 0 0 0 0)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result i32) (i32x4.extract_lane (local.get 0) (v128.const i32x4 0 0 0 0)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result i32) (f32x4.extract_lane (local.get 0) (v128.const f32x4 0 0 0 0)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result v128) (i8x16.replace_lane (local.get 0) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (i32.const 1)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result v128) (i16x8.replace_lane (local.get 0) (v128.const i16x8 0 0 0 0 0 0 0 0) (i32.const 1)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result v128) (i32x4.replace_lane (local.get 0) (v128.const i32x4 0 0 0 0) (i32.const 1)))) "expected i8 literal")
-(assert_malformed (module (func (param i32) (result v128) (f32x4.replace_lane (local.get 0) (v128.const f32x4 0 0 0 0) (f32.const 1.0)))) "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result i32) (i8x16.extract_lane_s (local.get 0) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result i32) (i8x16.extract_lane_u (local.get 0) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result i32) (i16x8.extract_lane_s (local.get 0) (v128.const i16x8 0 0 0 0 0 0 0 0)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result i32) (i16x8.extract_lane_u (local.get 0) (v128.const i16x8 0 0 0 0 0 0 0 0)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result i32) (i32x4.extract_lane (local.get 0) (v128.const i32x4 0 0 0 0)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result i32) (f32x4.extract_lane (local.get 0) (v128.const f32x4 0 0 0 0)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result v128) (i8x16.replace_lane (local.get 0) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0) (i32.const 1)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result v128) (i16x8.replace_lane (local.get 0) (v128.const i16x8 0 0 0 0 0 0 0 0) (i32.const 1)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result v128) (i32x4.replace_lane (local.get 0) (v128.const i32x4 0 0 0 0) (i32.const 1)))") "expected i8 literal")
+(assert_malformed (module quote "(func (param i32) (result v128) (f32x4.replace_lane (local.get 0) (v128.const f32x4 0 0 0 0) (f32.const 1.0)))") "expected i8 literal")
 
 ;; Pass non-literal as the lane index
 
