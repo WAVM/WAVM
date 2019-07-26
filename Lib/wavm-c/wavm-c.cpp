@@ -790,7 +790,7 @@ wasm_trap_t* wasm_func_call(wasm_store_t* store,
 	FunctionType functionType = getFunctionType((Function*)function);
 	auto wavmArgs = (UntaggedValue*)alloca(functionType.params().size() * sizeof(UntaggedValue));
 	for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
-	{ memcpy(&wavmArgs[argIndex], &args[argIndex], sizeof(wasm_val_t)); }
+	{ memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t)); }
 
 	try
 	{
