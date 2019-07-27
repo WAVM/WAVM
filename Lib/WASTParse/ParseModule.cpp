@@ -1199,7 +1199,7 @@ bool WAST::parseModule(const char* string,
 	freeTokens(tokens);
 	freeLineInfo(lineInfo);
 
-	Timing::logRatePerSecond("lexed and parsed WAST", timer, stringLength / 1024.0 / 1024.0, "MB");
+	Timing::logRatePerSecond("lexed and parsed WAST", timer, stringLength / 1024.0 / 1024.0, "MiB");
 
 	return outErrors.size() == 0;
 }

@@ -97,7 +97,7 @@ int main(int argc, char** argv)
 		wasmBytes = stream.getBytes();
 
 		Timing::logRatePerSecond(
-			"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MB");
+			"Serialized WASM", saveTimer, wasmBytes.size() / 1024.0 / 1024.0, "MiB");
 	}
 	catch(Serialization::FatalSerializationException const& exception)
 	{

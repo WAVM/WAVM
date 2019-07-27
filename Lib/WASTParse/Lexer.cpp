@@ -404,9 +404,9 @@ Token* WAST::lex(const char* string,
 	// Create the LineInfo object that encapsulates the line start information.
 	outLineInfo = new LineInfo{lineStarts, U32(numLineStarts)};
 
-	Timing::logRatePerSecond("lexed WAST file", timer, stringLength / 1024.0 / 1024.0, "MB");
+	Timing::logRatePerSecond("lexed WAST file", timer, stringLength / 1024.0 / 1024.0, "MiB");
 	Log::printf(Log::metrics,
-				"lexer produced %" PRIuPTR " tokens (%.1fMB)\n",
+				"lexer produced %" PRIuPTR " tokens (%.1fMiB)\n",
 				numTokens,
 				numTokens * sizeof(Token) / 1024.0 / 1024.0);
 

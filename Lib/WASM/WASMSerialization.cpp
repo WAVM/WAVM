@@ -1438,7 +1438,7 @@ bool WASM::loadBinaryModule(const void* wasmBytes,
 		Serialization::MemoryInputStream stream((const U8*)wasmBytes, numBytes);
 		WASM::serialize(stream, outModule);
 
-		Timing::logRatePerSecond("Loaded WASM", loadTimer, numBytes / 1024.0 / 1024.0, "MB");
+		Timing::logRatePerSecond("Loaded WASM", loadTimer, numBytes / 1024.0 / 1024.0, "MiB");
 		return true;
 	}
 	catch(Serialization::FatalSerializationException const& exception)

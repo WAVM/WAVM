@@ -68,7 +68,7 @@ int main(int argc, char** argv)
 	Timing::Timer printTimer;
 	const std::string wastString = WAST::print(module);
 	Timing::logRatePerSecond(
-		"Printed WAST", printTimer, F64(wastString.size()) / 1024.0 / 1024.0, "MB");
+		"Printed WAST", printTimer, F64(wastString.size()) / 1024.0 / 1024.0, "MiB");
 
 	if(!outputFilename) { Log::printf(Log::output, "%s", wastString.c_str()); }
 	else
