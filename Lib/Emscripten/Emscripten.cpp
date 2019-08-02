@@ -36,8 +36,7 @@ using namespace WAVM::Runtime;
 #define DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(module, nameString, Result, cName, ...)            \
 	WAVM_DEFINE_INTRINSIC_FUNCTION(module, nameString, Result, cName, __VA_ARGS__)                 \
 	{                                                                                              \
-		Errors::fatalf("WAVM does not yet implement the Emscripten host function '%s'",            \
-					   nameString);                                                                \
+		throwException(ExceptionTypes::calledUnimplementedIntrinsic);                              \
 	}
 
 WAVM_DEFINE_INTRINSIC_MODULE(env)
@@ -1013,7 +1012,7 @@ DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_llvm_log10_f64", F64, _llvm_log10
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_llvm_log2_f64", F64, _llvm_log2_f64, F64);
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_llvm_trap", void, _llvm_trap)
 {
-	Errors::fatal("env._llvm_trap called");
+	throwException(ExceptionTypes::calledAbort);
 }
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_llvm_trunc_f64", F64, _llvm_trunc_f64, F64);
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "_localtime_r", U32, _localtime_r, U32, U32);
