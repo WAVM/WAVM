@@ -335,3 +335,40 @@ EMIT_SIMD_SPLAT(i32x4, scalar, 4)
 EMIT_SIMD_SPLAT(i64x2, scalar, 2)
 EMIT_SIMD_SPLAT(f32x4, scalar, 4)
 EMIT_SIMD_SPLAT(f64x2, scalar, 2)
+
+#define EMIT_SIMD_NARROW(name, sourceType, intrinsicId)                                            \
+	void EmitFunctionContext::name(IR::NoImm)                                                      \
+	{                                                                                              \
+		auto right = irBuilder.CreateBitCast(pop(), sourceType);                                   \
+		auto left = irBuilder.CreateBitCast(pop(), sourceType);                                    \
+		push(callLLVMIntrinsic({}, llvm::Intrinsic::intrinsicId, {left, right}));                  \
+	}
+
+EMIT_SIMD_NARROW(i8x16_narrow_i16x8_s, llvmContext.i16x8Type, x86_sse2_packsswb_128)
+EMIT_SIMD_NARROW(i8x16_narrow_i16x8_u, llvmContext.i16x8Type, x86_sse2_packuswb_128)
+EMIT_SIMD_NARROW(i16x8_narrow_i32x4_s, llvmContext.i32x4Type, x86_sse2_packssdw_128)
+EMIT_SIMD_NARROW(i16x8_narrow_i32x4_u, llvmContext.i32x4Type, x86_sse41_packusdw)
+
+#define EMIT_SIMD_WIDEN(name, destType, sourceType, baseSourceElementIndex, numElements, extend)   \
+	void EmitFunctionContext::name(IR::NoImm)                                                      \
+	{                                                                                              \
+		auto operand = irBuilder.CreateBitCast(pop(), sourceType);                                 \
+		llvm::Value* result = llvm::UndefValue::get(destType);                                     \
+		for(Uptr index = 0; index < numElements; ++index)                                          \
+		{                                                                                          \
+			auto scalar = irBuilder.CreateExtractElement(operand, baseSourceElementIndex + index); \
+			result = irBuilder.CreateInsertElement(                                                \
+				result, extend(scalar, destType->getScalarType()), index);                         \
+		}                                                                                          \
+		push(result);                                                                              \
+	}
+
+EMIT_SIMD_WIDEN(i16x8_widen_low_i8x16_s, llvmContext.i16x8Type, llvmContext.i8x16Type, 0, 8, sext)
+EMIT_SIMD_WIDEN(i16x8_widen_high_i8x16_s, llvmContext.i16x8Type, llvmContext.i8x16Type, 8, 8, sext)
+EMIT_SIMD_WIDEN(i16x8_widen_low_i8x16_u, llvmContext.i16x8Type, llvmContext.i8x16Type, 0, 8, zext)
+EMIT_SIMD_WIDEN(i16x8_widen_high_i8x16_u, llvmContext.i16x8Type, llvmContext.i8x16Type, 8, 8, zext)
+
+EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_s, llvmContext.i32x4Type, llvmContext.i16x8Type, 0, 4, sext)
+EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_s, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, sext)
+EMIT_SIMD_WIDEN(i32x4_widen_low_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 0, 4, zext)
+EMIT_SIMD_WIDEN(i32x4_widen_high_i16x8_u, llvmContext.i32x4Type, llvmContext.i16x8Type, 4, 4, zext)

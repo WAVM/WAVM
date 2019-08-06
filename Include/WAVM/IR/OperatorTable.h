@@ -437,6 +437,19 @@
 /* v128 shuffles                                                                                                                                         */ \
 	visitOp(0xfdc0, v8x16_swizzle             , "v8x16.swizzle"             , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdc1, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \
+/* v128 integer narrow/widen conversions                                                                                                                 */ \
+	visitOp(0xfdc6, i8x16_narrow_i16x8_s      , "i8x16.narrow_i16x8_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfdc7, i8x16_narrow_i16x8_u      , "i8x16.narrow_i16x8_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfdc8, i16x8_narrow_i32x4_s      , "i16x8.narrow_i32x4_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfdc9, i16x8_narrow_i32x4_u      , "i16x8.narrow_i32x4_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
+	visitOp(0xfdca, i16x8_widen_low_i8x16_s   , "i16x8.widen_low_i8x16_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfdcb, i16x8_widen_high_i8x16_s  , "i16x8.widen_high_i8x16_s"  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfdcc, i16x8_widen_low_i8x16_u   , "i16x8.widen_low_i8x16_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfdcd, i16x8_widen_high_i8x16_u  , "i16x8.widen_high_i8x16_u"  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfdce, i32x4_widen_low_i16x8_s   , "i32x4.widen_low_i16x8_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfdcf, i32x4_widen_high_i16x8_s  , "i32x4.widen_high_i16x8_s"  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfdd0, i32x4_widen_low_i16x8_u   , "i32x4.widen_low_i16x8_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
+	visitOp(0xfdd1, i32x4_widen_high_i16x8_u  , "i32x4.widen_high_i16x8_u"  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 /* Atomic wait/wake                                                                                                                                      */ \
 	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
