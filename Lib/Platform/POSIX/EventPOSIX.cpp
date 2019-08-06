@@ -45,7 +45,7 @@ bool Platform::Event::wait(I128 waitDuration)
 	errorUnless(!pthread_mutex_lock((pthread_mutex_t*)&pthreadMutex));
 
 	int result;
-	if(waitDuration == I128::nan())
+	if(isNaN(waitDuration))
 	{
 		result = pthread_cond_wait((pthread_cond_t*)&pthreadCond, (pthread_mutex_t*)&pthreadMutex);
 	}

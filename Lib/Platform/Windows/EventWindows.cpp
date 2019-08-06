@@ -19,7 +19,7 @@ Platform::Event::~Event() { errorUnless(CloseHandle(handle)); }
 
 bool Platform::Event::wait(I128 waitDuration)
 {
-	if(waitDuration == I128::nan())
+	if(isNaN(waitDuration))
 	{
 		const U32 waitResult = WaitForSingleObject(handle, INFINITE);
 		errorUnless(waitResult == WAIT_OBJECT_0);
