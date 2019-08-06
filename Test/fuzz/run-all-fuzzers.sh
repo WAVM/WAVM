@@ -24,8 +24,8 @@ $SCRIPT_DIR/run-fuzz-compile-model.sh
 
 # Translate the compile model corpus to WASM files
 mkdir -p corpora/compile-model
+rm -rf translated-compile-model-corpus
 mkdir -p translated-compile-model-corpus
-rm translated-compile-model-corpus/*
 bin/translate-compile-model-corpus \
 	corpora/compile-model \
 	translated-compile-model-corpus
