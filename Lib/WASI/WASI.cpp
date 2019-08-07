@@ -13,6 +13,7 @@
 #include "WAVM/Platform/Random.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Intrinsics.h"
+#include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
 
@@ -24,11 +25,6 @@ using namespace WAVM::WASI;
 namespace WAVM { namespace WASI {
 	WAVM_DEFINE_INTRINSIC_MODULE(wasi);
 }}
-
-struct ExitException
-{
-	__wasi_exitcode_t exitCode;
-};
 
 bool ProcessResolver::resolve(const std::string& moduleName,
 							  const std::string& exportName,
@@ -177,30 +173,25 @@ WASI::Process::~Process()
 		}
 	}
 
-	context = nullptr;
 	memory = nullptr;
-	moduleInstance = nullptr;
 	resolver.moduleNameToInstanceMap.clear();
 	errorUnless(tryCollectCompartment(std::move(compartment)));
 }
 
-WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
-						  std::vector<std::string>&& inArgs,
-						  std::vector<std::string>&& inEnvs,
-						  VFS::FileSystem* fileSystem,
-						  VFS::VFD* stdIn,
-						  VFS::VFD* stdOut,
-						  VFS::VFD* stdErr,
-						  I32& outExitCode)
+std::shared_ptr<Process> WASI::createProcess(std::vector<std::string>&& inArgs,
+											 std::vector<std::string>&& inEnvs,
+											 VFS::FileSystem* fileSystem,
+											 VFS::VFD* stdIn,
+											 VFS::VFD* stdOut,
+											 VFS::VFD* stdErr)
 {
-	Process* process = new Process;
+	std::shared_ptr<Process> process = std::make_shared<Process>();
 	process->args = std::move(inArgs);
 	process->envs = std::move(inEnvs);
 	process->fileSystem = fileSystem;
 
 	process->compartment = createCompartment();
-	setUserData(process->compartment, process, nullptr);
-	process->context = createContext(process->compartment);
+	setUserData(process->compartment, process.get(), nullptr);
 
 	process->resolver.moduleNameToInstanceMap.set(
 		"wasi_unstable",
@@ -241,65 +232,21 @@ WASI::RunResult WASI::run(Runtime::ModuleConstRefParam module,
 
 	process->processClockOrigin = Platform::getProcessClock();
 
-	const IR::Module& moduleIR = getModuleIR(module);
-	LinkResult linkResult = linkModule(moduleIR, process->resolver);
+	return process;
+}
 
-	if(!linkResult.success)
-	{
-		for(const auto& missingImport : linkResult.missingImports)
-		{
-			Log::printf(Log::debug,
-						"Couldn't resolve import %s.%s : %s\n",
-						missingImport.moduleName.c_str(),
-						missingImport.exportName.c_str(),
-						asString(missingImport.type).c_str());
-		}
-		delete process;
-		return RunResult::linkError;
-	}
+Compartment* WASI::getProcessCompartment(const std::shared_ptr<Process>& process)
+{
+	return process->compartment;
+}
+Resolver* WASI::getProcessResolver(const std::shared_ptr<Process>& process)
+{
+	return &process->resolver;
+}
 
-	process->moduleInstance = instantiateModule(
-		process->compartment, module, std::move(linkResult.resolvedImports), "<main module>");
+Memory* WASI::getProcessMemory(const std::shared_ptr<Process>& process) { return process->memory; }
 
-	try
-	{
-		process->memory = asMemoryNullable(getInstanceExport(process->moduleInstance, "memory"));
-		if(!process->memory)
-		{
-			delete process;
-			return RunResult::doesNotExportMemory;
-		}
-
-		Function* startFunction = getStartFunction(process->moduleInstance);
-		if(startFunction) { invokeFunctionChecked(process->context, startFunction, {}); }
-
-		Function* mainFunction
-			= asFunctionNullable(getInstanceExport(process->moduleInstance, "_start"));
-		if(!mainFunction)
-		{
-			delete process;
-			return RunResult::noStartFunction;
-		}
-
-		if(getFunctionType(mainFunction) != FunctionType())
-		{
-			Log::printf(Log::Category::debug,
-						"WASI module exported _start : %s but expected _start : %s.\n",
-						asString(getFunctionType(mainFunction)).c_str(),
-						asString(FunctionType()).c_str());
-			delete process;
-			return RunResult::mistypedStartFunction;
-		}
-
-		invokeFunctionChecked(process->context, mainFunction, {});
-		outExitCode = 0;
-	}
-	catch(const ExitException& exitException)
-	{
-		outExitCode = exitException.exitCode;
-	}
-
-	delete process;
-
-	return RunResult::success;
+void WASI::setProcessMemory(const std::shared_ptr<Process>& process, Memory* memory)
+{
+	process->memory = memory;
 }

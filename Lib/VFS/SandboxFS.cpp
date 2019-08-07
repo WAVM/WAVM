@@ -1,4 +1,5 @@
 #include "WAVM/VFS/SandboxFS.h"
+#include <memory>
 #include <string>
 #include "WAVM/Inline/I128.h"
 #include "WAVM/VFS/VFS.h"
@@ -67,7 +68,8 @@ private:
 	}
 };
 
-FileSystem* VFS::makeSandboxFS(FileSystem* innerFS, const std::string& innerRootPath)
+std::shared_ptr<FileSystem> VFS::makeSandboxFS(FileSystem* innerFS,
+											   const std::string& innerRootPath)
 {
-	return new SandboxFS(innerFS, innerRootPath);
+	return std::make_shared<SandboxFS>(innerFS, innerRootPath);
 }

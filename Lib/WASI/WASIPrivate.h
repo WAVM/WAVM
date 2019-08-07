@@ -95,9 +95,7 @@ namespace WAVM { namespace WASI {
 	struct Process
 	{
 		Runtime::GCPointer<Runtime::Compartment> compartment;
-		Runtime::GCPointer<Runtime::Context> context;
 		Runtime::GCPointer<Runtime::Memory> memory;
-		Runtime::GCPointer<Runtime::ModuleInstance> moduleInstance;
 		std::vector<std::string> args;
 		std::vector<std::string> envs;
 

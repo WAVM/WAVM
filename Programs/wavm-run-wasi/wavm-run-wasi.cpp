@@ -1,10 +1,10 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
@@ -106,7 +106,7 @@ static int run(const CommandLineOptions& options)
 
 	// If a directory to mount as the root filesystem was passed on the command-line, create a
 	// SandboxFS for it.
-	VFS::FileSystem* sandboxFS = nullptr;
+	std::shared_ptr<VFS::FileSystem> sandboxFS = nullptr;
 	if(options.rootMountPath)
 	{
 		std::string rootPath;
@@ -123,38 +123,80 @@ static int run(const CommandLineOptions& options)
 	std::vector<std::string> args = options.args;
 	args.insert(args.begin(), "/proc/1/exe");
 
-	I32 exitCode = 0;
-	Timing::Timer executionTimer;
-	WASI::RunResult result = WASI::run(module,
-									   std::move(args),
-									   {},
-									   sandboxFS,
-									   Platform::getStdFD(Platform::StdDevice::in),
-									   Platform::getStdFD(Platform::StdDevice::out),
-									   Platform::getStdFD(Platform::StdDevice::err),
-									   exitCode);
-	executionTimer.stop();
-	if(sandboxFS) { delete sandboxFS; }
+	// Create the process.
+	std::shared_ptr<WASI::Process> process
+		= WASI::createProcess(std::move(args),
+							  {},
+							  sandboxFS.get(),
+							  Platform::getStdFD(Platform::StdDevice::in),
+							  Platform::getStdFD(Platform::StdDevice::out),
+							  Platform::getStdFD(Platform::StdDevice::err));
+	Compartment* compartment = WASI::getProcessCompartment(process);
+	Resolver* resolver = WASI::getProcessResolver(process);
 
-	switch(result)
+	// Instantiate the executable module in the process.
+	LinkResult linkResult = linkModule(irModule, *resolver);
+	if(!linkResult.success)
 	{
-	case WASI::RunResult::success:
-		Timing::logTimer("Executed WASI program", executionTimer);
-		return exitCode;
-	case WASI::RunResult::linkError:
-		Log::printf(Log::error, "WASM module is unlinkable.\n");
+		for(const auto& missingImport : linkResult.missingImports)
+		{
+			Log::printf(Log::error,
+						"Couldn't resolve import %s.%s : %s\n",
+						missingImport.moduleName.c_str(),
+						missingImport.exportName.c_str(),
+						asString(missingImport.type).c_str());
+		}
 		return EXIT_FAILURE;
-	case WASI::RunResult::noStartFunction:
+	}
+
+	ModuleInstance* moduleInstance = instantiateModule(
+		compartment, module, std::move(linkResult.resolvedImports), options.filename);
+	wavmAssert(moduleInstance);
+
+	// Take the module's memory as the WASI process memory.
+	Memory* memory = asMemoryNullable(getInstanceExport(moduleInstance, "memory"));
+	if(!memory)
+	{
+		Log::printf(Log::error, "WASM module doesn't export WASI memory.\n");
+		return EXIT_FAILURE;
+	}
+	WASI::setProcessMemory(process, memory);
+
+	// Find and validate the WASI start function that is exported by the executable module.
+	Function* wasiStartFunction = asFunctionNullable(getInstanceExport(moduleInstance, "_start"));
+	if(!wasiStartFunction)
+	{
 		Log::printf(Log::error, "WASM module doesn't export WASI _start function.\n");
 		return EXIT_FAILURE;
-	case WASI::RunResult::mistypedStartFunction:
+	}
+	if(getFunctionType(wasiStartFunction) != FunctionType())
+	{
 		Log::printf(Log::error,
-					"WASM module exports a _start function, but it is not the correct type.\n.");
+					"WASI module exported _start : %s but expected _start : %s.\n",
+					asString(getFunctionType(wasiStartFunction)).c_str(),
+					asString(FunctionType()).c_str());
 		return EXIT_FAILURE;
-	case WASI::RunResult::doesNotExportMemory:
-		Log::printf(Log::error, "WASM module does not export a memory.\n");
-		return EXIT_FAILURE;
-	default: WAVM_UNREACHABLE();
+	}
+
+	// Create an execution context to run WASM code in.
+	Context* context = createContext(compartment);
+
+	try
+	{
+		// Call the module instance's WASM start function if it has one.
+		Function* wasmStartFunction = getStartFunction(moduleInstance);
+		if(wasmStartFunction) { invokeFunctionChecked(context, wasmStartFunction, {}); }
+
+		// Call the WASI start function.
+		invokeFunctionChecked(context, wasiStartFunction, {});
+
+		return EXIT_SUCCESS;
+	}
+	catch(const WASI::ExitException& exitException)
+	{
+		// If either the WASM or WASI start functions call the WASI exit API, they will throw a
+		// WASI::ExitException. Catch it here, and return the exit code.
+		return int(exitException.exitCode);
 	}
 }
 
