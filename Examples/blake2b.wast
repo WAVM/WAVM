@@ -6,6 +6,7 @@
 	(import "env" "memory" (memory 4096))
 	(import "env" "DYNAMICTOP_PTR" (global $DYNAMICTOP_PTR i32))
 	(import "threadTest" "createThread" (func $threadTest.createThread (param funcref i32) (result i64)))
+	(import "threadTest" "detachThread" (func $threadTest.detachThread (param i64)))
 	(export "main" (func $main))
 	
 	(global $numThreads i32 (i32.const 8))
@@ -1321,7 +1322,9 @@
 		(i32.atomic.store (global.get $numPendingThreadsAddress) (global.get $numThreads))
 		(local.set $i (i32.const 0))
 		loop $threadLoop
-			(drop (call $threadTest.createThread (ref.func $threadEntry) (local.get $i)))
+			(call $threadTest.detachThread
+				(call $threadTest.createThread (ref.func $threadEntry) (local.get $i))
+				)
 			(local.set $i (i32.add (local.get $i) (i32.const 1)))
 			(br_if $threadLoop (i32.lt_u (local.get $i) (global.get $numThreads)))
 		end
