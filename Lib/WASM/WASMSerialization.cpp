@@ -942,7 +942,9 @@ static void serializeFunctionBody(InputStream& sectionStream,
 			irEncoderStream.select(imm);
 			break;
 		}
-		default: throw FatalSerializationException("unknown opcode");
+		default:
+			throw FatalSerializationException(std::string("unknown opcode (")
+											  + std::to_string(Uptr(opcode)) + ")");
 		};
 	};
 	codeValidationStream.finish();
@@ -1461,3 +1463,4 @@ bool WASM::loadBinaryModule(const void* wasmBytes,
 		return false;
 	}
 }
+
