@@ -230,7 +230,7 @@
 /* Reference type operators                                                                                                                                   */ \
 	visitOp(0x00d0, ref_null                  , "ref.null"                  , NoImm                     , WAVM_NULLARY(nullref)     , referenceTypes         )   \
 	visitOp(0x00d1, ref_is_null               , "ref.is_null"               , NoImm                     , WAVM_UNARY(anyref,i32)    , referenceTypes         )   \
-	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionImm               , WAVM_NULLARY(funcref)     , functionRefInstruction )   \
+	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionImm               , WAVM_NULLARY(funcref)     , referenceTypes         )   \
 /* Saturating float->int truncation operators                                                                                                                 */ \
 	visitOp(0xfc00, i32_trunc_sat_f32_s       , "i32.trunc_sat_f32_s"       , NoImm                     , WAVM_UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc01, i32_trunc_sat_f32_u       , "i32.trunc_sat_f32_u"       , NoImm                     , WAVM_UNARY(f32,i32)       , nonTrappingFloatToInt  )   \

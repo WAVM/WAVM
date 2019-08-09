@@ -38,7 +38,6 @@ namespace WAVM { namespace IR {
 
 		// WAVM-specific extensions
 		bool sharedTables = true;
-		bool functionRefInstruction = true;
 		bool requireSharedFlagForAtomicOperators = false; // (true is standard)
 		bool allowLegacyOperatorNames = true;
 
