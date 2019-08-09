@@ -823,8 +823,8 @@ static I64 threadMain(void* sharedStateVoid)
 		TestScriptState testScriptState(sharedState->config);
 		std::vector<std::unique_ptr<Command>> testCommands;
 
-		// Use a WebAssembly standard-compliant feature spec.
-		FeatureSpec featureSpec;
+		// Use a WebAssembly standard-compliant feature spec that includes all proposed extensions.
+		FeatureSpec featureSpec(true);
 		featureSpec.requireSharedFlagForAtomicOperators = true;
 
 		// Parse the test script.

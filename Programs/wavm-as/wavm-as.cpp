@@ -68,7 +68,7 @@ int main(int argc, char** argv)
 	}
 
 	// Load the WAST module.
-	IR::Module module;
+	IR::Module module(IR::FeatureSpec(true));
 	module.featureSpec.extendedNamesSection = !omitExtendedNames;
 	if(!loadTextModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 

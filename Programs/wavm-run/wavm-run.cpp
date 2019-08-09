@@ -174,19 +174,38 @@ static void showHelp()
 				"  <program file>        The WebAssembly module (.wast/.wasm) to run\n"
 				"  [program arguments]   The arguments to pass to the WebAssembly function\n"
 				"\n"
-				"  [options]:\n"
-				"  -h|--help             Display this message\n"
-				"  -d|--debug            Write additional debug information to stdout\n"
-				"  -f|--function name    Specify function name to run in module (default:main)\n"
-				"  --enable-thread-test  Enable ThreadTest intrinsics\n"
-				"  --precompiled         Use precompiled object code in programfile\n"
-				"  --metrics             Write benchmarking information to stdout\n"
-				"  --sys=<system>        Specifies the system to host the module:\n"
-				"                        bare, emscripten, or wasi. The default is to detect\n"
-				"                        the system based on the module imports/exports.\n"
-				"  --mount-root=<dir>    Mounts <dir> as the WASI root directory\n"
-				"  --wasi-trace=<level>  Sets the level of WASI tracing:\n"
-				"                        syscalls or syscalls-with-callstacks\n");
+				"Options:\n"
+				"  -h|--help              Display this message\n"
+				"  -d|--debug             Write additional debug information to stdout\n"
+				"  -f|--function name     Specify function name to run in module (default:main)\n"
+				"  --precompiled          Use precompiled object code in programfile\n"
+				"  --metrics              Write benchmarking information to stdout\n"
+				"  --enable <feature>     Enables the specified feature. See the list of\n"
+				"                         supported features below.\n"
+				"  --sys=<system>         Specifies the system to host the module. See the list\n"
+				"                         of supported sytems below. The default is to detect\n"
+				"                         the system based on the module imports/exports.\n"
+				"  --mount-root=<dir>     Mounts <dir> as the WASI root directory\n"
+				"  --wasi-trace=<level>   Sets the level of WASI tracing:\n"
+				"                         - syscalls\n"
+				"                         - syscalls-with-callstacks\n"
+				"\n"
+				"Systems:\n"
+				"  bare                   A minimal runtime system.\n"
+				"  emscripten             A system that emulates the Emscripten runtime.\n"
+				"  wasi                   A system that implements the WASI ABI.\n"
+				"\n"
+				"Features:\n"
+				"  prestd-*               All \"pre-standard\" WebAssembly extensions.\n"
+				"  prestd-simd            WebAssembly SIMD extension.\n"
+				"  prestd-atomics         WebAssembly atomics extension.\n"
+				"  prestd-eh              WebAssembly exception handling extension.\n"
+				"  prestd-nontrappingf2i  WebAssembly non-trapping float-to-int extension.\n"
+				"  prestd-signextension   WebAssembly extended sign extension extension.\n"
+				"  prestd-multivalue      WebAssembly multi-value extension.\n"
+				"  prestd-bulkmemoryops   WebAssembly bulk memory ops extension.\n"
+				"  prestd-reftypes        WebAssembly reference types extension.\n"
+				"  wavm-threadtest        WAVM thread test intrinsics: not for production use.\n");
 }
 
 template<Uptr numPrefixChars>
@@ -205,6 +224,8 @@ enum class System
 
 struct State
 {
+	IR::FeatureSpec featureSpec{false};
+
 	// Command-line options.
 	const char* filename = nullptr;
 	const char* functionName = nullptr;
@@ -282,9 +303,52 @@ struct State
 					return false;
 				}
 			}
-			else if(!strcmp(*nextArg, "--enable-thread-test"))
+			else if(!strcmp(*nextArg, "--enable"))
 			{
-				enableThreadTest = true;
+				++nextArg;
+				if(!*nextArg)
+				{
+					Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+					return false;
+				}
+
+				if(!strcmp(*nextArg, "prestd-*"))
+				{
+					featureSpec.setPreStandardizationFeatures(true);
+				}
+				else if(!strcmp(*nextArg, "prestd-simd"))
+				{
+					featureSpec.simd = true;
+				}
+				else if(!strcmp(*nextArg, "prestd-atomics"))
+				{
+					featureSpec.atomics = true;
+				}
+				else if(!strcmp(*nextArg, "prestd-eh"))
+				{
+					featureSpec.exceptionHandling = true;
+				}
+				else if(!strcmp(*nextArg, "prestd-multivalue"))
+				{
+					featureSpec.multipleResultsAndBlockParams = true;
+				}
+				else if(!strcmp(*nextArg, "prestd-bulkmemoryops"))
+				{
+					featureSpec.bulkMemoryOperations = true;
+				}
+				else if(!strcmp(*nextArg, "prestd-reftypes"))
+				{
+					featureSpec.referenceTypes = true;
+				}
+				else if(!strcmp(*nextArg, "wavm-threadtest"))
+				{
+					enableThreadTest = true;
+				}
+				else
+				{
+					Log::printf(Log::error, "Unknown feature '%s'.\n", *nextArg);
+					return false;
+				}
 			}
 			else if(!strcmp(*nextArg, "--precompiled"))
 			{
@@ -428,7 +492,7 @@ struct State
 		if(!parseCommandLine(argv)) { return EXIT_FAILURE; }
 
 		// Load the module.
-		IR::Module irModule;
+		IR::Module irModule(featureSpec);
 		if(!loadModule(filename, irModule)) { return EXIT_FAILURE; }
 
 		// Compile the module.

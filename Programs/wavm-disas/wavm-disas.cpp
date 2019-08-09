@@ -60,7 +60,7 @@ int main(int argc, char** argv)
 	}
 
 	// Load the WASM file.
-	IR::Module module;
+	IR::Module module(IR::FeatureSpec(true));
 	module.featureSpec.quotedNamesInTextFormat = enableQuotedNames;
 	if(!loadBinaryModuleFromFile(inputFilename, module)) { return EXIT_FAILURE; }
 

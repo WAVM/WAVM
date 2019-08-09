@@ -274,9 +274,7 @@ namespace WAVM { namespace IR {
 
 		Uptr startFunctionIndex;
 
-		Module() : startFunctionIndex(UINTPTR_MAX) {}
-
-		Module(const FeatureSpec& inFeatureSpec)
+		Module(const FeatureSpec& inFeatureSpec = FeatureSpec())
 		: featureSpec(inFeatureSpec), startFunctionIndex(UINTPTR_MAX)
 		{
 		}

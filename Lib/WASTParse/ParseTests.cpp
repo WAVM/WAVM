@@ -456,8 +456,7 @@ static Command* parseCommand(CursorState* cursor, const IR::FeatureSpec& feature
 				++cursor->nextToken;
 
 				std::string internalModuleName;
-				Module module;
-				module.featureSpec = featureSpec;
+				Module module(featureSpec);
 				ParseState* outerParseState = cursor->parseState;
 				ParseState malformedModuleParseState(outerParseState->string,
 													 outerParseState->lineInfo);
