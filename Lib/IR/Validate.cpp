@@ -40,25 +40,31 @@ using namespace WAVM::IR;
 
 static void validate(const IR::FeatureSpec& featureSpec, IR::ValueType valueType)
 {
-	bool isValid;
 	switch(valueType)
 	{
 	case ValueType::i32:
 	case ValueType::i64:
 	case ValueType::f32:
-	case ValueType::f64: isValid = featureSpec.mvp; break;
-	case ValueType::v128: isValid = featureSpec.simd; break;
+	case ValueType::f64: wavmAssert(featureSpec.mvp); break;
+	case ValueType::v128:
+		if(!featureSpec.simd)
+		{ throw ValidationException("v128 value type requires simd feature"); }
+		break;
 	case ValueType::anyref:
-	case ValueType::funcref: isValid = featureSpec.referenceTypes; break;
+	case ValueType::funcref:
+		if(!featureSpec.referenceTypes)
+		{
+			throw ValidationException(std::string(asString(valueType))
+									  + " value type requires reference types feature");
+		}
+		break;
 
 	case ValueType::none:
 	case ValueType::any:
 	case ValueType::nullref:
-	default: isValid = false;
+	default:
+		throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")");
 	};
-
-	if(!isValid)
-	{ throw ValidationException("invalid value type (" + std::to_string((Uptr)valueType) + ")"); }
 }
 
 static void validate(SizeConstraints size, U64 maxMax)
