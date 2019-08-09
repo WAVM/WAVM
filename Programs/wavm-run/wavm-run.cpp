@@ -511,8 +511,8 @@ struct State
 							"'%s' expects %" PRIuPTR " argument(s), but command line had %" PRIuPTR
 							".\n",
 							functionName,
-							functionType.params().size(),
-							runArgs.size());
+							Uptr(functionType.params().size()),
+							Uptr(runArgs.size()));
 				return EXIT_FAILURE;
 			}
 
