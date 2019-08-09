@@ -38,6 +38,6 @@ namespace WAVM { namespace Emscripten {
 										  const IR::Module& module,
 										  Runtime::ModuleInstance* moduleInstance);
 	EMSCRIPTEN_API void injectCommandArgs(Emscripten::Instance* instance,
-										  const std::vector<const char*>& argStrings,
+										  const std::vector<std::string>& argStrings,
 										  std::vector<IR::Value>& outInvokeArgs);
 }}

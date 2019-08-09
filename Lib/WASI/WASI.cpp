@@ -172,13 +172,10 @@ WASI::Process::~Process()
 			Log::printf(Log::Category::debug, "Error while closing file because of process exit\n");
 		}
 	}
-
-	memory = nullptr;
-	resolver.moduleNameToInstanceMap.clear();
-	errorUnless(tryCollectCompartment(std::move(compartment)));
 }
 
-std::shared_ptr<Process> WASI::createProcess(std::vector<std::string>&& inArgs,
+std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
+											 std::vector<std::string>&& inArgs,
 											 std::vector<std::string>&& inEnvs,
 											 VFS::FileSystem* fileSystem,
 											 VFS::VFD* stdIn,
@@ -190,12 +187,12 @@ std::shared_ptr<Process> WASI::createProcess(std::vector<std::string>&& inArgs,
 	process->envs = std::move(inEnvs);
 	process->fileSystem = fileSystem;
 
-	process->compartment = createCompartment();
+	process->compartment = compartment;
 	setUserData(process->compartment, process.get(), nullptr);
 
 	process->resolver.moduleNameToInstanceMap.set(
 		"wasi_unstable",
-		Intrinsics::instantiateModule(process->compartment,
+		Intrinsics::instantiateModule(compartment,
 									  {WAVM_INTRINSIC_MODULE_REF(wasi),
 									   WAVM_INTRINSIC_MODULE_REF(wasiArgsEnvs),
 									   WAVM_INTRINSIC_MODULE_REF(wasiClocks),
@@ -235,10 +232,6 @@ std::shared_ptr<Process> WASI::createProcess(std::vector<std::string>&& inArgs,
 	return process;
 }
 
-Compartment* WASI::getProcessCompartment(const std::shared_ptr<Process>& process)
-{
-	return process->compartment;
-}
 Resolver* WASI::getProcessResolver(const std::shared_ptr<Process>& process)
 {
 	return &process->resolver;

@@ -22,15 +22,16 @@ namespace WAVM { namespace WASI {
 		U32 exitCode;
 	};
 
-	WASI_API std::shared_ptr<Process> createProcess(std::vector<std::string>&& inArgs,
+	WASI_API std::shared_ptr<Process> createProcess(Runtime::Compartment* compartment,
+													std::vector<std::string>&& inArgs,
 													std::vector<std::string>&& inEnvs,
 													VFS::FileSystem* fileSystem,
 													VFS::VFD* stdIn,
 													VFS::VFD* stdOut,
 													VFS::VFD* stdErr);
 
-	WASI_API Runtime::Compartment* getProcessCompartment(const std::shared_ptr<Process>& process);
 	WASI_API Runtime::Resolver* getProcessResolver(const std::shared_ptr<Process>& process);
+
 	WASI_API Runtime::Memory* getProcessMemory(const std::shared_ptr<Process>& process);
 	WASI_API void setProcessMemory(const std::shared_ptr<Process>& process,
 								   Runtime::Memory* memory);

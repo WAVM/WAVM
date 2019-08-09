@@ -1194,7 +1194,7 @@ void Emscripten::initializeGlobals(Emscripten::Instance* instance,
 }
 
 void Emscripten::injectCommandArgs(Emscripten::Instance* instance,
-								   const std::vector<const char*>& argStrings,
+								   const std::vector<std::string>& argStrings,
 								   std::vector<IR::Value>& outInvokeArgs)
 {
 	U8* memoryBase = getMemoryBaseAddress(instance->memory);
@@ -1203,9 +1203,9 @@ void Emscripten::injectCommandArgs(Emscripten::Instance* instance,
 		= (U32*)(memoryBase + dynamicAlloc(instance, (U32)(sizeof(U32) * (argStrings.size() + 1))));
 	for(Uptr argIndex = 0; argIndex < argStrings.size(); ++argIndex)
 	{
-		auto stringSize = strlen(argStrings[argIndex]) + 1;
+		auto stringSize = argStrings[argIndex].size() + 1;
 		auto stringMemory = memoryBase + dynamicAlloc(instance, (U32)stringSize);
-		memcpy(stringMemory, argStrings[argIndex], stringSize);
+		memcpy(stringMemory, argStrings[argIndex].c_str(), stringSize);
 		argvOffsets[argIndex] = (U32)(stringMemory - memoryBase);
 	}
 	argvOffsets[argStrings.size()] = 0;

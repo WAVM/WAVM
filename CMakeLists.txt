@@ -386,7 +386,6 @@ if(WAVM_ENABLE_RUNTIME)
 	add_subdirectory(Lib/wavm-c)
 	add_subdirectory(Programs/wavm-compile)
 	add_subdirectory(Programs/wavm-run)
-	add_subdirectory(Programs/wavm-run-wasi)
 	add_subdirectory(ThirdParty/libunwind)
 endif()
 
