@@ -933,18 +933,30 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 				= std::move(*localDisassemblyNames);
 
 			// Parse the function's code.
-			FunctionState functionState(localNameToIndexMap, functionDef, moduleState);
-			functionCursorState.functionState = &functionState;
 			const Token* validationErrorToken = firstBodyToken;
 			try
 			{
-				parseInstrSequence(&functionCursorState);
-				if(!moduleState->parseState->unresolvedErrors.size())
+				FunctionState functionState(localNameToIndexMap, functionDef, moduleState);
+				functionCursorState.functionState = &functionState;
+				try
 				{
-					validationErrorToken = functionCursorState.nextToken;
-					functionState.validatingCodeStream.end();
-					functionState.validatingCodeStream.finishValidation();
+					parseInstrSequence(&functionCursorState);
+					if(!moduleState->parseState->unresolvedErrors.size())
+					{
+						validationErrorToken = functionCursorState.nextToken;
+						functionState.validatingCodeStream.end();
+						functionState.validatingCodeStream.finishValidation();
+					}
 				}
+				catch(RecoverParseException const&)
+				{
+				}
+				catch(FatalParseException const&)
+				{
+				}
+				functionDef.code = std::move(functionState.codeByteStream.getBytes());
+				moduleState->disassemblyNames.functions[functionIndex].labels
+					= std::move(functionState.labelDisassemblyNames);
 			}
 			catch(ValidationException const& exception)
 			{
@@ -953,15 +965,6 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 							"validation error: %s",
 							exception.message.c_str());
 			}
-			catch(RecoverParseException const&)
-			{
-			}
-			catch(FatalParseException const&)
-			{
-			}
-			functionDef.code = std::move(functionState.codeByteStream.getBytes());
-			moduleState->disassemblyNames.functions[functionIndex].labels
-				= std::move(functionState.labelDisassemblyNames);
 		});
 	});
 
