@@ -201,6 +201,11 @@ namespace WAVM { namespace LLVMJIT {
 			return irBuilder.CreateTrunc(value, type);
 		}
 
+		template<int numElements> llvm::Value* splat(llvm::Value* scalar, llvm::Type*)
+		{
+			return irBuilder.CreateVectorSplat(numElements, scalar);
+		}
+
 		llvm::Value* emitSRem(IR::ValueType type, llvm::Value* left, llvm::Value* right);
 		llvm::Value* emitF64Promote(llvm::Value* operand);
 

@@ -118,6 +118,52 @@
   (func (export "f64x2.splat") (param $a f64) (result v128) (f64x2.splat (local.get $a)))
 )
 
+;; i*x*.load_splat
+
+(module
+  (memory 1)
+  (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a")
+  (func (export "i8x16.load_splat") (param $address i32) (result v128) (i8x16.load_splat offset=0 align=1 (get_local $address)))
+)
+
+(assert_return (invoke "i8x16.load_splat" (i32.const 0)) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
+(assert_return (invoke "i8x16.load_splat" (i32.const 1)) (v128.const i8x16 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1))
+(assert_return (invoke "i8x16.load_splat" (i32.const 2)) (v128.const i8x16 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2))
+(assert_return (invoke "i8x16.load_splat" (i32.const 3)) (v128.const i8x16 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3))
+
+(module
+  (memory 1)
+  (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a")
+  (func (export "i16x8.load_splat") (param $address i32) (result v128) (i16x8.load_splat offset=0 align=1 (get_local $address)))
+)
+
+(assert_return (invoke "i16x8.load_splat" (i32.const 0)) (v128.const i16x8 0x0100 0x0100 0x0100 0x0100 0x0100 0x0100 0x0100 0x0100))
+(assert_return (invoke "i16x8.load_splat" (i32.const 1)) (v128.const i16x8 0x0201 0x0201 0x0201 0x0201 0x0201 0x0201 0x0201 0x0201))
+(assert_return (invoke "i16x8.load_splat" (i32.const 2)) (v128.const i16x8 0x0302 0x0302 0x0302 0x0302 0x0302 0x0302 0x0302 0x0302))
+(assert_return (invoke "i16x8.load_splat" (i32.const 3)) (v128.const i16x8 0x0403 0x0403 0x0403 0x0403 0x0403 0x0403 0x0403 0x0403))
+
+(module
+  (memory 1)
+  (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a")
+  (func (export "i32x4.load_splat") (param $address i32) (result v128) (i32x4.load_splat offset=0 align=1 (get_local $address)))
+)
+
+(assert_return (invoke "i32x4.load_splat" (i32.const 0)) (v128.const i32x4 0x03020100 0x03020100 0x03020100 0x03020100))
+(assert_return (invoke "i32x4.load_splat" (i32.const 1)) (v128.const i32x4 0x04030201 0x04030201 0x04030201 0x04030201))
+(assert_return (invoke "i32x4.load_splat" (i32.const 2)) (v128.const i32x4 0x05040302 0x05040302 0x05040302 0x05040302))
+(assert_return (invoke "i32x4.load_splat" (i32.const 3)) (v128.const i32x4 0x06050403 0x06050403 0x06050403 0x06050403))
+
+(module
+  (memory 1)
+  (data (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a")
+  (func (export "i64x2.load_splat") (param $address i32) (result v128) (i64x2.load_splat offset=0 align=1 (get_local $address)))
+)
+
+(assert_return (invoke "i64x2.load_splat" (i32.const 0)) (v128.const i64x2 0x0706050403020100 0x0706050403020100))
+(assert_return (invoke "i64x2.load_splat" (i32.const 1)) (v128.const i64x2 0x0807060504030201 0x0807060504030201))
+(assert_return (invoke "i64x2.load_splat" (i32.const 2)) (v128.const i64x2 0x0908070605040302 0x0908070605040302))
+(assert_return (invoke "i64x2.load_splat" (i32.const 3)) (v128.const i64x2 0x0a09080706050403 0x0a09080706050403))
+
 ;; *.extract_lane*
 
 (module
