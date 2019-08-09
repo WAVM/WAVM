@@ -76,8 +76,15 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 		stubIRModule.exports.push_back({"importStub", IR::ExternKind::function, 0});
 		stubModuleNames.functions.push_back({"importStub: " + exportName, {}, {}});
 		IR::setDisassemblyNames(stubIRModule, stubModuleNames);
-		IR::validatePreCodeSections(stubIRModule);
-		IR::validatePostCodeSections(stubIRModule);
+		try
+		{
+			IR::validatePreCodeSections(stubIRModule);
+			IR::validatePostCodeSections(stubIRModule);
+		}
+		catch(const ValidationException& exception)
+		{
+			Errors::fatalf("Stub module failed validation: %s", exception.message.c_str());
+		}
 
 		// Instantiate the module and return the stub function instance.
 		auto stubModule = compileModule(stubIRModule);
