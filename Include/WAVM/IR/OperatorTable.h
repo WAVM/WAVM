@@ -61,7 +61,7 @@
 
 #define WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(visitOp)                                                                                               \
 	visitOp(0x0001, nop                , "nop"                              , NoImm                     , WAVM_NONE                 , mvp                    )   \
-/* Memory                                                                                                                                                */ \
+/* Memory                                                                                                                                                     */ \
 	visitOp(0x0028, i32_load           , "i32.load"                         , LoadOrStoreImm<2>         , WAVM_LOAD(i32)            , mvp                    )   \
 	visitOp(0x0029, i64_load           , "i64.load"                         , LoadOrStoreImm<3>         , WAVM_LOAD(i64)            , mvp                    )   \
 	visitOp(0x002a, f32_load           , "f32.load"                         , LoadOrStoreImm<2>         , WAVM_LOAD(f32)            , mvp                    )   \
@@ -87,12 +87,12 @@
 	visitOp(0x003e, i64_store32        , "i64.store32"                      , LoadOrStoreImm<2>         , WAVM_STORE(i64)           , mvp                    )   \
 	visitOp(0x003f, memory_size        , "memory.size"                      , MemoryImm                 , WAVM_NULLARY(i32)         , mvp                    )   \
 	visitOp(0x0040, memory_grow        , "memory.grow"                      , MemoryImm                 , WAVM_UNARY(i32,i32)       , mvp                    )   \
-/* Literals                                                                                                                                              */ \
+/* Literals                                                                                                                                                   */ \
 	visitOp(0x0041, i32_const          , "i32.const"                        , LiteralImm<I32>           , WAVM_NULLARY(i32)         , mvp                    )   \
 	visitOp(0x0042, i64_const          , "i64.const"                        , LiteralImm<I64>           , WAVM_NULLARY(i64)         , mvp                    )   \
 	visitOp(0x0043, f32_const          , "f32.const"                        , LiteralImm<F32>           , WAVM_NULLARY(f32)         , mvp                    )   \
 	visitOp(0x0044, f64_const          , "f64.const"                        , LiteralImm<F64>           , WAVM_NULLARY(f64)         , mvp                    )   \
-/* Comparisons                                                                                                                                           */ \
+/* Comparisons                                                                                                                                                */ \
 	visitOp(0x0045, i32_eqz            , "i32.eqz"                          , NoImm                     , WAVM_UNARY(i32,i32)       , mvp                    )   \
 	visitOp(0x0046, i32_eq             , "i32.eq"                           , NoImm                     , WAVM_BINARY(i32,i32)      , mvp                    )   \
 	visitOp(0x0047, i32_ne             , "i32.ne"                           , NoImm                     , WAVM_BINARY(i32,i32)      , mvp                    )   \
@@ -127,7 +127,7 @@
 	visitOp(0x0064, f64_gt             , "f64.gt"                           , NoImm                     , WAVM_BINARY(f64,i32)      , mvp                    )   \
 	visitOp(0x0065, f64_le             , "f64.le"                           , NoImm                     , WAVM_BINARY(f64,i32)      , mvp                    )   \
 	visitOp(0x0066, f64_ge             , "f64.ge"                           , NoImm                     , WAVM_BINARY(f64,i32)      , mvp                    )   \
-/* i32 arithmetic                                                                                                                                        */ \
+/* i32 arithmetic                                                                                                                                             */ \
 	visitOp(0x0067, i32_clz            , "i32.clz"                          , NoImm                     , WAVM_UNARY(i32,i32)       , mvp                    )   \
 	visitOp(0x0068, i32_ctz            , "i32.ctz"                          , NoImm                     , WAVM_UNARY(i32,i32)       , mvp                    )   \
 	visitOp(0x0069, i32_popcnt         , "i32.popcnt"                       , NoImm                     , WAVM_UNARY(i32,i32)       , mvp                    )   \
@@ -146,7 +146,7 @@
 	visitOp(0x0076, i32_shr_u          , "i32.shr_u"                        , NoImm                     , WAVM_BINARY(i32,i32)      , mvp                    )   \
 	visitOp(0x0077, i32_rotl           , "i32.rotl"                         , NoImm                     , WAVM_BINARY(i32,i32)      , mvp                    )   \
 	visitOp(0x0078, i32_rotr           , "i32.rotr"                         , NoImm                     , WAVM_BINARY(i32,i32)      , mvp                    )   \
-/* i64 arithmetic                                                                                                                                        */ \
+/* i64 arithmetic                                                                                                                                             */ \
 	visitOp(0x0079, i64_clz            , "i64.clz"                          , NoImm                     , WAVM_UNARY(i64,i64)       , mvp                    )   \
 	visitOp(0x007a, i64_ctz            , "i64.ctz"                          , NoImm                     , WAVM_UNARY(i64,i64)       , mvp                    )   \
 	visitOp(0x007b, i64_popcnt         , "i64.popcnt"                       , NoImm                     , WAVM_UNARY(i64,i64)       , mvp                    )   \
@@ -165,7 +165,7 @@
 	visitOp(0x0088, i64_shr_u          , "i64.shr_u"                        , NoImm                     , WAVM_BINARY(i64,i64)      , mvp                    )   \
 	visitOp(0x0089, i64_rotl           , "i64.rotl"                         , NoImm                     , WAVM_BINARY(i64,i64)      , mvp                    )   \
 	visitOp(0x008a, i64_rotr           , "i64.rotr"                         , NoImm                     , WAVM_BINARY(i64,i64)      , mvp                    )   \
-/* f32 arithmetic                                                                                                                                        */ \
+/* f32 arithmetic                                                                                                                                             */ \
 	visitOp(0x008b, f32_abs            , "f32.abs"                          , NoImm                     , WAVM_UNARY(f32,f32)       , mvp                    )   \
 	visitOp(0x008c, f32_neg            , "f32.neg"                          , NoImm                     , WAVM_UNARY(f32,f32)       , mvp                    )   \
 	visitOp(0x008d, f32_ceil           , "f32.ceil"                         , NoImm                     , WAVM_UNARY(f32,f32)       , mvp                    )   \
@@ -180,7 +180,7 @@
 	visitOp(0x0096, f32_min            , "f32.min"                          , NoImm                     , WAVM_BINARY(f32,f32)      , mvp                    )   \
 	visitOp(0x0097, f32_max            , "f32.max"                          , NoImm                     , WAVM_BINARY(f32,f32)      , mvp                    )   \
 	visitOp(0x0098, f32_copysign       , "f32.copysign"                     , NoImm                     , WAVM_BINARY(f32,f32)      , mvp                    )   \
-/* f64 arithmetic                                                                                                                                        */ \
+/* f64 arithmetic                                                                                                                                             */ \
 	visitOp(0x0099, f64_abs            , "f64.abs"                          , NoImm                     , WAVM_UNARY(f64,f64)       , mvp                    )   \
 	visitOp(0x009a, f64_neg            , "f64.neg"                          , NoImm                     , WAVM_UNARY(f64,f64)       , mvp                    )   \
 	visitOp(0x009b, f64_ceil           , "f64.ceil"                         , NoImm                     , WAVM_UNARY(f64,f64)       , mvp                    )   \
@@ -195,7 +195,7 @@
 	visitOp(0x00a4, f64_min            , "f64.min"                          , NoImm                     , WAVM_BINARY(f64,f64)      , mvp                    )   \
 	visitOp(0x00a5, f64_max            , "f64.max"                          , NoImm                     , WAVM_BINARY(f64,f64)      , mvp                    )   \
 	visitOp(0x00a6, f64_copysign       , "f64.copysign"                     , NoImm                     , WAVM_BINARY(f64,f64)      , mvp                    )   \
-/* Conversions                                                                                                                                           */ \
+/* Conversions                                                                                                                                                */ \
 	visitOp(0x00a7, i32_wrap_i64       , "i32.wrap_i64"                     , NoImm                     , WAVM_UNARY(i64,i32)       , mvp                    )   \
 	visitOp(0x00a8, i32_trunc_f32_s    , "i32.trunc_f32_s"                  , NoImm                     , WAVM_UNARY(f32,i32)       , mvp                    )   \
 	visitOp(0x00a9, i32_trunc_f32_u    , "i32.trunc_f32_u"                  , NoImm                     , WAVM_UNARY(f32,i32)       , mvp                    )   \
@@ -221,17 +221,17 @@
 	visitOp(0x00bd, i64_reinterpret_f64, "i64.reinterpret_f64"              , NoImm                     , WAVM_UNARY(f64,i64)       , mvp                    )   \
 	visitOp(0x00be, f32_reinterpret_i32, "f32.reinterpret_i32"              , NoImm                     , WAVM_UNARY(i32,f32)       , mvp                    )   \
 	visitOp(0x00bf, f64_reinterpret_i64, "f64.reinterpret_i64"              , NoImm                     , WAVM_UNARY(i64,f64)       , mvp                    )   \
-/* 8- and 16-bit sign extension operators                                                                                                                */ \
+/* 8- and 16-bit sign extension operators                                                                                                                     */ \
 	visitOp(0x00c0, i32_extend8_s             , "i32.extend8_s"             , NoImm                     , WAVM_UNARY(i32,i32)       , extendedSignExtension  )   \
 	visitOp(0x00c1, i32_extend16_s            , "i32.extend16_s"            , NoImm                     , WAVM_UNARY(i32,i32)       , extendedSignExtension  )   \
 	visitOp(0x00c2, i64_extend8_s             , "i64.extend8_s"             , NoImm                     , WAVM_UNARY(i64,i64)       , extendedSignExtension  )   \
 	visitOp(0x00c3, i64_extend16_s            , "i64.extend16_s"            , NoImm                     , WAVM_UNARY(i64,i64)       , extendedSignExtension  )   \
 	visitOp(0x00c4, i64_extend32_s            , "i64.extend32_s"            , NoImm                     , WAVM_UNARY(i64,i64)       , extendedSignExtension  )   \
-/* Reference type operators                                                                                                                              */ \
+/* Reference type operators                                                                                                                                   */ \
 	visitOp(0x00d0, ref_null                  , "ref.null"                  , NoImm                     , WAVM_NULLARY(nullref)     , referenceTypes         )   \
 	visitOp(0x00d1, ref_is_null               , "ref.is_null"               , NoImm                     , WAVM_UNARY(anyref,i32)    , referenceTypes         )   \
 	visitOp(0x00d2, ref_func                  , "ref.func"                  , FunctionImm               , WAVM_NULLARY(funcref)     , functionRefInstruction )   \
-/* Saturating float->int truncation operators                                                                                                            */ \
+/* Saturating float->int truncation operators                                                                                                                 */ \
 	visitOp(0xfc00, i32_trunc_sat_f32_s       , "i32.trunc_sat_f32_s"       , NoImm                     , WAVM_UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc01, i32_trunc_sat_f32_u       , "i32.trunc_sat_f32_u"       , NoImm                     , WAVM_UNARY(f32,i32)       , nonTrappingFloatToInt  )   \
 	visitOp(0xfc02, i32_trunc_sat_f64_s       , "i32.trunc_sat_f64_s"       , NoImm                     , WAVM_UNARY(f64,i32)       , nonTrappingFloatToInt  )   \
@@ -249,11 +249,11 @@
 	visitOp(0xfc0d, elem_drop                 , "elem.drop"                 , ElemSegmentImm            , WAVM_NONE                 , bulkMemoryOperations   )   \
 	visitOp(0xfc0e, table_copy                , "table.copy"                , TableCopyImm              , WAVM_BULKCOPY             , bulkMemoryOperations   )   \
 	visitOp(0xfc10, table_size                , "table.size"                , TableImm                  , WAVM_NULLARY(i32)         , referenceTypes         )   \
-/* v128 operators                                                                                                                                        */ \
+/* v128 operators                                                                                                                                             */ \
 	visitOp(0xfd00, v128_load                 , "v128.load"                 , LoadOrStoreImm<4>         , WAVM_LOAD(v128)           , simd                   )   \
 	visitOp(0xfd01, v128_store                , "v128.store"                , LoadOrStoreImm<4>         , WAVM_STORE(v128)          , simd                   )   \
 	visitOp(0xfd02, v128_const                , "v128.const"                , LiteralImm<V128>          , WAVM_NULLARY(v128)        , simd                   )   \
-/*  visitOp(0xfd03,                           ,                             ,                           ,                      , simd                   )*/ \
+/*  visitOp(0xfd03,                           ,                             ,                           ,                           , simd                   )*/ \
 	visitOp(0xfd04, i8x16_splat               , "i8x16.splat"               , NoImm                     , WAVM_UNARY(i32,v128)      , simd                   )   \
 	visitOp(0xfd05, i8x16_extract_lane_s      , "i8x16.extract_lane_s"      , LaneIndexImm<16>          , WAVM_UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd06, i8x16_extract_lane_u      , "i8x16.extract_lane_u"      , LaneIndexImm<16>          , WAVM_UNARY(v128,i32)      , simd                   )   \
@@ -274,7 +274,7 @@
 	visitOp(0xfd15, f64x2_splat               , "f64x2.splat"               , NoImm                     , WAVM_UNARY(f64,v128)      , simd                   )   \
 	visitOp(0xfd16, f64x2_extract_lane        , "f64x2.extract_lane"        , LaneIndexImm<2>           , WAVM_UNARY(v128,f64)      , simd                   )   \
 	visitOp(0xfd17, f64x2_replace_lane        , "f64x2.replace_lane"        , LaneIndexImm<2>           , WAVM_V_VS(v128,f64)       , simd                   )   \
-/* v128 comparisons                                                                                                                                      */ \
+/* v128 comparisons                                                                                                                                           */ \
 	visitOp(0xfd18, i8x16_eq                  , "i8x16.eq"                  , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd19, i8x16_ne                  , "i8x16.ne"                  , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd1a, i8x16_lt_s                , "i8x16.lt_s"                , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
@@ -327,13 +327,13 @@
 	visitOp(0xfd49, f64x2_gt                  , "f64x2.gt"                  , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd4a, f64x2_le                  , "f64x2.le"                  , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd4b, f64x2_ge                  , "f64x2.ge"                  , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-/* v128 bitwise                                                                                                                                          */ \
+/* v128 bitwise                                                                                                                                               */ \
 	visitOp(0xfd4c, v128_not                  , "v128.not"                  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd4d, v128_and                  , "v128.and"                  , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd4e, v128_or                   , "v128.or"                   , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd4f, v128_xor                  , "v128.xor"                  , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd50, v128_bitselect            , "v128.bitselect"            , NoImm                     , WAVM_VECTORSELECT(v128)   , simd                   )   \
-/* v128 integer arithmetic                                                                                                                               */ \
+/* v128 integer arithmetic                                                                                                                                    */ \
 	visitOp(0xfd51, i8x16_neg                 , "i8x16.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd52, i8x16_any_true            , "i8x16.any_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd53, i8x16_all_true            , "i8x16.all_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
@@ -347,10 +347,10 @@
 	visitOp(0xfd5b, i8x16_sub_saturate_s      , "i8x16.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd5c, i8x16_sub_saturate_u      , "i8x16.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd5d, i8x16_mul                 , "i8x16.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-/*	visitOp(0xfd5e,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd5f,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd60,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd61,                           ,                             ,                           ,                      , simd                   )*/ \
+/*	visitOp(0xfd5e,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd5f,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd60,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd61,                           ,                             ,                           ,                           , simd                   )*/ \
 	visitOp(0xfd62, i16x8_neg                 , "i16x8.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd63, i16x8_any_true            , "i16x8.any_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd64, i16x8_all_true            , "i16x8.all_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
@@ -364,10 +364,10 @@
 	visitOp(0xfd6c, i16x8_sub_saturate_s      , "i16x8.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd6d, i16x8_sub_saturate_u      , "i16x8.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd6e, i16x8_mul                 , "i16x8.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-/*	visitOp(0xfd6f,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd70,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd71,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd72,                           ,                             ,                           ,                      , simd                   )*/ \
+/*	visitOp(0xfd6f,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd70,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd71,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd72,                           ,                             ,                           ,                           , simd                   )*/ \
 	visitOp(0xfd73, i32x4_neg                 , "i32x4.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd74, i32x4_any_true            , "i32x4.any_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd75, i32x4_all_true            , "i32x4.all_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
@@ -381,10 +381,10 @@
 /*	visitOp(0xfd7d, i32x4_sub_saturate_s      , "i32x4.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd7e, i32x4_sub_saturate_u      , "i32x4.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 	visitOp(0xfd7f, i32x4_mul                 , "i32x4.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-/*	visitOp(0xfd80,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd81,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd82,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd83,                           ,                             ,                           ,                      , simd                   )*/ \
+/*	visitOp(0xfd80,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd81,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd82,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd83,                           ,                             ,                           ,                           , simd                   )*/ \
 	visitOp(0xfd84, i64x2_neg                 , "i64x2.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd85, i64x2_any_true            , "i64x2.any_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
 	visitOp(0xfd86, i64x2_all_true            , "i64x2.all_true"            , NoImm                     , WAVM_UNARY(v128,i32)      , simd                   )   \
@@ -398,16 +398,16 @@
 /*	visitOp(0xfd8e, i64x2_sub_saturate_s      , "i64x2.sub_saturate_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd8f, i64x2_sub_saturate_u      , "i64x2.sub_saturate_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
 /*	visitOp(0xfd90, i64x2_mul                 , "i64x2.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )*/ \
-/*	visitOp(0xfd91,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd92,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd93,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd94,                           ,                             ,                           ,                      , simd                   )*/ \
+/*	visitOp(0xfd91,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd92,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd93,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd94,                           ,                             ,                           ,                           , simd                   )*/ \
 /* v128 floating-point arithmetic                                                                                                                        */ \
 	visitOp(0xfd95, f32x4_abs                 , "f32x4.abs"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd96, f32x4_neg                 , "f32x4.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfd97, f32x4_sqrt                , "f32x4.sqrt"                , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-/*	visitOp(0xfd98,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfd99,                           ,                             ,                           ,                      , simd                   )*/ \
+/*	visitOp(0xfd98,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfd99,                           ,                             ,                           ,                           , simd                   )*/ \
 	visitOp(0xfd9a, f32x4_add                 , "f32x4.add"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd9b, f32x4_sub                 , "f32x4.sub"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfd9c, f32x4_mul                 , "f32x4.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
@@ -417,15 +417,15 @@
 	visitOp(0xfda0, f64x2_abs                 , "f64x2.abs"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfda1, f64x2_neg                 , "f64x2.neg"                 , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfda2, f64x2_sqrt                , "f64x2.sqrt"                , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-/*	visitOp(0xfda3,                           ,                             ,                           ,                      , simd                   )*/ \
-/*	visitOp(0xfda4,                           ,                             ,                           ,                      , simd                   )*/ \
+/*	visitOp(0xfda3,                           ,                             ,                           ,                           , simd                   )*/ \
+/*	visitOp(0xfda4,                           ,                             ,                           ,                           , simd                   )*/ \
 	visitOp(0xfda5, f64x2_add                 , "f64x2.add"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfda6, f64x2_sub                 , "f64x2.sub"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfda7, f64x2_mul                 , "f64x2.mul"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfda8, f64x2_div                 , "f64x2.div"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfda9, f64x2_min                 , "f64x2.min"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdaa, f64x2_max                 , "f64x2.max"                 , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
-/* v128 conversions                                                                                                                                      */ \
+/* v128 conversions                                                                                                                                           */ \
 	visitOp(0xfdab, i32x4_trunc_sat_f32x4_s   , "i32x4.trunc_sat_f32x4_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdac, i32x4_trunc_sat_f32x4_u   , "i32x4.trunc_sat_f32x4_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdad, i64x2_trunc_sat_f64x2_s   , "i64x2.trunc_sat_f64x2_s"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
@@ -434,10 +434,10 @@
 	visitOp(0xfdb0, f32x4_convert_i32x4_u     , "f32x4.convert_i32x4_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdb1, f64x2_convert_i64x2_s     , "f64x2.convert_i64x2_s"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdb2, f64x2_convert_i64x2_u     , "f64x2.convert_i64x2_u"     , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-/* v128 shuffles                                                                                                                                         */ \
+/* v128 shuffles                                                                                                                                              */ \
 	visitOp(0xfdc0, v8x16_swizzle             , "v8x16.swizzle"             , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdc1, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \
-/* v128 integer narrow/widen conversions                                                                                                                 */ \
+/* v128 integer narrow/widen conversions                                                                                                                      */ \
 	visitOp(0xfdc6, i8x16_narrow_i16x8_s      , "i8x16.narrow_i16x8_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdc7, i8x16_narrow_i16x8_u      , "i8x16.narrow_i16x8_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdc8, i16x8_narrow_i32x4_s      , "i16x8.narrow_i32x4_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
@@ -450,11 +450,11 @@
 	visitOp(0xfdcf, i32x4_widen_high_i16x8_s  , "i32x4.widen_high_i16x8_s"  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdd0, i32x4_widen_low_i16x8_u   , "i32x4.widen_low_i16x8_u"   , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
 	visitOp(0xfdd1, i32x4_widen_high_i16x8_u  , "i32x4.widen_high_i16x8_u"  , NoImm                     , WAVM_UNARY(v128,v128)     , simd                   )   \
-/* Atomic wait/wake                                                                                                                                      */ \
+/* Atomic wait/wake                                                                                                                                           */ \
 	visitOp(0xfe00, atomic_notify             , "atomic.notify"             , AtomicLoadOrStoreImm<2>   , WAVM_BINARY(i32,i32)      , atomics                )   \
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
 	visitOp(0xfe02, i64_atomic_wait           , "i64.atomic.wait"           , AtomicLoadOrStoreImm<3>   , WAVM_WAIT(i64)            , atomics                )   \
-/* Atomic load/store                                                                                                                                     */ \
+/* Atomic load/store                                                                                                                                          */ \
 	visitOp(0xfe10, i32_atomic_load           , "i32.atomic.load"           , AtomicLoadOrStoreImm<2>   , WAVM_LOAD(i32)            , atomics                )   \
 	visitOp(0xfe11, i64_atomic_load           , "i64.atomic.load"           , AtomicLoadOrStoreImm<3>   , WAVM_LOAD(i64)            , atomics                )   \
 	visitOp(0xfe12, i32_atomic_load8_u        , "i32.atomic.load8_u"        , AtomicLoadOrStoreImm<0>   , WAVM_LOAD(i32)            , atomics                )   \
@@ -469,7 +469,7 @@
 	visitOp(0xfe1b, i64_atomic_store8         , "i64.atomic.store8"         , AtomicLoadOrStoreImm<0>   , WAVM_STORE(i64)           , atomics                )   \
 	visitOp(0xfe1c, i64_atomic_store16        , "i64.atomic.store16"        , AtomicLoadOrStoreImm<1>   , WAVM_STORE(i64)           , atomics                )   \
 	visitOp(0xfe1d, i64_atomic_store32        , "i64.atomic.store32"        , AtomicLoadOrStoreImm<2>   , WAVM_STORE(i64)           , atomics                )   \
-/* Atomic read-modify-write                                                                                                                              */ \
+/* Atomic read-modify-write                                                                                                                                   */ \
 	visitOp(0xfe1e, i32_atomic_rmw_add        , "i32.atomic.rmw.add"        , AtomicLoadOrStoreImm<2>   , WAVM_ATOMICRMW(i32)       , atomics                )   \
 	visitOp(0xfe1f, i64_atomic_rmw_add        , "i64.atomic.rmw.add"        , AtomicLoadOrStoreImm<3>   , WAVM_ATOMICRMW(i64)       , atomics                )   \
 	visitOp(0xfe20, i32_atomic_rmw8_add_u     , "i32.atomic.rmw8.add_u"     , AtomicLoadOrStoreImm<0>   , WAVM_ATOMICRMW(i32)       , atomics                )   \
