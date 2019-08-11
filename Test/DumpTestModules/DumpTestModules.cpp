@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "WAVM/Emscripten/Emscripten.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"
@@ -175,37 +176,31 @@ static void showHelp()
 				"  [program arguments]   The arguments to pass to the WebAssembly function\n"
 				"\n"
 				"Options:\n"
-				"  -h|--help              Display this message\n"
-				"  -d|--debug             Write additional debug information to stdout\n"
-				"  -f|--function name     Specify function name to run in module (default:main)\n"
-				"  --precompiled          Use precompiled object code in programfile\n"
-				"  --metrics              Write benchmarking information to stdout\n"
-				"  --enable <feature>     Enables the specified feature. See the list of\n"
-				"                         supported features below.\n"
-				"  --sys=<system>         Specifies the system to host the module. See the list\n"
-				"                         of supported sytems below. The default is to detect\n"
-				"                         the system based on the module imports/exports.\n"
-				"  --mount-root=<dir>     Mounts <dir> as the WASI root directory\n"
-				"  --wasi-trace=<level>   Sets the level of WASI tracing:\n"
-				"                         - syscalls\n"
-				"                         - syscalls-with-callstacks\n"
+				"  -h|--help             Display this message\n"
+				"  -d|--debug            Write additional debug information to stdout\n"
+				"  -f|--function name    Specify function name to run in module (default:main)\n"
+				"  --precompiled         Use precompiled object code in program file\n"
+				"  --metrics             Write benchmarking information to stdout\n"
+				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
+				"                        features below.\n"
+				"  --enable-thread-test  Enable the WAVM thread testing intrinsics.\n"
+				"                        Not for production use.\n"
+				"  --sys=<system>        Specifies the system to host the module. See the list\n"
+				"                        of supported sytems below. The default is to detect\n"
+				"                        the system based on the module imports/exports.\n"
+				"  --mount-root=<dir>    Mounts <dir> as the WASI root directory\n"
+				"  --wasi-trace=<level>  Sets the level of WASI tracing:\n"
+				"                        - syscalls\n"
+				"                        - syscalls-with-callstacks\n"
 				"\n"
 				"Systems:\n"
-				"  bare                   A minimal runtime system.\n"
-				"  emscripten             A system that emulates the Emscripten runtime.\n"
-				"  wasi                   A system that implements the WASI ABI.\n"
+				"  bare        A minimal runtime system.\n"
+				"  emscripten  A system that emulates the Emscripten runtime.\n"
+				"  wasi        A system that implements the WASI ABI.\n"
 				"\n"
 				"Features:\n"
-				"  prestd-*               All \"pre-standard\" WebAssembly extensions.\n"
-				"  prestd-simd            WebAssembly SIMD extension.\n"
-				"  prestd-atomics         WebAssembly atomics extension.\n"
-				"  prestd-eh              WebAssembly exception handling extension.\n"
-				"  prestd-nontrappingf2i  WebAssembly non-trapping float-to-int extension.\n"
-				"  prestd-signextension   WebAssembly extended sign extension extension.\n"
-				"  prestd-multivalue      WebAssembly multi-value extension.\n"
-				"  prestd-bulkmemoryops   WebAssembly bulk memory ops extension.\n"
-				"  prestd-reftypes        WebAssembly reference types extension.\n"
-				"  wavm-threadtest        WAVM thread test intrinsics: not for production use.\n");
+				"%s\n",
+				getFeatureListHelpText());
 }
 
 template<Uptr numPrefixChars>
@@ -303,6 +298,10 @@ struct State
 					return false;
 				}
 			}
+			else if(!strcmp(*nextArg, "--enable-thread-test"))
+			{
+				enableThreadTest = true;
+			}
 			else if(!strcmp(*nextArg, "--enable"))
 			{
 				++nextArg;
@@ -312,39 +311,7 @@ struct State
 					return false;
 				}
 
-				if(!strcmp(*nextArg, "prestd-*"))
-				{
-					featureSpec.setPreStandardizationFeatures(true);
-				}
-				else if(!strcmp(*nextArg, "prestd-simd"))
-				{
-					featureSpec.simd = true;
-				}
-				else if(!strcmp(*nextArg, "prestd-atomics"))
-				{
-					featureSpec.atomics = true;
-				}
-				else if(!strcmp(*nextArg, "prestd-eh"))
-				{
-					featureSpec.exceptionHandling = true;
-				}
-				else if(!strcmp(*nextArg, "prestd-multivalue"))
-				{
-					featureSpec.multipleResultsAndBlockParams = true;
-				}
-				else if(!strcmp(*nextArg, "prestd-bulkmemoryops"))
-				{
-					featureSpec.bulkMemoryOperations = true;
-				}
-				else if(!strcmp(*nextArg, "prestd-reftypes"))
-				{
-					featureSpec.referenceTypes = true;
-				}
-				else if(!strcmp(*nextArg, "wavm-threadtest"))
-				{
-					enableThreadTest = true;
-				}
-				else
+				if(!parseAndSetFeature(*nextArg, featureSpec, true))
 				{
 					Log::printf(Log::error, "Unknown feature '%s'.\n", *nextArg);
 					return false;

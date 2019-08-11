@@ -2,6 +2,7 @@
 #include <vector>
 #include "FuzzTargetCommonMain.h"
 #include "RandomModule.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Config.h"
@@ -42,7 +43,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
 	RandomStream random(data, numBytes);
 
-	IR::Module module;
+	IR::Module module(FeatureSpec(true));
 	generateValidModule(module, random);
 
 #if !WAVM_ENABLE_LIBFUZZER

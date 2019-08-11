@@ -6,6 +6,7 @@
 
 #include "Lexer.h"
 #include "Parse.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"

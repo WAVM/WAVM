@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/OperatorPrinter.h"

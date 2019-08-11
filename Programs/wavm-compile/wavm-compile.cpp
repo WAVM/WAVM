@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"
@@ -53,9 +54,15 @@ static void showHelp()
 				"Usage: wavm-compile [options] <in.wast|wasm> <out.wasm>\n"
 				"  -h|--help                 Display this message\n"
 				"  --target-triple <triple>  Set the target triple (default: %s)\n"
-				"  --target-cpu    <triple>  Set the target CPU (default: %s)\n",
+				"  --target-cpu <cpu>        Set the target CPU (default: %s)\n"
+				"  --enable <feature>        Enable the specified feature. See the list of\n"
+				"                            supported features below.\n"
+				"\n"
+				"Features:\n"
+				"%s\n",
 				hostTargetSpec.triple.c_str(),
-				hostTargetSpec.cpu.c_str());
+				hostTargetSpec.cpu.c_str(),
+				getFeatureListHelpText());
 }
 
 int main(int argc, char** argv)
@@ -68,6 +75,7 @@ int main(int argc, char** argv)
 	const char* inputFilename = nullptr;
 	const char* outputFilename = nullptr;
 	LLVMJIT::TargetSpec targetSpec = LLVMJIT::getHostTargetSpec();
+	IR::FeatureSpec featureSpec;
 	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
 		if(!strcmp(argv[argIndex], "-h") || !strcmp(argv[argIndex], "--help"))
@@ -95,6 +103,21 @@ int main(int argc, char** argv)
 			++argIndex;
 			targetSpec.cpu = argv[argIndex];
 		}
+		else if(!strcmp(argv[argIndex], "--enable"))
+		{
+			++argIndex;
+			if(argIndex == argc)
+			{
+				Log::printf(Log::error, "Expected feature name following '--enable'.\n");
+				return false;
+			}
+
+			if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
+			{
+				Log::printf(Log::error, "Unknown feature '%s'.\n", argv[argIndex]);
+				return false;
+			}
+		}
 		else if(!inputFilename)
 		{
 			inputFilename = argv[argIndex];
@@ -116,10 +139,9 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	IR::Module irModule;
-
 	// Load the module IR.
-	if(!loadModule(inputFilename, irModule)) { return EXIT_FAILURE; }
+	IR::Module irModule(featureSpec);
+	if (!loadModule(inputFilename, irModule)) { return EXIT_FAILURE; }
 
 	// Compile the module's IR.
 	std::vector<U8> objectCode;

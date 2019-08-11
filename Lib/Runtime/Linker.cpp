@@ -1,4 +1,5 @@
 #include "WAVM/Runtime/Linker.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Validate.h"
 #include "WAVM/Inline/Assert.h"

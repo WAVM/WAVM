@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string>
 
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/CLI.h"

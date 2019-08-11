@@ -1,5 +1,7 @@
 #pragma once
 
+#include "WAVM/IR/FeatureSpec.h"
+#include "WAVM/IR/Module.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/WASTParse/WASTParse.h"

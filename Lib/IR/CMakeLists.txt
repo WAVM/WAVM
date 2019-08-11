@@ -1,11 +1,13 @@
 set(Sources
 	DisassemblyNames.cpp
-	Operators.cpp
+	FeatureSpec.cpp
 	FloatPrinting.cpp
+	Operators.cpp
 	Types.cpp
 	Validate.cpp)
 
 set(PublicHeaders
+	${WAVM_INCLUDE_DIR}/IR/FeatureSpec.h
 	${WAVM_INCLUDE_DIR}/IR/IR.h
 	${WAVM_INCLUDE_DIR}/IR/Module.h
 	${WAVM_INCLUDE_DIR}/IR/OperatorPrinter.h
