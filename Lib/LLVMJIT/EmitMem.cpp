@@ -293,6 +293,11 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 		 getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)})[0]);
 }
 
+void EmitFunctionContext::atomic_fence(NoImm)
+{
+	// atomic.fence is a nop until weaker atomics are added.
+}
+
 #define EMIT_ATOMIC_LOAD_OP(valueTypeId, name, llvmMemoryType, naturalAlignmentLog2, memToValue)   \
 	void EmitFunctionContext::valueTypeId##_##name(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm) \
 	{                                                                                              \
