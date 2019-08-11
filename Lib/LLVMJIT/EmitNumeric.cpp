@@ -733,25 +733,11 @@ void EmitFunctionContext::v8x16_swizzle(NoImm)
 	// uses the index modulo 16, and only writes zero if the MSB of the index is 1. Do a saturated
 	// add of 112 to set the MSB in any index >= 16 while leaving the index modulo 16 unchanged.
 	auto constant112 = llvm::ConstantInt::get(llvmContext.i8Type, 112);
-	auto saturatedIndexVector = emitAddUnsignedSaturated(irBuilder,
-														 indexVector,
-														 llvm::ConstantVector::get({constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112,
-																					constant112}),
-														 llvmContext.i8x16Type);
+	auto saturatedIndexVector
+		= emitAddUnsignedSaturated(irBuilder,
+								   indexVector,
+								   llvm::ConstantVector::getSplat(16, constant112),
+								   llvmContext.i8x16Type);
 
 	push(callLLVMIntrinsic(
 		{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
