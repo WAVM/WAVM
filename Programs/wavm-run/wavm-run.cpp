@@ -19,6 +19,7 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/Memory.h"
@@ -369,6 +370,24 @@ struct State
 		}
 
 		while(*nextArg) { runArgs.push_back(*nextArg++); };
+
+		// Check that the requested features are supported by the host CPU.
+		switch(LLVMJIT::validateTarget(LLVMJIT::getHostTargetSpec(), featureSpec))
+		{
+		case LLVMJIT::TargetValidationResult::valid: break;
+
+		case LLVMJIT::TargetValidationResult::unsupportedArchitecture:
+			Log::printf(Log::error, "Host architecture is not supported by WAVM.");
+			return false;
+		case LLVMJIT::TargetValidationResult::x86CPUDoesNotSupportSSE41:
+			Log::printf(Log::error,
+						"Host X86 CPU does not support SSE 4.1, which"
+						" WAVM requires for WebAssembly SIMD code.\n");
+			return false;
+
+		case LLVMJIT::TargetValidationResult::invalidTargetSpec:
+		default: WAVM_UNREACHABLE();
+		};
 
 		return true;
 	}

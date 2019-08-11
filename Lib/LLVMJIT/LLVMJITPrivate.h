@@ -400,6 +400,9 @@ namespace WAVM { namespace LLVMJIT {
 	};
 
 	extern std::unique_ptr<llvm::TargetMachine> getTargetMachine(const TargetSpec& targetSpec);
+	extern TargetValidationResult validateTargetMachine(
+		const std::unique_ptr<llvm::TargetMachine>& targetMachine,
+		const IR::FeatureSpec& featureSpec);
 
 	extern std::vector<U8> compileLLVMModule(LLVMContext& llvmContext,
 											 llvm::Module&& llvmModule,

@@ -109,13 +109,13 @@ int main(int argc, char** argv)
 			if(argIndex == argc)
 			{
 				Log::printf(Log::error, "Expected feature name following '--enable'.\n");
-				return false;
+				return EXIT_FAILURE;
 			}
 
 			if(!parseAndSetFeature(argv[argIndex], featureSpec, true))
 			{
 				Log::printf(Log::error, "Unknown feature '%s'.\n", argv[argIndex]);
-				return false;
+				return EXIT_FAILURE;
 			}
 		}
 		else if(!inputFilename)
@@ -139,24 +139,36 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	// Load the module IR.
-	IR::Module irModule(featureSpec);
-	if (!loadModule(inputFilename, irModule)) { return EXIT_FAILURE; }
-
-	// Compile the module's IR.
-	std::vector<U8> objectCode;
-	switch(LLVMJIT::compileModule(irModule, targetSpec, objectCode))
+	// Validate the target.
+	switch(LLVMJIT::validateTarget(targetSpec, featureSpec))
 	{
-	case LLVMJIT::CompileResult::success: break;
-	case LLVMJIT::CompileResult::invalidTargetSpec:
+	case LLVMJIT::TargetValidationResult::valid: break;
+
+	case LLVMJIT::TargetValidationResult::invalidTargetSpec:
 		Log::printf(Log::error,
 					"Target triple (%s) or CPU (%s) is invalid.\n",
 					targetSpec.triple.c_str(),
 					targetSpec.cpu.c_str());
 		return EXIT_FAILURE;
+	case LLVMJIT::TargetValidationResult::unsupportedArchitecture:
+		Log::printf(Log::error, "WAVM doesn't support the target architecture.\n");
+		return EXIT_FAILURE;
+	case LLVMJIT::TargetValidationResult::x86CPUDoesNotSupportSSE41:
+		Log::printf(Log::error,
+					"Target X86 CPU (%s) does not support SSE 4.1, which"
+					" WAVM requires for WebAssembly SIMD code.\n",
+					targetSpec.cpu.c_str());
+		return EXIT_FAILURE;
 
 	default: WAVM_UNREACHABLE();
 	};
+
+	// Load the module IR.
+	IR::Module irModule(featureSpec);
+	if(!loadModule(inputFilename, irModule)) { return EXIT_FAILURE; }
+
+	// Compile the module's IR.
+	std::vector<U8> objectCode = LLVMJIT::compileModule(irModule, targetSpec);
 
 	// Extract the compiled object code and add it to the IR module as a user section.
 	irModule.userSections.push_back({"wavm.precompiled_object", objectCode});

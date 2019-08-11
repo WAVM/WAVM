@@ -13,6 +13,7 @@
 namespace WAVM { namespace IR {
 	struct Module;
 	struct UntaggedValue;
+	struct FeatureSpec;
 
 	enum class CallingConvention;
 }}
@@ -31,21 +32,22 @@ namespace WAVM { namespace LLVMJIT {
 		std::string cpu;
 	};
 
-	LLVMJIT_API TargetSpec getHostTargetSpec();
-
-	enum class CompileResult
+	enum class TargetValidationResult
 	{
-		success,
+		valid,
 		invalidTargetSpec,
+		unsupportedArchitecture,
+		x86CPUDoesNotSupportSSE41
 	};
 
-	// Compiles a module to object code.
-	LLVMJIT_API CompileResult compileModule(const IR::Module& irModule,
-											const TargetSpec& targetSpec,
-											std::vector<U8>& outObjectCode);
+	LLVMJIT_API TargetSpec getHostTargetSpec();
 
-	// Compile a module to object code with the host target spec. Cannot fail.
-	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule);
+	LLVMJIT_API TargetValidationResult validateTarget(const TargetSpec& targetSpec,
+													  const IR::FeatureSpec& featureSpec);
+
+	// Compile a module to object code with the host target spec.
+	// Cannot fail if validateTarget(targetSpec, irModule.featureSpec) == valid.
+	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule, const TargetSpec& targetSpec = getHostTargetSpec());
 
 	// An opaque type that can be used to reference a loaded JIT module.
 	struct Module;

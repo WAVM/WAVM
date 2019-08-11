@@ -20,6 +20,7 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/ilist_iterator.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
@@ -180,43 +181,44 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 	return objectBytes;
 }
 
-std::unique_ptr<llvm::TargetMachine> LLVMJIT::getTargetMachine(const TargetSpec& targetSpec)
+std::vector<U8> LLVMJIT::compileModule(const IR::Module& irModule, const TargetSpec& targetSpec)
 {
-	std::string targetTriple = targetSpec.triple;
+	// Get the target machine.
+	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(targetSpec);
+	if(!targetMachine)
+	{
+		Errors::fatalf("Invalid target spec (triple=%s, cpu=%s).",
+					   targetSpec.triple.c_str(),
+					   targetSpec.cpu.c_str());
+	}
 
-	return std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
-		llvm::Triple(targetTriple), "", targetSpec.cpu, llvm::SmallVector<std::string, 0>{}));
-}
+	// Validate that the target machine supports the module's FeatureSpec.
+	switch(validateTarget(targetSpec, irModule.featureSpec))
+	{
+	case TargetValidationResult::valid: break;
 
-std::vector<U8> LLVMJIT::compileModule(const IR::Module& irModule)
-{
-	LLVMContext llvmContext;
+	case TargetValidationResult::invalidTargetSpec:
+		Errors::fatalf("Invalid target spec (triple=%s, cpu=%s).\n",
+					   targetSpec.triple.c_str(),
+					   targetSpec.cpu.c_str());
+	case TargetValidationResult::unsupportedArchitecture:
+		Errors::fatalf("Unsupported target architecture (triple=%s, cpu=%s)",
+					   targetSpec.triple.c_str(),
+					   targetSpec.cpu.c_str());
+	case TargetValidationResult::x86CPUDoesNotSupportSSE41:
+		Errors::fatalf(
+			"Target X86 CPU (% s) does not support SSE 4.1, which"
+			" WAVM requires for WebAssembly SIMD code.\n",
+			targetSpec.cpu.c_str());
 
-	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
-	wavmAssert(targetMachine);
+	default: WAVM_UNREACHABLE();
+	};
 
 	// Emit LLVM IR for the module.
+	LLVMContext llvmContext;
 	llvm::Module llvmModule("", llvmContext);
 	emitModule(irModule, llvmContext, llvmModule, targetMachine.get());
 
 	// Compile the LLVM IR to object code.
 	return compileLLVMModule(llvmContext, std::move(llvmModule), true, targetMachine.get());
-}
-CompileResult LLVMJIT::compileModule(const IR::Module& irModule,
-									 const TargetSpec& targetSpec,
-									 std::vector<U8>& outObjectCode)
-{
-	LLVMContext llvmContext;
-
-	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(targetSpec);
-	if(!targetMachine) { return CompileResult::invalidTargetSpec; }
-
-	// Emit LLVM IR for the module.
-	llvm::Module llvmModule("", llvmContext);
-	emitModule(irModule, llvmContext, llvmModule, targetMachine.get());
-
-	// Compile the LLVM IR to object code.
-	outObjectCode
-		= compileLLVMModule(llvmContext, std::move(llvmModule), true, targetMachine.get());
-	return CompileResult::success;
 }

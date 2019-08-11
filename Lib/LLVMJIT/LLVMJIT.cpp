@@ -1,6 +1,7 @@
 #include <utility>
 
 #include "LLVMJITPrivate.h"
+#include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
@@ -10,12 +11,15 @@
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace llvm {
@@ -103,10 +107,15 @@ static bool globalInitLLVM()
 	return true;
 }
 
-LLVMContext::LLVMContext()
+static void globalInitLLVMOnce()
 {
 	static bool isLLVMInitialized = globalInitLLVM();
 	wavmAssert(isLLVMInitialized);
+}
+
+LLVMContext::LLVMContext()
+{
+	globalInitLLVMOnce();
 
 	i8Type = llvm::Type::getInt8Ty(*this);
 	i16Type = llvm::Type::getInt16Ty(*this);
@@ -159,4 +168,35 @@ TargetSpec LLVMJIT::getHostTargetSpec()
 	result.triple = llvm::sys::getProcessTriple();
 	result.cpu = llvm::sys::getHostCPUName();
 	return result;
+}
+
+std::unique_ptr<llvm::TargetMachine> LLVMJIT::getTargetMachine(const TargetSpec& targetSpec)
+{
+	globalInitLLVMOnce();
+
+	return std::unique_ptr<llvm::TargetMachine>(llvm::EngineBuilder().selectTarget(
+		llvm::Triple(targetSpec.triple), "", targetSpec.cpu, llvm::SmallVector<std::string, 0>{}));
+}
+
+TargetValidationResult LLVMJIT::validateTargetMachine(
+	const std::unique_ptr<llvm::TargetMachine>& targetMachine,
+	const FeatureSpec& featureSpec)
+{
+	// Only target X86-64 for now.
+	if(targetMachine->getTargetTriple().getArch() != llvm::Triple::x86_64)
+	{ return TargetValidationResult::unsupportedArchitecture; }
+
+	// If the SIMD feature is enabled, then require the SSE4.1 CPU feature.
+	if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+sse4.1"))
+	{ return TargetValidationResult::x86CPUDoesNotSupportSSE41; }
+
+	return TargetValidationResult::valid;
+}
+
+TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
+											   const IR::FeatureSpec& featureSpec)
+{
+	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(targetSpec);
+	if(!targetMachine) { return TargetValidationResult::invalidTargetSpec; }
+	return validateTargetMachine(targetMachine, featureSpec);
 }
