@@ -28,7 +28,7 @@ using namespace WAVM::Runtime;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
-	IR::Module module;
+	IR::Module module(IR::FeatureSpec(true));
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
 	module.featureSpec.maxDataSegments = 65536;

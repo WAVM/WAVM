@@ -21,7 +21,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 	std::vector<U8> wastBytes(data, data + numBytes);
 	wastBytes.push_back(0);
 
-	Module wastModule;
+	Module wastModule(FeatureSpec(true));
 	std::vector<WAST::Error> parseErrors;
 	if(WAST::parseModule((const char*)wastBytes.data(), wastBytes.size(), wastModule, parseErrors))
 	{
@@ -37,7 +37,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 			return 0;
 		}
 
-		Module wasmModule;
+		Module wasmModule(FeatureSpec(true));
 		if(!WASM::loadBinaryModule(wasmBytes.data(), wasmBytes.size(), wasmModule))
 		{ Errors::fatal("Failed to deserialize the generated WASM file"); }
 

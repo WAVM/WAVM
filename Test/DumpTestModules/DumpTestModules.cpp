@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 	std::vector<WAST::Error> testErrors;
 
 	// Parse the test script.
-	IR::FeatureSpec featureSpec;
+	IR::FeatureSpec featureSpec(true);
 	featureSpec.requireSharedFlagForAtomicOperators = true;
 	WAST::parseTestCommands((const char*)testScriptBytes.data(),
 							testScriptBytes.size(),

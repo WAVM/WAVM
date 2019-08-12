@@ -19,7 +19,7 @@ using namespace WAVM::IR;
 
 extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 {
-	Module module;
+	Module module(FeatureSpec(true));
 	module.featureSpec.maxLabelsPerFunction = 65536;
 	module.featureSpec.maxLocals = 1024;
 	module.featureSpec.maxDataSegments = 65536;
@@ -31,7 +31,7 @@ extern "C" I32 LLVMFuzzerTestOneInput(const U8* data, Uptr numBytes)
 		Log::printf(Log::debug, "%s\n", wastString.c_str());
 #endif
 
-		Module wastModule;
+		Module wastModule(FeatureSpec(true));
 		std::vector<WAST::Error> parseErrors;
 		if(!WAST::parseModule(
 			   (const char*)wastString.c_str(), wastString.size() + 1, wastModule, parseErrors))

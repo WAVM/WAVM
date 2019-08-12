@@ -56,7 +56,7 @@ I32 main(int argc, char** argv)
 
 			RandomStream random(inputBytes.data(), inputBytes.size());
 
-			IR::Module module;
+			IR::Module module(IR::FeatureSpec(true));
 			generateValidModule(module, random);
 
 			Serialization::ArrayOutputStream arrayOutputStream;
