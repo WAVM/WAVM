@@ -686,6 +686,12 @@ struct State
 			// WASI::ExitException. Catch it here, and return the exit code.
 			result = int(exitException.exitCode);
 		}
+		catch(const Emscripten::ExitException& exitException)
+		{
+			// If either the WASM or WASI start functions call the Emscripten exit API, they will
+			// throw an Emscripten::ExitException. Catch it here, and return the exit code.
+			result = int(exitException.exitCode);
+		}
 
 		// Log the peak memory usage.
 		Uptr peakMemoryUsage = Platform::getPeakMemoryUsageBytes();

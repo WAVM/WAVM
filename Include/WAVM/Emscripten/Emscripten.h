@@ -31,6 +31,11 @@ namespace WAVM { namespace Emscripten {
 		WAVM::VFS::VFD* stdErr{nullptr};
 	};
 
+	struct ExitException
+	{
+		U32 exitCode;
+	};
+
 	EMSCRIPTEN_API Instance* instantiate(Runtime::Compartment* compartment,
 										 const IR::Module& module);
 	EMSCRIPTEN_API void initializeGlobals(Emscripten::Instance* instance,

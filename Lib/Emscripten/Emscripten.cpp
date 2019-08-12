@@ -525,9 +525,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_abort", void, emscripten__abort)
 {
 	throwException(Runtime::ExceptionTypes::calledAbort);
 }
-WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_exit", void, emscripten__exit, I32 code)
+WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_exit", void, emscripten__exit, U32 code)
 {
-	throwException(Runtime::ExceptionTypes::calledAbort);
+	throw Emscripten::ExitException{code};
 }
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "abort", void, emscripten_abort, I32 code)
 {
