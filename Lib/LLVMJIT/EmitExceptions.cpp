@@ -12,7 +12,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Signal.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/APInt.h"

@@ -9,7 +9,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

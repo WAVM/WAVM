@@ -4,7 +4,7 @@
 #include "WAVM/IR/Operators.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 #include <cctype>
 #include <string>

@@ -26,7 +26,7 @@
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/ThreadTest/ThreadTest.h"
 #include "WAVM/WASTParse/TestScript.h"
 #include "WAVM/WASTParse/WASTParse.h"

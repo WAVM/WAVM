@@ -4,7 +4,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Lock.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

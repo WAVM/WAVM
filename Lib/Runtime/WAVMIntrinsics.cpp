@@ -13,7 +13,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::Runtime;

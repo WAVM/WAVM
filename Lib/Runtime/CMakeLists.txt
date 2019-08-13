@@ -18,10 +18,9 @@ set(Sources
 set(PublicHeaders
 	${WAVM_INCLUDE_DIR}/Runtime/Intrinsics.h
 	${WAVM_INCLUDE_DIR}/Runtime/Linker.h
-	${WAVM_INCLUDE_DIR}/Runtime/Runtime.h
-	${WAVM_INCLUDE_DIR}/Runtime/RuntimeData.h)
+	${WAVM_INCLUDE_DIR}/Runtime/Runtime.h)
 
 WAVM_ADD_LIB_COMPONENT(Runtime
 	SOURCES ${Sources} ${PublicHeaders}
 	PUBLIC_LIB_COMPONENTS IR Platform
-	PRIVATE_LIB_COMPONENTS Logging LLVMJIT)
+	PRIVATE_LIB_COMPONENTS Logging LLVMJIT RuntimeABI)

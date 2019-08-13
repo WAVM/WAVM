@@ -27,7 +27,7 @@ llvm_map_components_to_libnames(LLVM_LIBS support core passes orcjit RuntimeDyld
 # Create the LLVMJIT target.
 WAVM_ADD_LIB_COMPONENT(LLVMJIT
 	SOURCES ${Sources} ${PublicHeaders}
-	PUBLIC_LIB_COMPONENTS IR
+	PUBLIC_LIB_COMPONENTS IR RuntimeABI
 	PRIVATE_LIB_COMPONENTS Logging Platform
 	PRIVATE_LIBS ${LLVM_LIBS}
 	PRIVATE_INCLUDE_DIRECTORIES ${LLVM_INCLUDE_DIRS}

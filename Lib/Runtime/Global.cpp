@@ -11,7 +11,7 @@
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;

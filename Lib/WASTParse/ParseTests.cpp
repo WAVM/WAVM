@@ -17,7 +17,7 @@
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Platform/Mutex.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
 #include "WAVM/WASTParse/TestScript.h"
 #include "WAVM/WASTParse/WASTParse.h"

@@ -378,6 +378,7 @@ add_subdirectory(Test)
 add_subdirectory(ThirdParty/gdtoa)
 
 if(WAVM_ENABLE_RUNTIME)
+	add_subdirectory(Include/WAVM/RuntimeABI)
 	add_subdirectory(Lib/Emscripten)
 	add_subdirectory(Lib/LLVMJIT)
 	add_subdirectory(Lib/Runtime)

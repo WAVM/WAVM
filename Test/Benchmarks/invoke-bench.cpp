@@ -16,7 +16,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Thread.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 
 enum
 {

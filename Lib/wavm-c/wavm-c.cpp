@@ -8,7 +8,7 @@
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Diagnostics.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/Runtime/RuntimeData.h"
+#include "WAVM/RuntimeABI/RuntimeABI.h"
 #include "WAVM/WASM/WASM.h"
 
 using namespace WAVM;
