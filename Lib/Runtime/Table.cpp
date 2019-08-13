@@ -33,7 +33,7 @@ enum
 
 static Uptr getNumPlatformPages(Uptr numBytes)
 {
-	return (numBytes + (Uptr(1) << Platform::getPageSizeLog2()) - 1) >> Platform::getPageSizeLog2();
+	return (numBytes + Platform::getBytesPerPage() - 1) >> Platform::getBytesPerPageLog2();
 }
 
 static Function* makeDummyFunction(const char* debugName)
@@ -76,7 +76,7 @@ static Table* createTableImpl(Compartment* compartment,
 
 	// In 64-bit, allocate enough address-space to safely access 32-bit table indices without bounds
 	// checking, or 16MB (4M elements) if the host is 32-bit.
-	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
+	const Uptr pageBytesLog2 = Platform::getBytesPerPageLog2();
 	const U64 tableMaxElements = Uptr(1) << 32;
 	const U64 tableMaxBytes = sizeof(Table::Element) * tableMaxElements;
 	const U64 tableMaxPages = tableMaxBytes >> pageBytesLog2;
@@ -135,7 +135,7 @@ static bool growTableImpl(Table* table,
 			= getNumPlatformPages(newNumElements * sizeof(Table::Element));
 		if(newNumPlatformPages != previousNumPlatformPages
 		   && !Platform::commitVirtualPages(
-			   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+			   (U8*)table->elements + (previousNumPlatformPages << Platform::getBytesPerPageLog2()),
 			   newNumPlatformPages - previousNumPlatformPages))
 		{
 			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
@@ -270,7 +270,7 @@ Table::~Table()
 	}
 
 	// Free the virtual address space.
-	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
+	const Uptr pageBytesLog2 = Platform::getBytesPerPageLog2();
 	if(numReservedBytes > 0)
 	{
 		Platform::freeVirtualPages((U8*)elements,

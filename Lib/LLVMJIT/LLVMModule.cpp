@@ -137,9 +137,10 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 		}
 
 		// Calculate the number of pages to be used by each section.
-		codeSection.numPages = shrAndRoundUp(numCodeBytes, Platform::getPageSizeLog2());
-		readOnlySection.numPages = shrAndRoundUp(numReadOnlyBytes, Platform::getPageSizeLog2());
-		readWriteSection.numPages = shrAndRoundUp(numReadWriteBytes, Platform::getPageSizeLog2());
+		codeSection.numPages = shrAndRoundUp(numCodeBytes, Platform::getBytesPerPageLog2());
+		readOnlySection.numPages = shrAndRoundUp(numReadOnlyBytes, Platform::getBytesPerPageLog2());
+		readWriteSection.numPages
+			= shrAndRoundUp(numReadWriteBytes, Platform::getBytesPerPageLog2());
 		numAllocatedImagePages
 			= codeSection.numPages + readOnlySection.numPages + readWriteSection.numPages;
 		if(numAllocatedImagePages)
@@ -151,10 +152,11 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 			{ Errors::fatal("memory allocation for JIT code failed"); }
 			codeSection.baseAddress = imageBaseAddress;
 			readOnlySection.baseAddress
-				= codeSection.baseAddress + (codeSection.numPages << Platform::getPageSizeLog2());
+				= codeSection.baseAddress
+				  + (codeSection.numPages << Platform::getBytesPerPageLog2());
 			readWriteSection.baseAddress
 				= readOnlySection.baseAddress
-				  + (readOnlySection.numPages << Platform::getPageSizeLog2());
+				  + (readOnlySection.numPages << Platform::getBytesPerPageLog2());
 		}
 	}
 	virtual U8* allocateCodeSection(uintptr_t numBytes,
@@ -210,11 +212,14 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 	{
 		// Invalidate the instruction cache for the whole image.
 		llvm::sys::Memory::InvalidateInstructionCache(
-			imageBaseAddress, numAllocatedImagePages << Platform::getPageSizeLog2());
+			imageBaseAddress, numAllocatedImagePages << Platform::getBytesPerPageLog2());
 	}
 
 	U8* getImageBaseAddress() const { return imageBaseAddress; }
-	Uptr getNumImageBytes() const { return numAllocatedImagePages << Platform::getPageSizeLog2(); }
+	Uptr getNumImageBytes() const
+	{
+		return numAllocatedImagePages << Platform::getBytesPerPageLog2();
+	}
 
 private:
 	struct Section
@@ -252,7 +257,7 @@ private:
 			= align(section.numCommittedBytes, alignment) + align(numBytes, alignment);
 
 		// Check that enough space was reserved in the section.
-		if(section.numCommittedBytes > (section.numPages << Platform::getPageSizeLog2()))
+		if(section.numCommittedBytes > (section.numPages << Platform::getBytesPerPageLog2()))
 		{ Errors::fatal("didn't reserve enough space in section"); }
 
 		return allocationBaseAddress;

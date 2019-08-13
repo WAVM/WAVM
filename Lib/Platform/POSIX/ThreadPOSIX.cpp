@@ -97,13 +97,12 @@ void SigAltStack::deinit()
 		else
 		{
 			U8* signalStackMaxAddr = base + sigAltStackNumBytes;
-			if(mprotect(signalStackMaxAddr, Uptr(1) << getPageSizeLog2(), PROT_READ | PROT_WRITE)
-			   != 0)
+			if(mprotect(signalStackMaxAddr, getBytesPerPage(), PROT_READ | PROT_WRITE) != 0)
 			{
 				Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR
 							   ", PROT_READ | PROT_WRITE) returned %i.\n",
 							   reinterpret_cast<Uptr>(signalStackMaxAddr),
-							   Uptr(1) << getPageSizeLog2(),
+							   getBytesPerPage(),
 							   errno);
 			}
 		}
@@ -133,7 +132,7 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	outMaxAddr = (U8*)pthread_get_stackaddr_np(thread);
 	const Uptr numStackBytes = pthread_get_stacksize_np(thread);
 	outMinAddr = outMaxAddr - numStackBytes;
-	outMinGuardAddr = outMinAddr - (Uptr(1) << getPageSizeLog2());
+	outMinGuardAddr = outMinAddr - getBytesPerPage();
 #elif defined(__WAVIX__)
 	Errors::unimplemented("Wavix getThreadStack");
 #else
@@ -174,7 +173,7 @@ void SigAltStack::init()
 		}
 		else
 		{
-			const Uptr pageSizeLog2 = getPageSizeLog2();
+			const Uptr pageSizeLog2 = getBytesPerPageLog2();
 			const Uptr numBytesPerPage = Uptr(1) << pageSizeLog2;
 
 			// Use the top of the thread's normal stack to handle signals: just protect a page below

@@ -14,8 +14,11 @@ namespace WAVM { namespace Platform {
 		readWriteExecute
 	};
 
-	// Returns the base 2 logarithm of the smallest virtual page size.
-	PLATFORM_API Uptr getPageSizeLog2();
+	// Returns the base 2 logarithm of the number of bytes in the smallest virtual page.
+	PLATFORM_API Uptr getBytesPerPageLog2();
+
+	// Returns the number of bytes in the smallest virtual page.
+	inline Uptr getBytesPerPage() { return Uptr(1) << getBytesPerPageLog2(); }
 
 	// Allocates virtual addresses without commiting physical pages to them.
 	// Returns the base virtual address of the allocated addresses, or nullptr if the virtual

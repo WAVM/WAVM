@@ -32,7 +32,8 @@ Context* Runtime::createContext(Compartment* compartment)
 
 		// Commit the page(s) for the context's runtime data.
 		WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
-			(U8*)context->runtimeData, sizeof(ContextRuntimeData) >> Platform::getPageSizeLog2()));
+			(U8*)context->runtimeData,
+			sizeof(ContextRuntimeData) >> Platform::getBytesPerPageLog2()));
 
 		// Initialize the context's global data.
 		memcpy(context->runtimeData->mutableGlobals,

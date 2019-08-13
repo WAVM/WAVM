@@ -21,7 +21,7 @@ static Uptr internalGetPreferredVirtualPageSizeLog2()
 	WAVM_ERROR_UNLESS(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 	return floorLogTwo(preferredVirtualPageSize);
 }
-Uptr Platform::getPageSizeLog2()
+Uptr Platform::getBytesPerPageLog2()
 {
 	static Uptr preferredVirtualPageSizeLog2 = internalGetPreferredVirtualPageSizeLog2();
 	return preferredVirtualPageSizeLog2;
@@ -43,12 +43,12 @@ static U32 memoryAccessAsWin32Flag(MemoryAccess access)
 static bool isPageAligned(U8* address)
 {
 	const Uptr addressBits = reinterpret_cast<Uptr>(address);
-	return (addressBits & ((1ull << getPageSizeLog2()) - 1)) == 0;
+	return (addressBits & (getBytesPerPage() - 1)) == 0;
 }
 
 U8* Platform::allocateVirtualPages(Uptr numPages)
 {
-	const Uptr pageSizeLog2 = getPageSizeLog2();
+	const Uptr pageSizeLog2 = getBytesPerPageLog2();
 	const Uptr numBytes = numPages << pageSizeLog2;
 	void* result = VirtualAlloc(nullptr, numBytes, MEM_RESERVE, PAGE_NOACCESS);
 	if(result == nullptr) { return nullptr; }
@@ -59,7 +59,7 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 										  Uptr alignmentLog2,
 										  U8*& outUnalignedBaseAddress)
 {
-	const Uptr pageSizeLog2 = getPageSizeLog2();
+	const Uptr pageSizeLog2 = getBytesPerPageLog2();
 	const Uptr numBytes = numPages << pageSizeLog2;
 	if(alignmentLog2 > pageSizeLog2)
 	{
@@ -110,7 +110,7 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
 	return baseVirtualAddress
 		   == VirtualAlloc(baseVirtualAddress,
-						   numPages << getPageSizeLog2(),
+						   numPages << getBytesPerPageLog2(),
 						   MEM_COMMIT,
 						   memoryAccessAsWin32Flag(access));
 }
@@ -120,7 +120,7 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
 	DWORD oldProtection = 0;
 	return VirtualProtect(baseVirtualAddress,
-						  numPages << getPageSizeLog2(),
+						  numPages << getBytesPerPageLog2(),
 						  memoryAccessAsWin32Flag(access),
 						  &oldProtection)
 		   != 0;
@@ -129,7 +129,7 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 {
 	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
-	auto result = VirtualFree(baseVirtualAddress, numPages << getPageSizeLog2(), MEM_DECOMMIT);
+	auto result = VirtualFree(baseVirtualAddress, numPages << getBytesPerPageLog2(), MEM_DECOMMIT);
 	if(baseVirtualAddress && !result) { Errors::fatal("VirtualFree(MEM_DECOMMIT) failed"); }
 }
 

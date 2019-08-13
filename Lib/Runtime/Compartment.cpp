@@ -28,13 +28,13 @@ Runtime::Compartment::Compartment()
 , contexts(0, maxContexts - 1)
 {
 	runtimeData = (CompartmentRuntimeData*)Platform::allocateAlignedVirtualPages(
-		wavmCompartmentReservedBytes >> Platform::getPageSizeLog2(),
+		wavmCompartmentReservedBytes >> Platform::getBytesPerPageLog2(),
 		compartmentRuntimeDataAlignmentLog2,
 		unalignedRuntimeData);
 
 	WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
 		(U8*)runtimeData,
-		offsetof(CompartmentRuntimeData, contexts) >> Platform::getPageSizeLog2()));
+		offsetof(CompartmentRuntimeData, contexts) >> Platform::getBytesPerPageLog2()));
 
 	runtimeData->compartment = this;
 }
@@ -50,9 +50,10 @@ Runtime::Compartment::~Compartment()
 	WAVM_ASSERT(!moduleInstances.size());
 	WAVM_ASSERT(!contexts.size());
 
-	Platform::freeAlignedVirtualPages(unalignedRuntimeData,
-									  wavmCompartmentReservedBytes >> Platform::getPageSizeLog2(),
-									  compartmentRuntimeDataAlignmentLog2);
+	Platform::freeAlignedVirtualPages(
+		unalignedRuntimeData,
+		wavmCompartmentReservedBytes >> Platform::getBytesPerPageLog2(),
+		compartmentRuntimeDataAlignmentLog2);
 	runtimeData = nullptr;
 	unalignedRuntimeData = nullptr;
 }

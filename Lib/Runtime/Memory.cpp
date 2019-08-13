@@ -35,8 +35,8 @@ enum
 
 static Uptr getPlatformPagesPerWebAssemblyPageLog2()
 {
-	WAVM_ERROR_UNLESS(Platform::getPageSizeLog2() <= IR::numBytesPerPageLog2);
-	return IR::numBytesPerPageLog2 - Platform::getPageSizeLog2();
+	WAVM_ERROR_UNLESS(Platform::getBytesPerPageLog2() <= IR::numBytesPerPageLog2);
+	return IR::numBytesPerPageLog2 - Platform::getBytesPerPageLog2();
 }
 
 static Memory* createMemoryImpl(Compartment* compartment,
@@ -50,7 +50,7 @@ static Memory* createMemoryImpl(Compartment* compartment,
 	// On a 64-bit runtime, allocate 8GB of address space for the memory.
 	// This allows eliding bounds checks on memory accesses, since a 32-bit index + 32-bit offset
 	// will always be within the reserved address-space.
-	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
+	const Uptr pageBytesLog2 = Platform::getBytesPerPageLog2();
 	const Uptr memoryMaxBytes = Uptr(8ull * 1024 * 1024 * 1024);
 	const Uptr memoryMaxPages = memoryMaxBytes >> pageBytesLog2;
 
@@ -158,7 +158,7 @@ Runtime::Memory::~Memory()
 	}
 
 	// Free the virtual address space.
-	const Uptr pageBytesLog2 = Platform::getPageSizeLog2();
+	const Uptr pageBytesLog2 = Platform::getBytesPerPageLog2();
 	if(numReservedBytes > 0)
 	{
 		Platform::freeVirtualPages(baseAddress,
