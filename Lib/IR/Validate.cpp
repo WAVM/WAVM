@@ -19,8 +19,6 @@
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Logging/Logging.h"
 
-#define ENABLE_LOGGING 0
-
 using namespace WAVM;
 using namespace WAVM::IR;
 
@@ -241,6 +239,8 @@ static void validateInitializer(const Module& module,
 
 struct FunctionValidationContext
 {
+	const bool enableTracing{Log::isCategoryEnabled(Log::trace)};
+
 	FunctionValidationContext(const Module& inModule, const FunctionDef& inFunctionDef)
 	: module(inModule)
 	, functionDef(inFunctionDef)
@@ -258,15 +258,15 @@ struct FunctionValidationContext
 					  functionDef.nonParameterLocalTypes.end());
 
 		// Log the start of the function and its signature+locals.
-		if(ENABLE_LOGGING)
+		if(enableTracing)
 		{
-			logOperator("func");
+			traceOperator("func");
 			for(auto param : functionType.params())
-			{ logOperator(std::string("param ") + asString(param)); }
+			{ traceOperator(std::string("param ") + asString(param)); }
 			for(auto result : functionType.results())
-			{ logOperator(std::string("result ") + asString(result)); }
+			{ traceOperator(std::string("result ") + asString(result)); }
 			for(auto local : functionDef.nonParameterLocalTypes)
-			{ logOperator(std::string("local ") + asString(local)); }
+			{ traceOperator(std::string("local ") + asString(local)); }
 		}
 
 		// Push the function context onto the control stack.
@@ -285,45 +285,41 @@ struct FunctionValidationContext
 		}
 	}
 
-	void logOperator(const std::string& operatorDescription)
+	void traceOperator(const std::string& operatorDescription)
 	{
-		if(ENABLE_LOGGING)
+		std::string controlStackString;
+		for(Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex)
 		{
-			std::string controlStackString;
-			for(Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex)
+			if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
+			switch(controlStack[stackIndex].type)
 			{
-				if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
-				switch(controlStack[stackIndex].type)
-				{
-				case ControlContext::Type::function: controlStackString += "F"; break;
-				case ControlContext::Type::block: controlStackString += "B"; break;
-				case ControlContext::Type::ifThen: controlStackString += "T"; break;
-				case ControlContext::Type::ifElse: controlStackString += "E"; break;
-				case ControlContext::Type::loop: controlStackString += "L"; break;
-				case ControlContext::Type::try_: controlStackString += "R"; break;
-				case ControlContext::Type::catch_: controlStackString += "C"; break;
-				default: WAVM_UNREACHABLE();
-				};
-				if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
-			}
-
-			std::string stackString;
-			const Uptr stackBase
-				= controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
-			for(Uptr stackIndex = 0; stackIndex < stack.size(); ++stackIndex)
-			{
-				if(stackIndex == stackBase) { stackString += "| "; }
-				stackString += asString(stack[stackIndex]);
-				stackString += " ";
-			}
-			if(stack.size() == stackBase) { stackString += "|"; }
-
-			Log::printf(Log::debug,
-						"%-50s %-50s %-50s\n",
-						controlStackString.c_str(),
-						operatorDescription.c_str(),
-						stackString.c_str());
+			case ControlContext::Type::function: controlStackString += "F"; break;
+			case ControlContext::Type::block: controlStackString += "B"; break;
+			case ControlContext::Type::ifThen: controlStackString += "T"; break;
+			case ControlContext::Type::ifElse: controlStackString += "E"; break;
+			case ControlContext::Type::loop: controlStackString += "L"; break;
+			case ControlContext::Type::try_: controlStackString += "R"; break;
+			case ControlContext::Type::catch_: controlStackString += "C"; break;
+			default: WAVM_UNREACHABLE();
+			};
+			if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 		}
+
+		std::string stackString;
+		const Uptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
+		for(Uptr stackIndex = 0; stackIndex < stack.size(); ++stackIndex)
+		{
+			if(stackIndex == stackBase) { stackString += "| "; }
+			stackString += asString(stack[stackIndex]);
+			stackString += " ";
+		}
+		if(stack.size() == stackBase) { stackString += "|"; }
+
+		Log::printf(Log::trace,
+					"%-50s %-50s %-50s\n",
+					controlStackString.c_str(),
+					operatorDescription.c_str(),
+					stackString.c_str());
 	}
 
 	// Operation dispatch methods.
@@ -1069,7 +1065,8 @@ void IR::CodeValidationStream::finish()
 #define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
 	void IR::CodeValidationStream::name(Imm imm)                                                   \
 	{                                                                                              \
-		if(ENABLE_LOGGING) { impl->functionContext.logOperator(impl->operatorPrinter.name(imm)); } \
+		if(impl->functionContext.enableTracing)                                                    \
+		{ impl->functionContext.traceOperator(impl->operatorPrinter.name(imm)); }                  \
 		impl->functionContext.validateNonEmptyControlStack(nameString);                            \
 		impl->functionContext.name(imm);                                                           \
 	}

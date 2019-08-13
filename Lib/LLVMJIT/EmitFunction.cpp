@@ -41,7 +41,6 @@ namespace llvm {
 	class Metadata;
 }
 
-#define ENABLE_LOGGING 0
 #define EMIT_ENTER_EXIT_HOOKS 0
 
 using namespace WAVM;
@@ -87,47 +86,44 @@ llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 }
 
 // Debug logging.
-void EmitFunctionContext::logOperator(const std::string& operatorDescription)
+void EmitFunctionContext::traceOperator(const std::string& operatorDescription)
 {
-	if(ENABLE_LOGGING)
+	std::string controlStackString;
+	for(Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex)
 	{
-		std::string controlStackString;
-		for(Uptr stackIndex = 0; stackIndex < controlStack.size(); ++stackIndex)
+		if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
+		switch(controlStack[stackIndex].type)
 		{
-			if(!controlStack[stackIndex].isReachable) { controlStackString += "("; }
-			switch(controlStack[stackIndex].type)
-			{
-			case ControlContext::Type::function: controlStackString += "F"; break;
-			case ControlContext::Type::block: controlStackString += "B"; break;
-			case ControlContext::Type::ifThen: controlStackString += "I"; break;
-			case ControlContext::Type::ifElse: controlStackString += "E"; break;
-			case ControlContext::Type::loop: controlStackString += "L"; break;
-			case ControlContext::Type::try_: controlStackString += "T"; break;
-			case ControlContext::Type::catch_: controlStackString += "C"; break;
-			default: WAVM_UNREACHABLE();
-			};
-			if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
-		}
-
-		std::string stackString;
-		const Uptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
-		for(Uptr stackIndex = 0; stackIndex < stack.size(); ++stackIndex)
-		{
-			if(stackIndex == stackBase) { stackString += "| "; }
-			{
-				llvm::raw_string_ostream stackTypeStream(stackString);
-				stack[stackIndex]->getType()->print(stackTypeStream, true);
-			}
-			stackString += " ";
-		}
-		if(stack.size() == stackBase) { stackString += "|"; }
-
-		Log::printf(Log::debug,
-					"%-50s %-50s %-50s\n",
-					controlStackString.c_str(),
-					operatorDescription.c_str(),
-					stackString.c_str());
+		case ControlContext::Type::function: controlStackString += "F"; break;
+		case ControlContext::Type::block: controlStackString += "B"; break;
+		case ControlContext::Type::ifThen: controlStackString += "I"; break;
+		case ControlContext::Type::ifElse: controlStackString += "E"; break;
+		case ControlContext::Type::loop: controlStackString += "L"; break;
+		case ControlContext::Type::try_: controlStackString += "T"; break;
+		case ControlContext::Type::catch_: controlStackString += "C"; break;
+		default: WAVM_UNREACHABLE();
+		};
+		if(!controlStack[stackIndex].isReachable) { controlStackString += ")"; }
 	}
+
+	std::string stackString;
+	const Uptr stackBase = controlStack.size() == 0 ? 0 : controlStack.back().outerStackSize;
+	for(Uptr stackIndex = 0; stackIndex < stack.size(); ++stackIndex)
+	{
+		if(stackIndex == stackBase) { stackString += "| "; }
+		{
+			llvm::raw_string_ostream stackTypeStream(stackString);
+			stack[stackIndex]->getType()->print(stackTypeStream, true);
+		}
+		stackString += " ";
+	}
+	if(stack.size() == stackBase) { stackString += "|"; }
+
+	Log::printf(Log::trace,
+				"%-50s %-50s %-50s\n",
+				controlStackString.c_str(),
+				operatorDescription.c_str(),
+				stackString.c_str());
 }
 
 // Traps a divide-by-zero
@@ -406,11 +402,13 @@ void EmitFunctionContext::emit()
 	UnreachableOpVisitor unreachableOpVisitor(*this);
 	OperatorPrinter operatorPrinter(irModule, functionDef);
 	Uptr opIndex = 0;
+	const bool enableTracing = Log::isCategoryEnabled(Log::trace);
 	while(decoder && controlStack.size())
 	{
+		if(enableTracing) { traceOperator(decoder.decodeOpWithoutConsume(operatorPrinter)); }
+
 		irBuilder.SetCurrentDebugLocation(
 			llvm::DILocation::get(llvmContext, (unsigned int)opIndex++, 0, diFunction));
-		if(ENABLE_LOGGING) { logOperator(decoder.decodeOpWithoutConsume(operatorPrinter)); }
 
 		if(controlStack.back().isReachable) { decoder.decodeOp(*this); }
 		else

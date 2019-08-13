@@ -16,6 +16,7 @@ static std::atomic<bool> categoryEnabled[(Uptr)Category::num] = {
 	{WAVM_DEBUG != 0},          // debug
 	{WAVM_METRICS_OUTPUT != 0}, // metrics
 	{true},                     // output
+	{false},                    // trace
 };
 static std::atomic<OutputFunction*> atomicOutputFunction{nullptr};
 

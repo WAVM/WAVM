@@ -5,6 +5,7 @@
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
+#include "WAVM/Logging/Logging.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/IR/Intrinsics.h"
@@ -118,7 +119,7 @@ namespace WAVM { namespace LLVMJIT {
 		llvm::Value* coerceToCanonicalType(llvm::Value* value);
 
 		// Debug logging.
-		void logOperator(const std::string& operatorDescription);
+		void traceOperator(const std::string& operatorDescription);
 
 		// Coerces an I32 value to an I1, and vice-versa.
 		llvm::Value* coerceI32ToBool(llvm::Value* i32Value)

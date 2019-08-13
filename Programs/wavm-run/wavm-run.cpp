@@ -181,6 +181,7 @@ static void showHelp()
 				"  -f|--function name    Specify function name to run in module (default:main)\n"
 				"  --precompiled         Use precompiled object code in program file\n"
 				"  --metrics             Write benchmarking information to stdout\n"
+				"  --trace               Prints instructions to stdout as they are compiled.\n"
 				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
 				"                        features below.\n"
 				"  --sys=<system>        Specifies the system to host the module. See the list\n"
@@ -268,6 +269,10 @@ struct State
 			else if(!strcmp(*nextArg, "--metrics"))
 			{
 				Log::setCategoryEnabled(Log::metrics, true);
+			}
+			else if(!strcmp(*nextArg, "--trace"))
+			{
+				Log::setCategoryEnabled(Log::trace, true);
 			}
 			else if(stringStartsWith(*nextArg, "--sys="))
 			{
