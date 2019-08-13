@@ -22,6 +22,7 @@
 #include "WAVM/Inline/FloatComponents.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Defines.h"
@@ -900,9 +901,10 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_gettimeofday", I32, _gettimeofday, I32 tim
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 
-	const I128 realtimeClock = Platform::getRealtimeClock();
-	memoryRef<U32>(instance->memory, timevalAddress + 0) = U32(realtimeClock / 1000000000);
-	memoryRef<U32>(instance->memory, timevalAddress + 4) = U32(realtimeClock / 1000 % 1000000000);
+	const Time realtimeClock = Platform::getClockTime(Platform::Clock::realtime);
+	memoryRef<U32>(instance->memory, timevalAddress + 0) = U32(realtimeClock.ns / 1000000000);
+	memoryRef<U32>(instance->memory, timevalAddress + 4)
+		= U32(realtimeClock.ns / 1000 % 1000000000);
 	return 0;
 }
 
@@ -979,31 +981,31 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 {
 	Emscripten::Instance* instance = getEmscriptenInstance(contextRuntimeData);
 
-	I128 clock128;
+	Platform::Clock platformClock;
 	switch(clockId)
 	{
 	case 0:
 		// CLOCK_REALTIME
-		clock128 = Platform::getRealtimeClock();
+		platformClock = Platform::Clock::realtime;
 		break;
 	case 1:
 		// CLOCK_MONOTONIC
-		clock128 = Platform::getMonotonicClock();
+		platformClock = Platform::Clock::monotonic;
 		break;
 	case 2:
 		// CLOCK_PROCESS_CPUTIME_ID
-		clock128 = Platform::getRealtimeClock();
+		platformClock = Platform::Clock::processCPUTime;
 		break;
 	case 3:
 		// CLOCK_THREAD_CPUTIME_ID
-		clock128 = Platform::getProcessClock();
+		platformClock = Platform::Clock::processCPUTime;
 		break;
 	default: return -1;
 	}
-	const I128 realtimeClock = Platform::getRealtimeClock();
+	const Time clockTime = Platform::getClockTime(platformClock);
 
-	memoryRef<U32>(instance->memory, timespecAddress + 0) = U32(realtimeClock / 1000000000);
-	memoryRef<U32>(instance->memory, timespecAddress + 4) = U32(realtimeClock % 1000000000);
+	memoryRef<U32>(instance->memory, timespecAddress + 0) = U32(clockTime.ns / 1000000000);
+	memoryRef<U32>(instance->memory, timespecAddress + 4) = U32(clockTime.ns % 1000000000);
 
 	return 0;
 }

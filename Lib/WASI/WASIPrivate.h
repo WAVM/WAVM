@@ -2,7 +2,7 @@
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Inline/IndexMap.h"
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Linker.h"
@@ -104,7 +104,7 @@ namespace WAVM { namespace WASI {
 
 		ProcessResolver resolver;
 
-		I128 processClockOrigin;
+		Time processClockOrigin;
 
 		~Process();
 	};

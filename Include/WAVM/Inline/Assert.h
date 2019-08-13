@@ -36,3 +36,6 @@
 			break;                                                                                 \
 		}                                                                                          \
 	}
+
+#define WAVM_UNREACHABLE()                                                                         \
+	while(true) { WAVM_DEBUG_TRAP(); };

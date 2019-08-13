@@ -1,5 +1,7 @@
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Clock.h"
 #include "WindowsPrivate.h"
 
@@ -46,26 +48,6 @@ static const I128& getCachedRealtimeClockOrigin()
 	return cachedRealtimeClockOrigin;
 }
 
-I128 Platform::fileTimeToWAVMRealTime(FILETIME fileTime)
-{
-	return fileTimeToI128(fileTime) - getCachedRealtimeClockOrigin();
-}
-
-FILETIME Platform::wavmRealTimeToFileTime(I128 realTime)
-{
-	return i128ToFileTime(getCachedRealtimeClockOrigin() + realTime);
-}
-
-I128 Platform::getRealtimeClock()
-{
-	FILETIME realtimeClock;
-	GetSystemTimePreciseAsFileTime(&realtimeClock);
-
-	return fileTimeToWAVMRealTime(realtimeClock);
-}
-
-I128 Platform::getRealtimeClockResolution() { return 100; }
-
 static LARGE_INTEGER getQPCFrequency()
 {
 	LARGE_INTEGER result;
@@ -79,31 +61,58 @@ static LARGE_INTEGER getCachedQPCFrequency()
 	return cachedResult;
 }
 
-I128 Platform::getMonotonicClock()
+Time Platform::fileTimeToWAVMRealTime(FILETIME fileTime)
 {
-	LARGE_INTEGER ticksPerSecond = getCachedQPCFrequency();
-	LARGE_INTEGER ticks;
-	WAVM_ERROR_UNLESS(QueryPerformanceCounter(&ticks));
-	return I128(ticks.QuadPart) * 1000000000 / ticksPerSecond.QuadPart;
+	return Time{fileTimeToI128(fileTime) - getCachedRealtimeClockOrigin()};
 }
 
-I128 Platform::getMonotonicClockResolution()
+FILETIME Platform::wavmRealTimeToFileTime(Time realTime)
 {
-	LARGE_INTEGER ticksPerSecond = getCachedQPCFrequency();
-	U64 result = U64(1000000000) / ticksPerSecond.QuadPart;
-	if(result == 0) { result = 1; }
-	return I128(result);
+	return i128ToFileTime(getCachedRealtimeClockOrigin() + realTime.ns);
 }
 
-I128 Platform::getProcessClock()
+Time Platform::getClockTime(Clock clock)
 {
-	FILETIME creationTime;
-	FILETIME exitTime;
-	FILETIME kernelTime;
-	FILETIME userTime;
-	WAVM_ERROR_UNLESS(
-		GetProcessTimes(GetCurrentProcess(), &creationTime, &exitTime, &kernelTime, &userTime));
+	switch(clock)
+	{
+	case Clock::realtime: {
+		FILETIME realtimeClock;
+		GetSystemTimePreciseAsFileTime(&realtimeClock);
 
-	return fileTimeToI128(kernelTime) + fileTimeToI128(userTime);
+		return Time{fileTimeToWAVMRealTime(realtimeClock)};
+	}
+	case Clock::monotonic: {
+		LARGE_INTEGER ticksPerSecond = getCachedQPCFrequency();
+		LARGE_INTEGER ticks;
+		WAVM_ERROR_UNLESS(QueryPerformanceCounter(&ticks));
+		return Time{I128(ticks.QuadPart) * 1000000000 / ticksPerSecond.QuadPart};
+	}
+	case Clock::processCPUTime: {
+		FILETIME creationTime;
+		FILETIME exitTime;
+		FILETIME kernelTime;
+		FILETIME userTime;
+		WAVM_ERROR_UNLESS(
+			GetProcessTimes(GetCurrentProcess(), &creationTime, &exitTime, &kernelTime, &userTime));
+
+		return Time{fileTimeToI128(kernelTime) + fileTimeToI128(userTime)};
+	}
+	default: WAVM_UNREACHABLE();
+	};
 }
-I128 Platform::getProcessClockResolution() { return 100; }
+
+Time Platform::getClockResolution(Clock clock)
+{
+	switch(clock)
+	{
+	case Clock::realtime: return Time{100};
+	case Clock::monotonic: {
+		LARGE_INTEGER ticksPerSecond = getCachedQPCFrequency();
+		U64 result = U64(1000000000) / ticksPerSecond.QuadPart;
+		if(result == 0) { result = 1; }
+		return Time{I128(result)};
+	}
+	case Clock::processCPUTime: return Time{100};
+	default: WAVM_UNREACHABLE();
+	};
+}

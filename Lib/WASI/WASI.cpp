@@ -227,7 +227,7 @@ std::shared_ptr<Process> WASI::createProcess(Runtime::Compartment* compartment,
 									  __WASI_PREOPENTYPE_DIR));
 	}
 
-	process->processClockOrigin = Platform::getProcessClock();
+	process->processClockOrigin = Platform::getClockTime(Platform::Clock::processCPUTime);
 
 	return process;
 }

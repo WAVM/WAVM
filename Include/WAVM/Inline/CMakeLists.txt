@@ -18,6 +18,7 @@ set(PublicHeaders
 	Lock.h
 	OptionalStorage.h
 	Serialization.h
+	Time.h
 	Timing.h
 	Unicode.h)
 

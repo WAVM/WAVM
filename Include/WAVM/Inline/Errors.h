@@ -4,9 +4,6 @@
 
 #include <cstdarg>
 
-#define WAVM_UNREACHABLE()                                                                         \
-	while(true) { WAVM_DEBUG_TRAP(); };
-
 namespace WAVM { namespace Errors {
 	// Fatal error handling.
 	[[noreturn]] inline void fatalfWithCallStack(const char* messageFormat, ...)

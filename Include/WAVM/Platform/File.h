@@ -3,7 +3,6 @@
 #include <string>
 
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/I128.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/VFS/VFS.h"
 

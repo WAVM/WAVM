@@ -1,6 +1,7 @@
 #include "./WASIPrivate.h"
 #include "./WASITypes.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Runtime/Runtime.h"
@@ -1080,9 +1081,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	fileStat.st_filetype = asWASIFileType(fileInfo.type);
 	fileStat.st_nlink = fileInfo.numLinks;
 	fileStat.st_size = fileInfo.numBytes;
-	fileStat.st_atim = __wasi_timestamp_t(fileInfo.lastAccessTime);
-	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime);
-	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime);
+	fileStat.st_atim = __wasi_timestamp_t(fileInfo.lastAccessTime.ns);
+	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime.ns);
+	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime.ns);
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
@@ -1092,15 +1093,15 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 							   __wasi_errno_return_t,
 							   wasi_fd_filestat_set_times,
 							   __wasi_fd_t fd,
-							   __wasi_timestamp_t lastAccessTime,
-							   __wasi_timestamp_t lastWriteTime,
+							   __wasi_timestamp_t lastAccessTime64,
+							   __wasi_timestamp_t lastWriteTime64,
 							   __wasi_fstflags_t flags)
 {
 	TRACE_SYSCALL("fd_filestat_set_times",
 				  "(%u, %" PRIu64 ", %" PRIu64 ", 0x%04x)",
 				  fd,
-				  lastAccessTime,
-				  lastWriteTime,
+				  lastAccessTime64,
+				  lastWriteTime64,
 				  flags);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
@@ -1110,36 +1111,36 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		= validateFD(process, fd, __WASI_RIGHT_FD_FILESTAT_SET_TIMES, 0, fde);
 	if(fdError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(fdError); }
 
-	I128 now = Platform::getRealtimeClock();
+	Time now = Platform::getClockTime(Platform::Clock::realtime);
 
 	bool setLastAccessTime = false;
-	I128 lastAccessTimeI128;
+	Time lastAccessTime;
 	if(flags & __WASI_FILESTAT_SET_ATIM)
 	{
-		lastAccessTimeI128 = I128(lastAccessTime);
+		lastAccessTime.ns = lastAccessTime64;
 		setLastAccessTime = true;
 	}
 	else if(flags & __WASI_FILESTAT_SET_ATIM_NOW)
 	{
-		lastAccessTimeI128 = now;
+		lastAccessTime = now;
 		setLastAccessTime = true;
 	}
 
 	bool setLastWriteTime = false;
-	I128 lastWriteTimeI128;
+	Time lastWriteTime;
 	if(flags & __WASI_FILESTAT_SET_MTIM)
 	{
-		lastWriteTimeI128 = I128(lastWriteTime);
+		lastWriteTime.ns = lastWriteTime64;
 		setLastWriteTime = true;
 	}
 	else if(flags & __WASI_FILESTAT_SET_MTIM_NOW)
 	{
-		lastWriteTimeI128 = now;
+		lastWriteTime = now;
 		setLastWriteTime = true;
 	}
 
 	const VFS::Result result = fde->vfd->setFileTimes(
-		setLastAccessTime, lastAccessTimeI128, setLastWriteTime, lastWriteTimeI128);
+		setLastAccessTime, lastAccessTime, setLastWriteTime, lastWriteTime);
 
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
@@ -1205,9 +1206,9 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	fileStat.st_filetype = asWASIFileType(fileInfo.type);
 	fileStat.st_nlink = fileInfo.numLinks;
 	fileStat.st_size = fileInfo.numBytes;
-	fileStat.st_atim = __wasi_timestamp_t(fileInfo.lastAccessTime);
-	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime);
-	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime);
+	fileStat.st_atim = __wasi_timestamp_t(fileInfo.lastAccessTime.ns);
+	fileStat.st_mtim = __wasi_timestamp_t(fileInfo.lastWriteTime.ns);
+	fileStat.st_ctim = __wasi_timestamp_t(fileInfo.creationTime.ns);
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
 }
@@ -1220,8 +1221,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 							   __wasi_lookupflags_t lookupFlags,
 							   WASIAddress pathAddress,
 							   WASIAddress numPathBytes,
-							   __wasi_timestamp_t lastAccessTime,
-							   __wasi_timestamp_t lastWriteTime,
+							   __wasi_timestamp_t lastAccessTime64,
+							   __wasi_timestamp_t lastWriteTime64,
 							   __wasi_fstflags_t flags)
 {
 	TRACE_SYSCALL("path_filestat_set_times",
@@ -1230,8 +1231,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 				  lookupFlags,
 				  pathAddress,
 				  numPathBytes,
-				  lastAccessTime,
-				  lastWriteTime,
+		lastAccessTime64,
+		lastWriteTime64,
 				  flags);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
@@ -1247,36 +1248,36 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 												  canonicalPath);
 	if(pathError != __WASI_ESUCCESS) { return TRACE_SYSCALL_RETURN(pathError); }
 
-	I128 now = Platform::getRealtimeClock();
+	Time now = Platform::getClockTime(Platform::Clock::realtime);
 
 	bool setLastAccessTime = false;
-	I128 lastAccessTimeI128;
+	Time lastAccessTime;
 	if(flags & __WASI_FILESTAT_SET_ATIM)
 	{
-		lastAccessTimeI128 = I128(lastAccessTime);
+		lastAccessTime.ns = lastAccessTime64;
 		setLastAccessTime = true;
 	}
 	else if(flags & __WASI_FILESTAT_SET_ATIM_NOW)
 	{
-		lastAccessTimeI128 = now;
+		lastAccessTime = now;
 		setLastAccessTime = true;
 	}
 
 	bool setLastWriteTime = false;
-	I128 lastWriteTimeI128;
+	Time lastWriteTime;
 	if(flags & __WASI_FILESTAT_SET_MTIM)
 	{
-		lastWriteTimeI128 = I128(lastWriteTime);
+		lastWriteTime.ns = lastWriteTime64;
 		setLastWriteTime = true;
 	}
 	else if(flags & __WASI_FILESTAT_SET_MTIM_NOW)
 	{
-		lastWriteTimeI128 = now;
+		lastWriteTime = now;
 		setLastWriteTime = true;
 	}
 
 	const VFS::Result result = process->fileSystem->setFileTimes(
-		canonicalPath, setLastAccessTime, lastAccessTimeI128, setLastWriteTime, lastWriteTimeI128);
+		canonicalPath, setLastAccessTime, lastAccessTime, setLastWriteTime, lastWriteTime);
 	return TRACE_SYSCALL_RETURN(asWASIErrNo(result));
 }
 

@@ -14,6 +14,20 @@ namespace WAVM { namespace WASI {
 	WAVM_DEFINE_INTRINSIC_MODULE(wasiClocks)
 }}
 
+static bool getPlatformClock(__wasi_clockid_t clock, Platform::Clock& outPlatformClock)
+{
+	switch(clock)
+	{
+	case __WASI_CLOCK_REALTIME: outPlatformClock = Platform::Clock::realtime; return true;
+	case __WASI_CLOCK_MONOTONIC: outPlatformClock = Platform::Clock::monotonic; return true;
+	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
+	case __WASI_CLOCK_THREAD_CPUTIME_ID:
+		outPlatformClock = Platform::Clock::processCPUTime;
+		return true;
+	default: return false;
+	}
+}
+
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 							   "clock_res_get",
 							   __wasi_errno_return_t,
@@ -23,23 +37,17 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 {
 	TRACE_SYSCALL("clock_res_get", "(%u, " WASIADDRESS_FORMAT ")", clockId, resolutionAddress);
 
-	I128 resolution128;
-	switch(clockId)
-	{
-	case __WASI_CLOCK_REALTIME: resolution128 = Platform::getRealtimeClockResolution(); break;
-	case __WASI_CLOCK_MONOTONIC: resolution128 = Platform::getMonotonicClockResolution(); break;
-	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
-	case __WASI_CLOCK_THREAD_CPUTIME_ID:
-		resolution128 = Platform::getProcessClockResolution();
-		break;
-	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
-	}
+	Platform::Clock platformClock;
+	if(!getPlatformClock(clockId, platformClock)) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
+
+	const Time clockResolution = Platform::getClockResolution(platformClock);
+
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	__wasi_timestamp_t resolution = __wasi_timestamp_t(resolution128);
-	memoryRef<__wasi_timestamp_t>(process->memory, resolutionAddress) = resolution;
+	__wasi_timestamp_t wasiClockResolution = __wasi_timestamp_t(clockResolution.ns);
+	memoryRef<__wasi_timestamp_t>(process->memory, resolutionAddress) = wasiClockResolution;
 
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, "(%" PRIu64 ")", resolution);
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, "(%" PRIu64 ")", wasiClockResolution);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiClocks,
@@ -58,20 +66,16 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	I128 currentTime128;
-	switch(clockId)
-	{
-	case __WASI_CLOCK_REALTIME: currentTime128 = Platform::getRealtimeClock(); break;
-	case __WASI_CLOCK_MONOTONIC: currentTime128 = Platform::getMonotonicClock(); break;
-	case __WASI_CLOCK_PROCESS_CPUTIME_ID:
-	case __WASI_CLOCK_THREAD_CPUTIME_ID:
-		currentTime128 = Platform::getProcessClock() - process->processClockOrigin;
-		break;
-	default: return TRACE_SYSCALL_RETURN(__WASI_EINVAL);
-	}
+	Platform::Clock platformClock;
+	if(!getPlatformClock(clockId, platformClock)) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 
-	__wasi_timestamp_t currentTime = __wasi_timestamp_t(currentTime128);
-	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = currentTime;
+	Time clockTime = Platform::getClockResolution(platformClock);
 
-	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, "(%" PRIu64 ")", currentTime);
+	if(platformClock == Platform::Clock::processCPUTime)
+	{ clockTime.ns -= process->processClockOrigin.ns; }
+
+	__wasi_timestamp_t wasiClockTime = __wasi_timestamp_t(clockTime.ns);
+	memoryRef<__wasi_timestamp_t>(process->memory, timeAddress) = wasiClockTime;
+
+	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS, "(%" PRIu64 ")", wasiClockTime);
 }

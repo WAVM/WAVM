@@ -1,7 +1,7 @@
 #pragma once
 
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Defines.h"
 
 namespace WAVM { namespace Platform {
@@ -17,9 +17,9 @@ namespace WAVM { namespace Platform {
 		void operator=(const Event&) = delete;
 		void operator=(Event&&) = delete;
 
-		// Wait for the event to be signaled until waitDuration nanoseconds have elapsed.
-		// If waitDuration == I128::nan(), wait forever.
-		PLATFORM_API bool wait(I128 waitDuration);
+		// Wait for the event to be signaled. Cancels the wait after waitDuration has elapsed.
+		// Returns true if the event was signaled, false if the wait was cancelled.
+		PLATFORM_API bool wait(Time waitDuration);
 		PLATFORM_API void signal();
 
 	private:

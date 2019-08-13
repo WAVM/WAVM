@@ -4,6 +4,7 @@
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
 #include "WAVM/Inline/Lock.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Inline/Unicode.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
@@ -492,9 +493,9 @@ struct WindowsFD : VFD
 				   : asVFSResult(GetLastError());
 	}
 	virtual Result setFileTimes(bool setLastAccessTime,
-								I128 lastAccessTime,
+								Time lastAccessTime,
 								bool setLastWriteTime,
-								I128 lastWriteTime) override
+								Time lastWriteTime) override
 	{
 		// Translate the times to Windows file times.
 		FILETIME lastAccessFileTime;
@@ -664,9 +665,9 @@ struct WindowsFS : HostFS
 	virtual Result getFileInfo(const std::string& path, FileInfo& outInfo) override;
 	virtual Result setFileTimes(const std::string& path,
 								bool setLastAccessTime,
-								I128 lastAccessTime,
+								Time lastAccessTime,
 								bool setLastWriteTime,
-								I128 lastWriteTime) override;
+								Time lastWriteTime) override;
 
 	virtual Result openDir(const std::string& path, DirEntStream*& outStream) override;
 
@@ -773,9 +774,9 @@ Result WindowsFS::getFileInfo(const std::string& path, FileInfo& outInfo)
 
 Result WindowsFS::setFileTimes(const std::string& path,
 							   bool setLastAccessTime,
-							   I128 lastAccessTime,
+							   Time lastAccessTime,
 							   bool setLastWriteTime,
-							   I128 lastWriteTime)
+							   Time lastWriteTime)
 {
 	// Convert the path from a UTF-8 VFS path (with /) to a UTF-16 Windows path (with \).
 	std::wstring windowsPath;

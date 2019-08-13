@@ -16,6 +16,7 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
 
@@ -130,9 +131,9 @@ static void getFileInfoFromStatus(const struct stat& status, FileInfo& outInfo)
 	outInfo.type = getFileTypeFromMode(status.st_mode);
 	outInfo.numLinks = status.st_nlink;
 	outInfo.numBytes = status.st_size;
-	outInfo.lastAccessTime = timeToNS(status.st_atime);
-	outInfo.lastWriteTime = timeToNS(status.st_mtime);
-	outInfo.creationTime = timeToNS(status.st_ctime);
+	outInfo.lastAccessTime.ns = timeToNS(status.st_atime);
+	outInfo.lastWriteTime.ns = timeToNS(status.st_mtime);
+	outInfo.creationTime.ns = timeToNS(status.st_ctime);
 }
 
 static I32 translateVFDFlags(const VFDFlags& vfsFlags)
@@ -490,24 +491,24 @@ struct POSIXFD : VFD
 		return result == 0 ? Result::success : asVFSResult(errno);
 	}
 	virtual Result setFileTimes(bool setLastAccessTime,
-								I128 lastAccessTime,
+								Time lastAccessTime,
 								bool setLastWriteTime,
-								I128 lastWriteTime) override
+								Time lastWriteTime) override
 	{
 		struct timespec timespecs[2];
 
 		if(!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
 		else
 		{
-			timespecs[0].tv_sec = U64(lastAccessTime / 1000000000);
-			timespecs[0].tv_nsec = U32(lastAccessTime % 1000000000);
+			timespecs[0].tv_sec = U64(lastAccessTime.ns / 1000000000);
+			timespecs[0].tv_nsec = U32(lastAccessTime.ns % 1000000000);
 		}
 
 		if(!setLastWriteTime) { timespecs[1].tv_nsec = UTIME_OMIT; }
 		else
 		{
-			timespecs[1].tv_sec = U64(lastWriteTime / 1000000000);
-			timespecs[1].tv_nsec = U32(lastWriteTime % 1000000000);
+			timespecs[1].tv_sec = U64(lastWriteTime.ns / 1000000000);
+			timespecs[1].tv_nsec = U32(lastWriteTime.ns % 1000000000);
 		}
 
 		return futimens(fd, timespecs) == 0 ? Result::success : asVFSResult(errno);
@@ -576,9 +577,9 @@ struct POSIXFS : HostFS
 	virtual Result getFileInfo(const std::string& path, FileInfo& outInfo) override;
 	virtual Result setFileTimes(const std::string& path,
 								bool setLastAccessTime,
-								I128 lastAccessTime,
+								Time lastAccessTime,
 								bool setLastWriteTime,
-								I128 lastWriteTime) override;
+								Time lastWriteTime) override;
 
 	virtual Result openDir(const std::string& path, DirEntStream*& outStream) override;
 
@@ -647,24 +648,24 @@ Result POSIXFS::getFileInfo(const std::string& path, VFS::FileInfo& outInfo)
 
 Result POSIXFS::setFileTimes(const std::string& path,
 							 bool setLastAccessTime,
-							 I128 lastAccessTime,
+							 Time lastAccessTime,
 							 bool setLastWriteTime,
-							 I128 lastWriteTime)
+							 Time lastWriteTime)
 {
 	struct timespec timespecs[2];
 
 	if(!setLastAccessTime) { timespecs[0].tv_nsec = UTIME_OMIT; }
 	else
 	{
-		timespecs[0].tv_sec = U64(lastAccessTime / 1000000000);
-		timespecs[0].tv_nsec = U32(lastAccessTime % 1000000000);
+		timespecs[0].tv_sec = U64(lastAccessTime.ns / 1000000000);
+		timespecs[0].tv_nsec = U32(lastAccessTime.ns % 1000000000);
 	}
 
 	if(!setLastWriteTime) { timespecs[1].tv_nsec = UTIME_OMIT; }
 	else
 	{
-		timespecs[1].tv_sec = U64(lastWriteTime / 1000000000);
-		timespecs[1].tv_nsec = U32(lastWriteTime % 1000000000);
+		timespecs[1].tv_sec = U64(lastWriteTime.ns / 1000000000);
+		timespecs[1].tv_nsec = U32(lastWriteTime.ns % 1000000000);
 	}
 
 	return utimensat(AT_FDCWD, path.c_str(), timespecs, 0) == 0 ? Result::success

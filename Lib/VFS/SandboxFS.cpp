@@ -1,7 +1,7 @@
 #include "WAVM/VFS/SandboxFS.h"
 #include <memory>
 #include <string>
-#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/VFS/VFS.h"
 
 using namespace WAVM;
@@ -30,9 +30,9 @@ struct SandboxFS : FileSystem
 	}
 	virtual Result setFileTimes(const std::string& path,
 								bool setLastAccessTime,
-								I128 lastAccessTime,
+								Time lastAccessTime,
 								bool setLastWriteTime,
-								I128 lastWriteTime) override
+								Time lastWriteTime) override
 	{
 		return innerFS->setFileTimes(
 			getInnerPath(path), setLastAccessTime, lastAccessTime, setLastWriteTime, lastWriteTime);

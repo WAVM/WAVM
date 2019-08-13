@@ -2,7 +2,7 @@
 
 #include <string>
 #include "WAVM/Inline/BasicTypes.h"
-#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 
 namespace WAVM { namespace VFS {
 
@@ -85,10 +85,10 @@ namespace WAVM { namespace VFS {
 		U32 numLinks;
 		U64 numBytes;
 
-		// Time values correspond to the "real-time" clock defined by Platform::getRealtimeClock.
-		I128 lastAccessTime;
-		I128 lastWriteTime;
-		I128 creationTime;
+		// Time values correspond to the "real-time" clock defined by Platform::Clock::realtime.
+		Time lastAccessTime;
+		Time lastWriteTime;
+		Time creationTime;
 	};
 
 	struct DirEnt
@@ -205,9 +205,9 @@ namespace WAVM { namespace VFS {
 		virtual Result setVFDFlags(const VFDFlags& flags) = 0;
 		virtual Result setFileSize(U64 numBytes) = 0;
 		virtual Result setFileTimes(bool setLastAccessTime,
-									I128 lastAccessTime,
+									Time lastAccessTime,
 									bool setLastWriteTime,
-									I128 lastWriteTime)
+									Time lastWriteTime)
 			= 0;
 
 		virtual Result openDir(DirEntStream*& outStream) = 0;
@@ -247,9 +247,9 @@ namespace WAVM { namespace VFS {
 		virtual Result getFileInfo(const std::string& path, FileInfo& outInfo) = 0;
 		virtual Result setFileTimes(const std::string& path,
 									bool setLastAccessTime,
-									I128 lastAccessTime,
+									Time lastAccessTime,
 									bool setLastWriteTime,
-									I128 lastWriteTime)
+									Time lastWriteTime)
 			= 0;
 
 		virtual Result openDir(const std::string& path, DirEntStream*& outStream) = 0;

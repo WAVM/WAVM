@@ -1,5 +1,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/I128.h"
+#include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Event.h"
 
@@ -17,9 +19,9 @@ Platform::Event::Event()
 
 Platform::Event::~Event() { WAVM_ERROR_UNLESS(CloseHandle(handle)); }
 
-bool Platform::Event::wait(I128 waitDuration)
+bool Platform::Event::wait(Time waitDuration)
 {
-	if(isNaN(waitDuration))
+	if(isInfinity(waitDuration))
 	{
 		const U32 waitResult = WaitForSingleObject(handle, INFINITE);
 		WAVM_ERROR_UNLESS(waitResult == WAIT_OBJECT_0);
@@ -27,12 +29,12 @@ bool Platform::Event::wait(I128 waitDuration)
 	}
 	else
 	{
-		I128 currentTime = getMonotonicClock();
-		const I128 untilTime = currentTime + waitDuration;
+		Time currentTime = getClockTime(Clock::monotonic);
+		const Time untilTime = Time{currentTime.ns + waitDuration.ns};
 		while(true)
 		{
 			const I128 durationMS
-				= currentTime > untilTime ? 0 : (untilTime - currentTime) / 1000000;
+				= currentTime.ns > untilTime.ns ? 0 : (untilTime.ns - currentTime.ns) / 1000000;
 			const U32 durationMS32
 				= durationMS <= 0 ? 0
 								  : durationMS >= UINT32_MAX ? (UINT32_MAX - 1) : U32(durationMS);
@@ -45,8 +47,8 @@ bool Platform::Event::wait(I128 waitDuration)
 			}
 			else
 			{
-				currentTime = getMonotonicClock();
-				if(currentTime >= untilTime) { return false; }
+				currentTime = getClockTime(Clock::monotonic);
+				if(currentTime.ns >= untilTime.ns) { return false; }
 			}
 		};
 	}
