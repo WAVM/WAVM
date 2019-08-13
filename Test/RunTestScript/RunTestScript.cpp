@@ -956,13 +956,17 @@ int main(int argc, char** argv)
 		sharedState.config = config;
 		sharedState.pendingFilenames = filenames;
 
+		// Allocate double the stack space when running with ASAN.
+		Uptr numStackBytes = 1024 * 1024;
+		if(WAVM_ENABLE_ASAN) { numStackBytes *= 2; }
+
 		// Create a thread for each hardware thread.
 		std::vector<Platform::Thread*> threads;
 		const Uptr numHardwareThreads = Platform::getNumberOfHardwareThreads();
 		const Uptr numTestThreads
 			= std::min(numHardwareThreads, Uptr(sharedState.pendingFilenames.size()));
 		for(Uptr threadIndex = 0; threadIndex < numTestThreads; ++threadIndex)
-		{ threads.push_back(Platform::createThread(1024 * 1024, threadMain, &sharedState)); }
+		{ threads.push_back(Platform::createThread(numStackBytes, threadMain, &sharedState)); }
 
 		// Wait for the threads to exit, summing up their return code, which will be the number of
 		// errors found by the thread.

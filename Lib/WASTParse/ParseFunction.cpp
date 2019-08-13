@@ -529,8 +529,8 @@ static void parseImm(CursorState* cursor, ElemSegmentImm& outImm)
 										"elem");
 }
 
-static void parseInstrSequence(CursorState* cursor);
-static void parseExpr(CursorState* cursor);
+static void parseInstrSequence(CursorState* cursor, Uptr depth);
+static void parseExpr(CursorState* cursor, Uptr depth);
 
 static void parseControlImm(CursorState* cursor,
 							Name& outBranchTargetName,
@@ -601,7 +601,16 @@ static void parseControlImm(CursorState* cursor,
 	}
 }
 
-static void parseBlock(CursorState* cursor, bool isExpr)
+static void checkRecursionDepth(CursorState* cursor, Uptr depth)
+{
+	if(depth > cursor->moduleState->module.featureSpec.maxSyntaxRecursion)
+	{
+		parseErrorf(cursor->parseState, cursor->nextToken, "exceeded maximum recursion depth");
+		throw RecoverParseException();
+	}
+}
+
+static void parseBlock(CursorState* cursor, bool isExpr, Uptr depth)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
@@ -609,7 +618,7 @@ static void parseBlock(CursorState* cursor, bool isExpr)
 
 	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
 	cursor->functionState->validatingCodeStream.block(imm);
-	parseInstrSequence(cursor);
+	parseInstrSequence(cursor, depth);
 	cursor->functionState->validatingCodeStream.end();
 
 	if(!isExpr)
@@ -619,7 +628,7 @@ static void parseBlock(CursorState* cursor, bool isExpr)
 	}
 }
 
-static void parseLoop(CursorState* cursor, bool isExpr)
+static void parseLoop(CursorState* cursor, bool isExpr, Uptr depth)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
@@ -627,7 +636,7 @@ static void parseLoop(CursorState* cursor, bool isExpr)
 
 	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
 	cursor->functionState->validatingCodeStream.loop(imm);
-	parseInstrSequence(cursor);
+	parseInstrSequence(cursor, depth);
 	cursor->functionState->validatingCodeStream.end();
 
 	if(!isExpr)
@@ -637,25 +646,28 @@ static void parseLoop(CursorState* cursor, bool isExpr)
 	}
 }
 
-static void parseExprSequence(CursorState* cursor)
+static void parseExprSequence(CursorState* cursor, Uptr depth)
 {
-	while(cursor->nextToken->type != t_rightParenthesis) { parseExpr(cursor); };
+	while(cursor->nextToken->type != t_rightParenthesis) { parseExpr(cursor, depth); };
 }
 
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
-	static void parseOp_##name(CursorState* cursor, bool isExpression)                             \
+	static void parseOp_##name(CursorState* cursor, bool isExpression, Uptr depth)                 \
 	{                                                                                              \
 		++cursor->nextToken;                                                                       \
 		Imm imm;                                                                                   \
 		parseImm(cursor, imm);                                                                     \
-		if(isExpression) { parseExprSequence(cursor); }                                            \
+		if(isExpression) { parseExprSequence(cursor, depth); }                                     \
 		cursor->functionState->validatingCodeStream.name(imm);                                     \
 	}
 WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 
-static void parseExpr(CursorState* cursor)
+static void parseExpr(CursorState* cursor, Uptr depth)
 {
+	++depth;
+	checkRecursionDepth(cursor, depth);
+
 	parseParenthesized(cursor, [&] {
 		cursor->functionState->validatingCodeStream.validationErrorToken = cursor->nextToken;
 		try
@@ -665,13 +677,13 @@ static void parseExpr(CursorState* cursor)
 			case t_block:
 			{
 				++cursor->nextToken;
-				parseBlock(cursor, true);
+				parseBlock(cursor, true, depth);
 				break;
 			}
 			case t_loop:
 			{
 				++cursor->nextToken;
-				parseLoop(cursor, true);
+				parseLoop(cursor, true, depth);
 				break;
 			}
 			case t_if_:
@@ -685,7 +697,7 @@ static void parseExpr(CursorState* cursor)
 				// Parse an optional condition expression.
 				if(cursor->nextToken[0].type != t_leftParenthesis
 				   || cursor->nextToken[1].type != t_then)
-				{ parseExpr(cursor); }
+				{ parseExpr(cursor, depth); }
 
 				ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
 				cursor->functionState->validatingCodeStream.if_(imm);
@@ -697,7 +709,7 @@ static void parseExpr(CursorState* cursor)
 					// First syntax: (then <instr>)* (else <instr>*)?
 					parseParenthesized(cursor, [&] {
 						require(cursor, t_then);
-						parseInstrSequence(cursor);
+						parseInstrSequence(cursor, depth);
 					});
 					if(cursor->nextToken->type == t_leftParenthesis)
 					{
@@ -706,18 +718,18 @@ static void parseExpr(CursorState* cursor)
 							cursor->functionState->validatingCodeStream.validationErrorToken
 								= cursor->nextToken;
 							cursor->functionState->validatingCodeStream.else_();
-							parseInstrSequence(cursor);
+							parseInstrSequence(cursor, depth);
 						});
 					}
 				}
 				else
 				{
 					// Second syntax option: <expr> <expr>?
-					parseExpr(cursor);
+					parseExpr(cursor, depth);
 					if(cursor->nextToken->type != t_rightParenthesis)
 					{
 						cursor->functionState->validatingCodeStream.else_();
-						parseExpr(cursor);
+						parseExpr(cursor, depth);
 					}
 				}
 				cursor->functionState->validatingCodeStream.end();
@@ -725,7 +737,7 @@ static void parseExpr(CursorState* cursor)
 			}
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
 	case t_##name:                                                                                 \
-		parseOp_##name(cursor, true);                                                              \
+		parseOp_##name(cursor, true, depth);                                                       \
 		break;
 				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
@@ -742,7 +754,7 @@ static void parseExpr(CursorState* cursor)
 	});
 }
 
-static void parseInstrSequence(CursorState* cursor)
+static void parseInstrSequence(CursorState* cursor, Uptr depth)
 {
 	while(true)
 	{
@@ -751,24 +763,27 @@ static void parseInstrSequence(CursorState* cursor)
 		{
 			switch(cursor->nextToken->type)
 			{
-			case t_leftParenthesis: parseExpr(cursor); break;
+			case t_leftParenthesis: parseExpr(cursor, depth); break;
 			case t_rightParenthesis: return;
 			case t_else_: return;
 			case t_end: return;
 			case t_block:
 			{
+				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
-				parseBlock(cursor, false);
+				parseBlock(cursor, false, depth + 1);
 				break;
 			}
 			case t_loop:
 			{
+				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
-				parseLoop(cursor, false);
+				parseLoop(cursor, false, depth + 1);
 				break;
 			}
 			case t_if_:
 			{
+				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
 
 				Name branchTargetName;
@@ -779,7 +794,7 @@ static void parseInstrSequence(CursorState* cursor)
 				cursor->functionState->validatingCodeStream.if_(imm);
 
 				// Parse the then clause.
-				parseInstrSequence(cursor);
+				parseInstrSequence(cursor, depth + 1);
 
 				// Parse the else clause.
 				if(cursor->nextToken->type == t_else_)
@@ -789,7 +804,7 @@ static void parseInstrSequence(CursorState* cursor)
 						cursor, branchTargetName, "if", "else");
 
 					cursor->functionState->validatingCodeStream.else_();
-					parseInstrSequence(cursor);
+					parseInstrSequence(cursor, depth + 1);
 				}
 				cursor->functionState->validatingCodeStream.end();
 
@@ -800,6 +815,7 @@ static void parseInstrSequence(CursorState* cursor)
 			}
 			case t_try_:
 			{
+				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
 
 				Name branchTargetName;
@@ -810,7 +826,7 @@ static void parseInstrSequence(CursorState* cursor)
 				cursor->functionState->validatingCodeStream.try_(imm);
 
 				// Parse the try clause.
-				parseInstrSequence(cursor);
+				parseInstrSequence(cursor, depth + 1);
 
 				// Parse catch clauses.
 				while(cursor->nextToken->type != t_end)
@@ -821,13 +837,13 @@ static void parseInstrSequence(CursorState* cursor)
 						ExceptionTypeImm exceptionTypeImm;
 						parseImm(cursor, exceptionTypeImm);
 						cursor->functionState->validatingCodeStream.catch_(exceptionTypeImm);
-						parseInstrSequence(cursor);
+						parseInstrSequence(cursor, depth + 1);
 					}
 					else if(cursor->nextToken->type == t_catch_all)
 					{
 						++cursor->nextToken;
 						cursor->functionState->validatingCodeStream.catch_all();
-						parseInstrSequence(cursor);
+						parseInstrSequence(cursor, depth + 1);
 					}
 					else
 					{
@@ -847,7 +863,7 @@ static void parseInstrSequence(CursorState* cursor)
 			case t_catch_: return;
 			case t_catch_all: return;
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
-	case t_##name: parseOp_##name(cursor, false); break;
+	case t_##name: parseOp_##name(cursor, false, depth); break;
 				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
 #undef VISIT_OP
 			default:
@@ -858,9 +874,21 @@ static void parseInstrSequence(CursorState* cursor)
 		catch(RecoverParseException const&)
 		{
 			cursor->functionState->validatingCodeStream.unreachable();
-			throw RecoverParseException();
+
+			// This is a workaround for rethrowing from a catch handler blowing up the stack.
+			// On Windows, the call stack frames between the throw and the catch are not freed until
+			// exiting the catch scope. The throw uses substantial stack space, and the catch adds a
+			// stack frame on top of that. As a result, unwinding a call stack by recursively
+			// throwing exceptions from within catch scopes can overflow the stack.
+			// Jumping out of the catch before rethrowing ensures that the stack frames between the
+			// original throw and this function are freed before continuing to unwind the stack.
+			goto rethrowRecoverParseException;
 		}
 	};
+
+	WAVM_UNREACHABLE();
+rethrowRecoverParseException:
+	throw RecoverParseException();
 }
 
 FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
@@ -940,7 +968,7 @@ FunctionDef WAST::parseFunctionDef(CursorState* cursor, const Token* funcToken)
 				functionCursorState.functionState = &functionState;
 				try
 				{
-					parseInstrSequence(&functionCursorState);
+					parseInstrSequence(&functionCursorState, 0);
 					if(!moduleState->parseState->unresolvedErrors.size())
 					{
 						validationErrorToken = functionCursorState.nextToken;

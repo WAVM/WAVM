@@ -28,6 +28,7 @@ set(WASTTests
 	misc.wast
 	reference_types.wast
 	simd.wast
+	syntax_recursion.wast
 	threads.wast
 	trunc_sat.wast
 	wavm_atomic.wast
