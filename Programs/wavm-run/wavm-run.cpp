@@ -25,7 +25,6 @@
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Runtime/Linker.h"
 #include "WAVM/Runtime/Runtime.h"
-#include "WAVM/ThreadTest/ThreadTest.h"
 #include "WAVM/VFS/SandboxFS.h"
 #include "WAVM/WASI/WASI.h"
 #include "WAVM/WASM/WASM.h"
@@ -184,8 +183,6 @@ static void showHelp()
 				"  --metrics             Write benchmarking information to stdout\n"
 				"  --enable <feature>    Enable the specified feature. See the list of supported\n"
 				"                        features below.\n"
-				"  --enable-thread-test  Enable the WAVM thread testing intrinsics.\n"
-				"                        Not for production use.\n"
 				"  --sys=<system>        Specifies the system to host the module. See the list\n"
 				"                        of supported sytems below. The default is to detect\n"
 				"                        the system based on the module imports/exports.\n"
@@ -228,7 +225,6 @@ struct State
 	const char* rootMountPath = nullptr;
 	std::vector<std::string> runArgs;
 	System system = System::detect;
-	bool enableThreadTest = false;
 	bool precompiled = false;
 	WASI::SyscallTraceLevel wasiTraceLavel = WASI::SyscallTraceLevel::none;
 
@@ -298,10 +294,6 @@ struct State
 								systemString);
 					return false;
 				}
-			}
-			else if(!strcmp(*nextArg, "--enable-thread-test"))
-			{
-				enableThreadTest = true;
 			}
 			else if(!strcmp(*nextArg, "--enable"))
 			{
@@ -499,12 +491,6 @@ struct State
 				rootResolver.moduleNameToInstanceMap.set("env", emscriptenInstance->env);
 				rootResolver.moduleNameToInstanceMap.set("asm2wasm", emscriptenInstance->asm2wasm);
 				rootResolver.moduleNameToInstanceMap.set("global", emscriptenInstance->global);
-			}
-
-			if(enableThreadTest)
-			{
-				ModuleInstance* threadTestInstance = ThreadTest::instantiate(compartment);
-				rootResolver.moduleNameToInstanceMap.set("threadTest", threadTestInstance);
 			}
 
 			linkResult = linkModule(irModule, rootResolver);
