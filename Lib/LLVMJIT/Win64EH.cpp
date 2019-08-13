@@ -313,7 +313,7 @@ void LLVMJIT::processSEHTables(U8* imageBase,
 		const Uptr numFunctions = pdataNumBytes / sizeof(RuntimeFunction);
 		for(Uptr functionIndex = 0; functionIndex < numFunctions; ++functionIndex)
 		{
-			Log::printf(Log::debug, " Function %" PRIuPTR "\n", functionIndex);
+			Log::printf(Log::debug, " Function %" WAVM_PRIuPTR "\n", functionIndex);
 			printFunctionSEH(imageBase, functionTable[functionIndex]);
 		}
 	}

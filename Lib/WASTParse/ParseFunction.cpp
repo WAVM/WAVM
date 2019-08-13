@@ -432,7 +432,7 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, LaneIndexImm<n
 	{
 		parseErrorf(cursor->parseState,
 					cursor->nextToken - 1,
-					"lane index must be in the range 0..%" PRIuPTR,
+					"lane index must be in the range 0..%" WAVM_PRIuPTR,
 					numLanes);
 	}
 	outImm.laneIndex = laneIndex;
@@ -447,7 +447,7 @@ template<Uptr numLanes> static void parseImm(CursorState* cursor, ShuffleImm<num
 		{
 			parseErrorf(cursor->parseState,
 						cursor->nextToken - 1,
-						"lane index must be in the range 0..%" PRIuPTR,
+						"lane index must be in the range 0..%" WAVM_PRIuPTR,
 						numLanes * 2);
 		}
 		outImm.laneIndices[destLaneIndex] = sourceLaneIndex;

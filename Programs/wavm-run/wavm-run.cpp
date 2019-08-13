@@ -544,8 +544,8 @@ struct State
 			if(functionType.params().size() != runArgs.size())
 			{
 				Log::printf(Log::error,
-							"'%s' expects %" PRIuPTR " argument(s), but command line had %" PRIuPTR
-							".\n",
+							"'%s' expects %" WAVM_PRIuPTR
+							" argument(s), but command line had %" WAVM_PRIuPTR ".\n",
 							functionName,
 							Uptr(functionType.params().size()),
 							Uptr(runArgs.size()));
@@ -681,7 +681,8 @@ struct State
 
 		// Log the peak memory usage.
 		Uptr peakMemoryUsage = Platform::getPeakMemoryUsageBytes();
-		Log::printf(Log::metrics, "Peak memory usage: %" PRIuPTR "KiB\n", peakMemoryUsage / 1024);
+		Log::printf(
+			Log::metrics, "Peak memory usage: %" WAVM_PRIuPTR "KiB\n", peakMemoryUsage / 1024);
 
 		return result;
 	}

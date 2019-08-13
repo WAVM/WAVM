@@ -552,7 +552,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 							testErrorf(
 								state,
 								assertCommand->locus,
-								"expected %s for exception argument %" PRIuPTR " but got %s",
+								"expected %s for exception argument %" WAVM_PRIuPTR " but got %s",
 								asString(assertCommand->expectedArguments[argumentIndex]).c_str(),
 								argumentIndex,
 								asString(argumentValue).c_str());
@@ -680,8 +680,8 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 			{
 				testErrorf(state,
 						   command->locus,
-						   "Cloned memory size doesn't match (original = %" PRIuPTR
-						   " pages, cloned = %" PRIuPTR " pages",
+						   "Cloned memory size doesn't match (original = %" WAVM_PRIuPTR
+						   " pages, cloned = %" WAVM_PRIuPTR " pages",
 						   numMemoryPages,
 						   numClonedMemoryPages);
 			}
@@ -696,7 +696,7 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 					{
 						testErrorf(state,
 								   command->locus,
-								   "Memory differs from cloned memory at address 0x08%" PRIxPTR
+								   "Memory differs from cloned memory at address 0x08%" WAVM_PRIxPTR
 								   ": 0x%02x vs 0x%02x",
 								   byteIndex,
 								   value,

@@ -408,7 +408,7 @@ Token* WAST::lex(const char* string,
 
 	Timing::logRatePerSecond("lexed WAST file", timer, stringLength / 1024.0 / 1024.0, "MiB");
 	Log::printf(Log::metrics,
-				"lexer produced %" PRIuPTR " tokens (%.1fMiB)\n",
+				"lexer produced %" WAVM_PRIuPTR " tokens (%.1fMiB)\n",
 				numTokens,
 				numTokens * sizeof(Token) / 1024.0 / 1024.0);
 

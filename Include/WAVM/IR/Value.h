@@ -1,6 +1,7 @@
 #pragma once
 
 #include "WAVM/IR/Types.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 #include <string.h>
 
@@ -78,7 +79,7 @@ namespace WAVM { namespace IR {
 				char buffer[27];
 				snprintf(buffer,
 						 sizeof(buffer),
-						 "%s 0x%.16" PRIxPTR,
+						 "%s 0x%.16" WAVM_PRIxPTR,
 						 value.type == ValueType::anyref ? "anyref" : "funcref",
 						 reinterpret_cast<Uptr>(value.object));
 				return std::string(buffer);

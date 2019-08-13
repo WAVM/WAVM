@@ -99,7 +99,7 @@ void SigAltStack::deinit()
 			U8* signalStackMaxAddr = base + sigAltStackNumBytes;
 			if(mprotect(signalStackMaxAddr, getBytesPerPage(), PROT_READ | PROT_WRITE) != 0)
 			{
-				Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR
+				Errors::fatalf("mprotect(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR
 							   ", PROT_READ | PROT_WRITE) returned %i.\n",
 							   reinterpret_cast<Uptr>(signalStackMaxAddr),
 							   getBytesPerPage(),
@@ -188,7 +188,8 @@ void SigAltStack::init()
 			WAVM_ERROR_UNLESS(isAlignedLog2(signalStackMaxAddr, pageSizeLog2));
 			if(mprotect(signalStackMaxAddr, numBytesPerPage, PROT_NONE) != 0)
 			{
-				Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR ", PROT_NONE) returned %i.\n",
+				Errors::fatalf("mprotect(0x%" WAVM_PRIxPTR ", %" WAVM_PRIuPTR
+							   ", PROT_NONE) returned %i.\n",
 							   reinterpret_cast<Uptr>(signalStackMaxAddr),
 							   numBytesPerPage,
 							   errno);

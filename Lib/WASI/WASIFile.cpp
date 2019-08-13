@@ -470,7 +470,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	WAVM_ASSERT(numBytesRead <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
 
-	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" PRIuPTR ")", numBytesRead);
+	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" WAVM_PRIuPTR ")", numBytesRead);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -501,7 +501,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	WAVM_ASSERT(numBytesWritten <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
-	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" PRIuPTR ")", numBytesWritten);
+	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" WAVM_PRIuPTR ")", numBytesWritten);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -530,7 +530,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	WAVM_ASSERT(numBytesRead <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
 
-	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" PRIuPTR ")", numBytesRead);
+	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" WAVM_PRIuPTR ")", numBytesRead);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -559,7 +559,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 	WAVM_ASSERT(numBytesWritten <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
-	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" PRIuPTR ")", numBytesWritten);
+	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" WAVM_PRIuPTR ")", numBytesWritten);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
@@ -1009,7 +1009,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		= WASIAddress(numBufferBytesUsed);
 
 	return TRACE_SYSCALL_RETURN(
-		__WASI_ESUCCESS, "(numBufferBytesUsed=%" PRIuPTR ")", numBufferBytesUsed);
+		__WASI_ESUCCESS, "(numBufferBytesUsed=%" WAVM_PRIuPTR ")", numBufferBytesUsed);
 }
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,

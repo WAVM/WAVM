@@ -298,7 +298,7 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 		nextByte += numInstructionBytes;
 
 		Log::printf(Log::output,
-					"\t\t0x%04" PRIxPTR " %s\n",
+					"\t\t0x%04" WAVM_PRIxPTR " %s\n",
 					(nextByte - bytes - numInstructionBytes),
 					instructionBuffer);
 	};

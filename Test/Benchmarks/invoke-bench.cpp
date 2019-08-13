@@ -74,7 +74,7 @@ void runBenchmark(Compartment* compartment,
 	const F64 nanosecondsPerInvoke = totalElapsedNanoseconds / F64(numCalls);
 
 	Log::printf(Log::output,
-				"ns/%s in %" PRIuPTR " threads: %.2f\n",
+				"ns/%s in %" WAVM_PRIuPTR " threads: %.2f\n",
 				description,
 				numThreads,
 				nanosecondsPerInvoke);

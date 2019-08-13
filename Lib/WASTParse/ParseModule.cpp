@@ -1052,8 +1052,8 @@ template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char*
 		map.analyzeSpaceUsage(totalMemoryBytes, maxProbeCount, occupancy, averageProbeCount);
 		Log::printf(
 			Log::metrics,
-			"%s used %.1fKiB for %" PRIuPTR
-			" elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%" PRIuPTR
+			"%s used %.1fKiB for %" WAVM_PRIuPTR
+			" elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%" WAVM_PRIuPTR
 			"\n",
 			description,
 			totalMemoryBytes / 1024.0f,

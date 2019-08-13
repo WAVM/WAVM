@@ -236,8 +236,8 @@ static bool collectGarbageImpl(Compartment* compartment)
 	if(wasCompartmentUnreferenced) { delete compartment; }
 
 	Log::printf(Log::metrics,
-				"Collected garbage in %.2fms: %" PRIuPTR " roots, %" PRIuPTR " objects, %" PRIuPTR
-				" garbage\n",
+				"Collected garbage in %.2fms: %" WAVM_PRIuPTR " roots, %" WAVM_PRIuPTR
+				" objects, %" WAVM_PRIuPTR " garbage\n",
 				timer.getMilliseconds(),
 				numRoots,
 				numInitialObjects,
