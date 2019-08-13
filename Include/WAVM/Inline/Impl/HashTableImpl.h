@@ -10,8 +10,8 @@
 template<HASHTABLE_PARAMETERS>
 Uptr HashTable<HASHTABLE_ARGUMENTS>::calcProbeCount(Uptr bucketIndex) const
 {
-	wavmAssert(buckets[bucketIndex].hashAndOccupancy);
-	wavmAssert(!(hashToBucketIndexMask & Bucket::isOccupiedMask));
+	WAVM_ASSERT(buckets[bucketIndex].hashAndOccupancy);
+	WAVM_ASSERT(!(hashToBucketIndexMask & Bucket::isOccupiedMask));
 	const Uptr idealBucketIndex = buckets[bucketIndex].hashAndOccupancy & hashToBucketIndexMask;
 	if(idealBucketIndex <= bucketIndex) { return bucketIndex - idealBucketIndex; }
 	else
@@ -30,14 +30,14 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::clear()
 
 template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::resize(Uptr newNumBuckets)
 {
-	wavmAssert(!(newNumBuckets & (newNumBuckets - 1)));
+	WAVM_ASSERT(!(newNumBuckets & (newNumBuckets - 1)));
 
 	const Uptr oldNumBuckets = numBuckets();
 	Bucket* oldBuckets = buckets;
 
 	if(!newNumBuckets)
 	{
-		wavmAssert(!numElements);
+		WAVM_ASSERT(!numElements);
 		buckets = nullptr;
 	}
 	else
@@ -50,8 +50,8 @@ template<HASHTABLE_PARAMETERS> void HashTable<HASHTABLE_ARGUMENTS>::resize(Uptr 
 
 	if(numElements)
 	{
-		wavmAssert(oldBuckets);
-		wavmAssert(buckets);
+		WAVM_ASSERT(oldBuckets);
+		WAVM_ASSERT(buckets);
 
 		// Iterate over the old buckets, and reinsert their contents in the new buckets.
 		for(Uptr bucketIndex = 0; bucketIndex < oldNumBuckets; ++bucketIndex)
@@ -138,7 +138,7 @@ const HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForRead
 			{
 				// Otherwise, continue to the next bucket.
 				++probeCount;
-				wavmAssert(probeCount < numBuckets());
+				WAVM_ASSERT(probeCount < numBuckets());
 			}
 		}
 	};
@@ -166,7 +166,7 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForAdd(Uptr h
 	if(!bucket.hashAndOccupancy) { ++numElements; }
 	else
 	{
-		wavmAssert(bucket.hashAndOccupancy == (hash | Bucket::isOccupiedMask));
+		WAVM_ASSERT(bucket.hashAndOccupancy == (hash | Bucket::isOccupiedMask));
 	}
 
 	return bucket;
@@ -176,7 +176,7 @@ template<HASHTABLE_PARAMETERS>
 HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(Uptr hash,
 																			const Key& key)
 {
-	wavmAssert(buckets);
+	WAVM_ASSERT(buckets);
 
 	// Start at the bucket indexed by the lower bits of the hash.
 	const Uptr hashAndOccupancy = hash | Bucket::isOccupiedMask;
@@ -213,7 +213,7 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(Uptr
 			{
 				// Otherwise, continue to the next bucket.
 				++probeCount;
-				wavmAssert(probeCount < numBuckets());
+				WAVM_ASSERT(probeCount < numBuckets());
 			}
 		}
 	};
@@ -222,11 +222,11 @@ HashTableBucket<Element>& HashTable<HASHTABLE_ARGUMENTS>::getBucketForWrite(Uptr
 template<HASHTABLE_PARAMETERS>
 void HashTable<HASHTABLE_ARGUMENTS>::evictHashBucket(Uptr bucketIndex)
 {
-	wavmAssert(buckets);
+	WAVM_ASSERT(buckets);
 
 	// Move the bucket's element into a local variable and empty the bucket.
 	Bucket& evictedBucket = buckets[bucketIndex];
-	wavmAssert(evictedBucket.hashAndOccupancy);
+	WAVM_ASSERT(evictedBucket.hashAndOccupancy);
 	Element evictedElement{std::move(evictedBucket.storage.contents)};
 	Uptr evictedHashAndOccupancy = evictedBucket.hashAndOccupancy;
 	evictedBucket.hashAndOccupancy = 0;
@@ -258,7 +258,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::evictHashBucket(Uptr bucketIndex)
 template<HASHTABLE_PARAMETERS>
 void HashTable<HASHTABLE_ARGUMENTS>::eraseHashBucket(Uptr eraseBucketIndex)
 {
-	wavmAssert(buckets);
+	WAVM_ASSERT(buckets);
 
 	while(true)
 	{
@@ -270,7 +270,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::eraseHashBucket(Uptr eraseBucketIndex)
 		if(!bucket.hashAndOccupancy)
 		{
 			// If the following bucket is empty, empty the erase bucket and return.
-			wavmAssert(bucketToErase.hashAndOccupancy);
+			WAVM_ASSERT(bucketToErase.hashAndOccupancy);
 			bucketToErase.hashAndOccupancy = 0;
 			bucketToErase.storage.destruct();
 			return;
@@ -283,7 +283,7 @@ void HashTable<HASHTABLE_ARGUMENTS>::eraseHashBucket(Uptr eraseBucketIndex)
 				// If the bucket contains an element in its ideal bucket, it and its successors
 				// don't need to be shifted into the erase bucket, so just empty the erase
 				// bucket and return.
-				wavmAssert(bucketToErase.hashAndOccupancy);
+				WAVM_ASSERT(bucketToErase.hashAndOccupancy);
 				bucketToErase.hashAndOccupancy = 0;
 				bucketToErase.storage.destruct();
 				return;
@@ -336,7 +336,7 @@ HashTable<HASHTABLE_ARGUMENTS>::HashTable(Uptr estimatedNumElements)
 	{
 		// Allocate the initial buckets.
 		hashToBucketIndexMask = numBuckets - 1;
-		wavmAssert((numBuckets & hashToBucketIndexMask) == 0);
+		WAVM_ASSERT((numBuckets & hashToBucketIndexMask) == 0);
 		buckets = new Bucket[numBuckets]();
 	}
 }

@@ -88,7 +88,7 @@ protected:
 	}
 	virtual void pwrite_impl(const char* data, size_t numBytes, U64 offset) override
 	{
-		wavmAssert(offset + numBytes > offset && offset + numBytes <= U64(output.size()));
+		WAVM_ASSERT(offset + numBytes > offset && offset + numBytes <= U64(output.size()));
 		memcpy(output.data() + offset, data, numBytes);
 	}
 	virtual U64 current_pos() const override { return output.size(); }
@@ -155,7 +155,7 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 		llvm::legacy::PassManager passManager;
 		llvm::MCContext* mcContext;
 		LLVMArrayOutputStream objectStream;
-		errorUnless(!targetMachine->addPassesToEmitMC(passManager, mcContext, objectStream));
+		WAVM_ERROR_UNLESS(!targetMachine->addPassesToEmitMC(passManager, mcContext, objectStream));
 		passManager.run(llvmModule);
 		objectBytes = objectStream.getOutput();
 	}

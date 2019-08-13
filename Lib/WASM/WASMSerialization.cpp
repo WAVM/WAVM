@@ -304,7 +304,7 @@ namespace WAVM { namespace IR {
 		{
 			serializeArray(stream, *elemSegment.elems, [](Stream& stream, Elem& elem) {
 				if(Stream::isInput) { elem.type = Elem::Type::ref_func; }
-				wavmAssert(elem.type == Elem::Type::ref_func);
+				WAVM_ASSERT(elem.type == Elem::Type::ref_func);
 				serializeVarUInt32(stream, elem.index);
 			});
 		}
@@ -533,7 +533,7 @@ static void serialize(OutputStream& stream,
 					  FunctionDef& functionDef,
 					  const ModuleSerializationState&)
 {
-	wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
+	WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 	std::vector<Uptr>& branchTable = functionDef.branchTables[imm.branchTableIndex];
 	serializeArray(stream, branchTable, [](OutputStream& stream, Uptr& targetDepth) {
 		serializeVarUInt32(stream, targetDepth);
@@ -778,7 +778,7 @@ static void serialize(InputStream& stream, UserSection& userSection)
 	throwIfNotValidUTF8(userSection.name);
 	userSection.data.resize(sectionStream.capacity());
 	serializeBytes(sectionStream, userSection.data.data(), userSection.data.size());
-	wavmAssert(!sectionStream.capacity());
+	WAVM_ASSERT(!sectionStream.capacity());
 }
 
 struct LocalSet
@@ -1068,10 +1068,10 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 		}
 		else
 		{
-			wavmAssert(module.imports.size()
-					   == module.functions.imports.size() + module.tables.imports.size()
-							  + module.memories.imports.size() + module.globals.imports.size()
-							  + module.exceptionTypes.imports.size());
+			WAVM_ASSERT(module.imports.size()
+						== module.functions.imports.size() + module.tables.imports.size()
+							   + module.memories.imports.size() + module.globals.imports.size()
+							   + module.exceptionTypes.imports.size());
 
 			for(const auto& kindIndex : module.imports)
 			{

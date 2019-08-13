@@ -14,14 +14,14 @@ static I128 timespecToNS(timespec t) { return I128(U64(t.tv_sec)) * 1000000000 +
 static I128 getClockAsI128(clockid_t clockId)
 {
 	timespec clockTime;
-	errorUnless(!clock_gettime(clockId, &clockTime));
+	WAVM_ERROR_UNLESS(!clock_gettime(clockId, &clockTime));
 	return timespecToNS(clockTime);
 }
 
 static I128 getClockResAsI128(clockid_t clockId)
 {
 	timespec clockResolution;
-	errorUnless(!clock_getres(clockId, &clockResolution));
+	WAVM_ERROR_UNLESS(!clock_getres(clockId, &clockResolution));
 	return timespecToNS(clockResolution);
 }
 
@@ -40,7 +40,7 @@ I128 Platform::getMonotonicClockResolution() { return getClockResAsI128(CLOCK_MO
 static mach_timebase_info_data_t getTimebaseInfoData()
 {
 	mach_timebase_info_data_t timebaseInfoData;
-	errorUnless(mach_timebase_info(&timebaseInfoData) == KERN_SUCCESS);
+	WAVM_ERROR_UNLESS(mach_timebase_info(&timebaseInfoData) == KERN_SUCCESS);
 	return timebaseInfoData;
 }
 
@@ -81,7 +81,7 @@ static I128 timevalToNS(timeval t) { return I128(U64(t.tv_sec)) * 1000000000 + U
 I128 Platform::getProcessClock()
 {
 	struct rusage ru;
-	errorUnless(!getrusage(RUSAGE_SELF, &ru));
+	WAVM_ERROR_UNLESS(!getrusage(RUSAGE_SELF, &ru));
 	return timevalToNS(ru.ru_stime) + timevalToNS(ru.ru_utime);
 }
 I128 Platform::getProcessClockResolution() { return 1000; }

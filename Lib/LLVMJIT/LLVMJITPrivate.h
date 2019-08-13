@@ -148,7 +148,7 @@ namespace WAVM { namespace LLVMJIT {
 	// Converts a WebAssembly type to a LLVM type.
 	inline llvm::Type* asLLVMType(LLVMContext& llvmContext, IR::ValueType type)
 	{
-		wavmAssert(type < (IR::ValueType)IR::numValueTypes);
+		WAVM_ASSERT(type < (IR::ValueType)IR::numValueTypes);
 		return llvmContext.valueTypes[Uptr(type)];
 	}
 
@@ -359,7 +359,7 @@ namespace WAVM { namespace LLVMJIT {
 	inline std::string demangleSymbol(std::string&& symbol)
 	{
 #if((defined(_WIN32) && !defined(_WIN64))) || defined(__APPLE__)
-		wavmAssert(symbol[0] == '_');
+		WAVM_ASSERT(symbol[0] == '_');
 		return std::move(symbol).substr(1);
 #else
 		return std::move(symbol);

@@ -35,7 +35,7 @@ static I128 getRealtimeClockOrigin()
 	systemTime.wSecond = 0;
 	systemTime.wMilliseconds = 0;
 	FILETIME fileTime;
-	errorUnless(SystemTimeToFileTime(&systemTime, &fileTime));
+	WAVM_ERROR_UNLESS(SystemTimeToFileTime(&systemTime, &fileTime));
 
 	return fileTimeToI128(fileTime);
 }
@@ -69,7 +69,7 @@ I128 Platform::getRealtimeClockResolution() { return 100; }
 static LARGE_INTEGER getQPCFrequency()
 {
 	LARGE_INTEGER result;
-	errorUnless(QueryPerformanceFrequency(&result));
+	WAVM_ERROR_UNLESS(QueryPerformanceFrequency(&result));
 	return result;
 }
 
@@ -83,7 +83,7 @@ I128 Platform::getMonotonicClock()
 {
 	LARGE_INTEGER ticksPerSecond = getCachedQPCFrequency();
 	LARGE_INTEGER ticks;
-	errorUnless(QueryPerformanceCounter(&ticks));
+	WAVM_ERROR_UNLESS(QueryPerformanceCounter(&ticks));
 	return I128(ticks.QuadPart) * 1000000000 / ticksPerSecond.QuadPart;
 }
 
@@ -101,7 +101,7 @@ I128 Platform::getProcessClock()
 	FILETIME exitTime;
 	FILETIME kernelTime;
 	FILETIME userTime;
-	errorUnless(
+	WAVM_ERROR_UNLESS(
 		GetProcessTimes(GetCurrentProcess(), &creationTime, &exitTime, &kernelTime, &userTime));
 
 	return fileTimeToI128(kernelTime) + fileTimeToI128(userTime);

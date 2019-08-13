@@ -122,7 +122,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		IR::CallingConvention::wasm);
 
 	// If the function has a return value, write it to the context invoke return memory.
-	wavmAssert(results.size() == functionType.results().size());
+	WAVM_ASSERT(results.size() == functionType.results().size());
 	auto newContextPointer = emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable);
 	Uptr resultOffset = 0;
 	for(Uptr resultIndex = 0; resultIndex < results.size(); ++resultIndex)
@@ -131,7 +131,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		const U8 resultNumBytes = getTypeByteWidth(resultType);
 
 		resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
-		wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
+		WAVM_ASSERT(resultOffset < maxThunkArgAndReturnBytes);
 
 		emitContext.irBuilder.CreateStore(
 			results[resultIndex],
@@ -165,9 +165,9 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 {
 	Lock<Platform::Mutex> intrinsicThunkLock(intrinsicThunkMutex);
 
-	wavmAssert(callingConvention == CallingConvention::intrinsic
-			   || callingConvention == CallingConvention::intrinsicWithContextSwitch
-			   || callingConvention == CallingConvention::cAPICallback);
+	WAVM_ASSERT(callingConvention == CallingConvention::intrinsic
+				|| callingConvention == CallingConvention::intrinsicWithContextSwitch
+				|| callingConvention == CallingConvention::cAPICallback);
 
 	LLVMContext llvmContext;
 

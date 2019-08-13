@@ -9,8 +9,8 @@ using namespace WAVM::Platform;
 
 void Platform::getCryptographicRNG(U8* outRandomBytes, Uptr numBytes)
 {
-	errorUnless(numBytes <= ULONG_MAX);
+	WAVM_ERROR_UNLESS(numBytes <= ULONG_MAX);
 
-	errorUnless(!BCryptGenRandom(
+	WAVM_ERROR_UNLESS(!BCryptGenRandom(
 		nullptr, outRandomBytes, ULONG(numBytes), BCRYPT_USE_SYSTEM_PREFERRED_RNG));
 }

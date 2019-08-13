@@ -393,7 +393,7 @@ namespace WAVM {
 		if(d.lowU64 == 0)
 		{
 			// Error if the divisor is zero.
-			errorUnless(d.highU64 != 0);
+			WAVM_ERROR_UNLESS(d.highU64 != 0);
 
 			// d.highU64 != 0
 			if(n.lowU64 == 0)

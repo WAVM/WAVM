@@ -16,7 +16,7 @@ using namespace WAVM::Runtime;
 
 Context* Runtime::createContext(Compartment* compartment)
 {
-	wavmAssert(compartment);
+	WAVM_ASSERT(compartment);
 	Context* context = new Context(compartment);
 	{
 		Lock<Platform::Mutex> lock(compartment->mutex);
@@ -31,7 +31,7 @@ Context* Runtime::createContext(Compartment* compartment)
 		context->runtimeData = &compartment->runtimeData->contexts[context->id];
 
 		// Commit the page(s) for the context's runtime data.
-		errorUnless(Platform::commitVirtualPages(
+		WAVM_ERROR_UNLESS(Platform::commitVirtualPages(
 			(U8*)context->runtimeData, sizeof(ContextRuntimeData) >> Platform::getPageSizeLog2()));
 
 		// Initialize the context's global data.
@@ -45,7 +45,7 @@ Context* Runtime::createContext(Compartment* compartment)
 
 Runtime::Context::~Context()
 {
-	wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+	WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 	compartment->contexts.removeOrFail(id);
 }
 

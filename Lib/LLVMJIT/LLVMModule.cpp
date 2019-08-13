@@ -182,25 +182,25 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 	}
 	void reallyFinalizeMemory()
 	{
-		wavmAssert(!isFinalized);
+		WAVM_ASSERT(!isFinalized);
 		isFinalized = true;
 		const Platform::MemoryAccess codeAccess = Platform::MemoryAccess::execute;
 		if(codeSection.numPages)
 		{
-			errorUnless(Platform::setVirtualPageAccess(
+			WAVM_ERROR_UNLESS(Platform::setVirtualPageAccess(
 				codeSection.baseAddress, codeSection.numPages, codeAccess));
 		}
 		if(readOnlySection.numPages)
 		{
-			errorUnless(Platform::setVirtualPageAccess(readOnlySection.baseAddress,
-													   readOnlySection.numPages,
-													   Platform::MemoryAccess::readOnly));
+			WAVM_ERROR_UNLESS(Platform::setVirtualPageAccess(readOnlySection.baseAddress,
+															 readOnlySection.numPages,
+															 Platform::MemoryAccess::readOnly));
 		}
 		if(readWriteSection.numPages)
 		{
-			errorUnless(Platform::setVirtualPageAccess(readWriteSection.baseAddress,
-													   readWriteSection.numPages,
-													   Platform::MemoryAccess::readWrite));
+			WAVM_ERROR_UNLESS(Platform::setVirtualPageAccess(readWriteSection.baseAddress,
+															 readWriteSection.numPages,
+															 Platform::MemoryAccess::readWrite));
 		}
 
 		// Invalidate the instruction cache.
@@ -240,14 +240,14 @@ private:
 	{
 		if(alignment == 0) { alignment = 1; }
 
-		wavmAssert(section.baseAddress);
-		wavmAssert(!(alignment & (alignment - 1)));
-		wavmAssert(!isFinalized);
+		WAVM_ASSERT(section.baseAddress);
+		WAVM_ASSERT(!(alignment & (alignment - 1)));
+		WAVM_ASSERT(!isFinalized);
 
 		// Allocate the section at the lowest uncommitted byte of image memory.
 		U8* allocationBaseAddress
 			= section.baseAddress + align(section.numCommittedBytes, alignment);
-		wavmAssert(!(reinterpret_cast<Uptr>(allocationBaseAddress) & (alignment - 1)));
+		WAVM_ASSERT(!(reinterpret_cast<Uptr>(allocationBaseAddress) & (alignment - 1)));
 		section.numCommittedBytes
 			= align(section.numCommittedBytes, alignment) + align(numBytes, alignment);
 
@@ -288,7 +288,7 @@ static void disassembleFunction(U8* bytes, Uptr numBytes)
 														 instructionBuffer,
 														 sizeof(instructionBuffer));
 		if(numInstructionBytes == 0) { numInstructionBytes = 1; }
-		wavmAssert(numInstructionBytes <= numBytesRemaining);
+		WAVM_ASSERT(numInstructionBytes <= numBytesRemaining);
 		numBytesRemaining -= numInstructionBytes;
 		nextByte += numInstructionBytes;
 
@@ -374,7 +374,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 			else
 			{
 				// LLVM assumes that a symbol value of zero is a symbol that wasn't resolved.
-				wavmAssert(*symbolValue);
+				WAVM_ASSERT(*symbolValue);
 				return llvm::JITEvaluatedSymbol(U64(*symbolValue), llvm::JITSymbolFlags::None);
 			}
 		}
@@ -444,7 +444,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 	{
 		// Lookup the real address of _CxxFrameHandler3.
 		const llvm::JITEvaluatedSymbol sehHandlerSymbol = resolveJITImport("__CxxFrameHandler3");
-		errorUnless(sehHandlerSymbol);
+		WAVM_ERROR_UNLESS(sehHandlerSymbol);
 		const U64 sehHandlerAddress = U64(sehHandlerSymbol.getAddress());
 
 		// Create a trampoline within the image's 2GB address space that jumps to
@@ -520,7 +520,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 		if(!address) { continue; }
 
 		// Compute the address the function was loaded at.
-		wavmAssert(*address <= UINTPTR_MAX);
+		WAVM_ASSERT(*address <= UINTPTR_MAX);
 		Uptr loadedAddress = Uptr(*address);
 		if(llvm::Expected<llvm::object::section_iterator> symbolSection = symbol.getSection())
 		{ loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get()); }
@@ -548,14 +548,14 @@ Module::Module(const std::vector<U8>& objectBytes,
 		}
 
 		// Add the function to the module's name and address to function maps.
-		wavmAssert(symbolSizePair.second <= UINTPTR_MAX);
+		WAVM_ASSERT(symbolSizePair.second <= UINTPTR_MAX);
 		Runtime::Function* function
 			= (Runtime::Function*)(loadedAddress - offsetof(Runtime::Function, code));
 		nameToFunctionMap.addOrFail(*name, function);
 		addressToFunctionMap.emplace(Uptr(loadedAddress + symbolSizePair.second), function);
 
 		// Initialize the function mutable data.
-		wavmAssert(function->mutableData);
+		WAVM_ASSERT(function->mutableData);
 		function->mutableData->jitModule = this;
 		function->mutableData->function = function;
 		function->mutableData->numCodeBytes = Uptr(symbolSizePair.second);
@@ -620,7 +620,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	// calling convention, so no thunking is necessary.
 	for(auto exportMapPair : wavmIntrinsicsExportMap)
 	{
-		wavmAssert(exportMapPair.value.callingConvention == IR::CallingConvention::intrinsic);
+		WAVM_ASSERT(exportMapPair.value.callingConvention == IR::CallingConvention::intrinsic);
 		importedSymbolMap.addOrFail(exportMapPair.key,
 									reinterpret_cast<Uptr>(exportMapPair.value.code));
 	}
@@ -697,7 +697,7 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	}
 
 	// Bind the moduleInstance symbol to point to the ModuleInstance.
-	wavmAssert(moduleInstance.id != UINTPTR_MAX);
+	WAVM_ASSERT(moduleInstance.id != UINTPTR_MAX);
 	importedSymbolMap.addOrFail("biasedModuleInstanceId", moduleInstance.id + 1);
 
 	// Bind the tableReferenceBias symbol to the tableReferenceBias.

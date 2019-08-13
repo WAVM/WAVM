@@ -171,7 +171,7 @@ int main(int argc, char** argv)
 		});
 
 	// Free the compartment.
-	errorUnless(tryCollectCompartment(std::move(compartment)));
+	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 
 	return 0;
 }

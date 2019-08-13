@@ -62,14 +62,14 @@ static void parseErrorfImpl(ParseState* parseState,
 	va_end(messageArgsProbe);
 
 	// Allocate a buffer for the formatted message.
-	errorUnless(numFormattedChars >= 0);
+	WAVM_ERROR_UNLESS(numFormattedChars >= 0);
 	std::string formattedMessage;
 	formattedMessage.resize(numFormattedChars);
 
 	// Print the formatted message
 	int numWrittenChars = std::vsnprintf(
 		(char*)formattedMessage.data(), numFormattedChars + 1, messageFormat, messageArgs);
-	wavmAssert(numWrittenChars == numFormattedChars);
+	WAVM_ASSERT(numWrittenChars == numFormattedChars);
 
 	// Add the error to the cursor's error list.
 	parseState->unresolvedErrors.emplace_back(charOffset, std::move(formattedMessage));
@@ -288,7 +288,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 
 	const char* firstChar = cursor->parseState->string + cursor->nextToken->begin;
 	const char* nextChar = firstChar;
-	wavmAssert(*nextChar == '$');
+	WAVM_ASSERT(*nextChar == '$');
 	++nextChar;
 
 	if(cursor->nextToken->type == t_quotedName)
@@ -296,7 +296,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 		if(!cursor->moduleState->module.featureSpec.quotedNamesInTextFormat)
 		{ parseErrorf(cursor->parseState, cursor->nextToken, "quoted names are disabled"); }
 
-		wavmAssert(*nextChar == '\"');
+		WAVM_ASSERT(*nextChar == '\"');
 		++nextChar;
 		{
 			std::string quotedNameChars;
@@ -313,7 +313,7 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 					std::unique_ptr<std::string>{new std::string(std::move(quotedNameChars))});
 				const std::unique_ptr<std::string>& quotedName
 					= cursor->parseState->quotedNameStrings.back();
-				wavmAssert(quotedName->size() <= UINT32_MAX);
+				WAVM_ASSERT(quotedName->size() <= UINT32_MAX);
 				outName
 					= Name(quotedName->data(), U32(quotedName->size()), cursor->nextToken->begin);
 			}
@@ -335,10 +335,10 @@ bool WAST::tryParseName(CursorState* cursor, Name& outName)
 		outName = Name(firstChar + 1, U32(nextChar - firstChar - 1), cursor->nextToken->begin);
 	}
 
-	wavmAssert(U32(nextChar - cursor->parseState->string) > cursor->nextToken->begin + 1);
+	WAVM_ASSERT(U32(nextChar - cursor->parseState->string) > cursor->nextToken->begin + 1);
 	++cursor->nextToken;
-	wavmAssert(U32(nextChar - cursor->parseState->string) <= cursor->nextToken->begin);
-	wavmAssert(U32(nextChar - firstChar) <= UINT32_MAX);
+	WAVM_ASSERT(U32(nextChar - cursor->parseState->string) <= cursor->nextToken->begin);
+	WAVM_ASSERT(U32(nextChar - firstChar) <= UINT32_MAX);
 	return true;
 }
 
@@ -416,7 +416,7 @@ void WAST::bindName(ParseState* parseState,
 		if(!nameToIndexMap.add(name, index))
 		{
 			const HashMapPair<Name, Uptr>* nameIndexPair = nameToIndexMap.getPair(name);
-			wavmAssert(nameIndexPair);
+			WAVM_ASSERT(nameIndexPair);
 			const TextFileLocus previousDefinitionLocus = calcLocusFromOffset(
 				parseState->string, parseState->lineInfo, nameIndexPair->key.getSourceOffset());
 			parseErrorf(parseState,
@@ -542,7 +542,7 @@ static void parseCharEscapeCode(const char*& nextChar,
 					while(tryParseHexit(nextChar, hexit)) {};
 					break;
 				}
-				wavmAssert(codepoint * 16 + hexit >= codepoint);
+				WAVM_ASSERT(codepoint * 16 + hexit >= codepoint);
 				codepoint = codepoint * 16 + hexit;
 			}
 
@@ -594,11 +594,11 @@ bool WAST::tryParseString(CursorState* cursor, std::string& outString)
 	// Parse a string literal; the lexer has already rejected unterminated strings, so this just
 	// needs to copy the characters and evaluate escape codes.
 	const char* nextChar = cursor->parseState->string + cursor->nextToken->begin;
-	wavmAssert(*nextChar == '\"');
+	WAVM_ASSERT(*nextChar == '\"');
 	++nextChar;
 	parseStringChars(nextChar, cursor->parseState, outString);
 	++cursor->nextToken;
-	wavmAssert(cursor->parseState->string + cursor->nextToken->begin > nextChar);
+	WAVM_ASSERT(cursor->parseState->string + cursor->nextToken->begin > nextChar);
 	return true;
 }
 

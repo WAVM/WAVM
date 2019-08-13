@@ -34,8 +34,8 @@ static void compileModule(const IR::Module& module, RandomStream& random)
 
 	const LLVMJIT::TargetSpec& targetSpec = possibleTargetSpecs[random.get(numPossibleTargets - 1)];
 
-	errorUnless(LLVMJIT::validateTarget(targetSpec, FeatureSpec(true))
-				== LLVMJIT::TargetValidationResult::valid);
+	WAVM_ERROR_UNLESS(LLVMJIT::validateTarget(targetSpec, FeatureSpec(true))
+					  == LLVMJIT::TargetValidationResult::valid);
 
 	std::vector<U8> objectCode = LLVMJIT::compileModule(module, targetSpec);
 }

@@ -66,7 +66,7 @@ static llvm::Function* getCXAEndCatchFunction(EmitModuleContext& moduleContext)
 
 void EmitFunctionContext::endTryWithoutCatch()
 {
-	wavmAssert(tryStack.size());
+	WAVM_ASSERT(tryStack.size());
 	tryStack.pop_back();
 
 	endTryCatch();
@@ -74,7 +74,7 @@ void EmitFunctionContext::endTryWithoutCatch()
 
 void EmitFunctionContext::endTryCatch()
 {
-	wavmAssert(catchStack.size());
+	WAVM_ASSERT(catchStack.size());
 	CatchContext& catchContext = catchStack.back();
 
 	exitCatch();
@@ -97,9 +97,9 @@ void EmitFunctionContext::endTryCatch()
 void EmitFunctionContext::exitCatch()
 {
 	ControlContext& currentContext = controlStack.back();
-	wavmAssert(currentContext.type == ControlContext::Type::catch_);
+	WAVM_ASSERT(currentContext.type == ControlContext::Type::catch_);
 
-	wavmAssert(catchStack.size());
+	WAVM_ASSERT(catchStack.size());
 	CatchContext& catchContext = catchStack.back();
 
 	if(currentContext.isReachable)
@@ -220,15 +220,15 @@ void EmitFunctionContext::try_(ControlStructureImm imm)
 
 void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 {
-	wavmAssert(controlStack.size());
-	wavmAssert(catchStack.size());
+	WAVM_ASSERT(controlStack.size());
+	WAVM_ASSERT(catchStack.size());
 	ControlContext& controlContext = controlStack.back();
 	CatchContext& catchContext = catchStack.back();
-	wavmAssert(controlContext.type == ControlContext::Type::try_
-			   || controlContext.type == ControlContext::Type::catch_);
+	WAVM_ASSERT(controlContext.type == ControlContext::Type::try_
+				|| controlContext.type == ControlContext::Type::catch_);
 	if(controlContext.type == ControlContext::Type::try_)
 	{
-		wavmAssert(tryStack.size());
+		WAVM_ASSERT(tryStack.size());
 		tryStack.pop_back();
 	}
 	else
@@ -239,7 +239,7 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 	branchToEndOfControlContext();
 
 	// Look up the exception type instance to be caught
-	wavmAssert(imm.exceptionTypeIndex < moduleContext.exceptionTypeIds.size());
+	WAVM_ASSERT(imm.exceptionTypeIndex < moduleContext.exceptionTypeIds.size());
 	const IR::ExceptionType catchType = irModule.exceptionTypes.getType(imm.exceptionTypeIndex);
 	llvm::Constant* catchTypeId = moduleContext.exceptionTypeIds[imm.exceptionTypeIndex];
 
@@ -273,15 +273,15 @@ void EmitFunctionContext::catch_(ExceptionTypeImm imm)
 }
 void EmitFunctionContext::catch_all(NoImm)
 {
-	wavmAssert(controlStack.size());
-	wavmAssert(catchStack.size());
+	WAVM_ASSERT(controlStack.size());
+	WAVM_ASSERT(catchStack.size());
 	ControlContext& controlContext = controlStack.back();
 	CatchContext& catchContext = catchStack.back();
-	wavmAssert(controlContext.type == ControlContext::Type::try_
-			   || controlContext.type == ControlContext::Type::catch_);
+	WAVM_ASSERT(controlContext.type == ControlContext::Type::try_
+				|| controlContext.type == ControlContext::Type::catch_);
 	if(controlContext.type == ControlContext::Type::try_)
 	{
-		wavmAssert(tryStack.size());
+		WAVM_ASSERT(tryStack.size());
 		tryStack.pop_back();
 	}
 	else
@@ -353,7 +353,7 @@ void EmitFunctionContext::throw_(ExceptionTypeImm imm)
 }
 void EmitFunctionContext::rethrow(RethrowImm imm)
 {
-	wavmAssert(imm.catchDepth < catchStack.size());
+	WAVM_ASSERT(imm.catchDepth < catchStack.size());
 	CatchContext& catchContext = catchStack[catchStack.size() - imm.catchDepth - 1];
 	emitRuntimeIntrinsic(
 		"throwException",

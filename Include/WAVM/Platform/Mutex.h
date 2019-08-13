@@ -61,7 +61,8 @@ namespace WAVM { namespace Platform {
 }}
 
 #if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
-#define wavmAssertMutexIsLockedByCurrentThread(mutex) wavmAssert((mutex).isLockedByCurrentThread())
+#define WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(mutex)                                       \
+	WAVM_ASSERT((mutex).isLockedByCurrentThread())
 #else
-#define wavmAssertMutexIsLockedByCurrentThread(mutex) wavmAssert(&(mutex) == &(mutex))
+#define WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(mutex) WAVM_ASSERT(&(mutex) == &(mutex))
 #endif

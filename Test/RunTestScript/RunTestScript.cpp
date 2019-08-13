@@ -104,7 +104,7 @@ struct TestScriptState
 		context = nullptr;
 		moduleInternalNameToInstanceMap.clear();
 		moduleNameToInstanceMap.clear();
-		errorUnless(tryCollectCompartment(std::move(compartment)));
+		WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 	}
 };
 
@@ -147,14 +147,14 @@ static void testErrorf(TestScriptState& state,
 	va_end(messageArgsProbe);
 
 	// Allocate a buffer for the formatted message.
-	errorUnless(numFormattedChars >= 0);
+	WAVM_ERROR_UNLESS(numFormattedChars >= 0);
 	std::string formattedMessage;
 	formattedMessage.resize(numFormattedChars);
 
 	// Print the formatted message
 	int numWrittenChars = std::vsnprintf(
 		(char*)formattedMessage.data(), numFormattedChars + 1, messageFormat, messageArgs);
-	wavmAssert(numWrittenChars == numFormattedChars);
+	WAVM_ASSERT(numWrittenChars == numFormattedChars);
 	va_end(messageArgs);
 
 	// Add the error to the cursor's error list.
@@ -678,13 +678,13 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 	// Check that the original and cloned memory are the same after processing the command.
 	if(state.lastModuleInstance && clonedState.lastModuleInstance)
 	{
-		wavmAssert(state.lastModuleInstance != clonedState.lastModuleInstance);
+		WAVM_ASSERT(state.lastModuleInstance != clonedState.lastModuleInstance);
 
 		Memory* memory = getDefaultMemory(state.lastModuleInstance);
 		Memory* clonedMemory = getDefaultMemory(clonedState.lastModuleInstance);
 		if(memory && clonedMemory)
 		{
-			wavmAssert(memory != clonedMemory);
+			WAVM_ASSERT(memory != clonedMemory);
 
 			const Uptr numMemoryPages = getMemoryNumPages(memory);
 			const Uptr numClonedMemoryPages = getMemoryNumPages(clonedMemory);

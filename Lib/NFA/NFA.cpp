@@ -51,7 +51,7 @@ Builder* NFA::createBuilder()
 
 StateIndex NFA::addState(Builder* builder)
 {
-	wavmAssert(builder->nfaStates.size() < INT16_MAX);
+	WAVM_ASSERT(builder->nfaStates.size() < INT16_MAX);
 	builder->nfaStates.emplace_back();
 	return StateIndex(builder->nfaStates.size() - 1);
 }
@@ -179,7 +179,7 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 		typedef DenseStaticIntSet<StateIndex, numSupportedLocalStates> LocalStateSet;
 
 		const Uptr numLocalStates = stateIndexToLocalStateIndexMap.size();
-		wavmAssert(numLocalStates <= numSupportedLocalStates);
+		WAVM_ASSERT(numLocalStates <= numSupportedLocalStates);
 		maxLocalStates = std::max<Uptr>(maxLocalStates, numLocalStates);
 
 		// Combine the [nextState][char] transition maps for current states and transpose to
@@ -320,7 +320,7 @@ struct StateTransitionsByChar
 
 	bool operator<(const StateTransitionsByChar& right) const
 	{
-		wavmAssert(numStates == right.numStates);
+		WAVM_ASSERT(numStates == right.numStates);
 		return memcmp(nextStateByInitialState,
 					  right.nextStateByInitialState,
 					  sizeof(StateIndex) * numStates)
@@ -328,7 +328,7 @@ struct StateTransitionsByChar
 	}
 	bool operator!=(const StateTransitionsByChar& right) const
 	{
-		wavmAssert(numStates == right.numStates);
+		WAVM_ASSERT(numStates == right.numStates);
 		return memcmp(nextStateByInitialState,
 					  right.nextStateByInitialState,
 					  sizeof(StateIndex) * numStates)
@@ -340,7 +340,7 @@ NFA::Machine::Machine(Builder* builder)
 {
 	// Convert the NFA constructed by the builder to a DFA.
 	std::vector<DFAState> dfaStates = convertToDFA(builder);
-	wavmAssert(dfaStates.size() <= internalMaxStates);
+	WAVM_ASSERT(dfaStates.size() <= internalMaxStates);
 	delete builder;
 
 	Timing::Timer timer;
@@ -392,7 +392,7 @@ NFA::Machine::Machine(Builder* builder)
 	}
 
 	// Build a map from character index to offset into [charClass][initialState] transition map.
-	wavmAssert((numClasses - 1) * (numStates - 1) <= UINT32_MAX);
+	WAVM_ASSERT((numClasses - 1) * (numStates - 1) <= UINT32_MAX);
 	for(Uptr charIndex = 0; charIndex < 256; ++charIndex)
 	{ charToOffsetMap[charIndex] = U32(numStates * characterToClassMap[charIndex]); }
 

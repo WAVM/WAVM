@@ -79,7 +79,7 @@ WAVM_FORCENOINLINE static Uptr allocateThreadId(Thread* thread)
 {
 	Lock<Platform::Mutex> threadsLock(threadsMutex);
 	thread->id = threads.add(0, thread);
-	errorUnless(thread->id != 0);
+	WAVM_ERROR_UNLESS(thread->id != 0);
 	return thread->id;
 }
 
@@ -181,7 +181,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION_WITH_CONTEXT_SWITCH(threadTest, "forkThread", I64
 	auto compartment = getCompartmentFromContextRuntimeData(contextRuntimeData);
 	auto newContext = cloneContext(oldContext, compartment);
 
-	wavmAssert(currentThread);
+	WAVM_ASSERT(currentThread);
 	Thread* childThread
 		= new Thread(newContext, currentThread->entryFunction, currentThread->argument);
 
@@ -235,7 +235,7 @@ static IntrusiveSharedPtr<Thread> removeThreadById(Uptr threadId)
 	thread = std::move(threads[threadId]);
 	threads.removeOrFail(threadId);
 
-	wavmAssert(thread->id == Uptr(threadId));
+	WAVM_ASSERT(thread->id == Uptr(threadId));
 	thread->id = UINTPTR_MAX;
 
 	return thread;

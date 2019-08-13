@@ -122,7 +122,7 @@ static std::string expandIndentation(std::string&& inString, U8 spacesPerIndentL
 		}
 		else if(next[0] == DEDENT_STRING[0] && next[1] == DEDENT_STRING[1])
 		{
-			errorUnless(indentDepth > 0);
+			WAVM_ERROR_UNLESS(indentDepth > 0);
 			--indentDepth;
 			next += 2;
 		}
@@ -439,7 +439,7 @@ struct FunctionPrintContext
 		{
 			numTargetsPerLine = 16
 		};
-		wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
+		WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
@@ -522,8 +522,8 @@ struct FunctionPrintContext
 
 	void rethrow(RethrowImm imm)
 	{
-		wavmAssert(controlStack[controlStack.size() - 1 - imm.catchDepth].type
-				   == ControlContext::Type::catch_);
+		WAVM_ASSERT(controlStack[controlStack.size() - 1 - imm.catchDepth].type
+					== ControlContext::Type::catch_);
 
 		string += "\nrethrow " + getBranchTargetId(imm.catchDepth);
 	}
@@ -545,11 +545,11 @@ struct FunctionPrintContext
 	}
 
 	void printImm(NoImm) {}
-	void printImm(MemoryImm imm) { errorUnless(imm.memoryIndex == 0); }
+	void printImm(MemoryImm imm) { WAVM_ERROR_UNLESS(imm.memoryIndex == 0); }
 	void printImm(MemoryCopyImm imm)
 	{
-		errorUnless(imm.sourceMemoryIndex == 0);
-		errorUnless(imm.destMemoryIndex == 0);
+		WAVM_ERROR_UNLESS(imm.sourceMemoryIndex == 0);
+		WAVM_ERROR_UNLESS(imm.destMemoryIndex == 0);
 	}
 	void printImm(TableImm imm)
 	{
@@ -633,7 +633,7 @@ struct FunctionPrintContext
 			string += " offset=";
 			string += std::to_string(imm.offset);
 		}
-		wavmAssert(imm.alignmentLog2 == naturalAlignmentLog2);
+		WAVM_ASSERT(imm.alignmentLog2 == naturalAlignmentLog2);
 	}
 
 	void printImm(DataSegmentAndMemImm imm)
@@ -681,7 +681,7 @@ struct FunctionPrintContext
 #define PRINT_OP(opcode, name, nameString, Imm, printOperands, requiredFeature)                    \
 	void name(Imm imm)                                                                             \
 	{                                                                                              \
-		wavmAssert(module.featureSpec.requiredFeature);                                            \
+		WAVM_ASSERT(module.featureSpec.requiredFeature);                                           \
 		string += "\n" nameString;                                                                 \
 		printImm(imm);                                                                             \
 	}
@@ -944,8 +944,8 @@ void ModulePrintContext::printModule()
 			string += (elementIndex % numElemsPerLine == 0) ? '\n' : ' ';
 			if(elemSegment.isActive)
 			{
-				wavmAssert(elem.type == Elem::Type::ref_func);
-				wavmAssert(elem.index < names.functions.size());
+				WAVM_ASSERT(elem.type == Elem::Type::ref_func);
+				WAVM_ASSERT(elem.index < names.functions.size());
 				string += names.functions[elem.index].name;
 			}
 			else
@@ -954,7 +954,7 @@ void ModulePrintContext::printModule()
 				{
 				case Elem::Type::ref_null: string += "(ref.null)"; break;
 				case Elem::Type::ref_func:
-					wavmAssert(elem.index < names.functions.size());
+					WAVM_ASSERT(elem.index < names.functions.size());
 					string += "(ref.func ";
 					string += names.functions[elem.index].name;
 					string += ')';
@@ -1437,7 +1437,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			--indentDepth;
 		};
 	}
-	wavmAssert(indentDepth == 1);
+	WAVM_ASSERT(indentDepth == 1);
 	linkingSectionString += DEDENT_STRING "\n";
 
 	string += linkingSectionString;

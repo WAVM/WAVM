@@ -1124,13 +1124,13 @@ void WAST::parseModuleBody(CursorState* cursor, IR::Module& outModule)
 
 		// Set the module's disassembly names.
 		const DisassemblyNames& disassemblyNames = moduleState.disassemblyNames;
-		wavmAssert(outModule.functions.size() == disassemblyNames.functions.size());
-		wavmAssert(outModule.tables.size() == disassemblyNames.tables.size());
-		wavmAssert(outModule.memories.size() == disassemblyNames.memories.size());
-		wavmAssert(outModule.globals.size() == disassemblyNames.globals.size());
-		wavmAssert(outModule.elemSegments.size() == disassemblyNames.elemSegments.size());
-		wavmAssert(outModule.dataSegments.size() == disassemblyNames.dataSegments.size());
-		wavmAssert(outModule.exceptionTypes.size() == disassemblyNames.exceptionTypes.size());
+		WAVM_ASSERT(outModule.functions.size() == disassemblyNames.functions.size());
+		WAVM_ASSERT(outModule.tables.size() == disassemblyNames.tables.size());
+		WAVM_ASSERT(outModule.memories.size() == disassemblyNames.memories.size());
+		WAVM_ASSERT(outModule.globals.size() == disassemblyNames.globals.size());
+		WAVM_ASSERT(outModule.elemSegments.size() == disassemblyNames.elemSegments.size());
+		WAVM_ASSERT(outModule.dataSegments.size() == disassemblyNames.dataSegments.size());
+		WAVM_ASSERT(outModule.exceptionTypes.size() == disassemblyNames.exceptionTypes.size());
 		IR::setDisassemblyNames(outModule, disassemblyNames);
 
 		// If metrics logging is enabled, log some statistics about the module's name maps.

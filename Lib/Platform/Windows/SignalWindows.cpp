@@ -108,7 +108,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 	__except(sehSignalFilterFunction(GetExceptionInformation(), filter, context))
 	{
 		// After a stack overflow, the stack will be left in a damaged state. Let the CRT repair it.
-		errorUnless(_resetstkoflw());
+		WAVM_ERROR_UNLESS(_resetstkoflw());
 
 		return true;
 	}

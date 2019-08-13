@@ -145,14 +145,14 @@ Runtime::ExceptionType::~ExceptionType()
 {
 	if(id != UINTPTR_MAX)
 	{
-		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 		compartment->exceptionTypes.removeOrFail(id);
 	}
 }
 
 std::string Runtime::describeExceptionType(const ExceptionType* type)
 {
-	wavmAssert(type);
+	WAVM_ASSERT(type);
 	return type->debugName;
 }
 
@@ -167,7 +167,7 @@ Exception* Runtime::createException(ExceptionType* type,
 									Platform::CallStack&& callStack)
 {
 	const IR::TypeTuple& params = type->sig.params;
-	wavmAssert(numArguments == params.size());
+	WAVM_ASSERT(numArguments == params.size());
 
 	const bool isUserException = type->compartment != nullptr;
 	Exception* exception = new(malloc(Exception::calcNumBytes(params.size())))
@@ -187,7 +187,7 @@ ExceptionType* Runtime::getExceptionType(const Exception* exception) { return ex
 
 IR::UntaggedValue Runtime::getExceptionArgument(const Exception* exception, Uptr argIndex)
 {
-	errorUnless(argIndex < exception->type->sig.params.size());
+	WAVM_ERROR_UNLESS(argIndex < exception->type->sig.params.size());
 	return exception->arguments[argIndex];
 }
 
@@ -246,7 +246,7 @@ std::string Runtime::describeException(const Exception* exception)
 [[noreturn]] void Runtime::throwException(ExceptionType* type,
 										  const std::vector<IR::UntaggedValue>& arguments)
 {
-	wavmAssert(type->sig.params.size() == arguments.size());
+	WAVM_ASSERT(type->sig.params.size() == arguments.size());
 	throwException(
 		createException(type, arguments.data(), arguments.size(), Platform::captureCallStack(1)));
 }

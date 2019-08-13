@@ -92,7 +92,7 @@ bool Platform::catchSignals(void (*thunk)(void*),
 							void* argument)
 {
 	static bool initedSignals = initSignals();
-	wavmAssert(initedSignals);
+	WAVM_ASSERT(initedSignals);
 
 	sigAltStack.init();
 
@@ -134,7 +134,7 @@ static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const 
 		if(numBytes == 0xffffffff)
 		{
 			const U64 numCFIBytes64 = *((const U64*)next);
-			errorUnless(numCFIBytes64 <= UINTPTR_MAX);
+			WAVM_ERROR_UNLESS(numCFIBytes64 <= UINTPTR_MAX);
 			numCFIBytes = Uptr(numCFIBytes64);
 			next += 8;
 		}

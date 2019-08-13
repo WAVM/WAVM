@@ -69,7 +69,7 @@ llvm::Value* EmitFunctionContext::coerceAddressToPointer(llvm::Value* boundedAdd
 
 void EmitFunctionContext::memory_grow(MemoryImm imm)
 {
-	errorUnless(imm.memoryIndex == 0);
+	WAVM_ERROR_UNLESS(imm.memoryIndex == 0);
 	llvm::Value* deltaNumPages = pop();
 	ValueVector previousNumPages = emitRuntimeIntrinsic(
 		"memory.grow",
@@ -77,17 +77,17 @@ void EmitFunctionContext::memory_grow(MemoryImm imm)
 					 TypeTuple({ValueType::i32, inferValueType<Uptr>()})),
 		{deltaNumPages,
 		 getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
-	wavmAssert(previousNumPages.size() == 1);
+	WAVM_ASSERT(previousNumPages.size() == 1);
 	push(previousNumPages[0]);
 }
 void EmitFunctionContext::memory_size(MemoryImm imm)
 {
-	errorUnless(imm.memoryIndex == 0);
+	WAVM_ERROR_UNLESS(imm.memoryIndex == 0);
 	ValueVector currentNumPages = emitRuntimeIntrinsic(
 		"memory.size",
 		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Uptr>())),
 		{getMemoryIdFromOffset(llvmContext, moduleContext.memoryOffsets[imm.memoryIndex])});
-	wavmAssert(currentNumPages.size() == 1);
+	WAVM_ASSERT(currentNumPages.size() == 1);
 	push(currentNumPages[0]);
 }
 

@@ -46,7 +46,7 @@ static void validate(const IR::FeatureSpec& featureSpec, IR::ValueType valueType
 	case ValueType::i32:
 	case ValueType::i64:
 	case ValueType::f32:
-	case ValueType::f64: wavmAssert(featureSpec.mvp); break;
+	case ValueType::f64: WAVM_ASSERT(featureSpec.mvp); break;
 	case ValueType::v128:
 		if(!featureSpec.simd)
 		{ throw ValidationException("v128 value type requires simd feature"); }
@@ -356,7 +356,7 @@ struct FunctionValidationContext
 	}
 	void else_(NoImm imm)
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		if(controlStack.back().type != ControlContext::Type::ifThen)
 		{ throw ValidationException("else only allowed in if context"); }
@@ -371,7 +371,7 @@ struct FunctionValidationContext
 	}
 	void end(NoImm)
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		if(controlStack.back().type == ControlContext::Type::try_)
 		{ throw ValidationException("end may not occur in try context"); }
@@ -397,7 +397,7 @@ struct FunctionValidationContext
 	}
 	void validateCatch()
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		popAndValidateTypeTuple("try result", controlStack.back().results);
 		validateStackEmptyAtEndOfControlStructure();
@@ -446,7 +446,7 @@ struct FunctionValidationContext
 
 		// Validate that each target has the same number of parameters as the default target, and
 		// that the parameters for each target match the arguments provided.
-		wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
+		WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
 		{
@@ -739,7 +739,7 @@ private:
 
 	void validateStackEmptyAtEndOfControlStructure()
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		if(stack.size() != controlStack.back().outerStackSize)
 		{
@@ -756,7 +756,7 @@ private:
 
 	void enterUnreachable()
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		stack.resize(controlStack.back().outerStackSize);
 		controlStack.back().isReachable = false;
@@ -784,7 +784,7 @@ private:
 									 Uptr operandDepth,
 									 const ValueType expectedType)
 	{
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 
 		ValueType actualType;
 		if(stack.size() > controlStack.back().outerStackSize + operandDepth)
@@ -840,7 +840,7 @@ private:
 	{
 		ValueType actualType = peekAndValidateOperand(context, 0, expectedType);
 
-		wavmAssert(controlStack.size());
+		WAVM_ASSERT(controlStack.size());
 		if(stack.size() > controlStack.back().outerStackSize) { stack.pop_back(); }
 
 		return actualType;
@@ -891,10 +891,10 @@ void IR::validateTypes(const Module& module)
 
 void IR::validateImports(const Module& module)
 {
-	wavmAssert(module.imports.size()
-			   == module.functions.imports.size() + module.tables.imports.size()
-					  + module.memories.imports.size() + module.globals.imports.size()
-					  + module.exceptionTypes.imports.size());
+	WAVM_ASSERT(module.imports.size()
+				== module.functions.imports.size() + module.tables.imports.size()
+					   + module.memories.imports.size() + module.globals.imports.size()
+					   + module.exceptionTypes.imports.size());
 
 	for(auto& functionImport : module.functions.imports)
 	{ validateFunctionType(module, functionImport.type); }

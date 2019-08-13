@@ -108,8 +108,8 @@ struct wasm_module_t
 
 static wasm_limits_t as_limits(const SizeConstraints& size)
 {
-	errorUnless(size.min <= UINT32_MAX);
-	errorUnless(size.max == UINT64_MAX || size.max <= UINT32_MAX);
+	WAVM_ERROR_UNLESS(size.min <= UINT32_MAX);
+	WAVM_ERROR_UNLESS(size.max == UINT64_MAX || size.max <= UINT32_MAX);
 	return {U32(size.min), size.max == UINT64_MAX ? UINT32_MAX : U32(size.max)};
 }
 static wasm_functype_t* as_externtype(FunctionType type) { return new wasm_functype_t(type); }
@@ -223,7 +223,7 @@ void wasm_compartment_delete(wasm_compartment_t* compartment)
 {
 	GCPointer<Compartment> compartmentGCRef = compartment;
 	removeGCRoot(compartment);
-	errorUnless(tryCollectCompartment(std::move(compartmentGCRef)));
+	WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartmentGCRef)));
 }
 wasm_compartment_t* wasm_compartment_new(wasm_engine_t*)
 {
@@ -354,7 +354,7 @@ wasm_tabletype_t* wasm_tabletype_new(wasm_valtype_t* element,
 									 const wasm_limits_t* limits,
 									 wasm_shared_t shared)
 {
-	errorUnless(isReferenceType(element->type));
+	WAVM_ERROR_UNLESS(isReferenceType(element->type));
 	return new wasm_tabletype_t(TableType(ReferenceType(element->type),
 										  shared == WASM_SHARED,
 										  SizeConstraints{limits->min, limits->max}),
@@ -552,7 +552,7 @@ const wasm_memorytype_t* wasm_externtype_as_memorytype_const(const wasm_externty
 										  const wasm_shared_##name##_t* constRef)                  \
 	{                                                                                              \
 		wasm_shared_##name##_t* ref = const_cast<wasm_shared_##name##_t*>(constRef);               \
-		wavmAssert(isInCompartment(asObject(ref), getCompartment(asObject(store))));               \
+		WAVM_ASSERT(isInCompartment(asObject(ref), getCompartment(asObject(store))));              \
 		addGCRoot(ref);                                                                            \
 		return ref;                                                                                \
 	}
@@ -605,7 +605,7 @@ void wasm_trap_message(const wasm_trap_t* trap,
 void wasm_trap_origin(const wasm_trap_t* trap, wasm_frame_t* out_frame)
 {
 	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	wavmAssert(callStack.stackFrames.size() >= 1);
+	WAVM_ASSERT(callStack.stackFrames.size() >= 1);
 	out_frame->instance = nullptr;
 	out_frame->module_offset = 0;
 	out_frame->func_index = 0;
@@ -614,7 +614,7 @@ void wasm_trap_origin(const wasm_trap_t* trap, wasm_frame_t* out_frame)
 size_t wasm_trap_stack_num_frames(const wasm_trap_t* trap)
 {
 	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	wavmAssert(callStack.stackFrames.size() >= 1);
+	WAVM_ASSERT(callStack.stackFrames.size() >= 1);
 	return callStack.stackFrames.size() - 1;
 }
 void wasm_trap_stack_frame(const wasm_trap_t* trap, size_t index, wasm_frame_t* out_frame)
@@ -869,7 +869,7 @@ bool wasm_table_set(wasm_table_t* table, wasm_table_size_t index, wasm_ref_t* va
 wasm_table_size_t wasm_table_size(const wasm_table_t* table)
 {
 	Uptr numElements = getTableNumElements(table);
-	errorUnless(numElements <= WASM_TABLE_SIZE_MAX);
+	WAVM_ERROR_UNLESS(numElements <= WASM_TABLE_SIZE_MAX);
 	return wasm_table_size_t(numElements);
 }
 
@@ -882,7 +882,7 @@ bool wasm_table_grow(wasm_table_t* table,
 	if(!growTable(table, delta, &oldNumElements, init)) { return false; }
 	else
 	{
-		errorUnless(oldNumElements <= WASM_TABLE_SIZE_MAX);
+		WAVM_ERROR_UNLESS(oldNumElements <= WASM_TABLE_SIZE_MAX);
 		if(out_previous_size) { *out_previous_size = wasm_table_size_t(oldNumElements); }
 		return true;
 	}
@@ -912,7 +912,7 @@ size_t wasm_memory_data_size(const wasm_memory_t* memory)
 wasm_memory_pages_t wasm_memory_size(const wasm_memory_t* memory)
 {
 	Uptr numPages = getMemoryNumPages(memory);
-	errorUnless(numPages <= WASM_MEMORY_PAGES_MAX);
+	WAVM_ERROR_UNLESS(numPages <= WASM_MEMORY_PAGES_MAX);
 	return wasm_memory_pages_t(numPages);
 }
 bool wasm_memory_grow(wasm_memory_t* memory,
@@ -923,7 +923,7 @@ bool wasm_memory_grow(wasm_memory_t* memory,
 	if(!growMemory(memory, delta, &oldNumPages)) { return false; }
 	else
 	{
-		errorUnless(oldNumPages <= WASM_MEMORY_PAGES_MAX);
+		WAVM_ERROR_UNLESS(oldNumPages <= WASM_MEMORY_PAGES_MAX);
 		if(out_previous_size) { *out_previous_size = wasm_memory_pages_t(oldNumPages); }
 		return true;
 	}

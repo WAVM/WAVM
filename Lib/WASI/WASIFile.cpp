@@ -109,7 +109,8 @@ static bool readUserString(Memory* memory,
 			{ outString += stringBytes[index]; }
 		},
 		[&succeeded](Exception* exception) {
-			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			WAVM_ERROR_UNLESS(getExceptionType(exception)
+							  == ExceptionTypes::outOfBoundsMemoryAccess);
 			Log::printf(Log::debug,
 						"Caught runtime exception while reading string at address 0x%" PRIx64,
 						getExceptionArgument(exception, 1).i64);
@@ -245,7 +246,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	__wasi_prestat_t& prestat = memoryRef<__wasi_prestat_t>(process->memory, prestatAddress);
 	prestat.pr_type = fde->preopenedType;
-	wavmAssert(fde->preopenedType == __WASI_PREOPENTYPE_DIR);
+	WAVM_ASSERT(fde->preopenedType == __WASI_PREOPENTYPE_DIR);
 	prestat.u.dir.pr_name_len = U32(fde->originalPath.size());
 
 	return TRACE_SYSCALL_RETURN(__WASI_ESUCCESS);
@@ -366,7 +367,8 @@ static __wasi_errno_t readImpl(Process* process,
 		},
 		[&](Exception* exception) {
 			// If we catch an out-of-bounds memory exception, return EFAULT.
-			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			WAVM_ERROR_UNLESS(getExceptionType(exception)
+							  == ExceptionTypes::outOfBoundsMemoryAccess);
 			Log::printf(Log::debug,
 						"Caught runtime exception while reading memory at address 0x%" PRIx64,
 						getExceptionArgument(exception, 1).i64);
@@ -424,7 +426,8 @@ static __wasi_errno_t writeImpl(Process* process,
 		},
 		[&](Exception* exception) {
 			// If we catch an out-of-bounds memory exception, return EFAULT.
-			errorUnless(getExceptionType(exception) == ExceptionTypes::outOfBoundsMemoryAccess);
+			WAVM_ERROR_UNLESS(getExceptionType(exception)
+							  == ExceptionTypes::outOfBoundsMemoryAccess);
 			Log::printf(Log::debug,
 						"Caught runtime exception while reading memory at address 0x%" PRIx64,
 						getExceptionArgument(exception, 1).i64);
@@ -463,7 +466,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		= readImpl(process, fd, iovsAddress, numIOVs, &offset, numBytesRead);
 
 	// Write the number of bytes read to memory.
-	wavmAssert(numBytesRead <= WASIADDRESS_MAX);
+	WAVM_ASSERT(numBytesRead <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
 
 	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" PRIuPTR ")", numBytesRead);
@@ -494,7 +497,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		= writeImpl(process, fd, iovsAddress, numIOVs, &offset, numBytesWritten);
 
 	// Write the number of bytes written to memory.
-	wavmAssert(numBytesWritten <= WASIADDRESS_MAX);
+	WAVM_ASSERT(numBytesWritten <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
 	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" PRIuPTR ")", numBytesWritten);
@@ -523,7 +526,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		= readImpl(process, fd, iovsAddress, numIOVs, nullptr, numBytesRead);
 
 	// Write the number of bytes read to memory.
-	wavmAssert(numBytesRead <= WASIADDRESS_MAX);
+	WAVM_ASSERT(numBytesRead <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesReadAddress) = WASIAddress(numBytesRead);
 
 	return TRACE_SYSCALL_RETURN(result, " (numBytesRead=%" PRIuPTR ")", numBytesRead);
@@ -552,7 +555,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		= writeImpl(process, fd, iovsAddress, numIOVs, nullptr, numBytesWritten);
 
 	// Write the number of bytes written to memory.
-	wavmAssert(numBytesWritten <= WASIADDRESS_MAX);
+	WAVM_ASSERT(numBytesWritten <= WASIADDRESS_MAX);
 	memoryRef<WASIAddress>(process->memory, numBytesWrittenAddress) = WASIAddress(numBytesWritten);
 
 	return TRACE_SYSCALL_RETURN(result, " (numBytesWritten=%" PRIuPTR ")", numBytesWritten);
@@ -919,7 +922,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		FDE(openedVFD, requestedRights, requestedInheritingRights, std::move(canonicalPath)));
 	if(fd == UINT32_MAX)
 	{
-		errorUnless(openedVFD->close() == VFS::Result::success);
+		WAVM_ERROR_UNLESS(openedVFD->close() == VFS::Result::success);
 		return TRACE_SYSCALL_RETURN(__WASI_EMFILE);
 	}
 
@@ -981,7 +984,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 		DirEnt dirEnt;
 		if(!dirFDE->dirEntStream->getNext(dirEnt)) { break; }
 
-		errorUnless(dirEnt.name.size() <= UINT32_MAX);
+		WAVM_ERROR_UNLESS(dirEnt.name.size() <= UINT32_MAX);
 
 		__wasi_dirent_t wasiDirEnt;
 		wasiDirEnt.d_next = dirFDE->dirEntStream->tell();
@@ -1000,7 +1003,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 											   numBufferBytes - numBufferBytesUsed);
 	};
 
-	wavmAssert(numBufferBytesUsed <= numBufferBytes);
+	WAVM_ASSERT(numBufferBytesUsed <= numBufferBytes);
 	memoryRef<WASIAddress>(process->memory, outNumBufferBytesUsedAddress)
 		= WASIAddress(numBufferBytesUsed);
 

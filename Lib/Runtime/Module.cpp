@@ -36,10 +36,10 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	case InitializerExpression::Type::global_get:
 	{
 		// Find the import this refers to.
-		errorUnless(expression.ref < moduleGlobals.size());
+		WAVM_ERROR_UNLESS(expression.ref < moduleGlobals.size());
 		Global* global = moduleGlobals[expression.ref];
-		errorUnless(global);
-		errorUnless(!global->type.isMutable);
+		WAVM_ERROR_UNLESS(global);
+		WAVM_ERROR_UNLESS(!global->type.isMutable);
 		return IR::Value(global->type.valueType, global->initialValue);
 	}
 	case InitializerExpression::Type::ref_null: return nullptr;
@@ -73,7 +73,7 @@ ModuleInstance::~ModuleInstance()
 {
 	if(id != UINTPTR_MAX)
 	{
-		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 		compartment->moduleInstances.removeOrFail(id);
 	}
 }
@@ -98,14 +98,14 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	std::vector<ExceptionType*> exceptionTypes;
 
 	// Check the types of the ModuleInstance's imports.
-	errorUnless(imports.size() == module->ir.imports.size());
+	WAVM_ERROR_UNLESS(imports.size() == module->ir.imports.size());
 	for(Uptr importIndex = 0; importIndex < imports.size(); ++importIndex)
 	{
 		const auto& kindIndex = module->ir.imports[importIndex];
 		Object* importObject = imports[importIndex];
 
-		errorUnless(isInCompartment(importObject, compartment));
-		errorUnless(importObject->kind == ObjectKind(kindIndex.kind));
+		WAVM_ERROR_UNLESS(isInCompartment(importObject, compartment));
+		WAVM_ERROR_UNLESS(importObject->kind == ObjectKind(kindIndex.kind));
 
 		switch(kindIndex.kind)
 		{
@@ -114,36 +114,37 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			Function* function = asFunction(importObject);
 			const auto& importType
 				= module->ir.types[module->ir.functions.getType(kindIndex.index).index];
-			errorUnless(function->encodedType == importType);
+			WAVM_ERROR_UNLESS(function->encodedType == importType);
 			functions.push_back(function);
 			break;
 		}
 		case ExternKind::table:
 		{
 			Table* table = asTable(importObject);
-			errorUnless(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
+			WAVM_ERROR_UNLESS(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
 			tables.push_back(table);
 			break;
 		}
 		case ExternKind::memory:
 		{
 			Memory* memory = asMemory(importObject);
-			errorUnless(isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
+			WAVM_ERROR_UNLESS(
+				isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
 			memories.push_back(memory);
 			break;
 		}
 		case ExternKind::global:
 		{
 			Global* global = asGlobal(importObject);
-			errorUnless(isSubtype(global->type, module->ir.globals.getType(kindIndex.index)));
+			WAVM_ERROR_UNLESS(isSubtype(global->type, module->ir.globals.getType(kindIndex.index)));
 			globals.push_back(global);
 			break;
 		}
 		case ExternKind::exceptionType:
 		{
 			ExceptionType* exceptionType = asExceptionType(importObject);
-			errorUnless(isSubtype(exceptionType->sig.params,
-								  module->ir.exceptionTypes.getType(kindIndex.index).params));
+			WAVM_ERROR_UNLESS(isSubtype(exceptionType->sig.params,
+										module->ir.exceptionTypes.getType(kindIndex.index).params));
 			exceptionTypes.push_back(exceptionType);
 			break;
 		}
@@ -153,11 +154,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		};
 	}
 
-	wavmAssert(functions.size() == module->ir.functions.imports.size());
-	wavmAssert(tables.size() == module->ir.tables.imports.size());
-	wavmAssert(memories.size() == module->ir.memories.imports.size());
-	wavmAssert(globals.size() == module->ir.globals.imports.size());
-	wavmAssert(exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
+	WAVM_ASSERT(functions.size() == module->ir.functions.imports.size());
+	WAVM_ASSERT(tables.size() == module->ir.tables.imports.size());
+	WAVM_ASSERT(memories.size() == module->ir.memories.imports.size());
+	WAVM_ASSERT(globals.size() == module->ir.globals.imports.size());
+	WAVM_ASSERT(exceptionTypes.size() == module->ir.exceptionTypes.imports.size());
 
 	// Deserialize the disassembly names.
 	DisassemblyNames disassemblyNames;
@@ -209,7 +210,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		if(globalDef.initializer.type != InitializerExpression::Type::ref_func)
 		{
 			const Value initialValue = evaluateInitializer(globals, globalDef.initializer);
-			errorUnless(isSubtype(initialValue.type, globalDef.type.valueType));
+			WAVM_ERROR_UNLESS(isSubtype(initialValue.type, globalDef.type.valueType));
 			initializeGlobal(global, initialValue);
 		}
 	}
@@ -344,7 +345,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 	if(module->ir.startFunctionIndex != UINTPTR_MAX)
 	{
 		startFunction = functions[module->ir.startFunctionIndex];
-		wavmAssert(FunctionType(startFunction->encodedType) == FunctionType());
+		WAVM_ASSERT(FunctionType(startFunction->encodedType) == FunctionType());
 	}
 
 	// Create the ModuleInstance and add it to the compartment's modules list.
@@ -387,11 +388,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		const DataSegment& dataSegment = module->ir.dataSegments[segmentIndex];
 		if(dataSegment.isActive)
 		{
-			wavmAssert(moduleInstance->dataSegments[segmentIndex] == nullptr);
+			WAVM_ASSERT(moduleInstance->dataSegments[segmentIndex] == nullptr);
 
 			const Value baseOffsetValue
 				= evaluateInitializer(moduleInstance->globals, dataSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
+			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
 			initDataSegment(moduleInstance,
@@ -410,11 +411,11 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 		const ElemSegment& elemSegment = module->ir.elemSegments[segmentIndex];
 		if(elemSegment.isActive)
 		{
-			wavmAssert(moduleInstance->elemSegments[segmentIndex] == nullptr);
+			WAVM_ASSERT(moduleInstance->elemSegments[segmentIndex] == nullptr);
 
 			const Value baseOffsetValue
 				= evaluateInitializer(moduleInstance->globals, elemSegment.baseOffset);
-			errorUnless(baseOffsetValue.type == ValueType::i32);
+			WAVM_ERROR_UNLESS(baseOffsetValue.type == ValueType::i32);
 			const U32 baseOffset = baseOffsetValue.i32;
 
 			Table* table = moduleInstance->tables[elemSegment.tableIndex];
@@ -516,7 +517,7 @@ Table* Runtime::getDefaultTable(const ModuleInstance* moduleInstance)
 
 Object* Runtime::getInstanceExport(const ModuleInstance* moduleInstance, const std::string& name)
 {
-	wavmAssert(moduleInstance);
+	WAVM_ASSERT(moduleInstance);
 	Object* const* exportedObjectPtr = moduleInstance->exportMap.get(name);
 	return exportedObjectPtr ? *exportedObjectPtr : nullptr;
 }

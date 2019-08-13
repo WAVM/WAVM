@@ -37,13 +37,13 @@ IMPLEMENT_GCOBJECT_REFCOUNTING(Foreign)
 
 void Runtime::addGCRoot(const Function* function)
 {
-	wavmAssert(function->mutableData);
+	WAVM_ASSERT(function->mutableData);
 	++function->mutableData->numRootReferences;
 }
 
 void Runtime::removeGCRoot(const Function* function)
 {
-	wavmAssert(function->mutableData);
+	WAVM_ASSERT(function->mutableData);
 	--function->mutableData->numRootReferences;
 }
 
@@ -84,7 +84,7 @@ struct GCState
 				Function* function = asFunction(object);
 				if(function->moduleInstanceId != UINTPTR_MAX)
 				{
-					wavmAssert(compartment->moduleInstances.contains(function->moduleInstanceId));
+					WAVM_ASSERT(compartment->moduleInstances.contains(function->moduleInstanceId));
 					ModuleInstance* moduleInstance
 						= compartment->moduleInstances[function->moduleInstanceId];
 					visitReference(moduleInstance);
@@ -113,7 +113,7 @@ struct GCState
 
 	void scanObject(GCObject* object)
 	{
-		wavmAssert(!object->compartment || object->compartment == compartment);
+		WAVM_ASSERT(!object->compartment || object->compartment == compartment);
 		visitReference(object->compartment);
 
 		// Gather the child references for this object based on its kind.
@@ -162,7 +162,7 @@ struct GCState
 		}
 		case ObjectKind::compartment:
 		{
-			wavmAssert(object == compartment);
+			WAVM_ASSERT(object == compartment);
 			break;
 		}
 

@@ -47,7 +47,7 @@ namespace WAVM {
 		}
 	printAndReturnError:
 		Log::printf(Log::error, "Error loading '%s': %s\n", filename, VFS::describeResult(result));
-		if(vfd) { errorUnless(vfd->close() == VFS::Result::success); }
+		if(vfd) { WAVM_ERROR_UNLESS(vfd->close() == VFS::Result::success); }
 		return false;
 	}
 
@@ -74,7 +74,7 @@ namespace WAVM {
 		}
 	printAndReturnError:
 		Log::printf(Log::error, "Error saving '%s': %s\n", filename, VFS::describeResult(result));
-		if(vfd) { errorUnless(vfd->close() == VFS::Result::success); }
+		if(vfd) { WAVM_ERROR_UNLESS(vfd->close() == VFS::Result::success); }
 		return false;
 	}
 }

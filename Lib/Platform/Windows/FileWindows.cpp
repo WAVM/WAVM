@@ -234,7 +234,7 @@ struct WindowsDirEntStream : DirEntStream
 
 	virtual U64 tell() override
 	{
-		errorUnless(nextReadIndex < UINT64_MAX);
+		WAVM_ERROR_UNLESS(nextReadIndex < UINT64_MAX);
 		return U64(nextReadIndex);
 	}
 
@@ -268,7 +268,7 @@ struct WindowsFD : VFD
 	, nonBlocking(inNonBlocking)
 	, syncLevel(inImplicitSync)
 	{
-		wavmAssert(handle != INVALID_HANDLE_VALUE);
+		WAVM_ASSERT(handle != INVALID_HANDLE_VALUE);
 	}
 
 	virtual Result close() override
@@ -515,13 +515,13 @@ struct WindowsFD : VFD
 	{
 		// Make a copy of the handle, so the FD and the DirEntStream can be closed independently.
 		HANDLE duplicatedHandle = INVALID_HANDLE_VALUE;
-		errorUnless(DuplicateHandle(GetCurrentProcess(),
-									handle,
-									GetCurrentProcess(),
-									&duplicatedHandle,
-									0,
-									TRUE,
-									DUPLICATE_SAME_ACCESS));
+		WAVM_ERROR_UNLESS(DuplicateHandle(GetCurrentProcess(),
+										  handle,
+										  GetCurrentProcess(),
+										  &duplicatedHandle,
+										  0,
+										  TRUE,
+										  DUPLICATE_SAME_ACCESS));
 
 		// Try to read the initial buffer-full of dirents to determine whether this is a directory.
 		std::vector<DirEnt> initialDirEnts;
@@ -578,7 +578,7 @@ private:
 		// Write the total number of bytes read.
 		if(outNumBytesRead)
 		{
-			wavmAssert(numBytesRead <= UINTPTR_MAX);
+			WAVM_ASSERT(numBytesRead <= UINTPTR_MAX);
 			*outNumBytesRead = Uptr(numBytesRead);
 		}
 
@@ -609,7 +609,7 @@ private:
 		// Write the total number of bytes written.
 		if(outNumBytesWritten)
 		{
-			wavmAssert(numBytesWritten <= UINTPTR_MAX);
+			WAVM_ASSERT(numBytesWritten <= UINTPTR_MAX);
 			*outNumBytesWritten = Uptr(numBytesWritten);
 		}
 
@@ -880,7 +880,7 @@ std::string Platform::getCurrentWorkingDirectory()
 {
 	wchar_t buffer[MAX_PATH];
 	const DWORD numChars = GetCurrentDirectoryW(MAX_PATH, buffer);
-	errorUnless(numChars);
+	WAVM_ERROR_UNLESS(numChars);
 
 	// Convert the Windows path (UTF-16 + \) to a VFS path (UTF-8 + /).
 	std::string result;

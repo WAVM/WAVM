@@ -36,27 +36,27 @@ I32 main()
 			I128 b = random.get() & phaseMasks[phase];
 			I128 c = random.get() & phaseMasks[phase];
 
-			errorUnless(isEqualOrNaN(a - a, 0));
-			errorUnless(isEqualOrNaN(a + (-a), 0));
-			errorUnless(isEqualOrNaN(a + 1, a - (-1)));
-			errorUnless(isEqualOrNaN(a - 1, a + (-1)));
-			errorUnless(isEqualOrNaN(a - 0, a));
-			errorUnless(isEqualOrNaN(a + 0, a));                 // Identity
-			errorUnless(isEqualOrNaN(a + b, b + a));             // Commutativity
-			errorUnless(isEqualOrNaN((a + b) + c, a + (b + c))); // Associativity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a - a, 0));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a + (-a), 0));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a + 1, a - (-1)));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a - 1, a + (-1)));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a - 0, a));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a + 0, a));                 // Identity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a + b, b + a));             // Commutativity
+			WAVM_ERROR_UNLESS(isEqualOrNaN((a + b) + c, a + (b + c))); // Associativity
 
-			errorUnless(isEqualOrNaN(a * 0, 0));
-			errorUnless(isEqualOrNaN(a * -1, -a));
-			errorUnless(isEqualOrNaN(a * 1, a));                       // Identity
-			errorUnless(isEqualOrNaN(a * b, b * a));                   // Commutativity
-			errorUnless(isEqualOrNaN((a * b) * c, a * (b * c)));       // Associativity
-			errorUnless(isEqualOrNaN(a * (b + c), (a * b) + (a * c))); // Distributivity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * 0, 0));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * -1, -a));
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * 1, a));                       // Identity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * b, b * a));                   // Commutativity
+			WAVM_ERROR_UNLESS(isEqualOrNaN((a * b) * c, a * (b * c)));       // Associativity
+			WAVM_ERROR_UNLESS(isEqualOrNaN(a * (b + c), (a * b) + (a * c))); // Distributivity
 
-			if(b != 0) { errorUnless(isEqualOrNaN((a * b) / b, a)); }
-			errorUnless(isEqualOrNaN((a + b) - b, a));
-			errorUnless(isEqualOrNaN((a - b) + b, a));
+			if(b != 0) { WAVM_ERROR_UNLESS(isEqualOrNaN((a * b) / b, a)); }
+			WAVM_ERROR_UNLESS(isEqualOrNaN((a + b) - b, a));
+			WAVM_ERROR_UNLESS(isEqualOrNaN((a - b) + b, a));
 
-			if(b != 0) { errorUnless(isEqualOrNaN(((a / b) * b) + (a % b), a)); }
+			if(b != 0) { WAVM_ERROR_UNLESS(isEqualOrNaN(((a / b) * b) + (a % b), a)); }
 		}
 	}
 

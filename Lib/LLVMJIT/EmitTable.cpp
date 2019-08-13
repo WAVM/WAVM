@@ -146,7 +146,7 @@ void EmitFunctionContext::table_grow(TableImm imm)
 		{value,
 		 deltaNumElements,
 		 getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
-	wavmAssert(previousNumElements.size() == 1);
+	WAVM_ASSERT(previousNumElements.size() == 1);
 	push(previousNumElements[0]);
 }
 void EmitFunctionContext::table_size(TableImm imm)
@@ -155,6 +155,6 @@ void EmitFunctionContext::table_size(TableImm imm)
 		"table.size",
 		FunctionType(TypeTuple(ValueType::i32), TypeTuple(inferValueType<Uptr>())),
 		{getTableIdFromOffset(llvmContext, moduleContext.tableOffsets[imm.tableIndex])});
-	wavmAssert(currentNumElements.size() == 1);
+	WAVM_ASSERT(currentNumElements.size() == 1);
 	push(currentNumElements[0]);
 }

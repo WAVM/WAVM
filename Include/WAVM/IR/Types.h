@@ -154,7 +154,7 @@ namespace WAVM { namespace IR {
 			}
 			else
 			{
-				wavmAssert(b == ValueType::anyref);
+				WAVM_ASSERT(b == ValueType::anyref);
 				return a;
 			}
 		}
@@ -238,7 +238,7 @@ namespace WAVM { namespace IR {
 
 		ValueType operator[](Uptr index) const
 		{
-			wavmAssert(index < impl->numElems);
+			WAVM_ASSERT(index < impl->numElems);
 			return impl->elems[index];
 		}
 
@@ -606,27 +606,27 @@ namespace WAVM { namespace IR {
 
 		friend FunctionType asFunctionType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::function);
+			WAVM_ASSERT(objectType.kind == ExternKind::function);
 			return objectType.function;
 		}
 		friend TableType asTableType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::table);
+			WAVM_ASSERT(objectType.kind == ExternKind::table);
 			return objectType.table;
 		}
 		friend MemoryType asMemoryType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::memory);
+			WAVM_ASSERT(objectType.kind == ExternKind::memory);
 			return objectType.memory;
 		}
 		friend GlobalType asGlobalType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::global);
+			WAVM_ASSERT(objectType.kind == ExternKind::global);
 			return objectType.global;
 		}
 		friend ExceptionType asExceptionType(const ExternType& objectType)
 		{
-			wavmAssert(objectType.kind == ExternKind::exceptionType);
+			WAVM_ASSERT(objectType.kind == ExternKind::exceptionType);
 			return objectType.exceptionType;
 		}
 

@@ -60,7 +60,7 @@ namespace WAVM { namespace WAST {
 		Name(const char* inBegin, U32 inNumChars, U32 inSourceOffset)
 		: begin(inBegin), numChars(inNumChars), sourceOffset(inSourceOffset)
 		{
-			wavmAssert(inNumChars > 0);
+			WAVM_ASSERT(inNumChars > 0);
 		}
 
 		constexpr operator bool() const { return begin != nullptr; }

@@ -110,7 +110,7 @@ static bool globalInitLLVM()
 static void globalInitLLVMOnce()
 {
 	static bool isLLVMInitialized = globalInitLLVM();
-	wavmAssert(isLLVMInitialized);
+	WAVM_ASSERT(isLLVMInitialized);
 }
 
 LLVMContext::LLVMContext()

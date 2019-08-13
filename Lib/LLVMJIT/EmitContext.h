@@ -185,7 +185,7 @@ namespace WAVM { namespace LLVMJIT {
 						const U8 resultNumBytes = getTypeByteWidth(resultType);
 
 						resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
-						wavmAssert(resultOffset < Runtime::maxThunkArgAndReturnBytes);
+						WAVM_ASSERT(resultOffset < Runtime::maxThunkArgAndReturnBytes);
 
 						results.push_back(loadFromUntypedPointer(
 							irBuilder.CreateInBoundsGEP(newContextPointer,
@@ -210,7 +210,7 @@ namespace WAVM { namespace LLVMJIT {
 				reloadMemoryBase();
 
 				// Load the call result from the returned context.
-				wavmAssert(calleeType.results().size() <= 1);
+				WAVM_ASSERT(calleeType.results().size() <= 1);
 				if(calleeType.results().size() == 1)
 				{
 					llvm::Type* llvmResultType = asLLVMType(llvmContext, calleeType.results()[0]);
@@ -255,7 +255,7 @@ namespace WAVM { namespace LLVMJIT {
 			case IR::CallingConvention::intrinsic:
 			case IR::CallingConvention::c:
 			{
-				wavmAssert(calleeType.results().size() <= 1);
+				WAVM_ASSERT(calleeType.results().size() <= 1);
 				if(calleeType.results().size() == 1) { results.push_back(returnValue); }
 				break;
 			}
@@ -271,7 +271,7 @@ namespace WAVM { namespace LLVMJIT {
 			returnStruct = irBuilder.CreateInsertValue(
 				returnStruct, irBuilder.CreateLoad(contextPointerVariable), {U32(0)});
 
-			wavmAssert(resultTypes.size() == results.size());
+			WAVM_ASSERT(resultTypes.size() == results.size());
 			if(areResultsReturnedDirectly(resultTypes))
 			{
 				// If the results are returned directly, insert them into the return struct.
@@ -292,7 +292,7 @@ namespace WAVM { namespace LLVMJIT {
 					const U8 resultNumBytes = IR::getTypeByteWidth(resultType);
 
 					resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
-					wavmAssert(resultOffset < Runtime::maxThunkArgAndReturnBytes);
+					WAVM_ASSERT(resultOffset < Runtime::maxThunkArgAndReturnBytes);
 
 					irBuilder.CreateStore(results[resultIndex],
 										  irBuilder.CreatePointerCast(

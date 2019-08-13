@@ -65,25 +65,25 @@ static void testStringSet()
 
 	for(Uptr i = 0; i < strings.size(); ++i)
 	{
-		errorUnless(set.add(strings[i]));
-		errorUnless(!set.add(strings[i]));
+		WAVM_ERROR_UNLESS(set.add(strings[i]));
+		WAVM_ERROR_UNLESS(!set.add(strings[i]));
 
 		for(Uptr j = 0; j < strings.size(); ++j)
 		{
 			const bool expectedContains = j <= i;
-			errorUnless(set.contains(strings[j]) == expectedContains);
+			WAVM_ERROR_UNLESS(set.contains(strings[j]) == expectedContains);
 		}
 	}
 
 	for(Uptr i = 0; i < strings.size(); ++i)
 	{
-		errorUnless(set.remove(strings[i]));
-		errorUnless(!set.remove(strings[i]));
+		WAVM_ERROR_UNLESS(set.remove(strings[i]));
+		WAVM_ERROR_UNLESS(!set.remove(strings[i]));
 
 		for(Uptr j = 0; j < strings.size(); ++j)
 		{
 			const bool expectedContains = j > i;
-			errorUnless(set.contains(strings[j]) == expectedContains);
+			WAVM_ERROR_UNLESS(set.contains(strings[j]) == expectedContains);
 		}
 	}
 }
@@ -97,28 +97,28 @@ static void testU32Set()
 		maxI = 1024 * 1024
 	};
 
-	for(Uptr i = 0; i < maxI; ++i) { errorUnless(!set.contains(U32(i))); }
+	for(Uptr i = 0; i < maxI; ++i) { WAVM_ERROR_UNLESS(!set.contains(U32(i))); }
 
-	errorUnless(set.size() == 0);
+	WAVM_ERROR_UNLESS(set.size() == 0);
 	for(Uptr i = 0; i < maxI; ++i)
 	{
-		errorUnless(!set.contains(U32(i)));
-		errorUnless(!set.get(U32(i)));
-		errorUnless(set.add(U32(i)));
-		errorUnless(set.contains(U32(i)));
-		errorUnless(set.get(U32(i)));
-		errorUnless(set.size() == i + 1);
+		WAVM_ERROR_UNLESS(!set.contains(U32(i)));
+		WAVM_ERROR_UNLESS(!set.get(U32(i)));
+		WAVM_ERROR_UNLESS(set.add(U32(i)));
+		WAVM_ERROR_UNLESS(set.contains(U32(i)));
+		WAVM_ERROR_UNLESS(set.get(U32(i)));
+		WAVM_ERROR_UNLESS(set.size() == i + 1);
 	}
 
 	for(Uptr i = 0; i < maxI; ++i)
 	{
-		errorUnless(set.contains(U32(i)));
-		errorUnless(set.remove(U32(i)));
-		errorUnless(!set.contains(U32(i)));
-		errorUnless(set.size() == maxI - i - 1);
+		WAVM_ERROR_UNLESS(set.contains(U32(i)));
+		WAVM_ERROR_UNLESS(set.remove(U32(i)));
+		WAVM_ERROR_UNLESS(!set.contains(U32(i)));
+		WAVM_ERROR_UNLESS(set.size() == maxI - i - 1);
 	}
 
-	for(Uptr i = 0; i < maxI; ++i) { errorUnless(!set.contains(U32(i))); }
+	for(Uptr i = 0; i < maxI; ++i) { WAVM_ERROR_UNLESS(!set.contains(U32(i))); }
 }
 
 #if defined(__clang__)
@@ -137,13 +137,13 @@ static void testSetCopy()
 	// Test that both the new and old HashSet contain the expected numbers.
 	for(Uptr i = 0; i < 1000; ++i)
 	{
-		errorUnless(!a.contains(i));
-		errorUnless(a.contains(i + 1000));
-		errorUnless(!a.contains(i + 2000));
+		WAVM_ERROR_UNLESS(!a.contains(i));
+		WAVM_ERROR_UNLESS(a.contains(i + 1000));
+		WAVM_ERROR_UNLESS(!a.contains(i + 2000));
 
-		errorUnless(!b.contains(i));
-		errorUnless(b.contains(i + 1000));
-		errorUnless(!b.contains(i + 2000));
+		WAVM_ERROR_UNLESS(!b.contains(i));
+		WAVM_ERROR_UNLESS(b.contains(i + 1000));
+		WAVM_ERROR_UNLESS(!b.contains(i + 2000));
 	}
 
 	// Test copying a set from itself.
@@ -152,15 +152,15 @@ static void testSetCopy()
 	// Test that the set wasn't changed by the copy-to-self.
 	for(Uptr i = 0; i < 1000; ++i)
 	{
-		errorUnless(!b.contains(i));
-		errorUnless(b.contains(i + 1000));
-		errorUnless(!b.contains(i + 2000));
+		WAVM_ERROR_UNLESS(!b.contains(i));
+		WAVM_ERROR_UNLESS(b.contains(i + 1000));
+		WAVM_ERROR_UNLESS(!b.contains(i + 2000));
 	}
 
 	// Test removing an element from the set.
 	b.remove(1000);
-	errorUnless(a.contains(1000));
-	errorUnless(!b.contains(1000));
+	WAVM_ERROR_UNLESS(a.contains(1000));
+	WAVM_ERROR_UNLESS(!b.contains(1000));
 }
 #if defined(__clang__)
 #pragma clang diagnostic pop
@@ -182,9 +182,9 @@ static void testSetMove()
 	// Test that the new HashSet contains the expected numbers.
 	for(Uptr i = 0; i < 1000; ++i)
 	{
-		errorUnless(!b.contains(i));
-		errorUnless(b.contains(i + 1000));
-		errorUnless(!b.contains(i + 2000));
+		WAVM_ERROR_UNLESS(!b.contains(i));
+		WAVM_ERROR_UNLESS(b.contains(i + 1000));
+		WAVM_ERROR_UNLESS(!b.contains(i + 2000));
 	}
 
 	// Test moving the set to itself.
@@ -193,9 +193,9 @@ static void testSetMove()
 	// Test that the set wasn't changed by the move-to-self.
 	for(Uptr i = 0; i < 1000; ++i)
 	{
-		errorUnless(!b.contains(i));
-		errorUnless(b.contains(i + 1000));
-		errorUnless(!b.contains(i + 2000));
+		WAVM_ERROR_UNLESS(!b.contains(i));
+		WAVM_ERROR_UNLESS(b.contains(i + 1000));
+		WAVM_ERROR_UNLESS(!b.contains(i + 2000));
 	}
 }
 #if defined(__clang__)
@@ -205,24 +205,24 @@ static void testSetMove()
 static void testSetInitializerList()
 {
 	HashSet<Uptr> set{1, 3, 5, 7, 11, 13, 17};
-	errorUnless(!set.contains(0));
-	errorUnless(set.contains(1));
-	errorUnless(!set.contains(2));
-	errorUnless(set.contains(3));
-	errorUnless(!set.contains(4));
-	errorUnless(set.contains(5));
-	errorUnless(!set.contains(6));
-	errorUnless(set.contains(7));
-	errorUnless(!set.contains(8));
-	errorUnless(!set.contains(9));
-	errorUnless(!set.contains(10));
-	errorUnless(set.contains(11));
-	errorUnless(!set.contains(12));
-	errorUnless(set.contains(13));
-	errorUnless(!set.contains(14));
-	errorUnless(!set.contains(15));
-	errorUnless(!set.contains(16));
-	errorUnless(set.contains(17));
+	WAVM_ERROR_UNLESS(!set.contains(0));
+	WAVM_ERROR_UNLESS(set.contains(1));
+	WAVM_ERROR_UNLESS(!set.contains(2));
+	WAVM_ERROR_UNLESS(set.contains(3));
+	WAVM_ERROR_UNLESS(!set.contains(4));
+	WAVM_ERROR_UNLESS(set.contains(5));
+	WAVM_ERROR_UNLESS(!set.contains(6));
+	WAVM_ERROR_UNLESS(set.contains(7));
+	WAVM_ERROR_UNLESS(!set.contains(8));
+	WAVM_ERROR_UNLESS(!set.contains(9));
+	WAVM_ERROR_UNLESS(!set.contains(10));
+	WAVM_ERROR_UNLESS(set.contains(11));
+	WAVM_ERROR_UNLESS(!set.contains(12));
+	WAVM_ERROR_UNLESS(set.contains(13));
+	WAVM_ERROR_UNLESS(!set.contains(14));
+	WAVM_ERROR_UNLESS(!set.contains(15));
+	WAVM_ERROR_UNLESS(!set.contains(16));
+	WAVM_ERROR_UNLESS(set.contains(17));
 }
 
 static void testSetIterator()
@@ -235,7 +235,7 @@ static void testSetIterator()
 	{
 		Uptr sum = 0;
 		for(Uptr i : a) { sum += i; }
-		errorUnless(sum == 45);
+		WAVM_ERROR_UNLESS(sum == 45);
 	}
 
 	// Remove 5.
@@ -245,20 +245,20 @@ static void testSetIterator()
 	{
 		Uptr sum = 0;
 		for(Uptr i : a) { sum += i; }
-		errorUnless(sum == 40);
+		WAVM_ERROR_UNLESS(sum == 40);
 	}
 }
 
 static void testSetBracketOperator()
 {
 	HashSet<Uptr> set{1, 3, 5, 7, 11, 13, 17};
-	errorUnless(set[1] == 1);
-	errorUnless(set[3] == 3);
-	errorUnless(set[5] == 5);
-	errorUnless(set[7] == 7);
-	errorUnless(set[11] == 11);
-	errorUnless(set[13] == 13);
-	errorUnless(set[17] == 17);
+	WAVM_ERROR_UNLESS(set[1] == 1);
+	WAVM_ERROR_UNLESS(set[3] == 3);
+	WAVM_ERROR_UNLESS(set[5] == 5);
+	WAVM_ERROR_UNLESS(set[7] == 7);
+	WAVM_ERROR_UNLESS(set[11] == 11);
+	WAVM_ERROR_UNLESS(set[13] == 13);
+	WAVM_ERROR_UNLESS(set[17] == 17);
 }
 
 I32 main()

@@ -177,7 +177,7 @@ namespace WAVM { namespace IR {
 
 		template<typename Visitor> typename Visitor::Result decodeOp(Visitor& visitor)
 		{
-			wavmAssert(nextByte + sizeof(Opcode) <= end);
+			WAVM_ASSERT(nextByte + sizeof(Opcode) <= end);
 			Opcode opcode;
 			memcpy(&opcode, nextByte, sizeof(Opcode));
 			switch(opcode)
@@ -185,7 +185,7 @@ namespace WAVM { namespace IR {
 #define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                                           \
 	case Opcode::name:                                                                             \
 	{                                                                                              \
-		wavmAssert(nextByte + sizeof(OpcodeAndImm<Imm>) <= end);                                   \
+		WAVM_ASSERT(nextByte + sizeof(OpcodeAndImm<Imm>) <= end);                                  \
 		OpcodeAndImm<Imm> encodedOperator;                                                         \
 		memcpy(&encodedOperator, nextByte, sizeof(OpcodeAndImm<Imm>));                             \
 		nextByte += sizeof(OpcodeAndImm<Imm>);                                                     \

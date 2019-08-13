@@ -52,11 +52,11 @@ Global* Runtime::createGlobal(Compartment* compartment,
 void Runtime::initializeGlobal(Global* global, Value value)
 {
 	Compartment* compartment = global->compartment;
-	errorUnless(isSubtype(value.type, global->type.valueType));
-	errorUnless(!isReferenceType(global->type.valueType) || !value.object
-				|| isInCompartment(value.object, compartment));
+	WAVM_ERROR_UNLESS(isSubtype(value.type, global->type.valueType));
+	WAVM_ERROR_UNLESS(!isReferenceType(global->type.valueType) || !value.object
+					  || isInCompartment(value.object, compartment));
 
-	errorUnless(!global->hasBeenInitialized);
+	WAVM_ERROR_UNLESS(!global->hasBeenInitialized);
 	global->hasBeenInitialized = true;
 
 	global->initialValue = value;
@@ -96,21 +96,21 @@ Runtime::Global::~Global()
 {
 	if(id != UINTPTR_MAX)
 	{
-		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 		compartment->globals.removeOrFail(id);
 	}
 
 	if(type.isMutable)
 	{
-		wavmAssert(mutableGlobalIndex < maxMutableGlobals);
-		wavmAssert(compartment->globalDataAllocationMask.contains(mutableGlobalIndex));
+		WAVM_ASSERT(mutableGlobalIndex < maxMutableGlobals);
+		WAVM_ASSERT(compartment->globalDataAllocationMask.contains(mutableGlobalIndex));
 		compartment->globalDataAllocationMask.remove(mutableGlobalIndex);
 	}
 }
 
 Value Runtime::getGlobalValue(const Context* context, const Global* global)
 {
-	wavmAssert(context || !global->type.isMutable);
+	WAVM_ASSERT(context || !global->type.isMutable);
 	return Value(global->type.valueType,
 				 global->type.isMutable
 					 ? context->runtimeData->mutableGlobals[global->mutableGlobalIndex]
@@ -119,12 +119,12 @@ Value Runtime::getGlobalValue(const Context* context, const Global* global)
 
 Value Runtime::setGlobalValue(Context* context, const Global* global, Value newValue)
 {
-	wavmAssert(context);
-	wavmAssert(newValue.type == global->type.valueType);
-	wavmAssert(global->type.isMutable);
-	errorUnless(context->compartment == global->compartment);
-	errorUnless(!isReferenceType(global->type.valueType) || !newValue.object
-				|| isInCompartment(newValue.object, context->compartment));
+	WAVM_ASSERT(context);
+	WAVM_ASSERT(newValue.type == global->type.valueType);
+	WAVM_ASSERT(global->type.isMutable);
+	WAVM_ERROR_UNLESS(context->compartment == global->compartment);
+	WAVM_ERROR_UNLESS(!isReferenceType(global->type.valueType) || !newValue.object
+					  || isInCompartment(newValue.object, context->compartment));
 	UntaggedValue& value = context->runtimeData->mutableGlobals[global->mutableGlobalIndex];
 	const Value previousValue = Value(global->type.valueType, value);
 	value = newValue;

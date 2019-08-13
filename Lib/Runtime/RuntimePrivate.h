@@ -282,7 +282,7 @@ namespace WAVM { namespace Runtime {
 			void free(Value delta)
 			{
 				Lock<Platform::Mutex> lock(mutex);
-				wavmAssert(current - delta <= current);
+				WAVM_ASSERT(current - delta <= current);
 				current -= delta;
 			}
 

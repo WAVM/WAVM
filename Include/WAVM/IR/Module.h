@@ -54,7 +54,7 @@ namespace WAVM { namespace IR {
 		InitializerExpressionBase(V128 inV128) : type(Type::v128_const), v128(inV128) {}
 		InitializerExpressionBase(Type inType, Ref inRef) : type(inType), ref(inRef)
 		{
-			wavmAssert(type == Type::global_get || type == Type::ref_func);
+			WAVM_ASSERT(type == Type::global_get || type == Type::ref_func);
 		}
 		InitializerExpressionBase(std::nullptr_t) : type(Type::ref_null) {}
 
@@ -239,17 +239,17 @@ namespace WAVM { namespace IR {
 		}
 		bool isImport(Uptr index) const
 		{
-			wavmAssert(index < size());
+			WAVM_ASSERT(index < size());
 			return index < imports.size();
 		}
 		bool isDef(Uptr index) const
 		{
-			wavmAssert(index < size());
+			WAVM_ASSERT(index < size());
 			return index >= imports.size();
 		}
 		const Definition& getDef(Uptr index) const
 		{
-			wavmAssert(isDef(index));
+			WAVM_ASSERT(isDef(index));
 			return defs[index - imports.size()];
 		}
 	};

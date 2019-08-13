@@ -26,7 +26,7 @@ namespace WAVM {
 
 		inline bool contains(Index index) const
 		{
-			wavmAssert((Uptr)index < maxIndexPlusOne);
+			WAVM_ASSERT((Uptr)index < maxIndexPlusOne);
 			return (elements[index / indicesPerElement]
 					& (Element(1) << (index % indicesPerElement)))
 				   != 0;
@@ -49,7 +49,7 @@ namespace WAVM {
 					// countTrailingZeroes.
 					const Index result = (Index)(elementIndex * indicesPerElement
 												 + countTrailingZeroes(elements[elementIndex]));
-					wavmAssert(contains(result));
+					WAVM_ASSERT(contains(result));
 					return result;
 				}
 			}
@@ -69,7 +69,7 @@ namespace WAVM {
 					if(result >= maxIndexPlusOne) { break; }
 					else
 					{
-						wavmAssert(!contains(result));
+						WAVM_ASSERT(!contains(result));
 						return result;
 					}
 				}
@@ -81,13 +81,13 @@ namespace WAVM {
 
 		inline void add(Index index)
 		{
-			wavmAssert((Uptr)index < maxIndexPlusOne);
+			WAVM_ASSERT((Uptr)index < maxIndexPlusOne);
 			elements[index / indicesPerElement] |= Element(1) << (index % indicesPerElement);
 		}
 		inline void addRange(Index rangeMin, Index rangeMax)
 		{
-			wavmAssert(rangeMin <= rangeMax);
-			wavmAssert((Uptr)rangeMax < maxIndexPlusOne);
+			WAVM_ASSERT(rangeMin <= rangeMax);
+			WAVM_ASSERT((Uptr)rangeMax < maxIndexPlusOne);
 			for(Index index = rangeMin; index <= rangeMax; ++index) { add(index); }
 		}
 		inline bool remove(Index index)

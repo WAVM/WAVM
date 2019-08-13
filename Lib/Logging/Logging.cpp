@@ -27,13 +27,13 @@ static VFS::VFD* getFileForCategory(Log::Category category)
 
 void Log::setCategoryEnabled(Category category, bool enable)
 {
-	wavmAssert(category < Category::num);
+	WAVM_ASSERT(category < Category::num);
 	categoryEnabled[(Uptr)category].store(enable);
 }
 
 bool Log::isCategoryEnabled(Category category)
 {
-	wavmAssert(category < Category::num);
+	WAVM_ASSERT(category < Category::num);
 	return categoryEnabled[(Uptr)category].load();
 }
 
@@ -55,7 +55,7 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 		va_list argListCopy;
 		va_copy(argListCopy, argList);
 		const I32 numChars = vsnprintf(nullptr, 0, format, argListCopy);
-		wavmAssert(numChars >= 0);
+		WAVM_ASSERT(numChars >= 0);
 
 		const Uptr numBufferBytes = numChars + 1;
 		char* buffer = (char*)alloca(numBufferBytes);
@@ -69,8 +69,9 @@ void Log::vprintf(Category category, const char* format, va_list argList)
 			// Otherwise, write the message to the appropriate stdio device.
 			VFS::VFD* fd = getFileForCategory(category);
 			Uptr numBytesWritten = 0;
-			errorUnless(fd->write(buffer, numChars, &numBytesWritten) == VFS::Result::success);
-			errorUnless(numBytesWritten == U32(numChars));
+			WAVM_ERROR_UNLESS(fd->write(buffer, numChars, &numBytesWritten)
+							  == VFS::Result::success);
+			WAVM_ERROR_UNLESS(numBytesWritten == U32(numChars));
 		}
 	}
 }

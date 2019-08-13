@@ -35,7 +35,7 @@ enum
 
 static Uptr getPlatformPagesPerWebAssemblyPageLog2()
 {
-	errorUnless(Platform::getPageSizeLog2() <= IR::numBytesPerPageLog2);
+	WAVM_ERROR_UNLESS(Platform::getPageSizeLog2() <= IR::numBytesPerPageLog2);
 	return IR::numBytesPerPageLog2 - Platform::getPageSizeLog2();
 }
 
@@ -83,7 +83,7 @@ Memory* Runtime::createMemory(Compartment* compartment,
 							  std::string&& debugName,
 							  ResourceQuotaRefParam resourceQuota)
 {
-	wavmAssert(type.size.min <= UINTPTR_MAX);
+	WAVM_ASSERT(type.size.min <= UINTPTR_MAX);
 	Memory* memory = createMemoryImpl(
 		compartment, type, Uptr(type.size.min), std::move(debugName), resourceQuota);
 	if(!memory) { return nullptr; }
@@ -135,12 +135,12 @@ Runtime::Memory::~Memory()
 {
 	if(id != UINTPTR_MAX)
 	{
-		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 
-		wavmAssert(compartment->memories[id] == this);
+		WAVM_ASSERT(compartment->memories[id] == this);
 		compartment->memories.removeOrFail(id);
 
-		wavmAssert(compartment->runtimeData->memoryBases[id] == baseAddress);
+		WAVM_ASSERT(compartment->runtimeData->memoryBases[id] == baseAddress);
 		compartment->runtimeData->memoryBases[id] = nullptr;
 	}
 
@@ -236,8 +236,8 @@ bool Runtime::growMemory(Memory* memory, Uptr numPagesToGrow, Uptr* outOldNumPag
 
 void Runtime::unmapMemoryPages(Memory* memory, Uptr pageIndex, Uptr numPages)
 {
-	wavmAssert(pageIndex + numPages > pageIndex);
-	wavmAssert((pageIndex + numPages) * IR::numBytesPerPage <= memory->numReservedBytes);
+	WAVM_ASSERT(pageIndex + numPages > pageIndex);
+	WAVM_ASSERT((pageIndex + numPages) * IR::numBytesPerPage <= memory->numReservedBytes);
 
 	// Decommit the pages.
 	Platform::decommitVirtualPages(memory->baseAddress + pageIndex * IR::numBytesPerPage,
@@ -258,14 +258,14 @@ static U8* getValidatedMemoryOffsetRangeImpl(Memory* memory,
 			ExceptionTypes::outOfBoundsMemoryAccess,
 			{asObject(memory), U64(address > memoryNumBytes ? address : memoryNumBytes)});
 	}
-	wavmAssert(memoryBase);
+	WAVM_ASSERT(memoryBase);
 	numBytes = branchlessMin(numBytes, memoryNumBytes);
 	return memoryBase + branchlessMin(address, memoryNumBytes - numBytes);
 }
 
 U8* Runtime::getReservedMemoryOffsetRange(Memory* memory, Uptr address, Uptr numBytes)
 {
-	wavmAssert(memory);
+	WAVM_ASSERT(memory);
 
 	// Validate that the range [offset..offset+numBytes) is contained by the memory's reserved
 	// pages.
@@ -275,7 +275,7 @@ U8* Runtime::getReservedMemoryOffsetRange(Memory* memory, Uptr address, Uptr num
 
 U8* Runtime::getValidatedMemoryOffsetRange(Memory* memory, Uptr address, Uptr numBytes)
 {
-	wavmAssert(memory);
+	WAVM_ASSERT(memory);
 
 	// Validate that the range [offset..offset+numBytes) is contained by the memory's committed
 	// pages.
@@ -333,8 +333,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	Uptr oldNumPages = 0;
 	if(!growMemory(memory, (Uptr)deltaPages, &oldNumPages)) { return -1; }
-	wavmAssert(oldNumPages <= IR::maxMemoryPages);
-	wavmAssert(oldNumPages <= INT32_MAX);
+	WAVM_ASSERT(oldNumPages <= IR::maxMemoryPages);
+	WAVM_ASSERT(oldNumPages <= INT32_MAX);
 	return I32(oldNumPages);
 }
 
@@ -342,7 +342,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsMemory, "memory.size", U32, memory_
 {
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 	Uptr numMemoryPages = getMemoryNumPages(memory);
-	wavmAssert(numMemoryPages <= UINT32_MAX);
+	WAVM_ASSERT(numMemoryPages <= UINT32_MAX);
 	return U32(numMemoryPages);
 }
 

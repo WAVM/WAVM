@@ -31,13 +31,13 @@ template<typename Element> void HashSetIterator<Element>::operator++()
 
 template<typename Element> const Element& HashSetIterator<Element>::operator*() const
 {
-	wavmAssert(bucket->hashAndOccupancy);
+	WAVM_ASSERT(bucket->hashAndOccupancy);
 	return bucket->storage.contents;
 }
 
 template<typename Element> const Element* HashSetIterator<Element>::operator->() const
 {
-	wavmAssert(bucket->hashAndOccupancy);
+	WAVM_ASSERT(bucket->hashAndOccupancy);
 	return &bucket->storage.contents;
 }
 
@@ -60,7 +60,7 @@ HashSet<Element, ElementHashPolicy>::HashSet(const std::initializer_list<Element
 	for(const Element& element : initializerList)
 	{
 		const bool result = add(element);
-		wavmAssert(result);
+		WAVM_ASSERT(result);
 	}
 }
 
@@ -83,7 +83,7 @@ void HashSet<Element, ElementHashPolicy>::addOrFail(const Element& element)
 {
 	const Uptr hash = ElementHashPolicy::getKeyHash(element);
 	HashTableBucket<Element>& bucket = table.getBucketForAdd(hash, element);
-	wavmAssert(!bucket.hashAndOccupancy);
+	WAVM_ASSERT(!bucket.hashAndOccupancy);
 	bucket.hashAndOccupancy = hash | HashTableBucket<Element>::isOccupiedMask;
 	bucket.storage.construct(element);
 }
@@ -98,7 +98,7 @@ template<typename Element, typename ElementHashPolicy>
 void HashSet<Element, ElementHashPolicy>::removeOrFail(const Element& element)
 {
 	const bool removed = table.remove(ElementHashPolicy::getKeyHash(element), element);
-	wavmAssert(removed);
+	WAVM_ASSERT(removed);
 }
 
 template<typename Element, typename ElementHashPolicy>
@@ -106,8 +106,8 @@ const Element& HashSet<Element, ElementHashPolicy>::operator[](const Element& el
 {
 	const Uptr hash = ElementHashPolicy::getKeyHash(element);
 	const HashTableBucket<Element>* bucket = table.getBucketForRead(hash, element);
-	wavmAssert(bucket);
-	wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
+	WAVM_ASSERT(bucket);
+	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
 	return bucket->storage.contents;
 }
 
@@ -116,8 +116,8 @@ bool HashSet<Element, ElementHashPolicy>::contains(const Element& element) const
 {
 	const Uptr hash = ElementHashPolicy::getKeyHash(element);
 	const HashTableBucket<Element>* bucket = table.getBucketForRead(hash, element);
-	wavmAssert(!bucket
-			   || bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
+	WAVM_ASSERT(!bucket
+				|| bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
 	return bucket != nullptr;
 }
 
@@ -129,7 +129,7 @@ const Element* HashSet<Element, ElementHashPolicy>::get(const Element& element) 
 	if(!bucket) { return nullptr; }
 	else
 	{
-		wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
+		WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Element>::isOccupiedMask));
 		return &bucket->storage.contents;
 	}
 }

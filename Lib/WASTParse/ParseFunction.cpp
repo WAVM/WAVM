@@ -147,14 +147,14 @@ namespace {
 
 		~ScopedBranchTarget()
 		{
-			wavmAssert(branchTargetIndex == functionState->branchTargetDepth);
+			WAVM_ASSERT(branchTargetIndex == functionState->branchTargetDepth);
 			--functionState->branchTargetDepth;
 			if(name)
 			{
-				wavmAssert(functionState->branchTargetNameToIndexMap.contains(name));
-				wavmAssert(functionState->branchTargetNameToIndexMap[name] == branchTargetIndex);
+				WAVM_ASSERT(functionState->branchTargetNameToIndexMap.contains(name));
+				WAVM_ASSERT(functionState->branchTargetNameToIndexMap[name] == branchTargetIndex);
 				if(previousBranchTargetIndex == UINTPTR_MAX)
-				{ errorUnless(functionState->branchTargetNameToIndexMap.remove(name)); }
+				{ WAVM_ERROR_UNLESS(functionState->branchTargetNameToIndexMap.remove(name)); }
 				else
 				{
 					functionState->branchTargetNameToIndexMap.set(name, previousBranchTargetIndex);
@@ -577,7 +577,7 @@ static void parseControlImm(CursorState* cursor,
 				= resolveFunctionType(cursor->moduleState, unresolvedFunctionType).index;
 			if(referencedFunctionTypeIndex != UINTPTR_MAX)
 			{
-				wavmAssert(referencedFunctionTypeIndex < cursor->moduleState->module.types.size());
+				WAVM_ASSERT(referencedFunctionTypeIndex < cursor->moduleState->module.types.size());
 				functionType = cursor->moduleState->module.types[referencedFunctionTypeIndex];
 			}
 		}

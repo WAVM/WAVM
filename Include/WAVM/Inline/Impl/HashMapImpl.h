@@ -18,7 +18,7 @@ HashMap<HASHMAP_ARGUMENTS>::HashMap(const std::initializer_list<Pair>& initializ
 	for(const Pair& pair : initializerList)
 	{
 		const bool result = add(pair.key, pair.value);
-		wavmAssert(result);
+		WAVM_ASSERT(result);
 	}
 }
 
@@ -63,7 +63,7 @@ void HashMap<HASHMAP_ARGUMENTS>::addOrFail(const Key& key, ValueArgs&&... valueA
 	const Uptr hashAndOccupancy
 		= KeyHashPolicy::getKeyHash(key) | HashTableBucket<Pair>::isOccupiedMask;
 	HashTableBucket<Pair>& bucket = table.getBucketForAdd(hashAndOccupancy, key);
-	wavmAssert(!bucket.hashAndOccupancy);
+	WAVM_ASSERT(!bucket.hashAndOccupancy);
 	bucket.hashAndOccupancy = hashAndOccupancy;
 	bucket.storage.construct(key, std::forward<ValueArgs>(valueArgs)...);
 }
@@ -95,15 +95,15 @@ template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::remove(const Key& 
 template<HASHMAP_PARAMETERS> void HashMap<HASHMAP_ARGUMENTS>::removeOrFail(const Key& key)
 {
 	const bool removed = table.remove(KeyHashPolicy::getKeyHash(key), key);
-	wavmAssert(removed);
+	WAVM_ASSERT(removed);
 }
 
 template<HASHMAP_PARAMETERS> bool HashMap<HASHMAP_ARGUMENTS>::contains(const Key& key) const
 {
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
-	wavmAssert(!bucket
-			   || bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+	WAVM_ASSERT(!bucket
+				|| bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 	return bucket != nullptr;
 }
 
@@ -112,8 +112,8 @@ const Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const Key& key) const
 {
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	const HashTableBucket<Pair>* bucket = table.getBucketForRead(hash, key);
-	wavmAssert(bucket);
-	wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+	WAVM_ASSERT(bucket);
+	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 	return bucket->storage.contents.value;
 }
 
@@ -121,8 +121,8 @@ template<HASHMAP_PARAMETERS> Value& HashMap<HASHMAP_ARGUMENTS>::operator[](const
 {
 	const Uptr hash = KeyHashPolicy::getKeyHash(key);
 	HashTableBucket<Pair>* bucket = table.getBucketForModify(hash, key);
-	wavmAssert(bucket);
-	wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+	WAVM_ASSERT(bucket);
+	WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 	return bucket->storage.contents.value;
 }
 
@@ -133,7 +133,7 @@ template<HASHMAP_PARAMETERS> const Value* HashMap<HASHMAP_ARGUMENTS>::get(const 
 	if(!bucket) { return nullptr; }
 	else
 	{
-		wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+		WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 		return &bucket->storage.contents.value;
 	}
 }
@@ -145,7 +145,7 @@ template<HASHMAP_PARAMETERS> Value* HashMap<HASHMAP_ARGUMENTS>::get(const Key& k
 	if(!bucket) { return nullptr; }
 	else
 	{
-		wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+		WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 		return &bucket->storage.contents.value;
 	}
 }
@@ -158,7 +158,7 @@ const HashMapPair<Key, Value>* HashMap<HASHMAP_ARGUMENTS>::getPair(const Key& ke
 	if(!bucket) { return nullptr; }
 	else
 	{
-		wavmAssert(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
+		WAVM_ASSERT(bucket->hashAndOccupancy == (hash | HashTableBucket<Pair>::isOccupiedMask));
 		return &bucket->storage.contents;
 	}
 }
@@ -234,14 +234,14 @@ template<typename Key, typename Value> void HashMapIterator<Key, Value>::operato
 template<typename Key, typename Value>
 const HashMapPair<Key, Value>& HashMapIterator<Key, Value>::operator*() const
 {
-	wavmAssert(bucket->hashAndOccupancy);
+	WAVM_ASSERT(bucket->hashAndOccupancy);
 	return bucket->storage.contents;
 }
 
 template<typename Key, typename Value>
 const HashMapPair<Key, Value>* HashMapIterator<Key, Value>::operator->() const
 {
-	wavmAssert(bucket->hashAndOccupancy);
+	WAVM_ASSERT(bucket->hashAndOccupancy);
 	return &bucket->storage.contents;
 }
 

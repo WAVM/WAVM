@@ -18,7 +18,7 @@ static Uptr internalGetPreferredVirtualPageSizeLog2()
 	GetSystemInfo(&systemInfo);
 	Uptr preferredVirtualPageSize = systemInfo.dwPageSize;
 	// Verify our assumption that the virtual page size is a power of two.
-	errorUnless(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
+	WAVM_ERROR_UNLESS(!(preferredVirtualPageSize & (preferredVirtualPageSize - 1)));
 	return floorLogTwo(preferredVirtualPageSize);
 }
 Uptr Platform::getPageSizeLog2()
@@ -82,7 +82,7 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 				// aligned middle part again. This can fail due to races with other threads, so
 				// handle the VirtualAlloc failing by just retrying with a new unaligned+padded
 				// allocation.
-				errorUnless(VirtualFree(probeResult, 0, MEM_RELEASE));
+				WAVM_ERROR_UNLESS(VirtualFree(probeResult, 0, MEM_RELEASE));
 				outUnalignedBaseAddress = (U8*)VirtualAlloc(
 					reinterpret_cast<void*>(alignedAddress), numBytes, MEM_RESERVE, PAGE_NOACCESS);
 				if(outUnalignedBaseAddress) { return outUnalignedBaseAddress; }
@@ -107,7 +107,7 @@ U8* Platform::allocateAlignedVirtualPages(Uptr numPages,
 
 bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
 {
-	errorUnless(isPageAligned(baseVirtualAddress));
+	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
 	return baseVirtualAddress
 		   == VirtualAlloc(baseVirtualAddress,
 						   numPages << getPageSizeLog2(),
@@ -117,7 +117,7 @@ bool Platform::commitVirtualPages(U8* baseVirtualAddress, Uptr numPages, MemoryA
 
 bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, MemoryAccess access)
 {
-	errorUnless(isPageAligned(baseVirtualAddress));
+	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
 	DWORD oldProtection = 0;
 	return VirtualProtect(baseVirtualAddress,
 						  numPages << getPageSizeLog2(),
@@ -128,21 +128,21 @@ bool Platform::setVirtualPageAccess(U8* baseVirtualAddress, Uptr numPages, Memor
 
 void Platform::decommitVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 {
-	errorUnless(isPageAligned(baseVirtualAddress));
+	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
 	auto result = VirtualFree(baseVirtualAddress, numPages << getPageSizeLog2(), MEM_DECOMMIT);
 	if(baseVirtualAddress && !result) { Errors::fatal("VirtualFree(MEM_DECOMMIT) failed"); }
 }
 
 void Platform::freeVirtualPages(U8* baseVirtualAddress, Uptr numPages)
 {
-	errorUnless(isPageAligned(baseVirtualAddress));
+	WAVM_ERROR_UNLESS(isPageAligned(baseVirtualAddress));
 	auto result = VirtualFree(baseVirtualAddress, 0, MEM_RELEASE);
 	if(baseVirtualAddress && !result) { Errors::fatal("VirtualFree(MEM_RELEASE) failed"); }
 }
 
 void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, Uptr alignmentLog2)
 {
-	errorUnless(isPageAligned(unalignedBaseAddress));
+	WAVM_ERROR_UNLESS(isPageAligned(unalignedBaseAddress));
 	auto result = VirtualFree(unalignedBaseAddress, 0, MEM_RELEASE);
 	if(unalignedBaseAddress && !result) { Errors::fatal("VirtualFree(MEM_RELEASE) failed"); }
 }
@@ -150,7 +150,7 @@ void Platform::freeAlignedVirtualPages(U8* unalignedBaseAddress, Uptr numPages, 
 Uptr Platform::getPeakMemoryUsageBytes()
 {
 	PROCESS_MEMORY_COUNTERS processMemoryCounters;
-	errorUnless(GetProcessMemoryInfo(
+	WAVM_ERROR_UNLESS(GetProcessMemoryInfo(
 		GetCurrentProcess(), &processMemoryCounters, sizeof(processMemoryCounters)));
 	return processMemoryCounters.PeakWorkingSetSize;
 }

@@ -12,17 +12,17 @@ using namespace WAVM::Platform;
 Platform::Event::Event()
 {
 	handle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-	errorUnless(handle);
+	WAVM_ERROR_UNLESS(handle);
 }
 
-Platform::Event::~Event() { errorUnless(CloseHandle(handle)); }
+Platform::Event::~Event() { WAVM_ERROR_UNLESS(CloseHandle(handle)); }
 
 bool Platform::Event::wait(I128 waitDuration)
 {
 	if(isNaN(waitDuration))
 	{
 		const U32 waitResult = WaitForSingleObject(handle, INFINITE);
-		errorUnless(waitResult == WAIT_OBJECT_0);
+		WAVM_ERROR_UNLESS(waitResult == WAIT_OBJECT_0);
 		return true;
 	}
 	else
@@ -40,7 +40,7 @@ bool Platform::Event::wait(I128 waitDuration)
 			const U32 waitResult = WaitForSingleObject(handle, durationMS32);
 			if(waitResult != WAIT_TIMEOUT)
 			{
-				errorUnless(waitResult == WAIT_OBJECT_0);
+				WAVM_ERROR_UNLESS(waitResult == WAIT_OBJECT_0);
 				return true;
 			}
 			else
@@ -52,4 +52,4 @@ bool Platform::Event::wait(I128 waitDuration)
 	}
 }
 
-void Platform::Event::signal() { errorUnless(SetEvent(handle)); }
+void Platform::Event::signal() { WAVM_ERROR_UNLESS(SetEvent(handle)); }

@@ -147,7 +147,7 @@ static NFA::CharSet parseSet(const char*& nextChar)
 {
 	NFA::CharSet result;
 
-	wavmAssert(*nextChar == '[');
+	WAVM_ASSERT(*nextChar == '[');
 	++nextChar;
 
 	bool isNegative = false;
@@ -208,7 +208,7 @@ static Node* parseGroup(const char*& nextChar, Uptr groupDepth)
 	{
 		++nextChar;
 		Node* result = parseUnion(nextChar, groupDepth + 1);
-		wavmAssert(*nextChar == ')');
+		WAVM_ASSERT(*nextChar == ')');
 		++nextChar;
 		return result;
 	}

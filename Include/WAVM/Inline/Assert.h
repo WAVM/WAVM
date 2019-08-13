@@ -7,7 +7,7 @@
 #include <cstdarg>
 
 #if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
-#define wavmAssert(condition)                                                                      \
+#define WAVM_ASSERT(condition)                                                                     \
 	if(!(condition))                                                                               \
 	{                                                                                              \
 		for(static const WAVM::Platform::AssertMetadata wavmAssertMetadata{                        \
@@ -20,11 +20,11 @@
 		}                                                                                          \
 	}
 #else
-#define wavmAssert(condition)                                                                      \
+#define WAVM_ASSERT(condition)                                                                     \
 	if(false && !(condition)) {}
 #endif
 
-#define errorUnless(condition)                                                                     \
+#define WAVM_ERROR_UNLESS(condition)                                                               \
 	if(!(condition))                                                                               \
 	{                                                                                              \
 		for(static const WAVM::Platform::AssertMetadata wavmAssertMetadata{                        \

@@ -73,7 +73,7 @@ static void closeWaitList(Uptr address, WaitList* waitList)
 		Lock<Platform::Mutex> mapLock(addressToWaitListMapMutex);
 		if(!waitList->numReferences)
 		{
-			wavmAssert(!waitList->wakeEvents.size());
+			WAVM_ASSERT(!waitList->wakeEvents.size());
 			delete waitList;
 			addressToWaitListMap.remove(address);
 		}
@@ -155,7 +155,7 @@ static U32 waitOnAddress(Value* valuePointer, Value expectedValue, I64 timeout)
 			// In between the wait timing out and locking the wait list, some other thread tried to
 			// wake this thread. The event will now be signaled, so use an immediately expiring wait
 			// on it to reset it.
-			errorUnless(threadWakeEvent->wait(Platform::getMonotonicClock()));
+			WAVM_ERROR_UNLESS(threadWakeEvent->wait(Platform::getMonotonicClock()));
 		}
 	}
 
@@ -219,7 +219,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	{ throwException(ExceptionTypes::outOfBoundsMemoryAccess, {memory, memoryNumBytes}); }
 
 	// The alignment check is done by the caller.
-	wavmAssert(!(address & 3));
+	WAVM_ASSERT(!(address & 3));
 
 	return wakeAddress(memory->baseAddress + address, numToWake);
 }
@@ -236,7 +236,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Assume that the caller has validated the alignment.
-	wavmAssert(!(address & 3));
+	WAVM_ASSERT(!(address & 3));
 
 	// Validate that the address is within the memory's bounds, and convert it to a pointer.
 	I32* valuePointer = &memoryRef<I32>(memory, address);
@@ -255,7 +255,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsAtomics,
 	Memory* memory = getMemoryFromRuntimeData(contextRuntimeData, memoryId);
 
 	// Assume that the caller has validated the alignment.
-	wavmAssert(!(address & 7));
+	WAVM_ASSERT(!(address & 7));
 
 	// Validate that the address is within the memory's bounds, and convert it to a pointer.
 	I64* valuePointer = &memoryRef<I64>(memory, address);

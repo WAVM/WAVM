@@ -35,7 +35,7 @@ struct Platform::Thread
 private:
 	~Thread()
 	{
-		errorUnless(CloseHandle(handle));
+		WAVM_ERROR_UNLESS(CloseHandle(handle));
 		handle = nullptr;
 		id = 0;
 	}
@@ -143,7 +143,7 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 
 void Platform::detachThread(Thread* thread)
 {
-	wavmAssert(thread);
+	WAVM_ASSERT(thread);
 	thread->releaseRef();
 }
 
@@ -233,20 +233,20 @@ Thread* Platform::forkCurrentThread()
 		// Read the thread's initial stack pointer.
 		CONTEXT* threadContext = new CONTEXT;
 		threadContext->ContextFlags = CONTEXT_FULL;
-		errorUnless(GetThreadContext(forkThreadArgs->thread->handle, threadContext));
+		WAVM_ERROR_UNLESS(GetThreadContext(forkThreadArgs->thread->handle, threadContext));
 
 		// Query the virtual address range allocated for the thread's stack.
 		auto forkedStackInfo = new MEMORY_BASIC_INFORMATION;
-		errorUnless(VirtualQuery(reinterpret_cast<void*>(threadContext->Rsp),
-								 forkedStackInfo,
-								 sizeof(MEMORY_BASIC_INFORMATION))
-					== sizeof(MEMORY_BASIC_INFORMATION));
+		WAVM_ERROR_UNLESS(VirtualQuery(reinterpret_cast<void*>(threadContext->Rsp),
+									   forkedStackInfo,
+									   sizeof(MEMORY_BASIC_INFORMATION))
+						  == sizeof(MEMORY_BASIC_INFORMATION));
 		U8* forkedStackMinAddr = reinterpret_cast<U8*>(forkedStackInfo->AllocationBase);
 		U8* forkedStackMaxAddr = reinterpret_cast<U8*>(threadContext->Rsp & -16) - 4096;
 		delete threadContext;
 		delete forkedStackInfo;
 
-		errorUnless(numActiveStackBytes < Uptr(forkedStackMaxAddr - forkedStackMinAddr));
+		WAVM_ERROR_UNLESS(numActiveStackBytes < Uptr(forkedStackMaxAddr - forkedStackMinAddr));
 
 		// Copy the forked stack data.
 		if(POISON_FORKED_STACK_SELF_POINTERS)
@@ -254,8 +254,8 @@ Thread* Platform::forkCurrentThread()
 			const Uptr* source = (const Uptr*)minActiveStackAddr;
 			const Uptr* sourceEnd = (const Uptr*)maxActiveStackAddr;
 			Uptr* dest = (Uptr*)(forkedStackMaxAddr - numActiveStackBytes);
-			wavmAssert(!(reinterpret_cast<Uptr>(source) & 7));
-			wavmAssert(!(reinterpret_cast<Uptr>(dest) & 7));
+			WAVM_ASSERT(!(reinterpret_cast<Uptr>(source) & 7));
+			WAVM_ASSERT(!(reinterpret_cast<Uptr>(dest) & 7));
 			while(source < sourceEnd)
 			{
 				if(*source >= reinterpret_cast<Uptr>(minStackAddr)
@@ -279,7 +279,7 @@ Thread* Platform::forkCurrentThread()
 		// Compute the offset to add to stack pointers to translate them to the forked thread's
 		// stack.
 		const Iptr forkedStackOffset = forkedStackMaxAddr - maxActiveStackAddr;
-		wavmAssert(!(forkedStackOffset & 15));
+		WAVM_ASSERT(!(forkedStackOffset & 15));
 
 		// Translate this thread's captured stack and frame pointers to the forked stack.
 		forkThreadArgs->forkContext.rsp += forkedStackOffset;

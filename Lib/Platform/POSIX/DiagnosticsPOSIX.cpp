@@ -37,19 +37,19 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 
 #if WAVM_ENABLE_RUNTIME
 	unw_context_t context;
-	errorUnless(!unw_getcontext(&context));
+	WAVM_ERROR_UNLESS(!unw_getcontext(&context));
 
 	unw_cursor_t cursor;
 	bool lastFrameWasSignalFrame = false;
 
-	errorUnless(!unw_init_local(&cursor, &context));
+	WAVM_ERROR_UNLESS(!unw_init_local(&cursor, &context));
 	while(unw_step(&cursor) > 0)
 	{
 		if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
 		else
 		{
 			unw_word_t ip;
-			errorUnless(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
+			WAVM_ERROR_UNLESS(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
 			result.stackFrames.push_back(CallStack::Frame{lastFrameWasSignalFrame ? ip : (ip - 1)});
 		}
 
@@ -103,7 +103,7 @@ bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 	Dl_info symbolInfo;
 	if(dladdr((void*)ip, &symbolInfo))
 	{
-		wavmAssert(symbolInfo.dli_fname);
+		WAVM_ASSERT(symbolInfo.dli_fname);
 		outDescription = "host!";
 		outDescription += symbolInfo.dli_fname;
 		outDescription += '!';

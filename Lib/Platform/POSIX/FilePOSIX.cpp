@@ -185,7 +185,7 @@ struct POSIXDirEntStream : DirEntStream
 		struct dirent* dirent = readdir(dir);
 		if(dirent)
 		{
-			wavmAssert(dirent);
+			WAVM_ASSERT(dirent);
 			outEntry.fileNumber = dirent->d_ino;
 			outEntry.name = dirent->d_name;
 #ifdef _DIRENT_HAVE_D_TYPE
@@ -219,7 +219,8 @@ struct POSIXDirEntStream : DirEntStream
 	virtual U64 tell() override
 	{
 		const long offset = telldir(dir);
-		errorUnless(offset >= 0 && (LONG_MAX <= UINT64_MAX || (unsigned long)offset <= UINT64_MAX));
+		WAVM_ERROR_UNLESS(offset >= 0
+						  && (LONG_MAX <= UINT64_MAX || (unsigned long)offset <= UINT64_MAX));
 		if(U64(offset) > maxValidOffset) { maxValidOffset = U64(offset); }
 		return U64(offset);
 	}
@@ -230,7 +231,7 @@ struct POSIXDirEntStream : DirEntStream
 		// rewind.
 		if(offset > maxValidOffset) { return false; };
 
-		errorUnless(offset <= LONG_MAX);
+		WAVM_ERROR_UNLESS(offset <= LONG_MAX);
 		seekdir(dir, long(offset));
 		return true;
 	}
@@ -248,7 +249,7 @@ struct POSIXFD : VFD
 
 	virtual Result close() override
 	{
-		wavmAssert(fd >= 0);
+		WAVM_ASSERT(fd >= 0);
 		if(::close(fd))
 		{
 			// POSIX close says that the fd is in an undefined state after close returns EINTR.
@@ -698,6 +699,6 @@ std::string Platform::getCurrentWorkingDirectory()
 {
 	const Uptr maxPathBytes = pathconf(".", _PC_PATH_MAX);
 	char* buffer = (char*)alloca(maxPathBytes);
-	errorUnless(getcwd(buffer, maxPathBytes) == buffer);
+	WAVM_ERROR_UNLESS(getcwd(buffer, maxPathBytes) == buffer);
 	return std::string(buffer);
 }

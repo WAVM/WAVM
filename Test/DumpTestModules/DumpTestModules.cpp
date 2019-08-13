@@ -35,7 +35,7 @@ static void dumpWAST(const std::string& wastString, const char* outputDir)
 	const Uptr wastHash = Hash<std::string>()(wastString);
 	const std::string outputPath
 		= std::string(outputDir) + "/" + std::to_string(wastHash) + ".wast";
-	errorUnless(saveFile(outputPath.c_str(), wastString.c_str(), wastString.size()));
+	WAVM_ERROR_UNLESS(saveFile(outputPath.c_str(), wastString.c_str(), wastString.size()));
 }
 
 static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
@@ -43,7 +43,7 @@ static void dumpWASM(const U8* wasmBytes, Uptr numBytes, const char* outputDir)
 	const Uptr wasmHash = XXH<Uptr>(wasmBytes, numBytes, 0);
 	const std::string outputPath
 		= std::string(outputDir) + "/" + std::to_string(wasmHash) + ".wasm";
-	errorUnless(saveFile(outputPath.c_str(), wasmBytes, numBytes));
+	WAVM_ERROR_UNLESS(saveFile(outputPath.c_str(), wasmBytes, numBytes));
 }
 
 static void dumpModule(const Module& module, const char* outputDir, DumpFormat dumpFormat)
@@ -182,7 +182,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	wavmAssert(filename);
+	WAVM_ASSERT(filename);
 
 	// Always enable debug logging for tests.
 	Log::setCategoryEnabled(Log::debug, true);

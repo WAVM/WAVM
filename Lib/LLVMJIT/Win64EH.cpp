@@ -105,7 +105,7 @@ static const char* getUnwindRegisterName(U8 registerIndex)
 								  "r13",
 								  "r14",
 								  "r15"};
-	errorUnless(registerIndex < (sizeof(names) / sizeof(names[0])));
+	WAVM_ERROR_UNLESS(registerIndex < (sizeof(names) / sizeof(names[0])));
 	return names[registerIndex];
 }
 
@@ -147,7 +147,7 @@ static void applyImageRelativeRelocations(const llvm::LoadedObjectInfo& loadedOb
 			U32* valueToRelocate = (U32*)(sectionData + relocIt.getOffset());
 			const U32* originalValue = (U32*)(sectionCopy + relocIt.getOffset());
 			const U64 relocatedValue64 = symbolAddress + *originalValue - imageBaseAddress;
-			errorUnless(relocatedValue64 <= UINT32_MAX);
+			WAVM_ERROR_UNLESS(relocatedValue64 <= UINT32_MAX);
 			*valueToRelocate = (U32)relocatedValue64;
 		}
 	}
@@ -196,7 +196,7 @@ void printFunctionSEH(U8* imageBase, const RuntimeFunction& function)
 				}
 				else
 				{
-					errorUnless(unwindCode->opInfo == 1);
+					WAVM_ERROR_UNLESS(unwindCode->opInfo == 1);
 					Log::printf(Log::debug,
 								"    0x%02x UWOP_ALLOC_LARGE 0x%x\n",
 								unwindCode->codeOffset,
@@ -290,8 +290,8 @@ void LLVMJIT::processSEHTables(U8* imageBase,
 							   const U8* xdataCopy,
 							   Uptr sehTrampolineAddress)
 {
-	wavmAssert(pdataCopy);
-	wavmAssert(xdataCopy);
+	WAVM_ASSERT(pdataCopy);
+	WAVM_ASSERT(xdataCopy);
 
 	applyImageRelativeRelocations(loadedObject,
 								  pdataSection,

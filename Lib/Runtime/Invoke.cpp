@@ -31,7 +31,7 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 		function->mutableData->invokeThunk.compare_exchange_strong(
 			invokeThunk, newInvokeThunk, std::memory_order_acq_rel);
 	};
-	wavmAssert(invokeThunk);
+	WAVM_ASSERT(invokeThunk);
 
 	// Copy the arguments into the thunk arguments buffer in ContextRuntimeData.
 	ContextRuntimeData* contextRuntimeData
@@ -67,7 +67,7 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 										  const Function* function,
 										  const std::vector<Value>& arguments)
 {
-	errorUnless(isInCompartment(asObject(function), context->compartment));
+	WAVM_ERROR_UNLESS(isInCompartment(asObject(function), context->compartment));
 
 	FunctionType functionType{function->encodedType};
 
@@ -86,8 +86,8 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		if(!isSubtype(argument.type, functionType.params()[argumentIndex]))
 		{ throwException(ExceptionTypes::invokeSignatureMismatch); }
 
-		errorUnless(!isReferenceType(argument.type) || !argument.object
-					|| isInCompartment(argument.object, context->compartment));
+		WAVM_ERROR_UNLESS(!isReferenceType(argument.type) || !argument.object
+						  || isInCompartment(argument.object, context->compartment));
 
 		untaggedArguments[argumentIndex] = argument;
 	}
@@ -103,7 +103,7 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 		const U8 resultNumBytes = getTypeByteWidth(resultType);
 
 		resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
-		wavmAssert(resultOffset < maxThunkArgAndReturnBytes);
+		WAVM_ASSERT(resultOffset < maxThunkArgAndReturnBytes);
 
 		U8* result = resultStructBase + resultOffset;
 		switch(resultType)

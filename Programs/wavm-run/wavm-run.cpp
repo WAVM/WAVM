@@ -243,7 +243,7 @@ struct State
 		if(emscriptenInstance) { delete emscriptenInstance; }
 		wasiProcess.reset();
 
-		errorUnless(tryCollectCompartment(std::move(compartment)));
+		WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 	}
 
 	bool parseCommandLine(char** argv)
@@ -635,7 +635,7 @@ struct State
 					std::vector<std::string> args = runArgs;
 					args.insert(args.begin(), filename);
 
-					wavmAssert(emscriptenInstance);
+					WAVM_ASSERT(emscriptenInstance);
 					Emscripten::injectCommandArgs(emscriptenInstance, args, invokeArgs);
 				}
 			}

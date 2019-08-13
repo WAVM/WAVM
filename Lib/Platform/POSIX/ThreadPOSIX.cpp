@@ -89,10 +89,11 @@ void SigAltStack::deinit()
 		memset(&disableAltStack, 0, sizeof(stack_t));
 		disableAltStack.ss_flags = SS_DISABLE;
 		disableAltStack.ss_size = sigAltStackNumBytes;
-		errorUnless(!sigaltstack(&disableAltStack, nullptr));
+		WAVM_ERROR_UNLESS(!sigaltstack(&disableAltStack, nullptr));
 
 		// Free the alt stack's memory.
-		if(!ALLOCATE_SIGALTSTACK_ON_MAIN_STACK) { errorUnless(!munmap(base, sigAltStackNumBytes)); }
+		if(!ALLOCATE_SIGALTSTACK_ON_MAIN_STACK)
+		{ WAVM_ERROR_UNLESS(!munmap(base, sigAltStackNumBytes)); }
 		else
 		{
 			U8* signalStackMaxAddr = base + sigAltStackNumBytes;
@@ -117,13 +118,13 @@ static void getThreadStack(pthread_t thread, U8*& outMinGuardAddr, U8*& outMinAd
 	// address of the stack.
 	pthread_attr_t threadAttributes;
 	memset(&threadAttributes, 0, sizeof(threadAttributes));
-	errorUnless(!pthread_getattr_np(thread, &threadAttributes));
+	WAVM_ERROR_UNLESS(!pthread_getattr_np(thread, &threadAttributes));
 	Uptr numStackBytes = 0;
 	Uptr numGuardBytes = 0;
-	errorUnless(
+	WAVM_ERROR_UNLESS(
 		!pthread_attr_getstack(&threadAttributes, (void**)&outMinGuardAddr, &numStackBytes));
-	errorUnless(!pthread_attr_getguardsize(&threadAttributes, &numGuardBytes));
-	errorUnless(!pthread_attr_destroy(&threadAttributes));
+	WAVM_ERROR_UNLESS(!pthread_attr_getguardsize(&threadAttributes, &numGuardBytes));
+	WAVM_ERROR_UNLESS(!pthread_attr_destroy(&threadAttributes));
 	outMaxAddr = outMinGuardAddr + numStackBytes;
 	outMinAddr = outMinGuardAddr + numGuardBytes;
 #elif defined(__APPLE__)
@@ -185,7 +186,7 @@ void SigAltStack::init()
 
 			// Protect a page in between the sigaltstack and the rest of the stack.
 			U8* signalStackMaxAddr = stackMinAddr + sigAltStackNumBytes;
-			errorUnless(isAlignedLog2(signalStackMaxAddr, pageSizeLog2));
+			WAVM_ERROR_UNLESS(isAlignedLog2(signalStackMaxAddr, pageSizeLog2));
 			if(mprotect(signalStackMaxAddr, numBytesPerPage, PROT_NONE) != 0)
 			{
 				Errors::fatalf("mprotect(0x%" PRIxPTR ", %" PRIuPTR ", PROT_NONE) returned %i.\n",
@@ -201,12 +202,12 @@ void SigAltStack::init()
 			stackMinAddr = signalStackMaxAddr + numBytesPerPage;
 		}
 
-		errorUnless(base != MAP_FAILED);
+		WAVM_ERROR_UNLESS(base != MAP_FAILED);
 		stack_t sigAltStackInfo;
 		sigAltStackInfo.ss_size = sigAltStackNumBytes;
 		sigAltStackInfo.ss_sp = base;
 		sigAltStackInfo.ss_flags = 0;
-		errorUnless(!sigaltstack(&sigAltStackInfo, nullptr));
+		WAVM_ERROR_UNLESS(!sigaltstack(&sigAltStackInfo, nullptr));
 	}
 }
 
@@ -262,26 +263,26 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 	createArgs->entryArgument = argument;
 
 	pthread_attr_t threadAttr;
-	errorUnless(!pthread_attr_init(&threadAttr));
-	errorUnless(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
+	WAVM_ERROR_UNLESS(!pthread_attr_init(&threadAttr));
+	WAVM_ERROR_UNLESS(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
 
 	// Create a new pthread.
-	errorUnless(!pthread_create(&thread->id, &threadAttr, createThreadEntry, createArgs));
-	errorUnless(!pthread_attr_destroy(&threadAttr));
+	WAVM_ERROR_UNLESS(!pthread_create(&thread->id, &threadAttr, createThreadEntry, createArgs));
+	WAVM_ERROR_UNLESS(!pthread_attr_destroy(&threadAttr));
 
 	return thread;
 }
 
 void Platform::detachThread(Thread* thread)
 {
-	errorUnless(!pthread_detach(thread->id));
+	WAVM_ERROR_UNLESS(!pthread_detach(thread->id));
 	delete thread;
 }
 
 I64 Platform::joinThread(Thread* thread)
 {
 	void* returnValue = nullptr;
-	errorUnless(!pthread_join(thread->id, &returnValue));
+	WAVM_ERROR_UNLESS(!pthread_join(thread->id, &returnValue));
 	delete thread;
 	return reinterpret_cast<I64>(returnValue);
 }
@@ -373,13 +374,13 @@ WAVM_NO_ASAN Thread* Platform::forkCurrentThread()
 		if(numActiveStackBytes + PTHREAD_STACK_MIN > numStackBytes)
 		{ Errors::fatal("not enough stack space to fork thread"); }
 		pthread_attr_t threadAttr;
-		errorUnless(!pthread_attr_init(&threadAttr));
-		errorUnless(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
+		WAVM_ERROR_UNLESS(!pthread_attr_init(&threadAttr));
+		WAVM_ERROR_UNLESS(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
 
 		auto thread = new Thread;
-		errorUnless(!pthread_create(
+		WAVM_ERROR_UNLESS(!pthread_create(
 			&thread->id, &threadAttr, (void* (*)(void*))forkThreadEntry, forkThreadArgs));
-		errorUnless(!pthread_attr_destroy(&threadAttr));
+		WAVM_ERROR_UNLESS(!pthread_attr_destroy(&threadAttr));
 
 		U8* forkedMinStackGuardAddr = nullptr;
 		U8* forkedMinStackAddr = nullptr;
@@ -387,7 +388,7 @@ WAVM_NO_ASAN Thread* Platform::forkCurrentThread()
 		getThreadStack(thread->id, forkedMinStackGuardAddr, forkedMinStackAddr, forkedMaxStackAddr);
 
 		forkedMaxStackAddr -= PTHREAD_STACK_MIN;
-		wavmAssert(Uptr(forkedMaxStackAddr - forkedMinStackAddr) > numActiveStackBytes);
+		WAVM_ASSERT(Uptr(forkedMaxStackAddr - forkedMinStackAddr) > numActiveStackBytes);
 
 		// Compute the offset to add to stack pointers to translate them to the forked thread's
 		// stack.
@@ -428,4 +429,4 @@ WAVM_NO_ASAN Thread* Platform::forkCurrentThread()
 
 Uptr Platform::getNumberOfHardwareThreads() { return std::thread::hardware_concurrency(); }
 
-void Platform::yieldToAnotherThread() { errorUnless(sched_yield() == 0); }
+void Platform::yieldToAnotherThread() { WAVM_ERROR_UNLESS(sched_yield() == 0); }

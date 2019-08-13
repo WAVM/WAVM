@@ -26,7 +26,7 @@ struct RandomStream
 	template<typename Result> Result get(Result maxResult)
 	{
 		Result result = Result(get64(maxResult));
-		wavmAssert(result <= maxResult);
+		WAVM_ASSERT(result <= maxResult);
 		return result;
 	}
 
@@ -52,7 +52,7 @@ private:
 	{
 		if(maxResult == 0) { return 0; }
 
-		wavmAssert(denominator >= maxResult);
+		WAVM_ASSERT(denominator >= maxResult);
 		seed ^= numerator;
 		const U32 result = U32(seed % (U64(maxResult) + 1));
 		seed /= (U64(maxResult) + 1);
@@ -67,7 +67,7 @@ private:
 	{
 		U64 result = get32(U32(maxResult));
 		result += U64(get32(U32(maxResult >> 32))) << 32;
-		wavmAssert(result <= maxResult);
+		WAVM_ASSERT(result <= maxResult);
 		return result;
 	}
 };
@@ -871,7 +871,7 @@ static void generateFunction(RandomStream& random,
 		}
 
 		// Emit a random operator.
-		wavmAssert(validOpEmitters.size());
+		WAVM_ASSERT(validOpEmitters.size());
 		const Uptr randomOpIndex = random.get(validOpEmitters.size() - 1);
 		validOpEmitters[randomOpIndex](random, module, codeStream);
 		validOpEmitters.clear();

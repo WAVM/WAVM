@@ -136,7 +136,7 @@ static void linkImport(const IR::Module& module,
 	if(resolver.resolve(import.moduleName, import.exportName, resolvedType, importValue))
 	{
 		// Sanity check that the resolver returned an object of the right type.
-		wavmAssert(isA(importValue, resolvedType));
+		WAVM_ASSERT(isA(importValue, resolvedType));
 		linkResult.resolvedImports.push_back(importValue);
 	}
 	else
@@ -149,10 +149,10 @@ static void linkImport(const IR::Module& module,
 LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
 {
 	LinkResult linkResult;
-	wavmAssert(module.imports.size()
-			   == module.functions.imports.size() + module.tables.imports.size()
-					  + module.memories.imports.size() + module.globals.imports.size()
-					  + module.exceptionTypes.imports.size());
+	WAVM_ASSERT(module.imports.size()
+				== module.functions.imports.size() + module.tables.imports.size()
+					   + module.memories.imports.size() + module.globals.imports.size()
+					   + module.exceptionTypes.imports.size());
 	for(const auto& kindIndex : module.imports)
 	{
 		switch(kindIndex.kind)

@@ -226,8 +226,8 @@ namespace WAVM {
 
 			while(aNextByte < aEnd && bNextByte < bEnd)
 			{
-				wavmAssert(aNextByte + sizeof(Opcode) <= aEnd);
-				wavmAssert(bNextByte + sizeof(Opcode) <= bEnd);
+				WAVM_ASSERT(aNextByte + sizeof(Opcode) <= aEnd);
+				WAVM_ASSERT(bNextByte + sizeof(Opcode) <= bEnd);
 
 				Opcode aOpcode;
 				Opcode bOpcode;
@@ -240,8 +240,8 @@ namespace WAVM {
 #define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                                           \
 	case Opcode::name:                                                                             \
 	{                                                                                              \
-		wavmAssert(aNextByte + sizeof(OpcodeAndImm<Imm>) <= aEnd);                                 \
-		wavmAssert(bNextByte + sizeof(OpcodeAndImm<Imm>) <= bEnd);                                 \
+		WAVM_ASSERT(aNextByte + sizeof(OpcodeAndImm<Imm>) <= aEnd);                                \
+		WAVM_ASSERT(bNextByte + sizeof(OpcodeAndImm<Imm>) <= bEnd);                                \
 		OpcodeAndImm<Imm> aEncodedOperator;                                                        \
 		OpcodeAndImm<Imm> bEncodedOperator;                                                        \
 		memcpy(&aEncodedOperator, aNextByte, sizeof(OpcodeAndImm<Imm>));                           \
@@ -256,8 +256,8 @@ namespace WAVM {
 				default: WAVM_UNREACHABLE();
 				}
 			}
-			wavmAssert(aNextByte == aEnd);
-			wavmAssert(bNextByte == bEnd);
+			WAVM_ASSERT(aNextByte == aEnd);
+			WAVM_ASSERT(bNextByte == bEnd);
 
 			aFunction = nullptr;
 			bFunction = nullptr;

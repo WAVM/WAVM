@@ -92,7 +92,7 @@ template<typename Float> static std::string floatAsString(Float f)
 			}
 
 			// Print the exponent digits.
-			wavmAssert(exponent < 10000);
+			WAVM_ASSERT(exponent < 10000);
 			const Uptr numDigits
 				= exponent >= 1000 ? 4 : exponent >= 100 ? 3 : exponent >= 10 ? 2 : 1;
 			for(Uptr digitIndex = 0; digitIndex < numDigits; ++digitIndex)
@@ -103,7 +103,7 @@ template<typename Float> static std::string floatAsString(Float f)
 			nextChar += numDigits;
 		}
 
-		wavmAssert(nextChar < buffer + sizeof(buffer));
+		WAVM_ASSERT(nextChar < buffer + sizeof(buffer));
 		*nextChar = 0;
 
 		return buffer;

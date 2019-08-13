@@ -167,7 +167,7 @@ Table* Runtime::createTable(Compartment* compartment,
 							std::string&& debugName,
 							ResourceQuotaRefParam resourceQuota)
 {
-	wavmAssert(type.size.min <= UINTPTR_MAX);
+	WAVM_ASSERT(type.size.min <= UINTPTR_MAX);
 	Table* table = createTableImpl(compartment, type, std::move(debugName), resourceQuota);
 	if(!table) { return nullptr; }
 
@@ -175,7 +175,7 @@ Table* Runtime::createTable(Compartment* compartment,
 	if(!element) { element = getUninitializedElement(); }
 	else
 	{
-		errorUnless(isSubtype(asReferenceType(getExternType(element)), type.elementType));
+		WAVM_ERROR_UNLESS(isSubtype(asReferenceType(getExternType(element)), type.elementType));
 	}
 
 	// Grow the table to the type's minimum size.
@@ -247,12 +247,12 @@ Table::~Table()
 {
 	if(id != UINTPTR_MAX)
 	{
-		wavmAssertMutexIsLockedByCurrentThread(compartment->mutex);
+		WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(compartment->mutex);
 
-		wavmAssert(compartment->tables[id] == this);
+		WAVM_ASSERT(compartment->tables[id] == this);
 		compartment->tables.removeOrFail(id);
 
-		wavmAssert(compartment->runtimeData->tableBases[id] == elements);
+		WAVM_ASSERT(compartment->runtimeData->tableBases[id] == elements);
 		compartment->runtimeData->tableBases[id] = nullptr;
 	}
 
@@ -302,7 +302,7 @@ bool Runtime::isAddressOwnedByTable(U8* address, Table*& outTable, Uptr& outTabl
 
 static Object* setTableElementNonNull(Table* table, Uptr index, Object* object)
 {
-	wavmAssert(object);
+	WAVM_ASSERT(object);
 
 	// Verify the index is within the table's bounds.
 	if(index >= table->numReservedElements)
@@ -355,13 +355,13 @@ static Object* getTableElementNonNull(const Table* table, Uptr index)
 					   {const_cast<Table*>(table), U64(index)});
 	}
 
-	wavmAssert(object);
+	WAVM_ASSERT(object);
 	return object;
 }
 
 Object* Runtime::setTableElement(Table* table, Uptr index, Object* newValue)
 {
-	wavmAssert(!newValue || isInCompartment(newValue, table->compartment));
+	WAVM_ASSERT(!newValue || isInCompartment(newValue, table->compartment));
 
 	// If the new value is null, write the uninitialized sentinel value instead.
 	if(!newValue) { newValue = getUninitializedElement(); }
@@ -449,7 +449,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable,
 				  &oldNumElements,
 				  initialValue ? initialValue : getUninitializedElement()))
 	{ return -1; }
-	wavmAssert(oldNumElements <= INT32_MAX);
+	WAVM_ASSERT(oldNumElements <= INT32_MAX);
 	return I32(oldNumElements);
 }
 
@@ -457,7 +457,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsTable, "table.size", U32, table_siz
 {
 	Table* table = getTableFromRuntimeData(contextRuntimeData, tableId);
 	const Uptr numTableElements = getTableNumElements(table);
-	wavmAssert(numTableElements <= UINT32_MAX);
+	WAVM_ASSERT(numTableElements <= UINT32_MAX);
 	return U32(numTableElements);
 }
 

@@ -51,7 +51,7 @@ static bool parseSign(const char*& nextChar)
 static U64 parseHexUnsignedInt(const char*& nextChar, ParseState* parseState, U64 maxValue)
 {
 	const char* firstHexit = nextChar;
-	wavmAssert(nextChar[0] == '0' && (nextChar[1] == 'x' || nextChar[1] == 'X'));
+	WAVM_ASSERT(nextChar[0] == '0' && (nextChar[1] == 'x' || nextChar[1] == 'X'));
 	nextChar += 2;
 
 	U64 result = 0;
@@ -71,7 +71,7 @@ static U64 parseHexUnsignedInt(const char*& nextChar, ParseState* parseState, U6
 			while(tryParseHexit(nextChar, hexit)) {};
 			break;
 		}
-		wavmAssert(result * 16 + hexit >= result);
+		WAVM_ASSERT(result * 16 + hexit >= result);
 		result = result * 16 + hexit;
 	}
 	return result;
@@ -106,7 +106,7 @@ static U64 parseDecimalUnsignedInt(const char*& nextChar,
 			while((*nextChar >= '0' && *nextChar <= '9') || *nextChar == '_') { ++nextChar; };
 			break;
 		}
-		wavmAssert(result * 10 + digit >= result);
+		WAVM_ASSERT(result * 10 + digit >= result);
 		result = result * 10 + digit;
 	};
 	return result;
@@ -124,7 +124,7 @@ template<typename Float> Float parseNaN(const char*& nextChar, ParseState* parse
 	resultComponents.bits.sign = parseSign(nextChar) ? 1 : 0;
 	resultComponents.bits.exponent = FloatComponents::maxExponentBits;
 
-	wavmAssert(nextChar[0] == 'n' && nextChar[1] == 'a' && nextChar[2] == 'n');
+	WAVM_ASSERT(nextChar[0] == 'n' && nextChar[1] == 'a' && nextChar[2] == 'n');
 	nextChar += 3;
 
 	if(*nextChar == ':')
@@ -265,7 +265,7 @@ bool tryParseInt(CursorState* cursor,
 		outUnsignedInt = isNegative ? UnsignedInt(-u64) : UnsignedInt(u64);
 
 		++cursor->nextToken;
-		wavmAssert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
+		WAVM_ASSERT(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
 
 		return true;
 	}
@@ -290,7 +290,7 @@ template<typename Float> bool tryParseFloat(CursorState* cursor, Float& outFloat
 	};
 
 	++cursor->nextToken;
-	wavmAssert(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
+	WAVM_ASSERT(nextChar <= cursor->parseState->string + cursor->nextToken->begin);
 
 	return true;
 }

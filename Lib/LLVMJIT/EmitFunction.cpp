@@ -219,7 +219,7 @@ void EmitFunctionContext::pushControlStack(ControlContext::Type type,
 										   const ValueVector& elseArgs)
 {
 	// The unreachable operator filtering should filter out any opcodes that call pushControlStack.
-	if(controlStack.size()) { errorUnless(controlStack.back().isReachable); }
+	if(controlStack.size()) { WAVM_ERROR_UNLESS(controlStack.back().isReachable); }
 
 	controlStack.push_back({type,
 							endBlock,
@@ -258,13 +258,13 @@ void EmitFunctionContext::branchToEndOfControlContext()
 		// Branch to the control context's end.
 		irBuilder.CreateBr(currentContext.endBlock);
 	}
-	wavmAssert(stack.size() == currentContext.outerStackSize);
+	WAVM_ASSERT(stack.size() == currentContext.outerStackSize);
 }
 
 void EmitFunctionContext::enterUnreachable()
 {
 	// Unwind the operand stack to the outer control context.
-	wavmAssert(controlStack.back().outerStackSize <= stack.size());
+	WAVM_ASSERT(controlStack.back().outerStackSize <= stack.size());
 	stack.resize(controlStack.back().outerStackSize);
 
 	// Mark the current control context as unreachable: this will cause the outer loop to stop
@@ -418,7 +418,7 @@ void EmitFunctionContext::emit()
 			decoder.decodeOp(unreachableOpVisitor);
 		}
 	};
-	wavmAssert(irBuilder.GetInsertBlock() == returnBlock);
+	WAVM_ASSERT(irBuilder.GetInsertBlock() == returnBlock);
 
 	if(EMIT_ENTER_EXIT_HOOKS)
 	{

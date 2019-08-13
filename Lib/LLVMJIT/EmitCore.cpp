@@ -100,7 +100,7 @@ void EmitFunctionContext::if_(ControlStructureImm imm)
 
 	// Pop the arguments from the operand stack.
 	ValueVector args;
-	wavmAssert(stack.size() >= blockType.params().size());
+	WAVM_ASSERT(stack.size() >= blockType.params().size());
 	args.resize(blockType.params().size());
 	popMultiple(args.data(), args.size());
 
@@ -120,14 +120,14 @@ void EmitFunctionContext::if_(ControlStructureImm imm)
 }
 void EmitFunctionContext::else_(NoImm imm)
 {
-	wavmAssert(controlStack.size());
+	WAVM_ASSERT(controlStack.size());
 	ControlContext& currentContext = controlStack.back();
 
 	branchToEndOfControlContext();
 
 	// Switch the IR emitter to the else block.
-	wavmAssert(currentContext.elseBlock);
-	wavmAssert(currentContext.type == ControlContext::Type::ifThen);
+	WAVM_ASSERT(currentContext.elseBlock);
+	WAVM_ASSERT(currentContext.type == ControlContext::Type::ifThen);
 	currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
 	irBuilder.SetInsertPoint(currentContext.elseBlock);
 
@@ -141,7 +141,7 @@ void EmitFunctionContext::else_(NoImm imm)
 }
 void EmitFunctionContext::end(NoImm)
 {
-	wavmAssert(controlStack.size());
+	WAVM_ASSERT(controlStack.size());
 	ControlContext& currentContext = controlStack.back();
 
 	if(currentContext.type == ControlContext::Type::try_) { endTryWithoutCatch(); }
@@ -157,7 +157,7 @@ void EmitFunctionContext::end(NoImm)
 	{
 		// Add the if arguments to the end PHIs as if they just passed through the absent else
 		// block.
-		wavmAssert(currentContext.elseArgs.size() == currentContext.endPHIs.size());
+		WAVM_ASSERT(currentContext.elseArgs.size() == currentContext.endPHIs.size());
 		for(Uptr argIndex = 0; argIndex < currentContext.elseArgs.size(); ++argIndex)
 		{
 			currentContext.endPHIs[argIndex]->addIncoming(
@@ -177,7 +177,7 @@ void EmitFunctionContext::end(NoImm)
 	{
 		// If the control context yields results, take the PHIs that merges all the control flow to
 		// the end and push their values onto the operand stack.
-		wavmAssert(currentContext.endPHIs.size() == currentContext.resultTypes.size());
+		WAVM_ASSERT(currentContext.endPHIs.size() == currentContext.resultTypes.size());
 		for(Uptr elementIndex = 0; elementIndex < currentContext.endPHIs.size(); ++elementIndex)
 		{
 			if(currentContext.endPHIs[elementIndex]->getNumIncomingValues())
@@ -194,7 +194,7 @@ void EmitFunctionContext::end(NoImm)
 	}
 
 	// Pop and branch targets introduced by this control context.
-	wavmAssert(currentContext.outerBranchTargetStackSize <= branchTargetStack.size());
+	WAVM_ASSERT(currentContext.outerBranchTargetStackSize <= branchTargetStack.size());
 	branchTargetStack.resize(currentContext.outerBranchTargetStackSize);
 
 	// Pop this control context.
@@ -207,7 +207,7 @@ void EmitFunctionContext::br_if(BranchImm imm)
 	auto condition = pop();
 
 	BranchTarget& target = getBranchTargetByDepth(imm.targetDepth);
-	wavmAssert(target.params.size() == target.phis.size());
+	WAVM_ASSERT(target.params.size() == target.phis.size());
 	for(Uptr argIndex = 0; argIndex < target.params.size(); ++argIndex)
 	{
 		// Take the branch target operands from the stack (without popping them) and add them to the
@@ -230,7 +230,7 @@ void EmitFunctionContext::br_if(BranchImm imm)
 void EmitFunctionContext::br(BranchImm imm)
 {
 	BranchTarget& target = getBranchTargetByDepth(imm.targetDepth);
-	wavmAssert(target.params.size() == target.phis.size());
+	WAVM_ASSERT(target.params.size() == target.phis.size());
 
 	// Pop the branch target operands from the stack and add them to the target's incoming value
 	// PHIs.
@@ -268,7 +268,7 @@ void EmitFunctionContext::br_table(BranchTableImm imm)
 	}
 
 	// Create a LLVM switch instruction.
-	wavmAssert(imm.branchTableIndex < functionDef.branchTables.size());
+	WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 	const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 	auto llvmSwitch
 		= irBuilder.CreateSwitch(index, defaultTarget.block, (unsigned int)targetDepths.size());
@@ -278,11 +278,11 @@ void EmitFunctionContext::br_table(BranchTableImm imm)
 		BranchTarget& target = getBranchTargetByDepth(targetDepths[targetIndex]);
 
 		// Add this target to the switch instruction.
-		errorUnless(targetIndex < UINT32_MAX);
+		WAVM_ERROR_UNLESS(targetIndex < UINT32_MAX);
 		llvmSwitch->addCase(emitLiteral(llvmContext, (U32)targetIndex), target.block);
 
 		// Add the branch arguments to the PHI nodes for the branch target's parameters.
-		wavmAssert(target.phis.size() == numArgs);
+		WAVM_ASSERT(target.phis.size() == numArgs);
 		for(Uptr argIndex = 0; argIndex < numArgs; ++argIndex)
 		{
 			target.phis[argIndex]->addIncoming(coerceToCanonicalType(args[argIndex]),
@@ -324,8 +324,8 @@ void EmitFunctionContext::unreachable(NoImm)
 
 void EmitFunctionContext::call(FunctionImm imm)
 {
-	wavmAssert(imm.functionIndex < moduleContext.functions.size());
-	wavmAssert(imm.functionIndex < irModule.functions.size());
+	WAVM_ASSERT(imm.functionIndex < moduleContext.functions.size());
+	WAVM_ASSERT(imm.functionIndex < irModule.functions.size());
 
 	llvm::Value* callee = moduleContext.functions[imm.functionIndex];
 	FunctionType calleeType = irModule.types[irModule.functions.getType(imm.functionIndex).index];
@@ -351,7 +351,7 @@ void EmitFunctionContext::call(FunctionImm imm)
 }
 void EmitFunctionContext::call_indirect(CallIndirectImm imm)
 {
-	wavmAssert(imm.type.index < irModule.types.size());
+	WAVM_ASSERT(imm.type.index < irModule.types.size());
 
 	const FunctionType calleeType = irModule.types[imm.type.index];
 

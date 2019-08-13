@@ -80,8 +80,8 @@ namespace WAVM { namespace LLVMJIT {
 		// Operand stack manipulation
 		llvm::Value* pop()
 		{
-			wavmAssert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0)
-					   >= 1);
+			WAVM_ASSERT(
+				stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0) >= 1);
 			llvm::Value* result = stack.back();
 			stack.pop_back();
 			return result;
@@ -89,8 +89,9 @@ namespace WAVM { namespace LLVMJIT {
 
 		void popMultiple(llvm::Value** outValues, Uptr num)
 		{
-			wavmAssert(stack.size() - (controlStack.size() ? controlStack.back().outerStackSize : 0)
-					   >= num);
+			WAVM_ASSERT(stack.size()
+							- (controlStack.size() ? controlStack.back().outerStackSize : 0)
+						>= num);
 			std::copy(stack.end() - num, stack.end(), outValues);
 			stack.resize(stack.size() - num);
 		}
@@ -176,7 +177,7 @@ namespace WAVM { namespace LLVMJIT {
 
 		BranchTarget& getBranchTargetByDepth(Uptr depth)
 		{
-			wavmAssert(depth < branchTargetStack.size());
+			WAVM_ASSERT(depth < branchTargetStack.size());
 			return branchTargetStack[branchTargetStack.size() - depth - 1];
 		}
 

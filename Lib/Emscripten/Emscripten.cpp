@@ -131,8 +131,8 @@ static Emscripten::Instance* getEmscriptenInstance(Runtime::ContextRuntimeData* 
 {
 	auto instance = (Emscripten::Instance*)getUserData(
 		getCompartmentFromContextRuntimeData(contextRuntimeData));
-	wavmAssert(instance);
-	wavmAssert(instance->memory);
+	WAVM_ASSERT(instance);
+	WAVM_ASSERT(instance->memory);
 	return instance;
 }
 
@@ -707,7 +707,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	if(!fd) { return 0; }
 
 	const U64 numBytes64 = U64(size) * U64(count);
-	errorUnless(numBytes64 <= UINTPTR_MAX);
+	WAVM_ERROR_UNLESS(numBytes64 <= UINTPTR_MAX);
 	const Uptr numBytes = Uptr(numBytes64);
 	Uptr numBytesRead = 0;
 	const VFS::Result result = fd->read(
@@ -715,7 +715,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	if(result != VFS::Result::success) { return 0; }
 	else
 	{
-		wavmAssert(numBytesRead < UINT32_MAX);
+		WAVM_ASSERT(numBytesRead < UINT32_MAX);
 		return U32(numBytesRead);
 	}
 }
@@ -733,7 +733,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	if(!fd) { return 0; }
 
 	const U64 numBytes64 = U64(size) * U64(count);
-	errorUnless(numBytes64 <= UINTPTR_MAX);
+	WAVM_ERROR_UNLESS(numBytes64 <= UINTPTR_MAX);
 	const Uptr numBytes = Uptr(numBytes64);
 	Uptr numBytesWritten = 0;
 	const VFS::Result result = fd->write(
@@ -741,7 +741,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env,
 	if(result != VFS::Result::success) { return 0; }
 	else
 	{
-		wavmAssert(numBytesWritten < UINT32_MAX);
+		WAVM_ASSERT(numBytesWritten < UINT32_MAX);
 		return U32(numBytesWritten);
 	}
 }
@@ -847,7 +847,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall146", I32, _writev, I32, U32 args
 		totalNumBytesWritten += numBytesWritten;
 		if(numBytesWritten < numBytes) { break; }
 	}
-	errorUnless(totalNumBytesWritten <= INT32_MAX);
+	WAVM_ERROR_UNLESS(totalNumBytesWritten <= INT32_MAX);
 	return I32(totalNumBytesWritten);
 }
 
@@ -959,7 +959,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall192", I32, _mmap2, U32 which, U32
 		if(!memalignResult) { return -12; /* ENOMEM */ }
 		memset(memoryArrayPtr<char>(instance->memory, memalignResult, numBytes), 0, numBytes);
 
-		errorUnless(memalignResult < INT32_MAX);
+		WAVM_ERROR_UNLESS(memalignResult < INT32_MAX);
 		return I32(memalignResult);
 	}
 }
