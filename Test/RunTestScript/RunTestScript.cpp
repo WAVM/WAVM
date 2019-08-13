@@ -943,9 +943,9 @@ int main(int argc, char** argv)
 		sharedState.config = config;
 		sharedState.pendingFilenames = filenames;
 
-		// Allocate quadruple the stack space when running with ASAN.
+		// Allocate 32x the stack space when running with ASAN.
 		Uptr numStackBytes = 1024 * 1024;
-		if(WAVM_ENABLE_ASAN || WAVM_ENABLE_UBSAN) { numStackBytes *= 4; }
+		if(WAVM_ENABLE_ASAN || WAVM_ENABLE_UBSAN) { numStackBytes *= 32; }
 
 		// Create a thread for each hardware thread.
 		std::vector<Platform::Thread*> threads;
