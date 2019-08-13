@@ -1,11 +1,6 @@
 // IWYU pragma: private, include "Inline/HashSet.h"
 // You should only include this file indirectly by including HashMap.h.
 
-// Use these macros to compress the boilerplate template declarations in a non-inline member
-// function definition for HashSet.
-#define HASHSET_PARAMETERS
-#define HASHSET_ARGUMENTS
-
 template<typename Element> bool HashSetIterator<Element>::operator!=(const HashSetIterator& other)
 {
 	return bucket != other.bucket;
@@ -172,6 +167,3 @@ void HashSet<Element, ElementHashPolicy>::analyzeSpaceUsage(Uptr& outTotalMemory
 	return table.analyzeSpaceUsage(
 		outTotalMemoryBytes, outMaxProbeCount, outOccupancy, outAverageProbeCount);
 }
-
-#undef HASHSET_PARAMETERS
-#undef HASHSET_ARGUMENTS
