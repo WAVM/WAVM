@@ -103,8 +103,7 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		case InitializerExpression::Type::v128_const:
 			value = emitLiteral(llvmContext, globalDef.initializer.v128);
 			break;
-		case InitializerExpression::Type::global_get:
-		{
+		case InitializerExpression::Type::global_get: {
 			const Uptr importedGlobalIndex = globalDef.initializer.ref;
 			WAVM_ASSERT(!irModule.globals.isDef(importedGlobalIndex));
 			WAVM_ASSERT(!irModule.globals.getType(importedGlobalIndex).isMutable);
@@ -115,8 +114,7 @@ void EmitFunctionContext::global_get(GetOrSetVariableImm<true> imm)
 		case InitializerExpression::Type::ref_null:
 			value = llvm::Constant::getNullValue(llvmContext.anyrefType);
 			break;
-		case InitializerExpression::Type::ref_func:
-		{
+		case InitializerExpression::Type::ref_func: {
 			llvm::Value* referencedFunction = moduleContext.functions[globalDef.initializer.ref];
 			llvm::Value* codeAddress
 				= irBuilder.CreatePtrToInt(referencedFunction, llvmContext.iptrType);

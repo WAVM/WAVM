@@ -72,8 +72,7 @@ namespace WAVM { namespace IR {
 			case ValueType::f64: return "f64.const " + asString(value.f64);
 			case ValueType::v128: return "v128.const " + asString(value.v128);
 			case ValueType::anyref:
-			case ValueType::funcref:
-			{
+			case ValueType::funcref: {
 				// buffer needs 27 characters:
 				// (anyref|funcref) 0xHHHHHHHHHHHHHHHH\0
 				char buffer[27];

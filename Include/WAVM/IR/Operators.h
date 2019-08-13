@@ -183,8 +183,7 @@ namespace WAVM { namespace IR {
 			switch(opcode)
 			{
 #define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                                           \
-	case Opcode::name:                                                                             \
-	{                                                                                              \
+	case Opcode::name: {                                                                           \
 		WAVM_ASSERT(nextByte + sizeof(OpcodeAndImm<Imm>) <= end);                                  \
 		OpcodeAndImm<Imm> encodedOperator;                                                         \
 		memcpy(&encodedOperator, nextByte, sizeof(OpcodeAndImm<Imm>));                             \

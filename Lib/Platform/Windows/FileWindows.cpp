@@ -78,8 +78,7 @@ static Result getFileType(HANDLE handle, FileType& outType)
 	{
 	case FILE_TYPE_CHAR: outType = FileType::characterDevice; break;
 	case FILE_TYPE_PIPE: outType = FileType::pipe; break;
-	case FILE_TYPE_DISK:
-	{
+	case FILE_TYPE_DISK: {
 		FILE_BASIC_INFO fileBasicInfo;
 		if(!GetFileInformationByHandleEx(
 			   handle, FileBasicInfo, &fileBasicInfo, sizeof(fileBasicInfo)))

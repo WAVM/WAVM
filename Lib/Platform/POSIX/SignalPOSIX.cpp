@@ -25,8 +25,7 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 		signal.type = Signal::Type::intDivideByZeroOrOverflow;
 		break;
 	case SIGSEGV:
-	case SIGBUS:
-	{
+	case SIGBUS: {
 		// Determine whether the faulting address was an address reserved by the stack.
 		U8* stackMinGuardAddr;
 		U8* stackMinAddr;

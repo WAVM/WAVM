@@ -169,8 +169,7 @@ static FunctionType validateBlockType(const Module& module, const IndexedBlockTy
 	case IndexedBlockType::oneResult:
 		validate(module.featureSpec, type.resultType);
 		return FunctionType(TypeTuple(type.resultType));
-	case IndexedBlockType::functionType:
-	{
+	case IndexedBlockType::functionType: {
 		VALIDATE_INDEX(type.index, module.types.size());
 		FunctionType functionType = module.types[type.index];
 		if(functionType.params().size() > 0 && !module.featureSpec.multipleResultsAndBlockParams)
@@ -220,8 +219,7 @@ static void validateInitializer(const Module& module,
 	case InitializerExpression::Type::v128_const:
 		validateType(expectedType, ValueType::v128, context);
 		break;
-	case InitializerExpression::Type::global_get:
-	{
+	case InitializerExpression::Type::global_get: {
 		const ValueType globalValueType = validateGlobalIndex(
 			module, expression.ref, false, true, true, "initializer expression global index");
 		validateType(expectedType, globalValueType, context);
@@ -230,8 +228,7 @@ static void validateInitializer(const Module& module,
 	case InitializerExpression::Type::ref_null:
 		validateType(expectedType, ValueType::nullref, context);
 		break;
-	case InitializerExpression::Type::ref_func:
-	{
+	case InitializerExpression::Type::ref_func: {
 		validateFunctionIndex(module, expression.ref);
 		validateType(expectedType, ValueType::funcref, context);
 		break;

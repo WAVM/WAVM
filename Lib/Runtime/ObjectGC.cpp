@@ -119,8 +119,7 @@ struct GCState
 		// Gather the child references for this object based on its kind.
 		switch(object->kind)
 		{
-		case ObjectKind::table:
-		{
+		case ObjectKind::table: {
 			Table* table = asTable(object);
 
 			Lock<Platform::Mutex> resizingLock(table->resizingMutex);
@@ -129,8 +128,7 @@ struct GCState
 			{ visitReference(getTableElement(table, elementIndex)); }
 			break;
 		}
-		case ObjectKind::global:
-		{
+		case ObjectKind::global: {
 			Global* global = asGlobal(object);
 			if(isReferenceType(global->type.valueType))
 			{
@@ -150,8 +148,7 @@ struct GCState
 			}
 			break;
 		}
-		case ObjectKind::moduleInstance:
-		{
+		case ObjectKind::moduleInstance: {
 			ModuleInstance* moduleInstance = asModuleInstance(object);
 			visitReferenceArray(moduleInstance->functions);
 			visitReferenceArray(moduleInstance->tables);
@@ -160,8 +157,7 @@ struct GCState
 			visitReferenceArray(moduleInstance->exceptionTypes);
 			break;
 		}
-		case ObjectKind::compartment:
-		{
+		case ObjectKind::compartment: {
 			WAVM_ASSERT(object == compartment);
 			break;
 		}

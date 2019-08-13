@@ -52,46 +52,39 @@ static IR::Value parseConstExpression(CursorState* cursor)
 	parseParenthesized(cursor, [&] {
 		switch(cursor->nextToken->type)
 		{
-		case t_i32_const:
-		{
+		case t_i32_const: {
 			++cursor->nextToken;
 			result = parseI32(cursor);
 			break;
 		}
-		case t_i64_const:
-		{
+		case t_i64_const: {
 			++cursor->nextToken;
 			result = parseI64(cursor);
 			break;
 		}
-		case t_f32_const:
-		{
+		case t_f32_const: {
 			++cursor->nextToken;
 			result = parseF32(cursor);
 			break;
 		}
-		case t_f64_const:
-		{
+		case t_f64_const: {
 			++cursor->nextToken;
 			result = parseF64(cursor);
 			break;
 		}
-		case t_v128_const:
-		{
+		case t_v128_const: {
 			++cursor->nextToken;
 			result.type = ValueType::v128;
 			result.v128 = parseV128(cursor);
 			break;
 		}
-		case t_ref_host:
-		{
+		case t_ref_host: {
 			++cursor->nextToken;
 			result.type = ValueType::funcref;
 			result.function = makeHostRef(parseU32(cursor));
 			break;
 		}
-		case t_ref_null:
-		{
+		case t_ref_null: {
 			++cursor->nextToken;
 			result.type = ValueType::nullref;
 			result.object = nullptr;
@@ -202,8 +195,7 @@ static std::unique_ptr<Action> parseAction(CursorState* cursor, const IR::Featur
 
 		switch(cursor->nextToken->type)
 		{
-		case t_get:
-		{
+		case t_get: {
 			++cursor->nextToken;
 
 			std::string nameString = parseOptionalNameAsString(cursor);
@@ -213,8 +205,7 @@ static std::unique_ptr<Action> parseAction(CursorState* cursor, const IR::Featur
 				new GetAction(std::move(locus), std::move(nameString), std::move(exportName)));
 			break;
 		}
-		case t_invoke:
-		{
+		case t_invoke: {
 			++cursor->nextToken;
 
 			std::string nameString = parseOptionalNameAsString(cursor);
@@ -227,8 +218,7 @@ static std::unique_ptr<Action> parseAction(CursorState* cursor, const IR::Featur
 															  std::move(arguments)));
 			break;
 		}
-		case t_module:
-		{
+		case t_module: {
 			++cursor->nextToken;
 
 			std::string internalModuleName;
@@ -283,8 +273,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 
 			switch(cursor->nextToken->type)
 			{
-			case t_register:
-			{
+			case t_register: {
 				++cursor->nextToken;
 
 				std::string moduleName = parseUTF8String(cursor);
@@ -294,8 +283,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 					std::move(locus), std::move(moduleName), std::move(nameString)));
 				break;
 			}
-			case t_assert_return:
-			{
+			case t_assert_return: {
 				++cursor->nextToken;
 
 				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
@@ -305,8 +293,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				break;
 			}
 			case t_assert_return_arithmetic_nan:
-			case t_assert_return_canonical_nan:
-			{
+			case t_assert_return_canonical_nan: {
 				const Command::Type commandType
 					= cursor->nextToken->type == t_assert_return_canonical_nan
 						  ? Command::assert_return_canonical_nan
@@ -318,8 +305,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 					new AssertReturnNaNCommand(commandType, std::move(locus), std::move(action)));
 				break;
 			}
-			case t_assert_return_func:
-			{
+			case t_assert_return_func: {
 				++cursor->nextToken;
 
 				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
@@ -328,8 +314,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				break;
 			}
 			case t_assert_exhaustion:
-			case t_assert_trap:
-			{
+			case t_assert_trap: {
 				++cursor->nextToken;
 
 				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
@@ -416,8 +401,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 					new AssertTrapCommand(std::move(locus), std::move(action), expectedType));
 				break;
 			}
-			case t_assert_throws:
-			{
+			case t_assert_throws: {
 				++cursor->nextToken;
 
 				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
@@ -434,8 +418,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 											std::move(expectedArguments)));
 				break;
 			}
-			case t_assert_unlinkable:
-			{
+			case t_assert_unlinkable: {
 				++cursor->nextToken;
 
 				if(cursor->nextToken[0].type != t_leftParenthesis
@@ -460,8 +443,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				break;
 			}
 			case t_assert_invalid:
-			case t_assert_malformed:
-			{
+			case t_assert_malformed: {
 				const Command::Type commandType = cursor->nextToken->type == t_assert_invalid
 													  ? Command::assert_invalid
 													  : Command::assert_malformed;

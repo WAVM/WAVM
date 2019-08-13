@@ -1141,8 +1141,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 			MemoryInputStream substream(stream.advance(numSubsectionBytes), numSubsectionBytes);
 			switch((LinkingSubsectionType)subsectionType)
 			{
-			case LinkingSubsectionType::segmentInfo:
-			{
+			case LinkingSubsectionType::segmentInfo: {
 				linkingSectionString += "\n;; Segments:" INDENT_STRING;
 				++indentDepth;
 
@@ -1168,8 +1167,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 				--indentDepth;
 				break;
 			}
-			case LinkingSubsectionType::initFuncs:
-			{
+			case LinkingSubsectionType::initFuncs: {
 				linkingSectionString += "\n;; Init funcs:" INDENT_STRING;
 				++indentDepth;
 
@@ -1194,8 +1192,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 				--indentDepth;
 				break;
 			}
-			case LinkingSubsectionType::comdatInfo:
-			{
+			case LinkingSubsectionType::comdatInfo: {
 				linkingSectionString += "\n;; Comdats:" INDENT_STRING;
 				++indentDepth;
 
@@ -1270,8 +1267,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 				--indentDepth;
 				break;
 			}
-			case LinkingSubsectionType::symbolTable:
-			{
+			case LinkingSubsectionType::symbolTable: {
 				linkingSectionString += "\n;; Symbols:" INDENT_STRING;
 				++indentDepth;
 
@@ -1293,8 +1289,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 
 					switch(SymbolKind(kind))
 					{
-					case SymbolKind::function:
-					{
+					case SymbolKind::function: {
 						kindName = "function ";
 						serializeVarUInt32(substream, index);
 						if(index < module.functions.imports.size())
@@ -1308,8 +1303,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						}
 						break;
 					}
-					case SymbolKind::global:
-					{
+					case SymbolKind::global: {
 						kindName = "global ";
 						serializeVarUInt32(substream, index);
 						if(index < module.globals.imports.size())
@@ -1323,8 +1317,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						}
 						break;
 					}
-					case SymbolKind::data:
-					{
+					case SymbolKind::data: {
 						kindName = "data ";
 						serialize(substream, symbolName);
 						serializeVarUInt32(substream, index);
@@ -1332,8 +1325,7 @@ void ModulePrintContext::printLinkingSection(const IR::UserSection& linkingSecti
 						serializeVarUInt32(substream, numBytes);
 						break;
 					}
-					case SymbolKind::section:
-					{
+					case SymbolKind::section: {
 						kindName = "section ";
 						serializeVarUInt32(substream, index);
 

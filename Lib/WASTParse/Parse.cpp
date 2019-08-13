@@ -435,8 +435,7 @@ Uptr WAST::resolveRef(ParseState* parseState,
 {
 	switch(ref.type)
 	{
-	case Reference::Type::index:
-	{
+	case Reference::Type::index: {
 		if(ref.index >= maxIndex)
 		{
 			parseErrorf(parseState, ref.token, "validation error: invalid index");
@@ -444,8 +443,7 @@ Uptr WAST::resolveRef(ParseState* parseState,
 		}
 		return ref.index;
 	}
-	case Reference::Type::name:
-	{
+	case Reference::Type::name: {
 		const HashMapPair<Name, Uptr>* nameIndexPair = nameToIndexMap.getPair(ref.name);
 		if(!nameIndexPair)
 		{
@@ -524,8 +522,7 @@ static void parseCharEscapeCode(const char*& nextChar,
 			outString += '\\';
 			++nextChar;
 			break;
-		case 'u':
-		{
+		case 'u': {
 			// \u{...} - Unicode codepoint from hexadecimal number
 			if(nextChar[1] != '{') { parseErrorf(parseState, nextChar, "expected '{'"); }
 			nextChar += 2;
@@ -575,8 +572,7 @@ static void parseStringChars(const char*& nextChar, ParseState* parseState, std:
 	{
 		switch(*nextChar)
 		{
-		case '\\':
-		{
+		case '\\': {
 			++nextChar;
 			parseCharEscapeCode(nextChar, parseState, outString);
 			break;

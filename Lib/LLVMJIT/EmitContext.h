@@ -157,8 +157,7 @@ namespace WAVM { namespace LLVMJIT {
 			ValueVector results;
 			switch(callingConvention)
 			{
-			case IR::CallingConvention::wasm:
-			{
+			case IR::CallingConvention::wasm: {
 				// Update the context variable.
 				auto newContextPointer = irBuilder.CreateExtractValue(returnValue, {0});
 				irBuilder.CreateStore(newContextPointer, contextPointerVariable);
@@ -199,8 +198,7 @@ namespace WAVM { namespace LLVMJIT {
 
 				break;
 			}
-			case IR::CallingConvention::intrinsicWithContextSwitch:
-			{
+			case IR::CallingConvention::intrinsicWithContextSwitch: {
 				auto newContextPointer = returnValue;
 
 				// Update the context variable.
@@ -222,8 +220,7 @@ namespace WAVM { namespace LLVMJIT {
 
 				break;
 			}
-			case IR::CallingConvention::cAPICallback:
-			{
+			case IR::CallingConvention::cAPICallback: {
 				// Check whether the call returned an Exception.
 				auto exception = returnValue;
 				auto function = irBuilder.GetInsertBlock()->getParent();
@@ -253,8 +250,7 @@ namespace WAVM { namespace LLVMJIT {
 				break;
 			}
 			case IR::CallingConvention::intrinsic:
-			case IR::CallingConvention::c:
-			{
+			case IR::CallingConvention::c: {
 				WAVM_ASSERT(calleeType.results().size() <= 1);
 				if(calleeType.results().size() == 1) { results.push_back(returnValue); }
 				break;

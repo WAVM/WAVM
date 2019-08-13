@@ -102,38 +102,32 @@ static UnresolvedInitializerExpression parseInitializerInstruction(CursorState* 
 	UnresolvedInitializerExpression result;
 	switch(cursor->nextToken->type)
 	{
-	case t_i32_const:
-	{
+	case t_i32_const: {
 		++cursor->nextToken;
 		result = parseI32(cursor);
 		break;
 	}
-	case t_i64_const:
-	{
+	case t_i64_const: {
 		++cursor->nextToken;
 		result = parseI64(cursor);
 		break;
 	}
-	case t_f32_const:
-	{
+	case t_f32_const: {
 		++cursor->nextToken;
 		result = parseF32(cursor);
 		break;
 	}
-	case t_f64_const:
-	{
+	case t_f64_const: {
 		++cursor->nextToken;
 		result = parseF64(cursor);
 		break;
 	}
-	case t_v128_const:
-	{
+	case t_v128_const: {
 		++cursor->nextToken;
 		result = parseV128(cursor);
 		break;
 	}
-	case t_global_get:
-	{
+	case t_global_get: {
 		++cursor->nextToken;
 		Reference globalRef;
 		if(!tryParseNameOrIndexRef(cursor, globalRef))
@@ -145,14 +139,12 @@ static UnresolvedInitializerExpression parseInitializerInstruction(CursorState* 
 												 globalRef);
 		break;
 	}
-	case t_ref_null:
-	{
+	case t_ref_null: {
 		++cursor->nextToken;
 		result = nullptr;
 		break;
 	}
-	case t_ref_func:
-	{
+	case t_ref_func: {
 		++cursor->nextToken;
 		Reference funcRef;
 		if(!tryParseNameOrIndexRef(cursor, funcRef))
@@ -299,8 +291,7 @@ static void parseImport(CursorState* cursor)
 		// Parse the import type and create the import in the appropriate name/index spaces.
 		switch(importKindToken->type)
 		{
-		case t_func:
-		{
+		case t_func: {
 			NameToIndexMap localNameToIndexMap;
 			std::vector<std::string> localDissassemblyNames;
 			const UnresolvedFunctionType unresolvedFunctionType = parseFunctionTypeRefAndOrDecl(
@@ -324,8 +315,7 @@ static void parseImport(CursorState* cursor)
 				});
 			break;
 		}
-		case t_table:
-		{
+		case t_table: {
 			const SizeConstraints sizeConstraints = parseSizeConstraints(cursor, IR::maxTableElems);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
 			const ReferenceType elemType = parseReferenceType(cursor);
@@ -340,8 +330,7 @@ static void parseImport(CursorState* cursor)
 						 ExternKind::table);
 			break;
 		}
-		case t_memory:
-		{
+		case t_memory: {
 			const SizeConstraints sizeConstraints
 				= parseSizeConstraints(cursor, IR::maxMemoryPages);
 			const bool isShared = parseOptionalSharedDeclaration(cursor);
@@ -356,8 +345,7 @@ static void parseImport(CursorState* cursor)
 						 ExternKind::memory);
 			break;
 		}
-		case t_global:
-		{
+		case t_global: {
 			const GlobalType globalType = parseGlobalType(cursor);
 			createImport(cursor,
 						 name,
@@ -370,8 +358,7 @@ static void parseImport(CursorState* cursor)
 						 ExternKind::global);
 			break;
 		}
-		case t_exception_type:
-		{
+		case t_exception_type: {
 			TypeTuple params = parseTypeTuple(cursor);
 			createImport(cursor,
 						 name,
@@ -652,8 +639,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 					++cursor->nextToken;
 					elementReferences->push_back({Elem::Type::ref_null});
 					break;
-				case t_ref_func:
-				{
+				case t_ref_func: {
 					++cursor->nextToken;
 
 					Reference elementRef;
@@ -996,22 +982,23 @@ static void parseGlobal(CursorState* cursor)
 
 static void parseExceptionType(CursorState* cursor)
 {
-	parseObjectDefOrImport(cursor,
-						   cursor->moduleState->exceptionTypeNameToIndexMap,
-						   cursor->moduleState->module.exceptionTypes,
-						   cursor->moduleState->disassemblyNames.exceptionTypes,
-						   t_exception_type,
-						   ExternKind::exceptionType,
-						   // Parse an exception type import.
-						   [](CursorState* cursor) {
-							   TypeTuple params = parseTypeTuple(cursor);
-							   return ExceptionType{params};
-						   },
-						   // Parse an exception type definition
-						   [](CursorState* cursor, const Token*) {
-							   TypeTuple params = parseTypeTuple(cursor);
-							   return ExceptionTypeDef{ExceptionType{params}};
-						   });
+	parseObjectDefOrImport(
+		cursor,
+		cursor->moduleState->exceptionTypeNameToIndexMap,
+		cursor->moduleState->module.exceptionTypes,
+		cursor->moduleState->disassemblyNames.exceptionTypes,
+		t_exception_type,
+		ExternKind::exceptionType,
+		// Parse an exception type import.
+		[](CursorState* cursor) {
+			TypeTuple params = parseTypeTuple(cursor);
+			return ExceptionType{params};
+		},
+		// Parse an exception type definition
+		[](CursorState* cursor, const Token*) {
+			TypeTuple params = parseTypeTuple(cursor);
+			return ExceptionTypeDef{ExceptionType{params}};
+		});
 }
 
 static void parseStart(CursorState* cursor)

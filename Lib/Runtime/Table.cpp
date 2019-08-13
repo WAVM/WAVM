@@ -135,8 +135,8 @@ static bool growTableImpl(Table* table,
 			= getNumPlatformPages(newNumElements * sizeof(Table::Element));
 		if(newNumPlatformPages != previousNumPlatformPages
 		   && !Platform::commitVirtualPages(
-				  (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
-				  newNumPlatformPages - previousNumPlatformPages))
+			   (U8*)table->elements + (previousNumPlatformPages << Platform::getPageSizeLog2()),
+			   newNumPlatformPages - previousNumPlatformPages))
 		{
 			if(table->resourceQuota) { table->resourceQuota->tableElems.free(numElementsToGrow); }
 			return false;

@@ -36,8 +36,7 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 	// If the import couldn't be resolved, stub it in.
 	switch(type.kind)
 	{
-	case IR::ExternKind::function:
-	{
+	case IR::ExternKind::function: {
 		Serialization::ArrayOutputStream codeStream;
 		OperatorEncoderStream encoder(codeStream);
 		if(functionBehavior == FunctionBehavior::trap)
@@ -93,25 +92,21 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 		outObject = getInstanceExport(stubModuleInstance, "importStub");
 		break;
 	}
-	case IR::ExternKind::memory:
-	{
+	case IR::ExternKind::memory: {
 		outObject = asObject(
 			Runtime::createMemory(compartment, asMemoryType(type), std::string(exportName)));
 		break;
 	}
-	case IR::ExternKind::table:
-	{
+	case IR::ExternKind::table: {
 		outObject = asObject(
 			Runtime::createTable(compartment, asTableType(type), nullptr, std::string(exportName)));
 		break;
 	}
-	case IR::ExternKind::global:
-	{
+	case IR::ExternKind::global: {
 		outObject = asObject(Runtime::createGlobal(compartment, asGlobalType(type)));
 		break;
 	}
-	case IR::ExternKind::exceptionType:
-	{
+	case IR::ExternKind::exceptionType: {
 		outObject = asObject(
 			Runtime::createExceptionType(compartment, asExceptionType(type), "importStub"));
 		break;
@@ -157,8 +152,7 @@ LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
 	{
 		switch(kindIndex.kind)
 		{
-		case ExternKind::function:
-		{
+		case ExternKind::function: {
 			const auto& functionImport = module.functions.imports[kindIndex.index];
 			linkImport(module,
 					   functionImport,
@@ -167,26 +161,22 @@ LinkResult Runtime::linkModule(const IR::Module& module, Resolver& resolver)
 					   linkResult);
 			break;
 		}
-		case ExternKind::table:
-		{
+		case ExternKind::table: {
 			const auto& tableImport = module.tables.imports[kindIndex.index];
 			linkImport(module, tableImport, tableImport.type, resolver, linkResult);
 			break;
 		}
-		case ExternKind::memory:
-		{
+		case ExternKind::memory: {
 			const auto& memoryImport = module.memories.imports[kindIndex.index];
 			linkImport(module, memoryImport, memoryImport.type, resolver, linkResult);
 			break;
 		}
-		case ExternKind::global:
-		{
+		case ExternKind::global: {
 			const auto& globalImport = module.globals.imports[kindIndex.index];
 			linkImport(module, globalImport, globalImport.type, resolver, linkResult);
 			break;
 		}
-		case ExternKind::exceptionType:
-		{
+		case ExternKind::exceptionType: {
 			const auto& exceptionTypeImport = module.exceptionTypes.imports[kindIndex.index];
 			linkImport(module, exceptionTypeImport, exceptionTypeImport.type, resolver, linkResult);
 			break;

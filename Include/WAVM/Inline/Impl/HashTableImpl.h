@@ -120,7 +120,7 @@ const HashTableBucket<Element>* HashTable<HASHTABLE_ARGUMENTS>::getBucketForRead
 		}
 		else if(bucket.hashAndOccupancy == hashAndOccupancy
 				&& HashTablePolicy::areKeysEqual(
-					   HashTablePolicy::getKey(buckets[bucketIndex].storage.contents), key))
+					HashTablePolicy::getKey(buckets[bucketIndex].storage.contents), key))
 		{
 			// If the bucket holds the specified key, return null.
 			return &bucket;

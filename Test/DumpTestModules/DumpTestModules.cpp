@@ -80,13 +80,11 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 {
 	switch(command->type)
 	{
-	case Command::action:
-	{
+	case Command::action: {
 		auto actionCommand = (ActionCommand*)command;
 		switch(actionCommand->action->type)
 		{
-		case ActionType::_module:
-		{
+		case ActionType::_module: {
 			auto moduleAction = (ModuleAction*)actionCommand->action.get();
 			dumpModule(*moduleAction->module, outputDir, dumpFormat);
 			break;
@@ -97,15 +95,13 @@ static void dumpCommandModules(const Command* command, const char* outputDir, Du
 		}
 		break;
 	}
-	case Command::assert_unlinkable:
-	{
+	case Command::assert_unlinkable: {
 		auto assertUnlinkableCommand = (AssertUnlinkableCommand*)command;
 		dumpModule(*assertUnlinkableCommand->moduleAction->module, outputDir, dumpFormat);
 		break;
 	}
 	case Command::assert_invalid:
-	case Command::assert_malformed:
-	{
+	case Command::assert_malformed: {
 		auto assertInvalidOrMalformedCommand = (AssertInvalidOrMalformedCommand*)command;
 		if(assertInvalidOrMalformedCommand->quotedModuleType == QuotedModuleType::text
 		   && (dumpFormat == DumpFormat::wast || dumpFormat == DumpFormat::both))

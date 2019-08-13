@@ -178,8 +178,7 @@ static bool tryParseAndResolveBranchTargetRef(CursorState* cursor, Uptr& outTarg
 		switch(branchTargetRef.type)
 		{
 		case Reference::Type::index: outTargetDepth = branchTargetRef.index; break;
-		case Reference::Type::name:
-		{
+		case Reference::Type::name: {
 			const HashMapPair<Name, Uptr>* nameIndexPair
 				= cursor->functionState->branchTargetNameToIndexMap.getPair(branchTargetRef.name);
 			if(!nameIndexPair)
@@ -674,20 +673,17 @@ static void parseExpr(CursorState* cursor, Uptr depth)
 		{
 			switch(cursor->nextToken->type)
 			{
-			case t_block:
-			{
+			case t_block: {
 				++cursor->nextToken;
 				parseBlock(cursor, true, depth);
 				break;
 			}
-			case t_loop:
-			{
+			case t_loop: {
 				++cursor->nextToken;
 				parseLoop(cursor, true, depth);
 				break;
 			}
-			case t_if_:
-			{
+			case t_if_: {
 				++cursor->nextToken;
 
 				Name branchTargetName;
@@ -767,22 +763,19 @@ static void parseInstrSequence(CursorState* cursor, Uptr depth)
 			case t_rightParenthesis: return;
 			case t_else_: return;
 			case t_end: return;
-			case t_block:
-			{
+			case t_block: {
 				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
 				parseBlock(cursor, false, depth + 1);
 				break;
 			}
-			case t_loop:
-			{
+			case t_loop: {
 				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
 				parseLoop(cursor, false, depth + 1);
 				break;
 			}
-			case t_if_:
-			{
+			case t_if_: {
 				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
 
@@ -813,8 +806,7 @@ static void parseInstrSequence(CursorState* cursor, Uptr depth)
 
 				break;
 			}
-			case t_try_:
-			{
+			case t_try_: {
 				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
 

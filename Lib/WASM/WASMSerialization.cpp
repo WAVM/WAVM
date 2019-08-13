@@ -914,8 +914,7 @@ static void serializeFunctionBody(InputStream& sectionStream,
 		switch(U16(opcode))
 		{
 #define VISIT_OPCODE(_, name, nameString, Imm, ...)                                                \
-	case Uptr(Opcode::name):                                                                       \
-	{                                                                                              \
+	case Uptr(Opcode::name): {                                                                     \
 		Imm imm;                                                                                   \
 		serialize(bodyStream, imm, functionDef, moduleState);                                      \
 		codeValidationStream.name(imm);                                                            \
@@ -925,16 +924,14 @@ static void serializeFunctionBody(InputStream& sectionStream,
 			WAVM_ENUM_NONOVERLOADED_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
 		// Explicitly handle both select opcodes here:
-		case 0x1b:
-		{
+		case 0x1b: {
 			SelectImm imm{ValueType::any};
 
 			codeValidationStream.select(imm);
 			irEncoderStream.select(imm);
 			break;
 		}
-		case 0x1c:
-		{
+		case 0x1c: {
 			SelectImm imm;
 			serialize(bodyStream, imm, functionDef, moduleState);
 
@@ -944,8 +941,7 @@ static void serializeFunctionBody(InputStream& sectionStream,
 		}
 		// Hack to accept the obsolete 0xfd03 opcode that the LLVM WASM backend emits for
 		// v8x16.shuffle.
-		case 0xfd03:
-		{
+		case 0xfd03: {
 			ShuffleImm<16> imm;
 			serialize(bodyStream, imm, functionDef, moduleState);
 
@@ -1011,8 +1007,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				Uptr kindIndex = 0;
 				switch(kind)
 				{
-				case ExternKind::function:
-				{
+				case ExternKind::function: {
 					U32 functionTypeIndex = 0;
 					serializeVarUInt32(sectionStream, functionTypeIndex);
 					if(functionTypeIndex >= module.types.size())
@@ -1022,8 +1017,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{{functionTypeIndex}, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ExternKind::table:
-				{
+				case ExternKind::table: {
 					TableType tableType;
 					serialize(sectionStream, tableType);
 					kindIndex = module.tables.imports.size();
@@ -1031,8 +1025,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{tableType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ExternKind::memory:
-				{
+				case ExternKind::memory: {
 					MemoryType memoryType;
 					serialize(sectionStream, memoryType);
 					kindIndex = module.memories.imports.size();
@@ -1040,8 +1033,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{memoryType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ExternKind::global:
-				{
+				case ExternKind::global: {
 					GlobalType globalType;
 					serialize(sectionStream, globalType);
 					kindIndex = module.globals.imports.size();
@@ -1049,8 +1041,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 						{globalType, std::move(moduleName), std::move(exportName)});
 					break;
 				}
-				case ExternKind::exceptionType:
-				{
+				case ExternKind::exceptionType: {
 					ExceptionType exceptionType;
 					serialize(sectionStream, exceptionType);
 					kindIndex = module.exceptionTypes.imports.size();
@@ -1078,8 +1069,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 				ExternKind kind = kindIndex.kind;
 				switch(kindIndex.kind)
 				{
-				case ExternKind::function:
-				{
+				case ExternKind::function: {
 					auto& functionImport = module.functions.imports[kindIndex.index];
 					serialize(sectionStream, functionImport.moduleName);
 					serialize(sectionStream, functionImport.exportName);
@@ -1087,8 +1077,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serializeVarUInt32(sectionStream, functionImport.type.index);
 					break;
 				}
-				case ExternKind::table:
-				{
+				case ExternKind::table: {
 					auto& tableImport = module.tables.imports[kindIndex.index];
 					serialize(sectionStream, tableImport.moduleName);
 					serialize(sectionStream, tableImport.exportName);
@@ -1096,8 +1085,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serialize(sectionStream, tableImport.type);
 					break;
 				}
-				case ExternKind::memory:
-				{
+				case ExternKind::memory: {
 					auto& memoryImport = module.memories.imports[kindIndex.index];
 					serialize(sectionStream, memoryImport.moduleName);
 					serialize(sectionStream, memoryImport.exportName);
@@ -1105,8 +1093,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serialize(sectionStream, memoryImport.type);
 					break;
 				}
-				case ExternKind::global:
-				{
+				case ExternKind::global: {
 					auto& globalImport = module.globals.imports[kindIndex.index];
 					serialize(sectionStream, globalImport.moduleName);
 					serialize(sectionStream, globalImport.exportName);
@@ -1114,8 +1101,7 @@ template<typename Stream> void serializeImportSection(Stream& moduleStream, Modu
 					serialize(sectionStream, globalImport.type);
 					break;
 				}
-				case ExternKind::exceptionType:
-				{
+				case ExternKind::exceptionType: {
 					auto& exceptionTypeImport = module.exceptionTypes.imports[kindIndex.index];
 					serialize(sectionStream, exceptionTypeImport.moduleName);
 					serialize(sectionStream, exceptionTypeImport.exportName);
@@ -1402,8 +1388,7 @@ static void serializeModule(InputStream& moduleStream, Module& module)
 			hadDataSection = true;
 			IR::validateDataSegments(module);
 			break;
-		case SectionType::user:
-		{
+		case SectionType::user: {
 			UserSection& userSection
 				= *module.userSections.insert(module.userSections.end(), UserSection());
 			serialize(moduleStream, userSection);

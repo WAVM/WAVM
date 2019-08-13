@@ -33,8 +33,7 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	case InitializerExpression::Type::f32_const: return expression.f32;
 	case InitializerExpression::Type::f64_const: return expression.f64;
 	case InitializerExpression::Type::v128_const: return expression.v128;
-	case InitializerExpression::Type::global_get:
-	{
+	case InitializerExpression::Type::global_get: {
 		// Find the import this refers to.
 		WAVM_ERROR_UNLESS(expression.ref < moduleGlobals.size());
 		Global* global = moduleGlobals[expression.ref];
@@ -109,8 +108,7 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 
 		switch(kindIndex.kind)
 		{
-		case ExternKind::function:
-		{
+		case ExternKind::function: {
 			Function* function = asFunction(importObject);
 			const auto& importType
 				= module->ir.types[module->ir.functions.getType(kindIndex.index).index];
@@ -118,30 +116,26 @@ ModuleInstance* Runtime::instantiateModule(Compartment* compartment,
 			functions.push_back(function);
 			break;
 		}
-		case ExternKind::table:
-		{
+		case ExternKind::table: {
 			Table* table = asTable(importObject);
 			WAVM_ERROR_UNLESS(isSubtype(table->type, module->ir.tables.getType(kindIndex.index)));
 			tables.push_back(table);
 			break;
 		}
-		case ExternKind::memory:
-		{
+		case ExternKind::memory: {
 			Memory* memory = asMemory(importObject);
 			WAVM_ERROR_UNLESS(
 				isSubtype(memory->type, module->ir.memories.getType(kindIndex.index)));
 			memories.push_back(memory);
 			break;
 		}
-		case ExternKind::global:
-		{
+		case ExternKind::global: {
 			Global* global = asGlobal(importObject);
 			WAVM_ERROR_UNLESS(isSubtype(global->type, module->ir.globals.getType(kindIndex.index)));
 			globals.push_back(global);
 			break;
 		}
-		case ExternKind::exceptionType:
-		{
+		case ExternKind::exceptionType: {
 			ExceptionType* exceptionType = asExceptionType(importObject);
 			WAVM_ERROR_UNLESS(isSubtype(exceptionType->sig.params,
 										module->ir.exceptionTypes.getType(kindIndex.index).params));

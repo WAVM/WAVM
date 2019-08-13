@@ -238,8 +238,7 @@ namespace WAVM {
 				switch(aOpcode)
 				{
 #define VISIT_OPCODE(opcode, name, nameString, Imm, ...)                                           \
-	case Opcode::name:                                                                             \
-	{                                                                                              \
+	case Opcode::name: {                                                                           \
 		WAVM_ASSERT(aNextByte + sizeof(OpcodeAndImm<Imm>) <= aEnd);                                \
 		WAVM_ASSERT(bNextByte + sizeof(OpcodeAndImm<Imm>) <= bEnd);                                \
 		OpcodeAndImm<Imm> aEncodedOperator;                                                        \

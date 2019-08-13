@@ -88,13 +88,11 @@ static void deserializeNameSubsection(const Module& module,
 	MemoryInputStream substream(stream.advance(numSubsectionBytes), numSubsectionBytes);
 	switch((NameSubsectionType)subsectionType)
 	{
-	case NameSubsectionType::module:
-	{
+	case NameSubsectionType::module: {
 		serialize(substream, outNames.moduleName);
 		break;
 	}
-	case NameSubsectionType::function:
-	{
+	case NameSubsectionType::function: {
 		U32 numFunctionNames = 0;
 		serializeVarUInt32(substream, numFunctionNames);
 		for(Uptr functionNameIndex = 0; functionNameIndex < numFunctionNames; ++functionNameIndex)
@@ -110,8 +108,7 @@ static void deserializeNameSubsection(const Module& module,
 		}
 		break;
 	}
-	case NameSubsectionType::local:
-	{
+	case NameSubsectionType::local: {
 		U32 numFunctionLocalNameMaps = 0;
 		serializeVarUInt32(substream, numFunctionLocalNameMaps);
 		for(Uptr functionNameIndex = 0; functionNameIndex < numFunctionLocalNameMaps;
@@ -139,8 +136,7 @@ static void deserializeNameSubsection(const Module& module,
 
 		break;
 	}
-	case NameSubsectionType::label:
-	{
+	case NameSubsectionType::label: {
 		if(!module.featureSpec.extendedNamesSection)
 		{
 			throw FatalSerializationException(

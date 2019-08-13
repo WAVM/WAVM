@@ -299,8 +299,7 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 {
 	switch(signal.type)
 	{
-	case Platform::Signal::Type::accessViolation:
-	{
+	case Platform::Signal::Type::accessViolation: {
 		// If the access violation occured in a Table's reserved pages, treat it as an undefined
 		// table element runtime error.
 		Table* table = nullptr;

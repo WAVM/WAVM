@@ -41,8 +41,7 @@ static bool translateSEHToSignal(EXCEPTION_POINTERS* exceptionPointers, Signal& 
 	// Decide how to handle this exception code.
 	switch(exceptionPointers->ExceptionRecord->ExceptionCode)
 	{
-	case EXCEPTION_ACCESS_VIOLATION:
-	{
+	case EXCEPTION_ACCESS_VIOLATION: {
 		outSignal.type = Signal::Type::accessViolation;
 		outSignal.accessViolation.address
 			= exceptionPointers->ExceptionRecord->ExceptionInformation[1];

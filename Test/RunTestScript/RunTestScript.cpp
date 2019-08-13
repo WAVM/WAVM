@@ -263,8 +263,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 
 	switch(action->type)
 	{
-	case ActionType::_module:
-	{
+	case ActionType::_module: {
 		auto moduleAction = (ModuleAction*)action;
 
 		// Clear the previous module.
@@ -309,8 +308,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 
 		return true;
 	}
-	case ActionType::invoke:
-	{
+	case ActionType::invoke: {
 		auto invokeAction = (InvokeAction*)action;
 
 		// Look up the module this invoke uses.
@@ -338,8 +336,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 
 		return true;
 	}
-	case ActionType::get:
-	{
+	case ActionType::get: {
 		auto getAction = (GetAction*)action;
 
 		// Look up the module this get uses.
@@ -385,8 +382,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 {
 	switch(command->type)
 	{
-	case Command::_register:
-	{
+	case Command::_register: {
 		auto registerCommand = (RegisterCommand*)command;
 
 		// Look up a module by internal name, and bind the result to the public name.
@@ -395,14 +391,12 @@ static void processCommand(TestScriptState& state, const Command* command)
 		state.moduleNameToInstanceMap.set(registerCommand->moduleName, moduleInstance);
 		break;
 	}
-	case Command::action:
-	{
+	case Command::action: {
 		IR::ValueTuple results;
 		processAction(state, ((ActionCommand*)command)->action.get(), results);
 		break;
 	}
-	case Command::assert_return:
-	{
+	case Command::assert_return: {
 		auto assertCommand = (AssertReturnCommand*)command;
 		// Execute the action and do a bitwise comparison of the result to the expected result.
 		IR::ValueTuple actionResults;
@@ -418,8 +412,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		break;
 	}
 	case Command::assert_return_canonical_nan:
-	case Command::assert_return_arithmetic_nan:
-	{
+	case Command::assert_return_arithmetic_nan: {
 		auto assertCommand = (AssertReturnNaNCommand*)command;
 		// Execute the action and check that the result is a NaN of the expected type.
 		IR::ValueTuple actionResults;
@@ -455,8 +448,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		}
 		break;
 	}
-	case Command::assert_return_func:
-	{
+	case Command::assert_return_func: {
 		auto assertCommand = (AssertReturnNaNCommand*)command;
 		// Execute the action and check that the result is a function.
 		IR::ValueTuple actionResults;
@@ -473,8 +465,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		}
 		break;
 	}
-	case Command::assert_trap:
-	{
+	case Command::assert_trap: {
 		auto assertCommand = (AssertTrapCommand*)command;
 		Runtime::catchRuntimeExceptions(
 			[&] {
@@ -500,8 +491,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 			});
 		break;
 	}
-	case Command::assert_throws:
-	{
+	case Command::assert_throws: {
 		auto assertCommand = (AssertThrowsCommand*)command;
 
 		// Look up the module containing the expected exception type.
@@ -573,8 +563,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 			});
 		break;
 	}
-	case Command::assert_invalid:
-	{
+	case Command::assert_invalid: {
 		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
 		switch(assertCommand->wasInvalidOrMalformed)
 		{
@@ -591,8 +580,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		};
 		break;
 	}
-	case Command::assert_malformed:
-	{
+	case Command::assert_malformed: {
 		auto assertCommand = (AssertInvalidOrMalformedCommand*)command;
 		switch(assertCommand->wasInvalidOrMalformed)
 		{
@@ -610,8 +598,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		};
 		break;
 	}
-	case Command::assert_unlinkable:
-	{
+	case Command::assert_unlinkable: {
 		auto assertCommand = (AssertUnlinkableCommand*)command;
 		Runtime::catchRuntimeExceptions(
 			[&] {
