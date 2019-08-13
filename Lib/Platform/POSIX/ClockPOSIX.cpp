@@ -109,5 +109,6 @@ Time Platform::getClockResolution(Clock clock)
 		return Time{1000};
 #endif
 	}
+	default: WAVM_UNREACHABLE();
 	}
 }
