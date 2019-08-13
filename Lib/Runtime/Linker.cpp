@@ -101,8 +101,8 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 	}
 	case IR::ExternKind::table:
 	{
-		outObject = asObject(Runtime::createTable(
-			compartment, asTableType(type), nullptr, std::string(exportName)));
+		outObject = asObject(
+			Runtime::createTable(compartment, asTableType(type), nullptr, std::string(exportName)));
 		break;
 	}
 	case IR::ExternKind::global:

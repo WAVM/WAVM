@@ -675,7 +675,6 @@ struct WindowsFS : HostFS
 	virtual Result removeDir(const std::string& path) override;
 	virtual Result createDir(const std::string& path) override;
 
-
 	static WindowsFS& get()
 	{
 		static WindowsFS windowsFS;

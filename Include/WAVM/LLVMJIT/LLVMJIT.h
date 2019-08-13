@@ -47,7 +47,8 @@ namespace WAVM { namespace LLVMJIT {
 
 	// Compile a module to object code with the host target spec.
 	// Cannot fail if validateTarget(targetSpec, irModule.featureSpec) == valid.
-	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule, const TargetSpec& targetSpec = getHostTargetSpec());
+	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule,
+											  const TargetSpec& targetSpec = getHostTargetSpec());
 
 	// An opaque type that can be used to reference a loaded JIT module.
 	struct Module;

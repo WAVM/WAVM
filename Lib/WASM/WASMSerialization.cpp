@@ -942,7 +942,8 @@ static void serializeFunctionBody(InputStream& sectionStream,
 			irEncoderStream.select(imm);
 			break;
 		}
-		// Hack to accept the obsolete 0xfd03 opcode that the LLVM WASM backend emits for v8x16.shuffle.
+		// Hack to accept the obsolete 0xfd03 opcode that the LLVM WASM backend emits for
+		// v8x16.shuffle.
 		case 0xfd03:
 		{
 			ShuffleImm<16> imm;
@@ -1473,4 +1474,3 @@ bool WASM::loadBinaryModule(const void* wasmBytes,
 		return false;
 	}
 }
-

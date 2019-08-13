@@ -257,7 +257,6 @@ namespace WAVM { namespace VFS {
 		virtual Result unlinkFile(const std::string& path) = 0;
 		virtual Result removeDir(const std::string& path) = 0;
 		virtual Result createDir(const std::string& path) = 0;
-
 	};
 
 	VFS_API const char* describeResult(Result result);
