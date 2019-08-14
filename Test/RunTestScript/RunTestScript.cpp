@@ -869,7 +869,8 @@ static void showHelp()
 		"  --strict-assert-malformed  Strictly evaluate assert_malformed, failing if the\n"
 		"                             module was invalid\n"
 		"  --test-cloning             Run each test command in the original compartment\n"
-		"                             and a clone of it, and compare the resulting state\n");
+		"                             and a clone of it, and compare the resulting state\n"
+		"  --trace                    Prints instructions to stdout as they are compiled.\n");
 }
 
 int main(int argc, char** argv)
@@ -921,6 +922,10 @@ int main(int argc, char** argv)
 		else if(!strcmp(argv[argIndex], "--test-cloning"))
 		{
 			config.testCloning = true;
+		}
+		else if (!strcmp(argv[argIndex], "--trace"))
+		{
+			Log::setCategoryEnabled(Log::trace, true);
 		}
 		else
 		{
