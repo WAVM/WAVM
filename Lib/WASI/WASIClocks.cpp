@@ -69,7 +69,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiClocks,
 	Platform::Clock platformClock;
 	if(!getPlatformClock(clockId, platformClock)) { return TRACE_SYSCALL_RETURN(__WASI_EINVAL); }
 
-	Time clockTime = Platform::getClockResolution(platformClock);
+	Time clockTime = Platform::getClockTime(platformClock);
 
 	if(platformClock == Platform::Clock::processCPUTime)
 	{ clockTime.ns -= process->processClockOrigin.ns; }
