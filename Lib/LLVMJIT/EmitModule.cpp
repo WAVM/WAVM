@@ -101,6 +101,9 @@ void LLVMJIT::emitModule(const IR::Module& irModule,
 	Timing::Timer emitTimer;
 	EmitModuleContext moduleContext(irModule, llvmContext, &outLLVMModule, targetMachine);
 
+	// Set the module data layout for the target machine.
+	outLLVMModule.setDataLayout(targetMachine->createDataLayout());
+
 	// Create an external reference to the appropriate exception personality function.
 	auto personalityFunction = llvm::Function::Create(
 		llvm::FunctionType::get(llvmContext.i32Type, {}, false),

@@ -70,6 +70,7 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	LLVMContext llvmContext;
 	llvm::Module llvmModule("", llvmContext);
 	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
+	llvmModule.setDataLayout(targetMachine->createDataLayout());
 	auto llvmFunctionType = llvm::FunctionType::get(
 		llvmContext.i8PtrType, {llvmContext.i8PtrType, llvmContext.i8PtrType}, false);
 	auto function = llvm::Function::Create(
@@ -184,6 +185,7 @@ Runtime::Function* LLVMJIT::getIntrinsicThunk(void* nativeFunction,
 	// function, but with the WASM calling convention.
 	llvm::Module llvmModule("", llvmContext);
 	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
+	llvmModule.setDataLayout(targetMachine->createDataLayout());
 	auto llvmFunctionType = asLLVMType(llvmContext, functionType, CallingConvention::wasm);
 	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);

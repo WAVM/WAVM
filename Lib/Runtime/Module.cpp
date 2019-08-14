@@ -54,7 +54,7 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 
 ModuleRef Runtime::compileModule(const IR::Module& irModule)
 {
-	std::vector<U8> objectCode = LLVMJIT::compileModule(irModule);
+	std::vector<U8> objectCode = LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
 	return std::make_shared<Module>(IR::Module(irModule), std::move(objectCode));
 }
 
