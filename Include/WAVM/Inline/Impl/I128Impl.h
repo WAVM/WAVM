@@ -256,7 +256,8 @@ namespace WAVM {
 
 	inline I128 operator>>(I128 a, I128 b)
 	{
-		if(isNaN(a) || isNaN(b) || b == 0) { return I128::nan(); }
+		if(b == 0) { return a; }
+		if(isNaN(a) || isNaN(b)) { return I128::nan(); }
 
 		I128 result;
 		U64 b64 = b.lowU64;
