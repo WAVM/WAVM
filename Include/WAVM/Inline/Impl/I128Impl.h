@@ -8,6 +8,36 @@
 #include "WAVM/Platform/Intrinsic.h"
 
 namespace WAVM {
+	inline I128::operator U8() const
+	{
+		if(isNaN(*this) || highI64 || lowU64 > UINT8_MAX) { WAVM_DEBUG_TRAP(); }
+		return U8(lowU64);
+	}
+
+	inline I128::operator I8() const
+	{
+		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 < INT8_MIN)
+		   || (highI64 == 0 && lowI64 > INT8_MAX))
+		{ WAVM_DEBUG_TRAP(); }
+
+		return I8(lowI64);
+	}
+
+	inline I128::operator U16() const
+	{
+		if(isNaN(*this) || highI64 || lowU64 > UINT16_MAX) { WAVM_DEBUG_TRAP(); }
+		return U8(lowU64);
+	}
+
+	inline I128::operator I16() const
+	{
+		if(isNaN(*this) || highI64 > 0 || highI64 < -1 || (highI64 == -1 && lowI64 < INT16_MIN)
+		   || (highI64 == 0 && lowI64 > INT16_MAX))
+		{ WAVM_DEBUG_TRAP(); }
+
+		return I16(lowI64);
+	}
+
 	inline I128::operator U32() const
 	{
 		if(isNaN(*this) || highI64 || lowU64 > UINT32_MAX) { WAVM_DEBUG_TRAP(); }

@@ -25,6 +25,10 @@ namespace WAVM {
 		static constexpr I128 max() { return I128(UINT64_MAX, INT64_MAX); }
 
 		// Conversion to smaller integer types.
+		explicit operator U8() const;
+		explicit operator I8() const;
+		explicit operator U16() const;
+		explicit operator I16() const;
 		explicit operator U32() const;
 		explicit operator I32() const;
 		explicit operator U64() const;
