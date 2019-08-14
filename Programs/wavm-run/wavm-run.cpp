@@ -168,6 +168,13 @@ static bool isEmscriptenModule(const IR::Module& irModule)
 	return false;
 }
 
+static const char* getSystemListHelpText()
+{
+	return "  bare        A minimal runtime system.\n"
+		   "  emscripten  A system that emulates the Emscripten runtime.\n"
+		   "  wasi        A system that implements the WASI ABI.\n";
+}
+
 static void showHelp()
 {
 	Log::printf(Log::error,
@@ -193,12 +200,12 @@ static void showHelp()
 				"                        - syscalls-with-callstacks\n"
 				"\n"
 				"Systems:\n"
-				"  bare        A minimal runtime system.\n"
-				"  emscripten  A system that emulates the Emscripten runtime.\n"
-				"  wasi        A system that implements the WASI ABI.\n"
+				"%s"
 				"\n"
 				"Features:\n"
-				"%s\n",
+				"%s"
+				"\n",
+				getSystemListHelpText(),
 				getFeatureListHelpText());
 }
 
@@ -295,8 +302,11 @@ struct State
 				else
 				{
 					Log::printf(Log::error,
-								"Invalid system '%s': must be 'bare', 'emscripten', or 'wasi'.\n",
-								systemString);
+								"Unknown system '%s'. Supported systems:\n"
+								"%s"
+								"\n",
+								systemString,
+								getSystemListHelpText());
 					return false;
 				}
 			}
@@ -311,7 +321,12 @@ struct State
 
 				if(!parseAndSetFeature(*nextArg, featureSpec, true))
 				{
-					Log::printf(Log::error, "Unknown feature '%s'.\n", *nextArg);
+					Log::printf(Log::error,
+								"Unknown feature '%s'. Supported features:\n"
+								"%s"
+								"\n",
+								*nextArg,
+								getFeatureListHelpText());
 					return false;
 				}
 			}
