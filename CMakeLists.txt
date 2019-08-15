@@ -376,6 +376,7 @@ add_subdirectory(Programs/wavm-as)
 add_subdirectory(Programs/wavm-disas)
 add_subdirectory(Test)
 add_subdirectory(ThirdParty/gdtoa)
+add_subdirectory(ThirdParty/liblmdb)
 
 if(WAVM_ENABLE_RUNTIME)
 	add_subdirectory(Include/WAVM/RuntimeABI)

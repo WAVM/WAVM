@@ -22,6 +22,8 @@ The contents of [ThirdParty/gdtoa](ThirdParty/gdtoa) are covered by the licenses
 
 [ThirdParty/libunwind](ThirdParty/libunwind) is covered by the license in [ThirdParty/libunwind/LICENSE.TXT](ThirdParty/libunwind/LICENSE.TXT).
 
+[ThirdParty/liblmdb](ThirdParty/liblmdb) is covered by the license in [ThirdParty/liblmdb/LICENSE](ThirdParty/liblmdb/LICENSE).
+
 [Include/WAVM/Inline/xxhash](Include/WAVM/Inline/xxhash) is covered by the license in [Include/WAVM/Inline/xxhash/LICENSE](Include/WAVM/Inline/xxhash/LICENSE).
 
 [Lib/WASI/WASITypes.h](Lib/WASI/WASITypes.h) is covered by the license in [Lib/WASI/WASITypes.h](Lib/WASI/WASITypes.h).

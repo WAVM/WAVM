@@ -9,6 +9,7 @@ set(Sources
 	Linker.cpp
 	Memory.cpp
 	Module.cpp
+	ObjectCache.cpp
 	ObjectGC.cpp
 	ResourceQuota.cpp
 	Runtime.cpp
@@ -23,4 +24,5 @@ set(PublicHeaders
 WAVM_ADD_LIB_COMPONENT(Runtime
 	SOURCES ${Sources} ${PublicHeaders}
 	PUBLIC_LIB_COMPONENTS IR Platform
-	PRIVATE_LIB_COMPONENTS Logging LLVMJIT RuntimeABI)
+	PRIVATE_LIB_COMPONENTS Logging LLVMJIT RuntimeABI
+	PRIVATE_LIBS lmdb)

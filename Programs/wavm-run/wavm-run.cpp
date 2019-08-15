@@ -250,7 +250,7 @@ struct State
 		WAVM_ERROR_UNLESS(tryCollectCompartment(std::move(compartment)));
 	}
 
-	bool parseCommandLine(char** argv)
+	bool parseCommandLineAndEnvironment(char** argv)
 	{
 		char** nextArg = argv;
 		while(*++nextArg)
@@ -401,6 +401,61 @@ struct State
 		default: WAVM_UNREACHABLE();
 		};
 
+		const char* objectCachePath
+			= WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(getenv("WAVM_OBJECT_CACHE_DIR"));
+		if(objectCachePath)
+		{
+			Uptr maxBytes = 1024 * 1024 * 1024;
+
+			const char* maxMegabytesEnv
+				= WAVM_SCOPED_DISABLE_SECURE_CRT_WARNINGS(getenv("WAVM_OBJECT_CACHE_MAX_MB"));
+			if(maxMegabytesEnv)
+			{
+				int maxMegabytes = atoi(maxMegabytesEnv);
+				if(maxMegabytes <= 0)
+				{
+					Log::printf(
+						Log::error,
+						"Invalid object cache size \"%s\". Expected an integer greater than 1.",
+						maxMegabytesEnv);
+					return false;
+				}
+				maxBytes = Uptr(maxMegabytes) * 1024 * 1024;
+			}
+
+			// Initialize the object cache.
+			OpenObjectCacheResult openObjectCacheResult
+				= openObjectCache(objectCachePath, maxBytes);
+			switch(openObjectCacheResult)
+			{
+			case OpenObjectCacheResult::doesNotExist:
+				Log::printf(
+					Log::error, "Object cache directory \"%s\" does not exist.\n", objectCachePath);
+				return false;
+			case OpenObjectCacheResult::notDirectory:
+				Log::printf(Log::error,
+							"Object cache path \"%s\" does not refer to a directory.\n",
+							objectCachePath);
+				return false;
+			case OpenObjectCacheResult::notAccessible:
+				Log::printf(
+					Log::error, "Object cache path \"%s\" is not accessible.\n", objectCachePath);
+				return false;
+			case OpenObjectCacheResult::invalidDatabase:
+				Log::printf(
+					Log::error, "Object cache database in \"%s\" is not valid.\n", objectCachePath);
+				return false;
+			case OpenObjectCacheResult::tooManyReaders:
+				Log::printf(Log::error,
+							"Object cache database in \"%s\" has too many concurrent readers.\n",
+							objectCachePath);
+				return false;
+
+			case OpenObjectCacheResult::success: break;
+			default: WAVM_UNREACHABLE();
+			};
+		}
+
 		return true;
 	}
 
@@ -487,7 +542,7 @@ struct State
 	int run(char** argv)
 	{
 		// Parse the command line.
-		if(!parseCommandLine(argv)) { return EXIT_FAILURE; }
+		if(!parseCommandLineAndEnvironment(argv)) { return EXIT_FAILURE; }
 
 		// Load the module.
 		IR::Module irModule(featureSpec);

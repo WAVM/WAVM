@@ -45,6 +45,8 @@ namespace WAVM { namespace LLVMJIT {
 	LLVMJIT_API TargetValidationResult validateTarget(const TargetSpec& targetSpec,
 													  const IR::FeatureSpec& featureSpec);
 
+	LLVMJIT_API U64 getCodeGenHash();
+
 	// Compile a module to object code with the host target spec.
 	// Cannot fail if validateTarget(targetSpec, irModule.featureSpec) == valid.
 	LLVMJIT_API std::vector<U8> compileModule(const IR::Module& irModule,

@@ -484,4 +484,20 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API Foreign* createForeign(Compartment* compartment,
 									   void* userData,
 									   void (*finalizer)(void*));
+
+	//
+	// Object caching
+	//
+
+	enum class OpenObjectCacheResult
+	{
+		success,
+		doesNotExist,
+		notDirectory,
+		notAccessible,
+		invalidDatabase,
+		tooManyReaders,
+	};
+
+	RUNTIME_API OpenObjectCacheResult openObjectCache(const char* path, Uptr maxBytes);
 }}
