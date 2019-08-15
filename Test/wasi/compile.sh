@@ -9,6 +9,6 @@ TEST_NAME=$(basename $TEST_CPP .cpp)
 
 $WASI_SDK_DIR/opt/wasi-sdk/bin/clang \
   -O3 -g3 \
-  --sysroot $WASI_SDK_DIR/opt/wasi-sdk/share/sysroot/ \
+  --sysroot $WASI_SDK_DIR/opt/wasi-sdk/share/wasi-sysroot/ \
   -o $TEST_DIR/$TEST_NAME.wasm \
   $TEST_CPP
