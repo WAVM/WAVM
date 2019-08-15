@@ -1231,8 +1231,8 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 				  lookupFlags,
 				  pathAddress,
 				  numPathBytes,
-		lastAccessTime64,
-		lastWriteTime64,
+				  lastAccessTime64,
+				  lastWriteTime64,
 				  flags);
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);

@@ -923,7 +923,7 @@ int main(int argc, char** argv)
 		{
 			config.testCloning = true;
 		}
-		else if (!strcmp(argv[argIndex], "--trace"))
+		else if(!strcmp(argv[argIndex], "--trace"))
 		{
 			Log::setCategoryEnabled(Log::trace, true);
 		}
