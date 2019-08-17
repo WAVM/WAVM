@@ -335,7 +335,7 @@ const wasm_valtype_t* wasm_globaltype_content(const wasm_globaltype_t* type)
 }
 wasm_mutability_t wasm_globaltype_mutability(const wasm_globaltype_t* type)
 {
-	return type->type.isMutable ? WASM_VAR : WASM_CONST;
+	return wasm_mutability_t(type->type.isMutable ? WASM_VAR : WASM_CONST);
 }
 
 // wasm_tabletype_t
@@ -363,7 +363,7 @@ const wasm_valtype_t* wasm_tabletype_element(const wasm_tabletype_t* type) { ret
 const wasm_limits_t* wasm_tabletype_limits(const wasm_tabletype_t* type) { return &type->limits; }
 wasm_shared_t wasm_tabletype_shared(const wasm_tabletype_t* type)
 {
-	return type->type.isShared ? WASM_SHARED : WASM_NOTSHARED;
+	return wasm_shared_t(type->type.isShared ? WASM_SHARED : WASM_NOTSHARED);
 }
 
 // wasm_memorytype_t
@@ -380,7 +380,7 @@ wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t* limits, wasm_shared_
 const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t* type) { return &type->limits; }
 wasm_shared_t wasm_memorytype_shared(const wasm_memorytype_t* type)
 {
-	return type->type.isShared ? WASM_SHARED : WASM_NOTSHARED;
+	return wasm_shared_t(type->type.isShared ? WASM_SHARED : WASM_NOTSHARED);
 }
 
 // wasm_externtype_t
