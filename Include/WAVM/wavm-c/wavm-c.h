@@ -518,7 +518,8 @@ WASM_DECLARE_REF(instance)
 
 WASM_C_API own wasm_instance_t* wasm_instance_new(wasm_store_t*,
 												  const wasm_module_t*,
-												  const wasm_extern_t* const imports[]);
+												  const wasm_extern_t* const imports[],
+												  own wasm_trap_t**);
 
 WASM_C_API size_t wasm_instance_num_exports(const wasm_instance_t*);
 WASM_C_API wasm_extern_t* wasm_instance_export(const wasm_instance_t*, size_t index);

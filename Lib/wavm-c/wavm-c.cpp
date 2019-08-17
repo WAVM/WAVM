@@ -968,20 +968,37 @@ IMPLEMENT_EXTERN_SUBTYPE(memory, Memory)
 // wasm_instance_t
 wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 								   const wasm_module_t* module,
-								   const wasm_extern_t* const imports[])
+								   const wasm_extern_t* const imports[],
+								   wasm_trap_t** out_trap)
 {
 	const IR::Module& irModule = getModuleIR(module->module);
+
+	if(out_trap) { *out_trap = nullptr; }
 
 	ImportBindings importBindings;
 	for(Uptr importIndex = 0; importIndex < irModule.imports.size(); ++importIndex)
 	{ importBindings.push_back(const_cast<Object*>(imports[importIndex])); }
 
-	ModuleInstance* moduleInstance = instantiateModule(
-		getCompartment(store), module->module, std::move(importBindings), "wasm_instance_new");
-	addGCRoot(moduleInstance);
+	ModuleInstance* moduleInstance = nullptr;
+	catchRuntimeExceptions(
+		[store, module, &importBindings, &moduleInstance]() {
+			moduleInstance = instantiateModule(getCompartment(store),
+											   module->module,
+											   std::move(importBindings),
+											   "wasm_instance_new");
 
-	Function* startFunction = getStartFunction(moduleInstance);
-	if(startFunction) { invokeFunctionChecked(store, startFunction, {}); }
+			addGCRoot(moduleInstance);
+
+			Function* startFunction = getStartFunction(moduleInstance);
+			if(startFunction) { invokeFunctionChecked(store, startFunction, {}); }
+		},
+		[&](Runtime::Exception* exception) {
+			if(out_trap) { *out_trap = exception; }
+			else
+			{
+				destroyException(exception);
+			}
+		});
 
 	return moduleInstance;
 }
