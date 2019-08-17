@@ -550,7 +550,7 @@ const wasm_memorytype_t* wasm_externtype_as_memorytype_const(const wasm_externty
 										  const wasm_shared_##name##_t* constRef)                  \
 	{                                                                                              \
 		wasm_shared_##name##_t* ref = const_cast<wasm_shared_##name##_t*>(constRef);               \
-		WAVM_ASSERT(isInCompartment(asObject(ref), getCompartment(asObject(store))));              \
+		WAVM_ASSERT(isInCompartment(asObject(ref), getCompartment(store)));                        \
 		addGCRoot(ref);                                                                            \
 		return ref;                                                                                \
 	}
@@ -976,10 +976,8 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 	for(Uptr importIndex = 0; importIndex < irModule.imports.size(); ++importIndex)
 	{ importBindings.push_back(const_cast<Object*>(imports[importIndex])); }
 
-	ModuleInstance* moduleInstance = instantiateModule(getCompartment(asObject(store)),
-													   module->module,
-													   std::move(importBindings),
-													   "wasm_instance_new");
+	ModuleInstance* moduleInstance = instantiateModule(
+		getCompartment(store), module->module, std::move(importBindings), "wasm_instance_new");
 	addGCRoot(moduleInstance);
 
 	Function* startFunction = getStartFunction(moduleInstance);

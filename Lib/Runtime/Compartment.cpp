@@ -196,13 +196,3 @@ bool Runtime::isInCompartment(const Object* object, const Compartment* compartme
 		return gcObject->compartment == compartment;
 	}
 }
-
-Compartment* Runtime::getCompartment(const Object* object)
-{
-	if(object->kind == ObjectKind::function) { return nullptr; }
-	else
-	{
-		GCObject* gcObject = (GCObject*)object;
-		return gcObject->compartment;
-	}
-}
