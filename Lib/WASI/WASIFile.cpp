@@ -711,7 +711,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wasiFile,
 
 	Process* process = getProcessFromContextRuntimeData(contextRuntimeData);
 
-	__wasi_rights_t requiredRights;
+	__wasi_rights_t requiredRights = 0;
 	VFDFlags vfsVFDFlags = translateWASIVFDFlags(flags, requiredRights);
 
 	WASI::FDE* fde = nullptr;
