@@ -18,7 +18,7 @@ namespace WAVM { namespace WASM {
 	WASM_API void serialize(Serialization::InputStream& stream, IR::Module& module);
 	WASM_API void serialize(Serialization::OutputStream& stream, const IR::Module& module);
 
-	// Loads a binary module, catching any exceptions that might be
+	// Loads a binary module, catching any exceptions that might be thrown.
 	WASM_API bool loadBinaryModule(const void* wasmBytes,
 								   Uptr numBytes,
 								   IR::Module& outModule,
