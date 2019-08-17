@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.8.0)
 project (WAVM C CXX ASM)
 
+# Specify the WAVM version.
+if(NOT DEFINED WAVM_VERSION_MAJOR)
+	set(WAVM_VERSION_MAJOR 1)
+endif()
+if(NOT DEFINED WAVM_VERSION_MINOR)
+	set(WAVM_VERSION_MINOR 0)
+endif()
+if(NOT DEFINED WAVM_VERSION_PATCH)
+	set(WAVM_VERSION_PATCH 0)
+endif()
+
 if(MSVC)
 	enable_language(ASM_MASM)
 endif()
@@ -122,6 +133,12 @@ install(DIRECTORY ${WAVM_SOURCE_DIR}/Include/WAVM
 configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Config.h.in
 			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h)
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Config.h
+		DESTINATION include/WAVM/Inline)
+
+# Generate Inline/Version.h in the build/install directories from Inline/Version.h.in in the source
+configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Version.h.in
+			   ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h)
+install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
 		DESTINATION include/WAVM/Inline)
 
 # A function that sets sanitizer options on a target.

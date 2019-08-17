@@ -19,6 +19,7 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Inline/Timing.h"
+#include "WAVM/Inline/Version.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/File.h"
@@ -184,6 +185,7 @@ static void showHelp()
 				"\n"
 				"Options:\n"
 				"  -h|--help             Display this message\n"
+				"  -v|--version          Display version information\n"
 				"  -d|--debug            Write additional debug information to stdout\n"
 				"  -f|--function name    Specify function name to run in module (default:main)\n"
 				"  --precompiled         Use precompiled object code in program file\n"
@@ -258,6 +260,15 @@ struct State
 			if(!strcmp(*nextArg, "--help") || !strcmp(*nextArg, "-h"))
 			{
 				showHelp();
+				return false;
+			}
+			else if(!strcmp(*nextArg, "--version") || !strcmp(*nextArg, "-v"))
+			{
+				Log::printf(Log::output,
+							"WAVM version %u.%u.%u\n",
+							WAVM_VERSION_MAJOR,
+							WAVM_VERSION_MINOR,
+							WAVM_VERSION_PATCH);
 				return false;
 			}
 			else if(!strcmp(*nextArg, "--debug") || !strcmp(*nextArg, "-d"))
