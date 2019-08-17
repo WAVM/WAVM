@@ -564,7 +564,7 @@ Module::Module(const std::vector<U8>& objectBytes,
 		function->mutableData->jitModule = this;
 		function->mutableData->function = function;
 		function->mutableData->numCodeBytes = Uptr(symbolSizePair.second);
-		function->mutableData->offsetToOpIndexMap = std::move(std::move(offsetToOpIndexMap));
+		function->mutableData->offsetToOpIndexMap = std::move(offsetToOpIndexMap);
 	}
 
 	const Uptr moduleEndAddress = reinterpret_cast<Uptr>(memoryManager->getImageBaseAddress()
