@@ -787,22 +787,22 @@ wasm_trap_t* wasm_func_call(wasm_store_t* store,
 							const wasm_val_t args[],
 							wasm_val_t outResults[])
 {
-	FunctionType functionType = getFunctionType((Function*)function);
-	auto wavmArgs = (UntaggedValue*)alloca(functionType.params().size() * sizeof(UntaggedValue));
-	for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
-	{ memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t)); }
+	Exception* exception = nullptr;
+	catchRuntimeExceptions(
+		[store, function, &args, &outResults]() {
+			FunctionType functionType = getFunctionType((Function*)function);
+			auto wavmArgs
+				= (UntaggedValue*)alloca(functionType.params().size() * sizeof(UntaggedValue));
+			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
+			{ memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t)); }
 
-	try
-	{
-		UntaggedValue* wavmResults = invokeFunctionUnchecked(store, function, wavmArgs);
-		for(Uptr resultIndex = 0; resultIndex < functionType.results().size(); ++resultIndex)
-		{ memcpy(&outResults[resultIndex], &wavmResults[resultIndex], sizeof(wasm_val_t)); }
-		return nullptr;
-	}
-	catch(Exception* exception)
-	{
-		return exception;
-	}
+			UntaggedValue* wavmResults = invokeFunctionUnchecked(store, function, wavmArgs);
+			for(Uptr resultIndex = 0; resultIndex < functionType.results().size(); ++resultIndex)
+			{ memcpy(&outResults[resultIndex], &wavmResults[resultIndex], sizeof(wasm_val_t)); }
+		},
+		[&exception](Exception* caughtException) { exception = caughtException; });
+
+	return exception;
 }
 
 // wasm_global_t
