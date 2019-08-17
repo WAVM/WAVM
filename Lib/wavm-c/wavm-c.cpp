@@ -559,7 +559,7 @@ IMPLEMENT_REF_BASE(ref, Object)
 
 // wasm_trap_t
 
-void wasm_trap_delete(wasm_trap_t* trap) { delete trap; }
+void wasm_trap_delete(wasm_trap_t* trap) { destroyException(trap); }
 
 wasm_trap_t* wasm_trap_copy(const wasm_trap_t* trap) { return new Exception(*trap); }
 bool wasm_trap_same(const wasm_trap_t* a, const wasm_trap_t* b) { return a == b; }
