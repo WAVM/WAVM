@@ -120,9 +120,15 @@ namespace WAVM { namespace LLVMJIT {
 		Uptr tableReferenceBias,
 		const std::vector<Runtime::FunctionMutableData*>& functionDefMutableDatas);
 
-	// Finds the JIT function whose code contains the given address. If no JIT function contains the
-	// given address, returns null.
-	LLVMJIT_API Runtime::Function* getFunctionByAddress(Uptr address);
+	struct InstructionSource
+	{
+		Runtime::Function* function;
+		Uptr instructionIndex;
+	};
+
+	// Finds the JIT function and instruction index at the given address. If no JIT function
+	// contains the given address, returns an InstructionSourceInfo with function==nullptr.
+	LLVMJIT_API InstructionSource getInstructionSourceByAddress(Uptr address);
 
 	// Generates an invoke thunk for a specific function type.
 	LLVMJIT_API Runtime::InvokeThunkPointer getInvokeThunk(IR::FunctionType functionType);

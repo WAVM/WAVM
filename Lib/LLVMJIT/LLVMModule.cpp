@@ -164,16 +164,18 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 									U32 sectionID,
 									llvm::StringRef sectionName) override
 	{
-		return allocateBytes((Uptr)numBytes, alignment, codeSection);
+		return allocateBytes(sectionName, (Uptr)numBytes, alignment, codeSection);
 	}
 	virtual U8* allocateDataSection(uintptr_t numBytes,
 									U32 alignment,
 									U32 sectionID,
-									llvm::StringRef SectionName,
+									llvm::StringRef sectionName,
 									bool isReadOnly) override
 	{
-		return allocateBytes(
-			(Uptr)numBytes, alignment, isReadOnly ? readOnlySection : readWriteSection);
+		return allocateBytes(sectionName,
+							 (Uptr)numBytes,
+							 alignment,
+							 isReadOnly ? readOnlySection : readWriteSection);
 	}
 	virtual bool finalizeMemory(std::string* ErrMsg = nullptr) override
 	{
@@ -221,6 +223,11 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 		return numAllocatedImagePages << Platform::getBytesPerPageLog2();
 	}
 
+	const llvm::StringMap<std::unique_ptr<llvm::MemoryBuffer>>& getSectionNameToContentsMap() const
+	{
+		return sectionNameToContentsMap;
+	}
+
 private:
 	struct Section
 	{
@@ -241,7 +248,9 @@ private:
 	const U8* ehFramesAddr;
 	Uptr ehFramesNumBytes;
 
-	U8* allocateBytes(Uptr numBytes, Uptr alignment, Section& section)
+	llvm::StringMap<std::unique_ptr<llvm::MemoryBuffer>> sectionNameToContentsMap;
+
+	U8* allocateBytes(llvm::StringRef sectionName, Uptr numBytes, Uptr alignment, Section& section)
 	{
 		if(alignment == 0) { alignment = 1; }
 
@@ -259,6 +268,12 @@ private:
 		// Check that enough space was reserved in the section.
 		if(section.numCommittedBytes > (section.numPages << Platform::getBytesPerPageLog2()))
 		{ Errors::fatal("didn't reserve enough space in section"); }
+
+		// Record the address the section was allocated at.
+		sectionNameToContentsMap.insert(std::make_pair(
+			sectionName.drop_front(1),
+			llvm::MemoryBuffer::getMemBuffer(
+				llvm::StringRef((const char*)allocationBaseAddress, numBytes), "", false)));
 
 		return allocationBaseAddress;
 	}
@@ -386,10 +401,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 	};
 	SymbolResolver symbolResolver(importedSymbolMap);
 	llvm::RuntimeDyld loader(*memoryManager, symbolResolver);
-
 	// Process all sections on non-Windows platforms. On Windows, this triggers errors due to
 	// unimplemented relocation types in the debug sections.
-#ifndef _WIN32
+#if !defined(_WIN32) || LAZY_PARSE_DWARF_LINE_INFO
 	loader.setProcessAllSections(true);
 #endif
 
@@ -504,7 +518,12 @@ Module::Module(const std::vector<U8>& objectBytes,
 	}
 
 	// Create a DWARF context to interpret the debug information in this compilation unit.
+#if LAZY_PARSE_DWARF_LINE_INFO
+	dwarfContext
+		= llvm::DWARFContext::create(memoryManager->getSectionNameToContentsMap(), sizeof(Uptr));
+#else
 	auto dwarfContext = llvm::DWARFContext::create(*object, &*loadedObject);
+#endif
 
 	// Iterate over the functions in the loaded object.
 	for(std::pair<llvm::object::SymbolRef, U64> symbolSizePair :
@@ -530,6 +549,8 @@ Module::Module(const std::vector<U8>& objectBytes,
 		if(llvm::Expected<llvm::object::section_iterator> symbolSection = symbol.getSection())
 		{ loadedAddress += (Uptr)loadedObject->getSectionLoadAddress(*symbolSection.get()); }
 
+		std::map<U32, U32> offsetToOpIndexMap;
+#if !LAZY_PARSE_DWARF_LINE_INFO
 		// Get the DWARF line info for this symbol, which maps machine code addresses to
 		// WebAssembly op indices.
 #if LLVM_VERSION_MAJOR >= 9
@@ -542,9 +563,9 @@ Module::Module(const std::vector<U8>& objectBytes,
 		llvm::DILineInfoTable lineInfoTable
 			= dwarfContext->getLineInfoForAddressRange(loadedAddress, symbolSizePair.second);
 #endif
-		std::map<U32, U32> offsetToOpIndexMap;
 		for(auto lineInfo : lineInfoTable)
 		{ offsetToOpIndexMap.emplace(U32(lineInfo.first - loadedAddress), lineInfo.second.Line); }
+#endif
 
 		if(PRINT_DISASSEMBLY && shouldLogMetrics)
 		{
@@ -730,21 +751,44 @@ std::shared_ptr<LLVMJIT::Module> LLVMJIT::loadModule(
 	return std::make_shared<Module>(objectFileBytes, importedSymbolMap, true);
 }
 
-Runtime::Function* LLVMJIT::getFunctionByAddress(Uptr address)
+InstructionSource LLVMJIT::getInstructionSourceByAddress(Uptr address)
 {
 	Module* jitModule;
 	{
 		Lock<Platform::Mutex> addressToModuleMapLock(addressToModuleMapMutex);
 		auto moduleIt = addressToModuleMap.upper_bound(address);
-		if(moduleIt == addressToModuleMap.end()) { return nullptr; }
+		if(moduleIt == addressToModuleMap.end()) { return InstructionSource{nullptr, UINTPTR_MAX}; }
 		jitModule = moduleIt->second;
 	}
 
 	auto functionIt = jitModule->addressToFunctionMap.upper_bound(address);
-	if(functionIt == jitModule->addressToFunctionMap.end()) { return nullptr; }
+	if(functionIt == jitModule->addressToFunctionMap.end())
+	{ return InstructionSource{nullptr, UINTPTR_MAX}; }
 	Runtime::Function* function = functionIt->second;
 	const Uptr codeAddress = reinterpret_cast<Uptr>(function->code);
-	return address >= codeAddress && address < codeAddress + function->mutableData->numCodeBytes
-			   ? function
-			   : nullptr;
+	if(address < codeAddress || address >= codeAddress + function->mutableData->numCodeBytes)
+	{ return InstructionSource{nullptr, UINTPTR_MAX}; }
+
+#if LAZY_PARSE_DWARF_LINE_INFO
+	llvm::DILineInfo lineInfo = jitModule->dwarfContext->getLineInfoForAddress(
+		llvm::object::SectionedAddress(address, llvm::object::SectionedAddress::UndefSection),
+		llvm::DILineInfoSpecifier(llvm::DILineInfoSpecifier::FileLineInfoKind::Default,
+								  llvm::DINameKind::None));
+
+	return InstructionSource{function, Uptr(lineInfo.Line)};
+#else
+	// Find the highest entry in the offsetToOpIndexMap whose offset is <= the symbol-relative IP.
+	U32 ipOffset = (U32)(address - codeAddress);
+	Iptr opIndex = -1;
+	for(auto offsetMapIt : function->mutableData->offsetToOpIndexMap)
+	{
+		if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
+		else
+		{
+			break;
+		}
+	}
+
+	return InstructionSource{function, opIndex > 0 ? Uptr(opIndex) : 0};
+#endif
 }

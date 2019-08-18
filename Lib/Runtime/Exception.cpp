@@ -47,26 +47,13 @@ void* Runtime::getUserData(const Exception* exception) { return exception->userD
 
 bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
-	Runtime::Function* function = LLVMJIT::getFunctionByAddress(ip);
-	if(!function) { return Platform::describeInstructionPointer(ip, outDescription); }
+	LLVMJIT::InstructionSource instructionSource = LLVMJIT::getInstructionSourceByAddress(ip);
+	if(!instructionSource.function) { return Platform::describeInstructionPointer(ip, outDescription); }
 	else
 	{
-		outDescription = function->mutableData->debugName;
+		outDescription = instructionSource.function->mutableData->debugName;
 		outDescription += '+';
-
-		// Find the highest entry in the offsetToOpIndexMap whose offset is <= the
-		// symbol-relative IP.
-		U32 ipOffset = (U32)(ip - reinterpret_cast<Uptr>(function->code));
-		Iptr opIndex = -1;
-		for(auto offsetMapIt : function->mutableData->offsetToOpIndexMap)
-		{
-			if(offsetMapIt.first <= ipOffset) { opIndex = offsetMapIt.second; }
-			else
-			{
-				break;
-			}
-		}
-		outDescription += std::to_string(opIndex >= 0 ? opIndex : 0);
+		outDescription += std::to_string(instructionSource.instructionIndex);
 		return true;
 	}
 }

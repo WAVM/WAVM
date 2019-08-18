@@ -51,6 +51,7 @@
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
@@ -61,6 +62,8 @@ PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Target/TargetMachine.h"
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
+
+#define LAZY_PARSE_DWARF_LINE_INFO (LLVM_VERSION_MAJOR >= 9)
 
 namespace llvm {
 	class LoadedObjectInfo;
@@ -380,8 +383,12 @@ namespace WAVM { namespace LLVMJIT {
 	// Encapsulates a loaded module.
 	struct Module
 	{
-		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
 		HashMap<std::string, Runtime::Function*> nameToFunctionMap;
+		std::map<Uptr, Runtime::Function*> addressToFunctionMap;
+
+#if LAZY_PARSE_DWARF_LINE_INFO
+		std::unique_ptr<llvm::DWARFContext> dwarfContext;
+#endif
 
 		Module(const std::vector<U8>& inObjectBytes,
 			   const HashMap<std::string, Uptr>& importedSymbolMap,
