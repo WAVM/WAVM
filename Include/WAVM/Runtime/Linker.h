@@ -111,7 +111,7 @@ namespace WAVM { namespace Runtime {
 
 		std::vector<MissingImport> missingImports;
 		ImportBindings resolvedImports;
-		bool success;
+		bool success{false};
 	};
 
 	RUNTIME_API LinkResult linkModule(const IR::Module& module, Resolver& resolver);

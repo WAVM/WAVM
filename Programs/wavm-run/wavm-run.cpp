@@ -486,6 +486,10 @@ struct State
 				Log::printf(Log::debug, "Module appears to be an Emscripten module.\n");
 				system = System::emscripten;
 			}
+			else
+			{
+				system = System::bare;
+			}
 		}
 
 		// If a directory to mount as the root filesystem was passed on the command-line, create a
@@ -585,6 +589,10 @@ struct State
 		{
 			Resolver* resolver = WASI::getProcessResolver(wasiProcess);
 			linkResult = linkModule(irModule, *resolver);
+		}
+		else
+		{
+			WAVM_UNREACHABLE();
 		}
 
 		if(!linkResult.success)
