@@ -75,10 +75,6 @@ llvm::Value* EmitFunctionContext::coerceToCanonicalType(llvm::Value* value)
 		default: WAVM_UNREACHABLE();
 		};
 	}
-	else if(value->getType()->isX86_MMXTy())
-	{
-		return irBuilder.CreateBitCast(value, llvmContext.i64x2Type);
-	}
 	else
 	{
 		return value;
