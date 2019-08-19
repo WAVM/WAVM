@@ -47,7 +47,6 @@ namespace WAVM { namespace IR {
 			atomics = enablePreStandardizationFeatures;
 			exceptionHandling = enablePreStandardizationFeatures;
 			multipleResultsAndBlockParams = enablePreStandardizationFeatures;
-			bulkMemoryOperations = enablePreStandardizationFeatures;
 			referenceTypes = enablePreStandardizationFeatures;
 		}
 	};

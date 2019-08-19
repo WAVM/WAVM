@@ -11,7 +11,6 @@ const char* IR::getFeatureListHelpText()
 		   "  prestd-atomics         WebAssembly atomics extension.\n"
 		   "  prestd-eh              WebAssembly exception handling extension.\n"
 		   "  prestd-multivalue      WebAssembly multi-value extension.\n"
-		   "  prestd-bulkmemoryops   WebAssembly bulk memory ops extension.\n"
 		   "  prestd-reftypes        WebAssembly reference types extension.\n";
 }
 
@@ -40,11 +39,6 @@ bool IR::parseAndSetFeature(const char* featureName, IR::FeatureSpec& featureSpe
 	else if(!strcmp(featureName, "prestd-multivalue"))
 	{
 		featureSpec.multipleResultsAndBlockParams = enable;
-		return true;
-	}
-	else if(!strcmp(featureName, "prestd-bulkmemoryops"))
-	{
-		featureSpec.bulkMemoryOperations = enable;
 		return true;
 	}
 	else if(!strcmp(featureName, "prestd-reftypes"))
