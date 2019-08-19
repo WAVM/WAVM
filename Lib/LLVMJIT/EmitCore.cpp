@@ -155,6 +155,9 @@ void EmitFunctionContext::end(NoImm)
 	// If this is the end of an if without an else clause, create a dummy else clause.
 	if(currentContext.elseBlock)
 	{
+		currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
+		irBuilder.SetInsertPoint(currentContext.elseBlock);
+
 		// Add the if arguments to the end PHIs as if they just passed through the absent else
 		// block.
 		WAVM_ASSERT(currentContext.elseArgs.size() == currentContext.endPHIs.size());
@@ -164,8 +167,6 @@ void EmitFunctionContext::end(NoImm)
 				coerceToCanonicalType(currentContext.elseArgs[argIndex]), currentContext.elseBlock);
 		}
 
-		currentContext.elseBlock->moveAfter(irBuilder.GetInsertBlock());
-		irBuilder.SetInsertPoint(currentContext.elseBlock);
 		irBuilder.CreateBr(currentContext.endBlock);
 	}
 
