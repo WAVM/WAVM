@@ -10,8 +10,6 @@ const char* IR::getFeatureListHelpText()
 		   "  prestd-simd            WebAssembly SIMD extension.\n"
 		   "  prestd-atomics         WebAssembly atomics extension.\n"
 		   "  prestd-eh              WebAssembly exception handling extension.\n"
-		   "  prestd-nontrappingf2i  WebAssembly non-trapping float-to-int extension.\n"
-		   "  prestd-signextension   WebAssembly extended sign extension extension.\n"
 		   "  prestd-multivalue      WebAssembly multi-value extension.\n"
 		   "  prestd-bulkmemoryops   WebAssembly bulk memory ops extension.\n"
 		   "  prestd-reftypes        WebAssembly reference types extension.\n";
