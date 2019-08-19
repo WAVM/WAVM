@@ -224,10 +224,10 @@ EMIT_STORE_OP(f64, f64_store, llvmContext.f64Type, 3, identity)
 EMIT_STORE_OP(v128, v128_store, value->getType(), 4, identity)
 EMIT_LOAD_OP(v128, v128_load, llvmContext.i64x2Type, 4, identity)
 
-EMIT_LOAD_OP(v128, i8x16_load_splat, llvmContext.i8Type, 0, splat<16>)
-EMIT_LOAD_OP(v128, i16x8_load_splat, llvmContext.i16Type, 1, splat<8>)
-EMIT_LOAD_OP(v128, i32x4_load_splat, llvmContext.i32Type, 2, splat<4>)
-EMIT_LOAD_OP(v128, i64x2_load_splat, llvmContext.i64Type, 3, splat<2>)
+EMIT_LOAD_OP(v128, v8x16_load_splat, llvmContext.i8Type, 0, splat<16>)
+EMIT_LOAD_OP(v128, v16x8_load_splat, llvmContext.i16Type, 1, splat<8>)
+EMIT_LOAD_OP(v128, v32x4_load_splat, llvmContext.i32Type, 2, splat<4>)
+EMIT_LOAD_OP(v128, v64x2_load_splat, llvmContext.i64Type, 3, splat<2>)
 
 void EmitFunctionContext::trapIfMisalignedAtomic(llvm::Value* address, U32 alignmentLog2)
 {

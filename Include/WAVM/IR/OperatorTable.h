@@ -438,10 +438,10 @@
 	visitOp(0xfdc0, v8x16_swizzle             , "v8x16.swizzle"             , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdc1, v8x16_shuffle             , "v8x16.shuffle"             , ShuffleImm<16>            , WAVM_BINARY(v128,v128)    , simd                   )   \
 /* v128 load-and-splat instructions                                                                                                                           */ \
-	visitOp(0xfdc2, i8x16_load_splat          , "i8x16.load_splat"          , LoadOrStoreImm<0>         , WAVM_LOAD(v128)           , simd                   )   \
-	visitOp(0xfdc3, i16x8_load_splat          , "i16x8.load_splat"          , LoadOrStoreImm<1>         , WAVM_LOAD(v128)           , simd                   )   \
-	visitOp(0xfdc4, i32x4_load_splat          , "i32x4.load_splat"          , LoadOrStoreImm<2>         , WAVM_LOAD(v128)           , simd                   )   \
-	visitOp(0xfdc5, i64x2_load_splat          , "i64x2.load_splat"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdc2, v8x16_load_splat          , "v8x16.load_splat"          , LoadOrStoreImm<0>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdc3, v16x8_load_splat          , "v16x8.load_splat"          , LoadOrStoreImm<1>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdc4, v32x4_load_splat          , "v32x4.load_splat"          , LoadOrStoreImm<2>         , WAVM_LOAD(v128)           , simd                   )   \
+	visitOp(0xfdc5, v64x2_load_splat          , "v64x2.load_splat"          , LoadOrStoreImm<3>         , WAVM_LOAD(v128)           , simd                   )   \
 /* v128 integer narrow/widen conversions                                                                                                                      */ \
 	visitOp(0xfdc6, i8x16_narrow_i16x8_s      , "i8x16.narrow_i16x8_s"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
 	visitOp(0xfdc7, i8x16_narrow_i16x8_u      , "i8x16.narrow_i16x8_u"      , NoImm                     , WAVM_BINARY(v128,v128)    , simd                   )   \
