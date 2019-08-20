@@ -609,7 +609,7 @@ static void checkRecursionDepth(CursorState* cursor, Uptr depth)
 	}
 }
 
-static void parseBlock(CursorState* cursor, bool isExpr, Uptr depth)
+static WAVM_FORCENOINLINE void parseBlock(CursorState* cursor, bool isExpr, Uptr depth)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
@@ -627,7 +627,7 @@ static void parseBlock(CursorState* cursor, bool isExpr, Uptr depth)
 	}
 }
 
-static void parseLoop(CursorState* cursor, bool isExpr, Uptr depth)
+static WAVM_FORCENOINLINE void parseLoop(CursorState* cursor, bool isExpr, Uptr depth)
 {
 	Name branchTargetName;
 	ControlStructureImm imm;
@@ -645,7 +645,122 @@ static void parseLoop(CursorState* cursor, bool isExpr, Uptr depth)
 	}
 }
 
-static void parseExprSequence(CursorState* cursor, Uptr depth)
+static WAVM_FORCENOINLINE void parseIfInstr(CursorState* cursor, Uptr depth)
+{
+	Name branchTargetName;
+	ControlStructureImm imm;
+	parseControlImm(cursor, branchTargetName, imm);
+
+	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
+	cursor->functionState->validatingCodeStream.if_(imm);
+
+	// Parse the then clause.
+	parseInstrSequence(cursor, depth);
+
+	// Parse the else clause.
+	if(cursor->nextToken->type == t_else_)
+	{
+		++cursor->nextToken;
+		parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "if", "else");
+
+		cursor->functionState->validatingCodeStream.else_();
+		parseInstrSequence(cursor, depth);
+	}
+	cursor->functionState->validatingCodeStream.end();
+
+	require(cursor, t_end);
+	parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "if", "end");
+}
+
+static WAVM_FORCENOINLINE void parseIfExpr(CursorState* cursor, Uptr depth)
+{
+	Name branchTargetName;
+	ControlStructureImm imm;
+	parseControlImm(cursor, branchTargetName, imm);
+
+	// Parse an optional condition expression.
+	if(cursor->nextToken[0].type != t_leftParenthesis || cursor->nextToken[1].type != t_then)
+	{ parseExpr(cursor, depth); }
+
+	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
+	cursor->functionState->validatingCodeStream.if_(imm);
+
+	// Parse the if clauses.
+	if(cursor->nextToken[0].type == t_leftParenthesis && cursor->nextToken[1].type == t_then)
+	{
+		// First syntax: (then <instr>)* (else <instr>*)?
+		parseParenthesized(cursor, [&] {
+			require(cursor, t_then);
+			parseInstrSequence(cursor, depth);
+		});
+		if(cursor->nextToken->type == t_leftParenthesis)
+		{
+			parseParenthesized(cursor, [&] {
+				require(cursor, t_else_);
+				cursor->functionState->validatingCodeStream.validationErrorToken
+					= cursor->nextToken;
+				cursor->functionState->validatingCodeStream.else_();
+				parseInstrSequence(cursor, depth);
+			});
+		}
+	}
+	else
+	{
+		// Second syntax option: <expr> <expr>?
+		parseExpr(cursor, depth);
+		if(cursor->nextToken->type != t_rightParenthesis)
+		{
+			cursor->functionState->validatingCodeStream.else_();
+			parseExpr(cursor, depth);
+		}
+	}
+	cursor->functionState->validatingCodeStream.end();
+}
+
+static WAVM_FORCENOINLINE void parseTryInstr(CursorState* cursor, Uptr depth)
+{
+	Name branchTargetName;
+	ControlStructureImm imm;
+	parseControlImm(cursor, branchTargetName, imm);
+
+	ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
+	cursor->functionState->validatingCodeStream.try_(imm);
+
+	// Parse the try clause.
+	parseInstrSequence(cursor, depth);
+
+	// Parse catch clauses.
+	while(cursor->nextToken->type != t_end)
+	{
+		if(cursor->nextToken->type == t_catch_)
+		{
+			++cursor->nextToken;
+			ExceptionTypeImm exceptionTypeImm;
+			parseImm(cursor, exceptionTypeImm);
+			cursor->functionState->validatingCodeStream.catch_(exceptionTypeImm);
+			parseInstrSequence(cursor, depth);
+		}
+		else if(cursor->nextToken->type == t_catch_all)
+		{
+			++cursor->nextToken;
+			cursor->functionState->validatingCodeStream.catch_all();
+			parseInstrSequence(cursor, depth);
+		}
+		else
+		{
+			parseErrorf(cursor->parseState,
+						cursor->nextToken,
+						"expected 'catch', 'catch_all', or 'end' following 'try'");
+			throw RecoverParseException();
+		}
+	};
+
+	require(cursor, t_end);
+	parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "try", "end");
+	cursor->functionState->validatingCodeStream.end();
+}
+
+static WAVM_FORCENOINLINE void parseExprSequence(CursorState* cursor, Uptr depth)
 {
 	while(cursor->nextToken->type != t_rightParenthesis) { parseExpr(cursor, depth); };
 }
@@ -686,50 +801,7 @@ static void parseExpr(CursorState* cursor, Uptr depth)
 			}
 			case t_if_: {
 				++cursor->nextToken;
-
-				Name branchTargetName;
-				ControlStructureImm imm;
-				parseControlImm(cursor, branchTargetName, imm);
-
-				// Parse an optional condition expression.
-				if(cursor->nextToken[0].type != t_leftParenthesis
-				   || cursor->nextToken[1].type != t_then)
-				{ parseExpr(cursor, depth); }
-
-				ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
-				cursor->functionState->validatingCodeStream.if_(imm);
-
-				// Parse the if clauses.
-				if(cursor->nextToken[0].type == t_leftParenthesis
-				   && cursor->nextToken[1].type == t_then)
-				{
-					// First syntax: (then <instr>)* (else <instr>*)?
-					parseParenthesized(cursor, [&] {
-						require(cursor, t_then);
-						parseInstrSequence(cursor, depth);
-					});
-					if(cursor->nextToken->type == t_leftParenthesis)
-					{
-						parseParenthesized(cursor, [&] {
-							require(cursor, t_else_);
-							cursor->functionState->validatingCodeStream.validationErrorToken
-								= cursor->nextToken;
-							cursor->functionState->validatingCodeStream.else_();
-							parseInstrSequence(cursor, depth);
-						});
-					}
-				}
-				else
-				{
-					// Second syntax option: <expr> <expr>?
-					parseExpr(cursor, depth);
-					if(cursor->nextToken->type != t_rightParenthesis)
-					{
-						cursor->functionState->validatingCodeStream.else_();
-						parseExpr(cursor, depth);
-					}
-				}
-				cursor->functionState->validatingCodeStream.end();
+				parseIfExpr(cursor, depth);
 				break;
 			}
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
@@ -764,6 +836,8 @@ static void parseInstrSequence(CursorState* cursor, Uptr depth)
 			case t_rightParenthesis: return;
 			case t_else_: return;
 			case t_end: return;
+			case t_catch_: return;
+			case t_catch_all: return;
 			case t_block: {
 				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
@@ -779,82 +853,15 @@ static void parseInstrSequence(CursorState* cursor, Uptr depth)
 			case t_if_: {
 				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
-
-				Name branchTargetName;
-				ControlStructureImm imm;
-				parseControlImm(cursor, branchTargetName, imm);
-
-				ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
-				cursor->functionState->validatingCodeStream.if_(imm);
-
-				// Parse the then clause.
-				parseInstrSequence(cursor, depth + 1);
-
-				// Parse the else clause.
-				if(cursor->nextToken->type == t_else_)
-				{
-					++cursor->nextToken;
-					parseAndValidateRedundantBranchTargetName(
-						cursor, branchTargetName, "if", "else");
-
-					cursor->functionState->validatingCodeStream.else_();
-					parseInstrSequence(cursor, depth + 1);
-				}
-				cursor->functionState->validatingCodeStream.end();
-
-				require(cursor, t_end);
-				parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "if", "end");
-
+				parseIfInstr(cursor, depth + 1);
 				break;
 			}
 			case t_try_: {
 				checkRecursionDepth(cursor, depth + 1);
 				++cursor->nextToken;
-
-				Name branchTargetName;
-				ControlStructureImm imm;
-				parseControlImm(cursor, branchTargetName, imm);
-
-				ScopedBranchTarget branchTarget(cursor->functionState, branchTargetName);
-				cursor->functionState->validatingCodeStream.try_(imm);
-
-				// Parse the try clause.
-				parseInstrSequence(cursor, depth + 1);
-
-				// Parse catch clauses.
-				while(cursor->nextToken->type != t_end)
-				{
-					if(cursor->nextToken->type == t_catch_)
-					{
-						++cursor->nextToken;
-						ExceptionTypeImm exceptionTypeImm;
-						parseImm(cursor, exceptionTypeImm);
-						cursor->functionState->validatingCodeStream.catch_(exceptionTypeImm);
-						parseInstrSequence(cursor, depth + 1);
-					}
-					else if(cursor->nextToken->type == t_catch_all)
-					{
-						++cursor->nextToken;
-						cursor->functionState->validatingCodeStream.catch_all();
-						parseInstrSequence(cursor, depth + 1);
-					}
-					else
-					{
-						parseErrorf(cursor->parseState,
-									cursor->nextToken,
-									"expected 'catch', 'catch_all', or 'end' following 'try'");
-						throw RecoverParseException();
-					}
-				};
-
-				require(cursor, t_end);
-				parseAndValidateRedundantBranchTargetName(cursor, branchTargetName, "try", "end");
-				cursor->functionState->validatingCodeStream.end();
-
+				parseTryInstr(cursor, depth + 1);
 				break;
 			}
-			case t_catch_: return;
-			case t_catch_all: return;
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
 	case t_##name: parseOp_##name(cursor, false, depth); break;
 				WAVM_ENUM_NONCONTROL_OPERATORS(VISIT_OP)
