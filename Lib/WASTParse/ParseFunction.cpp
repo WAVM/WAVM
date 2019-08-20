@@ -651,7 +651,8 @@ static void parseExprSequence(CursorState* cursor, Uptr depth)
 }
 
 #define VISIT_OP(opcode, name, nameString, Imm, ...)                                               \
-	static void parseOp_##name(CursorState* cursor, bool isExpression, Uptr depth)                 \
+	static WAVM_FORCENOINLINE void parseOp_##name(                                                 \
+		CursorState* cursor, bool isExpression, Uptr depth)                                        \
 	{                                                                                              \
 		++cursor->nextToken;                                                                       \
 		Imm imm;                                                                                   \
