@@ -264,7 +264,8 @@ Platform::Thread* Platform::createThread(Uptr numStackBytes,
 
 	pthread_attr_t threadAttr;
 	WAVM_ERROR_UNLESS(!pthread_attr_init(&threadAttr));
-	WAVM_ERROR_UNLESS(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
+	if(numStackBytes != 0)
+	{ WAVM_ERROR_UNLESS(!pthread_attr_setstacksize(&threadAttr, numStackBytes)); }
 
 	// Create a new pthread.
 	WAVM_ERROR_UNLESS(!pthread_create(&thread->id, &threadAttr, createThreadEntry, createArgs));
