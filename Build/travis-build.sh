@@ -42,7 +42,7 @@ cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo \
          -DWAVM_ENABLE_UBSAN=${ENABLE_UBSAN} \
          -DWAVM_ENABLE_LIBFUZZER=${ENABLE_LIBFUZZER}
 make -j2
-ASAN_OPTIONS=detect_leaks=0 ctest -V -j2
+ctest -V -j2
 cd ..
 
 # Build and test a debug build of WAVM.
@@ -57,5 +57,5 @@ cmake .. -DCMAKE_BUILD_TYPE=Debug \
          -DWAVM_ENABLE_UBSAN=${ENABLE_UBSAN} \
          -DWAVM_ENABLE_LIBFUZZER=${ENABLE_LIBFUZZER}
 make -j2
-ASAN_OPTIONS=detect_leaks=0 ctest -V -j2
+ctest -V -j2
 cd ..
