@@ -18,14 +18,14 @@ jobs:
       name: Windows_VS2019_LLVM6_Release
       buildConfiguration: Release
       vmImage: 'windows-2019'
-      cmakeGenerator: "Visual Studio 16 2019 Win64"
+      cmakeGenerator: "Visual Studio 16 2019"
       llvmBranch: release/6.x
   - template: Build/azure-windows-build-job-template.yml
     parameters:
       name: Windows_VS2019_LLVM6_Debug
       buildConfiguration: Debug
       vmImage: 'windows-2019'
-      cmakeGenerator: "Visual Studio 16 2019 Win64"
+      cmakeGenerator: "Visual Studio 16 2019"
       llvmBranch: release/6.x
   - template: Build/azure-windows-build-job-template.yml
     parameters:
@@ -46,12 +46,12 @@ jobs:
       name: Windows_VS2019_LLVM9_Release
       buildConfiguration: Release
       vmImage: 'windows-2019'
-      cmakeGenerator: "Visual Studio 16 2019 Win64"
+      cmakeGenerator: "Visual Studio 16 2019"
       llvmBranch: release/9.x
   - template: Build/azure-windows-build-job-template.yml
     parameters:
       name: Windows_VS2019_LLVM9_Debug
       buildConfiguration: Debug
       vmImage: 'windows-2019'
-      cmakeGenerator: "Visual Studio 16 2019 Win64"
+      cmakeGenerator: "Visual Studio 16 2019"
       llvmBranch: release/9.x
