@@ -16,12 +16,12 @@ To build it, you'll need CMake and [LLVM 6.0](http://llvm.org/releases/download.
 
 ### Building WAVM on Windows 
 
-**1.) Install the [Visual Studio C++ Build Tools for Visual Studio 2015 or 2017](http://landinghub.visualstudio.com/visual-cpp-build-tools)**
+**1.) Install the [Visual Studio C++ Build Tools for Visual Studio 2017/2019](http://landinghub.visualstudio.com/visual-cpp-build-tools)**
 
 Take note of which version you have installed:
 
-- If using Visual Studio 2015, use `-G"Visual Studio 14 Win64"` for the `<VS Generator Directive>` placeholder below
 - If using Visual Studio 2017, use `-G"Visual Studio 15 Win64"` for the `<VS Generator Directive>` placeholder below
+- If using Visual Studio 2019, use `-G"Visual Studio 16 Win64"` for the `<VS Generator Directive>` placeholder below
 
 **2.) Build LLVM x64 on Windows with Visual Studio**
 
@@ -45,7 +45,7 @@ The output binaries should be located in `wavm_build\bin`
 
 # Usage
 
-I've tested it on Windows with Visual C++ 2015/2017, Linux with GCC and clang, and MacOS with Xcode/clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
+I've tested it on Windows with Visual C++ 2017/2019, Linux with GCC and clang, and MacOS with Xcode/clang. Travis CI is testing Linux/GCC, Linux/clang, and OSX/clang.
 
 The primary executable is `wavm-run`:
 ```
