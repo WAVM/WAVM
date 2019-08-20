@@ -22,7 +22,7 @@ jobs:
       displayName: Configure LLVM
       inputs:
         workingDirectory: '$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build'
-        cmakeArgs: '-G ${{ parameters.cmakeGenerator }} -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_DOCS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_GO_TESTS=OFF -DLLVM_INCLUDE_TOOLS=OFF -DLLVM_INCLUDE_UTILS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON $(Build.ArtifactStagingDirectory)/llvm-project/llvm/'
+        cmakeArgs: '-G "${{ parameters.cmakeGenerator }}" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_DOCS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_GO_TESTS=OFF -DLLVM_INCLUDE_TOOLS=OFF -DLLVM_INCLUDE_UTILS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON $(Build.ArtifactStagingDirectory)/llvm-project/llvm/'
 
     - task: VSBuild@1
       displayName: Build LLVM
@@ -35,7 +35,7 @@ jobs:
       displayName: Configure WAVM
       inputs:
         workingDirectory: '$(Build.ArtifactStagingDirectory)/build'
-        cmakeArgs: '-G ${{ parameters.cmakeGenerator }} -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build/lib/cmake/llvm $(Build.SourcesDirectory)'
+        cmakeArgs: '-G "${{ parameters.cmakeGenerator }}" -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build/lib/cmake/llvm $(Build.SourcesDirectory)'
 
     - task: VSBuild@1
       displayName: Build WAVM
