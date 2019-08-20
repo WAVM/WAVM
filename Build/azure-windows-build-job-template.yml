@@ -1,29 +1,33 @@
 parameters:
   buildConfiguration: Release
   name: ''
+  vmImage: 'VS2017-Win2016'
+  cmakeGenerator: "Visual Studio 15 2017 Win64"
+  llvmBranch: release/6.x
+
 
 jobs:
   - job: ${{ parameters.name }}
 
     pool:
-      vmImage: 'VS2017-Win2016'
+      vmImage: ${{ parameter.vmImage }}
 
     timeoutInMinutes: 120
 
     steps:
-    - script: git clone -b release_60 https://github.com/llvm-mirror/llvm $(Build.ArtifactStagingDirectory)/llvm
+    - script: git clone -b ${{llvmBranch}} https://github.com/llvm/llvm-project $(Build.ArtifactStagingDirectory)/llvm-project
       displayName: Clone LLVM
 
     - task: CMake@1
       displayName: Configure LLVM
       inputs:
-        workingDirectory: '$(Build.ArtifactStagingDirectory)/llvm/build'
-        cmakeArgs: '-G "Visual Studio 15 2017 Win64" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_DOCS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_GO_TESTS=OFF -DLLVM_INCLUDE_TOOLS=OFF -DLLVM_INCLUDE_UTILS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON $(Build.ArtifactStagingDirectory)/llvm'
+        workingDirectory: '$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build'
+        cmakeArgs: '-G ${{ cmakeGenerator }} -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_DOCS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_GO_TESTS=OFF -DLLVM_INCLUDE_TOOLS=OFF -DLLVM_INCLUDE_UTILS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON $(Build.ArtifactStagingDirectory)/llvm-project/llvm/'
 
     - task: VSBuild@1
       displayName: Build LLVM
       inputs:
-        solution: '$(Build.ArtifactStagingDirectory)/llvm/build/LLVM.sln'
+        solution: '$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build/LLVM.sln'
         platform: x64
         configuration: ${{ parameters.buildConfiguration }}
 
@@ -31,7 +35,7 @@ jobs:
       displayName: Configure WAVM
       inputs:
         workingDirectory: '$(Build.ArtifactStagingDirectory)/build'
-        cmakeArgs: '-G "Visual Studio 15 2017 Win64" -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm/build/lib/cmake/llvm $(Build.SourcesDirectory)'
+        cmakeArgs: '-G ${{ cmakeGenerator }} -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build/lib/cmake/llvm $(Build.SourcesDirectory)'
 
     - task: VSBuild@1
       displayName: Build WAVM

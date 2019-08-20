@@ -1,9 +1,57 @@
 jobs:
   - template: Build/azure-windows-build-job-template.yml
     parameters:
-      name: Windows_Release
+      name: Windows_VS2017_LLVM6_Release
       buildConfiguration: Release
+      vmImage: 'VS2017-Win2016'
+      cmakeGenerator: "Visual Studio 15 2017 Win64"
+      llvmBranch: release/6.x
   - template: Build/azure-windows-build-job-template.yml
     parameters:
-      name: Windows_Debug
+      name: Windows_VS2017_LLVM6_Debug
       buildConfiguration: Debug
+      vmImage: 'VS2017-Win2016'
+      cmakeGenerator: "Visual Studio 15 2017 Win64"
+      llvmBranch: release/6.x
+  - template: Build/azure-windows-build-job-template.yml
+    parameters:
+      name: Windows_VS2019_LLVM6_Release
+      buildConfiguration: Release
+      vmImage: 'windows-2019'
+      cmakeGenerator: "Visual Studio 16 2019 Win64"
+      llvmBranch: release/6.x
+  - template: Build/azure-windows-build-job-template.yml
+    parameters:
+      name: Windows_VS2019_LLVM6_Debug
+      buildConfiguration: Debug
+      vmImage: 'windows-2019'
+      cmakeGenerator: "Visual Studio 16 2019 Win64"
+      llvmBranch: release/6.x
+  - template: Build/azure-windows-build-job-template.yml
+    parameters:
+      name: Windows_VS2017_LLVM9_Release
+      buildConfiguration: Release
+      vmImage: 'VS2017-Win2016'
+      cmakeGenerator: "Visual Studio 15 2017 Win64"
+      llvmBranch: release/9.x
+  - template: Build/azure-windows-build-job-template.yml
+    parameters:
+      name: Windows_VS2017_LLVM9_Debug
+      buildConfiguration: Debug
+      vmImage: 'VS2017-Win2016'
+      cmakeGenerator: "Visual Studio 15 2017 Win64"
+      llvmBranch: release/9.x
+  - template: Build/azure-windows-build-job-template.yml
+    parameters:
+      name: Windows_VS2019_LLVM9_Release
+      buildConfiguration: Release
+      vmImage: 'windows-2019'
+      cmakeGenerator: "Visual Studio 16 2019 Win64"
+      llvmBranch: release/9.x
+  - template: Build/azure-windows-build-job-template.yml
+    parameters:
+      name: Windows_VS2019_LLVM9_Debug
+      buildConfiguration: Debug
+      vmImage: 'windows-2019'
+      cmakeGenerator: "Visual Studio 16 2019 Win64"
+      llvmBranch: release/9.x
