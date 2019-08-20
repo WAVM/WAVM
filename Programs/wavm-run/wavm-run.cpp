@@ -22,6 +22,7 @@
 #include "WAVM/Inline/Version.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Logging/Logging.h"
+#include "WAVM/ObjectCache/ObjectCache.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/Platform/Memory.h"
 #include "WAVM/Runtime/Linker.h"
@@ -434,35 +435,51 @@ struct State
 				maxBytes = Uptr(maxMegabytes) * 1024 * 1024;
 			}
 
+			// Calculate a "code key" that identifies the code involved in compiling WebAssembly to
+			// object code in the cache. If recompiling the module would produce different object
+			// code, the code key should be different, and if recompiling the module would produce
+			// the same object code, the code key should be the same.
+			LLVMJIT::Version llvmjitVersion = LLVMJIT::getVersion();
+			U64 codeKey = 0;
+			codeKey = Hash<U64>()(llvmjitVersion.llvmMajor, codeKey);
+			codeKey = Hash<U64>()(llvmjitVersion.llvmMinor, codeKey);
+			codeKey = Hash<U64>()(llvmjitVersion.llvmPatch, codeKey);
+			codeKey = Hash<U64>()(WAVM_VERSION_MAJOR, codeKey);
+			codeKey = Hash<U64>()(WAVM_VERSION_MINOR, codeKey);
+			codeKey = Hash<U64>()(WAVM_VERSION_PATCH, codeKey);
+
 			// Initialize the object cache.
-			OpenObjectCacheResult openObjectCacheResult
-				= openObjectCache(objectCachePath, maxBytes);
-			switch(openObjectCacheResult)
+			std::shared_ptr<Runtime::ObjectCacheInterface> objectCache;
+			ObjectCache::OpenResult openResult
+				= ObjectCache::open(objectCachePath, maxBytes, codeKey, objectCache);
+			switch(openResult)
 			{
-			case OpenObjectCacheResult::doesNotExist:
+			case ObjectCache::OpenResult::doesNotExist:
 				Log::printf(
 					Log::error, "Object cache directory \"%s\" does not exist.\n", objectCachePath);
 				return false;
-			case OpenObjectCacheResult::notDirectory:
+			case ObjectCache::OpenResult::notDirectory:
 				Log::printf(Log::error,
 							"Object cache path \"%s\" does not refer to a directory.\n",
 							objectCachePath);
 				return false;
-			case OpenObjectCacheResult::notAccessible:
+			case ObjectCache::OpenResult::notAccessible:
 				Log::printf(
 					Log::error, "Object cache path \"%s\" is not accessible.\n", objectCachePath);
 				return false;
-			case OpenObjectCacheResult::invalidDatabase:
+			case ObjectCache::OpenResult::invalidDatabase:
 				Log::printf(
 					Log::error, "Object cache database in \"%s\" is not valid.\n", objectCachePath);
 				return false;
-			case OpenObjectCacheResult::tooManyReaders:
+			case ObjectCache::OpenResult::tooManyReaders:
 				Log::printf(Log::error,
 							"Object cache database in \"%s\" has too many concurrent readers.\n",
 							objectCachePath);
 				return false;
 
-			case OpenObjectCacheResult::success: break;
+			case ObjectCache::OpenResult::success:
+				Runtime::setGlobalObjectCache(std::move(objectCache));
+				break;
 			default: WAVM_UNREACHABLE();
 			};
 		}

@@ -490,15 +490,14 @@ namespace WAVM { namespace Runtime {
 	// Object caching
 	//
 
-	enum class OpenObjectCacheResult
+	struct ObjectCacheInterface
 	{
-		success,
-		doesNotExist,
-		notDirectory,
-		notAccessible,
-		invalidDatabase,
-		tooManyReaders,
+		virtual ~ObjectCacheInterface() {}
+
+		virtual std::vector<U8> getCachedObject(const std::vector<U8>& moduleBytes,
+												std::function<std::vector<U8>()>&& compileThunk)
+			= 0;
 	};
 
-	RUNTIME_API OpenObjectCacheResult openObjectCache(const char* path, Uptr maxBytes);
+	RUNTIME_API void setGlobalObjectCache(std::shared_ptr<ObjectCacheInterface>&& objectCache);
 }}

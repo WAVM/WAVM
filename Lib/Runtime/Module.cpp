@@ -1,11 +1,10 @@
+#include "WAVM/IR/Module.h"
 #include <string.h>
 #include <atomic>
 #include <memory>
 #include <utility>
-
 #include "RuntimePrivate.h"
 #include "WAVM/IR/IR.h"
-#include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"
@@ -14,14 +13,19 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/Inline/Serialization.h"
+#include "WAVM/Inline/Timing.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Intrinsic.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
+#include "WAVM/WASM/WASM.h"
 
 using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
+
+Platform::Mutex globalObjectCacheMutex;
+std::shared_ptr<ObjectCacheInterface> globalObjectCache;
 
 static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 								 InitializerExpression expression)
@@ -52,11 +56,50 @@ static Value evaluateInitializer(const std::vector<Global*>& moduleGlobals,
 	};
 }
 
+void Runtime::setGlobalObjectCache(std::shared_ptr<ObjectCacheInterface>&& objectCache)
+{
+	Lock<Platform::Mutex> globalObjectCacheLock(globalObjectCacheMutex);
+	globalObjectCache = std::move(objectCache);
+}
+
 ModuleRef Runtime::compileModule(const IR::Module& irModule)
 {
-	std::vector<U8> objectCode = getCachedObject(irModule, [&irModule]() {
-		return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec());
-	});
+	auto compileUncachedModule
+		= [&irModule]() { return LLVMJIT::compileModule(irModule, LLVMJIT::getHostTargetSpec()); };
+
+	// Get a pointer to the global object cache, if there is one.
+	Lock<Platform::Mutex> globalObjectCacheLock(globalObjectCacheMutex);
+	std::shared_ptr<ObjectCacheInterface> objectCache = globalObjectCache;
+	globalObjectCacheLock.unlock();
+
+	std::vector<U8> objectCode;
+	if(!objectCache)
+	{
+		// If there's no global object cache, just compile the module.
+		objectCode = compileUncachedModule();
+	}
+	else
+	{
+		// Serialize the WASM module.
+		Timing::Timer keyTimer;
+		std::vector<U8> moduleBytes;
+		try
+		{
+			Serialization::ArrayOutputStream stream;
+			WASM::serialize(stream, irModule);
+			moduleBytes = stream.getBytes();
+		}
+		catch(Serialization::FatalSerializationException const& exception)
+		{
+			Errors::fatalf("Error serializing WebAssembly binary file:\n%s\n",
+						   exception.message.c_str());
+		}
+		Timing::logTimer("Calculate object cache key", keyTimer);
+
+		// Check for cached object code for the module before compiling it.
+		objectCode = objectCache->getCachedObject(moduleBytes, compileUncachedModule);
+	}
+
 	return std::make_shared<Module>(IR::Module(irModule), std::move(objectCode));
 }
 

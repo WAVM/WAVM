@@ -5,7 +5,6 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
-#include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 
@@ -202,13 +201,7 @@ TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
 	return validateTargetMachine(targetMachine, featureSpec);
 }
 
-U64 LLVMJIT::getCodeGenHash()
+Version LLVMJIT::getVersion()
 {
-	const U64 wavmVersion = 0;
-	U64 hash = 0;
-	hash = Hash<U64>()(LLVM_VERSION_MAJOR, hash);
-	hash = Hash<U64>()(LLVM_VERSION_MINOR, hash);
-	hash = Hash<U64>()(LLVM_VERSION_PATCH, hash);
-	hash = Hash<U64>()(wavmVersion, hash);
-	return hash;
+	return Version{LLVM_VERSION_MAJOR, LLVM_VERSION_MINOR, LLVM_VERSION_PATCH};
 }

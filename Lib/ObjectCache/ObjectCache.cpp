@@ -1,23 +1,23 @@
+#include "WAVM/ObjectCache/ObjectCache.h"
 #include <errno.h>
 #include <functional>
 #include <memory>
 #include <vector>
-#include "RuntimePrivate.h"
-#include "WAVM/IR/Module.h"
+#include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Inline/Timing.h"
-#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/Platform/Clock.h"
 #include "WAVM/Platform/Defines.h"
-#include "WAVM/WASM/WASM.h"
+#include "WAVM/Runtime/Runtime.h"
 #include "lmdb.h"
 
 #define CURRENT_DB_VERSION 0
 
 using namespace WAVM;
-using namespace WAVM::Runtime;
+using namespace WAVM::ObjectCache;
 
 #define ERROR_UNLESS_MDB_SUCCESS(expr)                                                             \
 	{                                                                                              \
@@ -28,20 +28,20 @@ using namespace WAVM::Runtime;
 // A database key to identify a cached module by a hash that identifies the code generation version,
 // and a hash of the module's WASM serialization.
 WAVM_PACKED_STRUCT(struct ModuleKey {
-	U8 codeGenHashBytes[8];
+	U8 codeKeyBytes[8];
 	U8 moduleHashBytes[8];
 
 	ModuleKey() {}
-	ModuleKey(U64 codeGenHash, U64 moduleHash)
+	ModuleKey(U64 codeKey, U64 moduleHash)
 	{
-		memcpy(codeGenHashBytes, &codeGenHash, sizeof(codeGenHashBytes));
+		memcpy(codeKeyBytes, &codeKey, sizeof(codeKeyBytes));
 		memcpy(moduleHashBytes, &moduleHash, sizeof(moduleHashBytes));
 	}
 
-	U64 getCodeGenHash() const
+	U64 getCodeKey() const
 	{
 		U64 result = 0;
-		memcpy(&result, codeGenHashBytes, sizeof(U64));
+		memcpy(&result, codeKeyBytes, sizeof(U64));
 		return result;
 	}
 
@@ -346,19 +346,11 @@ private:
 };
 
 // Encapsulates the global state of the object cache.
-struct ObjectCache
+struct LMDBObjectCache : Runtime::ObjectCacheInterface
 {
-	static ObjectCache* get()
+	OpenResult init(const char* path, Uptr maxBytes, U64 inCodeKey)
 	{
-		static std::unique_ptr<ObjectCache> singleton{new ObjectCache};
-		return singleton.get();
-	}
-
-	bool isInitialized() const { return !!database; }
-
-	OpenObjectCacheResult init(const char* path, Uptr maxBytes)
-	{
-		WAVM_ERROR_UNLESS(!isInitialized());
+		codeKey = inCodeKey;
 
 		// Open the LMDB database.
 		MDB_env* env = nullptr;
@@ -371,10 +363,10 @@ struct ObjectCache
 			mdb_env_close(env);
 			switch(openError)
 			{
-			case ENOENT: return OpenObjectCacheResult::doesNotExist;
-			case ENOTDIR: return OpenObjectCacheResult::notDirectory;
-			case EACCES: return OpenObjectCacheResult::notAccessible;
-			case MDB_INVALID: return OpenObjectCacheResult::invalidDatabase;
+			case ENOENT: return OpenResult::doesNotExist;
+			case ENOTDIR: return OpenResult::notDirectory;
+			case EACCES: return OpenResult::notAccessible;
+			case MDB_INVALID: return OpenResult::invalidDatabase;
 
 			default:
 				Errors::fatalf(
@@ -425,12 +417,12 @@ struct ObjectCache
 				Database::putKeyValue(txn, versionTable, versionString, dbVersion);
 			}
 
-			// Commit the initialization transaciton.
+			// Commit the initialization transaction.
 			txn.commit();
 
 			if(Log::isCategoryEnabled(Log::debug)) { dump(); }
 
-			return OpenObjectCacheResult::success;
+			return OpenResult::success;
 		}
 		catch(Database::Exception const& exception)
 		{
@@ -440,12 +432,10 @@ struct ObjectCache
 
 			switch(exception.type)
 			{
-			case Database::Exception::Type::tooManyReaders:
-				return OpenObjectCacheResult::tooManyReaders;
+			case Database::Exception::Type::tooManyReaders: return OpenResult::tooManyReaders;
 			case Database::Exception::Type::keyNotFound:
 			case Database::Exception::Type::diskIsFull:
-			case Database::Exception::Type::mapIsFull:
-				return OpenObjectCacheResult::invalidDatabase;
+			case Database::Exception::Type::mapIsFull: return OpenResult::invalidDatabase;
 			default: WAVM_UNREACHABLE();
 			};
 		}
@@ -455,15 +445,13 @@ struct ObjectCache
 							const std::vector<U8>& moduleBytes,
 							std::vector<U8>& outObjectCode)
 	{
-		WAVM_ASSERT(isInitialized());
-
 		Timing::Timer readTimer;
 
 		ScopedTxn txn(database->beginTxn());
 
 		// Check for a cached module with this hash key.
 		bool hadCachedObject = false;
-		ModuleKey moduleKey(LLVMJIT::getCodeGenHash(), moduleHash);
+		ModuleKey moduleKey(codeKey, moduleHash);
 		MDB_val cachedModuleBytes;
 		if(Database::tryGetKeyValue(txn, moduleTable, moduleKey, cachedModuleBytes))
 		{
@@ -500,12 +488,10 @@ struct ObjectCache
 						 const std::vector<U8>& moduleBytes,
 						 const std::vector<U8>& objectBytes)
 	{
-		WAVM_ASSERT(isInitialized());
-
 		Timing::Timer writeTimer;
 
 		Time now = Platform::getClockTime(Platform::Clock::realtime);
-		ModuleKey moduleKey(LLVMJIT::getCodeGenHash(), moduleHash);
+		ModuleKey moduleKey(codeKey, moduleHash);
 
 		// Try to add the module to the database.
 		bool firstTry = true;
@@ -567,12 +553,12 @@ struct ObjectCache
 			bool getResult = Database::tryGetCursor(cursor, moduleKey, moduleBytesVal, MDB_FIRST);
 			while(getResult)
 			{
-				const U64 codeGenHash = moduleKey.getCodeGenHash();
+				const U64 storedCodeKey = moduleKey.getCodeKey();
 				const U64 moduleHash = moduleKey.getModuleHash();
 
 				Log::printf(Log::debug,
 							"  %16" PRIx64 "|%16" PRIx64 " %zu bytes\n",
-							codeGenHash,
+							storedCodeKey,
 							moduleHash,
 							moduleBytesVal.mv_size);
 
@@ -591,12 +577,12 @@ struct ObjectCache
 			bool getResult = Database::tryGetCursor(cursor, moduleKey, objectBytesVal, MDB_FIRST);
 			while(getResult)
 			{
-				const U64 codeGenHash = moduleKey.getCodeGenHash();
+				const U64 storedCodeKey = moduleKey.getCodeKey();
 				const U64 moduleHash = moduleKey.getModuleHash();
 
 				Log::printf(Log::debug,
 							"  %16" PRIx64 "|%16" PRIx64 " %zu bytes\n",
-							codeGenHash,
+							storedCodeKey,
 							moduleHash,
 							objectBytesVal.mv_size);
 
@@ -615,7 +601,7 @@ struct ObjectCache
 			bool getResult = Database::tryGetCursor(cursor, moduleKey, metadata, MDB_FIRST);
 			while(getResult)
 			{
-				const U64 codeGenHash = moduleKey.getCodeGenHash();
+				const U64 storedCodeKey = moduleKey.getCodeKey();
 				const U64 moduleHash = moduleKey.getModuleHash();
 
 				const F64 lastAccessTimeAge
@@ -623,7 +609,7 @@ struct ObjectCache
 
 				Log::printf(Log::debug,
 							"  %16" PRIx64 "|%16" PRIx64 " last access: %.1f seconds ago\n",
-							codeGenHash,
+							storedCodeKey,
 							moduleHash,
 							lastAccessTimeAge);
 
@@ -643,13 +629,13 @@ struct ObjectCache
 				= Database::tryGetCursor(cursor, lastAccessTimeKey, moduleKey, MDB_FIRST);
 			while(getResult)
 			{
-				const U64 codeGenHash = moduleKey.getCodeGenHash();
+				const U64 storedCodeKey = moduleKey.getCodeKey();
 				const U64 moduleHash = moduleKey.getModuleHash();
 				const F64 ageSeconds = F64((now.ns - lastAccessTimeKey.getTime().ns) / 1000000000);
 
 				Log::printf(Log::debug,
 							"  %16" PRIx64 "|%16" PRIx64 " %.1f seconds ago\n",
-							codeGenHash,
+							storedCodeKey,
 							moduleHash,
 							ageSeconds);
 
@@ -659,6 +645,44 @@ struct ObjectCache
 		}
 	}
 
+	virtual std::vector<U8> getCachedObject(
+		const std::vector<U8>& moduleBytes,
+		std::function<std::vector<U8>()>&& compileThunk) override
+	{
+		// Compute a hash of the serialized WASM module.
+		const U64 moduleHash = XXH64(moduleBytes.data(), moduleBytes.size(), 0);
+
+		// Try to find the module's object code in the cache.
+		std::vector<U8> objectCode;
+		try
+		{
+			if(tryGetCachedObject(moduleHash, moduleBytes, objectCode)) { return objectCode; }
+		}
+		catch(Database::Exception const& exception)
+		{
+			Log::printf(Log::error,
+						"Failed to lookup module in object cache: %s\n",
+						Database::Exception::getMessage(exception.type));
+		}
+
+		// If there wasn't a matching cached module+object code, compile the module.
+		objectCode = compileThunk();
+
+		// Add the cached module+object code to the database.
+		try
+		{
+			addCachedObject(moduleHash, moduleBytes, objectCode);
+		}
+		catch(Database::Exception const& exception)
+		{
+			Log::printf(Log::error,
+						"Failed to add module to object cache: %s\n",
+						Database::Exception::getMessage(exception.type));
+		}
+
+		return objectCode;
+	}
+
 private:
 	std::unique_ptr<Database> database;
 	MDB_dbi moduleTable;
@@ -666,6 +690,7 @@ private:
 	MDB_dbi metaTable;
 	MDB_dbi lruTable;
 	MDB_dbi versionTable;
+	U64 codeKey{0};
 
 	bool evictLRU()
 	{
@@ -698,66 +723,14 @@ private:
 	}
 };
 
-std::vector<U8> Runtime::getCachedObject(const IR::Module& module,
-										 std::function<std::vector<U8>()>&& compileThunk)
+OpenResult ObjectCache::open(const char* path,
+							 Uptr maxBytes,
+							 U64 codeKey,
+							 std::shared_ptr<Runtime::ObjectCacheInterface>& outObjectCache)
 {
-	ObjectCache* cache = ObjectCache::get();
-
-	// If the cache hasn't been initialized, just call the compile thunk and return the result.
-	if(!cache->isInitialized()) { return compileThunk(); }
-
-	// Serialize the WASM module.
-	Timing::Timer keyTimer;
-	std::vector<U8> moduleBytes;
-	try
-	{
-		Serialization::ArrayOutputStream stream;
-		WASM::serialize(stream, module);
-		moduleBytes = stream.getBytes();
-	}
-	catch(Serialization::FatalSerializationException const& exception)
-	{
-		Errors::fatalf("Error serializing WebAssembly binary file:\n%s\n",
-					   exception.message.c_str());
-	}
-
-	// Compute a hash of the serialized WASM module.
-	const U64 moduleHash = XXH64(moduleBytes.data(), moduleBytes.size(), 0);
-
-	Timing::logTimer("Calculate object cache key", keyTimer);
-
-	// Try to find the module's object code in the cache.
-	std::vector<U8> objectCode;
-	try
-	{
-		if(cache->tryGetCachedObject(moduleHash, moduleBytes, objectCode)) { return objectCode; }
-	}
-	catch(Database::Exception const& exception)
-	{
-		Log::printf(Log::error,
-					"Failed to lookup module in object cache: %s\n",
-					Database::Exception::getMessage(exception.type));
-	}
-
-	// If there wasn't a matching cached module+object code, compile the module.
-	objectCode = compileThunk();
-
-	// Add the cached module+object code to the database.
-	try
-	{
-		cache->addCachedObject(moduleHash, moduleBytes, objectCode);
-	}
-	catch(Database::Exception const& exception)
-	{
-		Log::printf(Log::error,
-					"Failed to add module to object cache: %s\n",
-					Database::Exception::getMessage(exception.type));
-	}
-
-	return objectCode;
-}
-
-OpenObjectCacheResult Runtime::openObjectCache(const char* path, Uptr maxBytes)
-{
-	return ObjectCache::get()->init(path, maxBytes);
+	LMDBObjectCache lmdbObjectCache;
+	OpenResult result = lmdbObjectCache.init(path, maxBytes, codeKey);
+	if(result == OpenResult::success)
+	{ outObjectCache = std::make_shared<LMDBObjectCache>(std::move(lmdbObjectCache)); }
+	return result;
 }

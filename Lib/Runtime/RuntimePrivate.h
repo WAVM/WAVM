@@ -354,9 +354,6 @@ namespace WAVM { namespace Runtime {
 						 Uptr destOffset,
 						 Uptr sourceOffset,
 						 Uptr numElems);
-
-	std::vector<U8> getCachedObject(const IR::Module& module,
-									std::function<std::vector<U8>()>&& compileThunk);
 }}
 
 namespace WAVM { namespace Intrinsics {
