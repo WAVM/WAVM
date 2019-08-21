@@ -123,12 +123,12 @@ CallStack Platform::unwindStack(const CONTEXT& immutableContext, Uptr numOmitted
 	// reached the base.
 	CallStack callStack;
 #ifdef _WIN64
-	while(!callStack.frames.isFull() && context.Rip)
+	for(Uptr frameIndex = 0; !callStack.frames.isFull() && context.Rip; ++frameIndex)
 	{
-		if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
-		else
+		if(frameIndex >= numOmittedFramesFromTop)
 		{
-			callStack.frames.push_back(CallStack::Frame{context.Rip});
+			callStack.frames.push_back(
+				CallStack::Frame{frameIndex == 0 ? context.Rip : (context.Rip - 1)});
 		}
 
 		// Look up the SEH unwind information for this function.
