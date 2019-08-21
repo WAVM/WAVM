@@ -58,14 +58,6 @@ struct CreateThreadArgs
 	void* entryArgument;
 };
 
-struct ForkThreadArgs
-{
-	ExecutionContext forkContext;
-	Platform::Mutex forkedStackMutex;
-	U8* threadEntryFramePointer;
-	SignalContext* innermostSignalContext;
-};
-
 enum
 {
 	sigAltStackNumBytes = 65536
@@ -224,33 +216,17 @@ void SigAltStack::getNonSignalStack(U8*& outMinGuardAddr, U8*& outMinAddr, U8*& 
 
 thread_local SigAltStack Platform::sigAltStack;
 
-struct ThreadEntryContext
-{
-	jmp_buf exitJump;
-	I64 exitCode;
-	U8* framePointer = nullptr;
-};
-
-static thread_local ThreadEntryContext* threadEntryContext = nullptr;
-
 WAVM_NO_ASAN static void* createThreadEntry(void* argsVoid)
 {
 	std::unique_ptr<CreateThreadArgs> args((CreateThreadArgs*)argsVoid);
 
 	sigAltStack.init();
 
-	ThreadEntryContext localThreadEntryContext;
-	localThreadEntryContext.framePointer = getStackPointer();
-	localThreadEntryContext.exitCode = -1;
-	if(!sigsetjmp(localThreadEntryContext.exitJump, 1))
-	{
-		threadEntryContext = &localThreadEntryContext;
-		localThreadEntryContext.exitCode = (*args->entry)(args->entryArgument);
-	}
+	I64 exitCode = (*args->entry)(args->entryArgument);
 
 	sigAltStack.deinit();
 
-	return reinterpret_cast<void*>(localThreadEntryContext.exitCode);
+	return reinterpret_cast<void*>(exitCode);
 }
 
 Platform::Thread* Platform::createThread(Uptr numStackBytes,
@@ -286,146 +262,6 @@ I64 Platform::joinThread(Thread* thread)
 	WAVM_ERROR_UNLESS(!pthread_join(thread->id, &returnValue));
 	delete thread;
 	return reinterpret_cast<I64>(returnValue);
-}
-
-WAVM_NO_ASAN static void* forkThreadEntry(void* argsVoid)
-{
-	std::unique_ptr<ForkThreadArgs> args((ForkThreadArgs*)argsVoid);
-
-	{
-		Lock<Platform::Mutex> forkedStackLock(args->forkedStackMutex);
-	}
-
-	ThreadEntryContext localThreadEntryContext;
-	localThreadEntryContext.framePointer = args->threadEntryFramePointer;
-	localThreadEntryContext.exitCode = -1;
-	if(!sigsetjmp(localThreadEntryContext.exitJump, 1))
-	{
-		threadEntryContext = &localThreadEntryContext;
-		localThreadEntryContext.exitCode
-			= switchToForkedStackContext(&args->forkContext, args->threadEntryFramePointer);
-	}
-
-	sigAltStack.deinit();
-
-	return reinterpret_cast<void*>(localThreadEntryContext.exitCode);
-}
-
-static void memcpyNoASAN(U8* dest, const U8* source, Uptr numBytes)
-{
-#if WAVM_ENABLE_ASAN
-	bytewiseMemCopy(dest, source, numBytes);
-
-	Uptr shadowShift = 0;
-	Uptr shadowOffset = 0;
-	__asan_get_shadow_mapping(&shadowShift, &shadowOffset);
-
-	U8* destShadow
-		= reinterpret_cast<U8*>((reinterpret_cast<Uptr>(dest) >> shadowShift) + shadowOffset);
-	const U8* sourceShadow
-		= reinterpret_cast<U8*>((reinterpret_cast<Uptr>(dest) >> shadowShift) + shadowOffset);
-	const Uptr shadowNumBytes = numBytes >> shadowShift;
-
-	bytewiseMemCopy(destShadow, sourceShadow, shadowNumBytes);
-#else
-	memcpy(dest, source, numBytes);
-#endif
-}
-
-WAVM_NO_ASAN Thread* Platform::forkCurrentThread()
-{
-	auto forkThreadArgs = new ForkThreadArgs;
-
-	if(!threadEntryContext)
-	{
-		Errors::fatal(
-			"Cannot fork a thread that wasn't created by Platform::createThread/forkThread");
-	}
-
-	// Capture the current execution state in forkThreadArgs->forkContext.
-	// The forked thread will load this execution context, and "return" from this function on the
-	// forked stack.
-	const I64 isExecutingInFork = saveExecutionState(&forkThreadArgs->forkContext, 0);
-	if(isExecutingInFork)
-	{
-		innermostSignalContext = forkThreadArgs->innermostSignalContext;
-
-		// Allocate a sigaltstack for the new thread.
-		sigAltStack.init();
-
-		return nullptr;
-	}
-	else
-	{
-		forkThreadArgs->forkedStackMutex.lock();
-
-		// Compute the address extent of this thread's stack.
-		U8* minStackGuardAddr;
-		U8* minStackAddr;
-		U8* maxStackAddr;
-		sigAltStack.getNonSignalStack(minStackGuardAddr, minStackAddr, maxStackAddr);
-		const Uptr numStackBytes = Uptr(maxStackAddr - minStackAddr);
-
-		// Use the current stack pointer derive a conservative bounds on the area of the stack that
-		// is active.
-		const U8* minActiveStackAddr = getStackPointer() - 128;
-		const U8* maxActiveStackAddr = threadEntryContext->framePointer;
-		const Uptr numActiveStackBytes = maxActiveStackAddr - minActiveStackAddr;
-
-		if(numActiveStackBytes + PTHREAD_STACK_MIN > numStackBytes)
-		{ Errors::fatal("not enough stack space to fork thread"); }
-		pthread_attr_t threadAttr;
-		WAVM_ERROR_UNLESS(!pthread_attr_init(&threadAttr));
-		WAVM_ERROR_UNLESS(!pthread_attr_setstacksize(&threadAttr, numStackBytes));
-
-		auto thread = new Thread;
-		WAVM_ERROR_UNLESS(!pthread_create(
-			&thread->id, &threadAttr, (void* (*)(void*))forkThreadEntry, forkThreadArgs));
-		WAVM_ERROR_UNLESS(!pthread_attr_destroy(&threadAttr));
-
-		U8* forkedMinStackGuardAddr = nullptr;
-		U8* forkedMinStackAddr = nullptr;
-		U8* forkedMaxStackAddr = nullptr;
-		getThreadStack(thread->id, forkedMinStackGuardAddr, forkedMinStackAddr, forkedMaxStackAddr);
-
-		forkedMaxStackAddr -= PTHREAD_STACK_MIN;
-		WAVM_ASSERT(Uptr(forkedMaxStackAddr - forkedMinStackAddr) > numActiveStackBytes);
-
-		// Compute the offset to add to stack pointers to translate them to the forked thread's
-		// stack.
-		const Iptr forkedStackOffset = forkedMaxStackAddr - maxActiveStackAddr;
-
-		// Copy the contents of this thread's stack to the forked stack.
-		memcpyNoASAN(
-			forkedMaxStackAddr - numActiveStackBytes, minActiveStackAddr, numActiveStackBytes);
-
-		// Translate this thread's saved stack pointer to the forked stack.
-		forkThreadArgs->forkContext.rsp += forkedStackOffset;
-
-		// Translate this thread's entry stack pointer to the forked stack.
-		forkThreadArgs->threadEntryFramePointer
-			= threadEntryContext->framePointer + forkedStackOffset;
-
-		// Fix up the links in the frame pointer chain for the new stack.
-		for(U8** forkedStackFramePointer = (U8**)&forkThreadArgs->forkContext.rbp;
-			*forkedStackFramePointer >= minStackAddr && *forkedStackFramePointer <= maxStackAddr;
-			forkedStackFramePointer = (U8**)*forkedStackFramePointer)
-		{ *forkedStackFramePointer += forkedStackOffset; }
-
-		// Fix up the links in the signal context chain for the new stack.
-		forkThreadArgs->innermostSignalContext = innermostSignalContext;
-		for(SignalContext** forkedSignalContextLink = &forkThreadArgs->innermostSignalContext;
-			*forkedSignalContextLink;
-			forkedSignalContextLink = &(*forkedSignalContextLink)->outerContext)
-		{
-			*forkedSignalContextLink = reinterpret_cast<SignalContext*>(
-				reinterpret_cast<Uptr>(*forkedSignalContextLink) + forkedStackOffset);
-		}
-
-		forkThreadArgs->forkedStackMutex.unlock();
-
-		return thread;
-	}
 }
 
 Uptr Platform::getNumberOfHardwareThreads() { return std::thread::hardware_concurrency(); }

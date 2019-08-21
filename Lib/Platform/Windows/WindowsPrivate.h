@@ -51,12 +51,6 @@ static_assert(offsetof(ExecutionContext, xmm6) == 112, "unexpected offset");
 static_assert(offsetof(ExecutionContext, xmm15) == 256, "unexpected offset");
 static_assert(sizeof(ExecutionContext) == 272, "unexpected size");
 
-#ifdef _WIN64
-extern "C" I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode);
-extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,
-										  U8* trampolineFramePointer) noexcept(false);
-#endif
-
 extern "C" U8* getStackPointer();
 
 namespace WAVM { namespace Platform {

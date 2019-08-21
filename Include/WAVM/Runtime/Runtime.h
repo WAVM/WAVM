@@ -246,11 +246,6 @@ namespace WAVM { namespace Runtime {
 	RUNTIME_API void catchRuntimeExceptions(const std::function<void()>& thunk,
 											const std::function<void(Exception*)>& catchThunk);
 
-	// Same as catchRuntimeExceptions, but works on a relocatable stack (e.g. a stack for a thread
-	// that will be forked with Platform::forkCurrentThread).
-	RUNTIME_API void catchRuntimeExceptionsOnRelocatableStack(void (*thunk)(),
-															  void (*catchThunk)(Exception*));
-
 	// Calls a thunk and ensures that any signals that occur within the thunk will be thrown as
 	// runtime exceptions.
 	RUNTIME_API void unwindSignalsAsExceptions(const std::function<void()>& thunk);

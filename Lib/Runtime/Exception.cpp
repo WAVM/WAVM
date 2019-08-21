@@ -357,31 +357,6 @@ void Runtime::catchRuntimeExceptions(const std::function<void()>& thunk,
 	}
 }
 
-void Runtime::catchRuntimeExceptionsOnRelocatableStack(void (*thunk)(),
-													   void (*catchThunk)(Exception*))
-{
-	try
-	{
-		static thread_local Exception* translatedSignalException = nullptr;
-
-		if(Platform::catchSignals(
-			   [](void* thunkVoid) {
-				   auto thunk = (void (*)())thunkVoid;
-				   (*thunk)();
-			   },
-			   [](void*, Platform::Signal signal, Platform::CallStack&& callStack) {
-				   return translateSignalToRuntimeException(
-					   signal, std::move(callStack), translatedSignalException);
-			   },
-			   (void*)thunk))
-		{ throw translatedSignalException; }
-	}
-	catch(Exception* exception)
-	{
-		(*catchThunk)(exception);
-	}
-}
-
 void Runtime::unwindSignalsAsExceptions(const std::function<void()>& thunk)
 {
 	// Catch signals and translate them into runtime exceptions.

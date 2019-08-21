@@ -30,22 +30,6 @@ static_assert(offsetof(ExecutionContext, rip) == 56, "unexpected offset");
 static_assert(sizeof(ExecutionContext) == 64, "unexpected size");
 
 #ifdef __WAVIX__
-inline I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode) noexcept(false)
-{
-	WAVM::Errors::unimplemented("Wavix saveExecutionState");
-}
-
-[[noreturn]] inline void loadExecutionState(ExecutionContext* context, I64 returnCode)
-{
-	WAVM::Errors::unimplemented("Wavix loadExecutionState");
-}
-
-inline I64 switchToForkedStackContext(ExecutionContext* forkedContext,
-									  U8* trampolineFramePointer) noexcept(false)
-{
-	WAVM::Errors::unimplemented("Wavix switchToForkedStackContext");
-}
-
 inline U8* getStackPointer() { WAVM::Errors::unimplemented("Wavix getStackPointer"); }
 
 // libunwind dynamic frame registration
@@ -61,10 +45,6 @@ inline void __deregister_frame(const void* fde)
 
 #else
 // Defined in POSIX.S
-extern "C" I64 saveExecutionState(ExecutionContext* outContext, I64 returnCode) noexcept(false);
-[[noreturn]] extern void loadExecutionState(ExecutionContext* context, I64 returnCode);
-extern "C" I64 switchToForkedStackContext(ExecutionContext* forkedContext,
-										  U8* trampolineFramePointer) noexcept(false);
 extern "C" U8* getStackPointer();
 
 // libunwind dynamic frame registration
