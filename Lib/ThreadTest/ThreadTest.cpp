@@ -44,11 +44,9 @@ struct Thread
 	Exception* exception = nullptr;
 	I64 result = -1;
 
-	IR::Value argument;
+	I32 argument;
 
-	WAVM_FORCENOINLINE Thread(Context* inContext,
-							  Function* inEntryFunction,
-							  const IR::Value& inArgument)
+	WAVM_FORCENOINLINE Thread(Context* inContext, Function* inEntryFunction, I32 inArgument)
 	: context(inContext), entryFunction(inEntryFunction), argument(inArgument)
 	{
 	}
@@ -108,10 +106,14 @@ static I64 threadEntry(void* threadVoid)
 			I64 result;
 			try
 			{
-				result = invokeFunction(currentThread->context,
-										currentThread->entryFunction,
-										&currentThread->argument)
-							 ->i64;
+				UntaggedValue argumentValue{currentThread->argument};
+				UntaggedValue resultValue;
+				invokeFunction(currentThread->context,
+							   currentThread->entryFunction,
+							   FunctionType({ValueType::i64}, {ValueType::i32}),
+							   &argumentValue,
+							   &resultValue);
+				result = resultValue.i64;
 			}
 			catch(ExitThreadException exitThreadException)
 			{

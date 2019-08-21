@@ -260,21 +260,15 @@ namespace WAVM { namespace Runtime {
 	// Functions
 	//
 
-	// Invokes a Function with the given arguments, and returns the result. The result is
-	// returned as a pointer to an untagged value that is stored in the Context that will be
-	// overwritten by subsequent calls to invokeFunctionUnchecked. This allows using this function
-	// in a call stack that will be forked, since returning the result as a value will be lowered to
-	// passing in a pointer to stack memory for most calling conventions.
-	RUNTIME_API IR::UntaggedValue* invokeFunctionUnchecked(Context* context,
-														   const Function* function,
-														   const IR::UntaggedValue* arguments);
-
-	// Like invokeFunctionUnchecked, but returns a result tagged with its type, and takes arguments
-	// as tagged values. If the wrong number or types or arguments are provided, a runtime exception
-	// is thrown.
-	RUNTIME_API IR::ValueTuple invokeFunctionChecked(Context* context,
-													 const Function* function,
-													 const std::vector<IR::Value>& arguments);
+	// Invokes a Function with the given array of arguments, and writes the results to the given
+	// results array. The sizes of the arguments and results arrays must match the number of
+	// arguments/results of the provided function type. If the provided function type does not match
+	// the actual type of the function, then an invokeSignatureMismatch exception is thrown.
+	RUNTIME_API void invokeFunction(Context* context,
+									const Function* function,
+									IR::FunctionType invokeSig = IR::FunctionType(),
+									const IR::UntaggedValue arguments[] = nullptr,
+									IR::UntaggedValue results[] = nullptr);
 
 	// Returns the type of a Function.
 	RUNTIME_API IR::FunctionType getFunctionType(const Function* function);

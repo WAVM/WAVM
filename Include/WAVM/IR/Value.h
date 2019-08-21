@@ -120,50 +120,15 @@ namespace WAVM { namespace IR {
 		friend bool operator!=(const Value& left, const Value& right) { return !(left == right); }
 	};
 
-	// A boxed value: may hold any value that can be returned from a function invoked through the
-	// runtime.
-	struct ValueTuple
+	inline std::string asString(const std::vector<Value>& values)
 	{
-		std::vector<Value> values;
-
-		ValueTuple(ValueType inType, UntaggedValue inValue) : values({Value(inType, inValue)}) {}
-		ValueTuple(TypeTuple types, UntaggedValue* inValues)
+		std::string result = "(";
+		for(Uptr elementIndex = 0; elementIndex < values.size(); ++elementIndex)
 		{
-			values.reserve(types.size());
-			for(ValueType type : types) { values.push_back(Value(type, *inValues++)); }
+			if(elementIndex != 0) { result += ", "; }
+			result += asString(values[elementIndex]);
 		}
-		ValueTuple(const Value& inValue) : values({inValue}) {}
-		ValueTuple() {}
-
-		Uptr size() const { return values.size(); }
-		Value& operator[](Uptr index) { return values[index]; }
-		const Value& operator[](Uptr index) const { return values[index]; }
-
-		friend std::string asString(const ValueTuple& valueTuple)
-		{
-			std::string result = "(";
-			for(Uptr elementIndex = 0; elementIndex < valueTuple.size(); ++elementIndex)
-			{
-				if(elementIndex != 0) { result += ", "; }
-				result += asString(valueTuple[elementIndex]);
-			}
-			result += ")";
-			return result;
-		}
-
-		friend bool operator==(const ValueTuple& left, const ValueTuple& right)
-		{
-			if(left.size() != right.size()) { return false; }
-			for(Uptr valueIndex = 0; valueIndex < left.size(); ++valueIndex)
-			{
-				if(left[valueIndex] != right[valueIndex]) { return false; }
-			}
-			return true;
-		}
-
-		friend bool operator!=(const ValueTuple& left, const ValueTuple& right)
-		{
-			return !(left == right);
-		}
-	};
+		result += ")";
+		return result;
+	}
 }}

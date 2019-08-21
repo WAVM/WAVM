@@ -295,7 +295,11 @@ namespace WAVM { namespace IR {
 
 	inline bool isSubtype(TypeTuple subtype, TypeTuple supertype)
 	{
-		if(subtype.size() != supertype.size()) { return false; }
+		if(subtype == supertype) { return true; }
+		else if(subtype.size() != supertype.size())
+		{
+			return false;
+		}
 		else
 		{
 			for(Uptr elementIndex = 0; elementIndex < subtype.size(); ++elementIndex)
@@ -419,6 +423,16 @@ namespace WAVM { namespace IR {
 	inline std::string asString(const FunctionType& functionType)
 	{
 		return asString(functionType.params()) + "->" + asString(functionType.results());
+	}
+
+	inline bool isSubtype(FunctionType subtype, FunctionType supertype)
+	{
+		if(subtype == supertype) { return true; }
+		else
+		{
+			return isSubtype(supertype.params(), subtype.params())
+				   && isSubtype(subtype.results(), supertype.results());
+		}
 	}
 
 	// A size constraint: a range of expected sizes for some size-constrained type.

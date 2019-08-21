@@ -257,9 +257,9 @@ static bool isExpectedExceptionType(WAST::ExpectedTrapType expectedType,
 	}
 }
 
-static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple& outResults)
+static bool processAction(TestScriptState& state, Action* action, std::vector<Value>& outResults)
 {
-	outResults = IR::ValueTuple();
+	outResults.clear();
 
 	switch(action->type)
 	{
@@ -283,7 +283,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 
 			// Call the module start function, if it has one.
 			Function* startFunction = getStartFunction(state.lastModuleInstance);
-			if(startFunction) { invokeFunctionChecked(state.context, startFunction, {}); }
+			if(startFunction) { invokeFunction(state.context, startFunction); }
 		}
 		else
 		{
@@ -331,8 +331,35 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 			return false;
 		}
 
-		// Execute the invoke
-		outResults = invokeFunctionChecked(state.context, function, invokeAction->arguments.values);
+		// Split the tagged argument values into their types and untagged values.
+		std::vector<ValueType> argTypes;
+		std::vector<UntaggedValue> untaggedArgs;
+		for(const Value& arg : invokeAction->arguments)
+		{
+			argTypes.push_back(arg.type);
+			untaggedArgs.push_back(arg);
+		}
+
+		// Infer the expected type of the function from the number and type of the invoke's
+		// arguments and the function's actual result types.
+		const FunctionType invokeSig(getFunctionType(function).results(), TypeTuple(argTypes));
+
+		// Allocate an array to receive the invoke results.
+		std::vector<UntaggedValue> untaggedResults;
+		untaggedResults.resize(invokeSig.results().size());
+
+		// Invoke the function.
+		invokeFunction(
+			state.context, function, invokeSig, untaggedArgs.data(), untaggedResults.data());
+
+		// Convert the untagged result values to tagged values.
+		outResults.resize(invokeSig.results().size());
+		for(Uptr resultIndex = 0; resultIndex < untaggedResults.size(); ++resultIndex)
+		{
+			const ValueType resultType = invokeSig.results()[resultIndex];
+			const UntaggedValue& untaggedResult = untaggedResults[resultIndex];
+			outResults[resultIndex] = Value(resultType, untaggedResult);
+		}
 
 		return true;
 	}
@@ -359,7 +386,7 @@ static bool processAction(TestScriptState& state, Action* action, IR::ValueTuple
 		}
 
 		// Get the value of the specified global.
-		outResults = getGlobalValue(state.context, global);
+		outResults = {getGlobalValue(state.context, global)};
 
 		return true;
 	}
@@ -392,14 +419,14 @@ static void processCommand(TestScriptState& state, const Command* command)
 		break;
 	}
 	case Command::action: {
-		IR::ValueTuple results;
+		std::vector<Value> results;
 		processAction(state, ((ActionCommand*)command)->action.get(), results);
 		break;
 	}
 	case Command::assert_return: {
 		auto assertCommand = (AssertReturnCommand*)command;
 		// Execute the action and do a bitwise comparison of the result to the expected result.
-		IR::ValueTuple actionResults;
+		std::vector<Value> actionResults;
 		if(processAction(state, assertCommand->action.get(), actionResults)
 		   && actionResults != assertCommand->expectedResults)
 		{
@@ -415,7 +442,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 	case Command::assert_return_arithmetic_nan: {
 		auto assertCommand = (AssertReturnNaNCommand*)command;
 		// Execute the action and check that the result is a NaN of the expected type.
-		IR::ValueTuple actionResults;
+		std::vector<Value> actionResults;
 		if(processAction(state, assertCommand->action.get(), actionResults))
 		{
 			if(actionResults.size() != 1)
@@ -427,7 +454,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 			}
 			else
 			{
-				IR::Value actionResult = actionResults[0];
+				Value actionResult = actionResults[0];
 				const bool requireCanonicalNaN
 					= assertCommand->type == Command::assert_return_canonical_nan;
 				const bool isError
@@ -451,7 +478,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 	case Command::assert_return_func: {
 		auto assertCommand = (AssertReturnNaNCommand*)command;
 		// Execute the action and check that the result is a function.
-		IR::ValueTuple actionResults;
+		std::vector<Value> actionResults;
 		if(processAction(state, assertCommand->action.get(), actionResults))
 		{
 			if(actionResults.size() != 1 || !isReferenceType(actionResults[0].type)
@@ -469,7 +496,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 		auto assertCommand = (AssertTrapCommand*)command;
 		Runtime::catchRuntimeExceptions(
 			[&] {
-				IR::ValueTuple actionResults;
+				std::vector<Value> actionResults;
 				if(processAction(state, assertCommand->action.get(), actionResults))
 				{
 					testErrorf(state,
@@ -519,7 +546,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 
 		Runtime::catchRuntimeExceptions(
 			[&] {
-				IR::ValueTuple actionResults;
+				std::vector<Value> actionResults;
 				if(processAction(state, assertCommand->action.get(), actionResults))
 				{
 					testErrorf(state,
@@ -545,8 +572,8 @@ static void processCommand(TestScriptState& state, const Command* command)
 					for(Uptr argumentIndex = 0; argumentIndex < exceptionParameterTypes.size();
 						++argumentIndex)
 					{
-						IR::Value argumentValue(exceptionParameterTypes[argumentIndex],
-												exception->arguments[argumentIndex]);
+						Value argumentValue(exceptionParameterTypes[argumentIndex],
+											exception->arguments[argumentIndex]);
 						if(argumentValue != assertCommand->expectedArguments[argumentIndex])
 						{
 							testErrorf(
@@ -614,7 +641,7 @@ static void processCommand(TestScriptState& state, const Command* command)
 
 					// Call the module start function, if it has one.
 					Function* startFunction = getStartFunction(moduleInstance);
-					if(startFunction) { invokeFunctionChecked(state.context, startFunction, {}); }
+					if(startFunction) { invokeFunction(state.context, startFunction); }
 
 					testErrorf(state, assertCommand->locus, "module was linkable");
 				}

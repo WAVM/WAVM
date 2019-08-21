@@ -8,6 +8,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
+#include "WAVM/Logging/Logging.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
 
@@ -15,11 +16,41 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
-												const Function* function,
-												const UntaggedValue* arguments)
+void Runtime::invokeFunction(Context* context,
+							 const Function* function,
+							 FunctionType invokeSig,
+							 const UntaggedValue arguments[],
+							 UntaggedValue outResults[])
 {
-	FunctionType functionType = function->encodedType;
+	FunctionType functionType{function->encodedType};
+
+	// Verify that the invoke signature matches the function being invoked.
+	if(invokeSig != functionType && !isSubtype(functionType, invokeSig))
+	{
+		if(Log::isCategoryEnabled(Log::debug))
+		{
+			Log::printf(
+				Log::debug,
+				"Invoke signature mismatch:\n  Invoke signature: %s\n  Invoked function type: %s\n",
+				asString(invokeSig).c_str(),
+				asString(getFunctionType(function)).c_str());
+		}
+		throwException(ExceptionTypes::invokeSignatureMismatch);
+	}
+
+	// Assert that the function, the context, and any reference arguments are all in the same
+	// compartment.
+	if(WAVM_ENABLE_ASSERTS)
+	{
+		WAVM_ASSERT(isInCompartment(asObject(function), context->compartment));
+		for(Uptr argumentIndex = 0; argumentIndex < invokeSig.params().size(); ++argumentIndex)
+		{
+			const ValueType argType = invokeSig.params()[argumentIndex];
+			const UntaggedValue& arg = arguments[argumentIndex];
+			WAVM_ASSERT(!isReferenceType(argType) || !arg.object
+						|| isInCompartment(arg.object, context->compartment));
+		}
+	}
 
 	// Get the invoke thunk for this function type. Cache it in the function's FunctionMutableData
 	// to avoid the global lock implied by LLVMJIT::getInvokeThunk.
@@ -33,7 +64,7 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 	};
 	WAVM_ASSERT(invokeThunk);
 
-	// Copy the arguments into the thunk arguments buffer in ContextRuntimeData.
+	// Copy the arguments into the scratch buffer in ContextRuntimeData.
 	ContextRuntimeData* contextRuntimeData
 		= &context->compartment->runtimeData->contexts[context->id];
 	U8* argData = contextRuntimeData->thunkArgAndReturnData;
@@ -56,65 +87,34 @@ UntaggedValue* Runtime::invokeFunctionUnchecked(Context* context,
 		argDataOffset += numArgBytes;
 	}
 
-	// Call the invoke thunk.
-	contextRuntimeData = (*invokeThunk)(function, contextRuntimeData);
+	// Use unwindSignalsAsExceptions to ensure that any signal that occurs in WebAssembly code calls
+	// C++ destructors on the stack between here and where it is caught.
+	unwindSignalsAsExceptions([&contextRuntimeData, invokeThunk, function] {
+		// Call the invoke thunk.
+		contextRuntimeData = (*invokeThunk)(function, contextRuntimeData);
+	});
 
-	// Return a pointer to the return value that was written to the ContextRuntimeData.
-	return (UntaggedValue*)contextRuntimeData->thunkArgAndReturnData;
-}
-
-ValueTuple Runtime::invokeFunctionChecked(Context* context,
-										  const Function* function,
-										  const std::vector<Value>& arguments)
-{
-	WAVM_ERROR_UNLESS(isInCompartment(asObject(function), context->compartment));
-
-	FunctionType functionType{function->encodedType};
-
-	// Check that the parameter types match the function, and copy them into a memory block that
-	// stores each as a 64-bit value.
-	if(arguments.size() != functionType.params().size())
-	{ throwException(ExceptionTypes::invokeSignatureMismatch); }
-
-	// Convert the arguments from a vector of Values to a stack-allocated block of
-	// UntaggedValues.
-	UntaggedValue* untaggedArguments
-		= (UntaggedValue*)alloca(arguments.size() * sizeof(UntaggedValue));
-	for(Uptr argumentIndex = 0; argumentIndex < arguments.size(); ++argumentIndex)
-	{
-		const Value& argument = arguments[argumentIndex];
-		if(!isSubtype(argument.type, functionType.params()[argumentIndex]))
-		{ throwException(ExceptionTypes::invokeSignatureMismatch); }
-
-		WAVM_ERROR_UNLESS(!isReferenceType(argument.type) || !argument.object
-						  || isInCompartment(argument.object, context->compartment));
-
-		untaggedArguments[argumentIndex] = argument;
-	}
-
-	// Call the unchecked version of this function to do the actual invoke.
-	U8* resultStructBase = (U8*)invokeFunctionUnchecked(context, function, untaggedArguments);
-
-	// Read the return values out of the context's scratch memory.
-	ValueTuple results;
+	// Copy the results from the scratch buffer in ContextRuntimeData.
 	Uptr resultOffset = 0;
-	for(ValueType resultType : functionType.results())
+	for(Uptr resultIndex = 0; resultIndex < functionType.results().size(); ++resultIndex)
 	{
+		const ValueType resultType = functionType.results()[resultIndex];
 		const U8 resultNumBytes = getTypeByteWidth(resultType);
 
 		resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
 		WAVM_ASSERT(resultOffset < maxThunkArgAndReturnBytes);
+		WAVM_ASSERT((resultOffset & (resultNumBytes - 1)) == 0)
 
-		U8* result = resultStructBase + resultOffset;
+		U8* result = contextRuntimeData->thunkArgAndReturnData + resultOffset;
 		switch(resultType)
 		{
-		case ValueType::i32: results.values.push_back(Value(*(I32*)result)); break;
-		case ValueType::i64: results.values.push_back(Value(*(I64*)result)); break;
-		case ValueType::f32: results.values.push_back(Value(*(F32*)result)); break;
-		case ValueType::f64: results.values.push_back(Value(*(F64*)result)); break;
-		case ValueType::v128: results.values.push_back(Value(*(V128*)result)); break;
-		case ValueType::anyref: results.values.push_back(Value(*(Object**)result)); break;
-		case ValueType::funcref: results.values.push_back(Value(*(Function**)result)); break;
+		case ValueType::i32: outResults[resultIndex].i32 = *(I32*)result; break;
+		case ValueType::i64: outResults[resultIndex].i64 = *(I64*)result; break;
+		case ValueType::f32: outResults[resultIndex].f32 = *(F32*)result; break;
+		case ValueType::f64: outResults[resultIndex].f64 = *(F64*)result; break;
+		case ValueType::v128: outResults[resultIndex].v128 = *(V128*)result; break;
+		case ValueType::anyref: outResults[resultIndex].object = *(Object**)result; break;
+		case ValueType::funcref: outResults[resultIndex].function = *(Function**)result; break;
 
 		case ValueType::none:
 		case ValueType::any:
@@ -124,5 +124,4 @@ ValueTuple Runtime::invokeFunctionChecked(Context* context,
 
 		resultOffset += resultNumBytes;
 	}
-	return results;
 }

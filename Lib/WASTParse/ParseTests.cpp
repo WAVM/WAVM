@@ -98,12 +98,12 @@ static IR::Value parseConstExpression(CursorState* cursor)
 	return result;
 }
 
-static IR::ValueTuple parseConstExpressionTuple(CursorState* cursor)
+static std::vector<IR::Value> parseConstExpressionTuple(CursorState* cursor)
 {
-	IR::ValueTuple tuple;
+	std::vector<IR::Value> values;
 	while(cursor->nextToken->type == t_leftParenthesis)
-	{ tuple.values.push_back(parseConstExpression(cursor)); };
-	return tuple;
+	{ values.push_back(parseConstExpression(cursor)); };
+	return values;
 }
 
 static std::string parseOptionalNameAsString(CursorState* cursor)
@@ -211,7 +211,7 @@ static std::unique_ptr<Action> parseAction(CursorState* cursor, const IR::Featur
 			std::string nameString = parseOptionalNameAsString(cursor);
 			std::string exportName = parseUTF8String(cursor);
 
-			IR::ValueTuple arguments = parseConstExpressionTuple(cursor);
+			std::vector<IR::Value> arguments = parseConstExpressionTuple(cursor);
 			result = std::unique_ptr<Action>(new InvokeAction(std::move(locus),
 															  std::move(nameString),
 															  std::move(exportName),
@@ -287,7 +287,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				++cursor->nextToken;
 
 				std::unique_ptr<Action> action = parseAction(cursor, featureSpec);
-				IR::ValueTuple expectedResults = parseConstExpressionTuple(cursor);
+				std::vector<IR::Value> expectedResults = parseConstExpressionTuple(cursor);
 				result = std::unique_ptr<Command>(
 					new AssertReturnCommand(std::move(locus), std::move(action), expectedResults));
 				break;
@@ -409,7 +409,7 @@ static std::unique_ptr<Command> parseCommand(CursorState* cursor,
 				std::string exceptionTypeInternalModuleName = parseOptionalNameAsString(cursor);
 				std::string exceptionTypeExportName = parseUTF8String(cursor);
 
-				IR::ValueTuple expectedArguments = parseConstExpressionTuple(cursor);
+				std::vector<IR::Value> expectedArguments = parseConstExpressionTuple(cursor);
 				result = std::unique_ptr<Command>(
 					new AssertThrowsCommand(std::move(locus),
 											std::move(action),

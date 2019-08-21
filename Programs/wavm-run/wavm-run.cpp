@@ -751,7 +751,7 @@ struct State
 		{
 			// Call the module start function, if it has one.
 			Function* startFunction = getStartFunction(moduleInstance);
-			if(startFunction) { invokeFunctionChecked(context, startFunction, {}); }
+			if(startFunction) { invokeFunction(context, startFunction); }
 
 			if(emscriptenInstance)
 			{
@@ -760,21 +760,51 @@ struct State
 					emscriptenInstance, context, irModule, moduleInstance);
 			}
 
+			// Split the tagged argument values into their types and untagged values.
+			std::vector<ValueType> invokeArgTypes;
+			std::vector<UntaggedValue> untaggedInvokeArgs;
+			for(const Value& arg : invokeArgs)
+			{
+				invokeArgTypes.push_back(arg.type);
+				untaggedInvokeArgs.push_back(arg);
+			}
+
+			// Infer the expected type of the function from the number and type of the invoke's
+			// arguments and the function's actual result types.
+			const FunctionType invokeSig(getFunctionType(function).results(),
+										 TypeTuple(invokeArgTypes));
+
+			// Allocate an array to receive the invoke results.
+			std::vector<UntaggedValue> untaggedInvokeResults;
+			untaggedInvokeResults.resize(invokeSig.results().size());
+
 			// Invoke the function.
 			Timing::Timer executionTimer;
-			IR::ValueTuple functionResults = invokeFunctionChecked(context, function, invokeArgs);
+			invokeFunction(context,
+						   function,
+						   invokeSig,
+						   untaggedInvokeArgs.data(),
+						   untaggedInvokeResults.data());
 			Timing::logTimer("Invoked function", executionTimer);
 
 			if(functionName)
 			{
-				Log::printf(Log::debug,
-							"%s returned: %s\n",
-							functionName,
-							asString(functionResults).c_str());
+				// Convert the untagged result values to tagged values.
+				std::vector<Value> invokeResults;
+				invokeResults.resize(invokeSig.results().size());
+				for(Uptr resultIndex = 0; resultIndex < untaggedInvokeResults.size(); ++resultIndex)
+				{
+					const ValueType resultType = invokeSig.results()[resultIndex];
+					const UntaggedValue& untaggedResult = untaggedInvokeResults[resultIndex];
+					invokeResults[resultIndex] = Value(resultType, untaggedResult);
+				}
+
+				Log::printf(
+					Log::debug, "%s returned: %s\n", functionName, asString(invokeResults).c_str());
 			}
-			else if(functionResults.size() == 1 && functionResults[0].type == ValueType::i32)
+			else if(untaggedInvokeResults.size() == 1 && invokeSig.results()[0] == ValueType::i32)
 			{
-				result = functionResults[0].i32;
+				result = untaggedInvokeResults[0].i32;
 			}
 		}
 		catch(const WASI::ExitException& exitException)

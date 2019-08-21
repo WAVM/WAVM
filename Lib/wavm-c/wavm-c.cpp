@@ -796,9 +796,15 @@ wasm_trap_t* wasm_func_call(wasm_store_t* store,
 			for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 			{ memcpy(&wavmArgs[argIndex].bytes, &args[argIndex], sizeof(wasm_val_t)); }
 
-			UntaggedValue* wavmResults = invokeFunctionUnchecked(store, function, wavmArgs);
+			auto wavmResults
+				= (UntaggedValue*)alloca(functionType.results().size() * sizeof(UntaggedValue));
+			invokeFunction(store, function, functionType, wavmArgs, wavmResults);
+
 			for(Uptr resultIndex = 0; resultIndex < functionType.results().size(); ++resultIndex)
-			{ memcpy(&outResults[resultIndex], &wavmResults[resultIndex], sizeof(wasm_val_t)); }
+			{
+				memcpy(
+					&outResults[resultIndex], &wavmResults[resultIndex].bytes, sizeof(wasm_val_t));
+			}
 		},
 		[&exception](Exception* caughtException) { exception = caughtException; });
 
@@ -990,7 +996,7 @@ wasm_instance_t* wasm_instance_new(wasm_store_t* store,
 			addGCRoot(moduleInstance);
 
 			Function* startFunction = getStartFunction(moduleInstance);
-			if(startFunction) { invokeFunctionChecked(store, startFunction, {}); }
+			if(startFunction) { invokeFunction(store, startFunction); }
 		},
 		[&](Runtime::Exception* exception) {
 			if(out_trap) { *out_trap = exception; }

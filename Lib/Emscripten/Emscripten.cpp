@@ -954,15 +954,17 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "___syscall192", I32, _mmap2, U32 which, U32
 		{ return -38; /* ENOSYS */ }
 
 		UntaggedValue memalignArgs[2] = {U32(16384), numBytes};
-		const U32 memalignResult
-			= invokeFunctionUnchecked(
-				  getContextFromRuntimeData(contextRuntimeData), memalignFunction, memalignArgs)
-				  ->i32;
-		if(!memalignResult) { return -12; /* ENOMEM */ }
-		memset(memoryArrayPtr<char>(instance->memory, memalignResult, numBytes), 0, numBytes);
+		UntaggedValue memalignResult;
+		invokeFunction(getContextFromRuntimeData(contextRuntimeData),
+					   memalignFunction,
+					   FunctionType(ValueType::i32, {ValueType::i32, ValueType::i32}),
+					   memalignArgs,
+					   &memalignResult);
+		if(!memalignResult.i32) { return -12; /* ENOMEM */ }
+		memset(memoryArrayPtr<char>(instance->memory, memalignResult.i32, numBytes), 0, numBytes);
 
-		WAVM_ERROR_UNLESS(memalignResult < INT32_MAX);
-		return I32(memalignResult);
+		WAVM_ERROR_UNLESS(memalignResult.i32 < INT32_MAX);
+		return memalignResult.i32;
 	}
 }
 DEFINE_UNIMPLEMENTED_INTRINSIC_FUNCTION(env, "___syscall195", U32, ___syscall195, U32, U32);
@@ -1161,15 +1163,15 @@ void Emscripten::initializeGlobals(Emscripten::Instance* instance,
 	   && getFunctionType(establishStackSpace)
 			  == FunctionType(TypeTuple{}, TypeTuple{ValueType::i32, ValueType::i64}))
 	{
-		std::vector<IR::Value> parameters
-			= {IR::Value(STACKTOP.getValue().i32), IR::Value(STACK_MAX.getValue().i32)};
-		Runtime::invokeFunctionChecked(context, establishStackSpace, parameters);
+		IR::UntaggedValue args[2]{STACKTOP.getValue(), STACK_MAX.getValue()};
+		invokeFunction(
+			context, establishStackSpace, FunctionType({}, {ValueType::i32, ValueType::i32}), args);
 	}
 
 	// Call the global initializer functions: newer Emscripten uses a single globalCtors function,
 	// and older Emscripten uses a __GLOBAL__* function for each translation unit.
 	if(Function* globalCtors = asFunctionNullable(getInstanceExport(moduleInstance, "globalCtors")))
-	{ Runtime::invokeFunctionChecked(context, globalCtors, {}); }
+	{ invokeFunction(context, globalCtors); }
 
 	for(Uptr exportIndex = 0; exportIndex < module.exports.size(); ++exportIndex)
 	{
@@ -1179,19 +1181,19 @@ void Emscripten::initializeGlobals(Emscripten::Instance* instance,
 		{
 			Function* function
 				= asFunctionNullable(getInstanceExport(moduleInstance, functionExport.name));
-			if(function) { Runtime::invokeFunctionChecked(context, function, {}); }
+			if(function) { invokeFunction(context, function); }
 		}
 	}
 
 	// Store ___errno_location.
 	Function* errNoLocation
 		= asFunctionNullable(getInstanceExport(moduleInstance, "___errno_location"));
-	if(errNoLocation
-	   && getFunctionType(errNoLocation) == FunctionType(TypeTuple{ValueType::i32}, TypeTuple{}))
+	if(errNoLocation && getFunctionType(errNoLocation) == FunctionType({ValueType::i32}, {}))
 	{
-		IR::ValueTuple errNoResult = Runtime::invokeFunctionChecked(context, errNoLocation, {});
-		if(errNoResult.size() == 1 && errNoResult[0].type == ValueType::i32)
-		{ instance->errnoAddress = errNoResult[0].i32; }
+		IR::UntaggedValue errNoResult;
+		invokeFunction(
+			context, errNoLocation, FunctionType({ValueType::i32}, {}), nullptr, &errNoResult);
+		instance->errnoAddress = errNoResult.i32;
 	}
 }
 
