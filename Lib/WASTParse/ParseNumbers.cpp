@@ -20,9 +20,10 @@ extern "C" void ACQUIRE_DTOA_LOCK(unsigned int index) { gdtoaMutexes[index].lock
 extern "C" void FREE_DTOA_LOCK(unsigned int index) { gdtoaMutexes[index].unlock(); }
 extern "C" unsigned int dtoa_get_threadno()
 {
-	// Returning 0 works because we never set the number of threads, so gdtoa just falls back to
+	// Returning 1 works because we never set the number of threads, so gdtoa just falls back to
 	// using a global freelist protected by ACQUIRE_DTOA_LOCK/FREE_DTOA_LOCK.
-	return 0;
+	// Using 1 instead of 0 avoids an innocuous date race when get_TI() sets TI0_used=1.
+	return 1;
 }
 
 // Defined in the WAVM/ThirdParty/gdtoa library.

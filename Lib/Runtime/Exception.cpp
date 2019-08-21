@@ -79,15 +79,15 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 	std::vector<std::string> frameDescriptions;
 	HashSet<Uptr> describedIPs;
 	Uptr frameIndex = 0;
-	while(frameIndex < callStack.stackFrames.size())
+	while(frameIndex < callStack.frames.size())
 	{
-		if(frameIndex + 1 < callStack.stackFrames.size()
-		   && describedIPs.contains(callStack.stackFrames[frameIndex].ip)
-		   && describedIPs.contains(callStack.stackFrames[frameIndex + 1].ip))
+		if(frameIndex + 1 < callStack.frames.size()
+		   && describedIPs.contains(callStack.frames[frameIndex].ip)
+		   && describedIPs.contains(callStack.frames[frameIndex + 1].ip))
 		{
 			Uptr numOmittedFrames = 2;
-			while(frameIndex + numOmittedFrames < callStack.stackFrames.size()
-				  && describedIPs.contains(callStack.stackFrames[frameIndex + numOmittedFrames].ip))
+			while(frameIndex + numOmittedFrames < callStack.frames.size()
+				  && describedIPs.contains(callStack.frames[frameIndex + numOmittedFrames].ip))
 			{ ++numOmittedFrames; }
 
 			frameDescriptions.push_back("<" + std::to_string(numOmittedFrames)
@@ -97,7 +97,7 @@ std::vector<std::string> Runtime::describeCallStack(const Platform::CallStack& c
 		}
 		else
 		{
-			const Uptr frameIP = callStack.stackFrames[frameIndex].ip;
+			const Uptr frameIP = callStack.frames[frameIndex].ip;
 
 			std::string frameDescription;
 			if(!describeInstructionPointer(frameIP, frameDescription))
@@ -293,7 +293,30 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(wavmIntrinsicsException,
 	throw exception;
 }
 
-static bool translateSignalToRuntimeException(const Platform::Signal& signal,
+static bool isRuntimeException(const Platform::Signal& signal)
+{
+	switch(signal.type)
+	{
+	case Platform::Signal::Type::accessViolation: {
+		// If the access violation occured in a Memory or Table's reserved pages, it's a runtime
+		// exception.
+		Table* table = nullptr;
+		Uptr tableIndex = 0;
+		Memory* memory = nullptr;
+		Uptr memoryAddress = 0;
+		U8* badPointer = reinterpret_cast<U8*>(signal.accessViolation.address);
+		return isAddressOwnedByTable(badPointer, table, tableIndex)
+			   || isAddressOwnedByMemory(badPointer, memory, memoryAddress);
+	}
+	case Platform::Signal::Type::stackOverflow:
+	case Platform::Signal::Type::intDivideByZeroOrOverflow: return true;
+
+	case Platform::Signal::Type::invalid:
+	default: WAVM_UNREACHABLE();
+	}
+}
+
+static void translateSignalToRuntimeException(const Platform::Signal& signal,
 											  Platform::CallStack&& callStack,
 											  Runtime::Exception*& outException)
 {
@@ -306,38 +329,35 @@ static bool translateSignalToRuntimeException(const Platform::Signal& signal,
 		Uptr tableIndex = 0;
 		Memory* memory = nullptr;
 		Uptr memoryAddress = 0;
-		if(isAddressOwnedByTable(
-			   reinterpret_cast<U8*>(signal.accessViolation.address), table, tableIndex))
+		U8* const badPointer = reinterpret_cast<U8*>(signal.accessViolation.address);
+		if(isAddressOwnedByTable(badPointer, table, tableIndex))
 		{
 			IR::UntaggedValue exceptionArguments[2] = {table, U64(tableIndex)};
 			outException = createException(ExceptionTypes::outOfBoundsTableAccess,
 										   exceptionArguments,
 										   2,
 										   std::move(callStack));
-			return true;
 		}
 		// If the access violation occured in a Memory's reserved pages, treat it as an
 		// out-of-bounds memory access.
-		else if(isAddressOwnedByMemory(
-					reinterpret_cast<U8*>(signal.accessViolation.address), memory, memoryAddress))
+		else if(isAddressOwnedByMemory(badPointer, memory, memoryAddress))
 		{
 			IR::UntaggedValue exceptionArguments[2] = {memory, U64(memoryAddress)};
 			outException = createException(ExceptionTypes::outOfBoundsMemoryAccess,
 										   exceptionArguments,
 										   2,
 										   std::move(callStack));
-			return true;
 		}
-		return false;
+		break;
 	}
 	case Platform::Signal::Type::stackOverflow:
 		outException
 			= createException(ExceptionTypes::stackOverflow, nullptr, 0, std::move(callStack));
-		return true;
+		break;
 	case Platform::Signal::Type::intDivideByZeroOrOverflow:
 		outException = createException(
 			ExceptionTypes::integerDivideByZeroOrOverflow, nullptr, 0, std::move(callStack));
-		return true;
+		break;
 
 	case Platform::Signal::Type::invalid:
 	default: WAVM_UNREACHABLE();
@@ -363,7 +383,8 @@ void Runtime::unwindSignalsAsExceptions(const std::function<void()>& thunk)
 	struct UnwindContext
 	{
 		const std::function<void()>* thunk;
-		Exception* exception = nullptr;
+		Platform::Signal signal;
+		Platform::CallStack callStack;
 	} context;
 	context.thunk = &thunk;
 	if(Platform::catchSignals(
@@ -372,10 +393,19 @@ void Runtime::unwindSignalsAsExceptions(const std::function<void()>& thunk)
 			   (*context.thunk)();
 		   },
 		   [](void* contextVoid, Platform::Signal signal, Platform::CallStack&& callStack) {
-			   UnwindContext& context = *(UnwindContext*)contextVoid;
-			   return translateSignalToRuntimeException(
-				   signal, std::move(callStack), context.exception);
+			   if(!isRuntimeException(signal)) { return false; }
+			   else
+			   {
+				   UnwindContext& context = *(UnwindContext*)contextVoid;
+				   context.signal = signal;
+				   context.callStack = std::move(callStack);
+				   return true;
+			   }
 		   },
 		   &context))
-	{ throw context.exception; }
+	{
+		Exception* exception = nullptr;
+		translateSignalToRuntimeException(context.signal, std::move(context.callStack), exception);
+		throw exception;
+	}
 }

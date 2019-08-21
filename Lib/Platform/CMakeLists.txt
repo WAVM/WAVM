@@ -1,6 +1,7 @@
 set(POSIXSources
 	POSIX/ClockPOSIX.cpp
 	POSIX/DiagnosticsPOSIX.cpp
+	POSIX/ErrorPOSIX.cpp
 	POSIX/EventPOSIX.cpp
 	POSIX/SignalPOSIX.cpp
 	POSIX/FilePOSIX.cpp
@@ -16,6 +17,7 @@ set(NonWavixSources
 set(WindowsSources
 	Windows/ClockWindows.cpp
 	Windows/DiagnosticsWindows.cpp
+	Windows/ErrorWindows.cpp
 	Windows/EventWindows.cpp
 	Windows/SignalWindows.cpp
 	Windows/FileWindows.cpp
@@ -35,6 +37,7 @@ set(Headers
 	${WAVM_INCLUDE_DIR}/Platform/Clock.h
 	${WAVM_INCLUDE_DIR}/Platform/Defines.h
 	${WAVM_INCLUDE_DIR}/Platform/Diagnostics.h
+	${WAVM_INCLUDE_DIR}/Platform/Error.h
 	${WAVM_INCLUDE_DIR}/Platform/Event.h
 	${WAVM_INCLUDE_DIR}/Platform/Signal.h
 	${WAVM_INCLUDE_DIR}/Platform/File.h

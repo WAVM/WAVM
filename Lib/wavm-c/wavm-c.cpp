@@ -603,7 +603,7 @@ void wasm_trap_message(const wasm_trap_t* trap,
 void wasm_trap_origin(const wasm_trap_t* trap, wasm_frame_t* out_frame)
 {
 	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	WAVM_ASSERT(callStack.stackFrames.size() >= 1);
+	WAVM_ASSERT(callStack.frames.size() >= 1);
 	out_frame->instance = nullptr;
 	out_frame->module_offset = 0;
 	out_frame->func_index = 0;
@@ -612,13 +612,13 @@ void wasm_trap_origin(const wasm_trap_t* trap, wasm_frame_t* out_frame)
 size_t wasm_trap_stack_num_frames(const wasm_trap_t* trap)
 {
 	const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	WAVM_ASSERT(callStack.stackFrames.size() >= 1);
-	return callStack.stackFrames.size() - 1;
+	WAVM_ASSERT(callStack.frames.size() >= 1);
+	return callStack.frames.size() - 1;
 }
 void wasm_trap_stack_frame(const wasm_trap_t* trap, size_t index, wasm_frame_t* out_frame)
 {
 	// const Platform::CallStack& callStack = getExceptionCallStack(trap);
-	// const Platform::CallStack::Frame& frame = callStack.stackFrames[index + 1];
+	// const Platform::CallStack::Frame& frame = callStack.frames[index + 1];
 	out_frame->instance = nullptr;
 	out_frame->module_offset = 0;
 	out_frame->func_index = 0;

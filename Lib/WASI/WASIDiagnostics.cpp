@@ -115,7 +115,7 @@ static void traceSyscallv(const char* syscallName, const char* argFormat, va_lis
 			Log::printf(Log::output, " - Call stack:\n");
 
 			Platform::CallStack callStack = Platform::captureCallStack(4);
-			if(callStack.stackFrames.size() > 4) { callStack.stackFrames.resize(4); }
+			if(callStack.frames.size() > 4) { callStack.frames.resize(4); }
 			std::vector<std::string> callStackFrameDescriptions
 				= Runtime::describeCallStack(callStack);
 			for(const std::string& frameDescription : callStackFrameDescriptions)

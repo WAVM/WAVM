@@ -13,6 +13,7 @@ set(PublicHeaders
 	HashTable.h Impl/HashTableImpl.h Impl/HashTable.natvis
 	I128.h      Impl/I128Impl.h      Impl/I128Impl.LICENSE
 	IndexMap.h
+	InlineArray.h
 	IntrusiveSharedPtr.h
 	IsNameChar.h
 	Lock.h

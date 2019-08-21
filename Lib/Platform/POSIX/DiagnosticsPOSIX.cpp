@@ -1,13 +1,10 @@
 #include <cxxabi.h>
 #include <dlfcn.h>
-#include <cstdio>
 #include <string>
 
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Diagnostics.h"
-#include "WAVM/Platform/Mutex.h"
 
 #if WAVM_ENABLE_RUNTIME
 #define UNW_LOCAL_ONLY
@@ -25,12 +22,6 @@ extern "C" const char* __asan_default_options()
 		   ":replace_intrin=false";
 }
 
-static Mutex& getErrorReportingMutex()
-{
-	static Platform::Mutex mutex;
-	return mutex;
-}
-
 CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 {
 	CallStack result;
@@ -43,14 +34,14 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 	bool lastFrameWasSignalFrame = false;
 
 	WAVM_ERROR_UNLESS(!unw_init_local(&cursor, &context));
-	while(unw_step(&cursor) > 0)
+	while(!result.frames.isFull() && unw_step(&cursor) > 0)
 	{
 		if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
 		else
 		{
 			unw_word_t ip;
 			WAVM_ERROR_UNLESS(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
-			result.stackFrames.push_back(CallStack::Frame{lastFrameWasSignalFrame ? ip : (ip - 1)});
+			result.frames.push_back(CallStack::Frame{lastFrameWasSignalFrame ? ip : (ip - 1)});
 		}
 
 		lastFrameWasSignalFrame = unw_is_signal_frame(&cursor) > 0;
@@ -58,42 +49,6 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 #endif
 
 	return result;
-}
-
-void Platform::dumpErrorCallStack(Uptr numOmittedFramesFromTop)
-{
-	std::fprintf(stderr, "Call stack:\n");
-	CallStack callStack = captureCallStack(numOmittedFramesFromTop);
-	for(auto frame : callStack.stackFrames)
-	{
-		std::string frameDescription;
-		if(!Platform::describeInstructionPointer(frame.ip, frameDescription))
-		{ frameDescription = "<unknown function>"; }
-		std::fprintf(stderr, "  %s\n", frameDescription.c_str());
-	}
-	std::fflush(stderr);
-}
-
-void Platform::handleFatalError(const char* messageFormat, bool printCallStack, va_list varArgs)
-{
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::vfprintf(stderr, messageFormat, varArgs);
-	std::fprintf(stderr, "\n");
-	if(printCallStack) { dumpErrorCallStack(2); }
-	std::fflush(stderr);
-	std::abort();
-}
-
-void Platform::handleAssertionFailure(const AssertMetadata& metadata)
-{
-	Lock<Platform::Mutex> lock(getErrorReportingMutex());
-	std::fprintf(stderr,
-				 "Assertion failed at %s(%u): %s\n",
-				 metadata.file,
-				 metadata.line,
-				 metadata.condition);
-	dumpErrorCallStack(2);
-	std::fflush(stderr);
 }
 
 bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)

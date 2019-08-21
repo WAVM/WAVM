@@ -2,7 +2,7 @@
 
 #include "WAVM/Inline/Config.h"
 #include "WAVM/Platform/Defines.h"
-#include "WAVM/Platform/Diagnostics.h"
+#include "WAVM/Platform/Error.h"
 
 #include <cstdarg>
 
