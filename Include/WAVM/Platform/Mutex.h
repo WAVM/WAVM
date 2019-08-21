@@ -20,7 +20,7 @@ namespace WAVM { namespace Platform {
 		PLATFORM_API void lock();
 		PLATFORM_API void unlock();
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if WAVM_ENABLE_ASSERTS
 		PLATFORM_API bool isLockedByCurrentThread();
 #endif
 
@@ -54,13 +54,13 @@ namespace WAVM { namespace Platform {
 #error unsupported platform
 #endif
 
-#if defined(WIN32) || WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if defined(WIN32) || WAVM_ENABLE_ASSERTS
 		bool isLocked;
 #endif
 	};
 }}
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if WAVM_ENABLE_ASSERTS
 #define WAVM_ASSERT_MUTEX_IS_LOCKED_BY_CURRENT_THREAD(mutex)                                       \
 	WAVM_ASSERT((mutex).isLockedByCurrentThread())
 #else

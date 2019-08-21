@@ -13,7 +13,7 @@ Platform::Mutex::Mutex()
 	static_assert(sizeof(pthreadMutex) == sizeof(pthread_mutex_t), "");
 	static_assert(alignof(PthreadMutex) >= alignof(pthread_mutex_t), "");
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if WAVM_ENABLE_ASSERTS
 	// Use a recursive mutex in debug builds to support isLockedByCurrentThread.
 	pthread_mutexattr_t pthreadMutexAttr;
 	WAVM_ERROR_UNLESS(!pthread_mutexattr_init(&pthreadMutexAttr));
@@ -34,7 +34,7 @@ Platform::Mutex::~Mutex()
 void Platform::Mutex::lock()
 {
 	WAVM_ERROR_UNLESS(!pthread_mutex_lock((pthread_mutex_t*)&pthreadMutex));
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if WAVM_ENABLE_ASSERTS
 	if(isLocked) { Errors::fatal("Recursive mutex lock"); }
 	isLocked = true;
 #endif
@@ -42,13 +42,13 @@ void Platform::Mutex::lock()
 
 void Platform::Mutex::unlock()
 {
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if WAVM_ENABLE_ASSERTS
 	isLocked = false;
 #endif
 	WAVM_ERROR_UNLESS(!pthread_mutex_unlock((pthread_mutex_t*)&pthreadMutex));
 }
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#if WAVM_ENABLE_ASSERTS
 bool Platform::Mutex::isLockedByCurrentThread()
 {
 	// Try to lock the mutex, and if EDEADLK is returned, it means the mutex was already locked by

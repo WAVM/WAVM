@@ -6,7 +6,9 @@
 
 #include <cstdarg>
 
-#if WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS
+#define WAVM_ENABLE_ASSERTS (WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS)
+
+#if WAVM_ENABLE_ASSERTS
 #define WAVM_ASSERT(condition)                                                                     \
 	if(!(condition))                                                                               \
 	{                                                                                              \

@@ -115,7 +115,7 @@ std::vector<U8> LLVMJIT::compileLLVMModule(LLVMContext& llvmContext,
 										   llvm::TargetMachine* targetMachine)
 {
 	// Verify the module.
-	if(WAVM_DEBUG || WAVM_ENABLE_RELEASE_ASSERTS)
+	if(WAVM_ENABLE_ASSERTS)
 	{
 		std::string verifyOutputString;
 		llvm::raw_string_ostream verifyOutputStream(verifyOutputString);
