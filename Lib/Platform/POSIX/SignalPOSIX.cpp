@@ -44,6 +44,10 @@ thread_local SignalContext* Platform::innermostSignalContext = nullptr;
 	// top of the callstack is the function that triggered the signal.
 	CallStack callStack = captureCallStack(2);
 
+	// Undo the -1 offset that captureCallStack applied to the trapping IP on the assumption that
+	// the signal trampoline frame is returning from an ordinary call.
+	if(callStack.frames.size()) { callStack.frames[0].ip += 1; }
+
 	// Call the signal handlers, from innermost to outermost, until one returns true.
 	for(SignalContext* signalContext = innermostSignalContext; signalContext;
 		signalContext = signalContext->outerContext)

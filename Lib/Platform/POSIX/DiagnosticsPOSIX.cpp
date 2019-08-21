@@ -31,20 +31,16 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 	WAVM_ERROR_UNLESS(!unw_getcontext(&context));
 
 	unw_cursor_t cursor;
-	bool lastFrameWasSignalFrame = false;
 
 	WAVM_ERROR_UNLESS(!unw_init_local(&cursor, &context));
-	while(!result.frames.isFull() && unw_step(&cursor) > 0)
+	for(Uptr frameIndex = 0; !result.frames.isFull() && unw_step(&cursor) > 0; ++frameIndex)
 	{
-		if(numOmittedFramesFromTop) { --numOmittedFramesFromTop; }
-		else
+		if(frameIndex >= numOmittedFramesFromTop)
 		{
 			unw_word_t ip;
 			WAVM_ERROR_UNLESS(!unw_get_reg(&cursor, UNW_REG_IP, &ip));
-			result.frames.push_back(CallStack::Frame{lastFrameWasSignalFrame ? ip : (ip - 1)});
+			result.frames.push_back(CallStack::Frame{frameIndex == 0 ? ip : (ip - 1)});
 		}
-
-		lastFrameWasSignalFrame = unw_is_signal_frame(&cursor) > 0;
 	}
 #endif
 
