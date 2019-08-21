@@ -177,6 +177,11 @@ namespace WAVM {
 			if(a.alignmentLog2 != b.alignmentLog2 || a.offset != b.offset) { failVerification(); }
 		}
 
+		void verifyMatches(AtomicFenceImm a, AtomicFenceImm b)
+		{
+			if(a.order != b.order) { failVerification(); }
+		}
+
 		void verifyMatches(ExceptionTypeImm a, ExceptionTypeImm b)
 		{
 			if(a.exceptionTypeIndex != b.exceptionTypeIndex) { failVerification(); }

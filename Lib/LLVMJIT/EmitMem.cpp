@@ -293,7 +293,7 @@ void EmitFunctionContext::i64_atomic_wait(AtomicLoadOrStoreImm<3> imm)
 		 getMemoryIdFromOffset(llvmContext, moduleContext.defaultMemoryOffset)})[0]);
 }
 
-void EmitFunctionContext::atomic_fence(NoImm)
+void EmitFunctionContext::atomic_fence(AtomicFenceImm)
 {
 	// atomic.fence is a nop until weaker atomics are added.
 }

@@ -142,6 +142,11 @@ static void generateImm(RandomStream& random,
 	outImm.offset = random.get(UINT32_MAX);
 }
 
+static void generateImm(RandomStream& random, IR::Module& module, AtomicFenceImm& outImm)
+{
+	outImm.order = MemoryOrder::sequentiallyConsistent;
+}
+
 template<Uptr numLanes>
 static void generateImm(RandomStream& random, IR::Module& module, LaneIndexImm<numLanes>& outImm)
 {

@@ -106,6 +106,16 @@ namespace WAVM { namespace IR {
 		U32 offset;
 	};
 
+	enum class MemoryOrder
+	{
+		sequentiallyConsistent = 0
+	};
+
+	struct AtomicFenceImm
+	{
+		MemoryOrder order;
+	};
+
 	struct ExceptionTypeImm
 	{
 		Uptr exceptionTypeIndex;

@@ -463,6 +463,11 @@ static void parseImm(CursorState* cursor, AtomicLoadOrStoreImm<naturalAlignmentL
 	outImm.offset = loadOrStoreImm.offset;
 }
 
+static void parseImm(CursorState* cursor, AtomicFenceImm& outImm)
+{
+	outImm.order = MemoryOrder::sequentiallyConsistent;
+}
+
 static void parseImm(CursorState* cursor, ExceptionTypeImm& outImm)
 {
 	outImm.exceptionTypeIndex

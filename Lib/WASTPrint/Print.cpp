@@ -636,6 +636,15 @@ struct FunctionPrintContext
 		WAVM_ASSERT(imm.alignmentLog2 == naturalAlignmentLog2);
 	}
 
+	void printImm(AtomicFenceImm imm)
+	{
+		switch(imm.order)
+		{
+		case MemoryOrder::sequentiallyConsistent: break;
+		default: WAVM_UNREACHABLE();
+		};
+	}
+
 	void printImm(DataSegmentAndMemImm imm)
 	{
 		string += " " + moduleContext.names.dataSegments[imm.dataSegmentIndex];

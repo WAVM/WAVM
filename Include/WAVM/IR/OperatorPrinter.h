@@ -116,6 +116,14 @@ namespace WAVM { namespace IR {
 			return " offset=" + std::to_string(imm.offset)
 				   + " align=" + std::to_string(1 << imm.alignmentLog2);
 		}
+		std::string describeImm(AtomicFenceImm imm)
+		{
+			switch (imm.order)
+			{
+			case MemoryOrder::sequentiallyConsistent: return " seqcst";
+			default: WAVM_UNREACHABLE();
+			};
+		}
 		std::string describeImm(ExceptionTypeImm) { return ""; }
 		std::string describeImm(RethrowImm) { return ""; }
 

@@ -655,6 +655,8 @@ struct FunctionValidationContext
 						imm.alignmentLog2 != naturalAlignmentLog2);
 	}
 
+	void validateImm(AtomicFenceImm) {}
+
 	void validateImm(DataSegmentAndMemImm imm)
 	{
 		VALIDATE_INDEX(imm.memoryIndex, module.memories.size());

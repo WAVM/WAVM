@@ -664,6 +664,19 @@ void serialize(Stream& stream,
 
 template<typename Stream>
 void serialize(Stream& stream,
+			   AtomicFenceImm& imm,
+			   const FunctionDef&,
+			   const ModuleSerializationState&)
+{
+	U8 memoryOrder = 0;
+	serializeNativeValue(stream, memoryOrder);
+
+	if(Stream::isInput && memoryOrder != 0)
+	{ throw FatalSerializationException("Invalid memory order in atomic.fence instruction"); }
+}
+
+template<typename Stream>
+void serialize(Stream& stream,
 			   ExceptionTypeImm& imm,
 			   const FunctionDef&,
 			   const ModuleSerializationState&)

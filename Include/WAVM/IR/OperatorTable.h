@@ -460,7 +460,7 @@
 	visitOp(0xfe01, i32_atomic_wait           , "i32.atomic.wait"           , AtomicLoadOrStoreImm<2>   , WAVM_WAIT(i32)            , atomics                )   \
 	visitOp(0xfe02, i64_atomic_wait           , "i64.atomic.wait"           , AtomicLoadOrStoreImm<3>   , WAVM_WAIT(i64)            , atomics                )   \
 /* Atomic fence                                                                                                                                               */ \
-	visitOp(0xfe03, atomic_fence              , "atomic.fence"              , NoImm                     , WAVM_NONE                 , atomics                )   \
+	visitOp(0xfe03, atomic_fence              , "atomic.fence"              , AtomicFenceImm            , WAVM_NONE                 , atomics                )   \
 /* Atomic load/store                                                                                                                                          */ \
 	visitOp(0xfe10, i32_atomic_load           , "i32.atomic.load"           , AtomicLoadOrStoreImm<2>   , WAVM_LOAD(i32)            , atomics                )   \
 	visitOp(0xfe11, i64_atomic_load           , "i64.atomic.load"           , AtomicLoadOrStoreImm<3>   , WAVM_LOAD(i64)            , atomics                )   \
