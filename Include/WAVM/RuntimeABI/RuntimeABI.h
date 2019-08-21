@@ -140,7 +140,9 @@ namespace WAVM { namespace Runtime {
 	};
 
 	typedef Runtime::ContextRuntimeData* (*InvokeThunkPointer)(const Runtime::Function*,
-															   Runtime::ContextRuntimeData*);
+															   Runtime::ContextRuntimeData*,
+															   const IR::UntaggedValue* arguments,
+															   IR::UntaggedValue* results);
 
 	// Metadata about a function, used to hold data that can't be emitted directly in an object
 	// file, or must be mutable.

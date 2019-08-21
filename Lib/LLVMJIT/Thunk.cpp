@@ -71,8 +71,12 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 	llvm::Module llvmModule("", llvmContext);
 	std::unique_ptr<llvm::TargetMachine> targetMachine = getTargetMachine(getHostTargetSpec());
 	llvmModule.setDataLayout(targetMachine->createDataLayout());
-	auto llvmFunctionType = llvm::FunctionType::get(
-		llvmContext.i8PtrType, {llvmContext.i8PtrType, llvmContext.i8PtrType}, false);
+	auto llvmFunctionType = llvm::FunctionType::get(llvmContext.i8PtrType,
+													{llvmContext.i8PtrType,
+													 llvmContext.i8PtrType,
+													 llvmContext.i8PtrType,
+													 llvmContext.i8PtrType},
+													false);
 	auto function = llvm::Function::Create(
 		llvmFunctionType, llvm::Function::ExternalLinkage, "thunk", &llvmModule);
 	setRuntimeFunctionPrefix(llvmContext,
@@ -84,31 +88,25 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 
 	llvm::Value* calleeFunction = &*(function->args().begin() + 0);
 	llvm::Value* contextPointer = &*(function->args().begin() + 1);
+	llvm::Value* argsArray = &*(function->args().begin() + 2);
+	llvm::Value* resultsArray = &*(function->args().begin() + 3);
 
 	EmitContext emitContext(llvmContext, nullptr);
 	emitContext.irBuilder.SetInsertPoint(llvm::BasicBlock::Create(llvmContext, "entry", function));
 
 	emitContext.initContextVariables(contextPointer);
 
-	// Load the function's arguments from an array of 64-bit values at an address provided by the
-	// caller.
+	// Load the function's arguments from the argument array.
 	std::vector<llvm::Value*> arguments;
-	Uptr argDataOffset = 0;
-	for(ValueType parameterType : functionType.params())
+	for(Uptr argIndex = 0; argIndex < functionType.params().size(); ++argIndex)
 	{
-		// Naturally align each argument.
-		const U32 numArgBytes = getTypeByteWidth(parameterType);
-		argDataOffset = (argDataOffset + numArgBytes - 1) & -numArgBytes;
-
-		arguments.push_back(emitContext.loadFromUntypedPointer(
-			emitContext.irBuilder.CreateInBoundsGEP(
-				contextPointer,
-				{emitLiteral(llvmContext,
-							 argDataOffset + offsetof(ContextRuntimeData, thunkArgAndReturnData))}),
-			asLLVMType(llvmContext, parameterType),
-			numArgBytes));
-
-		argDataOffset += numArgBytes;
+		const ValueType paramType = functionType.params()[argIndex];
+		llvm::Value* argOffset = emitLiteral(llvmContext, argIndex * sizeof(UntaggedValue));
+		llvm::Value* arg = emitContext.loadFromUntypedPointer(
+			emitContext.irBuilder.CreateInBoundsGEP(argsArray, {argOffset}),
+			asLLVMType(llvmContext, paramType),
+			alignof(UntaggedValue));
+		arguments.push_back(arg);
 	}
 
 	// Call the function.
@@ -122,28 +120,19 @@ InvokeThunkPointer LLVMJIT::getInvokeThunk(FunctionType functionType)
 		functionType,
 		IR::CallingConvention::wasm);
 
-	// If the function has a return value, write it to the context invoke return memory.
+	// Write the function's results to the results array.
 	WAVM_ASSERT(results.size() == functionType.results().size());
-	auto newContextPointer = emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable);
-	Uptr resultOffset = 0;
 	for(Uptr resultIndex = 0; resultIndex < results.size(); ++resultIndex)
 	{
-		const ValueType resultType = functionType.results()[resultIndex];
-		const U8 resultNumBytes = getTypeByteWidth(resultType);
-
-		resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
-		WAVM_ASSERT(resultOffset < maxThunkArgAndReturnBytes);
-
-		emitContext.irBuilder.CreateStore(
-			results[resultIndex],
-			emitContext.irBuilder.CreatePointerCast(
-				emitContext.irBuilder.CreateInBoundsGEP(newContextPointer,
-														{emitLiteral(llvmContext, resultOffset)}),
-				asLLVMType(llvmContext, resultType)->getPointerTo()));
-
-		resultOffset += resultNumBytes;
+		llvm::Value* resultOffset = emitLiteral(llvmContext, resultIndex * sizeof(UntaggedValue));
+		llvm::Value* result = results[resultIndex];
+		emitContext.storeToUntypedPointer(
+			result,
+			emitContext.irBuilder.CreateInBoundsGEP(resultsArray, {resultOffset}),
+			alignof(UntaggedValue));
 	}
 
+	// Return the new context pointer.
 	emitContext.irBuilder.CreateRet(
 		emitContext.irBuilder.CreateLoad(emitContext.contextPointerVariable));
 

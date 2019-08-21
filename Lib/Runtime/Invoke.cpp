@@ -64,64 +64,12 @@ void Runtime::invokeFunction(Context* context,
 	};
 	WAVM_ASSERT(invokeThunk);
 
-	// Copy the arguments into the scratch buffer in ContextRuntimeData.
-	ContextRuntimeData* contextRuntimeData
-		= &context->compartment->runtimeData->contexts[context->id];
-	U8* argData = contextRuntimeData->thunkArgAndReturnData;
-	Uptr argDataOffset = 0;
-	for(Uptr argumentIndex = 0; argumentIndex < functionType.params().size(); ++argumentIndex)
-	{
-		const ValueType type = functionType.params()[argumentIndex];
-		const UntaggedValue& argument = arguments[argumentIndex];
-
-		// Naturally align each argument.
-		const Uptr numArgBytes = getTypeByteWidth(type);
-		argDataOffset = (argDataOffset + numArgBytes - 1) & -numArgBytes;
-
-		if(argDataOffset >= maxThunkArgAndReturnBytes)
-		{
-			// Throw an exception if the invoke uses too much memory for arguments.
-			throwException(ExceptionTypes::outOfMemory);
-		}
-		memcpy(argData + argDataOffset, argument.bytes, getTypeByteWidth(type));
-		argDataOffset += numArgBytes;
-	}
-
 	// Use unwindSignalsAsExceptions to ensure that any signal that occurs in WebAssembly code calls
 	// C++ destructors on the stack between here and where it is caught.
-	unwindSignalsAsExceptions([&contextRuntimeData, invokeThunk, function] {
+	unwindSignalsAsExceptions([&] {
+		ContextRuntimeData* contextRuntimeData = getContextRuntimeData(context);
+
 		// Call the invoke thunk.
-		contextRuntimeData = (*invokeThunk)(function, contextRuntimeData);
+		(*invokeThunk)(function, contextRuntimeData, arguments, outResults);
 	});
-
-	// Copy the results from the scratch buffer in ContextRuntimeData.
-	Uptr resultOffset = 0;
-	for(Uptr resultIndex = 0; resultIndex < functionType.results().size(); ++resultIndex)
-	{
-		const ValueType resultType = functionType.results()[resultIndex];
-		const U8 resultNumBytes = getTypeByteWidth(resultType);
-
-		resultOffset = (resultOffset + resultNumBytes - 1) & -I8(resultNumBytes);
-		WAVM_ASSERT(resultOffset < maxThunkArgAndReturnBytes);
-		WAVM_ASSERT((resultOffset & (resultNumBytes - 1)) == 0)
-
-		U8* result = contextRuntimeData->thunkArgAndReturnData + resultOffset;
-		switch(resultType)
-		{
-		case ValueType::i32: outResults[resultIndex].i32 = *(I32*)result; break;
-		case ValueType::i64: outResults[resultIndex].i64 = *(I64*)result; break;
-		case ValueType::f32: outResults[resultIndex].f32 = *(F32*)result; break;
-		case ValueType::f64: outResults[resultIndex].f64 = *(F64*)result; break;
-		case ValueType::v128: outResults[resultIndex].v128 = *(V128*)result; break;
-		case ValueType::anyref: outResults[resultIndex].object = *(Object**)result; break;
-		case ValueType::funcref: outResults[resultIndex].function = *(Function**)result; break;
-
-		case ValueType::none:
-		case ValueType::any:
-		case ValueType::nullref:
-		default: WAVM_UNREACHABLE();
-		};
-
-		resultOffset += resultNumBytes;
-	}
 }
