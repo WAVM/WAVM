@@ -88,6 +88,11 @@ namespace WAVM { namespace LLVMJIT {
 
 		llvm::PointerType* i8PtrType;
 
+		llvm::Type* i8x8Type;
+		llvm::Type* i16x4Type;
+		llvm::Type* i32x2Type;
+		llvm::Type* i64x1Type;
+
 		llvm::Type* i8x16Type;
 		llvm::Type* i16x8Type;
 		llvm::Type* i32x4Type;

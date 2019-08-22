@@ -728,18 +728,30 @@ void EmitFunctionContext::v8x16_swizzle(NoImm)
 	auto indexVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 	auto elementVector = irBuilder.CreateBitCast(pop(), llvmContext.i8x16Type);
 
-	// WASM defines any out-of-range index to write zero to the output vector, but x86 pshufb just
-	// uses the index modulo 16, and only writes zero if the MSB of the index is 1. Do a saturated
-	// add of 112 to set the MSB in any index >= 16 while leaving the index modulo 16 unchanged.
-	auto constant112 = llvm::ConstantInt::get(llvmContext.i8Type, 112);
-	auto saturatedIndexVector
-		= emitAddUnsignedSaturated(irBuilder,
-								   indexVector,
-								   llvm::ConstantVector::getSplat(16, constant112),
-								   llvmContext.i8x16Type);
+	const llvm::Triple::ArchType targetArch
+		= moduleContext.targetMachine->getTargetTriple().getArch();
+	if(targetArch == llvm::Triple::x86_64 || targetArch == llvm::Triple::x86)
+	{
+		// WASM defines any out-of-range index to write zero to the output vector, but x86 pshufb
+		// just uses the index modulo 16, and only writes zero if the MSB of the index is 1. Do a
+		// saturated add of 112 to set the MSB in any index >= 16 while leaving the index modulo 16
+		// unchanged.
+		auto constant112 = llvm::ConstantInt::get(llvmContext.i8Type, 112);
+		auto saturatedIndexVector
+			= emitAddUnsignedSaturated(irBuilder,
+									   indexVector,
+									   llvm::ConstantVector::getSplat(16, constant112),
+									   llvmContext.i8x16Type);
 
-	push(callLLVMIntrinsic(
-		{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
+		push(callLLVMIntrinsic(
+			{}, llvm::Intrinsic::x86_ssse3_pshuf_b_128, {elementVector, saturatedIndexVector}));
+	}
+	else if(targetArch == llvm::Triple::aarch64)
+	{
+		push(callLLVMIntrinsic({llvmContext.i8x16Type},
+							   llvm::Intrinsic::aarch64_neon_tbl1,
+							   {elementVector, indexVector}));
+	}
 }
 
 void EmitFunctionContext::v8x16_shuffle(IR::ShuffleImm<16> imm)

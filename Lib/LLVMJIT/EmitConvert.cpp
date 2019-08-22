@@ -335,18 +335,55 @@ EMIT_SIMD_SPLAT(i64x2, scalar, 2)
 EMIT_SIMD_SPLAT(f32x4, scalar, 4)
 EMIT_SIMD_SPLAT(f64x2, scalar, 2)
 
-#define EMIT_SIMD_NARROW(name, sourceType, intrinsicId)                                            \
+#define EMIT_SIMD_NARROW(name, sourceType, halfDestType, x86IntrinsicId, aarch64IntrinsicId)       \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \
 	{                                                                                              \
 		auto right = irBuilder.CreateBitCast(pop(), sourceType);                                   \
 		auto left = irBuilder.CreateBitCast(pop(), sourceType);                                    \
-		push(callLLVMIntrinsic({}, llvm::Intrinsic::intrinsicId, {left, right}));                  \
+		const llvm::Triple::ArchType targetArch                                                    \
+			= moduleContext.targetMachine->getTargetTriple().getArch();                            \
+		if(targetArch == llvm::Triple::x86_64 || targetArch == llvm::Triple::x86)                  \
+		{ push(callLLVMIntrinsic({}, x86IntrinsicId, {left, right})); }                            \
+		else if(targetArch == llvm::Triple::aarch64)                                               \
+		{                                                                                          \
+			llvm::Value* halfInput[2]{left, right};                                                \
+			llvm::Value* result = llvm::UndefValue::get(llvmContext.i64x2Type);                    \
+			for(U64 halfIndex = 0; halfIndex < 2; ++halfIndex)                                     \
+			{                                                                                      \
+				result = irBuilder.CreateInsertElement(                                            \
+					result,                                                                        \
+					irBuilder.CreateExtractElement(                                                \
+						irBuilder.CreateBitCast(                                                   \
+							callLLVMIntrinsic(                                                     \
+								{halfDestType}, aarch64IntrinsicId, {halfInput[halfIndex]}),       \
+							llvmContext.i64x1Type),                                                \
+						U64(0)),                                                                   \
+					halfIndex);                                                                    \
+			}                                                                                      \
+			push(result);                                                                          \
+		}                                                                                          \
 	}
 
-EMIT_SIMD_NARROW(i8x16_narrow_i16x8_s, llvmContext.i16x8Type, x86_sse2_packsswb_128)
-EMIT_SIMD_NARROW(i8x16_narrow_i16x8_u, llvmContext.i16x8Type, x86_sse2_packuswb_128)
-EMIT_SIMD_NARROW(i16x8_narrow_i32x4_s, llvmContext.i32x4Type, x86_sse2_packssdw_128)
-EMIT_SIMD_NARROW(i16x8_narrow_i32x4_u, llvmContext.i32x4Type, x86_sse41_packusdw)
+EMIT_SIMD_NARROW(i8x16_narrow_i16x8_s,
+				 llvmContext.i16x8Type,
+				 llvmContext.i8x8Type,
+				 llvm::Intrinsic::x86_sse2_packsswb_128,
+				 llvm::Intrinsic::aarch64_neon_sqxtn)
+EMIT_SIMD_NARROW(i8x16_narrow_i16x8_u,
+				 llvmContext.i16x8Type,
+				 llvmContext.i8x8Type,
+				 llvm::Intrinsic::x86_sse2_packuswb_128,
+				 llvm::Intrinsic::aarch64_neon_sqxtun)
+EMIT_SIMD_NARROW(i16x8_narrow_i32x4_s,
+				 llvmContext.i32x4Type,
+				 llvmContext.i16x4Type,
+				 llvm::Intrinsic::x86_sse2_packssdw_128,
+				 llvm::Intrinsic::aarch64_neon_sqxtn)
+EMIT_SIMD_NARROW(i16x8_narrow_i32x4_u,
+				 llvmContext.i32x4Type,
+				 llvmContext.i16x4Type,
+				 llvm::Intrinsic::x86_sse41_packusdw,
+				 llvm::Intrinsic::aarch64_neon_sqxtun)
 
 #define EMIT_SIMD_WIDEN(name, destType, sourceType, baseSourceElementIndex, numElements, extend)   \
 	void EmitFunctionContext::name(IR::NoImm)                                                      \

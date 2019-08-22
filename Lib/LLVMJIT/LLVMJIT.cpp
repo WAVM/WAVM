@@ -132,6 +132,11 @@ LLVMContext::LLVMContext()
 
 	anyrefType = llvm::StructType::create("Object", i8Type)->getPointerTo();
 
+	i8x8Type = llvm::VectorType::get(i8Type, 8);
+	i16x4Type = llvm::VectorType::get(i16Type, 4);
+	i32x2Type = llvm::VectorType::get(i32Type, 2);
+	i64x1Type = llvm::VectorType::get(i64Type, 1);
+
 	i8x16Type = llvm::VectorType::get(i8Type, 16);
 	i16x8Type = llvm::VectorType::get(i16Type, 8);
 	i32x4Type = llvm::VectorType::get(i32Type, 4);
@@ -192,7 +197,7 @@ TargetValidationResult LLVMJIT::validateTargetMachine(
 	}
 	else if(targetArch == llvm::Triple::aarch64)
 	{
-		if(featureSpec.simd /* && !targetMachine->getMCSubtargetInfo()->checkFeatures("+neon")*/)
+		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+neon"))
 		{ return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
 
 		return TargetValidationResult::valid;
