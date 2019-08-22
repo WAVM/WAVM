@@ -6,7 +6,6 @@
 
 #include <atomic>
 #include <map>
-
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"

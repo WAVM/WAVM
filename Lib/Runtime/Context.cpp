@@ -1,7 +1,6 @@
 #include <string.h>
 #include <atomic>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"

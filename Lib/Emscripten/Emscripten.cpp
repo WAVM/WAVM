@@ -1,3 +1,4 @@
+#include "WAVM/Emscripten/Emscripten.h"
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -9,11 +10,6 @@
 #include <new>
 #include <string>
 #include <utility>
-#ifndef _WIN32
-#include <sys/uio.h>
-#endif
-
-#include "WAVM/Emscripten/Emscripten.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
@@ -29,6 +25,10 @@
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/VFS/VFS.h"
+
+#ifndef _WIN32
+#include <sys/uio.h>
+#endif
 
 using namespace WAVM;
 using namespace WAVM::IR;

@@ -1,5 +1,4 @@
 #include "WAVM/wavm-c/wavm-c.h"
-
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>

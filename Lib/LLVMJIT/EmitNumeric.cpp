@@ -1,5 +1,4 @@
 #include <stdint.h>
-
 #include "EmitContext.h"
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"

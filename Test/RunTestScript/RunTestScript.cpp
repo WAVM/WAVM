@@ -7,7 +7,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/Assert.h"

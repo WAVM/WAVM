@@ -1,13 +1,12 @@
 #pragma once
 
+#include <memory>
+#include <vector>
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Value.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/WASTParse/WASTParse.h"
-
-#include <memory>
-#include <vector>
 
 namespace WAVM { namespace WAST {
 	struct Command

@@ -1,7 +1,6 @@
 #include <intrin.h>
 #include <atomic>
 #include <memory>
-
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"

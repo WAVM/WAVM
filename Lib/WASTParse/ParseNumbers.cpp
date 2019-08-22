@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <cmath>
 #include <string>
-
 #include "Lexer.h"
 #include "Parse.h"
 #include "WAVM/Inline/Assert.h"

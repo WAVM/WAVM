@@ -4,7 +4,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "Lexer.h"
 #include "Parse.h"
 #include "WAVM/IR/Module.h"

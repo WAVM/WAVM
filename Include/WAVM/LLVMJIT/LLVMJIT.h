@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/HashMap.h"

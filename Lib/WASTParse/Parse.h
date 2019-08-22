@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "Lexer.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"

@@ -1,11 +1,10 @@
 #pragma once
 
+#include <initializer_list>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Hash.h"
 #include "WAVM/Inline/HashTable.h"
-
-#include <initializer_list>
 
 namespace WAVM {
 	template<typename Element> struct HashSetIterator

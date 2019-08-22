@@ -1,12 +1,11 @@
 #pragma once
 
-#include "WAVM/Inline/Assert.h"
-#include "WAVM/Inline/BasicTypes.h"
-
 #include <string.h>
 #include <algorithm>
 #include <string>
 #include <vector>
+#include "WAVM/Inline/Assert.h"
+#include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM { namespace Serialization {
 	// An exception that is thrown for various errors during serialization.

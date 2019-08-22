@@ -1,9 +1,9 @@
+#include "WAVM/Platform/Memory.h"
 #include <stdint.h>
 #include <string.h>
 #include <atomic>
 #include <memory>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"
@@ -12,7 +12,6 @@
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Lock.h"
 #include "WAVM/Platform/Intrinsic.h"
-#include "WAVM/Platform/Memory.h"
 #include "WAVM/Platform/Mutex.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"

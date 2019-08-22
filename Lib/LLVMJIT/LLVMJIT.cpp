@@ -1,12 +1,11 @@
+#include "WAVM/LLVMJIT/LLVMJIT.h"
 #include <utility>
-
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/HashMap.h"
-#include "WAVM/LLVMJIT/LLVMJIT.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 #include "llvm/ADT/APInt.h"

@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <string>
 #include <utility>
-
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/DenseStaticIntSet.h"
 

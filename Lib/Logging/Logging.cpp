@@ -1,9 +1,8 @@
+#include "WAVM/Logging/Logging.h"
 #include <atomic>
-
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Config.h"
-#include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"

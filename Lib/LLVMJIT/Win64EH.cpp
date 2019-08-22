@@ -1,7 +1,6 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <string>
-
 #include "LLVMJITPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"

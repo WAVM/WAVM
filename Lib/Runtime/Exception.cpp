@@ -3,7 +3,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"

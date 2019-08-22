@@ -1,5 +1,8 @@
 #pragma once
 
+#include <atomic>
+#include <functional>
+#include <memory>
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/DenseStaticIntSet.h"
@@ -13,10 +16,6 @@
 #include "WAVM/Runtime/Intrinsics.h"
 #include "WAVM/Runtime/Runtime.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
-
-#include <atomic>
-#include <functional>
-#include <memory>
 
 namespace WAVM { namespace Intrinsics {
 	struct Module;

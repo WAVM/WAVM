@@ -1,7 +1,6 @@
 #include <errno.h>
 #include <pthread.h>
 #include <sys/time.h>
-
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Inline/I128.h"

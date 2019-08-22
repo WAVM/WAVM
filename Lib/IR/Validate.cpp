@@ -1,11 +1,9 @@
 #include "WAVM/IR/Validate.h"
-
 #include <stdint.h>
 #include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
-
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Module.h"

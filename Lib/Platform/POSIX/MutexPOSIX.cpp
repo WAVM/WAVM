@@ -1,5 +1,4 @@
 #include <pthread.h>
-
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Defines.h"

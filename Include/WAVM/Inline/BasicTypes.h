@@ -1,8 +1,8 @@
 #pragma once
+
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
-
 #include "WAVM/Platform/Defines.h"
 
 typedef uint8_t U8;

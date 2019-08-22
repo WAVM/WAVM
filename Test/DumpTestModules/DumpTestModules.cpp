@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/Assert.h"

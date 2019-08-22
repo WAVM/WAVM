@@ -1,3 +1,4 @@
+#include "Parse.h"
 #include <assert.h>
 #include <stdint.h>
 #include <cstdarg>
@@ -5,9 +6,7 @@
 #include <memory>
 #include <string>
 #include <utility>
-
 #include "Lexer.h"
-#include "Parse.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"

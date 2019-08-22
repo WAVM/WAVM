@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Operators.h"
 

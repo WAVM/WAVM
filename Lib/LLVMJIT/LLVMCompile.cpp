@@ -4,7 +4,6 @@
 #include <system_error>
 #include <utility>
 #include <vector>
-
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Module.h"
 #include "WAVM/Inline/Assert.h"

@@ -2,7 +2,6 @@
 
 #include <string>
 #include <vector>
-
 #include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM { namespace IR {

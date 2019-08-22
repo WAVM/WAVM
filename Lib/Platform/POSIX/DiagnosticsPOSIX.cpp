@@ -1,7 +1,6 @@
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <string>
-
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Platform/Diagnostics.h"

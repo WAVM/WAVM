@@ -2,7 +2,6 @@
 
 #include <setjmp.h>
 #include <functional>
-
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Signal.h"

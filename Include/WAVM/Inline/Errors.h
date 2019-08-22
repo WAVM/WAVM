@@ -1,8 +1,7 @@
 #pragma once
 
-#include "WAVM/Platform/Diagnostics.h"
-
 #include <cstdarg>
+#include "WAVM/Platform/Diagnostics.h"
 
 namespace WAVM { namespace Errors {
 	// Fatal error handling.

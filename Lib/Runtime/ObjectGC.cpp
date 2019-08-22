@@ -2,7 +2,6 @@
 #include <atomic>
 #include <utility>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"

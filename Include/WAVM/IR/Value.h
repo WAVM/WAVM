@@ -1,9 +1,8 @@
 #pragma once
 
+#include <string.h>
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
-
-#include <string.h>
 
 namespace WAVM { namespace Runtime {
 	struct Object;

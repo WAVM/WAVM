@@ -4,7 +4,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "EmitContext.h"
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Types.h"

@@ -2,7 +2,6 @@
 #include <cmath>
 #include <string>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"

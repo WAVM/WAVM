@@ -1,12 +1,11 @@
+#include <atomic>
+#include <functional>
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/Platform/Signal.h"
 #include "WindowsPrivate.h"
-
-#include <atomic>
-#include <functional>
 
 #define NOMINMAX
 #include <Windows.h>

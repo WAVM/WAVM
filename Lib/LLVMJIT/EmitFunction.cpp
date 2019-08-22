@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"

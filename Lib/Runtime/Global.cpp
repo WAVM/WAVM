@@ -2,7 +2,6 @@
 #include <string.h>
 #include <atomic>
 #include <vector>
-
 #include "RuntimePrivate.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/IR/Value.h"

@@ -2,7 +2,6 @@
 
 #include <string.h>
 #include <vector>
-
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/IR/Types.h"

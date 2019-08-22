@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-
 #include "WAVM/IR/Value.h"
 #include "WAVM/Runtime/Runtime.h"
 

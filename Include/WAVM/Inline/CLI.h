@@ -1,11 +1,10 @@
 #pragma once
 
+#include <vector>
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Logging/Logging.h"
 #include "WAVM/Platform/File.h"
 #include "WAVM/VFS/VFS.h"
-
-#include <vector>
 
 namespace WAVM {
 	inline bool loadFile(const char* filename, std::vector<U8>& outFileContents)

@@ -3,7 +3,6 @@
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <unistd.h>
-
 #include "POSIXPrivate.h"
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"

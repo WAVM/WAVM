@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/IR.h"
 #include "WAVM/IR/Types.h"

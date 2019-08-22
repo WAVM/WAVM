@@ -1,14 +1,13 @@
 #pragma once
 
+#include <cctype>
+#include <string>
+#include <vector>
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Operators.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/LLVMJIT/LLVMJIT.h"
 #include "WAVM/RuntimeABI/RuntimeABI.h"
-
-#include <cctype>
-#include <string>
-#include <vector>
 
 // Define some macros that can be used to wrap the LLVM includes and disable VC warnings.
 #ifdef _MSC_VER

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <intrin.h>
-
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Time.h"
 #include "WAVM/Platform/Diagnostics.h"

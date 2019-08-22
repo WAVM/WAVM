@@ -4,7 +4,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
 #include "WAVM/Emscripten/Emscripten.h"
 #include "WAVM/IR/FeatureSpec.h"
 #include "WAVM/IR/Module.h"

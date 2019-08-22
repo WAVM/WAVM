@@ -1,6 +1,5 @@
 #include <memory>
 #include <vector>
-
 #include "EmitFunctionContext.h"
 #include "EmitModuleContext.h"
 #include "LLVMJITPrivate.h"

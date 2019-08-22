@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Platform/Defines.h"
 #include "WAVM/VFS/VFS.h"

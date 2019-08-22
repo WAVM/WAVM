@@ -11,7 +11,6 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
-
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Inline/BasicTypes.h"
 #include "WAVM/Inline/Errors.h"

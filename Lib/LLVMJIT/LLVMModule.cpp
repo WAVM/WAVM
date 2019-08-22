@@ -8,7 +8,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
 #include "LLVMJITPrivate.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/Assert.h"
