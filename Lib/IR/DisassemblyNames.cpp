@@ -9,6 +9,7 @@
 #include "WAVM/IR/Module.h"
 #include "WAVM/IR/Types.h"
 #include "WAVM/Inline/BasicTypes.h"
+#include "WAVM/Inline/LEB128.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/Logging/Logging.h"
 

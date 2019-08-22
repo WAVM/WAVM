@@ -21,7 +21,8 @@ set(PublicHeaders
 	Serialization.h
 	Time.h
 	Timing.h
-	Unicode.h)
+	Unicode.h
+	LEB128.h)
 
 WAVM_ADD_LIB_COMPONENT(Inline
 	NONCOMPILED_SOURCES ${PublicHeaders})

@@ -16,6 +16,7 @@
 #include "WAVM/Inline/HashMap.h"
 #include "WAVM/Inline/HashSet.h"
 #include "WAVM/Inline/IsNameChar.h"
+#include "WAVM/Inline/LEB128.h"
 #include "WAVM/Inline/Serialization.h"
 #include "WAVM/WASTPrint/WASTPrint.h"
 
