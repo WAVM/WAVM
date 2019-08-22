@@ -715,10 +715,12 @@ static void processCommandWithCloning(TestScriptState& state, const Command* com
 			else
 			{
 				const Uptr numMemoryBytes = numMemoryPages * IR::numBytesPerPage;
+				U8* memoryBytes = memoryArrayPtr<U8>(memory, 0, numMemoryBytes);
+				U8* clonedMemoryBytes = memoryArrayPtr<U8>(clonedMemory, 0, numMemoryBytes);
 				for(Uptr byteIndex = 0; byteIndex < numMemoryBytes; ++byteIndex)
 				{
-					const U8 value = memoryRef<U8>(memory, byteIndex);
-					const U8 clonedValue = memoryRef<U8>(clonedMemory, byteIndex);
+					const U8 value = memoryBytes[byteIndex];
+					const U8 clonedValue = clonedMemoryBytes[byteIndex];
 					if(value != clonedValue)
 					{
 						testErrorf(state,
