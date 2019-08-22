@@ -269,9 +269,12 @@ private:
 		if(section.numCommittedBytes > (section.numPages << Platform::getBytesPerPageLog2()))
 		{ Errors::fatal("didn't reserve enough space in section"); }
 
+		// Drop the '.' prefix on section names.
+		if(sectionName.size() && sectionName[0] == '.') { sectionName = sectionName.drop_front(1); }
+
 		// Record the address the section was allocated at.
 		sectionNameToContentsMap.insert(std::make_pair(
-			sectionName.drop_front(1),
+			sectionName,
 			llvm::MemoryBuffer::getMemBuffer(
 				llvm::StringRef((const char*)allocationBaseAddress, numBytes), "", false)));
 
