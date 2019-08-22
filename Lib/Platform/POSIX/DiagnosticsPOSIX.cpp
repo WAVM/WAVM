@@ -5,7 +5,7 @@
 #include "WAVM/Inline/Assert.h"
 #include "WAVM/Platform/Diagnostics.h"
 
-#if WAVM_ENABLE_RUNTIME
+#if WAVM_ENABLE_UNWIND
 #define UNW_LOCAL_ONLY
 #include "libunwind.h"
 #endif
@@ -25,7 +25,7 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 {
 	CallStack result;
 
-#if WAVM_ENABLE_RUNTIME
+#if WAVM_ENABLE_UNWIND
 	unw_context_t context;
 	WAVM_ERROR_UNLESS(!unw_getcontext(&context));
 
@@ -48,7 +48,7 @@ CallStack Platform::captureCallStack(Uptr numOmittedFramesFromTop)
 
 bool Platform::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
-#if WAVM_ENABLE_RUNTIME
+#if defined(__linux__) || defined(__APPLE__)
 	// Look up static symbol information for the address.
 	Dl_info symbolInfo;
 	if(dladdr((void*)ip, &symbolInfo))

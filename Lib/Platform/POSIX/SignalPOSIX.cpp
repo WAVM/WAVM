@@ -122,10 +122,11 @@ bool Platform::catchSignals(void (*thunk)(void*),
 #endif
 }
 
+// The LLVM project libunwind implementation that WAVM uses matches the Apple ABI, which expects
+// __register_frame and __deregister_frame to be called for each FDE in the .eh_frame section.
+#if WAVM_ENABLE_UNWIND || defined(__APPLE__)
 static void visitFDEs(const U8* ehFrames, Uptr numBytes, void (*visitFDE)(const void*))
 {
-	// The LLVM project libunwind implementation that WAVM uses expects __register_frame and
-	// __deregister_frame to be called for each FDE in the .eh_frame section.
 	const U8* next = ehFrames;
 	const U8* end = ehFrames + numBytes;
 	do
@@ -156,3 +157,14 @@ void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr 
 {
 	visitFDEs(ehFrames, numBytes, __deregister_frame);
 }
+#else
+void Platform::registerEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
+{
+	__register_frame(ehFrames);
+}
+
+void Platform::deregisterEHFrames(const U8* imageBase, const U8* ehFrames, Uptr numBytes)
+{
+	__deregister_frame(ehFrames);
+}
+#endif

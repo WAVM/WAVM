@@ -69,6 +69,10 @@ if(WAVM_ENABLE_RUNTIME)
 	# CMake lists (strings with semicolon-separated elements).
 	separate_arguments(LLVM_DEFINITIONS)
 	separate_arguments(LLVM_INCLUDE_DIRS)
+	
+	option(WAVM_ENABLE_UNWIND "enables printing stack traces" ON)
+else()
+	set(WAVM_ENABLE_UNWIND OFF)
 endif()
 
 # Tell MASM to create SAFESEH-compatible object files on Win32.
@@ -406,6 +410,9 @@ if(WAVM_ENABLE_RUNTIME)
 	add_subdirectory(Lib/wavm-c)
 	add_subdirectory(Programs/wavm-compile)
 	add_subdirectory(Programs/wavm-run)
+endif()
+
+if(WAVM_ENABLE_UNWIND)
 	add_subdirectory(ThirdParty/libunwind)
 endif()
 

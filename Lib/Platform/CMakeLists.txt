@@ -72,8 +72,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 endif()
 
 if(NOT MSVC AND WAVM_ENABLE_RUNTIME)
-	list(APPEND PLATFORM_PRIVATE_LIBS dl WAVMUnwind)
+	list(APPEND PLATFORM_PRIVATE_LIBS dl)
+endif()
 
+if(NOT MSVC AND WAVM_ENABLE_UNWIND)
+	list(APPEND PLATFORM_PRIVATE_LIBS WAVMUnwind)
+	
 	# This can't be set in the WAVMUnwind target's public include directories without adding the
 	# libunwind headers to the install, so just set it manually for the Platform component.
 	set(PLATFORM_PRIVATE_INCLUDE_DIRECTORIES ${WAVM_SOURCE_DIR}/ThirdParty/libunwind/include)
