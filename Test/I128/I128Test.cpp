@@ -30,7 +30,7 @@ I32 main()
 	I128 phaseMasks[3] = {I128::max(), UINT64_MAX, 32767};
 	for(Uptr phase = 0; phase < 3; ++phase)
 	{
-		for(Uptr i = 0; i < 1000000; ++i)
+		for(Uptr i = 0; i < 100000; ++i)
 		{
 			I128 a = random.get() & phaseMasks[phase];
 			I128 b = random.get() & phaseMasks[phase];
