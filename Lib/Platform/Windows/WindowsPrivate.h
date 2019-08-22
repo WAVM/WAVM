@@ -50,8 +50,6 @@ static_assert(offsetof(ExecutionContext, xmm6) == 112, "unexpected offset");
 static_assert(offsetof(ExecutionContext, xmm15) == 256, "unexpected offset");
 static_assert(sizeof(ExecutionContext) == 272, "unexpected size");
 
-extern "C" U8* getStackPointer();
-
 namespace WAVM { namespace Platform {
 	void initThread();
 

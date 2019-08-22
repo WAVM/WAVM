@@ -28,10 +28,6 @@
 
 .text
 
-BEGIN_FUNC(getStackPointer)
-	br x30
-END_FUNC(getStackPointer)
-
 BEGIN_FUNC(wavm_probe_stack)
 	br x30
 END_FUNC(wavm_probe_stack)

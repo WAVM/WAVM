@@ -29,8 +29,6 @@ static_assert(offsetof(ExecutionContext, rip) == 56, "unexpected offset");
 static_assert(sizeof(ExecutionContext) == 64, "unexpected size");
 
 #ifdef __WAVIX__
-inline U8* getStackPointer() { WAVM::Errors::unimplemented("Wavix getStackPointer"); }
-
 // libunwind dynamic frame registration
 inline void __register_frame(const void* fde)
 {
@@ -43,9 +41,6 @@ inline void __deregister_frame(const void* fde)
 }
 
 #else
-// Defined in POSIX.S
-extern "C" U8* getStackPointer();
-
 // libunwind dynamic frame registration
 extern "C" void __register_frame(const void* fde);
 extern "C" void __deregister_frame(const void* fde);

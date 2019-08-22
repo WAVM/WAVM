@@ -28,11 +28,6 @@
 
 .text
 
-BEGIN_FUNC(getStackPointer)
-	lea 8(%rsp), %rax
-	ret
-END_FUNC(getStackPointer)
-
 BEGIN_FUNC(wavm_probe_stack)
 	/* On entry, the number of bytes of stack being allocated is in %rax.
 	   The allocation is relative to the caller's %rsp (i.e. %rsp+8).
