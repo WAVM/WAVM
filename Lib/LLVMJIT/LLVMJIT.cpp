@@ -98,10 +98,11 @@ llvm::JITEvaluatedSymbol LLVMJIT::resolveJITImport(llvm::StringRef name)
 
 static bool globalInitLLVM()
 {
-	llvm::InitializeNativeTarget();
-	llvm::InitializeNativeTargetAsmPrinter();
-	llvm::InitializeNativeTargetAsmParser();
-	llvm::InitializeNativeTargetDisassembler();
+	llvm::InitializeAllTargetInfos();
+	llvm::InitializeAllTargets();
+	llvm::InitializeAllTargetMCs();
+	llvm::InitializeAllAsmPrinters();
+	llvm::InitializeAllDisassemblers();
 	llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 	return true;
 }
