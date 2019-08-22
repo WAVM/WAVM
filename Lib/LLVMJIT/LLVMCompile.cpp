@@ -179,6 +179,8 @@ static std::unique_ptr<llvm::TargetMachine> getAndValidateTargetMachine(
 			"Target X86 CPU (% s) does not support SSE 4.1, which"
 			" WAVM requires for WebAssembly SIMD code.\n",
 			targetSpec.cpu.c_str());
+	case TargetValidationResult::wavmDoesNotSupportSIMDOnArch:
+		Errors::fatalf("WAVM does not support SIMD on the host CPU architecture.\n");
 
 	default: WAVM_UNREACHABLE();
 	};

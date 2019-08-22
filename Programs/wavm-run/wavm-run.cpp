@@ -407,6 +407,9 @@ struct State
 						"Host X86 CPU does not support SSE 4.1, which"
 						" WAVM requires for WebAssembly SIMD code.\n");
 			return false;
+		case LLVMJIT::TargetValidationResult::wavmDoesNotSupportSIMDOnArch:
+			Log::printf(Log::error, "WAVM does not support SIMD on the host CPU architecture.\n");
+			return false;
 
 		case LLVMJIT::TargetValidationResult::invalidTargetSpec:
 		default: WAVM_UNREACHABLE();

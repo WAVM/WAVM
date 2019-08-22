@@ -36,7 +36,8 @@ namespace WAVM { namespace LLVMJIT {
 		valid,
 		invalidTargetSpec,
 		unsupportedArchitecture,
-		x86CPUDoesNotSupportSSE41
+		x86CPUDoesNotSupportSSE41,
+		wavmDoesNotSupportSIMDOnArch
 	};
 
 	LLVMJIT_API TargetSpec getHostTargetSpec();

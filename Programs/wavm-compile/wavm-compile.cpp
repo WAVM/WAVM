@@ -219,6 +219,9 @@ int main(int argc, char** argv)
 					" WAVM requires for WebAssembly SIMD code.\n",
 					targetSpec.cpu.c_str());
 		return EXIT_FAILURE;
+	case LLVMJIT::TargetValidationResult::wavmDoesNotSupportSIMDOnArch:
+		Log::printf(Log::error, "WAVM does not support SIMD on the target CPU architecture.\n");
+		return EXIT_FAILURE;
 
 	default: WAVM_UNREACHABLE();
 	};

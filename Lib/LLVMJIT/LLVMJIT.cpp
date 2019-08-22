@@ -181,15 +181,27 @@ TargetValidationResult LLVMJIT::validateTargetMachine(
 	const std::unique_ptr<llvm::TargetMachine>& targetMachine,
 	const FeatureSpec& featureSpec)
 {
-	// Only target X86-64 for now.
-	if(targetMachine->getTargetTriple().getArch() != llvm::Triple::x86_64)
-	{ return TargetValidationResult::unsupportedArchitecture; }
+	const llvm::Triple::ArchType targetArch = targetMachine->getTargetTriple().getArch();
+	if(targetArch == llvm::Triple::x86_64)
+	{
+		// If the SIMD feature is enabled, then require the SSE4.1 CPU feature.
+		if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+sse4.1"))
+		{ return TargetValidationResult::x86CPUDoesNotSupportSSE41; }
 
-	// If the SIMD feature is enabled, then require the SSE4.1 CPU feature.
-	if(featureSpec.simd && !targetMachine->getMCSubtargetInfo()->checkFeatures("+sse4.1"))
-	{ return TargetValidationResult::x86CPUDoesNotSupportSSE41; }
+		return TargetValidationResult::valid;
+	}
+	else if(targetArch == llvm::Triple::aarch64)
+	{
+		if(featureSpec.simd /* && !targetMachine->getMCSubtargetInfo()->checkFeatures("+neon")*/)
+		{ return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
 
-	return TargetValidationResult::valid;
+		return TargetValidationResult::valid;
+	}
+	else
+	{
+		if(featureSpec.simd) { return TargetValidationResult::wavmDoesNotSupportSIMDOnArch; }
+		return TargetValidationResult::unsupportedArchitecture;
+	}
 }
 
 TargetValidationResult LLVMJIT::validateTarget(const TargetSpec& targetSpec,
