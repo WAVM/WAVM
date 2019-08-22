@@ -391,6 +391,7 @@
 		<dict><key>match</key><string>(?&lt;=[\s=();])atomic\.notify(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.atomic\.wait(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.atomic\.wait(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
+		<dict><key>match</key><string>(?&lt;=[\s=();])atomic\.fence(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.atomic\.load(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i64\.atomic\.load(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
 		<dict><key>match</key><string>(?&lt;=[\s=();])i32\.atomic\.load8_u(?=[\s=();])</string><key>name</key><string>keyword.operator.wasm</string></dict>
