@@ -39,7 +39,7 @@ static U32 memoryAccessAsPOSIXFlag(MemoryAccess access)
 	case MemoryAccess::none: return PROT_NONE;
 	case MemoryAccess::readOnly: return PROT_READ;
 	case MemoryAccess::readWrite: return PROT_READ | PROT_WRITE;
-	case MemoryAccess::execute: return PROT_EXEC;
+	case MemoryAccess::readExecute: return PROT_READ | PROT_EXEC;
 	case MemoryAccess::readWriteExecute: return PROT_EXEC | PROT_READ | PROT_WRITE;
 	}
 }

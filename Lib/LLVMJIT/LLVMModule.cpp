@@ -187,11 +187,11 @@ struct LLVMJIT::ModuleMemoryManager : llvm::RTDyldMemoryManager
 	{
 		WAVM_ASSERT(!isFinalized);
 		isFinalized = true;
-		const Platform::MemoryAccess codeAccess = Platform::MemoryAccess::execute;
 		if(codeSection.numPages)
 		{
-			WAVM_ERROR_UNLESS(Platform::setVirtualPageAccess(
-				codeSection.baseAddress, codeSection.numPages, codeAccess));
+			WAVM_ERROR_UNLESS(Platform::setVirtualPageAccess(codeSection.baseAddress,
+															 codeSection.numPages,
+															 Platform::MemoryAccess::readExecute));
 		}
 		if(readOnlySection.numPages)
 		{

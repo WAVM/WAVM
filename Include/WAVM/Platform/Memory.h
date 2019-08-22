@@ -10,7 +10,7 @@ namespace WAVM { namespace Platform {
 		none,
 		readOnly,
 		readWrite,
-		execute,
+		readExecute,
 		readWriteExecute
 	};
 
