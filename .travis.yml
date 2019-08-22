@@ -15,14 +15,14 @@ after_failure: Build/notify-discord.sh failure $DISCORD_WEBHOOK_URL
 jobs:
   include:
     - stage: build
-      name: "OSX"
+      name: "OSX/Xcode10.3"
       os: osx
       osx_image: xcode10.3
       compiler: clang
       env: ENABLE_RUNTIME=YES ENABLE_STATIC_LINKING=NO ENABLE_RELEASE_ASSERTS=NO ENABLE_ASAN=NO ENABLE_UBSAN=NO ENABLE_LIBFUZZER=NO ENABLE_TSAN=NO ENABLE_RELEASE=YES ENABLE_DEBUG=YES
 
     - stage: build
-      name: "OSX"
+      name: "OSX/Xcode11"
       os: osx
       osx_image: xcode11
       compiler: clang
