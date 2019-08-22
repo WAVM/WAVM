@@ -29,9 +29,7 @@ llvm_map_components_to_libnames(LLVM_LIBS
 	orcjit
 	RuntimeDyld
 	DebugInfoDWARF
-	AllTargetsAsmPrinters
-	AllTargetsCodeGens
-	AllTargetsDisassemblers)
+	${LLVM_TARGETS_TO_BUILD})
 
 # Create the LLVMJIT target.
 WAVM_ADD_LIB_COMPONENT(LLVMJIT
