@@ -697,18 +697,23 @@ namespace WAVM { namespace IR {
 	};
 }}
 
-template<> struct WAVM::Hash<WAVM::IR::TypeTuple>
-{
-	Uptr operator()(WAVM::IR::TypeTuple typeTuple, Uptr seed = 0) const
+// These specializations need to be declared within a WAVM namespace scope to work around a GCC bug.
+// It should be ok to write "template<> struct WAVM::Hash...", but old versions of GCC will
+// erroneously reject that. See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=56480
+namespace WAVM {
+	template<> struct Hash<IR::TypeTuple>
 	{
-		return WAVM::Hash<Uptr>()(typeTuple.getHash(), seed);
-	}
-};
+		Uptr operator()(IR::TypeTuple typeTuple, Uptr seed = 0) const
+		{
+			return Hash<Uptr>()(typeTuple.getHash(), seed);
+		}
+	};
 
-template<> struct WAVM::Hash<WAVM::IR::FunctionType>
-{
-	Uptr operator()(WAVM::IR::FunctionType functionType, Uptr seed = 0) const
+	template<> struct Hash<IR::FunctionType>
 	{
-		return WAVM::Hash<Uptr>()(functionType.getHash(), seed);
-	}
-};
+		Uptr operator()(IR::FunctionType functionType, Uptr seed = 0) const
+		{
+			return Hash<Uptr>()(functionType.getHash(), seed);
+		}
+	};
+}
