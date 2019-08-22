@@ -48,7 +48,8 @@ void* Runtime::getUserData(const Exception* exception) { return exception->userD
 bool Runtime::describeInstructionPointer(Uptr ip, std::string& outDescription)
 {
 	LLVMJIT::InstructionSource instructionSource = LLVMJIT::getInstructionSourceByAddress(ip);
-	if(!instructionSource.function) { return Platform::describeInstructionPointer(ip, outDescription); }
+	if(!instructionSource.function)
+	{ return Platform::describeInstructionPointer(ip, outDescription); }
 	else
 	{
 		outDescription = instructionSource.function->mutableData->debugName;

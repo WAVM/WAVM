@@ -118,7 +118,7 @@ namespace WAVM { namespace IR {
 		}
 		std::string describeImm(AtomicFenceImm imm)
 		{
-			switch (imm.order)
+			switch(imm.order)
 			{
 			case MemoryOrder::sequentiallyConsistent: return " seqcst";
 			default: WAVM_UNREACHABLE();
