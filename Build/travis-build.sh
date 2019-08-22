@@ -38,7 +38,8 @@ cd release
            -DWAVM_ENABLE_ASAN=${ENABLE_ASAN} \
            -DWAVM_ENABLE_UBSAN=${ENABLE_UBSAN} \
            -DWAVM_ENABLE_LIBFUZZER=${ENABLE_LIBFUZZER} \
-           -DWAVM_ENABLE_TSAN=${ENABLE_TSAN}
+           -DWAVM_ENABLE_TSAN=${ENABLE_TSAN} \
+           -DWAVM_ENABLE_UNWIND=${ENABLE_UNWIND}
   make -j2
   ctest -V -j2
   cd ..
@@ -57,7 +58,8 @@ if [ "$ENABLE_DEBUG" = "YES" ]; then
            -DWAVM_ENABLE_ASAN=${ENABLE_ASAN} \
            -DWAVM_ENABLE_UBSAN=${ENABLE_UBSAN} \
            -DWAVM_ENABLE_LIBFUZZER=${ENABLE_LIBFUZZER} \
-           -DWAVM_ENABLE_TSAN=${ENABLE_TSAN}
+           -DWAVM_ENABLE_TSAN=${ENABLE_TSAN} \
+           -DWAVM_ENABLE_UNWIND=${ENABLE_UNWIND}
   make -j2
   ctest -V -j2
   cd ..
