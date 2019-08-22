@@ -35,10 +35,15 @@ namespace WAVM { namespace Platform {
 		{
 			Uptr data[6];
 		} criticalSection;
-#elif defined(__linux__)
+#elif defined(__linux__) && defined(__x86_64__)
 		struct PthreadMutex
 		{
 			Uptr data[5];
+		} pthreadMutex;
+#elif defined(__linux__) && defined(__aarch64__)
+		struct PthreadMutex
+		{
+			Uptr data[6];
 		} pthreadMutex;
 #elif defined(__APPLE__)
 		struct PthreadMutex

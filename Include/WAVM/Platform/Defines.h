@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdlib.h>
 #include "WAVM/Inline/Config.h"
 
 #define WAVM_SUPPRESS_UNUSED(variable) (void)(variable);
@@ -47,12 +48,15 @@
 // WAVM_DEBUG_TRAP macro: breaks a debugger if one is attached, or aborts the program if not.
 #ifdef _MSC_VER
 #define WAVM_DEBUG_TRAP() __debugbreak()
-#elif !defined(__GNUC__) || WAVM_ENABLE_LIBFUZZER || !(defined(__i386__) || defined(__x86_64__))
-// Use abort() instead of int3 when fuzzing, since
+#elif defined(__GNUC__) && !WAVM_ENABLE_LIBFUZZER && (defined(__i386__) || defined(__x86_64__))
+#define WAVM_DEBUG_TRAP() __asm__ __volatile__("int3")
+#elif defined(__GNUC__) && !WAVM_ENABLE_LIBFUZZER && defined(__aarch64__)
+// See https://github.com/scottt/debugbreak/blob/master/debugbreak.h#L101
+#define WAVM_DEBUG_TRAP() __asm__ __volatile__(".inst 0xe7f001f0")
+#else
+// Use abort() instead of trap instructions when fuzzing, since
 // libfuzzer doesn't handle the breakpoint trap.
 #define WAVM_DEBUG_TRAP() abort()
-#else
-#define WAVM_DEBUG_TRAP() __asm__ __volatile__("int3")
 #endif
 
 // Define WAVM_DEBUG to 0 or 1 depending on whether it's a debug build.
