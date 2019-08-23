@@ -2,8 +2,9 @@ parameters:
   buildConfiguration: Release
   name: ''
   vmImage: 'VS2017-Win2016'
-  cmakeGenerator: "Visual Studio 15 2017 Win64"
+  cmakeArgs: '-G "Visual Studio 15 2017 Win64"'
   llvmBranch: release/6.x
+  buildLLVM: true
 
 
 jobs:
@@ -15,27 +16,38 @@ jobs:
     timeoutInMinutes: 120
 
     steps:
-    - script: git clone -b ${{ parameters.llvmBranch}} https://github.com/llvm/llvm-project $(Build.ArtifactStagingDirectory)/llvm-project
-      displayName: Clone LLVM
 
-    - task: CMake@1
-      displayName: Configure LLVM
-      inputs:
-        workingDirectory: '$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build'
-        cmakeArgs: '-G "${{ parameters.cmakeGenerator }}" -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_DOCS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_GO_TESTS=OFF -DLLVM_INCLUDE_TOOLS=OFF -DLLVM_INCLUDE_UTILS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON $(Build.ArtifactStagingDirectory)/llvm-project/llvm/'
+    # Conditionally build LLVM and configure WAVM to use it.
+    ${{ if eq(parameters.buildLLVM, 'true') }}:
+      - script: git clone -b ${{ parameters.llvmBranch}} https://github.com/llvm/llvm-project $(Build.ArtifactStagingDirectory)/llvm-project
+        displayName: Clone LLVM
 
-    - task: VSBuild@1
-      displayName: Build LLVM
-      inputs:
-        solution: '$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build/LLVM.sln'
-        platform: x64
-        configuration: ${{ parameters.buildConfiguration }}
+      - task: CMake@1
+        displayName: Configure LLVM
+        inputs:
+          workingDirectory: '$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build'
+          cmakeArgs: '${{ parameters.cmakeArgs }} -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_DOCS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_GO_TESTS=OFF -DLLVM_INCLUDE_TOOLS=OFF -DLLVM_INCLUDE_UTILS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_OPTIMIZED_TABLEGEN=ON $(Build.ArtifactStagingDirectory)/llvm-project/llvm/'
 
-    - task: CMake@1
-      displayName: Configure WAVM
-      inputs:
-        workingDirectory: '$(Build.ArtifactStagingDirectory)/build'
-        cmakeArgs: '-G "${{ parameters.cmakeGenerator }}" -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build/lib/cmake/llvm $(Build.SourcesDirectory)'
+      - task: VSBuild@1
+        displayName: Build LLVM
+        inputs:
+          solution: '$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build/LLVM.sln'
+          platform: x64
+          configuration: ${{ parameters.buildConfiguration }}
+
+      - task: CMake@1
+        displayName: Configure WAVM
+        inputs:
+          workingDirectory: '$(Build.ArtifactStagingDirectory)/build'
+          cmakeArgs: '${{ parameters.cmakeArgs }} -DLLVM_DIR=$(Build.ArtifactStagingDirectory)/llvm-project/llvm/build/lib/cmake/llvm $(Build.SourcesDirectory)'
+
+    # Otherwise configure WAVM to not use LLVM.
+    ${{ if neq(parameters.buildLLVM, 'false') }}:
+      - task: CMake@1
+        displayName: Configure WAVM
+        inputs:
+          workingDirectory: '$(Build.ArtifactStagingDirectory)/build'
+          cmakeArgs: '${{ parameters.cmakeArgs }} $(Build.SourcesDirectory)'
 
     - task: VSBuild@1
       displayName: Build WAVM
