@@ -122,7 +122,7 @@ CallStack Platform::unwindStack(const CONTEXT& immutableContext, Uptr numOmitted
 	// Unwind the stack until there isn't a valid instruction pointer, which signals we've
 	// reached the base.
 	CallStack callStack;
-#ifdef WAVM_ENABLE_UNWIND
+#if WAVM_ENABLE_UNWIND
 	for(Uptr frameIndex = 0; !callStack.frames.isFull() && context.Rip; ++frameIndex)
 	{
 		if(frameIndex >= numOmittedFramesFromTop)
