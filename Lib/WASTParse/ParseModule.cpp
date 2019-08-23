@@ -1056,11 +1056,11 @@ template<typename Map> void dumpHashMapSpaceAnalysis(const Map& map, const char*
 			" elements (%.0f%% occupancy, %.1f bytes/element). Avg/max probe length: %f/%" WAVM_PRIuPTR
 			"\n",
 			description,
-			totalMemoryBytes / 1024.0f,
+			totalMemoryBytes / 1024.0,
 			map.size(),
-			occupancy * 100.0f,
-			F32(totalMemoryBytes) / map.size(),
-			averageProbeCount,
+			F64(occupancy) * 100.0,
+			F64(totalMemoryBytes) / map.size(),
+			F64(averageProbeCount),
 			maxProbeCount);
 	}
 }
