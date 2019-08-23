@@ -18,14 +18,14 @@ jobs:
       name: Win64_VS2019_LLVM6_Release
       buildConfiguration: Release
       vmImage: 'windows-2019'
-      cmakeArgs: '-G "Visual Studio 16 2019" -A Win64'
+      cmakeArgs: '-G "Visual Studio 16 2019" -A x64'
       llvmBranch: release/6.x
   - template: Build/azure-windows-build-job-template.yml
     parameters:
       name: Win64_VS2019_LLVM6_Debug
       buildConfiguration: Debug
       vmImage: 'windows-2019'
-      cmakeArgs: '-G "Visual Studio 16 2019" -A Win64'
+      cmakeArgs: '-G "Visual Studio 16 2019" -A x64'
       llvmBranch: release/6.x
   - template: Build/azure-windows-build-job-template.yml
     parameters:
@@ -46,19 +46,20 @@ jobs:
       name: Win64_VS2019_LLVM9_Release
       buildConfiguration: Release
       vmImage: 'windows-2019'
-      cmakeArgs: '-G "Visual Studio 16 2019" -A Win64'
+      cmakeArgs: '-G "Visual Studio 16 2019" -A x64'
       llvmBranch: release/9.x
   - template: Build/azure-windows-build-job-template.yml
     parameters:
       name: Win64_VS2019_LLVM9_Debug
       buildConfiguration: Debug
       vmImage: 'windows-2019'
-      cmakeArgs: '-G "Visual Studio 16 2019" -A Win64'
+      cmakeArgs: '-G "Visual Studio 16 2019" -A x64'
       llvmBranch: release/9.x
-  - template: Build/azure-windows-build-job-template.yml
+  - template: Build/azure-windows-build-job-template-no-llvm.yml
     parameters:
       name: Win32_VS2019
       buildConfiguration: Release
       vmImage: 'windows-2019'
       cmakeArgs: '-G "Visual Studio 16 2019" -A Win32'
       buildLLVM: false
+      vsPlatform: Win32
