@@ -180,6 +180,11 @@ namespace WAVM { namespace IR {
 		};
 		Uptr index;
 
+		Elem(Type inType = Type::ref_null, Uptr inIndex = UINTPTR_MAX)
+		: type(inType), index(inIndex)
+		{
+		}
+
 		friend bool operator==(const Elem& a, const Elem& b)
 		{
 			if(a.type != b.type) { return false; }
@@ -316,6 +321,13 @@ namespace WAVM { namespace IR {
 			std::string name;
 			std::vector<std::string> locals;
 			std::vector<std::string> labels;
+
+			Function(std::string&& inName = std::string(),
+					 std::initializer_list<std::string>&& inLocals = {},
+					 std::initializer_list<std::string>&& inLabels = {})
+			: name(std::move(inName)), locals(inLocals), labels(inLabels)
+			{
+			}
 		};
 
 		std::string moduleName;

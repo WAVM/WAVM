@@ -989,10 +989,10 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 		for(Uptr index = 0; index < numSegmentElements; ++index)
 		{
 			const Uptr functionIndex = random.get(numFunctionDefs);
-			if(functionIndex == numFunctionDefs) { elems.push_back({{Elem::Type::ref_null}}); }
+			if(functionIndex == numFunctionDefs) { elems.push_back(Elem(Elem::Type::ref_null)); }
 			else
 			{
-				elems.push_back({{Elem::Type::ref_func}, functionIndex});
+				elems.push_back(Elem(Elem::Type::ref_func, functionIndex));
 			}
 		}
 		module.elemSegments.push_back({false,

@@ -74,7 +74,7 @@ bool Runtime::StubResolver::resolve(const std::string& moduleName,
 		stubIRModule.types.push_back(asFunctionType(type));
 		stubIRModule.functions.defs.push_back({{0}, {}, std::move(codeStream.getBytes()), {}});
 		stubIRModule.exports.push_back({"importStub", IR::ExternKind::function, 0});
-		stubModuleNames.functions.push_back({"importStub: " + exportName, {}, {}});
+		stubModuleNames.functions.push_back({"importStub: " + exportName});
 		IR::setDisassemblyNames(stubIRModule, stubModuleNames);
 		try
 		{

@@ -621,6 +621,10 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 	{
 		Elem::Type type;
 		Reference ref;
+		UnresolvedElem() : type(Elem::Type::ref_null), ref() {}
+		UnresolvedElem(Elem::Type inType, Reference&& inRef) : type(inType), ref(std::move(inRef))
+		{
+		}
 	};
 
 	// Allocate the elementReferences array on the heap so it doesn't need to be copied for the
@@ -637,7 +641,7 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 				{
 				case t_ref_null:
 					++cursor->nextToken;
-					elementReferences->push_back({Elem::Type::ref_null});
+					elementReferences->push_back(UnresolvedElem());
 					break;
 				case t_ref_func: {
 					++cursor->nextToken;
@@ -651,7 +655,8 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 						throw RecoverParseException();
 					}
 
-					elementReferences->push_back({Elem::Type::ref_func, std::move(elementRef)});
+					elementReferences->push_back(
+						UnresolvedElem(Elem::Type::ref_func, std::move(elementRef)));
 					break;
 				}
 				default:
@@ -728,15 +733,15 @@ static Uptr parseElemSegmentBody(CursorState* cursor,
 				switch(unresolvedElem.type)
 				{
 				case Elem::Type::ref_null:
-					(*elemSegment.elems)[elementIndex] = {{Elem::Type::ref_null}, UINTPTR_MAX};
+					(*elemSegment.elems)[elementIndex] = Elem(Elem::Type::ref_null);
 					break;
 				case Elem::Type::ref_func:
 					(*elemSegment.elems)[elementIndex]
-						= {{Elem::Type::ref_func},
-						   resolveRef(moduleState->parseState,
-									  moduleState->functionNameToIndexMap,
-									  moduleState->module.functions.size(),
-									  unresolvedElem.ref)};
+						= Elem(Elem::Type::ref_func,
+							   resolveRef(moduleState->parseState,
+										  moduleState->functionNameToIndexMap,
+										  moduleState->module.functions.size(),
+										  unresolvedElem.ref));
 					break;
 				default: WAVM_UNREACHABLE();
 				}
