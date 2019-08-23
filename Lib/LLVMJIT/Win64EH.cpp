@@ -8,13 +8,13 @@
 #include "WAVM/Platform/Defines.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/DebugInfo/DIContext.h"
-#include "llvm/ExecutionEngine/JITSymbol.h"
-#include "llvm/Object/ObjectFile.h"
-#include "llvm/Object/SymbolicFile.h"
-#include "llvm/Support/Error.h"
+#include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/iterator_range.h>
+#include <llvm/DebugInfo/DIContext.h>
+#include <llvm/ExecutionEngine/JITSymbol.h>
+#include <llvm/Object/ObjectFile.h>
+#include <llvm/Object/SymbolicFile.h>
+#include <llvm/Support/Error.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 #define PRINT_SEH_TABLES 0

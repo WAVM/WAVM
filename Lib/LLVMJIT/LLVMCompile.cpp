@@ -15,23 +15,23 @@
 #include "WAVM/Platform/Defines.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
-#include "llvm/ADT/ilist_iterator.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Scalar.h"
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/Triple.h>
+#include <llvm/ADT/ilist_iterator.h>
+#include <llvm/CodeGen/TargetSubtargetInfo.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/Pass.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/Host.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Transforms/Scalar.h>
 #if LLVM_VERSION_MAJOR >= 7
-#include "llvm/Transforms/Utils.h"
+#include <llvm/Transforms/Utils.h>
 #endif
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 

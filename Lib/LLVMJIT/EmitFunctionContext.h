@@ -8,7 +8,7 @@
 #include "WAVM/Logging/Logging.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/IR/Intrinsics.h"
+#include <llvm/IR/Intrinsics.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace LLVMJIT {

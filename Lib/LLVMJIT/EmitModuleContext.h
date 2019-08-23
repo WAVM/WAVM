@@ -4,7 +4,7 @@
 #include "WAVM/IR/Module.h"
 
 PUSH_DISABLE_WARNINGS_FOR_LLVM_HEADERS
-#include "llvm/IR/DIBuilder.h"
+#include <llvm/IR/DIBuilder.h>
 POP_DISABLE_WARNINGS_FOR_LLVM_HEADERS
 
 namespace WAVM { namespace LLVMJIT {
