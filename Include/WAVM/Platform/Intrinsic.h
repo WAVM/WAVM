@@ -31,12 +31,12 @@ namespace WAVM {
 #ifdef _WIN64
 		unsigned long result;
 		return _BitScanReverse64(&result, value) ? (63 - result) : 64;
-#elif defined(_WIN32)
-		WAVM_DEBUG_TRAP();
 #elif defined(__GNUC__)
 		return value == 0 ? 64 : __builtin_clzll(value);
 #else
-#error Unsupported compiler
+		U64 result = countLeadingZeroes(U32(value >> 32));
+		if(result == 32) { result += countLeadingZeroes(U32(value)); }
+		return result;
 #endif
 	}
 
@@ -59,12 +59,12 @@ namespace WAVM {
 #ifdef _WIN64
 		unsigned long result;
 		return _BitScanForward64(&result, value) ? result : 64;
-#elif defined(_WIN32)
-		WAVM_DEBUG_TRAP();
 #elif defined(__GNUC__)
 		return value == 0 ? 64 : __builtin_ctzll(value);
 #else
-#error Unsupported compiler
+		U64 result = countTrailingZeroes(U32(value));
+		if(result == 32) { result += countTrailingZeroes(U32(value >> 32)); }
+		return result;
 #endif
 	}
 
