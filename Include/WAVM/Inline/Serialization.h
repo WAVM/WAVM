@@ -22,6 +22,7 @@ namespace WAVM { namespace Serialization {
 		static constexpr bool isInput = false;
 
 		OutputStream() : next(nullptr), end(nullptr) {}
+		virtual ~OutputStream() {}
 
 		Uptr capacity() const { return SIZE_MAX; }
 
@@ -81,6 +82,7 @@ namespace WAVM { namespace Serialization {
 		static constexpr bool isInput = true;
 
 		InputStream(const U8* inNext, const U8* inEnd) : next(inNext), end(inEnd) {}
+		virtual ~InputStream() {}
 
 		virtual Uptr capacity() const = 0;
 
