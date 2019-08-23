@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.8.0)
 project (WAVM C CXX ASM)
 
+include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
+
 # Specify the WAVM version.
 if(NOT DEFINED WAVM_VERSION_MAJOR)
 	set(WAVM_VERSION_MAJOR 1)
@@ -145,6 +148,29 @@ configure_file(${WAVM_SOURCE_DIR}/Include/WAVM/Inline/Version.h.in
 install(FILES ${PROJECT_BINARY_DIR}/Include/WAVM/Inline/Version.h
 		DESTINATION include/WAVM/Inline)
 
+set(OPTIONAL_C_FLAGS)
+set(OPTIONAL_CXX_FLAGS)
+function(ADD_COMPILER_FLAG_IF_SUPPORTED OPTIONAL_FLAG)
+	check_c_compiler_flag(${OPTIONAL_FLAG} C_HAS_FLAG)
+	check_cxx_compiler_flag(${OPTIONAL_FLAG} CXX_HAS_FLAG)
+	if(C_HAS_FLAG)
+		list(APPEND OPTIONAL_C_FLAGS ${OPTIONAL_FLAG})
+	endif()
+	if(CXX_HAS_FLAG)
+		list(APPEND OPTIONAL_CXX_FLAGS ${OPTIONAL_FLAG})
+	endif()
+endfunction()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wnull-dereference")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wduplicated-cond")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wduplicated-branches")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wlogical-op")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wnon-virtual-dtor")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wrestrict")
+	ADD_COMPILER_FLAG_IF_SUPPORTED("-Wdouble-promotion")
+endif()
+
 # A function that sets sanitizer options on a target.
 function(WAVM_SET_TARGET_SANITIZER_OPTIONS TARGET_NAME)
 	if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -249,9 +275,17 @@ function(WAVM_SET_TARGET_COMPILE_OPTIONS TARGET_NAME)
 			target_link_libraries(${TARGET_NAME} PRIVATE "-flto")
 		endif()
 
-		# Compile with all warnings and fatal warnings
+		# Compile with all+extra warnings and fatal warnings
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wall")
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wextra")
 		target_compile_options(${TARGET_NAME} PRIVATE "-Werror")
+		
+		# Exclude some warnings included in Wextra that we don't care about.
+		target_compile_options(${TARGET_NAME} PRIVATE "-Wno-unused-parameter")
+		
+		# Add the optional warnings that the compiler was detected to support.
+		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:C>:${OPTIONAL_C_FLAGS}>")
+		target_compile_options(${TARGET_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${OPTIONAL_CXX_FLAGS}>")
 		
 		# Warn if a switch doesn't handle an enum case even if it has a default label.
 		target_compile_options(${TARGET_NAME} PRIVATE "-Wswitch-enum")
