@@ -27,10 +27,7 @@ namespace WAVM { namespace Runtime {
 static Platform::Mutex memoriesMutex;
 static std::vector<Memory*> memories;
 
-enum
-{
-	numGuardPages = 1
-};
+static constexpr Uptr numGuardPages = 1;
 
 static Uptr getPlatformPagesPerWebAssemblyPageLog2()
 {

@@ -54,18 +54,14 @@ namespace WAVM { namespace Runtime {
 	static_assert(Uptr(IR::ExternKind::exceptionType) == Uptr(ObjectKind::exceptionType),
 				  "IR::ExternKind::exceptionType != ObjectKind::exceptionType");
 
-#define wavmCompartmentReservedBytes (2ull * 1024 * 1024 * 1024)
-
-	enum
-	{
-		maxThunkArgAndReturnBytes = 256,
-		maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes,
-		maxMutableGlobals = maxGlobalBytes / sizeof(IR::UntaggedValue),
-		maxMemories = 255,
-		maxTables = 128 * 1024 - maxMemories - 1,
-		compartmentRuntimeDataAlignmentLog2 = 31,
-		contextRuntimeDataAlignment = 4096
-	};
+	static constexpr Uptr wavmCompartmentReservedBytes = Uptr(2) * 1024 * 1024 * 1024;
+	static constexpr Uptr maxThunkArgAndReturnBytes = 256;
+	static constexpr Uptr maxGlobalBytes = 4096 - maxThunkArgAndReturnBytes;
+	static constexpr Uptr maxMutableGlobals = maxGlobalBytes / sizeof(IR::UntaggedValue);
+	static constexpr Uptr maxMemories = 255;
+	static constexpr Uptr maxTables = 128 * 1024 - maxMemories - 1;
+	static constexpr Uptr compartmentRuntimeDataAlignmentLog2 = 31;
+	static constexpr Uptr contextRuntimeDataAlignment = 4096;
 
 	static_assert(sizeof(IR::UntaggedValue) * IR::maxReturnValues <= maxThunkArgAndReturnBytes,
 				  "maxThunkArgAndReturnBytes must be large enough to hold IR::maxReturnValues * "
@@ -88,11 +84,8 @@ namespace WAVM { namespace Runtime {
 										// declaring arrays that large.
 	};
 
-	enum
-	{
-		maxContexts
-		= 512 * 1024 - offsetof(CompartmentRuntimeData, contexts) / sizeof(ContextRuntimeData)
-	};
+	static constexpr Uptr maxContexts
+		= 512 * 1024 - offsetof(CompartmentRuntimeData, contexts) / sizeof(ContextRuntimeData);
 
 	static_assert(offsetof(CompartmentRuntimeData, contexts) % 4096 == 0,
 				  "CompartmentRuntimeData::contexts isn't page-aligned");

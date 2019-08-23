@@ -8,10 +8,7 @@ using namespace WAVM;
 // Prints a floating point value to a string, using the WebAssembly syntax for text floats.
 template<typename Float> static std::string floatAsString(Float f)
 {
-	enum
-	{
-		numSignificandHexits = FloatComponents<Float>::numSignificandHexits
-	};
+	static constexpr Uptr numSignificandHexits = FloatComponents<Float>::numSignificandHexits;
 
 	FloatComponents<Float> components;
 	components.value = f;

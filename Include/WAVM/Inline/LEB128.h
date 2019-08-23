@@ -41,10 +41,7 @@ namespace WAVM { namespace Serialization {
 										  Value maxValue)
 	{
 		// First, read the variable number of input bytes into a fixed size buffer.
-		enum
-		{
-			maxBytes = (maxBits + 6) / 7
-		};
+		static constexpr Uptr maxBytes = (maxBits + 6) / 7;
 		U8 bytes[maxBytes] = {0};
 		Uptr numBytes = 0;
 		I8 signExtendShift = (I8)sizeof(Value) * 8;
@@ -58,14 +55,11 @@ namespace WAVM { namespace Serialization {
 		};
 
 		// Ensure that the input does not encode more than maxBits of data.
-		enum
-		{
-			numUsedBitsInLastByte = maxBits - (maxBytes - 1) * 7,
-			numUnusedBitsInLast = 8 - numUsedBitsInLastByte,
-			lastBitUsedMask = U8(1 << (numUsedBitsInLastByte - 1)),
-			lastByteUsedMask = U8(1 << numUsedBitsInLastByte) - U8(1),
-			lastByteSignedMask = U8(~U8(lastByteUsedMask) & ~U8(0x80))
-		};
+		static constexpr Uptr numUsedBitsInLastByte = maxBits - (maxBytes - 1) * 7;
+		static constexpr Uptr numUnusedBitsInLast = 8 - numUsedBitsInLastByte;
+		static constexpr U8 lastBitUsedMask = U8(1 << (numUsedBitsInLastByte - 1));
+		static constexpr U8 lastByteUsedMask = U8(1 << numUsedBitsInLastByte) - U8(1);
+		static constexpr U8 lastByteSignedMask = U8(~U8(lastByteUsedMask) & ~U8(0x80));
 		const U8 lastByte = bytes[maxBytes - 1];
 		if(!std::is_signed<Value>::value)
 		{

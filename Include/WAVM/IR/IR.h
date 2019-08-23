@@ -3,15 +3,9 @@
 #include "WAVM/Inline/BasicTypes.h"
 
 namespace WAVM { namespace IR {
-	enum : U64
-	{
-		maxMemoryPages = 65536,
-		maxTableElems = U64(INT32_MAX)
-	};
-	enum : Uptr
-	{
-		numBytesPerPage = (Uptr)65536,
-		numBytesPerPageLog2 = (Uptr)16,
-		maxReturnValues = (Uptr)16,
-	};
+	static constexpr U64 maxMemoryPages = 65536;
+	static constexpr U64 maxTableElems = INT32_MAX;
+	static constexpr Uptr numBytesPerPage = 65536;
+	static constexpr Uptr numBytesPerPageLog2 = 16;
+	static constexpr Uptr maxReturnValues = 16;
 }}

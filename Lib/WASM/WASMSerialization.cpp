@@ -370,11 +370,8 @@ namespace WAVM { namespace IR {
 	}
 }}
 
-enum
-{
-	magicNumber = 0x6d736100, // "\0asm"
-	currentVersion = 1
-};
+static constexpr U32 magicNumber = 0x6d736100; // "\0asm"
+static constexpr U32 currentVersion = 1;
 
 enum class SectionType : U8
 {

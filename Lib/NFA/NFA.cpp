@@ -171,10 +171,7 @@ static std::vector<DFAState> convertToDFA(Builder* builder)
 			localStateIndexToStateIndexMap.emplace_back(currentTerminalState);
 		}
 
-		enum
-		{
-			numSupportedLocalStates = 64
-		};
+		static constexpr Uptr numSupportedLocalStates = 64;
 		typedef DenseStaticIntSet<StateIndex, numSupportedLocalStates> LocalStateSet;
 
 		const Uptr numLocalStates = stateIndexToLocalStateIndexMap.size();

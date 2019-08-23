@@ -159,14 +159,11 @@ namespace WAVM {
 
 	private:
 		typedef Uptr Element;
-		enum
-		{
-			indicesPerElement = sizeof(Element) * 8
-		};
-		enum
-		{
-			numElements = (maxIndexPlusOne + indicesPerElement - 1) / indicesPerElement
-		};
+
+		static constexpr Uptr indicesPerElement = sizeof(Element) * 8;
+		static constexpr Uptr numElements
+			= (maxIndexPlusOne + indicesPerElement - 1) / indicesPerElement;
+
 		Element elements[numElements];
 	};
 

@@ -33,11 +33,7 @@ namespace WAVM { namespace IR {
 		nullref
 	};
 
-	enum : U8
-	{
-		maxValueType = (U8)ValueType::nullref,
-		numValueTypes
-	};
+	static constexpr U8 numValueTypes = U8(ValueType::nullref) + 1;
 
 	// The reference types subset of ValueType.
 	enum class ReferenceType : U8

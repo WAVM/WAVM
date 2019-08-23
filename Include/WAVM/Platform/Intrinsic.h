@@ -9,10 +9,7 @@
 
 namespace WAVM {
 	// The number of bytes in a cache line: assume 64 for now.
-	enum
-	{
-		numCacheLineBytes = 64
-	};
+	static constexpr Uptr numCacheLineBytes = 64;
 
 	// countLeadingZeroes returns the number of leading zeroes, or the bit width of the input if no
 	// bits are set.

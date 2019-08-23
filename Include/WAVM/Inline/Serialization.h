@@ -19,10 +19,7 @@ namespace WAVM { namespace Serialization {
 	// An abstract output stream.
 	struct OutputStream
 	{
-		enum
-		{
-			isInput = false
-		};
+		static constexpr bool isInput = false;
 
 		OutputStream() : next(nullptr), end(nullptr) {}
 
@@ -81,10 +78,7 @@ namespace WAVM { namespace Serialization {
 	// An abstract input stream.
 	struct InputStream
 	{
-		enum
-		{
-			isInput = true
-		};
+		static constexpr bool isInput = true;
 
 		InputStream(const U8* inNext, const U8* inEnd) : next(inNext), end(inEnd) {}
 

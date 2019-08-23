@@ -8,10 +8,7 @@
 namespace WAVM {
 	struct DefaultHashTableAllocPolicy
 	{
-		enum
-		{
-			minBuckets = 8
-		};
+		static constexpr Uptr minBuckets = 8;
 
 		static Uptr divideAndRoundUp(Uptr numerator, Uptr denominator)
 		{

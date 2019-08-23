@@ -10,14 +10,8 @@ struct point
 int main()
 {
 	// Generate a lot of uniformly distributed 2d points in the range -1,-1 to +1,+1.
-	enum
-	{
-		numXSamples = 10000
-	};
-	enum
-	{
-		numYSamples = 10000
-	};
+	static constexpr int numXSamples = 10000;
+	static constexpr int numYSamples = 10000;
 	std::vector<point> points;
 	points.reserve(numXSamples * numYSamples);
 	for(int x = 0; x < numXSamples; ++x)

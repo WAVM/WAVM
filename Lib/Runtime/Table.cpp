@@ -25,10 +25,7 @@ namespace WAVM { namespace Runtime {
 static Platform::Mutex tablesMutex;
 static std::vector<Table*> tables;
 
-enum
-{
-	numGuardPages = 1
-};
+static constexpr Uptr numGuardPages = 1;
 
 static Uptr getNumPlatformPages(Uptr numBytes)
 {

@@ -173,10 +173,7 @@ namespace WAVM { namespace LLVMJIT {
 		// On X64, the calling conventions can return up to 3 i64s and 4 float/vectors.
 		// For simplicity, just allow up to 3 values to be returned, including the implicitly
 		// returned context pointer.
-		enum
-		{
-			maxDirectlyReturnedValues = 3
-		};
+		static constexpr Uptr maxDirectlyReturnedValues = 3;
 		return results.size() + 1 <= maxDirectlyReturnedValues;
 	}
 

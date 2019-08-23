@@ -22,10 +22,7 @@ using namespace WAVM;
 using namespace WAVM::IR;
 using namespace WAVM::Runtime;
 
-enum
-{
-	numStackBytes = 1 * 1024 * 1024
-};
+static constexpr Uptr numStackBytes = 1 * 1024 * 1024;
 
 // Keeps track of the entry function used by a running WebAssembly-spawned thread.
 // Used to find garbage collection roots.

@@ -14,10 +14,7 @@ using namespace WAVM;
 
 static std::string generateRandomString()
 {
-	enum
-	{
-		maxChars = 16
-	};
+	static constexpr Uptr maxChars = 16;
 
 	const Uptr numChars = rand() % maxChars;
 	char* buffer = (char*)alloca(numChars + 1);
@@ -29,10 +26,7 @@ static std::string generateRandomString()
 
 static void testStringSet()
 {
-	enum
-	{
-		numStrings = 1000
-	};
+	static constexpr Uptr numStrings = 1000;
 
 	HashSet<std::string> set;
 	std::vector<std::string> strings;
@@ -92,10 +86,7 @@ static void testU32Set()
 {
 	HashSet<U32> set;
 
-	enum
-	{
-		maxI = 1024 * 1024
-	};
+	static constexpr Uptr maxI = 1024 * 1024;
 
 	for(Uptr i = 0; i < maxI; ++i) { WAVM_ERROR_UNLESS(!set.contains(U32(i))); }
 

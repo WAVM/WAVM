@@ -14,10 +14,7 @@ namespace WAVM { namespace Platform {
 	// Describes a call stack.
 	struct CallStack
 	{
-		enum
-		{
-			maxFrames = 32
-		};
+		static constexpr Uptr maxFrames = 32;
 
 		struct Frame
 		{

@@ -11,19 +11,16 @@ namespace WAVM {
 		typedef U64 Bits;
 		typedef F64 Float;
 
-		enum Constants : I64
-		{
-			maxSignificand = 0xfffffffffffff,
-			numSignificandBits = 52,
-			numSignificandHexits = 13,
-			canonicalSignificand = 0x8000000000000ull,
+		static constexpr I64 maxSignificand = 0xfffffffffffff;
+		static constexpr Uptr numSignificandBits = 52;
+		static constexpr Uptr numSignificandHexits = 13;
+		static constexpr I64 canonicalSignificand = 0x8000000000000ull;
 
-			denormalExponent = -1023,
-			minNormalExponent = -1022,
-			maxNormalExponent = 1023,
-			exponentBias = 1023,
-			maxExponentBits = 0x7ff,
-		};
+		static constexpr I64 denormalExponent = -1023;
+		static constexpr I64 minNormalExponent = -1022;
+		static constexpr I64 maxNormalExponent = 1023;
+		static constexpr I64 exponentBias = 1023;
+		static constexpr I64 maxExponentBits = 0x7ff;
 
 		union
 		{
@@ -44,19 +41,16 @@ namespace WAVM {
 		typedef U32 Bits;
 		typedef F32 Float;
 
-		enum Constants : I32
-		{
-			maxSignificand = 0x7fffff,
-			numSignificandBits = 23,
-			numSignificandHexits = 6,
-			canonicalSignificand = 0x400000,
+		static constexpr I32 maxSignificand = 0x7fffff;
+		static constexpr Uptr numSignificandBits = 23;
+		static constexpr Uptr numSignificandHexits = 6;
+		static constexpr I32 canonicalSignificand = 0x400000;
 
-			denormalExponent = -127,
-			minNormalExponent = -126,
-			maxNormalExponent = 127,
-			exponentBias = 127,
-			maxExponentBits = 0xff,
-		};
+		static constexpr I32 denormalExponent = -127;
+		static constexpr I32 minNormalExponent = -126;
+		static constexpr I32 maxNormalExponent = 127;
+		static constexpr I32 exponentBias = 127;
+		static constexpr I32 maxExponentBits = 0xff;
 
 		union
 		{

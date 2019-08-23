@@ -435,10 +435,7 @@ struct FunctionPrintContext
 	void br_table(BranchTableImm imm)
 	{
 		string += "\nbr_table" INDENT_STRING;
-		enum
-		{
-			numTargetsPerLine = 16
-		};
+		static constexpr Uptr numTargetsPerLine = 16;
 		WAVM_ASSERT(imm.branchTableIndex < functionDef.branchTables.size());
 		const std::vector<Uptr>& targetDepths = functionDef.branchTables[imm.branchTableIndex];
 		for(Uptr targetIndex = 0; targetIndex < targetDepths.size(); ++targetIndex)
@@ -943,10 +940,7 @@ void ModulePrintContext::printModule()
 			printInitializerExpression(elemSegment.baseOffset);
 		}
 
-		enum
-		{
-			numElemsPerLine = 8
-		};
+		static constexpr Uptr numElemsPerLine = 8;
 		for(Uptr elementIndex = 0; elementIndex < elemSegment.elems->size(); ++elementIndex)
 		{
 			const Elem& elem = (*elemSegment.elems)[elementIndex];
@@ -989,10 +983,7 @@ void ModulePrintContext::printModule()
 			printInitializerExpression(dataSegment.baseOffset);
 		}
 
-		enum
-		{
-			numBytesPerLine = 64
-		};
+		static constexpr Uptr numBytesPerLine = 64;
 		for(Uptr offset = 0; offset < dataSegment.data->size(); offset += numBytesPerLine)
 		{
 			string += "\n\"";
@@ -1084,10 +1075,7 @@ void ModulePrintContext::printModule()
 			string += ";; User section \"";
 			string += escapeString(userSection.name.c_str(), userSection.name.length());
 			string += "\":" INDENT_STRING;
-			enum
-			{
-				numBytesPerLine = 32
-			};
+			static constexpr Uptr numBytesPerLine = 32;
 			for(Uptr offset = 0; offset < userSection.data.size(); offset += numBytesPerLine)
 			{
 				string += "\n;; \"";

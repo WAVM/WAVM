@@ -62,10 +62,7 @@ static I32 coerce32bitAddressSigned(Memory* memory, Iptr address)
 // 63..63  = MutableGlobals
 // 64..128 = aliased stack
 // 129..   = dynamic memory
-enum
-{
-	minStaticMemoryPages = 128
-};
+static constexpr U64 minStaticMemoryPages = 128;
 
 enum ErrNo
 {
@@ -242,7 +239,7 @@ WAVM_DEFINE_INTRINSIC_FUNCTION(env, "getTempRet0", I32, getTempRet0) { return te
 
 WAVM_DEFINE_INTRINSIC_FUNCTION(env, "_sysconf", I32, _sysconf, I32 a)
 {
-	enum
+	enum : U32
 	{
 		sysConfPageSize = 30
 	};

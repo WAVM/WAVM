@@ -151,13 +151,9 @@ namespace WAVM { namespace IR {
 #define VISIT_OPCODE(opcode, name, ...) name = opcode,
 		WAVM_ENUM_OPERATORS(VISIT_OPCODE)
 #undef VISIT_OPCODE
-
 	};
 
-	enum : U16
-	{
-		maxSingleByteOpcode = 0xdf,
-	};
+	static constexpr U64 maxSingleByteOpcode = 0xdf;
 
 	WAVM_PACKED_STRUCT(template<typename Imm> struct OpcodeAndImm {
 		Opcode opcode;

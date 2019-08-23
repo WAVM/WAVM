@@ -205,10 +205,7 @@ struct OperatorInfo
 static OperatorInfo operatorInfos[]{WAVM_ENUM_NONCONTROL_NONPARAMETRIC_OPERATORS(VISIT_OP)};
 #undef VISIT_OP
 
-enum
-{
-	numNonParametricOps = sizeof(operatorInfos) / sizeof(OperatorInfo)
-};
+static constexpr Uptr numNonParametricOps = sizeof(operatorInfos) / sizeof(OperatorInfo);
 
 static ValueType generateValueType(RandomStream& random)
 {
@@ -971,7 +968,7 @@ void generateValidModule(IR::Module& module, RandomStream& random)
 		for(Uptr paramIndex = 0; paramIndex < numParams; ++paramIndex)
 		{ functionParams.push_back(generateValueType(random)); };
 
-		// const ValueType resultType = ValueType(random.get(U32(maxValueType)));
+		// const ValueType resultType = ValueType(random.get(numValueTypes - 1));
 		// FunctionType functionType(resultType == ValueType::any ? TypeTuple() :
 		// TypeTuple{resultType},
 		//						  TypeTuple(functionParams));
