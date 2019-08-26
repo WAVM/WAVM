@@ -6,6 +6,7 @@ parameters:
   cmakeBuildArgs: ''
   ctestArgs: ''
   llvmBuildAssetName: MacOSX14_RelWithDebInfo
+  llvmVersion: 9.x
   packageSuffix: ''
   cpackGenerators: ZIP
 
@@ -51,6 +52,8 @@ jobs:
         userRepository: WAVM/WAVM-LLVM
         itemPattern: ${{ parameters.llvmBuildAssetName }}
         downloadPath: $(Pipeline.Workspace)
+        defaultVersionType: specificVersion
+        version: ${{parameters.llvmVersion}}
     - task: ExtractFiles@1
       displayName: Extract LLVM Build
       inputs:
