@@ -482,7 +482,7 @@ add_custom_target(RootFiles SOURCES
 	Build/azure-windows-build-job-template.yml
 	Build/notify-discord.sh
 	Build/travis-build.sh
-	LICENSE.md
+	LICENSE
 	README.md
 	run-clang-format.sh
 	WebAssembly.tmLanguage)

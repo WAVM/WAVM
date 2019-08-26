@@ -105,4 +105,4 @@ The [Runtime](Lib/Runtime/) is the primary consumer of the byte code. It provide
 
 # License
 
-WAVM is provided under the terms of [LICENSE.md](LICENSE.md).
+WAVM is provided under the terms of [LICENSE](LICENSE).
