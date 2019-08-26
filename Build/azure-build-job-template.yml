@@ -52,7 +52,7 @@ jobs:
         userRepository: WAVM/WAVM-LLVM
         itemPattern: ${{ parameters.llvmBuildAssetName }}
         downloadPath: $(Pipeline.Workspace)
-        defaultVersionType: specificVersion
+        defaultVersionType: specificTag
         version: ${{parameters.llvmVersion}}
     - task: ExtractFiles@1
       displayName: Extract LLVM Build
